@@ -5,7 +5,7 @@ import { EventBus, loadPuzzle, type Puzzle } from "../core";
 import { createGrid } from "../grid";
 import type { MapRenderer } from "../render";
 import { createMapPlay, NEEDS_FLASH_SECONDS } from "./index";
-import { promptFor } from "./prompt";
+import { promptFor, TEXT } from "./prompt";
 
 const shrine = (): Puzzle =>
   loadPuzzle(JSON.parse(readFileSync(join(__dirname, "../../puzzles/shrine-circuit.json"), "utf8")) as unknown);
@@ -63,7 +63,7 @@ describe("prompts", () => {
   it("hides an unreadable cable fault, shows a plain lamp by its load, and gives null for non-targets", () => {
     const s = setup();
     expect(s.over("l_b").prompt).toBeNull(); // dead feed side: unreadable
-    expect(s.over("shrine").prompt).toBe("Lamp, load 1");
+    expect(s.over("shrine").prompt).toBe("Lv1 Lamp");
     expect(s.over("l_feed").prompt).toBeNull();
     expect(s.over(null)).toMatchObject({ hover: null, prompt: null });
   });
@@ -103,7 +103,7 @@ describe("prompts", () => {
 
   it("a rated fusebox shows its rating and what it is carrying", () => {
     // Only mill (load 3) is lit; bulb1 is a dead lamp.
-    expect(hover(inline([], open, 5), "fb")).toBe("Fuse ≤5 — carrying 3");
+    expect(hover(inline([], open, 5), "fb")).toBe("Lv5 Fuse — carrying 3 of 5");
   });
 
   it("an unrated fusebox shows what it is carrying, with no rating", () => {
@@ -111,25 +111,25 @@ describe("prompts", () => {
   });
 
   it("a fusebox carrying exactly its rating reads 'at the limit'", () => {
-    expect(hover(inline([], open, 3), "fb")).toBe("Fuse ≤3 — at the limit");
+    expect(hover(inline([], open, 3), "fb")).toBe("Lv3 Fuse — at the limit");
   });
 
   it("an unpowered fusebox reads carrying 0", () => {
     const p = inline([], open, 5);
     const g = createGrid(p, new EventBus());
     const st = { ...g.state(), fuseLoad: new Map([["fb", 0]]), wouldBlow: new Map<string, number>() };
-    expect(promptFor(p, st, "fb")).toBe("Fuse ≤5 — carrying 0");
+    expect(promptFor(p, st, "fb")).toBe("Lv5 Fuse — carrying 0 of 5");
   });
 
   it("shrine-circuit: fb_A carries 3 of ≤3, so it is at the limit", () => {
     const s = setup();
-    expect(s.over("fb_A").prompt).toBe("Fuse ≤3 — at the limit");
+    expect(s.over("fb_A").prompt).toBe("Lv3 Fuse — at the limit");
   });
 
   it("a lamp shows its load", () => {
     const p = inline([], open, 5);
-    expect(hover(p, "mill")).toBe("Lamp, load 3");
-    expect(hover(inline([], [{ id: "f9", at: "mill", kind: "dead-lamp" }], 5), "bulb1")).toBe("Lamp, load 1");
+    expect(hover(p, "mill")).toBe("Lv3 Lamp");
+    expect(hover(inline([], [{ id: "f9", at: "mill", kind: "dead-lamp" }], 5), "bulb1")).toBe("Lv1 Lamp");
   });
 
   it("a readable blown fuse with a fuse on hand offers Repair (fuse)", () => {
@@ -139,7 +139,7 @@ describe("prompts", () => {
 
   it("the real grid reports it: mill 3 + bulb 1 on a ≤1 box warns", () => {
     const f = [{ id: "f1", at: "fb", kind: "blown-fuse" }];
-    expect(hover(inline(["fuse"], f, 1), "fb")).toBe("Blown fuse — Repair (fuse) · would blow again: 4 load on ≤1");
+    expect(hover(inline(["fuse"], f, 1), "fb")).toBe("Blown fuse — Repair (fuse) · would blow again: 4 on a Lv1 Fuse");
   });
 
   it("a readable blown fuse without one shows Needs: fuse", () => {
@@ -151,9 +151,9 @@ describe("prompts", () => {
     const f = [{ id: "f1", at: "fb", kind: "blown-fuse" }];
     const p = inline(["fuse"], f, 1);
     const st = { ...createGrid(p, new EventBus()).state(), wouldBlow: new Map([["fb", 4]]) };
-    expect(promptFor(p, st, "fb")).toBe("Blown fuse — Repair (fuse) · would blow again: 4 load on ≤1");
+    expect(promptFor(p, st, "fb")).toBe("Blown fuse — Repair (fuse) · would blow again: 4 on a Lv1 Fuse");
     const bare = { ...st, parts: [] };
-    expect(promptFor(p, bare, "fb")).toBe("Blown fuse — Needs: fuse · would blow again: 4 load on ≤1");
+    expect(promptFor(p, bare, "fb")).toBe("Blown fuse — Needs: fuse · would blow again: 4 on a Lv1 Fuse");
   });
 
   it("a blown fuse that would hold shows no warning", () => {
@@ -216,10 +216,10 @@ describe("prompts", () => {
     const p = inline(["bulb"], lampFaults, 5);
     const st = createGrid(p, new EventBus()).state();
     const unread = { ...st, readableFaults: new Set<string>() };
-    expect(promptFor(p, unread, "mill")).toBe("Lamp, load 3");
+    expect(promptFor(p, unread, "mill")).toBe("Lv3 Lamp");
     const p2 = inline(["fuse"], [{ id: "f1", at: "fb", kind: "blown-fuse" }], 1);
     const st2 = createGrid(p2, new EventBus()).state();
-    expect(promptFor(p2, { ...st2, readableFaults: new Set<string>() }, "fb")).toBe("Fuse ≤1 — carrying 0");
+    expect(promptFor(p2, { ...st2, readableFaults: new Set<string>() }, "fb")).toBe("Lv1 Fuse — carrying 0 of 1");
   });
 });
 
@@ -365,5 +365,12 @@ describe("session log", () => {
     s.play.click("br_main");
     const steps = (JSON.parse(s.play.exportLog()).entries as Array<{ step: number }>).map((e) => e.step);
     expect(steps).toEqual([1, 2, 3]);
+  });
+});
+
+describe("level wording (ticket 014 B)", () => {
+  it("uses LvN labels with no load word in the would-blow text", () => {
+    expect(TEXT.wouldBlowAgain(2, 1)).toBe(" · would blow again: 2 on a Lv1 Fuse");
+    expect(TEXT.wouldBlowAgain(2, 1)).not.toMatch(/load/);
   });
 });
