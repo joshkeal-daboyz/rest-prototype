@@ -4,7 +4,7 @@
  * boolean arrives from src/grid or src/play.
  */
 
-import type { Part } from "../core";
+import { carryingText, fuseLabel, powersourceLabel, usingText, type Part } from "../core";
 import type { LogEntry } from "../play";
 
 export const WIN_TEXT = "Every target is lit, and the circuit holds.";
@@ -49,8 +49,7 @@ export function partsSummary(parts: readonly Part[]): string {
  * "Brownout" is added as text (never colour alone) when the section is browned out.
  */
 export function capacityReadout(load: number, capacity: number | null, brownout: boolean): string {
-  const base =
-    capacity === null ? `Powersource — using ${load} (no limit)` : `Lv${capacity} Powersource — using ${load} of ${capacity}`;
+  const base = `${powersourceLabel(capacity)} — ${usingText(load, capacity)}`;
   return brownout ? `${base} · Brownout` : base;
 }
 
@@ -128,9 +127,9 @@ export type NoticeEvent =
 export function noticeFor(event: NoticeEvent): string | null {
   switch (event.kind) {
     case "fuse:blown":
-      return `Lv${event.rating} Fuse blew: carrying ${event.load}`;
+      return `${fuseLabel(event.rating)} blew: ${carryingText(event.load, undefined)}`;
     case "grid:brownout":
-      return event.brownout ? `Brownout: Lv${event.capacity} Powersource using ${event.load} of ${event.capacity}` : null;
+      return event.brownout ? `Brownout: ${powersourceLabel(event.capacity)} ${usingText(event.load, event.capacity)}` : null;
     case "battery:flat":
       return event.stopped ? null : "Battery flat";
     case "relay-refused": {
