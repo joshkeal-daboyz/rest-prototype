@@ -42,6 +42,8 @@ interface GridState {
   lit: ReadonlySet<string>              // lamps with power and no fault (even in brownout; see brownout)
   readableFaults: ReadonlySet<string>   // fault ids
   sparking: ReadonlySet<string>         // line ids
+  fuseLoad: ReadonlyMap<string, number> // fusebox id -> feed-lit load downstream of it (what the blow check compares to rating); 0 if unpowered or blown (ticket 012)
+  batteries: ReadonlyMap<string, { charge: number; capacity: number; released: boolean; charging: boolean }> // ticket 008
   faults: readonly Fault[]
   breakers: ReadonlyMap<string, boolean>
   switches: ReadonlyMap<string, 0 | 1>
