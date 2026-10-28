@@ -8,6 +8,7 @@ import { FAULT_RULES, type Events, type FaultKind, type Puzzle } from "../core";
 import type { GridState } from "../grid";
 import { buildGeometry, hitTestGeometry, type Geometry, type Insets } from "./geometry";
 import { FUSE_BAR_HEIGHT, FUSE_BAR_TOP, FUSE_BAR_WIDTH, fuseFill, fuseStep, fuseTickOffsets } from "./fusebar";
+import { feedAlarm, feedName, feedUsing, fuseCaption, lampCaption } from "./labels";
 import { bulbOffsets, clusterRadius, poolAlpha, poolRadiusScale } from "./load";
 import {
   LAMP_DROPPED,
@@ -161,11 +162,11 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
   nodes.forEach((n, i) => {
     if (n.type === "lamp") lampLoad[i] = n.load ?? 1;
   });
-  const loadLabel: string[] = nodes.map((n) => (n.type === "lamp" ? `load ${n.load ?? 1}` : ""));
+  const loadLabel: string[] = nodes.map((n) => (n.type === "lamp" ? lampCaption(n.load ?? 1) : ""));
   // Stubs a dead junction needs (one gap per part), from the rules.
   const junctionStubs = FAULT_RULES["dead-junction"].count;
   const bulbScratch = new Float64Array(6);
-  const ratingLabel: string[] = nodes.map((n) => (n.type === "fusebox" && n.rating !== undefined ? `load ≤${n.rating}` : ""));
+  const ratingLabel: string[] = nodes.map((n) => (n.type === "fusebox" ? fuseCaption(n.rating) : ""));
   // Fuse load bar geometry, once per fusebox (null = unrated: no bar).
   const fuseTicks: (Float32Array | null)[] = nodes.map((n) => (n.type === "fusebox" && n.rating !== undefined ? fuseTickOffsets(n.rating) : null));
   const fuseRating = new Float64Array(nNodes);
@@ -250,6 +251,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
   const headOut = new Float64Array(2);
 
   let plan: RelightPlan | null = null;
+  let feedNameLabel = "";
   let feedLabel = "";
   let feedAlarmLabel = "";
   let feedLoad = NaN;
@@ -1270,8 +1272,9 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
       if (feedLoad !== state.load || feedCap !== state.capacity) {
         feedLoad = state.load;
         feedCap = state.capacity;
-        feedLabel = `load ${state.load} / ${state.capacity === null ? "∞" : state.capacity}`;
-        feedAlarmLabel = `! ${feedLabel} !`;
+        feedNameLabel = feedName(state.capacity);
+        feedLabel = feedUsing(state.load, state.capacity);
+        feedAlarmLabel = feedAlarm(state.load, state.capacity);
       }
       const fx = geo.nx[feedIdx]!;
       const fy = geo.ny[feedIdx]!;
@@ -1281,10 +1284,12 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
       if (state.brownout) {
         const shake = Math.sin(t * 40) * 1.5;
         c.fillStyle = ALARM;
-        c.fillText(feedAlarmLabel, fx + shake, fy + 32);
+        c.fillText(feedNameLabel, fx, fy + 32);
+        c.fillText(feedAlarmLabel, fx + shake, fy + 46);
       } else {
         c.fillStyle = TEXT;
-        c.fillText(feedLabel, fx, fy + 32);
+        c.fillText(feedNameLabel, fx, fy + 32);
+        c.fillText(feedLabel, fx, fy + 46);
       }
     }
   }
