@@ -1,6 +1,6 @@
-import type { Fault, Part, RepairForecast } from "../core";
+import type { Fault, Part, FeedState, RepairForecast } from "../core";
 
-export interface GridState extends RepairForecast {
+export interface GridState extends RepairForecast, FeedState {
   /** Node and line ids carrying current (including the node or line where it stops at a fault or open breaker). */
   powered: ReadonlySet<string>;
   /** Powered line id -> node id the current enters it from. */
@@ -20,7 +20,9 @@ export interface GridState extends RepairForecast {
   batteries: ReadonlyMap<string, { charge: number; capacity: number; released: boolean; charging: boolean }>;
   parts: readonly Part[];
   targets: readonly string[];
+  /** Total feed-carried load (the sum of every `feeds` load). */
   load: number;
+  /** Sum of the feeds' capacities, null if any has none: a summary; judging is per feed in `feeds`. */
   capacity: number | null;
   brownout: boolean;
   complete: boolean;
