@@ -16,6 +16,18 @@ const canvas = document.getElementById("panel");
 const uiRoot = document.getElementById("ui");
 if (!(canvas instanceof HTMLCanvasElement) || !uiRoot) throw new Error("index.html must have #panel and #ui");
 
+/** Top inset for the map fit: the lower edge of the tallest HUD column (both sit at the top), plus a margin. 0 before any HUD exists. */
+function hudTopInset(): number {
+  const huds = (uiRoot as HTMLElement).querySelectorAll<HTMLElement>(".hud");
+  if (huds.length === 0) return 0;
+  const canvasTop = (canvas as HTMLCanvasElement).getBoundingClientRect().top;
+  let bottom = 0;
+  huds.forEach((hud) => {
+    bottom = Math.max(bottom, hud.getBoundingClientRect().bottom);
+  });
+  return Math.max(0, Math.ceil(bottom - canvasTop + 8));
+}
+
 if (entries.length === 0) {
   uiRoot.textContent = "No maps found in puzzles/.";
 } else {
@@ -44,7 +56,7 @@ if (entries.length === 0) {
 
     const bus = new EventBus();
     const grid = createGrid(entry.puzzle, bus);
-    const renderer = createMapRenderer(canvas as HTMLCanvasElement, entry.puzzle);
+    const renderer = createMapRenderer(canvas as HTMLCanvasElement, entry.puzzle, { insets: { top: hudTopInset() } });
     const play = createMapPlay(entry.puzzle, grid, renderer, bus);
     const detachPlay = play.attach(canvas as HTMLCanvasElement);
     const ui = mountUI(uiRoot as HTMLElement, {
@@ -57,11 +69,14 @@ if (entries.length === 0) {
         open(next);
       },
     });
+    // The HUD exists only after mountUI, so measure again now that it is in place.
+    renderer.setInsets({ top: hudTopInset() });
 
     // Event notices: the bus says what broke; a refused relay throw has no event, so it is read from the
     // play log after each click (the play layer's own click listener, attached above, runs first).
     const relays = new Set(entry.puzzle.nodes.filter((n) => n.type === "switch" && n.relay).map((n) => n.id));
     const offs = [
+      bus.on("fuse:blown", (payload) => renderer.notify({ type: "fuse:blown", payload })),
       bus.on("fuse:blown", (e) => {
         const text = noticeFor({ kind: "fuse:blown", load: e.load, rating: e.rating });
         if (text) ui.notify(text);
@@ -98,7 +113,11 @@ if (entries.length === 0) {
   const requested = new URLSearchParams(location.search).get("puzzle");
   open(requested !== null && byKey.has(requested) ? requested : (entries[0] as MapEntry).key);
 
-  window.addEventListener("resize", () => session?.renderer.resize());
+  window.addEventListener("resize", () => {
+    if (!session) return;
+    session.renderer.setInsets({ top: hudTopInset() });
+    session.renderer.resize();
+  });
 
   let last = performance.now();
   function frame(now: number): void {
