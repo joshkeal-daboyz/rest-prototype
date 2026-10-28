@@ -33,7 +33,9 @@ def check_shell(cmd, agent):
     if re.search(r"\bgit\s+(merge|push|rebase)\b", c) or re.search(r"\bgh\s+pr\s+merge\b", c) \
             or re.search(r"\bgh\s+issue\s+close\b", c):
         deny("agents don't merge, push or close tickets. Report back; the main session does it on Josh's word.")
-    if re.search(r"\bnpm\s+(install|i|add)\s+(?!-D\s*$|--save-dev\s*$)\S", c) and not re.search(r"\bnpm\s+(install|i)\s*$", c):
+    # `npm install` / `npm ci` alone are fine; `npm install <package>` adds a dependency.
+    m = re.search(r"\bnpm\s+(install|i|add)\b([^|;&\n]*)", c)
+    if m and any(re.match(r"^[@A-Za-z]", a) for a in m.group(2).split()):
         deny("a new dependency needs a ticket Josh approved. Say what you'd add and why.")
 
 
