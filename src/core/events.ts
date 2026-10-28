@@ -43,8 +43,15 @@ export interface GridEvents {
     lamps?: readonly BlownLamp[];
   };
   "repair:completed": { faultId: string; at: string; part: Part; count: number };
-  /** The lit load went over capacity (true) or came back under it (false). */
-  "grid:brownout": { brownout: boolean; load: number; capacity: number };
+  /**
+   * The lit load went over capacity (true) or came back under it (false). Fired only on a map with at least one
+   * limited feed. One-feed map: `load`/`capacity` are the feed's, and `over` is absent (the key is not set).
+   * Multi-feed map (ticket 015): `over` lists the ids of the feeds over their own capacity, in file order (empty
+   * when cleared), and the event also fires when the set of over feeds changes while the section stays browned
+   * out (North clears as South goes over); `load` is the total feed-carried load and `capacity` the sum of the limited feeds' capacities,
+   * a summary for old readers only. Per-feed numbers are in `GridState.feeds`.
+   */
+  "grid:brownout": { brownout: boolean; load: number; capacity: number; over?: readonly string[] };
   /** Every target lamp is lit with no brownout. The Relight starts and cannot be interrupted. */
   "job:completed": { puzzleId: string; actions: number };
 }

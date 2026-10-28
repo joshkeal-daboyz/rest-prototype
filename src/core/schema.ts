@@ -1,5 +1,5 @@
 /**
- * The puzzle schema, draft 2. See puzzles/SCHEMA.md.
+ * The puzzle schema, draft 5. See puzzles/SCHEMA.md.
  * One graph describes a panel (the circuit-fixing minigame inside a fuse box)
  * or a street (fuse boxes, lamps and cables along a street); `scope` says which.
  * These types are the contract between every agent. Change them only through a ticket.
@@ -18,9 +18,20 @@ interface NodeBase {
   pos: Vec2;
 }
 
-/** Exactly one per puzzle. Power originates here. */
+/**
+ * A powersource. Power originates here. One per map up to draft 4; draft 5 allows several (ticket 015),
+ * each judged against its own capacity (separate pools, never summed into one). Use `puzzleFeeds` (load.ts)
+ * to read every feed's effective capacity and display name.
+ */
 export interface FeedNode extends NodeBase {
   type: "feed";
+  /**
+   * This feed's limit (max lamp load its own flow carries); null = no limit. Overrides the top-level `capacity`.
+   * Required (null allowed) when the map has two or more feeds; optional on a one-feed map. Draft 5.
+   */
+  capacity?: number | null;
+  /** Display name when a map has several feeds ("North"). Absent = the id, underscores as spaces. Draft 5. */
+  name?: string;
 }
 
 /** Conducts while `closed`. The player toggles it. Marked by the tribe. */
@@ -105,9 +116,12 @@ export interface Decor {
 export interface Puzzle {
   id: string;
   name: string;
-  version: 3 | 4;
+  version: 3 | 4 | 5;
   scope: Scope;
-  /** Max total lamp load the feed carries; null = unlimited. Exceeding it browns the section out. */
+  /**
+   * One-feed map: max total lamp load the feed carries (unless the feed sets its own `capacity`); null = unlimited.
+   * Exceeding it browns the section out. Multi-feed map (draft 5): unused and must be null; each feed has its own.
+   */
   capacity: number | null;
   /** What Enoch brought. Repairs consume these. */
   startingParts?: readonly Part[];

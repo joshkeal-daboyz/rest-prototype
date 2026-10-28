@@ -1,4 +1,6 @@
-# Grid puzzle schema (draft 4)
+# Grid puzzle schema (draft 5)
+
+Draft 5 (ticket 015) allows **more than one feed** (powersource) on a map, each with its own `capacity` and an optional display `name`; see [Several powersources](#several-powersources-draft-5). It is additive: every draft 3/4 file means exactly what it did, and `version` is 3, 4 or 5. A file needs `version: 5` only to use a feed `capacity`, a feed `name`, or a second feed.
 
 Draft 4 adds the **battery** node and the **relay** switch (ticket 008), and the optional **spring** flag on switches (ticket 013; no version bump, files without it are unchanged); `version` is 3 or 4. An absent or empty `target` means every lamp.
 
@@ -10,7 +12,7 @@ A puzzle is one JSON file in `puzzles/`. The same graph describes a **map** (the
   "name": "The shrine circuit",
   "version": 3,
   "scope": "map",                   // "map" (the minigame) or "street" (the outer loop, later)
-  "capacity": 4,                    // max total lamp load the feed carries; null = unlimited
+  "capacity": 4,                    // max total lamp load the feed carries; null = unlimited (multi-feed: null, see draft 5)
   "startingParts": ["wire"],        // what Enoch brought; repairs consume these
   "target": ["shrine"],             // lamp ids the priests want lit; all lit + no brownout = win
   "priority": ["street_1"],         // optional: lamps the tribe wishes stayed lit (score, not win)
@@ -48,7 +50,7 @@ A puzzle is one JSON file in `puzzles/`. The same graph describes a **map** (the
 
 | type | Conducts | Notes |
 | --- | --- | --- |
-| `feed` | source | Exactly one per puzzle. Power originates here; `capacity` is its limit. |
+| `feed` | source | Power originates here. Up to draft 4, exactly one per puzzle and the top-level `capacity` is its limit. Draft 5: one or more; optional `capacity` (number or null, overrides the top level; **required** on every feed when there are two or more) and `name` (screen name, e.g. `"North"`; absent = the id with underscores as spaces). |
 | `breaker` | when `closed` | The player toggles it. Cuts everything downstream. Marked by the tribe. |
 | `switch` | to `outputs[selected]` only | Sends power down one of two lines leaving it. Marked by the tribe. With `"relay": true` it can only be thrown while current reaches it, and stays where it was thrown after power is lost. With `"spring": true` it returns to its file `selected` whenever no current reaches it (a blown fuse upstream, an open breaker, a battery going flat) and stays thrown only while powered; the tribe marks it with a coiled ribbon. A switch can be both `relay` and `spring`. |
 | `battery` | see note | `capacity` (seconds), optional `charge` (default 0), `input` (the line on the feed side). Charges at 1/s while the feed's current reaches it through `input` and it is not released. Click to **release**: it powers every other line at the node for `charge` seconds (draining at 1/s), then goes flat; click again to stop early. A released battery is a time limit, not a load limit: its far side doesn't count toward the feed's capacity unless the feed also reaches it. |
@@ -82,6 +84,37 @@ Hold times (2 / 3 / 4 / 5 s) are in `FAULT_RULES` for the street layer; in map s
 - **Win:** every `target` lamp lit **by the feed's own flow** and no brownout. A lamp lit only by a released battery is lit for reading and drawing, but never completes the job: the battery's window is for setting a section, not keeping it lit.
 - **Battery, derived rules:** the feed's current never passes through a battery to its far side (the battery is a dead end for the feed, so faults on its far side are hidden until it is released). A battery charges only from the feed's own flow, never from another battery. A released battery's far side is free of fuse and brownout checks. A flat battery starts recharging at once if the feed reaches it. Time is not undoable: `undo` leaves charge and released state alone and can move a relay that is now dead; `release` is not an action. `reset` returns every battery to the file's `charge`.
 
+## Several powersources (draft 5)
+
+Ticket 015; the rules below are **Draft**, Josh's to tune after playing. The simulator implements them in 015 part A; until then a multi-feed file validates but does not play. With one feed and no feed `capacity`, every rule reduces to the ones above.
+
+```jsonc
+{
+  "version": 5,
+  "capacity": null,                                   // unused on a multi-feed map; must be null
+  "nodes": [
+    { "id": "north", "type": "feed", "pos": [0, 0],  "capacity": 2, "name": "North" },
+    { "id": "south", "type": "feed", "pos": [0, 10], "capacity": 4, "name": "South" }
+    // ...
+  ]
+}
+```
+
+**Validation.** Two or more feeds need `version: 5`, a `capacity` key on every feed (`null` = no limit is allowed beside a limited feed), and a top-level `capacity` of `null`. A feed `capacity` or `name` on any map needs `version: 5`. `capacity` is null or a positive number; `name` a non-empty string. No two feeds may show the same name. A one-feed draft-5 map may give its feed its own `capacity`, which overrides the top level. `puzzleFeeds(puzzle)` (src/core/load.ts) is the one place that resolves each feed's name and limit.
+
+1. **Separate pools.** Each feed is judged against its own `capacity`. Capacities never add into one shared pool.
+2. **Nearest feed carries it.** Current spreads breadth-first from **all feeds at once**, seeded in the order the feeds appear in `nodes`. Every powered node and line is carried by exactly one feed: the one with the fewest hops to it; on a tie, the earlier feed in `nodes`, then the file's `lines` order (as in *Nearer feeder carries the lamp*). A lamp's load counts toward that feed only, and toward the fuseboxes on that path only. Where two feeds' flows meet, the meeting line is live and carries no load across. The simulator reports the carrier as `feedOf`.
+3. **Brownout per feed, whole section.** A feed is over when the load it carries exceeds its `capacity`. If **any** feed is over, the whole section browns out as before: every lamp flickers, none count as lit.
+4. **Fuses** are unchanged: a fusebox's load is the load carried through it, whichever feed it comes from.
+5. **Batteries** charge from any feed's flow reaching their `input`. A released battery's far side counts toward no feed and is free of fuse and brownout checks.
+6. **Win:** every target lamp lit by some feed's flow (not only a released battery) and no feed over.
+7. **Reading, spring switches, relays:** "current reaches it" means any feed or a released battery. A fault can be read from either side; a blown fuse between two feeds shows current in on both sides and none through.
+8. **Existing maps** (one feed, no feed `capacity`) behave identically.
+
+**State.** The simulator's `GridState` adds `feeds` (per feed id, in file order: `{ load, capacity, over }`) and `feedOf` (powered id → carrying feed). `load` stays the total; `capacity` becomes the sum of the feeds' limits (null if any is null), a summary only.
+
+**Player-facing words** (src/core/words.ts, tickets 014/017/015): `load` is shown as *LvN Lamp*, `rating` as *LvN Fuse*, `capacity` as *LvN Powersource*. On a multi-feed map a feed is *North · Lv4 Powersource* and a lamp's carrier *Lv2 Lamp · on North*.
+
 ## Events
 
-`grid:changed`, `breaker:thrown`, `switch:thrown`, `fuse:blown`, `repair:completed`, `grid:brownout` (entered or cleared), `battery:released`, `battery:flat`, `job:completed`. `switch:thrown` carries `spring: true` when a spring switch returned on its own. `fuse:blown` carries `load`, `rating`, `culprit` (the lamp the action newly fed, largest load if several, or null) with its `path` from the fuse, and `lamps`: every lamp whose load counted toward `load` when it blew (powered by the feed's flow, downstream of the fusebox, not faulted, load > 0, lamps already lit included), each with its line path from the fuse, in flow discovery order; their loads sum to `load` (ticket 016). Street scope later adds the night events.
+`grid:changed`, `breaker:thrown`, `switch:thrown`, `fuse:blown`, `repair:completed`, `grid:brownout` (entered or cleared; on a multi-feed map it carries `over`, the ids of the feeds over their capacity in file order, empty when cleared, and also fires when that set changes during a brownout; absent on one-feed maps), `battery:released`, `battery:flat`, `job:completed`. `switch:thrown` carries `spring: true` when a spring switch returned on its own. `fuse:blown` carries `load`, `rating`, `culprit` (the lamp the action newly fed, largest load if several, or null) with its `path` from the fuse, and `lamps`: every lamp whose load counted toward `load` when it blew (powered by the feed's flow, downstream of the fusebox, not faulted, load > 0, lamps already lit included), each with its line path from the fuse, in flow discovery order; their loads sum to `load` (ticket 016). Street scope later adds the night events.

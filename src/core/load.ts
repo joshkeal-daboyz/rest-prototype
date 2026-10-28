@@ -1,10 +1,11 @@
 /**
- * Loader and validator for puzzle files (schema draft 2).
+ * Loader and validator for puzzle files (schema draft 5).
  * `validatePuzzle` never throws; it returns every problem it finds so the editor can show them.
  * `loadPuzzle` throws on the first invalid file, for code that wants a Puzzle or nothing.
  */
 
 import { FAULT_RULES, type FaultKind, type GridNode, type NodeType, type Part, type Puzzle, type Vec2 } from "./schema";
+import { powersourceName } from "./words";
 
 export type ValidationResult = { ok: true; puzzle: Puzzle } | { ok: false; errors: readonly string[] };
 
@@ -27,7 +28,8 @@ export function validatePuzzle(json: unknown): ValidationResult {
   // ---- top level ----
   if (!isStr(p["id"])) err("id must be a non-empty string");
   if (!isStr(p["name"])) err("name must be a non-empty string");
-  if (p["version"] !== 3 && p["version"] !== 4) err("version must be 3 or 4");
+  if (p["version"] !== 3 && p["version"] !== 4 && p["version"] !== 5) err("version must be 3, 4 or 5");
+  const v5 = p["version"] === 5;
   const street = p["scope"] === "street";
   if (p["scope"] !== "map" && !street) err('scope must be "map" or "street"');
   if (!(p["capacity"] === null || (isNum(p["capacity"]) && p["capacity"] > 0))) err("capacity must be null or a positive number");
@@ -52,7 +54,7 @@ export function validatePuzzle(json: unknown): ValidationResult {
   // ---- nodes ----
   const nodes = Array.isArray(p["nodes"]) ? p["nodes"] : (err("nodes must be a list"), []);
   const nodeById = new Map<string, GridNode>();
-  let feeds = 0;
+  const feedNodes: Record<string, unknown>[] = [];
   for (const [i, raw] of nodes.entries()) {
     if (!isObj(raw) || !isStr(raw["id"])) { err(`nodes[${i}] needs an id`); continue; }
     const id = raw["id"];
@@ -60,7 +62,17 @@ export function validatePuzzle(json: unknown): ValidationResult {
     if (!NODE_TYPES.includes(raw["type"] as NodeType)) err(`node ${id}: unknown type ${String(raw["type"])}`);
     if (!isVec2(raw["pos"])) err(`node ${id}: pos must be [x, y]`);
     switch (raw["type"]) {
-      case "feed": feeds++; break;
+      case "feed":
+        feedNodes.push(raw);
+        if (raw["capacity"] !== undefined) {
+          if (!v5) err(`feed ${id}: a feed's own capacity needs version 5`);
+          if (!(raw["capacity"] === null || (isNum(raw["capacity"]) && raw["capacity"] > 0))) err(`feed ${id}: capacity must be null or a positive number`);
+        }
+        if (raw["name"] !== undefined) {
+          if (!v5) err(`feed ${id}: a feed name needs version 5`);
+          if (!isStr(raw["name"])) err(`feed ${id}: name must be a non-empty string`);
+        }
+        break;
       case "breaker": if (typeof raw["closed"] !== "boolean") err(`breaker ${id}: closed must be true or false`); break;
       case "switch":
         if (!Array.isArray(raw["outputs"]) || raw["outputs"].length !== 2 || !raw["outputs"].every(isStr)) err(`switch ${id}: outputs must be two line ids`);
@@ -79,7 +91,21 @@ export function validatePuzzle(json: unknown): ValidationResult {
     }
     nodeById.set(id, raw as unknown as GridNode);
   }
-  if (feeds !== 1) err(`exactly one feed node is required (found ${feeds})`);
+  if (feedNodes.length === 0) err("at least one feed node is required (found 0)");
+  if (feedNodes.length > 1) {
+    if (!v5) err(`${feedNodes.length} feeds need version 5 (up to version 4, exactly one feed)`);
+    for (const f of feedNodes)
+      if (f["capacity"] === undefined) err(`feed ${String(f["id"])}: capacity is required when a map has two or more feeds (null = no limit)`);
+    if (p["capacity"] !== null) err("capacity (top level) must be null when a map has two or more feeds; each feed has its own");
+    const names = new Map<string, string>();
+    for (const f of feedNodes) {
+      if (!isStr(f["id"]) || (f["name"] !== undefined && !isStr(f["name"]))) continue;
+      const shown = powersourceName(f["id"], f["name"] as string | undefined);
+      const other = names.get(shown);
+      if (other !== undefined) err(`feeds ${other} and ${f["id"]} would both be shown as "${shown}"; give them different names`);
+      else names.set(shown, f["id"]);
+    }
+  }
 
   // ---- lines ----
   const lines = Array.isArray(p["lines"]) ? p["lines"] : (err("lines must be a list"), []);
@@ -183,4 +209,26 @@ export function loadPuzzle(json: unknown): Puzzle {
   const r = validatePuzzle(json);
   if (!r.ok) throw new Error(`invalid puzzle:\n  ${r.errors.join("\n  ")}`);
   return r.puzzle;
+}
+
+/** A feed as every part reads it: its id, its display name, and the limit it is judged against (ticket 015). */
+export interface FeedInfo {
+  id: string;
+  /** The feed's `name`, else its id with underscores as spaces (`powersourceName`). */
+  name: string;
+  /** The feed's own `capacity` if it has the key (null included), else the puzzle's top-level `capacity`. */
+  capacity: number | null;
+}
+
+/**
+ * Every feed of a valid puzzle, in the order they appear in `nodes`. The one place the capacity rule lives:
+ * a one-feed map with no feed `capacity` gives `[{ id, name, capacity: puzzle.capacity }]`, exactly as before.
+ */
+export function puzzleFeeds(puzzle: Puzzle): readonly FeedInfo[] {
+  const out: FeedInfo[] = [];
+  for (const n of puzzle.nodes) {
+    if (n.type !== "feed") continue;
+    out.push({ id: n.id, name: powersourceName(n.id, n.name), capacity: n.capacity !== undefined ? n.capacity : puzzle.capacity });
+  }
+  return out;
 }
