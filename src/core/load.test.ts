@@ -197,9 +197,26 @@ describe("draft 5: more than one powersource (ticket 015)", () => {
       const r = validatePuzzle(read(f));
       if (!r.ok) continue;
       const feeds = puzzleFeeds(r.puzzle);
+      const feedNodes = (read(f) as { nodes: N[] }).nodes.filter((n) => n.type === "feed");
+      if (feedNodes.length > 1) continue; // multi-feed maps: see the next test
       expect(feeds, f).toHaveLength(1);
       expect(feeds[0]!.capacity, f).toBe(r.puzzle.capacity);
     }
+  });
+
+  it("puzzleFeeds: multi-feed maps give one entry per feed node, with its own capacity", () => {
+    let seen = 0;
+    for (const f of files) {
+      const r = validatePuzzle(read(f));
+      if (!r.ok) continue;
+      const feedNodes = (read(f) as { nodes: N[] }).nodes.filter((n) => n.type === "feed");
+      if (feedNodes.length < 2) continue;
+      seen++;
+      const feeds = puzzleFeeds(r.puzzle);
+      expect(feeds.map((x) => x.id), f).toEqual(feedNodes.map((n) => n.id));
+      expect(feeds.map((x) => x.capacity), f).toEqual(feedNodes.map((n) => n.capacity ?? null));
+    }
+    expect(seen).toBeGreaterThan(0);
   });
 
   it("puzzleFeeds: per-feed capacity and names, in file order; the id stands in for a missing name", () => {

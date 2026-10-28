@@ -375,11 +375,28 @@ describe("every map in puzzles/ behaves as before on one feed", () => {
     it(`${file}: feeds has one entry equal to load/capacity; grid:brownout has no over key`, () => {
       const puzzle = loadPuzzle(JSON.parse(readFileSync(join(dir, file), "utf8")) as unknown);
       const feedId = puzzle.nodes.find((n) => n.type === "feed")!.id;
-      expect(puzzleFeeds(puzzle)).toHaveLength(1);
       const bus = new EventBus();
       const events: any[] = [];
       bus.on("grid:brownout", (p) => events.push(p));
       const g = createGrid(puzzle, bus);
+      if (puzzleFeeds(puzzle).length > 1) {
+        const ids = new Set(puzzleFeeds(puzzle).map((f: any) => (typeof f === "string" ? f : f.id)));
+        const checkMulti = () => {
+          const s = g.state();
+          expect(s.feeds.size).toBe(ids.size);
+          for (const owner of new Set(s.feedOf.values())) expect(ids.has(owner)).toBe(true);
+        };
+        checkMulti();
+        for (const n of puzzle.nodes) {
+          if (n.type === "breaker") g.throwBreaker(n.id);
+          else if (n.type === "switch") g.throwSwitch(n.id);
+          else continue;
+          checkMulti();
+        }
+        for (const e of events) expect(Array.isArray(e.over)).toBe(true);
+        return;
+      }
+      expect(puzzleFeeds(puzzle)).toHaveLength(1);
       const check = () => {
         const s = g.state();
         expect(s.feeds.size).toBe(1);
