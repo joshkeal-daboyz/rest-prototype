@@ -1,0 +1,45 @@
+{
+  "id": "first-box",
+  "name": "First box",
+  "version": 2,
+  "scope": "panel",
+  "start": [0, 0],
+  "night": { "minutes": 15 },
+  "satchel": 4,
+  "favor": { "start": 0, "draw": 2, "offer": 1, "reward": 2 },
+  "probeSeconds": 3,
+  "fetchSeconds": 90,
+  "capacity": null,
+
+  "startingParts": ["wire", "bulb"],
+
+  "nodes": [
+    { "id": "feed",    "type": "feed",     "pos": [0, 2] },
+    { "id": "breaker", "type": "breaker",  "pos": [1, 2], "closed": true },
+    { "id": "t1",      "type": "junction", "pos": [2, 2] },
+    { "id": "fuse_1",  "type": "fusebox",  "pos": [3, 2], "rating": 3 },
+    { "id": "t2",      "type": "junction", "pos": [4, 2] },
+    { "id": "t3",      "type": "junction", "pos": [5, 2] },
+    { "id": "t4",      "type": "junction", "pos": [6, 2] },
+    { "id": "lamp_a",  "type": "lamp",     "pos": [7, 1], "load": 1 },
+    { "id": "lamp_b",  "type": "lamp",     "pos": [7, 3], "load": 1 }
+  ],
+
+  "lines": [
+    { "id": "w0", "from": "feed",    "to": "breaker" },
+    { "id": "w1", "from": "breaker", "to": "t1" },
+    { "id": "w2", "from": "t1",      "to": "fuse_1" },
+    { "id": "w3", "from": "fuse_1",  "to": "t2" },
+    { "id": "w4", "from": "t2",      "to": "t3" },
+    { "id": "w5", "from": "t3",      "to": "t4" },
+    { "id": "w6", "from": "t4",      "to": "lamp_a" },
+    { "id": "w7", "from": "t4",      "to": "lamp_b" }
+  ],
+
+  "faults": [
+    { "id": "f1", "at": "w4", "kind": "damaged-cable" }
+  ],
+
+  "salvage": [],
+  "decor": []
+}

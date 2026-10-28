@@ -1,8 +1,8 @@
 # Rest: Circuits
 
-The 2D puzzle prototype for [*Rest*](https://github.com/joshkeal-daboyz/rest-gdd), a game about a raccoon mechanic relighting a dead city. This repo exists to design and test the **fault-finding puzzles** on a flat schematic before any 3D work, and to produce two things the 3D game takes as-is: the puzzle files and the pure-logic grid and night simulators.
+The circuit-fixing minigame prototype for [*Rest*](https://github.com/joshkeal-daboyz/rest-gdd), a game about a raccoon mechanic relighting a dead city. Inside a fuse box, the player probes with Enoch's tester lamp to find where the current stops, cuts the power, splices wire or swaps a fuse or bulb, and throws the breaker back on. This repo exists to design and test those panels in 2D before any 3D work, and to produce two things the 3D game takes as-is: the panel files and the pure-logic circuit and night simulators.
 
-**Status:** pipeline and design set up; no code yet. See [docs/prototype-brief.md](docs/prototype-brief.md).
+**Status:** pipeline and design set up; first tickets being cut. See [docs/prototype-brief.md](docs/prototype-brief.md).
 
 ## What is here
 

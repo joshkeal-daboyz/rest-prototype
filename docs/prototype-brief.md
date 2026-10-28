@@ -1,94 +1,102 @@
-# Rest: Circuits — the 2D puzzle prototype
+# Rest: Circuits — the circuit-fixing minigame
 
-A top-down, schematic, 2D version of Rest's repair loop, built to design and test the **fault-finding puzzles** before any 3D work. Everything the player does in the 3D game (read the lines, mark, cut the power, repair, relight) happens here on a flat map of cables and lamps.
+*Rest*'s repairs are a click-and-hold, and the GDD review found the loop around them is mostly walking. Josh's call (27 Oct 2026): **the repair itself becomes a puzzle.** When Enoch opens a fuse box or junction, the player works inside it: probe with the tester lamp to find where the current stops, cut the power, splice wire or swap a fuse or bulb with the parts carried, and throw it back on. This repo builds that minigame first, standalone and 2D, so the puzzles can be designed and tested before any 3D work.
 
-Two things leave this prototype and go straight into the 3D game:
+Two things leave this prototype and go into the 3D game:
 
-1. **The grid schema and the puzzle files** (`puzzles/*.grid.json`), which become `levels/*.grid.json` in the GDD's contracts table.
-2. **The grid and night simulators** (`src/grid/`, `src/night/`): pure TypeScript with no rendering, so they can be copied into the Three.js project unchanged.
+1. **The panel files** (`puzzles/*.json`): each fuse box and junction in the city is one of these.
+2. **The circuit simulator** (`src/grid/`) and the night rules (`src/night/`): pure TypeScript, no rendering, copied unchanged.
 
-The 2D renderer, input and UI are throwaway. Keep them simple.
+The street layer (walking between panels, salvage, the stall, dawn) is the **outer loop** and comes after the minigame proves itself. The grid schema already covers it; see "Later: the street".
 
 ## What the player sees
 
-A dark street drawn as a schematic: cables as lines, lamps as circles, fuse boxes, breakers and switches as marked boxes (the tribe's paint). Enoch is a dot. Nothing glows until he raises the lamp; then cables within reach show pulses moving away from the feed. Damaged cables spark on their own. Ribbons glow where he has tied them. When the last fault is fixed and the breaker goes on, power runs visibly down the cables and the lamps light in order: the Relight, in 2D.
+A panel: the inside of a tribe-marked fuse box, drawn as a schematic. Terminals as dots, wires as lines between them, fuse holders, bulb sockets, a breaker on the panel, and the feed coming in. On the right, the **loads**: the street lamps this panel feeds, dark. Enoch's satchel at the bottom with its four parts.
 
-## Rules carried over from the GDD (Decided there, fixed here)
+Nothing in the panel shows current until the player **probes** it: click a terminal or a wire with the tester lamp, and that spot shows live (pulses moving away from the feed) or dead. Probed spots stay shown. Damaged wire sparks on its own. A blown fuse looks exactly like a good one until probed on both sides.
 
-- Power flows from the feed outward. Fuse boxes, breakers, switches, junctions and lines **conduct unless faulted**. Lamps are **leaves**: a dead lamp does not block the run.
-- Faults: dead lamp (bulb, 2 s), blown fuse (fuse, 3 s), damaged cable (wire, 4 s, may need a climb). Dead junction (wire × 2, 5 s) is in the schema for the switch puzzles but is not in the first puzzle set.
-- Signatures: pulses reach a dark lamp = dead lamp; pulses into a fuse box and none out = blown fuse; pulses up to a sparking break = damaged cable.
-- The lamp shows current within reach (5 m in the 3D game; a radius here). Enoch moves slower with it raised.
-- Ribbons mark faults, stay across nights, come off on repair, can be untied.
-- A breaker cuts its section. Repairs on a live line take a timing check; a miss is a shock; two shocks in a night kill and roll back that night's repairs; repairs survive dawn.
-- Satchel of 4. Salvage spots restock each night. The offering stall trades any part for favor (draw 2, offer 1), never runs out. Enoch starts with 0 favor; the job pays favor.
-- Night is 15 minutes of game time at most; pause stops the clock.
-- The Relight cannot be interrupted once it starts.
+When the player has found a fault, they cut the panel's breaker (or risk it live), drag the part onto the fault, hold while a ring fills, and throw the breaker back on. Loads that now have power light up. When every load is lit: **the Relight**, power running visibly through the panel and out to the lamps.
 
-All numbers are the GDD's placeholders and are **tunable per puzzle** in the puzzle file, which is the point.
+## Rules
+
+Carried from the GDD (Decided there, fixed here):
+
+- Power flows from the feed outward. Wires, terminals, fuses, breakers and switches **conduct unless faulted**. Loads (bulbs) are **leaves**: a dead bulb never blocks anything else.
+- Parts: **bulb, fuse, wire.** Fault → part: dead bulb → bulb (2 s), blown fuse → fuse (3 s), damaged wire → wire (4 s).
+- Signatures: current reaches a dark bulb; current into a fuse and none out; current up to a sparking break.
+- Faults hide faults: nothing past an unrepaired blocking fault can be read.
+- The breaker cuts the panel. Repairs on a live panel take a timing check; a miss is a shock; two shocks in a night kill and roll back that night's repairs; repairs survive dawn.
+- Letting go early cancels the repair and keeps the part. A repair can't start without the part, and the prompt names it.
+- Satchel of four. The Relight can't be interrupted.
+
+New for the minigame (Draft, Josh's to tune):
+
+- **Probing needs current.** The tester shows nothing on a dead panel, so the player reads with the breaker on and fixes with it off. That is the GDD's tension, now inside one box.
+- **A probe costs time**, not parts: a few seconds of the night clock. Diagnosis by elimination is cheaper than probing everything.
+- **Wrong fixes cost time only.** Replacing a good fuse hands the old one back; splicing an intact wire does nothing. The part is consumed only when it fixes a fault. (If this makes guessing too cheap, the first tuning knob is "a wrong part is lost".)
+- **Fuses have a rating** and bulbs a load. A fuse carrying more load than its rating blows again when power returns. The player may have to move a load to another fuse, by splicing, to make the panel hold. This is the GDD's *restraint is the virtue*, in a fuse box.
+- **Switches** choose which of two wires carries on. A load on the unselected side is dark but not faulty.
+
+## Puzzle elements, in the order to build and test
+
+Each panel tests one element. The analyzer must pass on each.
+
+| # | Panel | Element under test |
+| --- | --- | --- |
+| 1 | **First box** | One chain, one damaged wire. Teaches probe → breaker → splice → breaker. |
+| 2 | **Where does it stop** | A long chain with one blown fuse among several. Binary search with the probe. |
+| 3 | **Which branch** | The feed splits three ways; one branch is dead. Probe the split, not the ends. |
+| 4 | **Fuse or bulbs** | One fuse feeds three dark bulbs. Probe the fuse's output before carrying three bulbs. |
+| 5 | **Behind the first** | Fix a fuse, power returns, and a bulb past it is still dark. Faults hide faults. |
+| 6 | **Not broken, switched** | A dark load that only needs the switch thrown. The decoy. |
+| 7 | **Too many on one fuse** | Every part is good; the fuse blows on load. Move a bulb to another fuse by splicing. |
+| 8 | **Short of parts** | The panel needs two wires; the satchel has one. The player must leave and come back (street layer later; for now, a "fetch" button that costs night time). |
+| 9 | **Live or walk** | The breaker is on the far side of a long panel (or, later, down the street). Live splice is tempting. |
 
 ## What the prototype has that the 3D game will not need
 
-- **Instant mode**: a toggle that removes walking time (Enoch teleports on click), so a puzzle can be tested for its deduction alone, then with movement cost added back.
-- **A puzzle editor** in the browser: place nodes, draw lines, set faults and salvage, export JSON. Josh designs puzzles in it; agents never need to.
-- **An analyzer** (`npm run analyze <puzzle>`): for a puzzle file, reports whether the job is finishable, which faults are readable from the start and which are hidden behind which, the minimum number of trips given the satchel, the parts the puzzle needs versus what salvage offers per night, and the walking distance of the shortest solution. Puzzle Designer uses it; it also runs as a test on every puzzle in `puzzles/`.
-- **A session log**: each playthrough writes what the player did and when (reads, ribbons, breaker throws, repairs, trips, dawn, deaths) to a JSON file that can be saved, so a cold playtest leaves data.
+- **A panel picker** and a **panel editor** in the browser: place terminals, draw wires, set fuses (rating), bulbs (load), switches, faults; export JSON. Josh designs panels in it.
+- **An analyzer** (`npm run analyze <panel>`): finishable from the given satchel; which faults are readable at the start and which hide behind which; the fewest probes that locate every fault (the puzzle's information depth); parts needed; whether any fuse is overloaded once everything is fixed.
+- **A session log**: every probe, throw, repair and shock with a game-time stamp, downloadable, so a cold playtest leaves data.
+- **Night time without a street**: the clock runs while the panel is open; a "fetch parts" button stands in for the walk back to the stall until the street layer exists.
 
 ## Questions this prototype answers
 
-From [the GDD review](gdd-review.md):
-
-1. Which puzzle elements produce deduction rather than walking?
-2. How many faults, of what mix, make one street feel like a job and not a chore?
-3. How long does a night actually take, and does dawn ever arrive on Lamp Row?
-4. Do leaves-vs-in-line rules make the grid readable?
-5. Is the satchel/favor economy a planning puzzle or friction?
-6. What do the grid, repair and UI agents actually cost in tokens?
-
-## Puzzle set to build, in order
-
-Each puzzle tests one element. The analyzer must pass on each.
-
-| # | Puzzle | Element under test |
-| --- | --- | --- |
-| 1 | **Lamp Row** (the GDD's tutorial, as written) | Baseline. The hidden fuse box. Two trips. |
-| 2 | **Shared fuse** | One fuse box, three dark lamps. Fuse or bulbs? |
-| 3 | **Ambiguous dark** | Everything past a blown fuse is unreadable. Fix first and come back, or carry bulbs on spec? |
-| 4 | **Far breaker** | The breaker is a long walk; live repair is tempting. |
-| 5 | **Two breakers** | Which to throw so the relit half stays on. |
-| 6 | **Ring with a switch** | A loop fed from two sides; the fault's position depends on the switch. |
-| 7 | **Scarce parts** | Salvage is short of what the job needs; the stores are required. |
-| 8 | **Tiny capacity** | Five lamps, power for three. Choose. |
-
-Puzzles 6 and 8 need `switch` nodes and a `capacity` field in the schema; both are in the draft schema and both are Draft in the GDD.
+1. Is diagnosing a panel with a probe a puzzle, or a chore with extra clicks? (GDD review, finding 1)
+2. How many probes does a good panel take, and how long does it feel? (finding 3)
+3. Does "probe live, fix dead" produce the breaker tension the GDD wants, without the walk?
+4. Does the fuse rating rule make a real choice, and does it read?
+5. What do the grid, interaction and UI agents actually cost in tokens? (finding 9)
 
 ## Stack
 
-- TypeScript (strict), Vite, Vitest: the GDD's stack, so the simulator ports unchanged.
-- Canvas 2D for the renderer, HTML/CSS for the UI. No game framework.
-- Node.js LTS is required and is **not installed on this PC yet** (`winget install OpenJS.NodeJS.LTS`).
-- Hosting: GitHub Pages from `main`, like the 3D game will be.
+- TypeScript (strict), Vite, Vitest. Canvas 2D for the panel, HTML/CSS for the UI, no game framework.
+- Node 24 LTS (installed 27 Oct 2026).
+- Hosting: GitHub Pages from `main`.
 
 ## Folders and owners
 
 | Folder | Owner | What is in it |
 | --- | --- | --- |
-| `src/core/` | lead-architect | Types for the schema, events, the puzzle loader |
-| `src/grid/` | grid-simulator | Power flow, fault visibility, repair effects. Pure. |
+| `src/core/` | lead-architect | Types for the schema, events, the loader and validator |
+| `src/grid/` | grid-simulator | Power flow, readability, fuse load, repair effects. Pure. |
 | `src/night/` | grid-simulator | The clock, pause, shocks, death rollback. Pure. |
-| `src/render/` | renderer | Canvas drawing, lamp reach, pulses, sparks, ribbons, the Relight |
-| `src/play/` | interaction | Movement, lamp raise, ribbon, breaker, repair hold and timing check, satchel, salvage, stores |
-| `src/ui/` | ui | Prompts, satchel, favor, offering screen, pause, dawn and death screens |
-| `src/editor/` | interaction | The puzzle editor |
+| `src/render/` | renderer | The panel on canvas: probes, pulses, sparks, the Relight |
+| `src/play/` | interaction | Probe, breaker, switch, drag-a-part, the repair hold and timing check, satchel, fetch, the session log |
+| `src/editor/` | interaction | The panel editor |
+| `src/ui/` | ui | Prompts, satchel, picker, pause, dawn and death screens |
 | `tools/` | grid-simulator | The analyzer CLI |
-| `puzzles/` | puzzle-designer | Puzzle files and their design notes |
-| `puzzles/locked/` | Josh | Puzzles Josh has approved; never edited, only replaced on his word |
-| `tickets/` | lead-architect | One file per ticket, with acceptance criteria |
-| `reviews/` | code-reviewer | One review per ticket |
+| `puzzles/` | puzzle-designer | Panel files and their design notes |
+| `puzzles/locked/` | Josh | Panels Josh has approved; never edited by agents |
+| `tickets/`, `reviews/` | lead-architect, code-reviewer | One file each per ticket |
+
+## Later: the street
+
+The outer loop (walking Lamp Row between panels, the lamp's 5 m reach, ribbons, salvage spots, the offering stall, dawn) uses the same schema at street scale: `puzzles/lamp-row.grid.json` is already written that way, and its design note explains the hidden fuse box. Once two or three panels are fun, the street becomes the thing that connects them, and each fuse box on it opens a panel. Don't build it first.
 
 ## Done when
 
-- All eight puzzles load, pass the analyzer, and can be played to the Relight in the browser.
-- Lamp Row, played cold by someone new, is finished within two nights; the session log says how long each night took.
-- The grid and night modules have tests for every rule in "Rules carried over", and the analyzer runs over every puzzle in CI.
-- Josh has written `docs/13-puzzle-design.md` for the GDD from what the puzzles taught.
+- The nine panels load, pass the analyzer, and can each be played to the Relight.
+- Someone new to the game finishes panels 1–4 cold, and the session log says how many probes and how long each took.
+- `src/grid/` and `src/night/` have a test per rule above, and the analyzer runs over every panel in CI.
+- Josh has written `docs/13-puzzle-design.md` for the GDD from what the panels taught.

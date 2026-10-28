@@ -1,6 +1,6 @@
 # Rest: Circuits (rest-prototype)
 
-The 2D puzzle prototype for *Rest*. Josh builds alone with an agent crew. The design is in [docs/prototype-brief.md](docs/prototype-brief.md); the game it feeds is in the [GDD](https://github.com/joshkeal-daboyz/rest-gdd). Puzzles live in `puzzles/`, their schema in [puzzles/SCHEMA.md](puzzles/SCHEMA.md).
+The circuit-fixing minigame prototype for *Rest*: inside a fuse box, probe with the tester to find the fault, cut the power, splice or swap a part, throw it back on. Josh builds alone with an agent crew. The design is in [docs/prototype-brief.md](docs/prototype-brief.md); the game it feeds is in the [GDD](https://github.com/joshkeal-daboyz/rest-gdd). Panels live in `puzzles/`, their schema in [puzzles/SCHEMA.md](puzzles/SCHEMA.md). (The Forge art pipeline in rest-gdd is concept art only; nothing here touches it.)
 
 ## Hard rules
 

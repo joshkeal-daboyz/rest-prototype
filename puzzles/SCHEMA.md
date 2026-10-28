@@ -1,12 +1,17 @@
-# Grid puzzle schema (draft 1)
+# Grid puzzle schema (draft 2)
 
-A puzzle is one JSON file in `puzzles/`. The same file is meant to become `levels/<name>.grid.json` in the 3D game, so nothing in it refers to 2D drawing except `pos`, which the 3D level layout file will override.
+A puzzle is one JSON file in `puzzles/`. The same graph describes a **panel** (the inside of one fuse box: the circuit-fixing minigame) and a **street** (fuse boxes, lamps and cables along Lamp Row); `scope` says which. In the 3D game a panel file is what opens when Enoch interacts with a fuse box, and a street file becomes `levels/<name>.grid.json`. Nothing in it refers to 2D drawing except `pos`.
+
+Panel-specific fields (draft 2): `scope: "panel"`, `fusebox.rating` and `lamp.load` (a fuse carrying more load than its rating blows when powered), `probeSeconds` (night time one probe costs), and `fetchSeconds` (the stand-in for walking back to the stall until the street layer exists). In a panel, readability comes from **probing**: a node or line shows current only once the player has probed it, and probing a dead panel shows nothing. In a street, readability comes from the lamp's `lampReach`. Everything else below applies to both.
 
 ```jsonc
 {
   "id": "lamp-row",                 // file name without extension
   "name": "Lamp Row",
-  "version": 1,                     // schema version
+  "version": 2,                     // schema version
+  "scope": "street",                // "panel" (the minigame) or "street" (the outer loop)
+  "probeSeconds": 3,                // panel: night time one probe costs
+  "fetchSeconds": 90,               // panel: night time the "fetch parts" stand-in costs
   "start": [1, 0],                  // where Enoch begins each night
   "night": { "minutes": 15 },       // game-time length of a night
   "satchel": 4,
@@ -18,9 +23,9 @@ A puzzle is one JSON file in `puzzles/`. The same file is meant to become `level
     { "id": "feed",         "type": "feed",     "pos": [0, 0] },
     { "id": "breaker_main", "type": "breaker",  "pos": [2, 0], "closed": true },
     { "id": "j1",           "type": "junction", "pos": [6, 0] },
-    { "id": "fb_A",         "type": "fusebox",  "pos": [12, 0] },
+    { "id": "fb_A",         "type": "fusebox",  "pos": [12, 0], "rating": 3 },   // panel: max load it carries
     { "id": "sw_1",         "type": "switch",   "pos": [20, 0], "outputs": ["l_a", "l_b"], "selected": 0 },
-    { "id": "lamp_01",      "type": "lamp",     "pos": [6, 2] }
+    { "id": "lamp_01",      "type": "lamp",     "pos": [6, 2], "load": 1 }       // panel: load on its fuse
   ],
 
   "lines": [
@@ -54,7 +59,7 @@ A puzzle is one JSON file in `puzzles/`. The same file is meant to become `level
 | `feed` | source | Exactly one per puzzle. Power originates here. |
 | `breaker` | when `closed` | The player toggles it. Cuts everything downstream. Marked by the tribe. |
 | `switch` | to `outputs[selected]` only | Sends power down one of its lines. Marked by the tribe. (MVP in the GDD) |
-| `fusebox` | unless faulted | Takes a fuse. Marked by the tribe. |
+| `fusebox` | unless faulted or overloaded | Takes a fuse. Marked by the tribe. In a panel, `rating` is the load it carries; more than that and it blows again when powered (a new `blown-fuse` fault). |
 | `junction` | always | A split or bend in the run. Can carry a `dead-junction` fault (wire × 2). |
 | `lamp` | **leaf** | An endpoint. Lit when power reaches it and it has no fault. A dead lamp never blocks the run. |
 
@@ -73,6 +78,7 @@ Parts: `bulb`, `fuse`, `wire`. `random` in a salvage spot means one of the three
 
 ## Visibility rules the simulator derives (never authored)
 
+- In a **panel**, a node or line shows its state only once **probed** this night, and only while current can reach the probe point (probing a dead panel shows nothing). Probed spots stay shown for the night.
 - A fault is **readable** only when current reaches it: the player must see pulses stop. Everything downstream of an unrepaired blocking fault is dark and gives no information.
 - `damaged-cable` sparks are visible from anywhere in view, with or without the lamp, so they are the one fault the player can find without reading.
 - A repaired lamp that stays dark after the breaker goes on means there is an unfound blocking fault upstream. This is how "hidden" faults are found; the schema has no `hidden` flag.

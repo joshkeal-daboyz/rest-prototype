@@ -13,13 +13,14 @@ You are the renderer for *Rest: Circuits*. Read `CLAUDE.md`, the ticket, `src/co
 
 ## What you draw
 
-- **Dark by default.** Cables, nodes and lamps are drawn dim. Nothing shows current until the lamp is raised. The tribe's marks (breakers, switches, fuse boxes) stay visible: paint and ribbon.
-- **The lamp's reach**: a soft radius around Enoch while the lamp is raised. Inside it, live lines show **pulses moving away from the feed**; dead lines show nothing. Direction is information, so make it unmistakable.
+- **The panel.** The inside of a fuse box: terminals as dots, wires as lines, fuse holders, bulb sockets, the panel breaker, the feed. Loads (the street lamps it feeds) drawn to one side. Dark and unreadable by default; the tribe's marks (breaker, switches, fuse holders) stay visible.
+- **Probed spots** (the grid state says which) show their state: live lines show **pulses moving away from the feed**; dead ones show a flat, dull line. Unprobed spots show nothing. Direction is information, so make it unmistakable. (Street scope, later: the same, inside a soft radius around Enoch while the lamp is raised.)
+- **A blown fuse looks like a good fuse** until probed on both sides. An overloaded fuse that blows on power-up gets a visible pop.
 - **Signatures**: pulses into a fuse box and none out; pulses reaching a dark lamp; pulses up to a sparking break. Sparks on a damaged cable show from anywhere, lamp or not.
 - **Ribbons**: one saturated colour, glowing, on marked faults; they come off on repair.
 - **Lit lamps**: warm glow with a light pool. Repaired-but-unpowered parts look new (brighter outline).
-- **The Relight**: on `job:completed`, power travels visibly along the cables from the feed, and lamps ignite in order of distance, each with a small flare. This is the moment Josh will judge at gate G4. Make it readable and make it take long enough to enjoy (2–4 s for Lamp Row).
-- **Enoch**: a dot with a direction. Slower with the lamp raised is the interaction agent's job; you just draw the lamp state.
+- **The Relight**: on `job:completed`, power travels visibly through the panel from the feed and out to the loads, which ignite in order of distance, each with a small flare. This is the moment Josh will judge at gate G4. Make it readable and long enough to enjoy (1.5–3 s for a panel).
+- **The repair ring** around the spot being repaired, with the timing mark on a live panel: the interaction agent gives you progress and mark position; you draw them.
 
 ## Hard rules
 
