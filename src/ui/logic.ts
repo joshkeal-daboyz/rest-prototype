@@ -43,9 +43,14 @@ export function partsSummary(parts: readonly Part[]): string {
   return `On hand: ${items.join(", ")}`;
 }
 
-/** "Load 3 / 4", with "Brownout" added as text (never colour alone) when the section is browned out. */
+/**
+ * "Lv4 Powersource — using 3 of 4", or "Powersource — using 3 (no limit)" when capacity is null.
+ * The capacity is a fixed level; the load is a live total, so it reads as a plain number.
+ * "Brownout" is added as text (never colour alone) when the section is browned out.
+ */
 export function capacityReadout(load: number, capacity: number | null, brownout: boolean): string {
-  const base = capacity === null ? `Load ${load} (no limit)` : `Load ${load} / ${capacity}`;
+  const base =
+    capacity === null ? `Powersource — using ${load} (no limit)` : `Lv${capacity} Powersource — using ${load} of ${capacity}`;
   return brownout ? `${base} · Brownout` : base;
 }
 
@@ -123,9 +128,9 @@ export type NoticeEvent =
 export function noticeFor(event: NoticeEvent): string | null {
   switch (event.kind) {
     case "fuse:blown":
-      return `Fuse blew: ${event.load} load through a ≤${event.rating} fuse`;
+      return `Lv${event.rating} Fuse blew: carrying ${event.load}`;
     case "grid:brownout":
-      return event.brownout ? `Brownout: load ${event.load} over capacity ${event.capacity}` : null;
+      return event.brownout ? `Brownout: Lv${event.capacity} Powersource using ${event.load} of ${event.capacity}` : null;
     case "battery:flat":
       return event.stopped ? null : "Battery flat";
     case "relay-refused": {

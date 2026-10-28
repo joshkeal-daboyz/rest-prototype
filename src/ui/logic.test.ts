@@ -87,16 +87,28 @@ describe("partsSummary", () => {
 });
 
 describe("capacityReadout", () => {
-  it("shows load over capacity", () => {
-    expect(capacityReadout(3, 4, false)).toBe("Load 3 / 4");
+  it("shows the powersource level and the live total against it", () => {
+    expect(capacityReadout(3, 4, false)).toBe("Lv4 Powersource — using 3 of 4");
   });
 
   it("names the brownout in words, not only by colour", () => {
-    expect(capacityReadout(6, 4, true)).toBe("Load 6 / 4 · Brownout");
+    expect(capacityReadout(6, 4, true)).toBe("Lv4 Powersource — using 6 of 4 · Brownout");
   });
 
-  it("reads unlimited capacity as no limit", () => {
-    expect(capacityReadout(2, null, false)).toBe("Load 2 (no limit)");
+  it("drops the Brownout word once the section recovers", () => {
+    expect(capacityReadout(4, 4, false)).toBe("Lv4 Powersource — using 4 of 4");
+  });
+
+  it("reads unlimited capacity as Powersource with no level and no limit", () => {
+    expect(capacityReadout(2, null, false)).toBe("Powersource — using 2 (no limit)");
+  });
+
+  it("adds the Brownout word to an unlimited powersource too, and still shows no level", () => {
+    expect(capacityReadout(2, null, true)).toBe("Powersource — using 2 (no limit) · Brownout");
+  });
+
+  it("prints a non-integer total as the simulator gives it", () => {
+    expect(capacityReadout(2.5, 4, false)).toBe("Lv4 Powersource — using 2.5 of 4");
   });
 });
 
@@ -125,13 +137,13 @@ describe("noticeFor", () => {
   const log = (over: Partial<LogEntry>): LogEntry => ({ step: 1, time: 0, kind: "throw-switch", ok: false, ...over });
   const relays = new Set(["relay_a"]);
 
-  it("names the load and the fuse rating when a fuse blows", () => {
-    expect(noticeFor({ kind: "fuse:blown", load: 3, rating: 1 })).toBe("Fuse blew: 3 load through a ≤1 fuse");
+  it("names the fuse level and what it carried when a fuse blows", () => {
+    expect(noticeFor({ kind: "fuse:blown", load: 2, rating: 1 })).toBe("Lv1 Fuse blew: carrying 2");
   });
 
-  it("says brownout with load and capacity when the section goes over, and nothing when it recovers", () => {
-    expect(noticeFor({ kind: "grid:brownout", brownout: true, load: 6, capacity: 4 })).toBe(
-      "Brownout: load 6 over capacity 4",
+  it("says brownout with the powersource level and the total when the section goes over, and nothing when it recovers", () => {
+    expect(noticeFor({ kind: "grid:brownout", brownout: true, load: 5, capacity: 4 })).toBe(
+      "Brownout: Lv4 Powersource using 5 of 4",
     );
     expect(noticeFor({ kind: "grid:brownout", brownout: false, load: 4, capacity: 4 })).toBeNull();
   });
