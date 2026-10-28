@@ -101,11 +101,29 @@ describe("prompts", () => {
   const hover = (p: Puzzle, id: string): string | null =>
     promptFor(p, createGrid(p, new EventBus()).state(), id);
 
-  it("a healthy fusebox shows its rating", () => {
-    expect(hover(inline([], open, 5), "fb")).toBe("Fuse ≤5");
-    expect(hover(inline([], open), "fb")).toBe("Fuse");
+  it("a rated fusebox shows its rating and what it is carrying", () => {
+    // Only mill (load 3) is lit; bulb1 is a dead lamp.
+    expect(hover(inline([], open, 5), "fb")).toBe("Fuse ≤5 — carrying 3");
+  });
+
+  it("an unrated fusebox shows what it is carrying, with no rating", () => {
+    expect(hover(inline([], open), "fb")).toBe("Fuse — carrying 3");
+  });
+
+  it("a fusebox carrying exactly its rating reads 'at the limit'", () => {
+    expect(hover(inline([], open, 3), "fb")).toBe("Fuse ≤3 — at the limit");
+  });
+
+  it("an unpowered fusebox reads carrying 0", () => {
+    const p = inline([], open, 5);
+    const g = createGrid(p, new EventBus());
+    const st = { ...g.state(), fuseLoad: new Map([["fb", 0]]) };
+    expect(promptFor(p, st, "fb")).toBe("Fuse ≤5 — carrying 0");
+  });
+
+  it("shrine-circuit: fb_A carries 3 of ≤3, so it is at the limit", () => {
     const s = setup();
-    expect(s.over("fb_A").prompt).toBe("Fuse ≤3");
+    expect(s.over("fb_A").prompt).toBe("Fuse ≤3 — at the limit");
   });
 
   it("a lamp shows its load", () => {
@@ -154,7 +172,7 @@ describe("prompts", () => {
     expect(promptFor(p, unread, "mill")).toBe("Lamp, load 3");
     const p2 = inline(["fuse"], [{ id: "f1", at: "fb", kind: "blown-fuse" }], 1);
     const st2 = createGrid(p2, new EventBus()).state();
-    expect(promptFor(p2, { ...st2, readableFaults: new Set<string>() }, "fb")).toBe("Fuse ≤1");
+    expect(promptFor(p2, { ...st2, readableFaults: new Set<string>() }, "fb")).toBe("Fuse ≤1 — carrying 0");
   });
 });
 
