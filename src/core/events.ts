@@ -56,6 +56,24 @@ export interface GridEvents {
   "job:completed": { puzzleId: string; actions: number };
 }
 
+/** Why src/play emitted `play:click`. */
+export type PlayClickKind = "refused" | "undo" | "reset";
+
+/** Player input the grid's own events don't voice (ticket 019). Emitted by src/play only. */
+export interface PlayEvents {
+  /**
+   * One per player input that gets only an acknowledging click:
+   * - `refused`: a click on an actionable element (breaker, switch, relay, battery, readable fault) that the grid
+   *   turned down (throwBreaker/throwSwitch/release returned false, or repairAt was not ok: a relay or spring switch
+   *   with no power, an empty battery, a repair without its parts). `target` is the clicked id. Not for clicks on
+   *   nothing, and nothing while the Relight runs.
+   * - `undo`: play.undo() was called while the job is not complete (whether or not there was a step to undo).
+   * - `reset`: play.reset() was called (always).
+   * `target` is set only for `refused` (the key is absent otherwise). The audio plays the same quiet click for all three.
+   */
+  "play:click": { kind: PlayClickKind; target?: string };
+}
+
 /** Street scope, later. */
 export interface NightEvents {
   "night:started": { night: number; minutes: number };
@@ -65,7 +83,7 @@ export interface NightEvents {
   "night:death": { night: number; repairsUndone: readonly string[] };
 }
 
-export type Events = GridEvents & NightEvents;
+export type Events = GridEvents & PlayEvents & NightEvents;
 export type EventName = keyof Events;
 
 export type Listener<K extends EventName> = (payload: Events[K]) => void;

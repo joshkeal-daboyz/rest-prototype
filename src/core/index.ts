@@ -3,3 +3,5 @@ export * from "./events";
 export * from "./load";
 export * from "./state";
 export * from "./words";
+export * from "./timing";
+export * from "./audio";
