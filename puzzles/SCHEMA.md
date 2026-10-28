@@ -74,7 +74,8 @@ Hold times (2 / 3 / 4 / 5 s) are in `FAULT_RULES` for the street layer; in map s
 - **Readable:** a fault is readable only when current reaches it. Everything downstream of an unrepaired blocking fault is dark and gives no information. A dead branch's faults are discovered when a switch or repair brings power to it.
 - **Brownout:** if the total `load` of lamps that would be lit exceeds `capacity`, the section browns out: every lamp counts as dark and flickers. Shed load with breakers and switches. Lamps with faults don't count toward load.
 - **Fuse blow:** when power is applied, a fusebox whose downstream would-be-lit load exceeds its `rating` gains a `blown-fuse` fault. Checked before brownout.
-- **Win:** every `target` lamp lit and no brownout.
+- **Win:** every `target` lamp lit **by the feed's own flow** and no brownout. A lamp lit only by a released battery is lit for reading and drawing, but never completes the job: the battery's window is for setting a section, not keeping it lit.
+- **Battery, derived rules:** the feed's current never passes through a battery to its far side (the battery is a dead end for the feed, so faults on its far side are hidden until it is released). A battery charges only from the feed's own flow, never from another battery. A released battery's far side is free of fuse and brownout checks. A flat battery starts recharging at once if the feed reaches it. Time is not undoable: `undo` leaves charge and released state alone and can move a relay that is now dead; `release` is not an action. `reset` returns every battery to the file's `charge`.
 
 ## Events
 
