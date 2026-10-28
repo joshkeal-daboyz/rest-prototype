@@ -64,13 +64,13 @@ export function promptFor(puzzle: Puzzle, state: GridState, id: string | null): 
   return `${FAULT_LABEL[fault.kind]} — ${action}${warn}`;
 }
 
-/** Hover wording for ticket 013, in one place (a later ticket rewords these to LvX labels). */
+/** Hover wording for ticket 013, in one place (LvX labels, ticket 014). */
 export const TEXT = {
   throwSwitch: "Throw switch",
   relayStuck: "No power — relay stuck",
   springSwitch: (relay: boolean): string =>
     `Spring switch — returns when power is lost${relay ? " — relay" : ""}`,
-  wouldBlowAgain: (load: number, rating: number): string => ` · would blow again: ${load} load on ≤${rating}`,
+  wouldBlowAgain: (load: number, rating: number): string => ` · would blow again: ${load} on a Lv${rating} Fuse`,
 };
 
 const FAULT_LABEL: Record<FaultKind, string> = {
@@ -83,11 +83,11 @@ const FAULT_LABEL: Record<FaultKind, string> = {
 /** Informational hover for healthy lamps and fuseboxes (no click effect). */
 function infoPrompt(puzzle: Puzzle, state: GridState, id: string | null): string | null {
   const node = id === null ? undefined : puzzle.nodes.find((n) => n.id === id);
-  if (node?.type === "lamp") return `Lamp, load ${node.load ?? DEFAULTS.lampLoad}`;
+  if (node?.type === "lamp") return `Lv${node.load ?? DEFAULTS.lampLoad} Lamp`;
   if (node?.type === "fusebox") {
     const carrying = state.fuseLoad.get(node.id) ?? 0;
     if (node.rating === undefined) return `Fuse — carrying ${carrying}`;
-    return `Fuse ≤${node.rating} — ${carrying >= node.rating ? "at the limit" : `carrying ${carrying}`}`;
+    return `Lv${node.rating} Fuse — ${carrying >= node.rating ? "at the limit" : `carrying ${carrying} of ${node.rating}`}`;
   }
   return null;
 }
