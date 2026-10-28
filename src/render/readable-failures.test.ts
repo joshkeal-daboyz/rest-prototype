@@ -11,6 +11,8 @@ import {
   PHASE_POP,
   PHASE_SHOCK,
   SHOCK_SECONDS,
+  CULPRIT_FLARE_SECONDS,
+  culpritFlare,
   fuseIntact,
   pointAlong,
   polylineLength,
@@ -67,6 +69,18 @@ describe("fuse-blow sequence timing", () => {
     expect(popFraction(0, false)).toBe(0);
     expect(shockProgress(0, false)).toBe(1);
     expect(sequenceTotal(false)).toBeCloseTo(POP_SECONDS);
+  });
+  it("the culprit flares when the streak arrives and is gone before the pop ends", () => {
+    expect(culpritFlare(0, true)).toBe(0);
+    expect(culpritFlare(SHOCK_SECONDS - 0.01, true)).toBe(0);
+    expect(culpritFlare(SHOCK_SECONDS, true)).toBe(1);
+    expect(culpritFlare(SHOCK_SECONDS + 0.25, true)).toBeCloseTo(0.5);
+    expect(culpritFlare(SHOCK_SECONDS + CULPRIT_FLARE_SECONDS, true)).toBe(0);
+    expect(SHOCK_SECONDS + CULPRIT_FLARE_SECONDS).toBeLessThanOrEqual(sequenceTotal(true));
+  });
+  it("no path, no flare", () => {
+    expect(culpritFlare(0, false)).toBe(0);
+    expect(culpritFlare(0.1, false)).toBe(0);
   });
   it("pop fraction runs 0..1 then is -1", () => {
     expect(popFraction(SHOCK_SECONDS - 0.05, true)).toBe(-1);
