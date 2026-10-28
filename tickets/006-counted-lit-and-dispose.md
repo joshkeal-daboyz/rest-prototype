@@ -18,6 +18,9 @@ From reviews 004 and 005: `targetRows` in `src/ui/logic.ts` restates a Draft rul
 ## Files
 `src/grid/`, `src/play/`, `src/ui/`, `src/main.ts` (the one `dispose()` call), `puzzles/SCHEMA.md`
 
+- [ ] **D (ui/interaction):** after `job:completed`, a battery that is still released keeps showing its countdown (time stops during the Relight). Hide the countdown once the job is complete, or let `tick` keep advancing batteries after the win. Seen in the browser on battery-run, 27 Oct 2026.
+- [ ] **E (interaction, from review 009 B):** drop the never-true `stopped` field on the log's `battery-flat` entry; add tests for no advance during the Relight, an empty release logged `ok: false`, and game time across Reset.
+
 ## Open questions
 - Reset during the Relight (review 004): should Reset be refused until the Relight finishes? Josh decides after playing.
 - *Needs: wire × 2*: show the required count (as now) or the missing count? Josh decides after playing.
