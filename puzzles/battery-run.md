@@ -66,3 +66,5 @@ Note on time: the simulator's relay throws are instant, so the window is a limit
 First play (first version, no spare fuse), Josh: "the battery run isn't working" / "i cannot complete the level". Off-track.
 
 Cause: closing `br_east` before the relays are set blew `fb_east` (mill load 3 through a rating-1 fuse), the map gave no fuse, and from then on nothing could win, not even the full correct battery sequence. The breaker is the most obvious first click on the map, so this was a dead end, not a trap: nothing told the player why nothing worked. Fixed by giving two fuses, so the blown fuse is a readable ✕ with *Repair (fuse)* and the job can be finished after the battery run.
+
+Josh, 28 Oct 2026, after ticket 011 (readable failures): "It's right." The shock-to-culprit, the culprit's flare, the pop, the broken fuse, the notice in words and the hover text together made the fuse blow readable. On-track for the mechanic; the map stays open for tuning (8 s window, 3× brightness).
