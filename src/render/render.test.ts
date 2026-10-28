@@ -8,7 +8,7 @@ import { chargeFraction, popProgress, wentFlat, FLAT_POP_SECONDS } from "./batte
 import { flicker, pulseCount, pulsePhase, PULSE_SPACING } from "./motion";
 import { planRelight, RELIGHT_TRAVEL_SECONDS } from "./relight";
 
-const puzzle = loadPuzzle(JSON.parse(readFileSync(join(__dirname, "..", "..", "puzzles", "shrine-circuit.json"), "utf8")));
+const puzzle = loadPuzzle(JSON.parse(readFileSync(join(__dirname, "..", "..", "puzzles", "08-shrine-circuit.json"), "utf8")));
 
 function wonState(): GridState {
   const flowFrom = new Map<string, string>([

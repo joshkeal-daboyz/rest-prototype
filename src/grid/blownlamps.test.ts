@@ -4,7 +4,7 @@ import { createGrid } from "./index";
 
 type Blow = { load: number; culprit: string | null; path: readonly string[]; lamps?: readonly { id: string; path: readonly string[] }[] };
 
-// Inline copy of puzzles/ladder-08-why-it-blew.json (that file may be untracked; tests must not read it).
+// Inline copy of puzzles/17-why-it-blew.json (that file may be untracked; tests must not read it).
 const ladder08 = (): Puzzle =>
   loadPuzzle({
     id: "ladder-08-why-it-blew", name: "08 · Why it blew", version: 4, scope: "map", capacity: 4,
