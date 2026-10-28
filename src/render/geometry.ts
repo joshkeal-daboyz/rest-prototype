@@ -1,3 +1,4 @@
+import { clusterRadius } from "./load";
 /**
  * Pure geometry: fit map coordinates into a canvas, precompute screen-space
  * node and line data once per puzzle (and again on resize), and hit-test it.
@@ -85,6 +86,8 @@ export interface Geometry {
   toIdx: Int32Array;
   /** Decor polylines in screen space, flat [x0,y0,x1,y1,...]. */
   decor: Float64Array[];
+  /** Per-node hit radius: lamps with a cluster of bulbs are bigger. */
+  hitR: Float64Array;
 }
 
 export function buildGeometry(puzzle: Puzzle, width: number, height: number, padding: number, insets?: Insets): Geometry {
@@ -129,6 +132,10 @@ export function buildGeometry(puzzle: Puzzle, width: number, height: number, pad
     len[i] = Math.hypot(bx[i]! - ax[i]!, by[i]! - ay[i]!);
     mapLen[i] = Math.hypot((mx[b] ?? 0) - (mx[a] ?? 0), (my[b] ?? 0) - (my[a] ?? 0));
   });
+  const hitR = new Float64Array(nn);
+  puzzle.nodes.forEach((n, i) => {
+    hitR[i] = n.type === "lamp" ? Math.max(NODE_HIT_RADIUS, clusterRadius(n.load ?? 1) + 4) : NODE_HIT_RADIUS;
+  });
   const decor = (puzzle.decor ?? []).map((d) => {
     const arr = new Float64Array(d.path.length * 2);
     d.path.forEach((p, i) => {
@@ -137,7 +144,7 @@ export function buildGeometry(puzzle: Puzzle, width: number, height: number, pad
     });
     return arr;
   });
-  return { fit, nodeIds, nodeIndex, nx, ny, lineIds, lineIndex, ax, ay, bx, by, len, mapLen, fromIdx, toIdx, decor };
+  return { fit, nodeIds, nodeIndex, nx, ny, lineIds, lineIndex, ax, ay, bx, by, len, mapLen, fromIdx, toIdx, decor, hitR };
 }
 
 export const NODE_HIT_RADIUS = 18;
@@ -155,10 +162,10 @@ function distToSegment(px: number, py: number, ax: number, ay: number, bx: numbe
 /** Node or line id under a canvas-space point; nodes win over lines. Null if nothing is close. */
 export function hitTestGeometry(g: Geometry, x: number, y: number): string | null {
   let best = -1;
-  let bestD = NODE_HIT_RADIUS;
+  let bestD = Infinity;
   for (let i = 0; i < g.nodeIds.length; i++) {
     const d = Math.hypot(x - g.nx[i]!, y - g.ny[i]!);
-    if (d <= bestD) {
+    if (d <= g.hitR[i]! && d <= bestD) {
       bestD = d;
       best = i;
     }

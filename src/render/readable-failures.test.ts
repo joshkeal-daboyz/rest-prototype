@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { loadPuzzle } from "../core";
-import { buildGeometry } from "./geometry";
+import { buildGeometry, hitTestGeometry } from "./geometry";
 import { brightness, bulbCount, bulbOffsets, bulbRadius, clusterRadius, poolAlpha, poolRadiusScale, LOAD_CAP } from "./load";
 import {
   MAX_PATH_POINTS,
@@ -106,6 +106,22 @@ describe("position along a multi-line path", () => {
     pointAlong([], [], 0, 0.5, out);
     expect([out[0], out[1]]).toEqual([0, 0]);
     expect(sliceVertices([1], [1], 1, 0, 1, new Float64Array(8))).toBe(0);
+  });
+});
+
+describe("hit radius of a load-3 lamp", () => {
+  const battery = loadPuzzle(JSON.parse(readFileSync(join(__dirname, "..", "..", "puzzles", "battery-run.json"), "utf8")));
+  it("hits on the outer bulb, which a flat 18 px would miss", () => {
+    const g = buildGeometry(battery, 1000, 600, 60);
+    const i = g.nodeIndex.get("mill")!;
+    expect(g.hitR[i]).toBeGreaterThan(18);
+    const off = new Float64Array(6);
+    bulbOffsets(3, off);
+    const x = g.nx[i]! + off[0]!;
+    const y = g.ny[i]! + off[1]!;
+    expect(Math.hypot(off[0]!, off[1]!) + 11).toBeGreaterThan(18);
+    expect(hitTestGeometry(g, g.nx[i]! + clusterRadius(3), g.ny[i]!)).toBe("mill");
+    expect(hitTestGeometry(g, x, y)).toBe("mill");
   });
 });
 

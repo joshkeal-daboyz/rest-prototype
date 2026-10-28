@@ -140,7 +140,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
   // Stubs a dead junction needs (one gap per part), from the rules.
   const junctionStubs = FAULT_RULES["dead-junction"].count;
   const bulbScratch = new Float64Array(6);
-  const ratingLabel: string[] = nodes.map((n) => (n.type === "fusebox" && n.rating !== undefined ? `≤${n.rating}` : ""));
+  const ratingLabel: string[] = nodes.map((n) => (n.type === "fusebox" && n.rating !== undefined ? `load ≤${n.rating}` : ""));
   const lineFromId: string[] = lines.map((l) => l.from);
   const isBattery = new Uint8Array(nNodes);
   nodes.forEach((n, i) => {
@@ -1026,7 +1026,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
       if (feedLoad !== state.load || feedCap !== state.capacity) {
         feedLoad = state.load;
         feedCap = state.capacity;
-        feedLabel = `${state.load} / ${state.capacity === null ? "∞" : state.capacity}`;
+        feedLabel = `load ${state.load} / ${state.capacity === null ? "∞" : state.capacity}`;
         feedAlarmLabel = `! ${feedLabel} !`;
       }
       const fx = geo.nx[feedIdx]!;
