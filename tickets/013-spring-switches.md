@@ -1,7 +1,7 @@
 # 013 · Spring switches, and no blind re-blows
 
 owner: grid-simulator (A), renderer (B), interaction (C), puzzle-designer (D, after A)
-status: in progress (G1: Josh, "yes spring switches")
+status: done (merged; Josh: "1 yes")
 branch: ticket/013-spring-switches
 
 ## Josh's words
