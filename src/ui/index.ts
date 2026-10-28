@@ -23,6 +23,7 @@ import {
   soundToggleLabel,
   targetRows,
   volumeToSlider,
+  winLine,
   writeAudioPrefs,
   type StorageLike,
 } from "./logic";
@@ -39,10 +40,27 @@ export interface UIDeps {
   audio?: AudioControl;
 }
 
+/** What the win splash shows. All of it is plain data from the play layer and the picker. */
+export interface WinSplash {
+  /** The map's display name, e.g. "01 · First light". */
+  name: string;
+  /** view().elapsed at the win. */
+  seconds: number;
+  /** grid.state().actions at the win. */
+  moves: number;
+  /** The next map in picker order (same group), or null on the last one. */
+  next: { id: string; name: string } | null;
+  onNext(): void;
+}
+
 export interface UI {
   update(): void;
   /** Shows a short text notice at the top of the map. It fades after a few seconds. */
   notify(text: string): void;
+  /** Shows the win splash below the HUD. Not modal: the HUD stays usable. */
+  showWin(win: WinSplash): void;
+  /** Hides the win splash. The lit map stays as it is. */
+  hideWin(): void;
 }
 
 const PART_LABEL = { bulb: "Bulb", fuse: "Fuse", wire: "Wire" } as const;
@@ -61,6 +79,28 @@ function ensureNoticeStyle(): void {
   style.textContent = NOTICE_CSS;
   document.head.append(style);
 }
+
+/** Styles for the win splash (ticket 020 B). Only the splash takes the pointer; the overlay stays click-through. */
+const SPLASH_STYLE_ID = "ui-splash-style";
+const SPLASH_CSS = `
+.splash { position: absolute; left: 50%; top: 0; transform: translateX(-50%); width: min(360px, calc(100% - 32px)); box-sizing: border-box; background: var(--panel); border: 1px solid var(--lit); color: var(--ink); border-radius: 8px; padding: 14px 16px; text-align: center; pointer-events: auto; }
+.splash h2 { margin: 0 0 6px; font-size: 17px; color: var(--lit); }
+.splash p { margin: 0 0 12px; }
+.splash-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.splash button.primary { border-color: var(--lit); font-weight: 600; }
+.splash-sub { display: block; font-size: 12px; font-weight: 400; color: var(--ink-dim); }
+`;
+
+function ensureSplashStyle(): void {
+  if (document.getElementById(SPLASH_STYLE_ID)) return;
+  const style = el("style");
+  style.id = SPLASH_STYLE_ID;
+  style.textContent = SPLASH_CSS;
+  document.head.append(style);
+}
+
+/** Esc listener for the splash, removed when it hides and when the map is switched. */
+let removeSplashKey: (() => void) | null = null;
 
 /** Styles for the sound control (ticket 019 B). The muted state is a strikethrough as well as the dimmed colour. */
 const AUDIO_STYLE_ID = "ui-audio-style";
@@ -173,6 +213,8 @@ let removePointerListeners: (() => void) | null = null;
 export function mountUI(root: HTMLElement, deps: UIDeps): UI {
   removePointerListeners?.();
   removePointerListeners = null;
+  removeSplashKey?.();
+  removeSplashKey = null;
   root.textContent = "";
   root.classList.add("ui");
 
@@ -246,7 +288,41 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
   let notices: Notice[] = [];
   let noticesTop = -1;
 
-  root.append(hudLeft, hudRight, bannerEl, promptEl, noticesEl);
+  // ---- win splash (ticket 020 B): below the HUD, under the notices; appended last so it draws on top ----
+  ensureSplashStyle();
+  const splashEl = el("div", "splash");
+  splashEl.setAttribute("role", "dialog");
+  splashEl.setAttribute("aria-labelledby", "splash-heading");
+  splashEl.hidden = true;
+  const splashHeading = el("h2");
+  splashHeading.id = "splash-heading";
+  const splashLine = el("p", "splash-line");
+  const splashActions = el("div", "splash-actions");
+  const nextButton = el("button", "primary");
+  nextButton.type = "button";
+  const replayButton = el("button");
+  replayButton.type = "button";
+  replayButton.textContent = "Replay";
+  const splashDone = el("p", "splash-done", "All levels done.");
+  splashActions.append(nextButton, replayButton);
+  splashEl.append(splashHeading, splashLine, splashActions, splashDone);
+
+  let win: WinSplash | null = null;
+  let splashTop = -1;
+
+  const onSplashKey = (event: KeyboardEvent): void => {
+    if (event.key === "Escape") hideWin();
+  };
+
+  replayButton.addEventListener("click", () => {
+    deps.play.reset();
+    hideWin();
+  });
+  nextButton.addEventListener("click", () => {
+    if (win?.next) win.onNext();
+  });
+
+  root.append(hudLeft, hudRight, bannerEl, promptEl, noticesEl, splashEl);
 
   // The prompt follows the pointer over the map. Pointer position is presentation only.
   let pointer: { x: number; y: number } | null = null;
@@ -323,10 +399,58 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
     }
   }
 
+  /** Puts the splash under the HUD (and the win banner), centred in the room left below that when there is some. */
+  function placeSplash(): void {
+    if (splashEl.hidden) return;
+    const rootBox = root.getBoundingClientRect();
+    let floor = Math.max(hudLeft.getBoundingClientRect().bottom, hudRight.getBoundingClientRect().bottom);
+    if (!bannerEl.hidden) floor = Math.max(floor, bannerEl.getBoundingClientRect().bottom);
+    const top = Math.round(floor - rootBox.top + 8);
+    const room = rootBox.height - top - splashEl.offsetHeight;
+    const place = room > 0 ? Math.round(top + room / 2) : top;
+    if (place !== splashTop) {
+      splashTop = place;
+      splashEl.style.top = `${place}px`;
+    }
+  }
+
+  function showWin(next: WinSplash): void {
+    win = next;
+    setText(splashHeading, next.name);
+    setText(splashLine, winLine(next.seconds, next.moves));
+    if (next.next) {
+      nextButton.hidden = false;
+      nextButton.replaceChildren(el("span", undefined, "Next level"), el("span", "splash-sub", next.next.name));
+      nextButton.classList.add("primary");
+      replayButton.classList.remove("primary");
+    } else {
+      nextButton.hidden = true;
+      replayButton.classList.add("primary");
+    }
+    splashDone.hidden = next.next !== null;
+    splashEl.hidden = false;
+    if (!removeSplashKey) {
+      document.addEventListener("keydown", onSplashKey);
+      removeSplashKey = () => document.removeEventListener("keydown", onSplashKey);
+    }
+    (next.next ? nextButton : replayButton).focus({ preventScroll: true });
+    placeSplash();
+  }
+
+  function hideWin(): void {
+    win = null;
+    splashEl.hidden = true;
+    removeSplashKey?.();
+    removeSplashKey = null;
+  }
+
   function update(): void {
     const state = deps.grid.state();
     const view = deps.play.view();
     noticesTick(performance.now());
+    // A Reset from the HUD takes the job back to incomplete: the splash goes with the win.
+    if (win && !state.complete) hideWin();
+    placeSplash();
 
     const prompt = promptToShow(view);
     promptEl.hidden = prompt === null || pointer === null;
@@ -381,5 +505,5 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
     partsEl.setAttribute("aria-label", partsSummary(state.parts));
   }
 
-  return { update, notify };
+  return { update, notify, showWin, hideWin };
 }
