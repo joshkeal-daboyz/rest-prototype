@@ -11,8 +11,8 @@ describe("map captions (ticket 014 A)", () => {
     expect(feedName(4)).toBe("Lv4 Powersource");
     expect(feedName(null)).toBe("Powersource");
     expect(feedUsing(3, 4)).toBe("using 3 of 4");
-    expect(feedUsing(3, null)).toBe("using 3");
+    expect(feedUsing(3, null)).toBe("using 3 (no limit)");
     expect(feedAlarm(5, 4)).toBe("! using 5 of 4 !");
-    expect(feedAlarm(5, null)).toBe("! using 5 !");
+    expect(feedAlarm(5, null)).toBe("! using 5 (no limit) !");
   });
 });
