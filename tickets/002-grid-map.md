@@ -1,7 +1,7 @@
 # 002 · Grid simulator: map scope
 
 owner: grid-simulator
-status: open
+status: review-passed
 branch: ticket/002-grid-map
 
 ## Goal
