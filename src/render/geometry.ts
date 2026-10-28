@@ -1,3 +1,4 @@
+import { clusterRadius } from "./load";
 /**
  * Pure geometry: fit map coordinates into a canvas, precompute screen-space
  * node and line data once per puzzle (and again on resize), and hit-test it.
@@ -39,15 +40,29 @@ export function puzzleBounds(puzzle: Puzzle): Bounds {
   return { minX, maxX, minY, maxY };
 }
 
-/** Uniform scale that fits `bounds` in width x height with `padding` on every side, centred. */
-export function computeFit(bounds: Bounds, width: number, height: number, padding: number): Fit {
+export interface Insets {
+  top?: number;
+  right?: number;
+  bottom?: number;
+  left?: number;
+}
+
+/**
+ * Uniform scale that fits `bounds` in width x height with `padding` on every side, centred.
+ * `insets` (CSS px) reserve room for overlays: the map is fitted into what is left.
+ */
+export function computeFit(bounds: Bounds, width: number, height: number, padding: number, insets?: Insets): Fit {
+  const top = Math.max(insets?.top ?? 0, 0);
+  const right = Math.max(insets?.right ?? 0, 0);
+  const bottom = Math.max(insets?.bottom ?? 0, 0);
+  const left = Math.max(insets?.left ?? 0, 0);
   const spanX = Math.max(bounds.maxX - bounds.minX, 1e-6);
   const spanY = Math.max(bounds.maxY - bounds.minY, 1e-6);
-  const availX = Math.max(width - 2 * padding, 1);
-  const availY = Math.max(height - 2 * padding, 1);
+  const availX = Math.max(width - left - right - 2 * padding, 1);
+  const availY = Math.max(height - top - bottom - 2 * padding, 1);
   const scale = Math.min(availX / spanX, availY / spanY, MAX_SCALE);
-  const offsetX = (width - spanX * scale) / 2 - bounds.minX * scale;
-  const offsetY = (height - spanY * scale) / 2 - bounds.minY * scale;
+  const offsetX = left + (width - left - right - spanX * scale) / 2 - bounds.minX * scale;
+  const offsetY = top + (height - top - bottom - spanY * scale) / 2 - bounds.minY * scale;
   return { scale, offsetX, offsetY };
 }
 
@@ -71,10 +86,12 @@ export interface Geometry {
   toIdx: Int32Array;
   /** Decor polylines in screen space, flat [x0,y0,x1,y1,...]. */
   decor: Float64Array[];
+  /** Per-node hit radius: lamps with a cluster of bulbs are bigger. */
+  hitR: Float64Array;
 }
 
-export function buildGeometry(puzzle: Puzzle, width: number, height: number, padding: number): Geometry {
-  const fit = computeFit(puzzleBounds(puzzle), width, height, padding);
+export function buildGeometry(puzzle: Puzzle, width: number, height: number, padding: number, insets?: Insets): Geometry {
+  const fit = computeFit(puzzleBounds(puzzle), width, height, padding, insets);
   const nn = puzzle.nodes.length;
   const nl = puzzle.lines.length;
   const nodeIds: string[] = [];
@@ -115,6 +132,10 @@ export function buildGeometry(puzzle: Puzzle, width: number, height: number, pad
     len[i] = Math.hypot(bx[i]! - ax[i]!, by[i]! - ay[i]!);
     mapLen[i] = Math.hypot((mx[b] ?? 0) - (mx[a] ?? 0), (my[b] ?? 0) - (my[a] ?? 0));
   });
+  const hitR = new Float64Array(nn);
+  puzzle.nodes.forEach((n, i) => {
+    hitR[i] = n.type === "lamp" ? Math.max(NODE_HIT_RADIUS, clusterRadius(n.load ?? 1) + 4) : NODE_HIT_RADIUS;
+  });
   const decor = (puzzle.decor ?? []).map((d) => {
     const arr = new Float64Array(d.path.length * 2);
     d.path.forEach((p, i) => {
@@ -123,7 +144,7 @@ export function buildGeometry(puzzle: Puzzle, width: number, height: number, pad
     });
     return arr;
   });
-  return { fit, nodeIds, nodeIndex, nx, ny, lineIds, lineIndex, ax, ay, bx, by, len, mapLen, fromIdx, toIdx, decor };
+  return { fit, nodeIds, nodeIndex, nx, ny, lineIds, lineIndex, ax, ay, bx, by, len, mapLen, fromIdx, toIdx, decor, hitR };
 }
 
 export const NODE_HIT_RADIUS = 18;
@@ -141,10 +162,10 @@ function distToSegment(px: number, py: number, ax: number, ay: number, bx: numbe
 /** Node or line id under a canvas-space point; nodes win over lines. Null if nothing is close. */
 export function hitTestGeometry(g: Geometry, x: number, y: number): string | null {
   let best = -1;
-  let bestD = NODE_HIT_RADIUS;
+  let bestD = Infinity;
   for (let i = 0; i < g.nodeIds.length; i++) {
     const d = Math.hypot(x - g.nx[i]!, y - g.ny[i]!);
-    if (d <= bestD) {
+    if (d <= g.hitR[i]! && d <= bestD) {
       bestD = d;
       best = i;
     }
