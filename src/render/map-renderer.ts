@@ -4,9 +4,21 @@
  * allocates nothing: typed arrays, cached strings, constant colour strings.
  */
 
-import type { FaultKind, Puzzle } from "../core";
+import { FAULT_RULES, type Events, type FaultKind, type Puzzle } from "../core";
 import type { GridState } from "../grid";
-import { buildGeometry, hitTestGeometry, type Geometry } from "./geometry";
+import { buildGeometry, hitTestGeometry, type Geometry, type Insets } from "./geometry";
+import { bulbOffsets, clusterRadius, poolAlpha, poolRadiusScale } from "./load";
+import {
+  MAX_PATH_POINTS,
+  STREAK_FRACTION,
+  fuseIntact,
+  popFraction,
+  pointAlong,
+  sequenceTotal,
+  shockDuration,
+  shockProgress,
+  sliceVertices,
+} from "./shock";
 import { chargeFraction, popProgress, wentFlat } from "./battery";
 import { clamp01, flicker, hash01, pulseCount, pulsePhase, PULSE_SPACING } from "./motion";
 import { FLARE_SECONDS, planRelight, type RelightPlan } from "./relight";
@@ -23,9 +35,22 @@ export interface MapRenderer {
   /** x, y in CSS pixels relative to the canvas's top-left. */
   hitTest(x: number, y: number): string | null;
   resize(): void;
+  /** Reserve CSS px at the edges for overlays (the HUD); refits the map. */
+  setInsets(insets: Insets): void;
+  /** Forwarded `fuse:blown` events: plays the shock, then the pop. The renderer stays bus-free. */
+  notify(event: { type: "fuse:blown"; payload: Events["fuse:blown"] }): void;
+}
+
+export interface MapRendererOptions {
+  insets?: Insets;
 }
 
 const PADDING = 64;
+const SHOCK_CORE = "#f2fbff";
+const SHOCK_GLOW = "#5aa8ff";
+const SCORCH = "#05070b";
+const LAMP_FAULT_RED = "#a8322b";
+const SLOTS = 4;
 
 const BG = "#0b0f17";
 const DECOR = "#161d2a";
@@ -76,7 +101,8 @@ function kindCode(kind: FaultKind): number {
   }
 }
 
-export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle): MapRenderer {
+export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opts?: MapRendererOptions): MapRenderer {
+  let insets: Insets = { ...(opts?.insets ?? {}) };
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("2D canvas unavailable");
   const c: CanvasRenderingContext2D = ctx;
@@ -88,7 +114,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle): Ma
 
   let width = 0;
   let height = 0;
-  let geo: Geometry = buildGeometry(puzzle, 1, 1, PADDING);
+  let geo: Geometry = buildGeometry(puzzle, 1, 1, PADDING, insets);
 
   // ---- per-puzzle precomputation ----
   const feedIdx = nodes.findIndex((n) => n.type === "feed");
@@ -106,7 +132,14 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle): Ma
     const li = geo.lineIndex.get(f.at);
     if (li !== undefined) hadFaultLine[li] = 1;
   }
-  const loadLabel: string[] = nodes.map((n) => (n.type === "lamp" ? String(n.load ?? 1) : ""));
+  const lampLoad = new Int32Array(nNodes);
+  nodes.forEach((n, i) => {
+    if (n.type === "lamp") lampLoad[i] = n.load ?? 1;
+  });
+  const loadLabel: string[] = nodes.map((n) => (n.type === "lamp" ? `load ${n.load ?? 1}` : ""));
+  // Stubs a dead junction needs (one gap per part), from the rules.
+  const junctionStubs = FAULT_RULES["dead-junction"].count;
+  const bulbScratch = new Float64Array(6);
   const ratingLabel: string[] = nodes.map((n) => (n.type === "fusebox" && n.rating !== undefined ? `≤${n.rating}` : ""));
   const lineFromId: string[] = lines.map((l) => l.from);
   const isBattery = new Uint8Array(nNodes);
@@ -145,7 +178,22 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle): Ma
   const readableNode = new Uint8Array(nNodes);
   const faultLine = new Uint8Array(nLines);
   const prevBlown = new Uint8Array(nNodes);
-  const popStart = new Float64Array(nNodes).fill(-100);
+  // Fuse-blow sequence slots (preallocated). start: NaN = waiting for the next frame's clock.
+  const slotActive = new Uint8Array(SLOTS);
+  const slotNode = new Int32Array(SLOTS);
+  const slotStart = new Float64Array(SLOTS);
+  const slotCulprit = new Int32Array(SLOTS);
+  const slotN = new Int32Array(SLOTS);
+  const slotLineCount = new Int32Array(SLOTS);
+  const slotLines = new Int32Array(SLOTS * MAX_PATH_POINTS);
+  const slotX = new Float64Array(SLOTS * MAX_PATH_POINTS);
+  const slotY = new Float64Array(SLOTS * MAX_PATH_POINTS);
+  const holdIntact = new Uint8Array(nNodes);
+  let nextSlot = 0;
+  const ptX = new Float64Array(MAX_PATH_POINTS);
+  const ptY = new Float64Array(MAX_PATH_POINTS);
+  const sliceOut = new Float64Array(2 * (MAX_PATH_POINTS + 2));
+  const headOut = new Float64Array(2);
 
   let plan: RelightPlan | null = null;
   let feedLabel = "";
@@ -160,8 +208,69 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle): Ma
     canvas.width = Math.round(width * dpr);
     canvas.height = Math.round(height * dpr);
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
-    geo = buildGeometry(puzzle, width, height, PADDING);
+    geo = buildGeometry(puzzle, width, height, PADDING, insets);
     buildSwitchDirs();
+    for (let s = 0; s < SLOTS; s++) if (slotActive[s] === 1) rebuildSlotPath(s);
+  }
+
+  function setInsets(next: Insets): void {
+    insets = { ...next };
+    resize();
+  }
+
+  /** Screen-space polyline for a slot: fuse node, then each line's far end in order. */
+  function rebuildSlotPath(s: number): void {
+    const base = s * MAX_PATH_POINTS;
+    let cur = slotNode[s]!;
+    let n = 0;
+    slotX[base] = geo.nx[cur]!;
+    slotY[base] = geo.ny[cur]!;
+    n = 1;
+    for (let k = 0; k < slotLineCount[s]! && n < MAX_PATH_POINTS; k++) {
+      const li = slotLines[base + k]!;
+      cur = geo.fromIdx[li] === cur ? geo.toIdx[li]! : geo.fromIdx[li]!;
+      slotX[base + n] = geo.nx[cur]!;
+      slotY[base + n] = geo.ny[cur]!;
+      n++;
+    }
+    slotN[s] = n;
+  }
+
+  function slotFor(nodeIdx: number): number {
+    for (let s = 0; s < SLOTS; s++) if (slotActive[s] === 1 && slotNode[s] === nodeIdx) return s;
+    return -1;
+  }
+
+  function startSlot(nodeIdx: number, start: number): number {
+    let s = slotFor(nodeIdx);
+    if (s < 0) {
+      s = nextSlot;
+      nextSlot = (nextSlot + 1) % SLOTS;
+    }
+    slotActive[s] = 1;
+    slotNode[s] = nodeIdx;
+    slotStart[s] = start;
+    slotCulprit[s] = -1;
+    slotLineCount[s] = 0;
+    slotN[s] = 0;
+    return s;
+  }
+
+  function notify(event: { type: "fuse:blown"; payload: Events["fuse:blown"] }): void {
+    const p = event.payload;
+    const ni = geo.nodeIndex.get(p.nodeId);
+    if (ni === undefined) return;
+    const s = startSlot(ni, NaN);
+    const ci = p.culprit === null ? undefined : geo.nodeIndex.get(p.culprit);
+    slotCulprit[s] = ci ?? -1;
+    let m = 0;
+    for (const id of p.path) {
+      const li = geo.lineIndex.get(id);
+      if (li === undefined || m >= MAX_PATH_POINTS - 1) continue;
+      slotLines[s * MAX_PATH_POINTS + m++] = li;
+    }
+    slotLineCount[s] = m;
+    rebuildSlotPath(s);
   }
 
   // ---- drawing helpers ----
@@ -328,6 +437,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle): Ma
     const x = geo.nx[i]!;
     const y = geo.ny[i]!;
     const id = geo.nodeIds[i]!;
+    const load = lampLoad[i]!;
     let k = 0;
     let flareAge = -1;
     if (rp) {
@@ -340,22 +450,34 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle): Ma
       k = state.brownout ? flicker(t, i) : 1;
     }
     const powered = state.powered.has(id) && (!rp || relT >= rp.nodeArrive[i]!);
-    const r = 14;
+    const nb = bulbOffsets(load, bulbScratch);
+    const br = nb === 1 ? 14 : 11;
+    const cr = clusterRadius(load);
+    const ps = poolRadiusScale(load);
+    const TAU = Math.PI * 2;
 
     if (k > 0) {
-      // Light pool: stacked translucent discs (no gradient allocation).
+      // Light pool: stacked translucent discs (no gradient allocation). Radius and alpha scale with load.
       c.fillStyle = WARM;
-      c.globalAlpha = 0.07 * k;
+      c.globalAlpha = poolAlpha(0.07 * k, load);
       c.beginPath();
-      c.arc(x, y, 50, 0, Math.PI * 2);
+      c.arc(x, y, 50 * ps, 0, TAU);
       c.fill();
-      c.globalAlpha = 0.11 * k;
+      c.globalAlpha = poolAlpha(0.11 * k, load);
       c.beginPath();
-      c.arc(x, y, 36, 0, Math.PI * 2);
+      c.arc(x, y, 36 * ps, 0, TAU);
       c.fill();
-      c.globalAlpha = 0.18 * k;
+      c.globalAlpha = poolAlpha(0.18 * k, load);
       c.beginPath();
-      c.arc(x, y, 25, 0, Math.PI * 2);
+      c.arc(x, y, 25 * ps, 0, TAU);
+      c.fill();
+      c.globalAlpha = 1;
+    } else {
+      // Dark: a faint footprint so the hungry lamp reads as hungry while off.
+      c.fillStyle = TEXT_DIM;
+      c.globalAlpha = 0.05 + 0.02 * nb;
+      c.beginPath();
+      c.arc(x, y, cr + 10, 0, TAU);
       c.fill();
       c.globalAlpha = 1;
     }
@@ -365,54 +487,79 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle): Ma
       c.globalAlpha = 1 - f;
       c.lineWidth = 3;
       c.beginPath();
-      c.arc(x, y, r + 4 + f * 40, 0, Math.PI * 2);
+      c.arc(x, y, cr + 4 + f * 40 * ps, 0, TAU);
       c.stroke();
       c.fillStyle = WARM_HOT;
       c.globalAlpha = (1 - f) * 0.5;
       c.beginPath();
-      c.arc(x, y, r + 14 * (1 - f), 0, Math.PI * 2);
+      c.arc(x, y, cr + 14 * (1 - f), 0, TAU);
       c.fill();
       c.globalAlpha = 1;
     }
 
-    c.fillStyle = k > 0 ? WARM : NODE_FILL;
-    if (k > 0 && k < 1) c.globalAlpha = 0.35 + 0.65 * k;
-    c.beginPath();
-    c.arc(x, y, r, 0, Math.PI * 2);
-    c.fill();
-    c.globalAlpha = 1;
-    c.strokeStyle = k > 0 ? WARM_HOT : nodeOutline(i, powered);
+    // The bulbs: one, two or three, by load.
     c.lineWidth = hover === id ? 4 : 2.5;
-    c.beginPath();
-    c.arc(x, y, r, 0, Math.PI * 2);
-    c.stroke();
+    for (let b = 0; b < nb; b++) {
+      const bx = x + bulbScratch[b * 2]!;
+      const by = y + bulbScratch[b * 2 + 1]!;
+      c.fillStyle = k > 0 ? WARM : NODE_FILL;
+      if (k > 0 && k < 1) c.globalAlpha = 0.35 + 0.65 * k;
+      c.beginPath();
+      c.arc(bx, by, br, 0, TAU);
+      c.fill();
+      c.globalAlpha = 1;
+      if (k > 0) {
+        // Hotter core, stronger with load.
+        c.fillStyle = WARM_HOT;
+        c.globalAlpha = Math.min(0.25 * nb * k, 0.8);
+        c.beginPath();
+        c.arc(bx, by, br * 0.6, 0, TAU);
+        c.fill();
+        c.globalAlpha = 1;
+      }
+      c.strokeStyle = k > 0 ? WARM_HOT : nodeOutline(i, powered);
+      c.beginPath();
+      c.arc(bx, by, br, 0, TAU);
+      c.stroke();
+    }
     if (hover === id) {
       c.strokeStyle = HOVER;
       c.lineWidth = 1.5;
       c.beginPath();
-      c.arc(x, y, r + 5, 0, Math.PI * 2);
+      c.arc(x, y, cr + 5, 0, TAU);
       c.stroke();
     }
 
-    c.font = FONT_BIG;
+    // Load caption: the unit word, same as the feed's readout.
+    c.font = FONT;
     c.textAlign = "center";
     c.textBaseline = "middle";
-    c.fillStyle = k > 0 ? BG : TEXT_DIM;
-    c.fillText(loadLabel[i]!, x, y + 1);
+    c.fillStyle = k > 0 ? WARM_HOT : TEXT_DIM;
+    c.fillText(loadLabel[i]!, x, y + cr + 13);
 
     if (isTarget[i] === 1) {
       c.strokeStyle = TARGET;
       c.lineWidth = 2;
       c.setLineDash(DASH_TARGET);
       c.beginPath();
-      c.arc(x, y, r + 8, 0, Math.PI * 2);
+      c.arc(x, y, cr + 8, 0, TAU);
       c.stroke();
       c.setLineDash(DASH_NONE);
       c.fillStyle = TARGET;
       c.font = FONT_BIG;
-      c.fillText("★", x, y - r - 17);
+      c.fillText("★", x, y - cr - 17);
     }
-    if (readableNode[i] === 1 && faultNode[i] === K_LAMP) drawX(x, y, 8);
+    if (readableNode[i] === 1 && faultNode[i] === K_LAMP) {
+      drawX(x, y, 8);
+      // A dead lamp that current reaches flickers a dull red at the socket.
+      const fl = flicker(t * 1.3, i + 50);
+      c.fillStyle = LAMP_FAULT_RED;
+      c.globalAlpha = 0.15 + 0.4 * fl;
+      c.beginPath();
+      c.arc(x, y + 2, 9 + 3 * fl, 0, TAU);
+      c.fill();
+      c.globalAlpha = 1;
+    }
   }
 
   function drawNode(i: number, state: GridState, t: number, relT: number, rp: RelightPlan | null, hover: string | null): void {
@@ -591,43 +738,104 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle): Ma
         break;
       }
       case "fusebox": {
+        const broken = readableNode[i] === 1 && faultNode[i] === K_FUSE && holdIntact[i] === 0;
         c.fillRect(x - 14, y - 11, 28, 22);
         c.strokeRect(x - 14, y - 11, 28, 22);
-        c.beginPath();
-        c.moveTo(x - 8, y);
-        c.lineTo(x + 8, y);
-        c.strokeStyle = faultNode[i] === K_FUSE && readableNode[i] === 1 ? TEXT_DIM : nodeOutline(i, live);
-        c.lineWidth = 2;
-        c.stroke();
-        c.fillStyle = TEXT;
-        c.font = FONT;
-        c.fillText(ratingLabel[i]!, x, y + 23);
-        if (readableNode[i] === 1 && faultNode[i] === K_FUSE) {
-          const age = t - popStart[i]!;
-          if (age >= 0 && age < 0.5) {
-            const f = age / 0.5;
-            c.strokeStyle = WARM_HOT;
-            c.globalAlpha = 1 - f;
-            c.lineWidth = 3;
-            c.beginPath();
-            for (let k = 0; k < 8; k++) {
-              const a = (k / 8) * Math.PI * 2;
-              c.moveTo(x + Math.cos(a) * (14 + f * 10), y + Math.sin(a) * (14 + f * 10));
-              c.lineTo(x + Math.cos(a) * (20 + f * 26), y + Math.sin(a) * (20 + f * 26));
+        if (broken) {
+          // Scorch mark, then the bar snapped in two with a gap and curled ends.
+          c.fillStyle = SCORCH;
+          c.globalAlpha = 0.75;
+          c.beginPath();
+          c.arc(x, y + 1, 10, 0, Math.PI * 2);
+          c.fill();
+          c.globalAlpha = 1;
+          c.strokeStyle = ALARM;
+          c.lineWidth = 2.5;
+          c.lineCap = "round";
+          c.beginPath();
+          c.moveTo(x - 11, y);
+          c.lineTo(x - 4, y);
+          c.lineTo(x - 2, y - 5);
+          c.moveTo(x + 11, y + 1);
+          c.lineTo(x + 4, y + 1);
+          c.lineTo(x + 2, y + 6);
+          c.stroke();
+          if (live) {
+            // Buzz: a faint, irregular flicker at the snapped ends.
+            const step = Math.floor(t * 14);
+            if (hash01(step * 2.3 + i * 5.1) > 0.45) {
+              c.strokeStyle = WARM_HOT;
+              c.globalAlpha = 0.55;
+              c.lineWidth = 1.5;
+              c.beginPath();
+              c.moveTo(x - 2, y - 5);
+              c.lineTo(x + (hash01(step + i) - 0.5) * 3, y + (hash01(step + i + 3) - 0.5) * 4);
+              c.lineTo(x + 2, y + 6);
+              c.stroke();
+              c.globalAlpha = 1;
             }
-            c.stroke();
-            c.globalAlpha = 1;
           }
-          drawX(x, y, 8);
+          c.fillStyle = ALARM;
+          c.font = FONT_BIG;
+          c.fillText(ratingLabel[i]!, x, y + 25);
+        } else {
+          c.beginPath();
+          c.moveTo(x - 8, y);
+          c.lineTo(x + 8, y);
+          c.strokeStyle = nodeOutline(i, live);
+          c.lineWidth = 2;
+          c.stroke();
+          c.fillStyle = TEXT;
+          c.font = FONT;
+          c.fillText(ratingLabel[i]!, x, y + 23);
         }
         break;
       }
       case "junction": {
-        c.beginPath();
-        c.arc(x, y, 5, 0, Math.PI * 2);
-        c.fill();
-        c.stroke();
-        if (readableNode[i] === 1 && faultNode[i] === K_JUNCTION) drawX(x, y, 8);
+        if (readableNode[i] === 1 && faultNode[i] === K_JUNCTION) {
+          // A box with one broken stub per part the repair needs.
+          c.fillRect(x - 11, y - 8, 22, 16);
+          c.strokeRect(x - 11, y - 8, 22, 16);
+          const step = Math.floor(t * 9);
+          for (let s = 0; s < junctionStubs; s++) {
+            const a = (s / junctionStubs) * Math.PI * 2;
+            const ux = Math.cos(a);
+            const uy = Math.sin(a);
+            const sx0 = x + ux * 13;
+            const sy0 = y + uy * 10;
+            c.strokeStyle = TEXT_DIM;
+            c.lineWidth = 2.5;
+            c.lineCap = "round";
+            c.beginPath();
+            c.moveTo(sx0, sy0);
+            c.lineTo(sx0 + ux * 6, sy0 + uy * 6);
+            c.moveTo(sx0 + ux * 15, sy0 + uy * 15);
+            c.lineTo(sx0 + ux * 19, sy0 + uy * 19);
+            c.stroke();
+            // Char mark at the stub's torn end.
+            c.fillStyle = ALARM;
+            c.beginPath();
+            c.arc(sx0 + ux * 7.5, sy0 + uy * 7.5, 2, 0, Math.PI * 2);
+            c.fill();
+            // Fizz: small intermittent arcs across the gap, fewer and rarer than a cable's spark.
+            const h = step * 3.7 + i * 2.9 + s * 11.3;
+            if (live && hash01(h) > 0.55) {
+              const off = (hash01(h + 1) - 0.5) * 7;
+              c.strokeStyle = WARM_HOT;
+              c.lineWidth = 1.5;
+              c.beginPath();
+              c.moveTo(sx0 + ux * 6, sy0 + uy * 6);
+              c.lineTo(sx0 + ux * 10.5 - uy * off, sy0 + uy * 10.5 + ux * off);
+              c.lineTo(sx0 + ux * 15, sy0 + uy * 15);
+              c.stroke();
+            }
+          }
+        } else {
+          c.beginPath();
+          c.arc(x, y, 5, 0, Math.PI * 2);
+          c.fill();
+          c.stroke();
+        }
         break;
       }
     }
@@ -637,6 +845,101 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle): Ma
       c.beginPath();
       c.arc(x, y, 22, 0, Math.PI * 2);
       c.stroke();
+    }
+  }
+
+  /** Shock streak, crackle at the culprit, then the pop with sparks flying out. Allocation-free. */
+  function drawSequences(t: number): void {
+    for (let s = 0; s < SLOTS; s++) {
+      if (slotActive[s] === 0) continue;
+      const hasPath = slotLineCount[s]! > 0;
+      const age = t - slotStart[s]!;
+      const base = s * MAX_PATH_POINTS;
+      const n = slotN[s]!;
+      const ni = slotNode[s]!;
+      if (hasPath && age < shockDuration(true) + 0.25) {
+        const f = shockProgress(age, true);
+        for (let p = 0; p < n; p++) {
+          ptX[p] = slotX[base + p]!;
+          ptY[p] = slotY[base + p]!;
+        }
+        if (age < shockDuration(true)) {
+          const m = sliceVertices(ptX, ptY, n, f - STREAK_FRACTION, f, sliceOut);
+          if (m >= 2) {
+            c.lineCap = "round";
+            c.lineJoin = "round";
+            c.beginPath();
+            c.moveTo(sliceOut[0]!, sliceOut[1]!);
+            for (let p = 1; p < m; p++) c.lineTo(sliceOut[p * 2]!, sliceOut[p * 2 + 1]!);
+            c.strokeStyle = SHOCK_GLOW;
+            c.globalAlpha = 0.55;
+            c.lineWidth = 12;
+            c.stroke();
+            c.globalAlpha = 1;
+            c.strokeStyle = SHOCK_CORE;
+            c.lineWidth = 3.5;
+            c.stroke();
+            pointAlong(ptX, ptY, n, f, headOut);
+            c.fillStyle = SHOCK_CORE;
+            c.beginPath();
+            c.arc(headOut[0]!, headOut[1]!, 5, 0, Math.PI * 2);
+            c.fill();
+          }
+        }
+        // Crackle of sparks at the culprit as the shock arrives.
+        if (f > 0.55) {
+          pointAlong(ptX, ptY, n, 1, headOut);
+          const ex = headOut[0]!;
+          const ey = headOut[1]!;
+          const step = Math.floor(t * 30);
+          c.strokeStyle = SHOCK_CORE;
+          c.lineWidth = 2;
+          c.beginPath();
+          for (let k = 0; k < 7; k++) {
+            const h = step * 5.3 + s * 3.1 + k * 1.9;
+            if (hash01(h) < 0.25) continue;
+            const a = hash01(h + 0.5) * Math.PI * 2;
+            const r0 = 6 + hash01(h + 1.5) * 4;
+            const r1 = r0 + 6 + hash01(h + 2.5) * 12;
+            c.moveTo(ex + Math.cos(a) * r0, ey + Math.sin(a) * r0);
+            c.lineTo(ex + Math.cos(a) * r1, ey + Math.sin(a) * r1);
+          }
+          c.stroke();
+        }
+      }
+      const pf = popFraction(age, hasPath);
+      if (pf >= 0) {
+        const x = geo.nx[ni]!;
+        const y = geo.ny[ni]!;
+        const TAU = Math.PI * 2;
+        // Flash and shock ring.
+        c.fillStyle = SHOCK_CORE;
+        c.globalAlpha = Math.max(0, 0.7 * (1 - pf * 3));
+        c.beginPath();
+        c.arc(x, y, 14 + pf * 24, 0, TAU);
+        c.fill();
+        c.globalAlpha = 1 - pf;
+        c.strokeStyle = WARM_HOT;
+        c.lineWidth = 3;
+        c.beginPath();
+        c.arc(x, y, 16 + pf * 70, 0, TAU);
+        c.stroke();
+        // Sparks flying out in all directions, each a streak that decelerates and fades.
+        c.lineWidth = 2.5;
+        c.beginPath();
+        for (let k = 0; k < 18; k++) {
+          const a = hash01(k * 3.7 + ni * 1.3) * TAU;
+          const sp = 50 + hash01(k * 5.9 + 1) * 90;
+          const e0 = 1 - (1 - pf) * (1 - pf);
+          const e1 = 1 - (1 - Math.max(pf - 0.15, 0)) * (1 - Math.max(pf - 0.15, 0));
+          const r1 = 10 + sp * e0;
+          const r0 = 10 + sp * e1;
+          c.moveTo(x + Math.cos(a) * r0, y + Math.sin(a) * r0);
+          c.lineTo(x + Math.cos(a) * r1, y + Math.sin(a) * r1);
+        }
+        c.stroke();
+        c.globalAlpha = 1;
+      }
     }
   }
 
@@ -657,11 +960,25 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle): Ma
         if (li !== undefined) faultLine[li] = code;
       }
     }
-    // Detect a fuse that just blew (not blown in the puzzle file) to pop it.
+    // A fuse that just blew (not blown in the puzzle file) pops. If notify() already queued a
+    // sequence for it, that plays; otherwise a pop-only sequence starts now.
     for (let i = 0; i < nNodes; i++) {
       const blown = faultNode[i] === K_FUSE ? 1 : 0;
-      if (blown === 1 && prevBlown[i] === 0 && hadFaultNode[i] === 0) popStart[i] = t;
+      if (blown === 1 && prevBlown[i] === 0 && hadFaultNode[i] === 0 && slotFor(i) < 0) startSlot(i, t);
       prevBlown[i] = blown;
+    }
+    // Advance sequences: stamp pending starts, free finished or undone ones, hold fuses intact until the pop.
+    holdIntact.fill(0);
+    for (let s = 0; s < SLOTS; s++) {
+      if (slotActive[s] === 0) continue;
+      if (slotStart[s] !== slotStart[s]) slotStart[s] = t;
+      const ni = slotNode[s]!;
+      const age = t - slotStart[s]!;
+      if (faultNode[ni] !== K_FUSE || age >= sequenceTotal(slotLineCount[s]! > 0)) {
+        slotActive[s] = 0;
+        continue;
+      }
+      if (fuseIntact(age, slotLineCount[s]! > 0)) holdIntact[ni] = 1;
     }
 
     // Detect a battery that just ran flat (released -> not released at charge 0) to pop it.
@@ -702,6 +1019,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle): Ma
 
     for (let i = 0; i < nLines; i++) drawLine(i, state, t, rt, rp, hover);
     for (let i = 0; i < nNodes; i++) drawNode(i, state, t, rt, rp, hover);
+    drawSequences(t);
 
     // Feed readout: load / capacity. Alarm state adds a "!" and a shake, not just colour.
     if (feedIdx >= 0) {
@@ -732,5 +1050,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle): Ma
     draw,
     hitTest: (x, y) => hitTestGeometry(geo, x, y),
     resize,
+    setInsets,
+    notify,
   };
 }

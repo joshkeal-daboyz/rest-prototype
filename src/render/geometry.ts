@@ -39,15 +39,29 @@ export function puzzleBounds(puzzle: Puzzle): Bounds {
   return { minX, maxX, minY, maxY };
 }
 
-/** Uniform scale that fits `bounds` in width x height with `padding` on every side, centred. */
-export function computeFit(bounds: Bounds, width: number, height: number, padding: number): Fit {
+export interface Insets {
+  top?: number;
+  right?: number;
+  bottom?: number;
+  left?: number;
+}
+
+/**
+ * Uniform scale that fits `bounds` in width x height with `padding` on every side, centred.
+ * `insets` (CSS px) reserve room for overlays: the map is fitted into what is left.
+ */
+export function computeFit(bounds: Bounds, width: number, height: number, padding: number, insets?: Insets): Fit {
+  const top = Math.max(insets?.top ?? 0, 0);
+  const right = Math.max(insets?.right ?? 0, 0);
+  const bottom = Math.max(insets?.bottom ?? 0, 0);
+  const left = Math.max(insets?.left ?? 0, 0);
   const spanX = Math.max(bounds.maxX - bounds.minX, 1e-6);
   const spanY = Math.max(bounds.maxY - bounds.minY, 1e-6);
-  const availX = Math.max(width - 2 * padding, 1);
-  const availY = Math.max(height - 2 * padding, 1);
+  const availX = Math.max(width - left - right - 2 * padding, 1);
+  const availY = Math.max(height - top - bottom - 2 * padding, 1);
   const scale = Math.min(availX / spanX, availY / spanY, MAX_SCALE);
-  const offsetX = (width - spanX * scale) / 2 - bounds.minX * scale;
-  const offsetY = (height - spanY * scale) / 2 - bounds.minY * scale;
+  const offsetX = left + (width - left - right - spanX * scale) / 2 - bounds.minX * scale;
+  const offsetY = top + (height - top - bottom - spanY * scale) / 2 - bounds.minY * scale;
   return { scale, offsetX, offsetY };
 }
 
@@ -73,8 +87,8 @@ export interface Geometry {
   decor: Float64Array[];
 }
 
-export function buildGeometry(puzzle: Puzzle, width: number, height: number, padding: number): Geometry {
-  const fit = computeFit(puzzleBounds(puzzle), width, height, padding);
+export function buildGeometry(puzzle: Puzzle, width: number, height: number, padding: number, insets?: Insets): Geometry {
+  const fit = computeFit(puzzleBounds(puzzle), width, height, padding, insets);
   const nn = puzzle.nodes.length;
   const nl = puzzle.lines.length;
   const nodeIds: string[] = [];
