@@ -8,3 +8,6 @@ Thumbs.db
 
 # Session logs downloaded from the game stay local
 playtests/*.json
+
+# Agent worktrees made by the Agent tool
+.claude/worktrees/
