@@ -2,7 +2,7 @@
  * Pure: the map's caption strings. The level words themselves are built by src/core/words.ts
  * (ticket 017); this module keeps the render-side names and adds the alarm form.
  */
-import { fuseLabel, lampLabel, powersourceLabel, usingText } from "../core";
+import { fuseLabel, lampLabel, namedPowersourceLabel, powersourceLabel, usingText } from "../core";
 
 /** `Lv2 Lamp`. */
 export function lampCaption(load: number): string {
@@ -27,4 +27,14 @@ export function feedUsing(load: number, capacity: number | null): string {
 /** The brownout form of the live total: `! using 5 of 4 !`. */
 export function feedAlarm(load: number, capacity: number | null): string {
   return `! ${feedUsing(load, capacity)} !`;
+}
+
+/** The name line above a feed on a multi-feed map: `North` (the name comes from `puzzleFeeds`). */
+export function feedHeading(name: string): string {
+  return name;
+}
+
+/** The full named form (`North · Lv4 Powersource`), for callers that want one line. */
+export function feedNamedCaption(name: string, capacity: number | null): string {
+  return namedPowersourceLabel(name, capacity);
 }

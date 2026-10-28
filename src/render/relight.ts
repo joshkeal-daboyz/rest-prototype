@@ -34,8 +34,9 @@ export function planRelight(puzzle: Puzzle, state: GridState): RelightPlan {
   const pos = (id: string): readonly [number, number] => nodes[nodeIdx.get(id) ?? 0]!.pos;
 
   const dist = new Float64Array(nodes.length).fill(Infinity);
-  const feedIdx = nodes.findIndex((n) => n.type === "feed");
-  if (feedIdx >= 0) dist[feedIdx] = 0;
+  nodes.forEach((n, i) => {
+    if (n.type === "feed") dist[i] = 0; // power leaves every feed (ticket 015)
+  });
 
   const lineLen = lines.map((l) => {
     const a = pos(l.from);
