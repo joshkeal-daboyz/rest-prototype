@@ -1,7 +1,7 @@
-# 011 · Make failures readable: say what broke and why
+﻿# 011 · Make failures readable: say what broke and why
 
 owner: ui (part A), renderer (parts B, E), interaction (part C), grid-simulator (part D; E depends on D)
-status: building
+status: review-passed
 branch: ticket/011-readable-failures
 
 ## Josh's words
