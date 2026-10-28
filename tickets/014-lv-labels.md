@@ -1,7 +1,7 @@
 # 014 · Lv labels: "Lv3 Fuse", "Lv2 Lamp", "Lv4 Powersource"
 
 owner: renderer (A), interaction (B), ui (C)
-status: part C merged (Josh: "merge 14"); parts A and B open
+status: done (merged; Josh: "merge")
 branch: ticket/014-lv-labels (one branch per part: `ticket/014-lv-labels-a`, `-b`, `-c`)
 
 ## Josh's words
