@@ -1,12 +1,14 @@
 /** The session log: every action in order, exportable as JSON. Pure. */
 
-export type LogKind = "throw-breaker" | "throw-switch" | "repair" | "repair-refused" | "undo" | "reset";
+export type LogKind = "throw-breaker" | "throw-switch" | "repair" | "repair-refused" | "battery-release" | "battery-stop" | "battery-flat" | "undo" | "reset";
 
 export interface LogEntry {
   /** 1, 2, 3, ... never reused and never reset (a reset is itself an entry). */
   step: number;
   /** Wall-clock ms since the epoch. */
   time: number;
+  /** Game seconds since the map opened (the play tick accumulator); present on battery entries. */
+  gameTime?: number;
   kind: LogKind;
   /** Node or line id acted on (absent for undo/reset). */
   target?: string;
@@ -15,6 +17,8 @@ export interface LogEntry {
   /** Why it was refused: the grid's reason. */
   reason?: string;
   needs?: { part: string; count: number; have: number };
+  /** battery-flat: true if the player stopped it early, false if it ran out. */
+  stopped?: boolean;
   /** Fault id repaired. */
   fault?: string;
 }
