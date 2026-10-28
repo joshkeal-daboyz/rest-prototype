@@ -1,0 +1,44 @@
+{
+  "id": "not-enough-for-all",
+  "name": "Not enough for all",
+  "version": 3,
+  "scope": "map",
+  "capacity": 4,
+  "startingParts": [],
+  "target": ["shrine"],
+  "priority": ["home_1", "home_2"],
+
+  "nodes": [
+    { "id": "feed",    "type": "feed",     "pos": [0, 0] },
+    { "id": "j0",      "type": "junction", "pos": [3, 0] },
+
+    { "id": "br_A",    "type": "breaker",  "pos": [6, -3], "closed": true },
+    { "id": "jA",      "type": "junction", "pos": [9, -3] },
+    { "id": "shrine",  "type": "lamp",     "pos": [12, -4], "load": 2 },
+    { "id": "lantern", "type": "lamp",     "pos": [12, -2], "load": 1 },
+
+    { "id": "br_B",    "type": "breaker",  "pos": [6, 0], "closed": true },
+    { "id": "jB",      "type": "junction", "pos": [9, 0] },
+    { "id": "home_1",  "type": "lamp",     "pos": [12, -0.5], "load": 1 },
+    { "id": "home_2",  "type": "lamp",     "pos": [12, 0.5], "load": 1 },
+
+    { "id": "br_C",    "type": "breaker",  "pos": [6, 3], "closed": true },
+    { "id": "market",  "type": "lamp",     "pos": [12, 3], "load": 1 }
+  ],
+
+  "lines": [
+    { "id": "l_feed",    "from": "feed", "to": "j0" },
+    { "id": "l_a0",      "from": "j0",   "to": "br_A" },
+    { "id": "l_a1",      "from": "br_A", "to": "jA" },
+    { "id": "l_shrine",  "from": "jA",   "to": "shrine" },
+    { "id": "l_lantern", "from": "jA",   "to": "lantern" },
+    { "id": "l_b0",      "from": "j0",   "to": "br_B" },
+    { "id": "l_b1",      "from": "br_B", "to": "jB" },
+    { "id": "l_home1",   "from": "jB",   "to": "home_1" },
+    { "id": "l_home2",   "from": "jB",   "to": "home_2" },
+    { "id": "l_c0",      "from": "j0",   "to": "br_C" },
+    { "id": "l_c1",      "from": "br_C", "to": "market" }
+  ],
+
+  "faults": []
+}
