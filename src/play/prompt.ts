@@ -2,7 +2,7 @@
  * Pure: what the pointer is over, and what a click would do. No DOM.
  * The prompt strings are the ones ticket 004 lists; the UI shows them verbatim.
  */
-import { DEFAULTS, FAULT_RULES, type FaultKind, type Puzzle } from "../core";
+import { carryingText, DEFAULTS, FAULT_RULES, type FaultKind, fuseLabel, lampLabel, type Puzzle } from "../core";
 import type { GridState } from "../grid";
 
 export type Intent =
@@ -70,7 +70,7 @@ export const TEXT = {
   relayStuck: "No power — relay stuck",
   springSwitch: (relay: boolean): string =>
     `Spring switch — returns when power is lost${relay ? " — relay" : ""}`,
-  wouldBlowAgain: (load: number, rating: number): string => ` · would blow again: ${load} on a Lv${rating} Fuse`,
+  wouldBlowAgain: (load: number, rating: number): string => ` · would blow again: ${load} on a ${fuseLabel(rating)}`,
 };
 
 const FAULT_LABEL: Record<FaultKind, string> = {
@@ -83,11 +83,11 @@ const FAULT_LABEL: Record<FaultKind, string> = {
 /** Informational hover for healthy lamps and fuseboxes (no click effect). */
 function infoPrompt(puzzle: Puzzle, state: GridState, id: string | null): string | null {
   const node = id === null ? undefined : puzzle.nodes.find((n) => n.id === id);
-  if (node?.type === "lamp") return `Lv${node.load ?? DEFAULTS.lampLoad} Lamp`;
+  if (node?.type === "lamp") return lampLabel(node.load ?? DEFAULTS.lampLoad);
   if (node?.type === "fusebox") {
     const carrying = state.fuseLoad.get(node.id) ?? 0;
-    if (node.rating === undefined) return `Fuse — carrying ${carrying}`;
-    return `Lv${node.rating} Fuse — ${carrying >= node.rating ? "at the limit" : `carrying ${carrying} of ${node.rating}`}`;
+    if (node.rating === undefined) return `${fuseLabel(undefined)} — ${carryingText(carrying, undefined)}`;
+    return `${fuseLabel(node.rating)} — ${carrying >= node.rating ? "at the limit" : carryingText(carrying, node.rating)}`;
   }
   return null;
 }
