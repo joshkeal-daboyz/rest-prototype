@@ -1,0 +1,28 @@
+{
+  "id": "02-this-way-or-that",
+  "name": "02 · This way or that",
+  "version": 4,
+  "scope": "map",
+  "capacity": 3,
+  "startingParts": [],
+  "target": ["shrine"],
+
+  "nodes": [
+    { "id": "feed",   "type": "feed",   "pos": [0, 0] },
+    { "id": "sw_1",   "type": "switch", "pos": [3, 0], "outputs": ["l_home", "l_on"], "selected": 0 },
+    { "id": "home",   "type": "lamp",   "pos": [7, -2.5], "load": 1 },
+    { "id": "sw_2",   "type": "switch", "pos": [7, 1.5], "outputs": ["l_well", "l_shrine"], "selected": 0 },
+    { "id": "well",   "type": "lamp",   "pos": [11, 0], "load": 1 },
+    { "id": "shrine", "type": "lamp",   "pos": [11, 3], "load": 1 }
+  ],
+
+  "lines": [
+    { "id": "l_feed",   "from": "feed", "to": "sw_1" },
+    { "id": "l_home",   "from": "sw_1", "to": "home" },
+    { "id": "l_on",     "from": "sw_1", "to": "sw_2" },
+    { "id": "l_well",   "from": "sw_2", "to": "well" },
+    { "id": "l_shrine", "from": "sw_2", "to": "shrine" }
+  ],
+
+  "faults": []
+}

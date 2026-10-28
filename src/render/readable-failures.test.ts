@@ -22,7 +22,7 @@ import {
   sliceVertices,
 } from "./shock";
 
-const puzzle = loadPuzzle(JSON.parse(readFileSync(join(__dirname, "..", "..", "puzzles", "shrine-circuit.json"), "utf8")));
+const puzzle = loadPuzzle(JSON.parse(readFileSync(join(__dirname, "..", "..", "puzzles", "08-shrine-circuit.json"), "utf8")));
 
 describe("lamp load shown by size, count and brightness", () => {
   it("draws 1, 2, 3 bulbs for load 1, 2, 3 and never more", () => {
@@ -117,7 +117,7 @@ describe("position along a multi-line path", () => {
 });
 
 describe("hit radius of a load-3 lamp", () => {
-  const battery = loadPuzzle(JSON.parse(readFileSync(join(__dirname, "..", "..", "puzzles", "battery-run.json"), "utf8")));
+  const battery = loadPuzzle(JSON.parse(readFileSync(join(__dirname, "..", "..", "puzzles", "18-battery-run.json"), "utf8")));
   it("hits on the outer bulb, which a flat 18 px would miss", () => {
     const g = buildGeometry(battery, 1000, 600, 60);
     const i = g.nodeIndex.get("mill")!;

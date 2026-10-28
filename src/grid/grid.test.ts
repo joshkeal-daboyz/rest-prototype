@@ -6,7 +6,7 @@ import { createGrid } from "./index";
 
 const PUZZLES = join(__dirname, "..", "..", "puzzles");
 const fixture = (f: string): Puzzle => loadPuzzle(JSON.parse(readFileSync(join(PUZZLES, f), "utf8")) as unknown);
-const shrine = (over: Partial<Puzzle> = {}): Puzzle => ({ ...fixture("shrine-circuit.json"), ...over });
+const shrine = (over: Partial<Puzzle> = {}): Puzzle => ({ ...fixture("08-shrine-circuit.json"), ...over });
 const lampRow = (over: Partial<Puzzle> = {}): Puzzle => ({ ...fixture("lamp-row.grid.json"), ...over });
 
 /** A small inline map. Positions don't matter to the simulator. */
@@ -425,7 +425,7 @@ describe("completion", () => {
     g.repairAt("l_b");
     g.throwBreaker("br_street");
     expect(g.state().complete).toBe(true);
-    expect(log.filter(([n]) => n === "job:completed")).toEqual([["job:completed", { puzzleId: "shrine-circuit", actions: 3 }]]);
+    expect(log.filter(([n]) => n === "job:completed")).toEqual([["job:completed", { puzzleId: "08-shrine-circuit", actions: 3 }]]);
 
     const before = g.state();
     expect(g.throwBreaker("br_street")).toBe(false);

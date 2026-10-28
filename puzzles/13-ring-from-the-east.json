@@ -1,0 +1,54 @@
+{
+  "id": "13-ring-from-the-east",
+  "name": "13 · Ring from the east",
+  "version": 4,
+  "scope": "map",
+  "capacity": 3,
+  "startingParts": ["wire", "fuse"],
+  "target": ["shrine", "well"],
+  "priority": ["gate"],
+
+  "nodes": [
+    { "id": "feed",    "type": "feed",     "pos": [0, 0] },
+    { "id": "j0",      "type": "junction", "pos": [2, 0] },
+    { "id": "sw_r",    "type": "switch",   "pos": [4, 0], "outputs": ["l_w", "l_e"], "selected": 0 },
+
+    { "id": "fb_W",    "type": "fusebox",  "pos": [5, -4], "rating": 2 },
+    { "id": "pW",      "type": "junction", "pos": [8, -4] },
+    { "id": "p1",      "type": "junction", "pos": [11, -4] },
+    { "id": "p2",      "type": "junction", "pos": [14, -4] },
+    { "id": "p3",      "type": "junction", "pos": [14, 0] },
+    { "id": "fb_E",    "type": "fusebox",  "pos": [5, 4], "rating": 3 },
+    { "id": "pE",      "type": "junction", "pos": [11, 4] },
+
+    { "id": "gate",    "type": "lamp",     "pos": [8, -6], "load": 1 },
+    { "id": "shrine",  "type": "lamp",     "pos": [11, -6], "load": 1 },
+    { "id": "well",    "type": "lamp",     "pos": [16.5, 0], "load": 1 },
+    { "id": "br_mill", "type": "breaker",  "pos": [11, 6], "closed": true },
+    { "id": "mill",    "type": "lamp",     "pos": [14, 6], "load": 2 }
+  ],
+
+  "lines": [
+    { "id": "l_feed",  "from": "feed",    "to": "j0" },
+    { "id": "l_sw",    "from": "j0",      "to": "sw_r" },
+    { "id": "l_w",     "from": "sw_r",    "to": "fb_W" },
+    { "id": "l_w2",    "from": "fb_W",    "to": "pW" },
+    { "id": "l_e",     "from": "sw_r",    "to": "fb_E" },
+    { "id": "l_e2",    "from": "fb_E",    "to": "pE" },
+
+    { "id": "l_r1",    "from": "pW",      "to": "p1" },
+    { "id": "l_r2",    "from": "p1",      "to": "p2" },
+    { "id": "l_r3",    "from": "p2",      "to": "p3" },
+    { "id": "l_r4",    "from": "p3",      "to": "pE" },
+
+    { "id": "l_gate",  "from": "pW",      "to": "gate" },
+    { "id": "l_shrine","from": "p1",      "to": "shrine" },
+    { "id": "l_well",  "from": "p3",      "to": "well" },
+    { "id": "l_mill",  "from": "pE",      "to": "br_mill" },
+    { "id": "l_mill2", "from": "br_mill", "to": "mill" }
+  ],
+
+  "faults": [
+    { "id": "f1", "at": "l_r3", "kind": "damaged-cable" }
+  ]
+}

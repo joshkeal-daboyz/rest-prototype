@@ -1,0 +1,56 @@
+{
+  "id": "25-switch-before-breaker",
+  "name": "25 · Switch before breaker",
+  "version": 4,
+  "scope": "map",
+  "capacity": 3,
+  "startingParts": ["fuse", "fuse"],
+  "target": ["shrine", "gate", "well"],
+  "priority": ["yard"],
+
+  "nodes": [
+    { "id": "feed",    "type": "feed",     "pos": [0, 0] },
+    { "id": "j0",      "type": "junction", "pos": [2, 0] },
+
+    { "id": "br_E",    "type": "breaker",  "pos": [4, -3], "closed": false },
+    { "id": "fb_E",    "type": "fusebox",  "pos": [6.5, -3], "rating": 2 },
+    { "id": "sw_E",    "type": "switch",   "pos": [9, -3], "outputs": ["l_mill", "l_t"], "selected": 0 },
+    { "id": "mill",    "type": "lamp",     "pos": [12, -6], "load": 3 },
+    { "id": "jT",      "type": "junction", "pos": [12, -2] },
+    { "id": "shrine",  "type": "lamp",     "pos": [14.5, -3], "load": 1 },
+    { "id": "gate",    "type": "lamp",     "pos": [14.5, -1], "load": 1 },
+
+    { "id": "fb_W",    "type": "fusebox",  "pos": [5, 3], "rating": 1 },
+    { "id": "jW",      "type": "junction", "pos": [8, 3] },
+    { "id": "well",    "type": "lamp",     "pos": [11, 2], "load": 1 },
+    { "id": "br_ln",   "type": "breaker",  "pos": [10, 4.5], "closed": true },
+    { "id": "lane",    "type": "lamp",     "pos": [12.5, 4.5], "load": 1 },
+
+    { "id": "br_yd",   "type": "breaker",  "pos": [4, 6], "closed": true },
+    { "id": "yard",    "type": "lamp",     "pos": [7, 6.5], "load": 1 }
+  ],
+
+  "lines": [
+    { "id": "l_feed",   "from": "feed",  "to": "j0" },
+    { "id": "l_e",      "from": "j0",    "to": "br_E" },
+    { "id": "l_e1",     "from": "br_E",  "to": "fb_E" },
+    { "id": "l_e2",     "from": "fb_E",  "to": "sw_E" },
+    { "id": "l_mill",   "from": "sw_E",  "to": "mill" },
+    { "id": "l_t",      "from": "sw_E",  "to": "jT" },
+    { "id": "l_shrine", "from": "jT",    "to": "shrine" },
+    { "id": "l_gate",   "from": "jT",    "to": "gate" },
+
+    { "id": "l_w",      "from": "j0",    "to": "fb_W" },
+    { "id": "l_w2",     "from": "fb_W",  "to": "jW" },
+    { "id": "l_well",   "from": "jW",    "to": "well" },
+    { "id": "l_ln",     "from": "jW",    "to": "br_ln" },
+    { "id": "l_ln2",    "from": "br_ln", "to": "lane" },
+
+    { "id": "l_yd",     "from": "j0",    "to": "br_yd" },
+    { "id": "l_yd2",    "from": "br_yd", "to": "yard" }
+  ],
+
+  "faults": [
+    { "id": "f1", "at": "fb_W", "kind": "blown-fuse" }
+  ]
+}

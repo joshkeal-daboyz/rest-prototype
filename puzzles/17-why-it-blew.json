@@ -1,0 +1,50 @@
+{
+  "id": "17-why-it-blew",
+  "name": "17 · Why it blew",
+  "version": 4,
+  "scope": "map",
+  "capacity": 4,
+  "startingParts": ["fuse", "fuse"],
+  "target": ["shrine", "gate"],
+  "priority": ["home"],
+
+  "nodes": [
+    { "id": "feed",      "type": "feed",     "pos": [0, 0] },
+    { "id": "j0",        "type": "junction", "pos": [2.5, 0] },
+    { "id": "br_gate",   "type": "breaker",  "pos": [5, -4], "closed": true },
+    { "id": "gate",      "type": "lamp",     "pos": [8, -4], "load": 1 },
+
+    { "id": "fb_1",      "type": "fusebox",  "pos": [5, 1], "rating": 2 },
+    { "id": "j1",        "type": "junction", "pos": [7.5, 1] },
+    { "id": "br_mill",   "type": "breaker",  "pos": [10, -2.5], "closed": true },
+    { "id": "mill",      "type": "lamp",     "pos": [14, -2.5], "load": 2 },
+    { "id": "br_home",   "type": "breaker",  "pos": [10, 0], "closed": true },
+    { "id": "home",      "type": "lamp",     "pos": [14, 0], "load": 1 },
+    { "id": "br_market", "type": "breaker",  "pos": [10, 2.5], "closed": true },
+    { "id": "market",    "type": "lamp",     "pos": [14, 2.5], "load": 1 },
+    { "id": "sw_1",      "type": "switch",   "pos": [10, 5], "outputs": ["l_lantern", "l_shrine"], "selected": 0 },
+    { "id": "lantern",   "type": "lamp",     "pos": [14, 4.5], "load": 1 },
+    { "id": "shrine",    "type": "lamp",     "pos": [14, 6.5], "load": 2 }
+  ],
+
+  "lines": [
+    { "id": "l_feed",    "from": "feed",      "to": "j0" },
+    { "id": "l_g0",      "from": "j0",        "to": "br_gate" },
+    { "id": "l_gate",    "from": "br_gate",   "to": "gate" },
+    { "id": "l_fa",      "from": "j0",        "to": "fb_1" },
+    { "id": "l_fb",      "from": "fb_1",      "to": "j1" },
+    { "id": "l_m0",      "from": "j1",        "to": "br_mill" },
+    { "id": "l_mill",    "from": "br_mill",   "to": "mill" },
+    { "id": "l_h0",      "from": "j1",        "to": "br_home" },
+    { "id": "l_home",    "from": "br_home",   "to": "home" },
+    { "id": "l_k0",      "from": "j1",        "to": "br_market" },
+    { "id": "l_market",  "from": "br_market", "to": "market" },
+    { "id": "l_sw",      "from": "j1",        "to": "sw_1" },
+    { "id": "l_lantern", "from": "sw_1",      "to": "lantern" },
+    { "id": "l_shrine",  "from": "sw_1",      "to": "shrine" }
+  ],
+
+  "faults": [
+    { "id": "f1", "at": "fb_1", "kind": "blown-fuse" }
+  ]
+}

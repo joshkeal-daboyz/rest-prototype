@@ -1,0 +1,75 @@
+{
+  "id": "51-from-behind",
+  "name": "51 · Reach it from behind",
+  "version": 4,
+  "scope": "map",
+  "capacity": 8,
+  "startingParts": ["fuse"],
+  "target": ["well", "gate", "shrine", "chapel"],
+  "priority": ["kiln", "mill", "forge"],
+
+  "nodes": [
+    { "id": "feed",   "type": "feed",     "pos": [0, 0] },
+    { "id": "j0",     "type": "junction", "pos": [2, 0] },
+
+    { "id": "br_A",   "type": "breaker",  "pos": [4, -6], "closed": false },
+    { "id": "fb_A",   "type": "fusebox",  "pos": [6, -6], "rating": 2 },
+    { "id": "jA1",    "type": "junction", "pos": [8, -6] },
+    { "id": "jA2",    "type": "junction", "pos": [10, -6] },
+    { "id": "r_1",    "type": "switch",   "pos": [12, -6], "outputs": ["l_1M", "l_1S"], "selected": 0, "relay": true },
+    { "id": "mill",   "type": "lamp",     "pos": [15, -8], "load": 3 },
+    { "id": "shrine", "type": "lamp",     "pos": [15, -4.5], "load": 2 },
+
+    { "id": "fb_B",   "type": "fusebox",  "pos": [4, 0], "rating": 5 },
+    { "id": "jB",     "type": "junction", "pos": [6, 0] },
+    { "id": "well",   "type": "lamp",     "pos": [6, 2.5], "load": 2 },
+    { "id": "br_g",   "type": "breaker",  "pos": [8, 1.5], "closed": true },
+    { "id": "r_2",    "type": "switch",   "pos": [10, 1.5], "outputs": ["l_2K", "l_2G"], "selected": 0, "relay": true },
+    { "id": "kiln",   "type": "lamp",     "pos": [12.5, 3], "load": 2 },
+    { "id": "gate",   "type": "lamp",     "pos": [12.5, 0.5], "load": 2 },
+    { "id": "br_t1",  "type": "breaker",  "pos": [9, -3], "closed": false },
+    { "id": "br_t2",  "type": "breaker",  "pos": [9, 3], "closed": false },
+
+    { "id": "br_C",   "type": "breaker",  "pos": [4, 6], "closed": false },
+    { "id": "fb_C",   "type": "fusebox",  "pos": [6, 6], "rating": 2 },
+    { "id": "jC1",    "type": "junction", "pos": [8, 6] },
+    { "id": "jC2",    "type": "junction", "pos": [10, 6] },
+    { "id": "r_3",    "type": "switch",   "pos": [12, 6], "outputs": ["l_3F", "l_3C"], "selected": 0, "relay": true },
+    { "id": "forge",  "type": "lamp",     "pos": [15, 8], "load": 3 },
+    { "id": "chapel", "type": "lamp",     "pos": [15, 4.5], "load": 2 }
+  ],
+
+  "lines": [
+    { "id": "l_feed", "from": "feed",  "to": "j0" },
+
+    { "id": "l_A0",   "from": "j0",    "to": "br_A" },
+    { "id": "l_A1",   "from": "br_A",  "to": "fb_A" },
+    { "id": "l_A2",   "from": "fb_A",  "to": "jA1" },
+    { "id": "l_A3",   "from": "jA1",   "to": "jA2" },
+    { "id": "l_A4",   "from": "jA2",   "to": "r_1" },
+    { "id": "l_1M",   "from": "r_1",   "to": "mill" },
+    { "id": "l_1S",   "from": "r_1",   "to": "shrine" },
+
+    { "id": "l_B0",   "from": "j0",    "to": "fb_B" },
+    { "id": "l_B1",   "from": "fb_B",  "to": "jB" },
+    { "id": "l_well", "from": "jB",    "to": "well" },
+    { "id": "l_B2",   "from": "jB",    "to": "br_g" },
+    { "id": "l_B3",   "from": "br_g",  "to": "r_2" },
+    { "id": "l_2K",   "from": "r_2",   "to": "kiln" },
+    { "id": "l_2G",   "from": "r_2",   "to": "gate" },
+    { "id": "l_t1a",  "from": "jB",    "to": "br_t1" },
+    { "id": "l_t1b",  "from": "br_t1", "to": "r_1" },
+    { "id": "l_t2a",  "from": "jB",    "to": "br_t2" },
+    { "id": "l_t2b",  "from": "br_t2", "to": "r_3" },
+
+    { "id": "l_C0",   "from": "j0",    "to": "br_C" },
+    { "id": "l_C1",   "from": "br_C",  "to": "fb_C" },
+    { "id": "l_C2",   "from": "fb_C",  "to": "jC1" },
+    { "id": "l_C3",   "from": "jC1",   "to": "jC2" },
+    { "id": "l_C4",   "from": "jC2",   "to": "r_3" },
+    { "id": "l_3F",   "from": "r_3",   "to": "forge" },
+    { "id": "l_3C",   "from": "r_3",   "to": "chapel" }
+  ],
+
+  "faults": []
+}

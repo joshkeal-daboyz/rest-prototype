@@ -1,0 +1,61 @@
+{
+  "id": "36-look-behind",
+  "name": "36 · Look behind it first",
+  "version": 4,
+  "scope": "map",
+  "capacity": 3,
+  "startingParts": ["wire", "fuse", "bulb"],
+  "target": ["chapel", "well"],
+  "priority": ["homes", "ovens"],
+
+  "nodes": [
+    { "id": "feed",    "type": "feed",     "pos": [0, 0] },
+    { "id": "j0",      "type": "junction", "pos": [2, 0] },
+
+    { "id": "sw_1",    "type": "switch",   "pos": [4, -2], "outputs": ["l_1a", "l_1b"], "selected": 0 },
+    { "id": "jU",      "type": "junction", "pos": [10, -5] },
+
+    { "id": "fb_L",    "type": "fusebox",  "pos": [6, 1], "rating": 5 },
+    { "id": "jM",      "type": "junction", "pos": [10, 1] },
+    { "id": "br_ov",   "type": "breaker",  "pos": [10, 4], "closed": true },
+    { "id": "ovens",   "type": "lamp",     "pos": [10, 6.5], "load": 2 },
+
+    { "id": "hub",     "type": "junction", "pos": [14, -2] },
+    { "id": "chapel",  "type": "lamp",     "pos": [17, -3], "load": 2 },
+    { "id": "well",    "type": "lamp",     "pos": [17, -0.5], "load": 1 },
+
+    { "id": "sw_2",    "type": "switch",   "pos": [4, -6], "outputs": ["l_2h", "l_2s"], "selected": 0 },
+    { "id": "homes",   "type": "lamp",     "pos": [2, -9], "load": 2 },
+    { "id": "jS",      "type": "junction", "pos": [7, -8] }
+  ],
+
+  "lines": [
+    { "id": "l_feed", "from": "feed",  "to": "j0" },
+    { "id": "l_j1",   "from": "j0",    "to": "sw_1" },
+    { "id": "l_j2",   "from": "j0",    "to": "sw_2" },
+
+    { "id": "l_1a",   "from": "sw_1",  "to": "jU" },
+    { "id": "l_u2",   "from": "jU",    "to": "hub" },
+
+    { "id": "l_1b",   "from": "sw_1",  "to": "fb_L" },
+    { "id": "l_m1",   "from": "fb_L",  "to": "jM" },
+    { "id": "l_m2",   "from": "jM",    "to": "hub" },
+    { "id": "l_ov1",  "from": "jM",    "to": "br_ov" },
+    { "id": "l_ov2",  "from": "br_ov", "to": "ovens" },
+
+    { "id": "l_2h",   "from": "sw_2",  "to": "homes" },
+    { "id": "l_2s",   "from": "sw_2",  "to": "jS" },
+    { "id": "l_s2",   "from": "jS",    "to": "jU" },
+
+    { "id": "l_ch",   "from": "hub",   "to": "chapel" },
+    { "id": "l_we",   "from": "hub",   "to": "well" }
+  ],
+
+  "faults": [
+    { "id": "f_1a",    "at": "l_1a",   "kind": "damaged-cable" },
+    { "id": "f_jU",    "at": "jU",     "kind": "dead-junction" },
+    { "id": "f_fuse",  "at": "fb_L",   "kind": "blown-fuse" },
+    { "id": "f_m2",    "at": "l_m2",   "kind": "damaged-cable" },
+    { "id": "f_chapel","at": "chapel", "kind": "dead-lamp" }
+  ]
+}

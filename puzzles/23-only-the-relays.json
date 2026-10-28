@@ -1,0 +1,59 @@
+{
+  "id": "23-only-the-relays",
+  "name": "23 · Only the relays",
+  "version": 4,
+  "scope": "map",
+  "capacity": 3,
+  "startingParts": ["fuse", "fuse"],
+  "target": ["shrine", "well"],
+  "priority": ["gate"],
+
+  "nodes": [
+    { "id": "feed",    "type": "feed",     "pos": [0, 2] },
+    { "id": "j1",      "type": "junction", "pos": [2, 2] },
+    { "id": "gate",    "type": "lamp",     "pos": [2, 0], "load": 1 },
+
+    { "id": "br_E",    "type": "breaker",  "pos": [4, 2], "closed": false },
+    { "id": "fb_E",    "type": "fusebox",  "pos": [6, 2], "rating": 2 },
+    { "id": "j_E",     "type": "junction", "pos": [8, 2] },
+
+    { "id": "rl_N",    "type": "switch",   "pos": [10, 0], "outputs": ["l_mill", "l_pN"], "selected": 0, "relay": true },
+    { "id": "mill",    "type": "lamp",     "pos": [10, -3], "load": 3 },
+    { "id": "sw_N",    "type": "switch",   "pos": [13, 0], "outputs": ["l_tannery", "l_shrine"], "selected": 0 },
+    { "id": "tannery", "type": "lamp",     "pos": [13, -3], "load": 2 },
+    { "id": "shrine",  "type": "lamp",     "pos": [16, 0], "load": 1 },
+
+    { "id": "rl_S",    "type": "switch",   "pos": [10, 4], "outputs": ["l_forge", "l_pS"], "selected": 0, "relay": true },
+    { "id": "forge",   "type": "lamp",     "pos": [10, 7], "load": 3 },
+    { "id": "sw_S",    "type": "switch",   "pos": [13, 4], "outputs": ["l_kiln", "l_well"], "selected": 0 },
+    { "id": "kiln",    "type": "lamp",     "pos": [13, 7], "load": 2 },
+    { "id": "well",    "type": "lamp",     "pos": [16, 4], "load": 1 },
+
+    { "id": "bat",     "type": "battery",  "pos": [5, 6], "capacity": 4, "charge": 0, "input": "l_in" }
+  ],
+
+  "lines": [
+    { "id": "l_feed",    "from": "feed", "to": "j1" },
+    { "id": "l_gate",    "from": "j1",   "to": "gate" },
+    { "id": "l_e0",      "from": "j1",   "to": "br_E" },
+    { "id": "l_e1",      "from": "br_E", "to": "fb_E" },
+    { "id": "l_e2",      "from": "fb_E", "to": "j_E" },
+
+    { "id": "l_eN",      "from": "j_E",  "to": "rl_N" },
+    { "id": "l_mill",    "from": "rl_N", "to": "mill" },
+    { "id": "l_pN",      "from": "rl_N", "to": "sw_N" },
+    { "id": "l_tannery", "from": "sw_N", "to": "tannery" },
+    { "id": "l_shrine",  "from": "sw_N", "to": "shrine" },
+
+    { "id": "l_eS",      "from": "j_E",  "to": "rl_S" },
+    { "id": "l_forge",   "from": "rl_S", "to": "forge" },
+    { "id": "l_pS",      "from": "rl_S", "to": "sw_S" },
+    { "id": "l_kiln",    "from": "sw_S", "to": "kiln" },
+    { "id": "l_well",    "from": "sw_S", "to": "well" },
+
+    { "id": "l_in",      "from": "j1",   "to": "bat" },
+    { "id": "l_out",     "from": "bat",  "to": "j_E" }
+  ],
+
+  "faults": []
+}

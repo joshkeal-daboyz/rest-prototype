@@ -17,7 +17,7 @@ describe("every puzzle file in puzzles/ validates", () => {
 });
 
 describe("the validator catches broken puzzles", () => {
-  const base = () => structuredClone(read("shrine-circuit.json")) as Record<string, unknown>;
+  const base = () => structuredClone(read("08-shrine-circuit.json")) as Record<string, unknown>;
 
   it("a lamp with two lines is not a leaf", () => {
     const p = base();

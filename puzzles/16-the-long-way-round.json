@@ -1,0 +1,59 @@
+{
+  "id": "16-the-long-way-round",
+  "name": "16 · The long way round",
+  "version": 4,
+  "scope": "map",
+  "capacity": 3,
+  "startingParts": ["fuse", "fuse", "wire"],
+  "target": ["shrine", "gate"],
+  "priority": ["home_1", "home_2"],
+
+  "nodes": [
+    { "id": "feed",    "type": "feed",     "pos": [0, 0] },
+    { "id": "j0",      "type": "junction", "pos": [2, 0] },
+
+    { "id": "fb_D",    "type": "fusebox",  "pos": [6, -3], "rating": 2 },
+    { "id": "jT",      "type": "junction", "pos": [13, -3] },
+    { "id": "shrine",  "type": "lamp",     "pos": [15.5, -4], "load": 2 },
+    { "id": "gate",    "type": "lamp",     "pos": [15.5, -2], "load": 1 },
+
+    { "id": "sw_L",    "type": "switch",   "pos": [4, 2], "outputs": ["l_mk", "l_l"], "selected": 0 },
+    { "id": "market",  "type": "lamp",     "pos": [4, 5], "load": 1 },
+    { "id": "fb_L",    "type": "fusebox",  "pos": [7, 2], "rating": 3 },
+    { "id": "jL",      "type": "junction", "pos": [10, 2] },
+    { "id": "br_st",   "type": "breaker",  "pos": [10, 4.5], "closed": true },
+    { "id": "stall",   "type": "lamp",     "pos": [12.5, 4.5], "load": 1 },
+
+    { "id": "br_hm",   "type": "breaker",  "pos": [2, -3], "closed": true },
+    { "id": "jH",      "type": "junction", "pos": [2, -6] },
+    { "id": "home_1",  "type": "lamp",     "pos": [0.5, -7.5], "load": 1 },
+    { "id": "home_2",  "type": "lamp",     "pos": [3.5, -7.5], "load": 1 }
+  ],
+
+  "lines": [
+    { "id": "l_feed",   "from": "feed",  "to": "j0" },
+    { "id": "l_d",      "from": "j0",    "to": "fb_D" },
+    { "id": "l_d2",     "from": "fb_D",  "to": "jT" },
+    { "id": "l_shrine", "from": "jT",    "to": "shrine" },
+    { "id": "l_gate",   "from": "jT",    "to": "gate" },
+
+    { "id": "l_sw",     "from": "j0",    "to": "sw_L" },
+    { "id": "l_mk",     "from": "sw_L",  "to": "market" },
+    { "id": "l_l",      "from": "sw_L",  "to": "fb_L" },
+    { "id": "l_l2",     "from": "fb_L",  "to": "jL" },
+    { "id": "l_st",     "from": "jL",    "to": "br_st" },
+    { "id": "l_st2",    "from": "br_st", "to": "stall" },
+    { "id": "l_L",      "from": "jL",    "to": "jT" },
+
+    { "id": "l_hm",     "from": "j0",    "to": "br_hm" },
+    { "id": "l_hm2",    "from": "br_hm", "to": "jH" },
+    { "id": "l_h1",     "from": "jH",    "to": "home_1" },
+    { "id": "l_h2",     "from": "jH",    "to": "home_2" }
+  ],
+
+  "faults": [
+    { "id": "f1", "at": "fb_D", "kind": "blown-fuse" },
+    { "id": "f2", "at": "fb_L", "kind": "blown-fuse" },
+    { "id": "f3", "at": "l_L",  "kind": "damaged-cable" }
+  ]
+}

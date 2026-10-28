@@ -1,0 +1,96 @@
+{
+  "id": "53-leave-it-blown",
+  "name": "53 · Leave it blown",
+  "version": 4,
+  "scope": "map",
+  "capacity": 7,
+  "startingParts": ["fuse", "fuse", "wire", "bulb", "bulb"],
+  "target": ["well", "shrine", "gate", "bell", "chapel"],
+  "priority": ["mill", "ovens", "forge", "lantern"],
+
+  "nodes": [
+    { "id": "feed",    "type": "feed",     "pos": [0, 0] },
+    { "id": "j0",      "type": "junction", "pos": [2, 0] },
+
+    { "id": "fb_N",    "type": "fusebox",  "pos": [4, -6], "rating": 3 },
+    { "id": "r_N",     "type": "switch",   "pos": [6, -6], "outputs": ["l_Nm", "l_Nr"], "selected": 0, "relay": true },
+    { "id": "mill",    "type": "lamp",     "pos": [6, -9], "load": 3 },
+
+    { "id": "jS1",     "type": "junction", "pos": [2, 4] },
+    { "id": "jS2",     "type": "junction", "pos": [2, 7] },
+    { "id": "br_S",    "type": "breaker",  "pos": [4, 7], "closed": false },
+    { "id": "fb_S",    "type": "fusebox",  "pos": [6, 7], "rating": 4 },
+    { "id": "r_S",     "type": "switch",   "pos": [8, 7], "outputs": ["l_So", "l_Sr"], "selected": 0, "relay": true },
+    { "id": "ovens",   "type": "lamp",     "pos": [8, 10], "load": 3 },
+
+    { "id": "R0",      "type": "junction", "pos": [10, -6] },
+    { "id": "R1",      "type": "junction", "pos": [16, -6] },
+    { "id": "fb_T",    "type": "fusebox",  "pos": [16, -1], "rating": 1 },
+    { "id": "R2",      "type": "junction", "pos": [16, 4] },
+    { "id": "R3",      "type": "junction", "pos": [10, 4] },
+    { "id": "br_o",    "type": "breaker",  "pos": [10, -1], "closed": true },
+
+    { "id": "well",    "type": "lamp",     "pos": [12.5, -3.5], "load": 1 },
+    { "id": "shrine",  "type": "lamp",     "pos": [16, -9], "load": 2 },
+    { "id": "gate",    "type": "lamp",     "pos": [18.5, 6], "load": 1 },
+    { "id": "bell",    "type": "lamp",     "pos": [12.5, 1.5], "load": 2 },
+
+    { "id": "br_t",    "type": "breaker",  "pos": [19, 4], "closed": false },
+    { "id": "jt",      "type": "junction", "pos": [21, 4] },
+    { "id": "lantern", "type": "lamp",     "pos": [21, 6.5], "load": 1 },
+
+    { "id": "br_E",    "type": "breaker",  "pos": [21, -9], "closed": false },
+    { "id": "fb_E",    "type": "fusebox",  "pos": [23, -9], "rating": 1 },
+    { "id": "r_E",     "type": "switch",   "pos": [23, -2], "outputs": ["l_Ef", "l_Ec"], "selected": 0, "relay": true },
+    { "id": "forge",   "type": "lamp",     "pos": [26, -4], "load": 3 },
+    { "id": "chapel",  "type": "lamp",     "pos": [26, 0], "load": 1 }
+  ],
+
+  "lines": [
+    { "id": "l_feed",  "from": "feed",  "to": "j0" },
+
+    { "id": "l_N0",    "from": "j0",    "to": "fb_N" },
+    { "id": "l_N1",    "from": "fb_N",  "to": "r_N" },
+    { "id": "l_Nm",    "from": "r_N",   "to": "mill" },
+    { "id": "l_Nr",    "from": "r_N",   "to": "R0" },
+
+    { "id": "l_S0",    "from": "j0",    "to": "jS1" },
+    { "id": "l_S1",    "from": "jS1",   "to": "jS2" },
+    { "id": "l_S2",    "from": "jS2",   "to": "br_S" },
+    { "id": "l_S3",    "from": "br_S",  "to": "fb_S" },
+    { "id": "l_S4",    "from": "fb_S",  "to": "r_S" },
+    { "id": "l_So",    "from": "r_S",   "to": "ovens" },
+    { "id": "l_Sr",    "from": "r_S",   "to": "R3" },
+
+    { "id": "l_r01",   "from": "R0",    "to": "R1" },
+    { "id": "l_r1T",   "from": "R1",    "to": "fb_T" },
+    { "id": "l_rT2",   "from": "fb_T",  "to": "R2" },
+    { "id": "l_r23",   "from": "R2",    "to": "R3" },
+    { "id": "l_r3o",   "from": "R3",    "to": "br_o" },
+    { "id": "l_ro0",   "from": "br_o",  "to": "R0" },
+
+    { "id": "l_well",  "from": "R0",    "to": "well" },
+    { "id": "l_shr",   "from": "R1",    "to": "shrine" },
+    { "id": "l_gate",  "from": "R2",    "to": "gate" },
+    { "id": "l_bell",  "from": "R3",    "to": "bell" },
+
+    { "id": "l_t0",    "from": "R2",    "to": "br_t" },
+    { "id": "l_t1",    "from": "br_t",  "to": "jt" },
+    { "id": "l_lan",   "from": "jt",    "to": "lantern" },
+    { "id": "l_t2",    "from": "jt",    "to": "r_E" },
+
+    { "id": "l_E0",    "from": "j0",    "to": "br_E" },
+    { "id": "l_E1",    "from": "br_E",  "to": "fb_E" },
+    { "id": "l_E2",    "from": "fb_E",  "to": "r_E" },
+    { "id": "l_Ef",    "from": "r_E",   "to": "forge" },
+    { "id": "l_Ec",    "from": "r_E",   "to": "chapel" }
+  ],
+
+  "faults": [
+    { "id": "f_T",    "at": "fb_T",  "kind": "blown-fuse" },
+    { "id": "f_S",    "at": "fb_S",  "kind": "blown-fuse" },
+    { "id": "f_r23",  "at": "l_r23", "kind": "damaged-cable" },
+    { "id": "f_gate", "at": "gate",  "kind": "dead-lamp" },
+    { "id": "f_bell", "at": "bell",  "kind": "dead-lamp" }
+  ]
+}

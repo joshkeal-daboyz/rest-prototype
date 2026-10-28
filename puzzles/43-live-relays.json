@@ -1,0 +1,71 @@
+{
+  "id": "43-live-relays",
+  "name": "43 · Relays only move live",
+  "version": 4,
+  "scope": "map",
+  "capacity": 5,
+  "startingParts": ["wire", "wire", "bulb", "fuse"],
+  "target": ["well", "shrine", "gate", "chapel"],
+  "priority": ["forge", "ovens"],
+
+  "nodes": [
+    { "id": "feed",   "type": "feed",     "pos": [0, 0] },
+    { "id": "j0",     "type": "junction", "pos": [2, 0] },
+
+    { "id": "fb_A",   "type": "fusebox",  "pos": [4, -4], "rating": 3 },
+    { "id": "r_A1",   "type": "switch",   "pos": [6, -4], "outputs": ["l_A1F", "l_A1J"], "selected": 0, "relay": true },
+    { "id": "forge",  "type": "lamp",     "pos": [6, -7.5], "load": 3 },
+    { "id": "jA",     "type": "junction", "pos": [9, -4] },
+    { "id": "br_w",   "type": "breaker",  "pos": [9, -6.5], "closed": true },
+    { "id": "well",   "type": "lamp",     "pos": [9, -9], "load": 1 },
+    { "id": "jA2",    "type": "junction", "pos": [11, -4] },
+    { "id": "r_A2",   "type": "switch",   "pos": [13, -4], "outputs": ["l_A2M", "l_A2S"], "selected": 0, "relay": true },
+    { "id": "mill",   "type": "lamp",     "pos": [16, -6], "load": 3 },
+    { "id": "shrine", "type": "lamp",     "pos": [16, -2], "load": 2 },
+
+    { "id": "jB0",    "type": "junction", "pos": [2, 4] },
+    { "id": "br_B",   "type": "breaker",  "pos": [3.5, 4], "closed": false },
+    { "id": "fb_B",   "type": "fusebox",  "pos": [5, 4], "rating": 2 },
+    { "id": "r_B1",   "type": "switch",   "pos": [7, 4], "outputs": ["l_B1O", "l_B1J"], "selected": 0, "relay": true },
+    { "id": "ovens",  "type": "lamp",     "pos": [7, 7.5], "load": 2 },
+    { "id": "jB",     "type": "junction", "pos": [10, 4] },
+    { "id": "gate",   "type": "lamp",     "pos": [10, 7.5], "load": 1 },
+    { "id": "jB2",    "type": "junction", "pos": [12, 4] },
+    { "id": "r_B2",   "type": "switch",   "pos": [14, 4], "outputs": ["l_B2K", "l_B2C"], "selected": 0, "relay": true },
+    { "id": "kiln",   "type": "lamp",     "pos": [17, 2], "load": 2 },
+    { "id": "chapel", "type": "lamp",     "pos": [17, 6], "load": 1 }
+  ],
+
+  "lines": [
+    { "id": "l_feed", "from": "feed", "to": "j0" },
+
+    { "id": "l_A0",   "from": "j0",   "to": "fb_A" },
+    { "id": "l_A1",   "from": "fb_A", "to": "r_A1" },
+    { "id": "l_A1F",  "from": "r_A1", "to": "forge" },
+    { "id": "l_A1J",  "from": "r_A1", "to": "jA" },
+    { "id": "l_Aw1",  "from": "jA",   "to": "br_w" },
+    { "id": "l_Aw2",  "from": "br_w", "to": "well" },
+    { "id": "l_A2",   "from": "jA",   "to": "jA2" },
+    { "id": "l_A3",   "from": "jA2",  "to": "r_A2" },
+    { "id": "l_A2M",  "from": "r_A2", "to": "mill" },
+    { "id": "l_A2S",  "from": "r_A2", "to": "shrine" },
+
+    { "id": "l_B0",   "from": "j0",   "to": "jB0" },
+    { "id": "l_B0b",  "from": "jB0",  "to": "br_B" },
+    { "id": "l_B1",   "from": "br_B", "to": "fb_B" },
+    { "id": "l_B2",   "from": "fb_B", "to": "r_B1" },
+    { "id": "l_B1O",  "from": "r_B1", "to": "ovens" },
+    { "id": "l_B1J",  "from": "r_B1", "to": "jB" },
+    { "id": "l_gate", "from": "jB",   "to": "gate" },
+    { "id": "l_B3",   "from": "jB",   "to": "jB2" },
+    { "id": "l_B4",   "from": "jB2",  "to": "r_B2" },
+    { "id": "l_B2K",  "from": "r_B2", "to": "kiln" },
+    { "id": "l_B2C",  "from": "r_B2", "to": "chapel" }
+  ],
+
+  "faults": [
+    { "id": "f_A2",   "at": "l_A2", "kind": "damaged-cable" },
+    { "id": "f_B3",   "at": "l_B3", "kind": "damaged-cable" },
+    { "id": "f_gate", "at": "gate", "kind": "dead-lamp" }
+  ]
+}
