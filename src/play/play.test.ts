@@ -55,7 +55,7 @@ describe("prompts", () => {
 
   it("shows the shortfall for a readable fault the satchel can't cover", () => {
     const s = setup();
-    expect(s.over("j_dead").prompt).toBe("Dead junction â€” Needs: 2 wires");
+    expect(s.over("j_dead").prompt).toBe("Dead junction — Needs: 2 wires");
   });
 
   it("gives no repair prompt for an unreadable fault, and null for anything else", () => {
@@ -69,7 +69,7 @@ describe("prompts", () => {
   it("offers Repair (wire) once the fault is readable and the part is on hand", () => {
     const s = setup();
     s.play.click("sw_1");
-    expect(s.over("l_b").prompt).toBe("Damaged cable â€” Repair (wire)");
+    expect(s.over("l_b").prompt).toBe("Damaged cable — Repair (wire)");
   });
 });
 
@@ -103,9 +103,9 @@ describe("clicks", () => {
     s.play.click("j_dead");
     expect(s.grid.state().parts).toEqual(["wire"]);
     s.play.hoverAt(null);
-    expect(s.play.view().prompt).toBe("Dead junction â€” Needs: 2 wires");
+    expect(s.play.view().prompt).toBe("Needs: wire × 2");
     s.play.tick(NEEDS_FLASH_SECONDS - 0.1);
-    expect(s.play.view().prompt).toBe("Dead junction â€” Needs: 2 wires");
+    expect(s.play.view().prompt).toBe("Needs: wire × 2");
     s.play.tick(0.2);
     expect(s.play.view().prompt).toBeNull();
   });
