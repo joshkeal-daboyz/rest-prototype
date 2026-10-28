@@ -62,14 +62,20 @@ export function createMapPlay(
     if (done()) return;
     const intent = intentFor(puzzle, grid.state(), id);
     if (!intent) return;
+    const refused = (): void => bus.emit("play:click", { kind: "refused", target: intent.id });
     if (intent.kind === "breaker") {
-      log.add({ kind: "throw-breaker", target: intent.id, ok: grid.throwBreaker(intent.id) });
+      const ok = grid.throwBreaker(intent.id);
+      log.add({ kind: "throw-breaker", target: intent.id, ok });
+      if (!ok) refused();
     } else if (intent.kind === "switch") {
-      log.add({ kind: "throw-switch", target: intent.id, ok: grid.throwSwitch(intent.id) });
+      const ok = grid.throwSwitch(intent.id);
+      log.add({ kind: "throw-switch", target: intent.id, ok });
+      if (!ok) refused();
     } else if (intent.kind === "battery") {
       const wasReleased = grid.state().batteries.get(intent.id)?.released ?? false;
       const ok = grid.release(intent.id);
       log.add({ kind: wasReleased ? "battery-stop" : "battery-release", target: intent.id, ok, gameTime });
+      if (!ok) refused();
     } else {
       const r = grid.repairAt(intent.id);
       if (r.ok) {
@@ -77,6 +83,7 @@ export function createMapPlay(
       } else {
         const entry = { kind: "repair-refused" as const, target: intent.id, ok: false, reason: r.reason };
         log.add(r.needs ? { ...entry, needs: r.needs } : entry);
+        refused();
         if (r.reason === "needs-parts" && r.needs) {
           flash = { text: needsText(r.needs.part, r.needs.count), left: NEEDS_FLASH_SECONDS };
         }
@@ -87,6 +94,7 @@ export function createMapPlay(
   function undo(): void {
     if (done()) return; // the Relight can't be interrupted
     log.add({ kind: "undo", ok: grid.undo() });
+    bus.emit("play:click", { kind: "undo" });
   }
 
   function reset(): void {
@@ -94,6 +102,7 @@ export function createMapPlay(
     relightT = null;
     flash = null;
     log.add({ kind: "reset", ok: true });
+    bus.emit("play:click", { kind: "reset" });
   }
 
   return {
