@@ -8,7 +8,8 @@ import { FAULT_RULES, type Events, type FaultKind, type Puzzle } from "../core";
 import type { GridState } from "../grid";
 import { buildGeometry, hitTestGeometry, type Geometry, type Insets } from "./geometry";
 import { FUSE_BAR_HEIGHT, FUSE_BAR_TOP, FUSE_BAR_WIDTH, fuseFill, fuseStep, fuseTickOffsets } from "./fusebar";
-import { feedAlarm, feedName, feedUsing, fuseCaption, lampCaption } from "./labels";
+import { createFeedCaptions } from "./feedcaps";
+import { fuseCaption, lampCaption } from "./labels";
 import { bulbOffsets, clusterRadius, poolAlpha, poolRadiusScale } from "./load";
 import {
   LAMP_DROPPED,
@@ -143,7 +144,6 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
   let geo: Geometry = buildGeometry(puzzle, 1, 1, PADDING, insets);
 
   // ---- per-puzzle precomputation ----
-  const feedIdx = nodes.findIndex((n) => n.type === "feed");
   const targetSet = new Set(puzzle.target && puzzle.target.length ? puzzle.target : []);
   const allTargets = !puzzle.target || puzzle.target.length === 0;
   const isTarget = new Uint8Array(nNodes);
@@ -251,11 +251,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
   const headOut = new Float64Array(2);
 
   let plan: RelightPlan | null = null;
-  let feedNameLabel = "";
-  let feedLabel = "";
-  let feedAlarmLabel = "";
-  let feedLoad = NaN;
-  let feedCap: number | null = -1;
+  const feedCaps = createFeedCaptions(puzzle);
 
   function resize(): void {
     const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
@@ -1268,28 +1264,29 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     drawSequences(t);
 
     // Feed readout: "using N of M" (Lv wording). Alarm state adds a "!" and a shake, not just colour.
-    if (feedIdx >= 0) {
-      if (feedLoad !== state.load || feedCap !== state.capacity) {
-        feedLoad = state.load;
-        feedCap = state.capacity;
-        feedNameLabel = feedName(state.capacity);
-        feedLabel = feedUsing(state.load, state.capacity);
-        feedAlarmLabel = feedAlarm(state.load, state.capacity);
+    feedCaps.update(state);
+    c.font = FONT_FEED;
+    c.textAlign = "center";
+    c.textBaseline = "middle";
+    for (let k = 0; k < feedCaps.nodeIdx.length; k++) {
+      const ni = feedCaps.nodeIdx[k]!;
+      if (ni < 0) continue;
+      const fx = geo.nx[ni]!;
+      const fy = geo.ny[ni]!;
+      const over = feedCaps.isOver(k, state);
+      if (feedCaps.heading[k] !== "") {
+        c.fillStyle = over ? ALARM : TEXT;
+        c.fillText(feedCaps.heading[k]!, fx, fy - 26);
       }
-      const fx = geo.nx[feedIdx]!;
-      const fy = geo.ny[feedIdx]!;
-      c.font = FONT_FEED;
-      c.textAlign = "center";
-      c.textBaseline = "middle";
-      if (state.brownout) {
+      if (over) {
         const shake = Math.sin(t * 40) * 1.5;
         c.fillStyle = ALARM;
-        c.fillText(feedNameLabel, fx, fy + 32);
-        c.fillText(feedAlarmLabel, fx + shake, fy + 46);
+        c.fillText(feedCaps.name[k]!, fx, fy + 32);
+        c.fillText(feedCaps.alarm[k]!, fx + shake, fy + 46);
       } else {
         c.fillStyle = TEXT;
-        c.fillText(feedNameLabel, fx, fy + 32);
-        c.fillText(feedLabel, fx, fy + 46);
+        c.fillText(feedCaps.name[k]!, fx, fy + 32);
+        c.fillText(feedCaps.using[k]!, fx, fy + 46);
       }
     }
   }
