@@ -14,6 +14,8 @@ export interface GridState {
   faults: readonly Fault[];
   breakers: ReadonlyMap<string, boolean>;
   switches: ReadonlyMap<string, 0 | 1>;
+  /** Per battery node: charge held (seconds), capacity, released (a source for its far side), charging now. */
+  batteries: ReadonlyMap<string, { charge: number; capacity: number; released: boolean; charging: boolean }>;
   parts: readonly Part[];
   targets: readonly string[];
   load: number;
@@ -31,6 +33,10 @@ export interface Grid {
   state(): GridState;
   throwBreaker(nodeId: string): boolean;
   throwSwitch(nodeId: string): boolean;
+  /** Release a battery (a source for its far side while it has charge), or stop a released one early. False if not a battery or empty. */
+  release(nodeId: string): boolean;
+  /** The only time input. Charges and drains batteries; changes nothing on a map without one. */
+  advance(dtSeconds: number): void;
   repairAt(at: string): RepairResult;
   undo(): boolean;
   reset(): void;
