@@ -96,4 +96,32 @@ describe("fuse:blown names the culprit (ticket 011 D)", () => {
     expect(g.state().faults).toEqual([]);
     expect(g.state().complete).toBe(true);
   });
+
+  it("culprit rule: a lamp rerouted from one fuse onto another is new under the second fuse", () => {
+    const p = mini(
+      [
+        { id: "feed", type: "feed" }, { id: "s", type: "switch", outputs: ["la", "lb"], selected: 0 },
+        { id: "fbA", type: "fusebox", rating: 5 }, { id: "fbB", type: "fusebox", rating: 1 },
+        { id: "j", type: "junction" }, { id: "m", type: "lamp", load: 3 },
+      ],
+      [["l0", "feed", "s"], ["la", "s", "fbA"], ["lb", "s", "fbB"], ["ja", "fbA", "j"], ["jb", "fbB", "j"], ["lm", "j", "m"]],
+    );
+    const bus = new EventBus();
+    const log = blows(bus);
+    const g = createGrid(p, bus);
+    expect(g.state().lit.has("m")).toBe(true);
+    g.throwSwitch("s");
+    expect(log).toHaveLength(1);
+    expect(log[0]).toMatchObject({ nodeId: "fbB", culprit: "m", path: ["jb", "lm"] });
+  });
+
+  it("culprit rule: repairing a blown fuse under the same overload blows it again and names the culprit", () => {
+    const bus = new EventBus();
+    const log = blows(bus);
+    const g = createGrid(runMap(), bus);
+    g.throwBreaker("br_east");
+    expect(g.repairAt("fb_east").ok).toBe(true);
+    expect(log).toHaveLength(2);
+    expect(log[1]).toMatchObject({ nodeId: "fb_east", culprit: "mill", path: ["l_e2", "l_mill"] });
+  });
 });

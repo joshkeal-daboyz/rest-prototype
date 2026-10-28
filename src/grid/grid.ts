@@ -12,8 +12,8 @@ interface Mutable {
   faults: Fault[];
   parts: Part[];
   actions: number;
-  /** Lamps the feed lit (powered, unfaulted) at the last settle; null before the first. Names the culprit of a blow. */
-  prevFed: ReadonlySet<string> | null;
+  /** Per unfaulted fusebox at the last settle: the lit lamps downstream of it (null before the first settle). Decides which lamp is new under a fuse that blows. */
+  prevUnder: ReadonlyMap<string, ReadonlySet<string>> | null;
 }
 
 const cloneMutable = (m: Mutable): Mutable => ({
@@ -22,7 +22,7 @@ const cloneMutable = (m: Mutable): Mutable => ({
   faults: m.faults.map((f) => ({ ...f })),
   parts: [...m.parts],
   actions: m.actions,
-  prevFed: m.prevFed,
+  prevUnder: m.prevUnder,
 });
 
 interface BatteryRun {
@@ -73,7 +73,7 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
       faults: puzzle.faults.map((f) => ({ ...f })),
       parts: [...(puzzle.startingParts ?? [])],
       actions: 0,
-      prevFed: null,
+      prevUnder: null,
     };
   };
 
@@ -136,21 +136,22 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
   }
 
   /**
-   * The lamp newly fed through `fuseId` (in its downstream tree now, not fed before the action); the
+   * The lamp newly fed through `fuseId` (downstream of it now, not under that fuse before the action); the
    * largest load wins, ties by discovery order. `null` with no earlier settle or no new lamp.
    */
   function nameCulprit(
     f: Flow,
     fuseId: string,
-    before: ReadonlySet<string> | null,
+    before: ReadonlyMap<string, ReadonlySet<string>> | null,
     loadOf: (id: string) => number,
   ): { culprit: string | null; path: string[] } {
     if (before === null) return { culprit: null, path: [] };
+    const was = before.get(fuseId) ?? new Set<string>();
     let best: string | null = null;
     let bestLoad = 0;
     for (const id of f.order) {
       const w = loadOf(id);
-      if (w <= bestLoad || before.has(id)) continue;
+      if (w <= bestLoad || was.has(id)) continue;
       for (let c: string | undefined = id; c !== undefined; c = f.parent.get(c)) {
         if (c === fuseId && c !== id) {
           best = id;
@@ -167,7 +168,7 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
 
   /** Recompute, blowing overloaded fuses (outermost first) until stable. Mutates `m.faults`. */
   function settle(m: Mutable, emit: boolean): GridState {
-    const before = m.prevFed;
+    const before = m.prevUnder;
     for (;;) {
       const f = flow(m, feedId);
       const faulted = new Set(m.faults.map((x) => x.at));
@@ -225,7 +226,15 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
         });
       }
 
-      m.prevFed = new Set(lampIds.filter((l) => loadOf(l) > 0));
+      const under = new Map<string, Set<string>>();
+      for (const fid of f.order) {
+        if (nodes.get(fid)!.type === "fusebox" && !faulted.has(fid)) under.set(fid, new Set());
+      }
+      for (const l of lampIds) {
+        if (loadOf(l) <= 0) continue;
+        for (let c = f.parent.get(l); c !== undefined; c = f.parent.get(c)) under.get(c)?.add(l);
+      }
+      m.prevUnder = under;
       const lit = new Set<string>();
       let load = 0;
       for (const id of lampIds) {
