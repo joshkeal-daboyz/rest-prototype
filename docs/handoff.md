@@ -4,7 +4,7 @@
 
 ## Where things stand
 
-- **Playable:** `npm run dev` → six maps in the picker: shrine-circuit, where-it-stops, behind-the-first, not-enough-for-all, battery-run, which-fuse (012 D, if merged). Nothing in `puzzles/locked/` yet; every map note has an empty or partial **What it taught us** for Josh's verdict in his words.
+- **Playable:** `npm run dev` → six maps in the picker: shrine-circuit, where-it-stops, behind-the-first, not-enough-for-all, battery-run, which-fuse. Ticket 012 (fuse load bars, fuse hover, the which-fuse map) is merged; 207 tests. Nothing in `puzzles/locked/` yet; every map note has an empty or partial **What it taught us** for Josh's verdict in his words.
 - **Mechanics on `main`:** power routing with breakers and switches; faults hide faults; parts bulb/fuse/wire; capacity brownout; fuse rating with the blow naming its culprit; battery with relay switches; every readable fault signals; the shock-to-culprit-then-pop sequence; load shown by bulb count and brightness; event notices; hover explanations; fuse load bar (012 B).
 - **Tests:** ~200 Vitest tests; `npm run gate` = typecheck + tests; CI on push.
 - **Tickets:** `tickets/` — 001–011 done; 012 in flight or done (check its `status:`); 006 is the housekeeping backlog (countedLit, dispose, ignored-click log, the per-click log parse behind the relay notice, notice wiring in `main.ts`, junction stub angles, flash wording); 007 is folded into 011.
