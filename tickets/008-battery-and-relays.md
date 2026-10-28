@@ -1,7 +1,7 @@
-# 008 · Battery and relay switches: grid rules
+﻿# 008 Â· Battery and relay switches: grid rules
 
 owner: grid-simulator
-status: open (awaiting G1)
+status: review-passed
 branch: ticket/008-battery-grid
 
 ## Josh's request
