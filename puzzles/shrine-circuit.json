@@ -51,9 +51,5 @@
   "faults": [
     { "id": "f1", "at": "j_dead", "kind": "dead-junction" },
     { "id": "f2", "at": "l_b",    "kind": "damaged-cable" }
-  ],
-
-  "decor": [
-    { "path": [[11, 4], [13, 5], [14, 4]] }
   ]
 }

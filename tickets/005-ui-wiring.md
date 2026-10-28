@@ -1,7 +1,7 @@
 # 005 · UI overlay and wiring
 
 owner: ui
-status: open
+status: review-passed
 branch: ticket/005-ui-wiring
 depends on: 002, 003, 004
 
