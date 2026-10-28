@@ -1,4 +1,4 @@
-﻿# 008 Â· Battery and relay switches: grid rules
+﻿# 008 · Battery and relay switches: grid rules
 
 owner: grid-simulator
 status: review-passed
