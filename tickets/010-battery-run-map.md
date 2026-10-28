@@ -1,7 +1,7 @@
-# 010 · Map: Battery run
+﻿# 010 · Map: Battery run
 
 owner: puzzle-designer
-status: open (awaiting G1)
+status: built
 branch: ticket/010-battery-run
 depends on: 008 (to verify with the simulator)
 
