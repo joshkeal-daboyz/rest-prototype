@@ -167,6 +167,22 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
     return { culprit: best, path: path.reverse() };
   }
 
+  /**
+   * Every lamp summed into the load that blew `fuseId`: powered by `f`, below the fuse, not faulted, load > 0,
+   * in flow discovery order, each with its line path from the fuse.
+   */
+  function blownLamps(f: Flow, fuseId: string, loadOf: (id: string) => number): Array<{ id: string; path: string[] }> {
+    const out: Array<{ id: string; path: string[] }> = [];
+    for (const id of f.order) {
+      if (nodes.get(id)!.type !== "lamp" || loadOf(id) <= 0) continue;
+      const path: string[] = [];
+      let c: string | undefined = id;
+      for (; c !== undefined && c !== fuseId; c = f.parent.get(c)) path.push(f.parentLine.get(c)!);
+      if (c === fuseId) out.push({ id, path: path.reverse() });
+    }
+    return out;
+  }
+
   /** Recompute, blowing overloaded fuses (outermost first) until stable. Mutates `m.faults`. */
   function settle(m: Mutable, emit: boolean): GridState {
     const before = m.prevUnder;
@@ -197,7 +213,7 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
           m.faults.push(fault);
           if (emit) {
             const { culprit, path } = nameCulprit(f, id, before, loadOf);
-            bus.emit("fuse:blown", { nodeId: id, faultId: fault.id, load, rating, culprit, path });
+            bus.emit("fuse:blown", { nodeId: id, faultId: fault.id, load, rating, culprit, path, lamps: blownLamps(f, id, loadOf) });
           }
           blew = true;
           break;
