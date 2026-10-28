@@ -42,11 +42,18 @@ export function createMapPlay(
   const log = createSessionLog(options.now);
   let hover: string | null = null;
   let relightT: number | null = null;
+  let gameTime = 0;
   let flash: { text: string; left: number } | null = null;
 
   // The Relight starts at 0 when the job completes. Reset (the only way back) clears it.
   bus.on("job:completed", () => {
     relightT = 0;
+  });
+
+  // A click-stop also emits battery:flat (stopped: true); the click already logged battery-stop.
+  bus.on("battery:flat", (e) => {
+    if (e.stopped) return;
+    log.add({ kind: "battery-flat", target: e.nodeId, ok: true, stopped: false, gameTime });
   });
 
   const done = (): boolean => grid.state().complete;
@@ -59,6 +66,10 @@ export function createMapPlay(
       log.add({ kind: "throw-breaker", target: intent.id, ok: grid.throwBreaker(intent.id) });
     } else if (intent.kind === "switch") {
       log.add({ kind: "throw-switch", target: intent.id, ok: grid.throwSwitch(intent.id) });
+    } else if (intent.kind === "battery") {
+      const wasReleased = grid.state().batteries.get(intent.id)?.released ?? false;
+      const ok = grid.release(intent.id);
+      log.add({ kind: wasReleased ? "battery-stop" : "battery-release", target: intent.id, ok, gameTime });
     } else {
       const r = grid.repairAt(intent.id);
       if (r.ok) {
@@ -127,6 +138,10 @@ export function createMapPlay(
     exportLog: () => log.toJSON(puzzle.id),
 
     tick(dt) {
+      if (dt > 0 && !done()) {
+        gameTime += dt;
+        grid.advance(dt);
+      }
       if (flash) {
         flash.left -= dt;
         if (flash.left <= 0) flash = null;
