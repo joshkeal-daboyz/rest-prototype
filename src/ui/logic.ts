@@ -5,11 +5,14 @@
  */
 
 import {
+  AUDIO_PREFS_KEY,
   carryingText,
+  DEFAULT_AUDIO_PREFS,
   fuseLabel,
   namedPowersourceLabel,
   powersourceLabel,
   usingText,
+  type AudioPrefs,
   type FeedInfo,
   type FeedReadout,
   type Part,
@@ -208,4 +211,82 @@ export function noticeOpacity(ageMs: number): number {
 export function liveNotices<T extends { born: number }>(notices: readonly T[], nowMs: number, max = NOTICE_MAX): T[] {
   const alive = notices.filter((n) => nowMs - n.born < NOTICE_LIFETIME_MS);
   return alive.length > max ? alive.slice(alive.length - max) : alive;
+}
+
+// ---- sound controls (ticket 019 B) ----
+
+/** The slice of localStorage the prefs use. Any Storage fits; tests pass a plain object. */
+export interface StorageLike {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+}
+
+/** A finite volume clamped to 0..1. NaN (not a number at all) gives the default volume. */
+export function clampVolume(volume: number): number {
+  if (Number.isNaN(volume)) return DEFAULT_AUDIO_PREFS.volume;
+  return Math.min(1, Math.max(0, volume));
+}
+
+/**
+ * Parses the raw localStorage string under AUDIO_PREFS_KEY. Missing, junk JSON, a wrong shape, a
+ * non-boolean `muted` or a volume outside 0..1 all give DEFAULT_AUDIO_PREFS. Never throws.
+ */
+export function parseAudioPrefs(raw: string | null | undefined): AudioPrefs {
+  const fallback: AudioPrefs = { muted: DEFAULT_AUDIO_PREFS.muted, volume: DEFAULT_AUDIO_PREFS.volume };
+  if (typeof raw !== "string") return fallback;
+  let data: unknown;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+  if (typeof data !== "object" || data === null) return fallback;
+  const { muted, volume } = data as { muted?: unknown; volume?: unknown };
+  if (typeof muted !== "boolean") return fallback;
+  if (typeof volume !== "number" || !Number.isFinite(volume) || volume < 0 || volume > 1) return fallback;
+  return { muted, volume };
+}
+
+/** The string written under AUDIO_PREFS_KEY. */
+export function serializeAudioPrefs(prefs: AudioPrefs): string {
+  return JSON.stringify({ muted: prefs.muted, volume: prefs.volume });
+}
+
+/** Reads the saved prefs. No storage, or storage that throws, gives the defaults. */
+export function readAudioPrefs(storage: StorageLike | null | undefined): AudioPrefs {
+  if (!storage) return parseAudioPrefs(null);
+  try {
+    return parseAudioPrefs(storage.getItem(AUDIO_PREFS_KEY));
+  } catch {
+    return parseAudioPrefs(null);
+  }
+}
+
+/** Writes the prefs. Returns false (and does not throw) when storage is missing or refuses the write. */
+export function writeAudioPrefs(storage: StorageLike | null | undefined, prefs: AudioPrefs): boolean {
+  if (!storage) return false;
+  try {
+    storage.setItem(AUDIO_PREFS_KEY, serializeAudioPrefs(prefs));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** The mute button's text: it names the state. "Sound on" while audible, "Sound off" while muted. */
+export function soundToggleLabel(muted: boolean): string {
+  return muted ? "Sound off" : "Sound on";
+}
+
+/** The volume slider's position (0..100) for a volume (0..1). */
+export function volumeToSlider(volume: number): number {
+  return Math.round(clampVolume(volume) * 100);
+}
+
+/** The volume (0..1) for a slider value. A value that is not a number leaves nothing to set: null. */
+export function sliderToVolume(value: string | number): number | null {
+  if (value === "") return null;
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return null;
+  return clampVolume(n / 100);
 }
