@@ -17,6 +17,8 @@ function fakeRenderer(): MapRenderer & { next: string | null; calls: Array<[numb
     calls: [] as Array<[number, number]>,
     draw() {},
     resize() {},
+    setInsets() {},
+    notify() {},
     hitTest(x: number, y: number) {
       r.calls.push([x, y]);
       return r.next;
