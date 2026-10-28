@@ -82,6 +82,21 @@ export function promptPosition(
   };
 }
 
+/**
+ * "Battery: 4 s" for the lowest charge among released batteries, rounded up to whole seconds.
+ * Null when no battery is released, so the countdown is hidden.
+ */
+export function batteryCountdown(state: {
+  batteries: ReadonlyMap<string, { charge: number; released: boolean }>;
+}): string | null {
+  let lowest: number | null = null;
+  for (const battery of state.batteries.values()) {
+    if (!battery.released) continue;
+    if (lowest === null || battery.charge < lowest) lowest = battery.charge;
+  }
+  return lowest === null ? null : `Battery: ${Math.ceil(lowest)} s`;
+}
+
 /** Map picker label; locked maps are marked in words. */
 export function mapLabel(map: { name: string; locked: boolean }): string {
   return map.locked ? `${map.name} (locked)` : map.name;

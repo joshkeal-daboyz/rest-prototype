@@ -1,5 +1,27 @@
 import { describe, expect, it } from "vitest";
-import { bannerText, capacityReadout, mapLabel, partsSummary, promptPosition, promptToShow, targetRows, WIN_TEXT } from "./logic";
+import { batteryCountdown, bannerText, capacityReadout, mapLabel, partsSummary, promptPosition, promptToShow, targetRows, WIN_TEXT } from "./logic";
+
+describe("batteryCountdown", () => {
+  const battery = (charge: number, released: boolean) => ({ charge, capacity: 10, released, charging: false });
+
+  it("is null when no battery is released", () => {
+    expect(batteryCountdown({ batteries: new Map([["b1", battery(7, false)]]) })).toBeNull();
+    expect(batteryCountdown({ batteries: new Map() })).toBeNull();
+  });
+
+  it("rounds a released charge up to whole seconds", () => {
+    expect(batteryCountdown({ batteries: new Map([["b1", battery(3.2, true)]]) })).toBe("Battery: 4 s");
+  });
+
+  it("shows the lowest charge when several batteries are released", () => {
+    const batteries = new Map([
+      ["b1", battery(6.5, true)],
+      ["b2", battery(2.1, true)],
+      ["b3", battery(1, false)],
+    ]);
+    expect(batteryCountdown({ batteries })).toBe("Battery: 3 s");
+  });
+});
 
 describe("promptPosition", () => {
   const bounds = { width: 800, height: 600 };
