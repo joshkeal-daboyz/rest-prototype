@@ -1,7 +1,7 @@
 # 009 · Battery and relays on screen
 
 owner: renderer (part A), interaction (part B), ui (part C)
-status: open (awaiting G1)
+status: review-passed
 branch: ticket/009-battery-screen
 depends on: 008
 
