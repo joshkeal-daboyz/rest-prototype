@@ -1,7 +1,7 @@
 # 004 · Play a map
 
 owner: interaction
-status: open
+status: review-passed
 branch: ticket/004-play-map
 depends on: 002, 003
 
