@@ -11,6 +11,8 @@ export interface GridState {
   readableFaults: ReadonlySet<string>;
   /** Line ids with a readable damaged-cable. */
   sparking: ReadonlySet<string>;
+  /** Per fusebox: total load of lamps lit by the feed's own flow downstream of it (the number the blow check compares to `rating`); 0 when unpowered or blown. */
+  fuseLoad: ReadonlyMap<string, number>;
   faults: readonly Fault[];
   breakers: ReadonlyMap<string, boolean>;
   switches: ReadonlyMap<string, 0 | 1>;
