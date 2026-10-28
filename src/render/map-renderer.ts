@@ -629,7 +629,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
       c.stroke();
     }
 
-    // Load caption: the unit word, same as the feed's readout.
+    // Lv caption: "Lv<n> Lamp", same wording as the feed's readout.
     c.font = FONT;
     c.textAlign = "center";
     c.textBaseline = "middle";
@@ -1267,7 +1267,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     for (let i = 0; i < nNodes; i++) drawNode(i, state, t, rt, rp, hover);
     drawSequences(t);
 
-    // Feed readout: load / capacity. Alarm state adds a "!" and a shake, not just colour.
+    // Feed readout: "using N of M" (Lv wording). Alarm state adds a "!" and a shake, not just colour.
     if (feedIdx >= 0) {
       if (feedLoad !== state.load || feedCap !== state.capacity) {
         feedLoad = state.load;
