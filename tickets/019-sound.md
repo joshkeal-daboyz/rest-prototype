@@ -1,7 +1,7 @@
 # 019 · Sound
 
 owner: lead-architect (0), sound (A), renderer (C), interaction (D), ui (B)
-status: in progress (G1: Josh, "approved")
+status: done
 branch: one per part: `ticket/019-sound` (part 0), `ticket/019-sound-a`, `ticket/019-sound-c`, `ticket/019-sound-d`, `ticket/019-sound-b`
 
 ## Josh's words
