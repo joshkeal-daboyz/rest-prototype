@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { batteryCountdown, bannerText, capacityReadout, mapLabel, partsSummary, promptPosition, promptToShow, targetRows, WIN_TEXT } from "./logic";
+import {
+  batteryCountdown,
+  bannerText,
+  capacityReadout,
+  liveNotices,
+  mapLabel,
+  noticeFor,
+  noticeOpacity,
+  partsSummary,
+  promptPosition,
+  promptToShow,
+  targetRows,
+  WIN_TEXT,
+} from "./logic";
+import type { LogEntry } from "../play";
 
 describe("batteryCountdown", () => {
   const battery = (charge: number, released: boolean) => ({ charge, capacity: 10, released, charging: false });
@@ -104,5 +118,65 @@ describe("mapLabel", () => {
   it("marks locked maps in the picker text", () => {
     expect(mapLabel({ name: "The shrine circuit", locked: false })).toBe("The shrine circuit");
     expect(mapLabel({ name: "The shrine circuit", locked: true })).toBe("The shrine circuit (locked)");
+  });
+});
+
+describe("noticeFor", () => {
+  const log = (over: Partial<LogEntry>): LogEntry => ({ step: 1, time: 0, kind: "throw-switch", ok: false, ...over });
+  const relays = new Set(["relay_a"]);
+
+  it("names the load and the fuse rating when a fuse blows", () => {
+    expect(noticeFor({ kind: "fuse:blown", load: 3, rating: 1 })).toBe("Fuse blew: 3 load through a ≤1 fuse");
+  });
+
+  it("says brownout with load and capacity when the section goes over, and nothing when it recovers", () => {
+    expect(noticeFor({ kind: "grid:brownout", brownout: true, load: 6, capacity: 4 })).toBe(
+      "Brownout: load 6 over capacity 4",
+    );
+    expect(noticeFor({ kind: "grid:brownout", brownout: false, load: 4, capacity: 4 })).toBeNull();
+  });
+
+  it("says the battery is flat when it ran out, not when the player stopped it", () => {
+    expect(noticeFor({ kind: "battery:flat", stopped: false })).toBe("Battery flat");
+    expect(noticeFor({ kind: "battery:flat", stopped: true })).toBeNull();
+  });
+
+  it("says no power at a relay whose throw was refused", () => {
+    expect(noticeFor({ kind: "relay-refused", entry: log({ target: "relay_a" }), relays })).toBe(
+      "No power at that relay",
+    );
+  });
+
+  it("stays quiet for a relay throw that worked, a refused non-relay switch, or other refused actions", () => {
+    expect(noticeFor({ kind: "relay-refused", entry: log({ target: "relay_a", ok: true }), relays })).toBeNull();
+    expect(noticeFor({ kind: "relay-refused", entry: log({ target: "plain_switch" }), relays })).toBeNull();
+    expect(noticeFor({ kind: "relay-refused", entry: log({ kind: "repair-refused", target: "relay_a" }), relays })).toBeNull();
+    expect(noticeFor({ kind: "relay-refused", entry: log({ kind: "throw-breaker", target: "relay_a" }), relays })).toBeNull();
+  });
+});
+
+describe("noticeOpacity", () => {
+  it("is fully opaque until the last second, then fades to nothing at four seconds", () => {
+    expect(noticeOpacity(0)).toBe(1);
+    expect(noticeOpacity(3000)).toBe(1);
+    expect(noticeOpacity(3500)).toBeCloseTo(0.5);
+    expect(noticeOpacity(4000)).toBe(0);
+    expect(noticeOpacity(9000)).toBe(0);
+  });
+});
+
+describe("liveNotices", () => {
+  it("drops notices past their lifetime", () => {
+    const notices = [{ born: 0, text: "old" }, { born: 2500, text: "new" }];
+    expect(liveNotices(notices, 4000).map((n) => n.text)).toEqual(["new"]);
+  });
+
+  it("keeps the newest few when several stack up, in arrival order", () => {
+    const notices = [1, 2, 3, 4, 5, 6].map((i) => ({ born: 1000 + i, text: `n${i}` }));
+    expect(liveNotices(notices, 1100, 4).map((n) => n.text)).toEqual(["n3", "n4", "n5", "n6"]);
+  });
+
+  it("returns an empty list when nothing is live", () => {
+    expect(liveNotices([{ born: 0 }], 10000)).toEqual([]);
   });
 });

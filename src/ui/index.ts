@@ -6,7 +6,19 @@
 
 import type { Grid } from "../grid";
 import type { MapPlay } from "../play";
-import { batteryCountdown, bannerText, capacityReadout, mapLabel, partCounts, partsSummary, promptPosition, promptToShow, targetRows } from "./logic";
+import {
+  batteryCountdown,
+  bannerText,
+  capacityReadout,
+  liveNotices,
+  mapLabel,
+  noticeOpacity,
+  partCounts,
+  partsSummary,
+  promptPosition,
+  promptToShow,
+  targetRows,
+} from "./logic";
 
 export interface UIDeps {
   grid: Grid;
@@ -18,9 +30,32 @@ export interface UIDeps {
 
 export interface UI {
   update(): void;
+  /** Shows a short text notice at the top of the map. It fades after a few seconds. */
+  notify(text: string): void;
 }
 
 const PART_LABEL = { bulb: "Bulb", fuse: "Fuse", wire: "Wire" } as const;
+
+/** Styles for the notice strip, added once to the document head (index.html holds the rest). */
+const NOTICE_STYLE_ID = "ui-notice-style";
+const NOTICE_CSS = `
+.notices { position: absolute; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; max-width: min(420px, calc(100% - 32px)); pointer-events: none; }
+.notice { background: var(--panel); border: 1px solid var(--alarm); color: var(--ink); border-radius: 8px; padding: 6px 12px; text-align: center; }
+`;
+
+function ensureNoticeStyle(): void {
+  if (document.getElementById(NOTICE_STYLE_ID)) return;
+  const style = el("style");
+  style.id = NOTICE_STYLE_ID;
+  style.textContent = NOTICE_CSS;
+  document.head.append(style);
+}
+
+interface Notice {
+  born: number;
+  node: HTMLElement;
+  opacity: number;
+}
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
@@ -99,7 +134,15 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
   bannerEl.setAttribute("aria-live", "polite");
   bannerEl.hidden = true;
 
-  root.append(hudLeft, hudRight, bannerEl, promptEl);
+  // Notices sit top centre, under the HUD row. Text only, so keyboard and screen-reader users get them too.
+  ensureNoticeStyle();
+  const noticesEl = el("div", "notices");
+  noticesEl.setAttribute("role", "status");
+  noticesEl.setAttribute("aria-live", "polite");
+  let notices: Notice[] = [];
+  let noticesTop = -1;
+
+  root.append(hudLeft, hudRight, bannerEl, promptEl, noticesEl);
 
   // The prompt follows the pointer over the map. Pointer position is presentation only.
   let pointer: { x: number; y: number } | null = null;
@@ -143,9 +186,42 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
   let targetsKey = "";
   let partsKey = "";
 
+  function notify(text: string): void {
+    const node = el("div", "notice", text);
+    notices.push({ born: performance.now(), node, opacity: 1 });
+    noticesEl.append(node);
+    noticesTick(performance.now());
+  }
+
+  /** Drops expired or overflowing notices and fades the rest. Runs every frame; touches the DOM only on change. */
+  function noticesTick(now: number): void {
+    const live = liveNotices(notices, now);
+    if (live.length !== notices.length) {
+      for (const gone of notices) if (!live.includes(gone)) gone.node.remove();
+      notices = live;
+    }
+    for (const notice of notices) {
+      const opacity = noticeOpacity(now - notice.born);
+      if (opacity !== notice.opacity) {
+        notice.opacity = opacity;
+        notice.node.style.opacity = String(opacity);
+      }
+    }
+    if (notices.length === 0) return;
+    // Below the HUD row: the lower edge of the tallest HUD column, measured only while a notice shows.
+    const rootTop = root.getBoundingClientRect().top;
+    const hudBottom = Math.max(hudLeft.getBoundingClientRect().bottom, hudRight.getBoundingClientRect().bottom) - rootTop;
+    const top = Math.round(hudBottom + 8);
+    if (top !== noticesTop) {
+      noticesTop = top;
+      noticesEl.style.top = `${top}px`;
+    }
+  }
+
   function update(): void {
     const state = deps.grid.state();
     const view = deps.play.view();
+    noticesTick(performance.now());
 
     const prompt = promptToShow(view);
     promptEl.hidden = prompt === null || pointer === null;
@@ -189,5 +265,5 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
     partsEl.setAttribute("aria-label", partsSummary(state.parts));
   }
 
-  return { update };
+  return { update, notify };
 }
