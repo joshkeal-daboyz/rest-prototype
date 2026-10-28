@@ -31,7 +31,7 @@ export function needsText(part: string, count: number): string {
 /** The prompt for the element under the pointer, or null. */
 export function promptFor(puzzle: Puzzle, state: GridState, id: string | null): string | null {
   const intent = intentFor(puzzle, state, id);
-  if (!intent) return state.complete ? null : infoPrompt(puzzle, id);
+  if (!intent) return state.complete ? null : infoPrompt(puzzle, state, id);
   if (intent.kind === "breaker") return "Throw breaker";
   if (intent.kind === "switch") {
     const n = puzzle.nodes.find((x) => x.id === intent.id);
@@ -60,9 +60,13 @@ const FAULT_LABEL: Record<FaultKind, string> = {
 };
 
 /** Informational hover for healthy lamps and fuseboxes (no click effect). */
-function infoPrompt(puzzle: Puzzle, id: string | null): string | null {
+function infoPrompt(puzzle: Puzzle, state: GridState, id: string | null): string | null {
   const node = id === null ? undefined : puzzle.nodes.find((n) => n.id === id);
   if (node?.type === "lamp") return `Lamp, load ${node.load ?? DEFAULTS.lampLoad}`;
-  if (node?.type === "fusebox") return node.rating === undefined ? "Fuse" : `Fuse ≤${node.rating}`;
+  if (node?.type === "fusebox") {
+    const carrying = state.fuseLoad.get(node.id) ?? 0;
+    if (node.rating === undefined) return `Fuse — carrying ${carrying}`;
+    return `Fuse ≤${node.rating} — ${carrying >= node.rating ? "at the limit" : `carrying ${carrying}`}`;
+  }
   return null;
 }
