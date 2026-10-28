@@ -1,6 +1,6 @@
-import type { Fault, Part } from "../core";
+import type { Fault, Part, RepairForecast } from "../core";
 
-export interface GridState {
+export interface GridState extends RepairForecast {
   /** Node and line ids carrying current (including the node or line where it stops at a fault or open breaker). */
   powered: ReadonlySet<string>;
   /** Powered line id -> node id the current enters it from. */

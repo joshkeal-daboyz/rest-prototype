@@ -43,6 +43,7 @@ interface GridState {
   readableFaults: ReadonlySet<string>   // fault ids
   sparking: ReadonlySet<string>         // line ids
   fuseLoad: ReadonlyMap<string, number> // fusebox id -> feed-lit load downstream of it (what the blow check compares to rating); 0 if unpowered or blown (ticket 012)
+  wouldBlow: ReadonlyMap<string, number> // ticket 013: fusebox id with a readable blown fuse -> load it would carry if fitted now, when > rating; 0 if it would hold (contract: RepairForecast in src/core/state.ts)
   batteries: ReadonlyMap<string, { charge: number; capacity: number; released: boolean; charging: boolean }> // ticket 008
   faults: readonly Fault[]
   breakers: ReadonlyMap<string, boolean>

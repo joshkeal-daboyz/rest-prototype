@@ -35,7 +35,9 @@ export function promptFor(puzzle: Puzzle, state: GridState, id: string | null): 
   if (intent.kind === "breaker") return "Throw breaker";
   if (intent.kind === "switch") {
     const n = puzzle.nodes.find((x) => x.id === intent.id);
-    return n?.type === "switch" && n.relay && !state.powered.has(intent.id) ? "No power — relay stuck" : "Throw switch";
+    if (n?.type !== "switch") return TEXT.throwSwitch;
+    if (n.relay && !state.powered.has(intent.id)) return TEXT.relayStuck;
+    return n.spring ? TEXT.springSwitch(!!n.relay) : TEXT.throwSwitch;
   }
   if (intent.kind === "battery") {
     const b = state.batteries.get(intent.id);
@@ -49,8 +51,27 @@ export function promptFor(puzzle: Puzzle, state: GridState, id: string | null): 
   const rule = FAULT_RULES[fault.kind];
   const have = state.parts.filter((p) => p === rule.part).length;
   const what = rule.count > 1 ? `${rule.count} ${rule.part}s` : rule.part;
-  return `${FAULT_LABEL[fault.kind]} — ${have < rule.count ? `Needs: ${what}` : `Repair (${what})`}`;
+  const action = have < rule.count ? `Needs: ${what}` : `Repair (${what})`;
+  let warn = "";
+  if (fault.kind === "blown-fuse") {
+    const box = puzzle.nodes.find((x) => x.id === fault.at);
+    const would = state.wouldBlow.get(fault.at);
+    // The grid reports 0 when the new fuse would hold, else the load it would carry.
+    if (box?.type === "fusebox" && would !== undefined && would > 0) {
+      warn = TEXT.wouldBlowAgain(would, box.rating ?? DEFAULTS.fuseRating);
+    }
+  }
+  return `${FAULT_LABEL[fault.kind]} — ${action}${warn}`;
 }
+
+/** Hover wording for ticket 013, in one place (a later ticket rewords these to LvX labels). */
+export const TEXT = {
+  throwSwitch: "Throw switch",
+  relayStuck: "No power — relay stuck",
+  springSwitch: (relay: boolean): string =>
+    `Spring switch — returns when power is lost${relay ? " — relay" : ""}`,
+  wouldBlowAgain: (load: number, rating: number): string => ` · would blow again: ${load} load on ≤${rating}`,
+};
 
 const FAULT_LABEL: Record<FaultKind, string> = {
   "dead-lamp": "Dead lamp",

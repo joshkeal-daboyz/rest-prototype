@@ -13,7 +13,8 @@ export interface GridEvents {
   /** A released battery ran out, or the player stopped it. */
   "battery:flat": { nodeId: string; stopped: boolean };
   "breaker:thrown": { nodeId: string; closed: boolean };
-  "switch:thrown": { nodeId: string; selected: 0 | 1 };
+  /** `spring: true` when a spring switch returned to its file position on losing power (not a player action). Absent for a throw. */
+  "switch:thrown": { nodeId: string; selected: 0 | 1; spring?: true };
   /**
    * A fuse carried more than its rating when power returned and blew (a new blown-fuse fault).
    * `culprit` is the lamp newly powered through this fuse by the action that caused the blow
