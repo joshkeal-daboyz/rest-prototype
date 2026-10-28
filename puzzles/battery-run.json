@@ -1,0 +1,45 @@
+{
+  "id": "battery-run",
+  "name": "The battery run",
+  "version": 4,
+  "scope": "map",
+  "capacity": 2,
+  "startingParts": [],
+  "target": ["shrine"],
+  "priority": ["yard"],
+
+  "nodes": [
+    { "id": "feed",    "type": "feed",     "pos": [0, 0] },
+    { "id": "j1",      "type": "junction", "pos": [2, 0] },
+    { "id": "yard",    "type": "lamp",     "pos": [2, -2], "load": 1 },
+
+    { "id": "br_east", "type": "breaker",  "pos": [4, 0], "closed": false },
+    { "id": "fb_east", "type": "fusebox",  "pos": [6, 0], "rating": 1 },
+    { "id": "rl_2",    "type": "switch",   "pos": [9, 0], "outputs": ["l_mill", "l_r2"], "selected": 0, "relay": true },
+    { "id": "mill",    "type": "lamp",     "pos": [9, -3], "load": 3 },
+
+    { "id": "bat",     "type": "battery",  "pos": [4, 4], "capacity": 8, "charge": 0, "input": "l_in" },
+    { "id": "rl_1",    "type": "switch",   "pos": [9, 4], "outputs": ["l_r1", "l_shrine"], "selected": 0, "relay": true },
+    { "id": "j_m",     "type": "junction", "pos": [7, 2] },
+    { "id": "shrine",  "type": "lamp",     "pos": [13, 4], "load": 1 }
+  ],
+
+  "lines": [
+    { "id": "l_feed",   "from": "feed",    "to": "j1" },
+    { "id": "l_yard",   "from": "j1",      "to": "yard" },
+
+    { "id": "l_e0",     "from": "j1",      "to": "br_east" },
+    { "id": "l_e1",     "from": "br_east", "to": "fb_east" },
+    { "id": "l_e2",     "from": "fb_east", "to": "rl_2" },
+    { "id": "l_mill",   "from": "rl_2",    "to": "mill" },
+    { "id": "l_r2",     "from": "rl_2",    "to": "rl_1" },
+
+    { "id": "l_in",     "from": "j1",      "to": "bat" },
+    { "id": "l_out",    "from": "bat",     "to": "rl_1" },
+    { "id": "l_r1",     "from": "rl_1",    "to": "j_m" },
+    { "id": "l_m",      "from": "j_m",     "to": "rl_2" },
+    { "id": "l_shrine", "from": "rl_1",    "to": "shrine" }
+  ],
+
+  "faults": []
+}
