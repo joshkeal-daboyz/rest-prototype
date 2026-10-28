@@ -1,7 +1,7 @@
 # 015 · More than one powersource on a map
 
 owner: lead-architect (0), grid-simulator (A), renderer (B), interaction (C), ui (D), puzzle-designer (E)
-status: in progress (G1: Josh, "I approve" with the defaults proposed in chat; then "Start 015")
+status: done (merged; Josh: "Merge, push")
 branch: one per part, `ticket/015-<part>`: `ticket/015-0`, `ticket/015-a`, `-b`, `-c`, `-d`, `-e`
 
 ## Josh's words
