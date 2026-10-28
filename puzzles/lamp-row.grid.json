@@ -1,0 +1,93 @@
+{
+  "id": "lamp-row",
+  "name": "Lamp Row",
+  "version": 1,
+  "start": [1, 0],
+  "night": { "minutes": 15 },
+  "satchel": 4,
+  "favor": { "start": 0, "draw": 2, "offer": 1, "reward": 6 },
+  "lampReach": 5,
+  "capacity": null,
+
+  "nodes": [
+    { "id": "feed",         "type": "feed",     "pos": [0, 0] },
+    { "id": "breaker_main", "type": "breaker",  "pos": [2, 0], "closed": true },
+    { "id": "j1",           "type": "junction", "pos": [6, 0] },
+    { "id": "fb_A",         "type": "fusebox",  "pos": [12, 0] },
+    { "id": "j2",           "type": "junction", "pos": [18, 0] },
+    { "id": "fb_B",         "type": "fusebox",  "pos": [24, -3] },
+    { "id": "j3",           "type": "junction", "pos": [30, 0] },
+    { "id": "j4",           "type": "junction", "pos": [36, 0] },
+
+    { "id": "breaker_side", "type": "breaker",  "pos": [6, -4], "closed": true },
+    { "id": "j5",           "type": "junction", "pos": [10, -6] },
+    { "id": "j6",           "type": "junction", "pos": [16, -6] },
+
+    { "id": "lamp_01", "type": "lamp", "pos": [6, 2] },
+    { "id": "lamp_02", "type": "lamp", "pos": [10, 2] },
+    { "id": "lamp_03", "type": "lamp", "pos": [14, 2] },
+    { "id": "lamp_04", "type": "lamp", "pos": [18, 2] },
+    { "id": "lamp_10", "type": "lamp", "pos": [20, -2] },
+    { "id": "lamp_05", "type": "lamp", "pos": [30, 2] },
+    { "id": "lamp_06", "type": "lamp", "pos": [33, -2] },
+    { "id": "lamp_07", "type": "lamp", "pos": [36, 2] },
+    { "id": "lamp_11", "type": "lamp", "pos": [38, -2] },
+    { "id": "lamp_08", "type": "lamp", "pos": [10, -8] },
+    { "id": "lamp_09", "type": "lamp", "pos": [16, -8] },
+    { "id": "lamp_12", "type": "lamp", "pos": [18, -8] }
+  ],
+
+  "lines": [
+    { "id": "l_feed",  "from": "feed",         "to": "breaker_main" },
+    { "id": "l_main1", "from": "breaker_main", "to": "j1" },
+    { "id": "l_main2", "from": "j1",           "to": "fb_A" },
+    { "id": "l_main3", "from": "fb_A",         "to": "j2" },
+    { "id": "l_main4", "from": "j2",           "to": "fb_B" },
+    { "id": "l_main5", "from": "fb_B",         "to": "j3" },
+    { "id": "l_main6", "from": "j3",           "to": "j4" },
+
+    { "id": "l_side1", "from": "j1",           "to": "breaker_side" },
+    { "id": "l_side2", "from": "breaker_side", "to": "j5" },
+    { "id": "l_side3", "from": "j5",           "to": "j6", "overhead": true },
+
+    { "id": "l_lamp01", "from": "j1",   "to": "lamp_01" },
+    { "id": "l_lamp02", "from": "j1",   "to": "lamp_02" },
+    { "id": "l_lamp03", "from": "fb_A", "to": "lamp_03" },
+    { "id": "l_lamp04", "from": "j2",   "to": "lamp_04" },
+    { "id": "l_lamp10", "from": "j2",   "to": "lamp_10" },
+    { "id": "l_lamp05", "from": "j3",   "to": "lamp_05" },
+    { "id": "l_lamp06", "from": "j3",   "to": "lamp_06" },
+    { "id": "l_lamp07", "from": "j4",   "to": "lamp_07" },
+    { "id": "l_lamp11", "from": "j4",   "to": "lamp_11" },
+    { "id": "l_lamp08", "from": "j5",   "to": "lamp_08" },
+    { "id": "l_lamp09", "from": "j6",   "to": "lamp_09" },
+    { "id": "l_lamp12", "from": "j6",   "to": "lamp_12" }
+  ],
+
+  "faults": [
+    { "id": "f1", "at": "lamp_02", "kind": "dead-lamp" },
+    { "id": "f2", "at": "fb_A",    "kind": "blown-fuse" },
+    { "id": "f3", "at": "lamp_04", "kind": "dead-lamp" },
+    { "id": "f4", "at": "fb_B",    "kind": "blown-fuse" },
+    { "id": "f5", "at": "lamp_05", "kind": "dead-lamp" },
+    { "id": "f6", "at": "lamp_07", "kind": "dead-lamp" },
+    { "id": "f7", "at": "l_side3", "kind": "damaged-cable" },
+    { "id": "f8", "at": "lamp_09", "kind": "dead-lamp" }
+  ],
+
+  "salvage": [
+    { "id": "s1", "pos": [8, 3],   "part": "bulb" },
+    { "id": "s2", "pos": [15, -2], "part": "fuse" },
+    { "id": "s3", "pos": [22, 3],  "part": "bulb" },
+    { "id": "s4", "pos": [12, -7], "part": "wire" },
+    { "id": "s5", "pos": [28, -2], "part": "bulb" },
+    { "id": "s6", "pos": [34, 3],  "part": "random" }
+  ],
+
+  "stores": { "pos": [1, 2] },
+
+  "decor": [
+    { "path": [[14, 4], [16, 5], [17, 4]] },
+    { "path": [[26, 3], [27, 5]] }
+  ]
+}

@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.vite/
+coverage/
+*.log
+.DS_Store
+Thumbs.db
+
+# Session logs downloaded from the game stay local
+playtests/*.json
