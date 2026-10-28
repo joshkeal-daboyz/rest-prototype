@@ -1,10 +1,11 @@
-import { readFileSync } from "node:fs";
+﻿import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { EventBus, loadPuzzle, type Puzzle } from "../core";
 import { createGrid } from "../grid";
 import type { MapRenderer } from "../render";
 import { createMapPlay, NEEDS_FLASH_SECONDS } from "./index";
+import { promptFor } from "./prompt";
 
 const shrine = (): Puzzle =>
   loadPuzzle(JSON.parse(readFileSync(join(__dirname, "../../puzzles/shrine-circuit.json"), "utf8")) as unknown);
@@ -54,13 +55,13 @@ describe("prompts", () => {
 
   it("shows the shortfall for a readable fault the satchel can't cover", () => {
     const s = setup();
-    expect(s.over("j_dead").prompt).toBe("Needs: wire × 2");
+    expect(s.over("j_dead").prompt).toBe("Dead junction â€” Needs: 2 wires");
   });
 
   it("gives no repair prompt for an unreadable fault, and null for anything else", () => {
     const s = setup();
     expect(s.over("l_b").prompt).toBeNull(); // dead feed side: unreadable
-    expect(s.over("shrine").prompt).toBeNull();
+    expect(s.over("shrine").prompt).toBe("Lamp, load 1");
     expect(s.over("l_feed").prompt).toBeNull();
     expect(s.over(null)).toMatchObject({ hover: null, prompt: null });
   });
@@ -68,7 +69,7 @@ describe("prompts", () => {
   it("offers Repair (wire) once the fault is readable and the part is on hand", () => {
     const s = setup();
     s.play.click("sw_1");
-    expect(s.over("l_b").prompt).toBe("Repair (wire)");
+    expect(s.over("l_b").prompt).toBe("Damaged cable â€” Repair (wire)");
   });
 });
 
@@ -102,9 +103,9 @@ describe("clicks", () => {
     s.play.click("j_dead");
     expect(s.grid.state().parts).toEqual(["wire"]);
     s.play.hoverAt(null);
-    expect(s.play.view().prompt).toBe("Needs: wire × 2");
+    expect(s.play.view().prompt).toBe("Dead junction â€” Needs: 2 wires");
     s.play.tick(NEEDS_FLASH_SECONDS - 0.1);
-    expect(s.play.view().prompt).toBe("Needs: wire × 2");
+    expect(s.play.view().prompt).toBe("Dead junction â€” Needs: 2 wires");
     s.play.tick(0.2);
     expect(s.play.view().prompt).toBeNull();
   });

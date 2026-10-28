@@ -2,7 +2,7 @@
  * Pure: what the pointer is over, and what a click would do. No DOM.
  * The prompt strings are the ones ticket 004 lists; the UI shows them verbatim.
  */
-import { FAULT_RULES, type Puzzle } from "../core";
+import { DEFAULTS, FAULT_RULES, type FaultKind, type Puzzle } from "../core";
 import type { GridState } from "../grid";
 
 export type Intent =
@@ -31,7 +31,7 @@ export function needsText(part: string, count: number): string {
 /** The prompt for the element under the pointer, or null. */
 export function promptFor(puzzle: Puzzle, state: GridState, id: string | null): string | null {
   const intent = intentFor(puzzle, state, id);
-  if (!intent) return null;
+  if (!intent) return state.complete ? null : infoPrompt(puzzle, id);
   if (intent.kind === "breaker") return "Throw breaker";
   if (intent.kind === "switch") {
     const n = puzzle.nodes.find((x) => x.id === intent.id);
@@ -48,5 +48,21 @@ export function promptFor(puzzle: Puzzle, state: GridState, id: string | null): 
   if (!fault) return null;
   const rule = FAULT_RULES[fault.kind];
   const have = state.parts.filter((p) => p === rule.part).length;
-  return have < rule.count ? needsText(rule.part, rule.count) : `Repair (${rule.part})`;
+  const what = rule.count > 1 ? `${rule.count} ${rule.part}s` : rule.part;
+  return `${FAULT_LABEL[fault.kind]} — ${have < rule.count ? `Needs: ${what}` : `Repair (${what})`}`;
+}
+
+const FAULT_LABEL: Record<FaultKind, string> = {
+  "dead-lamp": "Dead lamp",
+  "blown-fuse": "Blown fuse",
+  "dead-junction": "Dead junction",
+  "damaged-cable": "Damaged cable",
+};
+
+/** Informational hover for healthy lamps and fuseboxes (no click effect). */
+function infoPrompt(puzzle: Puzzle, id: string | null): string | null {
+  const node = id === null ? undefined : puzzle.nodes.find((n) => n.id === id);
+  if (node?.type === "lamp") return `Lamp, load ${node.load ?? DEFAULTS.lampLoad}`;
+  if (node?.type === "fusebox") return node.rating === undefined ? "Fuse" : `Fuse ≤${node.rating}`;
+  return null;
 }
