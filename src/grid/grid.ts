@@ -179,7 +179,7 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
           charge: b.charge,
           capacity: cap,
           released: b.released,
-          charging: !b.released && b.charge < cap && powered.has(bid),
+          charging: !b.released && b.charge < cap && f.powered.has(bid),
         });
       }
 
@@ -215,7 +215,7 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
         load,
         capacity,
         brownout,
-        complete: targets.every((t) => lit.has(t)) && !brownout,
+        complete: targets.every((t) => lit.has(t) && f.powered.has(t)) && !brownout,
         actions: m.actions,
       };
     }

@@ -284,13 +284,44 @@ describe("battery load accounting", () => {
     expect(g.state().lit.has("lamp")).toBe(true);
   });
 
-  it("a battery-only section can win the job (targets lit, no brownout)", () => {
+  it("a target lit only by a released battery does not complete the job; it completes once the feed reaches it", () => {
     const bus = new EventBus();
     const log = record(bus);
-    const g = createGrid(batMap({ charge: 3 }, { target: ["lamp"] }), bus);
+    const p = mini(
+      [
+        { id: "feed", type: "feed" },
+        { id: "br", type: "breaker", closed: false },
+        { id: "bat", type: "battery", capacity: 5, charge: 3, input: "l_in" },
+        { id: "j", type: "junction" },
+        { id: "lamp", type: "lamp" },
+      ],
+      [["l_f", "feed", "br"], ["l_b", "br", "j"], ["l_in", "feed", "bat"], ["l_out", "bat", "j"], ["l_j", "j", "lamp"]],
+    );
+    const g = createGrid(p, bus);
     g.release("bat");
-    expect(log.some(([n]) => n === "job:completed")).toBe(true);
+    expect(g.state().lit.has("lamp")).toBe(true);
+    expect(g.state().complete).toBe(false);
+    expect(log.some(([n]) => n === "job:completed")).toBe(false);
+    g.throwBreaker("br");
     expect(g.state().complete).toBe(true);
+    expect(log.some(([n]) => n === "job:completed")).toBe(true);
+  });
+
+  it("a battery charges only from the feed's own flow: a released battery does not charge a battery downstream of it", () => {
+    const p = mini(
+      [
+        { id: "feed", type: "feed" },
+        { id: "b1", type: "battery", capacity: 5, charge: 3, input: "l_in1" },
+        { id: "b2", type: "battery", capacity: 5, charge: 0, input: "l_in2" },
+        { id: "unreached", type: "lamp" },
+      ],
+      [["l_in1", "feed", "b1"], ["l_in2", "b1", "b2"]],
+    );
+    const g = createGrid(p);
+    g.release("b1");
+    g.advance(1);
+    expect(g.state().batteries.get("b2")).toMatchObject({ charge: 0, charging: false });
+    expect(g.state().powered.has("b2")).toBe(true); // current reaches it, it just doesn't charge from a battery
   });
 });
 
