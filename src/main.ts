@@ -1,10 +1,11 @@
 // Entry point: loads the map files, builds grid -> renderer -> play -> ui for one map, and runs the frame loop.
 // No game rules here: each layer owns its own. Picking another map rebuilds the stack.
-import { EventBus, puzzleFeeds } from "./core";
-import { createGrid, type Grid } from "./grid";
-import { createMapRenderer, type MapRenderer } from "./render";
+import { EventBus, puzzleFeeds, type Puzzle } from "./core";
+import { createGrid, type Grid, type GridState } from "./grid";
+import { createMapRenderer, planRelight, type MapRenderer } from "./render";
 import { createMapPlay, type LogEntry, type MapPlay } from "./play";
-import { mountUI, type UI } from "./ui";
+import { createAudio } from "./audio";
+import { mountUI, restoreAudio, type UI } from "./ui";
 import { brownoutNotices, noticeFor } from "./ui/logic";
 import { collectMaps, type MapEntry } from "./ui/maps";
 
@@ -15,6 +16,19 @@ for (const problem of problems) console.warn(`[puzzles] skipped ${problem}`);
 const canvas = document.getElementById("panel");
 const uiRoot = document.getElementById("ui");
 if (!(canvas instanceof HTMLCanvasElement) || !uiRoot) throw new Error("index.html must have #panel and #ui");
+
+// One sound engine for the whole session (ticket 019). It starts silent until the first click; each map's
+// open() attaches it to that map's bus, and the map's detach silences it again.
+const audio = createAudio();
+restoreAudio(audio);
+
+/** The Relight's sound timing, from the same plan the renderer draws: each lit lamp's ignition time and the cascade's length. */
+function relightCues(puzzle: Puzzle, state: GridState): { igniteAt: number[]; duration: number } {
+  const plan = planRelight(puzzle, state);
+  const nodeIndex = new Map(puzzle.nodes.map((n, i) => [n.id, i] as const));
+  const igniteAt = plan.lampOrder.map((id) => plan.nodeArrive[nodeIndex.get(id) ?? 0] ?? 0);
+  return { igniteAt, duration: plan.duration };
+}
 
 /** Top inset for the map fit: the lower edge of the tallest HUD column (both sit at the top), plus a margin. 0 before any HUD exists. */
 function hudTopInset(): number {
@@ -39,6 +53,9 @@ if (entries.length === 0) {
     renderer: MapRenderer;
     play: MapPlay;
     ui: UI;
+    puzzle: Puzzle;
+    /** True from the frame the Relight started until play reports it gone (a reset). */
+    relightStarted: boolean;
     detach: () => void;
   }
   let session: Session | null = null;
@@ -56,6 +73,7 @@ if (entries.length === 0) {
 
     const bus = new EventBus();
     const grid = createGrid(entry.puzzle, bus);
+    const detachAudio = audio.attach(bus);
     const renderer = createMapRenderer(canvas as HTMLCanvasElement, entry.puzzle, { insets: { top: hudTopInset() } });
     const play = createMapPlay(entry.puzzle, grid, renderer, bus);
     const detachPlay = play.attach(canvas as HTMLCanvasElement);
@@ -66,6 +84,7 @@ if (entries.length === 0) {
       puzzles,
       current: id,
       feeds,
+      audio,
       onPick: (next) => {
         history.replaceState(null, "", urlFor(next));
         open(next);
@@ -109,11 +128,12 @@ if (entries.length === 0) {
     (canvas as HTMLCanvasElement).addEventListener("click", onPanelClick);
 
     const detach = (): void => {
+      detachAudio();
       detachPlay();
       (canvas as HTMLCanvasElement).removeEventListener("click", onPanelClick);
       for (const off of offs) off();
     };
-    session = { grid, renderer, play, ui, detach };
+    session = { grid, renderer, play, ui, puzzle: entry.puzzle, relightStarted: false, detach };
     history.replaceState(null, "", urlFor(id));
   }
 
@@ -133,9 +153,19 @@ if (entries.length === 0) {
       const dt = Math.min(0.1, (now - last) / 1000);
       s.play.tick(dt);
       const view = s.play.view();
+      const state = s.grid.state();
+      // The Relight starts on the frame play first reports it (the job completing sets relightT to 0).
+      if (view.relightT === null) {
+        s.relightStarted = false;
+      } else if (!s.relightStarted) {
+        s.relightStarted = true;
+        const cues = relightCues(s.puzzle, state);
+        audio.relight(cues.igniteAt, cues.duration);
+      }
+      audio.update(state, dt);
       const overlay: { hover?: string | null; relightT?: number } = { hover: view.hover };
       if (view.relightT !== null) overlay.relightT = view.relightT;
-      s.renderer.draw(s.grid.state(), overlay, now / 1000);
+      s.renderer.draw(state, overlay, now / 1000);
       s.ui.update();
     }
     last = now;

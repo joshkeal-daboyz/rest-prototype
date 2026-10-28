@@ -4,7 +4,7 @@
  * prompt from the play layer.
  */
 
-import type { FeedInfo } from "../core";
+import type { AudioControl, FeedInfo } from "../core";
 import type { Grid } from "../grid";
 import type { MapPlay } from "../play";
 import {
@@ -18,7 +18,13 @@ import {
   partsSummary,
   promptPosition,
   promptToShow,
+  readAudioPrefs,
+  sliderToVolume,
+  soundToggleLabel,
   targetRows,
+  volumeToSlider,
+  writeAudioPrefs,
+  type StorageLike,
 } from "./logic";
 
 export interface UIDeps {
@@ -29,6 +35,8 @@ export interface UIDeps {
   onPick(id: string): void;
   /** The map's feeds in file order (puzzleFeeds). One feed, or none: the single capacity row. Two or more: one row per feed. */
   feeds?: readonly FeedInfo[];
+  /** The session's sound (src/audio's engine). Without it no sound control is drawn. */
+  audio?: AudioControl;
 }
 
 export interface UI {
@@ -52,6 +60,93 @@ function ensureNoticeStyle(): void {
   style.id = NOTICE_STYLE_ID;
   style.textContent = NOTICE_CSS;
   document.head.append(style);
+}
+
+/** Styles for the sound control (ticket 019 B). The muted state is a strikethrough as well as the dimmed colour. */
+const AUDIO_STYLE_ID = "ui-audio-style";
+const AUDIO_CSS = `
+.sound-toggle.muted { color: var(--ink-dim); text-decoration: line-through; }
+.volume { display: inline-flex; align-items: center; gap: 6px; background: var(--panel); border: 1px solid var(--edge); border-radius: 6px; padding: 6px 10px; }
+.volume input { width: 84px; margin: 0; }
+#ui input[type="range"]:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+`;
+
+function ensureAudioStyle(): void {
+  if (document.getElementById(AUDIO_STYLE_ID)) return;
+  const style = el("style");
+  style.id = AUDIO_STYLE_ID;
+  style.textContent = AUDIO_CSS;
+  document.head.append(style);
+}
+
+/** localStorage, or null where the browser refuses it (sandboxed frames, some private modes). */
+function browserStorage(): StorageLike | null {
+  try {
+    return typeof localStorage === "undefined" ? null : localStorage;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Applies the saved mute and volume to `audio`. Called once at startup, not per map: the engine is
+ * shared, so a map switch keeps whatever the player set. With no storage the defaults stand.
+ */
+export function restoreAudio(audio: AudioControl): void {
+  const prefs = readAudioPrefs(browserStorage());
+  audio.setMuted(prefs.muted);
+  audio.setVolume(prefs.volume);
+}
+
+interface SoundControls {
+  button: HTMLButtonElement;
+  volume: HTMLLabelElement;
+  render(): void;
+}
+
+/** The mute toggle and the volume slider. Both drive `audio` and save its prefs on each change. */
+function mountSound(audio: AudioControl): SoundControls {
+  ensureAudioStyle();
+  const button = el("button", "sound-toggle");
+  button.type = "button";
+
+  const volume = el("label", "volume", "Volume ");
+  const slider = el("input");
+  slider.type = "range";
+  slider.min = "0";
+  slider.max = "100";
+  slider.step = "1";
+  slider.setAttribute("aria-label", "Volume");
+  volume.append(slider);
+
+  const save = (): void => {
+    writeAudioPrefs(browserStorage(), { muted: audio.muted, volume: audio.volume });
+  };
+
+  button.addEventListener("click", () => {
+    audio.setMuted(!audio.muted);
+    save();
+    render();
+  });
+  slider.addEventListener("input", () => {
+    const next = sliderToVolume(slider.value);
+    if (next === null) return;
+    audio.setVolume(next);
+    save();
+  });
+
+  /** Shows the engine's state: the label names it, aria-pressed is true while sound is on, and the slider follows the volume. */
+  function render(): void {
+    const label = soundToggleLabel(audio.muted);
+    setText(button, label);
+    button.setAttribute("aria-label", label);
+    button.setAttribute("aria-pressed", String(!audio.muted));
+    button.classList.toggle("muted", audio.muted);
+    const position = String(volumeToSlider(audio.volume));
+    if (slider.value !== position) slider.value = position;
+  }
+  render();
+  return { button, volume, render };
 }
 
 interface Notice {
@@ -125,6 +220,8 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
   logButton.type = "button";
   logButton.addEventListener("click", () => downloadLog());
   controls.append(undoButton, resetButton, logButton);
+  const sound = deps.audio ? mountSound(deps.audio) : null;
+  if (sound) controls.append(sound.button, sound.volume);
 
   const partsEl = el("div", "parts");
   partsEl.setAttribute("role", "group");
@@ -267,6 +364,8 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
         targetsEl.append(item);
       }
     }
+
+    sound?.render();
 
     const nextPartsKey = state.parts.join(",");
     if (nextPartsKey !== partsKey) {
