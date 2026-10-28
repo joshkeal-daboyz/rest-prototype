@@ -64,6 +64,54 @@ export function culpritFlare(age: number, hasPath: boolean): number {
   return 1 - a / CULPRIT_FLARE_SECONDS;
 }
 
+/** Branches (streaks) drawn per sequence slot; lamps beyond this still flare. */
+export const MAX_BLOW_LAMPS = 8;
+/** Lamps per slot that get a flare (>= MAX_BLOW_LAMPS). */
+export const MAX_FLARE_LAMPS = 32;
+
+/**
+ * Seconds after the sequence starts when a streak reaches the end of a path of
+ * `pathLength`, given every streak moves at the speed that takes the longest
+ * path `longestLength` SHOCK_SECONDS. A zero-length path arrives at 0.
+ */
+export function arrivalTime(pathLength: number, longestLength: number): number {
+  if (!(pathLength > 0) || !(longestLength > 0)) return 0;
+  return SHOCK_SECONDS * Math.min(pathLength / longestLength, 1);
+}
+
+/** Distance the common streak head has travelled along any path at `age` (shared speed). */
+export function headDistance(age: number, longestLength: number): number {
+  if (!(age > 0) || !(longestLength > 0)) return 0;
+  return longestLength * Math.min(age / SHOCK_SECONDS, 1);
+}
+
+/** Streak length (same units as path lengths) for a sequence whose longest path is `longestLength`. */
+export function streakLength(longestLength: number): number {
+  return longestLength * STREAK_FRACTION;
+}
+
+/** Lamp flare 0..1: 0 before `arrive`, 1 on arrival, fading to 0 over CULPRIT_FLARE_SECONDS. */
+export function lampFlare(age: number, arrive: number): number {
+  const a = age - arrive;
+  if (a < 0 || a >= CULPRIT_FLARE_SECONDS) return 0;
+  return 1 - a / CULPRIT_FLARE_SECONDS;
+}
+
+export interface BlowTarget {
+  id: string | null;
+  path: readonly string[];
+}
+
+/** The lamps to shock: `lamps` when the payload carries it, else the single culprit (old payloads). */
+export function blowTargets(p: {
+  culprit: string | null;
+  path: readonly string[];
+  lamps?: readonly { id: string; path: readonly string[] }[];
+}): readonly BlowTarget[] {
+  if (p.lamps !== undefined) return p.lamps;
+  return [{ id: p.culprit, path: p.path }];
+}
+
 export function polylineLength(xs: ArrayLike<number>, ys: ArrayLike<number>, n: number): number {
   let total = 0;
   for (let i = 1; i < n; i++) total += Math.hypot(xs[i]! - xs[i - 1]!, ys[i]! - ys[i - 1]!);
