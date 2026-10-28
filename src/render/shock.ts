@@ -5,8 +5,10 @@
  * Points are flat screen-space arrays; nothing here allocates per call.
  */
 
-export const SHOCK_SECONDS = 0.4;
-export const POP_SECONDS = 0.6;
+import { BLOW_TIMING } from '../core';
+
+export const SHOCK_SECONDS: number = BLOW_TIMING.run;
+export const POP_SECONDS: number = BLOW_TIMING.pop;
 /** Longest path (points) a sequence slot holds. */
 export const MAX_PATH_POINTS = 48;
 /** Length of the streak, as a fraction of the whole path. */
@@ -19,11 +21,11 @@ export const PHASE_DONE = 2;
 export const PHASE_GLOW = 3;
 
 /** Run, glow, spark, pop: all times in seconds from the blow. */
-export const LINE_GLOW_SECONDS = 0.3;
+export const LINE_GLOW_SECONDS: number = BLOW_TIMING.glow;
 export const LINE_GLOW_RISE = 0.06;
 export const LINE_GLOW_FALL = 0.1;
-export const LAMP_SPARK_AT = 0.5;
-export const LAMP_SPARK_SECONDS = 0.3;
+export const LAMP_SPARK_AT: number = BLOW_TIMING.sparkAt;
+export const LAMP_SPARK_SECONDS: number = BLOW_TIMING.spark;
 /** Deduplicated glow lines per sequence slot. */
 export const MAX_GLOW_LINES = 64;
 
