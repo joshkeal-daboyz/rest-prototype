@@ -7,6 +7,7 @@
 import type { FaultKind, Puzzle } from "../core";
 import type { GridState } from "../grid";
 import { buildGeometry, hitTestGeometry, type Geometry } from "./geometry";
+import { chargeFraction, popProgress, wentFlat } from "./battery";
 import { clamp01, flicker, hash01, pulseCount, pulsePhase, PULSE_SPACING } from "./motion";
 import { FLARE_SECONDS, planRelight, type RelightPlan } from "./relight";
 
@@ -45,6 +46,10 @@ const ALARM = "#ff5a4d";
 const TARGET = "#ffe9a8";
 const RIBBON = "#ff3df0";
 const HOVER = "#ffffff";
+const BATT_GLOW = "#ffa21f";
+const BATT_LINE = "#ffc457";
+const BATT_FILL = "#3ddc97";
+const BATT_FILL_RELEASED = "#ffb02e";
 const FONT = "12px system-ui, sans-serif";
 const FONT_BIG = "bold 13px system-ui, sans-serif";
 const FONT_FEED = "bold 15px system-ui, sans-serif";
@@ -104,6 +109,15 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle): Ma
   const loadLabel: string[] = nodes.map((n) => (n.type === "lamp" ? String(n.load ?? 1) : ""));
   const ratingLabel: string[] = nodes.map((n) => (n.type === "fusebox" && n.rating !== undefined ? `≤${n.rating}` : ""));
   const lineFromId: string[] = lines.map((l) => l.from);
+  const isBattery = new Uint8Array(nNodes);
+  nodes.forEach((n, i) => {
+    if (n.type === "battery") isBattery[i] = 1;
+  });
+  // Battery readout text, rebuilt only when the whole-second charge changes.
+  const battLabel: string[] = nodes.map(() => "");
+  const battLabelCharge = new Int32Array(nNodes).fill(-1);
+  const prevReleased = new Uint8Array(nNodes);
+  const flatStart = new Float64Array(nNodes).fill(-100);
 
   // Switch pointer directions (unit vectors), [2*i + sel], rebuilt with geometry.
   let swDx = new Float64Array(nNodes * 2);
@@ -226,15 +240,18 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle): Ma
     const px = sx + ux * liveLen;
     const py = sy + uy * liveLen;
 
-    c.globalAlpha = 0.25;
-    c.strokeStyle = LINE_LIVE_GLOW;
-    c.lineWidth = 9;
+    // Current from a released battery runs amber and a little wider, so its time-limited source reads.
+    const srcIdx = geo.nodeIndex.get(src);
+    const fromBattery = srcIdx !== undefined && isBattery[srcIdx] === 1;
+    c.globalAlpha = fromBattery ? 0.3 + 0.1 * Math.sin(t * 6) : 0.25;
+    c.strokeStyle = fromBattery ? BATT_GLOW : LINE_LIVE_GLOW;
+    c.lineWidth = fromBattery ? 11 : 9;
     c.beginPath();
     c.moveTo(sx, sy);
     c.lineTo(px, py);
     c.stroke();
     c.globalAlpha = 1;
-    c.strokeStyle = LINE_LIVE;
+    c.strokeStyle = fromBattery ? BATT_LINE : LINE_LIVE;
     c.lineWidth = 3;
     c.stroke();
 
@@ -244,7 +261,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle): Ma
     if (count > 0) {
       const vx = -uy;
       const vy = ux;
-      c.fillStyle = PULSE;
+      c.fillStyle = fromBattery ? WARM_HOT : PULSE;
       c.beginPath();
       for (let k = 0; k < count; k++) {
         const d = phase + k * PULSE_SPACING;
@@ -454,10 +471,16 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle): Ma
         break;
       }
       case "switch": {
+        const stuck = n.relay === true && !live;
+        if (stuck) {
+          c.globalAlpha = 0.5;
+          c.setLineDash(DASH_TARGET);
+        }
         c.beginPath();
         c.arc(x, y, 12, 0, Math.PI * 2);
         c.fill();
         c.stroke();
+        if (stuck) c.setLineDash(DASH_NONE);
         const sel = state.switches.get(id) ?? n.selected;
         const other = sel === 0 ? 1 : 0;
         c.lineCap = "round";
@@ -478,6 +501,93 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle): Ma
         c.arc(x, y, 3, 0, Math.PI * 2);
         c.fill();
         drawRibbon(x + 9, y - 21);
+        if (n.relay === true) {
+          // Second tribe mark; a stuck relay also shows a bar across it (shape, not just dimness).
+          drawRibbon(x - 14, y - 21);
+          if (stuck) {
+            c.strokeStyle = TEXT_DIM;
+            c.lineWidth = 3;
+            c.beginPath();
+            c.moveTo(x - 14, y + 14);
+            c.lineTo(x + 14, y - 14);
+            c.stroke();
+          }
+        }
+        c.globalAlpha = 1;
+        break;
+      }
+      case "battery": {
+        const bs = state.batteries.get(id);
+        const charge = bs ? bs.charge : n.charge ?? 0;
+        const cap = bs ? bs.capacity : n.capacity;
+        const released = bs ? bs.released : false;
+        const frac = chargeFraction(charge, cap);
+        const pulse = 0.5 + 0.5 * Math.sin(t * 7);
+        // Terminal nub and cell body.
+        c.fillStyle = NODE_FILL;
+        c.fillRect(x - 5, y - 24, 10, 5);
+        c.fillRect(x - 14, y - 19, 28, 38);
+        if (released) {
+          c.globalAlpha = 0.25 + 0.2 * pulse;
+          c.fillStyle = BATT_GLOW;
+          c.fillRect(x - 20, y - 25, 40, 50);
+          c.globalAlpha = 1;
+        }
+        c.strokeStyle = released ? BATT_GLOW : nodeOutline(i, live);
+        c.lineWidth = released ? 3 : hovered ? 4 : 2.5;
+        c.strokeRect(x - 14, y - 19, 28, 38);
+        // Charge bar, filling from the bottom.
+        const barH = 30;
+        const fillH = barH * frac;
+        if (fillH > 0) {
+          c.fillStyle = released ? BATT_FILL_RELEASED : BATT_FILL;
+          c.fillRect(x - 9, y + 15 - fillH, 18, fillH);
+          if (released) {
+            // Draining edge: a bright cap on the falling level.
+            c.fillStyle = WARM_HOT;
+            c.fillRect(x - 9, y + 15 - fillH, 18, 2);
+          }
+        }
+        // Quarter ticks so the level reads without colour.
+        c.strokeStyle = BG;
+        c.lineWidth = 1;
+        c.beginPath();
+        for (let k = 1; k < 4; k++) {
+          c.moveTo(x - 9, y + 15 - (barH * k) / 4);
+          c.lineTo(x + 9, y + 15 - (barH * k) / 4);
+        }
+        c.stroke();
+        // Direction glyph: down while draining, up while charging.
+        c.font = FONT;
+        c.fillStyle = released ? WARM_HOT : TEXT_DIM;
+        if (released) c.fillText("▼", x + 24, y);
+        else if (bs && bs.charging) c.fillText("▲", x + 24, y);
+        // Readout, rebuilt only when the whole-second charge changes.
+        const whole = Math.ceil(charge - 1e-9);
+        if (battLabelCharge[i] !== whole) {
+          battLabelCharge[i] = whole;
+          battLabel[i] = `${whole}/${n.capacity}`;
+        }
+        c.fillStyle = released ? WARM_HOT : TEXT;
+        c.fillText(battLabel[i]!, x, y + 32);
+        // Flat pop.
+        const pp = popProgress(t - flatStart[i]!);
+        if (pp >= 0) {
+          c.strokeStyle = WARM_HOT;
+          c.globalAlpha = 1 - pp;
+          c.lineWidth = 3;
+          c.beginPath();
+          for (let k = 0; k < 10; k++) {
+            const a = (k / 10) * Math.PI * 2;
+            c.moveTo(x + Math.cos(a) * (16 + pp * 12), y + Math.sin(a) * (16 + pp * 12));
+            c.lineTo(x + Math.cos(a) * (24 + pp * 30), y + Math.sin(a) * (24 + pp * 30));
+          }
+          c.stroke();
+          c.beginPath();
+          c.arc(x, y, 20 + pp * 34, 0, Math.PI * 2);
+          c.stroke();
+          c.globalAlpha = 1;
+        }
         break;
       }
       case "fusebox": {
@@ -552,6 +662,15 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle): Ma
       const blown = faultNode[i] === K_FUSE ? 1 : 0;
       if (blown === 1 && prevBlown[i] === 0 && hadFaultNode[i] === 0) popStart[i] = t;
       prevBlown[i] = blown;
+    }
+
+    // Detect a battery that just ran flat (released -> not released at charge 0) to pop it.
+    for (let i = 0; i < nNodes; i++) {
+      if (isBattery[i] === 0) continue;
+      const bs = state.batteries.get(geo.nodeIds[i]!);
+      const rel = bs !== undefined && bs.released;
+      if (bs !== undefined && wentFlat(prevReleased[i] === 1, rel, bs.charge)) flatStart[i] = t;
+      prevReleased[i] = rel ? 1 : 0;
     }
 
     const hover = overlay.hover ?? null;

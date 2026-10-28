@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { loadPuzzle } from "../core";
 import type { GridState } from "../grid";
 import { buildGeometry, computeFit, hitTestGeometry, puzzleBounds } from "./geometry";
+import { chargeFraction, popProgress, wentFlat, FLAT_POP_SECONDS } from "./battery";
 import { flicker, pulseCount, pulsePhase, PULSE_SPACING } from "./motion";
 import { planRelight, RELIGHT_TRAVEL_SECONDS } from "./relight";
 
@@ -31,6 +32,7 @@ function wonState(): GridState {
     faults: [{ id: "f1", at: "j_dead", kind: "dead-junction" }],
     breakers: new Map([["br_main", true], ["br_street", false]]),
     switches: new Map<string, 0 | 1>([["sw_1", 1]]),
+    batteries: new Map(),
     parts: [],
     targets: ["shrine"],
     load: 3,
@@ -142,6 +144,30 @@ describe("the Relight (shrine circuit)", () => {
     expect(plan.duration).toBeGreaterThanOrEqual(2);
     expect(plan.duration).toBeLessThanOrEqual(4);
     expect(plan.duration).toBeGreaterThan(RELIGHT_TRAVEL_SECONDS);
+  });
+});
+
+describe("battery helpers", () => {
+  it("charge fraction is charge / capacity, clamped", () => {
+    expect(chargeFraction(7, 10)).toBeCloseTo(0.7, 9);
+    expect(chargeFraction(0, 10)).toBe(0);
+    expect(chargeFraction(12, 10)).toBe(1);
+    expect(chargeFraction(-1, 10)).toBe(0);
+    expect(chargeFraction(5, 0)).toBe(0);
+  });
+  it("flat is released -> not released at charge 0 only", () => {
+    expect(wentFlat(true, false, 0)).toBe(true);
+    expect(wentFlat(true, false, 0.0004)).toBe(true);
+    expect(wentFlat(true, false, 4)).toBe(false); // stopped early
+    expect(wentFlat(true, true, 0)).toBe(false); // still released
+    expect(wentFlat(false, false, 0)).toBe(false); // was already idle
+    expect(wentFlat(false, true, 3)).toBe(false);
+  });
+  it("pop progress runs 0..1 then ends", () => {
+    expect(popProgress(-0.1)).toBe(-1);
+    expect(popProgress(0)).toBe(0);
+    expect(popProgress(FLAT_POP_SECONDS / 2)).toBeCloseTo(0.5, 9);
+    expect(popProgress(FLAT_POP_SECONDS)).toBe(-1);
   });
 });
 
