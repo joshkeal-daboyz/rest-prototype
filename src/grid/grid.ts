@@ -3,7 +3,7 @@
  * Rules: puzzles/SCHEMA.md and docs/prototype-brief.md.
  */
 
-import { DEFAULTS, EventBus, FAULT_RULES, type Fault, type GridNode, type Line, type Part, type Puzzle } from "../core";
+import { DEFAULTS, EventBus, FAULT_RULES, type BatteryNode, type Fault, type GridNode, type Line, type Part, type Puzzle } from "../core";
 import type { Grid, GridState, RepairResult } from "./types";
 
 interface Mutable {
@@ -21,6 +21,13 @@ const cloneMutable = (m: Mutable): Mutable => ({
   parts: [...m.parts],
   actions: m.actions,
 });
+
+interface BatteryRun {
+  charge: number;
+  released: boolean;
+}
+
+const EPS = 1e-9;
 
 interface Flow {
   powered: Set<string>;
@@ -64,12 +71,13 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
     };
   };
 
-  function flow(m: Mutable): Flow {
+  /** Current spreading from one source: the feed, or a released battery (out of every line but its input). */
+  function flow(m: Mutable, rootId: string): Flow {
     const faultAt = new Map<string, Fault>(m.faults.map((f) => [f.at, f]));
-    const powered = new Set<string>([feedId]);
+    const powered = new Set<string>([rootId]);
     const flowFrom = new Map<string, string>();
     const parent = new Map<string, string>();
-    const order: string[] = [feedId];
+    const order: string[] = [rootId];
 
     const conducts = (n: GridNode): boolean => {
       switch (n.type) {
@@ -82,6 +90,7 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
         case "junction":
           return !faultAt.has(n.id);
         case "lamp":
+        case "battery": // never passes the feed's current on; it only sources when it is a root
           return false;
       }
     };
@@ -89,8 +98,13 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
     for (let i = 0; i < order.length; i++) {
       const id = order[i]!;
       const n = nodes.get(id)!;
-      if (!conducts(n)) continue;
-      const out = n.type === "switch" ? [n.outputs[m.switches.get(n.id) ?? n.selected]] : (adjacency.get(id) ?? []);
+      if (!(i === 0 && n.type === "battery") && !conducts(n)) continue;
+      const out =
+        n.type === "switch"
+          ? [n.outputs[m.switches.get(n.id) ?? n.selected]]
+          : n.type === "battery"
+            ? (adjacency.get(id) ?? []).filter((l) => l !== n.input)
+            : (adjacency.get(id) ?? []);
       for (const lineId of out) {
         if (powered.has(lineId)) continue;
         const line = lines.get(lineId)!;
@@ -100,6 +114,8 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
         if (other.type === "switch" && other.outputs.includes(lineId)) continue;
         powered.add(lineId);
         flowFrom.set(lineId, id);
+        // A battery is entered only through its input line; from its far side the current stops at it.
+        if (other.type === "battery" && other.input !== lineId) continue;
         // Current runs up to a damaged cable and stops there.
         if (faultAt.get(lineId)?.kind === "damaged-cable") continue;
         if (powered.has(otherId)) continue;
@@ -114,7 +130,7 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
   /** Recompute, blowing overloaded fuses (outermost first) until stable. Mutates `m.faults`. */
   function settle(m: Mutable, emit: boolean): GridState {
     for (;;) {
-      const f = flow(m);
+      const f = flow(m, feedId);
       const faulted = new Set(m.faults.map((x) => x.at));
       const loadOf = (id: string): number => {
         const n = nodes.get(id)!;
@@ -145,32 +161,55 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
       }
       if (blew) continue;
 
+      // Released batteries with charge left are further sources; only the feed's own flow sets the load.
+      const powered = new Set(f.powered);
+      const flowFrom = new Map(f.flowFrom);
+      for (const bid of batteryIds) {
+        const b = bat.get(bid)!;
+        if (!b.released || b.charge <= 0) continue;
+        const bf = flow(m, bid);
+        for (const x of bf.powered) powered.add(x);
+        for (const [k, v] of bf.flowFrom) if (!flowFrom.has(k)) flowFrom.set(k, v);
+      }
+      const batteries = new Map<string, { charge: number; capacity: number; released: boolean; charging: boolean }>();
+      for (const bid of batteryIds) {
+        const b = bat.get(bid)!;
+        const cap = (nodes.get(bid) as BatteryNode).capacity;
+        batteries.set(bid, {
+          charge: b.charge,
+          capacity: cap,
+          released: b.released,
+          charging: !b.released && b.charge < cap && powered.has(bid),
+        });
+      }
+
       const lit = new Set<string>();
       let load = 0;
       for (const id of lampIds) {
-        if (f.powered.has(id) && !faulted.has(id)) {
+        if (powered.has(id) && !faulted.has(id)) {
           lit.add(id);
-          load += loadOf(id);
+          if (f.powered.has(id)) load += loadOf(id);
         }
       }
       const readable = new Set<string>();
       const sparking = new Set<string>();
       for (const fault of m.faults) {
-        if (f.powered.has(fault.at)) {
+        if (powered.has(fault.at)) {
           readable.add(fault.id);
           if (fault.kind === "damaged-cable") sparking.add(fault.at);
         }
       }
       const brownout = capacity !== null && load > capacity;
       return {
-        powered: f.powered,
-        flowFrom: f.flowFrom,
+        powered,
+        flowFrom,
         lit,
         readableFaults: readable,
         sparking,
         faults: m.faults.map((x) => ({ ...x })),
         breakers: new Map(m.breakers),
         switches: new Map(m.switches),
+        batteries,
         parts: [...m.parts],
         targets,
         load,
@@ -181,6 +220,16 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
       };
     }
   }
+
+  const batteryIds = puzzle.nodes.filter((n) => n.type === "battery").map((n) => n.id);
+  const bat = new Map<string, BatteryRun>();
+  const resetBatteries = (): void => {
+    for (const id of batteryIds) {
+      const n = nodes.get(id) as BatteryNode;
+      bat.set(id, { charge: Math.min(Math.max(n.charge ?? 0, 0), n.capacity), released: false });
+    }
+  };
+  resetBatteries();
 
   let cur = initial();
   const history: Mutable[] = [];
@@ -194,15 +243,19 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
   }
 
   /** After an action: settle (blowing fuses), then emit changed / brownout / completion. */
-  function commit(reason: "breaker" | "switch" | "repair"): void {
-    const before = derived;
-    derived = settle(cur, true);
-    bus.emit("grid:changed", { reason });
-    emitBrownoutIfChanged(before);
+  function finishIfComplete(): void {
     if (derived.complete && !finished) {
       finished = true;
       bus.emit("job:completed", { puzzleId: puzzle.id, actions: cur.actions });
     }
+  }
+
+  function commit(reason: "breaker" | "switch" | "repair" | "battery"): void {
+    const before = derived;
+    derived = settle(cur, true);
+    bus.emit("grid:changed", { reason });
+    emitBrownoutIfChanged(before);
+    finishIfComplete();
   }
 
   return {
@@ -223,6 +276,8 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
     throwSwitch(nodeId) {
       const n = nodes.get(nodeId);
       if (finished || !n || n.type !== "switch") return false;
+      // A relay can only be thrown while current reaches it.
+      if (n.relay && !derived.powered.has(nodeId)) return false;
       history.push(cloneMutable(cur));
       const selected: 0 | 1 = cur.switches.get(nodeId) === 0 ? 1 : 0;
       cur.switches.set(nodeId, selected);
@@ -230,6 +285,69 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
       bus.emit("switch:thrown", { nodeId, selected });
       commit("switch");
       return true;
+    },
+
+    release(nodeId) {
+      const n = nodes.get(nodeId);
+      const b = bat.get(nodeId);
+      if (finished || !n || n.type !== "battery" || !b) return false;
+      if (b.released) {
+        b.released = false;
+        bus.emit("battery:flat", { nodeId, stopped: true });
+      } else {
+        if (b.charge <= 0) return false;
+        b.released = true;
+        bus.emit("battery:released", { nodeId, charge: b.charge });
+      }
+      // Time is not undoable, so a release is not pushed to the undo history.
+      commit("battery");
+      return true;
+    },
+
+    advance(dtSeconds) {
+      if (!(dtSeconds > 0) || batteryIds.length === 0) return;
+      const before = derived;
+      let remaining = dtSeconds;
+      let changed = false;
+      for (let guard = 0; remaining > EPS && guard < 10_000; guard++) {
+        // Run to the next moment a battery fills or runs flat, or to the end of the step.
+        let step = remaining;
+        for (const id of batteryIds) {
+          const b = bat.get(id)!;
+          const st = derived.batteries.get(id)!;
+          if (b.released && b.charge > 0) step = Math.min(step, b.charge);
+          else if (st.charging) step = Math.min(step, st.capacity - b.charge);
+        }
+        const flat: string[] = [];
+        let moved = false;
+        for (const id of batteryIds) {
+          const b = bat.get(id)!;
+          const st = derived.batteries.get(id)!;
+          if (b.released && b.charge > 0) {
+            b.charge -= step;
+            moved = true;
+            if (b.charge <= EPS) {
+              b.charge = 0;
+              b.released = false;
+              flat.push(id);
+            }
+          } else if (st.charging) {
+            b.charge += step;
+            if (st.capacity - b.charge <= EPS) b.charge = st.capacity;
+            moved = true;
+          }
+        }
+        remaining -= step;
+        if (!moved) break; // nothing is charging or draining: the rest of the step changes nothing
+        changed = true;
+        derived = settle(cur, true);
+        for (const id of flat) bus.emit("battery:flat", { nodeId: id, stopped: false });
+        finishIfComplete();
+      }
+      if (changed) {
+        bus.emit("grid:changed", { reason: "time" });
+        emitBrownoutIfChanged(before);
+      }
     },
 
     repairAt(at): RepairResult {
@@ -267,6 +385,7 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
       const before = derived;
       cur = initial();
       history.length = 0;
+      resetBatteries();
       finished = false;
       derived = settle(cur, false);
       bus.emit("grid:changed", { reason: "reset" });
