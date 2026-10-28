@@ -69,6 +69,16 @@ export const MAX_BLOW_LAMPS = 8;
 /** Lamps per slot that get a flare (>= MAX_BLOW_LAMPS). */
 export const MAX_FLARE_LAMPS = 32;
 
+export const LAMP_STREAK_AND_FLARE = 0;
+export const LAMP_FLARE_ONLY = 1;
+export const LAMP_DROPPED = 2;
+
+/** What the lamp at `index` (0-based, payload order) gets: streak + flare, flare only, or nothing. */
+export function lampTreatment(index: number): number {
+  if (index < MAX_BLOW_LAMPS) return LAMP_STREAK_AND_FLARE;
+  return index < MAX_FLARE_LAMPS ? LAMP_FLARE_ONLY : LAMP_DROPPED;
+}
+
 /**
  * Seconds after the sequence starts when a streak reaches the end of a path of
  * `pathLength`, given every streak moves at the speed that takes the longest

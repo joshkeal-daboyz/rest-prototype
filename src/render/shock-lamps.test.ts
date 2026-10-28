@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   CULPRIT_FLARE_SECONDS,
+  LAMP_DROPPED,
+  LAMP_FLARE_ONLY,
+  LAMP_STREAK_AND_FLARE,
+  lampTreatment,
   MAX_BLOW_LAMPS,
   MAX_FLARE_LAMPS,
   POP_SECONDS,
@@ -78,9 +82,24 @@ describe("blowTargets", () => {
   });
 });
 
-describe("caps", () => {
-  it("every branch has a flare slot; extra lamps still flare without a streak", () => {
+describe("lampTreatment caps", () => {
+  it("the first 8 lamps get a streak and a flare", () => {
     expect(MAX_BLOW_LAMPS).toBe(8);
-    expect(MAX_FLARE_LAMPS).toBeGreaterThan(MAX_BLOW_LAMPS);
+    for (let i = 0; i < 8; i++) expect(lampTreatment(i)).toBe(LAMP_STREAK_AND_FLARE);
+  });
+  it("the 9th lamp onward flares without a streak", () => {
+    expect(lampTreatment(8)).toBe(LAMP_FLARE_ONLY);
+    expect(lampTreatment(20)).toBe(LAMP_FLARE_ONLY);
+    expect(lampTreatment(MAX_FLARE_LAMPS - 1)).toBe(LAMP_FLARE_ONLY);
+  });
+  it("past the 32 cap lamps are dropped", () => {
+    expect(MAX_FLARE_LAMPS).toBe(32);
+    expect(lampTreatment(32)).toBe(LAMP_DROPPED);
+    expect(lampTreatment(100)).toBe(LAMP_DROPPED);
+  });
+  it("12 lamps: 8 streak, 4 flare-only, none dropped", () => {
+    const counts = [0, 0, 0];
+    for (let i = 0; i < 12; i++) counts[lampTreatment(i)]!++;
+    expect(counts).toEqual([8, 4, 0]);
   });
 });

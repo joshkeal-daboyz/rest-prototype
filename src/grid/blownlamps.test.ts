@@ -89,15 +89,7 @@ describe("fuse:blown lists every lamp that counted toward the load (ticket 016 A
     expect(log[0]!.load).toBe(3);
   });
 
-  it("blown lamps: with no earlier settle (culprit null, path empty) the lamps are still listed", () => {
-    const p = mini(
-      [{ id: "feed", type: "feed" }, { id: "fb", type: "fusebox", rating: 1, }, { id: "a", type: "lamp" }, { id: "b", type: "lamp" }],
-      [["l0", "feed", "fb"], ["la", "fb", "a"], ["lb", "fb", "b"]],
-    );
-    const bus = new EventBus();
-    const log = blows(bus);
-    createGrid(p, bus);
-    // Construction blows silently; force an emitted blow by repairing at the start of an inline map.
+  it("blown lamps: a repair-triggered blow on a two-lamp box lists both lamps and names the first as culprit with its path", () => {
     const p2 = mini(
       [{ id: "feed", type: "feed" }, { id: "fb", type: "fusebox", rating: 1 }, { id: "a", type: "lamp" }, { id: "b", type: "lamp" }],
       [["l0", "feed", "fb"], ["la", "fb", "a"], ["lb", "fb", "b"]],
@@ -108,7 +100,9 @@ describe("fuse:blown lists every lamp that counted toward the load (ticket 016 A
     const g = createGrid({ ...p2, startingParts: ["fuse"] } as Puzzle, bus2);
     g.repairAt("fb");
     expect(log2).toHaveLength(1);
-    expect(log2[0]!.lamps!.map((l) => l.id)).toEqual(["a", "b"]);
-    expect(log).toEqual([]);
+    const e = log2[0]!;
+    expect(e.lamps!.map((l) => l.id)).toEqual(["a", "b"]);
+    expect(e.culprit).toBe("a");
+    expect(e.lamps!.find((l) => l.id === e.culprit)!.path).toEqual(e.path);
   });
 });

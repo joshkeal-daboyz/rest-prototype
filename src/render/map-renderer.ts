@@ -10,7 +10,10 @@ import { buildGeometry, hitTestGeometry, type Geometry, type Insets } from "./ge
 import { FUSE_BAR_HEIGHT, FUSE_BAR_TOP, FUSE_BAR_WIDTH, fuseFill, fuseStep, fuseTickOffsets } from "./fusebar";
 import { bulbOffsets, clusterRadius, poolAlpha, poolRadiusScale } from "./load";
 import {
+  LAMP_DROPPED,
+  LAMP_STREAK_AND_FLARE,
   MAX_BLOW_LAMPS,
+  lampTreatment,
   MAX_FLARE_LAMPS,
   MAX_PATH_POINTS,
   arrivalTime,
@@ -284,7 +287,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
       const len = polylineLength(ptX, ptY, n);
       lampLen[li0] = len;
       if (len > longest) longest = len;
-      if (k < MAX_BLOW_LAMPS) {
+      if (lampTreatment(k) === LAMP_STREAK_AND_FLARE) {
         const b = (s * MAX_BLOW_LAMPS + k) * MAX_PATH_POINTS;
         for (let p = 0; p < n; p++) {
           branchX[b + p] = ptX[p]!;
@@ -337,7 +340,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     let count = 0;
     let maxLines = 0;
     for (const target of blowTargets(p)) {
-      if (count >= MAX_FLARE_LAMPS) break;
+      if (lampTreatment(count) === LAMP_DROPPED) break;
       const k = s * MAX_FLARE_LAMPS + count;
       const ci = target.id === null ? undefined : geo.nodeIndex.get(target.id);
       lampNode[k] = ci ?? -1;
