@@ -2,7 +2,7 @@
 
 export const FUSE_BAR_WIDTH = 40;
 export const FUSE_BAR_HEIGHT = 5;
-/** Bar top, px below the fuse box's centre (under the `load ≤N` label). */
+/** Bar top, px below the fuse box's centre (under the `LvN Fuse` caption). */
 export const FUSE_BAR_TOP = 30;
 /** Past this many units the ticks would crowd into a smear, so they are left off. */
 export const FUSE_BAR_MAX_TICKS = 12;
