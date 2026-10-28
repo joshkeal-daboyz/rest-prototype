@@ -1,7 +1,7 @@
 # 003 · Render a map
 
 owner: renderer
-status: open
+status: review-passed
 branch: ticket/003-render-map
 depends on: 002 (interface only; build against the `GridState` in ticket 002 and merge after it)
 
