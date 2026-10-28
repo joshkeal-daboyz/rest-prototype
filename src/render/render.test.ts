@@ -29,6 +29,7 @@ function wonState(): GridState {
     lit: new Set(["shrine", "flood"]),
     readableFaults: new Set(),
     sparking: new Set(),
+    fuseLoad: new Map(),
     faults: [{ id: "f1", at: "j_dead", kind: "dead-junction" }],
     breakers: new Map([["br_main", true], ["br_street", false]]),
     switches: new Map<string, 0 | 1>([["sw_1", 1]]),

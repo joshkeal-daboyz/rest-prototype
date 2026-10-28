@@ -7,6 +7,7 @@
 import { FAULT_RULES, type Events, type FaultKind, type Puzzle } from "../core";
 import type { GridState } from "../grid";
 import { buildGeometry, hitTestGeometry, type Geometry, type Insets } from "./geometry";
+import { FUSE_BAR_HEIGHT, FUSE_BAR_TOP, FUSE_BAR_WIDTH, fuseFill, fuseStep, fuseTickOffsets } from "./fusebar";
 import { bulbOffsets, clusterRadius, poolAlpha, poolRadiusScale } from "./load";
 import {
   MAX_PATH_POINTS,
@@ -142,6 +143,13 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
   const junctionStubs = FAULT_RULES["dead-junction"].count;
   const bulbScratch = new Float64Array(6);
   const ratingLabel: string[] = nodes.map((n) => (n.type === "fusebox" && n.rating !== undefined ? `load ≤${n.rating}` : ""));
+  // Fuse load bar geometry, once per fusebox (null = unrated: no bar).
+  const fuseTicks: (Float32Array | null)[] = nodes.map((n) => (n.type === "fusebox" && n.rating !== undefined ? fuseTickOffsets(n.rating) : null));
+  const fuseRating = new Float64Array(nNodes);
+  nodes.forEach((n, i) => {
+    if (n.type === "fusebox" && n.rating !== undefined) fuseRating[i] = n.rating;
+  });
+  const BAR_COLOURS = [BATT_FILL, BATT_FILL_RELEASED, ALARM] as const;
   const lineFromId: string[] = lines.map((l) => l.from);
   const isBattery = new Uint8Array(nNodes);
   nodes.forEach((n, i) => {
@@ -794,6 +802,46 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
           c.fillStyle = TEXT;
           c.font = FONT;
           c.fillText(ratingLabel[i]!, x, y + 23);
+        }
+        if (fuseTicks[i] !== null) {
+          // Load bar: fill length and ticks carry the reading, colour only backs it up.
+          const bx = x - FUSE_BAR_WIDTH / 2;
+          const by = y + FUSE_BAR_TOP;
+          const fill = broken ? 0 : fuseFill(state.fuseLoad.get(id) ?? 0, fuseRating[i]);
+          c.fillStyle = NODE_FILL;
+          c.fillRect(bx, by, FUSE_BAR_WIDTH, FUSE_BAR_HEIGHT);
+          if (fill > 0) {
+            c.fillStyle = BAR_COLOURS[fuseStep(fill)]!;
+            c.fillRect(bx, by, FUSE_BAR_WIDTH * fill, FUSE_BAR_HEIGHT);
+          }
+          const ticks = fuseTicks[i]!;
+          c.strokeStyle = BG;
+          c.lineWidth = 1;
+          c.beginPath();
+          for (let k = 0; k < ticks.length; k++) {
+            c.moveTo(bx + ticks[k]!, by);
+            c.lineTo(bx + ticks[k]!, by + FUSE_BAR_HEIGHT);
+          }
+          c.stroke();
+          c.lineWidth = 1.5;
+          c.beginPath();
+          if (broken) {
+            // Broken outline: two halves with a gap and slanted ends, bar empty.
+            c.strokeStyle = ALARM;
+            const mx = bx + FUSE_BAR_WIDTH / 2;
+            c.moveTo(mx - 3, by - 1);
+            c.lineTo(bx, by - 1);
+            c.lineTo(bx, by + FUSE_BAR_HEIGHT + 1);
+            c.lineTo(mx - 5, by + FUSE_BAR_HEIGHT + 1);
+            c.moveTo(mx + 3, by - 1);
+            c.lineTo(bx + FUSE_BAR_WIDTH, by - 1);
+            c.lineTo(bx + FUSE_BAR_WIDTH, by + FUSE_BAR_HEIGHT + 1);
+            c.lineTo(mx + 1, by + FUSE_BAR_HEIGHT + 1);
+          } else {
+            c.strokeStyle = fill >= 1 ? ALARM : NODE_DEAD;
+            c.rect(bx - 0.5, by - 0.5, FUSE_BAR_WIDTH + 1, FUSE_BAR_HEIGHT + 1);
+          }
+          c.stroke();
         }
         break;
       }
