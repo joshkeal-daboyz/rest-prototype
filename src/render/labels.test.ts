@@ -13,5 +13,6 @@ describe("map captions (ticket 014 A)", () => {
     expect(feedUsing(3, 4)).toBe("using 3 of 4");
     expect(feedUsing(3, null)).toBe("using 3");
     expect(feedAlarm(5, 4)).toBe("! using 5 of 4 !");
+    expect(feedAlarm(5, null)).toBe("! using 5 !");
   });
 });
