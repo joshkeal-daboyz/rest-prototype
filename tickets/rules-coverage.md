@@ -10,7 +10,8 @@ Every rule in the brief's "Rules" section, and where it is tested.
 | Parts bulb / fuse / wire; fault → part and count | src/core `FAULT_RULES`; src/grid tests |
 | Signatures derivable from state (into a fuse, none out, etc.) | src/grid tests |
 | Faults hide faults (readable = current reaches it) | src/grid tests |
-| Capacity: over it, brownout; nothing counts as lit | src/grid tests |
+| Capacity: over it, brownout; nothing counts as lit | src/grid tests; per feed on multi-feed maps: 015 A |
+| Power flows from the feed outward (each feed, on multi-feed maps) | 015 A (one-feed maps unchanged, rule 8) |
 | Fuse rating: over it, blows on power | src/grid tests |
 | Scarce parts: repair consumes the part; refused without it | src/grid tests |
 | Win: every target lit, no brownout | src/grid tests |
