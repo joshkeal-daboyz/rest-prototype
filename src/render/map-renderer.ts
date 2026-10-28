@@ -11,6 +11,7 @@ import { bulbOffsets, clusterRadius, poolAlpha, poolRadiusScale } from "./load";
 import {
   MAX_PATH_POINTS,
   STREAK_FRACTION,
+  culpritFlare,
   fuseIntact,
   popFraction,
   pointAlong,
@@ -189,6 +190,8 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
   const slotX = new Float64Array(SLOTS * MAX_PATH_POINTS);
   const slotY = new Float64Array(SLOTS * MAX_PATH_POINTS);
   const holdIntact = new Uint8Array(nNodes);
+  /** Per node: culprit flare level 0..1 this frame (the lamp that blew the fuse). */
+  const culpritGlow = new Float64Array(nNodes);
   let nextSlot = 0;
   const ptX = new Float64Array(MAX_PATH_POINTS);
   const ptY = new Float64Array(MAX_PATH_POINTS);
@@ -449,6 +452,9 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     } else if (state.lit.has(id)) {
       k = state.brownout ? flicker(t, i) : 1;
     }
+    // The lamp that blew a fuse flares: full lit look plus a hot white core, fading back.
+    const glow = culpritGlow[i]!;
+    if (glow > 0 && k < 1) k = 1;
     const powered = state.powered.has(id) && (!rp || relT >= rp.nodeArrive[i]!);
     const nb = bulbOffsets(load, bulbScratch);
     const br = nb === 1 ? 14 : 11;
@@ -511,9 +517,9 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
       if (k > 0) {
         // Hotter core, stronger with load.
         c.fillStyle = WARM_HOT;
-        c.globalAlpha = Math.min(0.25 * nb * k, 0.8);
+        c.globalAlpha = Math.min(0.25 * nb * k + 0.75 * glow, glow > 0 ? 1 : 0.8);
         c.beginPath();
-        c.arc(bx, by, br * 0.6, 0, TAU);
+        c.arc(bx, by, br * (0.6 + 0.3 * glow), 0, TAU);
         c.fill();
         c.globalAlpha = 1;
       }
@@ -969,6 +975,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     }
     // Advance sequences: stamp pending starts, free finished or undone ones, hold fuses intact until the pop.
     holdIntact.fill(0);
+    culpritGlow.fill(0);
     for (let s = 0; s < SLOTS; s++) {
       if (slotActive[s] === 0) continue;
       if (slotStart[s] !== slotStart[s]) slotStart[s] = t;
@@ -979,6 +986,11 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
         continue;
       }
       if (fuseIntact(age, slotLineCount[s]! > 0)) holdIntact[ni] = 1;
+      const ci = slotCulprit[s]!;
+      if (ci >= 0) {
+        const fl = culpritFlare(age, slotLineCount[s]! > 0);
+        if (fl > culpritGlow[ci]!) culpritGlow[ci] = fl;
+      }
     }
 
     // Detect a battery that just ran flat (released -> not released at charge 0) to pop it.

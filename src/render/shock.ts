@@ -49,6 +49,21 @@ export function fuseIntact(age: number, hasPath: boolean): boolean {
   return age < shockDuration(hasPath);
 }
 
+/** Seconds the culprit's flare lasts, from the moment the streak arrives. */
+export const CULPRIT_FLARE_SECONDS = 0.5;
+
+/**
+ * Culprit flare level 0..1: 0 until the streak arrives (end of the shock), full
+ * on arrival, fading to 0 after CULPRIT_FLARE_SECONDS (before the pop finishes).
+ * No path means no streak, so no flare.
+ */
+export function culpritFlare(age: number, hasPath: boolean): number {
+  if (!hasPath) return 0;
+  const a = age - shockDuration(true);
+  if (a < 0 || a >= CULPRIT_FLARE_SECONDS) return 0;
+  return 1 - a / CULPRIT_FLARE_SECONDS;
+}
+
 export function polylineLength(xs: ArrayLike<number>, ys: ArrayLike<number>, n: number): number {
   let total = 0;
   for (let i = 1; i < n; i++) total += Math.hypot(xs[i]! - xs[i - 1]!, ys[i]! - ys[i - 1]!);
