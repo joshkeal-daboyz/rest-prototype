@@ -8,11 +8,10 @@ import {
   MAX_PATH_POINTS,
   POP_SECONDS,
   PHASE_DONE,
+  PHASE_GLOW,
   PHASE_POP,
   PHASE_SHOCK,
   SHOCK_SECONDS,
-  CULPRIT_FLARE_SECONDS,
-  culpritFlare,
   fuseIntact,
   pointAlong,
   polylineLength,
@@ -52,40 +51,34 @@ describe("lamp load shown by size, count and brightness", () => {
 });
 
 describe("fuse-blow sequence timing", () => {
-  it("shock first, then pop, then done", () => {
+  it("run, then glow, then pop, then done", () => {
     expect(sequencePhase(0, true)).toBe(PHASE_SHOCK);
     expect(sequencePhase(SHOCK_SECONDS - 0.01, true)).toBe(PHASE_SHOCK);
-    expect(sequencePhase(SHOCK_SECONDS + 0.01, true)).toBe(PHASE_POP);
-    expect(sequencePhase(SHOCK_SECONDS + POP_SECONDS + 0.01, true)).toBe(PHASE_DONE);
-    expect(sequenceTotal(true)).toBeCloseTo(1.0);
+    expect(sequencePhase(SHOCK_SECONDS + 0.01, true)).toBe(PHASE_GLOW);
+    expect(sequencePhase(0.7 - 0.01, true)).toBe(PHASE_GLOW);
+    expect(sequencePhase(0.7, true)).toBe(PHASE_POP);
+    expect(sequencePhase(1.3 - 0.01, true)).toBe(PHASE_POP);
+    expect(sequencePhase(1.3, true)).toBe(PHASE_DONE);
+    expect(sequenceTotal(true)).toBeCloseTo(1.3);
   });
-  it("keeps the fuse intact until the pop lands", () => {
+  it("keeps the fuse intact until the pop lands at 0.7 s", () => {
     expect(fuseIntact(0.2, true)).toBe(true);
-    expect(fuseIntact(SHOCK_SECONDS, true)).toBe(false);
+    expect(fuseIntact(SHOCK_SECONDS, true)).toBe(true);
+    expect(fuseIntact(0.69, true)).toBe(true);
+    expect(fuseIntact(0.7, true)).toBe(false);
   });
-  it("with no path it skips the streak and pops at once", () => {
+  it("with no path it skips the run and pops at once", () => {
     expect(fuseIntact(0, false)).toBe(false);
     expect(sequencePhase(0, false)).toBe(PHASE_POP);
     expect(popFraction(0, false)).toBe(0);
     expect(shockProgress(0, false)).toBe(1);
     expect(sequenceTotal(false)).toBeCloseTo(POP_SECONDS);
   });
-  it("the culprit flares when the streak arrives and is gone before the pop ends", () => {
-    expect(culpritFlare(0, true)).toBe(0);
-    expect(culpritFlare(SHOCK_SECONDS - 0.01, true)).toBe(0);
-    expect(culpritFlare(SHOCK_SECONDS, true)).toBe(1);
-    expect(culpritFlare(SHOCK_SECONDS + 0.25, true)).toBeCloseTo(0.5);
-    expect(culpritFlare(SHOCK_SECONDS + CULPRIT_FLARE_SECONDS, true)).toBe(0);
-    expect(SHOCK_SECONDS + CULPRIT_FLARE_SECONDS).toBeLessThanOrEqual(sequenceTotal(true));
-  });
-  it("no path, no flare", () => {
-    expect(culpritFlare(0, false)).toBe(0);
-    expect(culpritFlare(0.1, false)).toBe(0);
-  });
   it("pop fraction runs 0..1 then is -1", () => {
-    expect(popFraction(SHOCK_SECONDS - 0.05, true)).toBe(-1);
-    expect(popFraction(SHOCK_SECONDS + POP_SECONDS / 2, true)).toBeCloseTo(0.5);
-    expect(popFraction(SHOCK_SECONDS + POP_SECONDS + 0.1, true)).toBe(-1);
+    expect(popFraction(0.7 - 0.05, true)).toBe(-1);
+    expect(popFraction(0.7, true)).toBe(0);
+    expect(popFraction(0.7 + POP_SECONDS / 2, true)).toBeCloseTo(0.5);
+    expect(popFraction(1.3, true)).toBe(-1);
   });
 });
 

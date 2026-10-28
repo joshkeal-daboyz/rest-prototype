@@ -16,7 +16,14 @@ import {
   lampTreatment,
   MAX_FLARE_LAMPS,
   MAX_PATH_POINTS,
-  arrivalTime,
+  LAMP_SPARK_AT,
+  MAX_GLOW_LINES,
+  SPARK_RAYS,
+  collectGlowLines,
+  lampSpark,
+  lineGlow,
+  sparkRay,
+  streakFade,
   blowTargets,
   fuseIntact,
   headDistance,
@@ -25,7 +32,6 @@ import {
   pointAlong,
   polylineLength,
   sequenceTotal,
-  shockDuration,
   streakLength,
   sliceVertices,
 } from "./shock";
@@ -225,7 +231,11 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
   const lampLineN = new Int32Array(SLOTS * MAX_FLARE_LAMPS);
   const lampLines = new Int32Array(SLOTS * MAX_FLARE_LAMPS * MAX_PATH_POINTS);
   const lampLen = new Float64Array(SLOTS * MAX_FLARE_LAMPS);
-  const lampArrive = new Float64Array(SLOTS * MAX_FLARE_LAMPS);
+  /** Per slot: distinct line indices on all lamp paths (they glow together), and how many. */
+  const glowLines: Int32Array[] = [];
+  for (let s = 0; s < SLOTS; s++) glowLines.push(new Int32Array(MAX_GLOW_LINES));
+  const glowN = new Int32Array(SLOTS);
+  const sparkOut = new Float64Array(4);
   /** Streak branches (first MAX_BLOW_LAMPS lamps of a slot): screen polylines. */
   const branchN = new Int32Array(SLOTS * MAX_BLOW_LAMPS);
   const branchX = new Float64Array(SLOTS * MAX_BLOW_LAMPS * MAX_PATH_POINTS);
@@ -297,10 +307,6 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
       }
     }
     slotLongest[s] = longest;
-    for (let k = 0; k < count; k++) {
-      const li0 = s * MAX_FLARE_LAMPS + k;
-      lampArrive[li0] = arrivalTime(lampLen[li0]!, longest);
-    }
   }
 
   function slotFor(nodeIdx: number): number {
@@ -319,6 +325,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     slotStart[s] = start;
     slotLineCount[s] = 0;
     slotLampCount[s] = 0;
+    glowN[s] = 0;
     slotLongest[s] = 0;
     return s;
   }
@@ -355,6 +362,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
       count++;
     }
     slotLampCount[s] = count;
+    glowN[s] = collectGlowLines(lampLines, lampLineN, s * MAX_FLARE_LAMPS, count, MAX_PATH_POINTS, glowLines[s]!, MAX_GLOW_LINES);
     slotLineCount[s] = maxLines;
     rebuildSlotPath(s);
   }
@@ -1010,25 +1018,27 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
       const hasPath = slotLineCount[s]! > 0;
       const age = t - slotStart[s]!;
       const ni = slotNode[s]!;
-      if (hasPath && age < shockDuration(true) + 0.25) {
+      if (hasPath) {
         const longest = slotLongest[s]!;
         const nb = Math.min(slotLampCount[s]!, MAX_BLOW_LAMPS);
-        if (age < shockDuration(true) && longest > 0) {
-          // All streaks share one speed; one path per pass so a shared trunk is stroked once.
+        const fade = streakFade(age);
+        if (fade > 0 && longest > 0) {
+          // All streaks share one speed and wait at their lamp; one path per pass so a shared trunk is stroked once.
           const head = headDistance(age, longest);
-          const tail = head - streakLength(longest);
+          const slen = streakLength(longest);
           c.beginPath();
           let drawn = 0;
           for (let k = 0; k < nb; k++) {
             const len = lampLen[s * MAX_FLARE_LAMPS + k]!;
-            if (head >= len) continue;
+            if (len <= 0) continue;
+            const bh = head < len ? head : len;
             const b = (s * MAX_BLOW_LAMPS + k) * MAX_PATH_POINTS;
             const bn = branchN[s * MAX_BLOW_LAMPS + k]!;
             for (let p = 0; p < bn; p++) {
               ptX[p] = branchX[b + p]!;
               ptY[p] = branchY[b + p]!;
             }
-            const m = sliceVertices(ptX, ptY, bn, tail / len, head / len, sliceOut);
+            const m = sliceVertices(ptX, ptY, bn, (bh - slen) / len, bh / len, sliceOut);
             if (m < 2) continue;
             c.moveTo(sliceOut[0]!, sliceOut[1]!);
             for (let p = 1; p < m; p++) c.lineTo(sliceOut[p * 2]!, sliceOut[p * 2 + 1]!);
@@ -1038,10 +1048,10 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
             c.lineCap = "round";
             c.lineJoin = "round";
             c.strokeStyle = SHOCK_GLOW;
-            c.globalAlpha = 0.55;
+            c.globalAlpha = 0.55 * fade;
             c.lineWidth = 12;
             c.stroke();
-            c.globalAlpha = 1;
+            c.globalAlpha = fade;
             c.strokeStyle = SHOCK_CORE;
             c.lineWidth = 3.5;
             c.stroke();
@@ -1049,42 +1059,75 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
             c.beginPath();
             for (let k = 0; k < nb; k++) {
               const len = lampLen[s * MAX_FLARE_LAMPS + k]!;
-              if (head >= len) continue;
+              if (len <= 0) continue;
               const b = (s * MAX_BLOW_LAMPS + k) * MAX_PATH_POINTS;
               const bn = branchN[s * MAX_BLOW_LAMPS + k]!;
               for (let p = 0; p < bn; p++) {
                 ptX[p] = branchX[b + p]!;
                 ptY[p] = branchY[b + p]!;
               }
-              pointAlong(ptX, ptY, bn, head / len, headOut);
+              pointAlong(ptX, ptY, bn, (head < len ? head : len) / len, headOut);
               c.moveTo(headOut[0]! + 5, headOut[1]!);
               c.arc(headOut[0]!, headOut[1]!, 5, 0, Math.PI * 2);
             }
             c.fill();
+            c.globalAlpha = 1;
           }
         }
-        // Crackle of sparks at each lamp as its streak arrives.
-        const step = Math.floor(t * 30);
-        c.strokeStyle = SHOCK_CORE;
-        c.lineWidth = 2;
-        c.beginPath();
-        for (let lk = 0; lk < slotLampCount[s]!; lk++) {
-          const arrive = lampArrive[s * MAX_FLARE_LAMPS + lk]!;
-          const ci = lampNode[s * MAX_FLARE_LAMPS + lk]!;
-          if (ci < 0 || age < arrive || age >= arrive + 0.25) continue;
-          const ex = geo.nx[ci]!;
-          const ey = geo.ny[ci]!;
-          for (let k = 0; k < 7; k++) {
-            const h = step * 5.3 + s * 3.1 + lk * 7.7 + k * 1.9;
-            if (hash01(h) < 0.25) continue;
-            const a = hash01(h + 0.5) * Math.PI * 2;
-            const r0 = 6 + hash01(h + 1.5) * 4;
-            const r1 = r0 + 6 + hash01(h + 2.5) * 12;
-            c.moveTo(ex + Math.cos(a) * r0, ey + Math.sin(a) * r0);
-            c.lineTo(ex + Math.cos(a) * r1, ey + Math.sin(a) * r1);
+        // Every line the shock ran along glows brightly together: one path, two strokes.
+        const lg = lineGlow(age);
+        if (lg > 0 && glowN[s]! > 0) {
+          const gl = glowLines[s]!;
+          c.beginPath();
+          for (let q = 0; q < glowN[s]!; q++) {
+            const li = gl[q]!;
+            c.moveTo(geo.ax[li]!, geo.ay[li]!);
+            c.lineTo(geo.bx[li]!, geo.by[li]!);
           }
+          c.lineCap = "round";
+          c.lineJoin = "round";
+          c.strokeStyle = SHOCK_GLOW;
+          c.globalAlpha = 0.6 * lg;
+          c.lineWidth = 16;
+          c.stroke();
+          c.globalAlpha = lg;
+          c.strokeStyle = SHOCK_CORE;
+          c.lineWidth = 4.5;
+          c.stroke();
+          c.globalAlpha = 1;
         }
-        c.stroke();
+        // Every lamp that counted sparks at once: radiating rays plus a flickering crackle.
+        const sp = lampSpark(age);
+        if (sp > 0) {
+          const step = Math.floor(t * 30);
+          c.lineCap = "round";
+          c.strokeStyle = SHOCK_CORE;
+          c.globalAlpha = 0.35 + 0.65 * sp;
+          c.lineWidth = 2.5;
+          c.beginPath();
+          for (let lk = 0; lk < slotLampCount[s]!; lk++) {
+            const ci = lampNode[s * MAX_FLARE_LAMPS + lk]!;
+            if (ci < 0) continue;
+            const ex = geo.nx[ci]!;
+            const ey = geo.ny[ci]!;
+            for (let r = 0; r < SPARK_RAYS; r++) {
+              if (!sparkRay(lk, r, age, sparkOut)) continue;
+              c.moveTo(ex + sparkOut[0]!, ey + sparkOut[1]!);
+              c.lineTo(ex + sparkOut[2]!, ey + sparkOut[3]!);
+            }
+            for (let k = 0; k < 7; k++) {
+              const h = step * 5.3 + s * 3.1 + lk * 7.7 + k * 1.9;
+              if (hash01(h) < 0.25) continue;
+              const a = hash01(h + 0.5) * Math.PI * 2;
+              const r0 = 6 + hash01(h + 1.5) * 4;
+              const r1 = r0 + 6 + hash01(h + 2.5) * 12;
+              c.moveTo(ex + Math.cos(a) * r0, ey + Math.sin(a) * r0);
+              c.lineTo(ex + Math.cos(a) * r1, ey + Math.sin(a) * r1);
+            }
+          }
+          c.stroke();
+          c.globalAlpha = 1;
+        }
       }
       const pf = popFraction(age, hasPath);
       if (pf >= 0) {
@@ -1176,7 +1219,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
         for (let k = 0; k < slotLampCount[s]!; k++) {
           const ci = lampNode[s * MAX_FLARE_LAMPS + k]!;
           if (ci < 0) continue;
-          const fl = lampFlare(age, lampArrive[s * MAX_FLARE_LAMPS + k]!);
+          const fl = lampFlare(age, LAMP_SPARK_AT);
           if (fl > lampGlow[ci]!) lampGlow[ci] = fl;
         }
       }
