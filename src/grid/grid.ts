@@ -59,6 +59,7 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
   const lampIds = puzzle.nodes.filter((n) => n.type === "lamp").map((n) => n.id);
   const targets: readonly string[] = puzzle.target && puzzle.target.length > 0 ? [...puzzle.target] : lampIds;
   const capacity = puzzle.capacity;
+  const fuseIds = puzzle.nodes.filter((n) => n.type === "fusebox").map((n) => n.id);
 
   const initial = (): Mutable => {
     const breakers = new Map<string, boolean>();
@@ -243,6 +244,9 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
           if (f.powered.has(id)) load += loadOf(id);
         }
       }
+      // The same `sub` totals the blow check compared against each rating; 0 when unpowered or blown.
+      const fuseLoad = new Map<string, number>();
+      for (const fid of fuseIds) fuseLoad.set(fid, f.powered.has(fid) && !faulted.has(fid) ? (sub.get(fid) ?? 0) : 0);
       const readable = new Set<string>();
       const sparking = new Set<string>();
       for (const fault of m.faults) {
@@ -258,6 +262,7 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
         lit,
         readableFaults: readable,
         sparking,
+        fuseLoad,
         faults: m.faults.map((x) => ({ ...x })),
         breakers: new Map(m.breakers),
         switches: new Map(m.switches),
