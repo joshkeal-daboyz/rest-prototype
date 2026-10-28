@@ -2,7 +2,19 @@
  * Pure: what the pointer is over, and what a click would do. No DOM.
  * The prompt strings are the ones ticket 004 lists; the UI shows them verbatim.
  */
-import { carryingText, DEFAULTS, FAULT_RULES, type FaultKind, fuseLabel, lampLabel, type Puzzle } from "../core";
+import {
+  carryingText,
+  DEFAULTS,
+  FAULT_RULES,
+  type FaultKind,
+  fuseLabel,
+  lampLabel,
+  lampOnLabel,
+  namedPowersourceLabel,
+  type Puzzle,
+  puzzleFeeds,
+  usingText,
+} from "../core";
 import type { GridState } from "../grid";
 
 export type Intent =
@@ -83,7 +95,20 @@ const FAULT_LABEL: Record<FaultKind, string> = {
 /** Informational hover for healthy lamps and fuseboxes (no click effect). */
 function infoPrompt(puzzle: Puzzle, state: GridState, id: string | null): string | null {
   const node = id === null ? undefined : puzzle.nodes.find((n) => n.id === id);
-  if (node?.type === "lamp") return lampLabel(node.load ?? DEFAULTS.lampLoad);
+  const feeds = puzzleFeeds(puzzle);
+  const multi = feeds.length > 1;
+  if (node?.type === "feed" && multi) {
+    const info = feeds.find((f) => f.id === node.id);
+    const read = state.feeds.get(node.id);
+    if (!info || !read) return null;
+    return `${namedPowersourceLabel(info.name, read.capacity)} — ${usingText(read.load, read.capacity)}`;
+  }
+  if (node?.type === "lamp") {
+    const load = node.load ?? DEFAULTS.lampLoad;
+    const carrier = multi ? state.feedOf.get(node.id) : undefined;
+    const info = carrier === undefined ? undefined : feeds.find((f) => f.id === carrier);
+    return info ? lampOnLabel(load, info.name) : lampLabel(load);
+  }
   if (node?.type === "fusebox") {
     const carrying = state.fuseLoad.get(node.id) ?? 0;
     if (node.rating === undefined) return `${fuseLabel(undefined)} — ${carryingText(carrying, undefined)}`;
