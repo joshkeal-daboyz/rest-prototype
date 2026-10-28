@@ -1,7 +1,7 @@
 # 012 · Fuse load bar, and a fuse-management puzzle
 
 owner: grid-simulator (A), renderer (B), interaction (C), puzzle-designer (D, after A)
-status: open (awaiting G1)
+status: building
 branch: ticket/012-fuse-load-bar
 
 ## Josh's words
