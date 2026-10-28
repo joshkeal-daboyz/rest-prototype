@@ -6,7 +6,7 @@
 
 import type { Grid } from "../grid";
 import type { MapPlay } from "../play";
-import { bannerText, capacityReadout, mapLabel, partCounts, partsSummary, promptPosition, promptToShow, targetRows } from "./logic";
+import { batteryCountdown, bannerText, capacityReadout, mapLabel, partCounts, partsSummary, promptPosition, promptToShow, targetRows } from "./logic";
 
 export interface UIDeps {
   grid: Grid;
@@ -60,12 +60,14 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
   pickerLabel.append(picker);
 
   const capacityEl = el("div", "readout capacity");
+  const batteryEl = el("div", "readout battery");
+  batteryEl.hidden = true;
   const targetsHeading = el("h2", "label", "Priests want lit");
   const targetsEl = el("ul", "targets");
   targetsEl.setAttribute("aria-labelledby", "targets-heading");
   targetsHeading.id = "targets-heading";
 
-  hudLeft.append(pickerLabel, capacityEl, targetsHeading, targetsEl);
+  hudLeft.append(pickerLabel, capacityEl, batteryEl, targetsHeading, targetsEl);
 
   // ---- top right: controls and parts ----
   const hudRight = el("div", "hud hud-right");
@@ -156,6 +158,10 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
 
     setText(capacityEl, capacityReadout(state.load, state.capacity, state.brownout));
     capacityEl.classList.toggle("brownout", state.brownout);
+
+    const countdown = batteryCountdown(state);
+    batteryEl.hidden = countdown === null;
+    setText(batteryEl, countdown ?? "");
 
     const rows = targetRows(state.targets, state.lit, state.brownout);
     const nextTargetsKey = JSON.stringify(rows);
