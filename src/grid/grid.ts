@@ -12,6 +12,8 @@ interface Mutable {
   faults: Fault[];
   parts: Part[];
   actions: number;
+  /** Per unfaulted fusebox at the last settle: the lit lamps downstream of it (null before the first settle). Decides which lamp is new under a fuse that blows. */
+  prevUnder: ReadonlyMap<string, ReadonlySet<string>> | null;
 }
 
 const cloneMutable = (m: Mutable): Mutable => ({
@@ -20,6 +22,7 @@ const cloneMutable = (m: Mutable): Mutable => ({
   faults: m.faults.map((f) => ({ ...f })),
   parts: [...m.parts],
   actions: m.actions,
+  prevUnder: m.prevUnder,
 });
 
 interface BatteryRun {
@@ -35,6 +38,8 @@ interface Flow {
   /** Powered nodes in discovery order (outermost first). */
   order: string[];
   parent: Map<string, string>;
+  /** Node id -> the line the current entered it through. */
+  parentLine: Map<string, string>;
 }
 
 export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid {
@@ -68,6 +73,7 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
       faults: puzzle.faults.map((f) => ({ ...f })),
       parts: [...(puzzle.startingParts ?? [])],
       actions: 0,
+      prevUnder: null,
     };
   };
 
@@ -77,6 +83,7 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
     const powered = new Set<string>([rootId]);
     const flowFrom = new Map<string, string>();
     const parent = new Map<string, string>();
+    const parentLine = new Map<string, string>();
     const order: string[] = [rootId];
 
     const conducts = (n: GridNode): boolean => {
@@ -121,14 +128,47 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
         if (powered.has(otherId)) continue;
         powered.add(otherId);
         parent.set(otherId, id);
+        parentLine.set(otherId, lineId);
         order.push(otherId);
       }
     }
-    return { powered, flowFrom, order, parent };
+    return { powered, flowFrom, order, parent, parentLine };
+  }
+
+  /**
+   * The lamp newly fed through `fuseId` (downstream of it now, not under that fuse before the action); the
+   * largest load wins, ties by discovery order. `null` with no earlier settle or no new lamp.
+   */
+  function nameCulprit(
+    f: Flow,
+    fuseId: string,
+    before: ReadonlyMap<string, ReadonlySet<string>> | null,
+    loadOf: (id: string) => number,
+  ): { culprit: string | null; path: string[] } {
+    if (before === null) return { culprit: null, path: [] };
+    const was = before.get(fuseId) ?? new Set<string>();
+    let best: string | null = null;
+    let bestLoad = 0;
+    for (const id of f.order) {
+      const w = loadOf(id);
+      if (w <= bestLoad || was.has(id)) continue;
+      for (let c: string | undefined = id; c !== undefined; c = f.parent.get(c)) {
+        if (c === fuseId && c !== id) {
+          best = id;
+          bestLoad = w;
+          break;
+        }
+      }
+    }
+    if (best === null) return { culprit: null, path: [] };
+    const path: string[] = [];
+    for (let c = best; c !== fuseId; c = f.parent.get(c)!) path.push(f.parentLine.get(c)!);
+    return { culprit: best, path: path.reverse() };
   }
 
   /** Recompute, blowing overloaded fuses (outermost first) until stable. Mutates `m.faults`. */
   function settle(m: Mutable, emit: boolean): GridState {
+    const before = m.prevUnder;
     for (;;) {
       const f = flow(m, feedId);
       const faulted = new Set(m.faults.map((x) => x.at));
@@ -154,7 +194,10 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
         if (load > rating) {
           const fault: Fault = { id: `blown-${id}`, at: id, kind: "blown-fuse" };
           m.faults.push(fault);
-          if (emit) bus.emit("fuse:blown", { nodeId: id, faultId: fault.id, load, rating });
+          if (emit) {
+            const { culprit, path } = nameCulprit(f, id, before, loadOf);
+            bus.emit("fuse:blown", { nodeId: id, faultId: fault.id, load, rating, culprit, path });
+          }
           blew = true;
           break;
         }
@@ -183,6 +226,15 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
         });
       }
 
+      const under = new Map<string, Set<string>>();
+      for (const fid of f.order) {
+        if (nodes.get(fid)!.type === "fusebox" && !faulted.has(fid)) under.set(fid, new Set());
+      }
+      for (const l of lampIds) {
+        if (loadOf(l) <= 0) continue;
+        for (let c = f.parent.get(l); c !== undefined; c = f.parent.get(c)) under.get(c)?.add(l);
+      }
+      m.prevUnder = under;
       const lit = new Set<string>();
       let load = 0;
       for (const id of lampIds) {
