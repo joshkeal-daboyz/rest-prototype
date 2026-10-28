@@ -84,4 +84,4 @@ Hold times (2 / 3 / 4 / 5 s) are in `FAULT_RULES` for the street layer; in map s
 
 ## Events
 
-`grid:changed`, `breaker:thrown`, `switch:thrown`, `fuse:blown`, `repair:completed`, `grid:brownout` (entered or cleared), `battery:released`, `battery:flat`, `job:completed`. `switch:thrown` carries `spring: true` when a spring switch returned on its own. Street scope later adds the night events.
+`grid:changed`, `breaker:thrown`, `switch:thrown`, `fuse:blown`, `repair:completed`, `grid:brownout` (entered or cleared), `battery:released`, `battery:flat`, `job:completed`. `switch:thrown` carries `spring: true` when a spring switch returned on its own. `fuse:blown` carries `load`, `rating`, `culprit` (the lamp the action newly fed, largest load if several, or null) with its `path` from the fuse, and `lamps`: every lamp whose load counted toward `load` when it blew (powered by the feed's flow, downstream of the fusebox, not faulted, load > 0, lamps already lit included), each with its line path from the fuse, in flow discovery order; their loads sum to `load` (ticket 016). Street scope later adds the night events.

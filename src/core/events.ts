@@ -5,6 +5,12 @@
 
 import type { Part } from "./schema";
 
+/** A lamp whose load counted toward a fuse when it blew, and the line ids from the fuse to it, in order. */
+export interface BlownLamp {
+  id: string;
+  path: readonly string[];
+}
+
 export interface GridEvents {
   /** Power, load or readability changed anywhere. Listeners re-read the GridState. */
   "grid:changed": { reason: "breaker" | "switch" | "repair" | "fuse" | "reset" | "undo" | "battery" | "time" };
@@ -21,7 +27,21 @@ export interface GridEvents {
    * (largest load if several); `path` is the line ids from the fuse to it, in order. The renderer
    * runs the shock along `path` before the fuse pops.
    */
-  "fuse:blown": { nodeId: string; faultId: string; load: number; rating: number; culprit: string | null; path: readonly string[] };
+  "fuse:blown": {
+    nodeId: string;
+    faultId: string;
+    load: number;
+    rating: number;
+    culprit: string | null;
+    path: readonly string[];
+    /**
+     * Every lamp whose load counted toward `load`, in flow discovery order (culprit included):
+     * powered by the feed's flow, downstream of this fusebox, not faulted, load > 0. Each `path`
+     * runs from the fuse to that lamp. The renderer shocks each (ticket 016). Optional so older
+     * payloads still type-check; the grid simulator always fills it.
+     */
+    lamps?: readonly BlownLamp[];
+  };
   "repair:completed": { faultId: string; at: string; part: Part; count: number };
   /** The lit load went over capacity (true) or came back under it (false). */
   "grid:brownout": { brownout: boolean; load: number; capacity: number };
