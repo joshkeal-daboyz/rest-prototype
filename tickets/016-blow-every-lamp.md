@@ -1,7 +1,7 @@
 # 016 · The blow reaches every lamp on the fuse
 
 owner: grid-simulator (A), renderer (B, after A)
-status: in progress (G1: Josh, "2 start")
+status: done (merged; Josh: "merge it")
 branch: one per part, `ticket/016-blow-every-lamp-a`, `ticket/016-blow-every-lamp-b`
 
 ## Josh's words
