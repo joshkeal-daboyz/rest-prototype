@@ -5,6 +5,7 @@ import { EventBus, loadPuzzle, type Puzzle } from "../core";
 import { createGrid } from "../grid";
 import type { MapRenderer } from "../render";
 import { createMapPlay, NEEDS_FLASH_SECONDS } from "./index";
+import { promptFor } from "./prompt";
 
 const shrine = (): Puzzle =>
   loadPuzzle(JSON.parse(readFileSync(join(__dirname, "../../puzzles/shrine-circuit.json"), "utf8")) as unknown);
@@ -16,6 +17,8 @@ function fakeRenderer(): MapRenderer & { next: string | null; calls: Array<[numb
     calls: [] as Array<[number, number]>,
     draw() {},
     resize() {},
+    setInsets() {},
+    notify() {},
     hitTest(x: number, y: number) {
       r.calls.push([x, y]);
       return r.next;
@@ -54,13 +57,13 @@ describe("prompts", () => {
 
   it("shows the shortfall for a readable fault the satchel can't cover", () => {
     const s = setup();
-    expect(s.over("j_dead").prompt).toBe("Needs: wire × 2");
+    expect(s.over("j_dead").prompt).toBe("Dead junction — Needs: 2 wires");
   });
 
-  it("gives no repair prompt for an unreadable fault, and null for anything else", () => {
+  it("hides an unreadable cable fault, shows a plain lamp by its load, and gives null for non-targets", () => {
     const s = setup();
     expect(s.over("l_b").prompt).toBeNull(); // dead feed side: unreadable
-    expect(s.over("shrine").prompt).toBeNull();
+    expect(s.over("shrine").prompt).toBe("Lamp, load 1");
     expect(s.over("l_feed").prompt).toBeNull();
     expect(s.over(null)).toMatchObject({ hover: null, prompt: null });
   });
@@ -68,7 +71,90 @@ describe("prompts", () => {
   it("offers Repair (wire) once the fault is readable and the part is on hand", () => {
     const s = setup();
     s.play.click("sw_1");
-    expect(s.over("l_b").prompt).toBe("Repair (wire)");
+    expect(s.over("l_b").prompt).toBe("Damaged cable — Repair (wire)");
+  });
+
+  /** Feed -> fusebox (rating 1) -> a load-3 lamp and a default-load lamp. */
+  const inline = (parts: string[], faults: unknown[], rating?: number): Puzzle =>
+    loadPuzzle({
+      id: "inline",
+      name: "inline",
+      version: 4,
+      scope: "map",
+      capacity: null,
+      startingParts: parts,
+      nodes: [
+        { id: "feed", type: "feed", pos: [0, 0] },
+        { id: "fb", type: "fusebox", pos: [2, 0], ...(rating === undefined ? {} : { rating }) },
+        { id: "mill", type: "lamp", pos: [4, 0], load: 3 },
+        { id: "bulb1", type: "lamp", pos: [4, 2] },
+      ],
+      lines: [
+        { id: "l1", from: "feed", to: "fb" },
+        { id: "l2", from: "fb", to: "mill" },
+        { id: "l3", from: "fb", to: "bulb1" },
+      ],
+      faults,
+    } as unknown);
+  /** A dead lamp keeps the job incomplete, so hover prompts stay on. */
+  const open = [{ id: "f9", at: "bulb1", kind: "dead-lamp" }];
+  const hover = (p: Puzzle, id: string): string | null =>
+    promptFor(p, createGrid(p, new EventBus()).state(), id);
+
+  it("a healthy fusebox shows its rating", () => {
+    expect(hover(inline([], open, 5), "fb")).toBe("Fuse ≤5");
+    expect(hover(inline([], open), "fb")).toBe("Fuse");
+    const s = setup();
+    expect(s.over("fb_A").prompt).toBe("Fuse ≤3");
+  });
+
+  it("a lamp shows its load", () => {
+    const p = inline([], open, 5);
+    expect(hover(p, "mill")).toBe("Lamp, load 3");
+    expect(hover(inline([], [{ id: "f9", at: "mill", kind: "dead-lamp" }], 5), "bulb1")).toBe("Lamp, load 1");
+  });
+
+  it("a readable blown fuse with a fuse on hand offers Repair (fuse)", () => {
+    const f = [{ id: "f1", at: "fb", kind: "blown-fuse" }];
+    expect(hover(inline(["fuse"], f, 1), "fb")).toBe("Blown fuse — Repair (fuse)");
+  });
+
+  it("a readable blown fuse without one shows Needs: fuse", () => {
+    const f = [{ id: "f1", at: "fb", kind: "blown-fuse" }];
+    expect(hover(inline([], f, 1), "fb")).toBe("Blown fuse — Needs: fuse");
+  });
+
+  it("a readable dead lamp offers Repair (bulb) or shows Needs: bulb", () => {
+    const f = [{ id: "f1", at: "bulb1", kind: "dead-lamp" }];
+    expect(hover(inline(["bulb"], f, 5), "bulb1")).toBe("Dead lamp — Repair (bulb)");
+    expect(hover(inline([], f, 5), "bulb1")).toBe("Dead lamp — Needs: bulb");
+  });
+
+  it("a dead junction shows Needs: 2 wires, then Repair (2 wires) once two are on hand", () => {
+    const s = setup();
+    expect(s.over("j_dead").prompt).toBe("Dead junction — Needs: 2 wires");
+    const state = { ...s.grid.state(), parts: ["wire", "wire"] as const };
+    expect(promptFor(s.puzzle, { ...state, parts: [...state.parts] }, "j_dead")).toBe(
+      "Dead junction — Repair (2 wires)",
+    );
+  });
+
+  it("an unreadable fault shows the healthy element's prompt, not the fault", () => {
+    const s = setup();
+    const state = s.grid.state();
+    const f = state.faults.find((x) => x.at === "j_dead");
+    expect(f).toBeDefined();
+    // Hide the fault: the lamp/fuse at an unreadable fault reads as healthy.
+    const hidden = { ...state, readableFaults: new Set<string>() };
+    expect(promptFor(s.puzzle, hidden, "j_dead")).toBeNull();
+    const lampFaults = [{ id: "f1", at: "mill", kind: "dead-lamp" }];
+    const p = inline(["bulb"], lampFaults, 5);
+    const st = createGrid(p, new EventBus()).state();
+    const unread = { ...st, readableFaults: new Set<string>() };
+    expect(promptFor(p, unread, "mill")).toBe("Lamp, load 3");
+    const p2 = inline(["fuse"], [{ id: "f1", at: "fb", kind: "blown-fuse" }], 1);
+    const st2 = createGrid(p2, new EventBus()).state();
+    expect(promptFor(p2, { ...st2, readableFaults: new Set<string>() }, "fb")).toBe("Fuse ≤1");
   });
 });
 
