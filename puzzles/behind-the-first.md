@@ -41,4 +41,6 @@ Checked against the real simulator (`createGrid`): `f3` unreadable (and unrepair
 
 ## What it taught us
 
+Josh, 27 Oct 2026: "why do you need two wires to fix the last leg of the circuit rather than 1? … it's not clear." The dead junction's two-wire cost is a rule from the GDD's fault table, but nothing on the map shows it; the junction is a dot and the "× 2" only appears in the prompt. Fix: draw a dead junction with two broken stubs and name the cost on hover (ticket 011, part B1). The trap itself stands.
+
 *(Josh's verdict goes here, in his words.)*
