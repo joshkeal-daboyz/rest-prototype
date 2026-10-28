@@ -135,6 +135,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle): Ma
 
   let plan: RelightPlan | null = null;
   let feedLabel = "";
+  let feedAlarmLabel = "";
   let feedLoad = NaN;
   let feedCap: number | null = -1;
 
@@ -589,6 +590,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle): Ma
         feedLoad = state.load;
         feedCap = state.capacity;
         feedLabel = `${state.load} / ${state.capacity === null ? "∞" : state.capacity}`;
+        feedAlarmLabel = `! ${feedLabel} !`;
       }
       const fx = geo.nx[feedIdx]!;
       const fy = geo.ny[feedIdx]!;
@@ -598,7 +600,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle): Ma
       if (state.brownout) {
         const shake = Math.sin(t * 40) * 1.5;
         c.fillStyle = ALARM;
-        c.fillText(`! ${feedLabel} !`, fx + shake, fy + 32);
+        c.fillText(feedAlarmLabel, fx + shake, fy + 32);
       } else {
         c.fillStyle = TEXT;
         c.fillText(feedLabel, fx, fy + 32);
