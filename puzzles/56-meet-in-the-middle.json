@@ -1,0 +1,64 @@
+{
+  "id": "56-meet-in-the-middle",
+  "name": "56 · Meet in the middle",
+  "version": 5,
+  "scope": "map",
+  "capacity": null,
+  "startingParts": [],
+  "target": ["forge", "shrine", "well", "inn", "mill"],
+  "priority": ["gate"],
+
+  "nodes": [
+    { "id": "west",   "type": "feed",     "pos": [0, 0],  "capacity": 3, "name": "West" },
+    { "id": "east",   "type": "feed",     "pos": [24, 0], "capacity": 4, "name": "East" },
+
+    { "id": "inn",    "type": "lamp",     "pos": [0, -3], "load": 1 },
+    { "id": "sw_w",   "type": "switch",   "pos": [3, 0],  "outputs": ["l_w_short", "l_w_long"], "selected": 0 },
+    { "id": "d1",     "type": "junction", "pos": [3, 4] },
+    { "id": "d2",     "type": "junction", "pos": [7, 4] },
+
+    { "id": "jA",     "type": "junction", "pos": [7, 0] },
+    { "id": "forge",  "type": "lamp",     "pos": [7, -3], "load": 1 },
+    { "id": "jB",     "type": "junction", "pos": [11, 0] },
+    { "id": "br_sh",  "type": "breaker",  "pos": [13, -2], "closed": false },
+    { "id": "shrine", "type": "lamp",     "pos": [16, -3.5], "load": 2 },
+    { "id": "jC",     "type": "junction", "pos": [15, 0] },
+    { "id": "well",   "type": "lamp",     "pos": [15, 3], "load": 1 },
+    { "id": "jD",     "type": "junction", "pos": [19, 0] },
+    { "id": "br_g",   "type": "breaker",  "pos": [19, 2.5], "closed": true },
+    { "id": "gate",   "type": "lamp",     "pos": [19, 5], "load": 1 },
+
+    { "id": "sw_e",   "type": "switch",   "pos": [22, 0], "outputs": ["l_e_short", "l_e_long"], "selected": 0 },
+    { "id": "k1",     "type": "junction", "pos": [22, -6] },
+    { "id": "k2",     "type": "junction", "pos": [19, -6] },
+    { "id": "mill",   "type": "lamp",     "pos": [24, -3], "load": 1 }
+  ],
+
+  "lines": [
+    { "id": "l_inn",     "from": "west",  "to": "inn" },
+    { "id": "l_w",       "from": "west",  "to": "sw_w" },
+    { "id": "l_w_short", "from": "sw_w",  "to": "jA" },
+    { "id": "l_w_long",  "from": "sw_w",  "to": "d1" },
+    { "id": "l_d",       "from": "d1",    "to": "d2" },
+    { "id": "l_d_a",     "from": "d2",    "to": "jA" },
+
+    { "id": "l_forge",   "from": "jA",    "to": "forge" },
+    { "id": "l_ab",      "from": "jA",    "to": "jB" },
+    { "id": "l_b_br",    "from": "jB",    "to": "br_sh" },
+    { "id": "l_shrine",  "from": "br_sh", "to": "shrine" },
+    { "id": "l_bc",      "from": "jB",    "to": "jC" },
+    { "id": "l_well",    "from": "jC",    "to": "well" },
+    { "id": "l_cd",      "from": "jC",    "to": "jD" },
+    { "id": "l_d_br",    "from": "jD",    "to": "br_g" },
+    { "id": "l_gate",    "from": "br_g",  "to": "gate" },
+
+    { "id": "l_mill",    "from": "east",  "to": "mill" },
+    { "id": "l_e",       "from": "east",  "to": "sw_e" },
+    { "id": "l_e_short", "from": "sw_e",  "to": "jD" },
+    { "id": "l_e_long",  "from": "sw_e",  "to": "k1" },
+    { "id": "l_k",       "from": "k1",    "to": "k2" },
+    { "id": "l_k_d",     "from": "k2",    "to": "jD" }
+  ],
+
+  "faults": []
+}

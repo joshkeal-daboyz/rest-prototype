@@ -1,6 +1,6 @@
 # The ladder
 
-All 54 maps in one sequence, easiest first. The file name's number is the order: `NN-<slug>.json` and its note `NN-<slug>.md`, and the picker lists them in that order. `lamp-row.grid.json` is a street, not a map, and isn't on the ladder.
+All 56 maps in one sequence, easiest first (55 and 56, ticket 015, are appended at the end rather than ranked; see below). The file name's number is the order: `NN-<slug>.json` and its note `NN-<slug>.md`, and the picker lists them in that order. `lamp-row.grid.json` is a street, not a map, and isn't on the ladder.
 
 **How it was ranked (28 Oct 2026).** Each map was brute-forced over the real `createGrid` (battery maps with time: a click is 1 s, a wait 0.5 s). The ranking weighs, in order: fewest clicks to win (a battery release counts as a click), how tight the win is (winning control settings, slack), the share of reachable states that can no longer win without Undo, whether an obvious first move is a dead end, and how many traps or mechanics are in play at once. Battery maps get a little extra for the window. Two rules override the numbers: each element (breaker, switch, capacity, fault, fuse rating, ring, relay, battery) comes in on a gentle map before any map that relies on it, and a map that a note says builds on another comes after it. The reorganization changed only ids, names, file names and note text. Three maps (12, 20, 36) also carry their designers' final revisions (a porch lamp added on 12; capacity 4 to 3 on 20; `fb_L` rating 4 to 5 on 36), which were still uncommitted when the files were renamed.
 
@@ -62,6 +62,10 @@ Min clicks for 47 and 52 are from their notes (the search runs out of time on th
 | 52 | The whole circuit | Battery capstone: two cells, a ring of relays, a hidden fault | 12 |
 | 53 | Leave it blown | The ring's open point is a blown fuse: leave it | 12 |
 | 54 | The whole ward | Capstone: main fuse equals capacity; the order targets are lit | 13 |
+| 55 | Two feeds | Two powersources: each has its own Lv limit; the total fitting isn't enough | 1 |
+| 56 | Meet in the middle | Two feeds on one street: the nearer feed (fewest hops) carries the lamp; a long-way switch moves the meeting point | 3 |
+
+**55 and 56 (ticket 015, several powersources)** are appended, not ranked, so no file is renumbered. By the ranking above they'd sit much earlier: 55 just after 04 (it needs only capacity and the switch), 56 just after 13 (the first ring) and after 55. Moving them is a later reorganization like 018's, Josh's call after playing. Both are version 5 and need ticket 015's simulator.
 
 ## Old id → new id
 
@@ -121,3 +125,5 @@ Min clicks for 47 and 52 are from their notes (the search runs out of time on th
 | `battery-12-the-whole-circuit` (B12) | `52-the-whole-circuit` |
 | `ladder-35-leave-it-blown` | `53-leave-it-blown` |
 | `ladder-36-whole-ward` | `54-whole-ward` |
+| (new, ticket 015) | `55-two-feeds` |
+| (new, ticket 015) | `56-meet-in-the-middle` |
