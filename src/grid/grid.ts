@@ -12,6 +12,8 @@ interface Mutable {
   faults: Fault[];
   parts: Part[];
   actions: number;
+  /** Lamps the feed lit (powered, unfaulted) at the last settle; null before the first. Names the culprit of a blow. */
+  prevFed: ReadonlySet<string> | null;
 }
 
 const cloneMutable = (m: Mutable): Mutable => ({
@@ -20,6 +22,7 @@ const cloneMutable = (m: Mutable): Mutable => ({
   faults: m.faults.map((f) => ({ ...f })),
   parts: [...m.parts],
   actions: m.actions,
+  prevFed: m.prevFed,
 });
 
 interface BatteryRun {
@@ -35,6 +38,8 @@ interface Flow {
   /** Powered nodes in discovery order (outermost first). */
   order: string[];
   parent: Map<string, string>;
+  /** Node id -> the line the current entered it through. */
+  parentLine: Map<string, string>;
 }
 
 export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid {
@@ -68,6 +73,7 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
       faults: puzzle.faults.map((f) => ({ ...f })),
       parts: [...(puzzle.startingParts ?? [])],
       actions: 0,
+      prevFed: null,
     };
   };
 
@@ -77,6 +83,7 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
     const powered = new Set<string>([rootId]);
     const flowFrom = new Map<string, string>();
     const parent = new Map<string, string>();
+    const parentLine = new Map<string, string>();
     const order: string[] = [rootId];
 
     const conducts = (n: GridNode): boolean => {
@@ -121,14 +128,46 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
         if (powered.has(otherId)) continue;
         powered.add(otherId);
         parent.set(otherId, id);
+        parentLine.set(otherId, lineId);
         order.push(otherId);
       }
     }
-    return { powered, flowFrom, order, parent };
+    return { powered, flowFrom, order, parent, parentLine };
+  }
+
+  /**
+   * The lamp newly fed through `fuseId` (in its downstream tree now, not fed before the action); the
+   * largest load wins, ties by discovery order. `null` with no earlier settle or no new lamp.
+   */
+  function nameCulprit(
+    f: Flow,
+    fuseId: string,
+    before: ReadonlySet<string> | null,
+    loadOf: (id: string) => number,
+  ): { culprit: string | null; path: string[] } {
+    if (before === null) return { culprit: null, path: [] };
+    let best: string | null = null;
+    let bestLoad = 0;
+    for (const id of f.order) {
+      const w = loadOf(id);
+      if (w <= bestLoad || before.has(id)) continue;
+      for (let c: string | undefined = id; c !== undefined; c = f.parent.get(c)) {
+        if (c === fuseId && c !== id) {
+          best = id;
+          bestLoad = w;
+          break;
+        }
+      }
+    }
+    if (best === null) return { culprit: null, path: [] };
+    const path: string[] = [];
+    for (let c = best; c !== fuseId; c = f.parent.get(c)!) path.push(f.parentLine.get(c)!);
+    return { culprit: best, path: path.reverse() };
   }
 
   /** Recompute, blowing overloaded fuses (outermost first) until stable. Mutates `m.faults`. */
   function settle(m: Mutable, emit: boolean): GridState {
+    const before = m.prevFed;
     for (;;) {
       const f = flow(m, feedId);
       const faulted = new Set(m.faults.map((x) => x.at));
@@ -154,7 +193,10 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
         if (load > rating) {
           const fault: Fault = { id: `blown-${id}`, at: id, kind: "blown-fuse" };
           m.faults.push(fault);
-          if (emit) bus.emit("fuse:blown", { nodeId: id, faultId: fault.id, load, rating });
+          if (emit) {
+            const { culprit, path } = nameCulprit(f, id, before, loadOf);
+            bus.emit("fuse:blown", { nodeId: id, faultId: fault.id, load, rating, culprit, path });
+          }
           blew = true;
           break;
         }
@@ -183,6 +225,7 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
         });
       }
 
+      m.prevFed = new Set(lampIds.filter((l) => loadOf(l) > 0));
       const lit = new Set<string>();
       let load = 0;
       for (const id of lampIds) {
