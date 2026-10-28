@@ -36,6 +36,11 @@ export interface SwitchNode extends NodeBase {
   selected: 0 | 1;
   /** A relay can only be thrown while current reaches it. It stays where it was thrown after power is lost. */
   relay?: boolean;
+  /**
+   * A spring switch returns to its file `selected` whenever no current reaches it (after any settle), and stays
+   * thrown only while powered. Can be combined with `relay`. Absent = false. Ticket 013.
+   */
+  spring?: boolean;
 }
 
 /**

@@ -117,7 +117,7 @@ describe("prompts", () => {
   it("an unpowered fusebox reads carrying 0", () => {
     const p = inline([], open, 5);
     const g = createGrid(p, new EventBus());
-    const st = { ...g.state(), fuseLoad: new Map([["fb", 0]]) };
+    const st = { ...g.state(), fuseLoad: new Map([["fb", 0]]), wouldBlow: new Map<string, number>() };
     expect(promptFor(p, st, "fb")).toBe("Fuse ≤5 — carrying 0");
   });
 
@@ -134,12 +134,59 @@ describe("prompts", () => {
 
   it("a readable blown fuse with a fuse on hand offers Repair (fuse)", () => {
     const f = [{ id: "f1", at: "fb", kind: "blown-fuse" }];
-    expect(hover(inline(["fuse"], f, 1), "fb")).toBe("Blown fuse — Repair (fuse)");
+    expect(hover(inline(["fuse"], f, 5), "fb")).toBe("Blown fuse — Repair (fuse)");
+  });
+
+  it("the real grid reports it: mill 3 + bulb 1 on a ≤1 box warns", () => {
+    const f = [{ id: "f1", at: "fb", kind: "blown-fuse" }];
+    expect(hover(inline(["fuse"], f, 1), "fb")).toBe("Blown fuse — Repair (fuse) · would blow again: 4 load on ≤1");
   });
 
   it("a readable blown fuse without one shows Needs: fuse", () => {
     const f = [{ id: "f1", at: "fb", kind: "blown-fuse" }];
-    expect(hover(inline([], f, 1), "fb")).toBe("Blown fuse — Needs: fuse");
+    expect(hover(inline([], f, 5), "fb")).toBe("Blown fuse — Needs: fuse");
+  });
+
+  it("a blown fuse that would blow again says so, with or without the part", () => {
+    const f = [{ id: "f1", at: "fb", kind: "blown-fuse" }];
+    const p = inline(["fuse"], f, 1);
+    const st = { ...createGrid(p, new EventBus()).state(), wouldBlow: new Map([["fb", 4]]) };
+    expect(promptFor(p, st, "fb")).toBe("Blown fuse — Repair (fuse) · would blow again: 4 load on ≤1");
+    const bare = { ...st, parts: [] };
+    expect(promptFor(p, bare, "fb")).toBe("Blown fuse — Needs: fuse · would blow again: 4 load on ≤1");
+  });
+
+  it("a blown fuse that would hold shows no warning", () => {
+    const f = [{ id: "f1", at: "fb", kind: "blown-fuse" }];
+    const p = inline(["fuse"], f, 5);
+    const st = { ...createGrid(p, new EventBus()).state(), wouldBlow: new Map([["fb", 0]]) };
+    expect(promptFor(p, st, "fb")).toBe("Blown fuse — Repair (fuse)");
+  });
+
+  it("spring switches say so, and add relay when both", () => {
+    const mk = (relay: boolean): Puzzle =>
+      loadPuzzle({
+        id: "sp",
+        name: "sp",
+        version: 4,
+        scope: "map",
+        capacity: null,
+        startingParts: [],
+        nodes: [
+          { id: "feed", type: "feed", pos: [0, 0] },
+          { id: "sw", type: "switch", pos: [2, 0], spring: true, outputs: ["l2", "l3"], selected: 0, ...(relay ? { relay: true } : {}) },
+          { id: "a", type: "lamp", pos: [4, 0] },
+          { id: "b", type: "lamp", pos: [4, 2] },
+        ],
+        lines: [
+          { id: "l1", from: "feed", to: "sw" },
+          { id: "l2", from: "sw", to: "a" },
+          { id: "l3", from: "sw", to: "b" },
+        ],
+        faults: [{ id: "f9", at: "b", kind: "dead-lamp" }],
+      } as unknown);
+    expect(hover(mk(false), "sw")).toBe("Spring switch — returns when power is lost");
+    expect(hover(mk(true), "sw")).toBe("Spring switch — returns when power is lost — relay");
   });
 
   it("a readable dead lamp offers Repair (bulb) or shows Needs: bulb", () => {

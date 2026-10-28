@@ -1,6 +1,6 @@
 # Grid puzzle schema (draft 4)
 
-Draft 4 adds the **battery** node and the **relay** switch (ticket 008); `version` is 3 or 4. An absent or empty `target` means every lamp.
+Draft 4 adds the **battery** node and the **relay** switch (ticket 008), and the optional **spring** flag on switches (ticket 013; no version bump, files without it are unchanged); `version` is 3 or 4. An absent or empty `target` means every lamp.
 
 A puzzle is one JSON file in `puzzles/`. The same graph describes a **map** (the power-routing minigame: a town section seen whole) and a **street** (the later layer where Enoch walks it); `scope` says which. In the 3D game a map file becomes `levels/<name>.grid.json`. Nothing in it refers to 2D drawing except `pos`.
 
@@ -50,7 +50,7 @@ A puzzle is one JSON file in `puzzles/`. The same graph describes a **map** (the
 | --- | --- | --- |
 | `feed` | source | Exactly one per puzzle. Power originates here; `capacity` is its limit. |
 | `breaker` | when `closed` | The player toggles it. Cuts everything downstream. Marked by the tribe. |
-| `switch` | to `outputs[selected]` only | Sends power down one of two lines leaving it. Marked by the tribe. With `"relay": true` it can only be thrown while current reaches it, and stays where it was thrown after power is lost. |
+| `switch` | to `outputs[selected]` only | Sends power down one of two lines leaving it. Marked by the tribe. With `"relay": true` it can only be thrown while current reaches it, and stays where it was thrown after power is lost. With `"spring": true` it returns to its file `selected` whenever no current reaches it (a blown fuse upstream, an open breaker, a battery going flat) and stays thrown only while powered; the tribe marks it with a coiled ribbon. A switch can be both `relay` and `spring`. |
 | `battery` | see note | `capacity` (seconds), optional `charge` (default 0), `input` (the line on the feed side). Charges at 1/s while the feed's current reaches it through `input` and it is not released. Click to **release**: it powers every other line at the node for `charge` seconds (draining at 1/s), then goes flat; click again to stop early. A released battery is a time limit, not a load limit: its far side doesn't count toward the feed's capacity unless the feed also reaches it. |
 | `fusebox` | unless faulted or overloaded | Takes a fuse. `rating` is the load it carries; more and it blows when powered (a new `blown-fuse` fault). Absent = never blows. |
 | `junction` | unless faulted | A split or bend. Can carry a `dead-junction` fault. |
@@ -76,9 +76,12 @@ Hold times (2 / 3 / 4 / 5 s) are in `FAULT_RULES` for the street layer; in map s
 - **Brownout:** if the total `load` of lamps that would be lit exceeds `capacity`, the section browns out: every lamp counts as dark and flickers. Shed load with breakers and switches. Lamps with faults don't count toward load.
 - **Fuse load:** the simulator reports each fusebox's live load (`fuseLoad`): the total load of lamps lit by the feed's own flow downstream of it. The renderer draws it as a bar against `rating` (ticket 012).
 - **Fuse blow:** when power is applied, a fusebox whose downstream would-be-lit load exceeds its `rating` gains a `blown-fuse` fault. Checked before brownout.
+- **Nearer feeder carries the lamp:** current spreads from the feed breadth-first, so a lamp (or any node) reachable through two fuseboxes or both arms of a ring is carried by exactly one path: the one with the fewest hops (lines) from the feed; on a tie, the one the simulator reaches first, since at each node it follows that node's lines in the order of the file's `lines` list. Its load counts toward that fusebox only (for `fuseLoad`, the blow check and `wouldBlow`). Designers depend on this: to put a ring lamp under a given fuse, make that side shorter, or list its line first.
+- **Spring switches:** after every settle (including one where a fuse just blew), each `spring` switch that no current reaches (from the feed or a released battery) returns to its file `selected`; if that moves current elsewhere, the settle repeats until no spring switch moves. A return emits `switch:thrown` with `spring: true`, is not an action, and is not an undo step (undo restores positions as before). A powered spring switch stays where the player put it.
+- **Would blow again (`wouldBlow`):** for each fusebox with a readable blown fuse, the load it would carry if a fuse were fitted now with nothing else changed, when that exceeds its `rating`; 0 if the new fuse would hold. The hover prompt warns *would blow again: N load on ≤R*; the repair is still allowed (ticket 013).
 - **Win:** every `target` lamp lit **by the feed's own flow** and no brownout. A lamp lit only by a released battery is lit for reading and drawing, but never completes the job: the battery's window is for setting a section, not keeping it lit.
 - **Battery, derived rules:** the feed's current never passes through a battery to its far side (the battery is a dead end for the feed, so faults on its far side are hidden until it is released). A battery charges only from the feed's own flow, never from another battery. A released battery's far side is free of fuse and brownout checks. A flat battery starts recharging at once if the feed reaches it. Time is not undoable: `undo` leaves charge and released state alone and can move a relay that is now dead; `release` is not an action. `reset` returns every battery to the file's `charge`.
 
 ## Events
 
-`grid:changed`, `breaker:thrown`, `switch:thrown`, `fuse:blown`, `repair:completed`, `grid:brownout` (entered or cleared), `battery:released`, `battery:flat`, `job:completed`. Street scope later adds the night events.
+`grid:changed`, `breaker:thrown`, `switch:thrown`, `fuse:blown`, `repair:completed`, `grid:brownout` (entered or cleared), `battery:released`, `battery:flat`, `job:completed`. `switch:thrown` carries `spring: true` when a spring switch returned on its own. Street scope later adds the night events.

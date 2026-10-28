@@ -85,6 +85,18 @@ describe("the validator catches broken puzzles", () => {
     expect(validatePuzzle(p).ok).toBe(false);
   });
 
+  it("a spring flag must be boolean; spring and relay together are allowed", () => {
+    const p = base();
+    const sw = (p["nodes"] as { id: string; spring?: unknown; relay?: unknown }[]).find((n) => n.id === "sw_1")!;
+    sw.spring = "yes";
+    const r = validatePuzzle(p);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join("\n")).toMatch(/switch sw_1: spring must be true or false/);
+    sw.spring = true;
+    sw.relay = true;
+    expect(validatePuzzle(p).ok).toBe(true);
+  });
+
   it("a street needs its start, night, satchel and favor", () => {
     const p = base();
     p["scope"] = "street";

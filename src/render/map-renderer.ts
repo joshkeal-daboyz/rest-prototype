@@ -24,6 +24,7 @@ import {
 import { chargeFraction, popProgress, wentFlat } from "./battery";
 import { clamp01, flicker, hash01, pulseCount, pulsePhase, PULSE_SPACING } from "./motion";
 import { FLARE_SECONDS, planRelight, type RelightPlan } from "./relight";
+import { sprangBack, twangOffset } from "./spring";
 
 export interface MapOverlay {
   /** Id of the node or line the pointer is over (from hitTest). */
@@ -39,8 +40,16 @@ export interface MapRenderer {
   resize(): void;
   /** Reserve CSS px at the edges for overlays (the HUD); refits the map. */
   setInsets(insets: Insets): void;
-  /** Forwarded `fuse:blown` events: plays the shock, then the pop. The renderer stays bus-free. */
-  notify(event: { type: "fuse:blown"; payload: Events["fuse:blown"] }): void;
+  /**
+   * Forwarded events. `fuse:blown` plays the shock, then the pop; `switch:thrown` with `spring: true`
+   * plays the lever twang. The renderer stays bus-free. (A spring return is also noticed from the
+   * state alone, so forwarding `switch:thrown` is optional.)
+   */
+  notify(
+    event:
+      | { type: "fuse:blown"; payload: Events["fuse:blown"] }
+      | { type: "switch:thrown"; payload: Events["switch:thrown"] },
+  ): void;
 }
 
 export interface MapRendererOptions {
@@ -161,6 +170,14 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
   const prevReleased = new Uint8Array(nNodes);
   const flatStart = new Float64Array(nNodes).fill(-100);
 
+  // Spring switches: flag, last seen position, and when the current twang began (NaN = start next frame).
+  const isSpring = new Uint8Array(nNodes);
+  nodes.forEach((n, i) => {
+    if (n.type === "switch" && n.spring === true) isSpring[i] = 1;
+  });
+  const prevSel = new Int8Array(nNodes).fill(-1);
+  const twangStart = new Float64Array(nNodes).fill(-100);
+
   // Switch pointer directions (unit vectors), [2*i + sel], rebuilt with geometry.
   let swDx = new Float64Array(nNodes * 2);
   let swDy = new Float64Array(nNodes * 2);
@@ -267,7 +284,16 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     return s;
   }
 
-  function notify(event: { type: "fuse:blown"; payload: Events["fuse:blown"] }): void {
+  function notify(
+    event:
+      | { type: "fuse:blown"; payload: Events["fuse:blown"] }
+      | { type: "switch:thrown"; payload: Events["switch:thrown"] },
+  ): void {
+    if (event.type === "switch:thrown") {
+      const si = geo.nodeIndex.get(event.payload.nodeId);
+      if (si !== undefined && event.payload.spring === true && isSpring[si] === 1) twangStart[si] = NaN;
+      return;
+    }
     const p = event.payload;
     const ni = geo.nodeIndex.get(p.nodeId);
     if (ni === undefined) return;
@@ -651,17 +677,43 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
         c.moveTo(x + swDx[i * 2 + other]! * 4, y + swDy[i * 2 + other]! * 4);
         c.lineTo(x + swDx[i * 2 + other]! * 13, y + swDy[i * 2 + other]! * 13);
         c.stroke();
+        // Lever tip: at rest, or mid-twang (from the old position, through rest, overshooting).
+        let lx = swDx[i * 2 + sel]!;
+        let ly = swDy[i * 2 + sel]!;
+        if (isSpring[i] === 1) {
+          const k = twangOffset(t - twangStart[i]!);
+          if (k !== 0) {
+            lx += (swDx[i * 2 + other]! - lx) * k;
+            ly += (swDy[i * 2 + other]! - ly) * k;
+            const ll = Math.hypot(lx, ly) || 1;
+            lx /= ll;
+            ly /= ll;
+          }
+        }
         c.strokeStyle = live ? LINE_LIVE : TEXT;
         c.lineWidth = 4;
         c.beginPath();
         c.moveTo(x, y);
-        c.lineTo(x + swDx[i * 2 + sel]! * 20, y + swDy[i * 2 + sel]! * 20);
+        c.lineTo(x + lx * 20, y + ly * 20);
         c.stroke();
         c.fillStyle = c.strokeStyle;
         c.beginPath();
         c.arc(x, y, 3, 0, Math.PI * 2);
         c.fill();
         drawRibbon(x + 9, y - 21);
+        if (isSpring[i] === 1) {
+          // Coiled ribbon under the switch: a zigzag coil, a shape so it reads without colour.
+          c.strokeStyle = RIBBON;
+          c.lineWidth = 2;
+          c.lineJoin = "round";
+          c.beginPath();
+          c.moveTo(x - 10, y + 19);
+          for (let k = 0; k < 6; k++) {
+            c.lineTo(x - 8 + k * 3.2, y + (k % 2 === 0 ? 14 : 24));
+          }
+          c.lineTo(x + 10, y + 19);
+          c.stroke();
+        }
         if (n.relay === true) {
           // Second tribe mark; a stuck relay also shows a bar across it (shape, not just dimness).
           drawRibbon(x - 14, y - 21);
@@ -1020,6 +1072,19 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
       const blown = faultNode[i] === K_FUSE ? 1 : 0;
       if (blown === 1 && prevBlown[i] === 0 && hadFaultNode[i] === 0 && slotFor(i) < 0) startSlot(i, t);
       prevBlown[i] = blown;
+    }
+    // Spring returns: a spring switch that moved while unpowered has sprung back. An event from
+    // notify() may already have queued the twang (NaN); then it is only stamped, not restarted.
+    for (let i = 0; i < nNodes; i++) {
+      if (isSpring[i] === 0) continue;
+      const nd = nodes[i]!;
+      if (nd.type !== "switch") continue;
+      const sel = state.switches.get(geo.nodeIds[i]!) ?? nd.selected;
+      if (prevSel[i]! >= 0 && twangStart[i] === twangStart[i] && sprangBack(true, prevSel[i]!, sel, state.powered.has(geo.nodeIds[i]!))) {
+        twangStart[i] = t;
+      }
+      prevSel[i] = sel;
+      if (twangStart[i] !== twangStart[i]) twangStart[i] = t;
     }
     // Advance sequences: stamp pending starts, free finished or undone ones, hold fuses intact until the pop.
     holdIntact.fill(0);

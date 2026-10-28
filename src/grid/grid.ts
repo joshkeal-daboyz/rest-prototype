@@ -215,6 +215,18 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
         for (const x of bf.powered) powered.add(x);
         for (const [k, v] of bf.flowFrom) if (!flowFrom.has(k)) flowFrom.set(k, v);
       }
+
+      // Spring switches with no current reaching them return to their file position; that can unpower
+      // another spring switch, so settle again until none moves. Not an action, not an undo step.
+      let sprang = false;
+      for (const n of puzzle.nodes) {
+        if (n.type !== "switch" || !n.spring || powered.has(n.id)) continue;
+        if (m.switches.get(n.id) === n.selected) continue;
+        m.switches.set(n.id, n.selected);
+        if (emit) bus.emit("switch:thrown", { nodeId: n.id, selected: n.selected, spring: true });
+        sprang = true;
+      }
+      if (sprang) continue;
       const batteries = new Map<string, { charge: number; capacity: number; released: boolean; charging: boolean }>();
       for (const bid of batteryIds) {
         const b = bat.get(bid)!;
@@ -255,8 +267,31 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
           if (fault.kind === "damaged-cable") sparking.add(fault.at);
         }
       }
+      // Per readable blown fuse: the load it would carry with only its own fault removed (no cascade).
+      const wouldBlow = new Map<string, number>();
+      for (const fault of m.faults) {
+        if (fault.kind !== "blown-fuse" || !powered.has(fault.at)) continue;
+        const fb = nodes.get(fault.at);
+        if (!fb || fb.type !== "fusebox") continue;
+        const trial: Mutable = { ...m, faults: m.faults.filter((x) => x.id !== fault.id) };
+        const tf = flow(trial, feedId);
+        const tFaulted = new Set(trial.faults.map((x) => x.at));
+        let carried = 0;
+        for (const id of tf.order) {
+          const ln = nodes.get(id)!;
+          if (ln.type !== "lamp" || tFaulted.has(id)) continue;
+          for (let c = tf.parent.get(id); c !== undefined; c = tf.parent.get(c)) {
+            if (c === fault.at) {
+              carried += ln.load ?? DEFAULTS.lampLoad;
+              break;
+            }
+          }
+        }
+        wouldBlow.set(fault.at, carried > (fb.rating ?? DEFAULTS.fuseRating) ? carried : 0);
+      }
       const brownout = capacity !== null && load > capacity;
       return {
+        wouldBlow,
         powered,
         flowFrom,
         lit,
@@ -333,8 +368,8 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
     throwSwitch(nodeId) {
       const n = nodes.get(nodeId);
       if (finished || !n || n.type !== "switch") return false;
-      // A relay can only be thrown while current reaches it.
-      if (n.relay && !derived.powered.has(nodeId)) return false;
+      // A relay can only be thrown while current reaches it; so can a spring switch (else it would spring straight back).
+      if ((n.relay || n.spring) &&!derived.powered.has(nodeId)) return false;
       history.push(cloneMutable(cur));
       const selected: 0 | 1 = cur.switches.get(nodeId) === 0 ? 1 : 0;
       cur.switches.set(nodeId, selected);

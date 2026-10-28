@@ -66,6 +66,7 @@ export function validatePuzzle(json: unknown): ValidationResult {
         if (!Array.isArray(raw["outputs"]) || raw["outputs"].length !== 2 || !raw["outputs"].every(isStr)) err(`switch ${id}: outputs must be two line ids`);
         if (raw["selected"] !== 0 && raw["selected"] !== 1) err(`switch ${id}: selected must be 0 or 1`);
         if (raw["relay"] !== undefined && typeof raw["relay"] !== "boolean") err(`switch ${id}: relay must be true or false`);
+        if (raw["spring"] !== undefined && typeof raw["spring"] !== "boolean") err(`switch ${id}: spring must be true or false`);
         break;
       case "battery":
         if (!isNum(raw["capacity"]) || raw["capacity"] <= 0) err(`battery ${id}: capacity must be > 0 (seconds of discharge)`);

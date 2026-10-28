@@ -12,11 +12,11 @@
     { "id": "j0",      "type": "junction", "pos": [2, 0] },
 
     { "id": "fb_1",    "type": "fusebox",  "pos": [5, -4], "rating": 1 },
-    { "id": "sw_1",    "type": "switch",   "pos": [8, -4], "outputs": ["l_1w", "l_1s"], "selected": 0 },
+    { "id": "sw_1",    "type": "switch",   "pos": [8, -4], "outputs": ["l_1w", "l_1s"], "selected": 0, "spring": true },
     { "id": "well",    "type": "lamp",     "pos": [12, -6], "load": 1 },
 
     { "id": "fb_2",    "type": "fusebox",  "pos": [5, 0], "rating": 2 },
-    { "id": "sw_2",    "type": "switch",   "pos": [8, 0], "outputs": ["l_2g", "l_2s"], "selected": 0 },
+    { "id": "sw_2",    "type": "switch",   "pos": [8, 0], "outputs": ["l_2g", "l_2s"], "selected": 0, "spring": true },
     { "id": "j_shrine","type": "junction", "pos": [10, -2.5] },
     { "id": "shrine",  "type": "lamp",     "pos": [12, -2.5], "load": 2 },
 
