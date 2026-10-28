@@ -1,7 +1,7 @@
 # 017 · One place for the Lv words
 
 owner: lead-architect (0), renderer (A), interaction (B), ui (C)
-status: in progress (G1: Josh, "I approve of 017")
+status: done (merged; Josh: "Merge both, push")
 branch: one per part; part 0 is `ticket/017-words`, then `-a`, `-b`, `-c`
 
 ## Josh's words
