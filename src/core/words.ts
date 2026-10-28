@@ -38,6 +38,31 @@ export function usingText(load: number, capacity: number | null): string {
   return capacity === null ? `using ${load} ${NO_LIMIT}` : `using ${load} of ${capacity}`;
 }
 
+// ---- which powersource (ticket 015; Josh's answer 1 on 017: the dot separator everywhere) ----
+
+/** Between a feed's name and its level, and between a lamp's level and its carrier: ` · `. */
+export const NAME_SEP = " · ";
+
+/** A feed's display name: its `name`, else its id with underscores as spaces (`north_feed` → `north feed`). */
+export function powersourceName(id: string, name?: string): string {
+  return name !== undefined && name.length > 0 ? name : id.replace(/_/g, " ");
+}
+
+/** `North · Lv4 Powersource`, or `North · Powersource` with no limit. Used on multi-feed maps only. */
+export function namedPowersourceLabel(name: string, capacity: number | null): string {
+  return `${name}${NAME_SEP}${powersourceLabel(capacity)}`;
+}
+
+/** Which feed carries a lamp: `on North`. */
+export function onPowersourceText(name: string): string {
+  return `on ${name}`;
+}
+
+/** `Lv2 Lamp · on North`: a healthy lamp's hover on a multi-feed map. */
+export function lampOnLabel(load: number, feedName: string): string {
+  return `${lampLabel(load)}${NAME_SEP}${onPowersourceText(feedName)}`;
+}
+
 /** A fusebox's live total: `carrying 2 of 3`, or `carrying 2` when there is no rating to compare with. */
 export function carryingText(load: number, rating: number | null | undefined): string {
   return rating === null || rating === undefined ? `carrying ${load}` : `carrying ${load} of ${rating}`;

@@ -4,7 +4,16 @@
  * boolean arrives from src/grid or src/play.
  */
 
-import { carryingText, fuseLabel, powersourceLabel, usingText, type Part } from "../core";
+import {
+  carryingText,
+  fuseLabel,
+  namedPowersourceLabel,
+  powersourceLabel,
+  usingText,
+  type FeedInfo,
+  type FeedReadout,
+  type Part,
+} from "../core";
 import type { LogEntry } from "../play";
 
 export const WIN_TEXT = "Every target is lit, and the circuit holds.";
@@ -51,6 +60,53 @@ export function partsSummary(parts: readonly Part[]): string {
 export function capacityReadout(load: number, capacity: number | null, brownout: boolean): string {
   const base = `${powersourceLabel(capacity)} — ${usingText(load, capacity)}`;
   return brownout ? `${base} · Brownout` : base;
+}
+
+/** One HUD readout row: its text, and whether it carries the alarm (a red border and colour, with the word Brownout). */
+export interface CapacityRow {
+  text: string;
+  alarm: boolean;
+}
+
+/**
+ * The capacity readout rows. A one-feed map (or no feed list) gets the single 014 row from `capacityReadout`,
+ * unchanged. A multi-feed map gets one row per feed in file order: `North · Lv4 Powersource — using 3 of 4`,
+ * with ` · Brownout` on the rows that are over. Each row's alarm is its own feed's `over`.
+ */
+export function capacityRows(
+  state: { load: number; capacity: number | null; brownout: boolean; feeds: ReadonlyMap<string, FeedReadout> },
+  feeds: readonly FeedInfo[],
+): CapacityRow[] {
+  if (feeds.length < 2) return [{ text: capacityReadout(state.load, state.capacity, state.brownout), alarm: state.brownout }];
+  const rows: CapacityRow[] = [];
+  for (const feed of feeds) {
+    const readout = state.feeds.get(feed.id);
+    if (!readout) continue;
+    const base = `${namedPowersourceLabel(feed.name, readout.capacity)} — ${usingText(readout.load, readout.capacity)}`;
+    rows.push({ text: readout.over ? `${base} · Brownout` : base, alarm: readout.over });
+  }
+  return rows;
+}
+
+/**
+ * The brownout notices on a multi-feed map: one per over feed, in file order, e.g.
+ * `Brownout: North · Lv4 Powersource using 5 of 4`. Empty when the section is not browned out.
+ */
+export function brownoutNotices(
+  brownout: boolean,
+  over: readonly string[],
+  feeds: readonly FeedInfo[],
+  readouts: ReadonlyMap<string, FeedReadout>,
+): string[] {
+  if (!brownout) return [];
+  const notices: string[] = [];
+  for (const feed of feeds) {
+    if (!over.includes(feed.id)) continue;
+    const readout = readouts.get(feed.id);
+    if (!readout) continue;
+    notices.push(`Brownout: ${namedPowersourceLabel(feed.name, readout.capacity)} ${usingText(readout.load, readout.capacity)}`);
+  }
+  return notices;
 }
 
 export interface TargetRow {

@@ -4,12 +4,13 @@
  * prompt from the play layer.
  */
 
+import type { FeedInfo } from "../core";
 import type { Grid } from "../grid";
 import type { MapPlay } from "../play";
 import {
   batteryCountdown,
   bannerText,
-  capacityReadout,
+  capacityRows,
   liveNotices,
   mapLabel,
   noticeOpacity,
@@ -26,6 +27,8 @@ export interface UIDeps {
   puzzles: { id: string; name: string; locked: boolean }[];
   current: string;
   onPick(id: string): void;
+  /** The map's feeds in file order (puzzleFeeds). One feed, or none: the single capacity row. Two or more: one row per feed. */
+  feeds?: readonly FeedInfo[];
 }
 
 export interface UI {
@@ -94,7 +97,11 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
   pickerLabel.htmlFor = picker.id;
   pickerLabel.append(picker);
 
-  const capacityEl = el("div", "readout capacity");
+  // One readout box per feed on a multi-feed map; the one-feed map gets one box, as in 014.
+  const capacityEl = el("div");
+  capacityEl.style.display = "flex";
+  capacityEl.style.flexDirection = "column";
+  capacityEl.style.gap = "6px";
   const batteryEl = el("div", "readout battery");
   batteryEl.hidden = true;
   const targetsHeading = el("h2", "label", "Priests want lit");
@@ -185,6 +192,7 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
 
   let targetsKey = "";
   let partsKey = "";
+  let capacityKey = "";
 
   function notify(text: string): void {
     const node = el("div", "notice", text);
@@ -232,8 +240,17 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
     bannerEl.hidden = banner === null;
     setText(bannerEl, banner ?? "");
 
-    setText(capacityEl, capacityReadout(state.load, state.capacity, state.brownout));
-    capacityEl.classList.toggle("brownout", state.brownout);
+    const capRows = capacityRows(state, deps.feeds ?? []);
+    const nextCapacityKey = JSON.stringify(capRows);
+    if (nextCapacityKey !== capacityKey) {
+      capacityKey = nextCapacityKey;
+      capacityEl.textContent = "";
+      for (const row of capRows) {
+        const node = el("div", "readout capacity", row.text);
+        node.classList.toggle("brownout", row.alarm);
+        capacityEl.append(node);
+      }
+    }
 
     const countdown = batteryCountdown(state);
     batteryEl.hidden = countdown === null;

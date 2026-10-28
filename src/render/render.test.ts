@@ -37,6 +37,8 @@ function wonState(): GridState {
     batteries: new Map(),
     parts: [],
     targets: ["shrine"],
+    feeds: new Map(),
+    feedOf: new Map(),
     load: 3,
     capacity: 4,
     brownout: false,

@@ -3,13 +3,18 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as core from "./index";
 import {
+  NAME_SEP,
   NO_LIMIT,
   THING_NAMES,
   carryingText,
   fuseLabel,
   lampLabel,
+  lampOnLabel,
   levelLabel,
+  namedPowersourceLabel,
+  onPowersourceText,
   powersourceLabel,
+  powersourceName,
   usingText,
 } from "./words";
 
@@ -70,6 +75,34 @@ describe("live totals", () => {
 
   it("NO_LIMIT", () => {
     expect(NO_LIMIT).toBe("(no limit)");
+  });
+});
+
+describe("which powersource (ticket 015)", () => {
+  it("NAME_SEP is the dot separator", () => {
+    expect(NAME_SEP).toBe(" · ");
+  });
+
+  it("powersourceName uses the name, else the id with underscores as spaces", () => {
+    expect(powersourceName("north", "North")).toBe("North");
+    expect(powersourceName("north_feed")).toBe("north feed");
+    expect(powersourceName("north_feed", undefined)).toBe("north feed");
+    expect(powersourceName("feed")).toBe("feed");
+  });
+
+  it("namedPowersourceLabel", () => {
+    expect(namedPowersourceLabel("North", 4)).toBe("North · Lv4 Powersource");
+    expect(namedPowersourceLabel("North", null)).toBe("North · Powersource");
+  });
+
+  it("onPowersourceText and lampOnLabel", () => {
+    expect(onPowersourceText("North")).toBe("on North");
+    expect(lampOnLabel(2, "North")).toBe("Lv2 Lamp · on North");
+  });
+
+  it("composes into the HUD row and the brownout notice the ticket names", () => {
+    expect(`${namedPowersourceLabel("North", 4)} — ${usingText(3, 4)}`).toBe("North · Lv4 Powersource — using 3 of 4");
+    expect(`Brownout: ${namedPowersourceLabel("North", 4)} ${usingText(5, 4)}`).toBe("Brownout: North · Lv4 Powersource using 5 of 4");
   });
 });
 
