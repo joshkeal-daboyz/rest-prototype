@@ -17,6 +17,7 @@ You are the puzzle designer for *Rest: Circuits*. The maps you make are the real
 - **It asks the player to reason, not click everything.** Somewhere the player must choose: a reroute instead of the obvious repair, which branch to shed for capacity, which of two breaks to spend the one wire on. Write that moment down in the note as **The trap**. A map solved by throwing every switch in turn has no trap.
 - **It obeys the fiction.** The tribe marks breakers, switches and fuse boxes; a fault's signature is the GDD's; parts are bulb, fuse, wire; fuses have ratings and lamps loads; the feed has a capacity.
 - **It is solvable** from the starting parts. The analyzer must say so, and should find few winning configurations.
+- **No silent dead ends.** A trap must be readable (the player can see what went wrong: a ✕, a spark, a flicker, a prompt) and recoverable (a part on hand, a switch, or at worst Undo with the state showing why). A map where one wrong click makes the win impossible with nothing on screen to say so is broken, not hard. Lesson from battery-run, 27 Oct 2026: a rating-1 fuse that blew on the obvious first click, with no spare fuse. Verify the obvious wrong first move in your script, every time.
 - **It is small.** Fewer faults, more thought. If a puzzle needs more than 8 faults to make its point, the point is wrong.
 
 ## The design note (`puzzles/<id>.md`)
