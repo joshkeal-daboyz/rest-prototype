@@ -11,7 +11,7 @@ export type Scope = "map" | "street";
 
 export type Part = "bulb" | "fuse" | "wire";
 
-export type NodeType = "feed" | "breaker" | "switch" | "fusebox" | "junction" | "lamp";
+export type NodeType = "feed" | "breaker" | "switch" | "fusebox" | "junction" | "lamp" | "battery";
 
 interface NodeBase {
   id: string;
@@ -34,6 +34,21 @@ export interface SwitchNode extends NodeBase {
   type: "switch";
   outputs: readonly [string, string];
   selected: 0 | 1;
+  /** A relay can only be thrown while current reaches it. It stays where it was thrown after power is lost. */
+  relay?: boolean;
+}
+
+/**
+ * Charges at 1 unit/s while live power reaches it through `input` and it is not released, up to `capacity`
+ * (units are seconds of discharge). Released, it powers its far side for `charge` seconds, then goes flat.
+ */
+export interface BatteryNode extends NodeBase {
+  type: "battery";
+  capacity: number;
+  /** Starting charge; default 0. */
+  charge?: number;
+  /** The line on the feed side. Every other line at the battery is its far side. */
+  input: string;
 }
 
 /** Takes a fuse. `rating` is the load it carries; more and it blows when powered. Absent = never blows. */
@@ -53,7 +68,7 @@ export interface LampNode extends NodeBase {
   load?: number;
 }
 
-export type GridNode = FeedNode | BreakerNode | SwitchNode | FuseboxNode | JunctionNode | LampNode;
+export type GridNode = FeedNode | BreakerNode | SwitchNode | FuseboxNode | JunctionNode | LampNode | BatteryNode;
 
 export interface Line {
   id: string;
@@ -85,7 +100,7 @@ export interface Decor {
 export interface Puzzle {
   id: string;
   name: string;
-  version: 3;
+  version: 3 | 4;
   scope: Scope;
   /** Max total lamp load the feed carries; null = unlimited. Exceeding it browns the section out. */
   capacity: number | null;

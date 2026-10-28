@@ -8,7 +8,7 @@ import { FAULT_RULES, type FaultKind, type GridNode, type NodeType, type Part, t
 
 export type ValidationResult = { ok: true; puzzle: Puzzle } | { ok: false; errors: readonly string[] };
 
-const NODE_TYPES: readonly NodeType[] = ["feed", "breaker", "switch", "fusebox", "junction", "lamp"];
+const NODE_TYPES: readonly NodeType[] = ["feed", "breaker", "switch", "fusebox", "junction", "lamp", "battery"];
 const FAULT_KINDS: readonly FaultKind[] = ["dead-lamp", "blown-fuse", "damaged-cable", "dead-junction"];
 const PARTS: readonly Part[] = ["bulb", "fuse", "wire"];
 
@@ -27,7 +27,7 @@ export function validatePuzzle(json: unknown): ValidationResult {
   // ---- top level ----
   if (!isStr(p["id"])) err("id must be a non-empty string");
   if (!isStr(p["name"])) err("name must be a non-empty string");
-  if (p["version"] !== 3) err("version must be 3");
+  if (p["version"] !== 3 && p["version"] !== 4) err("version must be 3 or 4");
   const street = p["scope"] === "street";
   if (p["scope"] !== "map" && !street) err('scope must be "map" or "street"');
   if (!(p["capacity"] === null || (isNum(p["capacity"]) && p["capacity"] > 0))) err("capacity must be null or a positive number");
@@ -65,6 +65,13 @@ export function validatePuzzle(json: unknown): ValidationResult {
       case "switch":
         if (!Array.isArray(raw["outputs"]) || raw["outputs"].length !== 2 || !raw["outputs"].every(isStr)) err(`switch ${id}: outputs must be two line ids`);
         if (raw["selected"] !== 0 && raw["selected"] !== 1) err(`switch ${id}: selected must be 0 or 1`);
+        if (raw["relay"] !== undefined && typeof raw["relay"] !== "boolean") err(`switch ${id}: relay must be true or false`);
+        break;
+      case "battery":
+        if (!isNum(raw["capacity"]) || raw["capacity"] <= 0) err(`battery ${id}: capacity must be > 0 (seconds of discharge)`);
+        if (raw["charge"] !== undefined && (!isNum(raw["charge"]) || raw["charge"] < 0 || (isNum(raw["capacity"]) && raw["charge"] > raw["capacity"])))
+          err(`battery ${id}: charge must be between 0 and capacity`);
+        if (!isStr(raw["input"])) err(`battery ${id}: input must be the line id on the feed side`);
         break;
       case "fusebox": if (raw["rating"] !== undefined && (!isNum(raw["rating"]) || raw["rating"] <= 0)) err(`fusebox ${id}: rating must be > 0`); break;
       case "lamp": if (raw["load"] !== undefined && (!isNum(raw["load"]) || raw["load"] <= 0)) err(`lamp ${id}: load must be > 0`); break;
@@ -105,6 +112,12 @@ export function validatePuzzle(json: unknown): ValidationResult {
         if (!lineIds.has(out)) err(`switch ${id}: output ${out} is not a line`);
         else if (!linesFrom.get(id)?.has(out)) err(`switch ${id}: output line ${out} must start at the switch (from: ${id})`);
       }
+    }
+    if (n.type === "battery") {
+      const input = lines.find((l) => isObj(l) && l["id"] === n.input) as Record<string, unknown> | undefined;
+      if (!input) err(`battery ${id}: input ${n.input} is not a line`);
+      else if (input["from"] !== id && input["to"] !== id) err(`battery ${id}: input line ${n.input} doesn't touch the battery`);
+      if (d < 2) err(`battery ${id} needs its input line and at least one far-side line`);
     }
   }
 

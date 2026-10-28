@@ -7,7 +7,11 @@ import type { Part } from "./schema";
 
 export interface GridEvents {
   /** Power, load or readability changed anywhere. Listeners re-read the GridState. */
-  "grid:changed": { reason: "breaker" | "switch" | "repair" | "fuse" | "reset" };
+  "grid:changed": { reason: "breaker" | "switch" | "repair" | "fuse" | "reset" | "undo" | "battery" | "time" };
+  /** The player released a battery; it is now a source for its far side. */
+  "battery:released": { nodeId: string; charge: number };
+  /** A released battery ran out, or the player stopped it. */
+  "battery:flat": { nodeId: string; stopped: boolean };
   "breaker:thrown": { nodeId: string; closed: boolean };
   "switch:thrown": { nodeId: string; selected: 0 | 1 };
   /** A fuse carried more than its rating when power returned and blew (a new blown-fuse fault). */

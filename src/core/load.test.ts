@@ -63,6 +63,28 @@ describe("the validator catches broken puzzles", () => {
     expect(validatePuzzle(p).ok).toBe(false);
   });
 
+  it("a battery needs a capacity, an input line that touches it, and a far side", () => {
+    const p = base();
+    p["version"] = 4;
+    (p["nodes"] as unknown[]).push({ id: "bat", type: "battery", pos: [3, 3], capacity: 8, input: "l_bat_in" });
+    (p["lines"] as unknown[]).push({ id: "l_bat_in", from: "j1", to: "bat" });
+    let r = validatePuzzle(p);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join("\n")).toMatch(/needs its input line and at least one far-side line/);
+    (p["lines"] as unknown[]).push({ id: "l_bat_out", from: "bat", to: "j4" });
+    expect(validatePuzzle(p).ok).toBe(true);
+    (p["nodes"] as { id: string; input?: string }[]).find((n) => n.id === "bat")!.input = "l_main";
+    r = validatePuzzle(p);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join("\n")).toMatch(/doesn't touch the battery/);
+  });
+
+  it("a relay flag must be boolean", () => {
+    const p = base();
+    (p["nodes"] as { id: string; relay?: unknown }[]).find((n) => n.id === "sw_1")!.relay = "yes";
+    expect(validatePuzzle(p).ok).toBe(false);
+  });
+
   it("a street needs its start, night, satchel and favor", () => {
     const p = base();
     p["scope"] = "street";

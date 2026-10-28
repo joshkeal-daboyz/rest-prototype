@@ -1,4 +1,6 @@
-# Grid puzzle schema (draft 3)
+# Grid puzzle schema (draft 4)
+
+Draft 4 adds the **battery** node and the **relay** switch (ticket 008); `version` is 3 or 4. An absent or empty `target` means every lamp.
 
 A puzzle is one JSON file in `puzzles/`. The same graph describes a **map** (the power-routing minigame: a town section seen whole) and a **street** (the later layer where Enoch walks it); `scope` says which. In the 3D game a map file becomes `levels/<name>.grid.json`. Nothing in it refers to 2D drawing except `pos`.
 
@@ -48,7 +50,8 @@ A puzzle is one JSON file in `puzzles/`. The same graph describes a **map** (the
 | --- | --- | --- |
 | `feed` | source | Exactly one per puzzle. Power originates here; `capacity` is its limit. |
 | `breaker` | when `closed` | The player toggles it. Cuts everything downstream. Marked by the tribe. |
-| `switch` | to `outputs[selected]` only | Sends power down one of two lines leaving it. Marked by the tribe. |
+| `switch` | to `outputs[selected]` only | Sends power down one of two lines leaving it. Marked by the tribe. With `"relay": true` it can only be thrown while current reaches it, and stays where it was thrown after power is lost. |
+| `battery` | see note | `capacity` (seconds), optional `charge` (default 0), `input` (the line on the feed side). Charges at 1/s while live power reaches it through `input` and it is not released. Click to **release**: it powers every other line at the node for `charge` seconds (draining at 1/s), then goes flat; click again to stop early. A released battery is a time limit, not a load limit: its far side doesn't count toward the feed's capacity unless the feed also reaches it. |
 | `fusebox` | unless faulted or overloaded | Takes a fuse. `rating` is the load it carries; more and it blows when powered (a new `blown-fuse` fault). Absent = never blows. |
 | `junction` | unless faulted | A split or bend. Can carry a `dead-junction` fault. |
 | `lamp` | **leaf** | An endpoint with `load` (default 1). Lit when power reaches it, it has no fault, and the section isn't browned out. Never blocks. |
@@ -75,4 +78,4 @@ Hold times (2 / 3 / 4 / 5 s) are in `FAULT_RULES` for the street layer; in map s
 
 ## Events
 
-`grid:changed`, `breaker:thrown`, `switch:thrown`, `fuse:blown`, `repair:completed`, `grid:brownout` (entered or cleared), `job:completed`. Street scope later adds the night events.
+`grid:changed`, `breaker:thrown`, `switch:thrown`, `fuse:blown`, `repair:completed`, `grid:brownout` (entered or cleared), `battery:released`, `battery:flat`, `job:completed`. Street scope later adds the night events.
