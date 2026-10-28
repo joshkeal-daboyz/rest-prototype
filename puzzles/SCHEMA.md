@@ -71,6 +71,7 @@ Hold times (2 / 3 / 4 / 5 s) are in `FAULT_RULES` for the street layer; in map s
 
 ## Rules the simulator derives (never authored)
 
+- **Every readable fault gives off a signal** (Josh, 27 Oct 2026, ticket 011): a damaged cable sparks (loudest), a dead junction fizzes across its stubs, a blown fuse buzzes, a dead lamp flickers red at the socket. Unreadable faults show nothing. A fault that needs more than one part is drawn with one gap per part. A lamp's brightness scales with its load (2–3× for load 3). This replaces the GDD's Draft line "sparks only on damaged cables".
 - **Readable:** a fault is readable only when current reaches it. Everything downstream of an unrepaired blocking fault is dark and gives no information. A dead branch's faults are discovered when a switch or repair brings power to it.
 - **Brownout:** if the total `load` of lamps that would be lit exceeds `capacity`, the section browns out: every lamp counts as dark and flickers. Shed load with breakers and switches. Lamps with faults don't count toward load.
 - **Fuse blow:** when power is applied, a fusebox whose downstream would-be-lit load exceeds its `rating` gains a `blown-fuse` fault. Checked before brownout.

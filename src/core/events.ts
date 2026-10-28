@@ -14,8 +14,13 @@ export interface GridEvents {
   "battery:flat": { nodeId: string; stopped: boolean };
   "breaker:thrown": { nodeId: string; closed: boolean };
   "switch:thrown": { nodeId: string; selected: 0 | 1 };
-  /** A fuse carried more than its rating when power returned and blew (a new blown-fuse fault). */
-  "fuse:blown": { nodeId: string; faultId: string; load: number; rating: number };
+  /**
+   * A fuse carried more than its rating when power returned and blew (a new blown-fuse fault).
+   * `culprit` is the lamp newly powered through this fuse by the action that caused the blow
+   * (largest load if several); `path` is the line ids from the fuse to it, in order. The renderer
+   * runs the shock along `path` before the fuse pops.
+   */
+  "fuse:blown": { nodeId: string; faultId: string; load: number; rating: number; culprit: string | null; path: readonly string[] };
   "repair:completed": { faultId: string; at: string; part: Part; count: number };
   /** The lit load went over capacity (true) or came back under it (false). */
   "grid:brownout": { brownout: boolean; load: number; capacity: number };
