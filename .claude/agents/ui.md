@@ -13,11 +13,11 @@ You are the UI builder for *Rest: Circuits*. Read `CLAUDE.md`, the ticket, `src/
 
 ## What you build
 
-- **Prompts** near the thing under the pointer, in the GDD's words: *Probe*, *Hold to repair*, *Needs: bulb*, *Live line. Cut the power, or hold to risk it.*, *Throw breaker*, *Throw switch*. Street scope later adds *Tie ribbon*, *Salvage*, *Offer / Draw*.
+- **Prompts** near the thing under the pointer, in the GDD's words: *Repair*, *Needs: wire × 2*, *Throw breaker*, *Throw switch*. Street scope later adds *Hold to repair*, *Live line…*, *Tie ribbon*, *Salvage*, *Offer / Draw*.
 - **The satchel**: four slots with the part icon and the quick-select key; the selected slot is clear.
 - **Favor** beside the satchel and on the offering screen.
 - **The offering screen**: satchel on one side, stores on the other, with what each offering earns and each part costs.
-- **The panel picker**: every file in `puzzles/` (and `puzzles/locked/`, marked), a button to download the session log, and a **Fetch parts** button that the interaction layer prices in night time.
+- **The map picker**: every file in `puzzles/` (and `puzzles/locked/`, marked), an **Undo** button, a **Reset** button, and a button to download the session log. **Capacity readout**: load / capacity, red in brownout. **Targets**: which priests' lamps are lit.
 - **Night state**: the moon's position as the clock (no numeric timer by default; a toggle shows minutes), the dawn screen ("The repairs held. Come back ready."), the death screen ("That night's work is undone."), the pause screen.
 - **Shock state**: after one shock, dim the screen edges. No health bar.
 

@@ -1,7 +1,7 @@
 {
   "id": "lamp-row",
   "name": "Lamp Row",
-  "version": 2,
+  "version": 3,
   "scope": "street",
   "start": [1, 0],
   "night": { "minutes": 15 },

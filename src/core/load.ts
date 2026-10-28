@@ -27,23 +27,27 @@ export function validatePuzzle(json: unknown): ValidationResult {
   // ---- top level ----
   if (!isStr(p["id"])) err("id must be a non-empty string");
   if (!isStr(p["name"])) err("name must be a non-empty string");
-  if (p["version"] !== 2) err("version must be 2");
-  if (p["scope"] !== "panel" && p["scope"] !== "street") err('scope must be "panel" or "street"');
-  if (!isVec2(p["start"])) err("start must be [x, y]");
-  if (!isObj(p["night"]) || !isNum(p["night"]["minutes"]) || p["night"]["minutes"] <= 0) err("night.minutes must be > 0");
-  if (!isNum(p["satchel"]) || p["satchel"] < 1 || !Number.isInteger(p["satchel"])) err("satchel must be a positive integer");
-  const favor = p["favor"];
-  if (!isObj(favor) || !["start", "draw", "offer", "reward"].every((k) => isNum(favor[k]) && (favor[k] as number) >= 0))
-    err("favor needs numeric start, draw, offer, reward");
+  if (p["version"] !== 3) err("version must be 3");
+  const street = p["scope"] === "street";
+  if (p["scope"] !== "map" && !street) err('scope must be "map" or "street"');
   if (!(p["capacity"] === null || (isNum(p["capacity"]) && p["capacity"] > 0))) err("capacity must be null or a positive number");
-  for (const k of ["lampReach", "probeSeconds", "fetchSeconds"]) {
-    if (p[k] !== undefined && (!isNum(p[k]) || (p[k] as number) < 0)) err(`${k} must be a non-negative number`);
-  }
   if (p["startingParts"] !== undefined) {
     if (!Array.isArray(p["startingParts"]) || !p["startingParts"].every((x) => PARTS.includes(x as Part)))
       err("startingParts must be a list of bulb | fuse | wire");
     else if (isNum(p["satchel"]) && p["startingParts"].length > p["satchel"]) err("startingParts exceed the satchel");
   }
+  for (const k of ["target", "priority"]) {
+    if (p[k] !== undefined && (!Array.isArray(p[k]) || !(p[k] as unknown[]).every(isStr))) err(`${k} must be a list of lamp ids`);
+  }
+  if (street) {
+    if (!isVec2(p["start"])) err("street: start must be [x, y]");
+    if (!isObj(p["night"]) || !isNum(p["night"]["minutes"]) || p["night"]["minutes"] <= 0) err("street: night.minutes must be > 0");
+    if (!isNum(p["satchel"]) || p["satchel"] < 1 || !Number.isInteger(p["satchel"])) err("street: satchel must be a positive integer");
+    const favor = p["favor"];
+    if (!isObj(favor) || !["start", "draw", "offer", "reward"].every((k) => isNum(favor[k]) && (favor[k] as number) >= 0))
+      err("street: favor needs numeric start, draw, offer, reward");
+  }
+  if (p["lampReach"] !== undefined && (!isNum(p["lampReach"]) || p["lampReach"] < 0)) err("lampReach must be a non-negative number");
 
   // ---- nodes ----
   const nodes = Array.isArray(p["nodes"]) ? p["nodes"] : (err("nodes must be a list"), []);
@@ -129,8 +133,18 @@ export function validatePuzzle(json: unknown): ValidationResult {
     }
   }
 
+  // ---- targets ----
+  for (const k of ["target", "priority"]) {
+    if (!Array.isArray(p[k])) continue;
+    for (const id of p[k] as unknown[]) {
+      const n = isStr(id) ? nodeById.get(id) : undefined;
+      if (!n) err(`${k}: "${String(id)}" is not a node`);
+      else if (n.type !== "lamp") err(`${k}: ${String(id)} is a ${n.type}, not a lamp`);
+    }
+  }
+
   // ---- salvage, stores, decor ----
-  const salvage = Array.isArray(p["salvage"]) ? p["salvage"] : (err("salvage must be a list (may be empty)"), []);
+  const salvage = Array.isArray(p["salvage"]) ? p["salvage"] : p["salvage"] === undefined ? [] : (err("salvage must be a list"), []);
   const salvageIds = new Set<string>();
   for (const [i, raw] of salvage.entries()) {
     if (!isObj(raw) || !isStr(raw["id"])) { err(`salvage[${i}] needs an id`); continue; }

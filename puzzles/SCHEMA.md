@@ -1,54 +1,44 @@
-# Grid puzzle schema (draft 2)
+# Grid puzzle schema (draft 3)
 
-A puzzle is one JSON file in `puzzles/`. The same graph describes a **panel** (the inside of one fuse box: the circuit-fixing minigame) and a **street** (fuse boxes, lamps and cables along Lamp Row); `scope` says which. In the 3D game a panel file is what opens when Enoch interacts with a fuse box, and a street file becomes `levels/<name>.grid.json`. Nothing in it refers to 2D drawing except `pos`.
-
-Panel-specific fields (draft 2): `scope: "panel"`, `fusebox.rating` and `lamp.load` (a fuse carrying more load than its rating blows when powered), `probeSeconds` (night time one probe costs), and `fetchSeconds` (the stand-in for walking back to the stall until the street layer exists). In a panel, readability comes from **probing**: a node or line shows current only once the player has probed it, and probing a dead panel shows nothing. In a street, readability comes from the lamp's `lampReach`. Everything else below applies to both.
+A puzzle is one JSON file in `puzzles/`. The same graph describes a **map** (the power-routing minigame: a town section seen whole) and a **street** (the later layer where Enoch walks it); `scope` says which. In the 3D game a map file becomes `levels/<name>.grid.json`. Nothing in it refers to 2D drawing except `pos`.
 
 ```jsonc
 {
-  "id": "lamp-row",                 // file name without extension
-  "name": "Lamp Row",
-  "version": 2,                     // schema version
-  "scope": "street",                // "panel" (the minigame) or "street" (the outer loop)
-  "probeSeconds": 3,                // panel: night time one probe costs
-  "fetchSeconds": 90,               // panel: night time the "fetch parts" stand-in costs
-  "start": [1, 0],                  // where Enoch begins each night
-  "night": { "minutes": 15 },       // game-time length of a night
-  "satchel": 4,
-  "favor": { "start": 0, "draw": 2, "offer": 1, "reward": 6 },
-  "lampReach": 5,                   // how far the raised lamp shows current
-  "capacity": null,                 // null = unlimited; a number = max lamps lit at once (Draft)
+  "id": "shrine-circuit",
+  "name": "The shrine circuit",
+  "version": 3,
+  "scope": "map",                   // "map" (the minigame) or "street" (the outer loop, later)
+  "capacity": 4,                    // max total lamp load the feed carries; null = unlimited
+  "startingParts": ["wire"],        // what Enoch brought; repairs consume these
+  "target": ["shrine"],             // lamp ids the priests want lit; all lit + no brownout = win
+  "priority": ["street_1"],         // optional: lamps the tribe wishes stayed lit (score, not win)
 
   "nodes": [
-    { "id": "feed",         "type": "feed",     "pos": [0, 0] },
-    { "id": "breaker_main", "type": "breaker",  "pos": [2, 0], "closed": true },
-    { "id": "j1",           "type": "junction", "pos": [6, 0] },
-    { "id": "fb_A",         "type": "fusebox",  "pos": [12, 0], "rating": 3 },   // panel: max load it carries
-    { "id": "sw_1",         "type": "switch",   "pos": [20, 0], "outputs": ["l_a", "l_b"], "selected": 0 },
-    { "id": "lamp_01",      "type": "lamp",     "pos": [6, 2], "load": 1 }       // panel: load on its fuse
+    { "id": "feed",     "type": "feed",     "pos": [0, 0] },
+    { "id": "br_main",  "type": "breaker",  "pos": [2, 0], "closed": true },
+    { "id": "j1",       "type": "junction", "pos": [4, 0] },
+    { "id": "fb_A",     "type": "fusebox",  "pos": [6, 2], "rating": 3 },     // max load it carries
+    { "id": "sw_1",     "type": "switch",   "pos": [6, 0], "outputs": ["l_a", "l_b"], "selected": 0 },
+    { "id": "shrine",   "type": "lamp",     "pos": [14, 0], "load": 1 }
   ],
 
   "lines": [
-    { "id": "l1", "from": "feed", "to": "breaker_main" },
-    { "id": "l7", "from": "j5", "to": "j6", "overhead": true }   // overhead = needs a climb to repair
+    { "id": "l_a", "from": "sw_1", "to": "j_dead" },
+    { "id": "l_b", "from": "sw_1", "to": "j4", "overhead": true }     // overhead: street scope, needs a climb
   ],
 
   "faults": [
-    { "id": "f1", "at": "lamp_02", "kind": "dead-lamp" },
-    { "id": "f2", "at": "fb_A",    "kind": "blown-fuse" },
-    { "id": "f3", "at": "l7",      "kind": "damaged-cable" }
+    { "id": "f1", "at": "j_dead", "kind": "dead-junction" },
+    { "id": "f2", "at": "l_b",    "kind": "damaged-cable" }
   ],
 
-  "salvage": [
-    { "id": "s1", "pos": [8, 3],  "part": "bulb" },
-    { "id": "s6", "pos": [34, 3], "part": "random" }
-  ],
+  "decor": [ { "path": [[14, 4], [16, 5]] } ],   // optional: decorative wires that are NOT grid cables
 
-  "stores": { "pos": [1, 2] },      // the offering stall; omit for a puzzle without stores
-
-  "decor": [                        // optional: decorative wires that are NOT grid cables
-    { "path": [[14, 4], [16, 5]] }
-  ]
+  // street scope only
+  "start": [1, 0], "night": { "minutes": 15 }, "satchel": 4,
+  "favor": { "start": 0, "draw": 2, "offer": 1, "reward": 6 }, "lampReach": 5,
+  "salvage": [ { "id": "s1", "pos": [8, 3], "part": "bulb" } ],
+  "stores": { "pos": [1, 2] }
 }
 ```
 
@@ -56,38 +46,33 @@ Panel-specific fields (draft 2): `scope: "panel"`, `fusebox.rating` and `lamp.lo
 
 | type | Conducts | Notes |
 | --- | --- | --- |
-| `feed` | source | Exactly one per puzzle. Power originates here. |
+| `feed` | source | Exactly one per puzzle. Power originates here; `capacity` is its limit. |
 | `breaker` | when `closed` | The player toggles it. Cuts everything downstream. Marked by the tribe. |
-| `switch` | to `outputs[selected]` only | Sends power down one of its lines. Marked by the tribe. (MVP in the GDD) |
-| `fusebox` | unless faulted or overloaded | Takes a fuse. Marked by the tribe. In a panel, `rating` is the load it carries; more than that and it blows again when powered (a new `blown-fuse` fault). |
-| `junction` | always | A split or bend in the run. Can carry a `dead-junction` fault (wire × 2). |
-| `lamp` | **leaf** | An endpoint. Lit when power reaches it and it has no fault. A dead lamp never blocks the run. |
+| `switch` | to `outputs[selected]` only | Sends power down one of two lines leaving it. Marked by the tribe. |
+| `fusebox` | unless faulted or overloaded | Takes a fuse. `rating` is the load it carries; more and it blows when powered (a new `blown-fuse` fault). Absent = never blows. |
+| `junction` | unless faulted | A split or bend. Can carry a `dead-junction` fault. |
+| `lamp` | **leaf** | An endpoint with `load` (default 1). Lit when power reaches it, it has no fault, and the section isn't browned out. Never blocks. |
 
-A node with an unrepaired fault does not conduct (except a lamp, which simply stays dark). A line with an unrepaired fault does not conduct.
+A node or line with an unrepaired fault does not conduct (except a lamp, which simply stays dark).
 
 ## Fault kinds
 
-| kind | at | part | hold (s) | Signature with the lamp raised |
-| --- | --- | --- | --- | --- |
-| `dead-lamp` | a `lamp` | bulb | 2 | Pulses reach the post; the lamp is dark |
-| `blown-fuse` | a `fusebox` | fuse | 3 | Pulses in, none out |
-| `damaged-cable` | a line | wire | 4 | Pulses run up to a sparking break and stop. Sparks are visible without the lamp. |
-| `dead-junction` | a `junction` | wire × 2 | 5 | Pulses in, none out, no fuse box to blame (MVP) |
+| kind | at | part | Signature on a live map |
+| --- | --- | --- | --- |
+| `dead-lamp` | a `lamp` | bulb | Pulses reach the post; the lamp is dark |
+| `blown-fuse` | a `fusebox` | fuse | Pulses in, none out |
+| `damaged-cable` | a line | wire | Pulses run up to a sparking break and stop. Sparks only while the line is live. |
+| `dead-junction` | a `junction` | wire × 2 | Pulses in, none out, no fuse to blame |
 
-Parts: `bulb`, `fuse`, `wire`. `random` in a salvage spot means one of the three, chosen each night.
+Hold times (2 / 3 / 4 / 5 s) are in `FAULT_RULES` for the street layer; in map scope a repair is instant on click.
 
-## Visibility rules the simulator derives (never authored)
+## Rules the simulator derives (never authored)
 
-- In a **panel**, a node or line shows its state only once **probed** this night, and only while current can reach the probe point (probing a dead panel shows nothing). Probed spots stay shown for the night.
-- A fault is **readable** only when current reaches it: the player must see pulses stop. Everything downstream of an unrepaired blocking fault is dark and gives no information.
-- `damaged-cable` sparks are visible from anywhere in view, with or without the lamp, so they are the one fault the player can find without reading.
-- A repaired lamp that stays dark after the breaker goes on means there is an unfound blocking fault upstream. This is how "hidden" faults are found; the schema has no `hidden` flag.
+- **Readable:** a fault is readable only when current reaches it. Everything downstream of an unrepaired blocking fault is dark and gives no information. A dead branch's faults are discovered when a switch or repair brings power to it.
+- **Brownout:** if the total `load` of lamps that would be lit exceeds `capacity`, the section browns out: every lamp counts as dark and flickers. Shed load with breakers and switches. Lamps with faults don't count toward load.
+- **Fuse blow:** when power is applied, a fusebox whose downstream would-be-lit load exceeds its `rating` gains a `blown-fuse` fault. Checked before brownout.
+- **Win:** every `target` lamp lit and no brownout.
 
-## Events the simulator emits
+## Events
 
-Same names as the GDD: `grid:changed`, `repair:completed`, `repair:cancelled`, `breaker:thrown`, `switch:thrown`, `player:shocked`, `job:completed`, and from the night module `night:started`, `night:paused`, `night:dawn`, `night:death`.
-
-## Open points for the first tickets
-
-- Whether `pos` is in metres (so walking time is believable) or grid cells. Start with metres; the 3D level file will replace it anyway.
-- `capacity`: count of lit lamps or a per-lamp load? Start with a count; the GDD's capacity design is Draft.
+`grid:changed`, `breaker:thrown`, `switch:thrown`, `fuse:blown`, `repair:completed`, `grid:brownout` (entered or cleared), `job:completed`. Street scope later adds the night events.

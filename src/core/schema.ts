@@ -7,7 +7,7 @@
 
 export type Vec2 = readonly [number, number];
 
-export type Scope = "panel" | "street";
+export type Scope = "map" | "street";
 
 export type Part = "bulb" | "fuse" | "wire";
 
@@ -36,7 +36,7 @@ export interface SwitchNode extends NodeBase {
   selected: 0 | 1;
 }
 
-/** Takes a fuse. In a panel, `rating` is the load it carries; more and it blows when powered. */
+/** Takes a fuse. `rating` is the load it carries; more and it blows when powered. Absent = never blows. */
 export interface FuseboxNode extends NodeBase {
   type: "fusebox";
   rating?: number;
@@ -85,28 +85,30 @@ export interface Decor {
 export interface Puzzle {
   id: string;
   name: string;
-  version: 2;
+  version: 3;
   scope: Scope;
-  start: Vec2;
-  night: { minutes: number };
-  satchel: number;
-  favor: { start: number; draw: number; offer: number; reward: number };
-  /** Street: how far the raised lamp shows current. */
-  lampReach?: number;
-  /** null = unlimited; a number = max lamps lit at once (Draft in the GDD). */
+  /** Max total lamp load the feed carries; null = unlimited. Exceeding it browns the section out. */
   capacity: number | null;
-  /** Panel: night seconds one probe costs. */
-  probeSeconds?: number;
-  /** Panel: night seconds the "fetch parts" stand-in costs, until the street layer exists. */
-  fetchSeconds?: number;
-  /** Panel: what the satchel holds when the panel opens. */
+  /** What Enoch brought. Repairs consume these. */
   startingParts?: readonly Part[];
+  /** Lamp ids the priests want lit. All lit and no brownout = win. Empty/absent = every lamp. */
+  target?: readonly string[];
+  /** Lamps the tribe wishes stayed lit (a score, not a win condition). */
+  priority?: readonly string[];
   nodes: readonly GridNode[];
   lines: readonly Line[];
   faults: readonly Fault[];
-  salvage: readonly SalvageSpot[];
-  stores?: { pos: Vec2 };
   decor?: readonly Decor[];
+
+  // ---- street scope only ----
+  start?: Vec2;
+  night?: { minutes: number };
+  satchel?: number;
+  favor?: { start: number; draw: number; offer: number; reward: number };
+  /** How far the raised lamp shows current. */
+  lampReach?: number;
+  salvage?: readonly SalvageSpot[];
+  stores?: { pos: Vec2 };
 }
 
 /** What each fault kind sits on, needs, and how long the hold takes (GDD, Decided). */
@@ -122,8 +124,6 @@ export const FAULT_RULES: Readonly<
 /** Defaults for the optional numbers. Per-puzzle values override them. */
 export const DEFAULTS = {
   lampReach: 5,
-  probeSeconds: 3,
-  fetchSeconds: 90,
   fuseRating: Number.POSITIVE_INFINITY,
   lampLoad: 1,
 } as const;

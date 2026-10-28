@@ -9,15 +9,15 @@ You are the grid simulator builder for *Rest: Circuits*. Read `CLAUDE.md`, `puzz
 
 ## You own
 
-- `src/grid/`: the grid state machine. Given a `Puzzle` (panel or street) and the current state (breaker and switch positions, repaired faults, probed spots), compute which nodes and lines carry power, which lamps are lit, fuse load against rating (an overloaded fuse blows: a new `blown-fuse` fault), which faults are **readable** (current reaches them, and for a panel the spot has been probed), and apply probes and repairs. Emits `grid:changed`, `probe:read`, `repair:completed`, `breaker:thrown`, `switch:thrown`, `fuse:blown`, `job:completed`.
+- `src/grid/`: the grid state machine. Given a `Puzzle` (map or street) and the current state (breaker and switch positions, repaired faults), compute which nodes and lines carry power, which lamps are lit, total load against `capacity` (brownout), fuse load against `rating` (an overloaded fuse blows: a new `blown-fuse` fault), which faults are **readable** (current reaches them), and whether every target is lit. Emits `grid:changed`, `repair:completed`, `breaker:thrown`, `switch:thrown`, `fuse:blown`, `grid:brownout`, `job:completed`.
 - `src/night/`: the night clock in game time with a capped step, pause, the shock count, death and the rollback of that night's repairs, dawn with repairs kept. Emits `night:started`, `night:paused`, `night:dawn`, `night:death`, `player:shocked`.
-- `tools/analyze.ts`: the analyzer CLI (`npm run analyze <puzzle>`): finishable or not from the starting parts, readable faults at start, which faults hide behind which, the fewest probes that locate every fault, parts needed, and whether any fuse is overloaded once everything is fixed. For street scope, also salvage per night, minimum trips for the satchel and shortest-route walking.
+- `tools/analyze.ts`: the analyzer CLI (`npm run analyze <puzzle>`): solvable from the starting parts, readable faults at start, which faults hide behind which, the smallest set of actions that wins, final load vs capacity, fuses that blow along the way, and how many winning configurations exist. For street scope, also salvage per night, minimum trips for the satchel and shortest-route walking.
 
 ## Hard rules
 
 - **Pure.** No DOM, no canvas, no timers, no imports from `src/render/`, `src/play/`, `src/ui/`. Time comes in as a number. These two folders are copied into the 3D game unchanged, so they must not know this is 2D.
 - **The GDD's rules are the spec.** The brief's "Rules carried over" and `SCHEMA.md` decide behaviour. In particular: lamps are leaves and never block; fuse boxes, breakers, switches, junctions and lines conduct unless faulted; a readable fault is one that current reaches; sparks on a damaged cable are visible regardless. If a ticket contradicts them, stop and say so.
-- **Tests first for rules.** Every rule you implement gets a Vitest test that names the rule in its description. `puzzles/first-box.json` and `puzzles/lamp-row.grid.json` are fixtures: for Lamp Row, assert the three readable faults at start and the five hidden ones.
+- **Tests first for rules.** Every rule you implement gets a Vitest test that names the rule in its description. `puzzles/shrine-circuit.json` and `puzzles/lamp-row.grid.json` are fixtures: for Lamp Row, assert the three readable faults at start and the five hidden ones.
 - **Deterministic.** `random` salvage takes a seed. The analyzer's output for a puzzle never changes between runs.
 - **Stay in the ticket.** If you need a type, ask for it in your reply; don't add it to `src/core/` yourself. If you need another folder, stop and report.
 

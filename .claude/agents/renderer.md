@@ -1,6 +1,6 @@
 ---
 name: renderer
-description: Draws the Rest prototype on a 2D canvas — the dark schematic street, the lamp's reach, current pulses, sparks, ribbons, and the Relight cascade (this prototype's wow moment). Give it a ticket id and it implements src/render/ against grid events only. It never reads grid code or handles input.
+description: Draws the Rest prototype on a 2D canvas — the dark schematic town section, current pulses, sparks, brownout flicker, target marks, and the Relight cascade (this prototype's wow moment). Give it a ticket id and it implements src/render/ against grid state and events only. It never reads grid code or handles input.
 tools: Read, Glob, Grep, Write, Edit, Bash
 model: sonnet
 ---
@@ -13,14 +13,13 @@ You are the renderer for *Rest: Circuits*. Read `CLAUDE.md`, the ticket, `src/co
 
 ## What you draw
 
-- **The panel.** The inside of a fuse box: terminals as dots, wires as lines, fuse holders, bulb sockets, the panel breaker, the feed. Loads (the street lamps it feeds) drawn to one side. Dark and unreadable by default; the tribe's marks (breaker, switches, fuse holders) stay visible.
-- **Probed spots** (the grid state says which) show their state: live lines show **pulses moving away from the feed**; dead ones show a flat, dull line. Unprobed spots show nothing. Direction is information, so make it unmistakable. (Street scope, later: the same, inside a soft radius around Enoch while the lamp is raised.)
-- **A blown fuse looks like a good fuse** until probed on both sides. An overloaded fuse that blows on power-up gets a visible pop.
+- **The map.** A town section: the feed with its capacity, cables as lines, junctions, fuse boxes with their rating, breakers and switches with the tribe's paint and ribbon, lamps as circles with their load, target lamps marked. Dark by default.
+- **Live lines show pulses moving away from the feed**; dead lines are flat and dull. Direction is information, so make it unmistakable. (Street scope, later: only inside a soft radius around Enoch while the lamp is raised.)
+- **Brownout**: every lamp flickers and the capacity readout goes red. An overloaded fuse that blows on power-up gets a visible pop.
 - **Signatures**: pulses into a fuse box and none out; pulses reaching a dark lamp; pulses up to a sparking break. Sparks on a damaged cable show from anywhere, lamp or not.
 - **Ribbons**: one saturated colour, glowing, on marked faults; they come off on repair.
 - **Lit lamps**: warm glow with a light pool. Repaired-but-unpowered parts look new (brighter outline).
-- **The Relight**: on `job:completed`, power travels visibly through the panel from the feed and out to the loads, which ignite in order of distance, each with a small flare. This is the moment Josh will judge at gate G4. Make it readable and long enough to enjoy (1.5–3 s for a panel).
-- **The repair ring** around the spot being repaired, with the timing mark on a live panel: the interaction agent gives you progress and mark position; you draw them.
+- **The Relight**: on `job:completed`, power travels visibly along the cables from the feed and lamps ignite in order of distance, each with a small flare. This is the moment Josh will judge at gate G4. Make it readable and long enough to enjoy (2–4 s).
 
 ## Hard rules
 

@@ -1,26 +1,17 @@
 # Rules coverage
 
-Every rule in the brief's "Rules" section, and the ticket whose acceptance criteria test it.
+Every rule in the brief's "Rules" section, and where it is tested.
 
-| Rule | Ticket |
+| Rule | Where |
 | --- | --- |
-| Power flows from the feed outward; conductors conduct unless faulted | 002 |
-| Lamps are leaves; a dead bulb never blocks | 001 (validator), 002 |
-| Parts bulb / fuse / wire; fault → part and hold time | 001 (`FAULT_RULES`), 006 |
-| Signatures: current to a dark bulb; into a fuse and none out; up to a sparking break | 002 |
-| Faults hide faults | 002, 004 |
-| Breaker cuts the panel | 002 |
-| Live repair timing check; a miss is a shock | 006 |
-| Two shocks in a night kill; that night's repairs roll back | 003 (count, death), 006 (rollback through the grid) |
-| Repairs survive dawn | 003 |
-| Letting go early cancels and keeps the part | 006 |
-| A repair can't start without the part; the prompt names it | 006 |
-| Satchel of four | 001 (validator), 006 |
-| The Relight can't be interrupted | 005 (plays to the end), 006 (input ignored during it) |
-| Probing needs current; shows nothing on a dead panel | 002 |
-| A probe costs time, not parts | 003, 006 |
-| Wrong fixes cost time only | 006 |
-| Fuse rating vs load; blows again on power | 002 |
-| Switches choose a wire; unselected side is dark, not faulty | 002 |
-| Night on game time, capped step, pause stops the clock | 003 |
-| Pause cancels a live repair with no shock | 003, 006 |
+| Power flows from the feed outward; conductors conduct unless faulted | src/grid tests |
+| Lamps are leaves; a dead lamp never blocks | src/core validator; src/grid tests |
+| Breaker cuts downstream; switch picks one of two lines | src/grid tests |
+| Parts bulb / fuse / wire; fault → part and count | src/core `FAULT_RULES`; src/grid tests |
+| Signatures derivable from state (into a fuse, none out, etc.) | src/grid tests |
+| Faults hide faults (readable = current reaches it) | src/grid tests |
+| Capacity: over it, brownout; nothing counts as lit | src/grid tests |
+| Fuse rating: over it, blows on power | src/grid tests |
+| Scarce parts: repair consumes the part; refused without it | src/grid tests |
+| Win: every target lit, no brownout | src/grid tests |
+| The Relight can't be interrupted | src/play (input ignored during it); Josh checks |

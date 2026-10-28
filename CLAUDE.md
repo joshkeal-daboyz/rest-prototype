@@ -1,6 +1,6 @@
 # Rest: Circuits (rest-prototype)
 
-The circuit-fixing minigame prototype for *Rest*: inside a fuse box, probe with the tester to find the fault, cut the power, splice or swap a part, throw it back on. Josh builds alone with an agent crew. The design is in [docs/prototype-brief.md](docs/prototype-brief.md); the game it feeds is in the [GDD](https://github.com/joshkeal-daboyz/rest-gdd). Panels live in `puzzles/`, their schema in [puzzles/SCHEMA.md](puzzles/SCHEMA.md). (The Forge art pipeline in rest-gdd is concept art only; nothing here touches it.)
+The power-routing minigame prototype for *Rest*: a top-down map of a town section; throw breakers and switches and spend scarce parts to route the failing feed's limited power to what the priests want lit. Josh builds alone with an agent crew. **For now the goal is a playable prototype to test the idea; features come after Josh has played it.** The design is in [docs/prototype-brief.md](docs/prototype-brief.md); the game it feeds is in the [GDD](https://github.com/joshkeal-daboyz/rest-gdd). Panels live in `puzzles/`, their schema in [puzzles/SCHEMA.md](puzzles/SCHEMA.md). (The Forge art pipeline in rest-gdd is concept art only; nothing here touches it.)
 
 ## Hard rules
 

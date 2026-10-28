@@ -17,19 +17,19 @@ describe("every puzzle file in puzzles/ validates", () => {
 });
 
 describe("the validator catches broken puzzles", () => {
-  const base = () => structuredClone(read("first-box.json")) as Record<string, unknown>;
+  const base = () => structuredClone(read("shrine-circuit.json")) as Record<string, unknown>;
 
   it("a lamp with two lines is not a leaf", () => {
     const p = base();
-    (p["lines"] as unknown[]).push({ id: "bad", from: "lamp_a", to: "lamp_b" });
+    (p["lines"] as unknown[]).push({ id: "bad", from: "shrine", to: "flood" });
     const r = validatePuzzle(p);
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.errors.join("\n")).toMatch(/lamp lamp_a must be a leaf/);
+    if (!r.ok) expect(r.errors.join("\n")).toMatch(/lamp shrine must be a leaf/);
   });
 
   it("a blown fuse must sit on a fusebox", () => {
     const p = base();
-    (p["faults"] as unknown[]).push({ id: "f9", at: "t1", kind: "blown-fuse" });
+    (p["faults"] as unknown[]).push({ id: "f9", at: "j1", kind: "blown-fuse" });
     const r = validatePuzzle(p);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.errors.join("\n")).toMatch(/blown-fuse must sit on a fusebox/);
@@ -37,8 +37,16 @@ describe("the validator catches broken puzzles", () => {
 
   it("a damaged cable must sit on a line", () => {
     const p = base();
-    (p["faults"] as unknown[]).push({ id: "f9", at: "t1", kind: "damaged-cable" });
+    (p["faults"] as unknown[]).push({ id: "f9", at: "j1", kind: "damaged-cable" });
     expect(validatePuzzle(p).ok).toBe(false);
+  });
+
+  it("targets must be lamps", () => {
+    const p = base();
+    p["target"] = ["j1"];
+    const r = validatePuzzle(p);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join("\n")).toMatch(/target: j1 is a junction/);
   });
 
   it("exactly one feed", () => {
@@ -55,10 +63,12 @@ describe("the validator catches broken puzzles", () => {
     expect(validatePuzzle(p).ok).toBe(false);
   });
 
-  it("starting parts can't exceed the satchel", () => {
+  it("a street needs its start, night, satchel and favor", () => {
     const p = base();
-    p["startingParts"] = ["wire", "wire", "wire", "wire", "wire"];
-    expect(validatePuzzle(p).ok).toBe(false);
+    p["scope"] = "street";
+    const r = validatePuzzle(p);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join("\n")).toMatch(/street: start/);
   });
 
   it("loadPuzzle throws with every error listed", () => {

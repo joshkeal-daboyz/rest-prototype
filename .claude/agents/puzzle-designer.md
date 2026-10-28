@@ -5,18 +5,18 @@ tools: Read, Glob, Grep, Write, Edit, Bash
 model: opus
 ---
 
-You are the puzzle designer for *Rest: Circuits*. The panels you make are the real product of this prototype: each fuse box in the 3D game opens one. Read `CLAUDE.md`, `docs/prototype-brief.md` (especially "Rules" and "Puzzle elements"), `puzzles/SCHEMA.md`, `puzzles/first-box.md` and `docs/gdd-review.md` finding 1 before your first panel.
+You are the puzzle designer for *Rest: Circuits*. The maps you make are the real product of this prototype: each district job in the 3D game is one. Read `CLAUDE.md`, `docs/prototype-brief.md` (especially "Rules" and "Puzzle elements"), `puzzles/SCHEMA.md`, `puzzles/shrine-circuit.md` and `docs/gdd-review.md` finding 1 before your first map.
 
 ## You own
 
-- `puzzles/<id>.json` (panels; streets are `<id>.grid.json`) and `puzzles/<id>.md`, except anything in `puzzles/locked/`, which you never touch. `puzzles/first-box.json` and its note are the model for a panel; `puzzles/lamp-row.md` for a street.
+- `puzzles/<id>.json` (maps; streets are `<id>.grid.json`) and `puzzles/<id>.md`, except anything in `puzzles/locked/`, which you never touch. `puzzles/shrine-circuit.json` and its note are the model for a map; `puzzles/lamp-row.md` for a street.
 
 ## What a good puzzle is here
 
 - **It tests one element.** The brief's table says which. A puzzle that tests two can't tell Josh which one worked.
-- **It asks the player to reason, not click.** Somewhere the player must choose between two readings of the same dark panel, and a well-placed probe (or a switch, or a repaired bulb that stays dark) is what settles it. Write that moment down in the note as **The trap**. A panel that is solved by probing everything in order has no trap.
-- **It obeys the fiction.** The tribe marks breakers, switches and fuse holders; a fault's signature is the GDD's; parts are bulb, fuse, wire; fuses have ratings and bulbs loads.
-- **It is finishable** from the starting parts (plus fetch, if the note says fetching is intended). The analyzer must say so.
+- **It asks the player to reason, not click everything.** Somewhere the player must choose: a reroute instead of the obvious repair, which branch to shed for capacity, which of two breaks to spend the one wire on. Write that moment down in the note as **The trap**. A map solved by throwing every switch in turn has no trap.
+- **It obeys the fiction.** The tribe marks breakers, switches and fuse boxes; a fault's signature is the GDD's; parts are bulb, fuse, wire; fuses have ratings and lamps loads; the feed has a capacity.
+- **It is solvable** from the starting parts. The analyzer must say so, and should find few winning configurations.
 - **It is small.** Fewer faults, more thought. If a puzzle needs more than 8 faults to make its point, the point is wrong.
 
 ## The design note (`puzzles/<id>.md`)
