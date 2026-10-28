@@ -1,11 +1,11 @@
 // Entry point: loads the map files, builds grid -> renderer -> play -> ui for one map, and runs the frame loop.
 // No game rules here: each layer owns its own. Picking another map rebuilds the stack.
-import { EventBus } from "./core";
+import { EventBus, puzzleFeeds } from "./core";
 import { createGrid, type Grid } from "./grid";
 import { createMapRenderer, type MapRenderer } from "./render";
 import { createMapPlay, type LogEntry, type MapPlay } from "./play";
 import { mountUI, type UI } from "./ui";
-import { noticeFor } from "./ui/logic";
+import { brownoutNotices, noticeFor } from "./ui/logic";
 import { collectMaps, type MapEntry } from "./ui/maps";
 
 const files = import.meta.glob("../puzzles/**/*.json", { eager: true, import: "default" }) as Record<string, unknown>;
@@ -59,11 +59,13 @@ if (entries.length === 0) {
     const renderer = createMapRenderer(canvas as HTMLCanvasElement, entry.puzzle, { insets: { top: hudTopInset() } });
     const play = createMapPlay(entry.puzzle, grid, renderer, bus);
     const detachPlay = play.attach(canvas as HTMLCanvasElement);
+    const feeds = puzzleFeeds(entry.puzzle);
     const ui = mountUI(uiRoot as HTMLElement, {
       grid,
       play,
       puzzles,
       current: id,
+      feeds,
       onPick: (next) => {
         history.replaceState(null, "", urlFor(next));
         open(next);
@@ -82,8 +84,13 @@ if (entries.length === 0) {
         if (text) ui.notify(text);
       }),
       bus.on("grid:brownout", (e) => {
-        const text = noticeFor({ kind: "grid:brownout", brownout: e.brownout, load: e.load, capacity: e.capacity });
-        if (text) ui.notify(text);
+        if (e.over === undefined) {
+          const text = noticeFor({ kind: "grid:brownout", brownout: e.brownout, load: e.load, capacity: e.capacity });
+          if (text) ui.notify(text);
+          return;
+        }
+        // Multi-feed map: one notice per over feed, named (ticket 015 D).
+        for (const text of brownoutNotices(e.brownout, e.over, feeds, grid.state().feeds)) ui.notify(text);
       }),
       bus.on("battery:flat", (e) => {
         const text = noticeFor({ kind: "battery:flat", stopped: e.stopped });
