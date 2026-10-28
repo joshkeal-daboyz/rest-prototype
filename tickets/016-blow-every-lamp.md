@@ -7,6 +7,8 @@ branch: one per part, `ticket/016-blow-every-lamp-a`, `ticket/016-blow-every-lam
 ## Josh's words
 After playing ladder-08: "For ladder-08, I don't like how only one light triggers the blown fuse animation."
 
+Refinement to part B, after seeing the design (G1 already given; this refines it, it is not a new ticket): "The animation needs to change: the electricity should run to the lamp, then all of the lines should glow brightly, and the lamps should spark as well."
+
 ## What happens now
 `fuse:blown` names one `culprit` lamp (the newly fed one with the largest load) and the `path` to it. The renderer sends the shock streak, the crackle and the flare to that lamp only. On ladder-08, repairing `fb_1` at the start blows it with mill 2 + home 1 + market 1 + lantern 1 = 5 on a Lv2 fuse, but only the mill reacts. The blow says "the mill did it" when the honest read is "all four of these together did it".
 
@@ -35,6 +37,17 @@ When a fuse blows, the shock runs out from the fuse to **every lamp whose load c
   - Each branch's streak is drawn at the shared speed; the glow pass for all branches of a slot is one path and one `stroke()` (so the shared trunk is not drawn several times over at 0.55 alpha), likewise the core pass.
   - Each lamp gets the crackle when its streak arrives and the flare (`culpritGlow`, renamed if the builder likes) from `lampFlare`.
   - Josh checks in the browser on ladder-08: repairing `fb_1` at the start sends the shock to all four lamps, the near ones flare first, then the fuse pops; the shrine trap sends it to home and shrine.
+- [ ] **B amendment (renderer), Josh's direction: run, then glow, then spark, then pop.** Baseline is the code on `ticket/016-blow-every-lamp-a` (commit `1e9a676` plus the renderer fix in progress there); B is reworked from it, not restarted. Where this list conflicts with B above, this list wins: it **supersedes the per-lamp arrival crackle/flare and the "near ones flare first" browser check**. The shared-speed streaks, the `lamps`/fallback handling (`blowTargets`), `MAX_BLOW_LAMPS` and the one-path-one-stroke rule stay. No grid or event change: `lamps` and their paths are already in `fuse:blown`.
+  - **Sequence and timings**, all constants in `src/render/shock.ts`, all times from the blow (total ≈ 1.3 s):
+    1. **Run**, 0 → 0.4 s (`SHOCK_SECONDS`, unchanged): streaks leave the fuse together at the shared speed and run to every lamp in `lamps`, as built. A streak that arrives early waits at its lamp (head held at the end, no crackle yet).
+    2. **Lines glow**, 0.4 → 0.7 s (`LINE_GLOW_SECONDS` = 0.3): every line on the fuse-to-lamp paths (the union of all `lamps[].path`, each line once) glows brightly together. Envelope `lineGlow(age)`: 0 before 0.4 s, rises to 1 over 0.06 s, holds at 1, falls to 0 over the last 0.1 s, 0 from 0.7 s on. Streaks fade out as the glow rises.
+    3. **Lamps spark**, from 0.5 s (`LAMP_SPARK_AT`), lasting 0.3 s (`LAMP_SPARK_SECONDS`): every lamp in `lamps` gets a spark burst (short radiating spark lines/particles, not only a glow) plus the existing flare and the crackle, all lamps at once while the lines are at full glow. `lampSpark(age)`: 0 before 0.5 s, 1 at 0.5 s, falling to 0 by 0.8 s.
+    4. **Fuse pops**, from 0.7 s for `POP_SECONDS` (0.6, unchanged), as today: the fuse stays intact until 0.7 s. `sequenceTotal` becomes 1.3 s with a path; with no path (`culprit: null`, empty `lamps`) the sequence plays as today (pop at 0, no run, glow or spark).
+  - Vitest, pure: `lineGlow`, `lampSpark`, `sequencePhase`, `fuseIntact`, `popFraction` and `sequenceTotal` at the boundaries above (0, 0.4, 0.46, 0.5, 0.6, 0.7, 0.8, 1.3 s) for path and no-path; the spark starts after the glow starts and the pop starts after the spark starts.
+  - Vitest, pure: a helper that builds the deduplicated glow-line list from `lamps` (shared trunk lines appear once; lines of lamps past `MAX_BLOW_LAMPS` still glow; capped at a preallocated `MAX_GLOW_LINES` = 64 per slot, extras dropped, tested). The glow pass is one path and one `stroke()` per slot (wide soft pass plus bright core, each one stroke).
+  - Vitest, pure: spark-burst geometry is deterministic (e.g. `sparkRay(lampIndex, ray, age, out)` from fixed angles/seeds, no `Math.random` per frame) so it is testable and allocation-free; sparks for up to `MAX_FLARE_LAMPS` lamps.
+  - No per-frame allocation: glow-line ids/points and spark buffers are preallocated next to the existing slot arrays.
+  - Josh checks in the browser on ladder-08: repairing `fb_1` at the start sends electricity to all four lamps, then all the lines it ran along glow bright together, then all four lamps spark, then the fuse pops; the shrine trap does the same for home and shrine.
 - [ ] Both parts: `npm run gate` green; test count grows.
 
 ## Files
@@ -64,5 +77,7 @@ Optional because render tests build payloads without it; the grid-simulator alwa
 Presentation only: no rule, number, payload meaning or puzzle file changes. Fuse rating (Draft) is untouched. No rules-coverage row changes.
 
 ## Open questions
+- **"All of the lines"** (B amendment): cut as every line on the fuse-to-lamp paths, i.e. every line that carried the overload, not every line on the map. Josh to confirm; if he means the whole map, only the glow-line helper changes.
+- Total length grows from 1.0 s to about 1.3 s (run 0.4, glow 0.3, pop 0.6, spark overlapping the glow). Josh to say if it drags.
 - Should the culprit (the lamp the player's action added) still stand out a little, e.g. a brighter flare, so "what I just did" and "everything it overloaded" both read? Cut as all lamps alike, per Josh's words.
 - The ladder-08 design note says the notice gives the culprit; it doesn't (the notice gives the fuse level and what it carried). Puzzle-designer can fix the note's wording separately; not in this ticket.

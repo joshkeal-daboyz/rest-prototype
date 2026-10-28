@@ -43,7 +43,7 @@ describe("fuse:blown names the culprit (ticket 011 D)", () => {
     const g = createGrid(p, bus);
     expect(g.state().lit.has("a")).toBe(true); // already lit: not the culprit
     g.throwBreaker("br");
-    expect(log).toEqual([{ nodeId: "fb", faultId: "blown-fb", load: 3, rating: 2, culprit: "b", path: ["l1", "l2", "lb"] }]);
+    expect(log).toEqual([{ nodeId: "fb", faultId: "blown-fb", load: 3, rating: 2, culprit: "b", path: ["l1", "l2", "lb"], lamps: [{ id: "a", path: ["l1", "la"] }, { id: "b", path: ["l1", "l2", "lb"] }] }]);
   });
 
   it("culprit rule: with several new lamps the largest load is named", () => {
