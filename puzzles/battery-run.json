@@ -4,7 +4,7 @@
   "version": 4,
   "scope": "map",
   "capacity": 2,
-  "startingParts": [],
+  "startingParts": ["fuse", "fuse"],
   "target": ["shrine"],
   "priority": ["yard"],
 

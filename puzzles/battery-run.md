@@ -8,7 +8,7 @@ Josh's words: "I want a battery that you can charge and you have a limited amoun
 
 ## The map
 
-11 nodes, 12 lines, no faults, no parts. Feed capacity 2.
+11 nodes, 12 lines, no faults. Enoch brings two fuses. Feed capacity 2.
 
 | Piece | What it is |
 | --- | --- |
@@ -25,11 +25,11 @@ The feed's winning route: `br_east` → `fb_east` → `rl_2` (position 1) → `r
 ## The intended read
 
 1. The map opens with the yard lit and the east section dark. The relays don't move when clicked (no current). The battery is empty and filling.
-2. The player tries the obvious thing: close `br_east`. The feed runs through `rl_2` as it stands, into the mill: 3 through a fuse rated 1. **The fuse blows**, the section stays dark, and there is no spare fuse. (Undo puts it back.)
+2. The player tries the obvious thing: close `br_east`. The feed runs through `rl_2` as it stands, into the mill: 3 through a fuse rated 1. **The fuse blows**: `fb_east` shows the blown-fuse ✕ and *Repair (fuse)*, and the section stays dark. Nothing is lost yet: the battery's path into the section doesn't run through `fb_east`, so the rest of the job goes on, and the fuse is repaired at the end.
 3. Wait while the battery fills: 8 seconds.
 4. Release it. The battery's current runs `rl_1` (position 0) → `j_m` → `rl_2` → the mill, which lights for the length of the window. Both relays are live.
 5. Throw `rl_2` first (to 1), then `rl_1` (to 1). The shrine lights from the battery, but the job isn't done: a lamp lit only by a battery never completes it.
-6. Close `br_east`, during the window or after it goes flat. The feed runs through the set relays to the shrine, the mill stays out of its path, the fuse holds. **Win**, and the Relight.
+6. Close `br_east`, during the window or after it goes flat. The feed runs through the set relays to the shrine, the mill stays out of its path, the fuse holds. **Win**, and the Relight. (If the fuse blew in step 2, the breaker is already closed: repair `fb_east` now, with one fuse, and it holds, since only the shrine's load 1 is behind it.)
 
 ## The trap
 
@@ -37,7 +37,9 @@ Two of them, both about using the window well. The near relay, `rl_1`, is the on
 
 The quieter trap is impatience: releasing before the battery is full. At 2 s of charge, a first-time player at a click every 1.5 s sets one relay and the battery runs flat before the second.
 
-Behind both sits the shortcut that doesn't work: closing `br_east` first blows the fuse, which is how the map tells the player why the battery exists.
+Behind both sits the shortcut that doesn't work: **closing `br_east` first.** The feed runs into the mill through `rl_2` as it stands, 3 through a fuse rated 1, and `fb_east` blows. That is how the map tells the player why the battery exists: the feed can't be let into the east section until the relays are set. To recover, leave the blown fuse alone, charge the battery, release it, throw `rl_2` then `rl_1`, then repair `fb_east` with a fuse (the breaker is already closed, so the ✕ is readable); it holds and the job completes. If the player repairs the fuse straight away, before the relays are set, it blows again at once and costs one of the two fuses; the second still finishes the job after the battery run. Only two premature repairs in a row leave the map stuck, and Undo or Reset clear that.
+
+**Why a spare fuse and not a fuse that never blows.** Current only enters a switch through its input side, so any relay the feed passes on the winning route is a relay the feed would power, and could throw, if it got there early. Something has to stop the feed getting in before the relays are set, and the breaker alone can't, because the player can close it any time. The fuse blowing is that stop: without it, the player closes `br_east`, throws both relays from the feed, and never needs the battery. So the fuse has to be able to blow, and the fix is to make the blow recoverable. One spare isn't enough, because the instinctive move after a blow is to repair at once, which re-blows and spends it; two spares cover that instinct once. No layout under the current rules removes every stuck state while keeping the battery the only way to set the relays; that would need a rule change (for example, a relay that only the battery can throw), which is a proposal for Josh, not something this map does.
 
 ## What this map tests
 
@@ -48,17 +50,19 @@ Behind both sits the shortcut that doesn't work: closing `br_east` first blows t
 
 ## Expected numbers (by hand; the analyzer isn't built yet)
 
-- Nodes: 11. Faults: 0. Parts given: none. Parts needed: none.
+- Nodes: 11. Faults: 0. Parts given: 2 fuses. Parts needed: none on the intended route; 1 fuse if `br_east` was closed first.
 - Faults readable at start: 0 of 0. A blown `fb_east` appears only if the player closes `br_east` early.
 - Wait to fill: 8 s from the map opening (charge 0, capacity 8).
 - Fewest actions to win: 4: release, throw `rl_2`, throw `rl_1`, close `br_east` (the release isn't an undoable action, so the simulator's `actions` count reads 3).
 - Final load: 2 of 2 (yard and shrine). `fb_east` carries 1 of 1.
 - Winning configurations: 1 of the 8 settings of `rl_1`, `rl_2` and `br_east` (both relays to 1, breaker closed).
 
-Checked against the real simulator (`createGrid`, `advance`, `release`) with a throwaway script, modelling a first-time player's click every 1.5 s: both relays are stuck at the start and stay stuck with a full battery until it is released; `advance(8)` fills it; release, `rl_2` at 1.5 s, `rl_1` at 3 s, then `br_east` (after the battery goes flat, or inside the window at 4.5 s) completes with load 2 of 2 and no fuse blown; the shrine lit by the battery alone does not complete; released after `advance(2)`, the battery goes flat before the second relay; wrong order recovers inside a full window (done by 6 s) but not from a 4 s charge; closing `br_east` first blows `fb_east` and undo restores it; a brute force over all 8 settings finds exactly the one winner.
+Checked against the real simulator (`createGrid`, `advance`, `release`) with a throwaway script, modelling a first-time player's click every 1.5 s: both relays are stuck at the start and stay stuck with a full battery until it is released; `advance(8)` fills it; release, `rl_2` at 1.5 s, `rl_1` at 3 s, then `br_east` (after the battery goes flat, or inside the window at 4.5 s) completes with load 2 of 2 and no fuse blown; the shrine lit by the battery alone does not complete; released after `advance(2)`, the battery goes flat before the second relay; wrong order recovers inside a full window (done by 6 s) but not from a 4 s charge; closing `br_east` first blows `fb_east` and undo restores it; without undo, breaker first → full battery run → repair `fb_east` completes with one fuse left; a premature repair re-blows and costs one fuse, and the second still completes after the battery run; two premature repairs leave the third refused (the documented limit); a brute force over all 8 settings finds exactly the one winner.
 
 Note on time: the simulator's relay throws are instant, so the window is a limit on the player's hands and eyes, not on the number of clicks. A player who clicks two relays in under 2 s can win from a 2 s charge. The 1.5 s pace is a guess for a first-time player; Josh tunes `capacity` by playing.
 
 ## What it taught us
 
-*(Josh's verdict goes here, in his words.)*
+First play (first version, no spare fuse), Josh: "the battery run isn't working" / "i cannot complete the level". Off-track.
+
+Cause: closing `br_east` before the relays are set blew `fb_east` (mill load 3 through a rating-1 fuse), the map gave no fuse, and from then on nothing could win, not even the full correct battery sequence. The breaker is the most obvious first click on the map, so this was a dead end, not a trap: nothing told the player why nothing worked. Fixed by giving two fuses, so the blown fuse is a readable ✕ with *Repair (fuse)* and the job can be finished after the battery run.
