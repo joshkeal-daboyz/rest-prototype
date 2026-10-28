@@ -1,7 +1,7 @@
 # 018 · Tests follow the puzzle renames
 
 owner: lead-architect (0), grid-simulator (A), interaction (B), renderer (C), ui (D)
-status: in progress (G1: Josh, "Approve 018")
+status: done (merged; Josh: "Merge both, push")
 branch: `ticket/018-puzzle-reorg` (one branch for all parts; the puzzle reorg is already committed on it)
 
 ## Josh's words
