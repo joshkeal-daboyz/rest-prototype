@@ -18,8 +18,8 @@ if (!(canvas instanceof HTMLCanvasElement) || !uiRoot) throw new Error("index.ht
 if (entries.length === 0) {
   uiRoot.textContent = "No maps found in puzzles/.";
 } else {
-  const byId = new Map<string, MapEntry>(entries.map((m) => [m.id, m]));
-  const puzzles = entries.map((m) => ({ id: m.id, name: m.name, locked: m.locked }));
+  const byKey = new Map<string, MapEntry>(entries.map((m) => [m.key, m]));
+  const puzzles = entries.map((m) => ({ id: m.key, name: m.name, locked: m.locked }));
 
   interface Session {
     grid: Grid;
@@ -38,7 +38,7 @@ if (entries.length === 0) {
 
   function open(id: string): void {
     session?.detach();
-    const entry = byId.get(id);
+    const entry = byKey.get(id);
     if (!entry) return;
 
     const bus = new EventBus();
@@ -61,7 +61,7 @@ if (entries.length === 0) {
   }
 
   const requested = new URLSearchParams(location.search).get("puzzle");
-  open(requested !== null && byId.has(requested) ? requested : (entries[0] as MapEntry).id);
+  open(requested !== null && byKey.has(requested) ? requested : (entries[0] as MapEntry).key);
 
   window.addEventListener("resize", () => session?.renderer.resize());
 

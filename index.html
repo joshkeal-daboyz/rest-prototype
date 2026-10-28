@@ -47,7 +47,8 @@
       .icon-fuse { width: 8px; height: 16px; border-radius: 2px; }
       .icon-wire { height: 4px; width: 16px; border: none; background: var(--ink); align-self: center; }
       .banner { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); background: var(--panel); border: 1px solid var(--lit); color: var(--lit); border-radius: 8px; padding: 10px 16px; max-width: calc(100% - 32px); text-align: center; }
-      .prompt { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--panel); border: 1px solid var(--edge); border-radius: 8px; padding: 8px 14px; max-width: calc(100% - 32px); }
+      /* Placed beside the pointer by src/ui/index.ts (left/top are set from the script). */
+      .prompt { position: absolute; left: 0; top: 0; background: var(--panel); border: 1px solid var(--edge); border-radius: 8px; padding: 8px 14px; max-width: min(320px, calc(100% - 16px)); }
 
       @media (max-width: 600px) {
         .hud-left { left: 8px; right: 8px; max-width: none; }

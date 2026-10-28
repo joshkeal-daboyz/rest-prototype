@@ -62,6 +62,26 @@ export function targetRows(targets: readonly string[], lit: ReadonlySet<string>,
   });
 }
 
+/**
+ * Where to put a box of `box` size beside the pointer, relative to the overlay `bounds`.
+ * The box sits `offset` to the right and below the pointer, and is pulled back so it stays
+ * `margin` inside the bounds. Coordinates are in the same space as `pointer` (both viewport or both local).
+ */
+export function promptPosition(
+  pointer: { x: number; y: number },
+  bounds: { width: number; height: number },
+  box: { width: number; height: number },
+  offset = 16,
+  margin = 8,
+): { left: number; top: number } {
+  const maxLeft = Math.max(margin, bounds.width - box.width - margin);
+  const maxTop = Math.max(margin, bounds.height - box.height - margin);
+  return {
+    left: Math.min(Math.max(margin, pointer.x + offset), maxLeft),
+    top: Math.min(Math.max(margin, pointer.y + offset), maxTop),
+  };
+}
+
 /** Map picker label; locked maps are marked in words. */
 export function mapLabel(map: { name: string; locked: boolean }): string {
   return map.locked ? `${map.name} (locked)` : map.name;

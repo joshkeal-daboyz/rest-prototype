@@ -1,5 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { bannerText, capacityReadout, mapLabel, partsSummary, promptToShow, targetRows, WIN_TEXT } from "./logic";
+import { bannerText, capacityReadout, mapLabel, partsSummary, promptPosition, promptToShow, targetRows, WIN_TEXT } from "./logic";
+
+describe("promptPosition", () => {
+  const bounds = { width: 800, height: 600 };
+  const box = { width: 200, height: 40 };
+
+  it("sits a small offset right and below the pointer", () => {
+    expect(promptPosition({ x: 100, y: 100 }, bounds, box)).toEqual({ left: 116, top: 116 });
+  });
+
+  it("is pulled back inside the right and bottom edges", () => {
+    expect(promptPosition({ x: 790, y: 590 }, bounds, box)).toEqual({ left: 592, top: 552 });
+  });
+
+  it("never goes past the left and top margin", () => {
+    expect(promptPosition({ x: -50, y: -50 }, bounds, box)).toEqual({ left: 8, top: 8 });
+  });
+});
 
 describe("promptToShow", () => {
   it("shows the play prompt while the map is idle", () => {

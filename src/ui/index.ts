@@ -6,7 +6,7 @@
 
 import type { Grid } from "../grid";
 import type { MapPlay } from "../play";
-import { bannerText, capacityReadout, mapLabel, partCounts, partsSummary, promptToShow, targetRows } from "./logic";
+import { bannerText, capacityReadout, mapLabel, partCounts, partsSummary, promptPosition, promptToShow, targetRows } from "./logic";
 
 export interface UIDeps {
   grid: Grid;
@@ -34,7 +34,12 @@ function setText(node: HTMLElement, text: string): void {
   if (node.textContent !== text) node.textContent = text;
 }
 
+/** Pointer listeners from the previous mount, removed when the map is switched. */
+let removePointerListeners: (() => void) | null = null;
+
 export function mountUI(root: HTMLElement, deps: UIDeps): UI {
+  removePointerListeners?.();
+  removePointerListeners = null;
   root.textContent = "";
   root.classList.add("ui");
 
@@ -94,12 +99,41 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
 
   root.append(hudLeft, hudRight, bannerEl, promptEl);
 
+  // The prompt follows the pointer over the map. Pointer position is presentation only.
+  let pointer: { x: number; y: number } | null = null;
+  const container = root.parentElement;
+  const onMove = (event: PointerEvent): void => {
+    pointer = { x: event.clientX, y: event.clientY };
+    placePrompt();
+  };
+  const onLeave = (): void => {
+    pointer = null;
+    promptEl.hidden = true;
+  };
+  if (container) {
+    container.addEventListener("pointermove", onMove);
+    container.addEventListener("pointerleave", onLeave);
+    removePointerListeners = () => {
+      container.removeEventListener("pointermove", onMove);
+      container.removeEventListener("pointerleave", onLeave);
+    };
+  }
+
+  function placePrompt(): void {
+    if (!pointer || promptEl.hidden) return;
+    const bounds = root.getBoundingClientRect();
+    const local = { x: pointer.x - bounds.left, y: pointer.y - bounds.top };
+    const spot = promptPosition(local, bounds, { width: promptEl.offsetWidth, height: promptEl.offsetHeight });
+    promptEl.style.left = `${spot.left}px`;
+    promptEl.style.top = `${spot.top}px`;
+  }
+
   function downloadLog(): void {
     const blob = new Blob([deps.play.exportLog()], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = el("a");
     link.href = url;
-    link.download = `${deps.current}-log.json`;
+    link.download = `${deps.current.replace(/[\\/]/g, "-")}-log.json`;
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 0);
   }
@@ -112,8 +146,9 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
     const view = deps.play.view();
 
     const prompt = promptToShow(view);
-    promptEl.hidden = prompt === null;
+    promptEl.hidden = prompt === null || pointer === null;
     setText(promptEl, prompt ?? "");
+    placePrompt();
 
     const banner = bannerText(state);
     bannerEl.hidden = banner === null;
