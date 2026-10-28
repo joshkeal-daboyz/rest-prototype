@@ -6,9 +6,9 @@ import { createGrid } from "../grid";
 import type { MapRenderer } from "../render";
 import { createMapPlay } from "./index";
 
-function setup() {
+function setup(file = "08-shrine-circuit.json") {
   const puzzle = loadPuzzle(
-    JSON.parse(readFileSync(join(__dirname, "../../puzzles/08-shrine-circuit.json"), "utf8")) as unknown,
+    JSON.parse(readFileSync(join(__dirname, "../../puzzles", file), "utf8")) as unknown,
   );
   const bus = new EventBus();
   const grid = createGrid(puzzle, bus);
@@ -20,6 +20,18 @@ function setup() {
 }
 
 describe("play:click", () => {
+  it("emits refused for the unpowered relay switch (puzzle 19)", () => {
+    const { play, got } = setup("19-wake-the-relay.json");
+    play.click("rl"); // relay has no power yet
+    expect(got).toEqual([{ kind: "refused", target: "rl" }]);
+  });
+
+  it("emits refused for releasing the empty battery (puzzle 19)", () => {
+    const { play, got } = setup("19-wake-the-relay.json");
+    play.click("bat"); // charge 0
+    expect(got).toEqual([{ kind: "refused", target: "bat" }]);
+  });
+
   it("emits refused with the target when a repair is refused", () => {
     const { play, got } = setup();
     play.click("j_dead"); // needs 2 wires, none on hand
