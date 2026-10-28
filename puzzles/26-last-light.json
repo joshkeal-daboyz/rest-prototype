@@ -1,0 +1,54 @@
+{
+  "id": "26-last-light",
+  "name": "26 · Last light",
+  "version": 4,
+  "scope": "map",
+  "capacity": 3,
+  "startingParts": ["fuse", "fuse"],
+  "target": ["shrine", "home"],
+
+  "nodes": [
+    { "id": "feed",    "type": "feed",     "pos": [0, 0] },
+    { "id": "j0",      "type": "junction", "pos": [2.5, 0] },
+
+    { "id": "fb_1",    "type": "fusebox",  "pos": [5, -2.5], "rating": 2 },
+    { "id": "j1",      "type": "junction", "pos": [7.5, -2.5] },
+    { "id": "br_mill", "type": "breaker",  "pos": [10, -6], "closed": true },
+    { "id": "mill",    "type": "lamp",     "pos": [14, -6], "load": 2 },
+    { "id": "br_lan",  "type": "breaker",  "pos": [10, -4], "closed": true },
+    { "id": "lantern", "type": "lamp",     "pos": [14, -4], "load": 1 },
+    { "id": "sw_1",    "type": "switch",   "pos": [10, -1.5], "outputs": ["l_1h", "l_1s"], "selected": 0 },
+    { "id": "shrine",  "type": "lamp",     "pos": [14, -2], "load": 2 },
+    { "id": "j_home",  "type": "junction", "pos": [12, 0.5] },
+    { "id": "home",    "type": "lamp",     "pos": [14, 0.5], "load": 1 },
+
+    { "id": "br_2",    "type": "breaker",  "pos": [4, 3.5], "closed": false },
+    { "id": "fb_2",    "type": "fusebox",  "pos": [6.5, 3.5], "rating": 1 },
+    { "id": "sw_2",    "type": "switch",   "pos": [9.5, 3.5], "outputs": ["l_well", "l_2h"], "selected": 0 },
+    { "id": "well",    "type": "lamp",     "pos": [14, 4], "load": 1 }
+  ],
+
+  "lines": [
+    { "id": "l_feed",    "from": "feed",    "to": "j0" },
+    { "id": "l_1a",      "from": "j0",      "to": "fb_1" },
+    { "id": "l_1b",      "from": "fb_1",    "to": "j1" },
+    { "id": "l_m0",      "from": "j1",      "to": "br_mill" },
+    { "id": "l_mill",    "from": "br_mill", "to": "mill" },
+    { "id": "l_l0",      "from": "j1",      "to": "br_lan" },
+    { "id": "l_lantern", "from": "br_lan",  "to": "lantern" },
+    { "id": "l_sw",      "from": "j1",      "to": "sw_1" },
+    { "id": "l_1h",      "from": "sw_1",    "to": "j_home" },
+    { "id": "l_1s",      "from": "sw_1",    "to": "shrine" },
+    { "id": "l_home",    "from": "j_home",  "to": "home" },
+
+    { "id": "l_2a",      "from": "j0",      "to": "br_2" },
+    { "id": "l_2b",      "from": "br_2",    "to": "fb_2" },
+    { "id": "l_2c",      "from": "fb_2",    "to": "sw_2" },
+    { "id": "l_well",    "from": "sw_2",    "to": "well" },
+    { "id": "l_2h",      "from": "sw_2",    "to": "j_home" }
+  ],
+
+  "faults": [
+    { "id": "f1", "at": "fb_1", "kind": "blown-fuse" }
+  ]
+}

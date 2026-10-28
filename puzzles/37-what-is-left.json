@@ -1,0 +1,60 @@
+{
+  "id": "37-what-is-left",
+  "name": "37 · What's left in it",
+  "version": 4,
+  "scope": "map",
+  "capacity": 2,
+  "startingParts": ["fuse", "fuse", "wire"],
+  "target": ["shrine"],
+  "priority": ["gate"],
+
+  "nodes": [
+    { "id": "feed",   "type": "feed",     "pos": [0, 0] },
+    { "id": "j1",     "type": "junction", "pos": [2, 0] },
+    { "id": "gate",   "type": "lamp",     "pos": [2, -2], "load": 1 },
+
+    { "id": "br_E",   "type": "breaker",  "pos": [4, 0], "closed": false },
+    { "id": "fb_E",   "type": "fusebox",  "pos": [6, 0], "rating": 1 },
+
+    { "id": "rl_1",   "type": "switch",   "pos": [8, 0], "outputs": ["l_mill", "l_12"], "selected": 0, "relay": true },
+    { "id": "mill",   "type": "lamp",     "pos": [8, -3], "load": 3 },
+    { "id": "rl_2",   "type": "switch",   "pos": [12, 0], "outputs": ["l_2m", "l_2p"], "selected": 0, "relay": true },
+    { "id": "j_m",    "type": "junction", "pos": [10, 3] },
+    { "id": "forge",  "type": "lamp",     "pos": [10, 5], "load": 2 },
+
+    { "id": "sw_p",   "type": "switch",   "pos": [15, 0], "outputs": ["l_well", "l_s"], "selected": 0 },
+    { "id": "well",   "type": "lamp",     "pos": [15, -3], "load": 1 },
+    { "id": "shrine", "type": "lamp",     "pos": [18, 0], "load": 1 },
+
+    { "id": "j_b1",   "type": "junction", "pos": [2, 7] },
+    { "id": "j_b2",   "type": "junction", "pos": [14, 7] },
+    { "id": "bat",    "type": "battery",  "pos": [14, 4], "capacity": 8, "charge": 4, "input": "l_in" }
+  ],
+
+  "lines": [
+    { "id": "l_feed",   "from": "feed", "to": "j1" },
+    { "id": "l_gate",   "from": "j1",   "to": "gate" },
+    { "id": "l_e0",     "from": "j1",   "to": "br_E" },
+    { "id": "l_e1",     "from": "br_E", "to": "fb_E" },
+    { "id": "l_e2",     "from": "fb_E", "to": "rl_1" },
+
+    { "id": "l_mill",   "from": "rl_1", "to": "mill" },
+    { "id": "l_12",     "from": "rl_1", "to": "rl_2" },
+    { "id": "l_2m",     "from": "rl_2", "to": "j_m" },
+    { "id": "l_forge",  "from": "j_m",  "to": "forge" },
+    { "id": "l_m1",     "from": "j_m",  "to": "rl_1" },
+    { "id": "l_2p",     "from": "rl_2", "to": "sw_p" },
+    { "id": "l_well",   "from": "sw_p", "to": "well" },
+    { "id": "l_s",      "from": "sw_p", "to": "shrine" },
+
+    { "id": "l_b0",     "from": "j1",   "to": "j_b1" },
+    { "id": "l_b1",     "from": "j_b1", "to": "j_b2" },
+    { "id": "l_in",     "from": "j_b2", "to": "bat" },
+    { "id": "l_out",    "from": "bat",  "to": "rl_2" }
+  ],
+
+  "faults": [
+    { "id": "cut_in",     "at": "l_in", "kind": "damaged-cable" },
+    { "id": "cut_shrine", "at": "l_s",  "kind": "damaged-cable" }
+  ]
+}

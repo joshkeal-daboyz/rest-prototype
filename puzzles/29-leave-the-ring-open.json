@@ -1,0 +1,63 @@
+{
+  "id": "29-leave-the-ring-open",
+  "name": "29 · Leave the ring open",
+  "version": 4,
+  "scope": "map",
+  "capacity": 4,
+  "startingParts": ["fuse", "fuse", "wire"],
+  "target": ["gate", "shrine", "well"],
+  "priority": ["home"],
+
+  "nodes": [
+    { "id": "feed",    "type": "feed",     "pos": [0, 0] },
+    { "id": "j0",      "type": "junction", "pos": [2, 0] },
+
+    { "id": "fb_W",    "type": "fusebox",  "pos": [4.5, -4], "rating": 3 },
+    { "id": "pW",      "type": "junction", "pos": [8, -4] },
+    { "id": "gate",    "type": "lamp",     "pos": [8, -6.5], "load": 1 },
+    { "id": "br_ln",   "type": "breaker",  "pos": [6, -6.5], "closed": true },
+    { "id": "lane",    "type": "lamp",     "pos": [4, -8], "load": 1 },
+    { "id": "p1",      "type": "junction", "pos": [12, -4] },
+    { "id": "shrine",  "type": "lamp",     "pos": [12, -6.5], "load": 2 },
+    { "id": "p2",      "type": "junction", "pos": [16, -1] },
+    { "id": "well",    "type": "lamp",     "pos": [18.5, -1], "load": 1 },
+    { "id": "pE",      "type": "junction", "pos": [12, 2] },
+
+    { "id": "br_E",    "type": "breaker",  "pos": [4, 2], "closed": false },
+    { "id": "fb_E",    "type": "fusebox",  "pos": [6.5, 2], "rating": 2 },
+    { "id": "sw_E",    "type": "switch",   "pos": [9, 2], "outputs": ["l_mill", "l_e"], "selected": 0 },
+    { "id": "mill",    "type": "lamp",     "pos": [9, 5], "load": 2 },
+
+    { "id": "br_hm",   "type": "breaker",  "pos": [2, 3.5], "closed": true },
+    { "id": "home",    "type": "lamp",     "pos": [2, 6], "load": 1 }
+  ],
+
+  "lines": [
+    { "id": "l_feed",   "from": "feed",  "to": "j0" },
+    { "id": "l_w",      "from": "j0",    "to": "fb_W" },
+    { "id": "l_w2",     "from": "fb_W",  "to": "pW" },
+    { "id": "l_gate",   "from": "pW",    "to": "gate" },
+    { "id": "l_ln",     "from": "pW",    "to": "br_ln" },
+    { "id": "l_ln2",    "from": "br_ln", "to": "lane" },
+    { "id": "l_r1",     "from": "pW",    "to": "p1" },
+    { "id": "l_shrine", "from": "p1",    "to": "shrine" },
+    { "id": "l_r2",     "from": "p1",    "to": "p2" },
+    { "id": "l_well",   "from": "p2",    "to": "well" },
+    { "id": "l_r3",     "from": "p2",    "to": "pE" },
+
+    { "id": "l_be",     "from": "j0",    "to": "br_E" },
+    { "id": "l_be2",    "from": "br_E",  "to": "fb_E" },
+    { "id": "l_be3",    "from": "fb_E",  "to": "sw_E" },
+    { "id": "l_mill",   "from": "sw_E",  "to": "mill" },
+    { "id": "l_e",      "from": "sw_E",  "to": "pE" },
+
+    { "id": "l_hm",     "from": "j0",    "to": "br_hm" },
+    { "id": "l_hm2",    "from": "br_hm", "to": "home" }
+  ],
+
+  "faults": [
+    { "id": "f1", "at": "fb_W", "kind": "blown-fuse" },
+    { "id": "f2", "at": "l_r2", "kind": "damaged-cable" },
+    { "id": "f3", "at": "l_e",  "kind": "damaged-cable" }
+  ]
+}

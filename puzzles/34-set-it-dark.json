@@ -1,0 +1,64 @@
+{
+  "id": "34-set-it-dark",
+  "name": "34 · Set it in the dark",
+  "version": 4,
+  "scope": "map",
+  "capacity": 5,
+  "startingParts": ["fuse", "bulb", "wire"],
+  "target": ["well", "shrine", "chapel", "gate"],
+  "priority": ["ovens", "mill"],
+
+  "nodes": [
+    { "id": "feed",   "type": "feed",     "pos": [0, 0] },
+    { "id": "j0",     "type": "junction", "pos": [2, 0] },
+
+    { "id": "fb_A",   "type": "fusebox",  "pos": [4, -4], "rating": 3 },
+    { "id": "s_A",    "type": "switch",   "pos": [6, -4], "outputs": ["l_A_ov", "l_A_on"], "selected": 0 },
+    { "id": "ovens",  "type": "lamp",     "pos": [6, -7], "load": 2 },
+    { "id": "jA",     "type": "junction", "pos": [9, -4] },
+    { "id": "well",   "type": "lamp",     "pos": [9, -7], "load": 1 },
+    { "id": "s_A2",   "type": "switch",   "pos": [12, -4], "outputs": ["l_A2_fo", "l_A2_sh"], "selected": 0 },
+    { "id": "forge",  "type": "lamp",     "pos": [15, -6], "load": 3 },
+    { "id": "shrine", "type": "lamp",     "pos": [15, -2], "load": 2 },
+
+    { "id": "jB0",    "type": "junction", "pos": [2, 4] },
+    { "id": "br_B",   "type": "breaker",  "pos": [4, 4], "closed": false },
+    { "id": "fb_B",   "type": "fusebox",  "pos": [6, 4], "rating": 2 },
+    { "id": "s_B",    "type": "switch",   "pos": [8, 4], "outputs": ["l_B_mi", "l_B_on"], "selected": 0 },
+    { "id": "mill",   "type": "lamp",     "pos": [8, 7], "load": 2 },
+    { "id": "jB",     "type": "junction", "pos": [11, 4] },
+    { "id": "chapel", "type": "lamp",     "pos": [11, 7], "load": 1 },
+    { "id": "s_B2",   "type": "switch",   "pos": [13, 4], "outputs": ["l_B2_ki", "l_B2_ga"], "selected": 0 },
+    { "id": "kiln",   "type": "lamp",     "pos": [16, 2], "load": 2 },
+    { "id": "gate",   "type": "lamp",     "pos": [16, 6], "load": 1 }
+  ],
+
+  "lines": [
+    { "id": "l_feed",  "from": "feed", "to": "j0" },
+
+    { "id": "l_A0",    "from": "j0",   "to": "fb_A" },
+    { "id": "l_A1",    "from": "fb_A", "to": "s_A" },
+    { "id": "l_A_ov",  "from": "s_A",  "to": "ovens" },
+    { "id": "l_A_on",  "from": "s_A",  "to": "jA" },
+    { "id": "l_well",  "from": "jA",   "to": "well" },
+    { "id": "l_A2",    "from": "jA",   "to": "s_A2" },
+    { "id": "l_A2_fo", "from": "s_A2", "to": "forge" },
+    { "id": "l_A2_sh", "from": "s_A2", "to": "shrine" },
+
+    { "id": "l_B0",    "from": "j0",   "to": "jB0" },
+    { "id": "l_B0b",   "from": "jB0",  "to": "br_B" },
+    { "id": "l_B1",    "from": "br_B", "to": "fb_B" },
+    { "id": "l_B2",    "from": "fb_B", "to": "s_B" },
+    { "id": "l_B_mi",  "from": "s_B",  "to": "mill" },
+    { "id": "l_B_on",  "from": "s_B",  "to": "jB" },
+    { "id": "l_chap",  "from": "jB",   "to": "chapel" },
+    { "id": "l_B3",    "from": "jB",   "to": "s_B2" },
+    { "id": "l_B2_ki", "from": "s_B2", "to": "kiln" },
+    { "id": "l_B2_ga", "from": "s_B2", "to": "gate" }
+  ],
+
+  "faults": [
+    { "id": "f_feedB",  "at": "l_B0b",  "kind": "damaged-cable" },
+    { "id": "f_chapel", "at": "chapel", "kind": "dead-lamp" }
+  ]
+}

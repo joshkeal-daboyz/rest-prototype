@@ -1,0 +1,81 @@
+{
+  "id": "48-the-whole-quarter",
+  "name": "48 · The whole quarter",
+  "version": 4,
+  "scope": "map",
+  "capacity": 6,
+  "startingParts": ["fuse", "fuse", "wire", "wire", "bulb"],
+  "target": ["shrine", "well", "bell", "gate"],
+  "priority": ["cottage", "smithy", "bakery", "tannery", "tower"],
+
+  "nodes": [
+    { "id": "feed",    "type": "feed",     "pos": [0, 0] },
+    { "id": "j0",      "type": "junction", "pos": [2, 0] },
+
+    { "id": "br_W",    "type": "breaker",  "pos": [3.5, -4], "closed": false },
+    { "id": "fb_W",    "type": "fusebox",  "pos": [5.5, -6], "rating": 3 },
+    { "id": "pA",      "type": "junction", "pos": [8, -6] },
+    { "id": "shrine",  "type": "lamp",     "pos": [8, -9], "load": 2 },
+    { "id": "pB",      "type": "junction", "pos": [13, -6] },
+    { "id": "well",    "type": "lamp",     "pos": [13, -9], "load": 1 },
+    { "id": "br_cot",  "type": "breaker",  "pos": [15.5, -7.5], "closed": true },
+    { "id": "cottage", "type": "lamp",     "pos": [17.5, -9], "load": 1 },
+    { "id": "pC",      "type": "junction", "pos": [18.5, -3] },
+    { "id": "bell",    "type": "lamp",     "pos": [21.5, -3], "load": 2 },
+    { "id": "pD",      "type": "junction", "pos": [16, 1] },
+    { "id": "gate",    "type": "lamp",     "pos": [18.5, 1], "load": 1 },
+    { "id": "br_smith","type": "breaker",  "pos": [17.5, 3.5], "closed": true },
+    { "id": "smithy",  "type": "lamp",     "pos": [20, 4.5], "load": 1 },
+
+    { "id": "fb_E",    "type": "fusebox",  "pos": [4, 3], "rating": 3 },
+    { "id": "rl_1",    "type": "switch",   "pos": [6.5, 3], "outputs": ["l_12", "l_1b"], "selected": 1, "relay": true },
+    { "id": "bakery",  "type": "lamp",     "pos": [6.5, 6], "load": 1 },
+    { "id": "rl_2",    "type": "switch",   "pos": [9, 3], "outputs": ["l_2j", "l_2t"], "selected": 1, "relay": true },
+    { "id": "tannery", "type": "lamp",     "pos": [9, 6], "load": 1 },
+    { "id": "j_23",    "type": "junction", "pos": [10.5, 3] },
+    { "id": "br_mill", "type": "breaker",  "pos": [10.5, 5.5], "closed": true },
+    { "id": "mill",    "type": "lamp",     "pos": [10.5, 7.5], "load": 3 },
+    { "id": "rl_3",    "type": "switch",   "pos": [12.5, 3], "outputs": ["l_3e", "l_3w"], "selected": 1, "relay": true },
+    { "id": "tower",   "type": "lamp",     "pos": [12.5, 6], "load": 1 },
+    { "id": "j_e",     "type": "junction", "pos": [14, 1] }
+  ],
+
+  "lines": [
+    { "id": "l_feed",  "from": "feed",    "to": "j0" },
+
+    { "id": "l_W0",    "from": "j0",      "to": "br_W" },
+    { "id": "l_W1",    "from": "br_W",    "to": "fb_W" },
+    { "id": "l_WA",    "from": "fb_W",    "to": "pA" },
+    { "id": "l_shrine","from": "pA",      "to": "shrine" },
+    { "id": "l_AB",    "from": "pA",      "to": "pB" },
+    { "id": "l_well",  "from": "pB",      "to": "well" },
+    { "id": "l_cot1",  "from": "pB",      "to": "br_cot" },
+    { "id": "l_cot2",  "from": "br_cot",  "to": "cottage" },
+    { "id": "l_BC",    "from": "pB",      "to": "pC" },
+    { "id": "l_bell",  "from": "pC",      "to": "bell" },
+    { "id": "l_CD",    "from": "pC",      "to": "pD" },
+    { "id": "l_gate",  "from": "pD",      "to": "gate" },
+    { "id": "l_sm1",   "from": "pD",      "to": "br_smith" },
+    { "id": "l_sm2",   "from": "br_smith","to": "smithy" },
+
+    { "id": "l_E0",    "from": "j0",      "to": "fb_E" },
+    { "id": "l_E1",    "from": "fb_E",    "to": "rl_1" },
+    { "id": "l_12",    "from": "rl_1",    "to": "rl_2" },
+    { "id": "l_1b",    "from": "rl_1",    "to": "bakery" },
+    { "id": "l_2j",    "from": "rl_2",    "to": "j_23" },
+    { "id": "l_2t",    "from": "rl_2",    "to": "tannery" },
+    { "id": "l_mill1", "from": "j_23",    "to": "br_mill" },
+    { "id": "l_mill2", "from": "br_mill", "to": "mill" },
+    { "id": "l_23",    "from": "j_23",    "to": "rl_3" },
+    { "id": "l_3e",    "from": "rl_3",    "to": "j_e" },
+    { "id": "l_3w",    "from": "rl_3",    "to": "tower" },
+    { "id": "l_eD",    "from": "j_e",     "to": "pD" }
+  ],
+
+  "faults": [
+    { "id": "fuse_E",    "at": "fb_E", "kind": "blown-fuse" },
+    { "id": "cut_BC",    "at": "l_BC", "kind": "damaged-cable" },
+    { "id": "dead_e",    "at": "j_e",  "kind": "dead-junction" },
+    { "id": "dark_bell", "at": "bell", "kind": "dead-lamp" }
+  ]
+}

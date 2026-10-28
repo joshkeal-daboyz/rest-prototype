@@ -1,0 +1,28 @@
+{
+  "id": "05-the-spark",
+  "name": "05 · The spark",
+  "version": 4,
+  "scope": "map",
+  "capacity": 3,
+  "startingParts": ["wire"],
+  "target": ["shrine"],
+
+  "nodes": [
+    { "id": "feed",    "type": "feed",    "pos": [0, 0] },
+    { "id": "br_main", "type": "breaker", "pos": [3, 0], "closed": false },
+    { "id": "sw_1",    "type": "switch",  "pos": [6, 0], "outputs": ["l_home", "l_lane"], "selected": 0 },
+    { "id": "home",    "type": "lamp",    "pos": [10, -2.5], "load": 1 },
+    { "id": "shrine",  "type": "lamp",    "pos": [12, 2.5], "load": 1 }
+  ],
+
+  "lines": [
+    { "id": "l_feed", "from": "feed",    "to": "br_main" },
+    { "id": "l_sw",   "from": "br_main", "to": "sw_1" },
+    { "id": "l_home", "from": "sw_1",    "to": "home" },
+    { "id": "l_lane", "from": "sw_1",    "to": "shrine" }
+  ],
+
+  "faults": [
+    { "id": "f1", "at": "l_lane", "kind": "damaged-cable" }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "id": "01-first-light",
+  "name": "01 · First light",
+  "version": 4,
+  "scope": "map",
+  "capacity": 3,
+  "startingParts": [],
+  "target": ["shrine"],
+
+  "nodes": [
+    { "id": "feed",   "type": "feed",     "pos": [0, 0] },
+    { "id": "j0",     "type": "junction", "pos": [3, 0] },
+    { "id": "home",   "type": "lamp",     "pos": [6, -2], "load": 1 },
+    { "id": "br_1",   "type": "breaker",  "pos": [6, 1.5], "closed": false },
+    { "id": "shrine", "type": "lamp",     "pos": [10, 1.5], "load": 1 }
+  ],
+
+  "lines": [
+    { "id": "l_feed",   "from": "feed", "to": "j0" },
+    { "id": "l_home",   "from": "j0",   "to": "home" },
+    { "id": "l_br",     "from": "j0",   "to": "br_1" },
+    { "id": "l_shrine", "from": "br_1", "to": "shrine" }
+  ],
+
+  "faults": []
+}

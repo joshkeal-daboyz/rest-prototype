@@ -1,0 +1,45 @@
+{
+  "id": "19-wake-the-relay",
+  "name": "19 · Wake the relay",
+  "version": 4,
+  "scope": "map",
+  "capacity": 2,
+  "startingParts": ["fuse", "fuse"],
+  "target": ["shrine"],
+  "priority": ["gate"],
+
+  "nodes": [
+    { "id": "feed",   "type": "feed",     "pos": [0, 0] },
+    { "id": "j1",     "type": "junction", "pos": [2, 0] },
+    { "id": "gate",   "type": "lamp",     "pos": [2, -2], "load": 1 },
+
+    { "id": "br_E",   "type": "breaker",  "pos": [4, 0], "closed": false },
+    { "id": "fb_E",   "type": "fusebox",  "pos": [6, 0], "rating": 1 },
+    { "id": "j_E",    "type": "junction", "pos": [8, 0] },
+    { "id": "rl",     "type": "switch",   "pos": [10, 0], "outputs": ["l_mill", "l_p"], "selected": 0, "relay": true },
+    { "id": "mill",   "type": "lamp",     "pos": [10, -3], "load": 3 },
+    { "id": "sw_p",   "type": "switch",   "pos": [13, 0], "outputs": ["l_well", "l_shrine"], "selected": 0 },
+    { "id": "well",   "type": "lamp",     "pos": [13, -3], "load": 1 },
+    { "id": "shrine", "type": "lamp",     "pos": [16, 0], "load": 1 },
+
+    { "id": "bat",    "type": "battery",  "pos": [5, 3], "capacity": 8, "charge": 0, "input": "l_in" }
+  ],
+
+  "lines": [
+    { "id": "l_feed",   "from": "feed", "to": "j1" },
+    { "id": "l_gate",   "from": "j1",   "to": "gate" },
+    { "id": "l_e0",     "from": "j1",   "to": "br_E" },
+    { "id": "l_e1",     "from": "br_E", "to": "fb_E" },
+    { "id": "l_e2",     "from": "fb_E", "to": "j_E" },
+    { "id": "l_e3",     "from": "j_E",  "to": "rl" },
+    { "id": "l_mill",   "from": "rl",   "to": "mill" },
+    { "id": "l_p",      "from": "rl",   "to": "sw_p" },
+    { "id": "l_well",   "from": "sw_p", "to": "well" },
+    { "id": "l_shrine", "from": "sw_p", "to": "shrine" },
+
+    { "id": "l_in",     "from": "j1",   "to": "bat" },
+    { "id": "l_out",    "from": "bat",  "to": "j_E" }
+  ],
+
+  "faults": []
+}
