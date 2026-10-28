@@ -59,3 +59,7 @@ Checked against the real simulator (`createGrid`) with a throwaway script: start
 ## What it taught us
 
 *(Josh's verdict goes here, in his words.)*
+
+## What it taught us
+
+Josh, 28 Oct 2026: "You cannot fix the fuse, it just blows every time you fix the fuse. Some switches should switch back when the power is not on." Off-track as a map: the recovery (throw `sw_1` back before repairing) was in this note but not in the game, so every repair re-blew and cost a fuse. Fix: spring switches and a "would blow again" warning on the repair (ticket 013).
