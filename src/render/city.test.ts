@@ -102,9 +102,9 @@ describe("one city", () => {
 
 describe("ladder number", () => {
   it("reads the leading digits", () => {
-    expect(ladderNumber("07-where-it-stops")).toBe(7);
-    expect(ladderNumber("locked/07-where-it-stops")).toBe(7);
-    expect(ladderNumber("56-meet-in-the-middle")).toBe(56);
+    expect(ladderNumber("08-where-it-stops")).toBe(8);
+    expect(ladderNumber("locked/08-where-it-stops")).toBe(8);
+    expect(ladderNumber("15-meet-in-the-middle")).toBe(15);
     expect(ladderNumber("lamp-row")).toBeNull();
   });
 });
@@ -223,7 +223,7 @@ describe("map origins", () => {
   });
   it("gives a locked copy its open map's origin", () => {
     const b = { minX: 0, maxX: 10, minY: 0, maxY: 6 };
-    expect(mapOrigin("locked/07-where-it-stops", b)).toEqual(mapOrigin("07-where-it-stops", b));
+    expect(mapOrigin("locked/08-where-it-stops", b)).toEqual(mapOrigin("08-where-it-stops", b));
   });
   it("puts an unnumbered id on the outer ring, stably", () => {
     const n = mapNumber("lamp-row");
@@ -325,7 +325,7 @@ describe("glow", () => {
     expect(glowTarget("b", st, null)).toBe(0);
   });
   it("waits for the Relight to arrive", () => {
-    const puzzle = byId("08-shrine-circuit");
+    const puzzle = byId("09-shrine-circuit");
     const st = stateOf({
       lit: new Set(["shrine", "flood"]),
       powered: new Set(["feed", "br_main", "l_feed", "l_main", "j1", "l_sw", "sw_1", "l_b", "j4", "l_b2", "j5", "l_shrine", "shrine", "l_flood", "flood"]),

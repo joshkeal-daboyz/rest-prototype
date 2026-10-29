@@ -1,0 +1,42 @@
+{
+  "id": "10-around-the-dead-post",
+  "name": "10 · Around the dead post",
+  "version": 4,
+  "scope": "map",
+  "capacity": 3,
+  "startingParts": ["wire"],
+  "target": ["shrine"],
+
+  "nodes": [
+    { "id": "feed",    "type": "feed",     "pos": [0, 0] },
+    { "id": "j0",      "type": "junction", "pos": [2.5, 0] },
+    { "id": "home",    "type": "lamp",     "pos": [5, -3], "load": 1 },
+    { "id": "sw_1",    "type": "switch",   "pos": [5, 1], "outputs": ["l_short", "l_long"], "selected": 0 },
+    { "id": "j_dead",  "type": "junction", "pos": [10, 1] },
+    { "id": "br_long", "type": "breaker",  "pos": [7, 5], "closed": false },
+    { "id": "j_mid",   "type": "junction", "pos": [11, 5] },
+    { "id": "br_mill", "type": "breaker",  "pos": [13, 7], "closed": true },
+    { "id": "mill",    "type": "lamp",     "pos": [16, 7], "load": 2 },
+    { "id": "j_post",  "type": "junction", "pos": [14, 1] },
+    { "id": "shrine",  "type": "lamp",     "pos": [17, 1], "load": 1 }
+  ],
+
+  "lines": [
+    { "id": "l_feed",   "from": "feed",    "to": "j0" },
+    { "id": "l_home",   "from": "j0",      "to": "home" },
+    { "id": "l_sw",     "from": "j0",      "to": "sw_1" },
+    { "id": "l_short",  "from": "sw_1",    "to": "j_dead" },
+    { "id": "l_post",   "from": "j_dead",  "to": "j_post" },
+    { "id": "l_long",   "from": "sw_1",    "to": "br_long" },
+    { "id": "l_long2",  "from": "br_long", "to": "j_mid" },
+    { "id": "l_long3",  "from": "j_mid",   "to": "j_post" },
+    { "id": "l_m0",     "from": "j_mid",   "to": "br_mill" },
+    { "id": "l_mill",   "from": "br_mill", "to": "mill" },
+    { "id": "l_shrine", "from": "j_post",  "to": "shrine" }
+  ],
+
+  "faults": [
+    { "id": "f1", "at": "j_dead",  "kind": "dead-junction" },
+    { "id": "f2", "at": "l_long2", "kind": "damaged-cable" }
+  ]
+}

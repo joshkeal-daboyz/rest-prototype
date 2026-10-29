@@ -222,8 +222,8 @@ describe("wouldBlow (ticket 013 A)", () => {
     expect(createGrid(p).state().wouldBlow.get("f")).toBe(0);
   });
 
-  it("wouldBlow rule: computed after springs have returned (11-which-fuse with sw_1 made spring)", () => {
-    const p = loadPuzzle(JSON.parse(readFileSync(join(__dirname, "..", "..", "puzzles", "11-which-fuse.json"), "utf8")) as unknown);
+  it("wouldBlow rule: computed after springs have returned (12-which-fuse with sw_1 made spring)", () => {
+    const p = loadPuzzle(JSON.parse(readFileSync(join(__dirname, "..", "..", "puzzles", "12-which-fuse.json"), "utf8")) as unknown);
     for (const n of p.nodes) if (n.id === "sw_1" || n.id === "sw_2") (n as unknown as { spring: boolean }).spring = true;
     const bus = new EventBus();
     const springs: string[] = [];
@@ -246,8 +246,8 @@ describe("wouldBlow (ticket 013 A)", () => {
     expect(g.state().complete).toBe(true);
   });
 
-  it("wouldBlow rule: 11-which-fuse as filed (no spring) reports 2 on a 1 fuse while sw_1 points at the shrine", () => {
-    const p = loadPuzzle(JSON.parse(readFileSync(join(__dirname, "..", "..", "puzzles", "11-which-fuse.json"), "utf8")) as unknown);
+  it("wouldBlow rule: 12-which-fuse as filed (no spring) reports 2 on a 1 fuse while sw_1 points at the shrine", () => {
+    const p = loadPuzzle(JSON.parse(readFileSync(join(__dirname, "..", "..", "puzzles", "12-which-fuse.json"), "utf8")) as unknown);
     for (const n of p.nodes) if (n.id === "sw_1") (n as unknown as { spring?: boolean }).spring = false;
     const g = createGrid(p);
     g.throwSwitch("sw_1");

@@ -1,0 +1,85 @@
+{
+  "id": "43-parent-fuse",
+  "name": "43 · The fuse above the fuse",
+  "version": 4,
+  "scope": "map",
+  "capacity": 8,
+  "startingParts": ["wire", "bulb", "fuse"],
+  "target": ["well", "shrine", "gate", "bell", "lift"],
+  "priority": ["forge", "kiln"],
+
+  "nodes": [
+    { "id": "feed",   "type": "feed",     "pos": [0, 0] },
+    { "id": "j0",     "type": "junction", "pos": [2, 0] },
+
+    { "id": "fb_P",   "type": "fusebox",  "pos": [4, -5], "rating": 4 },
+    { "id": "jP",     "type": "junction", "pos": [6, -5] },
+    { "id": "fb_1",   "type": "fusebox",  "pos": [8, -8], "rating": 3 },
+    { "id": "j1",     "type": "junction", "pos": [10, -8] },
+    { "id": "well",   "type": "lamp",     "pos": [10, -10.5], "load": 1 },
+    { "id": "s_1",    "type": "switch",   "pos": [12, -8], "outputs": ["l_1F", "l_1X"], "selected": 0 },
+    { "id": "forge",  "type": "lamp",     "pos": [15, -10], "load": 2 },
+
+    { "id": "br_2",   "type": "breaker",  "pos": [8, -3], "closed": false },
+    { "id": "fb_2",   "type": "fusebox",  "pos": [10, -3], "rating": 2 },
+    { "id": "s_2",    "type": "switch",   "pos": [12, -3], "outputs": ["l_2Y", "l_2X"], "selected": 1 },
+
+    { "id": "pX",     "type": "junction", "pos": [15, -6] },
+    { "id": "shrine", "type": "lamp",     "pos": [18, -6], "load": 2 },
+    { "id": "pY",     "type": "junction", "pos": [15, -1] },
+    { "id": "gate",   "type": "lamp",     "pos": [18, -1], "load": 1 },
+
+    { "id": "br_Q",   "type": "breaker",  "pos": [4, 5], "closed": false },
+    { "id": "fb_Q",   "type": "fusebox",  "pos": [6, 5], "rating": 4 },
+    { "id": "jQ",     "type": "junction", "pos": [8, 5] },
+    { "id": "fb_3",   "type": "fusebox",  "pos": [10, 3], "rating": 2 },
+    { "id": "s_3",    "type": "switch",   "pos": [12, 3], "outputs": ["l_3Y", "l_3Z"], "selected": 0 },
+    { "id": "bell",   "type": "lamp",     "pos": [18, 3.5], "load": 2 },
+
+    { "id": "fb_4",   "type": "fusebox",  "pos": [10, 7], "rating": 4 },
+    { "id": "j4",     "type": "junction", "pos": [12, 7] },
+    { "id": "lift",   "type": "lamp",     "pos": [15, 6], "load": 2 },
+    { "id": "br_k",   "type": "breaker",  "pos": [14, 8.5], "closed": true },
+    { "id": "kiln",   "type": "lamp",     "pos": [17, 8.5], "load": 2 }
+  ],
+
+  "lines": [
+    { "id": "l_feed", "from": "feed", "to": "j0" },
+
+    { "id": "l_P0",   "from": "j0",   "to": "fb_P" },
+    { "id": "l_P1",   "from": "fb_P", "to": "jP" },
+    { "id": "l_P2",   "from": "jP",   "to": "fb_1" },
+    { "id": "l_P3",   "from": "fb_1", "to": "j1" },
+    { "id": "l_well", "from": "j1",   "to": "well" },
+    { "id": "l_P4",   "from": "j1",   "to": "s_1" },
+    { "id": "l_1F",   "from": "s_1",  "to": "forge" },
+    { "id": "l_1X",   "from": "s_1",  "to": "pX" },
+
+    { "id": "l_P5",   "from": "jP",   "to": "br_2" },
+    { "id": "l_P6",   "from": "br_2", "to": "fb_2" },
+    { "id": "l_P7",   "from": "fb_2", "to": "s_2" },
+    { "id": "l_2X",   "from": "s_2",  "to": "pX" },
+    { "id": "l_2Y",   "from": "s_2",  "to": "pY" },
+    { "id": "l_shr",  "from": "pX",   "to": "shrine" },
+    { "id": "l_gate", "from": "pY",   "to": "gate" },
+
+    { "id": "l_Q0",   "from": "j0",   "to": "br_Q" },
+    { "id": "l_Q1",   "from": "br_Q", "to": "fb_Q" },
+    { "id": "l_Q2",   "from": "fb_Q", "to": "jQ" },
+    { "id": "l_Q3",   "from": "jQ",   "to": "fb_3" },
+    { "id": "l_Q4",   "from": "fb_3", "to": "s_3" },
+    { "id": "l_3Y",   "from": "s_3",  "to": "pY" },
+    { "id": "l_3Z",   "from": "s_3",  "to": "bell" },
+
+    { "id": "l_Q5",   "from": "jQ",   "to": "fb_4" },
+    { "id": "l_Q6",   "from": "fb_4", "to": "j4" },
+    { "id": "l_lift", "from": "j4",   "to": "lift" },
+    { "id": "l_Q7",   "from": "j4",   "to": "br_k" },
+    { "id": "l_kiln", "from": "br_k", "to": "kiln" }
+  ],
+
+  "faults": [
+    { "id": "f_1X",   "at": "l_1X", "kind": "damaged-cable" },
+    { "id": "f_bell", "at": "bell", "kind": "dead-lamp" }
+  ]
+}

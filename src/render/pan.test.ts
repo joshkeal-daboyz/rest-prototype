@@ -14,7 +14,7 @@ import {
   type Bounds,
 } from "./geometry";
 
-const puzzle = loadPuzzle(JSON.parse(readFileSync(join(__dirname, "..", "..", "puzzles", "08-shrine-circuit.json"), "utf8")));
+const puzzle = loadPuzzle(JSON.parse(readFileSync(join(__dirname, "..", "..", "puzzles", "09-shrine-circuit.json"), "utf8")));
 const PAD = 64;
 const insetCases = [{ top: 200, bottom: 100 }, { top: 200, bottom: 100, left: 150 }, { top: 50, right: 220, bottom: 30 }];
 const boundsCases: [string, Bounds][] = [
