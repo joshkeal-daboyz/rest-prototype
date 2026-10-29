@@ -100,9 +100,11 @@ if (entries.length === 0) {
     const detachPlay = play.attach(canvas as HTMLCanvasElement);
     const detachPan = attachPan(canvas as HTMLCanvasElement, renderer);
     const feeds = puzzleFeeds(entry.puzzle);
+    // The open map's lamp node ids (ticket 026 B): a hit on one of these highlights that lamp, street lights included.
+    const lampIds = new Set(entry.puzzle.nodes.filter((n) => n.type === "lamp").map((n) => n.id));
 
-    // The list-to-map link (ticket 024 B). A "Priests want lit" entry (hover or focus) and a place under the
-    // pointer both pick out one lamp; the last one to happen wins. A circuit element under the pointer picks out none.
+    // The list-to-map link (ticket 024 B, 026 B). A "Priests want lit" entry (hover or focus) and the pointer over a
+    // lamp or its place both pick out one lamp; the last one to happen wins. Any other circuit element picks out none.
     let highlighted: string | null = null;
     const setHighlight = (lampId: string | null): void => {
       if (lampId === highlighted) return;
@@ -113,7 +115,7 @@ if (entries.length === 0) {
       const r = (canvas as HTMLCanvasElement).getBoundingClientRect();
       const x = e.clientX - r.left;
       const y = e.clientY - r.top;
-      setHighlight(placeHighlight(renderer.hitTest(x, y) !== null, renderer.placeAt(x, y)));
+      setHighlight(placeHighlight(renderer.hitTest(x, y), lampIds, renderer.placeAt(x, y)));
     };
     const onCanvasLeave = (): void => setHighlight(null);
     (canvas as HTMLCanvasElement).addEventListener("pointermove", onCanvasMove);
