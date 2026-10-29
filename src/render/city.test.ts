@@ -11,7 +11,6 @@ import {
   CITY_BG,
   CITY_BLOCK,
   CITY_BUILDING,
-  CITY_LINK_R,
   CITY_PLACE,
   CITY_PLACE_EDGE,
   CITY_SEED,
@@ -34,7 +33,6 @@ import {
   glowTarget,
   inHub,
   ladderNumber,
-  linkBuildings,
   mapNumber,
   mapOrigin,
   onAvenue,
@@ -272,12 +270,11 @@ describe("neighbouring maps share streets outside their footprints", () => {
 });
 
 describe("places", () => {
-  it("gives one place per lamp, clear of nodes and of each other", () => {
+  it("gives one place per lamp, never overlapping (node-square and lane clearance: places.test.ts)", () => {
     for (const { key: k, puzzle } of OPEN) {
       const places = cityPlaces(puzzle);
       const lamps = puzzle.nodes.filter((n) => n.type === "lamp").map((n) => n.id);
       expect(places.map((p) => p.lamp), k).toEqual(lamps);
-      for (const p of places) for (const n of puzzle.nodes) expect(Math.hypot(n.pos[0] - p.x, n.pos[1] - p.y), `${k} ${p.lamp}`).toBeGreaterThanOrEqual(NODE_CLEAR);
       for (let i = 0; i < places.length; i++)
         for (let j = i + 1; j < places.length; j++) {
           const a = places[i]!;
@@ -292,9 +289,9 @@ describe("places", () => {
       id: "t", name: "t", version: 5, scope: "map", capacity: null,
       nodes: [
         { id: "feed", type: "feed", pos: [0, 0] },
-        { id: "lamp", type: "lamp", pos: [3, 0] },
+        { id: "home", type: "lamp", pos: [3, 0] },
       ],
-      lines: [{ id: "l1", from: "feed", to: "lamp" }],
+      lines: [{ id: "l1", from: "feed", to: "home" }],
       faults: [],
     });
     const place = cityPlaces(p)[0]!;
@@ -303,7 +300,7 @@ describe("places", () => {
   });
 });
 
-describe("filtering and linking", () => {
+describe("filtering", () => {
   it("keeps the city off every node and every place", () => {
     for (const { key: k, puzzle } of OPEN) {
       const b = puzzleBounds(puzzle);
@@ -321,29 +318,6 @@ describe("filtering and linking", () => {
       expect(nearNode, k).toBe(0);
       expect(onPlace, k).toBe(0);
     }
-  });
-  it("links to the nearest lamp, ties by nodes order, never to other parts", () => {
-    const p = loadPuzzle({
-      id: "t", name: "t", version: 5, scope: "map", capacity: null,
-      nodes: [
-        { id: "feed", type: "feed", pos: [0, 0] },
-        { id: "br", type: "breaker", pos: [2, 1], closed: true },
-        { id: "j1", type: "junction", pos: [6, 3] },
-        { id: "a", type: "lamp", pos: [4, 0] },
-        { id: "b", type: "lamp", pos: [7, 0] },
-      ],
-      lines: [{ id: "l0", from: "feed", to: "br" }, { id: "l1", from: "br", to: "j1" }, { id: "l2", from: "j1", to: "a" }, { id: "l3", from: "j1", to: "b" }],
-      faults: [],
-    });
-    const sq1 = (x: number, y: number): Building => ({ x, y, w: 1, h: 1 });
-    const links = linkBuildings([sq1(5, 0), sq1(5.5, 0), sq1(7.5, 0), sq1(10.5, 0), sq1(2, 1.2), sq1(4, 5)], p);
-    expect(links.map((l) => [l.x, l.lamp])).toEqual([
-      [5, "a"],
-      [5.5, "a"], // exact tie: earlier lamp wins
-      [7.5, "b"],
-    ]);
-    expect(links.every((l) => l.strength === 0.5)).toBe(true);
-    expect(CITY_LINK_R).toBe(1.6);
   });
 });
 

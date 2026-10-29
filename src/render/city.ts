@@ -9,7 +9,7 @@
  * Boxes: `Building` and `Place` use x,y as the CENTRE and w,h as the full size.
  */
 
-import type { Puzzle } from "../core";
+import { placeBase, placeKind, placeName, type PlaceKind, type Puzzle } from "../core";
 import type { GridState } from "../grid";
 import { puzzleBounds, type Bounds } from "./geometry";
 
@@ -22,12 +22,9 @@ export const SPOKES = 8;
 export const SLOTS_PER_SPOKE = 8;
 export const R0 = 64;
 export const CITY_AVENUE = 1.2;
-export const CITY_LINK_R = 1.6;
 export const GLOW_EASE_SECONDS = 0.25;
 /** Nothing of the city is centred closer than this to a node of the open map. */
 export const NODE_CLEAR = 0.6;
-export const PLACE_W = 1.1;
-export const PLACE_H = 0.9;
 /** Ticket 024 A1: inside a map's footprint the streets are the circuit itself. */
 export const FOOTPRINT_MARGIN = 2;
 export const LANE_W = 0.5;
@@ -44,12 +41,15 @@ export interface Building {
   w: number;
   h: number;
 }
+/** What a lamp lights (ticket 024 A2). A `pool` place is a pool of light on the lamp's lane, with no building. */
 export interface Place extends Building {
   lamp: string;
-}
-export interface Linked extends Building {
-  lamp: string;
-  strength: 0.5;
+  kind: PlaceKind;
+  /** The words beside the place (`placeName`) for a target lamp; null for any other. */
+  label: string | null;
+  pool: boolean;
+  /** Index into PLACE_SIDES: the side of the lamp the place (and its label) lies on. */
+  side: number;
 }
 export interface CityRect {
   minX: number;
@@ -283,21 +283,71 @@ function overlaps(a: Building, b: Building, gap = 0): boolean {
   return Math.abs(a.x - b.x) < (a.w + b.w) / 2 + gap && Math.abs(a.y - b.y) < (a.h + b.h) / 2 + gap;
 }
 
-const SIDES: readonly (readonly [number, number])[] = [
+// ---- places (ticket 024 A2): what each lamp lights ----
+
+/** Unit step out from a lamp for each side index: E, W, S, N (screen y points down). */
+export const PLACE_SIDES: readonly (readonly [number, number])[] = [
   [1, 0],
   [-1, 0],
   [0, 1],
   [0, -1],
 ];
+/** A place that does not fit at full size is tried again at this fraction of it. */
+export const PLACE_SHRINK = 0.7;
+/** Gaps tried between the lamp's square and the place's near edge; all within BUILDING_GAP + LANE_W. */
+export const PLACE_GAPS: readonly number[] = [BUILDING_GAP, 0.2, 0.35, BUILDING_GAP + LANE_W];
+/** Sideways slides tried (map units) when the centred spot is blocked. */
+const PLACE_SLIDES: readonly number[] = [0, 0.3, -0.3, 0.6, -0.6, 0.9, -0.9];
+/** Clear space a place keeps from lanes, node squares and other places. */
+export const PLACE_CLEAR = 0.05;
+/** A street-light's hit and overlap box: just the lamp's own node square. */
+export const POOL_BOX = NODE_SQUARE;
+
+/** A kind's size in map units, long side first (w >= h); null for a street light (a pool, no building). */
+export function placeSize(lampId: string): { w: number; h: number } | null {
+  switch (placeKind(lampId)) {
+    case "sacred": {
+      const b = placeBase(lampId);
+      return b === "bell" || b === "tower" ? { w: 0.8, h: 0.8 } : { w: 1.4, h: 1.4 };
+    }
+    case "water":
+      return { w: 0.6, h: 0.6 };
+    case "mill":
+      return { w: 1.0, h: 1.0 };
+    case "gate":
+      return { w: 1.2, h: 0.3 };
+    case "work":
+      return { w: 1.6, h: 0.8 };
+    case "market":
+      return { w: 1.6, h: 1.6 };
+    case "hall":
+      return { w: 1.8, h: 1.1 };
+    case "homes":
+      return { w: 1.9, h: 0.7 };
+    case "home":
+      return { w: 0.8, h: 0.7 };
+    case "streetlight":
+      return null;
+  }
+}
 
 const placeCache = new WeakMap<Puzzle, Place[]>();
 
-/** One place per lamp: a footprint beside it, on the side with the fewest of its lines. Map units. */
+/**
+ * One place per lamp (in `nodes` order), of `placeKind(lamp.id)`: it fronts its lamp (an edge
+ * PLACE_GAPS[0] from the lamp's square, at most BUILDING_GAP + LANE_W), on the side with the fewest of
+ * the lamp's lines, clear of every lane, node square and other place and inside the footprint. If no
+ * spot fits it shrinks to PLACE_SHRINK, then falls back to a pool of light on the lamp's lane. Map units.
+ */
 export function cityPlaces(puzzle: Puzzle): Place[] {
   const hit = placeCache.get(puzzle);
   if (hit) return hit;
   const pos = new Map<string, readonly [number, number]>();
   for (const n of puzzle.nodes) pos.set(n.id, n.pos);
+  const { lanes, squares, footprint: fp } = circuitStreets(puzzle);
+  const all = lanes.concat(feedLanes(puzzle, mapOrigin(puzzle.id, puzzleBounds(puzzle))));
+  const allTargets = !puzzle.target || puzzle.target.length === 0;
+  const targets = new Set(puzzle.target ?? []);
   const places: Place[] = [];
   for (const n of puzzle.nodes) {
     if (n.type !== "lamp") continue;
@@ -310,20 +360,50 @@ export function cityPlaces(puzzle: Puzzle): Place[] {
       const dx = o[0] - lx;
       const dy = o[1] - ly;
       const len = Math.hypot(dx, dy) || 1;
-      for (let s = 0; s < 4; s++) score[s]! += Math.max(0, (dx * SIDES[s]![0] + dy * SIDES[s]![1]) / len);
+      for (let s = 0; s < 4; s++) score[s]! += Math.max(0, (dx * PLACE_SIDES[s]![0] + dy * PLACE_SIDES[s]![1]) / len);
     }
     const order = [0, 1, 2, 3].sort((a, b) => score[a]! - score[b]! || a - b);
+    const kind = placeKind(n.id);
+    const label = allTargets || targets.has(n.id) ? placeName(n.id) : null;
+    const size = placeSize(n.id);
     let placed: Place | null = null;
-    for (let d = 1.0; d <= 8 && !placed; d += 0.25) {
-      for (const s of order) {
-        const cand: Place = { x: lx + SIDES[s]![0] * d, y: ly + SIDES[s]![1] * d, w: PLACE_W, h: PLACE_H, lamp: n.id };
-        if (puzzle.nodes.some((o) => Math.hypot(o.pos[0] - cand.x, o.pos[1] - cand.y) < NODE_CLEAR)) continue;
-        if (places.some((p) => overlaps(p, cand, 0.1))) continue;
-        placed = cand;
-        break;
+    if (size) {
+      search: for (const k of [1, PLACE_SHRINK]) {
+        for (const s of order) {
+          const horizontal = s < 2;
+          for (let rot = 0; rot < 2; rot++) {
+            // Facing: the long side runs along the lamp's street edge (vertical for an east/west place).
+            const longAlongY = horizontal !== (rot === 1);
+            const w = (longAlongY ? size.h : size.w) * k;
+            const h = (longAlongY ? size.w : size.h) * k;
+            const along = horizontal ? w : h;
+            for (const gap of PLACE_GAPS) {
+              const dist = NODE_SQUARE / 2 + gap + along / 2;
+              for (const slide of PLACE_SLIDES) {
+                const cand: Place = {
+                  x: lx + PLACE_SIDES[s]![0] * dist + (horizontal ? 0 : slide),
+                  y: ly + PLACE_SIDES[s]![1] * dist + (horizontal ? slide : 0),
+                  w,
+                  h,
+                  lamp: n.id,
+                  kind,
+                  label,
+                  pool: false,
+                  side: s,
+                };
+                if (cand.x - w / 2 < fp.minX || cand.x + w / 2 > fp.maxX || cand.y - h / 2 < fp.minY || cand.y + h / 2 > fp.maxY) continue;
+                if (!clearOfLanes(cand, all, PLACE_CLEAR)) continue;
+                if (squares.some((q) => overlaps(cand, q, PLACE_CLEAR))) continue;
+                if (places.some((p) => overlaps(p, cand, BUILDING_GAP))) continue;
+                placed = cand;
+                break search;
+              }
+            }
+          }
+        }
       }
     }
-    places.push(placed ?? { x: lx + 9, y: ly, w: PLACE_W, h: PLACE_H, lamp: n.id });
+    places.push(placed ?? { x: lx, y: ly, w: POOL_BOX, h: POOL_BOX, lamp: n.id, kind, label, pool: true, side: order[0]! });
   }
   placeCache.set(puzzle, places);
   return places;
@@ -607,25 +687,6 @@ export function avenuePieces(spoke: number, aFar: number, hole: CityRect | null)
   const out: [number, number][] = [];
   if (p0 > a0) out.push([a0, p0]);
   if (p1 < aFar) out.push([p1, aFar]);
-  return out;
-}
-
-/** Buildings (map units) within CITY_LINK_R of a lamp link to the nearest lamp (earlier in nodes on a tie). */
-export function linkBuildings(buildings: readonly Building[], puzzle: Puzzle): Linked[] {
-  const out: Linked[] = [];
-  for (const b of buildings) {
-    let best: string | null = null;
-    let bestD = Infinity;
-    for (const n of puzzle.nodes) {
-      if (n.type !== "lamp") continue;
-      const d = Math.hypot(n.pos[0] - b.x, n.pos[1] - b.y);
-      if (d <= CITY_LINK_R && d < bestD) {
-        bestD = d;
-        best = n.id;
-      }
-    }
-    if (best !== null) out.push({ x: b.x, y: b.y, w: b.w, h: b.h, lamp: best, strength: 0.5 });
-  }
   return out;
 }
 
