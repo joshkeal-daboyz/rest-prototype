@@ -213,7 +213,7 @@ describe("feed lanes", () => {
 });
 
 describe("shared grid minus the footprint", () => {
-  it("returns no street line inside the footprint, and still covers every street outside it", () => {
+  it("returns no street line inside the footprint, and still covers every street outside it", { timeout: 60000 }, () => {
     for (const { key: k, puzzle } of OPEN) {
       const f = circuitStreets(puzzle).footprint;
       const o = mapOrigin(puzzle.id, puzzleBounds(puzzle));

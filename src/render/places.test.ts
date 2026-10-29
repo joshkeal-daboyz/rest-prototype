@@ -5,6 +5,8 @@ import { loadPuzzle, placeBase, placeName, type Puzzle } from "../core";
 import { computeFit, freeArea, puzzleBounds } from "./geometry";
 import * as city from "./city";
 import { circuitStreets, cityPlaces, footprintLayout, mapOrigin, placeParts } from "./city";
+import { lampCaption } from "./labels";
+import { clusterRadius } from "./load";
 import { LABEL_H_PX, placeAtPoint, targetLabels } from "./places";
 
 // Ticket 024 A2 (picking, labels), reworked for A3: places live in lots, labels never clip.
@@ -129,6 +131,34 @@ describe("labels", () => {
         }
       });
     }
+  });
+  it("never cover a lamp's Lv caption or target star, at five scales", { timeout: 60000 }, () => {
+    const hit = (a: { x: number; y: number; w: number; h: number }, b: { x: number; y: number; w: number; h: number }): boolean =>
+      a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+    let checked = 0;
+    for (const scale of [15, 30, 45, 70, 120]) {
+      for (const { key: k, puzzle } of OPEN) {
+        const b = puzzleBounds(puzzle);
+        const fit = { scale, offsetX: 900 - ((b.minX + b.maxX) / 2) * scale, offsetY: 540 - ((b.minY + b.maxY) / 2) * scale };
+        const places = cityPlaces(puzzle, scale);
+        const boxes = targetLabels(puzzle, places, fit, freeArea(1800, 1080), (t) => t.length * 6.2);
+        boxes.forEach((r, i) => {
+          if (!r) return;
+          checked++;
+          const n = puzzle.nodes.find((q) => q.id === places[i]!.lamp)!;
+          const load = n.type === "lamp" ? (n.load ?? 1) : 1;
+          const cr = clusterRadius(load);
+          const x = n.pos[0] * scale + fit.offsetX;
+          const y = n.pos[1] * scale + fit.offsetY;
+          const capW = lampCaption(load).length * 7;
+          const caption = { x: x - capW / 2, y: y + cr + 13 - 7, w: capW, h: 14 };
+          const star = { x: x - 8, y: y - cr - 17 - 8, w: 16, h: 16 };
+          expect(hit(r, caption), `${k} ${places[i]!.lamp} label over caption @${scale}`).toBe(false);
+          expect(hit(r, star), `${k} ${places[i]!.lamp} label over star @${scale}`).toBe(false);
+        });
+      }
+    }
+    expect(checked).toBeGreaterThan(300);
   });
   it("labels the shrine on map 08 and puts it beside its place", () => {
     const puzzle = OPEN.find((o) => o.key.startsWith("08"))!.puzzle;
