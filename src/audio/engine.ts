@@ -214,6 +214,9 @@ export function createEngine(opts: EngineOptions = {}): SoundEngine {
     relight(igniteAt: readonly number[], durationSeconds: number) {
       guard("relight", () => run(relightCues(igniteAt, durationSeconds)));
     },
+    // STUB (ticket 025 part 0): a no-op so typecheck stays green after the core interface change.
+    // Part A (sound agent) replaces this with the real cue, gate and ring-out-across-detach behaviour.
+    levelDone() {},
   };
   return engine;
 }
