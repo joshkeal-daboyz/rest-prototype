@@ -1,6 +1,6 @@
 ticket: 024-city-alignment-and-places
-assessment: partly
-must-fix: 1
+assessment: meets
+must-fix: 0
 
 ## What the ticket asked for, as I understood it
 *This is the second pass. It adds Part A3 (commit 2df5dc0), which is reviewed in the A3 sections below. The text on parts 0, A1, A2 and B is from the first pass and still stands. The header now covers the whole branch.*
@@ -10,6 +10,17 @@ Inside each map's footprint the streets are the circuit: a lane under every line
 **A3:** a calm town. Streets are thin, faint lines with a ring road at the footprint, and blocks hold lots in four sizes. Lots and places are dropped within `WIRE_CLEAR_PX` / `nodeClearPx` px of the circuit, at the current scale. Places take lot slots, with one plan per kind. The glow is one round sprite. Labels are kept on screen, or hidden.
 
 ## Does the branch do it?
+**Round 2 (commit d1c2a55).** The one round-1 must-fix is resolved, and nothing else changed.
+- `git diff a8e7bca..d1c2a55` touches only two test files. `src/render/places.test.ts` gains one test (+30 lines). `src/render/streets.test.ts` only adds a 60 s timeout to "shared grid minus the footprint". No source file changed.
+- The new test is "labels never cover a lamp's Lv caption or target star, at five scales". It runs at scales 15, 30, 45, 70 and 120, over every open map, for every label `targetLabels` shows.
+  - Its caption box is centred at `y + cr + 13`, 7 px per glyph of `lampCaption(load)`, 14 px tall. Its star box is 16 × 16, centred at `y − cr − 17`. These match where `map-renderer.ts` draws them (`fillText` at `y + cr + 13` and `y − cr − 17`) and the A2 test's boxes. They are a little smaller than the obstacles `places.ts` uses (+4 px wide, 16 / 18 px tall), so the test checks what is drawn, not the code's own padding.
+  - It asserts that more than 300 labels were checked. It passes, so that floor holds.
+- **Mutation check:** I removed the caption and star obstacle `rects.push` lines from `places.ts`, and the new test failed ("01-first-light shrine label over star @15"). Then I restored the file. The test does catch an overlap.
+- **Gate:** `npm run gate` (`tsc --noEmit` + vitest) is green: 761 tests in 40 files, up from 737 in 39 (the new test plus the A3 tests after the main merge). `places.test.ts` passes 9 tests.
+- **Scope left over:** round 1 asked to cover every lamp's caption and star. The new test checks only the label's own lamp, which is exactly A2's criterion ("the lamp's … Lv caption box or the target star") and what the A2 test did. Under the round-2 rule I don't make the wider check a must-fix; it is Could improve 11.
+
+*The round-1 text below still stands, except that Must fix 1 is now done.*
+
 Gate on the branch: `npm run typecheck` is clean, and `npm test` passes 737 tests in 39 files. `src/grid/`, `src/night/`, `src/play/`, `src/audio/`, `puzzles/`, `index.html` and `package.json` are untouched.
 
 **Part 0 (`src/core/words.ts`, `words.test.ts`)**
@@ -207,10 +218,7 @@ The builder's "60–320 px" is centre to centre, and agrees.
 - **A3: per-pan cost.** The pure work is cheap, about 0.4 ms. The layer repaint on each pan event is untimed outside a browser.
 
 ## Must fix
-1. **`src/render/places.test.ts`, the A3 rewrite of "labels never cover the lamp…": restore the Lv caption and target star overlap checks.**
-   - **What to test:** for every shown label from `targetLabels`, assert that it does not overlap its lamp's caption box (centred at `cr + 13`, about 7 px per glyph of `lampCaption(load)`) or its star box (centred at `−cr − 17`), as the A2 test did. Cover every lamp's caption and star, since `targetLabels` treats all of them as obstacles.
-   - **Why it is required:** it is A2's criterion ("Its box does not overlap the lamp's square, its Lv caption box or the target star"), and A3 keeps the rule. Today no test fails if a change lets a label slide onto a caption or star.
-   - **The code already passes:** 0 overlaps in 397 labels in my probe. Only the test needs to change.
+none (round-1 item 1, the Lv caption and target star label test, was restored in d1c2a55 and verified by mutation)
 
 ## Could improve
 1. `src/render/places.ts` / `src/ui/logic.ts`: give pool places a hover area of their own, e.g. a ring out to `POOL_RADIUS` beyond the lamp's hit radius. Or let `placeHighlight` accept a lamp hit when that lamp is a target. Either way, hovering a street-light target on the map would highlight its list entry.
@@ -226,3 +234,4 @@ The builder's "60–320 px" is centre to centre, and agrees.
 8. **A3, `town.test.ts` and `places.test.ts`:** tighten the non-streetlight pool share back towards A2's level, for example below 4 % at each scale (today it is 2.9 %, 1.5 % and 0 %). Restore the "just outside a place → not that lamp" assertion in the `placeAtPoint` test.
 9. **A3, `src/render/streets.test.ts`, "shared grid minus the footprint":** raise the `covered` floor from 5 to a number that proves the sampling ran over many lines, such as > 100 as before.
 10. **A3, `src/render/map-renderer.ts`:** size the per-place arrays from the lamp count, not from `footprintLayout(puzzle, cityOrigin, 1)`, to avoid a wasted layout. Separately, give `CITY_PLACE_EDGE` enough contrast against `CITY_PLACE_FILL` for the 1 px edge to show, or drop the edge.
+11. **Round 2, `src/render/places.test.ts`:** extend the new caption and star test to every lamp's caption and star, not only the label's own lamp. `targetLabels` already treats all of them as obstacles, so this would also cover the text-over-text risk on dense maps.
