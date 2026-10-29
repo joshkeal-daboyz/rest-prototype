@@ -1,6 +1,6 @@
 ---
 name: ui
-description: Builds the HTML/CSS overlay for the Rest prototype — interaction prompts ("Hold to repair", "Needs: fuse", "Live line"), the satchel and favor display, the offering screen, the puzzle picker, and the pause, dawn and death screens — in src/ui/. Give it a ticket id. It shows state it is given and never computes game rules.
+description: Builds the HTML/CSS overlay for the Rest prototype — interaction prompts ("Hold to repair", "Needs a fuse", "Live line"), the satchel and favor display, the offering screen, the puzzle picker, and the pause, dawn and death screens — in src/ui/. Give it a ticket id. It shows state it is given and never computes game rules.
 tools: Read, Glob, Grep, Write, Edit, Bash
 model: haiku
 ---
