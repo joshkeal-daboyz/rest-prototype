@@ -2,11 +2,11 @@
 // No game rules here: each layer owns its own. Picking another map rebuilds the stack.
 import { EventBus, puzzleFeeds, type Puzzle } from "./core";
 import { createGrid, type Grid, type GridState } from "./grid";
-import { createMapRenderer, planRelight, type MapPanView, type MapRenderer } from "./render";
+import { createMapRenderer, planRelight, type MapPanView, type MapPlaces, type MapRenderer } from "./render";
 import { attachPan, createMapPlay, type LogEntry, type MapPlay } from "./play";
 import { createAudio } from "./audio";
 import { mountUI, restoreAudio, type UI } from "./ui";
-import { brownoutNotices, nextMap, noticeFor, splashDue } from "./ui/logic";
+import { brownoutNotices, nextMap, noticeFor, placeHighlight, splashDue } from "./ui/logic";
 import { collectMaps, type MapEntry } from "./ui/maps";
 
 const files = import.meta.glob("../puzzles/**/*.json", { eager: true, import: "default" }) as Record<string, unknown>;
@@ -58,10 +58,12 @@ if (entries.length === 0) {
 
   interface Session {
     grid: Grid;
-    renderer: MapRenderer & MapPanView;
+    renderer: MapRenderer & MapPanView & MapPlaces;
     play: MapPlay;
     ui: UI;
     puzzle: Puzzle;
+    /** The lamp whose place and list entry are picked out (ticket 024 B), or null. */
+    highlight: () => string | null;
     /** The picker key (the id, or `locked/<id>`) and the display name, for the win splash. */
     key: string;
     name: string;
@@ -98,6 +100,25 @@ if (entries.length === 0) {
     const detachPlay = play.attach(canvas as HTMLCanvasElement);
     const detachPan = attachPan(canvas as HTMLCanvasElement, renderer);
     const feeds = puzzleFeeds(entry.puzzle);
+
+    // The list-to-map link (ticket 024 B). A "Priests want lit" entry (hover or focus) and a place under the
+    // pointer both pick out one lamp; the last one to happen wins. A circuit element under the pointer picks out none.
+    let highlighted: string | null = null;
+    const setHighlight = (lampId: string | null): void => {
+      if (lampId === highlighted) return;
+      highlighted = lampId;
+      ui.highlight(lampId);
+    };
+    const onCanvasMove = (e: PointerEvent): void => {
+      const r = (canvas as HTMLCanvasElement).getBoundingClientRect();
+      const x = e.clientX - r.left;
+      const y = e.clientY - r.top;
+      setHighlight(placeHighlight(renderer.hitTest(x, y) !== null, renderer.placeAt(x, y)));
+    };
+    const onCanvasLeave = (): void => setHighlight(null);
+    (canvas as HTMLCanvasElement).addEventListener("pointermove", onCanvasMove);
+    (canvas as HTMLCanvasElement).addEventListener("pointerleave", onCanvasLeave);
+
     const ui = mountUI(uiRoot as HTMLElement, {
       grid,
       play,
@@ -105,6 +126,7 @@ if (entries.length === 0) {
       current: id,
       feeds,
       audio,
+      onHighlight: (lampId) => setHighlight(lampId),
       onPick: (next) => {
         history.replaceState(null, "", urlFor(next));
         open(next);
@@ -157,6 +179,8 @@ if (entries.length === 0) {
       detachAudio();
       detachPlay();
       detachPan();
+      (canvas as HTMLCanvasElement).removeEventListener("pointermove", onCanvasMove);
+      (canvas as HTMLCanvasElement).removeEventListener("pointerleave", onCanvasLeave);
       (canvas as HTMLCanvasElement).removeEventListener("click", onPanelClick);
       for (const off of offs) off();
     };
@@ -166,6 +190,7 @@ if (entries.length === 0) {
       play,
       ui,
       puzzle: entry.puzzle,
+      highlight: () => highlighted,
       key: id,
       name: entry.name,
       relightStarted: false,
@@ -227,7 +252,10 @@ if (entries.length === 0) {
         showWin(s, view.elapsed, state.actions);
       }
       audio.update(state, dt);
-      const overlay: { hover?: string | null; relightT?: number } = { hover: view.hover };
+      const overlay: { hover?: string | null; relightT?: number; highlight?: string | null } = {
+        hover: view.hover,
+        highlight: s.highlight(),
+      };
       if (view.relightT !== null) overlay.relightT = view.relightT;
       s.renderer.draw(state, overlay, now / 1000);
       s.ui.update();
