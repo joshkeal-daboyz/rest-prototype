@@ -33,6 +33,8 @@ export function bannerText(state: { complete: boolean }): string | null {
 }
 
 const PART_ORDER: readonly Part[] = ["bulb", "fuse", "wire"];
+/** The name each part's row announces (its aria-label is this plus the count). */
+export const PART_LABEL: Record<Part, string> = { bulb: "Bulb", fuse: "Fuse", wire: "Wire" };
 const PART_WORDS: Record<Part, { one: string; many: string }> = {
   bulb: { one: "bulb", many: "bulbs" },
   fuse: { one: "fuse", many: "fuses" },
@@ -43,6 +45,25 @@ export function partCounts(parts: readonly Part[]): Record<Part, number> {
   const counts: Record<Part, number> = { bulb: 0, fuse: 0, wire: 0 };
   for (const p of parts) counts[p] += 1;
   return counts;
+}
+
+/** One inventory row: the icon and count are drawn; `text` is the row's aria-label. */
+export interface InventoryRow {
+  kind: Part;
+  label: string;
+  count: number;
+  text: string;
+  empty: boolean;
+}
+
+/** The inventory's three rows, always in the order bulb, fuse, wire. Counts come from partCounts. */
+export function inventoryRows(parts: readonly Part[]): InventoryRow[] {
+  const counts = partCounts(parts);
+  return PART_ORDER.map((kind) => {
+    const count = counts[kind];
+    const label = PART_LABEL[kind];
+    return { kind, label, count, text: `${label} ${count}`, empty: count === 0 };
+  });
 }
 
 /** "On hand: 1 bulb, 0 fuses, 2 wires". All three kinds always appear, so an empty kind reads as 0. */
@@ -126,10 +147,27 @@ export function targetRows(targets: readonly string[], lit: ReadonlySet<string>,
   });
 }
 
+/** A rectangle in the same space as the pointer and the box. */
+export interface Rect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+/** True when a box of `box` size at `at` shares any area with `r`. Touching edges do not count. */
+function overlapsRect(at: { left: number; top: number }, box: { width: number; height: number }, r: Rect): boolean {
+  return at.left < r.left + r.width && at.left + box.width > r.left && at.top < r.top + r.height && at.top + box.height > r.top;
+}
+
 /**
  * Where to put a box of `box` size beside the pointer, relative to the overlay `bounds`.
  * The box sits `offset` to the right and below the pointer, and is pulled back so it stays
  * `margin` inside the bounds. Coordinates are in the same space as `pointer` (both viewport or both local).
+ *
+ * With `avoid` (the inventory panel, ticket 021): if the below-right spot would overlap it, the box goes
+ * above the pointer; if that overlaps too, it goes to the right of `avoid`. Without `avoid` the result is
+ * the below-right spot, as before.
  */
 export function promptPosition(
   pointer: { x: number; y: number },
@@ -137,14 +175,32 @@ export function promptPosition(
   box: { width: number; height: number },
   offset = 16,
   margin = 8,
+  avoid?: Rect,
 ): { left: number; top: number } {
   const maxLeft = Math.max(margin, bounds.width - box.width - margin);
   const maxTop = Math.max(margin, bounds.height - box.height - margin);
-  return {
-    left: Math.min(Math.max(margin, pointer.x + offset), maxLeft),
-    top: Math.min(Math.max(margin, pointer.y + offset), maxTop),
-  };
+  const clampLeft = (x: number): number => Math.min(Math.max(margin, x), maxLeft);
+  const clampTop = (y: number): number => Math.min(Math.max(margin, y), maxTop);
+  const below = { left: clampLeft(pointer.x + offset), top: clampTop(pointer.y + offset) };
+  if (!avoid || !overlapsRect(below, box, avoid)) return below;
+  const above = { left: below.left, top: clampTop(pointer.y - offset - box.height) };
+  if (!overlapsRect(above, box, avoid)) return above;
+  return { left: clampLeft(avoid.left + avoid.width + margin), top: below.top };
 }
+
+/** The inventory's icon viewBox and size (ticket 021). The SVG is built from PART_ICON_SVG. */
+export const PART_ICON_VIEWBOX = "0 0 24 24";
+export const PART_ICON_SIZE = 26;
+
+/** Josh's approved icon markup (children of a 24×24 <svg>), verbatim from ticket 021. */
+export const PART_ICON_SVG: Record<Part, string> = {
+  bulb:
+    '<path d="M9 17.5h6M10 20.5h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M8.6 14.6A6 6 0 1 1 15.4 14.6C14.6 15.3 14.4 16 14.4 17.5H9.6C9.6 16 9.4 15.3 8.6 14.6Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M10.5 17.5V12.2L12 10.8L13.5 12.2V17.5" fill="none" stroke="#f2b84b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
+  fuse:
+    '<path d="M12 1.8V4.5M12 19.5V22.2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><rect x="8.2" y="4.5" width="7.6" height="15" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M8.2 7.6H15.8M8.2 16.4H15.8" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 7.6V9.4L10.3 10.9L13.7 13.1L12 14.6V16.4" fill="none" stroke="#f2b84b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
+  wire:
+    '<circle cx="12" cy="3.8" r="1.9" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="20.2" r="1.9" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 5.7V7.6C7.2 8.6 7.2 11.4 12 12C16.8 12.6 16.8 15.4 12 16.4V18.3" fill="none" stroke="#f2b84b" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>',
+};
 
 /**
  * "Battery: 4 s" for the lowest charge among released batteries, rounded up to whole seconds.
