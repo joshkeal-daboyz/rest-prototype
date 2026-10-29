@@ -24,6 +24,7 @@ import {
   laneBoxDistance,
   mapNumber,
   mapOrigin,
+  regionOf,
   spokeDir,
   type Building,
   type Lane,
@@ -93,24 +94,17 @@ describe("circuitStreets", () => {
   it("includes diagonal lanes", () => {
     expect(OPEN.some(({ puzzle }) => circuitStreets(puzzle).lanes.some((l) => l.ax !== l.bx && l.ay !== l.by))).toBe(true);
   });
-  it("grows the bounds by FOOTPRINT_MARGIN, clipped to the map's district", () => {
+  it("grows the bounds by FOOTPRINT_MARGIN on every side, unclipped (ticket 027 A2), inside the map's district or ward", () => {
     for (const { key: k, puzzle } of ALL) {
       const b = puzzleBounds(puzzle);
       const fp = circuitStreets(puzzle).footprint;
       const o = mapOrigin(puzzle.id, b);
-      const c = districtOf(mapNumber(puzzle.id)).centre;
-      expect(fp.minX + o.x, k).toBeGreaterThanOrEqual(c.x - DISTRICT / 2 - E);
-      expect(fp.maxX + o.x, k).toBeLessThanOrEqual(c.x + DISTRICT / 2 + E);
-      expect(fp.minY + o.y, k).toBeGreaterThanOrEqual(c.y - DISTRICT / 2 - E);
-      expect(fp.maxY + o.y, k).toBeLessThanOrEqual(c.y + DISTRICT / 2 + E);
-      // the bounds are always inside it, and it is the full margin wherever the district allows
-      expect(fp.minX, k).toBeLessThanOrEqual(b.minX);
-      expect(fp.maxX, k).toBeGreaterThanOrEqual(b.maxX);
-      expect(fp.minY, k).toBeLessThanOrEqual(b.minY);
-      expect(fp.maxY, k).toBeGreaterThanOrEqual(b.maxY);
-      if (b.maxX - b.minX + 2 * FOOTPRINT_MARGIN <= DISTRICT - 2 && b.maxY - b.minY + 2 * FOOTPRINT_MARGIN <= DISTRICT - 2) {
-        expect(fp, k).toEqual({ minX: b.minX - FOOTPRINT_MARGIN, minY: b.minY - FOOTPRINT_MARGIN, maxX: b.maxX + FOOTPRINT_MARGIN, maxY: b.maxY + FOOTPRINT_MARGIN });
-      }
+      const r = regionOf(puzzle.id, b);
+      expect(fp.minX + o.x, k).toBeGreaterThanOrEqual(r.centre.x - r.size / 2 - E);
+      expect(fp.maxX + o.x, k).toBeLessThanOrEqual(r.centre.x + r.size / 2 + E);
+      expect(fp.minY + o.y, k).toBeGreaterThanOrEqual(r.centre.y - r.size / 2 - E);
+      expect(fp.maxY + o.y, k).toBeLessThanOrEqual(r.centre.y + r.size / 2 + E);
+      expect(fp, k).toEqual({ minX: b.minX - FOOTPRINT_MARGIN, minY: b.minY - FOOTPRINT_MARGIN, maxX: b.maxX + FOOTPRINT_MARGIN, maxY: b.maxY + FOOTPRINT_MARGIN });
     }
   });
 });

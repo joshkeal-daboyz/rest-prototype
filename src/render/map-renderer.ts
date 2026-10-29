@@ -80,12 +80,14 @@ import {
   glowSpriteData,
   glowTarget,
   gridStreetLines,
+  lampPlaceStubs,
   mapOrigin,
   spokeDir,
   visibleMapRect,
   type Place,
 } from "./city";
-import { LABEL_FONT_PX, placeAtPoint, placeShapes, targetLabels, type Prim } from "./places";
+import { LABEL_FONT_PX, placeAtPoint, placeShapes, type Prim } from "./places";
+import { createLabelCache } from "./labelcache";
 import { chargeFraction, popProgress, wentFlat } from "./battery";
 import { clamp01, flicker, hash01, pulseCount, pulsePhase, PULSE_SPACING } from "./motion";
 import { FLARE_SECONDS, planRelight, type RelightPlan } from "./relight";
@@ -148,6 +150,8 @@ export interface MapRendererOptions {
 /** Lines and nodes whose screen box is further than this from the canvas are not drawn. A node's margin is wider: its glow, caption and pool reach beyond its centre. */
 const LINE_CULL_PX = 32;
 const NODE_CULL_PX = 96;
+/** A place's silhouette is not painted when its box is further than this off the canvas. */
+const PLACE_CULL_PX = 16;
 const SHOCK_CORE = "#f2fbff";
 const SHOCK_GLOW = "#5aa8ff";
 const SCORCH = "#05070b";
@@ -347,7 +351,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
   const streets = circuitStreets(puzzle);
   const feedStreets = feedLanes(puzzle);
   /** The places at the current scale: one per lamp in `nodes` order, so every array below keeps its size. */
-  let places: Place[] = footprintLayout(puzzle, cityOrigin, 1).places;
+  let places: Place[] = lampPlaceStubs(puzzle);
   const nPlaces = places.length;
   const placeNode = new Int32Array(nPlaces);
   places.forEach((p, i) => {
@@ -365,6 +369,10 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
   /** The lit tint pieces of every place in screen px: kind (0 rect, 1 disc), then x, y, w, h (a disc's x, y is its centre, w its radius); place i owns [glowStart[i], glowStart[i + 1]). */
   let glowKind = new Uint8Array(0);
   let glowBox = new Float64Array(0);
+  /** The layout the shapes and glow arrays were made for: remade only when it changes (a new scale), never on a pan. */
+  let builtLayout: unknown = null;
+  const labelCache = createLabelCache(puzzle);
+  const measureLabel = (text: string): number => c.measureText(text).width;
   const glowStart = new Int32Array(nPlaces + 1);
   /** Per place: the glow sprite's centre x, y and radius in px (a street light's pool uses POOL_PX). */
   const glowC = new Float64Array(nPlaces * 3);
@@ -471,8 +479,14 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
       const set = pass === 0 ? streets.lanes : feedStreets;
       for (let i = 0; i < set.length; i++) {
         const l = set[i]!;
-        g.moveTo(X(l.ax), Y(l.ay));
-        g.lineTo(X(l.bx), Y(l.by));
+        const x0 = X(l.ax);
+        const x1 = X(l.bx);
+        const y0 = Y(l.ay);
+        const y1 = Y(l.by);
+        // A street wholly off the canvas is not drawn: the work is the screen's, not the map's.
+        if (Math.max(x0, x1) < -STREET_PX || Math.min(x0, x1) > width + STREET_PX || Math.max(y0, y1) < -STREET_PX || Math.min(y0, y1) > height + STREET_PX) continue;
+        g.moveTo(x0, y0);
+        g.lineTo(x1, y1);
       }
     }
     g.stroke();
@@ -484,6 +498,10 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     // Places: each kind's own top-down plan, filled, with a 1 px edge.
     for (let i = 0; i < placeShapeList.length; i++) {
       const shapes = placeShapeList[i]!;
+      // placeRects is the place's screen box (rebuildCity); skip one wholly off the canvas.
+      const rx0 = placeRects[i * 4]!;
+      const ry0 = placeRects[i * 4 + 1]!;
+      if (rx0 > width + PLACE_CULL_PX || rx0 + placeRects[i * 4 + 2]! < -PLACE_CULL_PX || ry0 > height + PLACE_CULL_PX || ry0 + placeRects[i * 4 + 3]! < -PLACE_CULL_PX) continue;
       for (let k = 0; k < shapes.length; k++) {
         const pr = shapes[k]!;
         g.strokeStyle = CITY_PLACE_EDGE;
@@ -531,13 +549,8 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
   /** Where each target's label goes: beside its place, wholly inside the free area, off every wire, node, caption and star. */
   function placeLabels(): void {
     c.font = LABEL_FONT;
-    const boxes = targetLabels(puzzle, places, geo.fit, freeArea(width, height, insets), (text) => c.measureText(text).width);
-    boxes.forEach((box, i) => {
-      labelShown[i] = box ? 1 : 0;
-      if (!box) return;
-      labelXY[i * 2] = box.x + box.w / 2;
-      labelXY[i * 2 + 1] = box.y + box.h / 2;
-    });
+    // On a pan at the same scale the cached boxes just slide; they are recomputed only when the pan could change a choice.
+    labelCache.update(places, geo.fit, freeArea(width, height, insets), measureLabel, labelXY, labelShown);
   }
 
   /** Recompute the city for the current fit: layout at this scale, screen data for what glows, the cached dark layer. */
@@ -551,10 +564,13 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
       placeShapeList = places.map((p) => placeShapes(p));
     }
     const buildings = cityForMap(puzzle, cityOrigin, visibleMapRect(f, width, height, CITY_BLOCK), sc);
-    let nGlow = 0;
-    for (let i = 0; i < nPlaces; i++) for (const pr of placeShapeList[i]!) if (pr.glow) nGlow++;
-    glowKind = new Uint8Array(nGlow);
-    glowBox = new Float64Array(nGlow * 4);
+    if (builtLayout !== layout) {
+      builtLayout = layout;
+      let nGlow = 0;
+      for (let i = 0; i < nPlaces; i++) for (const pr of placeShapeList[i]!) if (pr.glow) nGlow++;
+      glowKind = new Uint8Array(nGlow);
+      glowBox = new Float64Array(nGlow * 4);
+    }
     let gi = 0;
     places.forEach((p, i) => {
       placeRects[i * 4] = (p.x - p.w / 2) * sc + f.offsetX;
