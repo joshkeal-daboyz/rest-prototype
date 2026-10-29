@@ -6,7 +6,7 @@ import { createMapRenderer, planRelight, type MapRenderer } from "./render";
 import { createMapPlay, type LogEntry, type MapPlay } from "./play";
 import { createAudio } from "./audio";
 import { mountUI, restoreAudio, type UI } from "./ui";
-import { brownoutNotices, noticeFor } from "./ui/logic";
+import { brownoutNotices, nextMap, noticeFor, splashDue } from "./ui/logic";
 import { collectMaps, type MapEntry } from "./ui/maps";
 
 const files = import.meta.glob("../puzzles/**/*.json", { eager: true, import: "default" }) as Record<string, unknown>;
@@ -54,8 +54,15 @@ if (entries.length === 0) {
     play: MapPlay;
     ui: UI;
     puzzle: Puzzle;
+    /** The picker key (the id, or `locked/<id>`) and the display name, for the win splash. */
+    key: string;
+    name: string;
     /** True from the frame the Relight started until play reports it gone (a reset). */
     relightStarted: boolean;
+    /** The Relight's duration in seconds, set when it starts (019's cues). The splash waits WIN_SPLASH_DELAY past it. */
+    relightDuration: number;
+    /** True once this win's splash has been shown; cleared when the Relight goes (a reset), so the next win shows it. */
+    winShown: boolean;
     detach: () => void;
   }
   let session: Session | null = null;
@@ -133,8 +140,36 @@ if (entries.length === 0) {
       (canvas as HTMLCanvasElement).removeEventListener("click", onPanelClick);
       for (const off of offs) off();
     };
-    session = { grid, renderer, play, ui, puzzle: entry.puzzle, relightStarted: false, detach };
+    session = {
+      grid,
+      renderer,
+      play,
+      ui,
+      puzzle: entry.puzzle,
+      key: id,
+      name: entry.name,
+      relightStarted: false,
+      relightDuration: 0,
+      winShown: false,
+      detach,
+    };
     history.replaceState(null, "", urlFor(id));
+  }
+
+  /** The win splash for the session's map: its clock and moves, and Next on the picker's order (the same path as picking). */
+  function showWin(s: Session, seconds: number, moves: number): void {
+    const next = nextMap(puzzles, s.key);
+    s.ui.showWin({
+      name: s.name,
+      seconds,
+      moves,
+      next: next ? { id: next.id, name: next.name } : null,
+      onNext: () => {
+        if (!next) return;
+        history.replaceState(null, "", urlFor(next.id));
+        open(next.id);
+      },
+    });
   }
 
   const requested = new URLSearchParams(location.search).get("puzzle");
@@ -157,10 +192,17 @@ if (entries.length === 0) {
       // The Relight starts on the frame play first reports it (the job completing sets relightT to 0).
       if (view.relightT === null) {
         s.relightStarted = false;
+        s.winShown = false;
       } else if (!s.relightStarted) {
         s.relightStarted = true;
         const cues = relightCues(s.puzzle, state);
+        s.relightDuration = cues.duration;
         audio.relight(cues.igniteAt, cues.duration);
+      }
+      // The win splash, once per win, after the Relight has run its course (ticket 020 B).
+      if (!s.winShown && splashDue(view.relightT, s.relightDuration)) {
+        s.winShown = true;
+        showWin(s, view.elapsed, state.actions);
       }
       audio.update(state, dt);
       const overlay: { hover?: string | null; relightT?: number } = { hover: view.hover };

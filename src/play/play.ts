@@ -9,6 +9,8 @@ export interface MapPlayView {
   hover: string | null;
   prompt: string | null;
   relightT: number | null;
+  /** Play time in seconds: ticks since the map opened or was last reset, stopped when the job completed. */
+  elapsed: number;
 }
 
 export interface MapPlay {
@@ -43,6 +45,7 @@ export function createMapPlay(
   let hover: string | null = null;
   let relightT: number | null = null;
   let gameTime = 0;
+  let elapsed = 0;
   let flash: { text: string; left: number } | null = null;
 
   // The Relight starts at 0 when the job completes. Reset (the only way back) clears it.
@@ -100,6 +103,7 @@ export function createMapPlay(
   function reset(): void {
     grid.reset();
     relightT = null;
+    elapsed = 0;
     flash = null;
     log.add({ kind: "reset", ok: true });
     bus.emit("play:click", { kind: "reset" });
@@ -139,6 +143,7 @@ export function createMapPlay(
         hover,
         prompt: state.complete ? null : (flash?.text ?? promptFor(puzzle, state, hover)),
         relightT: state.complete ? (relightT ?? 0) : null,
+        elapsed,
       };
     },
 
@@ -149,6 +154,7 @@ export function createMapPlay(
     tick(dt) {
       if (dt > 0 && !done()) {
         gameTime += dt;
+        elapsed += dt; // counted before advance: a win on this tick keeps its dt
         grid.advance(dt);
       }
       if (flash) {

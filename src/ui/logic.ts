@@ -290,3 +290,46 @@ export function sliderToVolume(value: string | number): number | null {
   if (!Number.isFinite(n)) return null;
   return clampVolume(n / 100);
 }
+
+// ---- win splash (ticket 020 B) ----
+
+/** Seconds between the Relight's end and the win splash. */
+export const WIN_SPLASH_DELAY = 0.4;
+
+/**
+ * `m:ss.s` for a play time in seconds. Rounded to tenths first, so 59.96 reads `1:00.0`. Minutes are not
+ * capped (`62:05.4`). NaN, negative and infinite values read as `0:00.0`.
+ */
+export function formatTime(seconds: number): string {
+  const safe = Number.isFinite(seconds) && seconds > 0 ? seconds : 0;
+  const tenths = Math.round(safe * 10);
+  const minutes = Math.floor(tenths / 600);
+  const rest = tenths - minutes * 600;
+  const whole = Math.floor(rest / 10);
+  return `${minutes}:${String(whole).padStart(2, "0")}.${rest % 10}`;
+}
+
+/**
+ * The map after `currentKey` in the same group (open or locked), in picker order. Null at the end of that
+ * group, for an unknown key, or for an empty list. Locked maps never lead into the open ones.
+ */
+export function nextMap<T extends { id: string; locked: boolean }>(list: readonly T[], currentKey: string): T | null {
+  const at = list.findIndex((m) => m.id === currentKey);
+  const current = at < 0 ? undefined : list[at];
+  if (!current) return null;
+  for (let i = at + 1; i < list.length; i++) {
+    const candidate = list[i];
+    if (candidate && candidate.locked === current.locked) return candidate;
+  }
+  return null;
+}
+
+/** The splash's result line: `Lit in 0:42.3 · 7 moves`, or `· 1 move` for one. */
+export function winLine(seconds: number, moves: number): string {
+  return `Lit in ${formatTime(seconds)} · ${moves} ${moves === 1 ? "move" : "moves"}`;
+}
+
+/** True once the Relight has run WIN_SPLASH_DELAY past its end. `relightT` is null before the Relight starts. */
+export function splashDue(relightT: number | null, duration: number): boolean {
+  return relightT !== null && relightT >= duration + WIN_SPLASH_DELAY;
+}
