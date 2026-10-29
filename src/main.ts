@@ -2,8 +2,8 @@
 // No game rules here: each layer owns its own. Picking another map rebuilds the stack.
 import { EventBus, puzzleFeeds, type Puzzle } from "./core";
 import { createGrid, type Grid, type GridState } from "./grid";
-import { createMapRenderer, planRelight, type MapRenderer } from "./render";
-import { createMapPlay, type LogEntry, type MapPlay } from "./play";
+import { createMapRenderer, planRelight, type MapPanView, type MapRenderer } from "./render";
+import { attachPan, createMapPlay, type LogEntry, type MapPlay } from "./play";
 import { createAudio } from "./audio";
 import { mountUI, restoreAudio, type UI } from "./ui";
 import { brownoutNotices, nextMap, noticeFor, splashDue } from "./ui/logic";
@@ -58,7 +58,7 @@ if (entries.length === 0) {
 
   interface Session {
     grid: Grid;
-    renderer: MapRenderer;
+    renderer: MapRenderer & MapPanView;
     play: MapPlay;
     ui: UI;
     puzzle: Puzzle;
@@ -71,6 +71,8 @@ if (entries.length === 0) {
     relightDuration: number;
     /** True once this win's splash has been shown; cleared when the Relight goes (a reset), so the next win shows it. */
     winShown: boolean;
+    /** False until the first frame after ui.update() has filled the HUD; then the insets are measured and the view centred, once (ticket 022). */
+    centred: boolean;
     detach: () => void;
   }
   let session: Session | null = null;
@@ -94,6 +96,7 @@ if (entries.length === 0) {
     });
     const play = createMapPlay(entry.puzzle, grid, renderer, bus);
     const detachPlay = play.attach(canvas as HTMLCanvasElement);
+    const detachPan = attachPan(canvas as HTMLCanvasElement, renderer);
     const feeds = puzzleFeeds(entry.puzzle);
     const ui = mountUI(uiRoot as HTMLElement, {
       grid,
@@ -114,6 +117,12 @@ if (entries.length === 0) {
     // play log after each click (the play layer's own click listener, attached above, runs first).
     const relays = new Set(entry.puzzle.nodes.filter((n) => n.type === "switch" && n.relay).map((n) => n.id));
     const offs = [
+      // Reset re-measures the HUD and re-centres the view (ticket 022). Undo does not.
+      bus.on("play:click", (e) => {
+        if (e.kind !== "reset") return;
+        renderer.setInsets({ top: hudTopInset(), bottom: inventoryBottomInset() });
+        renderer.resetView();
+      }),
       bus.on("fuse:blown", (payload) => renderer.notify({ type: "fuse:blown", payload })),
       bus.on("fuse:blown", (e) => {
         const text = noticeFor({ kind: "fuse:blown", load: e.load, rating: e.rating });
@@ -147,6 +156,7 @@ if (entries.length === 0) {
     const detach = (): void => {
       detachAudio();
       detachPlay();
+      detachPan();
       (canvas as HTMLCanvasElement).removeEventListener("click", onPanelClick);
       for (const off of offs) off();
     };
@@ -161,6 +171,7 @@ if (entries.length === 0) {
       relightStarted: false,
       relightDuration: 0,
       winShown: false,
+      centred: false,
       detach,
     };
     history.replaceState(null, "", urlFor(id));
@@ -189,6 +200,7 @@ if (entries.length === 0) {
     if (!session) return;
     session.renderer.setInsets({ top: hudTopInset(), bottom: inventoryBottomInset() });
     session.renderer.resize();
+    session.renderer.resetView();
   });
 
   let last = performance.now();
@@ -219,6 +231,12 @@ if (entries.length === 0) {
       if (view.relightT !== null) overlay.relightT = view.relightT;
       s.renderer.draw(state, overlay, now / 1000);
       s.ui.update();
+      // The HUD is filled by the first ui.update(), so measure the insets and centre the map once, now.
+      if (!s.centred) {
+        s.centred = true;
+        s.renderer.setInsets({ top: hudTopInset(), bottom: inventoryBottomInset() });
+        s.renderer.resetView();
+      }
     }
     last = now;
     requestAnimationFrame(frame);
