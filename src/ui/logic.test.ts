@@ -146,17 +146,36 @@ describe("isHighlighted", () => {
 });
 
 describe("placeHighlight", () => {
-  it("picks out the place under the pointer when no circuit element is there", () => {
-    expect(placeHighlight(false, "shrine")).toBe("shrine");
-  });
+  const lamps = new Set(["shrine", "lantern", "lamp_07", "home_1"]);
+  const circuit = ["sw_1", "breaker_1", "fuse_box", "junction_a", "feed_north", "battery_1", "line_3"];
 
-  it("picks out nothing when the pointer is over a circuit element, even on a place", () => {
-    expect(placeHighlight(true, "shrine")).toBeNull();
-    expect(placeHighlight(true, null)).toBeNull();
+  it("picks out the place under the pointer when nothing is hit", () => {
+    expect(placeHighlight(null, lamps, "shrine")).toBe("shrine");
   });
 
   it("picks out nothing on empty ground", () => {
-    expect(placeHighlight(false, null)).toBeNull();
+    expect(placeHighlight(null, lamps, null)).toBeNull();
+  });
+
+  it("picks out a street light by its own id, so a lantern highlights itself", () => {
+    expect(placeHighlight("lantern", lamps, null)).toBe("lantern");
+  });
+
+  it("picks out a lamp that is hit even when the place under the pointer names another lamp", () => {
+    expect(placeHighlight("lamp_07", lamps, "shrine")).toBe("lamp_07");
+    expect(placeHighlight("shrine", lamps, "home_1")).toBe("shrine");
+  });
+
+  it("picks out nothing over a switch, breaker, fusebox, junction, feed, battery or wire, even on a place", () => {
+    for (const id of circuit) {
+      expect(placeHighlight(id, lamps, "shrine")).toBeNull();
+      expect(placeHighlight(id, lamps, null)).toBeNull();
+    }
+  });
+
+  it("judges by the lamp set it is given, not a fixed list", () => {
+    expect(placeHighlight("sw_1", new Set(["sw_1"]), null)).toBe("sw_1");
+    expect(placeHighlight("shrine", new Set(), "shrine")).toBeNull();
   });
 });
 
