@@ -7,10 +7,10 @@ import type { Puzzle } from "./schema";
 
 const PUZZLES = join(__dirname, "..", "..", "puzzles");
 const read = (f: string): Puzzle => loadPuzzle(JSON.parse(readFileSync(join(PUZZLES, f), "utf8")));
-const shrine = read("08-shrine-circuit.json"); // startingParts [wire]; faults f1 @ j_dead, f2 @ l_b; fb_A rating 3
-const battery = read("18-battery-run.json"); // battery "bat"
+const shrine = read("09-shrine-circuit.json"); // startingParts [wire]; faults f1 @ j_dead, f2 @ l_b; fb_A rating 3
+const battery = read("20-battery-run.json"); // battery "bat"
 
-/** A well-formed block for 08: two sections joined by l_sw (j1 -> sw_1). */
+/** A well-formed block for 09: two sections joined by l_sw (j1 -> sw_1). */
 const good = () =>
   ({
     clickSeconds: 1,

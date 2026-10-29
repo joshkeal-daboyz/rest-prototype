@@ -16,8 +16,8 @@ describe("D2: tools/analyze.ts is the npm run analyze script", () => {
 });
 
 describe("D2: the numbers on small maps equal the notes and the ladder", () => {
-  it("05-the-spark: 3 clicks, 1 winning configuration, 5 reachable states, no dead ends (its note)", () => {
-    const r = analyzePuzzle(load("05-the-spark"));
+  it("06-the-spark: 3 clicks, 1 winning configuration, 5 reachable states, no dead ends (its note)", () => {
+    const r = analyzePuzzle(load("06-the-spark"));
     expect(r.exhaustive).toBe(true);
     expect(r.solvable).toBe(true);
     expect(r.minClicks).toBe(3);
@@ -29,12 +29,12 @@ describe("D2: the numbers on small maps equal the notes and the ladder", () => {
     expect(r.win?.feeds).toEqual([{ id: "feed", load: 1, capacity: 3 }]);
   });
 
-  it("05-the-spark: the two shortest orders (br_main and sw_1 in either order) are counted", () => {
-    expect(analyzePuzzle(load("05-the-spark")).winningOrders).toBe(2);
+  it("06-the-spark: the two shortest orders (br_main and sw_1 in either order) are counted", () => {
+    expect(analyzePuzzle(load("06-the-spark")).winningOrders).toBe(2);
   });
 
-  it("08-shrine-circuit: 3 clicks, 1 winning configuration, 1 wire spent, load 3 of 4 (its note)", () => {
-    const r = analyzePuzzle(load("08-shrine-circuit"));
+  it("09-shrine-circuit: 3 clicks, 1 winning configuration, 1 wire spent, load 3 of 4 (its note)", () => {
+    const r = analyzePuzzle(load("09-shrine-circuit"));
     expect(r.minClicks).toBe(3);
     expect(r.winningConfigs).toBe(1);
     expect(r.win?.partsUsed).toEqual(["wire"]);
@@ -42,10 +42,10 @@ describe("D2: the numbers on small maps equal the notes and the ladder", () => {
     expect(r.blowOnShortestWin).toEqual([]);
   });
 
-  it("01 = 1, 02 = 2, 08 = 3 clicks (the ladder table)", () => {
+  it("01 = 1, 02 = 2, 09 = 3 clicks (the ladder table)", () => {
     expect(analyzePuzzle(load("01-first-light")).minClicks).toBe(1);
     expect(analyzePuzzle(load("02-this-way-or-that")).minClicks).toBe(2);
-    expect(analyzePuzzle(load("08-shrine-circuit")).minClicks).toBe(3);
+    expect(analyzePuzzle(load("09-shrine-circuit")).minClicks).toBe(3);
   });
 
   it("every map without a battery that the search finishes under 300 states has the README ladder's min clicks", () => {
@@ -64,8 +64,8 @@ describe("D2: the numbers on small maps equal the notes and the ladder", () => {
     expect(checked).toBeGreaterThan(20);
   }, 60_000);
 
-  it("a battery map: 18-battery-run is solvable in 4 clicks (3 waits at 0.5 s), as the ladder says", () => {
-    const r = analyzePuzzle(load("18-battery-run"));
+  it("a battery map: 20-battery-run is solvable in 4 clicks (3 waits at 0.5 s), as the ladder says", () => {
+    const r = analyzePuzzle(load("20-battery-run"));
     expect(r.exhaustive).toBe(true);
     expect(r.minClicks).toBe(4);
     expect(r.win?.waits).toBe(3);
@@ -74,21 +74,21 @@ describe("D2: the numbers on small maps equal the notes and the ladder", () => {
 });
 
 describe("D2: what it reports", () => {
-  it("dead-end share and the first moves that lead only to dead ends (14: some first move cannot win)", () => {
-    const r = analyzePuzzle(load("14-behind-the-first"));
+  it("dead-end share and the first moves that lead only to dead ends (16: some first move cannot win)", () => {
+    const r = analyzePuzzle(load("16-behind-the-first"));
     expect(r.deadShare).toBeCloseTo(4 / 9, 9);
     expect(r.deadStates).toBe(4);
     for (const m of r.deadFirstMoves!) expect(r.firstMoves).toContain(m);
   });
 
-  it("a fuse that can blow is reported as blowing somewhere, and not on the shortest win (10-the-small-fuse)", () => {
-    const r = analyzePuzzle(load("10-the-small-fuse"));
+  it("a fuse that can blow is reported as blowing somewhere, and not on the shortest win (11-the-small-fuse)", () => {
+    const r = analyzePuzzle(load("11-the-small-fuse"));
     expect(r.blowAnywhere).toContain("fb_1");
     expect(r.blowOnShortestWin).toEqual([]);
   });
 
   it("a map that cannot be won says so: not solvable, no min clicks, and every state is dead", () => {
-    const p = { ...load("05-the-spark"), startingParts: [] };
+    const p = { ...load("06-the-spark"), startingParts: [] };
     const r = analyzePuzzle(p);
     expect(r.exhaustive).toBe(true);
     expect(r.solvable).toBe(false);
@@ -98,8 +98,8 @@ describe("D2: what it reports", () => {
   });
 
   it("the report prints the numbers, and the same map prints the same text every time", () => {
-    const a = formatAnalysis(analyzePuzzle(load("10-the-small-fuse")));
-    const b = formatAnalysis(analyzePuzzle(load("10-the-small-fuse")));
+    const a = formatAnalysis(analyzePuzzle(load("11-the-small-fuse")));
+    const b = formatAnalysis(analyzePuzzle(load("11-the-small-fuse")));
     expect(a).toEqual(b);
     expect(a.join("\n")).toMatch(/min clicks: 3/);
     expect(a.join("\n")).toMatch(/dead-end states/);
@@ -107,7 +107,7 @@ describe("D2: what it reports", () => {
 });
 
 describe("D2: stepping back with Undo gives the same answers as replaying every state", () => {
-  for (const name of ["06-past-the-fuse", "10-the-small-fuse", "12-one-box-three-lamps", "13-ring-from-the-east"]) {
+  for (const name of ["07-past-the-fuse", "11-the-small-fuse", "13-one-box-three-lamps", "14-ring-from-the-east"]) {
     it(name, () => {
       const p = load(name);
       expect(analyzePuzzle(p)).toEqual(analyzePuzzle(p, { replayOnly: true }));
@@ -116,8 +116,8 @@ describe("D2: stepping back with Undo gives the same answers as replaying every 
 });
 
 describe("D2: past the cap it proves a lower bound", () => {
-  it("47 with cap 1000: exhaustive false, a lower bound below the note's 11 clicks, and no dead-end share", () => {
-    const r = analyzePuzzle(load("47-two-cells"), { cap: 1000 });
+  it("49 with cap 1000: exhaustive false, a lower bound below the note's 11 clicks, and no dead-end share", () => {
+    const r = analyzePuzzle(load("49-two-cells"), { cap: 1000 });
     expect(r.exhaustive).toBe(false);
     expect(r.states).toBe(1000);
     expect(r.noWinBelow).not.toBeNull();
@@ -130,7 +130,7 @@ describe("D2: past the cap it proves a lower bound", () => {
   }, 60_000);
 
   it("a cap that cuts a small map short still never claims a win below the true minimum", () => {
-    const p = load("09-around-the-dead-post"); // 4 clicks, 16 states
+    const p = load("10-around-the-dead-post"); // 4 clicks, 16 states
     for (const cap of [1, 3, 6, 10, 15]) {
       const r = analyzePuzzle(p, { cap });
       expect(r.exhaustive).toBe(false);

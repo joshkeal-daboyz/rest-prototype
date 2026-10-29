@@ -20,10 +20,10 @@ function validCheck(json: unknown, puzzle: Puzzle): PuzzleCheck {
   return r.check;
 }
 
-// ---- Fixture 1: two copies of 08 joined by a shared cable (no control on the link) ----
+// ---- Fixture 1: two copies of 09 joined by a shared cable (no control on the link) ----
 
 function copyOf08(pre: string, dx: number): { nodes: Puzzle["nodes"]; lines: Puzzle["lines"]; faults: Puzzle["faults"] } {
-  const p = loadPuzzle(join(PUZZLES_DIR, "08-shrine-circuit.json"));
+  const p = loadPuzzle(join(PUZZLES_DIR, "09-shrine-circuit.json"));
   const nodes = p.nodes.map((n) => {
     const moved = { ...n, id: pre + n.id, pos: [n.pos[0] + dx, n.pos[1]] as const };
     return n.type === "switch" ? { ...moved, outputs: [pre + n.outputs[0], pre + n.outputs[1]] as const } : moved;
@@ -176,11 +176,11 @@ describe("D3: the sub-puzzle built for a section", () => {
   });
 });
 
-describe("D3: two copies of 08 joined by a shared cable (cut on both sides)", () => {
-  it("each section's numbers equal 08's", () => {
+describe("D3: two copies of 09 joined by a shared cable (cut on both sides)", () => {
+  it("each section's numbers equal 09's", () => {
     const { puzzle, check } = twoShrines();
     const r = analyzeSections(puzzle, check);
-    const ref = analyzePuzzle(loadPuzzle(join(PUZZLES_DIR, "08-shrine-circuit.json")));
+    const ref = analyzePuzzle(loadPuzzle(join(PUZZLES_DIR, "09-shrine-circuit.json")));
     expect(ref.exhaustive).toBe(true);
     for (const [row, pre] of [[r.sections[0]!, "a_"], [r.sections[1]!, "b_"]] as const) {
       const a = row.analysis!;

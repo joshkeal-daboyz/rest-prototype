@@ -14,7 +14,7 @@ const load = (name: string): Puzzle => {
   return r.puzzle;
 };
 
-// A check block for 08-shrine-circuit, as test data (the note itself has none).
+// A check block for 09-shrine-circuit, as test data (the note itself has none).
 const SHRINE: PuzzleCheck = {
   solution: ["sw_1", "repair:l_b", "br_street"],
   traps: [
@@ -33,13 +33,13 @@ const SHRINE: PuzzleCheck = {
   ],
 };
 
-describe("D1: the check replay on 08-shrine-circuit (test data, not the note)", () => {
+describe("D1: the check replay on 09-shrine-circuit (test data, not the note)", () => {
   it("the block validates against the puzzle", () => {
-    expect(validateCheck(SHRINE, load("08-shrine-circuit")).ok).toBe(true);
+    expect(validateCheck(SHRINE, load("09-shrine-circuit")).ok).toBe(true);
   });
 
   it("the intended solution wins; the report has clicks, parts used and each feed's load against capacity", () => {
-    const r = runCheck(load("08-shrine-circuit"), SHRINE);
+    const r = runCheck(load("09-shrine-circuit"), SHRINE);
     expect(r.ok).toBe(true);
     expect(r.solution.complete).toBe(true);
     expect(r.solution.clicks).toBe(3);
@@ -48,7 +48,7 @@ describe("D1: the check replay on 08-shrine-circuit (test data, not the note)", 
   });
 
   it("every trap's expect held and its recovery wins", () => {
-    const r = runCheck(load("08-shrine-circuit"), SHRINE);
+    const r = runCheck(load("09-shrine-circuit"), SHRINE);
     expect(r.traps.map((t) => [t.name, t.expectHeld, t.recovered])).toEqual([
       ["reroute without shedding", true, true],
       ["the dead junction is not mendable with one wire", true, true],
@@ -56,7 +56,7 @@ describe("D1: the check replay on 08-shrine-circuit (test data, not the note)", 
   });
 
   it("a wrong solution that is legal but does not win fails, and the report says it did not complete", () => {
-    const r = runCheck(load("08-shrine-circuit"), { solution: ["sw_1", "repair:l_b"] });
+    const r = runCheck(load("09-shrine-circuit"), { solution: ["sw_1", "repair:l_b"] });
     expect(r.ok).toBe(false);
     expect(r.solution.complete).toBe(false);
     expect(r.solution.failure).toMatch(/does not complete the job after 2 moves/);
@@ -64,20 +64,20 @@ describe("D1: the check replay on 08-shrine-circuit (test data, not the note)", 
   });
 
   it("a wrong solution with a refused move fails naming that move", () => {
-    const r = runCheck(load("08-shrine-circuit"), { solution: ["repair:l_b", "sw_1", "br_street"] });
+    const r = runCheck(load("09-shrine-circuit"), { solution: ["repair:l_b", "sw_1", "br_street"] });
     expect(r.ok).toBe(false);
     expect(r.solution.failure).toMatch(/move 1 "repair:l_b".*not readable/);
   });
 
   it("firstDifference names the first move whose state differs from the intended solution", () => {
-    const p = load("08-shrine-circuit");
+    const p = load("09-shrine-circuit");
     const d = firstDifference(p, SHRINE.solution, ["sw_1", "br_street", "repair:l_b"]);
     expect(d).toEqual({ move: 2, expected: "repair:l_b", actual: "br_street" });
     expect(firstDifference(p, SHRINE.solution, SHRINE.solution)).toBeNull();
   });
 
   it("a trap whose expect does not hold is reported with the mismatch", () => {
-    const r = runCheck(load("08-shrine-circuit"), {
+    const r = runCheck(load("09-shrine-circuit"), {
       solution: SHRINE.solution,
       traps: [{ name: "wrong claim", moves: ["sw_1", "repair:l_b"], expect: { brownout: false, lit: ["street_1"] }, recover: ["br_street"] }],
     });
@@ -88,7 +88,7 @@ describe("D1: the check replay on 08-shrine-circuit (test data, not the note)", 
   });
 
   it("a trap whose recovery does not win fails", () => {
-    const r = runCheck(load("08-shrine-circuit"), {
+    const r = runCheck(load("09-shrine-circuit"), {
       solution: SHRINE.solution,
       traps: [{ name: "no way out", moves: ["sw_1", "repair:l_b"], expect: { brownout: true }, recover: ["wait:1"] }],
     });
@@ -98,7 +98,7 @@ describe("D1: the check replay on 08-shrine-circuit (test data, not the note)", 
   });
 
   it("a trap that already wins with an empty recover passes (the state already wins)", () => {
-    const r = runCheck(load("08-shrine-circuit"), {
+    const r = runCheck(load("09-shrine-circuit"), {
       solution: SHRINE.solution,
       traps: [{ name: "already there", moves: SHRINE.solution, expect: {}, recover: [] }],
     });
@@ -154,11 +154,11 @@ describe("D1: the click and time rules", () => {
 
 describe("D1: files and the CLI", () => {
   const dir = mkdtempSync(join(tmpdir(), "rest-check-"));
-  const shrine = readFileSync(join(PUZZLES_DIR, "08-shrine-circuit.json"), "utf8");
+  const shrine = readFileSync(join(PUZZLES_DIR, "09-shrine-circuit.json"), "utf8");
   const note = (block: unknown) => "# note\n\n```check\n" + JSON.stringify(block, null, 2) + "\n```\n";
 
   it("noteFor maps x.json and x.grid.json to x.md", () => {
-    expect(noteFor("a/b/08-shrine-circuit.json")).toBe("a/b/08-shrine-circuit.md");
+    expect(noteFor("a/b/09-shrine-circuit.json")).toBe("a/b/09-shrine-circuit.md");
     expect(noteFor("a/lamp-row.grid.json")).toBe("a/lamp-row.md");
   });
 
