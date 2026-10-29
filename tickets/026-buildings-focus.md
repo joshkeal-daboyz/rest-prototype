@@ -1,7 +1,7 @@
 # 026 · Buildings beside their own lamps, smaller lamps, street lights linked to the list
 
 owner: renderer (A), ui (B)
-status: approved (G1, Josh, 29 Oct 2026: "yes I approve")
+status: done
 branch: one per part: `ticket/026-buildings-focus-a`, `ticket/026-buildings-focus-b`
 
 ## Josh's words

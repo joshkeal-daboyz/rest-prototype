@@ -5,9 +5,7 @@ import { loadPuzzle, placeBase, placeName, type Puzzle } from "../core";
 import { computeFit, freeArea, puzzleBounds } from "./geometry";
 import * as city from "./city";
 import { circuitStreets, cityPlaces, footprintLayout, mapOrigin, placeParts } from "./city";
-import { lampCaption } from "./labels";
-import { clusterRadius } from "./load";
-import { LABEL_H_PX, placeAtPoint, targetLabels } from "./places";
+import { LABEL_H_PX, lampMarks, placeAtPoint, targetLabels } from "./places";
 
 // Ticket 024 A2 (picking, labels), reworked for A3: places live in lots, labels never clip.
 
@@ -91,7 +89,7 @@ describe("placeAtPoint", () => {
     }
   });
   it("moves with the pan: the same screen point is a different map point", () => {
-    const puzzle = OPEN.find((o) => o.key.startsWith("08"))!.puzzle;
+    const puzzle = OPEN.find((o) => o.key === "09-shrine-circuit")!.puzzle;
     const b = puzzleBounds(puzzle);
     const f0 = computeFit(b, 1000, 800, 64);
     const f1 = computeFit(b, 1000, 800, 64, undefined, { x: 200, y: 0 });
@@ -145,23 +143,20 @@ describe("labels", () => {
         boxes.forEach((r, i) => {
           if (!r) return;
           checked++;
-          const n = puzzle.nodes.find((q) => q.id === places[i]!.lamp)!;
-          const load = n.type === "lamp" ? (n.load ?? 1) : 1;
-          const cr = clusterRadius(load);
-          const x = n.pos[0] * scale + fit.offsetX;
-          const y = n.pos[1] * scale + fit.offsetY;
-          const capW = lampCaption(load).length * 7;
-          const caption = { x: x - capW / 2, y: y + cr + 13 - 7, w: capW, h: 14 };
-          const star = { x: x - 8, y: y - cr - 17 - 8, w: 16, h: 16 };
-          expect(hit(r, caption), `${k} ${places[i]!.lamp} label over caption @${scale}`).toBe(false);
-          expect(hit(r, star), `${k} ${places[i]!.lamp} label over star @${scale}`).toBe(false);
+          // Every lamp's marks, not only the label's own (ticket 026: could-improve 11).
+          for (const n of puzzle.nodes) {
+            if (n.type !== "lamp") continue;
+            const [caption, star] = lampMarks(n, n.pos[0] * scale + fit.offsetX, n.pos[1] * scale + fit.offsetY);
+            expect(hit(r, caption!), `${k} ${places[i]!.lamp} label over ${n.id} caption @${scale}`).toBe(false);
+            expect(hit(r, star!), `${k} ${places[i]!.lamp} label over ${n.id} star @${scale}`).toBe(false);
+          }
         });
       }
     }
     expect(checked).toBeGreaterThan(300);
   });
-  it("labels the shrine on map 08 and puts it beside its place", () => {
-    const puzzle = OPEN.find((o) => o.key.startsWith("08"))!.puzzle;
+  it("labels the shrine on map 09 and puts it beside its place", () => {
+    const puzzle = OPEN.find((o) => o.key === "09-shrine-circuit")!.puzzle;
     const fit = computeFit(puzzleBounds(puzzle), 1920, 1080, 64);
     const places = cityPlaces(puzzle, fit.scale);
     const i = places.findIndex((p) => p.lamp === "shrine");

@@ -17,7 +17,7 @@ describe("every puzzle file in puzzles/ validates", () => {
 });
 
 describe("the validator catches broken puzzles", () => {
-  const base = () => structuredClone(read("08-shrine-circuit.json")) as Record<string, unknown>;
+  const base = () => structuredClone(read("09-shrine-circuit.json")) as Record<string, unknown>;
 
   it("a lamp with two lines is not a leaf", () => {
     const p = base();
@@ -112,9 +112,9 @@ describe("the validator catches broken puzzles", () => {
 
 describe("draft 5: more than one powersource (ticket 015)", () => {
   type N = { id: string; type: string; capacity?: unknown; name?: unknown };
-  /** 08-shrine-circuit plus a second feed `south` wired to j1, version 5, each feed with its own capacity. */
+  /** 09-shrine-circuit plus a second feed `south` wired to j1, version 5, each feed with its own capacity. */
   const twoFeeds = () => {
-    const p = structuredClone(read("08-shrine-circuit.json")) as Record<string, unknown>;
+    const p = structuredClone(read("09-shrine-circuit.json")) as Record<string, unknown>;
     p["version"] = 5;
     p["capacity"] = null;
     const nodes = p["nodes"] as N[];
@@ -159,7 +159,7 @@ describe("draft 5: more than one powersource (ticket 015)", () => {
   });
 
   it("a per-feed capacity with version below 5 is an error, even on a one-feed map", () => {
-    const p = structuredClone(read("08-shrine-circuit.json")) as Record<string, unknown>;
+    const p = structuredClone(read("09-shrine-circuit.json")) as Record<string, unknown>;
     (p["nodes"] as N[]).find((n) => n.type === "feed")!.capacity = 3;
     expect(errorsOf(p)).toMatch(/a feed's own capacity needs version 5/);
     p["version"] = 5;
@@ -167,7 +167,7 @@ describe("draft 5: more than one powersource (ticket 015)", () => {
   });
 
   it("a feed name with version below 5 is an error", () => {
-    const p = structuredClone(read("08-shrine-circuit.json")) as Record<string, unknown>;
+    const p = structuredClone(read("09-shrine-circuit.json")) as Record<string, unknown>;
     (p["nodes"] as N[]).find((n) => n.type === "feed")!.name = "North";
     expect(errorsOf(p)).toMatch(/a feed name needs version 5/);
   });
@@ -236,7 +236,7 @@ describe("draft 5: more than one powersource (ticket 015)", () => {
   });
 
   it("puzzleFeeds: a one-feed draft-5 map's own capacity overrides the top level", () => {
-    const p = structuredClone(read("08-shrine-circuit.json")) as Record<string, unknown>;
+    const p = structuredClone(read("09-shrine-circuit.json")) as Record<string, unknown>;
     p["version"] = 5;
     (p["nodes"] as N[]).find((n) => n.type === "feed")!.capacity = null;
     expect(puzzleFeeds(loadPuzzle(p))[0]!.capacity).toBeNull();

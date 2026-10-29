@@ -359,7 +359,7 @@ describe("battery readability", () => {
 
 describe("advance is the only time input", () => {
   const shrine = (): Puzzle =>
-    loadPuzzle(JSON.parse(readFileSync(join(__dirname, "..", "..", "puzzles", "08-shrine-circuit.json"), "utf8")) as unknown);
+    loadPuzzle(JSON.parse(readFileSync(join(__dirname, "..", "..", "puzzles", "09-shrine-circuit.json"), "utf8")) as unknown);
 
   it("a map with no battery is unchanged by advance, and emits nothing", () => {
     const bus = new EventBus();

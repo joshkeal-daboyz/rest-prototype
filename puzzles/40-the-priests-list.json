@@ -1,0 +1,89 @@
+{
+  "id": "40-the-priests-list",
+  "name": "40 · The priests' list",
+  "version": 4,
+  "scope": "map",
+  "capacity": 8,
+  "startingParts": ["wire", "wire", "bulb"],
+  "target": ["shrine", "gate", "well", "bell"],
+  "priority": ["lane", "mill", "cottage", "houses"],
+
+  "nodes": [
+    { "id": "feed",    "type": "feed",     "pos": [0, 0] },
+    { "id": "j0",      "type": "junction", "pos": [2, 0] },
+
+    { "id": "fb_A",    "type": "fusebox",  "pos": [4.5, -6], "rating": 4 },
+    { "id": "j_A",     "type": "junction", "pos": [7, -6] },
+    { "id": "lane",    "type": "lamp",     "pos": [7, -8.5], "load": 1 },
+    { "id": "sw_A",    "type": "switch",   "pos": [9.5, -6], "outputs": ["l_As", "l_Ag"], "selected": 0 },
+
+    { "id": "fb_B",    "type": "fusebox",  "pos": [4.5, -2], "rating": 4 },
+    { "id": "j_B",     "type": "junction", "pos": [7, -2] },
+    { "id": "sw_B1",   "type": "switch",   "pos": [9.5, -3], "outputs": ["l_B1s", "l_B1m"], "selected": 1 },
+    { "id": "mill",    "type": "lamp",     "pos": [11, -0.5], "load": 2 },
+    { "id": "sw_B2",   "type": "switch",   "pos": [9.5, 1], "outputs": ["l_B2w", "l_B2b"], "selected": 0 },
+
+    { "id": "br_C",    "type": "breaker",  "pos": [3.5, 3], "closed": false },
+    { "id": "fb_C",    "type": "fusebox",  "pos": [5.5, 4], "rating": 2 },
+    { "id": "j_C",     "type": "junction", "pos": [7.5, 4] },
+    { "id": "cottage", "type": "lamp",     "pos": [7.5, 6.5], "load": 1 },
+
+    { "id": "br_D",    "type": "breaker",  "pos": [2, 6], "closed": false },
+    { "id": "fb_D",    "type": "fusebox",  "pos": [4, 8], "rating": 2 },
+    { "id": "sw_D",    "type": "switch",   "pos": [7, 8.5], "outputs": ["l_Dw", "l_Dh"], "selected": 1 },
+    { "id": "houses",  "type": "lamp",     "pos": [9.5, 10], "load": 2 },
+
+    { "id": "p_shrine","type": "junction", "pos": [15, -6.5] },
+    { "id": "shrine",  "type": "lamp",     "pos": [17.5, -6.5], "load": 3 },
+    { "id": "p_gate",  "type": "junction", "pos": [15, -3] },
+    { "id": "gate",    "type": "lamp",     "pos": [17.5, -3], "load": 2 },
+    { "id": "p_bell",  "type": "junction", "pos": [15, 2] },
+    { "id": "bell",    "type": "lamp",     "pos": [17.5, 2], "load": 1 },
+    { "id": "p_well",  "type": "junction", "pos": [15, 6] },
+    { "id": "well",    "type": "lamp",     "pos": [17.5, 6], "load": 1 }
+  ],
+
+  "lines": [
+    { "id": "l_feed",  "from": "feed",   "to": "j0" },
+
+    { "id": "l_A0",    "from": "j0",     "to": "fb_A" },
+    { "id": "l_A1",    "from": "fb_A",   "to": "j_A" },
+    { "id": "l_lane",  "from": "j_A",    "to": "lane" },
+    { "id": "l_A2",    "from": "j_A",    "to": "sw_A" },
+    { "id": "l_As",    "from": "sw_A",   "to": "p_shrine" },
+    { "id": "l_Ag",    "from": "sw_A",   "to": "p_gate" },
+
+    { "id": "l_B0",    "from": "j0",     "to": "fb_B" },
+    { "id": "l_B1",    "from": "fb_B",   "to": "j_B" },
+    { "id": "l_B2",    "from": "j_B",    "to": "sw_B1" },
+    { "id": "l_B1s",   "from": "sw_B1",  "to": "p_shrine" },
+    { "id": "l_B1m",   "from": "sw_B1",  "to": "mill" },
+    { "id": "l_B3",    "from": "j_B",    "to": "sw_B2" },
+    { "id": "l_B2w",   "from": "sw_B2",  "to": "p_well" },
+    { "id": "l_B2b",   "from": "sw_B2",  "to": "p_bell" },
+
+    { "id": "l_C0",    "from": "j0",     "to": "br_C" },
+    { "id": "l_C1",    "from": "br_C",   "to": "fb_C" },
+    { "id": "l_C2",    "from": "fb_C",   "to": "j_C" },
+    { "id": "l_cot",   "from": "j_C",    "to": "cottage" },
+    { "id": "l_Cg",    "from": "j_C",    "to": "p_gate" },
+
+    { "id": "l_D0",    "from": "j0",     "to": "br_D" },
+    { "id": "l_D1",    "from": "br_D",   "to": "fb_D" },
+    { "id": "l_D2",    "from": "fb_D",   "to": "sw_D" },
+    { "id": "l_Dw",    "from": "sw_D",   "to": "p_well" },
+    { "id": "l_Dh",    "from": "sw_D",   "to": "houses" },
+
+    { "id": "l_shrine","from": "p_shrine","to": "shrine" },
+    { "id": "l_gate",  "from": "p_gate", "to": "gate" },
+    { "id": "l_bell",  "from": "p_bell", "to": "bell" },
+    { "id": "l_well",  "from": "p_well", "to": "well" }
+  ],
+
+  "faults": [
+    { "id": "cut_Ag",    "at": "l_Ag", "kind": "damaged-cable" },
+    { "id": "cut_Cg",    "at": "l_Cg", "kind": "damaged-cable" },
+    { "id": "cut_Dw",    "at": "l_Dw", "kind": "damaged-cable" },
+    { "id": "dark_bell", "at": "bell", "kind": "dead-lamp" }
+  ]
+}

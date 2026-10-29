@@ -22,7 +22,7 @@ import {
   sliceVertices,
 } from "./shock";
 
-const puzzle = loadPuzzle(JSON.parse(readFileSync(join(__dirname, "..", "..", "puzzles", "08-shrine-circuit.json"), "utf8")));
+const puzzle = loadPuzzle(JSON.parse(readFileSync(join(__dirname, "..", "..", "puzzles", "09-shrine-circuit.json"), "utf8")));
 
 describe("lamp load shown by size, count and brightness", () => {
   it("draws 1, 2, 3 bulbs for load 1, 2, 3 and never more", () => {
@@ -117,16 +117,16 @@ describe("position along a multi-line path", () => {
 });
 
 describe("hit radius of a load-3 lamp", () => {
-  const battery = loadPuzzle(JSON.parse(readFileSync(join(__dirname, "..", "..", "puzzles", "18-battery-run.json"), "utf8")));
+  const battery = loadPuzzle(JSON.parse(readFileSync(join(__dirname, "..", "..", "puzzles", "20-battery-run.json"), "utf8")));
   it("hits on the outer bulb, which a flat 18 px would miss", () => {
     const g = buildGeometry(battery, 1000, 600, 60);
     const i = g.nodeIndex.get("mill")!;
-    expect(g.hitR[i]).toBeGreaterThan(18);
+    expect(g.hitR[i]).toBeGreaterThanOrEqual(18);
     const off = new Float64Array(6);
     bulbOffsets(3, off);
     const x = g.nx[i]! + off[0]!;
     const y = g.ny[i]! + off[1]!;
-    expect(Math.hypot(off[0]!, off[1]!) + 11).toBeGreaterThan(18);
+    expect(Math.hypot(off[0]!, off[1]!) + bulbRadius(3)).toBeLessThanOrEqual(g.hitR[i]!);
     expect(hitTestGeometry(g, g.nx[i]! + clusterRadius(3), g.ny[i]!)).toBe("mill");
     expect(hitTestGeometry(g, x, y)).toBe("mill");
   });

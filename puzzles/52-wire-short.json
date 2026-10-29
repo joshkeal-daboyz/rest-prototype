@@ -1,0 +1,73 @@
+{
+  "id": "52-wire-short",
+  "name": "52 · One wire short",
+  "version": 4,
+  "scope": "map",
+  "capacity": 5,
+  "startingParts": ["wire", "wire", "wire", "fuse", "fuse", "bulb"],
+  "target": ["shrine", "lift", "infirmary"],
+  "priority": ["ovens", "homes", "mill"],
+
+  "nodes": [
+    { "id": "feed",      "type": "feed",     "pos": [0, 0] },
+    { "id": "j0",        "type": "junction", "pos": [2, 0] },
+    { "id": "s_1",       "type": "switch",   "pos": [4, 0], "outputs": ["l_1W", "l_1E"], "selected": 0 },
+
+    { "id": "W",         "type": "junction", "pos": [7, -5] },
+    { "id": "ovens",     "type": "lamp",     "pos": [7, -8], "load": 2 },
+    { "id": "pS",        "type": "junction", "pos": [14, -5] },
+    { "id": "shrine",    "type": "lamp",     "pos": [17, -5], "load": 2 },
+
+    { "id": "br_E",      "type": "breaker",  "pos": [5, 2], "closed": false },
+    { "id": "fb_E",      "type": "fusebox",  "pos": [7, 1], "rating": 5 },
+    { "id": "jE",        "type": "junction", "pos": [9, 1] },
+    { "id": "br_m",      "type": "breaker",  "pos": [9, 3.5], "closed": true },
+    { "id": "mill",      "type": "lamp",     "pos": [9, 6], "load": 2 },
+    { "id": "jE2",       "type": "junction", "pos": [11.5, 1] },
+    { "id": "pC",        "type": "junction", "pos": [14, 1] },
+    { "id": "lift",      "type": "lamp",     "pos": [17, 1], "load": 2 },
+
+    { "id": "s_2",       "type": "switch",   "pos": [3, 6], "outputs": ["l_2H", "l_2N"], "selected": 0 },
+    { "id": "homes",     "type": "lamp",     "pos": [1, 9], "load": 1 },
+    { "id": "N",         "type": "junction", "pos": [9, 9] },
+    { "id": "D",         "type": "junction", "pos": [14, 6] },
+    { "id": "infirmary", "type": "lamp",     "pos": [17, 6], "load": 1 }
+  ],
+
+  "lines": [
+    { "id": "l_feed", "from": "feed", "to": "j0" },
+    { "id": "l_j1",   "from": "j0",   "to": "s_1" },
+    { "id": "l_j2",   "from": "j0",   "to": "s_2" },
+
+    { "id": "l_1W",   "from": "s_1",  "to": "W" },
+    { "id": "l_ov",   "from": "W",    "to": "ovens" },
+    { "id": "l_x1",   "from": "W",    "to": "pS" },
+    { "id": "l_sh",   "from": "pS",   "to": "shrine" },
+
+    { "id": "l_1E",   "from": "s_1",  "to": "br_E" },
+    { "id": "l_E0",   "from": "br_E", "to": "fb_E" },
+    { "id": "l_E1",   "from": "fb_E", "to": "jE" },
+    { "id": "l_m1",   "from": "jE",   "to": "br_m" },
+    { "id": "l_m2",   "from": "br_m", "to": "mill" },
+    { "id": "l_E3",   "from": "jE",   "to": "jE2" },
+    { "id": "l_x2",   "from": "jE2",  "to": "pS" },
+    { "id": "l_E2",   "from": "jE2",  "to": "pC" },
+    { "id": "l_li",   "from": "pC",   "to": "lift" },
+    { "id": "l_x3",   "from": "pC",   "to": "D" },
+    { "id": "l_inf",  "from": "D",    "to": "infirmary" },
+
+    { "id": "l_2H",   "from": "s_2",  "to": "homes" },
+    { "id": "l_2N",   "from": "s_2",  "to": "N" },
+    { "id": "l_N",    "from": "N",    "to": "D" }
+  ],
+
+  "faults": [
+    { "id": "f_x1",   "at": "l_x1",      "kind": "damaged-cable" },
+    { "id": "f_fbE",  "at": "fb_E",      "kind": "blown-fuse" },
+    { "id": "f_E3",   "at": "l_E3",      "kind": "damaged-cable" },
+    { "id": "f_x2",   "at": "l_x2",      "kind": "damaged-cable" },
+    { "id": "f_x3",   "at": "l_x3",      "kind": "damaged-cable" },
+    { "id": "f_N",    "at": "N",         "kind": "dead-junction" },
+    { "id": "f_inf",  "at": "infirmary", "kind": "dead-lamp" }
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "id": "26-far-one-first",
+  "name": "26 · The far one first",
+  "version": 4,
+  "scope": "map",
+  "capacity": 2,
+  "startingParts": ["fuse", "fuse"],
+  "target": ["shrine"],
+  "priority": ["gate"],
+
+  "nodes": [
+    { "id": "feed",   "type": "feed",     "pos": [0, 0] },
+    { "id": "j1",     "type": "junction", "pos": [2, 0] },
+    { "id": "gate",   "type": "lamp",     "pos": [2, -2], "load": 1 },
+
+    { "id": "br_E",   "type": "breaker",  "pos": [4, 0], "closed": false },
+    { "id": "fb_E",   "type": "fusebox",  "pos": [6, 0], "rating": 1 },
+
+    { "id": "rl_1",   "type": "switch",   "pos": [8, 0], "outputs": ["l_mill", "l_12"], "selected": 0, "relay": true },
+    { "id": "mill",   "type": "lamp",     "pos": [8, -3], "load": 3 },
+    { "id": "sw_2",   "type": "switch",   "pos": [11, 0], "outputs": ["l_2k", "l_23"], "selected": 0 },
+    { "id": "rl_3",   "type": "switch",   "pos": [14, 0], "outputs": ["l_3f", "l_shrine"], "selected": 0, "relay": true },
+    { "id": "shrine", "type": "lamp",     "pos": [17, 0], "load": 1 },
+
+    { "id": "j_k",    "type": "junction", "pos": [9.5, 3] },
+    { "id": "kiln",   "type": "lamp",     "pos": [9.5, 5], "load": 2 },
+    { "id": "j_f",    "type": "junction", "pos": [12.5, 3] },
+    { "id": "forge",  "type": "lamp",     "pos": [12.5, 5], "load": 2 },
+
+    { "id": "j_b1",   "type": "junction", "pos": [2, 7] },
+    { "id": "j_b2",   "type": "junction", "pos": [16, 7] },
+    { "id": "bat",    "type": "battery",  "pos": [16, 4], "capacity": 4, "charge": 0, "input": "l_in" }
+  ],
+
+  "lines": [
+    { "id": "l_feed",   "from": "feed", "to": "j1" },
+    { "id": "l_gate",   "from": "j1",   "to": "gate" },
+    { "id": "l_e0",     "from": "j1",   "to": "br_E" },
+    { "id": "l_e1",     "from": "br_E", "to": "fb_E" },
+    { "id": "l_e2",     "from": "fb_E", "to": "rl_1" },
+
+    { "id": "l_mill",   "from": "rl_1", "to": "mill" },
+    { "id": "l_12",     "from": "rl_1", "to": "sw_2" },
+    { "id": "l_23",     "from": "sw_2", "to": "rl_3" },
+    { "id": "l_shrine", "from": "rl_3", "to": "shrine" },
+
+    { "id": "l_3f",     "from": "rl_3", "to": "j_f" },
+    { "id": "l_forge",  "from": "j_f",  "to": "forge" },
+    { "id": "l_f2",     "from": "j_f",  "to": "sw_2" },
+    { "id": "l_2k",     "from": "sw_2", "to": "j_k" },
+    { "id": "l_kiln",   "from": "j_k",  "to": "kiln" },
+    { "id": "l_k1",     "from": "j_k",  "to": "rl_1" },
+
+    { "id": "l_b0",     "from": "j1",   "to": "j_b1" },
+    { "id": "l_b1",     "from": "j_b1", "to": "j_b2" },
+    { "id": "l_in",     "from": "j_b2", "to": "bat" },
+    { "id": "l_out",    "from": "bat",  "to": "rl_3" }
+  ],
+
+  "faults": []
+}

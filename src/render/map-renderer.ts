@@ -10,7 +10,7 @@ import { buildGeometry, clampPan, computeFit, freeArea, hitTestGeometry, mapBox,
 import { FUSE_BAR_HEIGHT, FUSE_BAR_TOP, FUSE_BAR_WIDTH, fuseFill, fuseStep, fuseTickOffsets } from "./fusebar";
 import { createFeedCaptions } from "./feedcaps";
 import { fuseCaption, lampCaption } from "./labels";
-import { bulbOffsets, clusterRadius, poolAlpha, poolRadiusScale } from "./load";
+import { bulbOffsets, bulbRadius, clusterRadius, poolAlpha, poolRadiusScale } from "./load";
 import {
   LAMP_DROPPED,
   LAMP_STREAK_AND_FLARE,
@@ -42,6 +42,7 @@ import {
   CITY_AVENUE_COLOUR,
   CITY_BLOCK,
   CITY_BUILDING,
+  CITY_BG,
   CITY_PLACE_EDGE,
   CITY_PLACE_FILL,
   CITY_STREET_LINE,
@@ -158,6 +159,9 @@ const BATT_FILL = "#3ddc97";
 const BATT_FILL_RELEASED = "#ffb02e";
 const FONT = "12px system-ui, sans-serif";
 const FONT_BIG = "bold 13px system-ui, sans-serif";
+const FONT_LAMP = "10px system-ui, sans-serif";
+const FONT_STAR = "bold 11px system-ui, sans-serif";
+const DASH_LAMP_TARGET: number[] = [3, 3];
 const FONT_FEED = "bold 15px system-ui, sans-serif";
 
 const DASH_TARGET: number[] = [4, 4];
@@ -483,9 +487,10 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
             g.stroke();
           }
         } else {
-          g.lineWidth = 2;
+          // 3 px stroke kept inside the box (water's ring fills its quarter lot).
+          g.lineWidth = 3;
           g.beginPath();
-          g.arc(X(pr.x), Y(pr.y), (pr.w / 2) * sc, 0, TAU2);
+          g.arc(X(pr.x), Y(pr.y), Math.max((pr.w / 2) * sc - 1.5, 1), 0, TAU2);
           g.stroke();
         }
       }
@@ -955,7 +960,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     if (glow > 0 && k < 1) k = 1;
     const powered = state.powered.has(id) && (!rp || relT >= rp.nodeArrive[i]!);
     const nb = bulbOffsets(load, bulbScratch);
-    const br = nb === 1 ? 14 : 11;
+    const br = bulbRadius(load);
     const cr = clusterRadius(load);
     const ps = poolRadiusScale(load);
     const TAU = Math.PI * 2;
@@ -965,15 +970,15 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
       c.fillStyle = WARM;
       c.globalAlpha = poolAlpha(0.07 * k, load);
       c.beginPath();
-      c.arc(x, y, 50 * ps, 0, TAU);
+      c.arc(x, y, 24 * ps, 0, TAU);
       c.fill();
       c.globalAlpha = poolAlpha(0.11 * k, load);
       c.beginPath();
-      c.arc(x, y, 36 * ps, 0, TAU);
+      c.arc(x, y, 18 * ps, 0, TAU);
       c.fill();
       c.globalAlpha = poolAlpha(0.18 * k, load);
       c.beginPath();
-      c.arc(x, y, 25 * ps, 0, TAU);
+      c.arc(x, y, 12 * ps, 0, TAU);
       c.fill();
       c.globalAlpha = 1;
     } else {
@@ -981,7 +986,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
       c.fillStyle = TEXT_DIM;
       c.globalAlpha = 0.05 + 0.02 * nb;
       c.beginPath();
-      c.arc(x, y, cr + 10, 0, TAU);
+      c.arc(x, y, cr + 6, 0, TAU);
       c.fill();
       c.globalAlpha = 1;
     }
@@ -991,18 +996,18 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
       c.globalAlpha = 1 - f;
       c.lineWidth = 3;
       c.beginPath();
-      c.arc(x, y, cr + 4 + f * 40 * ps, 0, TAU);
+      c.arc(x, y, cr + 3 + f * 24 * ps, 0, TAU);
       c.stroke();
       c.fillStyle = WARM_HOT;
       c.globalAlpha = (1 - f) * 0.5;
       c.beginPath();
-      c.arc(x, y, cr + 14 * (1 - f), 0, TAU);
+      c.arc(x, y, cr + 8 * (1 - f), 0, TAU);
       c.fill();
       c.globalAlpha = 1;
     }
 
     // The bulbs: one, two or three, by load.
-    c.lineWidth = hover === id ? 4 : 2.5;
+    c.lineWidth = hover === id ? 3 : 2;
     for (let b = 0; b < nb; b++) {
       const bx = x + bulbScratch[b * 2]!;
       const by = y + bulbScratch[b * 2 + 1]!;
@@ -1030,7 +1035,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
       c.strokeStyle = HOVER;
       c.lineWidth = 1.5;
       c.beginPath();
-      c.arc(x, y, cr + 5, 0, TAU);
+      c.arc(x, y, cr + 3, 0, TAU);
       c.stroke();
     }
 
@@ -1038,37 +1043,44 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
       c.strokeStyle = FOCUS;
       c.lineWidth = 1.5;
       c.beginPath();
-      c.arc(x, y, cr + 11, 0, TAU);
+      c.arc(x, y, cr + 8, 0, TAU);
       c.stroke();
     }
 
     // Lv caption: "Lv<n> Lamp", same wording as the feed's readout.
-    c.font = FONT;
+    c.font = FONT_LAMP;
     c.textAlign = "center";
     c.textBaseline = "middle";
+    c.lineJoin = "round";
+    c.strokeStyle = CITY_BG;
+    c.lineWidth = 3;
+    c.strokeText(loadLabel[i]!, x, y + cr + 10);
     c.fillStyle = k > 0 ? WARM_HOT : TEXT_DIM;
-    c.fillText(loadLabel[i]!, x, y + cr + 13);
+    c.fillText(loadLabel[i]!, x, y + cr + 10);
 
     if (isTarget[i] === 1) {
       c.strokeStyle = TARGET;
-      c.lineWidth = 2;
-      c.setLineDash(DASH_TARGET);
+      c.lineWidth = 1.5;
+      c.setLineDash(DASH_LAMP_TARGET);
       c.beginPath();
-      c.arc(x, y, cr + 8, 0, TAU);
+      c.arc(x, y, cr + 5, 0, TAU);
       c.stroke();
       c.setLineDash(DASH_NONE);
+      c.font = FONT_STAR;
+      c.strokeStyle = CITY_BG;
+      c.lineWidth = 3;
+      c.strokeText("★", x, y - cr - 13);
       c.fillStyle = TARGET;
-      c.font = FONT_BIG;
-      c.fillText("★", x, y - cr - 17);
+      c.fillText("★", x, y - cr - 13);
     }
     if (readableNode[i] === 1 && faultNode[i] === K_LAMP) {
-      drawX(x, y, 8);
+      drawX(x, y, 5);
       // A dead lamp that current reaches flickers a dull red at the socket.
       const fl = flicker(t * 1.3, i + 50);
       c.fillStyle = LAMP_FAULT_RED;
       c.globalAlpha = 0.15 + 0.4 * fl;
       c.beginPath();
-      c.arc(x, y + 2, 9 + 3 * fl, 0, TAU);
+      c.arc(x, y + 1, 5 + 2 * fl, 0, TAU);
       c.fill();
       c.globalAlpha = 1;
     }

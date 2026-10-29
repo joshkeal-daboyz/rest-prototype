@@ -1,0 +1,51 @@
+{
+  "id": "33-take-the-feed-out",
+  "name": "33 · Take the feed out",
+  "version": 4,
+  "scope": "map",
+  "capacity": 2,
+  "startingParts": ["fuse", "fuse"],
+  "target": ["bakery", "shrine"],
+
+  "nodes": [
+    { "id": "feed",   "type": "feed",     "pos": [0, 0] },
+    { "id": "j0",     "type": "junction", "pos": [2, 0] },
+    { "id": "br_F",   "type": "breaker",  "pos": [4, 0], "closed": true },
+    { "id": "j_w",    "type": "junction", "pos": [6.5, 0] },
+    { "id": "bakery", "type": "lamp",     "pos": [6.5, -3], "load": 1 },
+    { "id": "bat",    "type": "battery",  "pos": [8.5, 3.5], "capacity": 3, "charge": 0, "input": "l_in" },
+    { "id": "j_e",    "type": "junction", "pos": [11, 0] },
+
+    { "id": "br_E",   "type": "breaker",  "pos": [13, 0], "closed": false },
+    { "id": "fb_E",   "type": "fusebox",  "pos": [15, 0], "rating": 1 },
+    { "id": "sw_P",   "type": "switch",   "pos": [17, 0], "outputs": ["l_pn", "l_ps"], "selected": 1 },
+    { "id": "tower",  "type": "lamp",     "pos": [17, 3], "load": 1 },
+    { "id": "rl1",    "type": "switch",   "pos": [19, -3], "outputs": ["l_mill", "l_12"], "selected": 0, "relay": true },
+    { "id": "mill",   "type": "lamp",     "pos": [19, -6], "load": 3 },
+    { "id": "rl2",    "type": "switch",   "pos": [22, -3], "outputs": ["l_forge", "l_sh"], "selected": 0, "relay": true },
+    { "id": "forge",  "type": "lamp",     "pos": [22, -6], "load": 2 },
+    { "id": "shrine", "type": "lamp",     "pos": [25, -3], "load": 1 }
+  ],
+
+  "lines": [
+    { "id": "l_f",     "from": "feed", "to": "j0" },
+    { "id": "l_w0",    "from": "j0",   "to": "br_F" },
+    { "id": "l_w1",    "from": "br_F", "to": "j_w" },
+    { "id": "l_bake",  "from": "j_w",  "to": "bakery" },
+    { "id": "l_in",    "from": "j_w",  "to": "bat" },
+    { "id": "l_out",   "from": "bat",  "to": "j_e" },
+    { "id": "l_we",    "from": "j_w",  "to": "j_e" },
+
+    { "id": "l_e1",    "from": "j_e",  "to": "br_E" },
+    { "id": "l_e2",    "from": "br_E", "to": "fb_E" },
+    { "id": "l_e3",    "from": "fb_E", "to": "sw_P" },
+    { "id": "l_ps",    "from": "sw_P", "to": "tower" },
+    { "id": "l_pn",    "from": "sw_P", "to": "rl1" },
+    { "id": "l_mill",  "from": "rl1",  "to": "mill" },
+    { "id": "l_12",    "from": "rl1",  "to": "rl2" },
+    { "id": "l_forge", "from": "rl2",  "to": "forge" },
+    { "id": "l_sh",    "from": "rl2",  "to": "shrine" }
+  ],
+
+  "faults": []
+}
