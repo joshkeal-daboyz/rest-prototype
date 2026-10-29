@@ -67,3 +67,52 @@ export function lampOnLabel(load: number, feedName: string): string {
 export function carryingText(load: number, rating: number | null | undefined): string {
   return rating === null || rating === undefined ? `carrying ${load}` : `carrying ${load} of ${rating}`;
 }
+
+// ---- places (ticket 024): what each lamp lights, read from its id ----
+
+/** The kinds of place a lamp can light. The city draws one footprint per kind; `streetlight` is a pool on the lane. */
+export type PlaceKind =
+  | "sacred"
+  | "water"
+  | "mill"
+  | "gate"
+  | "work"
+  | "market"
+  | "hall"
+  | "homes"
+  | "home"
+  | "streetlight";
+
+/** A lamp id's base name (lower case, trailing `_N` / `_NN` stripped) → its kind. A new lamp name is one entry here. */
+export const PLACE_KINDS: Readonly<Record<string, PlaceKind>> = {
+  shrine: "sacred", chapel: "sacred", bell: "sacred", tower: "sacred",
+  well: "water",
+  mill: "mill",
+  gate: "gate",
+  forge: "work", kiln: "work", ovens: "work", bakery: "work", tannery: "work", smithy: "work",
+  market: "market", stall: "market", yard: "market",
+  inn: "hall", hall: "hall", infirmary: "hall", lamphouse: "hall",
+  home: "home", cottage: "home", house: "home",
+  homes: "homes", houses: "homes",
+  lantern: "streetlight", lane: "streetlight", flood: "streetlight", porch: "streetlight", lift: "streetlight",
+  steps: "streetlight", stair: "streetlight", street: "streetlight", lamp: "streetlight",
+};
+
+/** The kind a name falls back to when its base is not in `PLACE_KINDS`. */
+export const DEFAULT_PLACE_KIND: PlaceKind = "home";
+
+/** A lamp id's base name: lower case, one trailing `_N` or `_NN` stripped (`home_2` → `home`, `lamp_07` → `lamp`). */
+export function placeBase(lampId: string): string {
+  return lampId.toLowerCase().replace(/_\d{1,2}$/, "");
+}
+
+/** The lamp id's base (trailing _N / _NN stripped) looked up in the place table; unknown → "home". */
+export function placeKind(lampId: string): PlaceKind {
+  const base = placeBase(lampId);
+  return Object.prototype.hasOwnProperty.call(PLACE_KINDS, base) ? PLACE_KINDS[base]! : DEFAULT_PLACE_KIND;
+}
+
+/** The words for a lamp's place: the id with "_" as spaces, as the targets list shows today (`home_1` → `home 1`). */
+export function placeName(lampId: string): string {
+  return lampId.replace(/_/g, " ");
+}
