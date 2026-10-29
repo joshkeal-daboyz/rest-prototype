@@ -4,7 +4,7 @@
  * name says `PxRect` (top-left).
  */
 
-import { placeBase, type Puzzle } from "../core";
+import { placeBase, type GridNode, type Puzzle } from "../core";
 import { circuitStreets, feedLanes, nodeClearPx, placeParts, type Building, type Place } from "./city";
 import { lampCaption } from "./labels";
 import { clusterRadius } from "./load";
@@ -50,14 +50,14 @@ export function placeShapes(p: Place): Prim[] {
       // A cross plan; bell and tower are the same, smaller, with a dome in the middle.
       const b = placeBase(p.lamp);
       const small = b === "bell" || b === "tower";
-      const long = Math.min(w, h) * (small ? 0.9 : 0.72);
+      const long = Math.min(w, h) * 0.9;
       const bar = long * 0.4;
       return [rect("body", x, y, long, bar, true), rect("body", x, y, bar, long, true), disc("edge", x, y, bar * (small ? 0.55 : 0.5), false)];
     }
     case "water":
-      return [ring(x, y, Math.min(w, h) * (0.5 / 0.6))];
+      return [ring(x, y, Math.min(w, h))];
     case "mill": {
-      const r = 0.25;
+      const r = 0.3;
       const e = Math.min(w, h) / 2;
       const k = r * Math.SQRT1_2;
       return [
@@ -276,6 +276,26 @@ export function placeLabel(
   return null;
 }
 
+// ---- lamp captions and stars (ticket 026) ----
+
+/** Lamp caption: 10 px font, 6 px per glyph + 4 wide, 14 tall, centred at y + cr + 10. */
+export const CAPTION_DY = 10;
+/** Target star: a 14 x 14 box centred at y - cr - 13. */
+export const STAR_DY = 13;
+export const CAPTION_H_PX = 14;
+export const STAR_BOX_PX = 14;
+
+/** The Lv caption box and the target star box of a lamp at px (x, y), top-left boxes. Allocates; not for the draw loop. */
+export function lampMarks(node: GridNode, x: number, y: number): PxRect[] {
+  const load = node.type === "lamp" ? (node.load ?? 1) : 1;
+  const cr = clusterRadius(load);
+  const capW = lampCaption(load).length * 6 + 4;
+  return [
+    { x: x - capW / 2, y: y + cr + CAPTION_DY - CAPTION_H_PX / 2, w: capW, h: CAPTION_H_PX },
+    { x: x - STAR_BOX_PX / 2, y: y - cr - STAR_DY - STAR_BOX_PX / 2, w: STAR_BOX_PX, h: STAR_BOX_PX },
+  ];
+}
+
 // ---- picking ----
 
 /** Lamp id whose place holds the canvas point, under the fit that draws the map (pan included); null otherwise. */
@@ -329,11 +349,7 @@ export function targetLabels(
     if (n.type === "lamp") {
       lamp.set(n.id, { x: n.pos[0], y: n.pos[1] });
       // The Lv caption under the lamp and the target star above it.
-      const load = n.load ?? 1;
-      const cr = clusterRadius(load);
-      const capW = lampCaption(load).length * 7 + 4;
-      rects.push({ x: x - capW / 2, y: y + cr + 13 - 8, w: capW, h: 16 });
-      rects.push({ x: x - 9, y: y - cr - 17 - 9, w: 18, h: 18 });
+      for (const m of lampMarks(n, x, y)) rects.push(m);
     }
   }
   for (const p of places) {
