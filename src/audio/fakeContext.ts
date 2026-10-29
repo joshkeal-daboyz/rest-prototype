@@ -105,7 +105,7 @@ export class FakeContext {
     return node;
   }
 
-  createOscillator = () => this.make("osc", [["frequency", 440]]) as never;
+  createOscillator = () => this.make("osc", [["frequency", 440], ["detune", 0]]) as never;
   createGain = () => this.make("gain", [["gain", 1]]) as never;
   createBiquadFilter = () => this.make("biquad", [["frequency", 350], ["Q", 1]]) as never;
   createBufferSource = () => this.make("buffersource", []) as never;

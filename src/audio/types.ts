@@ -35,6 +35,14 @@ export interface Voice {
   duration: number;
   /** Tremolo: amplitude wobble. */
   lfo?: { freq: number; depth: number };
+  /** Fixed detune of the source, in cents, applied on top of an on-grid `freq`. */
+  detuneCents?: number;
+  /** Opt-out from the 432 grid check, for an osc used as a click. Needs a comment saying why. */
+  unpitched?: true;
+  /** Parallel bandpass bank (vowel formants), after `filter`; outputs summed. Gains are linear-summed <= 1. */
+  formants?: ReadonlyArray<{ freq: number; q: number; gainDb: number }>;
+  /** Pitch wobble: an LFO on frequency. Unlike `lfo`, which is amplitude tremolo. */
+  vibrato?: { freq: number; cents: number };
 }
 
 export type CuePart = "run" | "glow" | "spark" | "pop";
@@ -82,6 +90,7 @@ export interface SourceLike extends NodeLike {
 export interface OscLike extends SourceLike {
   type: OscillatorType;
   frequency: ParamLike;
+  detune: ParamLike;
 }
 export interface BufferSourceLike extends SourceLike {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

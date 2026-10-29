@@ -17,7 +17,7 @@ const blown = (lamps: number, withPath = true): Events["fuse:blown"] => ({
 const names = (cues: Cue[]) => cues.map((c) => c.name);
 const peak = (c: Cue) => Math.max(...c.voices.map((v) => v.gainDb));
 const tone = (gainDb: number, dur = 1): Voice => ({
-  kind: "osc", wave: "sine", freq: 440, attack: 0.01, decay: 0, sustain: 1, release: 0.1, gainDb, at: 0, duration: dur,
+  kind: "osc", wave: "sine", freq: 432, attack: 0.01, decay: 0, sustain: 1, release: 0.1, gainDb, at: 0, duration: dur,
 });
 
 describe("blow merging", () => {

@@ -1,6 +1,7 @@
 /** Pure: one function per sound, returning Voice[]. Every number the ear depends on lives here, named. */
 import { BLOW_TIMING } from "../core";
 import { mulberry32 } from "./noise";
+import { noteHz } from "./tuning";
 import type { Voice } from "./types";
 
 export const dbToGain = (db: number): number => Math.pow(10, db / 20);
@@ -12,8 +13,12 @@ export const CUE_CEILING_DB = -8;
 export const HUM_DB = -30;
 export const FLICKER_DB = -26;
 export const WHINE_DB = -34;
-export const WHINE_LOW_HZ = 600;
-export const WHINE_HIGH_HZ = 1400;
+/** Hum: A1 + A2 (the old 50 + 100 Hz mains hum, moved to the 432 grid). */
+export const HUM_HZ = [noteHz("A1"), noteHz("A2")] as const;
+/** The flicker saw stays in unison with the hum's upper oscillator. */
+export const FLICKER_HZ = noteHz("A2");
+export const WHINE_LOW_HZ = noteHz("D#5");
+export const WHINE_HIGH_HZ = noteHz("F6");
 export const CRACKLE_DB = -24;
 export const LAYER_RAMP = 0.08;
 export const FLICKER_ATTACK = 0.04;
@@ -65,8 +70,8 @@ export function envelope(v: Voice): Array<[number, number]> {
 export function breakerThrow(closed: boolean): Voice[] {
   return [
     noise({ filter: { type: "lowpass", freq: 400, q: 1 }, attack: 0.002, release: 0.035, duration: 0.04, gainDb: -14 }),
-    osc("sine", closed ? 110 : 90, {
-      freqTo: 50, glide: "exp", glideTime: 0.06, attack: 0.002, release: 0.12, duration: 0.17, gainDb: -12,
+    osc("sine", closed ? noteHz("A2") : noteHz("F#2"), {
+      freqTo: noteHz("G#1"), glide: "exp", glideTime: 0.06, attack: 0.002, release: 0.12, duration: 0.17, gainDb: -12,
     }),
   ];
 }
@@ -75,22 +80,22 @@ export function switchThrow(spring: boolean): Voice[] {
   const q = spring ? 6 : 0;
   return [
     noise({ filter: { type: "highpass", freq: 2000, q: 0.7 }, attack: 0.001, release: 0.01, duration: 0.015, gainDb: -16 - q }),
-    osc("square", spring ? 800 : 1200, { attack: 0.001, release: 0.012, duration: 0.02, gainDb: -20 - q }),
+    osc("square", spring ? noteHz("G#5") : noteHz("D#6"), { attack: 0.001, release: 0.012, duration: 0.02, gainDb: -20 - q }),
   ];
 }
 
 export function repairSound(part: "bulb" | "fuse" | "wire"): Voice[] {
   if (part === "bulb") {
     return [
-      osc("sine", 2400, { attack: 0.002, release: 0.02, duration: 0.03, gainDb: -20 }),
-      osc("triangle", 220, {
+      osc("sine", noteHz("D#7"), { attack: 0.002, release: 0.02, duration: 0.03, gainDb: -20 }),
+      osc("triangle", noteHz("A3"), {
         at: 0.03, filter: { type: "lowpass", freq: 600, q: 0.7 }, attack: 0.2, release: 0.3, duration: 0.55, gainDb: -24,
       }),
     ];
   }
   if (part === "fuse") {
     return [
-      osc("square", 600, { attack: 0.001, release: 0.015, duration: 0.025, gainDb: -16 }),
+      osc("square", noteHz("D#5"), { attack: 0.001, release: 0.015, duration: 0.025, gainDb: -16 }),
       noise({ filter: { type: "bandpass", freq: 3000, q: 4 }, attack: 0.001, release: 0.03, duration: 0.04, gainDb: -18 }),
     ];
   }
@@ -101,35 +106,35 @@ export function repairSound(part: "bulb" | "fuse" | "wire"): Voice[] {
 
 export function brownoutSag(): Voice[] {
   return [
-    osc("sine", 160, {
-      freqTo: 70, glide: "exp", glideTime: 0.35, filter: { type: "lowpass", freq: 500, q: 0.7 },
+    osc("sine", noteHz("E3"), {
+      freqTo: noteHz("C#2"), glide: "exp", glideTime: 0.35, filter: { type: "lowpass", freq: 500, q: 0.7 },
       attack: 0.01, release: 0.2, duration: 0.55, gainDb: -20,
     }),
   ];
 }
 
 export function brownoutRecovery(): Voice[] {
-  return [osc("triangle", 120, { freqTo: 240, glide: "linear", glideTime: 0.15, attack: 0.01, release: 0.12, duration: 0.27, gainDb: -22 })];
+  return [osc("triangle", noteHz("B2"), { freqTo: noteHz("B3"), glide: "linear", glideTime: 0.15, attack: 0.01, release: 0.12, duration: 0.27, gainDb: -22 })];
 }
 
 export function batteryRelease(): Voice[] {
   return [
-    osc("triangle", 200, { freqTo: 600, glide: "linear", glideTime: 0.25, attack: 0.01, release: 0.15, duration: 0.4, gainDb: -18 }),
+    osc("triangle", noteHz("G#3"), { freqTo: noteHz("D#5"), glide: "linear", glideTime: 0.25, attack: 0.01, release: 0.15, duration: 0.4, gainDb: -18 }),
     noise({ filter: { type: "lowpass", freq: 2000, q: 0.7 }, attack: 0.02, release: 0.15, duration: 0.2, gainDb: -26 }),
   ];
 }
 
-export const BATTERY_WHINE_HZ = 1800;
+export const BATTERY_WHINE_HZ = noteHz("A#6");
 /** The faint whine while a battery is released. Held: its duration is unused. */
 export function batteryWhine(): Voice {
   return osc("sine", BATTERY_WHINE_HZ, { attack: 0.05, release: 0.05, duration: 1, gainDb: -36, lfo: { freq: 4, depth: 0.3 } });
 }
 export const BATTERY_STOP_FADE = 0.02;
 export const BATTERY_RUNOUT_FADE = 0.4;
-export const BATTERY_RUNOUT_HZ = 900;
+export const BATTERY_RUNOUT_HZ = noteHz("A#5");
 
 export function batteryCutOff(): Voice[] {
-  return [osc("square", 400, { freqTo: 200, glide: "linear", glideTime: 0.06, attack: 0.002, release: 0.03, duration: 0.06, gainDb: -20 })];
+  return [osc("square", noteHz("G#4"), { freqTo: noteHz("G#3"), glide: "linear", glideTime: 0.06, attack: 0.002, release: 0.03, duration: 0.06, gainDb: -20 })];
 }
 
 /** One quiet dry tick; no tonal blip. */
@@ -138,7 +143,7 @@ export function playClick(): Voice[] {
 }
 
 export function fullTick(): Voice[] {
-  return [osc("sine", 1600, { attack: 0.002, release: 0.02, duration: 0.025, gainDb: -24 })];
+  return [osc("sine", noteHz("G#6"), { attack: 0.002, release: 0.02, duration: 0.025, gainDb: -24 })];
 }
 
 export function crackleTick(): Voice[] {
@@ -161,7 +166,7 @@ export function glowSound(): Voice[] {
     osc("sawtooth", f, {
       filter: { type: "lowpass", freq: 800, q: 0.7 }, attack: GLOW_RISE, release: GLOW_FALL, duration: BLOW_TIMING.glow, gainDb: -22,
     });
-  return [saw(100), saw(200)];
+  return [saw(noteHz("G#2")), saw(noteHz("G#3"))];
 }
 
 /** +1 dB per lamp after the first, capped at +6 dB. */
@@ -196,14 +201,14 @@ export function sparkBurst(lamps: number): Voice[] {
 
 export function popSound(): Voice[] {
   return [
-    osc("sine", 180, { freqTo: 40, glide: "exp", glideTime: 0.08, attack: 0.002, release: 0.15, duration: 0.25, gainDb: -8 }),
+    osc("sine", noteHz("F#3"), { freqTo: noteHz("E1"), glide: "exp", glideTime: 0.08, attack: 0.002, release: 0.15, duration: 0.25, gainDb: -8 }),
     noise({ filter: { type: "lowpass", freq: 1000, q: 0.7 }, attack: 0.002, release: 0.04, duration: 0.06, gainDb: -10 }),
   ];
 }
 
 // ---- the Relight ----
 
-export const CHIME_HZ = [330, 392, 440, 523, 659] as const;
+export const CHIME_HZ = [noteHz("E4"), noteHz("G4"), noteHz("A4"), noteHz("C5"), noteHz("E5")] as const;
 export const CHIME_MERGE = 0.06;
 export const RELIGHT_TAIL = 1.5;
 
@@ -211,8 +216,8 @@ export function relightBed(lastChime: number, openSeconds: number): Voice[] {
   const f = { type: "lowpass" as const, freq: 200, freqTo: 2000, glideTime: Math.max(0.01, openSeconds), q: 0.7 };
   const dur = lastChime + RELIGHT_TAIL;
   return [
-    osc("triangle", 55, { filter: f, attack: 0.3, release: RELIGHT_TAIL, duration: dur, gainDb: -24 }),
-    osc("sine", 110, { filter: f, attack: 0.3, release: RELIGHT_TAIL, duration: dur, gainDb: -24 }),
+    osc("triangle", noteHz("A1"), { filter: f, attack: 0.3, release: RELIGHT_TAIL, duration: dur, gainDb: -24 }),
+    osc("sine", noteHz("A2"), { filter: f, attack: 0.3, release: RELIGHT_TAIL, duration: dur, gainDb: -24 }),
   ];
 }
 
@@ -223,57 +228,79 @@ export function relightChime(index: number): Voice[] {
 
 export function relightClose(): Voice[] {
   const v = (f: number): Voice => osc("sine", f, { attack: 0.3, release: 2, duration: 2.4, gainDb: -28 });
-  return [v(220), v(330)];
+  return [v(noteHz("A3")), v(noteHz("E4"))];
 }
 
-// ---- the level-done cue (ticket 025): a soft latch knock, then a warm two-note figure in A major ----
+// ---- the level-done cue (ticket 031): a soft choir "ahh" on an open A major at 432 Hz ----
 
-export const LEVEL_KNOCK_HZ = 900;
-export const LEVEL_KNOCK_DB = -20;
-export const LEVEL_KNOCK_SECONDS = 0.04;
-/** C#4 then A4: the third and the root of A, sitting over the Relight's closing 220 + 330 Hz fifth. */
-export const LEVEL_NOTE1_HZ = 277.18;
-export const LEVEL_NOTE2_HZ = 440;
-export const LEVEL_NOTE1_AT = 0.06;
-export const LEVEL_NOTE2_AT = 0.16;
-export const LEVEL_NOTE_LOWPASS_HZ = 1500;
-export const LEVEL_NOTE_DB = -20;
-export const LEVEL_NOTE_ATTACK = 0.015;
-export const LEVEL_NOTE_RELEASE = 0.6;
-export const LEVEL_NOTE_SECONDS = 0.75;
-/** A2 under the second note. */
-export const LEVEL_UNDER_HZ = 110;
-export const LEVEL_UNDER_DB = -26;
-export const LEVEL_UNDER_ATTACK = 0.03;
-export const LEVEL_UNDER_RELEASE = 0.5;
-export const LEVEL_UNDER_SECONDS = 0.7;
+/** Open A major: root, fifth, octave, major third. Each note is sung by two slightly detuned voices. */
+export const CHOIR_NOTES = ["A3", "E4", "A4", "C#5"] as const;
+export const CHOIR_NOTE_AT = [0, 0.15, 0.3, 0.45] as const;
+/** Per note, two fixed detunes in cents (within +-3..+-10). */
+export const CHOIR_DETUNE_CENTS = [[-8, 6], [5, -9], [-6, 8], [9, -5]] as const;
+/** Vibrato rates (Hz) differ a little per voice; depth in cents. */
+export const CHOIR_VIBRATO_HZ = [4.8, 5.3, 5.7, 5.1, 5.5, 4.9, 5.9, 5.2] as const;
+export const CHOIR_VIBRATO_CENTS = 16;
+/** The vowel "ahh": parallel bandpass formants (Hz centres), gains summing to under 1. */
+export const CHOIR_FORMANTS = [
+  { freq: 780, q: 6, gainDb: -7 },
+  { freq: 1150, q: 8, gainDb: -10 },
+  { freq: 2600, q: 10, gainDb: -18 },
+] as const;
+export const CHOIR_DB = -28;
+export const CHOIR_ATTACK = 0.5;
+export const CHOIR_RELEASE = 1.6;
+/** Every voice ends here, seconds from the cue start. */
+export const CHOIR_END = 3.8;
+/** Shimmer: two quiet high sines (E6, A6) and a breath of highpassed noise, entering after the chord. */
+export const CHOIR_SHIMMER_NOTES = ["E6", "A6"] as const;
+export const CHOIR_SHIMMER_AT = [0.6, 0.9] as const;
+export const CHOIR_SHIMMER_DB = -36;
+export const CHOIR_BREATH_AT = 0.5;
+export const CHOIR_BREATH_HZ = 4500;
+export const CHOIR_BREATH_DB = -38;
 
 export function levelDoneSound(): Voice[] {
-  const note = (hz: number, at: number): Voice =>
-    osc("triangle", hz, {
-      filter: { type: "lowpass", freq: LEVEL_NOTE_LOWPASS_HZ, q: 0.7 },
-      attack: LEVEL_NOTE_ATTACK,
-      release: LEVEL_NOTE_RELEASE,
-      duration: LEVEL_NOTE_SECONDS,
-      gainDb: LEVEL_NOTE_DB,
-      at,
-    });
-  return [
+  const out: Voice[] = [];
+  CHOIR_NOTES.forEach((name, i) => {
+    const at = CHOIR_NOTE_AT[i] ?? 0;
+    for (let k = 0; k < 2; k++) {
+      out.push(
+        osc("sawtooth", noteHz(name), {
+          at,
+          detuneCents: CHOIR_DETUNE_CENTS[i]?.[k] ?? 0,
+          formants: CHOIR_FORMANTS,
+          vibrato: { freq: CHOIR_VIBRATO_HZ[i * 2 + k] ?? 5.2, cents: CHOIR_VIBRATO_CENTS },
+          attack: CHOIR_ATTACK,
+          release: CHOIR_RELEASE,
+          duration: CHOIR_END - at,
+          gainDb: CHOIR_DB,
+        }),
+      );
+    }
+  });
+  CHOIR_SHIMMER_NOTES.forEach((name, i) => {
+    const at = CHOIR_SHIMMER_AT[i] ?? 0.6;
+    out.push(
+      osc("sine", noteHz(name), {
+        at,
+        lfo: { freq: 3.1 + i * 0.7, depth: 0.5 },
+        attack: 0.8,
+        release: CHOIR_RELEASE,
+        duration: CHOIR_END - at,
+        gainDb: CHOIR_SHIMMER_DB,
+      }),
+    );
+  });
+  out.push(
     noise({
-      filter: { type: "lowpass", freq: LEVEL_KNOCK_HZ, q: 0.7 },
-      attack: 0.002,
-      release: 0.03,
-      duration: LEVEL_KNOCK_SECONDS,
-      gainDb: LEVEL_KNOCK_DB,
+      at: CHOIR_BREATH_AT,
+      filter: { type: "highpass", freq: CHOIR_BREATH_HZ, q: 0.7 },
+      attack: 0.8,
+      release: CHOIR_RELEASE,
+      duration: CHOIR_END - CHOIR_BREATH_AT,
+      gainDb: CHOIR_BREATH_DB,
     }),
-    note(LEVEL_NOTE1_HZ, LEVEL_NOTE1_AT),
-    note(LEVEL_NOTE2_HZ, LEVEL_NOTE2_AT),
-    osc("sine", LEVEL_UNDER_HZ, {
-      attack: LEVEL_UNDER_ATTACK,
-      release: LEVEL_UNDER_RELEASE,
-      duration: LEVEL_UNDER_SECONDS,
-      gainDb: LEVEL_UNDER_DB,
-      at: LEVEL_NOTE2_AT,
-    }),
-  ];
+  );
+  return out;
 }

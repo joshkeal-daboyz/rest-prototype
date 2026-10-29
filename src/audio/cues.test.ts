@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { BLOW_TIMING } from "../core";
 import type { Events } from "../core";
 import { CueTracker, blowCues, chimeTimes, cuesFor, relightCues } from "./cues";
-import { CUE_CEILING_DB, envelope, sparkBoostDb, sparkBurst } from "./recipes";
+import { BATTERY_RUNOUT_HZ, BATTERY_WHINE_HZ, CHIME_HZ, CUE_CEILING_DB, envelope, sparkBoostDb, sparkBurst } from "./recipes";
+import { noteHz } from "./tuning";
 import type { Cue } from "./types";
 
 const peak = (c: Cue): number => Math.max(...c.voices.map((v) => v.gainDb));
@@ -28,8 +29,8 @@ describe("sound per event class", () => {
     const closed = one("breaker:thrown", { nodeId: "b", closed: true });
     const open = one("breaker:thrown", { nodeId: "b", closed: false });
     expect(sig(closed)).not.toBe(sig(open));
-    expect(closed.voices.find((v) => v.wave === "sine")?.freq).toBe(110);
-    expect(open.voices.find((v) => v.wave === "sine")?.freq).toBe(90);
+    expect(closed.voices.find((v) => v.wave === "sine")?.freq).toBe(noteHz("A2"));
+    expect(open.voices.find((v) => v.wave === "sine")?.freq).toBe(noteHz("F#2"));
     for (const c of [closed, open]) expect(Math.max(...c.voices.map((v) => v.at + v.duration))).toBeLessThan(0.18);
   });
 
@@ -38,8 +39,8 @@ describe("sound per event class", () => {
     const spring = one("switch:thrown", { nodeId: "s", selected: 0, spring: true });
     expect(spring.name).not.toBe(throwIt.name);
     throwIt.voices.forEach((v, i) => expect(spring.voices[i]?.gainDb).toBe(v.gainDb - 6));
-    expect(throwIt.voices.find((v) => v.wave === "square")?.freq).toBe(1200);
-    expect(spring.voices.find((v) => v.wave === "square")?.freq).toBe(800);
+    expect(throwIt.voices.find((v) => v.wave === "square")?.freq).toBe(noteHz("D#6"));
+    expect(spring.voices.find((v) => v.wave === "square")?.freq).toBe(noteHz("G#5"));
   });
 
   it("the three repair parts are three different sounds", () => {
@@ -66,7 +67,7 @@ describe("sound per event class", () => {
     expect(stopped.voices.length).toBeGreaterThan(0);
     expect(ranOut.voices).toEqual([]);
     expect(stopped.stop?.fade).toBeLessThan(0.05);
-    expect(ranOut.stop).toMatchObject({ fade: 0.4, freqTo: 900 });
+    expect(ranOut.stop).toMatchObject({ fade: 0.4, freqTo: BATTERY_RUNOUT_HZ });
     expect(stopped.stop?.key).toBe(ranOut.stop?.key);
   });
 
@@ -74,7 +75,7 @@ describe("sound per event class", () => {
     const cues = cuesFor("battery:released", { nodeId: "bat", charge: 5 });
     expect(cues.length).toBe(2);
     expect(cues[1]?.hold?.key).toBe(one("battery:flat", { nodeId: "bat", stopped: true }).stop?.key);
-    expect(cues[1]?.hold?.voice.freq).toBe(1800);
+    expect(cues[1]?.hold?.voice.freq).toBe(BATTERY_WHINE_HZ);
   });
 
   it("job:completed, grid:changed and night events make no sound", () => {
@@ -160,7 +161,7 @@ describe("the blow sequence", () => {
     const run = part(cues, "run")?.voices[0];
     expect(run?.gainDb).toBe(-30);
     expect(run?.gainDbTo).toBe(-18);
-    expect(part(cues, "glow")?.voices.map((v) => v.freq)).toEqual([100, 200]);
+    expect(part(cues, "glow")?.voices.map((v) => v.freq)).toEqual([noteHz("G#2"), noteHz("G#3")]);
   });
 
   it("1, 4, 7 and 32 lamps each make exactly one spark cue, at base, +3, +6 and +6 dB", () => {
@@ -214,9 +215,9 @@ describe("the Relight", () => {
     expect(chimeTimes([1, 1.061])).toEqual([1, 1.061]);
   });
 
-  it("chime pitch rises through 330, 392, 440, 523, 659 and cycles", () => {
+  it("chime pitch rises through E4, G4, A4, C5, E5 and cycles", () => {
     const cues = relightCues([0, 1, 2, 3, 4, 5], 6).filter((c) => c.name.startsWith("relight:chime"));
-    expect(cues.map((c) => c.voices[0]?.freq)).toEqual([330, 392, 440, 523, 659, 330]);
+    expect(cues.map((c) => c.voices[0]?.freq)).toEqual([...CHIME_HZ, CHIME_HZ[0]]);
   });
 
   it("the bed's filter opens 200 to 2000 Hz over the duration and rings 1.5 s past the last chime", () => {
