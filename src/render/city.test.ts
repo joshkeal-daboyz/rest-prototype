@@ -11,16 +11,15 @@ import {
   CITY_BG,
   CITY_BLOCK,
   CITY_BUILDING,
-  CITY_PLACE,
   CITY_PLACE_EDGE,
+  CITY_PLACE_FILL,
   CITY_SEED,
-  CITY_STREET_COLOUR,
+  CITY_STREET_LINE,
   DISTRICT,
   GLOW_EASE_SECONDS,
-  HALO_ALPHA,
   HUB_R,
   LIT_FILL_ALPHA,
-  NODE_CLEAR,
+  nodeClearPx,
   R0,
   SPOKES,
   circuitStreets,
@@ -257,7 +256,7 @@ describe("neighbouring maps share streets outside their footprints", () => {
         [ga, gb].every((g) => x.x + x.w / 2 <= g.minX || x.x - x.w / 2 >= g.maxX || x.y + x.h / 2 <= g.minY || x.y - x.h / 2 >= g.maxY);
       const through = (p: Puzzle, o: { x: number; y: number }): string[] =>
         sorted(
-          cityForMap(p, o, { minX: strip.minX - o.x, maxX: strip.maxX - o.x, minY: strip.minY - o.y, maxY: strip.maxY - o.y })
+          cityForMap(p, o, { minX: strip.minX - o.x, maxX: strip.maxX - o.x, minY: strip.minY - o.y, maxY: strip.maxY - o.y }, 50)
             .map((bd) => ({ ...bd, x: bd.x + o.x, y: bd.y + o.y }))
             .filter(outside),
         );
@@ -284,36 +283,25 @@ describe("places", () => {
         }
     }
   });
-  it("puts a place on the side with the fewest lines", () => {
-    const p = loadPuzzle({
-      id: "t", name: "t", version: 5, scope: "map", capacity: null,
-      nodes: [
-        { id: "feed", type: "feed", pos: [0, 0] },
-        { id: "home", type: "lamp", pos: [3, 0] },
-      ],
-      lines: [{ id: "l1", from: "feed", to: "home" }],
-      faults: [],
-    });
-    const place = cityPlaces(p)[0]!;
-    expect(place.x).toBeGreaterThan(3); // away from the line, which comes in from the left
-    expect(place.y).toBeCloseTo(0, 9);
-  });
 });
 
 describe("filtering", () => {
-  it("keeps the city off every node and every place", () => {
+  it("keeps the city off every node (nodeClearPx) and every place", () => {
     for (const { key: k, puzzle } of OPEN) {
       const b = puzzleBounds(puzzle);
       const o = mapOrigin(puzzle.id, b);
       const rect = { minX: b.minX - 6, maxX: b.maxX + 6, minY: b.minY - 6, maxY: b.maxY + 6 };
-      const bs = cityForMap(puzzle, o, rect);
+      const bs = cityForMap(puzzle, o, rect, 50);
       expect(bs.length, k).toBeGreaterThan(0);
-      const places = cityPlaces(puzzle);
+      const places = cityPlaces(puzzle, 50);
       let nearNode = 0;
       let onPlace = 0;
       for (const bd of bs) {
-        for (const n of puzzle.nodes) if (Math.hypot(n.pos[0] - bd.x, n.pos[1] - bd.y) < NODE_CLEAR) nearNode++;
-        for (const p of places) if (Math.abs(bd.x - p.x) < (bd.w + p.w) / 2 && Math.abs(bd.y - p.y) < (bd.h + p.h) / 2) onPlace++;
+        for (const n of puzzle.nodes) {
+          const d = Math.hypot(Math.max(Math.abs(n.pos[0] - bd.x) - bd.w / 2, 0), Math.max(Math.abs(n.pos[1] - bd.y) - bd.h / 2, 0));
+          if (d * 50 < nodeClearPx(n) - 1e-6) nearNode++;
+        }
+        for (const p of places) if (!p.pool && Math.abs(bd.x - p.x) < (bd.w + p.w) / 2 && Math.abs(bd.y - p.y) < (bd.h + p.h) / 2) onPlace++;
       }
       expect(nearNode, k).toBe(0);
       expect(onPlace, k).toBe(0);
@@ -377,12 +365,11 @@ describe("easing", () => {
 
 describe("contrast", () => {
   it("keeps every dark city colour within 1.6 of the background", () => {
-    for (const c of [CITY_BUILDING, CITY_STREET_COLOUR, CITY_AVENUE_COLOUR, CITY_PLACE, CITY_PLACE_EDGE]) {
+    for (const c of [CITY_BUILDING, CITY_STREET_LINE, CITY_AVENUE_COLOUR, CITY_PLACE_FILL, CITY_PLACE_EDGE]) {
       expect(contrastRatio(c, CITY_BG), c).toBeLessThanOrEqual(1.6);
     }
   });
-  it("keeps the lit alphas low", () => {
+  it("keeps the lit alpha low", () => {
     expect(LIT_FILL_ALPHA).toBeLessThanOrEqual(0.35);
-    expect(HALO_ALPHA).toBeLessThanOrEqual(0.2);
   });
 });

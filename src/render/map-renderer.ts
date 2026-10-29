@@ -38,30 +38,36 @@ import {
   sliceVertices,
 } from "./shock";
 import {
-  CITY_AVENUE,
+  AVENUE_PX,
   CITY_AVENUE_COLOUR,
   CITY_BLOCK,
   CITY_BUILDING,
-  CITY_PLACE,
   CITY_PLACE_EDGE,
-  CITY_STREET_COLOUR,
+  CITY_PLACE_FILL,
+  CITY_STREET_LINE,
   CITY_WARM,
-  HALO_LAYERS,
+  GLOW_MAX,
+  GLOW_SPRITE_PX,
   HUB_R,
   LIT_FILL_ALPHA,
+  POOL_PX,
+  STREET_PX,
   avenuePieces,
   circuitStreets,
   cityForMap,
-  feedLanes,
-  gridStreetRects,
-  cityPlaces,
   easeGlow,
+  feedLanes,
+  footprintLayout,
+  glowRadiusPx,
+  glowSpriteData,
   glowTarget,
+  gridStreetLines,
   mapOrigin,
   spokeDir,
   visibleMapRect,
+  type Place,
 } from "./city";
-import { LABEL_FONT_PX, POOL_RADIUS, placeAtPoint, placeLabelBox, placeShapes, type Prim } from "./places";
+import { LABEL_FONT_PX, placeAtPoint, placeShapes, targetLabels, type Prim } from "./places";
 import { chargeFraction, popProgress, wentFlat } from "./battery";
 import { clamp01, flicker, hash01, pulseCount, pulsePhase, PULSE_SPACING } from "./motion";
 import { FLARE_SECONDS, planRelight, type RelightPlan } from "./relight";
@@ -156,6 +162,7 @@ const FONT_FEED = "bold 15px system-ui, sans-serif";
 
 const DASH_TARGET: number[] = [4, 4];
 const DASH_NONE: number[] = [];
+const DASH_PLACE: number[] = [5, 4];
 
 const K_NONE = 0;
 const K_LAMP = 1;
@@ -300,30 +307,35 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
   const sliceOut = new Float64Array(2 * (MAX_PATH_POINTS + 2));
   const headOut = new Float64Array(2);
 
-  // ---- the city under the map (ticket 023) ----
+  // ---- the city under the map (tickets 023, 024) ----
   const cityOrigin = mapOrigin(puzzle.id, mapBounds);
-  const places = cityPlaces(puzzle);
   const streets = circuitStreets(puzzle);
-  const feedStreets = feedLanes(puzzle, cityOrigin);
-  const placeNode = new Int32Array(places.length);
+  const feedStreets = feedLanes(puzzle);
+  /** The places at the current scale: one per lamp in `nodes` order, so every array below keeps its size. */
+  let places: Place[] = footprintLayout(puzzle, cityOrigin, 1).places;
+  const nPlaces = places.length;
+  const placeNode = new Int32Array(nPlaces);
   places.forEach((p, i) => {
     placeNode[i] = puzzle.nodes.findIndex((n) => n.id === p.lamp);
   });
-  /** Glow 0..1 per node (only lamps with a place or a linked building use theirs). */
+  /** Glow 0..1 per node (only lamps with a place use theirs). */
   const cityGlow = new Float64Array(nNodes);
   const relScratch = { t: 0, arriveAt: 0 };
   let cityLastT = NaN;
-  /** Each place's pieces in map units, made once. */
-  const placeShapeList: Prim[][] = places.map((p) => placeShapes(p));
+  /** Each place's pieces in map units, remade whenever the layout is. */
+  let placeShapeList: Prim[][] = places.map((p) => placeShapes(p));
+  let shapesFor: unknown = null;
   /** Screen rects [x, y, w, h] per place (the highlight outline). */
-  let placeRects = new Float64Array(0);
-  /** The glowing pieces of every place in screen px: kind (0 rect, 1 circle, 2 pool), then x, y, w, h (a circle's x, y is its centre, w its radius); place i owns [glowStart[i], glowStart[i + 1]). */
+  const placeRects = new Float64Array(nPlaces * 4);
+  /** The lit tint pieces of every place in screen px: kind (0 rect, 1 disc), then x, y, w, h (a disc's x, y is its centre, w its radius); place i owns [glowStart[i], glowStart[i + 1]). */
   let glowKind = new Uint8Array(0);
   let glowBox = new Float64Array(0);
-  const glowStart = new Int32Array(places.length + 1);
-  /** A target's label per place, in canvas px: anchor x, y (the text's middle row) and alignment (-1 = no label). */
-  const labelXY = new Float64Array(places.length * 2);
-  const labelAlign = new Int8Array(places.length).fill(-1);
+  const glowStart = new Int32Array(nPlaces + 1);
+  /** Per place: the glow sprite's centre x, y and radius in px (a street light's pool uses POOL_PX). */
+  const glowC = new Float64Array(nPlaces * 3);
+  /** A target's label per place, in canvas px: the box centre (x, y); `labelShown` is 0 when hidden. */
+  const labelXY = new Float64Array(nPlaces * 2);
+  const labelShown = new Uint8Array(nPlaces);
   const labelText: string[] = places.map((p) => p.label ?? "");
   /** Per node: its place index, or -1. */
   const nodePlace = new Int32Array(nNodes).fill(-1);
@@ -336,6 +348,9 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
   let cityLayer: HTMLCanvasElement | OffscreenCanvas | null = null;
   let cityLayerOk = true;
   let cityBuildings: readonly { x: number; y: number; w: number; h: number }[] = [];
+  /** The round warm glow, pre-rendered once (128 px, alpha (1 - r)^2). */
+  let glowSprite: HTMLCanvasElement | OffscreenCanvas | null = null;
+  let glowSpriteTried = false;
 
   function makeLayer(w: number, h: number): HTMLCanvasElement | OffscreenCanvas | null {
     try {
@@ -352,7 +367,22 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     return null;
   }
 
-  /** Paint the dark city (streets, avenues, buildings, places) with the current fit. */
+  function makeGlowSprite(): HTMLCanvasElement | OffscreenCanvas | null {
+    const sp = makeLayer(GLOW_SPRITE_PX, GLOW_SPRITE_PX);
+    if (!sp) return null;
+    try {
+      const g = sp.getContext("2d") as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null;
+      if (!g || typeof g.createImageData !== "function") return null;
+      const img = g.createImageData(GLOW_SPRITE_PX, GLOW_SPRITE_PX);
+      img.data.set(glowSpriteData(GLOW_SPRITE_PX));
+      g.putImageData(img, 0, 0);
+      return sp;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Paint the dark city (streets, avenues, ring road, lots, place silhouettes) with the current fit. */
   function paintCity(g: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D, buildings: readonly { x: number; y: number; w: number; h: number }[]): void {
     const f = geo.fit;
     const sc = f.scale;
@@ -363,17 +393,21 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     g.fillStyle = BG;
     g.fillRect(0, 0, width, height);
     const vis = visibleMapRect(f, width, height, CITY_BLOCK);
-    // The open map's footprint (city units): inside it the streets are the circuit's own lanes.
+    // The open map's footprint (city units): its edge is the ring road, and the shared streets stop on it.
     const fpMap = streets.footprint;
     const hole = { minX: fpMap.minX + ox, minY: fpMap.minY + oy, maxX: fpMap.maxX + ox, maxY: fpMap.maxY + oy };
-    // Shared-grid streets on the cell edges, minus the footprint.
-    g.fillStyle = CITY_STREET_COLOUR;
-    const bands = gridStreetRects({ minX: vis.minX + ox, minY: vis.minY + oy, maxX: vis.maxX + ox, maxY: vis.maxY + oy }, hole);
-    for (let i = 0; i < bands.length; i++) {
-      const r = bands[i]!;
-      g.fillRect(X(r.minX - ox), Y(r.minY - oy), (r.maxX - r.minX) * sc, (r.maxY - r.minY) * sc);
+    g.lineCap = "butt";
+    g.lineJoin = "miter";
+    // Shared-grid streets: thin faint lines on the cell edges.
+    g.strokeStyle = CITY_STREET_LINE;
+    g.lineWidth = STREET_PX;
+    g.beginPath();
+    for (const r of gridStreetLines({ minX: vis.minX + ox, minY: vis.minY + oy, maxX: vis.maxX + ox, maxY: vis.maxY + oy }, hole)) {
+      g.moveTo(X(r.ax - ox), Y(r.ay - oy));
+      g.lineTo(X(r.bx - ox), Y(r.by - oy));
     }
-    // Avenues: a band along each spoke's ray from the hub's edge outward, stopping at the footprint.
+    g.stroke();
+    // Avenues: a wider line along each spoke's ray from the hub's edge outward, stopping at the ring road.
     const far = Math.max(
       Math.hypot(vis.minX + ox, vis.minY + oy),
       Math.hypot(vis.maxX + ox, vis.minY + oy),
@@ -381,91 +415,108 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
       Math.hypot(vis.maxX + ox, vis.maxY + oy),
     );
     if (far > HUB_R) {
-      g.fillStyle = CITY_AVENUE_COLOUR;
-      const hw = CITY_AVENUE / 2;
+      g.strokeStyle = CITY_AVENUE_COLOUR;
+      g.lineWidth = AVENUE_PX;
+      g.beginPath();
       for (let s = 0; s < 8; s++) {
         const d = spokeDir(s);
-        const nx0 = -d.y * hw;
-        const ny0 = d.x * hw;
         for (const [a0, a1] of avenuePieces(s, far + 4, hole)) {
-          g.beginPath();
-          g.moveTo(X(d.x * a0 + nx0 - ox), Y(d.y * a0 + ny0 - oy));
-          g.lineTo(X(d.x * a1 + nx0 - ox), Y(d.y * a1 + ny0 - oy));
-          g.lineTo(X(d.x * a1 - nx0 - ox), Y(d.y * a1 - ny0 - oy));
-          g.lineTo(X(d.x * a0 - nx0 - ox), Y(d.y * a0 - ny0 - oy));
-          g.closePath();
-          g.fill();
+          g.moveTo(X(d.x * a0 - ox), Y(d.y * a0 - oy));
+          g.lineTo(X(d.x * a1 - ox), Y(d.y * a1 - oy));
         }
       }
+      g.stroke();
     }
-    // The circuit's own streets: a lane under every line and decor segment, each feed's lane out to the grid, a square at every node.
-    g.strokeStyle = CITY_STREET_COLOUR;
-    g.lineCap = "round";
+    // The ring road, every circuit lane (lines, decor) and each feed's lane out to the ring.
+    g.strokeStyle = CITY_STREET_LINE;
+    g.lineWidth = STREET_PX;
+    g.beginPath();
+    g.rect(X(fpMap.minX), Y(fpMap.minY), (fpMap.maxX - fpMap.minX) * sc, (fpMap.maxY - fpMap.minY) * sc);
     for (let pass = 0; pass < 2; pass++) {
       const set = pass === 0 ? streets.lanes : feedStreets;
       for (let i = 0; i < set.length; i++) {
         const l = set[i]!;
-        g.lineWidth = l.w * sc;
-        g.beginPath();
         g.moveTo(X(l.ax), Y(l.ay));
         g.lineTo(X(l.bx), Y(l.by));
-        g.stroke();
       }
     }
-    g.lineCap = "butt";
-    g.fillStyle = CITY_STREET_COLOUR;
-    for (let i = 0; i < streets.squares.length; i++) {
-      const q = streets.squares[i]!;
-      g.fillRect(X(q.x - q.w / 2), Y(q.y - q.h / 2), q.w * sc, q.h * sc);
-    }
+    g.stroke();
     g.fillStyle = CITY_BUILDING;
     for (let i = 0; i < buildings.length; i++) {
       const b = buildings[i]!;
       g.fillRect(X(b.x - b.w / 2), Y(b.y - b.h / 2), b.w * sc, b.h * sc);
     }
-    // Places: each kind's own top-down shape (ticket 024 A2).
-    g.lineWidth = 1;
-    g.lineCap = "butt";
+    // Places: each kind's own top-down plan, filled, with a 1 px edge.
     for (let i = 0; i < placeShapeList.length; i++) {
       const shapes = placeShapeList[i]!;
       for (let k = 0; k < shapes.length; k++) {
         const pr = shapes[k]!;
+        g.strokeStyle = CITY_PLACE_EDGE;
+        g.fillStyle = pr.role === "edge" ? CITY_PLACE_EDGE : CITY_PLACE_FILL;
         if (pr.s === "line") {
-          g.strokeStyle = CITY_PLACE_EDGE;
+          g.lineWidth = 1;
           g.beginPath();
           g.moveTo(X(pr.x), Y(pr.y));
           g.lineTo(X(pr.w), Y(pr.h));
           g.stroke();
-          continue;
-        }
-        g.fillStyle = pr.role === "cut" ? CITY_STREET_COLOUR : pr.role === "edge" ? CITY_PLACE_EDGE : CITY_PLACE;
-        g.strokeStyle = CITY_PLACE_EDGE;
-        if (pr.s === "rect") {
+        } else if (pr.s === "rect") {
           const rx = X(pr.x - pr.w / 2);
           const ry = Y(pr.y - pr.h / 2);
-          g.fillRect(rx, ry, pr.w * sc, pr.h * sc);
-          if (pr.role !== "edge") g.strokeRect(rx + 0.5, ry + 0.5, pr.w * sc - 1, pr.h * sc - 1);
-        } else {
+          if (pr.role === "outline") {
+            g.lineWidth = 1;
+            g.setLineDash(pr.dashed ? DASH_PLACE : DASH_NONE);
+            g.strokeRect(rx + 0.5, ry + 0.5, pr.w * sc - 1, pr.h * sc - 1);
+            g.setLineDash(DASH_NONE);
+          } else {
+            g.fillRect(rx, ry, pr.w * sc, pr.h * sc);
+            if (pr.role === "body") {
+              g.lineWidth = 1;
+              g.strokeRect(rx + 0.5, ry + 0.5, pr.w * sc - 1, pr.h * sc - 1);
+            }
+          }
+        } else if (pr.s === "disc") {
           g.beginPath();
-          g.arc(X(pr.x), Y(pr.y), (pr.w / 2) * sc, 0, Math.PI * 2);
+          g.arc(X(pr.x), Y(pr.y), (pr.w / 2) * sc, 0, TAU2);
           g.fill();
-          if (pr.role === "body") g.stroke();
+          if (pr.role === "body") {
+            g.lineWidth = 1;
+            g.stroke();
+          }
+        } else {
+          g.lineWidth = 2;
+          g.beginPath();
+          g.arc(X(pr.x), Y(pr.y), (pr.w / 2) * sc, 0, TAU2);
+          g.stroke();
         }
       }
     }
   }
 
-  /** Recompute the city for the current fit: filtered buildings, screen rects for what glows, the cached dark layer. */
+  /** Where each target's label goes: beside its place, wholly inside the free area, off every wire, node, caption and star. */
+  function placeLabels(): void {
+    c.font = LABEL_FONT;
+    const boxes = targetLabels(puzzle, places, geo.fit, freeArea(width, height, insets), (text) => c.measureText(text).width);
+    boxes.forEach((box, i) => {
+      labelShown[i] = box ? 1 : 0;
+      if (!box) return;
+      labelXY[i * 2] = box.x + box.w / 2;
+      labelXY[i * 2 + 1] = box.y + box.h / 2;
+    });
+  }
+
+  /** Recompute the city for the current fit: layout at this scale, screen data for what glows, the cached dark layer. */
   function rebuildCity(): void {
     const f = geo.fit;
     const sc = f.scale;
-    const buildings = cityForMap(puzzle, cityOrigin, visibleMapRect(f, width, height, CITY_BLOCK));
-    placeRects = new Float64Array(places.length * 4);
-    let nGlow = 0;
-    for (let i = 0; i < places.length; i++) {
-      if (places[i]!.pool) nGlow++;
-      else for (const pr of placeShapeList[i]!) if (pr.glow) nGlow++;
+    const layout = footprintLayout(puzzle, cityOrigin, sc);
+    places = layout.places;
+    if (shapesFor !== layout) {
+      shapesFor = layout;
+      placeShapeList = places.map((p) => placeShapes(p));
     }
+    const buildings = cityForMap(puzzle, cityOrigin, visibleMapRect(f, width, height, CITY_BLOCK), sc);
+    let nGlow = 0;
+    for (let i = 0; i < nPlaces; i++) for (const pr of placeShapeList[i]!) if (pr.glow) nGlow++;
     glowKind = new Uint8Array(nGlow);
     glowBox = new Float64Array(nGlow * 4);
     let gi = 0;
@@ -475,39 +526,22 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
       placeRects[i * 4 + 2] = p.w * sc;
       placeRects[i * 4 + 3] = p.h * sc;
       glowStart[i] = gi;
-      if (p.pool) {
-        glowKind[gi] = 2;
-        glowBox[gi * 4] = p.x * sc + f.offsetX;
-        glowBox[gi * 4 + 1] = p.y * sc + f.offsetY;
-        glowBox[gi * 4 + 2] = POOL_RADIUS * sc;
-        glowBox[gi * 4 + 3] = POOL_RADIUS * sc;
+      glowC[i * 3] = p.x * sc + f.offsetX;
+      glowC[i * 3 + 1] = p.y * sc + f.offsetY;
+      glowC[i * 3 + 2] = p.pool ? POOL_PX : glowRadiusPx((Math.hypot(p.w, p.h) / 2) * sc);
+      for (const pr of placeShapeList[i]!) {
+        if (!pr.glow) continue;
+        const disc = pr.s === "disc";
+        glowKind[gi] = disc ? 1 : 0;
+        glowBox[gi * 4] = (disc ? pr.x : pr.x - pr.w / 2) * sc + f.offsetX;
+        glowBox[gi * 4 + 1] = (disc ? pr.y : pr.y - pr.h / 2) * sc + f.offsetY;
+        glowBox[gi * 4 + 2] = disc ? (pr.w / 2) * sc : pr.w * sc;
+        glowBox[gi * 4 + 3] = disc ? (pr.w / 2) * sc : pr.h * sc;
         gi++;
-      } else {
-        for (const pr of placeShapeList[i]!) {
-          if (!pr.glow) continue;
-          const circ = pr.s === "circle";
-          glowKind[gi] = circ ? 1 : 0;
-          glowBox[gi * 4] = (circ ? pr.x : pr.x - pr.w / 2) * sc + f.offsetX;
-          glowBox[gi * 4 + 1] = (circ ? pr.y : pr.y - pr.h / 2) * sc + f.offsetY;
-          glowBox[gi * 4 + 2] = circ ? (pr.w / 2) * sc : pr.w * sc;
-          glowBox[gi * 4 + 3] = circ ? (pr.w / 2) * sc : pr.h * sc;
-          gi++;
-        }
-      }
-      const ni = nodePlace.indexOf(i);
-      if (p.label !== null && ni >= 0) {
-        const n = nodes[ni]!;
-        const lb = placeLabelBox(p, n.pos[0], n.pos[1], lampLoad[ni]!, sc, p.label.length);
-        const lxp = n.pos[0] * sc + f.offsetX;
-        const lyp = n.pos[1] * sc + f.offsetY;
-        labelAlign[i] = lb.align;
-        labelXY[i * 2] = lxp + (lb.align === 0 ? lb.x : lb.align === 1 ? lb.x + lb.w : lb.x + lb.w / 2);
-        labelXY[i * 2 + 1] = lyp + lb.y + lb.h / 2;
-      } else {
-        labelAlign[i] = -1;
       }
     });
-    glowStart[places.length] = gi;
+    glowStart[nPlaces] = gi;
+    placeLabels();
     cityBuildings = buildings;
     const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
     const pw = Math.max(Math.round(width * dpr), 1);
@@ -535,7 +569,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     // Ease each lamp's glow toward its target (snap on the first frame).
     const dt = cityLastT === cityLastT ? t - cityLastT : -1;
     cityLastT = t;
-    for (let i = 0; i < places.length; i++) {
+    for (let i = 0; i < nPlaces; i++) {
       const ni = placeNode[i]!;
       if (ni < 0) continue;
       let rel: typeof relScratch | null = null;
@@ -552,32 +586,44 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     } else {
       paintCity(c, cityBuildings);
     }
-    // Only a lamp's own place glows.
+    // Only a lamp's own place glows: one round sprite, and a warm tint on its silhouette.
+    if (glowSprite === null && !glowSpriteTried) {
+      glowSpriteTried = true;
+      glowSprite = makeGlowSprite();
+    }
     c.fillStyle = CITY_WARM;
-    for (let i = 0; i < places.length; i++) {
+    for (let i = 0; i < nPlaces; i++) {
       const ni = placeNode[i]!;
       if (ni < 0) continue;
       const gl = cityGlow[ni]!;
       if (gl < 0.004) continue;
+      if (glowSprite) {
+        const r = glowC[i * 3 + 2]!;
+        c.globalAlpha = gl * GLOW_MAX;
+        c.drawImage(glowSprite, glowC[i * 3]! - r, glowC[i * 3 + 1]! - r, 2 * r, 2 * r);
+      }
+      c.globalAlpha = LIT_FILL_ALPHA * gl;
       for (let k = glowStart[i]!; k < glowStart[i + 1]!; k++) {
         const o = k * 4;
-        const kind = glowKind[k]!;
-        if (kind === 0) glowRect(glowBox[o]!, glowBox[o + 1]!, glowBox[o + 2]!, glowBox[o + 3]!, gl);
-        else glowDisc(glowBox[o]!, glowBox[o + 1]!, glowBox[o + 2]!, gl, kind === 2);
+        if (glowKind[k] === 0) c.fillRect(glowBox[o]!, glowBox[o + 1]!, glowBox[o + 2]!, glowBox[o + 3]!);
+        else {
+          c.beginPath();
+          c.arc(glowBox[o]!, glowBox[o + 1]!, glowBox[o + 2]!, 0, TAU2);
+          c.fill();
+        }
       }
     }
     c.globalAlpha = 1;
     // Quiet names beside the targets' places: drawn after the city, before the circuit, so wires cross over them.
     c.font = LABEL_FONT;
     c.textBaseline = "middle";
-    for (let i = 0; i < places.length; i++) {
-      const al = labelAlign[i]!;
-      if (al < 0) continue;
+    c.textAlign = "center";
+    for (let i = 0; i < nPlaces; i++) {
+      if (labelShown[i] === 0) continue;
       const ni = placeNode[i]!;
       const lit = ni >= 0 && cityGlow[ni]! > 0.5;
       c.fillStyle = lit ? TEXT : TEXT_DIM;
       c.globalAlpha = lit ? 1 : LABEL_ALPHA;
-      c.textAlign = al === 0 ? "left" : al === 1 ? "right" : "center";
       c.fillText(labelText[i]!, labelXY[i * 2]!, labelXY[i * 2 + 1]!);
     }
     c.globalAlpha = 1;
@@ -590,42 +636,13 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
         c.lineWidth = 1.5;
         if (places[pi]!.pool) {
           c.beginPath();
-          c.arc(placeRects[pi * 4]! + placeRects[pi * 4 + 2]! / 2, placeRects[pi * 4 + 1]! + placeRects[pi * 4 + 3]! / 2, POOL_RADIUS * geo.fit.scale + pad, 0, Math.PI * 2);
+          c.arc(glowC[pi * 3]!, glowC[pi * 3 + 1]!, POOL_PX * 0.5 + pad, 0, TAU2);
           c.stroke();
         } else {
           c.strokeRect(placeRects[pi * 4]! - pad, placeRects[pi * 4 + 1]! - pad, placeRects[pi * 4 + 2]! + 2 * pad, placeRects[pi * 4 + 3]! + 2 * pad);
         }
       }
     }
-  }
-
-  /** Warm fill plus stacked translucent halo discs; a pool is the same on the lane, with wider, softer rings. */
-  function glowDisc(x: number, y: number, r: number, g: number, pool: boolean): void {
-    for (let k = 0; k < HALO_LAYERS.length; k++) {
-      const L = HALO_LAYERS[k]!;
-      c.globalAlpha = L.alpha * g;
-      c.beginPath();
-      c.arc(x, y, r + L.grow * geo.fit.scale * (pool ? 1.6 : 1), 0, TAU2);
-      c.fill();
-    }
-    c.globalAlpha = LIT_FILL_ALPHA * g * (pool ? 0.6 : 1);
-    c.beginPath();
-    c.arc(x, y, r, 0, TAU2);
-    c.fill();
-  }
-
-  /** Warm fill plus stacked translucent halo rects; no gradients. */
-  function glowRect(x: number, y: number, w: number, h: number, g: number): void {
-    if (g < 0.004) return;
-    const sc = geo.fit.scale;
-    for (let k = 0; k < HALO_LAYERS.length; k++) {
-      const L = HALO_LAYERS[k]!;
-      const e = L.grow * sc;
-      c.globalAlpha = L.alpha * g;
-      c.fillRect(x - e, y - e, w + 2 * e, h + 2 * e);
-    }
-    c.globalAlpha = LIT_FILL_ALPHA * g;
-    c.fillRect(x, y, w, h);
   }
 
   let plan: RelightPlan | null = null;

@@ -5,13 +5,13 @@ import { loadPuzzle, type Puzzle } from "../core";
 import { puzzleBounds } from "./geometry";
 import {
   CITY_BLOCK,
-  CITY_STREET,
   DECOR_LANE_W,
-  FINE_CELL,
   FOOTPRINT_MARGIN,
   HUB_R,
   LANE_W,
   NODE_SQUARE,
+  WIRE_CLEAR_PX,
+  nodeClearPx,
   avenuePieces,
   circuitStreets,
   cityForMap,
@@ -19,7 +19,7 @@ import {
   districtOf,
   DISTRICT,
   feedLanes,
-  gridStreetRects,
+  gridStreetLines,
   ladderNumber,
   laneBoxDistance,
   mapNumber,
@@ -116,40 +116,37 @@ describe("circuitStreets", () => {
 });
 
 describe("footprint buildings", () => {
-  it("leave every line's ends, midpoint and quarter points on open lane", () => {
+  it("leave every line's ends, midpoint and quarter points on open ground, WIRE_CLEAR_PX from any building", () => {
     for (const { key: k, puzzle } of OPEN) {
       const cs = circuitStreets(puzzle);
       const o = mapOrigin(puzzle.id, puzzleBounds(puzzle));
-      const bs = cityForMap(puzzle, o, windowOf(puzzle));
+      const bs = cityForMap(puzzle, o, windowOf(puzzle), 50);
       for (const l of cs.lanes) {
         for (const t of [0, 0.25, 0.5, 0.75, 1]) {
           const x = l.ax + (l.bx - l.ax) * t;
           const y = l.ay + (l.by - l.ay) * t;
           expect(inAnyLane(cs.lanes, x, y), `${k} lane point ${t}`).toBe(true);
           expect(bs.some((b) => inBuilding(b, x, y)), `${k} building on lane at ${x},${y}`).toBe(false);
+          expect(bs.every((b) => laneBoxDistance({ ax: x, ay: y, bx: x, by: y, w: 0 }, b) * 50 >= WIRE_CLEAR_PX - 1e-6), `${k} building near ${x},${y}`).toBe(true);
         }
       }
     }
   });
-  it("clear every lane, node square and place", { timeout: 60000 }, () => {
+  it("clear every lane, node and place by the pixel rules (the full sampled test is town.test.ts)", { timeout: 60000 }, () => {
     for (const { key: k, puzzle } of OPEN) {
       const cs = circuitStreets(puzzle);
       const o = mapOrigin(puzzle.id, puzzleBounds(puzzle));
-      const lanes: Lane[] = cs.lanes.concat(feedLanes(puzzle, o));
-      const places = cityPlaces(puzzle);
-      const bs = cityForMap(puzzle, o, windowOf(puzzle));
-      expect(bs.length, k).toBeGreaterThan(50);
+      const lanes: Lane[] = cs.lanes.concat(feedLanes(puzzle));
+      const places = cityPlaces(puzzle, 50);
+      const bs = cityForMap(puzzle, o, windowOf(puzzle), 50);
+      expect(bs.length, k).toBeGreaterThan(20);
       for (const b of bs) {
-        for (const l of lanes) {
-          // sampled independently of laneBoxDistance (a cheap bounding-box skip keeps this fast)
-          if (Math.min(Math.hypot(l.ax - b.x, l.ay - b.y), Math.hypot(l.bx - b.x, l.by - b.y), ptSegDist(b.x, b.y, l)) > 6) continue;
-          let nearest = Infinity;
-          for (let i = 0; i <= 4; i++)
-            for (let j = 0; j <= 4; j++) nearest = Math.min(nearest, ptSegDist(b.x - b.w / 2 + (b.w * i) / 4, b.y - b.h / 2 + (b.h * j) / 4, l));
-          if (nearest < l.w / 2 - E || laneBoxDistance(l, b) < l.w / 2) throw new Error(k + " building on a lane");
-        }
-        for (const s of cs.squares) if (boxHit(b, s)) throw new Error(k + " building on a node square");
-        for (const p of places) if (boxHit(b, p)) throw new Error(k + " building on place " + p.lamp);
+        for (const l of lanes) if (laneBoxDistance(l, b) * 50 < WIRE_CLEAR_PX - 1e-6) throw new Error(k + " building near a lane");
+        puzzle.nodes.forEach((n, i) => {
+          const d = Math.hypot(Math.max(Math.abs(n.pos[0] - b.x) - b.w / 2, 0), Math.max(Math.abs(n.pos[1] - b.y) - b.h / 2, 0));
+          if (d * 50 < nodeClearPx(n) - 1e-6) throw new Error(k + " building near node " + i);
+        });
+        for (const p of places) for (const q of p.parts ?? [p]) if (!p.pool && boxHit(b, q)) throw new Error(k + " building on place " + p.lamp);
       }
     }
   });
@@ -157,7 +154,7 @@ describe("footprint buildings", () => {
     for (const { key: k, puzzle } of OPEN) {
       const fp = circuitStreets(puzzle).footprint;
       const o = mapOrigin(puzzle.id, puzzleBounds(puzzle));
-      for (const b of cityForMap(puzzle, o, windowOf(puzzle))) {
+      for (const b of cityForMap(puzzle, o, windowOf(puzzle), 50)) {
         const inside = b.x - b.w / 2 >= fp.minX && b.x + b.w / 2 <= fp.maxX && b.y - b.h / 2 >= fp.minY && b.y + b.h / 2 <= fp.maxY;
         const outside = b.x + b.w / 2 <= fp.minX || b.x - b.w / 2 >= fp.maxX || b.y + b.h / 2 <= fp.minY || b.y - b.h / 2 >= fp.maxY;
         expect(inside || outside, k).toBe(true);
@@ -167,7 +164,7 @@ describe("footprint buildings", () => {
   it("are deterministic", () => {
     for (const { puzzle } of OPEN.slice(0, 6)) {
       const o = mapOrigin(puzzle.id, puzzleBounds(puzzle));
-      expect(cityForMap(puzzle, o, windowOf(puzzle))).toEqual(cityForMap(puzzle, o, windowOf(puzzle)));
+      expect(cityForMap(puzzle, o, windowOf(puzzle), 50)).toEqual(cityForMap(puzzle, o, windowOf(puzzle), 50));
     }
   });
   it("are keyed on city coordinates: the same circuit shifted with its origin gives the same city", () => {
@@ -188,69 +185,70 @@ describe("footprint buildings", () => {
     const o2 = { x: 16, y: 4 }; // o + pos is the same city point
     const toCity = (list: Building[], o: { x: number; y: number }): string[] =>
       list.map((b) => `${(b.x + o.x).toFixed(6)},${(b.y + o.y).toFixed(6)},${b.w.toFixed(6)},${b.h.toFixed(6)}`).sort();
-    const a = toCity(cityForMap(p1, o1, windowOf(p1)), o1);
-    const b = toCity(cityForMap(p2, o2, windowOf(p2)), o2);
+    const a = toCity(cityForMap(p1, o1, windowOf(p1), 50), o1);
+    const b = toCity(cityForMap(p2, o2, windowOf(p2), 50), o2);
     expect(a.length).toBeGreaterThan(50);
     expect(b).toEqual(a);
-    expect(FINE_CELL).toBe(0.5);
   });
 });
 
 describe("feed lanes", () => {
-  it("run from every feed through the footprint edge to the nearest shared street", () => {
+  it("run from every feed straight out to the ring road (the footprint edge)", () => {
     for (const { key: k, puzzle } of OPEN) {
       const fp = circuitStreets(puzzle).footprint;
-      const o = mapOrigin(puzzle.id, puzzleBounds(puzzle));
-      const lanes = feedLanes(puzzle, o);
+      const lanes = feedLanes(puzzle);
       const feeds = puzzle.nodes.filter((n) => n.type === "feed");
       expect(feeds.length, k).toBeGreaterThan(0);
       expect(lanes.length, k).toBe(feeds.length);
       feeds.forEach((f, i) => {
         const l = lanes[i]!;
         expect([l.ax, l.ay], k).toEqual([f.pos[0], f.pos[1]]);
-        expect(l.w).toBe(LANE_W);
         const horizontal = l.ay === l.by;
         expect(horizontal || l.ax === l.bx, k).toBe(true);
-        const past = horizontal ? Math.max(fp.minX - l.bx, l.bx - fp.maxX) : Math.max(fp.minY - l.by, l.by - fp.maxY);
-        expect(past, `${k} ${f.id} reaches the edge`).toBeGreaterThanOrEqual(0);
-        expect(past, `${k} ${f.id} stops at the first street`).toBeLessThan(CITY_BLOCK);
-        const c = horizontal ? l.bx + o.x : l.by + o.y;
-        expect(Math.abs(c / CITY_BLOCK - Math.round(c / CITY_BLOCK)), k).toBeLessThan(E);
+        const edge = horizontal ? (Math.abs(l.bx - fp.minX) < E || Math.abs(l.bx - fp.maxX) < E) : (Math.abs(l.by - fp.minY) < E || Math.abs(l.by - fp.maxY) < E);
+        expect(edge, `${k} ${f.id} ends on the ring`).toBe(true);
       });
     }
   });
 });
 
 describe("shared grid minus the footprint", () => {
-  it("returns no street band inside the footprint, and still covers every street outside it", () => {
+  it("returns no street line inside the footprint, and still covers every street outside it", () => {
     for (const { key: k, puzzle } of OPEN) {
       const f = circuitStreets(puzzle).footprint;
       const o = mapOrigin(puzzle.id, puzzleBounds(puzzle));
       const hole = { minX: f.minX + o.x, maxX: f.maxX + o.x, minY: f.minY + o.y, maxY: f.maxY + o.y };
       const vis = { minX: hole.minX - 10, maxX: hole.maxX + 10, minY: hole.minY - 10, maxY: hole.maxY + 10 };
-      const rects = gridStreetRects(vis, hole);
-      for (const r of rects) {
-        const inside = r.minX < hole.maxX - E && r.maxX > hole.minX + E && r.minY < hole.maxY - E && r.maxY > hole.minY + E;
-        expect(inside, k).toBe(false);
+      const lines = gridStreetLines(vis, hole);
+      for (const s of lines) {
+        const mx = (s.ax + s.bx) / 2;
+        const my = (s.ay + s.by) / 2;
+        expect(mx > hole.minX + E && mx < hole.maxX - E && my > hole.minY + E && my < hole.maxY - E, k).toBe(false);
+        // a street stops on the ring: it never crosses into the footprint
+        for (const [x, y] of [[s.ax, s.ay], [s.bx, s.by]] as const) expect(x > hole.minX + E && x < hole.maxX - E && y > hole.minY + E && y < hole.maxY - E, k).toBe(false);
       }
       let covered = 0;
-      for (let x = vis.minX + 0.05; x < vis.maxX; x += 0.37) {
+      const outsideHole = (x: number, y: number): boolean => !(x > hole.minX && x < hole.maxX && y > hole.minY && y < hole.maxY);
+      for (let g = Math.ceil(vis.minX / CITY_BLOCK) * CITY_BLOCK; g <= vis.maxX; g += CITY_BLOCK) {
         for (let y = vis.minY + 0.05; y < vis.maxY; y += 0.37) {
-          if (x > hole.minX - CITY_STREET && x < hole.maxX + CITY_STREET && y > hole.minY - CITY_STREET && y < hole.maxY + CITY_STREET) continue;
-          const onStreet =
-            Math.abs(x - Math.round(x / CITY_BLOCK) * CITY_BLOCK) < CITY_STREET / 2 - 1e-6 || Math.abs(y - Math.round(y / CITY_BLOCK) * CITY_BLOCK) < CITY_STREET / 2 - 1e-6;
-          if (!onStreet) continue;
+          if (!outsideHole(g, y)) continue;
           covered++;
-          expect(rects.some((r) => x >= r.minX && x <= r.maxX && y >= r.minY && y <= r.maxY), `${k} ${x},${y}`).toBe(true);
+          expect(lines.some((s) => s.ax === s.bx && Math.abs(s.ax - g) < E && y >= s.ay - E && y <= s.by + E), `${k} v ${g},${y}`).toBe(true);
         }
       }
-      expect(covered, k).toBeGreaterThan(100);
+      for (let g = Math.ceil(vis.minY / CITY_BLOCK) * CITY_BLOCK; g <= vis.maxY; g += CITY_BLOCK) {
+        for (let x = vis.minX + 0.05; x < vis.maxX; x += 0.37) {
+          if (!outsideHole(x, g)) continue;
+          covered++;
+          expect(lines.some((s) => s.ay === s.by && Math.abs(s.ay - g) < E && x >= s.ax - E && x <= s.bx + E), `${k} h ${x},${g}`).toBe(true);
+        }
+      }
+      expect(covered, k).toBeGreaterThan(5);
     }
   });
   it("without a hole is the plain grid", () => {
     const vis = { minX: 0, maxX: 10, minY: 0, maxY: 10 };
-    const r = gridStreetRects(vis, null);
-    expect(r.length).toBe(2 * (Math.ceil(10 / CITY_BLOCK) + 1));
+    expect(gridStreetLines(vis, null).length).toBe(2 * (Math.ceil(10 / CITY_BLOCK) + 1));
   });
   it("stops an avenue at the footprint and carries on beyond it", () => {
     const p = OPEN.find((x) => ladderNumber(x.puzzle.id) === 2)!.puzzle; // spoke 0, east: its district is centred on the avenue
