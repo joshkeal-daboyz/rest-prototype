@@ -364,6 +364,13 @@ export function targetLabels(
       out.push(null);
       continue;
     }
+    // A place outside the free area (an overflowing map) gets no label: it is never dragged in from afar.
+    const px = p.x * sc + fit.offsetX;
+    const py = p.y * sc + fit.offsetY;
+    if (px < free.left || px > free.right || py < free.top || py > free.bottom) {
+      out.push(null);
+      continue;
+    }
     const box = placeLabel(p, at, area, obs, measure(p.label), LABEL_H_PX, fit);
     if (box) rects.push(box);
     out.push(box);

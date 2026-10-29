@@ -6,7 +6,24 @@
 
 import { FAULT_RULES, type Events, type FaultKind, type Puzzle } from "../core";
 import type { GridState } from "../grid";
-import { buildGeometry, clampPan, computeFit, freeArea, hitTestGeometry, mapBox, puzzleBounds, type Geometry, type Insets, type Pan } from "./geometry";
+import {
+  PADDING,
+  buildGeometry,
+  clampPan,
+  computeFit,
+  freeArea,
+  hitTestGeometry,
+  inArea,
+  initialPan,
+  mapBox,
+  panToCentre,
+  puzzleBounds,
+  visibleLinesInto,
+  visibleNodesInto,
+  type Geometry,
+  type Insets,
+  type Pan,
+} from "./geometry";
 import { FUSE_BAR_HEIGHT, FUSE_BAR_TOP, FUSE_BAR_WIDTH, fuseFill, fuseStep, fuseTickOffsets } from "./fusebar";
 import { createFeedCaptions } from "./feedcaps";
 import { fuseCaption, lampCaption } from "./labels";
@@ -114,15 +131,23 @@ export interface MapPanView {
   getPan(): Pan;
   /** Pan to (x, y), clamped (clampPan); rebuilds geometry so drawing and hitTest move together. Returns the clamped pan. */
   setPan(x: number, y: number): Pan;
-  /** Back to {0,0}. */
+  /** Back to the opening view: a map that fits is centred ({0,0}); one that overflows opens with its first feed at the free area's centre. */
   resetView(): void;
+}
+
+/** Centre the view on a node (ticket 027). Separate from MapPanView so existing fakes still compile. */
+export interface MapCentre {
+  /** Pan so the node sits at the free area's centre (clamped); an unknown id changes nothing. Returns the pan. */
+  centreOn(nodeId: string): Pan;
 }
 
 export interface MapRendererOptions {
   insets?: Insets;
 }
 
-const PADDING = 64;
+/** Lines and nodes whose screen box is further than this from the canvas are not drawn. A node's margin is wider: its glow, caption and pool reach beyond its centre. */
+const LINE_CULL_PX = 32;
+const NODE_CULL_PX = 96;
 const SHOCK_CORE = "#f2fbff";
 const SHOCK_GLOW = "#5aa8ff";
 const SCORCH = "#05070b";
@@ -187,7 +212,7 @@ function kindCode(kind: FaultKind): number {
   }
 }
 
-export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opts?: MapRendererOptions): MapRenderer & MapPanView & MapPlaces {
+export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opts?: MapRendererOptions): MapRenderer & MapPanView & MapPlaces & MapCentre {
   let insets: Insets = { ...(opts?.insets ?? {}) };
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("2D canvas unavailable");
@@ -202,6 +227,12 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
   let height = 0;
   const mapBounds = puzzleBounds(puzzle);
   let pan: Pan = { x: 0, y: 0 };
+  /** The canvas as a rect, and the lines and nodes near it (rebuilt with the geometry). */
+  const canvasRect = { left: 0, top: 0, right: 1, bottom: 1 };
+  const visLines = new Int32Array(puzzle.lines.length);
+  const visNodes = new Int32Array(puzzle.nodes.length);
+  let nVisLines = 0;
+  let nVisNodes = 0;
   let geo: Geometry = buildGeometry(puzzle, 1, 1, PADDING, insets);
 
   // ---- per-puzzle precomputation ----
@@ -666,8 +697,12 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
   /** Re-clamp the pan to the current free area and rebuild everything that depends on the fit. */
   function rebuildGeometry(): void {
     const box = mapBox(mapBounds, computeFit(mapBounds, width, height, PADDING, insets));
-    pan = clampPan(pan, box, freeArea(width, height, insets));
+    pan = clampPan(pan, box, freeArea(width, height, insets), undefined, PADDING);
     geo = buildGeometry(puzzle, width, height, PADDING, insets, pan);
+    canvasRect.right = width;
+    canvasRect.bottom = height;
+    nVisLines = visibleLinesInto(geo, canvasRect, LINE_CULL_PX, visLines);
+    nVisNodes = visibleNodesInto(geo, canvasRect, NODE_CULL_PX, visNodes);
     buildSwitchDirs();
     for (let s = 0; s < SLOTS; s++) if (slotActive[s] === 1) rebuildSlotPath(s);
     rebuildCity();
@@ -1689,8 +1724,8 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
       c.stroke();
     }
 
-    for (let i = 0; i < nLines; i++) drawLine(i, state, t, rt, rp, hover);
-    for (let i = 0; i < nNodes; i++) drawNode(i, state, t, rt, rp, hover);
+    for (let k = 0; k < nVisLines; k++) drawLine(visLines[k]!, state, t, rt, rp, hover);
+    for (let k = 0; k < nVisNodes; k++) drawNode(visNodes[k]!, state, t, rt, rp, hover);
     drawSequences(t);
 
     // Feed readout: "using N of M" (Lv wording). Alarm state adds a "!" and a shake, not just colour.
@@ -1721,18 +1756,38 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     }
   }
 
+  function openingPan(): Pan {
+    return initialPan(puzzle, width, height, PADDING, insets);
+  }
+
+  function centreOn(nodeId: string): Pan {
+    const ni = geo.nodeIndex.get(nodeId);
+    if (ni === undefined) return { x: pan.x, y: pan.y };
+    const n = nodes[ni]!;
+    const fit0 = computeFit(mapBounds, width, height, PADDING, insets);
+    const p = panToCentre(n.pos[0], n.pos[1], fit0, freeArea(width, height, insets));
+    return setPan(p.x, p.y);
+  }
+
   resize();
+  {
+    const p0 = openingPan();
+    setPan(p0.x, p0.y);
+  }
   return {
     draw,
-    hitTest: (x, y) => hitTestGeometry(geo, x, y),
-    placeAt: (x, y) => placeAtPoint(places, geo.fit, x, y),
+    // Nothing under the HUD or the parts panel can be picked: the free area is the only live part of the canvas.
+    hitTest: (x, y) => (inArea(freeArea(width, height, insets), x, y) ? hitTestGeometry(geo, x, y) : null),
+    placeAt: (x, y) => (inArea(freeArea(width, height, insets), x, y) ? placeAtPoint(places, geo.fit, x, y) : null),
     resize,
     setInsets,
     notify,
     getPan: () => ({ x: pan.x, y: pan.y }),
     setPan,
     resetView: () => {
-      setPan(0, 0);
+      const p0 = openingPan();
+      setPan(p0.x, p0.y);
     },
+    centreOn,
   };
 }

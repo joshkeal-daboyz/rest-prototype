@@ -21,6 +21,10 @@ export interface Fit {
 }
 
 export const MAX_SCALE = 80;
+/** Smallest opening scale in px per unit: twice NODE_HIT_RADIUS, so nodes 1 unit apart never share a hit circle. */
+export const MIN_SCALE = 36;
+/** Px kept clear round the map's box when it is fitted, and the margin an overflowing map may be panned to. */
+export const PADDING = 64;
 
 /** Bounds of every node and decor point of a puzzle, in map units. */
 export function puzzleBounds(puzzle: Puzzle): Bounds {
@@ -63,22 +67,36 @@ export interface Insets {
 }
 
 /**
- * Uniform scale that fits `bounds` in width x height with `padding` on every side, centred.
- * `insets` (CSS px) reserve room for overlays: the map is fitted into what is left.
+ * The scale at which `bounds` plus `padding` exactly fits the free area: no floor, capped at MAX_SCALE
+ * (the "whole map" scale).
  */
-export function computeFit(bounds: Bounds, width: number, height: number, padding: number, insets?: Insets, pan?: Pan): Fit {
-  const top = Math.max(insets?.top ?? 0, 0);
-  const right = Math.max(insets?.right ?? 0, 0);
-  const bottom = Math.max(insets?.bottom ?? 0, 0);
+export function fitScale(bounds: Bounds, width: number, height: number, padding: number, insets?: Insets): number {
   const left = Math.max(insets?.left ?? 0, 0);
+  const right = Math.max(insets?.right ?? 0, 0);
+  const top = Math.max(insets?.top ?? 0, 0);
+  const bottom = Math.max(insets?.bottom ?? 0, 0);
   const spanX = Math.max(bounds.maxX - bounds.minX, 1e-6);
   const spanY = Math.max(bounds.maxY - bounds.minY, 1e-6);
   const availX = Math.max(width - left - right - 2 * padding, 1);
   const availY = Math.max(height - top - bottom - 2 * padding, 1);
-  const scale = Math.min(availX / spanX, availY / spanY, MAX_SCALE);
-  const offsetX = left + (width - left - right - spanX * scale) / 2 - bounds.minX * scale + (pan?.x ?? 0);
-  const offsetY = top + (height - top - bottom - spanY * scale) / 2 - bounds.minY * scale + (pan?.y ?? 0);
-  return { scale, offsetX, offsetY };
+  return Math.min(availX / spanX, availY / spanY, MAX_SCALE);
+}
+
+/**
+ * Scale and offsets that centre `bounds` in the free area, then add `pan`. The scale is the fit clamped to
+ * [MIN_SCALE, MAX_SCALE], or `scale` when given (zoom). `insets` (CSS px) reserve room for overlays.
+ */
+export function computeFit(bounds: Bounds, width: number, height: number, padding: number, insets?: Insets, pan?: Pan, scale?: number): Fit {
+  const left = Math.max(insets?.left ?? 0, 0);
+  const right = Math.max(insets?.right ?? 0, 0);
+  const top = Math.max(insets?.top ?? 0, 0);
+  const bottom = Math.max(insets?.bottom ?? 0, 0);
+  const spanX = Math.max(bounds.maxX - bounds.minX, 1e-6);
+  const spanY = Math.max(bounds.maxY - bounds.minY, 1e-6);
+  const sc = scale ?? Math.min(Math.max(fitScale(bounds, width, height, padding, insets), MIN_SCALE), MAX_SCALE);
+  const offsetX = left + (width - left - right - spanX * sc) / 2 - bounds.minX * sc + (pan?.x ?? 0);
+  const offsetY = top + (height - top - bottom - spanY * sc) / 2 - bounds.minY * sc + (pan?.y ?? 0);
+  return { scale: sc, offsetX, offsetY };
 }
 
 /** The canvas minus the insets, never negative in size. */
@@ -100,19 +118,102 @@ export function mapBox(bounds: Bounds, fit: Fit): Rect {
   };
 }
 
-function clampAxis(v: number, boxLo: number, boxHi: number, areaLo: number, areaHi: number, keep: number): number {
+function clampAxis(v: number, boxLo: number, boxHi: number, areaLo: number, areaHi: number, keep: number, edgePad?: number): number {
+  if (edgePad !== undefined && boxHi - boxLo + 2 * edgePad > areaHi - areaLo + 1e-6) {
+    // Overflowing axis: the map's edge may come no further in than edgePad from the area's edge.
+    const lo = areaHi - edgePad - boxHi;
+    const hi = areaLo + edgePad - boxLo;
+    return v < lo ? lo : v > hi ? hi : v;
+  }
   const k = Math.max(Math.min(keep, boxHi - boxLo, areaHi - areaLo), 0);
   const lo = areaLo + k - boxHi;
   const hi = areaHi - k - boxLo;
   return v < lo ? lo : v > hi ? hi : v;
 }
 
-/** Clamp `pan` so the panned `box` overlaps `area` by min(keep, box size, area size) on each axis. */
-export function clampPan(pan: Pan, box: Rect, area: Rect, keep: number = PAN_KEEP): Pan {
+/** Which axes of the map's box (bounds x `fit.scale`) plus `padding` each side are larger than `area`. */
+export function overflows(bounds: Bounds, fit: Fit, area: Rect, padding: number): { x: boolean; y: boolean } {
+  const bw = (bounds.maxX - bounds.minX) * fit.scale;
+  const bh = (bounds.maxY - bounds.minY) * fit.scale;
+  return { x: bw + 2 * padding > area.right - area.left + 1e-6, y: bh + 2 * padding > area.bottom - area.top + 1e-6 };
+}
+
+/**
+ * Clamp `pan` so the panned `box` overlaps `area` by min(keep, box size, area size) on each axis.
+ * With `edgePad`, an axis whose box plus edgePad each side is larger than the area is edge-stopped
+ * instead: the box's edge can come no further in than edgePad from the area's edge on that side.
+ */
+export function clampPan(pan: Pan, box: Rect, area: Rect, keep: number = PAN_KEEP, edgePad?: number): Pan {
   return {
-    x: clampAxis(pan.x, box.left, box.right, area.left, area.right, keep),
-    y: clampAxis(pan.y, box.top, box.bottom, area.top, area.bottom, keep),
+    x: clampAxis(pan.x, box.left, box.right, area.left, area.right, keep, edgePad),
+    y: clampAxis(pan.y, box.top, box.bottom, area.top, area.bottom, keep, edgePad),
   };
+}
+
+/** The pan that puts map point (mx, my) at the centre of `area`; `fit` is the fit with no pan. Unclamped. */
+export function panToCentre(mx: number, my: number, fit: Fit, area: Rect): Pan {
+  return { x: (area.left + area.right) / 2 - (mx * fit.scale + fit.offsetX), y: (area.top + area.bottom) / 2 - (my * fit.scale + fit.offsetY) };
+}
+
+/**
+ * The pan a view opens with (and Home returns to). A map that fits on both axes: {0,0}. Otherwise the first
+ * feed sits at the free area's centre on each overflowing axis, clamped; a fitting axis stays centred.
+ */
+export function initialPan(puzzle: Puzzle, width: number, height: number, padding: number, insets?: Insets, scale?: number): Pan {
+  const b = puzzleBounds(puzzle);
+  const fit = computeFit(b, width, height, padding, insets, undefined, scale);
+  const area = freeArea(width, height, insets);
+  const ov = overflows(b, fit, area, padding);
+  if (!ov.x && !ov.y) return { x: 0, y: 0 };
+  const feed = puzzle.nodes.find((n) => n.type === "feed");
+  if (!feed) return { x: 0, y: 0 };
+  const p = panToCentre(feed.pos[0], feed.pos[1], fit, area);
+  return clampPan({ x: ov.x ? p.x : 0, y: ov.y ? p.y : 0 }, mapBox(b, fit), area, PAN_KEEP, padding);
+}
+
+/** True if the canvas point is inside the free area. */
+export function inArea(area: Rect, x: number, y: number): boolean {
+  return x >= area.left && x <= area.right && y >= area.top && y <= area.bottom;
+}
+
+function near(area: Rect, margin: number, loX: number, hiX: number, loY: number, hiY: number): boolean {
+  return hiX >= area.left - margin && loX <= area.right + margin && hiY >= area.top - margin && loY <= area.bottom + margin;
+}
+
+/** Fill `out` with the indices of lines whose screen box is within `margin` px of `area`; returns the count. */
+export function visibleLinesInto(g: Geometry, area: Rect, margin: number, out: Int32Array): number {
+  let n = 0;
+  for (let i = 0; i < g.ax.length; i++) {
+    const ax = g.ax[i]!;
+    const bx = g.bx[i]!;
+    const ay = g.ay[i]!;
+    const by = g.by[i]!;
+    if (near(area, margin, Math.min(ax, bx), Math.max(ax, bx), Math.min(ay, by), Math.max(ay, by))) out[n++] = i;
+  }
+  return n;
+}
+
+/** Fill `out` with the indices of nodes within `margin` px of `area`; returns the count. */
+export function visibleNodesInto(g: Geometry, area: Rect, margin: number, out: Int32Array): number {
+  let n = 0;
+  for (let i = 0; i < g.nx.length; i++) {
+    const x = g.nx[i]!;
+    const y = g.ny[i]!;
+    if (near(area, margin, x, x, y, y)) out[n++] = i;
+  }
+  return n;
+}
+
+/** Indices of the lines within `margin` px of `area` (allocates; the draw loop uses visibleLinesInto). */
+export function visibleLines(g: Geometry, area: Rect, margin: number): Int32Array {
+  const out = new Int32Array(g.ax.length);
+  return out.slice(0, visibleLinesInto(g, area, margin, out));
+}
+
+/** Indices of the nodes within `margin` px of `area` (allocates; the draw loop uses visibleNodesInto). */
+export function visibleNodes(g: Geometry, area: Rect, margin: number): Int32Array {
+  const out = new Int32Array(g.nx.length);
+  return out.slice(0, visibleNodesInto(g, area, margin, out));
 }
 
 export interface Geometry {
@@ -139,8 +240,8 @@ export interface Geometry {
   hitR: Float64Array;
 }
 
-export function buildGeometry(puzzle: Puzzle, width: number, height: number, padding: number, insets?: Insets, pan?: Pan): Geometry {
-  const fit = computeFit(puzzleBounds(puzzle), width, height, padding, insets, pan);
+export function buildGeometry(puzzle: Puzzle, width: number, height: number, padding: number, insets?: Insets, pan?: Pan, scale?: number): Geometry {
+  const fit = computeFit(puzzleBounds(puzzle), width, height, padding, insets, pan, scale);
   const nn = puzzle.nodes.length;
   const nl = puzzle.lines.length;
   const nodeIds: string[] = [];
