@@ -11,7 +11,7 @@
 
 import type { Puzzle } from "../core";
 import type { GridState } from "../grid";
-import type { Bounds } from "./geometry";
+import { puzzleBounds, type Bounds } from "./geometry";
 
 export const CITY_SEED = 0x5e57;
 export const CITY_BLOCK = 2;
@@ -28,6 +28,15 @@ export const GLOW_EASE_SECONDS = 0.25;
 export const NODE_CLEAR = 0.6;
 export const PLACE_W = 1.1;
 export const PLACE_H = 0.9;
+/** Ticket 024 A1: inside a map's footprint the streets are the circuit itself. */
+export const FOOTPRINT_MARGIN = 2;
+export const LANE_W = 0.5;
+export const DECOR_LANE_W = 0.3;
+export const NODE_SQUARE = 0.7;
+/** Footprint buildings sit on a grid of this many city units, keyed on city coordinates. */
+export const FINE_CELL = 0.5;
+/** Clear space kept between a footprint building and any lane, node square or place. */
+export const BUILDING_GAP = 0.1;
 
 export interface Building {
   x: number;
@@ -51,6 +60,14 @@ export interface CityRect {
 export interface Vec {
   x: number;
   y: number;
+}
+/** A street along the exact segment a-b, `w` wide, in map units. */
+export interface Lane {
+  ax: number;
+  ay: number;
+  bx: number;
+  by: number;
+  w: number;
 }
 
 // ---- style (all within contrast 1.6 of the map background) ----
@@ -312,26 +329,192 @@ export function cityPlaces(puzzle: Puzzle): Place[] {
   return places;
 }
 
+// ---- the circuit as streets (ticket 024 A1) ----
+
+export interface CircuitStreets {
+  /** One lane per line, then one per decor segment. */
+  lanes: Lane[];
+  /** One square per node. */
+  squares: Building[];
+  /** The bounds grown by FOOTPRINT_MARGIN, in map units. */
+  footprint: CityRect;
+}
+
+const streetCache = new WeakMap<Puzzle, CircuitStreets>();
+
+/** The streets inside a map's footprint: they are the circuit's own lines and nodes. Map units; cached per puzzle. */
+export function circuitStreets(puzzle: Puzzle): CircuitStreets {
+  const hit = streetCache.get(puzzle);
+  if (hit) return hit;
+  const b = puzzleBounds(puzzle);
+  const pos = new Map<string, readonly [number, number]>();
+  for (const n of puzzle.nodes) pos.set(n.id, n.pos);
+  const lanes: Lane[] = [];
+  for (const l of puzzle.lines) {
+    const a = pos.get(l.from);
+    const z = pos.get(l.to);
+    if (a && z) lanes.push({ ax: a[0], ay: a[1], bx: z[0], by: z[1], w: LANE_W });
+  }
+  for (const d of puzzle.decor ?? []) {
+    for (let i = 0; i + 1 < d.path.length; i++) {
+      const a = d.path[i]!;
+      const z = d.path[i + 1]!;
+      lanes.push({ ax: a[0], ay: a[1], bx: z[0], by: z[1], w: DECOR_LANE_W });
+    }
+  }
+  const squares = puzzle.nodes.map((n): Building => ({ x: n.pos[0], y: n.pos[1], w: NODE_SQUARE, h: NODE_SQUARE }));
+  // Grown by the margin, but never out of the map's own district (a few big maps, 29 units wide, would otherwise spill over).
+  const o = mapOrigin(puzzle.id, b);
+  const c = districtOf(mapNumber(puzzle.id)).centre;
+  const half = DISTRICT / 2;
+  const footprint: CityRect = {
+    minX: Math.max(b.minX - FOOTPRINT_MARGIN, c.x - half - o.x),
+    minY: Math.max(b.minY - FOOTPRINT_MARGIN, c.y - half - o.y),
+    maxX: Math.min(b.maxX + FOOTPRINT_MARGIN, c.x + half - o.x),
+    maxY: Math.min(b.maxY + FOOTPRINT_MARGIN, c.y + half - o.y),
+  };
+  const out = { lanes, squares, footprint };
+  streetCache.set(puzzle, out);
+  return out;
+}
+
+const feedLaneCache = new WeakMap<Puzzle, { ox: number; oy: number; lanes: Lane[] }>();
+
 /**
- * The city's buildings for a map window, in MAP units (rect too): nothing centred within NODE_CLEAR of a
- * node or with a node inside it, nothing overlapping a place.
+ * One lane per feed: from the feed straight out through the footprint edge, away from the map's centre
+ * (along the axis it lies furthest on), then on to the nearest shared-grid street line, so the power
+ * visibly comes in from the city. Map units. Depends on the origin only through where that street is.
+ */
+export function feedLanes(puzzle: Puzzle, origin: Vec): Lane[] {
+  const hit = feedLaneCache.get(puzzle);
+  if (hit && hit.ox === origin.x && hit.oy === origin.y) return hit.lanes;
+  const b = puzzleBounds(puzzle);
+  const fp = circuitStreets(puzzle).footprint;
+  const cx = (b.minX + b.maxX) / 2;
+  const cy = (b.minY + b.maxY) / 2;
+  const lanes: Lane[] = [];
+  for (const n of puzzle.nodes) {
+    if (n.type !== "feed") continue;
+    const [fx, fy] = n.pos;
+    const dx = fx - cx;
+    const dy = fy - cy;
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      const s = dx >= 0 ? 1 : -1;
+      const edge = (s > 0 ? fp.maxX : fp.minX) + origin.x;
+      const street = (s > 0 ? Math.ceil(edge / CITY_BLOCK) : Math.floor(edge / CITY_BLOCK)) * CITY_BLOCK;
+      lanes.push({ ax: fx, ay: fy, bx: street - origin.x, by: fy, w: LANE_W });
+    } else {
+      const s = dy > 0 ? 1 : -1;
+      const edge = (s > 0 ? fp.maxY : fp.minY) + origin.y;
+      const street = (s > 0 ? Math.ceil(edge / CITY_BLOCK) : Math.floor(edge / CITY_BLOCK)) * CITY_BLOCK;
+      lanes.push({ ax: fx, ay: fy, bx: fx, by: street - origin.y, w: LANE_W });
+    }
+  }
+  feedLaneCache.set(puzzle, { ox: origin.x, oy: origin.y, lanes });
+  return lanes;
+}
+
+/** Distance from a lane's segment to an axis-aligned box (0 if they touch). */
+export function laneBoxDistance(l: Lane, b: Building): number {
+  const x0 = b.x - b.w / 2;
+  const x1 = b.x + b.w / 2;
+  const y0 = b.y - b.h / 2;
+  const y1 = b.y + b.h / 2;
+  // Liang-Barsky: does the segment cross the box?
+  let t0 = 0;
+  let t1 = 1;
+  const dx = l.bx - l.ax;
+  const dy = l.by - l.ay;
+  const p = [-dx, dx, -dy, dy];
+  const q = [l.ax - x0, x1 - l.ax, l.ay - y0, y1 - l.ay];
+  let crosses = true;
+  for (let i = 0; i < 4; i++) {
+    if (p[i] === 0) {
+      if (q[i]! < 0) crosses = false;
+    } else {
+      const r = q[i]! / p[i]!;
+      if (p[i]! < 0) t0 = Math.max(t0, r);
+      else t1 = Math.min(t1, r);
+    }
+  }
+  if (crosses && t0 <= t1) return 0;
+  let best = Infinity;
+  for (const [px, py] of [[l.ax, l.ay], [l.bx, l.by]] as const) {
+    best = Math.min(best, Math.hypot(Math.max(x0 - px, 0, px - x1), Math.max(y0 - py, 0, py - y1)));
+  }
+  const len2 = dx * dx + dy * dy;
+  for (const [px, py] of [[x0, y0], [x1, y0], [x0, y1], [x1, y1]] as const) {
+    let t = len2 > 0 ? ((px - l.ax) * dx + (py - l.ay) * dy) / len2 : 0;
+    t = Math.min(Math.max(t, 0), 1);
+    best = Math.min(best, Math.hypot(px - (l.ax + t * dx), py - (l.ay + t * dy)));
+  }
+  return best;
+}
+
+/** True if the box keeps `gap` clear of every lane's edge. */
+function clearOfLanes(b: Building, lanes: readonly Lane[], gap: number): boolean {
+  for (const l of lanes) {
+    const m = l.w / 2 + gap;
+    if (Math.max(l.ax, l.bx) + m < b.x - b.w / 2 || Math.min(l.ax, l.bx) - m > b.x + b.w / 2) continue;
+    if (Math.max(l.ay, l.by) + m < b.y - b.h / 2 || Math.min(l.ay, l.by) - m > b.y + b.h / 2) continue;
+    if (laneBoxDistance(l, b) < m) return false;
+  }
+  return true;
+}
+
+const fineCache = new WeakMap<Puzzle, { ox: number; oy: number; list: Building[] }>();
+
+/** The footprint's buildings (map units), whole footprint, cached: the fine grid kept clear of lanes, node squares and places. */
+function footprintBuildings(puzzle: Puzzle, origin: Vec): Building[] {
+  const hit = fineCache.get(puzzle);
+  if (hit && hit.ox === origin.x && hit.oy === origin.y) return hit.list;
+  const { lanes, squares, footprint: fp } = circuitStreets(puzzle);
+  const all = lanes.concat(feedLanes(puzzle, origin));
+  const places = cityPlaces(puzzle);
+  const list: Building[] = [];
+  const fx0 = Math.floor((fp.minX + origin.x) / FINE_CELL);
+  const fx1 = Math.ceil((fp.maxX + origin.x) / FINE_CELL);
+  const fy0 = Math.floor((fp.minY + origin.y) / FINE_CELL);
+  const fy1 = Math.ceil((fp.maxY + origin.y) / FINE_CELL);
+  for (let fx = fx0; fx < fx1; fx++) {
+    for (let fy = fy0; fy < fy1; fy++) {
+      const h = mix(mix(CITY_SEED ^ 0x3c6ef372 ^ Math.imul(fx | 0, 0x27d4eb2d)) ^ Math.imul(fy | 0, 0x165667b1));
+      if (rnd(h, 0) >= 0.62) continue;
+      const w = 0.3 + 0.12 * rnd(h, 1);
+      const hh = 0.3 + 0.12 * rnd(h, 2);
+      const b: Building = {
+        x: (fx + 0.5) * FINE_CELL + ((FINE_CELL - w) / 2) * 0.8 * (rnd(h, 3) * 2 - 1) - origin.x,
+        y: (fy + 0.5) * FINE_CELL + ((FINE_CELL - hh) / 2) * 0.8 * (rnd(h, 4) * 2 - 1) - origin.y,
+        w,
+        h: hh,
+      };
+      if (b.x - w / 2 < fp.minX || b.x + w / 2 > fp.maxX || b.y - hh / 2 < fp.minY || b.y + hh / 2 > fp.maxY) continue;
+      if (!clearOfLanes(b, all, BUILDING_GAP)) continue;
+      if (squares.some((s) => overlaps(b, s, BUILDING_GAP))) continue;
+      if (places.some((p) => overlaps(b, p, BUILDING_GAP))) continue;
+      list.push(b);
+    }
+  }
+  fineCache.set(puzzle, { ox: origin.x, oy: origin.y, list });
+  return list;
+}
+
+/**
+ * The city's buildings for a map window, in MAP units (rect too). Outside the map's footprint these are
+ * 023's shared buildings, minus any that touch the footprint, the feed lanes or a place. Inside it they
+ * are the fine-grid buildings that clear every lane, node square and place.
  */
 export function cityForMap(puzzle: Puzzle, origin: Vec, rect: CityRect): Building[] {
   const raw = cityCells({ minX: rect.minX + origin.x, minY: rect.minY + origin.y, maxX: rect.maxX + origin.x, maxY: rect.maxY + origin.y });
   const places = cityPlaces(puzzle);
+  const fp = circuitStreets(puzzle).footprint;
+  const feeds = feedLanes(puzzle, origin);
   const out: Building[] = [];
   for (const r of raw) {
     const b: Building = { x: r.x - origin.x, y: r.y - origin.y, w: r.w, h: r.h };
+    if (b.x + b.w / 2 > fp.minX && b.x - b.w / 2 < fp.maxX && b.y + b.h / 2 > fp.minY && b.y - b.h / 2 < fp.maxY) continue;
+    if (!clearOfLanes(b, feeds, 0)) continue;
     let ok = true;
-    for (const n of puzzle.nodes) {
-      const dx = n.pos[0] - b.x;
-      const dy = n.pos[1] - b.y;
-      if (Math.hypot(dx, dy) < NODE_CLEAR || (Math.abs(dx) < b.w / 2 + 0.25 && Math.abs(dy) < b.h / 2 + 0.25)) {
-        ok = false;
-        break;
-      }
-    }
-    if (!ok) continue;
     for (const p of places) {
       if (overlaps(b, p)) {
         ok = false;
@@ -340,6 +523,90 @@ export function cityForMap(puzzle: Puzzle, origin: Vec, rect: CityRect): Buildin
     }
     if (ok) out.push(b);
   }
+  for (const b of footprintBuildings(puzzle, origin)) {
+    if (b.x + b.w / 2 >= rect.minX && b.x - b.w / 2 <= rect.maxX && b.y + b.h / 2 >= rect.minY && b.y - b.h / 2 <= rect.maxY) out.push(b);
+  }
+  return out;
+}
+
+// ---- the shared grid's streets and avenues, minus the footprint ----
+
+/**
+ * The shared grid's street bands over `vis`, as rects (all CITY units), with the `hole` (the open map's
+ * footprint) cut out of them. Pure; the renderer fills these.
+ */
+export function gridStreetRects(vis: CityRect, hole: CityRect | null): CityRect[] {
+  const out: CityRect[] = [];
+  const hw = CITY_STREET / 2;
+  const kx0 = Math.floor(vis.minX / CITY_BLOCK);
+  const kx1 = Math.ceil(vis.maxX / CITY_BLOCK);
+  for (let k = kx0; k <= kx1; k++) {
+    const x0 = k * CITY_BLOCK - hw;
+    const x1 = k * CITY_BLOCK + hw;
+    if (hole && x1 > hole.minX && x0 < hole.maxX) {
+      if (vis.minY < hole.minY) out.push({ minX: x0, maxX: x1, minY: vis.minY, maxY: Math.min(hole.minY, vis.maxY) });
+      if (hole.maxY < vis.maxY) out.push({ minX: x0, maxX: x1, minY: Math.max(hole.maxY, vis.minY), maxY: vis.maxY });
+    } else out.push({ minX: x0, maxX: x1, minY: vis.minY, maxY: vis.maxY });
+  }
+  const ky0 = Math.floor(vis.minY / CITY_BLOCK);
+  const ky1 = Math.ceil(vis.maxY / CITY_BLOCK);
+  for (let k = ky0; k <= ky1; k++) {
+    const y0 = k * CITY_BLOCK - hw;
+    const y1 = k * CITY_BLOCK + hw;
+    if (hole && y1 > hole.minY && y0 < hole.maxY) {
+      if (vis.minX < hole.minX) out.push({ minX: vis.minX, maxX: Math.min(hole.minX, vis.maxX), minY: y0, maxY: y1 });
+      if (hole.maxX < vis.maxX) out.push({ minX: Math.max(hole.maxX, vis.minX), maxX: vis.maxX, minY: y0, maxY: y1 });
+    } else out.push({ minX: vis.minX, maxX: vis.maxX, minY: y0, maxY: y1 });
+  }
+  return out;
+}
+
+/** Keep the part of a convex polygon with nx*x + ny*y <= c. */
+function clipHalf(poly: readonly Vec[], nx: number, ny: number, c: number): Vec[] {
+  const out: Vec[] = [];
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i]!;
+    const z = poly[(i + 1) % poly.length]!;
+    const da = nx * a.x + ny * a.y - c;
+    const dz = nx * z.x + ny * z.y - c;
+    if (da <= 0) out.push(a);
+    if ((da < 0 && dz > 0) || (da > 0 && dz < 0)) {
+      const t = da / (da - dz);
+      out.push({ x: a.x + (z.x - a.x) * t, y: a.y + (z.y - a.y) * t });
+    }
+  }
+  return out;
+}
+
+/**
+ * The along-ranges [from, to] of a spoke's avenue, from HUB_R to `aFar`, with the `hole` (CITY units) cut
+ * out: the avenue stops at the open map's footprint and picks up again on its far side.
+ */
+export function avenuePieces(spoke: number, aFar: number, hole: CityRect | null): [number, number][] {
+  const a0 = HUB_R;
+  if (!hole) return [[a0, aFar]];
+  const d = SPOKE_DIRS[((spoke % SPOKES) + SPOKES) % SPOKES]!;
+  const hw = CITY_AVENUE / 2;
+  let poly: Vec[] = [
+    { x: hole.minX, y: hole.minY },
+    { x: hole.maxX, y: hole.minY },
+    { x: hole.maxX, y: hole.maxY },
+    { x: hole.minX, y: hole.maxY },
+  ];
+  poly = clipHalf(poly, -d[1], d[0], hw);
+  poly = clipHalf(poly, d[1], -d[0], hw);
+  if (poly.length === 0) return [[a0, aFar]];
+  let p0 = Infinity;
+  let p1 = -Infinity;
+  for (const p of poly) {
+    const along = p.x * d[0] + p.y * d[1];
+    if (along < p0) p0 = along;
+    if (along > p1) p1 = along;
+  }
+  if (p1 <= a0 || p0 >= aFar) return [[a0, aFar]];
+  const out: [number, number][] = [];
+  if (p0 > a0) out.push([a0, p0]);
+  if (p1 < aFar) out.push([p1, aFar]);
   return out;
 }
 

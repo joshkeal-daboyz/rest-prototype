@@ -24,6 +24,7 @@ import {
   NODE_CLEAR,
   R0,
   SPOKES,
+  circuitStreets,
   cityCells,
   cityForMap,
   cityPlaces,
@@ -40,6 +41,7 @@ import {
   spokeDir,
   spokeStep,
   type Building,
+  type CityRect,
 } from "./city";
 
 const ROOT = join(__dirname, "..", "..", "puzzles");
@@ -234,8 +236,8 @@ describe("map origins", () => {
   });
 });
 
-describe("neighbouring maps share streets", () => {
-  it("is the same strip whichever map is open (07/08 and 01/02)", () => {
+describe("neighbouring maps share streets outside their footprints", () => {
+  it("is the same strip whichever map is open (07/08 and 01/02), outside both footprints", () => {
     for (const [na, nb] of [[7, 8], [1, 2]] as const) {
       const pa = OPEN.find((p) => ladderNumber(p.puzzle.id) === na)!.puzzle;
       const pb = OPEN.find((p) => ladderNumber(p.puzzle.id) === nb)!.puzzle;
@@ -246,14 +248,25 @@ describe("neighbouring maps share streets", () => {
       const mx = (ca.x + cb.x) / 2;
       const my = (ca.y + cb.y) / 2;
       const strip = { minX: mx - 3, maxX: mx + 3, minY: my - 8, maxY: my + 8 };
+      // A footprint grown by one block: a feed lane runs on to the next street, and a building may touch the edge.
+      const grown = (p: Puzzle, o: { x: number; y: number }): CityRect => {
+        const f = circuitStreets(p).footprint;
+        return { minX: f.minX + o.x - CITY_BLOCK, maxX: f.maxX + o.x + CITY_BLOCK, minY: f.minY + o.y - CITY_BLOCK, maxY: f.maxY + o.y + CITY_BLOCK };
+      };
+      const ga = grown(pa, oa);
+      const gb = grown(pb, ob);
+      const outside = (x: Building): boolean =>
+        [ga, gb].every((g) => x.x + x.w / 2 <= g.minX || x.x - x.w / 2 >= g.maxX || x.y + x.h / 2 <= g.minY || x.y - x.h / 2 >= g.maxY);
       const through = (p: Puzzle, o: { x: number; y: number }): string[] =>
         sorted(
-          cityForMap(p, o, { minX: strip.minX - o.x, maxX: strip.maxX - o.x, minY: strip.minY - o.y, maxY: strip.maxY - o.y }).map((bd) => ({ ...bd, x: bd.x + o.x, y: bd.y + o.y })),
+          cityForMap(p, o, { minX: strip.minX - o.x, maxX: strip.maxX - o.x, minY: strip.minY - o.y, maxY: strip.maxY - o.y })
+            .map((bd) => ({ ...bd, x: bd.x + o.x, y: bd.y + o.y }))
+            .filter(outside),
         );
       const viaA = through(pa, oa);
       expect(viaA.length).toBeGreaterThan(0);
       expect(viaA).toEqual(through(pb, ob));
-      expect(viaA).toEqual(sorted(cityCells(strip)));
+      expect(viaA).toEqual(sorted(cityCells(strip).filter(outside)));
     }
   });
 });

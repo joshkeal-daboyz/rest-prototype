@@ -44,13 +44,16 @@ import {
   CITY_BUILDING,
   CITY_PLACE,
   CITY_PLACE_EDGE,
-  CITY_STREET,
   CITY_STREET_COLOUR,
   CITY_WARM,
   HALO_LAYERS,
   HUB_R,
   LIT_FILL_ALPHA,
+  avenuePieces,
+  circuitStreets,
   cityForMap,
+  feedLanes,
+  gridStreetRects,
   cityPlaces,
   easeGlow,
   glowTarget,
@@ -287,6 +290,8 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
   // ---- the city under the map (ticket 023) ----
   const cityOrigin = mapOrigin(puzzle.id, mapBounds);
   const places = cityPlaces(puzzle);
+  const streets = circuitStreets(puzzle);
+  const feedStreets = feedLanes(puzzle, cityOrigin);
   const placeNode = new Int32Array(places.length);
   places.forEach((p, i) => {
     placeNode[i] = puzzle.nodes.findIndex((n) => n.id === p.lamp);
@@ -329,16 +334,17 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     g.fillStyle = BG;
     g.fillRect(0, 0, width, height);
     const vis = visibleMapRect(f, width, height, CITY_BLOCK);
-    // Streets on the cell edges.
+    // The open map's footprint (city units): inside it the streets are the circuit's own lanes.
+    const fpMap = streets.footprint;
+    const hole = { minX: fpMap.minX + ox, minY: fpMap.minY + oy, maxX: fpMap.maxX + ox, maxY: fpMap.maxY + oy };
+    // Shared-grid streets on the cell edges, minus the footprint.
     g.fillStyle = CITY_STREET_COLOUR;
-    const sw = CITY_STREET * sc;
-    const cx0 = Math.floor((vis.minX + ox) / CITY_BLOCK);
-    const cx1 = Math.ceil((vis.maxX + ox) / CITY_BLOCK);
-    for (let k = cx0; k <= cx1; k++) g.fillRect(X(k * CITY_BLOCK - ox) - sw / 2, 0, sw, height);
-    const cy0 = Math.floor((vis.minY + oy) / CITY_BLOCK);
-    const cy1 = Math.ceil((vis.maxY + oy) / CITY_BLOCK);
-    for (let k = cy0; k <= cy1; k++) g.fillRect(0, Y(k * CITY_BLOCK - oy) - sw / 2, width, sw);
-    // Avenues: a band along each spoke's ray from the hub's edge outward.
+    const bands = gridStreetRects({ minX: vis.minX + ox, minY: vis.minY + oy, maxX: vis.maxX + ox, maxY: vis.maxY + oy }, hole);
+    for (let i = 0; i < bands.length; i++) {
+      const r = bands[i]!;
+      g.fillRect(X(r.minX - ox), Y(r.minY - oy), (r.maxX - r.minX) * sc, (r.maxY - r.minY) * sc);
+    }
+    // Avenues: a band along each spoke's ray from the hub's edge outward, stopping at the footprint.
     const far = Math.max(
       Math.hypot(vis.minX + ox, vis.minY + oy),
       Math.hypot(vis.maxX + ox, vis.minY + oy),
@@ -352,16 +358,36 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
         const d = spokeDir(s);
         const nx0 = -d.y * hw;
         const ny0 = d.x * hw;
-        const a0 = HUB_R;
-        const a1 = far + 4;
-        g.beginPath();
-        g.moveTo(X(d.x * a0 + nx0 - ox), Y(d.y * a0 + ny0 - oy));
-        g.lineTo(X(d.x * a1 + nx0 - ox), Y(d.y * a1 + ny0 - oy));
-        g.lineTo(X(d.x * a1 - nx0 - ox), Y(d.y * a1 - ny0 - oy));
-        g.lineTo(X(d.x * a0 - nx0 - ox), Y(d.y * a0 - ny0 - oy));
-        g.closePath();
-        g.fill();
+        for (const [a0, a1] of avenuePieces(s, far + 4, hole)) {
+          g.beginPath();
+          g.moveTo(X(d.x * a0 + nx0 - ox), Y(d.y * a0 + ny0 - oy));
+          g.lineTo(X(d.x * a1 + nx0 - ox), Y(d.y * a1 + ny0 - oy));
+          g.lineTo(X(d.x * a1 - nx0 - ox), Y(d.y * a1 - ny0 - oy));
+          g.lineTo(X(d.x * a0 - nx0 - ox), Y(d.y * a0 - ny0 - oy));
+          g.closePath();
+          g.fill();
+        }
       }
+    }
+    // The circuit's own streets: a lane under every line and decor segment, each feed's lane out to the grid, a square at every node.
+    g.strokeStyle = CITY_STREET_COLOUR;
+    g.lineCap = "round";
+    for (let pass = 0; pass < 2; pass++) {
+      const set = pass === 0 ? streets.lanes : feedStreets;
+      for (let i = 0; i < set.length; i++) {
+        const l = set[i]!;
+        g.lineWidth = l.w * sc;
+        g.beginPath();
+        g.moveTo(X(l.ax), Y(l.ay));
+        g.lineTo(X(l.bx), Y(l.by));
+        g.stroke();
+      }
+    }
+    g.lineCap = "butt";
+    g.fillStyle = CITY_STREET_COLOUR;
+    for (let i = 0; i < streets.squares.length; i++) {
+      const q = streets.squares[i]!;
+      g.fillRect(X(q.x - q.w / 2), Y(q.y - q.h / 2), q.w * sc, q.h * sc);
     }
     g.fillStyle = CITY_BUILDING;
     for (let i = 0; i < buildings.length; i++) {
