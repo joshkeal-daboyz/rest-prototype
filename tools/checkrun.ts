@@ -137,6 +137,13 @@ function describe(s: GridState): string {
   return `lit [${[...s.lit].join(", ")}], ${loads}${s.brownout ? ", BROWNOUT" : ""}`;
 }
 
+/** Play moves from the start and return the end state, or the first refused move (D3 reads the end state). */
+export function replayMoves(puzzle: Puzzle, moves: readonly CheckMove[], clickSeconds = CHECK_CLICK_SECONDS): { state: GridState; failure?: string } {
+  const run = newRun(puzzle, clickSeconds);
+  const f = play(run, moves);
+  return f ? { state: run.grid.state(), failure: f.message } : { state: run.grid.state() };
+}
+
 /** Replay a validated check block. Never throws on a failing block; the report says what failed. */
 export function runCheck(puzzle: Puzzle, check: PuzzleCheck): CheckReport {
   const clickSeconds = check.clickSeconds ?? CHECK_CLICK_SECONDS;

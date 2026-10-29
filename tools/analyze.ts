@@ -2,16 +2,19 @@
  * `npm run analyze puzzles/<id>.json [--cap N] [--click-seconds S] [--json]` (ticket 027 D2).
  * A bounded breadth-first search over the real simulator: exhaustive up to the state cap (default 500 000), and past
  * it a proved lower bound ("no win in fewer than D clicks"). Deterministic: the same map always prints the same text.
- * `--sections` (D3) is reserved: it will build one sub-puzzle per section and call `analyzePuzzle` on each.
+ * `npm run analyze -- --sections puzzles/<id>.json` (D3, tools/sectionrun.ts): one sub-puzzle per section of the note's
+ * check block, with the links stubbed as declared, each searched with the same `analyzePuzzle`, then the composition checks.
  */
 
 import { existsSync, readFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { validatePuzzle } from "../src/core";
+import { parseCheckBlock, validateCheck, validatePuzzle } from "../src/core";
 import type { Puzzle } from "../src/core";
 import { DEFAULT_CAP, analyzePuzzle } from "./analyzerun";
 import type { AnalysisResult, AnalyzeOptions } from "./analyzerun";
+import { noteFor } from "./check";
+import { analyzeSections, formatSections } from "./sectionrun";
 
 export function loadPuzzle(path: string): Puzzle {
   const r = validatePuzzle(JSON.parse(readFileSync(path, "utf8")) as unknown);
@@ -56,6 +59,25 @@ export function formatAnalysis(r: AnalysisResult): string[] {
   return out;
 }
 
+/**
+ * `--sections` for one map file (ticket 027 D3): the note's check block must carry `sections` and `links`.
+ * Returns the lines to print and whether everything held (validation, every section, the composition checks).
+ */
+export function sectionsForFile(jsonPath: string, opts: AnalyzeOptions = {}): { ok: boolean; lines: string[] } {
+  const id = basename(jsonPath).replace(/\.grid\.json$|\.json$/, "");
+  const notePath = noteFor(jsonPath);
+  if (!existsSync(notePath)) return { ok: false, lines: [`FAIL ${id}: no design note ${notePath}`] };
+  const parsed = parseCheckBlock(readFileSync(notePath, "utf8"));
+  if (parsed === null) return { ok: false, lines: [`FAIL ${id}: its note has no check block`] };
+  if (!parsed.ok) return { ok: false, lines: [`INVALID ${id}`, `  ${parsed.error}`] };
+  const puzzle = loadPuzzle(jsonPath);
+  const cv = validateCheck(parsed.json, puzzle);
+  if (!cv.ok) return { ok: false, lines: [`INVALID ${id}: the check block does not validate`, ...cv.errors.map((e) => `  ${e}`)] };
+  if (!cv.check.sections) return { ok: false, lines: [`FAIL ${id}: its check block has no "sections" (and "links"); nothing to split`] };
+  const r = analyzeSections(puzzle, cv.check, opts);
+  return { ok: r.ok, lines: formatSections(id, r) };
+}
+
 function option(argv: readonly string[], name: string): number | undefined {
   const i = argv.indexOf(name);
   if (i < 0) return undefined;
@@ -67,8 +89,7 @@ function option(argv: readonly string[], name: string): number | undefined {
 function main(argv: readonly string[]): number {
   const valueFlags = new Set(["--cap", "--click-seconds"]);
   const files = argv.filter((a, i) => !a.startsWith("-") && !valueFlags.has(argv[i - 1] ?? ""));
-  if (files.length === 0) { console.log("usage: npm run analyze puzzles/<id>.json [--cap N] [--click-seconds S] [--json]"); return 1; }
-  if (argv.includes("--sections")) { console.log("--sections is not built yet (ticket 027 D3)"); return 1; }
+  if (files.length === 0) { console.log("usage: npm run analyze puzzles/<id>.json [--cap N] [--click-seconds S] [--json]\n       npm run analyze -- --sections puzzles/<id>.json [--cap N]"); return 1; }
   let opts: AnalyzeOptions;
   try {
     const clickSeconds = option(argv, "--click-seconds");
@@ -79,6 +100,12 @@ function main(argv: readonly string[]): number {
     const p = resolve(f);
     if (!existsSync(p)) { console.log(`no such file: ${f}`); bad++; continue; }
     try {
+      if (argv.includes("--sections")) {
+        const s = sectionsForFile(p, opts);
+        for (const l of s.lines) console.log(l);
+        if (!s.ok) bad++;
+        continue;
+      }
       const r = analyzePuzzle(loadPuzzle(p), opts);
       if (argv.includes("--json")) console.log(JSON.stringify(r));
       else for (const l of formatAnalysis(r)) console.log(l);
