@@ -1,7 +1,7 @@
 # 020 · Win splash: your time, and on to the next level
 
 owner: interaction (A), ui (B)
-status: approved (G1, Josh, 28 Oct 2026)
+status: done
 branch: one per part: `ticket/020-win-splash-a`, `ticket/020-win-splash-b`
 
 ## Josh's words
