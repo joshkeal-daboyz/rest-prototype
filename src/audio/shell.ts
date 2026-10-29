@@ -36,6 +36,8 @@ interface Handle {
   nodes: NodeLike[];
   sources: SourceLike[];
   gain: GainNodeLike;
+  /** Survives stopAll (the level-done cue rings out across a detach). */
+  keep?: boolean;
 }
 
 function ramp(p: ParamLike, to: number, now: number, seconds: number): void {
@@ -135,7 +137,7 @@ export class Player {
     const t0 = base + cue.at;
     if (cue.stop) this.stopHeld(cue.stop.key, cue.stop.fade, cue.stop.freqTo, t0);
     if (cue.hold) this.startHeld(cue.hold.key, cue.hold.voice, t0);
-    for (const v of cue.voices) this.voice(v, t0 + v.at);
+    for (const v of cue.voices) this.voice(v, t0 + v.at, cue.group === "level");
   }
 
   /** Schedule crackle ticks at absolute times. */
@@ -175,7 +177,7 @@ export class Player {
   /** Silence this map's sounds: stop every voice and zero the continuous layers. */
   stopAll(): void {
     const now = this.ctx.currentTime;
-    for (const h of [...this.active]) this.kill(h, now);
+    for (const h of [...this.active]) if (!h.keep) this.kill(h, now);
     this.held.clear();
     this.setLayers(
       { hum: 0, flicker: 0, whineOn: false, whineHz: 600, whine: 0, crackleOn: false, fullTick: false, next: { full: new Set(), seen: false } },
@@ -252,8 +254,9 @@ export class Player {
     return { h: { nodes, sources, gain }, src, osc };
   }
 
-  private voice(v: Voice, t: number): void {
+  private voice(v: Voice, t: number, keep = false): void {
     const { h, src } = this.build(v, t);
+    if (keep) h.keep = true;
     const pts = envelope(v);
     const g = h.gain.gain;
     const first = pts[0];

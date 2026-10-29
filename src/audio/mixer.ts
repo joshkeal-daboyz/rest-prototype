@@ -58,6 +58,10 @@ export class Mixer {
         this.relightUntil = Math.max(this.relightUntil, now + cueEnd(c));
         continue;
       }
+      if (c.group === "level") {
+        protectedCues.push(c);
+        continue;
+      }
       const prev = this.last.get(c.name);
       if (prev !== undefined && now - prev < RATE_LIMIT) {
         dropped.push(c.name);

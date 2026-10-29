@@ -72,6 +72,10 @@ describe("AudioControl / SoundEngine", () => {
     expectTypeOf<SoundEngine>().toMatchTypeOf<AudioControl>();
   });
 
+  it("has levelDone: () => void (ticket 025: the win splash cue)", () => {
+    expectTypeOf<SoundEngine["levelDone"]>().toEqualTypeOf<() => void>();
+  });
+
   it("saved prefs default to not muted, volume 0.5, under rest.audio", () => {
     expect(AUDIO_PREFS_KEY).toBe("rest.audio");
     expect(DEFAULT_AUDIO_PREFS).toEqual({ muted: false, volume: 0.5 });

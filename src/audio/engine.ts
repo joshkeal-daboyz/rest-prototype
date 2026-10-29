@@ -1,7 +1,7 @@
 /** The SoundEngine: gesture unlock, event subscriptions, and the glue between the pure core and the Player. */
 import { DEFAULT_AUDIO_PREFS } from "../core";
 import type { EventBus, EventName, Events, SoundEngine, SoundView } from "../core";
-import { CueTracker, fullTickCue, relightCues } from "./cues";
+import { CueTracker, LevelDoneGate, fullTickCue, levelDoneCue, relightCues } from "./cues";
 import { Crackle, initialLayerState, layersFor } from "./layers";
 import type { LayerState } from "./layers";
 import { Mixer } from "./mixer";
@@ -56,6 +56,7 @@ export function createEngine(opts: EngineOptions = {}): SoundEngine {
   const mixer = new Mixer();
   const tracker = new CueTracker();
   const crackle = new Crackle();
+  const gate = new LevelDoneGate();
   let layerState: LayerState = initialLayerState();
   let lastView: SoundView | null = null;
   const detachers = new Set<() => void>();
@@ -160,6 +161,7 @@ export function createEngine(opts: EngineOptions = {}): SoundEngine {
     mixer.reset();
     tracker.reset();
     crackle.reset();
+    gate.reset();
     layerState = initialLayerState();
     guard("silence", () => player?.stopAll());
   };
@@ -194,6 +196,7 @@ export function createEngine(opts: EngineOptions = {}): SoundEngine {
           );
         }
       });
+      gate.reset();
       let done = false;
       const detach = (): void => {
         if (done) return;
@@ -208,11 +211,18 @@ export function createEngine(opts: EngineOptions = {}): SoundEngine {
     update(view: SoundView) {
       guard("update", () => {
         lastView = view;
+        gate.see(view.complete);
         applyLayers(view);
       });
     },
     relight(igniteAt: readonly number[], durationSeconds: number) {
       guard("relight", () => run(relightCues(igniteAt, durationSeconds)));
+    },
+    levelDone() {
+      guard("level:done", () => {
+        // The gate is used even when nothing can sound (before unlock, muted): a win never replays.
+        if (gate.take()) run([levelDoneCue()]);
+      });
     },
   };
   return engine;
