@@ -1,7 +1,7 @@
 # 024 · Streets under the wires; places that look like what is lit
 
 owner: lead-architect (0), renderer (A1, A2, A3), ui (B)
-status: approved (G1, Josh, 29 Oct 2026: "yes merge and approve") for parts 0, A1, A2, B. Part A3 approved (G1, Josh, 29 Oct 2026: "I approve of a3"), with the cut defaults for its open questions 6-9.
+status: done
 branch: one per part: `ticket/024-city-alignment-and-places-a1`, `-a2`, `-b`, `-a3` (part 0 is committed with the ticket on G1)
 
 ## Josh's words
