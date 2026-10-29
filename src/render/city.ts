@@ -13,7 +13,8 @@
 import { placeBase, placeKind, placeName, type GridNode, type PlaceKind, type Puzzle } from "../core";
 import type { GridState } from "../grid";
 import { clusterRadius } from "./load";
-import { puzzleBounds, type Bounds } from "./geometry";
+import { NODE_HIT_RADIUS, puzzleBounds, type Bounds } from "./geometry";
+import { LABEL_GAP_PX, lampMarks, type PxRect } from "./places";
 
 export const CITY_SEED = 0x5e57;
 export const CITY_BLOCK = 2;
@@ -43,11 +44,11 @@ export const LOT_HALF = (LOT - LOT_GAP) / 2;
 /** A lot or place is dropped if any part comes within this many px of a wire's centreline. */
 export const WIRE_CLEAR_PX = 10;
 /** Warm glow at most this opaque. */
-export const GLOW_MAX = 0.3;
+export const GLOW_MAX = 0.5;
 /** Radius in px of a street light's pool. */
-export const POOL_PX = 36;
+export const POOL_PX = 28;
 /** Floor for the glow radius of any lit place, px. */
-export const GLOW_MIN_PX = 28;
+export const GLOW_MIN_PX = 32;
 /** Map units kept between a lot or place and the ring road / each other. */
 export const RING_GAP = 0.1;
 export const PLACE_GAP = 0.05;
@@ -93,17 +94,17 @@ export interface Lane {
   w: number;
 }
 
-// ---- style (every city colour is within contrast 1.6 of the map background) ----
+// ---- style (the background town is within contrast 1.6 of the map background; places are brighter, ticket 026) ----
 export const CITY_BG = "#0b0f17";
 /** Streets are faint lines, a little lighter than the ground (contrast 1.15..1.35). */
 export const CITY_STREET_LINE = "#18202e";
 export const CITY_AVENUE_COLOUR = "#1a2331";
 export const CITY_BUILDING = "#111723";
-export const CITY_PLACE_FILL = "#27344c";
-export const CITY_PLACE_EDGE = "#2a3650";
+export const CITY_PLACE_FILL = "#3a4a68";
+export const CITY_PLACE_EDGE = "#5a6d90";
 export const CITY_WARM = "#ffd37a";
 /** Lit tint alpha at full glow. */
-export const LIT_FILL_ALPHA = 0.22;
+export const LIT_FILL_ALPHA = 0.5;
 
 function channel(v: number): number {
   const s = v / 255;
@@ -342,7 +343,7 @@ export function pointBoxDistance(px: number, py: number, b: Building): number {
 export function nodeClearPx(node: GridNode): number {
   switch (node.type) {
     case "lamp":
-      return clusterRadius(node.load ?? 1) + 10;
+      return Math.max(clusterRadius(node.load ?? 1) + 8, NODE_HIT_RADIUS + 2);
     case "feed":
       return 25;
     case "breaker":
@@ -550,6 +551,75 @@ function slotCandidates(kind: SlotKind, lampX: number, lampY: number): Building[
   return out;
 }
 
+/** Free placement (ticket 026): a place's box is tried at every offset on this grid (map units) round its lamp, within FREE_RANGE. */
+export const FREE_STEP = 0.1;
+export const FREE_RANGE = 3;
+
+interface FreeCand {
+  dx: number;
+  dy: number;
+  /** row3 only: 0 along x, 1 along y. */
+  vert: number;
+  d: number;
+}
+
+/** The parts of a free candidate whose box centre is (cx, cy). */
+function freeParts(kind: SlotKind, cx: number, cy: number, vert: number): Building[] {
+  if (kind === "whole") return [{ x: cx, y: cy, w: LOT, h: LOT }];
+  if (kind === "quarter") return [{ x: cx, y: cy, w: LOT_HALF, h: LOT_HALF }];
+  const step = LOT_HALF + LOT_GAP;
+  const out: Building[] = [];
+  for (let k = -1; k <= 1; k++) out.push({ x: vert ? cx : cx + k * step, y: vert ? cy + k * step : cy, w: LOT_HALF, h: LOT_HALF });
+  return out;
+}
+
+/** Edge distance from a point to the nearest part of a free candidate (no allocation). */
+function freeDistance(kind: SlotKind, px: number, py: number, cx: number, cy: number, vert: number, scratch: Building): number {
+  if (kind !== "row3") {
+    const s = kind === "whole" ? LOT : LOT_HALF;
+    scratch.x = cx;
+    scratch.y = cy;
+    scratch.w = s;
+    scratch.h = s;
+    return pointBoxDistance(px, py, scratch);
+  }
+  const step = LOT_HALF + LOT_GAP;
+  let best = Infinity;
+  scratch.w = LOT_HALF;
+  scratch.h = LOT_HALF;
+  for (let k = -1; k <= 1; k++) {
+    scratch.x = vert ? cx : cx + k * step;
+    scratch.y = vert ? cy + k * step : cy;
+    best = Math.min(best, pointBoxDistance(px, py, scratch));
+  }
+  return best;
+}
+
+/** Every free candidate round a lamp (map units, lamp-relative), nearest edge first; ties by dy then dx. */
+function freeCandidates(kind: SlotKind, lx: number, ly: number): FreeCand[] {
+  const out: FreeCand[] = [];
+  const n = Math.round(FREE_RANGE / FREE_STEP);
+  const scratch: Building = { x: 0, y: 0, w: 0, h: 0 };
+  for (let vert = 0; vert < (kind === "row3" ? 2 : 1); vert++) {
+    for (let j = -n; j <= n; j++) {
+      for (let i = -n; i <= n; i++) {
+        const dx = i * FREE_STEP;
+        const dy = j * FREE_STEP;
+        out.push({ dx, dy, vert, d: freeDistance(kind, lx, ly, lx + dx, ly + dy, vert, scratch) });
+      }
+    }
+  }
+  out.sort((a, b) => a.d - b.d || a.dy - b.dy || a.dx - b.dx || a.vert - b.vert);
+  return out;
+}
+
+/** Smallest edge distance from a point to any of the parts. */
+function partsDistance(px: number, py: number, parts: readonly Building[]): number {
+  let best = Infinity;
+  for (const q of parts) best = Math.min(best, pointBoxDistance(px, py, q));
+  return best;
+}
+
 interface Layout {
   buildings: Building[];
   places: Place[];
@@ -578,13 +648,32 @@ export function footprintLayout(puzzle: Puzzle, origin: Vec, scale: number): Lay
   const places: Place[] = [];
   const taken: Building[] = [];
 
+  // Every lamp's caption and star, as map-unit boxes (centre form), kept LABEL_GAP_PX clear of a place.
+  const marks: Building[] = [];
+  const lamps: GridNode[] = [];
+  for (const n of puzzle.nodes) {
+    if (n.type !== "lamp") continue;
+    lamps.push(n);
+    for (const m of lampMarks(n, n.pos[0] * scale, n.pos[1] * scale)) {
+      marks.push({ x: (m.x + m.w / 2) / scale, y: (m.y + m.h / 2) / scale, w: m.w / scale, h: m.h / scale });
+    }
+  }
+  const markGap = LABEL_GAP_PX / scale + 1e-6;
+
   const fits = (parts: readonly Building[]): boolean => {
     for (const q of parts) {
       if (!insideRing(q, fp)) return false;
       if (!clearOfCircuit(q, ob, scale)) return false;
       for (const t of taken) if (overlaps(q, t, PLACE_GAP)) return false;
+      for (const m of marks) if (overlaps(q, m, markGap)) return false;
     }
     return true;
+  };
+  /** True if some other lamp's centre is nearer (edge distance) to the parts than the lamp's own. */
+  const nearerElsewhere = (n: GridNode, parts: readonly Building[]): boolean => {
+    const own = partsDistance(n.pos[0], n.pos[1], parts);
+    for (const o of lamps) if (o !== n && partsDistance(o.pos[0], o.pos[1], parts) < own - 1e-9) return true;
+    return false;
   };
 
   for (const n of puzzle.nodes) {
@@ -619,17 +708,32 @@ export function footprintLayout(puzzle: Puzzle, origin: Vec, scale: number): Lay
     } else if (slot !== "none") {
       const lx = n.pos[0] + origin.x;
       const ly = n.pos[1] + origin.y;
-      const cands = slotCandidates(slot, lx, ly)
+      const free = freeCandidates(slot, n.pos[0], n.pos[1]);
+      // The lot slots of 024 A3 are the fallback, nearest centre first.
+      const lots = slotCandidates(slot, lx, ly)
         .map((ps) => {
           const b = boundsOf(ps);
           return { ps, d: Math.hypot(b.x - lx, b.y - ly) };
         })
         .sort((a, b) => a.d - b.d);
-      for (const { ps } of cands) {
-        const mapParts = ps.map((q) => ({ x: q.x - origin.x, y: q.y - origin.y, w: q.w, h: q.h }));
-        if (fits(mapParts)) {
-          parts = mapParts;
-          break;
+      // Pass 0 keeps only candidates nearer this lamp than any other; pass 1 takes whatever fits.
+      for (let pass = 0; pass < 2 && !parts; pass++) {
+        for (const f of free) {
+          const cand = freeParts(slot, n.pos[0] + f.dx, n.pos[1] + f.dy, f.vert);
+          if (pass === 0 && nearerElsewhere(n, cand)) continue;
+          if (fits(cand)) {
+            parts = cand;
+            break;
+          }
+        }
+        if (parts) break;
+        for (const { ps } of lots) {
+          const mapParts = ps.map((q) => ({ x: q.x - origin.x, y: q.y - origin.y, w: q.w, h: q.h }));
+          if (pass === 0 && nearerElsewhere(n, mapParts)) continue;
+          if (fits(mapParts)) {
+            parts = mapParts;
+            break;
+          }
         }
       }
     }
@@ -830,7 +934,7 @@ export function glowSpriteData(size: number = GLOW_SPRITE_PX): Uint8ClampedArray
 
 /** Radius in px of a lit place's glow sprite. */
 export function glowRadiusPx(halfDiagonalPx: number): number {
-  return Math.max(halfDiagonalPx * 1.8, GLOW_MIN_PX);
+  return Math.max(halfDiagonalPx * 2.2, GLOW_MIN_PX);
 }
 
 /** The visible window in map units, from the fit that places the circuit, grown by `margin`. */

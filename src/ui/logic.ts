@@ -154,11 +154,21 @@ export function isHighlighted(rowId: string, highlight: string | null): boolean 
 }
 
 /**
- * The lamp whose place the pointer picks out on the map (ticket 024 B). A circuit element under the pointer
- * wins, so no place is picked out there; otherwise it is the place under the pointer (a lamp id, or null).
+ * The lamp the pointer picks out on the map (ticket 024 B, extended by 026 B). `hit` is what `hitTest` finds under
+ * the pointer (a node or line id, or null); `lampIds` is the open puzzle's lamp node ids; `placeLamp` is the lamp
+ * whose place is under the pointer (`placeAt`), or null.
+ *
+ * - Over a lamp (a street light or any other lamp, target or not): that lamp, even if `placeLamp` names another.
+ * - Over any other circuit element (switch, breaker, fusebox, junction, feed, battery, wire): null.
+ * - Over nothing: `placeLamp`, the place under the pointer, as before.
  */
-export function placeHighlight(overCircuit: boolean, placeLamp: string | null): string | null {
-  return overCircuit ? null : placeLamp;
+export function placeHighlight(
+  hit: string | null,
+  lampIds: ReadonlySet<string>,
+  placeLamp: string | null,
+): string | null {
+  if (hit !== null) return lampIds.has(hit) ? hit : null;
+  return placeLamp;
 }
 
 /** A rectangle in the same space as the pointer and the box. */

@@ -508,13 +508,22 @@ describe("contrast", () => {
   });
   it("makes a place stand out from the town, without out-shining the circuit", () => {
     expect(contrastRatio(CITY_PLACE_FILL, CITY_STREET_LINE)).toBeGreaterThanOrEqual(1.25);
-    expect(contrastRatio(CITY_PLACE_FILL, CITY_BUILDING)).toBeGreaterThanOrEqual(1.25);
-    expect(contrastRatio(CITY_PLACE_FILL, CITY_BG)).toBeLessThanOrEqual(1.6);
+    expect(contrastRatio(CITY_PLACE_FILL, CITY_BUILDING)).toBeGreaterThanOrEqual(1.9);
+    const c = contrastRatio(CITY_PLACE_FILL, CITY_BG);
+    expect(c).toBeGreaterThanOrEqual(2.0);
+    expect(c).toBeLessThanOrEqual(2.4);
+    expect(c).toBeLessThan(contrastRatio("#4a586f", CITY_BG));
   });
-  it("keeps every city colour within 1.6 of the ground, and the glow low", () => {
-    for (const c of [CITY_BUILDING, CITY_STREET_LINE, CITY_AVENUE_COLOUR, CITY_PLACE_FILL, CITY_PLACE_EDGE]) expect(contrastRatio(c, CITY_BG), c).toBeLessThanOrEqual(1.6);
-    expect(GLOW_MAX).toBeLessThanOrEqual(0.3);
-    expect(LIT_FILL_ALPHA).toBeLessThanOrEqual(0.3);
+  it("gives a place a visible edge: lighter than its fill", () => {
+    const lum = (h: string): number => parseInt(h.slice(1), 16);
+    expect(lum(CITY_PLACE_EDGE)).toBeGreaterThan(lum(CITY_PLACE_FILL));
+    expect(contrastRatio(CITY_PLACE_EDGE, CITY_PLACE_FILL)).toBeGreaterThanOrEqual(1.5);
+    expect(contrastRatio(CITY_PLACE_EDGE, CITY_BG)).toBeLessThanOrEqual(3.8);
+  });
+  it("keeps the background town within 1.6 of the ground, and the glow within 0.5", () => {
+    for (const c of [CITY_BUILDING, CITY_STREET_LINE, CITY_AVENUE_COLOUR]) expect(contrastRatio(c, CITY_BG), c).toBeLessThanOrEqual(1.6);
+    expect(GLOW_MAX).toBeLessThanOrEqual(0.5);
+    expect(LIT_FILL_ALPHA).toBeLessThanOrEqual(0.5);
   });
 });
 
@@ -553,10 +562,11 @@ describe("the glow is round", () => {
     }
     expect(d[0]).toBe(parseInt(CITY_WARM.slice(1, 3), 16));
   });
-  it("sizes the glow from the place, never under 28 px, and a pool at POOL_PX", () => {
-    expect(glowRadiusPx(10)).toBe(28);
-    expect(glowRadiusPx(100)).toBeCloseTo(180, 9);
-    expect(POOL_PX).toBe(36);
+  it("sizes the glow from the place, never under 32 px, and a pool at POOL_PX", () => {
+    expect(glowRadiusPx(10)).toBe(32);
+    expect(glowRadiusPx(100)).toBeCloseTo(220, 9);
+    for (const h of [5, 14.5, 15, 40, 90]) expect(glowRadiusPx(h)).toBe(Math.max(2.2 * h, 32));
+    expect(POOL_PX).toBe(28);
   });
   it("no longer has square halos", () => {
     expect("HALO_LAYERS" in city).toBe(false);
