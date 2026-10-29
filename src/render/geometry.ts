@@ -40,6 +40,21 @@ export function puzzleBounds(puzzle: Puzzle): Bounds {
   return { minX, maxX, minY, maxY };
 }
 
+export interface Pan {
+  x: number;
+  y: number;
+}
+
+export interface Rect {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+/** Pixels of the map's box that must stay inside the free area on each axis. */
+export const PAN_KEEP = 96;
+
 export interface Insets {
   top?: number;
   right?: number;
@@ -51,7 +66,7 @@ export interface Insets {
  * Uniform scale that fits `bounds` in width x height with `padding` on every side, centred.
  * `insets` (CSS px) reserve room for overlays: the map is fitted into what is left.
  */
-export function computeFit(bounds: Bounds, width: number, height: number, padding: number, insets?: Insets): Fit {
+export function computeFit(bounds: Bounds, width: number, height: number, padding: number, insets?: Insets, pan?: Pan): Fit {
   const top = Math.max(insets?.top ?? 0, 0);
   const right = Math.max(insets?.right ?? 0, 0);
   const bottom = Math.max(insets?.bottom ?? 0, 0);
@@ -61,9 +76,43 @@ export function computeFit(bounds: Bounds, width: number, height: number, paddin
   const availX = Math.max(width - left - right - 2 * padding, 1);
   const availY = Math.max(height - top - bottom - 2 * padding, 1);
   const scale = Math.min(availX / spanX, availY / spanY, MAX_SCALE);
-  const offsetX = left + (width - left - right - spanX * scale) / 2 - bounds.minX * scale;
-  const offsetY = top + (height - top - bottom - spanY * scale) / 2 - bounds.minY * scale;
+  const offsetX = left + (width - left - right - spanX * scale) / 2 - bounds.minX * scale + (pan?.x ?? 0);
+  const offsetY = top + (height - top - bottom - spanY * scale) / 2 - bounds.minY * scale + (pan?.y ?? 0);
   return { scale, offsetX, offsetY };
+}
+
+/** The canvas minus the insets, never negative in size. */
+export function freeArea(width: number, height: number, insets?: Insets): Rect {
+  const left = Math.max(insets?.left ?? 0, 0);
+  const top = Math.max(insets?.top ?? 0, 0);
+  const right = Math.max(width - Math.max(insets?.right ?? 0, 0), left);
+  const bottom = Math.max(height - Math.max(insets?.bottom ?? 0, 0), top);
+  return { left, top, right, bottom };
+}
+
+/** Screen box of `bounds` under `fit` (no padding). */
+export function mapBox(bounds: Bounds, fit: Fit): Rect {
+  return {
+    left: bounds.minX * fit.scale + fit.offsetX,
+    top: bounds.minY * fit.scale + fit.offsetY,
+    right: bounds.maxX * fit.scale + fit.offsetX,
+    bottom: bounds.maxY * fit.scale + fit.offsetY,
+  };
+}
+
+function clampAxis(v: number, boxLo: number, boxHi: number, areaLo: number, areaHi: number, keep: number): number {
+  const k = Math.max(Math.min(keep, boxHi - boxLo, areaHi - areaLo), 0);
+  const lo = areaLo + k - boxHi;
+  const hi = areaHi - k - boxLo;
+  return v < lo ? lo : v > hi ? hi : v;
+}
+
+/** Clamp `pan` so the panned `box` overlaps `area` by min(keep, box size, area size) on each axis. */
+export function clampPan(pan: Pan, box: Rect, area: Rect, keep: number = PAN_KEEP): Pan {
+  return {
+    x: clampAxis(pan.x, box.left, box.right, area.left, area.right, keep),
+    y: clampAxis(pan.y, box.top, box.bottom, area.top, area.bottom, keep),
+  };
 }
 
 export interface Geometry {
@@ -90,8 +139,8 @@ export interface Geometry {
   hitR: Float64Array;
 }
 
-export function buildGeometry(puzzle: Puzzle, width: number, height: number, padding: number, insets?: Insets): Geometry {
-  const fit = computeFit(puzzleBounds(puzzle), width, height, padding, insets);
+export function buildGeometry(puzzle: Puzzle, width: number, height: number, padding: number, insets?: Insets, pan?: Pan): Geometry {
+  const fit = computeFit(puzzleBounds(puzzle), width, height, padding, insets, pan);
   const nn = puzzle.nodes.length;
   const nl = puzzle.lines.length;
   const nodeIds: string[] = [];

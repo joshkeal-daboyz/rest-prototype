@@ -6,7 +6,7 @@
 
 import { FAULT_RULES, type Events, type FaultKind, type Puzzle } from "../core";
 import type { GridState } from "../grid";
-import { buildGeometry, hitTestGeometry, type Geometry, type Insets } from "./geometry";
+import { buildGeometry, clampPan, computeFit, freeArea, hitTestGeometry, mapBox, puzzleBounds, type Geometry, type Insets, type Pan } from "./geometry";
 import { FUSE_BAR_HEIGHT, FUSE_BAR_TOP, FUSE_BAR_WIDTH, fuseFill, fuseStep, fuseTickOffsets } from "./fusebar";
 import { createFeedCaptions } from "./feedcaps";
 import { fuseCaption, lampCaption } from "./labels";
@@ -66,6 +66,16 @@ export interface MapRenderer {
       | { type: "fuse:blown"; payload: Events["fuse:blown"] }
       | { type: "switch:thrown"; payload: Events["switch:thrown"] },
   ): void;
+}
+
+/** View control for the pan (ticket 022). Separate from MapRenderer so existing fakes still compile. */
+export interface MapPanView {
+  /** Current pan in CSS px, added to the centred fit. {0,0} = centred in the free area. */
+  getPan(): Pan;
+  /** Pan to (x, y), clamped (clampPan); rebuilds geometry so drawing and hitTest move together. Returns the clamped pan. */
+  setPan(x: number, y: number): Pan;
+  /** Back to {0,0}. */
+  resetView(): void;
 }
 
 export interface MapRendererOptions {
@@ -128,7 +138,7 @@ function kindCode(kind: FaultKind): number {
   }
 }
 
-export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opts?: MapRendererOptions): MapRenderer {
+export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opts?: MapRendererOptions): MapRenderer & MapPanView {
   let insets: Insets = { ...(opts?.insets ?? {}) };
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("2D canvas unavailable");
@@ -141,6 +151,8 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
 
   let width = 0;
   let height = 0;
+  const mapBounds = puzzleBounds(puzzle);
+  let pan: Pan = { x: 0, y: 0 };
   let geo: Geometry = buildGeometry(puzzle, 1, 1, PADDING, insets);
 
   // ---- per-puzzle precomputation ----
@@ -260,9 +272,22 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     canvas.width = Math.round(width * dpr);
     canvas.height = Math.round(height * dpr);
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
-    geo = buildGeometry(puzzle, width, height, PADDING, insets);
+    rebuildGeometry();
+  }
+
+  /** Re-clamp the pan to the current free area and rebuild everything that depends on the fit. */
+  function rebuildGeometry(): void {
+    const box = mapBox(mapBounds, computeFit(mapBounds, width, height, PADDING, insets));
+    pan = clampPan(pan, box, freeArea(width, height, insets));
+    geo = buildGeometry(puzzle, width, height, PADDING, insets, pan);
     buildSwitchDirs();
     for (let s = 0; s < SLOTS; s++) if (slotActive[s] === 1) rebuildSlotPath(s);
+  }
+
+  function setPan(x: number, y: number): Pan {
+    pan = { x, y };
+    rebuildGeometry();
+    return { x: pan.x, y: pan.y };
   }
 
   function setInsets(next: Insets): void {
@@ -1298,5 +1323,10 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     resize,
     setInsets,
     notify,
+    getPan: () => ({ x: pan.x, y: pan.y }),
+    setPan,
+    resetView: () => {
+      setPan(0, 0);
+    },
   };
 }
