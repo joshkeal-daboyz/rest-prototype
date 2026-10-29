@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { BatteryReadout, FeedReadout, SoundView } from "../core";
 import { Crackle, initialLayerState, layersFor } from "./layers";
-import { dbToGain } from "./recipes";
+import { WHINE_HIGH_HZ, WHINE_LOW_HZ, dbToGain } from "./recipes";
 
 const view = (o: Partial<{ feeds: [string, FeedReadout][]; batteries: [string, BatteryReadout][]; sparking: string[]; brownout: boolean }> = {}): SoundView => ({
   brownout: o.brownout ?? false,
@@ -44,10 +44,10 @@ describe("charge whine", () => {
   it("is on while any battery charges, and its pitch rises with charge / capacity", () => {
     const at = (c: number) => layersFor(view({ batteries: [["b", bat(c)]] }), initialLayerState());
     expect(at(0).whineOn).toBe(true);
-    expect(at(0).whineHz).toBe(600);
-    expect(at(2).whineHz).toBe(1000);
+    expect(at(0).whineHz).toBe(WHINE_LOW_HZ);
+    expect(at(2).whineHz).toBeCloseTo((WHINE_LOW_HZ + WHINE_HIGH_HZ) / 2, 9);
     expect(at(3).whineHz).toBeGreaterThan(at(2).whineHz);
-    expect(at(4).whineHz).toBe(1400);
+    expect(at(4).whineHz).toBe(WHINE_HIGH_HZ);
     expect(at(1).whine).toBeCloseTo(dbToGain(-34), 9);
   });
 
@@ -59,7 +59,7 @@ describe("charge whine", () => {
 
   it("follows the highest ratio among charging batteries only", () => {
     const l = layersFor(view({ batteries: [["a", bat(1)], ["b", bat(4, false)]] }), initialLayerState());
-    expect(l.whineHz).toBe(600 + 800 * 0.25);
+    expect(l.whineHz).toBeCloseTo(WHINE_LOW_HZ + (WHINE_HIGH_HZ - WHINE_LOW_HZ) * 0.25, 9);
   });
 
   it("the full tick fires on one frame only, and again after dropping below and refilling", () => {
