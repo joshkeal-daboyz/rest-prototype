@@ -1,7 +1,7 @@
 # 023 · A top-down city under the map; lit lamps light their places
 
 owner: renderer
-status: approved (G1, Josh, 29 Oct 2026: "I approve all")
+status: done
 branch: ticket/023-city-backdrop
 
 ## Josh's words

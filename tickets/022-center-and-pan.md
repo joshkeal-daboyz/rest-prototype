@@ -1,7 +1,7 @@
 # 022 · Map centred in the free area; right-drag to pan
 
 owner: renderer (A), interaction (B)
-status: approved (G1, Josh, 29 Oct 2026: "I approve all")
+status: done
 branch: one per part: `ticket/022-center-and-pan-a`, `ticket/022-center-and-pan-b`
 
 ## Josh's words
