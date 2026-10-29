@@ -250,6 +250,7 @@ if (entries.length === 0) {
       if (!s.winShown && splashDue(view.relightT, s.relightDuration)) {
         s.winShown = true;
         showWin(s, view.elapsed, state.actions);
+        audio.levelDone();
       }
       audio.update(state, dt);
       const overlay: { hover?: string | null; relightT?: number; highlight?: string | null } = {
