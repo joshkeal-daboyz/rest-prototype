@@ -4,17 +4,20 @@
  * prompt from the play layer.
  */
 
-import type { AudioControl, FeedInfo } from "../core";
+import type { AudioControl, FeedInfo, Part } from "../core";
 import type { Grid } from "../grid";
 import type { MapPlay } from "../play";
 import {
   batteryCountdown,
   bannerText,
   capacityRows,
+  inventoryRows,
   liveNotices,
   mapLabel,
   noticeOpacity,
-  partCounts,
+  PART_ICON_SIZE,
+  PART_ICON_SVG,
+  PART_ICON_VIEWBOX,
   partsSummary,
   promptPosition,
   promptToShow,
@@ -25,6 +28,7 @@ import {
   volumeToSlider,
   winLine,
   writeAudioPrefs,
+  type Rect,
   type StorageLike,
 } from "./logic";
 
@@ -63,7 +67,38 @@ export interface UI {
   hideWin(): void;
 }
 
-const PART_LABEL = { bulb: "Bulb", fuse: "Fuse", wire: "Wire" } as const;
+/** Styles for the parts inventory (ticket 021): a small panel fixed bottom-left, one column of icon and count. */
+const INVENTORY_STYLE_ID = "ui-inventory-style";
+const INVENTORY_CSS = `
+.inventory { position: absolute; left: 14px; bottom: 14px; box-sizing: border-box; display: grid; grid-template-columns: 26px 3ch; grid-auto-rows: 32px; column-gap: 4px; row-gap: 2px; align-items: center; color: var(--ink); background: #141b24; border: 0.5px solid #2a3644; border-radius: 10px; padding: 8px 10px; }
+.inventory .row { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: center; height: 32px; }
+.inventory .row.empty { opacity: 0.4; }
+.inventory .icon { display: block; width: 26px; height: 26px; }
+.inventory .count { text-align: right; font-variant-numeric: tabular-nums; }
+`;
+
+function ensureInventoryStyle(): void {
+  if (document.getElementById(INVENTORY_STYLE_ID)) return;
+  const style = el("style");
+  style.id = INVENTORY_STYLE_ID;
+  style.textContent = INVENTORY_CSS;
+  document.head.append(style);
+}
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+/** A part's approved icon: a 24×24 inline SVG from fixed strings (PART_ICON_SVG), hidden from assistive tech. */
+function partIcon(kind: Part): SVGSVGElement {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("viewBox", PART_ICON_VIEWBOX);
+  svg.setAttribute("width", String(PART_ICON_SIZE));
+  svg.setAttribute("height", String(PART_ICON_SIZE));
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("focusable", "false");
+  svg.setAttribute("class", "icon");
+  svg.innerHTML = PART_ICON_SVG[kind];
+  return svg;
+}
 
 /** Styles for the notice strip, added once to the document head (index.html holds the rest). */
 const NOTICE_STYLE_ID = "ui-notice-style";
@@ -248,7 +283,7 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
 
   hudLeft.append(pickerLabel, capacityEl, batteryEl, targetsHeading, targetsEl);
 
-  // ---- top right: controls and parts ----
+  // ---- top right: controls ----
   const hudRight = el("div", "hud hud-right");
 
   const controls = el("div", "controls");
@@ -265,9 +300,20 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
   const sound = deps.audio ? mountSound(deps.audio) : null;
   if (sound) controls.append(sound.button, sound.volume);
 
-  const partsEl = el("div", "parts");
-  partsEl.setAttribute("role", "group");
-  hudRight.append(controls, partsEl);
+  hudRight.append(controls);
+
+  // ---- bottom left: parts on hand (ticket 021). Not a .hud column, so the top inset ignores it. ----
+  ensureInventoryStyle();
+  const inventoryEl = el("div", "inventory");
+  inventoryEl.setAttribute("role", "group");
+  const inventoryRowEls = (["bulb", "fuse", "wire"] as const).map((kind) => {
+    const row = el("div", "row");
+    row.setAttribute("role", "img");
+    const count = el("span", "count", "0");
+    row.append(partIcon(kind), count);
+    inventoryEl.append(row);
+    return { kind, row, count };
+  });
 
   // ---- bottom: prompt; top centre: banner ----
   const promptEl = el("div", "prompt");
@@ -322,7 +368,7 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
     if (win?.next) win.onNext();
   });
 
-  root.append(hudLeft, hudRight, bannerEl, promptEl, noticesEl, splashEl);
+  root.append(hudLeft, hudRight, inventoryEl, bannerEl, promptEl, noticesEl, splashEl);
 
   // The prompt follows the pointer over the map. Pointer position is presentation only.
   let pointer: { x: number; y: number } | null = null;
@@ -348,7 +394,14 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
     if (!pointer || promptEl.hidden) return;
     const bounds = root.getBoundingClientRect();
     const local = { x: pointer.x - bounds.left, y: pointer.y - bounds.top };
-    const spot = promptPosition(local, bounds, { width: promptEl.offsetWidth, height: promptEl.offsetHeight });
+    const spot = promptPosition(
+      local,
+      bounds,
+      { width: promptEl.offsetWidth, height: promptEl.offsetHeight },
+      undefined,
+      undefined,
+      localRect(inventoryEl, bounds),
+    );
     promptEl.style.left = `${spot.left}px`;
     promptEl.style.top = `${spot.top}px`;
   }
@@ -364,8 +417,15 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
   }
 
   let targetsKey = "";
-  let partsKey = "";
+  // null, not "": an empty parts list joins to "", and the rows still need their first write (ticket 021).
+  let partsKey: string | null = null;
   let capacityKey = "";
+
+  /** A node's box in `root`'s space (the same space as the pointer), so it can be compared with the prompt's box. */
+  function localRect(node: HTMLElement, bounds: DOMRect): Rect {
+    const box = node.getBoundingClientRect();
+    return { left: box.left - bounds.left, top: box.top - bounds.top, width: box.width, height: box.height };
+  }
 
   function notify(text: string): void {
     const node = el("div", "notice", text);
@@ -406,7 +466,12 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
     let floor = Math.max(hudLeft.getBoundingClientRect().bottom, hudRight.getBoundingClientRect().bottom);
     if (!bannerEl.hidden) floor = Math.max(floor, bannerEl.getBoundingClientRect().bottom);
     const top = Math.round(floor - rootBox.top + 8);
-    const room = rootBox.height - top - splashEl.offsetHeight;
+    // Ticket 021: where the inventory shares the splash's columns (always at ~400 px), the room ends 8 px above it.
+    let ceiling = rootBox.height;
+    const splashBox = splashEl.getBoundingClientRect();
+    const invBox = inventoryEl.getBoundingClientRect();
+    if (splashBox.left < invBox.right && splashBox.right > invBox.left) ceiling = invBox.top - rootBox.top - 8;
+    const room = ceiling - top - splashEl.offsetHeight;
     const place = room > 0 ? Math.round(top + room / 2) : top;
     if (place !== splashTop) {
       splashTop = place;
@@ -494,15 +559,16 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
     const nextPartsKey = state.parts.join(",");
     if (nextPartsKey !== partsKey) {
       partsKey = nextPartsKey;
-      partsEl.textContent = "";
-      const counts = partCounts(state.parts);
-      for (const kind of ["bulb", "fuse", "wire"] as const) {
-        const chip = el("span", `part part-${kind}`);
-        chip.append(el("span", `icon icon-${kind}`), el("span", "part-text", `${PART_LABEL[kind]} ${counts[kind]}`));
-        partsEl.append(chip);
+      const rows = inventoryRows(state.parts);
+      for (const node of inventoryRowEls) {
+        const row = rows.find((r) => r.kind === node.kind);
+        if (!row) continue;
+        setText(node.count, String(row.count));
+        node.row.setAttribute("aria-label", row.text);
+        node.row.classList.toggle("empty", row.empty);
       }
     }
-    partsEl.setAttribute("aria-label", partsSummary(state.parts));
+    inventoryEl.setAttribute("aria-label", partsSummary(state.parts));
   }
 
   return { update, notify, showWin, hideWin };

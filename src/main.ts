@@ -42,6 +42,14 @@ function hudTopInset(): number {
   return Math.max(0, Math.ceil(bottom - canvasTop + 8));
 }
 
+/** Bottom inset for the map fit (ticket 021): the parts panel's height, its 14 px from the bottom edge, and 8 px of margin. 0 before the panel exists. */
+function inventoryBottomInset(): number {
+  const inventory = (uiRoot as HTMLElement).querySelector<HTMLElement>(".inventory");
+  if (!inventory) return 0;
+  const canvasBottom = (canvas as HTMLCanvasElement).getBoundingClientRect().bottom;
+  return Math.max(0, Math.ceil(canvasBottom - inventory.getBoundingClientRect().top + 8));
+}
+
 if (entries.length === 0) {
   uiRoot.textContent = "No maps found in puzzles/.";
 } else {
@@ -81,7 +89,9 @@ if (entries.length === 0) {
     const bus = new EventBus();
     const grid = createGrid(entry.puzzle, bus);
     const detachAudio = audio.attach(bus);
-    const renderer = createMapRenderer(canvas as HTMLCanvasElement, entry.puzzle, { insets: { top: hudTopInset() } });
+    const renderer = createMapRenderer(canvas as HTMLCanvasElement, entry.puzzle, {
+      insets: { top: hudTopInset(), bottom: inventoryBottomInset() },
+    });
     const play = createMapPlay(entry.puzzle, grid, renderer, bus);
     const detachPlay = play.attach(canvas as HTMLCanvasElement);
     const feeds = puzzleFeeds(entry.puzzle);
@@ -97,8 +107,8 @@ if (entries.length === 0) {
         open(next);
       },
     });
-    // The HUD exists only after mountUI, so measure again now that it is in place.
-    renderer.setInsets({ top: hudTopInset() });
+    // The HUD and the parts panel exist only after mountUI, so measure again now that they are in place.
+    renderer.setInsets({ top: hudTopInset(), bottom: inventoryBottomInset() });
 
     // Event notices: the bus says what broke; a refused relay throw has no event, so it is read from the
     // play log after each click (the play layer's own click listener, attached above, runs first).
@@ -177,7 +187,7 @@ if (entries.length === 0) {
 
   window.addEventListener("resize", () => {
     if (!session) return;
-    session.renderer.setInsets({ top: hudTopInset() });
+    session.renderer.setInsets({ top: hudTopInset(), bottom: inventoryBottomInset() });
     session.renderer.resize();
   });
 

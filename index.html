@@ -30,7 +30,7 @@
       .hud-left { left: 16px; }
       .hud-right { right: 16px; align-items: flex-end; }
       .picker { display: flex; align-items: center; gap: 8px; pointer-events: auto; }
-      .readout, .targets, .parts { background: var(--panel); border: 1px solid var(--edge); border-radius: 8px; padding: 8px 12px; }
+      .readout, .targets { background: var(--panel); border: 1px solid var(--edge); border-radius: 8px; padding: 8px 12px; }
       .capacity { font-variant-numeric: tabular-nums; font-weight: 600; }
       .capacity.brownout { color: var(--alarm); border-color: var(--alarm); }
       .label { margin: 0; font-size: 13px; font-weight: 600; color: var(--ink-dim); }
@@ -40,12 +40,6 @@
       .target.lit .mark { background: var(--lit); color: #1a1408; border-color: var(--lit); }
       .target.dark .mark { color: var(--ink-dim); }
       .controls { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; pointer-events: auto; }
-      .parts { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: flex-end; }
-      .part { display: inline-flex; align-items: center; gap: 6px; }
-      .icon { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--ink); box-sizing: border-box; }
-      .icon-bulb { border-radius: 50%; }
-      .icon-fuse { width: 8px; height: 16px; border-radius: 2px; }
-      .icon-wire { height: 4px; width: 16px; border: none; background: var(--ink); align-self: center; }
       .banner { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); background: var(--panel); border: 1px solid var(--lit); color: var(--lit); border-radius: 8px; padding: 10px 16px; max-width: calc(100% - 32px); text-align: center; }
       /* Placed beside the pointer by src/ui/index.ts (left/top are set from the script). */
       .prompt { position: absolute; left: 0; top: 0; background: var(--panel); border: 1px solid var(--edge); border-radius: 8px; padding: 8px 14px; max-width: min(320px, calc(100% - 16px)); }
@@ -53,7 +47,7 @@
       @media (max-width: 600px) {
         .hud-left { left: 8px; right: 8px; max-width: none; }
         .hud-right { left: 8px; right: 8px; align-items: stretch; }
-        .controls, .parts { justify-content: flex-start; }
+        .controls { justify-content: flex-start; }
       }
     </style>
   </head>
