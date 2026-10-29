@@ -161,7 +161,7 @@ describe("the blow sequence", () => {
     const run = part(cues, "run")?.voices[0];
     expect(run?.gainDb).toBe(-30);
     expect(run?.gainDbTo).toBe(-18);
-    expect(part(cues, "glow")?.voices.map((v) => v.freq)).toEqual([noteHz("G#2"), noteHz("G#3")]);
+    expect(part(cues, "glow")?.voices.map((v) => v.freq)).toEqual([noteHz("A2"), noteHz("A3")]);
   });
 
   it("1, 4, 7 and 32 lamps each make exactly one spark cue, at base, +3, +6 and +6 dB", () => {

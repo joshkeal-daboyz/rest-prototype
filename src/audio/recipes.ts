@@ -166,7 +166,7 @@ export function glowSound(): Voice[] {
     osc("sawtooth", f, {
       filter: { type: "lowpass", freq: 800, q: 0.7 }, attack: GLOW_RISE, release: GLOW_FALL, duration: BLOW_TIMING.glow, gainDb: -22,
     });
-  return [saw(noteHz("G#2")), saw(noteHz("G#3"))];
+  return [saw(noteHz("A2")), saw(noteHz("A3"))];
 }
 
 /** +1 dB per lamp after the first, capped at +6 dB. */
