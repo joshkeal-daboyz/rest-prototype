@@ -1,6 +1,6 @@
 # 59 · Move the meeting — design note
 
-One street between two feeds, as on 56. Halfway along it a spur leads to a relay set to the forge (3). Whichever feed carries the spur's junction carries the forge the moment the spur's breaker closes. Right now that is East, whose fuse is rated 3 and already carries two lamps. West has the room, but West's short way onto the street is switched off, and when it's switched on it turns out to be broken.
+One street between two feeds, as on 15. Halfway along it a spur leads to a relay set to the forge (3). Whichever feed carries the spur's junction carries the forge the moment the spur's breaker closes. Right now that is East, whose fuse is rated 3 and already carries two lamps. West has the room, but West's short way onto the street is switched off, and when it's switched on it turns out to be broken.
 
 **Element(s) under test:** depth, on two feeds (version 5). Pieces: *nearest feed carries it* (015, rule 2: fewest hops), a long-way switch that moves the meeting point, a fault hidden behind that switch, a relay that has to be thrown live, a fuse on one feed's way in.
 
@@ -47,7 +47,7 @@ No junction is ever at a tie.
 ## What this map tests
 
 - Whether players work out who carries a lamp **before** closing a breaker, when the drawing says nothing about it.
-- 56's "a longer route gives load away", backwards: shortening a route takes load on, and that is the point.
+- 15's "a longer route gives load away", backwards: shortening a route takes load on, and that is the point.
 - Whether a fault hidden behind a long-way switch reads as part of the hop-count plan.
 
 ## Expected numbers

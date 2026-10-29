@@ -21,7 +21,7 @@ function mini(
 }
 
 const runMap = (): Puzzle =>
-  loadPuzzle(JSON.parse(readFileSync(join(__dirname, "..", "..", "puzzles", "18-battery-run.json"), "utf8")) as unknown);
+  loadPuzzle(JSON.parse(readFileSync(join(__dirname, "..", "..", "puzzles", "20-battery-run.json"), "utf8")) as unknown);
 
 function blows(bus: EventBus): Array<Record<string, unknown>> {
   const log: Array<Record<string, unknown>> = [];
@@ -71,7 +71,7 @@ describe("fuse:blown names the culprit (ticket 011 D)", () => {
     expect(log).toEqual([]);
   });
 
-  it("18-battery-run: throwing the east breaker at the start blows fb_east with culprit mill and a path ending at the line into mill", () => {
+  it("20-battery-run: throwing the east breaker at the start blows fb_east with culprit mill and a path ending at the line into mill", () => {
     const bus = new EventBus();
     const log = blows(bus);
     createGrid(runMap(), bus).throwBreaker("br_east");
@@ -80,7 +80,7 @@ describe("fuse:blown names the culprit (ticket 011 D)", () => {
     expect(log[0]!.path).toEqual(["l_e2", "l_mill"]);
   });
 
-  it("18-battery-run: the relay section set during the battery window is then won by the feed (charge 8, release, rl_2, rl_1, breaker -> complete)", () => {
+  it("20-battery-run: the relay section set during the battery window is then won by the feed (charge 8, release, rl_2, rl_1, breaker -> complete)", () => {
     const bus = new EventBus();
     const log = blows(bus);
     const g = createGrid(runMap(), bus);

@@ -10,12 +10,12 @@ branch: one per part: `ticket/027-larger-maps-a1`, `-a2`, `-a3`, `-a4`, `-g`, `-
 This ticket is the **engineering** that larger maps need. It designs no puzzle. The maps themselves are ticket **028 · A tier of large maps** (puzzle-designer), cut after this one (see Order).
 
 ## Where it is today (read from `main` at 6f30570)
-**Sizes now.** The largest maps are about 30 nodes: `54-whole-ward` has 31 nodes, 33 lines, is 29 × 19 units and has 5 targets. Every map but two has one feed. The smallest gap between two nodes is 1 unit (several maps).
+**Sizes now.** The largest maps are about 30 nodes: `56-whole-ward` has 31 nodes, 33 lines, is 29 × 19 units and has 5 targets. Every map but two has one feed. The smallest gap between two nodes is 1 unit (several maps).
 
 **1. The fit shrinks a big map until it is unreadable** (`src/render/geometry.ts` `computeFit`).
 - `scale = min(availX / spanX, availY / spanY, MAX_SCALE = 80)`. There is no lower limit.
 - Icons, hit radii (`NODE_HIT_RADIUS = 18`), Lv captions and the 024 clearances are all in **CSS px**, so they do not shrink with the scale. Only the gaps between nodes shrink.
-- At 1920 × 1080, `54` already fits at about 37 px per unit. A 64 × 40 map would get about 17 px per unit. Two nodes 1 unit apart would then sit 17 px apart, inside each other's 18 px hit circles, and their captions would collide.
+- At 1920 × 1080, `56` already fits at about 37 px per unit. A 64 × 40 map would get about 17 px per unit. Two nodes 1 unit apart would then sit 17 px apart, inside each other's 18 px hit circles, and their captions would collide.
 - **The pan clamp (022)** assumes the map fits. `clampPan` keeps `PAN_KEEP = 96` px of the box inside the free area. On a map bigger than the screen, that lets the player drag almost the whole map away, leaving a 96 px sliver.
 - `resetView`, Home and double right-click all go to pan `{0, 0}`, the centred fit.
 - **Labels (024 A3)** whose place doesn't fit are **shifted inside the free area**. That is right when the whole map is on screen. On an overflowing map, a target far off-screen would have its name dragged to the screen edge, away from its place.
@@ -23,7 +23,7 @@ This ticket is the **engineering** that larger maps need. It designs no puzzle. 
 
 **2. The city has a 32-unit cap** (`src/render/city.ts`).
 - `DISTRICT = 32`. Districts sit hub-and-spoke from the ladder number (`districtOf`): 8 spokes × 8 slots, which fills exactly at ladder 65.
-- `circuitStreets` clips each map's footprint (bounds + `FOOTPRINT_MARGIN = 2`) to its district. Four maps are clipped today: 31, 53, 54 and 59.
+- `circuitStreets` clips each map's footprint (bounds + `FOOTPRINT_MARGIN = 2`) to its district. Four maps are clipped today: 33, 55, 56 and 59.
 - A 64 × 40 map would be cut to 32 × 32. Its ring road would run through the middle of its own wiring, and its lots would not clear the wires outside the clip.
 - **Work per pan is bounded by the screen, not the map:** `cityForMap` already takes the visible rect, and `footprintLayout` is cached per scale. But `rebuildGeometry` runs on every pointer move of a drag. It rebuilds the geometry, re-places every label and repaints the whole city layer.
 
@@ -42,7 +42,7 @@ This ticket is the **engineering** that larger maps need. It designs no puzzle. 
 **4. Puzzle verification is not built.**
 - `package.json` has `"analyze": "tsx tools/analyze.ts"`, but `tools/analyze.ts` does not exist.
 - Every design note's numbers come from a **throwaway brute force** over `createGrid`, written fresh by each designer.
-- That search already runs out of time on `47` and `52` (puzzles/README.md: "the search runs out of time on them"). At four sections of that size, brute force over the whole map is hopeless: the state space is roughly the product of the sections' state spaces.
+- That search already runs out of time on `49` and `54` (puzzles/README.md: "the search runs out of time on them"). At four sections of that size, brute force over the whole map is hopeless: the state space is roughly the product of the sections' state spaces.
 - Nothing re-checks a map once its note is written.
 
 **5. Overlays.**
@@ -101,7 +101,7 @@ A map can be bigger than the screen. The player can also **zoom**: the mouse whe
 
 ### The city: a ward for a large map (A2, renderer)
 - **A map is large** when its footprint (bounds grown by `FOOTPRINT_MARGIN` on every side) is wider or taller than `DISTRICT`. This is derived from the bounds; **no schema field**.
-  - Today that is 31, 53, 54 and 59.
+  - Today that is 33, 55, 56 and 59.
   - They move to wards and are no longer clipped. Josh will see a slightly different backdrop on those four.
 - **Wards** are on a ring beyond every spoke slot that ladder numbers 1–129 can reach (slots 0–15). A large map's ward is centred at:
   - **radius:** `WARD_R + WARD_RING_STEP × floor(n / WARD_SLOTS)`;
@@ -256,7 +256,7 @@ No rule changes. Multi-feed maps use draft 5's Draft rules as they stand. *The R
   - **Culling:** `visibleLines(geo, area, 32)` and `visibleNodes(...)` contain every line or node with any part on screen, and none wholly more than 32 px off. On the large map at its initial view, they are fewer than all.
   - Every existing `src/render/` test passes. `npm run gate` is green, and the test count grows.
 - [ ] **A2 (renderer), Vitest in `src/render/`:**
-  - `isLarge` is true for exactly the maps whose bounds + 2 × `FOOTPRINT_MARGIN` exceed `DISTRICT` on an axis (today 31, 53, 54, 59), and for the synthetic 64 × 40 map.
+  - `isLarge` is true for exactly the maps whose bounds + 2 × `FOOTPRINT_MARGIN` exceed `DISTRICT` on an axis (today 33, 55, 56, 59), and for the synthetic 64 × 40 map.
   - **No overlap:** no ward square overlaps any spoke district for ladder numbers 1–129. No two wards overlap for 1–512. No ward contains the hub.
   - **Whole footprints:** every file's footprint (bounds + margin, unclipped) lies inside its district or its ward, and so does the synthetic map's. The clip is gone from `circuitStreets`.
   - **Small maps unmoved:** `mapOrigin` is identical to today's for every map that isn't large. The 023/024 hub-and-spoke tests pass.
@@ -275,7 +275,7 @@ No rule changes. Multi-feed maps use draft 5's Draft rules as they stand. *The R
   - **Levels:** `zoomLevels(min, open, max)` is sorted and has no duplicates. It contains `min`, `open` and `max`, and consecutive levels differ by at most `ZOOM_STEP` (±1e-9). If `min === open` (a map that fits), it has no level below `open`.
   - **Range:**
     - On the synthetic 64 × 40 map at 1920 × 1080 with insets `{ top: 220, bottom: 140 }`, `minZoomScale` is below `MIN_SCALE`. At that scale the whole map plus `PADDING` is inside the free area, and centred (±0.5).
-    - On `08-shrine-circuit`, `minZoomScale === openScale`.
+    - On `09-shrine-circuit`, `minZoomScale === openScale`.
     - No level exceeds `MAX_ZOOM_SCALE`.
   - **Zoom about a point:**
     - For 10 sampled canvas points and every pair of adjacent levels, `zoomAbout` keeps the map point under the canvas point within 0.5 px, unless the clamp moved it. When the clamp moved it, the result equals `clampPan` of the unclamped pan.
@@ -290,7 +290,7 @@ No rule changes. Multi-feed maps use draft 5's Draft rules as they stand. *The R
     - Points in the insets return `null` at every level.
   - **Captions:** below `CAPTION_MIN_SCALE` no Lv caption box or place label is emitted. At or above it, the same captions as A1 are emitted.
   - **City at every level:**
-    - The 024 A3 "no overlap with the circuit" test passes at `minZoomScale`, `openScale` and `MAX_ZOOM_SCALE` for the synthetic map and for `54`.
+    - The 024 A3 "no overlap with the circuit" test passes at `minZoomScale`, `openScale` and `MAX_ZOOM_SCALE` for the synthetic map and for `56`.
     - `footprintLayout` is computed once per level visited. Repeat visits to 4 levels hit the cache, and a 5th level evicts the oldest.
   - **Overlays at every level:** every shown label is inside the free area. At `fitWhole` on the synthetic map, `offscreenMarkers` is empty. Culling is correct at the extreme levels.
   - Every A1, A2 and A3 test still passes at `openScale`. `npm run gate` is green, and the test count grows.
@@ -334,14 +334,14 @@ No rule changes. Multi-feed maps use draft 5's Draft rules as they stand. *The R
     - for the solution: complete, clicks, parts used, and each feed's load against its capacity;
     - for each trap: whether its `expect` held (`blown`, `brownout`, `readable`, `lit`, `complete: false`) and whether the recovery won.
   - **In the gate:** `tools/check.test.ts` runs every note in `puzzles/` that has a check block, so a block that stops winning fails CI.
-  - **Proven on a real map:** a check block for `08-shrine-circuit`, written as test data inside the test file (not in the note), passes. A deliberately wrong solution fails, with a message naming the first move whose state differs.
+  - **Proven on a real map:** a check block for `09-shrine-circuit`, written as test data inside the test file (not in the note), passes. A deliberately wrong solution fails, with a message naming the first move whose state differs.
   - `npm run gate` is green.
 - [ ] **D2 (grid-simulator), Vitest in `tools/`:**
   - `tools/analyze.ts` exists and is the existing `npm run analyze` script.
   - It runs a bounded BFS over play states with the 1 s / 0.5 s time convention, deduplicated on (breakers, switches, faults, parts, battery charge and released, rounded to 0.5 s).
   - It reports: solvable, min clicks, the number of winning control configurations, the share of reachable states that can't win any more, the first moves that lead only to such states, and the fuses that blow on any shortest win.
-  - On `05-the-spark` and `08-shrine-circuit` its min clicks and winners equal the numbers in their notes.
-  - Over the cap (a test sets `cap: 1000` on `47`), it reports `exhaustive: false` and a lower bound `noWinBelow: D`, where D is the deepest fully searched layer + 1.
+  - On `06-the-spark` and `09-shrine-circuit` its min clicks and winners equal the numbers in their notes.
+  - Over the cap (a test sets `cap: 1000` on `49`), it reports `exhaustive: false` and a lower bound `noWinBelow: D`, where D is the deepest fully searched layer + 1.
   - `npm run gate` is green.
 - [ ] **D3 (grid-simulator), Vitest in `tools/`:**
   - `analyze --sections` builds one valid (`validatePuzzle`) version-5 sub-puzzle per section. It has:
@@ -350,18 +350,18 @@ No rule changes. Multi-feed maps use draft 5's Draft rules as they stand. *The R
     - the section's targets;
     - the section's parts.
   - It runs D2's search on each sub-puzzle and prints a table, one row per section.
-  - On a generated two-section map (two copies of `08` joined by a tie switch), each section's numbers equal `08`'s.
+  - On a generated two-section map (two copies of `09` joined by a tie switch), each section's numbers equal `09`'s.
   - The full-map replay of the check block also passes.
   - `npm run gate` is green.
 - [ ] **Josh in the browser** (`npm run dev`), **now** on existing maps, after A1 to A3, B and C:
-  - Open `54-whole-ward`, then make the window small (about 1100 × 650, or 1366 × 768 with devtools open). The map stays readable (icons and captions as large as on a big screen) and overflows.
+  - Open `56-whole-ward`, then make the window small (about 1100 × 650, or 1366 × 768 with devtools open). The map stays readable (icons and captions as large as on a big screen) and overflows.
     - It opens on its feed.
     - Right-drag and the arrow keys move it, and it stops with a small margin at each edge. It never slides away leaving an empty screen.
     - Home goes back to the feed view.
     - Off-screen targets show edge stars, filled when lit.
     - Click a target in the list: the map brings it to the centre.
     - Clicks over the HUD or the parts panel never throw anything underneath.
-  - **Zoom** (after A4 and B), on `54` and on `08`:
+  - **Zoom** (after A4 and B), on `56` and on `09`:
     - The wheel zooms about the pointer: the spot under the pointer stays put, and the page never scrolls.
     - A touchpad pinch zooms the map, not the page.
     - `+` and `-` zoom about the centre.
@@ -369,7 +369,7 @@ No rule changes. Multi-feed maps use draft 5's Draft rules as they stand. *The R
     - Home goes back to the readable opening view.
     - Zoomed all the way in, nothing is cut off and the city's buildings still clear every wire.
     - Pick another map, press Reset, or resize the window: the zoom resets. Undo leaves it alone. Zoom during the Relight: it carries on.
-  - At full size, every map opens exactly as before. `54`'s city backdrop is whole, with no ring road cutting through its wiring.
+  - At full size, every map opens exactly as before. `56`'s city backdrop is whole, with no ring road cutting through its wiring.
 - [ ] **Josh in the browser, on 028's first large map** (the pilot), once it exists: all of the above at real size, zoom and `F` included. Also: the Relight plays while panning, panning stays smooth, and the HUD stays short enough to leave most of the screen for the map.
 
 ## Files
@@ -391,7 +391,7 @@ Out of scope for every part: the puzzle files, design notes and `puzzles/locked/
 5. **A4 (zoom)** after A1 and A2 merge (about a day). It changes the scale that A1's view and A2's city cache depend on. It may run in parallel with A3, but merges after it, so A4's every-level overlay tests cover the edge stars.
 6. **B** after A4 merges, because it calls `zoomStep` and `fitWhole`. B may write the arrow keys and its fakes against the interfaces below earlier. About half a day.
 7. **D3** after D2.
-8. **Josh's first browser check** on `54` in a small window, and on `08`, after A1–A4, B and C.
+8. **Josh's first browser check** on `56` in a small window, and on `09`, after A1–A4, B and C.
 7. **028 · A tier of large maps (puzzle-designer)** is cut when D1 and D2 are merged, so the designer has the check block and the analyzer. It is ideally cut after D3 too. 028 starts with **one pilot map** (two sections, two feeds) for Josh to play before any tier. Josh's second browser check for 027 runs on that pilot.
 
 Not started without Josh's word: each part's G1 is his.

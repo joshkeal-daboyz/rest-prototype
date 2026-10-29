@@ -181,7 +181,7 @@ describe("attachPan", () => {
   });
 
   it("panning makes no grid call, adds no log entry and emits no play:click", () => {
-    const puzzle = loadPuzzle(JSON.parse(readFileSync(join(__dirname, "../../puzzles/08-shrine-circuit.json"), "utf8")) as unknown);
+    const puzzle = loadPuzzle(JSON.parse(readFileSync(join(__dirname, "../../puzzles/09-shrine-circuit.json"), "utf8")) as unknown);
     const bus = new EventBus();
     const grid = createGrid(puzzle, bus);
     const renderer: MapRenderer = { draw() {}, resize() {}, setInsets() {}, notify() {}, hitTest: () => null };

@@ -89,7 +89,7 @@ describe("placeAtPoint", () => {
     }
   });
   it("moves with the pan: the same screen point is a different map point", () => {
-    const puzzle = OPEN.find((o) => o.key.startsWith("08"))!.puzzle;
+    const puzzle = OPEN.find((o) => o.key === "09-shrine-circuit")!.puzzle;
     const b = puzzleBounds(puzzle);
     const f0 = computeFit(b, 1000, 800, 64);
     const f1 = computeFit(b, 1000, 800, 64, undefined, { x: 200, y: 0 });
@@ -155,8 +155,8 @@ describe("labels", () => {
     }
     expect(checked).toBeGreaterThan(300);
   });
-  it("labels the shrine on map 08 and puts it beside its place", () => {
-    const puzzle = OPEN.find((o) => o.key.startsWith("08"))!.puzzle;
+  it("labels the shrine on map 09 and puts it beside its place", () => {
+    const puzzle = OPEN.find((o) => o.key === "09-shrine-circuit")!.puzzle;
     const fit = computeFit(puzzleBounds(puzzle), 1920, 1080, 64);
     const places = cityPlaces(puzzle, fit.scale);
     const i = places.findIndex((p) => p.lamp === "shrine");

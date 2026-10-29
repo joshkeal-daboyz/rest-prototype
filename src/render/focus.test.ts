@@ -211,7 +211,7 @@ describe("the free front slot", () => {
     expect(placeAtPoint([pl], fit, cx, cy - (q.h * s) / 2 - 1)).toBeNull();
   });
   it("is deterministic: the same map and scale give equal output", () => {
-    const raw = JSON.parse(readFileSync(join(ROOT, "21-make-room.json"), "utf8"));
+    const raw = JSON.parse(readFileSync(join(ROOT, "23-make-room.json"), "utf8"));
     expect(cityPlaces(loadPuzzle(raw), 50)).toEqual(cityPlaces(loadPuzzle(raw), 50));
   });
 });

@@ -74,15 +74,15 @@ describe("fuseLoad (ticket 012 A)", () => {
   });
 
   it("fuseLoad rule: lamps lit only by a released battery add nothing to a fuse's load", () => {
-    const g = createGrid(fixture("18-battery-run.json"));
+    const g = createGrid(fixture("20-battery-run.json"));
     g.advance(8);
     g.release("bat");
     expect(g.state().lit.has("mill")).toBe(true);
     expect(g.state().fuseLoad.get("fb_east")).toBe(0);
   });
 
-  it("18-battery-run: fb_east carries 0 at the start and 1 after the winning sequence", () => {
-    const g = createGrid(fixture("18-battery-run.json"));
+  it("20-battery-run: fb_east carries 0 at the start and 1 after the winning sequence", () => {
+    const g = createGrid(fixture("20-battery-run.json"));
     expect(g.state().fuseLoad.get("fb_east")).toBe(0);
     g.advance(8);
     g.release("bat");
@@ -93,8 +93,8 @@ describe("fuseLoad (ticket 012 A)", () => {
     expect(g.state().fuseLoad.get("fb_east")).toBe(1);
   });
 
-  it("18-battery-run: the fuse:blown load equals the fuseLoad the same position shows with that fuse unblowable (3); the blown fuse then carries 0", () => {
-    const p = fixture("18-battery-run.json");
+  it("20-battery-run: the fuse:blown load equals the fuseLoad the same position shows with that fuse unblowable (3); the blown fuse then carries 0", () => {
+    const p = fixture("20-battery-run.json");
     const roomy = createGrid({ ...p, nodes: p.nodes.map((n) => (n.id === "fb_east" ? ({ ...n, rating: 9 } as GridNode) : n)) });
     roomy.throwBreaker("br_east");
     const before = roomy.state().fuseLoad.get("fb_east");
@@ -109,7 +109,7 @@ describe("fuseLoad (ticket 012 A)", () => {
     expect(g.state().fuseLoad.get("fb_east")).toBe(0);
   });
 
-  it("08-shrine-circuit: fb_A carries 3 at the start", () => {
-    expect(createGrid(fixture("08-shrine-circuit.json")).state().fuseLoad.get("fb_A")).toBe(3);
+  it("09-shrine-circuit: fb_A carries 3 at the start", () => {
+    expect(createGrid(fixture("09-shrine-circuit.json")).state().fuseLoad.get("fb_A")).toBe(3);
   });
 });
