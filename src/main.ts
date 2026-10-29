@@ -42,12 +42,18 @@ function hudTopInset(): number {
   return Math.max(0, Math.ceil(bottom - canvasTop + 8));
 }
 
-/** Bottom inset for the map fit (ticket 021): the parts panel's height, its 14 px from the bottom edge, and 8 px of margin. 0 before the panel exists. */
-function inventoryBottomInset(): number {
-  const inventory = (uiRoot as HTMLElement).querySelector<HTMLElement>(".inventory");
-  if (!inventory) return 0;
+/**
+ * Bottom inset for the map fit (tickets 021, 030): the larger of the bottom-corner panels' reserves, the parts panel
+ * (bottom left) and the sound dock (bottom right). Each reserves its distance from the canvas bottom to its top, plus 8 px. 0 before any exists.
+ */
+function bottomInset(): number {
   const canvasBottom = (canvas as HTMLCanvasElement).getBoundingClientRect().bottom;
-  return Math.max(0, Math.ceil(canvasBottom - inventory.getBoundingClientRect().top + 8));
+  let reserve = 0;
+  for (const selector of [".inventory", ".sound-dock"]) {
+    const panel = (uiRoot as HTMLElement).querySelector<HTMLElement>(selector);
+    if (panel) reserve = Math.max(reserve, canvasBottom - panel.getBoundingClientRect().top + 8);
+  }
+  return Math.max(0, Math.ceil(reserve));
 }
 
 if (entries.length === 0) {
@@ -94,7 +100,7 @@ if (entries.length === 0) {
     const grid = createGrid(entry.puzzle, bus);
     const detachAudio = audio.attach(bus);
     const renderer = createMapRenderer(canvas as HTMLCanvasElement, entry.puzzle, {
-      insets: { top: hudTopInset(), bottom: inventoryBottomInset() },
+      insets: { top: hudTopInset(), bottom: bottomInset() },
     });
     const play = createMapPlay(entry.puzzle, grid, renderer, bus);
     const detachPlay = play.attach(canvas as HTMLCanvasElement);
@@ -135,7 +141,7 @@ if (entries.length === 0) {
       },
     });
     // The HUD and the parts panel exist only after mountUI, so measure again now that they are in place.
-    renderer.setInsets({ top: hudTopInset(), bottom: inventoryBottomInset() });
+    renderer.setInsets({ top: hudTopInset(), bottom: bottomInset() });
 
     // Event notices: the bus says what broke; a refused relay throw has no event, so it is read from the
     // play log after each click (the play layer's own click listener, attached above, runs first).
@@ -144,7 +150,7 @@ if (entries.length === 0) {
       // Reset re-measures the HUD and re-centres the view (ticket 022). Undo does not.
       bus.on("play:click", (e) => {
         if (e.kind !== "reset") return;
-        renderer.setInsets({ top: hudTopInset(), bottom: inventoryBottomInset() });
+        renderer.setInsets({ top: hudTopInset(), bottom: bottomInset() });
         renderer.resetView();
       }),
       bus.on("fuse:blown", (payload) => renderer.notify({ type: "fuse:blown", payload })),
@@ -225,7 +231,7 @@ if (entries.length === 0) {
 
   window.addEventListener("resize", () => {
     if (!session) return;
-    session.renderer.setInsets({ top: hudTopInset(), bottom: inventoryBottomInset() });
+    session.renderer.setInsets({ top: hudTopInset(), bottom: bottomInset() });
     session.renderer.resize();
     session.renderer.resetView();
   });
@@ -265,7 +271,7 @@ if (entries.length === 0) {
       // The HUD is filled by the first ui.update(), so measure the insets and centre the map once, now.
       if (!s.centred) {
         s.centred = true;
-        s.renderer.setInsets({ top: hudTopInset(), bottom: inventoryBottomInset() });
+        s.renderer.setInsets({ top: hudTopInset(), bottom: bottomInset() });
         s.renderer.resetView();
       }
     }

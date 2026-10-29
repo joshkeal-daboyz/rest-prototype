@@ -44,10 +44,11 @@
       /* Placed beside the pointer by src/ui/index.ts (left/top are set from the script). */
       .prompt { position: absolute; left: 0; top: 0; background: var(--panel); border: 1px solid var(--edge); border-radius: 8px; padding: 8px 14px; max-width: min(320px, calc(100% - 16px)); }
 
+      /* At 600 px and below the action buttons are icon-only squares; the picker stops short of them (3 × 40 px + 2 × 6 px gaps + 12 px before Download log + 8 px margin = 152 px). */
       @media (max-width: 600px) {
-        .hud-left { left: 8px; right: 8px; max-width: none; }
-        .hud-right { left: 8px; right: 8px; align-items: stretch; }
-        .controls { justify-content: flex-start; }
+        .hud-left { left: 8px; right: 152px; max-width: none; }
+        .hud-right { left: auto; right: 8px; }
+        .picker select { min-width: 0; max-width: 100%; }
       }
     </style>
   </head>
