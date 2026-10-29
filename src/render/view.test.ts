@@ -3,8 +3,11 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { loadPuzzle, type Puzzle } from "../core";
 import {
+  LEGACY_FLOOR,
   MAX_SCALE,
   MIN_SCALE,
+  fitScale,
+  type Bounds,
   NODE_HIT_RADIUS,
   PADDING,
   PAN_KEEP,
@@ -96,32 +99,46 @@ describe("synthetic map is 64 x 40 units", () => {
 });
 
 describe("scale clamp", () => {
-  it("never leaves [MIN_SCALE, MAX_SCALE]", () => {
+  it("never leaves [LEGACY_FLOOR, MAX_SCALE], and is MIN_SCALE or the plain fit", () => {
     const sizes: [number, number][] = [[200, 150], [400, 300], [1100, 650], [1920, 1080], [4000, 3000]];
     for (const p of FILES.concat([BIG])) {
       for (const [w, h] of sizes) {
-        const s = computeFit(puzzleBounds(p), w, h, PADDING, INS).scale;
-        expect(s, `${p.id} ${w}x${h}`).toBeGreaterThanOrEqual(MIN_SCALE);
+        const b = puzzleBounds(p);
+        const s = computeFit(b, w, h, PADDING, INS).scale;
+        expect(s, `${p.id} ${w}x${h}`).toBeGreaterThanOrEqual(LEGACY_FLOOR);
         expect(s, `${p.id} ${w}x${h}`).toBeLessThanOrEqual(MAX_SCALE);
+        const fit = fitScale(b, w, h, PADDING, INS);
+        expect(s, `${p.id} ${w}x${h}`).toBe(fit >= LEGACY_FLOOR ? fit : MIN_SCALE);
       }
     }
   });
-  it("gives every file of puzzles/ today's scale at 1920 x 1080 (they all fit)", () => {
+  it("gives every file of puzzles/ exactly today's scale at 1920 x 1080 (the list that changes is empty)", () => {
     expect(FILES.length).toBeGreaterThan(50);
-    const below: string[] = [];
+    const changed: string[] = [];
     for (const p of FILES) {
       const b = puzzleBounds(p);
       const availX = W - 2 * PADDING;
       const availY = H - INS.top! - INS.bottom! - 2 * PADDING;
       const today = Math.min(availX / Math.max(b.maxX - b.minX, 1e-6), availY / Math.max(b.maxY - b.minY, 1e-6), MAX_SCALE);
-      if (today < MIN_SCALE) {
-        below.push(`${p.id} ${today.toFixed(1)}`);
-        expect(computeFit(b, W, H, PADDING, INS).scale, p.id).toBe(MIN_SCALE);
-      } else expect(computeFit(b, W, H, PADDING, INS).scale, p.id).toBe(today);
+      const now = computeFit(b, W, H, PADDING, INS).scale;
+      if (now !== today) changed.push(`${p.id} ${today.toFixed(1)} -> ${now}`);
     }
-    // The ticket says all fit at >= 36 here; the files below do not, so they now open at MIN_SCALE and overflow a little.
-    console.info("files whose fit was below MIN_SCALE at 1920x1080 with insets 220/140:", below);
-    expect(below.length).toBeLessThan(FILES.length / 4);
+    expect(changed).toEqual([]);
+  });
+  it("keeps 64-the-whole-chain at its fit of about 26.9, not the floor", () => {
+    const p = FILES.find((q) => q.id.startsWith("64-"));
+    expect(p).toBeDefined();
+    const s = computeFit(puzzleBounds(p!), W, H, PADDING, INS).scale;
+    expect(s).toBeGreaterThanOrEqual(26.8);
+    expect(s).toBeLessThan(27);
+  });
+  it("applies the floor only when the fit is below LEGACY_FLOOR", () => {
+    // a map whose fit is just under and just over 24 px per unit at 1000 px wide, no insets
+    const b: Bounds = { minX: 0, maxX: 10, minY: 0, maxY: 1 };
+    const width = (s: number): number => s * 10 + 2 * PADDING;
+    expect(computeFit(b, width(LEGACY_FLOOR), 4000, PADDING).scale).toBeCloseTo(LEGACY_FLOOR, 9);
+    expect(computeFit(b, width(LEGACY_FLOOR - 0.5), 4000, PADDING).scale).toBe(MIN_SCALE);
+    expect(computeFit(b, width(30), 4000, PADDING).scale).toBeCloseTo(30, 9);
   });
   it("gives a 64 x 40 map exactly MIN_SCALE", () => {
     expect(computeFit(BIG_B, W, H, PADDING, INS).scale).toBe(MIN_SCALE);
@@ -135,15 +152,15 @@ describe("overflows", () => {
   it("flags the axes where the box plus padding exceeds the area", () => {
     const fit = computeFit(BIG_B, W, H, PADDING, INS);
     expect(overflows(BIG_B, fit, freeArea(W, H, INS), PADDING)).toEqual({ x: true, y: true });
-    const area = freeArea(W, 2200, INS);
-    const o = overflows(BIG_B, computeFit(BIG_B, W, 2200, PADDING, INS), area, PADDING);
+    // 1200 wide: the fit (17) is under LEGACY_FLOOR so MIN_SCALE applies; x overflows, y (2200 tall) fits
+    const area = freeArea(1200, 2200, INS);
+    const o = overflows(BIG_B, computeFit(BIG_B, 1200, 2200, PADDING, INS), area, PADDING);
     expect(o.x).toBe(true);
     expect(o.y).toBe(false);
   });
   it("a map that fits at its fit scale does not overflow", () => {
     for (const p of FILES) {
       const b = puzzleBounds(p);
-      if (computeFit(b, W, H, PADDING, INS).scale === MIN_SCALE) continue;
       expect(overflows(b, computeFit(b, W, H, PADDING, INS), freeArea(W, H, INS), PADDING), p.id).toEqual({ x: false, y: false });
     }
   });
@@ -231,7 +248,6 @@ describe("initial view", () => {
   });
   it("a map that fits gets {0, 0}", () => {
     for (const p of FILES) {
-      if (computeFit(puzzleBounds(p), W, H, PADDING, INS).scale === MIN_SCALE) continue;
       expect(initialPan(p, W, H, PADDING, INS), p.id).toEqual({ x: 0, y: 0 });
     }
     const r = createMapRenderer(fakeCanvas(W, H), FILES[0]!, { insets: INS });
@@ -248,8 +264,8 @@ describe("initial view", () => {
     expect(r.getPan()).toEqual(open);
   });
   it("only an overflowing axis is moved toward the feed", () => {
-    const tall = 2000; // 64 x 40 at 36 px/unit fits vertically here, not horizontally
-    const p = initialPan(CORNER, W, tall, PADDING, INS);
+    const tall = 2000; // 64 x 40 at 36 px/unit fits vertically here, not horizontally (1200 wide: fit 17 < LEGACY_FLOOR)
+    const p = initialPan(CORNER, 1200, tall, PADDING, INS);
     expect(p.y).toBe(0);
     expect(p.x).not.toBe(0);
   });

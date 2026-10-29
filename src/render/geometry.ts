@@ -21,8 +21,13 @@ export interface Fit {
 }
 
 export const MAX_SCALE = 80;
-/** Smallest opening scale in px per unit: twice NODE_HIT_RADIUS, so nodes 1 unit apart never share a hit circle. */
+/** Readable floor in px per unit (twice NODE_HIT_RADIUS: nodes 1 unit apart never share a hit circle). Applies only when the fit is below LEGACY_FLOOR. */
 export const MIN_SCALE = 36;
+/**
+ * A fit scale at or above this opens exactly as before 027 (the plain fit). Only a fit below it, which means a map too big
+ * to read when fitted, gets the MIN_SCALE floor and overflows. Keeps every map of today unchanged at 1920 x 1080.
+ */
+export const LEGACY_FLOOR = 24;
 /** Px kept clear round the map's box when it is fitted, and the margin an overflowing map may be panned to. */
 export const PADDING = 64;
 
@@ -82,9 +87,14 @@ export function fitScale(bounds: Bounds, width: number, height: number, padding:
   return Math.min(availX / spanX, availY / spanY, MAX_SCALE);
 }
 
+/** The opening scale for a fit scale: the fit itself (capped at MAX_SCALE) from LEGACY_FLOOR up, else the readable floor MIN_SCALE. */
+export function openScale(fit: number): number {
+  return fit >= LEGACY_FLOOR ? Math.min(fit, MAX_SCALE) : MIN_SCALE;
+}
+
 /**
- * Scale and offsets that centre `bounds` in the free area, then add `pan`. The scale is the fit clamped to
- * [MIN_SCALE, MAX_SCALE], or `scale` when given (zoom). `insets` (CSS px) reserve room for overlays.
+ * Scale and offsets that centre `bounds` in the free area, then add `pan`. The scale is the plain fit (capped at MAX_SCALE)
+ * when that is at least LEGACY_FLOOR, else MIN_SCALE (see openScale), or `scale` when given (zoom). `insets` (CSS px) reserve room for overlays.
  */
 export function computeFit(bounds: Bounds, width: number, height: number, padding: number, insets?: Insets, pan?: Pan, scale?: number): Fit {
   const left = Math.max(insets?.left ?? 0, 0);
@@ -93,7 +103,7 @@ export function computeFit(bounds: Bounds, width: number, height: number, paddin
   const bottom = Math.max(insets?.bottom ?? 0, 0);
   const spanX = Math.max(bounds.maxX - bounds.minX, 1e-6);
   const spanY = Math.max(bounds.maxY - bounds.minY, 1e-6);
-  const sc = scale ?? Math.min(Math.max(fitScale(bounds, width, height, padding, insets), MIN_SCALE), MAX_SCALE);
+  const sc = scale ?? openScale(fitScale(bounds, width, height, padding, insets));
   const offsetX = left + (width - left - right - spanX * sc) / 2 - bounds.minX * sc + (pan?.x ?? 0);
   const offsetY = top + (height - top - bottom - spanY * sc) / 2 - bounds.minY * sc + (pan?.y ?? 0);
   return { scale: sc, offsetX, offsetY };
