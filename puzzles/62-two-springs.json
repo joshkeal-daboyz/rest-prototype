@@ -1,0 +1,50 @@
+{
+  "id": "62-two-springs",
+  "name": "62 · Two springs, one window",
+  "version": 4,
+  "scope": "map",
+  "capacity": 4,
+  "startingParts": ["wire", "wire", "fuse"],
+  "target": ["well", "lantern", "shrine"],
+
+  "nodes": [
+    { "id": "feed",    "type": "feed",     "pos": [0, 0] },
+    { "id": "j0",      "type": "junction", "pos": [2, 0] },
+    { "id": "well",    "type": "lamp",     "pos": [2, -3], "load": 1 },
+
+    { "id": "sw_c",    "type": "switch",   "pos": [2, 5],  "outputs": ["l_lantern", "l_c1"], "selected": 0 },
+    { "id": "lantern", "type": "lamp",     "pos": [0, 8],  "load": 1 },
+    { "id": "jc",      "type": "junction", "pos": [6, 5] },
+    { "id": "cell",    "type": "battery",  "pos": [10, 5], "capacity": 7, "charge": 0, "input": "l_cin" },
+
+    { "id": "br_H",    "type": "breaker",  "pos": [5, 0],  "closed": false },
+    { "id": "fb_H",    "type": "fusebox",  "pos": [8, 0],  "rating": 2 },
+    { "id": "S1",      "type": "switch",   "pos": [13, 0], "outputs": ["l_mill", "l_12"], "selected": 0, "spring": true },
+    { "id": "mill",    "type": "lamp",     "pos": [13, -3], "load": 3 },
+    { "id": "S2",      "type": "switch",   "pos": [19, 0], "outputs": ["l_kiln", "l_shrine"], "selected": 0, "spring": true },
+    { "id": "kiln",    "type": "lamp",     "pos": [19, -3], "load": 3 },
+    { "id": "shrine",  "type": "lamp",     "pos": [23, 0], "load": 2 }
+  ],
+
+  "lines": [
+    { "id": "l_feed",    "from": "feed", "to": "j0" },
+    { "id": "l_well",    "from": "j0",   "to": "well" },
+    { "id": "l_c0",      "from": "j0",   "to": "sw_c" },
+    { "id": "l_lantern", "from": "sw_c", "to": "lantern" },
+    { "id": "l_c1",      "from": "sw_c", "to": "jc" },
+    { "id": "l_cin",     "from": "jc",   "to": "cell" },
+    { "id": "l_c3",      "from": "cell", "to": "S1" },
+    { "id": "l_H0",      "from": "j0",   "to": "br_H" },
+    { "id": "l_H1",      "from": "br_H", "to": "fb_H" },
+    { "id": "l_H2",      "from": "fb_H", "to": "S1" },
+    { "id": "l_mill",    "from": "S1",   "to": "mill" },
+    { "id": "l_12",      "from": "S1",   "to": "S2" },
+    { "id": "l_kiln",    "from": "S2",   "to": "kiln" },
+    { "id": "l_shrine",  "from": "S2",   "to": "shrine" }
+  ],
+
+  "faults": [
+    { "id": "f_cin", "at": "l_cin", "kind": "damaged-cable" },
+    { "id": "f_12",  "at": "l_12",  "kind": "damaged-cable" }
+  ]
+}

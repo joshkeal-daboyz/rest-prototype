@@ -1,0 +1,55 @@
+{
+  "id": "59-move-the-meeting",
+  "name": "59 · Move the meeting",
+  "version": 5,
+  "scope": "map",
+  "capacity": null,
+  "startingParts": ["wire", "fuse"],
+  "target": ["inn", "shrine", "well", "gate"],
+
+  "nodes": [
+    { "id": "west",   "type": "feed",     "pos": [0, 0],   "capacity": 4, "name": "West" },
+    { "id": "east",   "type": "feed",     "pos": [26, 0],  "capacity": 3, "name": "East" },
+
+    { "id": "sw_w",   "type": "switch",   "pos": [3, 0],   "outputs": ["l_ws", "l_wl"], "selected": 1 },
+    { "id": "d1",     "type": "junction", "pos": [3, 5] },
+    { "id": "d2",     "type": "junction", "pos": [7, 5] },
+
+    { "id": "A",      "type": "junction", "pos": [7, 0] },
+    { "id": "inn",    "type": "lamp",     "pos": [7, -3],  "load": 1 },
+    { "id": "B",      "type": "junction", "pos": [12, 0] },
+    { "id": "br_B",   "type": "breaker",  "pos": [12, -3], "closed": false },
+    { "id": "rB",     "type": "switch",   "pos": [12, -6], "outputs": ["l_forge", "l_shrine"], "selected": 0, "relay": true },
+    { "id": "forge",  "type": "lamp",     "pos": [9, -8],  "load": 3 },
+    { "id": "shrine", "type": "lamp",     "pos": [15, -8], "load": 2 },
+    { "id": "C",      "type": "junction", "pos": [17, 0] },
+    { "id": "well",   "type": "lamp",     "pos": [17, 3],  "load": 1 },
+    { "id": "D",      "type": "junction", "pos": [21, 0] },
+    { "id": "gate",   "type": "lamp",     "pos": [21, 3],  "load": 1 },
+    { "id": "fE",     "type": "fusebox",  "pos": [23.5, 0], "rating": 3 }
+  ],
+
+  "lines": [
+    { "id": "l_w0",     "from": "west", "to": "sw_w" },
+    { "id": "l_ws",     "from": "sw_w", "to": "A" },
+    { "id": "l_wl",     "from": "sw_w", "to": "d1" },
+    { "id": "l_d",      "from": "d1",   "to": "d2" },
+    { "id": "l_dA",     "from": "d2",   "to": "A" },
+    { "id": "l_inn",    "from": "A",    "to": "inn" },
+    { "id": "l_AB",     "from": "A",    "to": "B" },
+    { "id": "l_B0",     "from": "B",    "to": "br_B" },
+    { "id": "l_B1",     "from": "br_B", "to": "rB" },
+    { "id": "l_forge",  "from": "rB",   "to": "forge" },
+    { "id": "l_shrine", "from": "rB",   "to": "shrine" },
+    { "id": "l_BC",     "from": "B",    "to": "C" },
+    { "id": "l_well",   "from": "C",    "to": "well" },
+    { "id": "l_CD",     "from": "C",    "to": "D" },
+    { "id": "l_gate",   "from": "D",    "to": "gate" },
+    { "id": "l_DE",     "from": "D",    "to": "fE" },
+    { "id": "l_E0",     "from": "fE",   "to": "east" }
+  ],
+
+  "faults": [
+    { "id": "f_ws", "at": "l_ws", "kind": "damaged-cable" }
+  ]
+}

@@ -1,6 +1,6 @@
 # The ladder
 
-All 56 maps in one sequence, easiest first (55 and 56, ticket 015, are appended at the end rather than ranked; see below). The file name's number is the order: `NN-<slug>.json` and its note `NN-<slug>.md`, and the picker lists them in that order. `lamp-row.grid.json` is a street, not a map, and isn't on the ladder.
+All 64 maps in one sequence. 01–54 are ranked easiest first; 55 and 56 (ticket 015) and the deep tier 57–64 are appended at the end rather than ranked (see below). The file name's number is the order: `NN-<slug>.json` and its note `NN-<slug>.md`, and the picker lists them in that order. `lamp-row.grid.json` is a street, not a map, and isn't on the ladder.
 
 **How it was ranked (28 Oct 2026).** Each map was brute-forced over the real `createGrid` (battery maps with time: a click is 1 s, a wait 0.5 s). The ranking weighs, in order: fewest clicks to win (a battery release counts as a click), how tight the win is (winning control settings, slack), the share of reachable states that can no longer win without Undo, whether an obvious first move is a dead end, and how many traps or mechanics are in play at once. Battery maps get a little extra for the window. Two rules override the numbers: each element (breaker, switch, capacity, fault, fuse rating, ring, relay, battery) comes in on a gentle map before any map that relies on it, and a map that a note says builds on another comes after it. The reorganization changed only ids, names, file names and note text. Three maps (12, 20, 36) also carry their designers' final revisions (a porch lamp added on 12; capacity 4 to 3 on 20; `fb_L` rating 4 to 5 on 36), which were still uncommitted when the files were renamed.
 
@@ -64,8 +64,18 @@ Min clicks for 47 and 52 are from their notes (the search runs out of time on th
 | 54 | The whole ward | Capstone: main fuse equals capacity; the order targets are lit | 13 |
 | 55 | Two feeds | Two powersources: each has its own Lv limit; the total fitting isn't enough | 1 |
 | 56 | Meet in the middle | Two feeds on one street: the nearer feed (fewest hops) carries the lamp; a long-way switch moves the meeting point | 3 |
+| 57 | The back door | Deep, 3 layers: the relay's front way blows; a back door with a hidden break; shut it again | 5 |
+| 58 | Keep it live | Deep, 4 layers: a spring set through the back door; a break behind it; the front way must hold it before the back door lets go | 5 |
+| 59 | Move the meeting | Deep, 4 layers, two feeds: shorten one feed's route so it carries the borrow; the short way is broken | 4 |
+| 60 | Hold the spring | Deep, 5 layers: shed to charge; wire by cell light; throw the spring; the feed takes it before the window ends | 6 |
+| 61 | Charge it first | Deep, 5 layers: borrow to set the charging relay; charge; walk two relays; feed in; a dead bulb | 8 |
+| 62 | Two springs, one window | Deep, 5 layers: two springs in series; two hidden breaks; the feed comes in after the second spring | 8 |
+| 63 | Keep the wire | Deep, 5 layers, two feeds: charge the cell from the free side; keep the one wire for the break the window shows | 6 |
+| 64 | The whole chain | Deep capstone, 7 layers, two feeds: shed to charge, the shed shows a break, the mend moves a lamp onto the other feed's side; relay, spring, hand-over, bulb | 9 |
 
 **55 and 56 (ticket 015, several powersources)** are appended, not ranked, so no file is renumbered. By the ranking above they'd sit much earlier: 55 just after 04 (it needs only capacity and the switch), 56 just after 13 (the first ring) and after 55. Moving them is a later reorganization like 018's, Josh's call after playing. Both are version 5 and need ticket 015's simulator.
+
+**57–64, the deep tier (28 Oct 2026)** are appended, not ranked, and nothing is renumbered. Josh found the ladder too easy and asked for puzzles several layers deep: each fix unlocks the next problem, the obvious first move is a trap, and the next layer's answer only shows once the one before is solved. The tier ramps from 3 layers (57) to 7 (64), using only mechanics already in the game (relays, springs, batteries, fuse ratings, hidden faults, two feeds and the nearer-feeder rule). Min clicks are lower than the late ladder's on purpose: the depth is in the forced order (every map has one essential order; 59 and 63 have exactly one winning click sequence), not in the count. Each note lists its layers, its trap, the fewest clicks, the number of winning click orders and the share of dead-end states, from a brute-force search over the real `createGrid` (battery maps: a click is 1 s, a wait 0.5 s; every window also fits at 1.5 s a click). 59, 63 and 64 are version 5 (two feeds); the rest are version 4.
 
 ## Old id → new id
 
