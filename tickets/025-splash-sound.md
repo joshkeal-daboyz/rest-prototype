@@ -1,7 +1,7 @@
 # 025 · Splash sound: a "level done" cue when the win splash appears
 
 owner: lead-architect (0), sound (A)
-status: approved (G1, Josh, 29 Oct 2026: "I approve", with the cut defaults for its open questions)
+status: done
 branch: `ticket/025-splash-sound` (0 then A, on one branch)
 
 ## Josh's words
