@@ -1,7 +1,7 @@
 # 021 · Parts inventory: icons, one column, bottom-left
 
 owner: ui
-status: approved (G1, Josh, 29 Oct 2026)
+status: done
 branch: ticket/021-inventory-icons
 
 ## Josh's words
