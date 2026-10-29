@@ -148,6 +148,19 @@ export function targetRows(targets: readonly string[], lit: ReadonlySet<string>,
   });
 }
 
+/** A "Priests want lit" list longer than this lays out in two columns (ticket 027 C). */
+export const MANY_TARGETS = 6;
+
+/** True when the list has more entries than fit one column (ticket 027 C): the `.targets` element gets class `many`. */
+export function targetsAreMany(count: number): boolean {
+  return count > MANY_TARGETS;
+}
+
+/** True for the key that shows a focused list entry's lamp on the map (ticket 027 C). Enter only. */
+export function isShowKey(key: string): boolean {
+  return key === "Enter";
+}
+
 /** True when the list entry for `rowId` is the one picked out (ticket 024 B). With nothing picked out, no row is. */
 export function isHighlighted(rowId: string, highlight: string | null): boolean {
   return highlight !== null && rowId === highlight;

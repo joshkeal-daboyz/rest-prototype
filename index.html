@@ -35,6 +35,8 @@
       .capacity.brownout { color: var(--alarm); border-color: var(--alarm); }
       .label { margin: 0; font-size: 13px; font-weight: 600; color: var(--ink-dim); }
       .targets { list-style: none; margin: 0; display: flex; flex-direction: column; gap: 4px; }
+      /* More than six targets (ticket 027 C): two columns, so the HUD stays short. */
+      .targets.many { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 16px; }
       .target { display: flex; align-items: center; gap: 8px; }
       .mark { display: inline-block; min-width: 3.2em; text-align: center; border-radius: 4px; padding: 1px 4px; font-size: 12px; border: 1px solid var(--edge); }
       .target.lit .mark { background: var(--lit); color: #1a1408; border-color: var(--lit); }
