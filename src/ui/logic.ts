@@ -184,6 +184,22 @@ function overlapsRect(at: { left: number; top: number }, box: { width: number; h
   return at.left < r.left + r.width && at.left + box.width > r.left && at.top < r.top + r.height && at.top + box.height > r.top;
 }
 
+/** Grid step, in px, for the search for a free spot when the box must dodge several rectangles (ticket 030). */
+const FREE_SPOT_STEP = 4;
+
+/** True when `avoid` is a list of rectangles rather than one (ticket 030). */
+function isRectList(avoid: Rect | readonly Rect[]): avoid is readonly Rect[] {
+  return Array.isArray(avoid);
+}
+
+/** The values from `from` to `to` in steps of `step`, always ending on `to`. */
+function steps(from: number, to: number, step: number): number[] {
+  const out: number[] = [];
+  for (let v = from; v < to; v += step) out.push(v);
+  out.push(to);
+  return out;
+}
+
 /**
  * Where to put a box of `box` size beside the pointer, relative to the overlay `bounds`.
  * The box sits `offset` to the right and below the pointer, and is pulled back so it stays
@@ -192,6 +208,10 @@ function overlapsRect(at: { left: number; top: number }, box: { width: number; h
  * With `avoid` (the inventory panel, ticket 021): if the below-right spot would overlap it, the box goes
  * above the pointer; if that overlaps too, it goes to the right of `avoid`. Without `avoid` the result is
  * the below-right spot, as before.
+ *
+ * `avoid` may also be a list (ticket 030: the inventory, the sound dock, the open popover). The order is the
+ * same: below-right, then above, then beside the obstacle the above spot hit. If that overlaps too, the free
+ * spot nearest the below-right spot wins, and if there is none, the beside spot.
  */
 export function promptPosition(
   pointer: { x: number; y: number },
@@ -199,17 +219,44 @@ export function promptPosition(
   box: { width: number; height: number },
   offset = 16,
   margin = 8,
-  avoid?: Rect,
+  avoid?: Rect | readonly Rect[],
 ): { left: number; top: number } {
   const maxLeft = Math.max(margin, bounds.width - box.width - margin);
   const maxTop = Math.max(margin, bounds.height - box.height - margin);
   const clampLeft = (x: number): number => Math.min(Math.max(margin, x), maxLeft);
   const clampTop = (y: number): number => Math.min(Math.max(margin, y), maxTop);
   const below = { left: clampLeft(pointer.x + offset), top: clampTop(pointer.y + offset) };
-  if (!avoid || !overlapsRect(below, box, avoid)) return below;
+  if (avoid === undefined) return below;
+  if (!isRectList(avoid)) {
+    if (!overlapsRect(below, box, avoid)) return below;
+    const above = { left: below.left, top: clampTop(pointer.y - offset - box.height) };
+    if (!overlapsRect(above, box, avoid)) return above;
+    return { left: clampLeft(avoid.left + avoid.width + margin), top: below.top };
+  }
+
+  const hits = (at: { left: number; top: number }): Rect[] => avoid.filter((r) => overlapsRect(at, box, r));
+  if (hits(below).length === 0) return below;
   const above = { left: below.left, top: clampTop(pointer.y - offset - box.height) };
-  if (!overlapsRect(above, box, avoid)) return above;
-  return { left: clampLeft(avoid.left + avoid.width + margin), top: below.top };
+  const hitAbove = hits(above);
+  if (hitAbove.length === 0) return above;
+  const first = hitAbove[0] as Rect;
+  const beside = { left: clampLeft(first.left + first.width + margin), top: below.top };
+  if (hits(beside).length === 0) return beside;
+
+  let best: { left: number; top: number } | null = null;
+  let bestDistance = Infinity;
+  for (const top of steps(margin, maxTop, FREE_SPOT_STEP)) {
+    for (const left of steps(margin, maxLeft, FREE_SPOT_STEP)) {
+      const at = { left, top };
+      if (hits(at).length > 0) continue;
+      const distance = (left - below.left) ** 2 + (top - below.top) ** 2;
+      if (distance < bestDistance) {
+        best = at;
+        bestDistance = distance;
+      }
+    }
+  }
+  return best ?? beside;
 }
 
 /** The inventory's icon viewBox and size (ticket 021). The SVG is built from PART_ICON_SVG. */
