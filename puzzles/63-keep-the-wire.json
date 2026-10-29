@@ -1,0 +1,66 @@
+{
+  "id": "63-keep-the-wire",
+  "name": "63 · Keep the wire",
+  "version": 5,
+  "scope": "map",
+  "capacity": null,
+  "startingParts": ["wire", "fuse"],
+  "target": ["market", "shrine", "inn"],
+  "priority": ["well"],
+
+  "nodes": [
+    { "id": "north",  "type": "feed",     "pos": [0, 0],   "capacity": 4, "name": "North" },
+    { "id": "south",  "type": "feed",     "pos": [0, 15],  "capacity": 3, "name": "South" },
+
+    { "id": "jN",     "type": "junction", "pos": [3, 0] },
+    { "id": "sw_x",   "type": "switch",   "pos": [3, 5],   "outputs": ["l_mk", "l_c1"], "selected": 0 },
+    { "id": "market", "type": "lamp",     "pos": [0, 7.5], "load": 2 },
+    { "id": "jc",     "type": "junction", "pos": [7, 5] },
+    { "id": "jX",     "type": "junction", "pos": [11, 5] },
+    { "id": "cell",   "type": "battery",  "pos": [15, 5],  "capacity": 7, "charge": 0, "input": "l_cin" },
+    { "id": "rA",     "type": "switch",   "pos": [19, 5],  "outputs": ["l_mill", "l_AS"], "selected": 0, "relay": true },
+    { "id": "mill",   "type": "lamp",     "pos": [19, 8],  "load": 3 },
+
+    { "id": "br_S",   "type": "breaker",  "pos": [6, 0],   "closed": false },
+    { "id": "fb_S",   "type": "fusebox",  "pos": [10, 0],  "rating": 2 },
+    { "id": "S",      "type": "switch",   "pos": [19, 0],  "outputs": ["l_forge", "l_shrine"], "selected": 0, "spring": true },
+    { "id": "forge",  "type": "lamp",     "pos": [19, -3], "load": 3 },
+    { "id": "shrine", "type": "lamp",     "pos": [23, 0],  "load": 2 },
+
+    { "id": "jS",     "type": "junction", "pos": [3, 15] },
+    { "id": "inn",    "type": "lamp",     "pos": [3, 18],  "load": 1 },
+    { "id": "well",   "type": "lamp",     "pos": [0, 12],  "load": 2 },
+    { "id": "br_o",   "type": "breaker",  "pos": [7, 15],  "closed": false },
+    { "id": "jo",     "type": "junction", "pos": [11, 15] }
+  ],
+
+  "lines": [
+    { "id": "l_N",      "from": "north", "to": "jN" },
+    { "id": "l_x0",     "from": "jN",    "to": "sw_x" },
+    { "id": "l_mk",     "from": "sw_x",  "to": "market" },
+    { "id": "l_c1",     "from": "sw_x",  "to": "jc" },
+    { "id": "l_c2",     "from": "jc",    "to": "jX" },
+    { "id": "l_cin",    "from": "jX",    "to": "cell" },
+    { "id": "l_cA",     "from": "cell",  "to": "rA" },
+    { "id": "l_mill",   "from": "rA",    "to": "mill" },
+    { "id": "l_AS",     "from": "rA",    "to": "S" },
+
+    { "id": "l_S0",     "from": "jN",    "to": "br_S" },
+    { "id": "l_S1",     "from": "br_S",  "to": "fb_S" },
+    { "id": "l_S2",     "from": "fb_S",  "to": "S" },
+    { "id": "l_forge",  "from": "S",     "to": "forge" },
+    { "id": "l_shrine", "from": "S",     "to": "shrine" },
+
+    { "id": "l_s0",     "from": "south", "to": "jS" },
+    { "id": "l_inn",    "from": "jS",    "to": "inn" },
+    { "id": "l_well",   "from": "south", "to": "well" },
+    { "id": "l_o0",     "from": "jS",    "to": "br_o" },
+    { "id": "l_o1",     "from": "br_o",  "to": "jo" },
+    { "id": "l_o2",     "from": "jo",    "to": "jX" }
+  ],
+
+  "faults": [
+    { "id": "f_c2", "at": "l_c2", "kind": "damaged-cable" },
+    { "id": "f_cA", "at": "l_cA", "kind": "damaged-cable" }
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "id": "64-the-whole-chain",
+  "name": "64 · The whole chain",
+  "version": 5,
+  "scope": "map",
+  "capacity": null,
+  "startingParts": ["wire", "fuse", "bulb"],
+  "target": ["market", "shrine", "inn", "well"],
+
+  "nodes": [
+    { "id": "north",  "type": "feed",     "pos": [0, 0],   "capacity": 4, "name": "North" },
+    { "id": "south",  "type": "feed",     "pos": [0, 16],  "capacity": 3, "name": "South" },
+
+    { "id": "jN",     "type": "junction", "pos": [3, 0] },
+    { "id": "sw_x",   "type": "switch",   "pos": [3, 4],   "outputs": ["l_mk", "l_c1"], "selected": 0 },
+    { "id": "market", "type": "lamp",     "pos": [0, 6],   "load": 2 },
+    { "id": "fb_c",   "type": "fusebox",  "pos": [7, 4],   "rating": 1 },
+    { "id": "jX",     "type": "junction", "pos": [11, 4] },
+    { "id": "cell",   "type": "battery",  "pos": [14, 4],  "capacity": 5, "charge": 0, "input": "l_cin" },
+    { "id": "rA",     "type": "switch",   "pos": [17, 4],  "outputs": ["l_mill", "l_AS"], "selected": 0, "relay": true },
+    { "id": "mill",   "type": "lamp",     "pos": [20, 6],  "load": 3 },
+    { "id": "sw_t",   "type": "switch",   "pos": [11, 7.5], "outputs": ["l_tw", "l_tl"], "selected": 0 },
+    { "id": "lantern", "type": "lamp",    "pos": [14, 7.5], "load": 1 },
+
+    { "id": "br_S",   "type": "breaker",  "pos": [6, 0],   "closed": false },
+    { "id": "fb_S",   "type": "fusebox",  "pos": [10, 0],  "rating": 2 },
+    { "id": "S",      "type": "switch",   "pos": [17, 0],  "outputs": ["l_forge", "l_shrine"], "selected": 0, "spring": true },
+    { "id": "forge",  "type": "lamp",     "pos": [17, -3], "load": 3 },
+    { "id": "shrine", "type": "lamp",     "pos": [21, 0],  "load": 2 },
+
+    { "id": "jS",     "type": "junction", "pos": [3, 16] },
+    { "id": "inn",    "type": "lamp",     "pos": [3, 19],  "load": 1 },
+    { "id": "jS1",    "type": "junction", "pos": [7, 16] },
+    { "id": "jS2",    "type": "junction", "pos": [11, 16] },
+    { "id": "jS3",    "type": "junction", "pos": [15, 16] },
+    { "id": "jS4",    "type": "junction", "pos": [18, 13.5] },
+    { "id": "jS5",    "type": "junction", "pos": [15, 11] },
+    { "id": "jW",     "type": "junction", "pos": [11, 11] },
+    { "id": "well",   "type": "lamp",     "pos": [8, 11],  "load": 2 }
+  ],
+
+  "lines": [
+    { "id": "l_N",      "from": "north", "to": "jN" },
+    { "id": "l_x0",     "from": "jN",    "to": "sw_x" },
+    { "id": "l_mk",     "from": "sw_x",  "to": "market" },
+    { "id": "l_c1",     "from": "sw_x",  "to": "fb_c" },
+    { "id": "l_c2",     "from": "fb_c",  "to": "jX" },
+    { "id": "l_cin",    "from": "jX",    "to": "cell" },
+    { "id": "l_cA",     "from": "cell",  "to": "rA" },
+    { "id": "l_mill",   "from": "rA",    "to": "mill" },
+    { "id": "l_AS",     "from": "rA",    "to": "S" },
+    { "id": "l_xt",     "from": "jX",    "to": "sw_t" },
+    { "id": "l_tw",     "from": "sw_t",  "to": "jW" },
+    { "id": "l_tl",     "from": "sw_t",  "to": "lantern" },
+
+    { "id": "l_S0",     "from": "jN",    "to": "br_S" },
+    { "id": "l_S1",     "from": "br_S",  "to": "fb_S" },
+    { "id": "l_S2",     "from": "fb_S",  "to": "S" },
+    { "id": "l_forge",  "from": "S",     "to": "forge" },
+    { "id": "l_shrine", "from": "S",     "to": "shrine" },
+
+    { "id": "l_s0",     "from": "south", "to": "jS" },
+    { "id": "l_inn",    "from": "jS",    "to": "inn" },
+    { "id": "l_s1",     "from": "jS",    "to": "jS1" },
+    { "id": "l_s2",     "from": "jS1",   "to": "jS2" },
+    { "id": "l_s3",     "from": "jS2",   "to": "jS3" },
+    { "id": "l_s4",     "from": "jS3",   "to": "jS4" },
+    { "id": "l_s5",     "from": "jS4",   "to": "jS5" },
+    { "id": "l_s6",     "from": "jS5",   "to": "jW" },
+    { "id": "l_well",   "from": "jW",    "to": "well" }
+  ],
+
+  "faults": [
+    { "id": "f_c2", "at": "l_c2", "kind": "damaged-cable" },
+    { "id": "f_shrine", "at": "shrine", "kind": "dead-lamp" }
+  ]
+}

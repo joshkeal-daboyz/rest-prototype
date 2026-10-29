@@ -1,0 +1,43 @@
+{
+  "id": "60-hold-the-spring",
+  "name": "60 · Hold the spring",
+  "version": 4,
+  "scope": "map",
+  "capacity": 4,
+  "startingParts": ["wire", "fuse"],
+  "target": ["well", "lantern", "shrine"],
+
+  "nodes": [
+    { "id": "feed",    "type": "feed",     "pos": [0, 0] },
+    { "id": "j0",      "type": "junction", "pos": [2, 0] },
+    { "id": "well",    "type": "lamp",     "pos": [2, -3], "load": 1 },
+
+    { "id": "sw_c",    "type": "switch",   "pos": [2, 4], "outputs": ["l_lantern", "l_cin"], "selected": 0 },
+    { "id": "lantern", "type": "lamp",     "pos": [0, 7], "load": 1 },
+    { "id": "cell",    "type": "battery",  "pos": [7, 4], "capacity": 5, "charge": 0, "input": "l_cin" },
+
+    { "id": "br_S",    "type": "breaker",  "pos": [5, 0], "closed": false },
+    { "id": "fb_S",    "type": "fusebox",  "pos": [8, 0], "rating": 2 },
+    { "id": "S",       "type": "switch",   "pos": [12, 0], "outputs": ["l_mill", "l_shrine"], "selected": 0, "spring": true },
+    { "id": "mill",    "type": "lamp",     "pos": [12, -3], "load": 3 },
+    { "id": "shrine",  "type": "lamp",     "pos": [16, 0], "load": 2 }
+  ],
+
+  "lines": [
+    { "id": "l_feed",    "from": "feed", "to": "j0" },
+    { "id": "l_well",    "from": "j0",   "to": "well" },
+    { "id": "l_c0",      "from": "j0",   "to": "sw_c" },
+    { "id": "l_lantern", "from": "sw_c", "to": "lantern" },
+    { "id": "l_cin",     "from": "sw_c", "to": "cell" },
+    { "id": "l_cS",      "from": "cell", "to": "S" },
+    { "id": "l_S0",      "from": "j0",   "to": "br_S" },
+    { "id": "l_S1",      "from": "br_S", "to": "fb_S" },
+    { "id": "l_S2",      "from": "fb_S", "to": "S" },
+    { "id": "l_mill",    "from": "S",    "to": "mill" },
+    { "id": "l_shrine",  "from": "S",    "to": "shrine" }
+  ],
+
+  "faults": [
+    { "id": "f_cS", "at": "l_cS", "kind": "damaged-cable" }
+  ]
+}

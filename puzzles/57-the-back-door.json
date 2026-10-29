@@ -1,0 +1,43 @@
+{
+  "id": "57-the-back-door",
+  "name": "57 · The back door",
+  "version": 4,
+  "scope": "map",
+  "capacity": 5,
+  "startingParts": ["wire", "fuse"],
+  "target": ["well", "homes", "shrine"],
+
+  "nodes": [
+    { "id": "feed",   "type": "feed",     "pos": [0, 0] },
+    { "id": "j0",     "type": "junction", "pos": [2, 0] },
+    { "id": "well",   "type": "lamp",     "pos": [2, -3], "load": 1 },
+
+    { "id": "br_T",   "type": "breaker",  "pos": [5, 0], "closed": false },
+    { "id": "fb_T",   "type": "fusebox",  "pos": [8, 0], "rating": 2 },
+    { "id": "rT",     "type": "switch",   "pos": [12, 0], "outputs": ["l_forge", "l_shrine"], "selected": 0, "relay": true },
+    { "id": "forge",  "type": "lamp",     "pos": [12, -3], "load": 3 },
+    { "id": "shrine", "type": "lamp",     "pos": [16, 0], "load": 2 },
+
+    { "id": "sw_h",   "type": "switch",   "pos": [2, 4], "outputs": ["l_homes", "l_t1"], "selected": 0 },
+    { "id": "homes",  "type": "lamp",     "pos": [0, 7], "load": 2 },
+    { "id": "jt",     "type": "junction", "pos": [12, 4] }
+  ],
+
+  "lines": [
+    { "id": "l_feed",   "from": "feed", "to": "j0" },
+    { "id": "l_well",   "from": "j0",   "to": "well" },
+    { "id": "l_T0",     "from": "j0",   "to": "br_T" },
+    { "id": "l_T1",     "from": "br_T", "to": "fb_T" },
+    { "id": "l_T2",     "from": "fb_T", "to": "rT" },
+    { "id": "l_forge",  "from": "rT",   "to": "forge" },
+    { "id": "l_shrine", "from": "rT",   "to": "shrine" },
+    { "id": "l_h0",     "from": "j0",   "to": "sw_h" },
+    { "id": "l_homes",  "from": "sw_h", "to": "homes" },
+    { "id": "l_t1",     "from": "sw_h", "to": "jt" },
+    { "id": "l_t2",     "from": "jt",   "to": "rT" }
+  ],
+
+  "faults": [
+    { "id": "f_t2", "at": "l_t2", "kind": "damaged-cable" }
+  ]
+}

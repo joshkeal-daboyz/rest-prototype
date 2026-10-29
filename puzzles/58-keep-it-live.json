@@ -1,0 +1,43 @@
+{
+  "id": "58-keep-it-live",
+  "name": "58 · Keep it live",
+  "version": 4,
+  "scope": "map",
+  "capacity": 5,
+  "startingParts": ["wire", "fuse"],
+  "target": ["well", "mill", "shrine"],
+
+  "nodes": [
+    { "id": "feed",    "type": "feed",     "pos": [0, 0] },
+    { "id": "j0",      "type": "junction", "pos": [2, 0] },
+    { "id": "well",    "type": "lamp",     "pos": [2, -3], "load": 1 },
+
+    { "id": "br_A",    "type": "breaker",  "pos": [5, 0], "closed": false },
+    { "id": "fb_A",    "type": "fusebox",  "pos": [8, 0], "rating": 2 },
+    { "id": "S",       "type": "switch",   "pos": [14, 0], "outputs": ["l_forge", "l_shrine"], "selected": 0, "spring": true },
+    { "id": "forge",   "type": "lamp",     "pos": [14, -3], "load": 3 },
+    { "id": "shrine",  "type": "lamp",     "pos": [18, 0], "load": 2 },
+
+    { "id": "sw_m",    "type": "switch",   "pos": [2, 4], "outputs": ["l_mill", "l_t1"], "selected": 0 },
+    { "id": "mill",    "type": "lamp",     "pos": [0, 7], "load": 2 },
+    { "id": "jt",      "type": "junction", "pos": [14, 4] }
+  ],
+
+  "lines": [
+    { "id": "l_feed",   "from": "feed", "to": "j0" },
+    { "id": "l_well",   "from": "j0",   "to": "well" },
+    { "id": "l_A0",     "from": "j0",   "to": "br_A" },
+    { "id": "l_A1",     "from": "br_A", "to": "fb_A" },
+    { "id": "l_A2",     "from": "fb_A", "to": "S" },
+    { "id": "l_forge",  "from": "S",    "to": "forge" },
+    { "id": "l_shrine", "from": "S",    "to": "shrine" },
+    { "id": "l_m0",     "from": "j0",   "to": "sw_m" },
+    { "id": "l_mill",   "from": "sw_m", "to": "mill" },
+    { "id": "l_t1",     "from": "sw_m", "to": "jt" },
+    { "id": "l_t2",     "from": "jt",   "to": "S" }
+  ],
+
+  "faults": [
+    { "id": "f_sh", "at": "l_shrine", "kind": "damaged-cable" }
+  ]
+}
