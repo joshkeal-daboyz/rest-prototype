@@ -12,6 +12,7 @@ import {
   bannerText,
   capacityRows,
   inventoryRows,
+  isHighlighted,
   liveNotices,
   mapLabel,
   noticeOpacity,
@@ -42,6 +43,11 @@ export interface UIDeps {
   feeds?: readonly FeedInfo[];
   /** The session's sound (src/audio's engine). Without it no sound control is drawn. */
   audio?: AudioControl;
+  /**
+   * A "Priests want lit" entry was hovered or focused (ticket 024 B): its lamp id, or null when it was left.
+   * main.ts carries the highlight to the map and calls ui.highlight back.
+   */
+  onHighlight?(lampId: string | null): void;
 }
 
 /** What the win splash shows. All of it is plain data from the play layer and the picker. */
@@ -65,6 +71,24 @@ export interface UI {
   showWin(win: WinSplash): void;
   /** Hides the win splash. The lit map stays as it is. */
   hideWin(): void;
+  /** Picks out the list entry for this lamp id (ticket 024 B), or none for null. The map's place is main.ts's job. */
+  highlight(lampId: string | null): void;
+}
+
+/** Styles for the "Priests want lit" entries (ticket 024 B): focusable, and picked out with the focus colour. */
+const TARGETS_STYLE_ID = "ui-targets-style";
+const TARGETS_CSS = `
+#ui .targets .target { pointer-events: auto; border-radius: 4px; }
+#ui .targets .target:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+#ui .targets .target.highlight { outline: 1.5px solid var(--focus); outline-offset: 2px; }
+`;
+
+function ensureTargetsStyle(): void {
+  if (document.getElementById(TARGETS_STYLE_ID)) return;
+  const style = el("style");
+  style.id = TARGETS_STYLE_ID;
+  style.textContent = TARGETS_CSS;
+  document.head.append(style);
 }
 
 /** Styles for the parts inventory (ticket 021): a small panel fixed bottom-left, one column of icon and count. */
@@ -280,6 +304,10 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
   const targetsEl = el("ul", "targets");
   targetsEl.setAttribute("aria-labelledby", "targets-heading");
   targetsHeading.id = "targets-heading";
+  ensureTargetsStyle();
+  // The list-to-map link (ticket 024 B): which lamp's entry is picked out, and the entries as built.
+  let highlighted: string | null = null;
+  let targetItems: { id: string; node: HTMLLIElement }[] = [];
 
   hudLeft.append(pickerLabel, capacityEl, batteryEl, targetsHeading, targetsEl);
 
@@ -546,12 +574,25 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
     const nextTargetsKey = JSON.stringify(rows);
     if (nextTargetsKey !== targetsKey) {
       targetsKey = nextTargetsKey;
+      // A rebuild must not drop the keyboard user's place in the list: refocus the same lamp's entry afterwards.
+      const active = document.activeElement;
+      const focusedId = targetItems.find((i) => i.node === active)?.id ?? null;
       targetsEl.textContent = "";
+      targetItems = [];
       for (const row of rows) {
         const item = el("li", row.lit ? "target lit" : "target dark");
+        item.tabIndex = 0;
+        item.setAttribute("data-lamp", row.id);
         item.append(el("span", "mark", row.lit ? "On" : "Off"), el("span", "target-text", row.text));
+        item.addEventListener("pointerenter", () => deps.onHighlight?.(row.id));
+        item.addEventListener("pointerleave", () => deps.onHighlight?.(null));
+        item.addEventListener("focus", () => deps.onHighlight?.(row.id));
+        item.addEventListener("blur", () => deps.onHighlight?.(null));
         targetsEl.append(item);
+        targetItems.push({ id: row.id, node: item });
       }
+      applyHighlight();
+      if (focusedId !== null) targetItems.find((i) => i.id === focusedId)?.node.focus({ preventScroll: true });
     }
 
     sound?.render();
@@ -571,5 +612,15 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
     inventoryEl.setAttribute("aria-label", partsSummary(state.parts));
   }
 
-  return { update, notify, showWin, hideWin };
+  /** Marks the entry for the highlighted lamp (class `highlight`, an outline; the text stays the same). */
+  function applyHighlight(): void {
+    for (const item of targetItems) item.node.classList.toggle("highlight", isHighlighted(item.id, highlighted));
+  }
+
+  function highlight(lampId: string | null): void {
+    highlighted = lampId;
+    applyHighlight();
+  }
+
+  return { update, notify, showWin, hideWin, highlight };
 }

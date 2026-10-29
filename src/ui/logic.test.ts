@@ -10,6 +10,8 @@ import {
   partsSummary,
   promptPosition,
   promptToShow,
+  isHighlighted,
+  placeHighlight,
   targetRows,
   WIN_TEXT,
 } from "./logic";
@@ -123,6 +125,38 @@ describe("targetRows", () => {
     expect(targetRows(["far_lamp"], new Set(), false)).toEqual([
       { id: "far_lamp", lit: false, text: "far lamp: dark" },
     ]);
+  });
+
+  it("reads each target as its place name, the same words the map uses (ticket 024)", () => {
+    const rows = targetRows(["home_1", "shrine"], new Set(["home_1"]), false);
+    expect(rows.map((r) => r.text)).toEqual(["home 1: lit", "shrine: dark"]);
+    expect(rows.map((r) => r.id)).toEqual(["home_1", "shrine"]);
+  });
+});
+
+describe("isHighlighted", () => {
+  it("picks out only the row whose lamp id is highlighted", () => {
+    expect(isHighlighted("shrine", "shrine")).toBe(true);
+    expect(isHighlighted("well", "shrine")).toBe(false);
+  });
+
+  it("picks out no row when nothing is highlighted", () => {
+    expect(isHighlighted("shrine", null)).toBe(false);
+  });
+});
+
+describe("placeHighlight", () => {
+  it("picks out the place under the pointer when no circuit element is there", () => {
+    expect(placeHighlight(false, "shrine")).toBe("shrine");
+  });
+
+  it("picks out nothing when the pointer is over a circuit element, even on a place", () => {
+    expect(placeHighlight(true, "shrine")).toBeNull();
+    expect(placeHighlight(true, null)).toBeNull();
+  });
+
+  it("picks out nothing on empty ground", () => {
+    expect(placeHighlight(false, null)).toBeNull();
   });
 });
 

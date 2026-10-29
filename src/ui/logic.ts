@@ -10,6 +10,7 @@ import {
   DEFAULT_AUDIO_PREFS,
   fuseLabel,
   namedPowersourceLabel,
+  placeName,
   powersourceLabel,
   usingText,
   type AudioPrefs,
@@ -143,8 +144,21 @@ export interface TargetRow {
 export function targetRows(targets: readonly string[], lit: ReadonlySet<string>, brownout: boolean): TargetRow[] {
   return targets.map((id) => {
     const on = lit.has(id) && !brownout;
-    return { id, lit: on, text: `${id.replace(/_/g, " ")}: ${on ? "lit" : "dark"}` };
+    return { id, lit: on, text: `${placeName(id)}: ${on ? "lit" : "dark"}` };
   });
+}
+
+/** True when the list entry for `rowId` is the one picked out (ticket 024 B). With nothing picked out, no row is. */
+export function isHighlighted(rowId: string, highlight: string | null): boolean {
+  return highlight !== null && rowId === highlight;
+}
+
+/**
+ * The lamp whose place the pointer picks out on the map (ticket 024 B). A circuit element under the pointer
+ * wins, so no place is picked out there; otherwise it is the place under the pointer (a lamp id, or null).
+ */
+export function placeHighlight(overCircuit: boolean, placeLamp: string | null): string | null {
+  return overCircuit ? null : placeLamp;
 }
 
 /** A rectangle in the same space as the pointer and the box. */

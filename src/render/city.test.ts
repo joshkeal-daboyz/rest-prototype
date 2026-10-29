@@ -11,19 +11,18 @@ import {
   CITY_BG,
   CITY_BLOCK,
   CITY_BUILDING,
-  CITY_LINK_R,
-  CITY_PLACE,
   CITY_PLACE_EDGE,
+  CITY_PLACE_FILL,
   CITY_SEED,
-  CITY_STREET_COLOUR,
+  CITY_STREET_LINE,
   DISTRICT,
   GLOW_EASE_SECONDS,
-  HALO_ALPHA,
   HUB_R,
   LIT_FILL_ALPHA,
-  NODE_CLEAR,
+  nodeClearPx,
   R0,
   SPOKES,
+  circuitStreets,
   cityCells,
   cityForMap,
   cityPlaces,
@@ -33,13 +32,13 @@ import {
   glowTarget,
   inHub,
   ladderNumber,
-  linkBuildings,
   mapNumber,
   mapOrigin,
   onAvenue,
   spokeDir,
   spokeStep,
   type Building,
+  type CityRect,
 } from "./city";
 
 const ROOT = join(__dirname, "..", "..", "puzzles");
@@ -234,8 +233,8 @@ describe("map origins", () => {
   });
 });
 
-describe("neighbouring maps share streets", () => {
-  it("is the same strip whichever map is open (07/08 and 01/02)", () => {
+describe("neighbouring maps share streets outside their footprints", () => {
+  it("is the same strip whichever map is open (07/08 and 01/02), outside both footprints", () => {
     for (const [na, nb] of [[7, 8], [1, 2]] as const) {
       const pa = OPEN.find((p) => ladderNumber(p.puzzle.id) === na)!.puzzle;
       const pb = OPEN.find((p) => ladderNumber(p.puzzle.id) === nb)!.puzzle;
@@ -246,25 +245,35 @@ describe("neighbouring maps share streets", () => {
       const mx = (ca.x + cb.x) / 2;
       const my = (ca.y + cb.y) / 2;
       const strip = { minX: mx - 3, maxX: mx + 3, minY: my - 8, maxY: my + 8 };
+      // A footprint grown by one block: a feed lane runs on to the next street, and a building may touch the edge.
+      const grown = (p: Puzzle, o: { x: number; y: number }): CityRect => {
+        const f = circuitStreets(p).footprint;
+        return { minX: f.minX + o.x - CITY_BLOCK, maxX: f.maxX + o.x + CITY_BLOCK, minY: f.minY + o.y - CITY_BLOCK, maxY: f.maxY + o.y + CITY_BLOCK };
+      };
+      const ga = grown(pa, oa);
+      const gb = grown(pb, ob);
+      const outside = (x: Building): boolean =>
+        [ga, gb].every((g) => x.x + x.w / 2 <= g.minX || x.x - x.w / 2 >= g.maxX || x.y + x.h / 2 <= g.minY || x.y - x.h / 2 >= g.maxY);
       const through = (p: Puzzle, o: { x: number; y: number }): string[] =>
         sorted(
-          cityForMap(p, o, { minX: strip.minX - o.x, maxX: strip.maxX - o.x, minY: strip.minY - o.y, maxY: strip.maxY - o.y }).map((bd) => ({ ...bd, x: bd.x + o.x, y: bd.y + o.y })),
+          cityForMap(p, o, { minX: strip.minX - o.x, maxX: strip.maxX - o.x, minY: strip.minY - o.y, maxY: strip.maxY - o.y }, 50)
+            .map((bd) => ({ ...bd, x: bd.x + o.x, y: bd.y + o.y }))
+            .filter(outside),
         );
       const viaA = through(pa, oa);
       expect(viaA.length).toBeGreaterThan(0);
       expect(viaA).toEqual(through(pb, ob));
-      expect(viaA).toEqual(sorted(cityCells(strip)));
+      expect(viaA).toEqual(sorted(cityCells(strip).filter(outside)));
     }
   });
 });
 
 describe("places", () => {
-  it("gives one place per lamp, clear of nodes and of each other", () => {
+  it("gives one place per lamp, never overlapping (node-square and lane clearance: places.test.ts)", () => {
     for (const { key: k, puzzle } of OPEN) {
       const places = cityPlaces(puzzle);
       const lamps = puzzle.nodes.filter((n) => n.type === "lamp").map((n) => n.id);
       expect(places.map((p) => p.lamp), k).toEqual(lamps);
-      for (const p of places) for (const n of puzzle.nodes) expect(Math.hypot(n.pos[0] - p.x, n.pos[1] - p.y), `${k} ${p.lamp}`).toBeGreaterThanOrEqual(NODE_CLEAR);
       for (let i = 0; i < places.length; i++)
         for (let j = i + 1; j < places.length; j++) {
           const a = places[i]!;
@@ -274,63 +283,29 @@ describe("places", () => {
         }
     }
   });
-  it("puts a place on the side with the fewest lines", () => {
-    const p = loadPuzzle({
-      id: "t", name: "t", version: 5, scope: "map", capacity: null,
-      nodes: [
-        { id: "feed", type: "feed", pos: [0, 0] },
-        { id: "lamp", type: "lamp", pos: [3, 0] },
-      ],
-      lines: [{ id: "l1", from: "feed", to: "lamp" }],
-      faults: [],
-    });
-    const place = cityPlaces(p)[0]!;
-    expect(place.x).toBeGreaterThan(3); // away from the line, which comes in from the left
-    expect(place.y).toBeCloseTo(0, 9);
-  });
 });
 
-describe("filtering and linking", () => {
-  it("keeps the city off every node and every place", () => {
+describe("filtering", () => {
+  it("keeps the city off every node (nodeClearPx) and every place", () => {
     for (const { key: k, puzzle } of OPEN) {
       const b = puzzleBounds(puzzle);
       const o = mapOrigin(puzzle.id, b);
       const rect = { minX: b.minX - 6, maxX: b.maxX + 6, minY: b.minY - 6, maxY: b.maxY + 6 };
-      const bs = cityForMap(puzzle, o, rect);
+      const bs = cityForMap(puzzle, o, rect, 50);
       expect(bs.length, k).toBeGreaterThan(0);
-      const places = cityPlaces(puzzle);
+      const places = cityPlaces(puzzle, 50);
       let nearNode = 0;
       let onPlace = 0;
       for (const bd of bs) {
-        for (const n of puzzle.nodes) if (Math.hypot(n.pos[0] - bd.x, n.pos[1] - bd.y) < NODE_CLEAR) nearNode++;
-        for (const p of places) if (Math.abs(bd.x - p.x) < (bd.w + p.w) / 2 && Math.abs(bd.y - p.y) < (bd.h + p.h) / 2) onPlace++;
+        for (const n of puzzle.nodes) {
+          const d = Math.hypot(Math.max(Math.abs(n.pos[0] - bd.x) - bd.w / 2, 0), Math.max(Math.abs(n.pos[1] - bd.y) - bd.h / 2, 0));
+          if (d * 50 < nodeClearPx(n) - 1e-6) nearNode++;
+        }
+        for (const p of places) if (!p.pool && Math.abs(bd.x - p.x) < (bd.w + p.w) / 2 && Math.abs(bd.y - p.y) < (bd.h + p.h) / 2) onPlace++;
       }
       expect(nearNode, k).toBe(0);
       expect(onPlace, k).toBe(0);
     }
-  });
-  it("links to the nearest lamp, ties by nodes order, never to other parts", () => {
-    const p = loadPuzzle({
-      id: "t", name: "t", version: 5, scope: "map", capacity: null,
-      nodes: [
-        { id: "feed", type: "feed", pos: [0, 0] },
-        { id: "br", type: "breaker", pos: [2, 1], closed: true },
-        { id: "j1", type: "junction", pos: [6, 3] },
-        { id: "a", type: "lamp", pos: [4, 0] },
-        { id: "b", type: "lamp", pos: [7, 0] },
-      ],
-      lines: [{ id: "l0", from: "feed", to: "br" }, { id: "l1", from: "br", to: "j1" }, { id: "l2", from: "j1", to: "a" }, { id: "l3", from: "j1", to: "b" }],
-      faults: [],
-    });
-    const sq1 = (x: number, y: number): Building => ({ x, y, w: 1, h: 1 });
-    const links = linkBuildings([sq1(5, 0), sq1(5.5, 0), sq1(7.5, 0), sq1(10.5, 0), sq1(2, 1.2), sq1(4, 5)], p);
-    expect(links.map((l) => [l.x, l.lamp])).toEqual([
-      [5, "a"],
-      [5.5, "a"], // exact tie: earlier lamp wins
-      [7.5, "b"],
-    ]);
-    expect(links.every((l) => l.strength === 0.5)).toBe(true);
-    expect(CITY_LINK_R).toBe(1.6);
   });
 });
 
@@ -390,12 +365,11 @@ describe("easing", () => {
 
 describe("contrast", () => {
   it("keeps every dark city colour within 1.6 of the background", () => {
-    for (const c of [CITY_BUILDING, CITY_STREET_COLOUR, CITY_AVENUE_COLOUR, CITY_PLACE, CITY_PLACE_EDGE]) {
+    for (const c of [CITY_BUILDING, CITY_STREET_LINE, CITY_AVENUE_COLOUR, CITY_PLACE_FILL, CITY_PLACE_EDGE]) {
       expect(contrastRatio(c, CITY_BG), c).toBeLessThanOrEqual(1.6);
     }
   });
-  it("keeps the lit alphas low", () => {
+  it("keeps the lit alpha low", () => {
     expect(LIT_FILL_ALPHA).toBeLessThanOrEqual(0.35);
-    expect(HALO_ALPHA).toBeLessThanOrEqual(0.2);
   });
 });

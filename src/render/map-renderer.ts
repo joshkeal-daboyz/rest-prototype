@@ -38,27 +38,36 @@ import {
   sliceVertices,
 } from "./shock";
 import {
-  CITY_AVENUE,
+  AVENUE_PX,
   CITY_AVENUE_COLOUR,
   CITY_BLOCK,
   CITY_BUILDING,
-  CITY_PLACE,
   CITY_PLACE_EDGE,
-  CITY_STREET,
-  CITY_STREET_COLOUR,
+  CITY_PLACE_FILL,
+  CITY_STREET_LINE,
   CITY_WARM,
-  HALO_LAYERS,
+  GLOW_MAX,
+  GLOW_SPRITE_PX,
   HUB_R,
   LIT_FILL_ALPHA,
+  POOL_PX,
+  STREET_PX,
+  avenuePieces,
+  circuitStreets,
   cityForMap,
-  cityPlaces,
   easeGlow,
+  feedLanes,
+  footprintLayout,
+  glowRadiusPx,
+  glowSpriteData,
   glowTarget,
-  linkBuildings,
+  gridStreetLines,
   mapOrigin,
   spokeDir,
   visibleMapRect,
+  type Place,
 } from "./city";
+import { LABEL_FONT_PX, placeAtPoint, placeShapes, targetLabels, type Prim } from "./places";
 import { chargeFraction, popProgress, wentFlat } from "./battery";
 import { clamp01, flicker, hash01, pulseCount, pulsePhase, PULSE_SPACING } from "./motion";
 import { FLARE_SECONDS, planRelight, type RelightPlan } from "./relight";
@@ -69,6 +78,8 @@ export interface MapOverlay {
   hover?: string | null;
   /** Seconds since the job completed. Undefined = no Relight running. */
   relightT?: number;
+  /** Lamp id whose place and lamp to pick out with a focus-coloured outline (ticket 024); null or undefined = none. */
+  highlight?: string | null;
 }
 
 export interface MapRenderer {
@@ -88,6 +99,12 @@ export interface MapRenderer {
       | { type: "fuse:blown"; payload: Events["fuse:blown"] }
       | { type: "switch:thrown"; payload: Events["switch:thrown"] },
   ): void;
+}
+
+/** Place lookup for the list-to-map link (ticket 024). Separate from MapRenderer so existing fakes still compile. */
+export interface MapPlaces {
+  /** Lamp id whose place is under the canvas point (CSS px), via the same fit and pan as drawing; null otherwise. */
+  placeAt(x: number, y: number): string | null;
 }
 
 /** View control for the pan (ticket 022). Separate from MapRenderer so existing fakes still compile. */
@@ -130,6 +147,11 @@ const ALARM = "#ff5a4d";
 const TARGET = "#ffe9a8";
 const RIBBON = "#ff3df0";
 const HOVER = "#ffffff";
+/** The UI's --focus colour (index.html). */
+const FOCUS = "#8fd3ff";
+const LABEL_FONT = `${LABEL_FONT_PX}px system-ui, sans-serif`;
+const LABEL_ALPHA = 0.7;
+const TAU2 = Math.PI * 2;
 const BATT_GLOW = "#ffa21f";
 const BATT_LINE = "#ffc457";
 const BATT_FILL = "#3ddc97";
@@ -140,6 +162,7 @@ const FONT_FEED = "bold 15px system-ui, sans-serif";
 
 const DASH_TARGET: number[] = [4, 4];
 const DASH_NONE: number[] = [];
+const DASH_PLACE: number[] = [5, 4];
 
 const K_NONE = 0;
 const K_LAMP = 1;
@@ -160,7 +183,7 @@ function kindCode(kind: FaultKind): number {
   }
 }
 
-export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opts?: MapRendererOptions): MapRenderer & MapPanView {
+export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opts?: MapRendererOptions): MapRenderer & MapPanView & MapPlaces {
   let insets: Insets = { ...(opts?.insets ?? {}) };
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("2D canvas unavailable");
@@ -284,24 +307,50 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
   const sliceOut = new Float64Array(2 * (MAX_PATH_POINTS + 2));
   const headOut = new Float64Array(2);
 
-  // ---- the city under the map (ticket 023) ----
+  // ---- the city under the map (tickets 023, 024) ----
   const cityOrigin = mapOrigin(puzzle.id, mapBounds);
-  const places = cityPlaces(puzzle);
-  const placeNode = new Int32Array(places.length);
+  const streets = circuitStreets(puzzle);
+  const feedStreets = feedLanes(puzzle);
+  /** The places at the current scale: one per lamp in `nodes` order, so every array below keeps its size. */
+  let places: Place[] = footprintLayout(puzzle, cityOrigin, 1).places;
+  const nPlaces = places.length;
+  const placeNode = new Int32Array(nPlaces);
   places.forEach((p, i) => {
     placeNode[i] = puzzle.nodes.findIndex((n) => n.id === p.lamp);
   });
-  /** Glow 0..1 per node (only lamps with a place or a linked building use theirs). */
+  /** Glow 0..1 per node (only lamps with a place use theirs). */
   const cityGlow = new Float64Array(nNodes);
   const relScratch = { t: 0, arriveAt: 0 };
   let cityLastT = NaN;
-  /** Screen rects [x, y, w, h] per place, and per linked building with its lamp's node index. */
-  let placeRects = new Float64Array(0);
-  let linkRects = new Float64Array(0);
-  let linkNode = new Int32Array(0);
+  /** Each place's pieces in map units, remade whenever the layout is. */
+  let placeShapeList: Prim[][] = places.map((p) => placeShapes(p));
+  let shapesFor: unknown = null;
+  /** Screen rects [x, y, w, h] per place (the highlight outline). */
+  const placeRects = new Float64Array(nPlaces * 4);
+  /** The lit tint pieces of every place in screen px: kind (0 rect, 1 disc), then x, y, w, h (a disc's x, y is its centre, w its radius); place i owns [glowStart[i], glowStart[i + 1]). */
+  let glowKind = new Uint8Array(0);
+  let glowBox = new Float64Array(0);
+  const glowStart = new Int32Array(nPlaces + 1);
+  /** Per place: the glow sprite's centre x, y and radius in px (a street light's pool uses POOL_PX). */
+  const glowC = new Float64Array(nPlaces * 3);
+  /** A target's label per place, in canvas px: the box centre (x, y); `labelShown` is 0 when hidden. */
+  const labelXY = new Float64Array(nPlaces * 2);
+  const labelShown = new Uint8Array(nPlaces);
+  const labelText: string[] = places.map((p) => p.label ?? "");
+  /** Per node: its place index, or -1. */
+  const nodePlace = new Int32Array(nNodes).fill(-1);
+  places.forEach((p, i) => {
+    const ni = puzzle.nodes.findIndex((n) => n.id === p.lamp);
+    if (ni >= 0) nodePlace[ni] = i;
+  });
+  /** Node index of the lamp being highlighted this frame, or -1. */
+  let hiNode = -1;
   let cityLayer: HTMLCanvasElement | OffscreenCanvas | null = null;
   let cityLayerOk = true;
   let cityBuildings: readonly { x: number; y: number; w: number; h: number }[] = [];
+  /** The round warm glow, pre-rendered once (128 px, alpha (1 - r)^2). */
+  let glowSprite: HTMLCanvasElement | OffscreenCanvas | null = null;
+  let glowSpriteTried = false;
 
   function makeLayer(w: number, h: number): HTMLCanvasElement | OffscreenCanvas | null {
     try {
@@ -318,7 +367,22 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     return null;
   }
 
-  /** Paint the dark city (streets, avenues, buildings, places) with the current fit. */
+  function makeGlowSprite(): HTMLCanvasElement | OffscreenCanvas | null {
+    const sp = makeLayer(GLOW_SPRITE_PX, GLOW_SPRITE_PX);
+    if (!sp) return null;
+    try {
+      const g = sp.getContext("2d") as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null;
+      if (!g || typeof g.createImageData !== "function") return null;
+      const img = g.createImageData(GLOW_SPRITE_PX, GLOW_SPRITE_PX);
+      img.data.set(glowSpriteData(GLOW_SPRITE_PX));
+      g.putImageData(img, 0, 0);
+      return sp;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Paint the dark city (streets, avenues, ring road, lots, place silhouettes) with the current fit. */
   function paintCity(g: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D, buildings: readonly { x: number; y: number; w: number; h: number }[]): void {
     const f = geo.fit;
     const sc = f.scale;
@@ -329,16 +393,21 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     g.fillStyle = BG;
     g.fillRect(0, 0, width, height);
     const vis = visibleMapRect(f, width, height, CITY_BLOCK);
-    // Streets on the cell edges.
-    g.fillStyle = CITY_STREET_COLOUR;
-    const sw = CITY_STREET * sc;
-    const cx0 = Math.floor((vis.minX + ox) / CITY_BLOCK);
-    const cx1 = Math.ceil((vis.maxX + ox) / CITY_BLOCK);
-    for (let k = cx0; k <= cx1; k++) g.fillRect(X(k * CITY_BLOCK - ox) - sw / 2, 0, sw, height);
-    const cy0 = Math.floor((vis.minY + oy) / CITY_BLOCK);
-    const cy1 = Math.ceil((vis.maxY + oy) / CITY_BLOCK);
-    for (let k = cy0; k <= cy1; k++) g.fillRect(0, Y(k * CITY_BLOCK - oy) - sw / 2, width, sw);
-    // Avenues: a band along each spoke's ray from the hub's edge outward.
+    // The open map's footprint (city units): its edge is the ring road, and the shared streets stop on it.
+    const fpMap = streets.footprint;
+    const hole = { minX: fpMap.minX + ox, minY: fpMap.minY + oy, maxX: fpMap.maxX + ox, maxY: fpMap.maxY + oy };
+    g.lineCap = "butt";
+    g.lineJoin = "miter";
+    // Shared-grid streets: thin faint lines on the cell edges.
+    g.strokeStyle = CITY_STREET_LINE;
+    g.lineWidth = STREET_PX;
+    g.beginPath();
+    for (const r of gridStreetLines({ minX: vis.minX + ox, minY: vis.minY + oy, maxX: vis.maxX + ox, maxY: vis.maxY + oy }, hole)) {
+      g.moveTo(X(r.ax - ox), Y(r.ay - oy));
+      g.lineTo(X(r.bx - ox), Y(r.by - oy));
+    }
+    g.stroke();
+    // Avenues: a wider line along each spoke's ray from the hub's edge outward, stopping at the ring road.
     const far = Math.max(
       Math.hypot(vis.minX + ox, vis.minY + oy),
       Math.hypot(vis.maxX + ox, vis.minY + oy),
@@ -346,62 +415,133 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
       Math.hypot(vis.maxX + ox, vis.maxY + oy),
     );
     if (far > HUB_R) {
-      g.fillStyle = CITY_AVENUE_COLOUR;
-      const hw = CITY_AVENUE / 2;
+      g.strokeStyle = CITY_AVENUE_COLOUR;
+      g.lineWidth = AVENUE_PX;
+      g.beginPath();
       for (let s = 0; s < 8; s++) {
         const d = spokeDir(s);
-        const nx0 = -d.y * hw;
-        const ny0 = d.x * hw;
-        const a0 = HUB_R;
-        const a1 = far + 4;
-        g.beginPath();
-        g.moveTo(X(d.x * a0 + nx0 - ox), Y(d.y * a0 + ny0 - oy));
-        g.lineTo(X(d.x * a1 + nx0 - ox), Y(d.y * a1 + ny0 - oy));
-        g.lineTo(X(d.x * a1 - nx0 - ox), Y(d.y * a1 - ny0 - oy));
-        g.lineTo(X(d.x * a0 - nx0 - ox), Y(d.y * a0 - ny0 - oy));
-        g.closePath();
-        g.fill();
+        for (const [a0, a1] of avenuePieces(s, far + 4, hole)) {
+          g.moveTo(X(d.x * a0 - ox), Y(d.y * a0 - oy));
+          g.lineTo(X(d.x * a1 - ox), Y(d.y * a1 - oy));
+        }
+      }
+      g.stroke();
+    }
+    // The ring road, every circuit lane (lines, decor) and each feed's lane out to the ring.
+    g.strokeStyle = CITY_STREET_LINE;
+    g.lineWidth = STREET_PX;
+    g.beginPath();
+    g.rect(X(fpMap.minX), Y(fpMap.minY), (fpMap.maxX - fpMap.minX) * sc, (fpMap.maxY - fpMap.minY) * sc);
+    for (let pass = 0; pass < 2; pass++) {
+      const set = pass === 0 ? streets.lanes : feedStreets;
+      for (let i = 0; i < set.length; i++) {
+        const l = set[i]!;
+        g.moveTo(X(l.ax), Y(l.ay));
+        g.lineTo(X(l.bx), Y(l.by));
       }
     }
+    g.stroke();
     g.fillStyle = CITY_BUILDING;
     for (let i = 0; i < buildings.length; i++) {
       const b = buildings[i]!;
       g.fillRect(X(b.x - b.w / 2), Y(b.y - b.h / 2), b.w * sc, b.h * sc);
     }
-    g.fillStyle = CITY_PLACE;
-    g.strokeStyle = CITY_PLACE_EDGE;
-    g.lineWidth = 1;
-    for (let i = 0; i < places.length; i++) {
-      const p = places[i]!;
-      const rx = X(p.x - p.w / 2);
-      const ry = Y(p.y - p.h / 2);
-      g.fillRect(rx, ry, p.w * sc, p.h * sc);
-      g.strokeRect(rx + 0.5, ry + 0.5, p.w * sc - 1, p.h * sc - 1);
+    // Places: each kind's own top-down plan, filled, with a 1 px edge.
+    for (let i = 0; i < placeShapeList.length; i++) {
+      const shapes = placeShapeList[i]!;
+      for (let k = 0; k < shapes.length; k++) {
+        const pr = shapes[k]!;
+        g.strokeStyle = CITY_PLACE_EDGE;
+        g.fillStyle = pr.role === "edge" ? CITY_PLACE_EDGE : CITY_PLACE_FILL;
+        if (pr.s === "line") {
+          g.lineWidth = 1;
+          g.beginPath();
+          g.moveTo(X(pr.x), Y(pr.y));
+          g.lineTo(X(pr.w), Y(pr.h));
+          g.stroke();
+        } else if (pr.s === "rect") {
+          const rx = X(pr.x - pr.w / 2);
+          const ry = Y(pr.y - pr.h / 2);
+          if (pr.role === "outline") {
+            g.lineWidth = 1;
+            g.setLineDash(pr.dashed ? DASH_PLACE : DASH_NONE);
+            g.strokeRect(rx + 0.5, ry + 0.5, pr.w * sc - 1, pr.h * sc - 1);
+            g.setLineDash(DASH_NONE);
+          } else {
+            g.fillRect(rx, ry, pr.w * sc, pr.h * sc);
+            if (pr.role === "body") {
+              g.lineWidth = 1;
+              g.strokeRect(rx + 0.5, ry + 0.5, pr.w * sc - 1, pr.h * sc - 1);
+            }
+          }
+        } else if (pr.s === "disc") {
+          g.beginPath();
+          g.arc(X(pr.x), Y(pr.y), (pr.w / 2) * sc, 0, TAU2);
+          g.fill();
+          if (pr.role === "body") {
+            g.lineWidth = 1;
+            g.stroke();
+          }
+        } else {
+          g.lineWidth = 2;
+          g.beginPath();
+          g.arc(X(pr.x), Y(pr.y), (pr.w / 2) * sc, 0, TAU2);
+          g.stroke();
+        }
+      }
     }
   }
 
-  /** Recompute the city for the current fit: filtered buildings, screen rects for what glows, the cached dark layer. */
+  /** Where each target's label goes: beside its place, wholly inside the free area, off every wire, node, caption and star. */
+  function placeLabels(): void {
+    c.font = LABEL_FONT;
+    const boxes = targetLabels(puzzle, places, geo.fit, freeArea(width, height, insets), (text) => c.measureText(text).width);
+    boxes.forEach((box, i) => {
+      labelShown[i] = box ? 1 : 0;
+      if (!box) return;
+      labelXY[i * 2] = box.x + box.w / 2;
+      labelXY[i * 2 + 1] = box.y + box.h / 2;
+    });
+  }
+
+  /** Recompute the city for the current fit: layout at this scale, screen data for what glows, the cached dark layer. */
   function rebuildCity(): void {
     const f = geo.fit;
     const sc = f.scale;
-    const buildings = cityForMap(puzzle, cityOrigin, visibleMapRect(f, width, height, CITY_BLOCK));
-    const linked = linkBuildings(buildings, puzzle);
-    placeRects = new Float64Array(places.length * 4);
+    const layout = footprintLayout(puzzle, cityOrigin, sc);
+    places = layout.places;
+    if (shapesFor !== layout) {
+      shapesFor = layout;
+      placeShapeList = places.map((p) => placeShapes(p));
+    }
+    const buildings = cityForMap(puzzle, cityOrigin, visibleMapRect(f, width, height, CITY_BLOCK), sc);
+    let nGlow = 0;
+    for (let i = 0; i < nPlaces; i++) for (const pr of placeShapeList[i]!) if (pr.glow) nGlow++;
+    glowKind = new Uint8Array(nGlow);
+    glowBox = new Float64Array(nGlow * 4);
+    let gi = 0;
     places.forEach((p, i) => {
       placeRects[i * 4] = (p.x - p.w / 2) * sc + f.offsetX;
       placeRects[i * 4 + 1] = (p.y - p.h / 2) * sc + f.offsetY;
       placeRects[i * 4 + 2] = p.w * sc;
       placeRects[i * 4 + 3] = p.h * sc;
+      glowStart[i] = gi;
+      glowC[i * 3] = p.x * sc + f.offsetX;
+      glowC[i * 3 + 1] = p.y * sc + f.offsetY;
+      glowC[i * 3 + 2] = p.pool ? POOL_PX : glowRadiusPx((Math.hypot(p.w, p.h) / 2) * sc);
+      for (const pr of placeShapeList[i]!) {
+        if (!pr.glow) continue;
+        const disc = pr.s === "disc";
+        glowKind[gi] = disc ? 1 : 0;
+        glowBox[gi * 4] = (disc ? pr.x : pr.x - pr.w / 2) * sc + f.offsetX;
+        glowBox[gi * 4 + 1] = (disc ? pr.y : pr.y - pr.h / 2) * sc + f.offsetY;
+        glowBox[gi * 4 + 2] = disc ? (pr.w / 2) * sc : pr.w * sc;
+        glowBox[gi * 4 + 3] = disc ? (pr.w / 2) * sc : pr.h * sc;
+        gi++;
+      }
     });
-    linkRects = new Float64Array(linked.length * 4);
-    linkNode = new Int32Array(linked.length);
-    linked.forEach((b, i) => {
-      linkRects[i * 4] = (b.x - b.w / 2) * sc + f.offsetX;
-      linkRects[i * 4 + 1] = (b.y - b.h / 2) * sc + f.offsetY;
-      linkRects[i * 4 + 2] = b.w * sc;
-      linkRects[i * 4 + 3] = b.h * sc;
-      linkNode[i] = geo.nodeIndex.get(b.lamp) ?? 0;
-    });
+    glowStart[nPlaces] = gi;
+    placeLabels();
     cityBuildings = buildings;
     const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
     const pw = Math.max(Math.round(width * dpr), 1);
@@ -429,7 +569,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     // Ease each lamp's glow toward its target (snap on the first frame).
     const dt = cityLastT === cityLastT ? t - cityLastT : -1;
     cityLastT = t;
-    for (let i = 0; i < places.length; i++) {
+    for (let i = 0; i < nPlaces; i++) {
       const ni = placeNode[i]!;
       if (ni < 0) continue;
       let rel: typeof relScratch | null = null;
@@ -446,30 +586,63 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     } else {
       paintCity(c, cityBuildings);
     }
+    // Only a lamp's own place glows: one round sprite, and a warm tint on its silhouette.
+    if (glowSprite === null && !glowSpriteTried) {
+      glowSpriteTried = true;
+      glowSprite = makeGlowSprite();
+    }
     c.fillStyle = CITY_WARM;
-    for (let i = 0; i < places.length; i++) {
+    for (let i = 0; i < nPlaces; i++) {
       const ni = placeNode[i]!;
       if (ni < 0) continue;
-      glowRect(placeRects[i * 4]!, placeRects[i * 4 + 1]!, placeRects[i * 4 + 2]!, placeRects[i * 4 + 3]!, cityGlow[ni]!);
-    }
-    for (let i = 0; i < linkNode.length; i++) {
-      glowRect(linkRects[i * 4]!, linkRects[i * 4 + 1]!, linkRects[i * 4 + 2]!, linkRects[i * 4 + 3]!, cityGlow[linkNode[i]!]! * 0.5);
+      const gl = cityGlow[ni]!;
+      if (gl < 0.004) continue;
+      if (glowSprite) {
+        const r = glowC[i * 3 + 2]!;
+        c.globalAlpha = gl * GLOW_MAX;
+        c.drawImage(glowSprite, glowC[i * 3]! - r, glowC[i * 3 + 1]! - r, 2 * r, 2 * r);
+      }
+      c.globalAlpha = LIT_FILL_ALPHA * gl;
+      for (let k = glowStart[i]!; k < glowStart[i + 1]!; k++) {
+        const o = k * 4;
+        if (glowKind[k] === 0) c.fillRect(glowBox[o]!, glowBox[o + 1]!, glowBox[o + 2]!, glowBox[o + 3]!);
+        else {
+          c.beginPath();
+          c.arc(glowBox[o]!, glowBox[o + 1]!, glowBox[o + 2]!, 0, TAU2);
+          c.fill();
+        }
+      }
     }
     c.globalAlpha = 1;
-  }
-
-  /** Warm fill plus stacked translucent halo rects; no gradients. */
-  function glowRect(x: number, y: number, w: number, h: number, g: number): void {
-    if (g < 0.004) return;
-    const sc = geo.fit.scale;
-    for (let k = 0; k < HALO_LAYERS.length; k++) {
-      const L = HALO_LAYERS[k]!;
-      const e = L.grow * sc;
-      c.globalAlpha = L.alpha * g;
-      c.fillRect(x - e, y - e, w + 2 * e, h + 2 * e);
+    // Quiet names beside the targets' places: drawn after the city, before the circuit, so wires cross over them.
+    c.font = LABEL_FONT;
+    c.textBaseline = "middle";
+    c.textAlign = "center";
+    for (let i = 0; i < nPlaces; i++) {
+      if (labelShown[i] === 0) continue;
+      const ni = placeNode[i]!;
+      const lit = ni >= 0 && cityGlow[ni]! > 0.5;
+      c.fillStyle = lit ? TEXT : TEXT_DIM;
+      c.globalAlpha = lit ? 1 : LABEL_ALPHA;
+      c.fillText(labelText[i]!, labelXY[i * 2]!, labelXY[i * 2 + 1]!);
     }
-    c.globalAlpha = LIT_FILL_ALPHA * g;
-    c.fillRect(x, y, w, h);
+    c.globalAlpha = 1;
+    // The list-to-map link: a focus-coloured outline round the highlighted lamp's place.
+    if (hiNode >= 0) {
+      const pi = nodePlace[hiNode]!;
+      if (pi >= 0) {
+        const pad = 0.12 * geo.fit.scale;
+        c.strokeStyle = FOCUS;
+        c.lineWidth = 1.5;
+        if (places[pi]!.pool) {
+          c.beginPath();
+          c.arc(glowC[pi * 3]!, glowC[pi * 3 + 1]!, POOL_PX * 0.5 + pad, 0, TAU2);
+          c.stroke();
+        } else {
+          c.strokeRect(placeRects[pi * 4]! - pad, placeRects[pi * 4 + 1]! - pad, placeRects[pi * 4 + 2]! + 2 * pad, placeRects[pi * 4 + 3]! + 2 * pad);
+        }
+      }
+    }
   }
 
   let plan: RelightPlan | null = null;
@@ -858,6 +1031,14 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
       c.lineWidth = 1.5;
       c.beginPath();
       c.arc(x, y, cr + 5, 0, TAU);
+      c.stroke();
+    }
+
+    if (hiNode === i) {
+      c.strokeStyle = FOCUS;
+      c.lineWidth = 1.5;
+      c.beginPath();
+      c.arc(x, y, cr + 11, 0, TAU);
       c.stroke();
     }
 
@@ -1469,6 +1650,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     }
 
     const hover = overlay.hover ?? null;
+    hiNode = overlay.highlight ? (geo.nodeIndex.get(overlay.highlight) ?? -1) : -1;
     const relT = overlay.relightT;
     let rp: RelightPlan | null = null;
     if (relT !== undefined) {
@@ -1531,6 +1713,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
   return {
     draw,
     hitTest: (x, y) => hitTestGeometry(geo, x, y),
+    placeAt: (x, y) => placeAtPoint(places, geo.fit, x, y),
     resize,
     setInsets,
     notify,
