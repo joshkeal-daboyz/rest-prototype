@@ -37,6 +37,28 @@ import {
   streakLength,
   sliceVertices,
 } from "./shock";
+import {
+  CITY_AVENUE,
+  CITY_AVENUE_COLOUR,
+  CITY_BLOCK,
+  CITY_BUILDING,
+  CITY_PLACE,
+  CITY_PLACE_EDGE,
+  CITY_STREET,
+  CITY_STREET_COLOUR,
+  CITY_WARM,
+  HALO_LAYERS,
+  HUB_R,
+  LIT_FILL_ALPHA,
+  cityForMap,
+  cityPlaces,
+  easeGlow,
+  glowTarget,
+  linkBuildings,
+  mapOrigin,
+  spokeDir,
+  visibleMapRect,
+} from "./city";
 import { chargeFraction, popProgress, wentFlat } from "./battery";
 import { clamp01, flicker, hash01, pulseCount, pulsePhase, PULSE_SPACING } from "./motion";
 import { FLARE_SECONDS, planRelight, type RelightPlan } from "./relight";
@@ -262,6 +284,194 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
   const sliceOut = new Float64Array(2 * (MAX_PATH_POINTS + 2));
   const headOut = new Float64Array(2);
 
+  // ---- the city under the map (ticket 023) ----
+  const cityOrigin = mapOrigin(puzzle.id, mapBounds);
+  const places = cityPlaces(puzzle);
+  const placeNode = new Int32Array(places.length);
+  places.forEach((p, i) => {
+    placeNode[i] = puzzle.nodes.findIndex((n) => n.id === p.lamp);
+  });
+  /** Glow 0..1 per node (only lamps with a place or a linked building use theirs). */
+  const cityGlow = new Float64Array(nNodes);
+  const relScratch = { t: 0, arriveAt: 0 };
+  let cityLastT = NaN;
+  /** Screen rects [x, y, w, h] per place, and per linked building with its lamp's node index. */
+  let placeRects = new Float64Array(0);
+  let linkRects = new Float64Array(0);
+  let linkNode = new Int32Array(0);
+  let cityLayer: HTMLCanvasElement | OffscreenCanvas | null = null;
+  let cityLayerOk = true;
+  let cityBuildings: readonly { x: number; y: number; w: number; h: number }[] = [];
+
+  function makeLayer(w: number, h: number): HTMLCanvasElement | OffscreenCanvas | null {
+    try {
+      if (typeof OffscreenCanvas !== "undefined") return new OffscreenCanvas(w, h);
+      if (typeof document !== "undefined") {
+        const el = document.createElement("canvas");
+        el.width = w;
+        el.height = h;
+        return el;
+      }
+    } catch {
+      /* fall through: draw directly */
+    }
+    return null;
+  }
+
+  /** Paint the dark city (streets, avenues, buildings, places) with the current fit. */
+  function paintCity(g: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D, buildings: readonly { x: number; y: number; w: number; h: number }[]): void {
+    const f = geo.fit;
+    const sc = f.scale;
+    const ox = cityOrigin.x;
+    const oy = cityOrigin.y;
+    const X = (mx: number): number => mx * sc + f.offsetX;
+    const Y = (my: number): number => my * sc + f.offsetY;
+    g.fillStyle = BG;
+    g.fillRect(0, 0, width, height);
+    const vis = visibleMapRect(f, width, height, CITY_BLOCK);
+    // Streets on the cell edges.
+    g.fillStyle = CITY_STREET_COLOUR;
+    const sw = CITY_STREET * sc;
+    const cx0 = Math.floor((vis.minX + ox) / CITY_BLOCK);
+    const cx1 = Math.ceil((vis.maxX + ox) / CITY_BLOCK);
+    for (let k = cx0; k <= cx1; k++) g.fillRect(X(k * CITY_BLOCK - ox) - sw / 2, 0, sw, height);
+    const cy0 = Math.floor((vis.minY + oy) / CITY_BLOCK);
+    const cy1 = Math.ceil((vis.maxY + oy) / CITY_BLOCK);
+    for (let k = cy0; k <= cy1; k++) g.fillRect(0, Y(k * CITY_BLOCK - oy) - sw / 2, width, sw);
+    // Avenues: a band along each spoke's ray from the hub's edge outward.
+    const far = Math.max(
+      Math.hypot(vis.minX + ox, vis.minY + oy),
+      Math.hypot(vis.maxX + ox, vis.minY + oy),
+      Math.hypot(vis.minX + ox, vis.maxY + oy),
+      Math.hypot(vis.maxX + ox, vis.maxY + oy),
+    );
+    if (far > HUB_R) {
+      g.fillStyle = CITY_AVENUE_COLOUR;
+      const hw = CITY_AVENUE / 2;
+      for (let s = 0; s < 8; s++) {
+        const d = spokeDir(s);
+        const nx0 = -d.y * hw;
+        const ny0 = d.x * hw;
+        const a0 = HUB_R;
+        const a1 = far + 4;
+        g.beginPath();
+        g.moveTo(X(d.x * a0 + nx0 - ox), Y(d.y * a0 + ny0 - oy));
+        g.lineTo(X(d.x * a1 + nx0 - ox), Y(d.y * a1 + ny0 - oy));
+        g.lineTo(X(d.x * a1 - nx0 - ox), Y(d.y * a1 - ny0 - oy));
+        g.lineTo(X(d.x * a0 - nx0 - ox), Y(d.y * a0 - ny0 - oy));
+        g.closePath();
+        g.fill();
+      }
+    }
+    g.fillStyle = CITY_BUILDING;
+    for (let i = 0; i < buildings.length; i++) {
+      const b = buildings[i]!;
+      g.fillRect(X(b.x - b.w / 2), Y(b.y - b.h / 2), b.w * sc, b.h * sc);
+    }
+    g.fillStyle = CITY_PLACE;
+    g.strokeStyle = CITY_PLACE_EDGE;
+    g.lineWidth = 1;
+    for (let i = 0; i < places.length; i++) {
+      const p = places[i]!;
+      const rx = X(p.x - p.w / 2);
+      const ry = Y(p.y - p.h / 2);
+      g.fillRect(rx, ry, p.w * sc, p.h * sc);
+      g.strokeRect(rx + 0.5, ry + 0.5, p.w * sc - 1, p.h * sc - 1);
+    }
+  }
+
+  /** Recompute the city for the current fit: filtered buildings, screen rects for what glows, the cached dark layer. */
+  function rebuildCity(): void {
+    const f = geo.fit;
+    const sc = f.scale;
+    const buildings = cityForMap(puzzle, cityOrigin, visibleMapRect(f, width, height, CITY_BLOCK));
+    const linked = linkBuildings(buildings, puzzle);
+    placeRects = new Float64Array(places.length * 4);
+    places.forEach((p, i) => {
+      placeRects[i * 4] = (p.x - p.w / 2) * sc + f.offsetX;
+      placeRects[i * 4 + 1] = (p.y - p.h / 2) * sc + f.offsetY;
+      placeRects[i * 4 + 2] = p.w * sc;
+      placeRects[i * 4 + 3] = p.h * sc;
+    });
+    linkRects = new Float64Array(linked.length * 4);
+    linkNode = new Int32Array(linked.length);
+    linked.forEach((b, i) => {
+      linkRects[i * 4] = (b.x - b.w / 2) * sc + f.offsetX;
+      linkRects[i * 4 + 1] = (b.y - b.h / 2) * sc + f.offsetY;
+      linkRects[i * 4 + 2] = b.w * sc;
+      linkRects[i * 4 + 3] = b.h * sc;
+      linkNode[i] = geo.nodeIndex.get(b.lamp) ?? 0;
+    });
+    cityBuildings = buildings;
+    const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
+    const pw = Math.max(Math.round(width * dpr), 1);
+    const ph = Math.max(Math.round(height * dpr), 1);
+    if (cityLayerOk && !cityLayer) {
+      cityLayer = makeLayer(pw, ph);
+      if (!cityLayer) cityLayerOk = false;
+    }
+    if (cityLayer && cityLayerOk) {
+      if (cityLayer.width !== pw || cityLayer.height !== ph) {
+        cityLayer.width = pw;
+        cityLayer.height = ph;
+      }
+      const g = cityLayer.getContext("2d") as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null;
+      if (g) {
+        g.setTransform(dpr, 0, 0, dpr, 0, 0);
+        paintCity(g, buildings);
+      } else {
+        cityLayerOk = false;
+      }
+    }
+  }
+
+  function drawCity(state: GridState, relT: number | undefined, rp: RelightPlan | null, t: number): void {
+    // Ease each lamp's glow toward its target (snap on the first frame).
+    const dt = cityLastT === cityLastT ? t - cityLastT : -1;
+    cityLastT = t;
+    for (let i = 0; i < places.length; i++) {
+      const ni = placeNode[i]!;
+      if (ni < 0) continue;
+      let rel: typeof relScratch | null = null;
+      if (rp && relT !== undefined) {
+        relScratch.t = relT;
+        relScratch.arriveAt = rp.nodeArrive[ni]!;
+        rel = relScratch;
+      }
+      const target = glowTarget(places[i]!.lamp, state, rel);
+      cityGlow[ni] = dt < 0 ? target : easeGlow(cityGlow[ni]!, target, dt);
+    }
+    if (cityLayer && cityLayerOk) {
+      c.drawImage(cityLayer, 0, 0, width, height);
+    } else {
+      paintCity(c, cityBuildings);
+    }
+    c.fillStyle = CITY_WARM;
+    for (let i = 0; i < places.length; i++) {
+      const ni = placeNode[i]!;
+      if (ni < 0) continue;
+      glowRect(placeRects[i * 4]!, placeRects[i * 4 + 1]!, placeRects[i * 4 + 2]!, placeRects[i * 4 + 3]!, cityGlow[ni]!);
+    }
+    for (let i = 0; i < linkNode.length; i++) {
+      glowRect(linkRects[i * 4]!, linkRects[i * 4 + 1]!, linkRects[i * 4 + 2]!, linkRects[i * 4 + 3]!, cityGlow[linkNode[i]!]! * 0.5);
+    }
+    c.globalAlpha = 1;
+  }
+
+  /** Warm fill plus stacked translucent halo rects; no gradients. */
+  function glowRect(x: number, y: number, w: number, h: number, g: number): void {
+    if (g < 0.004) return;
+    const sc = geo.fit.scale;
+    for (let k = 0; k < HALO_LAYERS.length; k++) {
+      const L = HALO_LAYERS[k]!;
+      const e = L.grow * sc;
+      c.globalAlpha = L.alpha * g;
+      c.fillRect(x - e, y - e, w + 2 * e, h + 2 * e);
+    }
+    c.globalAlpha = LIT_FILL_ALPHA * g;
+    c.fillRect(x, y, w, h);
+  }
+
   let plan: RelightPlan | null = null;
   const feedCaps = createFeedCaptions(puzzle);
 
@@ -282,6 +492,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     geo = buildGeometry(puzzle, width, height, PADDING, insets, pan);
     buildSwitchDirs();
     for (let s = 0; s < SLOTS; s++) if (slotActive[s] === 1) rebuildSlotPath(s);
+    rebuildCity();
   }
 
   function setPan(x: number, y: number): Pan {
@@ -1268,8 +1479,8 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     }
     const rt = relT ?? 0;
 
-    c.fillStyle = BG;
-    c.fillRect(0, 0, width, height);
+    // The city is the first layer: dark, cached, with only the lit places and linked buildings drawn per frame.
+    drawCity(state, relT, rp, t);
 
     // Decor: not grid cables, so faint and unconnected.
     c.strokeStyle = DECOR;
