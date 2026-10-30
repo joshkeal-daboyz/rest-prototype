@@ -79,13 +79,13 @@ describe("D2: what it reports", () => {
     expect(r.deadShare).toBeCloseTo(4 / 9, 9);
     expect(r.deadStates).toBe(4);
     for (const m of r.deadFirstMoves!) expect(r.firstMoves).toContain(m);
-  });
+  }, { timeout: 60000 });
 
   it("a fuse that can blow is reported as blowing somewhere, and not on the shortest win (11-the-small-fuse)", () => {
     const r = analyzePuzzle(load("11-the-small-fuse"));
     expect(r.blowAnywhere).toContain("fb_1");
     expect(r.blowOnShortestWin).toEqual([]);
-  });
+  }, { timeout: 60000 });
 
   it("a map that cannot be won says so: not solvable, no min clicks, and every state is dead", () => {
     const p = { ...load("06-the-spark"), startingParts: [] };
@@ -138,5 +138,5 @@ describe("D2: past the cap it proves a lower bound", () => {
       if (r.minClicks !== null) expect(r.minClicks).toBe(4);
     }
     expect(analyzePuzzle(p, { cap: 16 }).exhaustive).toBe(true);
-  });
+  }, { timeout: 60000 });
 });

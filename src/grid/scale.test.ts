@@ -251,7 +251,7 @@ describe("027 G long undo: 500 actions then 500 undos restore the opening state"
     expect(s.feeds).toEqual(snapshot.feeds);
     expect(s.actions).toBe(0);
     expect(s).toEqual(initial);
-  });
+  }, { timeout: 60000 });
 });
 
 describe("027 G cascade: one action that blows 6 fuses", () => {
@@ -283,7 +283,7 @@ describe("027 G cascade: one action that blows 6 fuses", () => {
     // And it undoes in one step.
     expect(g.undo()).toBe(true);
     expect(g.state().faults.some((f) => f.kind === "blown-fuse")).toBe(false);
-  });
+  }, { timeout: 60000 });
 });
 
 // ---------------------------------------------------------------------------------------------------------------

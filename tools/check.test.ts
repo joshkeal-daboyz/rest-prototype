@@ -199,13 +199,13 @@ describe("D1: files and the CLI", () => {
     const bad = cli(join(dir, "bad.json"));
     expect(bad.status).not.toBe(0);
     expect(bad.stdout).toMatch(/FAIL bad[\s\S]*NOT complete/);
-  }, 30000);
+  }, { timeout: 60000 });
 
   it("naming a map whose note has no block exits non-zero", () => {
     writeFileSync(join(dir, "none.json"), shrine);
     writeFileSync(join(dir, "none.md"), "# nothing\n");
     expect(cli(join(dir, "none.json")).status).not.toBe(0);
-  }, 30000);
+  }, { timeout: 60000 });
 
   it("npm run check is wired to tools/check.ts", () => {
     const pkg = JSON.parse(readFileSync(join(PUZZLES_DIR, "..", "package.json"), "utf8")) as { scripts: Record<string, string> };

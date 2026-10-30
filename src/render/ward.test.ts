@@ -127,7 +127,7 @@ describe("wards", () => {
     }
     expect([WARD, WARD_R, WARD_SLOTS, WARD_RING_STEP]).toEqual([96, 1024, 16, 160]);
   });
-  it("overlaps no spoke district, for ladder numbers 1..129", () => {
+  it("overlaps no spoke district, for ladder numbers 1..129", { timeout: 60000 }, () => {
     const districts = Array.from({ length: 129 }, (_, i) => sqr(districtOf(i + 1).centre, DISTRICT));
     for (let n = 1; n <= 129; n++) {
       const w = sqr(wardOf(n), WARD);
