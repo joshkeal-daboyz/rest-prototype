@@ -8,6 +8,7 @@ import {
   FLICKER_ATTACK,
   FLICKER_HZ,
   FLICKER_RELEASE,
+  beatThump,
   HUM_HZ,
   LAYER_RAMP,
   WHINE_LOW_HZ,
@@ -59,6 +60,7 @@ export class Player {
   private readonly whineGain: GainNodeLike;
   private readonly whineOsc: OscLike;
   private readonly flickerGain: GainNodeLike;
+  private readonly thump: Voice[] = beatThump();
   private target = { hum: -1, whine: -1, flicker: -1, whineHz: -1, duck: 1 };
 
   constructor(private readonly ctx: AudioContextLike, muted: boolean, volume: number) {
@@ -150,6 +152,14 @@ export class Player {
     for (const t of times) this.voice({ ...v, gainDb: CRACKLE_DB }, t);
   }
 
+  /**
+   * Schedule beat thumps at absolute context times. They go into the duck (so a duck, mute and volume apply like the hum)
+   * and are layer voices: outside the mixer, so never counted against the voice budget. Every node ends and is disconnected.
+   */
+  beat(times: readonly number[]): void {
+    for (const t of times) for (const v of this.thump) this.voice(v, t, false, this.duck);
+  }
+
   setLayers(l: Layers, duckDb: number): void {
     const now = this.ctx.currentTime;
     const t = this.target;
@@ -183,7 +193,7 @@ export class Player {
     for (const h of [...this.active]) if (!h.keep) this.kill(h, now);
     this.held.clear();
     this.setLayers(
-      { hum: 0, flicker: 0, whineOn: false, whineHz: WHINE_LOW_HZ, whine: 0, crackleOn: false, fullTick: false, next: { full: new Set(), seen: false } },
+      { hum: 0, flicker: 0, beatOn: false, whineOn: false, whineHz: WHINE_LOW_HZ, whine: 0, crackleOn: false, fullTick: false, next: { full: new Set(), seen: false } },
       0,
     );
   }
@@ -198,7 +208,7 @@ export class Player {
     }
   }
 
-  private build(v: Voice, t: number): { h: Handle; src: SourceLike; osc: OscLike | null } {
+  private build(v: Voice, t: number, dest: GainNodeLike = this.master): { h: Handle; src: SourceLike; osc: OscLike | null } {
     const ctx = this.ctx;
     const nodes: NodeLike[] = [];
     let osc: OscLike | null = null;
@@ -283,13 +293,13 @@ export class Player {
     }
     const gain = ctx.createGain();
     tail.connect(gain);
-    gain.connect(this.master);
+    gain.connect(dest);
     nodes.push(gain);
     return { h: { nodes, sources, gain }, src, osc };
   }
 
-  private voice(v: Voice, t: number, keep = false): void {
-    const { h, src } = this.build(v, t);
+  private voice(v: Voice, t: number, keep = false, dest: GainNodeLike = this.master): void {
+    const { h, src } = this.build(v, t, dest);
     if (keep) h.keep = true;
     const pts = envelope(v);
     const g = h.gain.gain;

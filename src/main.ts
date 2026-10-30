@@ -264,7 +264,7 @@ if (entries.length === 0) {
         showWin(s, view.elapsed, state.actions);
         audio.levelDone();
       }
-      audio.update(state, dt);
+      audio.update(state, dt, now / 1000);
       const overlay: { hover?: string | null; relightT?: number; highlight?: string | null } = {
         hover: view.hover,
         highlight: s.highlight(),

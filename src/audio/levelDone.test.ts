@@ -5,81 +5,41 @@ import { CHIME_HZ, CUE_CEILING_DB, dbToGain, levelDoneSound, relightChime, relig
 import { noteHz, onGrid } from "./tuning";
 import type { Cue, Voice } from "./types";
 
-const CHORD = ["A3", "E4", "A4", "C#5"].map(noteHz);
-/** A-major pitch classes as semitones above A (A, C#, E), octave-folded. */
-const A_MAJOR_PCS = [0, 4, 7];
+/** Pitch classes of A major (A, C#, E) on the 432 grid, octave-folded. */
+const A_MAJOR = [noteHz("A4"), noteHz("C#5"), noteHz("E5")];
 
-describe("levelDoneSound (the choir, ticket 031)", () => {
+describe("levelDoneSound (ticket 025's cue, on the 432 grid, ticket 032)", () => {
   const voices = levelDoneSound();
-  const osc = voices.filter((v) => v.kind === "osc");
-  const sung = voices.filter((v) => v.formants !== undefined);
-
-  it("4 to 12 voices, every chord note sung by at least 2 oscillators with differing detunes within +-3..+-10 cents", () => {
-    expect(voices.length).toBeGreaterThanOrEqual(4);
-    expect(voices.length).toBeLessThanOrEqual(VOICE_BUDGET);
-    for (const hz of CHORD) {
-      const on = osc.filter((v) => Math.abs(v.freq - hz) < 1e-9);
-      expect(on.length, `${hz} Hz`).toBeGreaterThanOrEqual(2);
-      const cents = on.map((v) => v.detuneCents ?? 0);
-      expect(new Set(cents).size).toBeGreaterThan(1);
-      for (const c of cents) {
-        expect(Math.abs(c)).toBeGreaterThanOrEqual(3);
-        expect(Math.abs(c)).toBeLessThanOrEqual(10);
-      }
-    }
+  it("a noise knock at 0 and at least two tonal voices later", () => {
+    const knock = voices.filter((v) => v.kind === "noise");
+    expect(knock.length).toBe(1);
+    expect(knock[0]?.at).toBe(0);
+    const tones = voices.filter((v) => v.kind === "osc");
+    expect(tones.length).toBeGreaterThanOrEqual(2);
+    expect(tones.every((v) => v.at > 0)).toBe(true);
   });
-  it("no noise voice at 0", () => {
-    expect(voices.filter((v) => v.kind === "noise").every((v) => v.at > 0)).toBe(true);
+  it("every voice ends by 1.0 s", () => {
+    for (const v of voices) expect(v.at + v.duration).toBeLessThanOrEqual(1.0);
   });
-  it("every oscillator is an A-major pitch class on the 432 grid", () => {
-    for (const v of osc) {
-      expect(onGrid(v.freq), `${v.freq} Hz`).toBe(true);
-      const semis = Math.round(12 * Math.log2(v.freq / 432));
-      expect(A_MAJOR_PCS).toContain(((semis % 12) + 12) % 12);
-    }
-  });
-  it("every sung voice has an F1 bandpass in 600-900 Hz and an F2 in 1000-1300 Hz, gains summing to at most 1", () => {
-    expect(sung.length).toBeGreaterThanOrEqual(8);
-    for (const v of sung) {
-      const f = v.formants ?? [];
-      expect(f.some((x) => x.freq >= 600 && x.freq <= 900)).toBe(true);
-      expect(f.some((x) => x.freq >= 1000 && x.freq <= 1300)).toBe(true);
-      expect(f.reduce((a, x) => a + dbToGain(x.gainDb), 0)).toBeLessThanOrEqual(1);
-    }
-  });
-  it("every sung voice has a 4-7 Hz, 5-30 cent vibrato, and at least two rates are used", () => {
-    for (const v of sung) {
-      expect(v.vibrato?.freq).toBeGreaterThanOrEqual(4);
-      expect(v.vibrato?.freq).toBeLessThanOrEqual(7);
-      expect(v.vibrato?.cents).toBeGreaterThanOrEqual(5);
-      expect(v.vibrato?.cents).toBeLessThanOrEqual(30);
-    }
-    expect(new Set(sung.map((v) => v.vibrato?.freq)).size).toBeGreaterThanOrEqual(2);
-  });
-  it("the shimmer is a high oscillator or highpassed noise, quieter than the loudest sung voice, and enters after 0", () => {
-    const shimmer = voices.filter(
-      (v) => (v.kind === "osc" && v.freq >= 1200) || (v.kind === "noise" && v.filter?.type === "highpass" && v.filter.freq >= 3000),
-    );
-    expect(shimmer.length).toBeGreaterThanOrEqual(1);
-    const loudest = Math.max(...sung.map((v) => v.gainDb));
-    for (const v of shimmer) {
-      expect(v.gainDb).toBeLessThan(loudest);
-      expect(v.at).toBeGreaterThan(0);
-    }
-  });
-  it("sung voices attack in 0.3-0.6 s and release over 1.5 s or more; every voice ends by 4.0 s and the last at 3.0 s or later", () => {
-    for (const v of sung) {
-      expect(v.attack).toBeGreaterThanOrEqual(0.3);
-      expect(v.attack).toBeLessThanOrEqual(0.6);
-      expect(v.release).toBeGreaterThanOrEqual(1.5);
-    }
-    for (const v of voices) expect(v.at + v.duration).toBeLessThanOrEqual(4.0);
-    expect(Math.max(...voices.map((v) => v.at + v.duration))).toBeGreaterThanOrEqual(3.0);
-  });
-  it("no voice above -20 dB and the summed peaks stay under the cue ceiling", () => {
-    for (const v of voices) expect(v.gainDb).toBeLessThanOrEqual(-20);
+  it("no voice above -14 dB and the summed peaks stay under the cue ceiling", () => {
+    for (const v of voices) expect(v.gainDb).toBeLessThanOrEqual(-14);
     const sum = voices.reduce((a, v) => a + dbToGain(v.gainDb), 0);
     expect(sum).toBeLessThan(dbToGain(CUE_CEILING_DB));
+  });
+  it("every oscillator is on the 432 grid and an A-major note (A4, C#5, E5 in any octave)", () => {
+    for (const v of voices.filter((x) => x.kind === "osc")) {
+      expect(onGrid(v.freq), `${v.freq} Hz`).toBe(true);
+      const ok = A_MAJOR.some((n) => {
+        const oct = Math.log2(v.freq / n);
+        return Math.abs(Math.pow(2, oct - Math.round(oct)) - 1) < 0.001;
+      });
+      expect(ok, `${v.freq} Hz`).toBe(true);
+    }
+  });
+  it("the figure is C#4 then A4 with A2 under, as in 025; the knock's 900 Hz is a filter cutoff", () => {
+    const tones = voices.filter((v) => v.kind === "osc");
+    expect(tones.map((v) => v.freq)).toEqual([noteHz("C#4"), noteHz("A4"), noteHz("A2")]);
+    expect(voices.find((v) => v.kind === "noise")?.filter?.freq).toBe(900);
   });
   it("is unlike the Relight: no sine at a chime pitch, and not any chime or the close", () => {
     for (const v of voices) {
@@ -87,9 +47,19 @@ describe("levelDoneSound (the choir, ticket 031)", () => {
     }
     for (let i = 0; i < CHIME_HZ.length; i++) expect(voices).not.toEqual(relightChime(i));
     expect(voices).not.toEqual(relightClose());
+    expect(voices.some((v) => v.wave === "triangle")).toBe(true);
   });
   it("is deterministic", () => {
     expect(levelDoneSound()).toEqual(levelDoneSound());
+  });
+  it("no choir is left: no formants, vibrato or detune on any voice, and no CHOIR_ export", async () => {
+    for (const v of voices) {
+      expect(v.formants).toBeUndefined();
+      expect(v.vibrato).toBeUndefined();
+      expect(v.detuneCents).toBeUndefined();
+    }
+    const R = await import("./recipes");
+    expect(Object.keys(R).filter((k) => k.startsWith("CHOIR_"))).toEqual([]);
   });
 });
 
