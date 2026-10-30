@@ -241,8 +241,8 @@ export function relightClose(): Voice[] {
 
 // ---- the level-done cue (ticket 034): one more Relight chime, the main note only ----
 
-/** Which of CHIME_HZ the win splash sounds. Default the top of the figure (E5); 2 would be A4, the home note. */
-export const LEVEL_CHIME_INDEX = CHIME_HZ.length - 1;
+/** Which of CHIME_HZ the win splash sounds. 2 is A4, the home note (the key's tonic); E5 (the fifth) sounded unresolved after the Relight (Josh, ticket 034). */
+export const LEVEL_CHIME_INDEX = 2;
 
 export function levelDoneSound(): Voice[] {
   const main = relightChime(LEVEL_CHIME_INDEX)[0];

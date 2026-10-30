@@ -23,12 +23,12 @@ describe("levelDoneSound (ticket 034: one more Relight chime)", () => {
     expect(v.at).toBe(0);
     expect(v.at + v.duration).toBeLessThanOrEqual(0.7);
   });
-  it("its pitch is CHIME_HZ[LEVEL_CHIME_INDEX], on the grid, and E5 by default", () => {
+  it("its pitch is CHIME_HZ[LEVEL_CHIME_INDEX], on the grid, and A4 (the key's tonic) by default", () => {
     const v = voices[0] as Voice;
     expect(v.freq).toBe(CHIME_HZ[LEVEL_CHIME_INDEX]);
     expect(onGrid(v.freq)).toBe(true);
-    expect(LEVEL_CHIME_INDEX).toBe(CHIME_HZ.length - 1);
-    expect(v.freq).toBe(noteHz("E5"));
+    expect(LEVEL_CHIME_INDEX).toBe(2);
+    expect(v.freq).toBe(noteHz("A4"));
   });
   it("same family: wave, attack, release, duration and gain equal the chime's for every index", () => {
     const v = voices[0] as Voice;
