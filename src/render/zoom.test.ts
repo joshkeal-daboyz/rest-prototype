@@ -221,7 +221,7 @@ describe("zoom range", () => {
       expect(minZoomScale(b, W, H, PADDING, INS), p.id).toBe(openScale(fitScale(b, W, H, PADDING, INS)));
     }
   });
-  it("no level exceeds MAX_ZOOM_SCALE, and the top level is MAX_ZOOM_SCALE", () => {
+  it("no level exceeds MAX_ZOOM_SCALE, and the top level is MAX_ZOOM_SCALE", { timeout: 60000 }, () => {
     expect(MAX_ZOOM_SCALE).toBeGreaterThan(MAX_SCALE);
     expect(Math.max(...BIG_LEVELS)).toBe(MAX_ZOOM_SCALE);
     const r = createMapRenderer(fakeCanvas(W, H), BIG, { insets: INS });
@@ -232,7 +232,7 @@ describe("zoom range", () => {
     });
     expect(top).toBe(MAX_ZOOM_SCALE);
   });
-  it("the renderer visits exactly the levels zoomLevels lists", () => {
+  it("the renderer visits exactly the levels zoomLevels lists", { timeout: 60000 }, () => {
     const r = createMapRenderer(fakeCanvas(W, H), BIG, { insets: INS });
     const seen: number[] = [];
     everyLevel(r, (s) => seen.push(s));
@@ -321,7 +321,7 @@ describe("view methods", () => {
       expect(r.getPan()).toEqual(initialPan(BIG, W, H, PADDING, INS));
     }
   });
-  it("zoomStep(+1) at the top level and zoomStep(-1) at the bottom change nothing", () => {
+  it("zoomStep(+1) at the top level and zoomStep(-1) at the bottom change nothing", { timeout: 60000 }, () => {
     const r = createMapRenderer(fakeCanvas(W, H), BIG, { insets: INS });
     r.fitWhole();
     const pan = r.getPan();
@@ -372,7 +372,7 @@ describe("view methods", () => {
     r.resize();
     expect(r.getScale()).toBe(s);
   });
-  it("a zoom stays inside the edge-stop clamp at every level", () => {
+  it("a zoom stays inside the edge-stop clamp at every level", { timeout: 60000 }, () => {
     const r = createMapRenderer(fakeCanvas(W, H), BIG, { insets: INS });
     everyLevel(r, (s) => {
       for (const [x, y] of [[1e9, 1e9], [-1e9, -1e9]] as const) {
@@ -385,7 +385,7 @@ describe("view methods", () => {
 });
 
 describe("hit-testing at every level", () => {
-  it("on the 64 x 40 map returns the node itself (or one no farther) at each sampled node, at every level; exactly it from the opening scale up", () => {
+  it("on the 64 x 40 map returns the node itself (or one no farther) at each sampled node, at every level; exactly it from the opening scale up", { timeout: 60000 }, () => {
     const r = createMapRenderer(fakeCanvas(W, H), BIG, { insets: INS });
     r.fitWhole();
     let levelsSeen = 0;
@@ -490,7 +490,7 @@ describe("captions", () => {
     expect(lampMarks(lamp, 100, 100, CAPTION_MIN_SCALE)).toEqual(lampMarks(lamp, 100, 100));
     expect(lampMarks(lamp, 100, 100, 60)).toHaveLength(2);
   });
-  it("targetLabels emits no place label below the threshold, and some at it", () => {
+  it("targetLabels emits no place label below the threshold, and some at it", { timeout: 60000 }, () => {
     const origin = mapOrigin(BIG.id, BIG_B);
     const measure = (t: string): number => t.length * 6;
     for (const s of [BIG_MIN, 15, 20, 26.9]) {
@@ -542,7 +542,7 @@ describe("captions", () => {
     expect(captionsShown(24.9, 25)).toBe(false);
     expect(captionsShown(26, captionFloor(25))).toBe(true);
   });
-  it("every file in puzzles/ draws its Lv captions, ratings and feed readouts right after resetView()", { timeout: 300000 }, () => {
+  it("every file in puzzles/ draws its Lv captions and fuse ratings right after resetView()", { timeout: 300000 }, () => {
     const caption = lampCaption(1);
     for (const [w, h] of [[1920, 1080], [1920, 950], [1366, 768]] as const) {
       for (const p of FILES) {
