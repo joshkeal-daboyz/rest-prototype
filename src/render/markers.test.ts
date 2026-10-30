@@ -153,8 +153,9 @@ describe("edge stars on 56-whole-ward in a small window", () => {
     });
     const canvas = { clientWidth: 1100, clientHeight: 650, width: 1100, height: 650, getContext: () => ctx } as unknown as HTMLCanvasElement;
     const r = createMapRenderer(canvas, ward, { insets: ins });
-    const g = buildGeometry(ward, 1100, 650, PADDING, ins, r.getPan());
-    const off = offscreenMarkers(g, freeArea(1100, 650, ins), ward.target ?? [], NONE).map((m) => m.lamp);
+    for (let k = 0; k < 3; k++) r.zoomStep(1);
+    const g = buildGeometry(ward, 1100, 650, PADDING, ins, r.getPan(), r.getScale());
+    const off = offscreenMarkers(g, freeArea(1100, 650, ins), ward.target ?? [], NONE, { left: -24, top: -24, right: 1100 + 24, bottom: 650 + 24 }).map((m) => m.lamp);
     expect(off.length).toBeGreaterThan(1);
     const state = {
       powered: new Set<string>(), flowFrom: new Map(), lit: new Set([off[0]!]), readableFaults: new Set<string>(), sparking: new Set<string>(),
