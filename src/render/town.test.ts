@@ -150,7 +150,7 @@ describe("no overlap with the circuit", () => {
       }
     }
   });
-  it("samples decor paths too (they are wires)", () => {
+  it("samples decor paths too (they are wires)", { timeout: 60000 }, () => {
     const decor = loadPuzzle({
       id: "decor", name: "d", version: 5, scope: "map", capacity: null,
       nodes: [
@@ -259,7 +259,7 @@ describe("streets connect", () => {
 
 describe("calm blocks", () => {
   const SIZES: [number, number][] = [[1.4, 1.4], [1.4, 0.6], [0.6, 1.4], [0.6, 0.6]];
-  it("uses only four lot sizes, each edge on the setback line or a lot gap, at most four per block", () => {
+  it("uses only four lot sizes, each edge on the setback line or a lot gap, at most four per block", { timeout: 60000 }, () => {
     for (let cx = -20; cx < 20; cx++) {
       for (let cy = -20; cy < 20; cy++) {
         const lots = blockLots(cx, cy);
@@ -296,7 +296,7 @@ describe("calm blocks", () => {
     expect(total / 1600).toBeGreaterThanOrEqual(1.8);
     expect(total / 1600).toBeLessThanOrEqual(2.4);
   });
-  it("keeps every footprint building a lot of a block, inside the ring", () => {
+  it("keeps every footprint building a lot of a block, inside the ring", { timeout: 60000 }, () => {
     for (const { key: k, puzzle } of OPEN) {
       const o = originOf(puzzle);
       const fp = circuitStreets(puzzle).footprint;

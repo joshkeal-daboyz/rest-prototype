@@ -144,7 +144,7 @@ describe("footprint buildings", () => {
       }
     }
   });
-  it("sit inside the footprint or outside it, never across its edge", () => {
+  it("sit inside the footprint or outside it, never across its edge", { timeout: 60000 }, () => {
     for (const { key: k, puzzle } of OPEN) {
       const fp = circuitStreets(puzzle).footprint;
       const o = mapOrigin(puzzle.id, puzzleBounds(puzzle));

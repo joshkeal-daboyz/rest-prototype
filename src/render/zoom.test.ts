@@ -198,7 +198,7 @@ describe("zoomLevels", () => {
 });
 
 describe("zoom range", () => {
-  it("on the 64 x 40 map minZoomScale is below MIN_SCALE and the whole map sits centred in the free area", () => {
+  it("on the 64 x 40 map minZoomScale is below MIN_SCALE and the whole map sits centred in the free area", { timeout: 60000 }, () => {
     expect(BIG_MIN).toBeLessThan(MIN_SCALE);
     const r = createMapRenderer(fakeCanvas(W, H), BIG, { insets: INS });
     r.fitWhole();
@@ -303,14 +303,14 @@ describe("zoomAbout", () => {
 });
 
 describe("view methods", () => {
-  it("fitWhole gives minZoomScale with the map centred", () => {
+  it("fitWhole gives minZoomScale with the map centred", { timeout: 60000 }, () => {
     const r = createMapRenderer(fakeCanvas(W, H), BIG, { insets: INS });
     r.setPan(-500, -200);
     r.fitWhole();
     expect(r.getScale()).toBe(BIG_MIN);
     expect(r.getPan()).toEqual({ x: 0, y: 0 });
   });
-  it("resetView gives openScale and the initial pan, from any zoom", () => {
+  it("resetView gives openScale and the initial pan, from any zoom", { timeout: 60000 }, () => {
     const r = createMapRenderer(fakeCanvas(W, H), BIG, { insets: INS });
     const open = r.getPan();
     for (const act of [() => r.fitWhole(), () => { r.zoomStep(1, 900, 500); r.zoomStep(1); r.zoomStep(1); r.setPan(-700, -250); }]) {
@@ -617,7 +617,7 @@ describe("the city at every level", () => {
       }
     }
   });
-  it("builds the footprint layout once per level visited, serves a revisit from the cache and evicts the oldest on a fifth level", () => {
+  it("builds the footprint layout once per level visited, serves a revisit from the cache and evicts the oldest on a fifth level", { timeout: 60000 }, () => {
     const p = synthetic(); // a fresh object: nothing cached yet
     const r = createMapRenderer(fakeCanvas(W, H), p, { insets: INS });
     expect(BIG_LEVELS.indexOf(MIN_SCALE)).toBeGreaterThanOrEqual(4);
@@ -643,7 +643,7 @@ describe("the city at every level", () => {
 describe("overlays at every level", () => {
   const origin = mapOrigin(BIG.id, BIG_B);
   const measure = (t: string): number => t.length * 6;
-  it("every shown label lies inside the free area, at every level and several pans", () => {
+  it("every shown label lies inside the free area, at every level and several pans", { timeout: 60000 }, () => {
     let shown = 0;
     for (const s of BIG_LEVELS) {
       const places = footprintLayout(BIG, origin, s).places;

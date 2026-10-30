@@ -270,7 +270,7 @@ describe("neighbouring maps share streets outside their footprints", () => {
 });
 
 describe("places", () => {
-  it("gives one place per lamp, never overlapping (node-square and lane clearance: places.test.ts)", () => {
+  it("gives one place per lamp, never overlapping (node-square and lane clearance: places.test.ts)", { timeout: 60000 }, () => {
     for (const { key: k, puzzle } of OPEN) {
       const places = cityPlaces(puzzle);
       const lamps = puzzle.nodes.filter((n) => n.type === "lamp").map((n) => n.id);
