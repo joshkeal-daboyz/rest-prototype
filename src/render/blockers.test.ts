@@ -122,6 +122,6 @@ describe("blockers (ticket 035)", () => {
     }
     // a node pulled to the canvas edge is live on it
     const g = buildGeometry(puzzle, W, H, PADDING, INS, r.getPan(), r.getScale());
-    expect(r.hitTest(g.nx[0]!, g.ny[0]!)).not.toBeUndefined();
+    expect(r.hitTest(g.nx[0]!, g.ny[0]!)).toBe(g.nodeIds[0]);
   });
 });
