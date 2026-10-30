@@ -54,8 +54,8 @@ export interface Cue {
   voices: Voice[];
   /** Drops the hum and the charge whine while it sounds. */
   ducks?: boolean;
-  /** Blow, Relight and level cues are never dropped for budget or merged away by the rate limit. */
-  group?: "blow" | "relight" | "level";
+  /** Blow and Relight cues are never dropped for budget or merged away by the rate limit. */
+  group?: "blow" | "relight";
   part?: CuePart;
   /** Spark cue only: how many lamps the burst stands for. */
   lamps?: number;

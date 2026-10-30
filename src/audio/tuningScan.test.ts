@@ -23,7 +23,6 @@ const RECIPES: Record<string, () => Voice[]> = {
   relightBed: () => [...R.relightBed(0.5, 1), ...R.relightBed(3, 3.5)],
   relightChime: () => Array.from({ length: 12 }, (_, i) => R.relightChime(i)).flat(),
   relightClose: () => R.relightClose(),
-  levelDoneSound: () => R.levelDoneSound(),
   beatThump: () => R.beatThump(),
 };
 /** Exported functions that make no voices. */
@@ -65,7 +64,6 @@ describe("the 432 Hz grid", () => {
       ...R.CHIME_HZ,
       R.BEAT_HZ,
       R.BEAT_TICK_HZ,
-      R.CHIME_HZ[R.LEVEL_CHIME_INDEX] ?? 0,
     ];
     for (const hz of named) expect(onGrid(hz), `${hz} Hz`).toBe(true);
   });

@@ -239,16 +239,6 @@ export function relightClose(): Voice[] {
   return [v(noteHz("A3")), v(noteHz("E4"))];
 }
 
-// ---- the level-done cue (ticket 034): one more Relight chime, the main note only ----
-
-/** Which of CHIME_HZ the win splash sounds. 2 is A4, the home note (the key's tonic); E5 (the fifth) sounded unresolved after the Relight (Josh, ticket 034). */
-export const LEVEL_CHIME_INDEX = 2;
-
-export function levelDoneSound(): Voice[] {
-  const main = relightChime(LEVEL_CHIME_INDEX)[0];
-  return main ? [main] : [];
-}
-
 // ---- the beat (ticket 032): the old drone as a soft, steady thump, one per BEAT.period while a feed is powered ----
 
 export const BEAT_HZ = noteHz("A1");
