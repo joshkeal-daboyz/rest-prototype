@@ -42,12 +42,7 @@ export interface SoundEngine extends AudioControl {
   update(view: SoundView, dtSeconds: number, timeSeconds?: number): void;
   /** The Relight: seconds from its start at which each lamp ignites (in order), and its total length. */
   relight(igniteAt: readonly number[], durationSeconds: number): void;
-  /**
-   * The win splash has just appeared: play the short "level done" cue (ticket 025). main.ts calls it once per win, beside ui.showWin.
-   * Plays only if the last update() saw complete: true, at most once per win (re-armed when complete goes false);
-   * not cut by detach; respects unlock, mute and volume; never throws.
-   */
-  levelDone(): void;
+  // No levelDone(): the win splash makes no sound of its own (ticket 034; Josh: "The light chimes are enough.").
 }
 
 /** Saved sound preferences (localStorage key `rest.audio`). Defaults: not muted, volume 0.5. */
