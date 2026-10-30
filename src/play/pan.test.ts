@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { EventBus, loadPuzzle } from "../core";
 import { createGrid } from "../grid";
 import type { MapPanView, MapRenderer } from "../render";
-import { attachPan, DRAG_SLOP, RIGHT_DOUBLE_MS } from "./pan";
+import { attachPan, DRAG_SLOP, PINCH_STEP, RIGHT_DOUBLE_MS, WHEEL_IDLE_MS, WHEEL_MAX_STEPS } from "./pan";
 import { createMapPlay } from "./play";
 
 type Handler = (e: never) => void;
@@ -14,7 +14,9 @@ function fakeTarget() {
   const handlers = new Map<string, Set<Handler>>();
   return {
     handlers,
-    addEventListener(type: string, fn: Handler) {
+    options: new Map<string, unknown>(),
+    addEventListener(type: string, fn: Handler, options?: unknown) {
+      this.options.set(type, options);
       if (!handlers.has(type)) handlers.set(type, new Set());
       handlers.get(type)?.add(fn);
     },
@@ -33,6 +35,8 @@ function fakeTarget() {
 function setup(opts: { capture?: boolean } = {}) {
   const canvas = Object.assign(fakeTarget(), {
     style: { cursor: "" },
+    clientWidth: 900,
+    clientHeight: 600,
     setPointerCapture: opts.capture === false ? undefined : vi.fn(),
   });
   const doc = fakeTarget();
@@ -43,6 +47,9 @@ function setup(opts: { capture?: boolean } = {}) {
     resetView: vi.fn(() => {
       pan = { x: 0, y: 0 };
     }),
+    getScale: () => 40,
+    zoomStep: vi.fn((_dir: 1 | -1, _x?: number, _y?: number) => 40),
+    fitWhole: vi.fn(),
   } satisfies MapPanView;
   let t = 0;
   const detach = attachPan(canvas as unknown as HTMLCanvasElement, view, doc as unknown as Document, { now: () => t });
@@ -55,6 +62,9 @@ function setup(opts: { capture?: boolean } = {}) {
     down: (x = 100, y = 100, button = 2) => canvas.fire("pointerdown", { button, clientX: x, clientY: y, pointerId: 1 }),
     move: (x: number, y: number) => canvas.fire("pointermove", { clientX: x, clientY: y, pointerId: 1 }),
     up: (button = 2) => canvas.fire("pointerup", { button, pointerId: 1 }),
+    key: (key: string, extra: Record<string, unknown> = {}) => doc.fire("keydown", { key, target: { tagName: "BODY" }, ...extra }),
+    wheel: (deltaY: number, extra: Record<string, unknown> = {}) =>
+      canvas.fire("wheel", { deltaY, deltaMode: 0, clientX: 300, clientY: 200, ...extra }),
   };
 }
 
@@ -196,9 +206,131 @@ describe("attachPan", () => {
     s.move(180, 60);
     s.up();
     s.doc.fire("keydown", { key: "Home", target: { tagName: "BODY" } });
+    s.key("ArrowLeft");
+    s.key("+");
+    s.key("f");
+    s.wheel(-100);
+    s.wheel(-15, { ctrlKey: true });
 
     expect(play.exportLog()).toBe(logBefore);
     expect(grid.state().actions).toBe(actionsBefore);
     expect(clicks).not.toHaveBeenCalled();
+  });
+});
+
+describe("attachPan arrows, wheel and zoom keys (ticket 027 B)", () => {
+  it("arrows pan by a third of the free area, the map moving against the arrow", () => {
+    const s = setup(); // pan {10, 20}, free area 900 x 600
+    const right = s.key("ArrowRight");
+    expect(s.view.setPan).toHaveBeenLastCalledWith(10 - 300, 20);
+    expect(right.preventDefault).toHaveBeenCalled();
+    s.key("ArrowLeft");
+    expect(s.view.setPan).toHaveBeenLastCalledWith(10, 20);
+    s.key("ArrowDown");
+    expect(s.view.setPan).toHaveBeenLastCalledWith(10, 20 - 200);
+    s.key("ArrowUp");
+    expect(s.view.setPan).toHaveBeenLastCalledWith(10, 20);
+  });
+
+  it("arrows, zoom keys and F do nothing from a select, input, textarea or with Ctrl, Alt or Meta", () => {
+    const s = setup();
+    for (const key of ["ArrowRight", "ArrowUp", "+", "=", "-", "F", "f", "Home"]) {
+      for (const tagName of ["SELECT", "INPUT", "TEXTAREA"]) {
+        const ev = s.key(key, { target: { tagName } });
+        expect(ev.preventDefault).not.toHaveBeenCalled();
+      }
+      for (const mod of ["ctrlKey", "altKey", "metaKey"]) {
+        const ev = s.key(key, { [mod]: true });
+        expect(ev.preventDefault).not.toHaveBeenCalled();
+      }
+    }
+    expect(s.view.setPan).not.toHaveBeenCalled();
+    expect(s.view.zoomStep).not.toHaveBeenCalled();
+    expect(s.view.fitWhole).not.toHaveBeenCalled();
+    expect(s.view.resetView).not.toHaveBeenCalled();
+  });
+
+  it("+, = and - zoom about the centre (no point); F and f fit the whole map; Home still resets", () => {
+    const s = setup();
+    s.key("+");
+    s.key("=");
+    s.key("-");
+    expect(s.view.zoomStep.mock.calls).toEqual([[1], [1], [-1]]);
+    s.key("F");
+    s.key("f");
+    expect(s.view.fitWhole).toHaveBeenCalledTimes(2);
+    s.key("Home");
+    expect(s.view.resetView).toHaveBeenCalledTimes(1);
+    expect(s.key("x").preventDefault).not.toHaveBeenCalled();
+  });
+
+  it("the wheel listener is passive: false; a notch zooms one level about the pointer and prevents default", () => {
+    const s = setup();
+    expect(s.canvas.options.get("wheel")).toEqual({ passive: false });
+    const up = s.wheel(-100);
+    expect(s.view.zoomStep).toHaveBeenCalledTimes(1);
+    expect(s.view.zoomStep).toHaveBeenLastCalledWith(1, 300, 200);
+    expect(up.preventDefault).toHaveBeenCalled();
+    s.wheel(100);
+    expect(s.view.zoomStep).toHaveBeenCalledTimes(2);
+    expect(s.view.zoomStep).toHaveBeenLastCalledWith(-1, 300, 200);
+  });
+
+  it("pointer coordinates are relative to the canvas", () => {
+    const s = setup();
+    (s.canvas as unknown as { getBoundingClientRect: () => unknown }).getBoundingClientRect = () => ({ left: 50, top: 30 });
+    s.wheel(-100);
+    expect(s.view.zoomStep).toHaveBeenLastCalledWith(1, 250, 170);
+  });
+
+  it("deltaMode 1 with deltaY 3 is one notch; a big delta is limited to WHEEL_MAX_STEPS", () => {
+    const s = setup();
+    s.wheel(3, { deltaMode: 1 });
+    expect(s.view.zoomStep).toHaveBeenCalledTimes(1);
+    expect(s.view.zoomStep).toHaveBeenLastCalledWith(-1, 300, 200);
+    s.wheel(-1000);
+    expect(s.view.zoomStep).toHaveBeenCalledTimes(1 + WHEEL_MAX_STEPS);
+    expect(s.view.zoomStep).toHaveBeenLastCalledWith(1, 300, 200);
+  });
+
+  it("small touchpad wheel deltas add up to a notch; a reversal drops the leftover; idle time forgets it", () => {
+    const s = setup();
+    s.at(0);
+    for (let i = 0; i < 3; i++) s.wheel(-30);
+    expect(s.view.zoomStep).not.toHaveBeenCalled(); // 90 of 100
+    s.wheel(-30); // 120: one level, 20 left over
+    expect(s.view.zoomStep).toHaveBeenCalledTimes(1);
+    s.wheel(30); // reversal starts afresh
+    s.wheel(30);
+    s.wheel(30);
+    expect(s.view.zoomStep).toHaveBeenCalledTimes(1);
+    s.wheel(30);
+    expect(s.view.zoomStep).toHaveBeenCalledTimes(2);
+    expect(s.view.zoomStep).toHaveBeenLastCalledWith(-1, 300, 200);
+    s.wheel(-60);
+    s.at(WHEEL_IDLE_MS + 10);
+    s.wheel(-60); // the first 60 was forgotten
+    expect(s.view.zoomStep).toHaveBeenCalledTimes(2);
+  });
+
+  it("pinch (ctrl + wheel): -15 three times is one zoom-in about the last pointer; under 40 does nothing", () => {
+    const s = setup();
+    s.wheel(-15, { ctrlKey: true, clientX: 10, clientY: 10 });
+    s.wheel(-15, { ctrlKey: true, clientX: 20, clientY: 20 });
+    expect(s.view.zoomStep).not.toHaveBeenCalled();
+    const ev = s.wheel(-15, { ctrlKey: true, clientX: 30, clientY: 40 });
+    expect(s.view.zoomStep).toHaveBeenCalledTimes(1);
+    expect(s.view.zoomStep).toHaveBeenLastCalledWith(1, 30, 40);
+    expect(ev.preventDefault).toHaveBeenCalled();
+    s.wheel(PINCH_STEP, { ctrlKey: true });
+    expect(s.view.zoomStep).toHaveBeenLastCalledWith(-1, 300, 200);
+  });
+
+  it("detach removes the wheel listener along with the rest", () => {
+    const s = setup();
+    expect(s.canvas.handlers.has("wheel")).toBe(true);
+    s.detach();
+    expect(s.canvas.handlers.size).toBe(0);
+    expect(s.doc.handlers.size).toBe(0);
   });
 });
