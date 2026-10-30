@@ -417,8 +417,9 @@ describe("hit-testing at every level", () => {
     });
     expect(levelsSeen).toBe(BIG_LEVELS.length);
   });
-  it("points in the insets return null at every level, for hitTest and placeAt", { timeout: 60000 }, () => {
+  it("points under blockers covering the insets return null at every level, for hitTest and placeAt", { timeout: 60000 }, () => {
     const r = createMapRenderer(fakeCanvas(W, H), BIG, { insets: INS });
+    r.setBlockers([{ left: 0, top: 0, right: W, bottom: INS.top! }, { left: 0, top: H - INS.bottom!, right: W, bottom: H }]);
     everyLevel(r, () => {
       const g = buildGeometry(BIG, W, H, PADDING, INS, r.getPan(), r.getScale());
       for (const [x, y] of [[960, 100], [300, 20], [1500, 215], [960, H - 50], [200, H - 5], [900, H - 135]] as const) {
