@@ -1,0 +1,22 @@
+# 54-the-whole-circuit | script 12 clicks | README min 12 (note)
+start | lit: homes, market | feeds: feed 3/5 | blown: - | faults: - | parts: fuse, fuse, wire | batteries: big 0.00/8 idle, small 0.00/3 charging | prompt: - | cues: -
+1 wait:3 | lit: homes, market | feeds: feed 3/5 | blown: - | faults: - | parts: fuse, fuse, wire | batteries: big 0.00/8 idle, small 3.00/3 idle | prompt: - | cues: -
+2 small | lit: homes, market, smithy | feeds: feed 3/5 | blown: - | faults: - | parts: fuse, fuse, wire | batteries: big 0.00/8 idle, small 2.00/3 released | prompt: Running: 2 s left — Stop | cues: battery:released@0.000, battery:whine:small@0.250
+3 rI | lit: homes, market | feeds: feed 3/5 | blown: - | faults: - | parts: fuse, fuse, wire | batteries: big 0.00/8 idle, small 1.00/3 released | prompt: Throw switch | cues: switch:thrown@0.000
+4 sw_m | lit: homes | feeds: feed 1/5 | blown: - | faults: - | parts: fuse, fuse, wire | batteries: big 1.00/8 charging, small 0.00/3 charging | prompt: Throw switch | cues: switch:thrown@0.000, battery:flat:ranout@0.000
+5 wait:7 | lit: homes | feeds: feed 1/5 | blown: - | faults: - | parts: fuse, fuse, wire | batteries: big 8.00/8 idle, small 3.00/3 idle | prompt: Throw switch | cues: -
+6 sw_m | lit: homes, market | feeds: feed 3/5 | blown: - | faults: - | parts: fuse, fuse, wire | batteries: big 8.00/8 idle, small 3.00/3 idle | prompt: Throw switch | cues: switch:thrown@0.000
+7 big | lit: homes, market | feeds: feed 3/5 | blown: - | faults: f_bL | parts: fuse, fuse, wire | batteries: big 7.00/8 released, small 3.00/3 idle | prompt: Running: 7 s left — Stop | cues: battery:released@0.000, battery:whine:big@0.250
+8 repair:l_bL | lit: gate, homes, kiln, market | feeds: feed 3/5 | blown: - | faults: - | parts: fuse, fuse | batteries: big 6.00/8 released, small 3.00/3 idle | prompt: - | cues: repair:wire@0.000
+9 rC | lit: forge, homes, kiln, market, mill | feeds: feed 3/5 | blown: - | faults: - | parts: fuse, fuse | batteries: big 5.00/8 released, small 3.00/3 idle | prompt: Throw switch | cues: switch:thrown@0.000
+10 rA | lit: forge, homes, kiln, market | feeds: feed 3/5 | blown: - | faults: - | parts: fuse, fuse | batteries: big 4.00/8 released, small 3.00/3 idle | prompt: Throw switch | cues: switch:thrown@0.000
+11 rB | lit: forge, homes, kiln, market, shrine | feeds: feed 3/5 | blown: - | faults: - | parts: fuse, fuse | batteries: big 3.00/8 released, small 3.00/3 idle | prompt: Throw switch | cues: switch:thrown@0.000
+12 rC | lit: gate, homes, kiln, market | feeds: feed 3/5 | blown: - | faults: - | parts: fuse, fuse | batteries: big 2.00/8 released, small 3.00/3 idle | prompt: Throw switch | cues: switch:thrown@0.000
+13 sw_S | lit: gate, kiln, market | feeds: feed 3/5 | blown: - | faults: - | parts: fuse, fuse | batteries: big 1.00/8 released, small 3.00/3 idle | prompt: Throw switch | cues: switch:thrown@0.000
+14 br_N | lit: gate, kiln, market, shrine | feeds: feed 5/5 | blown: - | faults: - | parts: fuse, fuse | batteries: big 1.00/8 released, small 3.00/3 idle | prompt: - | cues: breaker:thrown@0.000
+complete: true
+actions: 10, elapsed: 21.000 s
+relight lamps: market@1.941, gate@2.481, shrine@2.650
+relight duration: 3.250
+relight cues: relight:bed@0.000, relight:chime:0@1.941, relight:chime:1@2.481, relight:chime:2@2.650, relight:close@2.650
+locked: ignored 10 clicks and undo; no events; lit, breakers, switches, parts and faults unchanged

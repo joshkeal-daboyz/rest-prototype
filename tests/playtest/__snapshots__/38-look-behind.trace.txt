@@ -1,0 +1,14 @@
+# 38-look-behind | script 6 clicks | README min 6
+start | lit: homes | feeds: feed 2/3 | blown: fb_L | faults: f_1a | parts: bulb, fuse, wire | prompt: - | cues: -
+1 sw_1 | lit: homes | feeds: feed 2/3 | blown: fb_L | faults: f_fuse | parts: bulb, fuse, wire | prompt: Throw switch | cues: switch:thrown@0.000
+2 br_ov | lit: homes | feeds: feed 2/3 | blown: fb_L | faults: f_fuse | parts: bulb, fuse, wire | prompt: Throw breaker | cues: breaker:thrown@0.000
+3 sw_2 | lit: - | feeds: feed 0/3 | blown: fb_L | faults: f_fuse, f_jU | parts: bulb, fuse, wire | prompt: Throw switch | cues: switch:thrown@0.000
+4 repair:fb_L | lit: - | feeds: feed 0/3 | blown: - | faults: f_jU, f_m2 | parts: bulb, wire | prompt: Lv5 Fuse — carrying 0 of 5 | cues: repair:fuse@0.000
+5 repair:l_m2 | lit: well | feeds: feed 1/3 | blown: - | faults: f_chapel, f_jU | parts: bulb | prompt: - | cues: repair:wire@0.000
+6 repair:chapel | lit: chapel, well | feeds: feed 3/3 | blown: - | faults: f_jU | parts: - | prompt: - | cues: repair:bulb@0.000
+complete: true
+actions: 6, elapsed: 5.000 s
+relight lamps: chapel@2.628, well@2.650
+relight duration: 3.250
+relight cues: relight:bed@0.000, relight:chime:0@2.628, relight:close@2.628
+locked: ignored 8 clicks and undo; no events; lit, breakers, switches, parts and faults unchanged

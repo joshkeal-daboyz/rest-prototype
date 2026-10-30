@@ -1,0 +1,15 @@
+# 47-open-point | script 7 clicks | README min 7
+start | lit: cottage, shrine | feeds: feed 3/6 | blown: - | faults: cut_AB | parts: bulb, wire | prompt: - | cues: -
+1 br_cot | lit: shrine | feeds: feed 2/6 | blown: - | faults: cut_AB | parts: bulb, wire | prompt: Throw breaker | cues: breaker:thrown@0.000
+2 br_BC | lit: shrine | feeds: feed 2/6 | blown: - | faults: cut_AB | parts: bulb, wire | prompt: Throw breaker | cues: breaker:thrown@0.000
+3 br_smith | lit: shrine | feeds: feed 2/6 | blown: - | faults: cut_AB | parts: bulb, wire | prompt: Throw breaker | cues: breaker:thrown@0.000
+4 br_CD | lit: shrine | feeds: feed 2/6 | blown: - | faults: cut_AB | parts: bulb, wire | prompt: Throw breaker | cues: breaker:thrown@0.000
+5 br_E | lit: bell, gate, shrine | feeds: feed 5/6 | blown: - | faults: cut_AB | parts: bulb, wire | prompt: Throw breaker | cues: breaker:thrown@0.000
+6 repair:l_AB | lit: bell, gate, shrine | feeds: feed 5/6 | blown: - | faults: dark_well | parts: bulb | prompt: - | cues: repair:wire@0.000
+7 repair:well | lit: bell, gate, shrine, well | feeds: feed 6/6 | blown: - | faults: - | parts: - | prompt: - | cues: repair:bulb@0.000
+complete: true
+actions: 7, elapsed: 6.000 s
+relight lamps: shrine@1.473, well@1.993, gate@2.063, bell@2.630
+relight duration: 3.230
+relight cues: relight:bed@0.000, relight:chime:0@1.473, relight:chime:1@1.993, relight:chime:2@2.063, relight:chime:3@2.630, relight:close@2.630
+locked: ignored 7 clicks and undo; no events; lit, breakers, switches, parts and faults unchanged

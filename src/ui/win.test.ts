@@ -21,7 +21,7 @@ describe("nextMap", () => {
   const list = [
     { id: "01-first-light", name: "01 · First light", locked: false },
     { id: "02-this-way", name: "02 · This way or that", locked: false },
-    { id: "56-meet-in-the-middle", name: "56 · Meet in the middle", locked: false },
+    { id: "64-the-whole-chain", name: "64 · The whole chain", locked: false },
     { id: "locked/01-first-light", name: "01 · First light (locked)", locked: true },
     { id: "locked/02-this-way", name: "02 · This way or that (locked)", locked: true },
   ];
@@ -31,7 +31,7 @@ describe("nextMap", () => {
   });
 
   it("returns null on the last open map when locked maps follow it", () => {
-    expect(nextMap(list, "56-meet-in-the-middle")).toBeNull();
+    expect(nextMap(list, "64-the-whole-chain")).toBeNull();
   });
 
   it("a locked map's next is the next locked map", () => {

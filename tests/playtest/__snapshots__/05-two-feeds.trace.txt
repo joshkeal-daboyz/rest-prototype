@@ -1,0 +1,9 @@
+# 05-two-feeds | script 1 clicks | README min 1
+start | lit: bakery, inn, lane, well | feeds: north 3/3, south 2/4 | blown: - | faults: - | parts: - | prompt: - | cues: -
+1 sw_s | lit: bakery, inn, shrine, well | feeds: north 3/3, south 3/4 | blown: - | faults: - | parts: - | prompt: - | cues: switch:thrown@0.000
+complete: true
+actions: 1, elapsed: 0.000 s
+relight lamps: inn@1.159, well@1.159, bakery@1.289, shrine@2.650
+relight duration: 3.250
+relight cues: relight:bed@0.000, relight:chime:0@1.159, relight:chime:1@1.289, relight:chime:2@2.650, relight:close@2.650
+locked: ignored 2 clicks and undo; no events; lit, breakers, switches, parts and faults unchanged

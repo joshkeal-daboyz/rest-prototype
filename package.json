@@ -11,7 +11,9 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "gate": "tsc --noEmit && vitest run",
-    "analyze": "tsx tools/analyze.ts"
+    "analyze": "tsx tools/analyze.ts",
+    "check": "tsx tools/check.ts",
+    "playtest": "tsc --noEmit -p tests/playtest/tsconfig.json && vitest run --config tests/playtest/vitest.config.ts"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

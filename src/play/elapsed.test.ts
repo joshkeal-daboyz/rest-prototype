@@ -8,7 +8,7 @@ import { createMapPlay } from "./index";
 
 /** Ticket 020 A: the play-time clock. */
 const shrine = (): Puzzle =>
-  loadPuzzle(JSON.parse(readFileSync(join(__dirname, "../../puzzles/08-shrine-circuit.json"), "utf8")) as unknown);
+  loadPuzzle(JSON.parse(readFileSync(join(__dirname, "../../puzzles/09-shrine-circuit.json"), "utf8")) as unknown);
 const renderer = { draw() {}, resize() {}, setInsets() {}, notify() {}, hitTest: () => null } as unknown as MapRenderer;
 
 function setup() {

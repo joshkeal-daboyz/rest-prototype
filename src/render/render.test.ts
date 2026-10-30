@@ -3,12 +3,12 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { loadPuzzle } from "../core";
 import type { GridState } from "../grid";
-import { buildGeometry, computeFit, hitTestGeometry, puzzleBounds } from "./geometry";
+import { LEGACY_FLOOR, MIN_SCALE, buildGeometry, fitScale, computeFit, hitTestGeometry, puzzleBounds } from "./geometry";
 import { chargeFraction, popProgress, wentFlat, FLAT_POP_SECONDS } from "./battery";
 import { flicker, pulseCount, pulsePhase, PULSE_SPACING } from "./motion";
 import { planRelight, RELIGHT_TRAVEL_SECONDS } from "./relight";
 
-const puzzle = loadPuzzle(JSON.parse(readFileSync(join(__dirname, "..", "..", "puzzles", "08-shrine-circuit.json"), "utf8")));
+const puzzle = loadPuzzle(JSON.parse(readFileSync(join(__dirname, "..", "..", "puzzles", "09-shrine-circuit.json"), "utf8")));
 
 function wonState(): GridState {
   const flowFrom = new Map<string, string>([
@@ -52,6 +52,11 @@ describe("map fit", () => {
   it("keeps every node inside the canvas with padding", () => {
     for (const [w, h] of [[800, 600], [400, 900], [1600, 300]] as const) {
       const g = buildGeometry(puzzle, w, h, 40);
+      // Ticket 027: a window whose fit is below LEGACY_FLOOR keeps MIN_SCALE and overflows (it pans) instead of shrinking.
+      if (fitScale(b, w, h, 40) < LEGACY_FLOOR) {
+        expect(g.fit.scale).toBe(MIN_SCALE);
+        continue;
+      }
       for (let i = 0; i < g.nodeIds.length; i++) {
         expect(g.nx[i]).toBeGreaterThanOrEqual(40 - 1e-6);
         expect(g.nx[i]).toBeLessThanOrEqual(w - 40 + 1e-6);

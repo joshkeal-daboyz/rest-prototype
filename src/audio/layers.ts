@@ -1,5 +1,5 @@
 /** Pure: the continuous layers (hum, flicker, charge whine, spark crackle) per frame from the SoundView. */
-import type { SoundView } from "../core";
+import type { BeatClock, SoundView } from "../core";
 import { mulberry32 } from "./noise";
 import { FLICKER_DB, HUM_DB, WHINE_DB, WHINE_HIGH_HZ, WHINE_LOW_HZ, dbToGain } from "./recipes";
 
@@ -17,6 +17,8 @@ export interface Layers {
   hum: number;
   /** Linear gain of the flicker buzz: > 0 exactly while the view is browned out. */
   flicker: number;
+  /** True exactly when the hum is: some feed carries load. The beat sounds only then. */
+  beatOn: boolean;
   whineOn: boolean;
   whineHz: number;
   /** Linear gain of the whine (0 when off). */
@@ -55,8 +57,10 @@ export function layersFor(view: SoundView, prev: LayerState): Layers {
       if (prev.seen && !prev.full.has(id)) tick = true;
     }
   }
+  const hum = f > 0 ? dbToGain(HUM_DB) * Math.sqrt(f) : 0;
   return {
-    hum: f > 0 ? dbToGain(HUM_DB) * Math.sqrt(f) : 0,
+    hum,
+    beatOn: hum > 0,
     flicker: view.brownout ? dbToGain(FLICKER_DB) : 0,
     whineOn: charging,
     whineHz: WHINE_LOW_HZ + (WHINE_HIGH_HZ - WHINE_LOW_HZ) * ratio,
@@ -66,6 +70,9 @@ export function layersFor(view: SoundView, prev: LayerState): Layers {
     next: { full, seen: true },
   };
 }
+
+/** Most ticks one collect returns, whatever the horizon or gap (ticket 033). */
+export const CRACKLE_MAX_PER_COLLECT = 3;
 
 /** Schedules the crackle ticks: 4 to 9 a second, spaced by the seeded PRNG, the same for one line or five. */
 export class Crackle {
@@ -82,10 +89,11 @@ export class Crackle {
       this.next = null;
       return [];
     }
-    if (this.next === null) this.next = now + this.gap();
+    // First call, or a time gap (backgrounded tab, stall, suspended context): restart from now, never replay what was missed.
+    if (this.next === null || this.next < now) this.next = now + this.gap();
     const out: number[] = [];
-    while (this.next < now + horizon) {
-      out.push(Math.max(this.next, now));
+    while (this.next < now + horizon && out.length < CRACKLE_MAX_PER_COLLECT) {
+      out.push(this.next);
       this.next += this.gap();
     }
     return out;
@@ -98,5 +106,37 @@ export class Crackle {
 
   private gap(): number {
     return 1 / (4 + 5 * this.rnd());
+  }
+}
+
+/**
+ * Hands out the beats of a shared clock in a sliding window, each exactly once (ticket 032).
+ * Pure: the clock and the time are arguments; it never reads one. State is two numbers.
+ */
+export class BeatScheduler {
+  private last = -Infinity;
+  private lastT = -Infinity;
+
+  /** Beat times in [t, t + horizon) not returned before. A beat already past is skipped, never late. Off: nothing, and restarts. */
+  collect(clock: BeatClock, t: number, horizon: number, on: boolean): number[] {
+    if (!on || !Number.isFinite(t)) {
+      this.reset();
+      return [];
+    }
+    if (t < this.lastT) this.last = -Infinity; // the clock went backwards: start over
+    this.lastT = t;
+    const out: number[] = [];
+    for (const b of clock.between(t, t + Math.max(0, horizon))) {
+      if (b > this.last) {
+        out.push(b);
+        this.last = b;
+      }
+    }
+    return out;
+  }
+
+  reset(): void {
+    this.last = -Infinity;
+    this.lastT = -Infinity;
   }
 }

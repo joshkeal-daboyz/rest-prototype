@@ -4,6 +4,8 @@ import type { BatteryReadout, FeedReadout, SoundView } from "../core";
 import { FakeContext, asContext } from "./fakeContext";
 import type { FakeNode } from "./fakeContext";
 import { createAudio } from "./index";
+import { BATTERY_RUNOUT_HZ, BATTERY_WHINE_HZ, CHIME_HZ } from "./recipes";
+import { noteHz } from "./tuning";
 
 const flush = async (): Promise<void> => {
   for (let i = 0; i < 4; i++) await Promise.resolve();
@@ -127,8 +129,8 @@ describe("sound reaches the graph", () => {
     s.bus.emit("fuse:blown", blowEvent());
     const pop = oscStartsAt(s.fake, 10.7).find((n) => n.type === "sine");
     expect(pop).toBeDefined();
-    expect(pop?.frequency.calls[0]).toEqual({ op: "setValueAtTime", args: [180, 10.7] });
-    expect(pop?.frequency.calls[1]).toEqual({ op: "expRamp", args: [40, 10.7 + 0.08] });
+    expect(pop?.frequency.calls[0]).toEqual({ op: "setValueAtTime", args: [noteHz("F#3"), 10.7] });
+    expect(pop?.frequency.calls[1]).toEqual({ op: "expRamp", args: [noteHz("E1"), 10.7 + 0.08] });
     expect(s.fake.all("buffersource").some((n) => n.starts[0]?.when === 10)).toBe(true);
   });
 
@@ -190,13 +192,13 @@ describe("sound reaches the graph", () => {
     const s = setup();
     await s.unlock();
     s.bus.emit("battery:released", { nodeId: "bat", charge: 4 });
-    const whine = s.fake.all("osc").find((n) => n.frequency.calls[0]?.args[0] === 1800);
+    const whine = s.fake.all("osc").find((n) => n.frequency.calls[0]?.args[0] === BATTERY_WHINE_HZ);
     expect(whine?.starts[0]?.when).toBe(10.25);
     expect(whine?.stops.length).toBe(0);
     s.fake.currentTime = 12;
     s.bus.emit("battery:flat", { nodeId: "bat", stopped: false });
     expect(whine?.stops.length).toBe(1);
-    expect(whine?.frequency.calls.at(-1)).toEqual({ op: "linearRamp", args: [900, 12.4] });
+    expect(whine?.frequency.calls.at(-1)).toEqual({ op: "linearRamp", args: [BATTERY_RUNOUT_HZ, 12.4] });
   });
 });
 
@@ -246,6 +248,32 @@ describe("mute and volume", () => {
     expect(master(s.fake).gain.value).toBe(0);
     s.audio.setMuted(false);
     expect(master(s.fake).gain.calls.at(-1)?.args[0]).toBe(0.9);
+  });
+});
+
+describe("no crackle catch-up after a time gap (ticket 033)", () => {
+  const nodesAfterGap = async (suspend: boolean): Promise<number> => {
+    const s = setup();
+    await s.unlock();
+    const sparking = view({ sparking: ["a"] });
+    s.audio.update(sparking, 0.016);
+    if (suspend) s.fake.state = "suspended";
+    s.fake.currentTime += 600;
+    if (suspend) {
+      s.audio.update(sparking, 0.016);
+      s.fake.state = "running";
+    }
+    const before = s.fake.nodes.length;
+    s.audio.update(sparking, 0.016);
+    return s.fake.nodes.length - before;
+  };
+
+  it("a 600 s gap creates a handful of nodes on the next frame, not thousands", async () => {
+    expect(await nodesAfterGap(false)).toBeLessThanOrEqual(2 * 3 * 2);
+  });
+
+  it("also with the context suspended in between", async () => {
+    expect(await nodesAfterGap(true)).toBeLessThanOrEqual(2 * 3 * 2);
   });
 });
 
@@ -366,7 +394,7 @@ describe("the Relight through the engine", () => {
     const s = setup();
     await s.unlock();
     s.audio.relight([0.25, 0.25, 0.9, 2.65], 3.25);
-    const chimes = [330, 392, 440].map((hz) => s.fake.all("osc").find((n) => n.frequency.calls[0]?.args[0] === hz && n.starts[0]?.when !== undefined && n.type === "sine"));
+    const chimes = [CHIME_HZ[0], CHIME_HZ[1], CHIME_HZ[2]].map((hz) => s.fake.all("osc").find((n) => n.frequency.calls[0]?.args[0] === hz && n.starts[0]?.when !== undefined && n.type === "sine"));
     expect(chimes.map((c) => c?.starts[0]?.when)).toEqual([10.25, 10.9, 12.65]);
     const stopsBefore = s.fake.nodes.reduce((n, x) => n + x.stops.length, 0);
     s.bus.emit("job:completed", { puzzleId: "p", actions: 1 });

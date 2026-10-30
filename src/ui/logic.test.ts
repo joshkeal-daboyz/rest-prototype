@@ -11,8 +11,11 @@ import {
   promptPosition,
   promptToShow,
   isHighlighted,
+  isShowKey,
+  MANY_TARGETS,
   placeHighlight,
   targetRows,
+  targetsAreMany,
   WIN_TEXT,
 } from "./logic";
 import type { LogEntry } from "../play";
@@ -243,5 +246,37 @@ describe("liveNotices", () => {
 
   it("returns an empty list when nothing is live", () => {
     expect(liveNotices([{ born: 0 }], 10000)).toEqual([]);
+  });
+});
+
+// ---- the list on a large map (ticket 027 C) ----
+describe("targetsAreMany", () => {
+  it("is false for six or fewer entries, true from seven", () => {
+    expect(targetsAreMany(0)).toBe(false);
+    expect(targetsAreMany(1)).toBe(false);
+    expect(targetsAreMany(MANY_TARGETS)).toBe(false);
+    expect(targetsAreMany(MANY_TARGETS + 1)).toBe(true);
+    expect(targetsAreMany(12)).toBe(true);
+  });
+
+  it("uses a threshold of six", () => {
+    expect(MANY_TARGETS).toBe(6);
+  });
+});
+
+describe("isShowKey", () => {
+  it("is Enter only", () => {
+    expect(isShowKey("Enter")).toBe(true);
+    expect(isShowKey(" ")).toBe(false);
+    expect(isShowKey("Escape")).toBe(false);
+    expect(isShowKey("enter")).toBe(false);
+  });
+});
+
+describe("targetRows keeps its text for the centring list", () => {
+  it("names each lamp's place and its lit or dark state", () => {
+    const rows = targetRows(["home_1", "shrine"], new Set(["shrine"]), false);
+    expect(rows.map((r) => r.id)).toEqual(["home_1", "shrine"]);
+    expect(rows.map((r) => r.text)).toEqual(["home 1: dark", "shrine: lit"]);
   });
 });

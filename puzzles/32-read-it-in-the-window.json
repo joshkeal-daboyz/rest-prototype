@@ -1,0 +1,57 @@
+{
+  "id": "32-read-it-in-the-window",
+  "name": "32 · Read it in the window",
+  "version": 4,
+  "scope": "map",
+  "capacity": 2,
+  "startingParts": ["wire", "wire", "fuse", "fuse"],
+  "target": ["shrine"],
+  "priority": ["yard"],
+
+  "nodes": [
+    { "id": "feed",   "type": "feed",     "pos": [0, 0] },
+    { "id": "j1",     "type": "junction", "pos": [2, 0] },
+    { "id": "yard",   "type": "lamp",     "pos": [2, -2.5], "load": 1 },
+    { "id": "bat",    "type": "battery",  "pos": [5, 5], "capacity": 4, "charge": 0, "input": "l_bin" },
+
+    { "id": "br_E",   "type": "breaker",  "pos": [4, 0], "closed": false },
+    { "id": "fb_E",   "type": "fusebox",  "pos": [6, 0], "rating": 1 },
+    { "id": "rl",     "type": "switch",   "pos": [9, 0], "outputs": ["l_mill", "l_r"], "selected": 0, "relay": true },
+    { "id": "mill",   "type": "lamp",     "pos": [9, -3], "load": 3 },
+    { "id": "sw_R",   "type": "switch",   "pos": [11, 0], "outputs": ["l_n1", "l_s1"], "selected": 0 },
+
+    { "id": "jN1",    "type": "junction", "pos": [13, -3] },
+    { "id": "jN2",    "type": "junction", "pos": [17, -3] },
+    { "id": "jS",     "type": "junction", "pos": [15, 3] },
+
+    { "id": "j_t",    "type": "junction", "pos": [19, 0] },
+    { "id": "shrine", "type": "lamp",     "pos": [21.5, 0], "load": 1 }
+  ],
+
+  "lines": [
+    { "id": "l_f",      "from": "feed", "to": "j1" },
+    { "id": "l_yard",   "from": "j1",   "to": "yard" },
+    { "id": "l_bin",    "from": "j1",   "to": "bat" },
+    { "id": "l_brl",    "from": "bat",  "to": "rl" },
+    { "id": "l_bt",     "from": "bat",  "to": "j_t" },
+
+    { "id": "l_e1",     "from": "j1",   "to": "br_E" },
+    { "id": "l_e2",     "from": "br_E", "to": "fb_E" },
+    { "id": "l_e3",     "from": "fb_E", "to": "rl" },
+    { "id": "l_mill",   "from": "rl",   "to": "mill" },
+    { "id": "l_r",      "from": "rl",   "to": "sw_R" },
+
+    { "id": "l_n1",     "from": "sw_R", "to": "jN1" },
+    { "id": "l_n2",     "from": "jN1",  "to": "jN2" },
+    { "id": "l_n3",     "from": "jN2",  "to": "j_t" },
+    { "id": "l_s1",     "from": "sw_R", "to": "jS" },
+    { "id": "l_s2",     "from": "jS",   "to": "j_t" },
+    { "id": "l_shrine", "from": "j_t",  "to": "shrine" }
+  ],
+
+  "faults": [
+    { "id": "f_n1", "at": "l_n1", "kind": "damaged-cable" },
+    { "id": "f_n2", "at": "jN2",  "kind": "dead-junction" },
+    { "id": "f_s",  "at": "jS",   "kind": "dead-junction" }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "id": "44-set-in-the-light",
+  "name": "44 · Set in the light",
+  "version": 4,
+  "scope": "map",
+  "capacity": 3,
+  "startingParts": ["wire", "bulb"],
+  "target": ["shrine", "well"],
+  "priority": ["bakery", "tannery", "tower"],
+
+  "nodes": [
+    { "id": "feed",    "type": "feed",     "pos": [0, 0] },
+    { "id": "j0",      "type": "junction", "pos": [2, 0] },
+
+    { "id": "fb_T",    "type": "fusebox",  "pos": [4, -5], "rating": 1 },
+
+    { "id": "fb_R",    "type": "fusebox",  "pos": [4, 0], "rating": 2 },
+    { "id": "rl_1",    "type": "switch",   "pos": [6.5, 0], "outputs": ["l_12", "l_1a"], "selected": 1, "relay": true },
+    { "id": "rl_2",    "type": "switch",   "pos": [9.5, 0], "outputs": ["l_23", "l_2b"], "selected": 1, "relay": true },
+    { "id": "rl_3",    "type": "switch",   "pos": [12.5, 0], "outputs": ["l_34", "l_3d"], "selected": 1, "relay": true },
+    { "id": "tannery", "type": "lamp",     "pos": [12.5, 3], "load": 1 },
+    { "id": "rl_4",    "type": "switch",   "pos": [16, 0], "outputs": ["l_4t", "l_4c"], "selected": 0, "relay": true },
+    { "id": "j_34",    "type": "junction", "pos": [14, 0] },
+    { "id": "br_mill", "type": "breaker",  "pos": [14, -2.5], "closed": true },
+    { "id": "mill",    "type": "lamp",     "pos": [14, -4.5], "load": 3 },
+    { "id": "tower",   "type": "lamp",     "pos": [17.5, 3], "load": 1 },
+    { "id": "p_c",     "type": "junction", "pos": [17.5, -5] },
+    { "id": "shrine",  "type": "lamp",     "pos": [20, -5], "load": 2 },
+
+    { "id": "p_a",     "type": "junction", "pos": [6.5, 4] },
+    { "id": "well",    "type": "lamp",     "pos": [6.5, 6.5], "load": 1 },
+    { "id": "p_b",     "type": "junction", "pos": [9.5, 4] },
+    { "id": "bakery",  "type": "lamp",     "pos": [9.5, 6.5], "load": 1 },
+
+    { "id": "br_S",    "type": "breaker",  "pos": [2, 5], "closed": false },
+    { "id": "fb_S",    "type": "fusebox",  "pos": [2, 8], "rating": 2 },
+    { "id": "sw_S",    "type": "switch",   "pos": [5, 8.5], "outputs": ["l_Sa", "l_Sb"], "selected": 1 }
+  ],
+
+  "lines": [
+    { "id": "l_feed",  "from": "feed",    "to": "j0" },
+
+    { "id": "l_T0",    "from": "j0",      "to": "fb_T" },
+    { "id": "l_short", "from": "fb_T",    "to": "p_c" },
+
+    { "id": "l_R0",    "from": "j0",      "to": "fb_R" },
+    { "id": "l_R1",    "from": "fb_R",    "to": "rl_1" },
+    { "id": "l_12",    "from": "rl_1",    "to": "rl_2" },
+    { "id": "l_1a",    "from": "rl_1",    "to": "p_a" },
+    { "id": "l_23",    "from": "rl_2",    "to": "rl_3" },
+    { "id": "l_2b",    "from": "rl_2",    "to": "p_b" },
+    { "id": "l_34",    "from": "rl_3",    "to": "j_34" },
+    { "id": "l_j4",    "from": "j_34",    "to": "rl_4" },
+    { "id": "l_jm",    "from": "j_34",    "to": "br_mill" },
+    { "id": "l_3d",    "from": "rl_3",    "to": "tannery" },
+    { "id": "l_4t",    "from": "rl_4",    "to": "tower" },
+    { "id": "l_mill",  "from": "br_mill", "to": "mill" },
+    { "id": "l_4c",    "from": "rl_4",    "to": "p_c" },
+    { "id": "l_shrine","from": "p_c",     "to": "shrine" },
+
+    { "id": "l_well",  "from": "p_a",     "to": "well" },
+    { "id": "l_bakery","from": "p_b",     "to": "bakery" },
+
+    { "id": "l_S0",    "from": "j0",      "to": "br_S" },
+    { "id": "l_S1",    "from": "br_S",    "to": "fb_S" },
+    { "id": "l_S2",    "from": "fb_S",    "to": "sw_S" },
+    { "id": "l_Sa",    "from": "sw_S",    "to": "p_a" },
+    { "id": "l_Sb",    "from": "sw_S",    "to": "p_b" }
+  ],
+
+  "faults": [
+    { "id": "cut_short",   "at": "l_short", "kind": "damaged-cable" },
+    { "id": "cut_23",      "at": "l_23",    "kind": "damaged-cable" },
+    { "id": "dark_shrine", "at": "shrine",  "kind": "dead-lamp" }
+  ]
+}

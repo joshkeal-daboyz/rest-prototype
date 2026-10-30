@@ -8,11 +8,24 @@ import type { AudioControl, FeedInfo, Part } from "../core";
 import type { Grid } from "../grid";
 import type { MapPlay } from "../play";
 import {
+  ACTION_ICON_SVG,
+  CONTROL_ACTIONS,
+  CONTROL_ICON_VIEWBOX,
+  escapeTarget,
+  type PopoverEvent,
+  SPEAKER_ICON_SVG,
+  soundPopover,
+  speakerIcon,
+  speakerLabel,
+  splashCeiling,
+} from "./controls";
+import {
   batteryCountdown,
   bannerText,
   capacityRows,
   inventoryRows,
   isHighlighted,
+  isShowKey,
   liveNotices,
   mapLabel,
   noticeOpacity,
@@ -26,12 +39,14 @@ import {
   sliderToVolume,
   soundToggleLabel,
   targetRows,
+  targetsAreMany,
   volumeToSlider,
   winLine,
   writeAudioPrefs,
   type Rect,
   type StorageLike,
 } from "./logic";
+import { capacityRowsKey, setAttr, setClass, setProp, setText, targetRowsKey } from "./frame";
 
 export interface UIDeps {
   grid: Grid;
@@ -48,6 +63,11 @@ export interface UIDeps {
    * main.ts carries the highlight to the map and calls ui.highlight back.
    */
   onHighlight?(lampId: string | null): void;
+  /**
+   * A "Priests want lit" entry was clicked, or Enter was pressed on it (ticket 027 C): its lamp id. main.ts centres
+   * the map on that lamp. The list does not draw the map; it only asks.
+   */
+  onShow?(lampId: string): void;
 }
 
 /** What the win splash shows. All of it is plain data from the play layer and the picker. */
@@ -124,6 +144,19 @@ function partIcon(kind: Part): SVGSVGElement {
   return svg;
 }
 
+/** A control icon (ticket 030): a 24×24 inline SVG of fixed markup, hidden from assistive tech. */
+function controlIcon(markup: string, className: string, size: number): SVGSVGElement {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("viewBox", CONTROL_ICON_VIEWBOX);
+  svg.setAttribute("width", String(size));
+  svg.setAttribute("height", String(size));
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("focusable", "false");
+  svg.setAttribute("class", className);
+  svg.innerHTML = markup;
+  return svg;
+}
+
 /** Styles for the notice strip, added once to the document head (index.html holds the rest). */
 const NOTICE_STYLE_ID = "ui-notice-style";
 const NOTICE_CSS = `
@@ -161,20 +194,38 @@ function ensureSplashStyle(): void {
 /** Esc listener for the splash, removed when it hides and when the map is switched. */
 let removeSplashKey: (() => void) | null = null;
 
-/** Styles for the sound control (ticket 019 B). The muted state is a strikethrough as well as the dimmed colour. */
-const AUDIO_STYLE_ID = "ui-audio-style";
-const AUDIO_CSS = `
-.sound-toggle.muted { color: var(--ink-dim); text-decoration: line-through; }
-.volume { display: inline-flex; align-items: center; gap: 6px; background: var(--panel); border: 1px solid var(--edge); border-radius: 6px; padding: 6px 10px; }
-.volume input { width: 84px; margin: 0; }
+/**
+ * Styles for the action buttons and the sound controls (tickets 019 B, 030). The speaker dock and the popover
+ * take the inventory panel's look. The `#ui` prefix beats the global `#ui button` padding and border.
+ * At 600 px and below the action buttons are 40 px squares, icon only; their labels stay for screen readers.
+ */
+const SOUND_STYLE_ID = "ui-sound-style";
+const SOUND_CSS = `
+#ui .action { position: relative; display: inline-flex; align-items: center; gap: 6px; }
+#ui .action-icon { display: block; width: 18px; height: 18px; flex: none; }
+#ui .action-log { margin-left: 12px; }
+.sound-dock { position: absolute; right: 14px; bottom: 14px; box-sizing: border-box; width: 40px; height: 40px; color: var(--ink); background: #141b24; border: 0.5px solid #2a3644; border-radius: 10px; pointer-events: auto; }
+#ui .sound-dock .speaker { display: flex; align-items: center; justify-content: center; box-sizing: border-box; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; border-radius: 10px; background: transparent; color: var(--ink); }
+#ui .sound-dock .speaker.muted { color: var(--ink-dim); }
+.speaker .icon { display: block; width: 26px; height: 26px; }
+.sound-popover { position: absolute; right: 0; bottom: 48px; box-sizing: border-box; width: 200px; display: flex; flex-direction: column; gap: 10px; padding: 10px 12px; color: var(--ink); background: #141b24; border: 0.5px solid #2a3644; border-radius: 10px; }
+#ui .sound-popover[hidden] { display: none; }
+#ui .sound-toggle { width: 100%; margin: 0; }
+#ui .sound-toggle.muted { color: var(--ink-dim); text-decoration: line-through; }
+.volume { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-dim); }
+.volume input { flex: 1; min-width: 0; margin: 0; pointer-events: auto; }
 #ui input[type="range"]:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+@media (max-width: 600px) {
+  #ui .action { width: 40px; height: 40px; padding: 0; justify-content: center; gap: 0; }
+  #ui .action-label { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+}
 `;
 
-function ensureAudioStyle(): void {
-  if (document.getElementById(AUDIO_STYLE_ID)) return;
+function ensureSoundStyle(): void {
+  if (document.getElementById(SOUND_STYLE_ID)) return;
   const style = el("style");
-  style.id = AUDIO_STYLE_ID;
-  style.textContent = AUDIO_CSS;
+  style.id = SOUND_STYLE_ID;
+  style.textContent = SOUND_CSS;
   document.head.append(style);
 }
 
@@ -197,17 +248,44 @@ export function restoreAudio(audio: AudioControl): void {
   audio.setVolume(prefs.volume);
 }
 
+/** The popover's id, named by the speaker's aria-controls. */
+const SOUND_POPOVER_ID = "sound-popover";
+
 interface SoundControls {
-  button: HTMLButtonElement;
-  volume: HTMLLabelElement;
+  /** The speaker and, after it, the popover. Appended to #ui after the splash so the popover draws on top. */
+  dock: HTMLElement;
+  popover: HTMLElement;
   render(): void;
+  /** True while the popover is open. */
+  isOpen(): boolean;
 }
 
-/** The mute toggle and the volume slider. Both drive `audio` and save its prefs on each change. */
-function mountSound(audio: AudioControl): SoundControls {
-  ensureAudioStyle();
-  const button = el("button", "sound-toggle");
-  button.type = "button";
+/** Pointer and key listeners on the document for the sound popover, removed when the map is switched. */
+let removeSoundListeners: (() => void) | null = null;
+
+/**
+ * The speaker (ticket 030): a button in the bottom-right corner whose icon shows the sound's state, and a popover
+ * above it with the mute toggle and the volume slider. Both drive `audio` and save its prefs on each change.
+ */
+function mountSound(audio: AudioControl, splashOpen: () => boolean): SoundControls {
+  ensureSoundStyle();
+  const dock = el("div", "sound-dock");
+
+  const speaker = el("button", "speaker");
+  speaker.type = "button";
+  speaker.setAttribute("aria-controls", SOUND_POPOVER_ID);
+  speaker.setAttribute("aria-expanded", "false");
+  const speakerSvg = controlIcon(SPEAKER_ICON_SVG.silent, "icon", 26);
+  speaker.append(speakerSvg);
+
+  const popover = el("div", "sound-popover");
+  popover.id = SOUND_POPOVER_ID;
+  popover.setAttribute("role", "group");
+  popover.setAttribute("aria-label", "Sound");
+  popover.hidden = true;
+
+  const toggle = el("button", "sound-toggle");
+  toggle.type = "button";
 
   const volume = el("label", "volume", "Volume ");
   const slider = el("input");
@@ -218,11 +296,14 @@ function mountSound(audio: AudioControl): SoundControls {
   slider.setAttribute("aria-label", "Volume");
   volume.append(slider);
 
+  popover.append(toggle, volume);
+  dock.append(speaker, popover);
+
   const save = (): void => {
     writeAudioPrefs(browserStorage(), { muted: audio.muted, volume: audio.volume });
   };
 
-  button.addEventListener("click", () => {
+  toggle.addEventListener("click", () => {
     audio.setMuted(!audio.muted);
     save();
     render();
@@ -234,18 +315,78 @@ function mountSound(audio: AudioControl): SoundControls {
     save();
   });
 
-  /** Shows the engine's state: the label names it, aria-pressed is true while sound is on, and the slider follows the volume. */
+  // ---- the popover's open state (ticket 030): the reducer decides, this applies it ----
+  let open = false;
+  // True while a press that began inside the dock is still down: focus that leaves with no target then came from the press.
+  let pressInside = false;
+
+  /** Applies soundPopover's result. Focus moves before the popover is hidden, so the hide does not drop it to the page. */
+  function dispatch(event: PopoverEvent): void {
+    const next = soundPopover(open, event);
+    if (next.open === open && next.focus === null) return;
+    open = next.open;
+    if (open) popover.hidden = false;
+    if (next.focus === "toggle") toggle.focus({ preventScroll: true });
+    else if (next.focus === "speaker") speaker.focus({ preventScroll: true });
+    if (!open) popover.hidden = true;
+    speaker.setAttribute("aria-expanded", String(open));
+  }
+
+  speaker.addEventListener("click", () => dispatch({ type: "toggle" }));
+  // Focus leaving the dock closes the popover. Focus that moves to another element says where it went; focus that
+  // leaves with no target (a Tab out of the page, or a click on non-focusable space) counts as inside only mid-press.
+  dock.addEventListener("focusout", (event: FocusEvent) => {
+    const to = event.relatedTarget;
+    dispatch({ type: "focusout", inside: to instanceof Node ? dock.contains(to) : pressInside });
+  });
+
+  const onPointerDown = (event: PointerEvent): void => {
+    const inside = event.target instanceof Node && dock.contains(event.target);
+    pressInside = inside;
+    dispatch({ type: "pointerdown", inside });
+  };
+  const onPointerEnd = (): void => {
+    pressInside = false;
+  };
+  // Capture, so an open popover takes Esc before the splash's own Esc listener sees it.
+  const onEscape = (event: KeyboardEvent): void => {
+    if (event.key !== "Escape" || escapeTarget(open, splashOpen()) !== "popover") return;
+    event.stopPropagation();
+    dispatch({ type: "escape" });
+  };
+  document.addEventListener("pointerdown", onPointerDown);
+  document.addEventListener("pointerup", onPointerEnd);
+  document.addEventListener("pointercancel", onPointerEnd);
+  document.addEventListener("keydown", onEscape, true);
+  removeSoundListeners = () => {
+    document.removeEventListener("pointerdown", onPointerDown);
+    document.removeEventListener("pointerup", onPointerEnd);
+    document.removeEventListener("pointercancel", onPointerEnd);
+    document.removeEventListener("keydown", onEscape, true);
+  };
+
+  /** Shows the engine's state: the icon and label name it, the toggle's aria-pressed is true while sound is on, and the slider follows the volume. */
+  let shownIcon: string | null = null;
   function render(): void {
-    const label = soundToggleLabel(audio.muted);
-    setText(button, label);
-    button.setAttribute("aria-label", label);
-    button.setAttribute("aria-pressed", String(!audio.muted));
-    button.classList.toggle("muted", audio.muted);
-    const position = String(volumeToSlider(audio.volume));
-    if (slider.value !== position) slider.value = position;
+    const icon = speakerIcon(audio.muted, audio.volume);
+    if (icon !== shownIcon) {
+      shownIcon = icon;
+      speakerSvg.innerHTML = SPEAKER_ICON_SVG[icon];
+    }
+    const label = speakerLabel(audio.muted, audio.volume);
+    setAttr(speaker, "aria-label", label);
+    setProp(speaker, "title", label);
+    setClass(speaker, "muted", audio.muted);
+
+    const toggleLabel = soundToggleLabel(audio.muted);
+    setText(toggle, toggleLabel);
+    setAttr(toggle, "aria-label", toggleLabel);
+    setAttr(toggle, "aria-pressed", String(!audio.muted));
+    setClass(toggle, "muted", audio.muted);
+    setProp(slider, "value", String(volumeToSlider(audio.volume)));
   }
   render();
-  return { button, volume, render };
+  return { dock, popover, render, isOpen: () => open };
 }
 
 interface Notice {
@@ -261,11 +402,6 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, t
   return node;
 }
 
-/** Writes text only when it changed, so the overlay does not touch the DOM every frame. */
-function setText(node: HTMLElement, text: string): void {
-  if (node.textContent !== text) node.textContent = text;
-}
-
 /** Pointer listeners from the previous mount, removed when the map is switched. */
 let removePointerListeners: (() => void) | null = null;
 
@@ -274,6 +410,8 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
   removePointerListeners = null;
   removeSplashKey?.();
   removeSplashKey = null;
+  removeSoundListeners?.();
+  removeSoundListeners = null;
   root.textContent = "";
   root.classList.add("ui");
 
@@ -311,23 +449,23 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
 
   hudLeft.append(pickerLabel, capacityEl, batteryEl, targetsHeading, targetsEl);
 
-  // ---- top right: controls ----
+  // ---- top right: Undo, Reset and Download log, three separate buttons (ticket 030) ----
   const hudRight = el("div", "hud hud-right");
 
   const controls = el("div", "controls");
-  const undoButton = el("button", undefined, "Undo");
-  undoButton.type = "button";
-  undoButton.addEventListener("click", () => deps.play.undo());
-  const resetButton = el("button", undefined, "Reset");
-  resetButton.type = "button";
-  resetButton.addEventListener("click", () => deps.play.reset());
-  const logButton = el("button", undefined, "Download log");
-  logButton.type = "button";
-  logButton.addEventListener("click", () => downloadLog());
-  controls.append(undoButton, resetButton, logButton);
-  const sound = deps.audio ? mountSound(deps.audio) : null;
-  if (sound) controls.append(sound.button, sound.volume);
-
+  const actionHandlers: Record<"undo" | "reset" | "log", () => void> = {
+    undo: () => deps.play.undo(),
+    reset: () => deps.play.reset(),
+    log: () => downloadLog(),
+  };
+  for (const action of CONTROL_ACTIONS) {
+    const button = el("button", `action action-${action.id}`);
+    button.type = "button";
+    button.title = action.label;
+    button.append(controlIcon(ACTION_ICON_SVG[action.id], "action-icon", 18), el("span", "action-label", action.label));
+    button.addEventListener("click", actionHandlers[action.id]);
+    controls.append(button);
+  }
   hudRight.append(controls);
 
   // ---- bottom left: parts on hand (ticket 021). Not a .hud column, so the top inset ignores it. ----
@@ -342,6 +480,9 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
     inventoryEl.append(row);
     return { kind, row, count };
   });
+
+  // ---- bottom right: the speaker and its popover (ticket 030), only when there is a sound engine ----
+  const sound = deps.audio ? mountSound(deps.audio, () => !splashEl.hidden) : null;
 
   // ---- bottom: prompt; top centre: banner ----
   const promptEl = el("div", "prompt");
@@ -362,7 +503,7 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
   let notices: Notice[] = [];
   let noticesTop = -1;
 
-  // ---- win splash (ticket 020 B): below the HUD, under the notices; appended last so it draws on top ----
+  // ---- win splash (ticket 020 B): below the HUD, under the notices; appended after the inventory so it draws on top ----
   ensureSplashStyle();
   const splashEl = el("div", "splash");
   splashEl.setAttribute("role", "dialog");
@@ -385,7 +526,7 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
   let splashTop = -1;
 
   const onSplashKey = (event: KeyboardEvent): void => {
-    if (event.key === "Escape") hideWin();
+    if (event.key === "Escape" && escapeTarget(sound?.isOpen() ?? false, true) === "splash") hideWin();
   };
 
   replayButton.addEventListener("click", () => {
@@ -397,6 +538,8 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
   });
 
   root.append(hudLeft, hudRight, inventoryEl, bannerEl, promptEl, noticesEl, splashEl);
+  // The speaker dock last: its popover draws over everything else.
+  if (sound) root.append(sound.dock);
 
   // The prompt follows the pointer over the map. Pointer position is presentation only.
   let pointer: { x: number; y: number } | null = null;
@@ -422,16 +565,20 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
     if (!pointer || promptEl.hidden) return;
     const bounds = root.getBoundingClientRect();
     const local = { x: pointer.x - bounds.left, y: pointer.y - bounds.top };
+    // The prompt keeps off the parts panel, the speaker and, while it is open, the popover (ticket 030).
+    const avoid: Rect[] = [localRect(inventoryEl, bounds)];
+    if (sound) avoid.push(localRect(sound.dock, bounds));
+    if (sound?.isOpen()) avoid.push(localRect(sound.popover, bounds));
     const spot = promptPosition(
       local,
       bounds,
       { width: promptEl.offsetWidth, height: promptEl.offsetHeight },
       undefined,
       undefined,
-      localRect(inventoryEl, bounds),
+      avoid,
     );
-    promptEl.style.left = `${spot.left}px`;
-    promptEl.style.top = `${spot.top}px`;
+    setProp(promptEl.style, "left", `${spot.left}px`);
+    setProp(promptEl.style, "top", `${spot.top}px`);
   }
 
   function downloadLog(): void {
@@ -444,10 +591,11 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
     setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 
-  let targetsKey = "";
+  // null until the first build: an empty list's change key is "", and the first frame still needs its write (ticket 021).
+  let targetsKey: string | null = null;
   // null, not "": an empty parts list joins to "", and the rows still need their first write (ticket 021).
   let partsKey: string | null = null;
-  let capacityKey = "";
+  let capacityKey: string | null = null;
 
   /** A node's box in `root`'s space (the same space as the pointer), so it can be compared with the prompt's box. */
   function localRect(node: HTMLElement, bounds: DOMRect): Rect {
@@ -494,11 +642,10 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
     let floor = Math.max(hudLeft.getBoundingClientRect().bottom, hudRight.getBoundingClientRect().bottom);
     if (!bannerEl.hidden) floor = Math.max(floor, bannerEl.getBoundingClientRect().bottom);
     const top = Math.round(floor - rootBox.top + 8);
-    // Ticket 021: where the inventory shares the splash's columns (always at ~400 px), the room ends 8 px above it.
-    let ceiling = rootBox.height;
-    const splashBox = splashEl.getBoundingClientRect();
-    const invBox = inventoryEl.getBoundingClientRect();
-    if (splashBox.left < invBox.right && splashBox.right > invBox.left) ceiling = invBox.top - rootBox.top - 8;
+    // Ticket 021, extended by 030: the room ends 8 px above the highest bottom-corner panel that shares the splash's columns.
+    const obstacles: Rect[] = [localRect(inventoryEl, rootBox)];
+    if (sound) obstacles.push(localRect(sound.dock, rootBox));
+    const ceiling = splashCeiling(rootBox.height, localRect(splashEl, rootBox), obstacles, 8);
     const room = ceiling - top - splashEl.offsetHeight;
     const place = room > 0 ? Math.round(top + room / 2) : top;
     if (place !== splashTop) {
@@ -546,16 +693,16 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
     placeSplash();
 
     const prompt = promptToShow(view);
-    promptEl.hidden = prompt === null || pointer === null;
+    setProp(promptEl, "hidden", prompt === null || pointer === null);
     setText(promptEl, prompt ?? "");
     placePrompt();
 
     const banner = bannerText(state);
-    bannerEl.hidden = banner === null;
+    setProp(bannerEl, "hidden", banner === null);
     setText(bannerEl, banner ?? "");
 
     const capRows = capacityRows(state, deps.feeds ?? []);
-    const nextCapacityKey = JSON.stringify(capRows);
+    const nextCapacityKey = capacityRowsKey(capRows);
     if (nextCapacityKey !== capacityKey) {
       capacityKey = nextCapacityKey;
       capacityEl.textContent = "";
@@ -567,11 +714,11 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
     }
 
     const countdown = batteryCountdown(state);
-    batteryEl.hidden = countdown === null;
+    setProp(batteryEl, "hidden", countdown === null);
     setText(batteryEl, countdown ?? "");
 
     const rows = targetRows(state.targets, state.lit, state.brownout);
-    const nextTargetsKey = JSON.stringify(rows);
+    const nextTargetsKey = targetRowsKey(rows);
     if (nextTargetsKey !== targetsKey) {
       targetsKey = nextTargetsKey;
       // A rebuild must not drop the keyboard user's place in the list: refocus the same lamp's entry afterwards.
@@ -579,6 +726,8 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
       const focusedId = targetItems.find((i) => i.node === active)?.id ?? null;
       targetsEl.textContent = "";
       targetItems = [];
+      // More than six entries lay out in two columns (ticket 027 C). The class is set on each rebuild.
+      targetsEl.classList.toggle("many", targetsAreMany(rows.length));
       for (const row of rows) {
         const item = el("li", row.lit ? "target lit" : "target dark");
         item.tabIndex = 0;
@@ -588,6 +737,13 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
         item.addEventListener("pointerleave", () => deps.onHighlight?.(null));
         item.addEventListener("focus", () => deps.onHighlight?.(row.id));
         item.addEventListener("blur", () => deps.onHighlight?.(null));
+        // Click, or Enter on the focused entry, brings the lamp to the centre of the map (ticket 027 C).
+        item.addEventListener("click", () => deps.onShow?.(row.id));
+        item.addEventListener("keydown", (event: KeyboardEvent) => {
+          if (!isShowKey(event.key)) return;
+          event.preventDefault();
+          deps.onShow?.(row.id);
+        });
         targetsEl.append(item);
         targetItems.push({ id: row.id, node: item });
       }
@@ -605,16 +761,16 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
         const row = rows.find((r) => r.kind === node.kind);
         if (!row) continue;
         setText(node.count, String(row.count));
-        node.row.setAttribute("aria-label", row.text);
-        node.row.classList.toggle("empty", row.empty);
+        setAttr(node.row, "aria-label", row.text);
+        setClass(node.row, "empty", row.empty);
       }
     }
-    inventoryEl.setAttribute("aria-label", partsSummary(state.parts));
+    setAttr(inventoryEl, "aria-label", partsSummary(state.parts));
   }
 
   /** Marks the entry for the highlighted lamp (class `highlight`, an outline; the text stays the same). */
   function applyHighlight(): void {
-    for (const item of targetItems) item.node.classList.toggle("highlight", isHighlighted(item.id, highlighted));
+    for (const item of targetItems) setClass(item.node, "highlight", isHighlighted(item.id, highlighted));
   }
 
   function highlight(lampId: string | null): void {

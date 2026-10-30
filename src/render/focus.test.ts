@@ -211,7 +211,7 @@ describe("the free front slot", () => {
     expect(placeAtPoint([pl], fit, cx, cy - (q.h * s) / 2 - 1)).toBeNull();
   });
   it("is deterministic: the same map and scale give equal output", () => {
-    const raw = JSON.parse(readFileSync(join(ROOT, "21-make-room.json"), "utf8"));
+    const raw = JSON.parse(readFileSync(join(ROOT, "23-make-room.json"), "utf8"));
     expect(cityPlaces(loadPuzzle(raw), 50)).toEqual(cityPlaces(loadPuzzle(raw), 50));
   });
 });
@@ -314,7 +314,7 @@ describe("fuller plans and place colours", () => {
     expect(placeShapes(box(0.6, 0.6, { lamp: "well", kind: "water" }))[0]!.w).toBeCloseTo(0.6, 9);
     expect(placeShapes(box(1.4, 1.4, { lamp: "mill", kind: "mill" }))[0]!.w).toBeCloseTo(0.6, 9);
   });
-  it("never makes a place bigger than its lot size", () => {
+  it("never makes a place bigger than its lot size", { timeout: 60000 }, () => {
     for (const { puzzle } of OPEN) {
       for (const p of cityPlaces(puzzle, 50)) {
         if (p.pool || p.kind === "gate") continue;

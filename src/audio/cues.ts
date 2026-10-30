@@ -47,39 +47,6 @@ export function relightCues(igniteAt: readonly number[], durationSeconds: number
   return cues;
 }
 
-/** The win splash's cue (ticket 025): rings out across a detach, ducks the hum, is never dropped. */
-export function levelDoneCue(): Cue {
-  return { name: "level:done", at: 0, voices: R.levelDoneSound(), ducks: true, group: "level" };
-}
-
-/** Once per win: plays only if the last view was complete, and not again until complete goes false and true. */
-export class LevelDoneGate {
-  private armed = false;
-  private used = false;
-
-  see(complete: boolean): void {
-    if (complete) {
-      if (!this.used) this.armed = true;
-    } else {
-      this.armed = false;
-      this.used = false;
-    }
-  }
-
-  take(): boolean {
-    if (!this.armed) return false;
-    this.armed = false;
-    this.used = true;
-    return true;
-  }
-
-  /** attach / detach: disarm until a fresh complete frame. */
-  reset(): void {
-    this.armed = false;
-    this.used = false;
-  }
-}
-
 export function batteryWhineKey(nodeId: string): string {
   return `battery:${nodeId}`;
 }

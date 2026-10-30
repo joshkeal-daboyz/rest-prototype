@@ -1,0 +1,17 @@
+# 48-the-old-arrangement | script 9 clicks | README min 9
+start | lit: shrine, well | feeds: feed 4/10 | blown: - | faults: dark_bell | parts: bulb, wire | prompt: - | cues: -
+1 br_M | lit: cottage, hall, lane, shrine, well | feeds: feed 7/10 | blown: - | faults: cut_xg, dark_bell | parts: bulb, wire | prompt: Throw breaker | cues: breaker:thrown@0.000
+2 br_cot | lit: hall, lane, shrine, well | feeds: feed 6/10 | blown: - | faults: cut_xg, dark_bell | parts: bulb, wire | prompt: Throw breaker | cues: breaker:thrown@0.000
+3 sw_x | lit: hall, lane, shrine, well | feeds: feed 6/10 | blown: - | faults: dark_bell | parts: bulb, wire | prompt: Throw switch | cues: switch:thrown@0.000
+4 sw_y | lit: lane, shrine, well | feeds: feed 5/10 | blown: - | faults: dark_bell | parts: bulb, wire | prompt: Throw switch | cues: switch:thrown@0.000
+5 sw_z1 | lit: gate, lane, shrine, well | feeds: feed 7/10 | blown: - | faults: dark_bell, dead_xg | parts: bulb, wire | prompt: Throw switch | cues: switch:thrown@0.000
+6 sw_z2 | lit: gate, lane, shrine, well | feeds: feed 7/10 | blown: - | faults: dark_bell, dead_xg | parts: bulb, wire | prompt: Throw switch | cues: switch:thrown@0.000
+7 sw_q | lit: gate, lane, shrine, well | feeds: feed 7/10 | blown: - | faults: cut_qh, dark_bell, dead_xg | parts: bulb, wire | prompt: Throw switch | cues: switch:thrown@0.000
+8 repair:l_qh | lit: gate, hall, lane, shrine, well | feeds: feed 8/10 | blown: - | faults: dark_bell, dead_xg | parts: bulb | prompt: - | cues: repair:wire@0.000
+9 repair:bell | lit: bell, gate, hall, lane, shrine, well | feeds: feed 10/10 | blown: - | faults: dead_xg | parts: - | prompt: - | cues: repair:bulb@0.000
+complete: true
+actions: 9, elapsed: 8.000 s
+relight lamps: lane@1.332, bell@2.272, shrine@2.433, gate@2.497, well@2.601, hall@2.650
+relight duration: 3.250
+relight cues: relight:bed@0.000, relight:chime:0@1.332, relight:chime:1@2.272, relight:chime:2@2.433, relight:chime:3@2.497, relight:chime:4@2.601, relight:close@2.601
+locked: ignored 11 clicks and undo; no events; lit, breakers, switches, parts and faults unchanged

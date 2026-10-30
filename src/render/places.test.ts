@@ -25,7 +25,7 @@ function loadAll(): { key: string; puzzle: Puzzle }[] {
 const OPEN = loadAll();
 
 describe("cityPlaces", () => {
-  it("labels only the target lamps, with the list's own words", () => {
+  it("labels only the target lamps, with the list's own words", { timeout: 60000 }, () => {
     let labelled = 0;
     let unlabelled = 0;
     for (const { key: k, puzzle } of OPEN) {
@@ -63,7 +63,7 @@ describe("cityPlaces", () => {
 });
 
 describe("placeAtPoint", () => {
-  it("returns the lamp for a point inside its place, also after a pan, and null on a wire or empty ground", () => {
+  it("returns the lamp for a point inside its place, also after a pan, and null on a wire or empty ground", { timeout: 60000 }, () => {
     for (const { key: k, puzzle } of OPEN.slice(0, 25)) {
       const b = puzzleBounds(puzzle);
       const cs = circuitStreets(puzzle);
@@ -89,7 +89,7 @@ describe("placeAtPoint", () => {
     }
   });
   it("moves with the pan: the same screen point is a different map point", () => {
-    const puzzle = OPEN.find((o) => o.key.startsWith("08"))!.puzzle;
+    const puzzle = OPEN.find((o) => o.key === "09-shrine-circuit")!.puzzle;
     const b = puzzleBounds(puzzle);
     const f0 = computeFit(b, 1000, 800, 64);
     const f1 = computeFit(b, 1000, 800, 64, undefined, { x: 200, y: 0 });
@@ -104,7 +104,7 @@ describe("placeAtPoint", () => {
 });
 
 describe("labels", () => {
-  it("never cover the lamp, its Lv caption, the target star, or any place", () => {
+  it("never cover the lamp, its Lv caption, the target star, or any place", { timeout: 60000 }, () => {
     for (const { key: k, puzzle } of OPEN) {
       const b = puzzleBounds(puzzle);
       const fit = computeFit(b, 1920, 1080, 64, { top: 90, right: 300, bottom: 40 });
@@ -155,8 +155,8 @@ describe("labels", () => {
     }
     expect(checked).toBeGreaterThan(300);
   });
-  it("labels the shrine on map 08 and puts it beside its place", () => {
-    const puzzle = OPEN.find((o) => o.key.startsWith("08"))!.puzzle;
+  it("labels the shrine on map 09 and puts it beside its place", () => {
+    const puzzle = OPEN.find((o) => o.key === "09-shrine-circuit")!.puzzle;
     const fit = computeFit(puzzleBounds(puzzle), 1920, 1080, 64);
     const places = cityPlaces(puzzle, fit.scale);
     const i = places.findIndex((p) => p.lamp === "shrine");

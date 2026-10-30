@@ -1,0 +1,20 @@
+# 35-cell-light | script 5 clicks | README min 5
+start | lit: yard | feeds: feed 1/2 | blown: - | faults: f_n2 | parts: fuse, fuse, wire | batteries: cell 0.00/5 charging | prompt: - | cues: -
+1 wait:0.5 | lit: yard | feeds: feed 1/2 | blown: - | faults: f_n2 | parts: fuse, fuse, wire | batteries: cell 0.50/5 charging | prompt: - | cues: -
+2 wait:0.5 | lit: yard | feeds: feed 1/2 | blown: - | faults: f_n2 | parts: fuse, fuse, wire | batteries: cell 1.00/5 charging | prompt: - | cues: -
+3 wait:0.5 | lit: yard | feeds: feed 1/2 | blown: - | faults: f_n2 | parts: fuse, fuse, wire | batteries: cell 1.50/5 charging | prompt: - | cues: -
+4 wait:0.5 | lit: yard | feeds: feed 1/2 | blown: - | faults: f_n2 | parts: fuse, fuse, wire | batteries: cell 2.00/5 charging | prompt: - | cues: -
+5 wait:0.5 | lit: yard | feeds: feed 1/2 | blown: - | faults: f_n2 | parts: fuse, fuse, wire | batteries: cell 2.50/5 charging | prompt: - | cues: -
+6 wait:0.5 | lit: yard | feeds: feed 1/2 | blown: - | faults: f_n2 | parts: fuse, fuse, wire | batteries: cell 3.00/5 charging | prompt: - | cues: -
+7 wait:0.5 | lit: yard | feeds: feed 1/2 | blown: - | faults: f_n2 | parts: fuse, fuse, wire | batteries: cell 3.50/5 charging | prompt: - | cues: -
+8 cell | lit: yard | feeds: feed 1/2 | blown: - | faults: f_cS, f_n2, f_n3 | parts: fuse, fuse, wire | batteries: cell 2.50/5 released | prompt: Running: 3 s left — Stop | cues: battery:released@0.000, battery:whine:cell@0.250
+9 repair:l_cS | lit: bakery, kiln, yard | feeds: feed 1/2 | blown: - | faults: f_n2, f_n3 | parts: fuse, fuse | batteries: cell 1.50/5 released | prompt: - | cues: repair:wire@0.000
+10 rS2 | lit: bakery, yard | feeds: feed 1/2 | blown: - | faults: f_n2, f_n3 | parts: fuse, fuse | batteries: cell 0.50/5 released | prompt: Throw switch | cues: switch:thrown@0.000
+11 rS1 | lit: yard | feeds: feed 1/2 | blown: - | faults: f_n2 | parts: fuse, fuse | batteries: cell 0.50/5 charging | prompt: No power — relay stuck | cues: switch:thrown@0.000, battery:flat:ranout@0.000
+12 sw_W | lit: shrine, yard | feeds: feed 2/2 | blown: - | faults: - | parts: fuse, fuse | batteries: cell 0.50/5 charging | prompt: - | cues: switch:thrown@0.000
+complete: true
+actions: 4, elapsed: 7.500 s
+relight lamps: yard@0.600, shrine@2.650
+relight duration: 3.250
+relight cues: relight:bed@0.000, relight:chime:0@0.600, relight:chime:1@2.650, relight:close@2.650
+locked: ignored 8 clicks and undo; no events; lit, breakers, switches, parts and faults unchanged

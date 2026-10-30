@@ -2,11 +2,12 @@
 // No game rules here: each layer owns its own. Picking another map rebuilds the stack.
 import { EventBus, puzzleFeeds, type Puzzle } from "./core";
 import { createGrid, type Grid, type GridState } from "./grid";
-import { createMapRenderer, planRelight, type MapPanView, type MapPlaces, type MapRenderer } from "./render";
-import { attachPan, createMapPlay, type LogEntry, type MapPlay } from "./play";
+import { createMapRenderer, planRelight, type MapBlockers, type MapPanView, type MapPlaces, type MapRenderer } from "./render";
+import { attachPan, createMapPlay, type MapPlay } from "./play";
 import { createAudio } from "./audio";
 import { mountUI, restoreAudio, type UI } from "./ui";
 import { brownoutNotices, nextMap, noticeFor, placeHighlight, splashDue } from "./ui/logic";
+import { measureBlockers } from "./ui/blockers";
 import { collectMaps, type MapEntry } from "./ui/maps";
 
 const files = import.meta.glob("../puzzles/**/*.json", { eager: true, import: "default" }) as Record<string, unknown>;
@@ -42,12 +43,18 @@ function hudTopInset(): number {
   return Math.max(0, Math.ceil(bottom - canvasTop + 8));
 }
 
-/** Bottom inset for the map fit (ticket 021): the parts panel's height, its 14 px from the bottom edge, and 8 px of margin. 0 before the panel exists. */
-function inventoryBottomInset(): number {
-  const inventory = (uiRoot as HTMLElement).querySelector<HTMLElement>(".inventory");
-  if (!inventory) return 0;
+/**
+ * Bottom inset for the map fit (tickets 021, 030): the larger of the bottom-corner panels' reserves, the parts panel
+ * (bottom left) and the sound dock (bottom right). Each reserves its distance from the canvas bottom to its top, plus 8 px. 0 before any exists.
+ */
+function bottomInset(): number {
   const canvasBottom = (canvas as HTMLCanvasElement).getBoundingClientRect().bottom;
-  return Math.max(0, Math.ceil(canvasBottom - inventory.getBoundingClientRect().top + 8));
+  let reserve = 0;
+  for (const selector of [".inventory", ".sound-dock"]) {
+    const panel = (uiRoot as HTMLElement).querySelector<HTMLElement>(selector);
+    if (panel) reserve = Math.max(reserve, canvasBottom - panel.getBoundingClientRect().top + 8);
+  }
+  return Math.max(0, Math.ceil(reserve));
 }
 
 if (entries.length === 0) {
@@ -58,7 +65,7 @@ if (entries.length === 0) {
 
   interface Session {
     grid: Grid;
-    renderer: MapRenderer & MapPanView & MapPlaces;
+    renderer: MapRenderer & MapPanView & MapPlaces & MapBlockers;
     play: MapPlay;
     ui: UI;
     puzzle: Puzzle;
@@ -94,7 +101,7 @@ if (entries.length === 0) {
     const grid = createGrid(entry.puzzle, bus);
     const detachAudio = audio.attach(bus);
     const renderer = createMapRenderer(canvas as HTMLCanvasElement, entry.puzzle, {
-      insets: { top: hudTopInset(), bottom: inventoryBottomInset() },
+      insets: { top: hudTopInset(), bottom: bottomInset() },
     });
     const play = createMapPlay(entry.puzzle, grid, renderer, bus);
     const detachPlay = play.attach(canvas as HTMLCanvasElement);
@@ -129,13 +136,17 @@ if (entries.length === 0) {
       feeds,
       audio,
       onHighlight: (lampId) => setHighlight(lampId),
+      // A "Priests want lit" entry was clicked or Entered (ticket 027 C): bring that lamp to the centre.
+      onShow: (lampId) => {
+        renderer.centreOn(lampId);
+      },
       onPick: (next) => {
         history.replaceState(null, "", urlFor(next));
         open(next);
       },
     });
     // The HUD and the parts panel exist only after mountUI, so measure again now that they are in place.
-    renderer.setInsets({ top: hudTopInset(), bottom: inventoryBottomInset() });
+    renderer.setInsets({ top: hudTopInset(), bottom: bottomInset() });
 
     // Event notices: the bus says what broke; a refused relay throw has no event, so it is read from the
     // play log after each click (the play layer's own click listener, attached above, runs first).
@@ -144,7 +155,7 @@ if (entries.length === 0) {
       // Reset re-measures the HUD and re-centres the view (ticket 022). Undo does not.
       bus.on("play:click", (e) => {
         if (e.kind !== "reset") return;
-        renderer.setInsets({ top: hudTopInset(), bottom: inventoryBottomInset() });
+        renderer.setInsets({ top: hudTopInset(), bottom: bottomInset() });
         renderer.resetView();
       }),
       bus.on("fuse:blown", (payload) => renderer.notify({ type: "fuse:blown", payload })),
@@ -168,8 +179,7 @@ if (entries.length === 0) {
     ];
     let seenStep = 0;
     const onPanelClick = (): void => {
-      const { entries } = JSON.parse(play.exportLog()) as { entries: LogEntry[] };
-      const last = entries[entries.length - 1];
+      const last = play.lastEntry();
       if (!last || last.step <= seenStep) return;
       seenStep = last.step;
       const text = noticeFor({ kind: "relay-refused", entry: last, relays });
@@ -225,7 +235,7 @@ if (entries.length === 0) {
 
   window.addEventListener("resize", () => {
     if (!session) return;
-    session.renderer.setInsets({ top: hudTopInset(), bottom: inventoryBottomInset() });
+    session.renderer.setInsets({ top: hudTopInset(), bottom: bottomInset() });
     session.renderer.resize();
     session.renderer.resetView();
   });
@@ -252,9 +262,8 @@ if (entries.length === 0) {
       if (!s.winShown && splashDue(view.relightT, s.relightDuration)) {
         s.winShown = true;
         showWin(s, view.elapsed, state.actions);
-        audio.levelDone();
       }
-      audio.update(state, dt);
+      audio.update(state, dt, now / 1000);
       const overlay: { hover?: string | null; relightT?: number; highlight?: string | null } = {
         hover: view.hover,
         highlight: s.highlight(),
@@ -262,10 +271,11 @@ if (entries.length === 0) {
       if (view.relightT !== null) overlay.relightT = view.relightT;
       s.renderer.draw(state, overlay, now / 1000);
       s.ui.update();
+      s.renderer.setBlockers(measureBlockers(uiRoot as HTMLElement, canvas as HTMLCanvasElement));
       // The HUD is filled by the first ui.update(), so measure the insets and centre the map once, now.
       if (!s.centred) {
         s.centred = true;
-        s.renderer.setInsets({ top: hudTopInset(), bottom: inventoryBottomInset() });
+        s.renderer.setInsets({ top: hudTopInset(), bottom: bottomInset() });
         s.renderer.resetView();
       }
     }

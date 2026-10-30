@@ -6,8 +6,12 @@ import { makeNoiseBuffer, noiseOffset } from "./noise";
 import {
   CRACKLE_DB,
   FLICKER_ATTACK,
+  FLICKER_HZ,
   FLICKER_RELEASE,
+  beatThump,
+  HUM_HZ,
   LAYER_RAMP,
+  WHINE_LOW_HZ,
   crackleTick,
   dbToGain,
   envelope,
@@ -36,8 +40,6 @@ interface Handle {
   nodes: NodeLike[];
   sources: SourceLike[];
   gain: GainNodeLike;
-  /** Survives stopAll (the level-done cue rings out across a detach). */
-  keep?: boolean;
 }
 
 function ramp(p: ParamLike, to: number, now: number, seconds: number): void {
@@ -56,6 +58,7 @@ export class Player {
   private readonly whineGain: GainNodeLike;
   private readonly whineOsc: OscLike;
   private readonly flickerGain: GainNodeLike;
+  private readonly thump: Voice[] = beatThump();
   private target = { hum: -1, whine: -1, flicker: -1, whineHz: -1, duck: 1 };
 
   constructor(private readonly ctx: AudioContextLike, muted: boolean, volume: number) {
@@ -75,7 +78,7 @@ export class Player {
     this.duck.gain.value = 1;
     this.duck.connect(this.master);
 
-    // Hum: sine 50 + triangle 100 through a lowpass.
+    // Hum: sine A1 + triangle A2 (HUM_HZ) through a lowpass.
     const lp = ctx.createBiquadFilter();
     lp.type = "lowpass";
     lp.frequency.value = 300;
@@ -83,7 +86,7 @@ export class Player {
     this.humGain.gain.value = 0;
     lp.connect(this.humGain);
     this.humGain.connect(this.duck);
-    for (const [wave, f] of [["sine", 50], ["triangle", 100]] as const) {
+    for (const [wave, f] of [["sine", HUM_HZ[0]], ["triangle", HUM_HZ[1]]] as const) {
       const o = ctx.createOscillator();
       o.type = wave;
       o.frequency.value = f;
@@ -94,17 +97,17 @@ export class Player {
     // Charge whine.
     this.whineOsc = ctx.createOscillator();
     this.whineOsc.type = "sine";
-    this.whineOsc.frequency.value = 600;
+    this.whineOsc.frequency.value = WHINE_LOW_HZ;
     this.whineGain = ctx.createGain();
     this.whineGain.gain.value = 0;
     this.whineOsc.connect(this.whineGain);
     this.whineGain.connect(this.duck);
     this.whineOsc.start();
 
-    // Flicker: sawtooth 100 -> bandpass 1.2 kHz -> tremolo (LFO 11 Hz, depth 0.6) -> envelope.
+    // Flicker: sawtooth FLICKER_HZ -> bandpass 1.2 kHz -> tremolo (LFO 11 Hz, depth 0.6) -> envelope.
     const saw = ctx.createOscillator();
     saw.type = "sawtooth";
-    saw.frequency.value = 100;
+    saw.frequency.value = FLICKER_HZ;
     const bp = ctx.createBiquadFilter();
     bp.type = "bandpass";
     bp.frequency.value = 1200;
@@ -137,7 +140,7 @@ export class Player {
     const t0 = base + cue.at;
     if (cue.stop) this.stopHeld(cue.stop.key, cue.stop.fade, cue.stop.freqTo, t0);
     if (cue.hold) this.startHeld(cue.hold.key, cue.hold.voice, t0);
-    for (const v of cue.voices) this.voice(v, t0 + v.at, cue.group === "level");
+    for (const v of cue.voices) this.voice(v, t0 + v.at);
   }
 
   /** Schedule crackle ticks at absolute times. */
@@ -145,6 +148,14 @@ export class Player {
     const v = crackleTick()[0];
     if (!v) return;
     for (const t of times) this.voice({ ...v, gainDb: CRACKLE_DB }, t);
+  }
+
+  /**
+   * Schedule beat thumps at absolute context times. They go into the duck (so a duck, mute and volume apply like the hum)
+   * and are layer voices: outside the mixer, so never counted against the voice budget. Every node ends and is disconnected.
+   */
+  beat(times: readonly number[]): void {
+    for (const t of times) for (const v of this.thump) this.voice(v, t, this.duck);
   }
 
   setLayers(l: Layers, duckDb: number): void {
@@ -177,10 +188,10 @@ export class Player {
   /** Silence this map's sounds: stop every voice and zero the continuous layers. */
   stopAll(): void {
     const now = this.ctx.currentTime;
-    for (const h of [...this.active]) if (!h.keep) this.kill(h, now);
+    for (const h of [...this.active]) this.kill(h, now);
     this.held.clear();
     this.setLayers(
-      { hum: 0, flicker: 0, whineOn: false, whineHz: 600, whine: 0, crackleOn: false, fullTick: false, next: { full: new Set(), seen: false } },
+      { hum: 0, flicker: 0, beatOn: false, whineOn: false, whineHz: WHINE_LOW_HZ, whine: 0, crackleOn: false, fullTick: false, next: { full: new Set(), seen: false } },
       0,
     );
   }
@@ -195,7 +206,7 @@ export class Player {
     }
   }
 
-  private build(v: Voice, t: number): { h: Handle; src: SourceLike; osc: OscLike | null } {
+  private build(v: Voice, t: number, dest: GainNodeLike = this.master): { h: Handle; src: SourceLike; osc: OscLike | null } {
     const ctx = this.ctx;
     const nodes: NodeLike[] = [];
     let osc: OscLike | null = null;
@@ -214,6 +225,7 @@ export class Player {
         if (v.glide === "linear") osc.frequency.linearRampToValueAtTime(v.freqTo, end);
         else osc.frequency.exponentialRampToValueAtTime(Math.max(MIN_HZ, v.freqTo), end);
       }
+      if (v.detuneCents !== undefined) osc.detune.setValueAtTime(v.detuneCents, t);
       src = osc;
     }
     nodes.push(src);
@@ -231,6 +243,36 @@ export class Player {
       tail = f;
     }
     const sources: SourceLike[] = [src];
+    if (v.formants && v.formants.length > 0) {
+      const sum = ctx.createGain();
+      sum.gain.value = 1;
+      for (const fm of v.formants) {
+        const bp = ctx.createBiquadFilter();
+        bp.type = "bandpass";
+        bp.Q.value = fm.q;
+        bp.frequency.setValueAtTime(Math.max(MIN_HZ, fm.freq), t);
+        const fg = ctx.createGain();
+        fg.gain.value = dbToGain(fm.gainDb);
+        tail.connect(bp);
+        bp.connect(fg);
+        fg.connect(sum);
+        nodes.push(bp, fg);
+      }
+      nodes.push(sum);
+      tail = sum;
+    }
+    if (v.vibrato && osc) {
+      const vib = ctx.createOscillator();
+      vib.type = "sine";
+      vib.frequency.value = v.vibrato.freq;
+      const vdepth = ctx.createGain();
+      vdepth.gain.value = v.vibrato.cents;
+      vib.connect(vdepth);
+      vdepth.connect(osc.detune);
+      vib.start(t);
+      nodes.push(vib, vdepth);
+      sources.push(vib);
+    }
     if (v.lfo) {
       const trem = ctx.createGain();
       trem.gain.value = 1 - v.lfo.depth / 2;
@@ -249,14 +291,13 @@ export class Player {
     }
     const gain = ctx.createGain();
     tail.connect(gain);
-    gain.connect(this.master);
+    gain.connect(dest);
     nodes.push(gain);
     return { h: { nodes, sources, gain }, src, osc };
   }
 
-  private voice(v: Voice, t: number, keep = false): void {
-    const { h, src } = this.build(v, t);
-    if (keep) h.keep = true;
+  private voice(v: Voice, t: number, dest: GainNodeLike = this.master): void {
+    const { h, src } = this.build(v, t, dest);
     const pts = envelope(v);
     const g = h.gain.gain;
     const first = pts[0];

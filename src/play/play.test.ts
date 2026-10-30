@@ -8,7 +8,7 @@ import { createMapPlay, NEEDS_FLASH_SECONDS } from "./index";
 import { promptFor, TEXT } from "./prompt";
 
 const shrine = (): Puzzle =>
-  loadPuzzle(JSON.parse(readFileSync(join(__dirname, "../../puzzles/08-shrine-circuit.json"), "utf8")) as unknown);
+  loadPuzzle(JSON.parse(readFileSync(join(__dirname, "../../puzzles/09-shrine-circuit.json"), "utf8")) as unknown);
 
 /** A renderer whose hitTest answers with whatever id the test last chose. */
 function fakeRenderer(): MapRenderer & { next: string | null; calls: Array<[number, number]> } {
@@ -121,7 +121,7 @@ describe("prompts", () => {
     expect(promptFor(p, st, "fb")).toBe("Lv5 Fuse — carrying 0 of 5");
   });
 
-  it("08-shrine-circuit: fb_A carries 3 of ≤3, so it is at the limit", () => {
+  it("09-shrine-circuit: fb_A carries 3 of ≤3, so it is at the limit", () => {
     const s = setup();
     expect(s.over("fb_A").prompt).toBe("Lv3 Fuse — at the limit");
   });
@@ -341,7 +341,7 @@ describe("session log", () => {
       puzzle: string;
       entries: Array<{ step: number; time: number; kind: string; target?: string; ok: boolean; reason?: string }>;
     };
-    expect(log.puzzle).toBe("08-shrine-circuit");
+    expect(log.puzzle).toBe("09-shrine-circuit");
     expect(log.entries.map((e) => e.kind)).toEqual([
       "repair-refused",
       "throw-switch",

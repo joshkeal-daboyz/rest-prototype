@@ -5,4 +5,5 @@ export * from "./state";
 export * from "./words";
 export * from "./timing";
 export * from "./audio";
+export * from "./check";
 export * from "./beat";

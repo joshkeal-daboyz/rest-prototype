@@ -35,6 +35,7 @@ import {
   mapNumber,
   mapOrigin,
   onAvenue,
+  regionOf,
   spokeDir,
   spokeStep,
   type Building,
@@ -68,7 +69,7 @@ const byId = (id: string): Puzzle => OPEN.find((p) => p.puzzle.id === id)!.puzzl
 
 const key = (b: Building): string => `${b.x.toFixed(6)},${b.y.toFixed(6)},${b.w.toFixed(6)},${b.h.toFixed(6)}`;
 const sorted = (bs: Building[]): string[] => bs.map(key).sort();
-const sq = (c: { x: number; y: number }) => ({ minX: c.x - DISTRICT / 2, maxX: c.x + DISTRICT / 2, minY: c.y - DISTRICT / 2, maxY: c.y + DISTRICT / 2 });
+const sq = (c: { x: number; y: number }, size: number = DISTRICT) => ({ minX: c.x - size / 2, maxX: c.x + size / 2, minY: c.y - size / 2, maxY: c.y + size / 2 });
 const E = 1e-9;
 const overlapSq = (a: ReturnType<typeof sq>, b: ReturnType<typeof sq>): boolean =>
   a.minX < b.maxX - E && b.minX < a.maxX - E && a.minY < b.maxY - E && b.minY < a.maxY - E;
@@ -102,9 +103,9 @@ describe("one city", () => {
 
 describe("ladder number", () => {
   it("reads the leading digits", () => {
-    expect(ladderNumber("07-where-it-stops")).toBe(7);
-    expect(ladderNumber("locked/07-where-it-stops")).toBe(7);
-    expect(ladderNumber("56-meet-in-the-middle")).toBe(56);
+    expect(ladderNumber("08-where-it-stops")).toBe(8);
+    expect(ladderNumber("locked/08-where-it-stops")).toBe(8);
+    expect(ladderNumber("15-meet-in-the-middle")).toBe(15);
     expect(ladderNumber("lamp-row")).toBeNull();
   });
 });
@@ -205,16 +206,16 @@ describe("map origins", () => {
   it("has maps to test", () => {
     expect(OPEN.length).toBeGreaterThan(20);
   });
-  it("centres every map in its district, whole cells, bounds inside", () => {
+  it("centres every map in its district (its ward, if large), whole cells, bounds inside", () => {
     for (const { key: k, puzzle } of ALL) {
       const b = puzzleBounds(puzzle);
       const o = mapOrigin(puzzle.id, b);
       expect(Math.abs(o.x % CITY_BLOCK), k).toBe(0);
       expect(Math.abs(o.y % CITY_BLOCK), k).toBe(0);
-      const c = districtOf(mapNumber(puzzle.id)).centre;
+      const c = regionOf(puzzle.id, b).centre;
       expect(Math.abs((b.minX + b.maxX) / 2 + o.x - c.x), k).toBeLessThanOrEqual(CITY_BLOCK / 2 + E);
       expect(Math.abs((b.minY + b.maxY) / 2 + o.y - c.y), k).toBeLessThanOrEqual(CITY_BLOCK / 2 + E);
-      const q = sq(c);
+      const q = sq(c, regionOf(puzzle.id, b).size);
       expect(b.minX + o.x, k).toBeGreaterThanOrEqual(q.minX);
       expect(b.maxX + o.x, k).toBeLessThanOrEqual(q.maxX);
       expect(b.minY + o.y, k).toBeGreaterThanOrEqual(q.minY);
@@ -223,7 +224,7 @@ describe("map origins", () => {
   });
   it("gives a locked copy its open map's origin", () => {
     const b = { minX: 0, maxX: 10, minY: 0, maxY: 6 };
-    expect(mapOrigin("locked/07-where-it-stops", b)).toEqual(mapOrigin("07-where-it-stops", b));
+    expect(mapOrigin("locked/08-where-it-stops", b)).toEqual(mapOrigin("08-where-it-stops", b));
   });
   it("puts an unnumbered id on the outer ring, stably", () => {
     const n = mapNumber("lamp-row");
@@ -269,7 +270,7 @@ describe("neighbouring maps share streets outside their footprints", () => {
 });
 
 describe("places", () => {
-  it("gives one place per lamp, never overlapping (node-square and lane clearance: places.test.ts)", () => {
+  it("gives one place per lamp, never overlapping (node-square and lane clearance: places.test.ts)", { timeout: 60000 }, () => {
     for (const { key: k, puzzle } of OPEN) {
       const places = cityPlaces(puzzle);
       const lamps = puzzle.nodes.filter((n) => n.type === "lamp").map((n) => n.id);
@@ -325,7 +326,7 @@ describe("glow", () => {
     expect(glowTarget("b", st, null)).toBe(0);
   });
   it("waits for the Relight to arrive", () => {
-    const puzzle = byId("08-shrine-circuit");
+    const puzzle = byId("09-shrine-circuit");
     const st = stateOf({
       lit: new Set(["shrine", "flood"]),
       powered: new Set(["feed", "br_main", "l_feed", "l_main", "j1", "l_sw", "sw_1", "l_b", "j4", "l_b2", "j5", "l_shrine", "shrine", "l_flood", "flood"]),

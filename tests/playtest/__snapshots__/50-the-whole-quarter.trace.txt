@@ -1,0 +1,18 @@
+# 50-the-whole-quarter | script 10 clicks | README min 10
+start | lit: - | feeds: feed 0/6 | blown: fb_E | faults: fuse_E | parts: bulb, fuse, fuse, wire, wire | prompt: - | cues: -
+1 br_cot | lit: - | feeds: feed 0/6 | blown: fb_E | faults: fuse_E | parts: bulb, fuse, fuse, wire, wire | prompt: Throw breaker | cues: breaker:thrown@0.000
+2 br_W | lit: shrine, well | feeds: feed 3/6 | blown: fb_E | faults: cut_BC, fuse_E | parts: bulb, fuse, fuse, wire, wire | prompt: Throw breaker | cues: breaker:thrown@0.000
+3 br_smith | lit: shrine, well | feeds: feed 3/6 | blown: fb_E | faults: cut_BC, fuse_E | parts: bulb, fuse, fuse, wire, wire | prompt: Throw breaker | cues: breaker:thrown@0.000
+4 br_mill | lit: shrine, well | feeds: feed 3/6 | blown: fb_E | faults: cut_BC, fuse_E | parts: bulb, fuse, fuse, wire, wire | prompt: Throw breaker | cues: breaker:thrown@0.000
+5 repair:fb_E | lit: bakery, shrine, well | feeds: feed 4/6 | blown: - | faults: cut_BC | parts: bulb, fuse, wire, wire | prompt: Lv3 Fuse — carrying 1 of 3 | cues: repair:fuse@0.000
+6 rl_1 | lit: shrine, tannery, well | feeds: feed 4/6 | blown: - | faults: cut_BC | parts: bulb, fuse, wire, wire | prompt: Throw switch | cues: switch:thrown@0.000
+7 rl_2 | lit: shrine, tower, well | feeds: feed 4/6 | blown: - | faults: cut_BC | parts: bulb, fuse, wire, wire | prompt: Throw switch | cues: switch:thrown@0.000
+8 rl_3 | lit: shrine, well | feeds: feed 3/6 | blown: - | faults: cut_BC, dead_e | parts: bulb, fuse, wire, wire | prompt: Throw switch | cues: switch:thrown@0.000
+9 repair:j_e | lit: gate, shrine, well | feeds: feed 4/6 | blown: - | faults: cut_BC, dark_bell | parts: bulb, fuse | prompt: - | cues: repair:wire@0.000
+10 repair:bell | lit: bell, gate, shrine, well | feeds: feed 6/6 | blown: - | faults: cut_BC | parts: fuse | prompt: - | cues: repair:bulb@0.000
+complete: true
+actions: 10, elapsed: 9.000 s
+relight lamps: shrine@1.605, well@2.069, gate@2.208, bell@2.650
+relight duration: 3.250
+relight cues: relight:bed@0.000, relight:chime:0@1.605, relight:chime:1@2.069, relight:chime:2@2.208, relight:chime:3@2.650, relight:close@2.650
+locked: ignored 11 clicks and undo; no events; lit, breakers, switches, parts and faults unchanged

@@ -1,0 +1,46 @@
+{
+  "id": "05-two-feeds",
+  "name": "05 · Two feeds",
+  "version": 5,
+  "scope": "map",
+  "capacity": null,
+  "startingParts": [],
+  "target": ["shrine", "inn", "bakery", "well"],
+  "priority": ["lane"],
+
+  "nodes": [
+    { "id": "north",  "type": "feed",     "pos": [0, 0],  "capacity": 3, "name": "North" },
+    { "id": "south",  "type": "feed",     "pos": [0, 10], "capacity": 4, "name": "South" },
+
+    { "id": "j_n",    "type": "junction", "pos": [4, 0] },
+    { "id": "inn",    "type": "lamp",     "pos": [4, -3], "load": 2 },
+    { "id": "bakery", "type": "lamp",     "pos": [8, 0],  "load": 1 },
+    { "id": "br_n",   "type": "breaker",  "pos": [7, 3],  "closed": false },
+    { "id": "j_sh",   "type": "junction", "pos": [12, 5] },
+    { "id": "shrine", "type": "lamp",     "pos": [15, 5], "load": 2 },
+
+    { "id": "j_s",    "type": "junction", "pos": [4, 10] },
+    { "id": "well",   "type": "lamp",     "pos": [4, 13], "load": 1 },
+    { "id": "sw_s",   "type": "switch",   "pos": [8, 10], "outputs": ["l_lane", "l_up"], "selected": 0 },
+    { "id": "lane",   "type": "lamp",     "pos": [11, 12.5], "load": 1 },
+    { "id": "j_u",    "type": "junction", "pos": [12, 8] }
+  ],
+
+  "lines": [
+    { "id": "l_n",      "from": "north", "to": "j_n" },
+    { "id": "l_inn",    "from": "j_n",   "to": "inn" },
+    { "id": "l_bakery", "from": "j_n",   "to": "bakery" },
+    { "id": "l_n_br",   "from": "j_n",   "to": "br_n" },
+    { "id": "l_br_sh",  "from": "br_n",  "to": "j_sh" },
+    { "id": "l_shrine", "from": "j_sh",  "to": "shrine" },
+
+    { "id": "l_s",      "from": "south", "to": "j_s" },
+    { "id": "l_well",   "from": "j_s",   "to": "well" },
+    { "id": "l_s_sw",   "from": "j_s",   "to": "sw_s" },
+    { "id": "l_lane",   "from": "sw_s",  "to": "lane" },
+    { "id": "l_up",     "from": "sw_s",  "to": "j_u" },
+    { "id": "l_u_sh",   "from": "j_u",   "to": "j_sh" }
+  ],
+
+  "faults": []
+}

@@ -1,8 +1,9 @@
 /** The SoundEngine: gesture unlock, event subscriptions, and the glue between the pure core and the Player. */
 import { DEFAULT_AUDIO_PREFS } from "../core";
 import type { EventBus, EventName, Events, SoundEngine, SoundView } from "../core";
-import { CueTracker, LevelDoneGate, fullTickCue, levelDoneCue, relightCues } from "./cues";
-import { Crackle, initialLayerState, layersFor } from "./layers";
+import { CueTracker, fullTickCue, relightCues } from "./cues";
+import { BEAT } from "../core";
+import { BeatScheduler, Crackle, initialLayerState, layersFor } from "./layers";
 import type { LayerState } from "./layers";
 import { Mixer } from "./mixer";
 import { Player } from "./shell";
@@ -17,6 +18,8 @@ export interface EngineOptions {
 
 const GESTURES = ["pointerdown", "keydown"] as const;
 const CRACKLE_HORIZON = 0.1;
+/** How far ahead (seconds) beats are scheduled each frame. Short, so a beat never outlives its power by more than a blink. */
+const BEAT_HORIZON = 0.1;
 
 const SUBSCRIBED: readonly EventName[] = [
   "switch:thrown",
@@ -56,7 +59,7 @@ export function createEngine(opts: EngineOptions = {}): SoundEngine {
   const mixer = new Mixer();
   const tracker = new CueTracker();
   const crackle = new Crackle();
-  const gate = new LevelDoneGate();
+  const beats = new BeatScheduler();
   let layerState: LayerState = initialLayerState();
   let lastView: SoundView | null = null;
   const detachers = new Set<() => void>();
@@ -145,7 +148,7 @@ export function createEngine(opts: EngineOptions = {}): SoundEngine {
   }
 
   // ---- layers ----
-  const applyLayers = (view: SoundView): void => {
+  const applyLayers = (view: SoundView, timeSeconds?: number): void => {
     const l = layersFor(view, layerState);
     layerState = l.next;
     if (!ready() || !ctx || !player) return;
@@ -155,13 +158,20 @@ export function createEngine(opts: EngineOptions = {}): SoundEngine {
     else run([]); // lets a pending spark burst out
     const times = crackle.collect(now, CRACKLE_HORIZON, l.crackleOn);
     if (times.length) player.crackle(times);
+    // The beat: scheduled from the shared clock at the frame time main.ts also gave the renderer. No time, no beat.
+    if (timeSeconds === undefined || !Number.isFinite(timeSeconds)) {
+      beats.reset();
+    } else {
+      const due = beats.collect(BEAT, timeSeconds, BEAT_HORIZON, l.beatOn);
+      if (due.length) player.beat(due.map((b) => now + (b - timeSeconds)));
+    }
   };
 
   const silence = (): void => {
     mixer.reset();
     tracker.reset();
     crackle.reset();
-    gate.reset();
+    beats.reset();
     layerState = initialLayerState();
     guard("silence", () => player?.stopAll());
   };
@@ -196,7 +206,6 @@ export function createEngine(opts: EngineOptions = {}): SoundEngine {
           );
         }
       });
-      gate.reset();
       let done = false;
       const detach = (): void => {
         if (done) return;
@@ -208,21 +217,14 @@ export function createEngine(opts: EngineOptions = {}): SoundEngine {
       detachers.add(detach);
       return detach;
     },
-    update(view: SoundView) {
+    update(view: SoundView, _dtSeconds?: number, timeSeconds?: number) {
       guard("update", () => {
         lastView = view;
-        gate.see(view.complete);
-        applyLayers(view);
+        applyLayers(view, timeSeconds);
       });
     },
     relight(igniteAt: readonly number[], durationSeconds: number) {
       guard("relight", () => run(relightCues(igniteAt, durationSeconds)));
-    },
-    levelDone() {
-      guard("level:done", () => {
-        // The gate is used even when nothing can sound (before unlock, muted): a win never replays.
-        if (gate.take()) run([levelDoneCue()]);
-      });
     },
   };
   return engine;

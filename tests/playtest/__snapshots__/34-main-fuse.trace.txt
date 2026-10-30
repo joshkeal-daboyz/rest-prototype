@@ -1,0 +1,14 @@
+# 34-main-fuse | script 6 clicks | README min 6
+start | lit: gate, hall, lane | feeds: feed 4/7 | blown: - | faults: - | parts: fuse | prompt: - | cues: -
+1 sw_x | lit: hall, lane, well | feeds: feed 3/7 | blown: - | faults: - | parts: fuse | prompt: Throw switch | cues: switch:thrown@0.000
+2 br_lane | lit: hall, well | feeds: feed 2/7 | blown: - | faults: - | parts: fuse | prompt: Throw breaker | cues: breaker:thrown@0.000
+3 sw_y | lit: shrine, well | feeds: feed 4/7 | blown: - | faults: - | parts: fuse | prompt: Throw switch | cues: switch:thrown@0.000
+4 br_z | lit: shrine, well | feeds: feed 4/7 | blown: - | faults: - | parts: fuse | prompt: Throw breaker | cues: breaker:thrown@0.000
+5 sw_z1 | lit: gate, shrine, well | feeds: feed 6/7 | blown: - | faults: - | parts: fuse | prompt: Throw switch | cues: switch:thrown@0.000
+6 sw_z2 | lit: gate, hall, shrine, well | feeds: feed 7/7 | blown: - | faults: - | parts: fuse | prompt: - | cues: switch:thrown@0.000
+complete: true
+actions: 6, elapsed: 5.000 s
+relight lamps: shrine@2.122, well@2.127, hall@2.223, gate@2.650
+relight duration: 3.250
+relight cues: relight:bed@0.000, relight:chime:0@2.122, relight:chime:1@2.223, relight:chime:2@2.650, relight:close@2.650
+locked: ignored 6 clicks and undo; no events; lit, breakers, switches, parts and faults unchanged
