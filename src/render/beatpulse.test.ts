@@ -62,7 +62,7 @@ describe("beatPulsePhase follows the shared clock", () => {
 });
 
 // ---- the draw uses it: fake canvas ----
-const puzzle = loadPuzzle(JSON.parse(readFileSync(join(__dirname, "..", "..", "puzzles", "08-shrine-circuit.json"), "utf8")));
+const puzzle = loadPuzzle(JSON.parse(readFileSync(join(__dirname, "..", "..", "puzzles", "09-shrine-circuit.json"), "utf8")));
 
 function liveState(): GridState {
   return {
