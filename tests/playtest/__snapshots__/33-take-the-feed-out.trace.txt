@@ -1,0 +1,18 @@
+# 33-take-the-feed-out | script 7 clicks | README min 7
+start | lit: bakery | feeds: feed 1/2 | blown: - | faults: - | parts: fuse, fuse | batteries: bat 0.00/3 charging | prompt: - | cues: -
+1 wait:0.5 | lit: bakery | feeds: feed 1/2 | blown: - | faults: - | parts: fuse, fuse | batteries: bat 0.50/3 charging | prompt: - | cues: -
+2 wait:0.5 | lit: bakery | feeds: feed 1/2 | blown: - | faults: - | parts: fuse, fuse | batteries: bat 1.00/3 charging | prompt: - | cues: -
+3 wait:0.5 | lit: bakery | feeds: feed 1/2 | blown: - | faults: - | parts: fuse, fuse | batteries: bat 1.50/3 charging | prompt: - | cues: -
+4 br_E | lit: bakery, tower | feeds: feed 2/2 | blown: - | faults: - | parts: fuse, fuse | batteries: bat 2.50/3 charging | prompt: Throw breaker | cues: breaker:thrown@0.000
+5 br_F | lit: - | feeds: feed 0/2 | blown: - | faults: - | parts: fuse, fuse | batteries: bat 2.50/3 idle | prompt: Throw breaker | cues: breaker:thrown@0.000
+6 sw_P | lit: - | feeds: feed 0/2 | blown: - | faults: - | parts: fuse, fuse | batteries: bat 2.50/3 idle | prompt: Throw switch | cues: switch:thrown@0.000
+7 bat | lit: bakery, mill | feeds: feed 0/2 | blown: - | faults: - | parts: fuse, fuse | batteries: bat 1.50/3 released | prompt: Running: 2 s left — Stop | cues: battery:released@0.000, battery:whine:bat@0.250
+8 rl1 | lit: bakery, forge | feeds: feed 0/2 | blown: - | faults: - | parts: fuse, fuse | batteries: bat 0.50/3 released | prompt: Throw switch | cues: switch:thrown@0.000
+9 rl2 | lit: - | feeds: feed 0/2 | blown: - | faults: - | parts: fuse, fuse | batteries: bat 0.00/3 idle | prompt: No power — relay stuck | cues: switch:thrown@0.000, battery:flat:ranout@0.000
+10 br_F | lit: bakery, shrine | feeds: feed 2/2 | blown: - | faults: - | parts: fuse, fuse | batteries: bat 0.00/3 charging | prompt: - | cues: breaker:thrown@0.000
+complete: true
+actions: 6, elapsed: 7.500 s
+relight lamps: bakery@1.107, shrine@2.650
+relight duration: 3.250
+relight cues: relight:bed@0.000, relight:chime:0@1.107, relight:chime:1@2.650, relight:close@2.650
+locked: ignored 6 clicks and undo; no events; lit, breakers, switches, parts and faults unchanged

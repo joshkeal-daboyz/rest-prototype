@@ -1,0 +1,15 @@
+# 36-set-it-dark | script 7 clicks | README min 7
+start | lit: ovens | feeds: feed 2/5 | blown: - | faults: f_feedB | parts: bulb, fuse, wire | prompt: - | cues: -
+1 s_A2 | lit: ovens | feeds: feed 2/5 | blown: - | faults: f_feedB | parts: bulb, fuse, wire | prompt: Throw switch | cues: switch:thrown@0.000
+2 s_A | lit: shrine, well | feeds: feed 3/5 | blown: - | faults: f_feedB | parts: bulb, fuse, wire | prompt: Throw switch | cues: switch:thrown@0.000
+3 br_B | lit: shrine, well | feeds: feed 3/5 | blown: - | faults: f_feedB | parts: bulb, fuse, wire | prompt: Throw breaker | cues: breaker:thrown@0.000
+4 s_B | lit: shrine, well | feeds: feed 3/5 | blown: - | faults: f_feedB | parts: bulb, fuse, wire | prompt: Throw switch | cues: switch:thrown@0.000
+5 s_B2 | lit: shrine, well | feeds: feed 3/5 | blown: - | faults: f_feedB | parts: bulb, fuse, wire | prompt: Throw switch | cues: switch:thrown@0.000
+6 repair:l_B0b | lit: gate, shrine, well | feeds: feed 4/5 | blown: - | faults: f_chapel | parts: bulb, fuse | prompt: - | cues: repair:wire@0.000
+7 repair:chapel | lit: chapel, gate, shrine, well | feeds: feed 5/5 | blown: - | faults: - | parts: fuse | prompt: - | cues: repair:bulb@0.000
+complete: true
+actions: 7, elapsed: 6.000 s
+relight lamps: well@1.936, chapel@2.347, shrine@2.356, gate@2.650
+relight duration: 3.250
+relight cues: relight:bed@0.000, relight:chime:0@1.936, relight:chime:1@2.347, relight:chime:2@2.650, relight:close@2.650
+locked: ignored 7 clicks and undo; no events; lit, breakers, switches, parts and faults unchanged

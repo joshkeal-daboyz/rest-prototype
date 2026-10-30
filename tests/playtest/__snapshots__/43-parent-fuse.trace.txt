@@ -1,0 +1,16 @@
+# 43-parent-fuse | script 8 clicks | README min 8
+start | lit: forge, well | feeds: feed 3/8 | blown: - | faults: - | parts: bulb, fuse, wire | prompt: - | cues: -
+1 s_1 | lit: well | feeds: feed 1/8 | blown: - | faults: f_1X | parts: bulb, fuse, wire | prompt: Throw switch | cues: switch:thrown@0.000
+2 br_2 | lit: shrine, well | feeds: feed 3/8 | blown: - | faults: f_1X | parts: bulb, fuse, wire | prompt: Throw breaker | cues: breaker:thrown@0.000
+3 s_2 | lit: gate, well | feeds: feed 2/8 | blown: - | faults: f_1X | parts: bulb, fuse, wire | prompt: Throw switch | cues: switch:thrown@0.000
+4 br_Q | lit: gate, kiln, lift, well | feeds: feed 6/8 | blown: - | faults: f_1X | parts: bulb, fuse, wire | prompt: Throw breaker | cues: breaker:thrown@0.000
+5 s_3 | lit: gate, kiln, lift, well | feeds: feed 6/8 | blown: - | faults: f_1X, f_bell | parts: bulb, fuse, wire | prompt: Throw switch | cues: switch:thrown@0.000
+6 br_k | lit: gate, lift, well | feeds: feed 4/8 | blown: - | faults: f_1X, f_bell | parts: bulb, fuse, wire | prompt: Throw breaker | cues: breaker:thrown@0.000
+7 repair:l_1X | lit: gate, lift, shrine, well | feeds: feed 6/8 | blown: - | faults: f_bell | parts: bulb, fuse | prompt: - | cues: repair:wire@0.000
+8 repair:bell | lit: bell, gate, lift, shrine, well | feeds: feed 8/8 | blown: - | faults: - | parts: fuse | prompt: - | cues: repair:bulb@0.000
+complete: true
+actions: 8, elapsed: 7.000 s
+relight lamps: well@2.029, lift@2.221, bell@2.511, gate@2.571, shrine@2.650
+relight duration: 3.250
+relight cues: relight:bed@0.000, relight:chime:0@2.029, relight:chime:1@2.221, relight:chime:2@2.511, relight:chime:3@2.650, relight:close@2.650
+locked: ignored 8 clicks and undo; no events; lit, breakers, switches, parts and faults unchanged

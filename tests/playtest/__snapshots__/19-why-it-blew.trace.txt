@@ -1,0 +1,13 @@
+# 19-why-it-blew | script 5 clicks | README min 5
+start | lit: gate | feeds: feed 1/4 | blown: fb_1 | faults: f1 | parts: fuse, fuse | prompt: - | cues: -
+1 br_mill | lit: gate | feeds: feed 1/4 | blown: fb_1 | faults: f1 | parts: fuse, fuse | prompt: Throw breaker | cues: breaker:thrown@0.000
+2 br_home | lit: gate | feeds: feed 1/4 | blown: fb_1 | faults: f1 | parts: fuse, fuse | prompt: Throw breaker | cues: breaker:thrown@0.000
+3 br_market | lit: gate | feeds: feed 1/4 | blown: fb_1 | faults: f1 | parts: fuse, fuse | prompt: Throw breaker | cues: breaker:thrown@0.000
+4 sw_1 | lit: gate | feeds: feed 1/4 | blown: fb_1 | faults: f1 | parts: fuse, fuse | prompt: Throw switch | cues: switch:thrown@0.000
+5 repair:fb_1 | lit: gate, shrine | feeds: feed 3/4 | blown: - | faults: - | parts: fuse | prompt: - | cues: repair:fuse@0.000
+complete: true
+actions: 5, elapsed: 4.000 s
+relight lamps: gate@1.720, shrine@2.650
+relight duration: 3.250
+relight cues: relight:bed@0.000, relight:chime:0@1.720, relight:chime:1@2.650, relight:close@2.650
+locked: ignored 6 clicks and undo; no events; lit, breakers, switches, parts and faults unchanged

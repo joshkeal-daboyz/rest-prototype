@@ -1,0 +1,12 @@
+# 30-which-break | script 4 clicks | README min 4
+start | lit: lane, yard | feeds: feed 2/3 | blown: - | faults: f1 | parts: fuse, wire | prompt: - | cues: -
+1 br_S | lit: lane, mill, yard | feeds: feed 4/3 over | blown: - | faults: f1, f2 | parts: fuse, wire | prompt: Throw breaker | cues: breaker:thrown@0.000, grid:sag@0.000
+2 br_mill | lit: lane, yard | feeds: feed 2/3 | blown: - | faults: f1, f2 | parts: fuse, wire | prompt: Throw breaker | cues: breaker:thrown@0.000, grid:recover@0.000
+3 br_yard | lit: lane | feeds: feed 1/3 | blown: - | faults: f1, f2 | parts: fuse, wire | prompt: Throw breaker | cues: breaker:thrown@0.000
+4 repair:l_B | lit: lane, shrine, well | feeds: feed 3/3 | blown: - | faults: f1 | parts: fuse | prompt: - | cues: repair:wire@0.000
+complete: true
+actions: 4, elapsed: 3.000 s
+relight lamps: lane@1.821, shrine@2.650, well@2.650
+relight duration: 3.250
+relight cues: relight:bed@0.000, relight:chime:0@1.821, relight:chime:1@2.650, relight:close@2.650
+locked: ignored 5 clicks and undo; no events; lit, breakers, switches, parts and faults unchanged

@@ -1,0 +1,20 @@
+# 49-two-cells | script 11 clicks | README min 11 (note)
+start | lit: market | feeds: feed 2/4 | blown: - | faults: - | parts: fuse, fuse | batteries: big 0.00/6 idle, small 0.00/2 charging | prompt: - | cues: -
+1 sw_m | lit: - | feeds: feed 0/4 | blown: - | faults: - | parts: fuse, fuse | batteries: big 1.00/6 charging, small 1.00/2 charging | prompt: Throw switch | cues: switch:thrown@0.000
+2 sw_p | lit: - | feeds: feed 0/4 | blown: - | faults: - | parts: fuse, fuse | batteries: big 2.00/6 charging, small 2.00/2 idle | prompt: Throw switch | cues: switch:thrown@0.000
+3 small | lit: forge | feeds: feed 0/4 | blown: - | faults: - | parts: fuse, fuse | batteries: big 3.00/6 charging, small 1.00/2 released | prompt: Running: 1 s left — Stop | cues: battery:released@0.000, battery:whine:small@0.250
+4 rE | lit: - | feeds: feed 0/4 | blown: - | faults: - | parts: fuse, fuse | batteries: big 4.00/6 charging, small 0.00/2 charging | prompt: No power — relay stuck | cues: switch:thrown@0.000, battery:flat:ranout@0.000
+5 wait:2 | lit: - | feeds: feed 0/4 | blown: - | faults: - | parts: fuse, fuse | batteries: big 6.00/6 idle, small 2.00/2 idle | prompt: No power — relay stuck | cues: -
+6 sw_m | lit: market | feeds: feed 2/4 | blown: - | faults: - | parts: fuse, fuse | batteries: big 6.00/6 idle, small 2.00/2 idle | prompt: Throw switch | cues: switch:thrown@0.000
+7 big | lit: kiln, market, mill, ovens | feeds: feed 2/4 | blown: - | faults: - | parts: fuse, fuse | batteries: big 5.00/6 released, small 2.00/2 idle | prompt: Running: 5 s left — Stop | cues: battery:released@0.000, battery:whine:big@0.250
+8 r3 | lit: kiln, market, ovens | feeds: feed 2/4 | blown: - | faults: - | parts: fuse, fuse | batteries: big 4.00/6 released, small 2.00/2 idle | prompt: Throw switch | cues: switch:thrown@0.000
+9 r2 | lit: kiln, market | feeds: feed 2/4 | blown: - | faults: - | parts: fuse, fuse | batteries: big 3.00/6 released, small 2.00/2 idle | prompt: Throw switch | cues: switch:thrown@0.000
+10 r1 | lit: market, well | feeds: feed 2/4 | blown: - | faults: - | parts: fuse, fuse | batteries: big 2.00/6 released, small 2.00/2 idle | prompt: Throw switch | cues: switch:thrown@0.000
+11 br_N | lit: market, well | feeds: feed 3/4 | blown: - | faults: - | parts: fuse, fuse | batteries: big 1.00/6 released, small 2.00/2 idle | prompt: Throw breaker | cues: breaker:thrown@0.000
+12 br_E | lit: market, shrine, well | feeds: feed 4/4 | blown: - | faults: - | parts: fuse, fuse | batteries: big 1.00/6 released, small 2.00/2 idle | prompt: - | cues: breaker:thrown@0.000
+complete: true
+actions: 9, elapsed: 12.000 s
+relight lamps: market@1.125, shrine@1.572, well@2.650
+relight duration: 3.250
+relight cues: relight:bed@0.000, relight:chime:0@1.125, relight:chime:1@1.572, relight:chime:2@2.650, relight:close@2.650
+locked: ignored 10 clicks and undo; no events; lit, breakers, switches, parts and faults unchanged

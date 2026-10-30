@@ -1,0 +1,16 @@
+# 40-the-priests-list | script 8 clicks | README min 8
+start | lit: lane, mill, shrine, well | feeds: feed 7/8 | blown: - | faults: - | parts: bulb, wire, wire | prompt: - | cues: -
+1 sw_A | lit: lane, mill, well | feeds: feed 4/8 | blown: - | faults: cut_Ag | parts: bulb, wire, wire | prompt: Throw switch | cues: switch:thrown@0.000
+2 sw_B1 | lit: lane, shrine, well | feeds: feed 5/8 | blown: - | faults: cut_Ag | parts: bulb, wire, wire | prompt: Throw switch | cues: switch:thrown@0.000
+3 sw_B2 | lit: lane, shrine | feeds: feed 4/8 | blown: - | faults: cut_Ag, dark_bell | parts: bulb, wire, wire | prompt: Throw switch | cues: switch:thrown@0.000
+4 br_D | lit: houses, lane, shrine | feeds: feed 6/8 | blown: - | faults: cut_Ag, dark_bell | parts: bulb, wire, wire | prompt: Throw breaker | cues: breaker:thrown@0.000
+5 sw_D | lit: lane, shrine | feeds: feed 4/8 | blown: - | faults: cut_Ag, cut_Dw, dark_bell | parts: bulb, wire, wire | prompt: Throw switch | cues: switch:thrown@0.000
+6 repair:l_Ag | lit: gate, lane, shrine | feeds: feed 6/8 | blown: - | faults: cut_Cg, cut_Dw, dark_bell | parts: bulb, wire | prompt: - | cues: repair:wire@0.000
+7 repair:l_Dw | lit: gate, lane, shrine, well | feeds: feed 7/8 | blown: - | faults: cut_Cg, dark_bell | parts: bulb | prompt: - | cues: repair:wire@0.000
+8 repair:bell | lit: bell, gate, lane, shrine, well | feeds: feed 8/8 | blown: - | faults: cut_Cg | parts: - | prompt: - | cues: repair:bulb@0.000
+complete: true
+actions: 8, elapsed: 7.000 s
+relight lamps: lane@1.329, shrine@1.802, bell@1.824, gate@2.030, well@2.229
+relight duration: 2.829
+relight cues: relight:bed@0.000, relight:chime:0@1.329, relight:chime:1@1.802, relight:chime:2@2.030, relight:chime:3@2.229, relight:close@2.229
+locked: ignored 10 clicks and undo; no events; lit, breakers, switches, parts and faults unchanged

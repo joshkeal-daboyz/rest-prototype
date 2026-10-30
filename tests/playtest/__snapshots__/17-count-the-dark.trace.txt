@@ -1,0 +1,13 @@
+# 17-count-the-dark | script 5 clicks | README min 5
+start | lit: home_1, home_2 | feeds: feed 2/4 | blown: fb_A | faults: - | parts: bulb, fuse, fuse | prompt: - | cues: -
+1 br_A | lit: home_1, home_2 | feeds: feed 2/4 | blown: fb_A | faults: f1 | parts: bulb, fuse, fuse | prompt: Throw breaker | cues: breaker:thrown@0.000
+2 br_st | lit: home_1, home_2 | feeds: feed 2/4 | blown: fb_A | faults: f1 | parts: bulb, fuse, fuse | prompt: Throw breaker | cues: breaker:thrown@0.000
+3 sw_T | lit: market | feeds: feed 1/4 | blown: fb_A | faults: f1 | parts: bulb, fuse, fuse | prompt: Throw switch | cues: switch:thrown@0.000
+4 repair:fb_A | lit: lane, market | feeds: feed 2/4 | blown: - | faults: f2 | parts: bulb, fuse | prompt: Lv3 Fuse — carrying 1 of 3 | cues: repair:fuse@0.000
+5 repair:shrine | lit: lane, market, shrine | feeds: feed 4/4 | blown: - | faults: - | parts: fuse | prompt: - | cues: repair:bulb@0.000
+complete: true
+actions: 5, elapsed: 4.000 s
+relight lamps: market@1.893, lane@2.548, shrine@2.650
+relight duration: 3.250
+relight cues: relight:bed@0.000, relight:chime:0@1.893, relight:chime:1@2.548, relight:chime:2@2.650, relight:close@2.650
+locked: ignored 5 clicks and undo; no events; lit, breakers, switches, parts and faults unchanged

@@ -1,0 +1,17 @@
+# 44-set-in-the-light | script 9 clicks | README min 9
+start | lit: well | feeds: feed 1/3 | blown: - | faults: cut_short | parts: bulb, wire | prompt: - | cues: -
+1 rl_1 | lit: bakery | feeds: feed 1/3 | blown: - | faults: cut_short | parts: bulb, wire | prompt: Throw switch | cues: switch:thrown@0.000
+2 rl_2 | lit: - | feeds: feed 0/3 | blown: - | faults: cut_23, cut_short | parts: bulb, wire | prompt: Throw switch | cues: switch:thrown@0.000
+3 br_mill | lit: - | feeds: feed 0/3 | blown: - | faults: cut_23, cut_short | parts: bulb, wire | prompt: Throw breaker | cues: breaker:thrown@0.000
+4 br_S | lit: bakery | feeds: feed 1/3 | blown: - | faults: cut_23, cut_short | parts: bulb, wire | prompt: Throw breaker | cues: breaker:thrown@0.000
+5 sw_S | lit: well | feeds: feed 1/3 | blown: - | faults: cut_23, cut_short | parts: bulb, wire | prompt: Throw switch | cues: switch:thrown@0.000
+6 repair:l_23 | lit: tannery, well | feeds: feed 2/3 | blown: - | faults: cut_short | parts: bulb | prompt: - | cues: repair:wire@0.000
+7 rl_3 | lit: tower, well | feeds: feed 2/3 | blown: - | faults: cut_short | parts: bulb | prompt: Throw switch | cues: switch:thrown@0.000
+8 rl_4 | lit: well | feeds: feed 1/3 | blown: - | faults: cut_short, dark_shrine | parts: bulb | prompt: Throw switch | cues: switch:thrown@0.000
+9 repair:shrine | lit: shrine, well | feeds: feed 3/3 | blown: - | faults: cut_short | parts: - | prompt: - | cues: repair:bulb@0.000
+complete: true
+actions: 9, elapsed: 8.000 s
+relight lamps: well@2.332, shrine@2.650
+relight duration: 3.250
+relight cues: relight:bed@0.000, relight:chime:0@2.332, relight:chime:1@2.650, relight:close@2.650
+locked: ignored 10 clicks and undo; no events; lit, breakers, switches, parts and faults unchanged

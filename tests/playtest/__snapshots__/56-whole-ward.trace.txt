@@ -1,0 +1,21 @@
+# 56-whole-ward | script 13 clicks | README min 13
+start | lit: homes, mill | feeds: feed 4/7 | blown: fb_S | faults: - | parts: bulb, bulb, fuse, fuse, wire | prompt: - | cues: -
+1 br_h | lit: mill | feeds: feed 2/7 | blown: fb_S | faults: - | parts: bulb, bulb, fuse, fuse, wire | prompt: Throw breaker | cues: breaker:thrown@0.000
+2 r_N | lit: shrine, well | feeds: feed 3/7 | blown: fb_S | faults: f_bell, f_x, f_y | parts: bulb, bulb, fuse, fuse, wire | prompt: Throw switch | cues: switch:thrown@0.000
+3 br_S | lit: shrine, well | feeds: feed 3/7 | blown: fb_S | faults: f_S, f_bell, f_x, f_y | parts: bulb, bulb, fuse, fuse, wire | prompt: Throw breaker | cues: breaker:thrown@0.000
+4 br_o | lit: shrine, well | feeds: feed 3/7 | blown: fb_S | faults: f_S, f_x | parts: bulb, bulb, fuse, fuse, wire | prompt: Throw breaker | cues: breaker:thrown@0.000
+5 br_t | lit: shrine, well | feeds: feed 3/7 | blown: fb_S | faults: f_S, f_x | parts: bulb, bulb, fuse, fuse, wire | prompt: Throw breaker | cues: breaker:thrown@0.000
+6 repair:fb_S | lit: ovens, shrine, well | feeds: feed 5/7 | blown: - | faults: f_x | parts: bulb, bulb, fuse, wire | prompt: Lv4 Fuse — carrying 2 of 4 | cues: repair:fuse@0.000
+7 r_S | lit: shrine, well | feeds: feed 3/7 | blown: - | faults: f_bell, f_x, f_y | parts: bulb, bulb, fuse, wire | prompt: Throw switch | cues: switch:thrown@0.000
+8 repair:l_r23 | lit: forge, lantern, shrine, well | feeds: feed 7/7 | blown: - | faults: f_bell, f_gate, f_x | parts: bulb, bulb, fuse | prompt: - | cues: repair:wire@0.000
+9 r_E | lit: chapel, lantern, shrine, well | feeds: feed 5/7 | blown: - | faults: f_bell, f_gate, f_x | parts: bulb, bulb, fuse | prompt: Throw switch | cues: switch:thrown@0.000
+10 br_t | lit: shrine, well | feeds: feed 3/7 | blown: - | faults: f_bell, f_gate, f_x | parts: bulb, bulb, fuse | prompt: Throw breaker | cues: breaker:thrown@0.000
+11 br_E | lit: chapel, shrine, well | feeds: feed 4/7 | blown: - | faults: f_bell, f_gate, f_x | parts: bulb, bulb, fuse | prompt: Throw breaker | cues: breaker:thrown@0.000
+12 repair:gate | lit: chapel, gate, shrine, well | feeds: feed 5/7 | blown: - | faults: f_bell, f_x | parts: bulb, fuse | prompt: Lv1 Lamp | cues: repair:bulb@0.000
+13 repair:bell | lit: bell, chapel, gate, shrine, well | feeds: feed 7/7 | blown: - | faults: f_x | parts: fuse | prompt: - | cues: repair:bulb@0.000
+complete: true
+actions: 13, elapsed: 12.000 s
+relight lamps: well@1.546, bell@1.812, shrine@1.886, gate@2.164, chapel@2.650
+relight duration: 3.250
+relight cues: relight:bed@0.000, relight:chime:0@1.546, relight:chime:1@1.812, relight:chime:2@1.886, relight:chime:3@2.164, relight:chime:4@2.650, relight:close@2.650
+locked: ignored 13 clicks and undo; no events; lit, breakers, switches, parts and faults unchanged

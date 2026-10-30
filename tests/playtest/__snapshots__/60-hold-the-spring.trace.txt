@@ -1,0 +1,19 @@
+# 60-hold-the-spring | script 6 clicks | README min 6
+start | lit: lantern, well | feeds: feed 2/4 | blown: - | faults: - | parts: fuse, wire | batteries: cell 0.00/5 idle | prompt: - | cues: -
+1 sw_c | lit: well | feeds: feed 1/4 | blown: - | faults: - | parts: fuse, wire | batteries: cell 1.00/5 charging | prompt: Throw switch | cues: switch:thrown@0.000
+2 wait:0.5 | lit: well | feeds: feed 1/4 | blown: - | faults: - | parts: fuse, wire | batteries: cell 1.50/5 charging | prompt: Throw switch | cues: -
+3 wait:0.5 | lit: well | feeds: feed 1/4 | blown: - | faults: - | parts: fuse, wire | batteries: cell 2.00/5 charging | prompt: Throw switch | cues: -
+4 wait:0.5 | lit: well | feeds: feed 1/4 | blown: - | faults: - | parts: fuse, wire | batteries: cell 2.50/5 charging | prompt: Throw switch | cues: -
+5 wait:0.5 | lit: well | feeds: feed 1/4 | blown: - | faults: - | parts: fuse, wire | batteries: cell 3.00/5 charging | prompt: Throw switch | cues: -
+6 wait:0.5 | lit: well | feeds: feed 1/4 | blown: - | faults: - | parts: fuse, wire | batteries: cell 3.50/5 charging | prompt: Throw switch | cues: -
+7 sw_c | lit: lantern, well | feeds: feed 2/4 | blown: - | faults: - | parts: fuse, wire | batteries: cell 3.50/5 idle | prompt: Throw switch | cues: switch:thrown@0.000
+8 cell | lit: lantern, well | feeds: feed 2/4 | blown: - | faults: f_cS | parts: fuse, wire | batteries: cell 2.50/5 released | prompt: Running: 3 s left — Stop | cues: battery:released@0.000, battery:whine:cell@0.250
+9 repair:l_cS | lit: lantern, mill, well | feeds: feed 2/4 | blown: - | faults: - | parts: fuse | batteries: cell 1.50/5 released | prompt: - | cues: repair:wire@0.000
+10 S | lit: lantern, shrine, well | feeds: feed 2/4 | blown: - | faults: - | parts: fuse | batteries: cell 0.50/5 released | prompt: Spring switch — returns when power is lost | cues: switch:thrown@0.000
+11 br_S | lit: lantern, shrine, well | feeds: feed 4/4 | blown: - | faults: - | parts: fuse | batteries: cell 0.50/5 released | prompt: - | cues: breaker:thrown@0.000
+complete: true
+actions: 5, elapsed: 7.500 s
+relight lamps: well@1.000, lantern@1.691, shrine@2.650
+relight duration: 3.250
+relight cues: relight:bed@0.000, relight:chime:0@1.000, relight:chime:1@1.691, relight:chime:2@2.650, relight:close@2.650
+locked: ignored 5 clicks and undo; no events; lit, breakers, switches, parts and faults unchanged

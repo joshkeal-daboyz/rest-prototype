@@ -1,0 +1,19 @@
+# 61-charge-it-first | script 8 clicks | README min 8
+start | lit: bakery | feeds: feed 2/4 | blown: - | faults: - | parts: bulb, fuse | batteries: cell 0.00/4 idle | prompt: - | cues: -
+1 sw_b | lit: smithy | feeds: feed 3/4 | blown: - | faults: - | parts: bulb, fuse | batteries: cell 0.00/4 idle | prompt: Throw switch | cues: switch:thrown@0.000
+2 rC | lit: - | feeds: feed 0/4 | blown: - | faults: - | parts: bulb, fuse | batteries: cell 1.00/4 charging | prompt: Throw switch | cues: switch:thrown@0.000
+3 wait:0.5 | lit: - | feeds: feed 0/4 | blown: - | faults: - | parts: bulb, fuse | batteries: cell 1.50/4 charging | prompt: Throw switch | cues: -
+4 wait:0.5 | lit: - | feeds: feed 0/4 | blown: - | faults: - | parts: bulb, fuse | batteries: cell 2.00/4 charging | prompt: Throw switch | cues: -
+5 wait:0.5 | lit: - | feeds: feed 0/4 | blown: - | faults: - | parts: bulb, fuse | batteries: cell 2.50/4 charging | prompt: Throw switch | cues: -
+6 sw_b | lit: bakery | feeds: feed 2/4 | blown: - | faults: - | parts: bulb, fuse | batteries: cell 2.50/4 idle | prompt: Throw switch | cues: switch:thrown@0.000
+7 cell | lit: bakery, mill | feeds: feed 2/4 | blown: - | faults: - | parts: bulb, fuse | batteries: cell 1.50/4 released | prompt: Running: 2 s left — Stop | cues: battery:released@0.000, battery:whine:cell@0.250
+8 rA | lit: bakery, kiln | feeds: feed 2/4 | blown: - | faults: - | parts: bulb, fuse | batteries: cell 0.50/4 released | prompt: Throw switch | cues: switch:thrown@0.000
+9 rB | lit: bakery | feeds: feed 2/4 | blown: - | faults: - | parts: bulb, fuse | batteries: cell 0.00/4 idle | prompt: No power — relay stuck | cues: switch:thrown@0.000, battery:flat:ranout@0.000
+10 br_R | lit: bakery | feeds: feed 2/4 | blown: - | faults: f_shrine | parts: bulb, fuse | batteries: cell 0.00/4 idle | prompt: Throw breaker | cues: breaker:thrown@0.000
+11 repair:shrine | lit: bakery, shrine | feeds: feed 4/4 | blown: - | faults: - | parts: fuse | batteries: cell 0.00/4 idle | prompt: - | cues: repair:bulb@0.000
+complete: true
+actions: 7, elapsed: 8.500 s
+relight lamps: bakery@1.324, shrine@2.650
+relight duration: 3.250
+relight cues: relight:bed@0.000, relight:chime:0@1.324, relight:chime:1@2.650, relight:close@2.650
+locked: ignored 8 clicks and undo; no events; lit, breakers, switches, parts and faults unchanged

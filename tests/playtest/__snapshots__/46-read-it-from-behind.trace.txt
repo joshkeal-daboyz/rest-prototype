@@ -1,0 +1,15 @@
+# 46-read-it-from-behind | script 7 clicks | README min 7
+start | lit: houses | feeds: feed 1/4 | blown: - | faults: cut_M, cut_N | parts: bulb, wire, wire, wire | prompt: - | cues: -
+1 br_h | lit: - | feeds: feed 0/4 | blown: - | faults: cut_M, cut_N | parts: bulb, wire, wire, wire | prompt: Throw breaker | cues: breaker:thrown@0.000
+2 br_S | lit: - | feeds: feed 0/4 | blown: - | faults: cut_M, cut_N, cut_S | parts: bulb, wire, wire, wire | prompt: Throw breaker | cues: breaker:thrown@0.000
+3 br_hall | lit: - | feeds: feed 0/4 | blown: - | faults: cut_M, cut_N, cut_S | parts: bulb, wire, wire, wire | prompt: Throw breaker | cues: breaker:thrown@0.000
+4 repair:l_cM | lit: market | feeds: feed 2/4 | blown: - | faults: cut_N, cut_S | parts: bulb, wire, wire | prompt: - | cues: repair:wire@0.000
+5 repair:l_cS | lit: market | feeds: feed 2/4 | blown: - | faults: cut_N, cut_S2 | parts: bulb, wire | prompt: - | cues: repair:wire@0.000
+6 repair:l_cS2 | lit: market | feeds: feed 2/4 | blown: - | faults: cut_N, dark_chapel, dead_K | parts: bulb | prompt: - | cues: repair:wire@0.000
+7 repair:chapel | lit: chapel, market | feeds: feed 4/4 | blown: - | faults: cut_N, dead_K | parts: - | prompt: - | cues: repair:bulb@0.000
+complete: true
+actions: 7, elapsed: 6.000 s
+relight lamps: market@1.497, chapel@2.650
+relight duration: 3.250
+relight cues: relight:bed@0.000, relight:chime:0@1.497, relight:chime:1@2.650, relight:close@2.650
+locked: ignored 10 clicks and undo; no events; lit, breakers, switches, parts and faults unchanged

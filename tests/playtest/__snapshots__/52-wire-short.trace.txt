@@ -1,0 +1,17 @@
+# 52-wire-short | script 9 clicks | README min 9
+start | lit: homes, ovens | feeds: feed 3/5 | blown: fb_E | faults: f_x1 | parts: bulb, fuse, fuse, wire, wire, wire | prompt: - | cues: -
+1 s_1 | lit: homes | feeds: feed 1/5 | blown: fb_E | faults: - | parts: bulb, fuse, fuse, wire, wire, wire | prompt: Throw switch | cues: switch:thrown@0.000
+2 br_E | lit: homes | feeds: feed 1/5 | blown: fb_E | faults: f_fbE | parts: bulb, fuse, fuse, wire, wire, wire | prompt: Throw breaker | cues: breaker:thrown@0.000
+3 br_m | lit: homes | feeds: feed 1/5 | blown: fb_E | faults: f_fbE | parts: bulb, fuse, fuse, wire, wire, wire | prompt: Throw breaker | cues: breaker:thrown@0.000
+4 s_2 | lit: - | feeds: feed 0/5 | blown: fb_E | faults: f_N, f_fbE | parts: bulb, fuse, fuse, wire, wire, wire | prompt: Throw switch | cues: switch:thrown@0.000
+5 repair:fb_E | lit: - | feeds: feed 0/5 | blown: - | faults: f_E3, f_N | parts: bulb, fuse, wire, wire, wire | prompt: Lv5 Fuse — carrying 0 of 5 | cues: repair:fuse@0.000
+6 repair:l_E3 | lit: lift | feeds: feed 2/5 | blown: - | faults: f_N, f_x2, f_x3 | parts: bulb, fuse, wire, wire | prompt: - | cues: repair:wire@0.000
+7 repair:l_x2 | lit: lift, shrine | feeds: feed 4/5 | blown: - | faults: f_N, f_x1, f_x3 | parts: bulb, fuse, wire | prompt: - | cues: repair:wire@0.000
+8 repair:l_x3 | lit: lift, shrine | feeds: feed 4/5 | blown: - | faults: f_N, f_inf, f_x1 | parts: bulb, fuse | prompt: - | cues: repair:wire@0.000
+9 repair:infirmary | lit: infirmary, lift, shrine | feeds: feed 5/5 | blown: - | faults: f_N, f_x1 | parts: fuse | prompt: - | cues: repair:bulb@0.000
+complete: true
+actions: 9, elapsed: 8.000 s
+relight lamps: lift@1.925, shrine@2.287, infirmary@2.378
+relight duration: 2.978
+relight cues: relight:bed@0.000, relight:chime:0@1.925, relight:chime:1@2.287, relight:chime:2@2.378, relight:close@2.378
+locked: ignored 11 clicks and undo; no events; lit, breakers, switches, parts and faults unchanged

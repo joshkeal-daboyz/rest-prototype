@@ -1,0 +1,21 @@
+# 63-keep-the-wire | script 6 clicks | README min 6
+start | lit: inn, market, well | feeds: north 2/4, south 3/3 | blown: - | faults: - | parts: fuse, wire | batteries: cell 0.00/7 idle | prompt: - | cues: -
+1 br_o | lit: inn, market, well | feeds: north 2/4, south 3/3 | blown: - | faults: f_c2 | parts: fuse, wire | batteries: cell 1.00/7 charging | prompt: Throw breaker | cues: breaker:thrown@0.000
+2 wait:0.5 | lit: inn, market, well | feeds: north 2/4, south 3/3 | blown: - | faults: f_c2 | parts: fuse, wire | batteries: cell 1.50/7 charging | prompt: Throw breaker | cues: -
+3 wait:0.5 | lit: inn, market, well | feeds: north 2/4, south 3/3 | blown: - | faults: f_c2 | parts: fuse, wire | batteries: cell 2.00/7 charging | prompt: Throw breaker | cues: -
+4 wait:0.5 | lit: inn, market, well | feeds: north 2/4, south 3/3 | blown: - | faults: f_c2 | parts: fuse, wire | batteries: cell 2.50/7 charging | prompt: Throw breaker | cues: -
+5 wait:0.5 | lit: inn, market, well | feeds: north 2/4, south 3/3 | blown: - | faults: f_c2 | parts: fuse, wire | batteries: cell 3.00/7 charging | prompt: Throw breaker | cues: -
+6 wait:0.5 | lit: inn, market, well | feeds: north 2/4, south 3/3 | blown: - | faults: f_c2 | parts: fuse, wire | batteries: cell 3.50/7 charging | prompt: Throw breaker | cues: -
+7 wait:0.5 | lit: inn, market, well | feeds: north 2/4, south 3/3 | blown: - | faults: f_c2 | parts: fuse, wire | batteries: cell 4.00/7 charging | prompt: Throw breaker | cues: -
+8 wait:0.5 | lit: inn, market, well | feeds: north 2/4, south 3/3 | blown: - | faults: f_c2 | parts: fuse, wire | batteries: cell 4.50/7 charging | prompt: Throw breaker | cues: -
+9 cell | lit: inn, market, well | feeds: north 2/4, south 3/3 | blown: - | faults: f_c2, f_cA | parts: fuse, wire | batteries: cell 3.50/7 released | prompt: Running: 4 s left — Stop | cues: battery:released@0.000, battery:whine:cell@0.250
+10 repair:l_cA | lit: inn, market, mill, well | feeds: north 2/4, south 3/3 | blown: - | faults: f_c2 | parts: fuse | batteries: cell 2.50/7 released | prompt: - | cues: repair:wire@0.000
+11 rA | lit: forge, inn, market, well | feeds: north 2/4, south 3/3 | blown: - | faults: f_c2 | parts: fuse | batteries: cell 1.50/7 released | prompt: Throw switch | cues: switch:thrown@0.000
+12 S | lit: inn, market, shrine, well | feeds: north 2/4, south 3/3 | blown: - | faults: f_c2 | parts: fuse | batteries: cell 0.50/7 released | prompt: Spring switch — returns when power is lost | cues: switch:thrown@0.000
+13 br_S | lit: inn, market, shrine, well | feeds: north 4/4, south 3/3 | blown: - | faults: f_c2 | parts: fuse | batteries: cell 0.50/7 released | prompt: - | cues: breaker:thrown@0.000
+complete: true
+actions: 5, elapsed: 8.500 s
+relight lamps: well@0.498, inn@0.747, market@1.235, shrine@2.153
+relight duration: 2.753
+relight cues: relight:bed@0.000, relight:chime:0@0.498, relight:chime:1@0.747, relight:chime:2@1.235, relight:chime:3@2.153, relight:close@2.153
+locked: ignored 8 clicks and undo; no events; lit, breakers, switches, parts and faults unchanged
