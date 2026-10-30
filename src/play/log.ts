@@ -26,6 +26,8 @@ export interface LogEntry {
 export interface SessionLog {
   add(entry: Omit<LogEntry, "step" | "time">): LogEntry;
   entries(): readonly LogEntry[];
+  /** The most recent entry, or undefined on an empty log. O(1). */
+  lastEntry(): LogEntry | undefined;
   toJSON(puzzleId: string): string;
 }
 
@@ -39,6 +41,7 @@ export function createSessionLog(now: () => number = Date.now): SessionLog {
       return e;
     },
     entries: () => list,
+    lastEntry: () => list[list.length - 1],
     toJSON: (puzzleId) => JSON.stringify({ puzzle: puzzleId, entries: list }, null, 2),
   };
 }

@@ -3,7 +3,7 @@
 import { EventBus, puzzleFeeds, type Puzzle } from "./core";
 import { createGrid, type Grid, type GridState } from "./grid";
 import { createMapRenderer, planRelight, type MapPanView, type MapPlaces, type MapRenderer } from "./render";
-import { attachPan, createMapPlay, type LogEntry, type MapPlay } from "./play";
+import { attachPan, createMapPlay, type MapPlay } from "./play";
 import { createAudio } from "./audio";
 import { mountUI, restoreAudio, type UI } from "./ui";
 import { brownoutNotices, nextMap, noticeFor, placeHighlight, splashDue } from "./ui/logic";
@@ -178,8 +178,7 @@ if (entries.length === 0) {
     ];
     let seenStep = 0;
     const onPanelClick = (): void => {
-      const { entries } = JSON.parse(play.exportLog()) as { entries: LogEntry[] };
-      const last = entries[entries.length - 1];
+      const last = play.lastEntry();
       if (!last || last.step <= seenStep) return;
       seenStep = last.step;
       const text = noticeFor({ kind: "relay-refused", entry: last, relays });

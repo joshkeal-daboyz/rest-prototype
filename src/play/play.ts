@@ -2,7 +2,7 @@
 import type { EventBus, Puzzle } from "../core";
 import type { Grid } from "../grid";
 import type { MapRenderer } from "../render";
-import { createSessionLog } from "./log";
+import { createSessionLog, type LogEntry } from "./log";
 import { intentFor, needsText, promptFor } from "./prompt";
 
 export interface MapPlayView {
@@ -19,6 +19,8 @@ export interface MapPlay {
   undo(): void;
   reset(): void;
   exportLog(): string;
+  /** The most recent log entry, or undefined if nothing is logged yet. O(1), unlike exportLog. */
+  lastEntry(): LogEntry | undefined;
   tick(dtSeconds: number): void;
   /** Same as a click on the element with this id (what attach's click handler calls). */
   click(id: string | null): void;
@@ -150,6 +152,7 @@ export function createMapPlay(
     undo,
     reset,
     exportLog: () => log.toJSON(puzzle.id),
+    lastEntry: () => log.lastEntry(),
 
     tick(dt) {
       if (dt > 0 && !done()) {
