@@ -1,65 +1,73 @@
 import { describe, expect, it } from "vitest";
 import { LevelDoneGate, levelDoneCue, relightCues } from "./cues";
 import { DUCK_DB, Mixer, VOICE_BUDGET } from "./mixer";
-import { CHIME_HZ, CUE_CEILING_DB, dbToGain, levelDoneSound, relightChime, relightClose } from "./recipes";
+import * as R from "./recipes";
+import { CHIME_HZ, CUE_CEILING_DB, LEVEL_CHIME_INDEX, dbToGain, levelDoneSound, relightChime } from "./recipes";
 import { noteHz, onGrid } from "./tuning";
 import type { Cue, Voice } from "./types";
 
-/** Pitch classes of A major (A, C#, E) on the 432 grid, octave-folded. */
-const A_MAJOR = [noteHz("A4"), noteHz("C#5"), noteHz("E5")];
-
-describe("levelDoneSound (ticket 025's cue, on the 432 grid, ticket 032)", () => {
+describe("levelDoneSound (ticket 034: one more Relight chime)", () => {
   const voices = levelDoneSound();
-  it("a noise knock at 0 and at least two tonal voices later", () => {
-    const knock = voices.filter((v) => v.kind === "noise");
-    expect(knock.length).toBe(1);
-    expect(knock[0]?.at).toBe(0);
-    const tones = voices.filter((v) => v.kind === "osc");
-    expect(tones.length).toBeGreaterThanOrEqual(2);
-    expect(tones.every((v) => v.at > 0)).toBe(true);
+  it("one note: exactly one voice, deep-equal to the chime's main voice", () => {
+    expect(voices.length).toBe(1);
+    expect(voices[0]).toEqual(relightChime(LEVEL_CHIME_INDEX)[0]);
   });
-  it("every voice ends by 1.0 s", () => {
-    for (const v of voices) expect(v.at + v.duration).toBeLessThanOrEqual(1.0);
+  it("a plain sine at 0: no filter, no noise, no vibrato, formants or detune, ends by 0.7 s", () => {
+    const v = voices[0] as Voice;
+    expect(v.kind).toBe("osc");
+    expect(v.wave).toBe("sine");
+    expect(v.filter).toBeUndefined();
+    expect(v.formants).toBeUndefined();
+    expect(v.vibrato).toBeUndefined();
+    expect(v.detuneCents).toBeUndefined();
+    expect(v.at).toBe(0);
+    expect(v.at + v.duration).toBeLessThanOrEqual(0.7);
   });
-  it("no voice above -14 dB and the summed peaks stay under the cue ceiling", () => {
-    for (const v of voices) expect(v.gainDb).toBeLessThanOrEqual(-14);
+  it("its pitch is CHIME_HZ[LEVEL_CHIME_INDEX], on the grid, and E5 by default", () => {
+    const v = voices[0] as Voice;
+    expect(v.freq).toBe(CHIME_HZ[LEVEL_CHIME_INDEX]);
+    expect(onGrid(v.freq)).toBe(true);
+    expect(LEVEL_CHIME_INDEX).toBe(CHIME_HZ.length - 1);
+    expect(v.freq).toBe(noteHz("E5"));
+  });
+  it("same family: wave, attack, release, duration and gain equal the chime's for every index", () => {
+    const v = voices[0] as Voice;
+    for (let i = 0; i < CHIME_HZ.length; i++) {
+      const c = relightChime(i)[0] as Voice;
+      expect(v.wave).toBe(c.wave);
+      expect(v.attack).toBe(c.attack);
+      expect(v.release).toBe(c.release);
+      expect(v.duration).toBe(c.duration);
+      expect(v.gainDb).toBe(c.gainDb);
+    }
+  });
+  it("under the ceiling: peak at most -22 dB and below the cue ceiling; budget unchanged", () => {
     const sum = voices.reduce((a, v) => a + dbToGain(v.gainDb), 0);
+    expect(sum).toBeLessThanOrEqual(dbToGain(-22) + 1e-12);
     expect(sum).toBeLessThan(dbToGain(CUE_CEILING_DB));
-  });
-  it("every oscillator is on the 432 grid and an A-major note (A4, C#5, E5 in any octave)", () => {
-    for (const v of voices.filter((x) => x.kind === "osc")) {
-      expect(onGrid(v.freq), `${v.freq} Hz`).toBe(true);
-      const ok = A_MAJOR.some((n) => {
-        const oct = Math.log2(v.freq / n);
-        return Math.abs(Math.pow(2, oct - Math.round(oct)) - 1) < 0.001;
-      });
-      expect(ok, `${v.freq} Hz`).toBe(true);
-    }
-  });
-  it("the figure is C#4 then A4 with A2 under, as in 025; the knock's 900 Hz is a filter cutoff", () => {
-    const tones = voices.filter((v) => v.kind === "osc");
-    expect(tones.map((v) => v.freq)).toEqual([noteHz("C#4"), noteHz("A4"), noteHz("A2")]);
-    expect(voices.find((v) => v.kind === "noise")?.filter?.freq).toBe(900);
-  });
-  it("is unlike the Relight: no sine at a chime pitch, and not any chime or the close", () => {
-    for (const v of voices) {
-      if (v.wave === "sine") expect(CHIME_HZ.some((h) => Math.abs(h - v.freq) < 1)).toBe(false);
-    }
-    for (let i = 0; i < CHIME_HZ.length; i++) expect(voices).not.toEqual(relightChime(i));
-    expect(voices).not.toEqual(relightClose());
-    expect(voices.some((v) => v.wave === "triangle")).toBe(true);
+    expect(CUE_CEILING_DB).toBe(-8);
+    expect(VOICE_BUDGET).toBe(12);
   });
   it("is deterministic", () => {
     expect(levelDoneSound()).toEqual(levelDoneSound());
   });
-  it("no choir is left: no formants, vibrato or detune on any voice, and no CHOIR_ export", async () => {
-    for (const v of voices) {
-      expect(v.formants).toBeUndefined();
-      expect(v.vibrato).toBeUndefined();
-      expect(v.detuneCents).toBeUndefined();
-    }
-    const R = await import("./recipes");
+  it("the 025 knock, figure and under-note constants are gone", () => {
+    expect(Object.keys(R).filter((k) => /^LEVEL_(KNOCK|NOTE|UNDER)/.test(k))).toEqual([]);
     expect(Object.keys(R).filter((k) => k.startsWith("CHOIR_"))).toEqual([]);
+  });
+  it("032 pins: the chime keeps its quiet fifth, and the close and bed are as built", () => {
+    const c = relightChime(0);
+    expect(c.length).toBe(2);
+    expect(c[0]?.freq).toBe(noteHz("E4"));
+    expect(c[1]?.freq).toBeCloseTo(noteHz("E4") * Math.pow(2, 7 / 12), 9);
+    expect(c[1]?.gainDb).toBe(-30);
+    expect(R.relightClose().map((v) => [v.freq, v.gainDb, v.attack, v.release])).toEqual([
+      [noteHz("A3"), -28, 0.3, 2],
+      [noteHz("E4"), -28, 0.3, 2],
+    ]);
+    expect(R.relightBed(1, 1).map((v) => v.freq)).toEqual([noteHz("A1"), noteHz("A2")]);
+    expect(R.BEAT_HZ).toBe(noteHz("A1"));
+    expect(R.BEAT_DB).toBe(-28);
   });
 });
 

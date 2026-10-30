@@ -239,56 +239,14 @@ export function relightClose(): Voice[] {
   return [v(noteHz("A3")), v(noteHz("E4"))];
 }
 
-// ---- the level-done cue (ticket 025, back on the 432 grid by ticket 032): a soft latch knock, then a warm two-note figure in A major ----
+// ---- the level-done cue (ticket 034): one more Relight chime, the main note only ----
 
-export const LEVEL_KNOCK_HZ = 900;
-export const LEVEL_KNOCK_DB = -20;
-export const LEVEL_KNOCK_SECONDS = 0.04;
-/** C#4 then A4: the third and the root of A, sitting over the Relight's closing fifth. */
-export const LEVEL_NOTE1_HZ = noteHz("C#4");
-export const LEVEL_NOTE2_HZ = noteHz("A4");
-export const LEVEL_NOTE1_AT = 0.06;
-export const LEVEL_NOTE2_AT = 0.16;
-export const LEVEL_NOTE_LOWPASS_HZ = 1500;
-export const LEVEL_NOTE_DB = -20;
-export const LEVEL_NOTE_ATTACK = 0.015;
-export const LEVEL_NOTE_RELEASE = 0.6;
-export const LEVEL_NOTE_SECONDS = 0.75;
-/** A2 under the second note. */
-export const LEVEL_UNDER_HZ = noteHz("A2");
-export const LEVEL_UNDER_DB = -26;
-export const LEVEL_UNDER_ATTACK = 0.03;
-export const LEVEL_UNDER_RELEASE = 0.5;
-export const LEVEL_UNDER_SECONDS = 0.7;
+/** Which of CHIME_HZ the win splash sounds. Default the top of the figure (E5); 2 would be A4, the home note. */
+export const LEVEL_CHIME_INDEX = CHIME_HZ.length - 1;
 
 export function levelDoneSound(): Voice[] {
-  const note = (hz: number, at: number): Voice =>
-    osc("triangle", hz, {
-      filter: { type: "lowpass", freq: LEVEL_NOTE_LOWPASS_HZ, q: 0.7 },
-      attack: LEVEL_NOTE_ATTACK,
-      release: LEVEL_NOTE_RELEASE,
-      duration: LEVEL_NOTE_SECONDS,
-      gainDb: LEVEL_NOTE_DB,
-      at,
-    });
-  return [
-    noise({
-      filter: { type: "lowpass", freq: LEVEL_KNOCK_HZ, q: 0.7 },
-      attack: 0.002,
-      release: 0.03,
-      duration: LEVEL_KNOCK_SECONDS,
-      gainDb: LEVEL_KNOCK_DB,
-    }),
-    note(LEVEL_NOTE1_HZ, LEVEL_NOTE1_AT),
-    note(LEVEL_NOTE2_HZ, LEVEL_NOTE2_AT),
-    osc("sine", LEVEL_UNDER_HZ, {
-      attack: LEVEL_UNDER_ATTACK,
-      release: LEVEL_UNDER_RELEASE,
-      duration: LEVEL_UNDER_SECONDS,
-      gainDb: LEVEL_UNDER_DB,
-      at: LEVEL_NOTE2_AT,
-    }),
-  ];
+  const main = relightChime(LEVEL_CHIME_INDEX)[0];
+  return main ? [main] : [];
 }
 
 // ---- the beat (ticket 032): the old drone as a soft, steady thump, one per BEAT.period while a feed is powered ----

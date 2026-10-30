@@ -65,9 +65,7 @@ describe("the 432 Hz grid", () => {
       ...R.CHIME_HZ,
       R.BEAT_HZ,
       R.BEAT_TICK_HZ,
-      R.LEVEL_NOTE1_HZ,
-      R.LEVEL_NOTE2_HZ,
-      R.LEVEL_UNDER_HZ,
+      R.CHIME_HZ[R.LEVEL_CHIME_INDEX] ?? 0,
     ];
     for (const hz of named) expect(onGrid(hz), `${hz} Hz`).toBe(true);
   });
