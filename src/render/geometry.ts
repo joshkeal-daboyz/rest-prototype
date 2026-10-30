@@ -183,7 +183,7 @@ export function buildGeometry(puzzle: Puzzle, width: number, height: number, pad
   });
   const hitR = new Float64Array(nn);
   puzzle.nodes.forEach((n, i) => {
-    hitR[i] = n.type === "lamp" ? Math.max(NODE_HIT_RADIUS, clusterRadius(n.load ?? 1) + 4) : NODE_HIT_RADIUS;
+    hitR[i] = n.type === "lamp" ? Math.max(NODE_HIT_RADIUS, clusterRadius(n.load ?? 1) + 6) : NODE_HIT_RADIUS;
   });
   const decor = (puzzle.decor ?? []).map((d) => {
     const arr = new Float64Array(d.path.length * 2);

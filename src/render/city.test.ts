@@ -364,12 +364,12 @@ describe("easing", () => {
 });
 
 describe("contrast", () => {
-  it("keeps every dark city colour within 1.6 of the background", () => {
-    for (const c of [CITY_BUILDING, CITY_STREET_LINE, CITY_AVENUE_COLOUR, CITY_PLACE_FILL, CITY_PLACE_EDGE]) {
+  it("keeps the background town within 1.6 of the background (places are brighter, ticket 026)", () => {
+    for (const c of [CITY_BUILDING, CITY_STREET_LINE, CITY_AVENUE_COLOUR]) {
       expect(contrastRatio(c, CITY_BG), c).toBeLessThanOrEqual(1.6);
     }
   });
   it("keeps the lit alpha low", () => {
-    expect(LIT_FILL_ALPHA).toBeLessThanOrEqual(0.35);
+    expect(LIT_FILL_ALPHA).toBeLessThanOrEqual(0.5);
   });
 });

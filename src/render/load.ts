@@ -16,7 +16,7 @@ export function bulbCount(load: number): number {
 
 /** Radius of one bulb in px: a lone bulb is standard, cluster bulbs are a little smaller. */
 export function bulbRadius(load: number): number {
-  return cappedLoad(load) === 1 ? 14 : 11;
+  return cappedLoad(load) === 1 ? 7 : 6;
 }
 
 /** Light intensity multiplier: load 1 -> 1x, 2 -> 2x, 3 -> 3x, capped. */
@@ -30,7 +30,7 @@ export function poolRadiusScale(load: number): number {
 }
 
 /** Pool disc alpha for a base alpha: scales with brightness, never above `max`. */
-export function poolAlpha(base: number, load: number, max = 0.55): number {
+export function poolAlpha(base: number, load: number, max = 0.4): number {
   return Math.min(base * brightness(load), max);
 }
 
