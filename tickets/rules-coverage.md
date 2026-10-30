@@ -14,5 +14,5 @@ Every rule in the brief's "Rules" section, and where it is tested.
 | Power flows from the feed outward (each feed, on multi-feed maps) | 015 A (one-feed maps unchanged, rule 8) |
 | Fuse rating: over it, blows on power | src/grid tests |
 | Scarce parts: repair consumes the part; refused without it | src/grid tests |
-| Win: every target lit, no brownout | src/grid tests |
-| The Relight can't be interrupted | src/play (input ignored during it); Josh checks |
+| Win: every target lit, no brownout | src/grid tests; tests/playtest (036: every ladder map replayed to complete) |
+| The Relight can't be interrupted | src/play (input ignored during it); tests/playtest (036: the locked line, every control and undo after the win); Josh checks |
