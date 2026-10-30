@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as R from "./recipes";
-import { noteHz, onGrid } from "./tuning";
+import { onGrid } from "./tuning";
 import type { Voice } from "./types";
 
 /** Every recipe that returns voices, called over its full range of arguments. */
@@ -24,6 +24,7 @@ const RECIPES: Record<string, () => Voice[]> = {
   relightChime: () => Array.from({ length: 12 }, (_, i) => R.relightChime(i)).flat(),
   relightClose: () => R.relightClose(),
   levelDoneSound: () => R.levelDoneSound(),
+  beatThump: () => R.beatThump(),
 };
 /** Exported functions that make no voices. */
 const EXEMPT = ["envelope", "dbToGain", "sparkBoostDb"];
@@ -62,8 +63,11 @@ describe("the 432 Hz grid", () => {
       R.BATTERY_WHINE_HZ,
       R.BATTERY_RUNOUT_HZ,
       ...R.CHIME_HZ,
-      ...R.CHOIR_NOTES.map(noteHz),
-      ...R.CHOIR_SHIMMER_NOTES.map(noteHz),
+      R.BEAT_HZ,
+      R.BEAT_TICK_HZ,
+      R.LEVEL_NOTE1_HZ,
+      R.LEVEL_NOTE2_HZ,
+      R.LEVEL_UNDER_HZ,
     ];
     for (const hz of named) expect(onGrid(hz), `${hz} Hz`).toBe(true);
   });

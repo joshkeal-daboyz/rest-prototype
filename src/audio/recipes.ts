@@ -221,9 +221,17 @@ export function relightBed(lastChime: number, openSeconds: number): Voice[] {
   ];
 }
 
+/** Each chime gains one quiet sine a perfect fifth above (ticket 032; Josh: "an additional pleasing tone"). 12 makes it the octave. */
+export const CHIME_PARTNER_SEMITONES = 7;
+export const CHIME_PARTNER_DB = -30;
+
 export function relightChime(index: number): Voice[] {
   const hz = CHIME_HZ[index % CHIME_HZ.length] ?? CHIME_HZ[0];
-  return [osc("sine", hz, { attack: 0.04, release: 0.6, duration: 0.7, gainDb: -22 })];
+  const env = { attack: 0.04, release: 0.6, duration: 0.7 };
+  return [
+    osc("sine", hz, { ...env, gainDb: -22 }),
+    osc("sine", hz * Math.pow(2, CHIME_PARTNER_SEMITONES / 12), { ...env, gainDb: CHIME_PARTNER_DB }),
+  ];
 }
 
 export function relightClose(): Voice[] {
@@ -231,76 +239,82 @@ export function relightClose(): Voice[] {
   return [v(noteHz("A3")), v(noteHz("E4"))];
 }
 
-// ---- the level-done cue (ticket 031): a soft choir "ahh" on an open A major at 432 Hz ----
+// ---- the level-done cue (ticket 025, back on the 432 grid by ticket 032): a soft latch knock, then a warm two-note figure in A major ----
 
-/** Open A major: root, fifth, octave, major third. Each note is sung by two slightly detuned voices. */
-export const CHOIR_NOTES = ["A3", "E4", "A4", "C#5"] as const;
-export const CHOIR_NOTE_AT = [0, 0.15, 0.3, 0.45] as const;
-/** Per note, two fixed detunes in cents (within +-3..+-10). */
-export const CHOIR_DETUNE_CENTS = [[-8, 6], [5, -9], [-6, 8], [9, -5]] as const;
-/** Vibrato rates (Hz) differ a little per voice; depth in cents. */
-export const CHOIR_VIBRATO_HZ = [4.8, 5.3, 5.7, 5.1, 5.5, 4.9, 5.9, 5.2] as const;
-export const CHOIR_VIBRATO_CENTS = 16;
-/** The vowel "ahh": parallel bandpass formants (Hz centres), gains summing to under 1. */
-export const CHOIR_FORMANTS = [
-  { freq: 780, q: 6, gainDb: -7 },
-  { freq: 1150, q: 8, gainDb: -10 },
-  { freq: 2600, q: 10, gainDb: -18 },
-] as const;
-export const CHOIR_DB = -28;
-export const CHOIR_ATTACK = 0.5;
-export const CHOIR_RELEASE = 1.6;
-/** Every voice ends here, seconds from the cue start. */
-export const CHOIR_END = 3.8;
-/** Shimmer: two quiet high sines (E6, A6) and a breath of highpassed noise, entering after the chord. */
-export const CHOIR_SHIMMER_NOTES = ["E6", "A6"] as const;
-export const CHOIR_SHIMMER_AT = [0.6, 0.9] as const;
-export const CHOIR_SHIMMER_DB = -36;
-export const CHOIR_BREATH_AT = 0.5;
-export const CHOIR_BREATH_HZ = 4500;
-export const CHOIR_BREATH_DB = -38;
+export const LEVEL_KNOCK_HZ = 900;
+export const LEVEL_KNOCK_DB = -20;
+export const LEVEL_KNOCK_SECONDS = 0.04;
+/** C#4 then A4: the third and the root of A, sitting over the Relight's closing fifth. */
+export const LEVEL_NOTE1_HZ = noteHz("C#4");
+export const LEVEL_NOTE2_HZ = noteHz("A4");
+export const LEVEL_NOTE1_AT = 0.06;
+export const LEVEL_NOTE2_AT = 0.16;
+export const LEVEL_NOTE_LOWPASS_HZ = 1500;
+export const LEVEL_NOTE_DB = -20;
+export const LEVEL_NOTE_ATTACK = 0.015;
+export const LEVEL_NOTE_RELEASE = 0.6;
+export const LEVEL_NOTE_SECONDS = 0.75;
+/** A2 under the second note. */
+export const LEVEL_UNDER_HZ = noteHz("A2");
+export const LEVEL_UNDER_DB = -26;
+export const LEVEL_UNDER_ATTACK = 0.03;
+export const LEVEL_UNDER_RELEASE = 0.5;
+export const LEVEL_UNDER_SECONDS = 0.7;
 
 export function levelDoneSound(): Voice[] {
-  const out: Voice[] = [];
-  CHOIR_NOTES.forEach((name, i) => {
-    const at = CHOIR_NOTE_AT[i] ?? 0;
-    for (let k = 0; k < 2; k++) {
-      out.push(
-        osc("sawtooth", noteHz(name), {
-          at,
-          detuneCents: CHOIR_DETUNE_CENTS[i]?.[k] ?? 0,
-          formants: CHOIR_FORMANTS,
-          vibrato: { freq: CHOIR_VIBRATO_HZ[i * 2 + k] ?? 5.2, cents: CHOIR_VIBRATO_CENTS },
-          attack: CHOIR_ATTACK,
-          release: CHOIR_RELEASE,
-          duration: CHOIR_END - at,
-          gainDb: CHOIR_DB,
-        }),
-      );
-    }
-  });
-  CHOIR_SHIMMER_NOTES.forEach((name, i) => {
-    const at = CHOIR_SHIMMER_AT[i] ?? 0.6;
-    out.push(
-      osc("sine", noteHz(name), {
-        at,
-        lfo: { freq: 3.1 + i * 0.7, depth: 0.5 },
-        attack: 0.8,
-        release: CHOIR_RELEASE,
-        duration: CHOIR_END - at,
-        gainDb: CHOIR_SHIMMER_DB,
-      }),
-    );
-  });
-  out.push(
+  const note = (hz: number, at: number): Voice =>
+    osc("triangle", hz, {
+      filter: { type: "lowpass", freq: LEVEL_NOTE_LOWPASS_HZ, q: 0.7 },
+      attack: LEVEL_NOTE_ATTACK,
+      release: LEVEL_NOTE_RELEASE,
+      duration: LEVEL_NOTE_SECONDS,
+      gainDb: LEVEL_NOTE_DB,
+      at,
+    });
+  return [
     noise({
-      at: CHOIR_BREATH_AT,
-      filter: { type: "highpass", freq: CHOIR_BREATH_HZ, q: 0.7 },
-      attack: 0.8,
-      release: CHOIR_RELEASE,
-      duration: CHOIR_END - CHOIR_BREATH_AT,
-      gainDb: CHOIR_BREATH_DB,
+      filter: { type: "lowpass", freq: LEVEL_KNOCK_HZ, q: 0.7 },
+      attack: 0.002,
+      release: 0.03,
+      duration: LEVEL_KNOCK_SECONDS,
+      gainDb: LEVEL_KNOCK_DB,
     }),
-  );
+    note(LEVEL_NOTE1_HZ, LEVEL_NOTE1_AT),
+    note(LEVEL_NOTE2_HZ, LEVEL_NOTE2_AT),
+    osc("sine", LEVEL_UNDER_HZ, {
+      attack: LEVEL_UNDER_ATTACK,
+      release: LEVEL_UNDER_RELEASE,
+      duration: LEVEL_UNDER_SECONDS,
+      gainDb: LEVEL_UNDER_DB,
+      at: LEVEL_NOTE2_AT,
+    }),
+  ];
+}
+
+// ---- the beat (ticket 032): the old drone as a soft, steady thump, one per BEAT.period while a feed is powered ----
+
+export const BEAT_HZ = noteHz("A1");
+export const BEAT_DB = -28;
+export const BEAT_ATTACK = 0.01;
+export const BEAT_RELEASE = 0.3;
+export const BEAT_SECONDS = 0.35;
+/** A faint A2 tick so the beat is heard on small speakers. -Infinity removes it. */
+export const BEAT_TICK_HZ = noteHz("A2");
+export const BEAT_TICK_DB = -42;
+export const BEAT_TICK_ATTACK = 0.004;
+export const BEAT_TICK_RELEASE = 0.08;
+export const BEAT_TICK_SECONDS = 0.1;
+
+/** One thump. A part set to -Infinity dB is left out, so either number at -Infinity silences its part. */
+export function beatThump(): Voice[] {
+  const out: Voice[] = [];
+  if (BEAT_DB > -Infinity) {
+    out.push(osc("sine", BEAT_HZ, { attack: BEAT_ATTACK, release: BEAT_RELEASE, duration: BEAT_SECONDS, gainDb: BEAT_DB }));
+  }
+  if (BEAT_TICK_DB > -Infinity) {
+    out.push(
+      osc("sine", BEAT_TICK_HZ, { attack: BEAT_TICK_ATTACK, release: BEAT_TICK_RELEASE, duration: BEAT_TICK_SECONDS, gainDb: BEAT_TICK_DB }),
+    );
+  }
   return out;
 }

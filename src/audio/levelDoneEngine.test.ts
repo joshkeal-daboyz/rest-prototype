@@ -30,8 +30,8 @@ const won = (complete: boolean): SoundView => ({
   batteries: new Map(),
   sparking: new Set(),
 });
-/** Sources one choir cue starts: each voice, plus a vibrato or tremolo oscillator where it has one. */
-const CHOIR_SOURCES = levelDoneSound().reduce((n, v) => n + 1 + (v.vibrato ? 1 : 0) + (v.lfo ? 1 : 0), 0);
+/** Sources one level cue starts: each voice, plus a vibrato or tremolo oscillator where it has one. */
+const LEVEL_SOURCES = levelDoneSound().reduce((n, v) => n + 1 + (v.vibrato ? 1 : 0) + (v.lfo ? 1 : 0), 0);
 const cueStarts = (f: FakeContext) =>
   [...f.all("osc"), ...f.all("buffersource")].filter((n) => n.starts.some((s) => s.when !== undefined));
 
@@ -41,14 +41,14 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe("levelDone on the fake context (ticket 025)", () => {
-  it("after the gesture and a won frame, the choir's sources start at about currentTime", async () => {
+  it("after the gesture and a won frame, the cue's sources start at about currentTime", async () => {
     const s = setup();
     await s.unlock();
     s.audio.update(won(true), 0.016);
     expect(cueStarts(s.fake).length).toBe(0);
     s.audio.levelDone();
     const nodes = cueStarts(s.fake);
-    expect(nodes.length).toBe(CHOIR_SOURCES);
+    expect(nodes.length).toBe(LEVEL_SOURCES);
     const whens = nodes.flatMap((n) => n.starts.map((x) => x.when ?? 0));
     expect(Math.min(...whens)).toBeCloseTo(s.fake.currentTime, 6);
     expect(Math.max(...whens)).toBeLessThan(s.fake.currentTime + 1);
@@ -62,7 +62,7 @@ describe("levelDone on the fake context (ticket 025)", () => {
     s.audio.levelDone();
     s.audio.update(won(true), 0.016);
     s.audio.levelDone();
-    expect(cueStarts(s.fake).length).toBe(CHOIR_SOURCES);
+    expect(cueStarts(s.fake).length).toBe(LEVEL_SOURCES);
   });
 
   it("with the last view not complete, starts nothing", async () => {
@@ -83,7 +83,7 @@ describe("levelDone on the fake context (ticket 025)", () => {
     s.audio.update(won(false), 0.016);
     s.audio.update(won(true), 0.016);
     s.audio.levelDone();
-    expect(cueStarts(s.fake).length).toBe(CHOIR_SOURCES);
+    expect(cueStarts(s.fake).length).toBe(LEVEL_SOURCES);
   });
 
   it("muted, the master stays 0 and is never raised; unmuting does not replay", async () => {
@@ -109,11 +109,11 @@ describe("levelDone on the fake context (ticket 025)", () => {
     s.audio.update(won(true), 0.016);
     s.audio.levelDone();
     const all = cueStarts(s.fake);
-    expect(all.length).toBe(2 + CHOIR_SOURCES); // breaker: thump + click; level: the choir
+    expect(all.length).toBe(2 + LEVEL_SOURCES); // breaker: thump + click; level: the cue
     s.detach();
     const rang = all.filter((n) => n.stops.length === 1);
     const killed = all.filter((n) => n.stops.length === 2);
-    expect(rang.length).toBe(CHOIR_SOURCES);
+    expect(rang.length).toBe(LEVEL_SOURCES);
     expect(killed.length).toBe(2);
     for (const n of rang) expect((n.stops[0] ?? 0) - s.fake.currentTime).toBeGreaterThan(0.08);
   });
