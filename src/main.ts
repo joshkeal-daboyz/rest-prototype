@@ -7,6 +7,7 @@ import { attachPan, createMapPlay, type MapPlay } from "./play";
 import { createAudio } from "./audio";
 import { mountUI, restoreAudio, type UI } from "./ui";
 import { brownoutNotices, nextMap, noticeFor, placeHighlight, splashDue } from "./ui/logic";
+import { measureBlockers } from "./ui/blockers";
 import { collectMaps, type MapEntry } from "./ui/maps";
 
 const files = import.meta.glob("../puzzles/**/*.json", { eager: true, import: "default" }) as Record<string, unknown>;
@@ -270,6 +271,7 @@ if (entries.length === 0) {
       if (view.relightT !== null) overlay.relightT = view.relightT;
       s.renderer.draw(state, overlay, now / 1000);
       s.ui.update();
+      s.renderer.setBlockers(measureBlockers(uiRoot as HTMLElement, canvas as HTMLCanvasElement));
       // The HUD is filled by the first ui.update(), so measure the insets and centre the map once, now.
       if (!s.centred) {
         s.centred = true;
