@@ -30,6 +30,7 @@ import {
   visibleNodesInto,
   type Geometry,
   type Insets,
+  type Rect,
   type Pan,
 } from "./geometry";
 import { FUSE_BAR_HEIGHT, FUSE_BAR_TOP, FUSE_BAR_WIDTH, fuseFill, fuseStep, fuseTickOffsets } from "./fusebar";
@@ -128,6 +129,15 @@ export interface MapRenderer {
       | { type: "fuse:blown"; payload: Events["fuse:blown"] }
       | { type: "switch:thrown"; payload: Events["switch:thrown"] },
   ): void;
+}
+
+/** Overlay panels that block clicks (ticket 035). Separate from MapRenderer so existing fakes still compile. */
+export interface MapBlockers {
+  /**
+   * Screen rects (canvas CSS px) of the overlay panels. A point inside one (edges inclusive) is dead to hitTest and placeAt;
+   * so is any point off the canvas. Keeps a copy and replaces the whole list on each call; the default is none.
+   */
+  setBlockers(rects: readonly Rect[]): void;
 }
 
 /** Place lookup for the list-to-map link (ticket 024). Separate from MapRenderer so existing fakes still compile. */
@@ -232,7 +242,7 @@ function kindCode(kind: FaultKind): number {
   }
 }
 
-export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opts?: MapRendererOptions): MapRenderer & MapPanView & MapPlaces & MapCentre {
+export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opts?: MapRendererOptions): MapRenderer & MapPanView & MapPlaces & MapCentre & MapBlockers {
   let insets: Insets = { ...(opts?.insets ?? {}) };
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("2D canvas unavailable");
@@ -1898,6 +1908,18 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     }
   }
 
+  let blockers: Rect[] = [];
+
+  function setBlockers(rects: readonly Rect[]): void {
+    blockers = rects.map((r) => ({ left: r.left, top: r.top, right: r.right, bottom: r.bottom }));
+  }
+
+  function live(x: number, y: number): boolean {
+    if (!(x >= 0 && x <= width && y >= 0 && y <= height)) return false;
+    for (let i = 0; i < blockers.length; i++) if (inArea(blockers[i]!, x, y)) return false;
+    return true;
+  }
+
   function openingPan(): Pan {
     return initialPan(puzzle, width, height, PADDING, insets);
   }
@@ -1918,11 +1940,13 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
   }
   return {
     draw,
-    // Nothing under the HUD or the parts panel can be picked: the free area is the only live part of the canvas.
-    hitTest: (x, y) => (inArea(freeArea(width, height, insets), x, y) ? hitTestGeometry(geo, x, y) : null),
-    placeAt: (x, y) => (inArea(freeArea(width, height, insets), x, y) ? placeAtPoint(places, geo.fit, x, y) : null),
+    // Live anywhere on the canvas except under an overlay panel (a blocker rect, edges inclusive). The insets only
+    // steer fit and pan; the empty middle of a band is clickable, so a node drawn there can be thrown (ticket 035).
+    hitTest: (x, y) => (live(x, y) ? hitTestGeometry(geo, x, y) : null),
+    placeAt: (x, y) => (live(x, y) ? placeAtPoint(places, geo.fit, x, y) : null),
     resize,
     setInsets,
+    setBlockers,
     notify,
     getPan: () => ({ x: pan.x, y: pan.y }),
     setPan,

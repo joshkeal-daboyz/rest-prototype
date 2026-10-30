@@ -1,7 +1,7 @@
 # 036 · The playtest harness: every ladder map replayed headlessly, its trace snapshotted
 
 owner: playtester
-status: approved (G1, Josh, in chat: "Approve"; defaults apply: branch from try/all, copy the two unexported helpers, cue names and times only, one tick per click)
+status: done (merged into try/all as 2648c33; Josh, in chat: "Merge it"; review: meets, must-fix 0)
 branch: `ticket/036-playtest-harness`
 depends on: the 027 and 029–034 stack on `try/all`. Branch from `try/all`, or from `main` once that stack merges, and merge after it. The harness needs that stack for three things: 029's map ids (they rename 52 maps, so snapshots keyed on `main`'s ids would all go stale), 027's analyzer line `one shortest win: …`, and 027's `parseCheckMove`/`CHECK_CLICK_SECONDS` in `src/core`. It doesn't depend on 035 (clicks under empty insets). Whichever of 035 and 036 merges second gets its playtest from this harness.
 

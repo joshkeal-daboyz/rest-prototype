@@ -2,11 +2,12 @@
 // No game rules here: each layer owns its own. Picking another map rebuilds the stack.
 import { EventBus, puzzleFeeds, type Puzzle } from "./core";
 import { createGrid, type Grid, type GridState } from "./grid";
-import { createMapRenderer, planRelight, type MapPanView, type MapPlaces, type MapRenderer } from "./render";
+import { createMapRenderer, planRelight, type MapBlockers, type MapPanView, type MapPlaces, type MapRenderer } from "./render";
 import { attachPan, createMapPlay, type MapPlay } from "./play";
 import { createAudio } from "./audio";
 import { mountUI, restoreAudio, type UI } from "./ui";
 import { brownoutNotices, nextMap, noticeFor, placeHighlight, splashDue } from "./ui/logic";
+import { measureBlockers } from "./ui/blockers";
 import { collectMaps, type MapEntry } from "./ui/maps";
 
 const files = import.meta.glob("../puzzles/**/*.json", { eager: true, import: "default" }) as Record<string, unknown>;
@@ -64,7 +65,7 @@ if (entries.length === 0) {
 
   interface Session {
     grid: Grid;
-    renderer: MapRenderer & MapPanView & MapPlaces;
+    renderer: MapRenderer & MapPanView & MapPlaces & MapBlockers;
     play: MapPlay;
     ui: UI;
     puzzle: Puzzle;
@@ -270,6 +271,7 @@ if (entries.length === 0) {
       if (view.relightT !== null) overlay.relightT = view.relightT;
       s.renderer.draw(state, overlay, now / 1000);
       s.ui.update();
+      s.renderer.setBlockers(measureBlockers(uiRoot as HTMLElement, canvas as HTMLCanvasElement));
       // The HUD is filled by the first ui.update(), so measure the insets and centre the map once, now.
       if (!s.centred) {
         s.centred = true;

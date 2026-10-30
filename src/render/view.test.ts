@@ -318,8 +318,9 @@ describe("hit-testing and the free area", () => {
     }
     expect(tested).toBe(20);
   });
-  it("returns null inside the top and bottom inset even where a node is drawn", () => {
+  it("returns null under blockers covering the top and bottom bands even where a node is drawn", () => {
     const r = createMapRenderer(fakeCanvas(W, H), BIG, { insets: INS });
+    r.setBlockers([{ left: 0, top: 0, right: W, bottom: INS.top! }, { left: 0, top: H - INS.bottom!, right: W, bottom: H }]); // panels covering both bands
     r.setPan(-420, -160);
     const g = buildGeometry(BIG, W, H, PADDING, INS, r.getPan());
     let underTop = 0;
