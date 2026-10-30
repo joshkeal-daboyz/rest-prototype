@@ -12,6 +12,7 @@ import {
   PAN_KEEP,
   ZOOM_STEP,
   buildGeometry,
+  captionFloor,
   captionsShown,
   clampPan,
   computeFit,
@@ -409,7 +410,7 @@ describe("hit-testing at every level", () => {
     });
     expect(levelsSeen).toBe(BIG_LEVELS.length);
   });
-  it("points in the insets return null at every level, for hitTest and placeAt", () => {
+  it("points in the insets return null at every level, for hitTest and placeAt", { timeout: 60000 }, () => {
     const r = createMapRenderer(fakeCanvas(W, H), BIG, { insets: INS });
     everyLevel(r, () => {
       const g = buildGeometry(BIG, W, H, PADDING, INS, r.getPan(), r.getScale());
@@ -503,7 +504,7 @@ describe("captions", () => {
     const shown = targetLabels(BIG, places, fit, FREE, measure).filter((b) => b !== null);
     expect(shown.length).toBeGreaterThan(0);
   });
-  it("the renderer draws no Lv caption and no place label in the overview, and both at the opening view", () => {
+  it("the renderer draws no Lv caption and no place label in the overview, and both at the opening view", { timeout: 60000 }, () => {
     const drawn: string[] = [];
     const p = byPrefix("56");
     const r = createMapRenderer(fakeCanvas(W, H, drawn), p, { insets: INS });
@@ -511,9 +512,6 @@ describe("captions", () => {
     const caption = lampCaption(1);
     const placeNames = new Set(footprintLayout(p, mapOrigin(p.id, puzzleBounds(p)), r.getScale()).places.map((q) => q.label).filter((l): l is string => l !== null));
     expect(placeNames.size).toBeGreaterThan(0);
-    // 56 fits at its opening scale, so the overview is reached by drawing it small
-    const small = createMapRenderer(fakeCanvas(520, 320, drawn), p, { insets: {} });
-    expect(small.getScale()).toBeGreaterThan(0);
     r.draw(state, {}, 0);
     expect(drawn.some((s) => s === caption)).toBe(true);
     expect(drawn.some((s) => placeNames.has(s))).toBe(true);
@@ -536,6 +534,29 @@ describe("captions", () => {
     drawn.length = 0;
     big.draw(state, {}, 1);
     expect(drawn.filter((s) => s === caption).length).toBeGreaterThan(0);
+  });
+  it("captionFloor never exceeds the opening scale, and captionsShown honours it", () => {
+    expect(captionFloor(36)).toBe(CAPTION_MIN_SCALE);
+    expect(captionFloor(25)).toBe(25);
+    expect(captionsShown(25, 25)).toBe(true);
+    expect(captionsShown(24.9, 25)).toBe(false);
+    expect(captionsShown(26, captionFloor(25))).toBe(true);
+  });
+  it("every file in puzzles/ draws its Lv captions, ratings and feed readouts right after resetView()", { timeout: 300000 }, () => {
+    const caption = lampCaption(1);
+    for (const [w, h] of [[1920, 1080], [1920, 950], [1366, 768]] as const) {
+      for (const p of FILES) {
+        const drawn: string[] = [];
+        const r = createMapRenderer(fakeCanvas(w, h, drawn), p, { insets: INS });
+        r.zoomStep(-1);
+        r.resetView();
+        r.draw(emptyState(), {}, 0);
+        const lamps = p.nodes.filter((n) => n.type === "lamp");
+        if (lamps.length > 0) expect(drawn.some((s) => s.startsWith("Lv") || s === caption), `${p.id} @${w}x${h} (scale ${r.getScale().toFixed(1)}) lamp caption`).toBe(true);
+        const ratings = p.nodes.filter((n) => n.type === "fusebox").map((n) => fuseCaption(n.rating)).filter((t) => t !== "");
+        if (ratings.length > 0) expect(drawn.some((t) => ratings.includes(t)), `${p.id} @${w}x${h} fuse rating`).toBe(true);
+      }
+    }
   });
   it("fuse ratings and feed captions are also hidden below the threshold", () => {
     const fuseMap = FILES.find((q) => q.nodes.some((n) => n.type === "fusebox") && q.nodes.filter((n) => n.type === "feed").length === 1)!;

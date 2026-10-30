@@ -287,13 +287,13 @@ export const CAPTION_H_PX = 14;
 export const STAR_BOX_PX = 14;
 
 /** The Lv caption box and the target star box of a lamp at px (x, y), top-left boxes. Allocates; not for the draw loop. */
-export function lampMarks(node: GridNode, x: number, y: number, scale?: number): PxRect[] {
+export function lampMarks(node: GridNode, x: number, y: number, scale?: number, floor?: number): PxRect[] {
   const load = node.type === "lamp" ? (node.load ?? 1) : 1;
   const cr = clusterRadius(load);
   const capW = lampCaption(load).length * 6 + 4;
   const star = { x: x - STAR_BOX_PX / 2, y: y - cr - STAR_DY - STAR_BOX_PX / 2, w: STAR_BOX_PX, h: STAR_BOX_PX };
   // Below CAPTION_MIN_SCALE the Lv caption is not drawn, so it takes no room; the star still is.
-  if (scale !== undefined && !captionsShown(scale)) return [star];
+  if (scale !== undefined && !captionsShown(scale, floor)) return [star];
   return [{ x: x - capW / 2, y: y + cr + CAPTION_DY - CAPTION_H_PX / 2, w: capW, h: CAPTION_H_PX }, star];
 }
 
@@ -333,10 +333,11 @@ export function targetLabels(
   fit: { scale: number; offsetX: number; offsetY: number },
   free: { left: number; top: number; right: number; bottom: number },
   measure: (text: string) => number,
+  floor?: number,
 ): (PxRect | null)[] {
   const sc = fit.scale;
-  // Zoomed out past CAPTION_MIN_SCALE the place labels are hidden.
-  if (!captionsShown(sc)) return places.map(() => null);
+  // Zoomed out past the caption floor (CAPTION_MIN_SCALE, or the opening scale if lower) the place labels are hidden.
+  if (!captionsShown(sc, floor)) return places.map(() => null);
   const area = labelArea(free);
   const segs: PxSeg[] = [];
   for (const l of circuitStreets(puzzle).lanes.concat(feedLanes(puzzle))) {
@@ -352,7 +353,7 @@ export function targetLabels(
     if (n.type === "lamp") {
       lamp.set(n.id, { x: n.pos[0], y: n.pos[1] });
       // The Lv caption under the lamp and the target star above it.
-      for (const m of lampMarks(n, x, y, sc)) rects.push(m);
+      for (const m of lampMarks(n, x, y, sc, floor)) rects.push(m);
     }
   }
   for (const p of places) {

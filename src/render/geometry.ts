@@ -99,9 +99,14 @@ export const ZOOM_STEP = Math.SQRT2 ** 0.5;
 /** Lv captions and place labels are hidden below this scale (three quarters of MIN_SCALE). */
 export const CAPTION_MIN_SCALE = 27;
 
-/** True when Lv captions and place labels are drawn at this scale. */
-export function captionsShown(scale: number): boolean {
-  return scale >= CAPTION_MIN_SCALE;
+/** The scale below which captions are hidden: CAPTION_MIN_SCALE, but never above the opening scale (the opening view always has them). */
+export function captionFloor(open: number): number {
+  return Math.min(CAPTION_MIN_SCALE, open);
+}
+
+/** True when Lv captions and place labels are drawn at this scale, given the caption floor (default CAPTION_MIN_SCALE). */
+export function captionsShown(scale: number, floor: number = CAPTION_MIN_SCALE): boolean {
+  return scale >= floor;
 }
 
 /** The smallest scale the player can zoom out to: the whole map fits (never above the opening scale). */
