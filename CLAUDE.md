@@ -1,6 +1,6 @@
 # Rest: Circuits (rest-prototype)
 
-The power-routing minigame prototype for *Rest*: a top-down map of a town section; throw breakers and switches and spend scarce parts to route the failing feed's limited power to what the priests want lit. Josh builds alone with an agent crew. **For now the goal is a playable prototype to test the idea; features come after Josh has played it.** The design is in [docs/prototype-brief.md](docs/prototype-brief.md); the game it feeds is in the [GDD](https://github.com/joshkeal-daboyz/rest-gdd). Panels live in `puzzles/`, their schema in [puzzles/SCHEMA.md](puzzles/SCHEMA.md). (The Forge art pipeline in rest-gdd is concept art only; nothing here touches it.)
+The power-routing minigame prototype for *Rest*: a top-down map of a town section; throw breakers and switches and spend scarce parts to route the failing feed's limited power to what the priests want lit. Josh builds alone with an agent crew. **For now the goal is a playable prototype to test the idea; features come after Josh has played it.** The design is in [docs/prototype-brief.md](docs/prototype-brief.md); the game it feeds is in the [GDD](https://github.com/joshkeal-daboyz/rest-gdd). Panels live in `puzzles/`, their schema in [puzzles/SCHEMA.md](puzzles/SCHEMA.md). The headless regression harness is in `tests/playtest/`, its reports in `playtests/`. (The Forge art pipeline in rest-gdd is concept art only; nothing here touches it.)
 
 ## Hard rules
 
@@ -16,9 +16,9 @@ The power-routing minigame prototype for *Rest*: a top-down map of a town sectio
 
 1. **Cut.** Give the `lead-architect` Josh's request. It writes or updates `tickets/NNN-slug.md` (goal, owner agent, acceptance criteria, files it may touch) and any types in `src/core/`. Show Josh the ticket in a few lines and ask him to approve it (G1).
 2. **Build.** On Josh's word, make a branch `ticket/NNN-slug` and give the ticket id to its owner agent. It implements, writes Vitest tests for its own code, runs `npm test`, and reports. If it says it needs another folder, stop and re-cut with the architect.
-3. **Gate, then review.** Before any reviewer is spawned, the main session runs the free check on the builder's branch itself: `npm run gate` (typecheck + the whole test suite, which includes the schema validation of every JSON file in `puzzles/`) in a detached worktree of that branch. If it fails, or the test count didn't grow for a ticket that promised tests, the branch goes straight back to the builder; no review tokens are spent on it. Only a green gate gets the `code-reviewer`, given only the ticket id and the branch name. It writes `reviews/NNN-slug.md` with `must-fix: N`.
-4. **Settle.** Only must-fix items you agree with go back to the builder; then a fresh review. Two rounds at most, then take it to Josh as it stands. If you disagree with the reviewer, say so and put both views to Josh.
-5. **Show Josh.** In a few lines: what the ticket did, how to try it (`npm run dev`, which puzzle), the reviewer's assessment, and links to the ticket and review. Ask him to play it and say whether to merge.
+3. **Gate, then review and playtest.** Before any reviewer is spawned, the main session runs the free check on the builder's branch itself: `npm run gate` (typecheck + the whole test suite, which includes the schema validation of every JSON file in `puzzles/`) in a detached worktree of that branch. If it fails, or the test count didn't grow for a ticket that promised tests, the branch goes straight back to the builder; no review tokens are spent on it. Only a green gate gets the `code-reviewer` and the `playtester`, spawned together and each given only the ticket id and the branch name. The reviewer writes `reviews/NNN-slug.md` with `must-fix: N`. The playtester works out which play behaviour the ticket's files could have changed, replays every map on the ladder headlessly on the branch (`npm run playtest`), checks each difference from `main` against the ticket's acceptance criteria, and writes `playtests/NNN-slug.md` with `regressions: N`.
+4. **Settle.** Only must-fix items and regressions you agree with go back to the builder; then a fresh review and playtest. Two rounds at most, then take it to Josh as it stands. If you disagree with the reviewer or the playtester, say so and put both views to Josh. A behaviour change the ticket asked for is not a regression: the playtester updates that map's snapshot on the branch and names it in its report.
+5. **Show Josh.** In a few lines: what the ticket did, how to try it (`npm run dev`, which puzzle), the reviewer's assessment, the playtester's verdict, and links to the ticket, review and playtest. Ask him to play it and say whether to merge.
 6. **Merge.** On his word, merge into `main` with his words in the commit message, push, and mark the ticket done.
 
 ## The loop for a puzzle
@@ -29,7 +29,7 @@ The power-routing minigame prototype for *Rest*: a top-down map of a town sectio
 
 ## Hook
 
-`.claude/hooks/pipeline_guard.py` blocks agents from merging, pushing, writing reviews (unless `code-reviewer`), writing tickets (unless `lead-architect`), and from touching `puzzles/locked/`. If it blocks you, follow its message.
+`.claude/hooks/pipeline_guard.py` blocks agents from merging, pushing, writing reviews (unless `code-reviewer`), writing playtests (unless `playtester`), writing tickets (unless `lead-architect`), the `playtester` from touching `src/`, `puzzles/` or `tools/`, and everyone from touching `puzzles/locked/`. If it blocks you, follow its message.
 
 ## Tokens
 

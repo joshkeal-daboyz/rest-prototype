@@ -85,6 +85,8 @@ Each map tests one element. The analyzer must pass on each.
 | `puzzles/` | puzzle-designer | Map files and their design notes |
 | `puzzles/locked/` | Josh | Maps Josh has approved; never edited by agents |
 | `tickets/`, `reviews/` | lead-architect, code-reviewer | One file each per ticket |
+| `tests/playtest/` | playtester | The headless regression harness: every map replayed to the Relight, its trace snapshotted |
+| `playtests/` | playtester | One playtest report per ticket |
 
 ## Later: the street
 
