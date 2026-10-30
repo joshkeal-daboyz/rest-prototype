@@ -300,6 +300,32 @@ describe("node cleanup: the beat thumps for as long as a feed is powered", () =>
     for (const n of made.filter((x) => x.kind === "osc")) expect(n.stops.length).toBe(1);
   });
 
+  it("a 600 s gap (backgrounded tab, stalled loop) resyncs: one update schedules at most one beat, never a replay", async () => {
+    const s = await setup();
+    await s.unlock();
+    s.audio.update(powered(), 1 / 60, 100);
+    const baseline = s.fake.nodes.length;
+    s.fake.currentTime += 600;
+    s.audio.update(powered(), 600, 700.04);
+    const made = s.fake.nodes.slice(baseline);
+    expect(made.filter((n) => n.kind === "osc").length).toBeLessThanOrEqual(R.beatThump().length); // one thump
+    expect(made.length).toBeLessThanOrEqual(2 * R.beatThump().length);
+    // and the following frames carry on one beat at a time
+    const b2 = s.fake.nodes.length;
+    for (let i = 1; i <= 120; i++) s.audio.update(powered(), 1 / 60, 700.04 + i / 60);
+    expect(s.fake.nodes.length - b2).toBeLessThanOrEqual(3 * 2 * R.beatThump().length);
+  });
+
+  it("the Relight and its chimes schedule only on relight(): update() alone creates none of their nodes", async () => {
+    const s = await setup();
+    await s.unlock();
+    s.audio.update(powered(), 1 / 60, 10);
+    const baseline = s.fake.nodes.length;
+    s.fake.currentTime += 600;
+    s.audio.update(view(), 600, 610);
+    expect(s.fake.nodes.length).toBe(baseline);
+  });
+
   it("an unpowered stretch creates no nodes at all, over thousands of calls", async () => {
     const s = await setup();
     await s.unlock();
