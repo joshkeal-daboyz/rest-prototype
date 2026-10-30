@@ -186,12 +186,20 @@ describe("027 G budget: the simulator stays fast at 4 feeds and about 400 nodes"
 
   it("the starting settle and a full reset are also cheap (under 50 ms each)", () => {
     const big = bigMap();
-    const t0 = performance.now();
-    const g = createGrid(big.puzzle);
-    const make = performance.now() - t0;
-    const t1 = performance.now();
-    g.reset();
-    const reset = performance.now() - t1;
+    createGrid(big.puzzle).reset(); // warm up, so the timings below are not a cold JIT sample
+    const makes: number[] = [];
+    const resets: number[] = [];
+    for (let i = 0; i < 9; i++) {
+      const t0 = performance.now();
+      const g = createGrid(big.puzzle);
+      makes.push(performance.now() - t0);
+      const t1 = performance.now();
+      g.reset();
+      resets.push(performance.now() - t1);
+    }
+    const median = (xs: number[]): number => xs.slice().sort((a, b) => a - b)[xs.length >> 1]!;
+    const make = median(makes);
+    const reset = median(resets);
     console.log(`[027 G] createGrid ${make.toFixed(3)} ms, reset ${reset.toFixed(3)} ms`);
     expect(make).toBeLessThan(50);
     expect(reset).toBeLessThan(50);

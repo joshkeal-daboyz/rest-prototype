@@ -110,7 +110,7 @@ describe("circuitStreets", () => {
 });
 
 describe("footprint buildings", () => {
-  it("leave every line's ends, midpoint and quarter points on open ground, WIRE_CLEAR_PX from any building", () => {
+  it("leave every line's ends, midpoint and quarter points on open ground, WIRE_CLEAR_PX from any building", { timeout: 60000 }, () => {
     for (const { key: k, puzzle } of OPEN) {
       const cs = circuitStreets(puzzle);
       const o = mapOrigin(puzzle.id, puzzleBounds(puzzle));

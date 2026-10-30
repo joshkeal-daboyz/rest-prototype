@@ -48,7 +48,7 @@ export interface LabelCache {
    * Fill `centres` (x, y of each place's label box centre, px) and `shown` (1/0) for the fit. Reuses the
    * last result, slid by the pan, when that is provably what a recompute would give. Returns true if it recomputed.
    */
-  update(places: readonly Place[], fit: Fit, free: Free, measure: (text: string) => number, centres: Float64Array, shown: Uint8Array): boolean;
+  update(places: readonly Place[], fit: Fit, free: Free, measure: (text: string) => number, centres: Float64Array, shown: Uint8Array, floor?: number): boolean;
   /** How many times the labels were recomputed from scratch. */
   readonly recomputes: number;
   /** Forget everything (a new puzzle, a new set of places). */
@@ -58,6 +58,7 @@ export interface LabelCache {
 export function createLabelCache(puzzle: Puzzle): LabelCache {
   let places: readonly Place[] | null = null;
   let scale = NaN;
+  let capFloor: number | undefined;
   let offX = 0;
   let offY = 0;
   let fl = NaN;
@@ -75,8 +76,8 @@ export function createLabelCache(puzzle: Puzzle): LabelCache {
     clear() {
       places = null;
     },
-    update(ps, fit, free, measure, centres, shown) {
-      const sameFrame = places === ps && fit.scale === scale && free.left === fl && free.top === ft && free.right === fr && free.bottom === fb;
+    update(ps, fit, free, measure, centres, shown, floor) {
+      const sameFrame = places === ps && floor === capFloor && fit.scale === scale && free.left === fl && free.top === ft && free.right === fr && free.bottom === fb;
       if (sameFrame) {
         if (scratch.length !== ps.length) scratch = new Uint8Array(ps.length);
         labelClasses(ps, fit, free, reach, scratch);
@@ -100,7 +101,7 @@ export function createLabelCache(puzzle: Puzzle): LabelCache {
           return false;
         }
       }
-      const boxes = targetLabels(puzzle, ps, fit, free, measure);
+      const boxes = targetLabels(puzzle, ps, fit, free, measure, floor);
       let widest = 0;
       ps.forEach((p, i) => {
         if (p.label !== null) widest = Math.max(widest, measure(p.label));
@@ -115,6 +116,7 @@ export function createLabelCache(puzzle: Puzzle): LabelCache {
       reach = LABEL_GAP_PX + Math.max(widest, LABEL_H_PX) + LABEL_EDGE_PX;
       places = ps;
       scale = fit.scale;
+      capFloor = floor;
       offX = fit.offsetX;
       offY = fit.offsetY;
       fl = free.left;

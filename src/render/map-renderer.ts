@@ -10,6 +10,8 @@ import {
   MAX_ZOOM_SCALE,
   PADDING,
   buildGeometry,
+  CAPTION_MIN_SCALE,
+  captionFloor,
   captionsShown,
   clampPan,
   computeFit,
@@ -248,6 +250,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
   let userScale: number | null = null;
   /** Whether Lv captions are drawn at the current scale (rebuilt with the geometry). */
   let capsOn = true;
+  let capFloor = CAPTION_MIN_SCALE;
   /** The canvas as a rect, and the lines and nodes near it (rebuilt with the geometry). */
   const canvasRect = { left: 0, top: 0, right: 1, bottom: 1 };
   const visLines = new Int32Array(puzzle.lines.length);
@@ -574,7 +577,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
   function placeLabels(): void {
     c.font = LABEL_FONT;
     // On a pan at the same scale the cached boxes just slide; they are recomputed only when the pan could change a choice.
-    labelCache.update(places, geo.fit, freeArea(width, height, insets), measureLabel, labelXY, labelShown);
+    labelCache.update(places, geo.fit, freeArea(width, height, insets), measureLabel, labelXY, labelShown, capFloor);
   }
 
   /** Recompute the city for the current fit: layout at this scale, screen data for what glows, the cached dark layer. */
@@ -740,7 +743,8 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     const box = mapBox(mapBounds, computeFit(mapBounds, width, height, PADDING, insets, undefined, sc));
     pan = clampPan(pan, box, freeArea(width, height, insets), undefined, PADDING);
     geo = buildGeometry(puzzle, width, height, PADDING, insets, pan, sc);
-    capsOn = captionsShown(sc);
+    capFloor = captionFloor(openScale(fitScale(mapBounds, width, height, PADDING, insets)));
+    capsOn = captionsShown(sc, capFloor);
     canvasRect.right = width;
     canvasRect.bottom = height;
     nVisLines = visibleLinesInto(geo, canvasRect, LINE_CULL_PX, visLines);
