@@ -25,6 +25,7 @@ import {
   capacityRows,
   inventoryRows,
   isHighlighted,
+  isShowKey,
   liveNotices,
   mapLabel,
   noticeOpacity,
@@ -38,6 +39,7 @@ import {
   sliderToVolume,
   soundToggleLabel,
   targetRows,
+  targetsAreMany,
   volumeToSlider,
   winLine,
   writeAudioPrefs,
@@ -60,6 +62,11 @@ export interface UIDeps {
    * main.ts carries the highlight to the map and calls ui.highlight back.
    */
   onHighlight?(lampId: string | null): void;
+  /**
+   * A "Priests want lit" entry was clicked, or Enter was pressed on it (ticket 027 C): its lamp id. main.ts centres
+   * the map on that lamp. The list does not draw the map; it only asks.
+   */
+  onShow?(lampId: string): void;
 }
 
 /** What the win splash shows. All of it is plain data from the play layer and the picker. */
@@ -725,6 +732,8 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
       const focusedId = targetItems.find((i) => i.node === active)?.id ?? null;
       targetsEl.textContent = "";
       targetItems = [];
+      // More than six entries lay out in two columns (ticket 027 C). The class is set on each rebuild.
+      targetsEl.classList.toggle("many", targetsAreMany(rows.length));
       for (const row of rows) {
         const item = el("li", row.lit ? "target lit" : "target dark");
         item.tabIndex = 0;
@@ -734,6 +743,13 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
         item.addEventListener("pointerleave", () => deps.onHighlight?.(null));
         item.addEventListener("focus", () => deps.onHighlight?.(row.id));
         item.addEventListener("blur", () => deps.onHighlight?.(null));
+        // Click, or Enter on the focused entry, brings the lamp to the centre of the map (ticket 027 C).
+        item.addEventListener("click", () => deps.onShow?.(row.id));
+        item.addEventListener("keydown", (event: KeyboardEvent) => {
+          if (!isShowKey(event.key)) return;
+          event.preventDefault();
+          deps.onShow?.(row.id);
+        });
         targetsEl.append(item);
         targetItems.push({ id: row.id, node: item });
       }

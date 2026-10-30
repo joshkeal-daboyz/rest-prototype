@@ -135,6 +135,10 @@ if (entries.length === 0) {
       feeds,
       audio,
       onHighlight: (lampId) => setHighlight(lampId),
+      // A "Priests want lit" entry was clicked or Entered (ticket 027 C): bring that lamp to the centre.
+      onShow: (lampId) => {
+        renderer.centreOn(lampId);
+      },
       onPick: (next) => {
         history.replaceState(null, "", urlFor(next));
         open(next);

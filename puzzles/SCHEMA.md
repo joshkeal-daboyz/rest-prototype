@@ -118,3 +118,57 @@ Ticket 015; the rules below are **Draft**, Josh's to tune after playing. The sim
 ## Events
 
 `grid:changed`, `breaker:thrown`, `switch:thrown`, `fuse:blown`, `repair:completed`, `grid:brownout` (entered or cleared; on a multi-feed map it carries `over`, the ids of the feeds over their capacity in file order, empty when cleared, and also fires when that set changes during a brownout; absent on one-feed maps), `battery:released`, `battery:flat`, `job:completed`. `switch:thrown` carries `spring: true` when a spring switch returned on its own. `fuse:blown` carries `load`, `rating`, `culprit` (the lamp the action newly fed, largest load if several, or null) with its `path` from the fuse, and `lamps`: every lamp whose load counted toward `load` when it blew (powered by the feed's flow, downstream of the fusebox, not faulted, load > 0, lamps already lit included), each with its line path from the fuse, in flow discovery order; their loads sum to `load` (ticket 016). Street scope later adds the night events.
+
+## Design checks (ticket 027)
+
+A design note (`puzzles/<id>.md`) may carry one **check block**: a fenced code block tagged `check` holding JSON. It is the designer's claim about the map, made executable. `npm run check puzzles/<id>.json` (027 D1) replays it on the real simulator, and the gate replays every note's block, so a later simulator change that breaks a map fails CI. It lives in the note, not in a `.json` file, because every `.json` in `puzzles/` is loaded as a map. Types, the parser and the validator are in `src/core/check.ts` (`parseCheckBlock`, `validateCheck`, `parseCheckMove`); only the **first** block tagged `check` in a note is read.
+
+````md
+```check
+{
+  "clickSeconds": 1,
+  "solution": ["br_street", "sw_1", "repair:l_b"],
+  "traps": [
+    { "name": "mend the dead junction first",
+      "moves": ["repair:j_dead", "wait:2"],
+      "expect": { "readable": ["f2"], "complete": false },
+      "recover": ["undo", "sw_1", "repair:l_b"] }
+  ],
+  "sections": [
+    { "id": "street", "nodes": ["feed", "br_main", "j1", "br_street", "fb_A", "j2", "street_1", "street_2", "street_3"], "parts": [] },
+    { "id": "shrine", "nodes": ["sw_1", "j_dead", "j4", "flood", "j5", "shrine"], "parts": ["wire"] }
+  ],
+  "links": [
+    { "line": "l_sw", "sides": { "street": { "lamp": { "load": 3, "must": true } }, "shrine": { "feed": { "capacity": 4 } } } }
+  ]
+}
+```
+````
+
+**Moves** (strings), played in order from the file's start state:
+
+| move | does |
+| --- | --- |
+| `<id>` | clicks a breaker or switch (throws it), or a battery (releases it, or stops it early) |
+| `release:<battery>` | the same as clicking the battery, said plainly |
+| `repair:<node or line id>` | repairs the fault there (spends its part). The id must be the `at` of a fault in the file, or a fusebox with a `rating` (a fuse that may blow in play) |
+| `wait:<seconds>` | lets time pass (battery charge and drain); a positive number |
+| `undo` | the player's undo |
+
+After every click or repair, `clickSeconds` seconds pass (default **1**, the convention the notes use; `wait:` adds no extra time).
+
+**Fields.**
+- `solution` (required): the intended moves. Replayed, they must complete the job.
+- `traps` (optional): each `{ name, moves, expect, recover }`, all required. `moves` run from the start; `expect` must then hold; then `recover` runs from that state and must complete the job. Names are unique. `expect` names at least one of:
+  - `blown`: fuseboxes (with a `rating`) that gained a blown fault during the moves;
+  - `brownout`: true or false;
+  - `readable`: fault ids readable after the moves: a file fault's `id`, or `blown-<fusebox>` for a fuse that blew in play;
+  - `lit`: lamps lit after the moves;
+  - `complete`: only `false` (the trap did not win).
+- `sections` (optional, for a large map): `{ id, nodes, parts? }`. Every node is in exactly one section. Each section's `parts` (absent = none) is its share of `startingParts`; together they add up to `startingParts` exactly, as multisets.
+- `links` (with `sections` only): every line whose two ends are in different sections is listed once, as `{ line, sides }`. `sides` gives a **stub** for each of the two sections it joins, and no other: what that section sees in place of the link when it is analysed on its own (`npm run analyze -- --sections`, 027 D3):
+  - `{ "feed": { "capacity": N | null } }`: power comes in here;
+  - `{ "lamp": { "load": N, "must": true? } }`: power must leave here, with this load; `must: true` makes it a target of the sub-puzzle;
+  - `"cut"`: the link is open for this section.
+
+The validator returns every problem, one message each. The replay (D1) and the sectioned analysis (D3) read the block only after it validates.

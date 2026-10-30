@@ -655,11 +655,13 @@ describe("labels never clip", () => {
   });
 });
 
-describe("the circuit area stays a district's size", () => {
-  it("keeps every footprint inside its district", () => {
+describe("the circuit area is a district's size, or a ward's if the map is large", () => {
+  it("keeps every footprint inside its district, except a large map's, which has the ward", () => {
     for (const { puzzle } of OPEN) {
       const fp = circuitStreets(puzzle).footprint;
-      expect(fp.maxX - fp.minX).toBeLessThanOrEqual(DISTRICT);
+      const large = city.isLarge(puzzleBounds(puzzle));
+      expect(fp.maxX - fp.minX <= DISTRICT && fp.maxY - fp.minY <= DISTRICT, puzzle.id).toBe(!large);
+      expect(Math.max(fp.maxX - fp.minX, fp.maxY - fp.minY), puzzle.id).toBeLessThanOrEqual(city.WARD);
     }
   });
 });

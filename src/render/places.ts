@@ -6,6 +6,7 @@
 
 import { placeBase, type GridNode, type Puzzle } from "../core";
 import { circuitStreets, feedLanes, nodeClearPx, placeParts, type Building, type Place } from "./city";
+import { captionsShown } from "./geometry";
 import { lampCaption } from "./labels";
 import { clusterRadius } from "./load";
 
@@ -286,14 +287,14 @@ export const CAPTION_H_PX = 14;
 export const STAR_BOX_PX = 14;
 
 /** The Lv caption box and the target star box of a lamp at px (x, y), top-left boxes. Allocates; not for the draw loop. */
-export function lampMarks(node: GridNode, x: number, y: number): PxRect[] {
+export function lampMarks(node: GridNode, x: number, y: number, scale?: number): PxRect[] {
   const load = node.type === "lamp" ? (node.load ?? 1) : 1;
   const cr = clusterRadius(load);
   const capW = lampCaption(load).length * 6 + 4;
-  return [
-    { x: x - capW / 2, y: y + cr + CAPTION_DY - CAPTION_H_PX / 2, w: capW, h: CAPTION_H_PX },
-    { x: x - STAR_BOX_PX / 2, y: y - cr - STAR_DY - STAR_BOX_PX / 2, w: STAR_BOX_PX, h: STAR_BOX_PX },
-  ];
+  const star = { x: x - STAR_BOX_PX / 2, y: y - cr - STAR_DY - STAR_BOX_PX / 2, w: STAR_BOX_PX, h: STAR_BOX_PX };
+  // Below CAPTION_MIN_SCALE the Lv caption is not drawn, so it takes no room; the star still is.
+  if (scale !== undefined && !captionsShown(scale)) return [star];
+  return [{ x: x - capW / 2, y: y + cr + CAPTION_DY - CAPTION_H_PX / 2, w: capW, h: CAPTION_H_PX }, star];
 }
 
 // ---- picking ----
@@ -334,6 +335,8 @@ export function targetLabels(
   measure: (text: string) => number,
 ): (PxRect | null)[] {
   const sc = fit.scale;
+  // Zoomed out past CAPTION_MIN_SCALE the place labels are hidden.
+  if (!captionsShown(sc)) return places.map(() => null);
   const area = labelArea(free);
   const segs: PxSeg[] = [];
   for (const l of circuitStreets(puzzle).lanes.concat(feedLanes(puzzle))) {
@@ -349,7 +352,7 @@ export function targetLabels(
     if (n.type === "lamp") {
       lamp.set(n.id, { x: n.pos[0], y: n.pos[1] });
       // The Lv caption under the lamp and the target star above it.
-      for (const m of lampMarks(n, x, y)) rects.push(m);
+      for (const m of lampMarks(n, x, y, sc)) rects.push(m);
     }
   }
   for (const p of places) {
@@ -361,6 +364,13 @@ export function targetLabels(
   for (const p of places) {
     const at = lamp.get(p.lamp);
     if (p.label === null || !at) {
+      out.push(null);
+      continue;
+    }
+    // A place outside the free area (an overflowing map) gets no label: it is never dragged in from afar.
+    const px = p.x * sc + fit.offsetX;
+    const py = p.y * sc + fit.offsetY;
+    if (px < free.left || px > free.right || py < free.top || py > free.bottom) {
       out.push(null);
       continue;
     }

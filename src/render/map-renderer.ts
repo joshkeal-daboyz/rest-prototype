@@ -6,9 +6,33 @@
 
 import { FAULT_RULES, type Events, type FaultKind, type Puzzle } from "../core";
 import type { GridState } from "../grid";
-import { buildGeometry, clampPan, computeFit, freeArea, hitTestGeometry, mapBox, puzzleBounds, type Geometry, type Insets, type Pan } from "./geometry";
+import {
+  MAX_ZOOM_SCALE,
+  PADDING,
+  buildGeometry,
+  captionsShown,
+  clampPan,
+  computeFit,
+  fitScale,
+  freeArea,
+  openScale,
+  zoomAbout,
+  zoomLevels,
+  hitTestGeometry,
+  inArea,
+  initialPan,
+  mapBox,
+  panToCentre,
+  puzzleBounds,
+  visibleLinesInto,
+  visibleNodesInto,
+  type Geometry,
+  type Insets,
+  type Pan,
+} from "./geometry";
 import { FUSE_BAR_HEIGHT, FUSE_BAR_TOP, FUSE_BAR_WIDTH, fuseFill, fuseStep, fuseTickOffsets } from "./fusebar";
 import { createFeedCaptions } from "./feedcaps";
+import { MARKER_SIZE, offscreenMarkers, type OffscreenMarker } from "./markers";
 import { fuseCaption, lampCaption } from "./labels";
 import { bulbOffsets, bulbRadius, clusterRadius, poolAlpha, poolRadiusScale } from "./load";
 import {
@@ -63,12 +87,14 @@ import {
   glowSpriteData,
   glowTarget,
   gridStreetLines,
+  lampPlaceStubs,
   mapOrigin,
   spokeDir,
   visibleMapRect,
   type Place,
 } from "./city";
-import { LABEL_FONT_PX, placeAtPoint, placeShapes, targetLabels, type Prim } from "./places";
+import { LABEL_FONT_PX, placeAtPoint, placeShapes, type Prim } from "./places";
+import { createLabelCache } from "./labelcache";
 import { chargeFraction, popProgress, wentFlat } from "./battery";
 import { clamp01, flicker, hash01, pulseCount, pulsePhase, PULSE_SPACING } from "./motion";
 import { FLARE_SECONDS, planRelight, type RelightPlan } from "./relight";
@@ -114,15 +140,31 @@ export interface MapPanView {
   getPan(): Pan;
   /** Pan to (x, y), clamped (clampPan); rebuilds geometry so drawing and hitTest move together. Returns the clamped pan. */
   setPan(x: number, y: number): Pan;
-  /** Back to {0,0}. */
+  /** Back to the opening view: a map that fits is centred ({0,0}); one that overflows opens with its first feed at the free area's centre. */
   resetView(): void;
+  /** Current scale in px per unit (ticket 027 A4). */
+  getScale(): number;
+  /** One zoom level in (+1) or out (-1) about canvas point (x, y), default the free area's centre; clamped at the ends. Returns the new scale. */
+  zoomStep(dir: 1 | -1, x?: number, y?: number): number;
+  /** The whole map: the smallest zoom scale, map centred. */
+  fitWhole(): void;
+}
+
+/** Centre the view on a node (ticket 027). Separate from MapPanView so existing fakes still compile. */
+export interface MapCentre {
+  /** Pan so the node sits at the free area's centre (clamped); an unknown id changes nothing. Returns the pan. */
+  centreOn(nodeId: string): Pan;
 }
 
 export interface MapRendererOptions {
   insets?: Insets;
 }
 
-const PADDING = 64;
+/** Lines and nodes whose screen box is further than this from the canvas are not drawn. A node's margin is wider: its glow, caption and pool reach beyond its centre. */
+const LINE_CULL_PX = 32;
+const NODE_CULL_PX = 96;
+/** A place's silhouette is not painted when its box is further than this off the canvas. */
+const PLACE_CULL_PX = 16;
 const SHOCK_CORE = "#f2fbff";
 const SHOCK_GLOW = "#5aa8ff";
 const SCORCH = "#05070b";
@@ -187,7 +229,7 @@ function kindCode(kind: FaultKind): number {
   }
 }
 
-export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opts?: MapRendererOptions): MapRenderer & MapPanView & MapPlaces {
+export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opts?: MapRendererOptions): MapRenderer & MapPanView & MapPlaces & MapCentre {
   let insets: Insets = { ...(opts?.insets ?? {}) };
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("2D canvas unavailable");
@@ -202,7 +244,21 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
   let height = 0;
   const mapBounds = puzzleBounds(puzzle);
   let pan: Pan = { x: 0, y: 0 };
+  /** The scale the player zoomed to, or null for the opening scale (which follows the window and the insets). */
+  let userScale: number | null = null;
+  /** Whether Lv captions are drawn at the current scale (rebuilt with the geometry). */
+  let capsOn = true;
+  /** The canvas as a rect, and the lines and nodes near it (rebuilt with the geometry). */
+  const canvasRect = { left: 0, top: 0, right: 1, bottom: 1 };
+  const visLines = new Int32Array(puzzle.lines.length);
+  const visNodes = new Int32Array(puzzle.nodes.length);
+  let nVisLines = 0;
+  let nVisNodes = 0;
   let geo: Geometry = buildGeometry(puzzle, 1, 1, PADDING, insets);
+  /** Edge stars for off-screen targets (A3), rebuilt with the geometry; `filled` is taken from the state at draw time. */
+  let markers: OffscreenMarker[] = [];
+  const NO_LIT: ReadonlySet<string> = new Set<string>();
+  const markerTargets: string[] = [];
 
   // ---- per-puzzle precomputation ----
   const targetSet = new Set(puzzle.target && puzzle.target.length ? puzzle.target : []);
@@ -210,6 +266,9 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
   const isTarget = new Uint8Array(nNodes);
   nodes.forEach((n, i) => {
     if (n.type === "lamp" && (allTargets || targetSet.has(n.id))) isTarget[i] = 1;
+  });
+  nodes.forEach((n, i) => {
+    if (isTarget[i] === 1) markerTargets.push(n.id);
   });
   const hadFaultNode = new Uint8Array(nNodes);
   const hadFaultLine = new Uint8Array(nLines);
@@ -316,7 +375,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
   const streets = circuitStreets(puzzle);
   const feedStreets = feedLanes(puzzle);
   /** The places at the current scale: one per lamp in `nodes` order, so every array below keeps its size. */
-  let places: Place[] = footprintLayout(puzzle, cityOrigin, 1).places;
+  let places: Place[] = lampPlaceStubs(puzzle);
   const nPlaces = places.length;
   const placeNode = new Int32Array(nPlaces);
   places.forEach((p, i) => {
@@ -334,6 +393,10 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
   /** The lit tint pieces of every place in screen px: kind (0 rect, 1 disc), then x, y, w, h (a disc's x, y is its centre, w its radius); place i owns [glowStart[i], glowStart[i + 1]). */
   let glowKind = new Uint8Array(0);
   let glowBox = new Float64Array(0);
+  /** The layout the shapes and glow arrays were made for: remade only when it changes (a new scale), never on a pan. */
+  let builtLayout: unknown = null;
+  const labelCache = createLabelCache(puzzle);
+  const measureLabel = (text: string): number => c.measureText(text).width;
   const glowStart = new Int32Array(nPlaces + 1);
   /** Per place: the glow sprite's centre x, y and radius in px (a street light's pool uses POOL_PX). */
   const glowC = new Float64Array(nPlaces * 3);
@@ -440,8 +503,14 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
       const set = pass === 0 ? streets.lanes : feedStreets;
       for (let i = 0; i < set.length; i++) {
         const l = set[i]!;
-        g.moveTo(X(l.ax), Y(l.ay));
-        g.lineTo(X(l.bx), Y(l.by));
+        const x0 = X(l.ax);
+        const x1 = X(l.bx);
+        const y0 = Y(l.ay);
+        const y1 = Y(l.by);
+        // A street wholly off the canvas is not drawn: the work is the screen's, not the map's.
+        if (Math.max(x0, x1) < -STREET_PX || Math.min(x0, x1) > width + STREET_PX || Math.max(y0, y1) < -STREET_PX || Math.min(y0, y1) > height + STREET_PX) continue;
+        g.moveTo(x0, y0);
+        g.lineTo(x1, y1);
       }
     }
     g.stroke();
@@ -453,6 +522,10 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     // Places: each kind's own top-down plan, filled, with a 1 px edge.
     for (let i = 0; i < placeShapeList.length; i++) {
       const shapes = placeShapeList[i]!;
+      // placeRects is the place's screen box (rebuildCity); skip one wholly off the canvas.
+      const rx0 = placeRects[i * 4]!;
+      const ry0 = placeRects[i * 4 + 1]!;
+      if (rx0 > width + PLACE_CULL_PX || rx0 + placeRects[i * 4 + 2]! < -PLACE_CULL_PX || ry0 > height + PLACE_CULL_PX || ry0 + placeRects[i * 4 + 3]! < -PLACE_CULL_PX) continue;
       for (let k = 0; k < shapes.length; k++) {
         const pr = shapes[k]!;
         g.strokeStyle = CITY_PLACE_EDGE;
@@ -500,13 +573,8 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
   /** Where each target's label goes: beside its place, wholly inside the free area, off every wire, node, caption and star. */
   function placeLabels(): void {
     c.font = LABEL_FONT;
-    const boxes = targetLabels(puzzle, places, geo.fit, freeArea(width, height, insets), (text) => c.measureText(text).width);
-    boxes.forEach((box, i) => {
-      labelShown[i] = box ? 1 : 0;
-      if (!box) return;
-      labelXY[i * 2] = box.x + box.w / 2;
-      labelXY[i * 2 + 1] = box.y + box.h / 2;
-    });
+    // On a pan at the same scale the cached boxes just slide; they are recomputed only when the pan could change a choice.
+    labelCache.update(places, geo.fit, freeArea(width, height, insets), measureLabel, labelXY, labelShown);
   }
 
   /** Recompute the city for the current fit: layout at this scale, screen data for what glows, the cached dark layer. */
@@ -520,10 +588,13 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
       placeShapeList = places.map((p) => placeShapes(p));
     }
     const buildings = cityForMap(puzzle, cityOrigin, visibleMapRect(f, width, height, CITY_BLOCK), sc);
-    let nGlow = 0;
-    for (let i = 0; i < nPlaces; i++) for (const pr of placeShapeList[i]!) if (pr.glow) nGlow++;
-    glowKind = new Uint8Array(nGlow);
-    glowBox = new Float64Array(nGlow * 4);
+    if (builtLayout !== layout) {
+      builtLayout = layout;
+      let nGlow = 0;
+      for (let i = 0; i < nPlaces; i++) for (const pr of placeShapeList[i]!) if (pr.glow) nGlow++;
+      glowKind = new Uint8Array(nGlow);
+      glowBox = new Float64Array(nGlow * 4);
+    }
     let gi = 0;
     places.forEach((p, i) => {
       placeRects[i * 4] = (p.x - p.w / 2) * sc + f.offsetX;
@@ -665,12 +736,69 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
 
   /** Re-clamp the pan to the current free area and rebuild everything that depends on the fit. */
   function rebuildGeometry(): void {
-    const box = mapBox(mapBounds, computeFit(mapBounds, width, height, PADDING, insets));
-    pan = clampPan(pan, box, freeArea(width, height, insets));
-    geo = buildGeometry(puzzle, width, height, PADDING, insets, pan);
+    const sc = currentScale();
+    const box = mapBox(mapBounds, computeFit(mapBounds, width, height, PADDING, insets, undefined, sc));
+    pan = clampPan(pan, box, freeArea(width, height, insets), undefined, PADDING);
+    geo = buildGeometry(puzzle, width, height, PADDING, insets, pan, sc);
+    capsOn = captionsShown(sc);
+    canvasRect.right = width;
+    canvasRect.bottom = height;
+    nVisLines = visibleLinesInto(geo, canvasRect, LINE_CULL_PX, visLines);
+    nVisNodes = visibleNodesInto(geo, canvasRect, NODE_CULL_PX, visNodes);
+    markers = offscreenMarkers(geo, freeArea(width, height, insets), markerTargets, NO_LIT);
     buildSwitchDirs();
     for (let s = 0; s < SLOTS; s++) if (slotActive[s] === 1) rebuildSlotPath(s);
     rebuildCity();
+  }
+
+  /** The scale now: the player's zoom kept inside the current range, else the opening scale. */
+  function currentScale(): number {
+    const whole = fitScale(mapBounds, width, height, PADDING, insets);
+    const open = openScale(whole);
+    if (userScale === null) return open;
+    return Math.min(Math.max(userScale, Math.min(whole, open)), MAX_ZOOM_SCALE);
+  }
+
+  function levelsNow(): number[] {
+    const whole = fitScale(mapBounds, width, height, PADDING, insets);
+    const open = openScale(whole);
+    return zoomLevels(Math.min(whole, open), open, MAX_ZOOM_SCALE);
+  }
+
+  function zoomStep(dir: 1 | -1, x?: number, y?: number): number {
+    const cur = currentScale();
+    const levels = levelsNow();
+    let target = cur;
+    if (dir > 0) {
+      for (let i = 0; i < levels.length; i++) {
+        if (levels[i]! > cur * (1 + 1e-9)) {
+          target = levels[i]!;
+          break;
+        }
+      }
+    } else {
+      for (let i = levels.length - 1; i >= 0; i--) {
+        if (levels[i]! < cur * (1 - 1e-9)) {
+          target = levels[i]!;
+          break;
+        }
+      }
+    }
+    if (target === cur) return cur;
+    const area = freeArea(width, height, insets);
+    const px = x ?? (area.left + area.right) / 2;
+    const py = y ?? (area.top + area.bottom) / 2;
+    pan = zoomAbout(mapBounds, width, height, PADDING, insets, pan, cur, px, py, target);
+    userScale = target;
+    rebuildGeometry();
+    return geo.fit.scale;
+  }
+
+  function fitWhole(): void {
+    const whole = fitScale(mapBounds, width, height, PADDING, insets);
+    userScale = Math.min(whole, openScale(whole));
+    pan = { x: 0, y: 0 };
+    rebuildGeometry();
   }
 
   function setPan(x: number, y: number): Pan {
@@ -1048,15 +1176,17 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     }
 
     // Lv caption: "Lv<n> Lamp", same wording as the feed's readout.
-    c.font = FONT_LAMP;
     c.textAlign = "center";
     c.textBaseline = "middle";
-    c.lineJoin = "round";
-    c.strokeStyle = CITY_BG;
-    c.lineWidth = 3;
-    c.strokeText(loadLabel[i]!, x, y + cr + 10);
-    c.fillStyle = k > 0 ? WARM_HOT : TEXT_DIM;
-    c.fillText(loadLabel[i]!, x, y + cr + 10);
+    if (capsOn) {
+      c.font = FONT_LAMP;
+      c.lineJoin = "round";
+      c.strokeStyle = CITY_BG;
+      c.lineWidth = 3;
+      c.strokeText(loadLabel[i]!, x, y + cr + 10);
+      c.fillStyle = k > 0 ? WARM_HOT : TEXT_DIM;
+      c.fillText(loadLabel[i]!, x, y + cr + 10);
+    }
 
     if (isTarget[i] === 1) {
       c.strokeStyle = TARGET;
@@ -1083,6 +1213,39 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
       c.arc(x, y + 1, 5 + 2 * fl, 0, TAU);
       c.fill();
       c.globalAlpha = 1;
+    }
+  }
+
+  /** Ten-point star outline, unit radius, [x0, y0, x1, y1, ...]. */
+  const STAR_PTS = new Float64Array(20);
+  for (let k = 0; k < 10; k++) {
+    const a = -Math.PI / 2 + (k * Math.PI) / 5;
+    const r = k % 2 === 0 ? 1 : 0.45;
+    STAR_PTS[2 * k] = Math.cos(a) * r;
+    STAR_PTS[2 * k + 1] = Math.sin(a) * r;
+  }
+
+  /** Edge stars: filled when the lamp is lit, hollow when not. The shape differs, so colour is not needed to read it. */
+  function drawMarkers(state: GridState): void {
+    const rad = MARKER_SIZE / 2;
+    c.lineJoin = "round";
+    for (let k = 0; k < markers.length; k++) {
+      const m = markers[k]!;
+      c.beginPath();
+      c.moveTo(m.x + STAR_PTS[0]! * rad, m.y + STAR_PTS[1]! * rad);
+      for (let j = 1; j < 10; j++) c.lineTo(m.x + STAR_PTS[2 * j]! * rad, m.y + STAR_PTS[2 * j + 1]! * rad);
+      c.closePath();
+      c.strokeStyle = CITY_BG;
+      c.lineWidth = 4;
+      c.stroke();
+      if (state.lit.has(m.lamp)) {
+        c.fillStyle = TARGET;
+        c.fill();
+      } else {
+        c.strokeStyle = TARGET;
+        c.lineWidth = 1.5;
+        c.stroke();
+      }
     }
   }
 
@@ -1325,9 +1488,11 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
               c.globalAlpha = 1;
             }
           }
-          c.fillStyle = ALARM;
-          c.font = FONT_BIG;
-          c.fillText(ratingLabel[i]!, x, y + 25);
+          if (capsOn) {
+            c.fillStyle = ALARM;
+            c.font = FONT_BIG;
+            c.fillText(ratingLabel[i]!, x, y + 25);
+          }
         } else {
           c.beginPath();
           c.moveTo(x - 8, y);
@@ -1335,9 +1500,11 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
           c.strokeStyle = nodeOutline(i, live);
           c.lineWidth = 2;
           c.stroke();
-          c.fillStyle = TEXT;
-          c.font = FONT;
-          c.fillText(ratingLabel[i]!, x, y + 23);
+          if (capsOn) {
+            c.fillStyle = TEXT;
+            c.font = FONT;
+            c.fillText(ratingLabel[i]!, x, y + 23);
+          }
         }
         if (fuseTicks[i] !== null) {
           // Load bar: fill length and ticks carry the reading, colour only backs it up.
@@ -1689,16 +1856,17 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
       c.stroke();
     }
 
-    for (let i = 0; i < nLines; i++) drawLine(i, state, t, rt, rp, hover);
-    for (let i = 0; i < nNodes; i++) drawNode(i, state, t, rt, rp, hover);
+    for (let k = 0; k < nVisLines; k++) drawLine(visLines[k]!, state, t, rt, rp, hover);
+    for (let k = 0; k < nVisNodes; k++) drawNode(visNodes[k]!, state, t, rt, rp, hover);
     drawSequences(t);
+    drawMarkers(state);
 
     // Feed readout: "using N of M" (Lv wording). Alarm state adds a "!" and a shake, not just colour.
     feedCaps.update(state);
     c.font = FONT_FEED;
     c.textAlign = "center";
     c.textBaseline = "middle";
-    for (let k = 0; k < feedCaps.nodeIdx.length; k++) {
+    for (let k = 0; k < feedCaps.nodeIdx.length && capsOn; k++) {
       const ni = feedCaps.nodeIdx[k]!;
       if (ni < 0) continue;
       const fx = geo.nx[ni]!;
@@ -1721,18 +1889,42 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     }
   }
 
+  function openingPan(): Pan {
+    return initialPan(puzzle, width, height, PADDING, insets);
+  }
+
+  function centreOn(nodeId: string): Pan {
+    const ni = geo.nodeIndex.get(nodeId);
+    if (ni === undefined) return { x: pan.x, y: pan.y };
+    const n = nodes[ni]!;
+    const fit0 = computeFit(mapBounds, width, height, PADDING, insets, undefined, currentScale());
+    const p = panToCentre(n.pos[0], n.pos[1], fit0, freeArea(width, height, insets));
+    return setPan(p.x, p.y);
+  }
+
   resize();
+  {
+    const p0 = openingPan();
+    setPan(p0.x, p0.y);
+  }
   return {
     draw,
-    hitTest: (x, y) => hitTestGeometry(geo, x, y),
-    placeAt: (x, y) => placeAtPoint(places, geo.fit, x, y),
+    // Nothing under the HUD or the parts panel can be picked: the free area is the only live part of the canvas.
+    hitTest: (x, y) => (inArea(freeArea(width, height, insets), x, y) ? hitTestGeometry(geo, x, y) : null),
+    placeAt: (x, y) => (inArea(freeArea(width, height, insets), x, y) ? placeAtPoint(places, geo.fit, x, y) : null),
     resize,
     setInsets,
     notify,
     getPan: () => ({ x: pan.x, y: pan.y }),
     setPan,
     resetView: () => {
-      setPan(0, 0);
+      userScale = null;
+      const p0 = openingPan();
+      setPan(p0.x, p0.y);
     },
+    centreOn,
+    getScale: () => geo.fit.scale,
+    zoomStep,
+    fitWhole,
   };
 }

@@ -31,6 +31,16 @@ export const LANE_W = 0.5;
 export const DECOR_LANE_W = 0.3;
 export const NODE_SQUARE = 0.7;
 
+// ---- ticket 027 A2: a ward for a large map ----
+/** A ward is this many units square: room for a 64 x 40 map with its margin, and more. */
+export const WARD = 96;
+/** Radius of the first ring of wards, beyond every spoke slot that ladder numbers 1..129 can reach. */
+export const WARD_R = 1024;
+export const WARD_SLOTS = 16;
+export const WARD_RING_STEP = 160;
+/** Footprints (ring-road squares) kept per puzzle, most recent first: A4 visits up to this many zoom levels. */
+export const LAYOUT_CACHE_LEVELS = 4;
+
 // ---- ticket 024 A3: a calm town ----
 /** Street line widths in CSS px (not scaled with the map). */
 export const STREET_PX = 3;
@@ -213,9 +223,27 @@ export function mapNumber(id: string): number {
   return ladderNumber(id) ?? 65 + (stableHash(id) % 64);
 }
 
-/** Offset that turns map units into city units (`city = pos + origin`), whole cells, bounds centred on the district. */
+/** True if the map's footprint (bounds grown by FOOTPRINT_MARGIN on every side) is wider or taller than a district. Derived from the bounds; no schema field. */
+export function isLarge(bounds: Bounds): boolean {
+  return bounds.maxX - bounds.minX + 2 * FOOTPRINT_MARGIN > DISTRICT || bounds.maxY - bounds.minY + 2 * FOOTPRINT_MARGIN > DISTRICT;
+}
+
+/** Centre of the ward of ladder number n: ring `floor(n / WARD_SLOTS)`, angle `(n mod WARD_SLOTS)` sixteenths of a turn. */
+export function wardOf(n: number): Vec {
+  const r = WARD_R + WARD_RING_STEP * Math.floor(n / WARD_SLOTS);
+  const a = ((((n % WARD_SLOTS) + WARD_SLOTS) % WARD_SLOTS) * 2 * Math.PI) / WARD_SLOTS;
+  return { x: r * Math.cos(a), y: r * Math.sin(a) };
+}
+
+/** The square (centre and side, city units) a map lives in: its district, or its ward if it is large. */
+export function regionOf(id: string, bounds: Bounds): { centre: Vec; size: number } {
+  const n = mapNumber(id);
+  return isLarge(bounds) ? { centre: wardOf(n), size: WARD } : { centre: districtOf(n).centre, size: DISTRICT };
+}
+
+/** Offset that turns map units into city units (`city = pos + origin`), whole cells, bounds centred on the district (or the ward, for a large map). */
 export function mapOrigin(id: string, bounds: Bounds): Vec {
-  const c = districtOf(mapNumber(id)).centre;
+  const c = regionOf(id, bounds).centre;
   const bx = (bounds.minX + bounds.maxX) / 2;
   const by = (bounds.minY + bounds.maxY) / 2;
   const x = Math.round((c.x - bx) / CITY_BLOCK) * CITY_BLOCK;
@@ -392,15 +420,12 @@ export function circuitStreets(puzzle: Puzzle): CircuitStreets {
     }
   }
   const squares = puzzle.nodes.map((n): Building => ({ x: n.pos[0], y: n.pos[1], w: NODE_SQUARE, h: NODE_SQUARE }));
-  // Grown by the margin, but never out of the map's own district (a few big maps, 29 units wide, would otherwise spill over).
-  const o = mapOrigin(puzzle.id, b);
-  const c = districtOf(mapNumber(puzzle.id)).centre;
-  const half = DISTRICT / 2;
+  // Whole and unclipped: a big map lives in a ward, so the ring road is the real bounds + margin.
   const footprint: CityRect = {
-    minX: Math.max(b.minX - FOOTPRINT_MARGIN, c.x - half - o.x),
-    minY: Math.max(b.minY - FOOTPRINT_MARGIN, c.y - half - o.y),
-    maxX: Math.min(b.maxX + FOOTPRINT_MARGIN, c.x + half - o.x),
-    maxY: Math.min(b.maxY + FOOTPRINT_MARGIN, c.y + half - o.y),
+    minX: b.minX - FOOTPRINT_MARGIN,
+    minY: b.minY - FOOTPRINT_MARGIN,
+    maxX: b.maxX + FOOTPRINT_MARGIN,
+    maxY: b.maxY + FOOTPRINT_MARGIN,
   };
   const out = { lanes, squares, footprint };
   streetCache.set(puzzle, out);
@@ -620,14 +645,70 @@ function partsDistance(px: number, py: number, parts: readonly Building[]): numb
   return best;
 }
 
-interface Layout {
+export interface Layout {
   buildings: Building[];
   places: Place[];
   /** Every wire: circuit lines, decor, feed lanes (map units). */
   streets: Lane[];
+  /** The buildings bucketed by block (map units), so a window can be read without scanning the map. See `layoutBuildingsIn`. */
+  grid: Map<number, Building[]>;
 }
 
-const layoutCache = new WeakMap<Puzzle, { scale: number; ox: number; oy: number; value: Layout }>();
+const GRID_OFFSET = 1 << 20;
+const gridKey = (cx: number, cy: number): number => (cx + GRID_OFFSET) * 2097152 + (cy + GRID_OFFSET);
+
+function bucketBuildings(buildings: readonly Building[]): Map<number, Building[]> {
+  const grid = new Map<number, Building[]>();
+  for (const b of buildings) {
+    const k = gridKey(Math.floor(b.x / CITY_BLOCK), Math.floor(b.y / CITY_BLOCK));
+    const cell = grid.get(k);
+    if (cell) cell.push(b);
+    else grid.set(k, [b]);
+  }
+  return grid;
+}
+
+/** The layout's buildings that touch `rect` (map units). Work is the window's, not the map's. */
+export function layoutBuildingsIn(layout: Layout, rect: CityRect, out: Building[] = []): Building[] {
+  const cx0 = Math.floor(rect.minX / CITY_BLOCK) - 1;
+  const cx1 = Math.floor(rect.maxX / CITY_BLOCK) + 1;
+  const cy0 = Math.floor(rect.minY / CITY_BLOCK) - 1;
+  const cy1 = Math.floor(rect.maxY / CITY_BLOCK) + 1;
+  for (let cx = cx0; cx <= cx1; cx++) {
+    for (let cy = cy0; cy <= cy1; cy++) {
+      const cell = layout.grid.get(gridKey(cx, cy));
+      if (!cell) continue;
+      for (let i = 0; i < cell.length; i++) {
+        const b = cell[i]!;
+        if (b.x + b.w / 2 >= rect.minX && b.x - b.w / 2 <= rect.maxX && b.y + b.h / 2 >= rect.minY && b.y - b.h / 2 <= rect.maxY) out.push(b);
+      }
+    }
+  }
+  return out;
+}
+
+interface LayoutEntry {
+  scale: number;
+  ox: number;
+  oy: number;
+  value: Layout;
+}
+/** Per puzzle, the most recent LAYOUT_CACHE_LEVELS layouts (one per scale visited), newest first. */
+const layoutCache = new WeakMap<Puzzle, LayoutEntry[]>();
+/** How many layouts have been built (not served from the cache). For tests. */
+export const layoutStats = { builds: 0 };
+
+/** One pool place per lamp, in `nodes` order, with no search done: the right count, kinds and labels, to size arrays before a real layout exists. */
+export function lampPlaceStubs(puzzle: Puzzle): Place[] {
+  const allTargets = !puzzle.target || puzzle.target.length === 0;
+  const targets = new Set(puzzle.target ?? []);
+  const out: Place[] = [];
+  for (const n of puzzle.nodes) {
+    if (n.type !== "lamp") continue;
+    out.push({ x: n.pos[0], y: n.pos[1], w: POOL_BOX, h: POOL_BOX, lamp: n.id, kind: placeKind(n.id), label: allTargets || targets.has(n.id) ? placeName(n.id) : null, pool: true });
+  }
+  return out;
+}
 
 /**
  * Everything the footprint holds, in map units, with clearances measured in px at `scale`: one place per
@@ -635,8 +716,17 @@ const layoutCache = new WeakMap<Puzzle, { scale: number; ox: number; oy: number;
  * blocks the footprint covers that clear every wire, node and place. Cached per puzzle and scale.
  */
 export function footprintLayout(puzzle: Puzzle, origin: Vec, scale: number): Layout {
-  const hit = layoutCache.get(puzzle);
-  if (hit && hit.scale === scale && hit.ox === origin.x && hit.oy === origin.y) return hit.value;
+  const entries = layoutCache.get(puzzle) ?? [];
+  const at = entries.findIndex((e) => e.scale === scale && e.ox === origin.x && e.oy === origin.y);
+  if (at >= 0) {
+    const hit = entries[at]!;
+    if (at > 0) {
+      entries.splice(at, 1);
+      entries.unshift(hit);
+    }
+    return hit.value;
+  }
+  layoutStats.builds++;
   const cs = circuitStreets(puzzle);
   const fp = cs.footprint;
   const ob = obstaclesOf(puzzle);
@@ -765,8 +855,10 @@ export function footprintLayout(puzzle: Puzzle, origin: Vec, scale: number): Lay
       }
     }
   }
-  const value: Layout = { buildings, places, streets: ob.wires };
-  layoutCache.set(puzzle, { scale, ox: origin.x, oy: origin.y, value });
+  const value: Layout = { buildings, places, streets: ob.wires, grid: bucketBuildings(buildings) };
+  entries.unshift({ scale, ox: origin.x, oy: origin.y, value });
+  if (entries.length > LAYOUT_CACHE_LEVELS) entries.length = LAYOUT_CACHE_LEVELS;
+  layoutCache.set(puzzle, entries);
   return value;
 }
 
@@ -792,9 +884,7 @@ export function cityForMap(puzzle: Puzzle, origin: Vec, rect: CityRect, scale: n
     if (b.x + b.w / 2 > fp.minX - wc && b.x - b.w / 2 < fp.maxX + wc && b.y + b.h / 2 > fp.minY - wc && b.y - b.h / 2 < fp.maxY + wc && feeds.some((l) => laneBoxDistance(l, b) < wc - 1e-9)) continue;
     out.push(b);
   }
-  for (const b of footprintLayout(puzzle, origin, scale).buildings) {
-    if (b.x + b.w / 2 >= rect.minX && b.x - b.w / 2 <= rect.maxX && b.y + b.h / 2 >= rect.minY && b.y - b.h / 2 <= rect.maxY) out.push(b);
-  }
+  layoutBuildingsIn(footprintLayout(puzzle, origin, scale), rect, out);
   return out;
 }
 

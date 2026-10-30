@@ -35,6 +35,7 @@ import {
   mapNumber,
   mapOrigin,
   onAvenue,
+  regionOf,
   spokeDir,
   spokeStep,
   type Building,
@@ -68,7 +69,7 @@ const byId = (id: string): Puzzle => OPEN.find((p) => p.puzzle.id === id)!.puzzl
 
 const key = (b: Building): string => `${b.x.toFixed(6)},${b.y.toFixed(6)},${b.w.toFixed(6)},${b.h.toFixed(6)}`;
 const sorted = (bs: Building[]): string[] => bs.map(key).sort();
-const sq = (c: { x: number; y: number }) => ({ minX: c.x - DISTRICT / 2, maxX: c.x + DISTRICT / 2, minY: c.y - DISTRICT / 2, maxY: c.y + DISTRICT / 2 });
+const sq = (c: { x: number; y: number }, size: number = DISTRICT) => ({ minX: c.x - size / 2, maxX: c.x + size / 2, minY: c.y - size / 2, maxY: c.y + size / 2 });
 const E = 1e-9;
 const overlapSq = (a: ReturnType<typeof sq>, b: ReturnType<typeof sq>): boolean =>
   a.minX < b.maxX - E && b.minX < a.maxX - E && a.minY < b.maxY - E && b.minY < a.maxY - E;
@@ -205,16 +206,16 @@ describe("map origins", () => {
   it("has maps to test", () => {
     expect(OPEN.length).toBeGreaterThan(20);
   });
-  it("centres every map in its district, whole cells, bounds inside", () => {
+  it("centres every map in its district (its ward, if large), whole cells, bounds inside", () => {
     for (const { key: k, puzzle } of ALL) {
       const b = puzzleBounds(puzzle);
       const o = mapOrigin(puzzle.id, b);
       expect(Math.abs(o.x % CITY_BLOCK), k).toBe(0);
       expect(Math.abs(o.y % CITY_BLOCK), k).toBe(0);
-      const c = districtOf(mapNumber(puzzle.id)).centre;
+      const c = regionOf(puzzle.id, b).centre;
       expect(Math.abs((b.minX + b.maxX) / 2 + o.x - c.x), k).toBeLessThanOrEqual(CITY_BLOCK / 2 + E);
       expect(Math.abs((b.minY + b.maxY) / 2 + o.y - c.y), k).toBeLessThanOrEqual(CITY_BLOCK / 2 + E);
-      const q = sq(c);
+      const q = sq(c, regionOf(puzzle.id, b).size);
       expect(b.minX + o.x, k).toBeGreaterThanOrEqual(q.minX);
       expect(b.maxX + o.x, k).toBeLessThanOrEqual(q.maxX);
       expect(b.minY + o.y, k).toBeGreaterThanOrEqual(q.minY);
