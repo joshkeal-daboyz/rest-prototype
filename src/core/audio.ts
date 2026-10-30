@@ -34,8 +34,12 @@ export interface AudioControl {
 export interface SoundEngine extends AudioControl {
   /** Listen to one map's bus. Returns detach: unsubscribes and silences that map's sounds. */
   attach(bus: EventBus): () => void;
-  /** Each frame: the state behind the continuous sounds (hum, flicker, charge whine, spark crackle). */
-  update(view: SoundView, dtSeconds: number): void;
+  /**
+   * Each frame: the state behind the continuous sounds (hum, flicker, charge whine, spark crackle, beat).
+   * `timeSeconds` is the frame time main.ts also passes to renderer.draw (ticket 032); the beat thump is
+   * scheduled from BEAT (src/core/beat.ts) at that time, so it lands with the drawn pulses. Absent: no beat.
+   */
+  update(view: SoundView, dtSeconds: number, timeSeconds?: number): void;
   /** The Relight: seconds from its start at which each lamp ignites (in order), and its total length. */
   relight(igniteAt: readonly number[], durationSeconds: number): void;
   /**
