@@ -1,0 +1,14 @@
+# 31-leave-the-ring-open | script 6 clicks | README min 6
+start | lit: home | feeds: feed 1/4 | blown: fb_W | faults: f1 | parts: fuse, fuse, wire | prompt: - | cues: -
+1 br_ln | lit: home | feeds: feed 1/4 | blown: fb_W | faults: f1 | parts: fuse, fuse, wire | prompt: Throw breaker | cues: breaker:thrown@0.000
+2 br_E | lit: home, mill | feeds: feed 3/4 | blown: fb_W | faults: f1 | parts: fuse, fuse, wire | prompt: Throw breaker | cues: breaker:thrown@0.000
+3 sw_E | lit: home | feeds: feed 1/4 | blown: fb_W | faults: f1, f3 | parts: fuse, fuse, wire | prompt: Throw switch | cues: switch:thrown@0.000
+4 br_hm | lit: - | feeds: feed 0/4 | blown: fb_W | faults: f1, f3 | parts: fuse, fuse, wire | prompt: Throw breaker | cues: breaker:thrown@0.000
+5 repair:fb_W | lit: gate, shrine | feeds: feed 3/4 | blown: - | faults: f2, f3 | parts: fuse, wire | prompt: Lv3 Fuse — at the limit | cues: repair:fuse@0.000
+6 repair:l_e | lit: gate, shrine, well | feeds: feed 4/4 | blown: - | faults: f2 | parts: fuse | prompt: - | cues: repair:wire@0.000
+complete: true
+actions: 6, elapsed: 5.000 s
+relight lamps: gate@1.751, shrine@2.224, well@2.650
+relight duration: 3.250
+relight cues: relight:bed@0.000, relight:chime:0@1.751, relight:chime:1@2.224, relight:chime:2@2.650, relight:close@2.650
+locked: ignored 7 clicks and undo; no events; lit, breakers, switches, parts and faults unchanged

@@ -1,0 +1,13 @@
+# 23-make-room | script 5 clicks | README min 5
+start | lit: home, market | feeds: feed 3/5 | blown: - | faults: - | parts: fuse, fuse | prompt: - | cues: -
+1 br_m | lit: home | feeds: feed 1/5 | blown: - | faults: - | parts: fuse, fuse | prompt: Throw breaker | cues: breaker:thrown@0.000
+2 sw_1 | lit: shrine | feeds: feed 2/5 | blown: - | faults: - | parts: fuse, fuse | prompt: Throw switch | cues: switch:thrown@0.000
+3 br_2 | lit: mill, shrine | feeds: feed 4/5 | blown: - | faults: - | parts: fuse, fuse | prompt: Throw breaker | cues: breaker:thrown@0.000
+4 sw_2 | lit: home, shrine | feeds: feed 3/5 | blown: - | faults: - | parts: fuse, fuse | prompt: Throw switch | cues: switch:thrown@0.000
+5 br_lan | lit: home, lantern, shrine | feeds: feed 4/5 | blown: - | faults: - | parts: fuse, fuse | prompt: - | cues: breaker:thrown@0.000
+complete: true
+actions: 5, elapsed: 4.000 s
+relight lamps: shrine@2.388, lantern@2.549, home@2.650
+relight duration: 3.250
+relight cues: relight:bed@0.000, relight:chime:0@2.388, relight:chime:1@2.549, relight:chime:2@2.650, relight:close@2.650
+locked: ignored 5 clicks and undo; no events; lit, breakers, switches, parts and faults unchanged

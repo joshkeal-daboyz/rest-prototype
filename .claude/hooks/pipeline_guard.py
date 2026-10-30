@@ -7,6 +7,8 @@ Blocks, for every session and agent:
 Blocks, for any agent (main session excepted):
   * git merge / push / rebase onto main, gh pr merge, gh issue close: the main session does these on Josh's word
   * writing reviews/ unless the agent is code-reviewer
+  * writing playtests/ unless the agent is playtester
+  * the playtester writing src/, puzzles/ or tools/: it reports regressions, builders fix them
   * writing tickets/ unless the agent is lead-architect
   * adding dependencies (npm install <pkg>, npm add): needs a ticket Josh approved
 
@@ -16,6 +18,7 @@ import json, re, sys
 
 REVIEWER = "code-reviewer"
 ARCHITECT = "lead-architect"
+PLAYTESTER = "playtester"
 
 
 def deny(reason):
@@ -47,6 +50,10 @@ def check_write(path, agent):
         return
     if re.search(r"(^|/)reviews/[^/]+\.md$", p) and agent != REVIEWER:
         deny("only the code-reviewer agent writes reviews, so every review stays independent.")
+    if re.search(r"(^|/)playtests/[^/]+\.md$", p) and agent != PLAYTESTER:
+        deny("only the playtester agent writes playtests, so every playtest stays independent.")
+    if agent == PLAYTESTER and re.search(r"(^|/)(src|puzzles|tools)/", p):
+        deny("the playtester never edits the game. Report the regression; the builder fixes it.")
     if re.search(r"(^|/)tickets/[^/]+\.md$", p) and agent != ARCHITECT and not p.endswith("tickets/usage.md"):
         deny("only the lead-architect agent writes tickets. Ask for a re-cut instead.")
 

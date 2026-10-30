@@ -1,0 +1,13 @@
+# 57-the-back-door | script 5 clicks | README min 5
+start | lit: homes, well | feeds: feed 3/5 | blown: - | faults: - | parts: fuse, wire | prompt: - | cues: -
+1 sw_h | lit: well | feeds: feed 1/5 | blown: - | faults: f_t2 | parts: fuse, wire | prompt: Throw switch | cues: switch:thrown@0.000
+2 repair:l_t2 | lit: forge, well | feeds: feed 4/5 | blown: - | faults: - | parts: fuse | prompt: - | cues: repair:wire@0.000
+3 rT | lit: shrine, well | feeds: feed 3/5 | blown: - | faults: - | parts: fuse | prompt: Throw switch | cues: switch:thrown@0.000
+4 br_T | lit: shrine, well | feeds: feed 3/5 | blown: - | faults: - | parts: fuse | prompt: Throw breaker | cues: breaker:thrown@0.000
+5 sw_h | lit: homes, shrine, well | feeds: feed 5/5 | blown: - | faults: - | parts: fuse | prompt: - | cues: switch:thrown@0.000
+complete: true
+actions: 5, elapsed: 4.000 s
+relight lamps: well@1.000, homes@1.691, shrine@2.650
+relight duration: 3.250
+relight cues: relight:bed@0.000, relight:chime:0@1.000, relight:chime:1@1.691, relight:chime:2@2.650, relight:close@2.650
+locked: ignored 4 clicks and undo; no events; lit, breakers, switches, parts and faults unchanged

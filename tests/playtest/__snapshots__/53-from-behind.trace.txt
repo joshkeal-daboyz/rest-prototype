@@ -1,0 +1,19 @@
+# 53-from-behind | script 11 clicks | README min 11
+start | lit: kiln, well | feeds: feed 4/8 | blown: - | faults: - | parts: fuse | prompt: - | cues: -
+1 br_g | lit: well | feeds: feed 2/8 | blown: - | faults: - | parts: fuse | prompt: Throw breaker | cues: breaker:thrown@0.000
+2 br_t1 | lit: mill, well | feeds: feed 5/8 | blown: - | faults: - | parts: fuse | prompt: Throw breaker | cues: breaker:thrown@0.000
+3 br_A | lit: mill, well | feeds: feed 5/8 | blown: - | faults: - | parts: fuse | prompt: Throw breaker | cues: breaker:thrown@0.000
+4 r_1 | lit: shrine, well | feeds: feed 4/8 | blown: - | faults: - | parts: fuse | prompt: Throw switch | cues: switch:thrown@0.000
+5 br_t1 | lit: shrine, well | feeds: feed 4/8 | blown: - | faults: - | parts: fuse | prompt: Throw breaker | cues: breaker:thrown@0.000
+6 br_t2 | lit: forge, shrine, well | feeds: feed 7/8 | blown: - | faults: - | parts: fuse | prompt: Throw breaker | cues: breaker:thrown@0.000
+7 br_C | lit: forge, shrine, well | feeds: feed 7/8 | blown: - | faults: - | parts: fuse | prompt: Throw breaker | cues: breaker:thrown@0.000
+8 r_3 | lit: chapel, shrine, well | feeds: feed 6/8 | blown: - | faults: - | parts: fuse | prompt: Throw switch | cues: switch:thrown@0.000
+9 br_t2 | lit: chapel, shrine, well | feeds: feed 6/8 | blown: - | faults: - | parts: fuse | prompt: Throw breaker | cues: breaker:thrown@0.000
+10 br_g | lit: chapel, kiln, shrine, well | feeds: feed 8/8 | blown: - | faults: - | parts: fuse | prompt: Throw breaker | cues: breaker:thrown@0.000
+11 r_2 | lit: chapel, gate, shrine, well | feeds: feed 8/8 | blown: - | faults: - | parts: fuse | prompt: - | cues: switch:thrown@0.000
+complete: true
+actions: 11, elapsed: 10.000 s
+relight lamps: well@1.287, gate@1.859, shrine@2.650, chapel@2.650
+relight duration: 3.250
+relight cues: relight:bed@0.000, relight:chime:0@1.287, relight:chime:1@1.859, relight:chime:2@2.650, relight:close@2.650
+locked: ignored 8 clicks and undo; no events; lit, breakers, switches, parts and faults unchanged

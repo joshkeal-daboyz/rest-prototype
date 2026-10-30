@@ -1,0 +1,14 @@
+# 32-read-it-in-the-window | script 5 clicks | README min 5
+start | lit: yard | feeds: feed 1/2 | blown: - | faults: - | parts: fuse, fuse, wire, wire | batteries: bat 0.00/4 charging | prompt: - | cues: -
+1 wait:0.5 | lit: yard | feeds: feed 1/2 | blown: - | faults: - | parts: fuse, fuse, wire, wire | batteries: bat 0.50/4 charging | prompt: - | cues: -
+2 sw_R | lit: yard | feeds: feed 1/2 | blown: - | faults: - | parts: fuse, fuse, wire, wire | batteries: bat 1.50/4 charging | prompt: Throw switch | cues: switch:thrown@0.000
+3 bat | lit: mill, shrine, yard | feeds: feed 1/2 | blown: - | faults: f_n2, f_s | parts: fuse, fuse, wire, wire | batteries: bat 0.50/4 released | prompt: Running: 1 s left — Stop | cues: battery:released@0.000, battery:whine:bat@0.250
+4 rl | lit: yard | feeds: feed 1/2 | blown: - | faults: - | parts: fuse, fuse, wire, wire | batteries: bat 0.50/4 charging | prompt: No power — relay stuck | cues: switch:thrown@0.000, battery:flat:ranout@0.000
+5 br_E | lit: yard | feeds: feed 1/2 | blown: - | faults: f_s | parts: fuse, fuse, wire, wire | batteries: bat 1.50/4 charging | prompt: Throw breaker | cues: breaker:thrown@0.000
+6 repair:jS | lit: shrine, yard | feeds: feed 2/2 | blown: - | faults: f_n2 | parts: fuse, fuse | batteries: bat 1.50/4 charging | prompt: - | cues: repair:wire@0.000
+complete: true
+actions: 4, elapsed: 4.500 s
+relight lamps: yard@0.689, shrine@2.542
+relight duration: 3.142
+relight cues: relight:bed@0.000, relight:chime:0@0.689, relight:chime:1@2.542, relight:close@2.542
+locked: ignored 7 clicks and undo; no events; lit, breakers, switches, parts and faults unchanged

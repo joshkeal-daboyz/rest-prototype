@@ -1,0 +1,11 @@
+# 22-look-both-ways | script 3 clicks | README min 3
+start | lit: home_1, home_2 | feeds: feed 2/3 | blown: - | faults: f1 | parts: wire | prompt: - | cues: -
+1 sw_1 | lit: flood, home_1, home_2 | feeds: feed 4/3 over | blown: - | faults: f3 | parts: wire | prompt: Throw switch | cues: switch:thrown@0.000, grid:sag@0.000
+2 br_hm | lit: flood | feeds: feed 2/3 | blown: - | faults: f3 | parts: wire | prompt: Throw breaker | cues: breaker:thrown@0.000, grid:recover@0.000
+3 repair:l_s2 | lit: flood, shrine | feeds: feed 3/3 | blown: - | faults: f2 | parts: - | prompt: - | cues: repair:wire@0.000
+complete: true
+actions: 3, elapsed: 2.000 s
+relight lamps: flood@1.762, shrine@2.302
+relight duration: 2.902
+relight cues: relight:bed@0.000, relight:chime:0@1.762, relight:chime:1@2.302, relight:close@2.302
+locked: ignored 5 clicks and undo; no events; lit, breakers, switches, parts and faults unchanged

@@ -1,0 +1,23 @@
+# 62-two-springs | script 8 clicks | README min 8
+start | lit: lantern, well | feeds: feed 2/4 | blown: - | faults: - | parts: fuse, wire, wire | batteries: cell 0.00/7 idle | prompt: - | cues: -
+1 sw_c | lit: well | feeds: feed 1/4 | blown: - | faults: f_cin | parts: fuse, wire, wire | batteries: cell 0.00/7 idle | prompt: Throw switch | cues: switch:thrown@0.000
+2 repair:l_cin | lit: well | feeds: feed 1/4 | blown: - | faults: - | parts: fuse, wire | batteries: cell 1.00/7 charging | prompt: - | cues: repair:wire@0.000
+3 wait:0.5 | lit: well | feeds: feed 1/4 | blown: - | faults: - | parts: fuse, wire | batteries: cell 1.50/7 charging | prompt: - | cues: -
+4 wait:0.5 | lit: well | feeds: feed 1/4 | blown: - | faults: - | parts: fuse, wire | batteries: cell 2.00/7 charging | prompt: - | cues: -
+5 wait:0.5 | lit: well | feeds: feed 1/4 | blown: - | faults: - | parts: fuse, wire | batteries: cell 2.50/7 charging | prompt: - | cues: -
+6 wait:0.5 | lit: well | feeds: feed 1/4 | blown: - | faults: - | parts: fuse, wire | batteries: cell 3.00/7 charging | prompt: - | cues: -
+7 wait:0.5 | lit: well | feeds: feed 1/4 | blown: - | faults: - | parts: fuse, wire | batteries: cell 3.50/7 charging | prompt: - | cues: -
+8 wait:0.5 | lit: well | feeds: feed 1/4 | blown: - | faults: - | parts: fuse, wire | batteries: cell 4.00/7 charging | prompt: - | cues: -
+9 wait:0.5 | lit: well | feeds: feed 1/4 | blown: - | faults: - | parts: fuse, wire | batteries: cell 4.50/7 charging | prompt: - | cues: -
+10 sw_c | lit: lantern, well | feeds: feed 2/4 | blown: - | faults: - | parts: fuse, wire | batteries: cell 4.50/7 idle | prompt: Throw switch | cues: switch:thrown@0.000
+11 cell | lit: lantern, mill, well | feeds: feed 2/4 | blown: - | faults: - | parts: fuse, wire | batteries: cell 3.50/7 released | prompt: Running: 4 s left — Stop | cues: battery:released@0.000, battery:whine:cell@0.250
+12 S1 | lit: lantern, well | feeds: feed 2/4 | blown: - | faults: f_12 | parts: fuse, wire | batteries: cell 2.50/7 released | prompt: Spring switch — returns when power is lost | cues: switch:thrown@0.000
+13 repair:l_12 | lit: kiln, lantern, well | feeds: feed 2/4 | blown: - | faults: - | parts: fuse | batteries: cell 1.50/7 released | prompt: - | cues: repair:wire@0.000
+14 S2 | lit: lantern, shrine, well | feeds: feed 2/4 | blown: - | faults: - | parts: fuse | batteries: cell 0.50/7 released | prompt: Spring switch — returns when power is lost | cues: switch:thrown@0.000
+15 br_H | lit: lantern, shrine, well | feeds: feed 4/4 | blown: - | faults: - | parts: fuse | batteries: cell 0.50/7 released | prompt: - | cues: breaker:thrown@0.000
+complete: true
+actions: 7, elapsed: 10.500 s
+relight lamps: well@0.772, lantern@1.357, shrine@2.650
+relight duration: 3.250
+relight cues: relight:bed@0.000, relight:chime:0@0.772, relight:chime:1@1.357, relight:chime:2@2.650, relight:close@2.650
+locked: ignored 7 clicks and undo; no events; lit, breakers, switches, parts and faults unchanged
