@@ -70,7 +70,7 @@ import {
 } from "./city";
 import { LABEL_FONT_PX, placeAtPoint, placeShapes, targetLabels, type Prim } from "./places";
 import { chargeFraction, popProgress, wentFlat } from "./battery";
-import { clamp01, flicker, hash01, pulseCount, pulsePhase, PULSE_SPACING } from "./motion";
+import { clamp01, flicker, hash01, beatPulsePhase, pulseCount, PULSE_SPACING } from "./motion";
 import { FLARE_SECONDS, planRelight, type RelightPlan } from "./relight";
 import { sprangBack, twangOffset } from "./spring";
 
@@ -871,7 +871,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     c.stroke();
 
     // Pulses: chevrons that travel away from the feed. Direction is shape, not colour.
-    const phase = pulsePhase(t);
+    const phase = beatPulsePhase(t);
     const count = pulseCount(liveLen, phase);
     if (count > 0) {
       const vx = -uy;

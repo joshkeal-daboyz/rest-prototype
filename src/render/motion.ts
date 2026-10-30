@@ -1,5 +1,7 @@
 /** Pure animation helpers: pulse positions along a line, lamp flicker, spark hashing. */
 
+import { BEAT } from "../core";
+
 /** Pixels per second pulses travel. */
 export const PULSE_SPEED = 90;
 /** Pixels between consecutive pulses on a line. */
@@ -11,6 +13,24 @@ export const PULSE_SPACING = 34;
  */
 export function pulsePhase(timeSeconds: number, speed: number = PULSE_SPEED, spacing: number = PULSE_SPACING): number {
   const d = (timeSeconds * speed) % spacing;
+  return d < 0 ? d + spacing : d;
+}
+
+/** How many pulse spacings the chevrons surge forward on each beat (ticket 032). */
+export const PULSE_BEAT_STEPS = 1;
+
+/** Ease-out on [0, 1]: ease(0) = 0, ease(1) = 1, monotonic, front-loaded. */
+export function easeOutCubic(x: number): number {
+  const u = 1 - (x < 0 ? 0 : x > 1 ? 1 : x);
+  return 1 - u * u * u;
+}
+
+/**
+ * Pulse offset driven by the shared beat clock: on each beat every chevron surges forward
+ * PULSE_BEAT_STEPS spacings and settles. Pure in t; always in [0, spacing); 0 on each beat.
+ */
+export function beatPulsePhase(timeSeconds: number, spacing: number = PULSE_SPACING): number {
+  const d = (easeOutCubic(BEAT.phase(timeSeconds)) * PULSE_BEAT_STEPS * spacing) % spacing;
   return d < 0 ? d + spacing : d;
 }
 
