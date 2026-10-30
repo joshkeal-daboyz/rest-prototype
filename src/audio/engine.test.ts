@@ -251,6 +251,32 @@ describe("mute and volume", () => {
   });
 });
 
+describe("no crackle catch-up after a time gap (ticket 033)", () => {
+  const nodesAfterGap = async (suspend: boolean): Promise<number> => {
+    const s = setup();
+    await s.unlock();
+    const sparking = view({ sparking: ["a"] });
+    s.audio.update(sparking, 0.016);
+    if (suspend) s.fake.state = "suspended";
+    s.fake.currentTime += 600;
+    if (suspend) {
+      s.audio.update(sparking, 0.016);
+      s.fake.state = "running";
+    }
+    const before = s.fake.nodes.length;
+    s.audio.update(sparking, 0.016);
+    return s.fake.nodes.length - before;
+  };
+
+  it("a 600 s gap creates a handful of nodes on the next frame, not thousands", async () => {
+    expect(await nodesAfterGap(false)).toBeLessThanOrEqual(2 * 3 * 2);
+  });
+
+  it("also with the context suspended in between", async () => {
+    expect(await nodesAfterGap(true)).toBeLessThanOrEqual(2 * 3 * 2);
+  });
+});
+
 describe("never throws without audio", () => {
   const exercise = (audio: ReturnType<typeof createAudio>, bus: EventBus) => {
     const detach = audio.attach(bus);

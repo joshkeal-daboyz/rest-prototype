@@ -71,6 +71,9 @@ export function layersFor(view: SoundView, prev: LayerState): Layers {
   };
 }
 
+/** Most ticks one collect returns, whatever the horizon or gap (ticket 033). */
+export const CRACKLE_MAX_PER_COLLECT = 3;
+
 /** Schedules the crackle ticks: 4 to 9 a second, spaced by the seeded PRNG, the same for one line or five. */
 export class Crackle {
   private rnd: () => number;
@@ -86,10 +89,11 @@ export class Crackle {
       this.next = null;
       return [];
     }
-    if (this.next === null) this.next = now + this.gap();
+    // First call, or a time gap (backgrounded tab, stall, suspended context): restart from now, never replay what was missed.
+    if (this.next === null || this.next < now) this.next = now + this.gap();
     const out: number[] = [];
-    while (this.next < now + horizon) {
-      out.push(Math.max(this.next, now));
+    while (this.next < now + horizon && out.length < CRACKLE_MAX_PER_COLLECT) {
+      out.push(this.next);
       this.next += this.gap();
     }
     return out;
