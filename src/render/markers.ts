@@ -25,9 +25,16 @@ export interface OffscreenMarker {
  * One marker per target whose node lies outside `area`, none for targets on screen or unknown ids.
  * Each sits on the edge of `area` inset by MARKER_INSET, on the ray from the area's centre to the lamp;
  * markers that would crowd are then spread along that edge so none is nearer than MARKER_GAP to another.
- * `filled` is true for a lit lamp.
+ * `filled` is true for a lit lamp. If `visible` (the canvas grown by the lamp's radius, ring and star) is given, a
+ * target inside it is skipped too, because the lamp is drawn there with its own star.
  */
-export function offscreenMarkers(g: Geometry, area: Rect, targets: readonly string[], lit: ReadonlySet<string>): OffscreenMarker[] {
+export function offscreenMarkers(
+  g: Geometry,
+  area: Rect,
+  targets: readonly string[],
+  lit: ReadonlySet<string>,
+  visible?: Rect,
+): OffscreenMarker[] {
   const cx = (area.left + area.right) / 2;
   const cy = (area.top + area.bottom) / 2;
   // The inset rectangle the markers run along; never inside out.
@@ -42,6 +49,8 @@ export function offscreenMarkers(g: Geometry, area: Rect, targets: readonly stri
     const x = g.nx[i]!;
     const y = g.ny[i]!;
     if (x >= area.left && x <= area.right && y >= area.top && y <= area.bottom) continue;
+    // A lamp still drawn on the canvas (e.g. in a HUD inset band) carries its own star; no second one at the edge.
+    if (visible && x >= visible.left && x <= visible.right && y >= visible.top && y <= visible.bottom) continue;
     const dx = x - cx;
     const dy = y - cy;
     const tx = dx === 0 ? Infinity : hw / Math.abs(dx);

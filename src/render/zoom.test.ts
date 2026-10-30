@@ -101,11 +101,18 @@ const BIG_MIN = minZoomScale(BIG_B, W, H, PADDING, INS);
 const BIG_LEVELS = zoomLevels(BIG_MIN, openScale(fitScale(BIG_B, W, H, PADDING, INS)), MAX_ZOOM_SCALE);
 
 /** A canvas stand-in. Records every string drawn with fillText or strokeText. */
-function fakeCanvas(w: number, h: number, drawn?: string[]): HTMLCanvasElement {
+function fakeCanvas(w: number, h: number, drawn?: string[], stars?: number[]): HTMLCanvasElement {
   const store: Record<string, unknown> = {};
   const noop = (): void => {};
+  let segs = 0;
   const ctx = new Proxy(store, {
     get: (t, p: string) => {
+      if (stars) {
+        // A star glyph is one closed path of a moveTo and nine lineTo.
+        if (p === "beginPath" || p === "moveTo") return () => void (segs = 0);
+        if (p === "lineTo") return () => void segs++;
+        if (p === "closePath") return () => void (segs === 9 && stars.push(1));
+      }
       if (p === "measureText") return (s: string) => ({ width: s.length * 6 });
       if (drawn && (p === "fillText" || p === "strokeText")) return (s: string) => void drawn.push(s);
       return p in t ? t[p] : noop;
@@ -670,6 +677,30 @@ describe("overlays at every level", () => {
     expect(offscreenMarkers(g, FREE, targets, new Set()), "whole map").toEqual([]);
     const gz = buildGeometry(BIG, W, H, PADDING, INS, clampPan({ x: -900, y: 0 }, mapBox(BIG_B, computeFit(BIG_B, W, H, PADDING, INS, undefined, MAX_ZOOM_SCALE)), FREE, PAN_KEEP, PADDING), MAX_ZOOM_SCALE);
     expect(offscreenMarkers(gz, FREE, targets, new Set()).length).toBeGreaterThan(0);
+  });
+  it("a lamp drawn on the canvas, even in an inset band, gets no second star at the edge", () => {
+    const cases: [string, number, number][] = [["56-whole-ward", 1920, 1080], ["56-whole-ward", 1100, 650], ["09-shrine-circuit", 1100, 650], ["22-look-both-ways", 1920, 1080]];
+    for (const [id, w, h] of cases) {
+      const file = [join(ROOT, `${id}.json`), join(ROOT, "locked", `${id}.json`)].find((f) => existsSync(f));
+      if (!file) continue;
+      const p = loadPuzzle(JSON.parse(readFileSync(file, "utf8")));
+      const stars: number[] = [];
+      const r = createMapRenderer(fakeCanvas(w, h, undefined, stars), p, { insets: INS });
+      r.fitWhole();
+      const targets = p.target && p.target.length ? p.target : p.nodes.filter((n) => n.type === "lamp").map((n) => n.id);
+      for (let step = 0; step < 12; step++) {
+        stars.length = 0;
+        r.draw(emptyState(), {}, 0);
+        const g = buildGeometry(p, w, h, PADDING, INS, r.getPan(), r.getScale());
+        let off = 0;
+        for (const t of targets) {
+          const i = g.nodeIndex.get(t)!;
+          if (g.nx[i]! < -24 || g.nx[i]! > w + 24 || g.ny[i]! < -24 || g.ny[i]! > h + 24) off++;
+        }
+        expect(stars.length, `${id} ${w}x${h} scale ${r.getScale().toFixed(1)}`).toBeLessThanOrEqual(off);
+        r.zoomStep(1);
+      }
+    }
   });
   it("culling is correct at the extreme levels", () => {
     const area: Rect = { left: 0, top: 0, right: W, bottom: H };

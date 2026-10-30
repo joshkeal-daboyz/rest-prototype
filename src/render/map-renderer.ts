@@ -165,6 +165,7 @@ export interface MapRendererOptions {
 /** Lines and nodes whose screen box is further than this from the canvas are not drawn. A node's margin is wider: its glow, caption and pool reach beyond its centre. */
 const LINE_CULL_PX = 32;
 const NODE_CULL_PX = 96;
+const MARKER_VISIBLE_PAD = 24;
 /** A place's silhouette is not painted when its box is further than this off the canvas. */
 const PLACE_CULL_PX = 16;
 const SHOCK_CORE = "#f2fbff";
@@ -253,6 +254,8 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
   let capFloor = CAPTION_MIN_SCALE;
   /** The canvas as a rect, and the lines and nodes near it (rebuilt with the geometry). */
   const canvasRect = { left: 0, top: 0, right: 1, bottom: 1 };
+  /** The canvas grown by the lamp's radius, ring and star: a target inside it is drawn, so it gets no edge marker. */
+  const markerVisible = { left: -MARKER_VISIBLE_PAD, top: -MARKER_VISIBLE_PAD, right: 1, bottom: 1 };
   const visLines = new Int32Array(puzzle.lines.length);
   const visNodes = new Int32Array(puzzle.nodes.length);
   let nVisLines = 0;
@@ -749,7 +752,9 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     canvasRect.bottom = height;
     nVisLines = visibleLinesInto(geo, canvasRect, LINE_CULL_PX, visLines);
     nVisNodes = visibleNodesInto(geo, canvasRect, NODE_CULL_PX, visNodes);
-    markers = offscreenMarkers(geo, freeArea(width, height, insets), markerTargets, NO_LIT);
+    markerVisible.right = width + MARKER_VISIBLE_PAD;
+    markerVisible.bottom = height + MARKER_VISIBLE_PAD;
+    markers = offscreenMarkers(geo, freeArea(width, height, insets), markerTargets, NO_LIT, markerVisible);
     buildSwitchDirs();
     for (let s = 0; s < SLOTS; s++) if (slotActive[s] === 1) rebuildSlotPath(s);
     rebuildCity();
