@@ -26,6 +26,7 @@ import {
 } from "./geometry";
 import { FUSE_BAR_HEIGHT, FUSE_BAR_TOP, FUSE_BAR_WIDTH, fuseFill, fuseStep, fuseTickOffsets } from "./fusebar";
 import { createFeedCaptions } from "./feedcaps";
+import { MARKER_SIZE, offscreenMarkers, type OffscreenMarker } from "./markers";
 import { fuseCaption, lampCaption } from "./labels";
 import { bulbOffsets, bulbRadius, clusterRadius, poolAlpha, poolRadiusScale } from "./load";
 import {
@@ -238,6 +239,10 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
   let nVisLines = 0;
   let nVisNodes = 0;
   let geo: Geometry = buildGeometry(puzzle, 1, 1, PADDING, insets);
+  /** Edge stars for off-screen targets (A3), rebuilt with the geometry; `filled` is taken from the state at draw time. */
+  let markers: OffscreenMarker[] = [];
+  const NO_LIT: ReadonlySet<string> = new Set<string>();
+  const markerTargets: string[] = [];
 
   // ---- per-puzzle precomputation ----
   const targetSet = new Set(puzzle.target && puzzle.target.length ? puzzle.target : []);
@@ -245,6 +250,9 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
   const isTarget = new Uint8Array(nNodes);
   nodes.forEach((n, i) => {
     if (n.type === "lamp" && (allTargets || targetSet.has(n.id))) isTarget[i] = 1;
+  });
+  nodes.forEach((n, i) => {
+    if (isTarget[i] === 1) markerTargets.push(n.id);
   });
   const hadFaultNode = new Uint8Array(nNodes);
   const hadFaultLine = new Uint8Array(nLines);
@@ -719,6 +727,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     canvasRect.bottom = height;
     nVisLines = visibleLinesInto(geo, canvasRect, LINE_CULL_PX, visLines);
     nVisNodes = visibleNodesInto(geo, canvasRect, NODE_CULL_PX, visNodes);
+    markers = offscreenMarkers(geo, freeArea(width, height, insets), markerTargets, NO_LIT);
     buildSwitchDirs();
     for (let s = 0; s < SLOTS; s++) if (slotActive[s] === 1) rebuildSlotPath(s);
     rebuildCity();
@@ -1134,6 +1143,39 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
       c.arc(x, y + 1, 5 + 2 * fl, 0, TAU);
       c.fill();
       c.globalAlpha = 1;
+    }
+  }
+
+  /** Ten-point star outline, unit radius, [x0, y0, x1, y1, ...]. */
+  const STAR_PTS = new Float64Array(20);
+  for (let k = 0; k < 10; k++) {
+    const a = -Math.PI / 2 + (k * Math.PI) / 5;
+    const r = k % 2 === 0 ? 1 : 0.45;
+    STAR_PTS[2 * k] = Math.cos(a) * r;
+    STAR_PTS[2 * k + 1] = Math.sin(a) * r;
+  }
+
+  /** Edge stars: filled when the lamp is lit, hollow when not. The shape differs, so colour is not needed to read it. */
+  function drawMarkers(state: GridState): void {
+    const rad = MARKER_SIZE / 2;
+    c.lineJoin = "round";
+    for (let k = 0; k < markers.length; k++) {
+      const m = markers[k]!;
+      c.beginPath();
+      c.moveTo(m.x + STAR_PTS[0]! * rad, m.y + STAR_PTS[1]! * rad);
+      for (let j = 1; j < 10; j++) c.lineTo(m.x + STAR_PTS[2 * j]! * rad, m.y + STAR_PTS[2 * j + 1]! * rad);
+      c.closePath();
+      c.strokeStyle = CITY_BG;
+      c.lineWidth = 4;
+      c.stroke();
+      if (state.lit.has(m.lamp)) {
+        c.fillStyle = TARGET;
+        c.fill();
+      } else {
+        c.strokeStyle = TARGET;
+        c.lineWidth = 1.5;
+        c.stroke();
+      }
     }
   }
 
@@ -1743,6 +1785,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     for (let k = 0; k < nVisLines; k++) drawLine(visLines[k]!, state, t, rt, rp, hover);
     for (let k = 0; k < nVisNodes; k++) drawNode(visNodes[k]!, state, t, rt, rp, hover);
     drawSequences(t);
+    drawMarkers(state);
 
     // Feed readout: "using N of M" (Lv wording). Alarm state adds a "!" and a shake, not just colour.
     feedCaps.update(state);

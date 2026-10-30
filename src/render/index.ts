@@ -3,3 +3,5 @@ export type { MapRenderer, MapOverlay, MapPanView, MapPlaces, MapCentre } from "
 export { planRelight, RELIGHT_TRAVEL_SECONDS, FLARE_SECONDS } from "./relight";
 export type { RelightPlan } from "./relight";
 export type { Insets, Pan } from "./geometry";
+export { offscreenMarkers } from "./markers";
+export type { OffscreenMarker } from "./markers";
