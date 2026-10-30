@@ -92,6 +92,71 @@ export function openScale(fit: number): number {
   return fit >= LEGACY_FLOOR ? Math.min(fit, MAX_SCALE) : MIN_SCALE;
 }
 
+/** The most the player can zoom in, in px per unit (a little past MAX_SCALE). */
+export const MAX_ZOOM_SCALE = 96;
+/** One zoom level is this ratio from the next: four steps to double. */
+export const ZOOM_STEP = Math.SQRT2 ** 0.5;
+/** Lv captions and place labels are hidden below this scale (three quarters of MIN_SCALE). */
+export const CAPTION_MIN_SCALE = 27;
+
+/** True when Lv captions and place labels are drawn at this scale. */
+export function captionsShown(scale: number): boolean {
+  return scale >= CAPTION_MIN_SCALE;
+}
+
+/** The smallest scale the player can zoom out to: the whole map fits (never above the opening scale). */
+export function minZoomScale(bounds: Bounds, width: number, height: number, padding: number, insets?: Insets): number {
+  const whole = fitScale(bounds, width, height, padding, insets);
+  return Math.min(whole, openScale(whole));
+}
+
+/**
+ * The discrete zoom levels: `open * ZOOM_STEP^k` kept to [min, max], with min, open and max themselves added.
+ * Sorted, no duplicates (levels within 1e-9 of each other, relatively, are one), consecutive ratio at most ZOOM_STEP.
+ */
+export function zoomLevels(min: number, open: number, max: number): number[] {
+  const lo = Math.min(min, open);
+  const hi = Math.max(max, open);
+  const same = (a: number, b: number): boolean => Math.abs(a / b - 1) < 1e-9;
+  const levels: number[] = [lo, open, hi];
+  const kLo = Math.ceil(Math.log(lo / open) / Math.log(ZOOM_STEP) - 1e-9);
+  const kHi = Math.floor(Math.log(hi / open) / Math.log(ZOOM_STEP) + 1e-9);
+  for (let k = kLo; k <= kHi; k++) {
+    const s = open * Math.pow(ZOOM_STEP, k);
+    if (s <= lo || s >= hi || same(s, open)) continue;
+    if (same(s, lo) || same(s, hi)) continue;
+    levels.push(s);
+  }
+  levels.sort((a, b) => a - b);
+  const out: number[] = [];
+  for (const s of levels) if (out.length === 0 || !same(s, out[out.length - 1]!)) out.push(s);
+  return out;
+}
+
+/**
+ * The pan that keeps the map point under canvas point (px, py) there after the scale goes from `scale` to `newScale`,
+ * then clamped (edge-stop or PAN_KEEP, per axis, at the new scale). `pan` is measured from the centred fit at `scale`.
+ */
+export function zoomAbout(
+  bounds: Bounds,
+  width: number,
+  height: number,
+  padding: number,
+  insets: Insets | undefined,
+  pan: Pan,
+  scale: number,
+  px: number,
+  py: number,
+  newScale: number,
+): Pan {
+  const old = computeFit(bounds, width, height, padding, insets, pan, scale);
+  const mx = (px - old.offsetX) / old.scale;
+  const my = (py - old.offsetY) / old.scale;
+  const next = computeFit(bounds, width, height, padding, insets, undefined, newScale);
+  const want: Pan = { x: px - (mx * newScale + next.offsetX), y: py - (my * newScale + next.offsetY) };
+  return clampPan(want, mapBox(bounds, next), freeArea(width, height, insets), PAN_KEEP, padding);
+}
+
 /**
  * Scale and offsets that centre `bounds` in the free area, then add `pan`. The scale is the plain fit (capped at MAX_SCALE)
  * when that is at least LEGACY_FLOOR, else MIN_SCALE (see openScale), or `scale` when given (zoom). `insets` (CSS px) reserve room for overlays.

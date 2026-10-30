@@ -7,11 +7,17 @@
 import { FAULT_RULES, type Events, type FaultKind, type Puzzle } from "../core";
 import type { GridState } from "../grid";
 import {
+  MAX_ZOOM_SCALE,
   PADDING,
   buildGeometry,
+  captionsShown,
   clampPan,
   computeFit,
+  fitScale,
   freeArea,
+  openScale,
+  zoomAbout,
+  zoomLevels,
   hitTestGeometry,
   inArea,
   initialPan,
@@ -136,6 +142,12 @@ export interface MapPanView {
   setPan(x: number, y: number): Pan;
   /** Back to the opening view: a map that fits is centred ({0,0}); one that overflows opens with its first feed at the free area's centre. */
   resetView(): void;
+  /** Current scale in px per unit (ticket 027 A4). */
+  getScale(): number;
+  /** One zoom level in (+1) or out (-1) about canvas point (x, y), default the free area's centre; clamped at the ends. Returns the new scale. */
+  zoomStep(dir: 1 | -1, x?: number, y?: number): number;
+  /** The whole map: the smallest zoom scale, map centred. */
+  fitWhole(): void;
 }
 
 /** Centre the view on a node (ticket 027). Separate from MapPanView so existing fakes still compile. */
@@ -232,6 +244,10 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
   let height = 0;
   const mapBounds = puzzleBounds(puzzle);
   let pan: Pan = { x: 0, y: 0 };
+  /** The scale the player zoomed to, or null for the opening scale (which follows the window and the insets). */
+  let userScale: number | null = null;
+  /** Whether Lv captions are drawn at the current scale (rebuilt with the geometry). */
+  let capsOn = true;
   /** The canvas as a rect, and the lines and nodes near it (rebuilt with the geometry). */
   const canvasRect = { left: 0, top: 0, right: 1, bottom: 1 };
   const visLines = new Int32Array(puzzle.lines.length);
@@ -720,9 +736,11 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
 
   /** Re-clamp the pan to the current free area and rebuild everything that depends on the fit. */
   function rebuildGeometry(): void {
-    const box = mapBox(mapBounds, computeFit(mapBounds, width, height, PADDING, insets));
+    const sc = currentScale();
+    const box = mapBox(mapBounds, computeFit(mapBounds, width, height, PADDING, insets, undefined, sc));
     pan = clampPan(pan, box, freeArea(width, height, insets), undefined, PADDING);
-    geo = buildGeometry(puzzle, width, height, PADDING, insets, pan);
+    geo = buildGeometry(puzzle, width, height, PADDING, insets, pan, sc);
+    capsOn = captionsShown(sc);
     canvasRect.right = width;
     canvasRect.bottom = height;
     nVisLines = visibleLinesInto(geo, canvasRect, LINE_CULL_PX, visLines);
@@ -731,6 +749,56 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     buildSwitchDirs();
     for (let s = 0; s < SLOTS; s++) if (slotActive[s] === 1) rebuildSlotPath(s);
     rebuildCity();
+  }
+
+  /** The scale now: the player's zoom kept inside the current range, else the opening scale. */
+  function currentScale(): number {
+    const whole = fitScale(mapBounds, width, height, PADDING, insets);
+    const open = openScale(whole);
+    if (userScale === null) return open;
+    return Math.min(Math.max(userScale, Math.min(whole, open)), MAX_ZOOM_SCALE);
+  }
+
+  function levelsNow(): number[] {
+    const whole = fitScale(mapBounds, width, height, PADDING, insets);
+    const open = openScale(whole);
+    return zoomLevels(Math.min(whole, open), open, MAX_ZOOM_SCALE);
+  }
+
+  function zoomStep(dir: 1 | -1, x?: number, y?: number): number {
+    const cur = currentScale();
+    const levels = levelsNow();
+    let target = cur;
+    if (dir > 0) {
+      for (let i = 0; i < levels.length; i++) {
+        if (levels[i]! > cur * (1 + 1e-9)) {
+          target = levels[i]!;
+          break;
+        }
+      }
+    } else {
+      for (let i = levels.length - 1; i >= 0; i--) {
+        if (levels[i]! < cur * (1 - 1e-9)) {
+          target = levels[i]!;
+          break;
+        }
+      }
+    }
+    if (target === cur) return cur;
+    const area = freeArea(width, height, insets);
+    const px = x ?? (area.left + area.right) / 2;
+    const py = y ?? (area.top + area.bottom) / 2;
+    pan = zoomAbout(mapBounds, width, height, PADDING, insets, pan, cur, px, py, target);
+    userScale = target;
+    rebuildGeometry();
+    return geo.fit.scale;
+  }
+
+  function fitWhole(): void {
+    const whole = fitScale(mapBounds, width, height, PADDING, insets);
+    userScale = Math.min(whole, openScale(whole));
+    pan = { x: 0, y: 0 };
+    rebuildGeometry();
   }
 
   function setPan(x: number, y: number): Pan {
@@ -1108,15 +1176,17 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     }
 
     // Lv caption: "Lv<n> Lamp", same wording as the feed's readout.
-    c.font = FONT_LAMP;
     c.textAlign = "center";
     c.textBaseline = "middle";
-    c.lineJoin = "round";
-    c.strokeStyle = CITY_BG;
-    c.lineWidth = 3;
-    c.strokeText(loadLabel[i]!, x, y + cr + 10);
-    c.fillStyle = k > 0 ? WARM_HOT : TEXT_DIM;
-    c.fillText(loadLabel[i]!, x, y + cr + 10);
+    if (capsOn) {
+      c.font = FONT_LAMP;
+      c.lineJoin = "round";
+      c.strokeStyle = CITY_BG;
+      c.lineWidth = 3;
+      c.strokeText(loadLabel[i]!, x, y + cr + 10);
+      c.fillStyle = k > 0 ? WARM_HOT : TEXT_DIM;
+      c.fillText(loadLabel[i]!, x, y + cr + 10);
+    }
 
     if (isTarget[i] === 1) {
       c.strokeStyle = TARGET;
@@ -1418,9 +1488,11 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
               c.globalAlpha = 1;
             }
           }
-          c.fillStyle = ALARM;
-          c.font = FONT_BIG;
-          c.fillText(ratingLabel[i]!, x, y + 25);
+          if (capsOn) {
+            c.fillStyle = ALARM;
+            c.font = FONT_BIG;
+            c.fillText(ratingLabel[i]!, x, y + 25);
+          }
         } else {
           c.beginPath();
           c.moveTo(x - 8, y);
@@ -1428,9 +1500,11 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
           c.strokeStyle = nodeOutline(i, live);
           c.lineWidth = 2;
           c.stroke();
-          c.fillStyle = TEXT;
-          c.font = FONT;
-          c.fillText(ratingLabel[i]!, x, y + 23);
+          if (capsOn) {
+            c.fillStyle = TEXT;
+            c.font = FONT;
+            c.fillText(ratingLabel[i]!, x, y + 23);
+          }
         }
         if (fuseTicks[i] !== null) {
           // Load bar: fill length and ticks carry the reading, colour only backs it up.
@@ -1792,7 +1866,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     c.font = FONT_FEED;
     c.textAlign = "center";
     c.textBaseline = "middle";
-    for (let k = 0; k < feedCaps.nodeIdx.length; k++) {
+    for (let k = 0; k < feedCaps.nodeIdx.length && capsOn; k++) {
       const ni = feedCaps.nodeIdx[k]!;
       if (ni < 0) continue;
       const fx = geo.nx[ni]!;
@@ -1823,7 +1897,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     const ni = geo.nodeIndex.get(nodeId);
     if (ni === undefined) return { x: pan.x, y: pan.y };
     const n = nodes[ni]!;
-    const fit0 = computeFit(mapBounds, width, height, PADDING, insets);
+    const fit0 = computeFit(mapBounds, width, height, PADDING, insets, undefined, currentScale());
     const p = panToCentre(n.pos[0], n.pos[1], fit0, freeArea(width, height, insets));
     return setPan(p.x, p.y);
   }
@@ -1844,9 +1918,13 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
     getPan: () => ({ x: pan.x, y: pan.y }),
     setPan,
     resetView: () => {
+      userScale = null;
       const p0 = openingPan();
       setPan(p0.x, p0.y);
     },
     centreOn,
+    getScale: () => geo.fit.scale,
+    zoomStep,
+    fitWhole,
   };
 }
