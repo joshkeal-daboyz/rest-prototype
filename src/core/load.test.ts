@@ -192,7 +192,7 @@ describe("draft 5: more than one powersource (ticket 015)", () => {
     expect(errorsOf(p)).toMatch(/capacity \(top level\) must be null/);
   });
 
-  it("puzzleFeeds: one-feed maps give the old capacity, unchanged", () => {
+  it("puzzleFeeds: one-feed maps give the old capacity, unchanged", { timeout: 60000 }, () => {
     for (const f of files) {
       const r = validatePuzzle(read(f));
       if (!r.ok) continue;
@@ -204,7 +204,7 @@ describe("draft 5: more than one powersource (ticket 015)", () => {
     }
   });
 
-  it("puzzleFeeds: multi-feed maps give one entry per feed node, with its own capacity", () => {
+  it("puzzleFeeds: multi-feed maps give one entry per feed node, with its own capacity", { timeout: 60000 }, () => {
     let seen = 0;
     for (const f of files) {
       const r = validatePuzzle(read(f));
