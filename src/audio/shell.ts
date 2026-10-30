@@ -40,8 +40,6 @@ interface Handle {
   nodes: NodeLike[];
   sources: SourceLike[];
   gain: GainNodeLike;
-  /** Survives stopAll (the level-done cue rings out across a detach). */
-  keep?: boolean;
 }
 
 function ramp(p: ParamLike, to: number, now: number, seconds: number): void {
@@ -142,7 +140,7 @@ export class Player {
     const t0 = base + cue.at;
     if (cue.stop) this.stopHeld(cue.stop.key, cue.stop.fade, cue.stop.freqTo, t0);
     if (cue.hold) this.startHeld(cue.hold.key, cue.hold.voice, t0);
-    for (const v of cue.voices) this.voice(v, t0 + v.at, cue.group === "level");
+    for (const v of cue.voices) this.voice(v, t0 + v.at);
   }
 
   /** Schedule crackle ticks at absolute times. */
@@ -157,7 +155,7 @@ export class Player {
    * and are layer voices: outside the mixer, so never counted against the voice budget. Every node ends and is disconnected.
    */
   beat(times: readonly number[]): void {
-    for (const t of times) for (const v of this.thump) this.voice(v, t, false, this.duck);
+    for (const t of times) for (const v of this.thump) this.voice(v, t, this.duck);
   }
 
   setLayers(l: Layers, duckDb: number): void {
@@ -190,7 +188,7 @@ export class Player {
   /** Silence this map's sounds: stop every voice and zero the continuous layers. */
   stopAll(): void {
     const now = this.ctx.currentTime;
-    for (const h of [...this.active]) if (!h.keep) this.kill(h, now);
+    for (const h of [...this.active]) this.kill(h, now);
     this.held.clear();
     this.setLayers(
       { hum: 0, flicker: 0, beatOn: false, whineOn: false, whineHz: WHINE_LOW_HZ, whine: 0, crackleOn: false, fullTick: false, next: { full: new Set(), seen: false } },
@@ -298,9 +296,8 @@ export class Player {
     return { h: { nodes, sources, gain }, src, osc };
   }
 
-  private voice(v: Voice, t: number, keep = false, dest: GainNodeLike = this.master): void {
+  private voice(v: Voice, t: number, dest: GainNodeLike = this.master): void {
     const { h, src } = this.build(v, t, dest);
-    if (keep) h.keep = true;
     const pts = envelope(v);
     const g = h.gain.gain;
     const first = pts[0];

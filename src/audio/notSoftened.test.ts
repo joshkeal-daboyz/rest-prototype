@@ -3,7 +3,7 @@ import * as R from "./recipes";
 
 /**
  * Ticket 032, Josh: "don't soften those". Every mechanical recipe is pinned to the output 031 left,
- * taken from the recipes BEFORE any 032 edit (see __snapshots__). Only relightChime, levelDoneSound
+ * taken from the recipes BEFORE any 032 edit (see __snapshots__). Only relightChime
  * and the new beatThump may differ; a changed number here is a changed sound.
  */
 const PINNED: Record<string, () => unknown> = {
