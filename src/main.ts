@@ -2,7 +2,7 @@
 // No game rules here: each layer owns its own. Picking another map rebuilds the stack.
 import { EventBus, puzzleFeeds, type Puzzle } from "./core";
 import { createGrid, type Grid, type GridState } from "./grid";
-import { createMapRenderer, planRelight, type MapPanView, type MapPlaces, type MapRenderer } from "./render";
+import { createMapRenderer, planRelight, type MapBlockers, type MapPanView, type MapPlaces, type MapRenderer } from "./render";
 import { attachPan, createMapPlay, type MapPlay } from "./play";
 import { createAudio } from "./audio";
 import { mountUI, restoreAudio, type UI } from "./ui";
@@ -65,7 +65,7 @@ if (entries.length === 0) {
 
   interface Session {
     grid: Grid;
-    renderer: MapRenderer & MapPanView & MapPlaces;
+    renderer: MapRenderer & MapPanView & MapPlaces & MapBlockers;
     play: MapPlay;
     ui: UI;
     puzzle: Puzzle;
