@@ -46,6 +46,7 @@ import {
   type Rect,
   type StorageLike,
 } from "./logic";
+import { capacityRowsKey, setAttr, setClass, setProp, setText, targetRowsKey } from "./frame";
 
 export interface UIDeps {
   grid: Grid;
@@ -373,19 +374,16 @@ function mountSound(audio: AudioControl, splashOpen: () => boolean): SoundContro
       speakerSvg.innerHTML = SPEAKER_ICON_SVG[icon];
     }
     const label = speakerLabel(audio.muted, audio.volume);
-    if (speaker.getAttribute("aria-label") !== label) {
-      speaker.setAttribute("aria-label", label);
-      speaker.title = label;
-    }
-    speaker.classList.toggle("muted", audio.muted);
+    setAttr(speaker, "aria-label", label);
+    setProp(speaker, "title", label);
+    setClass(speaker, "muted", audio.muted);
 
     const toggleLabel = soundToggleLabel(audio.muted);
     setText(toggle, toggleLabel);
-    toggle.setAttribute("aria-label", toggleLabel);
-    toggle.setAttribute("aria-pressed", String(!audio.muted));
-    toggle.classList.toggle("muted", audio.muted);
-    const position = String(volumeToSlider(audio.volume));
-    if (slider.value !== position) slider.value = position;
+    setAttr(toggle, "aria-label", toggleLabel);
+    setAttr(toggle, "aria-pressed", String(!audio.muted));
+    setClass(toggle, "muted", audio.muted);
+    setProp(slider, "value", String(volumeToSlider(audio.volume)));
   }
   render();
   return { dock, popover, render, isOpen: () => open };
@@ -402,11 +400,6 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, t
   if (className) node.className = className;
   if (text !== undefined) node.textContent = text;
   return node;
-}
-
-/** Writes text only when it changed, so the overlay does not touch the DOM every frame. */
-function setText(node: HTMLElement, text: string): void {
-  if (node.textContent !== text) node.textContent = text;
 }
 
 /** Pointer listeners from the previous mount, removed when the map is switched. */
@@ -584,8 +577,8 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
       undefined,
       avoid,
     );
-    promptEl.style.left = `${spot.left}px`;
-    promptEl.style.top = `${spot.top}px`;
+    setProp(promptEl.style, "left", `${spot.left}px`);
+    setProp(promptEl.style, "top", `${spot.top}px`);
   }
 
   function downloadLog(): void {
@@ -598,10 +591,11 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
     setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 
-  let targetsKey = "";
+  // null until the first build: an empty list's change key is "", and the first frame still needs its write (ticket 021).
+  let targetsKey: string | null = null;
   // null, not "": an empty parts list joins to "", and the rows still need their first write (ticket 021).
   let partsKey: string | null = null;
-  let capacityKey = "";
+  let capacityKey: string | null = null;
 
   /** A node's box in `root`'s space (the same space as the pointer), so it can be compared with the prompt's box. */
   function localRect(node: HTMLElement, bounds: DOMRect): Rect {
@@ -699,16 +693,16 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
     placeSplash();
 
     const prompt = promptToShow(view);
-    promptEl.hidden = prompt === null || pointer === null;
+    setProp(promptEl, "hidden", prompt === null || pointer === null);
     setText(promptEl, prompt ?? "");
     placePrompt();
 
     const banner = bannerText(state);
-    bannerEl.hidden = banner === null;
+    setProp(bannerEl, "hidden", banner === null);
     setText(bannerEl, banner ?? "");
 
     const capRows = capacityRows(state, deps.feeds ?? []);
-    const nextCapacityKey = JSON.stringify(capRows);
+    const nextCapacityKey = capacityRowsKey(capRows);
     if (nextCapacityKey !== capacityKey) {
       capacityKey = nextCapacityKey;
       capacityEl.textContent = "";
@@ -720,11 +714,11 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
     }
 
     const countdown = batteryCountdown(state);
-    batteryEl.hidden = countdown === null;
+    setProp(batteryEl, "hidden", countdown === null);
     setText(batteryEl, countdown ?? "");
 
     const rows = targetRows(state.targets, state.lit, state.brownout);
-    const nextTargetsKey = JSON.stringify(rows);
+    const nextTargetsKey = targetRowsKey(rows);
     if (nextTargetsKey !== targetsKey) {
       targetsKey = nextTargetsKey;
       // A rebuild must not drop the keyboard user's place in the list: refocus the same lamp's entry afterwards.
@@ -767,16 +761,16 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
         const row = rows.find((r) => r.kind === node.kind);
         if (!row) continue;
         setText(node.count, String(row.count));
-        node.row.setAttribute("aria-label", row.text);
-        node.row.classList.toggle("empty", row.empty);
+        setAttr(node.row, "aria-label", row.text);
+        setClass(node.row, "empty", row.empty);
       }
     }
-    inventoryEl.setAttribute("aria-label", partsSummary(state.parts));
+    setAttr(inventoryEl, "aria-label", partsSummary(state.parts));
   }
 
   /** Marks the entry for the highlighted lamp (class `highlight`, an outline; the text stays the same). */
   function applyHighlight(): void {
-    for (const item of targetItems) item.node.classList.toggle("highlight", isHighlighted(item.id, highlighted));
+    for (const item of targetItems) setClass(item.node, "highlight", isHighlighted(item.id, highlighted));
   }
 
   function highlight(lampId: string | null): void {
