@@ -1,7 +1,7 @@
 # 027 · Larger maps: readable scale, a ward in the city, and a way to verify them
 
 owner: lead-architect (0), renderer (A1, A2, A3, A4), grid-simulator (G, D1, D2, D3), interaction (B), ui (C)
-status: approved (G1, Josh, 29 Oct 2026: "yes I approve")
+status: done
 branch: one per part: `ticket/027-larger-maps-a1`, `-a2`, `-a3`, `-a4`, `-g`, `-d1`, `-d2`, `-d3`, `-b`, `-c` (part 0 is committed with the ticket on G1)
 
 ## Josh's words

@@ -1,7 +1,7 @@
 # 031 · Choir splash sound and 432 Hz tuning
 
 owner: sound
-status: approved (Josh, in chat: "I understand, I approve"; hum and flicker move to the 432 grid, single swell)
+status: done
 branch: `ticket/031-choir-splash-sound`
 
 ## Josh's words

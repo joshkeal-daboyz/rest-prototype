@@ -1,7 +1,7 @@
 # 029 · Move 55 and 56 down the ladder: 55 becomes 05, 56 becomes 15
 
 owner: puzzle-designer (P), lead-architect (0), grid-simulator (A), interaction (B), renderer (C), ui (D)
-status: approved (G1, Josh, 29 Oct 2026: "approved")
+status: done
 branch: `ticket/029-ladder-reorder` (one branch for all parts, as 018)
 
 ## Josh's words

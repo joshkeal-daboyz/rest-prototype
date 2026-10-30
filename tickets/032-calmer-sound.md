@@ -1,7 +1,7 @@
 # 032 · The beat, richer chimes, the choir dropped
 
 owner: sound (part A), renderer (part B)
-status: approved (G1, Josh, in chat: "approve"; defaults: 66 BPM, no speed-up with load, level-done cue kept as 025)
+status: done
 branch: `ticket/032-calmer-sound`
 depends on: 031 (built and reviewed on `try/all`, not yet on `main`). 032 branches from `main` after 031 merges, and uses 031's `src/audio/tuning.ts`.
 

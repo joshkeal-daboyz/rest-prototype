@@ -1,7 +1,7 @@
 # 035 · Clicks work on nodes drawn in the empty part of the HUD bands
 
 owner: renderer (part A), ui (part B, with declared lines in `src/main.ts`)
-status: approved (G1, Josh, in chat: "approve"; defaults: measure panels every frame; the repair prompt and notices do not block clicks)
+status: done
 branch: `ticket/035a-hit-blockers` (A), `ticket/035b-measure-blockers` (B, branched from A)
 depends on: the edge-star fix on the 027 branch, which edits `map-renderer.ts` near the marker call. Both parts branch from `try/all` after that fix merges. Do not touch the star or marker code here.
 

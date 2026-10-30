@@ -1,7 +1,7 @@
 # 034 · A silent win splash; steady current flow
 
 owner: sound (part A), renderer (part B)
-status: approved (G1, Josh, in chat 29 Oct 2026: 'Remove the splash chime. The light chimes are enough.'; supersedes the 034 'one light chime' goal and the A4 tweak)
+status: done
 branch: `ticket/034-single-chime-steady-flow` (A and B built here; first cut as `ticket/034a-single-chime` and `ticket/034b-steady-flow`)
 depends on: 032 (built on `try/all`, not yet on `main`). Both parts branch from `try/all`, or from `main` once 032 merges.
 

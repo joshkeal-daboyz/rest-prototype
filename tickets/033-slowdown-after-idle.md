@@ -1,7 +1,7 @@
 # 033 · No slowdown after the game sits idle
 
 owner: sound (part A), ui (part B), interaction (part C)
-status: approved (G1, Josh, in chat: "approve 33"; default on the muted-layers question: stop them while muted only if unmute stays instant)
+status: done
 branch: `ticket/033a-crackle-catchup`, `ticket/033b-ui-frame-writes`, `ticket/033c-click-log`
 depends on: part A branches from `main` **after 031 and 032 merge** (032 is being built in `D:\rp-032` and touches `src/audio/` and one line of `src/main.ts`). Parts B and C branch from `main` after 030 merges (030 rewrote parts of `src/ui/index.ts`; the line numbers below are from `try/all`). The three parts are independent of each other.
 

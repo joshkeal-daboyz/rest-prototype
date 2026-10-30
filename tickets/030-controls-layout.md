@@ -1,7 +1,7 @@
 # 030 · Sound behind a speaker icon, bottom-right; Undo, Reset and Log as their own buttons
 
 owner: ui
-status: approved (G1, Josh, 29 Oct 2026: "approved")
+status: done
 branch: `ticket/030-controls-layout`
 
 ## Josh's words
