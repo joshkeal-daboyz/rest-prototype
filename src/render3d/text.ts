@@ -16,6 +16,23 @@ const FONT = "system-ui, sans-serif";
 
 const toneColour = (tone: CaptionTone): string => (tone === "alarm" ? ALARM : tone === "dim" ? TEXT_DIM : TEXT);
 
+/**
+ * The texture to draw into. A GPU texture is allocated once at its first size and cannot be resized, so a caption whose text
+ * changes size (`ON` to `OFF`, `using 3 of 4` to `! using 6 of 4 !`) gets a new texture; the old one is freed. Same size: reuse.
+ */
+function freshTexture(sprite: Sprite, canvas: HTMLCanvasElement, old: CanvasTexture | null, resized: boolean): CanvasTexture {
+  if (old && !resized) return old;
+  old?.dispose();
+  const t = new CanvasTexture(canvas);
+  t.minFilter = LinearFilter;
+  t.magFilter = LinearFilter;
+  t.generateMipmaps = false;
+  const m = sprite.material;
+  m.map = t;
+  m.needsUpdate = true;
+  return t;
+}
+
 /** A surface that draws nothing, with a fixed text width: for Node (no document) and for tests. */
 export function stubTextSurface(): HTMLCanvasElement {
   const ctx = new Proxy({} as Record<string, unknown>, {
@@ -44,11 +61,10 @@ export interface CaptionSprite {
 /** `bold` for the feed. `anchorY` 0 puts the text above the anchor, 1 below it. */
 export function createCaptionSprite(surface: TextSurfaceFactory, fontPx: number, dpr: number, bold: boolean, anchorY: number): CaptionSprite {
   const canvas = surface();
-  const texture = new CanvasTexture(canvas);
-  texture.minFilter = LinearFilter;
-  texture.magFilter = LinearFilter;
-  texture.generateMipmaps = false;
-  const sprite = new Sprite(new SpriteMaterial({ map: texture, transparent: true, depthTest: false, depthWrite: false, sizeAttenuation: false }));
+  const sprite = new Sprite(new SpriteMaterial({ map: null, transparent: true, depthTest: false, depthWrite: false, sizeAttenuation: false }));
+  let texture: CanvasTexture | null = null;
+  let texW = -1;
+  let texH = -1;
   sprite.center.set(0.5, anchorY);
   sprite.renderOrder = 10;
   let cssW = 1;
@@ -71,6 +87,9 @@ export function createCaptionSprite(surface: TextSurfaceFactory, fontPx: number,
       cssH = lines.length * lineH + 6;
       canvas.width = Math.ceil(cssW * dpr);
       canvas.height = Math.ceil(cssH * dpr);
+      texture = freshTexture(sprite, canvas, texture, canvas.width !== texW || canvas.height !== texH);
+      texW = canvas.width;
+      texH = canvas.height;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.font = `${bold ? "bold " : ""}${fontPx}px ${FONT}`;
       ctx.textAlign = "center";
@@ -85,6 +104,8 @@ export function createCaptionSprite(surface: TextSurfaceFactory, fontPx: number,
         ctx.fillText(l, cssW / 2, y);
       });
       texture.needsUpdate = true;
+      sprite.userData["text"] = lines.join("\n");
+      sprite.userData["tone"] = tone;
       sprite.userData["cssW"] = cssW;
       sprite.userData["cssH"] = cssH;
       apply();

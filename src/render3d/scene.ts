@@ -147,6 +147,8 @@ export interface SceneOptions {
 }
 
 const BREAKER_LEVER = 0.55;
+/** OFF: the lever drops forward and down past flat (2.2 rad from upright), so it reads from above as a change of pose. */
+const BREAKER_OFF_ANGLE = 2.2;
 /** The breaker's box, w x h x d: as big as the fuse box (0.6 x 0.5 x 0.4) or bigger. */
 const BREAKER_BODY: readonly [number, number, number] = [0.7, 0.55, 0.45];
 const SWITCH_LEVER = 0.65;
@@ -346,7 +348,7 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
         g.add(pivot);
         parts.lever = lever;
         update = (look, _s, t) => {
-          pivot.rotation.x = look.closed === false ? Math.PI / 2 : 0;
+          pivot.rotation.x = look.closed === false ? BREAKER_OFF_ANGLE : 0;
           body.emissiveIntensity = look.closed !== false && look.live ? 0.4 + 0.2 * Math.sin(t * 2) : 0;
         };
         break;
