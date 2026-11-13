@@ -8,6 +8,13 @@
 import {
   AdditiveBlending,
   AmbientLight,
+  LineDashedMaterial,
+  LineLoop,
+  Shape,
+  ShapeGeometry,
+  Sprite,
+  SpriteMaterial,
+  Float32BufferAttribute,
   BoxGeometry,
   BufferGeometry,
   CircleGeometry,
@@ -28,7 +35,6 @@ import {
   Object3D,
   PointLight,
   RGBAFormat,
-  RingGeometry,
   Scene,
   SphereGeometry,
   TubeGeometry,
@@ -43,11 +49,20 @@ import { circuitStreets, feedLanes, type Lane } from "../render/city";
 import { hash01 } from "../render/motion";
 import { POLE_HEIGHT, blockLayout, cumulative, pointAlong, runPoints, wireLayout, type Block, type Vec3, type WireRun } from "./layout";
 import { lampBrightness, nodeLookInto, wireLook, type NodeLook } from "./look";
+import { CAPTION_FONT_PX, FEED_FONT_PX, captionsFor, scaleForPx, type NodeCaption } from "./captions";
+import { createCaptionSprite, defaultTextSurface, type CaptionSprite, type TextSurfaceFactory } from "./text";
+import { fuseTickOffsets } from "../render/fusebar";
 
 export interface SceneBundle {
   scene: Scene;
   /** Restyle everything from the state. `hover` is the node or line id under the pointer, or null. */
   update(state: GridState, hover: string | null, timeSeconds: number): void;
+  /** Every caption sprite: the node it words (`userData.caption`) and its anchor. None carries a pick tag. */
+  captions: readonly Sprite[];
+  /** Parts tests and the renderer look at. */
+  parts: ReadonlyMap<string, NodeParts>;
+  /** The canvas size in css px and the camera's vertical field of view, so captions keep a fixed pixel size. */
+  setViewport(width: number, height: number, fovDeg: number): void;
   dispose(): void;
 }
 
@@ -99,10 +114,19 @@ function poolTexture(): DataTexture {
   return t;
 }
 
+export interface NodeParts {
+  /** A breaker or switch lever: its geometry runs from its pivot (the mesh origin) to its tip, `userData.length` long. */
+  lever?: Mesh;
+  /** A switch's ground chevron. */
+  chevron?: Mesh;
+  /** A fuse box's bar fill: x-scale is the fill fraction. */
+  fuseFill?: Mesh;
+}
+
 interface NodeView {
   id: string;
   group: Group;
-  update(look: NodeLook, state: GridState, t: number): void;
+  update(look: NodeLook, state: GridState, t: number, cap: NodeCaption): void;
 }
 interface WireView {
   run: WireRun;
@@ -114,7 +138,21 @@ interface WireView {
   phase: number;
 }
 
-export function buildScene(puzzle: Puzzle): SceneBundle {
+export interface SceneOptions {
+  /** Makes the canvas captions are drawn on. Default: the browser's, or a no-op surface in Node. */
+  text?: TextSurfaceFactory;
+  /** Device pixel ratio for caption textures (the renderer passes it, capped at 2). */
+  dpr?: number;
+}
+
+const BREAKER_LEVER = 0.55;
+const SWITCH_LEVER = 0.65;
+const CHEVRON_AT = 0.9;
+const FUSE_BAR_W = 0.5;
+const STEP_COLOUR: readonly [number, number, number] = [0x3ddc97, 0xffb02e, 0xff5a4d];
+const RIBBON = 0xff3df0;
+
+export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle {
   const scene = new Scene();
   scene.background = new Color(0x0b0f17);
   scene.add(new AmbientLight(0x4a5a7a, 1.1));
@@ -209,6 +247,37 @@ export function buildScene(puzzle: Puzzle): SceneBundle {
   // Nodes.
   const poolTex = poolTexture();
   const pickGeo = new BoxGeometry(0.6, 0.7, 0.6);
+  const parts_ = new Map<string, NodeParts>();
+  const ribbonTag = (x: number, y: number, z: number): Mesh => box(0.16, 0.16, 0.05, new MeshBasicMaterial({ color: RIBBON }), x, y, z);
+  const boltGeo = new ShapeGeometry(
+    (() => {
+      const sh = new Shape();
+      sh.moveTo(0.12, 0.4);
+      sh.lineTo(-0.2, -0.05);
+      sh.lineTo(-0.02, -0.05);
+      sh.lineTo(-0.12, -0.4);
+      sh.lineTo(0.2, 0.05);
+      sh.lineTo(0.02, 0.05);
+      sh.closePath();
+      return sh;
+    })(),
+  );
+  // A flat triangle on the ground pointing along +z (yawed to the selected line).
+  const chevronGeo = new BufferGeometry();
+  chevronGeo.setAttribute("position", new Float32BufferAttribute([0, 0, 0.28, -0.2, 0, -0.14, 0.2, 0, -0.14], 3));
+  chevronGeo.setIndex([0, 2, 1]);
+  const starPts: [number, number][] = [];
+  for (let i = 0; i < 10; i++) {
+    const r = i % 2 === 0 ? 0.22 : 0.09;
+    const a = Math.PI / 2 + (i * Math.PI) / 5;
+    starPts.push([Math.cos(a) * r, Math.sin(a) * r]);
+  }
+  const starShape = new Shape();
+  starPts.forEach((p, i) => (i === 0 ? starShape.moveTo(p[0], p[1]) : starShape.lineTo(p[0], p[1])));
+  starShape.closePath();
+  const starGeo = new ShapeGeometry(starShape);
+  const starOutlineGeo = new BufferGeometry().setFromPoints(starPts.map((p) => new Vector3(p[0], p[1], 0)));
+  const circleGeo = new BufferGeometry().setFromPoints(Array.from({ length: 33 }, (_, i) => new Vector3(Math.cos((i / 32) * Math.PI * 2) * 0.46, Math.sin((i / 32) * Math.PI * 2) * 0.46, 0)));
   const pickMat3 = new MeshBasicMaterial({ visible: false });
   const posOf = new Map<string, readonly [number, number]>(puzzle.nodes.map((n) => [n.id, n.pos]));
   const lineById = new Map(puzzle.lines.map((l) => [l.id, l]));
@@ -238,40 +307,71 @@ export function buildScene(puzzle: Puzzle): SceneBundle {
     const body = metal();
     const post = cyl(0.05, POLE_HEIGHT, new MeshStandardMaterial({ color: WOOD, roughness: 1 }), 0, POLE_HEIGHT / 2, 0);
     let update: NodeView["update"];
+    const parts: NodeParts = {};
+    parts_.set(n.id, parts);
 
     switch (n.type) {
       case "feed": {
-        g.add(box(1, 0.6, 1, body, 0, 0.3, 0));
-        g.add(box(0.6, 0.45, 0.6, body, 0, 0.82, 0));
-        g.add(cyl(0.05, 0.3, body, -0.2, 1.2, 0), cyl(0.05, 0.3, body, 0.2, 1.2, 0));
+        const bodyMat = metal(0x3b475f);
+        g.add(box(1.1, 0.6, 1.1, bodyMat, 0, 0.3, 0));
+        g.add(box(0.7, 0.5, 0.7, bodyMat, 0, 0.85, 0));
+        g.add(cyl(0.05, 0.3, bodyMat, -0.2, 1.25, 0), cyl(0.05, 0.3, bodyMat, 0.2, 1.25, 0));
+        // The power-source sign: a lightning bolt lying on the roof, bright so it reads from above.
+        const bolt = new Mesh(boltGeo, new MeshBasicMaterial({ color: 0xffe066, side: DoubleSide }));
+        bolt.rotation.x = -Math.PI / 2;
+        bolt.position.set(0, 1.12, 0);
+        g.add(bolt);
         update = (look, _s, t) => {
-          body.emissiveIntensity = look.live ? 0.5 + 0.25 * Math.sin(t * 2) : 0;
+          bodyMat.emissiveIntensity = look.live ? 0.5 + 0.25 * Math.sin(t * 2) : 0;
         };
         break;
       }
       case "breaker": {
-        g.add(post, box(0.5, 0.4, 0.3, body, 0, 0.95, 0));
+        g.add(post, box(0.5, 0.4, 0.3, metal(0x2a3345), 0, 0.95, 0));
+        g.add(ribbonTag(0, 1.08, 0.16));
+        // The lever stands up for ON and lies flat toward the camera for OFF.
         const pivot = new Group();
-        pivot.position.set(0, 0.95, 0.17);
-        pivot.add(box(0.07, 0.36, 0.07, new MeshStandardMaterial({ color: 0xd8dde8 }), 0, 0.18, 0));
+        pivot.position.set(0, 1.0, 0.17);
+        const lever = new Mesh(new BoxGeometry(0.09, BREAKER_LEVER, 0.09).translate(0, BREAKER_LEVER / 2, 0), new MeshStandardMaterial({ color: 0xf2f5fb, emissive: 0xf2f5fb, emissiveIntensity: 0.35 }));
+        lever.userData["length"] = BREAKER_LEVER;
+        pivot.add(lever);
         g.add(pivot);
+        parts.lever = lever;
         update = (look, _s, t) => {
-          // Closed: the lever stands up. Open: it lies forward and the box stays dull.
-          pivot.rotation.x = look.closed === false ? 1.3 : 0;
+          pivot.rotation.x = look.closed === false ? Math.PI / 2 : 0;
           body.emissiveIntensity = look.closed !== false && look.live ? 0.4 + 0.2 * Math.sin(t * 2) : 0;
         };
         break;
       }
       case "switch": {
-        g.add(post, box(0.6, 0.4, 0.6, body, 0, 0.95, 0));
+        const drumMat = metal(0x2a3345);
+        const drum = new Mesh(new CylinderGeometry(0.32, 0.32, 0.4, 16), drumMat);
+        drum.position.y = 0.95;
+        g.add(post, drum);
+        g.add(ribbonTag(0, 1.0, 0.33));
         const pivot = new Group();
         pivot.position.set(0, 1.2, 0);
-        pivot.add(box(0.08, 0.08, 0.55, new MeshStandardMaterial({ color: 0xd8dde8 }), 0, 0, 0.27));
-        g.add(pivot);
+        const lever = new Mesh(new BoxGeometry(0.1, 0.1, SWITCH_LEVER).translate(0, 0, SWITCH_LEVER / 2), new MeshStandardMaterial({ color: 0xf2f5fb, emissive: 0xf2f5fb, emissiveIntensity: 0.35 }));
+        lever.userData["length"] = SWITCH_LEVER;
+        pivot.add(lever);
+        // A dim stub toward the other output.
+        const stubPivot = new Group();
+        stubPivot.position.set(0, 1.2, 0);
+        stubPivot.add(new Mesh(new BoxGeometry(0.07, 0.07, 0.35).translate(0, 0, 0.175), new MeshStandardMaterial({ color: 0x4a586f })));
+        const chevron = new Mesh(chevronGeo, new MeshBasicMaterial({ color: 0xf2f5fb, side: DoubleSide, transparent: true, opacity: 0.9 }));
+        chevron.position.y = 0.07;
+        g.add(pivot, stubPivot, chevron);
+        parts.lever = lever;
+        parts.chevron = chevron;
         const angles: [number, number] = [leverAngle(n, 0), leverAngle(n, 1)];
         update = (look, _s, t) => {
-          pivot.rotation.y = angles[look.selected === 1 ? 1 : 0];
-          body.emissiveIntensity = look.live ? 0.4 + 0.2 * Math.sin(t * 2) : 0;
+          const sel = look.selected === 1 ? 1 : 0;
+          pivot.rotation.y = angles[sel];
+          stubPivot.rotation.y = angles[sel === 0 ? 1 : 0];
+          chevron.rotation.y = angles[sel];
+          chevron.position.x = Math.sin(angles[sel]) * CHEVRON_AT;
+          chevron.position.z = Math.cos(angles[sel]) * CHEVRON_AT;
+          drumMat.emissiveIntensity = look.live ? 0.4 + 0.2 * Math.sin(t * 2) : 0;
         };
         break;
       }
@@ -281,10 +381,35 @@ export function buildScene(puzzle: Puzzle): SceneBundle {
         const fuse = cyl(0.07, 0.3, fuseMat, 0, 0.95, 0.24);
         fuse.rotation.z = Math.PI / 2;
         g.add(fuse);
-        update = (look, _s, t) => {
+        // The load bar lies on the box's lid: segments by ticks, filled by length, coloured second.
+        let fillMat: MeshBasicMaterial | null = null;
+        let snap: Mesh | null = null;
+        if (n.rating !== undefined) {
+          const bar = new Group();
+          bar.position.set(0, 1.22, 0.05);
+          bar.add(box(FUSE_BAR_W, 0.03, 0.14, new MeshBasicMaterial({ color: 0x10151f })));
+          fillMat = new MeshBasicMaterial({ color: STEP_COLOUR[0] });
+          const fill = new Mesh(new BoxGeometry(FUSE_BAR_W, 0.05, 0.11).translate(FUSE_BAR_W / 2, 0, 0), fillMat);
+          fill.position.set(-FUSE_BAR_W / 2, 0.01, 0);
+          bar.add(fill);
+          for (const off of fuseTickOffsets(n.rating, FUSE_BAR_W)) bar.add(box(0.015, 0.07, 0.15, new MeshBasicMaterial({ color: 0x0b0f17 }), off - FUSE_BAR_W / 2, 0.01, 0));
+          snap = box(0.04, 0.09, 0.3, new MeshBasicMaterial({ color: STEP_COLOUR[2] }), 0, 0.03, 0);
+          snap.rotation.y = 0.6;
+          snap.visible = false;
+          bar.add(snap);
+          g.add(bar);
+          parts.fuseFill = fill;
+        }
+        const fillMesh = parts.fuseFill;
+        update = (look, _s, t, cap) => {
           body.emissiveIntensity = look.live ? 0.4 + 0.2 * Math.sin(t * 2) : 0;
           fuseMat.emissiveIntensity = look.live ? 0.7 : 0;
-          fuseMat.color.setHex(look.faulted ? SCORCH : 0xe8e2c8);
+          fuseMat.color.setHex(cap.blown ? SCORCH : 0xe8e2c8);
+          if (fillMesh && fillMat) {
+            fillMesh.scale.x = cap.fill ?? 0;
+            fillMat.color.setHex(STEP_COLOUR[cap.step ?? 0]);
+          }
+          if (snap) snap.visible = cap.blown === true;
         };
         break;
       }
@@ -310,12 +435,27 @@ export function buildScene(puzzle: Puzzle): SceneBundle {
         const pool = new Mesh(new CircleGeometry(1.4, 24), poolMat);
         pool.rotation.x = -Math.PI / 2;
         pool.position.y = 0.04;
-        g.add(post, head, light, pool);
+        // A halo round the head, only while lit: a lit lamp differs from a dark one by shape and light, not just colour.
+        const haloMat = new SpriteMaterial({ map: poolTex, color: WARM, transparent: true, opacity: 0, blending: AdditiveBlending, depthWrite: false });
+        const halo = new Sprite(haloMat);
+        halo.scale.set(1.3, 1.3, 1);
+        halo.position.set(0, POLE_HEIGHT + 0.05, 0);
+        g.add(post, head, light, pool, halo);
+        let starFill: Mesh | null = null;
         if (allTargets || targets.has(n.id)) {
-          const mark = new Mesh(new RingGeometry(0.42, 0.5, 24), new MeshBasicMaterial({ color: TARGET, side: DoubleSide, transparent: true, opacity: 0.8 }));
-          mark.rotation.x = -Math.PI / 2;
-          mark.position.y = 0.05;
-          g.add(mark);
+          const ring = new Line(circleGeo, new LineDashedMaterial({ color: TARGET, dashSize: 0.1, gapSize: 0.08 }));
+          ring.computeLineDistances();
+          ring.rotation.x = -Math.PI / 2;
+          ring.position.y = 0.05;
+          // The star: outline always, filled while lit.
+          const star = new Group();
+          star.add(new LineLoop(starOutlineGeo, new LineBasicMaterial({ color: TARGET })));
+          starFill = new Mesh(starGeo, new MeshBasicMaterial({ color: TARGET, side: DoubleSide }));
+          starFill.visible = false;
+          star.add(starFill);
+          star.rotation.x = -Math.PI / 2;
+          star.position.set(0, POLE_HEIGHT + 0.5, 0);
+          g.add(ring, star);
         }
         const placeMat = placeMats.get(n.id);
         update = (_look, state, t) => {
@@ -324,6 +464,9 @@ export function buildScene(puzzle: Puzzle): SceneBundle {
           headMat.color.setHex(b > 0 ? 0xfff3c9 : 0x3a4152);
           light.intensity = 5 * b;
           poolMat.opacity = 0.9 * b;
+          haloMat.opacity = 0.8 * b;
+          halo.visible = b > 0;
+          if (starFill) starFill.visible = b > 0;
           if (placeMat) placeMat.emissiveIntensity = 0.5 * b;
         };
         break;
@@ -339,6 +482,47 @@ export function buildScene(puzzle: Puzzle): SceneBundle {
     views.push({ id: n.id, group: g, update });
   }
 
+  // Captions: camera-facing sprites in the scene, a fixed pixel size. They carry no pick tag, so they never take a click.
+  const captionSet = captionsFor(puzzle);
+  const surface = opts.text ?? defaultTextSurface;
+  const dpr = opts.dpr ?? 1;
+  interface CaptionView {
+    id: string;
+    cs: CaptionSprite;
+    place: boolean;
+    lines: readonly string[] | null;
+    tone: string;
+  }
+  const capViews: CaptionView[] = [];
+  const captionSprites: Sprite[] = [];
+  let unit = scaleForPx(1, 720, 40);
+  const addCaption = (id: string, x: number, y: number, z: number, fontPx: number, bold: boolean, anchorY: number, place: boolean): void => {
+    const cs = createCaptionSprite(surface, fontPx, dpr, bold, anchorY);
+    cs.sprite.position.set(x, y, z);
+    cs.sprite.userData["caption"] = id;
+    if (place) cs.sprite.userData["place"] = true;
+    cs.setUnit(unit);
+    scene.add(cs.sprite);
+    captionSprites.push(cs.sprite);
+    capViews.push({ id, cs, place, lines: null, tone: "" });
+  };
+  for (const n of puzzle.nodes) {
+    const [x, z] = n.pos;
+    if (n.type === "feed") addCaption(n.id, x, 1.75, z, FEED_FONT_PX, true, 0, false);
+    else if (n.type === "breaker") addCaption(n.id, x, 1.6, z, CAPTION_FONT_PX, false, 0, false);
+    else if (n.type === "fusebox" && n.rating !== undefined) addCaption(n.id, x, 1.4, z, CAPTION_FONT_PX, false, 0, false);
+    else if (n.type === "lamp") addCaption(n.id, x, 1.05, z, CAPTION_FONT_PX, false, 1, false);
+  }
+  const placeNames = new Map<string, string>();
+  for (const p of blocks.places) {
+    if (!p.label) continue;
+    const lamp = puzzle.nodes.find((q) => q.id === p.lamp);
+    const b = p.boxes[0];
+    if (b) addCaption(p.lamp, b.x, b.h + 0.1, b.z, CAPTION_FONT_PX, false, 0, true);
+    else if (lamp) addCaption(p.lamp, lamp.pos[0], 0.3, lamp.pos[1] + 0.8, CAPTION_FONT_PX, false, 0, true);
+    placeNames.set(p.lamp, p.label);
+  }
+
   scene.updateMatrixWorld(true);
 
   const look: NodeLook = { live: false, faulted: false, lit: false, closed: null, selected: null };
@@ -347,6 +531,12 @@ export function buildScene(puzzle: Puzzle): SceneBundle {
 
   return {
     scene,
+    captions: captionSprites,
+    parts: parts_,
+    setViewport(_width, height, fovDeg) {
+      unit = scaleForPx(1, height, fovDeg);
+      for (const c of capViews) c.cs.setUnit(unit);
+    },
     update(state, hover, t) {
       if (hover !== lastHover) {
         const prev = lastHover ? hoverable.get(lastHover) : undefined;
@@ -355,7 +545,24 @@ export function buildScene(puzzle: Puzzle): SceneBundle {
         if (next) next.scale.setScalar(1.12);
         lastHover = hover;
       }
-      for (const v of views) v.update(nodeLookInto(state, v.id, look), state, t);
+      const recs = captionSet.update(state);
+      for (const v of views) v.update(nodeLookInto(state, v.id, look), state, t, recs.get(v.id)!);
+      for (const c of capViews) {
+        if (c.place) {
+          if (!c.lines) {
+            c.lines = [placeNames.get(c.id) ?? ""];
+            c.cs.draw(c.lines, "text");
+          }
+          continue;
+        }
+        const rec = recs.get(c.id)!;
+        // The record keeps the same lines array while the words are unchanged, so this redraws only on a change.
+        if (rec.lines !== c.lines || rec.tone !== c.tone) {
+          c.lines = rec.lines;
+          c.tone = rec.tone;
+          c.cs.draw(rec.lines, rec.tone);
+        }
+      }
       for (const w of wires) {
         const k = wireLook(state, w.run.id);
         const boost = hover === w.run.id ? 0.5 : 0;
@@ -397,6 +604,9 @@ export function buildScene(puzzle: Puzzle): SceneBundle {
         const mm = m.material as Material | Material[] | undefined;
         if (Array.isArray(mm)) mm.forEach((x) => mats.add(x));
         else if (mm) mats.add(mm);
+        // A caption's texture belongs to its sprite material.
+        const map = (mm as SpriteMaterial | undefined)?.map;
+        if (map && o instanceof Sprite) map.dispose();
       });
       mats.forEach((m) => m.dispose());
       poolTex.dispose();

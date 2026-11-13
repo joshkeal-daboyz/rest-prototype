@@ -129,6 +129,8 @@ export interface Block {
 
 export interface PlaceBlock {
   lamp: string;
+  /** The words beside the place (footprintLayout's label): the name for a target lamp, null for any other. */
+  label: string | null;
   /** A pool place is a pool of light on the lamp's lane: no building. */
   pool: boolean;
   /** The lamp's place: one or several boxes (a gate's two posts, a row of homes); empty for a pool. */
@@ -167,6 +169,7 @@ export function blockLayout(puzzle: Puzzle): BlockLayout {
   }
   const places: PlaceBlock[] = layout.places.map((p) => ({
     lamp: p.lamp,
+    label: p.label,
     pool: p.pool,
     boxes: p.pool ? [] : (p.parts ?? [p]).map((q) => toBlock(q, "place", `p${p.lamp}${q.x},${q.y}`, 1.2, BLOCK_MAX_H)),
   }));

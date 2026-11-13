@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { BoxGeometry, BufferGeometry, Line, LineBasicMaterial, Mesh, MeshBasicMaterial, Scene, Vector3, type Object3D } from "three";
 import { loadPuzzle, type Puzzle } from "../core";
-import { createCameraRig } from "./camera";
+import { FOV_DEG, createCameraRig } from "./camera";
+import { EventBus } from "../core";
+import { createGrid } from "../grid";
+import { stubTextSurface } from "./text";
 import { WIRE_PICK_RADIUS, wireLayout } from "./layout";
 import { createPicker } from "./pick";
 import { buildScene } from "./scene";
@@ -83,5 +86,29 @@ describe("picking at the opening pose", () => {
     expect(createPicker(scene, rig2.camera, rig2.size).hitTest(x, y)).toBe("w");
     scene.add(node);
     expect(createPicker(scene, rig2.camera, rig2.size).hitTest(x, y)).toBe("n");
+  });
+});
+
+describe("captions never take a click", () => {
+  it("gives the same hitTest at every caption's centre with the captions as with them removed", () => {
+    const stub = buildScene(puzzle, { text: stubTextSurface });
+    stub.setViewport(W, H, FOV_DEG);
+    const state = createGrid(puzzle, new EventBus()).state();
+    stub.update(state, null, 0);
+    const withCaps = createPicker(stub.scene, rig.camera, rig.size);
+    const sprites = [...stub.captions];
+    expect(sprites.length).toBeGreaterThan(5);
+    const spots = sprites.map((s) => {
+      const p = px(s.position);
+      const half = (s.userData["cssH"] as number) / 2;
+      return { x: p.x, y: s.center.y === 0 ? p.y - half : p.y + half };
+    });
+    const before = spots.map((p) => withCaps.hitTest(p.x, p.y));
+    for (const s of sprites) s.removeFromParent();
+    const without = createPicker(stub.scene, rig.camera, rig.size);
+    spots.forEach((p, i) => {
+      expect(before[i]).toBe(without.hitTest(p.x, p.y));
+      expect(before[i] === null || puzzle.nodes.some((n) => n.id === before[i]) || puzzle.lines.some((l) => l.id === before[i])).toBe(true);
+    });
   });
 });

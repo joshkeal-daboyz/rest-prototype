@@ -7,7 +7,7 @@ import { WebGLRenderer } from "three";
 import type { Puzzle } from "../core";
 import type { MapBlockers, MapCentre, MapPanView, MapPlaces, MapRenderer } from "../render";
 import type { Insets } from "../render/geometry";
-import { createCameraRig } from "./camera";
+import { FOV_DEG, createCameraRig } from "./camera";
 import { createPicker } from "./pick";
 import { buildScene } from "./scene";
 
@@ -32,16 +32,18 @@ export function createMapRenderer3d(canvas: HTMLCanvasElement, puzzle: Puzzle, o
   const renderer = gl;
   let insets: Insets = { ...(opts?.insets ?? {}) };
   const rig = createCameraRig(puzzle, Math.max(canvas.clientWidth, 1), Math.max(canvas.clientHeight, 1), insets);
-  const bundle = buildScene(puzzle);
+  const ratio = Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 2);
+  const bundle = buildScene(puzzle, { dpr: ratio });
   const picker = createPicker(bundle.scene, rig.camera, rig.size);
   const nodePos = new Map(puzzle.nodes.map((n) => [n.id, n.pos] as const));
 
   function resize(): void {
     const w = Math.max(canvas.clientWidth, 1);
     const h = Math.max(canvas.clientHeight, 1);
-    renderer.setPixelRatio(Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 2));
+    renderer.setPixelRatio(ratio);
     renderer.setSize(w, h, false);
     rig.resize(w, h, insets);
+    bundle.setViewport(w, h, FOV_DEG);
   }
   resize();
 

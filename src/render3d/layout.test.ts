@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { loadPuzzle, type Puzzle } from "../core";
+import { DEFAULT_SCALE, footprintLayout, mapOrigin } from "../render/city";
+import { puzzleBounds } from "../render/geometry";
 import {
   BLOCK_MAX_H,
   BLOCK_MIN_H,
@@ -153,5 +155,15 @@ describe("blockLayout", () => {
       const b = r.attach[r.attach.length - 1]!;
       for (const blk of all) expect(segHitsBox(a.x, a.z, b.x, b.z, blk), `${r.id} vs block at ${blk.x},${blk.z}`).toBe(false);
     }
+  });
+});
+
+describe("place labels", () => {
+  it("carries footprintLayout's label: the shrine's name, null for every other lamp", () => {
+    const places = blockLayout(puzzle).places;
+    expect(places.find((p) => p.lamp === "shrine")!.label).toBe("shrine");
+    for (const p of places.filter((x) => x.lamp !== "shrine")) expect(p.label).toBeNull();
+    const ref = footprintLayout(puzzle, mapOrigin(puzzle.id, puzzleBounds(puzzle)), DEFAULT_SCALE).places;
+    expect(places.map((p) => p.label)).toEqual(ref.map((p) => p.label));
   });
 });
