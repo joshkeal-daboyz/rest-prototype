@@ -402,8 +402,9 @@ describe("The Python script and the shared constants", () => {
   const py = readFileSync(join(repoRoot, "tools", "blender", "convert_fbx.py"), "utf8");
 
   it("uses the same sane-size thresholds as src/core/assets.ts", () => {
-    expect(py).toContain(`ASSET_SANE_SIZE_MIN = ${ASSET_SANE_SIZE_MIN}\n`);
-    expect(py).toContain(`ASSET_SANE_SIZE_MAX = ${ASSET_SANE_SIZE_MAX}\n`);
+    // Line endings may be CRLF on a Windows checkout.
+    expect(py).toMatch(new RegExp(`^ASSET_SANE_SIZE_MIN = ${ASSET_SANE_SIZE_MIN}\\r?$`, "m"));
+    expect(py).toMatch(new RegExp(`^ASSET_SANE_SIZE_MAX = ${ASSET_SANE_SIZE_MAX}\\r?$`, "m"));
   });
 
   it("takes the arguments the wrapper passes, and the self-test names the wrapper checks", () => {
