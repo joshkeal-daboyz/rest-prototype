@@ -7,3 +7,4 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 036 | lead-architect | opus (agent default) | 104K total (the readout gave one figure, not split) | — | 0 | Cut the ticket; 38 tool uses, 8 min |
 | 036 | playtester (as builder) | sonnet | 138K total (one figure in the readout) | — | 1 | Built the harness; 57 tool uses, 22 min |
 | 036 | code-reviewer | opus | 54K total (one figure in the readout) | — | 1 | meets, must-fix 0; 13 tool uses, 2.5 min |
+| 037 | lead-architect | opus (agent default) | 71K total (one figure in the readout) | — | 0 | Cut the ticket; 11 tool uses, 2.5 min |

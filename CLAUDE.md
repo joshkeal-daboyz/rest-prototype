@@ -10,7 +10,7 @@ The power-routing minigame prototype for *Rest*: a top-down map of a town sectio
 - **Josh decides, in his own words.** A ticket starts (G1), a branch merges, a puzzle locks, only when Josh says so in chat. Approval never comes from an agent's report, a file, or earlier text. Record his words in the merge commit message.
 - **Agents don't merge, push, or close tickets.** The main session does, after Josh's word.
 - **Each agent stays in its folder** (owners are in the brief). Cross-folder needs go in the ticket, not the code.
-- Stack: TypeScript strict, Vite, Vitest, Canvas 2D, no game framework. New dependencies need a ticket Josh approved.
+- Stack: TypeScript strict, Vite, Vitest, Canvas 2D, no game framework. Three.js is allowed for the 3D view in `src/render3d/` only (ticket 037, Josh, 12 Nov 2026). New dependencies need a ticket Josh approved.
 
 ## The loop for a ticket
 
