@@ -92,3 +92,94 @@ none
 2. `src/render3d/camera.ts`: the opening-frame change is out of section B's described scope. Name it to Josh. If he didn't ask for it, move it to its own ticket. In either case, section A's "frame the footprint" criterion now holds only for `fitWhole`.
 3. `scene.test.ts` legibility: `captionTextPx(scale.y, cssH, fontPx, …)` returns `fontPx` by construction for any sprite built by `createCaptionSprite`, so the check can't fail unless `setViewport` is skipped. A stronger test would project the sprite's top and bottom edge at the opening pose and measure the pixel height.
 4. `captions.ts`: compare the parts against `rec.lines` directly, rather than building the `next` array each frame, so `update` allocates nothing when the state is unchanged.
+
+---
+
+# Section C · Wires in the air, a visible break, the Relight in 3D (commit 2898b81)
+
+## What the ticket asked for, as I understood it
+C1 raises the wires (taller, lighter poles with cross-arms turned across the run, more sag, a thicker tube, a shadow strip under each run, the camera lowered to 45°, footprint buildings kept below the wires). C2 draws a damaged cable as two hanging ends with a gap and a spark while it sparks, plain dead when it is unpowered, and "new cable" blue once it is mended and not live. C3 plays 2D's Relight in 3D from the same `planRelight`, so the sounds and the splash stay in step. Place glow eases as in 2D. All of it stays in `src/render3d/`.
+
+## Does the branch do it?
+I reviewed the committed branch in a detached worktree at 2898b81, so the uncommitted 038 files were left out. `npm run typecheck` is clean. `npm test` passes: 73 files, 1247 tests, against section B's 1214, so section C adds 33 tests. 2898b81 touches only `src/render3d/`. `git diff main 2898b81` over `src/grid src/night tests src/render src/play src/ui src/core puzzles index.html` is empty. No dependency was added.
+
+**C1, layout** (`layout.ts`, `layout.test.ts` "wires in the air (C1)")
+- `POLE_HEIGHT` is 1.6. Section A's ends-on-nodes test still passes. Met.
+- `SAG_RATIO` is 0.12. `l_feed` sags 0.24 within 1e-6, and no point is below `POLE_HEIGHT - 0.3`. Met.
+- `shadowOf`: same x and z, y = `SHADOW_Y`, for every run. Met.
+- Heights: footprint buildings are at most `FOOTPRINT_MAX_H` (1.4, which is below `POLE_HEIGHT`). Places are at most `PLACE_MAX_H`. City lots stay in `[BLOCK_MIN_H, BLOCK_MAX_H]`. Met.
+
+**C1, scene and camera** (`scene.test.ts` "wires and poles (C1)")
+- Poles and arms: 9 instances each. Each arm is between 85° and 95° of its run in the ground plane, and is 0.7 long. Pole contrast is at least 3:1 (WCAG luminance, computed in the test). Met.
+- The wire is in the air: each run's `mid` is at least 30 px from the shadow point directly below it, and `l_feed`'s chord-to-sag distance is at least 6 px. The whole tube's radius is at least 0.05. Met.
+- Nothing hides a wire: rays from the camera to every run's `mid` and every node at `POLE_HEIGHT` meet no box from `blockLayout` (blocks and place boxes). The test uses the layout boxes the meshes are built from, not the meshes. I count it as met.
+- Nodes meet their wires: every end attachment point is within 0.15 of its node group's `Box3`. Met (see Could improve 2).
+- Camera: `ELEVATION` is 45°. The opening-frame test now projects at `POLE_HEIGHT`. That is the one deliberate edit, and its bounds are unchanged. Met.
+- Captions: the overlap test probes at `NODE_BODY_Y` and `POLE_HEIGHT`, which is the second deliberate edit. Its assertions are unchanged and pass. Met.
+- Picking: the existing tests in `pick.test.ts` are unchanged and pass. One new test is added for `pickOff`. Met.
+
+**C2, layout**
+- Only `l_b` has a `brk`.
+- `l_b`:
+  - span 1;
+  - the ends start at `attach[1]` and `attach[2]`, with `HANG_SEGMENTS + 1` points, and their heights never rise;
+  - the tips are at `POLE_HEIGHT - HANG_DROP`, above 0, and `BREAK_GAP` apart within 1e-6;
+  - `gap` is the midpoint of the broken span in x and z;
+  - the halves start at `attach[0]` and `attach[3]` and end at their tips, each on its own side of the gap's perpendicular plane.
+- The synthetic 2-span run breaks in span 1. The synthetic 1-span run hangs its ends from the two nodes.
+
+Met. `breakOf` matches the ticket's geometry: linear reach, `y = attach.y - HANG_DROP*s^2`, and the span is `floor(n/2)`.
+
+**C2, scene and picking** (`live.test.ts` "the damaged cable (C2)")
+- Start: the whole tube is visible, and the halves and spark are hidden. Colour, emissive and intensity equal `l_a2`'s. All 3 targets have `pickOff: true`. Met.
+- After `sw_1`:
+  - The halves show and the whole tube is hidden. The shadows switch from the whole run's to the halves'.
+  - Half 0 is `LIVE_WIRE` with emissive above 0, and half 1 is `DEAD_WIRE` with emissive 0.
+  - The spark is within 0.05 of tip 0.
+  - The bead is on half 0 at t = 0, 0.3, 0.6 and 0.9.
+  - `hitTest` returns `l_b` on each hanging end (between points 4 and 5, which is s ≈ 0.75) and at the gap.
+
+  Met. Which half is live comes from `state.flowFrom`, so "live from the end it enters" comes from the grid, not a guess.
+- After the repair: whole and live, the halves and spark hidden, `pickOff` back on, and `mid` hits `l_b`. Met.
+- Repaired and dead: `REPAIRED_WIRE` with emissive 0, while `l_a2` stays `DEAD_WIRE`. Met.
+- Drift guard on `LINE_REPAIRED`: met.
+- `pick.ts` skips `pickOff === true` and reads the flag on every call. Met.
+
+**C3, pure** (`relight3d.test.ts`)
+- Import guard: met. `relight3d.ts` imports `../render/city`, `motion` and `relight` by file, and only types from grid and core. All three 2D files are free of DOM and canvas imports.
+- Same schedule as 2D:
+  - `createRelightClock(...).update(state, 0)` deep-equals `planRelight`. `lampOrder` is `["flood", "shrine"]`. The 1 ms scan matches the `relightCues` times within 1e-3.
+  - **One deviation from the AC's text, and the builder is right.** The AC says the shrine ignites at `LEAD + TRAVEL` (2.65 s) and that `duration` is that plus `FLARE_SECONDS`. That premise is false. `planRelight` paces on the farthest reached *node*, and on the won state that is the powered dead junction `j_dead`, reached back through `l_a2`, not the shrine. Because the AC also requires a deep-equal to `planRelight`, the two can't both hold. The test asserts the real figures instead: `j_dead` at `LEAD + TRAVEL`, the shrine between the flood and that, and `duration = shrine's arrival + FLARE_SECONDS`. The 3D view uses 2D's planner unchanged, so it stays in step with the sounds and the splash, which is what the criterion protects. I count it as met in substance; the ticket's numbers need correcting (Could improve 1).
+- Clock rules: the same plan object across frames, no re-plan when the state changes mid-Relight, null at `duration`, and a fresh plan after `undefined`. Met.
+- `lineFraction`: 0 up to the lead, 1 at `lineEnd`, non-decreasing, and 0 for unpowered lines. Met.
+- Drift guard on the four 2D lines: met.
+
+**C3, scene-level** (`live.test.ts` "the Relight (C3)")
+- `relT = 0`: all `PointLight`s at 0, no flare, every overlay `drawRange.count` 0, feed body emissive 0. Met.
+- Flood's arrival + 0.1: flood light above 0, shrine at 0. The flood flare is visible with opacity `1 - 0.1/FLARE_SECONDS` within 1e-6. A front shows on exactly the runs with `0 < frac < 1`. The overlay ratio follows `frac`. Met.
+- `relT = duration`: only the flood and shrine are lit, no flare, and the powered overlays are full while the others are empty. Met.
+- Reset and replay: lights go back to 0 after the replan. Met.
+- Ordinary place glow: in the brownout the place is at 0 while the bulb is above 0. After `br_street`, the glow goes 0, then 0.4 within 1e-6, then 1, and the bulb is at 5 from t. Met.
+- Not in the ticket: an extra monotonic-schedule test, "the lit part only grows; flood before shrine".
+- Implementation note: the ticket describes "a live overlay tube per direction (built forward and reversed)". The builder uses one overlay tube. A reversed flow draws the range `[total - count, total)`. `TubeGeometry` orders its indices along the path, so this gives the same result with half the geometry. It is the same in substance.
+
+**Browser**: these are Josh's checks.
+- In code: `renderer.ts` passes `overlay.relightT`, and `main.ts` is untouched, so the sounds and the splash still come from `main.ts`'s own `planRelight` on the same frame.
+- The Relight can't be interrupted. That stays enforced in `src/play`, which section C doesn't touch.
+- Every new geometry and material is freed by `dispose()`, which traverses the scene.
+- This resolves section A's Could improve 2 (the visible break).
+
+## Rule conflicts and risks
+- No hard-rule break. `src/grid/` and `src/night/` are untouched. There is no new dependency, schema change or puzzle change, and no GDD Decided rule is changed. "Readable means current reaches it" is kept: an unpowered damaged cable is drawn exactly like a dead wire, and the break shows only on `state.sparking`.
+- The Relight's pace on the Shrine is set by `j_dead`, a dead-end junction that holds no lamp, not by the shrine. This is 2D's own behaviour (`src/render/relight.ts` paces on the farthest reached node, although its comment says "farthest lamp"), and 3D mirrors it faithfully. Josh may notice that the shrine ignites before the clock's 2.65 s mark and that the splash comes sooner than the ticket said. Any change belongs in 2D, in its own ticket.
+- Small extras inside `src/render3d/`: the street slab drops from 0.03 to 0.02 thick so the shadows sit on top of it, and `SceneBundle` gains `wires`, `places` and `poles` for the tests. Neither is a problem.
+- `look.ts`'s `wireLook` is no longer used by the scene. It is still exported and tested.
+
+## Must fix
+none
+
+## Could improve
+1. `tickets/037-three-view-spike.md` (for the architect): correct C3's findings and AC. The farthest node on the won Shrine is `j_dead`, not the shrine. The shrine ignites before 2.65 s, and `duration` is the shrine's arrival + 0.6, not 3.25. Record that the single-overlay draw range replaced "a tube per direction".
+2. `scene.test.ts`, "brings every wire end within 0.15 of its node's body": `Box3.setFromObject(group)` takes in the lamp's pool, halo and flare ring (radius 1, counted even while invisible). For lamps the check is therefore much looser than "where the wire meets it". Measuring against the post or body mesh's own box would make it bite.
+3. `scene.test.ts`, the pole-contrast test, restates the street colour as the literal `0x1a2331`. Exporting `STREET` from `scene.ts` and reading it would keep the test honest if the street colour changes.
+4. `look.ts`: drop `wireLook` (and its tests), or note that it is no longer drawn from, so a later reader doesn't take it as the 3D wire rule.

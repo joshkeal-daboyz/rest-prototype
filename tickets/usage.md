@@ -16,3 +16,6 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 037 B | code-reviewer | opus | (readout not captured) | — | 2 | meets, must-fix 0 |
 | 037 B | playtester | sonnet | 19K total | — | 2 | regressions 0; 4 tool uses, 17 s |
 | 037 C | lead-architect | opus (agent default) | 157K total (one figure in the readout) | — | 0 | Cut section C (wires, break, Relight); 46 tool uses, 10 min |
+| 037 C | renderer | sonnet | 186K total (fresh agent) | — | 3 | Wires, break, Relight; 104 tool uses, 12 min |
+| 037 C | code-reviewer | opus | (readout not captured) | — | 3 | meets, must-fix 0 |
+| 037 C | playtester | sonnet | 15K total | — | 3 | regressions 0; 4 tool uses, 26 s |
