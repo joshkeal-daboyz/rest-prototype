@@ -42,10 +42,10 @@ export function createPicker(scene: Object3D, camera: Camera, size: PickSize): P
       ndc.set((x / size.width) * 2 - 1, -(y / size.height) * 2 + 1);
       camera.updateMatrixWorld();
       ray.setFromCamera(ndc, camera);
-      const n = ray.intersectObjects(nodes, false)[0];
-      if (n) return n.object.userData["pickId"] as string;
-      const w = ray.intersectObjects(wires, false)[0];
-      return w ? (w.object.userData["pickId"] as string) : null;
+      // A target switched off (`pickOff`, e.g. a broken cable's ends while it is whole) is skipped; the flag is read here, each call.
+      for (const h of ray.intersectObjects(nodes, false)) if (h.object.userData["pickOff"] !== true) return h.object.userData["pickId"] as string;
+      for (const h of ray.intersectObjects(wires, false)) if (h.object.userData["pickOff"] !== true) return h.object.userData["pickId"] as string;
+      return null;
     },
   };
 }

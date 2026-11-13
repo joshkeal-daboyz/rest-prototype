@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { PointLight, Vector3 } from "three";
+import { Box3, BoxGeometry, Matrix4, MeshStandardMaterial, PointLight, Ray, TubeGeometry, Vector3 } from "three";
 import { EventBus, loadPuzzle, type Puzzle } from "../core";
 import { createGrid } from "../grid";
-import { FOV_DEG, createCameraRig } from "./camera";
+import { ELEVATION, FOV_DEG, createCameraRig } from "./camera";
 import { captionTextPx } from "./captions";
 import { stubTextSurface } from "./text";
+import { NODE_BODY_Y, POLE_HEIGHT, SHADOW_Y, blockLayout, runPoints, shadowOf, wireLayout } from "./layout";
 import { buildScene } from "./scene";
 
 const puzzle: Puzzle = loadPuzzle(JSON.parse(readFileSync("puzzles/09-shrine-circuit.json", "utf8")));
@@ -49,7 +50,7 @@ describe("camera", () => {
       const v = new Vector3(x, y, z).project(rig.camera);
       return { x: ((v.x + 1) / 2) * 1280, y: ((1 - v.y) / 2) * 720 };
     };
-    const pts = corners.flatMap(([x, z]) => [project(x, 0, z), project(x, 1.2, z)]);
+    const pts = corners.flatMap(([x, z]) => [project(x, 0, z), project(x, POLE_HEIGHT, z)]);
     const w = Math.max(...pts.map((p) => p.x)) - Math.min(...pts.map((p) => p.x));
     const h = Math.max(...pts.map((p) => p.y)) - Math.min(...pts.map((p) => p.y));
     const limiting = Math.max(w / 1280, h / (720 - 120 - 90));
@@ -237,9 +238,125 @@ describe("captions in the scene", () => {
       }
     }
     for (const n of puzzle.nodes) {
-      for (const y of [1.0, 1.3]) {
+      for (const y of [NODE_BODY_Y, POLE_HEIGHT]) {
         const c = toPx(new Vector3(n.pos[0], y, n.pos[1]));
         for (const r of rects) expect(c.x >= r.l && c.x <= r.r && c.y >= r.t && c.y <= r.bt, n.id + " under " + r.name).toBe(false);
+      }
+    }
+  });
+});
+
+// ---- Section C1: wires and poles read as strung in the air ----
+describe("wires and poles (C1)", () => {
+  const W = 1280;
+  const H = 720;
+  const rigC = createCameraRig(puzzle, W, H, { top: 120, bottom: 90 });
+  const runs = wireLayout(puzzle);
+  const project = (x: number, y: number, z: number): { x: number; y: number } => {
+    const v = new Vector3(x, y, z).project(rigC.camera);
+    return { x: ((v.x + 1) / 2) * W, y: ((1 - v.y) / 2) * H };
+  };
+  const bundle = buildScene(puzzle, { text: stubTextSurface });
+  const lum = (hex: number): number => {
+    const ch = (c: number): number => (c / 255 <= 0.03928 ? c / 255 / 12.92 : Math.pow((c / 255 + 0.055) / 1.055, 2.4));
+    return 0.2126 * ch((hex >> 16) & 255) + 0.7152 * ch((hex >> 8) & 255) + 0.0722 * ch(hex & 255);
+  };
+
+  it("lifts the poles and tilts the camera lower", () => {
+    expect(POLE_HEIGHT).toBeGreaterThanOrEqual(1.6);
+    expect(ELEVATION).toBeCloseTo((45 * Math.PI) / 180, 12);
+  });
+
+  it("makes a pole and a cross-arm for every intermediate attachment point, the arm turned across its run and at least 0.6 long", () => {
+    const inter = runs.reduce((n, r) => n + r.attach.length - 2, 0);
+    expect(inter).toBe(9);
+    const { poles, arms } = bundle.poles;
+    expect(poles.count).toBe(inter);
+    expect(arms.count).toBe(inter);
+    expect((arms.geometry as BoxGeometry).parameters.width).toBeGreaterThanOrEqual(0.6);
+    const m = new Matrix4();
+    let k = 0;
+    for (const r of runs) {
+      const a = r.attach[0]!;
+      const b = r.attach[r.attach.length - 1]!;
+      const dir = new Vector3(b.x - a.x, 0, b.z - a.z).normalize();
+      for (let i = 1; i < r.attach.length - 1; i++, k++) {
+        arms.getMatrixAt(k, m);
+        const axis = new Vector3(1, 0, 0).transformDirection(m);
+        axis.y = 0;
+        expect((axis.angleTo(dir) * 180) / Math.PI, r.id).toBeGreaterThan(85);
+        expect((axis.angleTo(dir) * 180) / Math.PI, r.id).toBeLessThan(95);
+        const at = new Vector3().setFromMatrixPosition(m);
+        expect(at.x).toBeCloseTo(r.attach[i]!.x, 9);
+        expect(at.z).toBeCloseTo(r.attach[i]!.z, 9);
+      }
+    }
+  });
+
+  it("paints the poles at least 3:1 in luminance against the street", () => {
+    const hex = (bundle.poles.poles.material as MeshStandardMaterial).color.getHex();
+    const street = 0x1a2331;
+    const c = (lum(hex) + 0.05) / (lum(street) + 0.05);
+    expect(c).toBeGreaterThanOrEqual(3);
+  });
+
+  it("hangs every wire at least 30 px above its shadow at the opening pose, and shows l_feed's sag", () => {
+    for (const r of runs) {
+      const sh = bundle.wires.get(r.id)!.shadows[0]!;
+      expect(sh.userData["shadowOf"]).toBe(r.id);
+      const pts = runPoints(r);
+      const smid = shadowOf(pts)[Math.floor(pts.length / 2)]!;
+      // The wire's own middle against the point of the shadow right below it.
+      const below = shadowOf([r.mid])[0]!;
+      expect(smid.y).toBe(SHADOW_Y);
+      const wp = project(r.mid.x, r.mid.y, r.mid.z);
+      const sp = project(below.x, below.y, below.z);
+      expect(Math.hypot(wp.x - sp.x, wp.y - sp.y), r.id).toBeGreaterThanOrEqual(30);
+    }
+    const lf = runs.find((r) => r.id === "l_feed")!;
+    const a = lf.attach[0]!;
+    const b = lf.attach[1]!;
+    const chord = project((a.x + b.x) / 2, POLE_HEIGHT, (a.z + b.z) / 2);
+    const sag = project(lf.mid.x, lf.mid.y, lf.mid.z);
+    expect(Math.hypot(chord.x - sag.x, chord.y - sag.y)).toBeGreaterThanOrEqual(6);
+    for (const r of runs) {
+      const g = bundle.wires.get(r.id)!.whole.geometry as TubeGeometry;
+      expect(g.parameters.radius).toBeGreaterThanOrEqual(0.05);
+    }
+  });
+
+  it("lets no block stand between the camera and a wire's middle or a node's attachment point", () => {
+    const layout = blockLayout(puzzle);
+    const all = [...layout.blocks, ...layout.places.flatMap((p) => p.boxes)];
+    const eye = rigC.camera.position;
+    const targets: { name: string; p: Vector3 }[] = [
+      ...runs.map((r) => ({ name: r.id, p: new Vector3(r.mid.x, r.mid.y, r.mid.z) })),
+      ...puzzle.nodes.map((n) => ({ name: n.id, p: new Vector3(n.pos[0], POLE_HEIGHT, n.pos[1]) })),
+    ];
+    for (const t of targets) {
+      const dir = t.p.clone().sub(eye);
+      const dist = dir.length();
+      const ray = new Ray(eye.clone(), dir.normalize());
+      for (const blk of all) {
+        const box = new Box3(new Vector3(blk.x - blk.w / 2, 0, blk.z - blk.d / 2), new Vector3(blk.x + blk.w / 2, blk.h, blk.z + blk.d / 2));
+        const hit = ray.intersectBox(box, new Vector3());
+        expect(hit === null || hit.distanceTo(eye) > dist - 1e-6, `${t.name} behind block at ${blk.x},${blk.z}`).toBe(true);
+      }
+    }
+  });
+
+  it("brings every wire end within 0.15 of its node's body", () => {
+    const groups = new Map<string, Box3>();
+    bundle.scene.updateMatrixWorld(true);
+    for (const n of puzzle.nodes) {
+      // The node's group is the one parented to the scene at its position (it holds its post, body and sprites).
+      const g = bundle.scene.children.find((o) => o.type === "Group" && Math.abs(o.position.x - n.pos[0]) < 1e-9 && Math.abs(o.position.z - n.pos[1]) < 1e-9);
+      expect(g, n.id).toBeDefined();
+      groups.set(n.id, new Box3().setFromObject(g!));
+    }
+    for (const r of runs) {
+      for (const [node, p] of [[r.from, r.attach[0]!], [r.to, r.attach[r.attach.length - 1]!]] as const) {
+        expect(groups.get(node)!.distanceToPoint(new Vector3(p.x, p.y, p.z)), `${r.id} at ${node}`).toBeLessThanOrEqual(0.15);
       }
     }
   });

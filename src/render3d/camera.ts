@@ -12,7 +12,7 @@ import { POLE_HEIGHT } from "./layout";
 import type { PickSize } from "./pick";
 
 export const FOV_DEG = 40;
-export const ELEVATION = (55 * Math.PI) / 180;
+export const ELEVATION = (45 * Math.PI) / 180;
 const SIN_E = Math.sin(ELEVATION);
 const COS_E = Math.cos(ELEVATION);
 /** Px kept clear between the whole footprint and the free area's edge (fitWhole). */

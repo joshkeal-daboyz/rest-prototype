@@ -5,6 +5,13 @@ import { DEFAULT_SCALE, footprintLayout, mapOrigin } from "../render/city";
 import { puzzleBounds } from "../render/geometry";
 import {
   BLOCK_MAX_H,
+  BREAK_GAP,
+  FOOTPRINT_MAX_H,
+  HANG_DROP,
+  HANG_SEGMENTS,
+  PLACE_MAX_H,
+  SHADOW_Y,
+  shadowOf,
   BLOCK_MIN_H,
   POLE_HEIGHT,
   POLE_SPACING,
@@ -165,5 +172,112 @@ describe("place labels", () => {
     for (const p of places.filter((x) => x.lamp !== "shrine")) expect(p.label).toBeNull();
     const ref = footprintLayout(puzzle, mapOrigin(puzzle.id, puzzleBounds(puzzle)), DEFAULT_SCALE).places;
     expect(places.map((p) => p.label)).toEqual(ref.map((p) => p.label));
+  });
+});
+
+// ---- Section C ----
+describe("wires in the air (C1)", () => {
+  it("strings the wires at POLE_HEIGHT >= 1.6 and sags l_feed's 2-unit span by 0.24 without dipping below POLE_HEIGHT - 0.3", () => {
+    expect(POLE_HEIGHT).toBeGreaterThanOrEqual(1.6);
+    expect(SAG_RATIO).toBe(0.12);
+    const lf = runs.find((r) => r.id === "l_feed")!;
+    expect(lf.spans).toHaveLength(1);
+    const span = lf.spans[0]!;
+    expect(Math.abs(lf.attach[0]!.y - span[SAG_SEGMENTS / 2]!.y - 0.24)).toBeLessThan(1e-6);
+    for (const r of runs) for (const p of runPoints(r)) expect(p.y).toBeGreaterThanOrEqual(POLE_HEIGHT - 0.3 - 1e-9);
+  });
+
+  it("shadows each run on the street: same x and z, y = SHADOW_Y", () => {
+    for (const r of runs) {
+      const pts = runPoints(r);
+      const sh = shadowOf(pts);
+      expect(sh).toHaveLength(pts.length);
+      sh.forEach((p, i) => {
+        expect(p.y).toBe(SHADOW_Y);
+        expect(p.x).toBe(pts[i]!.x);
+        expect(p.z).toBe(pts[i]!.z);
+      });
+    }
+  });
+
+  it("keeps the footprint's buildings and places under the wires, and the city lots in their own range", () => {
+    const layout = blockLayout(puzzle);
+    expect(FOOTPRINT_MAX_H).toBeLessThan(POLE_HEIGHT);
+    for (const b of layout.blocks.filter((x) => x.kind === "building")) expect(b.h).toBeLessThanOrEqual(FOOTPRINT_MAX_H);
+    for (const b of layout.blocks.filter((x) => x.kind === "city")) {
+      expect(b.h).toBeGreaterThanOrEqual(BLOCK_MIN_H);
+      expect(b.h).toBeLessThanOrEqual(BLOCK_MAX_H);
+    }
+    expect(layout.blocks.some((b) => b.kind === "city" && b.h > FOOTPRINT_MAX_H)).toBe(true);
+    for (const b of layout.places.flatMap((p) => p.boxes)) expect(b.h).toBeLessThanOrEqual(PLACE_MAX_H);
+  });
+});
+
+describe("the damaged cable's break (C2)", () => {
+  it("is set only on l_b among the shrine circuit's runs", () => {
+    expect(runs.filter((r) => r.brk).map((r) => r.id)).toEqual(["l_b"]);
+  });
+
+  it("l_b: breaks in span 1, two drooping ends a gap apart, halves that stop short of the gap", () => {
+    const r = runs.find((x) => x.id === "l_b")!;
+    const brk = r.brk!;
+    expect(r.spans).toHaveLength(3);
+    expect(brk.span).toBe(1);
+    expect(brk.ends[0][0]).toEqual(r.attach[1]);
+    expect(brk.ends[1][0]).toEqual(r.attach[2]);
+    for (const end of brk.ends) {
+      expect(end).toHaveLength(HANG_SEGMENTS + 1);
+      for (let i = 1; i < end.length; i++) expect(end[i]!.y).toBeLessThanOrEqual(end[i - 1]!.y);
+      const tip = end[end.length - 1]!;
+      expect(tip.y).toBeCloseTo(POLE_HEIGHT - HANG_DROP, 12);
+      expect(tip.y).toBeGreaterThan(0);
+    }
+    const t0 = brk.ends[0][HANG_SEGMENTS]!;
+    const t1 = brk.ends[1][HANG_SEGMENTS]!;
+    expect(Math.abs(Math.hypot(t0.x - t1.x, t0.z - t1.z) - BREAK_GAP)).toBeLessThan(1e-6);
+    const a = r.attach[1]!;
+    const b = r.attach[2]!;
+    expect(brk.gap.x).toBeCloseTo((a.x + b.x) / 2, 12);
+    expect(brk.gap.z).toBeCloseTo((a.z + b.z) / 2, 12);
+    expect(brk.gap.y).toBeCloseTo(POLE_HEIGHT - HANG_DROP, 12);
+
+    expect(brk.halves[0][0]).toEqual(r.attach[0]);
+    expect(brk.halves[0][brk.halves[0].length - 1]).toEqual(t0);
+    expect(brk.halves[1][0]).toEqual(r.attach[3]);
+    expect(brk.halves[1][brk.halves[1].length - 1]).toEqual(t1);
+    // The gap's perpendicular plane: sw_1's side for half 0, j4's side for half 1.
+    const dx = r.attach[3]!.x - r.attach[0]!.x;
+    const dz = r.attach[3]!.z - r.attach[0]!.z;
+    const side = (p: { x: number; z: number }): number => (p.x - brk.gap.x) * dx + (p.z - brk.gap.z) * dz;
+    for (const p of brk.halves[0]) expect(side(p)).toBeLessThan(0);
+    for (const p of brk.halves[1]) expect(side(p)).toBeGreaterThan(0);
+  });
+
+  const synth = (len: number): Puzzle =>
+    ({
+      ...puzzle,
+      nodes: [
+        { id: "a", type: "junction", pos: [0, 0] },
+        { id: "b", type: "junction", pos: [len, 0] },
+      ],
+      lines: [{ id: "x", from: "a", to: "b" }],
+      faults: [{ id: "f", at: "x", kind: "damaged-cable" }],
+    }) as unknown as Puzzle;
+
+  it("a 2-span run breaks in span 1", () => {
+    const r = wireLayout(synth(3.5))[0]!;
+    expect(r.spans).toHaveLength(2);
+    expect(r.brk!.span).toBe(1);
+    expect(r.brk!.ends[0][0]).toEqual(r.attach[1]);
+    expect(r.brk!.ends[1][0]).toEqual(r.attach[2]);
+  });
+
+  it("a 1-span run hangs its ends from the two nodes' own attachment points", () => {
+    const r = wireLayout(synth(2))[0]!;
+    expect(r.spans).toHaveLength(1);
+    expect(r.brk!.span).toBe(0);
+    expect(r.brk!.ends[0][0]).toEqual(r.attach[0]);
+    expect(r.brk!.ends[1][0]).toEqual(r.attach[1]);
+    expect(r.brk!.halves[0]).toEqual(r.brk!.ends[0]);
   });
 });

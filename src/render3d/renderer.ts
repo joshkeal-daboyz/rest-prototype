@@ -49,7 +49,7 @@ export function createMapRenderer3d(canvas: HTMLCanvasElement, puzzle: Puzzle, o
 
   return {
     draw(state, overlay, timeSeconds) {
-      bundle.update(state, overlay.hover ?? null, timeSeconds);
+      bundle.update(state, overlay.hover ?? null, timeSeconds, overlay.relightT);
       renderer.render(bundle.scene, rig.camera);
     },
     hitTest: (x, y) => picker.hitTest(x, y),

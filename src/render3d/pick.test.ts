@@ -112,3 +112,22 @@ describe("captions never take a click", () => {
     });
   });
 });
+
+describe("a target switched off", () => {
+  it("is skipped while pickOff is true and found again when it turns false, read at each hitTest", () => {
+    const scene = new Scene();
+    const rig2 = createCameraRig(puzzle, W, H);
+    rig2.centreOn(5, 0);
+    const box = new Mesh(new BoxGeometry(2, 2, 2), new MeshBasicMaterial({ visible: false }));
+    box.position.set(5, 1, 0);
+    box.userData = { pickKind: "wire", pickId: "w", pickOff: true };
+    scene.add(box);
+    const picker2 = createPicker(scene, rig2.camera, rig2.size);
+    const { x, y } = px(new Vector3(5, 1, 0), rig2.camera);
+    expect(picker2.hitTest(x, y)).toBeNull();
+    box.userData["pickOff"] = false;
+    expect(picker2.hitTest(x, y)).toBe("w");
+    box.userData["pickOff"] = true;
+    expect(picker2.hitTest(x, y)).toBeNull();
+  });
+});

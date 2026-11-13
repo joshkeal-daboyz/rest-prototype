@@ -8,17 +8,31 @@ import type { Puzzle } from "../core";
 import { DEFAULT_SCALE, cityForMap, footprintLayout, circuitStreets, mapOrigin, stableHash, type Building, type CityRect } from "../render/city";
 import { puzzleBounds } from "../render/geometry";
 
-export const POLE_HEIGHT = 1.2;
+export const POLE_HEIGHT = 1.6;
+/** The centre of a breaker, fuse box or battery box: its top meets the wire at POLE_HEIGHT. */
+export const NODE_BODY_Y = POLE_HEIGHT - 0.3;
+/** The wire tube's radius, world units. */
+export const WIRE_RADIUS = 0.05;
+/** Height of a wire's shadow strip on the street (the streets' tops are lower). */
+export const SHADOW_Y = 0.025;
+/** Where a damaged cable is cut: the gap between its two hanging ends, how far the ends droop, and points per end minus one. */
+export const BREAK_GAP = 0.3;
+export const HANG_DROP = 0.6;
+export const HANG_SEGMENTS = 6;
 /** No two poles on a run are further apart than this. */
 export const POLE_SPACING = 2;
 /** Sag at mid-span, as a fraction of the span's length. */
-export const SAG_RATIO = 0.04;
+export const SAG_RATIO = 0.12;
 /** A span's polyline has SAG_SEGMENTS + 1 points. */
 export const SAG_SEGMENTS = 8;
 /** A line's pick target reaches this far (world units) from its wire. */
 export const WIRE_PICK_RADIUS = 0.15;
 export const BLOCK_MIN_H = 0.6;
 export const BLOCK_MAX_H = 2.6;
+/** Inside the footprint, buildings stay below the wires and places below the lamp heads, so nothing hides a wire. */
+export const FOOTPRINT_MAX_H = 1.4;
+export const PLACE_MIN_H = 1.0;
+export const PLACE_MAX_H = 1.8;
 /** How far past the footprint (map units) the city blocks are built. */
 export const CITY_WINDOW = 8;
 
@@ -26,6 +40,18 @@ export interface Vec3 {
   x: number;
   y: number;
   z: number;
+}
+
+/** A damaged cable's cut: two ends hang from the poles either side of a gap. Read from the file's faults, not the state. */
+export interface WireBreak {
+  /** The span (index into `spans`) that holds the run's midpoint by length. */
+  span: number;
+  /** Each end leaves its attachment point (`attach[span]`, `attach[span + 1]`) toward the gap: HANG_SEGMENTS + 1 points, drooping. */
+  ends: [Vec3[], Vec3[]];
+  /** The whole wire on each side of the cut: half 0 from the `from` node to tip 0, half 1 from the `to` node to tip 1. */
+  halves: [Vec3[], Vec3[]];
+  /** The gap's middle: the broken span's chord midpoint in x and z, at the tips' height. */
+  gap: Vec3;
 }
 
 export interface WireRun {
@@ -41,6 +67,8 @@ export interface WireRun {
   mid: Vec3;
   /** Horizontal length of the whole run. */
   length: number;
+  /** Set for every line with a damaged-cable fault in the file. */
+  brk: WireBreak | null;
 }
 
 /** One wire run per line, keyed by line id, in file order. Decor stays a street with no wire. */
@@ -48,6 +76,7 @@ export function wireLayout(puzzle: Puzzle): WireRun[] {
   const pos = new Map<string, readonly [number, number]>();
   for (const n of puzzle.nodes) pos.set(n.id, n.pos);
   const out: WireRun[] = [];
+  const cut = new Set(puzzle.faults.filter((f) => f.kind === "damaged-cable").map((f) => f.at));
   for (const l of puzzle.lines) {
     const a = pos.get(l.from);
     const b = pos.get(l.to);
@@ -62,9 +91,49 @@ export function wireLayout(puzzle: Puzzle): WireRun[] {
     const spans: Vec3[][] = [];
     for (let i = 0; i < n; i++) spans.push(sagSpan(attach[i]!, attach[i + 1]!));
     const mid = n % 2 === 1 ? { ...spans[(n - 1) / 2]![SAG_SEGMENTS / 2]! } : { ...attach[n / 2]! };
-    out.push({ id: l.id, from: l.from, to: l.to, attach, spans, mid, length });
+    out.push({ id: l.id, from: l.from, to: l.to, attach, spans, mid, length, brk: cut.has(l.id) ? breakOf(attach, spans) : null });
   }
   return out;
+}
+
+/** One end hanging from `a` toward `b`: level at the pole, drooping HANG_DROP by the tip, which stops short of the span's middle by half the gap. */
+function hangingEnd(a: Vec3, b: Vec3): Vec3[] {
+  const dx = b.x - a.x;
+  const dz = b.z - a.z;
+  const h = Math.hypot(dx, dz);
+  const reach = Math.max(h / 2 - BREAK_GAP / 2, 0);
+  const ux = h > 0 ? dx / h : 0;
+  const uz = h > 0 ? dz / h : 0;
+  const pts: Vec3[] = [];
+  for (let j = 0; j <= HANG_SEGMENTS; j++) {
+    const s = j / HANG_SEGMENTS;
+    pts.push({ x: a.x + ux * reach * s, y: a.y - HANG_DROP * s * s, z: a.z + uz * reach * s });
+  }
+  return pts;
+}
+
+function breakOf(attach: Vec3[], spans: Vec3[][]): WireBreak {
+  const n = spans.length;
+  const span = Math.floor(n / 2);
+  const a = attach[span]!;
+  const b = attach[span + 1]!;
+  const e0 = hangingEnd(a, b);
+  const e1 = hangingEnd(b, a);
+  const half0: Vec3[] = [];
+  for (let i = 0; i < span; i++) for (let j = i === 0 ? 0 : 1; j < spans[i]!.length; j++) half0.push(spans[i]![j]!);
+  for (let j = span === 0 ? 0 : 1; j < e0.length; j++) half0.push(e0[j]!);
+  const half1: Vec3[] = [];
+  for (let i = n - 1; i > span; i--) {
+    const rev = [...spans[i]!].reverse();
+    for (let j = i === n - 1 ? 0 : 1; j < rev.length; j++) half1.push(rev[j]!);
+  }
+  for (let j = span === n - 1 ? 0 : 1; j < e1.length; j++) half1.push(e1[j]!);
+  return { span, ends: [e0, e1], halves: [half0, half1], gap: { x: (a.x + b.x) / 2, y: POLE_HEIGHT - HANG_DROP, z: (a.z + b.z) / 2 } };
+}
+
+/** A run's shadow on the street: the same x and z at SHADOW_Y. */
+export function shadowOf(points: readonly Vec3[]): Vec3[] {
+  return points.map((p) => ({ x: p.x, y: SHADOW_Y, z: p.z }));
 }
 
 /** The span between two attachment points: a parabola whose lowest point, at mid-span, is SAG_RATIO x span length below the chord. */
@@ -161,7 +230,7 @@ export function blockLayout(puzzle: Puzzle): BlockLayout {
   const fp = circuitStreets(puzzle).footprint;
   const window: CityRect = { minX: fp.minX - CITY_WINDOW, minY: fp.minY - CITY_WINDOW, maxX: fp.maxX + CITY_WINDOW, maxY: fp.maxY + CITY_WINDOW };
   const blocks: Block[] = [];
-  for (const b of layout.buildings) blocks.push(toBlock(b, "building", `b${b.x},${b.y}`));
+  for (const b of layout.buildings) blocks.push(toBlock(b, "building", `b${b.x},${b.y}`, BLOCK_MIN_H, FOOTPRINT_MAX_H));
   const own = new Set<Building>(layout.buildings);
   for (const b of cityForMap(puzzle, origin, window)) {
     // cityForMap also returns the footprint's own lots (the same objects); those are already in.
@@ -171,7 +240,7 @@ export function blockLayout(puzzle: Puzzle): BlockLayout {
     lamp: p.lamp,
     label: p.label,
     pool: p.pool,
-    boxes: p.pool ? [] : (p.parts ?? [p]).map((q) => toBlock(q, "place", `p${p.lamp}${q.x},${q.y}`, 1.2, BLOCK_MAX_H)),
+    boxes: p.pool ? [] : (p.parts ?? [p]).map((q) => toBlock(q, "place", `p${p.lamp}${q.x},${q.y}`, PLACE_MIN_H, PLACE_MAX_H)),
   }));
   return { blocks, places, window };
 }
