@@ -1,0 +1,13 @@
+{
+  "blenderVersion": "4.2.3 LTS",
+  "assets": [
+    {
+      "name": "Fixture_BadTriangles",
+      "source": "Fixture_BadTriangles.fbx",
+      "bounds": { "min": [-0.2, 0, -0.2], "max": [0.2, 3.0, 0.2] },
+      "triangles": "twelve",
+      "warnings": []
+    }
+  ],
+  "failures": []
+}
