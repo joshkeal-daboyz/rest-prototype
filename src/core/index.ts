@@ -7,3 +7,4 @@ export * from "./timing";
 export * from "./audio";
 export * from "./check";
 export * from "./beat";
+export * from "./assets";
