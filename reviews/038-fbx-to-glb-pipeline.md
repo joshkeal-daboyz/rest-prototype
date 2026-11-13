@@ -1,0 +1,46 @@
+ticket: 038-fbx-to-glb-pipeline
+assessment: meets
+must-fix: 0
+
+## What the ticket asked for, as I understood it
+A local, never-committed pipeline: `npm run assets:convert` finds Blender 4.2+, runs `tools/blender/convert_fbx.py` headless once per pack in `assets/private/in/`, and writes one GLB per pack plus `assets/private/out/manifest.json` in the `src/core/assets.ts` shape. A `--selftest` runs two code-built boxes through the same path. The TypeScript wrapper is fully tested with injected deps. The Python script is checked by Josh later, once Blender is installed.
+
+## Does the branch do it?
+I ran `npm run typecheck` on the branch (clean) and `npx vitest run tools/assets` (3 files, 45 tests, all pass). The gate figure of 1167 to 1212 is +45, which matches.
+
+**The wrapper (gate criteria)**
+- **Blender lookup order**: met. `tools/assets/blender.ts` `findBlender` goes BLENDER_PATH, then PATH, then the win32-only `Blender Foundation` folders, sorted numerically by segment. A BLENDER_PATH that points at a missing file throws `BlenderPathError` naming the path. Tests in `blender.test.ts`: "returns BLENDER_PATH when it is set...", "a BLENDER_PATH that points at a missing file is an error naming the path, not a fall-through", "returns the first PATH hit", "on win32 only, takes the newest... 4.10 sorts above 4.9" (also asserts linux never looks there), plus a case-insensitive `Path` test.
+- **Missing Blender fails clearly**: met. `BLENDER_MISSING_TEXT` matches the ticket's text word for word. `convert.test.ts` "exits 2 with the install text on stderr and writes nothing under assets/private/out/" asserts no writes, no mkdirs, no spawns and no files under `out/`.
+- **Version gate**: met. `parseBlenderVersion` gives `[4,2,3]` (test "parseBlenderVersion reads the banner"). The test "a Blender below 4.2 exits 2 with a message naming the found version and the minimum" covers 4.1.1, and the self-test goes through the same gate.
+- **Arguments**: met. `buildBlenderArgs` builds the array in exactly the ticket's order. The test "passes exactly the documented argument array... spaces unquoted" uses a repo root and a pack name that both contain spaces and checks with `toEqual` on the whole array. `realDeps().run` uses `spawn(command, [...args], { shell: false })`. The test "a pack with no pack.json gets no --atlas and no --scale" covers the bare pack.
+- **Packs**: met. The tests cover: no arguments converts every subfolder in name order (a stray file is ignored); named packs convert only those; an unknown name exits 1, is named, and nothing spawns; an empty or missing `in/` prints USAGE with the layout and exits 0.
+- **Output stays private**: met. `convertPack` checks `isInside(privateRoot, …)` for `--out` and `--report`. `packNameIsSafe` refuses `../../src`, `..`, `.`, slashes, backslashes and absolute paths before spawning (test "a pack name like ../../src is refused before spawning"). A test checks the manifest path too.
+- **Manifest**: met. `manifest.test.ts` checks the version, name order, a relative `glb` with forward slashes (including a `sub/` case), and that the missing-bounds, non-numeric-triangles and duplicate-name fixtures each fail with an error naming the pack and the field. `convert.test.ts` "a pack whose Blender run exits non-zero is left out, its error is printed, the exit is 1, and the others stay" covers the last clause. The fixtures are hand-written JSON with no model data.
+- **The ignore rule**: met. `.gitignore` has the declared comment and `assets/private/`, and the test "the .gitignore carries assets/private/" reads it.
+
+**With Blender (Josh's manual checks)**: these can't be verified here, because Blender is not installed and `convert_fbx.py` has never run. I read it against the Blender 4.2 Python API:
+- Read from the code and matching the ticket: empty scene (`read_factory_settings(use_empty=True)`); recursive sorted `*.fbx`; the import uses `use_manual_orientation=False`, `global_scale=scale` and `use_anim=False`; non-mesh objects and armature modifiers are removed; each mesh's world matrix is baked into a copied mesh; the base-centre shift is computed over all vertices; there is one empty root per file named after the stem; one Principled material with the atlas on Base Color, roughness 1, metallic 0, and 4.x-named emission inputs zeroed; the GLB export uses `export_format='GLB'`, `export_yup`, `export_apply`, and animations, cameras and lights off. The Blender-to-glTF bounds mapping `(x,y,z) -> (x,z,-y)` with min and max swapped on the new z is correct. The self-test cube maths gives 0.4 x 0.4 x 3.0 m in Blender space with the pivot 0.5 m above the base, and `calc_uvs` gets a UV layer created first, as 4.x requires.
+- **Unverified** (only a real Blender run will settle these):
+  1. Whether Blender's FBX exporter with `apply_unit_scale=True, apply_scale_options="FBX_SCALE_NONE"` really writes centimetres with UnitScaleFactor 1, and whether the importer scales them back by 0.01. If so, the self-test exercises the unit handling: a 100x slip would fail "pole height".
+  2. Whether every keyword is accepted under 4.2 exactly as spelled (`export_animations`, `export_cameras`, `export_lights`, `export_image_format="AUTO"`, `use_custom_normals`).
+  3. Whether calling `read_factory_settings` from inside a `--python` script keeps the FBX and glTF add-ons enabled (they should be, as factory defaults).
+  4. Whether `Mesh.transform` carries the imported custom normals correctly.
+  5. The ordering and parent-inverse issues in Could improve 1 and 2. The self-test won't catch these, because its boxes have no parents and no object transforms. A real Synty pack might.
+- **Nothing leaks, nothing else moves**: `git ls-files assets/private` is empty on the branch. The builder's commits (9e33d91, e139fee) touch only `tools/assets/`, `tools/blender/`, `.gitignore` and two `package.json` script lines. `src/core/assets.ts`, the `index.ts` export line, the ticket and `assets/candidates/synty-store.md` all come from the architect's cut commit 757afaf. There are no dependency changes, and nothing under `tests/` or `puzzles/` changed. The fresh-clone, dev-view and playtest checks are for the main session and the playtester.
+
+## Rule conflicts and risks
+- No hard-rule break. `src/grid/` and `src/night/` are untouched. There is no new dependency (only `node:` built-ins plus the existing `tsx`). No GDD rule is involved. The builder stayed within the ticket's folders.
+- The Python side is unexecuted (see above). Josh's self-test and real-pack checks are the only thing that exercises it, and the self-test covers the simplest FBX shape only.
+- `convert.ts` runs its CLI at module scope when it is the invoked script. That is harmless under Vitest (argv[1] is Vitest), and it is guarded with a case-insensitive comparison on win32.
+
+## Must fix
+none
+
+## Could improve
+1. `tools/blender/convert_fbx.py` `import_one`: non-mesh objects (empties, armatures) are deleted *before* each mesh's `matrix_world` is copied. Today this probably works only because `matrix_world` stays at its cached pre-deletion value until the next depsgraph evaluation. If a Synty FBX parents its mesh under a null node that carries the 0.01 unit scale or the axis rotation, a re-evaluation in between would silently drop that transform and give a 100x or rotated model. Fix: snapshot `{o: o.matrix_world.copy()}` for every mesh right after `view_layer.update()`, then delete the non-meshes and bake from the snapshot.
+2. Same function: when a mesh is re-parented to the new root, `matrix_parent_inverse` is never reset. If the FBX importer left a non-identity parent inverse (for example on bone-parented meshes), the GLB node would carry a transform that the manifest bounds don't describe. Set `o.matrix_parent_inverse = Matrix.Identity(4)` alongside `o.parent = root`.
+3. Same function: objects from an FBX that fails partway (the importer raises after creating objects, or "the meshes have no vertices") stay in the scene and get exported. That contradicts `AssetFailure`'s "It is left out of the GLB". On failure, remove the `new` objects in the caller.
+4. Same function: the GLB node name is only guaranteed to equal the manifest `name` if no earlier object already holds `stem`. Only this file's own meshes get renamed, so a mesh in an earlier file named like a later file's stem would turn the root into `stem.001`. Assert `root.name == stem`, or rename the clashing object.
+5. The self-test pole has no object-level transform, so the bake in items 1 and 2 is never exercised. Giving the pole a parent empty with a rotation and scale before the FBX export would make `selftest ok` mean more for real Synty files.
+6. Extra scope: `readPriorPacks` and the `keep` merge (a named-pack run keeps other packs' manifest entries) weren't asked for. They're sensible and tested, but a kept entry can point at a GLB that has since been deleted. Either keep it and check that the kept pack's GLB exists, or drop it until the loader ticket wants it.
+7. `tex.interpolation = "Closest"` exports a NEAREST sampler, which may shimmer at distance in the 3D view. That's fine for flat atlas blocks, but it's a choice the loader ticket should know about. A one-line mention in the README would do.
