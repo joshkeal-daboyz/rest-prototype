@@ -15,3 +15,4 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 037 B | renderer | sonnet | 207K running total across A and B (the readout is cumulative for the resumed agent) | — | 2 | Built indicators, visual fixes, caption texture bug; 43 tool uses, 12 min |
 | 037 B | code-reviewer | opus | (readout not captured) | — | 2 | meets, must-fix 0 |
 | 037 B | playtester | sonnet | 19K total | — | 2 | regressions 0; 4 tool uses, 17 s |
+| 037 C | lead-architect | opus (agent default) | 157K total (one figure in the readout) | — | 0 | Cut section C (wires, break, Relight); 46 tool uses, 10 min |

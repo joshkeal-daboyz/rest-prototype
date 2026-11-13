@@ -1,7 +1,7 @@
 # 037 · Spike: a Three.js 3D view of the Shrine circuit, power lines on poles along the streets
 
 owner: renderer (with declared lines in `src/main.ts`, see Files)
-status: approved (G1, Josh, 12 Nov 2026: "Approve 037"). Section A built, review must-fix 0, playtest regressions 0, not merged. Section B approved (G1, Josh, 12 Nov 2026: "Approve 037 B").
+status: approved (G1, Josh, 12 Nov 2026: "Approve 037"). Section A built, review must-fix 0, playtest regressions 0, not merged. Section B approved (G1, Josh, 12 Nov 2026: "Approve 037 B"), built, review must-fix 0, playtest regressions 0, not merged. Section C approved (G1, Josh, 12 Nov 2026: "Approve 037 C").
 branch: `ticket/037-three-view-spike`
 
 ## Josh's words
@@ -13,8 +13,10 @@ branch: `ticket/037-three-view-spike`
 2. **Power lines are visual only.** Poles and sagging wires are strung along the streets between nodes. Wire length, height and path never affect play. No rule, number, payload or puzzle changes; the GDD's Decided rules are untouched.
 3. **One map is judged:** `puzzles/09-shrine-circuit.json`. Other maps may open in 3D but nobody checks them.
 4. **Beside, not instead.** The 3D view is behind a URL parameter, `?view=3d`. Without it the Canvas 2D renderer runs exactly as on `main`, and nothing in `src/render/` is removed or changed.
-5. **Out of scope:** the Relight cascade (the job still completes and the win splash still shows, as now), pulses, sparks' particles, shocks and the fuse-pop, ~~labels and captions~~, the place highlight, zoom and pan polish, the editor, batteries and spring twangs beyond a plain object.
+5. **Out of scope:** ~~the Relight cascade (the job still completes and the win splash still shows, as now)~~, pulses, sparks' particles, shocks and the fuse-pop, ~~labels and captions~~, the place highlight, zoom and pan polish, the editor, batteries and spring twangs beyond a plain object.
    *Struck 12 Nov 2026 (section B):* Josh played section A next to 2D and could not read the feed's level, the breakers' ON/OFF, the switch, the fuse's level and load, or the lamps' levels. Without captions the spike cannot answer its own question, so captions moved into scope as section B.
+   *Struck 12 Nov 2026 (section C):* the Relight cascade. Josh played section B and said "the animation to light the lamps [is] absent". The win is the moment the map minigame pays off, and the 3D view can't be judged against 2D without it, so it moved into scope as C3.
+   *Kept out (section C):* sparks' particles. C2 needs a visible break with section A's single spark at the gap, not 2D's spark streaks. Wires and poles (C1) and the cable's break (C2) were never in this list: both were already in scope from section A, so C1 and C2 fix how they read. Neither is a new feature.
 
 ## Goal
 Josh opens `npm run dev` with `?puzzle=09-shrine-circuit&view=3d` and sees the Shrine circuit as a small dark town in 3D, seen from above at a tilt. The ground has streets, and the city's buildings are simple blocks. Wooden poles carry sagging wires along the circuit's streets. The feed, the breakers, the switch and the fuse box are recognisable objects, and the lamps light up when lit. A live wire is clearly different from a dead one, and a brownout makes every lamp flicker. He solves it the same way as in 2D: throw `sw_1`, repair the damaged cable `l_b` by clicking its wire, throw `br_street`. The HUD, prompts, parts, sound and win splash all work as they do now. Then he can judge whether physical power lines between streets are worth a real port.
@@ -42,9 +44,9 @@ Josh opens `npm run dev` with `?puzzle=09-shrine-circuit&view=3d` and sees the S
 - [ ] A node's pick target takes priority over a wire passing in front of it. This is the same priority as `hitTestGeometry` in 2D.
 
 **The renderer** (Josh checks these in the browser. They aren't unit-tested: they need WebGL.)
-- [ ] `createMapRenderer3d(canvas, puzzle, opts)` in `src/render3d/index.ts` returns `MapRenderer & MapPanView & MapPlaces & MapCentre & MapBlockers & { dispose(): void }`, and type-checks against the existing interfaces unchanged. `notify` is a no-op, and `placeAt` returns null (no place highlight in the spike). Pan and zoom do the simplest thing: `setPan` slides the camera, `zoomStep` dollies it, `resetView`/`fitWhole` frame the footprint inside the insets, and `getScale` returns a px-per-map-unit at the ground's centre. `attachPan`'s keys, drag and wheel must not throw.
+- [ ] `createMapRenderer3d(canvas, puzzle, opts)` in `src/render3d/index.ts` returns `MapRenderer & MapPanView & MapPlaces & MapCentre & MapBlockers & { dispose(): void }`, and type-checks against the existing interfaces unchanged. `notify` is a no-op, and `placeAt` returns null (no place highlight in the spike). Pan and zoom do the simplest thing: `setPan` slides the camera, `zoomStep` dollies it, ~~`resetView`/`fitWhole` frame the footprint inside the insets~~ `resetView` frames the circuit (`puzzleBounds` + 1) to about 80% of the free area and only `fitWhole` frames the whole footprint inside the insets (changed in section B, see "Design changes recorded" under section B), and `getScale` returns a px-per-map-unit at the ground's centre. `attachPan`'s keys, drag and wheel must not throw.
 - [ ] Josh checks: `npm run dev`, then `/?puzzle=09-shrine-circuit&view=3d`. He sees ground, streets, block buildings, poles, sagging wires, the feed, both breakers, the switch, the fuse box, the junctions and the lamps. The objects read apart without labels. The camera is tilted and the map fits between the HUD panels.
-- [ ] Josh checks: live wires look different from dead ones by more than colour (for example, a brighter emissive wire **and** a slow glow that travels or breathes; a dead wire is dull and still), per the GDD's accessibility rule. The damaged cable `l_b` shows a visible break once readable. A lit lamp has a light and a pool on the ground. In the brownout after repairing `l_b`, every lamp flickers.
+- [ ] Josh checks: live wires look different from dead ones by more than colour (for example, a brighter emissive wire **and** a slow glow that travels or breathes; a dead wire is dull and still), per the GDD's accessibility rule. The damaged cable `l_b` shows a visible break once readable (not met by sections A and B; made concrete as C2). A lit lamp has a light and a pool on the ground. In the brownout after repairing `l_b`, every lamp flickers.
 - [ ] Josh checks: the three-move solution works by clicking objects in 3D. Hovering shows the same prompts as 2D. Clicking the dead junction gives *Needs: wire × 2*. Undo, Reset, the parts readout, sound and the win splash behave as in 2D. After the win, clicks do nothing (the Relight can't be interrupted: play enforces this already, and nothing here changes it).
 - [ ] Josh checks: switching maps with the picker while in 3D keeps `view=3d`, doesn't stack WebGL contexts (each session's `dispose()` frees the previous one), and doesn't throw.
 - [ ] Josh checks: without `view=3d`, the game is exactly as on `main`, and the browser's network tab shows no `three` chunk loaded (main.ts loads `src/render3d/` with a dynamic `import()`).
@@ -153,11 +155,11 @@ Why sprites:
 
 How:
 - **Size and depth.** `sizeAttenuation: false`, so a caption stays the same pixel size at any dolly. `depthTest: false` and a high `renderOrder`, so no building hides a caption.
-- **Placement.** Each caption sits above its object. A lamp's caption sits under the lamp head, and the feed's two lines sit above the feed, as in 2D.
+- **Placement.** Each caption sits above its object. ~~A lamp's caption sits under the lamp head~~ A lamp's caption sits beside the lamp, on the side away from its wire (built that way; see "Design changes recorded"). The feed's two lines sit above the feed, as in 2D.
 - **Text.** Rasterised at `devicePixelRatio`, capped at 2 as the renderer already does. The 2D fonts and colours: 12px body, bold 15px for the feed, `#d3dae6` text, `#7b879a` dim, `#ff5a4d` alarm.
 - **Redraws.** A node's texture is redrawn only when its string or step changes, the same rule as `createFeedCaptions.update`. No strings or canvases are made per frame.
 - **Text surface.** It is injected: `buildScene(puzzle, opts?: { text?: TextSurfaceFactory })`. In the browser the default makes `document.createElement("canvas")`. Tests pass a stub, so `scene.test.ts` and `pick.test.ts` keep running in Node with no DOM.
-- **Fuse bar.** A 3D object, not text: a flat bar of `rating` segments, with ticks from `fuseTickOffsets`. It fills to `fuseFill`, takes its colour from `fuseStep`, and reads by length and ticks first, colour second. A blown fuse shows an empty bar with a visible snap, the caption in alarm, and section A's scorched fuse.
+- **Fuse bar.** ~~A 3D object, not text~~ A fixed-pixel-size, camera-facing sprite under the caption, like the captions (built that way; see "Design changes recorded"): a flat bar of `rating` segments, with ticks from `fuseTickOffsets`. It fills to `fuseFill`, takes its colour from `fuseStep`, and reads by length and ticks first, colour second. A blown fuse shows an empty bar with a visible snap, the caption in alarm, and section A's scorched fuse.
 
 ## Object identity (each reads without a caption; defaults, tunable after Josh plays)
 - **Feed:** the substation block, plus a lightning-bolt sign facing the camera. It is the largest node.
@@ -223,7 +225,7 @@ The Shrine-circuit values below were checked against `createGrid` on 12 Nov 2026
   - Each caption's on-screen text height is at least 12 css px, and at least 15 for the feed. A pure scale helper in `captions.ts` or `scene.ts` computes it from the sprite scale and the viewport.
 - [ ] **Breaker shape:** closed, the lever tip is higher than its pivot. Open, it is no higher than pivot + 0.1. The lever is at least 0.5 units long.
 - [ ] **Switch shape:** the lever's direction is within 5° of the direction to the selected output's far node, before and after `sw_1`. The ground chevron lies on the selected line's first segment.
-- [ ] **Fuse bar:** the fill mesh's x-scale equals `fuseFill` for `fb_A`: 1 at start, 0 after the win.
+- [ ] **Fuse bar:** ~~the fill mesh's x-scale equals~~ the fill the bar sprite was last drawn with (`userData.fill`) equals `fuseFill` for `fb_A`: 1 at start, 0 after the win.
 
 **Browser** (Josh checks: `npm run dev`, `/?puzzle=09-shrine-circuit&view=3d`, beside 2D)
 - [ ] Josh checks: without hovering, he can name each object as feed, breaker, switch, fuse box, junction or lamp. None of them is an unlabelled blue box.
@@ -267,3 +269,327 @@ The Shrine-circuit values below were checked against `createGrid` on 12 Nov 2026
 - **B4. Caption size.**
   - **Default:** a fixed pixel size, as in 2D, at any zoom.
   - **The alternative:** captions that shrink with distance, like real signs. They look more 3D, but they stop being readable when you zoom out.
+
+## Design changes recorded (section B, at the reviewer's request)
+The builder made these while fixing section B after Josh played it. The review (`reviews/037-three-view-spike.md`, Could improve 1 and 2) asked for them to be written down. They are recorded here, and the criteria above are corrected to match. None of them touches a rule.
+1. **The fuse bar is a fixed-size, camera-facing sprite**, drawn like a caption (`sizeAttenuation: false`) under the fuse box's caption. It is not a 3D mesh. The criterion is now "the fill the bar was last drawn with (`userData.fill`) equals `fuseFill`".
+2. **Lamp captions sit beside the lamp**, `LAMP_CAPTION_OFFSET` (1.0) units out on the side away from its wire, at the lamp head's height. They are not under the head.
+3. **The opening camera frames the circuit tighter.** `resetView` (the opening pose) frames `puzzleBounds` grown by 1 unit to about 80% of the free area's limiting dimension. Only `fitWhole` frames the whole footprint inside the insets. Section A's criterion "`resetView`/`fitWhole` frame the footprint" now holds for `fitWhole` only. Josh should know that the opening frame he judged in section A has changed.
+
+---
+
+# Section C · Wires in the air, a visible break, and the Relight in 3D
+
+owner: renderer
+branch: `ticket/037-three-view-spike` (same branch, on top of section B)
+status: approved (G1, Josh, 12 Nov 2026: "Approve 037 C")
+
+## Josh's words (12 Nov 2026, after playing section B)
+The main session told him two things it knew were weak:
+- "Wires and poles: the wires sit low, so they read more like strips on the ground than strung cables."
+- "The damaged cable: it shows as an unbroken orange wire with a spark, not a visible break."
+
+Josh replied:
+> "both are on my list, in addition, the animation to light the lamps absent."
+
+## Goal
+Josh opens `/?puzzle=09-shrine-circuit&view=3d`.
+- At the opening camera, the wires hang in the air above the streets on distinct wooden poles with cross-arms. Each has a shadow on the street below and a visible sag.
+- Once `sw_1` is thrown, the damaged cable `l_b` is plainly cut. Two ends hang from the poles either side, with a gap and a spark between them. The side toward the switch is live and the far side is dead. After the repair it is one whole wire again.
+- When he throws `br_street` and wins, the 3D view plays 2D's Relight. Power runs out from the feed along the wires, and the flood lamp, then the shrine, ignite in turn with a flare. The ignition sounds and the win splash land on the same beats as in 2D.
+
+## C1 · Wires and poles read as strung power lines
+
+### What the code does now (findings, read 12 Nov 2026)
+| What | Now | Where |
+|---|---|---|
+| Pole height (every attachment point, node ends included) | `POLE_HEIGHT = 1.2` | `layout.ts` |
+| Pole spacing | `POLE_SPACING = 2`. On the Shrine circuit, 9 intermediate poles. Most 2-unit runs have none: the node posts carry them. | `layout.ts` |
+| Sag | `SAG_RATIO = 0.04`. A 2-unit span sags 0.08 units, about 3 px at the opening pose. | `layout.ts` |
+| Pole | `CylinderGeometry(0.045, 0.06, POLE_HEIGHT)`, colour `WOOD 0x3b3128`. That is dark brown on ground `0x0e131d` and street `0x1a2331`, so it nearly vanishes. | `scene.ts` |
+| Cross-arm | `BoxGeometry(0.3, 0.05, 0.06)` at `POLE_HEIGHT - 0.04`. It is always along world x and **not turned to its run**, so on an east-west run it lies along the wire and reads as nothing. | `scene.ts` |
+| Wire | `TubeGeometry` with radius 0.035 and 5 radial segments | `scene.ts` |
+| Shadow | none (no shadow map and no fake shadow), so nothing on the ground shows the wire's height | `scene.ts` |
+| Camera | `ELEVATION` 55°, `FOV_DEG` 40. The opening scale is roughly 50 px per map unit at 1280×720 with insets 120/90. | `camera.ts` |
+| Buildings | `BLOCK_MIN_H` 0.6 to `BLOCK_MAX_H` 2.6, places 1.2 to 2.6. That is taller than the wires, so blocks south of a street can hide its wire. | `layout.ts` |
+| Node bodies | breaker, fuse box and battery box centres at y 0.95; switch drum at 0.95, lever pivot 1.2; pick boxes centred at y 1.0, 0.6×0.7×0.6 | `scene.ts` |
+
+Why it reads as strips: the wire is thin and casts nothing, and the pole that would show its height is too dark to see. The sag is a few pixels. At 55° a north-south wire projects straight onto its own street.
+
+### What changes (defaults; tunable after Josh plays)
+- **Height.** `POLE_HEIGHT` 1.2 → **1.6**. Every attachment point stays at `POLE_HEIGHT`, node ends included, so section A's "runs end on their nodes" still holds.
+- **Sag.** `SAG_RATIO` 0.04 → **0.12**. A 2-unit span sags 0.24 units, and its lowest point stays at 1.36, above ground. `POLE_SPACING` stays 2, so section A's pole tests and the 15 runs are unchanged.
+- **Poles.**
+  - The cylinder goes to **0.07 top / 0.09 base** radius.
+  - It takes a new colour, `POLE_WOOD = 0x8b6b4a` (weathered wood). Its luminance contrast against `STREET` is at least 3:1 (about 3.2), so it reads by brightness, not hue.
+  - A dark foot disc (radius 0.15) goes on the ground at each pole and node post.
+- **Cross-arms.**
+  - `0.7 × 0.08 × 0.08`, at `POLE_HEIGHT - 0.08`.
+  - Each is **turned perpendicular to its run**: the instance matrix includes the run's yaw.
+  - The wire passes over its centre.
+- **Wire.** Tube radius 0.035 → **0.05**, with 6 radial segments.
+- **Shadow.** One flat strip on the ground under each run, a pure function of the run's points:
+  - `shadowOf(points)` gives the same x and z with y = `SHADOW_Y` (0.025).
+  - It is 0.1 wide, black at opacity 0.55, `depthWrite: false`, with no pick tag.
+  - A broken cable's two halves (C2) each get their own shadow.
+  - The gap between the wire and its shadow is what shows the height.
+- **Camera tilt: lowered**, `ELEVATION` 55° → **45°**. At 45°, a height h projects at about cos 45° (0.71) of h, against 0.57 now. With the higher poles, a mid-span wire sits about 55–60 px above its shadow at the opening pose, against about 34 px now. Ground depth compresses less than it would at 40° or below. The fit search (`fitTo`) is unchanged, so the opening frame still fills about 80%.
+- **Buildings below the wires.**
+  - `"building"` blocks inside the footprint take heights in `[BLOCK_MIN_H, FOOTPRINT_MAX_H = 1.4]`.
+  - Place boxes take heights in `[1.0, PLACE_MAX_H = 1.8]`.
+  - City lots outside the footprint keep `[BLOCK_MIN_H, BLOCK_MAX_H]`.
+  - Section A's "heights within range" criterion still holds.
+- **Nodes meet their wires at the new height.**
+  - Breaker, fuse box and battery box centres move to `NODE_BODY_Y = POLE_HEIGHT - 0.3` (1.3), so the wire meets the top of the box.
+  - The switch drum centre moves to `POLE_HEIGHT - 0.25`, with the lever pivot at `POLE_HEIGHT`.
+  - The lamp head stays at `POLE_HEIGHT + 0.05`, and the junction arm stays at `POLE_HEIGHT - 0.04`. Both are already relative.
+  - The feed's two roof bushings grow to reach `POLE_HEIGHT`.
+  - Caption heights become relative to `POLE_HEIGHT`: feed `POLE_HEIGHT + 0.15`, `FUSE_CAPTION_Y = POLE_HEIGHT + 0.4`, `LAMP_HEAD_Y = POLE_HEIGHT + 0.1`. The breaker's caption already follows its body. A later height change then moves them all together.
+- **Pick boxes follow.** Each node's pick box is centred at `NODE_BODY_Y` and is 0.6×0.9×0.6, so it covers the body and the wire's attachment point. The node-over-wire priority is unchanged.
+
+### Acceptance criteria (C1)
+**Layout** (Vitest, `layout.test.ts`)
+- [ ] `POLE_HEIGHT >= 1.6`, and every run's first and last attachment points sit at `POLE_HEIGHT` (section A's test, run with the new constant).
+- [ ] Sag: section A's sag test passes with `SAG_RATIO = 0.12`. `l_feed`'s single 2-unit span sags 0.24 ± 1e-6 below its chord, and no point lies below `POLE_HEIGHT - 0.3`.
+- [ ] `shadowOf(runPoints(run))` has the run's points with y = `SHADOW_Y` and x and z unchanged, for every run.
+- [ ] Every footprint `"building"` block is at most `FOOTPRINT_MAX_H`, which is less than `POLE_HEIGHT`. Every place box is at most `PLACE_MAX_H`. City lots stay within `[BLOCK_MIN_H, BLOCK_MAX_H]`.
+
+**Scene and camera** (Vitest, `scene.test.ts`, Node, stub text surface, opening pose 1280×720 with insets top 120 and bottom 90)
+- [ ] **Poles are objects.**
+  - The pole and cross-arm instance counts equal the number of intermediate attachment points (9 on the Shrine circuit).
+  - Each cross-arm's long axis is within 5° of perpendicular to its run in the ground plane, and is at least 0.6 long.
+  - The pole material's colour has luminance contrast of at least 3:1 against `STREET` (WCAG relative luminance, computed in the test).
+- [ ] **The wire is in the air.**
+  - For every run, the projected screen distance between the run's `mid` and its shadow's mid is at least 30 px.
+  - For `l_feed`, the projected distance between the chord's midpoint and the sagging midpoint is at least 6 px.
+  - The wire tube's radius is at least 0.05.
+- [ ] **Nothing hides a wire.** At the opening pose, a ray from the camera to each run's `mid`, and to each node's attachment point, meets no block (instanced or place mesh) before it.
+- [ ] **Nodes still meet their wires.** Every run's end attachment point is within 0.15 of its node's group's world bounding box.
+- [ ] **Camera tests, updated deliberately.**
+  - `ELEVATION` is 45°.
+  - The opening-frame test (`scene.test.ts`, "opens with the circuit filling about 80%...") projects its corners at y 0 and `POLE_HEIGHT`, not the literal `1.2`. It keeps its 0.72–0.85 bounds and the inset checks.
+  - The `fitWhole` half is unchanged.
+- [ ] **Caption tests still pass.**
+  - The legibility test is unchanged.
+  - The overlap test ("no two captions or fuse bars overlap, and none covers a node") probes each node at `NODE_BODY_Y` and `POLE_HEIGHT`, not the literals `1.0` and `1.3`. That edit is deliberate, because the objects moved. Its overlap assertions are unchanged and must pass.
+- [ ] **Picking still works.** `pick.test.ts` passes unchanged: every node at its projected pick box, every wire at its `mid`, null on bare ground, blockers, and node-over-wire priority.
+
+**Browser** (Josh checks)
+- [ ] At the opening camera, each wire reads as a cable strung in the air above its street. Its shadow on the street and the gap between them are visible. The sag shows. Poles are distinct wooden posts with cross-arms across the line.
+- [ ] Breakers, the fuse box, the switch, the lamps and the feed sit where their wires meet them. Clicking each still acts on it, and the three-move solution still works.
+- [ ] No building hides a wire or a node at the opening camera. After a zoom and pan, the picture still holds together.
+
+## C2 · The damaged cable shows a visible break
+
+### The 2D rule (findings)
+In 2D (`drawLine`, `src/render/map-renderer.ts`), a damaged cable draws current only from the end it enters up to mid-line, and the break shows only while `state.sparking.has(id)`. In the grid (`src/grid/grid.ts`), `sparking` is exactly "a `damaged-cable` fault on a powered line". `readableFaults` is "the fault's `at` is powered". So **a dead damaged cable is unreadable, and it looks like any other dead cable**: the plain dull stroke, with no gap, no spark and no mark. Once repaired, a line that had a fault in the file and has none now draws its base in `LINE_REPAIRED = "#5a6f92"` instead of `LINE_DEAD = "#2a3445"`. That is the "new cable" look, and it shows wherever the line isn't live.
+
+### What changes
+- **Pure geometry** (`layout.ts`):
+  - `WireRun` gains `brk: WireBreak | null`. It is set for every line that has a `damaged-cable` fault in `puzzle.faults`, and is null otherwise. The layout stays play-free: it reads the file's faults, not the state.
+  - **The broken span** is the span that contains the run's midpoint by length. When the midpoint falls on a pole (an even span count), it is span `n / 2`. `l_b` has 3 spans, so the break is in span 1, between the poles at (7, −1) and (8, −2).
+  - **The two hanging ends.** Each leaves the attachment point on its side of the broken span (`attach[span]` and `attach[span + 1]`), heading toward the gap.
+    - Each has `HANG_SEGMENTS + 1` points (`HANG_SEGMENTS = 6`).
+    - Its horizontal position is linear in s (0..1) along the chord, up to `spanLen_h / 2 - BREAK_GAP / 2`.
+    - Its height is `y(s) = attach.y - HANG_DROP × s²`, so it leaves level and droops.
+    - `BREAK_GAP = 0.3` and `HANG_DROP = 0.6`. The tips sit at `POLE_HEIGHT - 0.6` (1.0), above ground.
+    - On a 1-span run, the ends hang from the two nodes' own attachment points.
+  - `halves: [Vec3[], Vec3[]]`. Half 0 runs from the `from` node along the whole spans to its tip. Half 1 runs from the `to` node to its tip. Each half's last point is its hanging end's tip.
+  - `gap`: the broken span's chord midpoint in x and z, at the tips' height.
+- **Scene** (`scene.ts`):
+  - A run with `brk` builds a whole tube plus one tube per half, and a shadow for each.
+  - **While `state.sparking.has(id)`:**
+    - The halves show and the whole tube hides.
+    - The half that starts at `state.flowFrom.get(id)` takes the live look (section A's breathing emissive). Its bead runs from that node to its tip only.
+    - The other half takes the dead look.
+    - Section A's spark sits at the live half's tip, inside the gap.
+    - The whole-wire orange `FAULT_GLOW` is gone, as in 2D: live up to the break, dead beyond.
+  - **Otherwise:**
+    - The whole tube shows, with the halves and the spark hidden.
+    - An unpowered damaged cable is plain dead: `DEAD_WIRE`, emissive 0, no spark. It looks exactly like any other dead wire, matching 2D's rule that a fault past a fault can't be read.
+    - Once repaired, a whole wire that isn't live takes `REPAIRED_WIRE = 0x5a6f92` (2D's `LINE_REPAIRED`). A live one takes the live look.
+- **Picking** (`pick.ts`, `scene.ts`):
+  - The whole run's pick line stays on at all times. It already spans the gap along the chord.
+  - A broken run adds one pick line along each hanging end, plus one invisible gap box. The box is `BREAK_GAP + 0.2` wide and 0.3 deep, from the tips' height up to the chord.
+  - All three are tagged `pickKind: "wire"` with the line id.
+  - They carry `userData.pickOff = true` except while the break shows. `createPicker` skips any object with `pickOff === true`, read at each `hitTest`, because the picker collects its targets once.
+  - So clicking either hanging end or the gap returns the line id, and `intentFor` turns it into the repair as now.
+
+### Acceptance criteria (C2)
+**Layout** (Vitest, `layout.test.ts`)
+- [ ] Only `l_b` has a `brk` on the Shrine circuit. Every other run's `brk` is null.
+- [ ] `l_b`:
+  - `brk.span` is 1.
+  - `ends[0][0]` equals `attach[1]` and `ends[1][0]` equals `attach[2]`.
+  - Each end has `HANG_SEGMENTS + 1` points, and their heights never increase along the end.
+  - Each tip's y is `POLE_HEIGHT - HANG_DROP`, and is greater than 0.
+  - The horizontal distance between the tips is `BREAK_GAP` (within 1e-6).
+  - `gap` is the midpoint of `attach[1]` and `attach[2]` in x and z.
+- [ ] `halves[0]` starts at `attach[0]` (`sw_1`) and ends at tip 0. `halves[1]` starts at `attach[3]` (`j4`) and ends at tip 1. Neither crosses the gap: every point of half 0 is on `sw_1`'s side of the gap's perpendicular plane, and every point of half 1 on `j4`'s side.
+- [ ] Synthetic puzzles in the test give the other cases:
+  - a 2-span run breaks in span 1;
+  - a 1-span run hangs its ends from the two nodes' own attachment points.
+
+**Scene and picking** (Vitest, `live.test.ts` through `bundle.update`, and `pick.test.ts`, at the opening pose)
+- [ ] **Start** (`l_b` unpowered):
+  - `l_b`'s whole tube is visible, and its halves and spark are hidden.
+  - Its material colour and emissive equal `l_a2`'s, another dead wire.
+  - Its hanging-end and gap targets carry `pickOff: true`.
+- [ ] **After `sw_1`** (`l_b` sparking):
+  - The halves are visible and the whole tube is hidden.
+  - Half 0 (`sw_1`'s side) has `LIVE_WIRE` and emissive above 0. Half 1 has `DEAD_WIRE` and emissive 0.
+  - The spark is visible, within 0.05 of tip 0.
+  - At t = 0, 0.3, 0.6 and 0.9, the bead lies on half 0.
+  - `hitTest` at the projected point s = 0.75 along each hanging end, and at the projected `gap`, returns `"l_b"`.
+- [ ] **After `repair:l_b`:**
+  - The whole tube is visible with the live look, and the halves and spark are hidden.
+  - The targets have `pickOff: true` again.
+  - `hitTest` at `l_b`'s `mid` returns `"l_b"`.
+- [ ] **Repaired and dead:** after `repair:l_b`, throw `sw_1` back to `l_a`. `l_b` is whole with colour `REPAIRED_WIRE` and emissive 0, while `l_a2` stays `DEAD_WIRE`.
+- [ ] **Drift guard:** the test reads `src/render/map-renderer.ts` and finds `const LINE_REPAIRED = "#5a6f92";`. `REPAIRED_WIRE` equals that colour.
+
+**Browser** (Josh checks)
+- [ ] At the start, `l_b` looks like any dead wire.
+- [ ] After `sw_1`, `l_b` shows two ends hanging from the poles either side of a gap, with a spark at the gap. The `sw_1` side is live and the `j4` side is dead.
+- [ ] Clicking either hanging end, or the gap, repairs it (with the parts). Hovering either end or the gap shows the same prompt as 2D.
+- [ ] After the repair it is one whole live wire.
+
+## C3 · The animation that lights the lamps
+
+### What 2D has (findings)
+**The Relight cascade, on the win.**
+- **The clock.** `src/play` sets `view.relightT` to 0 when the job completes and advances it with `tick(dt)`. `main.ts` passes it to `renderer.draw` as `overlay.relightT`. The renderer doesn't listen for `job:completed`: the clock reaches it through the overlay.
+- **The plan.** On the first frame with `relightT` defined, `draw` calls `planRelight(puzzle, state)` (`src/render/relight.ts`) and keeps that plan until `relightT` is undefined again (a reset). The plan is used only while `relightT < plan.duration`.
+  - Distances run from every feed along powered lines, in the direction of `flowFrom`.
+  - The farthest reached node is placed at `RELIGHT_TRAVEL_SECONDS` (2.4).
+  - Everything is offset by `RELIGHT_LEAD_SECONDS` (0.25).
+  - `duration` is the last lit lamp's arrival plus `FLARE_SECONDS` (0.6).
+- **Lines.** Each powered line lights from its flow-from end. The lit fraction is `frac = e > s ? clamp01((relT - s) / (e - s)) : relT >= e ? 1 : 0`, where s and e are `lineStart[i]` and `lineEnd[i]`. A warm head (two discs) rides the front while `frac < 1`. Pulses run only inside the lit part.
+- **Nodes.** A node looks live only once `relT >= nodeArrive[i]`.
+- **Lamps.**
+  - A lamp is dark until `state.lit.has(id) && relT >= arrive`. Then it snaps fully lit (no brownout is possible on a win).
+  - It **flares** for `FLARE_SECONDS`: a hot ring grows outward with alpha `1 - f`, and a hot core shrinks with alpha `(1 - f) × 0.5`, where `f = flareAge / FLARE_SECONDS`.
+- **Places.** `drawCity` eases each place's glow toward `glowTarget(lamp, state, { t: relT, arriveAt })`. That is 0 until the lamp's arrival. It is eased by `easeGlow` over `GLOW_EASE_SECONDS` (0.25) (`src/render/city.ts`).
+- **Sound and splash.**
+  - `main.ts` computes the sound cues from the same `planRelight(puzzle, state)` on the same frame (`relightCues`): `igniteAt` is `plan.lampOrder` mapped to `nodeArrive`. It passes them to `audio.relight(igniteAt, duration)`.
+  - The win splash waits for `splashDue(relightT, duration)`.
+  - So a view that plans from the same function, the same state and the same `relightT` stays in step with both, with no new wiring.
+
+On the Shrine circuit's win (`sw_1`, `repair:l_b`, `br_street`), the lamp order is `flood` then `shrine`. The shrine is the farthest node (path 16.49 units), so it ignites at `RELIGHT_LEAD_SECONDS + RELIGHT_TRAVEL_SECONDS` = 2.65 s. The flood lamp ignites at about 2.24 s, and `duration` is 3.25 s.
+
+**In ordinary play (no Relight):**
+- A lamp's bulb, pool and caption **snap** on and off with `state.lit`. In a brownout the bulb flickers (`flicker` in `src/render/motion.ts`). The 3D view already does this.
+- A lamp's **place glow eases** over `GLOW_EASE_SECONDS` toward `glowTarget(..., null)`. That target is **0 during a brownout**: the place goes dark while the bulb flickers. The 3D view currently flickers the place with the bulb (`placeMat.emissiveIntensity = 0.5 * b`). C3 changes it to 2D's rule.
+- 2D has no ignition flare outside the Relight. The flare on the lamp that blew a fuse is part of the shock, which stays out of scope.
+- `src/core/timing.ts` holds only `BLOW_TIMING`, the blown-fuse sequence. It isn't used here.
+
+### What changes
+- **New pure module `src/render3d/relight3d.ts`** (no three, no DOM). It imports by file only:
+  - `planRelight`, `FLARE_SECONDS` and the `RelightPlan` type from `../render/relight`;
+  - `clamp01` from `../render/motion`;
+  - `glowTarget`, `easeGlow` and `GLOW_EASE_SECONDS` from `../render/city`.
+
+  It exports:
+  - `createRelightClock(puzzle).update(state, relT): RelightPlan | null`. It plans on the first defined `relT` and keeps that same plan object until `relT` is undefined, then drops it. It returns the plan while `relT < duration`, and null otherwise. This is 2D's caching rule.
+  - `lineFraction(plan, lineIndex, relT)`: 2D's formula.
+  - `nodeArrived(plan, nodeIndex, relT)`.
+  - `lampIgnition(plan, state, lampId, nodeIndex, relT): { on: boolean; flareAge: number }`. `flareAge` is −1 when there is no flare.
+- **`SceneBundle.update(state, hover, t, relightT?: number)`.** `renderer.draw` passes `overlay.relightT`. While the clock returns a plan:
+  - **Wires.** Each powered run lights from its flow-from end to `lineFraction` and is dead beyond.
+    - This is done with a live overlay tube per direction (built forward and reversed), with `geometry.setDrawRange` set to that fraction of its index count.
+    - A warm front bead sits at the front of each run with `0 < frac < 1`.
+    - Section A's travelling bead runs only inside the lit part.
+  - **Nodes.** A node's live glow waits for `nodeArrived`.
+  - **Lamps.**
+    - A lamp stays dark (light, head, halo and pool off) until `lampIgnition.on`, then snaps lit.
+    - While `0 <= flareAge < FLARE_SECONDS` it flares: a ground ring grows from radius 0.3 to 1.5 with opacity `1 - f`, and the halo is scaled by `1 + (1 - f)`.
+    - `parts.get(lampId).flare` exposes the ring.
+  - **Places.** Each place's glow eases by `easeGlow` toward `glowTarget(lamp, state, { t: relT, arriveAt })`.
+  - When the plan ends, the view is the ordinary one.
+- **Ordinary play.** A place's glow eases toward `glowTarget(lamp, state, null)` over `GLOW_EASE_SECONDS`, snapping on the first frame. So it is 0 in a brownout, as in 2D. The bulb's snap and flicker are unchanged.
+- **`notify` stays a no-op.** 2D's `notify` carries only `fuse:blown` (the shock and pop) and `switch:thrown` with `spring` (the twang), and both are still out of scope. The Relight reaches the renderer through `overlay.relightT`, as in 2D.
+- **`main.ts`: no change.** It already passes `overlay.relightT` to whichever renderer the session has. It already plans the sound cues and the splash from `planRelight` on the frame the Relight starts.
+- **The Relight can't be interrupted** (GDD Decided rule). `src/play` enforces it by ignoring input during the Relight. The 3D view only draws from `relightT`, and nothing in section C touches `src/play`, `main.ts` or the clock.
+
+### Acceptance criteria (C3)
+**Pure** (Vitest, new `src/render3d/relight3d.test.ts`)
+- [ ] **Import guard.** `relight3d.ts` imports nothing from `three`, `src/play/` or `../render/index`, and only types from `src/grid/`. The test reads its import lines.
+- [ ] **Same schedule as 2D.** On the Shrine circuit's won state:
+  - `createRelightClock(shrine).update(state, 0)` deep-equals `planRelight(shrine, state)`.
+  - `lampOrder` is `["flood", "shrine"]`.
+  - The ignition times computed main.ts's way (`lampOrder` mapped to `nodeArrive`, as in `relightCues`) equal the first `relT` at which `lampIgnition(...).on` turns true for each lamp. The test scans in 1 ms steps, so they match within 1e-3.
+  - The shrine ignites at `RELIGHT_LEAD_SECONDS + RELIGHT_TRAVEL_SECONDS` (within 1e-9).
+  - `duration` equals that plus `FLARE_SECONDS`.
+- [ ] **Clock rules.**
+  - The clock returns the same plan object on every frame of one Relight. It returns null at `relT = duration`.
+  - After an `update(state, undefined)` it plans again. Changing the state mid-Relight doesn't re-plan.
+- [ ] `lineFraction` for `l_feed` is 0 at `relT <= RELIGHT_LEAD_SECONDS`, 1 at its `lineEnd`, and non-decreasing between. A run that isn't powered stays at 0.
+- [ ] **Drift guard.** The test reads `src/render/map-renderer.ts` and finds each of these 2D lines verbatim:
+  - `frac = e > s ? clamp01((relT - s) / (e - s)) : relT >= e ? 1 : 0;`
+  - `if (state.lit.has(id) && relT >= arrive) {`
+  - `if (relT < plan.duration) rp = plan;`
+  - `if (!plan) plan = planRelight(puzzle, state);`
+
+**Scene-level** (Vitest, `live.test.ts`, through `bundle.update`, won Shrine state)
+- [ ] **`relT = 0`:**
+  - Every `PointLight` has intensity 0.
+  - No flare is visible.
+  - Every live overlay's draw range is 0.
+  - The feed's body emissive is 0.
+- [ ] **`relT` = flood's arrival + 0.1:**
+  - The flood's light is above 0, and the shrine's is 0.
+  - The flood's flare is visible, with opacity `1 - 0.1 / FLARE_SECONDS` (within 1e-6).
+  - A front bead is visible on exactly the runs with `0 < lineFraction < 1`.
+- [ ] **`relT = duration`:**
+  - The flood and shrine lights are above 0, and every other light is 0.
+  - No flare is visible.
+  - Every powered run's overlay is full.
+- [ ] **Reset and replay.** `relT` undefined, then a reset and the win again, then `relT = 0`: all lights are 0 again. The plan was replanned.
+- [ ] **Ordinary place glow.**
+  - In the brownout (after `sw_1` and `repair:l_b`), the shrine place's emissive is 0 while its bulb's light is above 0.
+  - Throw `br_street` at t. Then update at t, t + 0.1 and t + 0.3 with no `relT`: the shrine place's glow is 0, then 0.4 (within 1e-6, which is 0.1 / `GLOW_EASE_SECONDS`), then 1.
+  - The bulb's light is full from t.
+
+**Browser** (Josh checks, `npm run dev`, `/?puzzle=09-shrine-circuit&view=3d`, then beside 2D)
+- [ ] After `br_street`, the lamps go dark for a beat. Then a warm front runs out from the feed along each powered wire, lighting it behind itself. The flood lamp ignites with a flare, then the shrine with its own. This matches 2D's Relight order and pace.
+- [ ] The ignition sounds land on each flare, and the win splash appears after the shrine's flare ends, as in 2D.
+- [ ] Clicks and keys during the Relight do nothing (the Relight can't be interrupted). Reset afterwards, then win again: the Relight plays again.
+- [ ] In the brownout, the bulbs flicker and their places go dark, as in 2D. When a lamp lights in ordinary play, its place warms over a quarter-second.
+
+## Nothing else moves (section C; the main session checks)
+- [ ] `npm run gate` is green, and its test count is section B's plus section C's new tests.
+- [ ] `npm run playtest` is green with **no snapshot change**.
+- [ ] `git diff main -- tests/ src/render/ src/play/ src/ui/ src/grid/ src/core/ src/main.ts puzzles/ index.html package.json` shows only section A's declared `main.ts` lines and `package.json`/`package-lock.json` entries. Section C adds nothing to that diff.
+
+## Files (section C)
+- **`src/render3d/` only.**
+  - Edited: `layout.ts` (constants, `brk`, `shadowOf`, heights), `scene.ts`, `camera.ts` (`ELEVATION`), `pick.ts` (`pickOff`) and `renderer.ts` (passes `overlay.relightT`).
+  - Edited tests: `layout.test.ts`, `scene.test.ts` (the two deliberate test edits named in C1), `live.test.ts` and `pick.test.ts`.
+  - New: `relight3d.ts` and `relight3d.test.ts`.
+- **New import, by file only:** `../render/relight`. The others it uses (`../render/city` and `../render/motion`) are already imported. Never `../render/index`. The drift guards **read** `src/render/map-renderer.ts` as text, and edit nothing there.
+- **No edit** to `src/main.ts`, `package.json`, `src/render/`, `src/core/`, `src/play/`, `src/ui/`, `src/audio/`, `tests/`, `puzzles/` or `index.html`. If the builder needs one, it stops and asks for a re-cut.
+
+## Interfaces (section C)
+- **No new `src/core/` types, no schema change and no new dependency.**
+- **Local to `src/render3d/`:**
+  - In `layout.ts`: `WireBreak`, `WireRun.brk`, `shadowOf`, `SHADOW_Y`, `BREAK_GAP`, `HANG_DROP`, `HANG_SEGMENTS`, `FOOTPRINT_MAX_H` and `PLACE_MAX_H`.
+  - In `relight3d.ts`: `RelightClock`, `createRelightClock`, `lineFraction`, `nodeArrived` and `lampIgnition`.
+  - The 4th, optional parameter `relightT?: number` on `SceneBundle.update`.
+  - `NodeParts.flare`, and `userData.pickOff` on pick targets.
+- `MapRenderer` and the other `src/render/` interfaces are unchanged. `overlay.relightT` already exists on `MapOverlay`.
+
+## Within approved scope?
+**Yes.** Section C touches only `src/render3d/`. It adds no dependency. It makes no edit to `src/render/`, `src/core/`, `src/ui/`, `src/main.ts`, `tests/` or `puzzles/`, and adds no new `main.ts` lines. Everything it needs from 2D is already a pure export, imported by file: `planRelight`, `FLARE_SECONDS`, `RELIGHT_LEAD_SECONDS` and `RELIGHT_TRAVEL_SECONDS` (`../render/relight`), `glowTarget`, `easeGlow` and `GLOW_EASE_SECONDS` (`../render/city`), and `clamp01` (`../render/motion`). The Relight clock is already passed to every renderer by `main.ts`. Three bits of 2D logic are inline in the Canvas renderer, not exported: the line fraction, the lamp ignition test and `LINE_REPAIRED`. They are mirrored in `src/render3d/`, with drift guards, as section B did for `ON`/`OFF`.
+
+## Open questions for Josh (section C; the defaults apply if you just approve)
+- **C-Q1. Camera tilt.**
+  - **Default:** lower it from 55° to 45°, so height reads as height.
+  - **The alternative:** keep 55° and rely on the taller poles and the shadows alone. That gives a flatter, more map-like view, but the wires sit closer to their streets.
+- **C-Q2. Heights.**
+  - **Default:**
+    - poles 1.6 tall (from 1.2), sag 12% (from 4%), wire radius 0.05;
+    - buildings inside the footprint at most 1.4 tall and places at most 1.8, so no building hides a wire;
+    - the city outside the footprint unchanged.
+  - These replace section A's Q3 numbers, and all of them are tunable after you play it.
+- **C-Q3. Repaired look on nodes.**
+  - **Default: out.** C2 gives the repaired cable 2D's "new cable" colour. 2D also has a repaired look for nodes (`NODE_REPAIRED`), but the Shrine solution repairs no node, so nobody would see it here. If you want it, it is a small later section.
