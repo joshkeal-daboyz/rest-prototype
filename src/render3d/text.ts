@@ -19,7 +19,7 @@ const toneColour = (tone: CaptionTone): string => (tone === "alarm" ? ALARM : to
 /** A surface that draws nothing, with a fixed text width: for Node (no document) and for tests. */
 export function stubTextSurface(): HTMLCanvasElement {
   const ctx = new Proxy({} as Record<string, unknown>, {
-    get: (t, k) => (k === "measureText" ? () => ({ width: 40 }) : k in t ? t[k as string] : () => undefined),
+    get: (t, k) => (k === "measureText" ? (s: string) => ({ width: s.length * 8 }) : k in t ? t[k as string] : () => undefined),
     set: (t, k, v) => {
       t[k as string] = v;
       return true;
@@ -92,6 +92,73 @@ export function createCaptionSprite(surface: TextSurfaceFactory, fontPx: number,
     setUnit(u) {
       unit = u;
       apply();
+    },
+  };
+}
+
+/** The fuse load bar's size in css px (2D's is 40 x 5): wide enough to count its segments. */
+export const BAR_W = 72;
+export const BAR_H = 10;
+const STEP_COLOUR: readonly [string, string, string] = ["#3ddc97", "#ffb02e", "#ff5a4d"];
+
+export interface BarSprite {
+  sprite: Sprite;
+  /** Redraw only when the fill, step, tick count or blown flag changed. Reads by length and ticks first, colour second. */
+  draw(fill: number, step: 0 | 1 | 2, ticks: number, blown: boolean): void;
+  setUnit(unit: number): void;
+}
+
+/** A camera-facing load bar, hung just under its anchor (the caption sits above it). */
+export function createBarSprite(surface: TextSurfaceFactory, dpr: number): BarSprite {
+  const canvas = surface();
+  const texture = new CanvasTexture(canvas);
+  texture.minFilter = LinearFilter;
+  texture.magFilter = LinearFilter;
+  texture.generateMipmaps = false;
+  const sprite = new Sprite(new SpriteMaterial({ map: texture, transparent: true, depthTest: false, depthWrite: false, sizeAttenuation: false }));
+  sprite.center.set(0.5, 1.05);
+  sprite.renderOrder = 10;
+  sprite.userData["cssW"] = BAR_W;
+  sprite.userData["cssH"] = BAR_H;
+  let unit = 0.001;
+  sprite.scale.set(BAR_W * unit, BAR_H * unit, 1);
+  return {
+    sprite,
+    draw(fill, step, ticks, blown) {
+      const u = sprite.userData;
+      if (u["fill"] === fill && u["step"] === step && u["ticks"] === ticks && u["blown"] === blown) return;
+      u["fill"] = fill;
+      u["step"] = step;
+      u["ticks"] = ticks;
+      u["blown"] = blown;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      canvas.width = Math.ceil(BAR_W * dpr);
+      canvas.height = Math.ceil(BAR_H * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.fillStyle = "#0b0f17";
+      ctx.fillRect(0, 0, BAR_W, BAR_H);
+      ctx.fillStyle = "#1c2433";
+      ctx.fillRect(1, 1, BAR_W - 2, BAR_H - 2);
+      ctx.fillStyle = STEP_COLOUR[step];
+      ctx.fillRect(1, 1, (BAR_W - 2) * fill, BAR_H - 2);
+      // Ticks divide the bar into one segment per unit of rating.
+      ctx.fillStyle = "#0b0f17";
+      for (let k = 1; k <= ticks; k++) ctx.fillRect(Math.round(1 + ((BAR_W - 2) * k) / (ticks + 1)) - 1, 0, 2, BAR_H);
+      if (blown) {
+        // A snapped fuse: a bright break across the empty bar.
+        ctx.strokeStyle = STEP_COLOUR[2];
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(BAR_W / 2 - 6, BAR_H);
+        ctx.lineTo(BAR_W / 2 + 6, 0);
+        ctx.stroke();
+      }
+      texture.needsUpdate = true;
+    },
+    setUnit(next) {
+      unit = next;
+      sprite.scale.set(BAR_W * unit, BAR_H * unit, 1);
     },
   };
 }

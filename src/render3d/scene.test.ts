@@ -41,16 +41,29 @@ describe("scene", () => {
 });
 
 describe("camera", () => {
-  it("opens with the whole footprint inside the free area between the insets", () => {
+  it("opens with the circuit filling about 80% of the free area's limiting dimension, and fitWhole shows the whole footprint", () => {
     const rig = createCameraRig(puzzle, 1280, 720, { top: 120, bottom: 90 });
+    // The circuit's bounds plus the frame margin: 0..14 by -4..3, grown by 1.
+    const corners = [[-1, -5], [15, -5], [-1, 4], [15, 4]] as const;
+    const project = (x: number, y: number, z: number): { x: number; y: number } => {
+      const v = new Vector3(x, y, z).project(rig.camera);
+      return { x: ((v.x + 1) / 2) * 1280, y: ((1 - v.y) / 2) * 720 };
+    };
+    const pts = corners.flatMap(([x, z]) => [project(x, 0, z), project(x, 1.2, z)]);
+    const w = Math.max(...pts.map((p) => p.x)) - Math.min(...pts.map((p) => p.x));
+    const h = Math.max(...pts.map((p) => p.y)) - Math.min(...pts.map((p) => p.y));
+    const limiting = Math.max(w / 1280, h / (720 - 120 - 90));
+    expect(limiting).toBeGreaterThan(0.72);
+    expect(limiting).toBeLessThan(0.85);
+    expect(Math.min(...pts.map((p) => p.y))).toBeGreaterThanOrEqual(120);
+    expect(Math.max(...pts.map((p) => p.y))).toBeLessThanOrEqual(720 - 90);
+    rig.fitWhole();
     for (const [x, z] of [[-2, -6], [16, -6], [-2, 5], [16, 5]] as const) {
-      const v = new Vector3(x, 0, z).project(rig.camera);
-      const px = ((v.x + 1) / 2) * 1280;
-      const py = ((1 - v.y) / 2) * 720;
-      expect(px).toBeGreaterThan(0);
-      expect(px).toBeLessThan(1280);
-      expect(py).toBeGreaterThanOrEqual(120);
-      expect(py).toBeLessThanOrEqual(720 - 90);
+      const p = project(x, 0, z);
+      expect(p.x).toBeGreaterThan(0);
+      expect(p.x).toBeLessThan(1280);
+      expect(p.y).toBeGreaterThanOrEqual(120);
+      expect(p.y).toBeLessThanOrEqual(720 - 90);
     }
   });
 
@@ -156,15 +169,78 @@ describe("captions in the scene", () => {
     check("l_b", "j4");
   });
 
-  it("fuse bar: the fill's x-scale is the fuse fill, 1 at start, 0 after the win", () => {
+  it("fuse bar: a camera-facing bar under the caption, full at start and empty after the win, wide enough to count its segments", () => {
     const b = make();
     const g = start();
     b.update(g.state(), null, 0);
-    expect(b.parts.get("fb_A")!.fuseFill!.scale.x).toBe(1);
+    const bar = b.parts.get("fb_A")!.fuseBar!;
+    expect(bar.userData["fill"]).toBe(1);
+    expect(bar.userData["ticks"]).toBe(2);
+    expect((bar.userData["cssW"] as number) / ((bar.userData["ticks"] as number) + 1)).toBeGreaterThanOrEqual(15);
+    expect(bar.userData["cssW"]).toBeGreaterThanOrEqual(60);
+    // Fixed pixel size, like the captions.
+    for (const vh of [480, 1080]) {
+      b.setViewport(W, vh, FOV_DEG);
+      expect(captionTextPx(bar.scale.y, bar.userData["cssH"] as number, bar.userData["cssH"] as number, vh, FOV_DEG)).toBeCloseTo(bar.userData["cssH"] as number, 6);
+    }
     g.throwSwitch("sw_1");
     g.repairAt("l_b");
     g.throwBreaker("br_street");
     b.update(g.state(), null, 0);
-    expect(b.parts.get("fb_A")!.fuseFill!.scale.x).toBe(0);
+    expect(bar.userData["fill"]).toBe(0);
+  });
+
+  it("breaker has a box body as big as the fuse box, not a mark on the wire", () => {
+    const b = make();
+    const size = (id: string): Vector3 => {
+      const m = b.parts.get(id)!.body!;
+      m.geometry.computeBoundingBox();
+      return m.geometry.boundingBox!.getSize(new Vector3());
+    };
+    const br = size("br_street");
+    const fuse = size("fb_A");
+    expect(br.x).toBeGreaterThanOrEqual(fuse.x);
+    expect(br.y).toBeGreaterThanOrEqual(fuse.y);
+    expect(br.z).toBeGreaterThanOrEqual(fuse.z);
+  });
+
+  it("no two captions or fuse bars overlap, and none covers a node, at the opening camera 1280x720", () => {
+    const b = make();
+    b.update(start().state(), null, 0);
+    const rig = createCameraRig(puzzle, W, H, insets);
+    const toPx = (p: Vector3): { x: number; y: number } => {
+      const v = p.clone().project(rig.camera);
+      return { x: ((v.x + 1) / 2) * W, y: ((1 - v.y) / 2) * H };
+    };
+    interface R {
+      name: string;
+      l: number;
+      t: number;
+      r: number;
+      bt: number;
+    }
+    const rects: R[] = [...b.captions, ...[...b.parts.values()].flatMap((p) => (p.fuseBar ? [p.fuseBar] : []))].map((s) => {
+      const c = toPx(s.position);
+      const w = s.userData["cssW"] as number;
+      const h = s.userData["cssH"] as number;
+      const l = c.x - w * s.center.x;
+      const t = c.y - h * (1 - s.center.y);
+      return { name: String(s.userData["caption"] ?? "bar"), l, t, r: l + w, bt: t + h };
+    });
+    expect(rects.length).toBe(b.captions.length + 1);
+    for (let i = 0; i < rects.length; i++) {
+      for (let j = i + 1; j < rects.length; j++) {
+        const p = rects[i]!;
+        const q = rects[j]!;
+        const hit = p.l < q.r && q.l < p.r && p.t < q.bt && q.t < p.bt;
+        expect(hit, p.name + " vs " + q.name).toBe(false);
+      }
+    }
+    for (const n of puzzle.nodes) {
+      for (const y of [1.0, 1.3]) {
+        const c = toPx(new Vector3(n.pos[0], y, n.pos[1]));
+        for (const r of rects) expect(c.x >= r.l && c.x <= r.r && c.y >= r.t && c.y <= r.bt, n.id + " under " + r.name).toBe(false);
+      }
+    }
   });
 });

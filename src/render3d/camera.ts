@@ -6,8 +6,8 @@
 
 import { PerspectiveCamera, Vector3 } from "three";
 import type { Puzzle } from "../core";
-import { circuitStreets } from "../render/city";
-import { ZOOM_STEP, type Insets, type Pan } from "../render/geometry";
+import { circuitStreets, type CityRect } from "../render/city";
+import { ZOOM_STEP, puzzleBounds, type Insets, type Pan } from "../render/geometry";
 import { POLE_HEIGHT } from "./layout";
 import type { PickSize } from "./pick";
 
@@ -15,8 +15,11 @@ export const FOV_DEG = 40;
 export const ELEVATION = (55 * Math.PI) / 180;
 const SIN_E = Math.sin(ELEVATION);
 const COS_E = Math.cos(ELEVATION);
-/** Px kept clear between the framed town and the free area's edge. */
+/** Px kept clear between the whole footprint and the free area's edge (fitWhole). */
 const FIT_PAD = 24;
+/** The opening pose frames the circuit's own bounds, grown by this many units, to fill about 80% of the free area: 10% kept clear on each side. */
+const FRAME_MARGIN = 1;
+const OPEN_PAD_FRACTION = 0.1;
 /** Closest dolly, as a fraction of the fitting distance. */
 const MIN_DIST_FRACTION = 0.3;
 
@@ -40,12 +43,15 @@ export function createCameraRig(puzzle: Puzzle, width = 1280, height = 720, init
   const size: PickSize = { width, height };
   let insets: Insets = { ...(initial ?? {}) };
   const fp = circuitStreets(puzzle).footprint;
-  const baseX = (fp.minX + fp.maxX) / 2;
-  const baseZ = (fp.minY + fp.maxY) / 2;
+  const bounds = puzzleBounds(puzzle);
+  const frame: CityRect = { minX: bounds.minX - FRAME_MARGIN, minY: bounds.minY - FRAME_MARGIN, maxX: bounds.maxX + FRAME_MARGIN, maxY: bounds.maxY + FRAME_MARGIN };
+  const baseX = (frame.minX + frame.maxX) / 2;
+  const baseZ = (frame.minY + frame.maxY) / 2;
   let tx = baseX;
   let tz = baseZ;
   let dist = 20;
-  let fitDist = 20;
+  let openDist = 20;
+  let wholeDist = 20;
   const target = new Vector3();
   const probe = new Vector3();
   const tanHalf = Math.tan((FOV_DEG * Math.PI) / 360);
@@ -65,13 +71,13 @@ export function createCameraRig(puzzle: Puzzle, width = 1280, height = 720, init
     camera.updateMatrixWorld(true);
   }
 
-  function fits(): boolean {
-    const left = (insets.left ?? 0) + FIT_PAD;
-    const right = size.width - (insets.right ?? 0) - FIT_PAD;
-    const top = (insets.top ?? 0) + FIT_PAD;
-    const bottom = size.height - (insets.bottom ?? 0) - FIT_PAD;
-    for (const x of [fp.minX, fp.maxX]) {
-      for (const z of [fp.minY, fp.maxY]) {
+  function fits(r: CityRect, padX: number, padY: number): boolean {
+    const left = (insets.left ?? 0) + padX;
+    const right = size.width - (insets.right ?? 0) - padX;
+    const top = (insets.top ?? 0) + padY;
+    const bottom = size.height - (insets.bottom ?? 0) - padY;
+    for (const x of [r.minX, r.maxX]) {
+      for (const z of [r.minY, r.maxY]) {
         for (const y of [0, POLE_HEIGHT]) {
           probe.set(x, y, z).project(camera);
           const px = ((probe.x + 1) / 2) * size.width;
@@ -83,19 +89,36 @@ export function createCameraRig(puzzle: Puzzle, width = 1280, height = 720, init
     return true;
   }
 
-  function fit(): void {
-    tx = baseX;
-    tz = baseZ;
+  /** Centre on the region and dolly to the closest distance at which its corners sit inside the free area less the pads. Returns the distance. */
+  function fitTo(r: CityRect, padX: number, padY: number): number {
+    tx = (r.minX + r.maxX) / 2;
+    tz = (r.minY + r.maxY) / 2;
     let lo = 3;
     let hi = 600;
     for (let i = 0; i < 30; i++) {
       dist = (lo + hi) / 2;
       apply();
-      if (fits()) hi = dist;
+      if (fits(r, padX, padY)) hi = dist;
       else lo = dist;
     }
-    fitDist = hi;
-    dist = fitDist;
+    dist = hi;
+    apply();
+    return hi;
+  }
+
+  function fit(): void {
+    const freeW = size.width - (insets.left ?? 0) - (insets.right ?? 0);
+    const freeH = size.height - (insets.top ?? 0) - (insets.bottom ?? 0);
+    wholeDist = fitTo(fp, FIT_PAD, FIT_PAD);
+    openDist = fitTo(frame, freeW * OPEN_PAD_FRACTION, freeH * OPEN_PAD_FRACTION);
+    wholeDist = Math.max(wholeDist, openDist);
+  }
+
+  function fitWhole(): void {
+    fit();
+    tx = (fp.minX + fp.maxX) / 2;
+    tz = (fp.minY + fp.maxY) / 2;
+    dist = wholeDist;
     apply();
   }
 
@@ -126,11 +149,11 @@ export function createCameraRig(puzzle: Puzzle, width = 1280, height = 720, init
       return getPan();
     },
     resetView: fit,
-    fitWhole: fit,
+    fitWhole,
     getScale: scale,
     zoomStep(dir) {
       const next = dir === 1 ? dist / ZOOM_STEP : dist * ZOOM_STEP;
-      dist = Math.min(Math.max(next, fitDist * MIN_DIST_FRACTION), fitDist);
+      dist = Math.min(Math.max(next, openDist * MIN_DIST_FRACTION), wholeDist);
       apply();
       return scale();
     },

@@ -50,8 +50,7 @@ import { hash01 } from "../render/motion";
 import { POLE_HEIGHT, blockLayout, cumulative, pointAlong, runPoints, wireLayout, type Block, type Vec3, type WireRun } from "./layout";
 import { lampBrightness, nodeLookInto, wireLook, type NodeLook } from "./look";
 import { CAPTION_FONT_PX, FEED_FONT_PX, captionsFor, scaleForPx, type NodeCaption } from "./captions";
-import { createCaptionSprite, defaultTextSurface, type CaptionSprite, type TextSurfaceFactory } from "./text";
-import { fuseTickOffsets } from "../render/fusebar";
+import { createBarSprite, createCaptionSprite, defaultTextSurface, type BarSprite, type CaptionSprite, type TextSurfaceFactory } from "./text";
 
 export interface SceneBundle {
   scene: Scene;
@@ -117,10 +116,12 @@ function poolTexture(): DataTexture {
 export interface NodeParts {
   /** A breaker or switch lever: its geometry runs from its pivot (the mesh origin) to its tip, `userData.length` long. */
   lever?: Mesh;
+  /** A breaker's or fuse box's box. */
+  body?: Mesh;
   /** A switch's ground chevron. */
   chevron?: Mesh;
-  /** A fuse box's bar fill: x-scale is the fill fraction. */
-  fuseFill?: Mesh;
+  /** A fuse box's load bar sprite; `userData` holds the fill, step, ticks and blown it was drawn with. */
+  fuseBar?: Sprite;
 }
 
 interface NodeView {
@@ -146,10 +147,14 @@ export interface SceneOptions {
 }
 
 const BREAKER_LEVER = 0.55;
+/** The breaker's box, w x h x d: as big as the fuse box (0.6 x 0.5 x 0.4) or bigger. */
+const BREAKER_BODY: readonly [number, number, number] = [0.7, 0.55, 0.45];
 const SWITCH_LEVER = 0.65;
 const CHEVRON_AT = 0.9;
-const FUSE_BAR_W = 0.5;
-const STEP_COLOUR: readonly [number, number, number] = [0x3ddc97, 0xffb02e, 0xff5a4d];
+const FUSE_CAPTION_Y = 1.7;
+const LAMP_HEAD_Y = 1.3;
+/** How far (world units) a lamp's caption sits beyond it, away from its wire. */
+const LAMP_CAPTION_OFFSET = 1.0;
 const RIBBON = 0xff3df0;
 
 export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle {
@@ -327,11 +332,14 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
         break;
       }
       case "breaker": {
-        g.add(post, box(0.5, 0.4, 0.3, metal(0x2a3345), 0, 0.95, 0));
-        g.add(ribbonTag(0, 1.08, 0.16));
+        // A clear box on its post, about the fuse box's size, with the lever on top and the tribe's ribbon on its face.
+        const bodyMesh = box(BREAKER_BODY[0], BREAKER_BODY[1], BREAKER_BODY[2], body, 0, 0.95, 0);
+        g.add(post, bodyMesh);
+        g.add(ribbonTag(0, 0.95, BREAKER_BODY[2] / 2 + 0.02));
+        parts.body = bodyMesh;
         // The lever stands up for ON and lies flat toward the camera for OFF.
         const pivot = new Group();
-        pivot.position.set(0, 1.0, 0.17);
+        pivot.position.set(0, 0.95 + BREAKER_BODY[1] / 2, 0);
         const lever = new Mesh(new BoxGeometry(0.09, BREAKER_LEVER, 0.09).translate(0, BREAKER_LEVER / 2, 0), new MeshStandardMaterial({ color: 0xf2f5fb, emissive: 0xf2f5fb, emissiveIntensity: 0.35 }));
         lever.userData["length"] = BREAKER_LEVER;
         pivot.add(lever);
@@ -344,7 +352,7 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
         break;
       }
       case "switch": {
-        const drumMat = metal(0x2a3345);
+        const drumMat = metal();
         const drum = new Mesh(new CylinderGeometry(0.32, 0.32, 0.4, 16), drumMat);
         drum.position.y = 0.95;
         g.add(post, drum);
@@ -376,40 +384,18 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
         break;
       }
       case "fusebox": {
-        g.add(post, box(0.6, 0.5, 0.4, body, 0, 0.95, 0));
+        const fuseBody = box(0.6, 0.5, 0.4, body, 0, 0.95, 0);
+        parts.body = fuseBody;
+        g.add(post, fuseBody);
         const fuseMat = new MeshStandardMaterial({ color: 0xe8e2c8, emissive: WARM, emissiveIntensity: 0 });
         const fuse = cyl(0.07, 0.3, fuseMat, 0, 0.95, 0.24);
         fuse.rotation.z = Math.PI / 2;
         g.add(fuse);
-        // The load bar lies on the box's lid: segments by ticks, filled by length, coloured second.
-        let fillMat: MeshBasicMaterial | null = null;
-        let snap: Mesh | null = null;
-        if (n.rating !== undefined) {
-          const bar = new Group();
-          bar.position.set(0, 1.22, 0.05);
-          bar.add(box(FUSE_BAR_W, 0.03, 0.14, new MeshBasicMaterial({ color: 0x10151f })));
-          fillMat = new MeshBasicMaterial({ color: STEP_COLOUR[0] });
-          const fill = new Mesh(new BoxGeometry(FUSE_BAR_W, 0.05, 0.11).translate(FUSE_BAR_W / 2, 0, 0), fillMat);
-          fill.position.set(-FUSE_BAR_W / 2, 0.01, 0);
-          bar.add(fill);
-          for (const off of fuseTickOffsets(n.rating, FUSE_BAR_W)) bar.add(box(0.015, 0.07, 0.15, new MeshBasicMaterial({ color: 0x0b0f17 }), off - FUSE_BAR_W / 2, 0.01, 0));
-          snap = box(0.04, 0.09, 0.3, new MeshBasicMaterial({ color: STEP_COLOUR[2] }), 0, 0.03, 0);
-          snap.rotation.y = 0.6;
-          snap.visible = false;
-          bar.add(snap);
-          g.add(bar);
-          parts.fuseFill = fill;
-        }
-        const fillMesh = parts.fuseFill;
+        // The load bar is a camera-facing sprite under the caption (see below), so it keeps a fixed pixel size like 2D's.
         update = (look, _s, t, cap) => {
           body.emissiveIntensity = look.live ? 0.4 + 0.2 * Math.sin(t * 2) : 0;
           fuseMat.emissiveIntensity = look.live ? 0.7 : 0;
           fuseMat.color.setHex(cap.blown ? SCORCH : 0xe8e2c8);
-          if (fillMesh && fillMat) {
-            fillMesh.scale.x = cap.fill ?? 0;
-            fillMat.color.setHex(STEP_COLOUR[cap.step ?? 0]);
-          }
-          if (snap) snap.visible = cap.blown === true;
         };
         break;
       }
@@ -494,6 +480,18 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
     tone: string;
   }
   const capViews: CaptionView[] = [];
+  const barViews: { id: string; bar: BarSprite }[] = [];
+  const awayFromWire = (id: string, pos: readonly [number, number]): [number, number] => {
+    const l = puzzle.lines.find((q) => q.from === id || q.to === id);
+    const other = l ? posOf.get(l.from === id ? l.to : l.from) : undefined;
+    let dx = other ? pos[0] - other[0] : 1;
+    let dz = other ? pos[1] - other[1] : 0;
+    const len = Math.hypot(dx, dz);
+    if (len < 1e-9) return [1, 0];
+    dx /= len;
+    dz /= len;
+    return [dx, dz];
+  };
   const captionSprites: Sprite[] = [];
   let unit = scaleForPx(1, 720, 40);
   const addCaption = (id: string, x: number, y: number, z: number, fontPx: number, bold: boolean, anchorY: number, place: boolean): void => {
@@ -509,9 +507,22 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
   for (const n of puzzle.nodes) {
     const [x, z] = n.pos;
     if (n.type === "feed") addCaption(n.id, x, 1.75, z, FEED_FONT_PX, true, 0, false);
-    else if (n.type === "breaker") addCaption(n.id, x, 1.6, z, CAPTION_FONT_PX, false, 0, false);
-    else if (n.type === "fusebox" && n.rating !== undefined) addCaption(n.id, x, 1.4, z, CAPTION_FONT_PX, false, 0, false);
-    else if (n.type === "lamp") addCaption(n.id, x, 1.05, z, CAPTION_FONT_PX, false, 1, false);
+    else if (n.type === "breaker") addCaption(n.id, x, 0.95 + BREAKER_BODY[1] / 2 + BREAKER_LEVER + 0.12, z, CAPTION_FONT_PX, false, 0, false);
+    else if (n.type === "fusebox" && n.rating !== undefined) {
+      addCaption(n.id, x, FUSE_CAPTION_Y, z, CAPTION_FONT_PX, false, 0, false);
+      // The load bar hangs from the same anchor, just under the caption.
+      const bar = createBarSprite(surface, dpr);
+      bar.sprite.position.set(x, FUSE_CAPTION_Y, z);
+      bar.setUnit(unit);
+      scene.add(bar.sprite);
+      barViews.push({ id: n.id, bar });
+      const part = parts_.get(n.id);
+      if (part) part.fuseBar = bar.sprite;
+    } else if (n.type === "lamp") {
+      // Beside the lamp, on the side away from its wire, so the words never sit on the bulb or the line coming in.
+      const [ax, az] = awayFromWire(n.id, n.pos);
+      addCaption(n.id, x + ax * LAMP_CAPTION_OFFSET, LAMP_HEAD_Y, z + az * LAMP_CAPTION_OFFSET, CAPTION_FONT_PX, false, 0.5, false);
+    }
   }
   const placeNames = new Map<string, string>();
   for (const p of blocks.places) {
@@ -536,6 +547,7 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
     setViewport(_width, height, fovDeg) {
       unit = scaleForPx(1, height, fovDeg);
       for (const c of capViews) c.cs.setUnit(unit);
+      for (const b of barViews) b.bar.setUnit(unit);
     },
     update(state, hover, t) {
       if (hover !== lastHover) {
@@ -547,6 +559,10 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
       }
       const recs = captionSet.update(state);
       for (const v of views) v.update(nodeLookInto(state, v.id, look), state, t, recs.get(v.id)!);
+      for (const b of barViews) {
+        const rec = recs.get(b.id)!;
+        b.bar.draw(rec.fill ?? 0, rec.step ?? 0, rec.ticks ?? 0, rec.blown === true);
+      }
       for (const c of capViews) {
         if (c.place) {
           if (!c.lines) {
