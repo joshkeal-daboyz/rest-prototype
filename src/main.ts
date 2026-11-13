@@ -2,7 +2,7 @@
 // No game rules here: each layer owns its own. Picking another map rebuilds the stack.
 import { EventBus, puzzleFeeds, type Puzzle } from "./core";
 import { createGrid, type Grid, type GridState } from "./grid";
-import { createMapRenderer, planRelight, type MapBlockers, type MapPanView, type MapPlaces, type MapRenderer } from "./render";
+import { createMapRenderer, planRelight, type MapBlockers, type MapCentre, type MapPanView, type MapPlaces, type MapRenderer } from "./render";
 import { attachPan, createMapPlay, type MapPlay } from "./play";
 import { createAudio } from "./audio";
 import { mountUI, restoreAudio, type UI } from "./ui";
@@ -86,6 +86,10 @@ if (entries.length === 0) {
   }
   let session: Session | null = null;
 
+  // The 3D view (ticket 037) is chosen once, from the URL: a canvas keeps one kind of context. Its code loads only then.
+  const view3d = new URLSearchParams(location.search).get("view") === "3d";
+  let make3d: typeof import("./render3d").createMapRenderer3d | null = null;
+
   const urlFor = (id: string): string => {
     const url = new URL(location.href);
     url.searchParams.set("puzzle", id);
@@ -100,9 +104,10 @@ if (entries.length === 0) {
     const bus = new EventBus();
     const grid = createGrid(entry.puzzle, bus);
     const detachAudio = audio.attach(bus);
-    const renderer = createMapRenderer(canvas as HTMLCanvasElement, entry.puzzle, {
-      insets: { top: hudTopInset(), bottom: bottomInset() },
-    });
+    const rendererOpts = { insets: { top: hudTopInset(), bottom: bottomInset() } };
+    const renderer: MapRenderer & MapPanView & MapPlaces & MapCentre & MapBlockers & { dispose?(): void } = make3d
+      ? make3d(canvas as HTMLCanvasElement, entry.puzzle, rendererOpts)
+      : createMapRenderer(canvas as HTMLCanvasElement, entry.puzzle, rendererOpts);
     const play = createMapPlay(entry.puzzle, grid, renderer, bus);
     const detachPlay = play.attach(canvas as HTMLCanvasElement);
     const detachPan = attachPan(canvas as HTMLCanvasElement, renderer);
@@ -191,6 +196,7 @@ if (entries.length === 0) {
       detachAudio();
       detachPlay();
       detachPan();
+      renderer.dispose?.();
       (canvas as HTMLCanvasElement).removeEventListener("pointermove", onCanvasMove);
       (canvas as HTMLCanvasElement).removeEventListener("pointerleave", onCanvasLeave);
       (canvas as HTMLCanvasElement).removeEventListener("click", onPanelClick);
@@ -231,7 +237,15 @@ if (entries.length === 0) {
   }
 
   const requested = new URLSearchParams(location.search).get("puzzle");
-  open(requested !== null && byKey.has(requested) ? requested : (entries[0] as MapEntry).key);
+  const first = requested !== null && byKey.has(requested) ? requested : (entries[0] as MapEntry).key;
+  if (view3d) {
+    void import("./render3d").then((m) => {
+      make3d = m.createMapRenderer3d;
+      open(first);
+    });
+  } else {
+    open(first);
+  }
 
   window.addEventListener("resize", () => {
     if (!session) return;
