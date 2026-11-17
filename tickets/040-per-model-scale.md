@@ -1,7 +1,7 @@
 # 040 · Per-model scale in the asset pipeline, and the transform-bake fix
 
 owner: grid-simulator (owns `tools/`; Python allowed in `tools/blender/` only)
-status: open
+status: done
 branch: `ticket/040-per-model-scale`
 
 ## Josh's words
