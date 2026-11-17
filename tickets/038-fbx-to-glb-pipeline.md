@@ -1,7 +1,7 @@
 # 038 · A Blender pipeline that turns purchased Synty FBX packs into GLB files for the 3D view
 
 owner: grid-simulator (owns `tools/`; see Open question 5)
-status: open (amendment A; built once, reviewed, now re-opened for textures)
+status: open (amendment B; amendment A built at b374830, gate green; re-opened for texture aliases)
 branch: `ticket/038-fbx-to-glb-pipeline`
 
 ## Josh's words
@@ -9,6 +9,9 @@ branch: `ticket/038-fbx-to-glb-pipeline`
 
 After the first real run (amendment A, below):
 > "Fix textures first"
+
+After amendment A's real run left 99 models `missing-texture` (amendment B, below):
+> "Add alias map"
 
 ## Goal
 Josh drops a Synty pack's FBX files and its atlas texture into `assets/private/in/<pack>/`, runs `npm run assets:convert`, and gets one GLB per pack in `assets/private/out/` plus `assets/private/out/manifest.json` listing each model's name, base-centred bounds in metres and triangle count. A headless Blender run does the conversion. If Blender isn't installed, the command says how to install it and stops. None of these files is ever committed, because the repo is public and Synty's licence forbids sharing source files. A fresh clone without them builds, tests and runs exactly as now. **This ticket makes the files only. The renderer doesn't load them yet:** the loader (`GLTFLoader`, mapping names to poles, lamps, buildings and props, falling back to the placeholder shapes) is a follow-up `renderer` ticket, cut after this one is merged and Josh has seen a manifest from a real pack.
@@ -123,6 +126,65 @@ If several files match at one step, the first in sorted path order wins. A found
 
 **Unchanged:** every earlier criterion still holds, except that the `no-atlas` wording in step 1 and Interfaces is replaced by this amendment. The earlier real-pack criterion (POLYGON, atlas mode) still applies to atlas packs.
 
+## Amendment B: texture aliases (Josh, after amendment A's real run: "Add alias map")
+
+**What amendment A's run showed** (b374830, gate green, SIMPLE Town, `pack.json` `{ "scale": 100 }`): 99 of 173 models are `missing-texture`. Their FBX materials reference Photoshop source files that aren't in the pack: `MasterTexture02.psd` (63 models: the `Building_*`, `Env_*`, `Prop_*` family), `Andrew_MasterTexture.psd` (13), `plants2.psd` (7: bushes, grass, hedge, trees), `SimpleAirport_Mike.psd` (1), one `.psd` per vehicle (`ambulance`, `bus`, `family`, `Police`, `firetruck`, `RubishTruck`, `Taxi`, `ute`, `vantex`), and two models with only a generic untextured material (`road_cornerLines_mesh`: `material:lambert1`; `Env_Road_Ramp_Straight`: `material:lambert2`). The images these stand for are probably already in `Textures/` (`SimpleTown.png`, `SimpleTown_Texture_Update.png`, `Props.png`, `Road.png`, `Nature_Trees.png`, `Vehicle_*.png`, ...) under other names. Today only `Env_Road_Corner`/`Ramp` reference `SimpleTown.png`, and `ST_Veh_*_Z`, `PetrolStation` and `PoliceStation` reference `SimpleTown_Texture_Update.png`.
+
+**`pack.json` gains one optional key**, read by the wrapper and passed on:
+- `"textureAliases": { "<key>": "<image path relative to the pack>" }`. A key is either
+  - a **file name** (no `/` or `\`), matched against the basename of a material's referenced path **case-insensitively and ignoring the extension**: the key and the referenced basename are both reduced to their lowercased stem (everything before the last `.`, or the whole name if there is none). So `MasterTexture02.psd`, `mastertexture02.PNG` and `MasterTexture02` are the same key, and all match a reference to `C:/art/MasterTexture02.psd`; or
+  - `material:<name>`, matched against a material's name after dropping a Blender `.001`-style suffix, case-insensitively. It matches every material of that name in the pack, whether or not it references an image.
+- Passed as one `--texture-alias <normalised key>=<abs image>` per entry, sorted by normalised key. The normalised key is the lowercased stem for file keys and `material:<lowercased name>` for material keys. The script splits each argument on its first `=`.
+- **Refused before Blender runs** (exit 1, nothing spawned, the error names the pack and the key): `textureAliases` isn't an object; a value isn't a string; a value resolves outside the pack folder (`../x`, or an absolute path elsewhere); a value doesn't end in one of the indexed image extensions (`.png .jpg .jpeg .tga .tif .tiff .bmp`, case-insensitive); a file key contains `/`, `\` or `=`, or is empty; a `material:` key has an empty name; two keys normalise to the same key (the error names both as written). An alias naming a file that doesn't exist is an error naming the pack, the key and the path.
+
+**The lookup order (per-model mode, replaces amendment A's list).** For each material on each model's meshes, the first rule that gives a file wins:
+1. **Override** (`textureOverrides`, unchanged). The model's stem is in the overrides. Every material on that model uses that image. Overrides still beat everything, aliases included.
+2. **The reference as it stands** (unchanged).
+3. **The referenced file name** (unchanged: exact name, case-insensitive name, case-insensitive stem with any image extension, in the index).
+4. **Alias (new).** First a file-name alias matching the referenced basename (only for a material that references something), then a `material:` alias matching the material's name. The first that matches gives the file.
+5. **The material name** (amendment A's rule 4, unchanged).
+6. **The model's name, a guess** (amendment A's rule 5, unchanged; still only for a material with no image reference, still `texture-guessed`).
+
+A model whose materials resolve through rules 1 to 5 carries **no** texture warning; an alias is a statement of fact by Josh, not a guess. The "when nothing is found" rules, `no-uv`, the report fields and the embed-once rule are unchanged; an aliased image is indexed and embedded like any other. After the run the script prints one line per alias that matched no material (`texture alias <key> matched no material`) to stdout; it isn't a report field or a warning (no type change).
+
+**Watch the generic names.** A `material:lambert1` alias matches **every** `lambert1` in the pack, including `town_hall_mesh`'s, which then stops being guessed. Use a `material:` alias only when it's right for every model with that material; for one model, use `textureOverrides`. The builder says which it used for `road_cornerLines_mesh` and `Env_Road_Ramp_Straight`, and checks the town hall still gets `Town_Hall_*.png`.
+
+**Two small fixes folded in:**
+- **(a) OBJ hint.** For an FBX older than 7100, the "an OBJ copy exists" hint also accepts a `.obj` whose stem is the FBX's stem followed by one or more digits, case-insensitive (`road_crossing_mesh.fbx` -> `road_crossing_mesh1.obj`). An exact-stem copy wins over a digits copy; among several of one kind, the first in sorted relative path order wins. The message is unchanged otherwise.
+- **(b) `scale-suspect`, report only.** The builder looks at the three buildings that carry `scale-suspect` on the real pack and reports, for each, its manifest size in metres, what the model is, a plausible real-world size, and a verdict: genuinely oversized (the pack's `scale` is wrong for it), or a fair size that the `ASSET_SANE_SIZE_MAX` (60 m) threshold flags wrongly. **No change to the threshold or to `src/core/assets.ts`.** If the threshold looks wrong, the builder says so and the architect turns it into an open question for Josh.
+
+**Selftest additions** (generated in code, nothing committed). The selftest run passes aliases as the wrapper would for a `pack.json` with `"textureAliases": { "Master_Src.PNG": "Textures/alias_atlas.png", "material:Painted_Metal": "Textures/metal_sheet.png", "tex_crate.psd": "Textures/alias_atlas.png" }`. New boxes:
+- `alias_ref`: material references `C:/art/Master_Src.psd`; no `Master_Src.*` file exists. Expect `textures` = `["Textures/alias_atlas.png"]` and no texture warning (file-name alias, case and extension ignored).
+- `alias_mat`: material `Painted_Metal.001`, no reference; no file named like the material. Expect `["Textures/metal_sheet.png"]` and no warning (material alias, suffix dropped).
+- `alias_order`: material references `C:/nowhere/tex_crate.psd`, and `Textures/tex_crate.png` exists. Expect `["Textures/tex_crate.png"]`: rule 3 beats the `tex_crate.psd` alias.
+- Every amendment A box keeps its expected result (in particular `guess_mesh` is still `texture-guessed`, and `lost_ref` still `missing-texture` with `["nowhere.png"]`).
+
+### Acceptance criteria (amendment B)
+
+**Wrapper** (Vitest, in the gate, no Blender)
+- [ ] **Vitest: alias arguments.** `{ "scale": 100, "textureAliases": { "MasterTexture02.psd": "Tex/SimpleTown.png", "material:Lambert1": "Tex/Road.png", "plants2.PSD": "Tex/Nature Trees.png" } }` gives spawn arguments ending `--texture-alias mastertexture02=<abs Tex/SimpleTown.png> --texture-alias material:lambert1=<abs Tex/Road.png> --texture-alias plants2=<abs Tex/Nature Trees.png>` (sorted by normalised key; the path with a space is one array item). With overrides too, the order is `--scale`, `--textures`, the `--texture-override` items, then the `--texture-alias` items. No `textureAliases` means no `--texture-alias`.
+- [ ] **Vitest: alias validation.** Each refusal listed above (not an object, non-string value, outside the pack, non-image extension, key with `/` `\` `=` or empty, empty `material:` name, two keys normalising alike such as `A.psd` and `a.png`, missing file) is an error before spawning, naming the pack and the key (and the path, for a missing file), and `spawn` is never called.
+- [ ] **Vitest: selftest checker.** Passes on a fixture holding the expected results of every selftest box, the three new ones included, and fails naming the box and field when one is wrong (say, `alias_ref` with `missing-texture`, or `alias_order` with `Textures/alias_atlas.png`).
+- [ ] `npm run gate` is green and the test count grew by this amendment's tests.
+
+**With Blender** (the builder runs these and puts the numbers and evidence in its report; not in the gate)
+- [ ] **Builder checks: selftest.** `npm run assets:selftest` prints `selftest ok` on Blender 5.3 with the new boxes.
+- [ ] **Builder checks: work out the aliases for SIMPLE Town, by evidence.** For each `.psd` name in the list above (and the two `lambert` materials), find which existing image in the pack it stands for. Evidence, in this order:
+  1. **Primary: the OBJ/MTL copies** in `SIMPLE_Town_SourceFiles/SourceFiles/Obj/`. For each model in a `.psd` family that has an OBJ copy, read its `.mtl` (`map_Kd` and friends) and record which image it names. If the MTLs name real PNGs, that settles the family.
+  2. The pack's demo and source scenes (e.g. `Simple_Town_Demo.ma`: Maya ASCII `file` nodes' `.fileTextureName`, and which shading groups the family's meshes are in), and any ICON/preview image in the pack.
+  3. Experiment: render previews with headless Blender (a throwaway script in the scratchpad, not committed) of a few models from each family with the candidate image, and compare against the ICON/demo images. A wrong atlas shows as stripes or wrong colours; reject it. If `SimpleTown.png` and `SimpleTown_Texture_Update.png` both fit, prefer the one the MTL names; failing that, the one that renders correctly for every model in the family, with per-model exceptions pinned by `textureOverrides`.
+  Write the result into `assets/private/in/simple-town/pack.json` as `textureAliases` (plus any `textureOverrides` needed). That file is gitignored, so also record it in `tools/blender/README.md` as the worked example for this pack: the full `pack.json`, and one line per alias saying what evidence settled it (which MTL, scene node or render).
+- [ ] **Builder checks: the real pack with aliases.** `npm run assets:convert simple-town` in this worktree:
+  - The `missing-texture` count, before (99) and after. Get it as close to 0 as the evidence allows, without guessing: an alias with no evidence isn't written. Every model still `missing-texture` or `texture-guessed` is listed with its `missingTextures` and why it's left (no candidate image, candidates render wrong, no evidence).
+  - Every amendment A real-pack check still holds (town hall, memorial, graves, bin, the already-right models, no `no-atlas`, 173 assets and 3 failures), except that "no asset lists `SimpleTown.png` unless its own FBX references it" now reads "... unless its own FBX references it or an alias with recorded evidence maps it there".
+  - Fix (a): all three failures (`fire_truck_mesh`, `roadLane_NoLines_straight_mesh`, `road_crossing_mesh`) name FBX version 6100 and an OBJ copy, `road_crossing_mesh`'s being `road_crossing_mesh1.obj` (or an exact-stem copy if one exists).
+  - Fix (b): the `scale-suspect` report for the three buildings, as described above.
+  - Renders (scratchpad PNGs, for Josh) of at least one model per alias family, plus the town hall, so he can see they're textured right.
+- [ ] **Builder checks: still embedded once.** The number of images in the GLB equals the number of distinct `textures` paths in the pack's manifest.
+- [ ] **Josh checks:** opens `assets/private/out/simple-town.glb` in https://gltf-viewer.donmccurdy.com/ (or Blender). The houses, shops, canals, beach pieces, trees and vehicles are textured, with no rainbow stripes.
+
+**Unchanged:** every earlier criterion still holds, apart from the lookup order above (which replaces amendment A's numbered list) and the `SimpleTown.png` wording just given. The allowed files are the same; the local `assets/private/in/simple-town/pack.json` isn't a repo file (gitignored) and may be edited.
+
 ## Files
 - **`tools/assets/`** (new): `convert.ts`, `blender.ts`, `manifest.ts`, their `*.test.ts`, and `fixtures/` (hand-written report JSON only).
 - **`tools/blender/`** (new): `convert_fbx.py` and a short `README.md` (install Blender, the folder layout, `pack.json`, the two commands, and that nothing in `assets/private/` may be committed).
@@ -148,3 +210,5 @@ If several files match at one step, the first in sorted path order wins. A found
 6. **Decided rules.** None are touched. This is tooling only, with no rule, schema, payload or puzzle change. No `rules-coverage.md` row changes.
 7. **OBJ fallback for old FBX (amendment A).** Three SIMPLE Town FBX files are version 6100, which Blender won't import, and the pack has OBJ copies. The fallback would be small: when an FBX fails and a same-stem `.obj` exists, import that with `bpy.ops.wm.obj_import` and add an `obj-fallback` warning. But OBJ brings its own axis and unit conventions, plus `.mtl` texture lookups, for a fire truck and two road pieces. **Default: no fallback.** They're reported as failures, named, with the OBJ path in the message. Say so if you want the fallback, and it becomes a small follow-up ticket with a new warning type.
 8. **Guessing a texture from the model's name (amendment A, rule 5).** This is what textures the town hall, which references nothing. It can pick the wrong variant (`Town_Hall_a` vs `_b`), so it's flagged `texture-guessed`, and `textureOverrides` pins the right one. **Default: guess and flag.** The alternative is no guessing: the model gets `missing-texture` until you write an override.
+9. **Amendment B adds no type, warning or dependency.** Aliased models carry no warning (an alias is your statement, not a guess), so `src/core/assets.ts` is unchanged. The alternative is a new `texture-aliased` warning so the manifest shows which models came through an alias; that would be a `src/core/` change by the architect before the build. **Default: no warning.**
+10. **`scale-suspect` threshold (amendment B, fix b).** Left as it is (60 m). The builder reports whether the three flagged SIMPLE Town buildings are really oversized. If the threshold is what's wrong, it comes back to you as a question then.
