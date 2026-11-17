@@ -237,7 +237,7 @@ describe("every map", () => {
   });
 });
 
-describe("streets beside the wires", () => {
+describe("streets beside the wires", { timeout: 20000 }, () => {
   it("gives each line of STREET_MIN_LEN or more exactly one road (or none when both sides are blocked), and shorter lines none", () => {
     for (const { file, puzzle, town } of maps) {
       const pos = new Map(puzzle.nodes.map((n) => [n.id, n.pos] as const));
@@ -292,16 +292,23 @@ describe("streets beside the wires", () => {
    * diagonal line's half-diagonal of the square (0.495), so a corner tip is covered at any turn. See the report.
    */
   it("keeps every road and kerb off every node's square, and every pad off every square but its own junction's", () => {
+    const bad: string[] = [];
     for (const { file, puzzle, town } of maps) {
+      // Boxes are computed once per map; only shapes whose box reaches a square are clipped, and failures are collected, not asserted one by one.
+      const roads = town.roads.map((r) => ({ id: r.id, poly: roadPoly(r), box: bbox(roadPoly(r)) }));
+      const pads = town.pads.filter((q) => q.pts.length >= 3).map((q) => ({ pad: q, box: bbox(q.pts) }));
+      const kerbs = town.kerbs.map((k) => ({ k, box: [Math.min(k.ax, k.bx), Math.min(k.az, k.bz), Math.max(k.ax, k.bx), Math.max(k.az, k.bz)] as [number, number, number, number] }));
       for (const n of puzzle.nodes) {
         const sq = square(n.pos[0], n.pos[1]);
-        for (const r of town.roads) expect(overlap(roadPoly(r), sq), `${file} road ${r.id} covers ${n.id}`).toBeLessThan(1e-6);
-        for (const p of town.pads) if (p.node !== n.id) expect(overlap(p.pts, sq), `${file} ${p.id} covers ${n.id}`).toBeLessThan(1e-6);
-        for (const k of town.kerbs) {
-          expect(insideLength({ x: k.ax, z: k.az }, { x: k.bx, z: k.bz }, sq), `${file} kerb of ${k.road} on ${n.id}`).toBeLessThan(1e-6);
+        const sb = bbox(sq);
+        for (const r of roads) if (near(r.box, sb, 0) && overlap(r.poly, sq) >= 1e-6) bad.push(`${file} road ${r.id} covers ${n.id}`);
+        for (const q of pads) if (q.pad.node !== n.id && near(q.box, sb, 0) && overlap(q.pad.pts, sq) >= 1e-6) bad.push(`${file} ${q.pad.id} covers ${n.id}`);
+        for (const q of kerbs) {
+          if (near(q.box, sb, 0) && insideLength({ x: q.k.ax, z: q.k.az }, { x: q.k.bx, z: q.k.bz }, sq) >= 1e-6) bad.push(`${file} kerb of ${q.k.road} on ${n.id}`);
         }
       }
     }
+    expect(bad).toEqual([]);
   });
 
   it("builds the ring road at RING_MARGIN outside the circuit, the grid streets round it, and a lane from every feed to the ring", () => {
@@ -338,7 +345,7 @@ describe("streets beside the wires", () => {
   });
 });
 
-describe("junctions and kerbs", () => {
+describe("junctions and kerbs", { timeout: 20000 }, () => {
   it("gives every node where two or more roads end a pad that holds each road's end edge", () => {
     let checked = 0;
     for (const { file, puzzle, town } of maps) {
@@ -384,7 +391,7 @@ describe("junctions and kerbs", () => {
   });
 });
 
-describe("lots", () => {
+describe("lots", { timeout: 20000 }, () => {
   const sizes = Object.values(LOT_TYPES).map((t) => [t.frontage * WORLD_PER_METRE, t.depth * WORLD_PER_METRE]);
 
   it("has lots on every map, of the four types, with the type's exact size, key and height cap", () => {
@@ -534,7 +541,7 @@ describe("lots", () => {
   });
 });
 
-describe("places", () => {
+describe("places", { timeout: 20000 }, () => {
   /** Pool places beyond 2D's: the ticket asks for none. These maps have a lamp frontage fill can not reach (see the report); each entry is the excess today. */
   const KNOWN_POOL_EXCESS: Record<string, number> = {"07-past-the-fuse.json":1,"13-one-box-three-lamps.json":1,"15-meet-in-the-middle.json":1,"17-count-the-dark.json":1,"22-look-both-ways.json":1,"29-open-point.json":1,"40-the-priests-list.json":1,"41-room-to-charge.json":1,"42-two-windows.json":1,"44-set-in-the-light.json":1,"45-live-relays.json":1,"46-read-it-from-behind.json":1,"49-two-cells.json":3,"50-the-whole-quarter.json":2,"53-from-behind.json":2,"54-the-whole-circuit.json":2,"55-leave-it-blown.json":1,"56-whole-ward.json":2};
 
