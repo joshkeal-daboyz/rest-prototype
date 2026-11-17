@@ -21,9 +21,11 @@ export class ManifestError extends Error {
 
 const WARNINGS: readonly AssetWarning[] = ["scale-suspect", "no-uv", "missing-texture", "texture-guessed"];
 
-/** What the Python script writes: the pack's assets and failures, and the Blender that ran. */
+/** What the Python script writes: the pack's assets and failures, the pack's scale, and the Blender that ran. */
 export interface PackReport {
   blenderVersion: string | null;
+  /** The pack's `pack.json` scale (1 by default). Always set by a strict parse; absent only from a manifest written before ticket 040. */
+  scale?: number;
   assets: AssetEntry[];
   failures: AssetFailure[];
 }
@@ -62,13 +64,26 @@ function packRelativePath(pack: string, field: string, p: string): string {
   return p;
 }
 
+/** A scale factor: a finite number above 0. Absent is an error unless the parse is lenient (an older manifest), which then gives undefined. */
+function scaleField(pack: string, field: string, v: unknown, required: boolean): number | undefined {
+  if (v === undefined && !required) return undefined;
+  if (typeof v !== "number" || !Number.isFinite(v) || v <= 0) {
+    throw new ManifestError(pack, field, v === undefined ? "missing (the factor the model was converted with)" : "must be a finite number above 0");
+  }
+  return v;
+}
+
 function nonEmptyString(pack: string, field: string, v: unknown): string {
   if (typeof v !== "string" || v === "") throw new ManifestError(pack, field, "must be a non-empty string");
   return v;
 }
 
-/** Validate one pack's report. Throws ManifestError on the first problem. */
-export function parsePackReport(pack: string, raw: unknown): PackReport {
+/**
+ * Validate one pack's report. Throws ManifestError on the first problem. The pack's `scale` and every asset's `scale`
+ * are required (ticket 040); only `readPriorPacks` passes `requireScale: false`, for a manifest written before them.
+ */
+export function parsePackReport(pack: string, raw: unknown, opts: { requireScale?: boolean } = {}): PackReport {
+  const requireScale = opts.requireScale ?? true;
   if (!isObject(raw)) throw new ManifestError(pack, "report", "must be a JSON object");
   const assetsRaw = raw["assets"];
   const failuresRaw = raw["failures"];
@@ -103,7 +118,17 @@ export function parsePackReport(pack: string, raw: unknown): PackReport {
     if (!warnings.includes("missing-texture") && missingTextures.length > 0) {
       throw new ManifestError(pack, `${at}.warnings`, "lists missingTextures but lacks the missing-texture warning");
     }
-    return { name, source, bounds: bounds(pack, `${at}.bounds`, a["bounds"]), triangles: tri, textures, missingTextures, warnings };
+    const scale = scaleField(pack, `${at}.scale`, a["scale"], requireScale);
+    return {
+      name,
+      source,
+      bounds: bounds(pack, `${at}.bounds`, a["bounds"]),
+      ...(scale !== undefined ? { scale } : {}),
+      triangles: tri,
+      textures,
+      missingTextures,
+      warnings,
+    };
   });
 
   const failures: AssetFailure[] = failuresRaw.map((f: unknown, i: number) => {
@@ -113,8 +138,9 @@ export function parsePackReport(pack: string, raw: unknown): PackReport {
     return { source: nonEmptyString(pack, `${at}.source`, f["source"]), error: f["error"] };
   });
 
+  const packScale = scaleField(pack, "scale", raw["scale"], requireScale);
   const bv = raw["blenderVersion"];
-  return { blenderVersion: typeof bv === "string" && bv !== "" ? bv : null, assets, failures };
+  return { blenderVersion: typeof bv === "string" && bv !== "" ? bv : null, ...(packScale !== undefined ? { scale: packScale } : {}), assets, failures };
 }
 
 export interface PackInput {
@@ -153,7 +179,14 @@ export function buildManifest(inputs: readonly PackInput[], opts: BuildOptions):
     const report = parsePackReport(input.pack, input.report);
     blenderVersion ??= report.blenderVersion;
     const glb = relative(opts.manifestDir, input.glbPath).split(sep).join("/");
-    byName.set(input.pack, { pack: input.pack, glb, atlas: input.atlas, assets: report.assets, failures: report.failures });
+    byName.set(input.pack, {
+      pack: input.pack,
+      glb,
+      atlas: input.atlas,
+      ...(report.scale !== undefined ? { scale: report.scale } : {}),
+      assets: report.assets,
+      failures: report.failures,
+    });
   }
   const packs = [...byName.values()].sort((a, b) => compareNames(a.pack, b.pack));
   return { version: ASSET_MANIFEST_VERSION, generatedAt: opts.generatedAt, blenderVersion: blenderVersion ?? opts.blenderVersion, packs };
@@ -172,8 +205,15 @@ export function readPriorPacks(text: string): AssetPack[] {
       if (!isObject(p) || typeof p["pack"] !== "string" || typeof p["glb"] !== "string") return [];
       const atlas = p["atlas"];
       if (atlas !== null && typeof atlas !== "string") return [];
-      const report = parsePackReport(p["pack"], p);
-      out.push({ pack: p["pack"], glb: p["glb"], atlas, assets: report.assets, failures: report.failures });
+      const report = parsePackReport(p["pack"], p, { requireScale: false });
+      out.push({
+        pack: p["pack"],
+        glb: p["glb"],
+        atlas,
+        ...(report.scale !== undefined ? { scale: report.scale } : {}),
+        assets: report.assets,
+        failures: report.failures,
+      });
     }
     return out;
   } catch {

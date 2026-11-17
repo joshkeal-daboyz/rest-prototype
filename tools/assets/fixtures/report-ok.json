@@ -1,5 +1,6 @@
 {
   "blenderVersion": "4.2.3 LTS",
+  "scale": 100,
   "assets": [
     {
       "name": "Fixture_Door",
@@ -16,6 +17,7 @@
           0.05
         ]
       },
+      "scale": 100,
       "triangles": 24,
       "textures": [
         "Textures/Door.png"
@@ -38,6 +40,7 @@
           0.2
         ]
       },
+      "scale": 1,
       "triangles": 12,
       "textures": [
         "Textures/Pole.png"

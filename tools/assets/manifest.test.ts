@@ -143,7 +143,7 @@ describe("Manifest (buildManifest)", () => {
     });
     expect(again.packs.map((p) => p.pack)).toEqual(["a", "b"]);
     expect(again.packs[1]?.atlas).toBe("x.png");
-    expect(again.packs[1]?.assets).toHaveLength(9);
+    expect(again.packs[1]?.assets).toHaveLength(11);
     expect(again.packs[0]?.assets[0]?.name).toBe("Fixture_Door");
   });
 
@@ -151,5 +151,66 @@ describe("Manifest (buildManifest)", () => {
     expect(readPriorPacks("not json")).toEqual([]);
     expect(readPriorPacks(JSON.stringify({ version: 99, packs: [] }))).toEqual([]);
     expect(readPriorPacks("[]")).toEqual([]);
+  });
+
+  describe("ticket 040: scale, per pack and per asset", () => {
+    const ok = fixture("report-ok.json") as { scale?: number; assets: Array<Record<string, unknown>> };
+    const run = (report: unknown) => buildManifest([{ pack: "town", glbPath: join(OUT, "town.glb"), atlas: null, report }], opts);
+    const withAsset = (change: Record<string, unknown>) => ({ ...ok, assets: [{ ...ok.assets[0], ...change }] });
+
+    it("buildManifest carries the pack's scale and each asset's scale from the report", () => {
+      const m = run(ok);
+      expect(m.packs[0]?.scale).toBe(100);
+      expect(m.packs[0]?.assets.map((a) => [a.name, a.scale])).toEqual([
+        ["Fixture_Door", 100],
+        ["Fixture_Pole", 1],
+      ]);
+      const clean = buildManifest([{ pack: "c", glbPath: join(OUT, "c.glb"), atlas: null, report: fixture("report-clean-pack.json") }], opts);
+      expect(clean.packs[0]?.scale).toBe(1);
+      for (const a of clean.packs[0]?.assets ?? []) expect(a.scale).toBe(1);
+    });
+
+    it("a report with no pack scale is an error naming the pack and the field", () => {
+      const noScale = { ...ok };
+      delete noScale.scale;
+      expect(() => run(noScale)).toThrow(ManifestError);
+      expect(() => run(noScale)).toThrow(/pack "town": scale: missing/);
+    });
+
+    it("an asset with no scale is an error naming the pack and the field", () => {
+      const asset = { ...ok.assets[0] };
+      delete asset["scale"];
+      expect(() => run({ ...ok, assets: [asset] })).toThrow(/pack "town": assets\[0\]\.scale: missing/);
+    });
+
+    it("a scale that is not a finite number above 0 is an error naming the pack and the field", () => {
+      for (const bad of [0, -1, "10", null, [10], {}, true]) {
+        expect(() => run(withAsset({ scale: bad })), JSON.stringify(bad)).toThrow(/pack "town": assets\[0\]\.scale: must be a finite number above 0/);
+        expect(() => run({ ...ok, scale: bad }), JSON.stringify(bad)).toThrow(/pack "town": scale: must be a finite number above 0/);
+      }
+      // JSON cannot write NaN or Infinity, but a report read from JSON can still reach here as 1e999
+      expect(() => run(withAsset({ scale: Number.POSITIVE_INFINITY }))).toThrow(/assets\[0\]\.scale/);
+      expect(() => run({ ...ok, scale: Number.NaN })).toThrow(/pack "town": scale/);
+    });
+
+    it("the manifest written carries scale on every asset and pack, and a kept pack from before ticket 040 keeps loading without one", () => {
+      const first = run(ok);
+      const prior = readPriorPacks(JSON.stringify(first));
+      expect(prior[0]?.scale).toBe(100);
+      expect(prior[0]?.assets.map((a) => a.scale)).toEqual([100, 1]);
+      // a manifest written before ticket 040: no scale anywhere
+      const old = JSON.parse(JSON.stringify(first)) as { packs: Array<{ scale?: number; assets: Array<{ scale?: number }> }> };
+      for (const p of old.packs) {
+        delete p.scale;
+        for (const a of p.assets) delete a.scale;
+      }
+      const loaded = readPriorPacks(JSON.stringify(old));
+      expect(loaded.map((p) => p.pack)).toEqual(["town"]);
+      expect(loaded[0]).not.toHaveProperty("scale");
+      expect(loaded[0]?.assets[0]).not.toHaveProperty("scale");
+      // and a bad scale in a prior manifest is not trusted
+      old.packs[0]!.scale = -3;
+      expect(readPriorPacks(JSON.stringify(old))).toEqual([]);
+    });
   });
 });

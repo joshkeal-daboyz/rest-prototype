@@ -456,7 +456,117 @@ describe("Amendment B: pack.json textureAliases", () => {
       `material:painted_metal=${join(dir, "Textures", "metal_sheet.png")}`,
       "--texture-alias",
       `tex_crate=${join(dir, "Textures", "alias_atlas.png")}`,
+      "--scale-override",
+      "scaled_box=10",
     ]);
+  });
+});
+
+describe("Ticket 040: pack.json scaleOverrides", () => {
+  const pack = "simple town";
+  const packDir = join(L.inRoot, pack);
+  const fbx = (...parts: string[]): Record<string, string> => Object.fromEntries(parts.map((p) => [join(packDir, p), "fbx"]));
+  const files = {
+    ...fbx("Fbx/Building_PetrolStation.fbx", "Fbx/Sub/road_crossing_center_mesh.FBX", "Fbx/other_mesh.fbx"),
+    [join(packDir, "Tex", "Road.png")]: "png",
+  };
+  const withJson = (json: unknown, extra: Record<string, string> = files) =>
+    setup({ packs: [pack], extraFiles: { [join(packDir, "pack.json")]: JSON.stringify(json), ...extra } });
+
+  it("passes one --scale-override per entry, sorted by stem, after --scale (and after the aliases when there are some)", async () => {
+    const s = withJson({ scale: 100, scaleOverrides: { road_crossing_center_mesh: 0.1, Building_PetrolStation: 0.01 } });
+    expect(await convert([], s.deps)).toBe(0);
+    const args = s.conversions()[0]?.args ?? [];
+    expect(args.slice(-6)).toEqual([
+      "--scale",
+      "100",
+      "--scale-override",
+      "Building_PetrolStation=0.01",
+      "--scale-override",
+      "road_crossing_center_mesh=0.1",
+    ]);
+    const t = withJson({ scale: 100, scaleOverrides: { other_mesh: 2 }, textureAliases: { "a.psd": "Tex/Road.png" } });
+    expect(await convert([], t.deps)).toBe(0);
+    const targs = t.conversions()[0]?.args ?? [];
+    expect(targs.slice(targs.indexOf("--texture-alias"))).toEqual(["--texture-alias", `a=${join(packDir, "Tex", "Road.png")}`, "--scale-override", "other_mesh=2"]);
+  });
+
+  it("no scaleOverrides key, or an empty object, means no --scale-override", async () => {
+    for (const json of [{ scale: 100 }, { scale: 100, scaleOverrides: {} }]) {
+      const s = withJson(json);
+      expect(await convert([], s.deps), JSON.stringify(json)).toBe(0);
+      expect(s.conversions()[0]?.args ?? [], JSON.stringify(json)).not.toContain("--scale-override");
+    }
+  });
+
+  it("finds a model's FBX at any depth and with the extension in any case", async () => {
+    const s = withJson({ scaleOverrides: { road_crossing_center_mesh: 0.1 } });
+    expect(await convert([], s.deps)).toBe(0);
+    expect(s.conversions()).toHaveLength(1);
+  });
+
+  it("refuses a bad scaleOverrides before spawning, naming the pack and the key; spawn is never called", async () => {
+    const cases: Array<{ json: unknown; mention: string[] }> = [
+      { json: { scaleOverrides: [] }, mention: ['"scaleOverrides"', "object"] },
+      { json: { scaleOverrides: 3 }, mention: ['"scaleOverrides"', "object"] },
+      { json: { scaleOverrides: null }, mention: ['"scaleOverrides"', "object"] },
+      { json: { scaleOverrides: "0.01" }, mention: ['"scaleOverrides"', "object"] },
+      { json: { scaleOverrides: { Building_PetrolStation: "0.01" } }, mention: ['key "Building_PetrolStation"', "number above 0"] },
+      { json: { scaleOverrides: { Building_PetrolStation: 0 } }, mention: ['key "Building_PetrolStation"', "number above 0"] },
+      { json: { scaleOverrides: { Building_PetrolStation: -1 } }, mention: ['key "Building_PetrolStation"', "number above 0"] },
+      { json: { scaleOverrides: { Building_PetrolStation: null } }, mention: ['key "Building_PetrolStation"', "number above 0"] },
+      { json: { scaleOverrides: { Building_PetrolStation: [0.01] } }, mention: ['key "Building_PetrolStation"', "number above 0"] },
+      { json: { scaleOverrides: { "": 0.01 } }, mention: ['key ""', "a model stem is not empty"] },
+      { json: { scaleOverrides: { "Fbx/Building_PetrolStation": 0.01 } }, mention: ['key "Fbx/Building_PetrolStation"', "a model stem is not empty"] },
+      { json: { scaleOverrides: { "Fbx\\Building_PetrolStation": 0.01 } }, mention: ['key "Fbx\\Building_PetrolStation"', "a model stem is not empty"] },
+      { json: { scaleOverrides: { "a=b": 0.01 } }, mention: ['key "a=b"', "a model stem is not empty"] },
+      { json: { scaleOverrides: { Building_PetrolStaton: 0.01 } }, mention: ['key "Building_PetrolStaton"', "no Building_PetrolStaton.fbx"] },
+      { json: { scaleOverrides: { Building_PetrolStation: 0.01, nope_mesh: 2 } }, mention: ['key "nope_mesh"'] },
+      { json: { scaleOverrides: { "Building_PetrolStation.fbx": 0.01 } }, mention: ['key "Building_PetrolStation.fbx"', "no Building_PetrolStation.fbx.fbx"] },
+    ];
+    for (const c of cases) {
+      const s = withJson(c.json);
+      const label = JSON.stringify(c.json);
+      expect(await convert([], s.deps), label).toBe(1);
+      expect(s.conversions(), label).toEqual([]);
+      expect(s.err(), label).toContain(`Pack "${pack}" failed`);
+      for (const m of c.mention) expect(s.err(), label).toContain(m);
+      expect(s.writes, label).toEqual([]);
+    }
+  });
+
+  it("a factor that reads as Infinity (1e999) is refused too", async () => {
+    const s = setup({
+      packs: [pack],
+      extraFiles: { [join(packDir, "pack.json")]: '{ "scaleOverrides": { "other_mesh": 1e999 } }', ...files },
+    });
+    expect(await convert([], s.deps)).toBe(1);
+    expect(s.conversions()).toEqual([]);
+    expect(s.err()).toContain('key "other_mesh"');
+  });
+
+  it("the usage text documents scaleOverrides", () => {
+    expect(USAGE).toContain('"scaleOverrides"');
+  });
+
+  it("the manifest the CLI writes carries scale per pack and per asset, as the report gave them", async () => {
+    const s = withJson({ scale: 100, scaleOverrides: { Fixture_Pole: 0.01 } }, fbx("Fixture_Pole.fbx"));
+    expect(await convert([], s.deps)).toBe(0);
+    const p = s.manifest().packs[0];
+    expect(p?.scale).toBe(100);
+    expect(p?.assets.map((a) => [a.name, a.scale])).toEqual([
+      ["Fixture_Door", 100],
+      ["Fixture_Pole", 1],
+    ]);
+  });
+
+  it("a report with no scale is a bad report: that pack is left out, naming the pack and the field", async () => {
+    const noScale = JSON.parse(fixtureText("report-ok.json")) as { scale?: number };
+    delete noScale.scale;
+    const s = setup({ packs: ["a-pack"], behaviour: () => ({ code: 0, report: JSON.stringify(noScale) }) });
+    expect(await convert([], s.deps)).toBe(1);
+    expect(s.err()).toContain('pack "a-pack": scale');
+    expect(s.writes).toEqual([]);
   });
 });
 
@@ -644,7 +754,7 @@ describe("Self-test", () => {
     expect(edit((r) => (poleOf(r).bounds = { min: [-0.2, 0.5, -0.2], max: [0.2, 3.5, 0.2] })).join("\n")).toContain("pole base");
     expect(edit((r) => (poleOf(r).bounds = { min: [0, 0, -0.2], max: [0.4, 3, 0.2] })).join("\n")).toContain("x centre");
     expect(edit((r) => (boxOf(r, "SelfTest_NoUV").warnings = [])).join("\n")).toContain("SelfTest_NoUV warnings");
-    expect(edit((r) => r.assets.splice(0, r.assets.length)).length).toBe(9);
+    expect(edit((r) => r.assets.splice(0, r.assets.length)).length).toBe(11);
   });
 
   it("checkSelftest names the box and the field when a texture rule's result is wrong", () => {
@@ -690,8 +800,95 @@ describe("Self-test", () => {
   });
 });
 
+describe("Ticket 040: the self-test's rotated 0.01-scaled parent and the scaled box", () => {
+  const good = fixtureText("report-selftest.json");
+  const edit = (f: (r: RawReport) => void): string[] => {
+    const copy = JSON.parse(good) as RawReport & { scale?: number };
+    f(copy);
+    return checkSelftest(copy as unknown as PackReport);
+  };
+  const boxOf = (r: RawReport, name: string) => r.assets.find((a) => a.name === name)!;
+  type Scaled = RawReport["assets"][number] & { scale?: number };
+
+  it("the fixture passes: both new boxes at their expected size, scale 10 on scaled_box and 1 on every other box", () => {
+    expect(checkSelftest(parsePackReport("selftest", JSON.parse(good)))).toEqual([]);
+    const r = JSON.parse(good) as { scale: number; assets: Scaled[] };
+    expect(r.scale).toBe(1);
+    expect(r.assets.map((a) => [a.name, a.scale]).filter(([, s]) => s !== 1)).toEqual([["scaled_box", 10]]);
+    const names = r.assets.map((a) => a.name);
+    expect(names).toContain("SelfTest_ParentedPole");
+    expect(names).toContain("scaled_box");
+  });
+
+  it("the parented pole must come out 0.4 x 3.0 x 0.4 m on its base and centred; a wrong size names the box and the field", () => {
+    const pole = (r: RawReport) => boxOf(r, "SelfTest_ParentedPole");
+    expect(edit((r) => (pole(r).bounds = { min: [-20, 0, -20], max: [20, 300, 20] })).join("\n")).toContain("parented pole height");
+    expect(edit((r) => (pole(r).bounds = { min: [-0.273, 0, -0.273], max: [0.273, 3, 0.273] })).join("\n")).toContain("parented pole width");
+    expect(edit((r) => (pole(r).bounds = { min: [-0.2, 0.5, -0.2], max: [0.2, 3.5, 0.2] })).join("\n")).toContain("parented pole base");
+    expect(edit((r) => (pole(r).bounds = { min: [0, 0, -0.2], max: [0.4, 3, 0.2] })).join("\n")).toContain("parented pole x centre");
+    expect(edit((r) => r.assets.splice(r.assets.findIndex((a) => a.name === "SelfTest_ParentedPole"), 1)).join("\n")).toContain("SelfTest_ParentedPole is missing");
+  });
+
+  it("scaled_box must come out 10 m with scale 10; 1 m (the override ignored) or the wrong scale value is named", () => {
+    const box = (r: RawReport) => boxOf(r, "scaled_box") as Scaled;
+    expect(edit((r) => (box(r).bounds = { min: [-0.5, 0, -0.5], max: [0.5, 1, 0.5] })).join("\n")).toContain("scaled box height");
+    expect(edit((r) => (box(r).scale = 1)).join("\n")).toContain("scaled_box scale is 1, expected 10");
+    expect(edit((r) => (box(r).scale = 100)).join("\n")).toContain("scaled_box scale is 100, expected 10");
+    expect(edit((r) => r.assets.splice(r.assets.findIndex((a) => a.name === "scaled_box"), 1)).join("\n")).toContain("scaled_box is missing");
+  });
+
+  it("every other box must report scale 1, and so must the pack", () => {
+    expect(edit((r) => ((boxOf(r, "SelfTest_Pole") as Scaled).scale = 10)).join("\n")).toContain("SelfTest_Pole scale is 10, expected 1");
+    expect(edit((r) => ((boxOf(r, "alias_ref") as Scaled).scale = 0.01)).join("\n")).toContain("alias_ref scale is 0.01, expected 1");
+    expect(edit((r) => ((boxOf(r, "SelfTest_ParentedPole") as Scaled).scale = 0.01)).join("\n")).toContain("SelfTest_ParentedPole scale is 0.01, expected 1");
+    expect(edit((r) => ((r as unknown as { scale: number }).scale = 100)).join("\n")).toContain("pack scale is 100, expected 1");
+  });
+});
+
 describe("The Python script and the shared constants", () => {
   const py = readFileSync(join(repoRoot, "tools", "blender", "convert_fbx.py"), "utf8");
+
+  it("ticket 040: every mesh's world matrix is copied before any non-mesh object is deleted, the bake uses the copies, and the root parent inverse is identity", () => {
+    const snapshot = py.indexOf("worlds = {o.name: o.matrix_world.copy() for o in meshes}");
+    const deletion = py.indexOf("bpy.data.objects.remove(o, do_unlink=True)", snapshot);
+    const update = py.indexOf("bpy.context.view_layer.update()");
+    expect(update).toBeGreaterThan(0);
+    expect(snapshot).toBeGreaterThan(update);
+    expect(deletion).toBeGreaterThan(snapshot);
+    expect(py).toContain("world = worlds[o.name]");
+    expect(py).not.toContain("world = o.matrix_world.copy()");
+    expect(py).toMatch(/o\.parent = root\r?\n\s+o\.matrix_parent_inverse = Matrix\.Identity\(4\)/);
+  });
+
+  it("ticket 040: --scale-override <stem>=<factor> is parsed (factor above 0), multiplied on the pack scale, and reported per model and per pack", () => {
+    expect(py).toContain('"--scale-override"');
+    expect(py).toContain("def parse_scale_overrides(items)");
+    expect(py).toContain("def model_scale(scale, overrides, stem)");
+    expect(py).toContain("round(scale * overrides.get(stem, 1.0), 9)");
+    expect(py).toContain("global_scale=scale,");
+    expect(py).toMatch(/"scale": scale,\r?\n\s+"triangles": triangles,/);
+    expect(py).toMatch(/report = \{"blenderVersion": bpy\.app\.version_string, "scale": round\(scale, 9\), "assets": assets/);
+  });
+
+  it("ticket 040: the GLB is exported to a temporary file beside it and moved over only after the root check; a failure removes the temp file", () => {
+    expect(py).toContain("def temp_glb_path(out)");
+    expect(py).toContain("def install_glb(tmp, out, entry_names)");
+    expect(py).toMatch(/tmp = temp_glb_path\(out\)\r?\n\s+try:\r?\n\s+bpy\.ops\.export_scene\.gltf\(\r?\n\s+filepath=tmp,/);
+    expect(py).not.toMatch(/filepath=out,/);
+    expect(py).toMatch(/if wrong:\r?\n\s+remove_quietly\(tmp\)\r?\n\s+return wrong\r?\n\s+os\.replace\(tmp, out\)/);
+    expect(py).toMatch(/except Exception:\r?\n\s+remove_quietly\(tmp\)\r?\n\s+raise/);
+    // the self-test runs the install check on real files before Blender builds anything
+    expect(py).toContain("def check_install(folder)");
+    expect(py).toMatch(/check_helpers\(\)\r?\n\s+check_install\(/);
+  });
+
+  it("ticket 040: the self-test builds the parented pole (30 degrees, scale 0.01) and the 1 m box the wrapper scales by 10", () => {
+    expect(py).toContain('SELFTEST_PARENTED = "SelfTest_ParentedPole"');
+    expect(py).toContain('SELFTEST_SCALED = "scaled_box"');
+    expect(py).toContain("holder_empty.rotation_euler = (0.0, 0.0, math.radians(30.0))");
+    expect(py).toContain("holder_empty.scale = (0.01, 0.01, 0.01)");
+    expect(py).toContain("parented.parent = holder_empty");
+  });
 
   it("uses the same sane-size thresholds as src/core/assets.ts", () => {
     // Line endings may be CRLF on a Windows checkout.
@@ -718,7 +915,7 @@ describe("The Python script and the shared constants", () => {
     expect(py).toMatch(/clash = bpy\.data\.objects\.get\(stem\)\r?\n\s+if clash is not None:\r?\n\s+clash\.name = stem \+ "_child"/);
     expect(py).toMatch(/if root\.name != stem:[\s\S]{0,160}raise RuntimeError/);
     expect(py).toContain("def glb_root_names(path)");
-    expect(py).toContain("missing_root_names([a[\"name\"] for a in assets], glb_root_names(out))");
+    expect(py).toContain("install_glb(tmp, out, [a[\"name\"] for a in assets])");
     // the self-test builds the clash: an earlier file's mesh is called like a later file's stem
     expect(py).toContain('SELFTEST_CLASH_HOLDER = "clash_holder"');
     expect(py).toContain('SELFTEST_CLASH_STEM = "clash_stem"');

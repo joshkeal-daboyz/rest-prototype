@@ -5,7 +5,8 @@ Run it headless, once per pack (tools/assets/convert.ts does this):
 
   blender --background --factory-startup --python tools/blender/convert_fbx.py -- \
       --in <packDir> --out <glbPath> --report <json> [--atlas <png>] [--scale <n>] \
-      [--textures <dir>] [--texture-override <stem>=<image> ...] [--texture-alias <key>=<image> ...]
+      [--textures <dir>] [--texture-override <stem>=<image> ...] [--texture-alias <key>=<image> ...] \
+      [--scale-override <stem>=<factor> ...]
 
   ... -- --selftest --in <dir> --out <glbPath> --report <json>
       builds boxes in code, exports them to FBX in <dir>/Fbx (Unity-style: centimetres) with images in
@@ -22,7 +23,9 @@ Two texture modes (amendment A of ticket 038):
   and embedded once in the GLB. An alias (amendment B) maps a source file that isn't in the pack (a .psd the
   artist worked from) or a material name to an image that is.
 
-The report is JSON in the shape of src/core/assets.ts (AssetEntry, AssetFailure) plus "blenderVersion".
+The report is JSON in the shape of src/core/assets.ts (AssetEntry, AssetFailure) plus "blenderVersion" and "scale"
+(the pack's scale). Each entry's "scale" is the factor its model was imported with: the pack scale times its
+--scale-override factor (ticket 040).
 Bounds in it are glTF space (Y up). Exit code is 1 if nothing could be converted or the script failed.
 
 Nothing here may be committed with data from a purchased pack: assets/private/ is gitignored.
@@ -30,6 +33,7 @@ Nothing here may be committed with data from a purchased pack: assets/private/ i
 
 import argparse
 import json
+import math
 import os
 import re
 import struct
@@ -52,6 +56,8 @@ SELFTEST_ALIAS_MAT = "alias_mat"
 SELFTEST_ALIAS_ORDER = "alias_order"
 SELFTEST_CLASH_HOLDER = "clash_holder"  # its child mesh is named like the next file's stem
 SELFTEST_CLASH_STEM = "clash_stem"
+SELFTEST_PARENTED = "SelfTest_ParentedPole"  # the pole under an empty with a rotation and a 0.01 scale (ticket 040)
+SELFTEST_SCALED = "scaled_box"  # a 1 m box converted with --scale-override scaled_box=10 (ticket 040)
 
 IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".tga", ".tif", ".tiff", ".bmp")
 # Blender's importer takes FBX 7100 (2011) and newer; older files fail to import.
@@ -114,6 +120,28 @@ def parse_aliases(items):
     return out
 
 
+def parse_scale_overrides(items):
+    """['stem=0.01', ...] -> {stem: 0.01}. Split at the first '='. The factor must be a finite number above 0."""
+    out = {}
+    for item in items or []:
+        stem, sep, text = item.partition("=")
+        if not sep or not stem or not text:
+            raise SystemExit("convert_fbx: --scale-override needs <stem>=<factor>, got %r" % item)
+        try:
+            factor = float(text)
+        except ValueError:
+            raise SystemExit("convert_fbx: --scale-override %s: %r is not a number" % (stem, text))
+        if not math.isfinite(factor) or factor <= 0:
+            raise SystemExit("convert_fbx: --scale-override %s: the factor must be a finite number above 0, got %r" % (stem, text))
+        out[stem] = factor
+    return out
+
+
+def model_scale(scale, overrides, stem):
+    """The factor one model is imported with: the pack scale times its override (1 when it has none), tidied of float noise."""
+    return round(scale * overrides.get(stem, 1.0), 9)
+
+
 def parse_args(argv):
     if "--" in argv:
         argv = argv[argv.index("--") + 1:]
@@ -128,6 +156,7 @@ def parse_args(argv):
     p.add_argument("--textures", dest="textures", default=None)
     p.add_argument("--texture-override", dest="overrides", action="append", default=[])
     p.add_argument("--texture-alias", dest="aliases", action="append", default=[])
+    p.add_argument("--scale-override", dest="scale_overrides", action="append", default=[])
     p.add_argument("--selftest", dest="selftest", action="store_true")
     return p.parse_args(argv)
 
@@ -341,6 +370,70 @@ def missing_root_names(entry_names, root_names):
     """The manifest names that no root node in the GLB carries, sorted."""
     have = set(root_names)
     return sorted(n for n in entry_names if n not in have)
+
+
+def temp_glb_path(out):
+    """Where the GLB is exported first: beside the real one, `<pack>.tmp.glb` (the exporter insists on the .glb extension)."""
+    return os.path.splitext(out)[0] + ".tmp.glb"
+
+
+def install_glb(tmp, out, entry_names):
+    """
+    Move the exported GLB over `out` only if it has a root node for every name. Returns the names it lacks, sorted.
+    When any are lacking the temp file is removed and `out` (the earlier GLB, if any) is left as it was.
+    """
+    try:
+        wrong = missing_root_names(entry_names, glb_root_names(tmp))
+    except Exception:
+        remove_quietly(tmp)
+        raise
+    if wrong:
+        remove_quietly(tmp)
+        return wrong
+    os.replace(tmp, out)
+    return []
+
+
+def remove_quietly(path):
+    try:
+        os.remove(path)
+    except FileNotFoundError:
+        pass
+
+
+def write_minimal_glb(path, node_names):
+    """A GLB with only a JSON chunk: a scene whose root nodes carry these names (enough for glb_root_names)."""
+    doc = {"asset": {"version": "2.0"}, "scene": 0, "scenes": [{"nodes": list(range(len(node_names)))}], "nodes": [{"name": n} for n in node_names]}
+    body = json.dumps(doc).encode("utf-8")
+    body += b" " * (-len(body) % 4)
+    with open(path, "wb") as f:
+        f.write(struct.pack("<4sII", b"glTF", 2, 12 + 8 + len(body)))
+        f.write(struct.pack("<I4s", len(body), b"JSON"))
+        f.write(body)
+
+
+def check_install(folder):
+    """
+    The safe export on real files in `folder`: a GLB with a wrong root name leaves the earlier GLB untouched and no
+    temp file behind; a good one replaces it. Run by --selftest; raises AssertionError.
+    """
+    os.makedirs(folder, exist_ok=True)
+    out = os.path.join(folder, "check.glb")
+    tmp = temp_glb_path(out)
+    assert tmp != out and os.path.dirname(tmp) == os.path.dirname(out) and tmp.endswith(".glb")
+    write_minimal_glb(out, ["old"])
+    with open(out, "rb") as f:
+        before = f.read()
+    write_minimal_glb(tmp, ["a", "b.002"])
+    assert install_glb(tmp, out, ["a", "b"]) == ["b"]
+    assert not os.path.exists(tmp)
+    with open(out, "rb") as f:
+        assert f.read() == before
+    write_minimal_glb(tmp, ["a", "b"])
+    assert install_glb(tmp, out, ["a", "b"]) == []
+    assert not os.path.exists(tmp)
+    assert glb_root_names(out) == ["a", "b"]
+    os.remove(out)
 
 
 def check_helpers():
@@ -598,6 +691,7 @@ def import_one(path, rel, stem, scale, ctx):
     import bpy
     from mathutils import Matrix, Vector
 
+    scale = model_scale(scale, ctx["scale_overrides"], stem)  # the factor this model is imported with
     before = {o.name for o in bpy.data.objects}
     try:
         bpy.ops.import_scene.fbx(
@@ -611,6 +705,9 @@ def import_one(path, rel, stem, scale, ctx):
         bpy.context.view_layer.update()
 
         meshes = [o for o in new if o.type == "MESH"]
+        # Every mesh's world matrix, read now, while the whole hierarchy (the empties and bones above it) is still there.
+        # Deleting a parent changes what a child's matrix_world gives; the bake below uses these copies only (ticket 040).
+        worlds = {o.name: o.matrix_world.copy() for o in meshes}
         # Animations, cameras, lights, armatures and anything else that isn't a mesh are dropped.
         for o in new:
             if o.type != "MESH":
@@ -620,7 +717,7 @@ def import_one(path, rel, stem, scale, ctx):
 
         # Bake each mesh's world transform into its own (single-user) mesh data, then drop the hierarchy.
         for o in meshes:
-            world = o.matrix_world.copy()
+            world = worlds[o.name]
             o.parent = None
             o.matrix_basis = Matrix.Identity(4)
             o.animation_data_clear()
@@ -669,6 +766,7 @@ def import_one(path, rel, stem, scale, ctx):
         no_uv = False
         for o in meshes:
             o.parent = root
+            o.matrix_parent_inverse = Matrix.Identity(4)  # the root is at the origin, so nothing is carried over from before
             me = o.data
             me.calc_loop_triangles()
             triangles += len(me.loop_triangles)
@@ -690,6 +788,7 @@ def import_one(path, rel, stem, scale, ctx):
         "name": stem,
         "source": rel,
         "bounds": to_gltf_bounds(bmin, bmax),
+        "scale": scale,
         "triangles": triangles,
         "textures": sorted({rel_to(ctx["indir"], p) for p in images}),
         "missingTextures": sorted(missing),
@@ -697,7 +796,7 @@ def import_one(path, rel, stem, scale, ctx):
     }
 
 
-def convert(indir, out, report_path, atlas, scale, textures_dir, overrides, aliases):
+def convert(indir, out, report_path, atlas, scale, textures_dir, overrides, aliases, scale_overrides):
     import bpy
 
     empty_scene()
@@ -712,6 +811,7 @@ def convert(indir, out, report_path, atlas, scale, textures_dir, overrides, alia
         "index": [] if atlas else build_texture_index(texdir),
         "overrides": overrides,
         "aliases": aliases,
+        "scale_overrides": scale_overrides,
         "alias_seen": set(),
     }
     obj_copies = find_obj_copies(indir)
@@ -735,8 +835,11 @@ def convert(indir, out, report_path, atlas, scale, textures_dir, overrides, alia
         for key in sorted(aliases):
             if key not in ctx["alias_seen"]:
                 print("texture alias %s matched no material" % key)
+    for stem in sorted(scale_overrides):
+        if stem not in names:
+            print("scale override %s matched no model" % stem)
 
-    report = {"blenderVersion": bpy.app.version_string, "assets": assets, "failures": failures}
+    report = {"blenderVersion": bpy.app.version_string, "scale": round(scale, 9), "assets": assets, "failures": failures}
     os.makedirs(os.path.dirname(os.path.abspath(report_path)), exist_ok=True)
     with open(report_path, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2)
@@ -751,19 +854,25 @@ def convert(indir, out, report_path, atlas, scale, textures_dir, overrides, alia
     # Drop what the imports left behind (the importer's own images, the meshes before their transforms were baked).
     bpy.data.orphans_purge(do_local_ids=True, do_linked_ids=True, do_recursive=True)
     os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
-    bpy.ops.export_scene.gltf(
-        filepath=out,
-        export_format="GLB",
-        export_yup=True,
-        export_apply=True,
-        export_image_format="AUTO",
-        export_animations=False,
-        export_cameras=False,
-        export_lights=False,
-        use_selection=False,
-    )
+    # Export beside the real file and move it over only after the root-name check, so a failed run keeps the old GLB (ticket 040).
+    tmp = temp_glb_path(out)
+    try:
+        bpy.ops.export_scene.gltf(
+            filepath=tmp,
+            export_format="GLB",
+            export_yup=True,
+            export_apply=True,
+            export_image_format="AUTO",
+            export_animations=False,
+            export_cameras=False,
+            export_lights=False,
+            use_selection=False,
+        )
+    except Exception:
+        remove_quietly(tmp)
+        raise
     # Every name the report gives must be a root node of the GLB, exactly (the loader reads the GLB by these names).
-    wrong = missing_root_names([a["name"] for a in assets], glb_root_names(out))
+    wrong = install_glb(tmp, out, [a["name"] for a in assets])
     if wrong:
         print("convert_fbx: the GLB has no root node named %s" % ", ".join(wrong), file=sys.stderr)
         return 1
@@ -797,11 +906,14 @@ def _box_object(name, size, z_offset, with_uv, material=None):
     return obj
 
 
-def _export_fbx(obj, path):
+def _export_fbx(obj, path, extra=()):
+    """Export obj (and the objects in extra, empties for instance) to an FBX file."""
     import bpy
     for o in bpy.data.objects:
         o.select_set(False)
     obj.select_set(True)
+    for o in extra:
+        o.select_set(True)
     bpy.context.view_layer.objects.active = obj
     # Blender's FBX exporter writes centimetres (UnitScaleFactor 1), as Unity's does:
     # a 3 m pole becomes 300 in the file, and the importer scales it back by 0.01.
@@ -809,7 +921,7 @@ def _export_fbx(obj, path):
     bpy.ops.export_scene.fbx(
         filepath=path,
         use_selection=True,
-        object_types={"MESH"},
+        object_types={"MESH", "EMPTY"} if extra else {"MESH"},
         global_scale=1.0,
         apply_unit_scale=True,
         apply_scale_options="FBX_SCALE_NONE",
@@ -860,6 +972,7 @@ def build_selftest(indir):
     Write the self-test pack into indir: FBX files in Fbx/, images in Textures/ (so the FBX and the images
     sit in sibling folders, as in a real pack). The pack has no atlas: it runs in per-model mode.
     """
+    import bpy
     empty_scene()
     fbx = os.path.join(indir, "Fbx")
     tex = os.path.join(indir, "Textures")
@@ -879,6 +992,22 @@ def build_selftest(indir):
     # The fake Unity pole: 40 x 300 x 40 cm, pivot 50 cm above its base. No material, so no texture and no warning.
     pole = _box_object(SELFTEST_POLE, (0.4, 0.4, 3.0), 0.5, True)
     _export_fbx(pole, os.path.join(fbx, SELFTEST_POLE + ".fbx"))
+    # Ticket 040 (038 could-improve 3): the same pole, but under an empty that is rotated 30 degrees about Z and scaled 0.01,
+    # with the mesh counter-rotated -30 degrees so the pole is still axis-aligned in the world: 0.4 x 3.0 x 0.4 m. The importer
+    # makes the empty an object, and the script deletes non-mesh objects, so a mesh baked from a world matrix read after that
+    # deletion would come out unrotated and 100x too big. The empty also sits away from the origin.
+    parented = _box_object(SELFTEST_PARENTED + "_mesh", (40.0, 40.0, 300.0), 50.0, True)
+    holder_empty = bpy.data.objects.new(SELFTEST_PARENTED + "_holder", None)
+    bpy.context.scene.collection.objects.link(holder_empty)
+    holder_empty.location = (5.0, -2.0, 0.0)
+    holder_empty.rotation_euler = (0.0, 0.0, math.radians(30.0))
+    holder_empty.scale = (0.01, 0.01, 0.01)
+    parented.parent = holder_empty
+    parented.rotation_euler = (0.0, 0.0, math.radians(-30.0))
+    _export_fbx(parented, os.path.join(fbx, SELFTEST_PARENTED + ".fbx"), extra=(holder_empty,))
+    # Ticket 040: a 1 m box; the run passes --scale-override scaled_box=10, so it comes out 10 m with scale 10.
+    scaled = _box_object(SELFTEST_SCALED, (1.0, 1.0, 1.0), 0.0, True)
+    _export_fbx(scaled, os.path.join(fbx, SELFTEST_SCALED + ".fbx"))
     # A box with no UV map at all, whose material has a present image (rule 2), so it still carries no-uv.
     no_uv = _box_object(SELFTEST_NO_UV, (0.5, 0.5, 0.5), 0.0, False, _referencing_material("NoUvMat", os.path.join(tex, "nouv_tex.png")))
     _export_fbx(no_uv, os.path.join(fbx, SELFTEST_NO_UV + ".fbx"))
@@ -917,8 +1046,12 @@ def main():
     args = parse_args(sys.argv)
     if args.selftest:
         check_helpers()
+        check_install(os.path.join(os.path.dirname(os.path.abspath(args.out)), "install-check"))
         build_selftest(args.indir)
-    return convert(args.indir, args.out, args.report, args.atlas, args.scale, args.textures, parse_overrides(args.overrides), parse_aliases(args.aliases))
+    return convert(
+        args.indir, args.out, args.report, args.atlas, args.scale, args.textures,
+        parse_overrides(args.overrides), parse_aliases(args.aliases), parse_scale_overrides(args.scale_overrides),
+    )
 
 
 if __name__ == "__main__":
