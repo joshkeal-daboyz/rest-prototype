@@ -19,3 +19,12 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 037 C | renderer | sonnet | 186K total (fresh agent) | — | 3 | Wires, break, Relight; 104 tool uses, 12 min |
 | 037 C | code-reviewer | opus | (readout not captured) | — | 3 | meets, must-fix 0 |
 | 037 C | playtester | sonnet | 15K total | — | 3 | regressions 0; 4 tool uses, 26 s |
+| 038 | asset-scout | agent default | 70K total (one figure in the readout) | — | 0 | Synty Store shortlist; 61 tool uses, 5 min |
+| 038 | web-fetch | agent default | 50K total (one figure in the readout) | — | 0 | Read Synty subscription licence; 4 tool uses |
+| 038 | lead-architect | opus (agent default) | 126K total across 3 cuts (ticket, amendment A, amendment B; one figure each in the readout) | — | 0 | 52 tool uses |
+| 038 | grid-simulator | sonnet | 592K total across 4 builds (pipeline, amendment A, amendment B, root-name fix; one figure each in the readout) | — | 1 | 256 tool uses; the real-pack runs and Blender experiments were most of it |
+| 038 | code-reviewer | opus | 194K total across 3 reviews (one figure each in the readout) | — | 2 | round 1 meets, must-fix 0; round 2 of the amendments must-fix 1; round 3 meets, must-fix 0 |
+| 038 | playtester | sonnet | 46K total across 3 rounds (one figure each in the readout) | — | 3 | regressions 0 each time; ladder run once, later rounds judged unaffected |
+| 039+040 | lead-architect | opus (agent default) | 79K total across 2 resumes plus the first cut (one figure each in the readout; the first-cut figure was 76K) | — | 0 | Cut both tickets; 24 tool uses, 4.5 min |
+| 040 | grid-simulator | sonnet | 167K total (one figure in the readout) | — | 0 | Built the bake fix, scaleOverrides, selftest cases; 76 tool uses, 10 min; the real SIMPLE Town re-conversion was most of it |
+| 040 | code-reviewer | opus | 54K total (one figure in the readout) | — | 1 | meets, must-fix 0; 11 tool uses, 2 min; no playtester (only tools/ changed) |

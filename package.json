@@ -12,6 +12,8 @@
     "typecheck": "tsc --noEmit",
     "gate": "tsc --noEmit && vitest run",
     "analyze": "tsx tools/analyze.ts",
+    "assets:convert": "tsx tools/assets/convert.ts",
+    "assets:selftest": "tsx tools/assets/convert.ts --selftest",
     "check": "tsx tools/check.ts",
     "playtest": "tsc --noEmit -p tests/playtest/tsconfig.json && vitest run --config tests/playtest/vitest.config.ts"
   },

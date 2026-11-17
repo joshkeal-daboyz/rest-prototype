@@ -1,0 +1,49 @@
+{
+  "blenderVersion": "4.2.3 LTS",
+  "scale": 1,
+  "assets": [
+    {
+      "name": "Fixture_Same",
+      "source": "a/Fixture_Same.fbx",
+      "bounds": {
+        "min": [
+          -0.2,
+          0,
+          -0.2
+        ],
+        "max": [
+          0.2,
+          3,
+          0.2
+        ]
+      },
+      "scale": 1,
+      "triangles": 12,
+      "textures": [],
+      "missingTextures": [],
+      "warnings": []
+    },
+    {
+      "name": "Fixture_Same",
+      "source": "b/Fixture_Same.fbx",
+      "bounds": {
+        "min": [
+          -0.2,
+          0,
+          -0.2
+        ],
+        "max": [
+          0.2,
+          3,
+          0.2
+        ]
+      },
+      "scale": 1,
+      "triangles": 12,
+      "textures": [],
+      "missingTextures": [],
+      "warnings": []
+    }
+  ],
+  "failures": []
+}

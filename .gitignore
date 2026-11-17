@@ -11,3 +11,6 @@ playtests/*.json
 
 # Agent worktrees made by the Agent tool
 .claude/worktrees/
+
+# Purchased asset packs and their conversions: licence forbids sharing; repo is public
+assets/private/
