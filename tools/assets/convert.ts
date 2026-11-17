@@ -60,7 +60,8 @@ Lay a pack out like this (nothing under assets/private/ is ever committed):
         "textures": "Src/Textures",                folder searched for each model's image (default: the pack)
         "textureOverrides": { "town_hall_mesh": "Src/Textures/Town_Hall_b.png" },   pins a model's image
         "textureAliases": { "MasterTexture02.psd": "Src/Textures/Atlas.png",     a missing source file name (any extension, any case)
-                            "material:Lambert1": "Src/Textures/Road.png" } }      or a material name, mapped to an image
+                            "material:Lambert1": "Src/Textures/Road.png" },      or a material name, mapped to an image
+        "scaleOverrides": { "Building_PetrolStation": 0.01 } }   one model's factor, multiplied on the pack's "scale"
 With no "atlas", each model's own image is found in the pack (per-model mode).
 With no pack names, every folder in assets/private/in/ is converted.
 `;
@@ -98,6 +99,8 @@ export interface BlenderArgsInput {
   overrides?: readonly { stem: string; abs: string }[];
   /** Texture aliases, a normalised key (see normaliseAliasKey) and an absolute image path. Passed in the order given. */
   aliases?: readonly { key: string; abs: string }[];
+  /** Per-model scale factors, a model stem and a factor above 0. Passed in the order given, after the aliases (readPackSettings sorts them). */
+  scaleOverrides?: readonly { stem: string; factor: number }[];
   selftest?: boolean;
 }
 
@@ -111,6 +114,7 @@ export function buildBlenderArgs(a: BlenderArgsInput): string[] {
   if (a.textures !== undefined) args.push("--textures", a.textures);
   for (const o of a.overrides ?? []) args.push("--texture-override", `${o.stem}=${o.abs}`);
   for (const t of a.aliases ?? []) args.push("--texture-alias", `${t.key}=${t.abs}`);
+  for (const o of a.scaleOverrides ?? []) args.push("--scale-override", `${o.stem}=${o.factor}`);
   return args;
 }
 
@@ -152,12 +156,24 @@ interface PackSettings {
   overrides: { stem: string; abs: string }[];
   /** Sorted by normalised key. */
   aliases: { key: string; abs: string }[];
+  /** Sorted by model stem. */
+  scaleOverrides: { stem: string; factor: number }[];
+}
+
+/** The stems of every .fbx in a folder tree (the way the script lists them: any depth, the extension in any case, the stem up to the last dot). */
+function listFbxStems(deps: ConvertDeps, dir: string, into: Set<string> = new Set()): Set<string> {
+  for (const name of deps.listDir(dir)) {
+    const path = join(dir, name);
+    if (deps.isDirectory(path)) listFbxStems(deps, path, into);
+    else if (name.toLowerCase().endsWith(".fbx")) into.add(name.slice(0, name.lastIndexOf(".")));
+  }
+  return into;
 }
 
 /** Read the optional pack.json. Throws an Error with a plain message when it is unusable. */
 function readPackSettings(deps: ConvertDeps, packDir: string): PackSettings {
   const file = join(packDir, "pack.json");
-  if (!deps.exists(file)) return { overrides: [], aliases: [] };
+  if (!deps.exists(file)) return { overrides: [], aliases: [], scaleOverrides: [] };
   let raw: unknown;
   try {
     raw = JSON.parse(deps.readText(file));
@@ -166,7 +182,7 @@ function readPackSettings(deps: ConvertDeps, packDir: string): PackSettings {
   }
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) throw new Error("pack.json must be a JSON object");
   const obj = raw as Record<string, unknown>;
-  const settings: PackSettings = { overrides: [], aliases: [] };
+  const settings: PackSettings = { overrides: [], aliases: [], scaleOverrides: [] };
   if (obj["atlas"] !== undefined) {
     if (typeof obj["atlas"] !== "string" || obj["atlas"] === "") throw new Error('pack.json "atlas" must be a path string');
     const abs = resolve(packDir, obj["atlas"]);
@@ -233,6 +249,21 @@ function readPackSettings(deps: ConvertDeps, packDir: string): PackSettings {
       entries.push({ key, abs });
     }
     settings.aliases = entries.sort((a, b) => compareNames(a.key, b.key));
+  }
+  const factors = obj["scaleOverrides"];
+  if (factors !== undefined) {
+    if (typeof factors !== "object" || factors === null || Array.isArray(factors)) {
+      throw new Error('pack.json "scaleOverrides" must be an object of { "<model stem>": <factor above 0> }');
+    }
+    const stems = listFbxStems(deps, packDir);
+    for (const stem of Object.keys(factors).sort(compareNames)) {
+      const value = (factors as Record<string, unknown>)[stem];
+      const where = `pack.json "scaleOverrides" key "${stem}"`;
+      if (stem === "" || /[/\\=]/.test(stem)) throw new Error(`${where}: a model stem is not empty and has no "/", "\\" or "="`);
+      if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) throw new Error(`${where} must be a finite number above 0`);
+      if (!stems.has(stem)) throw new Error(`${where}: there is no ${stem}.fbx in the pack`);
+      settings.scaleOverrides.push({ stem, factor: value });
+    }
   }
   return settings;
 }
@@ -322,6 +353,7 @@ async function convertPack(deps: ConvertDeps, blender: BlenderInfo, pack: string
     ...(settings.textures !== undefined ? { textures: settings.textures } : {}),
     overrides: settings.overrides,
     aliases: settings.aliases,
+    scaleOverrides: settings.scaleOverrides,
   });
   deps.stdout(`Converting ${pack} ...\n`);
   let result: RunResult;
@@ -424,6 +456,12 @@ export const SELFTEST_LOST_REF = "lost_ref";
 export const SELFTEST_ALIAS_REF = "alias_ref";
 export const SELFTEST_ALIAS_MAT = "alias_mat";
 export const SELFTEST_ALIAS_ORDER = "alias_order";
+/** The pole under an empty with a 30 degree rotation and a 0.01 scale (ticket 040); it must still come out 0.4 x 3.0 x 0.4 m. */
+export const SELFTEST_PARENTED = "SelfTest_ParentedPole";
+/** A 1 m box converted with `--scale-override scaled_box=10`: it must come out 10 m, with scale 10 in the report. */
+export const SELFTEST_SCALED = "scaled_box";
+/** The factor the self-test passes for SELFTEST_SCALED, as the wrapper would for a pack.json with "scaleOverrides": { "scaled_box": 10 }. */
+export const SELFTEST_SCALE_OVERRIDES: readonly { stem: string; factor: number }[] = [{ stem: SELFTEST_SCALED, factor: 10 }];
 
 /**
  * The aliases the self-test passes, as the wrapper would for a pack.json with
@@ -466,16 +504,33 @@ export function checkSelftest(report: PackReport): string[] {
     if (Math.abs(got - want) > tol) problems.push(`${what} is ${got}, expected ${want} (within ${tol})`);
   };
   if (report.failures.length > 0) problems.push(`failures: ${report.failures.map((f) => `${f.source} (${f.error})`).join("; ")}`);
-  const pole = report.assets.find((a) => a.name === SELFTEST_POLE);
-  if (!pole) problems.push(`${SELFTEST_POLE} is missing from the report`);
-  else {
-    const { min, max } = pole.bounds;
-    near(max[0] - min[0], 0.4, 0.001, "pole width (x)");
-    near(max[1] - min[1], 3.0, 0.001, "pole height (y)");
-    near(max[2] - min[2], 0.4, 0.001, "pole depth (z)");
-    near(min[1], 0, 1e-4, "pole base (min y)");
-    near((min[0] + max[0]) / 2, 0, 1e-4, "pole x centre");
-    near((min[2] + max[2]) / 2, 0, 1e-4, "pole z centre");
+  if (report.scale !== 1) problems.push(`pack scale is ${report.scale}, expected 1`);
+  // The scale each box was converted with: 1 (the self-test pack has no scale), except the box with an override.
+  for (const a of report.assets) {
+    const want = a.name === SELFTEST_SCALED ? 10 : 1;
+    if (a.scale !== want) problems.push(`${a.name} scale is ${a.scale}, expected ${want}`);
+  }
+  // A box with a known size, on its base and centred (what, in the messages, names the measure).
+  const checkSize = (name: string, what: string, size: readonly [number, number, number], tol: number) => {
+    const box = report.assets.find((a) => a.name === name);
+    if (!box) {
+      problems.push(`${name} is missing from the report`);
+      return undefined;
+    }
+    const { min, max } = box.bounds;
+    near(max[0] - min[0], size[0], tol, `${what} width (x)`);
+    near(max[1] - min[1], size[1], tol, `${what} height (y)`);
+    near(max[2] - min[2], size[2], tol, `${what} depth (z)`);
+    near(min[1], 0, 1e-4, `${what} base (min y)`);
+    near((min[0] + max[0]) / 2, 0, 1e-4, `${what} x centre`);
+    near((min[2] + max[2]) / 2, 0, 1e-4, `${what} z centre`);
+    return box;
+  };
+  // The rotated, 0.01-scaled parent: the bake must keep the whole hierarchy's transform.
+  checkSize(SELFTEST_PARENTED, "parented pole", [0.4, 3.0, 0.4], 0.001);
+  checkSize(SELFTEST_SCALED, "scaled box", [10, 10, 10], 0.001);
+  const pole = checkSize(SELFTEST_POLE, "pole", [0.4, 3.0, 0.4], 0.001);
+  if (pole) {
     if (pole.warnings.length > 0) problems.push(`${SELFTEST_POLE} warnings: expected none, got ${pole.warnings.join(", ")}`);
     if (pole.textures.length > 0) problems.push(`${SELFTEST_POLE} textures: expected none, got ${pole.textures.join(", ")}`);
     if (pole.missingTextures.length > 0) problems.push(`${SELFTEST_POLE} missingTextures: expected none, got ${pole.missingTextures.join(", ")}`);
@@ -518,7 +573,10 @@ async function runSelftest(deps: ConvertDeps, blender: BlenderInfo): Promise<num
   deps.stdout("Running the self-test (generated boxes through the normal conversion) ...\n");
   let result: RunResult;
   try {
-    result = await deps.run(blender.path, buildBlenderArgs({ script: L.script, packDir, outGlb, report, selftest: true, aliases: selftestAliases(packDir) }));
+    result = await deps.run(
+      blender.path,
+      buildBlenderArgs({ script: L.script, packDir, outGlb, report, selftest: true, aliases: selftestAliases(packDir), scaleOverrides: SELFTEST_SCALE_OVERRIDES }),
+    );
   } catch (e) {
     deps.stderr(`selftest failed: could not start Blender: ${(e as Error).message}\n`);
     return 1;

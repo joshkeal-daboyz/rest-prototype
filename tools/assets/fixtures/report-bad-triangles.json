@@ -1,5 +1,6 @@
 {
   "blenderVersion": "4.2.3 LTS",
+  "scale": 1,
   "assets": [
     {
       "name": "Fixture_BadTriangles",
@@ -16,6 +17,7 @@
           0.2
         ]
       },
+      "scale": 1,
       "triangles": "twelve",
       "textures": [],
       "missingTextures": [],

@@ -26,10 +26,16 @@ Without Blender the command says so and exits 2. Nothing else in the repo needs 
 
     { "atlas": "Textures/PolygonTown_Texture_01_A.png", "scale": 1 }
     { "scale": 100, "textures": "Src/Textures", "textureOverrides": { "town_hall_mesh": "Src/Textures/Town_Hall_b.png" },
-      "textureAliases": { "MasterTexture02.psd": "Src/Textures/SimpleTown.png", "material:Lambert1": "Src/Textures/Road.png" } }
+      "textureAliases": { "MasterTexture02.psd": "Src/Textures/SimpleTown.png", "material:Lambert1": "Src/Textures/Road.png" },
+      "scaleOverrides": { "Building_PetrolStation": 0.01, "road_crossing_center_mesh": 0.1 } }
 
 - `atlas`: path from the pack folder. **Atlas mode**: every mesh in the pack gets one material using it.
 - `scale`: multiplied on import. Use `0.01` or `100` if the manifest shows `scale-suspect` (SIMPLE Town needs `100`).
+- `scaleOverrides`: `{ "<model stem>": <factor> }` for the odd model in a pack whose size is wrong when the rest are right. The
+  model is converted at the pack `scale` times its factor (`100` with `0.01` gives `1`); the other models are untouched. The factor is a
+  finite number above 0. A key is a model stem (the FBX file name without `.fbx`) with no `/`, `\` or `=`, and the pack must hold an FBX of that
+  stem (anywhere under it): a typo is an error, so a model never stays 100x too big in silence. Find the factor by comparing the model's
+  size in the manifest with a comparable model in the pack.
 - `textures`: the folder searched for images, relative to the pack. Default: the whole pack folder.
 - `textureOverrides`: `{ "<model stem>": "<image, relative to the pack>" }` pins every material of one model to an image. A missing file is an error.
 - `textureAliases`: `{ "<key>": "<image, relative to the pack>" }` says which image a name stands for. A key is either
@@ -62,19 +68,20 @@ You choose what is converted by which FBX files you copy in.
 
     npm run assets:convert              every pack in assets/private/in/, in name order
     npm run assets:convert polygon-town only the named packs (other packs keep their manifest entries)
-    npm run assets:selftest             generated boxes (a pole, a no-UV box, one per texture rule) through the normal path; prints "selftest ok"
+    npm run assets:selftest             generated boxes (a pole, the pole under a rotated 0.01-scaled empty, a box with a scale override, a no-UV box, one per texture rule) through the normal path; prints "selftest ok"
 
 Output (all gitignored):
 
     assets/private/out/<pack>.glb
-    assets/private/out/manifest.json            name, bounds (metres, glTF Y up, base centre at the origin), triangles, warnings
+    assets/private/out/manifest.json            name, bounds (metres, glTF Y up, base centre at the origin), scale, triangles, warnings
     assets/private/out/reports/<pack>.json      what the Blender script reported
     assets/private/selftest/                    the self-test's scratch files
 
 Exit codes: 0 all packs converted; 1 a pack failed (the other packs still make it into the manifest) or a bad
 argument; 2 Blender missing or older than 4.2.
 
-Each asset in the manifest lists `textures` (the images embedded for it) and `missingTextures`.
+Each asset in the manifest lists `textures` (the images embedded for it) and `missingTextures`, and its `scale`: the factor it was
+imported with, the pack's `scale` times its `scaleOverrides` entry (the pack's own `scale` is on the pack; `bounds` already include it).
 Warnings: `scale-suspect` (largest dimension outside 0.05 m to 60 m); `no-uv` (a mesh that should carry an image has no UV
 map); `missing-texture` (a material's image was not found; `missingTextures` names it, and an alias or a `textureOverrides` entry fixes it);
 `texture-guessed` (rule 6; check it, or pin it with an override).
@@ -87,9 +94,12 @@ by digits (`road_crossing_mesh.fbx` finds `road_crossing_mesh1.obj`). OBJ files 
 
 Per FBX: import with the file's own units, drop animations, cameras, lights and armatures, bake transforms,
 move the pivot to the base centre, put the meshes under one root named after the file, then assign the shared atlas
-material (atlas mode) or find each material's image (per-model mode). Then one GLB export (Y up, textures embedded, no animations). Run by hand if you need to:
+material (atlas mode) or find each material's image (per-model mode). Then one GLB export (Y up, textures embedded, no animations), written to `<pack>.tmp.glb` beside the real file and moved over `<pack>.glb`
+only once every manifest name is a root node in it; if that check fails the temp file is removed and the earlier GLB stays. Every mesh's world
+transform is read before any empty, bone or other non-mesh object is deleted, so a model nested under a rotated or scaled parent keeps its pose
+and size. Run by hand if you need to:
 
-    blender --background --factory-startup --python tools/blender/convert_fbx.py -- --in <packDir> --out <glb> --report <json> [--atlas <png>] [--scale <n>] [--textures <dir>] [--texture-override <stem>=<image> ...] [--texture-alias <key>=<image> ...]
+    blender --background --factory-startup --python tools/blender/convert_fbx.py -- --in <packDir> --out <glb> --report <json> [--atlas <png>] [--scale <n>] [--textures <dir>] [--texture-override <stem>=<image> ...] [--texture-alias <key>=<image> ...] [--scale-override <stem>=<factor> ...]
 
 (`--texture-alias` takes the normalised key: the lowercased file stem, or `material:` and the lowercased name. The wrapper does this for you.)
 
@@ -103,6 +113,11 @@ are in `Textures/` under other names. This is the `pack.json` that takes the mis
 
     {
       "scale": 100,
+      "scaleOverrides": {
+        "Building_PetrolStation": 0.01,
+        "Building_PoliceStation": 0.01,
+        "road_crossing_center_mesh": 0.1
+      },
       "textureOverrides": {
         "Env_Road_Ramp_Straight": "T/SimpleTown.png",
         "road_cornerLines_mesh": "T/Road.png"
@@ -167,5 +182,19 @@ right: a wrong atlas shows signage fragments and stripes. Final previews were re
   `town_hall_mesh`'s material: a `material:lambert1` alias would have given the town hall this road image and lost its `Town_Hall_a.png`.
 - Override `Env_Road_Ramp_Straight` -> `SimpleTown.png` (material `lambert2`, no reference). It renders as kerbs and lane dashes next to
   `Env_Road_Ramp`, which names `SimpleTown.png`. An override rather than `material:lambert2`, for the same one-model reason.
+
+**Scale overrides (ticket 040).** Three models were the wrong size with the pack's `scale: 100` while the other 170 were right. The sizes
+below are metres from the manifest, glTF axes (x by y by z, y up). First the transform bake was checked as the
+cause (every mesh's world matrix read before the empties are deleted, ticket 040): no model's bounds changed by more than 1%, so the
+size is in the FBX files themselves, not in the bake. The three stay 100x, 100x and 10x too big:
+
+| model | at `scale: 100` | factor | converted | compared with |
+| --- | --- | --- | --- | --- |
+| `Building_PetrolStation` | 2247.4 x 941.0 x 2775.0 | 0.01 | 22.5 x 9.4 x 27.7 | `Building_Cinema` 31.3 x 15.5 x 26.8, `Building_AutoRepair` 21.5 x 10.7 x 10.8 |
+| `Building_PoliceStation` | 2431.1 x 985.5 x 1499.6 | 0.01 | 24.3 x 9.9 x 15.0 | `Building_House_05` 19.6 x 16.0 x 25.7, `Building_Cinema` |
+| `road_crossing_center_mesh` | 50 x 0 x 70 | 0.1 | 5 x 0 x 7 | `roadLane_straight_Centered_mesh` 5 x 0 x 7 (same flat lane tile) |
+
+With the factors, none of the three carries `scale-suspect` (the pack went from 3 such models to 0), their `scale` in the manifest is
+`1`, `1` and `10` (the pack's 100 times 0.01, 0.01 and 0.1), and the other 170 models are exactly as before.
 
 Result: 173 models, 0 `missing-texture`; `town_hall_mesh` is still the only `texture-guessed` model (`Town_Hall_a.png`; `Town_Hall_b.png` is the other colour).
