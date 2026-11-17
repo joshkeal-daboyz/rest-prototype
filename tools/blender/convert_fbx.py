@@ -50,6 +50,8 @@ SELFTEST_LOST_REF = "lost_ref"
 SELFTEST_ALIAS_REF = "alias_ref"
 SELFTEST_ALIAS_MAT = "alias_mat"
 SELFTEST_ALIAS_ORDER = "alias_order"
+SELFTEST_CLASH_HOLDER = "clash_holder"  # its child mesh is named like the next file's stem
+SELFTEST_CLASH_STEM = "clash_stem"
 
 IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".tga", ".tif", ".tiff", ".bmp")
 # Blender's importer takes FBX 7100 (2011) and newer; older files fail to import.
@@ -320,6 +322,27 @@ def obj_copy_for(stem, obj_rels):
     return None
 
 
+def glb_root_names(path):
+    """The names of the scene's root nodes in a .glb file (its JSON chunk is read directly; no Blender needed)."""
+    with open(path, "rb") as f:
+        magic, _version, _length = struct.unpack("<4sII", f.read(12))
+        if magic != b"glTF":
+            raise ValueError("%s is not a GLB file" % path)
+        chunk_length, chunk_type = struct.unpack("<I4s", f.read(8))
+        if chunk_type != b"JSON":
+            raise ValueError("%s: the first chunk is not JSON" % path)
+        doc = json.loads(f.read(chunk_length).decode("utf-8"))
+    nodes = doc.get("nodes", [])
+    scene = doc.get("scenes", [{}])[doc.get("scene", 0)]
+    return [nodes[i].get("name", "") for i in scene.get("nodes", [])]
+
+
+def missing_root_names(entry_names, root_names):
+    """The manifest names that no root node in the GLB carries, sorted."""
+    have = set(root_names)
+    return sorted(n for n in entry_names if n not in have)
+
+
 def check_helpers():
     """The lookup rules on plain data. Run by --selftest before Blender is involved; raises AssertionError."""
     index = [
@@ -378,6 +401,9 @@ def check_helpers():
     assert lookup_model_name(index, "_mesh") is None
     assert drop_blender_suffix("lambert1.001") == "lambert1"
     assert split_basename("C:\a\b/c.png") == "c.png"
+    # a manifest name with no root node of that exact name (a ".002" suffix, say) is reported
+    assert missing_root_names(["a", "b"], ["a", "b"]) == []
+    assert missing_root_names(["grass_mesh", "a"], ["grass_mesh.002", "a"]) == ["grass_mesh"]
 
 
 # ---------------------------------------------------------------------------------------------
@@ -628,7 +654,16 @@ def import_one(path, rel, stem, scale, ctx):
             images, missing, guessed, with_image = texture_materials(meshes, stem, ctx)
         else:
             images, missing, guessed, with_image = {ctx["atlas"]}, set(), False, {o.name for o in meshes}
+        # The root must carry exactly the stem (the manifest names it, and the loader looks it up by that name).
+        # An earlier file's child mesh may already hold the name; it is only a child, so it gives the name up.
+        clash = bpy.data.objects.get(stem)
+        if clash is not None:
+            clash.name = stem + "_child"
         root = bpy.data.objects.new(stem, None)
+        if root.name != stem:
+            got = root.name
+            bpy.data.objects.remove(root, do_unlink=True)
+            raise RuntimeError("could not give the root object the name %r (Blender made it %r)" % (stem, got))
         bpy.context.scene.collection.objects.link(root)
         triangles = 0
         no_uv = False
@@ -727,6 +762,11 @@ def convert(indir, out, report_path, atlas, scale, textures_dir, overrides, alia
         export_lights=False,
         use_selection=False,
     )
+    # Every name the report gives must be a root node of the GLB, exactly (the loader reads the GLB by these names).
+    wrong = missing_root_names([a["name"] for a in assets], glb_root_names(out))
+    if wrong:
+        print("convert_fbx: the GLB has no root node named %s" % ", ".join(wrong), file=sys.stderr)
+        return 1
     print("convert_fbx: %d model(s), %d failure(s) -> %s" % (len(assets), len(failures), out))
     return 0
 
@@ -860,6 +900,14 @@ def build_selftest(indir):
     # Rule 3 beats an alias: tex_crate.psd is aliased to alias_atlas.png, but Textures/tex_crate.png exists.
     alias_order = _box_object(SELFTEST_ALIAS_ORDER, (0.5, 0.5, 0.5), 0.0, True, _referencing_material("AliasOrderMat", "C:/nowhere/tex_crate.psd"))
     _export_fbx(alias_order, os.path.join(fbx, SELFTEST_ALIAS_ORDER + ".fbx"))
+    # A root must keep its stem even when an earlier file's child mesh already has that name: clash_holder.fbx
+    # (read first) holds a mesh called "clash_stem", and clash_stem.fbx comes after it.
+    holder = _box_object(SELFTEST_CLASH_STEM, (0.5, 0.5, 0.5), 0.0, True)
+    _export_fbx(holder, os.path.join(fbx, SELFTEST_CLASH_HOLDER + ".fbx"))
+    holder.name = SELFTEST_CLASH_STEM + "_src"
+    holder.data.name = SELFTEST_CLASH_STEM + "_src"
+    clash = _box_object(SELFTEST_CLASH_STEM, (0.5, 0.5, 0.5), 0.0, True)
+    _export_fbx(clash, os.path.join(fbx, SELFTEST_CLASH_STEM + ".fbx"))
     # A reference no rule can find.
     lost = _box_object(SELFTEST_LOST_REF, (0.5, 0.5, 0.5), 0.0, True, _referencing_material("LostMat", os.path.join(missing_dir, "nowhere.png")))
     _export_fbx(lost, os.path.join(fbx, SELFTEST_LOST_REF + ".fbx"))

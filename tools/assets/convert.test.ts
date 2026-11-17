@@ -714,6 +714,16 @@ describe("The Python script and the shared constants", () => {
     expect(py).not.toContain("no-atlas");
   });
 
+  it("each root object is named exactly its file stem: a clashing child mesh is renamed, a wrong name raises, and the GLB's root names are compared with the report", () => {
+    expect(py).toMatch(/clash = bpy\.data\.objects\.get\(stem\)\r?\n\s+if clash is not None:\r?\n\s+clash\.name = stem \+ "_child"/);
+    expect(py).toMatch(/if root\.name != stem:[\s\S]{0,160}raise RuntimeError/);
+    expect(py).toContain("def glb_root_names(path)");
+    expect(py).toContain("missing_root_names([a[\"name\"] for a in assets], glb_root_names(out))");
+    // the self-test builds the clash: an earlier file's mesh is called like a later file's stem
+    expect(py).toContain('SELFTEST_CLASH_HOLDER = "clash_holder"');
+    expect(py).toContain('SELFTEST_CLASH_STEM = "clash_stem"');
+  });
+
   it("amendment B: the OBJ hint accepts a stem plus digits, and an alias match is silent (no warning is added for it)", () => {
     expect(py).toContain("def obj_copy_for(stem, obj_rels)");
     expect(py).toMatch(/\[0-9\]\+\$/);
