@@ -1,7 +1,7 @@
 # 042 · The 3D town: buildings that face their road, fewer repeats, real buildings that light up, and streets and pole hardware from asset packs
 
 owner: renderer
-status: open
+status: approved (G1, Josh, 17 Nov 2026: "Yes, both", i.e. merge 041 and start sections A and B; every open-question default applies). Sections C, D, E wait for his downloads.
 branch: `ticket/042-buildings-face-variety-lit-places-pack-streets` (one branch per section: `-a`, `-b`, ...)
 
 ## Josh's words (17 Nov 2026, after playing ticket 041 A, B and C together on `ticket/041-city-layout-and-power-lines-c`)
@@ -50,7 +50,7 @@ branch: `ticket/042-buildings-face-variety-lit-places-pack-streets` (one branch 
 - **Which model is the "video rental store": I can't tell from the data.** The names don't say it and no agent can see the textures. My best guess is the `Shop_03..05` family (the most-weighted small model), or else `Shop_01/02`. Section A's overlay captions each building with its name, so Josh can say which.
 
 ### 3 and 4. Roads, kerbs and power lines from packs
-- **The asset-scout's lists aren't in yet.** On `main`, `assets/candidates/` holds only `synty-store.md` (the earlier survey). So the gated sections below name slots, not models, and the builder fills each slot from the manifest once Josh has converted the pack.
+- **The asset-scout's shortlist is in:** `assets/candidates/synty-subscription-town-view.md` (17 Nov 2026; pack contents are from search summaries, to be checked on the pack page). Earlier survey: `synty-store.md`. So the gated sections below name slots, not models, and the builder fills each slot from the manifest once Josh has converted the pack.
 - **The local manifest already has some candidates:**
   - SIMPLE Town road tiles: `road_straight_mesh` 5 × 10 m, `road_t_mesh` and `road_cornerLines_mesh` 20 × 20, `road_corner_mesh`, `road_square_mesh`, `roadLane_*`, `road_crossing_center_mesh`, `path_*`;
   - Apocalypse `SM_Env_Road_*`;

@@ -1,7 +1,7 @@
 # 041 · The 3D view gets a real town: streets with kerbs, buildings in rows at one scale, and power lines that read as power lines
 
 owner: renderer
-status: approved (G1, Josh, 17 Nov 2026: "Approve A, B, C"; every open-question default applies). Sections build in order A, B, C, each its own branch, review and playtest. Section A: built, gate green at pitch 9; Josh answered A-Q1 on 17 Nov 2026: "Pitch 12, pinwheel" (A-Q2 defaults stand, no objection raised); rebuilding at pitch 12 with pinwheel fill, then review and playtest.
+status: done (merged to main 17 Nov 2026; Josh: "Yes, both"). Was: approved (G1, Josh, 17 Nov 2026: "Approve A, B, C"; every open-question default applies). Sections build in order A, B, C, each its own branch, review and playtest. Section A: built, gate green at pitch 9; Josh answered A-Q1 on 17 Nov 2026: "Pitch 12, pinwheel" (A-Q2 defaults stand, no objection raised); rebuilding at pitch 12 with pinwheel fill, then review and playtest.
 branch: `ticket/041-city-layout-and-power-lines` (one branch per section: `-a`, `-b`, `-c`)
 
 ## Josh's words (17 Nov 2026, after playing the 3D view on `main`)
