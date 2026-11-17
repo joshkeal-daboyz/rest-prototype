@@ -28,3 +28,5 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 039+040 | lead-architect | opus (agent default) | 79K total across 2 resumes plus the first cut (one figure each in the readout; the first-cut figure was 76K) | — | 0 | Cut both tickets; 24 tool uses, 4.5 min |
 | 040 | grid-simulator | sonnet | 167K total (one figure in the readout) | — | 0 | Built the bake fix, scaleOverrides, selftest cases; 76 tool uses, 10 min; the real SIMPLE Town re-conversion was most of it |
 | 040 | code-reviewer | opus | 54K total (one figure in the readout) | — | 1 | meets, must-fix 0; 11 tool uses, 2 min; no playtester (only tools/ changed) |
+| 039 | renderer | sonnet | 156K total (one figure in the readout) | — | 0 | Built the GLB loader and MODEL_TABLE; 89 tool uses, 66 min (headless Edge checks and the real-pack conversions) |
+| 039 | code-reviewer | opus | 47K total (one figure in the readout) | — | 1 | meets, must-fix 0; 10 tool uses, 2 min; no playtester (only src/render3d/ changed) |

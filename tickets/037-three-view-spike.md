@@ -1,7 +1,7 @@
 # 037 · Spike: a Three.js 3D view of the Shrine circuit, power lines on poles along the streets
 
 owner: renderer (with declared lines in `src/main.ts`, see Files)
-status: approved (G1, Josh, 12 Nov 2026: "Approve 037"). Section A built, review must-fix 0, playtest regressions 0, not merged. Section B approved (G1, Josh, 12 Nov 2026: "Approve 037 B"), built, review must-fix 0, playtest regressions 0, not merged. Section C approved (G1, Josh, 12 Nov 2026: "Approve 037 C").
+status: done. Sections A, B and C approved by Josh (12 Nov 2026: "Approve 037", "Approve 037 B", "Approve 037 C"), each reviewed and playtested (must-fix 0, regressions 0); merged on 17 Nov 2026 together with 039 (Josh: "Merge both").
 branch: `ticket/037-three-view-spike`
 
 ## Josh's words

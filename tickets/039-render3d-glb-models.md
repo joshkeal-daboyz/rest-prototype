@@ -1,7 +1,7 @@
 # 039 · The 3D view loads converted GLB models, falling back to the placeholder shapes
 
 owner: renderer
-status: open
+status: done
 branch: `ticket/039-render3d-glb-models`
 
 ## Josh's words
