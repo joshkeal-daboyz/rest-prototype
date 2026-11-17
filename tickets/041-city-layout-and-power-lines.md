@@ -1,7 +1,7 @@
 # 041 · The 3D view gets a real town: streets with kerbs, buildings in rows at one scale, and power lines that read as power lines
 
 owner: renderer
-status: approved (G1, Josh, 17 Nov 2026: "Approve A, B, C"; every open-question default applies). Sections build in order A, B, C, each its own branch, review and playtest. Section A: building.
+status: approved (G1, Josh, 17 Nov 2026: "Approve A, B, C"; every open-question default applies). Sections build in order A, B, C, each its own branch, review and playtest. Section A: built, gate green at pitch 9; Josh answered A-Q1 on 17 Nov 2026: "Pitch 12, pinwheel" (A-Q2 defaults stand, no objection raised); rebuilding at pitch 12 with pinwheel fill, then review and playtest.
 branch: `ticket/041-city-layout-and-power-lines` (one branch per section: `-a`, `-b`, `-c`)
 
 ## Josh's words (17 Nov 2026, after playing the 3D view on `main`)
@@ -37,7 +37,9 @@ Josh opens `npm run dev` with `?puzzle=09-shrine-circuit&view=3d` and sees a tow
 2. **Junctions.** Where two or more roads end at the same node, or where a road meets the ring road or the grid, a junction pad covers their ends: the convex hull of the end edges. Kerbs (`KERB_H` 0.03, pale) run along both edges of every road and are clipped wherever they fall inside another road or a pad. A pavement band (`PAVE_W` 0.45) runs outside each kerb.
 3. **Ring road and city blocks.**
    - A ring road runs at `RING_MARGIN` 4 outside `puzzleBounds`. This is 3D only: 2D's `FOOTPRINT_MARGIN` 2 and the camera's framing are unchanged.
-   - Outside the ring, an orthogonal grid of streets at `BLOCK_PITCH` 9 (about 50 m) forms one ring of rectangular city blocks, `OUTER_RINGS` = 1. The grid lines are spaced evenly between the ring's corners, so each block side is between 7 and 11.
+   - Outside the ring, an orthogonal grid of streets forms one ring of rectangular city blocks, `OUTER_RINGS` = 1. ~~`BLOCK_PITCH` 9 (about 50 m), each block side between 7 and 11~~ *Amended after the A build (A-Q1):* `BLOCK_PITCH` 12 (about 67 m). The grid lines are spaced evenly between the ring's corners, and `gridCount` aims at sides between 11 and 15, nearest 12. A ring side shorter than 11 is one block.
+   - *Why:* at pitch 9 a block is 7 square inside its pavements. Two opposite rows of lots (2.34 to 3.42 deep) leave under 2.2 on the other sides, and the smallest lot is 2.16 wide, so a block can only be built on two sides.
+   - *At pitch 12* the inside is 10 square (9.5 on the shortest ring side). Each side keeps 9.6 − (the next side's lot depth) for its own row: 6.2 to 7.3 for `small`/`house` neighbours, enough for two or three lots. So all four sides get buildings.
    - The town's window is the ring plus that one ring of blocks.
 4. **Lots are sized to buildings, not the reverse.**
    - A small table `LOT_TYPES` gives sizes in metres: frontage × depth, and a height cap.
@@ -55,6 +57,8 @@ Josh opens `npm run dev` with `?puzzle=09-shrine-circuit&view=3d` and sees a tow
      - the **occlusion rule:** for every wire point, node top and lamp head north of the lot, the distance must be at least (lot height cap − point height) × `OCCLUDE_SLOPE`. `OCCLUDE_SLOPE` is 1 / tan(`ELEVATION` − `FOV_DEG`/2), about 2.14. It's held in `town.ts` with a drift test against `camera.ts`.
    - If no type fits, the cursor moves on by `FILL_STEP` 0.25.
    - Corners: a lot that clears one road may not stick into another.
+   - *Amended after the A build (A-Q1):* **outer blocks are filled pinwheel-fashion.** Each of a block's four sides starts its row at its own corner (clockwise) and stops `LOT_GAP` short of the next side's row. Before the row is filled, each side reserves the band its row needs, sized to the deepest type allowed there. This replaces "ring road, then grid" filling the long sides first, which leaves the short sides bare.
+   - Lot types allowed on a ring or grid side are those whose depth, plus the `small` depth and `LOT_GAP`, fits the block's inside (the builder's `typesFor` rule). At pitch 9 that kept `large` (5.04 deep) on circuit streets only. At pitch 12, `large` fits outer blocks too.
    - What frontage fill can't use (deep block interiors, odd scraps by the circuit) is yard ground.
    - Result: the outer blocks are built up in rows, and inside the ring buildings line the streets but stay low or set back near wires. This replaces `FOOTPRINT_MAX_H`.
 5. **Places.**
@@ -66,6 +70,10 @@ Josh opens `npm run dev` with `?puzzle=09-shrine-circuit&view=3d` and sees a tow
      - `gate`: two `GATE_POST` posts beside the wire, as in 2D;
      - each 2 storeys high.
    - Each place takes the nearest frontage slot to its lamp, within `PLACE_REACH` 2.5, that clears the rules above and lies nearer its own lamp than any other lamp. Otherwise it becomes a pool (as 2D).
+   - *Accepted after the A build (A-Q2, Josh to confirm):*
+     - A place, but not an ordinary lot, may also front **either side of a service run** (a lamp spur with no road), at `PAVE_W`/2 + `SETBACK` from it. Most lamps end a spur, so without this they'd have no frontage.
+     - A `gate` first tries one post on each side of the wire, as in 2D. Only if that fails, it may put **both posts on the free side**, `GATE_POST` + `LOT_GAP` apart along the wire.
+   - A streetlight (`slotKind` `"none"`) is always a pool, in 3D as in 2D.
    - A place may sit a little apart from where 2D draws it; it keeps its look: a box that warms when lit, plus its caption.
 
 ### Section B: the scene draws the town, at one scale (`scene.ts`, `models.ts`, `models3d.ts`, new `placeholders.ts`)
@@ -83,7 +91,7 @@ Josh opens `npm run dev` with `?puzzle=09-shrine-circuit&view=3d` and sees a tow
    - `house`: `Building_House_01..04`, `_09..015`, `Building_Garage_01..03`, `office_small_mesh`;
    - `large`: `Building_House_05..08`, `Building_AutoRepair`, `Building_StripClub`, `Building_PoliceStation`, `Building_PetrolStation`, `office_stepped_mesh`;
    - `tall`: `apartment_large_mesh`, `office_medium_mesh`, `office_large_mesh`.
-   - Not used: `Building_Cinema` and `Building_Mall_A/B` (too big for a 50 m block), `town_hall_mesh` (`texture-guessed`), and every Apocalypse building.
+   - Not used: `Building_Cinema` and `Building_Mall_A/B` (too big for any lot type), `town_hall_mesh` (`texture-guessed`), and every Apocalypse building.
    - The builder confirms each type assignment from the manifest's bounds (the table above is computed, not hand-set) and names any model that lands in a different type.
 4. **No copy beside itself.** `pickBuildings(lots, plan)` (pure, `models.ts`) gives each lot a model of its type by `stableHash(lot.key)`. If a neighbour already placed within `NEIGHBOUR_GAP` 0.5 has the same model, it takes the next model in the list. With three or more models of a type, no two neighbours match.
 5. **Placeholders that look like buildings** (no GLB, or a type with no usable model). `placeholderBuilding(lot)` gives:
@@ -133,9 +141,12 @@ A plus B is the bigger win: they answer two of Josh's three complaints, the city
 - [ ] **Streets beside the wires.**
   - Each line of length ≥ `STREET_MIN_LEN` has exactly one road, or none when both sides are blocked; the test lists those lines per map.
   - Each road is parallel to its line, and its near edge is `KERB_OFFSET` from the line on the side the rule gives (within 1e-6).
-  - No road, pad or kerb covers any node's `NODE_SQUARE`, apart from a pavement under its own nodes.
+  - ~~No road, pad or kerb covers any node's `NODE_SQUARE`, apart from a pavement under its own nodes.~~ *Amended after the A build:* no road or kerb covers any node's `NODE_SQUARE`. No pad covers any square except its own junction node's. A pad may cover its own node's square, because:
+    - a hub with roads on three or more sides lies inside its own junction;
+    - `KERB_OFFSET` 0.4 is less than the square's half-diagonal, 0.495, so a diagonal road's pad clips a corner of it at any turn.
+    - The builder measured 265 of 565 pads doing this.
   - Shorter lines have no road.
-  - The ring road and the grid streets exist, and every feed's lane reaches the ring.
+  - The ring road and the grid streets exist, and every feed's lane reaches the ring road's centreline.
 - [ ] **Junctions and kerbs.** Every node where two or more roads end has a pad that contains each of those roads' end edges. No kerb segment lies inside another road or a pad.
 - [ ] **Lots.**
   - Every lot's frontage × depth is exactly one `LOT_TYPES` size × `WORLD_PER_METRE`.
@@ -143,15 +154,42 @@ A plus B is the bigger win: they answer two of Josh's three complaints, the city
   - It overlaps no road, pad, pavement, node square, place or other lot (`LOT_GAP` kept).
   - It is at least `WIRE_CLEAR` from every wire span point and meets the occlusion rule against every wire point, node top and lamp head.
   - `tall` lots lie outside the ring.
-- [ ] **Built up.** In every outer block, lots cover at least 60% of the block's frontage length.
+- [ ] ~~**Built up.** In every outer block, lots cover at least 60% of the block's frontage length.~~ *Amended after the A build (A-Q1):* **Built up on four sides.**
+  - Every side of every outer block has at least one lot facing it.
+  - Coverage is the sum of lot frontages over the block's perimeter inside its pavements. Its mean over all outer blocks on all maps is at least 0.45, and no block is under 0.35.
+  - *Why 0.45:* fixed lot sizes and corners cap coverage near 0.6, and the hashed type mix leaves gaps. Estimates at pitch 12 are 0.43 to 0.65 per side.
+  - *Measured at pitch 9 on the A branch:* 0.19 to 0.39 per block, mean about 0.33.
+  - If the mean comes out under 0.45, the builder reports the measured numbers and asks; it doesn't lower the bar.
 - [ ] **Places.**
   - There is one place per lamp, in `nodes` order, with its lamp id, `slotKind` and today's label.
   - Every non-pool part is within `PLACE_REACH` of its lamp and nearer it than any other lamp, and clears the lot rules.
-  - No map has more pool places than 2D's `footprintLayout(...).places` has (the test computes both).
-  - On `09-shrine-circuit`, the shrine and the flood are not pools.
-  - If a map fails this, the builder reports it and asks for a re-cut instead of loosening the criterion.
+  - ~~No map has more pool places than 2D's `footprintLayout(...).places` has (the test computes both).~~ *Amended after the A build (A-Q2):* each map's pool places, minus 2D's `footprintLayout(...).places` pools (the test computes both), equals exactly that map's entry in `KNOWN_POOL_EXCESS`, or 0 if it has none. Any change, better or worse, fails the test, so it is seen.
+  - On `main`'s ladder the excess is 1 on `07`, `13`, `15`, `17`, `22`, `29`, `40`, `41`, `42`, `44`, `45`, `46` and `55`; 2 on `50`, `53`, `54` and `56`; and 3 on `49-two-cells`. That is 18 of 65 maps, measured with A-Q2's two additions in place. **Josh sees this list before approving A** (the original ticket said report, not loosen; this is the report).
+  - ~~On `09-shrine-circuit`, the shrine and the flood are not pools.~~ *Corrected:* on `09-shrine-circuit`, the shrine is a building, not a pool. The flood is a streetlight in `placeKind` (`slotKind` `"none"`), so it is a pool in 2D and in 3D alike.
 - [ ] **Drift guard.** `OCCLUDE_SLOPE` equals 1 / tan(`ELEVATION` − `FOV_DEG`/2) read from `camera.ts`.
-- [ ] **Old tests.** `layout.test.ts`'s `blockLayout` and footprint-height tests are replaced by these. The builder names each removed test in the report.
+- [ ] ~~**Old tests.** `layout.test.ts`'s `blockLayout` and footprint-height tests are replaced by these. The builder names each removed test in the report.~~ *Amended:* `blockLayout`, its types and its tests stay in `layout.ts` through section A, because `scene.ts`, `scene.test.ts` and `models.test.ts` still use them. Section B removes them when the scene switches to `Town`, and its builder names each removed test.
+
+### Section A deviations (for Josh)
+These are recorded after the A build. Items 1 and 4 change criteria you approved, so section A goes back to you before it is reviewed as done.
+1. **Block size and fill (A-Q1).**
+   - 60% frontage can't hold at pitch 9; the build measured 0.19 to 0.39 per block, mean 0.33. Pitch 9 builds only two sides of each block, which reads as strips of terraces with bare ends: the "not a city layout" look you objected to.
+   - **Recommended:** pitch 12 plus pinwheel fill, with the bar "all four sides built, mean ≥ 0.45".
+   - **Its cost:** bigger blocks (about 67 m), a town window about 6 units wider on each side, and roughly 1.5 to 2 times as many outer lots to draw. The camera's framing is unchanged.
+   - **Alternatives:**
+     - (b) keep pitch 9 and pinwheel fill: about 0.35 to 0.4 coverage, one lot per side;
+     - (c) keep pitch 9 and lower the bar to 0.3: no code change, two-sided blocks.
+2. **Pads cover their own node.** The criterion now allows it; no pad touches any other node's square. Reshaping the node squares instead would change a `src/render/` constant, which is out of scope.
+3. **The flood on 09** is a streetlight, so it is a pool in both views. Only the shrine is a building.
+4. **Pool places beyond 2D's (A-Q2).**
+   - 18 of 65 maps have more pools than 2D: 1 extra on 13 maps, 2 on 4, and 3 on `49-two-cells`. 3D's roads (1.1 wide plus pavements) take the room 2D's 0.5 lanes left free.
+   - Two additions the builder made, not in the ticket, keep this down, and the ticket accepts both: places may front a service run's sides, and a gate may put both posts on the free side as a fallback.
+   - **Recommended:** accept the pinned excess for A. Judge it in B's browser check on `49-two-cells`. If the missing places read badly, a later section tries `PLACE_REACH` 3 and places across the road from their lamp.
+5. **The builder's interpretations, accepted:**
+   - Pad ends: each pad is the hull of its roads' end edges, trimmed clear of the node.
+   - Place placement: the nearest slot by distance; ties go by road, side and position.
+   - Feed lanes run to the ring road's centreline in 3D (2D's stop at the footprint edge).
+   - `large` lots stand only on circuit streets at pitch 9; with pitch 12 they may stand on outer blocks.
+   - `blockLayout` stays until B.
 
 ### Section B (Vitest without WebGL, except the two marked "Josh checks")
 - [ ] **One scale.** `modelScale(entry, "building")` is `WORLD_PER_METRE` for every fixture. `lotTypeOf` puts a 10 × 11 × 10 m fixture in `small`, an 11.6 × 16.7 × 11.8 m one in `tall`, and a 46 × 10 × 43 m one in null.
@@ -231,6 +269,15 @@ A plus B is the bigger win: they answer two of Josh's three complaints, the city
 10. **Places' look.** Default: unchanged, a warm box plus its caption, at fixed scale. Per-kind shapes (a spire for the shrine, a bell tower) would be a small later section.
 11. **Order.** Default: A, B, C. Say if you'd rather have C1 to C4 first, for the quickest visible change.
 12. **Decided rules.** None touched; this is visual only. There's no `rules-coverage.md` change, and the accessibility rule (live differs by more than colour) is re-checked in C.
+
+### Added after the section A build (17 Nov 2026; these need your word, the earlier approval doesn't cover them)
+- **A-Q1. Outer blocks.**
+  - **Recommended:** `BLOCK_PITCH` 12 plus pinwheel fill, with the bar "all four sides built, mean coverage ≥ 0.45, no block under 0.35".
+  - **Alternatives:** (b) pitch 9 with pinwheel fill (about 0.35 to 0.4, one lot per side); (c) pitch 9 with the bar lowered to 0.3 (no code change, blocks built on two sides).
+  - See "Section A deviations", item 1.
+- **A-Q2. Pool places.**
+  - **Recommended:** accept the builder's two additions (places on service-run sides; a gate's posts on one side as a fallback) and the pinned excess on 18 maps (`KNOWN_POOL_EXCESS`), and judge it in B's browser check on `49-two-cells`.
+  - **Alternative:** hold A until a re-cut finds room for those places, for example `PLACE_REACH` 3 or narrower roads inside the ring.
 
 ## Within approved scope?
 **Yes.**
