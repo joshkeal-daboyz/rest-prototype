@@ -13,6 +13,12 @@ import { LOT_TYPES, LOT_TYPE_NAMES, type Lot, type LotType } from "./town";
 export const WORLD_PER_METRE = 0.18;
 /** Two lots whose edges are within this many world units are neighbours: they never get the same model (or placeholder variant). */
 export const NEIGHBOUR_GAP = 0.5;
+/** On one road side, a family does not come back within this many lots (ticket 042 A). */
+export const STREET_REPEAT_GAP = 3;
+/** On a map, no family takes more than this share of its lot type's lots, when the type has four or more families (ticket 042 A). */
+export const FAMILY_SHARE_MAX = 0.25;
+/** Building names that are never placed (ticket 042 A). Josh's "video rental store" goes here, or is given a lower weight, once he names it with `fronts=1`. */
+export const BUILDING_EXCLUDE: readonly string[] = [];
 
 export type ModelSlot = "pole" | "lamp" | "building";
 export const MODEL_SLOTS: readonly ModelSlot[] = ["pole", "lamp", "building"];
@@ -22,13 +28,96 @@ export interface ModelChoice {
   slot: ModelSlot;
   pack: string;
   names: readonly string[];
-  /**
-   * Buildings only: the yaw (radians) that turns these models' front to local +z, the way a lot faces its road. Default 0.
-   * If a model's door faces the wrong way, give it a row of its own and set this (Math.PI turns it round; a quarter turn is
-   * Math.PI / 2 or -Math.PI / 2, and swaps which of its sides is the frontage).
-   */
-  front?: number;
 }
+
+/** The axis, in a GLB's own frame, that a model's door faces. */
+export type ModelFront = "+z" | "-z" | "+x" | "-x";
+
+/** The yaw (radians about y) that turns a model whose door faces `f` to face local +z, the way a lot faces its road: 0, pi, -pi/2, +pi/2. */
+export function frontYaw(f: ModelFront): number {
+  switch (f) {
+    case "+z":
+      return 0;
+    case "-z":
+      return Math.PI;
+    case "+x":
+      return -Math.PI / 2;
+    case "-x":
+      return Math.PI / 2;
+  }
+}
+
+/** The unit vector (x, z), in a model's own frame, along which its door faces. */
+export function frontAxis(f: ModelFront): readonly [number, number] {
+  return f === "+z" ? [0, 1] : f === "-z" ? [0, -1] : f === "+x" ? [1, 0] : [-1, 0];
+}
+
+/** True when the front is a quarter turn from +z: the model's depth then runs along the road and its width away from it. */
+export function frontIsQuarter(f: ModelFront): boolean {
+  return f === "+x" || f === "-x";
+}
+
+export interface BuildingFront {
+  /** Which of the model's own axes its door faces. */
+  front: ModelFront;
+  /**
+   * A corner shop: two faces are frontage, so mid-row it shows a side wall either way. It only stands on a corner lot (`Lot.corner`),
+   * facing its own road, with its second frontage on the row's open end.
+   */
+  corner?: true;
+  /** For a corner model, which side of the lot (its local x, once the front is turned to the road) the second frontage is on. Default "+x". A yaw cannot mirror, so the model only goes where its open side is the lot's open end. */
+  open?: "+x" | "-x";
+}
+
+const FRONT_Z: BuildingFront = { front: "+z" };
+/**
+ * Which way every building model's door faces (ticket 042 A). Every name in MODEL_TABLE's building rows must be here (a test fails on a
+ * missing one), and so must the names of ticket 042 B's PLACE_MODELS. These are a starting guess, "+z" for all: no data in the repo
+ * records the door side (the manifest's bounds are centred). Josh sees each declared front with `/?puzzle=...&view=3d&fronts=1` and names
+ * the wrong ones; each correction is one line here.
+ */
+export const BUILDING_FRONTS: Readonly<Record<string, BuildingFront>> = {
+  Building_Shop_01: FRONT_Z,
+  Building_Shop_02: FRONT_Z,
+  Building_Shop_03: FRONT_Z,
+  Building_Shop_04: FRONT_Z,
+  Building_Shop_05: FRONT_Z,
+  Building_BaberShop: FRONT_Z,
+  Building_Gym: FRONT_Z,
+  store_small_mesh: FRONT_Z,
+  store_corner_mesh: { front: "+z", corner: true },
+  apartment_small_mesh: FRONT_Z,
+  Building_House_01: FRONT_Z,
+  Building_House_02: FRONT_Z,
+  Building_House_03: FRONT_Z,
+  Building_House_04: FRONT_Z,
+  Building_House_09: FRONT_Z,
+  Building_House_010: FRONT_Z,
+  Building_House_011: FRONT_Z,
+  Building_House_012: FRONT_Z,
+  Building_House_013: FRONT_Z,
+  Building_House_014: FRONT_Z,
+  Building_House_015: FRONT_Z,
+  Building_Garage_01: FRONT_Z,
+  Building_Garage_02: FRONT_Z,
+  Building_Garage_03: FRONT_Z,
+  office_small_mesh: FRONT_Z,
+  house_mesh: FRONT_Z,
+  Building_House_05: FRONT_Z,
+  Building_House_06: FRONT_Z,
+  Building_House_07: FRONT_Z,
+  Building_House_08: FRONT_Z,
+  Building_AutoRepair: FRONT_Z,
+  Building_StripClub: FRONT_Z,
+  Building_PoliceStation: FRONT_Z,
+  Building_PetrolStation: FRONT_Z,
+  Building_CoffeeShop: FRONT_Z,
+  apartment_large_mesh: FRONT_Z,
+  office_medium_mesh: FRONT_Z,
+  office_large_mesh: FRONT_Z,
+  // Ticket 042 B's default for a sacred place: listed now so B only edits its table.
+  memorial_mesh: FRONT_Z,
+};
 
 /**
  * Edit this to change the look. Names are root node names from `assets/private/out/manifest.json`.
@@ -36,7 +125,7 @@ export interface ModelChoice {
  * - lamp: a plain 5.8 m lamp post (the lamp's head, light and pool stay drawn in code).
  * - building: SIMPLE Town's houses and shops (a few hundred triangles each, one image), one style, at one scale (WORLD_PER_METRE).
  *   Which lots a model can stand on is worked out from its size (`lotTypeOf`), not from the row it is in; the rows only group
- *   names that share a `front`. Worked out from the manifest's bounds, against the ticket's listing: house_mesh (13.4 m deep)
+ *   names by size (which way a door faces is in BUILDING_FRONTS). Worked out from the manifest's bounds, against the ticket's listing: house_mesh (13.4 m deep)
  *   is a house lot's, Building_CoffeeShop (15.6 m high, over the small and house caps) is a large lot's, and office_stepped_mesh
  *   (20 m high, 20.3 m wide or 15.2 m across a quarter turn) fits no lot, so it is left out. Not used: Building_Cinema and
  *   Building_Mall_A/B (too big for any lot), town_hall_mesh (texture-guessed) and the Apocalypse buildings (another art style).
@@ -60,7 +149,6 @@ export const MODEL_TABLE: readonly ModelChoice[] = [
       "store_corner_mesh",
       "apartment_small_mesh",
     ],
-    front: 0,
   },
   {
     // house lots: 16 x 19 m, at most 15 m high
@@ -84,21 +172,18 @@ export const MODEL_TABLE: readonly ModelChoice[] = [
       "office_small_mesh",
       "house_mesh",
     ],
-    front: 0,
   },
   {
     // large lots: 25 x 28 m, at most 16 m high
     slot: "building",
     pack: "simple-town",
     names: ["Building_House_05", "Building_House_06", "Building_House_07", "Building_House_08", "Building_AutoRepair", "Building_StripClub", "Building_PoliceStation", "Building_PetrolStation", "Building_CoffeeShop"],
-    front: 0,
   },
   {
     // tall lots: 14 x 16 m, at most 28 m high (outside the ring only)
     slot: "building",
     pack: "simple-town",
     names: ["apartment_large_mesh", "office_medium_mesh", "office_large_mesh"],
-    front: 0,
   },
 ];
 
@@ -107,8 +192,12 @@ export interface PlannedModel {
   pack: string;
   glb: string;
   entry: AssetEntry;
-  /** The row's `front` (0 when it gave none). */
-  front: number;
+  /** Which of the model's own axes its door faces (BUILDING_FRONTS; "+z" when the name has no entry). */
+  front: ModelFront;
+  /** The side of its lot a corner shop's second frontage is on (it only stands on a corner lot), or false. */
+  corner: false | "+x" | "-x";
+  /** The model's mesh family in its pack (`meshFamily`): models that are one mesh under several names share it. */
+  family: string;
 }
 
 /** Per slot, the usable entries in table order; null when nothing is usable (the slot keeps its placeholder). */
@@ -128,7 +217,7 @@ function usable(entry: AssetEntry, slot: ModelSlot): boolean {
 }
 
 /** The usable table entries per slot. A name missing from the manifest, a `scale-suspect` entry or a pack the manifest lacks is skipped. */
-export function planModels(manifest: AssetManifest, table: readonly ModelChoice[] = MODEL_TABLE): ModelPlan {
+export function planModels(manifest: AssetManifest, table: readonly ModelChoice[] = MODEL_TABLE, fronts: Readonly<Record<string, BuildingFront>> = BUILDING_FRONTS): ModelPlan {
   const plan: ModelPlan = { pole: null, lamp: null, building: null };
   for (const row of table) {
     const pack = manifest.packs.find((p) => p.pack === row.pack);
@@ -136,7 +225,15 @@ export function planModels(manifest: AssetManifest, table: readonly ModelChoice[
     for (const name of row.names) {
       const entry = pack.assets.find((a) => a.name === name);
       if (!entry || !usable(entry, row.slot)) continue;
-      (plan[row.slot] ??= []).push({ pack: pack.pack, glb: pack.glb, entry, front: row.front ?? 0 });
+      const bf = fronts[name];
+      (plan[row.slot] ??= []).push({
+        pack: pack.pack,
+        glb: pack.glb,
+        entry,
+        front: bf?.front ?? "+z",
+        corner: bf?.corner ? (bf.open ?? "+x") : false,
+        family: meshFamily(pack.assets, entry),
+      });
     }
   }
   return plan;
@@ -165,14 +262,35 @@ export function atFront(lot: Lot, depth: number): { x: number; z: number } {
 
 const EPS = 1e-9;
 
+/** Two bounds agree to a centimetre. */
+const CM = 0.01;
+
+/**
+ * The mesh family of `entry` among its pack's `entries` (ticket 042 A): models whose bounds agree to 1 cm and whose triangle counts are
+ * equal are one mesh under several names (recoloured or resigned copies, e.g. Building_Shop_03/04/05). Returns the family's name: the
+ * smallest name (plain string order) of those that match `entry`, so every member gets the same one. A model with no twin is its own family.
+ */
+export function meshFamily(entries: readonly AssetEntry[], entry: AssetEntry): string {
+  let best = entry.name;
+  for (const o of entries) {
+    if (o.triangles !== entry.triangles) continue;
+    let same = true;
+    for (let i = 0; i < 3 && same; i++) {
+      same = Math.abs(o.bounds.min[i]! - entry.bounds.min[i]!) <= CM + EPS && Math.abs(o.bounds.max[i]! - entry.bounds.max[i]!) <= CM + EPS;
+    }
+    if (same && o.name < best) best = o.name;
+  }
+  return best;
+}
+
 /**
  * The first lot type, in LOT_TYPE_NAMES order (small, house, large, tall), that holds the model once its front is turned to
  * the road: its frontage within the lot's frontage, its depth within the lot's depth, and its height under the cap.
- * Null when none does (the Cinema, the malls, office_stepped_mesh). `front` is the row's yaw; an odd quarter turn swaps width and depth.
+ * Null when none does (the Cinema, the malls, office_stepped_mesh). A quarter-turn `front` ("+x", "-x") swaps width and depth.
  */
-export function lotTypeOf(entry: AssetEntry, front = 0): LotType | null {
+export function lotTypeOf(entry: AssetEntry, front: ModelFront = "+z"): LotType | null {
   const [w, h, d] = sizeOf(entry);
-  const quarter = Math.abs(Math.sin(front)) > 0.5;
+  const quarter = frontIsQuarter(front);
   const frontage = quarter ? d : w;
   const depth = quarter ? w : d;
   for (const t of LOT_TYPE_NAMES) {
@@ -185,10 +303,11 @@ export function lotTypeOf(entry: AssetEntry, front = 0): LotType | null {
 /** The model names a lot type can use, in table order. A type with none is drawn with placeholder buildings. */
 export type BuildingPlan = Readonly<Record<LotType, readonly string[]>>;
 
-/** Group the planned building models by the lot type each one fits. */
-export function buildingPlan(models: readonly PlannedModel[] | null): BuildingPlan {
+/** Group the planned building models by the lot type each one fits, leaving out the names in `exclude`. */
+export function buildingPlan(models: readonly PlannedModel[] | null, exclude: readonly string[] = BUILDING_EXCLUDE): BuildingPlan {
   const out: Record<LotType, string[]> = { small: [], house: [], large: [], tall: [] };
   for (const m of models ?? []) {
+    if (exclude.includes(m.entry.name)) continue;
     const t = lotTypeOf(m.entry, m.front);
     if (t) out[t].push(m.entry.name);
   }
@@ -306,10 +425,153 @@ export function pickDistinct(lots: readonly Lot[], count: (type: LotType) => num
   return out;
 }
 
-/** The model name each lot gets, parallel to `lots`: one of its own type's, by `stableHash(lot.key)`, never a neighbour's. Null where the type has no model. */
-export function pickBuildings(lots: readonly Lot[], plan: BuildingPlan): (string | null)[] {
-  const idx = pickDistinct(lots, (t) => plan[t].length);
-  return lots.map((l, i) => (idx[i]! >= 0 ? plan[l.type][idx[i]!]! : null));
+/** What the picker needs to know about a model besides its name. */
+export interface BuildingTraits {
+  /** Models of one family are one mesh under several names; the picker spreads families, not names. */
+  family: string;
+  /** The side of its lot a corner shop's second frontage is on; false for an ordinary model. */
+  corner: false | "+x" | "-x";
+}
+
+/** The traits of each planned model, by name. */
+export function traitsOf(models: readonly PlannedModel[] | null): Map<string, BuildingTraits> {
+  return new Map((models ?? []).map((m) => [m.entry.name, { family: m.family, corner: m.corner }] as const));
+}
+
+/**
+ * Which ends of a lot (its local +x and -x) have no lot of the same road side within NEIGHBOUR_GAP beside them: the open ends of a row.
+ * `near` lists the lots within NEIGHBOUR_GAP of `lots[i]`.
+ */
+function openEnds(lots: readonly Lot[], i: number, near: readonly number[]): { plus: boolean; minus: boolean } {
+  const l = lots[i]!;
+  const ex = Math.cos(l.yaw);
+  const ez = -Math.sin(l.yaw);
+  let plus = true;
+  let minus = true;
+  for (const j of near) {
+    const o = lots[j]!;
+    if (o.street !== l.street || o.side !== l.side) continue;
+    if ((o.x - l.x) * ex + (o.z - l.z) * ez > 0) plus = false;
+    else minus = false;
+  }
+  return { plus, minus };
+}
+
+interface Family {
+  id: string;
+  names: string[];
+}
+
+/**
+ * The model name each lot gets, parallel to `lots` (ticket 042 A). Null where the lot's type has no model, or only corner models and the lot is not a corner.
+ * - A lot picks a family of its own type first, by `stableHash(lot.key)`, every family weighted equally (a model with three names is not three times as
+ *   likely), then a variant inside it by a second hash. `traits` names each model's family; without it every name is its own family.
+ * - Neighbours (within NEIGHBOUR_GAP) never share a family, and along one road side a family does not come back within STREET_REPEAT_GAP lots
+ *   (fewer when the type has fewer families than that plus one). With four or more families in a type, no family takes more than FAMILY_SHARE_MAX of
+ *   the type's lots. A pick that breaks a rule takes the next family in the list; if every family breaks one, the cap goes, then the street rule, then the neighbour rule.
+ * - A corner model (`traits.corner`) only goes on a corner lot (`Lot.corner`) whose open end is the side the model's second frontage is on.
+ */
+export function pickBuildings(lots: readonly Lot[], plan: BuildingPlan, traits?: ReadonlyMap<string, BuildingTraits>): (string | null)[] {
+  const trait = (n: string): BuildingTraits => traits?.get(n) ?? { family: n, corner: false };
+  const fams = {} as Record<LotType, Family[]>;
+  const totals: Record<LotType, number> = { small: 0, house: 0, large: 0, tall: 0 };
+  for (const t of LOT_TYPE_NAMES) {
+    const list: Family[] = [];
+    for (const n of plan[t]) {
+      const id = trait(n).family;
+      const f = list.find((x) => x.id === id);
+      if (f) f.names.push(n);
+      else list.push({ id, names: [n] });
+    }
+    fams[t] = list;
+  }
+  for (const l of lots) if (fams[l.type].length > 0) totals[l.type]++;
+
+  // Neighbours: a cell of 8 puts every neighbour (centres within the two half diagonals plus the gap, 7.3 for two `large` lots) in the 3 x 3 cells round a lot.
+  const CELL = 8;
+  const cells = new Map<string, number[]>();
+  const cellKey = (cx: number, cz: number): string => `${cx},${cz}`;
+  lots.forEach((l, i) => {
+    const k = cellKey(Math.floor(l.x / CELL), Math.floor(l.z / CELL));
+    const b = cells.get(k);
+    if (b) b.push(i);
+    else cells.set(k, [i]);
+  });
+  const nearOf = (i: number): number[] => {
+    const l = lots[i]!;
+    const cx = Math.floor(l.x / CELL);
+    const cz = Math.floor(l.z / CELL);
+    const out: number[] = [];
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dz = -1; dz <= 1; dz++) {
+        for (const j of cells.get(cellKey(cx + dx, cz + dz)) ?? []) if (j !== i && lotGap(l, lots[j]!) <= NEIGHBOUR_GAP) out.push(j);
+      }
+    }
+    return out;
+  };
+
+  // The lots of each road side in order, and where each lot stands in its list.
+  const rows = new Map<string, number[]>();
+  const rowAt: number[] = [];
+  lots.forEach((l, i) => {
+    const k = `${l.street}:${l.side}`;
+    const r = rows.get(k);
+    rowAt.push(r ? r.length : 0);
+    if (r) r.push(i);
+    else rows.set(k, [i]);
+  });
+
+  const picked: (string | null)[] = new Array<string | null>(lots.length).fill(null);
+  const familyOf: (string | null)[] = new Array<string | null>(lots.length).fill(null);
+  const used = new Map<string, number>();
+  lots.forEach((l, i) => {
+    const all = fams[l.type];
+    if (all.length === 0) return;
+    const near = nearOf(i);
+    let ends: { plus: boolean; minus: boolean } | null = null;
+    const fits = (n: string): boolean => {
+      const c = trait(n).corner;
+      if (c === false) return true;
+      if (!l.corner) return false;
+      ends ??= openEnds(lots, i, near);
+      return c === "+x" ? ends.plus : ends.minus;
+    };
+    const eligible = all.filter((f) => f.names.some(fits));
+    if (eligible.length === 0) return;
+    const gap = Math.min(STREET_REPEAT_GAP, all.length - 1);
+    const row = rows.get(`${l.street}:${l.side}`)!;
+    const recent = new Set<string | null>();
+    for (let k = Math.max(0, rowAt[i]! - gap); k < rowAt[i]!; k++) recent.add(familyOf[row[k]!]!);
+    const taken = new Set<string | null>(near.map((j) => familyOf[j]!));
+    // A family's cap: its share of the type's lots, but never so low that the type's ordinary families cannot hold every lot between them.
+    const ordinary = all.filter((f) => f.names.some((n) => trait(n).corner === false)).length;
+    const capN = Math.max(Math.floor(FAMILY_SHARE_MAX * totals[l.type]), Math.ceil(totals[l.type] / Math.max(1, ordinary)));
+    const capped = all.length >= 4;
+    const rules: ((f: Family) => boolean)[] = [
+      (f) => !taken.has(f.id) && !recent.has(f.id) && (!capped || (used.get(`${l.type}:${f.id}`) ?? 0) < capN),
+      (f) => !taken.has(f.id) && (!capped || (used.get(`${l.type}:${f.id}`) ?? 0) < capN),
+      (f) => !taken.has(f.id),
+    ];
+    // The families the rules allow (the first rule that allows any); no family is favoured for following one that is often barred.
+    let allowed = eligible;
+    for (const ok of rules) {
+      const hit = eligible.filter(ok);
+      if (hit.length > 0) {
+        allowed = hit;
+        break;
+      }
+    }
+    // Of those, the ones used least so far on this map (so the families come out even), and the hash picks among them.
+    const usedOf = (f: Family): number => used.get(`${l.type}:${f.id}`) ?? 0;
+    const least = Math.min(...allowed.map(usedOf));
+    allowed = allowed.filter((f) => usedOf(f) === least);
+    const fam = allowed[pickIndex(stableHash(l.key), allowed.length)]!;
+    const variants = fam.names.filter(fits);
+    picked[i] = variants[pickIndex(stableHash(`${l.key}|v`), variants.length)]!;
+    familyOf[i] = fam.id;
+    used.set(`${l.type}:${fam.id}`, (used.get(`${l.type}:${fam.id}`) ?? 0) + 1);
+  });
+  return picked;
 }
 
 /**

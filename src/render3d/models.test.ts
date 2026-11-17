@@ -7,6 +7,8 @@ import { FOV_DEG, createCameraRig } from "./camera";
 import { POLE_HEIGHT, wireLayout } from "./layout";
 import {
   MODEL_TABLE,
+  frontIsQuarter,
+  frontYaw,
   NEIGHBOUR_GAP,
   atFront,
   WORLD_PER_METRE,
@@ -77,7 +79,7 @@ describe("planModels", () => {
     expect(planModels(manifest({ b: [entry("Big", [10, 8, 10])] }), TABLE)).toEqual({
       pole: null,
       lamp: null,
-      building: [{ pack: "b", glb: "b.glb", entry: entry("Big", [10, 8, 10]), front: 0 }],
+      building: [{ pack: "b", glb: "b.glb", entry: entry("Big", [10, 8, 10]), front: "+z", corner: false, family: "Big" }],
     });
     const allSuspect = manifest({ p: [entry("Lamp", [0.3, 600, 0.3], ["scale-suspect"])] });
     expect(planModels(allSuspect, TABLE).lamp).toBeNull();
@@ -138,16 +140,16 @@ describe("modelScale", () => {
     expect(lotTypeOf(entry("none", [20, 20, 15]))).toBeNull();
   });
 
-  it("lotTypeOf turns a quarter-turn front: the model's depth becomes its frontage", () => {
+  it("lotTypeOf turns a quarter-turn front (+x or -x): the model's depth becomes its frontage", () => {
     const e = entry("deep", [18, 8, 11]);
-    expect(lotTypeOf(e, 0)).toBe("large");
-    expect(lotTypeOf(e, Math.PI / 2)).toBe("house");
-    expect(lotTypeOf(e, Math.PI)).toBe("large");
+    expect(lotTypeOf(e, "+z")).toBe("large");
+    expect(lotTypeOf(e, "-x")).toBe("house");
+    expect(lotTypeOf(e, "-z")).toBe("large");
   });
 
   it("buildingPlan groups the planned models by the lot type they fit and leaves out those that fit none", () => {
     const rows: [string, [number, number, number]][] = [["S", [10, 8, 10]], ["H", [15, 9, 17]], ["L", [22, 9, 25]], ["T", [12, 20, 14]], ["X", [46, 10, 43]]];
-    const plan = buildingPlan(rows.map(([n, size]) => ({ pack: "b", glb: "b.glb", entry: entry(n, size), front: 0 })));
+    const plan = buildingPlan(rows.map(([n, size]) => ({ pack: "b", glb: "b.glb", entry: entry(n, size), front: "+z" as const, corner: false as const, family: n })));
     expect(plan).toEqual({ small: ["S"], house: ["H"], large: ["L"], tall: ["T"] });
     expect(buildingPlan(null)).toEqual({ small: [], house: [], large: [], tall: [] });
   });
@@ -330,9 +332,11 @@ const BUILDING_NAMES = Object.keys(FULL_SIZES).filter((n) => !["Pole9", "Pole4",
 const FULL_TABLE: readonly ModelChoice[] = [
   { slot: "pole", pack: "p", names: ["Pole9", "Pole4"] },
   { slot: "lamp", pack: "p", names: ["Lamp"] },
-  { slot: "building", pack: "b", names: ["S1", "S2", "S3", "H1", "H2", "H3", "L1", "L2", "L3", "T1", "T2", "T3"], front: 0 },
-  { slot: "building", pack: "b", names: ["Q1"], front: Math.PI / 2 },
+  { slot: "building", pack: "b", names: ["S1", "S2", "S3", "H1", "H2", "H3", "L1", "L2", "L3", "T1", "T2", "T3"] },
+  { slot: "building", pack: "b", names: ["Q1"] },
 ];
+// Q1 is 18 m wide and 11 m deep with its door on its -x face (yaw +pi/2); every other fake model has no entry, so its door is +z.
+const FULL_FRONTS = { Q1: { front: "-x" as const } };
 const FULL = manifest({
   p: ["Pole9", "Pole4", "Lamp"].map((n) => entry(n, FULL_SIZES[n]!)),
   b: BUILDING_NAMES.map((n) => entry(n, FULL_SIZES[n]!)),
@@ -341,6 +345,7 @@ async function fullSet(): Promise<ModelSet> {
   return loadModels(
     deps({
       table: FULL_TABLE,
+      fronts: FULL_FRONTS,
       fetchJson: async (): Promise<unknown> => FULL,
       loadGlb: async (url) => fakeGlb(url.endsWith("p.glb") ? ["Pole9", "Pole4", "Lamp"] : BUILDING_NAMES, FULL_SIZES),
     }),
@@ -359,7 +364,7 @@ describe("buildings stand at one scale and inside their lots (every map)", () =>
     const set = await fullSet();
     const planned = new Map(set.building!.map((m) => [m.entry.name, m] as const));
     let clones = 0;
-    const fronts = new Set<number>();
+    const fronts = new Set<string>();
     for (const { name, puzzle: pz } of maps) {
       const lots = townLayout(pz).lots;
       const placements = buildingPlacements(lots, set.building);
@@ -368,12 +373,12 @@ describe("buildings stand at one scale and inside their lots (every map)", () =>
         const lot = lots[p.lot]!;
         const m = planned.get(p.model.entry.name)!;
         expect(p.scale).toBe(WORLD_PER_METRE);
-        expect(p.yaw).toBeCloseTo(lot.yaw + m.front, 9);
+        expect(p.yaw).toBeCloseTo(lot.yaw + frontYaw(m.front), 9);
         expect(lotTypeOf(m.entry, m.front)).toBe(lot.type);
         fronts.add(m.front);
         // Turned by `front`, the model's frontage and depth are across and away from the road, in the lot's own frame.
         const [w, h, d] = sizeOf(m.entry);
-        const quarter = Math.abs(Math.sin(m.front)) > 0.5;
+        const quarter = frontIsQuarter(m.front);
         // Setback (041 C): the clone's front face is against its lot's front edge, not centred, so every building shares the lot's setback.
         const along = (p.x - lot.x) * Math.sin(lot.yaw) + (p.z - lot.z) * Math.cos(lot.yaw);
         const sideways = (p.x - lot.x) * Math.cos(lot.yaw) - (p.z - lot.z) * Math.sin(lot.yaw);
@@ -387,7 +392,7 @@ describe("buildings stand at one scale and inside their lots (every map)", () =>
       }
     }
     expect(clones).toBeGreaterThan(5000);
-    expect(fronts.has(Math.PI / 2)).toBe(true);
+    expect(fronts.has("-x")).toBe(true);
   });
 });
 
@@ -404,21 +409,26 @@ describe("pickBuildings: no copy beside itself", () => {
     }
   });
 
-  it("gives no two lots within NEIGHBOUR_GAP the same model when their type has three or more, on every map", async () => {
+  // Ticket 042 A: the picker is greedy, in lot order. A lot never takes a model one of its earlier neighbours has while a free one exists; with three
+  // models and three earlier neighbours (one each) none is free and that lot repeats one. facing.test.ts holds the strict check on a set shaped like the real one.
+  it("gives a lot a model none of its earlier neighbours has whenever one is free, on every map", async () => {
     const set = await fullSet();
     const plan = buildingPlan(set.building);
     let pairs = 0;
     for (const { name, puzzle: pz } of maps) {
       const lots = townLayout(pz).lots;
       const names = pickBuildings(lots, plan);
-      for (let i = 0; i < lots.length; i++) {
-        const l = lots[i]!;
-        for (let j = i + 1; j < lots.length; j++) {
-          const o = lots[j]!;
-          if (o.type !== l.type || Math.hypot(o.x - l.x, o.z - l.z) > 9 || lotGap(l, o) > NEIGHBOUR_GAP) continue;
-          pairs++;
-          expect(names[i], `${name} ${l.key} beside ${o.key}`).not.toBe(names[j]);
+      for (let j = 0; j < lots.length; j++) {
+        const o = lots[j]!;
+        const earlier: number[] = [];
+        for (let i = 0; i < j; i++) {
+          const l = lots[i]!;
+          if (o.type === l.type && Math.hypot(o.x - l.x, o.z - l.z) <= 9 && lotGap(l, o) <= NEIGHBOUR_GAP) earlier.push(i);
         }
+        const taken = new Set(earlier.map((i) => names[i]));
+        if (taken.size >= plan[o.type].length) continue;
+        pairs += earlier.length;
+        expect(taken.has(names[j]!), `${name} ${o.key} beside ${earlier.map((i) => lots[i]!.key).join(", ")}`).toBe(false);
       }
     }
     expect(pairs).toBeGreaterThan(1000);
@@ -522,7 +532,7 @@ describe("applyModels", () => {
   it("sets every map texture on the scene's clones to NearestFilter, even for a set that skipped loadModels", async () => {
     const b = buildScene(puzzle, { text: stubTextSurface });
     const scene = fakeGlb(["Pole9", "Lamp", "Big"], { Pole9: [0.5, 9, 1], Lamp: [0.3, 6, 0.3], Big: [10, 8, 10] });
-    const m = (name: string, entryOf: AssetEntry): ModelSet["pole"] => [{ pack: "p", glb: "p.glb", entry: entryOf, front: 0, root: scene.getObjectByName(name)! }];
+    const m = (name: string, entryOf: AssetEntry): ModelSet["pole"] => [{ pack: "p", glb: "p.glb", entry: entryOf, front: "+z", corner: false, family: name, root: scene.getObjectByName(name)! }];
     const set: ModelSet = {
       pole: m("Pole9", entry("Pole9", [0.5, 9, 1])),
       lamp: m("Lamp", entry("Lamp", [0.3, 6, 0.3])),

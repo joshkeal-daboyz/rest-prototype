@@ -9,6 +9,7 @@ import type { MapBlockers, MapCentre, MapPanView, MapPlaces, MapRenderer } from 
 import type { Insets } from "../render/geometry";
 import { FOV_DEG, createCameraRig } from "./camera";
 import { createPicker } from "./pick";
+import { frontsOverlay, frontsRequested, type FrontsOverlay } from "./debug3d";
 import { applyModels, sharedModels, type AppliedModels } from "./models3d";
 import { buildScene } from "./scene";
 
@@ -45,15 +46,25 @@ export function createMapRenderer3d(canvas: HTMLCanvasElement, puzzle: Puzzle, o
     renderer.setSize(w, h, false);
     rig.resize(w, h, insets);
     bundle.setViewport(w, h, FOV_DEG);
+    fronts?.setViewport(w, h, FOV_DEG);
   }
+  let fronts: FrontsOverlay | null = null;
   resize();
 
   // The converted models swap in when they arrive; until then (and if they never do) the placeholder shapes are what shows.
+  // `?fronts=1` (debug, ticket 042 A) adds an arrow along each building's declared front and its model name; this is the one place the query string is read.
+  const wantFronts = typeof location !== "undefined" && frontsRequested(location.search);
   let disposed = false;
   let applied: AppliedModels | null = null;
   void sharedModels()
     .then((set) => {
-      if (!disposed) applied = applyModels(bundle, set);
+      if (disposed) return;
+      applied = applyModels(bundle, set);
+      if (wantFronts && applied.buildings.length > 0) {
+        fronts = frontsOverlay(bundle, applied, { dpr: ratio });
+        bundle.scene.add(fronts);
+        fronts.setViewport(Math.max(canvas.clientWidth, 1), Math.max(canvas.clientHeight, 1), FOV_DEG);
+      }
     })
     .catch((e: unknown) => console.info(`3D models: not applied (${e instanceof Error ? e.message : String(e)}).`));
 
@@ -84,6 +95,11 @@ export function createMapRenderer3d(canvas: HTMLCanvasElement, puzzle: Puzzle, o
     },
     dispose() {
       disposed = true;
+      if (fronts) {
+        bundle.scene.remove(fronts);
+        fronts.dispose();
+        fronts = null;
+      }
       applied?.remove();
       bundle.dispose();
     },
