@@ -72,9 +72,33 @@ export interface SceneBundle {
   captions: readonly Sprite[];
   /** Parts tests and the renderer look at. */
   parts: ReadonlyMap<string, NodeParts>;
+  /** What the converted models (ticket 039) replace; `applyModels` in models3d.ts reads it. */
+  slots: ModelSlots;
   /** The canvas size in css px and the camera's vertical field of view, so captions keep a fixed pixel size. */
   setViewport(width: number, height: number, fovDeg: number): void;
   dispose(): void;
+}
+
+/** Where an intermediate pole stands and the yaw of its cross-arm (map x, map y as world z). */
+export interface PoleSpot {
+  x: number;
+  z: number;
+  yaw: number;
+}
+
+/**
+ * The placeholders a converted model can replace (ticket 039). Nothing here changes how the scene looks until models are applied:
+ * the placeholders stay visible, and `applyModels` hides them and adds clones to `models` (or a lamp's group).
+ */
+export interface ModelSlots {
+  /** The intermediate poles, one spot per instance, and the instanced meshes that draw them now. */
+  poles: { spots: readonly PoleSpot[]; placeholders: readonly Object3D[] };
+  /** Each lamp's post (the head, light, pool and halo are separate and stay). */
+  lamps: readonly { id: string; group: Group; post: Mesh }[];
+  /** The footprint and city blocks (never a lamp's place), in the order of `placeholder`'s instances. */
+  blocks: { list: readonly Block[]; placeholder: Object3D };
+  /** Pole and building clones go here. Anything marked `userData.sharedModel` is not disposed with the scene. */
+  models: Object3D;
 }
 
 const GROUND = 0x0e131d;
@@ -250,7 +274,12 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
     im.instanceMatrix.needsUpdate = true;
     return im;
   };
-  scene.add(instanced(blocks.blocks, new MeshStandardMaterial({ color: BUILDING, roughness: 0.95 })));
+  const blockMesh = instanced(blocks.blocks, new MeshStandardMaterial({ color: BUILDING, roughness: 0.95 }));
+  scene.add(blockMesh);
+  // Not a Group: the scene-level tests find a node's group as the scene child of type Group at its position, and this sits at the origin.
+  const modelGroup = new Object3D();
+  modelGroup.name = "models";
+  scene.add(modelGroup);
   const placeMats = new Map<string, MeshStandardMaterial>();
   for (const p of blocks.places) {
     const mat = new MeshStandardMaterial({ color: PLACE, roughness: 0.9, emissive: WARM, emissiveIntensity: 0 });
@@ -283,6 +312,8 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
   });
   poles.count = poleList.length;
   arms.count = poleList.length;
+  const poleSpots: PoleSpot[] = poleList.map((p, i) => ({ x: p.x, z: p.z, yaw: poleYaw[i]! }));
+  const lampSlots: { id: string; group: Group; post: Mesh }[] = [];
   scene.add(poles, arms);
   const footSpots = [...poleList.map((p) => [p.x, p.z] as const), ...puzzle.nodes.filter((n) => n.type !== "feed").map((n) => [n.pos[0], n.pos[1]] as const)];
   const feet = new InstancedMesh(new CircleGeometry(0.15, 12).rotateX(-Math.PI / 2), new MeshBasicMaterial({ color: FOOT }), Math.max(footSpots.length, 1));
@@ -608,6 +639,7 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
         flare.visible = false;
         parts.flare = flare;
         g.add(post, head, light, pool, halo, flare);
+        lampSlots.push({ id: n.id, group: g, post });
         const nodeIdx = nodeIndexOf.get(n.id) ?? 0;
         let starFill: Mesh | null = null;
         if (allTargets || targets.has(n.id)) {
@@ -853,6 +885,7 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
     scene,
     captions: captionSprites,
     parts: parts_,
+    slots: { poles: { spots: poleSpots, placeholders: [poles, arms] }, lamps: lampSlots, blocks: { list: blocks.blocks, placeholder: blockMesh }, models: modelGroup },
     setViewport(_width, height, fovDeg) {
       unit = scaleForPx(1, height, fovDeg);
       for (const c of capViews) c.cs.setUnit(unit);
@@ -909,7 +942,9 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
     },
     dispose() {
       const mats = new Set<Material>();
-      scene.traverse((o: Object3D) => {
+      // A model clone shares its geometry and textures with the page's cache, so its subtree is left alone.
+      const visit = (o: Object3D): void => {
+        if (o.userData["sharedModel"] === true) return;
         const m = o as Mesh;
         m.geometry?.dispose();
         const mm = m.material as Material | Material[] | undefined;
@@ -918,7 +953,9 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
         // A caption's texture belongs to its sprite material.
         const map = (mm as SpriteMaterial | undefined)?.map;
         if (map && o instanceof Sprite) map.dispose();
-      });
+        for (const c of o.children) visit(c);
+      };
+      visit(scene);
       mats.forEach((m) => m.dispose());
       poolTex.dispose();
     },

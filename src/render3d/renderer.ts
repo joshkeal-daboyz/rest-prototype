@@ -9,6 +9,7 @@ import type { MapBlockers, MapCentre, MapPanView, MapPlaces, MapRenderer } from 
 import type { Insets } from "../render/geometry";
 import { FOV_DEG, createCameraRig } from "./camera";
 import { createPicker } from "./pick";
+import { applyModels, sharedModels, type AppliedModels } from "./models3d";
 import { buildScene } from "./scene";
 
 export interface MapRenderer3dOptions {
@@ -47,6 +48,15 @@ export function createMapRenderer3d(canvas: HTMLCanvasElement, puzzle: Puzzle, o
   }
   resize();
 
+  // The converted models swap in when they arrive; until then (and if they never do) the placeholder shapes are what shows.
+  let disposed = false;
+  let applied: AppliedModels | null = null;
+  void sharedModels()
+    .then((set) => {
+      if (!disposed) applied = applyModels(bundle, set);
+    })
+    .catch((e: unknown) => console.info(`3D models: not applied (${e instanceof Error ? e.message : String(e)}).`));
+
   return {
     draw(state, overlay, timeSeconds) {
       bundle.update(state, overlay.hover ?? null, timeSeconds, overlay.relightT);
@@ -73,6 +83,8 @@ export function createMapRenderer3d(canvas: HTMLCanvasElement, puzzle: Puzzle, o
       return p ? rig.centreOn(p[0], p[1]) : rig.getPan();
     },
     dispose() {
+      disposed = true;
+      applied?.remove();
       bundle.dispose();
     },
   };
