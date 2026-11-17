@@ -10,10 +10,13 @@ import { Group, NearestFilter, Texture, type Material, type Mesh, type Object3D 
 import type { AssetManifest } from "../core";
 import { stableHash } from "../render/city";
 import {
+  BUILDING_FRONTS,
   MODEL_SLOTS,
   MODEL_TABLE,
   atFront,
   buildingPlan,
+  frontIsQuarter,
+  frontYaw,
   isManifest,
   modelScale,
   pickBuildings,
@@ -21,6 +24,8 @@ import {
   planModels,
   sizeOf,
   poleYaw,
+  traitsOf,
+  type BuildingFront,
   type ModelChoice,
   type ModelSlot,
   type PlannedModel,
@@ -45,6 +50,8 @@ export interface LoadDeps {
   loadGlb(url: string): Promise<Object3D>;
   /** Default: MODEL_TABLE. */
   table?: readonly ModelChoice[];
+  /** Which way each building model's door faces. Default: BUILDING_FRONTS. */
+  fronts?: Readonly<Record<string, BuildingFront>>;
   /** Folder of the manifest, ending in "/". Default: `${BASE_URL}assets/private/out/`. */
   dir?: string;
   /** Where the one line saying why a fallback happened goes. Default: console.info. */
@@ -94,7 +101,7 @@ export async function loadModels(deps: LoadDeps): Promise<ModelSet> {
       info("3D models: the asset manifest is not the version this build reads; using the placeholder shapes.");
       return NO_MODELS;
     }
-    const plan = planModels(manifest as AssetManifest, deps.table ?? MODEL_TABLE);
+    const plan = planModels(manifest as AssetManifest, deps.table ?? MODEL_TABLE, deps.fronts ?? BUILDING_FRONTS);
     const globs = new Set<string>();
     for (const slot of MODEL_SLOTS) for (const p of plan[slot] ?? []) globs.add(p.glb);
     const roots = new Map<string, Object3D>();
@@ -155,6 +162,8 @@ export function resetSharedModels(): void {
 export interface AppliedModels {
   /** Put the placeholders back and drop the clones. */
   remove(): void;
+  /** The building clones that were placed (empty when no building model applied): what the `fronts=1` overlay reads. */
+  buildings: readonly BuildingPlacement[];
 }
 
 /** A clone of `m` in a wrapper that scales, turns and places it. The clone shares the cache's geometry and materials; nothing can pick it. */
@@ -186,18 +195,18 @@ export interface BuildingPlacement {
   scale: number;
   x: number;
   z: number;
-  /** `lot.yaw + front`: the lot turns its front to the road, the model's own `front` turns its door to the lot's front. */
+  /** `lot.yaw + frontYaw(front)`: the lot turns its front to the road, the model's declared front (BUILDING_FRONTS) turns its door to the lot's front. */
   yaw: number;
 }
 
 /**
  * The clone every lot gets: a model of the lot's type (a lot of a type with no model gets none and keeps its placeholder),
- * picked by a hash of the lot's key and never the same as a neighbour's. Pure given the set.
+ * picked by family (`pickBuildings`: no neighbour's family, no street repeat, no family over its share; a corner shop only on a corner lot). Pure given the set.
  */
 export function buildingPlacements(lots: readonly Lot[], buildings: readonly LoadedModel[] | null): BuildingPlacement[] {
   if (!buildings || buildings.length === 0) return [];
   const byName = new Map(buildings.map((m) => [m.entry.name, m] as const));
-  const names = pickBuildings(lots, buildingPlan(buildings));
+  const names = pickBuildings(lots, buildingPlan(buildings), traitsOf(buildings));
   const out: BuildingPlacement[] = [];
   lots.forEach((lot, i) => {
     const m = names[i] ? byName.get(names[i]!) : undefined;
@@ -205,9 +214,9 @@ export function buildingPlacements(lots: readonly Lot[], buildings: readonly Loa
     const scale = modelScale(m.entry, "building");
     // The model's footprint depth across the road is its own depth, or its width when its front is a quarter turn away.
     const [w, , d] = sizeOf(m.entry);
-    const depth = (Math.abs(Math.sin(m.front)) > 0.5 ? w : d) * scale;
+    const depth = (frontIsQuarter(m.front) ? w : d) * scale;
     const spot = atFront(lot, depth);
-    out.push({ lot: i, model: m, scale, x: spot.x, z: spot.z, yaw: lot.yaw + m.front });
+    out.push({ lot: i, model: m, scale, x: spot.x, z: spot.z, yaw: lot.yaw + frontYaw(m.front) });
   });
   return out;
 }
@@ -252,14 +261,17 @@ export function applyModels(bundle: SceneBundle, set: ModelSet): AppliedModels {
     }
   }
   const buildings = set.building;
+  let placed: readonly BuildingPlacement[] = [];
   if (buildings && buildings.length > 0 && slots.blocks.list.length > 0) {
     const placements = buildingPlacements(slots.blocks.list, buildings);
+    placed = placements;
     // A type's placeholders go only if some lot of that type got a model; the others stay.
     const covered = new Set(placements.map((p) => slots.blocks.list[p.lot]!.type));
     for (const t of LOT_TYPE_NAMES) if (covered.has(t)) hide(slots.blocks.byType[t]);
     for (const p of placements) add(slots.models, place(p.model, p.scale, p.x, p.z, p.yaw));
   }
   return {
+    buildings: placed,
     remove() {
       for (let i = undo.length - 1; i >= 0; i--) undo[i]!();
       undo.length = 0;
