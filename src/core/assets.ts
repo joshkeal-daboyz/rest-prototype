@@ -27,10 +27,21 @@ export interface AssetBounds {
  * Something the converter noticed and could not fix by itself.
  * - `scale-suspect`: the asset's largest dimension is outside
  *   [ASSET_SANE_SIZE_MIN, ASSET_SANE_SIZE_MAX] metres (a 100x or 0.01x unit slip).
- * - `no-uv`: a mesh has no UV map, so the pack atlas can't map onto it.
- * - `no-atlas`: the pack has no atlas set, so the asset kept its imported materials.
+ * - `no-uv`: a mesh has no UV map but is meant to carry a texture (the pack
+ *   atlas, or an image its own material uses), so the texture can't map onto it.
+ * - `missing-texture`: one of the asset's materials references an image (or has
+ *   none and no match was found for it) that the converter could not find in
+ *   the pack; that material exports untextured. `AssetEntry.missingTextures`
+ *   names what was looked for.
+ * - `texture-guessed`: a material had no usable image reference and no
+ *   matching name, so the converter picked the texture whose name starts with
+ *   the model's own name (e.g. town_hall_mesh -> Town_Hall_a.png). Check it,
+ *   or pin it with `pack.json` "textureOverrides".
+ *
+ * (Ticket 038 amendment: `no-atlas` was dropped. Per-model textures are the
+ * default, so a pack without an atlas is normal, not a warning.)
  */
-export type AssetWarning = "scale-suspect" | "no-uv" | "no-atlas";
+export type AssetWarning = "scale-suspect" | "no-uv" | "missing-texture" | "texture-guessed";
 
 /** Below or above these sizes (metres, largest dimension) an asset gets `scale-suspect`. */
 export const ASSET_SANE_SIZE_MIN = 0.05;
@@ -44,6 +55,18 @@ export interface AssetEntry {
   source: string;
   bounds: AssetBounds;
   triangles: number;
+  /**
+   * The image files embedded for this asset's materials, relative to the pack's
+   * input folder, forward slashes, sorted, no duplicates. In atlas mode, just the
+   * atlas. Empty if the asset is untextured.
+   */
+  textures: readonly string[];
+  /**
+   * What the converter looked for and could not find (the file name an FBX
+   * material references, or `material:<name>` when it references none), sorted,
+   * no duplicates. Non-empty exactly when `warnings` has `missing-texture`.
+   */
+  missingTextures: readonly string[];
   warnings: readonly AssetWarning[];
 }
 
@@ -53,13 +76,17 @@ export interface AssetFailure {
   error: string;
 }
 
-/** One pack: every converted asset in one GLB, sharing the pack's atlas material. */
+/**
+ * One pack: every converted asset in one GLB. With an atlas set, every asset
+ * shares the one atlas material; without one (the default), each asset keeps
+ * its own materials, with their textures found in the pack and embedded.
+ */
 export interface AssetPack {
   /** The pack's folder name under the input root (e.g. "polygon-town"). */
   pack: string;
   /** The GLB file, relative to the manifest, forward slashes. */
   glb: string;
-  /** The atlas image used for the shared material, relative to the pack's input folder; null if none was set. */
+  /** The atlas image used for the shared material, relative to the pack's input folder; null in per-model texture mode (the default). */
   atlas: string | null;
   /** In the order the FBX files sort by path. */
   assets: readonly AssetEntry[];

@@ -1,25 +1,28 @@
 # 038 · A Blender pipeline that turns purchased Synty FBX packs into GLB files for the 3D view
 
 owner: grid-simulator (owns `tools/`; see Open question 5)
-status: open
+status: open (amendment A; built once, reviewed, now re-opened for textures)
 branch: `ticket/038-fbx-to-glb-pipeline`
 
 ## Josh's words
 > "can we build a blender conversion pipeline?"
+
+After the first real run (amendment A, below):
+> "Fix textures first"
 
 ## Goal
 Josh drops a Synty pack's FBX files and its atlas texture into `assets/private/in/<pack>/`, runs `npm run assets:convert`, and gets one GLB per pack in `assets/private/out/` plus `assets/private/out/manifest.json` listing each model's name, base-centred bounds in metres and triangle count. A headless Blender run does the conversion. If Blender isn't installed, the command says how to install it and stops. None of these files is ever committed, because the repo is public and Synty's licence forbids sharing source files. A fresh clone without them builds, tests and runs exactly as now. **This ticket makes the files only. The renderer doesn't load them yet:** the loader (`GLTFLoader`, mapping names to poles, lamps, buildings and props, falling back to the placeholder shapes) is a follow-up `renderer` ticket, cut after this one is merged and Josh has seen a manifest from a real pack.
 
 ## Background (from `assets/candidates/synty-store.md`)
 - Synty packs ship FBX, a Unity package, an Unreal project and sometimes a Godot project. None ships glTF. Three.js's `FBXLoader` is known to mangle atlas textures, so the usual route is to import in Blender and export GLB.
-- Expect Unity-authored units (centimetres, so a 100x or 0.01x slip), pivots that are usually but not always at the base, and one shared atlas per pack (`<Pack>_Texture_01_A.png` style), often not linked from the FBX itself.
+- Expect Unity-authored units (centimetres, so a 100x or 0.01x slip), pivots that are usually but not always at the base, and one shared atlas per pack (`<Pack>_Texture_01_A.png` style), often not linked from the FBX itself. **Wrong for some packs:** the first real run (SIMPLE Town) found per-model textures and units 100x smaller; see amendment A.
 - Licence: commercial use is allowed. "You must not share the source files of any Assets outside your team." Browser builds aren't addressed (Open question 1).
 
 ## The pipeline (what the builder makes)
 1. **`tools/blender/convert_fbx.py`**: run as `blender --background --factory-startup --python tools/blender/convert_fbx.py -- --in <packDir> --out <glbPath> --report <json> [--atlas <png>] [--scale <n>]`. For one pack it:
    - starts from an empty scene and imports every `*.fbx` under `--in` (recursive, sorted by path) with `bpy.ops.import_scene.fbx`, using Blender's unit handling (`use_manual_orientation` off, `global_scale` = `--scale`, default 1). Each file becomes one root object named after the file's stem, with its child meshes under it. Animations, cameras, lights and armatures are dropped.
    - applies transforms, then moves each root so its pivot is the **base centre** (bounds min z = 0 in Blender's Z-up, x/y centred).
-   - if `--atlas` is given, makes **one** material (Principled BSDF, base colour = the atlas, roughness 1, metallic 0, no emission) and assigns it to every mesh, so every asset in the pack shares one material and one texture. With no atlas, the imported materials stay and each asset gets `no-atlas`.
+   - if `--atlas` is given, makes **one** material (Principled BSDF, base colour = the atlas, roughness 1, metallic 0, no emission) and assigns it to every mesh, so every asset in the pack shares one material and one texture. With no atlas, the imported materials stay and each material's texture is found in the pack (**amended, see amendment A**; `no-atlas` is gone).
    - lays each root out at the world origin (the loader places them; spreading them out isn't needed) and exports **one GLB** with `bpy.ops.export_scene.gltf(export_format='GLB', export_yup=True, export_apply=True)`, textures embedded, no animations, no cameras, no lights.
    - writes `--report` as JSON: the pack's `assets` and `failures` (types in `src/core/assets.ts`), with bounds converted to glTF Y-up metres, and the warnings set by the thresholds in `src/core/assets.ts`. An FBX that fails to import goes in `failures` and the run carries on.
 2. **`tools/assets/`** (TypeScript, run with `tsx`): `convert.ts` is the CLI behind `npm run assets:convert [pack…]`. It finds Blender (`blender.ts`), lists packs in `assets/private/in/` (each subfolder is a pack, and an optional `pack.json` gives `{ "atlas"?: string, "scale"?: number }`), runs the Python script once per pack via `child_process.spawn` (no shell), reads each report, and writes `manifest.json` (`manifest.ts`). Exit code 0 when every pack converted, 1 if any pack's Blender run failed, 2 when Blender is missing or too old.
@@ -53,6 +56,73 @@ Josh drops a Synty pack's FBX files and its atlas texture into `assets/private/i
 - [ ] On a fresh clone with no `assets/private/` folder and no Blender: `npm ci`, `npm run gate` and `npm run build` are green, and `npm run dev` with `?puzzle=09-shrine-circuit&view=3d` shows the 3D view exactly as on `main`, with today's placeholder shapes.
 - [ ] `npm run gate` is green and its test count grew by this ticket's tests. `npm run playtest` is green with no snapshot change. `git diff main -- src/ tests/ puzzles/` shows only `src/core/assets.ts` and the one export line in `src/core/index.ts`, both written by the architect before the build.
 
+## Amendment A: per-model textures (Josh, after the first real run: "Fix textures first")
+
+**What the first real run showed** (Blender 5.3, SIMPLE Town in `assets/private/in/simple-town/`, FBX under `SIMPLE_Town_SourceFiles/SourceFiles/Fbx/`, images under `.../SourceFiles/Textures/`, 176 FBX):
+- Selftest passes on 5.3. 173 of 176 FBX convert into one GLB (74k tris) with `pack.json` `{ "scale": 100 }` (this pack's units are 100x smaller than the cm assumption; already supported).
+- This pack has no shared atlas. Each model is authored for its own image (`Building01a.png`, `House_01.png`, `Town_Hall_a.png`, `Props.png`, `Vehicle_*.png`, ...). Forcing `SimpleTown.png` on everything gives rainbow stripes.
+- With no atlas, most models came out textured, but the town hall, memorial, graves and bin came out grey. Why (from the FBX files): `memorial_mesh`, `grave_small_mesh` and `bin_mesh` reference `props.png` by an absolute path on the artist's disk (`C:/Users/synty/Dropbox/.../props.png`), which doesn't exist here; the file is `Textures/Props.png`. `town_hall_mesh` has one material, `lambert1`, with no texture reference at all.
+- Every model got `no-atlas`, which is noise.
+- Three FBX (`fire_truck_mesh`, `roadLane_NoLines_straight_mesh`, `road_crossing_mesh`) are FBX version 6100, which Blender's importer rejects. The pack has same-named OBJ copies in `SourceFiles/Obj/`.
+
+**Two texture modes.** `pack.json` `"atlas"` set: **atlas mode**, exactly as in step 1 above (one shared material, for the POLYGON-style packs). No `"atlas"`: **per-model mode**, the default, described here. Per-model mode adds no warning just for being per-model.
+
+**`pack.json`** gains two optional keys (the wrapper reads them and passes them on; both are refused before spawning if they resolve outside the pack folder):
+- `"textures": "<dir>"`: the folder searched for images, relative to the pack. Default: the whole pack folder. Passed as `--textures <abs dir>`.
+- `"textureOverrides": { "<model stem>": "<image path relative to the pack>" }`: pins a model's texture. An override naming a file that doesn't exist is an error naming the pack, the model and the path. Passed as one `--texture-override <stem>=<abs image>` per entry, sorted by stem.
+
+**Finding each material's image (per-model mode, in `convert_fbx.py`).** The script indexes every `.png .jpg .jpeg .tga .tif .tiff .bmp` under the textures folder (recursive, sorted by relative path with forward slashes). Then, for each material on each model's meshes, the first rule that gives a file wins:
+1. **Override.** The model's stem is in the overrides. Every material on that model uses that image.
+2. **The reference as it stands.** The material's image texture node points at a file that exists **and** lies inside the pack folder.
+3. **The referenced file name.** Take the basename of the referenced path (split on `/` and `\`). Look it up in the index: exact name, then case-insensitive name, then case-insensitive stem with any image extension. (This fixes `props.png` -> `Textures/Props.png`.)
+4. **The material name.** Normalise the material name (drop a Blender `.001`-style suffix, lowercase, remove everything that isn't a letter or digit) and compare it to each indexed file's normalised stem. Generic names are skipped: `lambert<N>`, `phong<N>`, `blinn<N>`, `material`, `defaultmaterial`, `initialshadinggroup`, `none`, and anything empty after normalising.
+5. **The model's name (a guess).** Only for a material with **no** image reference. Strip an `SM_` prefix and a `_mesh` / `mesh` suffix from the model's stem, normalise it the same way, and take the first indexed file whose normalised stem equals it or starts with it. (This gives `town_hall_mesh` -> `Town_Hall_a.png`.) The model gets `texture-guessed`.
+
+If several files match at one step, the first in sorted path order wins. A found image is loaded once per file (`bpy.data.images.load(path, check_existing=True)`) and wired to the material's Principled BSDF Base Color (reusing the existing image node, or adding one). In the GLB each image file is embedded once, however many materials use it.
+
+**When nothing is found:**
+- A material that **references** an image that no rule finds: the model gets `missing-texture`, and `missingTextures` lists the referenced basename (e.g. `props.png`).
+- A material with **no** reference that no rule finds stays its plain colour, with no warning, as long as some other material on the same model got a texture. If the whole model ends up with no texture, it gets `missing-texture`, and `missingTextures` lists `material:<name>` for each such material.
+- `no-uv`: in atlas mode, any mesh with no UV map. In per-model mode, a mesh with no UV map that has a material with an image.
+- `no-atlas` is removed.
+
+**The report and manifest** gain, per asset, `textures` (embedded image paths relative to the pack, forward slashes, sorted, unique; `[atlas]` in atlas mode) and `missingTextures`. The types are already in `src/core/assets.ts` (see Interfaces).
+
+**Old FBX files.** An FBX that fails to import still goes in `failures` and the run carries on (default; see Open question 7). When the file's header shows a version below 7100, the `error` says so and names the version, e.g. `FBX version 6100 is older than Blender's importer accepts (7100+)`. If a file with the same stem and a `.obj` extension (case-insensitive) exists anywhere in the pack, the error also says `an OBJ copy exists: <path relative to pack> (not converted)`.
+
+**Selftest additions** (all generated in code, in `assets/private/selftest/`, nothing committed). The selftest pack runs in per-model mode, with its images in a `Textures/` subfolder written by Blender (small solid-colour PNGs). It adds these boxes:
+- `ref_case`: its material references `C:/nowhere/TEX_Crate.PNG`, and the file is `Textures/tex_crate.png`. Expect `textures` = `["Textures/tex_crate.png"]` and no texture warning.
+- `mat_name`: material `Sign_Board`, no reference, and the file is `Textures/Sign_Board.png`. Expect that texture and no warning.
+- `guess_mesh`: material `lambert1`, no reference, and the files are `Textures/Guess_a.png` and `Textures/Guess_b.png`. Expect `Textures/Guess_a.png` and `texture-guessed`.
+- `lost_ref`: its material references `nowhere.png`, which isn't present. Expect `missing-texture` and `missingTextures` = `["nowhere.png"]`.
+- The existing no-UV box gets a material that references a present image, so it still carries `no-uv`.
+- The fake pole has no texture and gets no texture warning.
+
+### Acceptance criteria (amendment A)
+
+**Wrapper** (Vitest, in the gate, no Blender)
+- [ ] **Vitest: pack.json texture keys.** `{ "scale": 100, "textures": "Src/Textures", "textureOverrides": { "town_hall_mesh": "Src/Textures/Town_Hall_b.png", "a_mesh": "x/A.png" } }` gives spawn arguments ending `--scale 100 --textures <abs Src/Textures> --texture-override a_mesh=<abs x/A.png> --texture-override town_hall_mesh=<abs …Town_Hall_b.png>`. Overrides are sorted by stem, and paths with spaces are kept as single array items. With no `atlas`, there is no `--atlas`.
+- [ ] **Vitest: texture paths stay in the pack.** A `textures` or override value that resolves outside the pack folder (`../x`, or an absolute path elsewhere) is refused before spawning, and the error names the pack and the key. An override naming a missing file is an error naming the pack, model and path.
+- [ ] **Vitest: manifest texture fields.** `buildManifest` carries `textures` and `missingTextures` through from report fixtures. It is a clear error naming the pack and field when: `textures` or `missingTextures` is missing or not an array of strings; a `textures` entry is absolute, contains `..` or a backslash; `missing-texture` is in `warnings` while `missingTextures` is empty, or the other way round; or a warning is `no-atlas` (now an unknown warning).
+- [ ] **Vitest: selftest checker.** The function that checks the selftest report passes on a fixture holding the expected results above, and fails with a message naming the box and the field when one is wrong (say, `guess_mesh` without `texture-guessed`, or `ref_case` with no texture).
+- [ ] **Vitest: fixtures updated.** No fixture or test still uses `no-atlas`. The per-model default produces no warnings in a clean-pack fixture.
+
+**With Blender** (the builder runs these and puts the numbers in its report. They aren't in the gate.)
+- [ ] **Builder checks: selftest.** `npm run assets:selftest` prints `selftest ok` on Blender 5.3, with the new boxes as listed.
+- [ ] **Builder checks: the real pack.** Run `npm run assets:convert simple-town` against `assets/private/in/simple-town/` in this worktree, with `pack.json` `{ "scale": 100 }`. You may add `"textures": "SIMPLE_Town_SourceFiles/SourceFiles/Textures"`; say whether you did. Blender is at `C:\Program Files\Blender Foundation\Blender 5.3\blender.exe`. In the manifest:
+  - `town_hall_mesh` has a `Town_Hall_*.png` in `textures`.
+  - `memorial_mesh`, `grave_small_mesh` and `bin_mesh` each have `.../Textures/Props.png` in `textures`, with no `missing-texture`.
+  - `grave_medium_mesh` and `grave_large_mesh` are textured too.
+  - The models that were already right still have the same image: lamp, traffic light, hydrant, and one house and one shop (name the ones you checked).
+  - No asset lists `SimpleTown.png` unless its own FBX references it.
+  - No asset carries `no-atlas`.
+  - 173 assets and 3 failures, and each failure's `error` names FBX version 6100 and its OBJ copy under `SourceFiles/Obj/`.
+  - The report lists every asset still carrying `missing-texture` or `texture-guessed`, with its `missingTextures`, so Josh can pin those with `textureOverrides`.
+- [ ] **Builder checks: textures really are embedded.** Re-import the GLB in a headless Blender (a throwaway script in the scratchpad, not committed) and confirm that each of `town_hall_mesh`, `memorial_mesh`, `grave_small_mesh` and `bin_mesh` has a material whose Base Color is an image with packed data. Also confirm that the number of images in the GLB equals the number of distinct `textures` paths in the pack's manifest (each embedded once). Optionally, render those four to PNGs in the scratchpad for Josh.
+- [ ] **Josh checks:** opens `assets/private/out/simple-town.glb` in https://gltf-viewer.donmccurdy.com/ (or Blender). Buildings show their own textures, with no rainbow stripes. The town hall, memorial, graves and bin are textured, not grey.
+
+**Unchanged:** every earlier criterion still holds, except that the `no-atlas` wording in step 1 and Interfaces is replaced by this amendment. The earlier real-pack criterion (POLYGON, atlas mode) still applies to atlas packs.
+
 ## Files
 - **`tools/assets/`** (new): `convert.ts`, `blender.ts`, `manifest.ts`, their `*.test.ts`, and `fixtures/` (hand-written report JSON only).
 - **`tools/blender/`** (new): `convert_fbx.py` and a short `README.md` (install Blender, the folder layout, `pack.json`, the two commands, and that nothing in `assets/private/` may be committed).
@@ -62,7 +132,7 @@ Josh drops a Synty pack's FBX files and its atlas texture into `assets/private/i
 - Out of scope: `src/` (all of it, `src/render3d/` included), `tests/`, `puzzles/`, `index.html`, `vite.config.ts`, `tsconfig.json`, the docs, `assets/candidates/`.
 
 ## Interfaces
-- **Written into `src/core/` before the build:** `src/core/assets.ts`, exported from `src/core/index.ts`. It holds `ASSET_MANIFEST_VERSION` (1), `Vec3`, `AssetBounds`, `AssetWarning` (`"scale-suspect" | "no-uv" | "no-atlas"`), `ASSET_SANE_SIZE_MIN` (0.05 m) and `ASSET_SANE_SIZE_MAX` (60 m), `AssetEntry`, `AssetFailure`, `AssetPack` and `AssetManifest`. The Python script writes JSON in this shape, and the follow-up renderer ticket reads it.
+- **Written into `src/core/` before the build:** `src/core/assets.ts`, exported from `src/core/index.ts`. It holds `ASSET_MANIFEST_VERSION` (1), `Vec3`, `AssetBounds`, `AssetWarning` (`"scale-suspect" | "no-uv" | "missing-texture" | "texture-guessed"`; amendment A dropped `no-atlas`), `AssetEntry.textures` and `AssetEntry.missingTextures` (amendment A), `ASSET_SANE_SIZE_MIN` (0.05 m) and `ASSET_SANE_SIZE_MAX` (60 m), `AssetEntry`, `AssetFailure`, `AssetPack` and `AssetManifest`. The Python script writes JSON in this shape, and the follow-up renderer ticket reads it.
 - **Folder layout** (all gitignored): `assets/private/in/<pack>/…` (FBX, textures, optional `pack.json`), `assets/private/out/<pack>.glb`, `assets/private/out/manifest.json`, `assets/private/out/reports/<pack>.json`, `assets/private/selftest/`.
 - **No new npm dependencies.** The wrapper uses `node:child_process`, `node:fs` and `node:path` only, and `tsx` is already a devDependency.
 - **Local tool, not a dependency:** Blender 4.2 or newer, found as in "Finding Blender". It isn't needed for the gate, the build or dev.
@@ -71,8 +141,10 @@ Josh drops a Synty pack's FBX files and its atlas texture into `assets/private/i
 
 ## Open questions for Josh (the defaults apply if you just approve)
 1. **Licence for the web build (unresolved, yours to decide).** Synty's licence doesn't say whether GLB files served from a public browser build (GitHub Pages) count as "sharing source files". **Default: local builds only.** The follow-up loader ticket won't copy GLBs into `dist/` or `public/`, and the Pages deploy keeps the placeholder shapes until Synty answers in writing (licensing@syntystudios.com, per the research note). Ask before buying, if you want certainty.
-2. **One GLB per pack, or one per asset?** **Default: one per pack**, with every asset a named root node sharing one atlas material (one fetch, one texture, ready for `InstancedMesh`). The alternative is one GLB per asset, which is simpler to pick from but repeats the atlas in every file. Easy to switch later.
+2. **One GLB per pack, or one per asset?** **Default: one per pack**, with every asset a named root node sharing one atlas material (one fetch, one texture, ready for `InstancedMesh`); in per-model mode (amendment A) the one GLB holds each texture once. The alternative is one GLB per asset, which is simpler to pick from but repeats the atlas in every file. Easy to switch later.
 3. **Convert everything, or a pick list?** **Default: everything in `in/<pack>/`.** You choose which props to keep by which FBX you copy in. A `pack.json` `include` list could come later.
 4. **Optimiser.** `@gltf-transform/cli` is proposed above, not added. **Default: no.**
 5. **Owner.** **Default: `grid-simulator`**, because the brief gives it `tools/`. The agent is written for pure grid logic, and this is a Blender script plus a Node CLI, so the alternative is to give it to `renderer`, which will write the loader that reads the manifest. Either way, the ticket's files stay the same.
 6. **Decided rules.** None are touched. This is tooling only, with no rule, schema, payload or puzzle change. No `rules-coverage.md` row changes.
+7. **OBJ fallback for old FBX (amendment A).** Three SIMPLE Town FBX files are version 6100, which Blender won't import, and the pack has OBJ copies. The fallback would be small: when an FBX fails and a same-stem `.obj` exists, import that with `bpy.ops.wm.obj_import` and add an `obj-fallback` warning. But OBJ brings its own axis and unit conventions, plus `.mtl` texture lookups, for a fire truck and two road pieces. **Default: no fallback.** They're reported as failures, named, with the OBJ path in the message. Say so if you want the fallback, and it becomes a small follow-up ticket with a new warning type.
+8. **Guessing a texture from the model's name (amendment A, rule 5).** This is what textures the town hall, which references nothing. It can pick the wrong variant (`Town_Hall_a` vs `_b`), so it's flagged `texture-guessed`, and `textureOverrides` pins the right one. **Default: guess and flag.** The alternative is no guessing: the model gets `missing-texture` until you write an override.
