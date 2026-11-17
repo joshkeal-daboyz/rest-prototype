@@ -54,6 +54,12 @@ export interface AssetEntry {
   /** The FBX file, relative to the pack's input folder, forward slashes. */
   source: string;
   bounds: AssetBounds;
+  /**
+   * The import factor this asset was converted with: the pack's `pack.json` "scale" (default 1) times its
+   * "scaleOverrides" entry, if any (ticket 040). `bounds` already include it. Absent in manifests written
+   * before ticket 040; readers treat absent as unknown and rely on `bounds` alone.
+   */
+  scale?: number;
   triangles: number;
   /**
    * The image files embedded for this asset's materials, relative to the pack's
@@ -88,6 +94,8 @@ export interface AssetPack {
   glb: string;
   /** The atlas image used for the shared material, relative to the pack's input folder; null in per-model texture mode (the default). */
   atlas: string | null;
+  /** The pack's `pack.json` "scale" (default 1), before any per-model override (ticket 040). Absent in manifests written before ticket 040. */
+  scale?: number;
   /** In the order the FBX files sort by path. */
   assets: readonly AssetEntry[];
   failures: readonly AssetFailure[];
