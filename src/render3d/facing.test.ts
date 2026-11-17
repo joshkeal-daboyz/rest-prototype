@@ -145,11 +145,12 @@ describe("every building has a front", () => {
     }
   });
 
-  it("starts every model at +z except the corner shop's own entry, and only store_corner_mesh is a corner model", () => {
+  it("holds Josh's 17 Nov 2026 calibration: every model faces -z except store_small_mesh and memorial_mesh (+z), and only store_corner_mesh is a corner model, open on the lot's -x", () => {
     for (const [n, f] of Object.entries(BUILDING_FRONTS)) {
-      expect(f.front, n).toBe("+z");
+      expect(f.front, n).toBe(n === "store_small_mesh" || n === "memorial_mesh" ? "+z" : "-z");
       expect(f.corner === true, n).toBe(n === "store_corner_mesh");
     }
+    expect(BUILDING_FRONTS.store_corner_mesh!.open).toBe("-x");
   });
 });
 
@@ -164,7 +165,7 @@ describe("every placed building faces its road (every map)", () => {
     ["a table that turns models through all four faces", SCRAMBLED],
   ])("turns each clone's declared front toward the nearest point of its own road, to under 0.5 degrees: %s", (_label, fronts) => {
     const set = fakeSet(fronts);
-    expect(new Set(set.building!.map((m) => m.front)).size).toBe(_label === "the shipped table" ? 1 : 4);
+    expect(new Set(set.building!.map((m) => m.front)).size).toBe(_label === "the shipped table" ? 2 : 4);
     let clones = 0;
     const turned = new Set<ModelFront>();
     for (const { name, town } of maps) {
@@ -197,7 +198,7 @@ describe("every placed building faces its road (every map)", () => {
       });
     }
     expect(clones).toBeGreaterThan(5000);
-    expect(turned.size).toBe(_label === "the shipped table" ? 1 : 4);
+    expect(turned.size).toBe(_label === "the shipped table" ? 2 : 4);
   });
 });
 

@@ -70,51 +70,56 @@ export interface BuildingFront {
 }
 
 const FRONT_Z: BuildingFront = { front: "+z" };
+const FRONT_NZ: BuildingFront = { front: "-z" };
 /**
  * Which way every building model's door faces (ticket 042 A). Every name in MODEL_TABLE's building rows must be here (a test fails on a
- * missing one), and so must the names of ticket 042 B's PLACE_MODELS. These are a starting guess, "+z" for all: no data in the repo
- * records the door side (the manifest's bounds are centred). Josh sees each declared front with `/?puzzle=...&view=3d&fronts=1` and names
- * the wrong ones; each correction is one line here.
+ * missing one), and so must the names of ticket 042 B's PLACE_MODELS. Started as a guess ("+z" for all: no data in the repo records the
+ * door side, the manifest's bounds are centred); Josh calibrated it on 17 Nov 2026 with `/?puzzle=...&view=3d&fronts=1`: "all reversed
+ * 180 degrees", only the video rental store, store_small_mesh, was right at "+z". So every other name is "-z". memorial_mesh (ticket B's,
+ * not placed by A) was not among what he saw and stays at the "+z" guess until B shows it. Each further correction is one line here.
+ *
+ * store_corner_mesh turned with the rest, so its `open` flips: `open` is read in the lot frame after the front is turned to the road, and
+ * the model's own +x end (the guessed second frontage) now lands on the lot's -x side. It is the same physical end of the model.
  */
 export const BUILDING_FRONTS: Readonly<Record<string, BuildingFront>> = {
-  Building_Shop_01: FRONT_Z,
-  Building_Shop_02: FRONT_Z,
-  Building_Shop_03: FRONT_Z,
-  Building_Shop_04: FRONT_Z,
-  Building_Shop_05: FRONT_Z,
-  Building_BaberShop: FRONT_Z,
-  Building_Gym: FRONT_Z,
+  Building_Shop_01: FRONT_NZ,
+  Building_Shop_02: FRONT_NZ,
+  Building_Shop_03: FRONT_NZ,
+  Building_Shop_04: FRONT_NZ,
+  Building_Shop_05: FRONT_NZ,
+  Building_BaberShop: FRONT_NZ,
+  Building_Gym: FRONT_NZ,
   store_small_mesh: FRONT_Z,
-  store_corner_mesh: { front: "+z", corner: true },
-  apartment_small_mesh: FRONT_Z,
-  Building_House_01: FRONT_Z,
-  Building_House_02: FRONT_Z,
-  Building_House_03: FRONT_Z,
-  Building_House_04: FRONT_Z,
-  Building_House_09: FRONT_Z,
-  Building_House_010: FRONT_Z,
-  Building_House_011: FRONT_Z,
-  Building_House_012: FRONT_Z,
-  Building_House_013: FRONT_Z,
-  Building_House_014: FRONT_Z,
-  Building_House_015: FRONT_Z,
-  Building_Garage_01: FRONT_Z,
-  Building_Garage_02: FRONT_Z,
-  Building_Garage_03: FRONT_Z,
-  office_small_mesh: FRONT_Z,
-  house_mesh: FRONT_Z,
-  Building_House_05: FRONT_Z,
-  Building_House_06: FRONT_Z,
-  Building_House_07: FRONT_Z,
-  Building_House_08: FRONT_Z,
-  Building_AutoRepair: FRONT_Z,
-  Building_StripClub: FRONT_Z,
-  Building_PoliceStation: FRONT_Z,
-  Building_PetrolStation: FRONT_Z,
-  Building_CoffeeShop: FRONT_Z,
-  apartment_large_mesh: FRONT_Z,
-  office_medium_mesh: FRONT_Z,
-  office_large_mesh: FRONT_Z,
+  store_corner_mesh: { front: "-z", corner: true, open: "-x" },
+  apartment_small_mesh: FRONT_NZ,
+  Building_House_01: FRONT_NZ,
+  Building_House_02: FRONT_NZ,
+  Building_House_03: FRONT_NZ,
+  Building_House_04: FRONT_NZ,
+  Building_House_09: FRONT_NZ,
+  Building_House_010: FRONT_NZ,
+  Building_House_011: FRONT_NZ,
+  Building_House_012: FRONT_NZ,
+  Building_House_013: FRONT_NZ,
+  Building_House_014: FRONT_NZ,
+  Building_House_015: FRONT_NZ,
+  Building_Garage_01: FRONT_NZ,
+  Building_Garage_02: FRONT_NZ,
+  Building_Garage_03: FRONT_NZ,
+  office_small_mesh: FRONT_NZ,
+  house_mesh: FRONT_NZ,
+  Building_House_05: FRONT_NZ,
+  Building_House_06: FRONT_NZ,
+  Building_House_07: FRONT_NZ,
+  Building_House_08: FRONT_NZ,
+  Building_AutoRepair: FRONT_NZ,
+  Building_StripClub: FRONT_NZ,
+  Building_PoliceStation: FRONT_NZ,
+  Building_PetrolStation: FRONT_NZ,
+  Building_CoffeeShop: FRONT_NZ,
+  apartment_large_mesh: FRONT_NZ,
+  office_medium_mesh: FRONT_NZ,
+  office_large_mesh: FRONT_NZ,
   // Ticket 042 B's default for a sacred place: listed now so B only edits its table.
   memorial_mesh: FRONT_Z,
 };
