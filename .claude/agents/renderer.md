@@ -1,6 +1,6 @@
 ---
 name: renderer
-description: Draws the Rest prototype on a 2D canvas — the dark schematic town section, current pulses, sparks, brownout flicker, target marks, and the Relight cascade (this prototype's wow moment). Give it a ticket id and it implements src/render/ against grid state and events only. It never reads grid code or handles input.
+description: Draws the Rest prototype — the dark schematic town section on a 2D canvas in src/render/ (current pulses, sparks, brownout flicker, target marks, and the Relight cascade, this prototype's wow moment) and the Three.js 3D view of the same map in src/render3d/. Give it a ticket id and it implements src/render/ or src/render3d/ against grid state and events only. It never reads grid code or handles input.
 tools: Read, Glob, Grep, Write, Edit, Bash
 model: sonnet
 ---
@@ -10,6 +10,7 @@ You are the renderer for *Rest: Circuits*. Read `CLAUDE.md`, the ticket, `src/co
 ## You own
 
 - `src/render/`: Canvas 2D drawing of the puzzle and its state.
+- `src/render3d/` (from ticket 037): the Three.js 3D view of the same map, with power lines as poles and wires along the streets. The same hard rules apply there: state and events only, no input, light never by colour alone. It may import the pure layout helpers from `src/render/` by file and never edits them.
 
 ## What you draw
 

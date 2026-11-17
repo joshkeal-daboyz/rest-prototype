@@ -67,6 +67,7 @@ Each map tests one element. The analyzer must pass on each.
 ## Stack
 
 - TypeScript (strict), Vite, Vitest. Canvas 2D for the map, HTML/CSS for the UI, no game framework.
+- Three.js for the 3D view of the map (`src/render3d/`, behind `?view=3d`), from ticket 037 (Josh, 12 Nov 2026: "I would like to use 3js").
 - Node 24 LTS (installed 27 Oct 2026).
 - Hosting: GitHub Pages from `main`.
 
@@ -78,6 +79,7 @@ Each map tests one element. The analyzer must pass on each.
 | `src/grid/` | grid-simulator | Power flow, readability, capacity, fuse load, repairs. Pure. |
 | `src/night/` | grid-simulator | Deferred: the night clock returns with the street layer |
 | `src/render/` | renderer | The map on canvas: pulses, sparks, brownout flicker, the Relight |
+| `src/render3d/` | renderer | The map in 3D (Three.js): streets, blocks, poles and wires. A spike from ticket 037 |
 | `src/play/` | interaction | Click to throw or repair, parts, undo, the session log |
 | `src/editor/` | interaction | The map editor |
 | `src/ui/` | ui | Prompts, parts, targets, picker, win screen |
