@@ -1,7 +1,7 @@
 # 038 · A Blender pipeline that turns purchased Synty FBX packs into GLB files for the 3D view
 
 owner: grid-simulator (owns `tools/`; see Open question 5)
-status: open (amendment B; amendment A built at b374830, gate green; re-opened for texture aliases)
+status: done
 branch: `ticket/038-fbx-to-glb-pipeline`
 
 ## Josh's words
