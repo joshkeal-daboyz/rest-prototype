@@ -46,10 +46,12 @@ import {
 } from "three";
 import type { GridNode, Puzzle } from "../core";
 import type { GridState } from "../grid";
-import { circuitStreets, feedLanes, type Lane } from "../render/city";
 import { hash01 } from "../render/motion";
 import { FLARE_SECONDS, type RelightPlan } from "../render/relight";
-import { BREAK_GAP, NODE_BODY_Y, POLE_HEIGHT, WIRE_RADIUS, blockLayout, cumulative, pointAlong, runPoints, shadowOf, wireLayout, type Block, type Vec3, type WireRun } from "./layout";
+import { BREAK_GAP, NODE_BODY_Y, POLE_HEIGHT, WIRE_RADIUS, cumulative, pointAlong, runPoints, shadowOf, wireLayout, type Vec3, type WireRun } from "./layout";
+import { KERB_H, LOT_TYPE_NAMES, ROAD_W, STOREY_M, townLayout, type Lot, type LotType, type Pt, type Town } from "./town";
+import { WORLD_PER_METRE } from "./models";
+import { ROOF_SHADE, TINTS, pickPlaceholders } from "./placeholders";
 import { lampBrightness, nodeLookInto, type NodeLook } from "./look";
 import { createRelightClock, lampIgnition, lineFraction, nodeArrived, placeGlowStep, type LampIgnition } from "./relight3d";
 import { CAPTION_FONT_PX, FEED_FONT_PX, captionsFor, scaleForPx, type NodeCaption } from "./captions";
@@ -74,6 +76,8 @@ export interface SceneBundle {
   parts: ReadonlyMap<string, NodeParts>;
   /** What the converted models (ticket 039) replace; `applyModels` in models3d.ts reads it. */
   slots: ModelSlots;
+  /** The streets, drawn from the town layout (ticket 041 B): one mesh or instance per road, kerb and pad. */
+  streets: StreetParts;
   /** The canvas size in css px and the camera's vertical field of view, so captions keep a fixed pixel size. */
   setViewport(width: number, height: number, fovDeg: number): void;
   dispose(): void;
@@ -95,15 +99,26 @@ export interface ModelSlots {
   poles: { spots: readonly PoleSpot[]; placeholders: readonly Object3D[] };
   /** Each lamp's post (the head, light, pool and halo are separate and stay). */
   lamps: readonly { id: string; group: Group; post: Mesh }[];
-  /** The footprint and city blocks (never a lamp's place), in the order of `placeholder`'s instances. */
-  blocks: { list: readonly Block[]; placeholder: Object3D };
+  /**
+   * The town's lots (never a lamp's place), and the placeholder buildings that stand on them (ticket 041 B): `placeholder` holds
+   * one group per lot type (`byType`), so a type with models can hide its placeholders and a type without keeps them.
+   */
+  blocks: { list: readonly Lot[]; placeholder: Object3D; byType: Readonly<Record<LotType, Object3D>> };
   /** Pole and building clones go here. Anything marked `userData.sharedModel` is not disposed with the scene. */
   models: Object3D;
 }
 
 const GROUND = 0x0e131d;
+/** Yard ground: the open ground inside a city block, a little lighter than the town's dark edge. */
+const YARD = 0x141c29;
+/** Asphalt. */
 const STREET = 0x1a2331;
-const BUILDING = 0x161d2b;
+/** Pavement: mid-grey, lighter than the asphalt so a street reads as a road between two pavements. */
+const PAVEMENT = 0x3d4658;
+/** The kerb lip: pale. */
+const KERB = 0x9aa4b6;
+/** A road's dashed centre line. */
+const CENTRE_LINE = 0x7a7863;
 const PLACE = 0x3a4a68;
 /** Weathered wood for poles, posts and cross-arms: at least 3:1 luminance contrast against the street, so it reads by brightness. */
 export const POLE_WOOD = 0x8b6b4a;
@@ -234,6 +249,267 @@ const BREAK_GAP_PICK = BREAK_GAP + 0.2;
 const LAMP_CAPTION_OFFSET = 1.0;
 const RIBBON = 0xff3df0;
 
+// ---- the town: streets and placeholder buildings (ticket 041 B) ----
+
+/** Heights (world units) of the ground layers, bottom to top. The wires' shadows (SHADOW_Y 0.025) and the pole feet (0.022) sit above all of them. */
+export const YARD_H = 0.004;
+export const PAVEMENT_Y = 0.008;
+export const ROAD_H = 0.014;
+export const PAD_Y = 0.0145;
+export const DASH_Y = 0.0155;
+/** A kerb's width, and a centre line's dashes: length, gap, width, and how far they keep from a road's ends. */
+export const KERB_W = 0.07;
+export const DASH_LEN = 0.4;
+export const DASH_GAP = 0.4;
+export const DASH_W = 0.05;
+export const DASH_INSET = ROAD_W / 2 + 0.35;
+/** A band round a placeholder at each storey line: its height (metres) and how far it stands out of the wall (a factor on the footprint). */
+const BAND_M = 0.5;
+const BAND_OUT = 1.03;
+const ROOF_OUT = 1.04;
+const BAND_LIGHT = 1.6;
+
+/** What the scene holds of the streets, for tests and the renderer. */
+export interface StreetParts {
+  /** One instance per outer city block: the open ground inside its pavements. */
+  yards: InstancedMesh;
+  /** One instance per road. */
+  roads: InstancedMesh;
+  /** One instance per kerb segment. */
+  kerbs: InstancedMesh;
+  /** One instance per dash of a ring or grid road's centre line (a road wider than 1). */
+  dashes: InstancedMesh;
+  /** Every pavement band in one mesh (a fan of triangles per band). */
+  pavements: Mesh;
+  /** One mesh per junction pad that has an area (three or more points). */
+  pads: readonly Mesh[];
+}
+
+export interface Dash {
+  x: number;
+  z: number;
+  /** The rotation about y that lays the dash along its road. */
+  yaw: number;
+}
+
+/** Is (x, z) inside the convex polygon `poly`, or within `margin` outside it? Either winding. */
+function inConvex(poly: readonly Pt[], x: number, z: number, margin: number): boolean {
+  let area = 0;
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i]!;
+    const b = poly[(i + 1) % poly.length]!;
+    area += a.x * b.z - b.x * a.z;
+  }
+  const sign = area >= 0 ? 1 : -1;
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i]!;
+    const b = poly[(i + 1) % poly.length]!;
+    const len = Math.hypot(b.x - a.x, b.z - a.z) || 1;
+    const d = (sign * ((b.x - a.x) * (z - a.z) - (b.z - a.z) * (x - a.x))) / len;
+    if (d < -margin) return false;
+  }
+  return true;
+}
+
+/**
+ * The dashes of the ring and grid roads' centre lines, DASH_LEN long with DASH_GAP between, centred along the road and kept DASH_INSET
+ * from its ends. A dash that would lie on another road or a pad (where streets cross) is left out. Pure.
+ */
+export function dashLayout(town: Town): Dash[] {
+  const out: Dash[] = [];
+  const pads = town.pads.filter((p) => p.pts.length >= 3);
+  for (const r of town.roads) {
+    if ((r.kind !== "ring" && r.kind !== "grid") || r.w <= 1) continue;
+    const len = Math.hypot(r.bx - r.ax, r.bz - r.az);
+    const room = len - 2 * DASH_INSET;
+    if (room < DASH_LEN) continue;
+    const n = Math.floor((room + DASH_GAP) / (DASH_LEN + DASH_GAP));
+    const span = n * DASH_LEN + (n - 1) * DASH_GAP;
+    const ux = (r.bx - r.ax) / len;
+    const uz = (r.bz - r.az) / len;
+    const yaw = -Math.atan2(uz, ux);
+    for (let i = 0; i < n; i++) {
+      const c = (len - span) / 2 + i * (DASH_LEN + DASH_GAP) + DASH_LEN / 2;
+      const cx = r.ax + ux * c;
+      const cz = r.az + uz * c;
+      const probes: readonly (readonly [number, number])[] = [
+        [cx, cz],
+        [cx - (ux * DASH_LEN) / 2, cz - (uz * DASH_LEN) / 2],
+        [cx + (ux * DASH_LEN) / 2, cz + (uz * DASH_LEN) / 2],
+      ];
+      const onOther = town.roads.some((o) => o !== r && probes.some(([x, z]) => inConvex(o.corners, x, z, 0.12))) || pads.some((p) => probes.some(([x, z]) => inConvex(p.pts, x, z, 0.12)));
+      if (!onOther) out.push({ x: cx, z: cz, yaw });
+    }
+  }
+  return out;
+}
+
+/** Triangulate a convex polygon as a fan lying flat at height `y`, facing up (+y), whatever the polygon's winding. */
+function fanInto(pts: readonly Pt[], y: number, pos: number[], idx: number[]): void {
+  let area = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i]!;
+    const b = pts[(i + 1) % pts.length]!;
+    area += a.x * b.z - b.x * a.z;
+  }
+  // A triangle faces up when (z1 - z0)(x2 - x0) - (x1 - x0)(z2 - z0) > 0: that is a polygon of negative shoelace area in (x, z).
+  const ordered = area > 0 ? [...pts].reverse() : pts;
+  const base = pos.length / 3;
+  for (const p of ordered) pos.push(p.x, y, p.z);
+  for (let i = 1; i + 1 < ordered.length; i++) idx.push(base, base + i, base + i + 1);
+}
+
+/** A box with its base on y = 0 and its size 1 x 1 x 1, for instancing. */
+const unitBox = (): BoxGeometry => new BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
+
+/** A gable roof: base 1 x 1 on y = 0, ridge along x at y = 1, flat-shaded. */
+function pitchedRoofGeometry(): BufferGeometry {
+  type V = [number, number, number];
+  const A: V = [-0.5, 0, -0.5];
+  const B: V = [0.5, 0, -0.5];
+  const C: V = [0.5, 0, 0.5];
+  const D: V = [-0.5, 0, 0.5];
+  const R1: V = [-0.5, 1, 0];
+  const R2: V = [0.5, 1, 0];
+  const tris: V[] = [D, C, R2, D, R2, R1, B, A, R1, B, R1, R2, A, D, R1, C, B, R2];
+  const g = new BufferGeometry();
+  g.setAttribute("position", new Float32BufferAttribute(tris.flat(), 3));
+  g.computeVertexNormals();
+  return g;
+}
+
+/** Place instance `i` of `im`: at (x, y, z), turned `yaw` about y, scaled (sx, sy, sz). */
+function setInstance(im: InstancedMesh, scratch: Object3D, i: number, x: number, y: number, z: number, yaw: number, sx: number, sy: number, sz: number): void {
+  scratch.position.set(x, y, z);
+  scratch.rotation.set(0, yaw, 0);
+  scratch.scale.set(sx, sy, sz);
+  scratch.updateMatrix();
+  im.setMatrixAt(i, scratch.matrix);
+}
+
+function buildStreets(town: Town, scene: Scene): StreetParts {
+  const o = new Object3D();
+  const flat = (hex: number): MeshStandardMaterial => new MeshStandardMaterial({ color: hex, roughness: 1 });
+
+  // Yards: the open ground in each outer block.
+  const yards = new InstancedMesh(unitBox(), flat(YARD), Math.max(town.blocks.length, 1));
+  town.blocks.forEach((b, i) => setInstance(yards, o, i, (b.minX + b.maxX) / 2, 0, (b.minZ + b.maxZ) / 2, 0, b.maxX - b.minX, YARD_H, b.maxZ - b.minZ));
+  yards.count = town.blocks.length;
+
+  // Roads: one instance each, its own length and width, laid along its centreline. The top (ROAD_H) is under the wires' shadows.
+  const roads = new InstancedMesh(unitBox(), flat(STREET), Math.max(town.roads.length, 1));
+  town.roads.forEach((r, i) => setInstance(roads, o, i, (r.ax + r.bx) / 2, 0, (r.az + r.bz) / 2, -Math.atan2(r.bz - r.az, r.bx - r.ax), Math.hypot(r.bx - r.ax, r.bz - r.az), ROAD_H, r.w));
+  roads.count = town.roads.length;
+
+  // Kerbs: a pale lip along an edge of a road, KERB_H high.
+  const kerbs = new InstancedMesh(unitBox(), flat(KERB), Math.max(town.kerbs.length, 1));
+  town.kerbs.forEach((k, i) => setInstance(kerbs, o, i, (k.ax + k.bx) / 2, 0, (k.az + k.bz) / 2, -Math.atan2(k.bz - k.az, k.bx - k.ax), Math.hypot(k.bx - k.ax, k.bz - k.az), KERB_H, KERB_W));
+  kerbs.count = town.kerbs.length;
+
+  // Centre lines.
+  const dashList = dashLayout(town);
+  const dashes = new InstancedMesh(unitBox(), flat(CENTRE_LINE), Math.max(dashList.length, 1));
+  dashList.forEach((d, i) => setInstance(dashes, o, i, d.x, DASH_Y - 0.002, d.z, d.yaw, DASH_LEN, 0.002, DASH_W));
+  dashes.count = dashList.length;
+
+  // Pavements, all in one mesh.
+  const pos: number[] = [];
+  const idx: number[] = [];
+  for (const p of town.pavements) if (p.pts.length >= 3) fanInto(p.pts, PAVEMENT_Y, pos, idx);
+  const pg = new BufferGeometry();
+  pg.setAttribute("position", new Float32BufferAttribute(pos, 3));
+  pg.setIndex(idx);
+  pg.computeVertexNormals();
+  const pavements = new Mesh(pg, flat(PAVEMENT));
+
+  // Junction pads, one mesh each, in the asphalt's colour.
+  const padMat = flat(STREET);
+  const pads: Mesh[] = [];
+  for (const p of town.pads) {
+    if (p.pts.length < 3) continue;
+    const ppos: number[] = [];
+    const pidx: number[] = [];
+    fanInto(p.pts, PAD_Y, ppos, pidx);
+    const g = new BufferGeometry();
+    g.setAttribute("position", new Float32BufferAttribute(ppos, 3));
+    g.setIndex(pidx);
+    g.computeVertexNormals();
+    const m = new Mesh(g, padMat);
+    m.userData["pad"] = p.id;
+    pads.push(m);
+  }
+
+  for (const im of [yards, roads, kerbs, dashes]) {
+    im.instanceMatrix.needsUpdate = true;
+    scene.add(im);
+  }
+  scene.add(pavements, ...pads);
+  return { yards, roads, kerbs, dashes, pavements, pads };
+}
+
+/** The placeholder buildings: per lot type, one group of instanced meshes (bodies, a band at each storey line, flat roofs, pitched roofs). */
+function buildPlaceholders(lots: readonly Lot[]): { root: Object3D; byType: Record<LotType, Object3D> } {
+  const specs = pickPlaceholders(lots);
+  const root = new Object3D();
+  root.name = "placeholders";
+  const byType = {} as Record<LotType, Object3D>;
+  const pitched = pitchedRoofGeometry();
+  const wall = (): MeshStandardMaterial => new MeshStandardMaterial({ color: 0xffffff, roughness: 0.95 });
+  const colour = new Color();
+  const o = new Object3D();
+  const put = (im: InstancedMesh, i: number, x: number, y: number, z: number, yaw: number, sx: number, sy: number, sz: number, hex: number, k: number): void => {
+    setInstance(im, o, i, x, y, z, yaw, sx, sy, sz);
+    im.setColorAt(i, colour.setHex(hex).multiplyScalar(k));
+  };
+  const storeyH = STOREY_M * WORLD_PER_METRE;
+  const bandH = BAND_M * WORLD_PER_METRE;
+  for (const type of LOT_TYPE_NAMES) {
+    const group = new Object3D();
+    group.name = `placeholders:${type}`;
+    const mine: number[] = [];
+    lots.forEach((l, i) => {
+      if (l.type === type) mine.push(i);
+    });
+    const bands = mine.reduce((n, i) => n + specs[i]!.storeys - 1, 0);
+    const flats = mine.filter((i) => specs[i]!.roof === "flat");
+    const slopes = mine.filter((i) => specs[i]!.roof === "pitched");
+    const bodies = new InstancedMesh(unitBox(), wall(), Math.max(mine.length, 1));
+    const bandMesh = new InstancedMesh(unitBox(), wall(), Math.max(bands, 1));
+    const flatRoofs = new InstancedMesh(unitBox(), wall(), Math.max(flats.length, 1));
+    const pitchedRoofs = new InstancedMesh(pitched, wall(), Math.max(slopes.length, 1));
+    let b = 0;
+    mine.forEach((li, k) => {
+      const l = lots[li]!;
+      const s = specs[li]!;
+      const hex = TINTS[s.tint]!;
+      put(bodies, k, l.x, 0, l.z, l.yaw, s.w, s.bodyH, s.d, hex, 1);
+      for (let j = 1; j < s.storeys; j++) put(bandMesh, b++, l.x, j * storeyH - bandH / 2, l.z, l.yaw, s.w * BAND_OUT, bandH, s.d * BAND_OUT, hex, BAND_LIGHT);
+    });
+    flats.forEach((li, k) => {
+      const l = lots[li]!;
+      const s = specs[li]!;
+      put(flatRoofs, k, l.x, s.bodyH, l.z, l.yaw, s.w * ROOF_OUT, s.roofH, s.d * ROOF_OUT, TINTS[s.tint]!, ROOF_SHADE);
+    });
+    slopes.forEach((li, k) => {
+      const l = lots[li]!;
+      const s = specs[li]!;
+      put(pitchedRoofs, k, l.x, s.bodyH, l.z, l.yaw, s.w * ROOF_OUT, s.roofH, s.d * ROOF_OUT, TINTS[s.tint]!, ROOF_SHADE);
+    });
+    bodies.count = mine.length;
+    bandMesh.count = bands;
+    flatRoofs.count = flats.length;
+    pitchedRoofs.count = slopes.length;
+    for (const im of [bodies, bandMesh, flatRoofs, pitchedRoofs]) {
+      im.instanceMatrix.needsUpdate = true;
+      if (im.instanceColor) im.instanceColor.needsUpdate = true;
+      group.add(im);
+    }
+    byType[type] = group;
+    root.add(group);
+  }
+  return { root, byType };
+}
+
 export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle {
   const scene = new Scene();
   scene.background = new Color(0x0b0f17);
@@ -242,49 +518,33 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
   moon.position.set(-6, 12, 4);
   scene.add(moon);
 
-  const blocks = blockLayout(puzzle);
+  const town = townLayout(puzzle);
   const runs = wireLayout(puzzle);
-  const streets = circuitStreets(puzzle);
-  const win = blocks.window;
+  const win = town.window;
+  const mat4 = new Matrix4();
 
-  // Ground and streets.
+  // Ground, streets (roads, kerbs, pavements, junction pads, centre lines) and the yards of the outer blocks, all from the town layout.
   const ground = new Mesh(new BoxGeometry(win.maxX - win.minX + 12, 0.1, win.maxY - win.minY + 12), new MeshStandardMaterial({ color: GROUND, roughness: 1 }));
   ground.position.set((win.minX + win.maxX) / 2, -0.05, (win.minY + win.maxY) / 2);
   scene.add(ground);
-  const streetMat = new MeshStandardMaterial({ color: STREET, roughness: 1 });
-  const addLane = (l: Lane): void => {
-    const len = Math.hypot(l.bx - l.ax, l.by - l.ay);
-    // The street's top (0.02) sits under the wires' shadows (SHADOW_Y).
-    const m = box(len + l.w, 0.02, l.w, streetMat, (l.ax + l.bx) / 2, 0.01, (l.ay + l.by) / 2);
-    m.rotation.y = -Math.atan2(l.by - l.ay, l.bx - l.ax);
-    scene.add(m);
-  };
-  streets.lanes.forEach(addLane);
-  feedLanes(puzzle).forEach(addLane);
+  const streets = buildStreets(town, scene);
 
-  // City blocks, instanced; a lamp's place is its own mesh so it can warm when lit.
-  const mat4 = new Matrix4();
-  const instanced = (list: Block[], mat: Material): InstancedMesh => {
-    const im = new InstancedMesh(new BoxGeometry(1, 1, 1), mat, Math.max(list.length, 1));
-    list.forEach((b, i) => {
-      mat4.makeScale(b.w, b.h, b.d).setPosition(b.x, b.h / 2, b.z);
-      im.setMatrixAt(i, mat4);
-    });
-    im.count = list.length;
-    im.instanceMatrix.needsUpdate = true;
-    return im;
-  };
-  const blockMesh = instanced(blocks.blocks, new MeshStandardMaterial({ color: BUILDING, roughness: 0.95 }));
-  scene.add(blockMesh);
+  // Placeholder buildings on every lot, at one scale; a lamp's place is its own mesh so it can warm when lit.
+  const placeholders = buildPlaceholders(town.lots);
+  scene.add(placeholders.root);
   // Not a Group: the scene-level tests find a node's group as the scene child of type Group at its position, and this sits at the origin.
   const modelGroup = new Object3D();
   modelGroup.name = "models";
   scene.add(modelGroup);
   const placeMats = new Map<string, MeshStandardMaterial>();
-  for (const p of blocks.places) {
+  for (const p of town.places) {
     const mat = new MeshStandardMaterial({ color: PLACE, roughness: 0.9, emissive: WARM, emissiveIntensity: 0 });
     placeMats.set(p.lamp, mat);
-    for (const b of p.boxes) scene.add(box(b.w, b.h, b.d, mat, b.x, b.h / 2, b.z));
+    for (const bx of p.boxes) {
+      const m = box(bx.w, bx.h, bx.d, mat, bx.x, bx.h / 2, bx.z);
+      m.rotation.y = bx.yaw;
+      scene.add(m);
+    }
   }
 
   // Poles: one per intermediate attachment point.
@@ -755,7 +1015,7 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
     }
   }
   const placeNames = new Map<string, string>();
-  for (const p of blocks.places) {
+  for (const p of town.places) {
     if (!p.label) continue;
     const lamp = puzzle.nodes.find((q) => q.id === p.lamp);
     const b = p.boxes[0];
@@ -771,7 +1031,7 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
   let lastHover: string | null = null;
   let lastT = NaN;
   const clock = createRelightClock(puzzle);
-  const placeViews = blocks.places.map((p) => ({ lamp: p.lamp, mat: placeMats.get(p.lamp)!, index: nodeIndexOf.get(p.lamp) ?? 0, glow: 0 }));
+  const placeViews = town.places.map((p) => ({ lamp: p.lamp, mat: placeMats.get(p.lamp)!, index: nodeIndexOf.get(p.lamp) ?? 0, glow: 0 }));
 
   /** The dead look: dull, or "new cable" blue if it was damaged and is mended. `boost` is the hover lift. */
   const deadLook = (mat: MeshStandardMaterial, repaired: boolean, boost: number): void => {
@@ -885,7 +1145,8 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
     scene,
     captions: captionSprites,
     parts: parts_,
-    slots: { poles: { spots: poleSpots, placeholders: [poles, arms] }, lamps: lampSlots, blocks: { list: blocks.blocks, placeholder: blockMesh }, models: modelGroup },
+    slots: { poles: { spots: poleSpots, placeholders: [poles, arms] }, lamps: lampSlots, blocks: { list: town.lots, placeholder: placeholders.root, byType: placeholders.byType }, models: modelGroup },
+    streets,
     setViewport(_width, height, fovDeg) {
       unit = scaleForPx(1, height, fovDeg);
       for (const c of capViews) c.cs.setUnit(unit);

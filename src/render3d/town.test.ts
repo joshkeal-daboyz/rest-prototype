@@ -42,7 +42,7 @@ const layoutMs = performance.now() - t0;
 
 // ---- geometry, written again here and not shared with town.ts ----
 
-type Poly = Pt[];
+type Poly = readonly Pt[];
 const signedArea = (p: Poly): number => {
   let s = 0;
   for (let i = 0; i < p.length; i++) {
@@ -62,7 +62,7 @@ function overlap(a: Poly, b: Poly): number {
   for (let i = 0; i < c.length && out.length > 0; i++) {
     const e0 = c[i]!;
     const e1 = c[(i + 1) % c.length]!;
-    const next: Poly = [];
+    const next: Pt[] = [];
     for (let j = 0; j < out.length; j++) {
       const p = out[j]!;
       const q = out[(j + 1) % out.length]!;
@@ -155,7 +155,7 @@ const boxPoly = (b: { x: number; z: number; w: number; d: number; yaw: number })
   const fz = Math.cos(b.yaw);
   const ex = Math.cos(b.yaw);
   const ez = -Math.sin(b.yaw);
-  const pts: Poly = [];
+  const pts: Pt[] = [];
   for (const [sw, sd] of [
     [-1, -1],
     [1, -1],
@@ -686,5 +686,27 @@ describe("drift guards", () => {
   it("keeps the node top at the wires' pole height", () => {
     expect(NODE_TOP_Y).toBe(POLE_HEIGHT);
     expect(LAMP_HEAD_Y).toBeGreaterThan(POLE_HEIGHT);
+  });
+});
+
+describe("the cached town is read-only", () => {
+  const town = maps.find((m) => m.file.includes("09-shrine"))!.town;
+  it("is frozen all the way down, so a caller cannot change what the next caller gets", () => {
+    const rec = (o: unknown, path: string): void => {
+      if (typeof o !== "object" || o === null) return;
+      expect(Object.isFrozen(o), path).toBe(true);
+      for (const [k, v] of Object.entries(o)) rec(v, `${path}.${k}`);
+    };
+    rec(town, "town");
+  });
+  it("throws when a caller tries to push to a list or set a field", () => {
+    expect(() => (town.lots as unknown as unknown[]).push(1)).toThrow();
+    expect(() => {
+      (town.lots[0] as { x: number }).x = 99;
+    }).toThrow();
+  });
+  it("hands every caller the same frozen object for the same puzzle", () => {
+    const pz = maps[0]!.puzzle;
+    expect(townLayout(pz)).toBe(townLayout(pz));
   });
 });

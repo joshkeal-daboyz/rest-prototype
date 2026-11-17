@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { Box3, BoxGeometry, Matrix4, MeshStandardMaterial, PointLight, Ray, TubeGeometry, Vector3 } from "three";
+import { Box3, BoxGeometry, Matrix4, MeshStandardMaterial, PointLight, Raycaster, TubeGeometry, Vector3, type Mesh, type Object3D } from "three";
 import { EventBus, loadPuzzle, type Puzzle } from "../core";
 import { createGrid } from "../grid";
 import { ELEVATION, FOV_DEG, createCameraRig } from "./camera";
 import { captionTextPx } from "./captions";
 import { stubTextSurface } from "./text";
-import { NODE_BODY_Y, POLE_HEIGHT, SHADOW_Y, blockLayout, runPoints, shadowOf, wireLayout } from "./layout";
+import { NODE_BODY_Y, POLE_HEIGHT, SHADOW_Y, runPoints, shadowOf, wireLayout } from "./layout";
 import { buildScene } from "./scene";
 
 const puzzle: Puzzle = loadPuzzle(JSON.parse(readFileSync("puzzles/09-shrine-circuit.json", "utf8")));
@@ -325,23 +325,27 @@ describe("wires and poles (C1)", () => {
     }
   });
 
-  it("lets no block stand between the camera and a wire's middle or a node's attachment point", () => {
-    const layout = blockLayout(puzzle);
-    const all = [...layout.blocks, ...layout.places.flatMap((p) => p.boxes)];
+  it("lets no building or place stand between the camera and a wire's middle or a node's pick point", () => {
+    bundle.scene.updateMatrixWorld(true);
     const eye = rigC.camera.position;
+    const solids: Object3D[] = [bundle.slots.blocks.placeholder];
+    bundle.scene.traverse((o) => {
+      const m = (o as Mesh).material;
+      if (m && [...bundle.places.values()].includes(m as MeshStandardMaterial)) solids.push(o);
+    });
+    expect(solids.length).toBeGreaterThan(1);
     const targets: { name: string; p: Vector3 }[] = [
       ...runs.map((r) => ({ name: r.id, p: new Vector3(r.mid.x, r.mid.y, r.mid.z) })),
-      ...puzzle.nodes.map((n) => ({ name: n.id, p: new Vector3(n.pos[0], POLE_HEIGHT, n.pos[1]) })),
+      ...puzzle.nodes.map((n) => ({ name: n.id, p: new Vector3(n.pos[0], NODE_BODY_Y, n.pos[1]) })),
     ];
+    const caster = new Raycaster();
     for (const t of targets) {
       const dir = t.p.clone().sub(eye);
       const dist = dir.length();
-      const ray = new Ray(eye.clone(), dir.normalize());
-      for (const blk of all) {
-        const box = new Box3(new Vector3(blk.x - blk.w / 2, 0, blk.z - blk.d / 2), new Vector3(blk.x + blk.w / 2, blk.h, blk.z + blk.d / 2));
-        const hit = ray.intersectBox(box, new Vector3());
-        expect(hit === null || hit.distanceTo(eye) > dist - 1e-6, `${t.name} behind block at ${blk.x},${blk.z}`).toBe(true);
-      }
+      caster.set(eye, dir.normalize());
+      caster.far = dist - 1e-6;
+      const hits = caster.intersectObjects(solids, true);
+      expect(hits.length, `${t.name} behind ${hits[0]?.object.name ?? "a place"} at ${hits[0]?.distance}`).toBe(0);
     }
   });
 

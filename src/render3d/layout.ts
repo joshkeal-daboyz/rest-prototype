@@ -1,12 +1,10 @@
 /**
- * Pure layout of the 3D view (ticket 037): wire runs strung on poles along the circuit's lines, and the town's
- * building blocks. No three, no DOM, no play. World mapping: map (x, y) is world (x, height, z = y), 1 unit = 1 unit, y up.
+ * Pure layout of the 3D view (ticket 037): wire runs strung on poles along the circuit's lines. The town's streets,
+ * lots and places are in town.ts (ticket 041). No three, no DOM, no play. World mapping: map (x, y) is world (x, height, z = y), 1 unit = 1 unit, y up.
  * Wires are visual only; nothing here touches a rule.
  */
 
 import type { Puzzle } from "../core";
-import { DEFAULT_SCALE, cityForMap, footprintLayout, circuitStreets, mapOrigin, stableHash, type Building, type CityRect } from "../render/city";
-import { puzzleBounds } from "../render/geometry";
 
 export const POLE_HEIGHT = 1.6;
 /** The centre of a breaker, fuse box or battery box: its top meets the wire at POLE_HEIGHT. */
@@ -27,14 +25,6 @@ export const SAG_RATIO = 0.12;
 export const SAG_SEGMENTS = 8;
 /** A line's pick target reaches this far (world units) from its wire. */
 export const WIRE_PICK_RADIUS = 0.15;
-export const BLOCK_MIN_H = 0.6;
-export const BLOCK_MAX_H = 2.6;
-/** Inside the footprint, buildings stay below the wires and places below the lamp heads, so nothing hides a wire. */
-export const FOOTPRINT_MAX_H = 1.4;
-export const PLACE_MIN_H = 1.0;
-export const PLACE_MAX_H = 1.8;
-/** How far past the footprint (map units) the city blocks are built. */
-export const CITY_WINDOW = 8;
 
 export interface Vec3 {
   x: number;
@@ -182,65 +172,4 @@ export function cumulative(pts: readonly Vec3[]): number[] {
     cum.push(cum[i - 1]! + Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z));
   }
   return cum;
-}
-
-export type BlockKind = "building" | "place" | "city";
-
-/** A box standing on the ground: centre (x, z), size w (x) by d (z), height h. */
-export interface Block {
-  x: number;
-  z: number;
-  w: number;
-  d: number;
-  h: number;
-  kind: BlockKind;
-}
-
-export interface PlaceBlock {
-  lamp: string;
-  /** The words beside the place (footprintLayout's label): the name for a target lamp, null for any other. */
-  label: string | null;
-  /** A pool place is a pool of light on the lamp's lane: no building. */
-  pool: boolean;
-  /** The lamp's place: one or several boxes (a gate's two posts, a row of homes); empty for a pool. */
-  boxes: Block[];
-}
-
-export interface BlockLayout {
-  /** The footprint's own lots, then the city's lots round it. */
-  blocks: Block[];
-  /** One per lamp, in `nodes` order. */
-  places: PlaceBlock[];
-  /** The area the blocks were built for, in map units. */
-  window: CityRect;
-}
-
-function heightOf(key: string, lo = BLOCK_MIN_H, hi = BLOCK_MAX_H): number {
-  return lo + ((stableHash(key) % 1000) / 1000) * (hi - lo);
-}
-
-function toBlock(b: Building, kind: BlockKind, key: string, lo?: number, hi?: number): Block {
-  return { x: b.x, z: b.y, w: b.w, d: b.h, h: heightOf(key, lo, hi), kind };
-}
-
-/** The town's boxes: footprintLayout's buildings and places at DEFAULT_SCALE, and the city's lots in a fixed window round the footprint. */
-export function blockLayout(puzzle: Puzzle): BlockLayout {
-  const origin = mapOrigin(puzzle.id, puzzleBounds(puzzle));
-  const layout = footprintLayout(puzzle, origin, DEFAULT_SCALE);
-  const fp = circuitStreets(puzzle).footprint;
-  const window: CityRect = { minX: fp.minX - CITY_WINDOW, minY: fp.minY - CITY_WINDOW, maxX: fp.maxX + CITY_WINDOW, maxY: fp.maxY + CITY_WINDOW };
-  const blocks: Block[] = [];
-  for (const b of layout.buildings) blocks.push(toBlock(b, "building", `b${b.x},${b.y}`, BLOCK_MIN_H, FOOTPRINT_MAX_H));
-  const own = new Set<Building>(layout.buildings);
-  for (const b of cityForMap(puzzle, origin, window)) {
-    // cityForMap also returns the footprint's own lots (the same objects); those are already in.
-    if (!own.has(b)) blocks.push(toBlock(b, "city", `c${b.x},${b.y}`));
-  }
-  const places: PlaceBlock[] = layout.places.map((p) => ({
-    lamp: p.lamp,
-    label: p.label,
-    pool: p.pool,
-    boxes: p.pool ? [] : (p.parts ?? [p]).map((q) => toBlock(q, "place", `p${p.lamp}${q.x},${q.y}`, PLACE_MIN_H, PLACE_MAX_H)),
-  }));
-  return { blocks, places, window };
 }

@@ -1,28 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { loadPuzzle, type Puzzle } from "../core";
-import { DEFAULT_SCALE, footprintLayout, mapOrigin } from "../render/city";
-import { puzzleBounds } from "../render/geometry";
 import {
-  BLOCK_MAX_H,
   BREAK_GAP,
-  FOOTPRINT_MAX_H,
   HANG_DROP,
   HANG_SEGMENTS,
-  PLACE_MAX_H,
   SHADOW_Y,
   shadowOf,
-  BLOCK_MIN_H,
   POLE_HEIGHT,
   POLE_SPACING,
   SAG_RATIO,
   SAG_SEGMENTS,
-  blockLayout,
   cumulative,
   pointAlong,
   runPoints,
   wireLayout,
-  type Block,
 } from "./layout";
 
 const puzzle: Puzzle = loadPuzzle(JSON.parse(readFileSync("puzzles/09-shrine-circuit.json", "utf8")));
@@ -92,7 +84,6 @@ describe("wireLayout", () => {
 
   it("is deterministic", () => {
     expect(wireLayout(puzzle)).toEqual(wireLayout(puzzle));
-    expect(blockLayout(puzzle)).toEqual(blockLayout(puzzle));
   });
 
   it("imports nothing from grid, play or three", () => {
@@ -111,67 +102,6 @@ describe("wireLayout", () => {
     const end = pts[pts.length - 1]!;
     expect(pointAlong(pts, cum, 1, out)).toEqual(end);
     expect(pointAlong(pts, cum, 0.5, out).y).toBeCloseTo(r.mid.y, 6);
-  });
-});
-
-function segHitsBox(ax: number, az: number, bx: number, bz: number, b: Block): boolean {
-  // Liang-Barsky against the box's x/z extents.
-  const x0 = b.x - b.w / 2;
-  const x1 = b.x + b.w / 2;
-  const z0 = b.z - b.d / 2;
-  const z1 = b.z + b.d / 2;
-  let t0 = 0;
-  let t1 = 1;
-  const dx = bx - ax;
-  const dz = bz - az;
-  const p = [-dx, dx, -dz, dz];
-  const q = [ax - x0, x1 - ax, az - z0, z1 - az];
-  for (let i = 0; i < 4; i++) {
-    if (p[i] === 0) {
-      if (q[i]! < 0) return false;
-    } else {
-      const t = q[i]! / p[i]!;
-      if (p[i]! < 0) t0 = Math.max(t0, t);
-      else t1 = Math.min(t1, t);
-    }
-  }
-  return t0 < t1 - 1e-9;
-}
-
-describe("blockLayout", () => {
-  const layout = blockLayout(puzzle);
-  const lamps = puzzle.nodes.filter((n) => n.type === "lamp").map((n) => n.id);
-
-  it("has the footprint's and the city's blocks, heights within range", () => {
-    expect(layout.blocks.some((b) => b.kind === "building")).toBe(true);
-    expect(layout.blocks.some((b) => b.kind === "city")).toBe(true);
-    for (const b of [...layout.blocks, ...layout.places.flatMap((p) => p.boxes)]) {
-      expect(b.h).toBeGreaterThanOrEqual(BLOCK_MIN_H);
-      expect(b.h).toBeLessThanOrEqual(BLOCK_MAX_H);
-    }
-  });
-
-  it("keeps each lamp's id on its place, in node order", () => {
-    expect(layout.places.map((p) => p.lamp)).toEqual(lamps);
-  });
-
-  it("puts no block over a wire run", () => {
-    const all = [...layout.blocks, ...layout.places.flatMap((p) => p.boxes)];
-    for (const r of runs) {
-      const a = r.attach[0]!;
-      const b = r.attach[r.attach.length - 1]!;
-      for (const blk of all) expect(segHitsBox(a.x, a.z, b.x, b.z, blk), `${r.id} vs block at ${blk.x},${blk.z}`).toBe(false);
-    }
-  });
-});
-
-describe("place labels", () => {
-  it("carries footprintLayout's label: the shrine's name, null for every other lamp", () => {
-    const places = blockLayout(puzzle).places;
-    expect(places.find((p) => p.lamp === "shrine")!.label).toBe("shrine");
-    for (const p of places.filter((x) => x.lamp !== "shrine")) expect(p.label).toBeNull();
-    const ref = footprintLayout(puzzle, mapOrigin(puzzle.id, puzzleBounds(puzzle)), DEFAULT_SCALE).places;
-    expect(places.map((p) => p.label)).toEqual(ref.map((p) => p.label));
   });
 });
 
@@ -198,18 +128,6 @@ describe("wires in the air (C1)", () => {
         expect(p.z).toBe(pts[i]!.z);
       });
     }
-  });
-
-  it("keeps the footprint's buildings and places under the wires, and the city lots in their own range", () => {
-    const layout = blockLayout(puzzle);
-    expect(FOOTPRINT_MAX_H).toBeLessThan(POLE_HEIGHT);
-    for (const b of layout.blocks.filter((x) => x.kind === "building")) expect(b.h).toBeLessThanOrEqual(FOOTPRINT_MAX_H);
-    for (const b of layout.blocks.filter((x) => x.kind === "city")) {
-      expect(b.h).toBeGreaterThanOrEqual(BLOCK_MIN_H);
-      expect(b.h).toBeLessThanOrEqual(BLOCK_MAX_H);
-    }
-    expect(layout.blocks.some((b) => b.kind === "city" && b.h > FOOTPRINT_MAX_H)).toBe(true);
-    for (const b of layout.places.flatMap((p) => p.boxes)) expect(b.h).toBeLessThanOrEqual(PLACE_MAX_H);
   });
 });
 

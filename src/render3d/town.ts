@@ -184,7 +184,8 @@ export interface PlaceLot {
   street: string | null;
 }
 
-export interface Town {
+/** What `build` makes. Callers get it as a `Town`, which is read-only. */
+interface TownData {
   roads: Road[];
   kerbs: Kerb[];
   pavements: Pavement[];
@@ -520,6 +521,19 @@ class PolySet {
 
 const cache = new WeakMap<Puzzle, Town>();
 
+type DeepReadonly<T> = T extends readonly (infer U)[] ? readonly DeepReadonly<U>[] : T extends object ? { readonly [K in keyof T]: DeepReadonly<T[K]> } : T;
+
+/** The town as callers see it: read-only in the type, and frozen at run time (the result is cached and shared between callers). */
+export type Town = DeepReadonly<TownData>;
+
+function deepFreeze<T>(o: T): T {
+  if (typeof o === "object" && o !== null && !Object.isFrozen(o)) {
+    Object.freeze(o);
+    for (const v of Object.values(o)) deepFreeze(v);
+  }
+  return o;
+}
+
 interface Street {
   id: string;
   kind: "line" | "feed" | "decor";
@@ -568,12 +582,12 @@ export function gridCount(len: number): number {
 export function townLayout(puzzle: Puzzle): Town {
   const hit = cache.get(puzzle);
   if (hit) return hit;
-  const town = build(puzzle);
+  const town = deepFreeze(build(puzzle)) as Town;
   cache.set(puzzle, town);
   return town;
 }
 
-function build(puzzle: Puzzle): Town {
+function build(puzzle: Puzzle): TownData {
   const posOf = new Map<string, Pt>();
   for (const n of puzzle.nodes) posOf.set(n.id, { x: n.pos[0], z: n.pos[1] });
 
