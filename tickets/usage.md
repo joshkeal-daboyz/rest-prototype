@@ -43,3 +43,7 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 042 A | renderer | sonnet | 211K total (one figure in the readout) | — | 0 | Front table, families, corner lots, fronts overlay; 123 tool uses, 13 min; no browser or dev server by design (PC load) |
 | 042 A | code-reviewer | agent default | 69K total (one figure in the readout) | — | 0 | meets, must-fix 0; 11 tool uses, 2 min; ran no tests (the main session had run the capped full check) |
 | 042 A | playtester | agent default | 17K total (one figure in the readout) | — | 0 | regressions 0; stopped early: nothing the harness loads changed |
+| 042 A (settle: fronts) | renderer | sonnet | 33K total (one figure in the readout) | — | 0 | Flipped every front to "-z" but store_small_mesh, per Josh; 20 tool uses, 2 min. A calibration-gallery builder was stopped before it committed (figure not seen) |
+| 042 A (settle: corners) | renderer | sonnet | 103K total (one figure in the readout) | — | 0 | Strict corner lots and corner models, per Josh; 42 tool uses, 6 min |
+| 042 A round 2 | code-reviewer | agent default | 56K total (one figure in the readout) | — | 0 | meets, must-fix 0; ran no tests (the main session had run the capped full check) |
+| 042 A round 2 | playtester | agent default | 15K total (one figure in the readout) | — | 0 | regressions 0; stopped early: nothing the harness loads changed |
