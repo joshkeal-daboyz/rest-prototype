@@ -143,7 +143,7 @@ describe("Manifest (buildManifest)", () => {
     });
     expect(again.packs.map((p) => p.pack)).toEqual(["a", "b"]);
     expect(again.packs[1]?.atlas).toBe("x.png");
-    expect(again.packs[1]?.assets).toHaveLength(6);
+    expect(again.packs[1]?.assets).toHaveLength(9);
     expect(again.packs[0]?.assets[0]?.name).toBe("Fixture_Door");
   });
 

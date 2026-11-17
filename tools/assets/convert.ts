@@ -58,7 +58,9 @@ Lay a pack out like this (nothing under assets/private/ is ever committed):
       { "atlas": "Textures/Atlas.png",            one shared atlas for every model (atlas mode)
         "scale": 1,                                multiplied on import (use 100 or 0.01 for a unit slip)
         "textures": "Src/Textures",                folder searched for each model's image (default: the pack)
-        "textureOverrides": { "town_hall_mesh": "Src/Textures/Town_Hall_b.png" } }   pins a model's image
+        "textureOverrides": { "town_hall_mesh": "Src/Textures/Town_Hall_b.png" },   pins a model's image
+        "textureAliases": { "MasterTexture02.psd": "Src/Textures/Atlas.png",     a missing source file name (any extension, any case)
+                            "material:Lambert1": "Src/Textures/Road.png" } }      or a material name, mapped to an image
 With no "atlas", each model's own image is found in the pack (per-model mode).
 With no pack names, every folder in assets/private/in/ is converted.
 `;
@@ -94,6 +96,8 @@ export interface BlenderArgsInput {
   textures?: string;
   /** Pinned images, `stem` and an absolute image path. Passed in the order given (readPackSettings sorts them). */
   overrides?: readonly { stem: string; abs: string }[];
+  /** Texture aliases, a normalised key (see normaliseAliasKey) and an absolute image path. Passed in the order given. */
+  aliases?: readonly { key: string; abs: string }[];
   selftest?: boolean;
 }
 
@@ -106,7 +110,36 @@ export function buildBlenderArgs(a: BlenderArgsInput): string[] {
   if (a.scale !== undefined) args.push("--scale", String(a.scale));
   if (a.textures !== undefined) args.push("--textures", a.textures);
   for (const o of a.overrides ?? []) args.push("--texture-override", `${o.stem}=${o.abs}`);
+  for (const t of a.aliases ?? []) args.push("--texture-alias", `${t.key}=${t.abs}`);
   return args;
+}
+
+/** The image extensions the script indexes (and a texture alias must point at). */
+export const IMAGE_EXTENSIONS: readonly string[] = [".png", ".jpg", ".jpeg", ".tga", ".tif", ".tiff", ".bmp"];
+
+const MATERIAL_KEY = "material:";
+
+/**
+ * The normalised form of a `textureAliases` key, which is also what is passed to the script.
+ * A file key is reduced to its lowercased stem (everything before the last `.`, or the whole name when there is none),
+ * so `MasterTexture02.psd`, `mastertexture02.PNG` and `MasterTexture02` are one key. A `material:<name>` key becomes
+ * `material:<lowercased name>`. Returns null when the key is not usable (see the checks in readPackSettings).
+ */
+export function normaliseAliasKey(key: string): string | null {
+  if (key.toLowerCase().startsWith(MATERIAL_KEY)) {
+    const name = key.slice(MATERIAL_KEY.length);
+    return name === "" || name.includes("=") ? null : MATERIAL_KEY + name.toLowerCase();
+  }
+  if (key === "" || /[/\\=]/.test(key)) return null;
+  const dot = key.lastIndexOf(".");
+  const stem = dot < 0 ? key : key.slice(0, dot);
+  return stem === "" ? null : stem.toLowerCase();
+}
+
+/** Does this path end in one of the indexed image extensions (case-insensitive)? */
+export function hasImageExtension(path: string): boolean {
+  const low = path.toLowerCase();
+  return IMAGE_EXTENSIONS.some((e) => low.endsWith(e));
 }
 
 interface PackSettings {
@@ -117,12 +150,14 @@ interface PackSettings {
   textures?: string;
   /** Sorted by model stem. */
   overrides: { stem: string; abs: string }[];
+  /** Sorted by normalised key. */
+  aliases: { key: string; abs: string }[];
 }
 
 /** Read the optional pack.json. Throws an Error with a plain message when it is unusable. */
 function readPackSettings(deps: ConvertDeps, packDir: string): PackSettings {
   const file = join(packDir, "pack.json");
-  if (!deps.exists(file)) return { overrides: [] };
+  if (!deps.exists(file)) return { overrides: [], aliases: [] };
   let raw: unknown;
   try {
     raw = JSON.parse(deps.readText(file));
@@ -131,7 +166,7 @@ function readPackSettings(deps: ConvertDeps, packDir: string): PackSettings {
   }
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) throw new Error("pack.json must be a JSON object");
   const obj = raw as Record<string, unknown>;
-  const settings: PackSettings = { overrides: [] };
+  const settings: PackSettings = { overrides: [], aliases: [] };
   if (obj["atlas"] !== undefined) {
     if (typeof obj["atlas"] !== "string" || obj["atlas"] === "") throw new Error('pack.json "atlas" must be a path string');
     const abs = resolve(packDir, obj["atlas"]);
@@ -166,6 +201,38 @@ function readPackSettings(deps: ConvertDeps, packDir: string): PackSettings {
       if (!deps.exists(abs)) throw new Error(`pack.json "textureOverrides" model "${stem}": image not found: ${abs}`);
       settings.overrides.push({ stem, abs });
     }
+  }
+  const aliases = obj["textureAliases"];
+  if (aliases !== undefined) {
+    if (typeof aliases !== "object" || aliases === null || Array.isArray(aliases)) {
+      throw new Error('pack.json "textureAliases" must be an object of { "<file name or material:name>": "<image path>" }');
+    }
+    const seen = new Map<string, string>(); // normalised key -> the key as written
+    const entries: { key: string; abs: string }[] = [];
+    for (const written of Object.keys(aliases)) {
+      const value = (aliases as Record<string, unknown>)[written];
+      const where = `pack.json "textureAliases" key "${written}"`;
+      const key = normaliseAliasKey(written);
+      if (key === null) {
+        throw new Error(
+          written.toLowerCase().startsWith(MATERIAL_KEY) && written.length > MATERIAL_KEY.length
+            ? `${where}: a material name cannot contain "="`
+            : written.toLowerCase().startsWith(MATERIAL_KEY)
+              ? `${where}: a "material:" key needs a material name`
+              : `${where}: a file-name key must be a name with no "/", "\\" or "=", not empty`,
+        );
+      }
+      if (typeof value !== "string" || value === "") throw new Error(`${where} must map to an image path string`);
+      const clash = seen.get(key);
+      if (clash !== undefined) throw new Error(`pack.json "textureAliases" keys "${clash}" and "${written}" are the same key (${key})`);
+      seen.set(key, written);
+      const abs = resolve(packDir, value);
+      if (!isInside(packDir, abs)) throw new Error(`${where}: ${value} points outside the pack folder`);
+      if (!hasImageExtension(abs)) throw new Error(`${where}: ${value} is not an image (${IMAGE_EXTENSIONS.join(" ")})`);
+      if (!deps.exists(abs)) throw new Error(`${where}: image not found: ${abs}`);
+      entries.push({ key, abs });
+    }
+    settings.aliases = entries.sort((a, b) => compareNames(a.key, b.key));
   }
   return settings;
 }
@@ -254,6 +321,7 @@ async function convertPack(deps: ConvertDeps, blender: BlenderInfo, pack: string
     ...(settings.scale !== undefined ? { scale: settings.scale } : {}),
     ...(settings.textures !== undefined ? { textures: settings.textures } : {}),
     overrides: settings.overrides,
+    aliases: settings.aliases,
   });
   deps.stdout(`Converting ${pack} ...\n`);
   let result: RunResult;
@@ -264,6 +332,10 @@ async function convertPack(deps: ConvertDeps, blender: BlenderInfo, pack: string
   }
   if (result.code !== 0) {
     return { error: `Blender exited with code ${result.code ?? "(killed)"}\n${tail(result.stderr || result.stdout)}` };
+  }
+  // The script says which texture aliases matched no material (a typo in pack.json); show those lines.
+  for (const line of result.stdout.split(/\r?\n/)) {
+    if (/^texture alias .+ matched no material$/.test(line)) deps.stdout(`  ${pack}: ${line}\n`);
   }
   if (!deps.exists(report)) {
     return { error: `Blender finished but wrote no report; its output ended:\n${tail(result.stderr || result.stdout)}` };
@@ -349,6 +421,30 @@ export const SELFTEST_REF_CASE = "ref_case";
 export const SELFTEST_MAT_NAME = "mat_name";
 export const SELFTEST_GUESS = "guess_mesh";
 export const SELFTEST_LOST_REF = "lost_ref";
+export const SELFTEST_ALIAS_REF = "alias_ref";
+export const SELFTEST_ALIAS_MAT = "alias_mat";
+export const SELFTEST_ALIAS_ORDER = "alias_order";
+
+/**
+ * The aliases the self-test passes, as the wrapper would for a pack.json with
+ * "textureAliases": { "Master_Src.PNG": "Textures/alias_atlas.png", "material:Painted_Metal": "Textures/metal_sheet.png",
+ * "tex_crate.psd": "Textures/alias_atlas.png" }. Paths are relative to the self-test pack folder.
+ */
+export const SELFTEST_ALIASES: Readonly<Record<string, string>> = {
+  "Master_Src.PNG": "Textures/alias_atlas.png",
+  "material:Painted_Metal": "Textures/metal_sheet.png",
+  "tex_crate.psd": "Textures/alias_atlas.png",
+};
+
+/** The self-test's aliases as spawn arguments for a pack folder: normalised key, absolute image, sorted by key. */
+export function selftestAliases(packDir: string): { key: string; abs: string }[] {
+  const out: { key: string; abs: string }[] = [];
+  for (const [written, rel] of Object.entries(SELFTEST_ALIASES)) {
+    const key = normaliseAliasKey(written);
+    if (key !== null) out.push({ key, abs: resolve(packDir, rel) });
+  }
+  return out.sort((a, b) => compareNames(a.key, b.key));
+}
 
 /** What each textured self-test box must report (image paths relative to the pack, and the texture warnings). */
 const SELFTEST_TEXTURES: ReadonlyArray<{ name: string; textures: readonly string[] | "some"; missingTextures: readonly string[]; warnings: readonly AssetWarning[] }> = [
@@ -357,6 +453,10 @@ const SELFTEST_TEXTURES: ReadonlyArray<{ name: string; textures: readonly string
   { name: SELFTEST_MAT_NAME, textures: ["Textures/Sign_Board.png"], missingTextures: [], warnings: [] },
   { name: SELFTEST_GUESS, textures: ["Textures/Guess_a.png"], missingTextures: [], warnings: ["texture-guessed"] },
   { name: SELFTEST_LOST_REF, textures: [], missingTextures: ["nowhere.png"], warnings: ["missing-texture"] },
+  // Amendment B: a file-name alias (case and extension ignored), a material alias (suffix dropped), and rule 3 beating an alias.
+  { name: SELFTEST_ALIAS_REF, textures: ["Textures/alias_atlas.png"], missingTextures: [], warnings: [] },
+  { name: SELFTEST_ALIAS_MAT, textures: ["Textures/metal_sheet.png"], missingTextures: [], warnings: [] },
+  { name: SELFTEST_ALIAS_ORDER, textures: ["Textures/tex_crate.png"], missingTextures: [], warnings: [] },
 ];
 
 /** Check a self-test report; the list of what is wrong, each naming the box and the field (empty means `selftest ok`). */
@@ -418,7 +518,7 @@ async function runSelftest(deps: ConvertDeps, blender: BlenderInfo): Promise<num
   deps.stdout("Running the self-test (generated boxes through the normal conversion) ...\n");
   let result: RunResult;
   try {
-    result = await deps.run(blender.path, buildBlenderArgs({ script: L.script, packDir, outGlb, report, selftest: true }));
+    result = await deps.run(blender.path, buildBlenderArgs({ script: L.script, packDir, outGlb, report, selftest: true, aliases: selftestAliases(packDir) }));
   } catch (e) {
     deps.stderr(`selftest failed: could not start Blender: ${(e as Error).message}\n`);
     return 1;

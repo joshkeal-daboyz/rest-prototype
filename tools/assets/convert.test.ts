@@ -4,7 +4,7 @@ import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ASSET_SANE_SIZE_MAX, ASSET_SANE_SIZE_MIN } from "../../src/core";
 import type { AssetManifest } from "../../src/core";
-import { USAGE, checkSelftest, convert, isInside, layout } from "./convert";
+import { SELFTEST_ALIASES, USAGE, checkSelftest, convert, hasImageExtension, isInside, layout, normaliseAliasKey, selftestAliases } from "./convert";
 import type { ConvertDeps, RunResult } from "./convert";
 import { parsePackReport } from "./manifest";
 import type { PackReport } from "./manifest";
@@ -23,7 +23,7 @@ interface Call {
 }
 
 /** What the fake Blender does for one conversion run. Default: write the ok fixture and exit 0. */
-type Behaviour = (args: readonly string[], pack: string) => { code: number; stderr?: string; report?: string | null };
+type Behaviour = (args: readonly string[], pack: string) => { code: number; stderr?: string; stdout?: string; report?: string | null };
 
 function flag(args: readonly string[], name: string): string | undefined {
   const i = args.indexOf(name);
@@ -97,7 +97,7 @@ function setup(opts: {
       const b = behaviour(args, pack);
       const report = flag(args, "--report");
       if (report && b.report !== null) addFile(report, b.report ?? fixtureText("report-ok.json"));
-      return Promise.resolve({ code: b.code, stdout: "", stderr: b.stderr ?? "" });
+      return Promise.resolve({ code: b.code, stdout: b.stdout ?? "", stderr: b.stderr ?? "" });
     },
     stdout: (t) => void (out += t),
     stderr: (t) => void (err += t),
@@ -297,6 +297,169 @@ describe("Amendment A: pack.json texture keys", () => {
   });
 });
 
+describe("Amendment B: pack.json textureAliases", () => {
+  const pack = "simple town";
+  const packDir = join(L.inRoot, pack);
+  const withJson = (json: unknown, extra: Record<string, string> = {}) =>
+    setup({ packs: [pack], extraFiles: { [join(packDir, "pack.json")]: JSON.stringify(json), ...extra } });
+  const images = {
+    [join(packDir, "Tex", "SimpleTown.png")]: "png",
+    [join(packDir, "Tex", "Road.png")]: "png",
+    [join(packDir, "Tex", "Nature Trees.png")]: "png",
+    [join(packDir, "Tex", "a.png")]: "png",
+    [join(packDir, "Tex", "notes.txt")]: "text",
+    [resolve("/elsewhere/x.png")]: "png",
+  };
+
+  it("passes one --texture-alias per entry, keyed by the normalised key, sorted by it, a path with a space as one item", async () => {
+    const s = withJson(
+      {
+        scale: 100,
+        textureAliases: { "MasterTexture02.psd": "Tex/SimpleTown.png", "material:Lambert1": "Tex/Road.png", "plants2.PSD": "Tex/Nature Trees.png" },
+      },
+      images,
+    );
+    expect(await convert([], s.deps)).toBe(0);
+    const args = s.conversions()[0]?.args ?? [];
+    expect(args.slice(args.indexOf("--scale"))).toEqual([
+      "--scale",
+      "100",
+      "--texture-alias",
+      `mastertexture02=${join(packDir, "Tex", "SimpleTown.png")}`,
+      "--texture-alias",
+      `material:lambert1=${join(packDir, "Tex", "Road.png")}`,
+      "--texture-alias",
+      `plants2=${join(packDir, "Tex", "Nature Trees.png")}`,
+    ]);
+  });
+
+  it("with overrides too, the order is --scale, --textures, the --texture-override items, then the --texture-alias items", async () => {
+    const s = withJson(
+      {
+        textureAliases: { "b.psd": "Tex/Road.png", "A.psd": "Tex/a.png" },
+        textureOverrides: { z_mesh: "Tex/SimpleTown.png", a_mesh: "Tex/Road.png" },
+        textures: "Tex",
+        scale: 100,
+      },
+      images,
+    );
+    expect(await convert([], s.deps)).toBe(0);
+    const args = s.conversions()[0]?.args ?? [];
+    expect(args.slice(args.indexOf("--scale"))).toEqual([
+      "--scale",
+      "100",
+      "--textures",
+      join(packDir, "Tex"),
+      "--texture-override",
+      `a_mesh=${join(packDir, "Tex", "Road.png")}`,
+      "--texture-override",
+      `z_mesh=${join(packDir, "Tex", "SimpleTown.png")}`,
+      "--texture-alias",
+      `a=${join(packDir, "Tex", "a.png")}`,
+      "--texture-alias",
+      `b=${join(packDir, "Tex", "Road.png")}`,
+    ]);
+  });
+
+  it("no textureAliases means no --texture-alias", async () => {
+    const s = withJson({ scale: 100 });
+    expect(await convert([], s.deps)).toBe(0);
+    expect(s.conversions()[0]?.args ?? []).not.toContain("--texture-alias");
+    const t = withJson({ textureAliases: {} });
+    expect(await convert([], t.deps)).toBe(0);
+    expect(t.conversions()[0]?.args ?? []).not.toContain("--texture-alias");
+  });
+
+  it("normalises keys: a file key is its lowercased stem, a material key keeps its prefix and lowercases the name", () => {
+    expect(normaliseAliasKey("MasterTexture02.psd")).toBe("mastertexture02");
+    expect(normaliseAliasKey("mastertexture02.PNG")).toBe("mastertexture02");
+    expect(normaliseAliasKey("MasterTexture02")).toBe("mastertexture02");
+    expect(normaliseAliasKey("a.b.psd")).toBe("a.b");
+    expect(normaliseAliasKey("material:Lambert1")).toBe("material:lambert1");
+    expect(normaliseAliasKey("Material:Lambert1")).toBe("material:lambert1");
+    for (const bad of ["", ".psd", "a/b.psd", "a\\b.psd", "a=b.psd", "material:", "material:a=b"]) expect(normaliseAliasKey(bad), bad).toBeNull();
+    expect(hasImageExtension("x/Y.PNG")).toBe(true);
+    for (const e of ["png", "jpg", "jpeg", "tga", "tif", "tiff", "bmp"]) expect(hasImageExtension(`a.${e}`)).toBe(true);
+    expect(hasImageExtension("a.psd")).toBe(false);
+  });
+
+  it("refuses a bad textureAliases before spawning, naming the pack and the key (and the path for a missing file); spawn is never called", async () => {
+    const elsewhere = resolve("/elsewhere/x.png");
+    const cases: Array<{ aliases: unknown; mention: string[] }> = [
+      { aliases: [], mention: ['"textureAliases"'] },
+      { aliases: "Tex/Road.png", mention: ['"textureAliases"'] },
+      { aliases: null, mention: ['"textureAliases"'] },
+      { aliases: { "a.psd": 3 }, mention: ['key "a.psd"'] },
+      { aliases: { "a.psd": "" }, mention: ['key "a.psd"'] },
+      { aliases: { "a.psd": "../x.png" }, mention: ['key "a.psd"', "../x.png", "outside"] },
+      { aliases: { "a.psd": elsewhere }, mention: ['key "a.psd"', "outside"] },
+      { aliases: { "a.psd": "Tex/notes.txt" }, mention: ['key "a.psd"', "notes.txt", "not an image"] },
+      { aliases: { "a.psd": "Tex/Road.psd" }, mention: ['key "a.psd"', "Road.psd"] },
+      { aliases: { "": "Tex/Road.png" }, mention: ['key ""'] },
+      { aliases: { "dir/a.psd": "Tex/Road.png" }, mention: ['key "dir/a.psd"'] },
+      { aliases: { "dir\\a.psd": "Tex/Road.png" }, mention: ['key "dir\\a.psd"'] },
+      { aliases: { "a=b.psd": "Tex/Road.png" }, mention: ['key "a=b.psd"'] },
+      { aliases: { "material:": "Tex/Road.png" }, mention: ['key "material:"', "material name"] },
+      { aliases: { "A.psd": "Tex/Road.png", "a.png": "Tex/a.png" }, mention: ['"A.psd"', '"a.png"', "same key"] },
+      { aliases: { "material:Lambert1": "Tex/Road.png", "MATERIAL:lambert1": "Tex/a.png" }, mention: ['"material:Lambert1"', '"MATERIAL:lambert1"', "same key"] },
+      { aliases: { "MasterTexture02.psd": "Tex/Gone.png" }, mention: ['key "MasterTexture02.psd"', join(packDir, "Tex", "Gone.png"), "not found"] },
+    ];
+    for (const c of cases) {
+      const s = withJson({ textureAliases: c.aliases }, images);
+      const label = JSON.stringify(c.aliases);
+      expect(await convert([], s.deps), label).toBe(1);
+      expect(s.conversions(), label).toEqual([]);
+      expect(s.err(), label).toContain(`Pack "${pack}" failed`);
+      for (const m of c.mention) expect(s.err(), label).toContain(m);
+      expect(s.writes, label).toEqual([]);
+    }
+  });
+
+  it("shows the script's line for an alias that matched no material, and nothing else from its output", async () => {
+    const run = setup({
+      packs: [pack],
+      extraFiles: { [join(packDir, "pack.json")]: JSON.stringify({ textureAliases: { "typo.psd": "Tex/Road.png" } }), ...images },
+      behaviour: () => ({ code: 0, stdout: "Blender 5\ntexture alias typo matched no material\nconvert_fbx: 1 model(s)\n" }),
+    });
+    expect(await convert([], run.deps)).toBe(0);
+    expect(run.out()).toContain("simple town: texture alias typo matched no material");
+    expect(run.out()).not.toContain("convert_fbx: 1 model(s)");
+    const quiet = withJson({ textureAliases: { "typo.psd": "Tex/Road.png" } }, images);
+    expect(await convert([], quiet.deps)).toBe(0);
+    expect(quiet.out()).not.toContain("matched no material");
+  });
+
+  it("the usage text documents textureAliases", () => {
+    expect(USAGE).toContain('"textureAliases"');
+    expect(USAGE).toContain("material:");
+  });
+
+  it("the self-test passes the aliases the ticket names, as the wrapper would for that pack.json", async () => {
+    expect(SELFTEST_ALIASES).toEqual({
+      "Master_Src.PNG": "Textures/alias_atlas.png",
+      "material:Painted_Metal": "Textures/metal_sheet.png",
+      "tex_crate.psd": "Textures/alias_atlas.png",
+    });
+    const dir = join(L.selftest, "pack");
+    expect(selftestAliases(dir)).toEqual([
+      { key: "master_src", abs: join(dir, "Textures", "alias_atlas.png") },
+      { key: "material:painted_metal", abs: join(dir, "Textures", "metal_sheet.png") },
+      { key: "tex_crate", abs: join(dir, "Textures", "alias_atlas.png") },
+    ]);
+    const s = setup({ behaviour: () => ({ code: 0, report: fixtureText("report-selftest.json") }) });
+    expect(await convert(["--selftest"], s.deps)).toBe(0);
+    const args = s.conversions()[0]?.args ?? [];
+    expect(args.slice(args.indexOf("--texture-alias"))).toEqual([
+      "--texture-alias",
+      `master_src=${join(dir, "Textures", "alias_atlas.png")}`,
+      "--texture-alias",
+      `material:painted_metal=${join(dir, "Textures", "metal_sheet.png")}`,
+      "--texture-alias",
+      `tex_crate=${join(dir, "Textures", "alias_atlas.png")}`,
+    ]);
+  });
+});
+
 describe("Packs", () => {
   it("with no arguments converts every subfolder of assets/private/in/ in name order", async () => {
     const s = setup({ packs: ["b-pack", "a-pack", "c-pack"], extraFiles: { [join(L.inRoot, "notes.txt")]: "a file, not a pack" } });
@@ -481,7 +644,7 @@ describe("Self-test", () => {
     expect(edit((r) => (poleOf(r).bounds = { min: [-0.2, 0.5, -0.2], max: [0.2, 3.5, 0.2] })).join("\n")).toContain("pole base");
     expect(edit((r) => (poleOf(r).bounds = { min: [0, 0, -0.2], max: [0.4, 3, 0.2] })).join("\n")).toContain("x centre");
     expect(edit((r) => (boxOf(r, "SelfTest_NoUV").warnings = [])).join("\n")).toContain("SelfTest_NoUV warnings");
-    expect(edit((r) => r.assets.splice(0, r.assets.length)).length).toBe(6);
+    expect(edit((r) => r.assets.splice(0, r.assets.length)).length).toBe(9);
   });
 
   it("checkSelftest names the box and the field when a texture rule's result is wrong", () => {
@@ -502,6 +665,29 @@ describe("Self-test", () => {
     expectProblem((r) => (boxOf(r, "SelfTest_Pole").warnings = ["missing-texture"]), "SelfTest_Pole warnings");
     expectProblem((r) => r.assets.splice(r.assets.findIndex((a) => a.name === "mat_name"), 1), "mat_name is missing");
   });
+
+  it("amendment B: checkSelftest wants the three alias boxes, and names the box and field when one is wrong", () => {
+    expect(checkSelftest(parsePackReport("selftest", JSON.parse(good)))).toEqual([]);
+    const expectProblem = (change: (r: RawReport) => void, ...mention: string[]) => {
+      const text = edit(change).join("\n");
+      expect(text).not.toBe("");
+      for (const m of mention) expect(text).toContain(m);
+    };
+    // a file-name alias: the texture, and no warning
+    expectProblem((r) => (boxOf(r, "alias_ref").warnings = ["missing-texture"]), "alias_ref warnings");
+    expectProblem((r) => (boxOf(r, "alias_ref").textures = []), "alias_ref textures", "alias_atlas.png");
+    expectProblem((r) => (boxOf(r, "alias_ref").missingTextures = ["Master_Src.psd"]), "alias_ref missingTextures");
+    expectProblem((r) => (boxOf(r, "alias_ref").warnings = ["texture-guessed"]), "alias_ref warnings");
+    // a material alias
+    expectProblem((r) => (boxOf(r, "alias_mat").textures = ["Textures/alias_atlas.png"]), "alias_mat textures", "metal_sheet.png");
+    expectProblem((r) => (boxOf(r, "alias_mat").warnings = ["missing-texture"]), "alias_mat warnings");
+    // rule 3 beats the tex_crate.psd alias
+    expectProblem((r) => (boxOf(r, "alias_order").textures = ["Textures/alias_atlas.png"]), "alias_order textures", "tex_crate.png", "alias_atlas.png");
+    expectProblem((r) => r.assets.splice(r.assets.findIndex((a) => a.name === "alias_order"), 1), "alias_order is missing");
+    // amendment A boxes keep their results
+    expect(boxOf(JSON.parse(good) as RawReport, "guess_mesh").warnings).toEqual(["texture-guessed"]);
+    expect(boxOf(JSON.parse(good) as RawReport, "lost_ref").missingTextures).toEqual(["nowhere.png"]);
+  });
 });
 
 describe("The Python script and the shared constants", () => {
@@ -514,10 +700,10 @@ describe("The Python script and the shared constants", () => {
   });
 
   it("takes the arguments the wrapper passes, and the self-test names the wrapper checks", () => {
-    for (const a of ["--in", "--out", "--report", "--atlas", "--scale", "--textures", "--texture-override", "--selftest"]) expect(py).toContain(`"${a}"`);
+    for (const a of ["--in", "--out", "--report", "--atlas", "--scale", "--textures", "--texture-override", "--texture-alias", "--selftest"]) expect(py).toContain(`"${a}"`);
     expect(py).toContain('SELFTEST_POLE = "SelfTest_Pole"');
     expect(py).toContain('SELFTEST_NO_UV = "SelfTest_NoUV"');
-    for (const box of ["ref_case", "mat_name", "guess_mesh", "lost_ref"]) expect(py).toContain(`= "${box}"`);
+    for (const box of ["ref_case", "mat_name", "guess_mesh", "lost_ref", "alias_ref", "alias_mat", "alias_order"]) expect(py).toContain(`= "${box}"`);
   });
 
   it("holds the five lookup rules' generic-name list and the old-FBX message the ticket names, and no no-atlas", () => {
@@ -526,5 +712,14 @@ describe("The Python script and the shared constants", () => {
     expect(py).toContain("is older than Blender's importer accepts");
     for (const g of ["lambert", "phong", "blinn", "defaultmaterial", "initialshadinggroup"]) expect(py).toContain(g);
     expect(py).not.toContain("no-atlas");
+  });
+
+  it("amendment B: the OBJ hint accepts a stem plus digits, and an alias match is silent (no warning is added for it)", () => {
+    expect(py).toContain("def obj_copy_for(stem, obj_rels)");
+    expect(py).toMatch(/\[0-9\]\+\$/);
+    expect(py).toContain("def lookup_alias(aliases, referenced, material_name)");
+    expect(py).toContain("matched no material");
+    // find_texture_for_material returns an aliased image with guessed = False, so no warning follows from it
+    expect(py).toMatch(/found, _key = lookup_alias\(aliases, ref, mat\.name\)\r?\n\s+if found:\r?\n\s+return found, None, False/);
   });
 });

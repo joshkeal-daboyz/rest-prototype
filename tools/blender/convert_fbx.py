@@ -5,7 +5,7 @@ Run it headless, once per pack (tools/assets/convert.ts does this):
 
   blender --background --factory-startup --python tools/blender/convert_fbx.py -- \
       --in <packDir> --out <glbPath> --report <json> [--atlas <png>] [--scale <n>] \
-      [--textures <dir>] [--texture-override <stem>=<image> ...]
+      [--textures <dir>] [--texture-override <stem>=<image> ...] [--texture-alias <key>=<image> ...]
 
   ... -- --selftest --in <dir> --out <glbPath> --report <json>
       builds boxes in code, exports them to FBX in <dir>/Fbx (Unity-style: centimetres) with images in
@@ -18,8 +18,9 @@ The GLB is exported Y up, in metres.
 Two texture modes (amendment A of ticket 038):
   atlas mode (--atlas given): one material, the atlas, shared by every mesh (the POLYGON-style packs).
   per-model mode (the default): each model keeps its own materials, and each material's image is found in
-  the pack (see find_texture_for_material for the five rules), loaded once per file, wired to Base Color,
-  and embedded once in the GLB.
+  the pack (see find_texture_for_material for the six rules), loaded once per file, wired to Base Color,
+  and embedded once in the GLB. An alias (amendment B) maps a source file that isn't in the pack (a .psd the
+  artist worked from) or a material name to an image that is.
 
 The report is JSON in the shape of src/core/assets.ts (AssetEntry, AssetFailure) plus "blenderVersion".
 Bounds in it are glTF space (Y up). Exit code is 1 if nothing could be converted or the script failed.
@@ -46,11 +47,15 @@ SELFTEST_REF_CASE = "ref_case"
 SELFTEST_MAT_NAME = "mat_name"
 SELFTEST_GUESS = "guess_mesh"
 SELFTEST_LOST_REF = "lost_ref"
+SELFTEST_ALIAS_REF = "alias_ref"
+SELFTEST_ALIAS_MAT = "alias_mat"
+SELFTEST_ALIAS_ORDER = "alias_order"
 
 IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".tga", ".tif", ".tiff", ".bmp")
 # Blender's importer takes FBX 7100 (2011) and newer; older files fail to import.
 MIN_FBX_VERSION = 7100
-# Material names that say nothing about the texture (rule 4 skips them).
+MATERIAL_ALIAS_PREFIX = "material:"
+# Material names that say nothing about the texture (rule 5 skips them).
 GENERIC_MATERIAL = re.compile(r"^(lambert\d*|phong\d*|blinn\d*|material|defaultmaterial|initialshadinggroup|none)$")
 
 
@@ -96,6 +101,17 @@ def parse_overrides(items):
     return out
 
 
+def parse_aliases(items):
+    """['<normalised key>=/abs/path.png', ...] -> {key: path}. Split at the first '='. The wrapper normalises the keys."""
+    out = {}
+    for item in items or []:
+        key, sep, path = item.partition("=")
+        if not sep or not key or not path:
+            raise SystemExit("convert_fbx: --texture-alias needs <key>=<image>, got %r" % item)
+        out[key] = os.path.normpath(path)
+    return out
+
+
 def parse_args(argv):
     if "--" in argv:
         argv = argv[argv.index("--") + 1:]
@@ -109,6 +125,7 @@ def parse_args(argv):
     p.add_argument("--scale", dest="scale", type=float, default=1.0)
     p.add_argument("--textures", dest="textures", default=None)
     p.add_argument("--texture-override", dest="overrides", action="append", default=[])
+    p.add_argument("--texture-alias", dest="aliases", action="append", default=[])
     p.add_argument("--selftest", dest="selftest", action="store_true")
     return p.parse_args(argv)
 
@@ -190,8 +207,35 @@ def lookup_referenced_name(index, referenced):
     return None
 
 
+def file_alias_key(name):
+    """A file name reduced to its lowercased stem (everything before the last '.', or all of it): the key of a file alias."""
+    i = name.rfind(".")
+    return (name if i < 0 else name[:i]).lower()
+
+
+def material_alias_key(material_name):
+    """'Painted_Metal.001' -> 'material:painted_metal' (suffix dropped, lowercased): the key of a material alias."""
+    return MATERIAL_ALIAS_PREFIX + drop_blender_suffix(material_name).lower()
+
+
+def lookup_alias(aliases, referenced, material_name):
+    """
+    Rule 4: a file-name alias matching the referenced basename (only for a material that references something),
+    then a material alias matching the material's name. Returns (path, key) or (None, None).
+    """
+    if referenced is not None:
+        base = split_basename(referenced)
+        key = file_alias_key(base)
+        if base != "" and key != "" and key in aliases:
+            return aliases[key], key
+    key = material_alias_key(material_name)
+    if key in aliases:
+        return aliases[key], key
+    return None, None
+
+
 def lookup_material_name(index, material_name):
-    """Rule 4: the normalised material name equals a file's normalised stem. Generic names are skipped."""
+    """Rule 5: the normalised material name equals a file's normalised stem. Generic names are skipped."""
     if is_generic_material(material_name):
         return None
     want = normalise(drop_blender_suffix(material_name))
@@ -215,7 +259,7 @@ def model_guess_key(model_stem):
 
 
 def lookup_model_name(index, model_stem):
-    """Rule 5 (a guess): the first file whose normalised stem equals or starts with the model's normalised name."""
+    """Rule 6 (a guess): the first file whose normalised stem equals or starts with the model's normalised name."""
     key = model_guess_key(model_stem)
     if key == "":
         return None
@@ -248,7 +292,7 @@ def import_failure_message(path, stem, obj_copies, exc_text):
     version = fbx_version(path)
     if version is not None and version < MIN_FBX_VERSION:
         msg = "FBX version %d is older than Blender's importer accepts (%d+)" % (version, MIN_FBX_VERSION)
-        obj = obj_copies.get(stem.lower())
+        obj = obj_copy_for(stem, obj_copies)
         if obj:
             msg += "; an OBJ copy exists: %s (not converted)" % obj
         return msg
@@ -256,11 +300,24 @@ def import_failure_message(path, stem, obj_copies, exc_text):
 
 
 def find_obj_copies(indir):
-    """{lowercase stem: relative path} of the first (sorted) .obj file with each stem."""
-    out = {}
-    for rel in find_files(indir, (".obj",)):
-        out.setdefault(stem_of(os.path.basename(rel)).lower(), rel)
-    return out
+    """Every .obj under indir, relative paths with forward slashes, sorted."""
+    return find_files(indir, (".obj",))
+
+
+def obj_copy_for(stem, obj_rels):
+    """
+    The OBJ copy of an FBX: a .obj with the same stem (case-insensitive); failing that, one whose stem is the FBX's
+    stem followed by digits ('road_crossing_mesh' -> 'road_crossing_mesh1.obj'). The first in sorted order of each kind.
+    """
+    want = stem.lower()
+    for rel in obj_rels:
+        if stem_of(os.path.basename(rel)).lower() == want:
+            return rel
+    pattern = re.compile(r"^" + re.escape(want) + r"[0-9]+$")
+    for rel in obj_rels:
+        if pattern.match(stem_of(os.path.basename(rel)).lower()):
+            return rel
+    return None
 
 
 def check_helpers():
@@ -278,7 +335,31 @@ def check_helpers():
     assert lookup_referenced_name(index, "C:\\Users\\synty\\PROPS.PNG") == "/t/Props.png"
     assert lookup_referenced_name(index, "props.tga") == "/t/Props.png"
     assert lookup_referenced_name(index, "nowhere.png") is None
-    # rule 4: normalised name; suffix dropped; generic names skipped
+    # rule 4 (amendment B): file-name aliases (case and extension ignored), then material aliases (suffix dropped)
+    aliases = {"mastertexture02": "/t/Atlas.png", "material:lambert1": "/t/Road.png", "plants2": "/t/Trees.png"}
+    assert file_alias_key("MasterTexture02.psd") == "mastertexture02"
+    assert file_alias_key("mastertexture02.PNG") == "mastertexture02"
+    assert file_alias_key("MasterTexture02") == "mastertexture02"
+    assert file_alias_key("a.b.psd") == "a.b"
+    assert material_alias_key("Lambert1.001") == "material:lambert1"
+    assert lookup_alias(aliases, "C:/art/MasterTexture02.psd", "Mat") == ("/t/Atlas.png", "mastertexture02")
+    assert lookup_alias(aliases, "C:\art\PLANTS2.PSD", "lambert1") == ("/t/Trees.png", "plants2")  # the file key first
+    assert lookup_alias(aliases, "C:/art/other.psd", "Lambert1.002") == ("/t/Road.png", "material:lambert1")
+    assert lookup_alias(aliases, None, "lambert1") == ("/t/Road.png", "material:lambert1")  # no reference: material aliases only
+    assert lookup_alias(aliases, None, "mastertexture02") == (None, None)  # a file key never matches a material name
+    assert lookup_alias(aliases, "C:/art/other.psd", "Mat") == (None, None)
+    assert parse_aliases(["mastertexture02=/t/Atlas.png", "material:a=b=c"]) == {
+        "mastertexture02": os.path.normpath("/t/Atlas.png"),
+        "material:a": os.path.normpath("b=c"),
+    }
+    # fix (a): an OBJ copy of an old FBX; an exact stem beats a stem plus digits; the first in sorted order of each kind
+    objs = ["Obj/a/Road_crossing_mesh1.obj", "Obj/b/road_crossing_mesh2.obj", "Obj/fire_truck_mesh.obj", "Obj/road_crossing_mesh.obj"]
+    assert obj_copy_for("road_crossing_mesh", objs) == "Obj/road_crossing_mesh.obj"
+    assert obj_copy_for("road_crossing_mesh", objs[:2]) == "Obj/a/Road_crossing_mesh1.obj"
+    assert obj_copy_for("fire_truck_mesh", objs) == "Obj/fire_truck_mesh.obj"
+    assert obj_copy_for("road_crossing", objs) is None  # "_mesh1" is not digits
+    assert obj_copy_for("road_crossing_mesh", ["Obj/road_crossing_mesh_b.obj"]) is None
+    # rule 5: normalised name; suffix dropped; generic names skipped
     assert lookup_material_name(index, "Sign_Board") == "/t/Sign_Board.png"
     assert lookup_material_name(index, "sign board.003") == "/t/Sign_Board.png"
     assert lookup_material_name(index, "lambert1") is None
@@ -287,7 +368,7 @@ def check_helpers():
     for generic in ("phong2", "blinn1", "defaultMaterial", "initialShadingGroup", "None", "material"):
         assert is_generic_material(generic), generic
     assert not is_generic_material("lambert_roof")
-    # rule 5: model name guess; first in sorted order
+    # rule 6: model name guess; first in sorted order
     assert model_guess_key("town_hall_mesh") == "townhall"
     assert model_guess_key("SM_Prop_Crate") == "propcrate"
     assert model_guess_key("Guess_mesh") == "guess"
@@ -378,13 +459,16 @@ def referenced_path(node):
     return os.path.normpath(bpy.path.abspath(node.image.filepath))
 
 
-def find_texture_for_material(mat, model_stem, override, index, packdir):
+def find_texture_for_material(mat, model_stem, override, index, packdir, aliases):
     """
     The image for one material in per-model mode. Returns (path or None, referenced name or None, guessed).
     The first rule that gives a file wins:
       1. the model's override;  2. the reference as it stands (exists, inside the pack);
-      3. the referenced file name in the index;  4. the material name;
-      5. the model's name (a guess; only for a material with no reference).
+      3. the referenced file name in the index;
+      4. an alias (a file-name alias for the referenced name, then a material alias for the material's name);
+      5. the material name;
+      6. the model's name (a guess; only for a material with no reference).
+    An alias is Josh's statement of fact, so it carries no warning.
     """
     if override is not None:
         return override, None, False
@@ -396,6 +480,9 @@ def find_texture_for_material(mat, model_stem, override, index, packdir):
         found = lookup_referenced_name(index, ref)
         if found:
             return found, None, False
+    found, _key = lookup_alias(aliases, ref, mat.name)
+    if found:
+        return found, None, False
     found = lookup_material_name(index, mat.name)
     if found:
         return found, None, False
@@ -429,6 +516,16 @@ def wire_image(mat, image_path):
             other.image = image
 
 
+def note_alias_keys(mat, seen):
+    """Record the alias keys this material could match (whichever rule ends up deciding), to report aliases that match nothing."""
+    node = material_image_node(mat)
+    if node is not None:
+        base = split_basename(referenced_path(node))
+        if base != "":
+            seen.add(file_alias_key(base))
+    seen.add(material_alias_key(mat.name))
+
+
 def texture_materials(meshes, stem, ctx):
     """
     Per-model mode: find and wire an image for every material on the model's meshes.
@@ -439,7 +536,8 @@ def texture_materials(meshes, stem, ctx):
     for o in meshes:
         for mat in o.data.materials:
             if mat is not None and mat.name not in outcome:
-                outcome[mat.name] = find_texture_for_material(mat, stem, override, ctx["index"], ctx["packdir"])
+                note_alias_keys(mat, ctx["alias_seen"])
+                outcome[mat.name] = find_texture_for_material(mat, stem, override, ctx["index"], ctx["packdir"], ctx["aliases"])
     images, missing, plain, guessed, wired = set(), set(), set(), False, set()
     for o in meshes:
         for mat in o.data.materials:
@@ -564,7 +662,7 @@ def import_one(path, rel, stem, scale, ctx):
     }
 
 
-def convert(indir, out, report_path, atlas, scale, textures_dir, overrides):
+def convert(indir, out, report_path, atlas, scale, textures_dir, overrides, aliases):
     import bpy
 
     empty_scene()
@@ -578,6 +676,8 @@ def convert(indir, out, report_path, atlas, scale, textures_dir, overrides):
         "atlas_material": make_atlas_material(atlas) if atlas else None,
         "index": [] if atlas else build_texture_index(texdir),
         "overrides": overrides,
+        "aliases": aliases,
+        "alias_seen": set(),
     }
     obj_copies = find_obj_copies(indir)
 
@@ -595,6 +695,11 @@ def convert(indir, out, report_path, atlas, scale, textures_dir, overrides):
             continue
         names.add(stem)
         assets.append(entry)
+
+    if not atlas:
+        for key in sorted(aliases):
+            if key not in ctx["alias_seen"]:
+                print("texture alias %s matched no material" % key)
 
     report = {"blenderVersion": bpy.app.version_string, "assets": assets, "failures": failures}
     os.makedirs(os.path.dirname(os.path.abspath(report_path)), exist_ok=True)
@@ -725,6 +830,8 @@ def build_selftest(indir):
         ("Guess_a.png", (0.9, 0.1, 0.1)),
         ("Guess_b.png", (0.1, 0.9, 0.1)),
         ("nouv_tex.png", (0.5, 0.5, 0.5)),
+        ("alias_atlas.png", (0.3, 0.3, 0.9)),
+        ("metal_sheet.png", (0.7, 0.7, 0.75)),
     ):
         _write_png(os.path.join(tex, name), rgb)
     missing_dir = os.path.join(indir, "nowhere-on-disk")  # never created: references into it dangle
@@ -738,12 +845,21 @@ def build_selftest(indir):
     # Rule 3: the reference is a path that isn't here, in another case; the file is Textures/tex_crate.png.
     ref_case = _box_object(SELFTEST_REF_CASE, (0.5, 0.5, 0.5), 0.0, True, _referencing_material("RefMat", "C:/nowhere/TEX_Crate.PNG"))
     _export_fbx(ref_case, os.path.join(fbx, SELFTEST_REF_CASE + ".fbx"))
-    # Rule 4: no reference; the material is called Sign_Board and the file is Textures/Sign_Board.png.
+    # Rule 5: no reference; the material is called Sign_Board and the file is Textures/Sign_Board.png.
     mat_name = _box_object(SELFTEST_MAT_NAME, (0.5, 0.5, 0.5), 0.0, True, _plain_material("Sign_Board"))
     _export_fbx(mat_name, os.path.join(fbx, SELFTEST_MAT_NAME + ".fbx"))
-    # Rule 5: a generic material with no reference; Guess_a.png and Guess_b.png both start with the model's name.
+    # Rule 6: a generic material with no reference; Guess_a.png and Guess_b.png both start with the model's name.
     guess = _box_object(SELFTEST_GUESS, (0.5, 0.5, 0.5), 0.0, True, _plain_material("lambert1"))
     _export_fbx(guess, os.path.join(fbx, SELFTEST_GUESS + ".fbx"))
+    # Amendment B, rule 4: a file-name alias (Master_Src.PNG -> Textures/alias_atlas.png); no Master_Src.* file exists.
+    alias_ref = _box_object(SELFTEST_ALIAS_REF, (0.5, 0.5, 0.5), 0.0, True, _referencing_material("AliasRefMat", "C:/art/Master_Src.psd"))
+    _export_fbx(alias_ref, os.path.join(fbx, SELFTEST_ALIAS_REF + ".fbx"))
+    # A material alias (material:Painted_Metal -> Textures/metal_sheet.png), suffix dropped; no reference, no file named like the material.
+    alias_mat = _box_object(SELFTEST_ALIAS_MAT, (0.5, 0.5, 0.5), 0.0, True, _plain_material("Painted_Metal.001"))
+    _export_fbx(alias_mat, os.path.join(fbx, SELFTEST_ALIAS_MAT + ".fbx"))
+    # Rule 3 beats an alias: tex_crate.psd is aliased to alias_atlas.png, but Textures/tex_crate.png exists.
+    alias_order = _box_object(SELFTEST_ALIAS_ORDER, (0.5, 0.5, 0.5), 0.0, True, _referencing_material("AliasOrderMat", "C:/nowhere/tex_crate.psd"))
+    _export_fbx(alias_order, os.path.join(fbx, SELFTEST_ALIAS_ORDER + ".fbx"))
     # A reference no rule can find.
     lost = _box_object(SELFTEST_LOST_REF, (0.5, 0.5, 0.5), 0.0, True, _referencing_material("LostMat", os.path.join(missing_dir, "nowhere.png")))
     _export_fbx(lost, os.path.join(fbx, SELFTEST_LOST_REF + ".fbx"))
@@ -754,7 +870,7 @@ def main():
     if args.selftest:
         check_helpers()
         build_selftest(args.indir)
-    return convert(args.indir, args.out, args.report, args.atlas, args.scale, args.textures, parse_overrides(args.overrides))
+    return convert(args.indir, args.out, args.report, args.atlas, args.scale, args.textures, parse_overrides(args.overrides), parse_aliases(args.aliases))
 
 
 if __name__ == "__main__":

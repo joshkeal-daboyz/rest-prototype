@@ -46,6 +46,72 @@
       "warnings": []
     },
     {
+      "name": "alias_mat",
+      "source": "Fbx/alias_mat.fbx",
+      "bounds": {
+        "min": [
+          -0.25,
+          0,
+          -0.25
+        ],
+        "max": [
+          0.25,
+          0.5,
+          0.25
+        ]
+      },
+      "triangles": 12,
+      "textures": [
+        "Textures/metal_sheet.png"
+      ],
+      "missingTextures": [],
+      "warnings": []
+    },
+    {
+      "name": "alias_order",
+      "source": "Fbx/alias_order.fbx",
+      "bounds": {
+        "min": [
+          -0.25,
+          0,
+          -0.25
+        ],
+        "max": [
+          0.25,
+          0.5,
+          0.25
+        ]
+      },
+      "triangles": 12,
+      "textures": [
+        "Textures/tex_crate.png"
+      ],
+      "missingTextures": [],
+      "warnings": []
+    },
+    {
+      "name": "alias_ref",
+      "source": "Fbx/alias_ref.fbx",
+      "bounds": {
+        "min": [
+          -0.25,
+          0,
+          -0.25
+        ],
+        "max": [
+          0.25,
+          0.5,
+          0.25
+        ]
+      },
+      "triangles": 12,
+      "textures": [
+        "Textures/alias_atlas.png"
+      ],
+      "missingTextures": [],
+      "warnings": []
+    },
+    {
       "name": "guess_mesh",
       "source": "Fbx/guess_mesh.fbx",
       "bounds": {
