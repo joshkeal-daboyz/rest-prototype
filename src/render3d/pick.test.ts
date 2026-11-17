@@ -6,7 +6,7 @@ import { FOV_DEG, createCameraRig } from "./camera";
 import { EventBus } from "../core";
 import { createGrid } from "../grid";
 import { stubTextSurface } from "./text";
-import { WIRE_PICK_RADIUS, wireLayout } from "./layout";
+import { PHASE_OFFSET, SAG_SEGMENTS, WIRE_PICK_RADIUS, WIRE_RADIUS, wireLayout } from "./layout";
 import { createPicker } from "./pick";
 import { buildScene } from "./scene";
 
@@ -129,5 +129,38 @@ describe("a target switched off", () => {
     expect(picker2.hitTest(x, y)).toBe("w");
     box.userData["pickOff"] = true;
     expect(picker2.hitTest(x, y)).toBeNull();
+  });
+});
+
+describe("a line's three conductors (041 C6)", () => {
+  it("reaches at least PHASE_OFFSET + WIRE_RADIUS + 0.03 from the centre conductor", () => {
+    expect(WIRE_PICK_RADIUS).toBeGreaterThanOrEqual(PHASE_OFFSET + WIRE_RADIUS + 0.03 - 1e-12);
+  });
+
+  it("returns l_b at the projected middle of each of its conductors, and the middle of every conductor of every line with three", () => {
+    const rs = wireLayout(puzzle);
+    const lb = rs.find((r) => r.id === "l_b")!;
+    expect(lb.conductors).toHaveLength(3);
+    let checked = 0;
+    for (const r of rs) {
+      if (r.conductors.length !== 3) continue;
+      // The middle of a conductor: the middle of its middle span, or the pole where there are two spans.
+      const n = r.spans.length;
+      for (const c of r.conductors) {
+        const m = n % 2 === 1 ? c[((n - 1) / 2) * SAG_SEGMENTS + SAG_SEGMENTS / 2]! : c[(n / 2) * SAG_SEGMENTS]!;
+        const p = px(new Vector3(m.x, m.y, m.z));
+        expect(picker.hitTest(p.x, p.y), `${r.id}`).toBe(r.id);
+        checked++;
+      }
+    }
+    expect(checked).toBeGreaterThanOrEqual(9);
+  });
+
+  it("still lets a node win over a conductor passing in front of it (the 037 test, with the wider reach)", () => {
+    // Every node's own pick point returns the node, with every wire's reach now 0.3 wide.
+    for (const o of targets("node")) {
+      const p = px(o.getWorldPosition(new Vector3()));
+      expect(picker.hitTest(p.x, p.y)).toBe(o.userData["pickId"]);
+    }
   });
 });

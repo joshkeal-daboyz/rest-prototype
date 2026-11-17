@@ -30,3 +30,13 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 040 | code-reviewer | opus | 54K total (one figure in the readout) | — | 1 | meets, must-fix 0; 11 tool uses, 2 min; no playtester (only tools/ changed) |
 | 039 | renderer | sonnet | 156K total (one figure in the readout) | — | 0 | Built the GLB loader and MODEL_TABLE; 89 tool uses, 66 min (headless Edge checks and the real-pack conversions) |
 | 039 | code-reviewer | opus | 47K total (one figure in the readout) | — | 1 | meets, must-fix 0; 10 tool uses, 2 min; no playtester (only src/render3d/ changed) |
+| 041 A | lead-architect | agent default | 139K total across the first cut and one resume (one figure per readout; the first-cut figure was 109K) | — | 0 | Cut the ticket; then amended section A after the build (A-Q1, A-Q2); 31 tool uses |
+| 041 A | renderer | sonnet | 318K total across the build and three resumes (one figure in the readout) | — | 0 | Built town.ts and town.test.ts; gate fix for a slow test; rebuild at pitch 12 with pinwheel fill; 113 tool uses |
+| 041 A | code-reviewer | agent default | 89K total (one figure in the readout) | — | 0 | meets, must-fix 0; 13 tool uses, 4 min |
+| 041 A | playtester | agent default | 18K total (one figure in the readout) | — | 0 | regressions 0; 5 tool uses, under 1 min; the harness does not load src/render3d/ |
+| 041 B | renderer | sonnet | 163K for the finishing build (one figure in the readout); the first builder was stopped by Josh midway (PC overload) and its figure was not seen | — | 0 | Drew the town from townLayout at one scale, placeholders, frozen Town; 73 tool uses, 9 min; one short browser pass |
+| 041 B | code-reviewer | agent default | 80K total (one figure in the readout) | — | 0 | meets, must-fix 0; 19 tool uses, 2 min; ran no tests (the main session had run the capped full check) |
+| 041 B | playtester | agent default | not seen | — | 0 | regressions 0; stopped early: nothing the harness loads changed |
+| 041 C | renderer | sonnet | 271K total (one figure in the readout) | — | 0 | Built conductors, hardware, drops and cans, picking, plus the setback fix; 101 tool uses, 15 min; no browser or dev server by design (PC load) |
+| 041 C | code-reviewer | agent default | not seen | — | 0 | meets, must-fix 0; ran no tests (the main session had run the capped full check) |
+| 041 C | playtester | agent default | 15K total (one figure in the readout) | — | 0 | regressions 0; stopped early: nothing the harness loads changed |

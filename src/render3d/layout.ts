@@ -1,18 +1,20 @@
 /**
- * Pure layout of the 3D view (ticket 037): wire runs strung on poles along the circuit's lines, and the town's
- * building blocks. No three, no DOM, no play. World mapping: map (x, y) is world (x, height, z = y), 1 unit = 1 unit, y up.
+ * Pure layout of the 3D view (ticket 037, 041): wire runs strung on poles along the circuit's lines, three conductors to a run, and the
+ * service drops to the buildings beside them. The town's streets, lots and places are in town.ts. No three, no DOM, no play.
+ * World mapping: map (x, y) is world (x, height, z = y), 1 unit = 1 unit, y up.
  * Wires are visual only; nothing here touches a rule.
  */
 
 import type { Puzzle } from "../core";
-import { DEFAULT_SCALE, cityForMap, footprintLayout, circuitStreets, mapOrigin, stableHash, type Building, type CityRect } from "../render/city";
-import { puzzleBounds } from "../render/geometry";
+import type { Town } from "./town";
 
 export const POLE_HEIGHT = 1.6;
 /** The centre of a breaker, fuse box or battery box: its top meets the wire at POLE_HEIGHT. */
 export const NODE_BODY_Y = POLE_HEIGHT - 0.3;
-/** The wire tube's radius, world units. */
-export const WIRE_RADIUS = 0.05;
+/** Each conductor's tube radius, world units (three of them to a run on a run with a pole; ticket 041 C). */
+export const WIRE_RADIUS = 0.03;
+/** On a run with an intermediate pole the three conductors sit this far either side of the run's line, along the cross-arm. */
+export const PHASE_OFFSET = 0.22;
 /** Height of a wire's shadow strip on the street (the streets' tops are lower). */
 export const SHADOW_Y = 0.025;
 /** Where a damaged cable is cut: the gap between its two hanging ends, how far the ends droop, and points per end minus one. */
@@ -20,21 +22,28 @@ export const BREAK_GAP = 0.3;
 export const HANG_DROP = 0.6;
 export const HANG_SEGMENTS = 6;
 /** No two poles on a run are further apart than this. */
-export const POLE_SPACING = 2;
+export const POLE_SPACING = 3;
 /** Sag at mid-span, as a fraction of the span's length. */
-export const SAG_RATIO = 0.12;
+export const SAG_RATIO = 0.04;
 /** A span's polyline has SAG_SEGMENTS + 1 points. */
 export const SAG_SEGMENTS = 8;
-/** A line's pick target reaches this far (world units) from its wire. */
-export const WIRE_PICK_RADIUS = 0.15;
-export const BLOCK_MIN_H = 0.6;
-export const BLOCK_MAX_H = 2.6;
-/** Inside the footprint, buildings stay below the wires and places below the lamp heads, so nothing hides a wire. */
-export const FOOTPRINT_MAX_H = 1.4;
-export const PLACE_MIN_H = 1.0;
-export const PLACE_MAX_H = 1.8;
-/** How far past the footprint (map units) the city blocks are built. */
-export const CITY_WINDOW = 8;
+/**
+ * A line's pick target (along its centre conductor) reaches this far (world units). At least PHASE_OFFSET + WIRE_RADIUS + 0.03,
+ * so a click on any of the three conductors picks the line.
+ */
+export const WIRE_PICK_RADIUS = 0.3;
+/**
+ * A service drop runs to a building whose front is within this (across the ground) of an intermediate pole on the run beside its street.
+ * The ticket said 2, but a lot across a circuit road from its wire has its front at least KERB_OFFSET + ROAD_W + PAVE_W + SETBACK = 2.1 from
+ * the line, so at 2 only 13 lots on the whole ladder (none facing their own run) can ever be reached. At 2.5 it is 108 (97 on their own run).
+ */
+export const DROP_REACH = 2.5;
+/** A drop leaves its pole this far under the wire's height, and lands DROP_END_Y high on the building's front (two thirds of its height if that is lower). */
+export const DROP_DROP = 0.2;
+export const DROP_END_Y = 0.5;
+/** A transformer can hangs this far from its pole's axis (toward its first drop) and this far under the wire's height (its centre). */
+export const CAN_OFFSET = 0.1;
+export const CAN_DROP = 0.3;
 
 export interface Vec3 {
   x: number;
@@ -42,16 +51,22 @@ export interface Vec3 {
   z: number;
 }
 
-/** A damaged cable's cut: two ends hang from the poles either side of a gap. Read from the file's faults, not the state. */
-export interface WireBreak {
-  /** The span (index into `spans`) that holds the run's midpoint by length. */
-  span: number;
-  /** Each end leaves its attachment point (`attach[span]`, `attach[span + 1]`) toward the gap: HANG_SEGMENTS + 1 points, drooping. */
+/** One conductor's cut: two ends hang from the poles either side of a gap. */
+export interface ConductorCut {
+  /** Each end leaves its attachment point (the span's two ends) toward the gap: HANG_SEGMENTS + 1 points, drooping. */
   ends: [Vec3[], Vec3[]];
-  /** The whole wire on each side of the cut: half 0 from the `from` node to tip 0, half 1 from the `to` node to tip 1. */
+  /** The whole conductor on each side of the cut: half 0 from the `from` node to tip 0, half 1 from the `to` node to tip 1. */
   halves: [Vec3[], Vec3[]];
   /** The gap's middle: the broken span's chord midpoint in x and z, at the tips' height. */
   gap: Vec3;
+}
+
+/** A damaged cable's cut: every conductor is cut in the same span. Read from the file's faults, not the state. */
+export interface WireBreak extends ConductorCut {
+  /** The span (index into `spans`) that holds the run's midpoint by length. */
+  span: number;
+  /** `ends`, `halves` and `gap` above are the centre conductor's. One cut per conductor, in the order of `WireRun.conductors`. */
+  cuts: ConductorCut[];
 }
 
 export interface WireRun {
@@ -59,10 +74,20 @@ export interface WireRun {
   id: string;
   from: string;
   to: string;
-  /** The attachment points, first at `from`'s pos and last at `to`'s, at POLE_HEIGHT. Intermediate ones are the poles. */
+  /** The attachment points of the run's line, first at `from`'s pos and last at `to`'s, at POLE_HEIGHT. Intermediate ones are the poles. */
   attach: Vec3[];
-  /** One polyline per span between attachment points, SAG_SEGMENTS + 1 points each. */
+  /** The centre conductor, one polyline per span between attachment points, SAG_SEGMENTS + 1 points each. */
   spans: Vec3[][];
+  /**
+   * The conductors, each its whole polyline (its spans joined). Three, at -PHASE_OFFSET, 0 and +PHASE_OFFSET across the run at each
+   * intermediate pole, all starting and ending at the run's own end attachment points; or one when the run has no intermediate pole.
+   * The one with offset 0 is `conductors[centre]` and equals `runPoints(run)`. Its point `i * SAG_SEGMENTS` is the one on pole `i`.
+   */
+  conductors: Vec3[][];
+  /** Index of the centre conductor in `conductors`. */
+  centre: number;
+  /** The unit vector along the cross-arm: across the run, in the ground plane. */
+  arm: { x: number; z: number };
   /** The wire's middle: the sagging middle of the middle span, or the middle pole's attachment point when the span count is even. */
   mid: Vec3;
   /** Horizontal length of the whole run. */
@@ -88,10 +113,21 @@ export function wireLayout(puzzle: Puzzle): WireRun[] {
       const t = i / n;
       attach.push({ x: a[0] + (b[0] - a[0]) * t, y: POLE_HEIGHT, z: a[1] + (b[1] - a[1]) * t });
     }
-    const spans: Vec3[][] = [];
-    for (let i = 0; i < n; i++) spans.push(sagSpan(attach[i]!, attach[i + 1]!));
+    // The cross-arm runs across the run: (-dz, dx) of the unit direction.
+    const arm = length > 0 ? { x: -(b[1] - a[1]) / length, z: (b[0] - a[0]) / length } : { x: 1, z: 0 };
+    const offsets = n >= 2 ? [-PHASE_OFFSET, 0, PHASE_OFFSET] : [0];
+    // Each conductor's attachment points: the run's own at the two nodes, offset along the arm at every pole between.
+    const attachK = offsets.map((o) => attach.map((p, i) => (i === 0 || i === n || o === 0 ? p : { x: p.x + arm.x * o, y: p.y, z: p.z + arm.z * o })));
+    const spansK = attachK.map((at) => {
+      const sp: Vec3[][] = [];
+      for (let i = 0; i < n; i++) sp.push(sagSpan(at[i]!, at[i + 1]!));
+      return sp;
+    });
+    const centre = offsets.indexOf(0);
+    const spans = spansK[centre]!;
     const mid = n % 2 === 1 ? { ...spans[(n - 1) / 2]![SAG_SEGMENTS / 2]! } : { ...attach[n / 2]! };
-    out.push({ id: l.id, from: l.from, to: l.to, attach, spans, mid, length, brk: cut.has(l.id) ? breakOf(attach, spans) : null });
+    const brk: WireBreak | null = cut.has(l.id) ? breakOf(attachK, spansK, centre) : null;
+    out.push({ id: l.id, from: l.from, to: l.to, attach, spans, conductors: spansK.map(joinSpans), centre, arm, mid, length, brk });
   }
   return out;
 }
@@ -112,9 +148,15 @@ function hangingEnd(a: Vec3, b: Vec3): Vec3[] {
   return pts;
 }
 
-function breakOf(attach: Vec3[], spans: Vec3[][]): WireBreak {
+/** Every conductor cut in the span that holds the run's middle (ticket 041 C: all of them, in the same span). */
+function breakOf(attachK: Vec3[][], spansK: Vec3[][][], centre: number): WireBreak {
+  const span = Math.floor(spansK[0]!.length / 2);
+  const cuts = attachK.map((at, k) => cutOf(at, spansK[k]!, span));
+  return { ...cuts[centre]!, span, cuts };
+}
+
+function cutOf(attach: Vec3[], spans: Vec3[][], span: number): ConductorCut {
   const n = spans.length;
-  const span = Math.floor(n / 2);
   const a = attach[span]!;
   const b = attach[span + 1]!;
   const e0 = hangingEnd(a, b);
@@ -128,7 +170,7 @@ function breakOf(attach: Vec3[], spans: Vec3[][]): WireBreak {
     for (let j = i === n - 1 ? 0 : 1; j < rev.length; j++) half1.push(rev[j]!);
   }
   for (let j = span === n - 1 ? 0 : 1; j < e1.length; j++) half1.push(e1[j]!);
-  return { span, ends: [e0, e1], halves: [half0, half1], gap: { x: (a.x + b.x) / 2, y: POLE_HEIGHT - HANG_DROP, z: (a.z + b.z) / 2 } };
+  return { ends: [e0, e1], halves: [half0, half1], gap: { x: (a.x + b.x) / 2, y: POLE_HEIGHT - HANG_DROP, z: (a.z + b.z) / 2 } };
 }
 
 /** A run's shadow on the street: the same x and z at SHADOW_Y. */
@@ -148,13 +190,18 @@ export function sagSpan(a: Vec3, b: Vec3): Vec3[] {
   return pts;
 }
 
-/** A run's whole polyline as one list (spans joined, the shared end points once). */
-export function runPoints(run: WireRun): Vec3[] {
+/** Spans joined into one polyline (the shared end points once). */
+function joinSpans(spans: readonly (readonly Vec3[])[]): Vec3[] {
   const pts: Vec3[] = [];
-  run.spans.forEach((s, i) => {
+  spans.forEach((s, i) => {
     for (let j = i === 0 ? 0 : 1; j < s.length; j++) pts.push(s[j]!);
   });
   return pts;
+}
+
+/** A run's whole polyline as one list: the centre conductor (its spans joined, the shared end points once). */
+export function runPoints(run: WireRun): Vec3[] {
+  return joinSpans(run.spans);
 }
 
 /** Write the point a fraction `f` (0..1) of the way along `pts` (by polyline length) into `out`. Allocation-free given `cum`, the cumulative lengths. */
@@ -184,63 +231,135 @@ export function cumulative(pts: readonly Vec3[]): number[] {
   return cum;
 }
 
-export type BlockKind = "building" | "place" | "city";
+// ---- service drops and transformer cans (ticket 041 C5) ----
 
-/** A box standing on the ground: centre (x, z), size w (x) by d (z), height h. */
-export interface Block {
+/** A thin wire from an intermediate pole to the front of a building. Scenery: no state, no pick. */
+export interface Drop {
+  /** The run it hangs from, and the pole's index in `run.attach` (always an intermediate one). */
+  run: string;
+  pole: number;
+  /** The building: an index into `town.lots`. */
+  lot: number;
+  /** At the pole, DROP_DROP under the wire. */
+  from: Vec3;
+  /** On the middle of the lot's front edge, DROP_END_Y high (or two thirds of the lot's height cap when that is lower). */
+  to: Vec3;
+  /** The horizontal length, at most DROP_REACH. */
+  ground: number;
+}
+
+/** A transformer can: on a pole that carries at least one drop. `x` and `z` are the can's centre; the pole's is `run.attach[pole]`. */
+export interface Can {
+  run: string;
+  pole: number;
   x: number;
+  y: number;
   z: number;
-  w: number;
-  d: number;
-  h: number;
-  kind: BlockKind;
 }
 
-export interface PlaceBlock {
-  lamp: string;
-  /** The words beside the place (footprintLayout's label): the name for a target lamp, null for any other. */
-  label: string | null;
-  /** A pool place is a pool of light on the lamp's lane: no building. */
-  pool: boolean;
-  /** The lamp's place: one or several boxes (a gate's two posts, a row of homes); empty for a pool. */
-  boxes: Block[];
+const DROP_EPS = 1e-4;
+
+/**
+ * Does the ground line from (x0, z0) to (x1, z1) pass through the inside of `lot` (its edges shrunk by DROP_EPS, so one that only
+ * ends on an edge does not count)? Liang-Barsky against the lot's rectangle in its own frame.
+ */
+function crossesLot(lot: Town["lots"][number], x0: number, z0: number, x1: number, z1: number): boolean {
+  const ex = Math.cos(lot.yaw);
+  const ez = -Math.sin(lot.yaw);
+  const fx = Math.sin(lot.yaw);
+  const fz = Math.cos(lot.yaw);
+  const hw = lot.w / 2 - DROP_EPS;
+  const hd = lot.d / 2 - DROP_EPS;
+  const u0 = (x0 - lot.x) * ex + (z0 - lot.z) * ez;
+  const v0 = (x0 - lot.x) * fx + (z0 - lot.z) * fz;
+  const du = (x1 - x0) * ex + (z1 - z0) * ez;
+  const dv = (x1 - x0) * fx + (z1 - z0) * fz;
+  let t0 = 0;
+  let t1 = 1;
+  const clip = (p: number, q: number): boolean => {
+    // The inequality p * t <= q must hold.
+    if (Math.abs(p) < 1e-12) return q >= 0;
+    const r = q / p;
+    if (p < 0) {
+      if (r > t1) return false;
+      if (r > t0) t0 = r;
+    } else {
+      if (r < t0) return false;
+      if (r < t1) t1 = r;
+    }
+    return true;
+  };
+  if (!clip(-du, u0 + hw) || !clip(du, hw - u0) || !clip(-dv, v0 + hd) || !clip(dv, hd - v0)) return false;
+  return t1 - t0 > 1e-9;
 }
 
-export interface BlockLayout {
-  /** The footprint's own lots, then the city's lots round it. */
-  blocks: Block[];
-  /** One per lamp, in `nodes` order. */
-  places: PlaceBlock[];
-  /** The area the blocks were built for, in map units. */
-  window: CityRect;
+/**
+ * One service drop to each building (never a place) whose front lies within DROP_REACH of an intermediate pole on the run beside its
+ * street: the building's nearest such pole, from the pole at POLE_HEIGHT - DROP_DROP to the middle of the lot's front, DROP_END_Y high.
+ * A drop whose ground line crosses another lot is skipped. Pure and deterministic; in `town.lots` order.
+ */
+export function dropLayout(town: Pick<Town, "roads" | "lots">, runs: readonly WireRun[]): Drop[] {
+  const runById = new Map(runs.map((r) => [r.id, r] as const));
+  const lineOf = new Map<string, string>();
+  for (const r of town.roads) if (r.line !== null) lineOf.set(r.id, r.line);
+  const out: Drop[] = [];
+  town.lots.forEach((lot, li) => {
+    const line = lineOf.get(lot.street);
+    const run = line === undefined ? undefined : runById.get(line);
+    if (!run || run.attach.length < 3) return;
+    // The middle of the lot's front edge: its local +z is the way it faces the road.
+    const fx = Math.sin(lot.yaw);
+    const fz = Math.cos(lot.yaw);
+    const tx = lot.x + (fx * lot.d) / 2;
+    const tz = lot.z + (fz * lot.d) / 2;
+    let best = -1;
+    let bestD = Infinity;
+    for (let i = 1; i < run.attach.length - 1; i++) {
+      const p = run.attach[i]!;
+      const d = Math.hypot(tx - p.x, tz - p.z);
+      if (d < bestD) {
+        bestD = d;
+        best = i;
+      }
+    }
+    if (best < 0 || bestD > DROP_REACH + 1e-9) return;
+    const p = run.attach[best]!;
+    // A lot that cannot reach the segment is skipped cheaply: its half diagonal bounds how far it can lie from its own centre.
+    const mx = (p.x + tx) / 2;
+    const mz = (p.z + tz) / 2;
+    const reach = bestD / 2;
+    for (let j = 0; j < town.lots.length; j++) {
+      if (j === li) continue;
+      const o = town.lots[j]!;
+      if (Math.hypot(o.x - mx, o.z - mz) > reach + Math.hypot(o.w, o.d) / 2 + 0.01) continue;
+      if (crossesLot(o, p.x, p.z, tx, tz)) return;
+    }
+    out.push({
+      run: run.id,
+      pole: best,
+      lot: li,
+      from: { x: p.x, y: POLE_HEIGHT - DROP_DROP, z: p.z },
+      to: { x: tx, y: Math.min(DROP_END_Y, (lot.hMax * 2) / 3), z: tz },
+      ground: bestD,
+    });
+  });
+  return out;
 }
 
-function heightOf(key: string, lo = BLOCK_MIN_H, hi = BLOCK_MAX_H): number {
-  return lo + ((stableHash(key) % 1000) / 1000) * (hi - lo);
-}
-
-function toBlock(b: Building, kind: BlockKind, key: string, lo?: number, hi?: number): Block {
-  return { x: b.x, z: b.y, w: b.w, d: b.h, h: heightOf(key, lo, hi), kind };
-}
-
-/** The town's boxes: footprintLayout's buildings and places at DEFAULT_SCALE, and the city's lots in a fixed window round the footprint. */
-export function blockLayout(puzzle: Puzzle): BlockLayout {
-  const origin = mapOrigin(puzzle.id, puzzleBounds(puzzle));
-  const layout = footprintLayout(puzzle, origin, DEFAULT_SCALE);
-  const fp = circuitStreets(puzzle).footprint;
-  const window: CityRect = { minX: fp.minX - CITY_WINDOW, minY: fp.minY - CITY_WINDOW, maxX: fp.maxX + CITY_WINDOW, maxY: fp.maxY + CITY_WINDOW };
-  const blocks: Block[] = [];
-  for (const b of layout.buildings) blocks.push(toBlock(b, "building", `b${b.x},${b.y}`, BLOCK_MIN_H, FOOTPRINT_MAX_H));
-  const own = new Set<Building>(layout.buildings);
-  for (const b of cityForMap(puzzle, origin, window)) {
-    // cityForMap also returns the footprint's own lots (the same objects); those are already in.
-    if (!own.has(b)) blocks.push(toBlock(b, "city", `c${b.x},${b.y}`));
+/** The transformer cans: one on each pole that has a drop, hung CAN_OFFSET from the pole's axis toward its first drop. In drop order. */
+export function canLayout(drops: readonly Drop[], runs: readonly WireRun[]): Can[] {
+  const runById = new Map(runs.map((r) => [r.id, r] as const));
+  const seen = new Set<string>();
+  const out: Can[] = [];
+  for (const d of drops) {
+    const key = `${d.run}#${d.pole}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const p = runById.get(d.run)!.attach[d.pole]!;
+    const dx = d.to.x - p.x;
+    const dz = d.to.z - p.z;
+    const h = Math.hypot(dx, dz) || 1;
+    out.push({ run: d.run, pole: d.pole, x: p.x + (dx / h) * CAN_OFFSET, y: POLE_HEIGHT - CAN_DROP, z: p.z + (dz / h) * CAN_OFFSET });
   }
-  const places: PlaceBlock[] = layout.places.map((p) => ({
-    lamp: p.lamp,
-    label: p.label,
-    pool: p.pool,
-    boxes: p.pool ? [] : (p.parts ?? [p]).map((q) => toBlock(q, "place", `p${p.lamp}${q.x},${q.y}`, PLACE_MIN_H, PLACE_MAX_H)),
-  }));
-  return { blocks, places, window };
+  return out;
 }

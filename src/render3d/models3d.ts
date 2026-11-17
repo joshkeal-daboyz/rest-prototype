@@ -12,17 +12,21 @@ import { stableHash } from "../render/city";
 import {
   MODEL_SLOTS,
   MODEL_TABLE,
-  buildingYaw,
+  atFront,
+  buildingPlan,
   isManifest,
   modelScale,
+  pickBuildings,
   pickIndex,
   planModels,
+  sizeOf,
   poleYaw,
   type ModelChoice,
   type ModelSlot,
   type PlannedModel,
 } from "./models";
 import type { SceneBundle } from "./scene";
+import { LOT_TYPE_NAMES, type Lot } from "./town";
 
 /** A planned model whose root node was found in its pack's GLB. */
 export interface LoadedModel extends PlannedModel {
@@ -173,9 +177,46 @@ function place(m: LoadedModel, scale: number, x: number, z: number, yaw: number)
 const at = (list: readonly LoadedModel[], key: string): LoadedModel => list[pickIndex(stableHash(key), list.length)]!;
 
 /**
+ * One building clone: which lot, which model, and where it stands. Its scale is WORLD_PER_METRE on every axis. (x, z) is the model's base
+ * centre, moved off the lot's centre toward its front so the model's front face is against the lot's front edge (`atFront`).
+ */
+export interface BuildingPlacement {
+  lot: number;
+  model: LoadedModel;
+  scale: number;
+  x: number;
+  z: number;
+  /** `lot.yaw + front`: the lot turns its front to the road, the model's own `front` turns its door to the lot's front. */
+  yaw: number;
+}
+
+/**
+ * The clone every lot gets: a model of the lot's type (a lot of a type with no model gets none and keeps its placeholder),
+ * picked by a hash of the lot's key and never the same as a neighbour's. Pure given the set.
+ */
+export function buildingPlacements(lots: readonly Lot[], buildings: readonly LoadedModel[] | null): BuildingPlacement[] {
+  if (!buildings || buildings.length === 0) return [];
+  const byName = new Map(buildings.map((m) => [m.entry.name, m] as const));
+  const names = pickBuildings(lots, buildingPlan(buildings));
+  const out: BuildingPlacement[] = [];
+  lots.forEach((lot, i) => {
+    const m = names[i] ? byName.get(names[i]!) : undefined;
+    if (!m) return;
+    const scale = modelScale(m.entry, "building");
+    // The model's footprint depth across the road is its own depth, or its width when its front is a quarter turn away.
+    const [w, , d] = sizeOf(m.entry);
+    const depth = (Math.abs(Math.sin(m.front)) > 0.5 ? w : d) * scale;
+    const spot = atFront(lot, depth);
+    out.push({ lot: i, model: m, scale, x: spot.x, z: spot.z, yaw: lot.yaw + m.front });
+  });
+  return out;
+}
+
+/**
  * Swap the placeholders for model clones where the set has usable models: a clone at every intermediate pole (turned so a
- * cross-arm runs across the wire), on every lamp's post, and on every footprint and city block (picked by a hash of its position).
- * Lamp heads, lights, pools, halos, flares, places and node objects are untouched. Slots with no models stay as they are.
+ * cross-arm runs across the wire), on every lamp's post, and on every lot (a model of the lot's type, at one scale, its front to the road).
+ * A lot type with no usable model keeps its placeholder buildings. Lamp heads, lights, pools, halos, flares, places and node objects
+ * are untouched. Slots with no models stay as they are.
  */
 export function applyModels(bundle: SceneBundle, set: ModelSet): AppliedModels {
   const { slots } = bundle;
@@ -212,11 +253,11 @@ export function applyModels(bundle: SceneBundle, set: ModelSet): AppliedModels {
   }
   const buildings = set.building;
   if (buildings && buildings.length > 0 && slots.blocks.list.length > 0) {
-    hide(slots.blocks.placeholder);
-    for (const b of slots.blocks.list) {
-      const m = at(buildings, `bld${b.x.toFixed(2)},${b.z.toFixed(2)}`);
-      add(slots.models, place(m, modelScale(m.entry, "building", b), b.x, b.z, buildingYaw(m.entry, b)));
-    }
+    const placements = buildingPlacements(slots.blocks.list, buildings);
+    // A type's placeholders go only if some lot of that type got a model; the others stay.
+    const covered = new Set(placements.map((p) => slots.blocks.list[p.lot]!.type));
+    for (const t of LOT_TYPE_NAMES) if (covered.has(t)) hide(slots.blocks.byType[t]);
+    for (const p of placements) add(slots.models, place(p.model, p.scale, p.x, p.z, p.yaw));
   }
   return {
     remove() {
