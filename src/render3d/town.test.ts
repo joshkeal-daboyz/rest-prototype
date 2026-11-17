@@ -7,6 +7,7 @@ import { ELEVATION, FOV_DEG } from "./camera";
 import { POLE_HEIGHT, wireLayout } from "./layout";
 import { WORLD_PER_METRE as MODELS_WORLD_PER_METRE } from "./models";
 import {
+  BLOCK_PITCH,
   FILL_STEP,
   KERB_OFFSET,
   LAMP_HEAD_Y,
@@ -328,20 +329,28 @@ describe("streets beside the wires", { timeout: 20000 }, () => {
     }
   });
 
-  it("cuts the grid so each outer block side is between 7 and 11, or as near as the ring's size allows", () => {
+  it("cuts the grid at BLOCK_PITCH 12 deep, with sides aimed at 11 to 15 along the ring (one block when the ring's side is under 11)", () => {
+    const e = 2 * (ROAD_W / 2 + PAVE_W);
     for (const { file, town } of maps) {
       for (const bl of town.blocks) {
-        const w = bl.maxX - bl.minX + 2 * (ROAD_W / 2 + PAVE_W);
-        const h = bl.maxZ - bl.minZ + 2 * (ROAD_W / 2 + PAVE_W);
+        const w = bl.maxX - bl.minX + e;
+        const h = bl.maxZ - bl.minZ + e;
+        // A strip block is exactly one pitch deep; a corner block is one pitch each way.
+        const pitched = bl.id.startsWith("block:n") || bl.id.startsWith("block:s") ? [h] : bl.id.startsWith("block:w") || bl.id.startsWith("block:e") ? [w] : [w, h];
+        for (const d of pitched) expect(d, `${file} ${bl.id} depth`).toBeCloseTo(BLOCK_PITCH, 9);
         for (const side of [w, h]) {
-          expect(side, `${file} ${bl.id}`).toBeGreaterThan(6.4);
-          expect(side, `${file} ${bl.id}`).toBeLessThan(12.1);
+          expect(side, `${file} ${bl.id}`).toBeGreaterThan(7.9);
+          expect(side, `${file} ${bl.id}`).toBeLessThan(17.2);
         }
       }
     }
-    expect(gridCount(16)).toBe(2);
+    expect(BLOCK_PITCH).toBe(12);
     expect(gridCount(8)).toBe(1);
-    expect(gridCount(30)).toBe(3);
+    expect(gridCount(10)).toBe(1);
+    expect(gridCount(16)).toBe(1);
+    expect(gridCount(24)).toBe(2);
+    expect(gridCount(30)).toBe(2);
+    expect(gridCount(36)).toBe(3);
   });
 });
 
@@ -410,7 +419,7 @@ describe("lots", { timeout: 20000 }, () => {
         keys.add(l.key);
       }
     }
-    expect(types.has("small") && types.has("house") && types.has("tall")).toBe(true);
+    expect(types.has("small") && types.has("house") && types.has("tall") && types.has("large")).toBe(true);
   });
 
   it("stands each lot's front edge on its road side's pavement edge plus SETBACK, facing the road", () => {
@@ -506,26 +515,58 @@ describe("lots", { timeout: 20000 }, () => {
   });
 
   /**
-   * The ticket asks for 60% of each outer block's frontage built up. That cannot hold at BLOCK_PITCH 9: a block's inside is 7 square, so
-   * once the two opposite sides carry lots 2.3 to 3.4 deep, the other two sides have under 2.2 of frontage left, which is less than the
-   * smallest lot (see the report for the numbers). This test pins what the fill does today so a change is seen; it is not the ticket's 60%.
+   * Built up on four sides (A-Q1): every side of every outer block has a lot facing it, the mean coverage over all outer blocks on all maps is
+   * at least 0.45 and no block is under 0.35. Coverage is the sum of lot frontages over the perimeter inside the block's pavements.
    */
-  it("builds up the outer blocks (measured floor, not the ticket's 60%)", () => {
+  it("builds every outer block up on all four sides, mean coverage 0.45 or more, no block under 0.35", () => {
     let worst = 1;
+    let worstWhere = "";
     let sum = 0;
     let n = 0;
-    for (const { town } of maps) {
+    const bare: string[] = [];
+    for (const { file, town } of maps) {
       for (const b of town.blocks) {
         const inside = town.lots.filter((l) => l.x >= b.minX - 1e-6 && l.x <= b.maxX + 1e-6 && l.z >= b.minZ - 1e-6 && l.z <= b.maxZ + 1e-6);
         const cover = inside.reduce((s, l) => s + l.w, 0) / (2 * (b.maxX - b.minX + b.maxZ - b.minZ));
-        worst = Math.min(worst, cover);
+        if (cover < worst) {
+          worst = cover;
+          worstWhere = `${file} ${b.id}`;
+        }
         sum += cover;
         n++;
+        // A lot faces the road it fronts: its front (sin yaw, cos yaw) points north, east, south or west.
+        const faces = new Set(inside.map((l) => `${Math.round(Math.sin(l.yaw))},${Math.round(Math.cos(l.yaw))}`));
+        if (faces.size < 4) bare.push(`${file} ${b.id}`);
       }
     }
-    expect(worst).toBeGreaterThan(0.15);
-    expect(sum / n).toBeGreaterThan(0.3);
-    expect(sum / n).toBeLessThan(0.45);
+    expect(bare).toEqual([]);
+    expect(worst, worstWhere).toBeGreaterThanOrEqual(0.35);
+    expect(sum / n).toBeGreaterThanOrEqual(0.45);
+  });
+
+  it("puts a large lot in an outer block where it fits, and keeps all four types in play", () => {
+    const outer = new Set<string>();
+    for (const { town } of maps) {
+      for (const b of town.blocks) {
+        for (const l of town.lots) if (l.x >= b.minX - 1e-6 && l.x <= b.maxX + 1e-6 && l.z >= b.minZ - 1e-6 && l.z <= b.maxZ + 1e-6) outer.add(l.type);
+      }
+    }
+    expect([...outer].sort()).toEqual(["house", "large", "small", "tall"]);
+  });
+
+  it("fills a block's rows pinwheel-fashion: a row ends LOT_GAP or more short of the next side's lots", () => {
+    // Clockwise: the north row (facing south) starts at the west corner; the west row (facing east) is the last and stops under the north row.
+    const { town } = maps.find((m) => m.file === "56-whole-ward.json")!;
+    const b = town.blocks.find((q) => q.id === "block:n:0")!;
+    const inside = town.lots.filter((l) => l.x >= b.minX - 1e-6 && l.x <= b.maxX + 1e-6 && l.z >= b.minZ - 1e-6 && l.z <= b.maxZ + 1e-6);
+    const north = inside.filter((l) => Math.round(Math.cos(l.yaw)) === -1);
+    const west = inside.filter((l) => Math.round(Math.sin(l.yaw)) === -1);
+    expect(north.length).toBeGreaterThan(0);
+    expect(west.length).toBeGreaterThan(0);
+    // The north row starts at the block's corner, the west row begins below the north row's deepest lot.
+    expect(Math.min(...north.map((l) => l.x - l.w / 2))).toBeCloseTo(b.minX + SETBACK, 6);
+    const northBottom = Math.max(...north.map((l) => l.z + l.d / 2));
+    expect(Math.min(...west.map((l) => l.z - l.d / 2))).toBeGreaterThanOrEqual(northBottom + LOT_GAP - 1e-6);
   });
 
   it("steps by FILL_STEP when nothing fits: no two neighbours on one side leave a gap a smaller lot could use", () => {

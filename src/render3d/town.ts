@@ -27,7 +27,7 @@ export const KERB_OFFSET = 0.4;
 export const KERB_H = 0.03;
 export const PAVE_W = 0.45;
 export const RING_MARGIN = 4;
-export const BLOCK_PITCH = 9;
+export const BLOCK_PITCH = 12;
 export const OUTER_RINGS = 1;
 /** A lot's front edge stands this far outside its pavement's outer edge. */
 export const SETBACK = 0.15;
@@ -38,6 +38,8 @@ export const WIRE_CLEAR = 0.25;
 export const FILL_STEP = 0.25;
 /** A place is tried at every step of this along each frontage (finer than a lot's, as 2D tries a place on a 0.1 grid). */
 export const PLACE_STEP = 0.1;
+/** A block takes a lot type only if a row beside that type's band still holds this many small lots. */
+export const ROW_MIN_SMALLS = 2;
 /** A place is looked for within this distance of its lamp. */
 export const PLACE_REACH = 2.5;
 /** Camera facts (kept equal to camera.ts by a test): the camera looks from the south at 45 degrees with a 40 degree lens. */
@@ -544,15 +546,15 @@ interface End {
 
 const keyOf = (x: number, z: number): string => `${Math.round(x * 1e6)},${Math.round(z * 1e6)}`;
 
-/** How many equal blocks to cut a side of length `len` into, so each is as near 7..11 as it can be, and nearest 9. */
+/** How many equal blocks to cut a side of length `len` into, so each is as near 11..15 as it can be, and nearest BLOCK_PITCH. A side shorter than 11 is one block. */
 export function gridCount(len: number): number {
   let best = 1;
   let bo = Infinity;
   let bn = Infinity;
   for (let n = 1; n <= 64; n++) {
     const s = len / n;
-    const out = s < 7 ? 7 - s : s > 11 ? s - 11 : 0;
-    const near = Math.abs(s - 9);
+    const out = s < 11 ? 11 - s : s > 15 ? s - 15 : 0;
+    const near = Math.abs(s - BLOCK_PITCH);
     if (out < bo - 1e-9 || (Math.abs(out - bo) <= 1e-9 && near < bn - 1e-9)) {
       best = n;
       bo = out;
@@ -988,21 +990,24 @@ function build(puzzle: Puzzle): Town {
   // ---- the outer city blocks ----
   const blocks: TownBlock[] = [];
   const inset = half + PAVE_W;
-  const addBlock = (id: string, x0: number, z0: number, x1: number, z1: number): void => {
+  /** A block's centreline rectangle and the four streets round it (each faces into the block). */
+  const blockDefs: { x0: number; z0: number; x1: number; z1: number; top: string; bottom: string; left: string; right: string }[] = [];
+  const addBlock = (id: string, x0: number, z0: number, x1: number, z1: number, top: string, bottom: string, left: string, right: string): void => {
     blocks.push({ id, minX: x0 + inset, minZ: z0 + inset, maxX: x1 - inset, maxZ: z1 - inset });
+    blockDefs.push({ x0, z0, x1, z1, top, bottom, left, right });
   };
   for (let i = 0; i < nx; i++) {
-    addBlock(`block:n:${i}`, xs[i]!, oz0, xs[i + 1]!, ring.minY);
-    addBlock(`block:s:${i}`, xs[i]!, ring.maxY, xs[i + 1]!, oz1);
+    addBlock(`block:n:${i}`, xs[i]!, oz0, xs[i + 1]!, ring.minY, "grid:loop:n", "ring:n", `grid:n:${i}`, `grid:n:${i + 1}`);
+    addBlock(`block:s:${i}`, xs[i]!, ring.maxY, xs[i + 1]!, oz1, "ring:s", "grid:loop:s", `grid:s:${i}`, `grid:s:${i + 1}`);
   }
   for (let i = 0; i < nz; i++) {
-    addBlock(`block:w:${i}`, ox0, zs[i]!, ring.minX, zs[i + 1]!);
-    addBlock(`block:e:${i}`, ring.maxX, zs[i]!, ox1, zs[i + 1]!);
+    addBlock(`block:w:${i}`, ox0, zs[i]!, ring.minX, zs[i + 1]!, `grid:w:${i}`, `grid:w:${i + 1}`, "grid:loop:w", "ring:w");
+    addBlock(`block:e:${i}`, ring.maxX, zs[i]!, ox1, zs[i + 1]!, `grid:e:${i}`, `grid:e:${i + 1}`, "ring:e", "grid:loop:e");
   }
-  addBlock("block:nw", ox0, oz0, ring.minX, ring.minY);
-  addBlock("block:ne", ring.maxX, oz0, ox1, ring.minY);
-  addBlock("block:sw", ox0, ring.maxY, ring.minX, oz1);
-  addBlock("block:se", ring.maxX, ring.maxY, ox1, oz1);
+  addBlock("block:nw", ox0, oz0, ring.minX, ring.minY, "grid:loop:n", "grid:w:0", "grid:loop:w", "grid:n:0");
+  addBlock("block:ne", ring.maxX, oz0, ox1, ring.minY, "grid:loop:n", "grid:e:0", `grid:n:${nx}`, "grid:loop:e");
+  addBlock("block:sw", ox0, ring.maxY, ring.minX, oz1, `grid:w:${nz}`, "grid:loop:s", "grid:loop:w", "grid:s:0");
+  addBlock("block:se", ring.maxX, ring.maxY, ox1, oz1, `grid:e:${nz}`, "grid:loop:s", `grid:s:${nx}`, "grid:loop:e");
 
   // ---- what lots and places must clear ----
   const statics = new PolySet();
@@ -1236,7 +1241,7 @@ function build(puzzle: Puzzle): Town {
     if (!done) places.push(pool);
   }
 
-  // ---- lots: frontage fill, ring road, then the grid, then the circuit's streets in file order, then decor ----
+  // ---- lots: frontage fill. The ring road's inside, then the outer blocks pinwheel-fashion, then the circuit's streets in file order, then decor ----
   const lots: Lot[] = [];
   const small = LOT_TYPES.small;
   const outerDepth = BLOCK_PITCH - ROAD_W - 2 * PAVE_W - 2 * SETBACK;
@@ -1245,42 +1250,86 @@ function build(puzzle: Puzzle): Town {
     if (kind === "ring" || kind === "grid") return LOT_TYPE_NAMES.filter((t) => (LOT_TYPES[t].depth + small.depth) * WORLD_PER_METRE + LOT_GAP <= outerDepth);
     return LOT_TYPE_NAMES.filter((t) => t !== "tall");
   };
-  const order2: number[] = [];
-  for (let i = circuitRoads; i < roads.length; i++) order2.push(i);
+  /** Fill one row: the cursor starts at the row's own corner and steps by FILL_STEP when nothing fits. */
+  const slotCount = new Map<string, number>();
+  const fillRow = (front: Front, roadId: string, types: LotType[]): void => {
+    let c = 0;
+    // A road side can serve several rows (a loop street runs past many blocks): the slot count carries on along it, so keys stay unique.
+    const side = `${roadId}:${front.side}`;
+    let slot = slotCount.get(side) ?? 0;
+    while (c < front.len - 1e-9) {
+      const key = `${roadId}:${front.side}:${slot}`;
+      const h0 = stableHash(key) % types.length;
+      slot++;
+      let did = false;
+      for (let k = 0; k < types.length && !did; k++) {
+        const type = types[(h0 + k) % types.length]!;
+        const spec = LOT_TYPES[type];
+        const w = spec.frontage * WORLD_PER_METRE;
+        const d = spec.depth * WORLD_PER_METRE;
+        if (c + w > front.len + 1e-9) continue;
+        const f = frontage(front, c, w, d);
+        const poly = mkPoly(f.pts)!;
+        if (!clears(poly, spec.cap * WORLD_PER_METRE, type === "tall")) continue;
+        placed.add(poly);
+        lots.push({ x: f.cx, z: f.cz, w, d, yaw: Math.atan2(f.fx, f.fz), type, hMax: spec.cap * WORLD_PER_METRE, key, street: roadId, side: front.side });
+        c += w + LOT_GAP;
+        did = true;
+      }
+      if (!did) c += FILL_STEP;
+    }
+    slotCount.set(side, slot);
+  };
+  const ringInside = (f: Front): boolean => {
+    const cx = (ring.minX + ring.maxX) / 2;
+    const cz = (ring.minY + ring.maxY) / 2;
+    return (cx - f.ax) * f.mx + (cz - f.az) * f.mz > 0;
+  };
+  for (let ri = circuitRoads; ri < roads.length; ri++) {
+    if (roads[ri]!.kind !== "ring") continue;
+    for (const front of roadFronts(ri)) if (ringInside(front)) fillRow(front, roads[ri]!.id, typesFor("ring"));
+  }
+
+  // Outer blocks: each side's row starts at its own corner, going clockwise (north row east, east row south, south row west, west row north),
+  // and stops LOT_GAP short of the next side's band. Every side reserves its band first: the deepest type allowed there.
+  const roadById = new Map(roads.map((r) => [r.id, r] as const));
+  const sideOf = (roadId: string, mx: number, mz: number): 1 | -1 => {
+    const r = roadById.get(roadId)!;
+    const len = Math.hypot(r.bx - r.ax, r.bz - r.az);
+    return (-((r.bz - r.az) / len) * mx + ((r.bx - r.ax) / len) * mz) > 0 ? 1 : -1;
+  };
+  for (const d of blockDefs) {
+    const R = { x0: d.x0 + inset + SETBACK, z0: d.z0 + inset + SETBACK, x1: d.x1 - inset - SETBACK, z1: d.z1 - inset - SETBACK };
+    const w = R.x1 - R.x0;
+    const h = R.z1 - R.z0;
+    // The types a side takes: the ring/grid rule. `large` is five metres deeper than the rest, so one side of a block (by hash) may take it, and only
+    // where a row beside its band still holds ROW_MIN_SMALLS small lots. Every side's band is its deepest type, reserved before any row is filled.
+    const base = typesFor("ring").filter((t) => t !== "large");
+    const largeFits = typesFor("ring").includes("large") && Math.min(w, h) - LOT_TYPES.large.depth * WORLD_PER_METRE - LOT_GAP >= ROW_MIN_SMALLS * (small.frontage * WORLD_PER_METRE + LOT_GAP);
+    const largeSide = stableHash(`${d.top}|${d.left}`) % 4;
+    const sideTypes: LotType[][] = [0, 1, 2, 3].map((i) => (largeFits && i === largeSide ? [...base, "large" as LotType] : base));
+    const bands = sideTypes.map((ts) => Math.max(...ts.map((t) => LOT_TYPES[t].depth)) * WORLD_PER_METRE);
+    const off = half + PAVE_W + SETBACK;
+    // Each row runs to the next side's band (clockwise: top, right, bottom, left).
+    const rows: { road: string; ax: number; az: number; ux: number; uz: number; mx: number; mz: number; len: number }[] = [
+      { road: d.top, ax: R.x0, az: d.z0, ux: 1, uz: 0, mx: 0, mz: 1, len: w - bands[1]! - LOT_GAP },
+      { road: d.right, ax: d.x1, az: R.z0, ux: 0, uz: 1, mx: -1, mz: 0, len: h - bands[2]! - LOT_GAP },
+      { road: d.bottom, ax: R.x1, az: d.z1, ux: -1, uz: 0, mx: 0, mz: -1, len: w - bands[3]! - LOT_GAP },
+      { road: d.left, ax: d.x0, az: R.z1, ux: 0, uz: -1, mx: 1, mz: 0, len: h - bands[0]! - LOT_GAP },
+    ];
+    rows.forEach((row, i) => {
+      if (row.len < small.frontage * WORLD_PER_METRE) return;
+      fillRow({ id: row.road, ax: row.ax, az: row.az, ux: row.ux, uz: row.uz, len: row.len, mx: row.mx, mz: row.mz, off, side: sideOf(row.road, row.mx, row.mz) }, row.road, sideTypes[i]!);
+    });
+  }
+
   const kindRank = (k: RoadKind): number => (k === "line" ? 0 : k === "feed" ? 1 : 2);
   const circuitOrder: number[] = [];
   for (let i = 0; i < circuitRoads; i++) circuitOrder.push(i);
-  circuitOrder.sort((a, b) => kindRank(roads[a]!.kind) - kindRank(roads[b]!.kind) || a - b);
-  for (const ri of order2.concat(circuitOrder)) {
+  circuitOrder.sort((x, y) => kindRank(roads[x]!.kind) - kindRank(roads[y]!.kind) || x - y);
+  for (const ri of circuitOrder) {
     const r = roads[ri]!;
-    const len = roadLen(ri);
-    const types = typesFor(r.kind);
-    for (const front of roadFronts(ri)) {
-      const s = front.side;
-      let c = 0;
-      let slot = 0;
-      while (c < len - 1e-9) {
-        const key = `${r.id}:${s}:${slot}`;
-        const h0 = stableHash(key) % types.length;
-        slot++;
-        let did = false;
-        for (let k = 0; k < types.length && !did; k++) {
-          const type = types[(h0 + k) % types.length]!;
-          const spec = LOT_TYPES[type];
-          const w = spec.frontage * WORLD_PER_METRE;
-          const d = spec.depth * WORLD_PER_METRE;
-          if (c + w > len + 1e-9) continue;
-          const f = frontage(front, c, w, d);
-          const poly = mkPoly(f.pts)!;
-          if (!clears(poly, spec.cap * WORLD_PER_METRE, type === "tall")) continue;
-          placed.add(poly);
-          lots.push({ x: f.cx, z: f.cz, w, d, yaw: Math.atan2(f.fx, f.fz), type, hMax: spec.cap * WORLD_PER_METRE, key, street: r.id, side: s });
-          c += w + LOT_GAP;
-          did = true;
-        }
-        if (!did) c += FILL_STEP;
-      }
-    }
+    for (const front of roadFronts(ri)) fillRow(front, r.id, typesFor(r.kind));
   }
 
   return { roads, kerbs, pavements, pads, blocks, lots, places, ring, window: win };
