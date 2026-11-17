@@ -8,6 +8,7 @@ import { POLE_HEIGHT, wireLayout } from "./layout";
 import {
   MODEL_TABLE,
   NEIGHBOUR_GAP,
+  atFront,
   WORLD_PER_METRE,
   buildingPlan,
   isManifest,
@@ -81,6 +82,23 @@ describe("planModels", () => {
     const allSuspect = manifest({ p: [entry("Lamp", [0.3, 600, 0.3], ["scale-suspect"])] });
     expect(planModels(allSuspect, TABLE).lamp).toBeNull();
     expect(planModels(manifest({}), TABLE)).toEqual({ pole: null, lamp: null, building: null });
+  });
+
+  it("the shipped table has one pole style, SM_Prop_Powerpole_01 only, and every intermediate pole is that model (041 C)", async () => {
+    expect(MODEL_TABLE.filter((r) => r.slot === "pole").map((r) => r.names)).toEqual([["SM_Prop_Powerpole_01"]]);
+    // With both pole models in a (fake) pack, every pole is still the one.
+    const sizes = { SM_Prop_Powerpole_01: [0.8, 6.3, 2.6], SM_Prop_Powerpole_Single_01: [0.4, 6.3, 0.4] } as const;
+    const m = manifest({ "apocalypse-power": Object.entries(sizes).map(([n, z]) => entry(n, z)) });
+    const set = await loadModels({ fetchJson: async (): Promise<unknown> => m, loadGlb: async () => fakeGlb(Object.keys(sizes), sizes), info: () => {} });
+    expect(set.pole!.map((p) => p.entry.name)).toEqual(["SM_Prop_Powerpole_01"]);
+    const b = buildScene(puzzle, { text: stubTextSurface });
+    const applied = applyModels(b, set);
+    const poles = b.slots.models.children.filter((c) => c.name.startsWith("model:SM_Prop_Powerpole"));
+    expect(poles).toHaveLength(b.slots.poles.spots.length);
+    expect(poles.length).toBeGreaterThan(0);
+    expect(poles.every((c) => c.name === "model:SM_Prop_Powerpole_01")).toBe(true);
+    applied.remove();
+    b.dispose();
   });
 
   it("the shipped table names only models of two packs, none with a baked-in wire", () => {
@@ -351,13 +369,17 @@ describe("buildings stand at one scale and inside their lots (every map)", () =>
         const m = planned.get(p.model.entry.name)!;
         expect(p.scale).toBe(WORLD_PER_METRE);
         expect(p.yaw).toBeCloseTo(lot.yaw + m.front, 9);
-        expect(p.x).toBe(lot.x);
-        expect(p.z).toBe(lot.z);
         expect(lotTypeOf(m.entry, m.front)).toBe(lot.type);
         fronts.add(m.front);
         // Turned by `front`, the model's frontage and depth are across and away from the road, in the lot's own frame.
         const [w, h, d] = sizeOf(m.entry);
         const quarter = Math.abs(Math.sin(m.front)) > 0.5;
+        // Setback (041 C): the clone's front face is against its lot's front edge, not centred, so every building shares the lot's setback.
+        const along = (p.x - lot.x) * Math.sin(lot.yaw) + (p.z - lot.z) * Math.cos(lot.yaw);
+        const sideways = (p.x - lot.x) * Math.cos(lot.yaw) - (p.z - lot.z) * Math.sin(lot.yaw);
+        expect(along + ((quarter ? w : d) * p.scale) / 2, `${name} ${lot.key} front face`).toBeCloseTo(lot.d / 2, 9);
+        expect(along).toBeGreaterThanOrEqual(-1e-9);
+        expect(Math.abs(sideways), `${name} ${lot.key} not sideways`).toBeLessThan(1e-9);
         expect((quarter ? d : w) * p.scale, `${name} ${lot.key}`).toBeLessThanOrEqual(lot.w + 1e-9);
         expect((quarter ? w : d) * p.scale, `${name} ${lot.key}`).toBeLessThanOrEqual(lot.d + 1e-9);
         expect(h * p.scale).toBeLessThanOrEqual(lot.hMax + 1e-9);
@@ -418,7 +440,7 @@ describe("applyModels", () => {
     const b = buildScene(puzzle, { text: stubTextSurface });
     const spots = b.slots.poles.spots.length;
     const lots = townLayout(puzzle).lots;
-    expect(spots).toBeGreaterThan(5);
+    expect(spots).toBeGreaterThan(2);
     expect(lots.length).toBeGreaterThan(50);
     expect(b.slots.blocks.list).toBe(lots);
     const applied = applyModels(b, await fullSet());
@@ -442,9 +464,12 @@ describe("applyModels", () => {
       expect(c.scale.x).toBe(WORLD_PER_METRE);
       expect(c.scale.y).toBe(WORLD_PER_METRE);
       expect(c.scale.z).toBe(WORLD_PER_METRE);
-      expect(c.position.x).toBeCloseTo(lot.x, 9);
-      expect(c.position.z).toBeCloseTo(lot.z, 9);
       const front = c.name === "model:Q1" ? Math.PI / 2 : 0;
+      // Against the lot's front edge: the model's footprint depth across the road, from the fake model's size.
+      const [mw, , md] = FULL_SIZES[c.name.slice(6)]!;
+      const depth = (front ? mw : md) * WORLD_PER_METRE;
+      expect(c.position.x).toBeCloseTo(atFront(lot, depth).x, 9);
+      expect(c.position.z).toBeCloseTo(atFront(lot, depth).z, 9);
       expect(c.rotation.y).toBeCloseTo(lot.yaw + front, 9);
     });
     applied.remove();
@@ -656,5 +681,46 @@ describe("nothing private is bundled", () => {
     }
     const imports3d = [...readFileSync("src/render3d/models3d.ts", "utf8").matchAll(/from\s+"([^"]+)"/g)].map((m) => m[1]!);
     for (const i of imports3d) expect(i, i).not.toMatch(/\.\.\/(grid|night|play|ui)\b/);
+  });
+});
+
+describe("atFront: every building stands against the front edge of its lot (041 B review, setback)", () => {
+  const distToRoad = (r: { ax: number; az: number; bx: number; bz: number }, x: number, z: number): number => {
+    const vx = r.bx - r.ax;
+    const vz = r.bz - r.az;
+    const t = Math.max(0, Math.min(1, ((x - r.ax) * vx + (z - r.az) * vz) / (vx * vx + vz * vz)));
+    return Math.hypot(x - (r.ax + vx * t), z - (r.az + vz * t));
+  };
+
+  it("moves a shallow body toward its road by (lot depth - body depth) / 2, and leaves one as deep as the lot where it is", () => {
+    const lot = { x: 5, z: 7, w: 2, d: 4, yaw: Math.PI / 2, type: "small", hMax: 2, key: "k", street: "r", side: 1 } as unknown as Lot;
+    // yaw PI/2 turns the lot's front to +x.
+    expect(atFront(lot, 4)).toEqual({ x: 5, z: 7 });
+    const a = atFront(lot, 2.5);
+    expect(a.x).toBeCloseTo(5 + 0.75, 12);
+    expect(a.z).toBeCloseTo(7, 12);
+    // The front face of a body of depth 2.5 is then at the lot's front edge.
+    expect(a.x + 2.5 / 2).toBeCloseTo(5 + 4 / 2, 12);
+  });
+
+  it("puts the front face of every body, whatever its depth, the same distance from the road: the lot's own setback, on 09 and 56", () => {
+    for (const f of ["09-shrine-circuit", "56-whole-ward"]) {
+      const pz = loadPuzzle(JSON.parse(readFileSync(`puzzles/${f}.json`, "utf8")));
+      const town = townLayout(pz);
+      const roads = new Map(town.roads.map((r) => [r.id, r] as const));
+      for (const lot of town.lots) {
+        const road = roads.get(lot.street)!;
+        const frontEdge = { x: lot.x + Math.sin(lot.yaw) * (lot.d / 2), z: lot.z + Math.cos(lot.yaw) * (lot.d / 2) };
+        // The lot's front faces its road: the front edge is nearer the road's centreline than the lot's centre.
+        expect(distToRoad(road, frontEdge.x, frontEdge.z), `${f} ${lot.key} faces its road`).toBeLessThan(distToRoad(road, lot.x, lot.z));
+        for (const depth of [0.8 * lot.d, 0.9 * lot.d, lot.d]) {
+          const at = atFront(lot, depth);
+          const faceX = at.x + Math.sin(lot.yaw) * (depth / 2);
+          const faceZ = at.z + Math.cos(lot.yaw) * (depth / 2);
+          expect(faceX).toBeCloseTo(frontEdge.x, 9);
+          expect(faceZ).toBeCloseTo(frontEdge.z, 9);
+        }
+      }
+    }
   });
 });

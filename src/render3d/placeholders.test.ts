@@ -3,7 +3,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { Matrix4, type InstancedMesh } from "three";
 import { loadPuzzle, type Puzzle } from "../core";
-import { NEIGHBOUR_GAP, WORLD_PER_METRE, lotGap } from "./models";
+import { NEIGHBOUR_GAP, WORLD_PER_METRE, atFront, lotGap } from "./models";
 import { FOOTPRINT_FACTORS, STOREYS, TINTS, pickPlaceholders, placeholderBuilding, variantCount } from "./placeholders";
 import { buildScene } from "./scene";
 import { LOT_TYPE_NAMES, STOREY_M, townLayout, type Lot, type LotType } from "./town";
@@ -146,8 +146,14 @@ describe("the scene with no models", () => {
         bodies.getMatrixAt(k, probe);
         const [l, s] = mine[k]!;
         const e = probe.elements;
-        expect(e[12], t).toBeCloseTo(l.x, 4);
-        expect(e[14]).toBeCloseTo(l.z, 4);
+        // Setback (041 C): the body's front face is against its lot's front edge, not centred on the lot.
+        const at = atFront(l, s.d);
+        expect(e[12], t).toBeCloseTo(at.x, 4);
+        expect(e[14]).toBeCloseTo(at.z, 4);
+        const along = (e[12]! - l.x) * Math.sin(l.yaw) + (e[14]! - l.z) * Math.cos(l.yaw);
+        expect(along + s.d / 2, `${t} ${l.key} front face`).toBeCloseTo(l.d / 2, 4);
+        // The matrix carries the lot's yaw (the body's local +z, its front, points at the road).
+        expect(Math.atan2(e[8]!, e[10]!), `${t} ${l.key} yaw`).toBeCloseTo(Math.atan2(Math.sin(l.yaw), Math.cos(l.yaw)), 4);
         expect(Math.hypot(e[0]!, e[1]!, e[2]!)).toBeCloseTo(s.w, 4);
         expect(Math.hypot(e[4]!, e[5]!, e[6]!)).toBeCloseTo(s.bodyH, 4);
         expect(Math.hypot(e[8]!, e[9]!, e[10]!)).toBeCloseTo(s.d, 4);

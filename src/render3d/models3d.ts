@@ -12,12 +12,14 @@ import { stableHash } from "../render/city";
 import {
   MODEL_SLOTS,
   MODEL_TABLE,
+  atFront,
   buildingPlan,
   isManifest,
   modelScale,
   pickBuildings,
   pickIndex,
   planModels,
+  sizeOf,
   poleYaw,
   type ModelChoice,
   type ModelSlot,
@@ -174,7 +176,10 @@ function place(m: LoadedModel, scale: number, x: number, z: number, yaw: number)
 
 const at = (list: readonly LoadedModel[], key: string): LoadedModel => list[pickIndex(stableHash(key), list.length)]!;
 
-/** One building clone: which lot, which model, and where it stands. Its scale is WORLD_PER_METRE on every axis. */
+/**
+ * One building clone: which lot, which model, and where it stands. Its scale is WORLD_PER_METRE on every axis. (x, z) is the model's base
+ * centre, moved off the lot's centre toward its front so the model's front face is against the lot's front edge (`atFront`).
+ */
 export interface BuildingPlacement {
   lot: number;
   model: LoadedModel;
@@ -196,7 +201,13 @@ export function buildingPlacements(lots: readonly Lot[], buildings: readonly Loa
   const out: BuildingPlacement[] = [];
   lots.forEach((lot, i) => {
     const m = names[i] ? byName.get(names[i]!) : undefined;
-    if (m) out.push({ lot: i, model: m, scale: modelScale(m.entry, "building"), x: lot.x, z: lot.z, yaw: lot.yaw + m.front });
+    if (!m) return;
+    const scale = modelScale(m.entry, "building");
+    // The model's footprint depth across the road is its own depth, or its width when its front is a quarter turn away.
+    const [w, , d] = sizeOf(m.entry);
+    const depth = (Math.abs(Math.sin(m.front)) > 0.5 ? w : d) * scale;
+    const spot = atFront(lot, depth);
+    out.push({ lot: i, model: m, scale, x: spot.x, z: spot.z, yaw: lot.yaw + m.front });
   });
   return out;
 }

@@ -16,6 +16,7 @@ import {
   SpriteMaterial,
   Float32BufferAttribute,
   BoxGeometry,
+  BufferAttribute,
   BufferGeometry,
   CircleGeometry,
   Color,
@@ -34,6 +35,7 @@ import {
   MeshStandardMaterial,
   Object3D,
   PointLight,
+  Quaternion,
   RGBAFormat,
   RingGeometry,
   Scene,
@@ -48,9 +50,9 @@ import type { GridNode, Puzzle } from "../core";
 import type { GridState } from "../grid";
 import { hash01 } from "../render/motion";
 import { FLARE_SECONDS, type RelightPlan } from "../render/relight";
-import { BREAK_GAP, NODE_BODY_Y, POLE_HEIGHT, WIRE_RADIUS, cumulative, pointAlong, runPoints, shadowOf, wireLayout, type Vec3, type WireRun } from "./layout";
+import { BREAK_GAP, NODE_BODY_Y, PHASE_OFFSET, POLE_HEIGHT, SAG_SEGMENTS, WIRE_RADIUS, canLayout, cumulative, dropLayout, pointAlong, runPoints, shadowOf, wireLayout, type Can, type Drop, type Vec3, type WireRun } from "./layout";
 import { KERB_H, LOT_TYPE_NAMES, ROAD_W, STOREY_M, townLayout, type Lot, type LotType, type Pt, type Town } from "./town";
-import { WORLD_PER_METRE } from "./models";
+import { WORLD_PER_METRE, atFront } from "./models";
 import { ROOF_SHADE, TINTS, pickPlaceholders } from "./placeholders";
 import { lampBrightness, nodeLookInto, type NodeLook } from "./look";
 import { createRelightClock, lampIgnition, lineFraction, nodeArrived, placeGlowStep, type LampIgnition } from "./relight3d";
@@ -78,9 +80,23 @@ export interface SceneBundle {
   slots: ModelSlots;
   /** The streets, drawn from the town layout (ticket 041 B): one mesh or instance per road, kerb and pad. */
   streets: StreetParts;
+  /** What hangs on the poles (ticket 041 C): insulators, transformer cans and the service drops. All scenery: none can be picked. */
+  hardware: PoleHardware;
   /** The canvas size in css px and the camera's vertical field of view, so captions keep a fixed pixel size. */
   setViewport(width: number, height: number, fovDeg: number): void;
   dispose(): void;
+}
+
+/** The pole hardware drawn in code (ticket 041 C). Every mesh here has its raycast turned off. */
+export interface PoleHardware {
+  /** Three per intermediate pole, under each conductor's attachment point, run by run, pole by pole, conductor by conductor. */
+  insulators: InstancedMesh;
+  /** One per pole that carries a drop. */
+  cans: InstancedMesh;
+  /** One thin wire per service drop. */
+  drops: InstancedMesh;
+  canList: readonly Can[];
+  dropList: readonly Drop[];
 }
 
 /** Where an intermediate pole stands and the yaw of its cross-arm (map x, map y as world z). */
@@ -169,6 +185,8 @@ function poolTexture(): DataTexture {
 
 /** What the scene holds for one line, for the update and for tests. */
 export interface WireParts {
+  /** How many conductors the run has: three on a run with an intermediate pole, one without. Each mesh below holds all of them. */
+  conductors: number;
   /** The whole wire. Hidden while a damaged cable sparks (its halves show instead). */
   whole: Mesh;
   wholeMat: MeshStandardMaterial;
@@ -183,7 +201,7 @@ export interface WireParts {
   bead: Mesh;
   /** The spark at the live half's tip. */
   spark: Mesh;
-  /** The whole wire's shadow, then each half's (a broken run only). */
+  /** The whole wire's shadow, then each half's (a broken run only). Each has one strip per conductor. */
   shadows: Mesh[];
   /** A broken run's pick targets (an invisible box over the gap and a line along each hanging end); `userData.pickOff` is true unless the break shows. */
   breakTargets: Object3D[];
@@ -217,8 +235,9 @@ interface WireView {
   hadFault: boolean;
   parts: WireParts;
   overlayMat: MeshStandardMaterial;
-  /** Index count of the overlay tube. */
+  /** Index count of the overlay tubes (all conductors), and the step its draw range grows by: one quad of every conductor. */
   total: number;
+  quantum: number;
   pts: Vec3[];
   cum: number[];
   hPts: [Vec3[], Vec3[]] | null;
@@ -482,18 +501,22 @@ function buildPlaceholders(lots: readonly Lot[]): { root: Object3D; byType: Reco
       const l = lots[li]!;
       const s = specs[li]!;
       const hex = TINTS[s.tint]!;
-      put(bodies, k, l.x, 0, l.z, l.yaw, s.w, s.bodyH, s.d, hex, 1);
-      for (let j = 1; j < s.storeys; j++) put(bandMesh, b++, l.x, j * storeyH - bandH / 2, l.z, l.yaw, s.w * BAND_OUT, bandH, s.d * BAND_OUT, hex, BAND_LIGHT);
+      // The body stands against its lot's front edge (one setback for every building), not centred on the lot.
+      const at = atFront(l, s.d);
+      put(bodies, k, at.x, 0, at.z, l.yaw, s.w, s.bodyH, s.d, hex, 1);
+      for (let j = 1; j < s.storeys; j++) put(bandMesh, b++, at.x, j * storeyH - bandH / 2, at.z, l.yaw, s.w * BAND_OUT, bandH, s.d * BAND_OUT, hex, BAND_LIGHT);
     });
     flats.forEach((li, k) => {
       const l = lots[li]!;
       const s = specs[li]!;
-      put(flatRoofs, k, l.x, s.bodyH, l.z, l.yaw, s.w * ROOF_OUT, s.roofH, s.d * ROOF_OUT, TINTS[s.tint]!, ROOF_SHADE);
+      const at = atFront(l, s.d);
+      put(flatRoofs, k, at.x, s.bodyH, at.z, l.yaw, s.w * ROOF_OUT, s.roofH, s.d * ROOF_OUT, TINTS[s.tint]!, ROOF_SHADE);
     });
     slopes.forEach((li, k) => {
       const l = lots[li]!;
       const s = specs[li]!;
-      put(pitchedRoofs, k, l.x, s.bodyH, l.z, l.yaw, s.w * ROOF_OUT, s.roofH, s.d * ROOF_OUT, TINTS[s.tint]!, ROOF_SHADE);
+      const at = atFront(l, s.d);
+      put(pitchedRoofs, k, at.x, s.bodyH, at.z, l.yaw, s.w * ROOF_OUT, s.roofH, s.d * ROOF_OUT, TINTS[s.tint]!, ROOF_SHADE);
     });
     bodies.count = mine.length;
     bandMesh.count = bands;
@@ -508,6 +531,84 @@ function buildPlaceholders(lots: readonly Lot[]): { root: Object3D; byType: Reco
     root.add(group);
   }
   return { root, byType };
+}
+
+// ---- poles, conductors and drops (ticket 041 C) ----
+
+/** The placeholder cross-arm: at least 2 x PHASE_OFFSET + 0.1 long. */
+export const ARM_LEN = 0.7;
+/** The arm's centre sits this far under the wire's height, so its top meets the insulators' feet (INSULATOR_H + half the arm's 0.08 height). */
+const ARM_DROP = 0.16;
+/** An insulator: a pale glazed grey-green post, this tall, standing on the arm under the conductor's attachment point. */
+export const INSULATOR_H = 0.12;
+const INSULATOR = 0x8fa99a;
+const CAN = 0x7d8794;
+const CAN_R = 0.06;
+const CAN_H = 0.2;
+const DROP_COLOR = 0x39414f;
+export const DROP_RADIUS = 0.012;
+
+/** Indices in one radial quad of a tube (two triangles). */
+const QUAD = 6;
+
+/**
+ * One geometry for every conductor of a run: a tube round each polyline, merged, with the index interleaved quad by quad across
+ * the tubes (quad 0 of each, then quad 1 of each, ...). A draw range that grows by `QUAD * lines.length` indices then lights all
+ * the conductors the same distance along, from either end. The polylines must have the same number of points.
+ */
+export function strandGeometry(lines: readonly (readonly Vec3[])[], radius: number): BufferGeometry {
+  const tubes = lines.map((pts) => {
+    const curve = new CatmullRomCurve3(pts.map((p) => new Vector3(p.x, p.y, p.z)), false, "catmullrom", 0.1);
+    return new TubeGeometry(curve, pts.length * 2, radius, WIRE_RADIAL, false);
+  });
+  if (tubes.length === 1) return tubes[0]!;
+  const first = tubes[0]!;
+  const vertices = first.getAttribute("position").count;
+  const g = new BufferGeometry();
+  for (const [name, size] of [["position", 3], ["normal", 3], ["uv", 2]] as const) {
+    const data = new Float32Array(vertices * size * tubes.length);
+    tubes.forEach((t, k) => data.set(t.getAttribute(name).array as Float32Array, k * vertices * size));
+    g.setAttribute(name, new Float32BufferAttribute(data, size));
+  }
+  const quads = first.index!.count / QUAD;
+  const index = new Uint32Array(quads * QUAD * tubes.length);
+  let w = 0;
+  for (let q = 0; q < quads; q++) {
+    tubes.forEach((t, k) => {
+      for (let e = 0; e < QUAD; e++) index[w++] = t.index!.getX(q * QUAD + e) + k * vertices;
+    });
+  }
+  g.setIndex(new BufferAttribute(index, 1));
+  for (const t of tubes) t.dispose();
+  return g;
+}
+
+/** A flat strip on the street under each polyline: its x and z, at SHADOW_Y, in one geometry. */
+export function shadowGeometry(lines: readonly (readonly Vec3[])[]): BufferGeometry {
+  const pos: number[] = [];
+  const idx: number[] = [];
+  for (const line of lines) {
+    const sh = shadowOf(line);
+    const base = pos.length / 3;
+    sh.forEach((p, i) => {
+      const a = sh[Math.max(i - 1, 0)]!;
+      const b = sh[Math.min(i + 1, sh.length - 1)]!;
+      let tx = b.x - a.x;
+      let tz = b.z - a.z;
+      const len = Math.hypot(tx, tz) || 1;
+      tx /= len;
+      tz /= len;
+      pos.push(p.x - tz * 0.03, p.y, p.z + tx * 0.03, p.x + tz * 0.03, p.y, p.z - tx * 0.03);
+      if (i > 0) {
+        const k = base + 2 * i;
+        idx.push(k - 2, k - 1, k, k - 1, k + 1, k);
+      }
+    });
+  }
+  const g = new BufferGeometry();
+  g.setAttribute("position", new Float32BufferAttribute(pos, 3));
+  g.setIndex(idx);
+  return g;
 }
 
 export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle {
@@ -562,12 +663,13 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
     }
   }
   const woodMat = new MeshStandardMaterial({ color: POLE_WOOD, roughness: 1 });
-  const poles = new InstancedMesh(new CylinderGeometry(0.07, 0.09, POLE_HEIGHT, 8), woodMat, Math.max(poleList.length, 1));
-  const arms = new InstancedMesh(new BoxGeometry(0.7, 0.08, 0.08), woodMat, Math.max(poleList.length, 1));
+  const poles = new InstancedMesh(new CylinderGeometry(0.07, 0.09, POLE_HEIGHT - INSULATOR_H, 8), woodMat, Math.max(poleList.length, 1));
+  const arms = new InstancedMesh(new BoxGeometry(ARM_LEN, 0.08, 0.08), woodMat, Math.max(poleList.length, 1));
   poleList.forEach((p, i) => {
-    mat4.makeTranslation(p.x, POLE_HEIGHT / 2, p.z);
+    // The placeholder pole stops where the insulators start, so the centre conductor's insulator stands on it in plain view.
+    mat4.makeTranslation(p.x, (POLE_HEIGHT - INSULATOR_H) / 2, p.z);
     poles.setMatrixAt(i, mat4);
-    mat4.makeRotationY(poleYaw[i]!).setPosition(p.x, POLE_HEIGHT - 0.08, p.z);
+    mat4.makeRotationY(poleYaw[i]!).setPosition(p.x, POLE_HEIGHT - ARM_DROP, p.z);
     arms.setMatrixAt(i, mat4);
   });
   poles.count = poleList.length;
@@ -584,8 +686,58 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
   feet.count = footSpots.length;
   scene.add(feet);
 
-  // Wires: a tube, an invisible pick line, a flat shadow on the street, a bead that carries the direction of flow, and a spark for a break.
-  // A line with a damaged cable in the file also has two hanging halves and their shadows, shown instead of the whole while it sparks.
+  // Hardware drawn in code: an insulator under each conductor's attachment on every intermediate pole, a transformer can on each pole
+  // that feeds a building, and a thin service drop to each building. Scenery: nothing here is a pick target and nothing follows the state.
+  const noRaycast = (o: Object3D): void => {
+    o.raycast = () => {};
+  };
+  let insulatorCount = 0;
+  for (const r of runs) if (r.attach.length > 2) insulatorCount += (r.attach.length - 2) * r.conductors.length;
+  const insulators = new InstancedMesh(new CylinderGeometry(0.03, 0.045, INSULATOR_H, 8), new MeshStandardMaterial({ color: INSULATOR, roughness: 0.35 }), Math.max(insulatorCount, 1));
+  let ii = 0;
+  for (const r of runs) {
+    for (let i = 1; i < r.attach.length - 1; i++) {
+      for (const c of r.conductors) {
+        const p = c[i * SAG_SEGMENTS]!;
+        mat4.makeTranslation(p.x, p.y - INSULATOR_H / 2, p.z);
+        insulators.setMatrixAt(ii++, mat4);
+      }
+    }
+  }
+  insulators.count = insulatorCount;
+  const dropList = dropLayout(town, runs);
+  const canList = canLayout(dropList, runs);
+  const cans = new InstancedMesh(new CylinderGeometry(CAN_R, CAN_R, CAN_H, 10), new MeshStandardMaterial({ color: CAN, roughness: 0.6, metalness: 0.2 }), Math.max(canList.length, 1));
+  canList.forEach((c, i) => {
+    mat4.makeTranslation(c.x, c.y, c.z);
+    cans.setMatrixAt(i, mat4);
+  });
+  cans.count = canList.length;
+  const drops = new InstancedMesh(new CylinderGeometry(DROP_RADIUS, DROP_RADIUS, 1, 4).translate(0, 0.5, 0), new MeshStandardMaterial({ color: DROP_COLOR, roughness: 0.8 }), Math.max(dropList.length, 1));
+  const up = new Vector3(0, 1, 0);
+  const along = new Vector3();
+  const turn = new Quaternion();
+  const dropScale = new Vector3();
+  const dropAt = new Vector3();
+  dropList.forEach((d, i) => {
+    along.set(d.to.x - d.from.x, d.to.y - d.from.y, d.to.z - d.from.z);
+    const len = along.length();
+    turn.setFromUnitVectors(up, along.divideScalar(len || 1));
+    mat4.compose(dropAt.set(d.from.x, d.from.y, d.from.z), turn, dropScale.set(1, len, 1));
+    drops.setMatrixAt(i, mat4);
+  });
+  drops.count = dropList.length;
+  for (const im of [insulators, cans, drops]) {
+    im.instanceMatrix.needsUpdate = true;
+    noRaycast(im);
+    scene.add(im);
+  }
+  const hardware: PoleHardware = { insulators, cans, drops, canList, dropList };
+
+  // Wires: three conductors to a run (one when it has no intermediate pole), each a tube, with one invisible pick line along the centre
+  // conductor, a flat shadow on the street, a bead that carries the direction of flow, and a spark for a break. A line with a damaged
+  // cable in the file also has two hanging halves (every conductor cut in the same span) and their shadows, shown instead of the whole
+  // while it sparks. The conductors of a run share one geometry and one material per part, so they always show the same look.
   const beadGeo = new SphereGeometry(0.075, 8, 6);
   const sparkGeo = new SphereGeometry(0.11, 8, 6);
   const frontGeo = new SphereGeometry(0.13, 8, 6);
@@ -597,30 +749,9 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
   const shadowMat = new MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.55, depthWrite: false });
   const lineIndex = new Map(puzzle.lines.map((l, i) => [l.id, i] as const));
   const V = (p: Vec3): Vector3 => new Vector3(p.x, p.y, p.z);
-  const tube = (pts: readonly Vec3[], radius: number, mat: Material): Mesh => {
-    const curve = new CatmullRomCurve3(pts.map(V), false, "catmullrom", 0.1);
-    return new Mesh(new TubeGeometry(curve, pts.length * 2, radius, WIRE_RADIAL, false), mat);
-  };
-  /** A flat strip on the street under a polyline: its x and z, at SHADOW_Y. */
-  const shadowStrip = (pts: readonly Vec3[], id: string): Mesh => {
-    const sh = shadowOf(pts);
-    const pos: number[] = [];
-    const idx: number[] = [];
-    sh.forEach((p, i) => {
-      const a = sh[Math.max(i - 1, 0)]!;
-      const b = sh[Math.min(i + 1, sh.length - 1)]!;
-      let tx = b.x - a.x;
-      let tz = b.z - a.z;
-      const len = Math.hypot(tx, tz) || 1;
-      tx /= len;
-      tz /= len;
-      pos.push(p.x - tz * 0.05, p.y, p.z + tx * 0.05, p.x + tz * 0.05, p.y, p.z - tx * 0.05);
-      if (i > 0) idx.push(2 * i - 2, 2 * i - 1, 2 * i, 2 * i - 1, 2 * i + 1, 2 * i);
-    });
-    const g = new BufferGeometry();
-    g.setAttribute("position", new Float32BufferAttribute(pos, 3));
-    g.setIndex(idx);
-    const m = new Mesh(g, shadowMat);
+  const strands = (lines: readonly (readonly Vec3[])[], radius: number, mat: Material): Mesh => new Mesh(strandGeometry(lines, radius), mat);
+  const shadowStrips = (lines: readonly (readonly Vec3[])[], id: string): Mesh => {
+    const m = new Mesh(shadowGeometry(lines), shadowMat);
     m.userData["shadowOf"] = id;
     return m;
   };
@@ -628,13 +759,13 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
     const pts = runPoints(run);
     const hadFault = puzzle.faults.some((f) => f.at === run.id);
     const wholeMat = new MeshStandardMaterial({ color: DEAD_WIRE, roughness: 0.6, emissive: LIVE_GLOW, emissiveIntensity: 0 });
-    const whole = tube(pts, WIRE_RADIUS, wholeMat);
+    const whole = strands(run.conductors, WIRE_RADIUS, wholeMat);
     const overlayMat = new MeshStandardMaterial({ color: LIVE_WIRE, roughness: 0.6, emissive: LIVE_GLOW, emissiveIntensity: 0 });
-    const overlay = tube(pts, WIRE_RADIUS * 1.12, overlayMat);
+    const overlay = strands(run.conductors, WIRE_RADIUS * 1.12, overlayMat);
     overlay.visible = false;
     overlay.geometry.setDrawRange(0, 0);
     scene.add(whole, overlay);
-    const shadows = [shadowStrip(pts, run.id)];
+    const shadows = [shadowStrips(run.conductors, run.id)];
     const pick = new Line(new BufferGeometry().setFromPoints(pts.map(V)), pickMat);
     pick.userData["pickKind"] = "wire";
     pick.userData["pickId"] = run.id;
@@ -648,24 +779,25 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
     if (brk) {
       hPts = brk.halves;
       halfMats = [0, 1].map(() => new MeshStandardMaterial({ color: DEAD_WIRE, roughness: 0.6, emissive: LIVE_GLOW, emissiveIntensity: 0 })) as [MeshStandardMaterial, MeshStandardMaterial];
-      halves = [tube(brk.halves[0], WIRE_RADIUS, halfMats[0]), tube(brk.halves[1], WIRE_RADIUS, halfMats[1])];
+      halves = [0, 1].map((h) => strands(brk.cuts.map((c) => c.halves[h]!), WIRE_RADIUS, halfMats![h]!)) as [Mesh, Mesh];
       for (const h of halves) {
         h.visible = false;
         scene.add(h);
       }
-      for (const half of brk.halves) {
-        const sh = shadowStrip(half, run.id);
+      for (const h of [0, 1]) {
+        const sh = shadowStrips(brk.cuts.map((c) => c.halves[h]!), run.id);
         sh.visible = false;
         shadows.push(sh);
       }
-      // Pick targets: a line along each hanging end and a box over the gap. All answer to the line, but only while the break shows.
+      // Pick targets: a line along each hanging end (the centre conductor's) and a box over the gap, wide enough to hold every
+      // conductor's gap. All answer to the line, but only while the break shows.
       for (const end of brk.ends) {
         const l = new Line(new BufferGeometry().setFromPoints(end.map(V)), pickMat);
         breakTargets.push(l);
       }
       const a = brk.ends[0][0]!;
       const b = brk.ends[1][0]!;
-      const box3 = new Mesh(new BoxGeometry(BREAK_GAP_PICK, POLE_HEIGHT - brk.gap.y, 0.3), pickBoxMat);
+      const box3 = new Mesh(new BoxGeometry(BREAK_GAP_PICK, POLE_HEIGHT - brk.gap.y, 2 * (PHASE_OFFSET + 0.1)), pickBoxMat);
       box3.position.set(brk.gap.x, (POLE_HEIGHT + brk.gap.y) / 2, brk.gap.z);
       box3.rotation.y = -Math.atan2(b.z - a.z, b.x - a.x);
       breakTargets.push(box3);
@@ -684,7 +816,7 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
     const spark = new Mesh(sparkGeo, new MeshBasicMaterial({ color: 0xffd9a0 }));
     spark.visible = false;
     scene.add(bead, front, spark);
-    const parts: WireParts = { whole, wholeMat, halves, halfMats, overlay, front, bead, spark, shadows, breakTargets };
+    const parts: WireParts = { conductors: run.conductors.length, whole, wholeMat, halves, halfMats, overlay, front, bead, spark, shadows, breakTargets };
     wireParts.set(run.id, parts);
     const w: WireView = {
       run,
@@ -693,6 +825,7 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
       parts,
       overlayMat,
       total: overlay.geometry.index!.count,
+      quantum: QUAD * run.conductors.length,
       pts,
       cum: cumulative(pts),
       hPts,
@@ -1118,7 +1251,7 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
     }
     // A Relight: the whole wire stays dull while the live look grows from the flow-from end, with a warm head at its front.
     deadLook(p.wholeMat, repaired, boost);
-    const count = Math.floor((frac * w.total) / 3) * 3;
+    const count = Math.floor((frac * w.total) / w.quantum) * w.quantum;
     p.overlay.visible = count > 0;
     if (count > 0) {
       liveLook(w.overlayMat, w, t, boost);
@@ -1147,6 +1280,7 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
     parts: parts_,
     slots: { poles: { spots: poleSpots, placeholders: [poles, arms] }, lamps: lampSlots, blocks: { list: town.lots, placeholder: placeholders.root, byType: placeholders.byType }, models: modelGroup },
     streets,
+    hardware,
     setViewport(_width, height, fovDeg) {
       unit = scaleForPx(1, height, fovDeg);
       for (const c of capViews) c.cs.setUnit(unit);

@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { Box3, BoxGeometry, Matrix4, MeshStandardMaterial, PointLight, Raycaster, TubeGeometry, Vector3, type Mesh, type Object3D } from "three";
+import { Box3, BoxGeometry, Matrix4, MeshStandardMaterial, PointLight, Raycaster, Vector3, type InstancedMesh, type Mesh, type Object3D } from "three";
 import { EventBus, loadPuzzle, type Puzzle } from "../core";
 import { createGrid } from "../grid";
 import { ELEVATION, FOV_DEG, createCameraRig } from "./camera";
 import { captionTextPx } from "./captions";
 import { stubTextSurface } from "./text";
-import { NODE_BODY_Y, POLE_HEIGHT, SHADOW_Y, runPoints, shadowOf, wireLayout } from "./layout";
-import { buildScene } from "./scene";
+import { NODE_BODY_Y, PHASE_OFFSET, POLE_HEIGHT, SAG_RATIO, SAG_SEGMENTS, SHADOW_Y, WIRE_RADIUS, canLayout, dropLayout, runPoints, shadowOf, wireLayout } from "./layout";
+import { ARM_LEN, INSULATOR_H, buildScene } from "./scene";
+import { townLayout } from "./town";
 
 const puzzle: Puzzle = loadPuzzle(JSON.parse(readFileSync("puzzles/09-shrine-circuit.json", "utf8")));
 
@@ -269,11 +270,13 @@ describe("wires and poles (C1)", () => {
 
   it("makes a pole and a cross-arm for every intermediate attachment point, the arm turned across its run and at least 0.6 long", () => {
     const inter = runs.reduce((n, r) => n + r.attach.length - 2, 0);
-    expect(inter).toBe(9);
+    // Poles are at most 3 apart (041 C): l_b (two spans) and two other long lines each have one pole between their nodes.
+    expect(inter).toBe(3);
     const { poles, arms } = bundle.poles;
     expect(poles.count).toBe(inter);
     expect(arms.count).toBe(inter);
-    expect((arms.geometry as BoxGeometry).parameters.width).toBeGreaterThanOrEqual(0.6);
+    expect((arms.geometry as BoxGeometry).parameters.width).toBe(ARM_LEN);
+    expect(ARM_LEN).toBeGreaterThanOrEqual(2 * PHASE_OFFSET + 0.1);
     const m = new Matrix4();
     let k = 0;
     for (const r of runs) {
@@ -318,11 +321,11 @@ describe("wires and poles (C1)", () => {
     const b = lf.attach[1]!;
     const chord = project((a.x + b.x) / 2, POLE_HEIGHT, (a.z + b.z) / 2);
     const sag = project(lf.mid.x, lf.mid.y, lf.mid.z);
-    expect(Math.hypot(chord.x - sag.x, chord.y - sag.y)).toBeGreaterThanOrEqual(6);
-    for (const r of runs) {
-      const g = bundle.wires.get(r.id)!.whole.geometry as TubeGeometry;
-      expect(g.parameters.radius).toBeGreaterThanOrEqual(0.05);
-    }
+    // 037 C-Q2 had 12% sag (6 px here); 041 C-Q5 makes it 4%, so l_feed's 2-unit span sags 0.08 (3.3 px): still seen from above.
+    expect(SAG_RATIO).toBe(0.04);
+    expect(Math.hypot(chord.x - sag.x, chord.y - sag.y)).toBeGreaterThanOrEqual(3);
+    // The conductors are 0.03 thick (041 C), thinner than 037's 0.05, three to a run.
+    expect(WIRE_RADIUS).toBe(0.03);
   });
 
   it("lets no building or place stand between the camera and a wire's middle or a node's pick point", () => {
@@ -363,5 +366,85 @@ describe("wires and poles (C1)", () => {
         expect(groups.get(node)!.distanceToPoint(new Vector3(p.x, p.y, p.z)), `${r.id} at ${node}`).toBeLessThanOrEqual(0.15);
       }
     }
+  });
+});
+
+// ---- 041 C: pole hardware, cans and drops ----
+describe("pole hardware (041 C4, C5)", () => {
+  const m4 = new Matrix4();
+  const at = (im: InstancedMesh, i: number): Vector3 => {
+    im.getMatrixAt(i, m4);
+    return new Vector3().setFromMatrixPosition(m4);
+  };
+
+  it("puts three insulators on every intermediate pole, standing on the arm under each conductor's attachment point", () => {
+    const rs = wireLayout(puzzle);
+    const b = buildScene(puzzle, { text: stubTextSurface });
+    const inter = rs.reduce((n, r) => n + Math.max(0, r.attach.length - 2), 0);
+    expect(b.hardware.insulators.count).toBe(3 * inter);
+    let k = 0;
+    for (const r of rs) {
+      for (let i = 1; i < r.attach.length - 1; i++) {
+        for (const c of r.conductors) {
+          const p = c[i * SAG_SEGMENTS]!;
+          const s = at(b.hardware.insulators, k++);
+          expect(s.x).toBeCloseTo(p.x, 5);
+          expect(s.z).toBeCloseTo(p.z, 5);
+          // The insulator's top is the conductor's attachment point.
+          expect(s.y + INSULATOR_H / 2).toBeCloseTo(POLE_HEIGHT, 5);
+        }
+      }
+    }
+    expect(k).toBe(3 * inter);
+    // The arm they stand on is at least as long as the conductors are wide apart, and its top is under the insulators' bottoms.
+    expect(ARM_LEN).toBeGreaterThanOrEqual(2 * PHASE_OFFSET + 0.1);
+    b.dispose();
+  });
+
+  it("hangs a can on each pole that has a drop and draws one thin wire per drop, from the pole to the building's front (the whole ward)", () => {
+    const ward = loadPuzzle(JSON.parse(readFileSync("puzzles/56-whole-ward.json", "utf8")));
+    const b = buildScene(ward, { text: stubTextSurface });
+    const rs = wireLayout(ward);
+    const drops = dropLayout(townLayout(ward), rs);
+    const cans = canLayout(drops, rs);
+    expect(drops.length).toBeGreaterThan(0);
+    expect(b.hardware.dropList).toEqual(drops);
+    expect(b.hardware.canList).toEqual(cans);
+    expect(b.hardware.drops.count).toBe(drops.length);
+    expect(b.hardware.cans.count).toBe(cans.length);
+    cans.forEach((c, i) => {
+      const p = at(b.hardware.cans, i);
+      expect(p.distanceTo(new Vector3(c.x, c.y, c.z))).toBeLessThan(1e-5);
+    });
+    drops.forEach((d, i) => {
+      b.hardware.drops.getMatrixAt(i, m4);
+      const from = new Vector3(0, 0, 0).applyMatrix4(m4);
+      const to = new Vector3(0, 1, 0).applyMatrix4(m4);
+      expect(from.distanceTo(new Vector3(d.from.x, d.from.y, d.from.z))).toBeLessThan(1e-5);
+      expect(to.distanceTo(new Vector3(d.to.x, d.to.y, d.to.z))).toBeLessThan(1e-5);
+    });
+    b.dispose();
+  });
+
+  it("makes none of the hardware a pick target: no tag and no raycast, and a ray through a drop hits nothing", () => {
+    const ward = loadPuzzle(JSON.parse(readFileSync("puzzles/56-whole-ward.json", "utf8")));
+    const b = buildScene(ward, { text: stubTextSurface });
+    b.scene.updateMatrixWorld(true);
+    for (const im of [b.hardware.insulators, b.hardware.cans, b.hardware.drops]) {
+      expect(im.userData["pickKind"]).toBeUndefined();
+      expect(im.raycast.length).toBe(0);
+    }
+    const d = b.hardware.dropList[0]!;
+    const mid = new Vector3((d.from.x + d.to.x) / 2, (d.from.y + d.to.y) / 2, (d.from.z + d.to.z) / 2);
+    const ray = new Raycaster(mid.clone().add(new Vector3(0, 5, 0)), new Vector3(0, -1, 0));
+    expect(ray.intersectObjects([b.hardware.drops, b.hardware.cans, b.hardware.insulators], false)).toEqual([]);
+    b.dispose();
+  });
+
+  it("draws every pole's hardware in code: the pole models can replace the pole and arm, but the insulators, cans and drops stay visible", () => {
+    const b = buildScene(puzzle, { text: stubTextSurface });
+    expect(b.slots.poles.placeholders).toEqual([b.poles.poles, b.poles.arms]);
+    for (const im of [b.hardware.insulators, b.hardware.cans, b.hardware.drops]) expect(b.slots.poles.placeholders).not.toContain(im);
+    b.dispose();
   });
 });

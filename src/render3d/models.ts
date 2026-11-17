@@ -32,7 +32,7 @@ export interface ModelChoice {
 
 /**
  * Edit this to change the look. Names are root node names from `assets/private/out/manifest.json`.
- * - pole: the 6.3 m wooden utility pole with a cross-arm, and the plain one (wires stay drawn in code, so no `_Preset_` or `_Lines_` models).
+ * - pole: the 6.3 m wooden utility pole with a cross-arm, one style only (ticket 041 C; wires, insulators and cans stay drawn in code, so no `_Preset_` or `_Lines_` models).
  * - lamp: a plain 5.8 m lamp post (the lamp's head, light and pool stay drawn in code).
  * - building: SIMPLE Town's houses and shops (a few hundred triangles each, one image), one style, at one scale (WORLD_PER_METRE).
  *   Which lots a model can stand on is worked out from its size (`lotTypeOf`), not from the row it is in; the rows only group
@@ -42,7 +42,7 @@ export interface ModelChoice {
  *   Building_Mall_A/B (too big for any lot), town_hall_mesh (texture-guessed) and the Apocalypse buildings (another art style).
  */
 export const MODEL_TABLE: readonly ModelChoice[] = [
-  { slot: "pole", pack: "apocalypse-power", names: ["SM_Prop_Powerpole_01", "SM_Prop_Powerpole_Single_01"] },
+  { slot: "pole", pack: "apocalypse-power", names: ["SM_Prop_Powerpole_01"] },
   { slot: "lamp", pack: "apocalypse-power", names: ["SM_Prop_LightPole_01"] },
   {
     // small lots: 12 x 13 m, at most 12 m high
@@ -152,6 +152,15 @@ export function modelScale(entry: AssetEntry, slot: ModelSlot): number {
     return h > 0 ? POLE_HEIGHT / h : 1;
   }
   return WORLD_PER_METRE;
+}
+
+/**
+ * Where a body of footprint depth `depth` (world units, away from the road) stands on `lot` so its front face is against the lot's
+ * front edge instead of centred: the lot's centre moved toward the road by (lot.d - depth) / 2. Every building then keeps the lot's setback.
+ */
+export function atFront(lot: Lot, depth: number): { x: number; z: number } {
+  const s = Math.max(0, (lot.d - depth) / 2);
+  return { x: lot.x + Math.sin(lot.yaw) * s, z: lot.z + Math.cos(lot.yaw) * s };
 }
 
 const EPS = 1e-9;
