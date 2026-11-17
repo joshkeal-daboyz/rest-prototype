@@ -34,3 +34,6 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 041 A | renderer | sonnet | 318K total across the build and three resumes (one figure in the readout) | — | 0 | Built town.ts and town.test.ts; gate fix for a slow test; rebuild at pitch 12 with pinwheel fill; 113 tool uses |
 | 041 A | code-reviewer | agent default | 89K total (one figure in the readout) | — | 0 | meets, must-fix 0; 13 tool uses, 4 min |
 | 041 A | playtester | agent default | 18K total (one figure in the readout) | — | 0 | regressions 0; 5 tool uses, under 1 min; the harness does not load src/render3d/ |
+| 041 B | renderer | sonnet | 163K for the finishing build (one figure in the readout); the first builder was stopped by Josh midway (PC overload) and its figure was not seen | — | 0 | Drew the town from townLayout at one scale, placeholders, frozen Town; 73 tool uses, 9 min; one short browser pass |
+| 041 B | code-reviewer | agent default | 80K total (one figure in the readout) | — | 0 | meets, must-fix 0; 19 tool uses, 2 min; ran no tests (the main session had run the capped full check) |
+| 041 B | playtester | agent default | not seen | — | 0 | regressions 0; stopped early: nothing the harness loads changed |
