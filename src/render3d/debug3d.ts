@@ -10,6 +10,7 @@ import { scaleForPx } from "./captions";
 import { frontAxis, sizeOf } from "./models";
 import type { AppliedModels } from "./models3d";
 import type { SceneBundle } from "./scene";
+import type { CornerSide } from "./town";
 import { createCaptionSprite, defaultTextSurface, type TextSurfaceFactory } from "./text";
 
 /** The arrow's red, one saturated colour that reads on any roof. */
@@ -35,11 +36,15 @@ export function declaredFrontDirection(front: Parameters<typeof frontAxis>[0], y
   return [ax * Math.cos(yaw) + az * Math.sin(yaw), -ax * Math.sin(yaw) + az * Math.cos(yaw)];
 }
 
-/** The caption's lines: the model's name, then which model it is a copy of (when it is), then "corner lot" on a corner lot. */
-export function frontCaption(name: string, family: string, corner: boolean): string[] {
+/**
+ * The caption's lines: the model's name, then which model it is a copy of (when it is), then on a corner lot "corner lot, cross street on +x" (the lot's
+ * sides that meet a cross road, in the lot's own frame), then for a corner model "second face on +x" (the side its second frontage was turned to).
+ */
+export function frontCaption(name: string, family: string, cornerSides: readonly CornerSide[], open: false | "+x" | "-x" = false): string[] {
   const lines = [name];
   if (family !== name) lines.push(`same mesh as ${family}`);
-  if (corner) lines.push("corner lot");
+  if (cornerSides.length > 0) lines.push(`corner lot, cross street on ${[...new Set(cornerSides.map((c) => c.side))].join(" and ")}`);
+  if (open !== false) lines.push(`second face on ${open}`);
   return lines;
 }
 
@@ -68,7 +73,7 @@ export function frontsOverlay(bundle: SceneBundle, applied: AppliedModels, opts:
     arrows.push(arrow);
     root.add(arrow);
     const cs = createCaptionSprite(surface, FRONTS_FONT_PX, dpr, false, 0);
-    cs.draw(frontCaption(p.model.entry.name, p.model.family, lots[p.lot]?.corner ?? false), "text");
+    cs.draw(frontCaption(p.model.entry.name, p.model.family, lots[p.lot]?.cornerSides ?? [], p.model.corner), "text");
     cs.sprite.position.set(p.x, top + 0.12, p.z);
     noRay(cs.sprite);
     captions.push(cs);

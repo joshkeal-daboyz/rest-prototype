@@ -172,9 +172,15 @@ describe("frontsOverlay", () => {
     expect(frontsOverlay(bundle, applied, { surface: stubTextSurface }).children).toHaveLength(0);
   });
 
-  it("captions the model's name, which model it is a copy of, and a corner lot", () => {
-    expect(frontCaption("Building_Shop_04", "Building_Shop_03", false)).toEqual(["Building_Shop_04", "same mesh as Building_Shop_03"]);
-    expect(frontCaption("Building_Gym", "Building_Gym", true)).toEqual(["Building_Gym", "corner lot"]);
-    expect(frontCaption("house_mesh", "house_mesh", false)).toEqual(["house_mesh"]);
+  it("captions the model's name, which model it is a copy of, a corner lot with its cross street's side, and a corner model's second face", () => {
+    expect(frontCaption("Building_Shop_04", "Building_Shop_03", [])).toEqual(["Building_Shop_04", "same mesh as Building_Shop_03"]);
+    expect(frontCaption("Building_Gym", "Building_Gym", [{ side: "+x", road: "r" }])).toEqual(["Building_Gym", "corner lot, cross street on +x"]);
+    expect(frontCaption("house_mesh", "house_mesh", [])).toEqual(["house_mesh"]);
+    expect(frontCaption("store_corner_mesh", "store_corner_mesh", [{ side: "-x", road: "a" }, { side: "-x", road: "b" }], "-x")).toEqual([
+      "store_corner_mesh",
+      "corner lot, cross street on -x",
+      "second face on -x",
+    ]);
+    expect(frontCaption("x", "x", [{ side: "+x", road: "a" }, { side: "-x", road: "b" }])).toEqual(["x", "corner lot, cross street on +x and -x"]);
   });
 });

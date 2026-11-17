@@ -38,8 +38,10 @@ export const WIRE_CLEAR = 0.25;
 export const FILL_STEP = 0.25;
 /** A place is tried at every step of this along each frontage (finer than a lot's, as 2D tries a place on a 0.1 grid). */
 export const PLACE_STEP = 0.1;
-/** A lot whose side edge is within this of another road's pavement is a corner lot (equal to `NEIGHBOUR_GAP` in models.ts, which imports from here). */
+/** A lot whose side edge is within this of another road's pavement meets that road (equal to `NEIGHBOUR_GAP` in models.ts, which imports from here). */
 export const CORNER_GAP = 0.5;
+/** A cross road only makes a side of a lot a corner side if the direction from the lot's centre to the road's centreline is within this many degrees of that side's outward axis (a road behind the lot's back edge is not a cross street). */
+export const CORNER_ANGLE_MAX = 45;
 /** A block takes a lot type only if a row beside that type's band still holds this many small lots. */
 export const ROW_MIN_SMALLS = 2;
 /** A place is looked for within this distance of its lamp. */
@@ -162,10 +164,23 @@ export interface Lot {
   street: string;
   side: 1 | -1;
   /**
-   * A corner lot (ticket 042 A): the first or last lot of its row, or one whose side edge is within `CORNER_GAP` of another road's pavement.
-   * A corner shop (a model with two frontages) only stands on one of these.
+   * A corner lot (ticket 042 A, Josh's rule of 17 Nov 2026): a side edge of the lot meets another road, so `cornerSides` is not empty. A row end that
+   * meets no other road is not a corner. Always `cornerSides.length > 0`. A corner shop (a model with two frontages) only stands on one of these.
    */
   corner: boolean;
+  /**
+   * Each side of the lot (its own frame: "+x" is `(cos yaw, -sin yaw)` in the world) whose edge lies within `CORNER_GAP` of another road's (not its own
+   * road's) pavement, with that cross road's id. The road's centreline must also lie toward that side (within `CORNER_ANGLE_MAX` of its outward axis).
+   * A side with two cross roads has two entries.
+   */
+  cornerSides: readonly CornerSide[];
+}
+
+/** One side of a lot that meets a cross road. */
+export interface CornerSide {
+  side: "+x" | "-x";
+  /** The id of the cross road. */
+  road: string;
 }
 
 export interface PlaceBox {
@@ -1278,7 +1293,6 @@ function build(puzzle: Puzzle): TownData {
     // A road side can serve several rows (a loop street runs past many blocks): the slot count carries on along it, so keys stay unique.
     const side = `${roadId}:${front.side}`;
     let slot = slotCount.get(side) ?? 0;
-    const rowStart = lots.length;
     while (c < front.len - 1e-9) {
       const key = `${roadId}:${front.side}:${slot}`;
       const h0 = stableHash(key) % types.length;
@@ -1294,18 +1308,13 @@ function build(puzzle: Puzzle): TownData {
         const poly = mkPoly(f.pts)!;
         if (!clears(poly, spec.cap * WORLD_PER_METRE, type === "tall")) continue;
         placed.add(poly);
-        lots.push({ x: f.cx, z: f.cz, w, d, yaw: Math.atan2(f.fx, f.fz), type, hMax: spec.cap * WORLD_PER_METRE, key, street: roadId, side: front.side, corner: false });
+        lots.push({ x: f.cx, z: f.cz, w, d, yaw: Math.atan2(f.fx, f.fz), type, hMax: spec.cap * WORLD_PER_METRE, key, street: roadId, side: front.side, corner: false, cornerSides: [] });
         c += w + LOT_GAP;
         did = true;
       }
       if (!did) c += FILL_STEP;
     }
     slotCount.set(side, slot);
-    // The first and last lot of a row stand at its ends: corner lots.
-    if (lots.length > rowStart) {
-      lots[rowStart]!.corner = true;
-      lots[lots.length - 1]!.corner = true;
-    }
   };
   const ringInside = (f: Front): boolean => {
     const cx = (ring.minX + ring.maxX) / 2;
@@ -1359,15 +1368,17 @@ function build(puzzle: Puzzle): TownData {
     for (const front of roadFronts(ri)) fillRow(front, r.id, typesFor(r.kind));
   }
 
-  // A lot whose side edge is within CORNER_GAP of another road's pavement stands at a crossing: a corner lot too.
-  const pavePolys = pavements.map((pv) => ({ road: pv.road, poly: mkPoly(pv.pts) }));
+  // A corner lot (Josh, 17 Nov 2026): a side edge within CORNER_GAP of another road's pavement, that road lying toward that side. A row end alone is not one.
+  // Service strips are footpaths, not roads: only a pavement of a real road counts.
+  const pavePolys = pavements.filter((pv) => roadById.has(pv.road)).map((pv) => ({ road: roadById.get(pv.road)!, poly: mkPoly(pv.pts) }));
+  const cosMax = Math.cos((CORNER_ANGLE_MAX * Math.PI) / 180) - 1e-9;
   for (const l of lots) {
-    if (l.corner) continue;
+    const sides: CornerSide[] = [];
     const ex = Math.cos(l.yaw);
     const ez = -Math.sin(l.yaw);
     const fx = Math.sin(l.yaw);
     const fz = Math.cos(l.yaw);
-    for (const sgn of [-1, 1]) {
+    for (const sgn of [1, -1] as const) {
       const px = l.x + (ex * l.w * sgn) / 2;
       const pz = l.z + (ez * l.w * sgn) / 2;
       const ax = px - (fx * l.d) / 2;
@@ -1375,14 +1386,25 @@ function build(puzzle: Puzzle): TownData {
       const bx = px + (fx * l.d) / 2;
       const bz = pz + (fz * l.d) / 2;
       for (const pv of pavePolys) {
-        if (!pv.poly || pv.road === l.street) continue;
+        const r = pv.road;
+        if (!pv.poly || r.id === l.street) continue;
         if (Math.min(ax, bx) > pv.poly.maxX + CORNER_GAP || Math.max(ax, bx) < pv.poly.minX - CORNER_GAP || Math.min(az, bz) > pv.poly.maxZ + CORNER_GAP || Math.max(az, bz) < pv.poly.minZ - CORNER_GAP) continue;
         if (segPolyDist(ax, az, bx, bz, pv.poly) > CORNER_GAP) continue;
-        l.corner = true;
-        break;
+        const side = sgn === 1 ? "+x" : "-x";
+        if (sides.some((c) => c.side === side && c.road === r.id)) continue;
+        // The nearest point of the cross road's centreline to the lot's centre must lie toward this side.
+        const dx = r.bx - r.ax;
+        const dz = r.bz - r.az;
+        const t = Math.max(0, Math.min(1, ((l.x - r.ax) * dx + (l.z - r.az) * dz) / (dx * dx + dz * dz)));
+        const vx = r.ax + dx * t - l.x;
+        const vz = r.az + dz * t - l.z;
+        const vl = Math.hypot(vx, vz);
+        if (vl < 1e-9 || (vx * ex * sgn + vz * ez * sgn) / vl < cosMax) continue;
+        sides.push({ side, road: r.id });
       }
-      if (l.corner) break;
     }
+    l.cornerSides = sides;
+    l.corner = sides.length > 0;
   }
 
   return { roads, kerbs, pavements, pads, blocks, lots, places, ring, window: win };

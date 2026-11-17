@@ -1,6 +1,6 @@
 /**
  * Ticket 042 A: buildings face their road and no model dominates. No WebGL: a fake model set whose roots carry a marker one metre along
- * the declared front, `applyModels` on a stand-in bundle, and the town's own roads.
+ * the declared front (and, on a corner model, another along its second face), `applyModels` on a stand-in bundle, and the town's own roads.
  */
 
 import { describe, expect, it } from "vitest";
@@ -96,6 +96,13 @@ function fakeSet(fronts: Readonly<Record<string, BuildingFront>> = BUILDING_FRON
     const [ax, az] = frontAxis(p.front);
     marker.position.set(ax, 0, az);
     root.add(marker);
+    if (p.corner !== false) {
+      // The second face, in the model's own frame: the lot-frame open side (read after the front is turned to the road) turned back by the front's yaw.
+      const second = new Object3D();
+      second.name = "side-marker";
+      second.position.copy(new Vector3(p.corner === "+x" ? 1 : -1, 0, 0).applyAxisAngle(new Vector3(0, 1, 0), -frontYaw(p.front)));
+      root.add(second);
+    }
     return { ...p, root };
   });
   return { pole: null, lamp: null, building };
@@ -119,6 +126,43 @@ function nearestOnRoad(r: { ax: number; az: number; bx: number; bz: number }, px
   const dz = r.bz - r.az;
   const t = Math.max(0, Math.min(1, ((px - r.ax) * dx + (pz - r.az) * dz) / (dx * dx + dz * dz)));
   return { x: r.ax + dx * t, z: r.az + dz * t };
+}
+
+/** Distance from a point to a convex polygon: 0 inside. */
+function pointPolyDistance(px: number, pz: number, pts: readonly { x: number; z: number }[]): number {
+  let inside = true;
+  let best = Infinity;
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i]!;
+    const b = pts[(i + 1) % pts.length]!;
+    if ((b.x - a.x) * (pz - a.z) - (b.z - a.z) * (px - a.x) < 0) inside = false;
+    const dx = b.x - a.x;
+    const dz = b.z - a.z;
+    const t = Math.max(0, Math.min(1, ((px - a.x) * dx + (pz - a.z) * dz) / (dx * dx + dz * dz)));
+    best = Math.min(best, Math.hypot(px - (a.x + dx * t), pz - (a.z + dz * t)));
+  }
+  return inside ? 0 : best;
+}
+/** A lot's side edge (the lot's own +x for sgn 1, -x for -1) sampled front to back; the least distance of any sample to a polygon. */
+function sideEdgeDistance(lot: Lot, sgn: 1 | -1, pts: readonly { x: number; z: number }[]): number {
+  const ex = Math.cos(lot.yaw);
+  const ez = -Math.sin(lot.yaw);
+  const fx = Math.sin(lot.yaw);
+  const fz = Math.cos(lot.yaw);
+  let best = Infinity;
+  for (let k = 0; k <= 24; k++) {
+    const t = (k / 24 - 0.5) * lot.d;
+    best = Math.min(best, pointPolyDistance(lot.x + (ex * lot.w * sgn) / 2 + fx * t, lot.z + (ez * lot.w * sgn) / 2 + fz * t, pts));
+  }
+  return best;
+}
+/** The angle, in degrees, between a lot side's outward axis and the way from the lot's centre to a road's nearest centreline point. */
+function crossAngle(lot: Lot, sgn: 1 | -1, r: { ax: number; az: number; bx: number; bz: number }): number {
+  const q = nearestOnRoad(r, lot.x, lot.z);
+  const vx = q.x - lot.x;
+  const vz = q.z - lot.z;
+  const cos = (vx * Math.cos(lot.yaw) * sgn - vz * Math.sin(lot.yaw) * sgn) / Math.hypot(vx, vz);
+  return (Math.acos(Math.min(1, Math.max(-1, cos))) * 180) / Math.PI;
 }
 
 describe("every building has a front", () => {
@@ -156,7 +200,7 @@ describe("every building has a front", () => {
 
 /** Every fake model's front, scrambled through all four faces, so the test can't pass by every model facing +z. */
 const SCRAMBLED: Record<string, BuildingFront> = Object.fromEntries(
-  ENTRIES.map((e, i) => [e.name, { front: (["+z", "-z", "+x", "-x"] as const)[i % 4]!, ...(e.name === "store_corner_mesh" ? { corner: true as const } : {}) }]),
+  ENTRIES.map((e, i) => [e.name, { front: (["+z", "-z", "+x", "-x"] as const)[i % 4]!, ...(e.name === "store_corner_mesh" ? { corner: true as const, open: "+x" as const } : {}) }]),
 );
 
 describe("every placed building faces its road (every map)", () => {
@@ -203,71 +247,132 @@ describe("every placed building faces its road (every map)", () => {
 });
 
 describe("corner lots and corner models", () => {
-  it("every map has a corner lot, the first and last lot of every row is one, and some lots are not", () => {
+  it("a lot is a corner exactly where a side edge meets another road: every recorded side does, every meeting is recorded, and a row end that meets no road is not a corner", () => {
     let lots = 0;
     let corners = 0;
+    let bareRowEnds = 0;
+    let meetings = 0;
     for (const { name, town } of maps) {
-      expect(town.lots.some((l) => l.corner), name).toBe(true);
+      const roads = new Map(town.roads.map((r) => [r.id, r] as const));
+      // Service strips are footpaths: only a real road's pavement counts.
+      const pavements = town.pavements.filter((pv) => roads.has(pv.road));
       for (const l of town.lots) {
-        expect(typeof l.corner, `${name} ${l.key}`).toBe("boolean");
         lots++;
+        expect(l.corner, `${name} ${l.key}`).toBe(l.cornerSides.length > 0);
         if (l.corner) corners++;
+        for (const sgn of [1, -1] as const) {
+          const side = sgn === 1 ? "+x" : "-x";
+          // Sound: a recorded side has its cross road (not its own) within the gap, that road's centreline lying toward the side.
+          for (const c of l.cornerSides.filter((x) => x.side === side)) {
+            const r = roads.get(c.road)!;
+            expect(r, `${name} ${l.key} cross road`).toBeDefined();
+            expect(c.road, `${name} ${l.key} is its own road`).not.toBe(l.street);
+            const near = Math.min(...pavements.filter((pv) => pv.road === c.road).map((pv) => sideEdgeDistance(l, sgn, pv.pts)));
+            expect(near, `${name} ${l.key} ${side} to ${c.road}`).toBeLessThanOrEqual(CORNER_GAP + 0.1);
+            expect(crossAngle(l, sgn, r), `${name} ${l.key} ${side} to ${c.road}`).toBeLessThanOrEqual(45 + 1e-6);
+          }
+          // Complete: every other road whose pavement a sample of the edge comes within the gap of, toward that side, is recorded.
+          for (const r of town.roads) {
+            if (r.id === l.street || crossAngle(l, sgn, r) > 45 - 1e-6) continue;
+            if (!pavements.some((pv) => pv.road === r.id && sideEdgeDistance(l, sgn, pv.pts) <= CORNER_GAP)) continue;
+            meetings++;
+            expect(l.cornerSides.some((c) => c.side === side && c.road === r.id), `${name} ${l.key} ${side} meets ${r.id}`).toBe(true);
+          }
+        }
       }
-      // The first lot of each road side and the last one before a break in the row.
+      // The first and last lot of a road side's row are only corners where a cross road is there.
       const sides = new Map<string, Lot[]>();
       for (const l of town.lots) sides.set(`${l.street}:${l.side}`, [...(sides.get(`${l.street}:${l.side}`) ?? []), l]);
-      for (const [k, row] of sides) {
-        expect(row[0]!.corner, `${name} ${k} first`).toBe(true);
-        expect(row[row.length - 1]!.corner, `${name} ${k} last`).toBe(true);
+      for (const row of sides.values()) for (const l of [row[0]!, row[row.length - 1]!]) if (!l.corner) bareRowEnds++;
+    }
+    expect(meetings).toBeGreaterThan(500);
+    expect(bareRowEnds).toBeGreaterThan(50);
+    // Far fewer than the 80 percent the first and last lot of every row made.
+    expect(corners / lots).toBeGreaterThan(0.05);
+    expect(corners / lots).toBeLessThan(0.6);
+  });
+
+  it("every map that has an intersection (a junction of three or more roads) has a corner lot", () => {
+    let withIntersection = 0;
+    for (const { name, town } of maps) {
+      if (town.pads.some((p) => p.roads.length >= 3)) {
+        withIntersection++;
+        expect(town.lots.some((l) => l.corner), name).toBe(true);
       }
     }
-    expect(corners / lots).toBeGreaterThan(0.05);
-    expect(corners / lots).toBeLessThan(1);
+    expect(withIntersection).toBeGreaterThan(10);
   });
 
   it("uses the same gap as the neighbour rule", () => {
     expect(CORNER_GAP).toBe(NEIGHBOUR_GAP);
   });
 
-  it("puts a corner model only on a corner lot, facing its own road, with its open side on the row's open end, and does use it somewhere", () => {
-    const set = fakeSet();
+  it.each([
+    ["the shipped table (open on -x)", BUILDING_FRONTS],
+    ["a table that turns models through all four faces (corner shop open on +x)", SCRAMBLED],
+  ])("puts a corner model only where its open side meets a cross street and its second face points at that street, to within 45 degrees: %s", (_label, fronts) => {
+    const set = fakeSet(fronts);
     let used = 0;
     for (const { name, town } of maps) {
-      const placements = buildingPlacements(town.lots, set.building);
-      for (const p of placements) {
-        if (p.model.corner === false) continue;
-        const lot = town.lots[p.lot]!;
+      const bundle = standIn(town.lots);
+      const applied = applyModels(bundle, set);
+      const models = bundle.slots.models;
+      models.updateMatrixWorld(true);
+      const roads = new Map(town.roads.map((r) => [r.id, r] as const));
+      applied.buildings.forEach((p, k) => {
+        if (p.model.corner === false) return;
         used++;
+        const lot = town.lots[p.lot]!;
         expect(lot.corner, `${name} ${lot.key}`).toBe(true);
-        // No lot of the same road side within the gap on the model's open side.
-        const ex = Math.cos(lot.yaw);
-        const ez = -Math.sin(lot.yaw);
-        for (const o of town.lots) {
-          if (o === lot || o.street !== lot.street || o.side !== lot.side || lotGap(lot, o) > NEIGHBOUR_GAP) continue;
-          const side = (o.x - lot.x) * ex + (o.z - lot.z) * ez > 0 ? "+x" : "-x";
-          expect(side, `${name} ${lot.key} open end`).not.toBe(p.model.corner);
-        }
-      }
+        const clone = models.children[k]!;
+        const at = clone.getWorldPosition(new Vector3());
+        const tip = clone.getObjectByName("side-marker")!.getWorldPosition(new Vector3());
+        const dx = tip.x - at.x;
+        const dz = tip.z - at.z;
+        // The cross roads on the lot side the model is open on; its second face must point (within 45 degrees) at the nearest point of one's centreline.
+        const crosses = lot.cornerSides.filter((c) => c.side === p.model.corner);
+        expect(crosses.length, `${name} ${lot.key} open side meets no road`).toBeGreaterThan(0);
+        const best = Math.min(
+          ...crosses.map((c) => {
+            const q = nearestOnRoad(roads.get(c.road)!, lot.x, lot.z);
+            const wx = q.x - lot.x;
+            const wz = q.z - lot.z;
+            const cos = (dx * wx + dz * wz) / (Math.hypot(dx, dz) * Math.hypot(wx, wz));
+            return (Math.acos(Math.min(1, Math.max(-1, cos))) * 180) / Math.PI;
+          }),
+        );
+        expect(best, `${name} ${lot.key} ${p.model.entry.name} second face to its cross street`).toBeLessThanOrEqual(45 + 1e-6);
+      });
     }
     expect(used).toBeGreaterThan(0);
   });
 
-  it("an ordinary lot never gets a corner model, and with no corner lot's open end matching, none is placed", () => {
-    const lots: Lot[] = [0, 1, 2].map((i) => ({ x: i * 2.3, z: 0, w: 2.1, d: 2.3, yaw: 0, type: "small", hMax: 2, key: `r:1:${i}`, street: "r", side: 1, corner: false }));
+  it("an ordinary model goes on any lot, a corner model only on a lot whose open side meets a cross road, and a type with only corner models leaves other lots bare", () => {
+    const row = (sides: Lot["cornerSides"][]): Lot[] =>
+      sides.map((cs, i) => ({ x: i * 20, z: 0, w: 2.1, d: 2.3, yaw: 0, type: "small", hMax: 2, key: `r${i}:1:0`, street: `r${i}`, side: 1, corner: cs.length > 0, cornerSides: cs }));
     const plan = { small: ["Corner", "Plain"], house: [], large: [], tall: [] } as const;
-    const traits = new Map([
-      ["Corner", { family: "Corner", corner: "+x" as const }],
-      ["Plain", { family: "Plain", corner: false as const }],
-    ]);
-    expect(pickBuildings(lots, plan, traits)).toEqual(["Plain", "Plain", "Plain"]);
-    // Lot 2 (the last, open at +x) is a corner lot: only there may the corner model go, and it does when the hash picks it.
-    const cornered = lots.map((l, i) => ({ ...l, corner: i === 2 }));
-    const picks = pickBuildings(cornered, plan, traits);
-    expect(picks[0]).toBe("Plain");
-    expect(picks[1]).toBe("Plain");
-    // A corner whose open side is "-x" cannot stand on lot 2 (its -x side has a neighbour).
-    const minus = new Map([["Corner", { family: "Corner", corner: "-x" as const }], ["Plain", { family: "Plain", corner: false as const }]]);
-    expect(pickBuildings(cornered, plan, minus)[2]).toBe("Plain");
+    const traits = (open: "+x" | "-x") =>
+      new Map([
+        ["Corner", { family: "Corner", corner: open }],
+        ["Plain", { family: "Plain", corner: false as const }],
+      ]);
+    const none: Lot["cornerSides"] = [];
+    const plus: Lot["cornerSides"] = [{ side: "+x", road: "x" }];
+    const minus: Lot["cornerSides"] = [{ side: "-x", road: "x" }];
+    // Far apart (no neighbour rule) and not corners: only the ordinary model, anywhere.
+    expect(pickBuildings(row([none, none, none]), plan, traits("+x"))).toEqual(["Plain", "Plain", "Plain"]);
+    // A corner on the other side does not take it either.
+    expect(pickBuildings(row([minus, minus, minus]), plan, traits("+x"))).toEqual(["Plain", "Plain", "Plain"]);
+    // Where the open side meets a cross road it is an add-on that takes the lot by the least-used rule: with two to choose from, both appear.
+    const picks = pickBuildings(row([plus, plus, none, plus]), plan, traits("+x"));
+    expect(picks[2]).toBe("Plain");
+    expect(picks).toContain("Corner");
+    expect(picks).toContain("Plain");
+    expect(pickBuildings(row([plus, plus, plus]), plan, traits("-x"))).toEqual(["Plain", "Plain", "Plain"]);
+    expect(pickBuildings(row([minus, minus, minus]), plan, traits("-x"))).toContain("Corner");
+    // A type with only corner models: a lot that is not a valid corner gets none (it keeps its placeholder), one that is takes it.
+    const only = { small: ["Corner"], house: [], large: [], tall: [] } as const;
+    expect(pickBuildings(row([none, plus, minus]), only, traits("+x"))).toEqual([null, "Corner", null]);
   });
 });
 
@@ -388,20 +493,26 @@ describe("variety (every map)", () => {
     }
   });
 
-  it("spreads the small type's families evenly over all maps: the most used is at most 1.5 times the least used (all seven, the corner shop too)", () => {
+  it("spreads the small type's ordinary families evenly over all maps: the most used is at most 1.5 times the least used; the corner shop is an add-on on the few valid corner lots", () => {
     const counts = new Map<string, number>();
+    let mapsWithCorner = 0;
+    const cornerFamily = familyOf("store_corner_mesh");
     for (const { town } of maps) {
       const names = pickBuildings(town.lots, plan, traits);
+      if (names.includes("store_corner_mesh")) mapsWithCorner++;
       town.lots.forEach((l, i) => {
         if (l.type === "small") counts.set(familyOf(names[i]!), (counts.get(familyOf(names[i]!)) ?? 0) + 1);
       });
     }
-    const cornerFamily = familyOf("store_corner_mesh");
-    const max = Math.max(...counts.values());
-    const min = Math.min(...counts.values());
-    expect(counts.size).toBe(7);
-    expect(max / min).toBeLessThanOrEqual(1.5);
+    // The evenness is over the non-corner families: a corner model takes a lot only where it is valid, so its count is the number of such lots, not a share.
+    const ordinary = [...counts].filter(([f]) => f !== cornerFamily).map(([, c]) => c);
+    expect(ordinary.length).toBe(6);
+    expect(Math.max(...ordinary) / Math.min(...ordinary)).toBeLessThanOrEqual(1.5);
+    // It does appear on maps that have a valid lot (its open side, -x, meets a cross street) and on no other.
     expect(counts.get(cornerFamily) ?? 0).toBeGreaterThan(0);
+    expect(counts.get(cornerFamily) ?? 0).toBeLessThan(Math.min(...ordinary) / 4);
+    expect(mapsWithCorner).toBeGreaterThan(0);
+    expect(mapsWithCorner).toBeLessThan(maps.length);
   });
 
   it("no longer favours a name that has three: Building_Shop_03..05 together are one family's share, not three names'", () => {

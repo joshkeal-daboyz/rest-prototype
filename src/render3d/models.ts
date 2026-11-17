@@ -61,11 +61,11 @@ export interface BuildingFront {
   /** Which of the model's own axes its door faces. */
   front: ModelFront;
   /**
-   * A corner shop: two faces are frontage, so mid-row it shows a side wall either way. It only stands on a corner lot (`Lot.corner`),
-   * facing its own road, with its second frontage on the row's open end.
+   * A corner shop: two faces are frontage, so mid-row it shows a side wall either way. It only stands on a corner lot (`Lot.cornerSides`),
+   * facing its own road, with its second frontage on the lot side that meets a cross street.
    */
   corner?: true;
-  /** For a corner model, which side of the lot (its local x, once the front is turned to the road) the second frontage is on. Default "+x". A yaw cannot mirror, so the model only goes where its open side is the lot's open end. */
+  /** For a corner model, which side of the lot (its local x, once the front is turned to the road) the second frontage is on. Default "+x". A yaw cannot mirror, so the model only goes where its open side is a lot side that meets a cross street. */
   open?: "+x" | "-x";
 }
 
@@ -443,25 +443,6 @@ export function traitsOf(models: readonly PlannedModel[] | null): Map<string, Bu
   return new Map((models ?? []).map((m) => [m.entry.name, { family: m.family, corner: m.corner }] as const));
 }
 
-/**
- * Which ends of a lot (its local +x and -x) have no lot of the same road side within NEIGHBOUR_GAP beside them: the open ends of a row.
- * `near` lists the lots within NEIGHBOUR_GAP of `lots[i]`.
- */
-function openEnds(lots: readonly Lot[], i: number, near: readonly number[]): { plus: boolean; minus: boolean } {
-  const l = lots[i]!;
-  const ex = Math.cos(l.yaw);
-  const ez = -Math.sin(l.yaw);
-  let plus = true;
-  let minus = true;
-  for (const j of near) {
-    const o = lots[j]!;
-    if (o.street !== l.street || o.side !== l.side) continue;
-    if ((o.x - l.x) * ex + (o.z - l.z) * ez > 0) plus = false;
-    else minus = false;
-  }
-  return { plus, minus };
-}
-
 interface Family {
   id: string;
   names: string[];
@@ -474,7 +455,9 @@ interface Family {
  * - Neighbours (within NEIGHBOUR_GAP) never share a family, and along one road side a family does not come back within STREET_REPEAT_GAP lots
  *   (fewer when the type has fewer families than that plus one). With four or more families in a type, no family takes more than FAMILY_SHARE_MAX of
  *   the type's lots. A pick that breaks a rule takes the next family in the list; if every family breaks one, the cap goes, then the street rule, then the neighbour rule.
- * - A corner model (`traits.corner`) only goes on a corner lot (`Lot.corner`) whose open end is the side the model's second frontage is on.
+ * - A corner model (`traits.corner`) is an add-on: it only goes on a lot whose `cornerSides` has the side its second frontage is on (a side meeting a cross road),
+ *   and then takes the lot by the same least-used rule as any family. With no such lot on a map it does not appear. A lot whose type has only corner models and is not
+ *   such a lot gets none (it keeps its placeholder).
  */
 export function pickBuildings(lots: readonly Lot[], plan: BuildingPlan, traits?: ReadonlyMap<string, BuildingTraits>): (string | null)[] {
   const trait = (n: string): BuildingTraits => traits?.get(n) ?? { family: n, corner: false };
@@ -533,13 +516,11 @@ export function pickBuildings(lots: readonly Lot[], plan: BuildingPlan, traits?:
     const all = fams[l.type];
     if (all.length === 0) return;
     const near = nearOf(i);
-    let ends: { plus: boolean; minus: boolean } | null = null;
+    // An ordinary model goes anywhere. A corner model only where its open side is a side of the lot that meets a cross road (Lot.cornerSides),
+    // which town.ts only records when that road lies toward that side, so its second frontage faces the cross street.
     const fits = (n: string): boolean => {
       const c = trait(n).corner;
-      if (c === false) return true;
-      if (!l.corner) return false;
-      ends ??= openEnds(lots, i, near);
-      return c === "+x" ? ends.plus : ends.minus;
+      return c === false || l.cornerSides.some((s) => s.side === c);
     };
     const eligible = all.filter((f) => f.names.some(fits));
     if (eligible.length === 0) return;
