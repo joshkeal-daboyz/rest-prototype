@@ -4,9 +4,10 @@ import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ASSET_SANE_SIZE_MAX, ASSET_SANE_SIZE_MIN } from "../../src/core";
 import type { AssetManifest } from "../../src/core";
-import { checkSelftest, convert, isInside, layout } from "./convert";
+import { USAGE, checkSelftest, convert, isInside, layout } from "./convert";
 import type { ConvertDeps, RunResult } from "./convert";
 import { parsePackReport } from "./manifest";
+import type { PackReport } from "./manifest";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "..", "..");
@@ -214,6 +215,88 @@ describe("Arguments", () => {
   });
 });
 
+describe("Amendment A: pack.json texture keys", () => {
+  const pack = "simple town";
+  const packDir = join(L.inRoot, pack);
+  const withJson = (json: unknown, extra: Record<string, string> = {}) =>
+    setup({ packs: [pack], extraFiles: { [join(packDir, "pack.json")]: JSON.stringify(json), ...extra } });
+
+  it("passes --scale, --textures and one --texture-override per entry, sorted by stem, paths with spaces as single items, and no --atlas", async () => {
+    const s = withJson(
+      {
+        scale: 100,
+        textures: "Src Files/Textures",
+        textureOverrides: { town_hall_mesh: "Src Files/Textures/Town_Hall_b.png", a_mesh: "x y/A.png" },
+      },
+      {
+        [join(packDir, "Src Files", "Textures", "Town_Hall_b.png")]: "png",
+        [join(packDir, "x y", "A.png")]: "png",
+      },
+    );
+    expect(await convert([], s.deps)).toBe(0);
+    const args = s.conversions()[0]?.args ?? [];
+    expect(args).not.toContain("--atlas");
+    expect(args.slice(args.indexOf("--scale"))).toEqual([
+      "--scale",
+      "100",
+      "--textures",
+      join(packDir, "Src Files", "Textures"),
+      "--texture-override",
+      `a_mesh=${join(packDir, "x y", "A.png")}`,
+      "--texture-override",
+      `town_hall_mesh=${join(packDir, "Src Files", "Textures", "Town_Hall_b.png")}`,
+    ]);
+  });
+
+  it("a pack with only a scale passes no --textures and no --texture-override", async () => {
+    const s = withJson({ scale: 100 });
+    expect(await convert([], s.deps)).toBe(0);
+    const args = s.conversions()[0]?.args ?? [];
+    expect(args).not.toContain("--textures");
+    expect(args).not.toContain("--texture-override");
+    expect(args.slice(-2)).toEqual(["--scale", "100"]);
+  });
+
+  it("texture paths stay in the pack: a textures folder or override outside it is refused before spawning, naming the pack and the key", async () => {
+    const elsewhere = resolve("/elsewhere/Textures");
+    const cases: Array<{ json: unknown; mention: string[] }> = [
+      { json: { textures: "../x" }, mention: [pack, '"textures"', "../x"] },
+      { json: { textures: elsewhere }, mention: [pack, '"textures"'] },
+      { json: { textureOverrides: { a_mesh: "../a.png" } }, mention: [pack, '"textureOverrides"', "a_mesh", "../a.png"] },
+      { json: { textureOverrides: { a_mesh: resolve("/elsewhere/a.png") } }, mention: [pack, '"textureOverrides"', "a_mesh"] },
+    ];
+    for (const c of cases) {
+      const s = withJson(c.json, { [resolve("/elsewhere/a.png")]: "png", [join(elsewhere, "t.png")]: "png" });
+      expect(await convert([], s.deps), JSON.stringify(c.json)).toBe(1);
+      expect(s.conversions(), JSON.stringify(c.json)).toEqual([]);
+      for (const m of c.mention) expect(s.err(), JSON.stringify(c.json)).toContain(m);
+      expect(s.writes).toEqual([]);
+    }
+  });
+
+  it("an override naming a file that doesn't exist is an error naming the pack, the model and the path", async () => {
+    const s = withJson({ textureOverrides: { town_hall_mesh: "Textures/Town_Hall_z.png" } });
+    expect(await convert([], s.deps)).toBe(1);
+    expect(s.conversions()).toEqual([]);
+    expect(s.err()).toContain(pack);
+    expect(s.err()).toContain("town_hall_mesh");
+    expect(s.err()).toContain(join(packDir, "Textures", "Town_Hall_z.png"));
+  });
+
+  it("a textures folder that doesn't exist, or keys of the wrong type, fail that pack without running Blender", async () => {
+    for (const json of [{ textures: "Nope" }, { textures: 3 }, { textureOverrides: [] }, { textureOverrides: { a: 3 } }]) {
+      const s = withJson(json);
+      expect(await convert([], s.deps), JSON.stringify(json)).toBe(1);
+      expect(s.conversions(), JSON.stringify(json)).toEqual([]);
+    }
+  });
+
+  it("the usage text documents textures and textureOverrides", () => {
+    expect(USAGE).toContain('"textures"');
+    expect(USAGE).toContain('"textureOverrides"');
+  });
+});
+
 describe("Packs", () => {
   it("with no arguments converts every subfolder of assets/private/in/ in name order", async () => {
     const s = setup({ packs: ["b-pack", "a-pack", "c-pack"], extraFiles: { [join(L.inRoot, "notes.txt")]: "a file, not a pack" } });
@@ -355,8 +438,19 @@ describe("Manifest, as the CLI writes it", () => {
   });
 });
 
+interface RawReport {
+  assets: Array<{ name: string; bounds: { min: number[]; max: number[] }; warnings: string[]; textures: string[]; missingTextures: string[] }>;
+}
+
 describe("Self-test", () => {
   const good = fixtureText("report-selftest.json");
+  const edit = (f: (r: RawReport) => void): string[] => {
+    const copy = JSON.parse(good) as RawReport;
+    f(copy);
+    // Not re-validated on purpose: some edits make the report inconsistent, and the checker must still name the box.
+    return checkSelftest(copy as unknown as PackReport);
+  };
+  const boxOf = (r: RawReport, name: string) => r.assets.find((a) => a.name === name)!;
 
   it("runs the same script with --selftest inside assets/private/selftest/ and prints selftest ok", async () => {
     const s = setup({ behaviour: () => ({ code: 0, report: good }) });
@@ -381,20 +475,32 @@ describe("Self-test", () => {
 
   it("checkSelftest wants the pole 0.4 x 3.0 x 0.4 m (within 1 mm) on its base and centred, and no-uv on the other box", () => {
     expect(checkSelftest(parsePackReport("selftest", JSON.parse(good)))).toEqual([]);
-
-    const raw = JSON.parse(good) as { assets: Array<{ name: string; bounds: { min: number[]; max: number[] }; warnings: string[] }> };
-    const edit = (f: (r: typeof raw) => void) => {
-      const copy = JSON.parse(good) as typeof raw;
-      f(copy);
-      return checkSelftest(parsePackReport("selftest", copy));
-    };
-    const poleOf = (r: typeof raw) => r.assets.find((a) => a.name === "SelfTest_Pole")!;
+    const poleOf = (r: RawReport) => boxOf(r, "SelfTest_Pole");
     expect(edit((r) => (poleOf(r).bounds.max[1] = 3.002)).join("\n")).toContain("pole height");
     expect(edit((r) => (poleOf(r).bounds.max[1] = 3.0009)).length).toBe(0);
     expect(edit((r) => (poleOf(r).bounds = { min: [-0.2, 0.5, -0.2], max: [0.2, 3.5, 0.2] })).join("\n")).toContain("pole base");
     expect(edit((r) => (poleOf(r).bounds = { min: [0, 0, -0.2], max: [0.4, 3, 0.2] })).join("\n")).toContain("x centre");
-    expect(edit((r) => (r.assets.find((a) => a.name === "SelfTest_NoUV")!.warnings = [])).join("\n")).toContain("no-uv");
-    expect(edit((r) => r.assets.splice(0, 2)).length).toBe(2);
+    expect(edit((r) => (boxOf(r, "SelfTest_NoUV").warnings = [])).join("\n")).toContain("SelfTest_NoUV warnings");
+    expect(edit((r) => r.assets.splice(0, r.assets.length)).length).toBe(6);
+  });
+
+  it("checkSelftest names the box and the field when a texture rule's result is wrong", () => {
+    const expectProblem = (change: (r: RawReport) => void, ...mention: string[]) => {
+      const text = edit(change).join("\n");
+      expect(text).not.toBe("");
+      for (const m of mention) expect(text).toContain(m);
+    };
+    expectProblem((r) => (boxOf(r, "guess_mesh").warnings = []), "guess_mesh warnings", "texture-guessed");
+    expectProblem((r) => (boxOf(r, "guess_mesh").textures = ["Textures/Guess_b.png"]), "guess_mesh textures", "Guess_a.png");
+    expectProblem((r) => (boxOf(r, "ref_case").textures = []), "ref_case textures", "tex_crate.png");
+    expectProblem((r) => (boxOf(r, "ref_case").warnings = ["missing-texture"]), "ref_case warnings");
+    expectProblem((r) => (boxOf(r, "mat_name").textures = ["Textures/tex_crate.png"]), "mat_name textures", "Sign_Board.png");
+    expectProblem((r) => (boxOf(r, "lost_ref").missingTextures = []), "lost_ref missingTextures", "nowhere.png");
+    expectProblem((r) => (boxOf(r, "lost_ref").warnings = []), "lost_ref warnings");
+    expectProblem((r) => (boxOf(r, "SelfTest_NoUV").textures = []), "SelfTest_NoUV textures");
+    expectProblem((r) => (boxOf(r, "SelfTest_Pole").textures = ["Textures/Props.png"]), "SelfTest_Pole textures");
+    expectProblem((r) => (boxOf(r, "SelfTest_Pole").warnings = ["missing-texture"]), "SelfTest_Pole warnings");
+    expectProblem((r) => r.assets.splice(r.assets.findIndex((a) => a.name === "mat_name"), 1), "mat_name is missing");
   });
 });
 
@@ -408,8 +514,17 @@ describe("The Python script and the shared constants", () => {
   });
 
   it("takes the arguments the wrapper passes, and the self-test names the wrapper checks", () => {
-    for (const a of ["--in", "--out", "--report", "--atlas", "--scale", "--selftest"]) expect(py).toContain(`"${a}"`);
+    for (const a of ["--in", "--out", "--report", "--atlas", "--scale", "--textures", "--texture-override", "--selftest"]) expect(py).toContain(`"${a}"`);
     expect(py).toContain('SELFTEST_POLE = "SelfTest_Pole"');
     expect(py).toContain('SELFTEST_NO_UV = "SelfTest_NoUV"');
+    for (const box of ["ref_case", "mat_name", "guess_mesh", "lost_ref"]) expect(py).toContain(`= "${box}"`);
+  });
+
+  it("holds the five lookup rules' generic-name list and the old-FBX message the ticket names, and no no-atlas", () => {
+    expect(py).toContain("7100");
+    expect(py).toContain("an OBJ copy exists: %s (not converted)");
+    expect(py).toContain("is older than Blender's importer accepts");
+    for (const g of ["lambert", "phong", "blinn", "defaultmaterial", "initialshadinggroup"]) expect(py).toContain(g);
+    expect(py).not.toContain("no-atlas");
   });
 });

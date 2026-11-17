@@ -4,17 +4,54 @@
     {
       "name": "Fixture_Door",
       "source": "Props/Fixture_Door.fbx",
-      "bounds": { "min": [-0.5, 0, -0.05], "max": [0.5, 2.0, 0.05] },
+      "bounds": {
+        "min": [
+          -0.5,
+          0,
+          -0.05
+        ],
+        "max": [
+          0.5,
+          2,
+          0.05
+        ]
+      },
       "triangles": 24,
+      "textures": [
+        "Textures/Door.png"
+      ],
+      "missingTextures": [],
       "warnings": []
     },
     {
       "name": "Fixture_Pole",
       "source": "Fixture_Pole.fbx",
-      "bounds": { "min": [-0.2, 0, -0.2], "max": [0.2, 3.0, 0.2] },
+      "bounds": {
+        "min": [
+          -0.2,
+          0,
+          -0.2
+        ],
+        "max": [
+          0.2,
+          3,
+          0.2
+        ]
+      },
       "triangles": 12,
-      "warnings": ["no-uv"]
+      "textures": [
+        "Textures/Pole.png"
+      ],
+      "missingTextures": [],
+      "warnings": [
+        "no-uv"
+      ]
     }
   ],
-  "failures": [{ "source": "Broken.fbx", "error": "the file contains no meshes" }]
+  "failures": [
+    {
+      "source": "Broken.fbx",
+      "error": "the file contains no meshes"
+    }
+  ]
 }

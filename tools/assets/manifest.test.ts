@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ASSET_MANIFEST_VERSION } from "../../src/core";
@@ -65,6 +65,68 @@ describe("Manifest (buildManifest)", () => {
     expect(() => parsePackReport("p", [])).toThrow(/pack "p"/);
   });
 
+  it("carries textures and missingTextures through from the report fixtures", () => {
+    const mani = buildManifest([{ pack: "p", glbPath: join(OUT, "p.glb"), atlas: null, report: fixture("report-textures.json") }], opts);
+    const assets = mani.packs[0]?.assets ?? [];
+    expect(assets.map((a) => [a.name, a.textures, a.missingTextures, a.warnings])).toEqual([
+      ["guess_mesh", ["Textures/Guess_a.png"], [], ["texture-guessed"]],
+      ["lost_ref", [], ["nowhere.png"], ["missing-texture"]],
+      ["plain_mesh", [], ["material:lambert1"], ["missing-texture"]],
+    ]);
+    expect(mani.packs[0]?.failures[0]?.error).toContain("an OBJ copy exists: Obj/fire_truck_mesh.obj");
+  });
+
+  it("a clean per-model pack fixture has no warnings, no missing textures, and no atlas", () => {
+    const mani = buildManifest([{ pack: "clean", glbPath: join(OUT, "clean.glb"), atlas: null, report: fixture("report-clean-pack.json") }], opts);
+    const pack = mani.packs[0];
+    expect(pack?.atlas).toBeNull();
+    expect(pack?.assets.length).toBe(3);
+    for (const a of pack?.assets ?? []) {
+      expect(a.warnings).toEqual([]);
+      expect(a.missingTextures).toEqual([]);
+      expect(a.textures.length).toBeGreaterThan(0);
+    }
+  });
+
+  describe("texture fields are validated, naming the pack and the field", () => {
+    const base = fixture("report-clean-pack.json") as { assets: Array<Record<string, unknown>> };
+    const withAsset = (change: Record<string, unknown>) => ({ ...base, assets: [{ ...base.assets[0], ...change }] });
+
+    it("textures or missingTextures missing, or not an array of strings", () => {
+      for (const field of ["textures", "missingTextures"]) {
+        const missing = { ...base, assets: [{ ...base.assets[0] }] };
+        delete missing.assets[0]?.[field];
+        expect(() => parsePackReport("p", missing), field).toThrow(new RegExp(`pack "p": assets\\[0\\]\\.${field}`));
+        expect(() => parsePackReport("p", withAsset({ [field]: "Textures/a.png" })), field).toThrow(/must be an array of strings/);
+        expect(() => parsePackReport("p", withAsset({ [field]: [3] })), field).toThrow(/must be an array of strings/);
+      }
+    });
+
+    it("a textures entry that is absolute, has .., or has a backslash", () => {
+      for (const bad of ["/abs/a.png", "C:/abs/a.png", "C:\\abs\\a.png", "../a.png", "Textures/../../a.png", "Textures\\a.png"]) {
+        expect(() => parsePackReport("p", withAsset({ textures: [bad] })), bad).toThrow(/pack "p": assets\[0\]\.textures/);
+      }
+    });
+
+    it("missing-texture in warnings with an empty missingTextures, or the other way round", () => {
+      expect(() => parsePackReport("p", withAsset({ warnings: ["missing-texture"], missingTextures: [] }))).toThrow(
+        /pack "p": assets\[0\]\.missingTextures/,
+      );
+      expect(() => parsePackReport("p", withAsset({ warnings: [], missingTextures: ["props.png"] }))).toThrow(/pack "p": assets\[0\]\.warnings/);
+    });
+
+    it("no-atlas is an unknown warning now", () => {
+      expect(() => parsePackReport("p", withAsset({ warnings: ["no-atlas"] }))).toThrow(/unknown warning "no-atlas"/);
+    });
+  });
+
+  it("no fixture uses the dropped no-atlas warning", () => {
+    const dir = join(here, "fixtures");
+    const files = readdirSync(dir).filter((n) => n.endsWith(".json"));
+    expect(files.length).toBeGreaterThan(5);
+    for (const n of files) expect(readFileSync(join(dir, n), "utf8"), n).not.toContain("no-atlas");
+  });
+
   it("keeps packs from an earlier manifest unless this run converted the same name", () => {
     const first = buildManifest(
       [
@@ -81,7 +143,7 @@ describe("Manifest (buildManifest)", () => {
     });
     expect(again.packs.map((p) => p.pack)).toEqual(["a", "b"]);
     expect(again.packs[1]?.atlas).toBe("x.png");
-    expect(again.packs[1]?.assets).toHaveLength(2);
+    expect(again.packs[1]?.assets).toHaveLength(6);
     expect(again.packs[0]?.assets[0]?.name).toBe("Fixture_Door");
   });
 

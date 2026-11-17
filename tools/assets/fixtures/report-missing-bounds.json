@@ -1,7 +1,14 @@
 {
   "blenderVersion": "4.2.3 LTS",
   "assets": [
-    { "name": "Fixture_NoBounds", "source": "Fixture_NoBounds.fbx", "triangles": 12, "warnings": [] }
+    {
+      "name": "Fixture_NoBounds",
+      "source": "Fixture_NoBounds.fbx",
+      "triangles": 12,
+      "textures": [],
+      "missingTextures": [],
+      "warnings": []
+    }
   ],
   "failures": []
 }

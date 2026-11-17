@@ -19,7 +19,7 @@ export class ManifestError extends Error {
   }
 }
 
-const WARNINGS: readonly AssetWarning[] = ["scale-suspect", "no-uv", "no-atlas"];
+const WARNINGS: readonly AssetWarning[] = ["scale-suspect", "no-uv", "missing-texture", "texture-guessed"];
 
 /** What the Python script writes: the pack's assets and failures, and the Blender that ran. */
 export interface PackReport {
@@ -47,6 +47,19 @@ function bounds(pack: string, field: string, v: unknown): AssetBounds {
     if ((min[i] as number) > (max[i] as number)) throw new ManifestError(pack, field, `min is above max on axis ${i}`);
   }
   return { min, max };
+}
+
+function stringArray(pack: string, field: string, v: unknown): string[] {
+  if (!Array.isArray(v) || !v.every((x) => typeof x === "string")) throw new ManifestError(pack, field, "must be an array of strings");
+  return v as string[];
+}
+
+/** An image path in the manifest: relative to the pack folder, forward slashes, no `..`. */
+function packRelativePath(pack: string, field: string, p: string): string {
+  if (p === "" || p.startsWith("/") || /^[A-Za-z]:/.test(p)) throw new ManifestError(pack, field, `${JSON.stringify(p)} must be relative to the pack folder`);
+  if (p.includes("\\")) throw new ManifestError(pack, field, `${JSON.stringify(p)} must use forward slashes`);
+  if (p.split("/").includes("..")) throw new ManifestError(pack, field, `${JSON.stringify(p)} must stay inside the pack folder (no "..")`);
+  return p;
 }
 
 function nonEmptyString(pack: string, field: string, v: unknown): string {
@@ -82,7 +95,15 @@ export function parsePackReport(pack: string, raw: unknown): PackReport {
       }
       return w as AssetWarning;
     });
-    return { name, source, bounds: bounds(pack, `${at}.bounds`, a["bounds"]), triangles: tri, warnings };
+    const textures = stringArray(pack, `${at}.textures`, a["textures"]).map((p) => packRelativePath(pack, `${at}.textures`, p));
+    const missingTextures = stringArray(pack, `${at}.missingTextures`, a["missingTextures"]);
+    if (warnings.includes("missing-texture") && missingTextures.length === 0) {
+      throw new ManifestError(pack, `${at}.missingTextures`, "has the missing-texture warning but lists nothing missing");
+    }
+    if (!warnings.includes("missing-texture") && missingTextures.length > 0) {
+      throw new ManifestError(pack, `${at}.warnings`, "lists missingTextures but lacks the missing-texture warning");
+    }
+    return { name, source, bounds: bounds(pack, `${at}.bounds`, a["bounds"]), triangles: tri, textures, missingTextures, warnings };
   });
 
   const failures: AssetFailure[] = failuresRaw.map((f: unknown, i: number) => {

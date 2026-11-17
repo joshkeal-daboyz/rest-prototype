@@ -1,0 +1,73 @@
+{
+  "blenderVersion": "5.3.0",
+  "assets": [
+    {
+      "name": "Fixture_House",
+      "source": "Fbx/Fixture_House.fbx",
+      "bounds": {
+        "min": [
+          -3,
+          0,
+          -3
+        ],
+        "max": [
+          3,
+          5,
+          3
+        ]
+      },
+      "triangles": 300,
+      "textures": [
+        "Textures/House_01.png"
+      ],
+      "missingTextures": [],
+      "warnings": []
+    },
+    {
+      "name": "Fixture_Lamp",
+      "source": "Fbx/Fixture_Lamp.fbx",
+      "bounds": {
+        "min": [
+          -0.2,
+          0,
+          -0.2
+        ],
+        "max": [
+          0.2,
+          3,
+          0.2
+        ]
+      },
+      "triangles": 40,
+      "textures": [
+        "Textures/Props.png"
+      ],
+      "missingTextures": [],
+      "warnings": []
+    },
+    {
+      "name": "Fixture_Truck",
+      "source": "Fbx/Fixture_Truck.fbx",
+      "bounds": {
+        "min": [
+          -1,
+          0,
+          -2
+        ],
+        "max": [
+          1,
+          2,
+          2
+        ]
+      },
+      "triangles": 500,
+      "textures": [
+        "Textures/Truck_a.png",
+        "Textures/Truck_b.png"
+      ],
+      "missingTextures": [],
+      "warnings": []
+    }
+  ],
+  "failures": []
+}

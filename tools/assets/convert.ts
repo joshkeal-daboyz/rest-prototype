@@ -14,7 +14,7 @@ import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { AssetPack } from "../../src/core";
+import type { AssetPack, AssetWarning } from "../../src/core";
 import { BLENDER_MISSING_TEXT, BlenderPathError, MIN_BLENDER, findBlender, formatVersion, parseBlenderVersion, versionAtLeast } from "./blender";
 import { buildManifest, compareNames, parsePackReport, readPriorPacks } from "./manifest";
 import type { PackInput, PackReport } from "./manifest";
@@ -54,7 +54,12 @@ export const USAGE = `Usage: npm run assets:convert [pack...]
 Lay a pack out like this (nothing under assets/private/ is ever committed):
   assets/private/in/<pack>/**/*.fbx     the pack's FBX files
   assets/private/in/<pack>/Textures/..  its atlas image
-  assets/private/in/<pack>/pack.json    optional: { "atlas": "Textures/Atlas.png", "scale": 1 }
+  assets/private/in/<pack>/pack.json    optional (all keys optional):
+      { "atlas": "Textures/Atlas.png",            one shared atlas for every model (atlas mode)
+        "scale": 1,                                multiplied on import (use 100 or 0.01 for a unit slip)
+        "textures": "Src/Textures",                folder searched for each model's image (default: the pack)
+        "textureOverrides": { "town_hall_mesh": "Src/Textures/Town_Hall_b.png" } }   pins a model's image
+With no "atlas", each model's own image is found in the pack (per-model mode).
 With no pack names, every folder in assets/private/in/ is converted.
 `;
 
@@ -85,6 +90,10 @@ export interface BlenderArgsInput {
   report: string;
   atlas?: string;
   scale?: number;
+  /** Absolute folder searched for each model's image. */
+  textures?: string;
+  /** Pinned images, `stem` and an absolute image path. Passed in the order given (readPackSettings sorts them). */
+  overrides?: readonly { stem: string; abs: string }[];
   selftest?: boolean;
 }
 
@@ -95,6 +104,8 @@ export function buildBlenderArgs(a: BlenderArgsInput): string[] {
   args.push("--in", a.packDir, "--out", a.outGlb, "--report", a.report);
   if (a.atlas !== undefined) args.push("--atlas", a.atlas);
   if (a.scale !== undefined) args.push("--scale", String(a.scale));
+  if (a.textures !== undefined) args.push("--textures", a.textures);
+  for (const o of a.overrides ?? []) args.push("--texture-override", `${o.stem}=${o.abs}`);
   return args;
 }
 
@@ -102,12 +113,16 @@ interface PackSettings {
   /** Absolute atlas path, and the same relative to the pack folder with forward slashes. */
   atlas?: { abs: string; rel: string };
   scale?: number;
+  /** Absolute folder searched for each model's image. */
+  textures?: string;
+  /** Sorted by model stem. */
+  overrides: { stem: string; abs: string }[];
 }
 
 /** Read the optional pack.json. Throws an Error with a plain message when it is unusable. */
 function readPackSettings(deps: ConvertDeps, packDir: string): PackSettings {
   const file = join(packDir, "pack.json");
-  if (!deps.exists(file)) return {};
+  if (!deps.exists(file)) return { overrides: [] };
   let raw: unknown;
   try {
     raw = JSON.parse(deps.readText(file));
@@ -116,7 +131,7 @@ function readPackSettings(deps: ConvertDeps, packDir: string): PackSettings {
   }
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) throw new Error("pack.json must be a JSON object");
   const obj = raw as Record<string, unknown>;
-  const settings: PackSettings = {};
+  const settings: PackSettings = { overrides: [] };
   if (obj["atlas"] !== undefined) {
     if (typeof obj["atlas"] !== "string" || obj["atlas"] === "") throw new Error('pack.json "atlas" must be a path string');
     const abs = resolve(packDir, obj["atlas"]);
@@ -128,6 +143,29 @@ function readPackSettings(deps: ConvertDeps, packDir: string): PackSettings {
     const s = obj["scale"];
     if (typeof s !== "number" || !Number.isFinite(s) || s <= 0) throw new Error('pack.json "scale" must be a positive number');
     settings.scale = s;
+  }
+  if (obj["textures"] !== undefined) {
+    if (typeof obj["textures"] !== "string" || obj["textures"] === "") throw new Error('pack.json "textures" must be a folder path string');
+    const abs = resolve(packDir, obj["textures"]);
+    if (abs !== packDir && !isInside(packDir, abs)) throw new Error(`pack.json "textures" (${obj["textures"]}) points outside the pack folder`);
+    if (!deps.isDirectory(abs)) throw new Error(`pack.json "textures" folder not found: ${abs}`);
+    settings.textures = abs;
+  }
+  const overrides = obj["textureOverrides"];
+  if (overrides !== undefined) {
+    if (typeof overrides !== "object" || overrides === null || Array.isArray(overrides)) {
+      throw new Error('pack.json "textureOverrides" must be an object of { "<model stem>": "<image path>" }');
+    }
+    for (const stem of Object.keys(overrides).sort(compareNames)) {
+      const value = (overrides as Record<string, unknown>)[stem];
+      if (stem === "" || typeof value !== "string" || value === "") {
+        throw new Error(`pack.json "textureOverrides" entry "${stem}" must map a model stem to an image path string`);
+      }
+      const abs = resolve(packDir, value);
+      if (!isInside(packDir, abs)) throw new Error(`pack.json "textureOverrides" model "${stem}": ${value} points outside the pack folder`);
+      if (!deps.exists(abs)) throw new Error(`pack.json "textureOverrides" model "${stem}": image not found: ${abs}`);
+      settings.overrides.push({ stem, abs });
+    }
   }
   return settings;
 }
@@ -214,6 +252,8 @@ async function convertPack(deps: ConvertDeps, blender: BlenderInfo, pack: string
     report,
     ...(settings.atlas ? { atlas: settings.atlas.abs } : {}),
     ...(settings.scale !== undefined ? { scale: settings.scale } : {}),
+    ...(settings.textures !== undefined ? { textures: settings.textures } : {}),
+    overrides: settings.overrides,
   });
   deps.stdout(`Converting ${pack} ...\n`);
   let result: RunResult;
@@ -245,7 +285,10 @@ function summary(pack: string, report: PackReport): string {
   if (warned.length > 0) line += `, ${warned.length} with warnings`;
   const lines = [line];
   for (const f of report.failures) lines.push(`    failed: ${f.source}: ${f.error}`);
-  for (const a of warned) lines.push(`    ${a.name}: ${a.warnings.join(", ")}`);
+  for (const a of warned) {
+    const missing = a.missingTextures.length > 0 ? ` (looked for: ${a.missingTextures.join(", ")})` : "";
+    lines.push(`    ${a.name}: ${a.warnings.join(", ")}${missing}`);
+  }
   return lines.join("\n") + "\n";
 }
 
@@ -299,11 +342,24 @@ async function runPacks(deps: ConvertDeps, blender: BlenderInfo, names: readonly
   return failed > 0 ? 1 : 0;
 }
 
-/** Names the self-test's two boxes carry; convert_fbx.py --selftest builds them. */
+/** Names the self-test's boxes carry; convert_fbx.py --selftest builds them. */
 export const SELFTEST_POLE = "SelfTest_Pole";
 export const SELFTEST_NO_UV = "SelfTest_NoUV";
+export const SELFTEST_REF_CASE = "ref_case";
+export const SELFTEST_MAT_NAME = "mat_name";
+export const SELFTEST_GUESS = "guess_mesh";
+export const SELFTEST_LOST_REF = "lost_ref";
 
-/** Check a self-test report; the list of what is wrong (empty means `selftest ok`). */
+/** What each textured self-test box must report (image paths relative to the pack, and the texture warnings). */
+const SELFTEST_TEXTURES: ReadonlyArray<{ name: string; textures: readonly string[] | "some"; missingTextures: readonly string[]; warnings: readonly AssetWarning[] }> = [
+  { name: SELFTEST_NO_UV, textures: "some", missingTextures: [], warnings: ["no-uv"] },
+  { name: SELFTEST_REF_CASE, textures: ["Textures/tex_crate.png"], missingTextures: [], warnings: [] },
+  { name: SELFTEST_MAT_NAME, textures: ["Textures/Sign_Board.png"], missingTextures: [], warnings: [] },
+  { name: SELFTEST_GUESS, textures: ["Textures/Guess_a.png"], missingTextures: [], warnings: ["texture-guessed"] },
+  { name: SELFTEST_LOST_REF, textures: [], missingTextures: ["nowhere.png"], warnings: ["missing-texture"] },
+];
+
+/** Check a self-test report; the list of what is wrong, each naming the box and the field (empty means `selftest ok`). */
 export function checkSelftest(report: PackReport): string[] {
   const problems: string[] = [];
   const near = (got: number, want: number, tol: number, what: string) => {
@@ -320,11 +376,29 @@ export function checkSelftest(report: PackReport): string[] {
     near(min[1], 0, 1e-4, "pole base (min y)");
     near((min[0] + max[0]) / 2, 0, 1e-4, "pole x centre");
     near((min[2] + max[2]) / 2, 0, 1e-4, "pole z centre");
-    for (const w of pole.warnings) if (w !== "no-atlas") problems.push(`pole carries an unexpected warning: ${w}`);
+    if (pole.warnings.length > 0) problems.push(`${SELFTEST_POLE} warnings: expected none, got ${pole.warnings.join(", ")}`);
+    if (pole.textures.length > 0) problems.push(`${SELFTEST_POLE} textures: expected none, got ${pole.textures.join(", ")}`);
+    if (pole.missingTextures.length > 0) problems.push(`${SELFTEST_POLE} missingTextures: expected none, got ${pole.missingTextures.join(", ")}`);
   }
-  const noUv = report.assets.find((a) => a.name === SELFTEST_NO_UV);
-  if (!noUv) problems.push(`${SELFTEST_NO_UV} is missing from the report`);
-  else if (!noUv.warnings.includes("no-uv")) problems.push(`${SELFTEST_NO_UV} should carry the no-uv warning`);
+  for (const want of SELFTEST_TEXTURES) {
+    const box = report.assets.find((a) => a.name === want.name);
+    if (!box) {
+      problems.push(`${want.name} is missing from the report`);
+      continue;
+    }
+    const same = (x: readonly string[], y: readonly string[]) => x.length === y.length && x.every((v, i) => v === y[i]);
+    if (want.textures === "some") {
+      if (box.textures.length === 0) problems.push(`${want.name} textures: expected an image, got none`);
+    } else if (!same(box.textures, want.textures)) {
+      problems.push(`${want.name} textures: expected [${want.textures.join(", ")}], got [${box.textures.join(", ")}]`);
+    }
+    if (!same(box.missingTextures, want.missingTextures)) {
+      problems.push(`${want.name} missingTextures: expected [${want.missingTextures.join(", ")}], got [${box.missingTextures.join(", ")}]`);
+    }
+    if (!same([...box.warnings].sort(), [...want.warnings].sort())) {
+      problems.push(`${want.name} warnings: expected [${want.warnings.join(", ")}], got [${box.warnings.join(", ")}]`);
+    }
+  }
   return problems;
 }
 
@@ -341,7 +415,7 @@ async function runSelftest(deps: ConvertDeps, blender: BlenderInfo): Promise<num
   }
   deps.remove(L.selftest);
   deps.mkdirp(L.selftest);
-  deps.stdout("Running the self-test (two generated boxes through the normal conversion) ...\n");
+  deps.stdout("Running the self-test (generated boxes through the normal conversion) ...\n");
   let result: RunResult;
   try {
     result = await deps.run(blender.path, buildBlenderArgs({ script: L.script, packDir, outGlb, report, selftest: true }));
