@@ -1,7 +1,7 @@
 # 042 · The 3D town: buildings that face their road, fewer repeats, real buildings that light up, and streets and pole hardware from asset packs
 
 owner: renderer
-status: approved (G1, Josh, 17 Nov 2026: "Yes, both", i.e. merge 041 and start sections A and B; every open-question default applies). Sections C, D, E wait for his downloads.
+status: section A done (merged 17 Nov 2026; Josh: "Merge 042 A once the corners are fixed"); B next. Approved (G1, Josh, 17 Nov 2026: "Yes, both", i.e. merge 041 and start sections A and B; every open-question default applies). Sections C, D, E wait for his downloads.
 branch: `ticket/042-buildings-face-variety-lit-places-pack-streets` (one branch per section: `-a`, `-b`, ...)
 
 ## Josh's words (17 Nov 2026, after playing ticket 041 A, B and C together on `ticket/041-city-layout-and-power-lines-c`)
@@ -155,6 +155,7 @@ Josh opens `npm run dev`, `/?puzzle=09-shrine-circuit&view=3d`, then `56-whole-w
 1. **New slots** in `MODEL_TABLE`: `roadStraight` (a straight road surface tile), `roadJunction` (a cross, T and corner, each tagged by kind), `kerb` (a linear kerb piece) and `pavement` (a linear pavement piece). Optionally `roadMarking`.
    - The builder fills the names from the manifest once Josh has converted the pack.
    - A slot with no usable name falls back to 041's code-drawn part, per slot, as in 039.
+   - **Amended 17 Nov 2026 (Josh: "the city pack has road tiles"; "no it's fine if it's in c, continue"):** the POLYGON City Pack (`city-pack`, converted with `scale: 100`) is the first-choice road pack; SIMPLE Town's kit is the fallback. 5 m tiles, read from the manifest: roads `SM_Env_Road_01..03`, `_Bare_01`, `_Lines_01/02`, `_YellowLines_01/02`, `_Crossing_01`, `_Arrow_01/02`, `_Median_01/02`, `_ParkingLines_01`; pavements (0.3 m high, with kerb) `SM_Env_Sidewalk_Straight_01/02`, `_Corner_01/02`, `_Dip_01`, `_Dip_Corner_01`, `_Gutter_01`, `_Grate_01/02`, `_Panel_01/02`; `SM_Env_Path_*`; `SM_Env_Street_Divider_01/02`. Whether the City road atlas sits with the SIMPLE Town buildings is judged on screen by Josh (the builder uses no browser).
 2. **Recommended use** (Q7):
    - Straight tiles are laid along **every** road, ring, grid and diagonal circuit streets alike, turned to the road's angle. They are repeated at true length × `WORLD_PER_METRE` and scaled across to `ROAD_W`. The last tile of a run is scaled along its length to end on the pad.
    - Pack junction pieces stand only where the ring and grid cross at right angles.
