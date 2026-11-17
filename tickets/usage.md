@@ -40,3 +40,6 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 041 C | renderer | sonnet | 271K total (one figure in the readout) | — | 0 | Built conductors, hardware, drops and cans, picking, plus the setback fix; 101 tool uses, 15 min; no browser or dev server by design (PC load) |
 | 041 C | code-reviewer | agent default | not seen | — | 0 | meets, must-fix 0; ran no tests (the main session had run the capped full check) |
 | 041 C | playtester | agent default | 15K total (one figure in the readout) | — | 0 | regressions 0; stopped early: nothing the harness loads changed |
+| 042 A | renderer | sonnet | 211K total (one figure in the readout) | — | 0 | Front table, families, corner lots, fronts overlay; 123 tool uses, 13 min; no browser or dev server by design (PC load) |
+| 042 A | code-reviewer | agent default | 69K total (one figure in the readout) | — | 0 | meets, must-fix 0; 11 tool uses, 2 min; ran no tests (the main session had run the capped full check) |
+| 042 A | playtester | agent default | 17K total (one figure in the readout) | — | 0 | regressions 0; stopped early: nothing the harness loads changed |
