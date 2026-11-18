@@ -118,6 +118,17 @@ In a dev build, Josh (or the main session) opens `/?puzzle=<any>&view=3d&city=ti
       - The ladder's R7 floor of 0.5 in `CITY_CHECK` is unchanged.
       - No change is made to `dressing.ts`, `P_ESCAPE` or the lot keys.
     - R10 here is the furniture check. It becomes frame-aware in E (criterion 25), so B is judged on R10 without tile furniture.
+    - *From 056 (056 A review, 18 Nov 2026; temporary until 057):* with 056's demand-placed lots (9 on the default city), the far-gap share falls below the 0.85 floor. Measured by the original definition:
+      - 396 of 495 runs close to a seam or alley (0.80);
+      - 275 of 374 corner-ending runs do (0.735).
+
+      The cause: the run after a 10 m parking lot is 5j − 6 m long and gets no inset, unlike a run after a plaza.
+
+      056 A therefore:
+      - keeps the 0.85 test, excluding the first run after a lot;
+      - adds floors of 0.75 over all runs and 0.70 over corner-ending runs.
+
+      These floors are temporary. Ticket 057 (approved) replaces the tile city's far-gap handling with flush corners and seam, overlap or gated-passage ends (its 19.2 and G2), and 057 B restates the far-gap rule and retires these floors.
 11. [ ] **Parking.** Every open lot is on the tile grid (corners on cell edges); every block has at least `CITY_BAYS_PER_BLOCK_MIN` (4) kerbside bays on its sides or an open parking lot; the city has at least ceil(blocks / `CITY_LOTS_PER_BLOCKS`) parking lots; every parking lot's street edge is `kerbCut` cells across its whole width and the parking cells in front of it hold no bay; no bay overlaps a kerb cut, a crossing or a junction.
     - *From 056 (once 056 A merges):* two clauses are replaced by 056's criteria 4 and 6, checks P1 and P2:
       - "at least `CITY_BAYS_PER_BLOCK_MIN` (4) kerbside bays or an open parking lot";

@@ -256,6 +256,7 @@ The build order is A, B, C, F, G, then D and E. The letters F and G were added a
 5. [ ] **Far ends close.** Every run's far end is a seam (at most `TERRACE_SEAM_M`), an overshoot of at most `END_OVERLAP_MAX_M` into the next row's corner block, or a gated passage of `PASSAGE_W_M` (1.0 m to one column, about 5.3 m) recorded in `TileCity.passages`.
    - The overshoot is a packer option, `farOverlap_m` in `packTerrace`/`packTown`, default 0, so the ladder is unchanged.
    - This replaces, for the tile city only, 055 criterion 10's far-gap share ("seam or alley on at least the ladder's share"). The ladder's rule is unchanged.
+   - It also retires 056 A's temporary far-gap floors (0.75 over all runs, 0.70 over corner-ending runs, and the 0.85 test that excludes the first run after a lot; see the "From 056" note on 055 criterion 10). B restates the tile city's far-gap rule as this criterion and G2. The run after a parking lot, or after a court drive, closes like any other run.
 6. [ ] **G2, no gap in the frontage.** Along every block side, the pavement's back edge is covered, within 0.01 m, by a wall, a corner flank, a seam, an overshoot, a gated passage, a parking lot, a plaza or a court drive.
    - It passes on the cities of criterion 3.
    - It fails on `793bbf7`'s layout: a fixture of the default city with today's insets and alleys.

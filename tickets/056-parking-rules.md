@@ -162,7 +162,7 @@ The guide has a parking chapter that says how many spaces a home and a shop get,
    - Hash lots: with `parkByHash: false`, no lot comes from `PARKING_ONE_IN`.
    - Order: deterministic per (size, seed).
 5. [ ] **Build-outs.** Every parking-band cell is exactly one of: half of a `ParkingLines_01` tile, `parkingPlain` in front of a kerb cut or on an edge street's outer side, or the new role `buildout`.
-   - A kerb segment lies on every edge between a pavement-family cell (`pavement`, `pavementCorner`, `kerbCut`, `buildout`) and a carriageway cell, and on no other edge.
+   - A kerb segment lies on every edge between a `pavement` or `buildout` cell and a carriageway cell, and on no other edge. This matches 055: a `kerbCut` breaks the kerb (design item 6 and T4), and a `pavementCorner`'s edges carry none (055 A's kerbs are the merged block-side segments between corners). *(Wording fixed 18 Nov 2026 after the 056 A review, before section C writes chapter 18.)*
    - 055 A's criteria 1 to 4 and 6 still pass, with `buildout` counted as pavement in criterion 4.
    - Pole slots do not move.
    - `city.buildoutTrees` holds one tree on every `BUILDOUT_TREE_EVERY`th build-out cell along each side, at the cell centre, and never on a cell next to a crossing.
@@ -226,7 +226,7 @@ The guide has a parking chapter that says how many spaces a home and a shop get,
     - `git ls-files assets/private` is empty.
 
 ## Files
-- **A, may touch:** `src/render3d/tilecity.ts`; `town.ts` (only `TerraceRowOpts.parkByHash`, default `true`, read where the hash lot is chosen); new `parkmetrics.ts` and `parkmetrics.test.ts`; `tilecity.test.ts` (new cases, plus the removed constants' cases replaced); `tileintegrate.test.ts` (only cases whose counts follow the new bays and lots).
+- **A, may touch:** *(widened by the main session during 056 A, 18 Nov 2026: adding a `TileRole` forces these, so A also edited the four B test lists, and added `buildout` to `tileslots.ts`'s `TILE_SLOTS`, `TILE_LEVELS` and `TILE_FRONT_TEXT`; B keeps the drawing itself)* `src/render3d/tilecity.ts`; `town.ts` (only `TerraceRowOpts.parkByHash`, default `true`, read where the hash lot is chosen); new `parkmetrics.ts` and `parkmetrics.test.ts`; `tilecity.test.ts` (new cases, plus the removed constants' cases replaced); `tileintegrate.test.ts` (only cases whose counts follow the new bays and lots).
 - **B, may touch:** `tileslots.ts` (the `buildout` slot and front, the sheet entry), `tilecity3d.ts` (drawing build-outs and trees), `tileslots.test.ts`, `tilecity3d.test.ts`.
 - **C, may touch:** `docs/city-style-guide.md` (chapter 18, the Numbers rows, and one pointer line in chapter 17 if it exists), `styleguide.test.ts` (the new drift check only).
 - **Must not touch (every section):**
@@ -291,5 +291,9 @@ The guide has a parking chapter that says how many spaces a home and a shop get,
 4. **Bay records for later cars.** Default: **keep them**: kerb bays as today, plus 6 `lotStalls` records per lot, so a cars ticket can fill both in one step. Alternative: drop the lot stall records until cars come.
 5. **Residents at the kerb.** Default: **none**: residents' spaces are off-street only. Alternative: up to a third of residents' demand may take kerb bays on the streets, not the avenues, in place of build-outs.
 6. **Units.** Default: a home is 2 column-floors (about 62 m²) and a shop is one shop ground bay. Alternative: a home is one column-floor (about 31 m², twice the homes, so halve `PARK_PER_HOME` to keep the same picture).
+
+
+### Open items (added 18 Nov 2026 after the 056 A review; for Josh)
+7. **A tile-city R6 floor** (like `TILE_CITY_R7_MIN`). R6 (share of shop bays with a sign) sits at its 0.5 floor on the tile city only through the dressing's sign chance, and 056 A tunes `LOT_RUN_SALT = 46` to keep it there. Default until Josh answers: keep the salt and the 0.5 floor. The question for him is whether to set a tile-city R6 floor (for example 0.45, as R7 got 0.4) so that a later layout change does not need re-tuning.
 
 Decided rules: none is touched (rendering only, no puzzle); `rules-coverage.md` does not change.
