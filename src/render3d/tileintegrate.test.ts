@@ -1,6 +1,6 @@
 /**
  * Ticket 055 E, integration: B's pure helpers wired into the drawn tile city (keep-outs, bay meters, the dressing's and R10's frame), the walking level, the yellow centre line, three bays
- * to a parking tile, lot and plaza cells drawn, a readable sheet, daylight on every tile-view URL, and the street camera on the tile city. No WebGL: every GLB is a fake group (a one-box
+ * to a parking tile, lot and plaza cells drawn, a readable sheet, the light on every tile-view URL, and the street camera on the tile city. No WebGL: every GLB is a fake group (a one-box
  * mesh per tile, dressing and furniture key, an empty node per stack piece), every size a number typed in from the converted City Pack manifest (18 Nov 2026). The real GLB is read only
  * inside an `it` that skips when it is absent; no timer, no path but forward slashes.
  */
@@ -19,9 +19,9 @@ import { STACK_STYLES } from "./stacks";
 import { packTown, type PackResult, type PackedBlock } from "./terrace";
 import { buildScene } from "./scene";
 import { WORLD_PER_METRE } from "./models";
-import { createStreetView, STREET_CAM_DAY_INTENSITY, streetRows } from "./streetcam";
+import { createStreetView, streetRows } from "./streetcam";
 import { ELEVATION } from "./camera";
-import { CITY_NEAR_FRACTION, TILE_FURNITURE_LEVELS, buildCityScene, buildSheetScene, cityApplyOptions, cityDaylightRequested, createCityRenderer3d, createCityRig, sheetRigInsets, tileGroup, tileOriginY_m } from "./tilecity3d";
+import { CITY_NEAR_FRACTION, TILE_FURNITURE_LEVELS, buildCityScene, buildSheetScene, cityApplyOptions, createCityRenderer3d, createCityRig, sheetRigInsets, tileGroup, tileOriginY_m } from "./tilecity3d";
 import { TILE_FRONTS, TILE_SLOTS, TILE_WALK_M, cityTilesRequested, sheetPieces, tileKeys, tileLevelY_m, tileFront } from "./tileslots";
 import { stubTextSurface } from "./text";
 import type { TerraceRun } from "./town";
@@ -769,12 +769,14 @@ describe("a readable sheet (criterion 30)", () => {
   }
 });
 
-describe("daylight on every tile-view URL (criterion 30)", () => {
+describe("the light on every tile-view URL (criterion 30, then ticket 060: the tile view opens in day)", () => {
   const info = vi.spyOn(console, "info").mockImplementation(() => {});
   const canvas = (): HTMLCanvasElement => ({ clientWidth: 1280, clientHeight: 720, style: { touchAction: "" }, addEventListener() {}, removeEventListener() {}, setPointerCapture() {} }) as unknown as HTMLCanvasElement;
 
-  /** Open the tile view for a URL's search string, draw one frame, and return the scene it drew and how many HemisphereLights it holds. */
-  async function open(search: string, mutate?: (c: TileCity) => TileCity): Promise<{ lights: HemisphereLightInfo[]; scene: Scene; text: string[] }> {
+  /** The lights of a scene by kind: the rig's tag, or "own" for a light the rig did not add. */
+  type Kinds = Record<string, number>;
+  /** Open the tile view for a URL's search string, draw one frame, and return the scene it drew and how many lights of each kind it holds. */
+  async function open(search: string, mutate?: (c: TileCity) => TileCity): Promise<{ kinds: Kinds; scene: Scene; text: string[] }> {
     const scenes: Scene[] = [];
     const gl = { setPixelRatio() {}, setSize() {}, render: (s: Scene) => scenes.push(s) } as unknown as WebGLRenderer;
     const req = cityTilesRequested(search)!;
@@ -784,18 +786,15 @@ describe("daylight on every tile-view URL (criterion 30)", () => {
     await new Promise<void>((done) => setTimeout(done, 0));
     r.draw(undefined as never, undefined as never, 0);
     const scene = scenes[scenes.length - 1]!;
-    const lights: HemisphereLightInfo[] = [];
+    const kinds: Kinds = {};
     scene.traverse((o) => {
-      const l = o as unknown as HemisphereLightInfo;
-      if (l.isHemisphereLight === true) lights.push(l);
+      if ((o as { isLight?: boolean }).isLight !== true) return;
+      const k = typeof o.userData["lightRig"] === "string" ? (o.userData["lightRig"] as string) : "own";
+      kinds[k] = (kinds[k] ?? 0) + 1;
     });
     const text = info.mock.calls.map((c) => String(c[0]));
     r.dispose();
-    return { lights, scene, text };
-  }
-  interface HemisphereLightInfo {
-    isHemisphereLight: boolean;
-    intensity: number;
+    return { kinds, scene, text };
   }
   /** The default city with no terrace row at all, so the street camera has nothing to look along and falls back to the overhead view. */
   const noRows = (c: TileCity): TileCity => ({ ...c, town: { ...c.town, terraces: [], lots: [], openLots: [] } });
@@ -805,52 +804,34 @@ describe("daylight on every tile-view URL (criterion 30)", () => {
     ["the street camera", "?puzzle=01-first-light&view=3d&city=tiles&cam=street&run=0"],
     ["the street camera at a row's end", "?puzzle=01-first-light&view=3d&city=tiles&cam=street&run=1&at=0"],
     ["a bigger city", "?puzzle=01-first-light&view=3d&city=tiles&blocks=5x4&seed=2"],
-    ["the sheet", "?puzzle=01-first-light&view=3d&city=tiles&sheet=1"],
   ] as const;
 
   for (const [label, search] of URLS) {
-    it(`${label}: exactly one HemisphereLight at STREET_CAM_DAY_INTENSITY with light=day, none without`, async () => {
-      const day = await open(`${search}&light=day`);
-      expect(day.lights, label).toHaveLength(1);
-      expect(day.lights[0]!.intensity).toBe(STREET_CAM_DAY_INTENSITY);
-      const night = await open(search);
-      expect(night.lights, label).toHaveLength(0);
+    it(`${label}: opens in day (one sun and one HemisphereLight, no ambient) and with light=night in the game's night (one ambient and one moon)`, async () => {
+      const day = await open(search);
+      expect(day.kinds, label).toEqual({ key: 1, hemi: 1 });
+      const night = await open(`${search}&light=night`);
+      expect(night.kinds, label).toEqual({ ambient: 1, moon: 1 });
     });
   }
 
-  it("the street camera that finds no row falls back to the overhead view, says so, and is still lit by light=day (the lack found in 4d952c6)", async () => {
+  it("the sheet is lit by its own lights in both modes and has no rig light", async () => {
+    const plain = await open("?city=tiles&sheet=1");
+    const night = await open("?city=tiles&sheet=1&light=night");
+    for (const o of [plain, night]) {
+      expect(o.kinds["own"]).toBeGreaterThanOrEqual(2);
+      expect(Object.keys(o.kinds)).toEqual(["own"]);
+    }
+    expect(plain.kinds).toEqual(night.kinds);
+  });
+
+  it("the street camera that finds no row falls back to the overhead view, says so, and is lit all the same (the lack found in 4d952c6)", async () => {
     info.mockClear();
-    const day = await open("?city=tiles&cam=street&light=day", noRows);
-    expect(day.lights).toHaveLength(1);
+    const day = await open("?city=tiles&cam=street", noRows);
+    expect(day.kinds).toEqual({ key: 1, hemi: 1 });
     expect(day.text.some((t) => t.includes("no row of buildings to look along yet"))).toBe(true);
-    const night = await open("?city=tiles&cam=street", noRows);
-    expect(night.lights).toHaveLength(0);
-  });
-
-  it("reads the flag from the address alone: light=day and nothing else", () => {
-    expect(cityDaylightRequested("?city=tiles&light=day")).toBe(true);
-    for (const s of ["", "?city=tiles", "?light=night", "?light=Day", "?light="]) expect(cityDaylightRequested(s), s).toBe(false);
-  });
-
-  it("lights the city at night as the game is by default: the tile view's own lights are the two of the puzzle-free scene, and the sheet has its own", async () => {
-    const night = await open("?city=tiles");
-    let lights = 0;
-    night.scene.traverse((o) => {
-      if ((o as { isLight?: boolean }).isLight) lights++;
-    });
-    expect(lights).toBe(2);
-    const sheet = await open("?city=tiles&sheet=1");
-    let sheetLights = 0;
-    sheet.scene.traverse((o) => {
-      if ((o as { isLight?: boolean }).isLight) sheetLights++;
-    });
-    expect(sheetLights).toBeGreaterThanOrEqual(2);
-    const sheetDay = await open("?city=tiles&sheet=1&light=day");
-    let sheetDayLights = 0;
-    sheetDay.scene.traverse((o) => {
-      if ((o as { isLight?: boolean }).isLight) sheetDayLights++;
-    });
-    expect(sheetDayLights).toBe(sheetLights + 1);
+    const night = await open("?city=tiles&cam=street&light=night", noRows);
+    expect(night.kinds).toEqual({ ambient: 1, moon: 1 });
   });
 });
 

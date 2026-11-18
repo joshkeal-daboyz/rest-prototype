@@ -2,10 +2,10 @@
  * The street camera (ticket 051, section A; debug only): `/?puzzle=<id>&view=3d&cam=street[&run=N][&at=T][&light=day]` stands the eye in the road, 9 m up,
  * turned along one row of buildings and looking at its front, a little above the pavement, like a city-builder promo shot. The main session uses it to judge
  * the rows by screenshot. It renders through its own PerspectiveCamera: the play rig and the picker are not touched, nothing can be picked while it is on,
- * and pan and zoom do nothing. `light=day` adds one HemisphereLight so form can be judged (the game stays a night scene).
+ * and pan and zoom do nothing. `light=day` is read here and acted on by the light rig (`lightrig.ts`, ticket 060), which owns every global light: this module adds none.
  *
  * Two halves. The first is pure (no three, no DOM): which rows there are, where the eye stands and how wide the lens must be to frame the row. The
- * second is three: the camera, the daylight and the one console line `street camera: run N of M, <row id>, K blocks`, logged once the models are applied
+ * second is three: the camera and the one console line `street camera: run N of M, <row id>, K blocks`, logged once the models are applied
  * AND one frame has been drawn through the street camera, so a screenshot that waits for the line shows the finished picture. Nothing here reads the
  * page's address: renderer.ts passes the query string in, behind `import.meta.env.DEV`, so none of it is in `npm run build`.
  *
@@ -13,7 +13,7 @@
  * loop street serves several blocks, so a chain ends where the street is crossed).
  */
 
-import { Camera, HemisphereLight, PerspectiveCamera, type Scene } from "three";
+import { Camera, PerspectiveCamera, type Scene } from "three";
 import type { MapRenderer3d } from "./renderer";
 import { WORLD_PER_METRE, type Town } from "./town";
 
@@ -29,10 +29,6 @@ export const STREET_CAM_YAW_DEG = 35;
 /** The lens opens from this (vertical, degrees) up to `STREET_CAM_FOV_MAX_DEG` until three whole lots fit the frame. */
 export const STREET_CAM_FOV_DEG = 50;
 export const STREET_CAM_FOV_MAX_DEG = 85;
-/** The daylight, dev only. */
-export const STREET_CAM_SKY = 0xcfe0ff;
-export const STREET_CAM_GROUND = 0x6b5a48;
-export const STREET_CAM_DAY_INTENSITY = 2.2;
 
 /** The look point rises to this fraction of the row's median lot cap when that is above `STREET_CAM_LOOK_M`. */
 const LOOK_CAP_FRACTION = 0.65;
@@ -64,7 +60,7 @@ export interface StreetCamOptions {
   run: number;
   /** Where the look point stands along the row, 0 (its start, the corner end) to 1. */
   at: number;
-  /** Add the daylight. */
+  /** The page asked for `light=day`. The light rig acts on it (renderer.ts asks `lightModeFor`); the street view itself adds no light. */
   day: boolean;
 }
 
@@ -486,7 +482,7 @@ export interface StreetView {
 }
 
 /** The street camera over a town's scene, or null when the town has no row. `log` is `console.info` unless a test passes its own. */
-export function createStreetView(town: Town, opts: StreetCamOptions, scene: Scene, width: number, height: number, log: (line: string) => void = (s) => console.info(s)): StreetView | null {
+export function createStreetView(town: Town, opts: StreetCamOptions, _scene: Scene, width: number, height: number, log: (line: string) => void = (s) => console.info(s)): StreetView | null {
   const aspectOf = (w: number, h: number): number => Math.max(w, 1) / Math.max(h, 1);
   let pose = streetPose(town, { ...opts, aspect: aspectOf(width, height) });
   if (!pose) return null;
@@ -500,11 +496,6 @@ export function createStreetView(town: Town, opts: StreetCamOptions, scene: Scen
     camera.updateMatrixWorld(true);
   };
   place(pose, width, height);
-  let light: HemisphereLight | null = null;
-  if (opts.day) {
-    light = new HemisphereLight(STREET_CAM_SKY, STREET_CAM_GROUND, STREET_CAM_DAY_INTENSITY);
-    scene.add(light);
-  }
   let ready = false;
   let logged = false;
   const view: StreetView = {
@@ -526,13 +517,7 @@ export function createStreetView(town: Town, opts: StreetCamOptions, scene: Scen
         log(`street camera: run ${pose!.run} of ${pose!.of}, ${pose!.row}, ${pose!.blocks} blocks`);
       }
     },
-    dispose() {
-      if (light) {
-        scene.remove(light);
-        light.dispose();
-        light = null;
-      }
-    },
+    dispose() {},
   };
   return view;
 }

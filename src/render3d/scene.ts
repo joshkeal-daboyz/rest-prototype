@@ -7,7 +7,6 @@
 
 import {
   AdditiveBlending,
-  AmbientLight,
   LineDashedMaterial,
   LineLoop,
   Shape,
@@ -22,7 +21,6 @@ import {
   Color,
   CylinderGeometry,
   DataTexture,
-  DirectionalLight,
   DoubleSide,
   Group,
   InstancedMesh,
@@ -55,12 +53,15 @@ import { KERB_H, LOT_TYPE_NAMES, ROAD_W, STOREY_M, townLayout, type Lot, type Lo
 import { WORLD_PER_METRE, atFront } from "./models";
 import { ROOF_SHADE, TINTS, pickPlaceholders } from "./placeholders";
 import { lampBrightness, nodeLookInto, type NodeLook } from "./look";
+import { applyLightMode, addSurface, newLightOwners, nightLightsOn, type LightOwners } from "./lightrig";
 import { createRelightClock, lampIgnition, lineFraction, nodeArrived, placeGlowStep, type LampIgnition } from "./relight3d";
 import { CAPTION_FONT_PX, FEED_FONT_PX, captionsFor, scaleForPx, type NodeCaption } from "./captions";
 import { createBarSprite, createCaptionSprite, defaultTextSurface, type BarSprite, type CaptionSprite, type TextSurfaceFactory } from "./text";
 
 export interface SceneBundle {
   scene: Scene;
+  /** The code-drawn materials and night-only parts the light rig puts in a mode (ticket 060). */
+  lightOwners: LightOwners;
   /**
    * Restyle everything from the state. `hover` is the node or line id under the pointer, or null.
    * `relightT` is the Relight clock (`overlay.relightT`): while it runs, power travels out from the feed and lamps ignite in order.
@@ -616,11 +617,9 @@ export function shadowGeometry(lines: readonly (readonly Vec3[])[]): BufferGeome
 
 export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle {
   const scene = new Scene();
-  scene.background = new Color(0x0b0f17);
-  scene.add(new AmbientLight(0x4a5a7a, 1.1));
-  const moon = new DirectionalLight(0x8fa6d0, 0.7);
-  moon.position.set(-6, 12, 4);
-  scene.add(moon);
+  // The scene's global lights, background and tone mapping are the light rig's (ticket 060): night here, as the game is; a dev view may put the scene in day afterwards.
+  const lightOwners = newLightOwners();
+  applyLightMode(scene, null, "night", lightOwners);
 
   const town = townLayout(puzzle, { terraces: opts.terraces !== false });
   const runs = wireLayout(puzzle);
@@ -632,6 +631,12 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
   ground.position.set((win.minX + win.maxX) / 2, -0.05, (win.minY + win.maxY) / 2);
   scene.add(ground);
   const streets = buildStreets(town, scene);
+  addSurface(lightOwners, "ground", ground.material as Material);
+  addSurface(lightOwners, "yard", streets.yards.material as Material);
+  addSurface(lightOwners, "street", streets.roads.material as Material);
+  addSurface(lightOwners, "kerb", streets.kerbs.material as Material);
+  addSurface(lightOwners, "pavement", streets.pavements.material as Material);
+  if (streets.pads[0]) addSurface(lightOwners, "street", streets.pads[0].material as Material);
 
   // Placeholder buildings on every lot, at one scale; a lamp's place is its own mesh so it can warm when lit.
   const placeholders = buildPlaceholders(town.lots);
@@ -1035,6 +1040,8 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
         flare.visible = false;
         parts.flare = flare;
         g.add(post, head, light, pool, halo, flare);
+        // Night-only: a testing daylight (ticket 060) hides these and puts the light at 0.
+        lightOwners.nightOnly.push(light, pool, halo, flare);
         lampSlots.push({ id: n.id, group: g, post });
         const nodeIdx = nodeIndexOf.get(n.id) ?? 0;
         let starFill: Mesh | null = null;
@@ -1068,14 +1075,17 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
           const f = flaring ? flareAge / FLARE_SECONDS : 1;
           headMat.emissiveIntensity = 2.2 * b;
           headMat.color.setHex(b > 0 ? 0xfff3c9 : 0x3a4152);
-          light.intensity = 5 * b;
-          poolMat.opacity = 0.9 * b;
-          haloMat.opacity = 0.8 * b;
-          halo.visible = b > 0;
+          // In a testing daylight (ticket 060) the lamp's light, pool, halo and flare are off; the head still warms.
+          const nb = nightLightsOn(scene) ? b : 0;
+          const nightFlaring = flaring && nb > 0;
+          light.intensity = 5 * nb;
+          poolMat.opacity = 0.9 * nb;
+          haloMat.opacity = 0.8 * nb;
+          halo.visible = nb > 0;
           const haloSize = 1.3 * (flaring ? 1 + (1 - f) : 1);
           halo.scale.set(haloSize, haloSize, 1);
-          flare.visible = flaring;
-          if (flaring) {
+          flare.visible = nightFlaring;
+          if (nightFlaring) {
             flare.scale.setScalar(0.3 + 1.2 * f);
             flareMat.opacity = 1 - f;
           }
@@ -1279,6 +1289,7 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
 
   return {
     scene,
+    lightOwners,
     captions: captionSprites,
     parts: parts_,
     slots: { poles: { spots: poleSpots, placeholders: [poles, arms] }, lamps: lampSlots, blocks: { list: town.lots, placeholder: placeholders.root, byType: placeholders.byType, terraces: town.terraces }, models: modelGroup },

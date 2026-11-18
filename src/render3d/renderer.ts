@@ -12,6 +12,8 @@ import { createPicker } from "./pick";
 import { frontsOverlay, frontsRequested, type FrontsOverlay } from "./debug3d";
 import { createGalleryRenderer3d, galleryRequested } from "./gallery";
 import { applyModels, sharedModels, type AppliedModels } from "./models3d";
+import { applyLightMode } from "./lightrig";
+import { lightModeFor } from "./lighting";
 import { buildScene } from "./scene";
 import { createCityRenderer3d } from "./tilecity3d";
 import { cityTilesRequested } from "./tileslots";
@@ -56,6 +58,9 @@ export function createMapRenderer3d(canvas: HTMLCanvasElement, puzzle: Puzzle, o
   const rig = createCameraRig(puzzle, Math.max(canvas.clientWidth, 1), Math.max(canvas.clientHeight, 1), insets);
   const ratio = Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 2);
   const bundle = buildScene(puzzle, { dpr: ratio });
+  // The light rig owns the scene's global lights and the renderer's tone mapping. Night is the game's; a dev build's `light=day` is a testing daylight (ticket 060).
+  const lightMode = import.meta.env.DEV && typeof location !== "undefined" ? lightModeFor("puzzle", location.search, true) : "night";
+  applyLightMode(bundle.scene, renderer, lightMode, bundle.lightOwners);
   let street: StreetView | null = null;
   if (import.meta.env.DEV && streetOpts) street = createStreetView(townLayout(puzzle), streetOpts, bundle.scene, rig.size.width, rig.size.height);
   const picker = createPicker(bundle.scene, rig.camera, rig.size);
