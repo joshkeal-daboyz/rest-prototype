@@ -10,6 +10,7 @@ import type { Insets } from "../render/geometry";
 import { FOV_DEG, createCameraRig } from "./camera";
 import { createPicker } from "./pick";
 import { frontsOverlay, frontsRequested, type FrontsOverlay } from "./debug3d";
+import { createGalleryRenderer3d, galleryRequested } from "./gallery";
 import { applyModels, sharedModels, type AppliedModels } from "./models3d";
 import { buildScene } from "./scene";
 
@@ -32,6 +33,12 @@ export function createMapRenderer3d(canvas: HTMLCanvasElement, puzzle: Puzzle, o
     glByCanvas.set(canvas, gl);
   }
   const renderer = gl;
+  // `?gallery=<pack-id>` (debug, ticket 043 B) shows every building of one pack instead of the town; this is the one place the address is read.
+  const galleryPack = typeof location !== "undefined" ? galleryRequested(location.search) : null;
+  if (galleryPack !== null) {
+    const ratio = Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 2);
+    return createGalleryRenderer3d(renderer, canvas, galleryPack, { insets: opts?.insets, dpr: ratio, search: location.search });
+  }
   let insets: Insets = { ...(opts?.insets ?? {}) };
   const rig = createCameraRig(puzzle, Math.max(canvas.clientWidth, 1), Math.max(canvas.clientHeight, 1), insets);
   const ratio = Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 2);

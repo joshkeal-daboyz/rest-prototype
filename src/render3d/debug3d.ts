@@ -48,6 +48,20 @@ export function frontCaption(name: string, family: string, cornerSides: readonly
   return lines;
 }
 
+/**
+ * A red arrow from (x, y, z) along (dx, dz), drawn over everything and never a pick target. The fronts overlay's arrow, and the gallery's
+ * (ticket 043 B), which asks for a longer, wider one.
+ */
+export function frontArrow(x: number, y: number, z: number, dx: number, dz: number, length = FRONT_ARROW_LENGTH, headLength = 0.3, headWidth = 0.2): ArrowHelper {
+  const arrow = new ArrowHelper(new Vector3(dx, 0, dz), new Vector3(x, y, z), length, FRONT_ARROW_COLOUR, headLength, headWidth);
+  arrow.traverse((o) => {
+    o.raycast = () => {};
+    o.renderOrder = 9;
+  });
+  for (const m of [arrow.line.material, arrow.cone.material] as Material[]) m.depthTest = false;
+  return arrow;
+}
+
 /** One arrow and one caption per building clone in `applied`. Nothing is added to the scene: the caller adds the returned group. */
 export function frontsOverlay(bundle: SceneBundle, applied: AppliedModels, opts: { surface?: TextSurfaceFactory; dpr?: number } = {}): FrontsOverlay {
   const surface = opts.surface ?? defaultTextSurface;
@@ -63,12 +77,7 @@ export function frontsOverlay(bundle: SceneBundle, applied: AppliedModels, opts:
   for (const p of applied.buildings) {
     const top = sizeOf(p.model.entry)[1] * p.scale;
     const [dx, dz] = declaredFrontDirection(p.model.front, p.yaw);
-    const arrow = new ArrowHelper(new Vector3(dx, 0, dz), new Vector3(p.x, top + 0.03, p.z), FRONT_ARROW_LENGTH, FRONT_ARROW_COLOUR, 0.3, 0.2);
-    arrow.traverse((o) => {
-      noRay(o);
-      o.renderOrder = 9;
-    });
-    for (const m of [arrow.line.material, arrow.cone.material] as Material[]) m.depthTest = false;
+    const arrow = frontArrow(p.x, top + 0.03, p.z, dx, dz);
     arrow.userData["model"] = p.model.entry.name;
     arrows.push(arrow);
     root.add(arrow);
