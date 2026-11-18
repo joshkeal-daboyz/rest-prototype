@@ -6,10 +6,11 @@
  */
 
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { Group, InstancedMesh, Matrix4, NearestFilter, Texture, type Material, type Mesh, type Object3D } from "three";
+import { Color, DoubleSide, Group, InstancedMesh, Matrix4, MeshStandardMaterial, NearestFilter, Quaternion, Texture, Vector3, type Material, type Mesh, type Object3D } from "three";
 import { calibrationKey, type AssetEntry, type AssetManifest, type CalibrationKey } from "../core";
 import { stableHash } from "../render/city";
 import { effectiveFronts, loadSavedCalibration } from "./calibration";
+import { DRESS_DRAW_CALLS_MAX, KERB_FROM_FRONT_M, SHOP_GLASS, dressKeys, dressTown, type DressBlockInput, type DressPiece } from "./dressing";
 import {
   BUILDING_EXCLUDE,
   BUILDING_FRONTS,
@@ -24,6 +25,7 @@ import {
   modelScale,
   pickBuildings,
   pickIndex,
+  planDressPieces,
   planModels,
   planStackPieces,
   sizeOf,
@@ -55,6 +57,11 @@ export type ModelSet = Record<ModelSlot, LoadedModel[] | null> & {
    * (the town today), so a set made without stacks is exactly what it was.
    */
   stack?: LoadedModel[] | null;
+  /**
+   * The City Pack dressing pieces (ticket 052 B: awnings, glass, signs, fire escapes, roof props), in `LoadDeps.dressKeys` order; null when they were asked for and none
+   * loaded (no City Pack). Absent when not asked for, so a set made without dressing is exactly what it was.
+   */
+  dress?: LoadedModel[] | null;
 };
 
 export const NO_MODELS: ModelSet = { pole: null, lamp: null, building: null };
@@ -72,6 +79,8 @@ export interface LoadDeps {
   exclude?: readonly CalibrationKey[];
   /** The stack-recipe pieces to load too (ticket 050 B), keyed `pack:name`, into `ModelSet.stack`. Default: none, so no extra GLB is fetched. */
   stackKeys?: readonly CalibrationKey[];
+  /** The dressing pieces to load too (ticket 052 B), keyed `pack:name`, into `ModelSet.dress`. Default: none, so nothing extra is read from the GLB. */
+  dressKeys?: readonly CalibrationKey[];
   /** Folder of the manifest, ending in "/". Default: `${BASE_URL}assets/private/out/`. */
   dir?: string;
   /** Where the one line saying why a fallback happened goes. Default: console.info. */
@@ -135,9 +144,12 @@ export async function loadModels(deps: LoadDeps): Promise<ModelSet> {
     // A piece named in `exclude` is dropped like a missing one, so the styles that need it fall away (ticket 050 C); `exclude`'s default is BUILDING_EXCLUDE, which names no stack piece.
     const wantStack = (deps.stackKeys ?? []).filter((key) => !exclude.includes(key));
     const stackPlan = wantStack.length > 0 ? planStackPieces(manifest as AssetManifest, wantStack, deps.fronts ?? BUILDING_FRONTS) : null;
+    const wantDress = (deps.dressKeys ?? []).filter((key) => !exclude.includes(key));
+    const dressPlan = wantDress.length > 0 ? planDressPieces(manifest as AssetManifest, wantDress, deps.fronts ?? BUILDING_FRONTS) : null;
     const globs = new Set<string>();
     for (const slot of MODEL_SLOTS) for (const p of plan[slot] ?? []) globs.add(p.glb);
     for (const p of stackPlan ?? []) globs.add(p.glb);
+    for (const p of dressPlan ?? []) globs.add(p.glb);
     const roots = new Map<string, Object3D>();
     await Promise.all(
       [...globs].map(async (glb) => {
@@ -179,6 +191,17 @@ export async function loadModels(deps: LoadDeps): Promise<ModelSet> {
         (set.stack ??= []).push({ ...p, root });
       }
     }
+    if (deps.dressKeys && deps.dressKeys.length > 0) {
+      set.dress = null;
+      // A key missing from the manifest or its GLB drops only its own placements (`dressInput` offers the loaded keys alone).
+      for (const p of dressPlan ?? []) {
+        const scene = roots.get(p.glb);
+        const root = scene?.getObjectByName(p.entry.name);
+        if (!root) continue;
+        nearestTextures(root);
+        (set.dress ??= []).push({ ...p, root });
+      }
+    }
     return set;
   } catch (e) {
     info(`3D models: ${describe(e)}; using the placeholder shapes.`);
@@ -203,7 +226,7 @@ export function sharedModels(): Promise<ModelSet> {
   shared ??= loadSavedCalibration({ dev: import.meta.env.DEV, fetchJson }).then((saved) => {
     const tables = effectiveFronts({ fronts: BUILDING_FRONTS, exclude: BUILDING_EXCLUDE }, saved);
     // The City Pack's stack pieces load too (ticket 050 C); with no City Pack in the manifest nothing extra is fetched and the set has no stack slot.
-    return loadModels({ fetchJson, loadGlb: async (url) => (await new GLTFLoader().loadAsync(url)).scene, fronts: tables.fronts, exclude: tables.exclude, stackKeys: allStackKeys() });
+    return loadModels({ fetchJson, loadGlb: async (url) => (await new GLTFLoader().loadAsync(url)).scene, fronts: tables.fronts, exclude: tables.exclude, stackKeys: allStackKeys(), dressKeys: dressKeys() });
   });
   return shared;
 }
@@ -220,6 +243,10 @@ export interface AppliedModels {
   buildings: readonly BuildingPlacement[];
   /** The terrace blocks that were stood (ticket 051 D), run by run, block by block: empty when there is no City Pack stack (the terrace placeholders stay). */
   terrace: readonly PackedBlock[];
+  /** The dressing placed on the stacks (ticket 052 B), in `dressSites` order; empty when there is no dressing or no stack. */
+  dress: readonly DressPlacement[];
+  /** The InstancedMeshes the dressing added (its draw calls); 0 when none. */
+  dressCalls: number;
 }
 
 /** A clone of `m` in a wrapper that scales, turns and places it. The clone shares the cache's geometry and materials; nothing can pick it. */
@@ -278,6 +305,206 @@ export function stackGroup(stack: Stack, roots: ReadonlyMap<CalibrationKey, Obje
     group.add(wrap);
   }
   return group;
+}
+
+// ---- the dressing (ticket 052 B): the pure placements of `dressing.ts`, drawn as one InstancedMesh per key and sub-mesh ----
+
+/** What dressing a loaded set can offer: the loaded keys' entries, the fronts the table names (a "+z" line is the default, so it is left out), and the roots. */
+export interface DressInput {
+  entries: ReadonlyMap<CalibrationKey, AssetEntry>;
+  fronts: FrontTable;
+  roots: ReadonlyMap<CalibrationKey, Object3D>;
+}
+
+/** The dressing input of a loaded set, or null when it has no dressing piece (no City Pack, a failed GLB, not asked for): then the town is exactly what it was. */
+export function dressInput(set: ModelSet): DressInput | null {
+  if (!set.dress || set.dress.length === 0) return null;
+  const fronts: Record<CalibrationKey, BuildingFront> = {};
+  const entries = new Map<CalibrationKey, AssetEntry>();
+  const roots = new Map<CalibrationKey, Object3D>();
+  for (const m of set.dress) {
+    const key = calibrationKey(m.pack, m.entry.name);
+    entries.set(key, m.entry);
+    roots.set(key, m.root);
+    if (m.front !== "+z") fronts[key] = { front: m.front };
+  }
+  return { entries, fronts, roots };
+}
+
+/** Where a stack group stands in the world: its origin (the lot's front-centre) and its turn about y. */
+export interface DressFrame {
+  x: number;
+  z: number;
+  yaw: number;
+}
+
+/** One piece of dressing in its stack's frame, and that frame. */
+export interface DressPlacement {
+  frame: DressFrame;
+  piece: DressPiece;
+}
+
+const UP = new Vector3(0, 1, 0);
+const tmpP = new Vector3();
+const tmpS = new Vector3();
+const tmpQ = new Quaternion();
+const tmpA = new Matrix4();
+const tmpB = new Matrix4();
+
+/**
+ * The world matrix of a piece of dressing: its frame (a stack group's position and yaw), then the piece's own place in metres at WORLD_PER_METRE and its yaw, at
+ * WORLD_PER_METRE scale. It is the matrix `stackGroup` gives a stack piece's wrapper, for a dressing piece, so a prop sits where the pure placement says.
+ */
+export function dressMatrix(frame: DressFrame, piece: Pick<DressPiece, "x" | "y" | "z" | "yaw">, out: Matrix4 = new Matrix4()): Matrix4 {
+  const s = WORLD_PER_METRE;
+  tmpA.compose(tmpP.set(frame.x, 0, frame.z), tmpQ.setFromAxisAngle(UP, frame.yaw), tmpS.set(1, 1, 1));
+  tmpB.compose(tmpP.set(piece.x * s, piece.y * s, piece.z * s), tmpQ.setFromAxisAngle(UP, piece.yaw), tmpS.set(s, s, s));
+  return out.multiplyMatrices(tmpA, tmpB);
+}
+
+/** One site to dress: a stack, its lot's key and height cap, the run it counts in, where it stands, and how far its front is from the road's edge. */
+export interface DressSite extends DressBlockInput {
+  frame: DressFrame;
+}
+
+/**
+ * The stacks of a town as dressing sites, in the order `dressTown` threads its caps: each terrace run's packed blocks in run order, then each stack standing on a
+ * lot. Terrace blocks count in their terrace run; stacks on lots in the street side they face. A run's lowest block (its shortest stack, the first of equals) is
+ * the one a novelty sign may stand on. Every ordinary lot and terrace block faces a road at the pavement and setback, so the kerb is `KERB_FROM_FRONT_M` for all
+ * (a service run's frontage, 2.08 m, is only ever a place's, and a place is not stacked).
+ */
+export function dressSites(terrace: readonly PackedBlock[], placements: readonly BuildingPlacement[], lots: readonly Lot[]): DressSite[] {
+  const raw: { stack: Stack; lot: Pick<Lot, "key" | "hMax">; run: string; frame: DressFrame }[] = [];
+  for (const b of terrace) {
+    const half = b.lot.d / 2;
+    raw.push({ stack: b.stack, lot: { key: b.lot.key, hMax: b.lot.hMax }, run: b.lot.terrace?.run ?? `terrace:${b.lot.street}:${b.lot.side}`, frame: { x: b.lot.x + Math.sin(b.lot.yaw) * half, z: b.lot.z + Math.cos(b.lot.yaw) * half, yaw: b.lot.yaw } });
+  }
+  for (const p of placements) {
+    const lot = lots[p.lot];
+    if (!p.stack || !lot) continue;
+    const half = (p.stack.depth_m * WORLD_PER_METRE) / 2;
+    raw.push({ stack: p.stack, lot: { key: lot.key, hMax: lot.hMax }, run: `lots:${lot.street}:${lot.side}`, frame: { x: p.x + Math.sin(p.yaw) * half, z: p.z + Math.cos(p.yaw) * half, yaw: p.yaw } });
+  }
+  const count = new Map<string, number>();
+  const lowest = new Map<string, number>();
+  const index: number[] = [];
+  raw.forEach((r, k) => {
+    const i = count.get(r.run) ?? 0;
+    index.push(i);
+    count.set(r.run, i + 1);
+    const low = lowest.get(r.run);
+    if (low === undefined || r.stack.height_m < raw[low]!.stack.height_m) lowest.set(r.run, k);
+  });
+  return raw.map((r, k) => ({ stack: r.stack, lot: r.lot, run: { id: r.run, index: index[k]!, lowest: lowest.get(r.run) === k }, kerbM: KERB_FROM_FRONT_M, frame: r.frame }));
+}
+
+/** The placements of a set of sites, flattened in site order (pure: `dressTown`'s caps along each run). A piece whose key is not in `entries` is simply not placed. */
+export function dressPlacements(sites: readonly DressSite[], entries: ReadonlyMap<CalibrationKey, AssetEntry>, fronts: FrontTable = {}): DressPlacement[] {
+  const dressed = dressTown(sites, entries, fronts);
+  const out: DressPlacement[] = [];
+  sites.forEach((s, i) => {
+    for (const piece of dressed[i] ?? []) out.push({ frame: s.frame, piece });
+  });
+  return out;
+}
+
+/** The mesh nodes of a model's root, each with the matrix that takes its own frame to the root's parent (the root's own local matrix included, as a clone in a wrapper has it). */
+function meshParts(root: Object3D): { mesh: Mesh; local: Matrix4 }[] {
+  const out: { mesh: Mesh; local: Matrix4 }[] = [];
+  const walk = (o: Object3D, acc: Matrix4): void => {
+    if (!o.visible) return;
+    if ((o as Mesh).isMesh === true && !(o as InstancedMesh).isInstancedMesh) out.push({ mesh: o as Mesh, local: acc });
+    for (const c of o.children) walk(c, new Matrix4().multiplyMatrices(acc, c.matrix));
+  };
+  root.updateMatrix();
+  walk(root, root.matrix.clone());
+  return out;
+}
+
+const GLASS_KEYS: ReadonlySet<CalibrationKey> = new Set(SHOP_GLASS);
+
+/** What `dressGroup` made: the group to add, how many InstancedMeshes (draw calls) it holds, and what frees what it owns (never the cached models' geometry or textures). */
+export interface DressDraw {
+  group: Group;
+  calls: number;
+  dispose(): void;
+}
+
+/**
+ * Draw placements of dressing (ticket 052 B). One `InstancedMesh` per (key, sub-mesh) of every key that has a placement, in a group named `city-dressing`; an instance's
+ * matrix is `dressMatrix(frame, piece)` times the sub-mesh's own matrix in its root. No instance takes a ray (`raycast` is a no-op on the group and every mesh), nothing is
+ * animated, and nothing is emissive: a material that carries emission is swapped for a clone with none, and the shop glass shares one dark, slightly glossy, see-through
+ * material. Geometry and every other material are the cached roots' (the group is `sharedModel`, so the scene's disposal leaves them alone). More than `maxCalls` InstancedMeshes
+ * would be too many draw calls: the keys with the fewest instances are left out first. A key with no root, or no mesh in it, draws nothing.
+ */
+export function dressGroup(placements: readonly DressPlacement[], roots: ReadonlyMap<CalibrationKey, Object3D>, maxCalls: number = DRESS_DRAW_CALLS_MAX): DressDraw {
+  const group = new Group();
+  group.name = "city-dressing";
+  group.userData["sharedModel"] = true;
+  group.raycast = () => {};
+  const byKey = new Map<CalibrationKey, DressPlacement[]>();
+  for (const p of placements) {
+    const list = byKey.get(p.piece.key);
+    if (list) list.push(p);
+    else byKey.set(p.piece.key, [p]);
+  }
+  const owned: Material[] = [];
+  const meshes: InstancedMesh[] = [];
+  const swapped = new Map<Material, Material>();
+  let glass: Material | null = null;
+  const glassMaterial = (): Material => {
+    if (!glass) {
+      glass = new MeshStandardMaterial({ color: new Color(0x1b2733), roughness: 0.25, metalness: 0.4, transparent: true, opacity: 0.5, side: DoubleSide, depthWrite: false });
+      owned.push(glass);
+    }
+    return glass;
+  };
+  const plain = (m: Material): Material => {
+    const lit = m as Material & { emissive?: Color; emissiveMap?: Texture | null };
+    if (!lit.emissive || (lit.emissive.getHex() === 0 && !lit.emissiveMap)) return m;
+    let c = swapped.get(m);
+    if (!c) {
+      c = m.clone();
+      const dark = c as typeof lit;
+      dark.emissive?.setHex(0);
+      dark.emissiveMap = null;
+      swapped.set(m, c);
+      owned.push(c);
+    }
+    return c;
+  };
+  const m = new Matrix4();
+  const keys = [...byKey.keys()]
+    .map((key) => ({ key, parts: meshParts(roots.get(key) ?? new Group()), list: byKey.get(key)! }))
+    .filter((k) => k.parts.length > 0)
+    .sort((a, b) => b.list.length - a.list.length || (a.key < b.key ? -1 : 1));
+  let calls = 0;
+  for (const { key, parts, list } of keys) {
+    if (calls + parts.length > maxCalls) continue;
+    for (const part of parts) {
+      const src = part.mesh.material as Material | Material[];
+      const material = GLASS_KEYS.has(key) ? glassMaterial() : Array.isArray(src) ? src.map(plain) : plain(src);
+      const im = new InstancedMesh(part.mesh.geometry, material, list.length);
+      im.name = `dress:${key.slice(key.indexOf(":") + 1)}`;
+      im.raycast = () => {};
+      list.forEach((p, i) => im.setMatrixAt(i, m.multiplyMatrices(dressMatrix(p.frame, p.piece), part.local)));
+      im.instanceMatrix.needsUpdate = true;
+      im.computeBoundingSphere();
+      group.add(im);
+      meshes.push(im);
+      calls++;
+    }
+  }
+  return {
+    group,
+    calls,
+    dispose() {
+      for (const im of meshes) im.dispose();
+      for (const o of owned) o.dispose();
+      owned.length = 0;
+      meshes.length = 0;
+    },
+  };
 }
 
 const at = (list: readonly LoadedModel[], key: string): LoadedModel => list[pickIndex(stableHash(key), list.length)]!;
@@ -526,9 +753,28 @@ export function applyModels(bundle: SceneBundle, set: ModelSet): AppliedModels {
       blankTerracePlaceholders(slots, covered, undo);
     }
   }
+  // The dressing (ticket 052 B): awnings, glass, signs, fire escapes and roof props on every stack just stood, from the pure `dressTown`. A sibling group of its own, so the stacks
+  // and the lots' clones are exactly as before; with no City Pack dressing (a fresh checkout, CI) or no stack there is no group at all.
+  let dress: readonly DressPlacement[] = [];
+  let dressCalls = 0;
+  const dressing = stacks ? dressInput(set) : null;
+  if (dressing) {
+    const placements = dressPlacements(dressSites(terrace, placed, slots.blocks.list), dressing.entries, dressing.fronts);
+    if (placements.length > 0) {
+      const drawn = dressGroup(placements, dressing.roots);
+      if (drawn.calls > 0) {
+        add(slots.models.parent ?? slots.models, drawn.group);
+        undo.push(() => drawn.dispose());
+        dress = placements;
+        dressCalls = drawn.calls;
+      } else drawn.dispose();
+    }
+  }
   return {
     buildings: placed,
     terrace,
+    dress,
+    dressCalls,
     remove() {
       for (let i = undo.length - 1; i >= 0; i--) undo[i]!();
       undo.length = 0;

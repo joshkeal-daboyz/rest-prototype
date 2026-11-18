@@ -369,13 +369,28 @@ export function planModels(manifest: AssetManifest, table: readonly ModelChoice[
  * missing or `scale-suspect`, or that is not a `pack:name` is skipped; null when none is usable. Pure; the town's plan is unchanged by it.
  */
 export function planStackPieces(manifest: AssetManifest, keys: readonly CalibrationKey[], fronts: FrontTable = BUILDING_FRONTS): PlannedModel[] | null {
+  return planPieces(manifest, keys, fronts, (entry) => usable(entry, "building"));
+}
+
+/**
+ * The dressing pieces (ticket 052 B) as planned models, in the order of `keys`, skipped as `planStackPieces` skips. A dressing piece may be flat: a shop's glass pane
+ * (`SM_Bld_Shop_02_Glass` is 4.3 x 2.5 x 0.00 m) has no depth, so only a width and a height above zero count, not the footprint a building needs.
+ */
+export function planDressPieces(manifest: AssetManifest, keys: readonly CalibrationKey[], fronts: FrontTable = BUILDING_FRONTS): PlannedModel[] | null {
+  return planPieces(manifest, keys, fronts, (entry) => {
+    const [w, h, d] = sizeOf(entry);
+    return !entry.warnings.includes("scale-suspect") && [w, h, d].every((v) => Number.isFinite(v) && v >= 0) && w > 0 && h > 0;
+  });
+}
+
+function planPieces(manifest: AssetManifest, keys: readonly CalibrationKey[], fronts: FrontTable, ok: (entry: AssetEntry) => boolean): PlannedModel[] | null {
   const out: PlannedModel[] = [];
   for (const key of keys) {
     const parsed = parseCalibrationKey(key);
     if (!parsed) continue;
     const pack = manifest.packs.find((p) => p.pack === parsed.pack);
     const entry = pack?.assets.find((a) => a.name === parsed.name);
-    if (!pack || !entry || !usable(entry, "building")) continue;
+    if (!pack || !entry || !ok(entry)) continue;
     const bf = Object.prototype.hasOwnProperty.call(fronts, key) ? fronts[key] : undefined;
     out.push({
       pack: pack.pack,

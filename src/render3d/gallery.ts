@@ -64,7 +64,8 @@ import {
   type ModelChoice,
   type ModelFront,
 } from "./models";
-import { defaultDir, nearestTextures, stackGroup } from "./models3d";
+import { KERB_FROM_FRONT_M, dressKeys, dressStack, type DressPiece } from "./dressing";
+import { defaultDir, dressGroup, nearestTextures, stackGroup } from "./models3d";
 import type { MapRenderer3d } from "./renderer";
 import {
   STACK_PACK,
@@ -406,6 +407,8 @@ export interface StackSlot {
   captionAt: GalleryAnchor;
   /** The lot side a corner stack is for, or null (the outline gets a thick strip on that side). */
   cornerSide: StackSide | null;
+  /** The stack's dressing (ticket 052 B), in the stack's frame; only with `&dress=1`. Absent otherwise. */
+  dress?: readonly DressPiece[];
 }
 
 /** What the stack gallery adds to a layout: its stacks, their keys, and the heading of the click line that follows them. */
@@ -642,10 +645,17 @@ export function stackGalleryRequested(search: string): StackGalleryFilter | null
   return { style: STACK_STYLE_IDS.includes(style) ? style : null, type: STACK_TYPE_IDS.find((t) => t === type) ?? null };
 }
 
+/** `&dress=1` on the stack gallery (ticket 052 B) shows each stack with its dressing: awnings, glass, signs, fire escapes and roof props. False otherwise, and without the stack gallery. */
+export function dressRequested(search: string): boolean {
+  return stackGalleryRequested(search) !== null && new URLSearchParams(search).get("dress") === "1";
+}
+
 /** Ground between the last stack and the click line that follows it. */
 export const STACK_SECTION_GAP = 12;
 
 export interface StackGalleryOptions {
+  /** Dress every stack (`&dress=1`): the layout carries each stack's `dressStack` pieces and their keys. Default false, and then the layout is exactly what it was. */
+  dress?: boolean;
   saved?: CalibrationFile | null;
   notSaved?: { key: CalibrationKey; reason: string } | null;
   filter?: StackGalleryFilter;
@@ -675,6 +685,10 @@ export function stackGalleryLayout(manifest: AssetManifest | null, fronts: Front
     const lotD = spec.depth * WORLD_PER_METRE;
     const cellW = Math.max(lotW, captionW);
     const cx = x + cellW / 2;
+    // Each stack is its own run and its own lowest block, so a billboard or a novelty sign may stand on any of them. The lot is the gallery's (its cap, as a lot of that type has it).
+    const dress = opts.dress
+      ? dressStack(s.stack, { key: `gallery:${s.style.id}:${s.type}:${s.variant.label}`, hMax: spec.cap * WORLD_PER_METRE }, { id: `gallery:${cells.length}`, index: 0, lowest: true }, entries, fronts, KERB_FROM_FRONT_M)
+      : null;
     cells.push({
       shown: s,
       outline: { cx, cz: -lotD / 2, w: lotW, d: lotD },
@@ -683,6 +697,7 @@ export function stackGalleryLayout(manifest: AssetManifest | null, fronts: Front
       captionW,
       captionAt: { x: cx, y: 0, z: CAPTION_Z },
       cornerSide: s.stack.cornerSides[0] ?? null,
+      ...(dress ? { dress } : {}),
     });
     x += cellW + GROUP_GAP;
   }
@@ -726,7 +741,7 @@ export function stackGalleryLayout(manifest: AssetManifest | null, fronts: Front
           minZ: Math.min(lw.minZ, -Math.max(...cells.map((c) => c.cell.d))),
           maxZ: CAPTION_Z,
         };
-  const keys = [...new Set(shown.flatMap((s) => s.stack.pieces.map((p) => p.key)))];
+  const keys = [...new Set([...shown.flatMap((s) => s.stack.pieces.map((p) => p.key)), ...(opts.dress ? dressKeys() : [])])];
   return {
     ...line,
     title,
@@ -1304,6 +1319,15 @@ export function buildGalleryScene(layout: GalleryLayout, lookup: ModelLookup | n
       scene.add(group);
       captionOf(cell.caption, cell.captionAt, 1, COPY_LINE_UNITS);
     }
+    // `&dress=1` (ticket 052 B): every stack's dressing in one instanced group, each piece in its stack's frame (the stack group's position; the gallery turns none).
+    const placements = layout.stacks.cells.flatMap((cell) => (cell.dress ?? []).map((piece) => ({ frame: { x: cell.outline.cx, z: 0, yaw: 0 }, piece })));
+    if (placements.length > 0) {
+      const drawn = dressGroup(placements, roots);
+      if (drawn.calls > 0) {
+        own(drawn);
+        scene.add(drawn.group);
+      } else drawn.dispose();
+    }
   }
   noRay(scene);
 
@@ -1477,6 +1501,7 @@ export function createGalleryRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEle
           saved: file,
           notSaved: failure,
           filter: stackFilter,
+          dress: dressRequested(opts.search),
           ...(root ? { hasRoot: (name: string) => root.getObjectByName(name) !== undefined } : {}),
         })
       : galleryLayout(pack.manifest, packId, tables.fronts, tables.exclude, { ...pageOpts, saved: file, notSaved: failure });
