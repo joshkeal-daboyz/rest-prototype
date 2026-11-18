@@ -25,6 +25,7 @@ import {
   PerspectiveCamera,
   PlaneGeometry,
   Scene,
+  TextureLoader,
   Vector3,
   type Material,
   type Object3D,
@@ -48,6 +49,7 @@ import { ZOOM_STEP, type Insets, type Pan } from "../render/geometry";
 import { FOV_DEG } from "./camera";
 import { effectiveFronts, loadSavedCalibration } from "./calibration";
 import { scaleForPx } from "./captions";
+import { chooseColourway } from "./colourway";
 import {
   BUILDING_EXCLUDE,
   BUILDING_FRONTS,
@@ -65,7 +67,7 @@ import {
   type ModelFront,
 } from "./models";
 import { KERB_FROM_FRONT_M, dressKeys, dressStack, type DressPiece } from "./dressing";
-import { defaultDir, dressGroup, nearestTextures, stackGroup } from "./models3d";
+import { createColourwayCache, defaultDir, dressGroup, nearestTextures, paintStack, stackGroup } from "./models3d";
 import type { MapRenderer3d } from "./renderer";
 import {
   STACK_PACK,
@@ -650,6 +652,16 @@ export function dressRequested(search: string): boolean {
   return stackGalleryRequested(search) !== null && new URLSearchParams(search).get("dress") === "1";
 }
 
+/**
+ * `&colourway=<id>` on the stack gallery (ticket 054 B) paints every stack in that one City Pack colourway, for the eye check (`colourway=02_A`). The raw value, or null when the page does not ask
+ * or is not the stack gallery. Whether it names a colourway the manifest lists is `chooseColourway`'s to say, once the manifest is read.
+ */
+export function colourwayRequested(search: string): string | null {
+  if (stackGalleryRequested(search) === null) return null;
+  const v = new URLSearchParams(search).get("colourway");
+  return v === null ? null : v.trim();
+}
+
 /** Ground between the last stack and the click line that follows it. */
 export const STACK_SECTION_GAP = 12;
 
@@ -1223,7 +1235,7 @@ const flatGeometry = (rects: readonly (readonly [number, number, number, number]
  * clone from `lookup`, turned and scaled as the town does) and its caption, with each group's caption and the title once. Nothing in it can be raycast.
  * `lookup` may be null (the GLB is missing): outlines and captions still show, so the layout can be read.
  */
-export function buildGalleryScene(layout: GalleryLayout, lookup: ModelLookup | null, opts: { surface?: TextSurfaceFactory; dpr?: number } = {}): GalleryScene {
+export function buildGalleryScene(layout: GalleryLayout, lookup: ModelLookup | null, opts: { surface?: TextSurfaceFactory; dpr?: number; colourway?: { id: string; textures: ReadonlyMap<string, Texture> } } = {}): GalleryScene {
   const surface = opts.surface ?? defaultTextSurface;
   const dpr = opts.dpr ?? 1;
   const scene = new Scene();
@@ -1293,6 +1305,8 @@ export function buildGalleryScene(layout: GalleryLayout, lookup: ModelLookup | n
 
   // The stack gallery's stacks (ticket 050 B): each a lot outline, one `stack:<style>` group whose origin is the lot's front-centre, and a caption.
   const stacks: Group[] = [];
+  const painted = createColourwayCache();
+  own(painted);
   if (layout.stacks) {
     const roots = new Map<CalibrationKey, Object3D>();
     for (const key of layout.stacks.keys) {
@@ -1314,6 +1328,7 @@ export function buildGalleryScene(layout: GalleryLayout, lookup: ModelLookup | n
         scene.add(edge);
       }
       const group = stackGroup(shown.stack, roots);
+      if (opts.colourway) paintStack(group, opts.colourway.id, { colourways: opts.colourway.textures }, painted);
       group.position.set(outline.cx, 0, 0);
       stacks.push(group);
       scene.add(group);
@@ -1360,6 +1375,8 @@ export interface GalleryLoadDeps {
   fetchJson(url: string): Promise<unknown>;
   /** Resolves to the GLB's scene, and rejects if it cannot be fetched or parsed. */
   loadGlb(url: string): Promise<Object3D>;
+  /** Resolves to the image at `url` as a texture (the `colourway=` parameter, ticket 054 B), and rejects if it cannot be fetched. Default: none, so no colourway is fetched. */
+  loadTexture?: (url: string) => Promise<Texture>;
   /** Folder of the manifest, ending in "/". Default: where the converter writes. */
   dir?: string;
   /** Where the one line saying why something is missing goes. Default: console.info. */
@@ -1371,6 +1388,8 @@ export interface GalleryPack {
   manifest: AssetManifest | null;
   /** Null when the pack, or its GLB, is not there. */
   root: Object3D | null;
+  /** The one colourway the page asked for and that loaded (ticket 054 B). Absent when none was asked for, it was refused (one line said so), or it failed to load: then the base is shown. */
+  colourway?: { id: string; textures: ReadonlyMap<string, Texture> };
 }
 
 const describe = (e: unknown): string => (e instanceof Error ? e.message : String(e));
@@ -1379,7 +1398,7 @@ const describe = (e: unknown): string => (e instanceof Error ? e.message : Strin
  * The manifest, and the GLB of `packId` alone (never another pack's: the town pack's is 110 MB). Anything missing costs one console.info line and
  * resolves to what there is; it never rejects and never logs an error.
  */
-export async function loadGalleryPack(packId: string, deps: GalleryLoadDeps): Promise<GalleryPack> {
+export async function loadGalleryPack(packId: string, deps: GalleryLoadDeps, colourway: string | null = null): Promise<GalleryPack> {
   const info = deps.info ?? ((m: string) => console.info(m));
   const dir = deps.dir ?? defaultDir();
   try {
@@ -1402,7 +1421,26 @@ export async function loadGalleryPack(packId: string, deps: GalleryLoadDeps): Pr
     try {
       const root = await deps.loadGlb(`${dir}${pack.glb}`);
       nearestTextures(root);
-      return { manifest, root };
+      // The one colourway the page asked for: refused with one line, or loaded alone (never the rest of the pool).
+      if (colourway === null) return { manifest, root };
+      const listed = pack.colourways ?? [];
+      const choice = chooseColourway(colourway, listed.map((c) => c.id));
+      if (choice.message) info(choice.message);
+      const cw = choice.id === null ? undefined : listed.find((c) => c.id === choice.id);
+      if (!cw || choice.id === null) return { manifest, root };
+      if (!deps.loadTexture || cw.image.includes("..")) {
+        info(`3D gallery: colourway ${cw.id} cannot be loaded here; showing the base.`);
+        return { manifest, root };
+      }
+      try {
+        const tex = await deps.loadTexture(`${dir}${cw.image}`);
+        tex.userData["colourwayBase"] = cw.base;
+        if (tex.name === "") tex.name = `${cw.base}_${cw.id}`;
+        return { manifest, root, colourway: { id: cw.id, textures: new Map([[cw.id, tex]]) } };
+      } catch (e) {
+        info(`3D gallery: colourway ${cw.id} could not be loaded (${describe(e)}); showing the base.`);
+        return { manifest, root };
+      }
     } catch (e) {
       info(`3D gallery: could not load ${pack.glb} (${describe(e)}); showing outlines and captions only.`);
       return { manifest, root: null };
@@ -1422,6 +1460,7 @@ export function defaultGalleryDeps(): GalleryLoadDeps {
       return (await r.json()) as unknown;
     },
     loadGlb: async (url) => (await new GLTFLoader().loadAsync(url)).scene,
+    loadTexture: (url) => new TextureLoader().loadAsync(url),
   };
 }
 
@@ -1505,7 +1544,7 @@ export function createGalleryRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEle
           ...(root ? { hasRoot: (name: string) => root.getObjectByName(name) !== undefined } : {}),
         })
       : galleryLayout(pack.manifest, packId, tables.fronts, tables.exclude, { ...pageOpts, saved: file, notSaved: failure });
-    const next = buildGalleryScene(layout, root ? (name) => root.getObjectByName(name) ?? undefined : null, { dpr: opts.dpr });
+    const next = buildGalleryScene(layout, root ? (name) => root.getObjectByName(name) ?? undefined : null, { dpr: opts.dpr, ...(pack.colourway ? { colourway: pack.colourway } : {}) });
     current.dispose();
     current = next;
     onScreen = layout;
@@ -1514,10 +1553,11 @@ export function createGalleryRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEle
     sizeCaptions();
   }
 
-  void Promise.all([loadGalleryPack(packId, deps), loadSavedCalibration({ dev, fetchJson: deps.fetchJson, ...(deps.info ? { info: deps.info } : {}) })])
+  void Promise.all([loadGalleryPack(packId, deps, colourwayRequested(opts.search)), loadSavedCalibration({ dev, fetchJson: deps.fetchJson, ...(deps.info ? { info: deps.info } : {}) })])
     .then(([pack, saved]) => {
       if (disposed) {
         if (pack.root) freeModel(pack.root);
+        for (const t of pack.colourway?.textures.values() ?? []) t.dispose();
         return;
       }
       loaded = pack;
@@ -1628,6 +1668,7 @@ export function createGalleryRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEle
       canvas.style.touchAction = touchAction;
       current.dispose();
       if (loaded?.root) freeModel(loaded.root);
+      for (const t of loaded?.colourway?.textures.values() ?? []) t.dispose();
     },
   };
 }
