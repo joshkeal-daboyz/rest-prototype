@@ -1,4 +1,4 @@
-# 060 · A real daylight mode
+# 060 · A testing daylight: a dev-only day mode for judging the city by eye
 
 owner: renderer (src/render3d/, docs/city-style-guide.md)
 status: open, awaiting Josh's G1 (not approved). Independent of 056 to 059 except for shared files (see Dependencies). Sections A, then B.
@@ -6,6 +6,15 @@ branch: `ticket/060a-light-table`, `ticket/060b-daylight-view`
 
 ## Josh's words (18 Nov 2026, in chat)
 > "please create a day light mode so it's easy to see"
+
+His clarification, the same day:
+> "the purpose of the day mode is for testing"
+
+**This is a developer testing aid, not a game lighting feature.**
+- It is dev-only (behind `import.meta.env.DEV`, absent from `npm run build`, like the street camera and the galleries).
+- It changes nothing in the game's lighting design (chapter 11) or in any puzzle map's look.
+- It ships no toggle to players.
+- It is tuned for judging geometry and dressing by eye: even, bright light with soft, readable shading, no deep shadows hiding detail, and a flat pale sky.
 
 ## Measured (architect, 18 Nov 2026, `goal/city-style` at `793bbf7`, read from the code, no browser)
 - **The renderer.**
@@ -32,8 +41,8 @@ branch: `ticket/060a-light-table`, `ticket/060b-daylight-view`
 - **Defaults today:** the tile view opens at night (055 Q9, approved). The game and every puzzle map are night. Day exists only as the `light=day` URL flag in dev views.
 
 ## Proposal
-**Rules** (draft text for a new guide chapter 21, "Light: night and day"; B writes it):
-- **Decided (Josh, 18 Nov 2026):** "please create a day light mode so it's easy to see". Also chapter 11's Decided night look for the game, unchanged.
+**Rules** (draft text for a new guide section 16.12, "The testing daylight (dev only)", inside 16.8's evaluation protocol, because it is a tool for the protocol's eye checks; B writes it):
+- **Decided (Josh, 18 Nov 2026):** "please create a day light mode so it's easy to see" and "the purpose of the day mode is for testing". Chapter 11's Decided night look for the game is unchanged.
 - **Default (060): two modes, one owner.** A new `lighting.ts` holds a pure table `LIGHT_MODES: { night, day }`, and a new `lightrig.ts` (three) is **the only code that adds or removes the scene's global lights, background, fog, tone mapping and exposure**.
   - `scene.ts` and `buildCityScene` stop adding their own ambient and moon, and ask the rig for night instead. The ladder's night values are exactly today's.
   - `streetcam.ts` and `tilecity3d.ts` stop adding a hemisphere light.
@@ -45,8 +54,8 @@ branch: `ticket/060a-light-table`, `ticket/060b-daylight-view`
   - no tone mapping, no fog, no shadows.
 - **Default: day.**
   - **Sky:** background `0xa9c7e6`, a flat sky colour with no gradient (Q2), and no fog.
-  - **Sun:** `DirectionalLight(0xfff1dc, 2.6)` at a fixed elevation of 50 degrees and azimuth 135 degrees (from the south-east), so the street faces of both axes get light and the roofs read brighter than the walls.
-  - **Fill:** `HemisphereLight(0xcfe0ff, 0x8a7a66, 1.0)`. No ambient, no moon.
+  - **Sun:** a soft key light, `DirectionalLight(0xfff6ea, 1.4)`, at a fixed elevation of 55 degrees and azimuth 135 degrees (from the south-east). Walls and roofs differ enough to read form, and no face falls dark.
+  - **Fill:** a strong even fill, `HemisphereLight(0xe6efff, 0x9a8c78, 1.8)`, so shaded faces keep their detail. No ambient, no moon.
   - **Tone mapping:** `ACESFilmicToneMapping` at exposure 1.0, set and restored by the rig.
   - **Code-drawn surfaces:** day colours from `LIGHT_MODES.day.surfaces`, applied by the rig to the shared code-drawn materials (`GROUND`, `YARD`, `STREET`, `PAVEMENT`, `KERB`, 057's grass and apron):
     - ground `0x7d8471`, yard `0x7d8471`;
@@ -56,7 +65,7 @@ branch: `ticket/060a-light-table`, `ticket/060b-daylight-view`
     - grass `0x6f8f4e`.
   - Pack textures are unchanged.
   - **Night-only things off:** lamp `PointLight`s at 0, glows and pools hidden.
-  - **Shadows: off by default** (Q1). The cost would be one shadow pass over every caster: about the building and dressing draw calls again (the tile city is about 40 tile draw calls plus several hundred instanced building pieces). Josh's PC froze under load on 17 Nov, so shadows stay off unless he asks. The rig has a `shadows` switch, off in both modes, which a later ticket can turn on for the tile city only.
+  - **Shadows: off, and only ever a separate opt-in** (`&shadows=1`, dev only, Q1). The cost would be one shadow pass over every caster: about the building and dressing draw calls again (the tile city is about 40 tile draw calls plus several hundred instanced building pieces). Josh's PC froze under load on 17 Nov, so shadows stay off unless he asks. The rig has a `shadows` switch, off in both modes, which a later ticket can turn on for the tile city only.
 - **Default: switching (dev only)**:
   - **URL:** `light=day|night`.
   - **Key:** **L** toggles day and night.
@@ -73,7 +82,7 @@ branch: `ticket/060a-light-table`, `ticket/060b-daylight-view`
 
 ## Sections
 - **A. The table and the rig** (about 1 day). `lighting.ts`, pure: `LIGHT_MODES`, `lightModeFor(view, search)`. `lightrig.ts`, three: `applyLightMode(scene, gl, mode, owners)`. The single owner wiring in `scene.ts`, `streetcam.ts` and `tilecity3d.ts`, with tests. Night stays value-for-value today's.
-- **B. The day view and the toggle** (about ½ day). The tile view's default, the L key, the button, the code-drawn day colours, chapter 21, and the eye check. Needs A.
+- **B. The day view and the toggle** (about ½ day). The tile view's default, the L key, the button, the code-drawn day colours, guide 16.12, and the eye check. Needs A.
 
 ## Acceptance criteria
 **CI-safe:** typed-in values only, no assets, no Windows paths, no timer under 1 s.
@@ -104,8 +113,8 @@ branch: `ticket/060a-light-table`, `ticket/060b-daylight-view`
 5. [ ] **The day colours.** In day the shared code-drawn materials take `LIGHT_MODES.day.surfaces`, and in night they return to today's colours exactly. Night-only lamp lights are at intensity 0, and glows and pools are hidden, in day.
 6. [ ] **The toggle.** In a dev build the tile view handles the L key and the button: each press flips the mode through the rig. The listener and the button are removed on `dispose`. A test drives both with a fake event and checks the scene after each.
 7. [ ] (Main session) `npm run build`: `dist/` contains no `light=` handling, no "Day / Night" button string, and no L-key listener, as 055 criterion 18 does for the tile city.
-8. [ ] **Guide.** `docs/city-style-guide.md` gains chapter 21 "Light: night and day", with Josh's words as **Decided**, the two modes, the one-owner rule, and the defaults per view.
-   - Chapter 11 (palette and light) points to it.
+8. [ ] **Guide.** `docs/city-style-guide.md` gains section 16.12 "The testing daylight (dev only)", with both of Josh's quotes as **Decided**, the day values, the one-owner rule, and the defaults per view. It states that the game's lighting (chapter 11) is unchanged.
+   - Chapter 11 (palette and light) gains one line: the testing daylight is a dev tool, and not part of the game's look.
    - 055 Q9's night default for the tile view is recorded as replaced.
    - Numbers rows cover every `lighting.ts` constant, with a drift check for `lighting.ts` (a new check only).
    - `STREET_CAM_DAY_INTENSITY` and `STREET_CAM_SKY`/`_GROUND` rows are updated or retired with the code.
@@ -158,7 +167,7 @@ branch: `ticket/060a-light-table`, `ticket/060b-daylight-view`
 The builder may rename any of these.
 
 ## Open questions for Josh (the defaults apply if he approves as is)
-1. **Shadows.** Default: **off.** They cost about one extra pass over every building, and your PC froze under load on 17 Nov. Alternative: sun shadows on in day for the tile city only, with a 2048 map, buildings casting and the ground receiving. The builder would report the draw-call count.
+1. **Shadows.** Default: **off, as a separate opt-in** (`&shadows=1`, dev only), built only if the builder measures it cheap (at most 1.5 times the frame's draw calls on the default tile city). Otherwise it is left out and reported. They cost about one extra pass over every building, and your PC froze under load on 17 Nov. Alternative: sun shadows on in day for the tile city only, with a 2048 map, buildings casting and the ground receiving. The builder would report the draw-call count.
 2. **The sky.** Default: a flat pale blue. Alternative: a simple two-colour gradient (a large backdrop sphere), one more draw call.
 3. **The tile view's default.** Default: **day** (your words). Alternative: night first, with the toggle.
-4. **Daylight on the puzzle maps.** Default: dev-only (`light=day` or L) and never in the production game, which stays a night scene. Alternative: a player-facing day toggle. That is a ui ticket and a design question for the GDD.
+4. **Daylight on the puzzle maps.** Settled by Josh ("for testing"): dev-only (`light=day` or L), never in the production game, and no player toggle.
