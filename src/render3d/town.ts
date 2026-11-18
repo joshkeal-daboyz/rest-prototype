@@ -253,6 +253,12 @@ export interface TerraceRun {
   startCorner: CornerSide | null;
   /** What stops the run at its far end: the next row's corner block, a plaza, a parking lot, or "end" (the next slot cleared no height cap). */
   endAbuts: "corner" | "plaza" | "parking" | "end";
+  /**
+   * The run's pavement frame, metres from its front line toward the road (ticket 055 B): where the pavement's wall edge is and where its kerb is. Absent on every ladder
+   * run, which means today's `SETBACK / WORLD_PER_METRE` and `(PAVE_W + SETBACK) / WORLD_PER_METRE` (`WALL_EDGE_M` and `KERB_M` in furniture.ts). The tile city's runs
+   * stand on a 5 m pavement with no setback: `{ wall_m: 0, kerb_m: 5 }`.
+   */
+  frame?: { readonly wall_m: number; readonly kerb_m: number };
 }
 
 /** Open ground in a terrace row, where no building stands (052 C dresses it). It is never in `Town.lots`. */
@@ -602,6 +608,236 @@ class PolySet {
       return sepDist(p, this.polys[i]!) < margin - 1e-9;
     });
   }
+}
+
+// ---- terrace rows (ticket 051 B; extracted from `build` in ticket 055 B) ----
+
+/** One side of a block: the row of terrace lots facing the street on it. `(ax, az)` is where the row's reference line starts, `(ux, uz)` runs along it, `(mx, mz)` points from the street into the block. */
+export interface TerraceSide {
+  /** The street it faces and which side of that street's line (`Lot.side`). */
+  road: string;
+  side: 1 | -1;
+  ax: number;
+  az: number;
+  ux: number;
+  uz: number;
+  mx: number;
+  mz: number;
+  /** The side's length along the row, before the next row's band is taken off. */
+  span: number;
+}
+
+/** A box the terrace fill asks the lot rules about: centre, size (`w` along the street, `d` away from it) and the unit vector of its front, which points at the street. */
+export interface TerraceBox {
+  x: number;
+  z: number;
+  w: number;
+  d: number;
+  fx: number;
+  fz: number;
+}
+
+/** Slot and run numbers per street side, shared by every block on that side so lot keys and run ids stay unique. */
+export interface TerraceCounters {
+  slots: Map<string, number>;
+  runs: Map<string, number>;
+}
+
+export interface TerraceRowOpts {
+  /** The distance from each side's reference line to the lots' front line, world units. Default (the ladder): half a road, the pavement and `SETBACK`. */
+  frontOff?: number;
+  /** The lot rules asked of a box at height `h` (world units) with `margin` clear of lots already claimed. Default: everything clears. */
+  clears?: (box: TerraceBox, h: number, margin: number) => boolean;
+  /** Called with every lot, plaza and parking lot as it is laid, so the next `clears` sees it. */
+  claim?: (box: TerraceBox) => void;
+  /** Open lots start on multiples of this many metres along their row (the run before them stretches to meet them). Default: no snap. */
+  snap_m?: number;
+  /** A plaza's side, metres. Default `PLAZA_W_M`. */
+  plazaW_m?: number;
+  /** Run ids that take a parking lot whatever their length or hash (when it fits). */
+  parkRuns?: ReadonlySet<string>;
+  counters?: TerraceCounters;
+  /** The index in the town's `lots` of the first lot this call lays (`TerraceRun.lots` holds town indices). Default 0. */
+  lotBase?: number;
+  /** Set on every run laid (`TerraceRun.frame`). Default: absent. */
+  frame?: { wall_m: number; kerb_m: number };
+}
+
+/**
+ * One block's four rows as terraces (ticket 051 B). Every side's band is `TERRACE_DEPTH_M`, so a row runs on to the next row's corner lot with no
+ * gap on the street (its far end is left short by under one bay: the packer in 051 C closes it). Lots abut (gap 0), each the highest of
+ * `TERRACE_CAPS_M` that clears; a slot that clears none ends the run and the next starts `FILL_STEP` on. A plaza may take one row's corner
+ * (the row before it then ends at the plaza's edge); a long run may have one parking lot in its middle.
+ * `sides` are in the order top, right, bottom, left (clockwise): each row starts at its own corner and stops short of the next row's band. With no options this is exactly
+ * what the ladder's towns do (055 B pins it in townpin.test.ts).
+ */
+export function terraceBlockRows(block: { id: string }, sides: readonly [TerraceSide, TerraceSide, TerraceSide, TerraceSide], opts: TerraceRowOpts = {}): { lots: Lot[]; runs: TerraceRun[]; openLots: OpenLot[] } {
+  const lots: Lot[] = [];
+  const terraceRuns: TerraceRun[] = [];
+  const openLots: OpenLot[] = [];
+  const off = opts.frontOff ?? ROAD_W / 2 + PAVE_W + SETBACK;
+  const clears = opts.clears ?? ((): boolean => true);
+  const claim = opts.claim ?? ((): void => undefined);
+  const counters = opts.counters ?? { slots: new Map<string, number>(), runs: new Map<string, number>() };
+  const slotCount = counters.slots;
+  const runCount = counters.runs;
+  const lotBase = opts.lotBase ?? 0;
+  const bayW = TERRACE_BAY_M * WORLD_PER_METRE;
+  const terraceD = TERRACE_DEPTH_M * WORLD_PER_METRE;
+  const plazaW = (opts.plazaW_m ?? PLAZA_W_M) * WORLD_PER_METRE;
+  const parkW = PARKING_W_M * WORLD_PER_METRE;
+  const parkD = PARKING_D_M * WORLD_PER_METRE;
+  const snap = opts.snap_m === undefined ? 0 : opts.snap_m * WORLD_PER_METRE;
+  const defs = sides;
+
+  /** One side of a street a building can face, as the rows see it. */
+  interface RowFront {
+    id: string;
+    ax: number;
+    az: number;
+    ux: number;
+    uz: number;
+    len: number;
+    mx: number;
+    mz: number;
+    off: number;
+    side: 1 | -1;
+  }
+  const frontage = (f: RowFront, c: number, w: number, d: number): { box: TerraceBox; cx: number; cz: number; fx: number; fz: number } => {
+    const o = f.off + d / 2;
+    const cx = f.ax + f.ux * (c + w / 2) + f.mx * o;
+    const cz = f.az + f.uz * (c + w / 2) + f.mz * o;
+    return { box: { x: cx, z: cz, w, d, fx: -f.mx, fz: -f.mz }, fx: -f.mx, fz: -f.mz, cx, cz };
+  };
+  /** A run being laid: its nominal lots so far. */
+  interface OpenRun {
+    id: string;
+    lots: number[];
+    /** The cursor where it started. */
+    c0: number;
+    /** Nominal bays laid so far, and the bays it could hold from its start to the row's end. */
+    bays: number;
+    total: number;
+    /** A parking lot is still to come (decided by hash when the run starts). */
+    park: boolean;
+  }
+
+  /** Row `i`'s length: its span less the next row's band (a plaza's width when the next row starts with one). */
+  const lenOf = (i: number, plaza: number): number => defs[i]!.span - (plaza === (i + 1) % 4 ? plazaW : terraceD);
+  const frontOf = (i: number, plaza: number): RowFront => {
+    const r = defs[i]!;
+    return { id: r.road, ax: r.ax, az: r.az, ux: r.ux, uz: r.uz, len: lenOf(i, plaza), mx: r.mx, mz: r.mz, off, side: r.side };
+  };
+  const runIdFor = (f: RowFront): string => `${f.id}:${f.side}:r${runCount.get(`${f.id}:${f.side}`) ?? 0}`;
+
+  // The plaza: one block in PLAZA_ONE_IN, at one row's start, in place of its corner block, if it clears and both rows it touches stay long enough.
+  let plaza = -1;
+  if (stableHash(block.id) % PLAZA_ONE_IN === 0) {
+    const cand = stableHash(`${block.id}:plaza`) % 4;
+    const own = frontOf(cand, cand);
+    const prev = (cand + 3) % 4;
+    if (own.len - plazaW >= TERRACE_BAYS.min * bayW - 1e-9 && lenOf(prev, cand) >= TERRACE_BAYS.min * bayW - 1e-9) {
+      const f = frontage(own, 0, plazaW, plazaW);
+      if (clears(f.box, 0, 0)) {
+        claim(f.box);
+        openLots.push({ kind: "plaza", run: runIdFor(own), x: f.cx, z: f.cz, w: plazaW, d: plazaW, yaw: Math.atan2(f.fx, f.fz) });
+        plaza = cand;
+      }
+    }
+  }
+
+  for (let i = 0; i < 4; i++) {
+    const front = frontOf(i, plaza);
+    const sideKey = `${front.id}:${front.side}`;
+    let slot = slotCount.get(sideKey) ?? 0;
+    let c = plaza === i ? plazaW : 0;
+    let cur: OpenRun | null = null;
+    const closeRun = (endAbuts: TerraceRun["endAbuts"], endC: number): void => {
+      if (!cur) return;
+      runCount.set(sideKey, (runCount.get(sideKey) ?? 0) + 1);
+      terraceRuns.push({
+        id: cur.id,
+        block: block.id,
+        road: front.id,
+        side: front.side,
+        lots: cur.lots,
+        ax: front.ax + front.ux * cur.c0 + front.mx * front.off,
+        az: front.az + front.uz * cur.c0 + front.mz * front.off,
+        ux: front.ux,
+        uz: front.uz,
+        len: endC - cur.c0,
+        startCorner: null,
+        endAbuts,
+        ...(opts.frame ? { frame: opts.frame } : {}),
+      });
+      cur = null;
+    };
+    while (c < front.len - 1e-9) {
+      const room = Math.floor((front.len - c) / bayW + 1e-9);
+      if (room < TERRACE_BAYS.min) break;
+      const key = `${front.id}:${front.side}:${slot}`;
+      slot++;
+      let bays = Math.min(TERRACE_BAYS.min + (stableHash(key) % (TERRACE_BAYS.max - TERRACE_BAYS.min + 1)), room);
+      // Never leave a single bay behind: nothing could stand on it.
+      if (room - bays === 1) bays += bays > TERRACE_BAYS.min ? -1 : 1;
+      const lw = bays * bayW;
+      const f = frontage(front, c, lw, terraceD);
+      let cap = 0;
+      for (const m of TERRACE_CAPS_M) {
+        if (clears(f.box, m * WORLD_PER_METRE, 0)) {
+          cap = m;
+          break;
+        }
+      }
+      if (cap === 0) {
+        closeRun("end", c);
+        c += FILL_STEP;
+        continue;
+      }
+      claim(f.box);
+      if (!cur) {
+        const id = `${sideKey}:r${runCount.get(sideKey) ?? 0}`;
+        const total = Math.floor((front.len - c) / bayW + 1e-9);
+        cur = { id, lots: [], c0: c, bays: 0, total, park: (opts.parkRuns?.has(id) ?? false) || (total >= PARKING_MIN_RUN_BAYS && stableHash(id) % PARKING_ONE_IN === 0) };
+      }
+      const run: OpenRun = cur;
+      run.lots.push(lotBase + lots.length);
+      run.bays += bays;
+      lots.push({
+        x: f.cx,
+        z: f.cz,
+        w: lw,
+        d: terraceD,
+        yaw: Math.atan2(f.fx, f.fz),
+        type: "large",
+        hMax: cap * WORLD_PER_METRE,
+        key,
+        street: front.id,
+        side: front.side,
+        corner: false,
+        cornerSides: [],
+        terrace: { run: run.id, index: run.lots.length - 1, bays },
+      });
+      c += lw;
+      // One parking lot, about the middle of a long run, if it clears and leaves two bays after it. With a snap it starts on the next multiple of the snap, and the run stretches to it.
+      if (run.park && run.bays * 2 >= run.total - 2) {
+        run.park = false;
+        const cp = snap > 0 ? Math.ceil(c / snap - 1e-9) * snap : c;
+        if (front.len - (cp + parkW) >= TERRACE_BAYS.min * bayW - 1e-9) {
+          const pf = frontage(front, cp, parkW, parkD);
+          if (clears(pf.box, 0, 0)) {
+            claim(pf.box);
+            openLots.push({ kind: "parking", run: run.id, x: pf.cx, z: pf.cz, w: parkW, d: parkD, yaw: Math.atan2(pf.fx, pf.fz) });
+            closeRun("parking", cp);
+            c = cp + parkW;
+          }
+        }
+      }
+    }
+    closeRun(plaza === (i + 1) % 4 ? "plaza" : "corner", front.len);
+    slotCount.set(sideKey, slot);
+  }
+  return { lots, runs: terraceRuns, openLots };
 }
 
 // ---- the town ----
@@ -1420,153 +1656,23 @@ function build(puzzle: Puzzle, terraces: boolean, sink?: { clears?: TownClears }
   const terraceRuns: TerraceRun[] = [];
   const openLots: OpenLot[] = [];
   const runCount = new Map<string, number>();
-  const bayW = TERRACE_BAY_M * WORLD_PER_METRE;
-  const terraceD = TERRACE_DEPTH_M * WORLD_PER_METRE;
-  const plazaW = PLAZA_W_M * WORLD_PER_METRE;
-  const parkW = PARKING_W_M * WORLD_PER_METRE;
-  const parkD = PARKING_D_M * WORLD_PER_METRE;
-  /** A run being laid: its nominal lots so far. */
-  interface OpenRun {
-    id: string;
-    lots: number[];
-    /** The cursor where it started. */
-    c0: number;
-    /** Nominal bays laid so far, and the bays it could hold from its start to the row's end. */
-    bays: number;
-    total: number;
-    /** A parking lot is still to come (decided by hash when the run starts). */
-    park: boolean;
-  }
-  /**
-   * One outer block's four rows as terraces (ticket 051 B). Every side's band is `TERRACE_DEPTH_M`, so a row runs on to the next row's corner lot with no
-   * gap on the street (its far end is left short by under one bay: the packer in 051 C closes it). Lots abut (gap 0), each the highest of
-   * `TERRACE_CAPS_M` that clears; a slot that clears none ends the run and the next starts `FILL_STEP` on. A plaza may take one row's corner
-   * (the row before it then ends at the plaza's edge); a long run may have one parking lot in its middle.
-   */
+  /** The lot rules and the claim of a box, as `terraceBlockRows` asks for them (the polygon is made from the box's centre, size and front, as the lot's own was). */
+  const rowClears = (b: TerraceBox, h: number, margin: number): boolean => clears(mkPoly(rectPts(b.x, b.z, b.w, b.d, b.fx, b.fz))!, h, false, margin);
+  const rowClaim = (b: TerraceBox): void => {
+    placed.add(mkPoly(rectPts(b.x, b.z, b.w, b.d, b.fx, b.fz))!);
+  };
+  /** One outer block's four rows as terraces (ticket 051 B; the fill is `terraceBlockRows`, extracted in 055 B with today's behaviour as its defaults). */
   const fillTerraceBlock = (d: (typeof blockDefs)[number], R: { x0: number; z0: number; x1: number; z1: number }, w: number, h: number): void => {
-    const off = half + PAVE_W + SETBACK;
-    const defs: { road: string; ax: number; az: number; ux: number; uz: number; mx: number; mz: number; span: number }[] = [
-      { road: d.top, ax: R.x0, az: d.z0, ux: 1, uz: 0, mx: 0, mz: 1, span: w },
-      { road: d.right, ax: d.x1, az: R.z0, ux: 0, uz: 1, mx: -1, mz: 0, span: h },
-      { road: d.bottom, ax: R.x1, az: d.z1, ux: -1, uz: 0, mx: 0, mz: -1, span: w },
-      { road: d.left, ax: d.x0, az: R.z1, ux: 0, uz: -1, mx: 1, mz: 0, span: h },
+    const sides: [TerraceSide, TerraceSide, TerraceSide, TerraceSide] = [
+      { road: d.top, side: sideOf(d.top, 0, 1), ax: R.x0, az: d.z0, ux: 1, uz: 0, mx: 0, mz: 1, span: w },
+      { road: d.right, side: sideOf(d.right, -1, 0), ax: d.x1, az: R.z0, ux: 0, uz: 1, mx: -1, mz: 0, span: h },
+      { road: d.bottom, side: sideOf(d.bottom, 0, -1), ax: R.x1, az: d.z1, ux: -1, uz: 0, mx: 0, mz: -1, span: w },
+      { road: d.left, side: sideOf(d.left, 1, 0), ax: d.x0, az: R.z1, ux: 0, uz: -1, mx: 1, mz: 0, span: h },
     ];
-    /** Row `i`'s length: its span less the next row's band (a plaza's width when the next row starts with one). */
-    const lenOf = (i: number, plaza: number): number => defs[i]!.span - (plaza === (i + 1) % 4 ? plazaW : terraceD);
-    const frontOf = (i: number, plaza: number): Front => {
-      const r = defs[i]!;
-      return { id: r.road, ax: r.ax, az: r.az, ux: r.ux, uz: r.uz, len: lenOf(i, plaza), mx: r.mx, mz: r.mz, off, side: sideOf(r.road, r.mx, r.mz) };
-    };
-    const runIdFor = (f: Front): string => `${f.id}:${f.side}:r${runCount.get(`${f.id}:${f.side}`) ?? 0}`;
-
-    // The plaza: one block in PLAZA_ONE_IN, at one row's start, in place of its corner block, if it clears and both rows it touches stay long enough.
-    let plaza = -1;
-    if (stableHash(d.id) % PLAZA_ONE_IN === 0) {
-      const cand = stableHash(`${d.id}:plaza`) % 4;
-      const own = frontOf(cand, cand);
-      const prev = (cand + 3) % 4;
-      if (own.len - plazaW >= TERRACE_BAYS.min * bayW - 1e-9 && lenOf(prev, cand) >= TERRACE_BAYS.min * bayW - 1e-9) {
-        const f = frontage(own, 0, plazaW, plazaW);
-        const poly = mkPoly(f.pts)!;
-        if (clears(poly, 0, false, 0)) {
-          placed.add(poly);
-          openLots.push({ kind: "plaza", run: runIdFor(own), x: f.cx, z: f.cz, w: plazaW, d: plazaW, yaw: Math.atan2(f.fx, f.fz) });
-          plaza = cand;
-        }
-      }
-    }
-
-    for (let i = 0; i < 4; i++) {
-      const front = frontOf(i, plaza);
-      const sideKey = `${front.id}:${front.side}`;
-      let slot = slotCount.get(sideKey) ?? 0;
-      let c = plaza === i ? plazaW : 0;
-      let cur: OpenRun | null = null;
-      const closeRun = (endAbuts: TerraceRun["endAbuts"], endC: number): void => {
-        if (!cur) return;
-        runCount.set(sideKey, (runCount.get(sideKey) ?? 0) + 1);
-        terraceRuns.push({
-          id: cur.id,
-          block: d.id,
-          road: front.id,
-          side: front.side,
-          lots: cur.lots,
-          ax: front.ax + front.ux * cur.c0 + front.mx * front.off,
-          az: front.az + front.uz * cur.c0 + front.mz * front.off,
-          ux: front.ux,
-          uz: front.uz,
-          len: endC - cur.c0,
-          startCorner: null,
-          endAbuts,
-        });
-        cur = null;
-      };
-      while (c < front.len - 1e-9) {
-        const room = Math.floor((front.len - c) / bayW + 1e-9);
-        if (room < TERRACE_BAYS.min) break;
-        const key = `${front.id}:${front.side}:${slot}`;
-        slot++;
-        let bays = Math.min(TERRACE_BAYS.min + (stableHash(key) % (TERRACE_BAYS.max - TERRACE_BAYS.min + 1)), room);
-        // Never leave a single bay behind: nothing could stand on it.
-        if (room - bays === 1) bays += bays > TERRACE_BAYS.min ? -1 : 1;
-        const lw = bays * bayW;
-        const f = frontage(front, c, lw, terraceD);
-        const poly = mkPoly(f.pts)!;
-        let cap = 0;
-        for (const m of TERRACE_CAPS_M) {
-          if (clears(poly, m * WORLD_PER_METRE, false, 0)) {
-            cap = m;
-            break;
-          }
-        }
-        if (cap === 0) {
-          closeRun("end", c);
-          c += FILL_STEP;
-          continue;
-        }
-        placed.add(poly);
-        if (!cur) {
-          const id = `${sideKey}:r${runCount.get(sideKey) ?? 0}`;
-          const total = Math.floor((front.len - c) / bayW + 1e-9);
-          cur = { id, lots: [], c0: c, bays: 0, total, park: total >= PARKING_MIN_RUN_BAYS && stableHash(id) % PARKING_ONE_IN === 0 };
-        }
-        const run: OpenRun = cur;
-        run.lots.push(lots.length);
-        run.bays += bays;
-        lots.push({
-          x: f.cx,
-          z: f.cz,
-          w: lw,
-          d: terraceD,
-          yaw: Math.atan2(f.fx, f.fz),
-          type: "large",
-          hMax: cap * WORLD_PER_METRE,
-          key,
-          street: front.id,
-          side: front.side,
-          corner: false,
-          cornerSides: [],
-          terrace: { run: run.id, index: run.lots.length - 1, bays },
-        });
-        c += lw;
-        // One parking lot, about the middle of a long run, if it clears and leaves two bays after it.
-        if (run.park && run.bays * 2 >= run.total - 2) {
-          run.park = false;
-          if (front.len - (c + parkW) >= TERRACE_BAYS.min * bayW - 1e-9) {
-            const pf = frontage(front, c, parkW, parkD);
-            const pp = mkPoly(pf.pts)!;
-            if (clears(pp, 0, false, 0)) {
-              placed.add(pp);
-              openLots.push({ kind: "parking", run: run.id, x: pf.cx, z: pf.cz, w: parkW, d: parkD, yaw: Math.atan2(pf.fx, pf.fz) });
-              closeRun("parking", c);
-              c += parkW;
-            }
-          }
-        }
-      }
-      closeRun(plaza === (i + 1) % 4 ? "plaza" : "corner", front.len);
-      slotCount.set(sideKey, slot);
-    }
+    const res = terraceBlockRows({ id: d.id }, sides, { clears: rowClears, claim: rowClaim, counters: { slots: slotCount, runs: runCount }, lotBase: lots.length });
+    lots.push(...res.lots);
+    terraceRuns.push(...res.runs);
+    openLots.push(...res.openLots);
   };
 
   blockDefs.forEach((d) => {
