@@ -299,10 +299,8 @@ describe("attachment", () => {
         expect(p.x + p.w / 2).toBeLessThanOrEqual(roof.x + roof.w / 2 - ROOF_EDGE_M + EPS);
         expect(p.x - p.w / 2).toBeGreaterThanOrEqual(col.x - col.w / 2 - EPS);
         expect(p.x + p.w / 2).toBeLessThanOrEqual(col.x + col.w / 2 + EPS);
-        if (!BILLBOARD_FACES.includes(p.key)) {
-          expect(p.z - p.d / 2).toBeGreaterThanOrEqual(roof.z - roof.d / 2 + ROOF_EDGE_M - EPS);
-          expect(p.z + p.d / 2).toBeLessThanOrEqual(roof.z + roof.d / 2 - ROOF_EDGE_M + EPS);
-        }
+        expect(p.z - p.d / 2).toBeGreaterThanOrEqual(roof.z - roof.d / 2 + ROOF_EDGE_M - EPS);
+        expect(p.z + p.d / 2).toBeLessThanOrEqual(roof.z + roof.d / 2 - ROOF_EDGE_M + EPS);
       }
     }
     expect(checked).toBeGreaterThan(500);
@@ -495,7 +493,7 @@ describe("deterministic, busy and not noisy", () => {
       canopies += ps.filter((p) => DOOR_CANOPIES.includes(p.key)).length;
       if (doors.length > 0) atmBlocks += ps.some((p) => p.slot === "wall") ? 1 : 0;
       const doorsN = doors.length;
-      if (b.stack.bays >= 3 && b.stack.floors >= 2 && b.stack.columns.some((c, i) => c.corner === null && !(doorsN > 0 && doors.some((d) => Math.abs(d.x - c.x) < d.w / 2)) && i >= 0)) {
+      if (b.stack.bays >= 3 && b.stack.floors >= 2 && b.stack.columns.some((c) => c.corner === null && !(doorsN > 0 && doors.some((d) => Math.abs(d.x - c.x) < d.w / 2)))) {
         escQual++;
         if (escCol !== undefined) escHit++;
       }
@@ -534,5 +532,55 @@ describe("deterministic, busy and not noisy", () => {
   it("a block dressed alone uses at most one ATM, and the escape table has its three pieces", () => {
     expect(ESCAPES).toHaveLength(3);
     expect(dressBlock(blocksFifty[0]!.stack, { key: "k", hMax: BIG_H }, RUN, ENTRIES).used.atm).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("escapes, the kerb and the billboard", () => {
+  it("a fire escape stacks from the first floor up: the tall landing, the floor pieces, the top piece, each starting where the one below ends", () => {
+    let seen = 0;
+    for (const b of FIFTY(["large", "tall"])) {
+      const esc = dress(b).filter((p) => p.slot === "escape").sort((p, q) => p.y - q.y);
+      if (esc.length === 0) continue;
+      seen++;
+      const firstFloor = Math.min(...b.stack.pieces.filter((p) => p.role === "floor").map((p) => p.y));
+      const roof = b.stack.pieces.find((p) => p.role === "roof" && p.column === esc[0]!.column)!;
+      expect(esc[0]!.y, b.key).toBeCloseTo(firstFloor, 6);
+      expect(esc[0]!.key, b.key).toBe(ESCAPES[2]);
+      esc.forEach((p, i) => {
+        if (i === 0) return;
+        expect(p.y, b.key).toBeCloseTo(esc[i - 1]!.y + esc[i - 1]!.h, 6);
+        expect(p.key, `${b.key} piece ${i}`).toBe(i === esc.length - 1 ? ESCAPES[0] : ESCAPES[1]);
+      });
+      const top = esc[esc.length - 1]!;
+      expect(top.y + top.h, b.key).toBeLessThanOrEqual(roof.y + 1e-6);
+    }
+    expect(seen).toBeGreaterThan(10);
+  });
+
+  it("dressStack takes the lot's own kerb distance: nothing reaches past a nearer kerb, and the default is unchanged", () => {
+    const near = 2.08;
+    let nearCount = 0;
+    let farCount = 0;
+    for (const b of SWEEP.slice(0, 400)) {
+      const lot = { key: b.key, hMax: BIG_H };
+      expect(dressStack(b.stack, lot, RUN, ENTRIES, b.fronts, KERB_FROM_FRONT_M)).toEqual(dress(b));
+      const ps = dressStack(b.stack, lot, RUN, ENTRIES, b.fronts, near);
+      nearCount += ps.length;
+      farCount += dress(b).length;
+      for (const p of ps) if (FRONT_SLOTS.includes(p.slot) && !(p.slot === "glass" && rawOf(p.key)[2] > 1)) expect(p.z + p.d / 2, `${b.key} ${p.key}`).toBeLessThanOrEqual(near + 1e-6);
+    }
+    expect(nearCount).toBeLessThan(farCount);
+  });
+
+  it("a roof billboard's face ends on the roof inset, not past it", () => {
+    let seen = 0;
+    for (const b of FIFTY(["large", "tall"])) {
+      for (const face of dress(b).filter((p) => BILLBOARD_FACES.includes(p.key))) {
+        seen++;
+        const roof = b.stack.pieces.find((q) => q.role === "roof" && q.column === face.column)!;
+        expect(face.z + face.d / 2, b.key).toBeLessThanOrEqual(roof.z + roof.d / 2 - ROOF_EDGE_M + 1e-6);
+      }
+    }
+    expect(seen).toBeGreaterThan(0);
   });
 });

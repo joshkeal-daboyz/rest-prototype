@@ -15,6 +15,12 @@
  * Every choice is `dressUnit(lot.key, slot, column)`: a function of the lot key and the stack, never of the run or the order. Per-run caps (an ATM, a
  * billboard, a novelty sign, the alternate-block fire escape) are carried in `RunUsed`, which `dressTown` threads along a run in order.
  *
+ * Two departures from the ticket's design text, both deliberate:
+ *  - The ATM stands beside a residents' door (slot `wall` on `base.door`), not on a shop pier: a shop's glass is 4.3 to 8.7 m wide in a 5 or 10 m bay, so a
+ *    shop has no pier to put it on.
+ *  - "At most one block in two along a run has a fire escape" is "no two consecutive blocks of a run both have one"; the clause "unless every block
+ *    qualifies" is dropped, as a block cannot know that. That caps the density below "most 3-bay blocks"; the two statements cannot both hold.
+ *
  * The pack's lamps, signals and electrical cabinets are never used here: they would read as puzzle parts, and no dressing ever glows (this module has
  * no colour and no emission at all). Nothing that is a person, an animal or a vehicle is used either.
  */
@@ -259,7 +265,8 @@ interface Bay {
 /**
  * The dressing of one block (one stack on one lot), and what it used of its run. Deterministic per `lot.key`. A key missing from `entries` drops only its own
  * placements. See the module comment for the attachment rules and the ticket for the caps; in short, in priority order when a bay is full: glass, awnings,
- * fire escape, the big roof prop, signs, door canopy, small roof props, ATM, wall props.
+ * fire escape, the big roof prop, signs, door canopy, small roof props, ATM, wall props. `kerbM` is the lot front to the road edge (default the town's
+ * pavement and setback, 3.33 m; a service-run front is nearer): no front-face prop reaches past it, and awnings stop `AWNING_KERB_M` short of it.
  */
 export function dressBlock(
   stack: Stack,
@@ -267,12 +274,13 @@ export function dressBlock(
   run: RunContext,
   entries: Entries,
   fronts: FrontTable = {},
+  kerbM: number = KERB_FROM_FRONT_M,
 ): DressResult {
   const used0 = run.used ?? NO_USED;
   const used: RunUsed = { ...used0, escapePrev: false };
   const out: DressPiece[] = [];
   const perColumn = new Map<number, number>();
-  const kerb = KERB_FROM_FRONT_M;
+  const kerb = kerbM;
   const hMaxM = lot.hMax / WORLD_PER_METRE;
   const cols = stack.columns;
 
@@ -506,8 +514,10 @@ export function dressBlock(
           }
         } else {
           const face = pickOf(BILLBOARD_FACES.filter((q) => rawSize(q)), lot.key, "face");
-          const structure = onRoof(BILLBOARD_STRUCTURE, "roofLarge", i, cell, "front", hMaxM);
           const fsize = face ? rawSize(face) : null;
+          const fd = face && fsize ? turned(fsize, yawOf(face)).d : 0;
+          // The face stands in front of its structure, so the structure steps back by the face's depth and the face ends on the roof inset.
+          const structure = onRoof(BILLBOARD_STRUCTURE, "roofLarge", i, { ...cell, front: cell.front - fd }, "front", hMaxM);
           if (structure && face && fsize) {
             const yaw = yawOf(face);
             const { w, d } = turned(fsize, yaw);
@@ -523,7 +533,7 @@ export function dressBlock(
               h: fsize[1],
               d,
             };
-            const fits = faceP.x - w / 2 >= cell.left - EPS && faceP.x + w / 2 <= cell.right + EPS && faceP.z + d / 2 <= kerb && cell.top + faceP.y - structure.y + fsize[1] <= hMaxM + EPS;
+            const fits = faceP.x - w / 2 >= cell.left - EPS && faceP.x + w / 2 <= cell.right + EPS && faceP.z + d / 2 <= cell.front + EPS && faceP.z + d / 2 <= kerb && cell.top + faceP.y - structure.y + fsize[1] <= hMaxM + EPS;
             group = fits ? [structure, faceP] : [];
           }
         }
@@ -663,14 +673,16 @@ function normYaw(a: number): number {
 }
 
 /** The dressing of one block, dressed alone (no earlier blocks in its run). See `dressBlock` for the run-carrying form and `dressTown` for a whole town. */
-export function dressStack(stack: Stack, lot: Pick<Lot, "key" | "hMax">, run: RunContext, entries: Entries, fronts: FrontTable = {}): DressPiece[] {
-  return dressBlock(stack, lot, run, entries, fronts).pieces;
+export function dressStack(stack: Stack, lot: Pick<Lot, "key" | "hMax">, run: RunContext, entries: Entries, fronts: FrontTable = {}, kerbM: number = KERB_FROM_FRONT_M): DressPiece[] {
+  return dressBlock(stack, lot, run, entries, fronts, kerbM).pieces;
 }
 
 export interface DressBlockInput {
   stack: Stack;
   lot: Pick<Lot, "key" | "hMax">;
   run: { id: string; index: number; lowest: boolean };
+  /** The lot front to the road edge, metres; default `KERB_FROM_FRONT_M`. */
+  kerbM?: number;
 }
 
 /**
@@ -687,7 +699,7 @@ export function dressTown(blocks: readonly DressBlockInput[], entries: Entries, 
       out.push([]);
       continue;
     }
-    const r = dressBlock(bl.stack, bl.lot, { ...bl.run, used }, entries, fronts);
+    const r = dressBlock(bl.stack, bl.lot, { ...bl.run, used }, entries, fronts, bl.kerbM);
     if (total + r.pieces.length > DRESS_MAX) {
       out.push([]);
       total = DRESS_MAX;
