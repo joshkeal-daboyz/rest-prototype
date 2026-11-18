@@ -7,7 +7,7 @@
 
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { Group, NearestFilter, Texture, type Material, type Mesh, type Object3D } from "three";
-import { calibrationKey, type AssetManifest, type CalibrationKey } from "../core";
+import { calibrationKey, type AssetEntry, type AssetManifest, type CalibrationKey } from "../core";
 import { stableHash } from "../render/city";
 import { effectiveFronts, loadSavedCalibration } from "./calibration";
 import {
@@ -15,6 +15,7 @@ import {
   BUILDING_FRONTS,
   MODEL_SLOTS,
   MODEL_TABLE,
+  WORLD_PER_METRE,
   atFront,
   buildingPlan,
   frontIsQuarter,
@@ -24,6 +25,7 @@ import {
   pickBuildings,
   pickIndex,
   planModels,
+  planStackPieces,
   sizeOf,
   poleYaw,
   traitsOf,
@@ -33,6 +35,7 @@ import {
   type PlannedModel,
 } from "./models";
 import type { SceneBundle } from "./scene";
+import type { Stack } from "./stacks";
 import { LOT_TYPE_NAMES, type Lot } from "./town";
 
 /** A planned model whose root node was found in its pack's GLB. */
@@ -41,7 +44,13 @@ export interface LoadedModel extends PlannedModel {
 }
 
 /** What loading produced, per slot: the usable models in table order, or null (the slot keeps its placeholder). */
-export type ModelSet = Record<ModelSlot, LoadedModel[] | null>;
+export type ModelSet = Record<ModelSlot, LoadedModel[] | null> & {
+  /**
+   * The City Pack stack pieces (ticket 050 B), in `LoadDeps.stackKeys` order; null when they were asked for and none loaded. Absent when not asked for
+   * (the town today), so a set made without stacks is exactly what it was.
+   */
+  stack?: LoadedModel[] | null;
+};
 
 export const NO_MODELS: ModelSet = { pole: null, lamp: null, building: null };
 
@@ -56,6 +65,8 @@ export interface LoadDeps {
   fronts?: FrontTable;
   /** Building models that are never placed, keyed `pack:name`. Default: BUILDING_EXCLUDE. */
   exclude?: readonly CalibrationKey[];
+  /** The stack-recipe pieces to load too (ticket 050 B), keyed `pack:name`, into `ModelSet.stack`. Default: none, so no extra GLB is fetched. */
+  stackKeys?: readonly CalibrationKey[];
   /** Folder of the manifest, ending in "/". Default: `${BASE_URL}assets/private/out/`. */
   dir?: string;
   /** Where the one line saying why a fallback happened goes. Default: console.info. */
@@ -111,8 +122,10 @@ export async function loadModels(deps: LoadDeps): Promise<ModelSet> {
       const kept = plan.building.filter((p) => !exclude.includes(calibrationKey(p.pack, p.entry.name)));
       plan.building = kept.length > 0 ? kept : null;
     }
+    const stackPlan = deps.stackKeys && deps.stackKeys.length > 0 ? planStackPieces(manifest as AssetManifest, deps.stackKeys, deps.fronts ?? BUILDING_FRONTS) : null;
     const globs = new Set<string>();
     for (const slot of MODEL_SLOTS) for (const p of plan[slot] ?? []) globs.add(p.glb);
+    for (const p of stackPlan ?? []) globs.add(p.glb);
     const roots = new Map<string, Object3D>();
     await Promise.all(
       [...globs].map(async (glb) => {
@@ -135,6 +148,23 @@ export async function loadModels(deps: LoadDeps): Promise<ModelSet> {
         }
         nearestTextures(root);
         (set[slot] ??= []).push({ ...p, root });
+      }
+    }
+    if (deps.stackKeys && deps.stackKeys.length > 0) {
+      set.stack = null;
+      const planned = new Set((stackPlan ?? []).map((p) => calibrationKey(p.pack, p.entry.name)));
+      const absent = deps.stackKeys.filter((key) => !planned.has(key));
+      if (absent.length > 0) info(`3D models: ${absent.length} stack piece(s) are not in the manifest (${absent.slice(0, 3).join(", ")}${absent.length > 3 ? ", ..." : ""}); the styles that need them are dropped.`);
+      for (const p of stackPlan ?? []) {
+        const scene = roots.get(p.glb);
+        if (!scene) continue;
+        const root = scene.getObjectByName(p.entry.name);
+        if (!root) {
+          info(`3D models: ${p.entry.name} is not in ${p.glb}; the stack styles that need it are dropped.`);
+          continue;
+        }
+        nearestTextures(root);
+        (set.stack ??= []).push({ ...p, root });
       }
     }
     return set;
@@ -192,6 +222,47 @@ function place(m: LoadedModel, scale: number, x: number, z: number, yaw: number)
   nearestTextures(clone);
   wrap.add(clone);
   return wrap;
+}
+
+/** The loaded stack pieces' manifest entries by key: what `assembleStack` reads, so a piece whose root did not load drops the styles that need it. */
+export function stackEntries(set: ModelSet): Map<CalibrationKey, AssetEntry> {
+  return new Map((set.stack ?? []).map((m) => [calibrationKey(m.pack, m.entry.name), m.entry] as const));
+}
+
+/** The loaded stack pieces' roots by key: what `stackGroup` clones. */
+export function stackRoots(set: ModelSet): Map<CalibrationKey, Object3D> {
+  return new Map((set.stack ?? []).map((m) => [calibrationKey(m.pack, m.entry.name), m.root] as const));
+}
+
+/**
+ * One placed stack (ticket 050 B): a `Group` named `stack:<style>` whose origin is the lot's front-centre (the stack's frame) and whose children are one
+ * wrapper per piece, at the piece's position (metres x WORLD_PER_METRE) and yaw and at WORLD_PER_METRE scale, each holding a clone of the piece's root.
+ * The clones share the cached geometry and materials; nothing in the group can be picked. A piece whose root is missing leaves a bare wrapper
+ * (so the child count still equals the assembly's), never a throw.
+ */
+export function stackGroup(stack: Stack, roots: ReadonlyMap<CalibrationKey, Object3D>): Group {
+  const group = new Group();
+  group.name = `stack:${stack.style}`;
+  group.userData["sharedModel"] = true;
+  group.raycast = () => {};
+  for (const p of stack.pieces) {
+    const wrap = new Group();
+    wrap.name = `piece:${p.key}`;
+    wrap.position.set(p.x * WORLD_PER_METRE, p.y * WORLD_PER_METRE, p.z * WORLD_PER_METRE);
+    wrap.rotation.y = p.yaw;
+    wrap.scale.setScalar(WORLD_PER_METRE);
+    wrap.raycast = () => {};
+    const root = roots.get(p.key);
+    if (root) {
+      const clone = root.clone(true);
+      clone.traverse((o) => {
+        o.raycast = () => {};
+      });
+      wrap.add(clone);
+    }
+    group.add(wrap);
+  }
+  return group;
 }
 
 const at = (list: readonly LoadedModel[], key: string): LoadedModel => list[pickIndex(stableHash(key), list.length)]!;
