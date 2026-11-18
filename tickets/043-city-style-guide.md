@@ -247,7 +247,7 @@ Earlier words the guide records (all 17 Nov 2026 unless marked):
 
    This is your call. The guide won't pick.
 5. **Corner rule wording.** Default: the guide quotes your rule and marks the code's corner-lot definition Pending 042 A. If 042 A's "first or last lot of a row" stays (a lot with only one street side can count), that's a gap against your words "two sides facing the street". It goes back to 042 A's settle round, not here.
-6. **The video rental store.** `store_small_mesh` is named in the 042 A branch's comments, but `BUILDING_EXCLUDE` is still empty. Default: the guide records it as Pending 042 A. Say if you want it excluded, kept at a lower weight, or kept as is.
+6. **The video rental store.** `store_small_mesh` is named in the 042 A branch's comments, but `BUILDING_EXCLUDE` is still empty. Default: the guide records it as Pending 042 A. Say if you want it excluded, kept at a lower weight, or kept as is. **Answered (Josh, 18 Nov 2026: "what about the video rental store, ignore it... it's part of the small package. The polygon buildings are much higher quality"): excluded. Ticket 047. POLYGON adoption: ticket 048.**
 7. **Gallery scope.** Default: buildings only. The alternative: a later section adds road tiles and pole hardware rows for 042 C and D.
 8. **Decided rules.** None is touched; this is documentation and a debug page. There is no `rules-coverage.md` change. The accessibility rule is restated in the guide and still tested where 037 and 041 C test it.
 
