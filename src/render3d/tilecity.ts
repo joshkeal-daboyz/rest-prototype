@@ -31,8 +31,13 @@ import { WORLD_PER_METRE, terraceBlockRows, terraceRunKey, type CornerSide, type
 
 /** One tile, metres: the City Pack's road and pavement tiles are 5 m squares. */
 export const TILE_M = 5;
-/** The sidewalk tile's height: the carriageway surface sits this far below the pavement top (design item 7). */
+/** The sidewalk tile's bounding height (its kerb lip): what the manifest's bounds say and what criterion 14's manifest check reads. The levels use `SIDEWALK_WALK_M`. */
 export const SIDEWALK_TOP_M = 0.3;
+/**
+ * The sidewalk tile's walking surface, measured from the converted GLB (E, criterion 28, 18 Nov 2026): 0.23 m, with a 0.30 m lip on its kerb edge. The carriageway sits this far below the
+ * walk (design item 7), and every sidewalk-family tile stands on the carriageway, so its walk is at 0 (shopfronts, yards and lots are flush with it) and its lip 0.07 m above.
+ */
+export const SIDEWALK_WALK_M = 0.23;
 /** The most blocks along either axis (tests build 6 x 6 at the most). */
 export const CITY_BLOCKS_MAX = 6;
 /** The blocks along each axis when none are asked for. */
@@ -43,8 +48,8 @@ export const BLOCK_TILES = { min: 8, max: 12 } as const;
 export const AVENUE_ONE_IN = 3;
 /** Parking cells next to a junction box (the cross street's whole cross-section) that hold no bay. */
 export const BAY_JUNCTION_CLEAR = 1;
-/** Bays in one `ParkingLines_01` tile (10 m by 5 m); eye-confirmed on the sheet (section C). */
-export const BAYS_PER_PARKING_TILE = 2;
+/** Bays in one `ParkingLines_01` tile (10 m by 5 m): 3, from the GLB (E, 18 Nov 2026: its dividers stand at x of about -5, -1.75, +1.6 and +5, so three bays of about 3.3 m). */
+export const BAYS_PER_PARKING_TILE = 3;
 /** One pavement cell in this many is a `Sidewalk_Grate_01`, by hash. */
 export const GRATE_ONE_IN = 6;
 /** One lane cell in this many carries a `Road_Patch_01` decal, by hash. */

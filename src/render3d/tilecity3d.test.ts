@@ -9,14 +9,13 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { BoxGeometry, Group, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, Quaternion, Raycaster, Sprite, Vector3, type Object3D } from "three";
 import { ASSET_MANIFEST_VERSION, loadPuzzle, type AssetEntry, type AssetManifest, type CalibrationKey } from "../core";
-import { createGalleryRig } from "./gallery";
 import { WORLD_PER_METRE } from "./models";
 import { NO_MODELS, allStackKeys, applyModels, loadModels, stackInput, tileInput, type ModelSet } from "./models3d";
 import { packTown } from "./terrace";
 import { STACK_STYLES } from "./stacks";
-import { LANE_PATCH, LANE_RIGHT, PAVEMENT_GRATE, PAVEMENT_STRAIGHT_2, SIDEWALK_TOP_M, TILE_M, tileCity, type TileCell, type TileCity, type TileRole } from "./tilecity";
-import { buildCityScene, buildSheetScene, cellFootprint, createCityRig, kerbStrips, sheetLabel, tileCityLine, tileGroup, tileKeyOf, tileMatrix, tileOriginY_m } from "./tilecity3d";
-import { TILE_DRAW_CALLS_MAX, TILE_FRONTS, TILE_PATCH, TILE_SLOTS, sheetPieces, tileKeys } from "./tileslots";
+import { LANE_PATCH, LANE_RIGHT, PAVEMENT_GRATE, PAVEMENT_STRAIGHT_2, SIDEWALK_TOP_M, SIDEWALK_WALK_M, TILE_M, tileCity, type TileCell, type TileCity, type TileRole } from "./tilecity";
+import { buildCityScene, buildSheetScene, cellFootprint, createCityRig, kerbStrips, sheetRigInsets, tileCityLine, tileGroup, tileKeyOf, tileMatrix, tileOriginY_m } from "./tilecity3d";
+import { TILE_DRAW_CALLS_MAX, TILE_FRONTS, TILE_PATCH, TILE_SHEET_EXTRA, TILE_SLOTS, sheetLabel, sheetPieces, sheetShortName, tileKeys } from "./tileslots";
 import { stubTextSurface } from "./text";
 import { townLayout } from "./town";
 
@@ -248,7 +247,7 @@ describe("levels and seams", () => {
         m.decompose(pos, quat, scale);
         for (const s of [scale.x, scale.y, scale.z]) if (Math.abs(s / S - 1) > 1e-6) bad.push(`${key} scale ${s}`);
         if (Math.abs(pos.x - c.x_m * S) > 1e-5 || Math.abs(pos.z - c.z_m * S) > 1e-5) bad.push(`${key} at ${pos.x},${pos.z}`);
-        const want = expectedMatrix(c, tileOriginY_m(c.role, p.entries.get(key)), TILE_FRONTS[key] ?? 0);
+        const want = expectedMatrix(c, tileOriginY_m(c.role, key), TILE_FRONTS[key] ?? 0);
         for (let k = 0; k < 16; k++) if (Math.abs(m.elements[k]! - want.elements[k]!) > 1e-5) bad.push(`${key} cell ${c.i},${c.j} element ${k}`);
       });
     }
@@ -256,7 +255,7 @@ describe("levels and seams", () => {
     draw.dispose();
   });
 
-  it("stands the carriageway at -SIDEWALK_TOP_M, a pavement piece with its top at 0, and a parking lot's surface at 0", () => {
+  it("stands the carriageway at -SIDEWALK_WALK_M (0.23 m), a sidewalk piece on it so its walk is at 0, and a parking lot's surface at 0", () => {
     const p = pack();
     const draw = tileGroup(city, p.roots, p.entries);
     const read = (key: CalibrationKey, i: number): number => {
@@ -268,19 +267,20 @@ describe("levels and seams", () => {
       const key = TILE_SLOTS[role][0]!;
       const idx = city.cells.filter((c) => wantKey(c) === key).findIndex((c) => c.role === role);
       expect(idx, role).toBeGreaterThanOrEqual(0);
-      expect(read(key, idx), role).toBeCloseTo(-SIDEWALK_TOP_M * S, 6);
+      expect(read(key, idx), role).toBeCloseTo(-SIDEWALK_WALK_M * S, 6);
     }
     for (const role of ["pavement", "pavementCorner", "kerbCut", "plaza"] as const) {
       const key = TILE_SLOTS[role][0]!;
       const idx = city.cells.filter((c) => wantKey(c) === key).findIndex((c) => c.role === role);
       expect(idx, role).toBeGreaterThanOrEqual(0);
-      // The piece's top (its origin plus its own height) is at 0.
-      expect(read(key, idx) + (p.entries.get(key)!.bounds.max[1] - p.entries.get(key)!.bounds.min[1]) * S, role).toBeCloseTo(0, 6);
+      // The piece stands on the carriageway: its walking surface (0.23 m up its own frame, not its 0.30 m lip) is at 0, and its lip 0.07 m above.
+      expect(read(key, idx) + SIDEWALK_WALK_M * S, role).toBeCloseTo(0, 6);
+      expect(read(key, idx) + SIDEWALK_TOP_M * S, role).toBeCloseTo(0.07 * S, 6);
     }
     // Road_Bare_01 serves the junction boxes (carriageway) and the lot surfaces (ground): one instanced mesh, two levels.
     const bare = TILE_SLOTS.junction[0]!;
     const cells = city.cells.filter((c) => wantKey(c) === bare);
-    cells.forEach((c, i) => expect(read(bare, i), `${c.role} ${i}`).toBeCloseTo(c.role === "lotSurface" ? 0 : -SIDEWALK_TOP_M * S, 6));
+    cells.forEach((c, i) => expect(read(bare, i), `${c.role} ${i}`).toBeCloseTo(c.role === "lotSurface" ? 0 : -SIDEWALK_WALK_M * S, 6));
     draw.dispose();
   });
 
@@ -323,8 +323,8 @@ describe("levels and seams", () => {
     const m = new Matrix4();
     im.getMatrixAt(0, m);
     const at = new Vector3().setFromMatrixPosition(m);
-    expect(at.y).toBeGreaterThan(-SIDEWALK_TOP_M * S);
-    expect(at.y).toBeLessThan(-SIDEWALK_TOP_M * S + 0.01);
+    expect(at.y).toBeGreaterThan(-SIDEWALK_WALK_M * S);
+    expect(at.y).toBeLessThan(-SIDEWALK_WALK_M * S + 0.01);
     expect(at.x).toBeCloseTo(lane.x_m * S, 4);
     for (const turn of [0, 90, 180, 270]) {
       const got = tileMatrix(lane, 0, turn);
@@ -346,7 +346,7 @@ describe("levels and seams", () => {
     expect(cellFootprint(down)).toEqual({ w_m: 5, d_m: 10 });
   });
 
-  it("draws the code-drawn cells at the same cells and levels: a road quad at the carriageway, a pavement box from there up to 0", () => {
+  it("draws the code-drawn cells at the same cells and levels: a road quad at the carriageway, a pavement box from there (-0.23 m) up to the walk at 0", () => {
     const draw = tileGroup(city, new Map(), new Map());
     const roads = named(draw.group, "tile:code-road")[0]!;
     const boxes = named(draw.group, "tile:code-pavement")[0]!;
@@ -360,7 +360,7 @@ describe("levels and seams", () => {
       roads.getMatrixAt(i, m);
       m.decompose(pos, q, sc);
       const f = cellFootprint(c);
-      const y = c.role === "lotSurface" ? 0 : -SIDEWALK_TOP_M * S;
+      const y = c.role === "lotSurface" ? 0 : -SIDEWALK_WALK_M * S;
       if (Math.abs(pos.x - c.x_m * S) + Math.abs(pos.z - c.z_m * S) + Math.abs(pos.y - y) > 1e-5) bad.push(`road ${i} at ${pos.toArray()}`);
       if (Math.abs(sc.x - f.w_m * S) + Math.abs(sc.z - f.d_m * S) > 1e-5) bad.push(`road ${i} size`);
     });
@@ -369,7 +369,7 @@ describe("levels and seams", () => {
       boxes.getMatrixAt(i, m);
       m.decompose(pos, q, sc);
       // The unit box stands on y = 0, so its base is the origin and its top is the origin plus the scale.
-      if (Math.abs(pos.y - -SIDEWALK_TOP_M * S) > 1e-5 || Math.abs(pos.y + sc.y) > 1e-5) bad.push(`box ${i} level`);
+      if (Math.abs(pos.y - -SIDEWALK_WALK_M * S) > 1e-5 || Math.abs(pos.y + sc.y) > 1e-5) bad.push(`box ${i} level`);
       if (Math.abs(pos.x - c.x_m * S) + Math.abs(pos.z - c.z_m * S) > 1e-5) bad.push(`box ${i} at`);
     });
     expect(bad).toEqual([]);
@@ -717,24 +717,25 @@ describe("the tile sheet", () => {
 
   it("shows every piece once, with an outline, an arrow and a label, and says which are not in the pack", () => {
     const full = pack();
-    const sheet = buildSheetScene(full.roots, full.entries, { surface: stubTextSurface });
+    // A wide window: names under the pieces.
+    const sheet = buildSheetScene(full.roots, full.entries, { surface: stubTextSurface, aspect: 16 / 9 });
     expect(sheet.present).toBe(pieces.length);
     expect(sheet.missing).toBe(0);
     expect(sheet.labels).toHaveLength(pieces.length + 1);
     expect(sheet.scene.children.filter((o) => o.name.startsWith("tile-piece:")).map((o) => o.name)).toEqual(pieces.map((p) => `tile-piece:${p.key}`));
     const text = sheet.labels.map((l) => String(l.sprite.userData["text"]));
     pieces.forEach((p, i) => {
-      expect(text[i]!.split("\n")[0], p.key).toBe(shortName(p.key).replace(/^SM_Env_/, ""));
-      expect(text[i]!).not.toContain("NOT IN THE PACK");
+      expect(text[i]!.split("\n"), p.key).toEqual(sheetLabel(p.key, true));
+      expect(text[i]!).not.toContain("NOT IN PACK");
     });
     expect(text[text.length - 1]).toContain("TILE_FRONTS");
     sheet.dispose();
 
     const lacking = pack([TILE_SLOTS.crossing[0]!, TILE_SLOTS.kerbCut[0]!]);
-    const some = buildSheetScene(lacking.roots, lacking.entries, { surface: stubTextSurface });
+    const some = buildSheetScene(lacking.roots, lacking.entries, { surface: stubTextSurface, aspect: 16 / 9 });
     expect(some.missing).toBe(2);
     expect(some.present).toBe(pieces.length - 2);
-    expect(some.labels.map((l) => String(l.sprite.userData["text"])).filter((t) => t.includes("NOT IN THE PACK"))).toHaveLength(2);
+    expect(some.labels.map((l) => String(l.sprite.userData["text"])).filter((t) => t.includes("NOT IN PACK"))).toHaveLength(2);
     expect(some.scene.children.filter((o) => o.name.startsWith("tile-piece:"))).toHaveLength(pieces.length - 2);
     some.dispose();
 
@@ -744,49 +745,44 @@ describe("the tile sheet", () => {
     empty.dispose();
   });
 
-  it("stands each piece at the city's level (a road at the carriageway, a sidewalk with its top at 0), turned by its TILE_FRONTS line, in a row left to right", () => {
-    const full = pack();
-    const sheet = buildSheetScene(full.roots, full.entries, { surface: stubTextSurface });
-    const wraps = sheet.scene.children.filter((o) => o.name.startsWith("tile-piece:"));
-    let lastX = -Infinity;
-    wraps.forEach((w, i) => {
-      const p = pieces[i]!;
-      expect(w.position.x, p.key).toBeGreaterThan(lastX);
-      lastX = w.position.x;
-      expect(w.scale.x, p.key).toBeCloseTo(S, 12);
-      expect(w.rotation.y, p.key).toBeCloseTo(((TILE_FRONTS[p.key] ?? 0) * Math.PI) / 180, 12);
-      const role = p.roles[0];
-      if (role === "pavement" || role === "pavementCorner" || role === "kerbCut" || p.key.endsWith("Corner_01")) expect(w.position.y + 0.3 * S, p.key).toBeCloseTo(0, 9);
-      else if (role === "lane" || role === "parking" || role === "crossing" || role === "parkingPlain" || role === "junction") expect(w.position.y, p.key).toBeCloseTo(-SIDEWALK_TOP_M * S, 9);
-    });
-    // The parking lines are two cells long, so the next piece starts a full gap after them.
-    const parking = pieces.findIndex((p) => p.roles.includes("parking"));
-    expect(wraps[parking + 1]!.position.x - wraps[parking]!.position.x).toBeCloseTo((2 * TILE_M * S) / 2 + (TILE_M * S) / 2 + 1, 9);
+  it("labels each piece with its number in a tall window and lists the names in the legend", () => {
+    const sheet = buildSheetScene(new Map(), new Map(), { surface: stubTextSurface, aspect: 390 / 844 });
+    expect(sheet.layout.numbered).toBe(true);
+    const text = sheet.labels.map((l) => String(l.sprite.userData["text"]));
+    pieces.forEach((_, i) => expect(text[i]).toBe(String(i + 1)));
+    const legend = text[text.length - 1]!.split("\n");
+    pieces.forEach((p, i) => expect(legend.some((l) => l === `${i + 1} ${sheetShortName(p.key)} NOT IN PACK`), p.key).toBe(true));
     sheet.dispose();
   });
 
-  it("labels a piece with its name, its roles, its turn and what its front must show", () => {
-    const key = TILE_SLOTS.pavement[0]!;
-    expect(sheetLabel(key, ["pavement"], true).slice(0, 3)).toEqual(["Sidewalk_Straight_01", "pavement", "turn 0"]);
-    expect(sheetLabel(key, ["pavement"], true).slice(3).join(" ")).toBe("arrow = toward the kerb (the carriageway)");
-    expect(sheetLabel(key, ["pavement"], true, { [key]: 180 })[2]).toBe("turn 180");
-    expect(sheetLabel(key, ["pavement"], false).slice(-1)).toEqual(["NOT IN THE PACK"]);
-    expect(sheetLabel(TILE_PATCH, [], true)[1]).toBe("(not used by a role yet)");
-    const lane = sheetLabel(TILE_SLOTS.lane[0]!, ["lane"], true);
-    expect(lane.join(" ")).toContain("centre line");
+  it("stands each piece at the city's level (a road at -0.23 m, a sidewalk on it so its walk is at 0), turned by its TILE_FRONTS line, on a grid", () => {
+    const full = pack();
+    const sheet = buildSheetScene(full.roots, full.entries, { surface: stubTextSurface, aspect: 16 / 9 });
+    const wraps = sheet.scene.children.filter((o) => o.name.startsWith("tile-piece:"));
+    const seen = new Set<string>();
+    wraps.forEach((w, i) => {
+      const p = pieces[i]!;
+      seen.add(`${w.position.x.toFixed(4)},${w.position.z.toFixed(4)}`);
+      expect(w.scale.x, p.key).toBeCloseTo(S, 12);
+      expect(w.rotation.y, p.key).toBeCloseTo(((TILE_FRONTS[p.key] ?? 0) * Math.PI) / 180, 12);
+      // Every piece's origin is 0.23 m down: a road piece is on the carriageway, a sidewalk piece on it with its walk at 0.
+      expect(w.position.y, p.key).toBeCloseTo(-SIDEWALK_WALK_M * S, 9);
+    });
+    expect(seen.size, "one place each").toBe(pieces.length);
+    expect(new Set(wraps.map((w) => w.position.z.toFixed(4))).size, "rows, not a row").toBeGreaterThan(1);
+    expect(new Set(wraps.map((w) => w.position.x.toFixed(4))).size, "columns").toBe(sheet.layout.cols);
+    expect(TILE_SHEET_EXTRA.length).toBeGreaterThan(0);
+    sheet.dispose();
   });
 
-  it("is framed by the gallery's rig: the first screen is the first few pieces, the whole row is the world, and the labels size to the canvas", () => {
-    const sheet = buildSheetScene(new Map(), new Map(), { surface: stubTextSurface });
-    expect(sheet.view.screens).toHaveLength(1);
-    expect(sheet.view.screens[0]!.maxX).toBeLessThan(sheet.view.world.maxX);
-    expect(sheet.view.world.maxX).toBeGreaterThan(pieces.length * TILE_M * S);
-    const rig = createGalleryRig(sheet.view, 1280, 720);
-    expect(Number.isFinite(rig.camera.position.x + rig.camera.position.y + rig.camera.position.z)).toBe(true);
-    // The first tile is inside the picture.
-    const p = new Vector3(0.45, 0, 0).project(rig.camera);
-    expect(Math.abs(p.x)).toBeLessThan(1);
-    expect(Math.abs(p.y)).toBeLessThan(1);
+  it("is framed by the city rig: the whole grid inside the picture, the labels sized to the canvas", () => {
+    const sheet = buildSheetScene(new Map(), new Map(), { surface: stubTextSurface, aspect: 16 / 9 });
+    const rig = createCityRig(sheet.frame, 1280, 720, sheetRigInsets({}, sheet), { fitTop: 0.3 });
+    for (const r of sheet.rects) {
+      const p = new Vector3(r.x, 0, r.z).project(rig.camera);
+      expect(Math.abs(p.x), r.key).toBeLessThan(1);
+      expect(Math.abs(p.y), r.key).toBeLessThan(1);
+    }
     sheet.setViewport(720);
     const unit = sheet.labels[0]!.sprite.scale.x / (sheet.labels[0]!.sprite.userData["cssW"] as number);
     expect(unit).toBeGreaterThan(0);
