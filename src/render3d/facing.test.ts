@@ -7,7 +7,8 @@ import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { Group, Object3D, Vector3 } from "three";
-import { ASSET_MANIFEST_VERSION, loadPuzzle, type AssetEntry, type AssetManifest, type Puzzle } from "../core";
+import { ASSET_MANIFEST_VERSION, applyCalibrationPatch, loadPuzzle, type AssetEntry, type AssetManifest, type CalibrationFile, type Puzzle } from "../core";
+import { effectiveFronts } from "./calibration";
 import {
   BUILDING_EXCLUDE,
   BUILDING_FRONTS,
@@ -24,9 +25,10 @@ import {
   planModels,
   traitsOf,
   type BuildingFront,
+  type FrontTable,
   type ModelFront,
 } from "./models";
-import { applyModels, buildingPlacements, type LoadedModel, type ModelSet } from "./models3d";
+import { applyModels, buildingPlacements, loadModels, type LoadedModel, type ModelSet } from "./models3d";
 import type { SceneBundle } from "./scene";
 import { CORNER_GAP, LOT_TYPE_NAMES, townLayout, type Lot, type LotType, type Town } from "./town";
 
@@ -86,7 +88,7 @@ const MANIFEST: AssetManifest = {
 const entryNamed = (name: string): AssetEntry => ENTRIES.find((e) => e.name === name)!;
 
 /** A model set from the fixture. Each root has a child marker one metre along the declared front, in the model's own frame. */
-function fakeSet(fronts: Readonly<Record<string, BuildingFront>> = BUILDING_FRONTS): ModelSet {
+function fakeSet(fronts: FrontTable = BUILDING_FRONTS): ModelSet {
   const plan = planModels(MANIFEST, MODEL_TABLE, fronts);
   const building: LoadedModel[] = (plan.building ?? []).map((p) => {
     const root = new Group();
@@ -169,10 +171,10 @@ describe("every building has a front", () => {
   it("has a BUILDING_FRONTS entry for every name in a building row of MODEL_TABLE, and for ticket 042 B's default place models", () => {
     for (const row of MODEL_TABLE) {
       if (row.slot !== "building") continue;
-      for (const n of row.names) expect(BUILDING_FRONTS[n], n).toBeDefined();
+      for (const n of row.names) expect(BUILDING_FRONTS[`${row.pack}:${n}`], n).toBeDefined();
     }
     for (const n of ["memorial_mesh", "Building_Garage_01", "Building_AutoRepair", "Building_Shop_01", "store_small_mesh", "apartment_small_mesh", "office_small_mesh", "house_mesh", "Building_House_09"]) {
-      expect(BUILDING_FRONTS[n], n).toBeDefined();
+      expect(BUILDING_FRONTS[`simple-town:${n}`], n).toBeDefined();
     }
   });
 
@@ -190,17 +192,18 @@ describe("every building has a front", () => {
   });
 
   it("holds Josh's 17 Nov 2026 calibration: every model faces -z except store_small_mesh and memorial_mesh (+z), and only store_corner_mesh is a corner model, open on the lot's -x", () => {
-    for (const [n, f] of Object.entries(BUILDING_FRONTS)) {
+    for (const [key, f] of Object.entries(BUILDING_FRONTS)) {
+      const n = key.slice("simple-town:".length);
       expect(f.front, n).toBe(n === "store_small_mesh" || n === "memorial_mesh" ? "+z" : "-z");
       expect(f.corner === true, n).toBe(n === "store_corner_mesh");
     }
-    expect(BUILDING_FRONTS.store_corner_mesh!.open).toBe("-x");
+    expect(BUILDING_FRONTS["simple-town:store_corner_mesh"]!.open).toBe("-x");
   });
 });
 
 /** Every fake model's front, scrambled through all four faces, so the test can't pass by every model facing +z. */
 const SCRAMBLED: Record<string, BuildingFront> = Object.fromEntries(
-  ENTRIES.map((e, i) => [e.name, { front: (["+z", "-z", "+x", "-x"] as const)[i % 4]!, ...(e.name === "store_corner_mesh" ? { corner: true as const, open: "+x" as const } : {}) }]),
+  ENTRIES.map((e, i) => [`simple-town:${e.name}`, { front: (["+z", "-z", "+x", "-x"] as const)[i % 4]!, ...(e.name === "store_corner_mesh" ? { corner: true as const, open: "+x" as const } : {}) }]),
 );
 
 describe("every placed building faces its road (every map)", () => {
@@ -482,7 +485,7 @@ describe("variety (every map)", () => {
 
   it("never places a name in the exclude list, and gives its lots to the others", () => {
     expect(BUILDING_EXCLUDE).toEqual([]);
-    const without = buildingPlan(set.building, ["Building_Gym", "Building_Shop_03"]);
+    const without = buildingPlan(set.building, ["simple-town:Building_Gym", "simple-town:Building_Shop_03"]);
     expect(without.small).not.toContain("Building_Gym");
     expect(without.small).not.toContain("Building_Shop_03");
     expect(without.small).toContain("Building_Shop_04");
@@ -528,5 +531,88 @@ describe("variety (every map)", () => {
     // One family against one family: close, where 041's per-name hash made the three-name shop about three times the gym.
     expect(shopB / gym).toBeLessThan(1.5);
     expect(shopB / gym).toBeGreaterThan(0.66);
+  });
+});
+
+describe("the town follows the saved calibration file (ticket 045 A)", () => {
+  const NOW = new Date("2026-11-18T10:00:00.000Z");
+  const SAVED = applyCalibrationPatch(
+    applyCalibrationPatch(null, { key: "simple-town:Building_Gym", entry: { front: "+x" } }, NOW),
+    { key: "simple-town:house_mesh", entry: { exclude: true } },
+    NOW,
+  );
+
+  /** The fake model set through the real loader: tables merged with `saved`, fake GLB roots, each given a marker one metre along its (merged) front. */
+  async function loaded(saved: CalibrationFile | null): Promise<ModelSet> {
+    const tables = effectiveFronts({ fronts: BUILDING_FRONTS, exclude: BUILDING_EXCLUDE }, saved, () => {});
+    const set = await loadModels({
+      fetchJson: async () => MANIFEST,
+      loadGlb: async () => {
+        const glb = new Group();
+        for (const e of ENTRIES) {
+          const root = new Group();
+          root.name = e.name;
+          glb.add(root);
+        }
+        return glb;
+      },
+      dir: "models/",
+      info: () => {},
+      fronts: tables.fronts,
+      exclude: tables.exclude,
+    });
+    for (const m of set.building ?? []) {
+      const marker = new Object3D();
+      marker.name = "front-marker";
+      const [ax, az] = frontAxis(m.front);
+      marker.position.set(ax, 0, az);
+      m.root.add(marker);
+    }
+    return set;
+  }
+
+  it("turns every Building_Gym clone to its road with the saved +x front, and places no house_mesh, on every map (09-shrine-circuit included)", async () => {
+    const set = await loaded(SAVED);
+    expect(set.building!.find((m) => m.entry.name === "Building_Gym")!.front).toBe("+x");
+    expect(set.building!.some((m) => m.entry.name === "house_mesh")).toBe(false);
+    let gyms = 0;
+    let shrineClones = 0;
+    for (const { name, town } of maps) {
+      const bundle = standIn(town.lots);
+      const applied = applyModels(bundle, set);
+      const models = bundle.slots.models;
+      models.updateMatrixWorld(true);
+      const roads = new Map(town.roads.map((r) => [r.id, r] as const));
+      if (name.includes("09-shrine-circuit")) shrineClones = applied.buildings.length;
+      applied.buildings.forEach((p, k) => {
+        expect(p.model.entry.name, name).not.toBe("house_mesh");
+        if (p.model.entry.name !== "Building_Gym") return;
+        const lot = town.lots[p.lot]!;
+        const clone = models.children[k]!;
+        const at = clone.getWorldPosition(new Vector3());
+        const tip = clone.getObjectByName("front-marker")!.getWorldPosition(new Vector3());
+        const q = nearestOnRoad(roads.get(lot.street)!, lot.x, lot.z);
+        const dx = tip.x - at.x;
+        const dz = tip.z - at.z;
+        const wx = q.x - lot.x;
+        const wz = q.z - lot.z;
+        const cos = (dx * wx + dz * wz) / (Math.hypot(dx, dz) * Math.hypot(wx, wz));
+        expect((Math.acos(Math.min(1, Math.max(-1, cos))) * 180) / Math.PI, `${name} ${lot.key}`).toBeLessThan(0.5);
+        gyms++;
+      });
+    }
+    expect(shrineClones).toBeGreaterThan(0);
+    expect(gyms).toBeGreaterThan(20);
+  });
+
+  it("with no file, the clones are exactly the code's: the same lots, models, spots and turns as the table alone", async () => {
+    const none = await loaded(null);
+    const code = fakeSet(BUILDING_FRONTS);
+    expect(none.building!.map((m) => [m.entry.name, m.front, m.corner])).toEqual(code.building!.map((m) => [m.entry.name, m.front, m.corner]));
+    for (const { name, town } of maps.slice(0, 12)) {
+      const a = applyModels(standIn(town.lots), none).buildings.map((p) => [p.lot, p.model.entry.name, p.x, p.z, p.yaw]);
+      const b = applyModels(standIn(town.lots), code).buildings.map((p) => [p.lot, p.model.entry.name, p.x, p.z, p.yaw]);
+      expect(a, name).toEqual(b);
+    }
   });
 });

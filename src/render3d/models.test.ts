@@ -336,7 +336,7 @@ const FULL_TABLE: readonly ModelChoice[] = [
   { slot: "building", pack: "b", names: ["Q1"] },
 ];
 // Q1 is 18 m wide and 11 m deep with its door on its -x face (yaw +pi/2); every other fake model has no entry, so its door is +z.
-const FULL_FRONTS = { Q1: { front: "-x" as const } };
+const FULL_FRONTS = { "b:Q1": { front: "-x" as const } };
 const FULL = manifest({
   p: ["Pole9", "Pole4", "Lamp"].map((n) => entry(n, FULL_SIZES[n]!)),
   b: BUILDING_NAMES.map((n) => entry(n, FULL_SIZES[n]!)),

@@ -6,6 +6,7 @@
 
 import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
+import { parseCalibrationKey } from "../core";
 import * as cityRender from "../render/city";
 import * as camera from "./camera";
 import * as debug3d from "./debug3d";
@@ -284,7 +285,16 @@ describe("the facing and corner chapters list the fronts that are not the defaul
     expect(have).toEqual(want);
   });
 
-  it("lists every name in BUILDING_EXCLUDE in the choosing chapter, and says it is empty when it is", () => {
+  it("spells every name in the two tables as a pack:name key (ticket 045: names repeat across packs)", () => {
+    for (const r of [...facing, ...corners]) expect(parseCalibrationKey(unquote(r[0]!)), `${r[0]} is not a pack:name key`).not.toBeNull();
+    expect(chapter(6).join("\n")).toMatch(/one line per `pack:name`/);
+  });
+
+  it("says in chapter 15 that a pack's doors are clicked in the gallery (ticket 045)", () => {
+    expect(chapter(15).join("\n")).toContain("click each door in the gallery (ticket 045)");
+  });
+
+  it("lists every key in BUILDING_EXCLUDE in the choosing chapter, and says it is empty when it is", () => {
     const text = chapter(5).join("\n");
     for (const n of models.BUILDING_EXCLUDE) expect(text, `${n} is excluded in code but not in the guide`).toContain(`\`${n}\``);
     if (models.BUILDING_EXCLUDE.length === 0) expect(text).toMatch(/`BUILDING_EXCLUDE` is empty/);
