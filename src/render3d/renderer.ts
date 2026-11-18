@@ -13,6 +13,8 @@ import { frontsOverlay, frontsRequested, type FrontsOverlay } from "./debug3d";
 import { createGalleryRenderer3d, galleryRequested } from "./gallery";
 import { applyModels, sharedModels, type AppliedModels } from "./models3d";
 import { buildScene } from "./scene";
+import { createStreetView, streetCamRequested, streetMode, type StreetView } from "./streetcam";
+import { townLayout } from "./town";
 
 export interface MapRenderer3dOptions {
   insets?: Insets;
@@ -40,10 +42,14 @@ export function createMapRenderer3d(canvas: HTMLCanvasElement, puzzle: Puzzle, o
     const ratio = Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 2);
     return createGalleryRenderer3d(renderer, canvas, galleryPack, { insets: opts?.insets, dpr: ratio, search: location.search });
   }
+  // `?cam=street` (debug, ticket 051 A) looks along one row of buildings from the road; this is the one place the address is read. Dev builds only, like the gallery.
+  const streetOpts = import.meta.env.DEV && typeof location !== "undefined" ? streetCamRequested(location.search) : null;
   let insets: Insets = { ...(opts?.insets ?? {}) };
   const rig = createCameraRig(puzzle, Math.max(canvas.clientWidth, 1), Math.max(canvas.clientHeight, 1), insets);
   const ratio = Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 2);
   const bundle = buildScene(puzzle, { dpr: ratio });
+  let street: StreetView | null = null;
+  if (import.meta.env.DEV && streetOpts) street = createStreetView(townLayout(puzzle), streetOpts, bundle.scene, rig.size.width, rig.size.height);
   const picker = createPicker(bundle.scene, rig.camera, rig.size);
   const nodePos = new Map(puzzle.nodes.map((n) => [n.id, n.pos] as const));
 
@@ -53,8 +59,13 @@ export function createMapRenderer3d(canvas: HTMLCanvasElement, puzzle: Puzzle, o
     renderer.setPixelRatio(ratio);
     renderer.setSize(w, h, false);
     rig.resize(w, h, insets);
-    bundle.setViewport(w, h, FOV_DEG);
-    fronts?.setViewport(w, h, FOV_DEG);
+    let fov = FOV_DEG;
+    if (import.meta.env.DEV && street) {
+      street.resize(w, h);
+      fov = street.pose.fov;
+    }
+    bundle.setViewport(w, h, fov);
+    fronts?.setViewport(w, h, fov);
   }
   let fronts: FrontsOverlay | null = null;
   resize();
@@ -68,15 +79,19 @@ export function createMapRenderer3d(canvas: HTMLCanvasElement, puzzle: Puzzle, o
     .then((set) => {
       if (disposed) return;
       applied = applyModels(bundle, set);
+      if (import.meta.env.DEV) street?.markReady();
       if (wantFronts && applied.buildings.length > 0) {
         fronts = frontsOverlay(bundle, applied, { dpr: ratio });
         bundle.scene.add(fronts);
         fronts.setViewport(Math.max(canvas.clientWidth, 1), Math.max(canvas.clientHeight, 1), FOV_DEG);
       }
     })
-    .catch((e: unknown) => console.info(`3D models: not applied (${e instanceof Error ? e.message : String(e)}).`));
+    .catch((e: unknown) => {
+      console.info(`3D models: not applied (${e instanceof Error ? e.message : String(e)}).`);
+      if (import.meta.env.DEV) street?.markReady();
+    });
 
-  return {
+  const play: MapRenderer3d = {
     draw(state, overlay, timeSeconds) {
       bundle.update(state, overlay.hover ?? null, timeSeconds, overlay.relightT);
       renderer.render(bundle.scene, rig.camera);
@@ -112,4 +127,13 @@ export function createMapRenderer3d(canvas: HTMLCanvasElement, puzzle: Puzzle, o
       bundle.dispose();
     },
   };
+  // The street camera (dev only): the same renderer, drawn through its own camera, with nothing to pick and no pan or zoom.
+  if (import.meta.env.DEV && street) {
+    const view = street;
+    return streetMode(play, view, (state, overlay, timeSeconds) => {
+      bundle.update(state, overlay.hover ?? null, timeSeconds, overlay.relightT);
+      view.draw(renderer, bundle.scene);
+    });
+  }
+  return play;
 }
