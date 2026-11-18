@@ -1025,6 +1025,25 @@ describe("terraces on tile streets (criterion 10)", () => {
     expect(closed / corner, `${closed} of ${corner}`).toBeGreaterThanOrEqual(0.85);
   });
 
+  // Ticket 057 (approved: frontage and no gaps) replaces the far-gap handling, and these two floors with it. Until then they keep lots from making it worse: with the original definition (every run,
+  // the runs after a lot included) 056 A measures 396 of 495 runs closed (0.80) and 275 of 374 corner-ending runs (0.735); the exclusion above is blind to the runs a lot leaves with a wider gap.
+  it("closes the far gap to a seam or an alley on at least 75% of ALL runs and 70% of ALL runs that end at a corner (the runs after a parking lot included)", { timeout: 120000 }, () => {
+    const { runs, tiers } = tiersOf();
+    expect((tiers.seam + tiers.alley) / runs, JSON.stringify(tiers)).toBeGreaterThanOrEqual(0.75);
+    let corner = 0;
+    let closed = 0;
+    for (const c of cities) {
+      for (const run of c.town.terraces) {
+        if (run.endAbuts !== "corner") continue;
+        corner++;
+        const g = packOf(c).get(run.id)!.farGap_m;
+        if (g <= TERRACE_SEAM_M + 1e-9 || (g >= ALLEY_MIN_M - 1e-9 && g <= ALLEY_MAX_M + 1e-9)) closed++;
+      }
+    }
+    expect(corner).toBeGreaterThan(250);
+    expect(closed / corner, `${closed} of ${corner}`).toBeGreaterThanOrEqual(0.7);
+  });
+
   const planOf = (c: TileCity): { m: CityMetrics } => {
     const t = c.town;
     const packed = packOf(c);
@@ -1503,7 +1522,7 @@ describe("the layout (056 criterion 4)", () => {
     }
   });
 
-  it("switches off the terrace fill's hash lot with parkByHash: false, and leaves the ladder's rule as the default", () => {
+  it("switches off the terrace fill's hash lot with parkByHash: false, and an unset parkByHash behaves exactly as true (the ladder's rule)", () => {
     const sides = (): [TerraceSide, TerraceSide, TerraceSide, TerraceSide] => {
       const x1 = 50 * U;
       const z1 = 60 * U;

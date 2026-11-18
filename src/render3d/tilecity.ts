@@ -114,9 +114,11 @@ export const PARK_SUPPLY_BAND = { lo: 0.75, hi: 1.5 } as const;
 /** In a stretch of build-out cells, every this-many-th carries a street tree (one every 10 m), never one next to a crossing (18.5). */
 export const BUILDOUT_TREE_EVERY = 2;
 /**
- * Which of two runs of about the same length takes a block's lot (a hash of the run and this number). The number itself carries no meaning: it was chosen so that the dressing's own statistics on the
- * ladder of test cities (the default and seeds 1 to 10 at 3 x 3: R6, the share of signed shops, at least 0.5, and R7 at the tile city's floor) hold with the lots where 056 puts them, as they did with
- * 055 B's three. Any layout change that moves the lots may need another number.
+ * Which of two runs of about the same length takes a block's lot (a hash of the run and this number). The number carries no meaning of its own, and it is a tuned one: it was picked among about
+ * 250 salts so that R6 on the tile city (the share of signed shops, at least 0.5) and R7 (at the tile city's floor of 0.4) hold on the 11 test cities (the default and seeds 1 to 10 at 3 x 3) with the lots
+ * where 056 puts them. Salts 0, 1, 7 and 13 each failed R6 or R7 on one of those cities, and most others do. R6 sits at its floor (0.49 to 0.55 whatever the layout) because of the dressing's own sign
+ * chance in dressing.ts, not because of parking; 46 also passes seeds 11 to 20, which it was not tuned on. Any layout change that moves a lot may need another number. Josh should be asked whether the
+ * tile city gets its own R6 floor, as it has one for R7 (`TILE_CITY_R7_MIN`); with that floor the tie-break could be plain (longest bucket, then id) and this number would go.
  */
 const LOT_RUN_SALT = 46;
 /** A run shorter than this, metres, cannot hold a snapped parking lot with a lot before it and two bays after it, so a forced lot is not tried on it. */
@@ -212,7 +214,7 @@ export interface TileBlock {
   i1: number;
   j0: number;
   j1: number;
-  /** What the block holds, counted from its nominal terrace lots (18.2, before any parking lot is laid): columns (5.2 m bays), shops (columns less one door column per lot) and homes. */
+  /** What the block holds, counted from its nominal terrace lots (18.2: the finished rows' terrace lots, after the parking lots took their frontage; still nominal, not packed): columns (5.2 m bays), shops (columns less one door column per lot) and homes. */
   units: { columns: number; shops: number; homes: number };
   /** What the quotas could not place (18.6): stalls of the block's lots and bays of its kerb quota; both 0 when met. */
   parkingShort: { stalls: number; bays: number };

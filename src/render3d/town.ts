@@ -815,7 +815,7 @@ export function terraceBlockRows(block: { id: string }, sides: readonly [Terrace
       if (!cur) {
         const id = `${sideKey}:r${runCount.get(sideKey) ?? 0}`;
         const total = Math.floor((front.len - c) / bayW + 1e-9);
-        const byHash = (opts.parkByHash ?? true) && total >= PARKING_MIN_RUN_BAYS &&stableHash(id) % PARKING_ONE_IN === 0;
+        const byHash = (opts.parkByHash ?? true) && total >= PARKING_MIN_RUN_BAYS && stableHash(id) % PARKING_ONE_IN === 0;
         const asked = opts.parkRuns?.has(terraceRunKey(block.id, front.id, front.side, rowRuns)) ?? false;
         rowRuns++;
         cur = { id, lots: [], c0: c, bays: 0, total, park: asked || byHash, early: asked };

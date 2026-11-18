@@ -145,6 +145,32 @@ describe("the checks fail where they should", () => {
     const [first, ...rest] = base.buildoutTrees;
     expect(verdict({ ...base, buildoutTrees: rest }, "P5").pass).toBe(false);
     expect(verdict({ ...base, buildoutTrees: [...base.buildoutTrees, { ...first!, x_m: first!.x_m + TILE_M }] }, "P5").pass).toBe(false);
+    // A tree on a build-out cell next to a crossing (the corner bulb-out): the pitch rule never puts one there.
+    const roles = new Map(base.cells.map((c) => [`${c.i}:${c.j}`, c.role] as const));
+    const bulb = base.cells.find((c) => c.role === "buildout" && ([[1, 0], [-1, 0], [0, 1], [0, -1]] as const).some(([di, dj]) => roles.get(`${c.i + di}:${c.j + dj}`) === "crossing"))!;
+    expect(bulb).toBeDefined();
+    const bad = verdict({ ...base, buildoutTrees: [...base.buildoutTrees, { x_m: bulb.x_m, z_m: bulb.z_m, street: bulb.street! }] }, "P5");
+    expect(bad.pass).toBe(false);
+    expect(bad.value).toBe(1);
+  });
+
+  it("allows ceil(blocks / 9) blocks no lot serves, and fails P2 on one more (6 x 4: 3 allowed)", () => {
+    const city = CITIES.find((c) => c.label === "6x4 seed 1")!.city;
+    const without = (n: number): TileCity => {
+      const gone = new Set(city.blocks.slice(0, n).map((b) => b.id));
+      return { ...city, lotStalls: city.lotStalls.filter((s) => !gone.has(s.serves)) };
+    };
+    expect(parkingMetrics(without(0)).blocksWithoutLot).toBe(0);
+    for (const n of [1, 3]) {
+      expect(parkingMetrics(without(n)).blocksWithoutLot, `${n}`).toBe(n);
+      expect(verdict(without(n), "P2").pass, `${n} lot-less blocks`).toBe(true);
+    }
+    const four = verdict(without(4), "P2");
+    expect(parkingMetrics(without(4)).shortBlocks).toBe(4);
+    expect(four.pass).toBe(false);
+    // It fails for the lot-less blocks, not because the stalls left the supply band.
+    const m = parkingMetrics(without(4));
+    expect(m.lotStalls).toBeGreaterThanOrEqual(0.75 * m.stallDemand);
   });
 
   it("fails each check on its own broken number", () => {
