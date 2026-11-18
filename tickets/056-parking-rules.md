@@ -214,6 +214,7 @@ The guide has a parking chapter that says how many spaces a home and a shop get,
     - Josh's answers to the open questions replace the defaults they settle.
     - If chapter 17 exists (055 D), its parking paragraph points to chapter 18 and says nothing that disagrees with it. If it does not exist yet, chapter 18 says that 055 D's chapter 17 defers to it on parking.
 13. [ ] **Numbers.** The Numbers table gains a row for every constant of criterion 1 and every export of `parkmetrics.ts`. `styleguide.test.ts` gains a drift check for those names only: a new check, with the existing checks unedited. 055 D's later check over all of `tilecity.ts` will include them.
+    - *Guide test (added 18 Nov 2026):* `styleguide.test.ts`'s "has the sixteen chapters" check lists the chapter numbers, so it must be extended to include chapter 18. That one edit to an existing check is allowed. Every constant the new text names must be exported by a module the test reads.
 
 ### Every section
 14. [ ] (Builder) Runs only `npx vitest run --maxWorkers=2 src/render3d/` and one `npx tsc --noEmit`. No dev server, no browser. Writes nothing under `assets/`.

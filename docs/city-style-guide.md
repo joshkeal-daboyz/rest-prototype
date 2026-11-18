@@ -473,6 +473,42 @@ How to read it:
 - **Open (waits for a generated-recolour ticket, if the eye check finds too few colours)**: not every wall changes. The colourways recolour only some gradient columns (the brick, the warm browns, one tan); the grey-walled styles and the shopfront ground floors are the same in every colourway, so the variety is mostly the brick upper floors. Judged by eye by the main session on 18 Nov 2026: neighbouring blocks render in red, dark green, cream-tan and teal, and shopfronts and the grey styles look the same in every colourway. The follow-up, if wanted, is a per-column hue remap of the base made by the converter, not more of this pool.
 - **Info (054)**: R13 is measured by `citymetrics.test.ts` on the three maps of the protocol with a fixed fake set of 8 ids, not the real files (CI has none): it passes at 1 because the rule steps off a repeat. The eye half is in 16.8.
 
+## Decided, not yet built (the tile city, 18 Nov 2026)
+
+Josh's rulings from the tile-city work, in his own words, each with the ticket that builds it.
+
+**These are not chapters yet.** As each ticket lands, its builder writes the real chapter or section named beside it, with the ruling as its **Decided** line, Numbers rows for its constants and a drift check. In the same branch, the builder removes the entry here or points it to that chapter. Nothing below changes the chapters above until then.
+
+### Roads and the grid (ticket 055; chapter 17 and chapter 10 when 055 D lands)
+- **Default (055, Josh 18 Nov 2026)**: roads on a 90 degree grid only, because the packs' road tiles allow nothing else: "In order for those tiles to work we are going to have to fix the power lines. Currently, the powerline puzzles define the map structure and distort the style of the city in such a way that the city pack doesnt allow."
+- **Default (055, Josh 18 Nov 2026)**: angled roads are deferred: "Maybe in the future, we could fix the city to accommodate for all roads that aren't 90*, but for now the map packs don't support that."
+- **Default (057, Josh 18 Nov 2026)**: 90 degrees is not a uniform square grid. The tile city's streets and everything on them are at 90 degrees, but blocks vary in width and depth, with alleys and parks: "Keep in mind, 90 degrees does not mean a grid of squares. You can have varying widths for blocks, alleyways, parks... etc" (057 F and G; chapter 19.5 and 19.6).
+- **Default (055, Josh 18 Nov 2026)**: build the road tiles first, without power lines, and put parking in the map: "Build out the use of the road tiles first. If you don't have that built out without the power lines in place, you won't be able to test and verify that things look right when they are placed on the map. You're going to have to figure out a way to integrate things like parking lots into the map as well or else it will feel. A city with no place to park is strange."
+- **Default (055, Josh 18 Nov 2026)**: the puzzles are rebuilt later, to the new style: "The puzzles are going to have to be rebuilt in order to conform to the new style. These puzzles were built to demonstrate a skill. They aren't the final puzzles anyway. We can start with 10 puzzles and move from there." This is a puzzle-designer ticket after the circuit-on-the-grid ticket (059 stage B).
+- **Default (055, Josh 18 Nov 2026)**: R7 (fire escapes) has a floor of 0.4 on the tile city, and the ladder's 0.5 is unchanged: "Just choose the recommended option for now" (chapter 17).
+
+### Corners and frontage (tickets 055 B, then 057; chapter 19)
+- **Default (055, Josh 18 Nov 2026)**: the corner inset was kept at first: "Keep the inset". Each row's first block stood up to 2.5 m back from its corner.
+- **Default (057, Josh 18 Nov 2026)**: buildings meet the pavement with no gap, and overlap is allowed. This overrides the inset wherever the inset leaves a strip, so corners are flush: "This is a great start. There are gaps between the buildings and the sidewalk. It's okay if the buildings rest on top of the sidewalk and overlap a little bit. It is not okay if the buildings sit recessed from the sidewalk and leave a gap of nothing between them." (19.1 and 19.2)
+- **Default (057, Josh 18 Nov 2026)**: blank block interiors are filled: "There are blank open areas where the buildings don't exist. Those need to be filled in with something. You could fill that with parking lots, parks, or you could have those squares of buildings be thinner so that the buildings are butted up right against each other." Then: "Grass and pavement should fill the blank areas." (19.4)
+
+### Parking (ticket 056; chapter 18)
+- **Default (056, Josh 18 Nov 2026)**: there was too much parking. Rules now set the street against the lots for homes and shops: "Roads look good, parking spaces are overwhelming. Too many parking spaces. We should create rules in the style sheet that indicate how much parking should be available on the streets vs parking lots for residential and business style units."
+  - Shoppers get kerb bays, residents get lots: 1 bay per 3 shops, 0.15 stalls per home.
+  - From 057 on, residents' lots are interior courts.
+
+### Buildings (tickets 055 F and 058; sections 16.10 and 16.11)
+- **Default (055 F, Josh 18 Nov 2026; F awaits his G1 on its Q10 to Q13)**: each building's door sill is measured, and the building is sunk to the walk or given steps: "That's going to have to be a variable that we measure for each individual building." (16.10)
+- **Default (058, Josh 18 Nov 2026)**: fire escapes connect, and their platforms are level with the windows: "There are gaps on the fire escapes. Additionally, fire escapes should always be level with windows or else people can't get out of the building." (16.11)
+
+### Poles, wires and lights (ticket 059; chapter 20, with lines in chapters 8 and 12)
+- **Default (059, Josh 18 Nov 2026)**: street lights and power lines go on the tile city: "There are no streetlights either, or power lines." Also, from 055: "There are also models inside the city pack to showcase power lines."
+  - Poles stand in the reserved slots, with code-drawn wires and Town Pack street lights distinct from puzzle lamps.
+  - No never-used model is lifted unless Josh asks.
+
+### Testing daylight (ticket 060, awaiting Josh's G1; section 16.12)
+- **Default (060, Josh 18 Nov 2026)**: a dev-only day mode, for testing only. The game's night look (chapter 11) is unchanged: "please create a day light mode so it's easy to see" and "the purpose of the day mode is for testing".
+
 ## Numbers
 
 The drift test (`styleguide.test.ts`) reads this table. Each row names an export of the file in its last column. A value is a number (within 1e-9), a colour as `0x` hex (exactly), or `a x b x c` for a record, in the record's field order. `LOT_TYPES` is frontage x depth x cap in metres and `PLACE_SIZES` is width x depth in metres. `STACK_STYLES[i].pitch_m` is base x floor x roof in metres (the storey heights a recipe counts floors by; the roof is the height reserved under the cap), in the order `apartment-01`, `-02`, `-03`, `office-old-small`, `office-old-large`, `office-octagon`. `STACK_FLOORS` is the fewest floors over the base. `TINTS[i]` is the i-th wall tint. `CITY_CHECK` is the threshold of R1 to R13 in that order (a share to reach, or a count not to pass, chapter 16.8) and `CITY_STOREYS` is the fewest and most storeys. Changing a constant in code or a value here fails the test. Since ticket 053 the test also fails when `stacks.ts`, `terrace.ts`, `dressing.ts`, `furniture.ts`, `streetcam.ts` or `citymetrics.ts` exports a number that has no row here, and when `town.ts` does for a `TERRACE_*`, `PARKING_*` or `PLAZA_*` name. Since ticket 054 the test also fails when `colourway.ts` exports a constant (not a function) that has no row here; `COLOURWAY_POOL` is pinned by its length, and its ids are the table in 16.9.

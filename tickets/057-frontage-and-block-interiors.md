@@ -334,6 +334,7 @@ The build order is A, B, C, F, G, then D and E. The letters F and G were added a
 
 ### E (Vitest unless marked)
 13. [ ] **Guide.** `docs/city-style-guide.md` gains chapter 19, "Frontage and block interiors": 19.1 to 19.6 as drafted, with Josh's three quotes as the **Decided** lines. The baseline goes in as **Info**, re-measured on the merged C.
+    - *Guide test (added 18 Nov 2026):* `styleguide.test.ts`'s "has the sixteen chapters" check lists the chapter numbers, so it must be extended to include chapter 19. That one edit to an existing check is allowed. Every constant the new text names must be exported by a module the test reads.
     - Chapter 18 (056) records that residents' lots are interior courts from 057, which replaces 056 Q3's "no rear courts".
     - Chapter 17 (055 D), if present, records the flush corners in place of the inset deviation.
     - 16.6 records every Town Pack piece now placed.

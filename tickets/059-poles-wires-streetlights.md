@@ -138,6 +138,7 @@ Earlier, in 055:
 8. [ ] **Day and night.** With 060's daylight (or `light=day`), the pools and head glow are off. At night they are on. The scene has no puzzle wire material, pulse or Relight object.
 9. [ ] **Ladder maps unchanged.** The 3D view of the three protocol maps is deep-equal in its scene graph's wire, pole and lamp objects, and `npm run playtest` has no snapshot change.
 10. [ ] **Guide.** `docs/city-style-guide.md`:
+    - *Guide test (added 18 Nov 2026):* `styleguide.test.ts`'s "has the sixteen chapters" check lists the chapter numbers, so it must be extended to include chapter 20. That one edit to an existing check is allowed. Every constant the new text names must be exported by a module the test reads.
     - new chapter 20, with the rules above and Josh's words as **Decided**;
     - chapter 8 gains the puzzle-lamp versus street-light table;
     - chapter 12 gains the street-light glow rule;

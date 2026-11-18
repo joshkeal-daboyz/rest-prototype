@@ -114,6 +114,7 @@ His clarification, the same day:
 6. [ ] **The toggle.** In a dev build the tile view handles the L key and the button: each press flips the mode through the rig. The listener and the button are removed on `dispose`. A test drives both with a fake event and checks the scene after each.
 7. [ ] (Main session) `npm run build`: `dist/` contains no `light=` handling, no "Day / Night" button string, and no L-key listener, as 055 criterion 18 does for the tile city.
 8. [ ] **Guide.** `docs/city-style-guide.md` gains section 16.12 "The testing daylight (dev only)", with both of Josh's quotes as **Decided**, the day values, the one-owner rule, and the defaults per view. It states that the game's lighting (chapter 11) is unchanged.
+    - *Guide test (added 18 Nov 2026):* the tag check's ticket pattern in `styleguide.test.ts` accepts tickets 037 to 059 only (`03[7-9]|04[0-9]|05[0-9]`). 16.12's **Default (060)** bullets need it widened to 06x, which is an allowed edit to that one existing check.
    - Chapter 11 (palette and light) gains one line: the testing daylight is a dev tool, and not part of the game's look.
    - 055 Q9's night default for the tile view is recorded as replaced.
    - Numbers rows cover every `lighting.ts` constant, with a drift check for `lighting.ts` (a new check only).
