@@ -87,5 +87,5 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 047 | code-reviewer | agent default | 26K total (one figure in the readout) | — | 0 | meets, must-fix 0; judged the extra facing.test.ts edits and that no variety limit was loosened |
 | 048 | renderer | sonnet | 144K total (one figure in the readout) | — | 0 | Town Pack houses on small and house lots with the SIMPLE Town per-type fallback; 14 fronts promoted from Josh's file; 24 new tests (commit 8dbcde8); 53 tool uses, 5 min |
 | 048 | gate (main session) | — | — | — | 0 | tsc clean, 89 files, 1705 passed on a checkout without pack files |
-| 048 | code-reviewer | agent default | see note | — | 0 | meets, must-fix 0 (token figure arrives with the notification; not yet seen when committed) |
+| 048 | code-reviewer | agent default | 52K total (one figure in the readout) | — | 0 | meets, must-fix 0; checked the 14 fronts against the saved file |
 | 048 | playtester | agent default | 16K total (one figure in the readout) | — | 0 | regressions 0; stopped early (harness never imports render3d) |
