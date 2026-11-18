@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { Group, Mesh, Object3D, PlaneGeometry, Raycaster, Sprite, Vector3 } from "three";
-import { ASSET_MANIFEST_VERSION, type AssetEntry, type AssetManifest } from "../core";
+import { ASSET_MANIFEST_VERSION, applyCalibrationPatch, type AssetEntry, type AssetManifest, type CalibrationFile, type CalibrationKey, type CalibrationPatch } from "../core";
 import { declaredFrontDirection } from "./debug3d";
 import {
   COPY_GAP,
@@ -36,7 +36,8 @@ import {
   type GalleryLoadDeps,
   type GallerySlot,
 } from "./gallery";
-import { BUILDING_FRONTS, MODEL_TABLE, WORLD_PER_METRE, atFront, frontAxis, frontIsQuarter, frontYaw, isManifest, lotTypeOf, type BuildingFront, type ModelFront } from "./models";
+import { effectiveFronts } from "./calibration";
+import { BUILDING_FRONTS, MODEL_TABLE, WORLD_PER_METRE, atFront, frontAxis, frontIsQuarter, frontYaw, isManifest, lotTypeOf, type FrontTable, type ModelFront } from "./models";
 import { stubTextSurface } from "./text";
 import { LOT_TYPES, type Lot } from "./town";
 
@@ -119,7 +120,7 @@ const MANIFEST: AssetManifest = {
   ],
 };
 
-const names = (m: AssetManifest, id: string, fronts: Readonly<Record<string, BuildingFront>> = BUILDING_FRONTS, exclude: readonly string[] = []): string[] =>
+const names = (m: AssetManifest, id: string, fronts: FrontTable = BUILDING_FRONTS, exclude: readonly CalibrationKey[] = []): string[] =>
   galleryEntries(m, id, fronts, exclude).map((g) => g.entry.name);
 
 describe("the page's flags", () => {
@@ -165,7 +166,7 @@ describe("which entries are buildings", () => {
     const small = entry("Building_Small_Hut", 3, 3, 3, 100);
     const m: AssetManifest = { ...MANIFEST, packs: [{ ...MANIFEST.packs[2]!, assets: [small, entry("Env_Listed", 9, 9, 9, 10), entry("Building_Shop_01", 10, 10, 10, 1, ["scale-suspect"])] }] };
     expect(names(m, "simple-town", {})).toEqual([]);
-    expect(names(m, "simple-town", { Building_Small_Hut: { front: "-z" }, Env_Listed: { front: "+x" } })).toEqual(["Building_Small_Hut", "Env_Listed"]);
+    expect(names(m, "simple-town", { "simple-town:Building_Small_Hut": { front: "-z" }, "simple-town:Env_Listed": { front: "+x" } })).toEqual(["Building_Small_Hut", "Env_Listed"]);
     // Building_Shop_01 is a MODEL_TABLE name but the converter said its scale is suspect.
     expect(MODEL_TABLE.some((r) => r.names.includes("Building_Shop_01"))).toBe(true);
     expect(names(m, "simple-town", {})).not.toContain("Building_Shop_01");
@@ -202,17 +203,17 @@ describe("which entries are buildings", () => {
     expect(galleryEntries(MANIFEST, "nope")).toEqual([]);
   });
 });
-const layout = (id: string, fronts: Readonly<Record<string, BuildingFront>> = BUILDING_FRONTS, exclude: readonly string[] = [], opts = {}) => galleryLayout(MANIFEST, id, fronts, exclude, opts);
+const layout = (id: string, fronts: FrontTable = BUILDING_FRONTS, exclude: readonly CalibrationKey[] = [], opts = {}) => galleryLayout(MANIFEST, id, fronts, exclude, opts);
 const PACKS = ["simple-town", "city-pack", "town-pack"] as const;
 const FRONTS: readonly ModelFront[] = ["+z", "+x", "-z", "-x"];
 
 // The camera looks from +z toward -z, so a copy faces it when its turned side points along +z.
-const SCRAMBLED: Readonly<Record<string, BuildingFront>> = {
-  Building_Shop_01: { front: "+x" },
-  Building_Shop_02: { front: "-x" },
-  Building_Gym: { front: "-z" },
-  store_small_mesh: { front: "+z" },
-  house_mesh: { front: "+x" },
+const SCRAMBLED: FrontTable = {
+  "simple-town:Building_Shop_01": { front: "+x" },
+  "simple-town:Building_Shop_02": { front: "-x" },
+  "simple-town:Building_Gym": { front: "-z" },
+  "simple-town:store_small_mesh": { front: "+z" },
+  "simple-town:house_mesh": { front: "+x" },
 };
 
 /** The unit direction a copy's declared side faces in the gallery's frame: its model-space axis turned by the copy's yaw. */
@@ -362,13 +363,13 @@ describe("galleryLayout: four copies, one per front, each turned to the camera",
   });
 
   it("marks exactly one copy `current`, the one whose side is the table's front now, with a `current` caption line and no other copy marked", () => {
-    for (const fronts of [BUILDING_FRONTS, SCRAMBLED, {} as Record<string, BuildingFront>]) {
+    for (const fronts of [BUILDING_FRONTS, SCRAMBLED, {} as FrontTable]) {
       for (const g of layout("simple-town", fronts).groups) {
-        const now = (fronts[g.name]?.front ?? "+z") as ModelFront;
+        const now = (fronts[`simple-town:${g.name}`]?.front ?? "+z") as ModelFront;
         const marked = g.slots.filter((s) => s.current);
         expect(marked.map((s) => s.front), g.name).toEqual([now]);
         expect(g.entry.front).toBe(now);
-        for (const s of g.slots) expect(s.caption.includes("current"), `${g.name} ${s.front}`).toBe(s.current);
+        for (const s of g.slots) expect(s.caption.some((c) => c.startsWith("current")), `${g.name} ${s.front}`).toBe(s.current);
       }
     }
   });
@@ -377,11 +378,12 @@ describe("galleryLayout: four copies, one per front, each turned to the camera",
     const l = layout("simple-town");
     const mall = l.groups.find((g) => g.name === "Building_Mall_A")!;
     expect(mall.entry.guessed).toBe(true);
-    expect(mall.slots.map((s) => s.caption[0])).toEqual(["door: +z ?", "door: +x", "door: -z", "door: -x"]);
+    expect(mall.slots.map((s) => s.caption[0])).toEqual(["door: +z", "door: +x", "door: -z", "door: -x"]);
     const shop = l.groups.find((g) => g.name === "Building_Shop_01")!;
     expect(shop.slots.map((s) => s.caption[0])).toEqual(["door: +z", "door: +x", "door: -z", "door: -x"]);
     expect(shop.slots.find((s) => s.current)!.front).toBe("-z");
     expect(l.slots.filter((s) => s.caption.some((c) => c.includes("?"))).every((s) => s.current && s.entry.guessed)).toBe(true);
+    expect(mall.slots.find((s) => s.current)!.caption).toEqual(["door: +z", "current ?"]);
     expect(galleryCopyCaption("-x", true, false)).toEqual(["door: -x", "current"]);
     expect(galleryCopyCaption("-x", false, true)).toEqual(["door: -x"]);
   });
@@ -419,7 +421,7 @@ describe("galleryLayout: four copies, one per front, each turned to the camera",
   });
 
   it("captions a group once: name, size, lot, family, corner and excluded; the copies carry only `door: f`", () => {
-    const l = layout("simple-town", BUILDING_FRONTS, ["Building_Gym"]);
+    const l = layout("simple-town", BUILDING_FRONTS, ["simple-town:Building_Gym"]);
     const cap = (n: string): string[] => l.groups.find((g) => g.name === n)!.caption;
     expect(cap("Building_Shop_01")).toContain("lot: small");
     expect(cap("store_corner_mesh")).toContain("corner, open -x");
@@ -830,5 +832,58 @@ describe.skipIf(!existsSync(REAL))("against the real manifest", () => {
     const [lo, hi] = rig.visibleX();
     const whole = l.groups.filter((g) => g.box.cx - g.box.w / 2 >= lo && g.box.cx + g.box.w / 2 <= hi).length;
     console.info(`gallery ${id}: first screen at 800 px shows x ${lo.toFixed(1)} to ${hi.toFixed(1)} (${whole} whole groups), ${rig.pxPerUnit().toFixed(1)} px per unit`);
+  });
+});
+
+describe("the gallery reads the saved calibration file (ticket 045 A)", () => {
+  const NOW = new Date("2026-11-18T10:00:00.000Z");
+  const SAVED = [
+    { key: "simple-town:Building_Gym", entry: { front: "+x" } },
+    { key: "simple-town:Building_Mall_A", entry: { front: "-x" } },
+    { key: "simple-town:house_mesh", entry: { front: "+z", exclude: true } },
+  ] as const;
+  const file = SAVED.reduce<CalibrationFile | null>((f, p) => applyCalibrationPatch(f, p as CalibrationPatch, NOW), null)!;
+  const withFile = (saved: CalibrationFile | null) => {
+    const t = effectiveFronts({ fronts: BUILDING_FRONTS, exclude: [] }, saved, () => {});
+    return galleryLayout(MANIFEST, "simple-town", t.fronts, t.exclude, { saved });
+  };
+  const currentLine = (l: GalleryLayout, name: string): string[] => l.groups.find((g) => g.name === name)!.slots.find((s) => s.current)!.caption;
+
+  it("captions the current copy by where its front came from: `current` (code), `current, saved` (the file), `current ?` (the guess)", () => {
+    const none = withFile(null);
+    expect(currentLine(none, "Building_Gym")).toEqual(["door: -z", "current"]);
+    expect(currentLine(none, "Building_Mall_A")).toEqual(["door: +z", "current ?"]);
+    const saved = withFile(file);
+    expect(currentLine(saved, "Building_Gym")).toEqual(["door: +x", "current, saved"]);
+    // A saved front on a name the code had no line for is no longer a guess.
+    expect(currentLine(saved, "Building_Mall_A")).toEqual(["door: -x", "current, saved"]);
+    expect(currentLine(saved, "Building_Shop_01")).toEqual(["door: -z", "current"]);
+    expect(galleryCopyCaption("+x", true, false, true)).toEqual(["door: +x", "current, saved"]);
+    expect(galleryCopyCaption("+x", false, false, true)).toEqual(["door: +x"]);
+  });
+
+  it("turns the current copy to the saved front: exactly one copy is current, and it is that side", () => {
+    const gym = withFile(file).groups.find((g) => g.name === "Building_Gym")!;
+    expect(gym.slots.filter((s) => s.current).map((s) => s.front)).toEqual(["+x"]);
+  });
+
+  it("says `excluded` on a group the file excludes, and on no other", () => {
+    const l = withFile(file);
+    expect(l.groups.find((g) => g.name === "house_mesh")!.caption).toContain("excluded");
+    expect(l.groups.filter((g) => g.caption.includes("excluded")).map((g) => g.name)).toEqual(["house_mesh"]);
+    expect(withFile(null).groups.some((g) => g.caption.includes("excluded"))).toBe(false);
+  });
+
+  it("keeps the order of the groups the same with and without a file", () => {
+    expect(withFile(file).groups.map((g) => g.name)).toEqual(withFile(null).groups.map((g) => g.name));
+  });
+
+  it("puts `N of M marked` in the title: N models of the pack with an entry in the file, M all of them", () => {
+    const m = withFile(null).total;
+    expect(withFile(null).title).toContain(`0 of ${m} marked`);
+    expect(withFile(file).title).toContain(`3 of ${m} marked`);
+    // Entries for other packs do not count here.
+    const other = applyCalibrationPatch(file, { key: "city-pack:SM_Bld_Shop_01", entry: { front: "-x" } }, NOW);
+    expect(withFile(other).title).toContain(`3 of ${m} marked`);
   });
 });

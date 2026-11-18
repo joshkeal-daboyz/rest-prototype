@@ -2,7 +2,7 @@
  * The building gallery (ticket 043 B, debug only): `/?puzzle=<any>&view=3d&gallery=<pack-id>` shows every building-sized entry of one converted pack
  * in ONE straight line along x, at WORLD_PER_METRE. Each model stands four times side by side, one copy turned so each of its four sides ("+z", "+x",
  * "-z", "-x") faces the camera, captioned `door: f`. The copy whose real door faces the camera is that model's true front: Josh names it per model
- * (for example "Preset_03: -x") and that becomes its BUILDING_FRONTS line. The copy that matches the table now is marked `current` and has a green
+ * (for example "Preset_03: -x") and that becomes its BUILDING_FRONTS line (keyed `pack:name`; ticket 045 saves the choice to disk). The copy that matches the table now is marked `current` and has a green
  * outline; a name with no line yet keeps its `?` (the "+z" guess).
  *
  * Two halves. The first is pure (no three, no DOM): which entries count, their order, and where each copy stands (`galleryLayout`). The second is
@@ -32,9 +32,10 @@ import {
   type WebGLRenderer,
 } from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import type { AssetEntry, AssetManifest } from "../core";
+import { calibrationKey, parseCalibrationKey, type AssetEntry, type AssetManifest, type CalibrationFile, type CalibrationKey } from "../core";
 import { ZOOM_STEP, type Insets, type Pan } from "../render/geometry";
 import { FOV_DEG } from "./camera";
+import { effectiveFronts, loadSavedCalibration } from "./calibration";
 import { scaleForPx } from "./captions";
 import {
   BUILDING_EXCLUDE,
@@ -48,7 +49,7 @@ import {
   meshFamily,
   modelScale,
   sizeOf,
-  type BuildingFront,
+  type FrontTable,
   type ModelChoice,
   type ModelFront,
 } from "./models";
@@ -110,10 +111,14 @@ export function isPartName(name: string): boolean {
 export interface GalleryEntry {
   entry: AssetEntry;
   family: string;
-  /** Which of the model's axes its door faces now: its BUILDING_FRONTS line, or the "+z" guess. */
+  /** Which of the model's axes its door faces now: its BUILDING_FRONTS line (or the saved file's), or the "+z" guess. */
   front: ModelFront;
-  /** True when BUILDING_FRONTS has no line for this name (the front is the guess). */
+  /** True when no table has a line for this pack:name (the front is the guess). */
   guessed: boolean;
+  /** True when the saved calibration file (ticket 045) gave the front. */
+  saved: boolean;
+  /** True when the saved file has any entry for this model (a front, an exclusion, or both): it counts in the title's "N of M marked". */
+  marked: boolean;
   corner: false | "+x" | "-x";
   excluded: boolean;
   /** The lot type its size fits once its current front is turned to the road, or null (a dashed outline). */
@@ -133,13 +138,18 @@ export interface GalleryEntry {
 export function galleryEntries(
   manifest: AssetManifest | null,
   packId: string,
-  fronts: Readonly<Record<string, BuildingFront>> = BUILDING_FRONTS,
-  exclude: readonly string[] = BUILDING_EXCLUDE,
+  fronts: FrontTable = BUILDING_FRONTS,
+  exclude: readonly CalibrationKey[] = BUILDING_EXCLUDE,
   table: readonly ModelChoice[] = MODEL_TABLE,
+  saved: CalibrationFile | null = null,
 ): GalleryEntry[] {
   const pack = manifest?.packs.find((p) => p.pack === packId);
   if (!pack) return [];
-  const listed = new Set<string>(Object.keys(fronts));
+  const listed = new Set<string>();
+  for (const key of Object.keys(fronts)) {
+    const parsed = parseCalibrationKey(key);
+    if (parsed && parsed.pack === packId) listed.add(parsed.name);
+  }
   for (const row of table) if (row.slot === "building" && row.pack === packId) for (const n of row.names) listed.add(n);
   const out: GalleryEntry[] = [];
   for (const entry of pack.assets) {
@@ -149,16 +159,20 @@ export function galleryEntries(
     const lower = entry.name.toLowerCase();
     const sized = w >= BUILDING_MIN_FOOTPRINT_M && d >= BUILDING_MIN_FOOTPRINT_M && h >= BUILDING_MIN_HEIGHT_M && !NON_BUILDING_PREFIXES.some((p) => lower.startsWith(p));
     if (!listed.has(entry.name) && !sized) continue;
-    const bf = Object.prototype.hasOwnProperty.call(fronts, entry.name) ? fronts[entry.name] : undefined;
+    const key = calibrationKey(packId, entry.name);
+    const bf = Object.prototype.hasOwnProperty.call(fronts, key) ? fronts[key as CalibrationKey] : undefined;
     const front: ModelFront = bf?.front ?? "+z";
+    const mark = saved && Object.prototype.hasOwnProperty.call(saved.entries, key) ? saved.entries[key] : undefined;
     const family = meshFamily(pack.assets, entry);
     out.push({
       entry,
       family,
       front,
       guessed: bf === undefined,
+      saved: mark?.front !== undefined,
+      marked: mark !== undefined,
       corner: bf?.corner ? (bf.open ?? "+x") : false,
-      excluded: exclude.includes(entry.name),
+      excluded: exclude.includes(key),
       lotType: lotTypeOf(entry, front),
       size: [w, h, d],
       part: isPartName(family),
@@ -234,7 +248,7 @@ const m1 = (v: number): string => (v >= 10 ? String(Math.round(v)) : String(Math
 
 /**
  * The caption written once for a model's whole group: its name (wrapped), its size in metres (so a whole building reads differently from a part),
- * the lot type it fits with its current front, which model it is a copy of, `corner, open` for a corner model and `excluded` when BUILDING_EXCLUDE lists it.
+ * the lot type it fits with its current front, which model it is a copy of, `corner, open` for a corner model and `excluded` when BUILDING_EXCLUDE or the saved file excludes it.
  */
 export function galleryGroupCaption(g: GalleryEntry): string[] {
   const lines = wrapName(g.entry.name);
@@ -247,11 +261,11 @@ export function galleryGroupCaption(g: GalleryEntry): string[] {
 }
 
 /**
- * One copy's caption: `door: f` (with ` ?` when this is the table's front and BUILDING_FRONTS has no line for the name, so it is only the "+z" guess),
- * then `current` on the copy whose front the table has now.
+ * One copy's caption: `door: f`, then on the copy whose front is in force now where that front came from: `current` (the code's table),
+ * `current, saved` (the saved file, ticket 045) or `current ?` (no line anywhere: only the "+z" guess). A guess wins over `saved`.
  */
-export function galleryCopyCaption(front: ModelFront, current: boolean, guessed: boolean): string[] {
-  return current ? [guessed ? `door: ${front} ?` : `door: ${front}`, "current"] : [`door: ${front}`];
+export function galleryCopyCaption(front: ModelFront, current: boolean, guessed: boolean, saved = false): string[] {
+  return current ? [`door: ${front}`, guessed ? "current ?" : saved ? "current, saved" : "current"] : [`door: ${front}`];
 }
 
 /** A rectangle on the ground, centre and size, world units. */
@@ -336,6 +350,8 @@ export interface GalleryOptions {
   pageSize?: number;
   /** Default: MODEL_TABLE. */
   table?: readonly ModelChoice[];
+  /** The saved calibration file the tables were merged with (ticket 045); it tells the captions which front came from it. Default: none. */
+  saved?: CalibrationFile | null;
 }
 
 export interface GalleryLayout {
@@ -358,9 +374,10 @@ export function galleryRectsOverlap(a: GalleryRect, b: GalleryRect, eps = 1e-9):
 }
 
 /** The lines over the line's start. */
-export function galleryTitle(packId: string, page: number, pageCount: number, first: number, last: number, total: number): string[] {
+export function galleryTitle(packId: string, page: number, pageCount: number, first: number, last: number, total: number, marked = 0): string[] {
   const lines = [pageCount > 1 ? `${packId}: ${first} to ${last} of ${total} (page ${page} of ${pageCount})` : `${packId}: ${total} models, four sides each`];
-  lines.push("door: f = that side of the model faces you", "current = the table's front now; ? = no line yet", "drag or arrows to move, Home and End to jump");
+  lines.push(`${marked} of ${total} marked`);
+  lines.push("door: f = that side of the model faces you", "current = the front now (saved = from your file); ? = no line yet", "drag or arrows to move, Home and End to jump");
   if (page < pageCount) lines.push(`&page=${page + 1} for the next page`);
   return lines;
 }
@@ -385,11 +402,11 @@ const widest = (lines: readonly string[]): number => Math.max(0, ...lines.map((l
 export function galleryLayout(
   manifest: AssetManifest | null,
   packId: string,
-  fronts: Readonly<Record<string, BuildingFront>> = BUILDING_FRONTS,
-  exclude: readonly string[] = BUILDING_EXCLUDE,
+  fronts: FrontTable = BUILDING_FRONTS,
+  exclude: readonly CalibrationKey[] = BUILDING_EXCLUDE,
   opts: GalleryOptions = {},
 ): GalleryLayout {
-  const all = galleryEntries(manifest, packId, fronts, exclude, opts.table);
+  const all = galleryEntries(manifest, packId, fronts, exclude, opts.table, opts.saved ?? null);
   const pageSize = Math.max(1, Math.floor(opts.pageSize ?? Math.max(1, all.length)));
   const pageCount = galleryPageCount(all.length, pageSize);
   const page = Math.min(Math.max(1, Math.floor(opts.page ?? 1)), pageCount);
@@ -422,7 +439,7 @@ export function galleryLayout(
       const type = lotTypeOf(g.entry, front);
       const lot = type ? { w: LOT_TYPES[type].frontage * WORLD_PER_METRE, d: LOT_TYPES[type].depth * WORLD_PER_METRE } : null;
       const outline = lot ?? { w: footprint.w + 2 * OUTLINE_PAD, d: footprint.d + 2 * OUTLINE_PAD };
-      const caption = galleryCopyCaption(front, front === g.front, g.guessed);
+      const caption = galleryCopyCaption(front, front === g.front, g.guessed, g.saved);
       const capW = widest(caption) * COPY_CHAR_UNITS + CAPTION_PAD;
       return { front, lot, outline, footprint, caption, capW, cellW: Math.max(outline.w, capW) };
     });
@@ -476,7 +493,7 @@ export function galleryLayout(
   });
 
   const message = groups.length === 0 ? galleryMessage(manifest, packId) ?? [`no building-sized entries in "${packId}"`] : null;
-  const title = message ?? galleryTitle(packId, page, pageCount, from + 1, from + groups.length, all.length);
+  const title = message ?? galleryTitle(packId, page, pageCount, from + 1, from + groups.length, all.length, all.filter((g) => g.marked).length);
   const titleW = widest(title) * COPY_CHAR_UNITS + CAPTION_PAD;
   const titleH = (title.length + 0.2) * COPY_LINE_UNITS;
   const lineEnd = groups.length === 0 ? 0 : x - GROUP_GAP;
@@ -943,6 +960,8 @@ export interface GalleryRendererOptions {
   /** The page's query string; renderer.ts reads the address and passes it in. */
   search: string;
   deps?: GalleryLoadDeps;
+  /** Whether this is a dev build (ticket 045: the saved calibration is read only then). Default: `import.meta.env.DEV`. */
+  dev?: boolean;
 }
 
 /**
@@ -972,14 +991,16 @@ export function createGalleryRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEle
   }
   resize();
 
-  void loadGalleryPack(packId, opts.deps ?? defaultGalleryDeps())
-    .then((pack) => {
+  const deps = opts.deps ?? defaultGalleryDeps();
+  void Promise.all([loadGalleryPack(packId, deps), loadSavedCalibration({ dev: opts.dev ?? import.meta.env.DEV, fetchJson: deps.fetchJson, ...(deps.info ? { info: deps.info } : {}) })])
+    .then(([pack, saved]) => {
       if (disposed) {
         if (pack.root) freeModel(pack.root);
         return;
       }
       loaded = pack;
-      const layout = galleryLayout(pack.manifest, packId, BUILDING_FRONTS, BUILDING_EXCLUDE, pageSize === null ? { page } : { page, pageSize });
+      const tables = effectiveFronts({ fronts: BUILDING_FRONTS, exclude: BUILDING_EXCLUDE }, saved, deps.info);
+      const layout = galleryLayout(pack.manifest, packId, tables.fronts, tables.exclude, { ...(pageSize === null ? { page } : { page, pageSize }), saved });
       const root = pack.root;
       const next = buildGalleryScene(layout, root ? (name) => root.getObjectByName(name) ?? undefined : null, { dpr: opts.dpr });
       current.dispose();

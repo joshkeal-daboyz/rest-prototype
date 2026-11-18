@@ -69,3 +69,9 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 046 | renderer | sonnet | 49K total (one figure in the readout) | — | 0 | Dropped the 3000 ms assertion; added the 30 s test timeout after review; timed townLayout and dashLayout (about 1.6 s for all 65 maps) |
 | 046 | code-reviewer | agent default | 16K total (one figure in the readout) | — | 0 | meets, must-fix 0; caught the 5 s default test timeout, fixed in a20279b |
 | 046 | playtester | agent default | 13K total (one figure in the readout) | — | 0 | regressions 0; stopped early (test file only) |
+| 045 section A | renderer | sonnet | 158K total (one figure in the readout) | — | 0 | pack:name keys, dev loader, gallery captions, guide chapters re-keyed (commit 771edcb); 64 tool uses, 9 min; 27 new tests |
+| 045 section B | grid-simulator | agent default | 48K total (one figure in the readout) | — | 0 | Dev-only Vite plugin and atomic store (commit c107866); 13 tool uses, 2 min; 26 new tests |
+| 045 sections A and B | gate (main session) | — | — | — | 0 | Combined scratch merge: 1651 passed, 1 failed (the old streets timing test, already fixed on main by 046) |
+| 045 section A | code-reviewer | agent default | 69K total (one figure in the readout) | — | 0 | meets, must-fix 0 |
+| 045 section B | code-reviewer | agent default | 43K total (one figure in the readout) | — | 0 | meets, must-fix 0 |
+| 045 sections A and B | playtester | agent default | 18K total (one figure in the readout) | — | 0 | regressions 0; stopped early (harness imports nothing changed) |

@@ -4,7 +4,7 @@
  * assets/private/ and are fetched at runtime by models3d.ts, never bundled. Model names are not licensed content.
  */
 
-import { ASSET_MANIFEST_VERSION, type AssetEntry, type AssetManifest } from "../core";
+import { ASSET_MANIFEST_VERSION, calibrationKey, type AssetEntry, type AssetManifest, type CalibrationKey } from "../core";
 import { stableHash } from "../render/city";
 import { POLE_HEIGHT } from "./layout";
 import { LOT_TYPES, LOT_TYPE_NAMES, type Lot, type LotType } from "./town";
@@ -17,8 +17,8 @@ export const NEIGHBOUR_GAP = 0.5;
 export const STREET_REPEAT_GAP = 3;
 /** On a map, no family takes more than this share of its lot type's lots, when the type has four or more families (ticket 042 A). */
 export const FAMILY_SHARE_MAX = 0.25;
-/** Building names that are never placed (ticket 042 A). Josh's "video rental store" goes here, or is given a lower weight, once he names it with `fronts=1`. */
-export const BUILDING_EXCLUDE: readonly string[] = [];
+/** Building models that are never placed, as `pack:name` keys (ticket 042 A, re-keyed by 045 A). Josh's "video rental store" goes here, or is given a lower weight, once he names it with `fronts=1`. */
+export const BUILDING_EXCLUDE: readonly CalibrationKey[] = [];
 
 export type ModelSlot = "pole" | "lamp" | "building";
 export const MODEL_SLOTS: readonly ModelSlot[] = ["pole", "lamp", "building"];
@@ -69,59 +69,62 @@ export interface BuildingFront {
   open?: "+x" | "-x";
 }
 
+/** The fronts table: one line per `pack:name` (ticket 045 A). Names repeat across packs, so a bare name is never a key. */
+export type FrontTable = Readonly<Record<CalibrationKey, BuildingFront>>;
+
 const FRONT_Z: BuildingFront = { front: "+z" };
 const FRONT_NZ: BuildingFront = { front: "-z" };
 /**
- * Which way every building model's door faces (ticket 042 A). Every name in MODEL_TABLE's building rows must be here (a test fails on a
+ * Which way every building model's door faces (ticket 042 A). Every `pack:name` in MODEL_TABLE's building rows must be here (a test fails on a
  * missing one), and so must the names of ticket 042 B's PLACE_MODELS. Started as a guess ("+z" for all: no data in the repo records the
  * door side, the manifest's bounds are centred); Josh calibrated it on 17 Nov 2026 with `/?puzzle=...&view=3d&fronts=1`: "all reversed
  * 180 degrees", only the video rental store, store_small_mesh, was right at "+z". So every other name is "-z". memorial_mesh (ticket B's,
- * not placed by A) was not among what he saw and stays at the "+z" guess until B shows it. Each further correction is one line here.
+ * not placed by A) was not among what he saw and stays at the "+z" guess until B shows it. Each further correction is one line here, keyed `pack:name`.
  *
  * store_corner_mesh turned with the rest, so its `open` flips: `open` is read in the lot frame after the front is turned to the road, and
  * the model's own +x end (the guessed second frontage) now lands on the lot's -x side. It is the same physical end of the model.
  */
-export const BUILDING_FRONTS: Readonly<Record<string, BuildingFront>> = {
-  Building_Shop_01: FRONT_NZ,
-  Building_Shop_02: FRONT_NZ,
-  Building_Shop_03: FRONT_NZ,
-  Building_Shop_04: FRONT_NZ,
-  Building_Shop_05: FRONT_NZ,
-  Building_BaberShop: FRONT_NZ,
-  Building_Gym: FRONT_NZ,
-  store_small_mesh: FRONT_Z,
-  store_corner_mesh: { front: "-z", corner: true, open: "-x" },
-  apartment_small_mesh: FRONT_NZ,
-  Building_House_01: FRONT_NZ,
-  Building_House_02: FRONT_NZ,
-  Building_House_03: FRONT_NZ,
-  Building_House_04: FRONT_NZ,
-  Building_House_09: FRONT_NZ,
-  Building_House_010: FRONT_NZ,
-  Building_House_011: FRONT_NZ,
-  Building_House_012: FRONT_NZ,
-  Building_House_013: FRONT_NZ,
-  Building_House_014: FRONT_NZ,
-  Building_House_015: FRONT_NZ,
-  Building_Garage_01: FRONT_NZ,
-  Building_Garage_02: FRONT_NZ,
-  Building_Garage_03: FRONT_NZ,
-  office_small_mesh: FRONT_NZ,
-  house_mesh: FRONT_NZ,
-  Building_House_05: FRONT_NZ,
-  Building_House_06: FRONT_NZ,
-  Building_House_07: FRONT_NZ,
-  Building_House_08: FRONT_NZ,
-  Building_AutoRepair: FRONT_NZ,
-  Building_StripClub: FRONT_NZ,
-  Building_PoliceStation: FRONT_NZ,
-  Building_PetrolStation: FRONT_NZ,
-  Building_CoffeeShop: FRONT_NZ,
-  apartment_large_mesh: FRONT_NZ,
-  office_medium_mesh: FRONT_NZ,
-  office_large_mesh: FRONT_NZ,
+export const BUILDING_FRONTS: FrontTable = {
+  "simple-town:Building_Shop_01": FRONT_NZ,
+  "simple-town:Building_Shop_02": FRONT_NZ,
+  "simple-town:Building_Shop_03": FRONT_NZ,
+  "simple-town:Building_Shop_04": FRONT_NZ,
+  "simple-town:Building_Shop_05": FRONT_NZ,
+  "simple-town:Building_BaberShop": FRONT_NZ,
+  "simple-town:Building_Gym": FRONT_NZ,
+  "simple-town:store_small_mesh": FRONT_Z,
+  "simple-town:store_corner_mesh": { front: "-z", corner: true, open: "-x" },
+  "simple-town:apartment_small_mesh": FRONT_NZ,
+  "simple-town:Building_House_01": FRONT_NZ,
+  "simple-town:Building_House_02": FRONT_NZ,
+  "simple-town:Building_House_03": FRONT_NZ,
+  "simple-town:Building_House_04": FRONT_NZ,
+  "simple-town:Building_House_09": FRONT_NZ,
+  "simple-town:Building_House_010": FRONT_NZ,
+  "simple-town:Building_House_011": FRONT_NZ,
+  "simple-town:Building_House_012": FRONT_NZ,
+  "simple-town:Building_House_013": FRONT_NZ,
+  "simple-town:Building_House_014": FRONT_NZ,
+  "simple-town:Building_House_015": FRONT_NZ,
+  "simple-town:Building_Garage_01": FRONT_NZ,
+  "simple-town:Building_Garage_02": FRONT_NZ,
+  "simple-town:Building_Garage_03": FRONT_NZ,
+  "simple-town:office_small_mesh": FRONT_NZ,
+  "simple-town:house_mesh": FRONT_NZ,
+  "simple-town:Building_House_05": FRONT_NZ,
+  "simple-town:Building_House_06": FRONT_NZ,
+  "simple-town:Building_House_07": FRONT_NZ,
+  "simple-town:Building_House_08": FRONT_NZ,
+  "simple-town:Building_AutoRepair": FRONT_NZ,
+  "simple-town:Building_StripClub": FRONT_NZ,
+  "simple-town:Building_PoliceStation": FRONT_NZ,
+  "simple-town:Building_PetrolStation": FRONT_NZ,
+  "simple-town:Building_CoffeeShop": FRONT_NZ,
+  "simple-town:apartment_large_mesh": FRONT_NZ,
+  "simple-town:office_medium_mesh": FRONT_NZ,
+  "simple-town:office_large_mesh": FRONT_NZ,
   // Ticket 042 B's default for a sacred place: listed now so B only edits its table.
-  memorial_mesh: FRONT_Z,
+  "simple-town:memorial_mesh": FRONT_Z,
 };
 
 /**
@@ -222,7 +225,7 @@ function usable(entry: AssetEntry, slot: ModelSlot): boolean {
 }
 
 /** The usable table entries per slot. A name missing from the manifest, a `scale-suspect` entry or a pack the manifest lacks is skipped. */
-export function planModels(manifest: AssetManifest, table: readonly ModelChoice[] = MODEL_TABLE, fronts: Readonly<Record<string, BuildingFront>> = BUILDING_FRONTS): ModelPlan {
+export function planModels(manifest: AssetManifest, table: readonly ModelChoice[] = MODEL_TABLE, fronts: FrontTable = BUILDING_FRONTS): ModelPlan {
   const plan: ModelPlan = { pole: null, lamp: null, building: null };
   for (const row of table) {
     const pack = manifest.packs.find((p) => p.pack === row.pack);
@@ -230,7 +233,8 @@ export function planModels(manifest: AssetManifest, table: readonly ModelChoice[
     for (const name of row.names) {
       const entry = pack.assets.find((a) => a.name === name);
       if (!entry || !usable(entry, row.slot)) continue;
-      const bf = fronts[name];
+      const key = calibrationKey(pack.pack, name);
+      const bf = Object.prototype.hasOwnProperty.call(fronts, key) ? fronts[key] : undefined;
       (plan[row.slot] ??= []).push({
         pack: pack.pack,
         glb: pack.glb,
@@ -309,10 +313,10 @@ export function lotTypeOf(entry: AssetEntry, front: ModelFront = "+z"): LotType 
 export type BuildingPlan = Readonly<Record<LotType, readonly string[]>>;
 
 /** Group the planned building models by the lot type each one fits, leaving out the names in `exclude`. */
-export function buildingPlan(models: readonly PlannedModel[] | null, exclude: readonly string[] = BUILDING_EXCLUDE): BuildingPlan {
+export function buildingPlan(models: readonly PlannedModel[] | null, exclude: readonly CalibrationKey[] = BUILDING_EXCLUDE): BuildingPlan {
   const out: Record<LotType, string[]> = { small: [], house: [], large: [], tall: [] };
   for (const m of models ?? []) {
-    if (exclude.includes(m.entry.name)) continue;
+    if (exclude.includes(calibrationKey(m.pack, m.entry.name))) continue;
     const t = lotTypeOf(m.entry, m.front);
     if (t) out[t].push(m.entry.name);
   }

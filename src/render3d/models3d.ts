@@ -7,9 +7,11 @@
 
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { Group, NearestFilter, Texture, type Material, type Mesh, type Object3D } from "three";
-import type { AssetManifest } from "../core";
+import { calibrationKey, type AssetManifest, type CalibrationKey } from "../core";
 import { stableHash } from "../render/city";
+import { effectiveFronts, loadSavedCalibration } from "./calibration";
 import {
+  BUILDING_EXCLUDE,
   BUILDING_FRONTS,
   MODEL_SLOTS,
   MODEL_TABLE,
@@ -25,7 +27,7 @@ import {
   sizeOf,
   poleYaw,
   traitsOf,
-  type BuildingFront,
+  type FrontTable,
   type ModelChoice,
   type ModelSlot,
   type PlannedModel,
@@ -50,8 +52,10 @@ export interface LoadDeps {
   loadGlb(url: string): Promise<Object3D>;
   /** Default: MODEL_TABLE. */
   table?: readonly ModelChoice[];
-  /** Which way each building model's door faces. Default: BUILDING_FRONTS. */
-  fronts?: Readonly<Record<string, BuildingFront>>;
+  /** Which way each building model's door faces, keyed `pack:name`. Default: BUILDING_FRONTS. */
+  fronts?: FrontTable;
+  /** Building models that are never placed, keyed `pack:name`. Default: BUILDING_EXCLUDE. */
+  exclude?: readonly CalibrationKey[];
   /** Folder of the manifest, ending in "/". Default: `${BASE_URL}assets/private/out/`. */
   dir?: string;
   /** Where the one line saying why a fallback happened goes. Default: console.info. */
@@ -102,6 +106,11 @@ export async function loadModels(deps: LoadDeps): Promise<ModelSet> {
       return NO_MODELS;
     }
     const plan = planModels(manifest as AssetManifest, deps.table ?? MODEL_TABLE, deps.fronts ?? BUILDING_FRONTS);
+    const exclude = deps.exclude ?? BUILDING_EXCLUDE;
+    if (plan.building && exclude.length > 0) {
+      const kept = plan.building.filter((p) => !exclude.includes(calibrationKey(p.pack, p.entry.name)));
+      plan.building = kept.length > 0 ? kept : null;
+    }
     const globs = new Set<string>();
     for (const slot of MODEL_SLOTS) for (const p of plan[slot] ?? []) globs.add(p.glb);
     const roots = new Map<string, Object3D>();
@@ -143,13 +152,15 @@ let shared: Promise<ModelSet> | null = null;
 
 /** The page's models: fetched once with the real fetch and GLTFLoader, then reused by every map. */
 export function sharedModels(): Promise<ModelSet> {
-  shared ??= loadModels({
-    fetchJson: async (url) => {
-      const r = await fetch(url);
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return (await r.json()) as unknown;
-    },
-    loadGlb: async (url) => (await new GLTFLoader().loadAsync(url)).scene,
+  const fetchJson = async (url: string, init?: { cache: "no-store" }): Promise<unknown> => {
+    const r = await fetch(url, init);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return (await r.json()) as unknown;
+  };
+  // In a dev build Josh's saved fronts (ticket 045) are laid over the code's table before the plan is made; a production build never fetches the file.
+  shared ??= loadSavedCalibration({ dev: import.meta.env.DEV, fetchJson }).then((saved) => {
+    const tables = effectiveFronts({ fronts: BUILDING_FRONTS, exclude: BUILDING_EXCLUDE }, saved);
+    return loadModels({ fetchJson, loadGlb: async (url) => (await new GLTFLoader().loadAsync(url)).scene, fronts: tables.fronts, exclude: tables.exclude });
   });
   return shared;
 }

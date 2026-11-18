@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { Box3, Group, Object3D, Raycaster, Sprite, Vector3 } from "three";
 import { ASSET_MANIFEST_VERSION, loadPuzzle, type AssetEntry, type AssetManifest } from "../core";
 import { FRONT_ARROW_LENGTH, declaredFrontDirection, frontCaption, frontsOverlay, frontsRequested } from "./debug3d";
-import { BUILDING_FRONTS, MODEL_TABLE, frontAxis, planModels, type BuildingFront } from "./models";
+import { BUILDING_FRONTS, MODEL_TABLE, frontAxis, planModels, type FrontTable } from "./models";
 import { applyModels, type LoadedModel, type ModelSet } from "./models3d";
 import type { SceneBundle } from "./scene";
 import { LOT_TYPE_NAMES, townLayout, type LotType } from "./town";
@@ -52,7 +52,7 @@ const MANIFEST: AssetManifest = {
   ],
 };
 
-function set(fronts: Readonly<Record<string, BuildingFront>>): ModelSet {
+function set(fronts: FrontTable): ModelSet {
   const plan = planModels(MANIFEST, MODEL_TABLE, fronts);
   const building: LoadedModel[] = (plan.building ?? []).map((p) => ({ ...p, root: new Group() }));
   return { pole: null, lamp: null, building };
@@ -107,7 +107,7 @@ describe("frontsOverlay", () => {
   it("points each arrow along its model's declared front, turned by the clone's yaw, and with the table right that is toward the road", () => {
     const bundle = standIn();
     const lots = bundle.slots.blocks.list;
-    for (const fronts of [BUILDING_FRONTS, { Building_Gym: { front: "-x" as const }, house_mesh: { front: "-z" as const } }]) {
+    for (const fronts of [BUILDING_FRONTS, { "simple-town:Building_Gym": { front: "-x" as const }, "simple-town:house_mesh": { front: "-z" as const } }]) {
       const applied = applyModels(bundle, set(fronts));
       const overlay = frontsOverlay(bundle, applied, { surface: stubTextSurface });
       const arrows = overlay.children.filter((o) => !(o instanceof Sprite));

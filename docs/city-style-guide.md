@@ -59,24 +59,24 @@ How to read it:
 - **Default (042 A, from 041)**: a lot's building is chosen by family first, then by variant. A family is one mesh under several names: models of one pack whose bounds agree to 1 cm and whose triangle counts are equal (`meshFamily`). Each family has equal weight, so a mesh with three names is not three times as likely.
 - **Default (041 B4, 042 A)**: neighbours (lots within `NEIGHBOUR_GAP`) never share a family. Along one road side a family does not return within `STREET_REPEAT_GAP` lots. On a map no family takes more than `FAMILY_SHARE_MAX` of its type's lots when the type has four or more families. A pick that breaks a rule takes the next family; if every family breaks one, the cap goes first, then the street rule, then the neighbour rule.
 - **Decided (042, Josh, 17 Nov 2026: "There are too many video rental stores.")**: the variety rules above exist because of these words.
-- **Default (042 Q3)**: `BUILDING_EXCLUDE` drops names outright. A named store would go there. It is empty today.
+- **Default (042 Q3, keys by 045 A)**: `BUILDING_EXCLUDE` drops models outright. It lists `pack:name` keys (for example `simple-town:store_small_mesh`), because names repeat across packs. A named store would go there. It is empty today. In a dev build, models Josh shift-clicked in the gallery (ticket 045) are excluded too, from a file on his PC; a fresh checkout and CI use the code's list only.
 - **Pending (043 Q6, 042 Q3; waits for Josh)**: the video rental store. It is named (`store_small_mesh`, which Josh calls the video rental store), and `BUILDING_EXCLUDE` is empty. Whether to exclude it, give it a lower weight, or keep it is Josh's decision and is open. SIMPLE Town being a test makes it low priority, but nothing is decided.
-- **Info**: the guide's check of this chapter: `BUILDING_EXCLUDE` is empty, so the guide lists no excluded name.
+- **Info**: the guide's check of this chapter: `BUILDING_EXCLUDE` is empty, so the guide lists no excluded key.
 - **Default (041 Q4)**: when no model fits a lot type (or there is no manifest), the lot keeps its placeholder building.
 
 ## 6. Facing
 
-- **Info**: a model's door side is the axis, in the GLB's own frame, that its door faces (`ModelFront`: "+z", "-z", "+x", "-x"). `BUILDING_FRONTS` holds it, one line per name. `frontYaw` gives the turn (0, pi, -pi/2, pi/2), so a clone's yaw is `lot.yaw + frontYaw(front)`. A quarter-turn front swaps the model's width and depth in `lotTypeOf`.
-- **Info**: nothing in a converted pack records a door side, because the converter centres every pivot. A new pack's door sides are therefore settled by eye. A model listed nowhere in `BUILDING_FRONTS` is drawn at the "+z" guess.
+- **Info**: a model's door side is the axis, in the GLB's own frame, that its door faces (`ModelFront`: "+z", "-z", "+x", "-x"). `BUILDING_FRONTS` holds it, one line per `pack:name` (names repeat across packs: `SM_Bld_Shop_01` is in more than one). `frontYaw` gives the turn (0, pi, -pi/2, pi/2), so a clone's yaw is `lot.yaw + frontYaw(front)`. A quarter-turn front swaps the model's width and depth in `lotTypeOf`.
+- **Info**: nothing in a converted pack records a door side, because the converter centres every pivot. A new pack's door sides are therefore settled by eye. A model listed nowhere in `BUILDING_FRONTS` is drawn at the "+z" guess. In a dev build a saved calibration file (`assets/private/calibration/fronts.json`, never committed) is laid over the table: its front replaces the code's, and a key the code lacks is added (ticket 045).
 - **Decided (042 A, Josh, 17 Nov 2026, calibrating SIMPLE Town with `fronts=1`: "all reversed 180 degrees")**: every SIMPLE Town building is "-z" except `store_small_mesh`, which was right at "+z". The exceptions are the table below. `memorial_mesh` (042 B's, not placed yet) is still the "+z" guess, because Josh has not seen it.
-- **Info**: any name whose front is not "-z", and every corner model, is listed in this chapter or the next. The drift test compares these two tables with `BUILDING_FRONTS`.
+- **Info**: any `pack:name` whose front is not "-z", and every corner model, is listed in this chapter or the next. The drift test compares these two tables with `BUILDING_FRONTS`.
 
 | Name | Front | Note |
 | --- | --- | --- |
-| `store_small_mesh` | +z | calibrated by Josh, 042 A |
-| `memorial_mesh` | +z | the starting guess, not yet seen (042 B) |
+| `simple-town:store_small_mesh` | +z | calibrated by Josh, 042 A |
+| `simple-town:memorial_mesh` | +z | the starting guess, not yet seen (042 B) |
 
-- **Default (042 Q2)**: the way to calibrate a model is the `fronts=1` overlay (`/?puzzle=09-shrine-circuit&view=3d&fronts=1`). It draws a red arrow along each building's declared front and a caption with its name, family and corner sides. Each correction is a one-line edit to `BUILDING_FRONTS`.
+- **Default (042 Q2)**: the way to calibrate a model is the `fronts=1` overlay (`/?puzzle=09-shrine-circuit&view=3d&fronts=1`). It draws a red arrow along each building's declared front and a caption with its name, family and corner sides. Each correction is a one-line edit to `BUILDING_FRONTS`, keyed `pack:name`.
 - **Info (043 section B)**: the gallery (`/?puzzle=09-shrine-circuit&view=3d&gallery=<pack-id>`) shows every building-sized entry of a pack, declared front and all, so a pack's door sides are one look. See chapter 15.
 
 ## 7. Corner buildings
@@ -88,7 +88,7 @@ How to read it:
 
 | Name | Front | Open |
 | --- | --- | --- |
-| `store_corner_mesh` | -z | -x |
+| `simple-town:store_corner_mesh` | -z | -x |
 
 - **Pending (a POLYGON adoption ticket)**: the City Pack's modular `_Corner_` pieces (chapter 13) will need their own corner handling when assembled. Not decided.
 
@@ -172,12 +172,12 @@ How to read it:
   2. Write `pack.json` (`scale`, `scaleOverrides`, `textures`, `textureAliases`), per `tools/blender/README.md`.
   3. Run `npm run assets:convert <pack-id>`.
   4. Read the manifest for `scale-suspect`, `missing-texture` and failures. Fix them in `pack.json` and convert again.
-  5. Calibrate every building's door side and record it in `BUILDING_FRONTS`, using the gallery (below). `fronts=1` still works over a whole town.
+  5. Calibrate every building's door side: click each door in the gallery (ticket 045). `fronts=1` still works over a whole town. Until a pack is promoted into code, its door sides live in the saved file on Josh's PC.
   6. Check the families (`meshFamily`).
   7. Add rows to `MODEL_TABLE`. Lot types are computed from bounds, never hand-set.
-  8. Add any exclusions to `BUILDING_EXCLUDE`.
+  8. Add any exclusions to `BUILDING_EXCLUDE` (as `pack:name` keys).
   9. Update this guide's pack table in the same branch (the drift test fails if `MODEL_TABLE` and the table disagree).
-- **Info (043 section B)**: the gallery is `/?puzzle=09-shrine-circuit&view=3d&gallery=<pack-id>` (an empty value is `simple-town`). It loads only that pack's GLB and shows every building-sized entry in one straight line along x, seen from a low camera. Each model stands four times side by side, turned so its side `+z`, `+x`, `-z` and `-x` faces you in turn, each captioned `door: f`. The copy whose real door faces you is the model's true front: name it (for example "Preset_03: -x") and that becomes its `BUILDING_FRONTS` line. The copy that matches the table now is captioned `current` and has a green outline; `?` marks a name with no line yet (the "+z" guess). Each group has one caption with the name, size in metres, lot type and any `corner` or `excluded` mark. Whole-looking buildings come first, modular parts after. Drag, the arrow keys, Home and End move along the line and the wheel zooms. `&page=N&per=N` pages it, off by default. It is off unless the flag is there, never a pick target and never part of a playtest.
+- **Info (043 section B)**: the gallery is `/?puzzle=09-shrine-circuit&view=3d&gallery=<pack-id>` (an empty value is `simple-town`). It loads only that pack's GLB and shows every building-sized entry in one straight line along x, seen from a low camera. Each model stands four times side by side, turned so its side `+z`, `+x`, `-z` and `-x` faces you in turn, each captioned `door: f`. The copy whose real door faces you is the model's true front: name it (for example "Preset_03: -x") and that becomes its `BUILDING_FRONTS` line (`pack:name`). The copy that matches the front in force now is captioned `current` (the code's table), `current, saved` (the saved file) or `current ?` (no line anywhere: the "+z" guess), and has a green outline. The title says how many models of the pack are marked ("N of M marked"). Each group has one caption with the name, size in metres, lot type and any `corner` or `excluded` mark. Whole-looking buildings come first, modular parts after. Drag, the arrow keys, Home and End move along the line and the wheel zooms. `&page=N&per=N` pages it, off by default. It is off unless the flag is there, never a pick target and never part of a playtest.
 - **Info**: gotchas found converting the POLYGON packs (17 Nov 2026).
   - City Pack needed `"scale": 100` in its `pack.json`.
   - Town Pack needed `textureAliases` (its materials point at Photoshop files and renamed images that are not in the pack). Alias keys are normalised, so give one key per file-name stem: a `.png` and a `.psd` of the same stem collide, and the converter refuses the pair.
