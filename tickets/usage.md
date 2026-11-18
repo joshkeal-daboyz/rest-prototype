@@ -84,3 +84,4 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 047 re-cut | lead-architect | agent default | 16K total (one figure in the readout) | — | 0 | Allowed models.test.ts and recorded the two facing.test.ts edits |
 | 047 | gate (main session) | — | — | — | 0 | tsc clean, 88 files, 1681 passed on a checkout without pack files |
 | 047 | playtester | agent default | 16K total (one figure in the readout) | — | 0 | regressions 0; stopped early (harness never imports render3d) |
+| 047 | code-reviewer | agent default | 26K total (one figure in the readout) | — | 0 | meets, must-fix 0; judged the extra facing.test.ts edits and that no variety limit was loosened |
