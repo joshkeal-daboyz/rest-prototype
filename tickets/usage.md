@@ -52,3 +52,9 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 043 A | playtester | agent default | 15K total (one figure in the readout) | — | 0 | regressions 0; stopped early: nothing the harness loads changed |
 | 043 A (settle) | renderer | sonnet | 49K total (one figure in the readout) | — | 0 | Fixed the must-fix, citations, DROP_REACH tag, drift guard; 30 tool uses, 2 min |
 | 043 A round 2 | code-reviewer | agent default | 40K total (one figure in the readout) | — | 0 | meets, must-fix 0; ran no tests |
+| 043 B | renderer | sonnet | 154K total (one figure in the readout) | — | 0 | Building gallery (pure layout, paging, own camera rig, captions); 38 tool uses, 9 min; no browser or dev server by design (PC load) |
+| 043 B | code-reviewer | agent default | 76K total (one figure in the readout) | — | 0 | meets, must-fix 0; ran one test file |
+| 043 B | playtester | agent default | 15K total (one figure in the readout) | — | 0 | regressions 0; stopped early: nothing the harness loads changed |
+| 043 B (settle) | renderer | sonnet | 21K total (one figure in the readout) | — | 0 | Main-session gate caught a describe-level manifest read that would fail on CI; made it lazy; 10 tool uses, 1 min |
+| 043 B (rework) | renderer | sonnet | 167K total (one figure in the readout) | — | 0 | Gallery as one line, four copies per model, low camera, own input handler; 34 tool uses, 10 min; no browser or dev server by design (PC load) |
+| 043 B round 2 | code-reviewer | agent default | 72K total (one figure in the readout) | — | 0 | meets, must-fix 0; ran one test file |

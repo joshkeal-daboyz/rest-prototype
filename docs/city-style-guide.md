@@ -18,7 +18,7 @@ How to read it:
 - **Decided (043, Josh, 17 Nov 2026: "We should create a city style guide.")**: this guide is the one written record of how the 3D town looks and is assembled. It records decisions and decides nothing.
 - **Info**: it covers `src/render3d/` only. The 2D view (`src/render/`) is not described and is not changed by anything here.
 - **Default (043 Q2)**: the renderer writes and keeps it. Rule changes still come only through tickets.
-- **Pending (043 section B)**: a building gallery (`gallery=<pack-id>`) so a new pack's door sides are settled in one look.
+- **Info (043 section B)**: a building gallery (`gallery=<pack-id>`) shows every building-sized entry of a pack so its door sides are settled in one look (chapter 15).
 - **Pending (043 section C)**: the Pending markers below are replaced as 042 B to E and the pack adoptions land.
 
 ## 2. Scale
@@ -77,7 +77,7 @@ How to read it:
 | `memorial_mesh` | +z | the starting guess, not yet seen (042 B) |
 
 - **Default (042 Q2)**: the way to calibrate a model is the `fronts=1` overlay (`/?puzzle=09-shrine-circuit&view=3d&fronts=1`). It draws a red arrow along each building's declared front and a caption with its name, family and corner sides. Each correction is a one-line edit to `BUILDING_FRONTS`.
-- **Pending (043 section B)**: the gallery shows every building of a pack, declared front and all, so a pack's door sides are one look.
+- **Info (043 section B)**: the gallery (`/?puzzle=09-shrine-circuit&view=3d&gallery=<pack-id>`) shows every building-sized entry of a pack, declared front and all, so a pack's door sides are one look. See chapter 15.
 
 ## 7. Corner buildings
 
@@ -172,11 +172,12 @@ How to read it:
   2. Write `pack.json` (`scale`, `scaleOverrides`, `textures`, `textureAliases`), per `tools/blender/README.md`.
   3. Run `npm run assets:convert <pack-id>`.
   4. Read the manifest for `scale-suspect`, `missing-texture` and failures. Fix them in `pack.json` and convert again.
-  5. Calibrate every building's door side and record it in `BUILDING_FRONTS` (the gallery, once 043 B lands; `fronts=1` until then).
+  5. Calibrate every building's door side and record it in `BUILDING_FRONTS`, using the gallery (below). `fronts=1` still works over a whole town.
   6. Check the families (`meshFamily`).
   7. Add rows to `MODEL_TABLE`. Lot types are computed from bounds, never hand-set.
   8. Add any exclusions to `BUILDING_EXCLUDE`.
   9. Update this guide's pack table in the same branch (the drift test fails if `MODEL_TABLE` and the table disagree).
+- **Info (043 section B)**: the gallery is `/?puzzle=09-shrine-circuit&view=3d&gallery=<pack-id>` (an empty value is `simple-town`). It loads only that pack's GLB and shows every building-sized entry in one straight line along x, seen from a low camera. Each model stands four times side by side, turned so its side `+z`, `+x`, `-z` and `-x` faces you in turn, each captioned `door: f`. The copy whose real door faces you is the model's true front: name it (for example "Preset_03: -x") and that becomes its `BUILDING_FRONTS` line. The copy that matches the table now is captioned `current` and has a green outline; `?` marks a name with no line yet (the "+z" guess). Each group has one caption with the name, size in metres, lot type and any `corner` or `excluded` mark. Whole-looking buildings come first, modular parts after. Drag, the arrow keys, Home and End move along the line and the wheel zooms. `&page=N&per=N` pages it, off by default. It is off unless the flag is there, never a pick target and never part of a playtest.
 - **Info**: gotchas found converting the POLYGON packs (17 Nov 2026).
   - City Pack needed `"scale": 100` in its `pack.json`.
   - Town Pack needed `textureAliases` (its materials point at Photoshop files and renamed images that are not in the pack). Alias keys are normalised, so give one key per file-name stem: a `.png` and a `.psd` of the same stem collide, and the converter refuses the pair.
