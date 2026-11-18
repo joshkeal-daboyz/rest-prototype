@@ -250,6 +250,8 @@ export interface SceneOptions {
   text?: TextSurfaceFactory;
   /** Device pixel ratio for caption textures (the renderer passes it, capped at 2). */
   dpr?: number;
+  /** Test only (ticket 051 B): lay the town out without terrace rows (`townLayout(puzzle, { terraces: false })`), to compare with the terrace town. Default true. */
+  terraces?: boolean;
 }
 
 const BREAKER_LEVER = 0.55;
@@ -619,7 +621,7 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
   moon.position.set(-6, 12, 4);
   scene.add(moon);
 
-  const town = townLayout(puzzle);
+  const town = townLayout(puzzle, { terraces: opts.terraces !== false });
   const runs = wireLayout(puzzle);
   const win = town.window;
   const mat4 = new Matrix4();

@@ -53,6 +53,9 @@ How to read it:
   - The occlusion rule. For every wire point, node top (`NODE_TOP_Y`) and lamp head (`LAMP_HEAD_Y`) north of the lot, the distance must be at least (the lot's height cap minus the point's height) times `OCCLUDE_SLOPE`. `OCCLUDE_SLOPE` follows the camera (`ELEVATION`, `FOV_DEG`), and `town.test.ts` pins it to `camera.ts`.
 - **Default (041)**: a model's lot type is computed from its bounds by `lotTypeOf` (the first type in `small`, `house`, `large`, `tall` order that holds its front-turned footprint and height). It is never hand-set. A model that fits no type is not used.
 - **Info**: placeholder buildings (no model for a type, or no `assets/private/`) are boxes with storeys of `STOREY_M`, a roof and one of four dark tints, never over the lot's cap. Nothing in them is lit. They follow the same neighbour rule as models.
+- **Default (051, with 041's lot rules)**: the rows of the outer blocks are terraces. This replaces the outer-block step of frontage fill above: the pinwheel order, each row starting at its own corner, and the bands stay, but every side's band is `TERRACE_DEPTH_M`, and a row runs on to the next row's corner block with no gap on the street (short of it by under one bay at most; the packer of 051 C closes the rest). A row is a run of lots that abut (gap 0). Each lot is `bays` x `TERRACE_BAY_M` wide, `bays` in `TERRACE_BAYS` by `stableHash` of its key, and `TERRACE_DEPTH_M` deep. It is type `large` and takes the highest of `TERRACE_CAPS_M` (5, 4 and 3 storeys) that clears the rules above at that cap. A slot that clears no cap ends the run, and the next run starts `FILL_STEP` on. The ring road's inside, the circuit's streets and decor are filled as before.
+- **Default (051, with 041's lot rules)**: terrace rows have open ground. A run of at least `PARKING_MIN_RUN_BAYS` nominal bays has one parking lot, `PARKING_W_M` x `PARKING_D_M`, about its middle where `stableHash` of the run id modulo `PARKING_ONE_IN` is 0; the run ends at it and a new one starts after it. One outer block in `PLAZA_ONE_IN` (by `stableHash` of its id) has a plaza, `PLAZA_W_M` square, at one row's start in place of that row's corner block. Open lots are in `Town.openLots` and never in `Town.lots`, so no building, drop or pick uses them. They clear the rules above at height 0. A later ticket (052 C) dresses them; until then they are bare yard.
+- **Info**: a terrace lot's placeholder fills its whole lot (no 0.8 or 0.9 footprint), so the boxes of a run touch. With the City Pack absent (CI, a fresh checkout) the terrace is those boxes.
 
 ## 5. Choosing a building
 
@@ -241,6 +244,18 @@ The drift test (`styleguide.test.ts`) reads this table. Each row names an export
 | `PLACE_SIZES.whole` | 10 x 10 | town.ts |
 | `PLACE_SIZES.quarter` | 6 x 6 | town.ts |
 | `PLACE_SIZES.home` | 6 x 8 | town.ts |
+| `TERRACE_BAY_M` | 5.2 | town.ts |
+| `TERRACE_DEPTH_M` | 6 | town.ts |
+| `TERRACE_BAYS` | 2 x 4 | town.ts |
+| `TERRACE_CAPS_M[0]` | 16 | town.ts |
+| `TERRACE_CAPS_M[1]` | 13 | town.ts |
+| `TERRACE_CAPS_M[2]` | 10 | town.ts |
+| `PARKING_W_M` | 10 | town.ts |
+| `PARKING_D_M` | 10 | town.ts |
+| `PARKING_MIN_RUN_BAYS` | 8 | town.ts |
+| `PARKING_ONE_IN` | 3 | town.ts |
+| `PLAZA_W_M` | 10.4 | town.ts |
+| `PLAZA_ONE_IN` | 4 | town.ts |
 | `NEIGHBOUR_GAP` | 0.5 | models.ts |
 | `STREET_REPEAT_GAP` | 3 | models.ts |
 | `FAMILY_SHARE_MAX` | 0.25 | models.ts |

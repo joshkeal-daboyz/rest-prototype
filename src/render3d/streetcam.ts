@@ -9,8 +9,8 @@
  * AND one frame has been drawn through the street camera, so a screenshot that waits for the line shows the finished picture. Nothing here reads the
  * page's address: renderer.ts passes the query string in, behind `import.meta.env.DEV`, so none of it is in `npm run build`.
  *
- * Before 051 B lands there are no terrace runs: a row is a chain of consecutive lots of one road side that share a front line (a loop street serves
- * several blocks, so a chain ends where the street is crossed). 051 B replaces `streetRows` with `town.terraces`.
+ * A row is a terrace run (`town.terraces`, 051 B) or, for lots that are not in one, a chain of consecutive lots of one road side that share a front line (a
+ * loop street serves several blocks, so a chain ends where the street is crossed).
  */
 
 import { Camera, HemisphereLight, PerspectiveCamera, type Scene } from "three";
@@ -102,7 +102,7 @@ export interface StreetRow {
 
 const rowCache = new WeakMap<Town, readonly StreetRow[]>();
 
-/** The rows of a town, longest first, ties by id. (Before 051 B: chains of lots that share a street, a side and a front line.) */
+/** The rows of a town, longest first, ties by id: its terrace runs, then chains of the other lots that share a street, a side and a front line. */
 export function streetRows(town: Town): readonly StreetRow[] {
   const hit = rowCache.get(town);
   if (hit) return hit;
@@ -148,6 +148,11 @@ export function streetRows(town: Town): readonly StreetRow[] {
     cur = [];
   };
   town.lots.forEach((l, i) => {
+    // A terrace lot belongs to its run (below), not to a chain.
+    if (l.terrace) {
+      flush();
+      return;
+    }
     if (cur.length > 0) {
       const first = town.lots[cur[0]!]!;
       const prev = town.lots[cur[cur.length - 1]!]!;
@@ -175,6 +180,11 @@ export function streetRows(town: Town): readonly StreetRow[] {
     cur = [i];
   });
   flush();
+  // Terrace runs (051 B) are rows as the layout made them: abutting lots on one front line, from the run's start to its far end.
+  for (const run of town.terraces) {
+    const first = town.lots[run.lots[0]!]!;
+    rows.push({ id: run.id, street: run.road, side: run.side, lots: run.lots, sx: run.ax, sz: run.az, ux: run.ux, uz: run.uz, nx: Math.sin(first.yaw), nz: Math.cos(first.yaw), len: run.len });
+  }
   rows.sort((a, b) => b.len - a.len || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   rowCache.set(town, rows);
   return rows;

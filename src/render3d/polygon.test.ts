@@ -141,7 +141,7 @@ const POLYGON_TYPES: Record<string, LotType> = {
 };
 
 const mapFiles = [...readdirSync("puzzles").filter((f) => f.endsWith(".json")), "lamp-row.grid.json"].map((f) => join("puzzles", f)).filter((f, i, all) => existsSync(f) && all.indexOf(f) === i);
-const maps: { name: string; town: Town }[] = mapFiles.map((f) => ({ name: f, town: townLayout(loadPuzzle(JSON.parse(readFileSync(f, "utf8")))) }));
+const maps: { name: string; town: Town }[] = mapFiles.map((f) => ({ name: f, town: townLayout(loadPuzzle(JSON.parse(readFileSync(f, "utf8"))), { terraces: false }) }));
 
 const buildingsOf = (m: AssetManifest, fronts: FrontTable = BUILDING_FRONTS, table: readonly ModelChoice[] = MODEL_TABLE): PlannedModel[] => planModels(m, table, fronts).building ?? [];
 const packOf = (models: readonly PlannedModel[], name: string): string => models.find((p) => p.entry.name === name)!.pack;

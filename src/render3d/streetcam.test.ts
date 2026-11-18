@@ -107,8 +107,19 @@ const inBox = (b: { x: number; z: number; w: number; d: number; yaw: number }, x
   return Math.abs(lx) <= b.w / 2 && Math.abs(lz) <= b.d / 2;
 };
 
-/** The rows of four or more lots, all within the ordinary caps (a 28 m tower cannot be framed from the road; the middle of a three-lot row has only two lots ahead of the eye). */
-const framable = (town: Town) => streetRows(town).map((r, run) => ({ r, run })).filter(({ r }) => r.lots.length >= 4 && r.lots.every((i) => town.lots[i]!.hMax <= 16 * WORLD_PER_METRE + 1e-9));
+/**
+ * The rows of four or more lots, all within the ordinary caps (a 28 m tower cannot be framed from the road; the middle of a three-lot row has only two lots ahead of the eye).
+ * A terrace run (051 B) has lots of two to four bays, so its middle looks along only the lots past it: it counts only with three lots on each side of its middle.
+ */
+const framable = (town: Town) =>
+  streetRows(town)
+    .map((r, run) => ({ r, run }))
+    .filter(({ r }) => {
+      if (r.lots.length < 4 || !r.lots.every((i) => town.lots[i]!.hMax <= 16 * WORLD_PER_METRE + 1e-9)) return false;
+      if (!town.lots[r.lots[0]!]!.terrace) return true;
+      const ahead = r.lots.filter((i) => (town.lots[i]!.x - r.sx) * r.ux + (town.lots[i]!.z - r.sz) * r.uz >= r.len / 2).length;
+      return ahead >= 3 && r.lots.length - ahead >= 3;
+    });
 
 function framedBy(town: Town, rowLots: readonly number[], eye: readonly number[], look: readonly number[], fov: number, aspect: number): number {
   const cam = new PerspectiveCamera(fov, aspect, 0.05, 400);
@@ -206,7 +217,7 @@ describe("streetPose", () => {
   }
 
   it("is null for a town with no rows", () => {
-    expect(streetPose({ ...townOf("09-shrine-circuit").town, lots: [] } as Town, {})).toBeNull();
+    expect(streetPose({ ...townOf("09-shrine-circuit").town, lots: [], terraces: [] } as Town, {})).toBeNull();
   });
 });
 
@@ -264,7 +275,7 @@ describe("createStreetView", () => {
   });
 
   it("is null for a town with no rows", () => {
-    expect(createStreetView({ ...town, lots: [] } as Town, { run: 0, at: 0.5, day: false }, new Scene(), 800, 600)).toBeNull();
+    expect(createStreetView({ ...town, lots: [], terraces: [] } as Town, { run: 0, at: 0.5, day: false }, new Scene(), 800, 600)).toBeNull();
   });
 });
 

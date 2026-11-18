@@ -371,7 +371,7 @@ describe("buildings stand at one scale and inside their lots (every map)", () =>
     let clones = 0;
     const fronts = new Set<string>();
     for (const { name, puzzle: pz } of maps) {
-      const lots = townLayout(pz).lots;
+      const lots = townLayout(pz, { terraces: false }).lots;
       const placements = buildingPlacements(lots, set.building);
       expect(placements, name).toHaveLength(lots.length);
       for (const p of placements) {
@@ -452,9 +452,9 @@ describe("pickBuildings: no copy beside itself", () => {
 
 describe("applyModels", () => {
   it("puts a clone at every intermediate pole and on every lot, and hides the placeholders", async () => {
-    const b = buildScene(puzzle, { text: stubTextSurface });
+    const b = buildScene(puzzle, { text: stubTextSurface, terraces: false });
     const spots = b.slots.poles.spots.length;
-    const lots = townLayout(puzzle).lots;
+    const lots = townLayout(puzzle, { terraces: false }).lots;
     expect(spots).toBeGreaterThan(2);
     expect(lots.length).toBeGreaterThan(50);
     expect(b.slots.blocks.list).toBe(lots);
@@ -495,7 +495,7 @@ describe("applyModels", () => {
   });
 
   it("keeps the placeholders of a lot type that has no model and hides those of the types that have one", async () => {
-    const b = buildScene(puzzle, { text: stubTextSurface });
+    const b = buildScene(puzzle, { text: stubTextSurface, terraces: false });
     const set = await fullSet();
     const rest = { ...set, building: set.building!.filter((m) => lotTypeOf(m.entry, m.front) !== "tall") };
     const applied = applyModels(b, rest);
