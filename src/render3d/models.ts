@@ -4,7 +4,7 @@
  * assets/private/ and are fetched at runtime by models3d.ts, never bundled. Model names are not licensed content.
  */
 
-import { ASSET_MANIFEST_VERSION, calibrationKey, type AssetEntry, type AssetManifest, type CalibrationKey } from "../core";
+import { ASSET_MANIFEST_VERSION, calibrationKey, parseCalibrationKey, type AssetEntry, type AssetManifest, type CalibrationKey } from "../core";
 import { stableHash } from "../render/city";
 import { POLE_HEIGHT } from "./layout";
 import { LOT_TYPES, LOT_TYPE_NAMES, type Lot, type LotType } from "./town";
@@ -301,6 +301,31 @@ export function planModels(manifest: AssetManifest, table: readonly ModelChoice[
     }
   }
   return plan;
+}
+
+/**
+ * The pieces a stack recipe names (ticket 050 B), as planned models, in the order of `keys`. A key whose pack the manifest lacks, whose entry is
+ * missing or `scale-suspect`, or that is not a `pack:name` is skipped; null when none is usable. Pure; the town's plan is unchanged by it.
+ */
+export function planStackPieces(manifest: AssetManifest, keys: readonly CalibrationKey[], fronts: FrontTable = BUILDING_FRONTS): PlannedModel[] | null {
+  const out: PlannedModel[] = [];
+  for (const key of keys) {
+    const parsed = parseCalibrationKey(key);
+    if (!parsed) continue;
+    const pack = manifest.packs.find((p) => p.pack === parsed.pack);
+    const entry = pack?.assets.find((a) => a.name === parsed.name);
+    if (!pack || !entry || !usable(entry, "building")) continue;
+    const bf = Object.prototype.hasOwnProperty.call(fronts, key) ? fronts[key] : undefined;
+    out.push({
+      pack: pack.pack,
+      glb: pack.glb,
+      entry,
+      front: bf?.front ?? "+z",
+      corner: bf?.corner ? (bf.open ?? "+x") : false,
+      family: meshFamily(pack.assets, entry),
+    });
+  }
+  return out.length > 0 ? out : null;
 }
 
 /**

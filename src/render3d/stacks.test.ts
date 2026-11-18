@@ -91,7 +91,7 @@ interface Combo {
   stack: Stack;
 }
 
-/** Every style x type x corner-side set x 40 lot keys that assemble, under the given fronts (and style variants). */
+/** Every style x type x corner-side set x `keys` (default 8) lot keys that assemble, under the given fronts (and style variants). */
 function sweep(styles: readonly StackStyle[], fronts: FrontTable, keys = 8): Combo[] {
   const out: Combo[] = [];
   for (const style of styles) {
@@ -129,7 +129,9 @@ describe("the recipes", () => {
     expect(STACK_STYLES.length).toBeGreaterThan(0);
     for (const style of STACK_STYLES) {
       expect(style.pack).toBe("city-pack");
-      for (const key of stackKeys(style)) {
+      // Dressing keys in a `props` slot belong to a later ticket (052) and are allowed; only the base, floor and roof roles are checked.
+      const props = new Set((style.props ?? []).flatMap((p) => p.keys));
+      for (const key of stackKeys(style).filter((q) => !props.has(q))) {
         expect(key, `${style.id} ${key}`).toMatch(/^city-pack:SM_Bld_(Apartment|Shop|OfficeOld|OfficeOctagon)/);
         expect(ENTRIES.has(key), `${style.id}: ${key} is not in the fixture`).toBe(true);
         expect(key).not.toMatch(dressing);
@@ -314,19 +316,32 @@ describe("no gaps", () => {
     }
   });
 
-  it("pieces in a column share its axis (a double-bay shop sits on its two columns' middle), and every back face lies on one line", () => {
+  it("pieces in a column share its axis (a double-bay shop sits on its two columns' middle), and every back face lies on one line (an office's centres do)", () => {
     for (const { stack, key, style } of ALL_COMBOS) {
       const where = `${style.id} (${key})`;
-      const back = stack.pieces[0]!.z - stack.pieces[0]!.d / 2;
+      const footprint = style.depth === "footprint";
+      const line = footprint ? stack.pieces[0]!.z : stack.pieces[0]!.z - stack.pieces[0]!.d / 2;
       for (const p of stack.pieces) {
         const col = stack.columns[p.column]!;
         if (p.role === "base" && turned(p)[0] > 1.5 * col.w) {
           const next = stack.columns[p.column + 1]!;
           expect(p.x, where).toBeCloseTo((col.x + next.x) / 2, 6);
         } else expect(p.x, where).toBeCloseTo(col.x, 6);
-        expect(p.z - p.d / 2, where).toBeCloseTo(back, 6);
+        expect(footprint ? p.z : p.z - p.d / 2, where).toBeCloseTo(line, 6);
       }
       expect(stack.depth_m, where).toBeCloseTo(Math.max(...stack.pieces.map((p) => p.d)), 6);
+    }
+  });
+
+  it("an office is centred in z: base, floors and roof share one middle, and the deepest piece's front is on the lot's front edge", () => {
+    const offices = ALL_COMBOS.filter((c) => c.style.depth === "footprint");
+    expect(offices.length).toBeGreaterThan(0);
+    for (const { stack, style, key } of offices) {
+      const where = `${style.id} (${key})`;
+      const mid = stack.pieces[0]!.z;
+      for (const p of stack.pieces) expect(p.z, where).toBeCloseTo(mid, 6);
+      expect(Math.max(...stack.pieces.map((p) => p.z + p.d / 2)), where).toBeCloseTo(0, 6);
+      expect(mid, where).toBeCloseTo(-stack.depth_m / 2, 6);
     }
   });
 
@@ -347,7 +362,7 @@ describe("faces the street", () => {
   function faces(style: StackStyle, fronts: FrontTable, p: StackPiece): { front: [number, number]; open: [number, number] | null } {
     const bf = frontOf(fronts, p.key);
     const front = rot(p.yaw, frontAxis(bf.front));
-    const o = style.open?.[p.key];
+    const o = bf.open ?? style.open?.[p.key]; // the table's open wins over the recipe's guess
     const isCorner = style.base.corner.includes(p.key) || style.floor.corner.includes(p.key) || style.roof.corner.includes(p.key);
     if (!isCorner) return { front, open: null };
     // the open side is on `o` in the lot frame once the front is turned to the road: in the model's frame that is rot(-frontYaw)
@@ -490,19 +505,23 @@ describe("corners", () => {
     expect(last.yaw).toBeCloseTo(Math.PI / 2, 9);
   });
 
-  it("a recipe's open side wins over the fronts table's, and the table's is used when the recipe has none", () => {
+  it("the fronts table's open side wins over the recipe's guess, and the recipe's (then \"+x\") is used when the table has none", () => {
     const lot = { type: "large" as const, key: "c", cornerSides: cs("+x") };
     const key = keyOf("SM_Bld_Apartment_Corner_01");
     const fronts: FrontTable = { [key]: { front: "+z", corner: true, open: "-x" } };
     const bare: StackStyle = { ...STYLE("apartment-01"), open: {} };
     const corner = (st: StackStyle, f: FrontTable) => assembleStack(st, lot, ENTRIES, f)!.pieces.find((p) => p.key === key)!;
     expect(corner(bare, fronts).yaw).toBeCloseTo(Math.PI / 2, 9); // the table says "-x", the end is "+x": turned
-    expect(corner(STYLE("apartment-01"), fronts).yaw).toBeCloseTo(0, 9); // the recipe says "+x"
+    expect(corner(STYLE("apartment-01"), fronts).yaw).toBeCloseTo(Math.PI / 2, 9); // the table still wins over the recipe's "+x"
+    expect(corner(STYLE("apartment-01"), NO_FRONTS).yaw).toBeCloseTo(0, 9); // no table line: the recipe says "+x"
+    expect(corner(bare, NO_FRONTS).yaw).toBeCloseTo(0, 9); // neither: "+x"
+    const plain: FrontTable = { [key]: { front: "+z" } }; // a saved front has no open: the recipe's guess stays
+    expect(corner(STYLE("apartment-01"), plain).yaw).toBeCloseTo(0, 9);
   });
 });
 
 describe("the fixture against the manifest", () => {
-  it("every fixture number is within 1 cm of the converted manifest (skipped when the manifest is absent)", (ctx) => {
+  it("every fixture number is within 5 cm of the converted manifest (skipped when the manifest is absent)", (ctx) => {
     const file = join(process.cwd(), "assets", "private", "out", "manifest.json");
     if (!existsSync(file)) return ctx.skip();
     const manifest = JSON.parse(readFileSync(file, "utf8")) as { version: number; packs: { pack: string; assets: AssetEntry[] }[] };

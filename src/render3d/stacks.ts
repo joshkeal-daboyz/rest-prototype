@@ -47,7 +47,10 @@ export interface StackStyle {
   pitch_m: Record<StackRole, number>;
   /** "bay": a row of columns, each one bay wide. "footprint": one column, the whole building (an office). */
   depth: "bay" | "footprint";
-  /** A corner piece's second street face, on the lot side it is in once its front is turned to the road. Every entry is a guess until Josh confirms it in the stack gallery. */
+  /**
+   * A corner piece's second street face, on the lot side it is in once its front is turned to the road. Every entry is a guess until Josh confirms it
+   * in the stack gallery; a `BuildingFront.open` in the fronts table wins over it (section B, from the 050 A review).
+   */
   open?: Partial<Record<CalibrationKey, StackSide>>;
   /** Metres toward the street (+) or away (-) for a piece the gallery shows off. */
   nudge_m?: Partial<Record<CalibrationKey, number>>;
@@ -223,7 +226,8 @@ function cand(style: StackStyle, key: CalibrationKey, entries: Entries, fronts: 
   let quarter = frontIsQuarter(front);
   let street: "front" | "open" = "front";
   if (end) {
-    const open = style.open?.[key] ?? bf?.open ?? "+x";
+    // The fronts table's `open` (Josh's confirmed value) wins over the recipe's guess, so a corrected `open` is honoured; then the recipe's; then "+x".
+    const open = bf?.open ?? style.open?.[key] ?? "+x";
     if (open !== end) {
       yaw += open === "-x" ? QUARTER : -QUARTER;
       quarter = !quarter;
@@ -330,7 +334,7 @@ function fitBays(style: StackStyle, kit: Kit, frontage: number, sides: readonly 
 }
 
 /** The worst-case depth, back face to frontmost face, over every candidate. */
-function worstDepth(kit: Kit): number {
+function worstDepth(style: StackStyle, kit: Kit): number {
   const all = [
     ...kit.baseMid,
     ...kit.door,
@@ -340,7 +344,17 @@ function worstDepth(kit: Kit): number {
     ...SIDES.flatMap((s) => [...kit.baseCorner[s], ...kit.floorCorner[s], ...kit.roofCorner[s]]),
   ];
   if (all.length === 0) return 0;
-  return Math.max(...all.map((c) => c.nudge + c.d)) - Math.min(...all.map((c) => c.nudge));
+  const [front, back] = zExtent(style);
+  return Math.max(...all.map((c) => front(c))) - Math.min(...all.map((c) => back(c)));
+}
+
+/**
+ * Where a piece's faces lie before the whole stack is moved so its frontmost face is on z = 0. A "bay" stack (apartments) is back-aligned: every
+ * back face on one line (z = nudge), so a deeper shop sticks out toward the street. A "footprint" stack (an office) is centred in z, as it is in x,
+ * so a base 10.9 m deep, a floor 10.0 m and a roof 11.2 m share one middle and no piece juts out on one side only.
+ */
+function zExtent(style: StackStyle): [front: (c: Cand) => number, back: (c: Cand) => number] {
+  return style.depth === "footprint" ? [(c) => c.nudge + c.d / 2, (c) => c.nudge - c.d / 2] : [(c) => c.nudge + c.d, (c) => c.nudge];
 }
 
 function rangeFor(style: StackStyle, type: LotType, entries: Entries, fronts: FrontTable, sides: readonly StackSide[]): StackFit | null {
@@ -354,7 +368,7 @@ function rangeFor(style: StackStyle, type: LotType, entries: Entries, fronts: Fr
   const max = Math.floor((spec.cap - style.pitch_m.base - roofH) / style.pitch_m.floor + EPS);
   const min = style.min_floors?.[type] ?? STACK_FLOORS[type];
   if (max < min) return null;
-  if (worstDepth(kit) > spec.depth + EPS) return null;
+  if (worstDepth(style, kit) > spec.depth + EPS) return null;
   const bays = fitBays(style, kit, spec.frontage, sides);
   if (bays < 1) return null;
   return { bays, min, max };
@@ -370,6 +384,11 @@ export function stackRange(style: StackStyle, type: LotType, entries: Entries, f
 
 // ---- assembly ----
 
+export interface AssembleOptions {
+  /** Force the floors over the base ("max": the most the cap allows; a number is clamped into the range). Default: picked by hash per lot key. The stack gallery uses "max". */
+  floors?: number | "max";
+}
+
 interface Item {
   c: Cand;
   x: number;
@@ -382,13 +401,20 @@ interface Item {
  * One stack on a lot, as a list of pieces in the lot frame, or null when the style cannot stand on the lot's type (see `stackRange`).
  * - The columns lie side by side along x, each as wide as its floor piece, centred on the lot. Storeys sit at base pitch + i x floor pitch and the
  *   roof on the last. A mid column's runs of three floors are one `stack3` piece when the style has one.
- * - Every piece's back face lies on one line (plus its `nudge_m`), the frontmost face on z = 0, so a deeper piece (a shop's sill or sign) sticks out toward the street.
+ * - In a "bay" style every piece's back face lies on one line (plus its `nudge_m`), the frontmost face on z = 0, so a deeper piece (a shop's sill or sign) sticks
+ *   out toward the street. In a "footprint" style (an office) the pieces are centred in z instead, the frontmost face on z = 0.
  * - `lot.cornerSides` asks for a corner column at each of its sides ("-x", "+x"), for a style with corner pieces: shop corner, corner floors and corner roof, no
  *   `stack3`. A stack with a corner column is a corner building (the caller stands it only on a lot with that corner side). Pass `cornerSides: []` for a mid-row stack.
  * - The ground row of a mid column is a shop picked by hash (a double-bay shop takes two free columns), plus one residents' door bay, never in a corner column.
  * - The floor count is picked by `stableHash(lot.key + style.id)` within the range, so it varies from lot to lot and never changes.
  */
-export function assembleStack(style: StackStyle, lot: Pick<Lot, "type" | "key" | "cornerSides">, entries: Entries, fronts: FrontTable = BUILDING_FRONTS): Stack | null {
+export function assembleStack(
+  style: StackStyle,
+  lot: Pick<Lot, "type" | "key" | "cornerSides">,
+  entries: Entries,
+  fronts: FrontTable = BUILDING_FRONTS,
+  opts: AssembleOptions = {},
+): Stack | null {
   const sides = effectiveSides(
     style,
     lot.cornerSides.map((c) => c.side),
@@ -397,7 +423,12 @@ export function assembleStack(style: StackStyle, lot: Pick<Lot, "type" | "key" |
   if (!range) return null;
   const kit = kitOf(style, entries, fronts);
   const salt = `${lot.key}${style.id}`;
-  const floors = range.min + (stableHash(salt) % (range.max - range.min + 1));
+  const floors =
+    opts.floors === "max"
+      ? range.max
+      : typeof opts.floors === "number"
+        ? Math.min(range.max, Math.max(range.min, Math.round(opts.floors)))
+        : range.min + (stableHash(salt) % (range.max - range.min + 1));
   const pick = <T>(xs: readonly T[], what: string): T | undefined => xs[stableHash(`${salt}${what}`) % Math.max(1, xs.length)];
   const spec = LOT_TYPES[lot.type];
 
@@ -487,16 +518,17 @@ export function assembleStack(style: StackStyle, lot: Pick<Lot, "type" | "key" |
       items.push({ c: end ? corner[end].roof : roofMid!, x: col.x, bottom: y, role: "roof", column: i });
     }
 
-    // z: back faces on one line, the frontmost face on z = 0.
-    const maxFront = Math.max(...items.map((it) => it.c.nudge + it.c.d));
-    const minBack = Math.min(...items.map((it) => it.c.nudge));
+    // z: back faces on one line (bay) or centres on one line (footprint), the frontmost face on z = 0.
+    const [frontOf, backOf] = zExtent(style);
+    const maxFront = Math.max(...items.map((it) => frontOf(it.c)));
+    const minBack = Math.min(...items.map((it) => backOf(it.c)));
     const depth = maxFront - minBack;
     if (depth > spec.depth + EPS) return null;
     const pieces: StackPiece[] = items.map((it) => ({
       key: it.c.key,
       x: it.x,
       y: it.bottom,
-      z: it.c.nudge - maxFront + it.c.d / 2,
+      z: it.c.nudge - maxFront + (style.depth === "footprint" ? 0 : it.c.d / 2),
       yaw: it.c.yaw,
       role: it.role,
       column: it.column,
