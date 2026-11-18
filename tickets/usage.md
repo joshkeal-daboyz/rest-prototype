@@ -47,3 +47,8 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 042 A (settle: corners) | renderer | sonnet | 103K total (one figure in the readout) | — | 0 | Strict corner lots and corner models, per Josh; 42 tool uses, 6 min |
 | 042 A round 2 | code-reviewer | agent default | 56K total (one figure in the readout) | — | 0 | meets, must-fix 0; ran no tests (the main session had run the capped full check) |
 | 042 A round 2 | playtester | agent default | 15K total (one figure in the readout) | — | 0 | regressions 0; stopped early: nothing the harness loads changed |
+| 043 A | renderer | sonnet | 184K total (one figure in the readout) | — | 0 | Style guide (15 chapters), drift test, 17 colour exports; 47 tool uses, 7 min; no browser or dev server by design (PC load) |
+| 043 A | code-reviewer | agent default | 84K total (one figure in the readout) | — | 0 | partly, must-fix 1 (an invented "Decided" bullet credited to Josh); 27 tool uses, 4 min; ran one test file |
+| 043 A | playtester | agent default | 15K total (one figure in the readout) | — | 0 | regressions 0; stopped early: nothing the harness loads changed |
+| 043 A (settle) | renderer | sonnet | 49K total (one figure in the readout) | — | 0 | Fixed the must-fix, citations, DROP_REACH tag, drift guard; 30 tool uses, 2 min |
+| 043 A round 2 | code-reviewer | agent default | 40K total (one figure in the readout) | — | 0 | meets, must-fix 0; ran no tests |
