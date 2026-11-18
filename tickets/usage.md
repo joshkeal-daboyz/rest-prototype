@@ -79,3 +79,9 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 045 section C | gate (main session) | — | — | — | 0 | tsc clean, 88 files, 1681 passed; production build checked: no click, endpoint or help-line code in dist |
 | 045 section C | code-reviewer | agent default | 59K total (one figure in the readout) | — | 0 | meets, must-fix 0 |
 | 045 section C | playtester | agent default | 16K total (one figure in the readout) | — | 0 | regressions 0; stopped early (harness never imports render3d) |
+| 047 and 048 cut | lead-architect | agent default | 78K total (one figure in the readout) | — | 0 | Cut tickets 047 (exclude the video store) and 048 (POLYGON whole buildings, first slice); 27 tool uses, 4.5 min |
+| 047 | renderer | sonnet | 72K total (two figures: 35K build, 37K fix) | — | 0 | BUILDING_EXCLUDE entry, pinned tests, guide chapter 5; a second pass fixed models.test.ts after the re-cut; 29 tool uses |
+| 047 re-cut | lead-architect | agent default | 16K total (one figure in the readout) | — | 0 | Allowed models.test.ts and recorded the two facing.test.ts edits |
+| 047 | gate (main session) | — | — | — | 0 | tsc clean, 88 files, 1681 passed on a checkout without pack files |
+| 047 | playtester | agent default | 16K total (one figure in the readout) | — | 0 | regressions 0; stopped early (harness never imports render3d) |
+| 047 | code-reviewer | agent default | 26K total (one figure in the readout) | — | 0 | meets, must-fix 0; judged the extra facing.test.ts edits and that no variety limit was loosened |
