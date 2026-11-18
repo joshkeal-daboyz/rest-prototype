@@ -37,8 +37,12 @@ function setup(opts: {
   blender?: boolean;
   behaviour?: Behaviour;
   withInDir?: boolean;
+  /** Binary files (ticket 054 A: colourway PNG headers) by absolute path. */
+  binaryFiles?: Record<string, Uint8Array>;
 }) {
   const files = new Map<string, string>();
+  const binary = new Map<string, Uint8Array>();
+  const copies: Array<[string, string]> = [];
   const dirs = new Set<string>();
   const addDir = (d: string) => {
     for (let p = d; !dirs.has(p) && dirname(p) !== p; p = dirname(p)) dirs.add(p);
@@ -51,6 +55,10 @@ function setup(opts: {
   if (opts.withInDir !== false) addDir(L.inRoot);
   for (const p of opts.packs ?? []) addDir(join(L.inRoot, p));
   for (const [p, text] of Object.entries(opts.extraFiles ?? {})) addFile(p, text);
+  for (const [p, bytes] of Object.entries(opts.binaryFiles ?? {})) {
+    binary.set(p, bytes);
+    addDir(dirname(p));
+  }
 
   const calls: Call[] = [];
   const writes: string[] = [];
@@ -63,10 +71,10 @@ function setup(opts: {
     env: opts.blender === false ? {} : { BLENDER_PATH: BLENDER },
     platform: "linux",
     root: ROOT,
-    exists: (p) => files.has(p) || dirs.has(p),
+    exists: (p) => files.has(p) || binary.has(p) || dirs.has(p),
     listDir: (p) => {
       const names = new Set<string>();
-      for (const q of [...files.keys(), ...dirs]) if (dirname(q) === p && q !== p) names.add(q.slice(p.length + 1));
+      for (const q of [...files.keys(), ...binary.keys(), ...dirs]) if (dirname(q) === p && q !== p) names.add(q.slice(p.length + 1));
       return [...names];
     },
     isDirectory: (p) => dirs.has(p),
@@ -78,6 +86,18 @@ function setup(opts: {
     writeText: (p, text) => {
       writes.push(p);
       addFile(p, text);
+    },
+    readBytes: (p) => {
+      const b = binary.get(p);
+      if (b === undefined) throw new Error(`ENOENT ${p}`);
+      return b;
+    },
+    copyFile: (from, to) => {
+      const b = binary.get(from);
+      if (b === undefined) throw new Error(`ENOENT ${from}`);
+      copies.push([from, to]);
+      binary.set(to, b);
+      addDir(dirname(to));
     },
     mkdirp: (p) => {
       mkdirs.push(p);
@@ -106,6 +126,8 @@ function setup(opts: {
   return {
     deps,
     files,
+    binary,
+    copies,
     calls,
     writes,
     mkdirs,
@@ -928,5 +950,176 @@ describe("The Python script and the shared constants", () => {
     expect(py).toContain("matched no material");
     // find_texture_for_material returns an aliased image with guessed = False, so no warning follows from it
     expect(py).toMatch(/found, _key = lookup_alias\(aliases, ref, mat\.name\)\r?\n\s+if found:\r?\n\s+return found, None, False/);
+  });
+});
+
+describe("Ticket 054 A: --colourways exports the colourway atlases without Blender", () => {
+  /** A 24-byte PNG header (signature, then an IHDR chunk length, type, width and height); no pixel data. */
+  const png = (width: number, height: number): Uint8Array => {
+    const b = new Uint8Array(24);
+    b.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52]);
+    const view = new DataView(b.buffer);
+    view.setUint32(16, width);
+    view.setUint32(20, height);
+    return b;
+  };
+  type Raw = { packs: Array<Record<string, unknown>> };
+  const IDS = ["01", "02", "03", "04"].flatMap((s) => ["A", "B", "C"].map((t) => `${s}_${t}`));
+  const cityIn = (...parts: string[]) => join(L.inRoot, "city-pack", ...parts);
+  const fileOf = (id: string) => `PolygonCity_Texture_${id}.png`;
+  const cityFiles = (): Record<string, Uint8Array> => {
+    const out: Record<string, Uint8Array> = { [cityIn("Textures", "PolygonCity_Texture.png")]: png(1024, 1024) };
+    for (const id of IDS) out[cityIn("Textures", fileOf(id))] = png(1024, 1024);
+    return out;
+  };
+  /** An earlier manifest: city-pack and one other pack, the other with a field no reader knows. */
+  const prior = (colourways?: unknown) => ({
+    version: 1,
+    generatedAt: "2026-11-01T00:00:00.000Z",
+    blenderVersion: "4.2.3 LTS",
+    packs: [
+      { pack: "city-pack", glb: "city-pack.glb", atlas: null, scale: 100, ...(colourways !== undefined ? { colourways } : {}), assets: [], failures: [] },
+      { pack: "other", glb: "other.glb", atlas: "Textures/Other.png", scale: 1, assets: [], failures: [], note: { keep: [1, 2] } },
+    ],
+  });
+  const priorText = (colourways?: unknown) => JSON.stringify(prior(colourways), null, 2) + "\n";
+  const city = (m: Raw) => m.packs.find((p) => p["pack"] === "city-pack") as Record<string, unknown>;
+
+  it("copies each file, reads its size from the PNG header, writes colourways into only the city-pack entry, and never runs a program", async () => {
+    const s = setup({ blender: false, packs: ["city-pack", "other"], binaryFiles: cityFiles(), extraFiles: { [L.manifest]: priorText() } });
+    expect(await convert(["--colourways", "city-pack"], s.deps)).toBe(0);
+    expect(s.calls).toEqual([]); // no Blender, not even --version
+    expect(s.copies).toHaveLength(12);
+    expect(s.copies[0]).toEqual([cityIn("Textures", fileOf("01_A")), join(L.out, "city-pack", "colourways", fileOf("01_A"))]);
+    for (const [, to] of s.copies) expect(isInside(L.privateRoot, to)).toBe(true);
+    expect(s.writes).toEqual([L.manifest]);
+    const after = s.manifest() as unknown as Raw;
+    expect((city(after)["colourways"] as Array<Record<string, unknown>>).map((c) => c["id"])).toEqual(IDS);
+    expect((city(after)["colourways"] as unknown[])[5]).toEqual({
+      id: "02_C",
+      image: "city-pack/colourways/PolygonCity_Texture_02_C.png",
+      base: "PolygonCity_Texture",
+      width: 1024,
+      height: 1024,
+    });
+    // every other pack and field is deep-equal to before; only `colourways` was added
+    const expected = prior();
+    expect(after.packs[1]).toEqual(expected.packs[1]);
+    const { colourways: _added, ...rest } = city(after);
+    expect(rest).toEqual(expected.packs[0]);
+    expect(after).toMatchObject({ version: 1, generatedAt: "2026-11-01T00:00:00.000Z", blenderVersion: "4.2.3 LTS" });
+    expect(s.out()).toContain("12 of 12");
+  });
+
+  it("with no pack named it exports every pack that has a table and an input folder", async () => {
+    const s = setup({ blender: false, packs: ["city-pack", "other"], binaryFiles: cityFiles(), extraFiles: { [L.manifest]: priorText() } });
+    expect(await convert(["--colourways"], s.deps)).toBe(0);
+    expect(s.copies).toHaveLength(12);
+    expect(s.calls).toEqual([]);
+  });
+
+  it("a missing file, a non-PNG and a 512 x 512 file each give one warning naming the file and are left out; the rest are written; exit 0", async () => {
+    const files = cityFiles();
+    delete files[cityIn("Textures", fileOf("01_B"))];
+    files[cityIn("Textures", fileOf("02_A"))] = new Uint8Array(40).fill(7);
+    files[cityIn("Textures", fileOf("03_C"))] = png(512, 512);
+    const s = setup({ blender: false, packs: ["city-pack"], binaryFiles: files, extraFiles: { [L.manifest]: priorText() } });
+    expect(await convert(["--colourways", "city-pack"], s.deps)).toBe(0);
+    const lines = s.err().trim().split("\n");
+    expect(lines).toHaveLength(3);
+    expect(lines.filter((l) => l.includes(fileOf("01_B")))).toHaveLength(1);
+    expect(lines.filter((l) => l.includes(fileOf("02_A")) && l.includes("not a PNG"))).toHaveLength(1);
+    expect(lines.filter((l) => l.includes(fileOf("03_C")) && l.includes("512 x 512") && l.includes("1024 x 1024"))).toHaveLength(1);
+    const ids = ((city(s.manifest() as unknown as Raw)["colourways"] ?? []) as Array<{ id: string }>).map((c) => c.id);
+    expect(ids).toEqual(IDS.filter((id) => !["01_B", "02_A", "03_C"].includes(id)));
+    expect(s.copies).toHaveLength(9); // a rejected file is never copied
+  });
+
+  it("a missing manifest exits 1 and writes and copies nothing", async () => {
+    const s = setup({ blender: false, packs: ["city-pack"], binaryFiles: cityFiles() });
+    expect(await convert(["--colourways", "city-pack"], s.deps)).toBe(1);
+    expect(s.err()).toContain("manifest");
+    expect(s.writes).toEqual([]);
+    expect(s.copies).toEqual([]);
+    expect(s.mkdirs).toEqual([]);
+  });
+
+  it("an unusable base atlas exits 1 and leaves the manifest alone; a pack with no table or a bad name is refused", async () => {
+    const files = cityFiles();
+    delete files[cityIn("Textures", "PolygonCity_Texture.png")];
+    const s = setup({ blender: false, packs: ["city-pack"], binaryFiles: files, extraFiles: { [L.manifest]: priorText() } });
+    expect(await convert(["--colourways", "city-pack"], s.deps)).toBe(1);
+    expect(s.err()).toContain("PolygonCity_Texture.png");
+    expect(s.writes).toEqual([]);
+    expect(s.copies).toEqual([]);
+    for (const bad of ["other", "../x", "nosuch"]) {
+      const t = setup({ blender: false, packs: ["city-pack", "other"], binaryFiles: cityFiles(), extraFiles: { [L.manifest]: priorText() } });
+      expect(await convert(["--colourways", bad], t.deps), bad).toBe(1);
+      expect(t.writes, bad).toEqual([]);
+      expect(t.copies, bad).toEqual([]);
+    }
+  });
+
+  it("a pack that is not in the manifest is reported and nothing is written for it", async () => {
+    const m = prior();
+    m.packs.shift();
+    const s = setup({ blender: false, packs: ["city-pack"], binaryFiles: cityFiles(), extraFiles: { [L.manifest]: JSON.stringify(m) } });
+    expect(await convert(["--colourways", "city-pack"], s.deps)).toBe(1);
+    expect(s.err()).toContain("city-pack");
+    expect(s.writes).toEqual([]);
+  });
+
+  it("running it twice gives the same manifest text", async () => {
+    const s = setup({ blender: false, packs: ["city-pack"], binaryFiles: cityFiles(), extraFiles: { [L.manifest]: priorText() } });
+    await convert(["--colourways", "city-pack"], s.deps);
+    const first = s.files.get(L.manifest);
+    await convert(["--colourways", "city-pack"], s.deps);
+    expect(s.files.get(L.manifest)).toBe(first);
+  });
+
+  it("cannot be combined with --selftest", async () => {
+    const s = setup({ packs: ["city-pack"] });
+    expect(await convert(["--colourways", "--selftest"], s.deps)).toBe(1);
+    expect(s.calls).toEqual([]);
+  });
+
+  it("a full convert of another pack keeps city-pack's colourways", async () => {
+    const kept = IDS.map((id) => ({ id, image: `city-pack/colourways/${fileOf(id)}`, base: "PolygonCity_Texture", width: 1024, height: 1024 }));
+    const s = setup({ packs: ["city-pack", "other"], extraFiles: { [L.manifest]: priorText(kept) } });
+    expect(await convert(["other"], s.deps)).toBe(0);
+    expect(s.conversions().map((c) => flag(c.args, "--in"))).toEqual([join(L.inRoot, "other")]);
+    expect(s.copies).toEqual([]); // `other` has no colourway table
+    expect(city(s.manifest() as unknown as Raw)["colourways"]).toEqual(kept);
+  });
+
+  it("a full convert of city-pack runs the colourway step after its GLB", async () => {
+    const order: string[] = [];
+    const s = setup({
+      packs: ["city-pack"],
+      binaryFiles: cityFiles(),
+      behaviour: () => {
+        order.push("blender");
+        return { code: 0 };
+      },
+    });
+    const copyFile = s.deps.copyFile;
+    s.deps.copyFile = (from, to) => {
+      order.push("copy");
+      copyFile(from, to);
+    };
+    expect(await convert([], s.deps)).toBe(0);
+    expect(order[0]).toBe("blender");
+    expect(order.filter((x) => x === "copy")).toHaveLength(12);
+    expect(order.indexOf("copy")).toBeGreaterThan(order.lastIndexOf("blender"));
+    const after = s.manifest() as unknown as Raw;
+    expect((city(after)["colourways"] as unknown[]).length).toBe(12);
+    expect(city(after)["glb"]).toBe("city-pack.glb");
+  });
+
+  it("a full convert of city-pack whose colourway files are absent still succeeds, with a warning only", async () => {
+    const s = setup({ packs: ["city-pack"] });
+    expect(await convert([], s.deps)).toBe(0);
+    expect(s.err()).toContain("PolygonCity_Texture.png");
+    expect(city(s.manifest() as unknown as Raw)).not.toHaveProperty("colourways");
   });
 });

@@ -147,6 +147,48 @@ describe("Manifest (buildManifest)", () => {
     expect(again.packs[0]?.assets[0]?.name).toBe("Fixture_Door");
   });
 
+  describe("ticket 054 A: colourways", () => {
+    const colourways = [
+      { id: "01_A", image: "city-pack/colourways/PolygonCity_Texture_01_A.png", base: "PolygonCity_Texture", width: 1024, height: 1024 },
+      { id: "02_A", image: "city-pack/colourways/PolygonCity_Texture_02_A.png", base: "PolygonCity_Texture", width: 1024, height: 1024 },
+    ];
+    const withColourways = (c: unknown) => {
+      const first = buildManifest(
+        [
+          { pack: "a", glbPath: join(OUT, "a.glb"), atlas: null, report: fixture("report-ok.json") },
+          { pack: "b", glbPath: join(OUT, "b.glb"), atlas: null, report: fixture("report-ok.json") },
+        ],
+        opts,
+      );
+      const raw = JSON.parse(JSON.stringify(first)) as { packs: Array<Record<string, unknown>> };
+      raw.packs[0]!["colourways"] = c;
+      return JSON.stringify(raw);
+    };
+
+    it("readPriorPacks keeps a pack's colourways, and buildManifest carries them across a re-convert of another pack", () => {
+      const prior = readPriorPacks(withColourways(colourways));
+      expect(prior[0]?.colourways).toEqual(colourways);
+      expect(prior[1]).not.toHaveProperty("colourways");
+      const again = buildManifest([{ pack: "b", glbPath: join(OUT, "b.glb"), atlas: null, report: fixture("report-ok.json") }], { ...opts, keep: [prior[0]!] });
+      expect(again.packs[0]?.colourways).toEqual(colourways);
+      expect(again.packs[1]).not.toHaveProperty("colourways");
+    });
+
+    it("a re-convert of the same pack replaces its entry, so its colourways are written again by the colourway step", () => {
+      const prior = readPriorPacks(withColourways(colourways));
+      const again = buildManifest([{ pack: "a", glbPath: join(OUT, "a.glb"), atlas: null, report: fixture("report-ok.json") }], { ...opts, keep: prior });
+      expect(again.packs[0]).not.toHaveProperty("colourways");
+    });
+
+    it("a malformed colourways field is dropped (the pack is kept), never trusted", () => {
+      for (const bad of ["x", [1], [{ ...colourways[0], width: 0 }], [{ ...colourways[0], image: "../x.png" }], [{ ...colourways[0], image: "C:/x.png" }], [colourways[0], colourways[0]], [{ id: "a" }]]) {
+        const prior = readPriorPacks(withColourways(bad));
+        expect(prior.map((p) => p.pack), JSON.stringify(bad)).toEqual(["a", "b"]);
+        expect(prior[0], JSON.stringify(bad)).not.toHaveProperty("colourways");
+      }
+    });
+  });
+
   it("readPriorPacks gives nothing for junk or another manifest version", () => {
     expect(readPriorPacks("not json")).toEqual([]);
     expect(readPriorPacks(JSON.stringify({ version: 99, packs: [] }))).toEqual([]);

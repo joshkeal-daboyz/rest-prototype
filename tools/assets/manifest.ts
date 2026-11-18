@@ -5,7 +5,7 @@
 
 import { relative, sep } from "node:path";
 import { ASSET_MANIFEST_VERSION } from "../../src/core";
-import type { AssetBounds, AssetEntry, AssetFailure, AssetManifest, AssetPack, AssetWarning, Vec3 } from "../../src/core";
+import type { AssetBounds, AssetColourway, AssetEntry, AssetFailure, AssetManifest, AssetPack, AssetWarning, Vec3 } from "../../src/core";
 
 /** A report (or manifest) that doesn't have the shape the pipeline promises. The message names the pack and field. */
 export class ManifestError extends Error {
@@ -143,6 +143,35 @@ export function parsePackReport(pack: string, raw: unknown, opts: { requireScale
   return { blenderVersion: typeof bv === "string" && bv !== "" ? bv : null, ...(packScale !== undefined ? { scale: packScale } : {}), assets, failures };
 }
 
+/**
+ * A pack's `colourways` field (ticket 054 A) as read back from a manifest: an array of { id, image, base, width, height }.
+ * Returns undefined when the field is absent or is not usable (one bad entry drops the whole field; the next colourway run writes it again).
+ */
+export function readColourways(pack: string, raw: unknown): AssetColourway[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: AssetColourway[] = [];
+  const ids = new Set<string>();
+  for (const [i, c] of (raw as unknown[]).entries()) {
+    if (!isObject(c)) return undefined;
+    const size = (v: unknown) => (typeof v === "number" && Number.isInteger(v) && v > 0 ? v : undefined);
+    const width = size(c["width"]);
+    const height = size(c["height"]);
+    const id = c["id"];
+    const base = c["base"];
+    const image = c["image"];
+    if (typeof id !== "string" || id === "" || typeof base !== "string" || base === "" || typeof image !== "string") return undefined;
+    if (width === undefined || height === undefined || ids.has(id)) return undefined;
+    try {
+      packRelativePath(pack, `colourways[${i}].image`, image);
+    } catch {
+      return undefined;
+    }
+    ids.add(id);
+    out.push({ id, image, base, width, height });
+  }
+  return out;
+}
+
 export interface PackInput {
   pack: string;
   /** Absolute path of the pack's GLB. */
@@ -206,11 +235,13 @@ export function readPriorPacks(text: string): AssetPack[] {
       const atlas = p["atlas"];
       if (atlas !== null && typeof atlas !== "string") return [];
       const report = parsePackReport(p["pack"], p, { requireScale: false });
+      const colourways = readColourways(p["pack"], p["colourways"]);
       out.push({
         pack: p["pack"],
         glb: p["glb"],
         atlas,
         ...(report.scale !== undefined ? { scale: report.scale } : {}),
+        ...(colourways !== undefined ? { colourways } : {}),
         assets: report.assets,
         failures: report.failures,
       });
