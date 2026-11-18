@@ -58,3 +58,7 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 043 B (settle) | renderer | sonnet | 21K total (one figure in the readout) | — | 0 | Main-session gate caught a describe-level manifest read that would fail on CI; made it lazy; 10 tool uses, 1 min |
 | 043 B (rework) | renderer | sonnet | 167K total (one figure in the readout) | — | 0 | Gallery as one line, four copies per model, low camera, own input handler; 34 tool uses, 10 min; no browser or dev server by design (PC load) |
 | 043 B round 2 | code-reviewer | agent default | 72K total (one figure in the readout) | — | 0 | meets, must-fix 0; ran one test file |
+| 043 cut | lead-architect | agent default | 93K total (one figure in the readout) | — | 0 | Cut ticket 043 (city style guide and gallery); 18 tool uses, 3 min |
+| 044 | grid-simulator | agent default | 36K total (one figure in the readout) | — | 0 | Fixed the Windows-only fixture in convert.test.ts (CI red since 038); 19 tool uses, 1 min; no review or playtest (one-line test change; the Linux CI run is the check) |
+| 045 cut | lead-architect | agent default | 115K total (one figure in the readout) | — | 0 | Cut ticket 045 (click to calibrate fronts) and the src/core/calibration.ts types; 19 tool uses, 6 min |
+| 045 section 0 | lead-architect | agent default | 42K total (one figure in the readout) | — | 0 | Validator, key helpers, patch function, 42 tests (commit 637f5e0 on ticket/045-click-to-calibrate-fronts-0); 12 tool uses, 3 min; not yet reviewed or merged |
