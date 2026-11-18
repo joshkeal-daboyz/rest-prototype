@@ -4,7 +4,7 @@ owner: renderer (src/render3d/, docs/city-style-guide.md)
 status: approved (G1, Josh, 18 Nov 2026: "I approve", after seeing the ticket and its open-question defaults; every default applies). Sections in order A, then B and C (may run in parallel), then E (integration, added 18 Nov 2026 after A, B and C were built), then D.
 - **Section E approved** (G1, Josh, 18 Nov 2026, in chat, relayed by the main session: "I approve one through three"). Item 2 of that approval is section E, with Q8 and Q9 at their defaults. Items 1 and 3 are the merge of A, B and C into `goal/city-style`, and ticket 056.
 - **Ticket 056** (parking rules, approved in the same words) changes criteria 4, 11, 23, 26, 27, 28, 31 and D's T6 once 056 A merges. Each change is marked "From 056" where it applies.
-- **Section F** (door sills, added 18 Nov 2026 on Josh's direction: "That's going to have to be a variable that we measure for each individual building") is **open, awaiting his G1** on this cut and on Q10 to Q13. It builds after E.
+- **Section F** (door sills, added 18 Nov 2026 on Josh's direction: "That's going to have to be a variable that we measure for each individual building") is **approved** (G1, Josh, 18 Nov 2026, in chat, relayed by the main session: "Approved and confirmed"), with Q10 to Q13 at their defaults. It builds after E.
 
 Built on `goal/city-style`, which Josh has not merged to main yet.
 branch: one per section: `ticket/055a-tile-grid`, `ticket/055b-tile-lots`, `ticket/055c-tile-draw`, `ticket/055e-tile-integrate`, `ticket/055d-tile-checks`, `ticket/055f-door-sills`
@@ -90,7 +90,7 @@ In a dev build, Josh (or the main session) opens `/?puzzle=<any>&view=3d&city=ti
 - **C. Drawing and the dev view** (about 1 day). Design items 11 and 12. Needs A; may build in parallel with B (it draws whatever the tile city's `Town` holds; terraces appear once B merges).
 - **E. Integration** (about 1 day; added 18 Nov 2026). B's helpers wired into the drawn city (keep-outs, bay meters, the dressing's frame), a frame-aware R10, the street camera on the tile city, the tile facts the C builder read from the GLBs (bays per parking tile, the walking level, the centre line), a readable sheet, and `light=day` on the tile view. Needs B and C merged into `goal/city-style`.
 - **D. Checks and the guide** (about ½ day). `tilemetrics.ts`, chapter 17, chapter 10's update, the Numbers rows and drift test, all on the integrated city. Needs E.
-- **F. Door sills** (about 1 day; added 18 Nov 2026 on Josh's direction; **not yet approved, waits for his G1 on this cut**). F covers every building on the tile city and on the ladder maps.
+- **F. Door sills** (about 1 day; added 18 Nov 2026 on Josh's direction; **approved, G1, Josh 18 Nov 2026: "Approved and confirmed"**). F covers every building on the tile city and on the ladder maps.
   - Each building's door-sill height is measured from its GLB into a table keyed by model.
   - The draw step sinks the building so the sill meets the walk, or, for a house that cannot sink that far, stands steps at its door.
   - F needs E merged, because both edit `models3d.ts`. It may run beside D and 056, which touch other files.
@@ -327,7 +327,7 @@ Pack facts, from the manifest (the main session, 18 Nov 2026):
 8. **The centre line.** The lane tiles `Road_Lines_01/02` have a white edge line on both sides and no centre mark, so two lanes side by side read as a white double line down the middle. The pack's `Road_YellowLines_01/02` carry a yellow line, and they are not on the never-used list. Default: **use the YellowLines pieces for every lane cell**, yellow edge on the centre line. Alternative: keep the white pieces.
 9. **The tile view's default lighting.** Default: **night, as the game and every ladder map**, with `&light=day` for judging the tiles (fixed in E so it works overhead); the sheet is always lit. Alternative: the dev-only tile view opens in daylight.
 
-### Added 18 Nov 2026 with section F (not yet put to Josh; the defaults apply if he approves F as is)
+### Added 18 Nov 2026 with section F (answered 18 Nov 2026: every default applies, "Approved and confirmed")
 10. **Where the sill rule applies.** Default: **everywhere**, on the tile city and the ladder maps. These are the same buildings, and a door nobody can reach is wrong on both. Only building and dressing heights and the steps change on the ladder (criterion 36). Alternative: the tile city only, for now.
 11. **The threshold.** Default: a sill up to **0.15 m** is left as a door step. Alternative: 0.05 m (every visible plinth sinks).
 12. **Steps or sink.** Default: **sink first**. Steps only for a house whose sinking would bury its ground-floor windows, and never on a terrace. Alternative: steps at every house door, and sinking only for stacks.

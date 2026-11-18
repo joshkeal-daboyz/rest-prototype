@@ -3,7 +3,7 @@
 owner: renderer (src/render3d/, docs/city-style-guide.md)
 status: approved (G1, Josh, 18 Nov 2026, in chat, relayed by the main session: "Approve 057, 058 and 059"; given on the main session's summary of the scope, before he saw this text). Every open question is at its default. Q1 was settled by his own words, "Grass and pavement should fill the blank areas".
 - Sections F and G (block variety, alleys and parks) were added after that G1, on his clarification "Keep in mind, 90 degrees does not mean a grid of squares. You can have varying widths for blocks, alleyways, parks... etc".
-- The main session shows Josh F and G before they build.
+- **F and G confirmed** (Josh, 18 Nov 2026, in chat, relayed by the main session: "Approved and confirmed").
 
 Builds on `goal/city-style` after 056 A merges (see Dependencies). Sections A, B and C in order, then D and E (may run in parallel).
 branch: one per section: `ticket/057a-wall-line`, `ticket/057b-frontage-ends`, `ticket/057c-block-interiors`, `ticket/057d-interior-draw`, `ticket/057e-frontage-guide`

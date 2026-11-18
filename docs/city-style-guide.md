@@ -498,7 +498,7 @@ Josh's rulings from the tile-city work, in his own words, each with the ticket t
   - From 057 on, residents' lots are interior courts.
 
 ### Buildings (tickets 055 F and 058; sections 16.10 and 16.11)
-- **Default (055 F, Josh 18 Nov 2026; F awaits his G1 on its Q10 to Q13)**: each building's door sill is measured, and the building is sunk to the walk or given steps: "That's going to have to be a variable that we measure for each individual building." (16.10)
+- **Default (055 F, Josh 18 Nov 2026; F approved with Q10 to Q13 at their defaults: "Approved and confirmed")**: each building's door sill is measured, and the building is sunk to the walk or given steps: "That's going to have to be a variable that we measure for each individual building." (16.10)
 - **Default (058, Josh 18 Nov 2026)**: fire escapes connect, and their platforms are level with the windows: "There are gaps on the fire escapes. Additionally, fire escapes should always be level with windows or else people can't get out of the building." (16.11)
 
 ### Poles, wires and lights (ticket 059; chapter 20, with lines in chapters 8 and 12)
@@ -506,7 +506,7 @@ Josh's rulings from the tile-city work, in his own words, each with the ticket t
   - Poles stand in the reserved slots, with code-drawn wires and Town Pack street lights distinct from puzzle lamps.
   - No never-used model is lifted unless Josh asks.
 
-### Testing daylight (ticket 060, awaiting Josh's G1; section 16.12)
+### Testing daylight (ticket 060, approved 18 Nov 2026; section 16.12)
 - **Default (060, Josh 18 Nov 2026)**: a dev-only day mode, for testing only. The game's night look (chapter 11) is unchanged: "please create a day light mode so it's easy to see" and "the purpose of the day mode is for testing".
 
 ## Numbers

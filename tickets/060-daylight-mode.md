@@ -1,7 +1,7 @@
 # 060 · A testing daylight: a dev-only day mode for judging the city by eye
 
 owner: renderer (src/render3d/, docs/city-style-guide.md)
-status: open, awaiting Josh's G1 (not approved). Independent of 056 to 059 except for shared files (see Dependencies). Sections A, then B.
+status: approved (G1, Josh, 18 Nov 2026, in chat, relayed by the main session: "Approved and confirmed"); every open question at its default. Independent of 056 to 059 except for shared files (see Dependencies). Sections A, then B.
 branch: `ticket/060a-light-table`, `ticket/060b-daylight-view`
 
 ## Josh's words (18 Nov 2026, in chat)
@@ -167,7 +167,7 @@ His clarification, the same day:
 
 The builder may rename any of these.
 
-## Open questions for Josh (the defaults apply if he approves as is)
+## Open questions (answered 18 Nov 2026: every default applies, "Approved and confirmed")
 1. **Shadows.** Default: **off, as a separate opt-in** (`&shadows=1`, dev only), built only if the builder measures it cheap (at most 1.5 times the frame's draw calls on the default tile city). Otherwise it is left out and reported. They cost about one extra pass over every building, and your PC froze under load on 17 Nov. Alternative: sun shadows on in day for the tile city only, with a 2048 map, buildings casting and the ground receiving. The builder would report the draw-call count.
 2. **The sky.** Default: a flat pale blue. Alternative: a simple two-colour gradient (a large backdrop sphere), one more draw call.
 3. **The tile view's default.** Default: **day** (your words). Alternative: night first, with the toggle.
