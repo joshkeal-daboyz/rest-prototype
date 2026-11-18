@@ -651,7 +651,7 @@ describe("Manifest, as the CLI writes it", () => {
     const s = setup({
       packs: ["b-pack", "a-pack"],
       extraFiles: {
-        [join(L.inRoot, "a-pack", "pack.json")]: JSON.stringify({ atlas: "Textures\\Atlas.png" }),
+        [join(L.inRoot, "a-pack", "pack.json")]: JSON.stringify({ atlas: "Textures/Atlas.png" }),
         [join(L.inRoot, "a-pack", "Textures", "Atlas.png")]: "png",
       },
     });
