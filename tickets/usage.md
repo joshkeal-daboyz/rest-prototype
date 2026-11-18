@@ -110,3 +110,11 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 051 section B | renderer | sonnet | 277K total (one figure in the readout; three passes: build 255K, then two gate-fix passes) | — | 0 | Terrace rows in town.ts, parking lots and plazas, 21 new tests (commit 7677aa0), then four stacktown tests, the terrace skip and the debug3d stand-in fixed after the gate (ac30ad5, ac9fd3e); 95 tool uses, 22 min |
 | 051 section B | gate (main session) | — | — | — | 0 | Three runs: 4 failures (stacktown, after merging 050 C), then 1 (debug3d), then green: tsc clean, 94 files, 1843 passed |
 | 051 section B | playtester | agent default | 17K total (one figure in the readout) | — | 0 | regressions 0; stopped early (harness never imports render3d) |
+| 051 section B | code-reviewer | agent default | 116K total (one figure in the readout) | — | 0 | meets, must-fix 0; re-hashed the old town.ts layout to prove terraces:false equals today's |
+| 052 section A | renderer | sonnet | 169K total (one figure in the readout; build 158K, then the must-fix pass) | — | 0 | Pure dressing slots, 20 tests (commits 8a7a7e1, 4fc0822); 35 tool uses, 12 min |
+| 052 section A | gate (main session) | — | — | — | 0 | Two runs, both green: 95 files, 1860 then 1863 passed |
+| 052 section A | code-reviewer | agent default | 103K total (two rounds: 70K, then 33K) | — | 0 | Round 1 must-fix 1 (billboard face past the roof inset); round 2 meets, must-fix 0 |
+| 052 section A | playtester | agent default | 17K total (one figure in the readout) | — | 0 | regressions 0; stopped early (nothing imports dressing.ts) |
+| 051 section C | renderer | sonnet | 164K total (one figure in the readout) | — | 0 | Terrace packer terrace.ts, 16 tests (commit 7b7501d); 55 tool uses, 12 min; 90% far-gap closure unreachable with the real piece widths |
+| 051 section C | gate (main session) | — | — | — | 0 | tsc clean, 95 files, 1859 passed |
+| 051 section C | playtester | agent default | 18K total (one figure in the readout) | — | 0 | regressions 0; stopped early |
