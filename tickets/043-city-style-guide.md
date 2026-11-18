@@ -1,7 +1,7 @@
 # 043 · A city style guide: one written record of how the 3D town looks and is assembled, pinned to the code, with a building gallery
 
 owner: renderer
-status: approved (G1, Josh, 17 Nov 2026: "I approve ticket 43"; every open-question default applies, Q4 answered: POLYGON City and Town packs are the target style). Sections build in order A, B; C waits.
+status: section A done (merged 17 Nov 2026; Josh: "merge it, it's a good first shot, do section b"); B in progress. Approved (G1, Josh, 17 Nov 2026: "I approve ticket 43"; every open-question default applies, Q4 answered: POLYGON City and Town packs are the target style). Sections build in order A, B; C waits.
 branch: `ticket/043-city-style-guide` (one branch per section: `-a`, `-b`, ...)
 
 ## Josh's words (17 Nov 2026)
