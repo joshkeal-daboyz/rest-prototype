@@ -608,6 +608,15 @@ class PolySet {
 
 const cache = new WeakMap<Puzzle, { on?: Town; off?: Town }>();
 
+/** The layout's own lot rules (roads, pavements, nodes, wires, placed lots, the occlusion rule at height `h`, world units) asked of one box: centre, size, yaw (the lot's front is `(sin yaw, cos yaw)`). */
+export type TownClears = (x: number, z: number, w: number, d: number, yaw: number, h: number, margin?: number) => boolean;
+const clearsOf = new WeakMap<object, TownClears>();
+
+/** `clears` of a town `townLayout` made (the same function the lots were placed with), or null for any other object. A margin of 0 lets a box touch a placed lot. */
+export function townClears(town: Town): TownClears | null {
+  return clearsOf.get(town) ?? null;
+}
+
 type DeepReadonly<T> = T extends readonly (infer U)[] ? readonly DeepReadonly<U>[] : T extends object ? { readonly [K in keyof T]: DeepReadonly<T[K]> } : T;
 
 /** The town as callers see it: read-only in the type, and frozen at run time (the result is cached and shared between callers). */
@@ -671,14 +680,16 @@ export function townLayout(puzzle: Puzzle, opts: { terraces?: boolean } = {}): T
   const entry = cache.get(puzzle) ?? {};
   const hit = terraces ? entry.on : entry.off;
   if (hit) return hit;
-  const town = deepFreeze(build(puzzle, terraces)) as Town;
+  const sink: { clears?: TownClears } = {};
+  const town = deepFreeze(build(puzzle, terraces, sink)) as Town;
+  if (sink.clears) clearsOf.set(town, sink.clears);
   if (terraces) entry.on = town;
   else entry.off = town;
   cache.set(puzzle, entry);
   return town;
 }
 
-function build(puzzle: Puzzle, terraces: boolean): TownData {
+function build(puzzle: Puzzle, terraces: boolean, sink?: { clears?: TownClears }): TownData {
   const posOf = new Map<string, Pt>();
   for (const n of puzzle.nodes) posOf.set(n.id, { x: n.pos[0], z: n.pos[1] });
 
@@ -1179,6 +1190,9 @@ function build(puzzle: Puzzle, terraces: boolean): TownData {
     if (hides(poly, h)) return false;
     return true;
   };
+
+  // The lot rules, for a caller that wants to ask them of a box the layout did not place (ticket 051 C's strip test). Unchanged: the closure above, exposed.
+  if (sink) sink.clears = (x, z, w, d, yaw, h, margin = 0) => clears(mkPoly(rectPts(x, z, w, d, Math.sin(yaw), Math.cos(yaw)))!, h, false, margin);
 
   // ---- places, before the ordinary lots ----
   const allTargets = !puzzle.target || puzzle.target.length === 0;

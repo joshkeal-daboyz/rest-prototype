@@ -587,3 +587,14 @@ export function assembleStack(
     };
   }
 }
+
+/**
+ * The deepest any candidate piece of `style` stands, back face to frontmost face, metres (worst case over every piece the recipe can pick, as `stackRange`'s depth check
+ * uses), or null when the manifest lacks a role. A corner block's real back wall is at most this far from its front line: the terrace packer (ticket 051 C) closes a
+ * row's far end to it.
+ */
+export function stackDepth(style: StackStyle, entries: Entries, fronts: FrontTable = BUILDING_FRONTS): number | null {
+  const kit = kitOf(style, entries, fronts);
+  if (kit.baseMid.length === 0 || kit.floorMid.length === 0 || kit.roofMid.length === 0) return null;
+  return worstDepth(style, kit);
+}

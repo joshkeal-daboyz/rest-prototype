@@ -11,8 +11,8 @@ import { NODE_SQUARE } from "../render/city";
 import { wireLayout } from "./layout";
 import { BUILDING_FRONTS } from "./models";
 import { STACK_STYLES, type Stack, type StackStyle } from "./stacks";
-import { TERRACE_SEAM_M, packTerrace, type PackResult } from "./terrace";
-import { TERRACE_BAYS, WIRE_CLEAR, WORLD_PER_METRE, townLayout, type Lot, type TerraceRun, type Town } from "./town";
+import { ALLEY_MAX_M, ALLEY_MIN_M, TERRACE_SEAM_M, cornerStyle, farWall_m, packTerrace, type PackResult } from "./terrace";
+import { TERRACE_BAYS, TERRACE_DEPTH_M, WIRE_CLEAR, WORLD_PER_METRE, townClears, townLayout, type Lot, type TerraceRun, type Town } from "./town";
 
 void ASSET_MANIFEST_VERSION;
 
@@ -71,6 +71,13 @@ const EPS = 1e-6;
 const MID_W: Record<string, number> = { "apartment-01": 5.0, "apartment-02": 5.17, "apartment-03": 5.281 };
 const APARTMENTS = STACK_STYLES.filter((s) => s.depth === "bay").map((s) => s.id);
 
+/** The run that starts the next row of the same block (a corner-ended run is the last of its row, and the runs of a block are contiguous), or undefined. */
+function nextRunOf(town: Town, run: TerraceRun): TerraceRun | undefined {
+  const k = town.terraces.indexOf(run);
+  const after = town.terraces[k + 1];
+  if (after && after.block === run.block) return after;
+  return town.terraces.find((r) => r.block === run.block);
+}
 const pack = (run: TerraceRun, town: Town): PackResult =>
   packTerrace(
     run,
@@ -78,6 +85,7 @@ const pack = (run: TerraceRun, town: Town): PackResult =>
     STACK_STYLES,
     ENTRIES,
     BUILDING_FRONTS,
+    { farWall_m: farWall_m(run, nextRunOf(town, run), STACK_STYLES, ENTRIES, BUILDING_FRONTS) },
   );
 
 // ---- synthetic runs, typed in (no town): along +x, front toward +z, so the lot's +x points toward the run's start ----
@@ -143,7 +151,7 @@ describe("packTerrace on a typed-in run", () => {
     }
     expect(r.farGap_m).toBeGreaterThanOrEqual(0);
     expect(r.farGap_m).toBeLessThanOrEqual(TERRACE_SEAM_M + 1e-9);
-    expect(Math.abs(end + r.farGap_m - 31.2)).toBeLessThan(EPS);
+    expect(Math.abs(end + r.farOverhang_m + r.farGap_m - 31.2)).toBeLessThan(EPS);
   });
 
   it("closes to within the seam nearly every length of a long run (over 90 m, columns of 5.0 to 5.3 m leave no dead band), at a corner start or not", () => {
@@ -231,9 +239,9 @@ describe("packTerrace on a typed-in run", () => {
 
   it("gives no block, and the run's whole length as the gap, when nothing can stand: a run under one block, no City Pack piece, or only offices", () => {
     const short = synthRun({ lenM: 8, bays: [2], start: "none", end: "parking" });
-    expect(packSynth(short)).toEqual({ blocks: [], farGap_m: 8 });
+    expect(packSynth(short)).toEqual({ blocks: [], farGap_m: 8, farOverhang_m: 0, dropped: 0 });
     const s = synthRun({ lenM: 41.6, bays: [4, 4], start: "none" });
-    expect(packSynth(s, STACK_STYLES, NO_ENTRIES)).toEqual({ blocks: [], farGap_m: 41.6 });
+    expect(packSynth(s, STACK_STYLES, NO_ENTRIES)).toEqual({ blocks: [], farGap_m: 41.6, farOverhang_m: 0, dropped: 0 });
     expect(packSynth(s, STACK_STYLES.filter((x) => x.depth === "footprint")).blocks).toEqual([]);
     // A corner start with no style that has corner pieces gets no block either (a corner block needs its corner column).
     const noCorner = new Map([...ENTRIES].filter(([k]) => !k.includes("Corner")));
@@ -247,7 +255,7 @@ describe("packTerrace on a typed-in run", () => {
     expect(r.farGap_m).toBeGreaterThan(TERRACE_SEAM_M);
     expect(r.farGap_m).toBeGreaterThanOrEqual(0);
     expect(spanOfBlock(s.run, r.blocks[0]!.lot)[0]).toBeCloseTo(0, 9);
-    expect(r.farGap_m + r.blocks[0]!.stack.width_m).toBeCloseTo(12, 9);
+    expect(r.farGap_m + r.farOverhang_m + r.blocks[0]!.stack.width_m).toBeCloseTo(12, 9);
   });
 });
 
@@ -273,19 +281,16 @@ function ladder(): Packed[] {
 describe("packTerrace over every run on every map", () => {
   it("lays every block flush from the run's start, never past its far end, and the far gap never negative", { timeout: 60000 }, () => {
     let runs = 0;
-    let closed = 0;
-    let near = 0;
     for (const m of ladder()) {
       for (const { run, result } of m.runs) {
         runs++;
         const tag = `${m.name} ${run.id}`;
         expect(result.blocks.length, tag).toBeGreaterThan(0);
         expect(result.farGap_m, tag).toBeGreaterThanOrEqual(0);
-        if (result.farGap_m <= TERRACE_SEAM_M + 1e-9) closed++;
-        if (result.farGap_m <= 0.5) near++;
         const nominal = run.lots.map((i) => m.town.lots[i]!);
         const nomEnd = nominal.reduce((sum, l) => sum + l.w, 0) / W;
-        const avail = run.endAbuts === "corner" || run.endAbuts === "plaza" ? run.len / W : nomEnd;
+        const wall = farWall_m(run, nextRunOf(m.town, run), STACK_STYLES, ENTRIES, BUILDING_FRONTS);
+        const avail = run.endAbuts === "corner" ? Math.max(run.len / W, wall ?? 0) : run.endAbuts === "plaza" ? run.len / W : nomEnd;
         let end = 0;
         result.blocks.forEach((b, i) => {
           const [s, e] = spanOfBlock(run, b.lot);
@@ -300,15 +305,10 @@ describe("packTerrace over every run on every map", () => {
           expect(Math.abs(frontOff), `${tag} front line`).toBeLessThan(EPS);
         });
         expect(end, tag).toBeLessThanOrEqual(avail + EPS);
-        expect(Math.abs(end + result.farGap_m - avail), tag).toBeLessThan(EPS);
+        expect(Math.abs(end + result.farOverhang_m + result.farGap_m - avail), tag).toBeLessThan(EPS);
       }
     }
     expect(runs).toBeGreaterThan(1000);
-    // The ticket asked for 90% of runs closed to the seam. They cannot be: a row length is the map's, and N columns of these pieces span only 5.0 x N to 5.28 x N
-    // (the corner column to 5.49), so every length between N columns of the widest and N + 1 of the narrowest is a dead band (most rows are 47.89 m: 9 columns reach
-    // 47.5, 10 start at 50.2). The packer leaves the least the pieces allow, to within TERRACE_SLACK_M for variety. These floors are the ladder's measured shares, with margin.
-    expect(closed / runs).toBeGreaterThan(0.1);
-    expect(near / runs).toBeGreaterThan(0.6);
   });
 
   it("keeps every block on cleared ground: none overlaps a road, pad, pavement, node square, place or another block's lot, or comes within WIRE_CLEAR of a wire", { timeout: 60000 }, () => {
@@ -375,7 +375,14 @@ describe("packTerrace over every run on every map", () => {
           const box = bbox(pts);
           for (const s of statics) if (near(box, s.box)) expect(gap(pts, s.pts), `${m.name} ${b.lot.key} overlaps something`).toBeGreaterThan(-EPS);
           // Nor another run's nominal lots (the next row's corner block it runs on to).
-          for (const t of terraceLots) if (t.run !== run.id && near(box, t.box)) expect(gap(pts, t.pts), `${m.name} ${b.lot.key} overlaps a lot of ${t.run}`).toBeGreaterThan(-EPS);
+          // Nor another run's nominal lots, the part of the block past the run's length (the band line) apart: that part is in the next corner lot, behind its stack, and
+          // the corner-footprint test below holds the pieces out of the stack.
+          const [bs, be] = spanOfBlock(run, b.lot);
+          const cut = Math.min(be, run.len / W);
+          const shift = ((bs + cut) / 2 - (bs + be) / 2) * W;
+          const clipped = boxPts({ ...b.lot, w: (cut - bs) * W, x: b.lot.x + run.ux * shift, z: b.lot.z + run.uz * shift });
+          const cbox = bbox(clipped);
+          for (const t of terraceLots) if (t.run !== run.id && near(cbox, t.box)) expect(gap(clipped, t.pts), `${m.name} ${b.lot.key} overlaps a lot of ${t.run}`).toBeGreaterThan(-EPS);
           for (const sg of segs) {
             if (Math.min(sg.ax, sg.bx) > box.maxX + WIRE_CLEAR || Math.max(sg.ax, sg.bx) < box.minX - WIRE_CLEAR || Math.min(sg.az, sg.bz) > box.maxZ + WIRE_CLEAR || Math.max(sg.az, sg.bz) < box.minZ - WIRE_CLEAR) continue;
             const d = Math.min(...pts.map((p) => segDist(p.x, p.z, sg.ax, sg.az, sg.bx, sg.bz)), ...pts.flatMap((p, i) => { const q = pts[(i + 1) % 4]!; return [segDist(sg.ax, sg.az, p.x, p.z, q.x, q.z), segDist(sg.bx, sg.bz, p.x, p.z, q.x, q.z)]; }));
@@ -526,5 +533,197 @@ describe("the packing helpers keep stacks.ts as it was", () => {
     const stack: Stack | null = assembleStack(style, { type: "large", key: "k", cornerSides: [] }, ENTRIES, BUILDING_FRONTS, { bays: 3, spec: { frontage: 40, depth: 6, cap: 16 }, floors: 4 });
     expect(stack?.floors).toBe(4);
     expect(stack?.height_m).toBeLessThanOrEqual(16);
+  });
+});
+
+
+// ---- the far end: seam, or alley, never a slit ----
+
+const sourceOf = (f: string): string => readFileSync(join("src", "render3d", f), "utf8");
+const gapTier = (g: number): "seam" | "alley" | "slit" | "big" => (g <= TERRACE_SEAM_M + 1e-9 ? "seam" : g >= ALLEY_MIN_M - 1e-9 && g <= ALLEY_MAX_M + 1e-9 ? "alley" : g < ALLEY_MIN_M ? "slit" : "big");
+
+describe("closing the far gap: a seam, or an alley, never a slit", () => {
+  it("ends at least 85% of ladder runs in the seam or the alley window and at most 5% in a slit, measured to the next corner block's real back wall", { timeout: 60000 }, () => {
+    let runs = 0;
+    const tiers = { seam: 0, alley: 0, slit: 0, big: 0 };
+    for (const m of ladder()) {
+      for (const { result } of m.runs) {
+        runs++;
+        tiers[gapTier(result.farGap_m)]++;
+      }
+    }
+    expect(runs).toBeGreaterThan(1000);
+    expect((tiers.seam + tiers.alley) / runs, JSON.stringify(tiers)).toBeGreaterThanOrEqual(0.85);
+    expect(tiers.slit / runs, JSON.stringify(tiers)).toBeLessThanOrEqual(0.05);
+  });
+
+  it("takes an alley (1.0 to 1.5 m) where only a 0.3 to 0.5 m slit was possible before: row lengths from 36 to 60 m, between corner blocks, end in a seam or an alley, and in a slit almost never", () => {
+    // Nine unscaled columns reach at most about 47.5 m and ten start at 50 m, so a 47.89 m row has no seam; the old packer left 0.37 to 0.48 m there.
+    const tiers = { seam: 0, alley: 0, slit: 0, big: 0 };
+    let n = 0;
+    for (let len = 36; len <= 60; len += 0.37) {
+      const bays: number[] = [];
+      for (let at = 0; at + 10.4 <= len - 5.2; at += 20.8) bays.push(4);
+      const r = packSynth(synthRun({ lenM: len, bays, start: "corner", end: "corner", id: `alley:${len.toFixed(2)}` }));
+      tiers[gapTier(r.farGap_m)]++;
+      n++;
+    }
+    expect(tiers.alley, JSON.stringify(tiers)).toBeGreaterThan(n * 0.1);
+    expect(tiers.slit, JSON.stringify(tiers)).toBeLessThanOrEqual(n * 0.05);
+    expect((tiers.seam + tiers.alley) / n, JSON.stringify(tiers)).toBeGreaterThan(0.7);
+    const dead = packSynth(synthRun({ lenM: 47.89, bays: [4, 4], start: "corner", end: "corner", id: "alley:dead" }));
+    expect(gapTier(dead.farGap_m)).toBe("alley");
+  });
+
+  it("keeps the seam wherever the pieces allow it: runs of 90 to 120 m still close to the seam at least 90% of the time, so an alley never replaces one", () => {
+    for (const start of ["corner", "none"] as const) {
+      let closed = 0;
+      let n = 0;
+      for (let len = 90; len <= 120; len += 1.7) {
+        const r = packSynth(synthRun({ lenM: len, bays: [4, 4, 4, 4, 4, 4], start, id: `long:${len.toFixed(1)}` }));
+        n++;
+        if (r.farGap_m <= TERRACE_SEAM_M + 1e-9) closed++;
+      }
+      expect(closed / n, start).toBeGreaterThanOrEqual(0.9);
+    }
+  });
+
+  it("ties go to the style used least so far in the run: a long run uses all three styles, none more than a third of its blocks plus one", () => {
+    const r = packSynth(synthRun({ lenM: 150, bays: [4, 4, 4, 4, 4, 4, 4], start: "none", id: "tie:r0" }));
+    const count = new Map<string, number>();
+    for (const b of r.blocks) count.set(b.style, (count.get(b.style) ?? 0) + 1);
+    expect(count.size).toBe(3);
+    for (const n of count.values()) expect(n).toBeLessThanOrEqual(Math.ceil(r.blocks.length / 3) + 1);
+  });
+
+  it("gives each apartment style 20% to 50% of the ladder's terrace blocks", { timeout: 60000 }, () => {
+    const count = new Map<string, number>();
+    let total = 0;
+    for (const m of ladder()) {
+      for (const { result } of m.runs) {
+        for (const b of result.blocks) {
+          count.set(b.style, (count.get(b.style) ?? 0) + 1);
+          total++;
+        }
+      }
+    }
+    for (const id of APARTMENTS) {
+      expect((count.get(id) ?? 0) / total, id).toBeGreaterThanOrEqual(0.2);
+      expect((count.get(id) ?? 0) / total, id).toBeLessThanOrEqual(0.5);
+    }
+  });
+
+  it("makes cornerStyle from the run's id alone, an apartment style with corner pieces, spread over the ids; and prefers it for the corner block", () => {
+    const ids = Array.from({ length: 60 }, (_, i) => `road:1:r${i}`);
+    const styles = ids.map((id) => cornerStyle({ id }, STACK_STYLES)!.id);
+    expect(new Set(styles)).toEqual(new Set(APARTMENTS));
+    expect(cornerStyle({ id: ids[3]! }, STACK_STYLES)!.id).toBe(styles[3]);
+    expect(cornerStyle({ id: "x" }, STACK_STYLES.filter((x) => x.depth === "footprint"))).toBeNull();
+    let preferred = 0;
+    for (const id of ids) {
+      const r = packSynth(synthRun({ lenM: 83.2, bays: [4, 4, 4, 4], start: "corner", id }));
+      if (r.blocks[0]!.style === cornerStyle({ id }, STACK_STYLES)!.id) preferred++;
+    }
+    expect(preferred / ids.length).toBeGreaterThan(0.5);
+  });
+
+  it("states the rule in the guide, and the terrace.ts header no longer claims FAMILY_SHARE_MAX is met by a near-even spread", () => {
+    const src = sourceOf("terrace.ts");
+    expect(src).not.toMatch(/near-even/);
+    expect(src).toContain("not what bounds the terrace");
+    expect(readFileSync(join("docs", "city-style-guide.md"), "utf8")).toContain("seam, or alley, never a slit");
+  });
+});
+
+// ---- the risks the 051 C review handed on ----
+
+describe("the strip, the overhang and the probe", () => {
+  it("passes the town's own lot rules on every map: the part of a block past the last nominal lot clears roads, nodes, wires and the occlusion rule at the block's height", { timeout: 60000 }, () => {
+    let strips = 0;
+    for (const m of ladder()) {
+      const clears = townClears(m.town)!;
+      expect(clears, m.name).not.toBeNull();
+      for (const { run, result } of m.runs) {
+        const nomEnd = run.lots.reduce((sum, i) => sum + m.town.lots[i]!.w, 0) / W;
+        for (const b of result.blocks) {
+          const [bs, be] = spanOfBlock(run, b.lot);
+          // The strip: from the last nominal lot's end to the run's length (beyond that is the next corner lot's own ground, held off its stack by the footprint test).
+          const a = Math.max(bs, nomEnd);
+          const e = Math.min(be, run.len / W);
+          if (e - a <= 1e-6) continue;
+          strips++;
+          const mid = ((a + e) / 2) * W;
+          const fx = Math.sin(b.lot.yaw);
+          const fz = Math.cos(b.lot.yaw);
+          const cx = run.ax + run.ux * mid - (fx * b.lot.d) / 2;
+          const cz = run.az + run.uz * mid - (fz * b.lot.d) / 2;
+          expect(clears(cx, cz, (e - a) * W, b.lot.d, b.lot.yaw, b.lot.hMax, 0), `${m.name} ${b.lot.key} strip at ${b.lot.hMax / W} m`).toBe(true);
+        }
+      }
+    }
+    expect(strips).toBeGreaterThan(500);
+  });
+
+  it("holds every piece, roofs and bases included, out of the next row's corner block: none passes its real back wall", { timeout: 60000 }, () => {
+    let checked = 0;
+    for (const m of ladder()) {
+      for (const { run, result } of m.runs) {
+        if (run.endAbuts !== "corner") continue;
+        const next = nextRunOf(m.town, run);
+        const nextBlock = next ? pack(next, m.town).blocks[0] : undefined;
+        if (!next || next.startCorner === null || !nextBlock) continue;
+        const realWall = run.len / W + (TERRACE_DEPTH_M - nextBlock.stack.depth_m);
+        const sign = Math.cos(result.blocks[0]!.lot.yaw) * run.ux - Math.sin(result.blocks[0]!.lot.yaw) * run.uz;
+        for (const b of result.blocks) {
+          const [bs, be] = spanOfBlock(run, b.lot);
+          const mid = (bs + be) / 2;
+          for (const p of b.stack.pieces) {
+            checked++;
+            const far = Math.max(mid + sign * p.x + p.w / 2, mid + sign * p.x - p.w / 2);
+            expect(far, `${m.name} ${b.lot.key} ${p.key}`).toBeLessThanOrEqual(realWall + 1e-6);
+          }
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(10000);
+  });
+
+  it("measures the far wall at the next corner block's real back wall: the run's length plus the band less that block's depth, 5.918 m of the 6", () => {
+    const s = synthRun({ lenM: 47.89, bays: [4, 4], start: "corner", end: "corner" });
+    const next = synthRun({ lenM: 40, bays: [4, 4], start: "corner", id: "road2:1:r0" }).run;
+    const wall = farWall_m(s.run, next, STACK_STYLES, ENTRIES, BUILDING_FRONTS)!;
+    expect(wall).toBeGreaterThan(47.89);
+    expect(wall).toBeCloseTo(47.89 + (TERRACE_DEPTH_M - 5.918), 6);
+    // No wall of its own where the next row does not start at a corner (a plaza), or this run does not end at one.
+    expect(farWall_m(s.run, { ...next, startCorner: null }, STACK_STYLES, ENTRIES, BUILDING_FRONTS)).toBeUndefined();
+    expect(farWall_m({ ...s.run, endAbuts: "parking" }, next, STACK_STYLES, ENTRIES, BUILDING_FRONTS)).toBeUndefined();
+    expect(farWall_m(s.run, undefined, STACK_STYLES, ENTRIES, BUILDING_FRONTS)).toBeUndefined();
+    // The packer runs on past the band line to the wall, and no further.
+    const r = packTerrace(s.run, s.nominal, STACK_STYLES, ENTRIES, BUILDING_FRONTS, { farWall_m: wall });
+    const last = r.blocks[r.blocks.length - 1]!;
+    const end = spanOfBlock(s.run, last.lot)[1];
+    expect(end + r.farOverhang_m).toBeLessThanOrEqual(wall + 1e-9);
+    expect(Math.abs(end + r.farOverhang_m + r.farGap_m - wall)).toBeLessThan(1e-9);
+  });
+
+  it("drops the last block, not the whole run, when a style's real piece widths differ from the probe's", () => {
+    // A fixture style with two floor pieces of different widths: which one a block takes depends on its key, the probe's (first key) width is planned, the real one may be wider.
+    const wide = entryOf("SM_Bld_Apartment_01_Wide", 5.9, 3.0, 5.196);
+    const entries = new Map([...ENTRIES, [keyOf("SM_Bld_Apartment_01_Wide"), wide]]);
+    const base = STACK_STYLES.find((x) => x.id === "apartment-01")!;
+    let dropped = 0;
+    for (let i = 0; i < 60; i++) {
+      // A style id per case, since the style's id salts the floor piece it picks (the probe is cached per style).
+      const mixed: StackStyle = { ...base, id: `apartment-mixed${i % 12}`, floor: { ...base.floor, mid: [keyOf("SM_Bld_Apartment_01"), keyOf("SM_Bld_Apartment_01_Wide")] } };
+      const s = synthRun({ lenM: 41.6, bays: [4, 4], start: "none", id: `mix:${i}`, end: "parking" });
+      const r = packTerrace(s.run, s.nominal, [mixed, STACK_STYLES.find((x) => x.id === "apartment-02")!], entries, BUILDING_FRONTS);
+      expect(r.blocks.length, `mix:${i}`).toBeGreaterThan(0);
+      expect(r.farGap_m).toBeGreaterThanOrEqual(0);
+      // What stands never passes the far end (the run's last nominal lot).
+      const last = r.blocks[r.blocks.length - 1]!;
+      expect(spanOfBlock(s.run, last.lot)[1] + r.farOverhang_m, `mix:${i}`).toBeLessThanOrEqual(41.6 + 1e-6);
+      if (r.dropped > 0) dropped++;
+    }
+    expect(dropped).toBeGreaterThan(0);
   });
 });
