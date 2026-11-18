@@ -6,10 +6,11 @@
  */
 
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { Box3, Color, DoubleSide, Group, InstancedMesh, Matrix4, MeshStandardMaterial, NearestFilter, Quaternion, Texture, Vector3, type Material, type Mesh, type Object3D } from "three";
+import { Box3, Color, DoubleSide, Group, InstancedMesh, Matrix4, MeshStandardMaterial, NearestFilter, Quaternion, Texture, TextureLoader, Vector3, type Material, type Mesh, type Object3D } from "three";
 import { calibrationKey, parseCalibrationKey, type AssetEntry, type AssetManifest, type CalibrationKey } from "../core";
 import { stableHash } from "../render/city";
 import { effectiveFronts, loadSavedCalibration } from "./calibration";
+import { COLOURWAY_POOL, assignColourways, isBaseAtlasName, type ColourwayBlock } from "./colourway";
 import { DRESS_DRAW_CALLS_MAX, KERB_FROM_FRONT_M, SHOP_GLASS, dressKeys, dressTown, type DressBlockInput, type DressPiece } from "./dressing";
 import { FURN_DRAW_CALLS_MAX, alleyOf, furnitureKeys, furnitureLayout, openLotsOf, type Alley, type AvoidBox, type FurnitureInput, type FurniturePiece, type Rect } from "./furniture";
 import {
@@ -65,6 +66,11 @@ export type ModelSet = Record<ModelSlot, LoadedModel[] | null> & {
    * loaded (no City Pack). Absent when not asked for, so a set made without dressing is exactly what it was.
    */
   dress?: LoadedModel[] | null;
+  /**
+   * The City Pack colourway atlases that loaded (ticket 054 B), by id (`02_A`), each carrying its base atlas's name in `userData.colourwayBase`. Only ids in COLOURWAY_POOL are ever loaded. Absent when none
+   * loaded or none was asked for (a fresh checkout, CI, no `colourways` in the manifest, no `loadTexture`): then every stack is drawn with the cached materials, exactly as before.
+   */
+  colourways?: ReadonlyMap<string, Texture>;
 };
 
 export const NO_MODELS: ModelSet = { pole: null, lamp: null, building: null };
@@ -84,6 +90,8 @@ export interface LoadDeps {
   stackKeys?: readonly CalibrationKey[];
   /** The dressing pieces to load too (ticket 052 B), keyed `pack:name`, into `ModelSet.dress`. Default: none, so nothing extra is read from the GLB. */
   dressKeys?: readonly CalibrationKey[];
+  /** Resolves to the image at `url` as a texture (ticket 054 B: the City Pack's colourways), and rejects if it cannot be fetched. Default: none, so no colourway is fetched. */
+  loadTexture?: (url: string) => Promise<Texture>;
   /** Folder of the manifest, ending in "/". Default: `${BASE_URL}assets/private/out/`. */
   dir?: string;
   /** Where the one line saying why a fallback happened goes. Default: console.info. */
@@ -194,6 +202,11 @@ export async function loadModels(deps: LoadDeps): Promise<ModelSet> {
         (set.stack ??= []).push({ ...p, root });
       }
     }
+    // The colourway atlases (ticket 054 B): only when stack pieces were asked for and loaded, only the ids the pool names, only with a texture loader; otherwise nothing is fetched.
+    if ((set.stack?.length ?? 0) > 0 && deps.loadTexture && stackPlan && stackPlan.length > 0) {
+      const found = await loadColourways(manifest as AssetManifest, stackPlan[0]!.pack, dir, deps.loadTexture, info);
+      if (found.size > 0) set.colourways = found;
+    }
     if (deps.dressKeys && deps.dressKeys.length > 0) {
       set.dress = null;
       // A key missing from the manifest or its GLB drops only its own placements (`dressInput` offers the loaded keys alone).
@@ -210,6 +223,38 @@ export async function loadModels(deps: LoadDeps): Promise<ModelSet> {
     info(`3D models: ${describe(e)}; using the placeholder shapes.`);
     return NO_MODELS;
   }
+}
+
+/**
+ * Load the pool's colourway atlases that `pack` lists (ticket 054 B), in parallel through `loadTexture`. Only ids in COLOURWAY_POOL (never the base, which needs no file, nor a B tone, an emissive map or a
+ * billboard), each once. A texture that fails drops that id with one line; the others are kept. Says once how many of the pool's non-base ids are in. Never rejects.
+ */
+async function loadColourways(manifest: AssetManifest, pack: string, dir: string, loadTexture: (url: string) => Promise<Texture>, info: (message: string) => void): Promise<Map<string, Texture>> {
+  const listed = manifest.packs.find((p) => p.pack === pack)?.colourways ?? [];
+  const wanted = COLOURWAY_POOL.filter((id) => id !== "base");
+  const out = new Map<string, Texture>();
+  if (listed.length === 0) return out;
+  const jobs = wanted.flatMap((id) => {
+    const cw = listed.find((c) => c.id === id);
+    // The id is a pool id, so the only part of the URL that comes from the manifest is the file's path, which stays under the manifest's folder.
+    return cw && typeof cw.image === "string" && !cw.image.includes("..") ? [{ id, cw }] : [];
+  });
+  const loaded = await Promise.all(
+    jobs.map(async ({ id, cw }) => {
+      try {
+        const tex = await loadTexture(`${dir}${cw.image}`);
+        tex.userData["colourwayBase"] = cw.base;
+        if (tex.name === "") tex.name = `${cw.base}_${id}`;
+        return [id, tex] as const;
+      } catch (e) {
+        info(`3D models: colourway ${id} could not be loaded (${describe(e)}); it is left out.`);
+        return null;
+      }
+    }),
+  );
+  for (const l of loaded) if (l) out.set(l[0], l[1]);
+  info(`3D models: ${pack} colourways: ${out.size} of ${wanted.length} loaded`);
+  return out;
 }
 
 /**
@@ -254,7 +299,7 @@ export function sharedModels(): Promise<ModelSet> {
   shared ??= loadSavedCalibration({ dev: import.meta.env.DEV, fetchJson }).then((saved) => {
     const tables = effectiveFronts({ fronts: BUILDING_FRONTS, exclude: BUILDING_EXCLUDE }, saved);
     // The City Pack's stack pieces load too (ticket 050 C); with no City Pack in the manifest nothing extra is fetched and the set has no stack slot.
-    return loadModels({ fetchJson, loadGlb: async (url) => (await new GLTFLoader().loadAsync(url)).scene, fronts: tables.fronts, exclude: tables.exclude, stackKeys: allStackKeys(), dressKeys: [...dressKeys(), ...furnitureKeys()] });
+    return loadModels({ fetchJson, loadGlb: async (url) => (await new GLTFLoader().loadAsync(url)).scene, loadTexture: (url) => new TextureLoader().loadAsync(url), fronts: tables.fronts, exclude: tables.exclude, stackKeys: allStackKeys(), dressKeys: [...dressKeys(), ...furnitureKeys()] });
   });
   return shared;
 }
@@ -337,6 +382,86 @@ export function stackGroup(stack: Stack, roots: ReadonlyMap<CalibrationKey, Obje
     group.add(wrap);
   }
   return group;
+}
+
+// ---- colourways (ticket 054 B): a block's walls in another atlas ----
+
+/**
+ * What a paint keeps so that nothing is made twice: the clone of each source material per colourway id, and the texture per (id, the replaced map's flipY, colour space, wrap and channel). Made per town
+ * (`applyModels`) and per gallery scene, freed with them. A clone shares the colourway texture's image, so the GPU holds one upload per id.
+ */
+export interface ColourwayCache {
+  materials: Map<string, Map<Material, Material>>;
+  textures: Map<string, Texture>;
+  /** Free the clones and the textures the cache made (never a loaded colourway texture, nor a cached root's material). */
+  dispose(): void;
+}
+
+export function createColourwayCache(): ColourwayCache {
+  const cache: ColourwayCache = {
+    materials: new Map(),
+    textures: new Map(),
+    dispose() {
+      for (const byMat of cache.materials.values()) for (const m of byMat.values()) m.dispose();
+      for (const t of cache.textures.values()) t.dispose();
+      cache.materials.clear();
+      cache.textures.clear();
+    },
+  };
+  return cache;
+}
+
+/** The colourway atlas `id`, carrying the replaced map's sampling, as one texture per combination. The map keeps nearest filtering and no mipmaps, as every City Pack atlas has. */
+function colourwayTexture(source: Texture, like: Texture, id: string, cache: ColourwayCache): Texture {
+  const key = `${id}|${like.flipY ? 1 : 0}|${like.colorSpace}|${like.wrapS}|${like.wrapT}|${like.channel}`;
+  let tex = cache.textures.get(key);
+  if (!tex) {
+    tex = source.clone();
+    tex.flipY = like.flipY;
+    tex.colorSpace = like.colorSpace;
+    tex.wrapS = like.wrapS;
+    tex.wrapT = like.wrapT;
+    tex.channel = like.channel;
+    tex.magFilter = NearestFilter;
+    tex.minFilter = NearestFilter;
+    tex.generateMipmaps = false;
+    tex.needsUpdate = true;
+    cache.textures.set(key, tex);
+  }
+  return tex;
+}
+
+/**
+ * Draw one stack group in the colourway `id` (ticket 054 B). Each mesh of the group whose material's `map` is the base atlas (named as the colourway's `base`, or one of its numbered colourways such as
+ * `_01_A`) gets a clone of that material whose `map` is the colourway's texture; every other material (glass, a material with no map or another one) stays the very same object. The clone is cached
+ * per (source material, id), so two blocks in one colourway share it. The group's meshes are clones of the cached roots' (`stackGroup`), so only they change: the cached roots' materials and maps are never
+ * written. The base id, or an id the set did not load, changes nothing. Nothing emissive is ever set; a clone keeps its source's emissive as it is. Nothing here touches picking.
+ */
+export function paintStack(group: Object3D, id: string, set: { colourways?: ReadonlyMap<string, Texture> }, cache: ColourwayCache): void {
+  const source = id === "base" ? undefined : set.colourways?.get(id);
+  if (!source) return;
+  const base = typeof source.userData["colourwayBase"] === "string" ? (source.userData["colourwayBase"] as string) : "PolygonCity_Texture";
+  let byMat = cache.materials.get(id);
+  if (!byMat) {
+    byMat = new Map();
+    cache.materials.set(id, byMat);
+  }
+  const paint = (m: Material): Material => {
+    const map = (m as Material & { map?: Texture | null }).map;
+    if (!map || !isBaseAtlasName(map.name, base)) return m;
+    let c = byMat.get(m);
+    if (!c) {
+      c = m.clone();
+      (c as Material & { map: Texture | null }).map = colourwayTexture(source, map, id, cache);
+      byMat.set(m, c);
+    }
+    return c;
+  };
+  group.traverse((o) => {
+    const mesh = o as Mesh;
+    if (mesh.isMesh !== true) return;
+    mesh.material = Array.isArray(mesh.material) ? mesh.material.map(paint) : paint(mesh.material);
+  });
 }
 
 // ---- the dressing (ticket 052 B): the pure placements of `dressing.ts`, drawn as one InstancedMesh per key and sub-mesh ----
@@ -812,6 +937,9 @@ export function applyModels(bundle: SceneBundle, set: ModelSet): AppliedModels {
   const stacks = stackInput(set);
   const stackRootsOf = stackRoots(set);
   let placed: readonly BuildingPlacement[] = [];
+  // The groups to paint (ticket 054 B): each terrace block's, then each stack's on a lone lot, with the lot's key and the run.
+  const paintTerrace: { group: Group; at: ColourwayBlock }[] = [];
+  const paintLone: { group: Group; at: ColourwayBlock }[] = [];
   const terrace: PackedBlock[] = [];
   const packedRuns = new Map<string, PackResult>();
   if (((buildings && buildings.length > 0) || stacks) && slots.blocks.list.length > 0) {
@@ -828,6 +956,7 @@ export function applyModels(bundle: SceneBundle, set: ModelSet): AppliedModels {
         g.position.set(p.x + Math.sin(p.yaw) * half, 0, p.z + Math.cos(p.yaw) * half);
         g.rotation.y = p.yaw;
         add(slots.models, g);
+        paintLone.push({ group: g, at: { key: slots.blocks.list[p.lot]!.key } });
       } else add(slots.models, place(p.model, p.scale, p.x, p.z, p.yaw));
     }
   }
@@ -853,6 +982,7 @@ export function applyModels(bundle: SceneBundle, set: ModelSet): AppliedModels {
         g.position.set(b.lot.x + Math.sin(b.lot.yaw) * (b.lot.d / 2), 0, b.lot.z + Math.cos(b.lot.yaw) * (b.lot.d / 2));
         g.rotation.y = b.lot.yaw;
         row.add(g);
+        paintTerrace.push({ group: g, at: { key: b.lot.key, run: run.id } });
         terrace.push(b);
       }
     }
@@ -860,6 +990,16 @@ export function applyModels(bundle: SceneBundle, set: ModelSet): AppliedModels {
       add(slots.models.parent ?? slots.models, row);
       blankTerracePlaceholders(slots, covered, undo);
     }
+  }
+  // The colourways (ticket 054 B): with none loaded (a fresh checkout, CI) nothing is touched and every stack holds the cached materials. Otherwise each block takes the id its lot's key hashes to, never its
+  // run-mate's before it; the dressing below keeps the base atlas (one InstancedMesh per key is shared by every block).
+  if (set.colourways && set.colourways.size > 0) {
+    const available = COLOURWAY_POOL.filter((id) => id === "base" || set.colourways!.has(id));
+    const all = [...paintTerrace, ...paintLone];
+    const ids = assignColourways(all.map((p) => p.at), available);
+    const cache = createColourwayCache();
+    all.forEach((p, i) => paintStack(p.group, ids[i]!, set, cache));
+    undo.push(() => cache.dispose());
   }
   // The dressing (ticket 052 B): awnings, glass, signs, fire escapes and roof props on every stack just stood, from the pure `dressTown`. A sibling group of its own, so the stacks
   // and the lots' clones are exactly as before; with no City Pack dressing (a fresh checkout, CI) or no stack there is no group at all.
