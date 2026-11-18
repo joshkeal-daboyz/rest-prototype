@@ -123,3 +123,7 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 051 section C | code-reviewer | agent default | 171K total (two rounds: 88K, then 83K) | — | 0 | Round 1 must-fix 1 (criterion lowered without a re-cut); round 2 must-fix 1 (far gap not measured to the real corner wall); taken to Josh as it stands |
 | 051 section C | gate (main session) | — | — | — | 0 | Two runs, both green: 95 files, 1859 then 1870 passed |
 | 051 section C | playtester | agent default | 34K total (two rounds: 18K, 16K) | — | 0 | regressions 0 both times |
+| 052 section B | renderer | sonnet | 185K total (one figure in the readout) | — | 0 | Dressing drawn with InstancedMesh in the town and the stack gallery, planDressPieces, 20 tests (commit aae3816); 86 tool uses, 9 min |
+| 052 section B | gate (main session) | — | — | — | 0 | tsc clean, 98 files, 1920 passed on a checkout without pack files; looked at in the browser via the street camera on map 64 |
+| 052 section B | code-reviewer | agent default | see note: figure not shown | — | 0 | meets, must-fix 0 |
+| 052 section B | playtester | agent default | 18K total (one figure in the readout) | — | 0 | regressions 0; stopped early |
