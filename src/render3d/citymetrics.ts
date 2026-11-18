@@ -1,5 +1,5 @@
 /**
- * Ticket 053: the numbers behind the reference checklist (R1 to R12 of chapter 16 of docs/city-style-guide.md). Pure: no three, no DOM, no fetch, no GLB. It reads what the town
+ * Ticket 053: the numbers behind the reference checklist (R1 to R13 of chapter 16 of docs/city-style-guide.md). Pure: no three, no DOM, no fetch, no GLB. It reads what the town
  * plan already holds (the terrace runs and their packed blocks of 051, the dressing of 052 A, the street furniture of 052 C) and counts: frontage covered per run, the far-gap
  * histogram, the storey histogram, the neighbour-differ rate, slots per bay, props per roof, keep-out violations, excluded keys used, emissive materials. `evaluateCity` compares the
  * numbers with `CITY_CHECK`, so the measurable half of the evaluation protocol runs on every `npm test` (`citymetrics.test.ts`); the rest of the checklist is judged by eye.
@@ -8,13 +8,14 @@
  */
 
 import type { CalibrationKey } from "../core";
+import { assignColourways } from "./colourway";
 import { ATMS, AWNINGS, AWNING_CORNER, ESCAPE_MIN_BAYS, SHOP_GLASS, dressRoleOf, type DressPiece } from "./dressing";
 import { FURN_CORNER_M, FURN_KEEP_M, FURN_KERB_M, FURN_MAX_H_M, FURN_PITCH_M, FURN_WALL_M, KERB_M, TREES, TREE_PITCH_M, WALL_EDGE_M, type FurniturePiece, type Rect } from "./furniture";
 import type { Stack, StackPiece } from "./stacks";
 import { ALLEY_MAX_M, ALLEY_MIN_M, TERRACE_SEAM_M, type PackResult, type PackedBlock } from "./terrace";
 import { WIRE_CLEAR, WORLD_PER_METRE, type Lot, type OpenLot, type Pt, type TerraceRun } from "./town";
 
-export type CityCheckId = "R1" | "R2" | "R3" | "R4" | "R5" | "R6" | "R7" | "R8" | "R9" | "R10" | "R11" | "R12";
+export type CityCheckId = "R1" | "R2" | "R3" | "R4" | "R5" | "R6" | "R7" | "R8" | "R9" | "R10" | "R11" | "R12" | "R13";
 
 /**
  * The threshold of each automatic item. A share is at least the number; a count is at most it, except R11 (at least that many parking lots, and plazas, on the largest map).
@@ -22,7 +23,8 @@ export type CityCheckId = "R1" | "R2" | "R3" | "R4" | "R5" | "R6" | "R7" | "R8" 
  * R2 neighbours that differ in style and floor count. R3 ground bays that are a shopfront or the block's one door bay. R4 shops with a glass key that have glass. R5 shop bays with an
  * awning (the ticket asked 0.6; `09-shrine-circuit` measures 0.584, so 0.55). R6 shop bays with a sign. R7 qualifying blocks with a fire escape. R8 blocks with a dressed roof (the
  * ticket asked 1.0; 4 to 6 blocks in 100 have none, so 0.9). R9 corner blocks off a true corner (a count). R10 furniture spacing, keep-out and corner violations (a count). R11 parking
- * lots, and plazas, on the largest map. R12 excluded keys used, and emissive dressing materials (a count).
+ * lots, and plazas, on the largest map. R12 excluded keys used, and emissive dressing materials (a count). R13 (ticket 054) the share of adjacent blocks in a run whose colourway ids differ,
+ * with a fixed fake set of 8 ids available (the real atlases are not in CI): 1, because the assignment steps off a repeat.
  */
 export const CITY_CHECK: Readonly<Record<CityCheckId, number>> = {
   R1: 0.9,
@@ -37,6 +39,7 @@ export const CITY_CHECK: Readonly<Record<CityCheckId, number>> = {
   R10: 0,
   R11: 1,
   R12: 0,
+  R13: 1,
 };
 
 /** The blocks that carry an ATM, as a share of all blocks, at least (R6's second number). */
@@ -120,7 +123,14 @@ export interface CityExtra {
   keep?: CityKeep;
   /** Emissive materials found in the drawn dressing and furniture (the pure plan has none to count). */
   emissiveMaterials?: number;
+  /** The colourway id of each packed block, aligned with `runBlocks` (R13). Absent: `assignColourways` over `colourwayAvailable`. A test sets it to make two neighbours share one. */
+  colourways?: readonly string[];
+  /** The ids `assignColourways` may use for R13 (default: a fixed fake set of 8). */
+  colourwayAvailable?: readonly string[];
 }
+
+/** Eight made-up colourway ids: R13 is about the rule, not the files, so no atlas is needed (CI has none). */
+const FAKE_COLOURWAYS: readonly string[] = ["c0", "c1", "c2", "c3", "c4", "c5", "c6", "c7"];
 
 // ---- the numbers ----
 
@@ -197,6 +207,11 @@ export interface CityMetrics {
   // R12
   excludedKeysUsed: number;
   emissiveMaterials: number;
+  // R13
+  /** Adjacent block pairs in one run (the pairs the colourway rule is about). */
+  colourwayPairs: number;
+  /** The share of those pairs whose colourway ids differ. 1 with no pair. */
+  colourwayNeighbourDiffer: number;
 }
 
 const W = WORLD_PER_METRE;
@@ -345,6 +360,17 @@ export function cityMetrics(town: CityTown, packed: ReadonlyMap<string, PackResu
   });
   for (const p of furniture) if (isNeverUsed(p.key)) excludedKeysUsed++;
 
+  // R13: neighbouring blocks of a run in different colourways (a fixed fake set, or the ids a test gives)
+  const ids = extra.colourways ?? assignColourways(list.map(({ run, block }) => ({ key: block.lot.key, run: run.id })), extra.colourwayAvailable ?? FAKE_COLOURWAYS);
+  let colourwayPairs = 0;
+  let colourwayDiffer = 0;
+  list.forEach(({ run }, i) => {
+    const prev = list[i - 1];
+    if (!prev || prev.run.id !== run.id) return;
+    colourwayPairs++;
+    if (ids[i] !== ids[i - 1]) colourwayDiffer++;
+  });
+
   // R10: furniture on the pavements
   const runById = new Map(town.terraces.map((r) => [r.id, r] as const));
   const keep = extra.keep ?? {};
@@ -433,6 +459,8 @@ export function cityMetrics(town: CityTown, packed: ReadonlyMap<string, PackResu
     plazas: town.openLots.filter((o) => o.kind === "plaza").length,
     excludedKeysUsed,
     emissiveMaterials: extra.emissiveMaterials ?? 0,
+    colourwayPairs,
+    colourwayNeighbourDiffer: colourwayPairs > 0 ? colourwayDiffer / colourwayPairs : 1,
   };
 }
 
@@ -476,6 +504,7 @@ export function evaluateCity(m: CityMetrics, opts: { largestMap?: boolean } = {}
     item("R10", m.spacingViolations + m.keepOutViolations, m.spacingViolations + m.keepOutViolations <= CITY_CHECK.R10),
     item("R11", open, opts.largestMap === true ? open >= CITY_CHECK.R11 : true),
     item("R12", m.excludedKeysUsed + m.emissiveMaterials, m.excludedKeysUsed + m.emissiveMaterials <= CITY_CHECK.R12),
+    item("R13", m.colourwayNeighbourDiffer, m.colourwayNeighbourDiffer >= CITY_CHECK.R13 - 1e-9),
   ];
 }
 
