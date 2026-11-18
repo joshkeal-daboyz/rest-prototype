@@ -635,6 +635,11 @@ interface Family {
  */
 export function pickBuildings(lots: readonly Lot[], plan: BuildingPlan, traits?: ReadonlyMap<string, BuildingTraits>): (string | null)[] {
   const trait = (n: string): BuildingTraits => traits?.get(n) ?? { family: n, corner: false };
+  /** A corner model fits a lot only where its open side is one of the lot's corner sides; any other model fits anywhere. */
+  const fitsAt = (l: Lot, n: string): boolean => {
+    const c = trait(n).corner;
+    return c === false || l.cornerSides.some((s) => s.side === c);
+  };
   const fams = {} as Record<LotType, Family[]>;
   const totals: Record<LotType, number> = { small: 0, house: 0, large: 0, tall: 0 };
   for (const t of LOT_TYPE_NAMES) {
@@ -731,6 +736,49 @@ export function pickBuildings(lots: readonly Lot[], plan: BuildingPlan, traits?:
     familyOf[i] = fam.id;
     used.set(`${l.type}:${fam.id}`, (used.get(`${l.type}:${fam.id}`) ?? 0) + 1);
   });
+
+  // Repair: the greedy pass above lets the cap go (its third rule) when every other family is a neighbour's, so a type with few lots on a dense map can end with one family over its
+  // cap. Only then (a map whose types are all within their caps is returned exactly as the greedy pass made it) a lot of that family is handed to another family that no neighbour
+  // has, that the lot may take, and that is still under the cap: fewest used first, the lot's hash among ties. A move that also keeps the street rule (no family back within
+  // STREET_REPEAT_GAP lots on its road side, either way) is taken before one that does not, the last lots first. The neighbour rule is never broken; a family nobody can relieve stays.
+  for (const t of LOT_TYPE_NAMES) {
+    const all = fams[t];
+    if (all.length < 4) continue;
+    const ordinary = all.filter((f) => f.names.some((n) => trait(n).corner === false)).length;
+    const capN = Math.max(Math.floor(FAMILY_SHARE_MAX * totals[t]), Math.ceil(totals[t] / Math.max(1, ordinary)));
+    const count = (id: string): number => used.get(`${t}:${id}`) ?? 0;
+    const gap = Math.min(STREET_REPEAT_GAP, all.length - 1);
+    for (const over of all) {
+      while (count(over.id) > capN) {
+        let best: { i: number; options: Family[]; clean: boolean } | null = null;
+        for (let i = lots.length - 1; i >= 0; i--) {
+          const l = lots[i]!;
+          if (l.type !== t || familyOf[i] !== over.id) continue;
+          const near = new Set<string | null>(nearOf(i).map((j) => familyOf[j]!));
+          const row = rows.get(`${l.street}:${l.side}`)!;
+          const recent = new Set<string | null>();
+          for (let k = Math.max(0, rowAt[i]! - gap); k <= Math.min(row.length - 1, rowAt[i]! + gap); k++) if (row[k] !== i) recent.add(familyOf[row[k]!]!);
+          const free = all.filter((f) => f.id !== over.id && !near.has(f.id) && count(f.id) < capN && f.names.some((n) => fitsAt(l, n)));
+          const clean = free.filter((f) => !recent.has(f.id));
+          if (clean.length > 0) {
+            best = { i, options: clean, clean: true };
+            break;
+          }
+          if (free.length > 0 && !best) best = { i, options: free, clean: false };
+        }
+        if (!best) break;
+        const l = lots[best.i]!;
+        const least = Math.min(...best.options.map((f) => count(f.id)));
+        const lowest = best.options.filter((f) => count(f.id) === least);
+        const fam = lowest[pickIndex(stableHash(`${l.key}|repair`), lowest.length)]!;
+        const variants = fam.names.filter((n) => fitsAt(l, n));
+        picked[best.i] = variants[pickIndex(stableHash(`${l.key}|v`), variants.length)]!;
+        familyOf[best.i] = fam.id;
+        used.set(`${t}:${over.id}`, count(over.id) - 1);
+        used.set(`${t}:${fam.id}`, count(fam.id) + 1);
+      }
+    }
+  }
   return picked;
 }
 
