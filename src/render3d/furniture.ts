@@ -308,6 +308,9 @@ export function furnitureLayout(input: FurnitureInput, entries: Entries, fronts:
     const lot0 = input.lots[run.lots[0] ?? -1];
     if (!lot0) continue;
     const len = run.len / SC;
+    // The pavement's wall edge and kerb, metres from the run's front line: the run's own frame (the tile city's 5 m pavement), or today's.
+    const wallM = run.frame?.wall_m ?? WALL_EDGE_M;
+    const kerbM = run.frame?.kerb_m ?? KERB_M;
     const frame: Frame = { ox: run.ax, oz: run.az, ax: run.ux, az: run.uz, bx: Math.sin(lot0.yaw), bz: Math.cos(lot0.yaw), yaw: lot0.yaw };
     const alley = input.alleys?.get(run.id) ?? null;
     const placed: { s: number; line: string; rect: Rect; tree: boolean }[] = [];
@@ -318,8 +321,8 @@ export function furnitureLayout(input: FurnitureInput, entries: Entries, fronts:
       if (!sp) return false;
       if ((counts.get(g.id) ?? 0) >= (g.cap ?? Infinity)) return false;
       if (s - sp.w / 2 < FURN_CORNER_M - EPS || s + sp.w / 2 > len - FURN_CORNER_M + EPS) return false;
-      const t = line === "wall" ? WALL_EDGE_M + FURN_WALL_M + sp.d / 2 : KERB_M - FURN_KERB_M - sp.d / 2;
-      if (t - sp.d / 2 < -EPS || t + sp.d / 2 > KERB_M - FURN_KERB_M + EPS) return false;
+      const t = line === "wall" ? wallM + FURN_WALL_M + sp.d / 2 : kerbM - FURN_KERB_M - sp.d / 2;
+      if (t - sp.d / 2 < -EPS || t + sp.d / 2 > kerbM - FURN_KERB_M + EPS) return false;
       if (alley && s + sp.w / 2 > alley.s0 - 0.5 && s - sp.w / 2 < alley.s0 + alley.gap + 0.5) return false;
       for (const o of placed) {
         if (o.line === line && Math.abs(o.s - s) < FURN_PITCH_M - EPS) return false;
