@@ -191,6 +191,11 @@ The guide has a parking chapter that says how many spaces a home and a shop get,
    - With its keys absent, it is code-drawn as the pavement box, and criterion 13's per-role fallback test covers the new role.
    - Each of `city.buildoutTrees` is one `SM_Env_Tree_01..03` instance, chosen by hash, at its point, at y 0, through one `InstancedMesh` per key.
    - `TILE_DRAW_CALLS_MAX` still holds, or the builder raises it in the report with the count.
+16. [ ] **The tile city's R6 floor** (added 18 Nov 2026; Josh's answer to open item 7: "Lower it to 0.45 (Recommended)").
+    - `tilecity.ts` gains `TILE_CITY_R6_MIN = 0.45`, beside `TILE_CITY_R7_MIN`.
+    - The tile-city R6 test (in `tilecity.test.ts`, as R7's) uses it on the default city and seeds 1 to 10. The ladder's R6 floor (0.5 in `CITY_CHECK`) and `citymetrics.ts` are unchanged.
+    - `LOT_RUN_SALT` (46, tuned by 056 A to hold R6 at 0.5) is removed, or set to a neutral value with its comment saying so, if P1 to P6, 055's checks and R1 to R13 (with R6 at 0.45 and R7 at 0.4) still pass without it. If they do not, it stays, and the builder reports which check needs it.
+    - The numbering is out of order because the criterion was added after A was built.
 10. [ ] **The sheet.** `&sheet=1` shows `buildout` once, labelled, with 055 criterion 30's layout rules (no label overlap at 1280 x 720 and 390 x 844).
 11. [ ] (Main session, screenshots, `npm run dev`) The main session checks each of these URLs, with and without `&light=day`:
     - `/?puzzle=01-first-light&view=3d&city=tiles`
@@ -227,7 +232,7 @@ The guide has a parking chapter that says how many spaces a home and a shop get,
 
 ## Files
 - **A, may touch:** *(widened by the main session during 056 A, 18 Nov 2026: adding a `TileRole` forces these, so A also edited the four B test lists, and added `buildout` to `tileslots.ts`'s `TILE_SLOTS`, `TILE_LEVELS` and `TILE_FRONT_TEXT`; B keeps the drawing itself)* `src/render3d/tilecity.ts`; `town.ts` (only `TerraceRowOpts.parkByHash`, default `true`, read where the hash lot is chosen); new `parkmetrics.ts` and `parkmetrics.test.ts`; `tilecity.test.ts` (new cases, plus the removed constants' cases replaced); `tileintegrate.test.ts` (only cases whose counts follow the new bays and lots).
-- **B, may touch:** `tileslots.ts` (the `buildout` slot and front, the sheet entry), `tilecity3d.ts` (drawing build-outs and trees), `tileslots.test.ts`, `tilecity3d.test.ts`.
+- **B, may touch:** `tileslots.ts` (the `buildout` slot and front, the sheet entry), `tilecity3d.ts` (drawing build-outs and trees), `tileslots.test.ts`, `tilecity3d.test.ts`; and, for criterion 16 only, `tilecity.ts` (`TILE_CITY_R6_MIN`, `LOT_RUN_SALT`) and `tilecity.test.ts` (the R6 floor test).
 - **C, may touch:** `docs/city-style-guide.md` (chapter 18, the Numbers rows, and one pointer line in chapter 17 if it exists), `styleguide.test.ts` (the new drift check only).
 - **Must not touch (every section):**
   - `furniture.ts`, `dressing.ts`, `streetcam.ts`, `citymetrics.ts`, `terrace.ts`, `stacks.ts`, `models3d.ts`, `renderer.ts`, `layout.ts`, `relight3d.ts`, `pick.ts`, `camera.ts`, `scene.ts`, `colourway.ts`, `gallery.ts`, `calibration.ts`;
@@ -260,7 +265,10 @@ The guide has a parking chapter that says how many spaces a home and a shop get,
   - **28**: build-outs are sidewalk-family, so the same levels apply.
   - **31**: "three bays per parking tile visible" still holds, on fewer tiles.
 
-  055 criteria 1 to 3, 6 to 10, 12 to 22, 24, 25, 29, 30 and 32 are unaffected.
+  - **10** (B, far gap): 056's demand-placed lots shorten the run after each lot, so the far-gap share falls to 0.80 (all runs) and 0.735 (corner-ending runs). 056 A adds temporary floors of 0.75 and 0.70, and keeps the 0.85 test excluding the first run after a lot. This is recorded in 055 criterion 10, and 057 retires it.
+  - **10** (B, R6): R6's tile-city floor becomes `TILE_CITY_R6_MIN` (0.45, Josh 18 Nov 2026), set in this ticket's section B (criterion 16). The ladder's 0.5 is unchanged.
+
+  055 criteria 1 to 3, 6 to 9, 12 to 22, 24, 25, 29, 30 and 32 are unaffected.
 
 ## Interfaces
 - **No `src/core/` change, no schema or event change, no new dependency.** Everything is local to `src/render3d/`, and the builder may rename any of it.
@@ -295,5 +303,6 @@ The guide has a parking chapter that says how many spaces a home and a shop get,
 
 ### Open items (added 18 Nov 2026 after the 056 A review; for Josh)
 7. **A tile-city R6 floor** (like `TILE_CITY_R7_MIN`). R6 (share of shop bays with a sign) sits at its 0.5 floor on the tile city only through the dressing's sign chance, and 056 A tunes `LOT_RUN_SALT = 46` to keep it there. Default until Josh answers: keep the salt and the 0.5 floor. The question for him is whether to set a tile-city R6 floor (for example 0.45, as R7 got 0.4) so that a later layout change does not need re-tuning.
+   - **Answered (Josh, 18 Nov 2026, in chat, relayed by the main session):** "Lower it to 0.45 (Recommended)". The tile-city R6 floor is 0.45 (`TILE_CITY_R6_MIN`), and the ladder's R6 stays 0.5. Section B carries it (criterion 16), and `LOT_RUN_SALT` is dropped if the checks pass without it.
 
 Decided rules: none is touched (rendering only, no puzzle); `rules-coverage.md` does not change.

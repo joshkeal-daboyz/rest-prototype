@@ -3,7 +3,7 @@
 owner: renderer (src/render3d/, docs/city-style-guide.md)
 status: approved (G1, Josh, 18 Nov 2026: "I approve", after seeing the ticket and its open-question defaults; every default applies). Sections in order A, then B and C (may run in parallel), then E (integration, added 18 Nov 2026 after A, B and C were built), then D.
 - **Section E approved** (G1, Josh, 18 Nov 2026, in chat, relayed by the main session: "I approve one through three"). Item 2 of that approval is section E, with Q8 and Q9 at their defaults. Items 1 and 3 are the merge of A, B and C into `goal/city-style`, and ticket 056.
-- **Ticket 056** (parking rules, approved in the same words) changes criteria 4, 11, 23, 26, 27, 28, 31 and D's T6 once 056 A merges. Each change is marked "From 056" where it applies.
+- **Ticket 056** (parking rules, approved in the same words) changes criteria 4, 10 (temporary far-gap floors; the tile-city R6 floor of 0.45 from 056 B), 11, 23, 26, 27, 28, 31 and D's T6 once 056 A merges. Each change is marked "From 056" where it applies.
 - **Section F** (door sills, added 18 Nov 2026 on Josh's direction: "That's going to have to be a variable that we measure for each individual building") is **approved** (G1, Josh, 18 Nov 2026, in chat, relayed by the main session: "Approved and confirmed"), with Q10 to Q13 at their defaults. It builds after E.
 
 Built on `goal/city-style`, which Josh has not merged to main yet.

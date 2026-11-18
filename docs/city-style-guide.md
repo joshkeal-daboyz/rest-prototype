@@ -521,6 +521,7 @@ Josh's rulings from the tile-city work, in his own words, each with the ticket t
 - **Default (056, Josh 18 Nov 2026)**: there was too much parking. Rules now set the street against the lots for homes and shops: "Roads look good, parking spaces are overwhelming. Too many parking spaces. We should create rules in the style sheet that indicate how much parking should be available on the streets vs parking lots for residential and business style units."
   - Shoppers get kerb bays, residents get lots: 1 bay per 3 shops, 0.15 stalls per home.
   - From 057 on, residents' lots are interior courts.
+- **Default (056, Josh 18 Nov 2026)**: R6 (signs over shop bays) has a floor of 0.45 on the tile city (a new tile-city constant, set by 056 B), and the ladder's 0.5 is unchanged: "Lower it to 0.45 (Recommended)".
 
 ### Buildings (tickets 055 F and 058; sections 16.10 and 16.11)
 - **Default (055 F, Josh 18 Nov 2026; F approved with Q10 to Q13 at their defaults: "Approved and confirmed")**: each building's door sill is measured, and the building is sunk to the walk or given steps: "That's going to have to be a variable that we measure for each individual building." (16.10)
