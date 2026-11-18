@@ -104,9 +104,10 @@ describe("planModels", () => {
     b.dispose();
   });
 
-  it("the shipped table names only models of two packs, none with a baked-in wire", () => {
-    expect(new Set(MODEL_TABLE.map((r) => r.pack))).toEqual(new Set(["apocalypse-power", "simple-town"]));
-    for (const r of MODEL_TABLE) for (const n of r.names) expect(n).not.toMatch(/_Preset_|_Lines?_/);
+  it("the shipped table names only models of three packs, none with a baked-in wire", () => {
+    expect(new Set(MODEL_TABLE.map((r) => r.pack))).toEqual(new Set(["apocalypse-power", "simple-town", "town-pack"]));
+    // `_Preset_` and `_Lines_` are the power pack's baked-in-wire models; the Town Pack's whole houses are `SM_Bld_House_Preset_NN` (ticket 048).
+    for (const r of MODEL_TABLE) for (const n of r.names) expect(n).not.toMatch(r.pack === "town-pack" ? /_Lines?_/ : /_Preset_|_Lines?_/);
   });
 });
 
@@ -163,10 +164,12 @@ describe("modelScale", () => {
     const all = plan.building ?? [];
     if (all.length === 0) return;
     const grouped = buildingPlan(all);
-    const placed = new Set(Object.values(grouped).flat());
     // The table names only buildings that fit a lot (office_stepped_mesh, which fits none, is left out of it).
     // Models in BUILDING_EXCLUDE (the video rental store, 047) are left out on purpose.
-    expect(all.filter((p) => !BUILDING_EXCLUDE.includes(`${p.pack}:${p.entry.name}`) && !placed.has(p.entry.name)).map((p) => p.entry.name)).toEqual([]);
+    expect(all.filter((p) => !BUILDING_EXCLUDE.includes(`${p.pack}:${p.entry.name}`) && lotTypeOf(p.entry, p.front) === null).map((p) => p.entry.name)).toEqual([]);
+    // Each type uses one style (ticket 048): the models of a type that did not reach POLYGON_MIN_FAMILIES are left out of its plan, never mixed in.
+    const byName = new Map(all.map((p) => [p.entry.name, p] as const));
+    for (const t of LOT_TYPE_NAMES) expect(new Set(grouped[t].map((n) => byName.get(n)!.fallback === true)).size, t).toBeLessThanOrEqual(1);
     for (const t of LOT_TYPE_NAMES) expect(grouped[t].length, t).toBeGreaterThanOrEqual(3);
   });
 

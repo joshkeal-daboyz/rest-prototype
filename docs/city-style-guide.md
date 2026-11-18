@@ -63,6 +63,8 @@ How to read it:
 - **Decided (047, Josh, 18 Nov 2026: "what about the video rental store, ignore it... it's part of the small package. The polygon buildings are much higher quality")**: the video rental store, `simple-town:store_small_mesh`, is excluded through `BUILDING_EXCLUDE`. Its small lots go to the other small-lot families. It stays in `MODEL_TABLE` and in the gallery, which marks it `excluded`.
 - **Info**: the guide's check of this chapter: `BUILDING_EXCLUDE` lists `simple-town:store_small_mesh`, so the guide names that key.
 - **Default (041 Q4)**: when no model fits a lot type (or there is no manifest), the lot keeps its placeholder building.
+- **Default (048 Q1; the reason is Josh's 18 Nov 2026 "The polygon buildings are much higher quality")**: POLYGON buildings come first, type by type. `MODEL_TABLE` lists the Town Pack's twelve whole houses ahead of SIMPLE Town's rows, which are marked `fallback`. A lot type uses its POLYGON models when, after `BUILDING_EXCLUDE`, they make at least `POLYGON_MIN_FAMILIES` mesh families for that type (4 for `small`, `house` and `large`, 3 for `tall`: the variety rules' own counts). Otherwise it uses its SIMPLE Town models. The two never mix within a type, though different types on one street may differ. A type with no SIMPLE Town model loaded keeps its POLYGON ones however few.
+- **Info (048)**: with Josh's fronts the Town Pack fills `small` (`SM_Bld_House_Preset_01`, `_02`, `_09` and `SM_Bld_House_Preset_Garage_01`) and `house` (`_03` to `_07` and `_10`). `_08` and `_11` are `large` (two families, under 4), so `large` and `tall` stay SIMPLE Town. With no Town Pack in the manifest, or its GLB failed to load, every type is SIMPLE Town and the town is as it was before 048 (a fresh checkout and CI).
 
 ## 6. Facing
 
@@ -75,6 +77,17 @@ How to read it:
 | --- | --- | --- |
 | `simple-town:store_small_mesh` | +z | calibrated by Josh, 042 A |
 | `simple-town:memorial_mesh` | +z | the starting guess, not yet seen (042 B) |
+| `town-pack:SM_Bld_Church_01` | +z | calibrated by Josh, 048; in no building row (held for 042 E) |
+| `town-pack:SM_Bld_House_Preset_01` | -x | calibrated by Josh, 048 |
+| `town-pack:SM_Bld_House_Preset_03` | -x | calibrated by Josh, 048 |
+| `town-pack:SM_Bld_House_Preset_04` | -x | calibrated by Josh, 048 |
+| `town-pack:SM_Bld_House_Preset_05` | -x | calibrated by Josh, 048 |
+| `town-pack:SM_Bld_House_Preset_06` | +x | calibrated by Josh, 048 |
+| `town-pack:SM_Bld_House_Preset_08` | -x | calibrated by Josh, 048 |
+| `town-pack:SM_Bld_House_Preset_09` | -x | calibrated by Josh, 048 |
+| `town-pack:SM_Bld_Shop_01` | +z | calibrated by Josh, 048; in no building row |
+
+- **Info (048)**: the Town Pack's other five lines are "-z", the default, so they are not in the table: `SM_Bld_House_Preset_02`, `_07`, `_10`, `_11` and `SM_Bld_House_Preset_Garage_01`. All fourteen were promoted by hand from Josh's saved file (`savedAt` 2026-11-18T03:10:05.703Z). No City Pack door was calibrated.
 
 - **Default (042 Q2)**: the way to calibrate a model is the `fronts=1` overlay (`/?puzzle=09-shrine-circuit&view=3d&fronts=1`). It draws a red arrow along each building's declared front and a caption with its name, family and corner sides. Each correction is a one-line edit to `BUILDING_FRONTS`, keyed `pack:name`.
 - **Info (043 section B)**: the gallery (`/?puzzle=09-shrine-circuit&view=3d&gallery=<pack-id>`) shows every building-sized entry of a pack, declared front and all, so a pack's door sides are one look. See chapter 15.
@@ -91,6 +104,7 @@ How to read it:
 | --- | --- | --- |
 | `simple-town:store_corner_mesh` | -z | -x |
 
+- **Default (048 Q5)**: no POLYGON model is a corner model. A gallery click sets only a door, and `open` lives in code, so a Town Pack house gets `corner: true` and `open` only if Josh names one with two street faces and says which side. Until then a Town Pack house goes on any lot, corner or not, as an ordinary model.
 - **Pending (a POLYGON adoption ticket)**: the City Pack's modular `_Corner_` pieces (chapter 13) will need their own corner handling when assembled. Not decided.
 
 ## 8. Lit places
@@ -144,19 +158,21 @@ How to read it:
 ## 13. Packs in the mix
 
 - **Decided (043 Q4, Josh, 17 Nov 2026: "SIMPLE town was a test, the city stuff is higher detail")**: the target style is the POLYGON City Pack and Town Pack. SIMPLE Town is the placeholder and fallback until POLYGON buildings are in. This overtakes 041 Q4's "SIMPLE Town only", which stays the working set until a ticket adopts POLYGON buildings.
-- **Open (043 Q4, until Josh has seen the gallery)**: the exact mix. POLYGON only, or City Pack by district (for example in the outer blocks) with Town Pack elsewhere. Whether SIMPLE Town stays anywhere. Which styles may share a street.
+- **Default (048 Q1 to Q4, on Josh's 17 and 18 Nov 2026 words above)**: the mix for now is the Town Pack's twelve whole houses on the lot types they fill (chapter 5), SIMPLE Town on the types they do not and wherever the Town Pack is absent. No City Pack building is placed, because Josh named none whole. The Church and the City Hall are held back for 042 E's landmark places. Lots are not resized for the Town Pack (a later ticket does that: "lots are sized to buildings", 041).
+- **Open (043 Q4, what 048 Q1 to Q4 leave open)**: whether `large` and `tall` lots go POLYGON, which needs more whole City Pack names or modular assembly. Whether the outer blocks and the circuit's streets may differ. Whether SIMPLE Town stays anywhere once POLYGON covers every type.
 - **Info**: the pack table, from the manifest read on 17 Nov 2026 (`assets/private/out/manifest.json`; the converter's `scale` is each pack's `pack.json` value, which the drift test checks when the manifest is present).
 
 | Pack id | Style | Converter scale | Status | What it supplies |
 | --- | --- | --- | --- | --- |
 | apocalypse-power | POLYGON Apocalypse (the power subset) | 1 | in use | pole `SM_Prop_Powerpole_01`, lamp post `SM_Prop_LightPole_01` |
 | simple-town | SIMPLE Town | 100 | in use | every building today (placeholder style); `scaleOverrides` for two stations and one road tile |
-| town-pack | POLYGON Town Pack | 1 | converted, not used | houses, a church, a garage, a shed, props (Pending adoption) |
+| town-pack | POLYGON Town Pack | 1 | in use | twelve whole houses and a garage (048: `SM_Bld_House_Preset_01` to `_11`, `SM_Bld_House_Preset_Garage_01`); a church, a shed and props are not placed |
 | city-pack | POLYGON City Pack | 100 | converted, not used | roads, pavements, modular apartments and offices, a city hall (Pending adoption) |
 
 - **Info (manifest, 17 Nov 2026)**: `town-pack` has 704 entries and 9 failures (character files with duplicate names). Of its entries, 2 are `scale-suspect` (`SM_Bld_House_DeckSteps_01`, 0 x 0 x 0, and `POLYGON_Town_Demo`) and 62 carry `missing-texture`. Preassembled buildings: `SM_Bld_House_Preset_01` to `_11` (from 5.7 m to 18.2 m wide, 4 to 9.4 m high), `SM_Bld_House_Preset_Garage_01`, `SM_Bld_Church_01` (10.4 x 16.5 x 14.4 m) and `SM_Bld_GardenShed_01` (2.3 x 2.8 x 2.5 m, prop-sized). It also holds many loose wall, deck and door pieces that are not buildings.
-- **Info (manifest, 17 Nov 2026)**: `city-pack` has 355 entries and 2 failures. Its 30 `scale-suspect` entries are the characters (`SK_Char*`), the vehicles (`SM_Veh_*`) and the skyline (`SM_Env_Skyline_*`), about 100 times too big at `"scale": 100`. A `scaleOverrides` factor of 0.01 would be needed for any of them. Its buildings are right at 100. Its roads are flat 5 m tiles (`SM_Env_Road_*`), with pavements `SM_Env_Sidewalk_*`. Its buildings are mostly modular: Base, Floor, Roof, Glass and Corner pieces of one tower (`SM_Bld_OfficeSquare_*`, `_OfficeRound_*`, `_OfficeOld_*`, `_OfficeOctagon_*`, `SM_Bld_Apartment_*`) that need assembling, with a few whole variants (for example `SM_Bld_OfficeSquare_01`) and one whole `SM_Bld_CityHall_01` (20.1 x 8.7 x 17.6 m). None of this is in `MODEL_TABLE`, `BUILDING_FRONTS` or any test yet.
-- **Pending (a POLYGON adoption ticket)**: `MODEL_TABLE` rows for `town-pack` and `city-pack` buildings, their door sides, their lot types from bounds, any modular assembly, and any exclusions. These steps are a renderer ticket (chapter 15, steps 5 to 8).
+- **Info (manifest, 17 Nov 2026)**: `city-pack` has 355 entries and 2 failures. Its 30 `scale-suspect` entries are the characters (`SK_Char*`), the vehicles (`SM_Veh_*`) and the skyline (`SM_Env_Skyline_*`), about 100 times too big at `"scale": 100`. A `scaleOverrides` factor of 0.01 would be needed for any of them. Its buildings are right at 100. Its roads are flat 5 m tiles (`SM_Env_Road_*`), with pavements `SM_Env_Sidewalk_*`. Its buildings are mostly modular: Base, Floor, Roof, Glass and Corner pieces of one tower (`SM_Bld_OfficeSquare_*`, `_OfficeRound_*`, `_OfficeOld_*`, `_OfficeOctagon_*`, `SM_Bld_Apartment_*`) that need assembling, with a few whole variants (for example `SM_Bld_OfficeSquare_01`) and one whole `SM_Bld_CityHall_01` (20.1 x 8.7 x 17.6 m). None of the City Pack is in `MODEL_TABLE`, `BUILDING_FRONTS` or any test yet; its status stays "converted, not used" until a name of it is adopted.
+- **Info (048)**: the Town Pack's whole houses are in `MODEL_TABLE` (chapter 5) with their doors in `BUILDING_FRONTS` (chapter 6); `polygon.test.ts` pins both.
+- **Pending (a POLYGON adoption ticket)**: `MODEL_TABLE` rows for `city-pack` buildings, their door sides, their lot types from bounds, any modular assembly, and any exclusions (chapter 15, steps 5 to 8).
 
 ## 14. Licence handling
 
@@ -173,7 +189,7 @@ How to read it:
   2. Write `pack.json` (`scale`, `scaleOverrides`, `textures`, `textureAliases`), per `tools/blender/README.md`.
   3. Run `npm run assets:convert <pack-id>`.
   4. Read the manifest for `scale-suspect`, `missing-texture` and failures. Fix them in `pack.json` and convert again.
-  5. Calibrate every building's door side: click each door in the gallery (ticket 045). `fronts=1` still works over a whole town. Until a pack is promoted into code, its door sides live in the saved file on Josh's PC.
+  5. Calibrate every building's door side: click each door in the gallery (ticket 045). `fronts=1` still works over a whole town. Until a pack is promoted into code, its door sides live in the saved file on Josh's PC. A pack is promoted by hand (ticket 048): the renderer reads the saved file (read only), copies each of the pack's entries into `BUILDING_FRONTS` as a `pack:name` line and each Shift+clicked one into `BUILDING_EXCLUDE`, writes the file's `savedAt` in a code comment and in chapter 6, and lists every line in its report for Josh to check. The Town Pack was promoted this way from the file saved 2026-11-18T03:10:05.703Z. The saved file keeps overriding in a dev build with identical values.
   6. Check the families (`meshFamily`).
   7. Add rows to `MODEL_TABLE`. Lot types are computed from bounds, never hand-set.
   8. Add any exclusions to `BUILDING_EXCLUDE` (as `pack:name` keys).
@@ -228,6 +244,10 @@ The drift test (`styleguide.test.ts`) reads this table. Each row names an export
 | `NEIGHBOUR_GAP` | 0.5 | models.ts |
 | `STREET_REPEAT_GAP` | 3 | models.ts |
 | `FAMILY_SHARE_MAX` | 0.25 | models.ts |
+| `POLYGON_MIN_FAMILIES.small` | 4 | models.ts |
+| `POLYGON_MIN_FAMILIES.house` | 4 | models.ts |
+| `POLYGON_MIN_FAMILIES.large` | 4 | models.ts |
+| `POLYGON_MIN_FAMILIES.tall` | 3 | models.ts |
 | `POLE_HEIGHT` | 1.6 | layout.ts |
 | `POLE_SPACING` | 3 | layout.ts |
 | `SAG_RATIO` | 0.04 | layout.ts |

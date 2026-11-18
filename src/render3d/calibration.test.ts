@@ -63,8 +63,10 @@ describe("the re-key: BUILDING_FRONTS is the 043 B table with simple-town: in fr
 
   it("has exactly the old lines, each key prefixed simple-town:, each value the same", () => {
     const want = Object.fromEntries(Object.entries(OLD).map(([n, v]) => [`simple-town:${n}`, v]));
-    expect(BUILDING_FRONTS).toEqual(want);
-    expect(Object.keys(BUILDING_FRONTS)).toHaveLength(39);
+    // Ticket 048 added the Town Pack's lines (checked in polygon.test.ts); SIMPLE Town's are exactly the old ones.
+    const simple = Object.fromEntries(Object.entries(BUILDING_FRONTS).filter(([k]) => k.startsWith("simple-town:")));
+    expect(simple).toEqual(want);
+    expect(Object.keys(simple)).toHaveLength(39);
   });
 
   it("excludes only the video rental store in BUILDING_EXCLUDE (ticket 047)", () => {
