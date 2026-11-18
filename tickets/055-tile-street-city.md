@@ -4,9 +4,10 @@ owner: renderer (src/render3d/, docs/city-style-guide.md)
 status: approved (G1, Josh, 18 Nov 2026: "I approve", after seeing the ticket and its open-question defaults; every default applies). Sections in order A, then B and C (may run in parallel), then E (integration, added 18 Nov 2026 after A, B and C were built), then D.
 - **Section E approved** (G1, Josh, 18 Nov 2026, in chat, relayed by the main session: "I approve one through three"). Item 2 of that approval is section E, with Q8 and Q9 at their defaults. Items 1 and 3 are the merge of A, B and C into `goal/city-style`, and ticket 056.
 - **Ticket 056** (parking rules, approved in the same words) changes criteria 4, 11, 23, 26, 27, 28, 31 and D's T6 once 056 A merges. Each change is marked "From 056" where it applies.
+- **Section F** (door sills, added 18 Nov 2026 on Josh's direction: "That's going to have to be a variable that we measure for each individual building") is **open, awaiting his G1** on this cut and on Q10 to Q13. It builds after E.
 
 Built on `goal/city-style`, which Josh has not merged to main yet.
-branch: one per section: `ticket/055a-tile-grid`, `ticket/055b-tile-lots`, `ticket/055c-tile-draw`, `ticket/055e-tile-integrate`, `ticket/055d-tile-checks`
+branch: one per section: `ticket/055a-tile-grid`, `ticket/055b-tile-lots`, `ticket/055c-tile-draw`, `ticket/055e-tile-integrate`, `ticket/055d-tile-checks`, `ticket/055f-door-sills`
 
 ## Josh's words (18 Nov 2026, in chat)
 > 1. "In order for those tiles to work we are going to have to fix the power lines. Currently, the powerline puzzles define the map structure and distort the style of the city in such a way that the city pack doesnt allow. Maybe in the future, we could fix the city to accommodate for all roads that aren't 90*, but for now the map packs don't support that."
@@ -69,7 +70,9 @@ In a dev build, Josh (or the main session) opens `/?puzzle=<any>&view=3d&city=ti
    - `setback: 0` (terrace fronts on the pavement's back edge: no strip between pavement and shopfront);
      - **Deviation, recorded 18 Nov 2026** (Josh, in chat: "Keep the inset"): each row's first lot stands back from its corner. On `7e291ff` the inset is 1 to 2.75 m. It comes from `startInset_m` on `terraceBlockRows` (default 0, so the ladder is unchanged), and `tileRowInset_m` in `tilecity.ts` sets it so that the packer's columns end on a seam or an alley at the row's far end.
      - The yard strip is therefore at the corner, in front of the corner block's flank, and not between the pavement and the shopfronts along the row.
-     - The first lot stays a corner lot, with a real margin. Every inset is at most `CORNER_GAP` minus 0.5 m (about 2.28 m), not 3 cm under `CORNER_GAP` as on `7e291ff`. The plaza-ending case is capped there if it would pass that, and the test pins the margin.
+     - The first lot stays a corner lot, with a real margin. As built in `876593d`, every inset is at most `TILE_INSET_MAX_M` (2.5 m). That is 0.28 m under `CORNER_GAP` (0.5 world units, 2.78 m), where `7e291ff` had 3 cm.
+       - Where 5.2 m columns would leave more, the row is fitted to the widest apartment column (5.281 m) instead.
+       - The test requires every inset to be at least 0.25 m under `CORNER_GAP`.
      - E's eye check (criterion 31) includes the corner close-up `&cam=street&run=0&at=0`.
    - no circuit, so the occlusion and wire rules pass and every lot takes the top cap;
    - `snap_m: TILE_M` for open lots: a parking lot is `PARKING_W_M` x `PARKING_D_M` (10 x 10, 2 x 2 cells) on the tile grid, a plaza `TILE_PLAZA_W_M` (10, 2 x 2 cells) instead of 10.4;
@@ -87,6 +90,10 @@ In a dev build, Josh (or the main session) opens `/?puzzle=<any>&view=3d&city=ti
 - **C. Drawing and the dev view** (about 1 day). Design items 11 and 12. Needs A; may build in parallel with B (it draws whatever the tile city's `Town` holds; terraces appear once B merges).
 - **E. Integration** (about 1 day; added 18 Nov 2026). B's helpers wired into the drawn city (keep-outs, bay meters, the dressing's frame), a frame-aware R10, the street camera on the tile city, the tile facts the C builder read from the GLBs (bays per parking tile, the walking level, the centre line), a readable sheet, and `light=day` on the tile view. Needs B and C merged into `goal/city-style`.
 - **D. Checks and the guide** (about ½ day). `tilemetrics.ts`, chapter 17, chapter 10's update, the Numbers rows and drift test, all on the integrated city. Needs E.
+- **F. Door sills** (about 1 day; added 18 Nov 2026 on Josh's direction; **not yet approved, waits for his G1 on this cut**). F covers every building on the tile city and on the ladder maps.
+  - Each building's door-sill height is measured from its GLB into a table keyed by model.
+  - The draw step sinks the building so the sill meets the walk, or, for a house that cannot sink that far, stands steps at its door.
+  - F needs E merged, because both edit `models3d.ts`. It may run beside D and 056, which touch other files.
 
 ## Acceptance criteria
 **CI-safe rules (every section).** Tests use typed-in fixture entries (names and bounds as numbers: the 5 x 0 x 5, 10 x 0 x 5 and 5 x 0.30 x 5 tiles of finding 2), never `assets/private/` at module or `describe` level; a check on the real manifest stays inside an `it` and skips when the file is absent. No Windows paths (`path.join`, forward-slash literals, `new URL(..., import.meta.url)`), no timer under 1 s, no wall-clock wait. Nothing from `assets/private/` is committed or bundled. The largest city a test builds is 6 x 6 blocks; the suite stays fast.
@@ -179,6 +186,72 @@ Starts on `goal/city-style` once B and C are merged into it. Its findings were c
 
     Numbers rows for every exported constant of `tilecity.ts`, `tileslots.ts` and `tilemetrics.ts`, including B's `TILE_PARK_MIN_RUN_M` and E's `SIDEWALK_WALK_M` (and `TILE_WALK_M` if made); `styleguide.test.ts`'s drift check reads those files (a new check; existing checks unedited).
 
+### F. Door sills (added 18 Nov 2026; Vitest unless marked)
+**Why.** Josh, 18 Nov 2026, in chat: house foundations stand higher than the street, so no one could walk in. Then, on how to fix it: "That's going to have to be a variable that we measure for each individual building."
+
+Pack facts, from the manifest (the main session, 18 Nov 2026):
+- The City Pack's only steps are `SM_Bld_Apartment_Stairs_*`: outdoor staircases 2.4 to 4 m high and 5 to 10 m deep, far too big for a door, and kept out by 16.6.
+- The Town Pack has `SM_Bld_House_Concrete_Steps_01` (1.2 x 0.5 x 0.9 m), the right size for a house door.
+- The Town Pack's `SM_Bld_House_DeckSteps_01` converts to 0 x 0 x 0, so it is broken and not used.
+
+**The rule.**
+- The sill is the height of the floor the door opens onto, above the model's base (the converter grounds min y at 0).
+- A building whose sill is at most `SILL_MAX_M` (0.15) is not changed.
+- Any other building is **sunk** by its sill, so the sill meets the walk in front of it: y 0 on the tile city's pavement (E's walk level), and the lot ground on the ladder.
+- A **house** (a whole model) whose sinking would leave its lowest ground-floor window less than `SILL_WINDOW_CLEAR_M` (0.3) above the walk sinks only that far. `SM_Bld_House_Concrete_Steps_01` then stands at its door, outside the front face, scaled in y alone to the rise that is left.
+- A **stack** (City Pack terrace or tall-lot stack) always sinks, never takes steps, and sinks as one by the largest sill of its ground pieces. A terrace's front is the pavement, and steps there would stand in the walkers' way.
+
+33. [ ] **The measured table.** New `src/render3d/sills.ts`, pure, exports `DOOR_SILLS: Readonly<Partial<Record<CalibrationKey, { sill_m: number; window_m: number | null; door_x_m: number }>>>`.
+    - **Keys:** one entry for every ground-floor model the town can place:
+      - the base, door, corner and shop pieces of every `STACK_STYLES` style;
+      - the twelve Town Pack whole houses of 048, and its garage;
+      - every SIMPLE Town building in `MODEL_TABLE`.
+    - **How each value is read:** from the converted GLB's geometry, not guessed, as `4d952c6` read `TILE_FRONTS`.
+      - The front face is the one `BUILDING_FRONTS` names.
+      - `sill_m` is the highest upward-facing surface (normal y above 0.9) under the door opening, within 1 m behind the front face and under 1.5 m.
+      - `door_x_m` is the door's centre along the front, in the model's frame: the door mesh or material if one is named so, else the front's centre.
+      - `window_m` is the lowest point of the front face's glass or window triangles, or null.
+    - **A key the geometry cannot settle** gets no entry. It is drawn unchanged and listed in the builder's report with the reason.
+    - **Tests:**
+      - a CI-safe test pins every entry's three values as a typed-in fixture, so changing a value fails it;
+      - a real-geometry test inside an `it`, skipped when `assets/private/out/` is absent, re-measures each key and matches the table within 0.02 m.
+
+      Neither test reads a pack file at module or `describe` level.
+34. [ ] **The plan.** `sills.ts` exports `SILL_MAX_M = 0.15`, `SILL_WINDOW_CLEAR_M = 0.3`, `STEPS_KEY = "town-pack:SM_Bld_House_Concrete_Steps_01"`, `STEPS_RISE_M = 0.5` (its measured height), and `STEPS_SCALE_Y = { min: 0.5, max: 1.5 }`.
+    - **Functions:** `stackSill(stack, table)` and `houseSill(key, table)` each return `{ sink_m: number; steps: { x_m: number; z_m: number; scaleY: number } | null; leftOver_m: number }`, in the building's own frame. They are pure and follow the rule above.
+    - **Fixture cases:**
+      - a sill of 0.1: no change;
+      - a sill of 0.6 with no window: sink 0.6;
+      - a sill of 0.6 with a window at 0.6: sink 0.3 and steps scaled 0.3 / 0.5 = 0.6;
+      - a sill of 0.6 with a window at 0.35: sink 0.05 and a left-over rise of 0.55, which is within the steps' scale range;
+      - a stack with ground sills 0.2 and 0.45: the stack sinks 0.45;
+      - a key with no entry: no change.
+    - **After the rule:** on fixture tables, every door with an entry is at most `SILL_MAX_M` above the walk, or has steps whose scaled top is within 0.05 m of its sill. A house whose rise left over is outside the steps' scale range is reported in `leftOver_m`. The test lists every such key from the real table (skipped without it), and the main session takes that list to Josh.
+35. [ ] **Drawn.** `applyModels` (in `models3d.ts`):
+    - lowers each whole-model group and each stack group by its `sink_m`;
+    - lowers that block's dressing placements (glass, awnings, signs, fire escapes, roof props) by the same amount;
+    - stands the steps as one `InstancedMesh`, or as a code-drawn box of the same size and the lot colour when the Town Pack key is absent (CI).
+
+    Furniture, open lots, tiles and lot placeholders do not move. With an empty `DOOR_SILLS`, the scene equals E's exactly (deep-equal on the three protocol maps and the default tile city).
+36. [ ] **The ladder towns change only here.** On the ladder maps, F changes building and stack heights, the dressing heights of the blocks that sink, and the added steps; nothing else. Everything else stays deep-equal on the three protocol maps:
+    - `townLayout`, `packTown`, `dressSites`/`dressTown` and `furnitureLayout` outputs (E's criteria 23 and 24 hold on these pure outputs, and F's sink is applied when drawing);
+    - `evaluateCity`;
+    - pick and Relight.
+
+    `npm run playtest` has no snapshot change. Lifting `STEPS_KEY`'s model into use is recorded in 16.6 and the pack table (Town Pack: "a church, a shed and props are not placed" gains "except the house concrete steps").
+37. [ ] **Guide.** `docs/city-style-guide.md` gains 16.10 "Door sills":
+    - the rule, with Josh's words above as its **Decided** line;
+    - the table's method;
+    - the left-over list as **Open**.
+
+    Numbers rows cover every `sills.ts` constant. `styleguide.test.ts` gains a drift check for `sills.ts` only (a new check; existing checks unedited). 16.6 records the steps key in use and `DeckSteps_01` as broken.
+38. [ ] (Main session, screenshots, `npm run dev`, each with `&light=day`) Check these URLs:
+    - `/?puzzle=01-first-light&view=3d&city=tiles&cam=street&run=0&at=0`, `&run=1` and `&run=3`: shop and residents' doors meet the pavement, with no plinth to climb and no door sunk into the slab;
+    - `/?puzzle=09-shrine-circuit&view=3d&cam=street&run=0`, and one ladder map with Town Pack houses (the builder names it in its report) at `&cam=street`: house doors meet their path or have steps that read as steps, and no ground-floor window is buried;
+    - `/?puzzle=09-shrine-circuit&view=3d` overhead: reads as on `goal/city-style` but for building heights.
+
+    Screenshots go to Josh.
+
 ### Every section
 21. [ ] (Builder) Runs only `npx vitest run --maxWorkers=2 src/render3d/` and one `npx tsc --noEmit`. No dev server, no browser. Writes nothing under `assets/`.
 22. [ ] (Main session) `npm run gate` green and the test count grew; `npm run playtest` green with **no snapshot change**; `git diff` of the section touches only its Files; `git diff -- src/core/ src/render/ src/grid/ src/night/ src/play/ src/ui/ src/main.ts tests/ puzzles/ tools/ package.json public/ index.html vite.config.ts` empty; `git ls-files assets/private` empty; `dist/` has no `.glb`, `manifest.json` or `private` path.
@@ -196,6 +269,13 @@ Starts on `goal/city-style` once B and C are merged into it. Its findings were c
   - Their tests: `tilecity.test.ts`, `tileslots.test.ts`, `tilecity3d.test.ts`, and new cases in a new `tileintegrate.test.ts`. Existing ladder suites stay unedited.
   - Not `renderer.ts` (the daylight and sheet live in `tilecity3d.ts`; if the builder finds `renderer.ts` must change, it stops and asks for a re-cut). Not `town.ts`, `furniture.ts`, `dressing.ts` or `streetcam.ts`. Not the guide (D writes it).
 - **D, may touch:** new `src/render3d/tilemetrics.ts`, `tilemetrics.test.ts`; `docs/city-style-guide.md` (chapters 10 and 17, Numbers); `styleguide.test.ts` (the new drift check only).
+- **F, may touch (owner renderer):**
+  - new `src/render3d/sills.ts` and `sills.test.ts`;
+  - `models3d.ts`: the sink, the dressing offset, the steps, and loading `STEPS_KEY`;
+  - `docs/city-style-guide.md`: 16.6, 16.10, the pack table row for the Town Pack, and Numbers;
+  - `styleguide.test.ts`: the new drift check only.
+
+  Not `stacks.ts`, `dressing.ts`, `town.ts`, `furniture.ts`, `tilecity.ts`, `tilecity3d.ts` or `models.ts`: the sink is applied when drawing, not in the plans. Measuring may read `assets/private/out/` locally, and nothing under `assets/` is written or committed.
 - **Must not touch (every section):** `layout.ts`, `relight3d.ts`, `pick.ts`, `camera.ts`, `scene.ts`, `streetcam.ts`, `terrace.ts`, `stacks.ts`, `colourway.ts`, `gallery.ts` (import `createGalleryRig`, do not edit), `calibration.ts`; `src/core/`, `src/render/`, `src/grid/`, `src/night/`, `src/play/`, `src/ui/`, `src/main.ts`; `tests/`, `puzzles/` (and never `puzzles/locked/`), `tools/`, `package.json`, `vite.config.ts`, `index.html`, `public/`; anything under `assets/` (read only). A builder who needs one stops and asks for a re-cut.
 
 ## Interfaces
@@ -216,6 +296,11 @@ Starts on `goal/city-style` once B and C are merged into it. Its findings were c
   - `models3d.ts`: `applyModels(bundle, set, opts?: { keepPoints?; keepRects?; furnitureFilter?: (pieces: readonly FurniturePiece[]) => FurniturePiece[] })`, and `dressSites(..., frames?: ReadonlyMap<string, TerraceRun["frame"]>)`, putting the frame into `DressSite.run.frame`.
   - The builder may rename any of these. No new dependency.
 - `tilemetrics.ts` (D): `type TileCheckId = "T1" | ... | "T9"`, `TILE_CHECK`, `tileMetrics(...)`, `evaluateTiles(...)`.
+- `sills.ts` (F):
+  - `DOOR_SILLS`, `SILL_MAX_M`, `SILL_WINDOW_CLEAR_M`, `STEPS_KEY`, `STEPS_RISE_M`, `STEPS_SCALE_Y`;
+  - `stackSill(stack, table)` and `houseSill(key, table)`, each returning `{ sink_m; steps; leftOver_m }`.
+
+  No new dependency. The builder may rename any of these.
 
 ## For the later tickets (not built here; recorded so they start from it)
 - **The circuit on the grid** (Josh's item 1): nodes on tile-grid points, wires as 90 degree runs along tile streets, `townLayout(puzzle)` replaced by the tile city fitted to the circuit's bounds. It inherits finding 7 (tile streets are about twice as wide as today's; the camera and `OCCLUDE_SLOPE` rules need re-checking) and must keep the Decided cut and Relight looks (chapter 9).
@@ -240,5 +325,11 @@ Starts on `goal/city-style` once B and C are merged into it. Its findings were c
 ### Added 18 Nov 2026 with section E (answered 18 Nov 2026: Josh approved E with both defaults, "I approve one through three")
 8. **The centre line.** The lane tiles `Road_Lines_01/02` have a white edge line on both sides and no centre mark, so two lanes side by side read as a white double line down the middle. The pack's `Road_YellowLines_01/02` carry a yellow line, and they are not on the never-used list. Default: **use the YellowLines pieces for every lane cell**, yellow edge on the centre line. Alternative: keep the white pieces.
 9. **The tile view's default lighting.** Default: **night, as the game and every ladder map**, with `&light=day` for judging the tiles (fixed in E so it works overhead); the sheet is always lit. Alternative: the dev-only tile view opens in daylight.
+
+### Added 18 Nov 2026 with section F (not yet put to Josh; the defaults apply if he approves F as is)
+10. **Where the sill rule applies.** Default: **everywhere**, on the tile city and the ladder maps. These are the same buildings, and a door nobody can reach is wrong on both. Only building and dressing heights and the steps change on the ladder (criterion 36). Alternative: the tile city only, for now.
+11. **The threshold.** Default: a sill up to **0.15 m** is left as a door step. Alternative: 0.05 m (every visible plinth sinks).
+12. **Steps or sink.** Default: **sink first**. Steps only for a house whose sinking would bury its ground-floor windows, and never on a terrace. Alternative: steps at every house door, and sinking only for stacks.
+13. **The steps model.** Default: the Town Pack's `SM_Bld_House_Concrete_Steps_01` (a second atlas, beside the houses that already use it), code-drawn when absent. Alternative: code-drawn steps everywhere.
 
 Decided rules: none is touched (rendering only, no puzzle); `rules-coverage.md` does not change.
