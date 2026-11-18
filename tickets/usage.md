@@ -75,3 +75,7 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 045 section A | code-reviewer | agent default | 69K total (one figure in the readout) | — | 0 | meets, must-fix 0 |
 | 045 section B | code-reviewer | agent default | 43K total (one figure in the readout) | — | 0 | meets, must-fix 0 |
 | 045 sections A and B | playtester | agent default | 18K total (one figure in the readout) | — | 0 | regressions 0; stopped early (harness imports nothing changed) |
+| 045 section C | renderer | sonnet | 138K total (one figure in the readout) | — | 0 | Gallery clicks, hit test, in-order dev saver, `not saved` display (commit a8293a6); 50 tool uses, 7 min; 29 new tests |
+| 045 section C | gate (main session) | — | — | — | 0 | tsc clean, 88 files, 1681 passed; production build checked: no click, endpoint or help-line code in dist |
+| 045 section C | code-reviewer | agent default | 59K total (one figure in the readout) | — | 0 | meets, must-fix 0 |
+| 045 section C | playtester | agent default | 16K total (one figure in the readout) | — | 0 | regressions 0; stopped early (harness never imports render3d) |
