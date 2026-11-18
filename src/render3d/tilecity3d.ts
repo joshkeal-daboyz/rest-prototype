@@ -8,8 +8,9 @@
  *   and the tiles. `applyModels` runs on it unchanged, so stacks, dressing, furniture and colourways stand as on a ladder map.
  * - `buildSheetScene` lays each tile piece once on a grid, labelled, with an arrow along the front the city expects, so each piece's orientation can be confirmed by eye. It is shown
  *   from above on the city rig, every piece inside the insets, in a grid shaped to the window (labels keep a pixel size; see `sheetLayout`).
- * - `createCityRenderer3d` is the renderer for both, switched on in renderer.ts behind `import.meta.env.DEV`. It reads no address: renderer.ts passes the query string in. `light=day`
- *   adds one daylight to every view of it (ticket 055 E); `cityApplyOptions` is what the models are applied with (keep-outs, bay meters, the walk's furniture level).
+ * - `createCityRenderer3d` is the renderer for both, switched on in renderer.ts behind `import.meta.env.DEV`. It reads no address: renderer.ts passes the query string in. The city and
+ *   the street camera open in day (ticket 060: a testing daylight, `light=night` for the game's night; the light rig owns the lights) and a key and a button flip the mode; the sheet
+ *   keeps its own lights. `cityApplyOptions` is what the models are applied with (keep-outs, bay meters, the walk's furniture level).
  */
 
 import {
@@ -21,7 +22,6 @@ import {
   DoubleSide,
   Float32BufferAttribute,
   Group,
-  HemisphereLight,
   InstancedMesh,
   Matrix4,
   Mesh,
@@ -46,7 +46,10 @@ import { applyModels, meshParts, sharedTileModels, tileInput, type AppliedModels
 import { KERB_H, LOT_TYPE_NAMES, STOREY_M, type Lot, type LotType } from "./town";
 import { ROOF_SHADE, TINTS, pickPlaceholders } from "./placeholders";
 import { KERB, PAVEMENT, STREET, GROUND, YARD, KERB_W, type SceneBundle } from "./scene";
-import { createStreetView, streetCamRequested, streetMode, STREET_CAM_DAY_INTENSITY, STREET_CAM_GROUND, STREET_CAM_SKY, type StreetView } from "./streetcam";
+import { createStreetView, streetCamRequested, streetMode, type StreetView } from "./streetcam";
+import { applyLightMode, addSurface, newLightOwners, sceneLightMode, setRendererMode } from "./lightrig";
+import { lightModeFor, type LightModeId } from "./lighting";
+import { createDayToggle, pageDayToggleHost, type DayToggle, type DayToggleHost } from "./daytoggle";
 import { LANE_PATCH, LANE_RIGHT, SIDEWALK_WALK_M, TILE_M, bayMeters, tileCity, tileKeepouts, type TileCell, type TileCity, type TileRole } from "./tilecity";
 import { TILE_DRAW_CALLS_MAX, TILE_LEVELS, TILE_PATCH, TILE_SHEET_EXTRA, TILE_SLOTS, sheetColumns, sheetLabel, sheetLayout, sheetLegend, tileFront, tileKeys, tileLevelY_m, type CityTilesRequest, type SheetLayout } from "./tileslots";
 import { createCaptionSprite, defaultTextSurface, type CaptionSprite, type TextSurfaceFactory } from "./text";
@@ -63,7 +66,6 @@ const GROUND_MARGIN = 14;
 /** The yard ground outside the edge streets' outer pavements, how far it reaches (metres), and how far under the pavement top the yards stand (metres, so a lot surface at 0 lies over them). */
 export const OUTER_YARD_M = 15;
 const YARD_BELOW_M = 0.02;
-const CITY_BACKGROUND = 0x0b0f17;
 
 const roadLike = (role: TileRole): boolean => TILE_LEVELS[role] !== "pavement";
 const carriageRole = (role: TileRole): boolean => role === "lane" || role === "parking" || role === "parkingPlain";
@@ -126,6 +128,8 @@ export interface TileDraw {
   calls: number;
   /** Instances per pack key (a key a role lost to the draw-call cap, or that never loaded, is absent). */
   perKey: ReadonlyMap<CalibrationKey, number>;
+  /** The code-drawn materials by surface key (`street`, `pavement`, `kerb`), for the light rig. */
+  surfaces: ReadonlyMap<string, readonly Material[]>;
   /** Frees the instance buffers and the code-drawn geometry and materials (never a pack piece's geometry or textures). */
   dispose(): void;
 }
@@ -194,6 +198,7 @@ export function tileGroup(city: TileCity, roots: ReadonlyMap<CalibrationKey, Obj
   noRay(group);
   const owned: { dispose(): void }[] = [];
   const instanced: InstancedMesh[] = [];
+  const surfaces = newLightOwners();
   const m = new Matrix4();
 
   // The pack: one InstancedMesh per key and sub-mesh.
@@ -247,7 +252,9 @@ export function tileGroup(city: TileCity, roots: ReadonlyMap<CalibrationKey, Obj
   };
   const q = new Quaternion();
   if (quads.length > 0) {
-    const im = new InstancedMesh(own(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2)), own(new MeshStandardMaterial({ color: STREET, roughness: 1 })), quads.length);
+    const roadMat = own(new MeshStandardMaterial({ color: STREET, roughness: 1 }));
+    addSurface(surfaces, "street", roadMat);
+    const im = new InstancedMesh(own(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2)), roadMat, quads.length);
     im.name = "tile:code-road";
     quads.forEach((c, i) => {
       const f = cellFootprint(c);
@@ -260,7 +267,9 @@ export function tileGroup(city: TileCity, roots: ReadonlyMap<CalibrationKey, Obj
     instanced.push(im);
   }
   if (boxes.length > 0) {
-    const im = new InstancedMesh(own(new BoxGeometry(1, 1, 1).translate(0, 0.5, 0)), own(new MeshStandardMaterial({ color: PAVEMENT, roughness: 1 })), boxes.length);
+    const paveMat = own(new MeshStandardMaterial({ color: PAVEMENT, roughness: 1 }));
+    addSurface(surfaces, "pavement", paveMat);
+    const im = new InstancedMesh(own(new BoxGeometry(1, 1, 1).translate(0, 0.5, 0)), paveMat, boxes.length);
     im.name = "tile:code-pavement";
     boxes.forEach((c, i) => {
       const f = cellFootprint(c);
@@ -274,7 +283,9 @@ export function tileGroup(city: TileCity, roots: ReadonlyMap<CalibrationKey, Obj
   }
   const strips = kerbStrips(city, codeCells);
   if (strips.length > 0) {
-    const im = new InstancedMesh(own(new BoxGeometry(1, 1, 1).translate(0, 0.5, 0)), own(new MeshStandardMaterial({ color: KERB, roughness: 1 })), strips.length);
+    const kerbMat = own(new MeshStandardMaterial({ color: KERB, roughness: 1 }));
+    addSurface(surfaces, "kerb", kerbMat);
+    const im = new InstancedMesh(own(new BoxGeometry(1, 1, 1).translate(0, 0.5, 0)), kerbMat, strips.length);
     im.name = "tile:code-kerb";
     strips.forEach((s, i) => im.setMatrixAt(i, m.compose(tmpP.set(s.x, 0, s.z), q, tmpS.set(s.w, KERB_H, s.d))));
     im.instanceMatrix.needsUpdate = true;
@@ -290,6 +301,7 @@ export function tileGroup(city: TileCity, roots: ReadonlyMap<CalibrationKey, Obj
     codeDrawn: codeCells.length,
     calls: instanced.length,
     perKey,
+    surfaces: surfaces.materials,
     dispose() {
       for (const im of instanced) im.dispose();
       for (const o of owned) o.dispose();
@@ -448,17 +460,16 @@ function placeholdersOf(lots: readonly Lot[]): { root: Object3D; byType: Record<
 export function buildCityScene(city: TileCity): CityScene {
   const town = city.town;
   const scene = new Scene();
-  scene.background = new Color(CITY_BACKGROUND);
-  scene.add(new AmbientLight(0x4a5a7a, 1.1));
-  const moon = new DirectionalLight(0x8fa6d0, 0.7);
-  moon.position.set(-6, 12, 4);
-  scene.add(moon);
+  // The scene's global lights and background are the light rig's (ticket 060): night here, as the game is; the tile view puts the scene in its mode.
+  const lightOwners = newLightOwners();
+  applyLightMode(scene, null, "night", lightOwners);
 
   const win = town.window;
   const carriageY = -SIDEWALK_WALK_M * S;
   // The ground lies just under the carriageway; the yards are the blocks' open ground and the ring of yard round the city, a hair under 0 so a lot surface at 0 lies over them.
   const ground = new Mesh(new BoxGeometry(win.maxX - win.minX + 2 * GROUND_MARGIN, 0.1, win.maxY - win.minY + 2 * GROUND_MARGIN), new MeshStandardMaterial({ color: GROUND, roughness: 1 }));
   ground.position.set((win.minX + win.maxX) / 2, carriageY - GROUND_BELOW_M * S - 0.05, (win.minY + win.maxY) / 2);
+  addSurface(lightOwners, "ground", ground.material as Material);
   noRay(ground);
   scene.add(ground);
 
@@ -472,7 +483,9 @@ export function buildCityScene(city: TileCity): CityScene {
     { x0: win.minX - outer, z0: win.minY, x1: win.minX, z1: win.maxY },
     { x0: win.maxX, z0: win.minY, x1: win.maxX + outer, z1: win.maxY },
   );
-  const yards = new InstancedMesh(unitBox(), new MeshStandardMaterial({ color: YARD, roughness: 1 }), yardRects.length);
+  const yardMat = new MeshStandardMaterial({ color: YARD, roughness: 1 });
+  addSurface(lightOwners, "yard", yardMat);
+  const yards = new InstancedMesh(unitBox(), yardMat, yardRects.length);
   const o = new Object3D();
   yardRects.forEach((r, i) => {
     o.position.set((r.x0 + r.x1) / 2, yardBase, (r.z0 + r.z1) / 2);
@@ -509,6 +522,13 @@ export function buildCityScene(city: TileCity): CityScene {
 
   let tiles = tileGroup(city, new Map(), new Map());
   scene.add(tiles.group);
+  const syncTileSurfaces = (): void => {
+    for (const [key, mats] of tiles.surfaces) lightOwners.materials.set(key, [...mats]);
+    for (const key of ["street", "pavement", "kerb"]) if (!tiles.surfaces.has(key)) lightOwners.materials.delete(key);
+    // The tiles' materials are new: bring them to the mode the scene is in.
+    applyLightMode(scene, null, sceneLightMode(scene) ?? "night", lightOwners);
+  };
+  syncTileSurfaces();
 
   // The fields a puzzle scene has and a city has none of: empty, and never added to the scene.
   const emptyGeo = new BufferGeometry();
@@ -525,6 +545,7 @@ export function buildCityScene(city: TileCity): CityScene {
   return {
     city,
     scene,
+    lightOwners,
     captions: [],
     parts: new Map(),
     wires: new Map(),
@@ -541,6 +562,7 @@ export function buildCityScene(city: TileCity): CityScene {
       tiles.dispose();
       tiles = tileGroup(city, roots, entries);
       scene.add(tiles.group);
+      syncTileSurfaces();
       return tiles;
     },
     dispose() {
@@ -592,8 +614,6 @@ export interface SheetScene {
   missing: number;
   /** One label per piece, under its piece, in the order of `sheetPieces()`, then the legend (last), above the grid. */
   labels: readonly CaptionSprite[];
-  /** The daylight when the page asked for it, else null (the sheet is always lit by its own lights). */
-  daylight: HemisphereLight | null;
   /** Size the labels to the canvas (they keep a fixed pixel size at any zoom). */
   setViewport(heightPx: number): void;
   dispose(): void;
@@ -613,12 +633,12 @@ const sheetRole = (roles: readonly TileRole[], key: CalibrationKey): TileRole =>
  * Every tile piece once, on a grid (`sheetLayout(aspect)`: four columns in a wide window, two in a tall one), standing on a plain ground the way the city stands it (a road piece
  * at the carriageway level, a sidewalk piece on it so its walk is at 0), each turned by its `TILE_FRONTS` line, with its own outline (so a piece the pack lacks still shows its place), a
  * yellow arrow along +z (toward the camera: the front the city expects) and a label under it. A corner piece has a second arrow along +x. The legend above the grid says what each kind of
- * piece must show on the arrow's side. `day` adds the daylight (`light=day`); the sheet's own lights are always on.
+ * piece must show on the arrow's side. The sheet's own lights are always on, in both light modes (ticket 060): it is the view that already reads well.
  */
 export function buildSheetScene(
   roots: ReadonlyMap<CalibrationKey, Object3D>,
   entries: ReadonlyMap<CalibrationKey, AssetEntry>,
-  opts: { surface?: TextSurfaceFactory; dpr?: number; aspect?: number; day?: boolean } = {},
+  opts: { surface?: TextSurfaceFactory; dpr?: number; aspect?: number } = {},
 ): SheetScene {
   const surface = opts.surface ?? defaultTextSurface;
   const dpr = opts.dpr ?? 1;
@@ -630,8 +650,6 @@ export function buildSheetScene(
   const sun = new DirectionalLight(0xffffff, 2.2);
   sun.position.set(-8, 14, 22);
   scene.add(sun);
-  const daylight = opts.day === true ? new HemisphereLight(STREET_CAM_SKY, STREET_CAM_GROUND, STREET_CAM_DAY_INTENSITY) : null;
-  if (daylight) scene.add(daylight);
 
   const owned: { dispose(): void }[] = [];
   const own = <T extends { dispose(): void }>(x: T): T => {
@@ -739,7 +757,6 @@ export function buildSheetScene(
     present,
     missing: layout.slots.length - present,
     labels,
-    daylight,
     setViewport(heightPx) {
       const unit = scaleForPx(1, heightPx, FOV_DEG);
       for (const cs of labels) cs.setUnit(unit);
@@ -747,7 +764,6 @@ export function buildSheetScene(
     dispose() {
       for (const x of owned) x.dispose();
       owned.length = 0;
-      daylight?.dispose();
     },
   };
 }
@@ -905,27 +921,17 @@ export function cityApplyOptions(city: TileCity): ApplyOptions {
   return { keepPoints: keep.keepPoints, keepRects: keep.keepRects, furnitureFilter: (pieces) => bayMeters(city, pieces), furnitureLevels: TILE_FURNITURE_LEVELS };
 }
 
-/** Does the page ask for the daylight (`light=day`)? One flag for every tile-view URL: the overhead city, the street camera, its fallback and the sheet. */
-export function cityDaylightRequested(search: string): boolean {
-  return new URLSearchParams(search).get("light") === "day";
-}
-
-/** The daylight, added to a scene: the one `HemisphereLight` of the page, at `STREET_CAM_DAY_INTENSITY`. */
-export function addDaylight(scene: Scene): HemisphereLight {
-  const light = new HemisphereLight(STREET_CAM_SKY, STREET_CAM_GROUND, STREET_CAM_DAY_INTENSITY);
-  scene.add(light);
-  return light;
-}
-
 export interface CityRendererOptions {
   insets?: Insets | undefined;
   dpr: number;
-  /** The page's query string (`cam=street`, `run`, `at`, `light=day`); renderer.ts reads the address and passes it in. */
+  /** The page's query string (`cam=street`, `run`, `at`, `light=night`); renderer.ts reads the address and passes it in. */
   search: string;
   /** The models to load once the view is up (default: the page's shared tile load). A test passes its own so nothing is fetched. */
   load?: () => Promise<ModelSet>;
   /** The sheet's text surface (default: the browser's; a test passes the stub). */
   surface?: TextSurfaceFactory;
+  /** The window's keys and the button maker for the day and night switch (default: the page's). A test passes fakes. */
+  toggleHost?: DayToggleHost;
   /** The city to show (default: the one `req` asks for). A test passes one with no terraces to reach the street camera's fallback. */
   city?: TileCity;
 }
@@ -942,8 +948,8 @@ const SHEET_FIT_TOP = 0.3;
 /**
  * The 3D view's tile city mode (dev only): the same interface as the town's renderer, so play and ui are unchanged. The puzzle, the state, the hover and the Relight it is handed
  * are ignored; nothing in the scene can be picked (`hitTest` is null). `?sheet=1` shows the tile sheet, from above on the city rig; otherwise the city, on a tilted camera over the
- * whole city (or `cam=street` on the tile city's own Town). `light=day` adds the daylight on every one of those views, a street camera that finds no row included; without it the
- * city and the street views are lit as the game is, at night, and the sheet by its own lights. The models load once the view is up; until they do (and if they never do) every tile
+ * whole city (or `cam=street` on the tile city's own Town). The city, the street camera and the fallback to the overhead view open in day (`lightModeFor`: `light=night` opens the game's night); the L key and a
+ * "Day / Night" button flip the mode through the light rig (dev builds only). The sheet is lit by its own lights in either mode. The models load once the view is up; until they do (and if they never do) every tile
  * is code-drawn.
  */
 export function createCityRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasElement, req: CityTilesRequest, opts: CityRendererOptions): MapRenderer3d {
@@ -952,38 +958,50 @@ export function createCityRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasElemen
   let insets: Insets = { ...(opts.insets ?? {}) };
   let disposed = false;
   const city = opts.city ?? tileCity({ blocksX: req.blocksX, blocksZ: req.blocksZ, seed: req.seed });
-  const day = cityDaylightRequested(opts.search);
+  const lightId0: LightModeId = lightModeFor("tiles", opts.search, import.meta.env.DEV);
 
   let rig: CityRig;
   let cityScene: CityScene | null = null;
   let sheet: SheetScene | null = null;
   let applied: AppliedModels | null = null;
   let street: StreetView | null = null;
-  let daylight: HemisphereLight | null = null;
+  let toggle: DayToggle | null = null;
   let tileRoots: ReadonlyMap<CalibrationKey, Object3D> = new Map();
   let tileEntries: ReadonlyMap<CalibrationKey, AssetEntry> = new Map();
 
   /** The sheet for a window of this size, on a rig of its own (the grid's columns follow the window's shape, so a window of another shape needs another grid). */
   const makeSheet = (w: number, h: number): void => {
-    const next = buildSheetScene(tileRoots, tileEntries, { dpr: opts.dpr, aspect: w / h, day, ...(opts.surface ? { surface: opts.surface } : {}) });
+    const next = buildSheetScene(tileRoots, tileEntries, { dpr: opts.dpr, aspect: w / h, ...(opts.surface ? { surface: opts.surface } : {}) });
     sheet?.dispose();
     sheet = next;
     rig = createCityRig(next.frame, w, h, sheetRigInsets(insets, next), { fitTop: SHEET_FIT_TOP });
   };
 
   if (req.sheet) {
+    // The sheet has its own lights, in both modes: a renderer left in day's tone mapping goes back to none for it.
+    setRendererMode(gl, "night");
     makeSheet(w0, h0);
   } else {
     cityScene = buildCityScene(city);
     const win = city.town.window;
     rig = createCityRig({ minX: win.minX, minY: win.minY, maxX: win.maxX, maxY: win.maxY }, w0, h0, insets);
     const asked = streetCamRequested(opts.search);
-    // The daylight is the renderer's, not the street view's: one light whatever the camera, so `light=day` lights the overhead view and the fallback to it as well.
-    if (day) daylight = addDaylight(cityScene.scene);
+    // The light is the rig's, not the street view's: one set of lights whatever the camera, so the overhead view and the fallback to it are lit as the street camera is.
+    applyLightMode(cityScene.scene, gl, lightId0, cityScene.lightOwners);
     if (asked) street = createStreetView(city.town, { ...asked, day: false }, cityScene.scene, w0, h0);
     if (asked && !street) console.info("tile city: no row of buildings to look along yet, showing the city from above.");
   }
   const sceneNow = (): Scene => (sheet ? sheet.scene : cityScene!.scene);
+  // The key and the button that flip day and night (dev only; the sheet has nothing to flip).
+  if (import.meta.env.DEV && cityScene) {
+    const lit = cityScene;
+    let mode: LightModeId = lightId0;
+    toggle = createDayToggle(opts.toggleHost ?? pageDayToggleHost(), mode, () => {
+      mode = mode === "day" ? "night" : "day";
+      applyLightMode(lit.scene, gl, mode, lit.lightOwners);
+      toggle?.sync(mode);
+    });
+  }
 
   function sizeLabels(): void {
     sheet?.setViewport(Math.max(canvas.clientHeight, 1));
@@ -1087,11 +1105,9 @@ export function createCityRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasElemen
       canvas.style.touchAction = touchAction;
       applied?.remove();
       applied = null;
-      if (daylight) {
-        cityScene?.scene.remove(daylight);
-        daylight.dispose();
-        daylight = null;
-      }
+      toggle?.dispose();
+      toggle = null;
+      setRendererMode(gl, "night");
       cityScene?.dispose();
       sheet?.dispose();
     },

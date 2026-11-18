@@ -15,6 +15,7 @@ import * as debug3d from "./debug3d";
 import * as dressing from "./dressing";
 import * as furniture from "./furniture";
 import * as layout from "./layout";
+import * as lighting from "./lighting";
 import * as models from "./models";
 import * as placeholders from "./placeholders";
 import * as scene from "./scene";
@@ -43,6 +44,7 @@ const MODULES: Readonly<Record<string, Record<string, unknown>>> = {
   "streetcam.ts": streetcam as unknown as Record<string, unknown>,
   "citymetrics.ts": citymetrics as unknown as Record<string, unknown>,
   "colourway.ts": colourway as unknown as Record<string, unknown>,
+  "lighting.ts": lighting as unknown as Record<string, unknown>,
 };
 
 // ---- reading the guide ----
@@ -111,7 +113,7 @@ describe("the city style guide exists and is shaped as the ticket says", () => {
         const tag = /^- \*\*(Decided|Default|Pending|Open|Info)\b/.exec(b);
         expect(tag, `chapter ${n}: untagged bullet: ${b.slice(0, 80)}`).not.toBeNull();
         if (tag![1] === "Decided" || tag![1] === "Default") {
-          expect(/^- \*\*(Decided|Default) \([^)]*\b(03[7-9]|04[0-9]|05[0-9])\b/.test(b), `chapter ${n}: no ticket beside: ${b.slice(0, 80)}`).toBe(true);
+          expect(/^- \*\*(Decided|Default) \([^)]*\b(03[7-9]|04[0-9]|05[0-9]|06[0-9])\b/.test(b), `chapter ${n}: no ticket beside: ${b.slice(0, 80)}`).toBe(true);
         }
         if (tag![1] === "Pending" || tag![1] === "Open") {
           expect(new RegExp(`^- \\*\\*${tag![1]} \\(`).test(b), `chapter ${n}: no "what it waits for": ${b.slice(0, 80)}`).toBe(true);
@@ -234,10 +236,10 @@ describe("the Numbers table matches the code", () => {
   });
 
   it("pins the scene's inline colours and light by their source text", () => {
-    const src = readFileSync("src/render3d/scene.ts", "utf8");
+    const src = readFileSync("src/render3d/lighting.ts", "utf8");
     const inline = table(section(/^## Numbers$/), ["Part", "Source text"]);
     expect(inline.length).toBe(3);
-    for (const r of inline) expect(src, `scene.ts no longer holds the text the guide pins for ${r[0]}`).toContain(unquote(r[1]!));
+    for (const r of inline) expect(src, `lighting.ts no longer holds the text the guide pins for ${r[0]}`).toContain(unquote(r[1]!));
   });
 });
 
@@ -514,5 +516,54 @@ describe("colourway.ts is drift-checked and 16.9 names the colourways (ticket 05
     expect(r13![2]!).toContain("at least four wall colours");
     expect(r13![2]!).toContain("cam=street&run=0&light=day");
     expect(Object.keys(citymetrics.CITY_CHECK)).toContain("R13");
+  });
+});
+
+// ---- ticket 060: lighting.ts joins the drift-checked files ----
+
+describe("lighting.ts is drift-checked and 16.12 describes the testing daylight (ticket 060)", () => {
+  const rows = table(section(/^## Numbers$/), ["Constant", "Value", "File"]);
+  const refs = rows.filter((r) => r[2] === "lighting.ts").map((r) => unquote(r[0]!));
+
+  /** Every number in a value, as a path the Numbers table names: `LIGHT_MODES.night.moon.position[0]`. Words (the tone mapping), booleans and nulls are not numbers. */
+  function leaves(prefix: string, v: unknown, out: string[]): string[] {
+    if (typeof v === "number") out.push(prefix);
+    else if (Array.isArray(v)) v.forEach((x, i) => leaves(`${prefix}[${i}]`, x, out));
+    else if (typeof v === "object" && v !== null) for (const [k, x] of Object.entries(v)) leaves(`${prefix}.${k}`, x, out);
+    return out;
+  }
+  const every = (mod: Record<string, unknown>): string[] => Object.entries(mod).filter(([, v]) => typeof v !== "function").flatMap(([name, v]) => leaves(name, v, []));
+
+  it("has a Numbers row for every number lighting.ts exports, and the check finds a number with no row", () => {
+    const all = every(MODULES["lighting.ts"]!);
+    expect(all.length, "the check found the numbers").toBeGreaterThan(30);
+    expect(all.filter((p) => !refs.includes(p)), "no row for these lighting.ts numbers").toEqual([]);
+    // Not vacuous: a number added without a row is found, and so is a row left out.
+    expect(every({ ...MODULES["lighting.ts"]!, NEW_TUNING: 3 }).filter((p) => !refs.includes(p))).toEqual(["NEW_TUNING"]);
+    expect(all).toContain("LIGHT_MODES.day.key.intensity");
+  });
+
+  it("has no row for a lighting.ts number that is not there (the retired street-camera daylight rows are gone)", () => {
+    const all = new Set(every(MODULES["lighting.ts"]!));
+    expect(refs.filter((r) => !all.has(r))).toEqual([]);
+    const names = rows.map((r) => unquote(r[0]!));
+    for (const gone of ["STREET_CAM_SKY", "STREET_CAM_GROUND", "STREET_CAM_DAY_INTENSITY"]) expect(names, gone).not.toContain(gone);
+  });
+
+  it("gives 16.12 both of Josh's quotes as Decided, the one-owner rule, the day values' home and the defaults per view", () => {
+    const text = chapter(16).join("\n");
+    expect(text).toMatch(/### 16\.12 The testing daylight \(dev only\)/);
+    expect(/^- \*\*Decided \(060, [^)]*please create a day light mode so it's easy to see/m.test(text)).toBe(true);
+    expect(/^- \*\*Decided \(060, [^)]*the purpose of the day mode is for testing/m.test(text)).toBe(true);
+    expect(text).toMatch(/two modes, one owner/);
+    expect(text).toContain("`LIGHT_MODES`");
+    expect(text).toMatch(/replaces 055 Q9's night default/);
+    const views = table(chapter(16), ["View", "Opens in"]);
+    expect(views.map((r) => r[1]!.split(";")[0]!.trim())).toEqual(["day", "its own lights, the same in both modes", "night", "night", "its own lights"]);
+    expect(text).toMatch(/leaves the game's night look of chapter 11 unchanged/);
+  });
+
+  it("adds one line to chapter 11 saying the testing daylight is a dev tool and not part of the game's look", () => {
+    expect(chapter(11).join("\n")).toMatch(/^- \*\*Default \(060\)\*\*: the testing daylight of 16\.12 is a dev tool and not part of the game's look/m);
   });
 });

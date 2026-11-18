@@ -184,7 +184,8 @@ How to read it:
 
 ## 11. Palette and light
 
-- **Info**: it is a night scene. The values are in the Numbers table (colours as `0x` hex, pinned exactly). The scene's background, ambient light and moon light are written inline in `buildScene`, so the table's last section pins their source text instead.
+- **Info**: it is a night scene. The values are in the Numbers table (colours as `0x` hex, pinned exactly). The scene's background, ambient light and moon light are in `LIGHT_MODES.night` (`lighting.ts`, section 16.12), and the table's last section pins their source text there too.
+- **Default (060)**: the testing daylight of 16.12 is a dev tool and not part of the game's look: the game is night, and no player toggle ships.
 - **Info**: ground colours: `GROUND` (the town's dark edge), `YARD` (open ground inside a block, a little lighter), `STREET` (asphalt), `PAVEMENT` (mid-grey, lighter than the asphalt), `KERB` (the pale lip) and `CENTRE_LINE`.
 - **Info**: pole and hardware colours: `POLE_WOOD`, `FOOT`, `METAL`, `INSULATOR`, `CAN` and `DROP_COLOR`.
 - **Info**: wire looks: `LIVE_WIRE` (with `LIVE_GLOW`), `DEAD_WIRE` and `REPAIRED_WIRE` (a mended cable that is not live: 2D's "new cable"). `SCORCH` is a blown fuse or a faulted body. `RIBBON` marks a fault.
@@ -473,6 +474,30 @@ How to read it:
 - **Open (waits for a generated-recolour ticket, if the eye check finds too few colours)**: not every wall changes. The colourways recolour only some gradient columns (the brick, the warm browns, one tan); the grey-walled styles and the shopfront ground floors are the same in every colourway, so the variety is mostly the brick upper floors. Judged by eye by the main session on 18 Nov 2026: neighbouring blocks render in red, dark green, cream-tan and teal, and shopfronts and the grey styles look the same in every colourway. The follow-up, if wanted, is a per-column hue remap of the base made by the converter, not more of this pool.
 - **Info (054)**: R13 is measured by `citymetrics.test.ts` on the three maps of the protocol with a fixed fake set of 8 ids, not the real files (CI has none): it passes at 1 because the rule steps off a repeat. The eye half is in 16.8.
 
+### 16.12 The testing daylight (dev only)
+
+- **Decided (060, Josh 18 Nov 2026: "please create a day light mode so it's easy to see")**: the 3D view gets a day mode for judging the city by eye.
+- **Decided (060, Josh 18 Nov 2026: "the purpose of the day mode is for testing")**: it is a developer testing aid, not a game lighting feature. It is dev only (behind `import.meta.env.DEV`, absent from `npm run build`), ships no toggle to players, changes no puzzle map's look unless `light=day` is asked in a dev build, and leaves the game's night look of chapter 11 unchanged. It is a tool for the eye checks of 16.8.
+- **Default (060)**: two modes, one owner. `LIGHT_MODES` in `lighting.ts` is a pure table of both modes; `lightrig.ts` is the only code that adds or removes a scene's global lights, background and fog, or sets a renderer's tone mapping and exposure. `scene.ts` and `buildCityScene` ask it for night, `streetcam.ts` and the tile view add no light of their own, and a test reads the source to hold this. Two views keep lights of their own: the building gallery (`gallery.ts`) and the tile sheet. A lamp's point light, glow and pool stay with their owner (`scene.ts`) and are switched by one rig flag.
+- **Default (060)**: night is today's, value for value: the background, the ambient light, the moon, no tone mapping, no fog, no shadows, and the code-drawn surfaces `GROUND`, `YARD`, `STREET`, `PAVEMENT` and `KERB` (chapter 11). A test holds the three protocol maps' lights, background and every material colour equal to a snapshot taken before the rig existed.
+- **Default (060)**: day is a flat sky (no gradient, no fog), a soft sun from the south-east at a fixed elevation (key light, azimuth 135 degrees, elevation 55), a strong even fill (a hemisphere light, no ambient and no moon) so shaded faces keep their detail, and filmic tone mapping at exposure 1, set and restored by the rig. The code-drawn surfaces take their day colours from `LIGHT_MODES` (ground, yard, street, pavement, kerb and 057's grass) and return to night's exactly. The packs' textures are unchanged. In day the lamps' lights are at 0 and their glows, pools and flares are hidden. Values are in the Numbers table.
+- **Default (060)**: shadows are off in both modes. The rig has a `shadows` switch, off in both, which a later ticket can turn on for the tile city only.
+- **Open (waits for Josh asking for shadows, and a measured draw-call count on the default tile city)**: sun shadows (`&shadows=1`, dev only). They cost about one extra pass over every building and Josh's PC froze under load on 17 Nov 2026, so the opt-in is not built.
+- **Default (060)**: switching, all dev only. The URL flag is `light=day` or `light=night` (anything else is ignored). In the tile view the L key and a small "Day / Night" button each flip the mode through the rig; both are removed with the view. The sheet has nothing to flip. The ladder maps have no key or button.
+- **Default (060)**: what each view opens in. This replaces 055 Q9's night default for the tile view: Josh asked for day "so it's easy to see".
+
+| View | Opens in |
+| --- | --- |
+| the tile city (`city=tiles`: overhead, street camera, fallback to overhead) | day; `light=night` opens night |
+| the tile sheet (`sheet=1`) | its own lights, the same in both modes |
+| a puzzle map, overhead or play | night; `light=day` gives day in a dev build only |
+| a ladder map's street camera (`cam=street`) | night; `light=day` gives day in a dev build only |
+| the building gallery | its own lights |
+
+- **Info (060)**: the earlier dev-only daylight (055 E) added one hemisphere light to a night scene, owned twice (`tilecity3d.ts` and `streetcam.ts`), and left the sky and the surfaces near black. Its three constants (the street camera's daylight sky, ground and intensity) are retired with it; their rows are gone from the Numbers table.
+- **Info (060)**: the grass colour has no night counterpart yet because no code draws grass; night's value is the yard's until a drawer registers it. The tile view brings a material it swaps in later (the pack's tiles arriving) to the mode it is in.
+- **Info (060)**: brightness of a rendered frame is not tested headless; the table and the screenshots of 16.8 are the measure.
+
 ## Decided, not yet built (the tile city, 18 Nov 2026)
 
 Josh's rulings from the tile-city work, in his own words, each with the ticket that builds it.
@@ -506,12 +531,12 @@ Josh's rulings from the tile-city work, in his own words, each with the ticket t
   - Poles stand in the reserved slots, with code-drawn wires and Town Pack street lights distinct from puzzle lamps.
   - No never-used model is lifted unless Josh asks.
 
-### Testing daylight (ticket 060, approved 18 Nov 2026; section 16.12)
-- **Default (060, Josh 18 Nov 2026)**: a dev-only day mode, for testing only. The game's night look (chapter 11) is unchanged: "please create a day light mode so it's easy to see" and "the purpose of the day mode is for testing".
+### Testing daylight (ticket 060; built, now section 16.12)
+- **Info (060, Josh 18 Nov 2026)**: a dev-only day mode, for testing only, is built and is section 16.12. The game's night look (chapter 11) is unchanged: "please create a day light mode so it's easy to see" and "the purpose of the day mode is for testing".
 
 ## Numbers
 
-The drift test (`styleguide.test.ts`) reads this table. Each row names an export of the file in its last column. A value is a number (within 1e-9), a colour as `0x` hex (exactly), or `a x b x c` for a record, in the record's field order. `LOT_TYPES` is frontage x depth x cap in metres and `PLACE_SIZES` is width x depth in metres. `STACK_STYLES[i].pitch_m` is base x floor x roof in metres (the storey heights a recipe counts floors by; the roof is the height reserved under the cap), in the order `apartment-01`, `-02`, `-03`, `office-old-small`, `office-old-large`, `office-octagon`. `STACK_FLOORS` is the fewest floors over the base. `TINTS[i]` is the i-th wall tint. `CITY_CHECK` is the threshold of R1 to R13 in that order (a share to reach, or a count not to pass, chapter 16.8) and `CITY_STOREYS` is the fewest and most storeys. Changing a constant in code or a value here fails the test. Since ticket 053 the test also fails when `stacks.ts`, `terrace.ts`, `dressing.ts`, `furniture.ts`, `streetcam.ts` or `citymetrics.ts` exports a number that has no row here, and when `town.ts` does for a `TERRACE_*`, `PARKING_*` or `PLAZA_*` name. Since ticket 054 the test also fails when `colourway.ts` exports a constant (not a function) that has no row here; `COLOURWAY_POOL` is pinned by its length, and its ids are the table in 16.9.
+The drift test (`styleguide.test.ts`) reads this table. Each row names an export of the file in its last column. A value is a number (within 1e-9), a colour as `0x` hex (exactly), or `a x b x c` for a record, in the record's field order. `LOT_TYPES` is frontage x depth x cap in metres and `PLACE_SIZES` is width x depth in metres. `STACK_STYLES[i].pitch_m` is base x floor x roof in metres (the storey heights a recipe counts floors by; the roof is the height reserved under the cap), in the order `apartment-01`, `-02`, `-03`, `office-old-small`, `office-old-large`, `office-octagon`. `STACK_FLOORS` is the fewest floors over the base. `TINTS[i]` is the i-th wall tint. `CITY_CHECK` is the threshold of R1 to R13 in that order (a share to reach, or a count not to pass, chapter 16.8) and `CITY_STOREYS` is the fewest and most storeys. Changing a constant in code or a value here fails the test. Since ticket 053 the test also fails when `stacks.ts`, `terrace.ts`, `dressing.ts`, `furniture.ts`, `streetcam.ts` or `citymetrics.ts` exports a number that has no row here, and when `town.ts` does for a `TERRACE_*`, `PARKING_*` or `PLAZA_*` name. Since ticket 054 the test also fails when `colourway.ts` exports a constant (not a function) that has no row here; `COLOURWAY_POOL` is pinned by its length, and its ids are the table in 16.9. Since ticket 060 the same holds for `lighting.ts`: every number in `LIGHT_MODES` and every numeric export has a row (the mode's words, `toneMapping`, `shadows` and `nightLights`, are in 16.12). Colours are `0x` hex.
 
 | Constant | Value | File |
 | --- | --- | --- |
@@ -688,20 +713,48 @@ The drift test (`styleguide.test.ts`) reads this table. Each row names an export
 | `STREET_CAM_YAW_DEG` | 35 | streetcam.ts |
 | `STREET_CAM_FOV_DEG` | 50 | streetcam.ts |
 | `STREET_CAM_FOV_MAX_DEG` | 85 | streetcam.ts |
-| `STREET_CAM_SKY` | 0xcfe0ff | streetcam.ts |
-| `STREET_CAM_GROUND` | 0x6b5a48 | streetcam.ts |
-| `STREET_CAM_DAY_INTENSITY` | 2.2 | streetcam.ts |
 | `CITY_CHECK` | 0.9 x 1 x 1 x 1 x 0.55 x 0.5 x 0.5 x 0.9 x 0 x 0 x 1 x 0 x 1 | citymetrics.ts |
 | `CITY_ATM_BLOCKS_MIN` | 0.15 | citymetrics.ts |
 | `CITY_BIG_ROOF_RUNS_MIN` | 0.5 | citymetrics.ts |
 | `CITY_RUN_FRONTAGE` | 0.9 | citymetrics.ts |
 | `CITY_STOREYS` | 3 x 5 | citymetrics.ts |
 | `COLOURWAY_POOL.length` | 8 | colourway.ts |
+| `LIGHT_MODES.night.background` | 0x0b0f17 | lighting.ts |
+| `LIGHT_MODES.night.ambient.color` | 0x4a5a7a | lighting.ts |
+| `LIGHT_MODES.night.ambient.intensity` | 1.1 | lighting.ts |
+| `LIGHT_MODES.night.moon.color` | 0x8fa6d0 | lighting.ts |
+| `LIGHT_MODES.night.moon.intensity` | 0.7 | lighting.ts |
+| `LIGHT_MODES.night.moon.position[0]` | -6 | lighting.ts |
+| `LIGHT_MODES.night.moon.position[1]` | 12 | lighting.ts |
+| `LIGHT_MODES.night.moon.position[2]` | 4 | lighting.ts |
+| `LIGHT_MODES.night.exposure` | 1 | lighting.ts |
+| `LIGHT_MODES.night.surfaces.ground` | 0x0e131d | lighting.ts |
+| `LIGHT_MODES.night.surfaces.yard` | 0x141c29 | lighting.ts |
+| `LIGHT_MODES.night.surfaces.street` | 0x1a2331 | lighting.ts |
+| `LIGHT_MODES.night.surfaces.pavement` | 0x3d4658 | lighting.ts |
+| `LIGHT_MODES.night.surfaces.kerb` | 0x9aa4b6 | lighting.ts |
+| `LIGHT_MODES.night.surfaces.grass` | 0x141c29 | lighting.ts |
+| `LIGHT_MODES.day.background` | 0xa9c7e6 | lighting.ts |
+| `LIGHT_MODES.day.key.color` | 0xfff6ea | lighting.ts |
+| `LIGHT_MODES.day.key.intensity` | 1.4 | lighting.ts |
+| `LIGHT_MODES.day.key.elevation_deg` | 55 | lighting.ts |
+| `LIGHT_MODES.day.key.azimuth_deg` | 135 | lighting.ts |
+| `LIGHT_MODES.day.hemi.sky` | 0xe6efff | lighting.ts |
+| `LIGHT_MODES.day.hemi.ground` | 0x9a8c78 | lighting.ts |
+| `LIGHT_MODES.day.hemi.intensity` | 1.8 | lighting.ts |
+| `LIGHT_MODES.day.exposure` | 1 | lighting.ts |
+| `LIGHT_MODES.day.surfaces.ground` | 0x7d8471 | lighting.ts |
+| `LIGHT_MODES.day.surfaces.yard` | 0x7d8471 | lighting.ts |
+| `LIGHT_MODES.day.surfaces.street` | 0x55595f | lighting.ts |
+| `LIGHT_MODES.day.surfaces.pavement` | 0xa7abb1 | lighting.ts |
+| `LIGHT_MODES.day.surfaces.kerb` | 0xd0d4da | lighting.ts |
+| `LIGHT_MODES.day.surfaces.grass` | 0x6f8f4e | lighting.ts |
+| `SUN_DISTANCE` | 20 | lighting.ts |
 
-Inline in `buildScene` (`scene.ts` has no named constant for these, and this ticket may not add one, so the test looks for the exact source text):
+Night's global lighting as written in the table of `lighting.ts` (the rig reads it; since ticket 060 `scene.ts` holds no light literal of its own), pinned by the exact source text as well:
 
 | Part | Source text |
 | --- | --- |
-| background | `scene.background = new Color(0x0b0f17)` |
-| ambient light | `new AmbientLight(0x4a5a7a, 1.1)` |
-| moon light | `new DirectionalLight(0x8fa6d0, 0.7)` |
+| background | `background: 0x0b0f17,` |
+| ambient light | `ambient: { color: 0x4a5a7a, intensity: 1.1 },` |
+| moon light | `moon: { color: 0x8fa6d0, intensity: 0.7, position: [-6, 12, 4] },` |

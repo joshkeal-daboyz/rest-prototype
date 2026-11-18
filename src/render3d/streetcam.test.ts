@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { HemisphereLight, PerspectiveCamera, Scene, Vector3, type Camera } from "three";
+import { PerspectiveCamera, Scene, Vector3, type Camera } from "three";
 import { loadPuzzle, type Puzzle } from "../core";
 import { createCameraRig } from "./camera";
 import type { MapRenderer3d } from "./renderer";
@@ -261,17 +261,14 @@ describe("createStreetView", () => {
     expect(view.camera.fov).toBe(view.pose.fov);
   });
 
-  it("adds one HemisphereLight on light=day and takes it away on dispose; none otherwise", () => {
-    const count = (s: Scene): number => s.children.filter((c) => c instanceof HemisphereLight).length;
-    const night = new Scene();
-    const a = createStreetView(town, { run: 0, at: 0.5, day: false }, night, 800, 600, () => {})!;
-    expect(count(night)).toBe(0);
-    a.dispose();
-    const day = new Scene();
-    const b = createStreetView(town, { run: 0, at: 0.5, day: true }, day, 800, 600, () => {})!;
-    expect(count(day)).toBe(1);
-    b.dispose();
-    expect(count(day)).toBe(0);
+  it("adds no light of its own, with light=day or without (the light rig owns every global light: ticket 060)", () => {
+    for (const dayFlag of [false, true]) {
+      const scene = new Scene();
+      const view = createStreetView(town, { run: 0, at: 0.5, day: dayFlag }, scene, 800, 600, () => {})!;
+      expect(scene.children).toHaveLength(0);
+      view.dispose();
+      expect(scene.children).toHaveLength(0);
+    }
   });
 
   it("is null for a town with no rows", () => {
