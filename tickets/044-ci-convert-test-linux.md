@@ -1,7 +1,7 @@
 # 044 · CI is red on every push: a Windows-only fixture in the converter's manifest test
 
 owner: grid-simulator (tools/)
-status: approved (G1, Josh, 17 Nov 2026: "ok", answering "Should I have the tools builder fix it now, on its own branch?"). Small bug fix on merged ticket 038; no design change.
+status: done (merged 17 Nov 2026; Josh: "merge 044"). Was: approved (G1, Josh, 17 Nov 2026: "ok", answering "Should I have the tools builder fix it now, on its own branch?"). Small bug fix on merged ticket 038; no design change.
 branch: `ticket/044-ci-convert-test-linux`
 
 ## Josh's words (17 Nov 2026)
