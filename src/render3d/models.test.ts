@@ -6,6 +6,7 @@ import { ASSET_MANIFEST_VERSION, loadPuzzle, type AssetEntry, type AssetManifest
 import { FOV_DEG, createCameraRig } from "./camera";
 import { POLE_HEIGHT, wireLayout } from "./layout";
 import {
+  BUILDING_EXCLUDE,
   MODEL_TABLE,
   frontIsQuarter,
   frontYaw,
@@ -164,7 +165,8 @@ describe("modelScale", () => {
     const grouped = buildingPlan(all);
     const placed = new Set(Object.values(grouped).flat());
     // The table names only buildings that fit a lot (office_stepped_mesh, which fits none, is left out of it).
-    expect(all.filter((p) => !placed.has(p.entry.name)).map((p) => p.entry.name)).toEqual([]);
+    // Models in BUILDING_EXCLUDE (the video rental store, 047) are left out on purpose.
+    expect(all.filter((p) => !BUILDING_EXCLUDE.includes(`${p.pack}:${p.entry.name}`) && !placed.has(p.entry.name)).map((p) => p.entry.name)).toEqual([]);
     for (const t of LOT_TYPE_NAMES) expect(grouped[t].length, t).toBeGreaterThanOrEqual(3);
   });
 
