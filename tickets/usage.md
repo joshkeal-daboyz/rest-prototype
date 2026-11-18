@@ -127,3 +127,8 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 052 section B | gate (main session) | — | — | — | 0 | tsc clean, 98 files, 1920 passed on a checkout without pack files; looked at in the browser via the street camera on map 64 |
 | 052 section B | code-reviewer | agent default | see note: figure not shown | — | 0 | meets, must-fix 0 |
 | 052 section B | playtester | agent default | 18K total (one figure in the readout) | — | 0 | regressions 0; stopped early |
+| 052 section B | code-reviewer | agent default | 79K total (one figure in the readout) | — | 0 | meets, must-fix 0 |
+| 052 section C | renderer | sonnet | 257K total (one figure in the readout) | — | 0 | furniture.ts (pavement furniture, parking lots, plazas, alleys), 16 tests (commit b260874); 61 tool uses, 17 min |
+| 052 section C | gate (main session) | — | — | — | 0 | tsc clean, 99 files, 1936 passed on a checkout without pack files; plaza looked at in the browser |
+| 052 section C | code-reviewer | agent default | see note: figure not shown | — | 0 | meets, must-fix 0 |
+| 052 section C | playtester | agent default | 19K total (one figure in the readout) | — | 0 | regressions 0; stopped early |
