@@ -237,6 +237,8 @@ export interface RunContext {
   lowest: boolean;
   /** What earlier blocks used; absent means nothing (a block dressed alone). */
   used?: RunUsed;
+  /** The run's pavement frame (`TerraceRun.frame`, ticket 055 B): its `kerb_m` is the lot front to the road edge, and wins over the `kerbM` argument. Absent: the argument. */
+  frame?: { readonly wall_m: number; readonly kerb_m: number };
 }
 
 export interface DressResult {
@@ -280,7 +282,7 @@ export function dressBlock(
   const used: RunUsed = { ...used0, escapePrev: false };
   const out: DressPiece[] = [];
   const perColumn = new Map<number, number>();
-  const kerb = kerbM;
+  const kerb = run.frame?.kerb_m ?? kerbM;
   const hMaxM = lot.hMax / WORLD_PER_METRE;
   const cols = stack.columns;
 
@@ -680,8 +682,8 @@ export function dressStack(stack: Stack, lot: Pick<Lot, "key" | "hMax">, run: Ru
 export interface DressBlockInput {
   stack: Stack;
   lot: Pick<Lot, "key" | "hMax">;
-  run: { id: string; index: number; lowest: boolean };
-  /** The lot front to the road edge, metres; default `KERB_FROM_FRONT_M`. */
+  run: { id: string; index: number; lowest: boolean; frame?: { readonly wall_m: number; readonly kerb_m: number } };
+  /** The lot front to the road edge, metres; default `KERB_FROM_FRONT_M` (a `run.frame` wins). */
   kerbM?: number;
 }
 

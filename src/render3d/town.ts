@@ -654,7 +654,11 @@ export interface TerraceRowOpts {
   snap_m?: number;
   /** A plaza's side, metres. Default `PLAZA_W_M`. */
   plazaW_m?: number;
-  /** Run ids that take a parking lot whatever their length or hash (when it fits). */
+  /**
+   * The runs that take a parking lot whatever their length or hash (when it fits): the first place after a lot where it does, not about the middle. A run is named by
+   * its block, its side and its place among that side's runs in this block, `"<block id>|<road>:<side>|<n>"` (`terraceRunKey`), which does not shift when a run before it on
+   * the street elsewhere is split by a lot, as its id does.
+   */
   parkRuns?: ReadonlySet<string>;
   counters?: TerraceCounters;
   /** The index in the town's `lots` of the first lot this call lays (`TerraceRun.lots` holds town indices). Default 0. */
@@ -662,6 +666,9 @@ export interface TerraceRowOpts {
   /** Set on every run laid (`TerraceRun.frame`). Default: absent. */
   frame?: { wall_m: number; kerb_m: number };
 }
+
+/** The name `TerraceRowOpts.parkRuns` knows a run by: its block, its street side, and the number of runs before it on that side in that block. */
+export const terraceRunKey = (block: string, road: string, side: 1 | -1, n: number): string => `${block}|${road}:${side}|${n}`;
 
 /**
  * One block's four rows as terraces (ticket 051 B). Every side's band is `TERRACE_DEPTH_M`, so a row runs on to the next row's corner lot with no
@@ -720,6 +727,8 @@ export function terraceBlockRows(block: { id: string }, sides: readonly [Terrace
     total: number;
     /** A parking lot is still to come (decided by hash when the run starts). */
     park: boolean;
+    /** The lot was asked for by `parkRuns`: it goes where it first fits, not about the middle (and whatever the hash said). */
+    early: boolean;
   }
 
   /** Row `i`'s length: its span less the next row's band (a plaza's width when the next row starts with one). */
@@ -752,6 +761,7 @@ export function terraceBlockRows(block: { id: string }, sides: readonly [Terrace
     let slot = slotCount.get(sideKey) ?? 0;
     let c = plaza === i ? plazaW : 0;
     let cur: OpenRun | null = null;
+    let rowRuns = 0;
     const closeRun = (endAbuts: TerraceRun["endAbuts"], endC: number): void => {
       if (!cur) return;
       runCount.set(sideKey, (runCount.get(sideKey) ?? 0) + 1);
@@ -798,7 +808,10 @@ export function terraceBlockRows(block: { id: string }, sides: readonly [Terrace
       if (!cur) {
         const id = `${sideKey}:r${runCount.get(sideKey) ?? 0}`;
         const total = Math.floor((front.len - c) / bayW + 1e-9);
-        cur = { id, lots: [], c0: c, bays: 0, total, park: (opts.parkRuns?.has(id) ?? false) || (total >= PARKING_MIN_RUN_BAYS && stableHash(id) % PARKING_ONE_IN === 0) };
+        const byHash = total >= PARKING_MIN_RUN_BAYS && stableHash(id) % PARKING_ONE_IN === 0;
+        const asked = opts.parkRuns?.has(terraceRunKey(block.id, front.id, front.side, rowRuns)) ?? false;
+        rowRuns++;
+        cur = { id, lots: [], c0: c, bays: 0, total, park: asked || byHash, early: asked };
       }
       const run: OpenRun = cur;
       run.lots.push(lotBase + lots.length);
@@ -820,7 +833,7 @@ export function terraceBlockRows(block: { id: string }, sides: readonly [Terrace
       });
       c += lw;
       // One parking lot, about the middle of a long run, if it clears and leaves two bays after it. With a snap it starts on the next multiple of the snap, and the run stretches to it.
-      if (run.park && run.bays * 2 >= run.total - 2) {
+      if (run.park && (run.early || run.bays * 2 >= run.total - 2)) {
         run.park = false;
         const cp = snap > 0 ? Math.ceil(c / snap - 1e-9) * snap : c;
         if (front.len - (cp + parkW) >= TERRACE_BAYS.min * bayW - 1e-9) {

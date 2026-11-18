@@ -1,5 +1,6 @@
 /**
- * Ticket 055 A: the tile-street city, as pure data (`tilecity.ts`). No three, no WebGL, no assets: every number is computed from the city's own streets and bands
+ * Ticket 055 A (and B, from the bottom of this file): the tile-street city, as pure data (`tilecity.ts`). Section B puts terraces, open lots and kerb cuts into every city, so the
+ * A tests that read the street cells skip the cells inside the blocks (`lotSurface`, `plaza`), count a `kerbCut` as the pavement it is cut from, and let a kerb stop at a cut. No three, no WebGL, no assets: every number is computed from the city's own streets and bands
  * in the test, independently of the code that placed the cells. Cities are built once per (size, seed) and shared between the tests. A loop over cells records its
  * failures in a list and asserts the list once (a per-cell `expect` over a hundred cities is the slow part, not the city).
  */
@@ -12,7 +13,9 @@ import {
   BAYS_PER_PARKING_TILE,
   BAY_JUNCTION_CLEAR,
   BLOCK_TILES,
+  CITY_BAYS_PER_BLOCK_MIN,
   CITY_BLOCKS_MAX,
+  CITY_LOTS_PER_BLOCKS,
   GRATE_ONE_IN,
   PATCH_ONE_IN,
   POLE_SLOT_END_CLEAR_M,
@@ -20,15 +23,25 @@ import {
   POLE_SLOT_PITCH_M,
   SIDEWALK_TOP_M,
   TILE_M,
+  TILE_PLAZA_W_M,
+  bayMeters,
   streetBandAt,
   tileCity,
+  tileKeepouts,
   type TileBand,
   type TileCell,
   type TileCity,
   type TileRole,
   type TileStreet,
 } from "./tilecity";
-import { WORLD_PER_METRE } from "./town";
+import { loadPuzzle, type AssetEntry, type CalibrationKey, type Puzzle } from "../core";
+import { cityMetrics, evaluateCity, runBlocks, type CityMetrics } from "./citymetrics";
+import { KERB_FROM_FRONT_M, dressStack, dressTown, type DressBlockInput } from "./dressing";
+import { FURN_KEEP_M, FURN_KERB_M, KERB_M, METERS, WALL_EDGE_M, furnitureLayout } from "./furniture";
+import { BUILDING_FRONTS } from "./models";
+import { STACK_STYLES } from "./stacks";
+import { ALLEY_MAX_M, ALLEY_MIN_M, TERRACE_SEAM_M, packTown, type PackResult, type PackedBlock } from "./terrace";
+import { PAVE_W, ROAD_W, SETBACK, WORLD_PER_METRE, terraceBlockRows, terraceRunKey, townLayout, type TerraceBox, type TerraceRun, type TerraceSide } from "./town";
 
 const U = WORLD_PER_METRE;
 const SIZES: readonly [number, number][] = [
@@ -51,6 +64,8 @@ interface View {
   /** One role per unit cell (a two-cell piece fills both), null where there is none. */
   role: (TileRole | null)[];
 }
+/** The roles of cells that lie inside a block (section B): the street cells are all the others. */
+const OPEN_ROLES: readonly TileRole[] = ["lotSurface", "plaza"];
 const memo = new Map<string, View>();
 const view = (bx: number, bz: number, seed: number): View => {
   const key = `${bx}x${bz}:${seed}`;
@@ -66,6 +81,7 @@ const view = (bx: number, bz: number, seed: number): View => {
     for (let j = 0; j < H; j++) xAt.push(c.streets.find((s) => s.axis === "x" && streetBandAt(s, j) !== null) ?? null);
     const role = new Array<TileRole | null>(W * H).fill(null);
     for (const cell of c.cells) {
+      if (OPEN_ROLES.includes(cell.role)) continue;
       role[cell.j * W + cell.i] = cell.role;
       if (cell.cells === 2) role[(cell.j + (byId.get(cell.street!)!.axis === "x" ? 0 : 1)) * W + cell.i + (byId.get(cell.street!)!.axis === "x" ? 1 : 0)] = cell.role;
     }
@@ -157,6 +173,7 @@ describe("no gaps, no overlaps (criterion 2)", () => {
       const count = new Uint8Array(W * H);
       let area = 0;
       for (const cell of v.c.cells) {
+        if (OPEN_ROLES.includes(cell.role)) continue;
         area += cell.cells * TILE_M * TILE_M;
         for (const [i, j] of unitCells(v, cell)) count[j * W + i] = (count[j * W + i] ?? 0) + 1;
       }
@@ -172,10 +189,13 @@ describe("no gaps, no overlaps (criterion 2)", () => {
     });
   });
 
-  it("covers a 1 x 1 city's blocks with no cell", () => {
+  it("covers a 1 x 1 city's blocks with no street cell, and the open lots only with lot surface and plaza cells", () => {
     const v = view(1, 1, 1);
     const b = v.c.blocks[0]!;
     for (let j = b.j0; j < b.j1; j++) for (let i = b.i0; i < b.i1; i++) expect(v.role[j * v.W + i]).toBeNull();
+    const inside = v.c.cells.filter((c) => c.i >= b.i0 && c.i < b.i1 && c.j >= b.j0 && c.j < b.j1);
+    expect(inside.every((c) => OPEN_ROLES.includes(c.role))).toBe(true);
+    expect(inside.length).toBe(4 * v.c.town.openLots.length);
   });
 });
 
@@ -183,6 +203,7 @@ describe("junctions (criterion 3)", () => {
   it("gives every cell the role its bands say", () => {
     forAll((v, _l, ok) => {
       for (const cell of v.c.cells) {
+        if (OPEN_ROLES.includes(cell.role)) continue;
         const z = v.zAt[cell.i]!;
         const x = v.xAt[cell.j]!;
         const vb = z ? streetBandAt(z, cell.i) : null;
@@ -191,7 +212,7 @@ describe("junctions (criterion 3)", () => {
         if (vb && hb) want = isCarriageBand(vb) && isCarriageBand(hb) ? ["junction"] : isCarriageBand(vb) || isCarriageBand(hb) ? ["crossing"] : ["pavementCorner"];
         else {
           const b = (vb ?? hb)!;
-          want = b === "parking" ? ["parking", "parkingPlain"] : [b];
+          want = b === "parking" ? ["parking", "parkingPlain"] : b === "pavement" ? ["pavement", "kerbCut"] : [b];
         }
         ok(want.includes(cell.role), `(${cell.i},${cell.j}) is ${cell.role}, bands say ${want.join("/")}`);
         // A crossing belongs to the street whose carriageway it lies in.
@@ -242,6 +263,20 @@ describe("junctions (criterion 3)", () => {
   });
 });
 
+/** How many kerb cuts (each two cells) a block side holds: the kerbCut cells in the row or column of pavement along it, over two. */
+const cutsOnSide = (v: View, b: TileCity["blocks"][number], side: "top" | "bottom" | "left" | "right"): number => {
+  const cut = (i: number, j: number): boolean => v.role[j * v.W + i] === "kerbCut";
+  let n = 0;
+  if (side === "top" || side === "bottom") {
+    const j = side === "top" ? b.j0 - 1 : b.j1;
+    for (let i = b.i0; i < b.i1; i++) if (cut(i, j)) n++;
+  } else {
+    const i = side === "left" ? b.i0 - 1 : b.i1;
+    for (let j = b.j0; j < b.j1; j++) if (cut(i, j)) n++;
+  }
+  return n / 2;
+};
+
 describe("kerbs (criterion 4)", () => {
   /** The unit edges a kerb segment covers: "h:i:L" for an edge along x on grid line L, "v:L:j" for one along z. */
   const edgesOf = (k: { ax: number; az: number; bx: number; bz: number }): string[] => {
@@ -279,7 +314,7 @@ describe("kerbs (criterion 4)", () => {
     });
   });
 
-  it("is one merged segment per block side, between its corners", () => {
+  it("is one merged segment per stretch of pavement on a block side, between its corners or its kerb cuts", () => {
     forAll((v, _l, ok) => {
       const kerbs = v.c.town.kerbs;
       const near = (a: number, b: number): boolean => Math.abs(a - b) < 1e-6;
@@ -289,13 +324,22 @@ describe("kerbs (criterion 4)", () => {
         const j0 = b.j0 * TILE_M * U;
         const j1 = b.j1 * TILE_M * U;
         const n = (road: string, side: number, f: (k: (typeof kerbs)[number]) => boolean): number => kerbs.filter((k) => k.road === road && k.side === side && f(k)).length;
-        ok(n(`x:${b.bj}`, 1, (k) => near(k.ax, i0) && near(k.bx, i1)) === 1, `${b.id} top`);
-        ok(n(`x:${b.bj + 1}`, -1, (k) => near(k.ax, i0) && near(k.bx, i1)) === 1, `${b.id} bottom`);
-        ok(n(`z:${b.bi}`, -1, (k) => near(k.az, j0) && near(k.bz, j1)) === 1, `${b.id} left`);
-        ok(n(`z:${b.bi + 1}`, 1, (k) => near(k.az, j0) && near(k.bz, j1)) === 1, `${b.id} right`);
+        // A side with no cut is one segment from corner to corner; each cut (two cells) splits it once more.
+        const top = n(`x:${b.bj}`, 1, (k) => k.ax > i0 - 1e-6 && k.bx < i1 + 1e-6);
+        const bottom = n(`x:${b.bj + 1}`, -1, (k) => k.ax > i0 - 1e-6 && k.bx < i1 + 1e-6);
+        const left = n(`z:${b.bi}`, -1, (k) => k.az > j0 - 1e-6 && k.bz < j1 + 1e-6);
+        const right = n(`z:${b.bi + 1}`, 1, (k) => k.az > j0 - 1e-6 && k.bz < j1 + 1e-6);
+        ok(top === 1 + cutsOnSide(v, b, "top"), `${b.id} top ${top}`);
+        ok(bottom === 1 + cutsOnSide(v, b, "bottom"), `${b.id} bottom ${bottom}`);
+        ok(left === 1 + cutsOnSide(v, b, "left"), `${b.id} left ${left}`);
+        ok(right === 1 + cutsOnSide(v, b, "right"), `${b.id} right ${right}`);
+        void near;
       }
-      const c = v.c;
-      ok(kerbs.length === 2 * c.blocksX * (c.blocksZ + 1) + 2 * c.blocksZ * (c.blocksX + 1), `kerb count ${kerbs.length}`);
+      // Every segment is a whole number of cells long.
+      for (const k of kerbs) {
+        const cellsLong = Math.hypot(k.bx - k.ax, k.bz - k.az) / (TILE_M * U);
+        ok(Math.abs(cellsLong - Math.round(cellsLong)) < 1e-9 && cellsLong > 0.5, "whole cells");
+      }
     });
   });
 });
@@ -361,9 +405,20 @@ describe("profiles and bays (criterion 5)", () => {
             const [a0, a1] = s.axis === "x" ? [b.i0, b.i1] : [b.j0, b.j1];
             const roleAt = (a: number): TileRole | null => (s.axis === "x" ? r[across * W + a] : r[a * W + across]) ?? null;
             for (let d = 0; d < BAY_JUNCTION_CLEAR; d++) ok(roleAt(a0 + d) === "parkingPlain" && roleAt(a1 - 1 - d) === "parkingPlain", `${s.id} run ends`);
+            // Plain cells in the middle: at most one odd cell per stretch between kerb cuts, and the two cells in front of each cut.
+            const pavementRow = across === s.across0 + 1 ? s.across0 : s.across0 + n - 1;
+            const pavementCol = across === s.across0 + n - 2 ? s.across0 + n - 1 : s.across0;
+            const isCut = (a: number): boolean => (s.axis === "x" ? r[pavementRow * W + a] : r[a * W + pavementCol]) === "kerbCut";
             let plain = 0;
-            for (let a = a0 + BAY_JUNCTION_CLEAR; a < a1 - BAY_JUNCTION_CLEAR; a++) if (roleAt(a) === "parkingPlain") plain++;
-            ok(plain <= 1, `${s.id} left ${plain} plain cells in a run`);
+            let stretches = 1;
+            for (let a = a0 + BAY_JUNCTION_CLEAR; a < a1 - BAY_JUNCTION_CLEAR; a++) {
+              if (isCut(a)) {
+                if (!isCut(a - 1)) stretches++;
+                continue;
+              }
+              if (roleAt(a) === "parkingPlain") plain++;
+            }
+            ok(plain <= stretches, `${s.id} left ${plain} plain cells in ${stretches} stretches`);
           }
         }
       }
@@ -396,8 +451,13 @@ describe("pole slots (criterion 6)", () => {
         const ivs = v.c.blocks.filter((b) => (s.axis === "x" ? b.bj === 0 : b.bi === 0)).map((b) => (s.axis === "x" ? [b.i0 * TILE_M, b.i1 * TILE_M] : [b.j0 * TILE_M, b.j1 * TILE_M]));
         for (const [a0, a1] of ivs as [number, number][]) {
           const inside = list.filter((q) => q > a0 && q < a1).sort((p, q) => p - q);
-          ok(inside.length > 0 && Math.abs(inside[0]! - a0 - POLE_SLOT_END_CLEAR_M) < 1e-9, `${key} first slot`);
-          for (let k = 1; k < inside.length; k++) ok(Math.abs(inside[k]! - inside[k - 1]! - POLE_SLOT_PITCH_M) < 1e-9, `${key} pitch`);
+          const first = (inside[0]! - a0 - POLE_SLOT_END_CLEAR_M) / POLE_SLOT_PITCH_M;
+          ok(inside.length > 0 && Math.abs(first - Math.round(first)) < 1e-9, `${key} first slot`);
+          // A slot that would stand on a kerb cut is left out, so neighbours are a whole number of pitches apart.
+          for (let k = 1; k < inside.length; k++) {
+            const gap = (inside[k]! - inside[k - 1]!) / POLE_SLOT_PITCH_M;
+            ok(Math.abs(gap - Math.round(gap)) < 1e-9 && gap > 0.5, `${key} pitch`);
+          }
           ok(a1 - inside[inside.length - 1]! >= POLE_SLOT_END_CLEAR_M - 1e-9, `${key} last slot`);
         }
       }
@@ -425,14 +485,14 @@ describe("the Town (criterion 7)", () => {
     return Object.isFrozen(o) && Object.values(o).every(deepFrozen);
   };
 
-  it("has roads, kerbs, pavements, pads and blocks in map units and no lot, place or terrace", () => {
+  it("has roads, kerbs, pavements, pads and blocks in map units, terrace lots (section B) and no place", () => {
     forAll((v, _l, ok) => {
       const { c, W, H } = v;
       const t = c.town;
       ok(t.roads.length === c.blocksX + 1 + c.blocksZ + 1, "roads");
       ok(t.pads.length === (c.blocksX + 1) * (c.blocksZ + 1), "pads");
       ok(t.blocks.length === c.blocksX * c.blocksZ, "blocks");
-      ok(t.pavements.length > 0 && t.lots.length === 0 && t.places.length === 0 && t.terraces.length === 0 && t.openLots.length === 0, "empty parts");
+      ok(t.pavements.length > 0 && t.lots.length > 0 && t.places.length === 0 && t.terraces.length > 0, "parts");
       for (const w of [t.ring, t.window]) ok(w.minX === 0 && w.minY === 0 && Math.abs(w.maxX - W * TILE_M * U) < 1e-9 && Math.abs(w.maxY - H * TILE_M * U) < 1e-9, "bounds");
       for (const road of t.roads) {
         const s = v.byId.get(road.id)!;
@@ -466,7 +526,7 @@ describe("the Town (criterion 7)", () => {
       }
       // The pavements cover every pavement and corner cell once.
       const area = boxes.reduce((s, q) => s + (q.x1 - q.x0) * (q.z1 - q.z0), 0);
-      const cellsArea = v.c.cells.filter((cell) => cell.role === "pavement" || cell.role === "pavementCorner").length * (TILE_M * U) ** 2;
+      const cellsArea = v.c.cells.filter((cell) => cell.role === "pavement" || cell.role === "pavementCorner" || cell.role === "kerbCut").length * (TILE_M * U) ** 2;
       ok(Math.abs(area - cellsArea) < 1e-6, "pavement area");
     });
   });
@@ -551,9 +611,623 @@ describe("pure (criterion 8)", () => {
       expect(s).not.toMatch(/three/);
       expect(s).not.toMatch(/(^|\/)grid(\/|$)/);
       expect(s).not.toMatch(/(^|\/)night(\/|$)/);
-      expect(["./town", "../render/city"]).toContain(s);
+      expect(["./town", "./furniture", "../render/city"]).toContain(s);
     }
     expect(src).not.toMatch(/\b(document|HTMLElement|HTMLCanvasElement|navigator|requestAnimationFrame|localStorage)\b/);
     expect(src).not.toMatch(/\bimport\s*\(/);
+  });
+});
+
+// =====================================================================================================================================================================
+// Ticket 055 B: lots on tile streets. Sizes below are typed in from the converted City Pack manifest (18 Nov 2026): [name, width, height, depth] in metres, centred bounds.
+// =====================================================================================================================================================================
+
+const PIECE_SIZES: [string, number, number, number][] = [
+  ["SM_Bld_Apartment_01", 5.0, 3.0, 5.196],
+  ["SM_Bld_Apartment_02", 5.17, 3.0, 5.214],
+  ["SM_Bld_Apartment_03", 5.281, 3.0, 5.497],
+  ["SM_Bld_Apartment_Corner_01", 5.196, 3.0, 5.196],
+  ["SM_Bld_Apartment_Corner_02", 5.214, 3.0, 5.214],
+  ["SM_Bld_Apartment_Corner_03", 5.491, 3.0, 5.497],
+  ["SM_Bld_Apartment_Door_01", 5.096, 3.0, 5.577],
+  ["SM_Bld_Apartment_Door_02", 5.114, 3.0, 5.115],
+  ["SM_Bld_Apartment_Roof_01", 5.31, 0.5, 5.918],
+  ["SM_Bld_Apartment_Roof_02", 5.252, 0.744, 5.488],
+  ["SM_Bld_Apartment_Roof_03", 5.31, 0.744, 5.624],
+  ["SM_Bld_Apartment_Roof_Corner_01", 5.904, 0.5, 5.918],
+  ["SM_Bld_Apartment_Roof_Corner_02", 5.611, 0.744, 5.624],
+  ["SM_Bld_Apartment_Roof_Corner_03", 5.462, 0.744, 5.488],
+  ["SM_Bld_Apartment_Stack_01", 5.0, 9.0, 5.196],
+  ["SM_Bld_Apartment_Stack_02", 5.17, 9.0, 5.214],
+  ["SM_Bld_Apartment_Stack_03", 5.281, 9.0, 5.497],
+  ["SM_Bld_Shop_01", 5.0, 3.054, 5.536],
+  ["SM_Bld_Shop_02", 5.0, 3.3, 5.425],
+  ["SM_Bld_Shop_03", 10.087, 3.084, 5.493],
+  ["SM_Bld_Shop_04", 5.106, 3.17, 5.886],
+  ["SM_Bld_Shop_05", 5.108, 3.0, 5.224],
+  ["SM_Bld_Shop_06", 5.175, 3.0, 5.877],
+  ["SM_Bld_Shop_Corner_01", 5.377, 3.0, 5.471],
+  ["SM_Bld_Shop_Corner_02", 5.332, 3.0, 5.332],
+  ["SM_Bld_OfficeOld_Small_Base_01", 10.936, 6.0, 10.936],
+  ["SM_Bld_OfficeOld_Small_Floor_01", 10.0, 3.193, 10.0],
+  ["SM_Bld_OfficeOld_Small_Roof_01", 11.12, 4.215, 11.2],
+  ["SM_Bld_OfficeOld_Large_Base_01", 15.936, 6.0, 15.936],
+  ["SM_Bld_OfficeOld_Large_Floor_01", 15.0, 3.193, 15.0],
+  ["SM_Bld_OfficeOld_Large_Roof_01", 16.087, 4.227, 16.123],
+  ["SM_Bld_OfficeOctagon_Base_01", 20.781, 3.896, 20.781],
+  ["SM_Bld_OfficeOctagon_Floor_01", 20.465, 3.0, 20.465],
+  ["SM_Bld_OfficeOctagon_Roof_01", 20.465, 5.382, 20.465],
+  // dressing
+  ["SM_Bld_Cover_01", 4.832, 1.075, 1.0],
+  ["SM_Bld_Cover_02", 1.366, 0.974, 0.701],
+  ["SM_Bld_FireEscape_01", 3.251, 1.492, 1.644],
+  ["SM_Bld_FireEscape_02", 3.251, 3.609, 1.644],
+  ["SM_Bld_FireEscape_03", 4.252, 3.802, 1.76],
+  ["SM_Bld_Roof_Access_01", 2.758, 2.744, 2.851],
+  ["SM_Bld_Shop_01_Glass", 4.891, 1.863, 0.323],
+  ["SM_Bld_Shop_02_Glass", 4.311, 2.513, 0],
+  ["SM_Bld_Shop_03_Glass", 8.738, 2.211, 0.293],
+  ["SM_Bld_Shop_04_Glass", 4.765, 2.442, 0.705],
+  ["SM_Bld_Shop_05_Glass", 4.817, 2.017, 0.054],
+  ["SM_Bld_Shop_Corner_01_Glass", 4.809, 1.698, 4.787],
+  ["SM_Bld_Shop_Corner_02_Glass", 4.729, 2.189, 4.729],
+  ["SM_Bld_Shop_Cover_01", 4.574, 0.297, 2.815],
+  ["SM_Bld_Shop_Cover_02", 4.706, 1.202, 3.235],
+  ["SM_Bld_Shop_Cover_03", 5.0, 1.758, 3.501],
+  ["SM_Bld_Shop_Cover_04", 5.104, 0.663, 0.732],
+  ["SM_Bld_Shop_Cover_05", 5.394, 0.682, 5.394],
+  ["SM_Prop_ATM_01", 1.128, 1.537, 0.519],
+  ["SM_Prop_Aircon_01", 0.823, 0.995, 0.651],
+  ["SM_Prop_Billboard_Roof_01", 4.428, 3.063, 1.611],
+  ...(["01", "02", "03", "04", "05", "06", "07"].map((n) => [`SM_Prop_Billboard_Sign_${n}`, 4.193, 2.028, 0.118]) as [string, number, number, number][]),
+  ["SM_Prop_LargeSign_Beer_01", 2.005, 3.333, 2.019],
+  ["SM_Prop_LargeSign_Bottle_01", 1.8, 5.818, 1.8],
+  ["SM_Prop_LargeSign_BowlingBall_01", 3.019, 3.174, 3.174],
+  ["SM_Prop_LargeSign_BowlingPin_01", 1.631, 5.156, 1.631],
+  ["SM_Prop_LargeSign_Burger_01", 3.715, 2.178, 3.717],
+  ["SM_Prop_LargeSign_Coffee_01", 2.194, 1.346, 1.625],
+  ["SM_Prop_LargeSign_Donut_01", 3.818, 1.355, 3.818],
+  ["SM_Prop_LargeSign_Guitar_01", 2.098, 6.378, 0.377],
+  ["SM_Prop_LargeSign_Hotdog_01", 1.411, 1.143, 3.926],
+  ["SM_Prop_LargeSign_Icecream_01", 1.93, 5.04, 1.93],
+  ["SM_Prop_LargeSign_Lollypop_01", 3.365, 6.36, 0.512],
+  ["SM_Prop_LargeSign_Milkshake_01", 2.238, 4.699, 1.721],
+  ["SM_Prop_LargeSign_Noodles_01", 2.948, 3.601, 2.515],
+  ["SM_Prop_LargeSign_Pizza_01", 3.368, 0.562, 2.957],
+  ["SM_Prop_LargeSign_Popcorn_01", 1.737, 2.797, 1.737],
+  ["SM_Prop_LargeSign_Soda_01", 1.915, 5.595, 1.915],
+  ["SM_Prop_LargeSign_Taco_01", 1.215, 2.223, 3.701],
+  ["SM_Prop_PlanterWindow_01", 0.988, 0.743, 0.37],
+  ["SM_Prop_PlanterWindow_02", 0.87, 0.743, 0.332],
+  ["SM_Prop_Roof_Aircon_01", 0.948, 0.592, 0.467],
+  ["SM_Prop_Roof_Aircon_02", 1.586, 1.073, 0.798],
+  ["SM_Prop_Roof_Aircon_03", 1.546, 1.05, 1.0],
+  ["SM_Prop_SatDish_01", 1.21, 1.344, 0.682],
+  ["SM_Prop_Sign_Bar_01", 1.327, 0.673, 0.138],
+  ["SM_Prop_Sign_Barber_01", 0.316, 0.948, 0.474],
+  ["SM_Prop_Sign_Cafe_01", 1.347, 0.553, 0.11],
+  ["SM_Prop_Sign_Chinese_Noodles_01", 0.853, 0.507, 0.179],
+  ["SM_Prop_Sign_DeliPizza_01", 0.301, 1.551, 0.14],
+  ["SM_Prop_Sign_Entrance_01", 1.0, 0.436, 0.063],
+  ["SM_Prop_Sign_Hotel_01", 1.267, 3.801, 0.3],
+  ["SM_Prop_Sign_Pizza_01", 2.211, 0.704, 0.144],
+  ["SM_Prop_Sign_Pub_01", 1.13, 0.547, 0.112],
+  ["SM_Prop_Vents_Exhaust_01", 0.868, 1.63, 2.727],
+  ["SM_Prop_Vents_Straight_01", 0.868, 0.803, 2.5],
+  ["SM_Prop_Water_Tower_01", 2.42, 5.509, 2.419],
+];
+
+/** The furniture's own sizes (`ParkingLines` is a flat tile: height 0). */
+const FURN_SIZES: [string, number, number, number][] = [
+  ["SM_Prop_Trashbin_01", 0.647, 1.178, 0.647],
+  ["SM_Prop_Trashbin_02", 0.721, 1.595, 0.582],
+  ["SM_Prop_Planter_01", 2.301, 0.81, 0.701],
+  ["SM_Prop_Planter_02", 1.511, 0.782, 0.463],
+  ["SM_Prop_PotPlant_01", 0.565, 0.797, 0.578],
+  ["SM_Prop_PotPlant_02", 0.694, 1.555, 0.639],
+  ["SM_Prop_ParkBench_01", 2.079, 1.048, 0.624],
+  ["SM_Prop_Mailbox_01", 0.666, 1.216, 0.586],
+  ["SM_Prop_Newspaper_02", 0.613, 1.172, 0.478],
+  ["SM_Prop_ParkingMeter_01", 0.225, 1.455, 0.128],
+  ["SM_Prop_Hydrant_01", 0.551, 1.053, 0.54],
+  ["SM_Env_Tree_01", 1.866, 4.208, 2.511],
+  ["SM_Env_Tree_02", 2.236, 4.676, 1.54],
+  ["SM_Env_Tree_03", 2.217, 3.845, 1.894],
+  ["SM_Prop_SidewalkPoles_02", 0.209, 1.124, 0.209],
+  ["SM_Prop_BusStop_01", 4.511, 3.073, 1.571],
+  ["SM_Env_Road_ParkingLines_01", 10, 0, 5],
+  ["SM_Prop_Barrier_01", 1.435, 0.983, 0.664],
+  ["SM_Prop_ParkingMeter_02", 0.772, 1.869, 0.526],
+  ["SM_Prop_Billboard_Pole_01", 0.606, 6.897, 0.606],
+  ["SM_Prop_Billboard_01", 4.428, 2.345, 0.82],
+  ["SM_Env_Sidewalk_Panel_02", 5, 0.094, 5],
+  ["SM_Prop_PicnicTable_01", 2.483, 1.008, 1.687],
+  ["SM_Prop_Umbrella_01", 1.597, 1.349, 1.597],
+  ["SM_Prop_HotdogStand_01", 2.961, 3.662, 2.393],
+];
+
+const entryOf = ([name, w, h, d]: [string, number, number, number], i: number): AssetEntry => ({
+  name,
+  source: `${name}.fbx`,
+  bounds: { min: [-w / 2, 0, -d / 2], max: [w / 2, h, d / 2] },
+  triangles: 100 + i,
+  textures: [],
+  missingTextures: [],
+  warnings: [],
+});
+const ENTRIES: ReadonlyMap<CalibrationKey, AssetEntry> = new Map([...PIECE_SIZES, ...FURN_SIZES].map((s, i) => [`city-pack:${s[0]}` as CalibrationKey, entryOf(s, i)] as const));
+
+const SEEDS_B = Array.from({ length: 10 }, (_, k) => k + 1);
+const near = (a: number, b: number, tol = 1e-6): boolean => Math.abs(a - b) <= tol;
+const cityAt = (seed: number, bx = 3, bz = 3): TileCity => tileCity({ blocksX: bx, blocksZ: bz, seed });
+/** A role lookup per cell for a city, built once. */
+const gridOf = (c: TileCity): ((x_m: number, z_m: number) => TileRole | null) => {
+  const W = Math.round(c.town.window.maxX / U / TILE_M);
+  const H = Math.round(c.town.window.maxY / U / TILE_M);
+  const g = new Array<TileRole | null>(W * H).fill(null);
+  for (const cell of c.cells) {
+    g[cell.j * W + cell.i] = cell.role;
+    if (cell.cells === 2) g[(cell.j + (cell.street!.startsWith("x:") ? 0 : 1)) * W + cell.i + (cell.street!.startsWith("x:") ? 1 : 0)] = cell.role;
+  }
+  return (x, z) => {
+    const i = Math.floor(x / TILE_M + 1e-9);
+    const j = Math.floor(z / TILE_M + 1e-9);
+    return i < 0 || j < 0 || i >= W || j >= H ? null : (g[j * W + i] ?? null);
+  };
+};
+
+describe("terraceBlockRows (criterion 9: the extraction)", () => {
+  /** A block 50 m by 60 m with its corner at the origin, a tile city's way: fronts on the block's edge, no setback. */
+  const sides = (): [TerraceSide, TerraceSide, TerraceSide, TerraceSide] => {
+    const x1 = 50 * U;
+    const z1 = 60 * U;
+    return [
+      { road: "x:0", side: 1, ax: 0, az: 0, ux: 1, uz: 0, mx: 0, mz: 1, span: x1 },
+      { road: "z:1", side: 1, ax: x1, az: 0, ux: 0, uz: 1, mx: -1, mz: 0, span: z1 },
+      { road: "x:1", side: -1, ax: x1, az: z1, ux: -1, uz: 0, mx: 0, mz: -1, span: x1 },
+      { road: "z:0", side: -1, ax: 0, az: z1, ux: 0, uz: -1, mx: 1, mz: 0, span: z1 },
+    ];
+  };
+
+  it("lays four rows of abutting terrace lots on the block's edge with a frontOff of 0, and numbers the lots from lotBase", () => {
+    const claimed: TerraceBox[] = [];
+    const frame = { wall_m: 0, kerb_m: TILE_M };
+    const r = terraceBlockRows({ id: "block:t:0" }, sides(), { frontOff: 0, claim: (b) => claimed.push(b), lotBase: 100, frame });
+    expect(r.lots.length).toBeGreaterThan(10);
+    expect(r.runs.length).toBeGreaterThanOrEqual(4);
+    expect(claimed.length).toBe(r.lots.length + r.openLots.length);
+    // The top row's first run starts on the top edge, its lots stand 6 m deep inside it, and every run carries the frame.
+    const top = r.runs.find((run) => run.road === "x:0")!;
+    expect(top.az).toBeCloseTo(0, 9);
+    expect(top.frame).toEqual(frame);
+    expect(top.lots[0]).toBe(100);
+    for (const run of r.runs) {
+      expect(run.frame).toBe(frame);
+      run.lots.forEach((li, k) => expect(r.lots[li - 100]!.terrace).toMatchObject({ run: run.id, index: k }));
+    }
+    const first = r.lots[0]!;
+    expect(first.z - first.d / 2).toBeCloseTo(0, 9);
+    expect(first.d / U).toBeCloseTo(6, 9);
+  });
+
+  it("starts an open lot on a multiple of snap_m and lays a plaza of plazaW_m", () => {
+    // Find a block id whose hash gives a plaza and a run id whose hash gives a parking lot: ask for both by name.
+    let plazaSeen = false;
+    let parkSeen = false;
+    for (let k = 0; k < 40 && !(plazaSeen && parkSeen); k++) {
+      const id = `block:s:${k}`;
+      const keys = new Set<string>();
+      for (const sd of sides()) for (let n = 0; n < 3; n++) keys.add(terraceRunKey(id, sd.road, sd.side, n));
+      const r = terraceBlockRows({ id }, sides(), { frontOff: 0, snap_m: TILE_M, plazaW_m: 10, parkRuns: keys });
+      for (const o of r.openLots) {
+        const left = (o.x - o.w / 2) / U;
+        const top = (o.z - o.d / 2) / U;
+        // Axis-aligned, 10 m square or the parking lot's size, on the 5 m grid of the block's corner.
+        expect(near(o.w / U, 10) && near(o.d / U, 10), `${o.kind} size`).toBe(true);
+        expect(near(left / TILE_M, Math.round(left / TILE_M), 1e-6) && near(top / TILE_M, Math.round(top / TILE_M), 1e-6), `${o.kind} on the grid at ${left},${top}`).toBe(true);
+        if (o.kind === "plaza") plazaSeen = true;
+        else parkSeen = true;
+      }
+    }
+    expect(plazaSeen && parkSeen).toBe(true);
+  });
+
+  it("changes nothing without options: the defaults are the ladder's (the digests in townpin.test.ts pin the whole town)", () => {
+    const a = terraceBlockRows({ id: "block:t:1" }, sides());
+    const b = terraceBlockRows({ id: "block:t:1" }, sides(), { frontOff: ROAD_W / 2 + PAVE_W + SETBACK });
+    expect(JSON.stringify(a)).toBe(JSON.stringify(b));
+    for (const run of a.runs) expect("frame" in run).toBe(false);
+  });
+});
+
+describe("terraces on tile streets (criterion 10)", () => {
+  const cities = [undefined, ...SEEDS_B].map((s) => (s === undefined ? tileCity() : cityAt(s)));
+
+  it("puts every run's front line, and every lot's front edge, on its pavement's back edge, and every block side carries a run", () => {
+    const fails: string[] = [];
+    for (const c of cities) {
+      const t = c.town;
+      const boxes = t.pavements.map((p) => ({ x0: Math.min(...p.pts.map((q) => q.x)), x1: Math.max(...p.pts.map((q) => q.x)), z0: Math.min(...p.pts.map((q) => q.z)), z1: Math.max(...p.pts.map((q) => q.z)) }));
+      for (const b of t.blocks) {
+        const runs = t.terraces.filter((r) => r.block === b.id);
+        if (runs.length < 4) fails.push(`${c.seed} ${b.id} has ${runs.length} runs`);
+        const sidesSeen = new Set(runs.map((r) => `${r.road}|${r.side}`));
+        if (sidesSeen.size !== 4) fails.push(`${c.seed} ${b.id} sides ${sidesSeen.size}`);
+        for (const r of runs) {
+          const horizontal = Math.abs(r.uz) < 1e-9;
+          const from = horizontal ? r.ax : r.az;
+          const to = from + (horizontal ? r.ux : r.uz) * r.len;
+          const lo = Math.min(from, to);
+          const hi = Math.max(from, to);
+          // The pavement whose back edge the front line lies on: a box with that edge at the line, covering the run's extent.
+          const ok = boxes.some((p) =>
+            horizontal
+              ? (near(p.z1, r.az) || near(p.z0, r.az)) && p.x0 <= lo + 1e-6 && p.x1 >= hi - 1e-6 && (near(p.z1, b.minZ) || near(p.z0, b.maxZ))
+              : (near(p.x1, r.ax) || near(p.x0, r.ax)) && p.z0 <= lo + 1e-6 && p.z1 >= hi - 1e-6 && (near(p.x1, b.minX) || near(p.x0, b.maxX)),
+          );
+          if (!ok) fails.push(`${c.seed} ${r.id} front line is not on a pavement's back edge`);
+          for (const li of r.lots) {
+            const l = t.lots[li]!;
+            const fx = Math.sin(l.yaw);
+            const fz = Math.cos(l.yaw);
+            const frontX = l.x + (fx * l.d) / 2;
+            const frontZ = l.z + (fz * l.d) / 2;
+            const edge = horizontal ? frontZ : frontX;
+            if (!near(edge, horizontal ? r.az : r.ax)) fails.push(`${c.seed} ${l.key} front edge ${edge}`);
+          }
+        }
+      }
+    }
+    expect(fails.slice(0, 8)).toEqual([]);
+  });
+
+  /** Pack every city once; the next two tests read the numbers. */
+  const packs = new Map<number, Map<string, PackResult>>();
+  const packOf = (c: TileCity): Map<string, PackResult> => {
+    let m = packs.get(c.seed);
+    if (!m) {
+      m = packTown({ terraces: c.town.terraces, lots: c.town.lots }, STACK_STYLES, ENTRIES, BUILDING_FRONTS);
+      packs.set(c.seed, m);
+    }
+    return m;
+  };
+  const tiersOf = (): { runs: number; tiers: Record<"seam" | "alley" | "slit" | "big", number> } => {
+    let runs = 0;
+    const tiers = { seam: 0, alley: 0, slit: 0, big: 0 };
+    for (const c of cities) {
+      for (const run of c.town.terraces) {
+        const res = packOf(c).get(run.id);
+        expect(res, `${c.seed} ${run.id} is packed`).toBeDefined();
+        expect(res!.blocks.length, `${c.seed} ${run.id} has blocks`).toBeGreaterThan(0);
+        runs++;
+        const g = res!.farGap_m;
+        tiers[g <= TERRACE_SEAM_M + 1e-9 ? "seam" : g >= ALLEY_MIN_M - 1e-9 && g <= ALLEY_MAX_M + 1e-9 ? "alley" : g < ALLEY_MIN_M ? "slit" : "big"]++;
+      }
+    }
+    return { runs, tiers };
+  };
+
+  it("packs every run (packTown on the fixture stacks) and never closes a far gap in a slit", { timeout: 120000 }, () => {
+    const { runs, tiers } = tiersOf();
+    expect(runs).toBeGreaterThan(300);
+    // The ladder's rule (terracepack.test.ts, citymetrics.test.ts): never a slit. Every gap is a seam, an alley or a wider gap of under a bay.
+    expect(tiers.slit, JSON.stringify(tiers)).toBe(0);
+    expect(tiers.seam + tiers.alley + tiers.big, JSON.stringify(tiers)).toBe(runs);
+  });
+
+  // KNOWN MISS (ticket 055 criterion 10, Risk 4): the ladder closes at least 85% of its runs to a seam or an alley; the tile city closes about 14%. A row is the block's side minus the
+  // next row's 6 m band, so its length is 5k - 1 metres for a side of k cells (34, 39, 44, 49 or 54 m), and nine columns of 5.0 to 5.28 m cannot reach within 1.5 m of 44 m.
+  // The gap is a wider one (1.6 to 3.8 m), never a slit. This test states the ladder's share and is expected to fail until a ticket changes the rows or the pieces; if it ever
+  // passes, `it.fails` turns red and this note comes out.
+  it.fails("closes the far gap to a seam or an alley on at least the ladder's 85% of runs", { timeout: 120000 }, () => {
+    const { runs, tiers } = tiersOf();
+    expect((tiers.seam + tiers.alley) / runs, JSON.stringify(tiers)).toBeGreaterThanOrEqual(0.85);
+  });
+
+  const planOf = (c: TileCity): { m: CityMetrics } => {
+    const t = c.town;
+    const packed = packOf(c);
+    const sites = dressSitesOf(runBlocks(t.terraces, packed));
+    const dressing = dressTown(sites, ENTRIES, BUILDING_FRONTS).map((x) => [...x]);
+    return { m: cityMetrics(t, packed, dressing, []) };
+  };
+
+  it("passes R1 to R5 and R8 to R13 (evaluateCity) on the packed and dressed plan of every city, with the tile frame read by the dressing", { timeout: 120000 }, () => {
+    for (const c of cities) {
+      const { m } = planOf(c);
+      const failing = evaluateCity(m).filter((v) => !v.pass && v.id !== "R6" && v.id !== "R7");
+      expect(failing, `seed ${c.seed} ${JSON.stringify(evaluateCity(m))}`).toEqual([]);
+      // Not vacuous: a city of blocks that corner, dressed, with no slit.
+      expect(m.blocks, `seed ${c.seed}`).toBeGreaterThan(80);
+      expect(m.cornerBlocks, `seed ${c.seed}`).toBeGreaterThan(20);
+      expect(m.cornerBlocksOffCorner, `seed ${c.seed}`).toBe(0);
+      expect(m.farGaps.slit, `seed ${c.seed}`).toBe(0);
+      expect(m.dressPieces, `seed ${c.seed}`).toBeGreaterThan(m.blocks * 3);
+      // R6 and R7 are shares of about 60 qualifying blocks; they sit just under their floors here (see the known miss below).
+      const r6 = evaluateCity(m).find((v) => v.id === "R6")!;
+      const r7 = evaluateCity(m).find((v) => v.id === "R7")!;
+      expect(r6.value, `seed ${c.seed} R6`).toBeGreaterThan(0.4);
+      expect(r7.value, `seed ${c.seed} R7`).toBeGreaterThan(0.35);
+    }
+  });
+
+  // KNOWN MISS (ticket 055 criterion 10): R6 (signs and ATMs) and R7 (fire escapes) are measured on the dressing's own chances over about 60 qualifying blocks of a 3 x 3 city, and
+  // land at 0.42 to 0.52 where CITY_CHECK asks 0.5 (the ladder's three maps: 0.53 to 0.58). Nothing in the tile city's geometry changes them (the frame makes no difference to them).
+  it.fails("passes R6 and R7 as well, on every one of the default city and seeds 1 to 10", { timeout: 120000 }, () => {
+    for (const c of cities) {
+      const { m } = planOf(c);
+      expect(evaluateCity(m).filter((v) => !v.pass), `seed ${c.seed}`).toEqual([]);
+    }
+  });
+});
+
+/** The blocks of a plan as `dressTown` sites, as `dressSites` makes them (models3d.ts, which imports three), plus the run's frame. */
+function dressSitesOf(list: readonly { run: TerraceRun; block: PackedBlock }[]): DressBlockInput[] {
+  const count = new Map<string, number>();
+  const lowest = new Map<string, number>();
+  const index: number[] = [];
+  list.forEach((r, k) => {
+    const id = r.block.lot.terrace?.run ?? "";
+    const i = count.get(id) ?? 0;
+    index.push(i);
+    count.set(id, i + 1);
+    const low = lowest.get(id);
+    if (low === undefined || r.block.stack.height_m < list[low]!.block.stack.height_m) lowest.set(id, k);
+  });
+  return list.map((r, k) => {
+    const id = r.block.lot.terrace?.run ?? "";
+    return { stack: r.block.stack, lot: { key: r.block.lot.key, hMax: r.block.lot.hMax }, run: { id, index: index[k]!, lowest: lowest.get(id) === k, ...(r.run.frame ? { frame: r.run.frame } : {}) }, kerbM: KERB_FROM_FRONT_M };
+  });
+}
+
+describe("parking (criterion 11)", () => {
+  const cities = [undefined, ...SEEDS_B].map((s) => (s === undefined ? tileCity() : cityAt(s)));
+
+  it("puts every open lot on the tile grid, 10 m square, inside its block", () => {
+    const fails: string[] = [];
+    for (const c of cities) {
+      for (const o of c.town.openLots) {
+        const x0 = (o.x - o.w / 2) / U;
+        const z0 = (o.z - o.d / 2) / U;
+        const x1 = (o.x + o.w / 2) / U;
+        const z1 = (o.z + o.d / 2) / U;
+        for (const v of [x0, z0, x1, z1]) if (!near(v / TILE_M, Math.round(v / TILE_M), 1e-6)) fails.push(`${c.seed} ${o.kind} ${o.run} corner at ${v}`);
+        if (!near(x1 - x0, TILE_PLAZA_W_M) || !near(z1 - z0, TILE_PLAZA_W_M)) fails.push(`${c.seed} ${o.kind} size ${x1 - x0} x ${z1 - z0}`);
+        const b = c.town.blocks.find((q) => q.minX / U <= x0 + 1e-6 && q.maxX / U >= x1 - 1e-6 && q.minZ / U <= z0 + 1e-6 && q.maxZ / U >= z1 - 1e-6);
+        if (!b) fails.push(`${c.seed} ${o.kind} ${o.run} is in no block`);
+      }
+      expect(c.town.openLots.some((o) => o.kind === "plaza")).toBe(true);
+    }
+    expect(fails.slice(0, 8)).toEqual([]);
+  });
+
+  it("gives every block at least CITY_BAYS_PER_BLOCK_MIN kerbside bays on its sides or an open parking lot, and the city ceil(blocks / CITY_LOTS_PER_BLOCKS) parking lots", () => {
+    // The 'outer' bays (on the outside of an edge street, facing the yard) belong to no block and are not counted.
+    const fails: string[] = [];
+    for (const c of [...cities, cityAt(1, 6, 6), cityAt(2, 6, 4), cityAt(3, 4, 5)]) {
+      const per = new Map<string, number>();
+      for (const b of c.bays) per.set(b.block, (per.get(b.block) ?? 0) + 1);
+      const parks = c.town.openLots.filter((o) => o.kind === "parking");
+      const runBlock = new Map(c.town.terraces.map((r) => [r.id, r.block] as const));
+      const withLot = new Set(parks.map((o) => runBlock.get(o.run)));
+      for (const b of c.blocks) if ((per.get(b.id) ?? 0) < CITY_BAYS_PER_BLOCK_MIN && !withLot.has(b.id)) fails.push(`${c.blocksX}x${c.blocksZ} seed ${c.seed} ${b.id} has ${per.get(b.id) ?? 0} bays and no lot`);
+      if (parks.length < Math.ceil(c.blocks.length / CITY_LOTS_PER_BLOCKS)) fails.push(`${c.blocksX}x${c.blocksZ} seed ${c.seed} has ${parks.length} lots for ${c.blocks.length} blocks`);
+    }
+    expect(fails).toEqual([]);
+  });
+
+  it("cuts the kerb across every parking lot's whole street edge, leaves the parking cells in front of it without a bay, and keeps every bay off cuts, crossings and junctions", () => {
+    const fails: string[] = [];
+    let lots = 0;
+    for (const c of [...cities, cityAt(1, 6, 6)]) {
+      const role = gridOf(c);
+      for (const o of c.town.openLots) {
+        const cx = o.x / U;
+        const cz = o.z / U;
+        const cells = c.cells.filter((q) => q.role === (o.kind === "parking" ? "lotSurface" : "plaza") && Math.abs(q.x_m - cx) <= TILE_M && Math.abs(q.z_m - cz) <= TILE_M);
+        if (cells.length !== 4) fails.push(`${c.seed} ${o.kind} ${o.run} has ${cells.length} surface cells`);
+        if (o.kind !== "parking") continue;
+        lots++;
+        const fx = Math.round(Math.sin(o.yaw));
+        const fz = Math.round(Math.cos(o.yaw));
+        for (const along of [-TILE_M / 2, TILE_M / 2]) {
+          const edgeX = fz !== 0 ? cx + along : cx + fx * (o.d / U / 2 + TILE_M / 2);
+          const edgeZ = fz !== 0 ? cz + fz * (o.d / U / 2 + TILE_M / 2) : cz + along;
+          if (role(edgeX, edgeZ) !== "kerbCut") fails.push(`${c.seed} ${o.run} street edge at ${edgeX},${edgeZ} is ${role(edgeX, edgeZ)}`);
+          const frontX = edgeX + fx * TILE_M;
+          const frontZ = edgeZ + fz * TILE_M;
+          const front = role(frontX, frontZ);
+          if (front === "parking") fails.push(`${c.seed} ${o.run} has a ParkingLines tile in front of its cut`);
+          if (c.bays.some((b) => Math.floor(b.x_m / TILE_M) === Math.floor(frontX / TILE_M) && Math.floor(b.z_m / TILE_M) === Math.floor(frontZ / TILE_M))) fails.push(`${c.seed} ${o.run} has a bay in front of its cut`);
+        }
+      }
+      for (const b of c.bays) {
+        const half = b.street.startsWith("x:") ? [b.w_m / 2, b.d_m / 2] : [b.d_m / 2, b.w_m / 2];
+        for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]] as const) {
+          const r = role(b.x_m + sx * (half[0]! - 1e-6), b.z_m + sz * (half[1]! - 1e-6));
+          if (r !== "parking") fails.push(`${c.seed} bay at ${b.x_m},${b.z_m} lies on ${r}`);
+        }
+      }
+    }
+    expect(lots).toBeGreaterThan(20);
+    expect(fails.slice(0, 8)).toEqual([]);
+  });
+
+  it("leaves no cell uncovered or doubled once the lots' cells are counted: the open lots are the only cells inside a block", () => {
+    for (const c of [...cities, cityAt(2, 6, 6)]) {
+      const seen = new Set<string>();
+      for (const cell of c.cells) {
+        const key = `${cell.i}:${cell.j}`;
+        expect(seen.has(key), `${c.seed} cell ${key} twice`).toBe(false);
+        seen.add(key);
+        if (cell.cells === 2) seen.add(cell.street!.startsWith("x:") ? `${cell.i + 1}:${cell.j}` : `${cell.i}:${cell.j + 1}`);
+      }
+      const inBlocks = c.cells.filter((q) => q.role === "lotSurface" || q.role === "plaza").length;
+      expect(inBlocks).toBe(4 * c.town.openLots.length);
+    }
+  });
+});
+
+describe("the pavement frame (criterion 12)", () => {
+  /** The dressing and furniture of three real maps, with and without the run's frame set to today's numbers: the same output. */
+  const MAPS = ["09-shrine-circuit", "64-the-whole-chain", "01-first-light"] as const;
+  const mapOf = (file: string): Puzzle => loadPuzzle(JSON.parse(readFileSync(join("puzzles", `${file}.json`), "utf8")));
+
+  it("gives furnitureLayout exactly today's output on the three protocol maps when the frame is absent or says today's numbers", () => {
+    for (const file of MAPS) {
+      const town = townLayout(mapOf(file));
+      const input = { runs: town.terraces, lots: town.lots, openLots: town.openLots };
+      const bare = furnitureLayout(input, ENTRIES);
+      expect(bare.length, file).toBeGreaterThan(50);
+      const framed = furnitureLayout({ ...input, runs: town.terraces.map((r) => ({ ...r, frame: { wall_m: WALL_EDGE_M, kerb_m: KERB_M } })) }, ENTRIES);
+      expect(framed, file).toEqual(bare);
+      for (const r of town.terraces) expect("frame" in r, `${file} ${r.id} has no frame`).toBe(false);
+    }
+  });
+
+  it("gives dressStack exactly today's output when the frame is absent or says today's kerb, and reads a tighter or wider kerb when it is there", () => {
+    const town = townLayout(mapOf("09-shrine-circuit"));
+    const packed = packTown({ terraces: town.terraces, lots: town.lots }, STACK_STYLES, ENTRIES, BUILDING_FRONTS);
+    const blocks = runBlocks(town.terraces, packed).slice(0, 40);
+    expect(blocks.length).toBeGreaterThan(20);
+    let tighter = 0;
+    for (const { block } of blocks) {
+      const run = { id: block.lot.terrace!.run, index: 0, lowest: true };
+      const base = dressStack(block.stack, block.lot, run, ENTRIES, BUILDING_FRONTS);
+      expect(dressStack(block.stack, block.lot, { ...run, frame: { wall_m: WALL_EDGE_M, kerb_m: KERB_FROM_FRONT_M } }, ENTRIES, BUILDING_FRONTS)).toEqual(base);
+      expect(dressStack(block.stack, block.lot, run, ENTRIES, BUILDING_FRONTS, KERB_FROM_FRONT_M)).toEqual(base);
+      // A kerb 1 m from the front: nothing stands past it (every front prop is nearer than the road's edge), and some block loses a piece.
+      const tight = dressStack(block.stack, block.lot, { ...run, frame: { wall_m: 0, kerb_m: 1 } }, ENTRIES, BUILDING_FRONTS);
+      for (const p of tight) if (p.slot === "awning") expect(p.z + p.d / 2).toBeLessThanOrEqual(1 + 1e-6);
+      if (tight.length < base.length) tighter++;
+    }
+    expect(tighter).toBeGreaterThan(0);
+  });
+
+  it("stands the furniture of a tile city on its pavement, between the run's wall and kerb lines and clear of pole slots, kerb cuts and crossing landings; meters only beside bays or in lots", () => {
+    const fails: string[] = [];
+    let pavementPieces = 0;
+    let meters = 0;
+    let lotMeters = 0;
+    for (const seed of SEEDS_B) {
+      const c = cityAt(seed);
+      const t = c.town;
+      const role = gridOf(c);
+      const keep = tileKeepouts(c);
+      const raw = furnitureLayout({ runs: t.terraces, lots: t.lots, openLots: t.openLots, keepPoints: keep.keepPoints, keepRects: keep.keepRects }, ENTRIES);
+      const pieces = bayMeters(c, raw);
+      const runs = new Map(t.terraces.map((r) => [r.id, r] as const));
+      for (const p of pieces) {
+        if (p.kind !== "pavement") {
+          if (p.kind === "parking" && METERS.length > 0 && p.key.includes("ParkingMeter")) lotMeters++;
+          continue;
+        }
+        pavementPieces++;
+        const run = runs.get(p.run)!;
+        const lot0 = t.lots[run.lots[0]!]!;
+        const bx = Math.sin(lot0.yaw);
+        const bz = Math.cos(lot0.yaw);
+        const tM = ((p.x - run.ax) * bx + (p.z - run.az) * bz) / U;
+        if (tM - p.d / 2 < run.frame!.wall_m - 1e-6 || tM + p.d / 2 > run.frame!.kerb_m - FURN_KERB_M + 1e-6) fails.push(`${seed} ${p.key} at t=${tM.toFixed(2)} depth ${p.d} is off the frame`);
+        // The footprint is on pavement cells (an axis-aligned box: the piece's w along the street, d across it).
+        const alongX = Math.abs(run.ux) > 0.5;
+        const hx = (alongX ? p.w : p.d) / 2;
+        const hz = (alongX ? p.d : p.w) / 2;
+        const cx = p.x / U;
+        const cz = p.z / U;
+        for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]] as const) {
+          const r = role(cx + sx * (hx - 1e-6), cz + sz * (hz - 1e-6));
+          if (r !== "pavement") fails.push(`${seed} ${p.key} at ${cx.toFixed(1)},${cz.toFixed(1)} stands on ${r}`);
+        }
+        // Clear of every pole slot, kerb cut and corner (the crossings' landing) by FURN_KEEP_M, measured to the footprint.
+        const gap = (x0: number, x1: number, z0: number, z1: number): number => Math.hypot(Math.max(0, x0 - (cx + hx), cx - hx - x1), Math.max(0, z0 - (cz + hz), cz - hz - z1));
+        for (const s of c.poleSlots) if (gap(s.x_m, s.x_m, s.z_m, s.z_m) < FURN_KEEP_M - 1e-6) fails.push(`${seed} ${p.key} is ${gap(s.x_m, s.x_m, s.z_m, s.z_m).toFixed(2)} m from a pole slot`);
+        for (const cell of c.cells) {
+          if (cell.role !== "kerbCut" && cell.role !== "pavementCorner") continue;
+          if (Math.abs(cell.x_m - cx) > TILE_M * 2 || Math.abs(cell.z_m - cz) > TILE_M * 2) continue;
+          if (gap(cell.x_m - TILE_M / 2, cell.x_m + TILE_M / 2, cell.z_m - TILE_M / 2, cell.z_m + TILE_M / 2) < FURN_KEEP_M - 1e-6) fails.push(`${seed} ${p.key} is near a ${cell.role}`);
+        }
+        if (METERS.includes(p.key)) {
+          meters++;
+          const beside = c.bays.some((b) => b.street === run.road && b.block === run.block && Math.abs((alongX ? cx - b.x_m : cz - b.z_m)) <= b.w_m / 2 + 1e-6);
+          if (!beside) fails.push(`${seed} meter ${p.key} on ${run.id} is not beside a bay`);
+        }
+      }
+      // The unfiltered layout does put meters where there is no bay (that is what `bayMeters` is for), and the filter only ever removes meters.
+      expect(pieces.length).toBeLessThanOrEqual(raw.length);
+      expect(raw.filter((p) => !pieces.includes(p)).every((p) => p.kind === "pavement" && METERS.includes(p.key))).toBe(true);
+    }
+    expect(pavementPieces).toBeGreaterThan(200);
+    expect(meters).toBeGreaterThan(0);
+    expect(lotMeters).toBeGreaterThan(0);
+    expect(fails.slice(0, 8)).toEqual([]);
+  });
+
+  it("keeps the furniture out of a pole slot when asked, and stands on the kerb line of a 5 m pavement 4.5 m from the front", () => {
+    const c = cityAt(1);
+    const t = c.town;
+    const keep = tileKeepouts(c);
+    expect(keep.keepPoints.length).toBe(c.poleSlots.length);
+    expect(keep.keepRects.length).toBe(c.cells.filter((q) => q.role === "kerbCut" || q.role === "pavementCorner").length);
+    const out = furnitureLayout({ runs: t.terraces, lots: t.lots, openLots: t.openLots }, ENTRIES);
+    // Without the keep-outs the kerb line (front edge 0.5 m in from the kerb, 4.5 m from the front line) puts something within FURN_KEEP_M of a slot.
+    const near1 = out.filter((p) => p.kind === "pavement" && c.poleSlots.some((s) => Math.hypot(p.x / U - s.x_m, p.z / U - s.z_m) < FURN_KEEP_M));
+    expect(near1.length).toBeGreaterThan(0);
+    const kept = furnitureLayout({ runs: t.terraces, lots: t.lots, openLots: t.openLots, keepPoints: keep.keepPoints, keepRects: keep.keepRects }, ENTRIES);
+    expect(kept.filter((p) => p.kind === "pavement" && c.poleSlots.some((s) => Math.hypot(p.x / U - s.x_m, p.z / U - s.z_m) < FURN_KEEP_M - 1e-6)).length).toBe(0);
+  });
+});
+
+describe("the tile city after section B", () => {
+  it("is still deterministic, frozen, and 6 x 6 builds in well under a second", () => {
+    const a = JSON.stringify(cityAt(4, 6, 6));
+    expect(JSON.stringify(cityAt(4, 6, 6))).toBe(a);
+    const c = cityAt(4, 6, 6);
+    expect(Object.isFrozen(c.town.lots)).toBe(true);
+    expect(Object.isFrozen(c.town.terraces[0])).toBe(true);
+    expect(Object.isFrozen(c.town.terraces[0]!.frame)).toBe(true);
+    expect(Object.isFrozen(c.town.openLots)).toBe(true);
+  });
+
+  it("has no lot that overlaps another, a road or a pavement, and every lot is inside its block", () => {
+    for (const seed of SEEDS_B) {
+      const c = cityAt(seed);
+      const t = c.town;
+      const boxes = t.lots.map((l) => {
+        const hx = (Math.abs(Math.cos(l.yaw)) * l.w + Math.abs(Math.sin(l.yaw)) * l.d) / 2;
+        const hz = (Math.abs(Math.sin(l.yaw)) * l.w + Math.abs(Math.cos(l.yaw)) * l.d) / 2;
+        return { x0: l.x - hx, x1: l.x + hx, z0: l.z - hz, z1: l.z + hz, key: l.key };
+      });
+      for (const o of t.openLots) boxes.push({ x0: o.x - o.w / 2, x1: o.x + o.w / 2, z0: o.z - o.d / 2, z1: o.z + o.d / 2, key: `${o.kind}:${o.run}` });
+      for (const b of boxes) {
+        const blk = t.blocks.find((q) => b.x0 >= q.minX - 1e-6 && b.x1 <= q.maxX + 1e-6 && b.z0 >= q.minZ - 1e-6 && b.z1 <= q.maxZ + 1e-6);
+        expect(blk, `${seed} ${b.key} is inside a block`).toBeDefined();
+      }
+      let overlaps = 0;
+      for (let i = 0; i < boxes.length; i++) {
+        for (let j = i + 1; j < boxes.length; j++) {
+          const a = boxes[i]!;
+          const b = boxes[j]!;
+          if (a.x0 < b.x1 - 1e-6 && b.x0 < a.x1 - 1e-6 && a.z0 < b.z1 - 1e-6 && b.z0 < a.z1 - 1e-6) overlaps++;
+        }
+      }
+      expect(overlaps, `seed ${seed}`).toBe(0);
+    }
+  });
+
+  it("marks the first lot of a run that starts at its row's corner as a corner lot toward the cross street, and no other", () => {
+    for (const seed of SEEDS_B) {
+      const t = cityAt(seed).town;
+      for (const run of t.terraces) {
+        const first = t.lots[run.lots[0]!]!;
+        if (run.startCorner) {
+          expect(first.corner).toBe(true);
+          expect(first.cornerSides).toEqual([run.startCorner]);
+          expect(run.startCorner.road).not.toBe(run.road);
+        } else expect(first.corner).toBe(false);
+        for (const li of run.lots.slice(1)) expect(t.lots[li]!.corner).toBe(false);
+      }
+      expect(t.terraces.filter((r) => r.startCorner).length).toBeGreaterThanOrEqual(t.blocks.length * 3);
+    }
   });
 });
