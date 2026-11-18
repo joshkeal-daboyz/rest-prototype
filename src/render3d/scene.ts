@@ -124,30 +124,30 @@ export interface ModelSlots {
   models: Object3D;
 }
 
-const GROUND = 0x0e131d;
+export const GROUND = 0x0e131d;
 /** Yard ground: the open ground inside a city block, a little lighter than the town's dark edge. */
-const YARD = 0x141c29;
+export const YARD = 0x141c29;
 /** Asphalt. */
-const STREET = 0x1a2331;
+export const STREET = 0x1a2331;
 /** Pavement: mid-grey, lighter than the asphalt so a street reads as a road between two pavements. */
-const PAVEMENT = 0x3d4658;
+export const PAVEMENT = 0x3d4658;
 /** The kerb lip: pale. */
-const KERB = 0x9aa4b6;
+export const KERB = 0x9aa4b6;
 /** A road's dashed centre line. */
-const CENTRE_LINE = 0x7a7863;
-const PLACE = 0x3a4a68;
+export const CENTRE_LINE = 0x7a7863;
+export const PLACE = 0x3a4a68;
 /** Weathered wood for poles, posts and cross-arms: at least 3:1 luminance contrast against the street, so it reads by brightness. */
 export const POLE_WOOD = 0x8b6b4a;
-const FOOT = 0x080b11;
-const METAL = 0x5d6b84;
+export const FOOT = 0x080b11;
+export const METAL = 0x5d6b84;
 export const DEAD_WIRE = 0x2a3445;
 export const LIVE_WIRE = 0x4fd1ff;
-const LIVE_GLOW = 0x2aa9d8;
+export const LIVE_GLOW = 0x2aa9d8;
 /** A cable that was damaged and is mended but not live: 2D's LINE_REPAIRED ("new cable"). */
 export const REPAIRED_WIRE = 0x5a6f92;
-const WARM = 0xffd37a;
-const TARGET = 0xffe9a8;
-const SCORCH = 0x1a0f0c;
+export const WARM = 0xffd37a;
+export const TARGET = 0xffe9a8;
+export const SCORCH = 0x1a0f0c;
 
 function box(w: number, h: number, d: number, mat: Material, x = 0, y = 0, z = 0): Mesh {
   const m = new Mesh(new BoxGeometry(w, h, d), mat);
@@ -266,7 +266,7 @@ const WIRE_RADIAL = 6;
 const BREAK_GAP_PICK = BREAK_GAP + 0.2;
 /** How far (world units) a lamp's caption sits beyond it, away from its wire. */
 const LAMP_CAPTION_OFFSET = 1.0;
-const RIBBON = 0xff3df0;
+export const RIBBON = 0xff3df0;
 
 // ---- the town: streets and placeholder buildings (ticket 041 B) ----
 
@@ -541,11 +541,11 @@ export const ARM_LEN = 0.7;
 const ARM_DROP = 0.16;
 /** An insulator: a pale glazed grey-green post, this tall, standing on the arm under the conductor's attachment point. */
 export const INSULATOR_H = 0.12;
-const INSULATOR = 0x8fa99a;
-const CAN = 0x7d8794;
+export const INSULATOR = 0x8fa99a;
+export const CAN = 0x7d8794;
 const CAN_R = 0.06;
 const CAN_H = 0.2;
-const DROP_COLOR = 0x39414f;
+export const DROP_COLOR = 0x39414f;
 export const DROP_RADIUS = 0.012;
 
 /** Indices in one radial quad of a tube (two triangles). */
