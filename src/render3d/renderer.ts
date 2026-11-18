@@ -13,6 +13,8 @@ import { frontsOverlay, frontsRequested, type FrontsOverlay } from "./debug3d";
 import { createGalleryRenderer3d, galleryRequested } from "./gallery";
 import { applyModels, sharedModels, type AppliedModels } from "./models3d";
 import { buildScene } from "./scene";
+import { createCityRenderer3d } from "./tilecity3d";
+import { cityTilesRequested } from "./tileslots";
 import { createStreetView, streetCamRequested, streetMode, type StreetView } from "./streetcam";
 import { townLayout } from "./town";
 
@@ -41,6 +43,12 @@ export function createMapRenderer3d(canvas: HTMLCanvasElement, puzzle: Puzzle, o
   if (galleryPack !== null) {
     const ratio = Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 2);
     return createGalleryRenderer3d(renderer, canvas, galleryPack, { insets: opts?.insets, dpr: ratio, search: location.search });
+  }
+  // `?city=tiles` (debug, ticket 055 C) shows a puzzle-free city of City Pack road tiles instead of the puzzle's map (the puzzle passed in is ignored); dev builds only, like the gallery.
+  const cityTiles = import.meta.env.DEV && typeof location !== "undefined" ? cityTilesRequested(location.search) : null;
+  if (cityTiles !== null) {
+    const ratio = Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 2);
+    return createCityRenderer3d(renderer, canvas, cityTiles, { insets: opts?.insets, dpr: ratio, search: location.search });
   }
   // `?cam=street` (debug, ticket 051 A) looks along one row of buildings from the road; this is the one place the address is read. Dev builds only, like the gallery.
   const streetOpts = import.meta.env.DEV && typeof location !== "undefined" ? streetCamRequested(location.search) : null;

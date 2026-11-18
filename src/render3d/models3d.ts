@@ -67,6 +67,11 @@ export type ModelSet = Record<ModelSlot, LoadedModel[] | null> & {
    */
   dress?: LoadedModel[] | null;
   /**
+   * The City Pack ground tiles (ticket 055 C: roads, sidewalks, the parking lines), in `LoadDeps.tileKeys` order; null when they were asked for and none loaded. Absent when not asked
+   * for, which is every page but the dev-only tile city (`city=tiles`): the town and every puzzle map never ask.
+   */
+  tile?: LoadedModel[] | null;
+  /**
    * The City Pack colourway atlases that loaded (ticket 054 B), by id (`02_A`), each carrying its base atlas's name in `userData.colourwayBase`. Only ids in COLOURWAY_POOL are ever loaded. Absent when none
    * loaded or none was asked for (a fresh checkout, CI, no `colourways` in the manifest, no `loadTexture`): then every stack is drawn with the cached materials, exactly as before.
    */
@@ -90,6 +95,8 @@ export interface LoadDeps {
   stackKeys?: readonly CalibrationKey[];
   /** The dressing pieces to load too (ticket 052 B), keyed `pack:name`, into `ModelSet.dress`. Default: none, so nothing extra is read from the GLB. */
   dressKeys?: readonly CalibrationKey[];
+  /** The ground tiles to load too (ticket 055 C, the dev-only tile city), keyed `pack:name`, into `ModelSet.tile`. Default: none, so nothing extra is read from the GLB. */
+  tileKeys?: readonly CalibrationKey[];
   /** Resolves to the image at `url` as a texture (ticket 054 B: the City Pack's colourways), and rejects if it cannot be fetched. Default: none, so no colourway is fetched. */
   loadTexture?: (url: string) => Promise<Texture>;
   /** Folder of the manifest, ending in "/". Default: `${BASE_URL}assets/private/out/`. */
@@ -157,10 +164,14 @@ export async function loadModels(deps: LoadDeps): Promise<ModelSet> {
     const stackPlan = wantStack.length > 0 ? planStackPieces(manifest as AssetManifest, wantStack, deps.fronts ?? BUILDING_FRONTS) : null;
     const wantDress = (deps.dressKeys ?? []).filter((key) => !exclude.includes(key));
     const dressPlan = wantDress.length > 0 ? planDress(manifest as AssetManifest, wantDress, deps.fronts ?? BUILDING_FRONTS) : null;
+    // The ground tiles (ticket 055 C) are planned like the dressing (a flat 5 x 0 x 5 road tile and a 5 x 0.30 x 5 sidewalk both pass); only a page that asks for them reads any.
+    const wantTile = deps.tileKeys ?? [];
+    const tilePlan = wantTile.length > 0 ? planDress(manifest as AssetManifest, wantTile, {}) : null;
     const globs = new Set<string>();
     for (const slot of MODEL_SLOTS) for (const p of plan[slot] ?? []) globs.add(p.glb);
     for (const p of stackPlan ?? []) globs.add(p.glb);
     for (const p of dressPlan ?? []) globs.add(p.glb);
+    for (const p of tilePlan ?? []) globs.add(p.glb);
     const roots = new Map<string, Object3D>();
     await Promise.all(
       [...globs].map(async (glb) => {
@@ -217,6 +228,17 @@ export async function loadModels(deps: LoadDeps): Promise<ModelSet> {
         nearestTextures(root);
         (set.dress ??= []).push({ ...p, root });
       }
+    }
+    if (deps.tileKeys && deps.tileKeys.length > 0) {
+      set.tile = null;
+      // A key missing from the manifest or its GLB drops only its own cells to the code-drawn fallback (`tileGroup` offers the loaded keys alone).
+      for (const p of tilePlan ?? []) {
+        const root = roots.get(p.glb)?.getObjectByName(p.entry.name);
+        if (!root) continue;
+        nearestTextures(root);
+        (set.tile ??= []).push({ ...p, root });
+      }
+      if ((set.tile?.length ?? 0) < deps.tileKeys.length) info(`3D models: ${set.tile?.length ?? 0} of ${deps.tileKeys.length} ground tile pieces loaded; the rest are drawn in code.`);
     }
     return set;
   } catch (e) {
@@ -287,26 +309,59 @@ function describe(e: unknown): string {
 }
 
 let shared: Promise<ModelSet> | null = null;
+let sharedTile: Promise<ModelSet> | null = null;
 
-/** The page's models: fetched once with the real fetch and GLTFLoader, then reused by every map. */
-export function sharedModels(): Promise<ModelSet> {
+/** The real fetch and GLTFLoader, with Josh's saved fronts laid over the code's table first (dev only, ticket 045; a production build never fetches the file). */
+function loadPageModels(extra: Pick<LoadDeps, "table" | "tileKeys">): Promise<ModelSet> {
   const fetchJson = async (url: string, init?: { cache: "no-store" }): Promise<unknown> => {
     const r = await fetch(url, init);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     return (await r.json()) as unknown;
   };
-  // In a dev build Josh's saved fronts (ticket 045) are laid over the code's table before the plan is made; a production build never fetches the file.
-  shared ??= loadSavedCalibration({ dev: import.meta.env.DEV, fetchJson }).then((saved) => {
+  return loadSavedCalibration({ dev: import.meta.env.DEV, fetchJson }).then((saved) => {
     const tables = effectiveFronts({ fronts: BUILDING_FRONTS, exclude: BUILDING_EXCLUDE }, saved);
     // The City Pack's stack pieces load too (ticket 050 C); with no City Pack in the manifest nothing extra is fetched and the set has no stack slot.
-    return loadModels({ fetchJson, loadGlb: async (url) => (await new GLTFLoader().loadAsync(url)).scene, loadTexture: (url) => new TextureLoader().loadAsync(url), fronts: tables.fronts, exclude: tables.exclude, stackKeys: allStackKeys(), dressKeys: [...dressKeys(), ...furnitureKeys()] });
+    return loadModels({ fetchJson, loadGlb: async (url) => (await new GLTFLoader().loadAsync(url)).scene, loadTexture: (url) => new TextureLoader().loadAsync(url), fronts: tables.fronts, exclude: tables.exclude, stackKeys: allStackKeys(), dressKeys: [...dressKeys(), ...furnitureKeys()], ...extra });
   });
+}
+
+/** The page's models: fetched once with the real fetch and GLTFLoader, then reused by every map. */
+export function sharedModels(): Promise<ModelSet> {
+  shared ??= loadPageModels({});
   return shared;
+}
+
+/**
+ * The dev-only tile city's models (ticket 055 C): the City Pack's stack, dressing and furniture pieces as every map has, plus the ground tiles `tileKeys` names, and
+ * nothing else (an empty table: no building, pole or lamp model, so the Town Pack's 110 MB is never fetched for a city that has no puzzle). Fetched once. Only the tile view calls it.
+ */
+export function sharedTileModels(tileKeys: readonly CalibrationKey[]): Promise<ModelSet> {
+  sharedTile ??= loadPageModels({ table: [], tileKeys });
+  return sharedTile;
 }
 
 /** Forget the page's models (tests). */
 export function resetSharedModels(): void {
   shared = null;
+  sharedTile = null;
+}
+
+/** What the tile city can draw from a loaded set: the loaded tile keys' entries and roots, or null when the set has none (no City Pack, a failed GLB, not asked for). */
+export interface TileInput {
+  entries: ReadonlyMap<CalibrationKey, AssetEntry>;
+  roots: ReadonlyMap<CalibrationKey, Object3D>;
+}
+
+export function tileInput(set: ModelSet): TileInput | null {
+  if (!set.tile || set.tile.length === 0) return null;
+  const entries = new Map<CalibrationKey, AssetEntry>();
+  const roots = new Map<CalibrationKey, Object3D>();
+  for (const m of set.tile) {
+    const key = calibrationKey(m.pack, m.entry.name);
+    entries.set(key, m.entry);
+    roots.set(key, m.root);
+  }
+  return { entries, roots };
 }
 
 export interface AppliedModels {
@@ -640,7 +695,7 @@ export function furnitureInput(bundle: SceneBundle, packed: ReadonlyMap<string, 
 }
 
 /** The mesh nodes of a model's root, each with the matrix that takes its own frame to the root's parent (the root's own local matrix included, as a clone in a wrapper has it). */
-function meshParts(root: Object3D): { mesh: Mesh; local: Matrix4 }[] {
+export function meshParts(root: Object3D): { mesh: Mesh; local: Matrix4 }[] {
   const out: { mesh: Mesh; local: Matrix4 }[] = [];
   const walk = (o: Object3D, acc: Matrix4): void => {
     if (!o.visible) return;
