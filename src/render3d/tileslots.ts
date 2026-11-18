@@ -28,6 +28,8 @@ export const TILE_SLOTS: Readonly<Record<TileRole, readonly CalibrationKey[]>> =
   pavement: [k("SM_Env_Sidewalk_Straight_01"), k("SM_Env_Sidewalk_Straight_02"), k("SM_Env_Sidewalk_Grate_01")],
   pavementCorner: [k("SM_Env_Sidewalk_Dip_Corner_01")],
   kerbCut: [k("SM_Env_Sidewalk_Dip_01")],
+  // 056 A: the build-out is a pavement-level tile in the parking band; section B owns its front, its sheet entry and its drawing, this is only what the new role needs to type-check and to be drawn.
+  buildout: [k("SM_Env_Sidewalk_Straight_01"), k("SM_Env_Sidewalk_Straight_02")],
   lotSurface: [k("SM_Env_Road_Bare_01")],
   plaza: [k("SM_Env_Sidewalk_Panel_01")],
 };
@@ -86,6 +88,7 @@ export const TILE_LEVELS: Readonly<Record<TileRole, TileLevel>> = {
   pavement: "pavement",
   pavementCorner: "pavement",
   kerbCut: "pavement",
+  buildout: "pavement",
   lotSurface: "ground",
   plaza: "pavement",
 };
@@ -136,6 +139,7 @@ export const TILE_FRONT_TEXT: Readonly<Record<TileRole, string>> = {
   pavement: "arrow = toward the kerb (the carriageway)",
   pavementCorner: "the kerb edges are on the +x and +z sides (the two arrows)",
   kerbCut: "arrow = toward the carriageway (the dip)",
+  buildout: "arrow = toward the carriageway (the kerb)",
   lotSurface: "no front",
   plaza: "no front",
 };

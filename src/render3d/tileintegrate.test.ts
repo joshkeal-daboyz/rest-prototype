@@ -10,7 +10,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { BoxGeometry, Group, MeshBasicMaterial, Mesh, Scene, Vector3, type Object3D, type WebGLRenderer } from "three";
 import { ASSET_MANIFEST_VERSION, loadPuzzle, type AssetEntry, type AssetManifest, type CalibrationKey, type Puzzle } from "../core";
-import { CITY_BAYS_PER_BLOCK_MIN, SIDEWALK_TOP_M, SIDEWALK_WALK_M, TILE_CITY_R7_MIN, TILE_M, tileCity, tileKeepouts, bayMeters, BAYS_PER_PARKING_TILE, LANE_RIGHT, type TileCity, type TileRole } from "./tilecity";
+import { SIDEWALK_TOP_M, SIDEWALK_WALK_M, TILE_CITY_R7_MIN, TILE_M, tileCity, tileKeepouts, bayMeters, BAYS_PER_PARKING_TILE, LANE_RIGHT, type TileCity, type TileRole } from "./tilecity";
 import { CITY_CHECK, cityMetrics, evaluateCity, isNeverUsed, runBlocks, type CityMetrics } from "./citymetrics";
 import { dressInput, dressSites, furnitureInput, furniturePlacement, loadModels, NO_MODELS, allStackKeys, applyModels, stackInput, type DressPlacement, type ModelSet } from "./models3d";
 import { AWNING_KERB_M, KERB_FROM_FRONT_M, dressKeys, dressTown, type DressBlockInput } from "./dressing";
@@ -484,7 +484,7 @@ describe("lot and plaza cells drawn (criterion 26)", () => {
     const roadCount = (none.group.children.find((o) => o.name === "tile:code-road") as { count: number }).count;
     const boxCount = (none.group.children.find((o) => o.name === "tile:code-pavement") as { count: number }).count;
     expect(roadCount).toBe(c.cells.filter((q) => ["lane", "parking", "parkingPlain", "junction", "crossing", "lotSurface"].includes(q.role)).length);
-    expect(boxCount).toBe(c.cells.filter((q) => ["pavement", "pavementCorner", "kerbCut", "plaza"].includes(q.role)).length);
+    expect(boxCount).toBe(c.cells.filter((q) => ["pavement", "pavementCorner", "kerbCut", "buildout", "plaza"].includes(q.role)).length);
     none.dispose();
   });
 
@@ -539,9 +539,8 @@ describe("bays per parking tile (criterion 27)", () => {
   /** Where the real GLB's bay dividers stand along its 10 m, centred at 0 (18 Nov 2026): x of about -5, -1.75, +1.6 and +5. */
   const DIVIDERS = [-5, -1.75, 1.6, 5];
 
-  it("is 3, with bays 2 x TILE_M / 3 wide, each centred within 0.2 m of the middle between two neighbouring dividers; the block minimum stays 4", () => {
+  it("is 3, with bays 2 x TILE_M / 3 wide, each centred within 0.2 m of the middle between two neighbouring dividers; 056 replaces the block minimum with chapter 18.3", () => {
     expect(BAYS_PER_PARKING_TILE).toBe(3);
-    expect(CITY_BAYS_PER_BLOCK_MIN).toBe(4);
     const mids = DIVIDERS.slice(1).map((d, i) => (DIVIDERS[i]! + d) / 2);
     let tiles = 0;
     for (const c of [tileCity(), cityAt(2), cityAt(3)]) {
