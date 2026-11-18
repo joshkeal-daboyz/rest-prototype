@@ -132,3 +132,20 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 052 section C | gate (main session) | — | — | — | 0 | tsc clean, 99 files, 1936 passed on a checkout without pack files; plaza looked at in the browser |
 | 052 section C | code-reviewer | agent default | see note: figure not shown | — | 0 | meets, must-fix 0 |
 | 052 section C | playtester | agent default | 19K total (one figure in the readout) | — | 0 | regressions 0; stopped early |
+| 052 section C | code-reviewer | agent default | 85K total (one figure in the readout) | — | 0 | meets, must-fix 0 |
+| 053 | renderer | sonnet | 310K total (one figure in the readout) | — | 0 | Chapter 16, evaluation protocol R1 to R12, citymetrics.ts and its tests (commit 9926319); 69 tool uses, 15 min |
+| 053 | gate (main session) | — | — | — | 0 | tsc clean, 100 files, 1967 passed on a checkout without pack files |
+| 053 | code-reviewer | agent default | 84K total (one figure in the readout) | — | 0 | meets, must-fix 0; three thresholds lowered and documented for Josh |
+| 053 | playtester | agent default | 20K total (one figure in the readout) | — | 0 | regressions 0; stopped early |
+| 054 cut | lead-architect | agent default (Opus) | 91K total (one figure in the readout) | — | 0 | Cut ticket 054 (colour variety) after finding the 12 colourway atlases; added AssetColourway to src/core |
+| 054 section A | grid-simulator | agent default | 95K total (one figure in the readout) | — | 0 | Converter exports the colourway atlases, 20 new tests (commit f566408); 41 tool uses, 4 min |
+| 054 section A | code-reviewer | agent default | 43K total (one figure in the readout) | — | 0 | meets, must-fix 0 |
+| 054 section A | playtester | agent default | 18K total (one figure in the readout) | — | 0 | regressions 0; stopped early |
+| 054 section B | renderer | sonnet | 134K total (one figure in the readout) | — | 0 | Per-block colourways, colourway.ts, 31 tests (commit f34db97); 35 tool uses, 7 min |
+| 054 section B | gate (main session) | — | — | — | 0 | tsc clean, 101 files, 1998 passed; checked in the browser with the real atlases |
+| 054 section B | code-reviewer | agent default | 60K total (one figure in the readout) | — | 0 | meets, must-fix 0 |
+| 054 section B | playtester | agent default | 18K total (one figure in the readout) | — | 0 | regressions 0; stopped early |
+| 054 section C | renderer | sonnet | 121K total (one figure in the readout) | — | 0 | Guide colourway block, R13, drift check (commit d56a5c1); 28 tool uses |
+| 054 section C | gate (main session) | — | — | — | 0 | tsc clean, 102 files, 2031 passed |
+| 054 section C | code-reviewer | agent default | see 054 B: figure not shown | — | 0 | meets, must-fix 0 |
+| 054 section C | playtester | agent default | 22K total (one figure in the readout) | — | 0 | regressions 0; stopped early |
