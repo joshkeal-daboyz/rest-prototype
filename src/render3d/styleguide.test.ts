@@ -41,13 +41,20 @@ function section(start: RegExp): string[] {
   return lines.slice(from + 1, to);
 }
 
-/** The cells of every row of the first table in `block` whose header row's first cells equal `header`, minus header and separator. */
+/**
+ * The cells of every row of the first table in `block` whose header row's first cells equal `header`, minus header and separator.
+ * The table ends at the first line that does not start with "|". A row with fewer cells than the header is an error, not a row to drop.
+ */
 function table(block: readonly string[], header: readonly string[]): string[][] {
-  const rows = block.filter((l) => l.startsWith("|")).map((l) => l.replace(/^\||\|\s*$/g, "").split("|").map((c) => c.trim()));
-  const at = rows.findIndex((r) => header.every((h, i) => r[i] === h));
+  const split = (l: string): string[] => l.replace(/^\||\|\s*$/g, "").split("|").map((c) => c.trim());
+  const at = block.findIndex((l) => l.startsWith("|") && header.every((h, i) => split(l)[i] === h));
   if (at < 0) return [];
   const out: string[][] = [];
-  for (let i = at + 2; i < rows.length; i++) out.push(rows[i]!);
+  for (let i = at + 2; i < block.length && block[i]!.startsWith("|"); i++) {
+    const cells = split(block[i]!);
+    if (cells.length < header.length) throw new Error(`malformed table row (${cells.length} cells, the header has ${header.length}): ${block[i]}`);
+    out.push(cells);
+  }
   return out;
 }
 
@@ -137,12 +144,40 @@ describe("the city style guide exists and is shaped as the ticket says", () => {
 });
 
 describe("the Numbers table matches the code", () => {
-  const rows = table(section(/^## Numbers$/), ["Constant", "Value", "File"]).filter((r) => r.length >= 3);
+  const rows = table(section(/^## Numbers$/), ["Constant", "Value", "File"]);
+
+  // The names the guide must pin, as "Constant@file". A deleted row fails here; a new row is welcome without being listed.
+  const REQUIRED: readonly string[] = [
+    ...["WORLD_PER_METRE"].map((n) => `${n}@town.ts`),
+    ...["WORLD_PER_METRE", "NEIGHBOUR_GAP", "STREET_REPEAT_GAP", "FAMILY_SHARE_MAX"].map((n) => `${n}@models.ts`),
+    ...[
+      "STREET_MIN_LEN", "ROAD_W", "KERB_OFFSET", "KERB_H", "PAVE_W", "RING_MARGIN", "BLOCK_PITCH", "OUTER_RINGS", "SETBACK", "LOT_GAP", "WIRE_CLEAR",
+      "FILL_STEP", "PLACE_STEP", "CORNER_GAP", "CORNER_ANGLE_MAX", "ROW_MIN_SMALLS", "PLACE_REACH", "STOREY_M", "PLACE_STOREYS", "OCCLUDE_SLOPE",
+      "NODE_TOP_Y", "LAMP_HEAD_Y", "LOT_TYPES.small", "LOT_TYPES.house", "LOT_TYPES.large", "LOT_TYPES.tall", "PLACE_SIZES.whole", "PLACE_SIZES.quarter",
+      "PLACE_SIZES.home",
+    ].map((n) => `${n}@town.ts`),
+    ...[
+      "POLE_HEIGHT", "POLE_SPACING", "SAG_RATIO", "WIRE_RADIUS", "PHASE_OFFSET", "BREAK_GAP", "HANG_DROP", "WIRE_PICK_RADIUS", "DROP_REACH", "DROP_DROP",
+      "DROP_END_Y", "CAN_OFFSET", "CAN_DROP",
+    ].map((n) => `${n}@layout.ts`),
+    ...["ELEVATION", "FOV_DEG"].map((n) => `${n}@camera.ts`),
+    ...[
+      "GROUND", "YARD", "STREET", "PAVEMENT", "KERB", "CENTRE_LINE", "PLACE", "POLE_WOOD", "FOOT", "METAL", "DEAD_WIRE", "LIVE_WIRE", "LIVE_GLOW",
+      "REPAIRED_WIRE", "WARM", "TARGET", "SCORCH", "RIBBON", "INSULATOR", "CAN", "DROP_COLOR",
+    ].map((n) => `${n}@scene.ts`),
+    ...["TINTS[0]", "TINTS[1]", "TINTS[2]", "TINTS[3]", "ROOF_SHADE", "CAP_M", "PITCH_M"].map((n) => `${n}@placeholders.ts`),
+  ];
 
   it("is not empty and has no row twice", () => {
     expect(rows.length).toBeGreaterThan(60);
     const keys = rows.map((r) => `${unquote(r[0]!)}@${r[2]}`);
     expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it("has a row for every constant the guide must pin (a deleted row fails)", () => {
+    const have = new Set(rows.map((r) => `${unquote(r[0]!)}@${r[2]}`));
+    const missing = REQUIRED.filter((k) => !have.has(k));
+    expect(missing, `the Numbers table has no row for: ${missing.join(", ")}`).toEqual([]);
   });
 
   it("matches every named export: numbers within 1e-9, colours exactly, records field by field", () => {
@@ -180,7 +215,7 @@ describe("the Numbers table matches the code", () => {
 
   it("pins the scene's inline colours and light by their source text", () => {
     const src = readFileSync("src/render3d/scene.ts", "utf8");
-    const inline = table(section(/^## Numbers$/), ["Part", "Source text"]).filter((r) => r.length >= 2);
+    const inline = table(section(/^## Numbers$/), ["Part", "Source text"]);
     expect(inline.length).toBe(3);
     for (const r of inline) expect(src, `scene.ts no longer holds the text the guide pins for ${r[0]}`).toContain(unquote(r[1]!));
   });
@@ -200,7 +235,7 @@ describe("the camera's facts behind OCCLUDE_SLOPE", () => {
 });
 
 describe("the pack table matches MODEL_TABLE", () => {
-  const rows = table(chapter(13), ["Pack id", "Style", "Converter scale", "Status", "What it supplies"]).filter((r) => r.length >= 5);
+  const rows = table(chapter(13), ["Pack id", "Style", "Converter scale", "Status", "What it supplies"]);
   const ids = rows.map((r) => r[0]!);
   const inUse = rows.filter((r) => r[3] === "in use").map((r) => r[0]!);
   const tablePacks = [...new Set(models.MODEL_TABLE.map((c) => c.pack))];
@@ -233,8 +268,8 @@ describe("the pack table matches MODEL_TABLE", () => {
 });
 
 describe("the facing and corner chapters list the fronts that are not the default", () => {
-  const facing = table(chapter(6), ["Name", "Front", "Note"]).filter((r) => r.length >= 3);
-  const corners = table(chapter(7), ["Name", "Front", "Open"]).filter((r) => r.length >= 3);
+  const facing = table(chapter(6), ["Name", "Front", "Note"]);
+  const corners = table(chapter(7), ["Name", "Front", "Open"]);
   const entries = Object.entries(models.BUILDING_FRONTS);
 
   it("lists, in the facing chapter, exactly the names whose front is not -z and that are not corner models", () => {
