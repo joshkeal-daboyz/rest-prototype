@@ -1,36 +1,46 @@
 /** Ticket 043 B: the building gallery (debug only), one straight line of models with four copies each. No WebGL: the layout is pure, the scene is built with a stub text surface and a fake model root. */
 
 import { describe, expect, it } from "vitest";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { Group, Mesh, Object3D, PlaneGeometry, Raycaster, Sprite, Vector3 } from "three";
-import { ASSET_MANIFEST_VERSION, applyCalibrationPatch, type AssetEntry, type AssetManifest, type CalibrationFile, type CalibrationKey, type CalibrationPatch } from "../core";
+import { ASSET_MANIFEST_VERSION, applyCalibrationPatch, validateCalibration, type AssetEntry, type AssetManifest, type CalibrationFile, type CalibrationKey, type CalibrationPatch } from "../core";
 import { declaredFrontDirection } from "./debug3d";
 import {
+  CLICK_SLOP_PX,
   COPY_GAP,
   COPY_LINE_UNITS,
   CAPTION_WRAP,
   GALLERY_DEFAULT_PACK,
   GALLERY_ELEVATION_DEG,
   GALLERY_FRONTS,
+  GALLERY_HELP,
+  GROUP_CAPTION_DROP,
   GROUP_GAP,
   GROUP_LINE_UNITS,
   MIN_PX_PER_UNIT,
   NON_BUILDING_PREFIXES,
   buildGalleryScene,
   captionPx,
+  createCalibrationSaver,
+  createGalleryEditor,
   createGalleryRig,
   galleryCopyCaption,
+  galleryAction,
   galleryEntries,
   galleryGroupCaption,
   galleryLayout,
   galleryMessage,
   galleryPageCount,
+  galleryHitAt,
   galleryPageRequested,
   galleryRectsOverlap,
+  galleryRayAt,
   galleryRequested,
+  isGalleryClick,
   isPartName,
   loadGalleryPack,
   outlineStrips,
+  saveCalibrationPatch,
   wrapName,
   type GalleryLayout,
   type GalleryLoadDeps,
@@ -885,5 +895,393 @@ describe("the gallery reads the saved calibration file (ticket 045 A)", () => {
     // Entries for other packs do not count here.
     const other = applyCalibrationPatch(file, { key: "city-pack:SM_Bld_Shop_01", entry: { front: "-x" } }, NOW);
     expect(withFile(other).title).toContain(`3 of ${m} marked`);
+  });
+});
+
+describe("clicking a copy (ticket 045 C)", () => {
+  const NOW = new Date("2026-11-18T10:00:00.000Z");
+  const RIG_W = 800;
+  const RIG_H = 450;
+  const laid = (file: CalibrationFile | null, extra: { notSaved?: { key: CalibrationKey; reason: string } } = {}): GalleryLayout => {
+    const t = effectiveFronts({ fronts: BUILDING_FRONTS, exclude: [] }, file, () => {});
+    return galleryLayout(MANIFEST, "city-pack", t.fronts, t.exclude, { saved: file, ...extra });
+  };
+  const KEY = (name: string): CalibrationKey => `city-pack:${name}`;
+  const fileOf = (...patches: CalibrationPatch[]): CalibrationFile | null => patches.reduce<CalibrationFile | null>((f, p) => applyCalibrationPatch(f, p, NOW), null);
+  /** The ray from the camera through a point of the world. */
+  const rayThrough = (rig: ReturnType<typeof createGalleryRig>, x: number, y: number, z: number) => {
+    const p = new Vector3(x, y, z).project(rig.camera);
+    const { origin, dir } = galleryRayAt(rig.camera, p.x, p.y);
+    return { origin: origin.clone(), dir: dir.clone() };
+  };
+  const middleOf = (s: GallerySlot): [number, number, number] => [s.x, (s.entry.size[1] * s.scale) / 2, s.z];
+  const visible = (l: GalleryLayout, rig: ReturnType<typeof createGalleryRig>): GallerySlot[] => {
+    const [lo, hi] = rig.visibleX();
+    return l.slots.filter((s) => s.cell.cx - s.cell.w / 2 >= lo && s.cell.cx + s.cell.w / 2 <= hi);
+  };
+
+  describe("the hit test", () => {
+    it("a ray through the middle of each copy's model hits that copy, on the first screen and at the line's end", () => {
+      const l = laid(null);
+      const rig = createGalleryRig(l.view, RIG_W, RIG_H);
+      let checked = 0;
+      for (const where of ["start", "end"]) {
+        if (where === "end") rig.jumpToEnd();
+        const seen = visible(l, rig);
+        expect(seen.length, where).toBeGreaterThanOrEqual(4);
+        for (const s of seen) {
+          const { origin, dir } = rayThrough(rig, ...middleOf(s));
+          expect(galleryHitAt(l, origin, dir)?.index, `${where} ${s.name} ${s.front}`).toBe(s.index);
+          checked++;
+        }
+      }
+      expect(checked).toBeGreaterThanOrEqual(8);
+    });
+
+    it("a click on a copy's `door: f` caption or on its lot floor counts for that copy", () => {
+      const l = laid(null);
+      const rig = createGalleryRig(l.view, RIG_W, RIG_H);
+      for (const s of visible(l, rig)) {
+        const cap = rayThrough(rig, s.x, GROUP_CAPTION_DROP / 2, 0.3);
+        expect(galleryHitAt(l, cap.origin, cap.dir)?.index, `caption ${s.name} ${s.front}`).toBe(s.index);
+        const floor = rayThrough(rig, s.x, 0, s.outline.cz);
+        expect(galleryHitAt(l, floor.origin, floor.dir)?.index, `floor ${s.name} ${s.front}`).toBe(s.index);
+      }
+    });
+
+    it("rays through the gaps between copies and between groups hit nothing", () => {
+      const l = laid(null);
+      const rig = createGalleryRig(l.view, RIG_W, RIG_H);
+      const centre = rig.camera.position.x;
+      // The rays need not land on screen, so every copy near the middle of it is judged, not only the whole ones.
+      const seen = l.slots;
+      let between = 0;
+      let across = 0;
+      for (let i = 0; i + 1 < seen.length; i++) {
+        const a = seen[i]!;
+        const b = seen[i + 1]!;
+        const mid = (a.cell.cx + a.cell.w / 2 + b.cell.cx - b.cell.w / 2) / 2;
+        const sameGroup = a.group === b.group;
+        // Rays spread from the camera, so far from the middle of the screen a ray meets the planes of a copy at a shifted x: judge the narrow gaps near it.
+        if (Math.abs(mid - centre) > (sameGroup ? 6 : 15)) continue;
+        for (const [y, z] of [[1, a.outline.cz], [0.2, -1], [GROUP_CAPTION_DROP / 2, 0.3]] as const) {
+          const { origin, dir } = rayThrough(rig, mid, y, z);
+          expect(galleryHitAt(l, origin, dir), `gap after ${a.name} ${a.front} at y ${y}`).toBeNull();
+        }
+        if (sameGroup) between++;
+        else across++;
+      }
+      expect(between).toBeGreaterThan(0);
+      expect(across).toBeGreaterThan(0);
+    });
+
+    it("misses the sky, a ray that goes away from the line and a ray with no direction", () => {
+      const l = laid(null);
+      expect(galleryHitAt(l, { x: 0, y: 50, z: 50 }, { x: 0, y: 1, z: 0 })).toBeNull();
+      expect(galleryHitAt(l, { x: 5, y: 5, z: 5 }, { x: 0, y: 0, z: 1 })).toBeNull();
+      expect(galleryHitAt(l, { x: 0, y: 5, z: 5 }, { x: 0, y: 0, z: 0 })).toBeNull();
+    });
+
+    it("leaves the scene unraycastable and the renderer's hitTest alone: only the layout is hit-tested", () => {
+      const l = laid(null);
+      const rig = createGalleryRig(l.view, RIG_W, RIG_H);
+      const built = buildGalleryScene(l, () => new Mesh(new PlaneGeometry(40, 40)), { surface: stubTextSurface });
+      built.scene.updateMatrixWorld(true);
+      for (const s of visible(l, rig)) {
+        const p = new Vector3(...middleOf(s)).project(rig.camera);
+        const rc = new Raycaster();
+        rc.setFromCamera({ x: p.x, y: p.y } as never, rig.camera);
+        expect(rc.intersectObject(built.scene, true), `${s.name} ${s.front}`).toEqual([]);
+      }
+      built.dispose();
+      expect(readFileSync("src/render3d/gallery.ts", "utf8")).toMatch(/hitTest: \(\) => null/);
+    });
+  });
+
+  describe("click or drag", () => {
+    it("is a click from 0 to CLICK_SLOP_PX of travel, in any direction, and a pan beyond", () => {
+      expect(CLICK_SLOP_PX).toBe(5);
+      const down = { x: 100, y: 100 };
+      expect(isGalleryClick(down, down)).toBe(true);
+      expect(isGalleryClick(down, { x: 105, y: 100 })).toBe(true);
+      expect(isGalleryClick(down, { x: 100, y: 95 })).toBe(true);
+      expect(isGalleryClick(down, { x: 103, y: 104 })).toBe(true);
+      expect(isGalleryClick(down, { x: 106, y: 100 })).toBe(false);
+      expect(isGalleryClick(down, { x: 104, y: 104 })).toBe(false);
+      expect(isGalleryClick(down, { x: 20, y: 100 })).toBe(false);
+    });
+
+    it("keeps the pan and zoom when a click rebuilds the line in place (updateView), where setView reframes", () => {
+      const before = laid(null);
+      const rig = createGalleryRig(before.view, RIG_W, RIG_H);
+      rig.zoomStep(1);
+      rig.setPan(-300, 0);
+      const pan = rig.getPan();
+      const scale = rig.getScale();
+      const after = laid(fileOf({ key: KEY("SM_Bld_CityHall_01"), entry: { front: "+x" } }));
+      rig.updateView(after.view);
+      expect(rig.getPan().x).toBeCloseTo(pan.x, 3);
+      expect(rig.getScale()).toBeCloseTo(scale, 9);
+      rig.setView(after.view);
+      expect(rig.getPan().x).toBeCloseTo(0, 6);
+    });
+  });
+
+  describe("what each gesture does", () => {
+    const NAME = "SM_Bld_CityHall_01";
+    const states: [string, CalibrationFile | null][] = [
+      ["none", null],
+      ["front", fileOf({ key: KEY(NAME), entry: { front: "+x" } })],
+      ["front and exclude", fileOf({ key: KEY(NAME), entry: { front: "+x", exclude: true } })],
+    ];
+    const group = (file: CalibrationFile | null) => laid(file).groups.find((g) => g.name === NAME)!;
+
+    it.each(states)("click, from %s: the copy's side becomes the front, exclude is kept as the file has it; the current saved copy does nothing", (_label, file) => {
+      const g = group(file);
+      const savedExclude = file?.entries[KEY(NAME)]?.exclude === true;
+      for (const s of g.slots) {
+        const patch = galleryAction(g.entry, s, "click");
+        if (s.current && g.entry.saved) {
+          expect(patch, `${s.front} (current, saved)`).toBeNull();
+          continue;
+        }
+        expect(patch, s.front).toEqual({ key: KEY(NAME), entry: savedExclude ? { front: s.front, exclude: true } : { front: s.front } });
+      }
+    });
+
+    it.each(states)("shift-click, from %s: the copy's side becomes the front and exclude toggles, on the current copy too", (_label, file) => {
+      const g = group(file);
+      const savedExclude = file?.entries[KEY(NAME)]?.exclude === true;
+      for (const s of g.slots) {
+        expect(galleryAction(g.entry, s, "shift-click"), s.front).toEqual({ key: KEY(NAME), entry: savedExclude ? { front: s.front } : { front: s.front, exclude: true } });
+      }
+    });
+
+    it.each(states)("delete, from %s: clears the entry when the file has one, and does nothing when it has not", (label, file) => {
+      const g = group(file);
+      expect(galleryAction(g.entry, null, "delete")).toEqual(label === "none" ? null : { key: KEY(NAME), entry: null });
+    });
+
+    it("clicking the current copy whose front is only the code's table or the guess saves it (a confirmation); once saved it does nothing", () => {
+      const g = group(null);
+      const cur = g.slots.find((s) => s.current)!;
+      expect(g.entry.guessed).toBe(true);
+      expect(galleryAction(g.entry, cur, "click")).toEqual({ key: KEY(NAME), entry: { front: cur.front } });
+      const saved = group(fileOf({ key: KEY(NAME), entry: { front: cur.front } }));
+      expect(saved.entry.saved).toBe(true);
+      expect(galleryAction(saved.entry, saved.slots.find((s) => s.current)!, "click")).toBeNull();
+    });
+
+    it("ignores a copy of another model", () => {
+      const a = group(null);
+      const other = laid(null).groups.find((g) => g.name !== NAME)!;
+      expect(galleryAction(a.entry, other.slots[0]!, "click")).toBeNull();
+      expect(galleryAction(a.entry, null, "click")).toBeNull();
+    });
+
+    it("every patch it makes is accepted by applyCalibrationPatch and the result by validateCalibration", () => {
+      for (const [, file] of states) {
+        const g = group(file);
+        for (const gesture of ["click", "shift-click", "delete"] as const) {
+          for (const s of [...g.slots, null]) {
+            const patch = galleryAction(g.entry, s, gesture);
+            if (!patch) continue;
+            const result = validateCalibration(applyCalibrationPatch(file, patch, NOW));
+            expect(result.ok, `${gesture} ${s?.front}`).toBe(true);
+          }
+        }
+      }
+    });
+  });
+
+  describe("saving", () => {
+    interface Server {
+      file: CalibrationFile | null;
+      posted: CalibrationPatch[];
+      inFlight: number;
+      maxInFlight: number;
+      fail: string | null;
+    }
+    /** A fake dev server: it applies each patch as the real endpoint does and replies with the whole file. */
+    const server = (): { s: Server; postJson: (url: string, body: unknown) => Promise<unknown> } => {
+      const s: Server = { file: null, posted: [], inFlight: 0, maxInFlight: 0, fail: null };
+      return {
+        s,
+        postJson: async (url, body) => {
+          expect(url).toBe("/__calibration/fronts");
+          s.inFlight++;
+          s.maxInFlight = Math.max(s.maxInFlight, s.inFlight);
+          try {
+            await Promise.resolve();
+            await Promise.resolve();
+            if (s.fail !== null) throw new Error(s.fail);
+            const patch = body as CalibrationPatch;
+            s.posted.push(patch);
+            s.file = applyCalibrationPatch(s.file, patch, NOW);
+            return JSON.parse(JSON.stringify(s.file)) as unknown;
+          } finally {
+            s.inFlight--;
+          }
+        },
+      };
+    };
+    const NAMES = ["SM_Bld_CityHall_01", "SM_Bld_OfficeRound_01", "SM_Bld_Shop_01"];
+    const click = (name: string, side: ModelFront): CalibrationPatch => ({ key: KEY(name), entry: { front: side } });
+
+    it("posts three quick clicks in order, one at a time, and the reply replaces the gallery's copy: the current copy moves and says saved", async () => {
+      const { s, postJson } = server();
+      const events: string[] = [];
+      const saver = createCalibrationSaver(null, { postJson, now: () => NOW }, (e) => events.push(e));
+      const sent = [click(NAMES[0]!, "+x"), click(NAMES[1]!, "-z"), click(NAMES[0]!, "-x")];
+      for (const p of sent) saver.enqueue(p);
+      // Shown at once, before anything is posted.
+      expect(saver.pending()).toBe(3);
+      expect(saver.file()?.entries[KEY(NAMES[0]!)]?.front).toBe("-x");
+      expect(s.posted).toEqual([]);
+      await saver.idle();
+      expect(s.posted).toEqual(sent);
+      expect(s.maxInFlight).toBe(1);
+      expect(saver.pending()).toBe(0);
+      expect(saver.failure()).toBeNull();
+      expect(events.filter((e) => e === "queued")).toHaveLength(3);
+      expect(events.filter((e) => e === "saved")).toHaveLength(3);
+      expect(saver.file()).toEqual(s.file);
+      const l = laid(saver.file());
+      const hall = l.groups.find((g) => g.name === NAMES[0])!;
+      expect(hall.slots.filter((x) => x.current).map((x) => x.front)).toEqual(["-x"]);
+      expect(hall.slots.find((x) => x.current)!.caption).toEqual(["door: -x", "current, saved"]);
+      expect(l.groups.find((g) => g.name === NAMES[1])!.slots.find((x) => x.current)!.front).toBe("-z");
+    });
+
+    it("a rejecting postJson shows `not saved: <reason>` on the model and the title, keeps the mark, throws nothing; the next click retries in order", async () => {
+      const { s, postJson } = server();
+      s.fail = "HTTP 500";
+      const saver = createCalibrationSaver(null, { postJson, now: () => NOW });
+      saver.enqueue(click(NAMES[0]!, "+x"));
+      await saver.idle();
+      expect(saver.failure()).toEqual({ key: KEY(NAMES[0]!), reason: "HTTP 500" });
+      expect(saver.pending()).toBe(1);
+      expect(s.posted).toEqual([]);
+      // The mark is still shown, with the failure under the group's caption and in the title.
+      const failing = laid(saver.file(), { notSaved: saver.failure()! });
+      expect(failing.groups.find((g) => g.name === NAMES[0])!.slots.find((x) => x.current)!.front).toBe("+x");
+      expect(failing.groups.find((g) => g.name === NAMES[0])!.caption).toContain("not saved: HTTP");
+      expect(failing.groups.find((g) => g.name === NAMES[0])!.caption.join(" ")).toContain("not saved: HTTP 500");
+      expect(failing.groups.find((g) => g.name === NAMES[1])!.caption.some((c) => c.startsWith("not saved"))).toBe(false);
+      expect(failing.title).toContain("not saved: HTTP 500");
+      expect(laid(saver.file()).title.some((t) => t.startsWith("not saved"))).toBe(false);
+      // The next click retries the queue: the failed patch goes first, then the new one.
+      s.fail = null;
+      saver.enqueue(click(NAMES[1]!, "-z"));
+      await saver.idle();
+      expect(s.posted).toEqual([click(NAMES[0]!, "+x"), click(NAMES[1]!, "-z")]);
+      expect(saver.failure()).toBeNull();
+      expect(saver.pending()).toBe(0);
+    });
+
+    it("treats a reply that is not a calibration file, and a postJson that throws at once, as failures", async () => {
+      const garbage = await saveCalibrationPatch(click(NAMES[0]!, "+x"), { postJson: async () => "<html>" });
+      expect(garbage).toEqual({ ok: false, reason: "the dev server's reply is not a calibration file" });
+      const sync = await saveCalibrationPatch(click(NAMES[0]!, "+x"), {
+        postJson: () => {
+          throw new Error("offline");
+        },
+      });
+      expect(sync).toEqual({ ok: false, reason: "offline" });
+    });
+
+    it("wraps a long reason into the group's caption in short lines and clips it in the title", () => {
+      const reason = "HTTP 400: a very long refusal that goes on and on well past what a caption line can hold in a gallery";
+      const l = laid(null, { notSaved: { key: KEY(NAMES[0]!), reason } });
+      const caption = l.groups.find((g) => g.name === NAMES[0])!.caption;
+      const at = caption.findIndex((c) => c.startsWith("not saved"));
+      expect(at).toBeGreaterThan(-1);
+      for (const line of caption.slice(at)) expect(line.length).toBeLessThanOrEqual(CAPTION_WRAP);
+      expect(Math.max(...l.title.map((t) => t.length))).toBeLessThanOrEqual(80);
+    });
+
+    it("the editor sends the patch for the copy under the pointer, Shift+click excludes, and Delete clears the last-clicked model", async () => {
+      const { s, postJson } = server();
+      const saver = createCalibrationSaver(null, { postJson, now: () => NOW });
+      const relayout = (): GalleryLayout => laid(saver.file());
+      const editor = createGalleryEditor(relayout, saver);
+      const rig = createGalleryRig(relayout().view, RIG_W, RIG_H);
+      const copy = (front: ModelFront): GallerySlot => relayout().groups[0]!.slots.find((x) => x.front === front)!;
+      const at = (front: ModelFront) => rayThrough(rig, ...middleOf(copy(front)));
+      const first = relayout().groups[0]!.name;
+      expect(editor.clear()).toBe(false);
+
+      const plus = at("+x");
+      expect(editor.click(plus.origin, plus.dir, false)).toBe(true);
+      expect(editor.last()).toBe(KEY(first));
+      expect(copy("+x").current).toBe(true);
+      // The same copy again: nothing to do.
+      await saver.idle();
+      const again = at("+x");
+      expect(editor.click(again.origin, again.dir, false)).toBe(false);
+      // Shift+click another: that side, and exclude.
+      const minus = at("-x");
+      expect(editor.click(minus.origin, minus.dir, true)).toBe(true);
+      expect(relayout().groups[0]!.caption).toContain("excluded");
+      // A click on a gap does nothing and leaves the last-clicked model.
+      const gap = rayThrough(rig, -50, 1, -1);
+      expect(editor.click(gap.origin, gap.dir, false)).toBe(false);
+      expect(editor.last()).toBe(KEY(first));
+      expect(editor.clear()).toBe(true);
+      await saver.idle();
+      expect(s.posted).toEqual([
+        { key: KEY(first), entry: { front: "+x" } },
+        { key: KEY(first), entry: { front: "-x", exclude: true } },
+        { key: KEY(first), entry: null },
+      ]);
+      expect(s.file?.entries).toEqual({});
+      expect(relayout().groups[0]!.caption).not.toContain("excluded");
+      expect(relayout().title).toContain(`0 of ${relayout().total} marked`);
+    });
+
+    it("never reorders the line: the order of the groups is the same before, during and after the marks", async () => {
+      const { postJson } = server();
+      const saver = createCalibrationSaver(null, { postJson, now: () => NOW });
+      const order = (): string[] => laid(saver.file()).groups.map((g) => g.name);
+      const before = order();
+      saver.enqueue({ key: KEY(before[1]!), entry: { front: "-x", exclude: true } });
+      expect(order()).toEqual(before);
+      await saver.idle();
+      expect(order()).toEqual(before);
+    });
+  });
+
+  describe("isolation", () => {
+    const dir = "src/render3d";
+    const sources = (): string[] => readdirSync(dir).filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts"));
+
+    it("the saver and the endpoint are named by gallery.ts only", () => {
+      const names = /saveCalibrationPatch|createCalibrationSaver|CALIBRATION_ENDPOINT|defaultPostJson/;
+      expect(sources()).toContain("gallery.ts");
+      for (const f of sources()) {
+        if (f === "gallery.ts") continue;
+        expect(names.test(readFileSync(`${dir}/${f}`, "utf8")), f).toBe(false);
+      }
+      expect(names.test(readFileSync(`${dir}/gallery.ts`, "utf8"))).toBe(true);
+    });
+
+    it("the town and the play path never import the gallery, and the models import the loader, never the saver", () => {
+      for (const f of ["scene.ts", "town.ts", "models.ts", "models3d.ts", "pick.ts", "layout.ts", "camera.ts"]) {
+        expect(/from "\.\/gallery"/.test(readFileSync(`${dir}/${f}`, "utf8")), f).toBe(false);
+      }
+      const models3d = readFileSync(`${dir}/models3d.ts`, "utf8");
+      expect(models3d).toMatch(/import \{[^}]*loadSavedCalibration[^}]*\} from "\.\/calibration"/);
+      expect(/saveCalibrationPatch|createCalibrationSaver|postJson/.test(models3d)).toBe(false);
+    });
+
+    it("renderer.ts switches the gallery on only in a dev build, so a production build drops it", () => {
+      const text = readFileSync(`${dir}/renderer.ts`, "utf8");
+      expect(text).toMatch(/import\.meta\.env\.DEV && typeof location !== "undefined" \? galleryRequested\(location\.search\)/);
+    });
+
+    it("the title carries the click help line", () => {
+      expect(laid(null).title).toContain("click a copy: its door faces you; shift-click: exclude; Delete: clear");
+      expect(GALLERY_HELP).toBe("click a copy: its door faces you; shift-click: exclude; Delete: clear");
+    });
   });
 });

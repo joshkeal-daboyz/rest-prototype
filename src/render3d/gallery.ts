@@ -32,7 +32,18 @@ import {
   type WebGLRenderer,
 } from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { calibrationKey, parseCalibrationKey, type AssetEntry, type AssetManifest, type CalibrationFile, type CalibrationKey } from "../core";
+import {
+  CALIBRATION_ENDPOINT,
+  applyCalibrationPatch,
+  calibrationKey,
+  parseCalibrationKey,
+  validateCalibration,
+  type AssetEntry,
+  type AssetManifest,
+  type CalibrationFile,
+  type CalibrationKey,
+  type CalibrationPatch,
+} from "../core";
 import { ZOOM_STEP, type Insets, type Pan } from "../render/geometry";
 import { FOV_DEG } from "./camera";
 import { effectiveFronts, loadSavedCalibration } from "./calibration";
@@ -110,6 +121,8 @@ export function isPartName(name: string): boolean {
 /** One building-sized entry of a pack, with everything its caption says. */
 export interface GalleryEntry {
   entry: AssetEntry;
+  /** `pack:name`, the key of this model in the front tables and the saved file. */
+  key: CalibrationKey;
   family: string;
   /** Which of the model's axes its door faces now: its BUILDING_FRONTS line (or the saved file's), or the "+z" guess. */
   front: ModelFront;
@@ -119,6 +132,8 @@ export interface GalleryEntry {
   saved: boolean;
   /** True when the saved file has any entry for this model (a front, an exclusion, or both): it counts in the title's "N of M marked". */
   marked: boolean;
+  /** True when the saved file itself (not the code's table) excludes this model: what a click keeps and Shift+click toggles. */
+  savedExclude: boolean;
   corner: false | "+x" | "-x";
   excluded: boolean;
   /** The lot type its size fits once its current front is turned to the road, or null (a dashed outline). */
@@ -166,11 +181,13 @@ export function galleryEntries(
     const family = meshFamily(pack.assets, entry);
     out.push({
       entry,
+      key,
       family,
       front,
       guessed: bf === undefined,
       saved: mark?.front !== undefined,
       marked: mark !== undefined,
+      savedExclude: mark?.exclude === true,
       corner: bf?.corner ? (bf.open ?? "+x") : false,
       excluded: exclude.includes(key),
       lotType: lotTypeOf(entry, front),
@@ -352,6 +369,8 @@ export interface GalleryOptions {
   table?: readonly ModelChoice[];
   /** The saved calibration file the tables were merged with (ticket 045); it tells the captions which front came from it. Default: none. */
   saved?: CalibrationFile | null;
+  /** A change that could not be written (ticket 045 C): the title and that model's group caption say `not saved: <reason>`. */
+  notSaved?: { key: CalibrationKey; reason: string } | null;
 }
 
 export interface GalleryLayout {
@@ -373,11 +392,37 @@ export function galleryRectsOverlap(a: GalleryRect, b: GalleryRect, eps = 1e-9):
   return Math.abs(a.cx - b.cx) < (a.w + b.w) / 2 - eps && Math.abs(a.cz - b.cz) < (a.d + b.d) / 2 - eps;
 }
 
+/** The click help line (ticket 045 C). */
+export const GALLERY_HELP = "click a copy: its door faces you; shift-click: exclude; Delete: clear";
+
+const clip = (text: string, max: number): string => (text.length <= max ? text : `${text.slice(0, max - 3)}...`);
+
+/** `text` cut into lines of at most `max` characters at spaces (a word longer than `max` is cut). */
+function wrapWords(text: string, max: number): string[] {
+  const lines: string[] = [];
+  let cur = "";
+  for (let word of text.split(" ")) {
+    while (word.length > max) {
+      if (cur) lines.push(cur);
+      cur = "";
+      lines.push(word.slice(0, max));
+      word = word.slice(max);
+    }
+    if (cur && cur.length + 1 + word.length > max) {
+      lines.push(cur);
+      cur = word;
+    } else cur = cur ? `${cur} ${word}` : word;
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
 /** The lines over the line's start. */
-export function galleryTitle(packId: string, page: number, pageCount: number, first: number, last: number, total: number, marked = 0): string[] {
+export function galleryTitle(packId: string, page: number, pageCount: number, first: number, last: number, total: number, marked = 0, notSaved: string | null = null): string[] {
   const lines = [pageCount > 1 ? `${packId}: ${first} to ${last} of ${total} (page ${page} of ${pageCount})` : `${packId}: ${total} models, four sides each`];
   lines.push(`${marked} of ${total} marked`);
-  lines.push("door: f = that side of the model faces you", "current = the front now (saved = from your file); ? = no line yet", "drag or arrows to move, Home and End to jump");
+  if (notSaved !== null) lines.push(clip(`not saved: ${notSaved}`, 70));
+  lines.push("door: f = that side of the model faces you", "current = the front now (saved = from your file); ? = no line yet", GALLERY_HELP, "drag or arrows to move, Home and End to jump");
   if (page < pageCount) lines.push(`&page=${page + 1} for the next page`);
   return lines;
 }
@@ -423,6 +468,7 @@ export function galleryLayout(
     const scale = modelScale(g.entry, "building");
     const [w, h, d] = g.size;
     const groupCaption = galleryGroupCaption(g);
+    if (opts.notSaved && opts.notSaved.key === g.key) groupCaption.push(...wrapWords(`not saved: ${clip(opts.notSaved.reason, 60)}`, CAPTION_WRAP));
     const groupCapW = widest(groupCaption) * GROUP_CHAR_UNITS + CAPTION_PAD;
     interface Copy {
       front: ModelFront;
@@ -493,7 +539,7 @@ export function galleryLayout(
   });
 
   const message = groups.length === 0 ? galleryMessage(manifest, packId) ?? [`no building-sized entries in "${packId}"`] : null;
-  const title = message ?? galleryTitle(packId, page, pageCount, from + 1, from + groups.length, all.length, all.filter((g) => g.marked).length);
+  const title = message ?? galleryTitle(packId, page, pageCount, from + 1, from + groups.length, all.length, all.filter((g) => g.marked).length, opts.notSaved?.reason ?? null);
   const titleW = widest(title) * COPY_CHAR_UNITS + CAPTION_PAD;
   const titleH = (title.length + 0.2) * COPY_LINE_UNITS;
   const lineEnd = groups.length === 0 ? 0 : x - GROUP_GAP;
@@ -582,6 +628,8 @@ export interface GalleryRig {
   resize(width: number, height: number, insets?: Insets): void;
   /** A new line: reframe on these bounds. */
   setView(view: GalleryView): void;
+  /** The same line with a few captions changed (a click): keeps the pan and zoom, only re-clamping the pan to the new line's ends. */
+  updateView(view: GalleryView): void;
   getPan(): Pan;
   /** Moves along the line only: `y` is ignored. */
   setPan(x: number, y: number): Pan;
@@ -692,6 +740,11 @@ export function createGalleryRig(initial: GalleryView, width = 1280, height = 72
       v = next;
       fit();
     },
+    updateView(next) {
+      v = next;
+      clampT();
+      apply();
+    },
     getPan,
     setPan(x) {
       tx = baseX - x / scale();
@@ -724,6 +777,223 @@ export function createGalleryRig(initial: GalleryView, width = 1280, height = 72
       return [tx - half, tx + half];
     },
   };
+}
+
+// ---- clicking a copy (ticket 045 C, dev only) ----
+
+/** A press and release this close (css px) is a click; further is a pan. */
+export const CLICK_SLOP_PX = 5;
+
+/** True when a left press and its release are within CLICK_SLOP_PX of each other. Pure. */
+export function isGalleryClick(down: { x: number; y: number }, up: { x: number; y: number }): boolean {
+  return Math.hypot(up.x - down.x, up.y - down.y) <= CLICK_SLOP_PX;
+}
+
+/** A hit reaches this far above a model's top, world units, so a click just over its roof counts. */
+const HIT_ABOVE_TOP = 0.5;
+
+interface Vec3 {
+  x: number;
+  y: number;
+  z: number;
+}
+
+const rayOrigin = new Vector3();
+const rayDir = new Vector3();
+
+/**
+ * The ray from the camera through a point of the screen, `ndcX` and `ndcY` in -1..1 (y up), by three's own unprojection: no WebGL, no scene raycast.
+ * The two vectors returned are reused by the next call.
+ */
+export function galleryRayAt(camera: PerspectiveCamera, ndcX: number, ndcY: number): { origin: Vector3; dir: Vector3 } {
+  camera.updateMatrixWorld();
+  rayOrigin.setFromMatrixPosition(camera.matrixWorld);
+  rayDir.set(ndcX, ndcY, 0.5).unproject(camera).sub(rayOrigin).normalize();
+  return { origin: rayOrigin, dir: rayDir };
+}
+
+/** Where a ray meets the plane `axis` = `value` (axis "y" for the ground), or null when it is parallel or the plane is behind the origin. */
+function planePoint(origin: Vec3, dir: Vec3, axis: "y" | "z", value: number): Vec3 | null {
+  const d = dir[axis];
+  if (Math.abs(d) < 1e-12) return null;
+  const t = (value - origin[axis]) / d;
+  return t > 0 ? { x: origin.x + dir.x * t, y: origin.y + dir.y * t, z: origin.z + dir.z * t } : null;
+}
+
+/**
+ * Which copy a ray points at, or null (pure). The scene stays unraycastable; this is the gallery's own test, made on the layout. A copy is hit by a
+ * ray that, inside its cell's x range, meets any of: the vertical plane through the middle of its outline (z = `outline.cz`) from the ground up to the
+ * model's top plus HIT_ABOVE_TOP; the vertical plane of its caption (z = CAPTION_Z) from the ground down to the foot of the group caption's line; or the
+ * floor of its outline. So a click on the model, on its `door: f` caption or on its lot counts; the gaps between copies and between groups hit nothing.
+ */
+export function galleryHitAt(layout: GalleryLayout, origin: Vec3, dir: Vec3): GallerySlot | null {
+  const ground = planePoint(origin, dir, "y", 0);
+  const caption = planePoint(origin, dir, "z", CAPTION_Z);
+  for (const s of layout.slots) {
+    const lo = s.cell.cx - s.cell.w / 2;
+    const hi = s.cell.cx + s.cell.w / 2;
+    if (ground && ground.x >= lo && ground.x <= hi && Math.abs(ground.z - s.outline.cz) <= s.outline.d / 2) return s;
+    if (caption && caption.x >= lo && caption.x <= hi && caption.y <= 0 && caption.y >= GROUP_CAPTION_DROP) return s;
+    const body = planePoint(origin, dir, "z", s.outline.cz);
+    if (body && body.x >= lo && body.x <= hi && body.y >= 0 && body.y <= s.entry.size[1] * s.scale + HIT_ABOVE_TOP) return s;
+  }
+  return null;
+}
+
+export type GalleryGesture = "click" | "shift-click" | "delete";
+
+/**
+ * The patch a gesture makes, or null when it changes nothing (pure). `slot` is the copy under the pointer (null for Delete).
+ * - click: the model's `front` is the copy's side; `exclude` stays as the saved file has it. Clicking another copy is the undo. Clicking the copy
+ *   that is already `current, saved` does nothing; clicking the `current` copy whose front is only the code's or the guess saves it (a confirmation),
+ *   so a `current ?` can be settled without choosing another side first.
+ * - shift-click: the front is the copy's side and `exclude` is toggled.
+ * - delete: the model's entry is cleared, so the code's table applies again; nothing to do when the file has no entry for it.
+ * `exclude` toggles on the saved file's own flag; an exclusion the code's table makes cannot be undone from here (the table's is empty).
+ */
+export function galleryAction(entry: GalleryEntry, slot: GallerySlot | null, gesture: GalleryGesture): CalibrationPatch | null {
+  if (gesture === "delete") return entry.marked ? { key: entry.key, entry: null } : null;
+  if (!slot || slot.name !== entry.entry.name) return null;
+  if (gesture === "click") {
+    if (slot.current && entry.saved) return null;
+    return { key: entry.key, entry: { front: slot.front, ...(entry.savedExclude ? { exclude: true as const } : {}) } };
+  }
+  return { key: entry.key, entry: { front: slot.front, ...(entry.savedExclude ? {} : { exclude: true as const }) } };
+}
+
+// ---- saving: a queue to the dev endpoint ----
+
+export interface SaveDeps {
+  /** POSTs `body` as JSON to `url`; resolves to the parsed reply, rejects on a network error, a non-OK status or a body that is not JSON. */
+  postJson(url: string, body: unknown): Promise<unknown>;
+  /** The clock for the optimistic copy's `at` stamps. Default: the real one. */
+  now?: () => Date;
+}
+
+export type SaveResult = { ok: true; file: CalibrationFile } | { ok: false; reason: string };
+
+/** Posts one patch to CALIBRATION_ENDPOINT. Never throws: a failure of any kind is `{ ok: false, reason }`, and a reply that is not a calibration file counts as one. */
+export async function saveCalibrationPatch(patch: CalibrationPatch, deps: SaveDeps): Promise<SaveResult> {
+  let reply: unknown;
+  try {
+    reply = await deps.postJson(CALIBRATION_ENDPOINT, patch);
+  } catch (e) {
+    return { ok: false, reason: describe(e) };
+  }
+  const checked = validateCalibration(reply);
+  return checked.ok ? { ok: true, file: checked.file } : { ok: false, reason: "the dev server's reply is not a calibration file" };
+}
+
+export type SaverEvent = "queued" | "saved" | "failed";
+
+export interface CalibrationSaver {
+  /** Queues a patch. It shows at once in `file()`; the queue posts it after the ones before it. */
+  enqueue(patch: CalibrationPatch): void;
+  /** What the gallery shows: the server's last copy with every patch not yet written laid over it. */
+  file(): CalibrationFile | null;
+  /** The patch at the head of the queue that the server did not take, with why; cleared by the next success. */
+  failure(): { key: CalibrationKey; reason: string } | null;
+  /** How many patches are not yet written (the failed one included). */
+  pending(): number;
+  /** Resolves when the queue has stopped: empty, or stopped at a failure. */
+  idle(): Promise<void>;
+}
+
+/**
+ * The gallery's writer. Patches are posted one at a time in click order, so two quick clicks cannot land out of order; the server's reply to each
+ * replaces the gallery's copy of the file. A patch the server refuses stays at the head: nothing is lost, the mark stays shown (the patches not yet
+ * written are laid over the last reply), `failure()` says why, and the next `enqueue` retries it first. Nothing throws.
+ */
+export function createCalibrationSaver(initial: CalibrationFile | null, deps: SaveDeps, onChange: (event: SaverEvent) => void = () => {}): CalibrationSaver {
+  const now = deps.now ?? (() => new Date());
+  let confirmed = initial;
+  const queue: { patch: CalibrationPatch; at: Date }[] = [];
+  let failed: { key: CalibrationKey; reason: string } | null = null;
+  let running: Promise<void> | null = null;
+
+  async function drain(): Promise<void> {
+    while (queue.length > 0) {
+      const head = queue[0]!;
+      const result = await saveCalibrationPatch(head.patch, deps);
+      if (!result.ok) {
+        failed = { key: head.patch.key, reason: result.reason };
+        onChange("failed");
+        return;
+      }
+      queue.shift();
+      confirmed = result.file;
+      failed = null;
+      onChange("saved");
+    }
+  }
+
+  return {
+    enqueue(patch) {
+      queue.push({ patch, at: now() });
+      onChange("queued");
+      if (!running) {
+        running = drain().finally(() => {
+          running = null;
+        });
+      }
+    },
+    file: () => queue.reduce<CalibrationFile | null>((f, q) => applyCalibrationPatch(f, q.patch, q.at), confirmed),
+    failure: () => failed,
+    pending: () => queue.length,
+    idle: async () => {
+      while (running) await running;
+    },
+  };
+}
+
+export interface GalleryEditor {
+  /** A click at a ray (Shift held or not): queues the patch for the copy it hits. True when a patch was queued. */
+  click(origin: Vec3, dir: Vec3, shift: boolean): boolean;
+  /** Delete: queues the clearing of the last-clicked model's entry. True when a patch was queued. */
+  clear(): boolean;
+  /** The key of the model last clicked, or null. */
+  last(): CalibrationKey | null;
+}
+
+/** Joins the hit test, the actions and the saver: what the pointer and the Delete key do. `layout()` must be the layout on screen now. */
+export function createGalleryEditor(layout: () => GalleryLayout, saver: CalibrationSaver): GalleryEditor {
+  let last: CalibrationKey | null = null;
+  return {
+    click(origin, dir, shift) {
+      const slot = galleryHitAt(layout(), origin, dir);
+      if (!slot) return false;
+      last = slot.entry.key;
+      const patch = galleryAction(slot.entry, slot, shift ? "shift-click" : "click");
+      if (!patch) return false;
+      saver.enqueue(patch);
+      return true;
+    },
+    clear() {
+      const entry = last === null ? undefined : layout().groups.find((g) => g.entry.key === last)?.entry;
+      const patch = entry ? galleryAction(entry, null, "delete") : null;
+      if (!patch) return false;
+      saver.enqueue(patch);
+      return true;
+    },
+    last: () => last,
+  };
+}
+
+/** The real POST: JSON in, JSON out; a non-OK status rejects with the server's first error when it sent some. */
+export async function defaultPostJson(url: string, body: unknown): Promise<unknown> {
+  const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  const text = await r.text();
+  let json: unknown;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new Error(r.ok ? "the dev server sent no JSON (is it `npm run dev`?)" : `HTTP ${r.status}`);
+  }
+  if (!r.ok) {
+    const errors = (json as { errors?: unknown } | null)?.errors;
+    throw new Error(`HTTP ${r.status}${Array.isArray(errors) && typeof errors[0] === "string" ? `: ${errors[0]}` : ""}`);
+  }
+  return json;
 }
 
 // ---- the scene ----
@@ -962,12 +1232,16 @@ export interface GalleryRendererOptions {
   deps?: GalleryLoadDeps;
   /** Whether this is a dev build (ticket 045: the saved calibration is read only then). Default: `import.meta.env.DEV`. */
   dev?: boolean;
+  /** How a choice is written (ticket 045 C). Default: a POST to the dev server's endpoint. */
+  postJson?: SaveDeps["postJson"];
 }
 
 /**
  * The 3D view's gallery mode: the same interface as the town's renderer, so play and ui are unchanged. Draws the line instead of the puzzle;
- * the state, hover and Relight it is handed are ignored; nothing can be picked. The wheel, the arrows, right-drag and Home come from play's pan
- * handler through getPan, setPan, zoomStep and resetView; the gallery adds left-drag (which picks nothing here) and End, on its own canvas and document.
+ * the state, hover and Relight it is handed are ignored; nothing in the scene can be picked (`hitTest` is null). The wheel, the arrows, right-drag
+ * and Home come from play's pan handler through getPan, setPan, zoomStep and resetView; the gallery adds, on its own canvas and document:
+ * left-drag (a pan), End, and in a dev build the click (ticket 045 C: a press and release within CLICK_SLOP_PX on a copy chooses its side as the
+ * door; Shift excludes), and Delete or Backspace (clears the last-clicked model). Choices are written through `createCalibrationSaver`.
  */
 export function createGalleryRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasElement, packId: string, opts: GalleryRendererOptions): MapRenderer3d {
   const w0 = Math.max(canvas.clientWidth, 1);
@@ -992,29 +1266,56 @@ export function createGalleryRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEle
   resize();
 
   const deps = opts.deps ?? defaultGalleryDeps();
-  void Promise.all([loadGalleryPack(packId, deps), loadSavedCalibration({ dev: opts.dev ?? import.meta.env.DEV, fetchJson: deps.fetchJson, ...(deps.info ? { info: deps.info } : {}) })])
+  const dev = opts.dev ?? import.meta.env.DEV;
+  const pageOpts = pageSize === null ? { page } : { page, pageSize };
+  /** The layout on screen, the saver and editor (dev only, once the pack has loaded). */
+  let onScreen: GalleryLayout = empty;
+  let saver: CalibrationSaver | null = null;
+  let editor: GalleryEditor | null = null;
+  let shownFailure: string | null = null;
+
+  /** Lays the line out again from the saver's copy of the file and swaps the scene in, keeping the camera's pan and zoom when `keepCamera`. */
+  function show(pack: GalleryPack, file: CalibrationFile | null, info: ((m: string) => void) | undefined, keepCamera: boolean): void {
+    const tables = effectiveFronts({ fronts: BUILDING_FRONTS, exclude: BUILDING_EXCLUDE }, file, info ?? (() => {}));
+    const failure = saver?.failure() ?? null;
+    shownFailure = failure?.reason ?? null;
+    const layout = galleryLayout(pack.manifest, packId, tables.fronts, tables.exclude, { ...pageOpts, saved: file, notSaved: failure });
+    const root = pack.root;
+    const next = buildGalleryScene(layout, root ? (name) => root.getObjectByName(name) ?? undefined : null, { dpr: opts.dpr });
+    current.dispose();
+    current = next;
+    onScreen = layout;
+    if (keepCamera) rig.updateView(layout.view);
+    else rig.setView(layout.view);
+    sizeCaptions();
+  }
+
+  void Promise.all([loadGalleryPack(packId, deps), loadSavedCalibration({ dev, fetchJson: deps.fetchJson, ...(deps.info ? { info: deps.info } : {}) })])
     .then(([pack, saved]) => {
       if (disposed) {
         if (pack.root) freeModel(pack.root);
         return;
       }
       loaded = pack;
-      const tables = effectiveFronts({ fronts: BUILDING_FRONTS, exclude: BUILDING_EXCLUDE }, saved, deps.info);
-      const layout = galleryLayout(pack.manifest, packId, tables.fronts, tables.exclude, { ...(pageSize === null ? { page } : { page, pageSize }), saved });
-      const root = pack.root;
-      const next = buildGalleryScene(layout, root ? (name) => root.getObjectByName(name) ?? undefined : null, { dpr: opts.dpr });
-      current.dispose();
-      current = next;
-      rig.setView(layout.view);
-      sizeCaptions();
+      if (dev && pack.manifest) {
+        saver = createCalibrationSaver(saved, { postJson: opts.postJson ?? defaultPostJson }, (event) => {
+          if (disposed || !loaded) return;
+          // A reply that changes nothing on screen needs no new scene; a queued patch, a failure, or the end of one does.
+          if (event === "saved" && shownFailure === null) return;
+          show(loaded, saver?.file() ?? null, undefined, true);
+        });
+        editor = createGalleryEditor(() => onScreen, saver);
+      }
+      show(pack, saved, deps.info ?? ((m) => console.info(m)), false);
     })
     .catch((e: unknown) => console.info(`3D gallery: ${describe(e)}.`));
 
   // Left-drag along the line (a touch drag too), and End. Right-drag, the arrows, Home and the wheel are play's.
-  let drag: { id: number; startX: number; startPan: number } | null = null;
+  // A left press and release within CLICK_SLOP_PX is a click, not a pan (dev only, ticket 045 C).
+  let drag: { id: number; startX: number; startY: number; startPan: number } | null = null;
   const onDown = (e: PointerEvent): void => {
     if (e.button !== 0) return;
-    drag = { id: e.pointerId, startX: e.clientX, startPan: rig.getPan().x };
+    drag = { id: e.pointerId, startX: e.clientX, startY: e.clientY, startPan: rig.getPan().x };
     try {
       canvas.setPointerCapture(e.pointerId);
     } catch {
@@ -1026,12 +1327,30 @@ export function createGalleryRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEle
     rig.setPan(drag.startPan + (e.clientX - drag.startX), 0);
   };
   const onUp = (e: PointerEvent): void => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const down = drag;
+    drag = null;
+    if (!editor || !isGalleryClick({ x: down.startX, y: down.startY }, { x: e.clientX, y: e.clientY })) return;
+    // A click does not move the line: undo the few pixels of pan it made.
+    rig.setPan(down.startPan, 0);
+    const r = canvas.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0) return;
+    const { origin, dir } = galleryRayAt(rig.camera, ((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    editor.click(origin, dir, e.shiftKey);
+  };
+  const onCancel = (e: PointerEvent): void => {
     if (drag && e.pointerId === drag.id) drag = null;
   };
   const onKey = (e: KeyboardEvent): void => {
-    if (e.ctrlKey || e.altKey || e.metaKey || e.key !== "End") return;
+    if (e.ctrlKey || e.altKey || e.metaKey) return;
+    const clear = e.key === "Delete" || e.key === "Backspace";
+    if (e.key !== "End" && !(clear && editor)) return;
     const tag = (e.target as { tagName?: string } | null)?.tagName?.toLowerCase();
     if (tag === "select" || tag === "input" || tag === "textarea") return;
+    if (clear) {
+      if (editor?.clear()) e.preventDefault();
+      return;
+    }
     e.preventDefault();
     rig.jumpToEnd();
   };
@@ -1039,7 +1358,7 @@ export function createGalleryRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEle
   canvas.addEventListener("pointerdown", onDown);
   canvas.addEventListener("pointermove", onMove);
   canvas.addEventListener("pointerup", onUp);
-  canvas.addEventListener("pointercancel", onUp);
+  canvas.addEventListener("pointercancel", onCancel);
   doc.addEventListener("keydown", onKey);
   const touchAction = canvas.style.touchAction;
   canvas.style.touchAction = "none";
@@ -1080,7 +1399,7 @@ export function createGalleryRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEle
       canvas.removeEventListener("pointerdown", onDown);
       canvas.removeEventListener("pointermove", onMove);
       canvas.removeEventListener("pointerup", onUp);
-      canvas.removeEventListener("pointercancel", onUp);
+      canvas.removeEventListener("pointercancel", onCancel);
       doc.removeEventListener("keydown", onKey);
       canvas.style.touchAction = touchAction;
       current.dispose();
