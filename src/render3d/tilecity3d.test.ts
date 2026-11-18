@@ -248,7 +248,7 @@ describe("levels and seams", () => {
         m.decompose(pos, quat, scale);
         for (const s of [scale.x, scale.y, scale.z]) if (Math.abs(s / S - 1) > 1e-6) bad.push(`${key} scale ${s}`);
         if (Math.abs(pos.x - c.x_m * S) > 1e-5 || Math.abs(pos.z - c.z_m * S) > 1e-5) bad.push(`${key} at ${pos.x},${pos.z}`);
-        const want = expectedMatrix(c, tileOriginY_m(c.role, p.entries.get(key)));
+        const want = expectedMatrix(c, tileOriginY_m(c.role, p.entries.get(key)), TILE_FRONTS[key] ?? 0);
         for (let k = 0; k < 16; k++) if (Math.abs(m.elements[k]! - want.elements[k]!) > 1e-5) bad.push(`${key} cell ${c.i},${c.j} element ${k}`);
       });
     }
@@ -281,6 +281,37 @@ describe("levels and seams", () => {
     const bare = TILE_SLOTS.junction[0]!;
     const cells = city.cells.filter((c) => wantKey(c) === bare);
     cells.forEach((c, i) => expect(read(bare, i), `${c.role} ${i}`).toBeCloseTo(c.role === "lotSurface" ? 0 : -SIDEWALK_TOP_M * S, 6));
+    draw.dispose();
+  });
+
+  it("lays the road pieces along their street: a lane or plain road piece's own z (its lines) ends up along the street, a parking piece's (its bay dividers) across it, a crossing's own x (its zebra bars) along it", () => {
+    const p = pack();
+    const draw = tileGroup(city, p.roots, p.entries);
+    const by = new Map<CalibrationKey, TileCell[]>();
+    for (const c of city.cells) by.set(wantKey(c), [...(by.get(wantKey(c)) ?? []), c]);
+    const bad: string[] = [];
+    let checked = 0;
+    const m = new Matrix4();
+    for (const role of ["lane", "parkingPlain", "parking", "crossing"] as const) {
+      for (const key of TILE_SLOTS[role]) {
+        const cells = by.get(key) ?? [];
+        const im = named(draw.group, `tile:${shortName(key)}`)[0];
+        cells.forEach((c, i) => {
+          if (c.role !== role) return;
+          im!.getMatrixAt(i, m);
+          const own = role === "crossing" ? new Vector3(1, 0, 0) : new Vector3(0, 0, 1);
+          const d = own.transformDirection(m);
+          // The street of a cell runs along x when its yaw is 0 or 180 (the cell frame) and along z when 90 or 270.
+          const streetAlongX = c.yaw === 0 || c.yaw === 180;
+          const alongStreet = streetAlongX ? Math.abs(d.x) : Math.abs(d.z);
+          const want = role === "parking" ? 0 : 1;
+          if (Math.abs(alongStreet - want) > 1e-6) bad.push(`${key} cell ${c.i},${c.j} yaw ${c.yaw}: ${alongStreet.toFixed(3)} along its street, want ${want}`);
+          checked++;
+        });
+      }
+    }
+    expect(checked).toBeGreaterThan(100);
+    expect(bad).toEqual([]);
     draw.dispose();
   });
 

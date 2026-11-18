@@ -726,7 +726,7 @@ export function buildSheetScene(roots: ReadonlyMap<CalibrationKey, Object3D>, en
     [
       "tile sheet (city-pack): each piece once, turned by its TILE_FRONTS line",
       "yellow arrow = the front the city expects (+z, toward you)",
-      "the piece must show its kerb, centre line, dip or stripes on the arrow's side",
+      "a kerb or dip must be on the arrow's side; a road piece's lines run left-right (the street runs along x)",
       "wrong? set that key's turn (90, 180 or 270) in TILE_FRONTS, src/render3d/tileslots.ts",
       "the road pieces stand at the carriageway level, the sidewalk pieces with their top at 0",
       "drag or arrow keys to move along the row",

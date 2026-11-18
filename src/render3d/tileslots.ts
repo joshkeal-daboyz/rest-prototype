@@ -39,11 +39,21 @@ export const TILE_PATCH: CalibrationKey = k("SM_Env_Road_Patch_01");
 export const TILE_SHEET_EXTRA: readonly CalibrationKey[] = [k("SM_Env_Sidewalk_Corner_01"), TILE_PATCH];
 
 /**
- * The turn, degrees, added to a cell's yaw so the piece's own front lies where the role says (`tilecity.ts` header: lane and parking, toward the street's centre line;
- * pavement and kerb cut, toward the carriageway; crossing, along the walkers' direction; corner, its two kerb edges on +x and +z at yaw 0). Empty until the tile sheet
- * has been checked by eye: a piece with no line is not turned.
+ * The turn, degrees, added to a cell's yaw so the piece's own axes land where the role says (`tilecity.ts` header: in a cell's own frame the street runs along x, the front is +z
+ * toward the street's centre line for lane and parking cells, toward the carriageway for pavement and kerb-cut cells, and along the walkers' direction for a crossing; a corner has its
+ * two kerb edges on +x and +z at yaw 0). A piece with no line is not turned. Read from the converted City Pack geometry (18 Nov 2026; every piece is centred, y up, +z down the page):
+ * - `Road_Lines_01`, `Road_Lines_02` and `Road_01` are road pieces whose lines run along the piece's z (the edge strips of the lines pieces are at x = +-2.34 and span z = -2.5..2.5;
+ *   `Road_01`'s dashes are on its +x edge). The street must run along x, so they are turned 270: local z lands on the street and local +x (the dashed edge) on the front, toward the centre.
+ * - `Sidewalk_Corner_01` has its kerb on its -x and +z sides, so it is turned 90 to put them on +x and +z. `Sidewalk_Dip_Corner_01` already has its kerb on +x and +z (0).
+ * - Unturned and right as they are: the straight, grate, dip and panel pieces have their kerb on +z (the front); `Road_ParkingLines_01` runs 10 m along x with its bay dividers along z;
+ *   `Road_Crossing_01` has its zebra bars along x (traffic along x, walkers along z, the front); `Road_Bare_01` has no direction.
  */
-export const TILE_FRONTS: Readonly<Partial<Record<CalibrationKey, 0 | 90 | 180 | 270>>> = {};
+export const TILE_FRONTS: Readonly<Partial<Record<CalibrationKey, 0 | 90 | 180 | 270>>> = {
+  [k("SM_Env_Road_Lines_01")]: 270,
+  [k("SM_Env_Road_Lines_02")]: 270,
+  [k("SM_Env_Road_01")]: 270,
+  [k("SM_Env_Sidewalk_Corner_01")]: 90,
+};
 
 /** The turn of a piece, degrees (0 when its key has no line). */
 export function tileFront(key: CalibrationKey, fronts: Readonly<Partial<Record<CalibrationKey, 0 | 90 | 180 | 270>>> = TILE_FRONTS): number {
@@ -81,15 +91,15 @@ export function tileKeys(): CalibrationKey[] {
 
 // ---- the tile sheet (what each piece should show, for the eye check) ----
 
-/** What a piece's front means for each role: the arrow on the sheet points along +z, and the piece, turned by its `TILE_FRONTS` line, must show this on the arrow's side. */
+/** What a piece must show once turned by its `TILE_FRONTS` line: the sheet's arrow points along +z, and in a cell's own frame the street runs along x. */
 export const TILE_FRONT_TEXT: Readonly<Record<TileRole, string>> = {
-  lane: "arrow = toward the centre line",
-  parking: "arrow = toward the centre line; 2 cells long along x",
-  parkingPlain: "arrow = toward the centre line",
+  lane: "the street runs along x: its lines must run left-right, across the arrow; arrow = toward the centre line",
+  parking: "the street runs along x (2 cells long); the bay dividers run along the arrow",
+  parkingPlain: "the street runs along x: its dashes run left-right; the dashed edge is on the arrow side",
   junction: "no front",
-  crossing: "arrow = the walkers' direction",
+  crossing: "the zebra bars run left-right (traffic along x); arrow = the walkers' direction, across the bars",
   pavement: "arrow = toward the kerb (the carriageway)",
-  pavementCorner: "kerb edges on +x and +z (arrows)",
+  pavementCorner: "the kerb edges are on the +x and +z sides (the two arrows)",
   kerbCut: "arrow = toward the carriageway (the dip)",
   lotSurface: "no front",
   plaza: "no front",
