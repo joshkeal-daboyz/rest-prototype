@@ -122,8 +122,8 @@ describe("pickPlaceholders on every map", () => {
 
 describe("the scene with no models", () => {
   const puzzle = maps.find((m) => m.name.includes("09-shrine-circuit"))!.puzzle;
-  const b = buildScene(puzzle, { text: stubTextSurface });
-  const lots = townLayout(puzzle).lots;
+  const b = buildScene(puzzle, { text: stubTextSurface, terraces: false });
+  const lots = townLayout(puzzle, { terraces: false }).lots;
 
   it("draws one placeholder body per lot, in the group of its lot type, and shows every group", () => {
     expect(b.slots.blocks.placeholder.visible).toBe(true);

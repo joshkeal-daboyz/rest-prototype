@@ -592,3 +592,15 @@ describe("lot spacing", () => {
     }
   });
 });
+
+describe("terrace lots take no model and no stack until 051 D", () => {
+  it("skips a terrace lot in buildingPlacements, whatever the set offers, and keeps the other lots' picks", async () => {
+    const { buildingPlacements } = await import("./models3d");
+    const lot = (key: string, terrace: boolean): Lot => ({ x: 0, z: 0, w: 2, d: 2, yaw: 0, type: "small", hMax: 2.5, key, street: "r", side: 1, corner: false, cornerSides: [], ...(terrace ? { terrace: { run: "r:1:r0", index: 0, bays: 2 } } : {}) });
+    const model = { pack: "simple-town", glb: "x.glb", entry: { name: "Small_01", bounds: { min: [-5, 0, -5], max: [5, 4, 5] }, warnings: [] }, front: "+z", corner: false, family: "Small_01", root: null } as never;
+    // The same set, on a lot that is not a terrace lot, does place a model (so the skip is the terrace's, not the set's).
+    expect(buildingPlacements([lot("a", false)], [model]).map((p) => p.lot)).toEqual([0]);
+    const placed = buildingPlacements([lot("a", true), lot("b", false), lot("c", true)], [model]);
+    expect(placed.map((p) => p.lot)).toEqual([1]);
+  });
+});
