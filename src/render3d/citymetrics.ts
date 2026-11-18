@@ -389,11 +389,13 @@ export function cityMetrics(town: CityTown, packed: ReadonlyMap<string, PackResu
     const s = ((p.x - run.ax) * run.ux + (p.z - run.az) * run.uz) / W;
     const t = ((p.x - run.ax) * Math.sin(yaw) + (p.z - run.az) * Math.cos(yaw)) / W;
     const len = run.len / W;
-    // Between the lots' front line (a tree's canopy may reach the setback) and `FURN_KERB_M` in from the kerb.
-    const onPavement = t - p.d / 2 >= -1e-6 && t + p.d / 2 <= KERB_M - FURN_KERB_M + 1e-6;
+    // Between the lots' front line (a tree's canopy may reach the setback) and `FURN_KERB_M` in from the kerb: the run's own frame (the tile city's 5 m pavement), or today's.
+    const kerbM = run.frame?.kerb_m ?? KERB_M;
+    const wallM = run.frame?.wall_m ?? WALL_EDGE_M;
+    const onPavement = t - p.d / 2 >= -1e-6 && t + p.d / 2 <= kerbM - FURN_KERB_M + 1e-6;
     if (!onPavement) spacingViolations++;
     if (s - p.w / 2 < FURN_CORNER_M - 1e-6 || s + p.w / 2 > len - FURN_CORNER_M + 1e-6) keepOutViolations++;
-    const line = Math.abs(t - p.d / 2 - (WALL_EDGE_M + FURN_WALL_M)) < 1e-6 ? "wall" : "kerb";
+    const line = Math.abs(t - p.d / 2 - (wallM + FURN_WALL_M)) < 1e-6 ? "wall" : "kerb";
     const key = `${p.run}|${line}`;
     const on = lines.get(key) ?? [];
     on.push({ s, tree: TREES.includes(p.key) });

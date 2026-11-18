@@ -47,7 +47,7 @@ import type { ModelSlots, SceneBundle } from "./scene";
 import { STACK_STYLES, assembleStack, offeredStacks, stackKeys, type Stack } from "./stacks";
 import { ALLEY_MAX_M, ALLEY_MIN_M, packTown, type PackedBlock, type PackResult } from "./terrace";
 import { PAVEMENT_Y, YARD_H } from "./scene";
-import { LOT_TYPE_NAMES, type Lot } from "./town";
+import { LOT_TYPE_NAMES, type Lot, type Pt, type TerraceRun } from "./town";
 
 /** A planned model whose root node was found in its pack's GLB. */
 export interface LoadedModel extends PlannedModel {
@@ -584,8 +584,11 @@ export interface DressSite extends DressBlockInput {
  * lot. Terrace blocks count in their terrace run; stacks on lots in the street side they face. A run's lowest block (its shortest stack, the first of equals) is
  * the one a novelty sign may stand on. Every ordinary lot and terrace block faces a road at the pavement and setback, so the kerb is `KERB_FROM_FRONT_M` for all
  * (a service run's frontage, 2.08 m, is only ever a place's, and a place is not stacked).
+ *
+ * `frames` (ticket 055 E): a run's pavement frame (`TerraceRun.frame`) by run id. A terrace block of a run that has one carries it in its site's `run.frame`, where `dressBlock` reads it (it
+ * wins over `kerbM`), so a kerb-side piece stands on the tile city's 5 m pavement and not 3.33 m from the front. With none (the ladder maps), every site is exactly as it was.
  */
-export function dressSites(terrace: readonly PackedBlock[], placements: readonly BuildingPlacement[], lots: readonly Lot[]): DressSite[] {
+export function dressSites(terrace: readonly PackedBlock[], placements: readonly BuildingPlacement[], lots: readonly Lot[], frames: ReadonlyMap<string, TerraceRun["frame"]> = new Map()): DressSite[] {
   const raw: { stack: Stack; lot: Pick<Lot, "key" | "hMax">; run: string; frame: DressFrame }[] = [];
   for (const b of terrace) {
     const half = b.lot.d / 2;
@@ -607,7 +610,10 @@ export function dressSites(terrace: readonly PackedBlock[], placements: readonly
     const low = lowest.get(r.run);
     if (low === undefined || r.stack.height_m < raw[low]!.stack.height_m) lowest.set(r.run, k);
   });
-  return raw.map((r, k) => ({ stack: r.stack, lot: r.lot, run: { id: r.run, index: index[k]!, lowest: lowest.get(r.run) === k }, kerbM: KERB_FROM_FRONT_M, frame: r.frame }));
+  return raw.map((r, k) => {
+    const pave = frames.get(r.run);
+    return { stack: r.stack, lot: r.lot, run: { id: r.run, index: index[k]!, lowest: lowest.get(r.run) === k, ...(pave ? { frame: pave } : {}) }, kerbM: KERB_FROM_FRONT_M, frame: r.frame };
+  });
 }
 
 /** The placements of a set of sites, flattened in site order (pure: `dressTown`'s caps along each run). A piece whose key is not in `entries` is simply not placed. */
@@ -625,9 +631,19 @@ export function dressPlacements(sites: readonly DressSite[], entries: ReadonlyMa
 const GROUND_LIFT_M = 0.01;
 const NO_FRAME: DressFrame = { x: 0, z: 0, yaw: 0 };
 
+/**
+ * Where the furniture stands (ticket 055 E): the height, metres, of the pavement layer and of the yard layer (the ground under a lot's pieces and an alley's). Absent: the ladder's
+ * (`PAVEMENT_Y` and `YARD_H` over `WORLD_PER_METRE`: 4.4 cm and 2.2 cm). The tile city's walk is at 0 (design item 7), so it asks for 0 on its pavements.
+ */
+export interface FurnitureLevels {
+  pavement_m?: number;
+  yard_m?: number;
+}
+
 /** A piece of furniture as a placement the dressing instancer draws: world position to metres, standing on its ground layer (a flat tile a hair above it, so it does not fight the ground). */
-export function furniturePlacement(p: FurniturePiece): DressPlacement {
-  const base = (p.ground === "pavement" ? PAVEMENT_Y : YARD_H) / WORLD_PER_METRE + (p.flat ? GROUND_LIFT_M : 0) + p.lift;
+export function furniturePlacement(p: FurniturePiece, levels: FurnitureLevels = {}): DressPlacement {
+  const ground = p.ground === "pavement" ? (levels.pavement_m ?? PAVEMENT_Y / WORLD_PER_METRE) : (levels.yard_m ?? YARD_H / WORLD_PER_METRE);
+  const base = ground + (p.flat ? GROUND_LIFT_M : 0) + p.lift;
   return { frame: NO_FRAME, piece: { key: p.key, slot: "wall", x: p.x / WORLD_PER_METRE, y: base, z: p.z / WORLD_PER_METRE, yaw: p.yaw, column: 0, w: p.w, h: p.h, d: p.d } };
 }
 
@@ -950,12 +966,25 @@ function blankTerracePlaceholders(slots: ModelSlots, covered: ReadonlySet<number
 }
 
 /**
+ * What `applyModels` is given beyond the bundle and the models (ticket 055 E). All optional; with none the call is exactly what it was, so a puzzle map's furniture is deep-equal to today's.
+ * - `keepPoints` and `keepRects` (world units) are added to the furniture layout's keep-outs: the tile city's pole slots, kerb cuts and corner cells (`tileKeepouts`).
+ * - `furnitureFilter` takes the layout's pieces and returns the ones to place: the tile city drops the meters that stand beside no bay (`bayMeters`).
+ * - `furnitureLevels` sets the height the furniture stands at (see `FurnitureLevels`).
+ */
+export interface ApplyOptions {
+  keepPoints?: readonly Pt[];
+  keepRects?: readonly Rect[];
+  furnitureFilter?: (pieces: readonly FurniturePiece[]) => FurniturePiece[];
+  furnitureLevels?: FurnitureLevels;
+}
+
+/**
  * Swap the placeholders for model clones where the set has usable models: a clone at every intermediate pole (turned so a
  * cross-arm runs across the wire), on every lamp's post, and on every lot (a model of the lot's type, at one scale, its front to the road).
  * A lot type with no usable model keeps its placeholder buildings. Lamp heads, lights, pools, halos, flares, places and node objects
  * are untouched. Slots with no models stay as they are.
  */
-export function applyModels(bundle: SceneBundle, set: ModelSet): AppliedModels {
+export function applyModels(bundle: SceneBundle, set: ModelSet, opts: ApplyOptions = {}): AppliedModels {
   const { slots } = bundle;
   const undo: (() => void)[] = [];
   const hide = (o: Object3D): void => {
@@ -1062,7 +1091,10 @@ export function applyModels(bundle: SceneBundle, set: ModelSet): AppliedModels {
   let dressCalls = 0;
   const dressing = stacks ? dressInput(set) : null;
   if (dressing) {
-    const placements = dressPlacements(dressSites(terrace, placed, slots.blocks.list), dressing.entries, dressing.fronts);
+    // A run's pavement frame (the tile city's) goes to the dressing of its blocks, by run id; a ladder run has none.
+    const frames = new Map<string, TerraceRun["frame"]>();
+    for (const r of slots.blocks.terraces ?? []) if (r.frame) frames.set(r.id, r.frame);
+    const placements = dressPlacements(dressSites(terrace, placed, slots.blocks.list, frames), dressing.entries, dressing.fronts);
     if (placements.length > 0) {
       const drawn = dressGroup(placements, dressing.roots);
       if (drawn.calls > 0) {
@@ -1078,9 +1110,12 @@ export function applyModels(bundle: SceneBundle, set: ModelSet): AppliedModels {
   let furniture: readonly FurniturePiece[] = [];
   let furnitureCalls = 0;
   if (dressing && terrace.length > 0) {
-    const pieces = furnitureLayout(furnitureInput(bundle, packedRuns, dress), dressing.entries, dressing.fronts);
+    const base = furnitureInput(bundle, packedRuns, dress);
+    const input: FurnitureInput = opts.keepPoints || opts.keepRects ? { ...base, keepPoints: [...(base.keepPoints ?? []), ...(opts.keepPoints ?? [])], keepRects: [...(base.keepRects ?? []), ...(opts.keepRects ?? [])] } : base;
+    const laid = furnitureLayout(input, dressing.entries, dressing.fronts);
+    const pieces = opts.furnitureFilter ? opts.furnitureFilter(laid) : laid;
     if (pieces.length > 0) {
-      const drawn = dressGroup(pieces.map(furniturePlacement), dressing.roots, FURN_DRAW_CALLS_MAX);
+      const drawn = dressGroup(pieces.map((p) => furniturePlacement(p, opts.furnitureLevels)), dressing.roots, FURN_DRAW_CALLS_MAX);
       if (drawn.calls > 0) {
         drawn.group.name = "city-furniture";
         add(slots.models.parent ?? slots.models, drawn.group);

@@ -6,8 +6,10 @@
  *   pavement and kerb colours (a flat quad for a road, a box from the carriageway to the pavement top for a pavement, a pale strip for each kerb edge). No tile can be picked.
  * - `buildCityScene` is a puzzle-free `SceneBundle` (no wires, places, poles or captions) over the tile city's `Town`: the ground, the yards, the placeholder buildings on its lots,
  *   and the tiles. `applyModels` runs on it unchanged, so stacks, dressing, furniture and colourways stand as on a ladder map.
- * - `buildSheetScene` lays each tile piece once in a row, labelled, with an arrow along the front the city expects, so each piece's orientation can be confirmed by eye.
- * - `createCityRenderer3d` is the renderer for both, switched on in renderer.ts behind `import.meta.env.DEV`. It reads no address: renderer.ts passes the query string in.
+ * - `buildSheetScene` lays each tile piece once on a grid, labelled, with an arrow along the front the city expects, so each piece's orientation can be confirmed by eye. It is shown
+ *   from above on the city rig, every piece inside the insets, in a grid shaped to the window (labels keep a pixel size; see `sheetLayout`).
+ * - `createCityRenderer3d` is the renderer for both, switched on in renderer.ts behind `import.meta.env.DEV`. It reads no address: renderer.ts passes the query string in. `light=day`
+ *   adds one daylight to every view of it (ticket 055 E); `cityApplyOptions` is what the models are applied with (keep-outs, bay meters, the walk's furniture level).
  */
 
 import {
@@ -39,15 +41,14 @@ import type { CityRect } from "../render/city";
 import { ZOOM_STEP, type Insets } from "../render/geometry";
 import { ELEVATION, FOV_DEG } from "./camera";
 import { scaleForPx } from "./captions";
-import { createGalleryRig, type GalleryView } from "./gallery";
 import { WORLD_PER_METRE, atFront } from "./models";
-import { applyModels, meshParts, sharedTileModels, tileInput, type AppliedModels } from "./models3d";
+import { applyModels, meshParts, sharedTileModels, tileInput, type AppliedModels, type ApplyOptions, type FurnitureLevels, type ModelSet } from "./models3d";
 import { KERB_H, LOT_TYPE_NAMES, STOREY_M, type Lot, type LotType } from "./town";
 import { ROOF_SHADE, TINTS, pickPlaceholders } from "./placeholders";
 import { KERB, PAVEMENT, STREET, GROUND, YARD, KERB_W, type SceneBundle } from "./scene";
 import { createStreetView, streetCamRequested, streetMode, STREET_CAM_DAY_INTENSITY, STREET_CAM_GROUND, STREET_CAM_SKY, type StreetView } from "./streetcam";
-import { LANE_PATCH, LANE_RIGHT, SIDEWALK_TOP_M, TILE_M, tileCity, type TileCell, type TileCity, type TileRole } from "./tilecity";
-import { TILE_DRAW_CALLS_MAX, TILE_FRONTS, TILE_FRONT_TEXT, TILE_LEVELS, TILE_PATCH, TILE_SHEET_EXTRA, TILE_SLOTS, sheetPieces, tileFront, tileKeys, type CityTilesRequest } from "./tileslots";
+import { LANE_PATCH, LANE_RIGHT, SIDEWALK_WALK_M, TILE_M, bayMeters, tileCity, tileKeepouts, type TileCell, type TileCity, type TileRole } from "./tilecity";
+import { TILE_DRAW_CALLS_MAX, TILE_LEVELS, TILE_PATCH, TILE_SHEET_EXTRA, TILE_SLOTS, sheetColumns, sheetLabel, sheetLayout, sheetLegend, tileFront, tileKeys, tileLevelY_m, type CityTilesRequest, type SheetLayout } from "./tileslots";
 import { createCaptionSprite, defaultTextSurface, type CaptionSprite, type TextSurfaceFactory } from "./text";
 import type { MapRenderer3d } from "./renderer";
 
@@ -81,14 +82,11 @@ export function cellFootprint(cell: Pick<TileCell, "cells" | "yaw">): { w_m: num
 }
 
 /**
- * Where a piece's origin stands (metres): carriageway pieces at `-SIDEWALK_TOP_M`, a parking lot's surface at 0, and a pavement piece with its top at 0, so its origin is
- * its own height below (every piece's pivot is centred with its minimum y at 0): 0.30 m for the sidewalk tile, whatever its entry says.
+ * Where a piece's origin stands (metres): carriageway pieces at `-SIDEWALK_WALK_M`, a parking lot's surface at 0, and a sidewalk piece on the carriageway's level so its walking surface
+ * (0.23 m up its own height, not the 0.30 m of its kerb lip) is at 0 (criterion 28). `key` picks the walk of a key that has its own (`TILE_WALK_M`).
  */
-export function tileOriginY_m(role: TileRole, entry?: Pick<AssetEntry, "bounds">): number {
-  const level = TILE_LEVELS[role];
-  if (level === "carriage") return -SIDEWALK_TOP_M;
-  if (level === "ground") return 0;
-  return -(entry ? entry.bounds.max[1] : SIDEWALK_TOP_M);
+export function tileOriginY_m(role: TileRole, key?: CalibrationKey): number {
+  return tileLevelY_m(role, key);
 }
 
 const tmpP = /* @__PURE__ */ new Vector3();
@@ -213,11 +211,10 @@ export function tileGroup(city: TileCity, roots: ReadonlyMap<CalibrationKey, Obj
     perKey.set(key, list.length);
     fromPack += list.length;
     const turn = tileFront(key);
-    const entry = entries.get(key);
     for (const part of parts.get(key)!) {
       const im = new InstancedMesh(part.mesh.geometry, part.mesh.material, list.length);
       im.name = `tile:${key.slice(key.indexOf(":") + 1)}`;
-      list.forEach((c, i) => im.setMatrixAt(i, tileMatrix(c, tileOriginY_m(c.role, entry), turn, m).multiply(part.local)));
+      list.forEach((c, i) => im.setMatrixAt(i, tileMatrix(c, tileOriginY_m(c.role, key), turn, m).multiply(part.local)));
       im.instanceMatrix.needsUpdate = true;
       im.computeBoundingSphere();
       noRay(im);
@@ -240,7 +237,7 @@ export function tileGroup(city: TileCity, roots: ReadonlyMap<CalibrationKey, Obj
     }
   }
 
-  // The code-drawn cells: roads as flat quads, pavements as boxes from the carriageway to the pavement top, a pale strip on each pavement edge that meets a carriageway.
+  // The code-drawn cells: roads as flat quads, pavements as boxes from the carriageway up to the walk, a pale strip on each pavement edge that meets a carriageway.
   const codeCells = city.cells.filter((_, i) => plan.keyOf[i] === null);
   const quads = codeCells.filter((c) => roadLike(c.role));
   const boxes = codeCells.filter((c) => !roadLike(c.role));
@@ -267,7 +264,7 @@ export function tileGroup(city: TileCity, roots: ReadonlyMap<CalibrationKey, Obj
     im.name = "tile:code-pavement";
     boxes.forEach((c, i) => {
       const f = cellFootprint(c);
-      im.setMatrixAt(i, m.compose(tmpP.set(c.x_m * S, -SIDEWALK_TOP_M * S, c.z_m * S), q, tmpS.set(f.w_m * S, SIDEWALK_TOP_M * S, f.d_m * S)));
+      im.setMatrixAt(i, m.compose(tmpP.set(c.x_m * S, -SIDEWALK_WALK_M * S, c.z_m * S), q, tmpS.set(f.w_m * S, SIDEWALK_WALK_M * S, f.d_m * S)));
     });
     im.instanceMatrix.needsUpdate = true;
     im.computeBoundingSphere();
@@ -458,7 +455,7 @@ export function buildCityScene(city: TileCity): CityScene {
   scene.add(moon);
 
   const win = town.window;
-  const carriageY = -SIDEWALK_TOP_M * S;
+  const carriageY = -SIDEWALK_WALK_M * S;
   // The ground lies just under the carriageway; the yards are the blocks' open ground and the ring of yard round the city, a hair under 0 so a lot surface at 0 lies over them.
   const ground = new Mesh(new BoxGeometry(win.maxX - win.minX + 2 * GROUND_MARGIN, 0.1, win.maxY - win.minY + 2 * GROUND_MARGIN), new MeshStandardMaterial({ color: GROUND, roughness: 1 }));
   ground.position.set((win.minX + win.maxX) / 2, carriageY - GROUND_BELOW_M * S - 0.05, (win.minY + win.maxY) / 2);
@@ -572,59 +569,60 @@ export function buildCityScene(city: TileCity): CityScene {
 
 // ---- the tile sheet ----
 
+export interface SheetPieceRect {
+  key: CalibrationKey;
+  /** The piece's footprint on the ground, map units: its centre and its size along x and along z. */
+  x: number;
+  z: number;
+  w: number;
+  d: number;
+}
+
 export interface SheetScene {
   scene: Scene;
-  /** What the gallery's rig frames: the whole row, and the first screen (the first few pieces). */
-  view: GalleryView;
+  /** What the city rig frames (map units): the grid and a margin round it. The labels and the legend hang outside it, in the room `insetsPx` asks the rig for. */
+  frame: CityRect;
+  /** The css pixels the rig must keep clear on top of the page's own insets: at the top for the legend, at the bottom for the last row's labels, at each side for the outer columns' labels. */
+  insetsPx: { top: number; bottom: number; left: number; right: number };
+  layout: SheetLayout;
+  /** Every piece's footprint, in `sheetPieces()` order. */
+  rects: readonly SheetPieceRect[];
   /** Pieces whose root was found in the pack, and pieces that were not. */
   present: number;
   missing: number;
-  /** One label per piece plus the title, in the order of `sheetPieces()` (title last). */
+  /** One label per piece, under its piece, in the order of `sheetPieces()`, then the legend (last), above the grid. */
   labels: readonly CaptionSprite[];
+  /** The daylight when the page asked for it, else null (the sheet is always lit by its own lights). */
+  daylight: HemisphereLight | null;
   /** Size the labels to the canvas (they keep a fixed pixel size at any zoom). */
   setViewport(heightPx: number): void;
   dispose(): void;
 }
 
-const SHEET_GAP = 1.0;
 const SHEET_ARROW = 0xffc247;
 const SHEET_OUTLINE = 0xeef1f7;
-const SHEET_FONT_PX = 14;
-const SHEET_SCREEN_PIECES = 3;
-
-const wrapAt = (text: string, max: number): string[] => {
-  const out: string[] = [];
-  for (const part of text.split("; ")) {
-    let cur = "";
-    for (const w of part.split(" ")) {
-      if (cur && cur.length + 1 + w.length > max) {
-        out.push(cur);
-        cur = w;
-      } else cur = cur ? `${cur} ${w}` : w;
-    }
-    if (cur) out.push(cur);
-  }
-  return out;
-};
-
-/** The lines of a piece's label: its name, its roles, the turn it has now, what its front must show, or that it is not in the pack. */
-export function sheetLabel(key: CalibrationKey, roles: readonly TileRole[], present: boolean, fronts: Readonly<Partial<Record<CalibrationKey, 0 | 90 | 180 | 270>>> = TILE_FRONTS): string[] {
-  const name = key.slice(key.indexOf(":") + 1).replace(/^SM_Env_/, "");
-  const lines = [name, roles.length > 0 ? roles.join(", ") : "(not used by a role yet)", `turn ${tileFront(key, fronts)}`];
-  const first = roles[0];
-  if (first !== undefined) lines.push(...wrapAt(TILE_FRONT_TEXT[first], 28));
-  if (!present) lines.push("NOT IN THE PACK");
-  return lines;
-}
+export const SHEET_FONT_PX = 12;
+/** Metres between a piece's near edge and its label. */
+const SHEET_LABEL_GAP_M = 0.3;
+/** Css pixels between a label and the edge it is kept clear of when the rig's insets are widened for it. */
+const SHEET_ROOM_PX = 8;
+/** A sheet piece no role draws sits at the level of the role it is nearest to: the plain corner with the sidewalks, the others with the road. */
+const sheetRole = (roles: readonly TileRole[], key: CalibrationKey): TileRole => roles[0] ?? (key.includes("Sidewalk") ? "pavementCorner" : "lane");
 
 /**
- * Every tile piece once, in a row along x, standing on a plain ground the way the city stands it (a road piece at the carriageway level, a sidewalk piece with its top at 0), each
- * turned by its `TILE_FRONTS` line, with its own outline (so a piece the pack lacks still shows its place), a yellow arrow along +z (toward the camera: the front the city expects) and
- * a label. A corner piece has a second arrow along +x. The piece must show its kerb, centre line, dip or stripes on the arrow's side; the label says which.
+ * Every tile piece once, on a grid (`sheetLayout(aspect)`: four columns in a wide window, two in a tall one), standing on a plain ground the way the city stands it (a road piece
+ * at the carriageway level, a sidewalk piece on it so its walk is at 0), each turned by its `TILE_FRONTS` line, with its own outline (so a piece the pack lacks still shows its place), a
+ * yellow arrow along +z (toward the camera: the front the city expects) and a label under it. A corner piece has a second arrow along +x. The legend above the grid says what each kind of
+ * piece must show on the arrow's side. `day` adds the daylight (`light=day`); the sheet's own lights are always on.
  */
-export function buildSheetScene(roots: ReadonlyMap<CalibrationKey, Object3D>, entries: ReadonlyMap<CalibrationKey, AssetEntry>, opts: { surface?: TextSurfaceFactory; dpr?: number } = {}): SheetScene {
+export function buildSheetScene(
+  roots: ReadonlyMap<CalibrationKey, Object3D>,
+  entries: ReadonlyMap<CalibrationKey, AssetEntry>,
+  opts: { surface?: TextSurfaceFactory; dpr?: number; aspect?: number; day?: boolean } = {},
+): SheetScene {
   const surface = opts.surface ?? defaultTextSurface;
   const dpr = opts.dpr ?? 1;
+  const aspect = opts.aspect ?? 16 / 9;
   const scene = new Scene();
   scene.name = "tile-sheet";
   scene.background = new Color(0x2b3240);
@@ -632,27 +630,23 @@ export function buildSheetScene(roots: ReadonlyMap<CalibrationKey, Object3D>, en
   const sun = new DirectionalLight(0xffffff, 2.2);
   sun.position.set(-8, 14, 22);
   scene.add(sun);
+  const daylight = opts.day === true ? new HemisphereLight(STREET_CAM_SKY, STREET_CAM_GROUND, STREET_CAM_DAY_INTENSITY) : null;
+  if (daylight) scene.add(daylight);
 
   const owned: { dispose(): void }[] = [];
   const own = <T extends { dispose(): void }>(x: T): T => {
     owned.push(x);
     return x;
   };
-  const pieces = sheetPieces();
+  const layout = sheetLayout(aspect);
   const tile = TILE_M * S;
-  const widths = pieces.map((p) => p.cells * tile);
-  let cursor = 0;
-  const centres = widths.map((w) => {
-    const c = cursor + w / 2;
-    cursor += w + SHEET_GAP;
-    return c;
-  });
-  const end = cursor - SHEET_GAP;
+  const fm = layout.frame_m;
+  const frame: CityRect = { minX: fm.minX * S, maxX: fm.maxX * S, minY: fm.minZ * S, maxY: fm.maxZ * S };
 
   const groundMat = own(new MeshStandardMaterial({ color: 0x3d4658, roughness: 1 }));
-  const ground = new Mesh(own(new PlaneGeometry(end + 6, 4)), groundMat);
+  const ground = new Mesh(own(new PlaneGeometry(frame.maxX - frame.minX + 6, frame.maxY - frame.minY + 6)), groundMat);
   ground.rotation.x = -Math.PI / 2;
-  ground.position.set(end / 2, -SIDEWALK_TOP_M * S - GROUND_BELOW_M * S, 0.4);
+  ground.position.set((frame.minX + frame.maxX) / 2, -SIDEWALK_WALK_M * S - GROUND_BELOW_M * S, (frame.minY + frame.maxY) / 2);
   noRay(ground);
   scene.add(ground);
 
@@ -661,14 +655,14 @@ export function buildSheetScene(roots: ReadonlyMap<CalibrationKey, Object3D>, en
   const shaftGeo = own(new BoxGeometry(0.06, 0.02, 0.42));
   const headGeo = own(new BufferGeometry());
   headGeo.setAttribute("position", new Float32BufferAttribute([0, 0, 0.2, -0.11, 0, 0, 0.11, 0, 0], 3));
-  const arrow = (x: number, turn: number): Group => {
+  const arrow = (x: number, z: number, turn: number): Group => {
     const g = new Group();
     const shaft = new Mesh(shaftGeo, arrowMat);
     shaft.position.set(0, 0, -0.1);
     const head = new Mesh(headGeo, arrowMat);
     head.position.set(0, 0, 0.11);
     g.add(shaft, head);
-    g.position.set(x, 0.03, 0);
+    g.position.set(x, 0.03, z);
     g.rotation.y = turn;
     return g;
   };
@@ -679,8 +673,10 @@ export function buildSheetScene(roots: ReadonlyMap<CalibrationKey, Object3D>, en
   };
 
   const labels: CaptionSprite[] = [];
-  const caption = (lines: readonly string[], x: number, y: number, z: number, anchorY: 0 | 1): void => {
-    const cs = createCaptionSprite(surface, SHEET_FONT_PX, dpr, false, anchorY);
+  /** A caption at (x, y, z): `side` "below" hangs it under the anchor, "above" grows it upward from it; both centre it on the anchor. */
+  const caption = (lines: readonly string[], x: number, y: number, z: number, side: "below" | "above"): void => {
+    const cs = createCaptionSprite(surface, SHEET_FONT_PX, dpr, false, 0);
+    cs.sprite.center.set(0.5, side === "below" ? 1 : 0);
     cs.draw(lines, "text");
     cs.sprite.position.set(x, y, z);
     own(cs.sprite.material);
@@ -689,13 +685,18 @@ export function buildSheetScene(roots: ReadonlyMap<CalibrationKey, Object3D>, en
     scene.add(cs.sprite);
   };
 
+  const rects: SheetPieceRect[] = [];
+  const pieceHave: { key: CalibrationKey; present: boolean }[] = [];
   let present = 0;
-  pieces.forEach((p, i) => {
-    const cx = centres[i]!;
+  for (const slot of layout.slots) {
+    const p = slot.piece;
+    const cx = slot.x_m * S;
+    const cz = slot.z_m * S;
     const root = roots.get(p.key);
     const entry = entries.get(p.key);
     const have = root !== undefined && entry !== undefined && meshParts(root).length > 0;
-    const w = widths[i]!;
+    const w = p.cells * tile;
+    rects.push({ key: p.key, x: cx, z: cz, w, d: tile });
     const t = 0.03;
     for (const [bw, bd, bx, bz] of [
       [w, t, 0, -tile / 2],
@@ -703,14 +704,13 @@ export function buildSheetScene(roots: ReadonlyMap<CalibrationKey, Object3D>, en
       [t, tile, -w / 2, 0],
       [t, tile, w / 2, 0],
     ] as const) {
-      scene.add(outlineBox(bw, bd, cx + bx, bz));
+      scene.add(outlineBox(bw, bd, cx + bx, cz + bz));
     }
     if (have) {
       present++;
       const wrap = new Group();
       wrap.name = `tile-piece:${p.key}`;
-      const role: TileRole = p.roles[0] ?? (p.key === TILE_PATCH ? "lane" : "pavementCorner");
-      wrap.position.set(cx, tileOriginY_m(role, entry) * S, 0);
+      wrap.position.set(cx, tileOriginY_m(sheetRole(p.roles, p.key), p.key) * S, cz);
       wrap.rotation.y = (tileFront(p.key) * Math.PI) / 180;
       wrap.scale.setScalar(S);
       const clone = root.clone(true);
@@ -718,35 +718,28 @@ export function buildSheetScene(roots: ReadonlyMap<CalibrationKey, Object3D>, en
       wrap.add(clone);
       scene.add(wrap);
     }
-    scene.add(arrow(cx, 0));
-    if (p.roles.includes("pavementCorner") || p.key === TILE_SHEET_EXTRA[0]) scene.add(arrow(cx, Math.PI / 2));
-    caption(sheetLabel(p.key, p.roles, have), cx, 0, tile / 2 + 0.18, 1);
-  });
-  caption(
-    [
-      "tile sheet (city-pack): each piece once, turned by its TILE_FRONTS line",
-      "yellow arrow = the front the city expects (+z, toward you)",
-      "a kerb or dip must be on the arrow's side; a road piece's lines run left-right (the street runs along x)",
-      "wrong? set that key's turn (90, 180 or 270) in TILE_FRONTS, src/render3d/tileslots.ts",
-      "the road pieces stand at the carriageway level, the sidewalk pieces with their top at 0",
-      "drag or arrow keys to move along the row",
-    ],
-    0,
-    0,
-    -tile / 2 - 0.3,
-    0,
-  );
+    scene.add(arrow(cx, cz, 0));
+    if (p.roles.includes("pavementCorner") || p.key === TILE_SHEET_EXTRA[0]) scene.add(arrow(cx, cz, Math.PI / 2));
+    // The label hangs from the piece's near (+z) edge, centred on it: its name, or in a numbered sheet its number.
+    pieceHave.push({ key: p.key, present: have });
+    caption(layout.numbered ? [String(pieceHave.length)] : sheetLabel(p.key, have), cx, 0, cz + tile / 2 + SHEET_LABEL_GAP_M * S, "below");
+  }
+  // The legend stands above the grid, centred over it, its text growing upward from the frame's top edge (into the room the rig keeps clear for it).
+  caption(sheetLegend(layout.numbered, pieceHave), ((fm.minX + fm.maxX) / 2) * S, 0, fm.minZ * S, "above");
+  const pieceLabels = labels.slice(0, layout.slots.length);
+  const side = Math.max(...pieceLabels.map((l) => l.sprite.userData["cssW"] as number)) / 2 + SHEET_ROOM_PX;
+  const insetsPx = { top: (labels[labels.length - 1]!.sprite.userData["cssH"] as number) + SHEET_ROOM_PX, bottom: Math.max(...pieceLabels.map((l) => l.sprite.userData["cssH"] as number)) + SHEET_ROOM_PX, left: side, right: side };
 
-  const first = Math.min(SHEET_SCREEN_PIECES, pieces.length) - 1;
-  const screenMaxX = (centres[first] ?? 0) + (widths[first] ?? tile) / 2 + 0.6;
-  const frame = { minX: -0.9, maxX: screenMaxX, minY: -0.1, maxY: 0.5, minZ: -0.9, maxZ: 1.6 };
-  const view: GalleryView = { world: { ...frame, minX: -0.9, maxX: end + 0.9 }, screens: [frame] };
   return {
     scene,
-    view,
+    frame,
+    insetsPx,
+    layout,
+    rects,
     present,
-    missing: pieces.length - present,
+    missing: layout.slots.length - present,
     labels,
+    daylight,
     setViewport(heightPx) {
       const unit = scaleForPx(1, heightPx, FOV_DEG);
       for (const cs of labels) cs.setUnit(unit);
@@ -754,6 +747,7 @@ export function buildSheetScene(roots: ReadonlyMap<CalibrationKey, Object3D>, en
     dispose() {
       for (const x of owned) x.dispose();
       owned.length = 0;
+      daylight?.dispose();
     },
   };
 }
@@ -769,7 +763,12 @@ const CITY_FIT_TOP = 6;
 /** The closest the camera dollies in, as a fraction of the fitting distance, and the furthest it backs off. */
 const CITY_ZOOM_IN = 0.06;
 const CITY_ZOOM_OUT = 1.6;
-
+/**
+ * The camera's near plane is this fraction of its distance from the target (never under 0.1). The depth buffer's resolution at distance d is about d squared over (near x 2^24), so a near
+ * plane at the old 0.1 left the overhead view ~0.006 world units (3 cm) of depth resolution at 100 units, and the lot lines, 1 to 3 cm over the lot surface, flickered against it (criterion 31).
+ * At a tenth of the distance the resolution is 0.0001 units (about 0.5 mm): the 1 cm separations hold. Nothing stands within a tenth of the distance of the camera (the tallest roof is 6 units).
+ */
+export const CITY_NEAR_FRACTION = 0.1;
 export interface CityRig {
   camera: PerspectiveCamera;
   resize(width: number, height: number, insets?: Insets): void;
@@ -783,9 +782,11 @@ export interface CityRig {
 
 /**
  * The play camera's pose (a tilted camera from the south: screen right is +x, screen down is +z) over a city rectangle instead of a puzzle: it opens framing the whole city,
- * pans over it and dollies in and out. The gallery's rig looks along a line from 15 degrees up and pans along x only, which cannot judge a street grid from above.
+ * pans over it and dollies in and out. The gallery's rig looks along a line from 15 degrees up and pans along x only, which cannot judge a street grid from above. The sheet is framed by it too
+ * (`rigOpts.fitTop` 0: nothing on the sheet stands tall).
  */
-export function createCityRig(frame: CityRect, width = 1280, height = 720, startInsets?: Insets): CityRig {
+export function createCityRig(frame: CityRect, width = 1280, height = 720, startInsets?: Insets, rigOpts: { fitTop?: number } = {}): CityRig {
+  const fitTop = rigOpts.fitTop ?? CITY_FIT_TOP;
   const camera = new PerspectiveCamera(FOV_DEG, width / height, 0.1, 2000);
   const size = { width, height };
   let insets: Insets = { ...(startInsets ?? {}) };
@@ -804,6 +805,7 @@ export function createCityRig(frame: CityRect, width = 1280, height = 720, start
     target.set(tx, 0, tz);
     camera.position.set(tx, dist * SIN_E, tz + dist * COS_E);
     camera.lookAt(target);
+    camera.near = Math.max(0.1, dist * CITY_NEAR_FRACTION);
     camera.aspect = size.width / size.height;
     const shift = ((insets.top ?? 0) - (insets.bottom ?? 0)) / 2;
     const side = ((insets.left ?? 0) - (insets.right ?? 0)) / 2;
@@ -820,7 +822,7 @@ export function createCityRig(frame: CityRect, width = 1280, height = 720, start
     const bottom = size.height - (insets.bottom ?? 0) - freeH * CITY_FIT_PAD;
     for (const x of [frame.minX, frame.maxX]) {
       for (const z of [frame.minY, frame.maxY]) {
-        for (const y of [0, CITY_FIT_TOP]) {
+        for (const y of [0, fitTop]) {
           probe.set(x, y, z).project(camera);
           const px = ((probe.x + 1) / 2) * size.width;
           const py = ((1 - probe.y) / 2) * size.height;
@@ -888,68 +890,100 @@ export function createCityRig(frame: CityRect, width = 1280, height = 720, start
 
 // ---- the renderer ----
 
+/**
+ * The height the tile city's pavement furniture stands at, metres: its walk is at 0 (design item 7; the ladder's pavement is 4.4 cm up), so a bench stands on the walk and does not float.
+ * The yard layer (a lot's pieces, an alley's) keeps the ladder's 2.2 cm over the lot surface at 0, so a flat piece (lot lines, a panel) is a hair above it (criterion 26).
+ */
+export const TILE_FURNITURE_LEVELS: FurnitureLevels = { pavement_m: 0 };
+
+/**
+ * What `applyModels` is given for a tile city (ticket 055 E): the keep-outs of `tileKeepouts` (pole slots, kerb cuts, the corner cells the crossings land on), the meters that stand beside
+ * no bay taken out (`bayMeters`), and the furniture on the walk. The puzzle path passes nothing.
+ */
+export function cityApplyOptions(city: TileCity): ApplyOptions {
+  const keep = tileKeepouts(city);
+  return { keepPoints: keep.keepPoints, keepRects: keep.keepRects, furnitureFilter: (pieces) => bayMeters(city, pieces), furnitureLevels: TILE_FURNITURE_LEVELS };
+}
+
+/** Does the page ask for the daylight (`light=day`)? One flag for every tile-view URL: the overhead city, the street camera, its fallback and the sheet. */
+export function cityDaylightRequested(search: string): boolean {
+  return new URLSearchParams(search).get("light") === "day";
+}
+
+/** The daylight, added to a scene: the one `HemisphereLight` of the page, at `STREET_CAM_DAY_INTENSITY`. */
+export function addDaylight(scene: Scene): HemisphereLight {
+  const light = new HemisphereLight(STREET_CAM_SKY, STREET_CAM_GROUND, STREET_CAM_DAY_INTENSITY);
+  scene.add(light);
+  return light;
+}
+
 export interface CityRendererOptions {
   insets?: Insets | undefined;
   dpr: number;
   /** The page's query string (`cam=street`, `run`, `at`, `light=day`); renderer.ts reads the address and passes it in. */
   search: string;
+  /** The models to load once the view is up (default: the page's shared tile load). A test passes its own so nothing is fetched. */
+  load?: () => Promise<ModelSet>;
+  /** The sheet's text surface (default: the browser's; a test passes the stub). */
+  surface?: TextSurfaceFactory;
+  /** The city to show (default: the one `req` asks for). A test passes one with no terraces to reach the street camera's fallback. */
+  city?: TileCity;
 }
 
-interface PanRig {
-  resize(width: number, height: number, insets?: Insets): void;
-  getPan(): { x: number; y: number };
-  setPan(x: number, y: number): { x: number; y: number };
-  resetView(): void;
-  getScale(): number;
-  zoomStep(dir: 1 | -1): number;
+/** The rig's insets for a sheet: the page's own, widened for the legend at the top and the labels at the bottom and sides. */
+export function sheetRigInsets(base: Insets, sheet: Pick<SheetScene, "insetsPx">): Insets {
+  const e = sheet.insetsPx;
+  return { ...base, top: (base.top ?? 0) + e.top, bottom: (base.bottom ?? 0) + e.bottom, left: (base.left ?? 0) + e.left, right: (base.right ?? 0) + e.right };
 }
+
+/** The sheet's fit ignores the roofline the city's fit allows for: nothing on it stands taller than a label's anchor. */
+const SHEET_FIT_TOP = 0.3;
 
 /**
  * The 3D view's tile city mode (dev only): the same interface as the town's renderer, so play and ui are unchanged. The puzzle, the state, the hover and the Relight it is handed
- * are ignored; nothing in the scene can be picked (`hitTest` is null). `?sheet=1` shows the tile sheet on the gallery's rig; otherwise the city, on a tilted camera over the
- * whole city (or `cam=street` on the tile city's own Town). The models load once the view is up; until they do (and if they never do) every tile is code-drawn.
+ * are ignored; nothing in the scene can be picked (`hitTest` is null). `?sheet=1` shows the tile sheet, from above on the city rig; otherwise the city, on a tilted camera over the
+ * whole city (or `cam=street` on the tile city's own Town). `light=day` adds the daylight on every one of those views, a street camera that finds no row included; without it the
+ * city and the street views are lit as the game is, at night, and the sheet by its own lights. The models load once the view is up; until they do (and if they never do) every tile
+ * is code-drawn.
  */
 export function createCityRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasElement, req: CityTilesRequest, opts: CityRendererOptions): MapRenderer3d {
   const w0 = Math.max(canvas.clientWidth, 1);
   const h0 = Math.max(canvas.clientHeight, 1);
   let insets: Insets = { ...(opts.insets ?? {}) };
   let disposed = false;
-  const city = tileCity({ blocksX: req.blocksX, blocksZ: req.blocksZ, seed: req.seed });
-  const query = new URLSearchParams(opts.search);
+  const city = opts.city ?? tileCity({ blocksX: req.blocksX, blocksZ: req.blocksZ, seed: req.seed });
+  const day = cityDaylightRequested(opts.search);
 
-  let rig: PanRig;
+  let rig: CityRig;
   let cityScene: CityScene | null = null;
   let sheet: SheetScene | null = null;
-  let camera: () => PerspectiveCamera;
   let applied: AppliedModels | null = null;
   let street: StreetView | null = null;
   let daylight: HemisphereLight | null = null;
-  let sceneNow: () => Scene;
-  let fitWhole: () => void;
+  let tileRoots: ReadonlyMap<CalibrationKey, Object3D> = new Map();
+  let tileEntries: ReadonlyMap<CalibrationKey, AssetEntry> = new Map();
+
+  /** The sheet for a window of this size, on a rig of its own (the grid's columns follow the window's shape, so a window of another shape needs another grid). */
+  const makeSheet = (w: number, h: number): void => {
+    const next = buildSheetScene(tileRoots, tileEntries, { dpr: opts.dpr, aspect: w / h, day, ...(opts.surface ? { surface: opts.surface } : {}) });
+    sheet?.dispose();
+    sheet = next;
+    rig = createCityRig(next.frame, w, h, sheetRigInsets(insets, next), { fitTop: SHEET_FIT_TOP });
+  };
 
   if (req.sheet) {
-    sheet = buildSheetScene(new Map(), new Map(), { dpr: opts.dpr });
-    const gr = createGalleryRig(sheet.view, w0, h0, insets);
-    rig = gr;
-    camera = () => gr.camera;
-    sceneNow = () => sheet!.scene;
-    fitWhole = () => gr.resetView();
+    makeSheet(w0, h0);
   } else {
     cityScene = buildCityScene(city);
     const win = city.town.window;
-    const cr = createCityRig({ minX: win.minX, minY: win.minY, maxX: win.maxX, maxY: win.maxY }, w0, h0, insets);
-    rig = cr;
-    camera = () => cr.camera;
-    sceneNow = () => cityScene!.scene;
-    fitWhole = () => cr.resetView();
+    rig = createCityRig({ minX: win.minX, minY: win.minY, maxX: win.maxX, maxY: win.maxY }, w0, h0, insets);
     const asked = streetCamRequested(opts.search);
-    if (asked) street = createStreetView(city.town, asked, cityScene.scene, w0, h0);
-    else if (query.get("light") === "day") {
-      daylight = new HemisphereLight(STREET_CAM_SKY, STREET_CAM_GROUND, STREET_CAM_DAY_INTENSITY);
-      cityScene.scene.add(daylight);
-    }
+    // The daylight is the renderer's, not the street view's: one light whatever the camera, so `light=day` lights the overhead view and the fallback to it as well.
+    if (day) daylight = addDaylight(cityScene.scene);
+    if (asked) street = createStreetView(city.town, { ...asked, day: false }, cityScene.scene, w0, h0);
     if (asked && !street) console.info("tile city: no row of buildings to look along yet, showing the city from above.");
   }
+  const sceneNow = (): Scene => (sheet ? sheet.scene : cityScene!.scene);
 
   function sizeLabels(): void {
     sheet?.setViewport(Math.max(canvas.clientHeight, 1));
@@ -959,31 +993,30 @@ export function createCityRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasElemen
     const h = Math.max(canvas.clientHeight, 1);
     gl.setPixelRatio(opts.dpr);
     gl.setSize(w, h, false);
-    rig.resize(w, h, insets);
+    if (sheet && sheetColumns(w / h) !== sheet.layout.cols) makeSheet(w, h);
+    else rig.resize(w, h, sheet ? sheetRigInsets(insets, sheet) : insets);
     street?.resize(w, h);
     sizeLabels();
   }
   resize();
 
   // The models: one load for the page, then the pieces swap in. A failure (no City Pack, no manifest) leaves every tile code-drawn and costs one line.
-  void sharedTileModels(tileKeys())
+  const load = opts.load ?? ((): Promise<ModelSet> => sharedTileModels(tileKeys()));
+  void load()
     .then((set) => {
       if (disposed) return;
       const input = tileInput(set);
-      const roots = input?.roots ?? new Map<CalibrationKey, Object3D>();
-      const entries = input?.entries ?? new Map<CalibrationKey, AssetEntry>();
+      tileRoots = input?.roots ?? new Map<CalibrationKey, Object3D>();
+      tileEntries = input?.entries ?? new Map<CalibrationKey, AssetEntry>();
       if (sheet) {
-        const next = buildSheetScene(roots, entries, { dpr: opts.dpr });
-        sheet.dispose();
-        sheet = next;
-        (rig as ReturnType<typeof createGalleryRig>).setView(next.view);
+        makeSheet(Math.max(canvas.clientWidth, 1), Math.max(canvas.clientHeight, 1));
         sizeLabels();
-        console.info(`tile sheet: ${next.present} of ${next.present + next.missing} pieces are in the pack`);
+        console.info(`tile sheet: ${sheet.present} of ${sheet.present + sheet.missing} pieces are in the pack`);
         return;
       }
       const scene = cityScene!;
-      applied = applyModels(scene, set);
-      const draw = scene.useTiles(roots, entries);
+      applied = applyModels(scene, set, cityApplyOptions(city));
+      const draw = scene.useTiles(tileRoots, tileEntries);
       console.info(tileCityLine(city, draw));
       street?.markReady();
     })
@@ -1020,13 +1053,13 @@ export function createCityRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasElemen
 
   const play: MapRenderer3d = {
     draw() {
-      gl.render(sceneNow(), camera());
+      gl.render(sceneNow(), rig.camera);
     },
     hitTest: () => null,
     resize,
     setInsets(next) {
       insets = { ...next };
-      rig.resize(Math.max(canvas.clientWidth, 1), Math.max(canvas.clientHeight, 1), insets);
+      rig.resize(Math.max(canvas.clientWidth, 1), Math.max(canvas.clientHeight, 1), sheet ? sheetRigInsets(insets, sheet) : insets);
       sizeLabels();
     },
     notify() {},
@@ -1035,13 +1068,13 @@ export function createCityRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasElemen
     getPan: () => rig.getPan(),
     setPan: (x, y) => rig.setPan(x, y),
     resetView() {
-      fitWhole();
+      rig.resetView();
       sizeLabels();
     },
     getScale: () => rig.getScale(),
     zoomStep: (dir) => rig.zoomStep(dir),
     fitWhole() {
-      fitWhole();
+      rig.resetView();
       sizeLabels();
     },
     centreOn: () => rig.getPan(),
