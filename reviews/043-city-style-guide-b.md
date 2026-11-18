@@ -72,3 +72,55 @@ none
 2. `gallery.ts` `galleryTitle`: when the pack had scale-suspect entries, add a line such as "N scale-suspect entries not shown". A suspect building would then not vanish silently from a calibration page.
 3. `docs/city-style-guide.md` chapter 15 Info line: mention the "copy of <family>" caption line. The ticket's caption has "family", and the guide's list of caption contents leaves it out.
 4. Hand the bare-name `BUILDING_FRONTS` collision (above) to the lead-architect as a note for the ticket that adopts town-pack or city-pack.
+
+## Round 2 (fe06709)
+assessment: meets
+must-fix: 0
+
+Scope: only `git diff 4186bf2..fe06709` (gallery.ts, gallery.test.ts, docs/city-style-guide.md). This is Josh's rework, in his words: "why not just put them all in a straight line so I can just scroll left to right and correct them." I ran `npx vitest run --maxWorkers=2 src/render3d/gallery.test.ts`: 51 passed, the four real-manifest cases included (simple-town 45, city-pack 49, town-pack 18 and apocalypse-power 10 models, each with 4 copies).
+
+1. **One straight line, no overlap, families adjacent, whole buildings first.**
+   - `galleryLayout` lays the groups left to right along x. Within a group each copy has its own cell, as wide as its outline or its caption, whichever is wider, with `COPY_GAP` between cells. `GROUP_GAP` (4) separates groups and is more than twice `COPY_GAP`.
+   - `expectSoundLine` (`gallery.test.ts` l.226) checks every pair:
+     - no two outlines overlap;
+     - no two copy-caption widths overlap;
+     - no two group boxes or group-caption widths overlap;
+     - every front edge is on z = 0;
+     - each cell is inside its group;
+     - the gap between groups is exactly `GROUP_GAP`.
+   - It runs on the three fixture packs, a scrambled table, an empty table, every page, and all four real packs.
+   - Family adjacency (Shop_01/02, Large_01/02) and parts-after-wholes are asserted on both the entries and the groups (l.180, l.290).
+2. **Four copies, one per front, exactly one `current`, and the `?` rule.**
+   - The l.345 test checks three tables: the order +z, +x, -z, -x, `yaw === frontYaw(f)`, the `door: f` caption, and under 0.5 degrees off the camera.
+   - The independent check is l.389. A marker child sits one unit along `frontAxis(f)` in the model's own frame. The real `buildGalleryScene` is built and three's world matrices are read; the copy's own side must point along +z. All four fronts are seen. A wrong yaw or sign fails it.
+   - Exactly one copy is `current`, the table's front or "+z" when the name has no line, and only that copy has the `current` caption line (l.364).
+   - `?` appears only on the current copy of a name with no line (l.376: Mall_A gets "door: +z ?", Shop_01's `-z` is current with no `?`). The green outline is backed by the `current` text, so colour is not the only mark.
+3. **Camera and input.**
+   - The rig looks along -z at 15 degrees, with x = 0 in its direction (l.584).
+   - It frames the first group, its captions and the title at 800x450, 1280x720 and 390x844.
+   - The pan is clamped at both ends, and y is ignored. Home means `resetView`, and End jumps so the last group is on screen (l.633). Zoom is clamped to 0.25x to 6x of the fitted distance (l.662).
+   - The new handler (`gallery.ts` l.992-1024) adds left-button pointerdown/move/up/cancel on the canvas, which also covers touch since touch is button 0, and a document keydown for End only.
+   - It doesn't clash with play:
+     - `src/play/pan.ts` acts only on button 2 and has no End case;
+     - play's click after a drag calls `hitTest`, which is null here, so nothing happens;
+     - main's panel-click handler sees no new log entry.
+   - `dispose` removes all five listeners and restores `touchAction`.
+   - `gallery.ts` never mentions `location`. `renderer.ts` (unchanged) passes `search: location.search`, and the isolation test at l.793 still checks that `galleryRequested(location.search)` is called only there, before `buildScene(puzzle`.
+4. **The real manifest is read lazily.** At describe level there is only `existsSync(REAL)` and a memoised `readReal`. `readFileSync` runs only inside `it` bodies (l.814-816), so the round 1 gate fault does not come back.
+5. **Dropping the red arrow is acceptable.** Four turned copies, each captioned `door: f`, replace the need for an arrow, and the arrow would only point at the camera on every copy. `debug3d.ts`, `frontArrow` and `fronts=1` are not in this diff.
+6. **The guide line is accurate.**
+   - It matches the code: one line along x, a low camera, four copies captioned `door: f`, the green outline plus `current`, `?` for a name with no line, the group caption contents, drag/arrows/Home/End/wheel, and `&page=N&per=N` off by default.
+   - No numbers changed, so the drift test is unaffected, and the gate is green.
+7. **Hard rules hold.**
+   - Only `src/render3d/gallery.ts`, its test and `docs/city-style-guide.md` changed.
+   - `camera.ts`, `main.ts`, `renderer.ts` and `debug3d.ts` are untouched.
+   - `git ls-files assets/private` is empty, and there is no new dependency.
+
+### Must fix
+none
+
+### Could improve
+1. On the real simple-town at 800 px the first screen shows only one whole group (28.7 px/unit; the log line from the real-manifest test). The fixture test asserts two. The fit can pick the 2-group screen only when it is within 800/`MIN_PX_PER_UNIT` = 40 units. Lowering `MIN_PX_PER_UNIT` a little, or widening only the first group's fit, would show Josh a second group on a small window. At 1280 px or wider this already works.
+2. `rig.resize` and `setInsets` call `fit()`, which resets the pan to the start of the line. A window resize or a HUD inset change part-way along a 1000-unit line throws Josh back to the first group. Keeping `tx` (clamped) across a resize would fix it.
+3. `visibleX` ignores the insets and the perspective spread across depth. It is used only by tests, so this is cosmetic. Name it as the target-depth width.
+4. A bare left click with no movement still captures the pointer and starts a zero-length drag. That is harmless, but a few pixels of threshold before panning would match play's right-drag feel.
