@@ -306,7 +306,7 @@ How to read it:
 - **Info**: the street-repeat rule and the share cap of chapter 5 do not bound a terrace (three styles are fewer than the families they apply to). The terrace's own bound is that each apartment style is a fifth to a half of a ladder's terrace blocks (`terracepack.test.ts`).
 - **Default (050 C)**: stacks on the circuit's own large and tall lots, outside the terraces, follow the neighbour, street-repeat and share rules of chapter 5 unchanged (`NEIGHBOUR_GAP`, `STREET_REPEAT_GAP`, `FAMILY_SHARE_MAX`).
 - **Default (052)**: the dressing varies by hash, not by order. One awning key per block (the awnings of a block match), no sign key twice in a block, at most one blade sign, one ATM, one fire-escape column and one big roof prop per block, at most `ATM_PER_RUN` ATMs, one billboard and one novelty sign per run, and no fire escape on two neighbouring blocks of a run.
-- **Info**: the only colour variety in the city comes from the three apartment styles. The awnings are fixed shapes and colours of one texture atlas, and the roof props are one colour each (16.6).
+- **Info (054)**: colour variety in the city comes from the three apartment styles and, since 054, from the colourway each block is drawn in (16.9): neighbours in a run never share one (R13). The awnings are fixed shapes and colours of one texture atlas, and the roof props are one colour each (16.6).
 
 ### 16.5 Dressing and furniture
 
@@ -321,6 +321,7 @@ How to read it:
 - **Default (052)**: furniture stands only on the pavements in front of terrace runs, never on the circuit's streets or the ring's inside, so nothing new stands near a node or a wire. A run has two lines: a wall line (an item's back edge `FURN_WALL_M` in from the pavement's wall edge) and a kerb line (its front edge `FURN_KERB_M` in from the kerb). Items on a line are `FURN_PITCH_M` apart centre to centre (trees `TREE_PITCH_M`), with a hashed gap of up to `FURN_GAP_SPAN_M` after that, `FURN_GAP_M` clear between footprints, and a candidate place is filled with probability `P_FURN` (busy, not cluttered; R10).
 - **Default (052)**: the keep-outs. Nothing within `FURN_CORNER_M` of a run's end, `FURN_KEEP_M` of a pole, lamp post, node, junction pad or service drop, nothing taller than `FURN_MAX_H_M` within `WIRE_CLEAR` of a wire span, and an item taller than a dressing piece stays out from under it. Bins, planters, pot plants, benches, a mailbox and newspaper boxes go on the wall line; parking meters, trees, a hydrant and a bus stop on the kerb line; a bollard just beyond each corner keep-out with probability `P_BOLLARD`. Per-run caps: `HYDRANT_PER_RUN`, `MAILBOX_PER_RUN`, `NEWSPAPER_PER_RUN`, `BUS_STOP_PER_RUN` (on a run of at least `BUS_STOP_MIN_RUN_M`), `BOLLARD_PER_RUN`.
 - **Default (052)**: open lots and alleys are dressed. A parking lot gets two tiles of lines that cover it, two or three barriers along its back edge, a meter (sometimes two) and, with probability `P_PARKING_BILLBOARD`, a pole billboard whose board stands `BILLBOARD_BOARD_LIFT_M` up and only under its run's lowest cap; it has no cars. A plaza gets four paving panels, one or two trees, benches, a planter, pot plants, and a picnic table with an umbrella or a hot-dog stand. An alley gets one or two bins with probability `P_ALLEY` (`P_ALLEY_SECOND` for the second) against its walls. The pack has no gate that fits an alley, so there is none. A piece lower than `SLAB_MAX_M` is ground: things stand on it.
+- **Info (054)**: dressing and furniture keep the base atlas whatever colourway their block is drawn in; why is in 16.9.
 - **Default (052)**: drawing. Each key is one `InstancedMesh` per sub-mesh (at most `DRESS_DRAW_CALLS_MAX` draw calls for the dressing and `FURN_DRAW_CALLS_MAX` for the furniture on the largest map). No dressing or furniture object raycasts (it is never picked), and none is lit: a material that carries emission is swapped for a dark clone, and all shop glass shares one dark, see-through material.
 
 ### 16.6 Exclusions and gaps
@@ -366,11 +367,12 @@ How to read it:
 - **Default (050)**: with no City Pack in the manifest, or its GLB failed, no stack is offered and the terrace is the abutting placeholder boxes of 051 B, as on a fresh checkout and in CI. The town is then exactly what chapter 5's chain gives.
 - **Default (051)**: a run that packs no block keeps its placeholders. A stack piece whose root did not load, or whose key is excluded, drops the styles that need it and nothing else; if every style drops, the type falls down the chain of chapter 5.
 - **Default (052)**: a dressing or furniture key missing from the manifest drops only its own placements. With no stack there is no dressing, and with no dressing or no packed run there is no furniture: each is drawn only when the layer under it is.
+- **Default (054)**: with no `colourways` field in the City Pack's manifest entry, no colourway image loaded, or a fresh checkout or CI, no texture is fetched and every block keeps the cached materials: the scene is exactly what it was before 054. An image that fails to load drops its own id only (16.9).
 - **Info**: the circuit and the play view are not touched by any of this: the 3D play view must read exactly as on `main` (R12).
 
 ### 16.8 Evaluation protocol
 
-- **Default (053)**: the protocol judges a generated city against the reference with three maps, a fixed set of views and the checklist R1 to R12. Most checklist items are checked by a test on every `npm test`; the rest are judged by eye from screenshots.
+- **Default (053)**: the protocol judges a generated city against the reference with three maps, a fixed set of views and the checklist R1 to R13. Most checklist items are checked by a test on every `npm test`; the rest are judged by eye from screenshots.
 - **Default (053)**: the maps, all in `puzzles/`:
 
 | Map | Why |
@@ -428,6 +430,7 @@ How to read it:
 | R10 | street furniture spaced along the pavement, not cluttered | auto: pitch, corner and keep-out violations are none; eye: it reads busy, not noisy |
 | R11 | a parking lot and a corner plaza on the map | auto: on `64-the-whole-chain` there is at least one of each |
 | R12 | no people, animals or vehicles; nothing glows; the circuit reads as on `main` | auto: no never-used key in the plan, no emissive material in the drawn dressing; eye: the play view and the circuit are unchanged |
+| R13 | neighbouring blocks differ in colour: red, green, cream-tan and teal side by side | auto: the share of adjacent block pairs in a run with different colourway ids, over the plan with a fixed fake set of 8 ids; eye: in the `cam=street&run=0&light=day` screenshot of each map at least four wall colours are visible |
 
 - **Default (053)**: what "matches the reference" means: every auto item passes on all three maps, and every eye item passes on every screenshot listed. A fail names the item, the URL and what is wrong. The main session records the result as a table in the review it shows Josh, one row per item and map: the auto value, and for each eye item pass or fail with the URL.
 - **Default (053 Q3)**: the eye items are judged by the main session, from screenshots, and recorded for Josh.
@@ -445,9 +448,34 @@ How to read it:
 - **Open (waits for the eye items of 16.8)**: none of the eye items has been judged by the builder of this chapter (no browser was run). The table of results in the review is where they are recorded.
 - **Info**: what is deliberately not built: variety of awnings and rooftops by colour, lit windows, balconies and cornices, and every piece the pack lacks (16.6). None blocks the look; each is a line in 16.6 that a later ticket can close.
 
+**Colourways (ticket 054).** Every City Pack block is drawn in one of the pack's colourway atlases, so neighbours differ in wall colour as they do in the reference. A colourway is an alternate texture of the same 1024 x 1024 layout: only cell colours change, so a block keeps its shape and its walls change. `colourway.ts` holds the rules (pure, no three); `models3d.ts` does the drawing.
+
+- **Default (054)**: the pool is `COLOURWAY_POOL`, in the order of the table below, and only these ids are ever fetched. `base` is the atlas the GLB embeds (today's look: it needs no file and no clone). The B tones (about 8% darker, and a night scene is already dark) and 01_A (the same as the base) are left out.
+
+| Id | Series | Tone | Brick wall |
+| --- | --- | --- | --- |
+| base | 01 | as the GLB embeds it | red, #956257 |
+| 01_C | 01 | C, brighter and more saturated | warmer orange-red, #a16458 |
+| 02_A | 02 | A, as drawn | dark green, #475343 |
+| 02_C | 02 | C | a brighter green |
+| 03_A | 03 | A | cream-tan, #ac8f79 |
+| 03_C | 03 | C | a brighter tan |
+| 04_A | 04 | A | teal, #497d7e |
+| 04_C | 04 | C | a brighter teal |
+
+- **Default (054)**: the neighbour rule (R13). A block's start index is a hash of its lot key (`assignColourways`, through a murmur-style finaliser because FNV's low bits are weak on short keys) modulo the number of ids available; if that is the id of the block before it in the same run, it steps to the next. So two neighbours in a run never share a colourway while two or more are available. A stack on a lone lot (no run) takes its hash's id. The available ids are `base` plus the pool ids that loaded, in pool order; with `base` alone every block is `base`.
+- **Default (054 Q3)**: neighbours across a corner (the last block of one run and the corner block of the next) are not forced to differ; a match is one in eight. R13 counts within a run only.
+- **Default (054)**: only a stack's pieces are painted, and only a material whose map is the base atlas (the texture or image is named for the base, or for the base followed by a colourway id). Glass, the replaced glass and any material with no map keep the very same objects. Each painted material is a clone, cached per source material and id, so no cached model is ever touched; the new map copies the old one's flip, colour space and wrap, uses the nearest filter and has no mipmaps. An emissive map is never set from a colourway.
+- **Default (054 Q1)**: dressing and furniture keep the base atlas. Each dressing key is one `InstancedMesh` shared by every block (16.5), and matching the block would split every key into up to eight meshes and break the draw-call cap `DRESS_DRAW_CALLS_MAX`. The reference's awnings and escapes also contrast with their walls: they do not match them.
+- **Default (054)**: loading is lazy and optional (16.7). The City Pack entry's `colourways` field is read only when stack keys were asked for; the pool's ids load in parallel; one that fails is dropped with one console line and the rest are used. The export that makes the files and the field is `tools/assets/colourways.ts` (a table of file names only; the images are Synty content, gitignored and fetched by URL at dev time, never bundled).
+- **Info (054)**: what changes on a block. 85.7% of the pack's building triangles sample the wall gradient block, where series 02 to 04 recolour the brick and the warm-brown trim columns; 6.5% sample blue panels that turn grey in 02 and 04 (likely door and window panels, accepted as more variety); none sample a sign. Cost: each atlas is 4 MiB decoded, 28 MiB for the 7 that load; materials grow by the distinct base-atlas materials on stack pieces times 7; draw calls and shader programs do not change.
+- **Info (054)**: the colour judgement is made with `light=day`: the hue difference is subtle in the night scene.
+- **Open (waits for a generated-recolour ticket, if the eye check finds too few colours)**: not every wall changes. The colourways recolour only some gradient columns (the brick, the warm browns, one tan); the grey-walled styles and the shopfront ground floors are the same in every colourway, so the variety is mostly the brick upper floors. Judged by eye by the main session on 18 Nov 2026: neighbouring blocks render in red, dark green, cream-tan and teal, and shopfronts and the grey styles look the same in every colourway. The follow-up, if wanted, is a per-column hue remap of the base made by the converter, not more of this pool.
+- **Info (054)**: R13 is measured by `citymetrics.test.ts` on the three maps of the protocol with a fixed fake set of 8 ids, not the real files (CI has none): it passes at 1 because the rule steps off a repeat. The eye half is in 16.8.
+
 ## Numbers
 
-The drift test (`styleguide.test.ts`) reads this table. Each row names an export of the file in its last column. A value is a number (within 1e-9), a colour as `0x` hex (exactly), or `a x b x c` for a record, in the record's field order. `LOT_TYPES` is frontage x depth x cap in metres and `PLACE_SIZES` is width x depth in metres. `STACK_STYLES[i].pitch_m` is base x floor x roof in metres (the storey heights a recipe counts floors by; the roof is the height reserved under the cap), in the order `apartment-01`, `-02`, `-03`, `office-old-small`, `office-old-large`, `office-octagon`. `STACK_FLOORS` is the fewest floors over the base. `TINTS[i]` is the i-th wall tint. `CITY_CHECK` is the threshold of R1 to R12 in that order (a share to reach, or a count not to pass, chapter 16.8) and `CITY_STOREYS` is the fewest and most storeys. Changing a constant in code or a value here fails the test. Since ticket 053 the test also fails when `stacks.ts`, `terrace.ts`, `dressing.ts`, `furniture.ts`, `streetcam.ts` or `citymetrics.ts` exports a number that has no row here, and when `town.ts` does for a `TERRACE_*`, `PARKING_*` or `PLAZA_*` name.
+The drift test (`styleguide.test.ts`) reads this table. Each row names an export of the file in its last column. A value is a number (within 1e-9), a colour as `0x` hex (exactly), or `a x b x c` for a record, in the record's field order. `LOT_TYPES` is frontage x depth x cap in metres and `PLACE_SIZES` is width x depth in metres. `STACK_STYLES[i].pitch_m` is base x floor x roof in metres (the storey heights a recipe counts floors by; the roof is the height reserved under the cap), in the order `apartment-01`, `-02`, `-03`, `office-old-small`, `office-old-large`, `office-octagon`. `STACK_FLOORS` is the fewest floors over the base. `TINTS[i]` is the i-th wall tint. `CITY_CHECK` is the threshold of R1 to R13 in that order (a share to reach, or a count not to pass, chapter 16.8) and `CITY_STOREYS` is the fewest and most storeys. Changing a constant in code or a value here fails the test. Since ticket 053 the test also fails when `stacks.ts`, `terrace.ts`, `dressing.ts`, `furniture.ts`, `streetcam.ts` or `citymetrics.ts` exports a number that has no row here, and when `town.ts` does for a `TERRACE_*`, `PARKING_*` or `PLAZA_*` name. Since ticket 054 the test also fails when `colourway.ts` exports a constant (not a function) that has no row here; `COLOURWAY_POOL` is pinned by its length, and its ids are the table in 16.9.
 
 | Constant | Value | File |
 | --- | --- | --- |
@@ -627,11 +655,12 @@ The drift test (`styleguide.test.ts`) reads this table. Each row names an export
 | `STREET_CAM_SKY` | 0xcfe0ff | streetcam.ts |
 | `STREET_CAM_GROUND` | 0x6b5a48 | streetcam.ts |
 | `STREET_CAM_DAY_INTENSITY` | 2.2 | streetcam.ts |
-| `CITY_CHECK` | 0.9 x 1 x 1 x 1 x 0.55 x 0.5 x 0.5 x 0.9 x 0 x 0 x 1 x 0 | citymetrics.ts |
+| `CITY_CHECK` | 0.9 x 1 x 1 x 1 x 0.55 x 0.5 x 0.5 x 0.9 x 0 x 0 x 1 x 0 x 1 | citymetrics.ts |
 | `CITY_ATM_BLOCKS_MIN` | 0.15 | citymetrics.ts |
 | `CITY_BIG_ROOF_RUNS_MIN` | 0.5 | citymetrics.ts |
 | `CITY_RUN_FRONTAGE` | 0.9 | citymetrics.ts |
 | `CITY_STOREYS` | 3 x 5 | citymetrics.ts |
+| `COLOURWAY_POOL.length` | 8 | colourway.ts |
 
 Inline in `buildScene` (`scene.ts` has no named constant for these, and this ticket may not add one, so the test looks for the exact source text):
 

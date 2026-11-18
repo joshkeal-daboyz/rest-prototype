@@ -11,6 +11,7 @@ import { join } from "node:path";
 import { BoxGeometry, Group, InstancedMesh, Mesh, MeshStandardMaterial } from "three";
 import { ASSET_MANIFEST_VERSION, loadPuzzle, type AssetEntry, type AssetManifest, type CalibrationKey, type Puzzle } from "../core";
 import { CITY_ATM_BLOCKS_MIN, CITY_CHECK, CITY_NEVER_USED, CITY_STOREYS, cityMetrics, evaluateCity, isNeverUsed, runBlocks, type CityExtra, type CityMetrics, type CityTown } from "./citymetrics";
+import { assignColourways } from "./colourway";
 import { dressKeys, dressTown, type DressPiece } from "./dressing";
 import { alleyOf, furnitureKeys, furnitureLayout, type Alley, type FurnitureInput, type FurniturePiece, type Rect } from "./furniture";
 import { dropLayout, wireLayout } from "./layout";
@@ -258,8 +259,8 @@ const verdictOf = (m: CityMetrics, file: string = "09-shrine-circuit") => evalua
 const failing = (m: CityMetrics, file?: string): string[] => verdictOf(m, file).filter((v) => !v.pass).map((v) => v.id);
 
 describe("the thresholds", () => {
-  it("name R1 to R12 once each, with the numbers the guide pins", () => {
-    expect(Object.keys(CITY_CHECK)).toEqual(["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R9", "R10", "R11", "R12"]);
+  it("name R1 to R13 once each, with the numbers the guide pins", () => {
+    expect(Object.keys(CITY_CHECK)).toEqual(["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R9", "R10", "R11", "R12", "R13"]);
     expect(evaluateCity(metricsOf("09-shrine-circuit")).map((v) => v.id)).toEqual(Object.keys(CITY_CHECK));
     expect(CITY_STOREYS).toEqual({ min: 3, max: 5 });
     expect(CITY_ATM_BLOCKS_MIN).toBeGreaterThan(0);
@@ -462,5 +463,72 @@ describe("the never-used list", () => {
     expect(keys.length).toBeGreaterThan(120);
     for (const key of keys) expect(isNeverUsed(key), key).toBe(false);
     for (const key of [...dressKeys(), ...furnitureKeys()]) expect(ENTRIES.has(key), key).toBe(true);
+  });
+});
+
+describe("R13: neighbouring blocks in a run differ in colourway (ticket 054 C)", () => {
+  const FAKE_EIGHT = ["c0", "c1", "c2", "c3", "c4", "c5", "c6", "c7"];
+  const blocksOf = (file: string) => runBlocks(planOf(file).town.terraces, planOf(file).packed);
+  /** The ids the metric assigns by default, so a test can break one pair. */
+  const assigned = (file: string, available: readonly string[] = FAKE_EIGHT): string[] =>
+    assignColourways(blocksOf(file).map(({ run, block }) => ({ key: block.lot.key, run: run.id })), available);
+
+  it("is a threshold of 1", () => {
+    expect(CITY_CHECK.R13).toBe(1);
+  });
+
+  for (const file of MAPS) {
+    it(`${file}: every adjacent pair in a run differs with the fake set of 8 ids, and there are pairs to count`, () => {
+      const m = metricsOf(file);
+      expect(m.colourwayPairs, file).toBeGreaterThan(30);
+      expect(m.colourwayNeighbourDiffer, file).toBe(1);
+      const r13 = verdictOf(m, file).find((v) => v.id === "R13")!;
+      expect(r13.pass, file).toBe(true);
+      expect(r13.value, file).toBe(1);
+    });
+  }
+
+  it("counts the pairs inside a run only: as many as the pairs of the neighbour rule", () => {
+    const file = "09-shrine-circuit";
+    expect(metricsOf(file).colourwayPairs).toBe(metricsOf(file).neighbourPairs);
+  });
+
+  it("fails when two neighbours in a run share an id, and only R13 fails", () => {
+    const file = "09-shrine-circuit";
+    const list = blocksOf(file);
+    const ids = assigned(file);
+    const i = list.findIndex((x, k) => k > 0 && list[k - 1]!.run.id === x.run.id);
+    expect(i).toBeGreaterThan(0);
+    ids[i] = ids[i - 1]!;
+    const m = metricsOf(file, { extra: { ...planOf(file).extra, colourways: ids } });
+    expect(m.colourwayNeighbourDiffer).toBeLessThan(1);
+    expect(failing(m, file)).toEqual(["R13"]);
+  });
+
+  it("fails when every block has the same id, and when only one id is available (nothing to differ by)", () => {
+    const file = "09-shrine-circuit";
+    const same = metricsOf(file, { extra: { ...planOf(file).extra, colourways: blocksOf(file).map(() => "c0") } });
+    expect(same.colourwayNeighbourDiffer).toBe(0);
+    expect(failing(same, file)).toEqual(["R13"]);
+    const alone = metricsOf(file, { extra: { ...planOf(file).extra, colourwayAvailable: ["base"] } });
+    expect(alone.colourwayNeighbourDiffer).toBe(0);
+    expect(failing(alone, file)).toEqual(["R13"]);
+  });
+
+  it("does not ask neighbours across two runs to differ", () => {
+    const file = "09-shrine-circuit";
+    const list = blocksOf(file);
+    const ids = assigned(file);
+    const i = list.findIndex((x, k) => k > 0 && list[k - 1]!.run.id !== x.run.id);
+    expect(i).toBeGreaterThan(0);
+    ids[i] = ids[i - 1]!;
+    expect(failing(metricsOf(file, { extra: { ...planOf(file).extra, colourways: ids } }), file)).toEqual([]);
+  });
+
+  it("holds with as few as two ids available, and is the same on every call", () => {
+    const file = "09-shrine-circuit";
+    const two = metricsOf(file, { extra: { ...planOf(file).extra, colourwayAvailable: ["c0", "c1"] } });
+    expect(two.colourwayNeighbourDiffer).toBe(1);
+    expect(assigned(file)).toEqual(assigned(file));
   });
 });

@@ -9,6 +9,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { parseCalibrationKey } from "../core";
 import * as cityRender from "../render/city";
 import * as camera from "./camera";
+import * as colourway from "./colourway";
 import * as citymetrics from "./citymetrics";
 import * as debug3d from "./debug3d";
 import * as dressing from "./dressing";
@@ -41,6 +42,7 @@ const MODULES: Readonly<Record<string, Record<string, unknown>>> = {
   "furniture.ts": furniture as unknown as Record<string, unknown>,
   "streetcam.ts": streetcam as unknown as Record<string, unknown>,
   "citymetrics.ts": citymetrics as unknown as Record<string, unknown>,
+  "colourway.ts": colourway as unknown as Record<string, unknown>,
 };
 
 // ---- reading the guide ----
@@ -466,5 +468,51 @@ describe("chapter 16 gives the grammar and the evaluation protocol (ticket 053)"
   it("records what is deliberately not built and what does not yet match", () => {
     for (const w of ["lit windows", "balconies and cornices", "variety of awnings and rooftops by colour", "never used", "Evaluation protocol"]) expect(text.toLowerCase(), w).toContain(w.toLowerCase());
     expect(/^- \*\*Open \(/m.test(text)).toBe(true);
+  });
+});
+
+// ---- ticket 054 C: colourway.ts joins the drift-checked files ----
+
+describe("colourway.ts is drift-checked and 16.9 names the colourways (ticket 054)", () => {
+  const rows = table(section(/^## Numbers$/), ["Constant", "Value", "File"]);
+  const refs = rows.filter((r) => r[2] === "colourway.ts").map((r) => unquote(r[0]!));
+  /** The exports of a module that are not functions and are covered by no row: a row is the name itself, or the name followed by a field or an index (`COLOURWAY_POOL.length`). */
+  const uncovered = (mod: Record<string, unknown>, have: readonly string[]): string[] =>
+    Object.entries(mod)
+      .filter(([, v]) => typeof v !== "function")
+      .map(([name]) => name)
+      .filter((name) => !have.some((r) => r === name || r.startsWith(`${name}.`) || r.startsWith(`${name}[`)));
+
+  it("has a Numbers row for every constant colourway.ts exports, and the check finds a constant with no row", () => {
+    expect(Object.values(MODULES["colourway.ts"]!).some((v) => typeof v !== "function"), "colourway.ts exports a constant").toBe(true);
+    expect(uncovered(MODULES["colourway.ts"]!, refs), "no row for these colourway.ts exports").toEqual([]);
+    // Not vacuous: a constant added to the file without a row, and a row left out, are both found.
+    expect(uncovered({ ...MODULES["colourway.ts"]!, NEW_TUNING: 3 }, refs)).toEqual(["NEW_TUNING"]);
+    expect(uncovered(MODULES["colourway.ts"]!, [])).toContain("COLOURWAY_POOL");
+  });
+
+  it("pins the pool's size in the Numbers table (its ids are the table in 16.9)", () => {
+    expect(refs).toContain("COLOURWAY_POOL.length");
+    expect(colourway.COLOURWAY_POOL.length).toBe(8);
+  });
+
+  it("lists in 16.9 exactly the ids of COLOURWAY_POOL, in its order, and names the rule and its check", () => {
+    const text = chapter(16).join("\n");
+    const ids = table(chapter(16), ["Id", "Series", "Tone", "Brick wall"]).map((r) => r[0]!);
+    expect(ids).toEqual([...colourway.COLOURWAY_POOL]);
+    for (const id of colourway.COLOURWAY_POOL) expect(text, id).toContain(id);
+    for (const w of ["COLOURWAY_POOL", "assignColourways", "Colourways (ticket 054)", "dressing and furniture keep the base atlas", "light=day"]) expect(text.toLowerCase(), w).toContain(w.toLowerCase());
+    expect(/^- \*\*Open \(waits for [^)]*\)\*\*: not every wall changes/m.test(text), "risk 1 is an Open line").toBe(true);
+  });
+
+  it("lists R13 in 16.8 as auto and eye, with the at-least-four-wall-colours eye half and the day street view", () => {
+    const rows = table(chapter(16), ["Item", "What the reference shows", "How it is checked"]);
+    const r13 = rows.find((r) => r[0] === "R13");
+    expect(r13, "16.8 has a row for R13").toBeDefined();
+    expect(r13![2]!).toMatch(/\bauto\b/);
+    expect(r13![2]!).toMatch(/\beye\b/);
+    expect(r13![2]!).toContain("at least four wall colours");
+    expect(r13![2]!).toContain("cam=street&run=0&light=day");
+    expect(Object.keys(citymetrics.CITY_CHECK)).toContain("R13");
   });
 });
