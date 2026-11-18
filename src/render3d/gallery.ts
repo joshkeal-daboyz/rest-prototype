@@ -1,12 +1,14 @@
 /**
- * The building gallery (ticket 043 B, debug only): `/?puzzle=<any>&view=3d&gallery=<pack-id>` shows every building-sized entry of one converted pack,
- * in rows on a plain ground, at WORLD_PER_METRE, each on its lot outline and turned so its declared front (BUILDING_FRONTS) faces the camera, with
- * a red arrow along that front and a caption. A new pack's door sides are settled in one look instead of by hunting through a whole town.
+ * The building gallery (ticket 043 B, debug only): `/?puzzle=<any>&view=3d&gallery=<pack-id>` shows every building-sized entry of one converted pack
+ * in ONE straight line along x, at WORLD_PER_METRE. Each model stands four times side by side, one copy turned so each of its four sides ("+z", "+x",
+ * "-z", "-x") faces the camera, captioned `door: f`. The copy whose real door faces the camera is that model's true front: Josh names it per model
+ * (for example "Preset_03: -x") and that becomes its BUILDING_FRONTS line. The copy that matches the table now is marked `current` and has a green
+ * outline; a name with no line yet keeps its `?` (the "+z" guess).
  *
- * Two halves. The first is pure (no three, no DOM): which entries count, their order, and where each one stands (`galleryLayout`). The second is
- * three: it places clones at those slots, frames them (its own small camera rig, same tilt and lens as the town's) and loads only that pack's GLB.
- * It is off unless the page asks for it, never a pick target, and never part of a playtest. Nothing here reads the page's address: renderer.ts
- * passes the query string in.
+ * Two halves. The first is pure (no three, no DOM): which entries count, their order, and where each copy stands (`galleryLayout`). The second is
+ * three: it places clones at those slots, frames the first few groups on a low, straight-on camera (its own small rig: 15 degrees up, the town's
+ * lens, pan along the row only) and loads only that pack's GLB. It is off unless the page asks for it, never a pick target, and never part of a
+ * playtest. Nothing here reads the page's address: renderer.ts passes the query string in.
  */
 
 import {
@@ -32,9 +34,8 @@ import {
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import type { AssetEntry, AssetManifest } from "../core";
 import { ZOOM_STEP, type Insets, type Pan } from "../render/geometry";
-import { ELEVATION, FOV_DEG } from "./camera";
+import { FOV_DEG } from "./camera";
 import { scaleForPx } from "./captions";
-import { declaredFrontDirection, frontArrow } from "./debug3d";
 import {
   BUILDING_EXCLUDE,
   BUILDING_FRONTS,
@@ -60,8 +61,6 @@ import { LOT_TYPES, type LotType } from "./town";
 
 /** The pack shown when the flag has no value: `gallery=`. */
 export const GALLERY_DEFAULT_PACK = "simple-town";
-/** Entries on one page when the page flags say nothing: a phone screenshot of 12 captions is still readable. `&per=N` changes it. */
-export const GALLERY_PAGE_SIZE = 12;
 
 /** The pack id the query string asks for (`gallery=town-pack`), the default pack for an empty value, or null when the flag is absent. */
 export function galleryRequested(search: string): string | null {
@@ -71,15 +70,18 @@ export function galleryRequested(search: string): string | null {
   return id === "" ? GALLERY_DEFAULT_PACK : id;
 }
 
-function positiveInt(v: string | null, fallback: number): number {
+function positiveInt(v: string | null): number | null {
   const n = v === null ? NaN : Number(v);
-  return Number.isInteger(n) && n >= 1 ? n : fallback;
+  return Number.isInteger(n) && n >= 1 ? n : null;
 }
 
-/** `&page=N` (1-based, default 1) and `&per=N` (entries per page, default GALLERY_PAGE_SIZE). */
-export function galleryPageRequested(search: string): { page: number; pageSize: number } {
+/**
+ * `&page=N` (1-based, default 1) and `&per=N` (models per page). With no `per` the whole pack is one page (`pageSize` null): the gallery is one
+ * line you scroll along, and paging is only there for a pack too big to build in one go.
+ */
+export function galleryPageRequested(search: string): { page: number; pageSize: number | null } {
   const q = new URLSearchParams(search);
-  return { page: positiveInt(q.get("page"), 1), pageSize: positiveInt(q.get("per"), GALLERY_PAGE_SIZE) };
+  return { page: positiveInt(q.get("page")) ?? 1, pageSize: positiveInt(q.get("per")) };
 }
 
 // ---- which entries are buildings ----
@@ -108,13 +110,13 @@ export function isPartName(name: string): boolean {
 export interface GalleryEntry {
   entry: AssetEntry;
   family: string;
-  /** Which of the model's axes its door faces: its BUILDING_FRONTS line, or the "+z" guess. */
+  /** Which of the model's axes its door faces now: its BUILDING_FRONTS line, or the "+z" guess. */
   front: ModelFront;
   /** True when BUILDING_FRONTS has no line for this name (the front is the guess). */
   guessed: boolean;
   corner: false | "+x" | "-x";
   excluded: boolean;
-  /** The lot type its size fits once its front is turned to the road, or null (a dashed outline). */
+  /** The lot type its size fits once its current front is turned to the road, or null (a dashed outline). */
   lotType: LotType | null;
   /** The model's size in metres: width (x), height (y), depth (z). */
   size: readonly [number, number, number];
@@ -123,7 +125,7 @@ export interface GalleryEntry {
 }
 
 /**
- * The building-sized entries of `packId`, in page order: whole-looking buildings first, then modular parts; within each, by mesh family then name,
+ * The building-sized entries of `packId`, in line order: whole-looking buildings first, then modular parts; within each, by mesh family then name,
  * so the members of one family are neighbours. An entry counts when a MODEL_TABLE building row of this pack or BUILDING_FRONTS names it, or when it is at
  * least BUILDING_MIN_FOOTPRINT_M on both ground axes and BUILDING_MIN_HEIGHT_M high and its name has no NON_BUILDING_PREFIXES prefix.
  * An entry the converter marked `scale-suspect` never counts (the town's own planner skips them too). Empty when the manifest or the pack is missing.
@@ -166,30 +168,43 @@ export function galleryEntries(
   return out.sort((a, b) => Number(a.part) - Number(b.part) || byName(a.family, b.family) || byName(a.entry.name, b.entry.name));
 }
 
-/** How many pages `total` entries make at `pageSize` per page (at least 1, so an empty pack still has a page to say so on). */
+/** How many pages `total` models make at `pageSize` per page (at least 1, so an empty pack still has a page to say so on). */
 export function galleryPageCount(total: number, pageSize: number): number {
   return Math.max(1, Math.ceil(total / Math.max(1, pageSize)));
 }
 
-// ---- the layout ----
+// ---- the layout: one line of groups, four copies to a group ----
 
-/** The columns that suit a canvas of this aspect (width over height): the page is a grid, and a wide screen takes more columns. */
-export function galleryColumns(aspect: number): number {
-  return Math.min(5, Math.max(2, Math.round((Number.isFinite(aspect) ? aspect : 16 / 9) * 2.2)));
-}
+/** The four copies of every model, in the order they stand, left to right. Each is turned by `frontYaw(f)` so its own side `f` faces the camera. */
+export const GALLERY_FRONTS: readonly ModelFront[] = ["+z", "+x", "-z", "-x"];
 
-/** World units of screen height one caption line takes (the text is sized to the page, so a caption never outgrows its cell at any zoom). */
-export const CAPTION_LINE_UNITS = 0.62;
-/** World units of ground a caption line reserves below a front edge: a line's screen height over sin(elevation) (0.88), with a little over. */
-export const CAPTION_LINE_RESERVE = 1;
-/** World units a caption's character reserves across. */
-export const CAPTION_CHAR_UNITS = 0.29;
+/** World units of screen height one caption line takes, for a copy's caption and for a group's (larger) caption and the title. */
+export const COPY_LINE_UNITS = 0.8;
+export const GROUP_LINE_UNITS = 1.1;
+/** World units one character reserves across, in the same two sizes (a little over what the font needs). */
+export const COPY_CHAR_UNITS = 0.38;
+export const GROUP_CHAR_UNITS = 0.52;
 /** A name's lines are wrapped (at underscores) to at most this many characters. */
 export const CAPTION_WRAP = 18;
-const CELL_PAD_X = 0.8;
-const ROW_PAD = 0.7;
+/** Ground between two copies of one model, and between two models. The second is larger, so the groups read as groups. */
+export const COPY_GAP = 0.8;
+export const GROUP_GAP = 4;
+const CAPTION_PAD = 0.5;
 const OUTLINE_PAD = 0.2;
-const TITLE_GAP = 0.4;
+/** Lines under every copy: `door: f`, and `current` on the one the table has. */
+const COPY_CAPTION_LINES = 2;
+
+/** The camera's elevation: low, so facades and doors are seen, not roofs. */
+export const GALLERY_ELEVATION_DEG = 15;
+const ELEVATION = (GALLERY_ELEVATION_DEG * Math.PI) / 180;
+const SIN_E = Math.sin(ELEVATION);
+const COS_E = Math.cos(ELEVATION);
+const TAN_HALF = Math.tan((FOV_DEG * Math.PI) / 360);
+
+/** How far under the ground line (world y, negative) a group's caption hangs: just under its copies' two-line captions as the camera sees them. */
+export const GROUP_CAPTION_DROP = -((COPY_CAPTION_LINES + 0.2) * COPY_LINE_UNITS + 0.35) / COS_E;
+/** A caption stands a little in front of the front edge of the lots. */
+const CAPTION_Z = 0.3;
 
 /** Break `name` into lines of at most `max` characters, after an underscore where it can (or mid-word when one word is longer). */
 export function wrapName(name: string, max: number = CAPTION_WRAP): string[] {
@@ -218,19 +233,25 @@ export function wrapName(name: string, max: number = CAPTION_WRAP): string[] {
 const m1 = (v: number): string => (v >= 10 ? String(Math.round(v)) : String(Math.round(v * 10) / 10));
 
 /**
- * One building's caption: its name (wrapped), its size in metres (so a whole building reads differently from a part), the lot type it fits,
- * its door side with `?` when BUILDING_FRONTS has no line for it (the "+z" guess), then which model it is a copy of, `corner, open` for a corner
- * model and `excluded` when BUILDING_EXCLUDE lists it.
+ * The caption written once for a model's whole group: its name (wrapped), its size in metres (so a whole building reads differently from a part),
+ * the lot type it fits with its current front, which model it is a copy of, `corner, open` for a corner model and `excluded` when BUILDING_EXCLUDE lists it.
  */
-export function galleryCaption(g: GalleryEntry): string[] {
+export function galleryGroupCaption(g: GalleryEntry): string[] {
   const lines = wrapName(g.entry.name);
   lines.push(`${m1(g.size[0])} x ${m1(g.size[1])} x ${m1(g.size[2])} m`);
   lines.push(g.lotType ? `lot: ${g.lotType}` : "lot: none fits");
-  lines.push(g.guessed ? `door: ${g.front} ?` : `door: ${g.front}`);
   if (g.family !== g.entry.name) for (const l of wrapName(`copy of ${g.family}`)) lines.push(l);
   if (g.corner !== false) lines.push(`corner, open ${g.corner}`);
   if (g.excluded) lines.push("excluded");
   return lines;
+}
+
+/**
+ * One copy's caption: `door: f` (with ` ?` when this is the table's front and BUILDING_FRONTS has no line for the name, so it is only the "+z" guess),
+ * then `current` on the copy whose front the table has now.
+ */
+export function galleryCopyCaption(front: ModelFront, current: boolean, guessed: boolean): string[] {
+  return current ? [guessed ? `door: ${front} ?` : `door: ${front}`, "current"] : [`door: ${front}`];
 }
 
 /** A rectangle on the ground, centre and size, world units. */
@@ -241,57 +262,94 @@ export interface GalleryRect {
   d: number;
 }
 
+/** Where a caption hangs: x and z on the ground line, y up (negative: under the ground line). */
+export interface GalleryAnchor {
+  x: number;
+  y: number;
+  z: number;
+}
+
+/** One copy of a model, turned so its side `front` faces the camera. */
 export interface GallerySlot {
   name: string;
-  /** Where the model's base centre stands, and the yaw that turns its declared front toward +z (the camera). */
+  /** The model's own side this copy shows the camera. */
+  front: ModelFront;
+  /** True on the copy whose `front` is the table's front now (or the "+z" guess when the table has no line). */
+  current: boolean;
+  /** Where the model's base centre stands, and the yaw (frontYaw(front)) that turns its side `front` toward +z, the camera. */
   x: number;
   z: number;
   yaw: number;
-  /** The lot type's size in world units, or null when the model fits no lot type (then `outline` is its own footprint and dashed). */
+  /** The lot type's size in world units for this turning, or null when the model fits no lot type (then `outline` is its own footprint and dashed). */
   lot: { w: number; d: number } | null;
   caption: string[];
   /** The rectangle drawn round it: the lot, or the footprint of a model that fits no lot. */
   outline: GalleryRect;
   dashed: boolean;
-  /** Under the front edge, at the front edge's middle. `box` is the ground the caption reserves, so no two captions overlap. */
-  captionAt: { x: number; z: number };
-  box: GalleryRect;
+  captionAt: GalleryAnchor;
+  /** The ground this copy owns across the line: its outline and its caption both sit inside `cell`'s x range. */
+  cell: GalleryRect;
+  /** The width its caption takes across, world units. */
+  captionW: number;
   scale: number;
-  /** Which page of the pack this slot is on, and its place in the whole pack's order. */
-  page: number;
+  /** The model's place in the pack's order, and this copy's place in the whole line (4 to a model). */
+  group: number;
   index: number;
   entry: GalleryEntry;
+}
+
+/** The four copies of one model, with the one caption that names it. */
+export interface GalleryGroup {
+  name: string;
+  entry: GalleryEntry;
+  /** Place in the pack's order (not the page's). */
+  index: number;
+  page: number;
+  /** The ground it owns: across x from `cx - w / 2`, the width between its neighbours' gaps. */
+  box: GalleryRect;
+  caption: string[];
+  captionAt: GalleryAnchor;
+  captionW: number;
+  slots: GallerySlot[];
+}
+
+/** A box in the world: x along the line, y up, z toward the camera. */
+export interface GalleryBounds {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+  minZ: number;
+  maxZ: number;
+}
+
+/** What the camera needs: the whole line, and the box round the first one, two and three groups (`screens`), from which it picks the first screen. */
+export interface GalleryView {
+  world: GalleryBounds;
+  screens: GalleryBounds[];
 }
 
 export interface GalleryOptions {
   /** The 1-based page to lay out. Default 1. With no `pageSize` the page is the whole pack. */
   page?: number;
-  /** Entries per page. Default: all of them. */
+  /** Models per page. Default: all of them. */
   pageSize?: number;
-  /** Columns of the grid. Default 4. */
-  columns?: number;
   /** Default: MODEL_TABLE. */
   table?: readonly ModelChoice[];
 }
 
 export interface GalleryLayout {
+  groups: GalleryGroup[];
+  /** Every copy, group by group, four to a group, in line order. */
   slots: GallerySlot[];
-  /** The text over the page: which pack, which page, what the arrow and `?` mean. */
+  /** The text over the line's start: which pack, what the marks mean. */
   title: string[];
-  titleAt: { x: number; z: number };
-  /** The ground the page covers, and the tallest model on it (metres x WORLD_PER_METRE, plus the arrow). */
-  bounds: GalleryBounds;
+  titleAt: GalleryAnchor;
+  titleW: number;
+  view: GalleryView;
   page: number;
   pageCount: number;
   total: number;
-}
-
-export interface GalleryBounds {
-  minX: number;
-  maxX: number;
-  minZ: number;
-  maxZ: number;
-  maxY: number;
 }
 
 /** True when two rectangles share ground (touching edges do not count). */
@@ -299,26 +357,30 @@ export function galleryRectsOverlap(a: GalleryRect, b: GalleryRect, eps = 1e-9):
   return Math.abs(a.cx - b.cx) < (a.w + b.w) / 2 - eps && Math.abs(a.cz - b.cz) < (a.d + b.d) / 2 - eps;
 }
 
-/** The lines over the page. */
+/** The lines over the line's start. */
 export function galleryTitle(packId: string, page: number, pageCount: number, first: number, last: number, total: number): string[] {
-  const lines = [`${packId}: page ${page} of ${pageCount}`, `entries ${first} to ${last} of ${total}`, "red arrow = door side as declared", "? = no line yet, drawn at +z"];
+  const lines = [pageCount > 1 ? `${packId}: ${first} to ${last} of ${total} (page ${page} of ${pageCount})` : `${packId}: ${total} models, four sides each`];
+  lines.push("door: f = that side of the model faces you", "current = the table's front now; ? = no line yet", "drag or arrows to move, Home and End to jump");
   if (page < pageCount) lines.push(`&page=${page + 1} for the next page`);
   return lines;
 }
 
-/** The message when there is nothing to lay out: no manifest at all, or a pack the manifest lacks, or a pack with no building-sized entry. */
+/** The message when there is nothing to lay out: no manifest at all, or a pack the manifest lacks. */
 export function galleryMessage(manifest: AssetManifest | null, packId: string): string[] | null {
   if (!manifest || manifest.packs.length === 0) return ["no converted packs"];
   if (!manifest.packs.some((p) => p.pack === packId)) return [`no pack "${packId}" in the manifest`, `converted: ${manifest.packs.map((p) => p.pack).join(", ")}`];
   return null;
 }
 
+const widest = (lines: readonly string[]): number => Math.max(0, ...lines.map((l) => l.length));
+
 /**
- * Where every building-sized entry of the page stands (pure, deterministic). The page is a grid read left to right, top to bottom, in the order of
- * `galleryEntries`, so a family's members are neighbours. Each model stands on its lot outline (`LOT_TYPES` x WORLD_PER_METRE, its front face against
- * the lot's front edge, as in the town), turned so its declared front faces +z, toward the camera. A model that fits no lot type gets a dashed outline
- * round its own footprint. A caption hangs under each row's front edge; each column is as wide as its widest outline or caption and each row as deep
- * as its deepest outline plus its longest caption, so nothing overlaps. With no manifest or pack the slots are empty.
+ * Where every copy stands (pure, deterministic). All the models of the page are in one line along x, in the order of `galleryEntries`, so a family's
+ * members are neighbours. Each model is four copies side by side in the order +z, +x, -z, -x, copy `f` turned by `frontYaw(f)` so its side `f` faces
+ * +z, the camera. Each copy stands on the lot outline its size fits when that side is the front (`LOT_TYPES` x WORLD_PER_METRE, its front face on the
+ * lot's front edge at z = 0, as in the town), or in a dashed outline round its footprint when none fits. A copy's cell is as wide as its outline or
+ * its caption, a group as wide as its four cells and gaps or its own caption, and groups are GROUP_GAP apart, copies COPY_GAP, so nothing overlaps.
+ * With no manifest or pack the groups are empty and the title says why.
  */
 export function galleryLayout(
   manifest: AssetManifest | null,
@@ -331,105 +393,135 @@ export function galleryLayout(
   const pageSize = Math.max(1, Math.floor(opts.pageSize ?? Math.max(1, all.length)));
   const pageCount = galleryPageCount(all.length, pageSize);
   const page = Math.min(Math.max(1, Math.floor(opts.page ?? 1)), pageCount);
-  const columns = Math.max(1, Math.floor(opts.columns ?? 4));
   const from = (page - 1) * pageSize;
   const chosen = all.slice(from, from + pageSize);
 
-  interface Prep {
-    g: GalleryEntry;
-    caption: string[];
-    scale: number;
-    outline: { w: number; d: number };
-    footprint: { w: number; d: number };
-    lot: { w: number; d: number } | null;
-    capW: number;
-  }
-  const prep: Prep[] = chosen.map((g) => {
-    const scale = modelScale(g.entry, "building");
-    const quarter = frontIsQuarter(g.front);
-    const [w, , d] = g.size;
-    const footprint = { w: (quarter ? d : w) * scale, d: (quarter ? w : d) * scale };
-    const lot = g.lotType ? { w: LOT_TYPES[g.lotType].frontage * WORLD_PER_METRE, d: LOT_TYPES[g.lotType].depth * WORLD_PER_METRE } : null;
-    const caption = galleryCaption(g);
-    const capW = Math.max(...caption.map((l) => l.length)) * CAPTION_CHAR_UNITS + 0.4;
-    return { g, caption, scale, outline: lot ?? { w: footprint.w + 2 * OUTLINE_PAD, d: footprint.d + 2 * OUTLINE_PAD }, footprint, lot, capW };
-  });
-
-  const rows = Math.ceil(prep.length / columns);
-  const colW: number[] = new Array<number>(columns).fill(0);
-  const rowD: number[] = new Array<number>(rows).fill(0);
-  const rowCap: number[] = new Array<number>(rows).fill(0);
-  prep.forEach((p, i) => {
-    const c = i % columns;
-    const r = Math.floor(i / columns);
-    colW[c] = Math.max(colW[c]!, p.outline.w, p.capW);
-    rowD[r] = Math.max(rowD[r]!, p.outline.d);
-    rowCap[r] = Math.max(rowCap[r]!, p.caption.length * CAPTION_LINE_RESERVE + 0.3);
-  });
-  const used = Math.min(columns, prep.length);
-  const colX: number[] = [];
-  let x = 0;
-  for (let c = 0; c < columns; c++) {
-    colX.push(x + colW[c]! / 2);
-    x += colW[c]! + (c < used ? CELL_PAD_X : 0);
-  }
-  const width = used === 0 ? 0 : x - CELL_PAD_X;
-
-  const titleLines = galleryTitle(packId, page, pageCount, prep.length === 0 ? 0 : from + 1, from + prep.length, all.length);
-  const message = prep.length === 0 ? galleryMessage(manifest, packId) ?? [`no building-sized entries in "${packId}"`] : null;
-  const title = message ?? titleLines;
-  const titleD = title.length * CAPTION_LINE_RESERVE + 0.3;
-  const titleW = Math.max(...title.map((l) => l.length)) * CAPTION_CHAR_UNITS + 0.4;
-
+  const groups: GalleryGroup[] = [];
   const slots: GallerySlot[] = [];
-  let z0 = titleD + TITLE_GAP;
-  for (let r = 0; r < rows; r++) {
-    const front = z0 + rowD[r]!;
-    for (let c = 0; c < columns; c++) {
-      const p = prep[r * columns + c];
-      if (!p) break;
-      const cx = colX[c]!;
-      const outline: GalleryRect = { cx, cz: front - p.outline.d / 2, w: p.outline.w, d: p.outline.d };
-      // A model in a lot is pushed to the lot's front edge (the town's `atFront`); one with no lot sits in the middle of its dashed outline.
-      const z = p.lot ? front - p.footprint.d / 2 : outline.cz;
-      const capD = p.caption.length * CAPTION_LINE_RESERVE + 0.3;
-      slots.push({
-        name: p.g.entry.name,
-        x: cx,
-        z,
-        yaw: frontYaw(p.g.front),
-        lot: p.lot,
-        caption: p.caption,
-        outline,
-        dashed: p.lot === null,
-        captionAt: { x: cx, z: front + 0.15 },
-        box: { cx, cz: front + capD / 2, w: p.capW, d: capD },
-        scale: p.scale,
-        page,
-        index: from + r * columns + c,
-        entry: p.g,
-      });
+  let x = 0;
+  let deepest = 0;
+  let tallest = 0;
+  let groupLines = 0;
+  chosen.forEach((g, k) => {
+    const scale = modelScale(g.entry, "building");
+    const [w, h, d] = g.size;
+    const groupCaption = galleryGroupCaption(g);
+    const groupCapW = widest(groupCaption) * GROUP_CHAR_UNITS + CAPTION_PAD;
+    interface Copy {
+      front: ModelFront;
+      lot: { w: number; d: number } | null;
+      outline: { w: number; d: number };
+      footprint: { w: number; d: number };
+      caption: string[];
+      capW: number;
+      cellW: number;
     }
-    z0 = front + rowCap[r]! + ROW_PAD;
-  }
+    const copies: Copy[] = GALLERY_FRONTS.map((front) => {
+      const quarter = frontIsQuarter(front);
+      const footprint = { w: (quarter ? d : w) * scale, d: (quarter ? w : d) * scale };
+      const type = lotTypeOf(g.entry, front);
+      const lot = type ? { w: LOT_TYPES[type].frontage * WORLD_PER_METRE, d: LOT_TYPES[type].depth * WORLD_PER_METRE } : null;
+      const outline = lot ?? { w: footprint.w + 2 * OUTLINE_PAD, d: footprint.d + 2 * OUTLINE_PAD };
+      const caption = galleryCopyCaption(front, front === g.front, g.guessed);
+      const capW = widest(caption) * COPY_CHAR_UNITS + CAPTION_PAD;
+      return { front, lot, outline, footprint, caption, capW, cellW: Math.max(outline.w, capW) };
+    });
+    const inner = copies.reduce((s, c) => s + c.cellW, 0) + COPY_GAP * (copies.length - 1);
+    const width = Math.max(inner, groupCapW);
+    const cx = x + width / 2;
+    let cursor = x + (width - inner) / 2;
+    const own: GallerySlot[] = [];
+    copies.forEach((c, i) => {
+      const sx = cursor + c.cellW / 2;
+      cursor += c.cellW + COPY_GAP;
+      const outline: GalleryRect = { cx: sx, cz: -c.outline.d / 2, w: c.outline.w, d: c.outline.d };
+      // A model in a lot is pushed to the lot's front edge (the town's `atFront`); one with no lot sits in the middle of its dashed outline.
+      const z = c.lot ? -c.footprint.d / 2 : outline.cz;
+      own.push({
+        name: g.entry.name,
+        front: c.front,
+        current: c.front === g.front,
+        x: sx,
+        z,
+        yaw: frontYaw(c.front),
+        lot: c.lot,
+        caption: c.caption,
+        outline,
+        dashed: c.lot === null,
+        captionAt: { x: sx, y: 0, z: CAPTION_Z },
+        cell: { cx: sx, cz: outline.cz, w: c.cellW, d: c.outline.d },
+        captionW: c.capW,
+        scale,
+        group: from + k,
+        index: (from + k) * GALLERY_FRONTS.length + i,
+        entry: g,
+      });
+      deepest = Math.max(deepest, c.outline.d);
+    });
+    slots.push(...own);
+    groups.push({
+      name: g.entry.name,
+      entry: g,
+      index: from + k,
+      page,
+      box: { cx, cz: -Math.max(...copies.map((c) => c.outline.d)) / 2, w: width, d: Math.max(...copies.map((c) => c.outline.d)) },
+      caption: groupCaption,
+      captionAt: { x: cx, y: GROUP_CAPTION_DROP, z: CAPTION_Z },
+      captionW: groupCapW,
+      slots: own,
+    });
+    tallest = Math.max(tallest, h * scale);
+    groupLines = Math.max(groupLines, groupCaption.length);
+    x += width + GROUP_GAP;
+  });
 
-  const span = Math.max(width, titleW);
-  const mid = width / 2;
-  const tall = Math.max(0, ...prep.map((p) => p.g.size[1] * p.scale));
-  const bounds: GalleryBounds = {
-    minX: mid - span / 2,
-    maxX: mid + span / 2,
-    minZ: 0,
-    maxZ: Math.max(z0 - ROW_PAD, titleD),
-    maxY: tall + 1.2,
+  const message = groups.length === 0 ? galleryMessage(manifest, packId) ?? [`no building-sized entries in "${packId}"`] : null;
+  const title = message ?? galleryTitle(packId, page, pageCount, from + 1, from + groups.length, all.length);
+  const titleW = widest(title) * COPY_CHAR_UNITS + CAPTION_PAD;
+  const titleH = (title.length + 0.2) * COPY_LINE_UNITS;
+  const lineEnd = groups.length === 0 ? 0 : x - GROUP_GAP;
+
+  /** The box round groups `i0` to `i1` (exclusive), their captions and, when asked, the title above them. */
+  const around = (i0: number, i1: number): GalleryBounds => {
+    const gs = groups.slice(i0, i1);
+    if (gs.length === 0) return { minX: 0, maxX: titleW, minY: -0.5, maxY: 0.5 + titleH, minZ: -1, maxZ: CAPTION_Z };
+    const top = Math.max(...gs.map((g) => g.entry.size[1] * g.slots[0]!.scale));
+    return {
+      minX: gs[0]!.box.cx - gs[0]!.box.w / 2,
+      maxX: gs[gs.length - 1]!.box.cx + gs[gs.length - 1]!.box.w / 2,
+      minY: GROUP_CAPTION_DROP - (Math.max(...gs.map((g) => g.caption.length)) + 0.2) * GROUP_LINE_UNITS / COS_E,
+      maxY: top + 0.6 + titleH,
+      minZ: -Math.max(...gs.map((g) => g.box.d)),
+      maxZ: CAPTION_Z,
+    };
   };
-  return { slots, title, titleAt: { x: mid, z: 0 }, bounds, page, pageCount, total: all.length };
+  const titleY = Math.max(0, ...groups.slice(0, 3).map((g) => g.entry.size[1] * g.slots[0]!.scale)) + 0.6;
+  const world: GalleryBounds = {
+    ...around(0, groups.length),
+    minX: 0,
+    maxX: Math.max(lineEnd, titleW),
+    minY: groups.length === 0 ? -0.5 : GROUP_CAPTION_DROP - (groupLines + 0.2) * GROUP_LINE_UNITS / COS_E,
+    maxY: Math.max(tallest, titleY) + (groups.length === 0 ? titleH : titleH + 0.2),
+    minZ: -Math.max(deepest, 1),
+  };
+  return {
+    groups,
+    slots,
+    title,
+    titleAt: { x: titleW / 2, y: groups.length === 0 ? 0.5 : titleY, z: 0 },
+    titleW,
+    view: { world, screens: [around(0, 1), around(0, 2), around(0, 3)] },
+    page,
+    pageCount,
+    total: all.length,
+  };
 }
 
 // ---- outlines ----
 
-/** The strip width of a lot outline, world units: wide enough to read in a small screenshot. */
+/** The strip width of a lot outline, world units: wide enough to read in a small screenshot. The `current` copy's is thicker. */
 export const OUTLINE_STRIP = 0.09;
+export const OUTLINE_STRIP_CURRENT = 0.16;
 const DASH = 0.55;
 const DASH_GAP = 0.35;
 
@@ -461,43 +553,58 @@ export function outlineStrips(w: number, d: number, dashed: boolean, strip: numb
 
 // ---- the camera ----
 
-const SIN_E = Math.sin(ELEVATION);
-const COS_E = Math.cos(ELEVATION);
-const TAN_HALF = Math.tan((FOV_DEG * Math.PI) / 360);
 const FIT_PAD_FRACTION = 0.04;
+/** The first screen shows at least this many pixels per world unit across (a copy's caption line then reads about 14 px tall in an 800 px screenshot and a group's about 17; the fit pad and the nearer captions take about 15 percent), unless the first group alone is wider. */
+export const MIN_PX_PER_UNIT = 20;
+/** How far the wheel zooms in and out from the first screen's framing. */
+const ZOOM_IN_LIMIT = 0.25;
+const ZOOM_OUT_LIMIT = 6;
 
 export interface GalleryRig {
   camera: PerspectiveCamera;
   resize(width: number, height: number, insets?: Insets): void;
-  /** A new page: reframe on these bounds. */
-  setBounds(bounds: GalleryBounds): void;
+  /** A new line: reframe on these bounds. */
+  setView(view: GalleryView): void;
   getPan(): Pan;
+  /** Moves along the line only: `y` is ignored. */
   setPan(x: number, y: number): Pan;
+  /** Back to the first screen (the start of the line). */
   resetView(): void;
   getScale(): number;
   zoomStep(dir: 1 | -1): number;
-  centreOn(x: number, z: number): Pan;
+  /** Look at this x along the line, clamped to the line. */
+  centreOn(x: number): Pan;
+  /** Jump so the line's end is at the right edge of the screen. */
+  jumpToEnd(): Pan;
   /** Pixels per world unit at the point looked at. */
   pxPerUnit(): number;
+  /** The x range the screen shows at the looked-at depth. */
+  visibleX(): readonly [number, number];
 }
 
-/** The town's tilt and lens (camera.ts), framing the gallery's bounds: the closest dolly at which the whole page, the tallest model's top included, is on screen. */
-export function createGalleryRig(initial: GalleryBounds, width = 1280, height = 720, startInsets?: Insets): GalleryRig {
-  const camera = new PerspectiveCamera(FOV_DEG, width / height, 0.1, 2000);
+/**
+ * A low camera looking along -z at the line: the town's lens, GALLERY_ELEVATION_DEG up. On load it frames the first screen (up to three whole groups, as
+ * wide as MIN_PX_PER_UNIT allows, but at least the whole first group); it pans along x only, within the line, and zooms about the looked-at point.
+ */
+export function createGalleryRig(initial: GalleryView, width = 1280, height = 720, startInsets?: Insets): GalleryRig {
+  const camera = new PerspectiveCamera(FOV_DEG, width / height, 0.1, 4000);
   const size = { width, height };
   let insets: Insets = { ...(startInsets ?? {}) };
-  let b = initial;
+  let v = initial;
   let tx = 0;
-  let tz = 0;
   let dist = 20;
   let fitDist = 20;
+  let baseX = 0;
+  let frame: GalleryBounds = initial.screens[0]!;
   const target = new Vector3();
   const probe = new Vector3();
   const scale = (): number => size.height / 2 / (TAN_HALF * dist);
+  const midY = (): number => (frame.minY + frame.maxY) / 2;
+  const midZ = (): number => (frame.minZ + frame.maxZ) / 2;
 
   function apply(): void {
-    target.set(tx, 0, tz);
-    camera.position.set(tx, dist * SIN_E, tz + dist * COS_E);
+    target.set(tx, midY(), midZ());
+    camera.position.set(tx, midY() + dist * SIN_E, midZ() + dist * COS_E);
     camera.lookAt(target);
     camera.aspect = size.width / size.height;
     const shift = ((insets.top ?? 0) - (insets.bottom ?? 0)) / 2;
@@ -513,9 +620,9 @@ export function createGalleryRig(initial: GalleryBounds, width = 1280, height = 
     const right = size.width - (insets.right ?? 0) - freeW * FIT_PAD_FRACTION;
     const top = (insets.top ?? 0) + freeH * FIT_PAD_FRACTION;
     const bottom = size.height - (insets.bottom ?? 0) - freeH * FIT_PAD_FRACTION;
-    for (const x of [b.minX, b.maxX]) {
-      for (const z of [b.minZ, b.maxZ]) {
-        for (const y of [0, b.maxY]) {
+    for (const x of [frame.minX, frame.maxX]) {
+      for (const z of [frame.minZ, frame.maxZ]) {
+        for (const y of [frame.minY, frame.maxY]) {
           probe.set(x, y, z).project(camera);
           const px = ((probe.x + 1) / 2) * size.width;
           const py = ((1 - probe.y) / 2) * size.height;
@@ -526,11 +633,16 @@ export function createGalleryRig(initial: GalleryBounds, width = 1280, height = 
     return true;
   }
   function fit(): void {
-    tx = (b.minX + b.maxX) / 2;
-    tz = (b.minZ + b.maxZ) / 2;
-    let lo = 3;
-    let hi = 1500;
-    for (let i = 0; i < 32; i++) {
+    const freeW = size.width - (insets.left ?? 0) - (insets.right ?? 0);
+    // As many whole groups (up to three) as read at MIN_PX_PER_UNIT, but never less than the whole first group.
+    let pick = v.screens[0]!;
+    for (const s of v.screens) if (s.maxX - s.minX <= freeW / MIN_PX_PER_UNIT) pick = s;
+    frame = pick;
+    baseX = (frame.minX + frame.maxX) / 2;
+    tx = baseX;
+    let lo = 1;
+    let hi = 4000;
+    for (let i = 0; i < 36; i++) {
       dist = (lo + hi) / 2;
       apply();
       if (fits()) hi = dist;
@@ -540,13 +652,16 @@ export function createGalleryRig(initial: GalleryBounds, width = 1280, height = 
     fitDist = hi;
     apply();
   }
-  const baseX = (): number => (b.minX + b.maxX) / 2;
-  const baseZ = (): number => (b.minZ + b.maxZ) / 2;
-  const clampT = (): void => {
-    tx = Math.min(Math.max(tx, b.minX), b.maxX);
-    tz = Math.min(Math.max(tz, b.minZ), b.maxZ);
+  /** The camera's x stays between the line's start and the point that puts its end at the right of the first screen's width. */
+  const limits = (): readonly [number, number] => {
+    const half = baseX - v.world.minX;
+    return [baseX, Math.max(baseX, v.world.maxX - half)];
   };
-  const getPan = (): Pan => ({ x: -(tx - baseX()) * scale(), y: -(tz - baseZ()) * scale() * SIN_E });
+  const clampT = (): void => {
+    const [lo, hi] = limits();
+    tx = Math.min(Math.max(tx, lo), hi);
+  };
+  const getPan = (): Pan => ({ x: -(tx - baseX) * scale(), y: 0 });
   fit();
   return {
     camera,
@@ -556,15 +671,13 @@ export function createGalleryRig(initial: GalleryBounds, width = 1280, height = 
       if (next) insets = { ...next };
       fit();
     },
-    setBounds(next) {
-      b = next;
+    setView(next) {
+      v = next;
       fit();
     },
     getPan,
-    setPan(x, y) {
-      const s = scale();
-      tx = baseX() - x / s;
-      tz = baseZ() - y / (s * SIN_E);
+    setPan(x) {
+      tx = baseX - x / scale();
       clampT();
       apply();
       return getPan();
@@ -573,18 +686,26 @@ export function createGalleryRig(initial: GalleryBounds, width = 1280, height = 
     getScale: scale,
     zoomStep(dir) {
       const next = dir === 1 ? dist / ZOOM_STEP : dist * ZOOM_STEP;
-      dist = Math.min(Math.max(next, fitDist * 0.25), fitDist * 1.5);
+      dist = Math.min(Math.max(next, fitDist * ZOOM_IN_LIMIT), fitDist * ZOOM_OUT_LIMIT);
       apply();
       return scale();
     },
-    centreOn(x, z) {
+    centreOn(x) {
       tx = x;
-      tz = z;
       clampT();
       apply();
       return getPan();
     },
+    jumpToEnd() {
+      tx = limits()[1];
+      apply();
+      return getPan();
+    },
     pxPerUnit: scale,
+    visibleX() {
+      const half = (size.width / scale() / 2) * 1;
+      return [tx - half, tx + half];
+    },
   };
 }
 
@@ -596,12 +717,12 @@ export function captionPx(heightPx: number, depth: number): number {
   return heightPx / 2 / (TAN_HALF * depth);
 }
 const BACKGROUND = 0x2b3240;
-const GROUND = 0x4b5466;
+const STRIP = 0x3d4658;
 const OUTLINE_SOLID = 0xeef1f7;
 const OUTLINE_DASHED = 0xffc247;
-const ARROW_LENGTH = 1.7;
-const ARROW_HEAD_LENGTH = 0.6;
-const ARROW_HEAD_WIDTH = 0.5;
+/** The copy the table has now: green, thick, and captioned `current`, so colour is never the only mark. */
+const OUTLINE_CURRENT = 0x5ee08a;
+const OUTLINE_CURRENT_DASHED = 0x5ee08a;
 
 export interface GalleryScene {
   scene: Scene;
@@ -637,9 +758,9 @@ const flatGeometry = (rects: readonly (readonly [number, number, number, number]
 };
 
 /**
- * The gallery's scene: a plain ground, lights, and for every slot its lot outline, its model (a clone from `lookup`, turned and scaled as the town does),
- * a red arrow along its declared front and its caption. Nothing in it can be raycast. `lookup` may be null (the GLB is missing): outlines, arrows and
- * captions still show, so the layout can be read.
+ * The gallery's scene: a thin ground strip under the line on a plain backdrop, lights from the front, and for every copy its lot outline, its model (a
+ * clone from `lookup`, turned and scaled as the town does) and its caption, with each group's caption and the title once. Nothing in it can be raycast.
+ * `lookup` may be null (the GLB is missing): outlines and captions still show, so the layout can be read.
  */
 export function buildGalleryScene(layout: GalleryLayout, lookup: ModelLookup | null, opts: { surface?: TextSurfaceFactory; dpr?: number } = {}): GalleryScene {
   const surface = opts.surface ?? defaultTextSurface;
@@ -647,9 +768,9 @@ export function buildGalleryScene(layout: GalleryLayout, lookup: ModelLookup | n
   const scene = new Scene();
   scene.name = "gallery";
   scene.background = new Color(BACKGROUND);
-  scene.add(new AmbientLight(0xffffff, 1.4));
+  scene.add(new AmbientLight(0xffffff, 1.5));
   const sun = new DirectionalLight(0xffffff, 2.2);
-  sun.position.set(-8, 16, 18);
+  sun.position.set(-8, 14, 22);
   scene.add(sun);
 
   const owned: { dispose(): void }[] = [];
@@ -658,58 +779,55 @@ export function buildGalleryScene(layout: GalleryLayout, lookup: ModelLookup | n
     return o;
   };
 
-  const { bounds } = layout;
-  const pad = 6;
+  const { world } = layout.view;
   const ground = new Mesh(
-    own(new PlaneGeometry(bounds.maxX - bounds.minX + 2 * pad, bounds.maxZ - bounds.minZ + 2 * pad)),
-    own(new MeshStandardMaterial({ color: GROUND, roughness: 1, metalness: 0 })),
+    own(new PlaneGeometry(world.maxX - world.minX + 4, world.maxZ - world.minZ + 1)),
+    own(new MeshStandardMaterial({ color: STRIP, roughness: 1, metalness: 0 })),
   );
   ground.rotation.x = -Math.PI / 2;
-  ground.position.set((bounds.minX + bounds.maxX) / 2, -0.01, (bounds.minZ + bounds.maxZ) / 2);
+  ground.position.set((world.minX + world.maxX) / 2, -0.01, (world.minZ + world.maxZ) / 2);
   ground.name = "gallery-ground";
   scene.add(ground);
 
-  const solid = own(new MeshBasicMaterial({ color: OUTLINE_SOLID, side: DoubleSide }));
-  const dashed = own(new MeshBasicMaterial({ color: OUTLINE_DASHED, side: DoubleSide }));
-  const sprites: CaptionSprite[] = [];
-  const anchors: [number, number, number][] = [];
+  const material = (c: number): MeshBasicMaterial => own(new MeshBasicMaterial({ color: c, side: DoubleSide }));
+  const solid = material(OUTLINE_SOLID);
+  const dashed = material(OUTLINE_DASHED);
+  const current = material(OUTLINE_CURRENT);
+  const currentDashed = material(OUTLINE_CURRENT_DASHED);
+  const sprites: { cs: CaptionSprite; at: readonly [number, number, number]; line: number }[] = [];
   const probe = new Vector3();
-  const captionOf = (lines: readonly string[], x: number, z: number, anchorY: 0 | 1): void => {
+  /** `anchorY` 1 hangs the text below its anchor, 0 stands it on the anchor. */
+  const captionOf = (lines: readonly string[], at: GalleryAnchor, anchorY: 0 | 1, line: number): void => {
     const cs = createCaptionSprite(surface, GALLERY_FONT_PX, dpr, false, anchorY);
     cs.draw(lines, "text");
-    cs.sprite.position.set(x, 0.02, z);
+    cs.sprite.position.set(at.x, at.y, at.z);
     own(cs.sprite.material);
-    sprites.push(cs);
-    anchors.push([x, 0.02, z]);
+    sprites.push({ cs, at: [at.x, at.y, at.z], line });
     scene.add(cs.sprite);
   };
-  // The title hangs below its anchor, like each caption.
-  captionOf(layout.title, layout.titleAt.x, layout.titleAt.z, 1);
+  captionOf(layout.title, layout.titleAt, 0, COPY_LINE_UNITS);
 
   const models: Group[] = [];
-  for (const s of layout.slots) {
-    const o = new Mesh(own(flatGeometry(outlineStrips(s.outline.w, s.outline.d, s.dashed), s.outline.cx, s.outline.cz, 0.02)), s.dashed ? dashed : solid);
-    o.name = `outline:${s.name}`;
-    scene.add(o);
+  for (const group of layout.groups) {
+    captionOf(group.caption, group.captionAt, 1, GROUP_LINE_UNITS);
+    for (const s of group.slots) {
+      const strip = s.current ? OUTLINE_STRIP_CURRENT : OUTLINE_STRIP;
+      const o = new Mesh(own(flatGeometry(outlineStrips(s.outline.w, s.outline.d, s.dashed, strip), s.outline.cx, s.outline.cz, 0.02)), s.dashed ? (s.current ? currentDashed : dashed) : s.current ? current : solid);
+      o.name = `outline:${s.name}:${s.front}`;
+      scene.add(o);
 
-    const wrap = new Group();
-    wrap.name = `model:${s.name}`;
-    wrap.position.set(s.x, 0, s.z);
-    wrap.rotation.y = s.yaw;
-    wrap.scale.setScalar(s.scale);
-    const root = lookup?.(s.name);
-    if (root) wrap.add(root.clone(true));
-    scene.add(wrap);
-    models.push(wrap);
+      const wrap = new Group();
+      wrap.name = `model:${s.name}:${s.front}`;
+      wrap.position.set(s.x, 0, s.z);
+      wrap.rotation.y = s.yaw;
+      wrap.scale.setScalar(s.scale);
+      const root = lookup?.(s.name);
+      if (root) wrap.add(root.clone(true));
+      scene.add(wrap);
+      models.push(wrap);
 
-    const top = s.entry.size[1] * s.scale;
-    const [dx, dz] = declaredFrontDirection(s.entry.front, s.yaw);
-    const arrow = frontArrow(s.x, top + 0.05, s.z, dx, dz, ARROW_LENGTH, ARROW_HEAD_LENGTH, ARROW_HEAD_WIDTH);
-    arrow.userData["model"] = s.name;
-    own(arrow);
-    scene.add(arrow);
-
-    captionOf(s.caption, s.captionAt.x, s.captionAt.z, 1);
+      captionOf(s.caption, s.captionAt, 1, COPY_LINE_UNITS);
+    }
   }
   noRay(scene);
 
@@ -718,18 +836,17 @@ export function buildGalleryScene(layout: GalleryLayout, lookup: ModelLookup | n
     scene,
     models,
     setViewport(camera, heightPx) {
-      // A caption line is CAPTION_LINE_UNITS tall on screen at its own depth (the same perspective as the ground it sits on), so the text grows and
-      // shrinks with the page and never outgrows its cell, near rows or far.
+      // A caption line is `line` world units tall on screen at its own depth (the same perspective as the ground it sits on), so the text grows and
+      // shrinks with the zoom and never outgrows the group it names.
       camera.updateMatrixWorld(true);
-      sprites.forEach((c, i) => {
-        const at = anchors[i]!;
+      for (const { cs, at, line } of sprites) {
         const depth = Math.max(0.1, -probe.set(at[0], at[1], at[2]).applyMatrix4(camera.matrixWorldInverse).z);
-        c.setUnit(scaleForPx((captionPx(heightPx, depth) * CAPTION_LINE_UNITS) / lineH, heightPx, FOV_DEG));
-      });
+        cs.setUnit(scaleForPx((captionPx(heightPx, depth) * line) / lineH, heightPx, FOV_DEG));
+      }
     },
     dispose() {
       for (const o of owned) o.dispose();
-      for (const c of sprites) c.sprite.material.map?.dispose();
+      for (const { cs } of sprites) cs.sprite.material.map?.dispose();
       owned.length = 0;
     },
   };
@@ -829,22 +946,18 @@ export interface GalleryRendererOptions {
 }
 
 /**
- * The 3D view's gallery mode: the same interface as the town's renderer, so play and ui are unchanged. Draws the gallery page instead of the puzzle;
- * the state, hover and Relight it is handed are ignored; nothing can be picked. Pan and zoom work on the page.
+ * The 3D view's gallery mode: the same interface as the town's renderer, so play and ui are unchanged. Draws the line instead of the puzzle;
+ * the state, hover and Relight it is handed are ignored; nothing can be picked. The wheel, the arrows, right-drag and Home come from play's pan
+ * handler through getPan, setPan, zoomStep and resetView; the gallery adds left-drag (which picks nothing here) and End, on its own canvas and document.
  */
 export function createGalleryRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasElement, packId: string, opts: GalleryRendererOptions): MapRenderer3d {
   const w0 = Math.max(canvas.clientWidth, 1);
   const h0 = Math.max(canvas.clientHeight, 1);
   const { page, pageSize } = galleryPageRequested(opts.search);
-  const columns = galleryColumns(w0 / h0);
   let insets: Insets = { ...(opts.insets ?? {}) };
-  const empty: GalleryBounds = { minX: 0, maxX: 12, minZ: 0, maxZ: 6, maxY: 1 };
-  const rig = createGalleryRig(empty, w0, h0, insets);
-  let current: GalleryScene = buildGalleryScene(
-    { slots: [], title: [`loading ${packId} ...`], titleAt: { x: 6, z: 0 }, bounds: empty, page: 1, pageCount: 1, total: 0 },
-    null,
-    { dpr: opts.dpr },
-  );
+  const empty: GalleryLayout = galleryLayout(null, packId);
+  let current: GalleryScene = buildGalleryScene({ ...empty, title: [`loading ${packId} ...`] }, null, { dpr: opts.dpr });
+  const rig = createGalleryRig(empty.view, w0, h0, insets);
   let loaded: GalleryPack | null = null;
   let disposed = false;
 
@@ -866,15 +979,49 @@ export function createGalleryRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEle
         return;
       }
       loaded = pack;
-      const layout = galleryLayout(pack.manifest, packId, BUILDING_FRONTS, BUILDING_EXCLUDE, { page, pageSize, columns });
+      const layout = galleryLayout(pack.manifest, packId, BUILDING_FRONTS, BUILDING_EXCLUDE, pageSize === null ? { page } : { page, pageSize });
       const root = pack.root;
       const next = buildGalleryScene(layout, root ? (name) => root.getObjectByName(name) ?? undefined : null, { dpr: opts.dpr });
       current.dispose();
       current = next;
-      rig.setBounds(layout.bounds);
+      rig.setView(layout.view);
       sizeCaptions();
     })
     .catch((e: unknown) => console.info(`3D gallery: ${describe(e)}.`));
+
+  // Left-drag along the line (a touch drag too), and End. Right-drag, the arrows, Home and the wheel are play's.
+  let drag: { id: number; startX: number; startPan: number } | null = null;
+  const onDown = (e: PointerEvent): void => {
+    if (e.button !== 0) return;
+    drag = { id: e.pointerId, startX: e.clientX, startPan: rig.getPan().x };
+    try {
+      canvas.setPointerCapture(e.pointerId);
+    } catch {
+      // A pointer that is already gone cannot be captured; the drag still works inside the canvas.
+    }
+  };
+  const onMove = (e: PointerEvent): void => {
+    if (!drag || e.pointerId !== drag.id) return;
+    rig.setPan(drag.startPan + (e.clientX - drag.startX), 0);
+  };
+  const onUp = (e: PointerEvent): void => {
+    if (drag && e.pointerId === drag.id) drag = null;
+  };
+  const onKey = (e: KeyboardEvent): void => {
+    if (e.ctrlKey || e.altKey || e.metaKey || e.key !== "End") return;
+    const tag = (e.target as { tagName?: string } | null)?.tagName?.toLowerCase();
+    if (tag === "select" || tag === "input" || tag === "textarea") return;
+    e.preventDefault();
+    rig.jumpToEnd();
+  };
+  const doc = canvas.ownerDocument;
+  canvas.addEventListener("pointerdown", onDown);
+  canvas.addEventListener("pointermove", onMove);
+  canvas.addEventListener("pointerup", onUp);
+  canvas.addEventListener("pointercancel", onUp);
+  doc.addEventListener("keydown", onKey);
+  const touchAction = canvas.style.touchAction;
+  canvas.style.touchAction = "none";
 
   return {
     draw() {
@@ -909,6 +1056,12 @@ export function createGalleryRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEle
     centreOn: () => rig.getPan(),
     dispose() {
       disposed = true;
+      canvas.removeEventListener("pointerdown", onDown);
+      canvas.removeEventListener("pointermove", onMove);
+      canvas.removeEventListener("pointerup", onUp);
+      canvas.removeEventListener("pointercancel", onUp);
+      doc.removeEventListener("keydown", onKey);
+      canvas.style.touchAction = touchAction;
       current.dispose();
       if (loaded?.root) freeModel(loaded.root);
     },
