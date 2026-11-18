@@ -51,7 +51,7 @@ import type { GridState } from "../grid";
 import { hash01 } from "../render/motion";
 import { FLARE_SECONDS, type RelightPlan } from "../render/relight";
 import { BREAK_GAP, NODE_BODY_Y, PHASE_OFFSET, POLE_HEIGHT, SAG_SEGMENTS, WIRE_RADIUS, canLayout, cumulative, dropLayout, pointAlong, runPoints, shadowOf, wireLayout, type Can, type Drop, type Vec3, type WireRun } from "./layout";
-import { KERB_H, LOT_TYPE_NAMES, ROAD_W, STOREY_M, townLayout, type Lot, type LotType, type Pt, type Town } from "./town";
+import { KERB_H, LOT_TYPE_NAMES, ROAD_W, STOREY_M, townLayout, type Lot, type LotType, type Pt, type Town, type TerraceRun } from "./town";
 import { WORLD_PER_METRE, atFront } from "./models";
 import { ROOF_SHADE, TINTS, pickPlaceholders } from "./placeholders";
 import { lampBrightness, nodeLookInto, type NodeLook } from "./look";
@@ -119,7 +119,7 @@ export interface ModelSlots {
    * The town's lots (never a lamp's place), and the placeholder buildings that stand on them (ticket 041 B): `placeholder` holds
    * one group per lot type (`byType`), so a type with models can hide its placeholders and a type without keeps them.
    */
-  blocks: { list: readonly Lot[]; placeholder: Object3D; byType: Readonly<Record<LotType, Object3D>> };
+  blocks: { list: readonly Lot[]; placeholder: Object3D; byType: Readonly<Record<LotType, Object3D>>; /** The terrace runs of the town's outer blocks (051 B; absent in a hand-made bundle): what 051 D packs into stacks. */ terraces?: readonly TerraceRun[] };
   /** Pole and building clones go here. Anything marked `userData.sharedModel` is not disposed with the scene. */
   models: Object3D;
 }
@@ -1281,7 +1281,7 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
     scene,
     captions: captionSprites,
     parts: parts_,
-    slots: { poles: { spots: poleSpots, placeholders: [poles, arms] }, lamps: lampSlots, blocks: { list: town.lots, placeholder: placeholders.root, byType: placeholders.byType }, models: modelGroup },
+    slots: { poles: { spots: poleSpots, placeholders: [poles, arms] }, lamps: lampSlots, blocks: { list: town.lots, placeholder: placeholders.root, byType: placeholders.byType, terraces: town.terraces }, models: modelGroup },
     streets,
     hardware,
     setViewport(_width, height, fovDeg) {

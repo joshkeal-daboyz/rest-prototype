@@ -141,7 +141,12 @@ const POLYGON_TYPES: Record<string, LotType> = {
 };
 
 const mapFiles = [...readdirSync("puzzles").filter((f) => f.endsWith(".json")), "lamp-row.grid.json"].map((f) => join("puzzles", f)).filter((f, i, all) => existsSync(f) && all.indexOf(f) === i);
-const maps: { name: string; town: Town }[] = mapFiles.map((f) => ({ name: f, town: townLayout(loadPuzzle(JSON.parse(readFileSync(f, "utf8"))), { terraces: false }) }));
+// 051 D: the town the game draws (terraces on). A terrace lot is stood by its run's packed stacks and `buildingPlacements` never hands it to `pickBuildings`, so the rules below are held
+// on the other lots, which is the list the picker gets.
+const maps: { name: string; town: Town }[] = mapFiles.map((f) => {
+  const town = townLayout(loadPuzzle(JSON.parse(readFileSync(f, "utf8"))));
+  return { name: f, town: { ...town, lots: town.lots.filter((l) => l.terrace === undefined) } };
+});
 
 const buildingsOf = (m: AssetManifest, fronts: FrontTable = BUILDING_FRONTS, table: readonly ModelChoice[] = MODEL_TABLE): PlannedModel[] => planModels(m, table, fronts).building ?? [];
 const packOf = (models: readonly PlannedModel[], name: string): string => models.find((p) => p.entry.name === name)!.pack;
@@ -332,7 +337,7 @@ describe("variety on the POLYGON fixture (every map)", () => {
         }
       }
     }
-    expect(pairs).toBeGreaterThan(1000);
+    expect(pairs).toBeGreaterThan(500); // 051 D: the non-terrace lots only (683 on the ladder; was over 1000)
   });
 
   it("does not bring a family back within STREET_REPEAT_GAP lots on one road side (types with more families than that)", () => {

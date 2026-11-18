@@ -6,7 +6,7 @@
  */
 
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { Group, NearestFilter, Texture, type Material, type Mesh, type Object3D } from "three";
+import { Group, InstancedMesh, Matrix4, NearestFilter, Texture, type Material, type Mesh, type Object3D } from "three";
 import { calibrationKey, type AssetEntry, type AssetManifest, type CalibrationKey } from "../core";
 import { stableHash } from "../render/city";
 import { effectiveFronts, loadSavedCalibration } from "./calibration";
@@ -37,8 +37,10 @@ import {
   type ModelSlot,
   type PlannedModel,
 } from "./models";
-import type { SceneBundle } from "./scene";
+import { pickPlaceholders } from "./placeholders";
+import type { ModelSlots, SceneBundle } from "./scene";
 import { STACK_STYLES, assembleStack, offeredStacks, stackKeys, type Stack } from "./stacks";
+import { packTown, type PackedBlock } from "./terrace";
 import { LOT_TYPE_NAMES, type Lot } from "./town";
 
 /** A planned model whose root node was found in its pack's GLB. */
@@ -214,8 +216,10 @@ export function resetSharedModels(): void {
 export interface AppliedModels {
   /** Put the placeholders back and drop the clones. */
   remove(): void;
-  /** The building clones that were placed (empty when no building model applied): what the `fronts=1` overlay reads. */
+  /** The building clones that were placed (empty when no building model applied): what the `fronts=1` overlay reads. Terrace blocks are not among them (see `terrace`). */
   buildings: readonly BuildingPlacement[];
+  /** The terrace blocks that were stood (ticket 051 D), run by run, block by block: empty when there is no City Pack stack (the terrace placeholders stay). */
+  terrace: readonly PackedBlock[];
 }
 
 /** A clone of `m` in a wrapper that scales, turns and places it. The clone shares the cache's geometry and materials; nothing can pick it. */
@@ -342,12 +346,17 @@ export function buildingPlacements(lots: readonly Lot[], buildings: readonly Loa
   const offers = stack ? offeredStacks(stack.entries, stack.fronts) : [];
   if (models.length === 0 && offers.length === 0) return [];
   const byName = new Map(models.map((m) => [m.entry.name, m] as const));
-  const names = pickBuildings(lots, buildingPlan(models, undefined, offers), traitsOf(models, offers));
+  // A terrace lot (051 B) is stood by its run's packed stacks (`applyModels`), never by a whole model: `pickBuildings` does not see it, so it is not among `large`'s families.
+  const idx: number[] = [];
+  lots.forEach((l, i) => {
+    if (!l.terrace) idx.push(i);
+  });
+  const own = idx.map((i) => lots[i]!);
+  const names = pickBuildings(own, buildingPlan(models, undefined, offers), traitsOf(models, offers));
   const out: BuildingPlacement[] = [];
-  lots.forEach((lot, i) => {
-    // A terrace lot (051 B) takes no model and no stack until 051 D packs it; its placeholder stays.
-    if (lot.terrace) return;
-    const style = names[i] ? stackStyleOf(names[i]!) : null;
+  own.forEach((lot, k) => {
+    const i = idx[k]!;
+    const style = names[k] ? stackStyleOf(names[k]!) : null;
     if (style !== null && stack) {
       const recipe = STACK_STYLES.find((s) => s.id === style);
       const built = recipe ? (assembleStack(recipe, lot, stack.entries, stack.fronts) ?? assembleStack(recipe, { ...lot, cornerSides: [] }, stack.entries, stack.fronts)) : null;
@@ -356,7 +365,7 @@ export function buildingPlacements(lots: readonly Lot[], buildings: readonly Loa
       out.push({ lot: i, model: stackModel(built), scale: WORLD_PER_METRE, x: spot.x, z: spot.z, yaw: lot.yaw, stack: built });
       return;
     }
-    const m = names[i] ? byName.get(names[i]!) : undefined;
+    const m = names[k] ? byName.get(names[k]!) : undefined;
     if (!m) return;
     const scale = modelScale(m.entry, "building");
     // The model's footprint depth across the road is its own depth, or its width when its front is a quarter turn away.
@@ -366,6 +375,65 @@ export function buildingPlacements(lots: readonly Lot[], buildings: readonly Loa
     out.push({ lot: i, model: m, scale, x: spot.x, z: spot.z, yaw: lot.yaw + frontYaw(m.front) });
   });
   return out;
+}
+
+const ZERO = new Matrix4().makeScale(0, 0, 0);
+
+/**
+ * Take the placeholder boxes of the terrace lots in `covered` out of sight (ticket 051 D). `scene.ts` draws all terrace placeholders in one group of four instanced meshes
+ * (bodies, bands, flat roofs, pitched roofs), in the order of the terrace lots; a lot's instances are found from `pickPlaceholders`, which made them. When every terrace lot is
+ * covered the group is hidden whole. Pushes what undoes it to `undo`.
+ */
+function blankTerracePlaceholders(slots: ModelSlots, covered: ReadonlySet<number>, undo: (() => void)[]): void {
+  const group = slots.blocks.placeholder.getObjectByName("placeholders:terrace");
+  if (!group) return;
+  const lots = slots.blocks.list;
+  const mine: number[] = [];
+  lots.forEach((l, i) => {
+    if (l.terrace) mine.push(i);
+  });
+  if (mine.length === 0 || !mine.some((i) => covered.has(i))) return;
+  if (mine.every((i) => covered.has(i))) {
+    const was = group.visible;
+    group.visible = false;
+    undo.push(() => {
+      group.visible = was;
+    });
+    return;
+  }
+  const meshes = group.children.filter((c): c is InstancedMesh => c instanceof InstancedMesh);
+  if (meshes.length !== 4) return;
+  const [bodies, bands, flats, slopes] = meshes as [InstancedMesh, InstancedMesh, InstancedMesh, InstancedMesh];
+  const specs = pickPlaceholders(lots);
+  const blank = (mesh: InstancedMesh, i: number): void => {
+    const was = new Matrix4();
+    mesh.getMatrixAt(i, was);
+    mesh.setMatrixAt(i, ZERO);
+    mesh.instanceMatrix.needsUpdate = true;
+    undo.push(() => {
+      mesh.setMatrixAt(i, was);
+      mesh.instanceMatrix.needsUpdate = true;
+    });
+  };
+  let band = 0;
+  let flat = 0;
+  let slope = 0;
+  mine.forEach((li, k) => {
+    const s = specs[li]!;
+    const gone = covered.has(li);
+    if (gone) blank(bodies, k);
+    for (let j = 1; j < s.storeys; j++) {
+      if (gone) blank(bands, band);
+      band++;
+    }
+    if (s.roof === "flat") {
+      if (gone) blank(flats, flat);
+      flat++;
+    } else if (s.roof === "pitched") {
+      if (gone) blank(slopes, slope);
+      slope++;
+    }
+  });
 }
 
 /**
@@ -411,6 +479,7 @@ export function applyModels(bundle: SceneBundle, set: ModelSet): AppliedModels {
   const stacks = stackInput(set);
   const stackRootsOf = stackRoots(set);
   let placed: readonly BuildingPlacement[] = [];
+  const terrace: PackedBlock[] = [];
   if (((buildings && buildings.length > 0) || stacks) && slots.blocks.list.length > 0) {
     const placements = buildingPlacements(slots.blocks.list, buildings, stacks);
     placed = placements;
@@ -428,8 +497,38 @@ export function applyModels(bundle: SceneBundle, set: ModelSet): AppliedModels {
       } else add(slots.models, place(p.model, p.scale, p.x, p.z, p.yaw));
     }
   }
+  // The terrace rows (ticket 051 D): each run's nominal placeholders give way to its packed stacks, one `stack:<style>` group per block, in a group of their own that is a sibling of `slots.models` (so the lots' clones there are exactly as before). With no City Pack stack
+  // (a fresh checkout, CI) nothing is packed and the abutting placeholder boxes stay, exactly as 051 B made them. A run that packs no block keeps its placeholders.
+  const runs = slots.blocks.terraces ?? [];
+  if (stacks && runs.length > 0) {
+    const lots = slots.blocks.list;
+    const packed = packTown({ terraces: runs, lots }, STACK_STYLES, stacks.entries, stacks.fronts);
+    const row = new Group();
+    row.name = "terrace-stacks";
+    row.userData["sharedModel"] = true;
+    row.raycast = () => {};
+    const covered = new Set<number>();
+    for (const run of runs) {
+      const blocks = packed.get(run.id)?.blocks ?? [];
+      if (blocks.length === 0) continue;
+      for (const i of run.lots) covered.add(i);
+      for (const b of blocks) {
+        // The stack frame's origin is the block's front-centre: its lot centre moved toward the road by half the lot's depth.
+        const g = stackGroup(b.stack, stackRootsOf);
+        g.position.set(b.lot.x + Math.sin(b.lot.yaw) * (b.lot.d / 2), 0, b.lot.z + Math.cos(b.lot.yaw) * (b.lot.d / 2));
+        g.rotation.y = b.lot.yaw;
+        row.add(g);
+        terrace.push(b);
+      }
+    }
+    if (terrace.length > 0) {
+      add(slots.models.parent ?? slots.models, row);
+      blankTerracePlaceholders(slots, covered, undo);
+    }
+  }
   return {
     buildings: placed,
+    terrace,
     remove() {
       for (let i = undo.length - 1; i >= 0; i--) undo[i]!();
       undo.length = 0;

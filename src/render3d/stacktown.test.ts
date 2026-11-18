@@ -187,7 +187,14 @@ async function setOf(manifest: AssetManifest, opts: { failCity?: boolean; stackK
 }
 
 const mapFiles = [...readdirSync("puzzles").filter((f) => f.endsWith(".json")), "lamp-row.grid.json"].map((f) => join("puzzles", f)).filter((f, i, all) => existsSync(f) && all.indexOf(f) === i);
-const maps: { name: string; town: Town }[] = mapFiles.map((f) => ({ name: f, town: townLayout(loadPuzzle(JSON.parse(readFileSync(f, "utf8"))), { terraces: false }) }));
+/**
+ * The town the game draws (terraces on), as the picker sees it: a terrace lot is stood by its run's packed stacks (051 D) and `buildingPlacements` never hands it to `pickBuildings`, so the
+ * rules below (variety, corners, a stack on every large and tall lot) are held on the other lots, `town.lots` here, exactly the list the picker gets.
+ */
+const maps: { name: string; town: Town }[] = mapFiles.map((f) => {
+  const town = townLayout(loadPuzzle(JSON.parse(readFileSync(f, "utf8"))));
+  return { name: f, town: { ...town, lots: town.lots.filter((l) => l.terrace === undefined) } };
+});
 
 const SET = await setOf(WITH_CITY);
 const SET_NO_CITY = await setOf(NO_CITY);
@@ -380,7 +387,8 @@ describe("variety and corners on the stack fixture, on every map", () => {
         }
       }
     }
-    expect(pairs).toBeGreaterThan(1000);
+    // 051 D: the terrace lots are stood by their runs' packed stacks and not handed to the picker, so far fewer lots remain here (683 pairs on the ladder; was over 1000).
+    expect(pairs).toBeGreaterThan(500);
   });
 
   it("does not bring a family back within STREET_REPEAT_GAP lots on one road side (large, with six families); tall, with exactly STREET_REPEAT_GAP + 1, only in the rule's documented forced fallback", () => {
@@ -483,7 +491,8 @@ describe("stacks in the town: inside the lot, under its cap, facing its road, co
         for (const piece of p.stack.pieces) for (const c of worldCorners(p, piece)) expect(insideLot(lot, c), `${name} ${lot.key} ${piece.key}`).toBe(true);
       }
     }
-    expect(stackPlacements).toBeGreaterThan(100);
+    // 051 D: only the non-terrace large and tall lots are placed one by one now (32 on the ladder; the terrace blocks are checked in terracetown.test.ts and terracepack.test.ts).
+    expect(stackPlacements).toBeGreaterThan(20);
   });
 
   it("stands the stack's frame at the lot's front-centre (the footprint centre by atFront, the group's origin half a depth toward the road)", () => {
@@ -560,17 +569,25 @@ describe("a stack in the 041 B occlusion test: nothing stands between the camera
   for (const file of ["09-shrine-circuit", "64-the-whole-chain"]) {
     it(`holds on ${file} with every stack at its fixture height`, () => {
       const puzzle: Puzzle = loadPuzzle(JSON.parse(readFileSync(`puzzles/${file}.json`, "utf8")));
-      const bundle = buildScene(puzzle, { text: stubTextSurface, terraces: false });
-      const placements = buildingPlacements(bundle.slots.blocks.list, SET.building, stackInput(SET)).filter((p) => p.stack);
-      expect(placements.length, file).toBeGreaterThan(0);
-      const solids: Object3D[] = placements.map((p) => {
-        const s = p.stack!;
+      const bundle = buildScene(puzzle, { text: stubTextSurface });
+      // The town the game draws: the non-terrace lots' stacks and every terrace block's, each at its fixture height.
+      const applied = applyModels(bundle, SET);
+      const placements = applied.buildings.filter((p) => p.stack);
+      expect(placements.length + applied.terrace.length, file).toBeGreaterThan(0);
+      const solid = (s: { width_m: number; height_m: number; depth_m: number }, x: number, z: number, yaw: number): Object3D => {
         const box = new Mesh(new BoxGeometry(s.width_m * WPM, s.height_m * WPM, s.depth_m * WPM), new MeshBasicMaterial({ side: DoubleSide }));
-        box.position.set(p.x, (s.height_m * WPM) / 2, p.z);
-        box.rotation.y = p.yaw;
+        box.position.set(x, (s.height_m * WPM) / 2, z);
+        box.rotation.y = yaw;
         box.updateMatrixWorld(true);
         return box;
-      });
+      };
+      const solids: Object3D[] = [
+        ...placements.map((p) => solid(p.stack!, p.x, p.z, p.yaw)),
+        ...applied.terrace.map((b) => {
+          const half = (b.stack.depth_m * WPM) / 2;
+          return solid(b.stack, b.lot.x + Math.sin(b.lot.yaw) * (b.lot.d / 2 - half), b.lot.z + Math.cos(b.lot.yaw) * (b.lot.d / 2 - half), b.lot.yaw);
+        }),
+      ];
       const rig = createCameraRig(puzzle, 1280, 720, { top: 120, bottom: 90 });
       const eye = rig.camera.position;
       const targets: { name: string; p: Vector3 }[] = [
@@ -591,10 +608,11 @@ describe("a stack in the 041 B occlusion test: nothing stands between the camera
 });
 
 describe("applyModels stands one unpickable group per stack", () => {
-  const puzzle: Puzzle = loadPuzzle(JSON.parse(readFileSync("puzzles/09-shrine-circuit.json", "utf8")));
+  // 64 has non-terrace large lots that stand a stack one by one; 09's outer rows are all terraces now (051 D).
+  const puzzle: Puzzle = loadPuzzle(JSON.parse(readFileSync("puzzles/64-the-whole-chain.json", "utf8")));
 
   it("adds a `stack:<style>` group at the lot's front-centre and yaw, hides the placeholders of the covered types, and takes it all back on remove()", () => {
-    const bundle = buildScene(puzzle, { text: stubTextSurface, terraces: false });
+    const bundle = buildScene(puzzle, { text: stubTextSurface });
     const lots = bundle.slots.blocks.list;
     const want = buildingPlacements(lots, SET.building, stackInput(SET));
     const stacks = want.filter((p) => p.stack);
@@ -625,7 +643,7 @@ describe("applyModels stands one unpickable group per stack", () => {
   });
 
   it("adds no stack group at all when no stack piece loaded (a fresh checkout and CI)", () => {
-    const bundle = buildScene(puzzle, { text: stubTextSurface, terraces: false });
+    const bundle = buildScene(puzzle, { text: stubTextSurface });
     const applied = applyModels(bundle, SET_NO_CITY);
     expect(bundle.slots.models.children.some((c) => c.name.startsWith("stack:"))).toBe(false);
     expect(applied.buildings.every((p) => p.stack === undefined)).toBe(true);

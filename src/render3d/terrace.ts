@@ -6,15 +6,18 @@
  * What is decided, and where:
  * - Which blocks: apartment styles only (a style whose `depth` is "bay"; an office is one footprint column and is left to the tall lots), 2 to 4 columns
  *   each, one style per block. The first block is a corner block exactly when the run starts at a corner (`run.startCorner`), with its corner column on that
- *   side; no other block is a corner block (Josh, 17 Nov 2026: corner buildings only on corners). Its style is `cornerStyle(run)` (from the run's id alone) unless
- *   another closes the row better; the row before it needs only its depth (`farWall_m`), which is the same for every style to within 0.03 m.
+ *   side; no other block is a corner block (Josh, 17 Nov 2026: corner buildings only on corners). The row before a corner block must close to its REAL back wall, and
+ *   that depth is the block's, not the style's: the shops and roof corners it draws make it 5.62 to 5.92 m deep, by key (the 0.03 m between the styles' deepest candidates is
+ *   not the difference between the blocks built). So a run's corner block is one of `cornerOptions` (each exactly the stack `packTerrace` builds), and `packTown` packs the
+ *   runs of a block from the end of each chain back, each closed to the corner block the next row really got (one root per cycle is given its corner first).
  * - The widths: a block is as wide as its columns (`Stack.width_m`: the floor pieces' true widths, the corner column's corner piece). Blocks are laid flush from the
  *   run's start along its direction. N unscaled columns span only 5.0 x N to about 5.28 x N metres, so most row lengths fall in a dead band that no choice can close.
  * - The far end, in this order (ticket 051 Q7): (1) a choice of bays and styles that leaves a gap of at most `TERRACE_SEAM_M`; else (2) one that leaves an alley, from
  *   `ALLEY_MIN_M` to `ALLEY_MAX_M` (052 C dresses it with a gate or bins); else (3) the smallest gap above `ALLEY_MAX_M` (within `TERRACE_SLACK_M` of it, the first in the
  *   preference order below); only if no choice leaves a gap above that, the smallest slit. Never a 0.3 to 0.5 m slit by choice. The gap is never negative.
  *   It is measured from the last block's pieces (a roof or a shop wider than its column overhangs it) to the far wall.
- * - The far wall: where the run ends at the next row's corner block, its real back wall (the run's length plus the 6 m band less that block's depth, `farWall_m`);
+ * - The far wall: where the run ends at the next row's corner block, its real back wall (the run's length plus the 6 m band less the depth of the corner block
+ *   that row really got, `farWall_m` / `packTown`);
  *   otherwise the plaza's edge, or the last nominal lot's edge (a parking lot or a clearance end: the ground beyond it is not cleared). The 051 B strip between the last
  *   nominal lot and the band is what a corner or plaza end runs on into. Every block has the depth and front line of its run's nominal lots.
  * - Heights: a block's cap is the lowest cap of the nominal lots it overlaps. Its floors over the base are picked by hash inside `stackRange` for that cap (2 to 4 on
@@ -29,7 +32,7 @@
 import type { AssetEntry, CalibrationKey } from "../core";
 import { stableHash } from "../render/city";
 import { BUILDING_FRONTS, type FrontTable } from "./models";
-import { assembleStack, stackDepth, stackRange, type Stack, type StackSide, type StackStyle } from "./stacks";
+import { assembleStack, stackRange, type Stack, type StackSide, type StackStyle } from "./stacks";
 import { TERRACE_BAYS, TERRACE_DEPTH_M, WORLD_PER_METRE, type Lot, type LotSpec, type TerraceRun } from "./town";
 
 /** The most a run's far end may be left short of its far wall, metres, to count as closed. */
@@ -80,6 +83,8 @@ export interface PackResult {
 export interface PackOptions {
   /** The far wall's distance from the run's start, metres (see `farWall_m`). Default: the run's length for a corner end. */
   farWall_m?: number | undefined;
+  /** Take this corner block as the run's first (one of `cornerOptions`): the row before has closed to its real back wall. Default: the packer chooses it with the rest. */
+  corner?: CornerBlock | undefined;
 }
 
 interface Opt {
@@ -113,32 +118,218 @@ function overhang(stack: Stack, side: StackSide): number {
 /** The styles a terrace can stand: apartment styles (one bay deep). */
 const bayStyles = (styles: readonly StackStyle[]): StackStyle[] => styles.filter((s) => s.depth === "bay");
 
-/**
- * The preferred style of a run's corner block, from the run's id alone, among the apartment styles that have corner pieces in every role; null when there is none.
- * `packTerrace` tries it first and takes another only when that one cannot close the row to a seam or an alley (the corner styles' depths differ by 0.03 m, so the row
- * before does not need to know which: `farWall_m` uses the deepest).
- */
+/** The apartment styles that have corner pieces in every role. */
+const cornerStyles = (styles: readonly StackStyle[]): StackStyle[] => bayStyles(styles).filter((s) => s.base.corner.length > 0 && s.floor.corner.length > 0 && s.roof.corner.length > 0);
+
+/** The style of a run's corner block, from the run's id alone, among the apartment styles that have corner pieces in every role; null when there is none. */
 export function cornerStyle(run: Pick<TerraceRun, "id">, styles: readonly StackStyle[]): StackStyle | null {
-  const ok = bayStyles(styles).filter((s) => s.base.corner.length > 0 && s.floor.corner.length > 0 && s.roof.corner.length > 0);
+  const ok = cornerStyles(styles);
   return ok.length === 0 ? null : ok[stableHash(`${run.id}:corner-style`) % ok.length]!;
 }
 
-/**
- * Where a run's far wall is, metres from its start, or undefined when it is the run's length. At a corner end the wall is the next row's corner block's real back wall: the
- * block fronts its own street and is only as deep as its pieces (`stackDepth`, about 5.9 m), not the 6 m band the run was cut to. `next` is the run that starts the next row
- * of the block (it must start at a corner to have a corner block); the result feeds `packTerrace`'s `opts.farWall_m`.
- */
-export function farWall_m(run: TerraceRun, next: TerraceRun | undefined, styles: readonly StackStyle[], entries: Entries, fronts: FrontTable = BUILDING_FRONTS): number | undefined {
-  if (run.endAbuts !== "corner" || !next || next.startCorner === null) return undefined;
-  // The deepest any style that can stand at a corner reaches (5.918, 5.886 and 5.886 m with the City Pack's three: the shops are shared, so they differ by 0.03 m): the wall
-  // is then the same whichever style the next run's corner block takes, and the block never reaches past it.
-  let depth = -Infinity;
-  for (const style of bayStyles(styles)) {
-    if (style.base.corner.length === 0 || style.floor.corner.length === 0 || style.roof.corner.length === 0) continue;
-    const d = stackDepth(style, entries, fronts);
-    if (d !== null) depth = Math.max(depth, d);
+/** The lowest cap, metres, of a run's nominal lots over the part from `s0` to `s1` metres (the last lot's cap past its end). */
+function capOver(nominal: readonly Lot[], s0: number, s1: number): number {
+  let at = 0;
+  let cap = Infinity;
+  for (const l of nominal) {
+    const b = at + l.w / WORLD_PER_METRE;
+    if (b > s0 + 1e-6 && at < s1 - 1e-6) cap = Math.min(cap, capM(l.hMax));
+    at = b;
   }
-  return Number.isFinite(depth) ? run.len / WORLD_PER_METRE + Math.max(0, TERRACE_DEPTH_M - depth) : undefined;
+  return Number.isFinite(cap) ? cap : nominal.length > 0 ? capM(nominal[nominal.length - 1]!.hMax) : 0;
+}
+
+export interface CornerBlock {
+  style: StackStyle;
+  bays: number;
+  floors: number;
+  /** The block as it will stand: assembled with the key `<run id>:b0` and the run's corner side. Its `depth_m` is the real back wall. */
+  stack: Stack;
+}
+
+/**
+ * Every corner block a run can start with, in preference order (empty when the run does not start at a corner or none can stand). Each is exactly the block `packTerrace` builds
+ * for that style and columns (key `<run id>:b0`, floors by hash under the cap of the nominal lots it overlaps), so its `stack.depth_m` is the real back wall the row before it must
+ * close to. Order: `cornerStyle(run)` first, then the other corner styles in turn; the columns by hash of the id over 2 to 4, then the others in turn. A block must fit the run.
+ */
+export function cornerOptions(run: TerraceRun, nominal: readonly Lot[], styles: readonly StackStyle[], entries: Entries, fronts: FrontTable = BUILDING_FRONTS): CornerBlock[] {
+  const out: CornerBlock[] = [];
+  const corner = run.startCorner;
+  if (!corner || nominal.length === 0) return out;
+  const ok = cornerStyles(styles);
+  if (ok.length === 0) return out;
+  const start = ok.indexOf(cornerStyle(run, styles)!);
+  const nBays = TERRACE_BAYS.max - TERRACE_BAYS.min + 1;
+  const bayStart = stableHash(`${run.id}:corner-bays`) % nBays;
+  const lot = { type: "large" as const, key: `${run.id}:b0`, cornerSides: [corner] };
+  // A block must fit the run (a corner end runs on past the last nominal lot to the wall, so the run's own length is the least it has).
+  const room = Math.max(run.len / WORLD_PER_METRE, nominal.reduce((sum, l) => sum + l.w, 0) / WORLD_PER_METRE);
+  for (let si = 0; si < ok.length; si++) {
+    const style = ok[(start + si) % ok.length]!;
+    for (let bi = 0; bi < nBays; bi++) {
+      const bays = TERRACE_BAYS.min + ((bayStart + bi) % nBays);
+      const probe = assembleStack(style, lot, entries, fronts, { spec: specFor(16, 40), bays });
+      if (!probe || probe.width_m > room + EPS) continue;
+      const cap = capOver(nominal, 0, probe.width_m);
+      const range = stackRange(style, "large", entries, fronts, specFor(cap, 40));
+      if (!range) continue;
+      const stack = assembleStack(style, lot, entries, fronts, { spec: specFor(cap, 40), bays, floors: firstFloors(run.id, range) });
+      if (stack) out.push({ style, bays, floors: stack.floors, stack });
+    }
+  }
+  return out;
+}
+
+/** The first of `cornerOptions` (the hash's own choice), or null. */
+export function cornerBlock(run: TerraceRun, nominal: readonly Lot[], styles: readonly StackStyle[], entries: Entries, fronts: FrontTable = BUILDING_FRONTS): CornerBlock | null {
+  return cornerOptions(run, nominal, styles, entries, fronts)[0] ?? null;
+}
+
+/** The floors a run's first block takes: by hash within the range (no neighbour before it to differ from). */
+function firstFloors(runId: string, range: { min: number; max: number }): number {
+  const all: number[] = [];
+  for (let f = range.min; f <= range.max; f++) all.push(f);
+  return all[stableHash(`${runId}:floors:0`) % all.length]!;
+}
+
+/** The run that starts the next row of the same block (the runs of a block are contiguous; a row's last run ends at the next row's corner), or undefined. */
+export function nextTerraceRun(terraces: readonly TerraceRun[], run: TerraceRun): TerraceRun | undefined {
+  const k = terraces.indexOf(run);
+  const after = terraces[k + 1];
+  if (k >= 0 && after && after.block === run.block) return after;
+  return terraces.find((r) => r.block === run.block);
+}
+
+/**
+ * Where a run's far wall is, metres from its start, or undefined when it is the run's length. At a corner end the wall is the next row's corner block's real back wall: that block
+ * fronts its own street and is only as deep as the stack `cornerBlock` built for it (`stack.depth_m`, 5.62 to 5.92 m), not the 6 m band the run was cut to. `next` is the run that
+ * starts the next row of the block and `nextNominal` its nominal lots (it must start at a corner to have a corner block); the result feeds `packTerrace`'s `opts.farWall_m`.
+ */
+export function farWall_m(
+  run: TerraceRun,
+  next: TerraceRun | undefined,
+  nextNominal: readonly Lot[],
+  styles: readonly StackStyle[],
+  entries: Entries,
+  fronts: FrontTable = BUILDING_FRONTS,
+): number | undefined {
+  if (run.endAbuts !== "corner" || !next || next.startCorner === null) return undefined;
+  const block = cornerBlock(next, nextNominal, styles, entries, fronts);
+  return block ? run.len / WORLD_PER_METRE + Math.max(0, TERRACE_DEPTH_M - block.stack.depth_m) : undefined;
+}
+
+/** The wall a run ends at when the row after it starts with `block`: its real back wall, metres from the run's start. */
+const wallTo = (run: TerraceRun, block: { stack: { depth_m: number } } | undefined): number | undefined => (block ? run.len / WORLD_PER_METRE + Math.max(0, TERRACE_DEPTH_M - block.stack.depth_m) : undefined);
+
+const closes = (g: number): boolean => g <= TERRACE_SEAM_M + EPS || (g >= ALLEY_MIN_M - EPS && g <= ALLEY_MAX_M + EPS);
+
+/**
+ * Every run of a town packed, each closed to its next row's REAL corner block: the one that run really builds. A row's last run ends at the next row's first run, whose corner
+ * block is part of that run's own packing, so the runs of a block are packed from the end of each chain back (the first run of a row first, then the last run of the row before
+ * it, measured to its block's real depth). Around a block the chain closes on itself, so one run is its cycle's root: its corner block is fixed first, tried over `cornerOptions`,
+ * and the cycle is packed against each in turn (stopping at the first that closes every run to a seam or an alley, else the one that closes most). Deterministic. `town.lots`
+ * are the nominal lots; the map is keyed by run id.
+ */
+export function packTown(
+  town: { terraces: readonly TerraceRun[]; lots: readonly Lot[] },
+  styles: readonly StackStyle[],
+  entries: Entries,
+  fronts: FrontTable = BUILDING_FRONTS,
+): Map<string, PackResult> {
+  const nominalOf = (run: TerraceRun): Lot[] => run.lots.map((i) => town.lots[i]!);
+  const link = (run: TerraceRun): TerraceRun | undefined => {
+    if (run.endAbuts !== "corner") return undefined;
+    const n = nextTerraceRun(town.terraces, run);
+    return n && n.startCorner !== null ? n : undefined;
+  };
+  const targets = new Set<string>();
+  for (const r of town.terraces) {
+    const n = link(r);
+    if (n) targets.add(n.id);
+  }
+  const out = new Map<string, PackResult>();
+  /** Packs `chain` from its last run back; `rootFixed` is the first run's corner block when the chain is a cycle (the last run is then measured to it). */
+  const packChain = (chain: readonly TerraceRun[], rootFixed: CornerBlock | null): Map<string, PackResult> => {
+    const res = new Map<string, PackResult>();
+    /** Whether the run before can close to a corner block of this depth (it chooses its own corner block, or is the root with its given one). Memoised per run and depth. */
+    const reach = new Map<string, boolean>();
+    const canClose = (i: number, depth: number): boolean => {
+      const run = chain[i]!;
+      const id = `${run.id}|${Math.round(depth * 1000)}`;
+      const hit = reach.get(id);
+      if (hit !== undefined) return hit;
+      const r = packTerrace(run, nominalOf(run), styles, entries, fronts, { farWall_m: wallTo(run, { stack: { depth_m: depth } }), corner: i === 0 && rootFixed ? rootFixed : undefined });
+      const ok = r.blocks.length > 0 && closes(r.farGap_m);
+      reach.set(id, ok);
+      return ok;
+    };
+    for (let i = chain.length - 1; i >= 0; i--) {
+      const run = chain[i]!;
+      const nominal = nominalOf(run);
+      const after = chain[i + 1];
+      const wall = after ? wallTo(run, res.get(after.id)?.blocks[0]) : i === chain.length - 1 && rootFixed ? wallTo(run, rootFixed) : undefined;
+      if (i === 0 && rootFixed) {
+        res.set(run.id, packTerrace(run, nominal, styles, entries, fronts, { farWall_m: wall, corner: rootFixed }));
+        continue;
+      }
+      // Among the corner blocks that close this run, one the run before can close to (its depth is that run's wall).
+      let chosen: PackResult | null = null;
+      if (i > 0 && run.startCorner !== null) {
+        let closing: PackResult | null = null;
+        for (const o of cornerOptions(run, nominal, styles, entries, fronts)) {
+          const r = packTerrace(run, nominal, styles, entries, fronts, { farWall_m: wall, corner: o });
+          if (r.blocks.length === 0 || !closes(r.farGap_m)) continue;
+          closing ??= r;
+          if (canClose(i - 1, o.stack.depth_m)) {
+            chosen = r;
+            break;
+          }
+        }
+        chosen ??= closing;
+      }
+      res.set(run.id, chosen ?? packTerrace(run, nominal, styles, entries, fronts, { farWall_m: wall }));
+    }
+    return res;
+  };
+  const done = new Set<string>();
+  const take = (res: Map<string, PackResult>): void => {
+    for (const [id, r] of res) {
+      out.set(id, r);
+      done.add(id);
+    }
+  };
+  // Paths: a chain that starts at a run nothing links to.
+  for (const head of town.terraces) {
+    if (targets.has(head.id) || done.has(head.id)) continue;
+    const chain: TerraceRun[] = [head];
+    for (let n = link(head); n && !chain.includes(n); n = link(n)) chain.push(n);
+    take(packChain(chain, null));
+  }
+  // Cycles: what is left links round on itself.
+  for (const head of town.terraces) {
+    if (done.has(head.id)) continue;
+    const chain: TerraceRun[] = [head];
+    for (let n = link(head); n && n !== head && !chain.includes(n); n = link(n)) chain.push(n);
+    const options = cornerOptions(head, nominalOf(head), styles, entries, fronts);
+    if (options.length === 0 || link(chain[chain.length - 1]!) !== head) {
+      take(packChain(chain, null));
+      continue;
+    }
+    let best: Map<string, PackResult> | null = null;
+    let bestScore = -1;
+    for (const o of options) {
+      const res = packChain(chain, o);
+      let score = 0;
+      for (const r of res.values()) if (r.blocks.length > 0 && closes(r.farGap_m)) score++;
+      if (score > bestScore) {
+        best = res;
+        bestScore = score;
+      }
+      if (score === chain.length) break;
+    }
+    take(best!);
+  }
+  return out;
 }
 
 /**
@@ -209,9 +400,11 @@ export function packTerrace(run: TerraceRun, nominal: readonly Lot[], styles: re
     }
     return out;
   };
+  // A given corner block (the row before it closed to its real back wall) is the only option for block 0: its width and overhang are the assembled stack's.
+  const fixed = cornerSide ? (opts.corner ?? null) : null;
   const cornerOf = cornerSide ? cornerStyle(run, styles) : null;
   const midOpts = optsFor(apartments, null);
-  const cornerOpts = cornerSide ? optsFor(apartments, cornerSide) : [];
+  const cornerOpts: Opt[] = fixed ? [{ style: fixed.style, bays: fixed.bays, w: fixed.stack.width_m, ov: overhang(fixed.stack, farSide) }] : cornerSide ? optsFor(apartments, cornerSide) : [];
   if (midOpts.length === 0 || (cornerSide && cornerOpts.length === 0)) return empty;
   const minNeed = Math.min(...midOpts.map((o) => o.w + o.ov));
 
@@ -293,6 +486,7 @@ export function packTerrace(run: TerraceRun, nominal: readonly Lot[], styles: re
     const cap = capAt(s, s + o.w);
     const range = rangeOf(o.style, cap);
     if (!range) break;
+    const isCorner = i === 0 && cornerSide !== null;
     const prev = blocks[i - 1]?.floors;
     const prev2 = blocks[i - 2]?.floors;
     const all: number[] = [];
@@ -301,11 +495,13 @@ export function packTerrace(run: TerraceRun, nominal: readonly Lot[], styles: re
     const pool = differ.length > 0 ? differ : all;
     const apart = pool.filter((f) => f !== prev2);
     const choice = apart.length > 0 ? apart : pool;
-    const floors = choice[stableHash(`${run.id}:floors:${i}`) % choice.length]!;
-    const isCorner = i === 0 && cornerSide !== null;
     const key = `${run.id}:b${i}`;
-    const stack = assembleStack(o.style, { type: "large", key, cornerSides: isCorner ? cornerSides : [] }, entries, fronts, { spec: specFor(cap, 40), bays: o.bays, floors });
+    const stack =
+      isCorner && fixed
+        ? fixed.stack
+        : assembleStack(o.style, { type: "large", key, cornerSides: isCorner ? cornerSides : [] }, entries, fronts, { spec: specFor(cap, 40), bays: o.bays, floors: choice[stableHash(`${run.id}:floors:${i}`) % choice.length]! });
     if (!stack) break;
+    const floors = stack.floors;
     // The probe widths and overhangs planned this block; the real stack may differ (a style with several floor pieces of different widths). A block whose real width and
     // overhang no longer fit before the far wall is dropped with the rest, one short of the plan, never the whole run.
     const w = stack.width_m;

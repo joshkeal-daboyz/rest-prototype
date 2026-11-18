@@ -11,7 +11,7 @@ import { NODE_SQUARE } from "../render/city";
 import { wireLayout } from "./layout";
 import { BUILDING_FRONTS } from "./models";
 import { STACK_STYLES, type Stack, type StackStyle } from "./stacks";
-import { ALLEY_MAX_M, ALLEY_MIN_M, TERRACE_SEAM_M, cornerStyle, farWall_m, packTerrace, type PackResult } from "./terrace";
+import { ALLEY_MAX_M, ALLEY_MIN_M, TERRACE_SEAM_M, cornerBlock, cornerOptions, cornerStyle, farWall_m, nextTerraceRun, packTerrace, packTown, type PackResult } from "./terrace";
 import { TERRACE_BAYS, TERRACE_DEPTH_M, WIRE_CLEAR, WORLD_PER_METRE, townClears, townLayout, type Lot, type TerraceRun, type Town } from "./town";
 
 void ASSET_MANIFEST_VERSION;
@@ -71,22 +71,23 @@ const EPS = 1e-6;
 const MID_W: Record<string, number> = { "apartment-01": 5.0, "apartment-02": 5.17, "apartment-03": 5.281 };
 const APARTMENTS = STACK_STYLES.filter((s) => s.depth === "bay").map((s) => s.id);
 
-/** The run that starts the next row of the same block (a corner-ended run is the last of its row, and the runs of a block are contiguous), or undefined. */
-function nextRunOf(town: Town, run: TerraceRun): TerraceRun | undefined {
-  const k = town.terraces.indexOf(run);
-  const after = town.terraces[k + 1];
-  if (after && after.block === run.block) return after;
-  return town.terraces.find((r) => r.block === run.block);
-}
-const pack = (run: TerraceRun, town: Town): PackResult =>
-  packTerrace(
-    run,
-    run.lots.map((i) => town.lots[i]!),
-    STACK_STYLES,
-    ENTRIES,
-    BUILDING_FRONTS,
-    { farWall_m: farWall_m(run, nextRunOf(town, run), STACK_STYLES, ENTRIES, BUILDING_FRONTS) },
-  );
+const nextRunOf = (town: Town, run: TerraceRun): TerraceRun | undefined => nextTerraceRun(town.terraces, run);
+/** A town packed once (the runs of a block are packed together: each closes to its next row's real corner block). */
+const packed = new WeakMap<Town, Map<string, PackResult>>();
+const pack = (run: TerraceRun, town: Town): PackResult => {
+  let m = packed.get(town);
+  if (!m) {
+    m = packTown(town, STACK_STYLES, ENTRIES, BUILDING_FRONTS);
+    packed.set(town, m);
+  }
+  return m.get(run.id)!;
+};
+/** The far wall of a run on a town: its next row's real corner block's back wall, as that block was built. */
+const wallOf = (town: Town, run: TerraceRun): number | undefined => {
+  const next = nextRunOf(town, run);
+  const block = run.endAbuts === "corner" && next && next.startCorner !== null ? pack(next, town).blocks[0] : undefined;
+  return block ? run.len / W + Math.max(0, TERRACE_DEPTH_M - block.stack.depth_m) : undefined;
+};
 
 // ---- synthetic runs, typed in (no town): along +x, front toward +z, so the lot's +x points toward the run's start ----
 function synthRun(opts: { lenM: number; bays: number[]; cap?: number[]; start: "corner" | "none"; end?: TerraceRun["endAbuts"]; id?: string }): { run: TerraceRun; nominal: Lot[] } {
@@ -289,7 +290,7 @@ describe("packTerrace over every run on every map", () => {
         expect(result.farGap_m, tag).toBeGreaterThanOrEqual(0);
         const nominal = run.lots.map((i) => m.town.lots[i]!);
         const nomEnd = nominal.reduce((sum, l) => sum + l.w, 0) / W;
-        const wall = farWall_m(run, nextRunOf(m.town, run), STACK_STYLES, ENTRIES, BUILDING_FRONTS);
+        const wall = wallOf(m.town, run);
         const avail = run.endAbuts === "corner" ? Math.max(run.len / W, wall ?? 0) : run.endAbuts === "plaza" ? run.len / W : nomEnd;
         let end = 0;
         result.blocks.forEach((b, i) => {
@@ -467,7 +468,11 @@ describe("packTerrace over every run on every map", () => {
             const p = result.blocks[i - 1]!;
             expect(b.style, tag).not.toBe(p.style);
             // A 10 m cap allows one floor count only; the ladder's rows are all 16 m, so this holds everywhere today.
-            if (b.lot.hMax / W > 10 + 1e-6 || p.lot.hMax / W > 10 + 1e-6) expect(b.floors, tag).not.toBe(p.floors);
+            if (b.lot.hMax / W > 10 + 1e-6 || p.lot.hMax / W > 10 + 1e-6) {
+              expect(b.floors, tag).not.toBe(p.floors);
+              // So two neighbours are never of equal height either (a floor is 3 m, a roof under 0.75): the party wall always steps (051 D, equal heights only at a 10 m cap).
+              expect(Math.abs(b.stack.height_m - p.stack.height_m), tag).toBeGreaterThan(1);
+            }
           }
         });
       }
@@ -477,8 +482,9 @@ describe("packTerrace over every run on every map", () => {
     expect([...bays].sort()).toEqual([2, 3, 4]);
     // Deterministic: a second pass over three maps gives the same blocks.
     for (const m of ladder().slice(0, 3)) {
+      const second = packTown(m.town, STACK_STYLES, ENTRIES, BUILDING_FRONTS);
       for (const { run, result } of m.runs) {
-        const again = pack(run, m.town);
+        const again = second.get(run.id)!;
         expect(again.farGap_m).toBe(result.farGap_m);
         expect(again.blocks.map((b) => [b.lot.key, b.style, b.bays, b.floors, b.lot.x, b.lot.z, b.lot.w])).toEqual(result.blocks.map((b) => [b.lot.key, b.style, b.bays, b.floors, b.lot.x, b.lot.z, b.lot.w]));
       }
@@ -624,7 +630,11 @@ describe("closing the far gap: a seam, or an alley, never a slit", () => {
       const r = packSynth(synthRun({ lenM: 83.2, bays: [4, 4, 4, 4], start: "corner", id }));
       if (r.blocks[0]!.style === cornerStyle({ id }, STACK_STYLES)!.id) preferred++;
     }
+    // A preference only where the run is packed alone (packTown tries every corner option round a block): the hash's own choice leads cornerOptions.
     expect(preferred / ids.length).toBeGreaterThan(0.5);
+    const s = synthRun({ lenM: 83.2, bays: [4, 4, 4, 4], start: "corner", id: ids[0]! });
+    expect(cornerOptions(s.run, s.nominal, STACK_STYLES, ENTRIES, BUILDING_FRONTS)[0]!.style.id).toBe(cornerStyle({ id: ids[0]! }, STACK_STYLES)!.id);
+    expect(cornerBlock(s.run, s.nominal, STACK_STYLES, ENTRIES, BUILDING_FRONTS)).toEqual(cornerOptions(s.run, s.nominal, STACK_STYLES, ENTRIES, BUILDING_FRONTS)[0]);
   });
 
   it("states the rule in the guide, and the terrace.ts header no longer claims FAMILY_SHARE_MAX is met by a near-even spread", () => {
@@ -640,6 +650,7 @@ describe("closing the far gap: a seam, or an alley, never a slit", () => {
 describe("the strip, the overhang and the probe", () => {
   it("passes the town's own lot rules on every map: the part of a block past the last nominal lot clears roads, nodes, wires and the occlusion rule at the block's height", { timeout: 60000 }, () => {
     let strips = 0;
+    let past = 0;
     for (const m of ladder()) {
       const clears = townClears(m.town)!;
       expect(clears, m.name).not.toBeNull();
@@ -659,9 +670,20 @@ describe("the strip, the overhang and the probe", () => {
           const cz = run.az + run.uz * mid - (fz * b.lot.d) / 2;
           expect(clears(cx, cz, (e - a) * W, b.lot.d, b.lot.yaw, b.lot.hMax, 0), `${m.name} ${b.lot.key} strip at ${b.lot.hMax / W} m`).toBe(true);
         }
+        // The part past the run's length (the band line, up to 0.4 m once the far wall is the corner block's real back wall) lies in the next row's corner lot, which was cleared at its
+        // own cap: a block that reaches into it is never taller than that lot.
+        const next = nextRunOf(m.town, run);
+        if (run.endAbuts !== "corner" || !next || next.startCorner === null) continue;
+        const cornerLot = m.town.lots[next.lots[0]!]!;
+        for (const b of result.blocks) {
+          if (spanOfBlock(run, b.lot)[1] <= run.len / W + 1e-6) continue;
+          past++;
+          expect(b.stack.height_m, `${m.name} ${b.lot.key} reaches into ${cornerLot.key}`).toBeLessThanOrEqual(cornerLot.hMax / W + 1e-9);
+        }
       }
     }
     expect(strips).toBeGreaterThan(500);
+    expect(past).toBeGreaterThan(100);
   });
 
   it("holds every piece, roofs and bases included, out of the next row's corner block: none passes its real back wall", { timeout: 60000 }, () => {
@@ -688,22 +710,50 @@ describe("the strip, the overhang and the probe", () => {
     expect(checked).toBeGreaterThan(10000);
   });
 
-  it("measures the far wall at the next corner block's real back wall: the run's length plus the band less that block's depth, 5.918 m of the 6", () => {
+  it("measures the far wall at the next corner block's real back wall: the run's length plus the band less the depth of the corner block built for that row", () => {
     const s = synthRun({ lenM: 47.89, bays: [4, 4], start: "corner", end: "corner" });
-    const next = synthRun({ lenM: 40, bays: [4, 4], start: "corner", id: "road2:1:r0" }).run;
-    const wall = farWall_m(s.run, next, STACK_STYLES, ENTRIES, BUILDING_FRONTS)!;
+    const nextS = synthRun({ lenM: 40, bays: [4, 4], start: "corner", id: "road2:1:r0" });
+    const next = nextS.run;
+    const wall = farWall_m(s.run, next, nextS.nominal, STACK_STYLES, ENTRIES, BUILDING_FRONTS)!;
+    const real = cornerBlock(next, nextS.nominal, STACK_STYLES, ENTRIES, BUILDING_FRONTS)!;
     expect(wall).toBeGreaterThan(47.89);
-    expect(wall).toBeCloseTo(47.89 + (TERRACE_DEPTH_M - 5.918), 6);
+    expect(wall).toBeCloseTo(47.89 + (TERRACE_DEPTH_M - real.stack.depth_m), 9);
     // No wall of its own where the next row does not start at a corner (a plaza), or this run does not end at one.
-    expect(farWall_m(s.run, { ...next, startCorner: null }, STACK_STYLES, ENTRIES, BUILDING_FRONTS)).toBeUndefined();
-    expect(farWall_m({ ...s.run, endAbuts: "parking" }, next, STACK_STYLES, ENTRIES, BUILDING_FRONTS)).toBeUndefined();
-    expect(farWall_m(s.run, undefined, STACK_STYLES, ENTRIES, BUILDING_FRONTS)).toBeUndefined();
+    expect(farWall_m(s.run, { ...next, startCorner: null }, nextS.nominal, STACK_STYLES, ENTRIES, BUILDING_FRONTS)).toBeUndefined();
+    expect(farWall_m({ ...s.run, endAbuts: "parking" }, next, nextS.nominal, STACK_STYLES, ENTRIES, BUILDING_FRONTS)).toBeUndefined();
+    expect(farWall_m(s.run, undefined, [], STACK_STYLES, ENTRIES, BUILDING_FRONTS)).toBeUndefined();
     // The packer runs on past the band line to the wall, and no further.
     const r = packTerrace(s.run, s.nominal, STACK_STYLES, ENTRIES, BUILDING_FRONTS, { farWall_m: wall });
     const last = r.blocks[r.blocks.length - 1]!;
     const end = spanOfBlock(s.run, last.lot)[1];
     expect(end + r.farOverhang_m).toBeLessThanOrEqual(wall + 1e-9);
     expect(Math.abs(end + r.farOverhang_m + r.farGap_m - wall)).toBeLessThan(1e-9);
+  });
+
+  it("builds the corner block the row before measured to: its stack is the one packTerrace stands, and its depth is the wall's, over every corner end on the ladder (5.62 to 5.92 m, not the worst case)", { timeout: 60000 }, () => {
+    let ends = 0;
+    const depths = new Set<number>();
+    for (const m of ladder()) {
+      for (const { run, result } of m.runs) {
+        if (run.startCorner === null) continue;
+        const nominal = run.lots.map((i) => m.town.lots[i]!);
+        const options = cornerOptions(run, nominal, STACK_STYLES, ENTRIES, BUILDING_FRONTS);
+        expect(options.length, `${m.name} ${run.id}`).toBeGreaterThan(0);
+        // The block stood is one of the options, exactly as built (the real stack, not a probe).
+        const fixed = options.find((o) => o.style.id === result.blocks[0]!.style && o.bays === result.blocks[0]!.bays);
+        expect(fixed, `${m.name} ${run.id}`).toBeDefined();
+        expect(result.blocks[0]!.stack, `${m.name} ${run.id}`).toEqual(fixed!.stack);
+        // The row before it ends at exactly that block's back wall.
+        const before = m.town.terraces.find((r) => r.endAbuts === "corner" && nextRunOf(m.town, r) === run);
+        if (before) {
+          ends++;
+          depths.add(Math.round(fixed!.stack.depth_m * 1000) / 1000);
+          expect(wallOf(m.town, before), `${m.name} ${before.id}`).toBeCloseTo(before.len / W + (TERRACE_DEPTH_M - fixed!.stack.depth_m), 9);
+        }
+      }
+    }
+    expect(ends).toBeGreaterThan(1000);
+    expect(depths.size).toBeGreaterThan(1);
   });
 
   it("drops the last block, not the whole run, when a style's real piece widths differ from the probe's", () => {
