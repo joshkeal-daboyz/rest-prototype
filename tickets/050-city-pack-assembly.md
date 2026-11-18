@@ -227,7 +227,7 @@ All Vitest tests use fixture entries, with names and bounds typed in as numbers 
 
 ## Out of this ticket
 - City Pack roads (042 C), lit places (049), landmarks (the City Hall, 042 E), stations and whole towers.
-- The terrace (Q5) and the dressing: awnings, fire escapes, rooftop props, glass panes, stairs (Q6). These are later tickets.
+- The terrace (Q5) and the dressing: awnings, fire escapes, rooftop props, glass panes, stairs (Q6). These are later tickets: cut on 18 Nov 2026 as 051 (terrace rows and the street camera), 052 (dressing) and 053 (the procedural city guide).
 - Any `town.ts` change.
 
 ## Risks
