@@ -150,7 +150,7 @@ describe("the Numbers table matches the code", () => {
   // The names the guide must pin, as "Constant@file". A deleted row fails here; a new row is welcome without being listed.
   const REQUIRED: readonly string[] = [
     ...["WORLD_PER_METRE"].map((n) => `${n}@town.ts`),
-    ...["WORLD_PER_METRE", "NEIGHBOUR_GAP", "STREET_REPEAT_GAP", "FAMILY_SHARE_MAX"].map((n) => `${n}@models.ts`),
+    ...["WORLD_PER_METRE", "NEIGHBOUR_GAP", "STREET_REPEAT_GAP", "FAMILY_SHARE_MAX", "POLYGON_MIN_FAMILIES.small", "POLYGON_MIN_FAMILIES.house", "POLYGON_MIN_FAMILIES.large", "POLYGON_MIN_FAMILIES.tall"].map((n) => `${n}@models.ts`),
     ...[
       "STREET_MIN_LEN", "ROAD_W", "KERB_OFFSET", "KERB_H", "PAVE_W", "RING_MARGIN", "BLOCK_PITCH", "OUTER_RINGS", "SETBACK", "LOT_GAP", "WIRE_CLEAR",
       "FILL_STEP", "PLACE_STEP", "CORNER_GAP", "CORNER_ANGLE_MAX", "ROW_MIN_SMALLS", "PLACE_REACH", "STOREY_M", "PLACE_STOREYS", "OCCLUDE_SLOPE",

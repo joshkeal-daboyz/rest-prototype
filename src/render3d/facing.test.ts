@@ -192,7 +192,8 @@ describe("every building has a front", () => {
   });
 
   it("holds Josh's 17 Nov 2026 calibration: every model faces -z except store_small_mesh and memorial_mesh (+z), and only store_corner_mesh is a corner model, open on the lot's -x", () => {
-    for (const [key, f] of Object.entries(BUILDING_FRONTS)) {
+    // Only SIMPLE Town's lines: the POLYGON Town Pack lines (ticket 048) are checked in polygon.test.ts.
+    for (const [key, f] of Object.entries(BUILDING_FRONTS).filter(([k]) => k.startsWith("simple-town:"))) {
       const n = key.slice("simple-town:".length);
       expect(f.front, n).toBe(n === "store_small_mesh" || n === "memorial_mesh" ? "+z" : "-z");
       expect(f.corner === true, n).toBe(n === "store_corner_mesh");

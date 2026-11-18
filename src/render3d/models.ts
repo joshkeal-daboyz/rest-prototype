@@ -20,6 +20,13 @@ export const FAMILY_SHARE_MAX = 0.25;
 /** Building models that are never placed, as `pack:name` keys (ticket 042 A, re-keyed by 045 A). The video rental store, `store_small_mesh`, is excluded on Josh's word (ticket 047, 18 Nov 2026: "ignore it... it's part of the small package. The polygon buildings are much higher quality"). It keeps its `MODEL_TABLE` row and its front, and the gallery still shows it. */
 export const BUILDING_EXCLUDE: readonly CalibrationKey[] = ["simple-town:store_small_mesh"];
 
+/**
+ * Per lot type, how many mesh families POLYGON building models must offer (after BUILDING_EXCLUDE) before the type uses them (ticket 048 Q1).
+ * The thresholds are the variety rules' own: four families where the family-share cap applies, three where only the street rule can. A type
+ * that falls short keeps its SIMPLE Town models (the rows marked `fallback`), and the two styles never mix within one type.
+ */
+export const POLYGON_MIN_FAMILIES: Readonly<Record<LotType, number>> = { small: 4, house: 4, large: 4, tall: 3 };
+
 export type ModelSlot = "pole" | "lamp" | "building";
 export const MODEL_SLOTS: readonly ModelSlot[] = ["pole", "lamp", "building"];
 
@@ -28,6 +35,8 @@ export interface ModelChoice {
   slot: ModelSlot;
   pack: string;
   names: readonly string[];
+  /** The row is SIMPLE Town's, kept as the fallback of a lot type POLYGON does not fill, and for a checkout with no POLYGON pack (ticket 048). */
+  fallback?: true;
 }
 
 /** The axis, in a GLB's own frame, that a model's door faces. */
@@ -125,13 +134,30 @@ export const BUILDING_FRONTS: FrontTable = {
   "simple-town:office_large_mesh": FRONT_NZ,
   // Ticket 042 B's default for a sacred place: listed now so B only edits its table.
   "simple-town:memorial_mesh": FRONT_Z,
+  // POLYGON Town Pack (ticket 048), promoted by hand from Josh's saved file `assets/private/calibration/fronts.json` (savedAt 2026-11-18T03:10:05.703Z):
+  // 14 of the pack's 18 buildings, each from a click on its door in the gallery. None was Shift+clicked, so BUILDING_EXCLUDE gains nothing.
+  // `SM_Bld_Church_01` and `SM_Bld_Shop_01` are marked but stand in no building row (the Church is held for 042 E's landmark places; Shop_01 is not in 048's list).
+  "town-pack:SM_Bld_Church_01": { front: "+z" },
+  "town-pack:SM_Bld_House_Preset_01": { front: "-x" },
+  "town-pack:SM_Bld_House_Preset_02": { front: "-z" },
+  "town-pack:SM_Bld_House_Preset_03": { front: "-x" },
+  "town-pack:SM_Bld_House_Preset_04": { front: "-x" },
+  "town-pack:SM_Bld_House_Preset_05": { front: "-x" },
+  "town-pack:SM_Bld_House_Preset_06": { front: "+x" },
+  "town-pack:SM_Bld_House_Preset_07": { front: "-z" },
+  "town-pack:SM_Bld_House_Preset_08": { front: "-x" },
+  "town-pack:SM_Bld_House_Preset_09": { front: "-x" },
+  "town-pack:SM_Bld_House_Preset_10": { front: "-z" },
+  "town-pack:SM_Bld_House_Preset_11": { front: "-z" },
+  "town-pack:SM_Bld_House_Preset_Garage_01": { front: "-z" },
+  "town-pack:SM_Bld_Shop_01": { front: "+z" },
 };
 
 /**
  * Edit this to change the look. Names are root node names from `assets/private/out/manifest.json`.
  * - pole: the 6.3 m wooden utility pole with a cross-arm, one style only (ticket 041 C; wires, insulators and cans stay drawn in code, so no `_Preset_` or `_Lines_` models).
  * - lamp: a plain 5.8 m lamp post (the lamp's head, light and pool stay drawn in code).
- * - building: SIMPLE Town's houses and shops (a few hundred triangles each, one image), one style, at one scale (WORLD_PER_METRE).
+ * - building: POLYGON Town Pack houses first (ticket 048), then SIMPLE Town's houses and shops (a few hundred triangles each, one image; the `fallback` rows), at one scale (WORLD_PER_METRE).
  *   Which lots a model can stand on is worked out from its size (`lotTypeOf`), not from the row it is in; the rows only group
  *   names by size (which way a door faces is in BUILDING_FRONTS). Worked out from the manifest's bounds, against the ticket's listing: house_mesh (13.4 m deep)
  *   is a house lot's, Building_CoffeeShop (15.6 m high, over the small and house caps) is a large lot's, and office_stepped_mesh
@@ -142,9 +168,32 @@ export const MODEL_TABLE: readonly ModelChoice[] = [
   { slot: "pole", pack: "apocalypse-power", names: ["SM_Prop_Powerpole_01"] },
   { slot: "lamp", pack: "apocalypse-power", names: ["SM_Prop_LightPole_01"] },
   {
+    // POLYGON Town Pack whole buildings (ticket 048), ahead of SIMPLE Town. The lot type of each is worked out from its size and Josh's front (`lotTypeOf`): small 01, 02, 09
+    // and Garage_01; house 03 to 07 and 10; large 08 and 11 (08 is 18.9 m across the road at its quarter-turn front). A type switches to these only when they reach
+    // POLYGON_MIN_FAMILIES (`buildingPlan`): small and house do, large (2 families) keeps SIMPLE Town. Not here: the Church and the City Hall
+    // (042 E's landmarks), the garden shed (prop-sized), Shop_01 and every modular piece. No City Pack name: Josh named none whole (048 Q2).
+    slot: "building",
+    pack: "town-pack",
+    names: [
+      "SM_Bld_House_Preset_01",
+      "SM_Bld_House_Preset_02",
+      "SM_Bld_House_Preset_03",
+      "SM_Bld_House_Preset_04",
+      "SM_Bld_House_Preset_05",
+      "SM_Bld_House_Preset_06",
+      "SM_Bld_House_Preset_07",
+      "SM_Bld_House_Preset_08",
+      "SM_Bld_House_Preset_09",
+      "SM_Bld_House_Preset_10",
+      "SM_Bld_House_Preset_11",
+      "SM_Bld_House_Preset_Garage_01",
+    ],
+  },
+  {
     // small lots: 12 x 13 m, at most 12 m high
     slot: "building",
     pack: "simple-town",
+    fallback: true,
     names: [
       "Building_Shop_01",
       "Building_Shop_02",
@@ -162,6 +211,7 @@ export const MODEL_TABLE: readonly ModelChoice[] = [
     // house lots: 16 x 19 m, at most 15 m high
     slot: "building",
     pack: "simple-town",
+    fallback: true,
     names: [
       "Building_House_01",
       "Building_House_02",
@@ -185,12 +235,14 @@ export const MODEL_TABLE: readonly ModelChoice[] = [
     // large lots: 25 x 28 m, at most 16 m high
     slot: "building",
     pack: "simple-town",
+    fallback: true,
     names: ["Building_House_05", "Building_House_06", "Building_House_07", "Building_House_08", "Building_AutoRepair", "Building_StripClub", "Building_PoliceStation", "Building_PetrolStation", "Building_CoffeeShop"],
   },
   {
     // tall lots: 14 x 16 m, at most 28 m high (outside the ring only)
     slot: "building",
     pack: "simple-town",
+    fallback: true,
     names: ["apartment_large_mesh", "office_medium_mesh", "office_large_mesh"],
   },
 ];
@@ -206,6 +258,8 @@ export interface PlannedModel {
   corner: false | "+x" | "-x";
   /** The model's mesh family in its pack (`meshFamily`): models that are one mesh under several names share it. */
   family: string;
+  /** From a `fallback` row (SIMPLE Town): used for a lot type only while POLYGON does not fill it (`buildingPlan`). */
+  fallback?: true;
 }
 
 /** Per slot, the usable entries in table order; null when nothing is usable (the slot keeps its placeholder). */
@@ -242,6 +296,7 @@ export function planModels(manifest: AssetManifest, table: readonly ModelChoice[
         front: bf?.front ?? "+z",
         corner: bf?.corner ? (bf.open ?? "+x") : false,
         family: meshFamily(pack.assets, entry),
+        ...(row.fallback ? { fallback: true as const } : {}),
       });
     }
   }
@@ -312,13 +367,26 @@ export function lotTypeOf(entry: AssetEntry, front: ModelFront = "+z"): LotType 
 /** The model names a lot type can use, in table order. A type with none is drawn with placeholder buildings. */
 export type BuildingPlan = Readonly<Record<LotType, readonly string[]>>;
 
-/** Group the planned building models by the lot type each one fits, leaving out the names in `exclude`. */
+/**
+ * Group the planned building models by the lot type each one fits, leaving out the names in `exclude` (ticket 048). Per type, the models of the
+ * non-`fallback` rows (POLYGON) are used when, after exclusion, they make at least POLYGON_MIN_FAMILIES mesh families; otherwise the type takes its
+ * `fallback` models (SIMPLE Town). The two never mix within a type. A type with no fallback model in the set keeps its POLYGON ones however few:
+ * with nothing to fall back to, a few real buildings beat a placeholder. With no POLYGON model loaded (CI, a fresh checkout, a failed GLB) every
+ * type has SIMPLE Town's names, exactly as before 048.
+ */
 export function buildingPlan(models: readonly PlannedModel[] | null, exclude: readonly CalibrationKey[] = BUILDING_EXCLUDE): BuildingPlan {
-  const out: Record<LotType, string[]> = { small: [], house: [], large: [], tall: [] };
+  const polygon: Record<LotType, PlannedModel[]> = { small: [], house: [], large: [], tall: [] };
+  const simple: Record<LotType, PlannedModel[]> = { small: [], house: [], large: [], tall: [] };
   for (const m of models ?? []) {
     if (exclude.includes(calibrationKey(m.pack, m.entry.name))) continue;
     const t = lotTypeOf(m.entry, m.front);
-    if (t) out[t].push(m.entry.name);
+    if (t) (m.fallback ? simple : polygon)[t].push(m);
+  }
+  const out: Record<LotType, string[]> = { small: [], house: [], large: [], tall: [] };
+  for (const t of LOT_TYPE_NAMES) {
+    const families = new Set(polygon[t].map((m) => `${m.pack}:${m.family}`)).size;
+    const use = polygon[t].length > 0 && (families >= POLYGON_MIN_FAMILIES[t] || simple[t].length === 0) ? polygon[t] : simple[t];
+    out[t] = use.map((m) => m.entry.name);
   }
   return out;
 }
