@@ -34,7 +34,8 @@ export function createMapRenderer3d(canvas: HTMLCanvasElement, puzzle: Puzzle, o
   }
   const renderer = gl;
   // `?gallery=<pack-id>` (debug, ticket 043 B) shows every building of one pack instead of the town; this is the one place the address is read.
-  const galleryPack = typeof location !== "undefined" ? galleryRequested(location.search) : null;
+  // Dev builds only (ticket 045 C): `import.meta.env.DEV` is false in `npm run build`, so the gallery and its save code are dropped from the bundle.
+  const galleryPack = import.meta.env.DEV && typeof location !== "undefined" ? galleryRequested(location.search) : null;
   if (galleryPack !== null) {
     const ratio = Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 2);
     return createGalleryRenderer3d(renderer, canvas, galleryPack, { insets: opts?.insets, dpr: ratio, search: location.search });
