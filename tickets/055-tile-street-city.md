@@ -1,7 +1,7 @@
 # 055 · A tile-street city: City Pack road tiles on a 90 degree street grid, with parking, judged without any puzzle
 
 owner: renderer (src/render3d/, docs/city-style-guide.md)
-status: open. Awaiting Josh's G1. (The overnight goal's waiver covered 050 to 054; whether it covers this ticket is Josh's call.) Sections in order A, then B and C (may run in parallel), then D.
+status: approved (G1, Josh, 18 Nov 2026: "I approve", after seeing the ticket and its open-question defaults; every default applies). Sections in order A, then B and C (may run in parallel), then D. Built on `goal/city-style`, which Josh has not merged to main yet.
 branch: one per section: `ticket/055a-tile-grid`, `ticket/055b-tile-lots`, `ticket/055c-tile-draw`, `ticket/055d-tile-checks`
 
 ## Josh's words (18 Nov 2026, in chat)
