@@ -23,6 +23,8 @@ import {
   POLE_SLOT_PITCH_M,
   SIDEWALK_TOP_M,
   TILE_M,
+  TILE_CITY_R7_MIN,
+  TILE_INSET_MAX_M,
   TILE_PLAZA_W_M,
   bayMeters,
   tileRowInset_m,
@@ -36,7 +38,7 @@ import {
   type TileStreet,
 } from "./tilecity";
 import { loadPuzzle, type AssetEntry, type CalibrationKey, type Puzzle } from "../core";
-import { cityMetrics, evaluateCity, runBlocks, type CityMetrics } from "./citymetrics";
+import { CITY_CHECK, cityMetrics, evaluateCity, runBlocks, type CityMetrics } from "./citymetrics";
 import { KERB_FROM_FRONT_M, dressStack, dressTown, type DressBlockInput } from "./dressing";
 import { FURN_KEEP_M, FURN_KERB_M, KERB_M, METERS, WALL_EDGE_M, furnitureLayout } from "./furniture";
 import { BUILDING_FRONTS } from "./models";
@@ -857,13 +859,15 @@ describe("terraceBlockRows (criterion 9: the extraction)", () => {
 });
 
 describe("the row inset (criterion 10)", () => {
-  it("is under CORNER_GAP (2.78 m) for every block side of 40 to 60 m when the row starts at a corner, and under one bay (5.2 m) after a plaza", () => {
+  it("is at least 0.25 m under CORNER_GAP (2.78 m) for every block side of 40 to 60 m when the row starts at a corner, and under one bay (5.2 m) after a plaza", () => {
     for (let cells = BLOCK_TILES.min; cells <= BLOCK_TILES.max; cells++) {
       for (const end of [false, true]) {
         for (const start of [false, true]) {
           const s = tileRowInset_m(cells * TILE_M, end, start);
           expect(s, `${cells} cells, end plaza ${end}, start plaza ${start}`).toBeGreaterThanOrEqual(0);
-          expect(s, `${cells} cells, end plaza ${end}, start plaza ${start}`).toBeLessThan(start ? 5.2 : CORNER_GAP / WORLD_PER_METRE);
+          // From a corner the margin under CORNER_GAP is at least 0.25 m.
+          expect(s, `${cells} cells, end plaza ${end}, start plaza ${start}`).toBeLessThanOrEqual(start ? 5.2 : CORNER_GAP / WORLD_PER_METRE - 0.25);
+          if (!start) expect(s).toBeLessThanOrEqual(TILE_INSET_MAX_M);
         }
       }
     }
@@ -879,7 +883,7 @@ describe("the row inset (criterion 10)", () => {
         const corner = [{ x: b.minX, z: b.minZ }, { x: b.maxX, z: b.minZ }, { x: b.maxX, z: b.maxZ }, { x: b.minX, z: b.maxZ }];
         const d = Math.min(...corner.map((p) => Math.hypot(run.ax - p.x, run.az - p.z))) / WORLD_PER_METRE;
         // Within CORNER_GAP of the cross street's pavement, which is the ladder's own rule for a corner lot.
-        expect(d, run.id).toBeLessThan(CORNER_GAP / WORLD_PER_METRE);
+        expect(d, run.id).toBeLessThanOrEqual(CORNER_GAP / WORLD_PER_METRE - 0.25);
         if (d > 0.01) insetRuns++;
       }
       expect(insetRuns, `seed ${seed}`).toBeGreaterThan(10);
@@ -1000,19 +1004,21 @@ describe("terraces on tile streets (criterion 10)", () => {
       expect(m.cornerBlocksOffCorner, `seed ${c.seed}`).toBe(0);
       expect(m.farGaps.slit, `seed ${c.seed}`).toBe(0);
       expect(m.dressPieces, `seed ${c.seed}`).toBeGreaterThan(m.blocks * 3);
-      // R7 is the share of qualifying blocks (3 or more bays, 2 or more floors) that carry a fire escape: 0.43 to 0.50 here (see the known miss below), never under 0.40.
-      expect(evaluateCity(m).find((v) => v.id === "R7")!.value, `seed ${c.seed} R7`).toBeGreaterThan(0.4);
+      // R7 is checked against the tile city's own floor below.
     }
   });
 
-  // KNOWN MISS (ticket 055 criterion 10): R7 (fire escapes) lands at 0.43 to 0.50 on seeds 1 to 10 (pooled 0.45) where CITY_CHECK asks 0.5; the ladder's three maps give 0.53 to 0.58.
-  // It is the dressing's own chance (P_ESCAPE, one escape never beside another) over about 50 qualifying blocks, not the geometry: the same plans with the blocks' lot keys swapped
-  // for unrelated strings give 0.56. The pattern of the tile city's keys ("x:0:1:r0:b1") against dressUnit and the packer's hashes is what costs the 0.1, and the keys are made by
-  // town.ts and terrace.ts, outside section B. This test states the strict check and is expected to fail until the dressing or the keys change; if it passes, it.fails turns red.
-  it.fails("passes R7 as well, on every one of the default city and seeds 1 to 10", { timeout: 120000 }, () => {
+  // The tile city's R7 floor (Josh, 18 Nov 2026, "Just choose the recommended option for now"): the share of qualifying blocks (3 or more bays, 2 or more floors) with a fire escape is
+  // 0.43 to 0.50 on the tile city against the ladder's 0.53 to 0.58 and CITY_CHECK.R7 of 0.5, which stays as it is. It is the dressing's own chance (P_ESCAPE, never two neighbours)
+  // over about 50 blocks and the pattern of the tile city's lot keys, not the geometry (with unrelated keys the same plans give 0.56). Dressing and keys are left alone.
+  it("meets the tile city's R7 floor (TILE_CITY_R7_MIN, 0.4) on the default city and seeds 1 to 10", { timeout: 120000 }, () => {
+    expect(TILE_CITY_R7_MIN).toBe(0.4);
+    expect(CITY_CHECK.R7).toBe(0.5);
     for (const c of cities) {
       const { m } = planOf(c);
-      expect(evaluateCity(m).filter((v) => !v.pass), `seed ${c.seed}`).toEqual([]);
+      const r7 = m.escapeQualifying === 0 ? 1 : m.escapeBlocks / m.escapeQualifying;
+      expect(m.escapeQualifying, `seed ${c.seed}`).toBeGreaterThan(30);
+      expect(r7, `seed ${c.seed} R7 ${m.escapeBlocks}/${m.escapeQualifying}`).toBeGreaterThanOrEqual(TILE_CITY_R7_MIN);
     }
   });
 });

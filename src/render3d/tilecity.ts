@@ -59,6 +59,12 @@ export const POLE_SLOT_END_CLEAR_M = 2.5;
 export const TILE_CORNER_DEPTH_M = 5.75;
 export const TILE_ALLEY_M = 1.25;
 export const TILE_COLUMN_M = 5.2;
+/** The widest column the inset fits to when 5.2 m columns would leave an inset over `TILE_INSET_MAX_M` (the widest apartment column is 5.281 m). */
+export const TILE_COLUMN_WIDE_M = 5.28;
+/** The most a row stands back from its corner, metres: a margin of 0.25 m under the ladder's `CORNER_GAP` (0.5 map units, 2.78 m), so the first lot still meets the cross street. */
+export const TILE_INSET_MAX_M = 2.5;
+/** The tile city's floor for R7 (the share of qualifying blocks with a fire escape): Josh, 18 Nov 2026, "Just choose the recommended option for now". The ladder's `CITY_CHECK.R7` stays 0.5. */
+export const TILE_CITY_R7_MIN = 0.4;
 /**
  * How far in from its corner a row of a tile city starts, metres, for a block side of `side_m`. A side is a whole number of cells, so `side - 6` (a row's length) is never a length the
  * packer's 5.0 to 5.28 m columns can close to a seam or an alley (chapter 16.2): the wall at the far end is `side - corner depth`, and n columns reach only 5.0n to 5.28n of it.
@@ -68,7 +74,9 @@ export const TILE_COLUMN_M = 5.2;
 export function tileRowInset_m(side_m: number, endsAtPlaza = false, startsAfterPlaza = false): number {
   const base = side_m - (startsAfterPlaza ? TILE_PLAZA_W_M : 0) - (endsAtPlaza ? TILE_PLAZA_W_M : TILE_CORNER_DEPTH_M) - TILE_ALLEY_M;
   const n = Math.max(1, Math.floor(base / 5));
-  return Math.max(0, base - n * TILE_COLUMN_M);
+  const inset = Math.max(0, base - n * TILE_COLUMN_M);
+  // Where the usual columns would leave too much, fit to the widest ones instead (never more than `TILE_INSET_MAX_M`).
+  return inset <= TILE_INSET_MAX_M ? inset : Math.min(TILE_INSET_MAX_M, Math.max(0, base - n * TILE_COLUMN_WIDE_M));
 }
 /** A plaza's side on the tile grid, metres: two cells (the ladder's is 10.4). */
 export const TILE_PLAZA_W_M = 10;
