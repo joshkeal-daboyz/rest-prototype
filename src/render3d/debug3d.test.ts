@@ -58,7 +58,7 @@ function set(fronts: FrontTable): ModelSet {
   return { pole: null, lamp: null, building };
 }
 function standIn(): SceneBundle {
-  const lots = townLayout(puzzle).lots;
+  const lots = townLayout(puzzle, { terraces: false }).lots;
   const byType = Object.fromEntries(LOT_TYPE_NAMES.map((t) => [t, new Group()])) as Record<LotType, Group>;
   return { slots: { poles: { spots: [], placeholders: [] }, lamps: [], blocks: { list: lots, placeholder: new Group(), byType }, models: new Group() } } as unknown as SceneBundle;
 }

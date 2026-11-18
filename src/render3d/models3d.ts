@@ -345,6 +345,8 @@ export function buildingPlacements(lots: readonly Lot[], buildings: readonly Loa
   const names = pickBuildings(lots, buildingPlan(models, undefined, offers), traitsOf(models, offers));
   const out: BuildingPlacement[] = [];
   lots.forEach((lot, i) => {
+    // A terrace lot (051 B) takes no model and no stack until 051 D packs it; its placeholder stays.
+    if (lot.terrace) return;
     const style = names[i] ? stackStyleOf(names[i]!) : null;
     if (style !== null && stack) {
       const recipe = STACK_STYLES.find((s) => s.id === style);

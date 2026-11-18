@@ -187,7 +187,7 @@ async function setOf(manifest: AssetManifest, opts: { failCity?: boolean; stackK
 }
 
 const mapFiles = [...readdirSync("puzzles").filter((f) => f.endsWith(".json")), "lamp-row.grid.json"].map((f) => join("puzzles", f)).filter((f, i, all) => existsSync(f) && all.indexOf(f) === i);
-const maps: { name: string; town: Town }[] = mapFiles.map((f) => ({ name: f, town: townLayout(loadPuzzle(JSON.parse(readFileSync(f, "utf8")))) }));
+const maps: { name: string; town: Town }[] = mapFiles.map((f) => ({ name: f, town: townLayout(loadPuzzle(JSON.parse(readFileSync(f, "utf8"))), { terraces: false }) }));
 
 const SET = await setOf(WITH_CITY);
 const SET_NO_CITY = await setOf(NO_CITY);
@@ -560,7 +560,7 @@ describe("a stack in the 041 B occlusion test: nothing stands between the camera
   for (const file of ["09-shrine-circuit", "64-the-whole-chain"]) {
     it(`holds on ${file} with every stack at its fixture height`, () => {
       const puzzle: Puzzle = loadPuzzle(JSON.parse(readFileSync(`puzzles/${file}.json`, "utf8")));
-      const bundle = buildScene(puzzle, { text: stubTextSurface });
+      const bundle = buildScene(puzzle, { text: stubTextSurface, terraces: false });
       const placements = buildingPlacements(bundle.slots.blocks.list, SET.building, stackInput(SET)).filter((p) => p.stack);
       expect(placements.length, file).toBeGreaterThan(0);
       const solids: Object3D[] = placements.map((p) => {
@@ -594,7 +594,7 @@ describe("applyModels stands one unpickable group per stack", () => {
   const puzzle: Puzzle = loadPuzzle(JSON.parse(readFileSync("puzzles/09-shrine-circuit.json", "utf8")));
 
   it("adds a `stack:<style>` group at the lot's front-centre and yaw, hides the placeholders of the covered types, and takes it all back on remove()", () => {
-    const bundle = buildScene(puzzle, { text: stubTextSurface });
+    const bundle = buildScene(puzzle, { text: stubTextSurface, terraces: false });
     const lots = bundle.slots.blocks.list;
     const want = buildingPlacements(lots, SET.building, stackInput(SET));
     const stacks = want.filter((p) => p.stack);
@@ -625,7 +625,7 @@ describe("applyModels stands one unpickable group per stack", () => {
   });
 
   it("adds no stack group at all when no stack piece loaded (a fresh checkout and CI)", () => {
-    const bundle = buildScene(puzzle, { text: stubTextSurface });
+    const bundle = buildScene(puzzle, { text: stubTextSurface, terraces: false });
     const applied = applyModels(bundle, SET_NO_CITY);
     expect(bundle.slots.models.children.some((c) => c.name.startsWith("stack:"))).toBe(false);
     expect(applied.buildings.every((p) => p.stack === undefined)).toBe(true);

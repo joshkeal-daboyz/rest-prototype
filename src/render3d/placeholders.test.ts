@@ -79,7 +79,7 @@ describe("pickPlaceholders on every map", () => {
   it("gives every lot a placeholder inside its lot, of storeys x STOREY_M x WORLD_PER_METRE, never over the cap", () => {
     let n = 0;
     for (const { name, puzzle } of maps) {
-      const lots = townLayout(puzzle).lots;
+      const lots = townLayout(puzzle, { terraces: false }).lots;
       const specs = pickPlaceholders(lots);
       expect(specs, name).toHaveLength(lots.length);
       lots.forEach((l, i) => {
@@ -122,8 +122,8 @@ describe("pickPlaceholders on every map", () => {
 
 describe("the scene with no models", () => {
   const puzzle = maps.find((m) => m.name.includes("09-shrine-circuit"))!.puzzle;
-  const b = buildScene(puzzle, { text: stubTextSurface });
-  const lots = townLayout(puzzle).lots;
+  const b = buildScene(puzzle, { text: stubTextSurface, terraces: false });
+  const lots = townLayout(puzzle, { terraces: false }).lots;
 
   it("draws one placeholder body per lot, in the group of its lot type, and shows every group", () => {
     expect(b.slots.blocks.placeholder.visible).toBe(true);

@@ -119,7 +119,7 @@ function standIn(lots: readonly Lot[]): SceneBundle {
 const mapFiles = [...readdirSync("puzzles").filter((f) => f.endsWith(".json")), "lamp-row.grid.json"].map((f) => join("puzzles", f)).filter((f, i, all) => existsSync(f) && all.indexOf(f) === i);
 const maps: { name: string; puzzle: Puzzle; town: Town }[] = mapFiles.map((f) => {
   const puzzle = loadPuzzle(JSON.parse(readFileSync(f, "utf8")));
-  return { name: f, puzzle, town: townLayout(puzzle) };
+  return { name: f, puzzle, town: townLayout(puzzle, { terraces: false }) };
 });
 
 /** The nearest point of a road's centreline to (px, pz). */

@@ -8,7 +8,7 @@ import { stableHash } from "../render/city";
 import { WORLD_PER_METRE, pickDistinct } from "./models";
 import { STOREY_M, type Lot, type LotType } from "./town";
 
-/** The body's footprint, as a fraction of the lot, in each direction (chosen by hash). */
+/** The body's footprint, as a fraction of the lot, in each direction (chosen by hash). A terrace lot's body fills its lot (fraction 1). */
 export const FOOTPRINT_FACTORS = [0.8, 0.9] as const;
 /** Storeys by lot type, lowest and highest. */
 export const STOREYS: Readonly<Record<LotType, readonly [number, number]>> = {
@@ -55,8 +55,9 @@ export function placeholderBuilding(lot: Lot, variant: number = stableHash(lot.k
   const v = ((variant % n) + n) % n;
   const tint = v % 4;
   const h = stableHash(lot.key + "#fp");
-  const fw = FOOTPRINT_FACTORS[h & 1]!;
-  const fd = FOOTPRINT_FACTORS[(h >> 1) & 1]!;
+  // A terrace lot (051 B) is walled to its neighbours: its body fills the whole lot, so the boxes of a run abut.
+  const fw = lot.terrace ? 1 : FOOTPRINT_FACTORS[h & 1]!;
+  const fd = lot.terrace ? 1 : FOOTPRINT_FACTORS[(h >> 1) & 1]!;
   const [lo] = STOREYS[lot.type];
   const storeys = lo + Math.floor(v / 4);
   const bodyH = storeys * STOREY_M * WORLD_PER_METRE;

@@ -250,6 +250,8 @@ export interface SceneOptions {
   text?: TextSurfaceFactory;
   /** Device pixel ratio for caption textures (the renderer passes it, capped at 2). */
   dpr?: number;
+  /** Test only (ticket 051 B): lay the town out without terrace rows (`townLayout(puzzle, { terraces: false })`), to compare with the terrace town. Default true. */
+  terraces?: boolean;
 }
 
 const BREAKER_LEVER = 0.55;
@@ -482,12 +484,13 @@ function buildPlaceholders(lots: readonly Lot[]): { root: Object3D; byType: Reco
   };
   const storeyH = STOREY_M * WORLD_PER_METRE;
   const bandH = BAND_M * WORLD_PER_METRE;
-  for (const type of LOT_TYPE_NAMES) {
+  // Terrace lots (051 B) have a group of their own, never hidden by a type's models: no model or stack stands on a terrace lot until 051 D.
+  for (const type of [...LOT_TYPE_NAMES, "terrace"] as const) {
     const group = new Object3D();
     group.name = `placeholders:${type}`;
     const mine: number[] = [];
     lots.forEach((l, i) => {
-      if (l.type === type) mine.push(i);
+      if (type === "terrace" ? l.terrace !== undefined : l.type === type && l.terrace === undefined) mine.push(i);
     });
     const bands = mine.reduce((n, i) => n + specs[i]!.storeys - 1, 0);
     const flats = mine.filter((i) => specs[i]!.roof === "flat");
@@ -527,7 +530,7 @@ function buildPlaceholders(lots: readonly Lot[]): { root: Object3D; byType: Reco
       if (im.instanceColor) im.instanceColor.needsUpdate = true;
       group.add(im);
     }
-    byType[type] = group;
+    if (type !== "terrace") byType[type] = group;
     root.add(group);
   }
   return { root, byType };
@@ -619,7 +622,7 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
   moon.position.set(-6, 12, 4);
   scene.add(moon);
 
-  const town = townLayout(puzzle);
+  const town = townLayout(puzzle, { terraces: opts.terraces !== false });
   const runs = wireLayout(puzzle);
   const win = town.window;
   const mat4 = new Matrix4();
