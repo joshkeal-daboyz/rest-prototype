@@ -9,12 +9,16 @@ import { existsSync, readFileSync } from "node:fs";
 import { parseCalibrationKey } from "../core";
 import * as cityRender from "../render/city";
 import * as camera from "./camera";
+import * as citymetrics from "./citymetrics";
 import * as debug3d from "./debug3d";
+import * as dressing from "./dressing";
+import * as furniture from "./furniture";
 import * as layout from "./layout";
 import * as models from "./models";
 import * as placeholders from "./placeholders";
 import * as scene from "./scene";
 import * as stacks from "./stacks";
+import * as streetcam from "./streetcam";
 import * as terrace from "./terrace";
 import * as town from "./town";
 
@@ -33,6 +37,10 @@ const MODULES: Readonly<Record<string, Record<string, unknown>>> = {
   "camera.ts": camera as unknown as Record<string, unknown>,
   "stacks.ts": stacks as unknown as Record<string, unknown>,
   "terrace.ts": terrace as unknown as Record<string, unknown>,
+  "dressing.ts": dressing as unknown as Record<string, unknown>,
+  "furniture.ts": furniture as unknown as Record<string, unknown>,
+  "streetcam.ts": streetcam as unknown as Record<string, unknown>,
+  "citymetrics.ts": citymetrics as unknown as Record<string, unknown>,
 };
 
 // ---- reading the guide ----
@@ -88,13 +96,13 @@ function lookup(file: string, ref: string): unknown {
 }
 
 describe("the city style guide exists and is shaped as the ticket says", () => {
-  it("has the fifteen chapters, in order, and a Numbers appendix", () => {
-    expect(chapterNumbers).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
+  it("has the sixteen chapters, in order, and a Numbers appendix", () => {
+    expect(chapterNumbers).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
     expect(lines.some((l) => l === "## Numbers")).toBe(true);
   });
 
   it("tags every rule: Decided and Default name a ticket; Pending and Open say what they wait for", () => {
-    for (let n = 1; n <= 15; n++) {
+    for (let n = 1; n <= 16; n++) {
       const bullets = chapter(n).filter((l) => l.startsWith("- "));
       expect(bullets.length, `chapter ${n} has no rules`).toBeGreaterThan(0);
       for (const b of bullets) {
@@ -319,5 +327,144 @@ describe("accessibility, restated on the pinned colours", () => {
   it("keeps the pole wood at least 3:1 in luminance against the street (037; scene.test.ts checks the painted poles)", () => {
     const c = (lum(scene.POLE_WOOD) + 0.05) / (lum(scene.STREET) + 0.05);
     expect(c).toBeGreaterThanOrEqual(3);
+  });
+});
+
+// ---- ticket 053: chapter 16 and the numbers it pins ----
+
+describe("every numeric export of the city files has a Numbers row (ticket 053)", () => {
+  const rows = table(section(/^## Numbers$/), ["Constant", "Value", "File"]);
+  const refs = new Set(rows.map((r) => `${unquote(r[0]!)}@${r[2]}`));
+  /** A number, a non-empty array of numbers, or a non-empty record of numbers: what a tuning constant looks like. */
+  const numeric = (v: unknown): boolean =>
+    typeof v === "number" ||
+    (Array.isArray(v) && v.length > 0 && v.every((x) => typeof x === "number")) ||
+    (typeof v === "object" && v !== null && !Array.isArray(v) && Object.keys(v).length > 0 && Object.values(v).every((x) => typeof x === "number"));
+  const has = (file: string, ref: string): boolean => refs.has(`${ref}@${file}`);
+  const covered = (file: string, name: string, v: unknown): boolean => {
+    if (has(file, name)) return true;
+    if (Array.isArray(v)) return v.every((_, i) => has(file, `${name}[${i}]`));
+    if (typeof v === "object" && v !== null) return Object.keys(v).every((k) => has(file, `${name}.${k}`));
+    return false;
+  };
+
+  it("has a row for every numeric constant of stacks, terrace, dressing, furniture, streetcam and citymetrics, and the TERRACE_, PARKING_ and PLAZA_ ones of town.ts", () => {
+    const missing: string[] = [];
+    let checked = 0;
+    for (const file of ["stacks.ts", "terrace.ts", "dressing.ts", "furniture.ts", "streetcam.ts", "citymetrics.ts", "town.ts"]) {
+      for (const [name, v] of Object.entries(MODULES[file]!)) {
+        if (file === "town.ts" && !/^(TERRACE_|PARKING_|PLAZA_)/.test(name)) continue;
+        if (!numeric(v)) continue;
+        checked++;
+        if (!covered(file, name, v)) missing.push(`${name} in ${file}`);
+      }
+    }
+    expect(checked, "the check found the constants").toBeGreaterThan(80);
+    expect(missing, `the Numbers table has no row for: ${missing.join(", ")}`).toEqual([]);
+  });
+
+  it("pins CITY_CHECK as a record row and the 051 B constants of town.ts", () => {
+    expect(has("citymetrics.ts", "CITY_CHECK")).toBe(true);
+    expect(covered("dressing.ts", "NO_SUCH_CONSTANT", 1), "a constant with no row is found missing").toBe(false);
+    for (const n of ["TERRACE_BAY_M", "TERRACE_DEPTH_M", "TERRACE_BAYS", "PARKING_W_M", "PARKING_D_M", "PARKING_MIN_RUN_BAYS", "PARKING_ONE_IN", "PLAZA_W_M", "PLAZA_ONE_IN"]) expect(has("town.ts", n), n).toBe(true);
+    for (const i of [0, 1, 2]) expect(has("town.ts", `TERRACE_CAPS_M[${i}]`), `TERRACE_CAPS_M[${i}]`).toBe(true);
+  });
+});
+
+describe("chapter 16: the never-used list is the code's (ticket 053)", () => {
+  const text = chapter(16).join("\n");
+  const rows = table(chapter(16), ["Never used", "Reason"]);
+  const stems = rows.map((r) => unquote(r[0]!).replace(/\*$/, ""));
+
+  it("lists exactly CITY_NEVER_USED, each with a reason", () => {
+    expect(stems.length).toBeGreaterThan(15);
+    expect(new Set(stems).size).toBe(stems.length);
+    expect([...stems].sort()).toEqual([...citymetrics.CITY_NEVER_USED].sort());
+    for (const r of rows) expect(r[1]!.length, `${r[0]} has no reason`).toBeGreaterThan(3);
+    expect(text).toContain("`CITY_NEVER_USED`");
+    expect(text).toMatch(/people/);
+    expect(text).toMatch(/vehicles/);
+  });
+
+  it("names no key that any rule table can place: not the dressing, the furniture, a stack recipe, MODEL_TABLE's City Pack rows or BUILDING_FRONTS", () => {
+    const keys = [
+      ...dressing.dressKeys(),
+      ...furniture.furnitureKeys(),
+      ...stacks.STACK_STYLES.flatMap((s) => stacks.stackKeys(s)),
+      ...models.MODEL_TABLE.filter((c) => c.pack === "city-pack").flatMap((c) => c.names.map((n) => `city-pack:${n}`)),
+      ...Object.keys(models.BUILDING_FRONTS).filter((k) => k.startsWith("city-pack:")),
+    ];
+    expect(keys.length).toBeGreaterThan(150);
+    for (const key of keys) {
+      const name = key.slice(key.indexOf(":") + 1);
+      for (const s of stems) expect(name.startsWith(s), `${key} is in a rule table but the guide says ${s}* is never used`).toBe(false);
+    }
+  });
+});
+
+describe("chapter 16 gives the grammar and the evaluation protocol (ticket 053)", () => {
+  const text = chapter(16).join("\n");
+  const MAPS = ["09-shrine-circuit", "64-the-whole-chain", "01-first-light"];
+
+  it("has its nine parts, in order", () => {
+    const heads = chapter(16)
+      .filter((l) => /^### 16\.\d /.test(l))
+      .map((l) => Number(/^### 16\.(\d) /.exec(l)![1]));
+    expect(heads).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    expect(text).toMatch(/### 16\.8 Evaluation protocol/);
+  });
+
+  it("names each of the three maps, and each is a puzzle in puzzles/", () => {
+    const rows = table(chapter(16), ["Map", "Why"]);
+    expect(rows.map((r) => unquote(r[0]!))).toEqual(MAPS);
+    for (const id of MAPS) expect(existsSync(`puzzles/${id}.json`), id).toBe(true);
+  });
+
+  it("names R1 to R12 in order, each as auto or eye, and the names are CITY_CHECK's", () => {
+    const rows = table(chapter(16), ["Item", "What the reference shows", "How it is checked"]);
+    expect(rows.map((r) => r[0]!)).toEqual(Object.keys(citymetrics.CITY_CHECK));
+    for (const r of rows) expect(r[2]!, `${r[0]} says how it is checked`).toMatch(/\b(auto|eye)\b/);
+    for (const id of Object.keys(citymetrics.CITY_CHECK)) expect(text, id).toMatch(new RegExp(`\\b${id}\\b`));
+  });
+
+  it("gives every view as a URL that parses: the street views with streetCamRequested, the play view and the gallery without a street camera, on a map in puzzles/", () => {
+    const rows = table(chapter(16), ["Map", "View", "URL"]);
+    expect(rows.length).toBe(MAPS.length * 9 + 1);
+    const seen = new Set<string>();
+    for (const r of rows) {
+      const map = unquote(r[0]!);
+      const view = r[1]!;
+      const url = new URL(unquote(r[2]!), "http://localhost");
+      expect(url.pathname, view).toBe("/");
+      const puzzle = url.searchParams.get("puzzle");
+      expect(MAPS, `${map} ${view}`).toContain(puzzle);
+      expect(puzzle, "the row's map is the URL's").toBe(map);
+      expect(existsSync(`puzzles/${puzzle}.json`), String(puzzle)).toBe(true);
+      expect(url.searchParams.get("view"), view).toBe("3d");
+      const cam = streetcam.streetCamRequested(url.search);
+      if (/^(play view|stack gallery)/.test(view)) {
+        expect(cam, `${view} is not a street view`).toBeNull();
+        if (/gallery/.test(view)) for (const [k, v] of [["gallery", "city-pack"], ["stacks", "1"], ["dress", "1"]] as const) expect(url.searchParams.get(k), `${view} ${k}`).toBe(v);
+      } else {
+        expect(cam, `${view}: the street camera reads this URL`).not.toBeNull();
+        expect(cam!.day, view).toBe(/day$/.test(view));
+        const want = /longest/.test(view) ? { run: 0, at: 0.5 } : /second/.test(view) ? { run: 1, at: 0.5 } : /third/.test(view) ? { run: 2, at: 0.5 } : { run: 0, at: 0 };
+        expect({ run: cam!.run, at: cam!.at }, view).toEqual(want);
+        seen.add(`${map}|${view}`);
+      }
+    }
+    // every map has all eight street views (four rows, night and day)
+    expect(seen.size).toBe(MAPS.length * 8);
+  });
+
+  it("says to wait for the street camera's console line, and that each street view is judged at night and by day", () => {
+    expect(text).toContain("street camera:");
+    expect(text).toMatch(/night and again with `light=day`/);
+    expect(existsSync("src/render3d/citymetrics.test.ts")).toBe(true);
+  });
+
+  it("records what is deliberately not built and what does not yet match", () => {
+    for (const w of ["lit windows", "balconies and cornices", "variety of awnings and rooftops by colour", "never used", "Evaluation protocol"]) expect(text.toLowerCase(), w).toContain(w.toLowerCase());
+    expect(/^- \*\*Open \(/m.test(text)).toBe(true);
   });
 });
