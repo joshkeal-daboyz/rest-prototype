@@ -95,3 +95,7 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 050 section A | gate (main session) | â€” | â€” | â€” | 0 | tsc clean, 90 files, 1728 passed on a checkout without pack files |
 | 050 section A | code-reviewer | agent default | 64K total (one figure in the readout) | â€” | 0 | meets, must-fix 0; raised the open-precedence risk for section B |
 | 050 section A | playtester | agent default | 15K total (one figure in the readout) | â€” | 0 | regressions 0; stopped early (harness never imports render3d) |
+| 051 section A | renderer | sonnet | 129K total (one figure in the readout) | — | 0 | Dev-only street camera, 26 tests (commit 4fb83c8); 42 tool uses, 8 min |
+| 051 section A | gate (main session) | — | — | — | 0 | tsc clean, 90 files, 1731 passed; production build: no street camera or gallery code in dist |
+| 051 section A | code-reviewer | agent default | see 050 A row style: figure not shown | — | 0 | meets, must-fix 0 |
+| 051 section A | playtester | agent default | 22K total (one figure in the readout) | — | 0 | regressions 0; stopped early (harness never imports render3d) |
