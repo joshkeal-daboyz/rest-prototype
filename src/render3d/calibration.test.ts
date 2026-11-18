@@ -67,8 +67,8 @@ describe("the re-key: BUILDING_FRONTS is the 043 B table with simple-town: in fr
     expect(Object.keys(BUILDING_FRONTS)).toHaveLength(39);
   });
 
-  it("keeps BUILDING_EXCLUDE empty", () => {
-    expect(BUILDING_EXCLUDE).toEqual([]);
+  it("excludes only the video rental store in BUILDING_EXCLUDE (ticket 047)", () => {
+    expect(BUILDING_EXCLUDE).toEqual(["simple-town:store_small_mesh"]);
   });
 });
 

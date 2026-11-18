@@ -245,7 +245,8 @@ describe("every placed building faces its road (every map)", () => {
       });
     }
     expect(clones).toBeGreaterThan(5000);
-    expect(turned.size).toBe(_label === "the shipped table" ? 2 : 4);
+    // The shipped table's only "+z" model placed on a map was the video rental store (047); memorial_mesh is not placed yet.
+    expect(turned.size).toBe(_label === "the shipped table" ? 1 : 4);
   });
 });
 
@@ -400,12 +401,13 @@ describe("meshFamily", () => {
     expect(meshFamily([a, near, far, fewer], fewer)).toBe("fewer");
   });
 
-  it("gives the small row's ten names seven families, and every planned model its family", () => {
+  it("gives the small row's nine names (the video rental store excluded) six families, and every planned model its family", () => {
     const set = fakeSet();
     const plan = buildingPlan(set.building);
     const fam = new Map(set.building!.map((m) => [m.entry.name, m.family] as const));
-    expect(new Set(plan.small.map((n) => fam.get(n))).size).toBe(7);
-    expect(plan.small.length).toBe(10);
+    expect(plan.small).not.toContain("store_small_mesh");
+    expect(new Set(plan.small.map((n) => fam.get(n))).size).toBe(6);
+    expect(plan.small.length).toBe(9);
   });
 });
 
@@ -484,7 +486,9 @@ describe("variety (every map)", () => {
   });
 
   it("never places a name in the exclude list, and gives its lots to the others", () => {
-    expect(BUILDING_EXCLUDE).toEqual([]);
+    expect(BUILDING_EXCLUDE).toEqual(["simple-town:store_small_mesh"]);
+    // The default plan (the code's list) never offers the video rental store, so no map places it (ticket 047).
+    for (const { name, town } of maps) expect(pickBuildings(town.lots, plan, traits), name).not.toContain("store_small_mesh");
     const without = buildingPlan(set.building, ["simple-town:Building_Gym", "simple-town:Building_Shop_03"]);
     expect(without.small).not.toContain("Building_Gym");
     expect(without.small).not.toContain("Building_Shop_03");
@@ -509,7 +513,7 @@ describe("variety (every map)", () => {
     }
     // The evenness is over the non-corner families: a corner model takes a lot only where it is valid, so its count is the number of such lots, not a share.
     const ordinary = [...counts].filter(([f]) => f !== cornerFamily).map(([, c]) => c);
-    expect(ordinary.length).toBe(6);
+    expect(ordinary.length).toBe(5);
     expect(Math.max(...ordinary) / Math.min(...ordinary)).toBeLessThanOrEqual(1.5);
     // It does appear on maps that have a valid lot (its open side, -x, meets a cross street) and on no other.
     expect(counts.get(cornerFamily) ?? 0).toBeGreaterThan(0);
@@ -608,7 +612,9 @@ describe("the town follows the saved calibration file (ticket 045 A)", () => {
   it("with no file, the clones are exactly the code's: the same lots, models, spots and turns as the table alone", async () => {
     const none = await loaded(null);
     const code = fakeSet(BUILDING_FRONTS);
-    expect(none.building!.map((m) => [m.entry.name, m.front, m.corner])).toEqual(code.building!.map((m) => [m.entry.name, m.front, m.corner]));
+    // The loaded set leaves out BUILDING_EXCLUDE (047); the fake set lists every model.
+    const kept = code.building!.filter((m) => !BUILDING_EXCLUDE.includes(`${m.pack}:${m.entry.name}`));
+    expect(none.building!.map((m) => [m.entry.name, m.front, m.corner])).toEqual(kept.map((m) => [m.entry.name, m.front, m.corner]));
     for (const { name, town } of maps.slice(0, 12)) {
       const a = applyModels(standIn(town.lots), none).buildings.map((p) => [p.lot, p.model.entry.name, p.x, p.z, p.yaw]);
       const b = applyModels(standIn(town.lots), code).buildings.map((p) => [p.lot, p.model.entry.name, p.x, p.z, p.yaw]);

@@ -17,8 +17,8 @@ export const NEIGHBOUR_GAP = 0.5;
 export const STREET_REPEAT_GAP = 3;
 /** On a map, no family takes more than this share of its lot type's lots, when the type has four or more families (ticket 042 A). */
 export const FAMILY_SHARE_MAX = 0.25;
-/** Building models that are never placed, as `pack:name` keys (ticket 042 A, re-keyed by 045 A). Josh's "video rental store" goes here, or is given a lower weight, once he names it with `fronts=1`. */
-export const BUILDING_EXCLUDE: readonly CalibrationKey[] = [];
+/** Building models that are never placed, as `pack:name` keys (ticket 042 A, re-keyed by 045 A). The video rental store, `store_small_mesh`, is excluded on Josh's word (ticket 047, 18 Nov 2026: "ignore it... it's part of the small package. The polygon buildings are much higher quality"). It keeps its `MODEL_TABLE` row and its front, and the gallery still shows it. */
+export const BUILDING_EXCLUDE: readonly CalibrationKey[] = ["simple-town:store_small_mesh"];
 
 export type ModelSlot = "pole" | "lamp" | "building";
 export const MODEL_SLOTS: readonly ModelSlot[] = ["pole", "lamp", "building"];
