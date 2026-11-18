@@ -40,6 +40,7 @@ How to read it:
 - **Default (041)**: a dashed centre line is drawn on ring and grid roads only (roads wider than 1). Yards (what frontage fill cannot use) are dark ground.
 - **Default (042 Q7)**: odd-angled junction pads stay code-drawn, even when roads come from a pack (Pending 042 C, chapter 10).
 - **Default (041 Q8)**: no street furniture (trees, bins, hydrants, traffic lights, parked cars) yet. A later ticket may add it.
+- **Info (053)**: terrace pavements now carry street furniture, and the outer blocks are terraces: the whole procedural city, from lot to prop, is chapter 16.
 
 ## 4. Lots
 
@@ -57,6 +58,7 @@ How to read it:
 - **Default (051, with 041's lot rules)**: terrace rows have open ground. A run of at least `PARKING_MIN_RUN_BAYS` nominal bays has one parking lot, `PARKING_W_M` x `PARKING_D_M`, about its middle where `stableHash` of the run id modulo `PARKING_ONE_IN` is 0; the run ends at it and a new one starts after it. One outer block in `PLAZA_ONE_IN` (by `stableHash` of its id) has a plaza, `PLAZA_W_M` square, at one row's start in place of that row's corner block. Open lots are in `Town.openLots` and never in `Town.lots`, so no building, drop or pick uses them. They clear the rules above at height 0. A later ticket (052 C) dresses them; until then they are bare yard.
 - **Default (051, with 041's lot rules)**: a terrace row's far end closes **seam, or alley, never a slit**. The packer (`terrace.ts`) lays unscaled stacks flush from the row's start and first looks for a choice of styles and column counts that leaves a gap of at most `TERRACE_SEAM_M` to the next row's corner block's real back wall (that block's own stack depth, 5.62 to 5.92 m by the shops and roof corners it draws, not the style's deepest piece; `packTown` packs a block's runs together so each row closes to the corner block the next row really got; or a plaza's or parking lot's edge). Where the pieces cannot (N unscaled columns span only 5.0 N to about 5.28 N metres, so most row lengths fall in a dead band), it aims for a gap from `ALLEY_MIN_M` to `ALLEY_MAX_M`, which reads as an alley between blocks (dressed in 052 C), and never for a 0.3 to 0.5 m slit; only if neither is possible does it take the smallest gap above `ALLEY_MAX_M` (within `TERRACE_SLACK_M` of the smallest, the first in the preference order: least-used style first). Neighbours never share a style or a floor count; no building model is scaled to close a gap (041).
 - **Info**: a terrace lot's placeholder fills its whole lot (no 0.8 or 0.9 footprint), so the boxes of a run touch. With the City Pack absent (CI, a fresh checkout) the terrace is those boxes. With the City Pack present (051 D) each run's boxes give way to its packed stacks, one `stack:<style>` group per block, and no whole model ever stands on a terrace lot (`pickBuildings` does not see one, so the terrace blocks are not among `large`'s families; the terrace's own bound is that each apartment style is 20% to 50% of its blocks).
+- **Info (053)**: the packer, the dressing of the open lots and the alleys, and the checklist a generated street is judged by are in chapter 16 (16.2 and 16.8); the "bare yard" above was true until 052 C.
 
 ## 5. Choosing a building
 
@@ -71,6 +73,7 @@ How to read it:
 - **Default (050 Q1, on Josh's 18 Nov 2026 "the city stuff is higher detail")**: City Pack stacks come first, then the Town Pack, then SIMPLE Town, type by type: a three-step chain per lot type. A type in `STACK_LOT_TYPES` (`large` and `tall`; small and house keep the Town Pack's houses) uses City Pack stacks when the styles that can stand on it, after `BUILDING_EXCLUDE` and the pieces that loaded, make at least `POLYGON_MIN_FAMILIES` for that type (each style is one family, `city-pack:stack:<style>`). Otherwise the type follows the 048 rule above (Town Pack whole houses, else SIMPLE Town). The three never mix within a type. The neighbour, street-repeat and share rules above apply to stacks unchanged. A piece whose root did not load, or whose key is excluded, drops the styles that need it; if every style drops, the type falls down the chain.
 - **Info (050 C)**: with the fixture sizes, `large` offers six styles (the three apartment styles, `office-old-small`, `office-old-large`, `office-octagon`) and `tall` four (the three apartment styles and `office-old-small`). A stack's floors over its base are picked by hash from the range the cap allows (`STACK_FLOORS` is the minimum), so heights vary from lot to lot and never change. With no City Pack in the manifest, or its GLB failed, no stack is offered and the town is exactly what the 048 rule gives (a fresh checkout and CI).
 - **Info (048)**: with Josh's fronts the Town Pack fills `small` (`SM_Bld_House_Preset_01`, `_02`, `_09` and `SM_Bld_House_Preset_Garage_01`) and `house` (`_03` to `_07` and `_10`). `_08` and `_11` are `large` (two families, under 4), so `large` and `tall` stay SIMPLE Town. With no Town Pack in the manifest, or its GLB failed to load, every type is SIMPLE Town and the town is as it was before 048 (a fresh checkout and CI).
+- **Info (053)**: how stacks are used on a terrace, and the variety and fallback rules that apply to them, are in chapter 16 (16.3, 16.4 and 16.7).
 
 ## 6. Facing
 
@@ -148,6 +151,7 @@ How to read it:
 - **Default (048 Q5)**: no POLYGON model is a corner model. A gallery click sets only a door, and `open` lives in code, so a Town Pack house gets `corner: true` and `open` only if Josh names one with two street faces and says which side. Until then a Town Pack house goes on any lot, corner or not, as an ordinary model.
 - **Decided (050, Josh, 18 Nov 2026: "the shop corners are intended to be base units for the larger structures.")**: a stack's ground floor on a corner takes the shop corner piece, and its upper floors and roof take the matching `_Corner_` pieces.
 - **Default (050 C, from the corner rule above)**: a stack has a corner column (shop corner base, corner floors, corner roof, never a `_Stack_` piece) on each side in its lot's `cornerSides` and on no other. It is built for its lot, so it stands only where that side meets a cross street and never mid-row, and its second street face is on the cross street. A stack with no corner column, and any style with no corner pieces (the offices), is an ordinary building and may stand on a corner lot as any model may. A corner piece's `open` side is read in the lot frame after its front is turned: at the other end of the row the corner column turns a quarter, so one piece serves both ends. A corner stack that cannot be assembled on its lot (it does not fit with the corner columns in) falls back to the same style mid-row. `open` comes from `BUILDING_FRONTS` first, then the recipe's guess, then "+x"; every one is a guess until Josh confirms it.
+- **Info (053)**: corner blocks on a terrace, and the check that they stand only on true corners (R9), are in chapter 16 (16.3 and 16.8).
 
 ## 8. Lit places
 
@@ -215,6 +219,7 @@ How to read it:
 - **Info (manifest, 17 Nov 2026)**: `city-pack` has 355 entries and 2 failures. Its 30 `scale-suspect` entries are the characters (`SK_Char*`), the vehicles (`SM_Veh_*`) and the skyline (`SM_Env_Skyline_*`), about 100 times too big at `"scale": 100`. A `scaleOverrides` factor of 0.01 would be needed for any of them. Its buildings are right at 100. Its roads are flat 5 m tiles (`SM_Env_Road_*`), with pavements `SM_Env_Sidewalk_*`. Its buildings are mostly modular: Base, Floor, Roof, Glass and Corner pieces of one tower (`SM_Bld_OfficeSquare_*`, `_OfficeRound_*`, `_OfficeOld_*`, `_OfficeOctagon_*`, `SM_Bld_Apartment_*`) that need assembling, with a few whole variants (for example `SM_Bld_OfficeSquare_01`) and one whole `SM_Bld_CityHall_01` (20.1 x 8.7 x 17.6 m). The City Pack's stack pieces are in `BUILDING_FRONTS` (chapters 6 and 7, provisional) and its stacks in `STACK_STYLES`; none of it is in `MODEL_TABLE`, so the pack table's "in use" for it comes from the recipes. Its roads, pavements and city hall are still not used.
 - **Info (048)**: the Town Pack's whole houses are in `MODEL_TABLE` (chapter 5) with their doors in `BUILDING_FRONTS` (chapter 6); `polygon.test.ts` pins both.
 - **Pending (a POLYGON adoption ticket)**: whole-building `MODEL_TABLE` rows for any other pack, their door sides, their lot types from bounds and any exclusions (chapter 15, steps 5 to 8). For a modular pack the stack recipes (chapter 15, step 10) replace the rows.
+- **Info (053)**: which pieces of the City Pack are used, which are never used and why, and which are missing against the reference are in chapter 16 (16.6).
 
 ## 14. Licence handling
 
@@ -248,9 +253,201 @@ How to read it:
   - Duplicate file names across subfolders fail to convert (the Town Pack's characters).
   - A converted pack's pivots are centred, so a door side is never in the data.
 
+## 16. Procedural city
+
+- **Decided (053, Josh, 18 Nov 2026: "leverage the city pack and establish a style guide that will allow you to build procedural cities by leveraging the city pack... a city guide that is able to yield similar quality results to that city in the image excluding the humans, animals and vehicles.")**: this chapter is that guide. It is a grammar: read from the top, it says how a City Pack city is generated from a map, which rule makes each part, and how to check the result against the reference. Approvals for this goal were waived by Josh in the same chat.
+- **Info**: the reference is a city street with these parts: continuous terraces of 3 to 5 storey blocks; shopfront ground floors with glass, awnings and signs; apartment floors in varied colours; fire escapes on street faces; props on every roof; a corner plaza; a parking lot; alleys between blocks; street furniture along the pavement. People, animals and vehicles are left out.
+- **Info**: the pipeline, in order. Everything up to the last step is pure (no three, no DOM, no assets in the tests), and every choice is a hash of a key, so one map gives one city every time.
+  1. `townLayout` (`town.ts`): streets, outer blocks, terrace runs, open lots.
+  2. `packTown` (`terrace.ts`): each run becomes exact blocks, with `assembleStack` (`stacks.ts`) building each from the pack's pieces.
+  3. `dressTown` (`dressing.ts`): the dressing of each block.
+  4. `furnitureLayout` (`furniture.ts`): the pavements, the open lots and the alleys.
+  5. `applyModels` (`models3d.ts`): draws all of it, and only when the City Pack GLB is there.
+  6. `citymetrics.ts` measures steps 1 to 4 against the checklist of 16.8.
+
+### 16.1 Grammar
+
+| Level | What it is | Made by | Chosen by |
+| --- | --- | --- | --- |
+| Town window | the ring road and one ring of outer blocks (`OUTER_RINGS`) | `townLayout` | the circuit's bounds (chapter 3) |
+| Outer block | the ground inside four streets, four rows pinwheel-fashion | `townLayout` | the grid (`BLOCK_PITCH`) |
+| Row | one side of an outer block, a band `TERRACE_DEPTH_M` deep | `townLayout` | the pinwheel (chapter 4) |
+| Run | a stretch of abutting lots in a row, `TerraceRun`, with a start (a corner or not) and an end (a corner, a plaza, a parking lot, or "end") | `townLayout` | where the lots clear their height cap |
+| Open lot | a parking lot or a plaza in a row, in `Town.openLots` | `townLayout` | `stableHash` of the run and the block, `PARKING_ONE_IN`, `PLAZA_ONE_IN` |
+| Block | one stack standing on a run: a style, columns, floors | `packTerrace` and `assembleStack` | the least-used style, the neighbour rule, the far-gap rule |
+| Column (a bay) | one floor piece's width along the street | `assembleStack` | the style's floor piece |
+| Storey | the base (the ground row), the floors, the roof | `assembleStack` | `STACK_FLOORS`, the cap, a hash of the block key |
+| Slot | a place on a piece where dressing may stand, per role | `DRESS_SLOTS` | the piece's role (`dressRoleOf`) |
+| Prop | a pack piece standing in a slot, or an item of furniture on a pavement line | `dressBlock`, `furnitureLayout` | a hash of the lot key (dressing) or the run id (furniture), under the caps of 16.5 |
+| Alley | the gap of `ALLEY_MIN_M` to `ALLEY_MAX_M` at a run's far end | `packTerrace` | the far-gap rule |
+
+### 16.2 Lots and runs
+
+- **Default (051)**: a row becomes runs. A run starts at a corner (the row's start, when a cross street meets it), after a plaza, or after a parking lot, and it ends at the next row's corner block, at a plaza, at a parking lot, or where the next slot clears no height cap ("end"). The details of the pinwheel and the corner block are chapter 4 and chapter 7; this chapter does not repeat them.
+- **Default (051)**: a run is cut into nominal lots first (`TERRACE_BAYS` bays of `TERRACE_BAY_M` each, `TERRACE_DEPTH_M` deep), and each takes the highest of `TERRACE_CAPS_M` that clears the occlusion rule of chapter 4. The nominal lots fix only the heights and the extent. The packer replaces them.
+- **Info**: only the highest height tier ever occurs on the ladder, so every block's cap lets it have three to five storeys.
+- **Default (051)**: open lots are part of the grammar, not leftovers. A run of at least `PARKING_MIN_RUN_BAYS` nominal bays has a parking lot (`PARKING_W_M` by `PARKING_D_M`) about its middle when its hash says so (`PARKING_ONE_IN`); one outer block in `PLAZA_ONE_IN` has a plaza (`PLAZA_W_M` square) at one row's start. A plaza is recorded against the run that starts after it, a parking lot against the run it ends, so one run can carry one of each.
+- **Default (051)**: blocks are packed flush. The packer lays each block from the run's start, as wide as its columns, and the next starts where the last ends: blocks abut exactly. No model is scaled to close a gap. Whole columns span only a little more than the nominal bay, so most runs cannot close to the wall exactly.
+- **Default (051)**: the far end of a run closes by one rule: seam, or alley, never a slit. A gap up to `TERRACE_SEAM_M` is a seam; a gap from `ALLEY_MIN_M` to `ALLEY_MAX_M` is an alley that 052 C dresses; a gap between the two is a slit and is never chosen; only if no choice gives a seam or an alley is a wider gap left, within `TERRACE_SLACK_M` of the smallest. The packer measures to the next row's corner block's real back wall (chapter 4), so the corner block it closes to is searched, not taken from the hash.
+
+### 16.3 Blocks
+
+- **Default (050)**: a block is one stack of one style from `STACK_STYLES`. A terrace uses the three apartment styles (a style whose `depth` is "bay"); the offices are one footprint column and stay on the tall lots (chapter 5). A block is 2 to 4 columns (`TERRACE_BAYS`).
+- **Default (050)**: a stack is columns side by side, each as wide as its floor piece. In each column the ground row is the base piece, then the floors, then the roof piece. Floors take `STACK_STYLES[i].pitch_m`, so a stack's height is the base pitch plus its floors plus the roof.
+- **Decided (050, Josh, 18 Nov 2026: "the shop corners are intended to be base units for the larger structures.")**: a corner column's ground floor is a shop corner, and its floors and roof are the style's corner pieces.
+- **Default (050)**: the ground row of a mid column is a shop picked by hash from the six shop pieces; the two-column shop spans two free columns. Each block has one residents' door bay in a mid column, never in a corner column. So every ground bay is a shopfront, a shop corner or that one door (R3).
+- **Decided (042, Josh, 17 Nov 2026: "Corner buildings should only be placed on corners. They must also have two sides facing the street. Only corner buildings have this restriction. Other buildings can be placed on corners normally.")**: on a terrace the first block of a run that starts at a corner is the corner block, with its corner column on the corner side, and no other block has a corner column (R9). Its second street face is on the cross street. A run that starts at a plaza or a clearance gap starts with an ordinary block.
+- **Default (050)**: the floors over the base are `STACK_FLOORS` at least and as many as the cap allows, picked by a hash of the block key, so heights vary and never change. With the highest cap that is 2 to 4 floors, so 3 to 5 storeys with the ground floor (R2).
+- **Default (050 C)**: a stack's doors, and a corner piece's `open` side, come from `BUILDING_FRONTS` first, then the recipe's guess. All 34 City Pack stack pieces are provisional "+z" guesses (chapter 6). A wrong door is one line in `BUILDING_FRONTS`, and it moves nothing else.
+
+### 16.4 Variety
+
+- **Default (051)**: neighbours in a run never share a style, and they differ in floor count wherever the cap allows a choice, and from the block before that where it can. Among the choices that close a run, the style least used so far in the run comes first, then a hash of the run id. This is what makes R2 hold on every pair.
+- **Info**: the street-repeat rule and the share cap of chapter 5 do not bound a terrace (three styles are fewer than the families they apply to). The terrace's own bound is that each apartment style is a fifth to a half of a ladder's terrace blocks (`terracepack.test.ts`).
+- **Default (050 C)**: stacks on the circuit's own large and tall lots, outside the terraces, follow the neighbour, street-repeat and share rules of chapter 5 unchanged (`NEIGHBOUR_GAP`, `STREET_REPEAT_GAP`, `FAMILY_SHARE_MAX`).
+- **Default (052)**: the dressing varies by hash, not by order. One awning key per block (the awnings of a block match), no sign key twice in a block, at most one blade sign, one ATM, one fire-escape column and one big roof prop per block, at most `ATM_PER_RUN` ATMs, one billboard and one novelty sign per run, and no fire escape on two neighbouring blocks of a run.
+- **Info**: the only colour variety in the city comes from the three apartment styles. The awnings are fixed shapes and colours of one texture atlas, and the roof props are one colour each (16.6).
+
+### 16.5 Dressing and furniture
+
+- **Default (052)**: dressing is a pure function of the block's stack, its lot key, its run and the manifest entries (`dressBlock`). A key missing from the entries drops only its own placements. When a column is full (`DRESS_PER_BAY_MAX`), the pieces left are dropped in this order: glass, awnings, the big roof prop, the fire escape, signs, the door canopy, small roof props, the ATM, wall props. The whole town stops at `DRESS_MAX` pieces.
+- **Default (052)**: attachment is a rule, not data, because the converter centres every pivot. A front-face prop's back face lies on the front face of the piece that stands behind it at its base height, plus a per-key `DRESS_NUDGE_M`, and no prop reaches past `KERB_FROM_FRONT_M`. A roof prop's base lies on the roof's top, inset `ROOF_EDGE_M` from every roof edge and inside its column. A prop's own door side is "+z" unless `DRESS_FRONTS` or the fronts table says otherwise.
+- **Default (052)**: glass. Every shop with a `_Glass` key in `SHOP_GLASS` has it, sunk `GLASS_INSET_M` into the shop's face with its base at `GLASS_SILL_M` (a corner shop's glass wraps the corner). The one shop without glass takes none (R4).
+- **Default (052)**: awnings. Each shop bay takes one with probability `P_AWNING`, all of one key within a block, only if the awning stops `AWNING_KERB_M` short of the kerb; a corner bay takes the L-shaped one. The base is `AWNING_BASE_M` or the glass's top (R5). The door bay takes a canopy with probability `P_CANOPY` at `DOOR_CANOPY_Y_M`.
+- **Default (052)**: signs and the ATM. A shop bay takes a fascia sign with probability `P_SIGN`, over the awning or the glass, at `SIGN_BASE_M` at the lowest. One block in `P_BLADE` hangs a blade sign over a bay with no awning, `BLADE_INSET_M` in from its edge. An ATM goes beside a residents' door with probability `P_ATM` per block, `ATM_PIER_M` in from the door bay's edge and at `ATM_Y_M` high (R6). The ticket put it on a shop pier; a shop's glass leaves none.
+- **Default (052)**: fire escapes. An apartment block of at least `ESCAPE_MIN_BAYS` columns and two floors takes one with probability `P_ESCAPE`, on a mid column that is not a door column, from the first floor to the roof (the tall first landing, a middle piece for each floor, a top piece). That column's ground row stays plain. No two neighbouring blocks of a run both have one, which caps the share of qualifying blocks below "most" (R7; chapter 16.9).
+- **Default (052)**: wall props. From floor `WALL_MIN_LEVEL` up, each column and floor takes a wall AC unit with probability `P_WALL_AC` or a window planter with `P_PLANTER`, at most `WALL_PROPS_PER_BLOCK` in a block, never on the escape column; the AC stands `WALL_AC_LIFT_M` up and `WALL_AC_OFFSET_M` off the column's axis, the planter `PLANTER_LIFT_M` up.
+- **Default (052)**: roofs. Each roof column takes one small prop (an AC unit, a satellite dish, a vent) with probability `P_ROOF_SMALL`, and a second with probability `P_ROOF_SECOND`, never more than `ROOF_SMALL_PER_BAY`, at a hashed place inside the inset; the dish keeps facing the street and the rest may turn a half-turn. A block takes one big prop with probability `P_ROOF_LARGE`: a water tower, the roof stair hut, a billboard (a structure and a face, counted as one), or a novelty sign (one per run, on its lowest block), and only where the roof's top plus its height stays under the lot's cap. A column with the big prop gets no small ones (R8).
+- **Default (052)**: furniture stands only on the pavements in front of terrace runs, never on the circuit's streets or the ring's inside, so nothing new stands near a node or a wire. A run has two lines: a wall line (an item's back edge `FURN_WALL_M` in from the pavement's wall edge) and a kerb line (its front edge `FURN_KERB_M` in from the kerb). Items on a line are `FURN_PITCH_M` apart centre to centre (trees `TREE_PITCH_M`), with a hashed gap of up to `FURN_GAP_SPAN_M` after that, `FURN_GAP_M` clear between footprints, and a candidate place is filled with probability `P_FURN` (busy, not cluttered; R10).
+- **Default (052)**: the keep-outs. Nothing within `FURN_CORNER_M` of a run's end, `FURN_KEEP_M` of a pole, lamp post, node, junction pad or service drop, nothing taller than `FURN_MAX_H_M` within `WIRE_CLEAR` of a wire span, and an item taller than a dressing piece stays out from under it. Bins, planters, pot plants, benches, a mailbox and newspaper boxes go on the wall line; parking meters, trees, a hydrant and a bus stop on the kerb line; a bollard just beyond each corner keep-out with probability `P_BOLLARD`. Per-run caps: `HYDRANT_PER_RUN`, `MAILBOX_PER_RUN`, `NEWSPAPER_PER_RUN`, `BUS_STOP_PER_RUN` (on a run of at least `BUS_STOP_MIN_RUN_M`), `BOLLARD_PER_RUN`.
+- **Default (052)**: open lots and alleys are dressed. A parking lot gets two tiles of lines that cover it, two or three barriers along its back edge, a meter (sometimes two) and, with probability `P_PARKING_BILLBOARD`, a pole billboard whose board stands `BILLBOARD_BOARD_LIFT_M` up and only under its run's lowest cap; it has no cars. A plaza gets four paving panels, one or two trees, benches, a planter, pot plants, and a picnic table with an umbrella or a hot-dog stand. An alley gets one or two bins with probability `P_ALLEY` (`P_ALLEY_SECOND` for the second) against its walls. The pack has no gate that fits an alley, so there is none. A piece lower than `SLAB_MAX_M` is ground: things stand on it.
+- **Default (052)**: drawing. Each key is one `InstancedMesh` per sub-mesh (at most `DRESS_DRAW_CALLS_MAX` draw calls for the dressing and `FURN_DRAW_CALLS_MAX` for the furniture on the largest map). No dressing or furniture object raycasts (it is never picked), and none is lit: a material that carries emission is swapped for a dark clone, and all shop glass shares one dark, see-through material.
+
+### 16.6 Exclusions and gaps
+
+- **Default (052)**: the City Pack's people, vehicles and everything in the table below are never used, each for the reason given. `CITY_NEVER_USED` holds the same list in code, and `styleguide.test.ts` checks the two agree and that no rule table names one. A stem ending in a star is a prefix of the pack's piece names.
+
+| Never used | Reason |
+| --- | --- |
+| `SK_*` | people |
+| `SM_Veh_*` | vehicles |
+| `SM_Env_Skyline_*` | a skyline, about a hundred times too big at the pack's scale |
+| `SM_Env_PalmTree_*` | 13.7 m high: through the wires |
+| `SM_Prop_LightPole_*` | a lamp reads as a puzzle lamp |
+| `SM_Prop_TrafficLight_*` | red and green read as puzzle state |
+| `SM_Prop_PowerBox_*` | reads as a puzzle part |
+| `SM_Prop_Power_Cables_*` | conductors stay code-generated (042 Q9) |
+| `SM_Bld_Apartment_Stairs_*` | 5.5 to 10.3 m deep: past the kerb |
+| `SM_Prop_Sign_XXX_*` | wrong for a shop |
+| `SM_Prop_Sign_Police_*` | wrong for a shop |
+| `SM_Prop_Sign_Hospital_*` | wrong for a shop |
+| `SM_Prop_Sign_FireDepartment_*` | wrong for a shop |
+| `SM_Prop_ShopInterior_*` | interiors: nothing sees them |
+| `SM_Prop_Buger_*` | junk-sized prop |
+| `SM_Prop_Soda_*` | junk-sized prop |
+| `SM_Prop_SmartPhone_*` | junk-sized prop |
+| `SM_Prop_Paper_*` | junk-sized prop |
+| `SM_Prop_Police_Baton_*` | junk-sized prop |
+| `SM_Prop_Pipe_Present_*` | back walls only |
+| `SM_Env_Bridge_*` | not a street piece |
+| `SM_Env_WaterEdge_*` | not a street piece |
+| `SM_Env_SubwayEntrance_*` | 8 to 15 m deep: past the kerb |
+
+- **Info**: the pack has no animal models, so nothing needs excluding for them.
+- **Open (waits for a pack that has glass windows, or a ticket that draws them in code)**: no glass for apartment windows and no lit-window variant: the windows are baked into the floor pieces. Josh's rule that nothing but lit places and live wires glows (chapter 12) means a lit window would be a ticket of its own, not a dressing.
+- **Open (waits for a pack that has them, or a ticket that draws them in code)**: no balconies, cornices or separate parapets; no roof railings or ladders; no roller shutters.
+- **Open (waits for a second model of each, or a ticket that varies them in code)**: one water tower, one satellite dish and one ATM model only, so variety there comes from placement, not models.
+- **Open (waits for a recolouring ticket, or a pack with more awnings)**: awnings come in five fixed shapes and colours of one texture atlas, and the roof props are one colour each. Variety of rooftops and awnings by colour is deliberately not built: it would mean new materials, and the pack's own atlas is what keeps the instancing cheap.
+- **Open (waits for a ticket that adds a sign pole)**: no sign pole for street-name signs, so `Sign_Street_*` and the traffic signs are not used.
+- **Open (waits for Josh's word on lit places, ticket 049)**: dressing never lights and is never picked, so a lit shop window, a glowing sign or a lit billboard is not in this chapter.
+
+### 16.7 Fallbacks
+
+- **Default (050)**: with no City Pack in the manifest, or its GLB failed, no stack is offered and the terrace is the abutting placeholder boxes of 051 B, as on a fresh checkout and in CI. The town is then exactly what chapter 5's chain gives.
+- **Default (051)**: a run that packs no block keeps its placeholders. A stack piece whose root did not load, or whose key is excluded, drops the styles that need it and nothing else; if every style drops, the type falls down the chain of chapter 5.
+- **Default (052)**: a dressing or furniture key missing from the manifest drops only its own placements. With no stack there is no dressing, and with no dressing or no packed run there is no furniture: each is drawn only when the layer under it is.
+- **Info**: the circuit and the play view are not touched by any of this: the 3D play view must read exactly as on `main` (R12).
+
+### 16.8 Evaluation protocol
+
+- **Default (053)**: the protocol judges a generated city against the reference with three maps, a fixed set of views and the checklist R1 to R12. Most checklist items are checked by a test on every `npm test`; the rest are judged by eye from screenshots.
+- **Default (053)**: the maps, all in `puzzles/`:
+
+| Map | Why |
+| --- | --- |
+| `09-shrine-circuit` | the map 050 to 052 were built and tested on |
+| `64-the-whole-chain` | the largest town: the most runs, and the map that must have a parking lot and a plaza |
+| `01-first-light` | the smallest map, the other end of the range |
+
+- **Default (053)**: the views are all `npm run dev`, with `view=3d`. Open each URL, wait for the console line `street camera:` (it appears after the models are applied and one frame is drawn through the street camera), then take the screenshot. `run=0`, `run=1` and `run=2` are the three longest rows (rows are sorted longest first), at the middle (`at=0.5`); `run=0` with `at=0` is the start of the longest row, a corner block where the row starts at a cross street. Each street view is judged at night and again with `light=day`: the reference is daylight, so form, density and variety are judged in day light, and the night views make sure the city still reads dark around the circuit. The play view must read exactly as on `main`. The stack gallery shows every recipe dressed.
+
+| Map | View | URL |
+| --- | --- | --- |
+| `09-shrine-circuit` | play view | `/?puzzle=09-shrine-circuit&view=3d` |
+| `09-shrine-circuit` | longest row, night | `/?puzzle=09-shrine-circuit&view=3d&cam=street&run=0&at=0.5` |
+| `09-shrine-circuit` | second row, night | `/?puzzle=09-shrine-circuit&view=3d&cam=street&run=1&at=0.5` |
+| `09-shrine-circuit` | third row, night | `/?puzzle=09-shrine-circuit&view=3d&cam=street&run=2&at=0.5` |
+| `09-shrine-circuit` | corner block, night | `/?puzzle=09-shrine-circuit&view=3d&cam=street&run=0&at=0` |
+| `09-shrine-circuit` | longest row, day | `/?puzzle=09-shrine-circuit&view=3d&cam=street&run=0&at=0.5&light=day` |
+| `09-shrine-circuit` | second row, day | `/?puzzle=09-shrine-circuit&view=3d&cam=street&run=1&at=0.5&light=day` |
+| `09-shrine-circuit` | third row, day | `/?puzzle=09-shrine-circuit&view=3d&cam=street&run=2&at=0.5&light=day` |
+| `09-shrine-circuit` | corner block, day | `/?puzzle=09-shrine-circuit&view=3d&cam=street&run=0&at=0&light=day` |
+| `09-shrine-circuit` | stack gallery, dressed | `/?puzzle=09-shrine-circuit&view=3d&gallery=city-pack&stacks=1&dress=1` |
+| `64-the-whole-chain` | play view | `/?puzzle=64-the-whole-chain&view=3d` |
+| `64-the-whole-chain` | longest row, night | `/?puzzle=64-the-whole-chain&view=3d&cam=street&run=0&at=0.5` |
+| `64-the-whole-chain` | second row, night | `/?puzzle=64-the-whole-chain&view=3d&cam=street&run=1&at=0.5` |
+| `64-the-whole-chain` | third row, night | `/?puzzle=64-the-whole-chain&view=3d&cam=street&run=2&at=0.5` |
+| `64-the-whole-chain` | corner block, night | `/?puzzle=64-the-whole-chain&view=3d&cam=street&run=0&at=0` |
+| `64-the-whole-chain` | longest row, day | `/?puzzle=64-the-whole-chain&view=3d&cam=street&run=0&at=0.5&light=day` |
+| `64-the-whole-chain` | second row, day | `/?puzzle=64-the-whole-chain&view=3d&cam=street&run=1&at=0.5&light=day` |
+| `64-the-whole-chain` | third row, day | `/?puzzle=64-the-whole-chain&view=3d&cam=street&run=2&at=0.5&light=day` |
+| `64-the-whole-chain` | corner block, day | `/?puzzle=64-the-whole-chain&view=3d&cam=street&run=0&at=0&light=day` |
+| `01-first-light` | play view | `/?puzzle=01-first-light&view=3d` |
+| `01-first-light` | longest row, night | `/?puzzle=01-first-light&view=3d&cam=street&run=0&at=0.5` |
+| `01-first-light` | second row, night | `/?puzzle=01-first-light&view=3d&cam=street&run=1&at=0.5` |
+| `01-first-light` | third row, night | `/?puzzle=01-first-light&view=3d&cam=street&run=2&at=0.5` |
+| `01-first-light` | corner block, night | `/?puzzle=01-first-light&view=3d&cam=street&run=0&at=0` |
+| `01-first-light` | longest row, day | `/?puzzle=01-first-light&view=3d&cam=street&run=0&at=0.5&light=day` |
+| `01-first-light` | second row, day | `/?puzzle=01-first-light&view=3d&cam=street&run=1&at=0.5&light=day` |
+| `01-first-light` | third row, day | `/?puzzle=01-first-light&view=3d&cam=street&run=2&at=0.5&light=day` |
+| `01-first-light` | corner block, day | `/?puzzle=01-first-light&view=3d&cam=street&run=0&at=0&light=day` |
+
+- **Default (053)**: the checklist. **auto** items are checked by `citymetrics.test.ts` on the plan the game stands for each of the three maps (the thresholds are `CITY_CHECK`, `CITY_ATM_BLOCKS_MIN`, `CITY_BIG_ROOF_RUNS_MIN` and `CITY_STOREYS`, in the Numbers table), and each threshold is also shown to fail on a plan made to break it. **eye** items are judged from the screenshots above.
+
+| Item | What the reference shows | How it is checked |
+| --- | --- | --- |
+| R1 | continuous frontage: no gap between neighbours, one open lot of each kind to a run, most of the frontage covered | auto: blocks abut, at most one parking lot and one plaza per run, the covered share of the map's frontage; eye: no gap in any street view |
+| R2 | 3 to 5 storeys, neighbours differ | auto: the storey range, and every neighbour pair differs in style and floor count; eye: the skyline of each row looks varied |
+| R3 | every ground bay is a shopfront, or the one door bay | auto: every base piece is a shop, a shop corner or a door, at most one door per block, no column without a base |
+| R4 | glass in every shop | auto: every shop that has a glass key has its glass |
+| R5 | awnings over most shop bays, one kind to a block | auto: the share of shop bays with an awning, and no block with two awning keys; eye: they read as awnings, not floating |
+| R6 | a sign over most shopfronts, an ATM on some blocks | auto: the share of shop bays with a sign, and the share of blocks with an ATM |
+| R7 | fire escapes on the street faces of most blocks of three bays or more | auto: the share of qualifying blocks with one; eye: they stand on the face, not through it |
+| R8 | every roof dressed, a big roof prop on many rows | auto: the share of blocks with a roof prop, and of runs with a big one; eye: nothing floats, nothing is inside a wall |
+| R9 | corner blocks on true corners only, with two street faces | auto: no corner column off a true corner; eye: the second face is on the cross street |
+| R10 | street furniture spaced along the pavement, not cluttered | auto: pitch, corner and keep-out violations are none; eye: it reads busy, not noisy |
+| R11 | a parking lot and a corner plaza on the map | auto: on `64-the-whole-chain` there is at least one of each |
+| R12 | no people, animals or vehicles; nothing glows; the circuit reads as on `main` | auto: no never-used key in the plan, no emissive material in the drawn dressing; eye: the play view and the circuit are unchanged |
+
+- **Default (053)**: what "matches the reference" means: every auto item passes on all three maps, and every eye item passes on every screenshot listed. A fail names the item, the URL and what is wrong. The main session records the result as a table in the review it shows Josh, one row per item and map: the auto value, and for each eye item pass or fail with the URL.
+- **Default (053 Q3)**: the eye items are judged by the main session, from screenshots, and recorded for Josh.
+- **Open (waits for Josh's own verdict on the match)**: when Josh gives a verdict on how close a generated street is to his reference, it goes here as **Decided** with his words.
+
+### 16.9 What matches the reference, and what does not yet
+
+- **Info**: measured by `citymetrics.test.ts` on 18 Nov 2026 over the three maps (the numbers move when a rule does; the test, not this line, is the record). All three maps have 44 to 58 runs and 111 to 161 blocks; every auto item passes on all three. Blocks abut exactly. 3, 4 and 5 storeys are about a third each. Every neighbour pair differs in style and in floor count. Every ground bay is a shop or the one door; every shop with glass has it. Of the shop bays about 0.6 have an awning, about 0.5 a sign and about a third of blocks an ATM. A little over half of the qualifying blocks have a fire escape. More than nine blocks in ten have a roof prop. Every corner block is on a true corner. Furniture runs about one item in eight metres of frontage, with no spacing or keep-out violation. The largest map has 10 parking lots and 4 plazas. Nothing never-used is placed and nothing drawn glows.
+- **Info**: the far gaps over the three maps: about one run in five closes to a seam, six to eight in ten to an alley, and none to a slit; the rest end in a wider gap of up to about 5 m.
+- **Open (waits for a re-cut of ticket 051 C's packer)**: short runs close badly. The ticket asked every run to cover at least `CITY_RUN_FRONTAGE` of its frontage outside open lots. On the three maps 3 to 8 runs fall under it: short rows, 11 to 23 m, where one block is all that fits and 1.3 to 5.2 m is left. R1 is therefore checked as the map's covered share, which holds.
+- **Open (waits for a re-cut of ticket 052 A's roof rules)**: roofs. The ticket asked every roof to be dressed and a big roof prop on every run. A few blocks in a hundred have no prop (the small prop is a probability per column), and only about three runs in five have a big one. R8 is checked at the lower thresholds in `CITY_CHECK` and `CITY_BIG_ROOF_RUNS_MIN`.
+- **Open (waits for a re-cut of ticket 052 A's awning rule)**: the ticket asked 0.6 of shop bays to have an awning. One map measures a little under it (the escape column and the awnings that would pass the kerb are plain), so R5 is checked at the lower number in `CITY_CHECK`.
+- **Open (waits for a re-cut of ticket 052 A's fire-escape rule)**: the alternate-block cap keeps the share of qualifying blocks near a half. The reference has them on most 3-bay blocks.
+- **Open (waits for Josh's check in the stack gallery)**: the 34 City Pack fronts are unconfirmed "+z" guesses (chapter 6), and so are the corner pieces' `open` sides. A wrong door would show on the street views as a shop facing the wrong way; nobody has confirmed them by eye except the main session from screenshots.
+- **Open (waits for the eye items of 16.8)**: none of the eye items has been judged by the builder of this chapter (no browser was run). The table of results in the review is where they are recorded.
+- **Info**: what is deliberately not built: variety of awnings and rooftops by colour, lit windows, balconies and cornices, and every piece the pack lacks (16.6). None blocks the look; each is a line in 16.6 that a later ticket can close.
+
 ## Numbers
 
-The drift test (`styleguide.test.ts`) reads this table. Each row names an export of the file in its last column. A value is a number (within 1e-9), a colour as `0x` hex (exactly), or `a x b x c` for a record, in the record's field order. `LOT_TYPES` is frontage x depth x cap in metres and `PLACE_SIZES` is width x depth in metres. `STACK_STYLES[i].pitch_m` is base x floor x roof in metres (the storey heights a recipe counts floors by; the roof is the height reserved under the cap), in the order `apartment-01`, `-02`, `-03`, `office-old-small`, `office-old-large`, `office-octagon`. `STACK_FLOORS` is the fewest floors over the base. `TINTS[i]` is the i-th wall tint. Changing a constant in code or a value here fails the test.
+The drift test (`styleguide.test.ts`) reads this table. Each row names an export of the file in its last column. A value is a number (within 1e-9), a colour as `0x` hex (exactly), or `a x b x c` for a record, in the record's field order. `LOT_TYPES` is frontage x depth x cap in metres and `PLACE_SIZES` is width x depth in metres. `STACK_STYLES[i].pitch_m` is base x floor x roof in metres (the storey heights a recipe counts floors by; the roof is the height reserved under the cap), in the order `apartment-01`, `-02`, `-03`, `office-old-small`, `office-old-large`, `office-octagon`. `STACK_FLOORS` is the fewest floors over the base. `TINTS[i]` is the i-th wall tint. `CITY_CHECK` is the threshold of R1 to R12 in that order (a share to reach, or a count not to pass, chapter 16.8) and `CITY_STOREYS` is the fewest and most storeys. Changing a constant in code or a value here fails the test. Since ticket 053 the test also fails when `stacks.ts`, `terrace.ts`, `dressing.ts`, `furniture.ts`, `streetcam.ts` or `citymetrics.ts` exports a number that has no row here, and when `town.ts` does for a `TERRACE_*`, `PARKING_*` or `PLAZA_*` name.
 
 | Constant | Value | File |
 | --- | --- | --- |
@@ -361,6 +558,80 @@ The drift test (`styleguide.test.ts`) reads this table. Each row names an export
 | `ROOF_SHADE` | 0.6 | placeholders.ts |
 | `CAP_M` | 0.3 | placeholders.ts |
 | `PITCH_M` | 1.8 | placeholders.ts |
+| `P_AWNING` | 0.75 | dressing.ts |
+| `P_SIGN` | 0.6 | dressing.ts |
+| `P_ATM` | 0.3 | dressing.ts |
+| `ATM_PER_RUN` | 2 | dressing.ts |
+| `P_CANOPY` | 0.5 | dressing.ts |
+| `P_ESCAPE` | 0.6 | dressing.ts |
+| `ESCAPE_MIN_BAYS` | 3 | dressing.ts |
+| `P_WALL_AC` | 0.15 | dressing.ts |
+| `P_PLANTER` | 0.1 | dressing.ts |
+| `WALL_PROPS_PER_BLOCK` | 4 | dressing.ts |
+| `P_ROOF_SMALL` | 0.7 | dressing.ts |
+| `ROOF_SMALL_PER_BAY` | 2 | dressing.ts |
+| `P_ROOF_LARGE` | 0.5 | dressing.ts |
+| `DRESS_PER_BAY_MAX` | 6 | dressing.ts |
+| `DRESS_MAX` | 6000 | dressing.ts |
+| `ROOF_EDGE_M` | 0.3 | dressing.ts |
+| `AWNING_KERB_M` | 0.3 | dressing.ts |
+| `GLASS_INSET_M` | 0.05 | dressing.ts |
+| `GLASS_SILL_M` | 0.3 | dressing.ts |
+| `DRESS_DRAW_CALLS_MAX` | 120 | dressing.ts |
+| `P_BLADE` | 0.25 | dressing.ts |
+| `P_ROOF_SECOND` | 0.4 | dressing.ts |
+| `KERB_FROM_FRONT_M` | 3.3333333333 | dressing.ts |
+| `GLASS_WRAP_DEPTH_M` | 1 | dressing.ts |
+| `AWNING_BASE_M` | 2.85 | dressing.ts |
+| `SIGN_BASE_M` | 2.85 | dressing.ts |
+| `DOOR_CANOPY_Y_M` | 2.3 | dressing.ts |
+| `ATM_Y_M` | 0.6 | dressing.ts |
+| `ATM_PIER_M` | 0.35 | dressing.ts |
+| `WALL_MIN_LEVEL` | 2 | dressing.ts |
+| `WALL_AC_LIFT_M` | 1 | dressing.ts |
+| `PLANTER_LIFT_M` | 0.9 | dressing.ts |
+| `WALL_AC_OFFSET_M` | 1.5 | dressing.ts |
+| `BILLBOARD_SIGN_Y_M` | 0.9 | dressing.ts |
+| `BLADE_INSET_M` | 0.1 | dressing.ts |
+| `FURN_KERB_M` | 0.5 | furniture.ts |
+| `FURN_WALL_M` | 0.4 | furniture.ts |
+| `FURN_PITCH_M` | 7 | furniture.ts |
+| `TREE_PITCH_M` | 12 | furniture.ts |
+| `BUS_STOP_MIN_RUN_M` | 40 | furniture.ts |
+| `FURN_KEEP_M` | 1.5 | furniture.ts |
+| `FURN_CORNER_M` | 4 | furniture.ts |
+| `FURN_MAX_H_M` | 3.2 | furniture.ts |
+| `P_FURN` | 0.7 | furniture.ts |
+| `FURN_GAP_SPAN_M` | 6 | furniture.ts |
+| `FURN_GAP_M` | 0.3 | furniture.ts |
+| `P_BOLLARD` | 0.5 | furniture.ts |
+| `BOLLARD_PER_RUN` | 2 | furniture.ts |
+| `HYDRANT_PER_RUN` | 1 | furniture.ts |
+| `MAILBOX_PER_RUN` | 1 | furniture.ts |
+| `NEWSPAPER_PER_RUN` | 2 | furniture.ts |
+| `BUS_STOP_PER_RUN` | 1 | furniture.ts |
+| `P_ALLEY` | 0.85 | furniture.ts |
+| `P_ALLEY_SECOND` | 0.5 | furniture.ts |
+| `P_PARKING_BILLBOARD` | 0.6 | furniture.ts |
+| `BILLBOARD_BOARD_LIFT_M` | 4.55 | furniture.ts |
+| `SLAB_MAX_M` | 0.2 | furniture.ts |
+| `FURN_DRAW_CALLS_MAX` | 80 | furniture.ts |
+| `WALL_EDGE_M` | 0.8333333333 | furniture.ts |
+| `KERB_M` | 3.3333333333 | furniture.ts |
+| `STREET_CAM_BACK_M` | 26 | streetcam.ts |
+| `STREET_CAM_EYE_M` | 9 | streetcam.ts |
+| `STREET_CAM_LOOK_M` | 6 | streetcam.ts |
+| `STREET_CAM_YAW_DEG` | 35 | streetcam.ts |
+| `STREET_CAM_FOV_DEG` | 50 | streetcam.ts |
+| `STREET_CAM_FOV_MAX_DEG` | 85 | streetcam.ts |
+| `STREET_CAM_SKY` | 0xcfe0ff | streetcam.ts |
+| `STREET_CAM_GROUND` | 0x6b5a48 | streetcam.ts |
+| `STREET_CAM_DAY_INTENSITY` | 2.2 | streetcam.ts |
+| `CITY_CHECK` | 0.9 x 1 x 1 x 1 x 0.55 x 0.5 x 0.5 x 0.9 x 0 x 0 x 1 x 0 | citymetrics.ts |
+| `CITY_ATM_BLOCKS_MIN` | 0.15 | citymetrics.ts |
+| `CITY_BIG_ROOF_RUNS_MIN` | 0.5 | citymetrics.ts |
+| `CITY_RUN_FRONTAGE` | 0.9 | citymetrics.ts |
+| `CITY_STOREYS` | 3 x 5 | citymetrics.ts |
 
 Inline in `buildScene` (`scene.ts` has no named constant for these, and this ticket may not add one, so the test looks for the exact source text):
 
