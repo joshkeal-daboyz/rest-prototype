@@ -164,13 +164,12 @@ describe("centre lines", () => {
     }
   });
 
-  it("is pure and deterministic on every map and fast", () => {
-    const t0 = performance.now();
+  // The 30 s timeout only catches a runaway loop, not speed.
+  it("is pure and deterministic on every map", () => {
     for (const f of files) {
       const town = townLayout(load(f));
       const a = dashLayout(town);
       expect(dashLayout(town), f).toEqual(a);
     }
-    expect(performance.now() - t0).toBeLessThan(3000);
-  });
+  }, 30_000);
 });

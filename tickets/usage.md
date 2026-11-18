@@ -62,3 +62,10 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 044 | grid-simulator | agent default | 36K total (one figure in the readout) | — | 0 | Fixed the Windows-only fixture in convert.test.ts (CI red since 038); 19 tool uses, 1 min; no review or playtest (one-line test change; the Linux CI run is the check) |
 | 045 cut | lead-architect | agent default | 115K total (one figure in the readout) | — | 0 | Cut ticket 045 (click to calibrate fronts) and the src/core/calibration.ts types; 19 tool uses, 6 min |
 | 045 section 0 | lead-architect | agent default | 42K total (one figure in the readout) | — | 0 | Validator, key helpers, patch function, 42 tests (commit 637f5e0 on ticket/045-click-to-calibrate-fronts-0); 12 tool uses, 3 min; not yet reviewed or merged |
+| 045 re-cut | lead-architect | agent default | 38K total (one figure in the readout) | — | 0 | Dropped notBuilding and section D from ticket 045 (Josh's trims at approval); 26 tool uses, 1 min |
+| 045 section 0 | code-reviewer | agent default | 41K total (one figure in the readout) | — | 0 | meets, must-fix 0; 42 tests run on the one file |
+| 045 section 0 | playtester | agent default | 31K total (one figure in the readout) | — | 0 | regressions 0; stopped early (only src/core changed) |
+| 046 cut | lead-architect | agent default | 15K total (one figure in the readout) | — | 0 | Cut ticket 046 (streets test wall-clock limit) |
+| 046 | renderer | sonnet | 49K total (one figure in the readout) | — | 0 | Dropped the 3000 ms assertion; added the 30 s test timeout after review; timed townLayout and dashLayout (about 1.6 s for all 65 maps) |
+| 046 | code-reviewer | agent default | 16K total (one figure in the readout) | — | 0 | meets, must-fix 0; caught the 5 s default test timeout, fixed in a20279b |
+| 046 | playtester | agent default | 13K total (one figure in the readout) | — | 0 | regressions 0; stopped early (test file only) |
