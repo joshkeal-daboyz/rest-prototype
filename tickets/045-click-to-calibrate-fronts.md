@@ -1,8 +1,8 @@
 # 045 · Click a building's door in the gallery and the choice is saved to disk
 
-owner: lead-architect (section 0), renderer (A, C, D), grid-simulator (B, `tools/` and the Vite plugin)
-status: approved (G1, Josh, 17 Nov 2026: "approved", after the trims under "Amendments at approval"; every other open-question default applies). Sections build in order 0, then A and B (either order), then C. D waits until Josh says a pack is done.
-branch: `ticket/045-click-to-calibrate-fronts` (one branch per section: `-0`, `-a`, `-b`, `-c`, `-d`)
+owner: lead-architect (section 0), renderer (A, C), grid-simulator (B, `tools/` and the Vite plugin)
+status: approved (G1, Josh, 17 Nov 2026: "approved", after the trims under "Amendments at approval"; every other open-question default applies). Sections build in order 0, then A and B (either order), then C. Section D is dropped.
+branch: `ticket/045-click-to-calibrate-fronts` (one branch per section: `-0`, `-a`, `-b`, `-c`)
 
 ## Amendments at approval (17 Nov 2026)
 Josh: "This is a dev only tool, this will not be something we leverage in the final game." The main session proposed these trims and he approved ("approved"):
@@ -69,11 +69,10 @@ The page needs a writer. There are three ways:
 ## Goal
 - **Josh runs `npm run dev` and opens `/?puzzle=09-shrine-circuit&view=3d&gallery=city-pack`.** For each model he clicks the copy whose door faces him. That copy becomes `current` and the choice is written to `assets/private/calibration/fronts.json` on his disk.
 - **He can also:**
-  - mark a model as "not a building" (a part or prop), or as "excluded" (a building he never wants placed);
+  - mark a model as "excluded" (Shift+click: a model he never wants placed);
   - change his mind by clicking another copy;
-  - clear a model.
+  - clear a model (Delete).
 - **The 3D town in dev uses his saved fronts and exclusions at once**, with no code edit and no message in chat.
-- **When he says a pack is done, its saved values are copied into the code's table** (section D). A fresh checkout with no file then behaves the same.
 - **The production build has neither the gallery nor the endpoint.**
 - Play is unchanged.
 
@@ -84,7 +83,8 @@ The page needs a writer. There are three ways:
 | **A**: keys and the dev loader | `BUILDING_FRONTS` and `BUILDING_EXCLUDE` keyed `pack:name`; the dev-only read of the file; saved values override the table for the town and the gallery | renderer | 0; 043 B merged (Q1) | about ¾ day |
 | **B**: the endpoint | a dev-only Vite plugin that reads and patches the file atomically | grid-simulator | 0 (not A, not 043 B) | about ½ day |
 | **C**: click to choose | gallery clicks, marks, saving, the "saved" feedback; the gallery compiled out of production | renderer | A and B | about ¾ day |
-| **D** (gated, once per pack): promote | a pack's saved values copied into `BUILDING_FRONTS` / `BUILDING_EXCLUDE` / `GALLERY_NOT_BUILDINGS` | renderer | Josh says "<pack> is done" | about ¼ day per pack |
+
+Section D (promoting saved values into code) was dropped at approval; it is cut again only if Josh says a pack is done.
 
 - Each section is its own build, review and playtest.
 - A and B are independent of each other and can run in parallel. On Josh's PC, run one heavy step at a time (memory note, 17 Nov 2026).
@@ -103,8 +103,7 @@ The page needs a writer. There are three ways:
   - `validateCalibration(json: unknown): CalibrationResult`. It refuses:
     - another version;
     - a bad key;
-    - an entry with none of `front`, `notBuilding` or `exclude`;
-    - `notBuilding` together with `front` or `exclude`;
+    - an entry with neither `front` nor `exclude`;
     - a front outside the four;
     - a missing or unparseable `at` or `savedAt`;
     - unknown fields.
@@ -117,7 +116,7 @@ The page needs a writer. There are three ways:
    - Readers look up `calibrationKey(pack, name)`: `planModels`, `buildingPlan`, `galleryEntries`, and `PlannedModel`'s front and corner.
    - Tests that index the table by bare name are edited **mechanically**, spelling the key only. One new test pins the re-key: the new table equals the old literal with `simple-town:` added, line for line. The reviewer checks that no test changed meaning.
    - Guide: the chapter 6 and 7 tables show `simple-town:store_small_mesh` (and so on). Chapter 6 says "one line per `pack:name`". Chapter 5's exclude wording reads keys. The drift test (`styleguide.test.ts`) parses the keyed form.
-   - Why now: the saved file is keyed `pack:name` from day one. One key space means the merge is a plain lookup, and promotion (D) is a copy.
+   - Why now: the saved file is keyed `pack:name` from day one. One key space means the merge is a plain lookup, and any later promotion into code is a copy.
 2. **The dev loader** (`src/render3d/calibration.ts`, new):
    - `loadSavedCalibration(deps: { dev: boolean; fetchJson; info? }): Promise<CalibrationFile | null>`.
      - With `dev` false it returns null and fetches nothing.
@@ -125,10 +124,10 @@ The page needs a writer. There are three ways:
      - Absent: null, silently (the normal case on CI and a fresh checkout).
      - Invalid: null, with one `console.info` line naming the first error. It never throws.
    - The real call passes `dev: import.meta.env.DEV`, so the production build never fetches it.
-3. **The merge** (pure): `effectiveFronts(code, saved): { fronts, exclude, notBuildings }`.
+3. **The merge** (pure): `effectiveFronts(code, saved): { fronts, exclude }`.
    - A saved `front` replaces the code's `front` and keeps the code's `corner` and `open`. For a corner model whose saved front differs from the code's, one info line: its `open` side is not recalibrated.
    - A saved key the code lacks is added.
-   - `exclude: true` adds the key to `exclude`. `notBuilding` adds it to `notBuildings`, and the town treats those as excluded too.
+   - `exclude: true` adds the key to `exclude`.
    - Code keys with no saved entry are unchanged. With `saved` null the result is the code's tables exactly.
 4. **Who uses it:**
    - `sharedModels()` (town) loads the saved file before planning and passes the merged `fronts` and `exclude` into `loadModels` / `applyModels`.
@@ -136,8 +135,8 @@ The page needs a writer. There are three ways:
    - `fronts=1` shows the merged fronts, because it reads the plan.
 5. **What the gallery shows (read-only in A):**
    - The `current` copy says where its front came from: `current` (code), `current, saved` (the file) or `current ?` (the guess).
-   - A group's caption has `excluded` or `not a building` when marked.
-   - `notBuilding` models move to the end of the line, after every unmarked model.
+   - A group's caption has `excluded` when marked.
+   - The line's order is unchanged by marks (no model moves).
    - The title adds "`N` of `M` marked" for the pack.
 
 ### Section B: the dev-server endpoint (`tools/calibration/`, `vite.config.ts`; grid-simulator)
@@ -161,11 +160,10 @@ The page needs a writer. There are three ways:
    - **The scene stays unraycastable:** `noRay` stays, and `hitTest` still returns null, so play never sees a pick target. Only the gallery's own pointer handler calls `galleryHitAt`. The town's picker and `pick.ts` are untouched.
 2. **Click, not drag:** a left button down and up within `CLICK_SLOP_PX` 5 px is a click. More is a pan, as today. `isGalleryClick(down, up)` is pure.
 3. **Actions** (pure: `galleryAction(entry, slot, modifiers): CalibrationPatch | null`):
-   - **click a copy:** that model's `front` = the copy's `f` and `notBuilding` is cleared (`exclude` kept). Clicking another copy is the undo. Clicking the `current` copy again does nothing.
+   - **click a copy:** that model's `front` = the copy's `f` (`exclude` kept). Clicking another copy is the undo. Clicking the `current` copy again does nothing.
    - **Shift+click a copy:** sets that front and toggles `exclude`.
-   - **Ctrl+click a copy:** toggles `notBuilding`. Setting it drops `front` and `exclude`.
    - **Delete or Backspace:** clears the last-clicked model's entry, so the code's table applies again.
-   - No new letter keys, so nothing collides with play's pan keys (arrows, Home, F, +, -).
+   - There are no other marks (no "Ctrl+click"). No new letter keys, so nothing collides with play's pan keys (arrows, Home, F, +, -).
 4. **Saving** (`saveCalibrationPatch(patch, deps: { postJson })`, in `gallery.ts` only):
    - It POSTs to `CALIBRATION_ENDPOINT`, one patch at a time and in click order (a queue, so two quick clicks can't land out of order). The server's reply replaces the gallery's copy of the file.
    - The layout is rebuilt in place, keeping the camera's pan and zoom. The `current` mark moves and the copy caption shows `saved`.
@@ -177,23 +175,16 @@ The page needs a writer. There are three ways:
      - `saveCalibrationPatch` and `CALIBRATION_ENDPOINT` are referenced only by `gallery.ts`;
      - `scene.ts`, `town.ts`, `models.ts`, `models3d.ts`, `pick.ts`, `layout.ts` and `camera.ts` don't import `./gallery`;
      - `models3d.ts` imports the loader, never the saver.
-6. **Title help line:** "click a copy: its door faces you; shift-click: exclude; ctrl-click: not a building; Delete: clear".
+6. **Title help line:** "click a copy: its door faces you; shift-click: exclude; Delete: clear".
 
-### Section D (gated, once per pack): promote a pack's values into code (`models.ts`, `gallery.ts`, guide; renderer)
-- When Josh says, in his words, that a pack is done (for example "city-pack is done"), the builder reads `assets/private/calibration/fronts.json` on his PC and copies that pack's values into the tables:
-  - every `front` into `BUILDING_FRONTS` (`pack:name` keys);
-  - every `exclude` into `BUILDING_EXCLUDE`;
-  - every `notBuilding` into a new `GALLERY_NOT_BUILDINGS` in `gallery.ts`.
-- The file is not deleted. After promotion its values equal the code's.
-- A real-file test reads the file **inside the test**, skips when it is absent, and checks that every promoted key's code value equals the file's. It lists unpromoted keys with one info line.
-- **The guide's facing chapter can't list 77 POLYGON lines one by one.** The drift test's rule "every name whose front is not `-z` is in chapter 6" has to become a per-pack summary: a count per front per pack, plus the SIMPLE Town exceptions as now. D's first run changes that rule, in the guide and in `styleguide.test.ts`, and says so in its report.
-- Adding the POLYGON names to `MODEL_TABLE` (so the town actually uses them) is **not** D. It is the pack-adoption ticket (043 C, chapter 15 steps 6 to 8).
+### Section D: dropped at approval (17 Nov 2026)
+Promoting a pack's saved values into code is not part of this ticket. It is cut again only when Josh says a pack is done.
 
 ## Acceptance criteria
 
 ### Section 0 (Vitest, `src/core/calibration.test.ts`)
 - [ ] `calibrationKey("city-pack", "SM_Bld_Shop_01")` is `"city-pack:SM_Bld_Shop_01"`. `parseCalibrationKey` round-trips it and refuses `"SM_Bld_Shop_01"`, `":x"`, `"City:x"`, `"a:"`, `"a:b/c"` and `"a:b\\c"`.
-- [ ] `validateCalibration` accepts a valid file. It refuses, each with an error naming the key: another version, a bad key, an empty entry, `notBuilding` with `front` or with `exclude`, a front outside the four, a bad `at` or `savedAt`, an unknown field, and a non-object.
+- [ ] `validateCalibration` accepts a valid file. It refuses, each with an error naming the key: another version, a bad key, an empty entry, a front outside the four, a bad `at` or `savedAt`, an unknown field, and a non-object.
 - [ ] `applyCalibrationPatch` sets, replaces and (on null) deletes one key, sets `at` and `savedAt` to `now`, writes keys sorted, and always returns a file `validateCalibration` accepts. It never mutates its input.
 
 ### Section A (Vitest, no WebGL, no manifest)
@@ -203,7 +194,7 @@ The page needs a writer. There are three ways:
   - `effectiveFronts(code, null)` deep-equals the code's tables;
   - a saved front replaces only `front` (a corner model keeps `corner` and `open`, and one info line says so);
   - a saved key the code lacks is added;
-  - `exclude` and `notBuilding` land in `exclude`;
+  - a saved `exclude: true` lands in `exclude`;
   - the inputs are not mutated.
 - [ ] **The town follows the file:** with a fake model set and a saved file that turns `simple-town:Building_Gym` to `"+x"` and excludes `simple-town:house_mesh`, applied on `09-shrine-circuit`:
   - every `Building_Gym` clone faces its road by 042 A's marker test, with the `"+x"` front;
@@ -212,8 +203,8 @@ The page needs a writer. There are three ways:
 - [ ] **Dev only and quiet:** `loadSavedCalibration({ dev: false })` makes no fetch. In dev it is quiet when absent (a 404 or a network error: null, no log). When invalid, null and one info line. It never rejects.
 - [ ] **Gallery reads it:**
   - the `current` copy's caption is `current`, `current, saved` or `current ?` by source;
-  - an excluded or not-a-building group says so;
-  - `notBuilding` groups come after every other group;
+  - an excluded group says so;
+  - the order of groups is the same with and without a saved file;
   - the title has "`N` of `M` marked".
 - [ ] **Guide and drift test:** chapters 5, 6, 7 and 15 use `pack:name`, and step 5 of chapter 15 is "click each door in the gallery (ticket 045)". `styleguide.test.ts` passes on the keyed form and fails when one key in the guide's tables is changed (the builder shows the failure message once).
 - [ ] **CI-safe:** no test reads `assets/private/` at collection. Any real-file test checks the file's existence and reads it only inside the test, skipping when absent.
@@ -241,7 +232,7 @@ The page needs a writer. There are three ways:
 ### Section C (Vitest without WebGL, except "Josh checks")
 - [ ] **Hit test:** on the 043 B manifest fixture, with `createGalleryRig` at 800 × 450, the ray through the projected middle of each copy's model, on the first screen and after panning to the line's end, hits that copy. Rays through the gaps between copies and between groups hit nothing. The scene still has no raycastable object, and the gallery's `hitTest` still returns null.
 - [ ] **Click vs drag:** `isGalleryClick` is true at 0 to 5 px of travel, false beyond. A pan of more than 5 px sends no patch.
-- [ ] **Actions:** for each of click, Shift+click, Ctrl+click and Delete, from each starting state (none, front, front+exclude, notBuilding), `galleryAction` gives the patch in the design's table. The patch validates under `applyCalibrationPatch` and `validateCalibration`.
+- [ ] **Actions:** for each of click, Shift+click and Delete, from each starting state (none, front, front+exclude), `galleryAction` gives the patch in the design's table. The patch validates under `applyCalibrationPatch` and `validateCalibration`.
 - [ ] **Saving, with a fake `postJson`:**
   - three quick clicks are posted in order, one at a time;
   - the reply replaces the state, and the `current` copy moves to the clicked one, captioned `saved`;
@@ -253,13 +244,9 @@ The page needs a writer. There are three ways:
   - `dist/` has no `__calibration`, no gallery title text ("four sides each"), no `.glb`, no `manifest.json`, no `fronts.json` and no path containing `private` (039's check, extended).
 - [ ] **Josh checks:** `npm run dev`, `/?puzzle=09-shrine-circuit&view=3d&gallery=city-pack`.
   - He clicks the door copy of a few models; each becomes `current, saved` and the page doesn't reload.
-  - He shift-clicks one (`excluded`), ctrl-clicks one (`not a building`) and clears one with Delete.
-  - He reloads: the marks are still there, and the not-a-building one is at the end.
+  - He shift-clicks one (`excluded`) and clears one with Delete.
+  - He reloads: the marks are still there, and no model has moved in the line.
   - He opens `/?puzzle=09-shrine-circuit&view=3d&fronts=1`: a SIMPLE Town model he re-clicked in `gallery=simple-town` shows its new front.
-
-### Section D (each run)
-- [ ] For the named pack, every saved `front`, `exclude` and `notBuilding` is in the code's tables. The real-file test (lazy, skip when absent) passes. The guide's facing chapter and the drift test use the per-pack summary rule.
-- [ ] With `assets/private/calibration/` renamed, the gallery for that pack shows the same `current` copies as with it, but captioned `current` instead of `current, saved`.
 
 ### Nothing else moves (the main session checks, every section)
 - [ ] `npm run gate` is green and the test count grew. `npm run playtest` is green with no snapshot change.
@@ -275,7 +262,6 @@ The page needs a writer. There are three ways:
   - `docs/city-style-guide.md` (chapters 5, 6, 7 and 15).
 - **Section B (grid-simulator):** new `tools/calibration/store.ts`, `plugin.ts` and their tests; `vite.config.ts` (the plugin and the watch ignore only).
 - **Section C (renderer):** `src/render3d/gallery.ts`, `gallery.test.ts`, `renderer.ts` (the `import.meta.env.DEV` guard only), and `docs/city-style-guide.md` (the gallery's how-to in chapter 6).
-- **Section D (renderer):** `src/render3d/models.ts`, `gallery.ts`, their tests, `styleguide.test.ts`, `docs/city-style-guide.md`.
 - **Must not touch (all sections):**
   - `src/render/`, `src/grid/`, `src/night/`, `src/play/`, `src/ui/` and `src/main.ts`;
   - `town.ts`, `layout.ts`, `camera.ts`, `pick.ts` and `scene.ts`;
@@ -291,12 +277,11 @@ The page needs a writer. There are three ways:
   { "version": 1, "savedAt": "2026-11-18T10:02:11.000Z",
     "entries": {
       "city-pack:SM_Bld_Shop_01": { "front": "-x", "at": "2026-11-18T10:01:40.000Z" },
-      "city-pack:SM_Bld_Roof_02": { "notBuilding": true, "at": "2026-11-18T10:01:52.000Z" },
       "town-pack:SM_Bld_Shop_01": { "front": "+z", "exclude": true, "at": "2026-11-18T10:02:11.000Z" } } }
   ```
 - **Local to `src/render3d/` (A and C):**
   - `loadSavedCalibration`, `effectiveFronts` (`calibration.ts`);
-  - `galleryHitAt`, `isGalleryClick`, `CLICK_SLOP_PX`, `galleryAction`, `saveCalibrationPatch`, and in D `GALLERY_NOT_BUILDINGS` (`gallery.ts`).
+  - `galleryHitAt`, `isGalleryClick`, `CLICK_SLOP_PX`, `galleryAction`, `saveCalibrationPatch` (`gallery.ts`).
 - **Local to `tools/calibration/` (B):** `readCalibration`, `patchCalibration`, `handleCalibrationRequest`, `calibrationPlugin`.
 - **No new dependency.** The plugin uses Vite's own `Plugin` type and Node's `fs`, `path` and `os`. Vite and `@types/node` are already devDependencies.
 - **No puzzle schema change.**
@@ -306,10 +291,10 @@ The page needs a writer. There are three ways:
 2. **Where it saves.** Default (a): the dev-server endpoint. It means a dev-only Vite plugin and a change to `vite.config.ts`, which the 3D tickets have kept off-limits until now. Say yes to that here. The alternatives:
    - (b) a "download" key that saves the JSON for you to drop into `assets/private/calibration/`, with no config change;
    - (c) the browser's folder-permission API (Chrome and Edge, a prompt every session).
-3. **Marks.** Default: click = this is the door; Shift+click = exclude (with that door); Ctrl+click = not a building; Delete = clear. The alternative is clickable `exclude` and `not a building` words under each model's caption (more code, fully mouse). There is no separate "no door" mark. For a building with no clear door, you click its best street side. Say if you want "no door" as its own mark.
-4. **Not-a-building models.** Default: they stay where they are while you work (so a mis-click is one click away from undone), and move to the end of the line on the next load. The alternative is to hide them unless `&all=1`.
+3. **Marks.** Settled at approval: click = this is the door; Shift+click = exclude (with that door); Delete = clear. There is no other mark, and no separate "no door" mark: for a building with no clear door, you click its best street side.
+4. *(Settled at approval: there is no third mark, and no model moves in the line.)*
 5. **Re-key now.** Default: A changes `BUILDING_FRONTS` and `BUILDING_EXCLUDE` to `pack:name` keys at once, values unchanged, so City and Town Pack shops with the same name can face differently. It edits key spelling in four test files and the guide's tables. The alternative is to keep bare names for SIMPLE Town and add a second, keyed table for the POLYGON packs (two lookups for ever).
-6. **Promotion.** Default: when you say "<pack> is done", a section D build copies that pack's saved values into the code. Until then the town uses them only in dev on your PC. A fresh checkout (or CI) uses the code's table. The alternative is to commit the file itself (names aren't licensed content), but outside `assets/private/` and outside `src/`: a file inside `src/` would reload the page on every click.
+6. **Promotion.** Settled at approval: dropped from this ticket (section D). The town uses saved values only in dev on your PC; a fresh checkout (or CI) uses the code's table. A promotion ticket is cut only when you say a pack is done.
 7. **Corner models.** Default: a click sets only a corner model's door. Its `open` side (the second street face) stays in code and is re-checked by eye. A later ticket can add a way to click the open side.
 8. **Decided rules.** None is touched. This is a dev tool and data. There is no `rules-coverage.md` change, and play, the 2D view and the town's look without the file are unchanged.
 
