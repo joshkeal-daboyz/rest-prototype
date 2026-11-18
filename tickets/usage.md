@@ -89,3 +89,9 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 048 | gate (main session) | — | — | — | 0 | tsc clean, 89 files, 1705 passed on a checkout without pack files |
 | 048 | code-reviewer | agent default | 52K total (one figure in the readout) | — | 0 | meets, must-fix 0; checked the 14 fronts against the saved file |
 | 048 | playtester | agent default | 16K total (one figure in the readout) | — | 0 | regressions 0; stopped early (harness never imports render3d) |
+| 050 cut | lead-architect | agent default | 103K total (one figure in the readout) | — | 0 | Cut ticket 050 (City Pack assembly) for the overnight city-style goal; 16 tool uses, 5 min |
+| 051, 052, 053 cut | lead-architect | agent default | 142K total (one figure in the readout) | — | 0 | Cut the terrace rows, dressing and procedural-city-guide tickets; 27 tool uses, 11 min |
+| 050 section A | renderer | sonnet | 125K total (one figure in the readout) | — | 0 | stacks.ts recipes and pure assembly, 24 tests (commit 41e37ed); 33 tool uses, 9 min |
+| 050 section A | gate (main session) | — | — | — | 0 | tsc clean, 90 files, 1728 passed on a checkout without pack files |
+| 050 section A | code-reviewer | agent default | 64K total (one figure in the readout) | — | 0 | meets, must-fix 0; raised the open-precedence risk for section B |
+| 050 section A | playtester | agent default | 15K total (one figure in the readout) | — | 0 | regressions 0; stopped early (harness never imports render3d) |
