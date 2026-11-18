@@ -36,7 +36,7 @@ import {
   tileWalkM,
 } from "./tileslots";
 
-const ROLES: readonly TileRole[] = ["lane", "parking", "parkingPlain", "junction", "crossing", "pavement", "pavementCorner", "kerbCut", "lotSurface", "plaza"];
+const ROLES: readonly TileRole[] = ["lane", "parking", "parkingPlain", "junction", "crossing", "pavement", "pavementCorner", "kerbCut", "buildout", "lotSurface", "plaza"];
 
 describe("TILE_SLOTS", () => {
   it("gives every tile role at least one City Pack key, and no role anything else", () => {
@@ -65,18 +65,23 @@ describe("TILE_SLOTS", () => {
     expect(TILE_PATCH).toBe(`${TILE_PACK}:SM_Env_Road_Patch_01`);
   });
 
-  it("shares Road_Bare_01 between a junction and a lot surface (the ticket's own design) and no other key between roles", () => {
+  it("shares Road_Bare_01 between a junction and a lot surface (the ticket's own design), the two plain straights between a pavement and a build-out, and no other key between roles", () => {
     const users = new Map<string, TileRole[]>();
     for (const role of ROLES) for (const key of TILE_SLOTS[role]) users.set(key, [...(users.get(key) ?? []), role]);
     const shared = [...users].filter(([, roles]) => roles.length > 1);
-    expect(shared).toEqual([[`${TILE_PACK}:SM_Env_Road_Bare_01`, ["junction", "lotSurface"]]]);
+    // 056 A: a build-out is drawn from the two plain sidewalk straights, which it shares with the pavement.
+    expect(shared).toEqual([
+      [`${TILE_PACK}:SM_Env_Road_Bare_01`, ["junction", "lotSurface"]],
+      [`${TILE_PACK}:SM_Env_Sidewalk_Straight_01`, ["pavement", "buildout"]],
+      [`${TILE_PACK}:SM_Env_Sidewalk_Straight_02`, ["pavement", "buildout"]],
+    ]);
   });
 });
 
 describe("levels and the draw-call cap", () => {
   it("puts the roads at the carriageway level, the pavements with their top at 0, and a parking lot's surface beside the pavement at 0", () => {
     for (const r of ["lane", "parking", "parkingPlain", "junction", "crossing"] as const) expect(TILE_LEVELS[r], r).toBe("carriage");
-    for (const r of ["pavement", "pavementCorner", "kerbCut", "plaza"] as const) expect(TILE_LEVELS[r], r).toBe("pavement");
+    for (const r of ["pavement", "pavementCorner", "kerbCut", "buildout", "plaza"] as const) expect(TILE_LEVELS[r], r).toBe("pavement");
     expect(TILE_LEVELS.lotSurface).toBe("ground");
   });
 
@@ -84,7 +89,7 @@ describe("levels and the draw-call cap", () => {
     expect(SIDEWALK_WALK_M).toBe(0.23);
     expect(Object.keys(TILE_WALK_M), "no key is more than 0.02 m off the common walk").toEqual([]);
     for (const role of ["lane", "parking", "parkingPlain", "junction", "crossing"] as const) expect(tileLevelY_m(role, TILE_SLOTS[role][0]), role).toBe(-SIDEWALK_WALK_M);
-    for (const role of ["pavement", "pavementCorner", "kerbCut", "plaza"] as const) expect(tileLevelY_m(role, TILE_SLOTS[role][0]), role).toBe(-0.23);
+    for (const role of ["pavement", "pavementCorner", "kerbCut", "buildout", "plaza"] as const) expect(tileLevelY_m(role, TILE_SLOTS[role][0]), role).toBe(-0.23);
     expect(tileLevelY_m("lotSurface", TILE_SLOTS.lotSurface[0])).toBe(0);
     // A key with its own walk stands that far down; the table is read by key and never by prototype.
     const key = TILE_SLOTS.pavement[0]!;

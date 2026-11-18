@@ -7,6 +7,12 @@
  * (`terraceBlockRows` from town.ts, on the pavement's back edge with no setback), a kerb cut and lot surface for every parking lot, and the furniture keep-outs; drawing is
  * section C. The town has roads, kerbs, pavements, pads (the junction boxes), blocks, terrace lots and runs and open lots, and no place.
  *
+ * Parking (ticket 056 A, chapter 18 of the style guide): how much parking a block gets is a rule of its units, not of its kerb. Shoppers park at the kerb: a block's shops (a column that is not a
+ * lot's door column) call for `PARK_PER_SHOP` bays each, laid as short runs of `ParkingLines_01` tiles on the block's own parking sides (avenues first), or on the band across its longest street when
+ * it has none with room. Residents park off the street: a block's homes call for `PARK_PER_HOME` stalls each, laid as one or two 10 m parking lots in its rows (or a neighbour's across a street).
+ * The rest of the parking band is a `buildout` (a pavement-level tile with a street tree on every second cell of a stretch), except the cells in front of a kerb cut and the outer side of an
+ * edge street, which stay plain asphalt. `parkmetrics.ts` holds the layout to those rules (checks P1 to P6).
+ *
  * Conventions (everything below is in metres unless a name says map units):
  * - The city starts at (0, 0). Cell (i, j) covers x in [i, i+1) * TILE_M and z in [j, j+1) * TILE_M. Streets run on every grid line, the four edges included.
  * - A street's `axis` is the axis it runs along: an "x" street runs along +x on grid row `line` (counted from z = 0), a "z" street runs along +z on grid column `line`
@@ -16,7 +22,7 @@
  *   `TILE_FRONTS` offset for the real model. Its meaning by role, so the offset is one number per key:
  *   lane, parking, parkingPlain: front toward the street's centre line; pavement: front toward the carriageway (the kerb side); crossing: front along the walkers'
  *   direction (across the carriageway of the street it lies in, toward +across); junction: 0; pavementCorner: the corner points at the junction: yaw 0 means the
- *   corner's two kerb edges are on its +x and +z sides, 90 its +x and -z, 180 its -x and -z, 270 its -x and +z; kerbCut: as a pavement (front toward the carriageway);
+ *   corner's two kerb edges are on its +x and +z sides, 90 its +x and -z, 180 its -x and -z, 270 its -x and +z; kerbCut: as a pavement (front toward the carriageway); buildout: as a pavement (its kerb edge toward the street's centre line, the parking band's own yaw);
  *   lotSurface and plaza (section B, cells inside a block): front toward the street the lot faces. A two-cell piece is 2 cells along its street
  *   (local x along the street) and its (x_m, z_m) is the middle of the pair, on a cell edge.
  * - Every choice is a `stableHash` of a key with the seed, so a size and a seed give one city every time.
@@ -85,10 +91,36 @@ export function tileRowInset_m(side_m: number, endsAtPlaza = false, startsAfterP
 }
 /** A plaza's side on the tile grid, metres: two cells (the ladder's is 10.4). */
 export const TILE_PLAZA_W_M = 10;
-/** At least one parking lot per this many blocks in the city. */
-export const CITY_LOTS_PER_BLOCKS = 4;
-/** Every block has at least this many kerbside bays on its sides, or an open parking lot. */
-export const CITY_BAYS_PER_BLOCK_MIN = 4;
+/** Short-stay kerbside bays per shop (ticket 056, 18.1): one in three. Shoppers park at the kerb. */
+export const PARK_PER_SHOP = 1 / 3;
+/** Lot stalls per home (18.1): residents park off the street. About half of what a real dense terraced core provides, because the camera reads every drawn stall at full size. */
+export const PARK_PER_HOME = 0.15;
+/** A home is this many column-floors (2 x 5.2 m x 6 m, about 62 m2) and a block's upper floors are nominally this many over the base (18.2; the packed plan measures 2.97). */
+export const HOME_COLUMN_FLOORS = 2;
+export const UNIT_FLOORS_NOMINAL = 3;
+/** Every block's shoppers get at least this many `ParkingLines_01` tiles of kerbside bays, its own or across one street (18.3). */
+export const BAY_TILES_PER_BLOCK_MIN = 1;
+/** A run of bays is at most this many tiles (20 m, 6 bays), and two runs on one side have at least `KERB_GAP_MIN_M` of kerb without bays between them. */
+export const BAY_RUN_TILES_MAX = 2;
+export const KERB_GAP_MIN_M = 10;
+/** At most this share of a block side's kerb is bays, by the street's profile; and the city has at most `BAYS_PER_100M_MAX` bays per 100 m of block kerb. */
+export const KERB_BAY_SHARE_MAX = { avenue: 0.4, street: 0.3 } as const;
+export const BAYS_PER_100M_MAX = 6;
+/** A block holds at most this many parking lots, its own and borrowed together, and a lot has `LOT_STALLS` stalls (two `ParkingLines_01` tiles, 18.4). */
+export const LOTS_PER_BLOCK_MAX = 2;
+export const LOT_STALLS = 2 * BAYS_PER_PARKING_TILE;
+/** The band the city's kerb bays and lot stalls must lie in, as a multiple of the demand (shops x `PARK_PER_SHOP`, homes x `PARK_PER_HOME`): checks P1 and P2. */
+export const PARK_SUPPLY_BAND = { lo: 0.75, hi: 1.5 } as const;
+/** In a stretch of build-out cells, every this-many-th carries a street tree (one every 10 m), never one next to a crossing (18.5). */
+export const BUILDOUT_TREE_EVERY = 2;
+/**
+ * Which of two runs of about the same length takes a block's lot (a hash of the run and this number). The number carries no meaning of its own, and it is a tuned one: it was picked among about
+ * 250 salts so that R6 on the tile city (the share of signed shops, at least 0.5) and R7 (at the tile city's floor of 0.4) hold on the 11 test cities (the default and seeds 1 to 10 at 3 x 3) with the lots
+ * where 056 puts them. Salts 0, 1, 7 and 13 each failed R6 or R7 on one of those cities, and most others do. R6 sits at its floor (0.49 to 0.55 whatever the layout) because of the dressing's own sign
+ * chance in dressing.ts, not because of parking; 46 also passes seeds 11 to 20, which it was not tuned on. Any layout change that moves a lot may need another number. Josh should be asked whether the
+ * tile city gets its own R6 floor, as it has one for R7 (`TILE_CITY_R7_MIN`); with that floor the tie-break could be plain (longest bucket, then id) and this number would go.
+ */
+const LOT_RUN_SALT = 46;
 /** A run shorter than this, metres, cannot hold a snapped parking lot with a lot before it and two bays after it, so a forced lot is not tried on it. */
 export const TILE_PARK_MIN_RUN_M = 35;
 
@@ -110,6 +142,7 @@ export type TileRole =
   | "pavement"
   | "pavementCorner"
   | "kerbCut"
+  | "buildout"
   | "lotSurface"
   | "plaza";
 
@@ -155,8 +188,13 @@ export interface ParkingBay {
   w_m: number;
   d_m: number;
   street: string;
-  /** The block the bay's side faces (`block:<bi>:<bj>`), or "outer" on the outside of an edge street. */
+  /** The block the bay's side faces (`block:<bi>:<bj>`), or "outer" on the outside of an edge street (056 lays no bay there). */
   block: string;
+  /**
+   * The block whose quota the bay counts toward: usually `block`. A block with no parking side of its own, or none with room, is served from the band across its longest street (18.6),
+   * and for a lot stall the block it serves may be a neighbour of the block the lot stands in.
+   */
+  serves: string;
 }
 
 export interface PoleSlot {
@@ -176,6 +214,19 @@ export interface TileBlock {
   i1: number;
   j0: number;
   j1: number;
+  /** What the block holds, counted from its nominal terrace lots (18.2: the finished rows' terrace lots, after the parking lots took their frontage; still nominal, not packed): columns (5.2 m bays), shops (columns less one door column per lot) and homes. */
+  units: { columns: number; shops: number; homes: number };
+  /** What the quotas could not place (18.6): stalls of the block's lots and bays of its kerb quota; both 0 when met. */
+  parkingShort: { stalls: number; bays: number };
+  /** Parking lots serving this block: its own and borrowed from a neighbour across a street. */
+  lots: number;
+}
+
+/** A street tree on a build-out cell, at the cell's centre, metres. */
+export interface BuildoutTree {
+  x_m: number;
+  z_m: number;
+  street: string;
 }
 
 export interface TileCity {
@@ -185,6 +236,10 @@ export interface TileCity {
   cells: readonly TileCell[];
   streets: readonly TileStreet[];
   bays: readonly ParkingBay[];
+  /** Every stall of every parking lot (6 per lot: two rows of three), the same record shape as a bay: `street` is the lot's street, `block` the block it stands in, `serves` the block it counts toward. */
+  lotStalls: readonly ParkingBay[];
+  /** One tree on every `BUILDOUT_TREE_EVERY`-th cell of each stretch of build-outs, never next to a crossing. */
+  buildoutTrees: readonly BuildoutTree[];
   poleSlots: readonly PoleSlot[];
   blocks: readonly TileBlock[];
   town: Town;
@@ -254,6 +309,12 @@ function layoutAxis(seed: number, streetAxis: "x" | "z", blocks: number): AxisLa
 }
 
 // ---- helpers ----
+
+/** A block's cells, before the parking rules have said what it holds. */
+type BlockBase = Omit<TileBlock, "units" | "parkingShort" | "lots">;
+
+/** What a block holds, from its nominal terrace lots (18.2): `columns` is the lots' bays, a shop is a column that is not a lot's door column, a home is `HOME_COLUMN_FLOORS` column-floors of the `UNIT_FLOORS_NOMINAL` over the base. */
+const unitsOf = (columns: number, lots: number): TileBlock["units"] => ({ columns, shops: Math.max(0, columns - lots), homes: Math.floor((columns * UNIT_FLOORS_NOMINAL) / HOME_COLUMN_FLOORS) });
 
 const clampBlocks = (v: number | undefined): number => {
   if (v === undefined || !Number.isFinite(v)) return CITY_BLOCKS_DEFAULT;
@@ -368,7 +429,7 @@ export function tileCity(opts: { blocksX?: number; blocksZ?: number; seed?: numb
   }
 
   // ---- blocks ----
-  const tileBlocks: TileBlock[] = [];
+  const tileBlocks: BlockBase[] = [];
   const townBlocks: TownBlock[] = [];
   for (let bj = 0; bj < blocksZ; bj++) {
     for (let bi = 0; bi < blocksX; bi++) {
@@ -394,55 +455,42 @@ export function tileCity(opts: { blocksX?: number; blocksZ?: number; seed?: numb
     return bi < 0 || bi >= blocksX || bj < 0 || bj >= blocksZ ? "outer" : `block:${bi}:${bj}`;
   };
   const yawOfBand = (s: TileStreet, acrossCell: number): TileYaw => yawToward(s.axis, s.centre_m > (acrossCell + 0.5) * TILE_M ? 1 : -1);
-  /** Pairs and bays, given the parking cells that must stay plain (indices `j * W + i`). */
-  const pairBays = (blocked: ReadonlySet<number>): { pair: Uint8Array; bays: ParkingBay[] } => {
-    const pair = new Uint8Array(W * H); // 1 first cell of a ParkingLines tile, 2 its second
-    const bays: ParkingBay[] = [];
-    for (const s of streets) {
-      const n = s.bands.length;
-      const intervals = s.axis === "x" ? cols.blocks : rows.blocks;
-      for (let k = 0; k < n; k++) {
-        if (s.bands[k] !== "parking") continue;
-        const across = s.axis === "x" ? s.across0 + k : s.across0 + n - 1 - k;
-        const coordSign = s.centre_m > (across + 0.5) * TILE_M ? -1 : 1;
-        const yaw = yawOfBand(s, across);
-        const at = (a: number): number => (s.axis === "x" ? across * W + a : a * W + across);
-        intervals.forEach((iv, alongIdx) => {
-          const a0 = iv.first + BAY_JUNCTION_CLEAR;
-          const a1 = iv.first + iv.len - BAY_JUNCTION_CLEAR;
-          const block = blockIdAt(s, coordSign, alongIdx);
-          let a = a0;
-          while (a < a1) {
-            if (blocked.has(at(a))) {
-              a++;
-              continue;
-            }
-            let e = a;
-            while (e < a1 && !blocked.has(at(e))) e++;
-            for (let c0 = a; c0 + 2 <= e; c0 += 2) {
-              pair[at(c0)] = 1;
-              pair[at(c0 + 1)] = 2;
-              for (let b = 0; b < BAYS_PER_PARKING_TILE; b++) {
-                const along = (c0 + (b + 0.5) * (2 / BAYS_PER_PARKING_TILE)) * TILE_M;
-                const acr = (across + 0.5) * TILE_M;
-                bays.push({
-                  x_m: s.axis === "x" ? along : acr,
-                  z_m: s.axis === "x" ? acr : along,
-                  yaw,
-                  w_m: (2 * TILE_M) / BAYS_PER_PARKING_TILE,
-                  d_m: TILE_M,
-                  street: s.id,
-                  block,
-                });
-              }
-            }
-            a = e;
-          }
+  /** One parking band of one street along one block interval: where a tile city's kerbside bays, build-outs and plain cells lie (056). */
+  interface Band {
+    /** `<street>|<side>|<alongIdx>`: side is `Kerb.side` of the block the band faces, alongIdx the block's index along the street. */
+    key: string;
+    s: TileStreet;
+    /** The band's row (an "x" street) or column (a "z" street). */
+    across: number;
+    /** The interval's first cell along the street and one past its last: the first and last cells are next to the crossings. */
+    a0: number;
+    a1: number;
+    yaw: TileYaw;
+    /** The block the band faces, or "outer" on the outside of an edge street. */
+    block: string;
+  }
+  const bandList: Band[] = [];
+  const bandCell = (b: Band, a: number): number => (b.s.axis === "x" ? b.across * W + a : a * W + b.across);
+  for (const s of streets) {
+    const n = s.bands.length;
+    const intervals = s.axis === "x" ? cols.blocks : rows.blocks;
+    for (let k = 0; k < n; k++) {
+      if (s.bands[k] !== "parking") continue;
+      const across = s.axis === "x" ? s.across0 + k : s.across0 + n - 1 - k;
+      const coordSign = s.centre_m > (across + 0.5) * TILE_M ? -1 : 1;
+      intervals.forEach((iv, alongIdx) => {
+        bandList.push({
+          key: `${s.id}|${sideOf(s.axis, coordSign)}|${alongIdx}`,
+          s,
+          across,
+          a0: iv.first,
+          a1: iv.first + iv.len,
+          yaw: yawOfBand(s, across),
+          block: blockIdAt(s, coordSign, alongIdx),
         });
-      }
+      });
     }
-    return { pair, bays };
-  };
+  }
 
   // ---- terraces on every block, and the parking lots (design item 8) ----
   interface Rows {
@@ -482,6 +530,7 @@ export function tileCity(opts: { blocksX?: number; blocksZ?: number; seed?: numb
         snap_m: TILE_M,
         plazaW_m: TILE_PLAZA_W_M,
         parkRuns: park,
+        parkByHash: false,
         counters,
         lotBase: out.lots.length,
         frame,
@@ -521,42 +570,153 @@ export function tileCity(opts: { blocksX?: number; blocksZ?: number; seed?: numb
     }
     return out;
   };
-  let laid = layoutRows(new Set());
-  {
-    // At least one parking lot per CITY_LOTS_PER_BLOCKS blocks, and one in every block that has fewer than CITY_BAYS_PER_BLOCK_MIN kerbside bays: where the hash gives too few,
-    // the longest run that can still hold one takes it (ties by id). A run that cannot is set aside and the next longest is tried.
-    const nominal = pairBays(new Set()).bays;
-    const bayCount = new Map<string, number>();
-    for (const b of nominal) bayCount.set(b.block, (bayCount.get(b.block) ?? 0) + 1);
-    const wanted = Math.ceil(tileBlocks.length / CITY_LOTS_PER_BLOCKS);
-    const failed = new Set<string>();
-    const forced = new Set<string>();
-    for (let guard = 0; guard < 4 * tileBlocks.length + 8; guard++) {
+  // ---- units (18.2): columns are the bays of a block's terrace lots, a shop is a column that is not a lot's door column, a home is HOME_COLUMN_FLOORS column-floors of the nominal floors ----
+  const blockById = new Map(tileBlocks.map((b) => [b.id, b] as const));
+  const unitsOfRows = (rows: Rows): Map<string, TileBlock["units"]> => {
+    const runBlock = new Map(rows.runs.map((r) => [r.id, r.block] as const));
+    const columns = new Map<string, number>();
+    const lotCount = new Map<string, number>();
+    for (const l of rows.lots) {
+      const id = runBlock.get(l.terrace?.run ?? "");
+      if (id === undefined) continue;
+      columns.set(id, (columns.get(id) ?? 0) + (l.terrace?.bays ?? 0));
+      lotCount.set(id, (lotCount.get(id) ?? 0) + 1);
+    }
+    return new Map(tileBlocks.map((b) => [b.id, unitsOf(columns.get(b.id) ?? 0, lotCount.get(b.id) ?? 0)] as const));
+  };
+  /** A block wants clamp(round(homes x PARK_PER_HOME / LOT_STALLS), 1, LOTS_PER_BLOCK_MAX) lots. */
+  const lotQuota = (homes: number): number => Math.min(LOTS_PER_BLOCK_MAX, Math.max(1, Math.round((homes * PARK_PER_HOME) / LOT_STALLS)));
+
+  /** One side of a block: its street, which side of it the block lies on (`Kerb.side`), its length in cells and the block across the street (null at the city's edge). */
+  interface BSide {
+    road: string;
+    side: 1 | -1;
+    len: number;
+    neigh: string | null;
+  }
+  const sidesOfBlock = (b: BlockBase): BSide[] => [
+    { road: `x:${b.bj}`, side: 1, len: b.i1 - b.i0, neigh: b.bj > 0 ? `block:${b.bi}:${b.bj - 1}` : null },
+    { road: `z:${b.bi + 1}`, side: 1, len: b.j1 - b.j0, neigh: b.bi + 1 < blocksX ? `block:${b.bi + 1}:${b.bj}` : null },
+    { road: `x:${b.bj + 1}`, side: -1, len: b.i1 - b.i0, neigh: b.bj + 1 < blocksZ ? `block:${b.bi}:${b.bj + 1}` : null },
+    { road: `z:${b.bi}`, side: -1, len: b.j1 - b.j0, neigh: b.bi > 0 ? `block:${b.bi - 1}:${b.bj}` : null },
+  ];
+  /** The block's index along a street it faces: its column along an "x" street, its row along a "z" one. */
+  const alongOf = (b: BlockBase, road: string): number => (road.startsWith("x:") ? b.bi : b.bj);
+  const bandKey = (road: string, side: number, alongIdx: number): string => `${road}|${side}|${alongIdx}`;
+  const longestFirst = (p: BSide, q: BSide): number => q.len - p.len || (p.road < q.road ? -1 : p.road > q.road ? 1 : 0);
+  const bandByKey = new Map(bandList.map((b) => [b.key, b] as const));
+  /** Runs within 5 m of each other in length are as good as each other; among them the choice is a hash of the run and `LOT_RUN_SALT`. */
+  const bucket = (len: number): number => Math.floor(len / u / 5);
+  const runHash = (id: string): number => hashOf(seed, "lotrun", LOT_RUN_SALT, id);
+
+  // ---- the parking lots (18.4, 18.6): every one is placed by demand, through `parkRuns` ----
+  // Each round asks every block still short for the best run not yet tried: a run on a side with no parking band first (a lot's kerb cut takes two cells of the band), then the longest,
+  // then by hash. A block with no run that can hold a lot asks a neighbour across its longest street. The rows start without a lot, and a lot takes frontage, so the units of the
+  // finished rows are a little under the nominal ones: the quotas are asked again of those until they stand still (at most a few times).
+  interface LotPlan {
+    laid: Rows;
+    /** The blocks a host block laid lots for, in the order the lots were won. */
+    lend: Map<string, string[]>;
+  }
+  const nominalRows = layoutRows(new Set());
+  const planLots = (wanted: ReadonlyMap<string, number>): LotPlan => {
+    let laid = nominalRows;
+    const tried = new Set<string>();
+    const lend = new Map<string, string[]>();
+    const lotsIn = (): Map<string, number> => {
       const runBlock = new Map(laid.runs.map((r) => [r.id, r.block] as const));
-      const parks = parkingOf(laid);
-      const withLot = new Set(parks.map((o) => runBlock.get(o.run)));
-      const needy = tileBlocks.filter((b) => (bayCount.get(b.id) ?? 0) < CITY_BAYS_PER_BLOCK_MIN && !withLot.has(b.id) && laid.runs.some((r) => r.block === b.id && !failed.has(r.id) && r.endAbuts !== "parking"));
-      if (needy.length === 0 && parks.length >= wanted) break;
-      const pool = needy.length > 0 ? laid.runs.filter((r) => r.block === needy[0]!.id) : laid.runs;
-      const cands = pool.filter((r) => r.endAbuts !== "parking" && !failed.has(r.id) && r.len / u >= TILE_PARK_MIN_RUN_M).sort((p, q) => q.len - p.len || (p.id < q.id ? -1 : 1));
-      if (cands.length === 0) {
-        if (needy.length > 0) {
-          // This block cannot hold a lot: stop asking of it.
-          for (const r of pool) failed.add(r.id);
-          continue;
-        }
-        break;
+      const m = new Map<string, number>();
+      for (const o of parkingOf(laid)) m.set(runBlock.get(o.run)!, (m.get(runBlock.get(o.run)!) ?? 0) + 1);
+      return m;
+    };
+    const candidates = (b: BlockBase): string[] => {
+      const keys = keysOf(laid);
+      return laid.runs
+        .filter((r) => r.block === b.id && r.endAbuts !== "parking" && r.len / u >= TILE_PARK_MIN_RUN_M && !tried.has(keys.get(r.id)!))
+        .map((r) => ({ key: keys.get(r.id)!, len: r.len, parked: bandByKey.has(bandKey(r.road, r.side, alongOf(b, r.road))) ? 1 : 0, id: r.id }))
+        .sort((p, q) => p.parked - q.parked || bucket(q.len) - bucket(p.len) || runHash(p.id) - runHash(q.id) || (p.id < q.id ? -1 : 1))
+        .map((c) => c.key);
+    };
+    /** One trial layout with every lot so far and one more run flagged for each request (at most one per host); a flag that took no lot is never asked again. */
+    const lotRound = (reqs: readonly { host: string; serves: string }[]): boolean => {
+      const keysNow = keysOf(laid);
+      const batch: { host: string; serves: string; key: string }[] = [];
+      for (const r of reqs) {
+        const key = candidates(blockById.get(r.host)!)[0];
+        if (key !== undefined) batch.push({ ...r, key });
       }
-      const pick = cands[0]!;
-      const pickKey = keysOf(laid).get(pick.id)!;
-      const trial = layoutRows(new Set([...forced, pickKey]));
+      if (batch.length === 0) return false;
+      const trial = layoutRows(new Set([...parkingOf(laid).map((o) => keysNow.get(o.run)!), ...batch.map((r) => r.key)]));
       const trialKeys = keysOf(trial);
-      if (parkingOf(trial).some((o) => trialKeys.get(o.run) === pickKey)) {
-        laid = trial;
-        forced.add(pickKey);
-      } else failed.add(pick.id);
+      const got = new Set(parkingOf(trial).map((o) => trialKeys.get(o.run)));
+      for (const r of batch) {
+        if (!got.has(r.key)) tried.add(r.key);
+        else if (r.host !== r.serves) lend.set(r.host, [...(lend.get(r.host) ?? []), r.serves]);
+      }
+      laid = trial;
+      return true;
+    };
+    for (let guard = 0; guard < 16; guard++) {
+      const have = lotsIn();
+      const reqs = tileBlocks.filter((b) => (have.get(b.id) ?? 0) < wanted.get(b.id)! && candidates(b).length > 0).map((b) => ({ host: b.id, serves: b.id }));
+      if (reqs.length === 0 || !lotRound(reqs)) break;
+    }
+    /** How many lots serve a block now: its own that were not lent out, and the ones neighbours laid for it. */
+    const servedNow = (id: string): number => {
+      let n = Math.max(0, (lotsIn().get(id) ?? 0) - (lend.get(id)?.length ?? 0));
+      for (const l of lend.values()) n += l.filter((x) => x === id).length;
+      return n;
+    };
+    for (let guard = 0; guard < 16; guard++) {
+      const have = lotsIn();
+      const used = new Set<string>();
+      const reqs: { host: string; serves: string }[] = [];
+      for (const b of tileBlocks) {
+        if (servedNow(b.id) >= wanted.get(b.id)!) continue;
+        for (const sd of sidesOfBlock(b).sort(longestFirst)) {
+          const n = sd.neigh;
+          if (n === null || used.has(n) || (have.get(n) ?? 0) >= LOTS_PER_BLOCK_MAX || candidates(blockById.get(n)!).length === 0) continue;
+          used.add(n);
+          reqs.push({ host: n, serves: b.id });
+          break;
+        }
+      }
+      if (reqs.length === 0 || !lotRound(reqs)) break;
+    }
+    return { laid, lend };
+  };
+  const nominalUnits = unitsOfRows(nominalRows);
+  let wantedLots = new Map(tileBlocks.map((b) => [b.id, lotQuota(nominalUnits.get(b.id)!.homes)] as const));
+  let plan = planLots(wantedLots);
+  let unitsById = unitsOfRows(plan.laid);
+  for (let round = 0; round < 3; round++) {
+    const next = new Map(tileBlocks.map((b) => [b.id, lotQuota(unitsById.get(b.id)!.homes)] as const));
+    if (tileBlocks.every((b) => next.get(b.id) === wantedLots.get(b.id))) break;
+    wantedLots = next;
+    plan = planLots(wantedLots);
+    unitsById = unitsOfRows(plan.laid);
+  }
+  // The quotas the finished rows' units call for: where a round did not settle, the shortfall below is measured against these.
+  wantedLots = new Map(tileBlocks.map((b) => [b.id, lotQuota(unitsById.get(b.id)!.homes)] as const));
+  const laid = plan.laid;
+  const lend = plan.lend;
+  /** The block each lot counts toward: a host's own demand first, then the neighbours it lent to. */
+  const lotServes = new Map<OpenLot, string>();
+  {
+    const runBlock = new Map(laid.runs.map((r) => [r.id, r.block] as const));
+    const perHost = new Map<string, OpenLot[]>();
+    for (const o of parkingOf(laid)) {
+      const h = runBlock.get(o.run)!;
+      perHost.set(h, [...(perHost.get(h) ?? []), o]);
+    }
+    for (const [host, list] of perHost) {
+      const lent = (lend.get(host) ?? []).slice(0, list.length);
+      const own = list.length - lent.length;
+      list.forEach((o, i) => lotServes.set(o, i < own ? host : lent[i - own]!));
     }
   }
+  const lotsServing = new Map<string, number>();
+  for (const id of lotServes.values()) lotsServing.set(id, (lotsServing.get(id) ?? 0) + 1);
 
   // ---- the kerb cut of every parking lot, and the cells under the open lots ----
   const blocked = new Set<number>();
@@ -599,7 +759,192 @@ export function tileCity(opts: { blocksX?: number; blocksZ?: number; seed?: numb
       }
     }
   }
-  const { pair, bays } = pairBays(blocked);
+
+  // ---- the stalls of every lot: two rows of three (two `ParkingLines_01` tiles), the same record as a bay ----
+  const lotStalls: ParkingBay[] = [];
+  {
+    const runBlock = new Map(laid.runs.map((r) => [r.id, r.block] as const));
+    for (const o of parkingOf(laid)) {
+      const cx = o.x / u;
+      const cz = o.z / u;
+      const fx = Math.sin(o.yaw);
+      const fz = Math.cos(o.yaw);
+      const tx = fz;
+      const tz = -fx;
+      const w = o.w / u / BAYS_PER_PARKING_TILE;
+      const d = o.d / u / 2;
+      for (let row = 0; row < 2; row++) {
+        for (let k = 0; k < BAYS_PER_PARKING_TILE; k++) {
+          const front = d / 2 - row * d;
+          const along = (k - (BAYS_PER_PARKING_TILE - 1) / 2) * w;
+          lotStalls.push({
+            x_m: cx + fx * front + tx * along,
+            z_m: cz + fz * front + tz * along,
+            yaw: yawDeg(o.yaw),
+            w_m: w,
+            d_m: d,
+            street: streetOfRun.get(o.run) ?? "",
+            block: runBlock.get(o.run)!,
+            serves: lotServes.get(o)!,
+          });
+        }
+      }
+    }
+  }
+
+  // ---- kerbside bays (18.3, 18.6): short runs of `ParkingLines_01` tiles on the sides that have a parking band ----
+  const pair = new Uint8Array(W * H); // 1 first cell of a ParkingLines tile, 2 its second
+  const bays: ParkingBay[] = [];
+  /** A band with its free stretch (the longest run of cells that no kerb cut's front takes, less the cells next to the crossings), its cap in tiles, and the runs laid so far (each tile names the block it serves). */
+  interface BandState {
+    band: Band;
+    sa: number;
+    sb: number;
+    cap: number;
+    runs: string[][];
+  }
+  const states = new Map<string, BandState>();
+  for (const band of bandList) {
+    if (band.block === "outer") continue;
+    let sa = 0;
+    let sb = 0;
+    let a = band.a0 + BAY_JUNCTION_CLEAR;
+    const end = band.a1 - BAY_JUNCTION_CLEAR;
+    while (a < end) {
+      if (blocked.has(bandCell(band, a))) {
+        a++;
+        continue;
+      }
+      let e = a;
+      while (e < end && !blocked.has(bandCell(band, e))) e++;
+      if (e - a > sb - sa) {
+        sa = a;
+        sb = e;
+      }
+      a = e;
+    }
+    // A tile is 10 m of the side's kerb: the side may hold floor(share x length / 10 m) of them.
+    states.set(band.key, { band, sa, sb, cap: Math.floor((KERB_BAY_SHARE_MAX[band.s.profile] * (band.a1 - band.a0)) / 2 + 1e-9), runs: [] });
+  }
+  const gapCells = Math.ceil(KERB_GAP_MIN_M / TILE_M);
+  /** Where each run starts (a cell along the street) if the band holds `runs`, or null when they do not fit with `KERB_GAP_MIN_M` between them. One run is centred on the free stretch, offset by hash; several are spread evenly. */
+  const startsOf = (st: BandState, runs: readonly (readonly string[])[]): number[] | null => {
+    const R = runs.length;
+    const need = runs.reduce((n, r) => n + 2 * r.length, 0);
+    const slack = st.sb - st.sa - need - gapCells * (R - 1);
+    if (slack < 0) return null;
+    let lead: number;
+    let inner = gapCells;
+    if (R === 1) {
+      const m = Math.floor(slack / 4);
+      lead = Math.floor(slack / 2) + (hashOf(seed, "bay", st.band.key) % (2 * m + 1)) - m;
+    } else {
+      const g = Math.floor(slack / (R + 1));
+      inner += g;
+      lead = Math.floor((slack - g * (R - 1)) / 2);
+    }
+    const out: number[] = [];
+    let at = st.sa + lead;
+    for (const r of runs) {
+      out.push(at);
+      at += 2 * r.length + inner;
+    }
+    return out;
+  };
+  const kerbTotal_m = tileBlocks.reduce((n, b) => n + 2 * (b.i1 - b.i0 + b.j1 - b.j0) * TILE_M, 0);
+  const bayCap = Math.floor((BAYS_PER_100M_MAX * kerbTotal_m) / 100 + 1e-9);
+  let bayCount = 0;
+  /** One more tile on a band for `serves`: the first run with room grows, else a new run starts; false when the side's cap, the city's cap or the room says no. */
+  const tryAdd = (st: BandState, serves: string): boolean => {
+    if (st.runs.reduce((n, r) => n + r.length, 0) + 1 > st.cap || bayCount + BAYS_PER_PARKING_TILE > bayCap) return false;
+    const options: string[][][] = [];
+    const grow = st.runs.findIndex((r) => r.length < BAY_RUN_TILES_MAX);
+    if (grow >= 0) options.push(st.runs.map((r, k) => (k === grow ? [...r, serves] : r)));
+    options.push([...st.runs, [serves]]);
+    for (const o of options) {
+      if (startsOf(st, o) === null) continue;
+      st.runs = o;
+      bayCount += BAYS_PER_PARKING_TILE;
+      return true;
+    }
+    return false;
+  };
+  const shortTiles = new Map<string, number>();
+  const ownStates = (b: BlockBase): BandState[] =>
+    sidesOfBlock(b)
+      .map((sd) => states.get(bandKey(sd.road, sd.side, alongOf(b, sd.road))))
+      .filter((st): st is BandState => st !== undefined);
+  // The blocks with the fewest parking sides of their own go first (a block with none can only be served from the band across a street, and that band must not be full by then); ties by id.
+  const order = tileBlocks.map((b) => ({ b, n: ownStates(b).length })).sort((p, q) => p.n - q.n || (p.b.id < q.b.id ? -1 : p.b.id > q.b.id ? 1 : 0));
+  for (const { b } of order) {
+    // Own sides first: avenue sides, then longer sides, ties by id. One tile at a time, side by side: every side has a run before any side has a second.
+    const own = ownStates(b).sort((p, q) => (p.band.s.profile === "avenue" ? 0 : 1) - (q.band.s.profile === "avenue" ? 0 : 1) || q.band.a1 - q.band.a0 - (p.band.a1 - p.band.a0) || (p.band.key < q.band.key ? -1 : 1));
+    let need = Math.max(BAY_TILES_PER_BLOCK_MIN, Math.round((unitsById.get(b.id)!.shops * PARK_PER_SHOP) / BAYS_PER_PARKING_TILE));
+    for (let progress = true; need > 0 && progress; ) {
+      progress = false;
+      for (const st of own) {
+        if (need > 0 && tryAdd(st, b.id)) {
+          need--;
+          progress = true;
+        }
+      }
+    }
+    // Still short: the band across its longest street serves it (that band faces the neighbour, and each tile there says whom it serves).
+    for (const sd of sidesOfBlock(b).sort(longestFirst)) {
+      if (need <= 0) break;
+      const st = sd.neigh === null ? undefined : states.get(bandKey(sd.road, -sd.side, alongOf(b, sd.road)));
+      if (!st || st.band.block !== sd.neigh) continue;
+      while (need > 0 && tryAdd(st, b.id)) need--;
+    }
+    shortTiles.set(b.id, need);
+  }
+  for (const st of states.values()) {
+    if (st.runs.length === 0) continue;
+    const starts = startsOf(st, st.runs)!;
+    const s = st.band.s;
+    st.runs.forEach((run, ri) => {
+      run.forEach((serves, t) => {
+        const c0 = starts[ri]! + 2 * t;
+        pair[bandCell(st.band, c0)] = 1;
+        pair[bandCell(st.band, c0 + 1)] = 2;
+        for (let b = 0; b < BAYS_PER_PARKING_TILE; b++) {
+          const along = (c0 + (b + 0.5) * (2 / BAYS_PER_PARKING_TILE)) * TILE_M;
+          const acr = (st.band.across + 0.5) * TILE_M;
+          bays.push({
+            x_m: s.axis === "x" ? along : acr,
+            z_m: s.axis === "x" ? acr : along,
+            yaw: st.band.yaw,
+            w_m: (2 * TILE_M) / BAYS_PER_PARKING_TILE,
+            d_m: TILE_M,
+            street: s.id,
+            block: st.band.block,
+            serves,
+          });
+        }
+      });
+    });
+  }
+
+  // ---- the rest of the band (18.5): a build-out, pavement level, with a tree on every BUILDOUT_TREE_EVERY-th cell of a stretch (never next to a crossing); the cells in front of a kerb cut and on an edge street's outer side stay plain ----
+  const buildoutTrees: BuildoutTree[] = [];
+  for (const band of bandList) {
+    if (band.block === "outer") continue;
+    let stretch = 0;
+    for (let a = band.a0; a < band.a1; a++) {
+      const idx = bandCell(band, a);
+      if (pair[idx] !== 0 || blocked.has(idx)) {
+        stretch = 0;
+        continue;
+      }
+      role[idx] = "buildout";
+      stretch++;
+      if (stretch % BUILDOUT_TREE_EVERY === 0 && a >= band.a0 + BAY_JUNCTION_CLEAR && a < band.a1 - BAY_JUNCTION_CLEAR) {
+        const along = (a + 0.5) * TILE_M;
+        const acr = (band.across + 0.5) * TILE_M;
+        buildoutTrees.push({ x_m: band.s.axis === "x" ? along : acr, z_m: band.s.axis === "x" ? acr : along, street: band.s.id });
+      }
+    }
+  }
 
   // ---- emit the cells ----
   const cells: TileCell[] = [];
@@ -617,8 +962,10 @@ export function tileCity(opts: { blocksX?: number; blocksZ?: number; seed?: numb
       const cz = (j + 0.5) * TILE_M;
       let yaw: TileYaw = 0;
       let variant = 0;
-      if (r === "lane" || r === "parking" || r === "parkingPlain") {
+      if (r === "lane" || r === "parking" || r === "parkingPlain" || r === "buildout") {
         yaw = yawOfBand(own!, own!.axis === "x" ? j : i);
+        // A build-out is a sidewalk tile in the parking band: its kerb edge faces the centre line, and it takes one of the two plain straights.
+        if (r === "buildout") variant = (hashOf(seed, "pave", i, j) >>> 8) & 1;
         if (r === "lane") {
           const firstLane = own!.bands.indexOf("lane");
           variant = bandIdx[idx]! - firstLane;
@@ -679,25 +1026,41 @@ export function tileCity(opts: { blocksX?: number; blocksZ?: number; seed?: numb
         { x: b.x + mx, z: b.z + mz },
       ],
     });
-    // One kerb segment per stretch of pavement cells on each side of each block, on the carriageway's edge: a kerb cut breaks it.
-    const intervals = s.axis === "x" ? cols.blocks : rows.blocks;
-    const n = s.bands.length;
-    for (const e of [1, -1] as const) {
-      const coordSign = s.axis === "x" ? e : -e;
-      const at = (coordSign > 0 ? s.carriage.hi_m : s.carriage.lo_m) * u;
-      const across = coordSign > 0 ? s.across0 + n - 1 : s.across0;
-      for (const iv of intervals) {
-        let start = -1;
-        for (let a1 = iv.first; a1 <= iv.first + iv.len; a1++) {
-          const on = a1 < iv.first + iv.len && role[s.axis === "x" ? across * W + a1 : a1 * W + across] === "pavement";
-          if (on && start < 0) start = a1;
-          if (!on && start >= 0) {
-            const p0 = start * TILE_M * u;
-            const p1 = a1 * TILE_M * u;
-            kerbs.push(s.axis === "x" ? { road: s.id, side: e, ax: p0, az: at, bx: p1, bz: at } : { road: s.id, side: e, ax: at, az: p0, bx: at, bz: p1 });
-            start = -1;
-          }
-        }
+  }
+  // Kerbs: one segment per stretch of cell edges between a pavement or a build-out and a carriageway cell (a lane or a parking-band cell), on each side of each street. A kerb cut breaks a
+  // stretch (it is neither), and no kerb lies against a crossing or a junction. Edges that touch end to end on one line are one segment.
+  {
+    const isPave = (r: TileRole | null | undefined): boolean => r === "pavement" || r === "buildout";
+    const isCar = (r: TileRole | null | undefined): boolean => r === "lane" || r === "parkingPlain";
+    const groups = new Map<string, { road: string; side: 1 | -1; horizontal: boolean; line: number; at: number[] }>();
+    const addEdge = (a: number, b: number, horizontal: boolean, line: number, at: number): void => {
+      const pave = isPave(role[a]) && isCar(role[b]) ? a : isPave(role[b]) && isCar(role[a]) ? b : -1;
+      if (pave < 0) return;
+      const s = owner[pave]!;
+      const across = ((s.axis === "x" ? Math.floor(pave / W) : pave % W) + 0.5) * TILE_M;
+      const side = sideOf(s.axis, across > s.centre_m ? 1 : -1);
+      const key = `${s.id}|${side}|${horizontal ? "h" : "v"}|${line}`;
+      const g = groups.get(key);
+      if (g) g.at.push(at);
+      else groups.set(key, { road: s.id, side, horizontal, line, at: [at] });
+    };
+    for (let j = 0; j < H; j++) {
+      for (let i = 0; i < W; i++) {
+        if (i > 0) addEdge(j * W + i - 1, j * W + i, false, i, j);
+        if (j > 0) addEdge((j - 1) * W + i, j * W + i, true, j, i);
+      }
+    }
+    for (const g of groups.values()) {
+      g.at.sort((p, q) => p - q);
+      let from = g.at[0]!;
+      for (let n = 1; n <= g.at.length; n++) {
+        if (n < g.at.length && g.at[n] === g.at[n - 1]! + 1) continue;
+        const to = g.at[n - 1]! + 1;
+        const p0 = from * TILE_M * u;
+        const p1 = to * TILE_M * u;
+        const l = g.line * TILE_M * u;
+        kerbs.push(g.horizontal ? { road: g.road, side: g.side, ax: p0, az: l, bx: p1, bz: l } : { road: g.road, side: g.side, ax: l, az: p0, bx: l, bz: p1 });
+        from = g.at[n]!;
       }
     }
   }
@@ -800,7 +1163,11 @@ export function tileCity(opts: { blocksX?: number; blocksZ?: number; seed?: numb
     ring: { ...bounds },
     window: { ...bounds },
   };
-  return deepFreeze({ blocksX, blocksZ, seed, cells, streets, bays, poleSlots, blocks: tileBlocks, town });
+  const blocksOut: TileBlock[] = tileBlocks.map((b) => {
+    const served = lotsServing.get(b.id) ?? 0;
+    return { ...b, units: unitsById.get(b.id)!, parkingShort: { stalls: Math.max(0, wantedLots.get(b.id)! - served) * LOT_STALLS, bays: (shortTiles.get(b.id) ?? 0) * BAYS_PER_PARKING_TILE }, lots: served };
+  });
+  return deepFreeze({ blocksX, blocksZ, seed, cells, streets, bays, lotStalls, buildoutTrees, poleSlots, blocks: blocksOut, town });
 }
 
 // ---- furniture on the tile city (ticket 055 B, design item 9) ----

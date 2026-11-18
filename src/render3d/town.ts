@@ -665,6 +665,8 @@ export interface TerraceRowOpts {
    * the street elsewhere is split by a lot, as its id does.
    */
   parkRuns?: ReadonlySet<string>;
+  /** Whether a long run takes a parking lot by `stableHash(run id) % PARKING_ONE_IN` (ticket 056). Default true, the ladder's rule; the tile city turns it off and places every lot by demand through `parkRuns`. */
+  parkByHash?: boolean;
   counters?: TerraceCounters;
   /** The index in the town's `lots` of the first lot this call lays (`TerraceRun.lots` holds town indices). Default 0. */
   lotBase?: number;
@@ -813,7 +815,7 @@ export function terraceBlockRows(block: { id: string }, sides: readonly [Terrace
       if (!cur) {
         const id = `${sideKey}:r${runCount.get(sideKey) ?? 0}`;
         const total = Math.floor((front.len - c) / bayW + 1e-9);
-        const byHash = total >= PARKING_MIN_RUN_BAYS && stableHash(id) % PARKING_ONE_IN === 0;
+        const byHash = (opts.parkByHash ?? true) && total >= PARKING_MIN_RUN_BAYS && stableHash(id) % PARKING_ONE_IN === 0;
         const asked = opts.parkRuns?.has(terraceRunKey(block.id, front.id, front.side, rowRuns)) ?? false;
         rowRuns++;
         cur = { id, lots: [], c0: c, bays: 0, total, park: asked || byHash, early: asked };

@@ -20,7 +20,7 @@ import { stubTextSurface } from "./text";
 import { townLayout } from "./town";
 
 const S = WORLD_PER_METRE;
-const ROLES: readonly TileRole[] = ["lane", "parking", "parkingPlain", "junction", "crossing", "pavement", "pavementCorner", "kerbCut", "lotSurface", "plaza"];
+const ROLES: readonly TileRole[] = ["lane", "parking", "parkingPlain", "junction", "crossing", "pavement", "pavementCorner", "kerbCut", "buildout", "lotSurface", "plaza"];
 
 // ---- fixtures ----
 
@@ -146,7 +146,7 @@ describe("per-role fallback", () => {
       expect(draw.fromPack).toBe(city.cells.length - codeCells.length);
       for (const c of city.cells) expect(tileKeyOf(c, new Set(p.roots.keys())) === null, `${c.role} ${c.i},${c.j}`).toBe(lost.has(c.role));
       // The code-drawn meshes exist exactly for the lost roads and pavements.
-      const roads = codeCells.filter((c) => c.role !== "pavement" && c.role !== "pavementCorner" && c.role !== "kerbCut" && c.role !== "plaza");
+      const roads = codeCells.filter((c) => c.role !== "pavement" && c.role !== "pavementCorner" && c.role !== "kerbCut" && c.role !== "buildout" && c.role !== "plaza");
       const boxes = codeCells.length - roads.length;
       expect(named(draw.group, "tile:code-road")[0]?.count ?? 0).toBe(roads.length);
       expect(named(draw.group, "tile:code-pavement")[0]?.count ?? 0).toBe(boxes);
@@ -269,7 +269,7 @@ describe("levels and seams", () => {
       expect(idx, role).toBeGreaterThanOrEqual(0);
       expect(read(key, idx), role).toBeCloseTo(-SIDEWALK_WALK_M * S, 6);
     }
-    for (const role of ["pavement", "pavementCorner", "kerbCut", "plaza"] as const) {
+    for (const role of ["pavement", "pavementCorner", "kerbCut", "buildout", "plaza"] as const) {
       const key = TILE_SLOTS[role][0]!;
       const idx = city.cells.filter((c) => wantKey(c) === key).findIndex((c) => c.role === role);
       expect(idx, role).toBeGreaterThanOrEqual(0);
@@ -354,7 +354,7 @@ describe("levels and seams", () => {
     const pos = new Vector3();
     const q = new Quaternion();
     const sc = new Vector3();
-    const roadCells = city.cells.filter((c) => c.role !== "pavement" && c.role !== "pavementCorner" && c.role !== "kerbCut" && c.role !== "plaza");
+    const roadCells = city.cells.filter((c) => c.role !== "pavement" && c.role !== "pavementCorner" && c.role !== "kerbCut" && c.role !== "buildout" && c.role !== "plaza");
     const bad: string[] = [];
     roadCells.forEach((c, i) => {
       roads.getMatrixAt(i, m);
@@ -364,7 +364,7 @@ describe("levels and seams", () => {
       if (Math.abs(pos.x - c.x_m * S) + Math.abs(pos.z - c.z_m * S) + Math.abs(pos.y - y) > 1e-5) bad.push(`road ${i} at ${pos.toArray()}`);
       if (Math.abs(sc.x - f.w_m * S) + Math.abs(sc.z - f.d_m * S) > 1e-5) bad.push(`road ${i} size`);
     });
-    const boxCells = city.cells.filter((c) => c.role === "pavement" || c.role === "pavementCorner" || c.role === "kerbCut" || c.role === "plaza");
+    const boxCells = city.cells.filter((c) => c.role === "pavement" || c.role === "pavementCorner" || c.role === "kerbCut" || c.role === "buildout" || c.role === "plaza");
     boxCells.forEach((c, i) => {
       boxes.getMatrixAt(i, m);
       m.decompose(pos, q, sc);
