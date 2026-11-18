@@ -118,3 +118,8 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 051 section C | renderer | sonnet | 164K total (one figure in the readout) | — | 0 | Terrace packer terrace.ts, 16 tests (commit 7b7501d); 55 tool uses, 12 min; 90% far-gap closure unreachable with the real piece widths |
 | 051 section C | gate (main session) | — | — | — | 0 | tsc clean, 95 files, 1859 passed |
 | 051 section C | playtester | agent default | 18K total (one figure in the readout) | — | 0 | regressions 0; stopped early |
+| 051 section C | renderer | sonnet | 269K total (build 164K, then the re-cut pass) | — | 0 | Packer with the seam-or-alley rule, 27 terracepack tests, townClears, Numbers rows (commits 7b7501d, 2ce5648) |
+| 051 section C re-cut | lead-architect | agent default | 38K total (one figure in the readout) | — | 0 | Re-cut criterion 12 (seam, or alley, never a slit) after the reviewer proved the 90% closure unreachable |
+| 051 section C | code-reviewer | agent default | 171K total (two rounds: 88K, then 83K) | — | 0 | Round 1 must-fix 1 (criterion lowered without a re-cut); round 2 must-fix 1 (far gap not measured to the real corner wall); taken to Josh as it stands |
+| 051 section C | gate (main session) | — | — | — | 0 | Two runs, both green: 95 files, 1859 then 1870 passed |
+| 051 section C | playtester | agent default | 34K total (two rounds: 18K, 16K) | — | 0 | regressions 0 both times |
