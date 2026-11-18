@@ -6,11 +6,12 @@
  */
 
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { Color, DoubleSide, Group, InstancedMesh, Matrix4, MeshStandardMaterial, NearestFilter, Quaternion, Texture, Vector3, type Material, type Mesh, type Object3D } from "three";
-import { calibrationKey, type AssetEntry, type AssetManifest, type CalibrationKey } from "../core";
+import { Box3, Color, DoubleSide, Group, InstancedMesh, Matrix4, MeshStandardMaterial, NearestFilter, Quaternion, Texture, Vector3, type Material, type Mesh, type Object3D } from "three";
+import { calibrationKey, parseCalibrationKey, type AssetEntry, type AssetManifest, type CalibrationKey } from "../core";
 import { stableHash } from "../render/city";
 import { effectiveFronts, loadSavedCalibration } from "./calibration";
 import { DRESS_DRAW_CALLS_MAX, KERB_FROM_FRONT_M, SHOP_GLASS, dressKeys, dressTown, type DressBlockInput, type DressPiece } from "./dressing";
+import { FURN_DRAW_CALLS_MAX, alleyOf, furnitureKeys, furnitureLayout, openLotsOf, type Alley, type AvoidBox, type FurnitureInput, type FurniturePiece, type Rect } from "./furniture";
 import {
   BUILDING_EXCLUDE,
   BUILDING_FRONTS,
@@ -22,6 +23,7 @@ import {
   frontIsQuarter,
   frontYaw,
   isManifest,
+  meshFamily,
   modelScale,
   pickBuildings,
   pickIndex,
@@ -42,7 +44,8 @@ import {
 import { pickPlaceholders } from "./placeholders";
 import type { ModelSlots, SceneBundle } from "./scene";
 import { STACK_STYLES, assembleStack, offeredStacks, stackKeys, type Stack } from "./stacks";
-import { packTown, type PackedBlock } from "./terrace";
+import { ALLEY_MAX_M, ALLEY_MIN_M, packTown, type PackedBlock, type PackResult } from "./terrace";
+import { PAVEMENT_Y, YARD_H } from "./scene";
 import { LOT_TYPE_NAMES, type Lot } from "./town";
 
 /** A planned model whose root node was found in its pack's GLB. */
@@ -145,7 +148,7 @@ export async function loadModels(deps: LoadDeps): Promise<ModelSet> {
     const wantStack = (deps.stackKeys ?? []).filter((key) => !exclude.includes(key));
     const stackPlan = wantStack.length > 0 ? planStackPieces(manifest as AssetManifest, wantStack, deps.fronts ?? BUILDING_FRONTS) : null;
     const wantDress = (deps.dressKeys ?? []).filter((key) => !exclude.includes(key));
-    const dressPlan = wantDress.length > 0 ? planDressPieces(manifest as AssetManifest, wantDress, deps.fronts ?? BUILDING_FRONTS) : null;
+    const dressPlan = wantDress.length > 0 ? planDress(manifest as AssetManifest, wantDress, deps.fronts ?? BUILDING_FRONTS) : null;
     const globs = new Set<string>();
     for (const slot of MODEL_SLOTS) for (const p of plan[slot] ?? []) globs.add(p.glb);
     for (const p of stackPlan ?? []) globs.add(p.glb);
@@ -209,6 +212,31 @@ export async function loadModels(deps: LoadDeps): Promise<ModelSet> {
   }
 }
 
+/**
+ * The dressing and furniture pieces as planned models, in the order of `keys`: `planDressPieces`' (a width and a height above zero), plus a flat tile (a width and a depth and no
+ * height: the parking lines are 10 x 0 x 5 m), which it skips. A flat tile is otherwise checked the same way (not `scale-suspect`, finite sizes).
+ */
+function planDress(manifest: AssetManifest, keys: readonly CalibrationKey[], fronts: FrontTable): PlannedModel[] | null {
+  const solid = new Map((planDressPieces(manifest, keys, fronts) ?? []).map((p) => [calibrationKey(p.pack, p.entry.name), p] as const));
+  const out: PlannedModel[] = [];
+  for (const key of keys) {
+    const have = solid.get(key);
+    if (have) {
+      out.push(have);
+      continue;
+    }
+    const parsed = parseCalibrationKey(key);
+    const pack = parsed ? manifest.packs.find((q) => q.pack === parsed.pack) : undefined;
+    const entry = parsed ? pack?.assets.find((a) => a.name === parsed.name) : undefined;
+    if (!pack || !entry || entry.warnings.includes("scale-suspect")) continue;
+    const [w, h, d] = sizeOf(entry);
+    if (![w, h, d].every((v) => Number.isFinite(v)) || !(w > 0 && d > 0 && h === 0)) continue;
+    const bf = Object.prototype.hasOwnProperty.call(fronts, key) ? fronts[key] : undefined;
+    out.push({ pack: pack.pack, glb: pack.glb, entry, front: bf?.front ?? "+z", corner: bf?.corner ? (bf.open ?? "+x") : false, family: meshFamily(pack.assets, entry) });
+  }
+  return out.length > 0 ? out : null;
+}
+
 function describe(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
@@ -226,7 +254,7 @@ export function sharedModels(): Promise<ModelSet> {
   shared ??= loadSavedCalibration({ dev: import.meta.env.DEV, fetchJson }).then((saved) => {
     const tables = effectiveFronts({ fronts: BUILDING_FRONTS, exclude: BUILDING_EXCLUDE }, saved);
     // The City Pack's stack pieces load too (ticket 050 C); with no City Pack in the manifest nothing extra is fetched and the set has no stack slot.
-    return loadModels({ fetchJson, loadGlb: async (url) => (await new GLTFLoader().loadAsync(url)).scene, fronts: tables.fronts, exclude: tables.exclude, stackKeys: allStackKeys(), dressKeys: dressKeys() });
+    return loadModels({ fetchJson, loadGlb: async (url) => (await new GLTFLoader().loadAsync(url)).scene, fronts: tables.fronts, exclude: tables.exclude, stackKeys: allStackKeys(), dressKeys: [...dressKeys(), ...furnitureKeys()] });
   });
   return shared;
 }
@@ -247,6 +275,10 @@ export interface AppliedModels {
   dress: readonly DressPlacement[];
   /** The InstancedMeshes the dressing added (its draw calls); 0 when none. */
   dressCalls: number;
+  /** The street furniture and open-lot dressing placed (ticket 052 C), in `furnitureLayout` order; empty when there is none. */
+  furniture: readonly FurniturePiece[];
+  /** The InstancedMeshes the furniture added (its draw calls); 0 when none. */
+  furnitureCalls: number;
 }
 
 /** A clone of `m` in a wrapper that scales, turns and places it. The clone shares the cache's geometry and materials; nothing can pick it. */
@@ -406,6 +438,80 @@ export function dressPlacements(sites: readonly DressSite[], entries: ReadonlyMa
     for (const piece of dressed[i] ?? []) out.push({ frame: s.frame, piece });
   });
   return out;
+}
+
+// ---- street furniture and open lots (ticket 052 C) ----
+
+const GROUND_LIFT_M = 0.01;
+const NO_FRAME: DressFrame = { x: 0, z: 0, yaw: 0 };
+
+/** A piece of furniture as a placement the dressing instancer draws: world position to metres, standing on its ground layer (a flat tile a hair above it, so it does not fight the ground). */
+export function furniturePlacement(p: FurniturePiece): DressPlacement {
+  const base = (p.ground === "pavement" ? PAVEMENT_Y : YARD_H) / WORLD_PER_METRE + (p.flat ? GROUND_LIFT_M : 0) + p.lift;
+  return { frame: NO_FRAME, piece: { key: p.key, slot: "wall", x: p.x / WORLD_PER_METRE, y: base, z: p.z / WORLD_PER_METRE, yaw: p.yaw, column: 0, w: p.w, h: p.h, d: p.d } };
+}
+
+/** The footprint of a piece of building dressing on the ground, world units, and the height of its base, metres: what a tall item of furniture keeps out from under. */
+export function avoidBoxOf(pl: DressPlacement): AvoidBox {
+  const s = WORLD_PER_METRE;
+  const c = Math.cos(pl.frame.yaw);
+  const n = Math.sin(pl.frame.yaw);
+  const x = pl.frame.x + (pl.piece.x * c + pl.piece.z * n) * s;
+  const z = pl.frame.z + (-pl.piece.x * n + pl.piece.z * c) * s;
+  const hx = ((Math.abs(c) * pl.piece.w + Math.abs(n) * pl.piece.d) / 2) * s;
+  const hz = ((Math.abs(n) * pl.piece.w + Math.abs(c) * pl.piece.d) / 2) * s;
+  return { minX: x - hx, minZ: z - hz, maxX: x + hx, maxZ: z + hz, y: pl.piece.y };
+}
+
+function boxRect(o: Object3D): Rect | null {
+  o.updateWorldMatrix(true, false);
+  const b = new Box3().setFromObject(o);
+  return b.isEmpty() ? null : { minX: b.min.x, minZ: b.min.z, maxX: b.max.x, maxZ: b.max.z };
+}
+
+/**
+ * What the furniture layout reads of a scene (the town is not on the bundle, and 052 may not edit the scene): the terrace runs that were packed, the lots, the parking lots and plazas
+ * found from the runs (`openLotsOf`), each run's alley (`alleyOf`, from the packer's far gap), the circuit's poles, lamps, nodes, drops, pads and wire spans (to keep out of), and the building
+ * dressing's footprints. A run that packed no block (its placeholders stay) gets no furniture.
+ */
+export function furnitureInput(bundle: SceneBundle, packed: ReadonlyMap<string, PackResult>, dress: readonly DressPlacement[]): FurnitureInput {
+  const { slots } = bundle;
+  const lots = slots.blocks.list;
+  const all = slots.blocks.terraces ?? [];
+  const runs = all.filter((r) => (packed.get(r.id)?.blocks.length ?? 0) > 0);
+  const alleys = new Map<string, Alley>();
+  for (const r of runs) {
+    const res = packed.get(r.id)!;
+    const a = alleyOf(r, res.blocks[res.blocks.length - 1]?.lot ?? null, res.farGap_m, res.farOverhang_m, ALLEY_MIN_M, ALLEY_MAX_M);
+    if (a) alleys.set(r.id, a);
+  }
+  const keepPoints = [
+    ...slots.poles.spots.map((p) => ({ x: p.x, z: p.z })),
+    ...slots.lamps.map((l) => ({ x: l.group.position.x, z: l.group.position.z })),
+    // The nodes' groups are the scene's own children (the models, terrace and dressing groups are marked shared).
+    ...bundle.scene.children.filter((o) => o.type === "Group" && o.userData["sharedModel"] !== true).map((o) => ({ x: o.position.x, z: o.position.z })),
+  ];
+  const keepRects: Rect[] = [];
+  for (const m of bundle.streets.pads) {
+    const r = boxRect(m);
+    if (r) keepRects.push(r);
+  }
+  const wireRects: Rect[] = [];
+  for (const w of bundle.wires.values()) {
+    const r = boxRect(w.whole);
+    if (r) wireRects.push(r);
+  }
+  return {
+    runs,
+    lots,
+    openLots: openLotsOf(all, lots),
+    alleys,
+    keepPoints,
+    keepSegments: bundle.hardware.dropList.map((d) => [{ x: d.from.x, z: d.from.z }, { x: d.to.x, z: d.to.z }] as const),
+    keepRects,
+    wireRects,
+    avoid: dress.filter((p) => p.piece.slot !== "glass").map(avoidBoxOf),
+  };
 }
 
 /** The mesh nodes of a model's root, each with the matrix that takes its own frame to the root's parent (the root's own local matrix included, as a clone in a wrapper has it). */
@@ -707,6 +813,7 @@ export function applyModels(bundle: SceneBundle, set: ModelSet): AppliedModels {
   const stackRootsOf = stackRoots(set);
   let placed: readonly BuildingPlacement[] = [];
   const terrace: PackedBlock[] = [];
+  const packedRuns = new Map<string, PackResult>();
   if (((buildings && buildings.length > 0) || stacks) && slots.blocks.list.length > 0) {
     const placements = buildingPlacements(slots.blocks.list, buildings, stacks);
     placed = placements;
@@ -730,6 +837,7 @@ export function applyModels(bundle: SceneBundle, set: ModelSet): AppliedModels {
   if (stacks && runs.length > 0) {
     const lots = slots.blocks.list;
     const packed = packTown({ terraces: runs, lots }, STACK_STYLES, stacks.entries, stacks.fronts);
+    for (const [id, res] of packed) packedRuns.set(id, res);
     const row = new Group();
     row.name = "terrace-stacks";
     row.userData["sharedModel"] = true;
@@ -770,11 +878,30 @@ export function applyModels(bundle: SceneBundle, set: ModelSet): AppliedModels {
       } else drawn.dispose();
     }
   }
+  // The street furniture (ticket 052 C): on the pavements in front of the packed terrace runs, in the open lots and in the alleys, drawn through the same instancer into a group of
+  // its own. Nothing without the dressing (a fresh checkout, CI): no group at all.
+  let furniture: readonly FurniturePiece[] = [];
+  let furnitureCalls = 0;
+  if (dressing && terrace.length > 0) {
+    const pieces = furnitureLayout(furnitureInput(bundle, packedRuns, dress), dressing.entries, dressing.fronts);
+    if (pieces.length > 0) {
+      const drawn = dressGroup(pieces.map(furniturePlacement), dressing.roots, FURN_DRAW_CALLS_MAX);
+      if (drawn.calls > 0) {
+        drawn.group.name = "city-furniture";
+        add(slots.models.parent ?? slots.models, drawn.group);
+        undo.push(() => drawn.dispose());
+        furniture = pieces;
+        furnitureCalls = drawn.calls;
+      } else drawn.dispose();
+    }
+  }
   return {
     buildings: placed,
     terrace,
     dress,
     dressCalls,
+    furniture,
+    furnitureCalls,
     remove() {
       for (let i = undo.length - 1; i >= 0; i--) undo[i]!();
       undo.length = 0;
