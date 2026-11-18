@@ -625,7 +625,7 @@ describe("applyModels stands one unpickable group per stack", () => {
   });
 
   it("adds no stack group at all when no stack piece loaded (a fresh checkout and CI)", () => {
-    const bundle = buildScene(puzzle, { text: stubTextSurface, terraces: false });
+    const bundle = buildScene(puzzle, { text: stubTextSurface });
     const applied = applyModels(bundle, SET_NO_CITY);
     expect(bundle.slots.models.children.some((c) => c.name.startsWith("stack:"))).toBe(false);
     expect(applied.buildings.every((p) => p.stack === undefined)).toBe(true);
