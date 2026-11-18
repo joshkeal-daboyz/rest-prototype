@@ -11,11 +11,13 @@
  */
 
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { AssetPack, AssetWarning } from "../../src/core";
+import type { AssetColourway, AssetPack, AssetWarning } from "../../src/core";
 import { BLENDER_MISSING_TEXT, BlenderPathError, MIN_BLENDER, findBlender, formatVersion, parseBlenderVersion, versionAtLeast } from "./blender";
+import { COLOURWAY_SOURCES, colourwayEntry, planColourways, pngSize } from "./colourways";
+import type { ColourwayPlans } from "./colourways";
 import { buildManifest, compareNames, parsePackReport, readPriorPacks } from "./manifest";
 import type { PackInput, PackReport } from "./manifest";
 
@@ -37,6 +39,10 @@ export interface ConvertDeps {
   isDirectory: (path: string) => boolean;
   readText: (path: string) => string;
   writeText: (path: string, text: string) => void;
+  /** A file's bytes (a colourway PNG); throws when it can't be read. */
+  readBytes: (path: string) => Uint8Array;
+  /** Copy a file verbatim, replacing the target; the target's folder exists. */
+  copyFile: (from: string, to: string) => void;
   /** Create a folder and its parents. */
   mkdirp: (path: string) => void;
   /** Remove a file or folder tree; no error when it's already gone. */
@@ -49,7 +55,12 @@ export interface ConvertDeps {
 }
 
 export const USAGE = `Usage: npm run assets:convert [pack...]
+       npm run assets:convert -- --colourways [pack...]
        npm run assets:selftest
+
+--colourways copies a pack's colourway atlases (alternate colourings of its shared atlas; the file names are the table in
+tools/assets/colourways.ts) to assets/private/out/<pack>/colourways/ and lists them in that pack's manifest entry. It runs
+no Blender and rewrites no GLB. A full convert of a pack that has such a table runs the same step after its GLB.
 
 Lay a pack out like this (nothing under assets/private/ is ever committed):
   assets/private/in/<pack>/**/*.fbx     the pack's FBX files
@@ -442,8 +453,152 @@ async function runPacks(deps: ConvertDeps, blender: BlenderInfo, names: readonly
     deps.writeText(L.manifest, JSON.stringify(manifest, null, 2) + "\n");
     deps.stdout(`Wrote ${L.manifest}\n`);
     for (const input of inputs) deps.stdout(summary(input.pack, parsePackReport(input.pack, input.report)));
+    // A pack with a colourway table gets its colourway step after its GLB (a problem there is a warning, never a failed conversion).
+    const withTable = inputs.map((i) => i.pack).filter((p) => planColourways(p, COLOURWAY_SOURCES) !== null);
+    if (withTable.length > 0) applyColourways(deps, withTable, false);
   }
   return failed > 0 ? 1 : 0;
+}
+
+interface ColourwayResult {
+  entries: AssetColourway[];
+  warnings: string[];
+  /** Set when nothing can be exported for the pack (its base atlas is unusable). */
+  fatal?: string;
+}
+
+/** Copy one pack's colourway PNGs under out/<pack>/colourways/ and return the manifest entries for the ones that passed. */
+function exportColourways(deps: ConvertDeps, pack: string, plans: ColourwayPlans): ColourwayResult {
+  const L = layout(deps.root);
+  const packDir = join(L.inRoot, pack);
+  const at = (rel: string) => join(packDir, ...rel.split("/"));
+  const result: ColourwayResult = { entries: [], warnings: [] };
+
+  const baseAbs = at(plans.baseFile);
+  let baseSize: { width: number; height: number } | null = null;
+  if (deps.exists(baseAbs)) {
+    try {
+      baseSize = pngSize(deps.readBytes(baseAbs));
+    } catch {
+      baseSize = null;
+    }
+  }
+  if (baseSize === null) {
+    result.fatal = `${pack}: the base atlas ${plans.baseFile} is missing or not a PNG, so no colourway can be checked against it (looked in ${baseAbs})`;
+    return result;
+  }
+
+  for (const plan of plans.entries) {
+    const src = at(plan.file);
+    if (!deps.exists(src)) {
+      result.warnings.push(`${pack}: colourway ${plan.file} not found, left out`);
+      continue;
+    }
+    let size: { width: number; height: number } | null;
+    try {
+      size = pngSize(deps.readBytes(src));
+    } catch (e) {
+      result.warnings.push(`${pack}: colourway ${plan.file} could not be read (${(e as Error).message}), left out`);
+      continue;
+    }
+    if (size === null) {
+      result.warnings.push(`${pack}: colourway ${plan.file} is not a PNG, left out`);
+      continue;
+    }
+    if (size.width !== baseSize.width || size.height !== baseSize.height) {
+      result.warnings.push(
+        `${pack}: colourway ${plan.file} is ${size.width} x ${size.height} but the base atlas is ${baseSize.width} x ${baseSize.height}, left out`,
+      );
+      continue;
+    }
+    const dest = join(L.out, ...plan.out.split("/"));
+    if (!isInside(L.privateRoot, dest)) {
+      result.warnings.push(`${pack}: refusing to write outside assets/private/: ${dest}`);
+      continue;
+    }
+    deps.mkdirp(dirname(dest));
+    deps.copyFile(src, dest);
+    result.entries.push(colourwayEntry(plan, plans.base, size));
+  }
+  return result;
+}
+
+/**
+ * The colourway step for these packs (each has a table entry): copy the files, then rewrite only each pack's `colourways`
+ * field in manifest.json (the file is read as JSON and written back whole, so every other field is as it was).
+ * Returns the exit code: 1 for a missing or unreadable manifest, a pack not in it, or (when `strict`) an unusable base atlas.
+ * A missing file, a non-PNG or a size mismatch is one warning line and that file is left out.
+ */
+function applyColourways(deps: ConvertDeps, packs: readonly string[], strict: boolean): number {
+  const L = layout(deps.root);
+  if (!deps.exists(L.manifest)) {
+    deps.stderr(`No manifest at ${L.manifest}. Convert a pack first (npm run assets:convert), then export its colourways.\n`);
+    return 1;
+  }
+  let raw: unknown;
+  try {
+    raw = JSON.parse(deps.readText(L.manifest));
+  } catch (e) {
+    deps.stderr(`${L.manifest} is not valid JSON (${(e as Error).message}); nothing written.\n`);
+    return 1;
+  }
+  const list = typeof raw === "object" && raw !== null ? (raw as { packs?: unknown }).packs : undefined;
+  if (!Array.isArray(list)) {
+    deps.stderr(`${L.manifest} has no "packs" list; nothing written.\n`);
+    return 1;
+  }
+  let failed = 0;
+  let changed = false;
+  for (const pack of packs) {
+    const plans = planColourways(pack, COLOURWAY_SOURCES);
+    if (plans === null) continue;
+    const entry = (list as unknown[]).find((p) => typeof p === "object" && p !== null && (p as { pack?: unknown }).pack === pack) as Record<string, unknown> | undefined;
+    if (entry === undefined) {
+      deps.stderr(`Pack "${pack}" is not in the manifest; convert it first. Its colourways were not exported.\n`);
+      failed = 1;
+      continue;
+    }
+    const result = exportColourways(deps, pack, plans);
+    for (const w of result.warnings) deps.stderr(`warning: ${w}\n`);
+    if (result.fatal !== undefined) {
+      deps.stderr(`${strict ? "error" : "warning"}: ${result.fatal}\n`);
+      if (strict) failed = 1;
+      continue;
+    }
+    if (result.entries.length === 0) {
+      deps.stdout(`  ${pack}: no colourway could be exported; its manifest entry is unchanged\n`);
+      continue;
+    }
+    entry["colourways"] = result.entries;
+    changed = true;
+    deps.stdout(`  ${pack}: ${result.entries.length} of ${plans.entries.length} colourway(s) exported to ${join(L.out, pack, "colourways")}\n`);
+  }
+  if (changed) {
+    deps.writeText(L.manifest, JSON.stringify(raw, null, 2) + "\n");
+    deps.stdout(`Wrote ${L.manifest}\n`);
+  }
+  return failed;
+}
+
+/** `--colourways [pack...]`: only the colourway step. No Blender, no GLB. */
+function runColourways(deps: ConvertDeps, names: readonly string[]): number {
+  const L = layout(deps.root);
+  for (const n of names) {
+    if (!packNameIsSafe(L.inRoot, n)) {
+      deps.stderr(`Refusing pack name "${n}": a pack is a single folder name inside assets/private/in/.\n`);
+      return 1;
+    }
+    if (planColourways(n, COLOURWAY_SOURCES) === null) {
+      deps.stderr(`No colourway table for pack "${n}". Packs with one: ${Object.keys(COLOURWAY_SOURCES).join(", ")}\n`);
+      return 1;
+    }
+  }
+  const selected = names.length > 0 ? [...new Set(names)].sort(compareNames) : Object.keys(COLOURWAY_SOURCES).filter((p) => deps.isDirectory(join(L.inRoot, p))).sort(compareNames);
+  if (selected.length === 0) {
+    deps.stdout(`No pack with a colourway table found in ${L.inRoot}\n`);
+    return 0;
+  }
+  return applyColourways(deps, selected, true);
 }
 
 /** Names the self-test's boxes carry; convert_fbx.py --selftest builds them. */
@@ -604,9 +759,11 @@ async function runSelftest(deps: ConvertDeps, blender: BlenderInfo): Promise<num
 /** The CLI. `argv` is the arguments after the script name. Returns the exit code. */
 export async function convert(argv: readonly string[], deps: ConvertDeps): Promise<number> {
   let selftest = false;
+  let colourways = false;
   const names: string[] = [];
   for (const arg of argv) {
     if (arg === "--selftest") selftest = true;
+    else if (arg === "--colourways") colourways = true;
     else if (arg === "--help" || arg === "-h") {
       deps.stdout(USAGE);
       return 0;
@@ -619,6 +776,11 @@ export async function convert(argv: readonly string[], deps: ConvertDeps): Promi
     deps.stderr(`--selftest takes no pack names\n`);
     return 1;
   }
+  if (colourways && selftest) {
+    deps.stderr(`--colourways and --selftest cannot be combined\n`);
+    return 1;
+  }
+  if (colourways) return runColourways(deps, names); // no Blender is looked for
 
   const blender = await resolveBlender(deps);
   if (blender === 2) return 2;
@@ -648,6 +810,8 @@ export function realDeps(root: string): ConvertDeps {
     },
     readText: (p) => readFileSync(p, "utf8"),
     writeText: (p, text) => writeFileSync(p, text),
+    readBytes: (p) => new Uint8Array(readFileSync(p)),
+    copyFile: (from, to) => copyFileSync(from, to),
     mkdirp: (p) => void mkdirSync(p, { recursive: true }),
     remove: (p) => rmSync(p, { recursive: true, force: true }),
     run: (command, args) =>
