@@ -675,8 +675,11 @@ describe("isolation from the town", () => {
 // The real manifest is gitignored and only on the machine that converted the packs: these run there and skip elsewhere.
 const REAL = "assets/private/out/manifest.json";
 describe.skipIf(!existsSync(REAL))("against the real manifest", () => {
-  const real = JSON.parse(readFileSync(REAL, "utf8")) as unknown;
+  // skipIf still runs this callback while collecting, so the file is read only inside a test, never here.
+  let memo: unknown;
+  const readReal = (): unknown => (memo ??= JSON.parse(readFileSync(REAL, "utf8")) as unknown);
   it.each(["simple-town", "city-pack", "town-pack", "apocalypse-power"])("%s: lays out without overlap, every front toward the camera", (id) => {
+    const real = readReal();
     expect(isManifest(real)).toBe(true);
     const m = real as AssetManifest;
     if (!m.packs.some((p) => p.pack === id)) return;
