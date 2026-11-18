@@ -25,6 +25,7 @@ import {
   TILE_M,
   TILE_PLAZA_W_M,
   bayMeters,
+  tileRowInset_m,
   streetBandAt,
   tileCity,
   tileKeepouts,
@@ -41,7 +42,7 @@ import { FURN_KEEP_M, FURN_KERB_M, KERB_M, METERS, WALL_EDGE_M, furnitureLayout 
 import { BUILDING_FRONTS } from "./models";
 import { STACK_STYLES } from "./stacks";
 import { ALLEY_MAX_M, ALLEY_MIN_M, TERRACE_SEAM_M, packTown, type PackResult, type PackedBlock } from "./terrace";
-import { PAVE_W, ROAD_W, SETBACK, WORLD_PER_METRE, terraceBlockRows, terraceRunKey, townLayout, type TerraceBox, type TerraceRun, type TerraceSide } from "./town";
+import { CORNER_GAP, PAVE_W, ROAD_W, SETBACK, WORLD_PER_METRE, terraceBlockRows, terraceRunKey, townLayout, type TerraceBox, type TerraceRun, type TerraceSide } from "./town";
 
 const U = WORLD_PER_METRE;
 const SIZES: readonly [number, number][] = [
@@ -832,11 +833,57 @@ describe("terraceBlockRows (criterion 9: the extraction)", () => {
     expect(plazaSeen && parkSeen).toBe(true);
   });
 
+  it("starts a row startInset_m in from its corner, asking whether it ends at or starts after a plaza", () => {
+    const asked: number[] = [];
+    // A block id whose top row has no plaza at its start.
+    const id = Array.from({ length: 60 }, (_, k) => `block:t:${k}`).find((q) => terraceBlockRows({ id: q }, sides(), { frontOff: 0 }).runs.find((run) => run.road === "x:0")!.ax === 0)!;
+    expect(id).toBeDefined();
+    const r = terraceBlockRows({ id }, sides(), { frontOff: 0, startInset_m: (row) => (asked.push(row), 2) });
+    expect(asked.slice(0, 4)).toEqual([0, 1, 2, 3]);
+    const top = r.runs.find((run) => run.road === "x:0")!;
+    expect(top.ax / U).toBeCloseTo(2, 9);
+    // The row's last run ends at the same wall, so it is the inset shorter (the first may end at a lot, which moves with it).
+    const plain = terraceBlockRows({ id }, sides(), { frontOff: 0 });
+    const lastOf = (x: typeof plain): TerraceRun => x.runs.filter((run) => run.road === "x:0").pop()!;
+    expect(lastOf(plain).len / U - lastOf(r).len / U).toBeCloseTo(2, 9);
+  });
+
   it("changes nothing without options: the defaults are the ladder's (the digests in townpin.test.ts pin the whole town)", () => {
     const a = terraceBlockRows({ id: "block:t:1" }, sides());
     const b = terraceBlockRows({ id: "block:t:1" }, sides(), { frontOff: ROAD_W / 2 + PAVE_W + SETBACK });
     expect(JSON.stringify(a)).toBe(JSON.stringify(b));
     for (const run of a.runs) expect("frame" in run).toBe(false);
+  });
+});
+
+describe("the row inset (criterion 10)", () => {
+  it("is under CORNER_GAP (2.78 m) for every block side of 40 to 60 m when the row starts at a corner, and under one bay (5.2 m) after a plaza", () => {
+    for (let cells = BLOCK_TILES.min; cells <= BLOCK_TILES.max; cells++) {
+      for (const end of [false, true]) {
+        for (const start of [false, true]) {
+          const s = tileRowInset_m(cells * TILE_M, end, start);
+          expect(s, `${cells} cells, end plaza ${end}, start plaza ${start}`).toBeGreaterThanOrEqual(0);
+          expect(s, `${cells} cells, end plaza ${end}, start plaza ${start}`).toBeLessThan(start ? 5.2 : CORNER_GAP / WORLD_PER_METRE);
+        }
+      }
+    }
+  });
+
+  it("starts each row's first lot that far in from the block corner, still as a corner lot", () => {
+    for (const seed of [1, 2, 3]) {
+      const c = tileCity({ blocksX: 3, blocksZ: 3, seed });
+      let insetRuns = 0;
+      for (const run of c.town.terraces) {
+        if (!run.startCorner) continue;
+        const b = c.town.blocks.find((q) => q.id === run.block)!;
+        const corner = [{ x: b.minX, z: b.minZ }, { x: b.maxX, z: b.minZ }, { x: b.maxX, z: b.maxZ }, { x: b.minX, z: b.maxZ }];
+        const d = Math.min(...corner.map((p) => Math.hypot(run.ax - p.x, run.az - p.z))) / WORLD_PER_METRE;
+        // Within CORNER_GAP of the cross street's pavement, which is the ladder's own rule for a corner lot.
+        expect(d, run.id).toBeLessThan(CORNER_GAP / WORLD_PER_METRE);
+        if (d > 0.01) insetRuns++;
+      }
+      expect(insetRuns, `seed ${seed}`).toBeGreaterThan(10);
+    }
   });
 });
 
@@ -915,13 +962,23 @@ describe("terraces on tile streets (criterion 10)", () => {
     expect(tiers.seam + tiers.alley + tiers.big, JSON.stringify(tiers)).toBe(runs);
   });
 
-  // KNOWN MISS (ticket 055 criterion 10, Risk 4): the ladder closes at least 85% of its runs to a seam or an alley; the tile city closes about 14%. A row is the block's side minus the
-  // next row's 6 m band, so its length is 5k - 1 metres for a side of k cells (34, 39, 44, 49 or 54 m), and nine columns of 5.0 to 5.28 m cannot reach within 1.5 m of 44 m.
-  // The gap is a wider one (1.6 to 3.8 m), never a slit. This test states the ladder's share and is expected to fail until a ticket changes the rows or the pieces; if it ever
-  // passes, `it.fails` turns red and this note comes out.
-  it.fails("closes the far gap to a seam or an alley on at least the ladder's 85% of runs", { timeout: 120000 }, () => {
+  // The rows stand back from their first corner by `tileRowInset_m` (see tilecity.ts): a row is the block's side minus the next row's 6 m band, 5k - 6 metres for a side of k cells
+  // (34, 39, 44, 49 or 54 m), and no number of 5.0 to 5.28 m columns reaches within 1.5 m of that. With the inset the ladder's share of 85% is met.
+  it("closes the far gap to a seam or an alley on at least the ladder's 85% of runs, and on 85% of the runs that end at a corner", { timeout: 120000 }, () => {
     const { runs, tiers } = tiersOf();
     expect((tiers.seam + tiers.alley) / runs, JSON.stringify(tiers)).toBeGreaterThanOrEqual(0.85);
+    let corner = 0;
+    let closed = 0;
+    for (const c of cities) {
+      for (const run of c.town.terraces) {
+        if (run.endAbuts !== "corner") continue;
+        corner++;
+        const g = packOf(c).get(run.id)!.farGap_m;
+        if (g <= TERRACE_SEAM_M + 1e-9 || (g >= ALLEY_MIN_M - 1e-9 && g <= ALLEY_MAX_M + 1e-9)) closed++;
+      }
+    }
+    expect(corner).toBeGreaterThan(250);
+    expect(closed / corner, `${closed} of ${corner}`).toBeGreaterThanOrEqual(0.85);
   });
 
   const planOf = (c: TileCity): { m: CityMetrics } => {
@@ -932,10 +989,10 @@ describe("terraces on tile streets (criterion 10)", () => {
     return { m: cityMetrics(t, packed, dressing, []) };
   };
 
-  it("passes R1 to R5 and R8 to R13 (evaluateCity) on the packed and dressed plan of every city, with the tile frame read by the dressing", { timeout: 120000 }, () => {
+  it("passes R1 to R6 and R8 to R13 (evaluateCity) on the packed and dressed plan of every city, with the tile frame read by the dressing", { timeout: 120000 }, () => {
     for (const c of cities) {
       const { m } = planOf(c);
-      const failing = evaluateCity(m).filter((v) => !v.pass && v.id !== "R6" && v.id !== "R7");
+      const failing = evaluateCity(m).filter((v) => !v.pass && v.id !== "R7");
       expect(failing, `seed ${c.seed} ${JSON.stringify(evaluateCity(m))}`).toEqual([]);
       // Not vacuous: a city of blocks that corner, dressed, with no slit.
       expect(m.blocks, `seed ${c.seed}`).toBeGreaterThan(80);
@@ -943,17 +1000,16 @@ describe("terraces on tile streets (criterion 10)", () => {
       expect(m.cornerBlocksOffCorner, `seed ${c.seed}`).toBe(0);
       expect(m.farGaps.slit, `seed ${c.seed}`).toBe(0);
       expect(m.dressPieces, `seed ${c.seed}`).toBeGreaterThan(m.blocks * 3);
-      // R6 and R7 are shares of about 60 qualifying blocks; they sit just under their floors here (see the known miss below).
-      const r6 = evaluateCity(m).find((v) => v.id === "R6")!;
-      const r7 = evaluateCity(m).find((v) => v.id === "R7")!;
-      expect(r6.value, `seed ${c.seed} R6`).toBeGreaterThan(0.4);
-      expect(r7.value, `seed ${c.seed} R7`).toBeGreaterThan(0.35);
+      // R7 is the share of qualifying blocks (3 or more bays, 2 or more floors) that carry a fire escape: 0.43 to 0.50 here (see the known miss below), never under 0.40.
+      expect(evaluateCity(m).find((v) => v.id === "R7")!.value, `seed ${c.seed} R7`).toBeGreaterThan(0.4);
     }
   });
 
-  // KNOWN MISS (ticket 055 criterion 10): R6 (signs and ATMs) and R7 (fire escapes) are measured on the dressing's own chances over about 60 qualifying blocks of a 3 x 3 city, and
-  // land at 0.42 to 0.52 where CITY_CHECK asks 0.5 (the ladder's three maps: 0.53 to 0.58). Nothing in the tile city's geometry changes them (the frame makes no difference to them).
-  it.fails("passes R6 and R7 as well, on every one of the default city and seeds 1 to 10", { timeout: 120000 }, () => {
+  // KNOWN MISS (ticket 055 criterion 10): R7 (fire escapes) lands at 0.43 to 0.50 on seeds 1 to 10 (pooled 0.45) where CITY_CHECK asks 0.5; the ladder's three maps give 0.53 to 0.58.
+  // It is the dressing's own chance (P_ESCAPE, one escape never beside another) over about 50 qualifying blocks, not the geometry: the same plans with the blocks' lot keys swapped
+  // for unrelated strings give 0.56. The pattern of the tile city's keys ("x:0:1:r0:b1") against dressUnit and the packer's hashes is what costs the 0.1, and the keys are made by
+  // town.ts and terrace.ts, outside section B. This test states the strict check and is expected to fail until the dressing or the keys change; if it passes, it.fails turns red.
+  it.fails("passes R7 as well, on every one of the default city and seeds 1 to 10", { timeout: 120000 }, () => {
     for (const c of cities) {
       const { m } = planOf(c);
       expect(evaluateCity(m).filter((v) => !v.pass), `seed ${c.seed}`).toEqual([]);
@@ -1085,21 +1141,23 @@ describe("the pavement frame (criterion 12)", () => {
     }
   });
 
-  it("gives dressStack exactly today's output when the frame is absent or says today's kerb, and reads a tighter or wider kerb when it is there", () => {
-    const town = townLayout(mapOf("09-shrine-circuit"));
-    const packed = packTown({ terraces: town.terraces, lots: town.lots }, STACK_STYLES, ENTRIES, BUILDING_FRONTS);
-    const blocks = runBlocks(town.terraces, packed).slice(0, 40);
-    expect(blocks.length).toBeGreaterThan(20);
+  it("gives dressStack exactly today's output on the three protocol maps when the frame is absent or says today's kerb, and reads a tighter kerb when it is there", () => {
     let tighter = 0;
-    for (const { block } of blocks) {
-      const run = { id: block.lot.terrace!.run, index: 0, lowest: true };
-      const base = dressStack(block.stack, block.lot, run, ENTRIES, BUILDING_FRONTS);
-      expect(dressStack(block.stack, block.lot, { ...run, frame: { wall_m: WALL_EDGE_M, kerb_m: KERB_FROM_FRONT_M } }, ENTRIES, BUILDING_FRONTS)).toEqual(base);
-      expect(dressStack(block.stack, block.lot, run, ENTRIES, BUILDING_FRONTS, KERB_FROM_FRONT_M)).toEqual(base);
-      // A kerb 1 m from the front: nothing stands past it (every front prop is nearer than the road's edge), and some block loses a piece.
-      const tight = dressStack(block.stack, block.lot, { ...run, frame: { wall_m: 0, kerb_m: 1 } }, ENTRIES, BUILDING_FRONTS);
-      for (const p of tight) if (p.slot === "awning") expect(p.z + p.d / 2).toBeLessThanOrEqual(1 + 1e-6);
-      if (tight.length < base.length) tighter++;
+    for (const file of MAPS) {
+      const town = townLayout(mapOf(file));
+      const packed = packTown({ terraces: town.terraces, lots: town.lots }, STACK_STYLES, ENTRIES, BUILDING_FRONTS);
+      const blocks = runBlocks(town.terraces, packed).slice(0, 40);
+      expect(blocks.length, file).toBeGreaterThan(20);
+      for (const { block } of blocks) {
+        const run = { id: block.lot.terrace!.run, index: 0, lowest: true };
+        const base = dressStack(block.stack, block.lot, run, ENTRIES, BUILDING_FRONTS);
+        expect(dressStack(block.stack, block.lot, { ...run, frame: { wall_m: WALL_EDGE_M, kerb_m: KERB_FROM_FRONT_M } }, ENTRIES, BUILDING_FRONTS), file).toEqual(base);
+        expect(dressStack(block.stack, block.lot, run, ENTRIES, BUILDING_FRONTS, KERB_FROM_FRONT_M), file).toEqual(base);
+        // A kerb 1 m from the front: nothing stands past it (every front prop is nearer than the road's edge), and some block loses a piece.
+        const tight = dressStack(block.stack, block.lot, { ...run, frame: { wall_m: 0, kerb_m: 1 } }, ENTRIES, BUILDING_FRONTS);
+        for (const p of tight) if (p.slot === "awning") expect(p.z + p.d / 2).toBeLessThanOrEqual(1 + 1e-6);
+        if (tight.length < base.length) tighter++;
+      }
     }
     expect(tighter).toBeGreaterThan(0);
   });

@@ -646,6 +646,11 @@ export interface TerraceCounters {
 export interface TerraceRowOpts {
   /** The distance from each side's reference line to the lots' front line, world units. Default (the ladder): half a road, the pavement and `SETBACK`. */
   frontOff?: number;
+  /**
+   * How far in from its start each row's first lot stands, metres: asked of row `row` (0 to 3 in order top, right, bottom, left), whether the row ends at a plaza and whether it
+   * starts after one (the inset is then from the plaza's far edge). Default 0 for every row.
+   */
+  startInset_m?: (row: number, endsAtPlaza: boolean, startsAfterPlaza: boolean) => number;
   /** The lot rules asked of a box at height `h` (world units) with `margin` clear of lots already claimed. Default: everything clears. */
   clears?: (box: TerraceBox, h: number, margin: number) => boolean;
   /** Called with every lot, plaza and parking lot as it is laid, so the next `clears` sees it. */
@@ -759,7 +764,7 @@ export function terraceBlockRows(block: { id: string }, sides: readonly [Terrace
     const front = frontOf(i, plaza);
     const sideKey = `${front.id}:${front.side}`;
     let slot = slotCount.get(sideKey) ?? 0;
-    let c = plaza === i ? plazaW : 0;
+    let c = (plaza === i ? plazaW : 0) + (opts.startInset_m?.(i, plaza === (i + 1) % 4, plaza === i) ?? 0) * WORLD_PER_METRE;
     let cur: OpenRun | null = null;
     let rowRuns = 0;
     const closeRun = (endAbuts: TerraceRun["endAbuts"], endC: number): void => {

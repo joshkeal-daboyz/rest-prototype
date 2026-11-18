@@ -55,6 +55,21 @@ export const POLE_SLOT_FROM_KERB_M = 0.75;
 export const POLE_SLOT_PITCH_M = 12.5;
 /** The first slot of a side is this far from the side's first corner, and the last this far from its second. */
 export const POLE_SLOT_END_CLEAR_M = 2.5;
+/** The row-fit numbers (see `tileRowInset_m`): the corner block's depth, the alley left at a row's far end, and the width the row's columns are fitted to, metres. */
+export const TILE_CORNER_DEPTH_M = 5.75;
+export const TILE_ALLEY_M = 1.25;
+export const TILE_COLUMN_M = 5.2;
+/**
+ * How far in from its corner a row of a tile city starts, metres, for a block side of `side_m`. A side is a whole number of cells, so `side - 6` (a row's length) is never a length the
+ * packer's 5.0 to 5.28 m columns can close to a seam or an alley (chapter 16.2): the wall at the far end is `side - corner depth`, and n columns reach only 5.0n to 5.28n of it.
+ * The row therefore stands back from its first corner by the rest: with n columns of `TILE_COLUMN_M` and an alley of `TILE_ALLEY_M` at the far end, the inset is what is left of
+ * `side - corner depth`. It is 0 when the columns need no help, and stays inside `CORNER_GAP` of the cross street, so the first lot is still a corner lot.
+ */
+export function tileRowInset_m(side_m: number, endsAtPlaza = false, startsAfterPlaza = false): number {
+  const base = side_m - (startsAfterPlaza ? TILE_PLAZA_W_M : 0) - (endsAtPlaza ? TILE_PLAZA_W_M : TILE_CORNER_DEPTH_M) - TILE_ALLEY_M;
+  const n = Math.max(1, Math.floor(base / 5));
+  return Math.max(0, base - n * TILE_COLUMN_M);
+}
 /** A plaza's side on the tile grid, metres: two cells (the ladder's is 10.4). */
 export const TILE_PLAZA_W_M = 10;
 /** At least one parking lot per this many blocks in the city. */
@@ -448,6 +463,7 @@ export function tileCity(opts: { blocksX?: number; blocksZ?: number; seed?: numb
       ];
       const r = terraceBlockRows({ id: b.id }, sides, {
         frontOff: 0,
+        startInset_m: (row, endsAtPlaza, startsAfterPlaza) => tileRowInset_m(sides[row]!.span / u, endsAtPlaza, startsAfterPlaza),
         clears,
         claim: (box) => placed.push(bounds(box)),
         snap_m: TILE_M,
@@ -463,7 +479,9 @@ export function tileCity(opts: { blocksX?: number; blocksZ?: number; seed?: numb
       for (const run of r.runs) {
         const k = sides.findIndex((sd) => sd.road === run.road && sd.side === run.side);
         const sd = sides[k]!;
-        if (Math.abs(run.ax - sd.ax) > 1e-9 || Math.abs(run.az - sd.az) > 1e-9) continue;
+        const rowRuns = r.runs.filter((q) => q.road === run.road && q.side === run.side);
+        const endsAtPlaza = rowRuns[rowRuns.length - 1]!.endAbuts === "plaza";
+        if (Math.abs(Math.hypot(run.ax - sd.ax, run.az - sd.az) - tileRowInset_m(sd.span / u, endsAtPlaza, false) * u) > 1e-9) continue;
         const first = r.lots[run.lots[0]! - out.lots.length]!;
         const toStart: CornerSide["side"] = Math.cos(first.yaw) * run.ux - Math.sin(first.yaw) * run.uz < 0 ? "+x" : "-x";
         const cs: CornerSide = { side: toStart, road: cross[k]! };
