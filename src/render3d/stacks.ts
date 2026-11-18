@@ -14,7 +14,7 @@
 import type { AssetEntry, CalibrationKey } from "../core";
 import { stableHash } from "../render/city";
 import { BUILDING_FRONTS, STACK_LOT_TYPES, frontIsQuarter, frontYaw, sizeOf, type FrontTable, type ModelFront, type StackOffer } from "./models";
-import { LOT_TYPES, type Lot, type LotType } from "./town";
+import { LOT_TYPES, type Lot, type LotSpec, type LotType } from "./town";
 
 export type StackRole = "base" | "floor" | "roof";
 /** A side of the lot along the road, in the lot frame. */
@@ -357,18 +357,22 @@ function zExtent(style: StackStyle): [front: (c: Cand) => number, back: (c: Cand
   return style.depth === "footprint" ? [(c) => c.nudge + c.d / 2, (c) => c.nudge - c.d / 2] : [(c) => c.nudge + c.d, (c) => c.nudge];
 }
 
-function rangeFor(style: StackStyle, type: LotType, entries: Entries, fronts: FrontTable, sides: readonly StackSide[]): StackFit | null {
+function rangeFor(style: StackStyle, type: LotType, entries: Entries, fronts: FrontTable, sides: readonly StackSide[], spec: LotSpec = LOT_TYPES[type], exactBays?: number): StackFit | null {
   const kit = kitOf(style, entries, fronts);
   if (kit.baseMid.length === 0 || kit.floorMid.length === 0 || kit.roofMid.length === 0) return null;
   for (const s of sides) {
     if (kit.baseCorner[s].length === 0 || kit.floorCorner[s].length === 0 || kit.roofCorner[s].length === 0) return null;
   }
-  const spec = LOT_TYPES[type];
   const roofH = maxOf([style.pitch_m.roof, ...kit.roofMid.map((c) => c.h), ...SIDES.flatMap((s) => kit.roofCorner[s].map((c) => c.h))]);
   const max = Math.floor((spec.cap - style.pitch_m.base - roofH) / style.pitch_m.floor + EPS);
   const min = style.min_floors?.[type] ?? STACK_FLOORS[type];
   if (max < min) return null;
   if (worstDepth(style, kit) > spec.depth + EPS) return null;
+  if (exactBays !== undefined) {
+    // The caller (051 C's packer) sets the columns and owns the frontage: only the count has to be possible for the style.
+    if (!Number.isInteger(exactBays) || exactBays < Math.max(1, sides.length) || (style.depth === "footprint" && exactBays !== 1)) return null;
+    return { bays: exactBays, min, max };
+  }
   const bays = fitBays(style, kit, spec.frontage, sides);
   if (bays < 1) return null;
   return { bays, min, max };
@@ -376,10 +380,11 @@ function rangeFor(style: StackStyle, type: LotType, entries: Entries, fronts: Fr
 
 /**
  * What `style` gives on a lot type, for a mid-row stack (no corner column), or null when it cannot be offered: a piece missing from `entries`,
- * a column that does not fit the frontage, the depth over the lot's, or fewer floors under the cap than its minimum.
+ * a column that does not fit the frontage, the depth over the lot's, or fewer floors under the cap than its minimum. `spec` stands in for the type's own
+ * frontage, depth and cap (a terrace lot is not `LOT_TYPES.large`'s size, ticket 051 C); the floors minimum still comes from the type.
  */
-export function stackRange(style: StackStyle, type: LotType, entries: Entries, fronts: FrontTable = BUILDING_FRONTS): StackFit | null {
-  return rangeFor(style, type, entries, fronts, []);
+export function stackRange(style: StackStyle, type: LotType, entries: Entries, fronts: FrontTable = BUILDING_FRONTS, spec?: LotSpec): StackFit | null {
+  return rangeFor(style, type, entries, fronts, [], spec);
 }
 
 /**
@@ -406,6 +411,13 @@ export function offeredStacks(
 export interface AssembleOptions {
   /** Force the floors over the base ("max": the most the cap allows; a number is clamped into the range). Default: picked by hash per lot key. The stack gallery uses "max". */
   floors?: number | "max";
+  /** The lot's own frontage, depth and cap in metres, in place of `LOT_TYPES[type]` (a terrace block, ticket 051 C). */
+  spec?: LotSpec;
+  /**
+   * Exactly this many columns (the terrace packer picks them from the true widths), or null if the style cannot have that many. The frontage is then
+   * the caller's to keep: the columns' total is `Stack.width_m`, and a piece may overhang it a little, as in any stack. Without it, the most that fit.
+   */
+  bays?: number;
 }
 
 interface Item {
@@ -438,7 +450,8 @@ export function assembleStack(
     style,
     lot.cornerSides.map((c) => c.side),
   );
-  const range = rangeFor(style, lot.type, entries, fronts, sides);
+  const spec = opts.spec ?? LOT_TYPES[lot.type];
+  const range = rangeFor(style, lot.type, entries, fronts, sides, spec, opts.bays);
   if (!range) return null;
   const kit = kitOf(style, entries, fronts);
   const salt = `${lot.key}${style.id}`;
@@ -449,7 +462,6 @@ export function assembleStack(
         ? Math.min(range.max, Math.max(range.min, Math.round(opts.floors)))
         : range.min + (stableHash(salt) % (range.max - range.min + 1));
   const pick = <T>(xs: readonly T[], what: string): T | undefined => xs[stableHash(`${salt}${what}`) % Math.max(1, xs.length)];
-  const spec = LOT_TYPES[lot.type];
 
   const floorMid = pick(kit.floorMid, "floor");
   const roofMid = pick(kit.roofMid, "roof");
@@ -465,7 +477,8 @@ export function assembleStack(
     corner[s] = { base, floor: fl, roof: rf };
   }
 
-  for (let n = range.bays; n >= Math.max(1, sides.length); n--) {
+  const fewest = opts.bays !== undefined ? range.bays : Math.max(1, sides.length);
+  for (let n = range.bays; n >= fewest; n--) {
     const stack = build(n);
     if (stack) return stack;
   }
@@ -558,7 +571,7 @@ export function assembleStack(
     }));
     const height = Math.max(...pieces.map((p) => p.y + p.h));
     if (height > spec.cap + EPS) return null;
-    if (pieces.some((p) => p.x - p.w / 2 < -spec.frontage / 2 - EPS || p.x + p.w / 2 > spec.frontage / 2 + EPS)) return null;
+    if (opts.bays === undefined && pieces.some((p) => p.x - p.w / 2 < -spec.frontage / 2 - EPS || p.x + p.w / 2 > spec.frontage / 2 + EPS)) return null;
     return {
       style: style.id,
       family: `city-pack:stack:${style.id}`,
@@ -573,4 +586,15 @@ export function assembleStack(
       pieces,
     };
   }
+}
+
+/**
+ * The deepest any candidate piece of `style` stands, back face to frontmost face, metres (worst case over every piece the recipe can pick, as `stackRange`'s depth check
+ * uses), or null when the manifest lacks a role. A corner block's real back wall is at most this far from its front line: the terrace packer (ticket 051 C) closes a
+ * row's far end to it.
+ */
+export function stackDepth(style: StackStyle, entries: Entries, fronts: FrontTable = BUILDING_FRONTS): number | null {
+  const kit = kitOf(style, entries, fronts);
+  if (kit.baseMid.length === 0 || kit.floorMid.length === 0 || kit.roofMid.length === 0) return null;
+  return worstDepth(style, kit);
 }

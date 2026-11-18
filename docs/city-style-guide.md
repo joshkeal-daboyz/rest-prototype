@@ -55,6 +55,7 @@ How to read it:
 - **Info**: placeholder buildings (no model for a type, or no `assets/private/`) are boxes with storeys of `STOREY_M`, a roof and one of four dark tints, never over the lot's cap. Nothing in them is lit. They follow the same neighbour rule as models.
 - **Default (051, with 041's lot rules)**: the rows of the outer blocks are terraces. This replaces the outer-block step of frontage fill above: the pinwheel order, each row starting at its own corner, and the bands stay, but every side's band is `TERRACE_DEPTH_M`, and a row runs on to the next row's corner block with no gap on the street (short of it by under one bay at most; the packer of 051 C closes the rest). A row is a run of lots that abut (gap 0). Each lot is `bays` x `TERRACE_BAY_M` wide, `bays` in `TERRACE_BAYS` by `stableHash` of its key, and `TERRACE_DEPTH_M` deep. It is type `large` and takes the highest of `TERRACE_CAPS_M` (5, 4 and 3 storeys) that clears the rules above at that cap. A slot that clears no cap ends the run, and the next run starts `FILL_STEP` on. The ring road's inside, the circuit's streets and decor are filled as before.
 - **Default (051, with 041's lot rules)**: terrace rows have open ground. A run of at least `PARKING_MIN_RUN_BAYS` nominal bays has one parking lot, `PARKING_W_M` x `PARKING_D_M`, about its middle where `stableHash` of the run id modulo `PARKING_ONE_IN` is 0; the run ends at it and a new one starts after it. One outer block in `PLAZA_ONE_IN` (by `stableHash` of its id) has a plaza, `PLAZA_W_M` square, at one row's start in place of that row's corner block. Open lots are in `Town.openLots` and never in `Town.lots`, so no building, drop or pick uses them. They clear the rules above at height 0. A later ticket (052 C) dresses them; until then they are bare yard.
+- **Default (051, with 041's lot rules)**: a terrace row's far end closes **seam, or alley, never a slit**. The packer (`terrace.ts`) lays unscaled stacks flush from the row's start and first looks for a choice of styles and column counts that leaves a gap of at most `TERRACE_SEAM_M` to the next row's corner block's real back wall (or a plaza's or parking lot's edge). Where the pieces cannot (N unscaled columns span only 5.0 N to about 5.28 N metres, so most row lengths fall in a dead band), it aims for a gap from `ALLEY_MIN_M` to `ALLEY_MAX_M`, which reads as an alley between blocks (dressed in 052 C), and never for a 0.3 to 0.5 m slit; only if neither is possible does it take the smallest gap above `ALLEY_MAX_M` (within `TERRACE_SLACK_M` of the smallest, the first in the preference order: least-used style first). Neighbours never share a style or a floor count; no building model is scaled to close a gap (041).
 - **Info**: a terrace lot's placeholder fills its whole lot (no 0.8 or 0.9 footprint), so the boxes of a run touch. With the City Pack absent (CI, a fresh checkout) the terrace is those boxes. Until 051 D packs the runs, no whole model and no stack stands on a terrace lot, so with assets present the terrace is still those boxes.
 
 ## 5. Choosing a building
@@ -296,6 +297,10 @@ The drift test (`styleguide.test.ts`) reads this table. Each row names an export
 | `PARKING_ONE_IN` | 3 | town.ts |
 | `PLAZA_W_M` | 10.4 | town.ts |
 | `PLAZA_ONE_IN` | 4 | town.ts |
+| `TERRACE_SEAM_M` | 0.1 | terrace.ts |
+| `TERRACE_SLACK_M` | 0.15 | terrace.ts |
+| `ALLEY_MIN_M` | 1 | terrace.ts |
+| `ALLEY_MAX_M` | 1.5 | terrace.ts |
 | `STACK_FLOORS.small` | 1 | stacks.ts |
 | `STACK_FLOORS.house` | 1 | stacks.ts |
 | `STACK_FLOORS.large` | 2 | stacks.ts |

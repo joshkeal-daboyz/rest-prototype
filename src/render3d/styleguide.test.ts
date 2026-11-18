@@ -15,6 +15,7 @@ import * as models from "./models";
 import * as placeholders from "./placeholders";
 import * as scene from "./scene";
 import * as stacks from "./stacks";
+import * as terrace from "./terrace";
 import * as town from "./town";
 
 const GUIDE = "docs/city-style-guide.md";
@@ -31,6 +32,7 @@ const MODULES: Readonly<Record<string, Record<string, unknown>>> = {
   "placeholders.ts": placeholders as unknown as Record<string, unknown>,
   "camera.ts": camera as unknown as Record<string, unknown>,
   "stacks.ts": stacks as unknown as Record<string, unknown>,
+  "terrace.ts": terrace as unknown as Record<string, unknown>,
 };
 
 // ---- reading the guide ----
@@ -167,6 +169,7 @@ describe("the Numbers table matches the code", () => {
     ].map((n) => `${n}@layout.ts`),
     ...["STACK_FLOORS.small", "STACK_FLOORS.house", "STACK_FLOORS.large", "STACK_FLOORS.tall"].map((n) => `${n}@stacks.ts`),
     ...[0, 1, 2, 3, 4, 5].map((i) => `STACK_STYLES[${i}].pitch_m@stacks.ts`),
+    ...["TERRACE_SEAM_M", "TERRACE_SLACK_M", "ALLEY_MIN_M", "ALLEY_MAX_M"].map((n) => `${n}@terrace.ts`),
     ...["ELEVATION", "FOV_DEG"].map((n) => `${n}@camera.ts`),
     ...[
       "GROUND", "YARD", "STREET", "PAVEMENT", "KERB", "CENTRE_LINE", "PLACE", "POLE_WOOD", "FOOT", "METAL", "DEAD_WIRE", "LIVE_WIRE", "LIVE_GLOW",
