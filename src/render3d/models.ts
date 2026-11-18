@@ -27,6 +27,27 @@ export const BUILDING_EXCLUDE: readonly CalibrationKey[] = ["simple-town:store_s
  */
 export const POLYGON_MIN_FAMILIES: Readonly<Record<LotType, number>> = { small: 4, house: 4, large: 4, tall: 3 };
 
+/**
+ * The lot types that may stand City Pack stacks (ticket 050 Q1, default): large and tall. Small and house keep the Town Pack's whole houses (048). A stack is
+ * a family of its own (`city-pack:stack:<style>`) and each style counts as one toward POLYGON_MIN_FAMILIES.
+ */
+export const STACK_LOT_TYPES: readonly LotType[] = ["large", "tall"];
+
+/** What one stack style can stand on, as `stackName` is the name it has in a `BuildingPlan` (computed by `offeredStacks` in stacks.ts from the pieces that loaded). */
+export interface StackOffer {
+  style: string;
+  types: readonly LotType[];
+}
+
+/** A stack style's name in a `BuildingPlan` and in the picks: `stack:<style>`. No model is named like that, so the two never collide. */
+export const stackName = (style: string): string => `stack:${style}`;
+/** The style a plan name stands for, or null when it names a model. */
+export function stackStyleOf(name: string): string | null {
+  return name.startsWith("stack:") ? name.slice("stack:".length) : null;
+}
+/** A stack style's family for the variety rules. */
+export const stackFamily = (style: string): string => `city-pack:stack:${style}`;
+
 export type ModelSlot = "pole" | "lamp" | "building";
 export const MODEL_SLOTS: readonly ModelSlot[] = ["pole", "lamp", "building"];
 
@@ -83,6 +104,7 @@ export type FrontTable = Readonly<Record<CalibrationKey, BuildingFront>>;
 
 const FRONT_Z: BuildingFront = { front: "+z" };
 const FRONT_NZ: BuildingFront = { front: "-z" };
+const CORNER_PLUS_X: BuildingFront = { front: "+z", corner: true, open: "+x" };
 /**
  * Which way every building model's door faces (ticket 042 A). Every `pack:name` in MODEL_TABLE's building rows must be here (a test fails on a
  * missing one), and so must the names of ticket 042 B's PLACE_MODELS. Started as a guess ("+z" for all: no data in the repo records the
@@ -151,6 +173,45 @@ export const BUILDING_FRONTS: FrontTable = {
   "town-pack:SM_Bld_House_Preset_11": { front: "-z" },
   "town-pack:SM_Bld_House_Preset_Garage_01": { front: "-z" },
   "town-pack:SM_Bld_Shop_01": { front: "+z" },
+  // POLYGON City Pack stack pieces (ticket 050 C): the 34 keys of `STACK_STYLES` (stacks.ts). PROVISIONAL. Josh's saved file `assets/private/calibration/fronts.json`
+  // (savedAt 2026-11-18T03:50:16.193Z) has 25 of them, every one "+z", which is what a first click on the gallery's first copy saves, so it is not evidence that he saw a
+  // door. The other nine (Apartment_Corner_01, _03, Apartment_Door_01 and the six roofs, Apartment_Roof_01 to _03 and Apartment_Roof_Corner_01 to _03) were not in the
+  // file and take the same "+z" guess. Nobody has confirmed them: the stack gallery (`&gallery=city-pack&stacks=1`) is where Josh does, and each fix is one line here.
+  // A corner piece's `open` is the recipe's "+x" guess too (it is read in the lot frame, after the front is turned). A saved file still overrides these in a dev build.
+  "city-pack:SM_Bld_Shop_01": { front: "+z" },
+  "city-pack:SM_Bld_Shop_02": { front: "+z" },
+  "city-pack:SM_Bld_Shop_03": { front: "+z" },
+  "city-pack:SM_Bld_Shop_04": { front: "+z" },
+  "city-pack:SM_Bld_Shop_05": { front: "+z" },
+  "city-pack:SM_Bld_Shop_06": { front: "+z" },
+  "city-pack:SM_Bld_Apartment_Door_01": { front: "+z" },
+  "city-pack:SM_Bld_Apartment_Door_02": { front: "+z" },
+  "city-pack:SM_Bld_Shop_Corner_01": CORNER_PLUS_X,
+  "city-pack:SM_Bld_Shop_Corner_02": CORNER_PLUS_X,
+  "city-pack:SM_Bld_Apartment_01": { front: "+z" },
+  "city-pack:SM_Bld_Apartment_Corner_01": CORNER_PLUS_X,
+  "city-pack:SM_Bld_Apartment_Stack_01": { front: "+z" },
+  "city-pack:SM_Bld_Apartment_Roof_01": { front: "+z" },
+  "city-pack:SM_Bld_Apartment_Roof_Corner_01": CORNER_PLUS_X,
+  "city-pack:SM_Bld_Apartment_02": { front: "+z" },
+  "city-pack:SM_Bld_Apartment_Corner_02": CORNER_PLUS_X,
+  "city-pack:SM_Bld_Apartment_Stack_02": { front: "+z" },
+  "city-pack:SM_Bld_Apartment_Roof_02": { front: "+z" },
+  "city-pack:SM_Bld_Apartment_Roof_Corner_02": CORNER_PLUS_X,
+  "city-pack:SM_Bld_Apartment_03": { front: "+z" },
+  "city-pack:SM_Bld_Apartment_Corner_03": CORNER_PLUS_X,
+  "city-pack:SM_Bld_Apartment_Stack_03": { front: "+z" },
+  "city-pack:SM_Bld_Apartment_Roof_03": { front: "+z" },
+  "city-pack:SM_Bld_Apartment_Roof_Corner_03": CORNER_PLUS_X,
+  "city-pack:SM_Bld_OfficeOld_Small_Base_01": { front: "+z" },
+  "city-pack:SM_Bld_OfficeOld_Small_Floor_01": { front: "+z" },
+  "city-pack:SM_Bld_OfficeOld_Small_Roof_01": { front: "+z" },
+  "city-pack:SM_Bld_OfficeOld_Large_Base_01": { front: "+z" },
+  "city-pack:SM_Bld_OfficeOld_Large_Floor_01": { front: "+z" },
+  "city-pack:SM_Bld_OfficeOld_Large_Roof_01": { front: "+z" },
+  "city-pack:SM_Bld_OfficeOctagon_Base_01": { front: "+z" },
+  "city-pack:SM_Bld_OfficeOctagon_Floor_01": { front: "+z" },
+  "city-pack:SM_Bld_OfficeOctagon_Roof_01": { front: "+z" },
 };
 
 /**
@@ -398,8 +459,12 @@ export type BuildingPlan = Readonly<Record<LotType, readonly string[]>>;
  * `fallback` models (SIMPLE Town). The two never mix within a type. A type with no fallback model in the set keeps its POLYGON ones however few:
  * with nothing to fall back to, a few real buildings beat a placeholder. With no POLYGON model loaded (CI, a fresh checkout, a failed GLB) every
  * type has SIMPLE Town's names, exactly as before 048.
+ *
+ * Ticket 050 C puts City Pack stacks first for the types in STACK_LOT_TYPES: when `stacks` (what `offeredStacks` found standable, one entry per style) offers at least
+ * POLYGON_MIN_FAMILIES styles on a type, that type's plan is those styles' `stackName`s and nothing else; otherwise the Town Pack / SIMPLE Town rule above applies. The three
+ * never mix within a type. With no `stacks` (a fresh checkout, CI, no City Pack, a failed `city-pack.glb`) the plan is exactly what it was.
  */
-export function buildingPlan(models: readonly PlannedModel[] | null, exclude: readonly CalibrationKey[] = BUILDING_EXCLUDE): BuildingPlan {
+export function buildingPlan(models: readonly PlannedModel[] | null, exclude: readonly CalibrationKey[] = BUILDING_EXCLUDE, stacks: readonly StackOffer[] = []): BuildingPlan {
   const polygon: Record<LotType, PlannedModel[]> = { small: [], house: [], large: [], tall: [] };
   const simple: Record<LotType, PlannedModel[]> = { small: [], house: [], large: [], tall: [] };
   for (const m of models ?? []) {
@@ -409,6 +474,13 @@ export function buildingPlan(models: readonly PlannedModel[] | null, exclude: re
   }
   const out: Record<LotType, string[]> = { small: [], house: [], large: [], tall: [] };
   for (const t of LOT_TYPE_NAMES) {
+    if (STACK_LOT_TYPES.includes(t)) {
+      const offered = [...new Set(stacks.filter((s) => s.types.includes(t)).map((s) => s.style))];
+      if (offered.length >= POLYGON_MIN_FAMILIES[t]) {
+        out[t] = offered.map(stackName);
+        continue;
+      }
+    }
     const families = new Set(polygon[t].map((m) => `${m.pack}:${m.family}`)).size;
     const use = polygon[t].length > 0 && (families >= POLYGON_MIN_FAMILIES[t] || simple[t].length === 0) ? polygon[t] : simple[t];
     out[t] = use.map((m) => m.entry.name);
@@ -535,9 +607,14 @@ export interface BuildingTraits {
   corner: false | "+x" | "-x";
 }
 
-/** The traits of each planned model, by name. */
-export function traitsOf(models: readonly PlannedModel[] | null): Map<string, BuildingTraits> {
-  return new Map((models ?? []).map((m) => [m.entry.name, { family: m.family, corner: m.corner }] as const));
+/**
+ * The traits of each planned model, by name, and (ticket 050 C) of each stack style in `stacks`. A stack is never a "corner model" to the picker: it is built to
+ * its lot (a corner column on each of the lot's corner sides, none on a mid-row lot), so it may stand anywhere and its corner rule holds by construction.
+ */
+export function traitsOf(models: readonly PlannedModel[] | null, stacks: readonly StackOffer[] = []): Map<string, BuildingTraits> {
+  const out = new Map((models ?? []).map((m) => [m.entry.name, { family: m.family, corner: m.corner } as BuildingTraits] as const));
+  for (const s of stacks) out.set(stackName(s.style), { family: stackFamily(s.style), corner: false });
+  return out;
 }
 
 interface Family {

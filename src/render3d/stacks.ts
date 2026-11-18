@@ -13,7 +13,7 @@
 
 import type { AssetEntry, CalibrationKey } from "../core";
 import { stableHash } from "../render/city";
-import { BUILDING_FRONTS, frontIsQuarter, frontYaw, sizeOf, type FrontTable, type ModelFront } from "./models";
+import { BUILDING_FRONTS, STACK_LOT_TYPES, frontIsQuarter, frontYaw, sizeOf, type FrontTable, type ModelFront, type StackOffer } from "./models";
 import { LOT_TYPES, type Lot, type LotType } from "./town";
 
 export type StackRole = "base" | "floor" | "roof";
@@ -380,6 +380,25 @@ function rangeFor(style: StackStyle, type: LotType, entries: Entries, fronts: Fr
  */
 export function stackRange(style: StackStyle, type: LotType, entries: Entries, fronts: FrontTable = BUILDING_FRONTS): StackFit | null {
   return rangeFor(style, type, entries, fronts, []);
+}
+
+/**
+ * The styles that can stand on each of `types` (default STACK_LOT_TYPES), for the town's plan (ticket 050 C): a style is offered on a type when `stackRange` gives it a
+ * range there from the pieces in `entries` (so a piece that did not load, or that Josh excluded, drops the styles that need it and nothing else). A style with no type is
+ * left out. Pure; empty when `entries` has no City Pack piece, which is how a fresh checkout and CI keep today's town.
+ */
+export function offeredStacks(
+  entries: Entries,
+  fronts: FrontTable = BUILDING_FRONTS,
+  styles: readonly StackStyle[] = STACK_STYLES,
+  types: readonly LotType[] = STACK_LOT_TYPES,
+): StackOffer[] {
+  const out: StackOffer[] = [];
+  for (const style of styles) {
+    const ok = types.filter((t) => stackRange(style, t, entries, fronts) !== null);
+    if (ok.length > 0) out.push({ style: style.id, types: ok });
+  }
+  return out;
 }
 
 // ---- assembly ----

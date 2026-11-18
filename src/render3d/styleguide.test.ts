@@ -14,6 +14,7 @@ import * as layout from "./layout";
 import * as models from "./models";
 import * as placeholders from "./placeholders";
 import * as scene from "./scene";
+import * as stacks from "./stacks";
 import * as town from "./town";
 
 const GUIDE = "docs/city-style-guide.md";
@@ -29,6 +30,7 @@ const MODULES: Readonly<Record<string, Record<string, unknown>>> = {
   "scene.ts": scene as unknown as Record<string, unknown>,
   "placeholders.ts": placeholders as unknown as Record<string, unknown>,
   "camera.ts": camera as unknown as Record<string, unknown>,
+  "stacks.ts": stacks as unknown as Record<string, unknown>,
 };
 
 // ---- reading the guide ----
@@ -69,16 +71,18 @@ function chapter(n: number): string[] {
 
 // ---- reading the code ----
 
-/** `NAME`, `NAME.field` or `NAME[i]` against a module's exports. */
+/** `NAME`, then any run of `.field` and `[i]` (for example `STACK_STYLES[0].pitch_m`), against a module's exports. */
 function lookup(file: string, ref: string): unknown {
   const mod = MODULES[file];
   if (!mod) throw new Error(`the guide names a file the test does not know: ${file}`);
-  const m = /^([A-Za-z_][A-Za-z0-9_]*)(?:\.([A-Za-z0-9_]+)|\[(\d+)\])?$/.exec(ref);
+  const m = /^([A-Za-z_][A-Za-z0-9_]*)((?:\.[A-Za-z0-9_]+|\[\d+\])*)$/.exec(ref);
   if (!m) throw new Error(`cannot read the constant name ${ref}`);
-  const base = mod[m[1]!];
-  if (m[2] !== undefined) return (base as Record<string, unknown> | undefined)?.[m[2]];
-  if (m[3] !== undefined) return (base as readonly unknown[] | undefined)?.[Number(m[3])];
-  return base;
+  let cur: unknown = mod[m[1]!];
+  for (const t of m[2]!.matchAll(/\.([A-Za-z0-9_]+)|\[(\d+)\]/g)) {
+    if (cur === undefined || cur === null) return undefined;
+    cur = (cur as Record<string, unknown>)[t[1] ?? t[2]!];
+  }
+  return cur;
 }
 
 describe("the city style guide exists and is shaped as the ticket says", () => {
@@ -95,7 +99,7 @@ describe("the city style guide exists and is shaped as the ticket says", () => {
         const tag = /^- \*\*(Decided|Default|Pending|Open|Info)\b/.exec(b);
         expect(tag, `chapter ${n}: untagged bullet: ${b.slice(0, 80)}`).not.toBeNull();
         if (tag![1] === "Decided" || tag![1] === "Default") {
-          expect(/^- \*\*(Decided|Default) \([^)]*\b(03[7-9]|04[0-9])\b/.test(b), `chapter ${n}: no ticket beside: ${b.slice(0, 80)}`).toBe(true);
+          expect(/^- \*\*(Decided|Default) \([^)]*\b(03[7-9]|04[0-9]|05[0-9])\b/.test(b), `chapter ${n}: no ticket beside: ${b.slice(0, 80)}`).toBe(true);
         }
         if (tag![1] === "Pending" || tag![1] === "Open") {
           expect(new RegExp(`^- \\*\\*${tag![1]} \\(`).test(b), `chapter ${n}: no "what it waits for": ${b.slice(0, 80)}`).toBe(true);
@@ -161,6 +165,8 @@ describe("the Numbers table matches the code", () => {
       "POLE_HEIGHT", "POLE_SPACING", "SAG_RATIO", "WIRE_RADIUS", "PHASE_OFFSET", "BREAK_GAP", "HANG_DROP", "WIRE_PICK_RADIUS", "DROP_REACH", "DROP_DROP",
       "DROP_END_Y", "CAN_OFFSET", "CAN_DROP",
     ].map((n) => `${n}@layout.ts`),
+    ...["STACK_FLOORS.small", "STACK_FLOORS.house", "STACK_FLOORS.large", "STACK_FLOORS.tall"].map((n) => `${n}@stacks.ts`),
+    ...[0, 1, 2, 3, 4, 5].map((i) => `STACK_STYLES[${i}].pitch_m@stacks.ts`),
     ...["ELEVATION", "FOV_DEG"].map((n) => `${n}@camera.ts`),
     ...[
       "GROUND", "YARD", "STREET", "PAVEMENT", "KERB", "CENTRE_LINE", "PLACE", "POLE_WOOD", "FOOT", "METAL", "DEAD_WIRE", "LIVE_WIRE", "LIVE_GLOW",
@@ -239,7 +245,8 @@ describe("the pack table matches MODEL_TABLE", () => {
   const rows = table(chapter(13), ["Pack id", "Style", "Converter scale", "Status", "What it supplies"]);
   const ids = rows.map((r) => r[0]!);
   const inUse = rows.filter((r) => r[3] === "in use").map((r) => r[0]!);
-  const tablePacks = [...new Set(models.MODEL_TABLE.map((c) => c.pack))];
+  // A pack is in use when MODEL_TABLE has a row for it or a stack recipe is built from it (ticket 050 C: the City Pack's stacks are not whole-model rows).
+  const tablePacks = [...new Set([...models.MODEL_TABLE.map((c) => c.pack), ...stacks.STACK_STYLES.map((s) => s.pack)])];
 
   it("lists every pack once, each with a known status", () => {
     expect(ids.length).toBeGreaterThan(0);

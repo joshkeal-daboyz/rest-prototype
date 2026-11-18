@@ -67,6 +67,8 @@ How to read it:
 - **Info**: the guide's check of this chapter: `BUILDING_EXCLUDE` lists `simple-town:store_small_mesh`, so the guide names that key.
 - **Default (041 Q4)**: when no model fits a lot type (or there is no manifest), the lot keeps its placeholder building.
 - **Default (048 Q1; the reason is Josh's 18 Nov 2026 "The polygon buildings are much higher quality")**: POLYGON buildings come first, type by type. `MODEL_TABLE` lists the Town Pack's twelve whole houses ahead of SIMPLE Town's rows, which are marked `fallback`. A lot type uses its POLYGON models when, after `BUILDING_EXCLUDE`, they make at least `POLYGON_MIN_FAMILIES` mesh families for that type (4 for `small`, `house` and `large`, 3 for `tall`: the variety rules' own counts). Otherwise it uses its SIMPLE Town models. The two never mix within a type, though different types on one street may differ. A type with no SIMPLE Town model loaded keeps its POLYGON ones however few.
+- **Default (050 Q1, on Josh's 18 Nov 2026 "the city stuff is higher detail")**: City Pack stacks come first, then the Town Pack, then SIMPLE Town, type by type: a three-step chain per lot type. A type in `STACK_LOT_TYPES` (`large` and `tall`; small and house keep the Town Pack's houses) uses City Pack stacks when the styles that can stand on it, after `BUILDING_EXCLUDE` and the pieces that loaded, make at least `POLYGON_MIN_FAMILIES` for that type (each style is one family, `city-pack:stack:<style>`). Otherwise the type follows the 048 rule above (Town Pack whole houses, else SIMPLE Town). The three never mix within a type. The neighbour, street-repeat and share rules above apply to stacks unchanged. A piece whose root did not load, or whose key is excluded, drops the styles that need it; if every style drops, the type falls down the chain.
+- **Info (050 C)**: with the fixture sizes, `large` offers six styles (the three apartment styles, `office-old-small`, `office-old-large`, `office-octagon`) and `tall` four (the three apartment styles and `office-old-small`). A stack's floors over its base are picked by hash from the range the cap allows (`STACK_FLOORS` is the minimum), so heights vary from lot to lot and never change. With no City Pack in the manifest, or its GLB failed, no stack is offered and the town is exactly what the 048 rule gives (a fresh checkout and CI).
 - **Info (048)**: with Josh's fronts the Town Pack fills `small` (`SM_Bld_House_Preset_01`, `_02`, `_09` and `SM_Bld_House_Preset_Garage_01`) and `house` (`_03` to `_07` and `_10`). `_08` and `_11` are `large` (two families, under 4), so `large` and `tall` stay SIMPLE Town. With no Town Pack in the manifest, or its GLB failed to load, every type is SIMPLE Town and the town is as it was before 048 (a fresh checkout and CI).
 
 ## 6. Facing
@@ -89,9 +91,36 @@ How to read it:
 | `town-pack:SM_Bld_House_Preset_08` | -x | calibrated by Josh, 048 |
 | `town-pack:SM_Bld_House_Preset_09` | -x | calibrated by Josh, 048 |
 | `town-pack:SM_Bld_Shop_01` | +z | calibrated by Josh, 048; in no building row |
+| `city-pack:SM_Bld_Shop_01` | +z | provisional, 050 C: a first-click guess, not confirmed |
+| `city-pack:SM_Bld_Shop_02` | +z | provisional, 050 C: a first-click guess, not confirmed |
+| `city-pack:SM_Bld_Shop_03` | +z | provisional, 050 C: a first-click guess, not confirmed |
+| `city-pack:SM_Bld_Shop_04` | +z | provisional, 050 C: a first-click guess, not confirmed |
+| `city-pack:SM_Bld_Shop_05` | +z | provisional, 050 C: a first-click guess, not confirmed |
+| `city-pack:SM_Bld_Shop_06` | +z | provisional, 050 C: a first-click guess, not confirmed |
+| `city-pack:SM_Bld_Apartment_Door_01` | +z | provisional, 050 C: a first-click guess, not confirmed |
+| `city-pack:SM_Bld_Apartment_Door_02` | +z | provisional, 050 C: a first-click guess, not confirmed |
+| `city-pack:SM_Bld_Apartment_01` | +z | provisional, 050 C: a first-click guess, not confirmed |
+| `city-pack:SM_Bld_Apartment_Stack_01` | +z | provisional, 050 C: a first-click guess, not confirmed |
+| `city-pack:SM_Bld_Apartment_Roof_01` | +z | provisional, 050 C: a first-click guess, not confirmed |
+| `city-pack:SM_Bld_Apartment_02` | +z | provisional, 050 C: a first-click guess, not confirmed |
+| `city-pack:SM_Bld_Apartment_Stack_02` | +z | provisional, 050 C: a first-click guess, not confirmed |
+| `city-pack:SM_Bld_Apartment_Roof_02` | +z | provisional, 050 C: a first-click guess, not confirmed |
+| `city-pack:SM_Bld_Apartment_03` | +z | provisional, 050 C: a first-click guess, not confirmed |
+| `city-pack:SM_Bld_Apartment_Stack_03` | +z | provisional, 050 C: a first-click guess, not confirmed |
+| `city-pack:SM_Bld_Apartment_Roof_03` | +z | provisional, 050 C: a first-click guess, not confirmed |
+| `city-pack:SM_Bld_OfficeOld_Small_Base_01` | +z | provisional, 050 C: a first-click guess, not confirmed |
+| `city-pack:SM_Bld_OfficeOld_Small_Floor_01` | +z | provisional, 050 C: a first-click guess, not confirmed |
+| `city-pack:SM_Bld_OfficeOld_Small_Roof_01` | +z | provisional, 050 C: a first-click guess, not confirmed |
+| `city-pack:SM_Bld_OfficeOld_Large_Base_01` | +z | provisional, 050 C: a first-click guess, not confirmed |
+| `city-pack:SM_Bld_OfficeOld_Large_Floor_01` | +z | provisional, 050 C: a first-click guess, not confirmed |
+| `city-pack:SM_Bld_OfficeOld_Large_Roof_01` | +z | provisional, 050 C: a first-click guess, not confirmed |
+| `city-pack:SM_Bld_OfficeOctagon_Base_01` | +z | provisional, 050 C: a first-click guess, not confirmed |
+| `city-pack:SM_Bld_OfficeOctagon_Floor_01` | +z | provisional, 050 C: a first-click guess, not confirmed |
+| `city-pack:SM_Bld_OfficeOctagon_Roof_01` | +z | provisional, 050 C: a first-click guess, not confirmed |
 
-- **Info (048)**: the Town Pack's other five lines are "-z", the default, so they are not in the table: `SM_Bld_House_Preset_02`, `_07`, `_10`, `_11` and `SM_Bld_House_Preset_Garage_01`. All fourteen were promoted by hand from Josh's saved file (`savedAt` 2026-11-18T03:10:05.703Z). No City Pack door was calibrated.
+- **Info (048)**: the Town Pack's other five lines are "-z", the default, so they are not in the table: `SM_Bld_House_Preset_02`, `_07`, `_10`, `_11` and `SM_Bld_House_Preset_Garage_01`. All fourteen were promoted by hand from Josh's saved file (`savedAt` 2026-11-18T03:10:05.703Z). The City Pack's stack pieces are the next bullet.
 
+- **Info (050 C, provisional)**: the 34 City Pack stack pieces in `STACK_STYLES` have a `BUILDING_FRONTS` line each: 26 here and the 8 corner pieces in chapter 7. Josh's saved file (`savedAt` 2026-11-18T03:50:16.193Z) has 25 of them, every one "+z". A gallery click on the first copy saves "+z", so these are not shown to be doors he saw. The other nine (`Apartment_Corner_01`, `_03`, `Apartment_Door_01` and the six roofs) were not in the file and take the same "+z" guess. All 34 are provisional until Josh confirms them in the stack gallery (chapter 15); a fix is one line in `BUILDING_FRONTS`, and a saved front still overrides it in a dev build.
 - **Default (042 Q2)**: the way to calibrate a model is the `fronts=1` overlay (`/?puzzle=09-shrine-circuit&view=3d&fronts=1`). It draws a red arrow along each building's declared front and a caption with its name, family and corner sides. Each correction is a one-line edit to `BUILDING_FRONTS`, keyed `pack:name`.
 - **Info (043 section B)**: the gallery (`/?puzzle=09-shrine-circuit&view=3d&gallery=<pack-id>`) shows every building-sized entry of a pack, declared front and all, so a pack's door sides are one look. See chapter 15.
 - **Info (045 section C, dev builds only)**: the gallery takes clicks. Click the copy whose door faces you: that side becomes the model's front and the choice is written at once to the saved file (`assets/private/calibration/fronts.json`) through the dev server; the copy's caption then reads `current, saved`. Clicking another copy changes your mind. Clicking the `current` copy when its front is only the code's table or the "+z" guess saves it as it stands; clicking one that is already `saved` does nothing. Shift+click sets that side and toggles `excluded` (a model you never want placed). Delete (or Backspace) clears the last-clicked model, so the code's table applies again. A press and release within 5 px is a click; further is a pan. If the dev server cannot write, the mark stays on screen with `not saved: <reason>` under the model's caption and in the title, and the next click retries. The line never reorders when you mark a model. A click does not reach the town, and none of this is in `npm run build`.
@@ -101,14 +130,23 @@ How to read it:
 - **Decided (042 A, Josh, 17 Nov 2026)**: "Corner buildings should only be placed on corners. They must also have two sides facing the street. Only corner buildings have this restriction. Other buildings can be placed on corners normally."
 - **Decided (042 A, implemented)**: a lot is a corner lot if a side edge of it lies within `CORNER_GAP` of another road's pavement (not its own road's), and that road's centreline lies toward that side, within `CORNER_ANGLE_MAX` degrees of the side's outward axis (a road behind the lot is not a cross street). `Lot.cornerSides` lists each such side ("+x" or "-x" in the lot's own frame) with the cross road's id; `Lot.corner` is true when it is not empty. A row end that meets no other road is not a corner, and a service strip is not a road.
 - **Decided (042 A, implemented)**: a corner model (`corner: true` in `BUILDING_FRONTS`) goes only on a lot whose `cornerSides` has the side of its `open` frontage. It faces its own road, with its second frontage toward the cross street. A yaw cannot mirror, so a model only goes where its open side is a lot side that meets a cross street. Every other model is unrestricted on corners.
-- **Info**: the only corner model is `store_corner_mesh`, in the table below. It is rarely placed, because few lots qualify. Its `open` side was flipped when the fronts were turned, and it is still an uncalibrated guess: Josh has not checked that its second face lands on the cross street.
+- **Info**: the only whole corner model is `store_corner_mesh`, in the table below. It is rarely placed, because few lots qualify. Its `open` side was flipped when the fronts were turned, and it is still an uncalibrated guess: Josh has not checked that its second face lands on the cross street. The City Pack's eight corner pieces (050 C) are in the same table and are guesses too.
 
 | Name | Front | Open |
 | --- | --- | --- |
 | `simple-town:store_corner_mesh` | -z | -x |
+| `city-pack:SM_Bld_Shop_Corner_01` | +z | +x |
+| `city-pack:SM_Bld_Shop_Corner_02` | +z | +x |
+| `city-pack:SM_Bld_Apartment_Corner_01` | +z | +x |
+| `city-pack:SM_Bld_Apartment_Corner_02` | +z | +x |
+| `city-pack:SM_Bld_Apartment_Corner_03` | +z | +x |
+| `city-pack:SM_Bld_Apartment_Roof_Corner_01` | +z | +x |
+| `city-pack:SM_Bld_Apartment_Roof_Corner_02` | +z | +x |
+| `city-pack:SM_Bld_Apartment_Roof_Corner_03` | +z | +x |
 
 - **Default (048 Q5)**: no POLYGON model is a corner model. A gallery click sets only a door, and `open` lives in code, so a Town Pack house gets `corner: true` and `open` only if Josh names one with two street faces and says which side. Until then a Town Pack house goes on any lot, corner or not, as an ordinary model.
-- **Pending (a POLYGON adoption ticket)**: the City Pack's modular `_Corner_` pieces (chapter 13) will need their own corner handling when assembled. Not decided.
+- **Decided (050, Josh, 18 Nov 2026: "the shop corners are intended to be base units for the larger structures.")**: a stack's ground floor on a corner takes the shop corner piece, and its upper floors and roof take the matching `_Corner_` pieces.
+- **Default (050 C, from the corner rule above)**: a stack has a corner column (shop corner base, corner floors, corner roof, never a `_Stack_` piece) on each side in its lot's `cornerSides` and on no other. It is built for its lot, so it stands only where that side meets a cross street and never mid-row, and its second street face is on the cross street. A stack with no corner column, and any style with no corner pieces (the offices), is an ordinary building and may stand on a corner lot as any model may. A corner piece's `open` side is read in the lot frame after its front is turned: at the other end of the row the corner column turns a quarter, so one piece serves both ends. A corner stack that cannot be assembled on its lot (it does not fit with the corner columns in) falls back to the same style mid-row. `open` comes from `BUILDING_FRONTS` first, then the recipe's guess, then "+x"; every one is a guess until Josh confirms it.
 
 ## 8. Lit places
 
@@ -161,8 +199,8 @@ How to read it:
 ## 13. Packs in the mix
 
 - **Decided (043 Q4, Josh, 17 Nov 2026: "SIMPLE town was a test, the city stuff is higher detail")**: the target style is the POLYGON City Pack and Town Pack. SIMPLE Town is the placeholder and fallback until POLYGON buildings are in. This overtakes 041 Q4's "SIMPLE Town only", which stays the working set until a ticket adopts POLYGON buildings.
-- **Default (048 Q1 to Q4, on Josh's 17 and 18 Nov 2026 words above)**: the mix for now is the Town Pack's twelve whole houses on the lot types they fill (chapter 5), SIMPLE Town on the types they do not and wherever the Town Pack is absent. No City Pack building is placed, because Josh named none whole. The Church and the City Hall are held back for 042 E's landmark places. Lots are not resized for the Town Pack (a later ticket does that: "lots are sized to buildings", 041).
-- **Open (043 Q4, what 048 Q1 to Q4 leave open)**: whether `large` and `tall` lots go POLYGON, which needs more whole City Pack names or modular assembly. Whether the outer blocks and the circuit's streets may differ. Whether SIMPLE Town stays anywhere once POLYGON covers every type.
+- **Default (048 Q1 to Q4, 050 C, on Josh's 17 and 18 Nov 2026 words above)**: the mix for now is City Pack stacks on `large` and `tall` lots, the Town Pack's twelve whole houses on the types they fill (chapter 5), and SIMPLE Town on the types neither fills and wherever the packs are absent. No whole City Pack building is placed, because Josh named none. The Church and the City Hall are held back for 042 E's landmark places. Lots are not resized for either pack (a later ticket does that: "lots are sized to buildings", 041; the terrace is 051).
+- **Open (043 Q4, what 050 C leaves open)**: whether `small` and `house` lots go City Pack stacks too (050 Q1's alternative), whether the outer blocks and the circuit's streets may differ, and whether SIMPLE Town stays anywhere once POLYGON covers every type. The stacks' doors and corner sides are still provisional (chapters 6 and 7), and the terrace and the dressing are later tickets (chapter 15).
 - **Info**: the pack table, from the manifest read on 17 Nov 2026 (`assets/private/out/manifest.json`; the converter's `scale` is each pack's `pack.json` value, which the drift test checks when the manifest is present).
 
 | Pack id | Style | Converter scale | Status | What it supplies |
@@ -170,12 +208,12 @@ How to read it:
 | apocalypse-power | POLYGON Apocalypse (the power subset) | 1 | in use | pole `SM_Prop_Powerpole_01`, lamp post `SM_Prop_LightPole_01` |
 | simple-town | SIMPLE Town | 100 | in use | every building today (placeholder style); `scaleOverrides` for two stations and one road tile |
 | town-pack | POLYGON Town Pack | 1 | in use | twelve whole houses and a garage (048: `SM_Bld_House_Preset_01` to `_11`, `SM_Bld_House_Preset_Garage_01`); a church, a shed and props are not placed |
-| city-pack | POLYGON City Pack | 100 | converted, not used | roads, pavements, modular apartments and offices, a city hall (Pending adoption) |
+| city-pack | POLYGON City Pack | 100 | in use | stacked buildings (050 C): shops, apartment and office floors and roofs, assembled from `STACK_STYLES`; roads, pavements and a city hall are not used |
 
 - **Info (manifest, 17 Nov 2026)**: `town-pack` has 704 entries and 9 failures (character files with duplicate names). Of its entries, 2 are `scale-suspect` (`SM_Bld_House_DeckSteps_01`, 0 x 0 x 0, and `POLYGON_Town_Demo`) and 62 carry `missing-texture`. Preassembled buildings: `SM_Bld_House_Preset_01` to `_11` (from 5.7 m to 18.2 m wide, 4 to 9.4 m high), `SM_Bld_House_Preset_Garage_01`, `SM_Bld_Church_01` (10.4 x 16.5 x 14.4 m) and `SM_Bld_GardenShed_01` (2.3 x 2.8 x 2.5 m, prop-sized). It also holds many loose wall, deck and door pieces that are not buildings.
-- **Info (manifest, 17 Nov 2026)**: `city-pack` has 355 entries and 2 failures. Its 30 `scale-suspect` entries are the characters (`SK_Char*`), the vehicles (`SM_Veh_*`) and the skyline (`SM_Env_Skyline_*`), about 100 times too big at `"scale": 100`. A `scaleOverrides` factor of 0.01 would be needed for any of them. Its buildings are right at 100. Its roads are flat 5 m tiles (`SM_Env_Road_*`), with pavements `SM_Env_Sidewalk_*`. Its buildings are mostly modular: Base, Floor, Roof, Glass and Corner pieces of one tower (`SM_Bld_OfficeSquare_*`, `_OfficeRound_*`, `_OfficeOld_*`, `_OfficeOctagon_*`, `SM_Bld_Apartment_*`) that need assembling, with a few whole variants (for example `SM_Bld_OfficeSquare_01`) and one whole `SM_Bld_CityHall_01` (20.1 x 8.7 x 17.6 m). None of the City Pack is in `MODEL_TABLE`, `BUILDING_FRONTS` or any test yet; its status stays "converted, not used" until a name of it is adopted.
+- **Info (manifest, 17 Nov 2026)**: `city-pack` has 355 entries and 2 failures. Its 30 `scale-suspect` entries are the characters (`SK_Char*`), the vehicles (`SM_Veh_*`) and the skyline (`SM_Env_Skyline_*`), about 100 times too big at `"scale": 100`. A `scaleOverrides` factor of 0.01 would be needed for any of them. Its buildings are right at 100. Its roads are flat 5 m tiles (`SM_Env_Road_*`), with pavements `SM_Env_Sidewalk_*`. Its buildings are mostly modular: Base, Floor, Roof, Glass and Corner pieces of one tower (`SM_Bld_OfficeSquare_*`, `_OfficeRound_*`, `_OfficeOld_*`, `_OfficeOctagon_*`, `SM_Bld_Apartment_*`) that need assembling, with a few whole variants (for example `SM_Bld_OfficeSquare_01`) and one whole `SM_Bld_CityHall_01` (20.1 x 8.7 x 17.6 m). The City Pack's stack pieces are in `BUILDING_FRONTS` (chapters 6 and 7, provisional) and its stacks in `STACK_STYLES`; none of it is in `MODEL_TABLE`, so the pack table's "in use" for it comes from the recipes. Its roads, pavements and city hall are still not used.
 - **Info (048)**: the Town Pack's whole houses are in `MODEL_TABLE` (chapter 5) with their doors in `BUILDING_FRONTS` (chapter 6); `polygon.test.ts` pins both.
-- **Pending (a POLYGON adoption ticket)**: `MODEL_TABLE` rows for `city-pack` buildings, their door sides, their lot types from bounds, any modular assembly, and any exclusions (chapter 15, steps 5 to 8).
+- **Pending (a POLYGON adoption ticket)**: whole-building `MODEL_TABLE` rows for any other pack, their door sides, their lot types from bounds and any exclusions (chapter 15, steps 5 to 8). For a modular pack the stack recipes (chapter 15, step 10) replace the rows.
 
 ## 14. Licence handling
 
@@ -197,7 +235,9 @@ How to read it:
   7. Add rows to `MODEL_TABLE`. Lot types are computed from bounds, never hand-set.
   8. Add any exclusions to `BUILDING_EXCLUDE` (as `pack:name` keys).
   9. Update this guide's pack table in the same branch (the drift test fails if `MODEL_TABLE` and the table disagree).
+  10. A modular pack (Base, Floor, Roof, Corner pieces) is assembled instead of listed whole: write a recipe in `stacks.ts` (a `StackStyle` per look, by role, with its `pitch_m`), check its floor ranges against `STACK_LOT_TYPES` and `STACK_FLOORS`, look at it in the stack gallery and fix any door or `open` side by clicking, then promote the pack's fronts (step 5). The town takes it from there: a type uses the stacks when enough styles reach `POLYGON_MIN_FAMILIES` (chapter 5).
 - **Info (043 section B)**: the gallery is `/?puzzle=09-shrine-circuit&view=3d&gallery=<pack-id>` (an empty value is `simple-town`). It loads only that pack's GLB and shows every building-sized entry in one straight line along x, seen from a low camera. Each model stands four times side by side, turned so its side `+z`, `+x`, `-z` and `-x` faces you in turn, each captioned `door: f`. The copy whose real door faces you is the model's true front: name it (for example "Preset_03: -x") and that becomes its `BUILDING_FRONTS` line (`pack:name`). The copy that matches the front in force now is captioned `current` (the code's table), `current, saved` (the saved file) or `current ?` (no line anywhere: the "+z" guess), and has a green outline. The title says how many models of the pack are marked ("N of M marked"). Each group has one caption with the name, size in metres, lot type and any `corner` or `excluded` mark. Whole-looking buildings come first, modular parts after. Drag, the arrow keys, Home and End move along the line and the wheel zooms. `&page=N&per=N` pages it, off by default. It is off unless the flag is there, never a pick target and never part of a playtest.
+- **Info (050 B)**: the stack gallery is `/?puzzle=09-shrine-circuit&view=3d&gallery=city-pack&stacks=1` (dev only, never in `npm run build`, never a pick target, never part of a playtest; the code is `stackgallery.ts` and `stacks.ts`). It shows every recipe assembled on each lot type it serves, at its most floors, as a mid-row stack and as a corner stack at each end, seen from the street. Each stack is captioned with its style, lot type, floors, height against the cap and every piece's key and front, marked `guess` unless the code's table or the saved file has the key. Below it, the click line shows the recipe's pieces (roofs included) four ways, and a click saves a front exactly as in the pack gallery. A saved "+z" counts as saved even when it came from a first click, so an unmarked piece still needs a look.
 - **Info**: gotchas found converting the POLYGON packs (17 Nov 2026).
   - City Pack needed `"scale": 100` in its `pack.json`.
   - Town Pack needed `textureAliases` (its materials point at Photoshop files and renamed images that are not in the pack). Alias keys are normalised, so give one key per file-name stem: a `.png` and a `.psd` of the same stem collide, and the converter refuses the pair.
@@ -209,7 +249,7 @@ How to read it:
 
 ## Numbers
 
-The drift test (`styleguide.test.ts`) reads this table. Each row names an export of the file in its last column. A value is a number (within 1e-9), a colour as `0x` hex (exactly), or `a x b x c` for a record, in the record's field order. `LOT_TYPES` is frontage x depth x cap in metres and `PLACE_SIZES` is width x depth in metres. `TINTS[i]` is the i-th wall tint. Changing a constant in code or a value here fails the test.
+The drift test (`styleguide.test.ts`) reads this table. Each row names an export of the file in its last column. A value is a number (within 1e-9), a colour as `0x` hex (exactly), or `a x b x c` for a record, in the record's field order. `LOT_TYPES` is frontage x depth x cap in metres and `PLACE_SIZES` is width x depth in metres. `STACK_STYLES[i].pitch_m` is base x floor x roof in metres (the storey heights a recipe counts floors by; the roof is the height reserved under the cap), in the order `apartment-01`, `-02`, `-03`, `office-old-small`, `office-old-large`, `office-octagon`. `STACK_FLOORS` is the fewest floors over the base. `TINTS[i]` is the i-th wall tint. Changing a constant in code or a value here fails the test.
 
 | Constant | Value | File |
 | --- | --- | --- |
@@ -256,6 +296,16 @@ The drift test (`styleguide.test.ts`) reads this table. Each row names an export
 | `PARKING_ONE_IN` | 3 | town.ts |
 | `PLAZA_W_M` | 10.4 | town.ts |
 | `PLAZA_ONE_IN` | 4 | town.ts |
+| `STACK_FLOORS.small` | 1 | stacks.ts |
+| `STACK_FLOORS.house` | 1 | stacks.ts |
+| `STACK_FLOORS.large` | 2 | stacks.ts |
+| `STACK_FLOORS.tall` | 5 | stacks.ts |
+| `STACK_STYLES[0].pitch_m` | 3 x 3 x 0.5 | stacks.ts |
+| `STACK_STYLES[1].pitch_m` | 3 x 3 x 0.75 | stacks.ts |
+| `STACK_STYLES[2].pitch_m` | 3 x 3 x 0.75 | stacks.ts |
+| `STACK_STYLES[3].pitch_m` | 6 x 3.19 x 4.22 | stacks.ts |
+| `STACK_STYLES[4].pitch_m` | 6 x 3.19 x 4.23 | stacks.ts |
+| `STACK_STYLES[5].pitch_m` | 3.9 x 3 x 5.38 | stacks.ts |
 | `NEIGHBOUR_GAP` | 0.5 | models.ts |
 | `STREET_REPEAT_GAP` | 3 | models.ts |
 | `FAMILY_SHARE_MAX` | 0.25 | models.ts |

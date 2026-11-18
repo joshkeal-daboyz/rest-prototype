@@ -28,14 +28,17 @@ import {
   planStackPieces,
   sizeOf,
   poleYaw,
+  stackFamily,
+  stackStyleOf,
   traitsOf,
+  type BuildingFront,
   type FrontTable,
   type ModelChoice,
   type ModelSlot,
   type PlannedModel,
 } from "./models";
 import type { SceneBundle } from "./scene";
-import type { Stack } from "./stacks";
+import { STACK_STYLES, assembleStack, offeredStacks, stackKeys, type Stack } from "./stacks";
 import { LOT_TYPE_NAMES, type Lot } from "./town";
 
 /** A planned model whose root node was found in its pack's GLB. */
@@ -71,6 +74,11 @@ export interface LoadDeps {
   dir?: string;
   /** Where the one line saying why a fallback happened goes. Default: console.info. */
   info?: (message: string) => void;
+}
+
+/** Every piece key any stack recipe names, once each: what the town asks the loader for (ticket 050 C). */
+export function allStackKeys(): CalibrationKey[] {
+  return [...new Set(STACK_STYLES.flatMap((s) => stackKeys(s)))];
 }
 
 /** The folder the converter writes to, relative to the site's base. It is a plain string so no bundler sees it. */
@@ -122,7 +130,9 @@ export async function loadModels(deps: LoadDeps): Promise<ModelSet> {
       const kept = plan.building.filter((p) => !exclude.includes(calibrationKey(p.pack, p.entry.name)));
       plan.building = kept.length > 0 ? kept : null;
     }
-    const stackPlan = deps.stackKeys && deps.stackKeys.length > 0 ? planStackPieces(manifest as AssetManifest, deps.stackKeys, deps.fronts ?? BUILDING_FRONTS) : null;
+    // A piece named in `exclude` is dropped like a missing one, so the styles that need it fall away (ticket 050 C); `exclude`'s default is BUILDING_EXCLUDE, which names no stack piece.
+    const wantStack = (deps.stackKeys ?? []).filter((key) => !exclude.includes(key));
+    const stackPlan = wantStack.length > 0 ? planStackPieces(manifest as AssetManifest, wantStack, deps.fronts ?? BUILDING_FRONTS) : null;
     const globs = new Set<string>();
     for (const slot of MODEL_SLOTS) for (const p of plan[slot] ?? []) globs.add(p.glb);
     for (const p of stackPlan ?? []) globs.add(p.glb);
@@ -153,7 +163,7 @@ export async function loadModels(deps: LoadDeps): Promise<ModelSet> {
     if (deps.stackKeys && deps.stackKeys.length > 0) {
       set.stack = null;
       const planned = new Set((stackPlan ?? []).map((p) => calibrationKey(p.pack, p.entry.name)));
-      const absent = deps.stackKeys.filter((key) => !planned.has(key));
+      const absent = wantStack.filter((key) => !planned.has(key));
       if (absent.length > 0) info(`3D models: ${absent.length} stack piece(s) are not in the manifest (${absent.slice(0, 3).join(", ")}${absent.length > 3 ? ", ..." : ""}); the styles that need them are dropped.`);
       for (const p of stackPlan ?? []) {
         const scene = roots.get(p.glb);
@@ -190,7 +200,8 @@ export function sharedModels(): Promise<ModelSet> {
   // In a dev build Josh's saved fronts (ticket 045) are laid over the code's table before the plan is made; a production build never fetches the file.
   shared ??= loadSavedCalibration({ dev: import.meta.env.DEV, fetchJson }).then((saved) => {
     const tables = effectiveFronts({ fronts: BUILDING_FRONTS, exclude: BUILDING_EXCLUDE }, saved);
-    return loadModels({ fetchJson, loadGlb: async (url) => (await new GLTFLoader().loadAsync(url)).scene, fronts: tables.fronts, exclude: tables.exclude });
+    // The City Pack's stack pieces load too (ticket 050 C); with no City Pack in the manifest nothing extra is fetched and the set has no stack slot.
+    return loadModels({ fetchJson, loadGlb: async (url) => (await new GLTFLoader().loadAsync(url)).scene, fronts: tables.fronts, exclude: tables.exclude, stackKeys: allStackKeys() });
   });
   return shared;
 }
@@ -279,18 +290,70 @@ export interface BuildingPlacement {
   z: number;
   /** `lot.yaw + frontYaw(front)`: the lot turns its front to the road, the model's declared front (BUILDING_FRONTS) turns its door to the lot's front. */
   yaw: number;
+  /**
+   * Ticket 050 C: set when the lot stands a City Pack stack instead of one model. Then `model` is a stand-in that carries the stack's size (its bounds, for the fronts overlay) and
+   * an empty root, `front` is "+z" (a stack's frame faces the road), `scale` is WORLD_PER_METRE, (x, z) is the stack's footprint centre as `atFront` gives it, and `yaw` is `lot.yaw`.
+   */
+  stack?: Stack;
+}
+
+/** The loaded stack pieces' manifest entries and effective fronts: what the town needs to plan and assemble stacks (ticket 050 C). */
+export interface StackInput {
+  entries: ReadonlyMap<CalibrationKey, AssetEntry>;
+  fronts: FrontTable;
+}
+
+/**
+ * The stack input of a loaded set, or null when it has no stack pieces (no City Pack, a failed GLB, not asked for): then the town is exactly what it was.
+ * The fronts are the ones the pieces were planned with, so Josh's saved calibration is already in them.
+ */
+export function stackInput(set: ModelSet): StackInput | null {
+  if (!set.stack || set.stack.length === 0) return null;
+  const fronts: Record<CalibrationKey, BuildingFront> = {};
+  for (const m of set.stack) fronts[calibrationKey(m.pack, m.entry.name)] = { front: m.front, ...(m.corner ? { corner: true as const, open: m.corner } : {}) };
+  return { entries: stackEntries(set), fronts };
+}
+
+/** A stand-in `LoadedModel` for a stack (see `BuildingPlacement.stack`): the stack's size as bounds, an empty root, the family the variety rules use. */
+function stackModel(stack: Stack): LoadedModel {
+  const w = stack.width_m;
+  const d = stack.depth_m;
+  return {
+    pack: "city-pack",
+    glb: "",
+    entry: { name: `stack:${stack.style}`, source: "", bounds: { min: [-w / 2, 0, -d / 2], max: [w / 2, stack.height_m, d / 2] }, triangles: 0, textures: [], missingTextures: [], warnings: [] },
+    front: "+z",
+    corner: false,
+    family: stackFamily(stack.style),
+    root: new Group(),
+  };
 }
 
 /**
  * The clone every lot gets: a model of the lot's type (a lot of a type with no model gets none and keeps its placeholder),
  * picked by family (`pickBuildings`: no neighbour's family, no street repeat, no family over its share; a corner shop only on a corner lot). Pure given the set.
+ *
+ * With `stack` (ticket 050 C) the City Pack's stacks come first on the types in STACK_LOT_TYPES (`buildingPlan`): such a lot gets one assembled stack, with a corner column on
+ * each of its `cornerSides` (a corner building, two street faces) or, if that cannot be assembled, a mid-row stack of the same style (an ordinary building, as any model may
+ * stand on a corner). Without it (or with no stack piece loaded) the result is exactly what it was.
  */
-export function buildingPlacements(lots: readonly Lot[], buildings: readonly LoadedModel[] | null): BuildingPlacement[] {
-  if (!buildings || buildings.length === 0) return [];
-  const byName = new Map(buildings.map((m) => [m.entry.name, m] as const));
-  const names = pickBuildings(lots, buildingPlan(buildings), traitsOf(buildings));
+export function buildingPlacements(lots: readonly Lot[], buildings: readonly LoadedModel[] | null, stack: StackInput | null = null): BuildingPlacement[] {
+  const models = buildings ?? [];
+  const offers = stack ? offeredStacks(stack.entries, stack.fronts) : [];
+  if (models.length === 0 && offers.length === 0) return [];
+  const byName = new Map(models.map((m) => [m.entry.name, m] as const));
+  const names = pickBuildings(lots, buildingPlan(models, undefined, offers), traitsOf(models, offers));
   const out: BuildingPlacement[] = [];
   lots.forEach((lot, i) => {
+    const style = names[i] ? stackStyleOf(names[i]!) : null;
+    if (style !== null && stack) {
+      const recipe = STACK_STYLES.find((s) => s.id === style);
+      const built = recipe ? (assembleStack(recipe, lot, stack.entries, stack.fronts) ?? assembleStack(recipe, { ...lot, cornerSides: [] }, stack.entries, stack.fronts)) : null;
+      if (!built) return;
+      const spot = atFront(lot, built.depth_m * WORLD_PER_METRE);
+      out.push({ lot: i, model: stackModel(built), scale: WORLD_PER_METRE, x: spot.x, z: spot.z, yaw: lot.yaw, stack: built });
+      return;
+    }
     const m = names[i] ? byName.get(names[i]!) : undefined;
     if (!m) return;
     const scale = modelScale(m.entry, "building");
@@ -343,14 +406,25 @@ export function applyModels(bundle: SceneBundle, set: ModelSet): AppliedModels {
     }
   }
   const buildings = set.building;
+  const stacks = stackInput(set);
+  const stackRootsOf = stackRoots(set);
   let placed: readonly BuildingPlacement[] = [];
-  if (buildings && buildings.length > 0 && slots.blocks.list.length > 0) {
-    const placements = buildingPlacements(slots.blocks.list, buildings);
+  if (((buildings && buildings.length > 0) || stacks) && slots.blocks.list.length > 0) {
+    const placements = buildingPlacements(slots.blocks.list, buildings, stacks);
     placed = placements;
     // A type's placeholders go only if some lot of that type got a model; the others stay.
     const covered = new Set(placements.map((p) => slots.blocks.list[p.lot]!.type));
     for (const t of LOT_TYPE_NAMES) if (covered.has(t)) hide(slots.blocks.byType[t]);
-    for (const p of placements) add(slots.models, place(p.model, p.scale, p.x, p.z, p.yaw));
+    for (const p of placements) {
+      if (p.stack) {
+        // The group's origin is the stack frame's: the lot's front-centre, which is the footprint centre moved toward the road by half its depth.
+        const half = (p.stack.depth_m * WORLD_PER_METRE) / 2;
+        const g = stackGroup(p.stack, stackRootsOf);
+        g.position.set(p.x + Math.sin(p.yaw) * half, 0, p.z + Math.cos(p.yaw) * half);
+        g.rotation.y = p.yaw;
+        add(slots.models, g);
+      } else add(slots.models, place(p.model, p.scale, p.x, p.z, p.yaw));
+    }
   }
   return {
     buildings: placed,

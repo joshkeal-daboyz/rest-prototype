@@ -102,3 +102,8 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 050 section B | renderer | sonnet | 197K total (one figure in the readout) | — | 0 | Stack gallery (stackgallery.ts, gallery wiring, loadModels stackKeys), 32 new tests (commit 88e8865); 87 tool uses, 10 min |
 | 050 section B | gate (main session) | — | — | — | 0 | tsc clean, 92 files, 1786 passed on a checkout without pack files |
 | 050 section B | playtester | agent default | 16K total (one figure in the readout) | — | 0 | regressions 0; stopped early (harness never imports render3d) |
+| 050 section B | code-reviewer | agent default | 80K total (one figure in the readout) | — | 0 | meets, must-fix 0; all section A follow-ups applied |
+| 050 section C | renderer | sonnet | 228K total (one figure in the readout) | — | 0 | Three-step chain, stacks placed in the town, 34 provisional fronts, guide updated, 35 new tests (commit 59a1044); 63 tool uses, 12 min |
+| 050 section C | gate (main session) | — | — | — | 0 | tsc clean, 93 files, 1821 passed on a checkout without pack files |
+| 050 section C | code-reviewer | agent default | 91K total (one figure in the readout) | — | 0 | meets, must-fix 0; tall street-repeat deviation (2 in 2203) left for Josh |
+| 050 section C | playtester | agent default | 17K total (one figure in the readout) | — | 0 | regressions 0; stopped early (harness never imports render3d) |

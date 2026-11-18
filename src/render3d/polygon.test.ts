@@ -176,8 +176,8 @@ describe("MODEL_TABLE building rows (048)", () => {
 });
 
 describe("the promoted fronts (savedAt 2026-11-18T03:10:05.703Z)", () => {
-  it("has exactly Josh's 14 Town Pack lines, and none for the City Pack", () => {
-    const have = Object.fromEntries(Object.entries(BUILDING_FRONTS).filter(([k]) => !k.startsWith("simple-town:")));
+  it("has exactly Josh's 14 Town Pack lines (the City Pack's stack-piece lines are ticket 050 C's, pinned in stacktown.test.ts)", () => {
+    const have = Object.fromEntries(Object.entries(BUILDING_FRONTS).filter(([k]) => k.startsWith("town-pack:")));
     expect(have).toEqual(Object.fromEntries(Object.entries(JOSH_FRONTS).map(([k, f]) => [k, { front: f }])));
     for (const f of Object.values(have)) expect(f.corner, "no POLYGON corner model (048 Q5)").toBeUndefined();
   });
