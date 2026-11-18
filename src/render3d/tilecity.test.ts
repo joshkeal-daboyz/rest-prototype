@@ -34,6 +34,7 @@ import {
   POLE_SLOT_PITCH_M,
   SIDEWALK_TOP_M,
   TILE_M,
+  TILE_CITY_R6_MIN,
   TILE_CITY_R7_MIN,
   TILE_INSET_MAX_M,
   TILE_PLAZA_W_M,
@@ -49,7 +50,7 @@ import {
   type TileStreet,
 } from "./tilecity";
 import { loadPuzzle, type AssetEntry, type CalibrationKey, type Puzzle } from "../core";
-import { CITY_CHECK, cityMetrics, evaluateCity, runBlocks, type CityMetrics } from "./citymetrics";
+import { CITY_ATM_BLOCKS_MIN, CITY_CHECK, cityMetrics, evaluateCity, runBlocks, type CityMetrics } from "./citymetrics";
 import { KERB_FROM_FRONT_M, dressStack, dressTown, type DressBlockInput } from "./dressing";
 import { FURN_KEEP_M, FURN_KERB_M, KERB_M, METERS, WALL_EDGE_M, furnitureLayout } from "./furniture";
 import { BUILDING_FRONTS } from "./models";
@@ -1052,10 +1053,10 @@ describe("terraces on tile streets (criterion 10)", () => {
     return { m: cityMetrics(t, packed, dressing, []) };
   };
 
-  it("passes R1 to R6 and R8 to R13 (evaluateCity) on the packed and dressed plan of every city, with the tile frame read by the dressing", { timeout: 120000 }, () => {
+  it("passes R1 to R5 and R8 to R13 (evaluateCity) on the packed and dressed plan of every city, with the tile frame read by the dressing (R6 and R7 on the tile city's own floors, below)", { timeout: 120000 }, () => {
     for (const c of cities) {
       const { m } = planOf(c);
-      const failing = evaluateCity(m).filter((v) => !v.pass && v.id !== "R7");
+      const failing = evaluateCity(m).filter((v) => !v.pass && v.id !== "R6" && v.id !== "R7");
       expect(failing, `seed ${c.seed} ${JSON.stringify(evaluateCity(m))}`).toEqual([]);
       // Not vacuous: a city of blocks that corner, dressed, with no slit.
       expect(m.blocks, `seed ${c.seed}`).toBeGreaterThan(80);
@@ -1064,6 +1065,19 @@ describe("terraces on tile streets (criterion 10)", () => {
       expect(m.farGaps.slit, `seed ${c.seed}`).toBe(0);
       expect(m.dressPieces, `seed ${c.seed}`).toBeGreaterThan(m.blocks * 3);
       // R7 is checked against the tile city's own floor below.
+    }
+  });
+
+  // The tile city's R6 floor (Josh, 18 Nov 2026, "Lower it to 0.45 (Recommended)"): the share of shop bays with a sign is 0.49 to 0.55 on the tile city by the dressing's own sign chance, whatever the
+  // layout, against the ladder's CITY_CHECK.R6 of 0.5, which stays as it is. The ATM share is the ladder's own floor.
+  it("meets the tile city's R6 floor (TILE_CITY_R6_MIN, 0.45) and the ladder's ATM floor on the default city and seeds 1 to 10", { timeout: 120000 }, () => {
+    expect(TILE_CITY_R6_MIN).toBe(0.45);
+    expect(CITY_CHECK.R6).toBe(0.5);
+    for (const c of cities) {
+      const { m } = planOf(c);
+      expect(m.shopBays, `seed ${c.seed}`).toBeGreaterThan(100);
+      expect(m.signedShopBays / m.shopBays, `seed ${c.seed} R6 ${m.signedShopBays}/${m.shopBays}`).toBeGreaterThanOrEqual(TILE_CITY_R6_MIN);
+      expect(m.atmBlocks / m.blocks, `seed ${c.seed} ATM ${m.atmBlocks}/${m.blocks}`).toBeGreaterThanOrEqual(CITY_ATM_BLOCKS_MIN);
     }
   });
 

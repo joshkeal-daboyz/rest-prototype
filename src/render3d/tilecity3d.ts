@@ -3,7 +3,9 @@
  *
  * - `tileGroup` draws every cell: one `InstancedMesh` per City Pack key (and per sub-mesh of it), each instance at its cell centre, turned by the cell's yaw plus the key's
  *   `TILE_FRONTS` line, at `WORLD_PER_METRE` and never otherwise scaled. A cell whose role has no loaded piece is drawn in code at the same cell and level, in today's street,
- *   pavement and kerb colours (a flat quad for a road, a box from the carriageway to the pavement top for a pavement, a pale strip for each kerb edge). No tile can be picked.
+ *   pavement and kerb colours (a flat quad for a road, a box from the carriageway to the pavement top for a pavement or a build-out, a pale strip for each kerb edge). No tile can be picked.
+ *   Ticket 056 B: a `buildout` cell is drawn as a pavement from the two plain straights, and each of `city.buildoutTrees` is one of `SM_Env_Tree_01..03` (`buildoutTreePlan`) at y 0 through
+ *   one InstancedMesh per tree key, in the same group and under the same draw-call cap.
  * - `buildCityScene` is a puzzle-free `SceneBundle` (no wires, places, poles or captions) over the tile city's `Town`: the ground, the yards, the placeholder buildings on its lots,
  *   and the tiles. `applyModels` runs on it unchanged, so stacks, dressing, furniture and colourways stand as on a ladder map.
  * - `buildSheetScene` lays each tile piece once on a grid, labelled, with an arrow along the front the city expects, so each piece's orientation can be confirmed by eye. It is shown
@@ -36,8 +38,9 @@ import {
   type Material,
   type WebGLRenderer,
 } from "three";
-import type { AssetEntry, CalibrationKey } from "../core";
+import { calibrationKey, type AssetEntry, type CalibrationKey } from "../core";
 import type { CityRect } from "../render/city";
+import { stableHash } from "../render/city";
 import { ZOOM_STEP, type Insets } from "../render/geometry";
 import { ELEVATION, FOV_DEG } from "./camera";
 import { scaleForPx } from "./captions";
@@ -50,8 +53,8 @@ import { createStreetView, streetCamRequested, streetMode, type StreetView } fro
 import { applyLightMode, addSurface, newLightOwners, sceneLightMode, setRendererMode } from "./lightrig";
 import { lightModeFor, type LightModeId } from "./lighting";
 import { createDayToggle, pageDayToggleHost, type DayToggle, type DayToggleHost } from "./daytoggle";
-import { LANE_PATCH, LANE_RIGHT, SIDEWALK_WALK_M, TILE_M, bayMeters, tileCity, tileKeepouts, type TileCell, type TileCity, type TileRole } from "./tilecity";
-import { TILE_DRAW_CALLS_MAX, TILE_LEVELS, TILE_PATCH, TILE_SHEET_EXTRA, TILE_SLOTS, sheetColumns, sheetLabel, sheetLayout, sheetLegend, tileFront, tileKeys, tileLevelY_m, type CityTilesRequest, type SheetLayout } from "./tileslots";
+import { LANE_PATCH, LANE_RIGHT, SIDEWALK_WALK_M, TILE_M, bayMeters, tileCity, tileKeepouts, type BuildoutTree, type TileCell, type TileYaw, type TileCity, type TileRole } from "./tilecity";
+import { TILE_DRAW_CALLS_MAX, TILE_LEVELS, TILE_PATCH, TILE_SHEET_EXTRA, TILE_SLOTS, TILE_TREES, sheetColumns, sheetLabel, sheetLayout, sheetLegend, tileFront, tileKeys, tileLevelY_m, type CityTilesRequest, type SheetLayout } from "./tileslots";
 import { createCaptionSprite, defaultTextSurface, type CaptionSprite, type TextSurfaceFactory } from "./text";
 import type { MapRenderer3d } from "./renderer";
 
@@ -105,7 +108,42 @@ export function tileMatrix(cell: Pick<TileCell, "x_m" | "z_m" | "yaw">, yM: numb
 function variantIndex(cell: TileCell): number {
   if (cell.role === "lane") return cell.variant & LANE_RIGHT;
   if (cell.role === "pavement") return cell.variant & 3;
+  // A build-out's variant is 0 or 1 (`tilecity.ts`): the first or the second plain straight, so a long stretch of them is not one tile repeated.
+  if (cell.role === "buildout") return cell.variant & 1;
   return 0;
+}
+
+/** Where one street tree stands and which piece and turn it has: the tree's point and the key and quarter turn the hash gave it. */
+export interface TreePlace {
+  x_m: number;
+  z_m: number;
+  key: CalibrationKey;
+  /** Degrees about y: 0, 90, 180 or 270, so neighbouring trees do not look cloned. */
+  yaw: TileYaw;
+}
+
+/**
+ * The tree on each `city.buildoutTrees` entry: one of `TILE_TREES` and a quarter turn, each a hash of the city's seed and the tree's point (the same city gives the same trees every time, and
+ * two trees of a street are not the same one repeated). Pure.
+ */
+export function buildoutTreePlan(trees: readonly BuildoutTree[], seed: number): TreePlace[] {
+  return trees.map((t) => {
+    const h = stableHash(`tiletree:${seed}:${t.x_m}:${t.z_m}`);
+    return { x_m: t.x_m, z_m: t.z_m, key: TILE_TREES[h % TILE_TREES.length]!, yaw: ([0, 90, 180, 270] as const)[(h >>> 8) % 4]! };
+  });
+}
+
+/** The pieces of `TILE_TREES` a loaded model set offers (the page loads them as furniture): roots and entries by key, empty when it has none. */
+export function treeInput(set: Pick<ModelSet, "dress">): { entries: Map<CalibrationKey, AssetEntry>; roots: Map<CalibrationKey, Object3D> } {
+  const entries = new Map<CalibrationKey, AssetEntry>();
+  const roots = new Map<CalibrationKey, Object3D>();
+  for (const m of set.dress ?? []) {
+    const key = calibrationKey(m.pack, m.entry.name);
+    if (!TILE_TREES.includes(key)) continue;
+    entries.set(key, m.entry);
+    roots.set(key, m.root);
+  }
+  return { entries, roots };
 }
 
 /** The key that draws `cell` among the `active` ones: its variant's, else another of its role's, else null (drawn in code). */
@@ -142,7 +180,7 @@ export interface TileDraw {
 export function tileGroup(city: TileCity, roots: ReadonlyMap<CalibrationKey, Object3D>, entries: ReadonlyMap<CalibrationKey, AssetEntry>, maxCalls: number = TILE_DRAW_CALLS_MAX): TileDraw {
   const parts = new Map<CalibrationKey, { mesh: Mesh; local: Matrix4 }[]>();
   const active = new Set<CalibrationKey>();
-  for (const key of tileKeys()) {
+  for (const key of [...tileKeys(), ...TILE_TREES]) {
     const root = roots.get(key);
     if (!root || !entries.has(key)) continue;
     const found = meshParts(root);
@@ -156,6 +194,8 @@ export function tileGroup(city: TileCity, roots: ReadonlyMap<CalibrationKey, Obj
     counts: Map<CalibrationKey, number>;
     patches: number;
     codeKinds: number;
+    /** The build-out trees whose piece is in the pack: place and key (a tree whose own piece is missing takes another of the three, and none is drawn when none is there). */
+    trees: TreePlace[];
   }
   const planFor = (): Plan => {
     const keyOf = city.cells.map((c) => tileKeyOf(c, active));
@@ -170,12 +210,20 @@ export function tileGroup(city: TileCity, roots: ReadonlyMap<CalibrationKey, Obj
       else if (roadLike(c.role)) quads++;
       else {
         boxes++;
-        if (c.role === "pavement") strips++;
+        if (c.role === "pavement" || c.role === "buildout") strips++;
       }
       if (c.role === "lane" && (c.variant & LANE_PATCH) !== 0 && active.has(TILE_PATCH)) patches++;
     });
     if (patches > 0) counts.set(TILE_PATCH, patches);
-    return { keyOf, counts, patches, codeKinds: (quads > 0 ? 1 : 0) + (boxes > 0 ? 1 : 0) + (strips > 0 ? 1 : 0) };
+    // The build-out trees (056 B): a key's instances count with the tiles', so the draw-call cap covers them; with the fewest instances they are the first to go.
+    const trees: TreePlace[] = [];
+    for (const t of buildoutTreePlan(city.buildoutTrees, city.seed)) {
+      const key = active.has(t.key) ? t.key : (TILE_TREES.find((k) => active.has(k)) ?? null);
+      if (key === null) continue;
+      trees.push({ ...t, key });
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return { keyOf, counts, patches, codeKinds: (quads > 0 ? 1 : 0) + (boxes > 0 ? 1 : 0) + (strips > 0 ? 1 : 0), trees };
   };
   let plan = planFor();
   for (;;) {
@@ -220,6 +268,26 @@ export function tileGroup(city: TileCity, roots: ReadonlyMap<CalibrationKey, Obj
       const im = new InstancedMesh(part.mesh.geometry, part.mesh.material, list.length);
       im.name = `tile:${key.slice(key.indexOf(":") + 1)}`;
       list.forEach((c, i) => im.setMatrixAt(i, tileMatrix(c, tileOriginY_m(c.role, key), turn, m).multiply(part.local)));
+      im.instanceMatrix.needsUpdate = true;
+      im.computeBoundingSphere();
+      noRay(im);
+      group.add(im);
+      instanced.push(im);
+    }
+  }
+  // The street trees of the build-outs: one InstancedMesh per tree key and sub-mesh, each instance at its point on the walk (y 0), turned a quarter turn by hash, at WORLD_PER_METRE.
+  const treesByKey = new Map<CalibrationKey, TreePlace[]>();
+  for (const t of plan.trees) {
+    const list = treesByKey.get(t.key);
+    if (list) list.push(t);
+    else treesByKey.set(t.key, [t]);
+  }
+  for (const [key, list] of treesByKey) {
+    perKey.set(key, list.length);
+    for (const part of parts.get(key)!) {
+      const im = new InstancedMesh(part.mesh.geometry, part.mesh.material, list.length);
+      im.name = `tile:${key.slice(key.indexOf(":") + 1)}`;
+      list.forEach((t, i) => im.setMatrixAt(i, tileMatrix({ x_m: t.x_m, z_m: t.z_m, yaw: t.yaw }, 0, 0, m).multiply(part.local)));
       im.instanceMatrix.needsUpdate = true;
       im.computeBoundingSphere();
       noRay(im);
@@ -320,11 +388,11 @@ export interface KerbStrip {
 }
 
 /**
- * The kerb strips of the code-drawn pavement cells: one `TILE_M` long on each edge of a `pavement` cell whose neighbour is a lane or parking cell (never against a junction, a
+ * The kerb strips of the code-drawn pavement cells: one `TILE_M` long on each edge of a `pavement` or `buildout` cell (056: the kerb follows a build-out's edge) whose neighbour is a lane or parking cell (never against a junction, a
  * crossing or a kerb cut: the kerb is the sidewalk tile's own edge, and there is none where the pavement drops), `KERB_W` wide just inside the pavement.
  */
 export function kerbStrips(city: TileCity, drawn: readonly TileCell[]): KerbStrip[] {
-  const pavements = drawn.filter((c) => c.role === "pavement");
+  const pavements = drawn.filter((c) => c.role === "pavement" || c.role === "buildout");
   if (pavements.length === 0) return [];
   const at = new Map<number, TileCell>();
   const stride = 4096;
@@ -704,7 +772,7 @@ export function buildSheetScene(
   };
 
   const rects: SheetPieceRect[] = [];
-  const pieceHave: { key: CalibrationKey; present: boolean }[] = [];
+  const pieceHave: { key: CalibrationKey; present: boolean; roles: readonly TileRole[] }[] = [];
   let present = 0;
   for (const slot of layout.slots) {
     const p = slot.piece;
@@ -739,8 +807,8 @@ export function buildSheetScene(
     scene.add(arrow(cx, cz, 0));
     if (p.roles.includes("pavementCorner") || p.key === TILE_SHEET_EXTRA[0]) scene.add(arrow(cx, cz, Math.PI / 2));
     // The label hangs from the piece's near (+z) edge, centred on it: its name, or in a numbered sheet its number.
-    pieceHave.push({ key: p.key, present: have });
-    caption(layout.numbered ? [String(pieceHave.length)] : sheetLabel(p.key, have), cx, 0, cz + tile / 2 + SHEET_LABEL_GAP_M * S, "below");
+    pieceHave.push({ key: p.key, present: have, roles: p.roles });
+    caption(layout.numbered ? [String(pieceHave.length)] : sheetLabel(p.key, have, undefined, p.roles), cx, 0, cz + tile / 2 + SHEET_LABEL_GAP_M * S, "below");
   }
   // The legend stands above the grid, centred over it, its text growing upward from the frame's top edge (into the room the rig keeps clear for it).
   caption(sheetLegend(layout.numbered, pieceHave), ((fm.minX + fm.maxX) / 2) * S, 0, fm.minZ * S, "above");
@@ -1024,8 +1092,10 @@ export function createCityRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasElemen
     .then((set) => {
       if (disposed) return;
       const input = tileInput(set);
-      tileRoots = input?.roots ?? new Map<CalibrationKey, Object3D>();
-      tileEntries = input?.entries ?? new Map<CalibrationKey, AssetEntry>();
+      // The build-out trees are the furniture set's (the page loads them for every map): their roots and entries join the tiles' so `tileGroup` finds them.
+      const trees = treeInput(set);
+      tileRoots = new Map<CalibrationKey, Object3D>([...(input?.roots ?? []), ...trees.roots]);
+      tileEntries = new Map<CalibrationKey, AssetEntry>([...(input?.entries ?? []), ...trees.entries]);
       if (sheet) {
         makeSheet(Math.max(canvas.clientWidth, 1), Math.max(canvas.clientHeight, 1));
         sizeLabels();

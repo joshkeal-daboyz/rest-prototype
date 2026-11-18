@@ -4,18 +4,18 @@
  * lines 10 x 0 x 5, sidewalks 5 x 0.30 x 5). Nothing here reads assets/private/ except inside an `it` that skips when the manifest is absent; no timer, no path but forward slashes.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { BoxGeometry, Group, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, Quaternion, Raycaster, Sprite, Vector3, type Object3D } from "three";
+import { BoxGeometry, Group, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, Quaternion, Raycaster, Scene, Sprite, Vector3, type Object3D, type WebGLRenderer } from "three";
 import { ASSET_MANIFEST_VERSION, loadPuzzle, type AssetEntry, type AssetManifest, type CalibrationKey } from "../core";
 import { WORLD_PER_METRE } from "./models";
 import { NO_MODELS, allStackKeys, applyModels, loadModels, stackInput, tileInput, type ModelSet } from "./models3d";
 import { packTown } from "./terrace";
 import { STACK_STYLES } from "./stacks";
 import { LANE_PATCH, LANE_RIGHT, PAVEMENT_GRATE, PAVEMENT_STRAIGHT_2, SIDEWALK_TOP_M, SIDEWALK_WALK_M, TILE_M, tileCity, type TileCell, type TileCity, type TileRole } from "./tilecity";
-import { buildCityScene, buildSheetScene, cellFootprint, createCityRig, kerbStrips, sheetRigInsets, tileCityLine, tileGroup, tileKeyOf, tileMatrix, tileOriginY_m } from "./tilecity3d";
-import { TILE_DRAW_CALLS_MAX, TILE_FRONTS, TILE_PATCH, TILE_SHEET_EXTRA, TILE_SLOTS, sheetLabel, sheetPieces, sheetShortName, tileKeys } from "./tileslots";
+import { buildCityScene, buildSheetScene, buildoutTreePlan, cellFootprint, createCityRenderer3d, createCityRig, kerbStrips, sheetRigInsets, tileCityLine, tileGroup, tileKeyOf, tileMatrix, tileOriginY_m, treeInput } from "./tilecity3d";
+import { SHEET_BUILDOUT_NOTE, TILE_DRAW_CALLS_MAX, TILE_FRONTS, TILE_PATCH, TILE_SHEET_EXTRA, TILE_SLOTS, TILE_TREES, sheetLabel, sheetPieces, sheetShortName, tileKeys, cityTilesRequested } from "./tileslots";
 import { stubTextSurface } from "./text";
 import { townLayout } from "./town";
 
@@ -30,6 +30,7 @@ const sizeOfKey = (key: CalibrationKey): [number, number, number] => {
   if (name.includes("ParkingLines")) return [10, 0, 5];
   if (name.includes("Patch")) return [1.8, 0, 1.8];
   if (name.includes("Sidewalk")) return [5, 0.3, 5];
+  if (name.includes("Tree")) return [2, 4.2, 2.5];
   return [5, 0, 5];
 };
 const entryOf = (key: CalibrationKey, i: number): AssetEntry => {
@@ -78,6 +79,7 @@ const wantKey = (c: TileCell): CalibrationKey => {
   const keys = TILE_SLOTS[c.role];
   if (c.role === "lane") return keys[c.variant & LANE_RIGHT]!;
   if (c.role === "pavement") return keys[c.variant & 3]!;
+  if (c.role === "buildout") return keys[c.variant & 1]!;
   return keys[0]!;
 };
 
@@ -376,7 +378,7 @@ describe("levels and seams", () => {
     draw.dispose();
   });
 
-  it("puts a kerb strip on every code-drawn pavement edge that meets a lane or parking cell and on no other", () => {
+  it("puts a kerb strip on every code-drawn pavement or build-out edge that meets a lane or parking cell and on no other", () => {
     // Independent of the code: a map of unit cells, expanded from the cell list.
     const roleAt = new Map<string, TileRole>();
     for (const c of baseCity.cells) {
@@ -385,7 +387,7 @@ describe("levels and seams", () => {
     }
     let want = 0;
     for (const c of baseCity.cells) {
-      if (c.role !== "pavement") continue;
+      if (c.role !== "pavement" && c.role !== "buildout") continue;
       for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const n = roleAt.get(`${c.i + di!},${c.j + dj!}`);
         if (n === "lane" || n === "parking" || n === "parkingPlain") want++;
@@ -402,9 +404,213 @@ describe("levels and seams", () => {
       expect(narrow).toBeLessThan(0.1);
       const ci = Math.floor(s.x / (TILE_M * S));
       const cj = Math.floor(s.z / (TILE_M * S));
-      expect(roleAt.get(`${ci},${cj}`)).toBe("pavement");
+      expect(["pavement", "buildout"]).toContain(roleAt.get(`${ci},${cj}`));
     }
-    expect(kerbStrips(baseCity, baseCity.cells.filter((c) => c.role !== "pavement"))).toEqual([]);
+    // 056: the build-outs' edges carry strips too, and a build-out beside only pavement, a corner or a crossing carries none.
+    expect(baseCity.cells.some((c) => c.role === "buildout")).toBe(true);
+    expect(kerbStrips(baseCity, baseCity.cells.filter((c) => c.role === "buildout")).length).toBeGreaterThan(0);
+    expect(kerbStrips(baseCity, baseCity.cells.filter((c) => c.role !== "pavement" && c.role !== "buildout"))).toEqual([]);
+  });
+});
+
+// ---- ticket 056 B: build-outs and their street trees ----
+
+describe("build-outs and their street trees (056 B, criterion 9)", () => {
+  const defaultCity = tileCity({ blocksX: 3, blocksZ: 3, seed: 1 });
+  /** A tree piece for a fixture pack: 2 x 4.2 x 2.5 m, one mesh. */
+  const withTrees = (p: Pack, lack: readonly CalibrationKey[] = []): Pack => {
+    TILE_TREES.forEach((key, i) => {
+      if (lack.includes(key)) return;
+      p.roots.set(key, rootOf(key));
+      p.entries.set(key, entryOf(key, 100 + i));
+    });
+    return p;
+  };
+  /** The role at every cell of a city, a two-cell tile at both its cells. */
+  const roleMap = (c: TileCity): Map<string, TileRole> => {
+    const out = new Map<string, TileRole>();
+    for (const q of c.cells) {
+      out.set(`${q.i},${q.j}`, q.role);
+      if (q.cells === 2) out.set(q.yaw === 0 || q.yaw === 180 ? `${q.i + 1},${q.j}` : `${q.i},${q.j + 1}`, q.role);
+    }
+    return out;
+  };
+
+  it("has build-outs of both variants in the fixture and the default city, and trees", () => {
+    for (const c of [city, defaultCity]) {
+      const outs = c.cells.filter((q) => q.role === "buildout");
+      expect(outs.length).toBeGreaterThan(20);
+      expect(new Set(outs.map((q) => q.variant & 1))).toEqual(new Set([0, 1]));
+      expect(c.buildoutTrees.length).toBeGreaterThan(5);
+    }
+  });
+
+  it("draws a build-out from the two plain straights by its variant, on the carriageway like every sidewalk piece (walk at 0), with its keys absent as the pavement box", () => {
+    const p = pack();
+    const draw = tileGroup(city, p.roots, p.entries);
+    const [first, second] = TILE_SLOTS.buildout as readonly [CalibrationKey, CalibrationKey];
+    for (const q of city.cells) if (q.role === "buildout") expect(tileKeyOf(q, new Set(p.roots.keys())), `${q.i},${q.j}`).toBe(q.variant & 1 ? second : first);
+    const m = new Matrix4();
+    for (const key of [first, second]) {
+      const mine = city.cells.filter((c) => wantKey(c) === key);
+      const im = named(draw.group, `tile:${shortName(key)}`)[0]!;
+      mine.forEach((c, i) => {
+        if (c.role !== "buildout") return;
+        im.getMatrixAt(i, m);
+        expect(new Vector3().setFromMatrixPosition(m).y + SIDEWALK_WALK_M * S, `${c.i},${c.j}`).toBeCloseTo(0, 6);
+      });
+    }
+    draw.dispose();
+    // No pieces at all: the build-outs are boxes at the pavement's level, with the pavements.
+    const code = tileGroup(city, new Map(), new Map());
+    expect(city.cells.some((q) => q.role === "buildout")).toBe(true);
+    const boxes = city.cells.filter((q) => q.role === "pavement" || q.role === "pavementCorner" || q.role === "kerbCut" || q.role === "buildout" || q.role === "plaza").length;
+    expect(named(code.group, "tile:code-pavement")[0]!.count).toBe(boxes);
+    code.dispose();
+  });
+
+  it("turns every build-out's kerb edge (its piece's +z, turned by its yaw and the key's line) toward a carriageway cell, on the fixture, the default city and a 5 x 4 city", () => {
+    const keys = new Set(tileKeys());
+    for (const c of [city, defaultCity, tileCity({ blocksX: 5, blocksZ: 4, seed: 2 })]) {
+      const roles = roleMap(c);
+      let checked = 0;
+      for (const q of c.cells) {
+        if (q.role !== "buildout") continue;
+        const key = tileKeyOf(q, keys)!;
+        const t = ((q.yaw + (TILE_FRONTS[key] ?? 0)) * Math.PI) / 180;
+        const toward = roles.get(`${q.i + Math.round(Math.sin(t))},${q.j + Math.round(Math.cos(t))}`);
+        expect(["lane", "parking", "parkingPlain"], `${q.i},${q.j} yaw ${q.yaw} faces ${toward}`).toContain(toward);
+        checked++;
+      }
+      expect(checked).toBeGreaterThan(20);
+    }
+  });
+
+  it("plans one tree per buildoutTrees entry from the three tree pieces by hash, with a quarter turn, deterministically, and not all one piece", () => {
+    const a = buildoutTreePlan(defaultCity.buildoutTrees, defaultCity.seed);
+    expect(a).toHaveLength(defaultCity.buildoutTrees.length);
+    expect(a).toEqual(buildoutTreePlan(defaultCity.buildoutTrees, defaultCity.seed));
+    a.forEach((t, i) => {
+      expect(TILE_TREES).toContain(t.key);
+      expect([0, 90, 180, 270]).toContain(t.yaw);
+      expect([t.x_m, t.z_m]).toEqual([defaultCity.buildoutTrees[i]!.x_m, defaultCity.buildoutTrees[i]!.z_m]);
+    });
+    expect(new Set(a.map((t) => t.key)).size, "all three pieces are used").toBe(3);
+    expect(new Set(a.map((t) => t.yaw)).size, "more than one turn").toBeGreaterThan(1);
+    expect(buildoutTreePlan(defaultCity.buildoutTrees, 2).map((t) => t.key)).not.toEqual(a.map((t) => t.key));
+  });
+
+  it("stands each tree at its point on the walk (y 0), at WORLD_PER_METRE, one InstancedMesh per tree key, and counts them in the draw calls", () => {
+    const p = withTrees(pack());
+    const draw = tileGroup(defaultCity, p.roots, p.entries);
+    const plan = buildoutTreePlan(defaultCity.buildoutTrees, defaultCity.seed);
+    let total = 0;
+    const m = new Matrix4();
+    const pos = new Vector3();
+    const quat = new Quaternion();
+    const scale = new Vector3();
+    for (const key of TILE_TREES) {
+      const mine = plan.filter((t) => t.key === key);
+      const ims = named(draw.group, `tile:${shortName(key)}`);
+      expect(ims, key).toHaveLength(1);
+      expect(ims[0]!.count, key).toBe(mine.length);
+      expect(draw.perKey.get(key), key).toBe(mine.length);
+      total += mine.length;
+      mine.forEach((t, i) => {
+        ims[0]!.getMatrixAt(i, m);
+        m.decompose(pos, quat, scale);
+        expect(pos.x, `${key} ${i}`).toBeCloseTo(t.x_m * S, 5);
+        expect(pos.z, `${key} ${i}`).toBeCloseTo(t.z_m * S, 5);
+        expect(pos.y, `${key} ${i}`).toBeCloseTo(0, 9);
+        for (const v of [scale.x, scale.y, scale.z]) expect(v / S).toBeCloseTo(1, 6);
+        const rad = (t.yaw * Math.PI) / 180;
+        expect(new Vector3(0, 0, 1).applyQuaternion(quat).angleTo(new Vector3(Math.sin(rad), 0, Math.cos(rad))), `${key} ${i} turn`).toBeCloseTo(0, 5);
+      });
+    }
+    expect(total).toBe(defaultCity.buildoutTrees.length);
+    // Trees are not cells, so the cell count is unchanged; they are in the call count, within the cap.
+    expect(draw.fromPack).toBe(defaultCity.cells.length);
+    expect(draw.calls).toBe(instances(draw.group).length);
+    expect(draw.calls).toBeLessThanOrEqual(TILE_DRAW_CALLS_MAX);
+    const plain = pack();
+    const without = tileGroup(defaultCity, plain.roots, plain.entries);
+    expect(draw.calls - without.calls).toBe(3);
+    // The full pack with one mesh a piece takes 16 draw calls on the default city (the tile pieces it uses and the 3 trees), against a cap of 40: the cap holds with room.
+    expect(draw.calls).toBe(16);
+    without.dispose();
+    draw.dispose();
+  });
+
+  it("draws no tree where no tree piece is loaded, and gives a tree whose own piece is missing to another of the three", () => {
+    const plain = pack();
+    const none = tileGroup(defaultCity, plain.roots, plain.entries);
+    for (const key of TILE_TREES) expect(named(none.group, `tile:${shortName(key)}`)).toHaveLength(0);
+    none.dispose();
+    const [a, b, c] = TILE_TREES as readonly [CalibrationKey, CalibrationKey, CalibrationKey];
+    const p = withTrees(pack(), [a]);
+    const draw = tileGroup(defaultCity, p.roots, p.entries);
+    expect(named(draw.group, `tile:${shortName(a)}`)).toHaveLength(0);
+    const got = (named(draw.group, `tile:${shortName(b)}`)[0]?.count ?? 0) + (named(draw.group, `tile:${shortName(c)}`)[0]?.count ?? 0);
+    expect(got).toBe(defaultCity.buildoutTrees.length);
+    draw.dispose();
+  });
+
+  it("keeps the whole tile draw within a tight cap with trees in it, every cell still drawn once", () => {
+    const p = withTrees(pack());
+    for (const cap of [6, 12, TILE_DRAW_CALLS_MAX]) {
+      const draw = tileGroup(defaultCity, p.roots, p.entries, cap);
+      expect(draw.calls, `cap ${cap}`).toBeLessThanOrEqual(cap);
+      expect(draw.fromPack + draw.codeDrawn, `cap ${cap}`).toBe(defaultCity.cells.length);
+      draw.dispose();
+    }
+  });
+
+  it("reads the trees from a model set's furniture (`dress`) and nothing else, and the tile view gives them to the scene", async () => {
+    const piece = (key: CalibrationKey, i: number): NonNullable<ModelSet["dress"]>[number] => ({ pack: "city-pack", glb: "city-pack.glb", entry: entryOf(key, 200 + i), front: "+z", corner: false, family: key, root: rootOf(key) });
+    const dress = [...TILE_TREES, TILE_SLOTS.crossing[0]!].map(piece);
+    const input = treeInput({ dress });
+    expect([...input.roots.keys()]).toEqual([...TILE_TREES]);
+    expect([...input.entries.keys()]).toEqual([...TILE_TREES]);
+    expect(treeInput({}).roots.size).toBe(0);
+
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const scenes: Scene[] = [];
+    const gl = { setPixelRatio() {}, setSize() {}, render: (s: Scene) => scenes.push(s) } as unknown as WebGLRenderer;
+    const canvas = { clientWidth: 1280, clientHeight: 720, style: { touchAction: "" }, addEventListener() {}, removeEventListener() {}, setPointerCapture() {} } as unknown as HTMLCanvasElement;
+    const search = "?city=tiles";
+    const tile = tileKeys().map(piece);
+    const r = createCityRenderer3d(gl, canvas, cityTilesRequested(search)!, { dpr: 1, search, load: async () => ({ ...NO_MODELS, tile, dress }), surface: stubTextSurface, city: defaultCity });
+    await new Promise<void>((done) => setTimeout(done, 0));
+    r.draw(undefined as never, undefined as never, 0);
+    const scene = scenes[scenes.length - 1]!;
+    const trees: InstancedMesh[] = [];
+    scene.traverse((o) => {
+      if ((o as InstancedMesh).isInstancedMesh === true && o.name.startsWith("tile:SM_Env_Tree_")) trees.push(o as InstancedMesh);
+    });
+    expect(trees.reduce((n, im) => n + im.count, 0)).toBe(defaultCity.buildoutTrees.length);
+    r.dispose();
+    info.mockRestore();
+  });
+
+  it("shows the build-out once on the sheet, on the plain straights it shares with the pavement, labelled, and in the legend", () => {
+    const pieces = sheetPieces();
+    const withOut = pieces.filter((p) => p.roles.includes("buildout"));
+    expect(withOut.map((p) => p.key)).toEqual([...TILE_SLOTS.buildout]);
+    for (const p of withOut) {
+      expect(p.roles).toEqual(["pavement", "buildout"]);
+      expect(sheetLabel(p.key, true, undefined, p.roles)).toEqual([sheetShortName(p.key), `turn 0 ${SHEET_BUILDOUT_NOTE}`]);
+    }
+    expect(sheetLabel(TILE_SLOTS.lane[0]!, true, undefined, ["lane"])).toHaveLength(2);
+    const full = pack();
+    const sheet = buildSheetScene(full.roots, full.entries, { surface: stubTextSurface, aspect: 16 / 9 });
+    const text = sheet.labels.map((l) => String(l.sprite.userData["text"]));
+    expect(text.filter((t) => t.includes(SHEET_BUILDOUT_NOTE))).toHaveLength(2);
+    expect(text[text.length - 1]).toContain("build-out");
+    sheet.dispose();
+    // A piece the pack lacks says only that, so its label stays inside the room between two columns.
+    const bare = buildSheetScene(new Map(), new Map(), { surface: stubTextSurface, aspect: 16 / 9 });
+    expect(bare.labels.map((l) => String(l.sprite.userData["text"])).filter((t) => t.includes(SHEET_BUILDOUT_NOTE))).toHaveLength(0);
+    bare.dispose();
   });
 });
 
@@ -725,7 +931,7 @@ describe("the tile sheet", () => {
     expect(sheet.scene.children.filter((o) => o.name.startsWith("tile-piece:")).map((o) => o.name)).toEqual(pieces.map((p) => `tile-piece:${p.key}`));
     const text = sheet.labels.map((l) => String(l.sprite.userData["text"]));
     pieces.forEach((p, i) => {
-      expect(text[i]!.split("\n"), p.key).toEqual(sheetLabel(p.key, true));
+      expect(text[i]!.split("\n"), p.key).toEqual(sheetLabel(p.key, true, undefined, p.roles));
       expect(text[i]!).not.toContain("NOT IN PACK");
     });
     expect(text[text.length - 1]).toContain("TILE_FRONTS");

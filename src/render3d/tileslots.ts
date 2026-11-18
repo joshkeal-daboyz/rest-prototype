@@ -28,11 +28,18 @@ export const TILE_SLOTS: Readonly<Record<TileRole, readonly CalibrationKey[]>> =
   pavement: [k("SM_Env_Sidewalk_Straight_01"), k("SM_Env_Sidewalk_Straight_02"), k("SM_Env_Sidewalk_Grate_01")],
   pavementCorner: [k("SM_Env_Sidewalk_Dip_Corner_01")],
   kerbCut: [k("SM_Env_Sidewalk_Dip_01")],
-  // 056 A: the build-out is a pavement-level tile in the parking band; section B owns its front, its sheet entry and its drawing, this is only what the new role needs to type-check and to be drawn.
+  // 056 B: a build-out is a pavement-level tile in the parking band, drawn from the two plain sidewalk straights it shares with the pavement (its variant's bit 0 picks one). Its kerb edge is the
+  // straight's own +z edge, which the cell's yaw already turns toward the street's centre line, so it needs no `TILE_FRONTS` line of its own: the shared keys' (none: unturned) serve both roles.
   buildout: [k("SM_Env_Sidewalk_Straight_01"), k("SM_Env_Sidewalk_Straight_02")],
   lotSurface: [k("SM_Env_Road_Bare_01")],
   plaza: [k("SM_Env_Sidewalk_Panel_01")],
 };
+
+/**
+ * The street trees of the build-outs (056 B): one of these three stands on each of `city.buildoutTrees`, chosen by hash (`buildoutTreePlan`). They are not a role's keys and not on the tile sheet: the
+ * page loads them already as furniture (`furniture.ts` `TREES` names the same three), and the tile view reads them from that set. Pivot centred, minimum y 0, so a tree stands at y 0, the walk.
+ */
+export const TILE_TREES: readonly CalibrationKey[] = [k("SM_Env_Tree_01"), k("SM_Env_Tree_02"), k("SM_Env_Tree_03")];
 
 /** The pothole-patch decal (1.8 m, no height) laid on a lane cell whose `variant` has `LANE_PATCH`. Optional: with no model there is no decal and no code-drawn stand-in. */
 export const TILE_PATCH: CalibrationKey = k("SM_Env_Road_Patch_01");
@@ -177,15 +184,22 @@ export function sheetShortName(key: CalibrationKey): string {
 }
 
 /** The two lines of a piece's label: its short name, then the turn it has now (or, when the pack has no such piece, that it is missing). Short, because a label keeps its pixel size while the grid is fitted to the window. */
-export function sheetLabel(key: CalibrationKey, present: boolean, fronts: Readonly<Partial<Record<CalibrationKey, 0 | 90 | 180 | 270>>> = TILE_FRONTS): string[] {
-  return [sheetShortName(key), present ? `turn ${tileFront(key, fronts)}` : "NOT IN PACK"];
+export function sheetLabel(key: CalibrationKey, present: boolean, fronts: Readonly<Partial<Record<CalibrationKey, 0 | 90 | 180 | 270>>> = TILE_FRONTS, roles: readonly TileRole[] = []): string[] {
+  // 056 B: a build-out shares its pieces with the pavement, so the sheet shows them once and says on the second line that they are the build-out's too (a third line would not fit between the rows).
+  // A piece that is not in the pack says only that: "NOT IN PACK + build-out" is wider than the room between two columns at 1280 x 720.
+  const note = present && roles.includes("buildout") ? ` ${SHEET_BUILDOUT_NOTE}` : "";
+  return [sheetShortName(key), (present ? `turn ${tileFront(key, fronts)}` : "NOT IN PACK") + note];
 }
+
+/** The label's last line on a piece the build-out is drawn from (it is the pavement's straight, so the sheet shows it once). */
+export const SHEET_BUILDOUT_NOTE = "+ build-out";
 
 /** The first lines of the sheet's legend: what the arrow means and what each kind of piece must show beside it. Every line is at most `SHEET_LEGEND_CHARS` characters. */
 export const SHEET_LEGEND: readonly string[] = [
   "tile sheet. yellow arrow = expected front",
   "lane: yellow edge at the arrow",
   "pavement, dip: kerb at the arrow",
+  "build-out: pavement piece, kerb at arrow",
   "corner: kerbs at both arrows",
   "crossing: bars across the arrow",
   "parking: dividers along the arrow",
@@ -197,9 +211,9 @@ export const SHEET_LEGEND_CHARS = 41;
  * The legend a sheet shows: `SHEET_LEGEND`, and, in a numbered sheet (a tall window has no room for names beside the pieces), one line per piece after it: its number, its short name and its turn
  * (or that it is missing from the pack).
  */
-export function sheetLegend(numbered: boolean, pieces: readonly { key: CalibrationKey; present: boolean }[], fronts: Readonly<Partial<Record<CalibrationKey, 0 | 90 | 180 | 270>>> = TILE_FRONTS): string[] {
+export function sheetLegend(numbered: boolean, pieces: readonly { key: CalibrationKey; present: boolean; roles?: readonly TileRole[] }[], fronts: Readonly<Partial<Record<CalibrationKey, 0 | 90 | 180 | 270>>> = TILE_FRONTS): string[] {
   if (!numbered) return [...SHEET_LEGEND];
-  return [...SHEET_LEGEND, ...pieces.map((p, i) => `${i + 1} ${sheetShortName(p.key)} ${p.present ? `turn ${tileFront(p.key, fronts)}` : "NOT IN PACK"}`)];
+  return [...SHEET_LEGEND, ...pieces.map((p, i) => `${i + 1} ${sheetShortName(p.key)} ${p.present ? `turn ${tileFront(p.key, fronts)}${p.roles?.includes("buildout") ? ` ${SHEET_BUILDOUT_NOTE}` : ""}` : "NOT IN PACK"}`)];
 }
 
 // ---- the sheet's grid ----

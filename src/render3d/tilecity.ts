@@ -77,6 +77,11 @@ export const TILE_INSET_MAX_M = 2.5;
 /** The tile city's floor for R7 (the share of qualifying blocks with a fire escape): Josh, 18 Nov 2026, "Just choose the recommended option for now". The ladder's `CITY_CHECK.R7` stays 0.5. */
 export const TILE_CITY_R7_MIN = 0.4;
 /**
+ * The tile city's floor for R6 (the share of shop bays with a sign): Josh, 18 Nov 2026, "Lower it to 0.45 (Recommended)". R6 sits at 0.49 to 0.55 on the tile city whatever the layout, by the dressing's own sign
+ * chance (dressing.ts) over about 170 shop bays, so the ladder's 0.5 would fail on a hair for a layout that moves a lot. The ladder's `CITY_CHECK.R6` stays 0.5; the ATM share (`CITY_ATM_BLOCKS_MIN`) is unchanged.
+ */
+export const TILE_CITY_R6_MIN = 0.45;
+/**
  * How far in from its corner a row of a tile city starts, metres, for a block side of `side_m`. A side is a whole number of cells, so `side - 6` (a row's length) is never a length the
  * packer's 5.0 to 5.28 m columns can close to a seam or an alley (chapter 16.2): the wall at the far end is `side - corner depth`, and n columns reach only 5.0n to 5.28n of it.
  * The row therefore stands back from its first corner by the rest: with n columns of `TILE_COLUMN_M` and an alley of `TILE_ALLEY_M` at the far end, the inset is what is left of
@@ -113,14 +118,6 @@ export const LOT_STALLS = 2 * BAYS_PER_PARKING_TILE;
 export const PARK_SUPPLY_BAND = { lo: 0.75, hi: 1.5 } as const;
 /** In a stretch of build-out cells, every this-many-th carries a street tree (one every 10 m), never one next to a crossing (18.5). */
 export const BUILDOUT_TREE_EVERY = 2;
-/**
- * Which of two runs of about the same length takes a block's lot (a hash of the run and this number). The number carries no meaning of its own, and it is a tuned one: it was picked among about
- * 250 salts so that R6 on the tile city (the share of signed shops, at least 0.5) and R7 (at the tile city's floor of 0.4) hold on the 11 test cities (the default and seeds 1 to 10 at 3 x 3) with the lots
- * where 056 puts them. Salts 0, 1, 7 and 13 each failed R6 or R7 on one of those cities, and most others do. R6 sits at its floor (0.49 to 0.55 whatever the layout) because of the dressing's own sign
- * chance in dressing.ts, not because of parking; 46 also passes seeds 11 to 20, which it was not tuned on. Any layout change that moves a lot may need another number. Josh should be asked whether the
- * tile city gets its own R6 floor, as it has one for R7 (`TILE_CITY_R7_MIN`); with that floor the tie-break could be plain (longest bucket, then id) and this number would go.
- */
-const LOT_RUN_SALT = 46;
 /** A run shorter than this, metres, cannot hold a snapped parking lot with a lot before it and two bays after it, so a forced lot is not tried on it. */
 export const TILE_PARK_MIN_RUN_M = 35;
 
@@ -605,9 +602,8 @@ export function tileCity(opts: { blocksX?: number; blocksZ?: number; seed?: numb
   const bandKey = (road: string, side: number, alongIdx: number): string => `${road}|${side}|${alongIdx}`;
   const longestFirst = (p: BSide, q: BSide): number => q.len - p.len || (p.road < q.road ? -1 : p.road > q.road ? 1 : 0);
   const bandByKey = new Map(bandList.map((b) => [b.key, b] as const));
-  /** Runs within 5 m of each other in length are as good as each other; among them the choice is a hash of the run and `LOT_RUN_SALT`. */
+  /** Runs within 5 m of each other in length are as good as each other; among them the first by id (a plain rule: no tuned number). */
   const bucket = (len: number): number => Math.floor(len / u / 5);
-  const runHash = (id: string): number => hashOf(seed, "lotrun", LOT_RUN_SALT, id);
 
   // ---- the parking lots (18.4, 18.6): every one is placed by demand, through `parkRuns` ----
   // Each round asks every block still short for the best run not yet tried: a run on a side with no parking band first (a lot's kerb cut takes two cells of the band), then the longest,
@@ -634,7 +630,7 @@ export function tileCity(opts: { blocksX?: number; blocksZ?: number; seed?: numb
       return laid.runs
         .filter((r) => r.block === b.id && r.endAbuts !== "parking" && r.len / u >= TILE_PARK_MIN_RUN_M && !tried.has(keys.get(r.id)!))
         .map((r) => ({ key: keys.get(r.id)!, len: r.len, parked: bandByKey.has(bandKey(r.road, r.side, alongOf(b, r.road))) ? 1 : 0, id: r.id }))
-        .sort((p, q) => p.parked - q.parked || bucket(q.len) - bucket(p.len) || runHash(p.id) - runHash(q.id) || (p.id < q.id ? -1 : 1))
+        .sort((p, q) => p.parked - q.parked || bucket(q.len) - bucket(p.len) || (p.id < q.id ? -1 : 1))
         .map((c) => c.key);
     };
     /** One trial layout with every lot so far and one more run flagged for each request (at most one per host); a flag that took no lot is never asked again. */

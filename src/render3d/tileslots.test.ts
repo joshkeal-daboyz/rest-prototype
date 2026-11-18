@@ -9,7 +9,9 @@ import { join } from "node:path";
 import type { CalibrationKey } from "../core";
 import { CITY_BLOCKS_DEFAULT, CITY_BLOCKS_MAX, type TileRole } from "./tilecity";
 import { SIDEWALK_WALK_M, TILE_M } from "./tilecity";
+import { TREES } from "./furniture";
 import {
+  SHEET_BUILDOUT_NOTE,
   SHEET_LEGEND,
   SHEET_LEGEND_CHARS,
   SHEET_SHAPES,
@@ -22,6 +24,7 @@ import {
   TILE_PATCH,
   TILE_SHEET_EXTRA,
   TILE_SLOTS,
+  TILE_TREES,
   TILE_WALK_M,
   cityTilesRequested,
   sheetColumns,
@@ -281,6 +284,33 @@ describe("TILE_FRONTS", () => {
     const plainCorner = gutter("SM_Env_Sidewalk_Corner_01");
     if (!(plainCorner.diagonal > 0 && plainCorner.x < 0 && plainCorner.z > 0)) bad.push(`Corner gutter ${JSON.stringify(plainCorner)}: want along (+x,+z), toward -x +z`);
     expect(bad).toEqual([]);
+  });
+});
+
+describe("the build-out's pieces and its trees (056 B)", () => {
+  it("draws a build-out from the pavement's two plain straights, with no front line of its own (the unturned straights' kerb is on +z, the cell's yaw turns it to the lane)", () => {
+    expect(TILE_SLOTS.buildout).toEqual(TILE_SLOTS.pavement.slice(0, 2));
+    for (const key of TILE_SLOTS.buildout) expect(tileFront(key), key).toBe(0);
+    expect(TILE_FRONT_TEXT.buildout).toContain("carriageway");
+    expect(TILE_LEVELS.buildout).toBe("pavement");
+  });
+
+  it("names the three street trees of the City Pack, as furniture's TREES does, and keeps them off the sheet and out of the loaded tile keys", () => {
+    expect(TILE_TREES.map((k) => k.slice(TILE_PACK.length + 1))).toEqual(["SM_Env_Tree_01", "SM_Env_Tree_02", "SM_Env_Tree_03"]);
+    expect([...TILE_TREES]).toEqual([...TREES]);
+    for (const key of TILE_TREES) expect(tileKeys()).not.toContain(key);
+    for (const p of sheetPieces()) expect(TILE_TREES).not.toContain(p.key);
+  });
+
+  it("says in the legend what a build-out is, in a line of at most SHEET_LEGEND_CHARS, and notes it on its pieces' labels in both sheet shapes", () => {
+    expect(SHEET_LEGEND.some((l) => l.startsWith("build-out"))).toBe(true);
+    const straight = TILE_SLOTS.buildout[0]!;
+    expect(sheetLabel(straight, true, undefined, ["pavement", "buildout"])).toEqual(["Straight_01", `turn 0 ${SHEET_BUILDOUT_NOTE}`]);
+    expect(sheetLabel(straight, false, undefined, ["pavement", "buildout"])).toEqual(["Straight_01", "NOT IN PACK"]);
+    const lines = sheetLegend(true, [{ key: straight, present: true, roles: ["pavement", "buildout"] }, { key: TILE_SLOTS.lane[0]!, present: true, roles: ["lane"] }]);
+    expect(lines[SHEET_LEGEND.length]).toBe(`1 Straight_01 turn 0 ${SHEET_BUILDOUT_NOTE}`);
+    expect(lines[SHEET_LEGEND.length + 1]).toBe("2 YellowLines_01 turn 270");
+    for (const l of lines) expect(l.length, l).toBeLessThanOrEqual(SHEET_LEGEND_CHARS);
   });
 });
 
