@@ -14,7 +14,8 @@
 
 import { WALL_FRONT_M, WALL_REACH_M, WALL_SIDE_M, wallOffset } from "./facade";
 import { BUILDING_FRONTS, type FrontTable } from "./models";
-import { TERRACE_SEAM_M, type PackResult } from "./terrace";
+import { TERRACE_SEAM_M, nextTerraceRun, type PackResult } from "./terrace";
+import type { Stack } from "./stacks";
 import { END_OVERLAP_MAX_M, PASSAGE_W_M, type TileCity, type TilePassage, type TileYaw } from "./tilecity";
 import { WORLD_PER_METRE } from "./town";
 
@@ -197,6 +198,16 @@ function onEdge(pts: readonly { x: number; z: number }[], s: SideLine): [number,
   return Math.abs(pLo) <= FRONTAGE_TOL_M ? [tLo, tHi] : null;
 }
 
+/**
+ * How far behind the wall line the corner column's street-level back stands, metres: its ground piece (`base`), not the deepest piece of the stack (a roof is up to 0.75 m deeper). A stack with no
+ * corner column, or no ground piece in it, is measured by its whole depth.
+ */
+export function groundDepth_m(stack: Pick<Stack, "columns" | "pieces" | "depth_m">): number {
+  const col = stack.columns.findIndex((c) => c.corner !== null);
+  const ground = stack.pieces.filter((p) => p.role === "base" && p.column === col);
+  return col < 0 || ground.length === 0 ? stack.depth_m : Math.max(...ground.map((p) => p.d / 2 - p.z));
+}
+
 const yawDegrees = (rad: number): TileYaw => ((((Math.round(rad / (Math.PI / 2)) * 90) % 360) + 360) % 360) as TileYaw;
 
 /**
@@ -248,15 +259,21 @@ function edgeCoverage(city: Pick<TileCity, "town">, packed: ReadonlyMap<string, 
         const rz = -Math.sin(l.yaw);
         const frontX = l.x + (fx * l.d) / 2;
         const frontZ = l.z + (fz * l.d) / 2;
-        const depth = pb.stack.depth_m * U;
+        // A corner block's flank is the street-level wall of its corner column, not its deepest piece (the roof stands further back): 057 A's ground-face rule.
+        const depth = (pb.corner ? groundDepth_m(pb.stack) : pb.stack.depth_m) * U;
         cover([-1, 1].flatMap((a) => [0, 1].map((d) => ({ x: frontX + (rx * a * l.w) / 2 - fx * d * depth, z: frontZ + (rz * a * l.w) / 2 - fz * d * depth }))));
         s0 += pb.stack.width_m;
       }
       // The far end: from the last building's pieces to the wall, lot or plaza beyond.
       farEnds.runs++;
       const k = lines.findIndex((s) => Math.abs(s.ux - run.ux) + Math.abs(s.uz - run.uz) < 1e-6);
-      const g = res.farGap_m;
-      const over = res.farOvershoot_m ?? 0;
+      // The packer closes a corner end to the next corner block's deepest piece (`wallTo`); the flank at street level stands `flank` metres nearer the corner, so the real opening is that much wider.
+      const nxt = run.endAbuts === "corner" ? nextTerraceRun(t.terraces, run) : undefined;
+      const nb = nxt && nxt.startCorner !== null ? packed.get(nxt.id)?.blocks[0] : undefined;
+      const flank = nb && nb.corner ? Math.max(0, nb.stack.depth_m - groundDepth_m(nb.stack)) : 0;
+      const real = res.farGap_m - (res.farOvershoot_m ?? 0) + flank;
+      const g = Math.max(0, real);
+      const over = Math.max(0, -real);
       let kind: "seam" | "overshoot" | "passage" | "open" = "open";
       if (over > EPS) {
         kind = "overshoot";

@@ -7,10 +7,10 @@
 import { describe, expect, it } from "vitest";
 import type { AssetEntry, CalibrationKey } from "../core";
 import { wallOffset } from "./facade";
-import { END_OVERLAP_MAX_M, FRONTAGE_CHECK, FRONTAGE_TOL_M, OVERLAP_MAX_M, PASSAGE_W_M, RECESS_MAX_M, evaluateFrontage, frontageMetrics, type FaceOffset } from "./frontage";
+import { END_OVERLAP_MAX_M, FRONTAGE_CHECK, FRONTAGE_TOL_M, OVERLAP_MAX_M, PASSAGE_W_M, RECESS_MAX_M, evaluateFrontage, frontageMetrics, groundDepth_m, tilePassages, type FaceOffset } from "./frontage";
 import { BUILDING_FRONTS } from "./models";
 import { STACK_STYLES } from "./stacks";
-import { alignOf, farOverlapOf, packTown, type PackResult } from "./terrace";
+import { alignOf, farOverlapOf, nextTerraceRun, packTown, type PackResult } from "./terrace";
 import { WORLD_PER_METRE } from "./town";
 import { TILE_STACK_ALIGN, tileCity, type TileCity } from "./tilecity";
 
@@ -268,7 +268,8 @@ describe("G2, no gap in the frontage (ticket 057 B, criterion 6)", () => {
     }
   });
 
-  it("fails on 793bbf7's layout, a fixture of the default city with today's corner insets (1.5 m): the strip at every corner is nothing", { timeout: 60000 }, () => {
+  // A uniform 1.5 m inset on every row that starts at a corner: the shape of 793bbf7's layout, not its real per-row insets (1.0 to 2.5 m, by the side's length), which are gone with `tileRowInset_m`.
+  it("fails on a fixture of the default city with a uniform corner inset of 1.5 m (the shape of 793bbf7's layout, not its exact insets): the strip at every corner is nothing", { timeout: 60000 }, () => {
     const f = insetFixture(1.5);
     expect(f.moved).toBeGreaterThan(20);
     const m = frontageMetrics(f.city, f.packed);
@@ -281,30 +282,104 @@ describe("G2, no gap in the frontage (ticket 057 B, criterion 6)", () => {
     expect(evaluateFrontage(m)[0]!.pass).toBe(true);
   });
 
-  it("fails on a far gap of a slit (0.5 m), a run left unpacked, and an overshoot past END_OVERLAP_MAX_M", { timeout: 60000 }, () => {
+  /**
+   * The corner-ending runs of the default city whose next row starts with a corner block, with how far the packer's far wall (the corner block's deepest piece, `wallTo`) stands from the corner
+   * block's street-level flank (its corner column's ground piece): the opening G2 and the passages measure is `farGap_m - farOvershoot_m + flank`.
+   */
+  const cornerEnds = (): { id: string; flank: number }[] => {
     const { city, wall } = defaultCity();
-    const ids = [...wall.keys()];
-    const withPassage = ids.find((id) => wall.get(id)!.farGap_m >= PASSAGE_W_M.min && wall.get(id)!.farGap_m <= PASSAGE_W_M.max)!;
-    const withOver = ids.find((id) => (wall.get(id)!.farOvershoot_m ?? 0) > 0)!;
-    expect(withPassage).toBeDefined();
-    expect(withOver).toBeDefined();
-    const edit = (id: string, f: (r: PackResult) => PackResult): Map<string, PackResult> => new Map([...wall].map(([k, r]) => [k, k === id ? f(r) : r]));
-    // A gap of 0.5 m is neither a seam nor a passage, so nothing covers it.
-    const slit = frontageMetrics(city, edit(withPassage, (r) => ({ ...r, farGap_m: 0.5 })));
+    const out: { id: string; flank: number }[] = [];
+    for (const r of city.town.terraces) {
+      if (r.endAbuts !== "corner") continue;
+      const n = nextTerraceRun(city.town.terraces, r);
+      const nb = n && n.startCorner !== null ? wall.get(n.id)?.blocks[0] : undefined;
+      if (nb?.corner) out.push({ id: r.id, flank: nb.stack.depth_m - groundDepth_m(nb.stack) });
+    }
+    return out;
+  };
+  /**
+   * The packing with run `id`'s last building lengthened at its far end, and its numbers kept true, so that the packer's own gap to the corner block's deepest piece is `signed` metres (negative: an
+   * overshoot of that much). The street-level opening is then `signed + flank`.
+   */
+  const withGap = (id: string, signed: number): Map<string, PackResult> => {
+    const { city, wall } = defaultCity();
+    const run = city.town.terraces.find((r) => r.id === id)!;
+    const v = wall.get(id)!;
+    // The last building is widened (or narrowed) at its far end by the difference, so the start of the run stays on its corner.
+    const dm = v.farGap_m - (v.farOvershoot_m ?? 0) - signed;
+    const d = dm * U;
+    const last = v.blocks.length - 1;
+    const blocks = v.blocks.map((b, i) => (i === last ? { ...b, lot: { ...b.lot, w: b.lot.w + d, x: b.lot.x + (run.ux * d) / 2, z: b.lot.z + (run.uz * d) / 2 }, stack: { ...b.stack, width_m: b.stack.width_m + dm } } : b));
+    const moved = { ...v, blocks, farGap_m: Math.max(0, signed), farOvershoot_m: Math.max(0, -signed) };
+    return new Map([...wall].map(([k, r]) => [k, k === id ? moved : r]));
+  };
+  /** The same with the opening at street level: `real` metres from the flank (negative: an overshoot past it). */
+  const withOpening = (id: string, flank: number, real: number): Map<string, PackResult> => withGap(id, real - flank);
+
+  it("measures a corner block's flank from its corner column's ground piece, not its roof: on the default city all 34 corner blocks stand 0.36 to 0.75 m shallower at street level", () => {
+    const ends = cornerEnds();
+    expect(ends.length).toBe(34);
+    for (const e of ends) {
+      expect(e.flank, e.id).toBeGreaterThan(0.35);
+      expect(e.flank, e.id).toBeLessThan(0.76);
+    }
+    // The recorded passages are the real openings, wider than the packer's gap by the flank, and still inside a column.
+    const { city, wall } = defaultCity();
+    const wide = tilePassages(city, wall);
+    expect(wide.length).toBeGreaterThan(30);
+    for (const q of wide) expect(q.w_m, q.run).toBeLessThanOrEqual(PASSAGE_W_M.max);
+    const flankOf = new Map(ends.map((e) => [e.id, e.flank] as const));
+    for (const q of wide) {
+      const gap = wall.get(q.run)!.farGap_m;
+      expect(q.w_m, q.run).toBeCloseTo(gap + (flankOf.get(q.run) ?? 0), 9);
+    }
+  });
+
+  it("fails a seam, and a 0.2 m overshoot, made against a corner block whose ground piece is shallower than its roof: the street-level opening is a slit nothing covers", { timeout: 60000 }, () => {
+    const { city } = defaultCity();
+    const ends = cornerEnds();
+    for (const e of ends.slice(0, 6)) {
+      // A seam by the packer's own measure (0.05 m to the roof's wall) leaves 0.05 + flank at street level, 0.41 to 0.80 m.
+      const seam = frontageMetrics(city, withGap(e.id, 0.05));
+      expect(seam.uncovered, `${e.id} seam`).toBeGreaterThan(0);
+      expect(seam.farEnds.slit, `${e.id} seam`).toBeGreaterThanOrEqual(1);
+      expect(evaluateFrontage(seam)[1]!.pass, `${e.id} seam`).toBe(false);
+      // A 0.2 m overshoot to the roof's wall reaches only to 0.2 - flank at street level: flank is over 0.35, so it falls short.
+      const over = frontageMetrics(city, withGap(e.id, -0.2));
+      expect(over.uncovered, `${e.id} overshoot`).toBeGreaterThan(0);
+      expect(evaluateFrontage(over)[1]!.pass, `${e.id} overshoot`).toBe(false);
+    }
+    // The same ends are fine when the street-level wall is really met: an opening of 0 (a seam), and an overshoot that reaches it.
+    const e0 = ends[0]!;
+    expect(evaluateFrontage(frontageMetrics(city, withOpening(e0.id, e0.flank, 0.05)))[1]!.pass).toBe(true);
+    expect(evaluateFrontage(frontageMetrics(city, withOpening(e0.id, e0.flank, -0.3)))[1]!.pass).toBe(true);
+  });
+
+  it("fails on a far gap of a slit (0.5 m), a run left unpacked, and an overshoot past END_OVERLAP_MAX_M, and holds a passage to 5.3 m at street level", { timeout: 60000 }, () => {
+    const { city, wall } = defaultCity();
+    const e = cornerEnds()[0]!;
+    // A real opening of 0.5 m is neither a seam nor a passage, so nothing covers it.
+    const slit = frontageMetrics(city, withOpening(e.id, e.flank, 0.5));
     expect(slit.uncovered).toBeGreaterThan(0);
     expect(slit.farEnds.slit).toBe(1);
     expect(evaluateFrontage(slit)[1]!.pass).toBe(false);
     // A run with no building is a whole run of nothing.
-    const none = frontageMetrics(city, edit(withPassage, (r) => ({ ...r, blocks: [] })));
+    const none = frontageMetrics(city, new Map([...wall].map(([k, v]) => [k, k === e.id ? { ...v, blocks: [] } : v])));
     expect(none.uncovered).toBeGreaterThan(0);
     expect(evaluateFrontage(none)[1]!.pass).toBe(false);
-    // An overshoot of 1.2 m is further into the corner block than the ticket allows.
-    const deep = frontageMetrics(city, edit(withOver, (r) => ({ ...r, farOvershoot_m: 1.2 })));
+    // An overshoot of 1.2 m at street level is further into the corner block than the ticket allows.
+    const deep = frontageMetrics(city, withOpening(e.id, e.flank, -1.2));
     expect(deep.farEnds.overshootBad).toBe(1);
     expect(evaluateFrontage(deep)[1]!.pass).toBe(false);
-    // The wide gap of a passage is covered as the passage it is: 5.3 m passes, 5.4 m does not.
-    expect(evaluateFrontage(frontageMetrics(city, edit(withPassage, (r) => ({ ...r, farGap_m: PASSAGE_W_M.max }))))[1]!.value).toBeGreaterThanOrEqual(0);
-    expect(frontageMetrics(city, edit(withPassage, (r) => ({ ...r, farGap_m: 5.4 }))).farEnds.wide).toBe(1);
+    // 5.3 m is a passage and covered; 5.4 m is wider than a column and is not.
+    const max = frontageMetrics(city, withOpening(e.id, e.flank, PASSAGE_W_M.max));
+    expect(max.farEnds.wide).toBe(0);
+    expect(max.uncovered).toBe(0);
+    expect(max.passages.find((q) => q.run === e.id)?.w_m).toBeCloseTo(PASSAGE_W_M.max, 9);
+    expect(evaluateFrontage(max)[1]!.pass).toBe(true);
+    const wider = frontageMetrics(city, withOpening(e.id, e.flank, 5.4));
+    expect(wider.farEnds.wide).toBe(1);
+    expect(wider.uncovered).toBeGreaterThan(0);
   });
 
   it("fails on a city with nothing packed, which has covered none of its pavement edge", () => {
