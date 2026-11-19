@@ -17,11 +17,13 @@ import * as furniture from "./furniture";
 import * as layout from "./layout";
 import * as lighting from "./lighting";
 import * as models from "./models";
+import * as parkmetrics from "./parkmetrics";
 import * as placeholders from "./placeholders";
 import * as scene from "./scene";
 import * as stacks from "./stacks";
 import * as streetcam from "./streetcam";
 import * as terrace from "./terrace";
+import * as tilecity from "./tilecity";
 import * as town from "./town";
 
 const GUIDE = "docs/city-style-guide.md";
@@ -45,6 +47,8 @@ const MODULES: Readonly<Record<string, Record<string, unknown>>> = {
   "citymetrics.ts": citymetrics as unknown as Record<string, unknown>,
   "colourway.ts": colourway as unknown as Record<string, unknown>,
   "lighting.ts": lighting as unknown as Record<string, unknown>,
+  "tilecity.ts": tilecity as unknown as Record<string, unknown>,
+  "parkmetrics.ts": parkmetrics as unknown as Record<string, unknown>,
 };
 
 // ---- reading the guide ----
@@ -100,8 +104,8 @@ function lookup(file: string, ref: string): unknown {
 }
 
 describe("the city style guide exists and is shaped as the ticket says", () => {
-  it("has the sixteen chapters, in order, and a Numbers appendix", () => {
-    expect(chapterNumbers).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
+  it("has the sixteen chapters and chapter 18 (ticket 056), in order, and a Numbers appendix", () => {
+    expect(chapterNumbers).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18]);
     expect(lines.some((l) => l === "## Numbers")).toBe(true);
   });
 
@@ -565,5 +569,89 @@ describe("lighting.ts is drift-checked and 16.12 describes the testing daylight 
 
   it("adds one line to chapter 11 saying the testing daylight is a dev tool and not part of the game's look", () => {
     expect(chapter(11).join("\n")).toMatch(/^- \*\*Default \(060\)\*\*: the testing daylight of 16\.12 is a dev tool and not part of the game's look/m);
+  });
+});
+
+// ---- ticket 056 C: chapter 18 (parking) and the parking constants ----
+
+describe("chapter 18 gives the parking rules, and the numbers it names cannot drift (ticket 056)", () => {
+  const rows = table(section(/^## Numbers$/), ["Constant", "Value", "File"]);
+  const refs = (file: string): string[] => rows.filter((r) => r[2] === file).map((r) => unquote(r[0]!));
+  /** The constants of 056 criterion 1, and the others chapter 18 names from tilecity.ts. */
+  const PARK_CONSTANTS = [
+    "PARK_PER_SHOP", "PARK_PER_HOME", "HOME_COLUMN_FLOORS", "UNIT_FLOORS_NOMINAL", "BAY_TILES_PER_BLOCK_MIN", "BAY_RUN_TILES_MAX", "KERB_GAP_MIN_M",
+    "KERB_BAY_SHARE_MAX", "BAYS_PER_100M_MAX", "LOTS_PER_BLOCK_MAX", "LOT_STALLS", "PARK_SUPPLY_BAND", "BUILDOUT_TREE_EVERY",
+    "BAYS_PER_PARKING_TILE", "BAY_JUNCTION_CLEAR", "TILE_PARK_MIN_RUN_M", "TILE_CITY_R6_MIN",
+  ];
+  const text = chapter(18).join("\n");
+
+  it("has a Numbers row in tilecity.ts for every parking constant, and the code still exports each", () => {
+    const have = refs("tilecity.ts");
+    for (const n of PARK_CONSTANTS) {
+      expect(have, `no Numbers row for ${n}`).toContain(n);
+      expect(tilecity as Record<string, unknown>, `tilecity.ts no longer exports ${n}`).toHaveProperty(n);
+    }
+  });
+
+  it("has a Numbers row for every constant parkmetrics.ts exports, and the check finds one with no row", () => {
+    const uncovered = (mod: Record<string, unknown>, have: readonly string[]): string[] =>
+      Object.entries(mod)
+        .filter(([, v]) => typeof v !== "function")
+        .map(([name]) => name)
+        .filter((name) => !have.some((r) => r === name || r.startsWith(`${name}.`) || r.startsWith(`${name}[`)));
+    expect(Object.values(MODULES["parkmetrics.ts"]!).some((v) => typeof v !== "function"), "parkmetrics.ts exports a constant").toBe(true);
+    expect(uncovered(MODULES["parkmetrics.ts"]!, refs("parkmetrics.ts")), "no row for these parkmetrics.ts exports").toEqual([]);
+    expect(uncovered({ ...MODULES["parkmetrics.ts"]!, NEW_TUNING: 3 }, refs("parkmetrics.ts"))).toEqual(["NEW_TUNING"]);
+    expect(uncovered(MODULES["parkmetrics.ts"]!, [])).toContain("PARK_CHECK");
+    expect(parkmetrics.PARK_CHECK.P6).toBe(tilecity.BAYS_PER_100M_MAX);
+  });
+
+  it("has a row for every tilecity.ts constant that chapter 18 names", () => {
+    const have = refs("tilecity.ts");
+    for (const m of text.matchAll(/`([A-Z][A-Z0-9_]{2,})`/g)) {
+      const name = m[1]!;
+      const v = (MODULES["tilecity.ts"] as Record<string, unknown>)[name];
+      if (v === undefined || typeof v === "function") continue;
+      expect(have.some((r) => r === name || r.startsWith(`${name}.`) || r.startsWith(`${name}[`)), `chapter 18 names ${name}, which has no Numbers row`).toBe(true);
+    }
+  });
+
+  it("has its eight parts, in order, and every rule tagged with a ticket, or with what it waits for", () => {
+    const heads = chapter(18).filter((l) => /^### 18\.\d /.test(l)).map((l) => Number(/^### 18\.(\d) /.exec(l)![1]));
+    expect(heads).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    const bullets = chapter(18).filter((l) => l.startsWith("- "));
+    expect(bullets.length).toBeGreaterThan(20);
+    for (const b of bullets) {
+      const tag = /^- \*\*(Decided|Default|Pending|Open|Info)\b/.exec(b);
+      expect(tag, `chapter 18: untagged bullet: ${b.slice(0, 80)}`).not.toBeNull();
+      if (tag![1] === "Decided" || tag![1] === "Default") expect(/^- \*\*(Decided|Default) \(056\b/.test(b), `chapter 18: no ticket beside: ${b.slice(0, 80)}`).toBe(true);
+      if (tag![1] === "Pending" || tag![1] === "Open") expect(b.startsWith(`- **${tag![1]} (waits for `), `chapter 18: no "what it waits for": ${b.slice(0, 80)}`).toBe(true);
+    }
+  });
+
+  it("keeps Josh's words as the Decided lines: the parking complaint, and the R6 floor", () => {
+    expect(/^- \*\*Decided \(056, Josh 18 Nov 2026[^)]*\)\*\*: "Roads look good, parking spaces are overwhelming\. Too many parking spaces\. We should create rules in the style sheet that indicate how much parking should be available on the streets vs parking lots for residential and business style units\."/m.test(text)).toBe(true);
+    expect(/^- \*\*Decided \(056, Josh 18 Nov 2026, "Lower it to 0\.45 \(Recommended\)"\)\*\*/m.test(text)).toBe(true);
+    expect(text).toContain("I approve one through three");
+  });
+
+  it("names the three kinds of rule: shoppers at the kerb, residents in lots, and the band without bays, each with the constants the ticket names", () => {
+    for (const w of ["PARK_PER_SHOP", "PARK_PER_HOME", "BAY_RUN_TILES_MAX", "KERB_GAP_MIN_M", "KERB_BAY_SHARE_MAX", "BAYS_PER_100M_MAX", "LOTS_PER_BLOCK_MAX", "LOT_STALLS", "BUILDOUT_TREE_EVERY", "PARK_SUPPLY_BAND", "TILE_PARK_MIN_RUN_M"]) expect(text, w).toContain(`\`${w}\``);
+    for (const id of Object.keys(parkmetrics.PARK_CHECK)) expect(text, id).toMatch(new RegExp(`^\| ${id} \|`, "m"));
+    expect(text).toMatch(/shoppers park at the kerb, residents park off the street/);
+  });
+
+  it("says that chapter 17 (055 D) defers to chapter 18 while it does not exist, and points no other chapter at a retired name", () => {
+    if (!chapterNumbers.includes(17)) expect(text).toMatch(/chapter 17 \(ticket 055 D\) does not exist yet\. When it does, its parking paragraph defers to this chapter/);
+    for (const gone of ["CITY_BAYS_PER_BLOCK_MIN", "CITY_LOTS_PER_BLOCKS", "LOT_RUN_SALT"]) {
+      expect(doc, `the guide still names ${gone}`).not.toContain(gone);
+      expect(Object.keys(tilecity), `tilecity.ts still exports ${gone}`).not.toContain(gone);
+    }
+  });
+
+  it("no longer holds the parking entry among the decisions not yet built", () => {
+    const pending = section(/^## Decided, not yet built/).join("\n");
+    expect(pending).not.toMatch(/### Parking \(ticket 056/);
+    expect(pending).not.toContain("1 bay per 3 shops");
   });
 });
