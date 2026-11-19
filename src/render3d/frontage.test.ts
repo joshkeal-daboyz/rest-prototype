@@ -7,12 +7,12 @@
 import { describe, expect, it } from "vitest";
 import type { AssetEntry, CalibrationKey } from "../core";
 import { wallOffset } from "./facade";
-import { END_OVERLAP_MAX_M, FRONTAGE_CHECK, FRONTAGE_TOL_M, OVERLAP_MAX_M, PASSAGE_W_M, RECESS_MAX_M, VOID_MAX_SHARE, VOID_PATCH_MAX_M, VOID_RASTER_M, evaluateFrontage, frontageMetrics, groundDepth_m, interiorMetrics, tilePassages, type FaceOffset, type FrontageMetrics } from "./frontage";
+import { END_OVERLAP_MAX_M, FRONTAGE_CHECK, FRONTAGE_TOL_M, OVERLAP_MAX_M, PASSAGE_W_M, RECESS_MAX_M, VOID_MAX_SHARE, VOID_PATCH_MAX_M, VOID_RASTER_M, evaluateFrontage, frontageMetrics, groundDepth_m, tilePassages, type FaceOffset, type FrontageMetrics } from "./frontage";
 import { BUILDING_FRONTS } from "./models";
 import { STACK_STYLES } from "./stacks";
 import { alignOf, farOverlapOf, nextTerraceRun, packTown, type PackResult } from "./terrace";
 import { WORLD_PER_METRE } from "./town";
-import { TILE_M, TILE_STACK_ALIGN, tileCity, withPassages, type TileCity } from "./tilecity";
+import { PASSAGE_FLOOR_DEPTH_M, TILE_M, TILE_STACK_ALIGN, tileCity, withPassages, type TileCity } from "./tilecity";
 
 // [name, width, height, depth] in metres (the converted City Pack manifest, 18 Nov 2026); bounds are centred.
 const SIZES: [string, number, number, number][] = [
@@ -409,7 +409,18 @@ describe("G2, no gap in the frontage (ticket 057 B, criterion 6)", () => {
 });
 
 describe("G3 and G4, no void and courts reached (ticket 057 C, criterion 9)", () => {
-  const defaultCity = (): { city: TileCity; wall: Map<string, PackResult> } => cityOf(CITIES[0]!);
+  /** The city of criterion 3 as the draw gets it: packed, with its gated passages (and their floors) recorded by `withPassages`. */
+  const placed = new Map<string, { city: TileCity; wall: Map<string, PackResult> }>();
+  const placedOf = (c: (typeof CITIES)[number]): { city: TileCity; wall: Map<string, PackResult> } => {
+    let p = placed.get(c.label);
+    if (!p) {
+      const { city, wall } = cityOf(c);
+      p = { city: withPassages(city, tilePassages(city, wall)), wall };
+      placed.set(c.label, p);
+    }
+    return p;
+  };
+  const defaultCity = (): { city: TileCity; wall: Map<string, PackResult> } => placedOf(CITIES[0]!);
   const verdictOf = (m: FrontageMetrics, id: "G3" | "G4"): { id: string; value: number; pass: boolean } => evaluateFrontage(m).find((v) => v.id === id)!;
   /** The city as 793bbf7 had it: the same blocks, terraces and lots, and nothing laid inside the blocks. */
   const bare = (city: TileCity): TileCity => ({ ...city, interior: [], courts: [] });
@@ -422,10 +433,10 @@ describe("G3 and G4, no void and courts reached (ticket 057 C, criterion 9)", ()
     expect(FRONTAGE_CHECK.G4).toBe(0);
   });
 
-  it("passes G3 and G4 on the default city, seeds 1 to 10 at 3 x 3 and seeds 1 to 3 at 6 x 4, with the least filled block under 0.5% and no unfilled square over 0.25 m", { timeout: 120000 }, () => {
+  it("passes G3 and G4 on the default city, seeds 1 to 10 at 3 x 3 and seeds 1 to 3 at 6 x 4, with every block under 0.5% unfilled and no unfilled square over VOID_PATCH_MAX_M (1 m)", { timeout: 120000 }, () => {
     const bad: string[] = [];
     for (const c of CITIES) {
-      const { city, wall } = cityOf(c);
+      const { city, wall } = placedOf(c);
       const m = frontageMetrics(city, wall);
       const i = m.interior;
       for (const id of ["G3", "G4"] as const) if (!verdictOf(m, id).pass) bad.push(`${c.label}: ${id} ${verdictOf(m, id).value}`);
@@ -448,7 +459,7 @@ describe("G3 and G4, no void and courts reached (ticket 057 C, criterion 9)", ()
 
   it("fails G3 on 793bbf7's layout (nothing inside the blocks): every block is 50 to 70% void", { timeout: 60000 }, () => {
     for (const c of [CITIES[0]!, CITIES[10]!]) {
-      const { city, wall } = cityOf(c);
+      const { city, wall } = placedOf(c);
       const m = frontageMetrics(bare(city), wall);
       expect(verdictOf(m, "G3").pass, c.label).toBe(false);
       expect(m.interior.voidBlocks, c.label).toBe(city.blocks.length);
@@ -483,14 +494,51 @@ describe("G3 and G4, no void and courts reached (ticket 057 C, criterion 9)", ()
     expect(frontageMetrics(city, wall).interior.shareMean).toBeLessThan(0.005);
   });
 
-  it("reads the gated passages: without their floors the same city is left with more unfilled ground", () => {
+  it("credits a gated passage's floor only where the city records it: the same city with its passages' floors left out fails G3, and each recorded floor is the passage wide and one cell deep", () => {
     const { city, wall } = defaultCity();
-    const withFloors = interiorMetrics(city, wall, tilePassages(city, wall));
-    const without = interiorMetrics(city, wall, []);
-    expect(tilePassages(city, wall).length).toBeGreaterThan(10);
-    expect(without.shareMean).toBeGreaterThan(withFloors.shareMean);
-    expect(without.voidBlocks).toBeGreaterThan(0);
-    expect(withFloors.voidBlocks).toBe(0);
+    expect(city.passages.length).toBeGreaterThan(10);
+    const unrecorded = frontageMetrics({ ...city, passages: [] }, wall);
+    const recorded = frontageMetrics(city, wall);
+    expect(unrecorded.interior.shareMean).toBeGreaterThan(recorded.interior.shareMean);
+    expect(unrecorded.interior.voidBlocks).toBeGreaterThan(0);
+    expect(verdictOf(unrecorded, "G3").pass).toBe(false);
+    expect(unrecorded.interior.patchMax_m).toBeGreaterThan(VOID_PATCH_MAX_M);
+    expect(recorded.interior.voidBlocks).toBe(0);
+    expect(verdictOf(recorded, "G3").pass).toBe(true);
+    // A plain city (no withPassages) records none, and fails the same way.
+    expect(verdictOf(frontageMetrics(cityOf(CITIES[0]!).city, wall), "G3").pass).toBe(false);
+    // The floor is the passage's own width by PASSAGE_FLOOR_DEPTH_M, with its mouth on one long edge.
+    for (const p of city.passages) {
+      const w = p.floor.maxX_m - p.floor.minX_m;
+      const d = p.floor.maxZ_m - p.floor.minZ_m;
+      expect(Math.min(w, d), p.run).toBeCloseTo(Math.min(p.w_m, PASSAGE_FLOOR_DEPTH_M), 6);
+      expect(Math.max(w, d), p.run).toBeCloseTo(Math.max(p.w_m, PASSAGE_FLOOR_DEPTH_M), 6);
+      expect(p.w_m * PASSAGE_FLOOR_DEPTH_M, p.run).toBeGreaterThan(4.9);
+    }
+    // One floor too small is a hole: shrink one floor to half its depth and a block fails the patch rule.
+    const p0 = city.passages[0]!;
+    const half = { ...p0, floor: { ...p0.floor, maxX_m: p0.floor.minX_m + (p0.floor.maxX_m - p0.floor.minX_m) / 2, maxZ_m: p0.floor.minZ_m + (p0.floor.maxZ_m - p0.floor.minZ_m) / 2 } };
+    expect(frontageMetrics({ ...city, passages: [half, ...city.passages.slice(1)] }, wall).interior.shareMean).toBeGreaterThan(recorded.interior.shareMean);
+  });
+
+  it("measures per default-city block the area of its passage floors, and every one is pavement the draw must lay", () => {
+    const { city } = defaultCity();
+    const byBlock = new Map<string, number>();
+    const runBlock = new Map(city.town.terraces.map((r) => [r.id, r.block] as const));
+    for (const p of city.passages) byBlock.set(runBlock.get(p.run)!, (byBlock.get(runBlock.get(p.run)!) ?? 0) + p.w_m * PASSAGE_FLOOR_DEPTH_M);
+    expect(byBlock.size).toBeGreaterThan(0);
+    for (const [, area] of byBlock) expect(area).toBeGreaterThan(0);
+  });
+
+  it("fails, and does not throw, on a city with no blocks: G3 and G4 both fail, and a drive with no block to belong to has no kerb cut", () => {
+    const { city, wall } = defaultCity();
+    const none = frontageMetrics({ ...city, town: { ...city.town, blocks: [] } }, wall);
+    expect(verdictOf(none, "G3").pass).toBe(false);
+    expect(verdictOf(none, "G4").pass).toBe(false);
+    const orphan = frontageMetrics({ ...city, blocks: [] }, wall);
+    expect(orphan.interior.drivesNoKerbCut).toBe(orphan.interior.drives);
+    expect(orphan.interior.drives).toBeGreaterThan(0);
+    expect(verdictOf(orphan, "G4").pass).toBe(false);
   });
 
   it("fails G4 where a drive has lost its kerb cut, and where a court has lost its drive", () => {
@@ -520,7 +568,7 @@ describe("G3 and G4, no void and courts reached (ticket 057 C, criterion 9)", ()
     const fails: string[] = [];
     let passages = 0;
     for (const c of CITIES.slice(0, 4)) {
-      const { city, wall } = cityOf(c);
+      const { city, wall } = placedOf(c);
       const withP = withPassages(city, tilePassages(city, wall));
       const role = new Map<string, string>();
       for (const q of withP.cells) if (q.role === "lotSurface" || q.role === "plaza") role.set(`${q.i},${q.j}`, q.role);

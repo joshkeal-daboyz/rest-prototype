@@ -20,7 +20,7 @@ import { WALL_FRONT_M, WALL_REACH_M, WALL_SIDE_M, wallOffset } from "./facade";
 import { BUILDING_FRONTS, type FrontTable } from "./models";
 import { TERRACE_SEAM_M, nextTerraceRun, type PackResult, type PackedBlock } from "./terrace";
 import type { Stack } from "./stacks";
-import { END_OVERLAP_MAX_M, PASSAGE_W_M, TILE_M, type TileCity, type TilePassage, type TileYaw } from "./tilecity";
+import { END_OVERLAP_MAX_M, PASSAGE_FLOOR_DEPTH_M, PASSAGE_W_M, TILE_M, type TileCity, type TilePassage, type TileYaw } from "./tilecity";
 import { WORLD_PER_METRE } from "./town";
 
 export { END_OVERLAP_MAX_M, PASSAGE_W_M };
@@ -139,7 +139,7 @@ const wallZ = (p: { z: number; d: number; key: `${string}:${string}`; street: "f
  * Where every street-level wall of a packed tile city stands against its pavement's back edge. `packed` is `packTown`'s result for the city (the map is keyed by run id); `fronts` as for
  * `assembleStack`. Pure: nothing is read but the packed stacks and the wall table.
  */
-export function frontageMetrics(city: Pick<TileCity, "town"> & Partial<Pick<TileCity, "cells" | "interior" | "blocks" | "frontLots">>, packed: ReadonlyMap<string, PackResult>, fronts: FrontTable = BUILDING_FRONTS, faceOffset?: FaceOffset): FrontageMetrics {
+export function frontageMetrics(city: Pick<TileCity, "town"> & Partial<Pick<TileCity, "cells" | "interior" | "blocks" | "frontLots" | "passages">>, packed: ReadonlyMap<string, PackResult>, fronts: FrontTable = BUILDING_FRONTS, faceOffset?: FaceOffset): FrontageMetrics {
   const face: FaceOffset = faceOffset ?? ((key, street) => wallOffset(key, street, fronts));
   let runs = 0;
   let columns = 0;
@@ -191,7 +191,7 @@ export function frontageMetrics(city: Pick<TileCity, "town"> & Partial<Pick<Tile
     frontMax_m: fin(frontMax),
     unmeasured: [...unmeasured].sort(),
     ...edge,
-    interior: interiorMetrics(city, packed, edge.passages),
+    interior: interiorMetrics(city, packed),
   };
 }
 
@@ -340,7 +340,16 @@ function edgeCoverage(city: Pick<TileCity, "town">, packed: ReadonlyMap<string, 
       if (kind === "passage") {
         const mid = (from + g / 2) * U;
         const l = res.blocks[res.blocks.length - 1]!.lot;
-        passages.push({ x_m: (s.ax + s.ux * mid) / U, z_m: (s.az + s.uz * mid) / U, w_m: g, yaw: yawDegrees(l.yaw), run: run.id });
+        const px = (s.ax + s.ux * mid) / U;
+        const pz = (s.az + s.uz * mid) / U;
+        // The floor: the passage wide along the edge, `PASSAGE_FLOOR_DEPTH_M` in from it (the lot's front points at the street, so inward is -f).
+        const fx = Math.sin(l.yaw);
+        const fz = Math.cos(l.yaw);
+        const rx = Math.cos(l.yaw);
+        const rz = -Math.sin(l.yaw);
+        const xs = [-g / 2, g / 2].flatMap((a) => [0, -PASSAGE_FLOOR_DEPTH_M].map((back) => px + rx * a + fx * back));
+        const zs = [-g / 2, g / 2].flatMap((a) => [0, -PASSAGE_FLOOR_DEPTH_M].map((back) => pz + rz * a + fz * back));
+        passages.push({ x_m: px, z_m: pz, w_m: g, yaw: yawDegrees(l.yaw), run: run.id, floor: { minX_m: Math.min(...xs), minZ_m: Math.min(...zs), maxX_m: Math.max(...xs), maxZ_m: Math.max(...zs) } });
       }
     }
     lines.forEach((s, k) => {
@@ -400,10 +409,10 @@ function largestEmptySquare(empty: Uint8Array, nx: number, nz: number): number {
 }
 
 /**
- * G3 and G4 of a packed tile city (see the file header). `passages` are the gated passages (`tilePassages`), each a floor one cell deep. The cells that count as filled are read from `city.cells` (plazas
+ * G3 and G4 of a packed tile city (see the file header). The gated passages' floors are read from `city.passages` (`withPassages(city, tilePassages(...))`), never from the packing. The cells that count as filled are read from `city.cells` (plazas
  * and frontage lots) and `city.interior`, never from the code that laid them, so a layout with no interior fails.
  */
-export function interiorMetrics(city: Pick<TileCity, "town"> & Partial<Pick<TileCity, "cells" | "interior" | "blocks" | "frontLots">>, packed: ReadonlyMap<string, PackResult>, passages: readonly TilePassage[]): InteriorMetrics {
+export function interiorMetrics(city: Pick<TileCity, "town"> & Partial<Pick<TileCity, "cells" | "interior" | "blocks" | "frontLots" | "passages">>, packed: ReadonlyMap<string, PackResult>): InteriorMetrics {
   const t = city.town;
   const cells = city.cells ?? [];
   const interior = city.interior ?? [];
@@ -423,14 +432,7 @@ export function interiorMetrics(city: Pick<TileCity, "town"> & Partial<Pick<Tile
     if (id !== undefined) add(id, c.i, c.j);
   }
   for (const c of interior) add(c.block, c.i, c.j);
-  const passagesOf = new Map<string, TilePassage[]>();
-  for (const p of passages) {
-    const run = t.terraces.find((r) => r.id === p.run);
-    if (!run) continue;
-    const l = passagesOf.get(run.block);
-    if (l) l.push(p);
-    else passagesOf.set(run.block, [p]);
-  }
+  const floors = (city.passages ?? []).map((q) => q.floor);
   for (const b of t.blocks) {
     const x0 = b.minX / U;
     const z0 = b.minZ / U;
@@ -464,17 +466,8 @@ export function interiorMetrics(city: Pick<TileCity, "town"> & Partial<Pick<Tile
         }
       }
     }
-    // Gated passages: a floor one cell deep and the passage wide, from the pavement's back edge inward.
-    for (const p of passagesOf.get(b.id) ?? []) {
-      const yaw = (p.yaw * Math.PI) / 180;
-      const fx = Math.sin(yaw);
-      const fz = Math.cos(yaw);
-      const rx = Math.cos(yaw);
-      const rz = -Math.sin(yaw);
-      const xs = [-p.w_m / 2, p.w_m / 2].flatMap((a) => [0, -TILE_M].map((back) => p.x_m + rx * a + fx * back));
-      const zs = [-p.w_m / 2, p.w_m / 2].flatMap((a) => [0, -TILE_M].map((back) => p.z_m + rz * a + fz * back));
-      fill(Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs));
-    }
+    // Gated passages: the floor each passage records (`TilePassage.floor`, apron pavement from the edge inward); a passage with no recorded floor leaves its slot unfilled. The raster clips to this block.
+    for (const f of floors) fill(f.minX_m, f.maxX_m, f.minZ_m, f.maxZ_m);
     let left = 0;
     for (let k = 0; k < empty.length; k++) left += empty[k]!;
     const area = nx * nz * res * res;
@@ -518,7 +511,11 @@ export function interiorMetrics(city: Pick<TileCity, "town"> & Partial<Pick<Tile
   const driveCells = interior.filter((c) => c.role === "drive");
   let drivesNoKerbCut = 0;
   for (const d of driveCells) {
-    const b = blocks.find((q) => q.id === d.block)!;
+    const b = blocks.find((q) => q.id === d.block);
+    if (!b) {
+      drivesNoKerbCut++;
+      continue;
+    }
     const outs: [number, number][] = [];
     if (d.i === b.i0) outs.push([d.i - 1, d.j]);
     if (d.i === b.i1 - 1) outs.push([d.i + 1, d.j]);
@@ -567,7 +564,7 @@ export function evaluateFrontage(m: FrontageMetrics): FrontageVerdict[] {
   const g1 = m.recessed + m.overlapped + (m.groundPieces === 0 ? 1 : 0);
   const g2 = m.uncovered + m.farEnds.overshootBad + (m.sides === 0 ? 1 : 0);
   const g3 = m.interior.voidBlocks + (m.interior.blocks === 0 ? 1 : 0);
-  const g4 = m.interior.courtsUnreached + m.interior.drivesNoKerbCut;
+  const g4 = m.interior.courtsUnreached + m.interior.drivesNoKerbCut + (m.interior.blocks === 0 ? 1 : 0);
   return [
     { id: "G1", value: g1, pass: g1 <= FRONTAGE_CHECK.G1 },
     { id: "G2", value: g2, pass: g2 <= FRONTAGE_CHECK.G2 },

@@ -341,7 +341,16 @@ export interface TilePassage {
   w_m: number;
   yaw: TileYaw;
   run: string;
+  /**
+   * The passage's floor (057 C): apron pavement, `PASSAGE_FLOOR_DEPTH_M` deep from the pavement's back edge inward and the passage wide, so the way from the street to the block's apron has a
+   * surface. Section D must draw it (like the apron's ragged strip, in code or on a pavement tile): nothing else in the city (`interior`, `cells`) lays a surface on this ground, and G3 credits
+   * only what is recorded here. Metres, axis-aligned.
+   */
+  floor: { minX_m: number; minZ_m: number; maxX_m: number; maxZ_m: number };
 }
+
+/** How deep a gated passage's floor runs in from the pavement's back edge: one cell, to the apron strip behind it. */
+export const PASSAGE_FLOOR_DEPTH_M = TILE_M;
 
 /** The city with its gated passages (`tilePassages` in `frontage.ts` finds them from the packed runs). Frozen like the city. */
 export function withPassages(city: TileCity, passages: readonly TilePassage[]): TileCity {
@@ -995,15 +1004,16 @@ export function tileCity(opts: { blocksX?: number; blocksZ?: number; seed?: numb
     };
     const path = new Set<number>();
     const lines: { kind: "long" | "cross"; at: number }[] = [];
-    /** Lays the line `at` (a row across the long axis when kind is "cross") if no court is in the way; false when it is not laid. */
+    /** Lays the line `at` (a row across the long axis when kind is "cross") on its free cells (a court's cells at its ends stay the court); false when none is free. */
     const layLine = (kind: "long" | "cross", at: number): boolean => {
       const n = kind === "long" ? len : wid;
       const cellsOn: number[] = [];
       for (let t = 0; t < n; t++) {
         const idx = kind === "long" ? idxAt(t, at) : idxAt(at, t);
-        if (used[idx] !== 0) return false;
-        cellsOn.push(idx);
+        // A court's row at the edge of the green is paved already: the path starts at it, and its other cells are the path.
+        if (used[idx] === 0) cellsOn.push(idx);
       }
+      if (cellsOn.length === 0) return false;
       for (const idx of cellsOn) path.add(idx);
       lines.push({ kind, at });
       return true;
@@ -1038,6 +1048,8 @@ export function tileCity(opts: { blocksX?: number; blocksZ?: number; seed?: numb
         const cell = cellAt(q.a, q.c);
         const idx = cell.j * W + cell.i;
         if (used[idx] !== 0 || path.has(idx) || benchCell.has(idx)) continue;
+        // The cell the bench faces must be a path cell (the middle of a line may be a court's cell).
+        if (!path.has(ln.kind === "long" ? idxAt(q.a, ln.at) : idxAt(ln.at, q.c))) continue;
         // The path is the neighbour that is on the line: the direction from this cell toward it.
         const dirA = ln.kind === "long" ? 0 : ln.at - q.a;
         const dirC = ln.kind === "long" ? ln.at - q.c : 0;

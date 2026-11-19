@@ -1954,7 +1954,7 @@ describe("the block interiors (057 C, criterion 8)", () => {
         const w = hi((q) => q.i) - lo((q) => q.i) + 1;
         const d = hi((q) => q.j) - lo((q) => q.j) + 1;
         const here = green.filter((q) => q.role === "greenPath");
-        if (Math.min(w, d) >= 2 && here.length === 0 && !c.courts.some((q) => q.block === b.id)) fails.push(`${c.seed} ${b.id}: a ${w} x ${d} green with no path`);
+        if (Math.min(w, d) >= 2 && here.length === 0) fails.push(`${c.seed} ${b.id}: a ${w} x ${d} green with no path`);
         paths += here.length;
         // Each path cell is reached along its own axis from pavement or another path cell on both sides: apron to apron.
         for (const q of here) {
