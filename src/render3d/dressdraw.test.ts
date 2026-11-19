@@ -268,7 +268,8 @@ describe("applyModels draws the dressing as instanced meshes at the pure placeme
               const lx = p.piece.x * W;
               const lz = p.piece.z * W;
               near(m.elements[12]!, p.frame.x + lx * c + lz * s);
-              near(m.elements[13]!, p.piece.y * W);
+              // A block that was sunk to meet the walk (ticket 055 F) has its frame lowered by the sink: the height is the frame's plus the piece's.
+              near(m.elements[13]!, (p.frame.y ?? 0) + p.piece.y * W);
               near(m.elements[14]!, p.frame.z - lx * s + lz * c);
               near(new Vector3().setFromMatrixScale(m).x, W);
               checked++;
