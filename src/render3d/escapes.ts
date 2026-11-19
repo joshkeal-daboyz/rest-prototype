@@ -35,7 +35,7 @@ export const LADDER_RUNG_PITCH_M = 0.3;
 export const LADDER_RAIL_M = 0.04;
 export const LADDER_RUNG_M = 0.03;
 /**
- * The code-drawn escape's parts, metres: a deck `w` wide and `d` deep, `deck` thick, a rail `rail` high of `bar` section, a flight's treads `tread` deep, `riser` apart, over a `run` of x,
+ * The code-drawn escape's parts, metres: a deck `w` wide and `d` deep, `deck` thick, a rail `rail` high of `bar` section, a flight's treads `tread` deep, `riser` apart, over a x range of the flight,
  * through a hatch `hatch0` to `hatch1` in x (the deck's own centre is x 0), at z `stair0` to `stair1` of the deck's centre; `ladderX0`, `ladderX1`, `ladderZ` place its drop ladder.
  */
 export const CODE_ESCAPE = {
@@ -132,8 +132,8 @@ export const ESCAPE_GEOMETRY: Readonly<Record<CalibrationKey, EscapeGeometry>> =
 };
 
 /**
- * The sill of the windows on each apartment floor piece's front, above the piece's base, metres: the lowest point of the window glass (the deepest recessed front-facing plane of at least
- * `SILL_MIN_AREA_M2`), per storey. A `stack3` piece is three storeys and has three. Measured by `measureSills` from `city-pack.glb` of 18 Nov 2026. Every key of the three apartment styles'
+ * The sill of the windows on each apartment floor piece's front, above the piece's base, metres: the lowest point of the window glass on the front (the lowest window opening, ticket 058
+ * criterion 2; `measureSills` says which planes are glass), per storey. A `stack3` piece is three storeys and has three. Measured by `measureSills` from `city-pack.glb` of 18 Nov 2026. Every key of the three apartment styles'
  * floor, corner floor and `Stack` pieces has an entry; a key without one takes its style's median (`sillOf`).
  */
 export const WINDOW_SILL_M: Readonly<Partial<Record<CalibrationKey, number | readonly number[]>>> = {
@@ -143,9 +143,9 @@ export const WINDOW_SILL_M: Readonly<Partial<Record<CalibrationKey, number | rea
   [k("SM_Bld_Apartment_02")]: 0.417,
   [k("SM_Bld_Apartment_Corner_02")]: 0.417,
   [k("SM_Bld_Apartment_Stack_02")]: [0.417, 0.417, 0.417],
-  [k("SM_Bld_Apartment_03")]: 0.854,
-  [k("SM_Bld_Apartment_Corner_03")]: 0.854,
-  [k("SM_Bld_Apartment_Stack_03")]: [0.854, 0.854, 0.854],
+  [k("SM_Bld_Apartment_03")]: 0.517,
+  [k("SM_Bld_Apartment_Corner_03")]: 0.517,
+  [k("SM_Bld_Apartment_Stack_03")]: [0.517, 0.517, 0.517],
 };
 
 /** The tables a check or a placement reads: the tests swap them for fixtures. */
@@ -338,7 +338,7 @@ export function deckCovers(m: Mesh, x: number, z: number): boolean {
   return false;
 }
 
-/** The least area, m^2, a front-facing plane needs to be a window's glass. */
+/** The least area, m^2, a front-facing plane needs to be counted (a window's glass, its frame, the wall). */
 export const SILL_MIN_AREA_M2 = 1;
 /** Front-facing planes whose centroids are this close along z are one plane. */
 const SILL_PLANE_TOL_M = 0.02;
@@ -346,13 +346,14 @@ const SILL_PLANE_TOL_M = 0.02;
 const SILL_PITCH_M = 3;
 
 /**
- * The sills of a floor piece's windows, one per storey (its height over `SILL_PITCH_M`), or null when the geometry cannot settle them. The glass is the deepest front-facing (normal within 8
- * degrees of +z) plane of at least `SILL_MIN_AREA_M2` (a window's reveal and frame are shallower; the wall and a pilaster stand in front of it); a storey's sill is the lowest vertex of the
- * glass triangles whose centroid is in that storey's band, over the band's base.
+ * The sills of a floor piece's windows, one per storey (its height over `SILL_PITCH_M`), or null when the geometry cannot settle them. Front-facing (normal within 8 degrees of +z) planes of at
+ * least `SILL_MIN_AREA_M2` are cut into pieces that are connected along x; a piece is window glass when no deeper piece stands over any of its x extent (a window's reveal and frame stand in
+ * front of its glass, the wall and a pilaster in front of both, so none of those is glass; two windows of different depths, side by side, are both glass). A storey's sill is the lowest vertex
+ * of the glass triangles whose centroid is in that storey's band, over the band's base: the lowest window opening of the front (Apartment_03's central window, not its narrow side ones).
  */
 export function measureSills(m: Mesh, storeys: number): number[] | null {
   const at = (v: number, c: number): number => m.pos[v * 3 + c]!;
-  const tris: { z: number; y: number; area: number; low: number }[] = [];
+  const tris: { z: number; y: number; area: number; low: number; x0: number; x1: number }[] = [];
   for (const [a, b, c] of triangles(m)) {
     const ux = at(b, 0) - at(a, 0);
     const uy = at(b, 1) - at(a, 1);
@@ -365,7 +366,14 @@ export function measureSills(m: Mesh, storeys: number): number[] | null {
     const nz = ux * vy - uy * vx;
     const len = Math.hypot(nx, ny, nz);
     if (len < 1e-12 || nz / len < UP_COS) continue;
-    tris.push({ z: (at(a, 2) + at(b, 2) + at(c, 2)) / 3, y: (at(a, 1) + at(b, 1) + at(c, 1)) / 3, area: len / 2, low: Math.min(at(a, 1), at(b, 1), at(c, 1)) });
+    tris.push({
+      z: (at(a, 2) + at(b, 2) + at(c, 2)) / 3,
+      y: (at(a, 1) + at(b, 1) + at(c, 1)) / 3,
+      area: len / 2,
+      low: Math.min(at(a, 1), at(b, 1), at(c, 1)),
+      x0: Math.min(at(a, 0), at(b, 0), at(c, 0)),
+      x1: Math.max(at(a, 0), at(b, 0), at(c, 0)),
+    });
   }
   tris.sort((p, q) => p.z - q.z);
   const planes: { t: typeof tris; last: number; area: number }[] = [];
@@ -377,11 +385,26 @@ export function measureSills(m: Mesh, storeys: number): number[] | null {
       p.area += t.area;
     } else planes.push({ t: [t], last: t.z, area: t.area });
   }
-  const glass = planes.find((p) => p.area >= SILL_MIN_AREA_M2);
-  if (!glass) return null;
+  // Each large plane, cut where its triangles stop overlapping along x.
+  const pieces: { t: typeof tris; z: number; x0: number; x1: number }[] = [];
+  for (const pl of planes.filter((q) => q.area >= SILL_MIN_AREA_M2)) {
+    const z = pl.t.reduce((sum, t) => sum + t.z, 0) / pl.t.length;
+    let cur: (typeof pieces)[number] | null = null;
+    for (const t of [...pl.t].sort((p, q) => p.x0 - q.x0)) {
+      if (cur && t.x0 <= cur.x1 + 1e-6) {
+        cur.t.push(t);
+        cur.x1 = Math.max(cur.x1, t.x1);
+      } else {
+        cur = { t: [t], z, x0: t.x0, x1: t.x1 };
+        pieces.push(cur);
+      }
+    }
+  }
+  const glass = pieces.filter((c) => !pieces.some((o) => o !== c && o.z < c.z - SILL_PLANE_TOL_M && o.x0 < c.x1 - 1e-6 && o.x1 > c.x0 + 1e-6));
+  if (glass.length === 0) return null;
   const out: number[] = [];
   for (let s = 0; s < storeys; s++) {
-    const band = glass.t.filter((t) => Math.floor(t.y / SILL_PITCH_M) === s);
+    const band = glass.flatMap((g) => g.t).filter((t) => Math.floor(t.y / SILL_PITCH_M) === s);
     if (band.length === 0) return null;
     out.push(mm(Math.min(...band.map((t) => t.low)) - s * SILL_PITCH_M));
   }

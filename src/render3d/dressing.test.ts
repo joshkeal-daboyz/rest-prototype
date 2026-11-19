@@ -259,7 +259,7 @@ describe("attachment", () => {
     return [Math.min(...spanned.map((o) => o.x - o.w / 2)), Math.max(...spanned.map((o) => o.x + o.w / 2))];
   };
   /** Ticket 058: an escape piece stands against the storey it serves, and where the sill is low its legs hang under that storey's floor by up to this much (Apartment_02: 0.34 m). */
-  const ESCAPE_LEG_REACH_M = 0.7;
+  const ESCAPE_LEG_REACH_M = 0.4;
   const isWrap = (p: DressPiece): boolean => (p.slot === "glass" || AWNING_CORNER.includes(p.key)) && rawOf(p.key)[2] > 1;
 
   it("every front-face prop's back lies on its host's front face, inside its column, and short of the kerb", () => {

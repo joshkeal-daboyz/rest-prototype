@@ -47,6 +47,7 @@ import { TILE_CITY_R7_MIN, tileCity } from "./tilecity";
 import { LOT_TYPE_NAMES, WORLD_PER_METRE, townLayout, type TerraceRun } from "./town";
 
 const k = (name: string): CalibrationKey => `city-pack:${name}`;
+const CITY_PACK_GLB = join("assets", "private", "out", "city-pack.glb");
 
 // ---- the fixtures: the escape pieces' bounds (the ticket's table), and the building pieces a stack needs ----
 
@@ -133,9 +134,9 @@ const PINNED_SILLS: Record<string, number | number[]> = {
   SM_Bld_Apartment_02: 0.417,
   SM_Bld_Apartment_Corner_02: 0.417,
   SM_Bld_Apartment_Stack_02: [0.417, 0.417, 0.417],
-  SM_Bld_Apartment_03: 0.854,
-  SM_Bld_Apartment_Corner_03: 0.854,
-  SM_Bld_Apartment_Stack_03: [0.854, 0.854, 0.854],
+  SM_Bld_Apartment_03: 0.517,
+  SM_Bld_Apartment_Corner_03: 0.517,
+  SM_Bld_Apartment_Stack_03: [0.517, 0.517, 0.517],
 };
 
 describe("ESCAPE_GEOMETRY and WINDOW_SILL_M (criteria 1 and 2)", () => {
@@ -193,9 +194,9 @@ describe("ESCAPE_GEOMETRY and WINDOW_SILL_M (criteria 1 and 2)", () => {
     expect(sillOf(k("SM_Bld_Apartment_04"), 0, {})).toBe(0);
   });
 
-  it("re-measures every escape piece and every sill from the converted City Pack within 0.02 m when this machine has it (skipped when it does not)", () => {
-    const file = join("assets", "private", "out", "city-pack.glb");
-    if (!existsSync(file)) return;
+  // Shown as skipped, not passed, where the converted City Pack is absent (CI, a fresh checkout).
+  it.skipIf(!existsSync(CITY_PACK_GLB))("re-measures every escape piece and every sill from the converted City Pack within 0.02 m (skipped when this machine has no GLB)", () => {
+    const file = CITY_PACK_GLB;
     const glb = readFileSync(file);
     const jsonLen = glb.readUInt32LE(12);
     const gltf = JSON.parse(glb.subarray(20, 20 + jsonLen).toString("utf8")) as {
@@ -337,6 +338,17 @@ describe("measureSills on a wall built to the rules (criterion 2's rules)", () =
   it("takes the lowest point of the deepest large front-facing plane in each storey's band", () => {
     expect(measureSills(wall(), 2)).toEqual([0.7, 0.7]);
     expect(measureSills(wall(), 1)).toEqual([0.7]);
+  });
+  it("counts every window of the front as glass, whatever its depth: a deeper side window does not hide a lower, shallower central one (Apartment_03), and a frame in front of its glass is not glass", () => {
+    const pos: number[] = [];
+    const idx: number[] = [];
+    frontQuad(pos, idx, 2.4, -2.5, 2.5, 0, 3);
+    // Two narrow deep side windows (sill 0.85) and a wide central one, shallower, with its frame in front (sill 0.5).
+    frontQuad(pos, idx, 2.2, -2.4, -1.3, 0.85, 2.7);
+    frontQuad(pos, idx, 2.2, 1.3, 2.4, 0.85, 2.7);
+    frontQuad(pos, idx, 2.35, -0.9, 0.9, 0.5, 2.5);
+    frontQuad(pos, idx, 2.45, -1, 1, 0.4, 2.6);
+    expect(measureSills({ pos, idx }, 1)).toEqual([0.5]);
   });
   it("gives null when the geometry cannot settle it: no plane of the least area, or a storey with no glass", () => {
     const pos: number[] = [];
