@@ -1,5 +1,5 @@
 /**
- * Ticket 057: the checks on the tile city's frontage, pure (no three, no DOM, no assets). Section A holds G1, B adds G2, C adds G3 and G4; F adds V1 and V2 (block variety, at the bottom of the file) and G will add V3 and V4.
+ * Ticket 057: the checks on the tile city's frontage, pure (no three, no DOM, no assets). Section A holds G1, B adds G2, C adds G3 and G4; F adds V1 and V2 (block variety, at the bottom of the file) and G adds V3 and V4 (alleys and parks); G also teaches G2 and G3 the parts an alley or a park splits a block into, and G4 the alleys' kerb cuts.
  *
  * G3, no void (19.4; Josh, 18 Nov 2026: "Grass and pavement should fill the blank areas."): each block is rasterised at `VOID_RASTER_M` (0.25 m) and every sample must be a building (its columns' ground
  * footprint), a plaza or lot cell, an interior cell (apron, court, drive, green or path) or a gated passage's floor. At most `VOID_MAX_SHARE` (1%) of a block may be left, in no square over
@@ -20,7 +20,7 @@ import { WALL_FRONT_M, WALL_REACH_M, WALL_SIDE_M, wallOffset } from "./facade";
 import { BUILDING_FRONTS, type FrontTable } from "./models";
 import { TERRACE_SEAM_M, nextTerraceRun, type PackResult, type PackedBlock } from "./terrace";
 import type { Stack } from "./stacks";
-import { BLOCK_CV_MIN, BLOCK_NONSQUARE_MIN, END_OVERLAP_MAX_M, PASSAGE_FLOOR_DEPTH_M, PASSAGE_W_M, TILE_M, type TileBlock, type TileCity, type TilePassage, type TileYaw } from "./tilecity";
+import { ALLEY_ONE_IN_BLOCKS, BLOCK_CV_MIN, BLOCK_NONSQUARE_MIN, END_OVERLAP_MAX_M, PARK_ONE_IN_BLOCKS, PASSAGE_FLOOR_DEPTH_M, PASSAGE_W_M, TILE_M, type InteriorCell, type TileBlock, type TileCity, type TilePassage, type TileYaw } from "./tilecity";
 import { WORLD_PER_METRE } from "./town";
 
 export { END_OVERLAP_MAX_M, PASSAGE_W_M };
@@ -89,9 +89,12 @@ export interface InteriorMetrics {
   /** Court components (the court cells, edge-connected) and those that touch no drive. */
   courts: number;
   courtsUnreached: number;
-  /** Drive cells and those whose neighbour outside the block is not a kerb cut. */
+  /** Drive cells and those that open on neither a kerb cut outside their block nor an alley lane beside them (057 G). */
   drives: number;
   drivesNoKerbCut: number;
+  /** Alley cells, and those on a block's edge (an alley's ends) whose neighbour outside the block is not a kerb cut (057 G). */
+  alleyCells: number;
+  alleyEndsNoKerbCut: number;
   /** Blocks that kept a frontage lot (`TileCity.frontLots`). */
   frontLots: number;
 }
@@ -139,7 +142,7 @@ const wallZ = (p: { z: number; d: number; key: `${string}:${string}`; street: "f
  * Where every street-level wall of a packed tile city stands against its pavement's back edge. `packed` is `packTown`'s result for the city (the map is keyed by run id); `fronts` as for
  * `assembleStack`. Pure: nothing is read but the packed stacks and the wall table.
  */
-export function frontageMetrics(city: Pick<TileCity, "town"> & Partial<Pick<TileCity, "cells" | "interior" | "blocks" | "frontLots" | "passages">>, packed: ReadonlyMap<string, PackResult>, fronts: FrontTable = BUILDING_FRONTS, faceOffset?: FaceOffset): FrontageMetrics {
+export function frontageMetrics(city: Pick<TileCity, "town"> & Partial<Pick<TileCity, "cells" | "interior" | "blocks" | "frontLots" | "passages" | "parts">>, packed: ReadonlyMap<string, PackResult>, fronts: FrontTable = BUILDING_FRONTS, faceOffset?: FaceOffset): FrontageMetrics {
   const face: FaceOffset = faceOffset ?? ((key, street) => wallOffset(key, street, fronts));
   let runs = 0;
   let columns = 0;
@@ -258,7 +261,7 @@ const yawDegrees = (rad: number): TileYaw => ((((Math.round(rad / (Math.PI / 2))
  * leaves a stretch bare); a run's far gap of at most `TERRACE_SEAM_M` is a seam and one of `PASSAGE_W_M` a gated passage. Whatever is left bare, beyond `FRONTAGE_TOL_M`, is a gap in the
  * frontage. An overshoot into the next corner block needs no cover (the blocks overlap) but is held to `END_OVERLAP_MAX_M`.
  */
-function edgeCoverage(city: Pick<TileCity, "town">, packed: ReadonlyMap<string, PackResult>): Pick<FrontageMetrics, "sides" | "uncovered" | "uncoveredMax_m" | "gaps" | "farEnds" | "passages"> {
+function edgeCoverage(city: Pick<TileCity, "town"> & Partial<Pick<TileCity, "parts">>, packed: ReadonlyMap<string, PackResult>): Pick<FrontageMetrics, "sides" | "uncovered" | "uncoveredMax_m" | "gaps" | "farEnds" | "passages"> {
   const t = city.town;
   const farEnds: FarEnds = { runs: 0, seam: 0, overshoot: 0, passage: 0, slit: 0, wide: 0, overshootBad: 0, overshootMax_m: 0 };
   const passages: TilePassage[] = [];
@@ -267,7 +270,11 @@ function edgeCoverage(city: Pick<TileCity, "town">, packed: ReadonlyMap<string, 
   let uncoveredMax = 0;
   let sides = 0;
   const inside = (b: { minX: number; minZ: number; maxX: number; maxZ: number }, x: number, z: number): boolean => x > b.minX && x < b.maxX && z > b.minZ && z < b.maxZ;
-  for (const b of t.blocks) {
+  // The pieces every block is laid in (057 G): a part's rows are the runs whose `block` is its id, and the side beside an alley is a rear, not a frontage. A city with no parts is a city of whole blocks.
+  const units: { id: string; minX: number; minZ: number; maxX: number; maxZ: number; rear: number | null }[] = city.parts
+    ? city.parts.map((q) => ({ id: q.id, minX: q.i0 * TILE_M * U, minZ: q.j0 * TILE_M * U, maxX: q.i1 * TILE_M * U, maxZ: q.j1 * TILE_M * U, rear: q.alleySide }))
+    : t.blocks.map((q) => ({ id: q.id, minX: q.minX, minZ: q.minZ, maxX: q.maxX, maxZ: q.maxZ, rear: null }));
+  for (const b of units) {
     const lines = sidesOfBlock(b);
     const spans: [number, number][][] = [[], [], [], []];
     const cover = (pts: readonly { x: number; z: number }[]): void => {
@@ -353,6 +360,7 @@ function edgeCoverage(city: Pick<TileCity, "town">, packed: ReadonlyMap<string, 
       }
     }
     lines.forEach((s, k) => {
+      if (k === b.rear) return;
       sides++;
       const span = s.span / U;
       const list = spans[k]!.slice().sort((p, q) => p[0] - q[0]);
@@ -412,7 +420,7 @@ function largestEmptySquare(empty: Uint8Array, nx: number, nz: number): number {
  * G3 and G4 of a packed tile city (see the file header). The gated passages' floors are read from `city.passages` (`withPassages(city, tilePassages(...))`), never from the packing. The cells that count as filled are read from `city.cells` (plazas
  * and frontage lots) and `city.interior`, never from the code that laid them, so a layout with no interior fails.
  */
-export function interiorMetrics(city: Pick<TileCity, "town"> & Partial<Pick<TileCity, "cells" | "interior" | "blocks" | "frontLots" | "passages">>, packed: ReadonlyMap<string, PackResult>): InteriorMetrics {
+export function interiorMetrics(city: Pick<TileCity, "town"> & Partial<Pick<TileCity, "cells" | "interior" | "blocks" | "frontLots" | "passages" | "parts">>, packed: ReadonlyMap<string, PackResult>): InteriorMetrics {
   const t = city.town;
   const cells = city.cells ?? [];
   const interior = city.interior ?? [];
@@ -433,6 +441,7 @@ export function interiorMetrics(city: Pick<TileCity, "town"> & Partial<Pick<Tile
   }
   for (const c of interior) add(c.block, c.i, c.j);
   const floors = (city.passages ?? []).map((q) => q.floor);
+  const parentOf = new Map((city.parts ?? []).map((q) => [q.id, q.block] as const));
   for (const b of t.blocks) {
     const x0 = b.minX / U;
     const z0 = b.minZ / U;
@@ -450,7 +459,7 @@ export function interiorMetrics(city: Pick<TileCity, "town"> & Partial<Pick<Tile
     for (const c of cellsOf.get(b.id) ?? []) fill(c.i * TILE_M, (c.i + 1) * TILE_M, c.j * TILE_M, (c.j + 1) * TILE_M);
     // Buildings: each column's ground footprint, from the pavement's back edge (the lot's front line) back to the column's own back wall.
     for (const run of t.terraces) {
-      if (run.block !== b.id) continue;
+      if ((parentOf.get(run.block) ?? run.block) !== b.id) continue;
       for (const pb of packed.get(run.id)?.blocks ?? []) {
         const l = pb.lot;
         const fx = Math.sin(l.yaw);
@@ -521,7 +530,25 @@ export function interiorMetrics(city: Pick<TileCity, "town"> & Partial<Pick<Tile
     if (d.i === b.i1 - 1) outs.push([d.i + 1, d.j]);
     if (d.j === b.j0) outs.push([d.i, d.j - 1]);
     if (d.j === b.j1 - 1) outs.push([d.i, d.j + 1]);
-    if (!outs.some(([i, j]) => kerbCut.has(key(i, j)))) drivesNoKerbCut++;
+    // A street court's drive has a kerb cut outside its block; an alley court's drive (057 G) opens on the lane beside it.
+    const onLane = near.some(([di, dj]) => roleAt.get(key(d.i + di, d.j + dj)) === "alley");
+    if (!onLane && !outs.some(([i, j]) => kerbCut.has(key(i, j)))) drivesNoKerbCut++;
+  }
+  // An alley's two end cells (the lane's cells on a block's edge) each have a kerb cut outside.
+  const alleyCells = interior.filter((c) => c.role === "alley");
+  let alleyEndsNoKerbCut = 0;
+  for (const d of alleyCells) {
+    const b = blocks.find((q) => q.id === d.block);
+    if (!b) {
+      alleyEndsNoKerbCut++;
+      continue;
+    }
+    const outs: [number, number][] = [];
+    if (d.i === b.i0) outs.push([d.i - 1, d.j]);
+    if (d.i === b.i1 - 1) outs.push([d.i + 1, d.j]);
+    if (d.j === b.j0) outs.push([d.i, d.j - 1]);
+    if (d.j === b.j1 - 1) outs.push([d.i, d.j + 1]);
+    if (outs.length > 0 && !outs.some(([i, j]) => kerbCut.has(key(i, j)))) alleyEndsNoKerbCut++;
   }
   const shares = voids.map((v) => v.share);
   return {
@@ -535,6 +562,8 @@ export function interiorMetrics(city: Pick<TileCity, "town"> & Partial<Pick<Tile
     courtsUnreached,
     drives: driveCells.length,
     drivesNoKerbCut,
+    alleyCells: alleyCells.length,
+    alleyEndsNoKerbCut,
     frontLots: (city.frontLots ?? []).length,
   };
 }
@@ -564,7 +593,7 @@ export function evaluateFrontage(m: FrontageMetrics): FrontageVerdict[] {
   const g1 = m.recessed + m.overlapped + (m.groundPieces === 0 ? 1 : 0);
   const g2 = m.uncovered + m.farEnds.overshootBad + (m.sides === 0 ? 1 : 0);
   const g3 = m.interior.voidBlocks + (m.interior.blocks === 0 ? 1 : 0);
-  const g4 = m.interior.courtsUnreached + m.interior.drivesNoKerbCut + (m.interior.blocks === 0 ? 1 : 0);
+  const g4 = m.interior.courtsUnreached + m.interior.drivesNoKerbCut + m.interior.alleyEndsNoKerbCut + (m.interior.blocks === 0 ? 1 : 0);
   return [
     { id: "G1", value: g1, pass: g1 <= FRONTAGE_CHECK.G1 },
     { id: "G2", value: g2, pass: g2 <= FRONTAGE_CHECK.G2 },
@@ -575,21 +604,27 @@ export function evaluateFrontage(m: FrontageMetrics): FrontageVerdict[] {
 
 // ---- block variety (ticket 057 F, 19.5): V1 and V2 ----
 
-export { BLOCK_CV_MIN, BLOCK_NONSQUARE_MIN };
+export { ALLEY_ONE_IN_BLOCKS, BLOCK_CV_MIN, BLOCK_NONSQUARE_MIN, PARK_ONE_IN_BLOCKS };
 
 /**
  * Josh, 18 Nov 2026: "Keep in mind, 90 degrees does not mean a grid of squares. You can have varying widths for blocks, alleyways, parks... etc". V1, block sizes vary: on each axis the sizes of the
  * blocks along it (the spacing between its street lines, less the street, in cells) have a coefficient of variation (standard deviation over mean) of at least `BLOCK_CV_MIN`, and the city has at least
  * ceil(blocks / 2) distinct footprints (a footprint is the block's pair of sides, so 50 x 60 m and 60 x 50 m are one). V2, not square: at least `BLOCK_NONSQUARE_MIN` of the blocks are not square.
- * An axis with fewer than two blocks has nothing to vary and is not held to V1's CV. V3 (alleys) and V4 (parks) are section G's.
+ * An axis with fewer than two blocks has nothing to vary and is not held to V1's CV.
+ *
+ * V3, alleys, and V4, parks (ticket 057 G, 19.6): the city has at least ceil(blocks / `ALLEY_ONE_IN_BLOCKS`) alleys and ceil(blocks / `PARK_ONE_IN_BLOCKS`) parks. They are counted from the interior cells alone (an alley is an
+ * edge-connected set of "alley" cells, a park one of "parkEdge" cells), never from the plan that chose them, so a city with no interior (a uniform grid of blocks) fails both.
  */
-export type VarietyCheckId = "V1" | "V2";
+export type VarietyCheckId = "V1" | "V2" | "V3" | "V4";
 
-/** What each check allows: V1, how many of its parts may fail (an axis under `BLOCK_CV_MIN`, too few footprints); V2, how many blocks over the square allowance. */
-export const VARIETY_CHECK: Readonly<Record<VarietyCheckId, number>> = { V1: 0, V2: 0 };
+/** What each check allows: V1, how many of its parts may fail (an axis under `BLOCK_CV_MIN`, too few footprints); V2, how many blocks over the square allowance; V3 and V4, how many alleys and parks short of the rate. */
+export const VARIETY_CHECK: Readonly<Record<VarietyCheckId, number>> = { V1: 0, V2: 0, V3: 0, V4: 0 };
 
 /** The part of a block `blockVariety` reads: its place in the city's grid of blocks and its cells. */
 export type VarietyBlock = Pick<TileBlock, "bi" | "bj" | "i0" | "i1" | "j0" | "j1">;
+
+/** The part of an interior cell V3 and V4 read. */
+export type VarietyCell = Pick<InteriorCell, "i" | "j" | "role">;
 
 export interface BlockVariety {
   blocks: number;
@@ -605,6 +640,11 @@ export interface BlockVariety {
   /** Square blocks, and the share that are not. */
   square: number;
   nonSquareShare: number;
+  /** Alleys and parks the city has (edge-connected sets of alley and park-edge cells), and how many V3 and V4 ask for: ceil(blocks / ALLEY_ONE_IN_BLOCKS) and ceil(blocks / PARK_ONE_IN_BLOCKS). */
+  alleys: number;
+  alleysNeeded: number;
+  parks: number;
+  parksNeeded: number;
 }
 
 const cvOf = (a: readonly number[]): number => {
@@ -613,8 +653,27 @@ const cvOf = (a: readonly number[]): number => {
   return m > 0 ? Math.sqrt(a.reduce((x, y) => x + (y - m) ** 2, 0) / a.length) / m : 0;
 };
 
-/** The numbers behind V1 and V2, read from the blocks' cells alone (never from the code that drew the sizes). */
-export function blockVariety(city: { blocks: readonly VarietyBlock[] }): BlockVariety {
+/** The edge-connected sets of cells of one role. */
+function components(cells: readonly VarietyCell[], role: VarietyCell["role"]): number {
+  const left = new Set(cells.filter((c) => c.role === role).map((c) => `${c.i},${c.j}`));
+  let n = 0;
+  for (const start of [...left]) {
+    if (!left.has(start)) continue;
+    n++;
+    const todo = [start];
+    left.delete(start);
+    while (todo.length > 0) {
+      const [i, j] = todo.pop()!.split(",").map(Number) as [number, number];
+      for (const k of [`${i + 1},${j}`, `${i - 1},${j}`, `${i},${j + 1}`, `${i},${j - 1}`]) {
+        if (left.delete(k)) todo.push(k);
+      }
+    }
+  }
+  return n;
+}
+
+/** The numbers behind V1 to V4, read from the blocks' cells alone (never from the code that drew the sizes or chose the alleys and parks). A city with no `interior` has no alleys and no parks. */
+export function blockVariety(city: { blocks: readonly VarietyBlock[]; interior?: readonly VarietyCell[] }): BlockVariety {
   const widthAt = new Map<number, number>();
   const depthAt = new Map<number, number>();
   const shapes = new Set<string>();
@@ -630,7 +689,22 @@ export function blockVariety(city: { blocks: readonly VarietyBlock[] }): BlockVa
   const widths = [...widthAt].sort((p, q) => p[0] - q[0]).map(([, v]) => v);
   const depths = [...depthAt].sort((p, q) => p[0] - q[0]).map(([, v]) => v);
   const n = city.blocks.length;
-  return { blocks: n, widths, depths, cvX: cvOf(widths), cvZ: cvOf(depths), footprints: shapes.size, footprintsNeeded: Math.ceil(n / 2), square, nonSquareShare: n > 0 ? (n - square) / n : 0 };
+  const cells = city.interior ?? [];
+  return {
+    blocks: n,
+    widths,
+    depths,
+    cvX: cvOf(widths),
+    cvZ: cvOf(depths),
+    footprints: shapes.size,
+    footprintsNeeded: Math.ceil(n / 2),
+    square,
+    nonSquareShare: n > 0 ? (n - square) / n : 0,
+    alleys: components(cells, "alley"),
+    alleysNeeded: Math.ceil(n / ALLEY_ONE_IN_BLOCKS),
+    parks: components(cells, "parkEdge"),
+    parksNeeded: Math.ceil(n / PARK_ONE_IN_BLOCKS),
+  };
 }
 
 export interface VarietyVerdict {
@@ -639,14 +713,18 @@ export interface VarietyVerdict {
   pass: boolean;
 }
 
-/** V1 and V2 against `VARIETY_CHECK`. A city with no blocks fails both (value 1): nothing has shown any variety. */
+/** V1 to V4 against `VARIETY_CHECK`. A city with no blocks fails all four (value 1): nothing has shown any variety. V3 and V4's value is how many alleys and parks the city is short. */
 export function evaluateVariety(m: BlockVariety): VarietyVerdict[] {
   const cvLow = (axis: readonly number[], cv: number): number => (axis.length >= 2 && cv < BLOCK_CV_MIN - 1e-9 ? 1 : 0);
   const v1 = cvLow(m.widths, m.cvX) + cvLow(m.depths, m.cvZ) + (m.footprints < m.footprintsNeeded ? 1 : 0) + (m.blocks === 0 ? 1 : 0);
   const allowed = Math.floor(m.blocks * (1 - BLOCK_NONSQUARE_MIN) + 1e-9);
   const v2 = Math.max(0, m.square - allowed) + (m.blocks === 0 ? 1 : 0);
+  const v3 = Math.max(0, m.alleysNeeded - m.alleys) + (m.blocks === 0 ? 1 : 0);
+  const v4 = Math.max(0, m.parksNeeded - m.parks) + (m.blocks === 0 ? 1 : 0);
   return [
     { id: "V1", value: v1, pass: v1 <= VARIETY_CHECK.V1 },
     { id: "V2", value: v2, pass: v2 <= VARIETY_CHECK.V2 },
+    { id: "V3", value: v3, pass: v3 <= VARIETY_CHECK.V3 },
+    { id: "V4", value: v4, pass: v4 <= VARIETY_CHECK.V4 },
   ];
 }

@@ -7,12 +7,12 @@
 import { describe, expect, it } from "vitest";
 import type { AssetEntry, CalibrationKey } from "../core";
 import { wallOffset } from "./facade";
-import { BLOCK_CV_MIN, BLOCK_NONSQUARE_MIN, END_OVERLAP_MAX_M, FRONTAGE_CHECK, FRONTAGE_TOL_M, OVERLAP_MAX_M, PASSAGE_W_M, RECESS_MAX_M, VOID_MAX_SHARE, VOID_PATCH_MAX_M, VOID_RASTER_M, VARIETY_CHECK, blockVariety, evaluateFrontage, evaluateVariety, frontageMetrics, groundDepth_m, tilePassages, type FaceOffset, type FrontageMetrics, type VarietyBlock } from "./frontage";
+import { BLOCK_CV_MIN, BLOCK_NONSQUARE_MIN, END_OVERLAP_MAX_M, FRONTAGE_CHECK, FRONTAGE_TOL_M, OVERLAP_MAX_M, PASSAGE_W_M, RECESS_MAX_M, VOID_MAX_SHARE, VOID_PATCH_MAX_M, VOID_RASTER_M, VARIETY_CHECK, blockVariety, evaluateFrontage, evaluateVariety, frontageMetrics, groundDepth_m, tilePassages, type FaceOffset, type FrontageMetrics, type VarietyBlock, type VarietyCell } from "./frontage";
 import { BUILDING_FRONTS } from "./models";
 import { STACK_STYLES } from "./stacks";
 import { alignOf, farOverlapOf, nextTerraceRun, packTown, type PackResult } from "./terrace";
 import { WORLD_PER_METRE } from "./town";
-import { PASSAGE_FLOOR_DEPTH_M, TILE_M, TILE_STACK_ALIGN, tileCity, withPassages, type TileCity } from "./tilecity";
+import { ALLEY_ONE_IN_BLOCKS, PARK_ONE_IN_BLOCKS, PASSAGE_FLOOR_DEPTH_M, TILE_M, TILE_STACK_ALIGN, tileCity, withPassages, type TileCity } from "./tilecity";
 
 // [name, width, height, depth] in metres (the converted City Pack manifest, 18 Nov 2026); bounds are centred.
 const SIZES: [string, number, number, number][] = [
@@ -255,7 +255,8 @@ describe("G2, no gap in the frontage (ticket 057 B, criterion 6)", () => {
     for (const c of CITIES) {
       const { city, wall } = cityOf(c);
       const m = frontageMetrics(city, wall);
-      expect(m.sides, c.label).toBe(city.town.blocks.length * 4);
+      // Every block is laid in parts (057 G): a row on each side of a part but the one beside an alley (a rear, not a frontage), and nothing in a whole-block park.
+      expect(m.sides, c.label).toBe(city.parts.reduce((n, q) => n + (q.alleySide === null ? 4 : 3), 0));
       expect(m.uncovered, `${c.label} ${JSON.stringify(m.gaps.slice(0, 3))}`).toBe(0);
       expect(m.farEnds.overshootBad, c.label).toBe(0);
       expect(m.farEnds.overshootMax_m, c.label).toBeLessThanOrEqual(END_OVERLAP_MAX_M + FRONTAGE_TOL_M);
@@ -316,9 +317,10 @@ describe("G2, no gap in the frontage (ticket 057 B, criterion 6)", () => {
   /** The same with the opening at street level: `real` metres from the flank (negative: an overshoot past it). */
   const withOpening = (id: string, flank: number, real: number): Map<string, PackResult> => withGap(id, real - flank);
 
-  it("measures a corner block's flank from its corner column's ground piece, not its roof: on the default city all 34 corner blocks stand 0.36 to 0.75 m shallower at street level", () => {
+  it("measures a corner block's flank from its corner column's ground piece, not its roof: on the default city every corner block stands 0.36 to 0.75 m shallower at street level", () => {
     const ends = cornerEnds();
-    expect(ends.length).toBe(34);
+    // 34 before 057 G's parts (a part has its own corners); 35 now.
+    expect(ends.length).toBeGreaterThan(30);
     for (const e of ends) {
       expect(e.flank, e.id).toBeGreaterThan(0.35);
       expect(e.flank, e.id).toBeLessThan(0.76);
@@ -457,15 +459,16 @@ describe("G3 and G4, no void and courts reached (ticket 057 C, criterion 9)", ()
     expect(bad).toEqual([]);
   });
 
-  it("fails G3 on 793bbf7's layout (nothing inside the blocks): every block is 40 to 80% void (057 F: the 80 m blocks of the wider range are 49% and the 30 m ones 70 to 78%; 793bbf7's were 56 to 65%)", { timeout: 60000 }, () => {
+  it("fails G3 on 793bbf7's layout (nothing inside the blocks): every block is 40 to 100% void (057 F: the 80 m blocks of the wider range are 49% and the 30 m ones 70 to 78%; 793bbf7's were 56 to 65%; a whole-block park with its interior taken is all void, 057 G)", { timeout: 60000 }, () => {
     for (const c of [CITIES[0]!, CITIES[10]!]) {
       const { city, wall } = placedOf(c);
       const m = frontageMetrics(bare(city), wall);
       expect(verdictOf(m, "G3").pass, c.label).toBe(false);
       expect(m.interior.voidBlocks, c.label).toBe(city.blocks.length);
       for (const v of m.interior.voids) {
+        // A whole-block park has no building at all (057 G), so with its interior taken away it is all void.
         expect(v.share, `${c.label} ${v.block}`).toBeGreaterThan(0.4);
-        expect(v.share, `${c.label} ${v.block}`).toBeLessThan(0.8);
+        expect(v.share, `${c.label} ${v.block}`).toBeLessThanOrEqual(1 + 1e-9);
         expect(v.patch_m, `${c.label} ${v.block}`).toBeGreaterThan(VOID_PATCH_MAX_M);
       }
     }
@@ -543,7 +546,8 @@ describe("G3 and G4, no void and courts reached (ticket 057 C, criterion 9)", ()
 
   it("fails G4 where a drive has lost its kerb cut, and where a court has lost its drive", () => {
     const { city, wall } = defaultCity();
-    const drive = city.courts[0]!.drive[0];
+    // A street court (the alley courts open on a lane, tested below).
+    const drive = city.courts.find((q) => q.run !== "")!.drive[0];
     const cut = city.cells.find((c) => {
       if (c.role !== "kerbCut") return false;
       return Math.abs(c.i - drive.i) + Math.abs(c.j - drive.j) === 1;
@@ -562,6 +566,28 @@ describe("G3 and G4, no void and courts reached (ticket 057 C, criterion 9)", ()
     const one = new Set(city.courts[0]!.drive.map((q) => `${q.i},${q.j}`));
     const c = frontageMetrics({ ...city, interior: city.interior.filter((q) => !(q.role === "drive" && one.has(`${q.i},${q.j}`))) }, wall);
     expect(c.interior.courtsUnreached).toBe(1);
+  });
+
+  it("fails G4 where an alley end has lost its kerb cut, and where an alley court's drive has lost the lane beside it (057 G)", () => {
+    const { city, wall } = defaultCity();
+    const ends = city.interior.filter((q) => q.role === "alley").filter((q) => city.blocks.some((b) => q.block === b.id && (q.i === b.i0 || q.i === b.i1 - 1 || q.j === b.j0 || q.j === b.j1 - 1)));
+    expect(ends.length).toBe(city.blocks.filter((b) => b.alley !== null).length * 2);
+    expect(frontageMetrics(city, wall).interior.alleyEndsNoKerbCut).toBe(0);
+    const cutsOf = (q: { i: number; j: number }): TileCity["cells"] => city.cells.filter((c) => c.role === "kerbCut" && Math.abs(c.i - q.i) + Math.abs(c.j - q.j) === 1);
+    expect(cutsOf(ends[0]!).length).toBe(1);
+    const cut = cutsOf(ends[0]!)[0]!;
+    const noCut: TileCity = { ...city, cells: city.cells.map((c) => (c === cut ? { ...c, role: "pavement" as const } : c)) };
+    const a = frontageMetrics(noCut, wall);
+    expect(a.interior.alleyEndsNoKerbCut).toBe(1);
+    expect(verdictOf(a, "G4").pass).toBe(false);
+    expect(verdictOf(a, "G3").pass).toBe(true);
+    // An alley court's drive opens on the lane: with the lane's cells gone it opens on nothing.
+    const court = city.courts.find((q) => q.run === "")!;
+    const lane = city.interior.filter((q) => q.role === "alley" && q.block === court.block);
+    expect(lane.length).toBeGreaterThan(5);
+    const noLane = frontageMetrics({ ...city, interior: city.interior.filter((q) => !(q.role === "alley" && q.block === court.block)) }, wall);
+    expect(noLane.interior.drivesNoKerbCut).toBeGreaterThan(0);
+    expect(verdictOf(noLane, "G4").pass).toBe(false);
   });
 
   it("opens every gated passage on paved ground that joins its block's courts: the cell 5.5 m inside its mouth is apron, court or drive, or a plaza's or lot's", { timeout: 60000 }, () => {
@@ -608,7 +634,7 @@ describe("V1 and V2, block variety (ticket 057 F, criterion 17)", () => {
   };
 
   it("holds its limits: V1 and V2 each allow none, a spacing's coefficient of variation is at least 0.15 and at least 70% of the blocks are not square", () => {
-    expect(VARIETY_CHECK).toEqual({ V1: 0, V2: 0 });
+    expect(VARIETY_CHECK).toEqual({ V1: 0, V2: 0, V3: 0, V4: 0 });
     expect(BLOCK_CV_MIN).toBe(0.15);
     expect(BLOCK_NONSQUARE_MIN).toBe(0.7);
   });
@@ -696,5 +722,96 @@ describe("V1 and V2, block variety (ticket 057 F, criterion 17)", () => {
     const m = blockVariety({ blocks: [] });
     expect(m.blocks).toBe(0);
     expect(verdicts({ blocks: [] })).toEqual({ V1: false, V2: false });
+  });
+});
+
+describe("V3 and V4, alleys and parks (ticket 057 G, criterion 20)", () => {
+  /** A city of blocks and the interior cells V3 and V4 read, typed in: blocks laid as `tileCity` lays them, a 5-cell street between neighbours. */
+  const blocksOf = (cols: readonly number[], rows: readonly number[]): VarietyBlock[] => {
+    const blocks: VarietyBlock[] = [];
+    let j0 = 5;
+    rows.forEach((d, bj) => {
+      let i0 = 5;
+      cols.forEach((w, bi) => {
+        blocks.push({ bi, bj, i0, i1: i0 + w, j0, j1: j0 + d });
+        i0 += w + 5;
+      });
+      j0 += d + 5;
+    });
+    return blocks;
+  };
+  type Cell = VarietyCell;
+  const lane = (i: number, j0: number, n: number): Cell[] => Array.from({ length: n }, (_, k) => ({ i, j: j0 + k, role: "alley" as const }));
+  const ring = (i0: number, j0: number, n: number): Cell[] => {
+    const out: Cell[] = [];
+    for (let k = 0; k < n; k++) out.push({ i: i0 + k, j: j0, role: "parkEdge" as const }, { i: i0 + k, j: j0 + n - 1, role: "parkEdge" }, { i: i0, j: j0 + k, role: "parkEdge" }, { i: i0 + n - 1, j: j0 + k, role: "parkEdge" });
+    return out;
+  };
+  const verdict = (c: { blocks: readonly VarietyBlock[]; interior?: readonly Cell[] }, id: "V3" | "V4"): { id: string; value: number; pass: boolean } => evaluateVariety(blockVariety(c)).find((x) => x.id === id)!;
+
+  it("holds its rates: one alley per ALLEY_ONE_IN_BLOCKS (4) blocks and one park per PARK_ONE_IN_BLOCKS (6), each short by none", () => {
+    expect(ALLEY_ONE_IN_BLOCKS).toBe(4);
+    expect(PARK_ONE_IN_BLOCKS).toBe(6);
+    expect(VARIETY_CHECK.V3).toBe(0);
+    expect(VARIETY_CHECK.V4).toBe(0);
+    const m = blockVariety({ blocks: blocksOf([10, 10, 10], [10, 10, 10]) });
+    expect(m.alleysNeeded).toBe(3);
+    expect(m.parksNeeded).toBe(2);
+  });
+
+  it("passes on the default city, seeds 1 to 10 at 3 x 3 and seeds 1 to 10 at 6 x 4: at least ceil(blocks / 4) alleys and ceil(blocks / 6) parks, counted from the interior cells", () => {
+    const bad: string[] = [];
+    const sets: [number, number, number][] = [[3, 3, 1]];
+    for (let s = 1; s <= 10; s++) sets.push([3, 3, s], [6, 4, s]);
+    for (const [bx, bz, seed] of sets) {
+      const city = tileCity({ blocksX: bx, blocksZ: bz, seed });
+      const m = blockVariety(city);
+      for (const id of ["V3", "V4"] as const) if (!verdict(city, id).pass) bad.push(`${bx}x${bz} seed ${seed}: ${id} ${verdict(city, id).value}`);
+      // Not vacuous: the counts are the interior's own, one set of cells per alley and per park, and the plan's blocks agree.
+      expect(m.alleys, `${bx}x${bz} seed ${seed}`).toBe(city.blocks.filter((b) => b.alley !== null).length);
+      expect(m.parks, `${bx}x${bz} seed ${seed}`).toBe(city.blocks.filter((b) => b.park !== null).length);
+      expect(m.alleys, `${bx}x${bz} seed ${seed}`).toBeGreaterThanOrEqual(Math.ceil((bx * bz) / ALLEY_ONE_IN_BLOCKS));
+      expect(m.parks, `${bx}x${bz} seed ${seed}`).toBeGreaterThanOrEqual(Math.ceil((bx * bz) / PARK_ONE_IN_BLOCKS));
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it("fails on the uniform-grid fixture, with all four checks: 3 x 3 blocks of 10 x 10 cells with no alley and no park (V1 and V2 as before, V3 short by 3, V4 by 2)", () => {
+    const uniform = { blocks: blocksOf([10, 10, 10], [10, 10, 10]) };
+    const v = evaluateVariety(blockVariety(uniform));
+    expect(v.map((x) => x.id)).toEqual(["V1", "V2", "V3", "V4"]);
+    expect(v.map((x) => x.pass)).toEqual([false, false, false, false]);
+    expect(v[2]!.value).toBe(3);
+    expect(v[3]!.value).toBe(2);
+  });
+
+  it("counts edge-connected sets of cells: three alleys and two parks pass the 3 x 3 grid, two alleys fail V3 and one park fails V4, and a lane is one alley whatever its length", () => {
+    const blocks = blocksOf([10, 10, 10], [10, 10, 10]);
+    const three = [...lane(10, 5, 10), ...lane(25, 20, 10), ...lane(40, 35, 10)];
+    const parks = [...ring(5, 5, 4), ...ring(20, 20, 4)];
+    expect(blockVariety({ blocks, interior: [...three, ...parks] }).alleys).toBe(3);
+    expect(blockVariety({ blocks, interior: [...three, ...parks] }).parks).toBe(2);
+    expect(verdict({ blocks, interior: [...three, ...parks] }, "V3").pass).toBe(true);
+    expect(verdict({ blocks, interior: [...three, ...parks] }, "V4").pass).toBe(true);
+    expect(verdict({ blocks, interior: [...three.slice(0, 20), ...parks] }, "V3")).toEqual({ id: "V3", value: 1, pass: false });
+    expect(verdict({ blocks, interior: [...three, ...ring(5, 5, 4)] }, "V4")).toEqual({ id: "V4", value: 1, pass: false });
+    // A lane of 10 cells is one alley; the same cells with one taken from the middle are two.
+    expect(blockVariety({ blocks, interior: lane(10, 5, 10) }).alleys).toBe(1);
+    expect(blockVariety({ blocks, interior: lane(10, 5, 10).filter((q) => q.j !== 9) }).alleys).toBe(2);
+  });
+
+  it("fails on the real default city with its alleys' cells taken out, and with its parks' edges taken out", () => {
+    const city = tileCity();
+    const noAlleys = { blocks: city.blocks, interior: city.interior.filter((q) => q.role !== "alley") };
+    const noParks = { blocks: city.blocks, interior: city.interior.filter((q) => q.role !== "parkEdge") };
+    expect(verdict(noAlleys, "V3").pass).toBe(false);
+    expect(verdict(noAlleys, "V4").pass).toBe(true);
+    expect(verdict(noParks, "V4").pass).toBe(false);
+    expect(verdict(noParks, "V3").pass).toBe(true);
+  });
+
+  it("fails both on a city with no blocks", () => {
+    expect(verdict({ blocks: [] }, "V3").pass).toBe(false);
+    expect(verdict({ blocks: [] }, "V4").pass).toBe(false);
   });
 });

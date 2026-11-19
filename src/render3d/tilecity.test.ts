@@ -306,15 +306,25 @@ describe("junctions (criterion 3)", () => {
 /** How many kerb cuts (each two cells) a block side holds: the kerbCut cells in the row or column of pavement along it, over two. */
 const cutsOnSide = (v: View, b: TileCity["blocks"][number], side: "top" | "bottom" | "left" | "right"): number => {
   const cut = (i: number, j: number): boolean => v.role[j * v.W + i] === "kerbCut";
+  // A kerb cut is a stretch of kerb-cut cells in a row: two for a lot's 10 m opening, one for an alley's 5 m mouth (057 G).
   let n = 0;
+  let on = false;
   if (side === "top" || side === "bottom") {
     const j = side === "top" ? b.j0 - 1 : b.j1;
-    for (let i = b.i0; i < b.i1; i++) if (cut(i, j)) n++;
+    for (let i = b.i0; i < b.i1; i++) {
+      const here = cut(i, j);
+      if (here && !on) n++;
+      on = here;
+    }
   } else {
     const i = side === "left" ? b.i0 - 1 : b.i1;
-    for (let j = b.j0; j < b.j1; j++) if (cut(i, j)) n++;
+    for (let j = b.j0; j < b.j1; j++) {
+      const here = cut(i, j);
+      if (here && !on) n++;
+      on = here;
+    }
   }
-  return n / 2;
+  return n;
 };
 
 describe("kerbs (criterion 4)", () => {
@@ -934,6 +944,8 @@ const gridOf = (c: TileCity): ((x_m: number, z_m: number) => TileRole | null) =>
     g[cell.j * W + cell.i] = cell.role;
     if (cell.cells === 2) g[(cell.j + (cell.street!.startsWith("x:") ? 0 : 1)) * W + cell.i + (cell.street!.startsWith("x:") ? 1 : 0)] = cell.role;
   }
+  // A park's pavement edge is pavement a row can face (057 G).
+  for (const cell of c.interior) if (cell.role === "parkEdge") g[cell.j * W + cell.i] = "pavement";
   return (x, z) => {
     const i = Math.floor(x / TILE_M + 1e-9);
     const j = Math.floor(z / TILE_M + 1e-9);
@@ -1031,12 +1043,25 @@ describe("flush corners (criterion 4: ticket 057 B, 19.2)", () => {
     for (const seed of [1, 2, 3]) {
       const c = tileCity({ blocksX: 3, blocksZ: 3, seed });
       let atCorner = 0;
+      let atAlley = 0;
+      let rows = 0;
+      for (const part of c.parts) rows += part.alleySide === null ? 4 : 3;
       for (const run of c.town.terraces) {
-        const b = c.town.blocks.find((q) => q.id === run.block)!;
-        const corners = [{ x: b.minX, z: b.minZ }, { x: b.maxX, z: b.minZ }, { x: b.maxX, z: b.maxZ }, { x: b.minX, z: b.maxZ }];
-        const d = Math.min(...corners.map((p) => Math.hypot(run.ax - p.x, run.az - p.z))) / WORLD_PER_METRE;
+        // Every block is laid in parts (057 G): the corners are the part's, which are the block's for a block with no alley or park.
+        const b = c.parts.find((q) => q.id === run.block)!;
+        const x0 = b.i0 * TILE_M * U;
+        const x1 = b.i1 * TILE_M * U;
+        const z0 = b.j0 * TILE_M * U;
+        const z1 = b.j1 * TILE_M * U;
+        const corners = [{ x: x0, z: z0 }, { x: x1, z: z0 }, { x: x1, z: z1 }, { x: x0, z: z1 }];
+        const dists = corners.map((p) => Math.hypot(run.ax - p.x, run.az - p.z) / WORLD_PER_METRE);
+        const d = Math.min(...dists);
         if (!run.startCorner) {
-          // A run that does not start at a corner (it follows a lot or a plaza) is off every corner.
+          // A run that does not start at a corner (it follows a lot or a plaza) is off every corner; a row that starts at the edge of an alley is at its corner and has no cross street there.
+          if (b.alleySide !== null && dists[(b.alleySide + 1) % 4]! < 1e-6) {
+            atAlley++;
+            continue;
+          }
           expect(d, `${seed} ${run.id}`).toBeGreaterThan(1e-6);
           continue;
         }
@@ -1046,9 +1071,10 @@ describe("flush corners (criterion 4: ticket 057 B, 19.2)", () => {
         expect(first.corner, `${seed} ${run.id}`).toBe(true);
         expect(first.cornerSides.length, `${seed} ${run.id}`).toBe(1);
       }
-      // Four rows to a block, each starting at its corner but the ones that start after a plaza (the plaza takes the corner).
+      // Four rows to a part (three beside an alley: the row on the alley's side is a rear, not laid), each starting at its corner but the ones that start after a plaza (the plaza takes the corner).
       const plazas = c.town.openLots.filter((o) => o.kind === "plaza").length;
-      expect(atCorner + plazas, `seed ${seed}`).toBe(c.town.blocks.length * 4);
+      expect(atCorner + atAlley + plazas, `seed ${seed}`).toBe(rows);
+      expect(atAlley, `seed ${seed}`).toBeLessThanOrEqual(c.parts.filter((q) => q.alleySide !== null).length);
     }
   });
 });
@@ -1061,11 +1087,14 @@ describe("terraces on tile streets (criterion 10)", () => {
     for (const c of cities) {
       const t = c.town;
       const boxes = t.pavements.map((p) => ({ x0: Math.min(...p.pts.map((q) => q.x)), x1: Math.max(...p.pts.map((q) => q.x)), z0: Math.min(...p.pts.map((q) => q.z)), z1: Math.max(...p.pts.map((q) => q.z)) }));
-      for (const b of t.blocks) {
+      // Every block is laid in parts (057 G): a part has a row on each side but the alley's (a rear), and a row facing a park stands on the park's pavement edge, which is not a street's pavement.
+      for (const pt of c.parts) {
+        const b = { id: pt.id, minX: pt.i0 * TILE_M * U, maxX: pt.i1 * TILE_M * U, minZ: pt.j0 * TILE_M * U, maxZ: pt.j1 * TILE_M * U };
         const runs = t.terraces.filter((r) => r.block === b.id);
-        if (runs.length < 4) fails.push(`${c.seed} ${b.id} has ${runs.length} runs`);
+        const want = pt.alleySide === null ? 4 : 3;
+        if (runs.length < want) fails.push(`${c.seed} ${b.id} has ${runs.length} runs`);
         const sidesSeen = new Set(runs.map((r) => `${r.road}|${r.side}`));
-        if (sidesSeen.size !== 4) fails.push(`${c.seed} ${b.id} sides ${sidesSeen.size}`);
+        if (sidesSeen.size !== want) fails.push(`${c.seed} ${b.id} sides ${sidesSeen.size}`);
         for (const r of runs) {
           const horizontal = Math.abs(r.uz) < 1e-9;
           const from = horizontal ? r.ax : r.az;
@@ -1073,11 +1102,13 @@ describe("terraces on tile streets (criterion 10)", () => {
           const lo = Math.min(from, to);
           const hi = Math.max(from, to);
           // The pavement whose back edge the front line lies on: a box with that edge at the line, covering the run's extent.
-          const ok = boxes.some((p) =>
-            horizontal
-              ? (near(p.z1, r.az) || near(p.z0, r.az)) && p.x0 <= lo + 1e-6 && p.x1 >= hi - 1e-6 && (near(p.z1, b.minZ) || near(p.z0, b.maxZ))
-              : (near(p.x1, r.ax) || near(p.x0, r.ax)) && p.z0 <= lo + 1e-6 && p.z1 >= hi - 1e-6 && (near(p.x1, b.minX) || near(p.x0, b.maxX)),
-          );
+          const ok =
+            r.road.startsWith("park:") ||
+            boxes.some((p) =>
+              horizontal
+                ? (near(p.z1, r.az) || near(p.z0, r.az)) && p.x0 <= lo + 1e-6 && p.x1 >= hi - 1e-6 && (near(p.z1, b.minZ) || near(p.z0, b.maxZ))
+                : (near(p.x1, r.ax) || near(p.x0, r.ax)) && p.z0 <= lo + 1e-6 && p.z1 >= hi - 1e-6 && (near(p.x1, b.minX) || near(p.x0, b.maxX)),
+            );
           if (!ok) fails.push(`${c.seed} ${r.id} front line is not on a pavement's back edge`);
           for (const li of r.lots) {
             const l = t.lots[li]!;
@@ -1435,7 +1466,8 @@ describe("the pavement frame (criterion 12)", () => {
         }
         if (METERS.includes(p.key)) {
           meters++;
-          const beside = c.bays.some((b) => b.street === run.road && b.block === run.block && Math.abs((alongX ? cx - b.x_m : cz - b.z_m)) <= b.w_m / 2 + 1e-6);
+          const block = c.parts.find((q) => q.id === run.block)?.block ?? run.block;
+          const beside = c.bays.some((b) => b.street === run.road && b.block === block && Math.abs((alongX ? cx - b.x_m : cz - b.z_m)) <= b.w_m / 2 + 1e-6);
           if (!beside) fails.push(`${seed} meter ${p.key} on ${run.id} is not beside a bay`);
         }
       }
@@ -1556,6 +1588,11 @@ describe("units (056 criteria 2 and 3)", () => {
   it("gives every block columns, shops and homes by 18.2: homes are floor(columns x 3 / 2) and a shop is a column that is not a lot's door column", () => {
     for (const c of PARK_CITIES) {
       for (const b of c.blocks) {
+        if (b.park?.kind === "whole") {
+          // A whole-block park has no rows and so no units (057 G, 19.6).
+          expect(b.units, b.id).toEqual({ columns: 0, shops: 0, homes: 0 });
+          continue;
+        }
         expect(b.units.columns, b.id).toBeGreaterThan(10);
         expect(b.units.homes, b.id).toBe(Math.floor((b.units.columns * UNIT_FLOORS_NOMINAL) / HOME_COLUMN_FLOORS));
         expect(b.units.shops, b.id).toBeGreaterThan(0);
@@ -1672,9 +1709,13 @@ describe("the layout (056 criterion 4)", () => {
     const fails: string[] = [];
     for (const c of PARK_CITIES) {
       const parks = c.town.openLots.filter((o) => o.kind === "parking");
-      const runBlock = new Map(c.town.terraces.map((r) => [r.id, r.block] as const));
+      // A run's block is its part's (057 G); an alley block's first court opens on its alley, not on a run, and counts as one of the block's lots.
+      const partBlock = new Map(c.parts.map((q) => [q.id, q.block] as const));
+      const runBlock = new Map(c.town.terraces.map((r) => [r.id, partBlock.get(r.block) ?? r.block] as const));
+      const alleyCourts = c.courts.filter((q) => q.run === "");
       const held = new Map<string, number>();
       for (const o of parks) held.set(runBlock.get(o.run)!, (held.get(runBlock.get(o.run)!) ?? 0) + 1);
+      for (const q of alleyCourts) held.set(q.block, (held.get(q.block) ?? 0) + 1);
       let wantedTotal = 0;
       for (const b of c.blocks) {
         const wanted = Math.min(LOTS_PER_BLOCK_MAX, Math.max(1, Math.round((b.units.homes * PARK_PER_HOME) / LOT_STALLS)));
@@ -1689,8 +1730,8 @@ describe("the layout (056 criterion 4)", () => {
         if (b.lots > LOTS_PER_BLOCK_MAX) fails.push(`${c.seed} ${b.id} is served by ${b.lots} lots`);
       }
       // Every lot was asked for by demand: there are no more than the quotas total, and each has its six stalls inside its 10 m square.
-      if (parks.length > wantedTotal) fails.push(`${c.seed}: ${parks.length} lots for ${wantedTotal} wanted`);
-      if (c.lotStalls.length !== parks.length * LOT_STALLS) fails.push(`${c.seed}: ${c.lotStalls.length} stalls for ${parks.length} lots`);
+      if (parks.length + alleyCourts.length > wantedTotal) fails.push(`${c.seed}: ${parks.length + alleyCourts.length} lots for ${wantedTotal} wanted`);
+      if (c.lotStalls.length !== (parks.length + alleyCourts.length) * LOT_STALLS) fails.push(`${c.seed}: ${c.lotStalls.length} stalls for ${parks.length + alleyCourts.length} lots`);
       for (const o of parks) {
         const run = c.town.terraces.find((r) => r.id === o.run)!;
         // A court's stalls stand in its two rows (5 to 10 m and 15 to 20 m in from the street, 057 C); a frontage lot's inside its own 10 m square (056).
@@ -1705,7 +1746,7 @@ describe("the layout (056 criterion 4)", () => {
           return across <= o.w / U / 2 + 1e-6 && along <= o.d / U / 2 + 1e-6 && along >= -(court ? 3 : 1) * (o.d / U / 2) - 1e-6;
         });
         if (mine.length !== LOT_STALLS) fails.push(`${c.seed} ${o.run}: ${mine.length} stalls inside`);
-        for (const q of mine) if (q.street !== run.road || q.block !== run.block) fails.push(`${c.seed} ${o.run}: a stall of ${q.street} at ${q.block}`);
+        for (const q of mine) if (q.street !== run.road || q.block !== runBlock.get(o.run)) fails.push(`${c.seed} ${o.run}: a stall of ${q.street} at ${q.block}`);
       }
     }
     expect(fails).toEqual([]);
@@ -1857,7 +1898,9 @@ describe("build-outs and trees (056 criterion 5)", () => {
 const ringIn = (b: TileCity["blocks"][number], i: number, j: number): number => Math.min(i - b.i0, b.i1 - 1 - i, j - b.j0, b.j1 - 1 - j) + 1;
 const cellKey = (i: number, j: number): string => `${i},${j}`;
 /** Whether a role is paved: a car or a walker goes over it (the green is not). */
-const PAVED_INTERIOR: readonly string[] = ["apron", "court", "drive", "greenPath"];
+const PAVED_INTERIOR: readonly string[] = ["apron", "court", "drive", "greenPath", "parkEdge", "alley"];
+/** A block that is laid whole (no alley, no park): the 057 C tests' ring rules are about these; alleys and parks have tests of their own (057 G). */
+const plainBlock = (b: TileCity["blocks"][number]): boolean => b.alley === null && b.park === null;
 
 describe("the residents' courts (057 C, criterion 7)", () => {
   it("pins the constants: a court is 2 x 3 cells (10 x 15 m) of six stalls behind a drive, the drive is the whole 10 m opening town.ts lays (the ticket drafted 5 m), one apron ring follows the strip, and 1 block in 9 may keep a frontage lot", () => {
@@ -1877,15 +1920,18 @@ describe("the residents' courts (057 C, criterion 7)", () => {
     const fails: string[] = [];
     for (const c of PARK_CITIES) {
       const lots = c.town.openLots.filter((o) => o.kind === "parking");
-      const runBlock = new Map(c.town.terraces.map((r) => [r.id, r.block] as const));
-      const asCourt = new Set(c.courts.map((q) => q.run));
+      const partBlock = new Map(c.parts.map((q) => [q.id, q.block] as const));
+      const runBlock = new Map(c.town.terraces.map((r) => [r.id, partBlock.get(r.block) ?? r.block] as const));
+      // The courts that stand where a lot of the rows stood; an alley block's court opens on its alley (run "") and is tested with the alleys.
+      const streetCourts = c.courts.filter((q) => q.run !== "");
+      const asCourt = new Set(streetCourts.map((q) => q.run));
       const kept = lots.filter((o) => !asCourt.has(o.run));
-      if (c.courts.length + kept.length !== lots.length) fails.push(`${c.seed}: ${c.courts.length} courts and ${kept.length} kept for ${lots.length} lots`);
+      if (streetCourts.length + kept.length !== lots.length) fails.push(`${c.seed}: ${streetCourts.length} courts and ${kept.length} kept for ${lots.length} lots`);
       if (new Set(kept.map((o) => runBlock.get(o.run))).size !== c.frontLots.length) fails.push(`${c.seed}: frontLots ${c.frontLots.join(",")} for ${kept.length} kept lots`);
       for (const id of c.frontLots) if (!kept.some((o) => runBlock.get(o.run) === id)) fails.push(`${c.seed}: ${id} is recorded with no frontage lot`);
       if (c.frontLots.length > Math.ceil(c.blocks.length * CITY_FRONT_LOT_BLOCKS_MAX - 1e-9)) fails.push(`${c.seed}: ${c.frontLots.length} blocks keep a frontage lot`);
       const at = new Map(c.interior.map((q) => [cellKey(q.i, q.j), q] as const));
-      for (const court of c.courts) {
+      for (const court of streetCourts) {
         const b = c.blocks.find((q) => q.id === court.block)!;
         if (runBlock.get(court.run) !== court.block) fails.push(`${c.seed} ${court.run}: court in ${court.block}, run in ${runBlock.get(court.run)}`);
         const rows: [string, readonly { i: number; j: number }[], number, string, number][] = [
@@ -1920,13 +1966,14 @@ describe("the residents' courts (057 C, criterion 7)", () => {
       }
     }
     expect(fails).toEqual([]);
-    expect(PARK_CITIES.every((c) => c.courts.length > 0)).toBe(true);
+    expect(PARK_CITIES.every((c) => c.courts.some((q) => q.run !== ""))).toBe(true);
   });
 
   it("lists the court stalls in lotStalls: six to a court, three in each row of stalls, serving the block 056 chose, on the court's street and block", () => {
     const fails: string[] = [];
     for (const c of PARK_CITIES) {
-      const lots = c.town.openLots.filter((o) => o.kind === "parking").length;
+      // The lots of the rows, and the alley blocks' own courts (057 G), which open on a lane and stand on no open lot.
+      const lots = c.town.openLots.filter((o) => o.kind === "parking").length + c.courts.filter((q) => q.run === "").length;
       if (c.lotStalls.length !== lots * LOT_STALLS) fails.push(`${c.seed}: ${c.lotStalls.length} stalls for ${lots} lots`);
       for (const court of c.courts) {
         const inside = (pair: readonly { i: number; j: number }[], q: { x_m: number; z_m: number }): boolean => {
@@ -1971,10 +2018,13 @@ describe("the block interiors (057 C, criterion 8)", () => {
         if (m.has(cellKey(q.i, q.j))) fails.push(`${c.seed} ${q.block}: cell ${q.i},${q.j} twice`);
         m.set(cellKey(q.i, q.j), q);
         byBlock.set(q.block, m);
-        if (!["apron", "court", "drive", "green", "greenPath"].includes(q.role)) fails.push(`${c.seed}: role ${q.role}`);
+        if (!["apron", "court", "drive", "green", "greenPath", "alley", "parkEdge"].includes(q.role)) fails.push(`${c.seed}: role ${q.role}`);
+        const owner = c.blocks.find((b) => b.id === q.block)!;
+        if (q.role === "alley" && owner.alley === null) fails.push(`${c.seed} ${q.block}: an alley cell in a block with no alley`);
+        if (q.role === "parkEdge" && owner.park === null) fails.push(`${c.seed} ${q.block}: a park edge cell in a block with no park`);
         if (Math.abs(q.x_m - (q.i + 0.5) * TILE_M) > 1e-9 || Math.abs(q.z_m - (q.j + 0.5) * TILE_M) > 1e-9) fails.push(`${c.seed}: ${q.i},${q.j} is not at its middle`);
       }
-      for (const b of c.blocks) {
+      for (const b of c.blocks.filter(plainBlock)) {
         const m = byBlock.get(b.id) ?? new Map();
         for (let j = b.j0; j < b.j1; j++) {
           for (let i = b.i0; i < b.i1; i++) {
@@ -2006,7 +2056,7 @@ describe("the block interiors (057 C, criterion 8)", () => {
       for (const q of c.interior) roles.set(q.role, (roles.get(q.role) ?? 0) + 1);
       for (const r of ["apron", "court", "drive", "green", "greenPath"]) if ((roles.get(r) ?? 0) === 0) fails.push(`${c.seed}: no ${r}`);
       const lotCells = new Set(c.cells.filter((q) => q.role === "lotSurface" || q.role === "plaza").map((q) => cellKey(q.i, q.j)));
-      for (const b of c.blocks) {
+      for (const b of c.blocks.filter(plainBlock)) {
         let want = 0;
         for (let j = b.j0; j < b.j1; j++) for (let i = b.i0; i < b.i1; i++) if (ringIn(b, i, j) === 2 && !lotCells.has(cellKey(i, j))) want++;
         const have = c.interior.filter((q) => q.block === b.id && q.role === "apron" && q.variant === APRON_STRIP).length;
@@ -2020,7 +2070,8 @@ describe("the block interiors (057 C, criterion 8)", () => {
     const fails: string[] = [];
     for (const c of PARK_CITIES) {
       const open = new Set(c.cells.filter((q) => q.role === "lotSurface" || q.role === "plaza").map((q) => cellKey(q.i, q.j)));
-      for (const b of c.blocks) {
+      // A block with a park has two separate pavings, the built half's and the park's own edge (the park's is tested with the parks).
+      for (const b of c.blocks.filter((q) => q.park === null)) {
         const paved = new Set(c.interior.filter((q) => q.block === b.id && PAVED_INTERIOR.includes(q.role)).map((q) => cellKey(q.i, q.j)));
         for (const k of open) {
           const [i, j] = k.split(",").map(Number) as [number, number];
