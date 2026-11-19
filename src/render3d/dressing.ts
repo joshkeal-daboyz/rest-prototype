@@ -21,12 +21,16 @@
  *  - "At most one block in two along a run has a fire escape" is "no two consecutive blocks of a run both have one"; the clause "unless every block
  *    qualifies" is dropped, as a block cannot know that. That caps the density below "most 3-bay blocks"; the two statements cannot both hold.
  *
+ * Fire escapes (ticket 058) stand one platform per storey, each deck under its storey's window sill and each flight meeting the deck above; `escapes.ts` holds the measured numbers and the
+ * check, the block of `dressBlock` below places them, and a piece the pack lacks is drawn in code (a `code:escape` piece with boxes). Chapter 16.11 of the style guide has the rules.
+ *
  * The pack's lamps, signals and electrical cabinets are never used here: they would read as puzzle parts, and no dressing ever glows (this module has
  * no colour and no emission at all). Nothing that is a person, an animal or a vehicle is used either.
  */
 
 import type { AssetEntry, CalibrationKey } from "../core";
 import { stableHash } from "../render/city";
+import { CODE_ESCAPE, CODE_ESCAPE_KEY, ESCAPE_FIRST, ESCAPE_GEOMETRY, ESCAPE_GROUND_TOL_M, codeEscape, ladderParts, planEscape, storeysOfColumn, ESCAPE_DECK_BELOW_SILL_M, type EscapePart } from "./escapes";
 import { frontYaw, sizeOf, type FrontTable, type ModelFront } from "./models";
 import type { Stack, StackPiece } from "./stacks";
 import { PAVE_W, SETBACK, WORLD_PER_METRE, type Lot } from "./town";
@@ -47,6 +51,10 @@ export interface DressPiece {
   w: number;
   h: number;
   d: number;
+  /** The piece's y-scale about its base (ticket 058: a fire escape's pieces are scaled so each flight meets the deck above); absent means 1. `h` is already scaled. */
+  scaleY?: number;
+  /** Boxes drawn with the piece, in its own frame at scale 1 (ticket 058): the first escape piece's ladder down to the walk, or the whole of a code-drawn escape (`CODE_ESCAPE_KEY`). */
+  parts?: readonly EscapePart[];
 }
 
 // ---- constants (every one a one-line tuning change; 053 pins them in its Numbers table) ----
@@ -108,7 +116,7 @@ export const DOOR_CANOPIES: readonly CalibrationKey[] = seq("SM_Bld_Cover_", "01
 export const SIGNS_FASCIA: readonly CalibrationKey[] = seq("SM_Prop_Sign_", "Bar_01", "Cafe_01", "Chinese_Noodles_01", "Pizza_01", "Pub_01", "Entrance_01");
 export const SIGNS_BLADE: readonly CalibrationKey[] = seq("SM_Prop_Sign_", "Barber_01", "DeliPizza_01", "Hotel_01");
 export const ATMS: readonly CalibrationKey[] = seq("SM_Prop_ATM_", "01");
-/** Fire escapes: `_03` (the tall first landing) on the first floor, `_02` for each floor up, `_01` on top. */
+/** Fire escapes: `_03` (the tall first landing) on the first floor, `_02` for each floor between, `_01` on top, one per storey (ticket 058: `planEscape` in `escapes.ts` places them by their measured decks and flights). */
 export const ESCAPES: readonly CalibrationKey[] = seq("SM_Bld_FireEscape_", "01", "02", "03");
 export const WALL_ACS: readonly CalibrationKey[] = seq("SM_Prop_Aircon_", "01");
 export const WALL_PLANTERS: readonly CalibrationKey[] = seq("SM_Prop_PlanterWindow_", "01", "02");
@@ -299,12 +307,16 @@ export function dressBlock(
   const turned = (size: Size3, yaw: number): { w: number; d: number } => (quarterYaw(yaw) ? { w: size[2], d: size[0] } : { w: size[0], d: size[2] });
   const nudge = (key: CalibrationKey): number => DRESS_NUDGE_M[key] ?? 0;
 
-  /** All-or-nothing: the group goes in only if no column would pass `DRESS_PER_BAY_MAX`. */
-  const accept = (group: readonly (DressPiece | null)[]): boolean => {
+  /**
+   * All-or-nothing: the group goes in only if no column would pass `DRESS_PER_BAY_MAX`. `weight` (a group in one column) is what the group counts as against the column, where it is not its
+   * piece count (the fire escape, below).
+   */
+  const accept = (group: readonly (DressPiece | null)[], weight?: number): boolean => {
     const g = group.filter((p): p is DressPiece => p !== null);
     if (g.length === 0 || g.length < group.length) return false;
     const need = new Map<number, number>();
     for (const p of g) need.set(p.column, (need.get(p.column) ?? 0) + 1);
+    if (weight !== undefined) for (const c of need.keys()) need.set(c, weight);
     for (const [c, n] of need) if ((perColumn.get(c) ?? 0) + n > DRESS_PER_BAY_MAX) return false;
     for (const [c, n] of need) perColumn.set(c, (perColumn.get(c) ?? 0) + n);
     out.push(...g);
@@ -365,36 +377,71 @@ export function dressBlock(
   const shopBays = bays.filter((b) => b.kind !== "door");
 
   // ---- fire escape: decided first, because its column keeps the ground row plain ----
-  const escape = ((): { col: number; pieces: DressPiece[] } | null => {
+  // Ticket 058: one platform on every storey over the base, the deck of each `ESCAPE_DECK_BELOW_SILL_M` under that storey's window sill, each piece scaled in y so its flight meets the deck above and
+  // shifted in x so the flight arrives at the upper deck's hatch (`planEscape`); the first piece's ladder is drawn down to the walk. Where the pack's pieces are missing or do not fit the storey
+  // pitch, the escape is drawn in code (`codeEscape`). Eligibility is 052's: `P_ESCAPE`, `ESCAPE_MIN_BAYS`, no escape on the block before it, a mid column that is not a door column.
+  const escape = ((): { col: number; pieces: DressPiece[]; weight: number } | null => {
     if (!apartment || stack.bays < ESCAPE_MIN_BAYS || stack.floors < 2 || used0.escapePrev || firstFloorY === null) return null;
     if (dressUnit(lot.key, "escape") >= P_ESCAPE) return null;
     const doorCols = new Set(bays.filter((b) => b.kind === "door").flatMap((b) => b.cols));
     const eligible = cols.map((c, i) => ({ c, i })).filter(({ c, i }) => c.corner === null && !doorCols.has(i) && roofOf.has(i));
     const pick = pickOf(eligible, lot.key, "escapecol");
     if (!pick) return null;
-    const topY = roofOf.get(pick.i)!.y;
-    const [e1, e2, e3] = ESCAPES as [CalibrationKey, CalibrationKey, CalibrationKey];
-    const h = (key: CalibrationKey): number => rawSize(key)?.[1] ?? Infinity;
-    const order: CalibrationKey[] = [];
-    let y = firstFloorY;
-    if (y + h(e3) <= topY + EPS) {
-      order.push(e3);
-      y += h(e3);
+    const storeys = storeysOfColumn(stack, pick.i);
+    if (storeys.length !== stack.floors) return null;
+    const cx = pick.c.x;
+    // Against the column's cap the escape counts what 052's stacking by bounds used (the tall landing, a middle piece while it and the top still fit under the roof, the top piece): a piece for
+    // every storey is one more on a four or five storey block, and the cap's other pieces (signs, the canopy, roof props, the ATM, wall props) must not change with it (ticket 058, criterion 7).
+    const height = (key: CalibrationKey): number => rawSize(key)?.[1] ?? Infinity;
+    const [top, mid, first] = ESCAPES as [CalibrationKey, CalibrationKey, CalibrationKey];
+    const roofY = roofOf.get(pick.i)!.y;
+    let weight = 0;
+    let at = firstFloorY;
+    if (at + height(first) <= roofY + EPS) {
+      weight++;
+      at += height(first);
     }
-    while (y + h(e2) + h(e1) <= topY + EPS) {
-      order.push(e2);
-      y += h(e2);
+    while (at + height(mid) + height(top) <= roofY + EPS) {
+      weight++;
+      at += height(mid);
     }
-    if (y + h(e1) <= topY + EPS) order.push(e1);
+    if (at + height(top) <= roofY + EPS) weight++;
     const pieces: DressPiece[] = [];
-    y = firstFloorY;
-    for (const key of order) {
-      const p = onFace(key, "escape", pick.i, pick.c.x, y, pick.c.x - pick.c.w / 2, pick.c.x + pick.c.w / 2);
-      if (!p) return null;
-      pieces.push(p);
-      y += p.h;
+    // The pack's pieces, upright (a front other than "+z" would turn the measured frame, which is not worked out).
+    const plan = planEscape(storeys, (key) => (yawOf(key) === 0 ? rawSize(key) : null));
+    if (plan && plan.span_m <= pick.c.w + EPS) {
+      for (let j = 0; j < plan.slots.length; j++) {
+        const slot = plan.slots[j]!;
+        const size = rawSize(slot.key)!;
+        const x = cx + slot.x;
+        // The piece stands against the storey it serves: its legs may hang a little under that floor, where the sill is low.
+        const host = hostAt(x, storeys[j]!.y);
+        if (!host) return null;
+        const z = faceZ(host) + nudge(slot.key) + size[2] / 2;
+        if (z + size[2] / 2 > kerb + EPS) return null;
+        pieces.push({ key: slot.key, slot: "escape", x, y: slot.y, z, yaw: 0, column: pick.i, w: slot.w, h: slot.h, d: size[2], scaleY: slot.scaleY });
+      }
+      // The drop ladder reaches the walk: boxes from y 0 up to where the pack's ladder starts.
+      const first = pieces[0]!;
+      const g = ESCAPE_GEOMETRY[ESCAPE_FIRST]!;
+      if (g.ladderFoot_m !== null && g.ladder_m !== null && first.scaleY !== undefined) {
+        const foot = first.y + g.ladderFoot_m * first.scaleY;
+        if (foot < -ESCAPE_GROUND_TOL_M) return null;
+        const parts = ladderParts(foot, first.y, g.ladder_m[0], g.ladder_m[1], (g.ladder_m[2] + g.ladder_m[3]) / 2);
+        if (parts.length > 0) first.parts = parts;
+      }
+      return { col: pick.i, pieces, weight };
     }
-    return pieces.length > 0 ? { col: pick.i, pieces } : null;
+    // Code-drawn: one piece with its boxes. With nothing loaded at all (no City Pack, the dressing not asked for) there is no dressing, escape included.
+    if (entries.size === 0) return null;
+    const decks = storeys.map((s) => s.y + s.sill - ESCAPE_DECK_BELOW_SILL_M);
+    const baseY = decks[0]! - CODE_ESCAPE.deck;
+    const host = hostAt(cx, storeys[0]!.y);
+    if (!host) return null;
+    const z = faceZ(host) + CODE_ESCAPE.d / 2;
+    if (z + CODE_ESCAPE.d / 2 > kerb + EPS || CODE_ESCAPE.w > pick.c.w + EPS) return null;
+    pieces.push({ key: CODE_ESCAPE_KEY, slot: "escape", x: cx, y: baseY, z, yaw: 0, column: pick.i, w: CODE_ESCAPE.w, h: decks[decks.length - 1]! + CODE_ESCAPE.rail - baseY, d: CODE_ESCAPE.d, parts: codeEscape(decks, baseY) });
+    return { col: pick.i, pieces, weight: 1 };
   })();
   const plain = (b: Bay): boolean => !escape || !b.cols.includes(escape.col);
 
@@ -550,7 +597,7 @@ export function dressBlock(
   }
 
   // ---- fire escape goes in now (it was decided first) ----
-  if (escape && accept(escape.pieces)) used.escapePrev = true;
+  if (escape && accept(escape.pieces, escape.weight)) used.escapePrev = true;
 
   // ---- signs: a fascia sign by probability over the awning (or the glass); at most one blade sign, on a bay with no awning ----
   {

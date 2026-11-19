@@ -6,11 +6,12 @@
  */
 
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { Box3, Color, DoubleSide, Group, InstancedMesh, Matrix4, MeshStandardMaterial, NearestFilter, Quaternion, Texture, TextureLoader, Vector3, type Material, type Mesh, type Object3D } from "three";
+import { BoxGeometry, Box3, Color, DoubleSide, Group, InstancedMesh, Matrix4, MeshStandardMaterial, NearestFilter, Quaternion, Texture, TextureLoader, Vector3, type Material, type Mesh, type Object3D } from "three";
 import { calibrationKey, parseCalibrationKey, type AssetEntry, type AssetManifest, type CalibrationKey } from "../core";
 import { stableHash } from "../render/city";
 import { effectiveFronts, loadSavedCalibration } from "./calibration";
 import { COLOURWAY_POOL, assignColourways, isBaseAtlasName, type ColourwayBlock } from "./colourway";
+import { CODE_ESCAPE_KEY, type EscapePart } from "./escapes";
 import { DRESS_DRAW_CALLS_MAX, KERB_FROM_FRONT_M, SHOP_GLASS, dressKeys, dressTown, type DressBlockInput, type DressPiece } from "./dressing";
 import { FURN_DRAW_CALLS_MAX, alleyOf, furnitureKeys, furnitureLayout, openLotsOf, type Alley, type AvoidBox, type FurnitureInput, type FurniturePiece, type Rect } from "./furniture";
 import {
@@ -567,12 +568,21 @@ const tmpB = new Matrix4();
  * The world matrix of a piece of dressing: its frame (a stack group's position and yaw), then the piece's own place in metres at WORLD_PER_METRE and its yaw, at
  * WORLD_PER_METRE scale. It is the matrix `stackGroup` gives a stack piece's wrapper, for a dressing piece, so a prop sits where the pure placement says.
  */
-export function dressMatrix(frame: DressFrame, piece: Pick<DressPiece, "x" | "y" | "z" | "yaw">, out: Matrix4 = new Matrix4()): Matrix4 {
+export function dressMatrix(frame: DressFrame, piece: Pick<DressPiece, "x" | "y" | "z" | "yaw"> & { scaleY?: number }, out: Matrix4 = new Matrix4()): Matrix4 {
   const s = WORLD_PER_METRE;
   tmpA.compose(tmpP.set(frame.x, 0, frame.z), tmpQ.setFromAxisAngle(UP, frame.yaw), tmpS.set(1, 1, 1));
-  tmpB.compose(tmpP.set(piece.x * s, piece.y * s, piece.z * s), tmpQ.setFromAxisAngle(UP, piece.yaw), tmpS.set(s, s, s));
+  tmpB.compose(tmpP.set(piece.x * s, piece.y * s, piece.z * s), tmpQ.setFromAxisAngle(UP, piece.yaw), tmpS.set(s, s * (piece.scaleY ?? 1), s));
   return out.multiplyMatrices(tmpA, tmpB);
 }
+
+const AXIS_Z = new Vector3(0, 0, 1);
+/** A code-drawn box (ticket 058) as a matrix in its piece's frame, metres: a unit cube centred on its place, sized, and turned about z (a stringer). */
+export function partMatrix(part: Pick<EscapePart, "x" | "y" | "z" | "w" | "h" | "d" | "rz">, out: Matrix4 = new Matrix4()): Matrix4 {
+  return out.compose(tmpP.set(part.x, part.y, part.z), tmpQ.setFromAxisAngle(AXIS_Z, part.rz ?? 0), tmpS.set(part.w, part.h, part.d));
+}
+
+/** The colour of the code-drawn fire escapes' boxes: the pack escape's dark steel. */
+const ESCAPE_STEEL = 0x30343b;
 
 /** One site to dress: a stack, its lot's key and height cap, the run it counts in, where it stands, and how far its front is from the road's edge. */
 export interface DressSite extends DressBlockInput {
@@ -729,6 +739,8 @@ const GLASS_KEYS: ReadonlySet<CalibrationKey> = new Set(SHOP_GLASS);
 export interface DressDraw {
   group: Group;
   calls: number;
+  /** The code-drawn boxes (ticket 058: a pack escape's ladder to the walk, a whole escape drawn in code) are one more InstancedMesh, hung under the first mesh of `group` (so `group` keeps one child per drawn mesh); 1 when drawn, else 0. Not counted in `calls`, except when `group` has no mesh to hang it from. */
+  boxCalls: number;
   dispose(): void;
 }
 
@@ -738,6 +750,8 @@ export interface DressDraw {
  * animated, and nothing is emissive: a material that carries emission is swapped for a clone with none, and the shop glass shares one dark, slightly glossy, see-through
  * material. Geometry and every other material are the cached roots' (the group is `sharedModel`, so the scene's disposal leaves them alone). More than `maxCalls` InstancedMeshes
  * would be too many draw calls: the keys with the fewest instances are left out first. A key with no root, or no mesh in it, draws nothing.
+ * A piece may carry a y-scale (a fire escape's, ticket 058: `dressMatrix` applies it) and boxes of its own (`DressPiece.parts`: the first landing's ladder down to the walk, or a whole escape
+ * drawn in code, `CODE_ESCAPE_KEY`): every box of every placement is one more InstancedMesh, hung under the escape's mesh, so the group keeps one child per drawn mesh (`DressDraw.boxCalls`).
  */
 export function dressGroup(placements: readonly DressPlacement[], roots: ReadonlyMap<CalibrationKey, Object3D>, maxCalls: number = DRESS_DRAW_CALLS_MAX): DressDraw {
   const group = new Group();
@@ -751,6 +765,7 @@ export function dressGroup(placements: readonly DressPlacement[], roots: Readonl
     else byKey.set(p.piece.key, [p]);
   }
   const owned: Material[] = [];
+  const geometries: BoxGeometry[] = [];
   const meshes: InstancedMesh[] = [];
   const swapped = new Map<Material, Material>();
   let glass: Material | null = null;
@@ -781,8 +796,10 @@ export function dressGroup(placements: readonly DressPlacement[], roots: Readonl
     .filter((k) => k.parts.length > 0)
     .sort((a, b) => b.list.length - a.list.length || (a.key < b.key ? -1 : 1));
   let calls = 0;
+  const drawnKeys = new Set<CalibrationKey>();
   for (const { key, parts, list } of keys) {
     if (calls + parts.length > maxCalls) continue;
+    drawnKeys.add(key);
     for (const part of parts) {
       const src = part.mesh.material as Material | Material[];
       const material = GLASS_KEYS.has(key) ? glassMaterial() : Array.isArray(src) ? src.map(plain) : plain(src);
@@ -797,13 +814,47 @@ export function dressGroup(placements: readonly DressPlacement[], roots: Readonl
       calls++;
     }
   }
+  // The code-drawn parts (ticket 058: a pack escape's ladder down to the walk, or a whole escape drawn in code), every box of every placement in one InstancedMesh: one draw call, whatever the count.
+  // A box's matrix is its piece's (at scale 1 in y: the piece's own y-scale is the pack mesh's) times its own. A code-drawn escape needs no model; a pack piece's ladder boxes are drawn only with the piece.
+  const boxed = placements.filter((p) => p.piece.parts !== undefined && (p.piece.key === CODE_ESCAPE_KEY || drawnKeys.has(p.piece.key)));
+  let boxCalls = 0;
+  let boxes = 0;
+  for (const p of boxed) boxes += p.piece.parts!.length;
+  if (boxes > 0) {
+    const geometry = new BoxGeometry(1, 1, 1);
+    const material = new MeshStandardMaterial({ color: new Color(ESCAPE_STEEL), roughness: 0.65, metalness: 0.35 });
+    owned.push(material);
+    const im = new InstancedMesh(geometry, material, boxes);
+    im.name = "dress:escape-code";
+    im.raycast = () => {};
+    let i = 0;
+    for (const p of boxed) {
+      const base = dressMatrix(p.frame, { x: p.piece.x, y: p.piece.y, z: p.piece.z, yaw: p.piece.yaw });
+      for (const part of p.piece.parts!) im.setMatrixAt(i++, m.multiplyMatrices(base, partMatrix(part)));
+    }
+    im.instanceMatrix.needsUpdate = true;
+    im.computeBoundingSphere();
+    // Under the escape's own mesh when there is one (an instanced mesh's own matrix is the identity, so its child draws in the group's frame).
+    const host = group.children.find((c) => c.name === "dress:SM_Bld_FireEscape_03") ?? group.children[0];
+    if (host) host.add(im);
+    else {
+      group.add(im);
+      calls++;
+    }
+    boxCalls = 1;
+    meshes.push(im);
+    geometries.push(geometry);
+  }
   return {
     group,
     calls,
+    boxCalls,
     dispose() {
       for (const im of meshes) im.dispose();
       for (const o of owned) o.dispose();
+      for (const g of geometries) g.dispose();
       owned.length = 0;
+      geometries.length = 0;
       meshes.length = 0;
     },
   };

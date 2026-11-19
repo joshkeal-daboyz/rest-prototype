@@ -14,7 +14,8 @@ import { createCameraRig } from "./camera";
 import { DRESS_DRAW_CALLS_MAX, KERB_FROM_FRONT_M, NOVELTY_SIGNS, dressKeys } from "./dressing";
 import { NODE_BODY_Y, wireLayout } from "./layout";
 import { WORLD_PER_METRE } from "./models";
-import { NO_MODELS, allStackKeys, applyModels, dressGroup, dressInput, dressMatrix, dressPlacements, dressSites, loadModels, type DressPlacement, type ModelSet } from "./models3d";
+import { NO_MODELS, allStackKeys, applyModels, dressGroup, dressInput, dressMatrix, dressPlacements, dressSites, loadModels, partMatrix, type DressPlacement, type ModelSet } from "./models3d";
+import { CODE_ESCAPE_KEY, ESCAPE_FIRST, ESCAPE_MID } from "./escapes";
 import { buildScene } from "./scene";
 import { dressRequested, buildGalleryScene, stackGalleryLayout } from "./gallery";
 import { stubTextSurface } from "./text";
@@ -603,5 +604,105 @@ describe("the stack gallery's &dress=1", () => {
     const bare = buildGalleryScene(dressed, null, { surface: stubTextSurface });
     expect(bare.scene.getObjectByName("city-dressing")).toBeUndefined();
     bare.dispose();
+  });
+});
+
+describe("fire escapes: a y-scale, the ladder to the walk and the code-drawn escape (ticket 058)", () => {
+  const FRAME = { x: 3, z: -2, yaw: 0.5 };
+  const boxesOf = (list: readonly DressPlacement[]): number => list.reduce((n, p) => n + (p.piece.parts?.length ?? 0), 0);
+  const boxMeshOf = (group: Object3D): InstancedMesh => group.getObjectByName("dress:escape-code") as InstancedMesh;
+  const noEscapePack = setOf(manifestOf(ALL.filter((e) => !/FireEscape/.test(e.name))));
+
+  it("scales a piece in y about its base and leaves x and z at WORLD_PER_METRE (dressMatrix and the instanced mesh agree)", () => {
+    const piece = { x: 1, y: 2, z: 3, yaw: 0, scaleY: 1.1 };
+    const e = dressMatrix(FRAME, piece).elements;
+    const flat = dressMatrix(FRAME, { x: 1, y: 2, z: 3, yaw: 0 }).elements;
+    // The y axis of the matrix is (0, WORLD_PER_METRE * 1.1, 0): its length is the y-scale, the x and z columns are as for an unscaled piece.
+    expect(Math.hypot(e[4]!, e[5]!, e[6]!)).toBeCloseTo(W * 1.1, 9);
+    expect(Math.hypot(e[0]!, e[1]!, e[2]!)).toBeCloseTo(W, 9);
+    expect(Math.hypot(e[8]!, e[9]!, e[10]!)).toBeCloseTo(W, 9);
+    for (const i of [12, 13, 14]) expect(e[i]).toBeCloseTo(flat[i]!, 9);
+    // A piece with no scaleY is as it was.
+    expect(dressMatrix(FRAME, { x: 1, y: 2, z: 3, yaw: 0, scaleY: 1 }).elements).toEqual(flat);
+    // Drawn: a placement with a y-scale gets its instance matrix from dressMatrix with it.
+    const input = dressInput(SET)!;
+    const placement: DressPlacement = { frame: FRAME, piece: { key: ESCAPE_MID, slot: "escape", x: 1, y: 2, z: 3, yaw: 0, column: 0, w: 3.251, h: 3.609 * 1.1, d: 1.644, scaleY: 1.1 } };
+    const drawn = dressGroup([placement], input.roots);
+    const im = drawn.group.children.find((c) => c.name === "dress:SM_Bld_FireEscape_02") as InstancedMesh;
+    const m = new Matrix4();
+    im.getMatrixAt(0, m);
+    const want = dressMatrix(FRAME, placement.piece);
+    for (let i = 0; i < 16; i++) expect(Math.abs(m.elements[i]! - Math.fround(want.elements[i]!)), `element ${i}`).toBeLessThan(1e-6);
+    drawn.dispose();
+  });
+
+  it("draws every ladder's boxes on the maps in one InstancedMesh hung under the first landing's mesh: the group keeps one child per drawn mesh, and one extra draw call at most", () => {
+    for (const file of MAPS) {
+      const bundle = buildScene(loadMap(file), { text: stubTextSurface });
+      const applied = applyModels(bundle, SET);
+      const group = dressGroupOf(bundle)!;
+      const ladders = applied.dress.filter((p) => p.piece.parts !== undefined);
+      expect(ladders.length, file).toBeGreaterThan(5);
+      for (const p of ladders) expect(p.piece.key, file).toBe(ESCAPE_FIRST);
+      const boxes = boxMeshOf(group);
+      expect(boxes, file).toBeDefined();
+      expect(boxes.count, file).toBe(boxesOf(applied.dress));
+      expect(boxes.parent!.name, file).toBe("dress:SM_Bld_FireEscape_03");
+      expect(group.children.length, file).toBe(applied.dressCalls);
+      expect(boxes.raycast, file).not.toBe(InstancedMesh.prototype.raycast);
+      expect((boxes.material as MeshStandardMaterial).emissive.getHex(), file).toBe(0);
+      // The first ladder's first rail: its instance stands from the walk (the lowest point of the box is the frame's y 0) and is 0.04 m thick, at WORLD_PER_METRE.
+      const first = ladders[0]!;
+      const m = new Matrix4();
+      boxes.getMatrixAt(0, m);
+      const want = dressMatrix(first.frame, { x: first.piece.x, y: first.piece.y, z: first.piece.z, yaw: first.piece.yaw }).multiply(partMatrix(first.piece.parts![0]!));
+      for (let i = 0; i < 16; i++) expect(Math.abs(m.elements[i]! - Math.fround(want.elements[i]!)), `${file} element ${i}`).toBeLessThan(1e-6);
+      const part = first.piece.parts![0]!;
+      expect((first.piece.y + part.y - part.h / 2) * 1, `${file} rail foot`).toBeCloseTo(0, 9);
+      applied.remove();
+      bundle.dispose();
+    }
+  });
+
+  it("draws an escape in code when the set has no escape piece, from no model: a code piece's boxes only, one InstancedMesh, the group still one child per drawn mesh", async () => {
+    const set = await noEscapePack;
+    for (const file of MAPS) {
+      const bundle = buildScene(loadMap(file), { text: stubTextSurface });
+      const applied = applyModels(bundle, set);
+      const group = dressGroupOf(bundle)!;
+      const code = applied.dress.filter((p) => p.piece.key === CODE_ESCAPE_KEY);
+      expect(code.length, file).toBeGreaterThan(5);
+      expect(applied.dress.some((p) => /FireEscape/.test(p.piece.key)), file).toBe(false);
+      const boxes = boxMeshOf(group);
+      expect(boxes.count, file).toBe(boxesOf(applied.dress));
+      expect(boxes.count, file).toBeGreaterThan(code.length * 60);
+      expect(group.children.length, file).toBe(applied.dressCalls);
+      // Not a pick target and not emissive, like the rest of the dressing.
+      group.traverse((o) => expect(o.userData["pickKind"], o.name).toBeUndefined());
+      applied.remove();
+      bundle.dispose();
+    }
+  });
+
+  it("draws a pack piece's ladder boxes only with the piece: with no roots nothing is drawn, and a code piece draws without any", () => {
+    const bundle = buildScene(loadMap("09-shrine-circuit"), { text: stubTextSurface });
+    const applied = applyModels(bundle, SET);
+    const pack = applied.dress.filter((p) => p.piece.key !== CODE_ESCAPE_KEY);
+    const none = dressGroup(pack, new Map());
+    expect(none.calls).toBe(0);
+    expect(none.boxCalls).toBe(0);
+    expect(none.group.children).toHaveLength(0);
+    none.dispose();
+    const code: DressPlacement = { frame: FRAME, piece: { key: CODE_ESCAPE_KEY, slot: "escape", x: 0, y: 3, z: 0, yaw: 0, column: 0, w: 3.25, h: 4, d: 1.64, parts: [{ kind: "deck", x: 0, y: 0, z: 0, w: 3, h: 0.08, d: 1 }] } };
+    const only = dressGroup([code], new Map());
+    expect(only.boxCalls).toBe(1);
+    expect(only.group.children).toHaveLength(1);
+    expect(only.calls).toBe(1);
+    expect((only.group.children[0] as InstancedMesh).count).toBe(1);
+    only.dispose();
+    // At most 3 draw calls for the boxes of the whole town.
+    expect(dressGroup(applied.dress, dressInput(SET)!.roots).boxCalls).toBeLessThanOrEqual(3);
+    applied.remove();
+    bundle.dispose();
   });
 });
