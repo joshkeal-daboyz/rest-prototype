@@ -498,6 +498,122 @@ How to read it:
 - **Info (060)**: the grass colour has no night counterpart yet because no code draws grass; night's value is the yard's until a drawer registers it. The tile view brings a material it swaps in later (the pack's tiles arriving) to the mode it is in.
 - **Info (060)**: brightness of a rendered frame is not tested headless; the table and the screenshots of 16.8 are the measure.
 
+## 18. Parking
+
+How many parking spaces the tile city (`city=tiles`) gives a home and a shop, which go on the street and which in lots, and the caps. The layout is in `tilecity.ts`, the checks P1 to P6 are in `parkmetrics.ts`, and the build-outs are drawn by `tilecity3d.ts` (ticket 056 A, B and C). Nothing on the ladder maps changes: the ladder's town (chapter 4) keeps its hash lots, and `town.ts` gained only the option that switches them off for the tile city.
+
+- **Info (056)**: chapter 17 (ticket 055 D) does not exist yet. When it does, its parking paragraph defers to this chapter and says nothing that disagrees with it, and 055 D's check T6 ("parking on every block") is satisfied by P1 and P2 of 18.8.
+
+### 18.1 Who parks where
+
+- **Decided (056, Josh 18 Nov 2026, after looking at the tile city of 055 A to C)**: "Roads look good, parking spaces are overwhelming. Too many parking spaces. We should create rules in the style sheet that indicate how much parking should be available on the streets vs parking lots for residential and business style units."
+- **Default (056)**: shoppers park at the kerb, residents park off the street.
+  - A **shop** gets `PARK_PER_SHOP` (one third) short-stay kerbside bays, on its own block's sides.
+  - A **home** gets `PARK_PER_HOME` (0.15) stalls in a parking lot, in its own block or across one street.
+  - Residents never count on kerb bays, and shoppers never count on lot stalls.
+- **Info (056)**: these are drawn spaces, about half of what a real dense terraced core provides. A real core has about 0.3 spaces per home, and about 1 per 40 m2 of shop, which here is about 0.7 per 31 m2 shop bay. The camera reads every drawn stall at full size, and Josh found the full count overwhelming.
+- **Info (056, Josh 18 Nov 2026, "I approve one through three")**: Josh approved ticket 056 with its six open questions at their defaults, so each default below stands as written: the ratios of 18.1 (the alternative, double both, is not taken); build-outs in the parking band (18.5); no rear courts, so lots stay on the frontage (18.4); a space record for every lot stall as well as every bay (`TileCity.lotStalls`); no residents at the kerb; and a home of two column-floors (18.2).
+- **Pending (waits for ticket 057 C)**: from 057 on, a block's lots become interior courts in place of frontage lots. The quota of 18.4 and every check stay, and chapter 19 takes over the placement.
+
+### 18.2 Units
+
+- **Default (056)**: units are counted per block from the nominal terrace lots of its finished rows (after the parking lots took their frontage), so the layout can place parking before anything is packed. `TileBlock.units` holds them.
+  - Columns are the lots' 5.2 m bays.
+  - Shops are the columns minus one door column per terrace lot.
+  - Homes are floor(columns x `UNIT_FLOORS_NOMINAL` / `HOME_COLUMN_FLOORS`): a home is two column-floors (2 x 5.2 m x 6 m, about 62 m2), and a block's upper floors are nominally 3 over the base.
+  - A shop is one ground bay that is a shop or a shop corner (the `groundRow` kinds of `citymetrics.ts`); the two-column shop counts once.
+- **Default (056)**: the layout's numbers stay within 10% of the packed plan's. The test packs the fixture stacks and compares the city-wide shop count and the homes (column-floors over `HOME_COLUMN_FLOORS`) with the layout's sums, on the default city and seeds 1 to 10 at 3 x 3.
+- **Info (056, measured 18 Nov 2026 on the merged layout; the test, not this line, is the record)**: the default city packs 95 stacks of 255 columns and 775 column-floors, 3.04 floors over the base on average. The layout counts 255 columns, 160 shops (the plan has 152, 5% under) and 379 homes (the plan has 387.5, 2% over). Per block that is 15 to 21 shops and 34 to 49 homes. Seeds 1 to 10 at 3 x 3 have 255 to 285 columns, 160 to 180 shops and 379 to 424 homes.
+
+### 18.3 Kerbside bays (shoppers)
+
+- **Default (056)**: a block's quota is `max(BAY_TILES_PER_BLOCK_MIN, round(shops x PARK_PER_SHOP / BAYS_PER_PARKING_TILE))` `ParkingLines_01` tiles, each of `BAYS_PER_PARKING_TILE` bays (10 m of kerb). That is one to three tiles per block, three to nine bays.
+- **Default (056)**: where the bays go.
+  - They go on the block's own sides that have a parking band: both sides of an avenue, and the hash side of a street.
+  - Avenue sides fill first, then longer sides, with ties by id.
+  - The fill is round-robin: one run per side before any side takes a second.
+  - A run is centred on its side's free stretch, offset by hash.
+- **Default (056)**: run and gap limits.
+  - A run is at most `BAY_RUN_TILES_MAX` tiles (20 m, 6 bays).
+  - Two runs on one side have at least `KERB_GAP_MIN_M` of kerb without bays between them.
+  - The `BAY_JUNCTION_CLEAR` cell next to each crossing never holds a bay, and neither does the cell in front of a kerb cut.
+- **Default (056)**: caps.
+  - A side's bay length is at most `KERB_BAY_SHARE_MAX` of its kerb: the first field for an avenue, the second for a street.
+  - The city has at most `BAYS_PER_100M_MAX` bays per 100 m of block kerb.
+- **Default (056)**: the outer side of an edge street faces yard. It holds no bay, and its parking band is plain.
+
+### 18.4 Lots (residents)
+
+- **Default (056)**: a block wants `clamp(round(homes x PARK_PER_HOME / LOT_STALLS), 1, LOTS_PER_BLOCK_MAX)` parking lots. `LOT_STALLS` is twice `BAYS_PER_PARKING_TILE`: a lot is two `ParkingLines_01` tiles.
+- **Default (056)**: every lot is placed by demand, through the lot runs of 055 B. The terrace fill's hash lot (`PARKING_ONE_IN`, chapter 4) is switched off in the tile city (`parkByHash` false in the terrace options; the ladder's town keeps it).
+- **Default (056)**: lots stay 10 x 10 m on the tile grid with a kerb cut (055 B), and the cut's parking cells stay plain asphalt so cars can turn in. A run shorter than `TILE_PARK_MIN_RUN_M` cannot hold a lot.
+- **Default (056)**: every lot stall is a record, so a later cars ticket has every space: `TileCity.lotStalls` holds `LOT_STALLS` per lot in the same shape as a kerb bay.
+
+### 18.5 The parking band without bays
+
+- **Default (056)**: a parking-band cell that holds no bay and is not in front of a kerb cut becomes a **build-out**: pavement level, a sidewalk tile (the role `buildout`), with a street tree on every `BUILDOUT_TREE_EVERY`th build-out cell along a stretch, which is one every 10 m.
+  - The kerb follows the build-out's edge.
+  - A build-out next to a crossing is the classic corner bulb-out, and it shortens the crossing.
+  - No tree stands on a cell next to a crossing.
+  - In front of a kerb cut the cell stays `parkingPlain`, and so does every cell on an edge street's outer side.
+- **Info (056)**: so every parking-band cell is exactly one of three things: half of a `ParkingLines_01` tile, `parkingPlain` (in front of a kerb cut, or on an outer side), or a build-out. Check P5 measures it. Pole slots do not move.
+
+### 18.6 Too little, too much
+
+- **Default (056)**: too little room for lots. This is a block where no run of at least `TILE_PARK_MIN_RUN_M` can take a lot.
+  - Its lot quota moves to the neighbour across its longest street, up to that neighbour's `LOTS_PER_BLOCK_MAX`.
+  - If no neighbour can take it, the shortfall is recorded on the block (`TileBlock.parkingShort`).
+  - At most one block in nine (`ceil(blocks / 9)`) may be short.
+- **Default (056)**: too little room for bays. This is a block with no parking side, or one where every side is at its cap.
+  - Its shoppers' bays go in the parking band across its longest street, and are recorded as serving it (`ParkingBay.serves`).
+  - Each run there still obeys 18.3's limits.
+- **Default (056)**: too much. Bays past a block's quota, or past a cap, are never laid, and their cells are build-outs. A block never holds more than `LOTS_PER_BLOCK_MAX` lots, its own and borrowed together.
+
+### 18.7 The tile city's R6 floor
+
+- **Decided (056, Josh 18 Nov 2026, "Lower it to 0.45 (Recommended)")**: R6 (the share of shop bays with a sign, 16.8) has a floor of `TILE_CITY_R6_MIN` on the tile city, as R7 has its own. The ladder's `CITY_CHECK` and `citymetrics.ts` are unchanged (R6 stays 0.5 there).
+- **Info (056 B)**: R6 sits at 0.49 to 0.55 on the tile city whatever the layout, by the dressing's own sign chance. The floor lets a later layout change pass without a re-tune, so the lot-run salt that 056 A had tuned to hold R6 at 0.5 is gone.
+
+### 18.8 The checks, and what they measured
+
+- **Default (056)**: `parkingMetrics(city)` measures a tile city from its cells, bays, lot stalls and blocks (never from the code that laid them), and `evaluateParking(m)` gives one verdict per check, as `evaluateCity` does for the buildings. `PARK_CHECK` holds what each allows: 0 violations, and for P6 the most bays per 100 m of block kerb.
+
+| Check | What it holds |
+| --- | --- |
+| P1 | shoppers at the kerb: city kerb bays within `PARK_SUPPLY_BAND` x shops x `PARK_PER_SHOP` (the first field is the floor, the second the ceiling), every block with at least `BAY_TILES_PER_BLOCK_MIN` tiles serving it, its own or across one street |
+| P2 | residents in lots: city lot stalls within `PARK_SUPPLY_BAND` x homes x `PARK_PER_HOME`; every block has a lot or a neighbour's across one street; none has more than `LOTS_PER_BLOCK_MAX`; at most ceil(blocks / 9) blocks are short |
+| P3 | kerb share: every side within its profile's `KERB_BAY_SHARE_MAX`, and no bay on an outer side |
+| P4 | runs: every run at most `BAY_RUN_TILES_MAX` tiles, every gap between runs on a side at least `KERB_GAP_MIN_M`, no bay in a cell next to a crossing |
+| P5 | the band: the three-way rule of 18.5, and the tree pitch |
+| P6 | not overwhelming: bays per 100 m of block kerb at most `BAYS_PER_100M_MAX` |
+
+- **Default (056)**: each check passes on the default city, seeds 1 to 10 at 3 x 3 and seeds 1 to 3 at 6 x 4 (`parkmetrics.test.ts`). P1, P2, P3, P4 and P6 fail on a city laid by 055's rule (every parking cell paired); P5 fails on a city with one build-out turned to `parkingPlain` away from any kerb cut.
+- **Info (056, measured 18 Nov 2026 on the merged layout; the tests, not these lines, are the record)**: the default city (3 x 3, seed 1) under 055's rule (today, before 056) and under these rules. Today's column is `parkmetrics.test.ts`'s copy of 055's pairing laid on the same cells, so its units are the same.
+
+| | Today (055's pairing, 3 bays per tile) | Under these rules |
+| --- | --- | --- |
+| `ParkingLines_01` tiles | 122 | 18 |
+| Kerb bays | 366 | 54 |
+| Bays on the outer side of an edge street, facing yard and serving nobody | 66 | 0 |
+| Bays per block (the bays at its sides) | 30 to 39, mean 33 | 6 for every block (2 tiles) |
+| Block kerb, both sides of every street | 1,800 m | 1,800 m |
+| Bays per 100 m of block kerb | 20.3 (one bay every 4.9 m) | 3.0 (cap 6) |
+| Share of a side's kerb that is bay | 0.40 to 0.83 | 0.17 to 0.25 on the 18 sides that take a run; 0.10 over all the kerb (caps 0.4 and 0.3) |
+| Longest run of bays | 5 tiles, 15 bays unbroken | 1 tile |
+| Parking lots (10 x 10 m, 6 stalls each) | 3, so 18 stalls | 9, so 54 stalls |
+| Units | 160 shops, 379 homes | the same |
+| Shoppers' bays against demand (160 shops x 1/3 = 53) | 366, 6.9 times too many | 54 |
+| Residents' stalls against demand (379 homes x 0.15 = 57) | 18, 0.32 of it | 54, 0.95 of it |
+| Total spaces | 384, 95% at the kerb | 108, half at the kerb and half in lots: 72% fewer |
+| Spaces per unit (539 units) | 0.71 | 0.20 |
+| Lot frontage | 30 m | 90 m of the 1,800 m |
+| Build-out cells, and their trees | 0 | 226 cells with 82 trees (plus 68 plain cells in front of kerb cuts and on outer sides) |
+
+- **Info (056, measured 18 Nov 2026)**: the ranges over seeds 1 to 10 at 3 x 3, then seeds 1 to 3 at 6 x 4, under these rules:
+  - 3 x 3: 18 or 19 tiles, 54 to 57 bays, 9 lots with 54 stalls, 2.9 to 3.1 bays per 100 m of block kerb, 1 to 3 tiles of bays per block, no side over 0.40 of its kerb, no bay on an outer side, no short block, 196 to 247 build-outs with 73 to 98 trees. Today's rule laid 110 to 132 tiles, 330 to 396 bays (66 to 78 of them outer), 18.0 to 21.0 bays per 100 m, and 18 stalls.
+  - 6 x 4: 46 to 51 tiles, 138 to 153 bays, 23 or 24 lots with 138 to 144 stalls (one block short in one seed, within the one in nine allowed), 3.0 to 3.1 bays per 100 m. Today's rule laid 248 to 290 tiles, 744 to 870 bays and 18 stalls.
+  - Per block both sizes hold about 42 homes and 18 shops, so the 6 x 4 city lands where the 3 x 3 does: one to three tiles of bays and one lot per block.
+
 ## Decided, not yet built (the tile city, 18 Nov 2026)
 
 Josh's rulings from the tile-city work, in his own words, each with the ticket that builds it.
@@ -517,12 +633,6 @@ Josh's rulings from the tile-city work, in his own words, each with the ticket t
 - **Default (057, Josh 18 Nov 2026)**: buildings meet the pavement with no gap, and an overlap of up to 0.6 m onto it is allowed (the City Pack shop pieces reach the ground up to 0.557 m in front of their walls). This overrides the inset wherever the inset leaves a strip, so corners are flush: "This is a great start. There are gaps between the buildings and the sidewalk. It's okay if the buildings rest on top of the sidewalk and overlap a little bit. It is not okay if the buildings sit recessed from the sidewalk and leave a gap of nothing between them." (19.1 and 19.2)
 - **Default (057, Josh 18 Nov 2026)**: blank block interiors are filled: "There are blank open areas where the buildings don't exist. Those need to be filled in with something. You could fill that with parking lots, parks, or you could have those squares of buildings be thinner so that the buildings are butted up right against each other." Then: "Grass and pavement should fill the blank areas." (19.4)
 
-### Parking (ticket 056; chapter 18)
-- **Default (056, Josh 18 Nov 2026)**: there was too much parking. Rules now set the street against the lots for homes and shops: "Roads look good, parking spaces are overwhelming. Too many parking spaces. We should create rules in the style sheet that indicate how much parking should be available on the streets vs parking lots for residential and business style units."
-  - Shoppers get kerb bays, residents get lots: 1 bay per 3 shops, 0.15 stalls per home.
-  - From 057 on, residents' lots are interior courts.
-- **Default (056, Josh 18 Nov 2026)**: R6 (signs over shop bays) has a floor of 0.45 on the tile city (a new tile-city constant, set by 056 B), and the ladder's 0.5 is unchanged: "Lower it to 0.45 (Recommended)".
-
 ### Buildings (tickets 055 F and 058; sections 16.10 and 16.11)
 - **Default (055 F, Josh 18 Nov 2026; F approved with Q10 to Q13 at their defaults: "Approved and confirmed")**: each building's door sill is measured, and the building is sunk to the walk or given steps: "That's going to have to be a variable that we measure for each individual building." (16.10)
 - **Default (058, Josh 18 Nov 2026)**: fire escapes connect, and their platforms are level with the windows: "There are gaps on the fire escapes. Additionally, fire escapes should always be level with windows or else people can't get out of the building." (16.11)
@@ -537,7 +647,7 @@ Josh's rulings from the tile-city work, in his own words, each with the ticket t
 
 ## Numbers
 
-The drift test (`styleguide.test.ts`) reads this table. Each row names an export of the file in its last column. A value is a number (within 1e-9), a colour as `0x` hex (exactly), or `a x b x c` for a record, in the record's field order. `LOT_TYPES` is frontage x depth x cap in metres and `PLACE_SIZES` is width x depth in metres. `STACK_STYLES[i].pitch_m` is base x floor x roof in metres (the storey heights a recipe counts floors by; the roof is the height reserved under the cap), in the order `apartment-01`, `-02`, `-03`, `office-old-small`, `office-old-large`, `office-octagon`. `STACK_FLOORS` is the fewest floors over the base. `TINTS[i]` is the i-th wall tint. `CITY_CHECK` is the threshold of R1 to R13 in that order (a share to reach, or a count not to pass, chapter 16.8) and `CITY_STOREYS` is the fewest and most storeys. Changing a constant in code or a value here fails the test. Since ticket 053 the test also fails when `stacks.ts`, `terrace.ts`, `dressing.ts`, `furniture.ts`, `streetcam.ts` or `citymetrics.ts` exports a number that has no row here, and when `town.ts` does for a `TERRACE_*`, `PARKING_*` or `PLAZA_*` name. Since ticket 054 the test also fails when `colourway.ts` exports a constant (not a function) that has no row here; `COLOURWAY_POOL` is pinned by its length, and its ids are the table in 16.9. Since ticket 060 the same holds for `lighting.ts`: every number in `LIGHT_MODES` and every numeric export has a row (the mode's words, `toneMapping`, `shadows` and `nightLights`, are in 16.12). Colours are `0x` hex.
+The drift test (`styleguide.test.ts`) reads this table. Each row names an export of the file in its last column. A value is a number (within 1e-9), a colour as `0x` hex (exactly), or `a x b x c` for a record, in the record's field order. `LOT_TYPES` is frontage x depth x cap in metres and `PLACE_SIZES` is width x depth in metres. `STACK_STYLES[i].pitch_m` is base x floor x roof in metres (the storey heights a recipe counts floors by; the roof is the height reserved under the cap), in the order `apartment-01`, `-02`, `-03`, `office-old-small`, `office-old-large`, `office-octagon`. `STACK_FLOORS` is the fewest floors over the base. `TINTS[i]` is the i-th wall tint. `CITY_CHECK` is the threshold of R1 to R13 in that order (a share to reach, or a count not to pass, chapter 16.8) and `CITY_STOREYS` is the fewest and most storeys. Changing a constant in code or a value here fails the test. Since ticket 053 the test also fails when `stacks.ts`, `terrace.ts`, `dressing.ts`, `furniture.ts`, `streetcam.ts` or `citymetrics.ts` exports a number that has no row here, and when `town.ts` does for a `TERRACE_*`, `PARKING_*` or `PLAZA_*` name. Since ticket 054 the test also fails when `colourway.ts` exports a constant (not a function) that has no row here; `COLOURWAY_POOL` is pinned by its length, and its ids are the table in 16.9. Since ticket 060 the same holds for `lighting.ts`: every number in `LIGHT_MODES` and every numeric export has a row (the mode's words, `toneMapping`, `shadows` and `nightLights`, are in 16.12). Since ticket 056 the test also fails when a constant of chapter 18 (the rows for `tilecity.ts` at the end of the table) is missing or changed, and when `parkmetrics.ts` exports a constant (not a function) that has no row; `KERB_BAY_SHARE_MAX` is avenue x street, `PARK_SUPPLY_BAND` is floor x ceiling and `PARK_CHECK` is P1 to P6 in that order. Colours are `0x` hex.
 
 | Constant | Value | File |
 | --- | --- | --- |
@@ -751,6 +861,24 @@ The drift test (`styleguide.test.ts`) reads this table. Each row names an export
 | `LIGHT_MODES.day.surfaces.kerb` | 0xd0d4da | lighting.ts |
 | `LIGHT_MODES.day.surfaces.grass` | 0x6f8f4e | lighting.ts |
 | `SUN_DISTANCE` | 20 | lighting.ts |
+| `PARK_PER_SHOP` | 0.333333333333 | tilecity.ts |
+| `PARK_PER_HOME` | 0.15 | tilecity.ts |
+| `HOME_COLUMN_FLOORS` | 2 | tilecity.ts |
+| `UNIT_FLOORS_NOMINAL` | 3 | tilecity.ts |
+| `BAY_TILES_PER_BLOCK_MIN` | 1 | tilecity.ts |
+| `BAY_RUN_TILES_MAX` | 2 | tilecity.ts |
+| `KERB_GAP_MIN_M` | 10 | tilecity.ts |
+| `KERB_BAY_SHARE_MAX` | 0.4 x 0.3 | tilecity.ts |
+| `BAYS_PER_100M_MAX` | 6 | tilecity.ts |
+| `LOTS_PER_BLOCK_MAX` | 2 | tilecity.ts |
+| `LOT_STALLS` | 6 | tilecity.ts |
+| `PARK_SUPPLY_BAND` | 0.75 x 1.5 | tilecity.ts |
+| `BUILDOUT_TREE_EVERY` | 2 | tilecity.ts |
+| `BAYS_PER_PARKING_TILE` | 3 | tilecity.ts |
+| `BAY_JUNCTION_CLEAR` | 1 | tilecity.ts |
+| `TILE_PARK_MIN_RUN_M` | 35 | tilecity.ts |
+| `TILE_CITY_R6_MIN` | 0.45 | tilecity.ts |
+| `PARK_CHECK` | 0 x 0 x 0 x 0 x 0 x 6 | parkmetrics.ts |
 
 Night's global lighting as written in the table of `lighting.ts` (the rig reads it; since ticket 060 `scene.ts` holds no light literal of its own), pinned by the exact source text as well:
 
