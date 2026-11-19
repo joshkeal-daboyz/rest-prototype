@@ -10,7 +10,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { BoxGeometry, Group, MeshBasicMaterial, Mesh, Scene, Vector3, type Object3D, type WebGLRenderer } from "three";
 import { ASSET_MANIFEST_VERSION, loadPuzzle, type AssetEntry, type AssetManifest, type CalibrationKey, type Puzzle } from "../core";
-import { SIDEWALK_TOP_M, SIDEWALK_WALK_M, TILE_CITY_R6_MIN, TILE_CITY_R7_MIN, TILE_M, tileCity, tileKeepouts, bayMeters, BAYS_PER_PARKING_TILE, LANE_RIGHT, type TileCity, type TileRole } from "./tilecity";
+import { SIDEWALK_TOP_M, SIDEWALK_WALK_M, TILE_CITY_R1_MIN, TILE_CITY_R6_MIN, TILE_CITY_R7_MIN, TILE_M, tileCity, tileKeepouts, bayMeters, BAYS_PER_PARKING_TILE, LANE_RIGHT, type TileCity, type TileRole } from "./tilecity";
 import { CITY_ATM_BLOCKS_MIN, CITY_CHECK, cityMetrics, evaluateCity, isNeverUsed, runBlocks, type CityMetrics } from "./citymetrics";
 import { dressInput, dressSites, furnitureInput, furniturePlacement, loadModels, NO_MODELS, allStackKeys, applyModels, stackInput, type DressPlacement, type ModelSet } from "./models3d";
 import { AWNING_KERB_M, KERB_FROM_FRONT_M, dressKeys, dressTown, type DressBlockInput } from "./dressing";
@@ -251,6 +251,8 @@ const roleGrid = (c: TileCity): ((x_m: number, z_m: number) => TileRole | null) 
     g[cell.j * W + cell.i] = cell.role;
     if (cell.cells === 2) g[(cell.j + (cell.street!.startsWith("x:") ? 0 : 1)) * W + cell.i + (cell.street!.startsWith("x:") ? 1 : 0)] = cell.role;
   }
+  // 057 G: a park's pavement edge is pavement a row can face.
+  for (const cell of c.interior) if (cell.role === "parkEdge") g[cell.j * W + cell.i] = "pavement";
   return (x, z) => {
     const i = Math.floor(x / TILE_M + 1e-9);
     const j = Math.floor(z / TILE_M + 1e-9);
@@ -297,7 +299,8 @@ describe("furniture on the drawn city (criterion 23)", () => {
         }
         if (METERS.includes(p.key)) {
           meters++;
-          const beside = c.bays.some((b) => b.street === run.road && b.block === run.block && Math.abs(alongX ? cx - b.x_m : cz - b.z_m) <= b.w_m / 2 + 1e-6);
+          const beside = c.bays.some((b) => b.street === run.road && b.block === (c.parts.find((q) => q.id === run.block)?.block ?? run.block) && // 057 G: a run's block is its part's
+  Math.abs(alongX ? cx - b.x_m : cz - b.z_m) <= b.w_m / 2 + 1e-6);
           if (!beside) fails.push(`${c.seed} meter ${p.key} on ${run.id} is beside no bay`);
         }
       }
@@ -419,8 +422,12 @@ describe("R10 reads the frame (criterion 25)", () => {
       const m = metricsOf(planOf(c));
       expect(m.pavementPieces, `seed ${c.seed}`).toBeGreaterThan(60);
       expect(m.spacingViolations + m.keepOutViolations, `seed ${c.seed} ${JSON.stringify(m)}`).toBe(0);
-      const failing = evaluateCity(m).filter((v) => !v.pass && v.id !== "R6" && v.id !== "R7");
+      const failing = evaluateCity(m).filter((v) => !v.pass && v.id !== "R1" && v.id !== "R6" && v.id !== "R7");
       expect(failing, `seed ${c.seed} ${JSON.stringify(evaluateCity(m))}`).toEqual([]);
+      // R1 on the tile city's floor (Josh, 19 Nov 2026: 0.88; the ladder's stays 0.9), with the rest of R1's conditions as they are.
+      expect(m.frontageCovered, `seed ${c.seed} R1`).toBeGreaterThanOrEqual(TILE_CITY_R1_MIN);
+      expect(m.maxNeighbourGap_m, `seed ${c.seed} R1`).toBeLessThanOrEqual(1e-6);
+      expect(m.maxParkingPerRun <= 1 && m.maxPlazaPerRun <= 1, `seed ${c.seed} R1`).toBe(true);
       // R6 on the tile city's floor (Josh, 18 Nov 2026: 0.45; the ladder's stays 0.5), with the ladder's ATM floor.
       expect(m.signedShopBays / m.shopBays, `seed ${c.seed} R6`).toBeGreaterThanOrEqual(TILE_CITY_R6_MIN);
       expect(m.atmBlocks / m.blocks, `seed ${c.seed} ATM`).toBeGreaterThanOrEqual(CITY_ATM_BLOCKS_MIN);
