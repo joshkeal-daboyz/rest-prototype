@@ -3,10 +3,11 @@
 owner: renderer (src/render3d/, docs/city-style-guide.md)
 status: re-cut on 19 Nov 2026 on `docs/city-grammar.md`.
 - **Built.** A, D and H are merged. E1 and E2 are built on `ticket/063e-corners-roofs`, in gate and review. F is in review.
-- **Next.** B is next. 063's sections C, G and I moved to tickets 064 to 068.
+- **B.** Built on `ticket/063b-street-width` (32c047e, 1d68216). P1 fails on cities outside criterion 7's list, so B2 (the bay allocator's re-cut, 19 Nov 2026) goes on the same branch before B merges.
+- **Next.** B2. 063's sections C, G and I moved to tickets 064 to 068.
 - **Decisions.** Josh's answers and the goal waiver are recorded below and in the grammar's status lines.
 
-branch: `ticket/063a-pavement` (A, D, H, merged), `ticket/063e-corners-roofs` (E1, E2), `ticket/063f-kerbs` (F), `ticket/063b-street-width` (B)
+branch: `ticket/063a-pavement` (A, D, H, merged), `ticket/063e-corners-roofs` (E1, E2), `ticket/063f-kerbs` (F), `ticket/063b-street-width` (B, B2)
 
 ## Index: the build order (the grammar's order)
 | Order | Ticket or section | What | Size | Status |
@@ -14,7 +15,8 @@ branch: `ticket/063a-pavement` (A, D, H, merged), `ticket/063e-corners-roofs` (E
 | done | 063 A, D, H | one sidewalk piece; plain interior paving; paved inlets | | merged |
 | in flight | 063 E1, E2 | corner open side measured; one footprint per column (and M2, M9's alignment) | | gate and review |
 | in flight | 063 F | the kerb line, with returns at inlets | | review |
-| 1 | **063 B** | street width: no avenues (grammar rule 10; Q7) | half a day | next |
+| 1 | **063 B** | street width: no avenues (grammar rule 10; Q7) | half a day | built; merges with B2 |
+| 1a | **063 B2** | the bay allocator re-cut: a first tile for every block by matching, so P1 holds again | half a day | next, on B's branch |
 | 2 | **064** | the lattice: 5.0 m bays on a 5.0 m band, columns on bodies, no passages (M1, M5's passage line) | 1 day | after B, E1, E2 |
 | 3 | **065 A, then 065 B** | back to back, the plan: ring 2, openings, lane rows, M3, M4, M5, M6 extended, M8, R9 | 2 days (two builder rounds; C1 is bigger than one) | after 064 and F |
 | 4 | **066** | back to back, drawn: quiet dressing, partner colourways, drives paved through ring 2 | 1 day | after 065 |
@@ -154,7 +156,8 @@ Wall-to-wall rows, back-to-back buildings, dressed party walls and roof exits ar
 | Section | What | Size | Needs |
 | --- | --- | --- | --- |
 | A | One sidewalk piece: `Straight_02` for every plain pavement and build-out cell | half a day | merged |
-| B | Street width: no avenues (B1; Q7 adopted under the waiver) | half a day | next; nothing else needed |
+| B | Street width: no avenues (B1; Q7 adopted under the waiver) | half a day | built; P1 short outside criterion 7's list |
+| B2 | Parking allocator re-cut so P1 holds again | half a day | next, on B's branch; B merges only with it |
 | C | moved: 065, 066, 067 | | |
 | D | Plain interior paving: `Sidewalk_01` for the apron, the strip, the paths, the park edge and the passage floors | half a day | merged |
 | E1 | The corner pieces' open side, measured (the corner store, the roof-corner trim); grammar M6 | 1 day | built, in review |
@@ -193,6 +196,53 @@ Built before 064, because it fixes the row lengths that the lattice cuts. Checks
 8. [ ] A test pins every street's carriageway at 15 m and the largest junction at 3 x 3 cells. Tests that asserted an avenue exists are changed to assert that none does, and are listed in the report.
 9. [ ] The guide's 19.3 and chapter 18's measured lines are re-measured. The builder reports street metres per axis and the streets' share of city area, before and after.
 10. [ ] (Main session, screenshot) the same URLs as criterion 5: no 4-cell carriageway.
+
+### B2. Parking allocator re-cut so P1 holds again (Vitest unless marked)
+**Why.** B is built (32c047e, 1d68216). Criterion 7 holds on its list, but P1 (every block has a tile of bays serving it) now fails on cities outside it:
+- 3 x 3: seeds 12, 15, 17 (two blocks), 18, 19 (two blocks);
+- 6 x 4: seeds 5, 7, 11, 12, 15, 16, 18 (two blocks).
+- At e23a494, before B, it failed only on 6 x 4 seed 18.
+
+**The cause.** With the avenues gone there is one parking band to a street, and `KERB_BAY_SHARE_MAX.street` (0.3) caps a side of up to 13 cells (65 m) at one tile. 056's allocator in `tilecity.ts` is greedy: blocks in order (fewest own parking sides first, ties by id), own sides first, then the band across the longest street. So a block can find every band round it already full, because a neighbour across the street took the only tile earlier in the order.
+
+**Authority.** This restores an existing check without changing any rule Josh approved, so it is within his goal waiver (19 Nov 2026): "I don't want to constantly approve all of these improvments." `LOTS_PER_BLOCK_MAX`, `BAY_TILES_PER_BLOCK_MIN`, `KERB_BAY_SHARE_MAX`, `BAYS_PER_100M_MAX`, `BAY_RUN_TILES_MAX`, `KERB_GAP_MIN_M`, `PARK_SUPPLY_BAND`, every P, G, V and R threshold, the tile floors and every GDD rule stay as they are.
+
+**Goal.** Every block of every tile city on 3 x 3 seeds 1 to 20, 6 x 4 seeds 1 to 20 and the default city has a whole tile of kerb bays serving it, on a band it faces or a band across one of its own streets. The rest of chapter 18 is unchanged: caps, runs, gaps, the supply band and the lots.
+
+**The rule (Default; the architect's, adopted under the waiver).** The bays are laid in two phases. Both phases are deterministic and use no hash beyond the existing `bay` offset in `startsOf`.
+1. **First tiles, by matching.**
+   - **Blocks and slots.** Every block (whole-block parks included, since P1 counts them) needs `BAY_TILES_PER_BLOCK_MIN` (1) tile. The slots are the band tiles. A band of a non-park block offers `capacity(band)` slots: the largest k up to the side's cap for which `startsOf` places k tiles, packed into runs of at most `BAY_RUN_TILES_MAX` as `tryAdd` would pack them. Outer bands and park bands offer none, as today.
+   - **Who may take a slot.** A block may take a slot on any band of its own sides, or on the band across any of its own streets whose block is its neighbour across that street (`sd.neigh`, so P1's `adjacent` holds). This is the "tile on another side of its streets" option. A shared tile is **not** an option, because P1 counts a whole tile's bays (`BAY_TILES_PER_BLOCK_MIN x BAYS_PER_PARKING_TILE`) for each block, and `parkmetrics.ts` is read, not edited.
+   - **The matching.** It is a maximum bipartite matching by augmenting paths (Kuhn's algorithm), with blocks in 056's order (fewest own parking sides first, ties by id). Each block's options are tried in a fixed order: its own bands (longer first, ties by band key), then the bands across its streets (longest street first, ties by band key). A block therefore keeps an own-side tile unless the only way to serve another block is to move it, and then the move goes along an augmenting path, block by block, each to another band it may use.
+   - **The city cap.** The matched tiles count against `bayCap` (`BAYS_PER_100M_MAX`) before anything else does.
+2. **The rest of the demand, greedy as today.** Each block's remaining need (`max(BAY_TILES_PER_BLOCK_MIN, round(shops x PARK_PER_SHOP / BAYS_PER_PARKING_TILE))` less the first tile) is laid by 056's loop, in 056's order, on the capacity the matching left. Phase 2 never takes a matched tile.
+- **Laying.** The tiles are laid on each band as today, by `startsOf` and its runs. A tile's `serves` is the block it was matched or added for.
+- **When it cannot be done.** If the matching is not perfect on a city, the unmatched blocks stay in `shortTiles` as today. Criterion 10e then applies.
+- **Not part of this rule.** No street's parking band changes side, and no band, cap or run limit changes. Those would be new rules, not a repair.
+
+10a. [ ] **The matcher, pure.** New `matchFirstTiles` (Interfaces) is unit-tested on typed-in fixtures:
+   - (i) **Greedy fails, matching succeeds.** Two blocks, A then B in the order, and two cap-1 bands: a on A's own side, b across one of A's streets. A may use a (own) or b (across). B has no band of its own with room and may use a only (across its street from A). Greedy gives A band a and B nothing. The matcher gives B band a and A band b. A larger case of the same kind (a chain of three blocks, where the augmenting path moves two tiles) is a second fixture.
+   - (ii) A case with no perfect matching (Hall's condition fails: two blocks whose only option is one cap-1 band) leaves exactly one block short, the later in the order.
+   - (iii) **Deterministic.** The same input twice gives the same assignment, and so does the same `capacity` built in a different insertion order. Only the order of `blocks` and of each block's `options` may change the result.
+   - (iv) Every assignment uses only that block's own options, and no band gets more than its capacity.
+10b. [ ] **P1 holds on forty-one cities** (`parkmetrics.test.ts`): P1 is 0 on the default city, 3 x 3 seeds 1 to 20 and 6 x 4 seeds 1 to 20.
+   - **Failing fixture.** The cities above that fail at 1d68216 (3 x 3 seeds 12, 15, 17, 18, 19; 6 x 4 seeds 5, 7, 11, 12, 15, 16, 18) are named in the test, so it fails on B's allocator.
+   - **Speed.** The test keeps a timeout of at least 120 s and builds each city once. No more workers: `--maxWorkers=2` as above.
+10c. [ ] **The exception goes** (`alleys.test.ts`):
+   - `P1_ONE_SHORT` and its exact-set check are removed. The parking loop of the "holds the checks on the packed cities" test fails on any failing check again, with no named exception.
+   - **Failing fixture.** A typed-in fixture proves the old layout fails P1. It takes 6 x 4 seed 5 as B left it: the same city with its unserved block's only tile reassigned (`serves` set to the neighbour that took it), or with that block's tile removed. `evaluateParking` gives P1 = 1 on it. The fixture is built from the city's data in the test, not pinned by hash.
+10d. [ ] **Nothing else gives** (no threshold changed):
+   - P2 to P6, the bay-share caps (`KERB_BAY_SHARE_MAX`, P3), G1 to G4, V1 to V4, R1 at `TILE_CITY_R1_MIN`, R6, R7 and the 057 C interior shares hold on criterion 7's cities (the default, 3 x 3 seeds 1 to 10, 6 x 4 seeds 1 to 3), as they did at 1d68216.
+   - On 3 x 3 and 6 x 4 seeds 11 to 20, the builder reports any P2 to P6 failure before (1d68216) and after. B2 adds none.
+   - **Before and after.** The builder reports the default city's numbers at 1d68216 and after B2: kerb bays (57 at 1d68216), court stalls (66), R6 (0.520) and R7 (0.509). It also reports, for each of the twelve named cities, which blocks moved tile and to which band. The court stalls must not change: lots are not this allocator.
+10e. [ ] **Stop rule.** If P1 cannot be met on every seed 1 to 20 at both sizes without exceeding a cap (a side's `KERB_BAY_SHARE_MAX` share, `bayCap`, `BAY_RUN_TILES_MAX`, `KERB_GAP_MIN_M`, the supply band), the builder stops. It does not loosen anything. It reports each such city with its blocks, the bands each could use, their capacities and the Hall shortfall (the set of blocks with fewer usable slots than blocks). It is then a re-cut for the architect and Josh.
+10f. [ ] **Digests re-taken on purpose** (`tilecity.test.ts`):
+   - The city-data digests of 063 A, D, H and F (`AT_063B`: 3 x 3 seeds 1, 2, 3, 6 x 4 seed 1) are re-taken as `AT_063B2`. The current values are kept in the test as `PINS_BEFORE_063B2`, in the style of `PINS_BEFORE_063B` (kept for the record, with the reason in a comment). `PINS_BEFORE_063B` stays as it is.
+   - A city's digest may stay the same, if the matcher left its bays as greedy laid them. So the "re-took on purpose" test asserts: the pins named in a typed-in `MOVED_BY_063B2` set differ from their `PINS_BEFORE_063B2`, and the rest equal theirs. The builder lists which moved and why.
+   - The "bites" test keeps working against `AT_063B2`.
+10g. [ ] **Guide, chapter 18.** It gets its own lines, per criterion 45: 18.3 and 18.6 state the two-phase rule (first tiles by matching, then the greedy rest), as **Default**. 18.8's measured lines are re-measured. No Decided line and no number in a Numbers row changes.
+
+**Note, report only (no change).** The builder found R6 tight: 0.491 on 3 x 3 seed 9, below the ladder's 0.5. The tile city's floor is 0.45 (18.7), so it passes. B2 reports R6 on 3 x 3 seeds 1 to 10 before and after, and changes neither R6's floor nor the ladder's.
 
 ### C. Moved
 Criteria 11 to 17a are replaced by tickets 065 (the plan: M3, M4, M5, M6, M8), 066 (the drawing) and 067 (M7 and strips). The C-rows recommendation stands, as the grammar's rule 4. `BACK_OVERSHOOT_MAX_M` and `BACK_COVER_MIN` are retired by the lattice.
@@ -313,6 +363,11 @@ Criteria 46 to 52 are replaced by ticket 064, re-cut on the grammar.
 - **B:**
   - `tilecity.ts` (profiles, `AVENUE_ONE_IN`);
   - `tilecity.test.ts`, `parkmetrics.test.ts`, `frontage.test.ts`, `alleys.test.ts` (re-measured numbers only, never a threshold).
+- **B2:**
+  - `src/render3d/tilecity.ts`: the kerbside-bay allocator only (the "kerbside bays" block: `BandState`, `tryAdd`, the block order and loops, `shortTiles`), plus the new exported `matchFirstTiles`. No constant changes, and nothing outside that block, except that its export may sit beside it;
+  - `tilecity.test.ts` (the matcher's fixtures, `AT_063B2`, `PINS_BEFORE_063B2`, `MOVED_BY_063B2`), `parkmetrics.test.ts` (P1 on forty-one cities), `alleys.test.ts` (removing `P1_ONE_SHORT`, the old-layout fixture);
+  - `docs/city-style-guide.md`, chapter 18's lines only (18.3, 18.6, 18.8).
+  - `parkmetrics.ts` stays read-only, as below.
 - **D:**
   - `tileslots.ts` (`INTERIOR_KEYS`, `TILE_BASE_M`);
   - `tilecity3d.ts` (the strip and passage floors from the key);
@@ -341,7 +396,7 @@ Criteria 46 to 52 are replaced by ticket 064, re-cut on the grammar.
   - `tileslots.ts` and `tilecity3d.ts`: A, D, F, H, and 059 A2;
   - `models3d.ts`: E2, 059 A2, and 064 to 066;
   - `stacks.ts`: E1, E2, 064 and 065;
-  - `tilecity.ts`: B, F, 064, 065 and 067.
+  - `tilecity.ts`: B, B2, F, 064, 065 and 067. B2 goes on B's branch, and B merges only with it.
 - **Order.** The index at the top. B goes before 064, because it fixes the row lengths. E1 and E2 also go before 064, which reads `BODY_M`.
 - 059 (approved, not built) reads the street profiles (B) and the kerb (F). If B or F merges first, 059's builder takes the new profiles and Open item F1.
 - No `src/core/` change, no schema or event change, no new dependency.
@@ -349,6 +404,7 @@ Criteria 46 to 52 are replaced by ticket 064, re-cut on the grammar.
 ## Interfaces
 All in `src/render3d/`; the builder may rename any of them.
 - `tilecity.ts`: `PAVEMENT_GRATE = 1`, and `PAVEMENT_STRAIGHT_2` removed (A).
+- `tilecity.ts` (B2): `matchFirstTiles(blocks: readonly { id: string; options: readonly string[] }[], capacity: ReadonlyMap<string, number>): Map<string, string | null>`. It is pure. `blocks` comes in allocation order and `options` in preference order. It returns each block's band key, or null when the block is unmatched. It is a maximum matching by augmenting paths, and the same input always gives the same output.
 - `facade.ts`:
   - `measureOpenSide(mesh): "+x" | "-x" | null` and `OPEN_SIDE_MEASURED: Readonly<Partial<Record<CalibrationKey, { open: "+x" | "-x"; why: string }>>>` (E1);
   - `BODY_M: Readonly<Partial<Record<CalibrationKey, { front: number; back: number; nx: number; px: number }>>>` (E2).
