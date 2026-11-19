@@ -2,7 +2,7 @@
 
 Draft for Josh, 19 Nov 2026. Design only: no code, no puzzle, nothing under `src/grid/` or `src/night/` is touched by this file.
 
-- **Status.** Nothing here is Decided until Josh says so in chat. So far he has answered one question: Q1, on 19 Nov 2026 (rule 7). Lines marked **Law** quote a Decided line of `docs/city-style-guide.md` or Josh's words in `docs/city-state-2026-11-19.md`; everything else is **Proposed**.
+- **Status.** Nothing here is Decided until Josh says so in chat. So far he has answered two questions on 19 Nov 2026: Q1 (rule 7) and Q2 (rule 4). Lines marked **Law** quote a Decided line of `docs/city-style-guide.md` or Josh's words in `docs/city-state-2026-11-19.md`; everything else is **Proposed**.
 - **Scope.** The tile city (`city=tiles`) on `goal/city-style`. The ladder maps keep chapters 4 and 16 as they are (`packpin.test.ts` and `townpin.test.ts` hold).
 - **Evidence.** The measurements are in the appendix. I took them today from `city-pack.glb` with a scratch script that is not committed. I have not seen a render, or Josh's reference image; where a rule leans on something only an eye can settle, it says so under **Not verified**.
 
@@ -112,17 +112,21 @@ A strip, 2 cells deep, between a street and a lane (rule 4):
 | 6 cells or more | court block | ring 1 faces out, ring 2 faces in onto an interior of at least 2 cells |
 | 3, 4 or 5 cells | not laid | 3 leaves a single row or a 5 m slot between blank backs; 4 and 5 are nearly all blind columns |
 
-  - Ring 2's buildings are buildings of their own (rule 12 says how they vary). Each stands column for column behind a ring-1 building and has the same floor count, so the wall between the two never shows.
+  - **Decided (Josh, 19 Nov 2026, in chat).** Asked "Should the backs be other buildings, or the same building repeated?", he answered: "They can be either." So the building behind a ring-1 building is one of two kinds, chosen per building by hash:
+    - **another building**: its own style and its own colourway (rule 12);
+    - **the same building, through**: the ring-1 building's style and colourway repeated behind it, turned to face the court, so it reads as one building 10 m deep with a street face and a court face.
+  - Either kind stands column for column behind the ring-1 building and has the same floor count, so the wall between the two never shows.
+  - Proposed: half of each (`BACK_SAME_SHARE` 0.5, by hash of the ring-1 building's key). The share is one constant for Josh's eye.
   - The four cells where ring 2 turns a corner are blind. Each takes the style, colourway and floor count of the ring-1 corner building it stands behind.
   - A ring-2 or lane-facing row is a row like any other: rules 1 to 3 and 6 to 12 apply to it.
 - **Why.**
   - Law: the same words as rule 3. A single row always shows its blank back.
   - Measured: two bodies back to back are exactly 10.00 m, two cells. The 0.4 to 1.8 m "overshoot into ring 3" that section C allowed for was the outlines.
   - Josh offered thinner blocks himself on 18 Nov ("those squares of buildings be thinner so that the buildings are butted up right against each other"). A strip is that, as a part of a block, without making every block thin (19.3's road share stands).
-- **Check M4, pairs** (pure). Every ring-1 column of a court block has a built cell behind it or a recorded opening (rule 6). Each ring-2 building has its partner's floor count and a different colourway. No part has a short side of 3 to 5 cells.
+- **Check M4, pairs** (pure). Every ring-1 column of a court block has a built cell behind it or a recorded opening (rule 6). Each ring-2 building has its partner's floor count, and either its partner's style and colourway (the same building, through) or a different colourway (another building). No part has a short side of 3 to 5 cells.
   - Fails today: ring 2 is apron (`APRON_STRIP`) on every block; an alley cuts a 9-cell side into two parts of 4.
 - **Cost, by arithmetic on the default city's block sizes** (14, 11, 6 by 13, 9, 15 cells; alleys and parks ignored). Ring 1 is 372 cells and ring 2 is 300, of which 36 are blind. Buildings take 59% of block area and the interior 41% (71% today). The three 6-cell-wide blocks keep interiors 2 cells wide. Building draw calls roughly double (stacks are per-piece clones). Homes roughly double; rule 5 says what that does to parking.
-- **Open.** Q2 (backs are other buildings, or the same building repeated) and Q6 (strips).
+- **Open.** Q6 (strips).
 
 ### 5. What stays open inside a block
 
@@ -254,7 +258,8 @@ A strip, 2 cells deep, between a street and a lane (rule 4):
 
 - **Rule.** Unchanged from 16.4 unless listed.
   - Row neighbours never share a style, a colourway or a floor count (R2, R13).
-  - A ring-2 building's style is its own, by hash; its colourway differs from its partner's and its row neighbours'; its floor count is its partner's (rule 4).
+  - A ring-2 building is another building or the same building through (rule 4, Decided). Another building's style is its own, by hash, and its colourway differs from its partner's. A through building takes its partner's style and colourway. Either way its floor count is its partner's.
+  - Along a ring-2 row, neighbours never share a colourway (R13), as on the street. A through building already differs from the through building beside it, because their ring-1 partners do; another building steps off its neighbours' colourways as 16.9 has it.
   - Blocks differ by size (19.5), and by treatment: court block, alley cut, strip, half park, whole park (19.6).
   - An alley cuts a block only where each part it leaves has a short side of 2 or of 6 or more (rule 4). A 9-cell side becomes 2, lane, 6.
 - **Why.** Law (19.5): "90 degrees does not mean a grid of squares. You can have varying widths for blocks, alleyways, parks... etc"
@@ -310,7 +315,7 @@ No threshold is loosened. Stated plainly:
   - Criterion 51 (the order for a leftover gap) and Q-I2 go: a leftover is a failed check.
   - `wallJoints`' list of intentional openings loses the seam and the gated passage. The check is M1 plus M5's passage line.
 - **C (backs) is re-cut on the lattice.**
-  - C-rows stays. Ring 2 is exactly one cell deep, so `BACK_OVERSHOOT_MAX_M` goes, and `BACK_COVER_MIN` (0.9 of the strip) is replaced by M3 and M4, which are exact.
+  - Both of the ticket's options are built, by Josh's answer to Q2 ("They can be either."): C-rows (another building) and C-stack (the same building repeated), chosen per building by hash. Ring 2 is exactly one cell deep, so `BACK_OVERSHOOT_MAX_M` goes, and `BACK_COVER_MIN` (0.9 of the strip) is replaced by M3 and M4, which are exact.
   - New in C1: blind corner columns; the drive runs through ring 2; lane rows on alley sides; quiet ground rows (M8); corner columns beside openings (Q1, decided).
   - `blankFaces` is M7, on storey faces. Q-C2 is answered: corner pieces at openings (Q1), the party-wall kit on height steps (Q3).
   - Three builds: **C1** the plan and M3, M4, M5, M8; **C2** the drawing; **C3** the party-wall dressing (M7), and strips if Q6 is yes.
@@ -320,13 +325,12 @@ No threshold is loosened. Stated plainly:
 
 ## Decide first
 
-Questions only Josh can answer, most important first. Q1 is answered; Q2 to Q7 are open.
+Questions only Josh can answer, most important first. Q1 and Q2 are answered; Q3 to Q7 are open.
 
 1. **May corner pieces stand wherever two open sides meet?** That is: at a lane mouth, a court drive, a plaza and inside a court, as well as where two streets meet.
    - **Answered (Josh, 19 Nov 2026): "Yes, any corner".** Rule 7 records it.
 2. **The backs: other buildings, or the same building repeated?**
-   - **Recommended: other buildings** (ring 2 has buildings of its own style and colour, the same height as the one in front). His later words: "butted up against the backs of other buildings".
-   - Alternative, his first words ("re use the stacked build blocks of the same type"): each building is 10 m deep, one style and colour through, with a street face and a court face.
+   - **Answered (Josh, 19 Nov 2026): "They can be either."** Rule 4 records it: both kinds are built, chosen per building by hash.
 3. **The wall above a lower neighbour's roof.**
    - **Recommended: dress it** with the party-wall kit, and lift the pack's pipe runs from the never-used list for party walls only.
    - Alternatives: leave it bare, as the one blank wall allowed; or let row neighbours differ by one storey at most, so there is less of it.
