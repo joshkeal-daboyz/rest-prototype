@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { CalibrationKey } from "../core";
-import { CITY_BLOCKS_DEFAULT, CITY_BLOCKS_MAX, type TileRole } from "./tilecity";
+import { CITY_BLOCKS_DEFAULT, CITY_BLOCKS_MAX, type InteriorRole, type TileRole } from "./tilecity";
 import { SIDEWALK_WALK_M, TILE_M } from "./tilecity";
 import { TREES } from "./furniture";
 import {
@@ -16,8 +16,10 @@ import {
   SHEET_LEGEND_CHARS,
   SHEET_SHAPES,
   SHEET_WIDE_ASPECT,
+  INTERIOR_DRAW_CALLS_MAX,
   TILE_DRAW_CALLS_MAX,
   TILE_FRONTS,
+  TILE_BASE_M,
   TILE_FRONT_TEXT,
   TILE_LEVELS,
   TILE_PACK,
@@ -40,11 +42,13 @@ import {
 } from "./tileslots";
 
 const ROLES: readonly TileRole[] = ["lane", "parking", "parkingPlain", "junction", "crossing", "pavement", "pavementCorner", "kerbCut", "buildout", "lotSurface", "plaza"];
+/** The block interiors' roles (057 D), which the tile view merges into its tables. */
+const INTERIOR: readonly InteriorRole[] = ["apron", "court", "drive", "green", "greenPath", "alley", "parkEdge"];
 
 describe("TILE_SLOTS", () => {
-  it("gives every tile role at least one City Pack key, and no role anything else", () => {
-    expect(Object.keys(TILE_SLOTS).sort()).toEqual([...ROLES].sort());
-    for (const role of ROLES) {
+  it("gives every tile role and every block-interior role at least one City Pack key, and no role anything else", () => {
+    expect(Object.keys(TILE_SLOTS).sort()).toEqual([...ROLES, ...INTERIOR].sort());
+    for (const role of [...ROLES, ...INTERIOR]) {
       const keys = TILE_SLOTS[role];
       expect(keys.length, role).toBeGreaterThan(0);
       expect(new Set(keys).size, role).toBe(keys.length);
@@ -69,14 +73,16 @@ describe("TILE_SLOTS", () => {
   });
 
   it("shares Road_Bare_01 between a junction and a lot surface (the ticket's own design), the two plain straights between a pavement and a build-out, and no other key between roles", () => {
-    const users = new Map<string, TileRole[]>();
-    for (const role of ROLES) for (const key of TILE_SLOTS[role]) users.set(key, [...(users.get(key) ?? []), role]);
+    const users = new Map<string, string[]>();
+    for (const role of [...ROLES, ...INTERIOR]) for (const key of TILE_SLOTS[role]) users.set(key, [...(users.get(key) ?? []), role]);
     const shared = [...users].filter(([, roles]) => roles.length > 1);
-    // 056 A: a build-out is drawn from the two plain sidewalk straights, which it shares with the pavement.
+    // 056 A: a build-out is drawn from the two plain sidewalk straights, which it shares with the pavement. 057 D: the interiors share the bare road (a court's floor, a drive, an alley lane), the flat slab (an apron, a path, a park edge) and the parking lines (a court's stalls).
     expect(shared).toEqual([
-      [`${TILE_PACK}:SM_Env_Road_Bare_01`, ["junction", "lotSurface"]],
+      [`${TILE_PACK}:SM_Env_Road_ParkingLines_01`, ["parking", "court"]],
+      [`${TILE_PACK}:SM_Env_Road_Bare_01`, ["junction", "lotSurface", "court", "drive", "alley"]],
       [`${TILE_PACK}:SM_Env_Sidewalk_Straight_01`, ["pavement", "buildout"]],
       [`${TILE_PACK}:SM_Env_Sidewalk_Straight_02`, ["pavement", "buildout"]],
+      [`${TILE_PACK}:SM_Env_Sidewalk_Panel_02`, ["apron", "greenPath", "parkEdge"]],
     ]);
   });
 });
@@ -101,8 +107,34 @@ describe("levels and the draw-call cap", () => {
     expect(tileWalkM()).toBe(0.23);
   });
 
-  it("caps the tiles at 40 draw calls", () => {
+  it("stands the block interiors' ground at 0, flush with the walk: the flat slab 0.07 m down and the grass 0.11 m down so their own surfaces are at the walk (057 D, measured from the converted City Pack), everything else at its origin", () => {
+    for (const r of INTERIOR) expect(TILE_LEVELS[r], r).toBe("ground");
+    expect(TILE_BASE_M).toEqual({ [TILE_SLOTS.apron[0]!]: -0.07, [TILE_SLOTS.green[0]!]: -0.11 });
+    expect(tileLevelY_m("apron", TILE_SLOTS.apron[0])).toBe(-0.07);
+    expect(tileLevelY_m("greenPath", TILE_SLOTS.greenPath[0])).toBe(-0.07);
+    expect(tileLevelY_m("parkEdge", TILE_SLOTS.parkEdge[0])).toBe(-0.07);
+    expect(tileLevelY_m("green", TILE_SLOTS.green[0])).toBe(-0.11);
+    for (const r of ["court", "drive", "alley"] as const) expect(tileLevelY_m(r, TILE_SLOTS[r][0]), r).toBe(0);
+    expect(tileLevelY_m("court", TILE_SLOTS.court[1])).toBe(0);
+    // A key that is not in the table (and a prototype name) stands at 0, as a lot surface does.
+    expect(tileLevelY_m("green", "constructor" as CalibrationKey)).toBe(0);
+    expect(tileLevelY_m("lotSurface", TILE_SLOTS.lotSurface[0])).toBe(0);
+  });
+
+  it("draws the apron, the paths and the park edge from the flat slab and not the plaza's Panel_01, whose +z kerb would drop 0.23 m every 5 m across an apron (057 D)", () => {
+    expect(TILE_SLOTS.apron.map((k) => k.slice(TILE_PACK.length + 1))).toEqual(["SM_Env_Sidewalk_Panel_02"]);
+    expect(TILE_SLOTS.greenPath).toEqual(TILE_SLOTS.apron);
+    expect(TILE_SLOTS.parkEdge).toEqual(TILE_SLOTS.apron);
+    expect(TILE_SLOTS.plaza.map((k) => k.slice(TILE_PACK.length + 1))).toEqual(["SM_Env_Sidewalk_Panel_01"]);
+    expect(TILE_SLOTS.green.map((k) => k.slice(TILE_PACK.length + 1))).toEqual(["SM_Env_Grass_01"]);
+    expect(TILE_SLOTS.court.map((k) => k.slice(TILE_PACK.length + 1))).toEqual(["SM_Env_Road_Bare_01", "SM_Env_Road_ParkingLines_01"]);
+    expect(TILE_SLOTS.drive).toEqual(TILE_SLOTS.alley);
+    for (const r of INTERIOR) expect(tileFront(TILE_SLOTS[r][0]!), r).toBe(0);
+  });
+
+  it("caps the tiles at 40 draw calls and the interiors at 24 more", () => {
     expect(TILE_DRAW_CALLS_MAX).toBe(40);
+    expect(INTERIOR_DRAW_CALLS_MAX).toBe(24);
   });
 });
 
@@ -327,10 +359,10 @@ describe("tileKeys and the sheet's list", () => {
     const pieces = sheetPieces();
     expect(pieces.map((p) => p.key)).toEqual(tileKeys());
     const bare = pieces.find((p) => p.key.endsWith("Road_Bare_01"))!;
-    expect(bare.roles).toEqual(["junction", "lotSurface"]);
+    expect(bare.roles).toEqual(["junction", "lotSurface", "court", "drive", "alley"]);
     expect(pieces.filter((p) => p.cells === 2).map((p) => p.key)).toEqual([TILE_SLOTS.parking[0]]);
     expect(pieces.filter((p) => p.roles.length === 0).map((p) => p.key)).toEqual([...TILE_SHEET_EXTRA]);
-    for (const role of ROLES) expect(TILE_FRONT_TEXT[role].length, role).toBeGreaterThan(0);
+    for (const role of [...ROLES, ...INTERIOR]) expect(TILE_FRONT_TEXT[role].length, role).toBeGreaterThan(0);
   });
 });
 
@@ -366,12 +398,12 @@ describe("the sheet's names, legend and grid (E, criterion 30)", () => {
     for (const l of numbered.slice(SHEET_LEGEND.length)) expect(l.length, l).toBeLessThanOrEqual(SHEET_LEGEND_CHARS);
   });
 
-  it("lays the pieces on a grid, not a row: four columns in a wide window, three (numbered) in a tall one, at least one cell of ground between any two pieces", () => {
+  it("lays the pieces on a grid, not a row: five columns in a wide window (four until 057 D added two pieces: a fifth row), three (numbered) in a tall one, at least one cell of ground between any two pieces", () => {
     expect(SHEET_WIDE_ASPECT).toBe(1.25);
-    expect(sheetColumns(16 / 9)).toBe(4);
+    expect(sheetColumns(16 / 9)).toBe(5);
     expect(sheetColumns(390 / 844)).toBe(3);
     expect(sheetColumns(1)).toBe(3);
-    expect(sheetColumns(SHEET_WIDE_ASPECT)).toBe(4);
+    expect(sheetColumns(SHEET_WIDE_ASPECT)).toBe(5);
     for (const aspect of [16 / 9, 390 / 844, 1, 4 / 3]) {
       const L = sheetLayout(aspect);
       expect(L.slots).toHaveLength(pieces.length);
@@ -399,7 +431,7 @@ describe("the sheet's names, legend and grid (E, criterion 30)", () => {
         expect(b.z1).toBeLessThanOrEqual(L.frame_m.maxZ);
       }
     }
-    expect(SHEET_SHAPES.wide.cols).toBe(4);
+    expect(SHEET_SHAPES.wide.cols).toBe(5);
     expect(SHEET_SHAPES.tall.cols).toBe(3);
   });
 

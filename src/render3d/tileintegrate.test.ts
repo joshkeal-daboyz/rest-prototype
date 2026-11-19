@@ -10,7 +10,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { BoxGeometry, Group, MeshBasicMaterial, Mesh, Scene, Vector3, type Object3D, type WebGLRenderer } from "three";
 import { ASSET_MANIFEST_VERSION, loadPuzzle, type AssetEntry, type AssetManifest, type CalibrationKey, type Puzzle } from "../core";
-import { SIDEWALK_TOP_M, SIDEWALK_WALK_M, TILE_CITY_R1_MIN, TILE_CITY_R6_MIN, TILE_CITY_R7_MIN, TILE_M, tileCity, tileKeepouts, bayMeters, BAYS_PER_PARKING_TILE, LANE_RIGHT, type TileCity, type TileRole } from "./tilecity";
+import { SIDEWALK_TOP_M, SIDEWALK_WALK_M, TILE_CITY_R1_MIN, TILE_CITY_R6_MIN, TILE_CITY_R7_MIN, TILE_M, tileCity, tileKeepouts, bayMeters, BAYS_PER_PARKING_TILE, LANE_RIGHT, TILE_STACK_ALIGN, withPassages, type TileCity, type TileRole } from "./tilecity";
 import { CITY_ATM_BLOCKS_MIN, CITY_CHECK, cityMetrics, evaluateCity, isNeverUsed, runBlocks, type CityMetrics } from "./citymetrics";
 import { dressInput, dressSites, furnitureInput, furniturePlacement, loadModels, NO_MODELS, allStackKeys, applyModels, stackInput, type DressPlacement, type ModelSet } from "./models3d";
 import { AWNING_KERB_M, KERB_FROM_FRONT_M, dressKeys, dressTown, type DressBlockInput } from "./dressing";
@@ -22,7 +22,8 @@ import { WORLD_PER_METRE } from "./models";
 import { createStreetView, streetRows } from "./streetcam";
 import { ELEVATION } from "./camera";
 import { CITY_NEAR_FRACTION, TILE_FURNITURE_LEVELS, buildCityScene, buildSheetScene, cityApplyOptions, createCityRenderer3d, createCityRig, sheetRigInsets, tileGroup, tileOriginY_m } from "./tilecity3d";
-import { TILE_FRONTS, TILE_SLOTS, TILE_WALK_M, cityTilesRequested, sheetPieces, tileKeys, tileLevelY_m, tileFront } from "./tileslots";
+import { TILE_BENCH, TILE_BINS, TILE_FRONTS, TILE_SLOTS, TILE_TREES, TILE_WALK_M, cityTilesRequested, gateParts, gatePlan, interiorItems, sheetPieces, tileKeys, tileLevelY_m, tileFront } from "./tileslots";
+import { tilePassages } from "./frontage";
 import { stubTextSurface } from "./text";
 import type { TerraceRun } from "./town";
 
@@ -870,3 +871,130 @@ describe("the street camera on the tile city (criterion 32)", () => {
   });
 });
 
+// ---- ticket 057 D: the block interiors on the packed city ----
+
+describe("the block interiors on the packed city (057 D)", () => {
+  it("passes the tile city's wall alignment to packTown explicitly, and the packing it hands back is the one packTown gives with or without the option", () => {
+    const city = tileCity();
+    expect(cityApplyOptions(city).align).toBe(TILE_STACK_ALIGN);
+    expect(TILE_STACK_ALIGN).toBe("wall");
+    const bundle = buildCityScene(city);
+    const applied = applyModels(bundle, SET, cityApplyOptions(city));
+    const stacks = stackInput(SET)!;
+    const input = { terraces: city.town.terraces, lots: city.town.lots };
+    const explicit = packTown(input, STACK_STYLES, stacks.entries, stacks.fronts, { align: "wall" });
+    const implicit = packTown(input, STACK_STYLES, stacks.entries, stacks.fronts);
+    expect(explicit).toEqual(implicit);
+    expect(applied.packed).toEqual(explicit);
+    expect(applied.packed.size).toBe(city.town.terraces.length);
+    applied.remove();
+    bundle.dispose();
+  });
+
+  it("hands back no packing when nothing was packed (no City Pack stack), and a ladder map's packing is packTown's own default", () => {
+    const city = tileCity();
+    const bundle = buildCityScene(city);
+    const applied = applyModels(bundle, NO_MODELS, cityApplyOptions(city));
+    expect(applied.packed.size).toBe(0);
+    expect(tilePassages(city, applied.packed)).toEqual([]);
+    applied.remove();
+    bundle.dispose();
+    for (const file of ["01-first-light", "09-shrine-circuit"]) {
+      const map = buildScene(mapOf(file), { text: stubTextSurface });
+      const done = applyModels(map, SET);
+      const stacks = stackInput(SET)!;
+      const runs = map.slots.blocks.terraces ?? [];
+      expect(done.packed, file).toEqual(packTown({ terraces: runs, lots: map.slots.blocks.list }, STACK_STYLES, stacks.entries, stacks.fronts));
+      done.remove();
+      map.dispose();
+    }
+  });
+
+  it("finds the gated passages from the packed runs and draws each one's floor and gate with the interiors, on the default city and seeds 1 to 3", () => {
+    let passages = 0;
+    let small = 0;
+    for (const base of [tileCity(), ...[1, 2, 3].map(cityAt)]) {
+      const bundle = buildCityScene(base);
+      const applied = applyModels(bundle, SET, cityApplyOptions(base));
+      const found = tilePassages(base, applied.packed);
+      const city = withPassages(base, found);
+      const pack = new Map<CalibrationKey, Object3D>();
+      const entries = new Map<CalibrationKey, AssetEntry>();
+      for (const key of tileKeys()) {
+        const g = new Group();
+        g.add(new Mesh(BOX, PLAIN));
+        pack.set(key, g);
+        entries.set(key, ENTRY_OF.get(key)!);
+      }
+      bundle.useTiles(pack, entries, found);
+      const draw = bundle.interiorDraw();
+      expect(draw.floors, `seed ${base.seed}`).toBe(found.length);
+      expect(draw.gates, `seed ${base.seed}`).toBe(found.length);
+      const gates = gatePlan(city);
+      expect(gates).toHaveLength(found.length);
+      const boxes = gates.reduce((n, g) => n + gateParts(g).length, 0);
+      expect(draw.group.children.filter((o) => o.name === "interior:code-gates").reduce((n, o) => n + (o as { count: number }).count, 0), `seed ${base.seed}`).toBe(boxes);
+      // Every passage's floor is where `TilePassage.floor` says, on the pavement's back edge and inward, and its gate stands on the back edge in the middle of it.
+      for (const [i, p] of found.entries()) {
+        expect(p.floor.maxX_m - p.floor.minX_m, `seed ${base.seed} passage ${i}`).toBeGreaterThanOrEqual(1);
+        expect(gates[i]!.x_m).toBe(p.x_m);
+        expect(gates[i]!.z_m).toBe(p.z_m);
+      }
+      passages += found.length;
+      small += gates.filter((g) => g.small).length;
+      applied.remove();
+      bundle.dispose();
+    }
+    expect(passages, "the cities leave gated passages").toBeGreaterThan(10);
+    expect(small, "some open on an alley's mouth: the small gate").toBeGreaterThan(0);
+    expect(small).toBeLessThan(passages);
+  });
+
+  it("draws every cell a block holds inside its outer ring, as an item or a lot or plaza cell, on the default city and seeds 1 to 3 (what the eye sees as a void, from the drawing's side)", () => {
+    for (const city of [tileCity(), ...[1, 2, 3].map(cityAt)]) {
+      const drawn = new Set<string>();
+      for (const it of interiorItems(city)) if (it.cells === 1) drawn.add(`${it.i},${it.j}`);
+      for (const c of city.cells) if (c.role === "lotSurface" || c.role === "plaza") drawn.add(`${c.i},${c.j}`);
+      const bad: string[] = [];
+      // The outer ring of each part (a block, or a half of one an alley or a park splits it into) is the terraces' band: buildings stand there, and the passages' floors; every cell inside it is the interiors'.
+      for (const p of city.parts) {
+        for (let j = p.j0 + 1; j < p.j1 - 1; j++) {
+          for (let i = p.i0 + 1; i < p.i1 - 1; i++) if (!drawn.has(`${i},${j}`)) bad.push(`${p.id} ${i},${j}`);
+        }
+      }
+      expect(bad.slice(0, 5), `seed ${city.seed}`).toEqual([]);
+    }
+  });
+
+  it("opens the tile view with the passages found from its own packing, and stands the interiors, props included, once the models are in", async () => {
+    const city = tileCity();
+    const scenes: Scene[] = [];
+    const gl = { setPixelRatio() {}, setSize() {}, render: (s: Scene) => scenes.push(s) } as unknown as WebGLRenderer;
+    const canvas = { clientWidth: 1280, clientHeight: 720, style: { touchAction: "" }, addEventListener() {}, removeEventListener() {}, setPointerCapture() {} } as unknown as HTMLCanvasElement;
+    const search = "?city=tiles";
+    // The view says what it drew in one console line; this test puts it aside and back (a spy of the describe above is on console.info: it is left as it was).
+    const said = console.info;
+    console.info = () => {};
+    const r = createCityRenderer3d(gl, canvas, cityTilesRequested(search)!, { dpr: 1, search, load: async () => SET, surface: stubTextSurface, city });
+    await new Promise<void>((done) => setTimeout(done, 0));
+    console.info = said;
+    r.draw(undefined as never, undefined as never, 0);
+    const scene = scenes[scenes.length - 1]!;
+    const interior = scene.getObjectByName("city-interior")!;
+    expect(interior).toBeDefined();
+    const bundle = buildCityScene(city);
+    const applied = applyModels(bundle, SET, cityApplyOptions(city));
+    const found = tilePassages(city, applied.packed);
+    expect(found.length).toBeGreaterThan(0);
+    const names = interior.children.map((o) => o.name);
+    expect(names.some((n) => n === "interior:code-gates")).toBe(true);
+    const gates = withPassages(city, found);
+    const boxes = gatePlan(gates).reduce((n, g) => n + gateParts(g).length, 0);
+    expect((interior.children.find((o) => o.name === "interior:code-gates") as { count: number }).count).toBe(boxes);
+    // The props (a tree, the bench, a bin) are the furniture set's: they stand from the pack.
+    for (const key of [...TILE_TREES, TILE_BENCH, ...TILE_BINS]) expect(names.some((n) => n === `interior:${key.slice(key.indexOf(":") + 1)}`), key).toBe(true);
+    applied.remove();
+    bundle.dispose();
+    r.dispose();
+  });
+});

@@ -15,7 +15,7 @@ import { packTown } from "./terrace";
 import { STACK_STYLES } from "./stacks";
 import { LANE_PATCH, LANE_RIGHT, PAVEMENT_GRATE, PAVEMENT_STRAIGHT_2, SIDEWALK_TOP_M, SIDEWALK_WALK_M, TILE_M, tileCity, type TileCell, type TileCity, type TileRole } from "./tilecity";
 import { buildCityScene, buildSheetScene, buildoutTreePlan, cellFootprint, createCityRenderer3d, createCityRig, kerbStrips, sheetRigInsets, tileCityLine, tileGroup, tileKeyOf, tileMatrix, tileOriginY_m, treeInput } from "./tilecity3d";
-import { SHEET_BUILDOUT_NOTE, TILE_DRAW_CALLS_MAX, TILE_FRONTS, TILE_PATCH, TILE_SHEET_EXTRA, TILE_SLOTS, TILE_TREES, sheetLabel, sheetPieces, sheetShortName, tileKeys, cityTilesRequested } from "./tileslots";
+import { SHEET_BUILDOUT_NOTE, TILE_DRAW_CALLS_MAX, TILE_FRONTS, TILE_BASE_M, TILE_PATCH, TILE_SHEET_EXTRA, TILE_SLOTS, TILE_TREES, sheetLabel, sheetPieces, sheetShortName, tileKeys, cityTilesRequested } from "./tileslots";
 import { stubTextSurface } from "./text";
 import { townLayout } from "./town";
 
@@ -971,8 +971,8 @@ describe("the tile sheet", () => {
       seen.add(`${w.position.x.toFixed(4)},${w.position.z.toFixed(4)}`);
       expect(w.scale.x, p.key).toBeCloseTo(S, 12);
       expect(w.rotation.y, p.key).toBeCloseTo(((TILE_FRONTS[p.key] ?? 0) * Math.PI) / 180, 12);
-      // Every piece's origin is 0.23 m down: a road piece is on the carriageway, a sidewalk piece on it with its walk at 0.
-      expect(w.position.y, p.key).toBeCloseTo(-SIDEWALK_WALK_M * S, 9);
+      // Every piece's origin is 0.23 m down: a road piece is on the carriageway, a sidewalk piece on it with its walk at 0. The two pieces that serve only the block interiors (057 D) stand on the ground, at their own base (`TILE_BASE_M`).
+      expect(w.position.y, p.key).toBeCloseTo((TILE_BASE_M[p.key] ?? -SIDEWALK_WALK_M) * S, 9);
     });
     expect(seen.size, "one place each").toBe(pieces.length);
     expect(new Set(wraps.map((w) => w.position.z.toFixed(4))).size, "rows, not a row").toBeGreaterThan(1);
