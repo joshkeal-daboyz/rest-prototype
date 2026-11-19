@@ -2,7 +2,8 @@
 
 owner: renderer (src/render3d/, docs/city-style-guide.md)
 status: open (waiting for G1). Eight sections, each its own branch, each buildable alone except where Dependencies says. Sections B and C wait for Josh's answers (Open questions).
-branch: one per section: `ticket/063a-one-sidewalk`, `ticket/063b-street-width`, `ticket/063c-building-backs`, `ticket/063d-plain-interior-paving`, `ticket/063e1-corner-open-side`, `ticket/063e2-one-footprint`, `ticket/063f-kerb-line`, `ticket/063g-roof-access`, `ticket/063h-paved-inlets`
+branch: one per section: `ticket/063a-one-sidewalk`, `ticket/063b-street-width`, `ticket/063c-building-backs`, `ticket/063d-plain-interior-paving`, `ticket/063e1-corner-open-side`, `ticket/063e2-one-footprint`, `ticket/063f-kerb-line`, `ticket/063g-roof-access`, `ticket/063h-paved-inlets`, `ticket/063i-walls-touch`
+- Section I was added on 19 Nov 2026, after A, D and H merged (`f4a728f`). It is buildable after E1 and E2.
 
 ## Josh's words (19 Nov 2026, in chat, looking at the tile city in daylight)
 > "Make the side walk one uniform color. I also see alot of this. The streets do not need to be 4 tiles wide."
@@ -24,6 +25,8 @@ branch: one per section: `ticket/063a-one-sidewalk`, `ticket/063b-street-width`,
 > "roof top exists shouldn't open to the street. They should be on the roof."
 
 > "If you're going to have an inlet to areas between buildings it needs to be paved"
+
+> "the buildings are intended to be butted up against eachother. You can see this illustrated in the screenshot and you can compare to the gap in the screenshot I provided" (a reference image of a continuous terrace, wall to wall, and a street view of ours with a vertical sliver of ground showing between a red brick building and an olive one, from the pavement to the roof line)
 
 Rulings already in the guide that every section keeps:
 - 19.1, Decided (Josh, 18 Nov 2026): "It's okay if the buildings rest on top of the sidewalk and overlap a little bit. It is not okay if the buildings sit recessed from the sidewalk and leave a gap of nothing between them."
@@ -116,6 +119,33 @@ Measured by reading the code, the converted manifest, and `city-pack.glb` (the c
 - **What is drawn there.** Its cells are 056's `lotSurface` cells, drawn as `SM_Env_Road_Bare_01`, which is asphalt, the street's colour. Behind it, the court (rings 2 to 4) is bare road with `ParkingLines_01` over each row of stalls.
 - **What is around it.** The kerb cut is `Dip_01` on the pavement band. The pale ground at its far edge is ring 2's code-drawn strip or a passage floor (C, D).
 
+### I. Why neighbouring buildings leave a sliver (measured 19 Nov 2026 at `f4a728f`, from `city-pack.glb`, no browser)
+- **The walls stand on a 5.0 m body.** Every apartment and shop piece's side wall plane is at **±2.50 m**, a 5.0 m body:
+  - `Apartment_01`, `_02` and `_03`;
+  - `Shop_01` and `_04`;
+  - `Apartment_Door_01`.
+- **The bounds are wider than the walls.** What goes past ±2.50 m is trim, which reaches beyond the wall:
+  - `Apartment_02`: a band at y 2.54 to 3.0 m, out to ±2.585 (bounds 5.170 m);
+  - `Apartment_03`: a plinth at y 0 to 0.14 m and a cornice at 2.86 to 3.0 m, out to ±2.64 (bounds 5.281 m);
+  - `Shop_04`'s and `Door_01`'s top bands, out to ±2.55;
+  - the roofs' parapets, out to ±2.57 to 2.65.
+- **The packer lays columns by bounds.** `stacks.ts` (`build`: `w = floorMid.w`) makes each column as wide as its floor piece's **bounds**. `terrace.ts` lays blocks flush by `Stack.width_m` and measures the far gap from the pieces' bounds.
+- **So the walls do not touch.** Between two columns, the walls stand apart by the two trims' overhangs:
+  - 0.17 m between two `Apartment_02` columns, 0.28 m between two `_03` columns, 0.09 to 0.14 m where a `_02` or `_03` column meets an `_01` column;
+  - at every column joint, inside a block and between blocks;
+  - from the pavement to the roof, because the shop below is also a 5.0 m body centred in the wider column.
+  - Only the trims bridge it, and only where both sides have one at the same height. That is the "sliver" and the "bands that do not meet" in Josh's screenshot.
+- **The same cause makes the passages.** The 057 B finding that "N unscaled columns span only 5.0 N to about 5.28 N metres", and so "nearly every row's end is a gated passage", comes from bounds widths too. On the bodies every column is 5.0 m. A row runs between corner blocks on the 5 m grid, so it closes to a seam far more often.
+- **Not the cause:**
+  - the lots: the packer re-cuts them;
+  - a deliberate passage: those are at row ends, 1.0 m or wider, with a gate;
+  - 062's lift and `bandPacked`: they move only y and the ground row's choice, with the same columns.
+  - A building is never scaled (041, Decided), so stretching is not an option.
+- **What a model look would settle:**
+  - whether two neighbouring trims, overlapping by 0.08 to 0.14 m where they are coplanar, z-fight visibly. They share one atlas swatch, so it may not show.
+  - the corner pieces' bodies along the street. `Apartment_Corner_01` and `Shop_Corner_01` were not measured on their faces here; E2's `BODY_M` measures them.
+  - whether Josh's screenshot shows a column joint (most likely, a sliver of about 0.1 to 0.3 m) or a 1 m passage (that would have a 2.2 m gate).
+
 ## Goal
 In the tile city in daylight:
 - every pavement and build-out is one opaque sidewalk piece of one colour;
@@ -123,6 +153,7 @@ In the tile city in daylight:
 - each building's storeys, trims and roof share one footprint, and its corner pieces turn the corner (the corner store's angled face on the corner);
 - the kerb runs as one unbroken line round every build-out;
 - roof exits open onto the roof;
+- neighbouring buildings in a row stand wall to wall, and a row has a gap only where an opening is made on purpose (a drive, an alley mouth, or a passage the row cannot close);
 - if Josh chooses: the backs of the buildings fill the lot's depth with their own stack pieces, and the streets are narrower.
 
 ## Sections
@@ -137,6 +168,7 @@ In the tile city in daylight:
 | F | The kerb line: one continuous kerb, build-outs included | 1 day | A |
 | G | The roof exit opens onto the roof | half a day | 061 merged (it owns `dressing.ts` now) |
 | H | Paved inlets: court drives and alley mouths, paved through the row | half a day | D |
+| I | Walls touch: columns laid on their wall bodies, not their bounds | 1 day | E1 and E2 merged (it reads E2's `BODY_M`); before C |
 
 ## Acceptance criteria
 **CI-safe throughout:**
@@ -280,8 +312,34 @@ An inlet is any opening in a row that has a kerb cut: a court drive (2 cells), a
     - `TileCity` data is unchanged, and so are G4 and `courtLotPieces`: no lines and no barriers on the drive.
 44. [ ] (Main session, screenshot) the inlet Josh marked (the default city overhead): paved between the two walls, from the kerb cut to the court.
 
+### I. Walls touch (Vitest unless marked)
+46. [ ] **Columns on their bodies.** With the tile city's option (`assembleStack(..., { columns: "body" })`, which the tile city passes; the default "bounds" keeps the ladder), a column is as wide as its floor piece's **body** between its side wall planes (E2's `BODY_M`, `nx` and `px`), and `Stack.width_m` is the bodies' total.
+    - Every piece of the column is centred on the body; a corner column's piece sits on its outer flank (E2).
+    - Trims, cornices and parapets reach past the body into the neighbour's by what they really carry.
+    - Nothing is scaled.
+47. [ ] **The packer reads bodies.** `terrace.ts` lays blocks flush by the body widths. It measures the far gap from the last block's outermost **wall** plane (not its trim), and the overhang it allows for (`ov`) is the trim's reach.
+    - The far end keeps 057 B's order: seam, overshoot, then passage.
+    - `bandPacked` (062 B) passes the same `columns` option to its re-assembly, so a banded block keeps its columns. A test checks this on a banded fixture.
+48. [ ] **The check, pure.** New `wallJoints(city, packed)` (in `src/render3d/walljoints.ts`) runs over every row of the default city, seeds 1 to 10 at 3 x 3 and seeds 1 to 3 at 6 x 4.
+    - Inside a run, at every joint between neighbouring columns and blocks, the side wall planes coincide within `WALL_JOINT_TOL_M` (0.02 m), from the ground row to the lower of the two roofs.
+    - Where both neighbours have a trim band at the same height, the bands meet or overlap.
+    - A gap over 0.02 m anywhere in a row is allowed only where 057 B or 056 put an opening: a court drive, a frontage lot, an alley mouth, a plaza, or a gated passage at the row's far end.
+    - Today's bounds-width packing fails this, as a fixture: an `Apartment_02` block's joints are 0.17 m apart.
+49. [ ] **Fewer passages.** The builder reports runs closed by seam, overshoot and passage, before and after, on the default city and seeds 1 to 5. The passage count is expected to drop sharply, and the report says by how much.
+    - G2 (no gap in the frontage) holds unchanged.
+    - Every passage left still meets `PASSAGE_W_M`, and its floor and gate follow it, because passages are found from the packed runs.
+50. [ ] **Nothing else loosens.** G1 to G4, R1 at `TILE_CITY_R1_MIN`, R7, the sills (062), `escapeCheck` and E2's `STOREY_ALIGN_TOL_M` check hold, and the R1 to R13 numbers are re-measured and reported.
+    - On the ladder, `packpin.test.ts` is unchanged, because the default is "bounds" (Q-I).
+51. [ ] **A leftover gap** that the row still cannot close (Q-I2) is closed, in this order:
+    1. a seam (≤ `TERRACE_SEAM_M`);
+    2. an overshoot of one more of the last block's own columns, up to `END_OVERLAP_MAX_M` inside the next corner block (057 B);
+    3. a choice of styles and column counts that fits;
+    4. only then 057 B's gated passage.
+    - A run's start is never shifted off its corner, which stays flush (057 B).
+52. [ ] (Main session, screenshots, street camera, `&light=day`) along a row of mixed styles, no ground shows between buildings and the trim bands run on. Compare with Josh's reference.
+
 ### Guide (each section, its own lines)
-45. [ ] Each section adds its rule to the guide's chapter (A, D, F, H: 19.8 and 10; B: 3 and 18; C: 19.4; E1: 7; E2: 16.3; G: 16.5), with Josh's words as **Decided** and the rest as **Default**.
+45. [ ] Each section adds its rule to the guide's chapter (A, D, F, H: 19.8 and 10; B: 3 and 18; C: 19.4; E1: 7; E2: 16.3; G: 16.5; I: 16.2, 16.3 and 19.2), with Josh's words as **Decided** and the rest as **Default**.
     - Numbers rows cover each new constant.
     - The existing drift checks cover them, and no existing check is edited.
     - A closes the "two plain straights" lines of 056 B. D replaces 19.8's "the ragged strip is always code-drawn".
@@ -317,6 +375,12 @@ An inlet is any opening in a row that has a kerb cut: a court drive (2 cells), a
   - `tilecity3d.test.ts`, `tilecity.test.ts`, `tileslots.test.ts`.
 - **G:** `dressing.ts` (the access placement only), `dressing.test.ts`, `dressdraw.test.ts`.
 - **H:** `tileslots.ts`, `tilecity3d.ts` (drive and mouth cells drawn as paving), `tileinterior.test.ts`, `tilecity3d.test.ts`.
+- **I:**
+  - `stacks.ts` (the `columns` option);
+  - `terrace.ts`, named here as an exception to the must-not-touch list below, for the block widths and the far-gap and overhang measure only;
+  - `models3d.ts` (passing the option, including in `bandPacked`);
+  - new `src/render3d/walljoints.ts` and `walljoints.test.ts`;
+  - `stacks.test.ts`, `terrace.test.ts`, `terracepack.test.ts`, `frontage.test.ts`, `alleys.test.ts`, `sills.test.ts` (re-measured numbers only, never a threshold).
 - **Must not touch:**
   - `src/core/`, `src/grid/`, `src/night/`, `src/render/`, `src/play/`, `src/ui/`, `src/main.ts`;
   - `tests/`, `puzzles/`, `tools/`, `package.json`, `assets/`, `tickets/`;
@@ -330,6 +394,11 @@ An inlet is any opening in a row that has a kerb cut: a court drive (2 cells), a
   - `stacks.ts`: E1, E2, and 062 B;
   - `dressing.ts`: G, after 061 merges.
 - **Order.** E1 before E2, and E2 before C, which needs the common back plane. D before H, and A before F (F's pieces are A's).
+- **Section I.**
+  - It waits for E1 and E2. It reads E2's `BODY_M`, and its column rule is E2's footprint applied across the row; E1's corner turn decides a corner column's body along the street.
+  - It goes before C, whose back copies repeat the final columns.
+  - It is independent of F, G and B, though B moves the rows' lengths and so the passage counts. 062 is merged: I passes its option through `bandPacked` (criterion 47).
+  - It shares `stacks.ts` and `models3d.ts` with E2 and C, so the main session merges one at a time.
 - 059 (approved, not built) reads the street profiles (B) and the kerb (F). If B or F merges first, 059's builder takes the new profiles and Open item F1.
 - No `src/core/` change, no schema or event change, no new dependency.
 
@@ -371,6 +440,15 @@ All in `src/render3d/`; the builder may rename any of them.
 - **Q-E2: roof pairing.** If a style's own roof still overhangs its floor after E2, may a style take another style's roof of a better fit (for example `Roof_02` on `Apartment_03`)? It changes that style's roof look. Default: no; report only.
 - **Q-F: how far the return kerbs run.** On Josh's example they run to the building line (the default). Should they go on along the building walls through ring 1 to the interior? That is a kerb against a wall, so it is not recommended.
 - **Q-H: how much of an inlet is paved.** Pave only the inlet through the row (recommended), or the whole court drive and aisle as well? The court then reads as a paved yard with painted stalls.
+
+- **Q-I: the ladder too?** The same slivers are on the ladder maps' terraces. Default: tile city only (`columns: "body"`), so the ladder's pins hold. The alternative is to make it the default everywhere, with `packpin` re-pinned and the change named.
+- **Q-I2: a gap the row still cannot close.**
+  - **Recommended:** criterion 51's order: seam, then an overshoot of one more of the building's own columns hidden in the corner block, then a better-fitting choice, then a gated passage as the last resort.
+  - **Alternatives:**
+    - extend the last building by repeating its own columns, as in C's idea, but along the row: the same as an overshoot where a corner block is there, and not possible against a drive or lot;
+    - shift the whole row, which breaks 057 B's flush corner;
+    - no passage at all, leaving the gap open, which breaks 19.2's no-gap rule;
+    - stretch a piece, which needs Josh to change 041's Decided no-scaling rule.
 
 ## Open items (not blocking)
 - **A1.** The converter put `Straight_01` and `Merger_01` on an `01_A` atlas copy with an alpha channel and set BLEND. A `tools/` ticket could re-convert them opaque. Until then A does not use `Straight_01`.
