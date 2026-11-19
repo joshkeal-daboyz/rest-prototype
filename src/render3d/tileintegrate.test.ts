@@ -10,8 +10,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { BoxGeometry, Group, MeshBasicMaterial, Mesh, Scene, Vector3, type Object3D, type WebGLRenderer } from "three";
 import { ASSET_MANIFEST_VERSION, loadPuzzle, type AssetEntry, type AssetManifest, type CalibrationKey, type Puzzle } from "../core";
-import { SIDEWALK_TOP_M, SIDEWALK_WALK_M, TILE_CITY_R7_MIN, TILE_M, tileCity, tileKeepouts, bayMeters, BAYS_PER_PARKING_TILE, LANE_RIGHT, type TileCity, type TileRole } from "./tilecity";
-import { CITY_CHECK, cityMetrics, evaluateCity, isNeverUsed, runBlocks, type CityMetrics } from "./citymetrics";
+import { SIDEWALK_TOP_M, SIDEWALK_WALK_M, TILE_CITY_R6_MIN, TILE_CITY_R7_MIN, TILE_M, tileCity, tileKeepouts, bayMeters, BAYS_PER_PARKING_TILE, LANE_RIGHT, type TileCity, type TileRole } from "./tilecity";
+import { CITY_ATM_BLOCKS_MIN, CITY_CHECK, cityMetrics, evaluateCity, isNeverUsed, runBlocks, type CityMetrics } from "./citymetrics";
 import { dressInput, dressSites, furnitureInput, furniturePlacement, loadModels, NO_MODELS, allStackKeys, applyModels, stackInput, type DressPlacement, type ModelSet } from "./models3d";
 import { AWNING_KERB_M, KERB_FROM_FRONT_M, dressKeys, dressTown, type DressBlockInput } from "./dressing";
 import { FURN_KEEP_M, FURN_KERB_M, KERB_M, METERS, furnitureKeys, furnitureLayout, type FurniturePiece } from "./furniture";
@@ -419,8 +419,11 @@ describe("R10 reads the frame (criterion 25)", () => {
       const m = metricsOf(planOf(c));
       expect(m.pavementPieces, `seed ${c.seed}`).toBeGreaterThan(60);
       expect(m.spacingViolations + m.keepOutViolations, `seed ${c.seed} ${JSON.stringify(m)}`).toBe(0);
-      const failing = evaluateCity(m).filter((v) => !v.pass && v.id !== "R7");
+      const failing = evaluateCity(m).filter((v) => !v.pass && v.id !== "R6" && v.id !== "R7");
       expect(failing, `seed ${c.seed} ${JSON.stringify(evaluateCity(m))}`).toEqual([]);
+      // R6 on the tile city's floor (Josh, 18 Nov 2026: 0.45; the ladder's stays 0.5), with the ladder's ATM floor.
+      expect(m.signedShopBays / m.shopBays, `seed ${c.seed} R6`).toBeGreaterThanOrEqual(TILE_CITY_R6_MIN);
+      expect(m.atmBlocks / m.blocks, `seed ${c.seed} ATM`).toBeGreaterThanOrEqual(CITY_ATM_BLOCKS_MIN);
       const r7 = m.escapeQualifying === 0 ? 1 : m.escapeBlocks / m.escapeQualifying;
       expect(r7, `seed ${c.seed}`).toBeGreaterThanOrEqual(TILE_CITY_R7_MIN);
       expect(m.furniturePieces, `seed ${c.seed}`).toBeGreaterThan(100);
