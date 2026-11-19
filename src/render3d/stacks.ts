@@ -13,10 +13,17 @@
 
 import type { AssetEntry, CalibrationKey } from "../core";
 import { stableHash } from "../render/city";
+import { wallOffset } from "./facade";
 import { BUILDING_FRONTS, STACK_LOT_TYPES, frontIsQuarter, frontYaw, sizeOf, type FrontTable, type ModelFront, type StackOffer } from "./models";
 import { LOT_TYPES, type Lot, type LotSpec, type LotType } from "./town";
 
 export type StackRole = "base" | "floor" | "roof";
+/**
+ * How a stack's pieces are lined up in z (ticket 057 A). "back": every back face on one line, the frontmost face on z = 0 (a "bay" style; an office is centred), as every ladder stack is.
+ * "wall": the wall plane of every piece (`facade.ts`) on z = 0 of the lot frame, so the lot's front line is where every storey's wall stands; a sill, frame or sign stands up to
+ * `WALL_REACH_M` in front of it, and a piece with no measured wall (a roof) puts its front bound there.
+ */
+export type StackAlign = "back" | "wall";
 /** A side of the lot along the road, in the lot frame. */
 export type StackSide = "+x" | "-x";
 
@@ -170,7 +177,7 @@ export interface Stack {
   floors: number;
   /** The columns' total width (the pieces may overhang it a little, never the lot). */
   width_m: number;
-  /** Back face to frontmost face. */
+  /** Back face to frontmost face. With `align: "wall"` the frontmost face stands in front of the lot's front line, so this is the backmost face to that line (the wall plane). */
   depth_m: number;
   /** Top of the highest piece. */
   height_m: number;
@@ -194,6 +201,8 @@ interface Cand {
   d: number;
   nudge: number;
   street: "front" | "open";
+  /** How far behind its front bound, on the face on the road, the piece's wall plane is (`wallOffset`): 0 with no measure. Used only by `align: "wall"`. */
+  wf: number;
 }
 
 type Entries = ReadonlyMap<CalibrationKey, AssetEntry>;
@@ -225,16 +234,18 @@ function cand(style: StackStyle, key: CalibrationKey, entries: Entries, fronts: 
   let yaw = frontYaw(front);
   let quarter = frontIsQuarter(front);
   let street: "front" | "open" = "front";
+  let openSide: StackSide | undefined;
   if (end) {
     // The fronts table's `open` (Josh's confirmed value) wins over the recipe's guess, so a corrected `open` is honoured; then the recipe's; then "+x".
     const open = bf?.open ?? style.open?.[key] ?? "+x";
+    openSide = open;
     if (open !== end) {
       yaw += open === "-x" ? QUARTER : -QUARTER;
       quarter = !quarter;
       street = "open";
     }
   }
-  return { key, yaw: normYaw(yaw), w: quarter ? sd : sw, h: sh, d: quarter ? sw : sd, nudge: style.nudge_m?.[key] ?? 0, street };
+  return { key, yaw: normYaw(yaw), w: quarter ? sd : sw, h: sh, d: quarter ? sw : sd, nudge: style.nudge_m?.[key] ?? 0, street, wf: wallOffset(key, street, fronts, openSide) };
 }
 
 function cands(style: StackStyle, keys: readonly CalibrationKey[] | undefined, entries: Entries, fronts: FrontTable, end: StackSide | null): Cand[] {
@@ -333,8 +344,8 @@ function fitBays(style: StackStyle, kit: Kit, frontage: number, sides: readonly 
   return 0;
 }
 
-/** The worst-case depth, back face to frontmost face, over every candidate. */
-function worstDepth(style: StackStyle, kit: Kit): number {
+/** The worst-case depth over every candidate: back face to frontmost face, or with `align: "wall"` back face to the wall line. */
+function worstDepth(style: StackStyle, kit: Kit, align: StackAlign = "back"): number {
   const all = [
     ...kit.baseMid,
     ...kit.door,
@@ -343,21 +354,29 @@ function worstDepth(style: StackStyle, kit: Kit): number {
     ...kit.roofMid,
     ...SIDES.flatMap((s) => [...kit.baseCorner[s], ...kit.floorCorner[s], ...kit.roofCorner[s]]),
   ];
-  if (all.length === 0) return 0;
-  const [front, back] = zExtent(style);
-  return Math.max(...all.map((c) => front(c))) - Math.min(...all.map((c) => back(c)));
+  return depthOf(style, all, align);
 }
 
 /**
  * Where a piece's faces lie before the whole stack is moved so its frontmost face is on z = 0. A "bay" stack (apartments) is back-aligned: every
  * back face on one line (z = nudge), so a deeper shop sticks out toward the street. A "footprint" stack (an office) is centred in z, as it is in x,
  * so a base 10.9 m deep, a floor 10.0 m and a roof 11.2 m share one middle and no piece juts out on one side only.
+ * With `align: "wall"` the wall plane is on z = nudge for every piece of either kind (the front bound `wf` in front of it), and nothing moves afterwards.
  */
-function zExtent(style: StackStyle): [front: (c: Cand) => number, back: (c: Cand) => number] {
+function zExtent(style: StackStyle, align: StackAlign = "back"): [front: (c: Cand) => number, back: (c: Cand) => number] {
+  if (align === "wall") return [(c) => c.nudge + c.wf, (c) => c.nudge + c.wf - c.d];
   return style.depth === "footprint" ? [(c) => c.nudge + c.d / 2, (c) => c.nudge - c.d / 2] : [(c) => c.nudge + c.d, (c) => c.nudge];
 }
 
-function rangeFor(style: StackStyle, type: LotType, entries: Entries, fronts: FrontTable, sides: readonly StackSide[], spec: LotSpec = LOT_TYPES[type], exactBays?: number): StackFit | null {
+/** The depth of a set of pieces under `align`: back face to frontmost face ("back"), or back face to the wall line, z = 0 ("wall": the frontmost face stands in front of it). */
+function depthOf(style: StackStyle, all: readonly Cand[], align: StackAlign): number {
+  if (all.length === 0) return 0;
+  const [front, back] = zExtent(style, align);
+  const minBack = Math.min(...all.map((c) => back(c)));
+  return align === "wall" ? -minBack : Math.max(...all.map((c) => front(c))) - minBack;
+}
+
+function rangeFor(style: StackStyle, type: LotType, entries: Entries, fronts: FrontTable, sides: readonly StackSide[], spec: LotSpec = LOT_TYPES[type], exactBays?: number, align: StackAlign = "back"): StackFit | null {
   const kit = kitOf(style, entries, fronts);
   if (kit.baseMid.length === 0 || kit.floorMid.length === 0 || kit.roofMid.length === 0) return null;
   for (const s of sides) {
@@ -367,7 +386,7 @@ function rangeFor(style: StackStyle, type: LotType, entries: Entries, fronts: Fr
   const max = Math.floor((spec.cap - style.pitch_m.base - roofH) / style.pitch_m.floor + EPS);
   const min = style.min_floors?.[type] ?? STACK_FLOORS[type];
   if (max < min) return null;
-  if (worstDepth(style, kit) > spec.depth + EPS) return null;
+  if (worstDepth(style, kit, align) > spec.depth + EPS) return null;
   if (exactBays !== undefined) {
     // The caller (051 C's packer) sets the columns and owns the frontage: only the count has to be possible for the style.
     if (!Number.isInteger(exactBays) || exactBays < Math.max(1, sides.length) || (style.depth === "footprint" && exactBays !== 1)) return null;
@@ -418,6 +437,8 @@ export interface AssembleOptions {
    * the caller's to keep: the columns' total is `Stack.width_m`, and a piece may overhang it a little, as in any stack. Without it, the most that fit.
    */
   bays?: number;
+  /** How the pieces line up in z (ticket 057 A). Default "back": every ladder stack is as it was. The tile city passes "wall". */
+  align?: StackAlign;
 }
 
 interface Item {
@@ -451,7 +472,8 @@ export function assembleStack(
     lot.cornerSides.map((c) => c.side),
   );
   const spec = opts.spec ?? LOT_TYPES[lot.type];
-  const range = rangeFor(style, lot.type, entries, fronts, sides, spec, opts.bays);
+  const align = opts.align ?? "back";
+  const range = rangeFor(style, lot.type, entries, fronts, sides, spec, opts.bays, align);
   if (!range) return null;
   const kit = kitOf(style, entries, fronts);
   const salt = `${lot.key}${style.id}`;
@@ -550,17 +572,19 @@ export function assembleStack(
       items.push({ c: end ? corner[end].roof : roofMid!, x: col.x, bottom: y, role: "roof", column: i });
     }
 
-    // z: back faces on one line (bay) or centres on one line (footprint), the frontmost face on z = 0.
-    const [frontOf, backOf] = zExtent(style);
-    const maxFront = Math.max(...items.map((it) => frontOf(it.c)));
-    const minBack = Math.min(...items.map((it) => backOf(it.c)));
-    const depth = maxFront - minBack;
+    // z: back faces on one line (bay) or centres on one line (footprint), the frontmost face on z = 0; with "wall", the wall planes on z = 0 and the depth is measured behind that line.
+    const depth = depthOf(
+      style,
+      items.map((it) => it.c),
+      align,
+    );
+    const maxFront = align === "wall" ? 0 : Math.max(...items.map((it) => zExtent(style)[0](it.c)));
     if (depth > spec.depth + EPS) return null;
     const pieces: StackPiece[] = items.map((it) => ({
       key: it.c.key,
       x: it.x,
       y: it.bottom,
-      z: it.c.nudge - maxFront + (style.depth === "footprint" ? 0 : it.c.d / 2),
+      z: align === "wall" ? it.c.nudge + it.c.wf - it.c.d / 2 : it.c.nudge - maxFront + (style.depth === "footprint" ? 0 : it.c.d / 2),
       yaw: it.c.yaw,
       role: it.role,
       column: it.column,
