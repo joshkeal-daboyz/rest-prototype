@@ -21,9 +21,10 @@ import { buildScene } from "./scene";
 import { WORLD_PER_METRE } from "./models";
 import { createStreetView, streetRows } from "./streetcam";
 import { ELEVATION } from "./camera";
-import { CITY_NEAR_FRACTION, TILE_FURNITURE_LEVELS, buildCityScene, buildSheetScene, cityApplyOptions, createCityRenderer3d, createCityRig, sheetRigInsets, tileGroup, tileOriginY_m } from "./tilecity3d";
+import { CITY_NEAR_FRACTION, TILE_FURNITURE_LEVELS, buildCityScene, buildSheetScene, cityApplyOptions, courtLotPieces, createCityRenderer3d, createCityRig, sheetRigInsets, tileGroup, tileOriginY_m } from "./tilecity3d";
 import { TILE_BENCH, TILE_BINS, TILE_FRONTS, TILE_SLOTS, TILE_TREES, TILE_WALK_M, cityTilesRequested, gateParts, gatePlan, interiorItems, sheetPieces, tileKeys, tileLevelY_m, tileFront } from "./tileslots";
 import { tilePassages } from "./frontage";
+
 import { stubTextSurface } from "./text";
 import type { TerraceRun } from "./town";
 
@@ -233,7 +234,8 @@ function planOf(city: TileCity): Plan {
   const keep = tileKeepouts(city);
   const keepPoints = [...(base.keepPoints ?? []), ...keep.keepPoints];
   const keepRects = [...(base.keepRects ?? []), ...keep.keepRects];
-  const expected = bayMeters(city, furnitureLayout({ ...base, keepPoints, keepRects }, DRESSING.entries, DRESSING.fronts));
+  // 057 D review: the lots that became courts are not dressed as frontage lots (`courtLotPieces`), as `cityApplyOptions` filters them.
+  const expected = courtLotPieces(city, bayMeters(city, furnitureLayout({ ...base, keepPoints, keepRects }, DRESSING.entries, DRESSING.fronts)));
   const plan: Plan = { city, terrace: [...applied.terrace], dress: [...applied.dress], furniture: [...applied.furniture], expected, packed, keepPoints, keepRects };
   applied.remove();
   bundle.dispose();
@@ -504,7 +506,8 @@ describe("lot and plaza cells drawn (criterion 26)", () => {
     expect(tileLevelY_m("plaza", TILE_SLOTS.plaza[0]!) + SIDEWALK_WALK_M).toBeCloseTo(0, 12);
     let lotPieces = 0;
     let flat = 0;
-    for (const c of [cityAt(1), cityAt(2)]) {
+    // (057 D review: a court's lot has no lines tile any more, so the flat pieces left are a plaza's or a front-lot block's; the first ten seeds are looked at for them.)
+    for (const c of SEEDS.map(cityAt)) {
       for (const p of planOf(c).furniture) {
         if (p.kind !== "parking" && p.kind !== "plaza") continue;
         lotPieces++;
@@ -887,6 +890,62 @@ describe("the block interiors on the packed city (057 D)", () => {
     expect(explicit).toEqual(implicit);
     expect(applied.packed).toEqual(explicit);
     expect(applied.packed.size).toBe(city.town.terraces.length);
+    applied.remove();
+    bundle.dispose();
+  });
+
+  it("forwards the align option to packTown: asking for \"back\" packs the tile city back-aligned, which is not what the wall alignment gives", () => {
+    const city = tileCity();
+    const stacks = stackInput(SET)!;
+    const input = { terraces: city.town.terraces, lots: city.town.lots };
+    const back = packTown(input, STACK_STYLES, stacks.entries, stacks.fronts, { align: "back" });
+    const wall = packTown(input, STACK_STYLES, stacks.entries, stacks.fronts, { align: "wall" });
+    expect(back, "the two alignments are different packings").not.toEqual(wall);
+    const bundle = buildCityScene(city);
+    const applied = applyModels(bundle, SET, { ...cityApplyOptions(city), align: "back" });
+    expect(applied.packed).toEqual(back);
+    expect(applied.packed).not.toEqual(wall);
+    applied.remove();
+    const again = applyModels(bundle, SET, { ...cityApplyOptions(city), align: "wall" });
+    expect(again.packed).toEqual(wall);
+    again.remove();
+    bundle.dispose();
+  });
+
+  it("takes the open-lot dressing off the lots that became courts (no lines tile, barrier, meter or billboard on a drive) and keeps it on a lot that kept its frontage, on the default city and seed 2", () => {
+    for (const city of [tileCity(), cityAt(2)]) {
+      const bundle = buildCityScene(city);
+      const applied = applyModels(bundle, SET, cityApplyOptions(city));
+      const courtRuns = new Set(city.courts.map((c) => c.run).filter((r) => r !== ""));
+      expect(courtRuns.size, `seed ${city.seed}`).toBeGreaterThan(3);
+      expect(applied.furniture.filter((p) => p.kind === "parking" && courtRuns.has(p.run)), `seed ${city.seed}`).toEqual([]);
+      expect(applied.furniture.length).toBeGreaterThan(50);
+      // Everything else is left: the tile view stands what the filtered layout says, and nothing a court's lot lost is among it.
+      expect(applied.furniture).toEqual(planOf(city).expected);
+      applied.remove();
+      bundle.dispose();
+    }
+  });
+
+  it("keeps the dressing on a lot whose block kept its frontage lot: the filter drops by the run that has a court, so a run with no court keeps it", () => {
+    const city = tileCity();
+    const bundle = buildCityScene(city);
+    const applied = applyModels(bundle, SET, {});
+    const lotPieces = applied.furniture.filter((p) => p.kind === "parking");
+    const courtRuns = new Set(city.courts.map((c) => c.run).filter((r) => r !== ""));
+    const onCourts = lotPieces.filter((p) => courtRuns.has(p.run));
+    expect(onCourts.length, "without the filter the court lots are dressed as frontage lots").toBeGreaterThan(10);
+    expect(onCourts.some((p) => p.flat && p.key === TILE_SLOTS.parking[0]), "with parking-lines tiles").toBe(true);
+    expect(courtLotPieces(city, applied.furniture)).toEqual(applied.furniture.filter((p) => !onCourts.includes(p)));
+    // A city whose first court never fitted (its block is a front-lot block): that run keeps its pieces.
+    const first = city.courts.find((c) => c.run !== "")!;
+    const kept = { ...city, courts: city.courts.filter((c) => c !== first), frontLots: [...city.frontLots, first.block] };
+    const after = courtLotPieces(kept, applied.furniture);
+    expect(after.filter((p) => p.run === first.run && p.kind === "parking").length).toBe(lotPieces.filter((p) => p.run === first.run).length);
+    expect(after.filter((p) => p.run === first.run && p.kind === "parking").length).toBeGreaterThan(0);
+    expect(after.length).toBeLessThan(applied.furniture.length);
+    // Alley courts (run "") end no run and take nothing off.
+    expect(courtLotPieces({ courts: city.courts.map((c) => ({ ...c, run: "" })) }, applied.furniture)).toEqual(applied.furniture);
     applied.remove();
     bundle.dispose();
   });

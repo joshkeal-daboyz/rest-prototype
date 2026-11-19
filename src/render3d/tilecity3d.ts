@@ -49,6 +49,7 @@ import { ZOOM_STEP, type Insets } from "../render/geometry";
 import { ELEVATION, FOV_DEG } from "./camera";
 import { scaleForPx } from "./captions";
 import { WORLD_PER_METRE, atFront } from "./models";
+import type { FurniturePiece } from "./furniture";
 import { applyModels, meshParts, sharedTileModels, tileInput, type AppliedModels, type ApplyOptions, type FurnitureLevels, type ModelSet } from "./models3d";
 import { KERB_H, LOT_TYPE_NAMES, STOREY_M, type Lot, type LotType } from "./town";
 import { ROOF_SHADE, TINTS, pickPlaceholders } from "./placeholders";
@@ -1296,7 +1297,18 @@ export const TILE_FURNITURE_LEVELS: FurnitureLevels = { pavement_m: 0 };
 export function cityApplyOptions(city: TileCity): ApplyOptions {
   const keep = tileKeepouts(city);
   // 057 D: the wall alignment is passed to `packTown` explicitly (it would default to it, by the runs' pavement frame), so the tile city does not depend on that default.
-  return { keepPoints: keep.keepPoints, keepRects: keep.keepRects, furnitureFilter: (pieces) => bayMeters(city, pieces), furnitureLevels: TILE_FURNITURE_LEVELS, align: TILE_STACK_ALIGN };
+  return { keepPoints: keep.keepPoints, keepRects: keep.keepRects, furnitureFilter: (pieces) => bayMeters(city, courtLotPieces(city, pieces)), furnitureLevels: TILE_FURNITURE_LEVELS, align: TILE_STACK_ALIGN };
+}
+
+/**
+ * The furniture without what the layout stands on a lot that became a residents' court (057 D review): the town still holds each court's mouth as a 10 m parking lot, so `furnitureLayout` dresses it as a frontage lot
+ * (parking-lines tiles, barriers, meters, a billboard), which would put a second lines tile 5 mm under the interiors' own, and barriers across the near stalls' opening. The drive is a kerb cut and a lot surface only
+ * (criterion 10). A piece on a lot is `kind` "parking" and names the run it ends: the runs that have a court (`city.courts`, whose `run` is the run the court ends; an alley court's is "" and ends none) lose them,
+ * and the runs of `city.frontLots` (the blocks that kept a frontage lot) keep them. Pure.
+ */
+export function courtLotPieces(city: Pick<TileCity, "courts">, pieces: readonly FurniturePiece[]): FurniturePiece[] {
+  const courtRuns = new Set(city.courts.map((c) => c.run).filter((r) => r !== ""));
+  return pieces.filter((p) => !(p.kind === "parking" && courtRuns.has(p.run)));
 }
 
 export interface CityRendererOptions {
