@@ -316,8 +316,28 @@ The build order is A, B, C, F, G, then D and E. The letters F and G were added a
 - A test shows that block sizes near both ends of the 6 to 16-cell range occur over seeds 1 to 20.
 
 20. [ ] **V3 and V4.** They pass on the cities of criterion 17, and fail on the uniform-grid fixture.
+21. [ ] **The tile city's R1 floor** (Josh, 19 Nov 2026, in chat, relayed by the main session: "Tile-city R1 floor 0.88 (Recommended)").
+    - G's alleys cut R1 (the frontage share, 16.8) to 0.897 to 0.903 on 3 x 3 cities, against the floor of 0.90.
+    - The tile city therefore gets its own floor, `TILE_CITY_R1_MIN = 0.88` in `tilecity.ts`, beside `TILE_CITY_R6_MIN` (0.45) and `TILE_CITY_R7_MIN` (0.4). The tile-city R1 tests use it.
+    - The ladder's R1 floor stays 0.90 in `CITY_CHECK`, and `citymetrics.ts` is not edited.
+- *G as built (recorded 19 Nov 2026 from the G review):*
+  - **Alley courts.** Each alley block's first court opens on its alley lane through a two-cell drive, then stalls and aisle, in the wider part of the split block.
+    - That part is at least 6 cells wide.
+    - The court answers one lot of the block's quota.
+  - **Quotas stay per street block, not per part.** 056's quotas are counted on the street block an alley splits, not on each part.
+  - **Whole-block parks** still ask their neighbours for a tile of kerb bays and one lot. They carry no units, but `parkmetrics.ts` (outside G's Files) still expects every street block to have both.
+  - **Files authorised by the main session during G:** `parkmetrics.test.ts` and `tileintegrate.test.ts`, for stale invariants only:
+    - an alley court has no open lot;
+    - `run.block` is a part id, mapped through `city.parts`;
+    - park-edge interior cells count as pavement.
 
 ### D (Vitest unless marked)
+- *Added to D from G (19 Nov 2026):* D also draws:
+  - the alley lanes and their bins (`TileCity.alleyBins`);
+  - the `parkEdge` cells;
+  - the pad cells;
+  - the courts whose run is `''` (alley courts, which belong to no terrace run);
+  - a small gate at each gated passage that opens on an alley mouth.
 - *Carried from the 057 A review (could-improves, 18 Nov 2026), done in D:*
   - D passes the tile city's `"wall"` alignment to `packTown` explicitly, though a default (`alignOf`) exists, so the tile city does not depend on it.
   - D pins `SM_Bld_OfficeOctagon_Base_01` to its 0.174 m face in `WALL_FRONT_M` before any office style is aligned on `"wall"`.
@@ -377,7 +397,7 @@ The build order is A, B, C, F, G, then D and E. The letters F and G were added a
 - **A, may touch:** new `src/render3d/facade.ts`, `facade.test.ts`, `frontage.ts`, `frontage.test.ts`; `stacks.ts` (the `align` option only); `tilecity.ts` (pass `align`); `terrace.ts` (pass `align` through `packTown` only). If 055 F has merged: `sills.ts`, in place of `facade.ts`.
 - **B, may touch:** `tilecity.ts`, `terrace.ts` (`farOverlap_m` only), `frontage.ts`, and their tests.
 - **C, may touch:** `tilecity.ts`, `frontage.ts`, `parkmetrics.ts` (P2 counts courts; nothing else in it changes), and their tests.
-- **F and G, may touch:** `tilecity.ts`, `frontage.ts`, `frontage.test.ts`, `tilecity.test.ts` (the existing criteria 1 to 8 tests may switch from literal block sizes to `BLOCK_TILES`), and new tests.
+- **F and G, may touch:** *(G also: `parkmetrics.test.ts` and `tileintegrate.test.ts`, for the stale invariants of criterion 21's note, authorised by the main session 19 Nov 2026)* `tilecity.ts`, `frontage.ts`, `frontage.test.ts`, `tilecity.test.ts` (the existing criteria 1 to 8 tests may switch from literal block sizes to `BLOCK_TILES`), and new tests.
 - **D, may touch:** `tileslots.ts`, `tilecity3d.ts`, `models3d.ts` (load the interior keys only when the tile view asks; the puzzle path unchanged), and their tests.
 - **E, may touch:** `docs/city-style-guide.md` (chapters 16.6, 17 and 18 pointer lines, 19, Numbers), `styleguide.test.ts` (the new drift check only).
 - **Must not touch (every section):**
