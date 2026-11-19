@@ -7,8 +7,9 @@
 import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { stableHash } from "../render/city";
 import { loadPuzzle, type AssetEntry, type CalibrationKey } from "../core";
-import { DRESS_PER_BAY_MAX, ESCAPES, ESCAPE_MIN_BAYS, KERB_FROM_FRONT_M, dressBlock, dressStack, dressTown, type DressBlockInput, type DressPiece } from "./dressing";
+import { DRESS_MAX, DRESS_PER_BAY_MAX, ESCAPES, ESCAPE_MIN_BAYS, ESCAPE_SHARE_LADDER, KERB_FROM_FRONT_M, dressBlock, dressStack, dressTown, dressUnit, escapeSitesOf, type DressBlockInput, type DressPiece } from "./dressing";
 import {
   CODE_ESCAPE,
   CODE_ESCAPE_KEY,
@@ -27,7 +28,9 @@ import {
   WINDOW_SILL_M,
   codeEscape,
   deckCovers,
+  escapeBlocks,
   escapeCheck,
+  escapeRank,
   ladderParts,
   measureEscape,
   measureSills,
@@ -37,6 +40,7 @@ import {
   storeysOfPiece,
   upLevels,
   type EscapeGeometry,
+  type EscapeSite,
   type EscapePart,
 } from "./escapes";
 import { runBlocks } from "./citymetrics";
@@ -533,7 +537,7 @@ describe("dressStack's escape and escapeCheck (criteria 3 and 4)", () => {
     expect(lowEsc[0]!.y).toBeCloseTo(3 + 0.417 - 0.15 - 0.609, 9);
   });
 
-  it("keeps 052's eligibility: an apartment block of three bays and two floors, a mid column that is not a door or corner column, never on the block after one", () => {
+  it("keeps 052's eligibility: an apartment block of three bays and two floors, a mid column that is not a door or corner column, none on a block that was not chosen", () => {
     let blocks = 0;
     for (const id of ["apartment-01", "apartment-02", "apartment-03"]) {
       const style = STACK_STYLES.find((s) => s.id === id)!;
@@ -550,9 +554,8 @@ describe("dressStack's escape and escapeCheck (criteria 3 and 4)", () => {
           if (esc.length > 0) {
             const col = stack.columns[esc[0]!.column]!;
             expect(col.corner, `${id} ${type} ${i}`).toBeNull();
-            expect(alone.used.escapePrev).toBe(true);
-            // Never on the block after one.
-            const next = dressBlock(stack, lot, { ...run, used: alone.used }, ENTRIES, {});
+            // A block that was not chosen (ticket 061) gets none, and a block dressed alone is chosen.
+            const next = dressBlock(stack, lot, { ...run, escape: false }, ENTRIES, {});
             expect(next.pieces.some((p) => p.slot === "escape")).toBe(false);
           }
           // Every piece of the escape is in one column, and the column's ground row has no glass-less gap: its shop stays plain (no awning, no sign).
@@ -744,6 +747,221 @@ describe("every escape of the town passes the check (criteria 4 and 5)", () => {
       expect(r.failures, file).toEqual([]);
       expect(r.escapes, file).toBeGreaterThan(5);
     }
+  });
+});
+
+// ---- ticket 061: the choice of escape blocks by rank ----
+
+describe("escapeRank and the choice (ticket 061, criteria 1 and 5)", () => {
+  it("ranks by stableHash(key + 'escape'), written out in escapes.ts without importing src/render", () => {
+    for (const key of ["", "a", "tile:1:0", "terrace:x:+z:7", "09-shrine-circuit:lot 12"]) expect(escapeRank(key), key).toBe(stableHash(`${key}escape`));
+  });
+
+  /** `lens` hostable, qualifying blocks per run (run r, block i), keys unique per run and index. */
+  const fixture = (lens: readonly number[], tag = "f"): EscapeSite[] =>
+    lens.flatMap((n, r) => Array.from({ length: n }, (_, i) => ({ id: `${tag}${r}.${i}`, key: `${tag}:${r}:${i}`, run: `run${r}`, qualifies: true, hosts: true })));
+  /** Blocks chosen next to a chosen block of the same run (sites of a run come in run order). */
+  const neighbours = (sites: readonly EscapeSite[], chosen: ReadonlySet<string>): number =>
+    sites.filter((s, i) => chosen.has(s.id) && i > 0 && sites[i - 1]!.run === s.run && chosen.has(sites[i - 1]!.id)).length;
+  const targetOf = (share: number, q: number): number => Math.ceil(share * q - 1e-9);
+
+  it("gets exactly ceil(share x qualifying) on every fixture run of 1 to 12 hostable blocks, in 1 to 4 runs, at shares 0.4 and 0.5, with no two neighbours", () => {
+    let cases = 0;
+    for (const share of [0.4, 0.5]) {
+      for (let runs = 1; runs <= 4; runs++) {
+        for (let n = 1; n <= 12; n++) {
+          for (const lens of [Array<number>(runs).fill(n), Array.from({ length: runs }, (_, r) => 1 + ((n + 5 * r) % 12))]) {
+            const sites = fixture(lens, `s${share}`);
+            const c = escapeBlocks(sites, share);
+            const label = `share ${share} runs ${lens.join(",")}`;
+            expect(c.qualifying, label).toBe(sites.length);
+            expect(c.target, label).toBe(targetOf(share, sites.length));
+            expect(c.escapeShort, label).toBe(0);
+            expect(c.chosen.size, label).toBe(c.target);
+            expect(neighbours(sites, c.chosen), label).toBe(0);
+            cases++;
+          }
+        }
+      }
+    }
+    expect(cases).toBe(2 * 4 * 12 * 2);
+  });
+
+  it("is deterministic, and a different set of keys moves which blocks are chosen but never the count", () => {
+    const sites = fixture([9, 7, 5]);
+    const a = escapeBlocks(sites, 0.5);
+    const b = escapeBlocks(sites, 0.5);
+    expect([...a.chosen].sort()).toEqual([...b.chosen].sort());
+    let moved = 0;
+    for (const tag of ["g", "h", "i", "j", "k"]) {
+      const other = fixture([9, 7, 5], tag).map((s, i) => ({ ...s, id: sites[i]!.id }));
+      const c = escapeBlocks(other, 0.5);
+      expect(c.chosen.size).toBe(a.chosen.size);
+      expect(neighbours(other, c.chosen)).toBe(0);
+      if ([...c.chosen].sort().join() !== [...a.chosen].sort().join()) moved++;
+    }
+    expect(moved).toBeGreaterThan(0);
+  });
+
+  it("a run of 12 hostable blocks at share 0.5 gets exactly 6, none next to another", () => {
+    const sites = fixture([12]);
+    const c = escapeBlocks(sites, 0.5);
+    expect(c.chosen.size).toBe(6);
+    expect(neighbours(sites, c.chosen)).toBe(0);
+    expect(c.escapeShort).toBe(0);
+  });
+
+  it("repairs a greedy pass that stops short: the two best-ranked blocks of five at positions 2 and 4 leave no room, and the run is re-laid to 1, 3, 5", () => {
+    const keys = Array.from({ length: 5 }, (_, i) => `rank${i}`).sort((p, q) => escapeRank(p) - escapeRank(q));
+    // The two best-ranked keys sit at positions 1 and 3 (0-based); greedy takes both and every other block is then next to one of them.
+    const place = [keys[2]!, keys[0]!, keys[3]!, keys[1]!, keys[4]!];
+    const sites: EscapeSite[] = place.map((key, i) => ({ id: `b${i}`, key, run: "r", qualifies: true, hosts: true }));
+    const c = escapeBlocks(sites, 0.5);
+    expect(c.target).toBe(3);
+    expect([...c.chosen].sort()).toEqual(["b0", "b2", "b4"]);
+    expect(c.escapeShort).toBe(0);
+    // An even run (six: greedy takes positions 1 and 4, which leaves no room) is repaired to three too.
+    const k6 = Array.from({ length: 6 }, (_, i) => `even${i}`).sort((p, q) => escapeRank(p) - escapeRank(q));
+    const sites6: EscapeSite[] = [k6[2]!, k6[0]!, k6[3]!, k6[4]!, k6[1]!, k6[5]!].map((key, i) => ({ id: `e${i}`, key, run: "r", qualifies: true, hosts: true }));
+    const c6 = escapeBlocks(sites6, 0.5);
+    expect(c6.chosen.size).toBe(3);
+    expect(neighbours(sites6, c6.chosen)).toBe(0);
+    expect(c6.escapeShort).toBe(0);
+  });
+
+  it("a block that cannot host breaks a run, so the blocks either side of it are not neighbours; a block that does not qualify takes none", () => {
+    const sites: EscapeSite[] = ["a", "b", "c", "d", "e"].map((key, i) => ({ id: key, key, run: "r", qualifies: true, hosts: i !== 2 }));
+    const c = escapeBlocks(sites, 0.5);
+    // Five qualify, so three are wanted; only a/b and d/e can host, one of each pair, so two are placed and one is short.
+    expect(c.target).toBe(3);
+    expect(c.chosen.size).toBe(2);
+    expect(c.escapeShort).toBe(1);
+    expect(c.chosen.has("c")).toBe(false);
+    expect(["a", "b"].filter((x) => c.chosen.has(x))).toHaveLength(1);
+    expect(["d", "e"].filter((x) => c.chosen.has(x))).toHaveLength(1);
+    const plain: EscapeSite[] = [
+      { id: "x", key: "x", run: "r", qualifies: false, hosts: true },
+      { id: "y", key: "y", run: "r", qualifies: true, hosts: true },
+    ];
+    expect([...escapeBlocks(plain, 0.5).chosen]).toEqual(["y"]);
+  });
+});
+
+describe("the check fails on what 061 replaces and on a map that cannot meet its target (criterion 6)", () => {
+  const share = (n: number, q: number): number => (q === 0 ? 1 : n / q);
+
+  it("a test copy of 058's coin toss (dressUnit < 0.6, none after a block that has one) leaves some nine-block fixture maps under the tile floor, where the rank choice cannot", () => {
+    let under = 0;
+    for (let m = 0; m < 400; m++) {
+      const sites: EscapeSite[] = [];
+      for (let r = 0; r < 3; r++) for (let i = 0; i < 3; i++) sites.push({ id: `${r}.${i}`, key: `coin${m}:${r}:${i}`, run: `r${r}`, qualifies: true, hosts: true });
+      const had = new Set<string>();
+      sites.forEach((s, i) => {
+        const prev = i > 0 && sites[i - 1]!.run === s.run && had.has(sites[i - 1]!.id);
+        if (!prev && dressUnit(s.key, "escape") < 0.6) had.add(s.id);
+      });
+      if (share(had.size, sites.length) < TILE_CITY_R7_MIN) under++;
+      const c = escapeBlocks(sites, TILE_CITY_R7_MIN);
+      expect(share(c.chosen.size, c.qualifying), `map ${m}`).toBeGreaterThanOrEqual(TILE_CITY_R7_MIN);
+    }
+    expect(under, "the coin toss misses the floor on some fixture maps").toBeGreaterThan(0);
+  });
+
+  it("fewer hostable blocks than the target needs: every one the neighbour rule allows gets an escape, escapeShort says how many were missed, and the share check fails", () => {
+    // Ten qualifying blocks in one run, three of them able to host, none next to another: target 5, capacity 3.
+    const sites: EscapeSite[] = Array.from({ length: 10 }, (_, i) => ({ id: `q${i}`, key: `short${i}`, run: "r", qualifies: true, hosts: i % 4 === 0 }));
+    const c = escapeBlocks(sites, 0.5);
+    expect(c.qualifying).toBe(10);
+    expect(c.target).toBe(5);
+    expect(c.chosen.size).toBe(3);
+    expect(c.escapeShort).toBe(2);
+    expect(share(c.chosen.size, c.qualifying)).toBeLessThan(0.5);
+    expect([...c.chosen].sort()).toEqual(["q0", "q4", "q8"]);
+  });
+});
+
+// ---- ticket 061: on the real cities and maps ----
+
+describe("the guaranteed share on the tile city and the ladder maps (criteria 2, 3, 4, 8)", () => {
+  /** The chosen blocks, and what the real dressing built, for a town at an escape share (`rekey` changes the lot keys the rank hashes). */
+  function realised(t: Town, share: number, rekey: (k0: string) => string = (k0) => k0) {
+    const packed = packTown({ terraces: t.terraces, lots: t.lots }, STACK_STYLES, ENTRIES, BUILDING_FRONTS);
+    const sites = sitesOf(runBlocks(t.terraces, packed)).map((s) => ({ ...s, lot: { ...s.lot, key: rekey(s.lot.key) } }));
+    const choice = escapeBlocks(escapeSitesOf(sites, ENTRIES, BUILDING_FRONTS), share);
+    const dressed = dressTown(sites, ENTRIES, BUILDING_FRONTS, { escapeShare: share });
+    const has = dressed.map((ps) => ps.some((p) => p.slot === "escape"));
+    const qualifies = sites.map((s) => s.stack.bays >= ESCAPE_MIN_BAYS && s.stack.floors >= 2 && s.stack.style.startsWith("apartment"));
+    const withEscape = has.filter((h, i) => h && qualifies[i]).length;
+    const adjacent = sites.filter((s, i) => has[i] && i > 0 && sites[i - 1]!.run.id === s.run.id && has[i - 1]).length;
+    const total = dressed.reduce((n, ps) => n + ps.length, 0);
+    return { sites, choice, dressed, has, qualifying: qualifies.filter(Boolean).length, withEscape, adjacent, total };
+  }
+
+  function expectGuarantee(t: Town, share: number, label: string): ReturnType<typeof realised> {
+    const r = realised(t, share);
+    expect(r.qualifying, label).toBe(r.choice.qualifying);
+    expect(r.choice.escapeShort, label).toBe(0);
+    expect(r.choice.chosen.size, label).toBe(r.choice.target);
+    expect(r.withEscape, `${label}: the dressing builds an escape on exactly the chosen blocks`).toBe(r.choice.target);
+    expect(r.has.filter(Boolean).length, label).toBe(r.choice.target);
+    expect(r.withEscape / r.qualifying, `${label} R7 ${r.withEscape}/${r.qualifying}`).toBeGreaterThanOrEqual(share - 1e-9);
+    expect(r.adjacent, `${label}: no two neighbours`).toBe(0);
+    expect(r.total, `${label}: DRESS_MAX is not what holds an escape back`).toBeLessThan(DRESS_MAX);
+    return r;
+  }
+
+  it("holds the tile floor (0.4) on the default city, seeds 1 to 20 at 3 x 3 and seeds 1 to 10 at 6 x 4, with no tuned key behind it", { timeout: 300000 }, () => {
+    expect(TILE_CITY_R7_MIN).toBe(0.4);
+    expectGuarantee(tileCity().town, TILE_CITY_R7_MIN, "default");
+    for (let seed = 1; seed <= 20; seed++) expectGuarantee(tileCity({ blocksX: 3, blocksZ: 3, seed }).town, TILE_CITY_R7_MIN, `3x3 seed ${seed}`);
+    for (let seed = 1; seed <= 10; seed++) expectGuarantee(tileCity({ blocksX: 6, blocksZ: 4, seed }).town, TILE_CITY_R7_MIN, `6x4 seed ${seed}`);
+  });
+
+  it("holds the ladder's 0.5 on the three protocol maps, as ceil(0.5 x qualifying), which is also what dressTown does with no option", { timeout: 300000 }, () => {
+    expect(ESCAPE_SHARE_LADDER).toBe(0.5);
+    for (const file of ["09-shrine-circuit", "64-the-whole-chain", "01-first-light"]) {
+      const puzzle = loadPuzzle(JSON.parse(readFileSync(join("puzzles", `${file}.json`), "utf8")));
+      const r = expectGuarantee(townLayout(puzzle), ESCAPE_SHARE_LADDER, file);
+      expect(r.qualifying, file).toBeGreaterThan(5);
+      expect(r.withEscape, file).toBe(Math.ceil(r.qualifying * 0.5));
+      expect(dressTown(r.sites, ENTRIES, BUILDING_FRONTS), `${file}: no option is the ladder's share`).toEqual(r.dressed);
+    }
+  });
+
+  it("gives the same blocks twice, and a changed hash key moves which blocks are chosen but never puts R7 under the floor", { timeout: 300000 }, () => {
+    let moved = 0;
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      const t = tileCity({ blocksX: 3, blocksZ: 3, seed }).town;
+      const a = realised(t, TILE_CITY_R7_MIN);
+      const again = realised(t, TILE_CITY_R7_MIN);
+      expect([...again.choice.chosen].sort(), `seed ${seed}`).toEqual([...a.choice.chosen].sort());
+      expect(again.dressed, `seed ${seed}`).toEqual(a.dressed);
+      // `blockLens`' key cannot be changed in a copy from here (tilecity.ts is not this ticket's), so the rank's own input is changed instead: every lot key.
+      const b = realised(t, TILE_CITY_R7_MIN, (k0) => `${k0}~`);
+      expect(b.choice.escapeShort, `seed ${seed}`).toBe(0);
+      expect(b.withEscape / b.qualifying, `seed ${seed} re-keyed`).toBeGreaterThanOrEqual(TILE_CITY_R7_MIN);
+      if ([...b.choice.chosen].sort().join() !== [...a.choice.chosen].sort().join()) moved++;
+    }
+    expect(moved).toBeGreaterThan(0);
+  });
+
+  it("a block with an escape differs from the same block without one only in its escape pieces and its escape column", { timeout: 300000 }, () => {
+    let blocks = 0;
+    for (const file of ["09-shrine-circuit", "64-the-whole-chain", "01-first-light"]) {
+      const puzzle = loadPuzzle(JSON.parse(readFileSync(join("puzzles", `${file}.json`), "utf8")));
+      const r = realised(townLayout(puzzle), ESCAPE_SHARE_LADDER);
+      r.sites.forEach((s, i) => {
+        if (!r.has[i]) return;
+        const col = r.dressed[i]!.find((p) => p.slot === "escape")!.column;
+        const without = dressBlock(s.stack, s.lot, { ...s.run, escape: false }, ENTRIES, BUILDING_FRONTS, s.kerbM);
+        const withIt = dressBlock(s.stack, s.lot, { ...s.run, escape: true }, ENTRIES, BUILDING_FRONTS, s.kerbM);
+        const outside = (ps: readonly DressPiece[]): string[] => ps.filter((p) => p.slot !== "escape" && p.column !== col).map((p) => JSON.stringify(p));
+        expect(outside(withIt.pieces), `${file} ${s.lot.key}`).toEqual(outside(without.pieces));
+        expect(withIt.used, `${file} ${s.lot.key}`).toEqual(without.used);
+        blocks++;
+      });
+    }
+    expect(blocks).toBeGreaterThan(8);
   });
 });
 
