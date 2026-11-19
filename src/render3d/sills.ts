@@ -350,15 +350,14 @@ export function stackLift(stack: Pick<Stack, "pieces" | "columns">, table: SillT
 }
 
 /**
- * The sill bands of a set of ground keys (ticket 062 B): the low band holds the keys whose sill is at most `SILL_BAND_M` and the high band the rest. A key with no measured sill (it has no door to
- * meet the walk) is in both. A band with no measured key is left out. With today's pieces the low band is `Shop_01` to `_04`, `Door_01` and `Corner_01` and the high band `Shop_05`, `Door_02` and `Corner_02`
- * (and `Shop_06` in both).
+ * The sill bands of a set of ground keys (ticket 062 B): the low band holds the keys whose sill is at most `SILL_BAND_M` and the high band the rest. A key with no measured sill (the City Pack's `Shop_06`: no door, no
+ * glass) is in neither, so banding a block never trades its shops for blank fronts; a role with no key in the band keeps all of its own. A band with no measured key is left out. With today's pieces the low band is
+ * `Shop_01` to `_04`, `Door_01` and `Corner_01` and the high band `Shop_05`, `Door_02` and `Corner_02`.
  */
 export function sillBands(keys: readonly CalibrationKey[], table: SillTable = DOOR_SILLS): ReadonlySet<CalibrationKey>[] {
-  const none = keys.filter((k) => !rowOf(table, k));
   const low = keys.filter((k) => rowOf(table, k) !== undefined && rowOf(table, k)!.sill_m <= SILL_BAND_M);
   const high = keys.filter((k) => rowOf(table, k) !== undefined && rowOf(table, k)!.sill_m > SILL_BAND_M);
-  return [low, high].filter((b) => b.length > 0).map((b) => new Set<CalibrationKey>([...b, ...none]));
+  return [low, high].filter((b) => b.length > 0).map((b) => new Set<CalibrationKey>(b));
 }
 
 /**

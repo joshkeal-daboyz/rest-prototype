@@ -973,13 +973,32 @@ function stackModel(stack: Stack): LoadedModel {
   };
 }
 
-/** True when `b` is `a` with other ground pieces: the same columns, floors and width, and every piece above the ground row the same piece in the same place along the road and up (ticket 062 B). */
-function sameAboveGround(a: Stack, b: Stack): boolean {
+/** How far a stack's pieces reach past its columns on a side (the far-end overhang the packer measured), metres. */
+function reach(stack: Stack, side: "-x" | "+x"): number {
+  let m = 0;
+  for (const p of stack.pieces) m = Math.max(m, side === "+x" ? p.x + p.w / 2 - stack.width_m / 2 : -(p.x - p.w / 2) - stack.width_m / 2);
+  return m;
+}
+
+/**
+ * True when `b` is `a` with other ground pieces (ticket 062 B): the same columns, floors and width, the same reach past the columns at both ends (so the packer's far gap and overhang still hold), and every piece above
+ * the ground row the same piece in the same place in x and y. Not in z: a back-aligned stack (the ladder maps') stands every back face on one line and its frontmost face on the lot's front line, so a ground piece of
+ * another depth moves its floors and its roof in z (`zShift`, up to 0.4 m with today's pieces); a wall-aligned stack (the tile city's) does not move.
+ */
+export function sameAboveGround(a: Stack, b: Stack): boolean {
   if (a.bays !== b.bays || a.floors !== b.floors || Math.abs(a.width_m - b.width_m) > 1e-9 || a.columns.length !== b.columns.length) return false;
+  if (Math.abs(reach(a, "-x") - reach(b, "-x")) > 1e-9 || Math.abs(reach(a, "+x") - reach(b, "+x")) > 1e-9) return false;
   const up = (s: Stack): StackPiece[] => s.pieces.filter((p) => p.role !== "base");
   const x = up(a);
   const y = up(b);
   return x.length === y.length && x.every((p, i) => p.key === y[i]!.key && p.column === y[i]!.column && Math.abs(p.x - y[i]!.x) < 1e-9 && Math.abs(p.y - y[i]!.y) < 1e-9);
+}
+
+/** How far the pieces above the ground row of `b` stand from where they stand in `a` in z, metres (zero for a wall-aligned stack): the largest over the pieces, for two stacks that are `sameAboveGround`. */
+export function zShift(a: Stack, b: Stack): number {
+  const x = a.pieces.filter((p) => p.role !== "base");
+  const y = b.pieces.filter((p) => p.role !== "base");
+  return x.reduce((m, p, i) => Math.max(m, Math.abs(p.z - (y[i]?.z ?? p.z))), 0);
 }
 
 /** The keys a style's ground row is picked from. */
@@ -989,7 +1008,7 @@ const groundKeysOf = (style: StackStyle): CalibrationKey[] => [...style.base.mid
  * A stack whose lifted ground pieces would reach their first floor's window sill, assembled again within one sill band (ticket 062 B, `fitSillBand`). `again` assembles the same stack with the band's keys as its ground
  * candidates; a result that differs above the ground row (another width, other floors) is not taken.
  */
-function bandedStack(stack: Stack, style: StackStyle, table: SillTable, salt: string, again: (band: ReadonlySet<CalibrationKey>) => Stack | null): Stack {
+export function bandedStack(stack: Stack, style: StackStyle, table: SillTable, salt: string, again: (band: ReadonlySet<CalibrationKey>) => Stack | null): Stack {
   return fitSillBand(stack, table, groundKeysOf(style), salt, (band) => {
     const b = again(band);
     return b && sameAboveGround(stack, b) ? b : null;
@@ -1004,6 +1023,32 @@ function bandedStack(stack: Stack, style: StackStyle, table: SillTable, salt: st
  * each of its `cornerSides` (a corner building, two street faces) or, if that cannot be assembled, a mid-row stack of the same style (an ordinary building, as any model may
  * stand on a corner). Without it (or with no stack piece loaded) the result is exactly what it was.
  */
+/**
+ * The packer's result with every block whose lifted ground pieces would reach their first floor's window sill assembled again within one sill band (ticket 062 B; pure). `terrace.ts` assembles with no band and is not
+ * given one, so this pass runs on what `packTown` gave: the same lot, floors and columns, a ground row picked from one band, taken only where everything above the ground row is the same (`sameAboveGround`). `applyModels`
+ * draws these blocks and hands them back as `applied.packed`, and the pure plan (metrics, frontage, the passage floors) is made from them, so what is checked is what is drawn. `align` is the packer's (default: each run's own).
+ */
+export function bandPacked(packed: ReadonlyMap<string, PackResult>, runs: readonly TerraceRun[], entries: ReadonlyMap<CalibrationKey, AssetEntry>, fronts: FrontTable, table: SillTable = DOOR_SILLS, align?: StackAlign): Map<string, PackResult> {
+  const out = new Map<string, PackResult>();
+  for (const [id, res] of packed) {
+    const run = runs.find((r) => r.id === id);
+    let changed = false;
+    const blocks = res.blocks.map((b): PackedBlock => {
+      const style = STACK_STYLES.find((st) => st.id === b.style);
+      if (!style || !run) return b;
+      const cap = Math.round((b.lot.hMax / WORLD_PER_METRE) * 1e6) / 1e6;
+      const lot = { type: b.lot.type, key: b.lot.key, cornerSides: b.lot.cornerSides };
+      const again = (sillBand: ReadonlySet<CalibrationKey>): Stack | null => assembleStack(style, lot, entries, fronts, { spec: { frontage: 40, depth: TERRACE_DEPTH_M, cap }, bays: b.bays, floors: b.floors, align: align ?? alignOf(run), sillBand });
+      const fitted = bandedStack(b.stack, style, table, `${b.lot.key}${style.id}`, again);
+      if (fitted === b.stack) return b;
+      changed = true;
+      return { ...b, stack: fitted };
+    });
+    out.set(id, changed ? { ...res, blocks } : res);
+  }
+  return out;
+}
+
 export function buildingPlacements(lots: readonly Lot[], buildings: readonly LoadedModel[] | null, stack: StackInput | null = null, sills?: SillTable): BuildingPlacement[] {
   const models = buildings ?? [];
   const offers = stack ? offeredStacks(stack.entries, stack.fronts) : [];
@@ -1279,32 +1324,17 @@ export function applyModels(bundle: SceneBundle, set: ModelSet, opts: ApplyOptio
   const runs = slots.blocks.terraces ?? [];
   if (stacks && runs.length > 0) {
     const lots = slots.blocks.list;
-    const packed = packTown({ terraces: runs, lots }, STACK_STYLES, stacks.entries, stacks.fronts, opts.align ? { align: opts.align } : {});
+    // The packer assembles with no sill band; a block whose lifted ground pieces would reach its first floor's window sill is assembled again within one band (ticket 062 B, `bandPacked`). What is drawn, what the
+    // furniture is laid by and what `applied.packed` hands back are those blocks.
+    const packed = bandPacked(packTown({ terraces: runs, lots }, STACK_STYLES, stacks.entries, stacks.fronts, opts.align ? { align: opts.align } : {}), runs, stacks.entries, stacks.fronts, sills, opts.align);
     for (const [id, res] of packed) packedRuns.set(id, res);
-    // The packer assembles with no sill band (terrace.ts is not given one), and `packed` is what it gave. A block whose lifted ground pieces would reach its first floor's window sill is drawn as its stack assembled again within
-    // one band (ticket 062 B): `drawn` holds each run's blocks as they are drawn, `packed` and `packedRuns` the packer's own.
-    const drawn = new Map<string, PackedBlock[]>();
-    for (const [id, res] of packed) {
-      const run = runs.find((r) => r.id === id);
-      const blocks = res.blocks.map((b): PackedBlock => {
-        const style = STACK_STYLES.find((st) => st.id === b.style);
-        if (!style || !run) return b;
-        const cap = Math.round((b.lot.hMax / WORLD_PER_METRE) * 1e6) / 1e6;
-        const lot = { type: b.lot.type, key: b.lot.key, cornerSides: b.lot.cornerSides };
-        const again = (sillBand: ReadonlySet<CalibrationKey>): Stack | null =>
-          assembleStack(style, lot, stacks.entries, stacks.fronts, { spec: { frontage: 40, depth: TERRACE_DEPTH_M, cap }, bays: b.bays, floors: b.floors, align: opts.align ?? alignOf(run), sillBand });
-        const fitted = bandedStack(b.stack, style, sills, `${b.lot.key}${style.id}`, again);
-        return fitted === b.stack ? b : { ...b, stack: fitted };
-      });
-      drawn.set(id, blocks);
-    }
     const row = new Group();
     row.name = "terrace-stacks";
     row.userData["sharedModel"] = true;
     row.raycast = () => {};
     const covered = new Set<number>();
     for (const run of runs) {
-      const blocks = drawn.get(run.id) ?? [];
+      const blocks = packed.get(run.id)?.blocks ?? [];
       if (blocks.length === 0) continue;
       for (const i of run.lots) covered.add(i);
       for (const b of blocks) {

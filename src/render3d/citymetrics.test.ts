@@ -16,7 +16,7 @@ import { dressKeys, dressTown, type DressPiece } from "./dressing";
 import { alleyOf, furnitureKeys, furnitureLayout, type Alley, type FurnitureInput, type FurniturePiece, type Rect } from "./furniture";
 import { dropLayout, wireLayout } from "./layout";
 import { WORLD_PER_METRE } from "./models";
-import { allStackKeys, applyModels, avoidBoxOf, dressInput, dressSites, loadModels, stackInput, type DressPlacement, type ModelSet } from "./models3d";
+import { allStackKeys, applyModels, avoidBoxOf, bandPacked, dressInput, dressSites, loadModels, stackInput, type DressPlacement, type ModelSet } from "./models3d";
 import { buildScene } from "./scene";
 import { STACK_STYLES, stackKeys } from "./stacks";
 import { ALLEY_MAX_M, ALLEY_MIN_M, packTown, type PackResult } from "./terrace";
@@ -215,7 +215,8 @@ function planOf(file: string): Plan {
   if (hit) return hit;
   const puzzle = loadMap(file);
   const town = townLayout(puzzle);
-  const packed = packTown({ terraces: town.terraces, lots: town.lots }, STACK_STYLES, STACKS.entries, STACKS.fronts);
+  // Ticket 062 B: the pure plan is the game's, so it takes the same band pass as `applyModels`.
+  const packed = bandPacked(packTown({ terraces: town.terraces, lots: town.lots }, STACK_STYLES, STACKS.entries, STACKS.fronts), town.terraces, STACKS.entries, STACKS.fronts);
   const list = runBlocks(town.terraces, packed);
   const sites = dressSites(list.map((x) => x.block), [], town.lots);
   const dressing = dressTown(sites, DRESS.entries, DRESS.fronts).map((x) => [...x]);
@@ -337,18 +338,7 @@ describe("every automatic item holds on the three maps of the protocol", () => {
     expect(failing(cityMetrics(plan.town, plan.packed, plan.dressing, plan.furniture, { ...plan.extra, emissiveMaterials: emissive }), file)).toEqual([]);
     // The pure plan is the game's: the same blocks and the same dressing.
     expect(applied.terrace.length).toBe(runBlocks(plan.town.terraces, plan.packed).length);
-    // Ticket 062 B: a block whose lifted ground pieces would reach a window is drawn with its ground row assembled again within a sill band, which has other ground dressing. On every block that was not,
-    // the dressing drawn is the plan's.
-    const key = (f: { x: number; z: number }): string => `${f.x.toFixed(6)},${f.z.toFixed(6)}`;
-    const ground = (s: { pieces: readonly { role: string; key: string }[] }): string => s.pieces.filter((p) => p.role === "base").map((p) => p.key).join();
-    const planned = runBlocks(plan.town.terraces, plan.packed);
-    const bandedFrames = new Set<string>();
-    let kept = 0;
-    dressSites(applied.terrace, [], bundle.slots.blocks.list).forEach((site, i) => {
-      if (ground(site.stack) !== ground(planned[i]!.block.stack)) bandedFrames.add(key(site.frame));
-      else kept += plan.dressing[i]!.length;
-    });
-    expect(applied.dress.filter((p) => !bandedFrames.has(key(p.frame))).length).toBe(kept);
+    expect(applied.dress.length).toBe(plan.dressing.reduce((s, d) => s + d.length, 0));
     applied.remove();
     bundle.dispose();
   }, 60000);

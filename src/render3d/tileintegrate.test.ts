@@ -12,7 +12,7 @@ import { BoxGeometry, Group, MeshBasicMaterial, Mesh, Scene, Vector3, type Objec
 import { ASSET_MANIFEST_VERSION, loadPuzzle, type AssetEntry, type AssetManifest, type CalibrationKey, type Puzzle } from "../core";
 import { SIDEWALK_TOP_M, SIDEWALK_WALK_M, TILE_CITY_R1_MIN, TILE_CITY_R6_MIN, TILE_CITY_R7_MIN, TILE_M, tileCity, tileKeepouts, bayMeters, BAYS_PER_PARKING_TILE, LANE_RIGHT, TILE_STACK_ALIGN, withPassages, type TileCity, type TileRole } from "./tilecity";
 import { CITY_ATM_BLOCKS_MIN, CITY_CHECK, cityMetrics, evaluateCity, isNeverUsed, runBlocks, type CityMetrics } from "./citymetrics";
-import { dressInput, dressSites, furnitureInput, furniturePlacement, loadModels, NO_MODELS, allStackKeys, applyModels, stackInput, type DressPlacement, type ModelSet } from "./models3d";
+import { bandPacked, dressInput, dressSites, furnitureInput, furniturePlacement, loadModels, NO_MODELS, allStackKeys, applyModels, stackInput, type DressPlacement, type ModelSet } from "./models3d";
 import { AWNING_KERB_M, ESCAPE_SHARE_LADDER, KERB_FROM_FRONT_M, dressKeys, dressTown, type DressBlockInput } from "./dressing";
 import { FURN_KEEP_M, FURN_KERB_M, KERB_M, METERS, furnitureKeys, furnitureLayout, type FurniturePiece } from "./furniture";
 import { STACK_STYLES } from "./stacks";
@@ -229,7 +229,8 @@ function planOf(city: TileCity): Plan {
   const bundle = buildCityScene(city);
   const applied = applyModels(bundle, SET, cityApplyOptions(city));
   const stacks = stackInput(SET)!;
-  const packed = packTown({ terraces: city.town.terraces, lots: city.town.lots }, STACK_STYLES, stacks.entries, stacks.fronts);
+  // Ticket 062 B: the packing the game draws and lays furniture by has the band pass applied.
+  const packed = bandPacked(packTown({ terraces: city.town.terraces, lots: city.town.lots }, STACK_STYLES, stacks.entries, stacks.fronts), city.town.terraces, stacks.entries, stacks.fronts);
   const base = furnitureInput(bundle, packed, applied.dress);
   const keep = tileKeepouts(city);
   const keepPoints = [...(base.keepPoints ?? []), ...keep.keepPoints];
@@ -892,7 +893,8 @@ describe("the block interiors on the packed city (057 D)", () => {
     const explicit = packTown(input, STACK_STYLES, stacks.entries, stacks.fronts, { align: "wall" });
     const implicit = packTown(input, STACK_STYLES, stacks.entries, stacks.fronts);
     expect(explicit).toEqual(implicit);
-    expect(applied.packed).toEqual(explicit);
+    // Ticket 062 B: what `applyModels` hands back is the packer's result with the band pass applied.
+    expect(applied.packed).toEqual(bandPacked(explicit, city.town.terraces, stacks.entries, stacks.fronts, undefined, "wall"));
     expect(applied.packed.size).toBe(city.town.terraces.length);
     applied.remove();
     bundle.dispose();
@@ -907,11 +909,11 @@ describe("the block interiors on the packed city (057 D)", () => {
     expect(back, "the two alignments are different packings").not.toEqual(wall);
     const bundle = buildCityScene(city);
     const applied = applyModels(bundle, SET, { ...cityApplyOptions(city), align: "back" });
-    expect(applied.packed).toEqual(back);
+    expect(applied.packed).toEqual(bandPacked(back, city.town.terraces, stacks.entries, stacks.fronts, undefined, "back"));
     expect(applied.packed).not.toEqual(wall);
     applied.remove();
     const again = applyModels(bundle, SET, { ...cityApplyOptions(city), align: "wall" });
-    expect(again.packed).toEqual(wall);
+    expect(again.packed).toEqual(bandPacked(wall, city.town.terraces, stacks.entries, stacks.fronts, undefined, "wall"));
     again.remove();
     bundle.dispose();
   });
@@ -967,7 +969,7 @@ describe("the block interiors on the packed city (057 D)", () => {
       const done = applyModels(map, SET);
       const stacks = stackInput(SET)!;
       const runs = map.slots.blocks.terraces ?? [];
-      expect(done.packed, file).toEqual(packTown({ terraces: runs, lots: map.slots.blocks.list }, STACK_STYLES, stacks.entries, stacks.fronts));
+      expect(done.packed, file).toEqual(bandPacked(packTown({ terraces: runs, lots: map.slots.blocks.list }, STACK_STYLES, stacks.entries, stacks.fronts), runs, stacks.entries, stacks.fronts));
       done.remove();
       map.dispose();
     }
