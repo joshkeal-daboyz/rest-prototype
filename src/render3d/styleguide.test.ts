@@ -13,6 +13,7 @@ import * as colourway from "./colourway";
 import * as citymetrics from "./citymetrics";
 import * as debug3d from "./debug3d";
 import * as dressing from "./dressing";
+import * as escapes from "./escapes";
 import * as furniture from "./furniture";
 import * as layout from "./layout";
 import * as lighting from "./lighting";
@@ -42,6 +43,7 @@ const MODULES: Readonly<Record<string, Record<string, unknown>>> = {
   "stacks.ts": stacks as unknown as Record<string, unknown>,
   "terrace.ts": terrace as unknown as Record<string, unknown>,
   "dressing.ts": dressing as unknown as Record<string, unknown>,
+  "escapes.ts": escapes as unknown as Record<string, unknown>,
   "furniture.ts": furniture as unknown as Record<string, unknown>,
   "streetcam.ts": streetcam as unknown as Record<string, unknown>,
   "citymetrics.ts": citymetrics as unknown as Record<string, unknown>,
@@ -653,5 +655,55 @@ describe("chapter 18 gives the parking rules, and the numbers it names cannot dr
     const pending = section(/^## Decided, not yet built/).join("\n");
     expect(pending).not.toMatch(/### Parking \(ticket 056/);
     expect(pending).not.toContain("1 bay per 3 shops");
+  });
+});
+
+// ---- ticket 058: escapes.ts joins the drift-checked files ----
+
+describe("escapes.ts is drift-checked and 16.11 gives the fire-escape rules (ticket 058)", () => {
+  const rows = table(section(/^## Numbers$/), ["Constant", "Value", "File"]);
+  const have = rows.filter((r) => r[2] === "escapes.ts").map((r) => unquote(r[0]!));
+  /** A number or a record of numbers: what a tuning constant looks like (the geometry and sill tables hold records and arrays, and are pinned by escapes.test.ts). */
+  const numeric = (v: unknown): boolean => typeof v === "number" || (typeof v === "object" && v !== null && !Array.isArray(v) && Object.keys(v).length > 0 && Object.values(v).every((x) => typeof x === "number"));
+  const uncovered = (mod: Record<string, unknown>, names: readonly string[]): string[] =>
+    Object.entries(mod)
+      .filter(([, v]) => numeric(v))
+      .map(([name]) => name)
+      .filter((name) => !names.some((r) => r === name || r.startsWith(`${name}.`) || r.startsWith(`${name}[`)));
+  const sectionText = (): string => {
+    const from = lines.findIndex((l) => /^### 16\.11 /.test(l));
+    const to = lines.findIndex((l, i) => i > from && /^##+ /.test(l));
+    return lines.slice(from, to < 0 ? lines.length : to).join("\n");
+  };
+
+  it("has a Numbers row for every number and record of numbers escapes.ts exports, and the check finds one with no row", () => {
+    expect(Object.values(MODULES["escapes.ts"]!).filter(numeric).length, "escapes.ts exports constants").toBeGreaterThan(8);
+    expect(uncovered(MODULES["escapes.ts"]!, have), "no Numbers row for these escapes.ts exports").toEqual([]);
+    expect(uncovered({ ...MODULES["escapes.ts"]!, NEW_TUNING: 3 }, have)).toEqual(["NEW_TUNING"]);
+    expect(uncovered(MODULES["escapes.ts"]!, [])).toContain("ESCAPE_DECK_BELOW_SILL_M");
+  });
+
+  it("gives 16.11 the Decided line with Josh's words verbatim, and every rule tagged with ticket 058 or with what it waits for", () => {
+    const text = sectionText();
+    expect(text).toContain('There are gaps on the fire escapes. Additionally, fire escapes should always be level with windows or else people can\'t get out of the building.');
+    expect(/^- \*\*Decided \(058, Josh 18 Nov 2026: "There are gaps on the fire escapes\./m.test(text)).toBe(true);
+    for (const b of text.split("\n").filter((l) => l.startsWith("- "))) {
+      const tag = /^- \*\*(Decided|Default|Pending|Open|Info)\b/.exec(b);
+      expect(tag, `16.11: untagged bullet: ${b.slice(0, 80)}`).not.toBeNull();
+      if (tag![1] === "Open" || tag![1] === "Pending") expect(b.startsWith(`- **${tag![1]} (waits for `), `16.11: no "what it waits for": ${b.slice(0, 80)}`).toBe(true);
+      else expect(/^- \*\*\w+ \(058\b/.test(b), `16.11: no ticket beside: ${b.slice(0, 80)}`).toBe(true);
+    }
+  });
+
+  it("names the rules' constants in 16.11, points 16.5 at it, and no longer holds the escape among the decisions not yet built", () => {
+    const text = sectionText();
+    for (const n of ["ESCAPE_DECK_BELOW_SILL_M", "ESCAPE_DECK_TOL_M", "ESCAPE_JOINT_TOL_M", "ESCAPE_GROUND_TOL_M", "ESCAPE_SCALE_Y", "WINDOW_SILL_M", "ESCAPE_GEOMETRY", "LADDER_RUNG_PITCH_M", "CODE_ESCAPE_KEY", "CODE_ESCAPE"]) expect(text, n).toContain(`\`${n}\``);
+    for (const n of ["ESCAPE_DECK_BELOW_SILL_M", "WINDOW_SILL_M", "ESCAPE_GEOMETRY", "CODE_ESCAPE_KEY"]) expect(Object.keys(MODULES["escapes.ts"]!), n).toContain(n);
+    const fiveEleven = chapter(16).filter((l) => /^- \*\*Default \(052, 058\)\*\*: fire escapes\./.test(l));
+    expect(fiveEleven).toHaveLength(1);
+    expect(fiveEleven[0]).toContain("(16.11)");
+    const pending = section(/^## Decided, not yet built/).join("\n");
+    expect(pending).not.toMatch(/^- \*\*Default \(058/m);
+    expect(pending).toContain("now section 16.11");
   });
 });

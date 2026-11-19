@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { AssetEntry, CalibrationKey } from "../core";
+import { escapeCheck } from "./escapes";
 import type { FrontTable } from "./models";
 import { STACK_STYLES, assembleStack, type Stack, type StackSide, type StackStyle } from "./stacks";
 import { LOT_TYPES, LOT_TYPE_NAMES, WORLD_PER_METRE, type CornerSide, type LotType } from "./town";
@@ -257,6 +258,8 @@ describe("attachment", () => {
     const spanned = base ? stack.columns.filter((o) => Math.abs(o.x - base.x) <= base.w / 2 + EPS) : [c];
     return [Math.min(...spanned.map((o) => o.x - o.w / 2)), Math.max(...spanned.map((o) => o.x + o.w / 2))];
   };
+  /** Ticket 058: an escape piece stands against the storey it serves, and where the sill is low its legs hang under that storey's floor by up to this much (Apartment_02: 0.34 m). */
+  const ESCAPE_LEG_REACH_M = 0.7;
   const isWrap = (p: DressPiece): boolean => (p.slot === "glass" || AWNING_CORNER.includes(p.key)) && rawOf(p.key)[2] > 1;
 
   it("every front-face prop's back lies on its host's front face, inside its column, and short of the kerb", () => {
@@ -275,7 +278,7 @@ describe("attachment", () => {
         }
         const back = p.z - p.d / 2;
         const inset = p.slot === "glass" ? GLASS_INSET_M : 0;
-        const host = b.stack.pieces.filter((q) => q.role !== "roof" && Math.abs(q.x - p.x) <= q.w / 2 + EPS && q.y <= p.y + EPS && Math.abs(q.z + q.d / 2 - inset - back) < EPS);
+        const host = b.stack.pieces.filter((q) => q.role !== "roof" && Math.abs(q.x - p.x) <= q.w / 2 + EPS && q.y <= p.y + (p.slot === "escape" ? ESCAPE_LEG_REACH_M : EPS) && Math.abs(q.z + q.d / 2 - inset - back) < EPS);
         expect(host.length, `${b.key} ${p.key} y=${p.y}: back ${back}`).toBeGreaterThan(0);
         expect(p.z + p.d / 2, `${b.key} ${p.key} kerb`).toBeLessThanOrEqual(KERB_FROM_FRONT_M + EPS);
         if (p.slot === "awning" && !DOOR_CANOPIES.includes(p.key)) expect(p.z + p.d / 2, `${b.key} awning`).toBeLessThanOrEqual(KERB_FROM_FRONT_M - AWNING_KERB_M + EPS);
@@ -313,7 +316,10 @@ describe("attachment", () => {
     };
     for (const b of SWEEP) {
       const ps = dress(b);
-      for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++) expect(overlap(ps[i]!, ps[j]!), `${b.key}: ${ps[i]!.key} vs ${ps[j]!.key}`).toBe(false);
+      // Ticket 058: an escape's pieces are placed by their decks and flights, not their bounds, so the bound of one (its ladder and rail reach 3.8 m) overlaps the next: that is the escape, not a clash.
+      // Where a window's sill is low (Apartment_02) the first piece's legs, at the wall, start 0.08 m under the top of the shop glass below: its bound meets the glass's, its mesh does not.
+      const own = (p: DressPiece, q: DressPiece): boolean => p.slot === "escape" && (q.slot === "escape" || q.slot === "glass");
+      for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++) if (!own(ps[i]!, ps[j]!) && !own(ps[j]!, ps[i]!)) expect(overlap(ps[i]!, ps[j]!), `${b.key}: ${ps[i]!.key} vs ${ps[j]!.key}`).toBe(false);
     }
   });
 
@@ -331,6 +337,24 @@ describe("attachment", () => {
     expect(seen).toBeGreaterThan(0);
   });
 });
+
+/** How many pieces 052's stacking by bounds put on a block of `floors` floors over the base (3 m storeys, the roof at 3 + 3 x floors): the tall landing, a middle piece while it and the top still fit, the top. */
+const legacyEscapeCount = (floors: number): number => {
+  const [top, mid, first] = [rawOf(ESCAPES[0]!)[1], rawOf(ESCAPES[1]!)[1], rawOf(ESCAPES[2]!)[1]];
+  const roof = 3 + 3 * floors;
+  let n = 0;
+  let y = 3;
+  if (y + first <= roof + 1e-9) {
+    n++;
+    y += first;
+  }
+  while (y + mid + top <= roof + 1e-9) {
+    n++;
+    y += mid;
+  }
+  if (y + top <= roof + 1e-9) n++;
+  return n;
+};
 
 describe("the caps", () => {
   const count = (ps: readonly DressPiece[], f: (p: DressPiece) => boolean): number => ps.filter(f).length;
@@ -356,7 +380,12 @@ describe("the caps", () => {
       const ps = dress(b);
       const per = new Map<number, number>();
       for (const p of ps) per.set(p.column, (per.get(p.column) ?? 0) + 1);
-      for (const [c, n] of per) expect(n, `${b.key} column ${c}`).toBeLessThanOrEqual(DRESS_PER_BAY_MAX);
+      // Ticket 058: a pack escape has a piece on every storey, and counts against its column what 052's stacking by bounds used (so no other piece of the block moves): a code-drawn one is one piece.
+      for (const [c, n] of per) {
+        const esc = ps.filter((p) => p.slot === "escape" && p.column === c).length;
+        const held = esc === b.stack.floors ? n - esc + legacyEscapeCount(b.stack.floors) : n;
+        expect(held, `${b.key} column ${c}`).toBeLessThanOrEqual(DRESS_PER_BAY_MAX);
+      }
       expect(count(ps, (p) => p.slot === "wallUpper"), b.key).toBeLessThanOrEqual(WALL_PROPS_PER_BLOCK);
       for (const p of ps.filter((q) => q.slot === "escape")) {
         expect(b.stack.columns[p.column]!.corner, b.key).toBeNull();
@@ -536,23 +565,18 @@ describe("deterministic, busy and not noisy", () => {
 });
 
 describe("escapes, the kerb and the billboard", () => {
-  it("a fire escape stacks from the first floor up: the tall landing, the floor pieces, the top piece, each starting where the one below ends", () => {
+  it("a fire escape has one platform on every storey over the base (the tall landing, a middle piece for each storey between, the top piece), each deck under its window sill, each flight meeting the deck above and the ladder on the walk (ticket 058)", () => {
     let seen = 0;
     for (const b of FIFTY(["large", "tall"])) {
-      const esc = dress(b).filter((p) => p.slot === "escape").sort((p, q) => p.y - q.y);
+      const ps = dress(b);
+      const esc = ps.filter((p) => p.slot === "escape").sort((p, q) => p.y - q.y);
       if (esc.length === 0) continue;
       seen++;
-      const firstFloor = Math.min(...b.stack.pieces.filter((p) => p.role === "floor").map((p) => p.y));
-      const roof = b.stack.pieces.find((p) => p.role === "roof" && p.column === esc[0]!.column)!;
-      expect(esc[0]!.y, b.key).toBeCloseTo(firstFloor, 6);
+      expect(esc, b.key).toHaveLength(b.stack.floors);
       expect(esc[0]!.key, b.key).toBe(ESCAPES[2]);
-      esc.forEach((p, i) => {
-        if (i === 0) return;
-        expect(p.y, b.key).toBeCloseTo(esc[i - 1]!.y + esc[i - 1]!.h, 6);
-        expect(p.key, `${b.key} piece ${i}`).toBe(i === esc.length - 1 ? ESCAPES[0] : ESCAPES[1]);
-      });
-      const top = esc[esc.length - 1]!;
-      expect(top.y + top.h, b.key).toBeLessThanOrEqual(roof.y + 1e-6);
+      expect(esc[esc.length - 1]!.key, b.key).toBe(ESCAPES[0]);
+      for (const p of esc.slice(1, -1)) expect(p.key, b.key).toBe(ESCAPES[1]);
+      expect(escapeCheck(b.stack, ps), b.key).toMatchObject([{ ok: true, missing: [], platforms: b.stack.floors }]);
     }
     expect(seen).toBeGreaterThan(10);
   });
