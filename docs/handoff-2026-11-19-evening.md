@@ -1,0 +1,45 @@
+# Handoff, 19 Nov 2026 evening (second handoff of the day)
+
+You are the main (orchestrator) session for **Rest: Circuits** (D:\rest-prototype). Read `CLAUDE.md` (hard rules and the ticket loop are law), the memory index (`C:\Users\Josh\.claude\projects\D--rest-prototype\memory\MEMORY.md`, especially `project-063-goal.md`, `project-tile-city-ticket-chain.md`, `feedback-pc-load-limits.md`), then `docs/handoff-2026-11-19.md` (how the loop runs: worktree creation commands, the gate command, review/playtest spawning, eye check) and this file. You never write feature code. Josh judges by eye and wants screenshots (send with `SendUserFile`); he is often on his phone.
+
+## The standing authority (Josh, 19 Nov 2026, in chat)
+
+"I want all of it to be packaged together as a goal." and "I don't want to constantly approve all of these improvments." So: tickets start and **merge into `goal/city-style`** without asking, once the gate is green, the review says must-fix 0 and the playtest 0 regressions; quote his words in each merge commit (use a message file with `git merge --no-ff <branch> -F file`; do not use PowerShell here-strings in `-m`). **Not waived**: merging `goal/city-style` into `main`, pushing, loosening a check, changing a GDD Decided rule, anything that changes a rule he approved earlier (e.g. `LOTS_PER_BLOCK_MAX` 2 to 3 if parking P2 fails in 065: ask him). He does not answer `AskUserQuestion` boxes reliably; when he does it is by message.
+
+## Where everything is
+
+- Branch **`goal/city-style`** at **D:\rest-prototype-goal**, head **`d85ed99`** (never pushed; `main` untouched). Gate worktree **D:\rest-prototype-gate** (detached; untracked `gate-out.txt`; review/playtest files for unmerged branches are written there, copy them into the section's worktree before merging). Dev server for Josh's demo is running from the goal worktree on port **5199** (stop it by port when he is done).
+- **Merged on goal/city-style since this morning**: 057 D (interiors drawn) and E (guide ch.19), 061 (fire escapes by rank), 062 (door sills measured; mixed-sill stacks lifted; `bandPacked`), 063 A, D, H (one solid sidewalk piece `Straight_02`; plain `Sidewalk_01` interior paving, no plates; paved inlets), 063 F (one continuous kerb line with squared returns: `Dip_Corner_01` is a ramp, so the return is a `Straight_02` plus a code strip), the city grammar document (`docs/city-grammar.md`, written by a Fable session, Josh's rulings Q1 to Q7 recorded), and the re-cut tickets 063 (index + B), 064 to 068.
+
+## In flight (their reports come to the session that spawned them; if this is a new session, read their state from the branches)
+
+1. **063 E1 + E2** (corner pieces' measured open side `-x`; every storey and roof on one footprint, wall-aligned runs only). Branch `ticket/063e-corners-roofs`, worktree `D:\rest-prototype-063e`, builder commits `3f860df` (E1), `bb2458b` (E2), head `99efe18` (merged with goal). Gate on `99efe18` green (2658 passed, 20 skipped), playtest 0 regressions, **review round 1: partly, must-fix 1** (criterion 25's corner-turn check must also run on the three protocol maps; `reviews/063e-corners-roofs.md` in the gate worktree). A builder was sent back to fix it (plus could-improves: report the 0.03 to 0.1 m blind band, pass `footprint` explicitly from `cityApplyOptions`, record the cross-paired corner roofs, name the 0.02 to 0.13 m recess of shop corners until 064). **Next**: gate the new head (merge `goal/city-style` into the branch first if needed), fresh review + playtest (round 2), then merge into goal, then eye-check with screenshots (corners, roofs, kerbs together). The ladder's three `packTown` digests in `packpin.test.ts` were deliberately re-taken (old ones kept as `PINS_BEFORE_063E`).
+2. **063 B** (street width: no avenues, every street 25 m / 15 m carriageway). Branch `ticket/063b-street-width`, worktree `D:\rest-prototype-063b`, cut from `e23a494`. Builder running; no result yet. Gate it, review, playtest, merge. It must report before/after numbers for parking supply, R-checks and re-take the 063 A/D/H/F city-data digests deliberately.
+
+## The queue after those (all tickets exist on goal/city-style, in `tickets/`)
+
+`064` the lattice (rows cut in 5.0 m bays on a 5.0 m band, columns on wall bodies, passage count 0; `town.ts`/`terrace.ts` are named exceptions) then `065 A`, `065 B` (back-to-back plan: ring 2 runs, drives, alley/half-park splits, open sides, corner columns wherever two open sides meet [Josh: yes], blind columns, quiet ground rows) then `066` (drawing) then `067 A` (party walls M7, pipes lifted from the never-used list for party walls only [Josh: yes]) and `067 B` (strips) then `068` (roof exit, 063 G). Then ticket 059 (poles, wires, street lights: show Josh its never-used list), the ~10 rebuilt puzzles for the 90 degree style, the circuit on the 90 degree grid, and whether `goal/city-style` goes to `main` (Josh has not answered; see `docs/overnight-city-goal-notes.md`).
+
+**One question only Josh can answer, later**: if parking P2 fails in 065, may `LOTS_PER_BLOCK_MAX` rise to 3 on blocks of at least 10 cells each way (changes a 056 rule he approved)? 065 measures first and stops rather than loosening anything.
+
+## Josh's rulings this evening (his words; all in `docs/city-grammar.md` and the guide)
+
+"Make the side walk one uniform color." / "The streets do not need to be 4 tiles wide." / "the buildings are intended to be butted up against eachother ... They can have gaps but those caps must be intentional (alley ways... etc)" / "the backs of buildings are also butted up against the backs of other buildings Also intentional. Without this you end up with featurless walls." / "corner store is not angled on the corner" / "roof top exists shouldn't open to the street. They should be on the roof." / "the curb structures have to follow the crub" (returns round the inlets as he drew them; the squared returns need his eye) / "If you're going to have an inlet to areas between buildings it needs to be paved". Plates on aprons were the pack's `Panel_02` service plates, not tree plots.
+
+## Things to look at by eye when each lands (nobody has seen these)
+
+Squared kerb returns at inlets (a 0.07 m code strip beside the pack's lip may z-fight; the strip keeps `#7b7b79` in day and night); the pale code-drawn passage floors (now `PAVING_SLAB_COLOUR` 0x8c8987 but the code quad has different material roughness/metalness than the textured slab, so it may still read lighter); roofs now overhang the pavement by up to 0.8 m at the front by design; the corner pieces now turn the other way (ladder puzzle maps too).
+
+## Gotchas (new today)
+
+- A vitest `Timeout calling "onTaskUpdate"` unhandled error appears when two heavy test runs overlap; all tests pass; re-run the gate on a quiet machine. Keep one heavy step at a time, `--maxWorkers=2`, no builder browsers.
+- The playtester once deleted `gate-out.txt` it did not create, and the grammar/architect agents' tickets stay **uncommitted** until you commit them (only the architect may write tickets; you commit). The hook blocks agents from merging: you fast-forward their worktrees (`git merge goal/city-style` inside the worktree) yourself.
+- Real-GLB tests skip in the gate worktree (no `assets/private`); reviewers run them in the builder's worktree, which has the junctions.
+- Agents report in their FINAL plain-text message, not a hand-back call (those are refused). Builders cannot see their token use: `tickets/usage.md` has no rows for 055 to 068; fill what you can from the task notifications (`subagent_tokens`) per agent.
+- `docs/city-grammar.md` was merged twice; its conflict was resolved by taking the Fable session's version (Josh's rulings recorded in his words). The architect's earlier status-line pointers to tickets 064 to 068 were dropped; the tickets themselves point at the grammar.
+- Agents' commit trailers sometimes say Opus 5.5; harmless. Git warns about LF to CRLF; harmless.
+
+## First thing to do in the new session
+
+1. Read the files above; `git -C D:\rest-prototype-goal log --oneline -12`; `git worktree list`; check whether the two builders (063e fix, 063b) have committed (look at `git -C D:\rest-prototype-063e log --oneline -3` and `...063b`). If a builder is still working (a process or recent commits), wait; do not start a second builder on the same worktree.
+2. Tell Josh the state in a few lines, then continue: gate, review, playtest and merge 063 E and 063 B, show screenshots, then 064 onwards.
