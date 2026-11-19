@@ -6,6 +6,7 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
@@ -155,6 +156,9 @@ const unitCells = (v: View, cell: TileCell): [number, number][] => {
     : [[cell.i, cell.j], [cell.i, cell.j + 1]];
 };
 
+// The first case builds the 80 memoised cities (4 sizes x 20 seeds, up to 6 x 6): about 3 s on an idle machine, so it has its own time limit and not Vitest's 5 s (a limit, not a threshold).
+const CITIES_BUILD_TIMEOUT_MS = 60000;
+
 describe("on the grid (criterion 1)", () => {
   it("puts every cell on the grid, every yaw on a right angle, every footprint at one or two cells", () => {
     forAll((v, _l, ok) => {
@@ -170,7 +174,7 @@ describe("on the grid (criterion 1)", () => {
         }
       }
     });
-  });
+  }, CITIES_BUILD_TIMEOUT_MS);
 
   it("turns a lane, parking and pavement front toward the right side of its street", () => {
     // yaw 0 points at +z, 90 at +x, 180 at -z, 270 at -x.
@@ -2208,5 +2212,40 @@ describe("the block interiors (057 C, criterion 8)", () => {
     expect(JSON.stringify(a.greenProps)).toBe(JSON.stringify(cityAt(3, 3, 3).greenProps));
     expect(Object.isFrozen(a.interior) && Object.isFrozen(a.interior[0]) && Object.isFrozen(a.courts) && Object.isFrozen(a.courts[0]!.drive) && Object.isFrozen(a.greenProps) && Object.isFrozen(a.frontLots)).toBe(true);
     expect(a.passages).toEqual([]);
+  });
+});
+
+describe("nothing else moves (063 A, criterion 4): the layout is the layout at ab9d01f", () => {
+  /**
+   * A digest of everything a city lays except which plain straight a pavement or build-out is: every cell (a pavement cell's variant reduced to "grate" or "plain", a build-out's to "plain"), the streets, bays, lot stalls, build-out trees, pole
+   * slots, interior, courts, frontage-lot blocks, parts, alley bins and blocks. The same function ran on ab9d01f's tilecity.ts (the branch point, with the old grate variant 2) to give the pinned digests below.
+   */
+  const digestOf = (c: TileCity, grate: number): string => {
+    const cells = c.cells.map((q) => (q.role === "pavement" ? { ...q, variant: q.variant === grate ? "grate" : "plain" } : q.role === "buildout" ? { ...q, variant: "plain" } : q));
+    const body = { cells, streets: c.streets, bays: c.bays, lotStalls: c.lotStalls, buildoutTrees: c.buildoutTrees, poleSlots: c.poleSlots, interior: c.interior, courts: c.courts, frontLots: c.frontLots, parts: c.parts, alleyBins: c.alleyBins, blocks: c.blocks };
+    return createHash("sha256").update(JSON.stringify(body)).digest("hex");
+  };
+  const AT_AB9D01F: readonly (readonly [number, number, number, string])[] = [
+    [3, 3, 1, "7d674ae21da885496ab4d39e402a28c5985e1ad040fa6de642eab0e3543299d4"],
+    [3, 3, 2, "3fc38215a4def9f3cfdabeb4b06d540fa4f0925b318f2751d7a6bce60f5c1d26"],
+    [3, 3, 3, "59c2042e784d28bbee1b657b45321ec3aa5d9434b2ba9e332a1b156de103106a"],
+    [6, 4, 1, "d13e959fb88620dd053626738707f6f034be1f4fd85c592de5604b20fac5f458"],
+  ];
+
+  it("lays the default city, seeds 2 and 3 at 3 x 3 and seed 1 at 6 x 4 exactly as ab9d01f did, but for the plain straights' variants (the grates are on the same cells)", () => {
+    for (const [bx, bz, seed, want] of AT_AB9D01F) expect(digestOf(cityAt(seed, bx, bz), PAVEMENT_GRATE), `${bx}x${bz} seed ${seed}`).toBe(want);
+  });
+
+  it("bites: a city with one build-out turned into a pavement, a court's drive dropped, or a grate moved does not match", () => {
+    const c = cityAt(1);
+    const want = AT_AB9D01F[0]![3];
+    const buildout = c.cells.findIndex((q) => q.role === "buildout");
+    expect(buildout).toBeGreaterThanOrEqual(0);
+    expect(digestOf({ ...c, cells: c.cells.map((q, i) => (i === buildout ? { ...q, role: "pavement" as const } : q)) }, PAVEMENT_GRATE)).not.toBe(want);
+    expect(digestOf({ ...c, courts: c.courts.map((k, i) => (i === 0 ? { ...k, drive: [k.drive[1], k.drive[0]] as typeof k.drive } : k)) }, PAVEMENT_GRATE)).not.toBe(want);
+    const plain = c.cells.findIndex((q) => q.role === "pavement" && q.variant === 0);
+    expect(digestOf({ ...c, cells: c.cells.map((q, i) => (i === plain ? { ...q, variant: PAVEMENT_GRATE } : q)) }, PAVEMENT_GRATE)).not.toBe(want);
+    // And the digest reads the grate as the grate: the old variant number does not match on the new city.
+    expect(digestOf(c, 2)).not.toBe(want);
   });
 });

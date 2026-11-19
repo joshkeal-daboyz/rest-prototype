@@ -14,7 +14,7 @@ import { LIGHT_MODES } from "./lighting";
 import { applyLightMode } from "./lightrig";
 import { WORLD_PER_METRE } from "./models";
 import { APRON_STRIP, COURT_STALLS, TILE_M, tileCity, withPassages, type TileCity, type TilePassage } from "./tilecity";
-import { INTERIOR_DRAW_CALLS_MAX, STALL_DIVIDERS_X_M, STALL_LINES_LIFT_M, TILE_BASE_M, TILE_BENCH, TILE_BINS, TILE_DRAW_CALLS_MAX, TILE_PROPS, TILE_SLOTS, TILE_TREES, GATE_H_M, GATE_POST_W_M, GATE_SMALL_H_M, alleyMouths, inletCells, gateParts, gatePlan, interiorItems, passageFloors, sheetLabel, sheetLegend, sheetPieces, tileKeys, type InteriorItem } from "./tileslots";
+import { INTERIOR_DRAW_CALLS_MAX, PAVING_SLAB_COLOUR, STALL_DIVIDERS_X_M, STALL_LINES_LIFT_M, TILE_BASE_M, TILE_BENCH, TILE_BINS, TILE_DRAW_CALLS_MAX, TILE_PROPS, TILE_SLOTS, TILE_TREES, GATE_H_M, GATE_POST_W_M, GATE_SMALL_H_M, alleyMouths, inletCells, gateParts, gatePlan, interiorItems, passageFloors, sheetLabel, sheetLegend, sheetPieces, tileKeys, type InteriorItem } from "./tileslots";
 import { buildCityScene, interiorGroup, interiorLine, propInput, propPlan } from "./tilecity3d";
 import { tilePassages } from "./frontage";
 
@@ -411,9 +411,21 @@ describe("interiorGroup with no pack, or part of it (CI)", () => {
     draw.dispose();
   });
 
-  it("registers its code-drawn materials under the surface keys the light rig recolours: pavement, grass, street and kerb", () => {
+  it("registers its code-drawn materials under the surface keys the light rig recolours: grass, street and kerb; the code-drawn pavement is the slab's own colour and no surface key (063 D)", () => {
     const draw = interiorGroup(city, new Map(), new Map());
-    expect([...draw.surfaces.keys()].sort()).toEqual(["grass", "kerb", "pavement", "street"]);
+    expect([...draw.surfaces.keys()].sort()).toEqual(["grass", "kerb", "street"]);
+    const pave = (named(draw.group, "interior:code-pavement")[0]!.material as MeshStandardMaterial).color.getHex();
+    expect(pave).toBe(PAVING_SLAB_COLOUR);
+    expect(pave, "not the daylight pavement grey, which reads near-white beside a slab").not.toBe(LIGHT_MODES.day.surfaces.pavement);
+    // The rig leaves it alone: its colour is the same in both light modes.
+    const bundle = buildCityScene(defaultCity);
+    bundle.useTiles(new Map(), new Map());
+    applyLightMode(bundle.scene, null, "night", bundle.lightOwners);
+    const night = (named(bundle.interiorDraw().group, "interior:code-pavement")[0]!.material as MeshStandardMaterial).color.getHex();
+    applyLightMode(bundle.scene, null, "day", bundle.lightOwners);
+    const day = (named(bundle.interiorDraw().group, "interior:code-pavement")[0]!.material as MeshStandardMaterial).color.getHex();
+    expect([night, day]).toEqual([PAVING_SLAB_COLOUR, PAVING_SLAB_COLOUR]);
+    bundle.dispose();
     for (const mats of draw.surfaces.values()) expect(mats).toHaveLength(1);
     draw.dispose();
     // The gate's wood is not a surface key: the rig leaves it as it is.
@@ -533,9 +545,6 @@ describe("the city scene holds the interiors", () => {
     expect((grass![0] as MeshStandardMaterial).color.getHex()).toBe(LIGHT_MODES.day.surfaces.grass);
     applyLightMode(bundle.scene, null, "night", bundle.lightOwners);
     expect((grass![0] as MeshStandardMaterial).color.getHex()).toBe(LIGHT_MODES.night.surfaces.grass);
-    // The pavement key is the tiles' and the interiors' materials together.
-    const mats = bundle.lightOwners.materials.get("pavement")!;
-    expect(mats.length).toBeGreaterThanOrEqual(1);
     bundle.dispose();
   });
 
@@ -743,7 +752,7 @@ describe("the paved inlets (063 H, Josh, 19 Nov 2026: \"If you're going to have 
     draw.dispose();
   });
 
-  it("changes no city data: drawing the tiles and the interiors leaves the city exactly as it was", () => {
+  it("does not mutate the city: drawing the interiors leaves it exactly as it was (the layout itself is pinned against ab9d01f in tilecity.test.ts)", () => {
     const before = JSON.stringify(defaultCity);
     const p = pack();
     interiorGroup(defaultCity, p.roots, p.entries).dispose();

@@ -1088,6 +1088,30 @@ describe("one sidewalk piece (063 A, Josh, 19 Nov 2026: \"Make the side walk one
   const everyKey = new Set<CalibrationKey>(tileKeys());
   const cities: TileCity[] = [...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((seed) => tileCity({ blocksX: 3, blocksZ: 3, seed })), ...[1, 2, 3].map((seed) => tileCity({ blocksX: 6, blocksZ: 4, seed }))];
 
+  /** The criterion-2 check on any cells and any way of picking a key: the keys the plain cells (a pavement or a build-out that is not the grate) are drawn from. One key is one colour. */
+  const plainKeysDrawn = (cs: readonly TileCity[], keyFor: (q: TileCell) => CalibrationKey | null): Set<string> => {
+    const out = new Set<string>();
+    for (const c of cs) for (const q of c.cells) if (q.role === "pavement" || q.role === "buildout") out.add(String(keyFor(q)));
+    out.delete(GRATE);
+    return out;
+  };
+  const STRAIGHT_01 = "city-pack:SM_Env_Sidewalk_Straight_01";
+  /** Today's rule, before 063 A, written out: a pavement's variant 0, 1 or 2 picks Straight_01, Straight_02 or the grate (2 on one cell in six), and a build-out's bit picks one of the two straights. */
+  const OLD_SLOTS = { pavement: [STRAIGHT_01, PLAIN, GRATE], buildout: [STRAIGHT_01, PLAIN] } as const;
+  const oldVariant = (q: TileCell): number => {
+    const h = ((q.i * 73856093) ^ (q.j * 19349663)) >>> 0;
+    return q.role === "pavement" && h % 6 === 0 ? 2 : (h >>> 8) & 1;
+  };
+  const oldKeyOf = (q: TileCell): CalibrationKey => (q.role === "pavement" ? OLD_SLOTS.pavement[oldVariant(q) & 3]! : OLD_SLOTS.buildout[oldVariant(q) & 1]!) as CalibrationKey;
+
+  it("is one piece for the plain cells on the real rule, and a fixture of today's variant rule fails the same check (two plain pieces, one of them Straight_01)", () => {
+    expect([...plainKeysDrawn(cities, (q) => tileKeyOf(q, everyKey))]).toEqual([PLAIN]);
+    const before = plainKeysDrawn(cities, oldKeyOf);
+    expect(before.size, "the old rule draws two pieces").toBe(2);
+    expect(before.has(STRAIGHT_01)).toBe(true);
+    expect(before.has(PLAIN)).toBe(true);
+  });
+
   it("resolves every plain pavement cell and every build-out cell to Straight_02, and a grate to the grate, on seeds 1 to 10 at 3 x 3 and 1 to 3 at 6 x 4", () => {
     let plain = 0;
     let outs = 0;
@@ -1182,7 +1206,7 @@ describe("paved inlets in the street tiles (063 H, Josh, 19 Nov 2026: \"If you'r
     draw.dispose();
   });
 
-  it("keeps the kerb cut (Dip_01) on the pavement cells beside each drive, and changes no city data", () => {
+  it("keeps the kerb cut (Dip_01) on the pavement cells beside each drive, and does not change the city it draws (the digests at ab9d01f are pinned in tilecity.test.ts)", () => {
     const c = cities[0]!;
     const before = JSON.stringify(c);
     const p = pack();

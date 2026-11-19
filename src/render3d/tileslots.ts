@@ -38,6 +38,13 @@ export type SlotRole = TileRole | InteriorRole;
  * (service covers, dark green-grey), which read as tree plots (Josh, 19 Nov 2026: "Are these tiles supposed to represent plots where trees should be planted?").
  */
 const PAVING_FLAT = k("SM_Env_Sidewalk_01");
+
+/**
+ * The colour of the slab's walking surface, as the City Pack's atlas samples it at the walk faces of `Sidewalk_01` and of every sidewalk piece the tiles use (`#8c8987`, read from the embedded texture at the faces' UVs by a test). The interiors'
+ * code-drawn pavement (the passage floors' part cells, which are nearly every real floor since a passage is 1.0 to 5.3 m wide, and the fallback for any pavement piece that is missing) is this colour, so a floor drawn in code reads the same
+ * as one laid from the slab. It is not a lit-surface key: the light rig does not recolour it, so it takes the day and night light as the textured slab does.
+ */
+export const PAVING_SLAB_COLOUR = 0x8c8987;
 const GRASS = k("SM_Env_Grass_01");
 
 /**
@@ -433,8 +440,11 @@ export function inletCells(city: Pick<TileCity, "courts" | "blocks">): InletCell
   for (const b of city.blocks) {
     const al = b.alley;
     if (al === null) continue;
-    if (al.axis === "z") mouths.push({ i: al.at, j: b.j0 }, { i: al.at, j: b.j1 - 1 });
-    else mouths.push({ i: b.i0, j: al.at }, { i: b.i1 - 1, j: al.at });
+    // The lane is `ALLEY_CELLS` wide, and its first and last cell along its axis are the mouth.
+    for (let t = 0; t < ALLEY_CELLS; t++) {
+      if (al.axis === "z") mouths.push({ i: al.at + t, j: b.j0 }, { i: al.at + t, j: b.j1 - 1 });
+      else mouths.push({ i: b.i0, j: al.at + t }, { i: b.i1 - 1, j: al.at + t });
+    }
   }
   return { drives, mouths };
 }

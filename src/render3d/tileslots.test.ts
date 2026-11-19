@@ -5,10 +5,11 @@
 
 import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
+import { inflateSync } from "node:zlib";
 import { join } from "node:path";
 import type { CalibrationKey } from "../core";
 import { CITY_BLOCKS_DEFAULT, CITY_BLOCKS_MAX, type InteriorRole, type TileRole } from "./tilecity";
-import { SIDEWALK_WALK_M, TILE_M, tileCity } from "./tilecity";
+import { ALLEY_CELLS, SIDEWALK_WALK_M, TILE_M, tileCity } from "./tilecity";
 import { TREES } from "./furniture";
 import {
   SHEET_BUILDOUT_NOTE,
@@ -19,6 +20,7 @@ import {
   INTERIOR_DRAW_CALLS_MAX,
   INTERIOR_KEYS,
   PASSAGE_FLOOR_KEYS,
+  PAVING_SLAB_COLOUR,
   TILE_DRAW_CALLS_MAX,
   TILE_FRONTS,
   TILE_BASE_M,
@@ -26,6 +28,7 @@ import {
   TILE_LEVELS,
   TILE_PACK,
   TILE_PATCH,
+  TILE_PROPS,
   TILE_SHEET_EXTRA,
   TILE_SLOTS,
   TILE_TREES,
@@ -502,12 +505,6 @@ describe("one sidewalk colour (063 A, Josh, 19 Nov 2026: \"Make the side walk on
     for (const keys of Object.values(INTERIOR_KEYS)) expect(keys).not.toContain(straight01);
     for (const p of sheetPieces()) expect(p.key).not.toBe(straight01);
   });
-
-  it("fails a fixture of the slots as they were (two plain straights, one of them the translucent Straight_01)", () => {
-    const straight01: CalibrationKey = `${TILE_PACK}:SM_Env_Sidewalk_Straight_01`;
-    const before = { pavement: [straight01, PLAIN_STRAIGHT, GRATE], buildout: [straight01, PLAIN_STRAIGHT] };
-    expect(plainKeys(before)).toHaveLength(2);
-  });
 });
 
 describe("plain interior paving (063 D)", () => {
@@ -572,7 +569,7 @@ describe("the paved inlets' cells (063 H)", () => {
       expect(want.length % 2).toBe(0);
       drives += want.length;
       const alleys = city.blocks.filter((b) => b.alley !== null);
-      expect(got.mouths).toHaveLength(2 * alleys.length);
+      expect(got.mouths).toHaveLength(2 * ALLEY_CELLS * alleys.length);
       mouths += got.mouths.length;
       // Every mouth cell is an alley lane cell of the interior, and every drive cell is a lot cell of the street layer.
       const lane = new Set(city.interior.filter((c) => c.role === "alley").map((c) => `${c.i},${c.j}`));
@@ -595,11 +592,66 @@ describe("the paved inlets' cells (063 H)", () => {
   });
 });
 
+/**
+ * Decodes an 8-bit, non-interlaced PNG (RGB or RGBA, grey too) with `node:zlib` only: width, height, channels and the unfiltered bytes. The atlas of the converted City Pack is such a file. No dependency.
+ */
+function decodePng(d: Buffer): { w: number; h: number; ch: number; data: Buffer } {
+  let p = 8;
+  let w = 0;
+  let h = 0;
+  let ct = 0;
+  const idat: Buffer[] = [];
+  while (p < d.length) {
+    const len = d.readUInt32BE(p);
+    const type = d.toString("ascii", p + 4, p + 8);
+    const body = d.subarray(p + 8, p + 8 + len);
+    if (type === "IHDR") {
+      w = body.readUInt32BE(0);
+      h = body.readUInt32BE(4);
+      ct = body[9]!;
+      if (body[8] !== 8 || body[12] !== 0) throw new Error("only 8-bit, non-interlaced PNGs");
+    }
+    if (type === "IDAT") idat.push(body);
+    p += 12 + len;
+  }
+  const ch = ct === 6 ? 4 : ct === 2 ? 3 : ct === 0 ? 1 : ct === 4 ? 2 : 0;
+  if (ch === 0) throw new Error(`PNG colour type ${ct}`);
+  const raw = inflateSync(Buffer.concat(idat));
+  const stride = w * ch;
+  const out = Buffer.alloc(h * stride);
+  for (let y = 0; y < h; y++) {
+    const f = raw[y * (stride + 1)]!;
+    for (let x = 0; x < stride; x++) {
+      const v = raw[y * (stride + 1) + 1 + x]!;
+      const a = x >= ch ? out[y * stride + x - ch]! : 0;
+      const b = y > 0 ? out[(y - 1) * stride + x]! : 0;
+      const c = x >= ch && y > 0 ? out[(y - 1) * stride + x - ch]! : 0;
+      let r: number;
+      if (f === 0) r = v;
+      else if (f === 1) r = v + a;
+      else if (f === 2) r = v + b;
+      else if (f === 3) r = v + ((a + b) >> 1);
+      else {
+        const pp = a + b - c;
+        const pa = Math.abs(pp - a);
+        const pb = Math.abs(pp - b);
+        const pc = Math.abs(pp - c);
+        r = v + (pa <= pb && pa <= pc ? a : pb <= pc ? b : c);
+      }
+      out[y * stride + x] = r & 255;
+    }
+  }
+  return { w, h, ch, data: out };
+}
+
 describe("the converted City Pack agrees with 063's pieces when this machine has it (skipped when it does not)", () => {
   interface Prim {
     pts: [number, number, number][];
     tris: number[][];
     material: { name: string; alphaMode: string };
+    /** The colour (`#rrggbb`) of the material's base-colour texture at a UV, or "" when the material has none. */
+    texel: (u: number, v: number) => string;
+    uvs: [number, number][];
   }
   /** Reads the GLB lazily, inside the test (never at describe level). */
   const readPack = (): { prims: (name: string) => Prim[] } => {
@@ -607,33 +659,60 @@ describe("the converted City Pack agrees with 063's pieces when this machine has
     const jsonLen = glb.readUInt32LE(12);
     const gltf = JSON.parse(glb.subarray(20, 20 + jsonLen).toString("utf8")) as {
       nodes: { name?: string; mesh?: number; children?: number[] }[];
-      meshes: { primitives: { attributes: { POSITION: number }; indices?: number; material?: number }[] }[];
-      materials: { name?: string; alphaMode?: string }[];
+      meshes: { primitives: { attributes: { POSITION: number; TEXCOORD_0?: number }; indices?: number; material?: number }[] }[];
+      materials: { name?: string; alphaMode?: string; pbrMetallicRoughness?: { baseColorTexture?: { index: number } } }[];
+      textures?: { source: number }[];
+      images?: { bufferView: number }[];
       accessors: { bufferView: number; byteOffset?: number; count: number; componentType: number }[];
-      bufferViews: { byteOffset?: number; byteStride?: number }[];
+      bufferViews: { byteOffset?: number; byteLength: number; byteStride?: number }[];
     };
     const bin = glb.subarray(20 + jsonLen + 8);
+    const pngs = new Map<number, ReturnType<typeof decodePng>>();
+    const imageOf = (index: number): ReturnType<typeof decodePng> => {
+      let img = pngs.get(index);
+      if (!img) {
+        const bv = gltf.bufferViews[gltf.images![index]!.bufferView]!;
+        img = decodePng(bin.subarray(bv.byteOffset ?? 0, (bv.byteOffset ?? 0) + bv.byteLength));
+        pngs.set(index, img);
+      }
+      return img;
+    };
+    const hex = (n: number): string => n.toString(16).padStart(2, "0");
     const prims = (name: string): Prim[] => {
       const root = gltf.nodes.find((n) => n.name === name);
       expect(root, name).toBeDefined();
       const out: Prim[] = [];
       const walk = (n: { mesh?: number; children?: number[] }): void => {
         for (const prim of n.mesh !== undefined ? gltf.meshes[n.mesh]!.primitives : []) {
-          const a = gltf.accessors[prim.attributes.POSITION]!;
-          const bv = gltf.bufferViews[a.bufferView]!;
-          const base = (bv.byteOffset ?? 0) + (a.byteOffset ?? 0);
-          const pts: [number, number, number][] = [];
-          for (let i = 0; i < a.count; i++) {
-            const at = base + i * (bv.byteStride ?? 12);
-            pts.push([bin.readFloatLE(at), bin.readFloatLE(at + 4), bin.readFloatLE(at + 8)]);
-          }
+          const floats = (acc: number, comps: number): number[][] => {
+            const a = gltf.accessors[acc]!;
+            const bv = gltf.bufferViews[a.bufferView]!;
+            const base = (bv.byteOffset ?? 0) + (a.byteOffset ?? 0);
+            const rows: number[][] = [];
+            for (let i = 0; i < a.count; i++) {
+              const at = base + i * (bv.byteStride ?? comps * 4);
+              rows.push(Array.from({ length: comps }, (_, k) => bin.readFloatLE(at + 4 * k)));
+            }
+            return rows;
+          };
+          const pts = floats(prim.attributes.POSITION, 3) as [number, number, number][];
+          const uvs = (prim.attributes.TEXCOORD_0 === undefined ? pts.map(() => [0, 0]) : floats(prim.attributes.TEXCOORD_0, 2)) as [number, number][];
           const tris: number[][] = [];
           const ia = gltf.accessors[prim.indices!]!;
           const ib = gltf.bufferViews[ia.bufferView]!;
           const at0 = (ib.byteOffset ?? 0) + (ia.byteOffset ?? 0);
           for (let i = 0; i + 2 < ia.count; i += 3) tris.push([0, 1, 2].map((k) => (ia.componentType === 5125 ? bin.readUInt32LE(at0 + (i + k) * 4) : bin.readUInt16LE(at0 + (i + k) * 2))));
           const m = gltf.materials[prim.material ?? 0] ?? {};
-          out.push({ pts, tris, material: { name: m.name ?? "", alphaMode: m.alphaMode ?? "OPAQUE" } });
+          const tex = m.pbrMetallicRoughness?.baseColorTexture?.index;
+          const texel = (u: number, v: number): string => {
+            if (tex === undefined) return "";
+            const img = imageOf(gltf.textures![tex]!.source);
+            const x = Math.min(img.w - 1, Math.max(0, Math.floor((u - Math.floor(u)) * img.w)));
+            const y = Math.min(img.h - 1, Math.max(0, Math.floor((v - Math.floor(v)) * img.h)));
+            const i = (y * img.w + x) * img.ch;
+            return `#${hex(img.data[i]!)}${hex(img.data[img.ch >= 3 ? i + 1 : i]!)}${hex(img.data[img.ch >= 3 ? i + 2 : i]!)}`;
+          };
+          out.push({ pts, tris, uvs, texel, material: { name: m.name ?? "", alphaMode: m.alphaMode ?? "OPAQUE" } });
         }
         for (const c of n.children ?? []) walk(gltf.nodes[c]!);
       };
@@ -643,20 +722,30 @@ describe("the converted City Pack agrees with 063's pieces when this machine has
     return { prims };
   };
   const nameOf = (key: CalibrationKey): string => key.slice(key.indexOf(":") + 1);
-  /** The up-facing area (m2) of a piece by the height of its triangles' centres, in centimetre bins. */
-  const upAreas = (ps: Prim[]): Map<number, number> => {
-    const area = new Map<number, number>();
-    for (const { pts, tris } of ps) {
-      for (const [a, b, c] of tris) {
-        const [p, q, r] = [pts[a!]!, pts[b!]!, pts[c!]!];
+  /** Every up-facing triangle of a piece: its area (m2), the height of its centre (m) and the texture colour at its centre's UV. */
+  const upFaces = (ps: Prim[]): { area: number; y: number; colour: string }[] => {
+    const out: { area: number; y: number; colour: string }[] = [];
+    for (const { pts, tris, uvs, texel } of ps) {
+      for (const t of tris) {
+        const [p, q, r] = [pts[t[0]!]!, pts[t[1]!]!, pts[t[2]!]!];
         const u = [q[0] - p[0], q[1] - p[1], q[2] - p[2]];
         const v = [r[0] - p[0], r[1] - p[1], r[2] - p[2]];
         const n = [u[1]! * v[2]! - u[2]! * v[1]!, u[2]! * v[0]! - u[0]! * v[2]!, u[0]! * v[1]! - u[1]! * v[0]!];
         const len = Math.hypot(n[0]!, n[1]!, n[2]!);
         if (len < 1e-12 || n[1]! / len < 0.9) continue;
-        const y = Math.round(((p[1] + q[1] + r[1]) / 3) * 100) / 100;
-        area.set(y, (area.get(y) ?? 0) + len / 2);
+        const cu = (uvs[t[0]!]![0] + uvs[t[1]!]![0] + uvs[t[2]!]![0]) / 3;
+        const cv = (uvs[t[0]!]![1] + uvs[t[1]!]![1] + uvs[t[2]!]![1]) / 3;
+        out.push({ area: len / 2, y: (p[1] + q[1] + r[1]) / 3, colour: texel(cu, cv) });
       }
+    }
+    return out;
+  };
+  /** The up-facing area (m2) of a piece by the height of its triangles' centres, in centimetre bins. */
+  const upAreas = (ps: Prim[]): Map<number, number> => {
+    const area = new Map<number, number>();
+    for (const f of upFaces(ps)) {
+      const y = Math.round(f.y * 100) / 100;
+      area.set(y, (area.get(y) ?? 0) + f.area);
     }
     return area;
   };
@@ -666,30 +755,57 @@ describe("the converted City Pack agrees with 063's pieces when this machine has
     const top = topOf(area);
     return [...area].filter(([y]) => top - y > 0.02 + 1e-9).reduce((s, [, a]) => s + a, 0);
   };
+  /** The colour with the most up-facing area among the faces whose centre is between `lo` and `hi` metres (default the sidewalk pieces' walking height, 0.20 to 0.26 m): the slab a walker stands on. */
+  const walkColour = (ps: Prim[], lo = 0.2, hi = 0.26): string => {
+    const by = new Map<string, number>();
+    for (const f of upFaces(ps)) if (f.y >= lo && f.y <= hi) by.set(f.colour, (by.get(f.colour) ?? 0) + f.area);
+    return [...by].sort((x, y) => y[1] - x[1])[0]![0];
+  };
+  /** The up-facing area (m2) whose texture colour is not one of `allowed`. */
+  const otherColourArea = (ps: Prim[], allowed: readonly string[]): number => upFaces(ps).filter((f) => !allowed.includes(f.colour)).reduce((s, f) => s + f.area, 0);
+  /** The keys among `keys` with a BLEND (see-through) material: the scan of criterion 3. */
+  const blendKeys = (prims: (name: string) => Prim[], keys: readonly CalibrationKey[]): CalibrationKey[] => keys.filter((key) => prims(nameOf(key)).some((p) => p.material.alphaMode === "BLEND"));
 
-  it.skipIf(!haveGlb)("has no see-through piece: every key the tiles and the interiors load has only materials whose alphaMode is not BLEND", { timeout: 120000 }, () => {
+  const SLAB_HEX = "#8c8987";
+  const JOINT_HEX = "#7b7b79";
+  const STRAIGHT_01: CalibrationKey = `${TILE_PACK}:SM_Env_Sidewalk_Straight_01`;
+
+  it.skipIf(!haveGlb)("has no see-through piece: every key the tiles, the interiors and their props load has only materials whose alphaMode is not BLEND, and the scan reports Straight_01, the piece the old slots had", { timeout: 120000 }, () => {
     const { prims } = readPack();
-    const bad: string[] = [];
-    const keys = new Set<CalibrationKey>([...tileKeys(), ...Object.values(INTERIOR_KEYS).flat()]);
-    expect(keys.size).toBeGreaterThan(15);
-    for (const key of keys) {
-      const ps = prims(nameOf(key));
-      expect(ps.length, key).toBeGreaterThan(0);
-      for (const p of ps) if (p.material.alphaMode === "BLEND") bad.push(`${key}: ${p.material.name} is BLEND`);
-    }
-    expect(bad).toEqual([]);
+    const keys = new Set<CalibrationKey>([...tileKeys(), ...Object.values(INTERIOR_KEYS).flat(), ...TILE_TREES, ...TILE_PROPS]);
+    expect(keys.size).toBeGreaterThan(20);
+    for (const key of keys) expect(prims(nameOf(key)).length, key).toBeGreaterThan(0);
+    expect(blendKeys(prims, [...keys])).toEqual([]);
+    // The scan bites: today's slots (Straight_01 in the pavement and the build-out) fail it, and it names the piece.
+    const before: CalibrationKey[] = [STRAIGHT_01, PLAIN_STRAIGHT, GRATE];
+    expect(blendKeys(prims, before)).toEqual([STRAIGHT_01]);
   });
 
-  it.skipIf(!haveGlb)("stands Sidewalk_01's largest up-facing level within 0.01 m of TILE_BASE_M's, and has no inset plate (nothing more than 0.02 m below its top covers over 0.1 m2), where Panel_02 has", { timeout: 120000 }, () => {
+  it.skipIf(!haveGlb)("samples the same slab colour at the walking faces of Straight_02, Grate_01, Dip_01 and Dip_Corner_01, read from the embedded atlas at their UVs", { timeout: 120000 }, () => {
+    const { prims } = readPack();
+    const walkers: CalibrationKey[] = [PLAIN_STRAIGHT, GRATE, `${TILE_PACK}:SM_Env_Sidewalk_Dip_01`, `${TILE_PACK}:SM_Env_Sidewalk_Dip_Corner_01`];
+    for (const key of walkers) expect(walkColour(prims(nameOf(key))), key).toBe(SLAB_HEX);
+    // The slab piece the interiors use samples the same colour at its top, so the interiors match the street.
+    expect(walkColour(prims(nameOf(SLAB)), 0, 0.04)).toBe(SLAB_HEX);
+    // The colour the code-drawn pavement uses is this one.
+    expect(`#${PAVING_SLAB_COLOUR.toString(16).padStart(6, "0")}`).toBe(SLAB_HEX);
+  });
+
+  it.skipIf(!haveGlb)("stands Sidewalk_01's largest up-facing level within 0.01 m of TILE_BASE_M's, and has no inset plate and no colour but the slab and the joint, where Panel_02 has both", { timeout: 120000 }, () => {
     const { prims } = readPack();
     for (const kind of ["apron", "path", "parkEdge", "strip"] as const) {
       for (const key of INTERIOR_KEYS[kind]) {
-        const area = upAreas(prims(nameOf(key)));
+        const ps = prims(nameOf(key));
+        const area = upAreas(ps);
         expect(Math.abs(topOf(area) + (TILE_BASE_M[key] ?? 0)), `${key}: top ${topOf(area)}`).toBeLessThanOrEqual(0.01);
         expect(sunkArea(area), `${key}: a sunk plate`).toBeLessThanOrEqual(0.1);
+        // Every up-facing face samples the slab or the joint colour, and nothing else (a plate's dark green-grey would show here).
+        expect(otherColourArea(ps, [SLAB_HEX, JOINT_HEX]), `${key}: area of another colour`).toBeLessThanOrEqual(0.1);
       }
     }
-    // The check bites: the piece 063 D replaced has two plates 0.04 m below its slab, 3.8 m2 in all.
-    expect(sunkArea(upAreas(prims("SM_Env_Sidewalk_Panel_02")))).toBeGreaterThan(0.1);
+    // The checks bite: the piece 063 D replaced has two plates 0.04 m below its slab, 3.8 m2 in all, sampling #4a5d4e and #5f686e.
+    const panel = prims("SM_Env_Sidewalk_Panel_02");
+    expect(sunkArea(upAreas(panel))).toBeGreaterThan(0.1);
+    expect(otherColourArea(panel, [SLAB_HEX, JOINT_HEX])).toBeGreaterThan(0.1);
   });
 });

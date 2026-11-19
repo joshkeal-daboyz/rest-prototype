@@ -64,6 +64,7 @@ import {
   INTERIOR_DRAW_CALLS_MAX,
   INTERIOR_KEYS,
   PASSAGE_FLOOR_KEYS,
+  PAVING_SLAB_COLOUR,
   STALL_DIVIDERS_X_M,
   STALL_DIVIDER_L_M,
   STALL_DIVIDER_W_M,
@@ -526,7 +527,7 @@ export interface InteriorDraw {
   calls: number;
   /** Instances per pack key, tiles and props together. */
   perKey: ReadonlyMap<CalibrationKey, number>;
-  /** The code-drawn materials by surface key (`street`, `pavement`, `kerb`, `grass`), for the light rig. */
+  /** The code-drawn materials by surface key (`street`, `kerb`, `grass`), for the light rig. The code-drawn pavement is the slab's own colour (`PAVING_SLAB_COLOUR`) and is not a surface key. */
   surfaces: ReadonlyMap<string, readonly Material[]>;
   dispose(): void;
 }
@@ -673,8 +674,8 @@ export function interiorGroup(city: TileCity, roots: ReadonlyMap<CalibrationKey,
   const codeItems = (kinds: readonly InteriorItem["kind"][]): InteriorItem[] => items.filter((it, i) => plan.itemKey[i] === null && kinds.includes(it.kind));
   const pavementCells = [...codeItems(["strip", "apron", "path", "parkEdge", "inlet"]).map(cellRect), ...plan.floorCode];
   if (pavementCells.length > 0) {
-    const mat = own(new MeshStandardMaterial({ color: PAVEMENT, roughness: 1 }));
-    addSurface(surfaces, "pavement", mat);
+    // The slab's own colour, and not the light rig's `pavement` surface (a pale daylight grey): a floor drawn in code reads the same as one laid from the slab (063 D).
+    const mat = own(new MeshStandardMaterial({ color: PAVING_SLAB_COLOUR, roughness: 1 }));
     flat(pavementCells, mat, "interior:code-pavement");
   }
   const greens = codeItems(["green"]);
