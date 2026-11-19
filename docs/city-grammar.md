@@ -2,7 +2,7 @@
 
 Draft for Josh, 19 Nov 2026. Design only: no code, no puzzle, nothing under `src/grid/` or `src/night/` is touched by this file.
 
-- **Status.** Nothing here is Decided until Josh says so in chat. So far he has answered three questions on 19 Nov 2026: Q1 (rule 7), Q2 (rule 4) and Q3 (rule 8). Lines marked **Law** quote a Decided line of `docs/city-style-guide.md` or Josh's words in `docs/city-state-2026-11-19.md`; everything else is **Proposed**.
+- **Status.** Nothing here is Decided until Josh says so in chat. So far he has answered four questions on 19 Nov 2026: Q1 (rule 7), Q2 (rule 4), Q3 (rule 8) and Q4 (rule 6). Lines marked **Law** quote a Decided line of `docs/city-style-guide.md` or Josh's words in `docs/city-state-2026-11-19.md`; everything else is **Proposed**.
 - **Scope.** The tile city (`city=tiles`) on `goal/city-style`. The ladder maps keep chapters 4 and 16 as they are (`packpin.test.ts` and `townpin.test.ts` hold).
 - **Evidence.** The measurements are in the appendix. I took them today from `city-pack.glb` with a scratch script that is not committed. I have not seen a render, or Josh's reference image; where a rule leans on something only an eye can settle, it says so under **Not verified**.
 
@@ -157,7 +157,8 @@ A strip, 2 cells deep, between a street and a lane (rule 4):
   - Measured: the passages come from the outlines. "N unscaled columns span only 5.0 N to about 5.28 N metres" (19.2), so 50 of the default city's 52 rows end in a passage of 1.0 to 5.3 m. On bodies, N columns span exactly 5 N metres.
 - **Check M5, openings** (pure). Every cell of rings 1 and 2 is built or belongs to a recorded opening of the table. `TileCity.passages` is empty. Every interior touches an opening. No row stretch is 1 cell long.
   - Fails today: the default city has 50 passages, none a whole cell. A city with one opening's record removed also fails: an opening has to be laid to count (section I's fixture, kept).
-- **Open.** Q4 (retire the gated passage; the walk-through).
+- **Decided (Josh, 19 Nov 2026, in chat).** Asked "Retire the gated passages, with a 5 m paved walk-through only where an interior has no other way in?", he answered: "Yes, retire them". So the tile city has no gated passage, and the walk-through of the table above is the only pedestrian way through a row: one cell wide, paved, and laid only for an interior with no drive and no lane.
+- **Open.** None.
 
 ### 7. Corners
 
@@ -294,7 +295,7 @@ Each runs on the default city, seeds 1 to 10 at 3 by 3 and seeds 1 to 3 at 6 by 
 
 No threshold is loosened. Stated plainly:
 
-- **G2 is tightened.** A block side's back edge is covered only by a wall or by a recorded opening. Seam, overshoot and gated passage stop being accepted covers on the tile city. `PASSAGE_W_M`, `END_OVERLAP_MAX_M` and the gate's constants retire there. The ladder keeps chapter 4.
+- **G2 is tightened** (Q4, decided: "Yes, retire them"). A block side's back edge is covered only by a wall or by a recorded opening. Seam, overshoot and gated passage stop being accepted covers on the tile city. `PASSAGE_W_M`, `END_OVERLAP_MAX_M` and the gate's constants retire there. The ladder keeps chapter 4.
 - **G1** keeps its numbers and now runs on lane and court faces too.
 - **G3** keeps its numbers. Ring 2 is credited as building; `APRON_STRIP` retires.
 - **G4** is unchanged; a drive is two rings deep.
@@ -316,7 +317,7 @@ No threshold is loosened. Stated plainly:
 - **I (walls touch) becomes "the lattice".**
   - `columns: "body"` stays, and the tile city's rows are cut in 5.0 m bays on a 5.0 m band. That needs a bay and a depth option in `terraceBlockRows`, and `town.ts` is on the ticket's must-not-touch list: the architect re-cuts I to allow those two options, defaulting to today's values so the ladder holds.
   - Criterion 49 ("the passage count is expected to drop sharply") becomes: the passage count is 0.
-  - Criterion 51 (the order for a leftover gap) and Q-I2 go: a leftover is a failed check.
+  - Criterion 51 (the order for a leftover gap) and Q-I2 go, by Josh's answer to Q4: a leftover is a failed check. The gate, the posts and the passage floors of 057 B and D are no longer drawn on the tile city.
   - `wallJoints`' list of intentional openings loses the seam and the gated passage. The check is M1 plus M5's passage line.
 - **C (backs) is re-cut on the lattice.**
   - Both of the ticket's options are built, by Josh's answer to Q2 ("They can be either."): C-rows (another building) and C-stack (the same building repeated), chosen per building by hash. Ring 2 is exactly one cell deep, so `BACK_OVERSHOOT_MAX_M` goes, and `BACK_COVER_MIN` (0.9 of the strip) is replaced by M3 and M4, which are exact.
@@ -329,7 +330,7 @@ No threshold is loosened. Stated plainly:
 
 ## Decide first
 
-Questions only Josh can answer, most important first. Q1 to Q3 are answered; Q4 to Q7 are open.
+Questions only Josh can answer, most important first. Q1 to Q4 are answered; Q5 to Q7 are open.
 
 1. **May corner pieces stand wherever two open sides meet?** That is: at a lane mouth, a court drive, a plaza and inside a court, as well as where two streets meet.
    - **Answered (Josh, 19 Nov 2026): "Yes, any corner".** Rule 7 records it.
@@ -338,8 +339,7 @@ Questions only Josh can answer, most important first. Q1 to Q3 are answered; Q4 
 3. **The wall above a lower neighbour's roof.**
    - **Answered (Josh, 19 Nov 2026): "Yes, dress it".** Rule 8 records it: painted boards, pipe runs and windows; the pipe runs are lifted from the never-used list for party walls only.
 4. **Retire the gated passage.**
-   - **Recommended: yes.** On the lattice no row needs one. An interior with no drive and no lane gets one 5 m walk-through, paved.
-   - Alternative: leave such interiors sealed.
+   - **Answered (Josh, 19 Nov 2026): "Yes, retire them".** Rule 6 records it: no gated passage; one 5 m paved walk-through only for an interior with no drive and no lane.
 5. **Parking, once ring 2 is counted.** Homes roughly double.
    - **Recommended: keep 0.15 stalls a home and every threshold; measure in C1.** If two courts a block cannot hold P2, raise `LOTS_PER_BLOCK_MAX` to 3 on blocks at least 10 cells each way. That is a re-cut for his word, not a wider band.
 6. **Strips** (a 10 m deep part cut off a block by a lane, two rows back to back).
