@@ -21,6 +21,9 @@ import {
   INTERIOR_KEYS,
   PASSAGE_FLOOR_KEYS,
   PAVING_SLAB_COLOUR,
+  KERB_FACES_M,
+  KERB_INSET_M,
+  KERB_LIP_TOP_M,
   TILE_DRAW_CALLS_MAX,
   TILE_FRONTS,
   TILE_BASE_M,
@@ -807,5 +810,75 @@ describe("the converted City Pack agrees with 063's pieces when this machine has
     const panel = prims("SM_Env_Sidewalk_Panel_02");
     expect(sunkArea(upAreas(panel))).toBeGreaterThan(0.1);
     expect(otherColourArea(panel, [SLAB_HEX, JOINT_HEX])).toBeGreaterThan(0.1);
+  });
+
+  // ---- 063 F: where each sidewalk piece's kerb face stands (Josh, 19 Nov 2026: "the curb structures have to follow the crub.") ----
+
+  /**
+   * The full-height kerb faces of a piece on one side (the faces whose normal points out of that side, away from the middle, and that stand from the road level up to the lip): their area (m2), the area-weighted mean distance the faces
+   * stand in from the cell's 2.5 m edge (m), and the lowest and highest point of any of them. Faces within 1 m of the cell's middle are the ledge's (a straight's lip has a small face in its walk), not the kerb's.
+   */
+  const kerbFacesOf = (ps: Prim[], side: "+x" | "-x" | "+z" | "-z"): { area: number; inset: number; ymin: number; ymax: number } => {
+    const axis = side.endsWith("x") ? 0 : 2;
+    const sign = side.startsWith("+") ? 1 : -1;
+    let area = 0;
+    let weighted = 0;
+    let ymin = Infinity;
+    let ymax = -Infinity;
+    for (const { pts, tris } of ps) {
+      for (const t of tris) {
+        const [p, q, r] = [pts[t[0]!]!, pts[t[1]!]!, pts[t[2]!]!];
+        const u = [q[0] - p[0], q[1] - p[1], q[2] - p[2]];
+        const v = [r[0] - p[0], r[1] - p[1], r[2] - p[2]];
+        const n = [u[1]! * v[2]! - u[2]! * v[1]!, u[2]! * v[0]! - u[0]! * v[2]!, u[0]! * v[1]! - u[1]! * v[0]!];
+        const len = Math.hypot(n[0]!, n[1]!, n[2]!);
+        if (len < 1e-12 || Math.abs(n[1]! / len) > 0.3 || (n[axis]! / len) * sign < 0.8) continue;
+        const c = (p[axis]! + q[axis]! + r[axis]!) / 3;
+        if (Math.abs(c) < 1.0) continue;
+        const lo = Math.min(p[1]!, q[1]!, r[1]!);
+        const hi = Math.max(p[1]!, q[1]!, r[1]!);
+        area += len / 2;
+        weighted += (len / 2) * Math.abs(c);
+        ymin = Math.min(ymin, lo);
+        ymax = Math.max(ymax, hi);
+      }
+    }
+    return { area, inset: area === 0 ? NaN : 2.5 - weighted / area, ymin, ymax };
+  };
+
+  it.skipIf(!haveGlb)("stands each kerb face of KERB_FACES_M where the pack puts it: the area-weighted mean inset within 0.02 m, from the road up to the lip's 0.30 m, and no face on a piece's other sides", { timeout: 120000 }, () => {
+    const { prims } = readPack();
+    for (const [key, faces] of Object.entries(KERB_FACES_M)) {
+      const ps = prims(nameOf(key as CalibrationKey));
+      for (const f of faces!) {
+        const got = kerbFacesOf(ps, f.side);
+        expect(got.area, `${key} ${f.side}: a face`).toBeGreaterThan(0.2);
+        expect(Math.abs(got.inset - f.inset_m), `${key} ${f.side}: inset ${got.inset}`).toBeLessThanOrEqual(0.02);
+        expect(got.ymin, `${key} ${f.side}: from the road`).toBeLessThanOrEqual(0.02);
+        expect(Math.abs(got.ymax - f.top_m), `${key} ${f.side}: lip ${got.ymax}`).toBeLessThanOrEqual(0.02);
+        // (The corner is the junction corners ramp, never on the kerb line: the common inset is for the three pieces the plan lays along it.)
+        if (!key.includes("Dip_Corner")) expect(Math.abs(got.inset - KERB_INSET_M), `${key} ${f.side}: the common inset`).toBeLessThanOrEqual(0.03);
+      }
+      // A piece has kerb faces on the sides KERB_FACES_M lists and on no other: in particular a straight has none on its +-x ends (the jog a build-out's flank closes).
+      for (const side of ["+x", "-x", "+z", "-z"] as const) {
+        if (faces!.some((f) => f.side === side)) continue;
+        expect(kerbFacesOf(ps, side).area, `${key} ${side}: no kerb face`).toBeLessThan(0.05);
+      }
+    }
+    expect(KERB_LIP_TOP_M).toBe(0.3);
+  });
+
+  it.skipIf(!haveGlb)("shows that Sidewalk_Dip_Corner_01 cannot be an inlet's return: each of its two legs has only about 1 m of full-height kerb (a ramp makes the rest), where a return needs the 4.3 m from the street kerb face to the building line, which the straight's face has (5 m)", { timeout: 120000 }, () => {
+    const { prims } = readPack();
+    const lengthOf = (key: string, side: "+x" | "-x" | "+z" | "-z"): number => kerbFacesOf(prims(key), side).area / KERB_LIP_TOP_M;
+    const corner = "SM_Env_Sidewalk_Dip_Corner_01";
+    for (const side of ["+x", "+z"] as const) {
+      expect(lengthOf(corner, side), `corner ${side}`).toBeLessThan(1.5);
+      expect(lengthOf(corner, side), `corner ${side}`).toBeGreaterThan(0.7);
+    }
+    const RETURN_LEG_M = TILE_M - KERB_INSET_M;
+    expect(lengthOf("SM_Env_Sidewalk_Straight_02", "+z")).toBeGreaterThan(RETURN_LEG_M);
+    // The dip piece's own kerb is the two ends only (about 1 m in all): the 3 m between them is dipped to 0.14 m above the road, so the mouth is a dip, not a kerb.
+    expect(lengthOf("SM_Env_Sidewalk_Dip_01", "+z")).toBeLessThan(1.5);
   });
 });

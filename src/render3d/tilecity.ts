@@ -104,7 +104,10 @@ export const BAYS_PER_PARKING_TILE = 3;
 export const GRATE_ONE_IN = 6;
 /** One lane cell in this many carries a `Road_Patch_01` decal, by hash. */
 export const PATCH_ONE_IN = 12;
-/** A pole slot stands this far in from the kerb face, on the pavement. */
+/**
+ * A pole slot stands this far in from the cell's kerb edge, on the pavement. The pack's kerb face stands 0.66 m inside that edge (063 F, `KERB_FACES_M`), so a pole stands 0.09 m behind the face (the ticket's 0.10 m): 059 reads this and
+ * keeps it. The layout's own kerbs (`Town.kerbs`, `TileStreet.carriage`) stay on the cell edge.
+ */
 export const POLE_SLOT_FROM_KERB_M = 0.75;
 /** Pole slots are this far apart along a pavement side: one `Power_Cables_01` span (12.45 m) and a pole. */
 export const POLE_SLOT_PITCH_M = 12.5;
@@ -225,8 +228,16 @@ export const COURT_AISLE = 1;
 /** `TileCell.variant` of a lane cell: bit 0 is 0 for the lane on the street's left (first in `bands`) and 1 for its right; bit 1 is set when a patch decal lies on it. */
 export const LANE_RIGHT = 1;
 export const LANE_PATCH = 2;
-/** `TileCell.variant` of a pavement cell: 0 is the plain `Sidewalk_Straight_02` (063 A: the one plain straight, so the sidewalk is one colour), 1 is `Sidewalk_Grate_01` (one cell in `GRATE_ONE_IN`). A build-out's variant is always 0. */
+/**
+ * `TileCell.variant` of a pavement cell: 0 is the plain `Sidewalk_Straight_02` (063 A: the one plain straight, so the sidewalk is one colour), 1 is `Sidewalk_Grate_01` (one cell in `GRATE_ONE_IN`). A build-out's variant is always 0.
+ * 063 F (the kerb): three more bits, all on a plain cell (never a grate). `PAVEMENT_RETURN_NEAR` marks the pavement cell just before a kerb cut's first cell along its street (increasing x or z), `PAVEMENT_RETURN_FAR` the one just
+ * after its last: the cells whose side edge carries the inlet's return kerb (kerbline.ts), from the street kerb to the building line. `PAVEMENT_FLUSH` marks a pavement cell whose carriageway side is a build-out: it has no kerb and no gutter,
+ * and is drawn as a flat slab at the walk, so the pavement runs on, level, to the build-out. A cell can be flush and a return together.
+ */
 export const PAVEMENT_GRATE = 1;
+export const PAVEMENT_RETURN_NEAR = 2;
+export const PAVEMENT_RETURN_FAR = 4;
+export const PAVEMENT_FLUSH = 8;
 
 // ---- types ----
 
@@ -1754,6 +1765,16 @@ export function tileCity(opts: { blocksX?: number; blocksZ?: number; seed?: numb
         if (r === "pavement") {
           const h = hashOf(seed, "pave", i, j);
           variant = h % GRATE_ONE_IN === 0 ? PAVEMENT_GRATE : 0;
+          // 063 F: the cells beside a kerb cut are the inlet's returns, and a cell with a build-out in front of it is flush with it. Neither is a grate.
+          const alongX = own!.axis === "x";
+          const alongOk = (d: number): boolean => (alongX ? i + d >= 0 && i + d < W : j + d >= 0 && j + d < H);
+          const along = alongX ? 1 : W;
+          let kerbBits = 0;
+          if (alongOk(1) && role[idx + along] === "kerbCut") kerbBits |= PAVEMENT_RETURN_NEAR;
+          if (alongOk(-1) && role[idx - along] === "kerbCut") kerbBits |= PAVEMENT_RETURN_FAR;
+          const inward = alongX ? (own!.carriage.lo_m > cz ? W : -W) : own!.carriage.lo_m > cx ? 1 : -1;
+          if (role[idx + inward] === "buildout") kerbBits |= PAVEMENT_FLUSH;
+          if (kerbBits !== 0) variant = kerbBits;
         }
       } else if (r === "crossing") {
         yaw = yawToward(own!.axis, 1);

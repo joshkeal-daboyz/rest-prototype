@@ -41,7 +41,10 @@ import {
   PASSAGE_W_M,
   CITY_BLOCKS_MAX,
   GRATE_ONE_IN,
+  PAVEMENT_FLUSH,
   PAVEMENT_GRATE,
+  PAVEMENT_RETURN_FAR,
+  PAVEMENT_RETURN_NEAR,
   HOME_COLUMN_FLOORS,
   KERB_BAY_SHARE_MAX,
   KERB_GAP_MIN_M,
@@ -657,7 +660,9 @@ describe("block sizes, variety and levels", () => {
         if (cell.role === "pavement") {
           pave++;
           if (cell.variant === PAVEMENT_GRATE) grates++;
-          ok(cell.variant === 0 || cell.variant === PAVEMENT_GRATE, "pavement variant: the plain straight or the grate");
+          // 063 F: the plain straight (0), the grate (alone), or a plain cell with the kerb bits of a return and a flush cell (never with a grate).
+          ok(cell.variant === PAVEMENT_GRATE || (cell.variant & PAVEMENT_GRATE) === 0, "pavement variant: the grate alone, or a plain straight with kerb bits");
+          ok(cell.variant >= 0 && cell.variant < 16, "pavement variant: no bit beyond the kerb's");
         }
       }
       ok(left * 2 === nLanes, "one lane of each side in every pair");
@@ -2215,24 +2220,39 @@ describe("the block interiors (057 C, criterion 8)", () => {
   });
 });
 
-describe("nothing else moves (063 A, criterion 4): the layout is the layout at ab9d01f", () => {
+describe("nothing else moves (063 A, criterion 4; re-pinned for 063 F): the layout is the layout at ab9d01f, but for the pavement cells' variants", () => {
+  /** The pavement cells 063 F marks (a return beside a kerb cut, a cell with a build-out in front), found from the roles and positions alone, not from the variants: the street's own cell list is the only input. */
+  const kerbedCell = (c: TileCity, at: Map<string, string>, q: TileCity["cells"][number]): boolean => {
+    const s = c.streets.find((x) => x.id === q.street)!;
+    const [ai, aj] = s.axis === "x" ? [1, 0] : [0, 1];
+    const inwardUp = s.axis === "x" ? s.carriage.lo_m > q.z_m : s.carriage.lo_m > q.x_m;
+    const [ni, nj] = s.axis === "x" ? [0, inwardUp ? 1 : -1] : [inwardUp ? 1 : -1, 0];
+    return at.get(`${q.i + ai},${q.j + aj}`) === "kerbCut" || at.get(`${q.i - ai},${q.j - aj}`) === "kerbCut" || at.get(`${q.i + ni},${q.j + nj}`) === "buildout";
+  };
   /**
-   * A digest of everything a city lays except which plain straight a pavement or build-out is: every cell (a pavement cell's variant reduced to "grate" or "plain", a build-out's to "plain"), the streets, bays, lot stalls, build-out trees, pole
-   * slots, interior, courts, frontage-lot blocks, parts, alley bins and blocks. The same function ran on ab9d01f's tilecity.ts (the branch point, with the old grate variant 2) to give the pinned digests below.
+   * A digest of everything a city lays except which plain straight a pavement or build-out is: every cell (a pavement cell's variant reduced to "grate" or "plain", a build-out's to "plain", and the pavement cells 063 F marks, which
+   * 063 F makes plain whatever the hash said, to "kerb"), the streets, bays, lot stalls, build-out trees, pole slots, interior, courts, frontage-lot blocks, parts, alley bins and blocks. The same function ran on ab9d01f's tilecity.ts (the
+   * branch point, with the old grate variant 2) to give the pinned digests below, and on the 063 F city, and both gave these (a scratch run of both, 19 Nov 2026): so F changed pavement variants and nothing else. The old pins (taken without
+   * the "kerb" fold) moved on purpose: a grate that the hash put on a marked cell is a plain straight now.
    */
   const digestOf = (c: TileCity, grate: number): string => {
-    const cells = c.cells.map((q) => (q.role === "pavement" ? { ...q, variant: q.variant === grate ? "grate" : "plain" } : q.role === "buildout" ? { ...q, variant: "plain" } : q));
+    const at = new Map<string, string>();
+    for (const q of c.cells) {
+      at.set(`${q.i},${q.j}`, q.role);
+      if (q.cells === 2) at.set(q.yaw === 0 || q.yaw === 180 ? `${q.i + 1},${q.j}` : `${q.i},${q.j + 1}`, q.role);
+    }
+    const cells = c.cells.map((q) => (q.role === "pavement" ? { ...q, variant: kerbedCell(c, at, q) ? "kerb" : q.variant === grate ? "grate" : "plain" } : q.role === "buildout" ? { ...q, variant: "plain" } : q));
     const body = { cells, streets: c.streets, bays: c.bays, lotStalls: c.lotStalls, buildoutTrees: c.buildoutTrees, poleSlots: c.poleSlots, interior: c.interior, courts: c.courts, frontLots: c.frontLots, parts: c.parts, alleyBins: c.alleyBins, blocks: c.blocks };
     return createHash("sha256").update(JSON.stringify(body)).digest("hex");
   };
   const AT_AB9D01F: readonly (readonly [number, number, number, string])[] = [
-    [3, 3, 1, "7d674ae21da885496ab4d39e402a28c5985e1ad040fa6de642eab0e3543299d4"],
-    [3, 3, 2, "3fc38215a4def9f3cfdabeb4b06d540fa4f0925b318f2751d7a6bce60f5c1d26"],
-    [3, 3, 3, "59c2042e784d28bbee1b657b45321ec3aa5d9434b2ba9e332a1b156de103106a"],
-    [6, 4, 1, "d13e959fb88620dd053626738707f6f034be1f4fd85c592de5604b20fac5f458"],
+    [3, 3, 1, "cfcda6c6b13c207cfa23377e987aec61079e231c1720780c11d1f9f882ccb2ec"],
+    [3, 3, 2, "62fed200a04b0d09d729c2403e0f799d530c8bf9d60b69c848bf34a6694d57f3"],
+    [3, 3, 3, "e4fea02544960cfba3b3b840c056eaefb9a641910ffec3e106732539a85eef36"],
+    [6, 4, 1, "3359537a63cbad44e0fa515030384390cf9e9470cf826a661a352847ff8d0d41"],
   ];
 
-  it("lays the default city, seeds 2 and 3 at 3 x 3 and seed 1 at 6 x 4 exactly as ab9d01f did, but for the plain straights' variants (the grates are on the same cells)", () => {
+  it("lays the default city, seeds 2 and 3 at 3 x 3 and seed 1 at 6 x 4 exactly as ab9d01f did, but for the pavement cells' variants (the grates are on the same cells but the marked ones)", () => {
     for (const [bx, bz, seed, want] of AT_AB9D01F) expect(digestOf(cityAt(seed, bx, bz), PAVEMENT_GRATE), `${bx}x${bz} seed ${seed}`).toBe(want);
   });
 
@@ -2247,5 +2267,76 @@ describe("nothing else moves (063 A, criterion 4): the layout is the layout at a
     expect(digestOf({ ...c, cells: c.cells.map((q, i) => (i === plain ? { ...q, variant: PAVEMENT_GRATE } : q)) }, PAVEMENT_GRATE)).not.toBe(want);
     // And the digest reads the grate as the grate: the old variant number does not match on the new city.
     expect(digestOf(c, 2)).not.toBe(want);
+  });
+});
+
+describe("the kerb's cells (063 F, criterion 37b; Josh, 19 Nov 2026: \"It's ok to have curbs that stretch out like this in spots but the curb structures have to follow the crub.\")", () => {
+  const cities = [...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((seed) => cityAt(seed)), ...[1, 2, 3].map((seed) => cityAt(seed, 6, 4))];
+  const roleMap = (c: TileCity): Map<string, TileCity["cells"][number]> => {
+    const out = new Map<string, TileCity["cells"][number]>();
+    for (const q of c.cells) {
+      out.set(`${q.i},${q.j}`, q);
+      if (q.cells === 2) out.set(q.yaw === 0 || q.yaw === 180 ? `${q.i + 1},${q.j}` : `${q.i},${q.j + 1}`, q);
+    }
+    return out;
+  };
+
+  it("pins the kerb bits: 1 is the grate, 2 and 4 the two returns and 8 the flush cell, and they are distinct", () => {
+    expect([PAVEMENT_GRATE, PAVEMENT_RETURN_NEAR, PAVEMENT_RETURN_FAR, PAVEMENT_FLUSH]).toEqual([1, 2, 4, 8]);
+  });
+
+  it("marks the pavement cell before and the one after every kerb cut run as a return, and no other cell; a return is never a grate", () => {
+    let near = 0;
+    let far = 0;
+    const fails: string[] = [];
+    for (const c of cities) {
+      const at = roleMap(c);
+      for (const q of c.cells) {
+        if (q.role !== "pavement") continue;
+        const s = c.streets.find((x) => x.id === q.street)!;
+        const [di, dj] = s.axis === "x" ? [1, 0] : [0, 1];
+        const wantNear = at.get(`${q.i + di},${q.j + dj}`)?.role === "kerbCut";
+        const wantFar = at.get(`${q.i - di},${q.j - dj}`)?.role === "kerbCut";
+        if (wantNear) near++;
+        if (wantFar) far++;
+        if (((q.variant & PAVEMENT_RETURN_NEAR) !== 0) !== wantNear) fails.push(`${c.seed} ${q.i},${q.j}: near return ${wantNear} but variant ${q.variant}`);
+        if (((q.variant & PAVEMENT_RETURN_FAR) !== 0) !== wantFar) fails.push(`${c.seed} ${q.i},${q.j}: far return ${wantFar} but variant ${q.variant}`);
+        if ((q.variant & (PAVEMENT_RETURN_NEAR | PAVEMENT_RETURN_FAR)) !== 0 && (q.variant & PAVEMENT_GRATE) !== 0) fails.push(`${c.seed} ${q.i},${q.j}: a return that is a grate`);
+      }
+      // A kerb cut's own variant is 0, and so is every build-out's.
+      for (const q of c.cells) if ((q.role === "kerbCut" || q.role === "buildout") && q.variant !== 0) fails.push(`${c.seed} ${q.role} ${q.i},${q.j}: variant ${q.variant}`);
+    }
+    expect(fails).toEqual([]);
+    expect(near).toBeGreaterThan(100);
+    expect(far).toBe(near);
+  });
+
+  it("marks flush every pavement cell whose carriageway side is a build-out, and no other, and never as a grate", () => {
+    let flush = 0;
+    const fails: string[] = [];
+    for (const c of cities) {
+      const at = roleMap(c);
+      for (const q of c.cells) {
+        if (q.role !== "pavement") continue;
+        const s = c.streets.find((x) => x.id === q.street)!;
+        const inward = s.axis === "x" ? (s.carriage.lo_m > q.z_m ? 1 : -1) : s.carriage.lo_m > q.x_m ? 1 : -1;
+        const n = s.axis === "x" ? at.get(`${q.i},${q.j + inward}`) : at.get(`${q.i + inward},${q.j}`);
+        const want = n?.role === "buildout";
+        if (want) flush++;
+        if (((q.variant & PAVEMENT_FLUSH) !== 0) !== want) fails.push(`${c.seed} ${q.i},${q.j}: flush ${want} but variant ${q.variant}`);
+        if ((q.variant & PAVEMENT_FLUSH) !== 0 && (q.variant & PAVEMENT_GRATE) !== 0) fails.push(`${c.seed} ${q.i},${q.j}: a flush grate`);
+      }
+    }
+    expect(fails).toEqual([]);
+    expect(flush).toBeGreaterThan(100);
+  });
+
+  it("leaves a pole slot on a pavement cell, a return or a flush one included", () => {
+    const c = cityAt(1);
+    const marked = c.cells.filter((q) => q.role === "pavement" && (q.variant & (PAVEMENT_RETURN_NEAR | PAVEMENT_RETURN_FAR | PAVEMENT_FLUSH)) !== 0);
+    expect(marked.length).toBeGreaterThan(20);
+    expect(c.poleSlots.length).toBeGreaterThan(0);
+    const at = roleMap(c);
+    for (const p of c.poleSlots) expect(at.get(`${Math.floor(p.x_m / TILE_M)},${Math.floor(p.z_m / TILE_M)}`)?.role).toBe("pavement");
   });
 });
