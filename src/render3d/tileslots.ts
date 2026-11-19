@@ -32,13 +32,24 @@ const k = (name: string): CalibrationKey => `${TILE_PACK}:${name}`;
  */
 export type SlotRole = TileRole | InteriorRole;
 
-/** The flat paving slab of the interiors' aprons, paths and park edges, and the grass tile of their greens. */
-const PANEL_FLAT = k("SM_Env_Sidewalk_Panel_02");
+/**
+ * The plain flat paving slab of the interiors' aprons, paths and park edges, of the ring-2 strip, of the passage floors and of the paved inlets (ticket 063 D and H), and the grass tile of the greens. `Sidewalk_01` is
+ * 5 x 0.034 x 5 m, 38 triangles, opaque, on the base atlas, with only the slab and joint colours of the street's `Sidewalk_Straight_02`. The piece it replaced, `Sidewalk_Panel_02`, has two inset plates 0.04 m below its slab
+ * (service covers, dark green-grey), which read as tree plots (Josh, 19 Nov 2026: "Are these tiles supposed to represent plots where trees should be planted?").
+ */
+const PAVING_FLAT = k("SM_Env_Sidewalk_01");
+
+/**
+ * The colour of the slab's walking surface, as the City Pack's atlas samples it at the walk faces of `Sidewalk_01` and of every sidewalk piece the tiles use (`#8c8987`, read from the embedded texture at the faces' UVs by a test). The interiors'
+ * code-drawn pavement (the passage floors' part cells, which are nearly every real floor since a passage is 1.0 to 5.3 m wide, and the fallback for any pavement piece that is missing) is this colour, so a floor drawn in code reads the same
+ * as one laid from the slab. It is not a lit-surface key: the light rig does not recolour it, so it takes the day and night light as the textured slab does.
+ */
+export const PAVING_SLAB_COLOUR = 0x8c8987;
 const GRASS = k("SM_Env_Grass_01");
 
 /**
  * The keys of each role, in the order a cell's variant picks them (`tilecity.ts`: a lane cell's `LANE_RIGHT` bit picks the first or second, a pavement cell's variant
- * 0, 1 or 2 picks Straight_01, Straight_02 or the grate). A role whose keys are all missing or failed is drawn in code, cell by cell. `junction` and `lotSurface`
+ * 0 or 1 picks Straight_02 or the grate). A role whose keys are all missing or failed is drawn in code, cell by cell. `junction` and `lotSurface`
  * share `Road_Bare_01` (the ticket's own design), so they are present or absent together.
  */
 export const TILE_SLOTS: Readonly<Record<SlotRole, readonly CalibrationKey[]>> = {
@@ -47,24 +58,27 @@ export const TILE_SLOTS: Readonly<Record<SlotRole, readonly CalibrationKey[]>> =
   parkingPlain: [k("SM_Env_Road_01")],
   junction: [k("SM_Env_Road_Bare_01")],
   crossing: [k("SM_Env_Road_Crossing_01")],
-  pavement: [k("SM_Env_Sidewalk_Straight_01"), k("SM_Env_Sidewalk_Straight_02"), k("SM_Env_Sidewalk_Grate_01")],
+  // 063 A (Josh, 19 Nov 2026: "Make the side walk one uniform color."): one plain straight, `Straight_02`. `Straight_01` is the pack's translucent one (the converter left its atlas copy's alpha channel on and set BLEND, so it
+  // drew at 17 to 40% opacity over the sage ground and the asphalt), so it is in no role. The grate is the same walking colour and opaque, and stays (one cell in `GRATE_ONE_IN`).
+  pavement: [k("SM_Env_Sidewalk_Straight_02"), k("SM_Env_Sidewalk_Grate_01")],
   pavementCorner: [k("SM_Env_Sidewalk_Dip_Corner_01")],
   kerbCut: [k("SM_Env_Sidewalk_Dip_01")],
-  // 056 B: a build-out is a pavement-level tile in the parking band, drawn from the two plain sidewalk straights it shares with the pavement (its variant's bit 0 picks one). Its kerb edge is the
-  // straight's own +z edge, which the cell's yaw already turns toward the street's centre line, so it needs no `TILE_FRONTS` line of its own: the shared keys' (none: unturned) serve both roles.
-  buildout: [k("SM_Env_Sidewalk_Straight_01"), k("SM_Env_Sidewalk_Straight_02")],
+  // 056 B: a build-out is a pavement-level tile in the parking band, drawn from the plain sidewalk straight it shares with the pavement (063 A: the one straight, so the sidewalk is one colour). Its kerb edge is the
+  // straight's own +z edge, which the cell's yaw already turns toward the street's centre line, so it needs no `TILE_FRONTS` line of its own: the shared key's (none: unturned) serves both roles.
+  buildout: [k("SM_Env_Sidewalk_Straight_02")],
   lotSurface: [k("SM_Env_Road_Bare_01")],
   plaza: [k("SM_Env_Sidewalk_Panel_01")],
   // 057 D, the block interiors (Josh, 18 Nov 2026: "Grass and pavement should fill the blank areas."). The ticket drafted `Sidewalk_Panel_01` (the plaza piece) for every paving, but that piece has a kerb on its +z edge
-  // (a 0.23 m drop to the road level every 5 m), which would cross an apron; `Sidewalk_Panel_02` is the flat slab (0.07 m, the furniture layout's own plaza panel). The ragged strip behind the terraces
-  // (`APRON_STRIP`) is always code-drawn. A court's floor is the bare road (the drive's and the near stalls' own `lotSurface` cells already are) with `ParkingLines_01` over each row of stalls.
-  apron: [PANEL_FLAT],
+  // (a 0.23 m drop to the road level every 5 m), which would cross an apron; 057 D drew the flat `Sidewalk_Panel_02`, and 063 D replaced it with the plain `Sidewalk_01` (Panel_02 has inset service plates). The strip behind the
+  // terraces (`APRON_STRIP`) and the passage floors are the same slab (`INTERIOR_KEYS.strip`), with the code quad as their fallback only. A court's floor is the bare road (its stalls' own `lotSurface` cells already are, and
+  // the drive through the row, which 063 H paves) with `ParkingLines_01` over each row of stalls.
+  apron: [PAVING_FLAT],
   court: [k("SM_Env_Road_Bare_01"), k("SM_Env_Road_ParkingLines_01")],
   drive: [k("SM_Env_Road_Bare_01")],
   green: [GRASS],
-  greenPath: [PANEL_FLAT],
+  greenPath: [PAVING_FLAT],
   alley: [k("SM_Env_Road_Bare_01")],
-  parkEdge: [PANEL_FLAT],
+  parkEdge: [PAVING_FLAT],
 };
 
 /**
@@ -141,12 +155,12 @@ export const TILE_LEVELS: Readonly<Record<SlotRole, TileLevel>> = {
 };
 
 /**
- * Where a `ground`-level piece's origin stands, metres, when its surface is not at its origin (measured from the converted City Pack, 19 Nov 2026, the largest up-facing level of each piece): `Sidewalk_Panel_02` is a slab
- * whose top is 0.072 m up (its joints 0.036), so its origin is 0.07 m down and its top is the walk's; `Grass_01`'s blades stand 0.12 m up (to 0.14 m), so its origin is 0.11 m down and the grass is 0.01 m over the walk,
- * a hair above the paving beside it. A key not here stands at 0 (the bare road and the parking lines are flat at their origin).
+ * Where a `ground`-level piece's origin stands, metres, when its surface is not at its origin (measured from the converted City Pack, the largest up-facing level of each piece): `Sidewalk_01` is a slab warped by at most
+ * 0.024 m whose largest up-facing level is 0.01 m up (measured 19 Nov 2026, 063 D; the ticket guessed 0.03), so its origin is 0.01 m down and its top is the walk's; `Grass_01`'s blades stand 0.12 m up (to 0.14 m), so its origin
+ * is 0.11 m down and the grass is 0.01 m over the walk, a hair above the paving beside it. A key not here stands at 0 (the bare road and the parking lines are flat at their origin).
  */
 export const TILE_BASE_M: Readonly<Partial<Record<CalibrationKey, number>>> = {
-  [PANEL_FLAT]: -0.07,
+  [PAVING_FLAT]: -0.01,
   [GRASS]: -0.11,
 };
 
@@ -251,7 +265,7 @@ export function sheetLabel(key: CalibrationKey, present: boolean, fronts: Readon
 /** The label's last line on a piece the build-out is drawn from (it is the pavement's straight, so the sheet shows it once). */
 export const SHEET_BUILDOUT_NOTE = "+ build-out";
 /**
- * The same for a piece a block interior is drawn from (057 D), by the interior roles it serves in their short names (the sheet shows a piece once, so `Bare_01` says `court drive alley` and `Panel_02` `apron path edge`): the
+ * The same for a piece a block interior is drawn from (057 D), by the interior roles it serves in their short names (the sheet shows a piece once, so `Bare_01` says `court drive alley` and `Sidewalk_01` `apron path edge`): the
  * roles `TileRole` does not have, each named in a word so the whole second line is at most 26 characters.
  */
 export const SHEET_INTERIOR_NAMES: Readonly<Partial<Record<SlotRole, string>>> = {
@@ -373,14 +387,16 @@ export const STALL_LINES_LIFT_M = 0.01;
 export const INTERIOR_DRAW_CALLS_MAX = 24;
 
 /**
- * What a block interior's cell is drawn as. `strip` is the ragged apron behind the terraces (ring 2, `APRON_STRIP`): always code-drawn, never a pack tile (the buildings' backs stand over it). `apron`, `path` (a
- * `greenPath`), `parkEdge`, `green`, `bare` (a court, drive or alley lane cell: the bare road) and `stalls` (`ParkingLines_01` laid over one row of a court's stalls, two cells) are pack tiles with a code-drawn fallback.
+ * What a block interior's cell is drawn as. `strip` is the apron behind the terraces (ring 2, `APRON_STRIP`, the ground the buildings' backs stand over). Every kind is a pack tile with a code-drawn fallback: `strip`, `apron`,
+ * `path` (a `greenPath`), `parkEdge` (all the plain slab, 063 D), `inlet` (an alley's mouth cell, paved with the same slab: 063 H), `green`, `bare` (a court or alley lane cell: the bare road) and `stalls` (`ParkingLines_01` laid
+ * over one row of a court's stalls, two cells).
  */
-export type InteriorKind = "strip" | "apron" | "path" | "parkEdge" | "green" | "bare" | "stalls";
+export type InteriorKind = "strip" | "apron" | "path" | "parkEdge" | "inlet" | "green" | "bare" | "stalls";
 
-/** The pack keys of each kind, in the order they are tried: `strip` has none. */
+/** The pack keys of each kind, in the order they are tried. */
 export const INTERIOR_KEYS: Readonly<Record<InteriorKind, readonly CalibrationKey[]>> = {
-  strip: [],
+  strip: [PAVING_FLAT],
+  inlet: [PAVING_FLAT],
   apron: TILE_SLOTS.apron,
   path: TILE_SLOTS.greenPath,
   parkEdge: TILE_SLOTS.parkEdge,
@@ -403,12 +419,43 @@ export interface InteriorItem {
 
 const keyOfCell = (i: number, j: number): string => `${i},${j}`;
 
+/** The paved inlets' cells (063 H): `drives` are the cells of every street court's drive (`TileCourt.drive`, ring 1: `lotSurface` cells of `TileCity.cells`), `mouths` the first and last cell of every alley's lane (ring 1: interior `alley` cells). */
+export interface InletCells {
+  drives: readonly { i: number; j: number }[];
+  mouths: readonly { i: number; j: number }[];
+}
+
+/**
+ * The cells of the openings in the rows that the drawing paves (063 H; Josh, 19 Nov 2026: "If you're going to have an inlet to areas between buildings it needs to be paved"): a residents' court's drive (2 cells) and an alley's two mouth cells,
+ * each in ring 1, from the kerb cut to where the opening meets the interior. The court's first row of stalls (ring 2) and the alley lane beyond ring 1 keep the bare road, and a frontage lot (a real lot of `TileCity.frontLots`, no court)
+ * keeps its asphalt and stall lines: it is no inlet. An alley block's own court (its drive is beside the lane, not through a row) is no inlet either. Pure; it reads only `courts` and `blocks`.
+ */
+export function inletCells(city: Pick<TileCity, "courts" | "blocks">): InletCells {
+  const drives: { i: number; j: number }[] = [];
+  for (const court of city.courts) {
+    if (court.street.startsWith("alley:")) continue;
+    for (const c of court.drive) drives.push({ i: c.i, j: c.j });
+  }
+  const mouths: { i: number; j: number }[] = [];
+  for (const b of city.blocks) {
+    const al = b.alley;
+    if (al === null) continue;
+    // The lane is `ALLEY_CELLS` wide, and its first and last cell along its axis are the mouth.
+    for (let t = 0; t < ALLEY_CELLS; t++) {
+      if (al.axis === "z") mouths.push({ i: al.at + t, j: b.j0 }, { i: al.at + t, j: b.j1 - 1 });
+      else mouths.push({ i: b.i0, j: al.at + t }, { i: b.i1 - 1, j: al.at + t });
+    }
+  }
+  return { drives, mouths };
+}
+
 /**
  * Everything a city draws on its blocks' ground, from `TileCity.interior` and `courts`, each cell once. A cell the street layer already drew is not drawn again: a court's drive and first row of stalls are
- * the `lotSurface` cells 056 laid (`city.cells`), so they are not `bare` items. Then each row of every court's stalls (its near and far rows, not its aisle) adds one `stalls` item over its two cells, turned
+ * the `lotSurface` cells 056 laid (`city.cells`), so they are not `bare` items. An alley lane's two mouth cells (`inletCells`) are `inlet` items, paved. Then each row of every court's stalls (its near and far rows, not its aisle) adds one `stalls` item over its two cells, turned
  * as the court's cell is (toward the aisle, which is the way the stalls open). Pure; the order is the interior's, then the courts'.
  */
-export function interiorItems(city: Pick<TileCity, "cells" | "interior" | "courts">): InteriorItem[] {
+export function interiorItems(city: Pick<TileCity, "cells" | "interior" | "courts" | "blocks">): InteriorItem[] {
+  const mouth = new Set(inletCells(city).mouths.map((c) => keyOfCell(c.i, c.j)));
   const street = new Set<string>();
   for (const c of city.cells) if (c.role === "lotSurface") street.add(keyOfCell(c.i, c.j));
   const out: InteriorItem[] = [];
@@ -433,7 +480,7 @@ export function interiorItems(city: Pick<TileCity, "cells" | "interior" | "court
       case "drive":
       case "alley":
         if (street.has(keyOfCell(c.i, c.j))) continue;
-        kind = "bare";
+        kind = c.role === "alley" && mouth.has(keyOfCell(c.i, c.j)) ? "inlet" : "bare";
         break;
     }
     out.push({ kind, role: c.role, i: c.i, j: c.j, x_m: c.x_m, z_m: c.z_m, yaw: c.yaw, cells: 1 });
@@ -520,11 +567,46 @@ export function gateParts(g: Pick<GatePlan, "w_m" | "small">): GatePart[] {
 }
 
 /** The floor of each gated passage as a rectangle, metres (centre and size): apron pavement from the back edge inward (`TilePassage.floor`), drawn so the way from the street to the apron has a surface. */
-export function passageFloors(city: Pick<TileCity, "passages">): { x_m: number; z_m: number; w_m: number; d_m: number }[] {
+export function passageFloors(city: Pick<TileCity, "passages">): GroundRect[] {
   return city.passages.map((p) => {
     const f = p.floor;
     return { x_m: (f.minX_m + f.maxX_m) / 2, z_m: (f.minZ_m + f.maxZ_m) / 2, w_m: f.maxX_m - f.minX_m, d_m: f.maxZ_m - f.minZ_m };
   });
+}
+
+/** A rectangle on the ground, metres: its centre and its size along world x and z. */
+export interface GroundRect {
+  x_m: number;
+  z_m: number;
+  w_m: number;
+  d_m: number;
+}
+
+/** The pack keys a passage's floor is laid from (063 D): the interiors' plain slab, as the strip's. Absent from the pack, the whole floor is a code quad. */
+export const PASSAGE_FLOOR_KEYS: readonly CalibrationKey[] = INTERIOR_KEYS.strip;
+
+/** What is left of a floor under a part cell is under this size (metres), and is not drawn. */
+const FLOOR_PART_MIN_M = 1e-6;
+
+/**
+ * A passage floor's rectangle cut into pack tiles (063 D): one whole `TILE_M` cell for every whole 5 m that fits along each axis, laid from the rectangle's low x and low z corner, and the rest as part-cell rectangles (the right-hand
+ * strip over the full depth, then the near strip under the whole cells), which stay code quads. No tile is scaled. The areas of the cells and the parts add up to the rectangle's. Pure.
+ */
+export function passageFloorCells(floor: GroundRect): { whole: { x_m: number; z_m: number }[]; part: GroundRect[] } {
+  const minX = floor.x_m - floor.w_m / 2;
+  const minZ = floor.z_m - floor.d_m / 2;
+  let nx = Math.floor(floor.w_m / TILE_M + 1e-9);
+  let nz = Math.floor(floor.d_m / TILE_M + 1e-9);
+  // Not a whole cell either way: it is all part cell.
+  if (nx === 0 || nz === 0) nx = nz = 0;
+  const whole: { x_m: number; z_m: number }[] = [];
+  for (let b = 0; b < nz; b++) for (let a = 0; a < nx; a++) whole.push({ x_m: minX + (a + 0.5) * TILE_M, z_m: minZ + (b + 0.5) * TILE_M });
+  const part: GroundRect[] = [];
+  const restW = floor.w_m - nx * TILE_M;
+  if (restW > FLOOR_PART_MIN_M) part.push({ x_m: minX + nx * TILE_M + restW / 2, z_m: floor.z_m, w_m: restW, d_m: floor.d_m });
+  const restD = floor.d_m - nz * TILE_M;
+  if (nx > 0 && restD > FLOOR_PART_MIN_M) part.push({ x_m: minX + (nx * TILE_M) / 2, z_m: minZ + nz * TILE_M + restD / 2, w_m: nx * TILE_M, d_m: restD });
+  return { whole, part };
 }
 
 // ---- the page's flags ----

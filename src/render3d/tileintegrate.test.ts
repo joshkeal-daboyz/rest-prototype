@@ -21,7 +21,7 @@ import { buildScene } from "./scene";
 import { WORLD_PER_METRE } from "./models";
 import { createStreetView, streetRows } from "./streetcam";
 import { ELEVATION } from "./camera";
-import { CITY_NEAR_FRACTION, TILE_FURNITURE_LEVELS, buildCityScene, buildSheetScene, cityApplyOptions, courtLotPieces, createCityRenderer3d, createCityRig, sheetRigInsets, tileGroup, tileOriginY_m } from "./tilecity3d";
+import { CITY_NEAR_FRACTION, TILE_FURNITURE_LEVELS, buildCityScene, buildSheetScene, cityApplyOptions, courtLotPieces, createCityRenderer3d, createCityRig, sheetRigInsets, inletKeys, tileGroup, tileOriginY_m } from "./tilecity3d";
 import { TILE_BENCH, TILE_BINS, TILE_FRONTS, TILE_SLOTS, TILE_TREES, TILE_WALK_M, cityTilesRequested, gateParts, gatePlan, interiorItems, sheetPieces, tileKeys, tileLevelY_m, tileFront } from "./tileslots";
 import { tilePassages } from "./frontage";
 
@@ -488,7 +488,11 @@ describe("lot and plaza cells drawn (criterion 26)", () => {
     expect(draw.codeDrawn).toBe(0);
     expect(draw.fromPack).toBe(c.cells.length);
     const bare = TILE_SLOTS.junction[0]!;
-    expect(draw.perKey.get(bare)).toBe(c.cells.filter((q) => q.role === "junction").length + lot);
+    // 063 H: a street court's drive (2 cells) is the paving slab, not the bare road: the bare road keeps the junctions and every other lot cell.
+    const drives = inletKeys(c).size;
+    expect(drives).toBeGreaterThan(0);
+    expect(draw.perKey.get(bare)).toBe(c.cells.filter((q) => q.role === "junction").length + lot - drives);
+    expect(draw.perKey.get(TILE_SLOTS.apron[0]!)).toBe(drives);
     expect(draw.perKey.get(TILE_SLOTS.plaza[0]!)).toBe(plaza);
     draw.dispose();
     // No pack: every cell, lot and plaza cells included, is code-drawn: lot surfaces as road quads, plazas as pavement boxes.

@@ -5,10 +5,11 @@
 
 import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
+import { inflateSync } from "node:zlib";
 import { join } from "node:path";
 import type { CalibrationKey } from "../core";
 import { CITY_BLOCKS_DEFAULT, CITY_BLOCKS_MAX, type InteriorRole, type TileRole } from "./tilecity";
-import { SIDEWALK_WALK_M, TILE_M } from "./tilecity";
+import { ALLEY_CELLS, SIDEWALK_WALK_M, TILE_M, tileCity } from "./tilecity";
 import { TREES } from "./furniture";
 import {
   SHEET_BUILDOUT_NOTE,
@@ -17,6 +18,9 @@ import {
   SHEET_SHAPES,
   SHEET_WIDE_ASPECT,
   INTERIOR_DRAW_CALLS_MAX,
+  INTERIOR_KEYS,
+  PASSAGE_FLOOR_KEYS,
+  PAVING_SLAB_COLOUR,
   TILE_DRAW_CALLS_MAX,
   TILE_FRONTS,
   TILE_BASE_M,
@@ -24,11 +28,14 @@ import {
   TILE_LEVELS,
   TILE_PACK,
   TILE_PATCH,
+  TILE_PROPS,
   TILE_SHEET_EXTRA,
   TILE_SLOTS,
   TILE_TREES,
   TILE_WALK_M,
   cityTilesRequested,
+  inletCells,
+  passageFloorCells,
   sheetColumns,
   sheetLabel,
   sheetLayout,
@@ -56,7 +63,7 @@ describe("TILE_SLOTS", () => {
     }
   });
 
-  it("names the pieces the ticket names: lines for the lanes, the parking lines, the bare road for a junction, the zebra, the three pavements, the dipped corner and kerb cut", () => {
+  it("names the pieces the ticket names: lines for the lanes, the parking lines, the bare road for a junction, the zebra, the plain straight and the grate, the dipped corner and kerb cut", () => {
     const names = (r: TileRole): string[] => TILE_SLOTS[r].map((k) => k.slice(TILE_PACK.length + 1));
     // E, Q8 (Josh, 18 Nov 2026): the yellow pieces carry the centre line; the white ones (no centre mark) moved to the sheet's extras.
     expect(names("lane")).toEqual(["SM_Env_Road_YellowLines_01", "SM_Env_Road_YellowLines_02"]);
@@ -66,23 +73,23 @@ describe("TILE_SLOTS", () => {
     expect(names("parkingPlain")).toEqual(["SM_Env_Road_01"]);
     expect(names("junction")).toEqual(["SM_Env_Road_Bare_01"]);
     expect(names("crossing")).toEqual(["SM_Env_Road_Crossing_01"]);
-    expect(names("pavement")).toEqual(["SM_Env_Sidewalk_Straight_01", "SM_Env_Sidewalk_Straight_02", "SM_Env_Sidewalk_Grate_01"]);
+    // 063 A: one plain straight (Straight_01 is the translucent one), and the grate.
+    expect(names("pavement")).toEqual(["SM_Env_Sidewalk_Straight_02", "SM_Env_Sidewalk_Grate_01"]);
     expect(names("pavementCorner")).toEqual(["SM_Env_Sidewalk_Dip_Corner_01"]);
     expect(names("kerbCut")).toEqual(["SM_Env_Sidewalk_Dip_01"]);
     expect(TILE_PATCH).toBe(`${TILE_PACK}:SM_Env_Road_Patch_01`);
   });
 
-  it("shares Road_Bare_01 between a junction and a lot surface (the ticket's own design), the two plain straights between a pavement and a build-out, and no other key between roles", () => {
+  it("shares Road_Bare_01 between a junction and a lot surface (the ticket's own design), the one plain straight between a pavement and a build-out, and no other key between roles", () => {
     const users = new Map<string, string[]>();
     for (const role of [...ROLES, ...INTERIOR]) for (const key of TILE_SLOTS[role]) users.set(key, [...(users.get(key) ?? []), role]);
     const shared = [...users].filter(([, roles]) => roles.length > 1);
-    // 056 A: a build-out is drawn from the two plain sidewalk straights, which it shares with the pavement. 057 D: the interiors share the bare road (a court's floor, a drive, an alley lane), the flat slab (an apron, a path, a park edge) and the parking lines (a court's stalls).
+    // 056 A and 063 A: a build-out is drawn from the one plain sidewalk straight, which it shares with the pavement. 057 D: the interiors share the bare road (a court's floor, a drive, an alley lane), the flat slab (an apron, a path, a park edge; 063 D: Sidewalk_01) and the parking lines (a court's stalls).
     expect(shared).toEqual([
       [`${TILE_PACK}:SM_Env_Road_ParkingLines_01`, ["parking", "court"]],
       [`${TILE_PACK}:SM_Env_Road_Bare_01`, ["junction", "lotSurface", "court", "drive", "alley"]],
-      [`${TILE_PACK}:SM_Env_Sidewalk_Straight_01`, ["pavement", "buildout"]],
       [`${TILE_PACK}:SM_Env_Sidewalk_Straight_02`, ["pavement", "buildout"]],
-      [`${TILE_PACK}:SM_Env_Sidewalk_Panel_02`, ["apron", "greenPath", "parkEdge"]],
+      [`${TILE_PACK}:SM_Env_Sidewalk_01`, ["apron", "greenPath", "parkEdge"]],
     ]);
   });
 });
@@ -107,12 +114,12 @@ describe("levels and the draw-call cap", () => {
     expect(tileWalkM()).toBe(0.23);
   });
 
-  it("stands the block interiors' ground at 0, flush with the walk: the flat slab 0.07 m down and the grass 0.11 m down so their own surfaces are at the walk (057 D, measured from the converted City Pack), everything else at its origin", () => {
+  it("stands the block interiors' ground at 0, flush with the walk: the plain slab 0.01 m down and the grass 0.11 m down so their own surfaces are at the walk (057 D, measured from the converted City Pack), everything else at its origin", () => {
     for (const r of INTERIOR) expect(TILE_LEVELS[r], r).toBe("ground");
-    expect(TILE_BASE_M).toEqual({ [TILE_SLOTS.apron[0]!]: -0.07, [TILE_SLOTS.green[0]!]: -0.11 });
-    expect(tileLevelY_m("apron", TILE_SLOTS.apron[0])).toBe(-0.07);
-    expect(tileLevelY_m("greenPath", TILE_SLOTS.greenPath[0])).toBe(-0.07);
-    expect(tileLevelY_m("parkEdge", TILE_SLOTS.parkEdge[0])).toBe(-0.07);
+    expect(TILE_BASE_M).toEqual({ [TILE_SLOTS.apron[0]!]: -0.01, [TILE_SLOTS.green[0]!]: -0.11 });
+    expect(tileLevelY_m("apron", TILE_SLOTS.apron[0])).toBe(-0.01);
+    expect(tileLevelY_m("greenPath", TILE_SLOTS.greenPath[0])).toBe(-0.01);
+    expect(tileLevelY_m("parkEdge", TILE_SLOTS.parkEdge[0])).toBe(-0.01);
     expect(tileLevelY_m("green", TILE_SLOTS.green[0])).toBe(-0.11);
     for (const r of ["court", "drive", "alley"] as const) expect(tileLevelY_m(r, TILE_SLOTS[r][0]), r).toBe(0);
     expect(tileLevelY_m("court", TILE_SLOTS.court[1])).toBe(0);
@@ -122,7 +129,8 @@ describe("levels and the draw-call cap", () => {
   });
 
   it("draws the apron, the paths and the park edge from the flat slab and not the plaza's Panel_01, whose +z kerb would drop 0.23 m every 5 m across an apron (057 D)", () => {
-    expect(TILE_SLOTS.apron.map((k) => k.slice(TILE_PACK.length + 1))).toEqual(["SM_Env_Sidewalk_Panel_02"]);
+    // 063 D: the plain slab Sidewalk_01, not Panel_02 (inset service plates, which read as tree plots).
+    expect(TILE_SLOTS.apron.map((k) => k.slice(TILE_PACK.length + 1))).toEqual(["SM_Env_Sidewalk_01"]);
     expect(TILE_SLOTS.greenPath).toEqual(TILE_SLOTS.apron);
     expect(TILE_SLOTS.parkEdge).toEqual(TILE_SLOTS.apron);
     expect(TILE_SLOTS.plaza.map((k) => k.slice(TILE_PACK.length + 1))).toEqual(["SM_Env_Sidewalk_Panel_01"]);
@@ -177,8 +185,7 @@ const PIECES: readonly Piece[] = [
   { key: "SM_Env_Road_ParkingLines_01", lines: "z", want: { lines: "z" } },
   // The zebra: bars 3 m long along x, 0.75 m wide and spaced along z: traffic along x, walkers along z.
   { key: "SM_Env_Road_Crossing_01", lines: "x", want: { lines: "x" } },
-  // Pavements: the raised lip and the slope down to the road are on the +z edge.
-  { key: "SM_Env_Sidewalk_Straight_01", kerb: ["+z"], want: { kerb: ["+z"] } },
+  // Pavements: the raised lip and the slope down to the road are on the +z edge. (063 A: Straight_01, the translucent one, is in no role.)
   { key: "SM_Env_Sidewalk_Straight_02", kerb: ["+z"], want: { kerb: ["+z"] } },
   { key: "SM_Env_Sidewalk_Grate_01", kerb: ["+z"], want: { kerb: ["+z"] } },
   { key: "SM_Env_Sidewalk_Dip_01", kerb: ["+z"], want: { kerb: ["+z"] } },
@@ -320,8 +327,8 @@ describe("TILE_FRONTS", () => {
 });
 
 describe("the build-out's pieces and its trees (056 B)", () => {
-  it("draws a build-out from the pavement's two plain straights, with no front line of its own (the unturned straights' kerb is on +z, the cell's yaw turns it to the lane)", () => {
-    expect(TILE_SLOTS.buildout).toEqual(TILE_SLOTS.pavement.slice(0, 2));
+  it("draws a build-out from the pavement's one plain straight, with no front line of its own (the unturned straights' kerb is on +z, the cell's yaw turns it to the lane)", () => {
+    expect(TILE_SLOTS.buildout).toEqual(TILE_SLOTS.pavement.slice(0, 1));
     for (const key of TILE_SLOTS.buildout) expect(tileFront(key), key).toBe(0);
     expect(TILE_FRONT_TEXT.buildout).toContain("carriageway");
     expect(TILE_LEVELS.buildout).toBe("pavement");
@@ -337,10 +344,10 @@ describe("the build-out's pieces and its trees (056 B)", () => {
   it("says in the legend what a build-out is, in a line of at most SHEET_LEGEND_CHARS, and notes it on its pieces' labels in both sheet shapes", () => {
     expect(SHEET_LEGEND.some((l) => l.startsWith("build-out"))).toBe(true);
     const straight = TILE_SLOTS.buildout[0]!;
-    expect(sheetLabel(straight, true, undefined, ["pavement", "buildout"])).toEqual(["Straight_01", `turn 0 ${SHEET_BUILDOUT_NOTE}`]);
-    expect(sheetLabel(straight, false, undefined, ["pavement", "buildout"])).toEqual(["Straight_01", "NOT IN PACK"]);
+    expect(sheetLabel(straight, true, undefined, ["pavement", "buildout"])).toEqual(["Straight_02", `turn 0 ${SHEET_BUILDOUT_NOTE}`]);
+    expect(sheetLabel(straight, false, undefined, ["pavement", "buildout"])).toEqual(["Straight_02", "NOT IN PACK"]);
     const lines = sheetLegend(true, [{ key: straight, present: true, roles: ["pavement", "buildout"] }, { key: TILE_SLOTS.lane[0]!, present: true, roles: ["lane"] }]);
-    expect(lines[SHEET_LEGEND.length]).toBe(`1 Straight_01 turn 0 ${SHEET_BUILDOUT_NOTE}`);
+    expect(lines[SHEET_LEGEND.length]).toBe(`1 Straight_02 turn 0 ${SHEET_BUILDOUT_NOTE}`);
     expect(lines[SHEET_LEGEND.length + 1]).toBe("2 YellowLines_01 turn 270");
     for (const l of lines) expect(l.length, l).toBeLessThanOrEqual(SHEET_LEGEND_CHARS);
   });
@@ -473,5 +480,332 @@ describe("the module is pure", () => {
     const imports = [...src.matchAll(/from\s+"([^"]+)"/g)].map((m) => m[1]!);
     expect(imports.sort()).toEqual(["./tilecity", "../core"].sort());
     expect(/\blocation\b|\bdocument\b|\bwindow\b/.test(src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, ""))).toBe(false);
+  });
+});
+
+// ---- ticket 063 A, D and H: one sidewalk colour, plain interior paving, paved inlets ----
+
+const GLB_FILE = join("assets", "private", "out", "city-pack.glb");
+const haveGlb = existsSync(GLB_FILE);
+const PLAIN_STRAIGHT: CalibrationKey = `${TILE_PACK}:SM_Env_Sidewalk_Straight_02`;
+const GRATE: CalibrationKey = `${TILE_PACK}:SM_Env_Sidewalk_Grate_01`;
+const SLAB: CalibrationKey = `${TILE_PACK}:SM_Env_Sidewalk_01`;
+
+describe("one sidewalk colour (063 A, Josh, 19 Nov 2026: \"Make the side walk one uniform color.\")", () => {
+  /** The plain walking pieces of the two roles: every key of a role that is not the grate. A city with more than one would draw two shades. */
+  const plainKeys = (slots: { pavement: readonly CalibrationKey[]; buildout: readonly CalibrationKey[] }): CalibrationKey[] => [...new Set([...slots.pavement, ...slots.buildout])].filter((k) => k !== GRATE);
+
+  it("draws every plain pavement and build-out cell from the one straight, Straight_02, and keeps the grate; Straight_01 is in no role and is not loaded", () => {
+    expect(TILE_SLOTS.pavement).toEqual([PLAIN_STRAIGHT, GRATE]);
+    expect(TILE_SLOTS.buildout).toEqual([PLAIN_STRAIGHT]);
+    expect(plainKeys(TILE_SLOTS)).toEqual([PLAIN_STRAIGHT]);
+    const straight01 = `${TILE_PACK}:SM_Env_Sidewalk_Straight_01`;
+    expect(tileKeys()).not.toContain(straight01);
+    for (const keys of Object.values(TILE_SLOTS)) expect(keys).not.toContain(straight01);
+    for (const keys of Object.values(INTERIOR_KEYS)) expect(keys).not.toContain(straight01);
+    for (const p of sheetPieces()) expect(p.key).not.toBe(straight01);
+  });
+});
+
+describe("plain interior paving (063 D)", () => {
+  it("lays the apron, the paths, the park edges and the ring-2 strip from Sidewalk_01, and the passage floors from the same key", () => {
+    for (const kind of ["apron", "path", "parkEdge", "strip"] as const) expect(INTERIOR_KEYS[kind], kind).toEqual([SLAB]);
+    expect(TILE_SLOTS.apron).toEqual([SLAB]);
+    expect(TILE_SLOTS.greenPath).toEqual([SLAB]);
+    expect(TILE_SLOTS.parkEdge).toEqual([SLAB]);
+    expect(PASSAGE_FLOOR_KEYS).toEqual([SLAB]);
+    expect(tileKeys()).toContain(SLAB);
+    expect(tileKeys()).not.toContain(`${TILE_PACK}:SM_Env_Sidewalk_Panel_02`);
+    for (const keys of Object.values(INTERIOR_KEYS)) expect(keys).not.toContain(`${TILE_PACK}:SM_Env_Sidewalk_Panel_02`);
+  });
+
+  it("pins the slab's base at 0.01 m below its origin (measured 19 Nov 2026: its largest up-facing level is 0.01 m up), and it has no front", () => {
+    expect(TILE_BASE_M[SLAB]).toBe(-0.01);
+    expect(tileFront(SLAB)).toBe(0);
+  });
+
+  it("cuts a passage floor into whole 5 m cells and part cells that together are the floor, scaling nothing", () => {
+    const area = (r: { w_m: number; d_m: number }): number => r.w_m * r.d_m;
+    const cases = [
+      { x_m: 42.5, z_m: 12.5, w_m: 3.7, d_m: TILE_M },
+      { x_m: 50, z_m: 12.5, w_m: 5, d_m: TILE_M },
+      { x_m: 50.1, z_m: 12.5, w_m: 5.2, d_m: TILE_M },
+      { x_m: 55, z_m: 12.5, w_m: 12.6, d_m: TILE_M },
+      { x_m: 60, z_m: 7, w_m: 11, d_m: 12 },
+      { x_m: 60, z_m: 3, w_m: 11, d_m: 3 },
+    ];
+    for (const f of cases) {
+      const cut = passageFloorCells(f);
+      const total = cut.whole.length * TILE_M * TILE_M + cut.part.reduce((s, r) => s + area(r), 0);
+      expect(total, JSON.stringify(f)).toBeCloseTo(area(f), 9);
+      // Every whole cell is inside the floor.
+      for (const c of cut.whole) {
+        expect(c.x_m - TILE_M / 2).toBeGreaterThanOrEqual(f.x_m - f.w_m / 2 - 1e-9);
+        expect(c.x_m + TILE_M / 2).toBeLessThanOrEqual(f.x_m + f.w_m / 2 + 1e-9);
+        expect(c.z_m - TILE_M / 2).toBeGreaterThanOrEqual(f.z_m - f.d_m / 2 - 1e-9);
+        expect(c.z_m + TILE_M / 2).toBeLessThanOrEqual(f.z_m + f.d_m / 2 + 1e-9);
+      }
+    }
+    expect(passageFloorCells(cases[0]!).whole).toEqual([]);
+    expect(passageFloorCells(cases[0]!).part).toEqual([cases[0]]);
+    expect(passageFloorCells(cases[1]!).whole).toEqual([{ x_m: 50, z_m: 12.5 }]);
+    expect(passageFloorCells(cases[1]!).part).toEqual([]);
+    expect(passageFloorCells(cases[3]!).whole).toHaveLength(2);
+    expect(passageFloorCells(cases[3]!).part).toHaveLength(1);
+    expect(passageFloorCells(cases[5]!).whole, "a floor under a cell deep has no whole cell").toEqual([]);
+  });
+});
+
+describe("the paved inlets' cells (063 H)", () => {
+  const cities = [tileCity(), ...[1, 2, 3, 4, 5].map((seed) => tileCity({ blocksX: 3, blocksZ: 3, seed })), tileCity({ blocksX: 6, blocksZ: 4, seed: 1 })];
+
+  it("are the two cells of every street court's drive and the first and last cell of every alley's lane, nothing else", () => {
+    let drives = 0;
+    let mouths = 0;
+    for (const city of cities) {
+      const got = inletCells(city);
+      const want = city.courts.filter((c) => !c.street.startsWith("alley:")).flatMap((c) => c.drive.map((q) => `${q.i},${q.j}`));
+      expect(got.drives.map((q) => `${q.i},${q.j}`)).toEqual(want);
+      expect(want.length % 2).toBe(0);
+      drives += want.length;
+      const alleys = city.blocks.filter((b) => b.alley !== null);
+      expect(got.mouths).toHaveLength(2 * ALLEY_CELLS * alleys.length);
+      mouths += got.mouths.length;
+      // Every mouth cell is an alley lane cell of the interior, and every drive cell is a lot cell of the street layer.
+      const lane = new Set(city.interior.filter((c) => c.role === "alley").map((c) => `${c.i},${c.j}`));
+      for (const q of got.mouths) expect(lane.has(`${q.i},${q.j}`), `${q.i},${q.j}`).toBe(true);
+      const lot = new Set(city.cells.filter((c) => c.role === "lotSurface").map((c) => `${c.i},${c.j}`));
+      for (const q of got.drives) expect(lot.has(`${q.i},${q.j}`), `${q.i},${q.j}`).toBe(true);
+    }
+    expect(drives).toBeGreaterThan(20);
+    expect(mouths).toBeGreaterThan(4);
+  });
+
+  it("leave a court's stalls and aisle, and an alley block's own court, as they are: none is an inlet cell", () => {
+    for (const city of cities) {
+      const inlet = new Set([...inletCells(city).drives, ...inletCells(city).mouths].map((q) => `${q.i},${q.j}`));
+      for (const court of city.courts) {
+        for (const pair of [court.stallsNear, court.aisle, court.stallsFar]) for (const q of pair) expect(inlet.has(`${q.i},${q.j}`), `${court.run}`).toBe(false);
+        if (court.street.startsWith("alley:")) for (const q of court.drive) expect(inlet.has(`${q.i},${q.j}`), "an alley court's drive").toBe(false);
+      }
+    }
+  });
+});
+
+/**
+ * Decodes an 8-bit, non-interlaced PNG (RGB or RGBA, grey too) with `node:zlib` only: width, height, channels and the unfiltered bytes. The atlas of the converted City Pack is such a file. No dependency.
+ */
+function decodePng(d: Buffer): { w: number; h: number; ch: number; data: Buffer } {
+  let p = 8;
+  let w = 0;
+  let h = 0;
+  let ct = 0;
+  const idat: Buffer[] = [];
+  while (p < d.length) {
+    const len = d.readUInt32BE(p);
+    const type = d.toString("ascii", p + 4, p + 8);
+    const body = d.subarray(p + 8, p + 8 + len);
+    if (type === "IHDR") {
+      w = body.readUInt32BE(0);
+      h = body.readUInt32BE(4);
+      ct = body[9]!;
+      if (body[8] !== 8 || body[12] !== 0) throw new Error("only 8-bit, non-interlaced PNGs");
+    }
+    if (type === "IDAT") idat.push(body);
+    p += 12 + len;
+  }
+  const ch = ct === 6 ? 4 : ct === 2 ? 3 : ct === 0 ? 1 : ct === 4 ? 2 : 0;
+  if (ch === 0) throw new Error(`PNG colour type ${ct}`);
+  const raw = inflateSync(Buffer.concat(idat));
+  const stride = w * ch;
+  const out = Buffer.alloc(h * stride);
+  for (let y = 0; y < h; y++) {
+    const f = raw[y * (stride + 1)]!;
+    for (let x = 0; x < stride; x++) {
+      const v = raw[y * (stride + 1) + 1 + x]!;
+      const a = x >= ch ? out[y * stride + x - ch]! : 0;
+      const b = y > 0 ? out[(y - 1) * stride + x]! : 0;
+      const c = x >= ch && y > 0 ? out[(y - 1) * stride + x - ch]! : 0;
+      let r: number;
+      if (f === 0) r = v;
+      else if (f === 1) r = v + a;
+      else if (f === 2) r = v + b;
+      else if (f === 3) r = v + ((a + b) >> 1);
+      else {
+        const pp = a + b - c;
+        const pa = Math.abs(pp - a);
+        const pb = Math.abs(pp - b);
+        const pc = Math.abs(pp - c);
+        r = v + (pa <= pb && pa <= pc ? a : pb <= pc ? b : c);
+      }
+      out[y * stride + x] = r & 255;
+    }
+  }
+  return { w, h, ch, data: out };
+}
+
+describe("the converted City Pack agrees with 063's pieces when this machine has it (skipped when it does not)", () => {
+  interface Prim {
+    pts: [number, number, number][];
+    tris: number[][];
+    material: { name: string; alphaMode: string };
+    /** The colour (`#rrggbb`) of the material's base-colour texture at a UV, or "" when the material has none. */
+    texel: (u: number, v: number) => string;
+    uvs: [number, number][];
+  }
+  /** Reads the GLB lazily, inside the test (never at describe level). */
+  const readPack = (): { prims: (name: string) => Prim[] } => {
+    const glb = readFileSync(GLB_FILE);
+    const jsonLen = glb.readUInt32LE(12);
+    const gltf = JSON.parse(glb.subarray(20, 20 + jsonLen).toString("utf8")) as {
+      nodes: { name?: string; mesh?: number; children?: number[] }[];
+      meshes: { primitives: { attributes: { POSITION: number; TEXCOORD_0?: number }; indices?: number; material?: number }[] }[];
+      materials: { name?: string; alphaMode?: string; pbrMetallicRoughness?: { baseColorTexture?: { index: number } } }[];
+      textures?: { source: number }[];
+      images?: { bufferView: number }[];
+      accessors: { bufferView: number; byteOffset?: number; count: number; componentType: number }[];
+      bufferViews: { byteOffset?: number; byteLength: number; byteStride?: number }[];
+    };
+    const bin = glb.subarray(20 + jsonLen + 8);
+    const pngs = new Map<number, ReturnType<typeof decodePng>>();
+    const imageOf = (index: number): ReturnType<typeof decodePng> => {
+      let img = pngs.get(index);
+      if (!img) {
+        const bv = gltf.bufferViews[gltf.images![index]!.bufferView]!;
+        img = decodePng(bin.subarray(bv.byteOffset ?? 0, (bv.byteOffset ?? 0) + bv.byteLength));
+        pngs.set(index, img);
+      }
+      return img;
+    };
+    const hex = (n: number): string => n.toString(16).padStart(2, "0");
+    const prims = (name: string): Prim[] => {
+      const root = gltf.nodes.find((n) => n.name === name);
+      expect(root, name).toBeDefined();
+      const out: Prim[] = [];
+      const walk = (n: { mesh?: number; children?: number[] }): void => {
+        for (const prim of n.mesh !== undefined ? gltf.meshes[n.mesh]!.primitives : []) {
+          const floats = (acc: number, comps: number): number[][] => {
+            const a = gltf.accessors[acc]!;
+            const bv = gltf.bufferViews[a.bufferView]!;
+            const base = (bv.byteOffset ?? 0) + (a.byteOffset ?? 0);
+            const rows: number[][] = [];
+            for (let i = 0; i < a.count; i++) {
+              const at = base + i * (bv.byteStride ?? comps * 4);
+              rows.push(Array.from({ length: comps }, (_, k) => bin.readFloatLE(at + 4 * k)));
+            }
+            return rows;
+          };
+          const pts = floats(prim.attributes.POSITION, 3) as [number, number, number][];
+          const uvs = (prim.attributes.TEXCOORD_0 === undefined ? pts.map(() => [0, 0]) : floats(prim.attributes.TEXCOORD_0, 2)) as [number, number][];
+          const tris: number[][] = [];
+          const ia = gltf.accessors[prim.indices!]!;
+          const ib = gltf.bufferViews[ia.bufferView]!;
+          const at0 = (ib.byteOffset ?? 0) + (ia.byteOffset ?? 0);
+          for (let i = 0; i + 2 < ia.count; i += 3) tris.push([0, 1, 2].map((k) => (ia.componentType === 5125 ? bin.readUInt32LE(at0 + (i + k) * 4) : bin.readUInt16LE(at0 + (i + k) * 2))));
+          const m = gltf.materials[prim.material ?? 0] ?? {};
+          const tex = m.pbrMetallicRoughness?.baseColorTexture?.index;
+          const texel = (u: number, v: number): string => {
+            if (tex === undefined) return "";
+            const img = imageOf(gltf.textures![tex]!.source);
+            const x = Math.min(img.w - 1, Math.max(0, Math.floor((u - Math.floor(u)) * img.w)));
+            const y = Math.min(img.h - 1, Math.max(0, Math.floor((v - Math.floor(v)) * img.h)));
+            const i = (y * img.w + x) * img.ch;
+            return `#${hex(img.data[i]!)}${hex(img.data[img.ch >= 3 ? i + 1 : i]!)}${hex(img.data[img.ch >= 3 ? i + 2 : i]!)}`;
+          };
+          out.push({ pts, tris, uvs, texel, material: { name: m.name ?? "", alphaMode: m.alphaMode ?? "OPAQUE" } });
+        }
+        for (const c of n.children ?? []) walk(gltf.nodes[c]!);
+      };
+      walk(root!);
+      return out;
+    };
+    return { prims };
+  };
+  const nameOf = (key: CalibrationKey): string => key.slice(key.indexOf(":") + 1);
+  /** Every up-facing triangle of a piece: its area (m2), the height of its centre (m) and the texture colour at its centre's UV. */
+  const upFaces = (ps: Prim[]): { area: number; y: number; colour: string }[] => {
+    const out: { area: number; y: number; colour: string }[] = [];
+    for (const { pts, tris, uvs, texel } of ps) {
+      for (const t of tris) {
+        const [p, q, r] = [pts[t[0]!]!, pts[t[1]!]!, pts[t[2]!]!];
+        const u = [q[0] - p[0], q[1] - p[1], q[2] - p[2]];
+        const v = [r[0] - p[0], r[1] - p[1], r[2] - p[2]];
+        const n = [u[1]! * v[2]! - u[2]! * v[1]!, u[2]! * v[0]! - u[0]! * v[2]!, u[0]! * v[1]! - u[1]! * v[0]!];
+        const len = Math.hypot(n[0]!, n[1]!, n[2]!);
+        if (len < 1e-12 || n[1]! / len < 0.9) continue;
+        const cu = (uvs[t[0]!]![0] + uvs[t[1]!]![0] + uvs[t[2]!]![0]) / 3;
+        const cv = (uvs[t[0]!]![1] + uvs[t[1]!]![1] + uvs[t[2]!]![1]) / 3;
+        out.push({ area: len / 2, y: (p[1] + q[1] + r[1]) / 3, colour: texel(cu, cv) });
+      }
+    }
+    return out;
+  };
+  /** The up-facing area (m2) of a piece by the height of its triangles' centres, in centimetre bins. */
+  const upAreas = (ps: Prim[]): Map<number, number> => {
+    const area = new Map<number, number>();
+    for (const f of upFaces(ps)) {
+      const y = Math.round(f.y * 100) / 100;
+      area.set(y, (area.get(y) ?? 0) + f.area);
+    }
+    return area;
+  };
+  const topOf = (area: Map<number, number>): number => [...area].sort((x, y) => y[1] - x[1])[0]![0];
+  /** The up-facing area more than 0.02 m below the piece's top level (an inset plate or a sunk panel). */
+  const sunkArea = (area: Map<number, number>): number => {
+    const top = topOf(area);
+    return [...area].filter(([y]) => top - y > 0.02 + 1e-9).reduce((s, [, a]) => s + a, 0);
+  };
+  /** The colour with the most up-facing area among the faces whose centre is between `lo` and `hi` metres (default the sidewalk pieces' walking height, 0.20 to 0.26 m): the slab a walker stands on. */
+  const walkColour = (ps: Prim[], lo = 0.2, hi = 0.26): string => {
+    const by = new Map<string, number>();
+    for (const f of upFaces(ps)) if (f.y >= lo && f.y <= hi) by.set(f.colour, (by.get(f.colour) ?? 0) + f.area);
+    return [...by].sort((x, y) => y[1] - x[1])[0]![0];
+  };
+  /** The up-facing area (m2) whose texture colour is not one of `allowed`. */
+  const otherColourArea = (ps: Prim[], allowed: readonly string[]): number => upFaces(ps).filter((f) => !allowed.includes(f.colour)).reduce((s, f) => s + f.area, 0);
+  /** The keys among `keys` with a BLEND (see-through) material: the scan of criterion 3. */
+  const blendKeys = (prims: (name: string) => Prim[], keys: readonly CalibrationKey[]): CalibrationKey[] => keys.filter((key) => prims(nameOf(key)).some((p) => p.material.alphaMode === "BLEND"));
+
+  const SLAB_HEX = "#8c8987";
+  const JOINT_HEX = "#7b7b79";
+  const STRAIGHT_01: CalibrationKey = `${TILE_PACK}:SM_Env_Sidewalk_Straight_01`;
+
+  it.skipIf(!haveGlb)("has no see-through piece: every key the tiles, the interiors and their props load has only materials whose alphaMode is not BLEND, and the scan reports Straight_01, the piece the old slots had", { timeout: 120000 }, () => {
+    const { prims } = readPack();
+    const keys = new Set<CalibrationKey>([...tileKeys(), ...Object.values(INTERIOR_KEYS).flat(), ...TILE_TREES, ...TILE_PROPS]);
+    expect(keys.size).toBeGreaterThan(20);
+    for (const key of keys) expect(prims(nameOf(key)).length, key).toBeGreaterThan(0);
+    expect(blendKeys(prims, [...keys])).toEqual([]);
+    // The scan bites: today's slots (Straight_01 in the pavement and the build-out) fail it, and it names the piece.
+    const before: CalibrationKey[] = [STRAIGHT_01, PLAIN_STRAIGHT, GRATE];
+    expect(blendKeys(prims, before)).toEqual([STRAIGHT_01]);
+  });
+
+  it.skipIf(!haveGlb)("samples the same slab colour at the walking faces of Straight_02, Grate_01, Dip_01 and Dip_Corner_01, read from the embedded atlas at their UVs", { timeout: 120000 }, () => {
+    const { prims } = readPack();
+    const walkers: CalibrationKey[] = [PLAIN_STRAIGHT, GRATE, `${TILE_PACK}:SM_Env_Sidewalk_Dip_01`, `${TILE_PACK}:SM_Env_Sidewalk_Dip_Corner_01`];
+    for (const key of walkers) expect(walkColour(prims(nameOf(key))), key).toBe(SLAB_HEX);
+    // The slab piece the interiors use samples the same colour at its top, so the interiors match the street.
+    expect(walkColour(prims(nameOf(SLAB)), 0, 0.04)).toBe(SLAB_HEX);
+    // The colour the code-drawn pavement uses is this one.
+    expect(`#${PAVING_SLAB_COLOUR.toString(16).padStart(6, "0")}`).toBe(SLAB_HEX);
+  });
+
+  it.skipIf(!haveGlb)("stands Sidewalk_01's largest up-facing level within 0.01 m of TILE_BASE_M's, and has no inset plate and no colour but the slab and the joint, where Panel_02 has both", { timeout: 120000 }, () => {
+    const { prims } = readPack();
+    for (const kind of ["apron", "path", "parkEdge", "strip"] as const) {
+      for (const key of INTERIOR_KEYS[kind]) {
+        const ps = prims(nameOf(key));
+        const area = upAreas(ps);
+        expect(Math.abs(topOf(area) + (TILE_BASE_M[key] ?? 0)), `${key}: top ${topOf(area)}`).toBeLessThanOrEqual(0.01);
+        expect(sunkArea(area), `${key}: a sunk plate`).toBeLessThanOrEqual(0.1);
+        // Every up-facing face samples the slab or the joint colour, and nothing else (a plate's dark green-grey would show here).
+        expect(otherColourArea(ps, [SLAB_HEX, JOINT_HEX]), `${key}: area of another colour`).toBeLessThanOrEqual(0.1);
+      }
+    }
+    // The checks bite: the piece 063 D replaced has two plates 0.04 m below its slab, 3.8 m2 in all, sampling #4a5d4e and #5f686e.
+    const panel = prims("SM_Env_Sidewalk_Panel_02");
+    expect(sunkArea(upAreas(panel))).toBeGreaterThan(0.1);
+    expect(otherColourArea(panel, [SLAB_HEX, JOINT_HEX])).toBeGreaterThan(0.1);
   });
 });
