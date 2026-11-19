@@ -14,6 +14,8 @@ import * as citymetrics from "./citymetrics";
 import * as debug3d from "./debug3d";
 import * as dressing from "./dressing";
 import * as escapes from "./escapes";
+import * as facade from "./facade";
+import * as frontage from "./frontage";
 import * as furniture from "./furniture";
 import * as layout from "./layout";
 import * as lighting from "./lighting";
@@ -45,6 +47,8 @@ const MODULES: Readonly<Record<string, Record<string, unknown>>> = {
   "terrace.ts": terrace as unknown as Record<string, unknown>,
   "dressing.ts": dressing as unknown as Record<string, unknown>,
   "escapes.ts": escapes as unknown as Record<string, unknown>,
+  "facade.ts": facade as unknown as Record<string, unknown>,
+  "frontage.ts": frontage as unknown as Record<string, unknown>,
   "sills.ts": sills as unknown as Record<string, unknown>,
   "furniture.ts": furniture as unknown as Record<string, unknown>,
   "streetcam.ts": streetcam as unknown as Record<string, unknown>,
@@ -108,8 +112,8 @@ function lookup(file: string, ref: string): unknown {
 }
 
 describe("the city style guide exists and is shaped as the ticket says", () => {
-  it("has the sixteen chapters and chapter 18 (ticket 056), in order, and a Numbers appendix", () => {
-    expect(chapterNumbers).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18]);
+  it("has the sixteen chapters and chapters 18 and 19 (tickets 056 and 057), in order, and a Numbers appendix", () => {
+    expect(chapterNumbers).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 19]);
     expect(lines.some((l) => l === "## Numbers")).toBe(true);
   });
 
@@ -775,5 +779,132 @@ describe("sills.ts is drift-checked and 16.10 gives the door-sill rule (ticket 0
       const stem = name.replace(/_\d+$/, "").replace(/\d+$/, "");
       expect(text.includes(key) || text.includes(`${pack}:${stem}`) || text.includes(name), `16.10 has no row for ${key}`).toBe(true);
     }
+  });
+});
+
+// ---- ticket 057 E: chapter 19 (frontage and block interiors) and the constants of facade.ts, frontage.ts and the 057 names of tilecity.ts ----
+
+describe("chapter 19 gives frontage and block interiors, and the numbers it names cannot drift (ticket 057 E)", () => {
+  const rows = table(section(/^## Numbers$/), ["Constant", "Value", "File"]);
+  const refs = (file: string): string[] => rows.filter((r) => r[2] === file).map((r) => unquote(r[0]!));
+  const covered = (have: readonly string[], name: string): boolean => have.some((r) => r === name || r.startsWith(`${name}.`) || r.startsWith(`${name}[`));
+  /** A number, a non-empty array of numbers, or a non-empty record of numbers: what a tuning constant looks like. */
+  const numeric = (v: unknown): boolean =>
+    typeof v === "number" ||
+    (Array.isArray(v) && v.length > 0 && v.every((x) => typeof x === "number")) ||
+    (typeof v === "object" && v !== null && !Array.isArray(v) && Object.keys(v).length > 0 && Object.values(v).every((x) => typeof x === "number"));
+  /** The exports of `mod` that a Numbers row must cover: numeric ones, less the per-piece tables (`facade.test.ts` pins their entries) and what the file only re-exports from `tilecity.ts` (covered by that file's row). */
+  const uncovered = (mod: Record<string, unknown>, have: readonly string[], skip: ReadonlySet<string> = new Set()): string[] =>
+    Object.entries(mod)
+      .filter(([name, v]) => numeric(v) && !skip.has(name) && !covered(have, name))
+      .map(([name]) => name);
+  const reexported = new Set(Object.keys(frontage).filter((k) => k in tilecity && (frontage as unknown as Record<string, unknown>)[k] === (tilecity as unknown as Record<string, unknown>)[k]));
+  const text = chapter(19).join("\n");
+
+  it("has a Numbers row for every number and record of numbers facade.ts and frontage.ts export (less the per-piece wall tables and what frontage.ts re-exports from tilecity.ts), and the check finds one with no row", () => {
+    const tables = new Set(["WALL_FRONT_M", "WALL_SIDE_M"]);
+    expect(Object.values(MODULES["facade.ts"]!).filter(numeric).length, "facade.ts exports constants").toBeGreaterThan(6);
+    expect(Object.values(MODULES["frontage.ts"]!).filter(numeric).length, "frontage.ts exports constants").toBeGreaterThan(8);
+    expect(uncovered(MODULES["facade.ts"]!, refs("facade.ts"), tables), "no Numbers row for these facade.ts exports").toEqual([]);
+    expect(uncovered(MODULES["frontage.ts"]!, refs("frontage.ts"), reexported), "no Numbers row for these frontage.ts exports").toEqual([]);
+    // Not vacuous: a number added without a row is found, and a row left out is found.
+    expect(uncovered({ ...MODULES["frontage.ts"]!, NEW_TUNING: 3 }, refs("frontage.ts"), reexported)).toEqual(["NEW_TUNING"]);
+    expect(uncovered(MODULES["facade.ts"]!, [], tables)).toContain("WALL_REACH_M");
+    expect([...reexported].sort(), "what frontage.ts re-exports from tilecity.ts").toEqual(["ALLEY_ONE_IN_BLOCKS", "BLOCK_CV_MIN", "BLOCK_NONSQUARE_MIN", "END_OVERLAP_MAX_M", "PARK_ONE_IN_BLOCKS", "PASSAGE_W_M"]);
+    for (const name of reexported) expect(covered(refs("tilecity.ts"), name), `${name} is re-exported by frontage.ts and needs its tilecity.ts row`).toBe(true);
+  });
+
+  it("has a Numbers row in tilecity.ts for every constant 057 added, and the code still exports each", () => {
+    const NEW_057 = [
+      "TILE_CITY_R1_MIN", "TILE_ROW_INSET_M", "END_OVERLAP_MAX_M", "PASSAGE_W_M", "PASSAGE_FLOOR_DEPTH_M", "COURT_CELLS", "DRIVE_CELLS", "APRON_CELLS", "APRON_STRIP", "COURT_STALLS", "COURT_AISLE",
+      "GREEN_SPAN_MAX_CELLS", "GREEN_TREE_ONE_IN", "BENCH_FROM_PATH_M", "CITY_FRONT_LOT_BLOCKS_MAX", "BLOCK_TILES", "BLOCK_STEP_MIN_CELLS", "BLOCK_CV_MIN", "BLOCK_NONSQUARE_MIN", "BLOCK_DRAWS_MAX",
+      "BLOCK_MEAN_MIN_CELLS", "BLOCK_SMALL_MAX_M", "BLOCK_LONG_MIN_M", "BLOCK_LONG_SHORT_MAX_M", "BLOCK_LARGE_MIN_M", "BLOCK_FALLBACK_WIDTHS", "BLOCK_FALLBACK_DEPTHS", "ALLEY_ONE_IN_BLOCKS", "ALLEY_CELLS",
+      "ALLEY_BIN_EVERY_M", "ALLEY_BIN_OFFSET_M", "ALLEY_SIDE_LONG_M", "ALLEY_SIDE_MIN_CELLS", "ALLEY_COURT_PART_MIN_CELLS", "ALLEY_COURT_LANE_MIN_CELLS", "PARK_ONE_IN_BLOCKS", "PARK_EDGE_CELLS", "PARK_HALF_SIDE_MIN_CELLS",
+    ];
+    const have = refs("tilecity.ts");
+    for (const n of NEW_057) {
+      expect(tilecity as Record<string, unknown>, `tilecity.ts no longer exports ${n}`).toHaveProperty(n);
+      expect(covered(have, n), `no Numbers row for ${n}`).toBe(true);
+    }
+    // The two fallback layouts are pinned entry by entry.
+    expect(have.filter((r) => r.startsWith("BLOCK_FALLBACK_WIDTHS[")).length).toBe(tilecity.BLOCK_FALLBACK_WIDTHS.length);
+    expect(have.filter((r) => r.startsWith("BLOCK_FALLBACK_DEPTHS[")).length).toBe(tilecity.BLOCK_FALLBACK_DEPTHS.length);
+  });
+
+  it("has a row for every constant that chapter 19 names from tilecity.ts, facade.ts or frontage.ts", () => {
+    let checked = 0;
+    for (const m of text.matchAll(/`([A-Z][A-Z0-9_]{2,})`/g)) {
+      const name = m[1]!;
+      for (const file of ["tilecity.ts", "facade.ts", "frontage.ts"]) {
+        const v = (MODULES[file] as Record<string, unknown>)[name];
+        if (v === undefined || !numeric(v) || name === "WALL_FRONT_M" || name === "WALL_SIDE_M") continue;
+        const own = file === "frontage.ts" && reexported.has(name) ? refs("tilecity.ts") : refs(file);
+        checked++;
+        expect(covered(own, name), `chapter 19 names ${name} of ${file}, which has no Numbers row`).toBe(true);
+      }
+    }
+    expect(checked, "the check found the constants").toBeGreaterThan(40);
+  });
+
+  it("holds the values chapter 19 states in words: the overlap is the wall reach, the drive is two cells, a court is six stalls", () => {
+    expect(frontage.OVERLAP_MAX_M).toBe(facade.WALL_REACH_M);
+    expect(tilecity.DRIVE_CELLS).toBe(2);
+    expect(tilecity.COURT_CELLS.w * tilecity.COURT_CELLS.d).toBe(6);
+    expect(tilecity.LOT_STALLS).toBe(6);
+    expect(tilecity.TILE_ROW_INSET_M).toBe(0);
+    expect(Object.keys(tilecity), "055 B's inset cap is gone").not.toContain("TILE_INSET_MAX_M");
+    expect(Object.keys(tilecity), "055 B's inset function is gone").not.toContain("tileRowInset_m");
+    expect(tilecity.PASSAGE_W_M.min).toBe(1);
+    expect(tilecity.PASSAGE_W_M.max).toBeLessThanOrEqual(tilecity.TILE_M + 0.3 + 1e-9);
+    expect(Object.keys(frontage.FRONTAGE_CHECK)).toEqual(["G1", "G2", "G3", "G4"]);
+    expect(Object.keys(frontage.VARIETY_CHECK)).toEqual(["V1", "V2", "V3", "V4"]);
+  });
+
+  it("has its eight parts, in order, and every rule tagged with ticket 057 or with what it waits for", () => {
+    const heads = chapter(19).filter((l) => /^### 19\.\d /.test(l)).map((l) => Number(/^### 19\.(\d) /.exec(l)![1]));
+    expect(heads).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    const bullets = chapter(19).filter((l) => l.startsWith("- "));
+    expect(bullets.length).toBeGreaterThan(40);
+    for (const b of bullets) {
+      const tag = /^- \*\*(Decided|Default|Pending|Open|Info)\b/.exec(b);
+      expect(tag, `chapter 19: untagged bullet: ${b.slice(0, 80)}`).not.toBeNull();
+      if (tag![1] === "Decided" || tag![1] === "Default") expect(/^- \*\*(Decided|Default) \(057\b/.test(b), `chapter 19: no ticket beside: ${b.slice(0, 80)}`).toBe(true);
+      if (tag![1] === "Pending" || tag![1] === "Open") expect(b.startsWith(`- **${tag![1]} (waits for `), `chapter 19: no "what it waits for": ${b.slice(0, 80)}`).toBe(true);
+    }
+    // What depends on section D is marked as such, never stated as built.
+    expect(chapter(19).filter((l) => l.startsWith("- **Pending (waits for 057 D")).length).toBeGreaterThanOrEqual(5);
+    expect(text).toMatch(/built by D/i);
+  });
+
+  it("keeps Josh's words as the Decided lines: the wall line, the fill, the grid, and the R1 floor", () => {
+    expect(/^- \*\*Decided \(057, Josh 18 Nov 2026[^)]*\)\*\*: "It's okay if the buildings rest on top of the sidewalk and overlap a little bit\. It is not okay if the buildings sit recessed from the sidewalk and leave a gap of nothing between them\."/m.test(text)).toBe(true);
+    expect(/^- \*\*Decided \(057, Josh 18 Nov 2026\)\*\*: [^\n]*he said: "Grass and pavement should fill the blank areas\."/m.test(text)).toBe(true);
+    expect(/^- \*\*Decided \(057, Josh 18 Nov 2026\)\*\*: "Keep in mind, 90 degrees does not mean a grid of squares\. You can have varying widths for blocks, alleyways, parks\.\.\. etc"/m.test(text)).toBe(true);
+    expect(/^- \*\*Decided \(057, Josh 19 Nov 2026, "Tile-city R1 floor 0\.88 \(Recommended\)"\)\*\*/m.test(text)).toBe(true);
+  });
+
+  it("states the far-end order and the passage, and records the changes from the draft as built", () => {
+    for (const w of ["a seam", "overshoot", "gated passage", "flush", "COURT_CELLS", "DRIVE_CELLS", "withPassages(city, tilePassages(city, packed))", "TileCity.interior", "BLOCK_MEAN_MIN_CELLS", "ALLEY_COURT_PART_MIN_CELLS"]) expect(text, w).toContain(w);
+    for (const id of ["G1", "G2", "G3", "G4", "V1", "V2", "V3", "V4"]) expect(text, id).toMatch(new RegExp(`^\\| ${id}, `, "m"));
+    for (const k of ["apron", "court", "drive", "green", "greenPath", "alley", "parkEdge"]) expect(text, k).toContain(`\`${k}\``);
+  });
+
+  it("points chapter 18 at the courts: no rear-courts default remains, 18.1 and 18.4 name chapter 19, and 16.6 records the Town Pack gate", () => {
+    const parking = chapter(18).join("\n");
+    expect(parking).not.toMatch(/no rear courts/i);
+    expect(/^- \*\*Default \(056, 057 C\)\*\*: from 057 on, a block's lots are interior courts/m.test(parking)).toBe(true);
+    expect(parking).not.toMatch(/waits for ticket 057 C/);
+    expect(parking).toContain("(19.4)");
+    const gate = chapter(16).filter((l) => /^- \*\*Pending \(waits for 057 D[^)]*\)\*\*: the Town Pack pieces now placed/.test(l));
+    expect(gate).toHaveLength(1);
+    expect(gate[0]).toContain("SM_Env_Fence_Wood_Gate_01");
+    expect(gate[0]).toContain("SM_Env_Fence_Wood_Post_01");
+  });
+
+  it("no longer holds the frontage and block rules among the decisions not yet built", () => {
+    const pending = section(/^## Decided, not yet built/).join("\n");
+    expect(pending).not.toMatch(/^- \*\*Default \(057/m);
+    expect(pending).toContain("built, now chapter 19");
+    expect(pending).toContain("Corners and frontage (ticket 055 B, then 057; built, now chapter 19)");
   });
 });
