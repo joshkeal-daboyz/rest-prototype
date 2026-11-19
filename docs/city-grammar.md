@@ -2,7 +2,7 @@
 
 Draft for Josh, 19 Nov 2026. Design only: no code, no puzzle, nothing under `src/grid/` or `src/night/` is touched by this file.
 
-- **Status.** Nothing here is Decided until Josh says so in chat. So far he has answered two questions on 19 Nov 2026: Q1 (rule 7) and Q2 (rule 4). Lines marked **Law** quote a Decided line of `docs/city-style-guide.md` or Josh's words in `docs/city-state-2026-11-19.md`; everything else is **Proposed**.
+- **Status.** Nothing here is Decided until Josh says so in chat. So far he has answered three questions on 19 Nov 2026: Q1 (rule 7), Q2 (rule 4) and Q3 (rule 8). Lines marked **Law** quote a Decided line of `docs/city-style-guide.md` or Josh's words in `docs/city-state-2026-11-19.md`; everything else is **Proposed**.
 - **Scope.** The tile city (`city=tiles`) on `goal/city-style`. The ladder maps keep chapters 4 and 16 as they are (`packpin.test.ts` and `townpin.test.ts` hold).
 - **Evidence.** The measurements are in the appendix. I took them today from `city-pack.glb` with a scratch script that is not committed. I have not seen a render, or Josh's reference image; where a rule leans on something only an eye can settle, it says so under **Not verified**.
 
@@ -192,7 +192,10 @@ A strip, 2 cells deep, between a street and a lane (rule 4):
   - Measured: the kit's pieces are in the pack and fit a 5 by 3 m storey face (appendix C).
 - **Check M7, no bare party wall** (pure; this is section C's `blankFaces`, defined on storey faces). For every column side that is a party wall, each storey above the neighbour's roof carries a kit piece lying on that face, and its widest bare stretch is at most `BLANK_RUN_MAX_M`. A party wall with an open cell beside it is M3's failure, not this check's.
   - Fails today: every joint between two buildings of a row steps in height (R2), and nothing dresses the step.
-- **Open.** Q3. The pipe runs are in `CITY_NEVER_USED` with the reason "back walls only"; using them on party walls lifts them, which is Josh's call. Whether a painted board on most steps reads as too many adverts is for his eye.
+- **Decided (Josh, 19 Nov 2026, in chat).** Asked "Should the bare wall above a lower neighbour's roof be dressed with boards, pipes and windows?", he answered: "Yes, dress it". So the rule above stands, with the three kit pieces.
+  - The question he answered named the pipes, and the message that put it to him said dressing means lifting the pipe runs from the never-used list. So `SM_Prop_Pipe_Present_*` leaves `CITY_NEVER_USED` for party walls only; its reason there, "back walls only", becomes the rule for where it may stand. No other never-used piece is lifted. If Josh did not mean the lift, the kit is the boards and the windows.
+  - Heights stay free: the alternative of holding row neighbours to one storey's difference is not taken.
+- **Open.** None. Whether a painted board on most steps reads as too many adverts is for his eye once C3 is drawn; the mix is by hash and is one table.
 
 ### 9. Frontage kinds: what each open face carries
 
@@ -303,6 +306,7 @@ No threshold is loosened. Stated plainly:
 - **R9** changes meaning, by Josh's answer to Q1 ("Yes, any corner", 19 Nov 2026): a "true corner" is any column with two adjacent open sides. It still fails on a corner piece anywhere else.
 - **P1 to P6** keep their thresholds. Units are counted from 5.0 m cells and include ring 2 and lane rows (rule 5).
 - **V1 to V4**, `escapeCheck`, the sill checks and the draw-call caps are unchanged. The stack draw calls roughly double. If the frame rate on Josh's PC cannot hold, that goes to Josh, and the remedy is instancing the stack pieces, not a higher cap.
+- **`CITY_NEVER_USED`** loses `SM_Prop_Pipe_Present_*` when C3 lands (Q3, decided); 16.6's table row becomes a rule: party walls only. `styleguide.test.ts` keeps the table and the code in step.
 - **Guide text that goes** when the sections land: 19.2's far-end order and its passages; 19.4's ring-2 strip; 19.6's alley rear; 18.2's 5.2 m bays; chapter 7's "+x" guesses.
 
 ## What changes in ticket 063
@@ -317,7 +321,7 @@ No threshold is loosened. Stated plainly:
 - **C (backs) is re-cut on the lattice.**
   - Both of the ticket's options are built, by Josh's answer to Q2 ("They can be either."): C-rows (another building) and C-stack (the same building repeated), chosen per building by hash. Ring 2 is exactly one cell deep, so `BACK_OVERSHOOT_MAX_M` goes, and `BACK_COVER_MIN` (0.9 of the strip) is replaced by M3 and M4, which are exact.
   - New in C1: blind corner columns; the drive runs through ring 2; lane rows on alley sides; quiet ground rows (M8); corner columns beside openings (Q1, decided).
-  - `blankFaces` is M7, on storey faces. Q-C2 is answered: corner pieces at openings (Q1), the party-wall kit on height steps (Q3).
+  - `blankFaces` is M7, on storey faces. Q-C2 is answered: corner pieces at openings (Q1), the party-wall kit on height steps (Q3, decided).
   - Three builds: **C1** the plan and M3, M4, M5, M8; **C2** the drawing; **C3** the party-wall dressing (M7), and strips if Q6 is yes.
 - **F, G, A, D, H** are unchanged. F's returns end on corner columns once C1 lands.
 
@@ -325,15 +329,14 @@ No threshold is loosened. Stated plainly:
 
 ## Decide first
 
-Questions only Josh can answer, most important first. Q1 and Q2 are answered; Q3 to Q7 are open.
+Questions only Josh can answer, most important first. Q1 to Q3 are answered; Q4 to Q7 are open.
 
 1. **May corner pieces stand wherever two open sides meet?** That is: at a lane mouth, a court drive, a plaza and inside a court, as well as where two streets meet.
    - **Answered (Josh, 19 Nov 2026): "Yes, any corner".** Rule 7 records it.
 2. **The backs: other buildings, or the same building repeated?**
    - **Answered (Josh, 19 Nov 2026): "They can be either."** Rule 4 records it: both kinds are built, chosen per building by hash.
 3. **The wall above a lower neighbour's roof.**
-   - **Recommended: dress it** with the party-wall kit, and lift the pack's pipe runs from the never-used list for party walls only.
-   - Alternatives: leave it bare, as the one blank wall allowed; or let row neighbours differ by one storey at most, so there is less of it.
+   - **Answered (Josh, 19 Nov 2026): "Yes, dress it".** Rule 8 records it: painted boards, pipe runs and windows; the pipe runs are lifted from the never-used list for party walls only.
 4. **Retire the gated passage.**
    - **Recommended: yes.** On the lattice no row needs one. An interior with no drive and no lane gets one 5 m walk-through, paved.
    - Alternative: leave such interiors sealed.
