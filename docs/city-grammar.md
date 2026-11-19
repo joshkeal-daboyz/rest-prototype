@@ -2,10 +2,7 @@
 
 Draft for Josh, 19 Nov 2026. Design only: no code, no puzzle, nothing under `src/grid/` or `src/night/` is touched by this file.
 
-- **Status (19 Nov 2026).** Josh has answered every question of "Decide first".
-  - **Decided, in his own words:** Q1 (rule 7), "Yes, allow it (Recommended)" (recorded earlier as "Yes, any corner"), and Q3 (rule 8), "Dress it, lift the pipes (Recommended)".
-  - **Adopted recommendation, under his goal waiver** ("I don't want to constantly approve all of these improvments."): Q2 (rules 4 and 12), Q4 (rule 6), Q5 (rule 5), Q6 (rule 4) and Q7 (rule 10). These are not his own words on each question. A later word from him overrides any of them.
-  - Lines marked **Law** quote a Decided line of `docs/city-style-guide.md` or Josh's words in `docs/city-state-2026-11-19.md`. The rules are now built by tickets 063 B and 064 to 068 (`tickets/063-uniform-sidewalk-and-street-width.md` has the index).
+- **Status.** Nothing here is Decided until Josh says so in chat. So far he has answered six questions on 19 Nov 2026: Q1 (rule 7), Q2 and Q6 (rule 4), Q3 (rule 8), Q4 (rule 6) and Q7 (rule 10). Q5 (parking) waits for a measurement. Lines marked **Law** quote a Decided line of `docs/city-style-guide.md` or Josh's words in `docs/city-state-2026-11-19.md`; everything else is **Proposed**.
 - **Scope.** The tile city (`city=tiles`) on `goal/city-style`. The ladder maps keep chapters 4 and 16 as they are (`packpin.test.ts` and `townpin.test.ts` hold).
 - **Evidence.** The measurements are in the appendix. I took them today from `city-pack.glb` with a scratch script that is not committed. I have not seen a render, or Josh's reference image; where a rule leans on something only an eye can settle, it says so under **Not verified**.
 
@@ -115,17 +112,22 @@ A strip, 2 cells deep, between a street and a lane (rule 4):
 | 6 cells or more | court block | ring 1 faces out, ring 2 faces in onto an interior of at least 2 cells |
 | 3, 4 or 5 cells | not laid | 3 leaves a single row or a 5 m slot between blank backs; 4 and 5 are nearly all blind columns |
 
-  - Ring 2's buildings are buildings of their own (rule 12 says how they vary). Each stands column for column behind a ring-1 building and has the same floor count, so the wall between the two never shows.
+  - **Decided (Josh, 19 Nov 2026, in chat).** Asked "Should the backs be other buildings, or the same building repeated?", he answered: "They can be either." So the building behind a ring-1 building is one of two kinds, chosen per building by hash:
+    - **another building**: its own style and its own colourway (rule 12);
+    - **the same building, through**: the ring-1 building's style and colourway repeated behind it, turned to face the court, so it reads as one building 10 m deep with a street face and a court face.
+  - Either kind stands column for column behind the ring-1 building and has the same floor count, so the wall between the two never shows.
+  - Proposed: half of each (`BACK_SAME_SHARE` 0.5, by hash of the ring-1 building's key). The share is one constant for Josh's eye.
   - The four cells where ring 2 turns a corner are blind. Each takes the style, colourway and floor count of the ring-1 corner building it stands behind.
   - A ring-2 or lane-facing row is a row like any other: rules 1 to 3 and 6 to 12 apply to it.
 - **Why.**
   - Law: the same words as rule 3. A single row always shows its blank back.
   - Measured: two bodies back to back are exactly 10.00 m, two cells. The 0.4 to 1.8 m "overshoot into ring 3" that section C allowed for was the outlines.
   - Josh offered thinner blocks himself on 18 Nov ("those squares of buildings be thinner so that the buildings are butted up right against each other"). A strip is that, as a part of a block, without making every block thin (19.3's road share stands).
-- **Check M4, pairs** (pure). Every ring-1 column of a court block has a built cell behind it or a recorded opening (rule 6). Each ring-2 building has its partner's floor count and a different colourway. No part has a short side of 3 to 5 cells.
+- **Check M4, pairs** (pure). Every ring-1 column of a court block has a built cell behind it or a recorded opening (rule 6). Each ring-2 building has its partner's floor count, and either its partner's style and colourway (the same building, through) or a different colourway (another building). No part has a short side of 3 to 5 cells.
   - Fails today: ring 2 is apron (`APRON_STRIP`) on every block; an alley cuts a 9-cell side into two parts of 4.
 - **Cost, by arithmetic on the default city's block sizes** (14, 11, 6 by 13, 9, 15 cells; alleys and parks ignored). Ring 1 is 372 cells and ring 2 is 300, of which 36 are blind. Buildings take 59% of block area and the interior 41% (71% today). The three 6-cell-wide blocks keep interiors 2 cells wide. Building draw calls roughly double (stacks are per-piece clones). Homes roughly double; rule 5 says what that does to parking.
-- **Status.** Q2: other buildings, adopted under the waiver (and his words "butted up against the backs of other buildings"). Q6: strips yes, in 067, adopted under the waiver. Built by 065 (M4), 066 and 067 B.
+- **Decided (Josh, 19 Nov 2026, in chat).** Asked "Allow strips: 10 m deep parts cut off a block by a lane, two rows back to back?", he answered: "Yes, allow strips". So the 2-cell shape of the table above is built, in section C3.
+- **Open.** None.
 
 ### 5. What stays open inside a block
 
@@ -134,7 +136,7 @@ A strip, 2 cells deep, between a street and a lane (rule 4):
   - Law (19.4): "Grass and pavement should fill the blank areas."
   - Law: "If you're going to have an inlet to areas between buildings it needs to be paved".
 - **Check.** G3 (no void) and G4 (courts reached) with their numbers unchanged. G3 now credits rings 1 and 2 as buildings. New in M5: every interior touches an opening.
-- **Parking.** The checks P1 to P6 and every threshold stay. Units are counted from cells: a column is a 5.0 m cell (18.2 says 5.2 m bays). Ring 2 and the lane rows add homes. My estimate for the default city is about 860 homes against 379 today, so about 129 stalls wanted. Two courts a block (`LOTS_PER_BLOCK_MAX`) give 108, which is 0.84 of demand and inside `PARK_SUPPLY_BAND`, but only if every block fits two courts, and the 6-cell-wide blocks may not. Section C1's builder measures it. If P2 does not hold it comes to Josh with the numbers (Q5); it is never met by widening the band. **Status.** Q5: keep 0.15 stalls a home and every threshold, measure in 065, adopted under the waiver. The fallback of three lots a block still needs his word.
+- **Parking.** The checks P1 to P6 and every threshold stay. Units are counted from cells: a column is a 5.0 m cell (18.2 says 5.2 m bays). Ring 2 and the lane rows add homes. My estimate for the default city is about 860 homes against 379 today, so about 129 stalls wanted. Two courts a block (`LOTS_PER_BLOCK_MAX`) give 108, which is 0.84 of demand and inside `PARK_SUPPLY_BAND`, but only if every block fits two courts, and the 6-cell-wide blocks may not. Section C1's builder measures it. If P2 does not hold it comes to Josh with the numbers (Q5); it is never met by widening the band.
 
 ### 6. Openings: the only gaps
 
@@ -156,7 +158,8 @@ A strip, 2 cells deep, between a street and a lane (rule 4):
   - Measured: the passages come from the outlines. "N unscaled columns span only 5.0 N to about 5.28 N metres" (19.2), so 50 of the default city's 52 rows end in a passage of 1.0 to 5.3 m. On bodies, N columns span exactly 5 N metres.
 - **Check M5, openings** (pure). Every cell of rings 1 and 2 is built or belongs to a recorded opening of the table. `TileCity.passages` is empty. Every interior touches an opening. No row stretch is 1 cell long.
   - Fails today: the default city has 50 passages, none a whole cell. A city with one opening's record removed also fails: an opening has to be laid to count (section I's fixture, kept).
-- **Status.** Q4: the gated passage retires on the tile city, with the walk-through, adopted under the waiver. Built by 064 (no passages) and 065 (M5, walk-throughs).
+- **Decided (Josh, 19 Nov 2026, in chat).** Asked "Retire the gated passages, with a 5 m paved walk-through only where an interior has no other way in?", he answered: "Yes, retire them". So the tile city has no gated passage, and the walk-through of the table above is the only pedestrian way through a row: one cell wide, paved, and laid only for an interior with no drive and no lane.
+- **Open.** None.
 
 ### 7. Corners
 
@@ -171,7 +174,7 @@ A strip, 2 cells deep, between a street and a lane (rule 4):
   - Measured: every corner piece I read (the three apartment corners, the two corner doors, the two shop corners) carries windows on +z and -x and is blank on +x and -z; the corner roofs' shaped edges are on the same two sides (appendix A). Section E1, in flight, pins the same.
 - **Check M6, corner turn** (pure). Every corner column's two measured window faces lie on its two open sides; no corner piece stands in a mid or blind column (R9, unchanged in meaning); the roof corner is turned with its column. This is E1's criterion 25 run on every corner column of the city.
   - Fails today: every corner piece is turned on the guess "+x", so the windowed side faces the neighbouring column.
-- **Decided (Josh, 19 Nov 2026, in chat; relayed again by the main session as "Yes, allow it (Recommended)").** Asked "May corner pieces stand wherever two open sides meet, not only where two streets meet?", he answered: "Yes, any corner". So a corner piece stands wherever two open sides meet: where two streets meet, at a lane mouth, a court drive, a plaza, and inside a court. This widens chapter 7's "two sides facing the street"; the rest of that ruling stands (corner pieces only on corners). The guide's chapter 7 and R9 take his words when section C1 lands.
+- **Decided (Josh, 19 Nov 2026, in chat).** Asked "May corner pieces stand wherever two open sides meet, not only where two streets meet?", he answered: "Yes, any corner". So a corner piece stands wherever two open sides meet: where two streets meet, at a lane mouth, a court drive, a plaza, and inside a court. This widens chapter 7's "two sides facing the street"; the rest of that ruling stands (corner pieces only on corners). The guide's chapter 7 and R9 take his words when section C1 lands.
 - **Open.** None.
 
 ### 8. Heights, and the wall above a lower roof
@@ -191,7 +194,10 @@ A strip, 2 cells deep, between a street and a lane (rule 4):
   - Measured: the kit's pieces are in the pack and fit a 5 by 3 m storey face (appendix C).
 - **Check M7, no bare party wall** (pure; this is section C's `blankFaces`, defined on storey faces). For every column side that is a party wall, each storey above the neighbour's roof carries a kit piece lying on that face, and its widest bare stretch is at most `BLANK_RUN_MAX_M`. A party wall with an open cell beside it is M3's failure, not this check's.
   - Fails today: every joint between two buildings of a row steps in height (R2), and nothing dresses the step.
-- **Decided (Josh, 19 Nov 2026, in chat): "Dress it, lift the pipes (Recommended)".** Built by 067 A. Before his answer, this line read: Q3. The pipe runs are in `CITY_NEVER_USED` with the reason "back walls only"; using them on party walls lifts them, which is Josh's call. Whether a painted board on most steps reads as too many adverts is for his eye.
+- **Decided (Josh, 19 Nov 2026, in chat).** Asked "Should the bare wall above a lower neighbour's roof be dressed with boards, pipes and windows?", he answered: "Yes, dress it". So the rule above stands, with the three kit pieces.
+  - The question he answered named the pipes, and the message that put it to him said dressing means lifting the pipe runs from the never-used list. So `SM_Prop_Pipe_Present_*` leaves `CITY_NEVER_USED` for party walls only; its reason there, "back walls only", becomes the rule for where it may stand. No other never-used piece is lifted. If Josh did not mean the lift, the kit is the boards and the windows.
+  - Heights stay free: the alternative of holding row neighbours to one storey's difference is not taken.
+- **Open.** None. Whether a painted board on most steps reads as too many adverts is for his eye once C3 is drawn; the mix is by hash and is one table.
 
 ### 9. Frontage kinds: what each open face carries
 
@@ -235,7 +241,8 @@ A strip, 2 cells deep, between a street and a lane (rule 4):
   - Measured: every kerb face stands 0.63 to 0.68 m inside its cell (063 F); the pack has both corner pieces.
 - **Check.** Section F's tests (criteria 33 to 37c), in flight, with two additions: the line has no return at a plaza, park edge or walk-through, and each return ends within 0.05 m of a corner column's wall plane. Section B's criterion 8 pins every carriageway at 15 m.
   - Fails today: a kerb cut has plain straights beside it; one line in three is an avenue (`AVENUE_ONE_IN`).
-- **Status.** Q7: no avenues, adopted under the waiver. Built by 063 B.
+- **Decided (Josh, 19 Nov 2026, in chat).** Asked "Drop the avenues, so every street is 25 m with a 15 m carriageway?", he answered: "Yes, no avenues". This is section B's option B1, and it answers the ticket's Q-B.
+- **Open.** None.
 - **Not verified.** That `Sidewalk_Corner_02` is the inner corner: its only kerb lip is a 1 m square in one corner of the tile, which is what an inner corner looks like. A look at the tile sheet settles it.
 
 ### 11. Roofs and rooftop items
@@ -257,7 +264,8 @@ A strip, 2 cells deep, between a street and a lane (rule 4):
 
 - **Rule.** Unchanged from 16.4 unless listed.
   - Row neighbours never share a style, a colourway or a floor count (R2, R13).
-  - A ring-2 building's style is its own, by hash; its colourway differs from its partner's and its row neighbours'; its floor count is its partner's (rule 4).
+  - A ring-2 building is another building or the same building through (rule 4, Decided). Another building's style is its own, by hash, and its colourway differs from its partner's. A through building takes its partner's style and colourway. Either way its floor count is its partner's.
+  - Along a ring-2 row, neighbours never share a colourway (R13), as on the street. A through building already differs from the through building beside it, because their ring-1 partners do; another building steps off its neighbours' colourways as 16.9 has it.
   - Blocks differ by size (19.5), and by treatment: court block, alley cut, strip, half park, whole park (19.6).
   - An alley cuts a block only where each part it leaves has a short side of 2 or of 6 or more (rule 4). A 9-cell side becomes 2, lane, 6.
 - **Why.** Law (19.5): "90 degrees does not mean a grid of squares. You can have varying widths for blocks, alleyways, parks... etc"
@@ -289,7 +297,7 @@ Each runs on the default city, seeds 1 to 10 at 3 by 3 and seeds 1 to 3 at 6 by 
 
 No threshold is loosened. Stated plainly:
 
-- **G2 is tightened.** A block side's back edge is covered only by a wall or by a recorded opening. Seam, overshoot and gated passage stop being accepted covers on the tile city. `PASSAGE_W_M`, `END_OVERLAP_MAX_M` and the gate's constants retire there. The ladder keeps chapter 4.
+- **G2 is tightened** (Q4, decided: "Yes, retire them"). A block side's back edge is covered only by a wall or by a recorded opening. Seam, overshoot and gated passage stop being accepted covers on the tile city. `PASSAGE_W_M`, `END_OVERLAP_MAX_M` and the gate's constants retire there. The ladder keeps chapter 4.
 - **G1** keeps its numbers and now runs on lane and court faces too.
 - **G3** keeps its numbers. Ring 2 is credited as building; `APRON_STRIP` retires.
 - **G4** is unchanged; a drive is two rings deep.
@@ -301,47 +309,45 @@ No threshold is loosened. Stated plainly:
 - **R9** changes meaning, by Josh's answer to Q1 ("Yes, any corner", 19 Nov 2026): a "true corner" is any column with two adjacent open sides. It still fails on a corner piece anywhere else.
 - **P1 to P6** keep their thresholds. Units are counted from 5.0 m cells and include ring 2 and lane rows (rule 5).
 - **V1 to V4**, `escapeCheck`, the sill checks and the draw-call caps are unchanged. The stack draw calls roughly double. If the frame rate on Josh's PC cannot hold, that goes to Josh, and the remedy is instancing the stack pieces, not a higher cap.
+- **`CITY_NEVER_USED`** loses `SM_Prop_Pipe_Present_*` when C3 lands (Q3, decided); 16.6's table row becomes a rule: party walls only. `styleguide.test.ts` keeps the table and the code in step.
 - **Guide text that goes** when the sections land: 19.2's far-end order and its passages; 19.4's ring-2 strip; 19.6's alley rear; 18.2's 5.2 m bays; chapter 7's "+x" guesses.
 
 ## What changes in ticket 063
 
-- **B (street width).** No change to its content. B1 (no avenues) is what rule 10 assumes. It is independent of the rest and moves row lengths, so it goes early.
+- **B (street width).** No change to its content, and it is no longer waiting: Josh chose B1 ("Yes, no avenues", 19 Nov 2026). It is independent of the rest and moves row lengths, so it goes early.
 - **E2 (one footprint).** Its rule stands. Three additions: check M2 (the kit holds); a roof's body is its base course, so the cornice overhangs evenly; a corner column's body is its cell, so "the outer flank on the column's outer edge" needs no special case.
 - **I (walls touch) becomes "the lattice".**
   - `columns: "body"` stays, and the tile city's rows are cut in 5.0 m bays on a 5.0 m band. That needs a bay and a depth option in `terraceBlockRows`, and `town.ts` is on the ticket's must-not-touch list: the architect re-cuts I to allow those two options, defaulting to today's values so the ladder holds.
   - Criterion 49 ("the passage count is expected to drop sharply") becomes: the passage count is 0.
-  - Criterion 51 (the order for a leftover gap) and Q-I2 go: a leftover is a failed check.
+  - Criterion 51 (the order for a leftover gap) and Q-I2 go, by Josh's answer to Q4: a leftover is a failed check. The gate, the posts and the passage floors of 057 B and D are no longer drawn on the tile city.
   - `wallJoints`' list of intentional openings loses the seam and the gated passage. The check is M1 plus M5's passage line.
 - **C (backs) is re-cut on the lattice.**
-  - C-rows stays. Ring 2 is exactly one cell deep, so `BACK_OVERSHOOT_MAX_M` goes, and `BACK_COVER_MIN` (0.9 of the strip) is replaced by M3 and M4, which are exact.
+  - Both of the ticket's options are built, by Josh's answer to Q2 ("They can be either."): C-rows (another building) and C-stack (the same building repeated), chosen per building by hash. Ring 2 is exactly one cell deep, so `BACK_OVERSHOOT_MAX_M` goes, and `BACK_COVER_MIN` (0.9 of the strip) is replaced by M3 and M4, which are exact.
   - New in C1: blind corner columns; the drive runs through ring 2; lane rows on alley sides; quiet ground rows (M8); corner columns beside openings (Q1, decided).
-  - `blankFaces` is M7, on storey faces. Q-C2 is answered: corner pieces at openings (Q1), the party-wall kit on height steps (Q3).
-  - Three builds: **C1** the plan and M3, M4, M5, M8; **C2** the drawing; **C3** the party-wall dressing (M7), and strips if Q6 is yes.
+  - `blankFaces` is M7, on storey faces. Q-C2 is answered: corner pieces at openings (Q1), the party-wall kit on height steps (Q3, decided).
+  - Three builds: **C1** the plan and M3, M4, M5, M8; **C2** the drawing; **C3** the party-wall dressing (M7), and strips (Q6, decided).
 - **F, G, A, D, H** are unchanged. F's returns end on corner columns once C1 lands.
 
-**Order.** E1 and E2 (in flight), then B, then I, then C1, C2, C3, then G. F is independent and merges when it is ready. B is half a day and can run while Josh answers the questions below. I must precede C1, which lays ring 2 on I's cells.
+**Order.** E1 and E2 (in flight), then B, then I, then C1, C2, C3, then G. F is independent and merges when it is ready. B is half a day and is free to start: its question is answered. I must precede C1, which lays ring 2 on I's cells.
 
 ## Decide first
 
-Questions only Josh can answer, most important first. All are answered (19 Nov 2026). Q1 and Q3 are in his own words. Q2 and Q4 to Q7 take the recommendation under his goal waiver: "I don't want to constantly approve all of these improvments."
+Questions only Josh can answer, most important first. Q1 to Q4, Q6 and Q7 are answered. Q5 needs no answer until C1 has measured the parking.
 
 1. **May corner pieces stand wherever two open sides meet?** That is: at a lane mouth, a court drive, a plaza and inside a court, as well as where two streets meet.
-   - **Answered (Josh, 19 Nov 2026): "Yes, any corner"; relayed again as "Yes, allow it (Recommended)".** Rule 7 records it.
+   - **Answered (Josh, 19 Nov 2026): "Yes, any corner".** Rule 7 records it.
 2. **The backs: other buildings, or the same building repeated?**
-   - **Adopted (waiver).** **Recommended: other buildings** (ring 2 has buildings of its own style and colour, the same height as the one in front). His later words: "butted up against the backs of other buildings".
-   - Alternative, his first words ("re use the stacked build blocks of the same type"): each building is 10 m deep, one style and colour through, with a street face and a court face.
+   - **Answered (Josh, 19 Nov 2026): "They can be either."** Rule 4 records it: both kinds are built, chosen per building by hash.
 3. **The wall above a lower neighbour's roof.**
-   - **Decided: "Dress it, lift the pipes (Recommended)".** **Recommended: dress it** with the party-wall kit, and lift the pack's pipe runs from the never-used list for party walls only.
-   - Alternatives: leave it bare, as the one blank wall allowed; or let row neighbours differ by one storey at most, so there is less of it.
+   - **Answered (Josh, 19 Nov 2026): "Yes, dress it".** Rule 8 records it: painted boards, pipe runs and windows; the pipe runs are lifted from the never-used list for party walls only.
 4. **Retire the gated passage.**
-   - **Adopted (waiver).** **Recommended: yes.** On the lattice no row needs one. An interior with no drive and no lane gets one 5 m walk-through, paved.
-   - Alternative: leave such interiors sealed.
+   - **Answered (Josh, 19 Nov 2026): "Yes, retire them".** Rule 6 records it: no gated passage; one 5 m paved walk-through only for an interior with no drive and no lane.
 5. **Parking, once ring 2 is counted.** Homes roughly double.
-   - **Adopted (waiver).** **Recommended: keep 0.15 stalls a home and every threshold; measure in C1.** If two courts a block cannot hold P2, raise `LOTS_PER_BLOCK_MAX` to 3 on blocks at least 10 cells each way. That is a re-cut for his word, not a wider band.
+   - **Recommended: keep 0.15 stalls a home and every threshold; measure in C1.** If two courts a block cannot hold P2, raise `LOTS_PER_BLOCK_MAX` to 3 on blocks at least 10 cells each way. That is a re-cut for his word, not a wider band.
 6. **Strips** (a 10 m deep part cut off a block by a lane, two rows back to back).
-   - **Adopted (waiver).** **Recommended: yes, in C3 (ticket 067).** Not needed for C1 or C2.
+   - **Answered (Josh, 19 Nov 2026): "Yes, allow strips".** Rule 4 records it. Built in C3; not needed for C1 or C2.
 7. **No avenues** (section B's B1): every street 25 m with a 15 m carriageway.
-   - **Adopted (waiver).** **Recommended: yes.**
+   - **Answered (Josh, 19 Nov 2026): "Yes, no avenues".** Rule 10 records it.
 
 ## Not verified
 
