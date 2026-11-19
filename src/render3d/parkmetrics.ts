@@ -3,6 +3,9 @@
  * `evaluateParking(m)` gives one verdict per check, P1 to P6, as `evaluateCity` does for the buildings. Everything is read from the city's cells, bays, lot stalls and blocks, never
  * from the code that laid them, so a city laid by another rule (today's pairing of every parking cell) fails the checks it should.
  *
+ * Ticket 057 C: a lot is a residents' court behind a drive now, and `TileCity.lotStalls` lists the court's stalls, so P2 counts courts with no change but one: the blocks that kept a frontage lot
+ * (their court did not fit) are held to `CITY_FRONT_LOT_BLOCKS_MAX`.
+ *
  * Every verdict's `value` is the number of violations (0 passes), except P6's, which is the bays per 100 m of block kerb (it passes at `BAYS_PER_100M_MAX` or fewer).
  */
 
@@ -13,6 +16,7 @@ import {
   BAY_RUN_TILES_MAX,
   BAY_TILES_PER_BLOCK_MIN,
   BUILDOUT_TREE_EVERY,
+  CITY_FRONT_LOT_BLOCKS_MAX,
   KERB_BAY_SHARE_MAX,
   KERB_GAP_MIN_M,
   LOTS_PER_BLOCK_MAX,
@@ -58,6 +62,8 @@ export interface ParkingMetrics {
   blocksWithoutLot: number;
   blocksOverLots: number;
   shortBlocks: number;
+  /** Blocks that kept a frontage lot because their court did not fit (057 C: `TileCity.frontLots`); a lot stands in a court, so at most `CITY_FRONT_LOT_BLOCKS_MAX` of the blocks may. */
+  frontLotBlocks: number;
   /** Every side of a block that has bays: its street, the block, the share of its kerb that is bay and the share its profile allows. */
   sideShares: { street: string; block: string; share: number; cap: number }[];
   /** Bays on the outside of an edge street. */
@@ -237,6 +243,7 @@ export function parkingMetrics(city: TileCity): ParkingMetrics {
     blocksWithoutLot,
     blocksOverLots,
     shortBlocks,
+    frontLotBlocks: (city.frontLots ?? []).length,
     sideShares,
     outerBays,
     runs,
@@ -259,7 +266,7 @@ function outerSide(city: TileCity, s: TileStreet, out: number): boolean {
 export function evaluateParking(m: ParkingMetrics): { id: ParkCheckId; value: number; pass: boolean }[] {
   const inBand = (have: number, want: number): boolean => want <= 0 || (have >= PARK_SUPPLY_BAND.lo * want - 1e-9 && have <= PARK_SUPPLY_BAND.hi * want + 1e-9);
   const p1 = (inBand(m.kerbBays, m.bayDemand) ? 0 : 1) + m.blocksWithoutBays + m.bayServedFar;
-  const p2 = (inBand(m.lotStalls, m.stallDemand) ? 0 : 1) + m.blocksOverLots + m.stallServedFar + Math.max(0, m.shortBlocks - Math.ceil(m.blocks / 9));
+  const p2 = (inBand(m.lotStalls, m.stallDemand) ? 0 : 1) + m.blocksOverLots + m.stallServedFar + Math.max(0, m.shortBlocks - Math.ceil(m.blocks / 9)) + Math.max(0, m.frontLotBlocks - Math.ceil(m.blocks * CITY_FRONT_LOT_BLOCKS_MAX - 1e-9));
   const p3 = m.sideShares.filter((s) => s.share > s.cap + 1e-9).length + m.outerBays;
   const p4 = m.runs.filter((t) => t > BAY_RUN_TILES_MAX).length + m.gaps.filter((g) => g < KERB_GAP_MIN_M - 1e-9).length + m.bayNextToCrossing;
   const p5 = m.badBandCells + m.badTrees;

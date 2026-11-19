@@ -7,12 +7,12 @@
 import { describe, expect, it } from "vitest";
 import type { AssetEntry, CalibrationKey } from "../core";
 import { wallOffset } from "./facade";
-import { END_OVERLAP_MAX_M, FRONTAGE_CHECK, FRONTAGE_TOL_M, OVERLAP_MAX_M, PASSAGE_W_M, RECESS_MAX_M, evaluateFrontage, frontageMetrics, groundDepth_m, tilePassages, type FaceOffset } from "./frontage";
+import { END_OVERLAP_MAX_M, FRONTAGE_CHECK, FRONTAGE_TOL_M, OVERLAP_MAX_M, PASSAGE_W_M, RECESS_MAX_M, VOID_MAX_SHARE, VOID_PATCH_MAX_M, VOID_RASTER_M, evaluateFrontage, frontageMetrics, groundDepth_m, interiorMetrics, tilePassages, type FaceOffset, type FrontageMetrics } from "./frontage";
 import { BUILDING_FRONTS } from "./models";
 import { STACK_STYLES } from "./stacks";
 import { alignOf, farOverlapOf, nextTerraceRun, packTown, type PackResult } from "./terrace";
 import { WORLD_PER_METRE } from "./town";
-import { TILE_STACK_ALIGN, tileCity, type TileCity } from "./tilecity";
+import { TILE_M, TILE_STACK_ALIGN, tileCity, withPassages, type TileCity } from "./tilecity";
 
 // [name, width, height, depth] in metres (the converted City Pack manifest, 18 Nov 2026); bounds are centred.
 const SIZES: [string, number, number, number][] = [
@@ -96,7 +96,7 @@ describe("G1, no recess (criterion 3)", () => {
     expect(RECESS_MAX_M).toBe(0);
     expect(OVERLAP_MAX_M).toBe(0.6);
     expect(FRONTAGE_TOL_M).toBe(0.01);
-    expect(FRONTAGE_CHECK).toEqual({ G1: 0, G2: 0 });
+    expect(FRONTAGE_CHECK).toEqual({ G1: 0, G2: 0, G3: 0, G4: 0 });
   });
 
   it("passes on every terrace column of the default city and of seeds 1 to 10 at 3 x 3 and 1 to 3 at 6 x 4", { timeout: 120000 }, () => {
@@ -245,10 +245,10 @@ describe("G2, no gap in the frontage (ticket 057 B, criterion 6)", () => {
   };
 
   it("holds its limits: G1 and G2 each allow none, a far end overshoots at most 1.0 m, and a passage is 1.0 m to one column (5.3 m)", () => {
-    expect(FRONTAGE_CHECK).toEqual({ G1: 0, G2: 0 });
+    expect(FRONTAGE_CHECK).toEqual({ G1: 0, G2: 0, G3: 0, G4: 0 });
     expect(END_OVERLAP_MAX_M).toBe(1.0);
     expect(PASSAGE_W_M).toEqual({ min: 1.0, max: 5.3 });
-    expect(evaluateFrontage(frontageMetrics(defaultCity().city, defaultCity().wall)).map((v) => v.id)).toEqual(["G1", "G2"]);
+    expect(evaluateFrontage(frontageMetrics(defaultCity().city, defaultCity().wall)).map((v) => v.id)).toEqual(["G1", "G2", "G3", "G4"]);
   });
 
   it("passes on the default city and seeds 1 to 10 at 3 x 3 and 1 to 3 at 6 x 4: every metre of every block side is a wall, a flank, a seam, an overshoot, a passage, a lot or a plaza", { timeout: 120000 }, () => {
@@ -405,5 +405,136 @@ describe("G2, no gap in the frontage (ticket 057 B, criterion 6)", () => {
     const none = packTown({ terraces: city.town.terraces, lots: city.town.lots }, STACK_STYLES, ENTRIES, BUILDING_FRONTS, { farOverlap_m: 0 });
     for (const r of none.values()) expect(r.farOvershoot_m ?? 0).toBe(0);
     expect([...wall.values()].some((r) => (r.farOvershoot_m ?? 0) > 0)).toBe(true);
+  });
+});
+
+describe("G3 and G4, no void and courts reached (ticket 057 C, criterion 9)", () => {
+  const defaultCity = (): { city: TileCity; wall: Map<string, PackResult> } => cityOf(CITIES[0]!);
+  const verdictOf = (m: FrontageMetrics, id: "G3" | "G4"): { id: string; value: number; pass: boolean } => evaluateFrontage(m).find((v) => v.id === id)!;
+  /** The city as 793bbf7 had it: the same blocks, terraces and lots, and nothing laid inside the blocks. */
+  const bare = (city: TileCity): TileCity => ({ ...city, interior: [], courts: [] });
+
+  it("holds its limits: at most 1% of a block unfilled, in no square over 1 m, found by rasterising at 0.25 m", () => {
+    expect(VOID_MAX_SHARE).toBe(0.01);
+    expect(VOID_PATCH_MAX_M).toBe(1.0);
+    expect(VOID_RASTER_M).toBe(0.25);
+    expect(FRONTAGE_CHECK.G3).toBe(0);
+    expect(FRONTAGE_CHECK.G4).toBe(0);
+  });
+
+  it("passes G3 and G4 on the default city, seeds 1 to 10 at 3 x 3 and seeds 1 to 3 at 6 x 4, with the least filled block under 0.5% and no unfilled square over 0.25 m", { timeout: 120000 }, () => {
+    const bad: string[] = [];
+    for (const c of CITIES) {
+      const { city, wall } = cityOf(c);
+      const m = frontageMetrics(city, wall);
+      const i = m.interior;
+      for (const id of ["G3", "G4"] as const) if (!verdictOf(m, id).pass) bad.push(`${c.label}: ${id} ${verdictOf(m, id).value}`);
+      expect(i.blocks, c.label).toBe(city.blocks.length);
+      expect(i.voids.length, c.label).toBe(city.blocks.length);
+      expect(i.shareMax, c.label).toBeLessThanOrEqual(VOID_MAX_SHARE);
+      expect(i.shareMax, c.label).toBeLessThan(0.005);
+      expect(i.patchMax_m, c.label).toBeLessThanOrEqual(VOID_PATCH_MAX_M);
+      // Not vacuous: every block's area is its own and its courts and drives were found.
+      for (const v of i.voids) expect(v.area_m2, `${c.label} ${v.block}`).toBeGreaterThan(30 * 30);
+      // Two courts side by side on one edge touch and are one component (the ticket's 4 x 3 double unit).
+      expect(i.courts, c.label).toBeLessThanOrEqual(city.courts.length);
+      expect(i.courts, c.label).toBeGreaterThanOrEqual(Math.ceil(city.courts.length / 2));
+      expect(i.drives, c.label).toBe(city.courts.length * 2);
+      expect(i.courtsUnreached, c.label).toBe(0);
+      expect(i.drivesNoKerbCut, c.label).toBe(0);
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it("fails G3 on 793bbf7's layout (nothing inside the blocks): every block is 50 to 70% void", { timeout: 60000 }, () => {
+    for (const c of [CITIES[0]!, CITIES[10]!]) {
+      const { city, wall } = cityOf(c);
+      const m = frontageMetrics(bare(city), wall);
+      expect(verdictOf(m, "G3").pass, c.label).toBe(false);
+      expect(m.interior.voidBlocks, c.label).toBe(city.blocks.length);
+      for (const v of m.interior.voids) {
+        expect(v.share, `${c.label} ${v.block}`).toBeGreaterThan(0.5);
+        expect(v.share, `${c.label} ${v.block}`).toBeLessThan(0.7);
+        expect(v.patch_m, `${c.label} ${v.block}`).toBeGreaterThan(VOID_PATCH_MAX_M);
+      }
+    }
+  });
+
+  it("fails G3 on one missing 5 m cell, by the patch rule (1.0 m): 25 m2 of a 2,000 m2 block is about 1%, but the square is 5 m", () => {
+    const { city, wall } = defaultCity();
+    const gone = city.interior.find((q) => q.role === "green")!;
+    const holed: TileCity = { ...city, interior: city.interior.filter((q) => q !== gone) };
+    const m = frontageMetrics(holed, wall);
+    expect(m.interior.patchMax_m).toBeGreaterThanOrEqual(TILE_M - 1e-9);
+    expect(m.interior.voidBlocks).toBe(1);
+    expect(verdictOf(m, "G3").pass).toBe(false);
+    // The same block with one apron cell missing is as bad.
+    const apron = city.interior.find((q) => q.role === "apron" && q.variant === 0)!;
+    expect(verdictOf(frontageMetrics({ ...city, interior: city.interior.filter((q) => q !== apron) }, wall), "G3").pass).toBe(false);
+  });
+
+  it("fails G3 on a block whose share is over 1% in small bits (no square over 1 m): every sample counts", () => {
+    const { city, wall } = defaultCity();
+    // A city with nothing packed has no building on any ring 1: a strip 5 m deep and the length of every side is bare, a share of tens of per cent and squares of 5 m.
+    const m = frontageMetrics(city, new Map());
+    expect(m.interior.shareMean).toBeGreaterThan(0.25);
+    expect(verdictOf(m, "G3").pass).toBe(false);
+    // With the buildings the share is the passages' and seams' slivers only.
+    expect(frontageMetrics(city, wall).interior.shareMean).toBeLessThan(0.005);
+  });
+
+  it("reads the gated passages: without their floors the same city is left with more unfilled ground", () => {
+    const { city, wall } = defaultCity();
+    const withFloors = interiorMetrics(city, wall, tilePassages(city, wall));
+    const without = interiorMetrics(city, wall, []);
+    expect(tilePassages(city, wall).length).toBeGreaterThan(10);
+    expect(without.shareMean).toBeGreaterThan(withFloors.shareMean);
+    expect(without.voidBlocks).toBeGreaterThan(0);
+    expect(withFloors.voidBlocks).toBe(0);
+  });
+
+  it("fails G4 where a drive has lost its kerb cut, and where a court has lost its drive", () => {
+    const { city, wall } = defaultCity();
+    const drive = city.courts[0]!.drive[0];
+    const cut = city.cells.find((c) => {
+      if (c.role !== "kerbCut") return false;
+      return Math.abs(c.i - drive.i) + Math.abs(c.j - drive.j) === 1;
+    })!;
+    expect(cut).toBeDefined();
+    const noCut: TileCity = { ...city, cells: city.cells.map((c) => (c === cut ? { ...c, role: "pavement" as const } : c)) };
+    const a = frontageMetrics(noCut, wall);
+    expect(a.interior.drivesNoKerbCut).toBe(1);
+    expect(verdictOf(a, "G4").pass).toBe(false);
+    expect(verdictOf(a, "G3").pass).toBe(true);
+    const noDrives: TileCity = { ...city, interior: city.interior.filter((q) => q.role !== "drive") };
+    const b = frontageMetrics(noDrives, wall);
+    expect(b.interior.courtsUnreached).toBe(city.courts.length);
+    expect(verdictOf(b, "G4").pass).toBe(false);
+    // One court left away from its drive (its two drive cells taken out) is one failure.
+    const one = new Set(city.courts[0]!.drive.map((q) => `${q.i},${q.j}`));
+    const c = frontageMetrics({ ...city, interior: city.interior.filter((q) => !(q.role === "drive" && one.has(`${q.i},${q.j}`))) }, wall);
+    expect(c.interior.courtsUnreached).toBe(1);
+  });
+
+  it("opens every gated passage on paved ground that joins its block's courts: the cell 5.5 m inside its mouth is apron, court or drive, or a plaza's or lot's", { timeout: 60000 }, () => {
+    const fails: string[] = [];
+    let passages = 0;
+    for (const c of CITIES.slice(0, 4)) {
+      const { city, wall } = cityOf(c);
+      const withP = withPassages(city, tilePassages(city, wall));
+      const role = new Map<string, string>();
+      for (const q of withP.cells) if (q.role === "lotSurface" || q.role === "plaza") role.set(`${q.i},${q.j}`, q.role);
+      for (const q of withP.interior) role.set(`${q.i},${q.j}`, q.role);
+      for (const p of withP.passages) {
+        passages++;
+        const yaw = (p.yaw * Math.PI) / 180;
+        const x = p.x_m - Math.sin(yaw) * 5.5;
+        const z = p.z_m - Math.cos(yaw) * 5.5;
+        const r = role.get(`${Math.floor(x / TILE_M)},${Math.floor(z / TILE_M)}`);
+        if (!["apron", "court", "drive", "lotSurface", "plaza"].includes(r ?? "")) fails.push(`${c.label} ${p.run}: ${r}`);
+      }
+    }
+    expect(passages).toBeGreaterThan(20);
+    expect(fails).toEqual([]);
   });
 });
