@@ -313,6 +313,10 @@ An inlet is any opening in a row that has a kerb cut: a court drive (2 cells), a
 44. [ ] (Main session, screenshot) the inlet Josh marked (the default city overhead): paved between the two walls, from the kerb cut to the court.
 
 ### I. Walls touch (Vitest unless marked)
+Josh's clarification (19 Nov 2026, in chat): "This doesn't mean the buildings need to be the same height. They can have gaps but those caps must be intentional (alley ways... etc)".
+- Heights stay free: neighbours may differ in floors and roof line, and nothing here checks heights.
+- Gaps are allowed only where they are intentional, never as a sliver left by lot widths, rounding or piece widths.
+
 46. [ ] **Columns on their bodies.** With the tile city's option (`assembleStack(..., { columns: "body" })`, which the tile city passes; the default "bounds" keeps the ladder), a column is as wide as its floor piece's **body** between its side wall planes (E2's `BODY_M`, `nx` and `px`), and `Stack.width_m` is the bodies' total.
     - Every piece of the column is centred on the body; a corner column's piece sits on its outer flank (E2).
     - Trims, cornices and parapets reach past the body into the neighbour's by what they really carry.
@@ -321,10 +325,21 @@ An inlet is any opening in a row that has a kerb cut: a court drive (2 cells), a
     - The far end keeps 057 B's order: seam, overshoot, then passage.
     - `bandPacked` (062 B) passes the same `columns` option to its re-assembly, so a banded block keeps its columns. A test checks this on a banded fixture.
 48. [ ] **The check, pure.** New `wallJoints(city, packed)` (in `src/render3d/walljoints.ts`) runs over every row of the default city, seeds 1 to 10 at 3 x 3 and seeds 1 to 3 at 6 x 4.
-    - Inside a run, at every joint between neighbouring columns and blocks, the side wall planes coincide within `WALL_JOINT_TOL_M` (0.02 m), from the ground row to the lower of the two roofs.
-    - Where both neighbours have a trim band at the same height, the bands meet or overlap.
-    - A gap over 0.02 m anywhere in a row is allowed only where 057 B or 056 put an opening: a court drive, a frontage lot, an alley mouth, a plaza, or a gated passage at the row's far end.
-    - Today's bounds-width packing fails this, as a fixture: an `Apartment_02` block's joints are 0.17 m apart.
+    - **Intentional openings.** They are listed from the layout data, never from the gap's own size:
+      - the court drives (`TileCity.courts`);
+      - the frontage lots (`frontLots`) and 056's lot openings;
+      - the alley mouths (`TileBlock.alley`);
+      - the plazas;
+      - the gated passages (`TileCity.passages`, from `withPassages`);
+      - a seam at a row's far end within `TERRACE_SEAM_M`.
+      - Each is an interval along its block side.
+    - **Joints.** Every other joint between neighbouring buildings or columns in a row is a joint. At each joint the side wall planes coincide within `WALL_JOINT_TOL_M` (0.02 m), over the height both buildings share, from the ground to the lower roof.
+    - **Heights are free.** Neighbours may differ in floors and roof line, and the taller one's flank above the lower roof is not checked. Trim bands are checked only where both neighbours have one at the same height, and then they meet or overlap.
+    - **Accidental gaps.** Any stretch of a block side's back edge more than 0.02 m wide that is neither wall nor inside an intentional opening is an accidental gap, and the check fails on it. It reports each one with its run, position and width.
+    - **Fixtures.**
+      - Today's bounds-width packing fails, because an `Apartment_02` block's joints are 0.17 m apart.
+      - A city with one passage's record removed fails at that passage: an opening has to be laid to count, not just wide.
+      - Two neighbours of different heights with touching walls pass.
 49. [ ] **Fewer passages.** The builder reports runs closed by seam, overshoot and passage, before and after, on the default city and seeds 1 to 5. The passage count is expected to drop sharply, and the report says by how much.
     - G2 (no gap in the frontage) holds unchanged.
     - Every passage left still meets `PASSAGE_W_M`, and its floor and gate follow it, because passages are found from the packed runs.
@@ -336,7 +351,7 @@ An inlet is any opening in a row that has a kerb cut: a court drive (2 cells), a
     3. a choice of styles and column counts that fits;
     4. only then 057 B's gated passage.
     - A run's start is never shifted off its corner, which stays flush (057 B).
-52. [ ] (Main session, screenshots, street camera, `&light=day`) along a row of mixed styles, no ground shows between buildings and the trim bands run on. Compare with Josh's reference.
+52. [ ] (Main session, screenshots, street camera, `&light=day`) along a row of mixed styles and heights, no ground shows between buildings except at an alley, passage, drive or inlet. Where two neighbours share a height, their trim bands run on. Compare with Josh's reference.
 
 ### Guide (each section, its own lines)
 45. [ ] Each section adds its rule to the guide's chapter (A, D, F, H: 19.8 and 10; B: 3 and 18; C: 19.4; E1: 7; E2: 16.3; G: 16.5; I: 16.2, 16.3 and 19.2), with Josh's words as **Decided** and the rest as **Default**.
