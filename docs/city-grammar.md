@@ -2,7 +2,7 @@
 
 Draft for Josh, 19 Nov 2026. Design only: no code, no puzzle, nothing under `src/grid/` or `src/night/` is touched by this file.
 
-- **Status.** Nothing here is Decided until Josh says so in chat. So far he has answered four questions on 19 Nov 2026: Q1 (rule 7), Q2 (rule 4), Q3 (rule 8) and Q4 (rule 6). Lines marked **Law** quote a Decided line of `docs/city-style-guide.md` or Josh's words in `docs/city-state-2026-11-19.md`; everything else is **Proposed**.
+- **Status.** Nothing here is Decided until Josh says so in chat. So far he has answered five questions on 19 Nov 2026: Q1 (rule 7), Q2 (rule 4), Q3 (rule 8), Q4 (rule 6) and Q7 (rule 10). Lines marked **Law** quote a Decided line of `docs/city-style-guide.md` or Josh's words in `docs/city-state-2026-11-19.md`; everything else is **Proposed**.
 - **Scope.** The tile city (`city=tiles`) on `goal/city-style`. The ladder maps keep chapters 4 and 16 as they are (`packpin.test.ts` and `townpin.test.ts` hold).
 - **Evidence.** The measurements are in the appendix. I took them today from `city-pack.glb` with a scratch script that is not committed. I have not seen a render, or Josh's reference image; where a rule leans on something only an eye can settle, it says so under **Not verified**.
 
@@ -240,7 +240,8 @@ A strip, 2 cells deep, between a street and a lane (rule 4):
   - Measured: every kerb face stands 0.63 to 0.68 m inside its cell (063 F); the pack has both corner pieces.
 - **Check.** Section F's tests (criteria 33 to 37c), in flight, with two additions: the line has no return at a plaza, park edge or walk-through, and each return ends within 0.05 m of a corner column's wall plane. Section B's criterion 8 pins every carriageway at 15 m.
   - Fails today: a kerb cut has plain straights beside it; one line in three is an avenue (`AVENUE_ONE_IN`).
-- **Open.** Q7 (no avenues).
+- **Decided (Josh, 19 Nov 2026, in chat).** Asked "Drop the avenues, so every street is 25 m with a 15 m carriageway?", he answered: "Yes, no avenues". This is section B's option B1, and it answers the ticket's Q-B.
+- **Open.** None.
 - **Not verified.** That `Sidewalk_Corner_02` is the inner corner: its only kerb lip is a 1 m square in one corner of the tile, which is what an inner corner looks like. A look at the tile sheet settles it.
 
 ### 11. Roofs and rooftop items
@@ -312,7 +313,7 @@ No threshold is loosened. Stated plainly:
 
 ## What changes in ticket 063
 
-- **B (street width).** No change to its content. B1 (no avenues) is what rule 10 assumes. It is independent of the rest and moves row lengths, so it goes early.
+- **B (street width).** No change to its content, and it is no longer waiting: Josh chose B1 ("Yes, no avenues", 19 Nov 2026). It is independent of the rest and moves row lengths, so it goes early.
 - **E2 (one footprint).** Its rule stands. Three additions: check M2 (the kit holds); a roof's body is its base course, so the cornice overhangs evenly; a corner column's body is its cell, so "the outer flank on the column's outer edge" needs no special case.
 - **I (walls touch) becomes "the lattice".**
   - `columns: "body"` stays, and the tile city's rows are cut in 5.0 m bays on a 5.0 m band. That needs a bay and a depth option in `terraceBlockRows`, and `town.ts` is on the ticket's must-not-touch list: the architect re-cuts I to allow those two options, defaulting to today's values so the ladder holds.
@@ -326,11 +327,11 @@ No threshold is loosened. Stated plainly:
   - Three builds: **C1** the plan and M3, M4, M5, M8; **C2** the drawing; **C3** the party-wall dressing (M7), and strips if Q6 is yes.
 - **F, G, A, D, H** are unchanged. F's returns end on corner columns once C1 lands.
 
-**Order.** E1 and E2 (in flight), then B, then I, then C1, C2, C3, then G. F is independent and merges when it is ready. B is half a day and can run while Josh answers the questions below. I must precede C1, which lays ring 2 on I's cells.
+**Order.** E1 and E2 (in flight), then B, then I, then C1, C2, C3, then G. F is independent and merges when it is ready. B is half a day and is free to start: its question is answered. I must precede C1, which lays ring 2 on I's cells.
 
 ## Decide first
 
-Questions only Josh can answer, most important first. Q1 to Q4 are answered; Q5 to Q7 are open.
+Questions only Josh can answer, most important first. Q1 to Q4 and Q7 are answered; Q5 and Q6 are open.
 
 1. **May corner pieces stand wherever two open sides meet?** That is: at a lane mouth, a court drive, a plaza and inside a court, as well as where two streets meet.
    - **Answered (Josh, 19 Nov 2026): "Yes, any corner".** Rule 7 records it.
@@ -345,7 +346,7 @@ Questions only Josh can answer, most important first. Q1 to Q4 are answered; Q5 
 6. **Strips** (a 10 m deep part cut off a block by a lane, two rows back to back).
    - **Recommended: yes, in C3.** Not needed for C1 or C2.
 7. **No avenues** (section B's B1): every street 25 m with a 15 m carriageway.
-   - **Recommended: yes.**
+   - **Answered (Josh, 19 Nov 2026): "Yes, no avenues".** Rule 10 records it.
 
 ## Not verified
 
