@@ -176,8 +176,10 @@ describe("the checks fail where they should", () => {
   it("counts the courts (057 C): every lot's six stalls are a court's, P2 passes on them, and a block that kept a frontage lot is allowed only at ceil(blocks / 9)", () => {
     for (const { label, city } of CITIES) {
       const lots = city.town.openLots.filter((o) => o.kind === "parking").length;
-      expect(city.lotStalls.length, label).toBe(lots * LOT_STALLS);
-      expect(lots - city.courts.length, label).toBeLessThanOrEqual(city.frontLots.length * 2);
+      // 057 G: an alley block's own court (run "") opens on its lane and stands on no open lot of the rows; it has six stalls too.
+      const alleyCourts = city.courts.filter((q) => q.run === "").length;
+      expect(city.lotStalls.length, label).toBe((lots + alleyCourts) * LOT_STALLS);
+      expect(lots - (city.courts.length - alleyCourts), label).toBeLessThanOrEqual(city.frontLots.length * 2);
       expect(city.courts.length, label).toBeGreaterThan(0);
       expect(parkingMetrics(city).frontLotBlocks, label).toBe(city.frontLots.length);
       expect(verdict(city, "P2").pass, label).toBe(true);

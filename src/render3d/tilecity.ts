@@ -116,6 +116,12 @@ export const POLE_SLOT_END_CLEAR_M = 2.5;
  * one and no ladder run does), and the tests pass this constant to it as well.
  */
 export const TILE_STACK_ALIGN = "wall" as const;
+/**
+ * The tile city's floor for R1 (the share of all runs' frontage that blocks cover): Josh, 19 Nov 2026, "Tile-city R1 floor 0.88 (Recommended)". Alleys and parks (057 G) cut the runs short (an alley's two rows end on
+ * its lane and close as gated passages of about 3.7 m), and R1 sits at 0.897 to 0.916 on the cities of the ticket against the ladder's 0.9. The ladder's `CITY_CHECK.R1` stays 0.9; the other three conditions of R1 (no gap between
+ * neighbours, at most one lot and one plaza to a run) are unchanged.
+ */
+export const TILE_CITY_R1_MIN = 0.88;
 /** The tile city's floor for R7 (the share of qualifying blocks with a fire escape): Josh, 18 Nov 2026, "Just choose the recommended option for now". The ladder's `CITY_CHECK.R7` stays 0.5. */
 export const TILE_CITY_R7_MIN = 0.4;
 /**

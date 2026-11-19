@@ -55,6 +55,7 @@ import {
   POLE_SLOT_PITCH_M,
   SIDEWALK_TOP_M,
   TILE_M,
+  TILE_CITY_R1_MIN,
   TILE_CITY_R6_MIN,
   TILE_CITY_R7_MIN,
   TILE_PLAZA_W_M,
@@ -1248,10 +1249,16 @@ describe("terraces on tile streets (criterion 10)", () => {
     return { m: cityMetrics(t, packed, dressing, []) };
   };
 
-  it("passes R1 to R5 and R8 to R13 (evaluateCity) on the packed and dressed plan of every city, with the tile frame read by the dressing (R6 and R7 on the tile city's own floors, below)", { timeout: 120000 }, () => {
+  it("passes R1 to R5 and R8 to R13 (evaluateCity) on the packed and dressed plan of every city, with the tile frame read by the dressing (R1, R6 and R7 on the tile city's own floors, below)", { timeout: 120000 }, () => {
+    expect(TILE_CITY_R1_MIN).toBe(0.88);
+    expect(CITY_CHECK.R1).toBe(0.9);
     for (const c of cities) {
       const { m } = planOf(c);
-      const failing = evaluateCity(m).filter((v) => !v.pass && v.id !== "R6" && v.id !== "R7");
+      // R1 on the tile city's floor (Josh, 19 Nov 2026: 0.88; the ladder's stays 0.9), with the rest of R1's conditions as they are.
+      expect(m.frontageCovered, `seed ${c.seed} R1`).toBeGreaterThanOrEqual(TILE_CITY_R1_MIN);
+      expect(m.maxNeighbourGap_m, `seed ${c.seed} R1`).toBeLessThanOrEqual(1e-6);
+      expect(m.maxParkingPerRun <= 1 && m.maxPlazaPerRun <= 1, `seed ${c.seed} R1`).toBe(true);
+      const failing = evaluateCity(m).filter((v) => !v.pass && v.id !== "R1" && v.id !== "R6" && v.id !== "R7");
       expect(failing, `seed ${c.seed} ${JSON.stringify(evaluateCity(m))}`).toEqual([]);
       // Not vacuous: a city of blocks that corner, dressed, with no slit.
       expect(m.blocks, `seed ${c.seed}`).toBeGreaterThan(80);
