@@ -2,7 +2,7 @@
 
 Draft for Josh, 19 Nov 2026. Design only: no code, no puzzle, nothing under `src/grid/` or `src/night/` is touched by this file.
 
-- **Status.** Nothing here is Decided until Josh says so in chat. So far he has answered five questions on 19 Nov 2026: Q1 (rule 7), Q2 (rule 4), Q3 (rule 8), Q4 (rule 6) and Q7 (rule 10). Lines marked **Law** quote a Decided line of `docs/city-style-guide.md` or Josh's words in `docs/city-state-2026-11-19.md`; everything else is **Proposed**.
+- **Status.** Nothing here is Decided until Josh says so in chat. So far he has answered six questions on 19 Nov 2026: Q1 (rule 7), Q2 and Q6 (rule 4), Q3 (rule 8), Q4 (rule 6) and Q7 (rule 10). Q5 (parking) waits for a measurement. Lines marked **Law** quote a Decided line of `docs/city-style-guide.md` or Josh's words in `docs/city-state-2026-11-19.md`; everything else is **Proposed**.
 - **Scope.** The tile city (`city=tiles`) on `goal/city-style`. The ladder maps keep chapters 4 and 16 as they are (`packpin.test.ts` and `townpin.test.ts` hold).
 - **Evidence.** The measurements are in the appendix. I took them today from `city-pack.glb` with a scratch script that is not committed. I have not seen a render, or Josh's reference image; where a rule leans on something only an eye can settle, it says so under **Not verified**.
 
@@ -126,7 +126,8 @@ A strip, 2 cells deep, between a street and a lane (rule 4):
 - **Check M4, pairs** (pure). Every ring-1 column of a court block has a built cell behind it or a recorded opening (rule 6). Each ring-2 building has its partner's floor count, and either its partner's style and colourway (the same building, through) or a different colourway (another building). No part has a short side of 3 to 5 cells.
   - Fails today: ring 2 is apron (`APRON_STRIP`) on every block; an alley cuts a 9-cell side into two parts of 4.
 - **Cost, by arithmetic on the default city's block sizes** (14, 11, 6 by 13, 9, 15 cells; alleys and parks ignored). Ring 1 is 372 cells and ring 2 is 300, of which 36 are blind. Buildings take 59% of block area and the interior 41% (71% today). The three 6-cell-wide blocks keep interiors 2 cells wide. Building draw calls roughly double (stacks are per-piece clones). Homes roughly double; rule 5 says what that does to parking.
-- **Open.** Q6 (strips).
+- **Decided (Josh, 19 Nov 2026, in chat).** Asked "Allow strips: 10 m deep parts cut off a block by a lane, two rows back to back?", he answered: "Yes, allow strips". So the 2-cell shape of the table above is built, in section C3.
+- **Open.** None.
 
 ### 5. What stays open inside a block
 
@@ -324,14 +325,14 @@ No threshold is loosened. Stated plainly:
   - Both of the ticket's options are built, by Josh's answer to Q2 ("They can be either."): C-rows (another building) and C-stack (the same building repeated), chosen per building by hash. Ring 2 is exactly one cell deep, so `BACK_OVERSHOOT_MAX_M` goes, and `BACK_COVER_MIN` (0.9 of the strip) is replaced by M3 and M4, which are exact.
   - New in C1: blind corner columns; the drive runs through ring 2; lane rows on alley sides; quiet ground rows (M8); corner columns beside openings (Q1, decided).
   - `blankFaces` is M7, on storey faces. Q-C2 is answered: corner pieces at openings (Q1), the party-wall kit on height steps (Q3, decided).
-  - Three builds: **C1** the plan and M3, M4, M5, M8; **C2** the drawing; **C3** the party-wall dressing (M7), and strips if Q6 is yes.
+  - Three builds: **C1** the plan and M3, M4, M5, M8; **C2** the drawing; **C3** the party-wall dressing (M7), and strips (Q6, decided).
 - **F, G, A, D, H** are unchanged. F's returns end on corner columns once C1 lands.
 
 **Order.** E1 and E2 (in flight), then B, then I, then C1, C2, C3, then G. F is independent and merges when it is ready. B is half a day and is free to start: its question is answered. I must precede C1, which lays ring 2 on I's cells.
 
 ## Decide first
 
-Questions only Josh can answer, most important first. Q1 to Q4 and Q7 are answered; Q5 and Q6 are open.
+Questions only Josh can answer, most important first. Q1 to Q4, Q6 and Q7 are answered. Q5 needs no answer until C1 has measured the parking.
 
 1. **May corner pieces stand wherever two open sides meet?** That is: at a lane mouth, a court drive, a plaza and inside a court, as well as where two streets meet.
    - **Answered (Josh, 19 Nov 2026): "Yes, any corner".** Rule 7 records it.
@@ -344,7 +345,7 @@ Questions only Josh can answer, most important first. Q1 to Q4 and Q7 are answer
 5. **Parking, once ring 2 is counted.** Homes roughly double.
    - **Recommended: keep 0.15 stalls a home and every threshold; measure in C1.** If two courts a block cannot hold P2, raise `LOTS_PER_BLOCK_MAX` to 3 on blocks at least 10 cells each way. That is a re-cut for his word, not a wider band.
 6. **Strips** (a 10 m deep part cut off a block by a lane, two rows back to back).
-   - **Recommended: yes, in C3.** Not needed for C1 or C2.
+   - **Answered (Josh, 19 Nov 2026): "Yes, allow strips".** Rule 4 records it. Built in C3; not needed for C1 or C2.
 7. **No avenues** (section B's B1): every street 25 m with a 15 m carriageway.
    - **Answered (Josh, 19 Nov 2026): "Yes, no avenues".** Rule 10 records it.
 
