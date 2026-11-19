@@ -748,13 +748,20 @@ export interface BodyOverhang {
 /**
  * How well a stack's columns line up on their footprints (ticket 063 E2). `misfits` are what the rule must hold, each within `STOREY_ALIGN_TOL_M`: a floor's or a roof's back plane on the footprint's; a base no
  * shallower than it; every piece's reference plane on the footprint's (a mid column's body centre, a corner column's outer flank); a floor's two side planes. `overhangs` are the planes of any piece that stand further
- * than `BODY_REPORT_M` from the footprint's (a roof's cornice over the floor, an office's podium): reported, not a failure. A column whose pieces have no body is not looked at.
+ * than `BODY_REPORT_M` from the footprint's (a roof's cornice over the floor, an office's podium): reported, not a failure. `slight` are the same planes of the pieces that are further than `STOREY_ALIGN_TOL_M` but no
+ * further than `BODY_REPORT_M` off (a corner roof's inner flank, a roof's front, a turned shop corner's inner flank): also reported and not failed, so no difference over the tolerance goes unseen. A column whose pieces
+ * have no body is not looked at.
  */
-export function storeyAlignment(stack: Stack, fronts: FrontTable = BUILDING_FRONTS, bodies: Readonly<Partial<Record<CalibrationKey, Body>>> = BODY_M): { misfits: string[]; overhangs: BodyOverhang[] } {
+export function storeyAlignment(
+  stack: Stack,
+  fronts: FrontTable = BUILDING_FRONTS,
+  bodies: Readonly<Partial<Record<CalibrationKey, Body>>> = BODY_M,
+): { misfits: string[]; overhangs: BodyOverhang[]; slight: BodyOverhang[] } {
   const boxes = stack.pieces.map((p) => bodyBox(p, fronts, bodies));
   const foot = footprints(stack, boxes);
   const misfits: string[] = [];
   const overhangs: BodyOverhang[] = [];
+  const slight: BodyOverhang[] = [];
   stack.pieces.forEach((p, j) => {
     const box = boxes[j];
     const cols = spanned(stack, p).filter((i) => foot[i] !== null);
@@ -778,10 +785,12 @@ export function storeyAlignment(stack: Stack, fronts: FrontTable = BUILDING_FRON
       ["front", box.zFront - f.zFront],
       ["back", -back],
     ] as const) {
-      if (Math.abs(off) > BODY_REPORT_M + EPS && !(p.role === "base" && (plane === "back" || plane === "front"))) overhangs.push({ key: p.key, role: p.role, column: p.column, plane, off_m: off });
+      if (p.role === "base" && (plane === "back" || plane === "front")) continue;
+      if (Math.abs(off) > BODY_REPORT_M + EPS) overhangs.push({ key: p.key, role: p.role, column: p.column, plane, off_m: off });
+      else if (Math.abs(off) > STOREY_ALIGN_TOL_M + EPS) slight.push({ key: p.key, role: p.role, column: p.column, plane, off_m: off });
     }
   });
-  return { misfits, overhangs };
+  return { misfits, overhangs, slight };
 }
 
 /**

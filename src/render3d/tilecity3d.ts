@@ -1343,7 +1343,8 @@ export const TILE_FURNITURE_LEVELS: FurnitureLevels = { pavement_m: 0 };
 export function cityApplyOptions(city: TileCity): ApplyOptions {
   const keep = tileKeepouts(city);
   // 057 D: the wall alignment is passed to `packTown` explicitly (it would default to it, by the runs' pavement frame), so the tile city does not depend on that default.
-  return { keepPoints: keep.keepPoints, keepRects: keep.keepRects, furnitureFilter: (pieces) => bayMeters(city, courtLotPieces(city, pieces)), furnitureLevels: TILE_FURNITURE_LEVELS, align: TILE_STACK_ALIGN, escapeShare: TILE_CITY_R7_MIN };
+  // 063 E2: so is the body footprint (each piece's body on its column's floor piece's, `seatOnBody`), though `bandPacked` would choose it for a wall-aligned run anyway.
+  return { keepPoints: keep.keepPoints, keepRects: keep.keepRects, furnitureFilter: (pieces) => bayMeters(city, courtLotPieces(city, pieces)), furnitureLevels: TILE_FURNITURE_LEVELS, align: TILE_STACK_ALIGN, footprint: "body", escapeShare: TILE_CITY_R7_MIN };
 }
 
 /**

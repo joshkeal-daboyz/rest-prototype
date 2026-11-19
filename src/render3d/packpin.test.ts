@@ -203,3 +203,64 @@ describe("the measured open side moves only corner pieces on the ladder (063 E1,
     });
   }
 });
+
+// ---- ticket 063 E1, criterion 25 on the three protocol maps (review round 1) ----
+
+describe("every corner column of the three protocol maps turns the corner (063 E1, criterion 25)", () => {
+  const rot = (yaw: number, [x, z]: readonly [number, number]): [number, number] => [x * Math.cos(yaw) + z * Math.sin(yaw), -x * Math.sin(yaw) + z * Math.cos(yaw)];
+  const near = (a: readonly [number, number], b: readonly [number, number]): boolean => Math.hypot(a[0] - b[0], a[1] - b[1]) < 1e-6;
+  const CORNER_02 = "city-pack:SM_Bld_Shop_Corner_02";
+
+  /**
+   * Every piece of a corner column, as the lot frame sees it: one of its two street faces (its front, +z in its own frame, and its measured open face from `OPEN_SIDE_MEASURED`, not from the table the packing was
+   * made with) must point at the road (+z) and the other at the cross street (toward the column's corner side). `chamferBad` are the Shop_Corner_02 pieces whose chamfer, on the -x+z diagonal of the model, does not
+   * point out of the block toward the junction (the cross street's side and the road's).
+   */
+  function turns(packed: ReadonlyMap<string, PackResult>): { corners: number; bad: string[]; chamfers: number; chamferBad: string[] } {
+    const out = { corners: 0, bad: [] as string[], chamfers: 0, chamferBad: [] as string[] };
+    for (const [run, res] of packed) {
+      for (const b of res.blocks) {
+        for (const p of b.stack.pieces) {
+          const side = b.stack.columns[p.column]!.corner;
+          const open = OPEN_SIDE_MEASURED[p.key]?.open;
+          if (side === null || open === undefined) continue;
+          out.corners++;
+          const front = rot(p.yaw, [0, 1]);
+          const face = rot(p.yaw, [open === "-x" ? -1 : 1, 0]);
+          const road: [number, number] = [0, 1];
+          const cross: [number, number] = [side === "-x" ? -1 : 1, 0];
+          if (!((near(front, road) && near(face, cross)) || (near(face, road) && near(front, cross)))) out.bad.push(`${run} ${b.lot.key} ${p.key} at ${side}`);
+          if (p.key === CORNER_02) {
+            out.chamfers++;
+            const n = rot(p.yaw, [-Math.SQRT1_2, Math.SQRT1_2]);
+            if (Math.sign(n[0]) !== (side === "-x" ? -1 : 1) || n[1] < 0.5) out.chamferBad.push(`${run} ${b.lot.key} at ${side}`);
+          }
+        }
+      }
+    }
+    return out;
+  }
+
+  let chamfersSeen = 0;
+  for (const file of Object.keys(PINS)) {
+    it(`${file}: every corner column has its front on the road or the cross street and its measured open face on the other, and the chamfer points at the junction`, () => {
+      const t = turns(packOf(file));
+      expect(t.corners, `${file}: corner pieces were checked`).toBeGreaterThan(20);
+      expect(t.bad, file).toEqual([]);
+      expect(t.chamferBad, file).toEqual([]);
+      chamfersSeen += t.chamfers;
+    });
+
+    it(`${file}: the old "+x" packing fails it, on every corner piece`, () => {
+      const t = turns(packOf(file, undefined, true));
+      expect(t.bad.length, file).toBe(t.corners);
+      expect(t.chamferBad.length, file).toBe(t.chamfers);
+    });
+  }
+
+  it("found Shop_Corner_02 on the maps, so the chamfer check was not vacuous, and the old packing turns every chamfer the wrong way", () => {
+    expect(chamfersSeen).toBeGreaterThan(0);
+    const old = Object.keys(PINS).reduce((n, f) => n + turns(packOf(f, undefined, true)).chamferBad.length, 0);
+    expect(old).toBe(chamfersSeen);
+  });
+});

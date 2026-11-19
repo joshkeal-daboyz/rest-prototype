@@ -11,6 +11,7 @@ import { ASSET_MANIFEST_VERSION, type AssetEntry, type CalibrationKey } from "..
 import { BODY_M, OPEN_SIDE_MEASURED } from "./facade";
 import { bandPacked } from "./models3d";
 import { tileCity } from "./tilecity";
+import { cityApplyOptions } from "./tilecity3d";
 import { packTown } from "./terrace";
 import { BUILDING_FRONTS, frontAxis, frontYaw, type BuildingFront, type FrontTable } from "./models";
 import { BODY_REPORT_M, STACK_FLOORS, STACK_STYLES, STOREY_ALIGN_TOL_M, assembleStack, bodyBox, seatOnBody, stackKeys, stackRange, storeyAlignment, type Stack, type StackPiece, type StackSide, type StackStyle } from "./stacks";
@@ -711,6 +712,49 @@ describe("one footprint per column (063 E2)", () => {
     for (const [k, v] of found) expect(v, k).toBeLessThan(0.15);
     expect(found.get("apartment-02 Apartment_Roof_02 roof front")).toBeCloseTo(0.108, 3);
     expect([...found.keys()].some((g) => /Roof_Corner_03 roof/.test(g))).toBe(true);
+  });
+
+  it("reports the planes between the tolerance and the report line too, so no difference over STOREY_ALIGN_TOL_M goes unseen, and fails nothing for them", () => {
+    const found = new Map<string, number>();
+    for (const id of APT) {
+      for (const sides of [[], ["-x"], ["+x"], ["-x", "+x"]] as StackSide[][]) {
+        const s = wall(id, sides, 4, { footprint: "body" });
+        const a = storeyAlignment(s);
+        expect(a.misfits, `${id} ${sides}`).toEqual([]);
+        for (const o of a.slight) {
+          const k = `${id} ${o.key.slice("city-pack:SM_Bld_".length)} ${o.role} ${o.plane}`;
+          expect(Math.abs(o.off_m), k).toBeGreaterThan(STOREY_ALIGN_TOL_M);
+          expect(Math.abs(o.off_m), k).toBeLessThanOrEqual(BODY_REPORT_M);
+          found.set(k, Math.max(found.get(k) ?? 0, Math.abs(o.off_m)));
+        }
+        // A plane is in one list or the other, never both.
+        for (const o of a.slight) expect(a.overhangs.some((q) => q.key === o.key && q.column === o.column && q.plane === o.plane)).toBe(false);
+      }
+    }
+    // Today's list (19 Nov 2026), every one a piece standing a little off the footprint's plane because its own body is a little wider or deeper than the floor's 5.0 m: the roofs' feet 0.078 m past the front
+    // wall line, the corner roofs' party-side flanks 0.046 to 0.078 m beyond the floor's, and Shop_Corner_01's party-side flank 0.072 m when turned (its body is 5.07 m deep). A new line here means a piece moved
+    // or a body was re-measured.
+    expect([...found].map(([k, v]) => `${k} ${v.toFixed(3)}`).sort()).toEqual([
+      "apartment-01 Apartment_Roof_01 roof front 0.078",
+      "apartment-01 Apartment_Roof_Corner_01 roof front 0.078",
+      "apartment-01 Apartment_Roof_Corner_01 roof left 0.078",
+      "apartment-01 Apartment_Roof_Corner_01 roof right 0.046",
+      "apartment-01 Shop_Corner_01 base left 0.072",
+      "apartment-02 Apartment_Roof_Corner_02 roof front 0.078",
+      "apartment-02 Apartment_Roof_Corner_02 roof left 0.078",
+      "apartment-02 Apartment_Roof_Corner_02 roof right 0.047",
+      "apartment-02 Shop_Corner_01 base left 0.072",
+      "apartment-03 Apartment_Roof_03 roof front 0.078",
+      "apartment-03 Apartment_Roof_Corner_03 roof front 0.062",
+      "apartment-03 Apartment_Roof_Corner_03 roof right 0.062",
+      "apartment-03 Shop_Corner_01 base left 0.072",
+    ]);
+  });
+
+  it("is passed outright by the tile city (cityApplyOptions), as the wall alignment is, and not left to the alignment's default", () => {
+    const o = cityApplyOptions(tileCity());
+    expect(o.align).toBe("wall");
+    expect(o.footprint).toBe("body");
   });
 
   it("seats an office too: its roof's back on its floor's, its fronts on the line, and reports the roof 0.2 m wider than the floor and the Octagon base narrower than its floor", () => {
