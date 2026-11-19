@@ -30,7 +30,6 @@ import {
   P_ATM,
   P_AWNING,
   P_CANOPY,
-  P_ESCAPE,
   P_PLANTER,
   P_ROOF_LARGE,
   P_ROOF_SMALL,
@@ -442,17 +441,30 @@ describe("the caps", () => {
 
   it("the whole town stops at DRESS_MAX pieces", () => {
     const b = FIFTY(["large"])[0]!;
-    const n = dress(b).length;
+    // Every block alike: no escape on any (ticket 061: a share of 0), as `n` counts it.
+    const n = dressBlock(b.stack, { key: b.key, hMax: BIG_H }, { ...RUN, escape: false }, ENTRIES, b.fronts).pieces.length;
     expect(n).toBeGreaterThan(0);
     const many = Math.ceil(DRESS_MAX / n) + 5;
-    const out = dressTown(
-      Array.from({ length: many }, (_, i) => ({ stack: b.stack, lot: { key: b.key, hMax: BIG_H }, run: { id: `r${i}`, index: 0, lowest: false } })),
-      ENTRIES,
-    );
+    const sites = Array.from({ length: many }, (_, i) => ({ stack: b.stack, lot: { key: b.key, hMax: BIG_H }, run: { id: `r${i}`, index: 0, lowest: false } }));
+    const out = dressTown(sites, ENTRIES, b.fronts, { escapeShare: 0 });
     const total = out.reduce((s, ps) => s + ps.length, 0);
     expect(total).toBeLessThanOrEqual(DRESS_MAX);
     expect(total).toBeGreaterThan(DRESS_MAX - n * 2);
     expect(out[out.length - 1]).toEqual([]);
+  });
+
+  it("a chosen block keeps its fire escape past DRESS_MAX, and the rest of the dressing stays plain (ticket 061)", () => {
+    const b = FIFTY(["large"]).find((q) => dress(q).some((p) => p.slot === "escape"))!;
+    const n = dressBlock(b.stack, { key: b.key, hMax: BIG_H }, { ...RUN, escape: false }, ENTRIES, b.fronts).pieces.length;
+    const many = Math.ceil(DRESS_MAX / n) + 5;
+    // One run of blocks of different keys is not needed: each block is its own run, so every one is hostable and a share of 1 chooses them all.
+    const sites = Array.from({ length: many }, (_, i) => ({ stack: b.stack, lot: { key: b.key, hMax: BIG_H }, run: { id: `r${i}`, index: 0, lowest: false } }));
+    const out = dressTown(sites, ENTRIES, b.fronts, { escapeShare: 1 });
+    const last = out[out.length - 1]!;
+    expect(last.length).toBeGreaterThan(0);
+    expect(last.every((p) => p.slot === "escape")).toBe(true);
+    expect(out.every((ps) => ps.some((p) => p.slot === "escape"))).toBe(true);
+    expect(out.reduce((s, ps) => s + ps.filter((p) => p.slot !== "escape").length, 0)).toBeLessThanOrEqual(DRESS_MAX);
   });
 });
 
@@ -497,8 +509,6 @@ describe("deterministic, busy and not noisy", () => {
     let doorBays = 0;
     let canopies = 0;
     let atmBlocks = 0;
-    let escQual = 0;
-    let escHit = 0;
     let roofCols = 0;
     let smallCols = 0;
     let largeBlocks = 0;
@@ -523,8 +533,6 @@ describe("deterministic, busy and not noisy", () => {
       if (doors.length > 0) atmBlocks += ps.some((p) => p.slot === "wall") ? 1 : 0;
       const doorsN = doors.length;
       if (b.stack.bays >= 3 && b.stack.floors >= 2 && b.stack.columns.some((c) => c.corner === null && !(doorsN > 0 && doors.some((d) => Math.abs(d.x - c.x) < d.w / 2)))) {
-        escQual++;
-        if (escCol !== undefined) escHit++;
       }
       largeBlocks += ps.some((p) => p.slot === "roofLarge") ? 1 : 0;
       const largeCol = ps.find((p) => p.slot === "roofLarge")?.column;
@@ -543,7 +551,7 @@ describe("deterministic, busy and not noisy", () => {
     near(share(signed, bays), P_SIGN, "sign");
     near(share(canopies, doorBays), P_CANOPY, "canopy");
     near(share(atmBlocks, doorBays), P_ATM, "ATM");
-    near(share(escHit, escQual), P_ESCAPE, "fire escape");
+    // The fire escape's share is no longer a per-block chance (ticket 061): `escapeBlocks` fixes it by rank, and escapes.test.ts pins it.
     near(share(smallCols, roofCols), P_ROOF_SMALL, "roof small");
     near(share(largeBlocks, blocksFifty.length), P_ROOF_LARGE, "roof large");
     near(share(ac, wallSlots), P_WALL_AC, "wall AC");

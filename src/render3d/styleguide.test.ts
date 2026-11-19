@@ -699,7 +699,7 @@ describe("escapes.ts is drift-checked and 16.11 gives the fire-escape rules (tic
       const tag = /^- \*\*(Decided|Default|Pending|Open|Info)\b/.exec(b);
       expect(tag, `16.11: untagged bullet: ${b.slice(0, 80)}`).not.toBeNull();
       if (tag![1] === "Open" || tag![1] === "Pending") expect(b.startsWith(`- **${tag![1]} (waits for `), `16.11: no "what it waits for": ${b.slice(0, 80)}`).toBe(true);
-      else expect(/^- \*\*\w+ \(058\b/.test(b), `16.11: no ticket beside: ${b.slice(0, 80)}`).toBe(true);
+      else expect(/^- \*\*\w+ \((058|061)\b/.test(b), `16.11: no ticket beside: ${b.slice(0, 80)}`).toBe(true);
     }
   });
 

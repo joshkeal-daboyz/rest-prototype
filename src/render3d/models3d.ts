@@ -12,7 +12,7 @@ import { stableHash } from "../render/city";
 import { effectiveFronts, loadSavedCalibration } from "./calibration";
 import { COLOURWAY_POOL, assignColourways, isBaseAtlasName, type ColourwayBlock } from "./colourway";
 import { CODE_ESCAPE_KEY, type EscapePart } from "./escapes";
-import { DRESS_DRAW_CALLS_MAX, KERB_FROM_FRONT_M, SHOP_GLASS, dressKeys, dressTown, type DressBlockInput, type DressPiece } from "./dressing";
+import { DRESS_DRAW_CALLS_MAX, KERB_FROM_FRONT_M, SHOP_GLASS, dressKeys, dressTown, type DressBlockInput, type DressPiece, type DressTownOptions } from "./dressing";
 import { FURN_DRAW_CALLS_MAX, alleyOf, furnitureKeys, furnitureLayout, openLotsOf, type Alley, type AvoidBox, type FurnitureInput, type FurniturePiece, type Rect } from "./furniture";
 import {
   BUILDING_EXCLUDE,
@@ -668,8 +668,8 @@ export function dressSites(terrace: readonly PackedBlock[], placements: readonly
 }
 
 /** The placements of a set of sites, flattened in site order (pure: `dressTown`'s caps along each run). A piece whose key is not in `entries` is simply not placed. */
-export function dressPlacements(sites: readonly DressSite[], entries: ReadonlyMap<CalibrationKey, AssetEntry>, fronts: FrontTable = {}): DressPlacement[] {
-  const dressed = dressTown(sites, entries, fronts);
+export function dressPlacements(sites: readonly DressSite[], entries: ReadonlyMap<CalibrationKey, AssetEntry>, fronts: FrontTable = {}, opts: DressTownOptions = {}): DressPlacement[] {
+  const dressed = dressTown(sites, entries, fronts, opts);
   const out: DressPlacement[] = [];
   sites.forEach((s, i) => {
     for (const piece of dressed[i] ?? []) out.push({ frame: s.frame, piece });
@@ -1137,6 +1137,8 @@ export interface ApplyOptions {
    * Default: none, so `packTown` decides as it always did and a puzzle map is exactly what it was.
    */
   align?: StackAlign;
+  /** The share of qualifying blocks that get a fire escape (ticket 061): the tile city passes its R7 floor (`TILE_CITY_R7_MIN`). Default: the ladder's (`ESCAPE_SHARE_LADDER`), so a puzzle map is unchanged by it. */
+  escapeShare?: number;
 }
 
 /**
@@ -1278,7 +1280,7 @@ export function applyModels(bundle: SceneBundle, set: ModelSet, opts: ApplyOptio
       const sink = stackSill(s.stack, sills).sink_m;
       return sink > 0 ? { ...s, frame: { ...s.frame, y: lowered(sink, WORLD_PER_METRE) } } : s;
     });
-    const placements = dressPlacements(sites, dressing.entries, dressing.fronts);
+    const placements = dressPlacements(sites, dressing.entries, dressing.fronts, opts.escapeShare !== undefined ? { escapeShare: opts.escapeShare } : {});
     if (placements.length > 0) {
       const drawn = dressGroup(placements, dressing.roots);
       if (drawn.calls > 0) {
