@@ -225,9 +225,8 @@ export const COURT_AISLE = 1;
 /** `TileCell.variant` of a lane cell: bit 0 is 0 for the lane on the street's left (first in `bands`) and 1 for its right; bit 1 is set when a patch decal lies on it. */
 export const LANE_RIGHT = 1;
 export const LANE_PATCH = 2;
-/** `TileCell.variant` of a pavement cell: 0 is `Sidewalk_Straight_01`, 1 is `_02`, 2 is `Sidewalk_Grate_01`. */
-export const PAVEMENT_STRAIGHT_2 = 1;
-export const PAVEMENT_GRATE = 2;
+/** `TileCell.variant` of a pavement cell: 0 is the plain `Sidewalk_Straight_02` (063 A: the one plain straight, so the sidewalk is one colour), 1 is `Sidewalk_Grate_01` (one cell in `GRATE_ONE_IN`). A build-out's variant is always 0. */
+export const PAVEMENT_GRATE = 1;
 
 // ---- types ----
 
@@ -253,7 +252,7 @@ export interface TileCell {
   j: number;
   cells: 1 | 2;
   role: TileRole;
-  /** Which model of the role's set (see `LANE_RIGHT`, `LANE_PATCH`, `PAVEMENT_STRAIGHT_2`, `PAVEMENT_GRATE`); 0 for every other role. */
+  /** Which model of the role's set (see `LANE_RIGHT`, `LANE_PATCH`, `PAVEMENT_GRATE`); 0 for every other role. */
   variant: number;
   /** The piece's centre, metres: (i + 0.5) * TILE_M, or a cell edge along the street for a 2-cell piece. */
   x_m: number;
@@ -1744,8 +1743,7 @@ export function tileCity(opts: { blocksX?: number; blocksZ?: number; seed?: numb
       let variant = 0;
       if (r === "lane" || r === "parking" || r === "parkingPlain" || r === "buildout") {
         yaw = yawOfBand(own!, own!.axis === "x" ? j : i);
-        // A build-out is a sidewalk tile in the parking band: its kerb edge faces the centre line, and it takes one of the two plain straights.
-        if (r === "buildout") variant = (hashOf(seed, "pave", i, j) >>> 8) & 1;
+        // A build-out is a sidewalk tile in the parking band: its kerb edge faces the centre line, and it is the one plain straight (variant 0, 063 A).
         if (r === "lane") {
           const firstLane = own!.bands.indexOf("lane");
           variant = bandIdx[idx]! - firstLane;
@@ -1755,7 +1753,7 @@ export function tileCity(opts: { blocksX?: number; blocksZ?: number; seed?: numb
         yaw = yawToward(own!.axis, own!.carriage.lo_m > (own!.axis === "x" ? cz : cx) ? 1 : -1);
         if (r === "pavement") {
           const h = hashOf(seed, "pave", i, j);
-          variant = h % GRATE_ONE_IN === 0 ? PAVEMENT_GRATE : (h >>> 8) & 1;
+          variant = h % GRATE_ONE_IN === 0 ? PAVEMENT_GRATE : 0;
         }
       } else if (r === "crossing") {
         yaw = yawToward(own!.axis, 1);
