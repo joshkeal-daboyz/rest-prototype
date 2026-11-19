@@ -66,14 +66,6 @@ export const POLE_SLOT_FROM_KERB_M = 0.75;
 export const POLE_SLOT_PITCH_M = 12.5;
 /** The first slot of a side is this far from the side's first corner, and the last this far from its second. */
 export const POLE_SLOT_END_CLEAR_M = 2.5;
-/** The row-fit numbers (see `tileRowInset_m`): the corner block's depth, the alley left at a row's far end, and the width the row's columns are fitted to, metres. */
-export const TILE_CORNER_DEPTH_M = 5.75;
-export const TILE_ALLEY_M = 1.25;
-export const TILE_COLUMN_M = 5.2;
-/** The widest column the inset fits to when 5.2 m columns would leave an inset over `TILE_INSET_MAX_M` (the widest apartment column is 5.281 m). */
-export const TILE_COLUMN_WIDE_M = 5.28;
-/** The most a row stands back from its corner, metres: a margin of 0.25 m under the ladder's `CORNER_GAP` (0.5 map units, 2.78 m), so the first lot still meets the cross street. */
-export const TILE_INSET_MAX_M = 2.5;
 /**
  * How the tile city's terrace stacks line up in z (ticket 057 A, 19.1): on their measured wall plane (`facade.ts`), which is the lot's front line, which is the pavement's back edge, so a
  * shop or storey stands on the pavement or up to 0.6 m over it (0.557 m at most today) and never behind it. The ladder keeps "back" (this is `StackAlign`'s "wall"; the type is not imported here, so the file keeps to the imports its purity test allows). `packTown` takes this from the runs' `frame` below (every tile-city run has
@@ -88,18 +80,19 @@ export const TILE_CITY_R7_MIN = 0.4;
  */
 export const TILE_CITY_R6_MIN = 0.45;
 /**
- * How far in from its corner a row of a tile city starts, metres, for a block side of `side_m`. A side is a whole number of cells, so `side - 6` (a row's length) is never a length the
- * packer's 5.0 to 5.28 m columns can close to a seam or an alley (chapter 16.2): the wall at the far end is `side - corner depth`, and n columns reach only 5.0n to 5.28n of it.
- * The row therefore stands back from its first corner by the rest: with n columns of `TILE_COLUMN_M` and an alley of `TILE_ALLEY_M` at the far end, the inset is what is left of
- * `side - corner depth`. It is 0 when the columns need no help, and stays inside `CORNER_GAP` of the cross street, so the first lot is still a corner lot.
+ * How far in from its corner a row of a tile city starts, metres (ticket 057 B, 19.2): not at all. Josh, 18 Nov 2026: "It is not okay if the buildings sit recessed from the sidewalk and leave a gap of
+ * nothing between them." This replaces 055 B's inset ("Keep the inset", `tileRowInset_m`, up to `TILE_INSET_MAX_M`), which left a strip of nothing at every block corner. The row's first block's flank
+ * meets the cross street's pavement; the length that is left goes to the row's far end (the packer's seam, overshoot or gated passage, `terrace.ts`).
  */
-export function tileRowInset_m(side_m: number, endsAtPlaza = false, startsAfterPlaza = false): number {
-  const base = side_m - (startsAfterPlaza ? TILE_PLAZA_W_M : 0) - (endsAtPlaza ? TILE_PLAZA_W_M : TILE_CORNER_DEPTH_M) - TILE_ALLEY_M;
-  const n = Math.max(1, Math.floor(base / 5));
-  const inset = Math.max(0, base - n * TILE_COLUMN_M);
-  // Where the usual columns would leave too much, fit to the widest ones instead (never more than `TILE_INSET_MAX_M`).
-  return inset <= TILE_INSET_MAX_M ? inset : Math.min(TILE_INSET_MAX_M, Math.max(0, base - n * TILE_COLUMN_WIDE_M));
-}
+export const TILE_ROW_INSET_M = 0;
+/**
+ * How far a run's last block may stand inside the next row's corner block, metres, to close the row's far end (an "overshoot": the two walls meet inside, where nothing shows; 19.2). The packer
+ * (`terrace.ts`) takes it by default only for a run with a pavement frame (the tile city's); a ladder run has none, so it closes as it did. Kept here, not in `terrace.ts`, so the packer's own
+ * exports are the ladder's.
+ */
+export const END_OVERLAP_MAX_M = 1.0;
+/** A gated passage (19.2): whatever far gap is left, from 1.0 m to one column wide (5.3 m), closed at the wall line by a gate and posts. */
+export const PASSAGE_W_M = { min: 1.0, max: 5.3 } as const;
 /** A plaza's side on the tile grid, metres: two cells (the ladder's is 10.4). */
 export const TILE_PLAZA_W_M = 10;
 /** Short-stay kerbside bays per shop (ticket 056, 18.1): one in three. Shoppers park at the kerb. */
@@ -244,8 +237,28 @@ export interface TileCity {
   /** One tree on every `BUILDOUT_TREE_EVERY`-th cell of each stretch of build-outs, never next to a crossing. */
   buildoutTrees: readonly BuildoutTree[];
   poleSlots: readonly PoleSlot[];
+  /**
+   * The gated passages (ticket 057 B, 19.2): the far ends of the terrace runs that close with a gap of `PASSAGE_W_M` (1.0 m to one column wide) between the last building and the wall or lot
+   * beyond, each closed at the wall line by a gate and posts. A passage is where a packed building ends, so it is known only once the runs are packed: `tileCity` itself returns none, and
+   * `withPassages(city, tilePassages(city, packed))` (`frontage.ts`) is the city with them.
+   */
+  passages: readonly TilePassage[];
   blocks: readonly TileBlock[];
   town: Town;
+}
+
+/** One gated passage: the middle of its mouth on the pavement's back edge, its width along the edge, the turn of its front (toward the street, as a cell's `yaw`), and the terrace run it closes. Metres, degrees. */
+export interface TilePassage {
+  x_m: number;
+  z_m: number;
+  w_m: number;
+  yaw: TileYaw;
+  run: string;
+}
+
+/** The city with its gated passages (`tilePassages` in `frontage.ts` finds them from the packed runs). Frozen like the city. */
+export function withPassages(city: TileCity, passages: readonly TilePassage[]): TileCity {
+  return Object.freeze({ ...city, passages: Object.freeze(passages.map((p) => Object.freeze({ ...p }))) });
 }
 
 // ---- cross-sections ----
@@ -527,7 +540,7 @@ export function tileCity(opts: { blocksX?: number; blocksZ?: number; seed?: numb
       ];
       const r = terraceBlockRows({ id: b.id }, sides, {
         frontOff: 0,
-        startInset_m: (row, endsAtPlaza, startsAfterPlaza) => tileRowInset_m(sides[row]!.span / u, endsAtPlaza, startsAfterPlaza),
+        startInset_m: () => TILE_ROW_INSET_M,
         clears,
         claim: (box) => placed.push(bounds(box)),
         snap_m: TILE_M,
@@ -544,9 +557,7 @@ export function tileCity(opts: { blocksX?: number; blocksZ?: number; seed?: numb
       for (const run of r.runs) {
         const k = sides.findIndex((sd) => sd.road === run.road && sd.side === run.side);
         const sd = sides[k]!;
-        const rowRuns = r.runs.filter((q) => q.road === run.road && q.side === run.side);
-        const endsAtPlaza = rowRuns[rowRuns.length - 1]!.endAbuts === "plaza";
-        if (Math.abs(Math.hypot(run.ax - sd.ax, run.az - sd.az) - tileRowInset_m(sd.span / u, endsAtPlaza, false) * u) > 1e-9) continue;
+        if (Math.hypot(run.ax - sd.ax, run.az - sd.az) > 1e-9) continue;
         const first = r.lots[run.lots[0]! - out.lots.length]!;
         const toStart: CornerSide["side"] = Math.cos(first.yaw) * run.ux - Math.sin(first.yaw) * run.uz < 0 ? "+x" : "-x";
         const cs: CornerSide = { side: toStart, road: cross[k]! };
@@ -1169,7 +1180,7 @@ export function tileCity(opts: { blocksX?: number; blocksZ?: number; seed?: numb
     const served = lotsServing.get(b.id) ?? 0;
     return { ...b, units: unitsById.get(b.id)!, parkingShort: { stalls: Math.max(0, wantedLots.get(b.id)! - served) * LOT_STALLS, bays: (shortTiles.get(b.id) ?? 0) * BAYS_PER_PARKING_TILE }, lots: served };
   });
-  return deepFreeze({ blocksX, blocksZ, seed, cells, streets, bays, lotStalls, buildoutTrees, poleSlots, blocks: blocksOut, town });
+  return deepFreeze({ blocksX, blocksZ, seed, cells, streets, bays, lotStalls, buildoutTrees, poleSlots, passages: [], blocks: blocksOut, town });
 }
 
 // ---- furniture on the tile city (ticket 055 B, design item 9) ----

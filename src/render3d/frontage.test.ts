@@ -7,10 +7,11 @@
 import { describe, expect, it } from "vitest";
 import type { AssetEntry, CalibrationKey } from "../core";
 import { wallOffset } from "./facade";
-import { FRONTAGE_CHECK, FRONTAGE_TOL_M, OVERLAP_MAX_M, RECESS_MAX_M, evaluateFrontage, frontageMetrics, type FaceOffset } from "./frontage";
+import { END_OVERLAP_MAX_M, FRONTAGE_CHECK, FRONTAGE_TOL_M, OVERLAP_MAX_M, PASSAGE_W_M, RECESS_MAX_M, evaluateFrontage, frontageMetrics, type FaceOffset } from "./frontage";
 import { BUILDING_FRONTS } from "./models";
 import { STACK_STYLES } from "./stacks";
-import { alignOf, packTown, type PackResult } from "./terrace";
+import { alignOf, farOverlapOf, packTown, type PackResult } from "./terrace";
+import { WORLD_PER_METRE } from "./town";
 import { TILE_STACK_ALIGN, tileCity, type TileCity } from "./tilecity";
 
 // [name, width, height, depth] in metres (the converted City Pack manifest, 18 Nov 2026); bounds are centred.
@@ -95,7 +96,7 @@ describe("G1, no recess (criterion 3)", () => {
     expect(RECESS_MAX_M).toBe(0);
     expect(OVERLAP_MAX_M).toBe(0.6);
     expect(FRONTAGE_TOL_M).toBe(0.01);
-    expect(FRONTAGE_CHECK).toEqual({ G1: 0 });
+    expect(FRONTAGE_CHECK).toEqual({ G1: 0, G2: 0 });
   });
 
   it("passes on every terrace column of the default city and of seeds 1 to 10 at 3 x 3 and 1 to 3 at 6 x 4", { timeout: 120000 }, () => {
@@ -220,8 +221,114 @@ describe("the tile city's alignment (criterion 2)", () => {
       return rest;
     });
     const back = packTown({ terraces: bare, lots: city.town.lots }, STACK_STYLES, ENTRIES, BUILDING_FRONTS);
-    const asked = packTown({ terraces: city.town.terraces, lots: city.town.lots }, STACK_STYLES, ENTRIES, BUILDING_FRONTS, { align: "back" });
+    // Only the alignment differs: the framed runs take the far overlap of 057 B by default, which a bare run does not, so it is asked for 0 here.
+    const asked = packTown({ terraces: city.town.terraces, lots: city.town.lots }, STACK_STYLES, ENTRIES, BUILDING_FRONTS, { align: "back", farOverlap_m: 0 });
     expect(back).toEqual(asked);
     expect(back).not.toEqual(wall);
+  });
+});
+
+describe("G2, no gap in the frontage (ticket 057 B, criterion 6)", () => {
+  const U = WORLD_PER_METRE;
+  const defaultCity = (): { city: TileCity; wall: Map<string, PackResult> } => cityOf(CITIES[0]!);
+  /** The city as 055 B laid it at 793bbf7: every run that starts at a corner stands `m` metres in from it (the run is that much shorter), packed as `packTown` packs a tile city. */
+  const insetFixture = (m: number): { city: TileCity; packed: Map<string, PackResult>; moved: number } => {
+    const { city } = defaultCity();
+    let moved = 0;
+    const terraces = city.town.terraces.map((r) => {
+      if (!r.startCorner) return r;
+      moved++;
+      return { ...r, ax: r.ax + r.ux * m * U, az: r.az + r.uz * m * U, len: r.len - m * U };
+    });
+    const town = { ...city.town, terraces };
+    return { city: { ...city, town }, packed: packTown({ terraces, lots: city.town.lots }, STACK_STYLES, ENTRIES, BUILDING_FRONTS), moved };
+  };
+
+  it("holds its limits: G1 and G2 each allow none, a far end overshoots at most 1.0 m, and a passage is 1.0 m to one column (5.3 m)", () => {
+    expect(FRONTAGE_CHECK).toEqual({ G1: 0, G2: 0 });
+    expect(END_OVERLAP_MAX_M).toBe(1.0);
+    expect(PASSAGE_W_M).toEqual({ min: 1.0, max: 5.3 });
+    expect(evaluateFrontage(frontageMetrics(defaultCity().city, defaultCity().wall)).map((v) => v.id)).toEqual(["G1", "G2"]);
+  });
+
+  it("passes on the default city and seeds 1 to 10 at 3 x 3 and 1 to 3 at 6 x 4: every metre of every block side is a wall, a flank, a seam, an overshoot, a passage, a lot or a plaza", { timeout: 120000 }, () => {
+    for (const c of CITIES) {
+      const { city, wall } = cityOf(c);
+      const m = frontageMetrics(city, wall);
+      expect(m.sides, c.label).toBe(city.town.blocks.length * 4);
+      expect(m.uncovered, `${c.label} ${JSON.stringify(m.gaps.slice(0, 3))}`).toBe(0);
+      expect(m.farEnds.overshootBad, c.label).toBe(0);
+      expect(m.farEnds.overshootMax_m, c.label).toBeLessThanOrEqual(END_OVERLAP_MAX_M + FRONTAGE_TOL_M);
+      expect(m.farEnds.slit + m.farEnds.wide, c.label).toBe(0);
+      expect(m.farEnds.seam + m.farEnds.overshoot + m.farEnds.passage, c.label).toBe(m.farEnds.runs);
+      expect(m.farEnds.runs, c.label).toBe(city.town.terraces.length);
+      expect(m.passages.length, c.label).toBe(m.farEnds.passage);
+      const g2 = evaluateFrontage(m)[1]!;
+      expect(g2, c.label).toEqual({ id: "G2", value: 0, pass: true });
+    }
+  });
+
+  it("fails on 793bbf7's layout, a fixture of the default city with today's corner insets (1.5 m): the strip at every corner is nothing", { timeout: 60000 }, () => {
+    const f = insetFixture(1.5);
+    expect(f.moved).toBeGreaterThan(20);
+    const m = frontageMetrics(f.city, f.packed);
+    const g2 = evaluateFrontage(m)[1]!;
+    expect(g2.pass).toBe(false);
+    // Each inset leaves the stretch at the side's start bare, and the corner block of the row before stands off the line it should flank.
+    expect(m.uncovered).toBeGreaterThanOrEqual(f.moved);
+    expect(m.uncoveredMax_m).toBeGreaterThan(1.4);
+    // G1 does not see it (the walls are still on the edge): G2 is the check for the corners.
+    expect(evaluateFrontage(m)[0]!.pass).toBe(true);
+  });
+
+  it("fails on a far gap of a slit (0.5 m), a run left unpacked, and an overshoot past END_OVERLAP_MAX_M", { timeout: 60000 }, () => {
+    const { city, wall } = defaultCity();
+    const ids = [...wall.keys()];
+    const withPassage = ids.find((id) => wall.get(id)!.farGap_m >= PASSAGE_W_M.min && wall.get(id)!.farGap_m <= PASSAGE_W_M.max)!;
+    const withOver = ids.find((id) => (wall.get(id)!.farOvershoot_m ?? 0) > 0)!;
+    expect(withPassage).toBeDefined();
+    expect(withOver).toBeDefined();
+    const edit = (id: string, f: (r: PackResult) => PackResult): Map<string, PackResult> => new Map([...wall].map(([k, r]) => [k, k === id ? f(r) : r]));
+    // A gap of 0.5 m is neither a seam nor a passage, so nothing covers it.
+    const slit = frontageMetrics(city, edit(withPassage, (r) => ({ ...r, farGap_m: 0.5 })));
+    expect(slit.uncovered).toBeGreaterThan(0);
+    expect(slit.farEnds.slit).toBe(1);
+    expect(evaluateFrontage(slit)[1]!.pass).toBe(false);
+    // A run with no building is a whole run of nothing.
+    const none = frontageMetrics(city, edit(withPassage, (r) => ({ ...r, blocks: [] })));
+    expect(none.uncovered).toBeGreaterThan(0);
+    expect(evaluateFrontage(none)[1]!.pass).toBe(false);
+    // An overshoot of 1.2 m is further into the corner block than the ticket allows.
+    const deep = frontageMetrics(city, edit(withOver, (r) => ({ ...r, farOvershoot_m: 1.2 })));
+    expect(deep.farEnds.overshootBad).toBe(1);
+    expect(evaluateFrontage(deep)[1]!.pass).toBe(false);
+    // The wide gap of a passage is covered as the passage it is: 5.3 m passes, 5.4 m does not.
+    expect(evaluateFrontage(frontageMetrics(city, edit(withPassage, (r) => ({ ...r, farGap_m: PASSAGE_W_M.max }))))[1]!.value).toBeGreaterThanOrEqual(0);
+    expect(frontageMetrics(city, edit(withPassage, (r) => ({ ...r, farGap_m: 5.4 }))).farEnds.wide).toBe(1);
+  });
+
+  it("fails on a city with nothing packed, which has covered none of its pavement edge", () => {
+    const { city } = defaultCity();
+    const m = frontageMetrics(city, new Map());
+    expect(m.uncovered).toBeGreaterThan(0);
+    expect(evaluateFrontage(m)[1]!.pass).toBe(false);
+  });
+
+  it("leaves the ladder as it was: a run with no frame takes no overlap, so no result carries farOvershoot_m and packTown on bare runs is the same as asking for 0", { timeout: 60000 }, () => {
+    const { city, wall } = defaultCity();
+    expect(farOverlapOf({})).toBe(0);
+    expect(city.town.terraces.every((r) => farOverlapOf(r) === END_OVERLAP_MAX_M)).toBe(true);
+    const bare = city.town.terraces.map((r) => {
+      const { frame: _f, ...rest } = r;
+      return rest;
+    });
+    const a = packTown({ terraces: bare, lots: city.town.lots }, STACK_STYLES, ENTRIES, BUILDING_FRONTS);
+    const b = packTown({ terraces: bare, lots: city.town.lots }, STACK_STYLES, ENTRIES, BUILDING_FRONTS, { farOverlap_m: 0 });
+    expect(a).toEqual(b);
+    for (const r of a.values()) expect("farOvershoot_m" in r).toBe(false);
+    // On the tile city the same option is what makes the overshoot: asking for 0 gives none, and nothing then overlaps.
+    const none = packTown({ terraces: city.town.terraces, lots: city.town.lots }, STACK_STYLES, ENTRIES, BUILDING_FRONTS, { farOverlap_m: 0 });
+    for (const r of none.values()) expect(r.farOvershoot_m ?? 0).toBe(0);
+    expect([...wall.values()].some((r) => (r.farOvershoot_m ?? 0) > 0)).toBe(true);
   });
 });

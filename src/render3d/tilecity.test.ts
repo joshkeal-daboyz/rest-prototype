@@ -11,12 +11,14 @@ import { join } from "node:path";
 import {
   AVENUE_ONE_IN,
   BAYS_PER_PARKING_TILE,
-  BAY_JUNCTION_CLEAR,
   BLOCK_TILES,
+  BAY_JUNCTION_CLEAR,
   BAYS_PER_100M_MAX,
   BAY_RUN_TILES_MAX,
   BAY_TILES_PER_BLOCK_MIN,
   BUILDOUT_TREE_EVERY,
+  END_OVERLAP_MAX_M,
+  PASSAGE_W_M,
   CITY_BLOCKS_MAX,
   GRATE_ONE_IN,
   HOME_COLUMN_FLOORS,
@@ -36,27 +38,29 @@ import {
   TILE_M,
   TILE_CITY_R6_MIN,
   TILE_CITY_R7_MIN,
-  TILE_INSET_MAX_M,
   TILE_PLAZA_W_M,
+  TILE_ROW_INSET_M,
   bayMeters,
-  tileRowInset_m,
   streetBandAt,
   tileCity,
   tileKeepouts,
+  withPassages,
   type TileBand,
   type TileCell,
   type TileCity,
   type TileRole,
   type TileStreet,
 } from "./tilecity";
+import * as tileModule from "./tilecity";
 import { loadPuzzle, type AssetEntry, type CalibrationKey, type Puzzle } from "../core";
 import { CITY_ATM_BLOCKS_MIN, CITY_CHECK, cityMetrics, evaluateCity, runBlocks, type CityMetrics } from "./citymetrics";
 import { KERB_FROM_FRONT_M, dressStack, dressTown, type DressBlockInput } from "./dressing";
 import { FURN_KEEP_M, FURN_KERB_M, KERB_M, METERS, WALL_EDGE_M, furnitureLayout } from "./furniture";
 import { BUILDING_FRONTS } from "./models";
 import { STACK_STYLES } from "./stacks";
-import { ALLEY_MAX_M, ALLEY_MIN_M, TERRACE_SEAM_M, packTown, type PackResult, type PackedBlock } from "./terrace";
-import { CORNER_GAP, PAVE_W, ROAD_W, SETBACK, WORLD_PER_METRE, terraceBlockRows, terraceRunKey, townLayout, type TerraceBox, type TerraceRun, type TerraceSide } from "./town";
+import { TERRACE_SEAM_M, packTown, type PackResult, type PackedBlock } from "./terrace";
+import { frontageMetrics, tilePassages } from "./frontage";
+import { PAVE_W, ROAD_W, SETBACK, WORLD_PER_METRE, terraceBlockRows, terraceRunKey, townLayout, type TerraceBox, type TerraceRun, type TerraceSide } from "./town";
 
 const U = WORLD_PER_METRE;
 const SIZES: readonly [number, number][] = [
@@ -888,35 +892,35 @@ describe("terraceBlockRows (criterion 9: the extraction)", () => {
   });
 });
 
-describe("the row inset (criterion 10)", () => {
-  it("is at least 0.25 m under CORNER_GAP (2.78 m) for every block side of 40 to 60 m when the row starts at a corner, and under one bay (5.2 m) after a plaza", () => {
-    for (let cells = BLOCK_TILES.min; cells <= BLOCK_TILES.max; cells++) {
-      for (const end of [false, true]) {
-        for (const start of [false, true]) {
-          const s = tileRowInset_m(cells * TILE_M, end, start);
-          expect(s, `${cells} cells, end plaza ${end}, start plaza ${start}`).toBeGreaterThanOrEqual(0);
-          // From a corner the margin under CORNER_GAP is at least 0.25 m.
-          expect(s, `${cells} cells, end plaza ${end}, start plaza ${start}`).toBeLessThanOrEqual(start ? 5.2 : CORNER_GAP / WORLD_PER_METRE - 0.25);
-          if (!start) expect(s).toBeLessThanOrEqual(TILE_INSET_MAX_M);
-        }
-      }
-    }
+describe("flush corners (criterion 4: ticket 057 B, 19.2)", () => {
+  it("has no row inset: TILE_ROW_INSET_M is 0, and 055 B's tileRowInset_m and TILE_INSET_MAX_M are gone", () => {
+    expect(TILE_ROW_INSET_M).toBe(0);
+    expect("tileRowInset_m" in tileModule).toBe(false);
+    expect("TILE_INSET_MAX_M" in tileModule).toBe(false);
   });
 
-  it("starts each row's first lot that far in from the block corner, still as a corner lot", () => {
+  it("starts every run with a startCorner exactly at its side's corner (within 1e-6 m), and each first lot keeps its cornerSides", () => {
     for (const seed of [1, 2, 3]) {
       const c = tileCity({ blocksX: 3, blocksZ: 3, seed });
-      let insetRuns = 0;
+      let atCorner = 0;
       for (const run of c.town.terraces) {
-        if (!run.startCorner) continue;
         const b = c.town.blocks.find((q) => q.id === run.block)!;
-        const corner = [{ x: b.minX, z: b.minZ }, { x: b.maxX, z: b.minZ }, { x: b.maxX, z: b.maxZ }, { x: b.minX, z: b.maxZ }];
-        const d = Math.min(...corner.map((p) => Math.hypot(run.ax - p.x, run.az - p.z))) / WORLD_PER_METRE;
-        // Within CORNER_GAP of the cross street's pavement, which is the ladder's own rule for a corner lot.
-        expect(d, run.id).toBeLessThanOrEqual(CORNER_GAP / WORLD_PER_METRE - 0.25);
-        if (d > 0.01) insetRuns++;
+        const corners = [{ x: b.minX, z: b.minZ }, { x: b.maxX, z: b.minZ }, { x: b.maxX, z: b.maxZ }, { x: b.minX, z: b.maxZ }];
+        const d = Math.min(...corners.map((p) => Math.hypot(run.ax - p.x, run.az - p.z))) / WORLD_PER_METRE;
+        if (!run.startCorner) {
+          // A run that does not start at a corner (it follows a lot or a plaza) is off every corner.
+          expect(d, `${seed} ${run.id}`).toBeGreaterThan(1e-6);
+          continue;
+        }
+        atCorner++;
+        expect(d, `${seed} ${run.id}`).toBeLessThan(1e-6);
+        const first = c.town.lots[run.lots[0]!]!;
+        expect(first.corner, `${seed} ${run.id}`).toBe(true);
+        expect(first.cornerSides.length, `${seed} ${run.id}`).toBe(1);
       }
-      expect(insetRuns, `seed ${seed}`).toBeGreaterThan(10);
+      // Four rows to a block, each starting at its corner but the ones that start after a plaza (the plaza takes the corner).
+      const plazas = c.town.openLots.filter((o) => o.kind === "plaza").length;
+      expect(atCorner + plazas, `seed ${seed}`).toBe(c.town.blocks.length * 4);
     }
   });
 });
@@ -962,7 +966,7 @@ describe("terraces on tile streets (criterion 10)", () => {
     expect(fails.slice(0, 8)).toEqual([]);
   });
 
-  /** Pack every city once; the next two tests read the numbers. */
+  /** Pack every city once; the tests below read the numbers. */
   const packs = new Map<number, Map<string, PackResult>>();
   const packOf = (c: TileCity): Map<string, PackResult> => {
     let m = packs.get(c.seed);
@@ -972,77 +976,109 @@ describe("terraces on tile streets (criterion 10)", () => {
     }
     return m;
   };
-  /**
-   * Whether `run` is the first run after a parking lot in its row. 056 lays about one lot per block (055 B laid three in a city), and a lot stands on a multiple of 5 m from its row's start and is 10 m
-   * wide, so the run after it is 5j - 6 m long for a whole j: no 5.0 to 5.28 m columns close that to a seam or an alley, and it ends in a wider gap of under a bay (never a slit), by the tile grid's arithmetic.
-   */
+  /** Whether `run` is the first run after a parking lot in its row. */
   const afterLot = (c: TileCity, run: TerraceRun): boolean => {
     const k = c.town.terraces.indexOf(run);
     const prev = k > 0 ? c.town.terraces[k - 1]! : null;
     return prev !== null && prev.endAbuts === "parking" && prev.block === run.block && prev.road === run.road && prev.side === run.side;
   };
-  /** The far-gap tiers of every run; with `exceptAfterLot`, of the runs that are not the first after a parking lot. */
-  const tiersOf = (exceptAfterLot = false): { runs: number; tiers: Record<"seam" | "alley" | "slit" | "big", number> } => {
-    let runs = 0;
-    const tiers = { seam: 0, alley: 0, slit: 0, big: 0 };
+  /**
+   * How every run's far end closed, over the default city and seeds 1 to 10 (ticket 057 B, 19.2): a seam (0.1 m or less), an overshoot into the next row's corner block (at most END_OVERLAP_MAX_M), a
+   * gated passage (PASSAGE_W_M: 1.0 m to one column) or neither (`slit`: 0.1 to 1.0 m; `wide`: over a column). With `only`, the runs it accepts.
+   */
+  const farEnds = (only: (c: TileCity, run: TerraceRun) => boolean = () => true): { runs: number; seam: number; overshoot: number; passage: number; slit: number; wide: number; overshootMax: number } => {
+    const out = { runs: 0, seam: 0, overshoot: 0, passage: 0, slit: 0, wide: 0, overshootMax: 0 };
     for (const c of cities) {
       for (const run of c.town.terraces) {
         const res = packOf(c).get(run.id);
         expect(res, `${c.seed} ${run.id} is packed`).toBeDefined();
         expect(res!.blocks.length, `${c.seed} ${run.id} has blocks`).toBeGreaterThan(0);
-        if (exceptAfterLot && afterLot(c, run)) continue;
-        runs++;
+        if (!only(c, run)) continue;
+        out.runs++;
         const g = res!.farGap_m;
-        tiers[g <= TERRACE_SEAM_M + 1e-9 ? "seam" : g >= ALLEY_MIN_M - 1e-9 && g <= ALLEY_MAX_M + 1e-9 ? "alley" : g < ALLEY_MIN_M ? "slit" : "big"]++;
+        const over = res!.farOvershoot_m ?? 0;
+        if (over > 1e-9) {
+          out.overshoot++;
+          out.overshootMax = Math.max(out.overshootMax, over);
+        } else if (g <= TERRACE_SEAM_M + 1e-9) out.seam++;
+        else if (g >= PASSAGE_W_M.min - 1e-9 && g <= PASSAGE_W_M.max + 1e-9) out.passage++;
+        else if (g < PASSAGE_W_M.min) out.slit++;
+        else out.wide++;
       }
     }
-    return { runs, tiers };
+    return out;
   };
 
-  it("packs every run (packTown on the fixture stacks) and never closes a far gap in a slit", { timeout: 120000 }, () => {
-    const { runs, tiers } = tiersOf();
-    expect(runs).toBeGreaterThan(300);
-    // The ladder's rule (terracepack.test.ts, citymetrics.test.ts): never a slit. Every gap is a seam, an alley or a wider gap of under a bay.
-    expect(tiers.slit, JSON.stringify(tiers)).toBe(0);
-    expect(tiers.seam + tiers.alley + tiers.big, JSON.stringify(tiers)).toBe(runs);
+  it("holds the far-end numbers of 19.2: an overshoot of at most 1.0 m, a passage of 1.0 m to one column (5.3 m)", () => {
+    expect(END_OVERLAP_MAX_M).toBe(1.0);
+    expect(PASSAGE_W_M).toEqual({ min: 1.0, max: 5.3 });
+    expect(TERRACE_SEAM_M).toBe(0.1);
   });
 
-  // The rows stand back from their first corner by `tileRowInset_m` (see tilecity.ts): a row is the block's side minus the next row's 6 m band, 5k - 6 metres for a side of k cells
-  // (34, 39, 44, 49 or 54 m), and no number of 5.0 to 5.28 m columns reaches within 1.5 m of that. With the inset the ladder's share of 85% is met.
-  it("closes the far gap to a seam or an alley on at least the ladder's 85% of runs that do not follow a parking lot, and on 85% of the runs that end at a corner and do not follow one", { timeout: 120000 }, () => {
-    const { runs, tiers } = tiersOf(true);
-    expect((tiers.seam + tiers.alley) / runs, JSON.stringify(tiers)).toBeGreaterThanOrEqual(0.85);
-    let corner = 0;
-    let closed = 0;
-    for (const c of cities) {
-      for (const run of c.town.terraces) {
-        if (run.endAbuts !== "corner" || afterLot(c, run)) continue;
-        corner++;
-        const g = packOf(c).get(run.id)!.farGap_m;
-        if (g <= TERRACE_SEAM_M + 1e-9 || (g >= ALLEY_MIN_M - 1e-9 && g <= ALLEY_MAX_M + 1e-9)) closed++;
-      }
-    }
-    expect(corner).toBeGreaterThan(250);
-    expect(closed / corner, `${closed} of ${corner}`).toBeGreaterThanOrEqual(0.85);
+  it("closes every run's far end as a seam, an overshoot of at most END_OVERLAP_MAX_M into the next corner block, or a gated passage of PASSAGE_W_M, and never in a slit (criterion 5)", { timeout: 120000 }, () => {
+    const e = farEnds();
+    expect(e.runs).toBeGreaterThan(300);
+    expect(e.slit, JSON.stringify(e)).toBe(0);
+    expect(e.wide, JSON.stringify(e)).toBe(0);
+    expect(e.seam + e.overshoot + e.passage, JSON.stringify(e)).toBe(e.runs);
+    expect(e.overshootMax, JSON.stringify(e)).toBeLessThanOrEqual(END_OVERLAP_MAX_M + 1e-9);
+    // Not vacuous: the three ways all occur (the columns' own widths decide how often).
+    expect(e.overshoot, JSON.stringify(e)).toBeGreaterThan(0);
+    expect(e.passage, JSON.stringify(e)).toBeGreaterThan(0);
   });
 
-  // Ticket 057 (approved: frontage and no gaps) replaces the far-gap handling, and these two floors with it. Until then they keep lots from making it worse: with the original definition (every run,
-  // the runs after a lot included) 056 A measures 396 of 495 runs closed (0.80) and 275 of 374 corner-ending runs (0.735); the exclusion above is blind to the runs a lot leaves with a wider gap.
-  it("closes the far gap to a seam or an alley on at least 75% of ALL runs and 70% of ALL runs that end at a corner (the runs after a parking lot included)", { timeout: 120000 }, () => {
-    const { runs, tiers } = tiersOf();
-    expect((tiers.seam + tiers.alley) / runs, JSON.stringify(tiers)).toBeGreaterThanOrEqual(0.75);
-    let corner = 0;
-    let closed = 0;
+  it("closes the run after a parking lot like any other run: no 0.85 test that leaves it out, no 0.75 and 0.70 floors (056 A's temporary ones are retired)", { timeout: 120000 }, () => {
+    const after = farEnds((c, run) => afterLot(c, run));
+    expect(after.runs).toBeGreaterThan(10);
+    expect(after.slit, JSON.stringify(after)).toBe(0);
+    expect(after.wide, JSON.stringify(after)).toBe(0);
+    expect(after.seam + after.overshoot + after.passage, JSON.stringify(after)).toBe(after.runs);
+    // And the runs that end at a corner, all of them: every one is closed.
+    const corner = farEnds((_c, run) => run.endAbuts === "corner");
+    expect(corner.runs).toBeGreaterThan(250);
+    expect(corner.seam + corner.overshoot + corner.passage, JSON.stringify(corner)).toBe(corner.runs);
+  });
+
+  it("overshoots only where a corner block stands beyond: a run that ends at a lot, a plaza or a clearance never overshoots", { timeout: 120000 }, () => {
+    let overshoots = 0;
     for (const c of cities) {
       for (const run of c.town.terraces) {
-        if (run.endAbuts !== "corner") continue;
-        corner++;
-        const g = packOf(c).get(run.id)!.farGap_m;
-        if (g <= TERRACE_SEAM_M + 1e-9 || (g >= ALLEY_MIN_M - 1e-9 && g <= ALLEY_MAX_M + 1e-9)) closed++;
+        const over = packOf(c).get(run.id)!.farOvershoot_m ?? 0;
+        if (over > 1e-9) {
+          overshoots++;
+          expect(run.endAbuts, `${c.seed} ${run.id}`).toBe("corner");
+        }
       }
     }
-    expect(corner).toBeGreaterThan(250);
-    expect(closed / corner, `${closed} of ${corner}`).toBeGreaterThanOrEqual(0.7);
+    expect(overshoots).toBeGreaterThan(0);
+  });
+
+  it("records every gated passage once, on the pavement's back edge of its run, 1.0 m to one column wide, facing the street (TileCity.passages)", { timeout: 120000 }, () => {
+    expect(cities[0]!.passages).toEqual([]);
+    for (const c of cities) {
+      const list = tilePassages(c, packOf(c));
+      const withThem = withPassages(c, list);
+      expect(withThem.passages).toEqual(list);
+      expect(Object.isFrozen(withThem)).toBe(true);
+      expect(withThem.town).toBe(c.town);
+      const e = frontageMetrics(c, packOf(c)).farEnds;
+      expect(list.length, `seed ${c.seed}`).toBe(e.passage);
+      const ids = new Set<string>();
+      for (const p of list) {
+        expect(ids.has(p.run), `${c.seed} ${p.run} has two passages`).toBe(false);
+        ids.add(p.run);
+        expect(p.w_m, `${c.seed} ${p.run}`).toBeGreaterThanOrEqual(PASSAGE_W_M.min - 1e-9);
+        expect(p.w_m, `${c.seed} ${p.run}`).toBeLessThanOrEqual(PASSAGE_W_M.max + 1e-9);
+        const run = c.town.terraces.find((r) => r.id === p.run)!;
+        // The mouth's middle is on the run's front line (the pavement's back edge) and between the run's ends.
+        const along = ((p.x_m * U - run.ax) * run.ux + (p.z_m * U - run.az) * run.uz) / U;
+        const across = ((p.x_m * U - run.ax) * -run.uz + (p.z_m * U - run.az) * run.ux) / U;
+        expect(Math.abs(across), `${c.seed} ${p.run} off the edge`).toBeLessThan(1e-6);
+        expect(along, `${c.seed} ${p.run}`).toBeGreaterThan(0);
+        expect(along, `${c.seed} ${p.run}`).toBeLessThanOrEqual(run.len / U + PASSAGE_W_M.max);
+        expect([0, 90, 180, 270]).toContain(p.yaw);
+      }
+    }
   });
 
   const planOf = (c: TileCity): { m: CityMetrics } => {

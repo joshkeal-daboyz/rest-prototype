@@ -1,5 +1,8 @@
 /**
- * Ticket 057: the checks on the tile city's frontage, pure (no three, no DOM, no assets). Section A holds G1; B to G add G2 to G4 and V1 to V4 here.
+ * Ticket 057: the checks on the tile city's frontage, pure (no three, no DOM, no assets). Section A holds G1, B adds G2; C to G add G3, G4 and V1 to V4 here.
+ *
+ * G2, no gap in the frontage (19.2): along every block side the pavement's back edge is a wall, a corner flank, a seam (0.1 m or less), an overshoot into the next corner block (at most
+ * `END_OVERLAP_MAX_M`), a gated passage (`PASSAGE_W_M`), a parking lot or a plaza, within `FRONTAGE_TOL_M`. `edgeCoverage` below lays each side's covered stretches end to end.
  *
  * G1, no recess (19.1): on every terrace column, the street-level wall plane (`facade.ts`) stands between the pavement's back edge and `OVERLAP_MAX_M` onto the pavement. Josh, 18 Nov 2026:
  * "It's okay if the buildings rest on top of the sidewalk and overlap a little bit. It is not okay if the buildings sit recessed from the sidewalk and leave a gap of nothing between them."
@@ -11,8 +14,11 @@
 
 import { WALL_FRONT_M, WALL_REACH_M, WALL_SIDE_M, wallOffset } from "./facade";
 import { BUILDING_FRONTS, type FrontTable } from "./models";
-import type { PackResult } from "./terrace";
-import type { TileCity } from "./tilecity";
+import { TERRACE_SEAM_M, type PackResult } from "./terrace";
+import { END_OVERLAP_MAX_M, PASSAGE_W_M, type TileCity, type TilePassage, type TileYaw } from "./tilecity";
+import { WORLD_PER_METRE } from "./town";
+
+export { END_OVERLAP_MAX_M, PASSAGE_W_M };
 
 /** The most a street-level wall may stand onto the pavement, metres (and the most a sill, frame or sign may stand past the wall: `WALL_REACH_M`). */
 export const OVERLAP_MAX_M = WALL_REACH_M;
@@ -21,10 +27,35 @@ export const RECESS_MAX_M = 0;
 /** How far from the limits a wall may be and still pass, metres (float noise, and the 0.01 m the ticket allows). */
 export const FRONTAGE_TOL_M = 0.01;
 
-export type FrontageCheckId = "G1";
+export type FrontageCheckId = "G1" | "G2";
 
-/** What each check allows: G1, how many street-level columns may stand off the wall line (behind the edge, or over the overlap limit). */
-export const FRONTAGE_CHECK: Readonly<Record<FrontageCheckId, number>> = { G1: 0 };
+/**
+ * What each check allows: G1, how many street-level columns may stand off the wall line (behind the edge, or over the overlap limit); G2, how many stretches of a block side's pavement back edge
+ * may be left with no wall, flank, seam, overshoot, gated passage, parking lot or plaza on them (and how many far ends may overshoot by more than `END_OVERLAP_MAX_M`).
+ */
+export const FRONTAGE_CHECK: Readonly<Record<FrontageCheckId, number>> = { G1: 0, G2: 0 };
+
+/** How a run's far end closed (19.2), counted by `frontageMetrics`. `slit` is a gap of 0.1 to 1.0 m, `wide` one over a column wide; both are open. */
+export interface FarEnds {
+  runs: number;
+  seam: number;
+  overshoot: number;
+  passage: number;
+  slit: number;
+  wide: number;
+  /** Overshoots past `END_OVERLAP_MAX_M` (+ tolerance). */
+  overshootBad: number;
+  /** The deepest overshoot, metres. */
+  overshootMax_m: number;
+}
+
+/** A stretch of a block side's pavement back edge that nothing covers: where, and how long, metres from the side's start corner (clockwise, as `terraceBlockRows` lays the sides). */
+export interface FrontageGap {
+  block: string;
+  side: 0 | 1 | 2 | 3;
+  from_m: number;
+  to_m: number;
+}
 
 export interface FrontageMetrics {
   /** Terrace runs, and the columns and street-level pieces measured on them. */
@@ -44,6 +75,14 @@ export interface FrontageMetrics {
   frontMax_m: number;
   /** Street-level pieces whose key has no measured wall in `facade.ts` (aligned on their front bound), by key. */
   unmeasured: readonly string[];
+  /** G2: the block sides measured, the stretches of their back edges nothing covers (and the first few of them), and the longest one, metres. */
+  sides: number;
+  uncovered: number;
+  uncoveredMax_m: number;
+  gaps: readonly FrontageGap[];
+  /** G2: how the runs' far ends closed, and the gated passages they leave (see `TileCity.passages`). */
+  farEnds: FarEnds;
+  passages: readonly TilePassage[];
 }
 
 /**
@@ -109,7 +148,165 @@ export function frontageMetrics(city: Pick<TileCity, "town">, packed: ReadonlyMa
     upperMax_m: fin(upperMax),
     frontMax_m: fin(frontMax),
     unmeasured: [...unmeasured].sort(),
+    ...edgeCoverage(city, packed),
   };
+}
+
+// ---- G2: the pavement's back edge is covered along every block side (19.2) ----
+
+const U = WORLD_PER_METRE;
+const EPS = 1e-9;
+/** Stretches of a side reported by `FrontageMetrics.gaps` (the count is complete). */
+const GAPS_LISTED = 12;
+
+/** One side of a block as `terraceBlockRows` lays it: where it starts, which way it runs, which way is into the block, and its length; map units. */
+interface SideLine {
+  ax: number;
+  az: number;
+  ux: number;
+  uz: number;
+  mx: number;
+  mz: number;
+  span: number;
+}
+
+/** The four sides of a block, clockwise from the top (the order `tileCity` and `terraceBlockRows` use). */
+function sidesOfBlock(b: { minX: number; minZ: number; maxX: number; maxZ: number }): [SideLine, SideLine, SideLine, SideLine] {
+  return [
+    { ax: b.minX, az: b.minZ, ux: 1, uz: 0, mx: 0, mz: 1, span: b.maxX - b.minX },
+    { ax: b.maxX, az: b.minZ, ux: 0, uz: 1, mx: -1, mz: 0, span: b.maxZ - b.minZ },
+    { ax: b.maxX, az: b.maxZ, ux: -1, uz: 0, mx: 0, mz: -1, span: b.maxX - b.minX },
+    { ax: b.minX, az: b.maxZ, ux: 0, uz: -1, mx: 1, mz: 0, span: b.maxZ - b.minZ },
+  ];
+}
+
+/** Where a footprint (corner points, map units) touches a side's back edge: its extent along the side in metres from the side's start, or null when it stands off the edge. */
+function onEdge(pts: readonly { x: number; z: number }[], s: SideLine): [number, number] | null {
+  let tLo = Infinity;
+  let tHi = -Infinity;
+  let pLo = Infinity;
+  for (const p of pts) {
+    const dx = p.x - s.ax;
+    const dz = p.z - s.az;
+    const t = (dx * s.ux + dz * s.uz) / U;
+    const perp = (dx * s.mx + dz * s.mz) / U;
+    tLo = Math.min(tLo, t);
+    tHi = Math.max(tHi, t);
+    pLo = Math.min(pLo, perp);
+  }
+  return Math.abs(pLo) <= FRONTAGE_TOL_M ? [tLo, tHi] : null;
+}
+
+const yawDegrees = (rad: number): TileYaw => ((((Math.round(rad / (Math.PI / 2)) * 90) % 360) + 360) % 360) as TileYaw;
+
+/**
+ * G2: along every block side, what stands on the pavement's back edge. A building's footprint (its columns across, its stack's depth back from the front line), a plaza or a parking lot
+ * covers the stretch it touches; a corner block of the next row covers the end of the side with its flank (its footprint touches the side's line there only when it stands flush: an inset
+ * leaves a stretch bare); a run's far gap of at most `TERRACE_SEAM_M` is a seam and one of `PASSAGE_W_M` a gated passage. Whatever is left bare, beyond `FRONTAGE_TOL_M`, is a gap in the
+ * frontage. An overshoot into the next corner block needs no cover (the blocks overlap) but is held to `END_OVERLAP_MAX_M`.
+ */
+function edgeCoverage(city: Pick<TileCity, "town">, packed: ReadonlyMap<string, PackResult>): Pick<FrontageMetrics, "sides" | "uncovered" | "uncoveredMax_m" | "gaps" | "farEnds" | "passages"> {
+  const t = city.town;
+  const farEnds: FarEnds = { runs: 0, seam: 0, overshoot: 0, passage: 0, slit: 0, wide: 0, overshootBad: 0, overshootMax_m: 0 };
+  const passages: TilePassage[] = [];
+  const gaps: FrontageGap[] = [];
+  let uncovered = 0;
+  let uncoveredMax = 0;
+  let sides = 0;
+  const inside = (b: { minX: number; minZ: number; maxX: number; maxZ: number }, x: number, z: number): boolean => x > b.minX && x < b.maxX && z > b.minZ && z < b.maxZ;
+  for (const b of t.blocks) {
+    const lines = sidesOfBlock(b);
+    const spans: [number, number][][] = [[], [], [], []];
+    const cover = (pts: readonly { x: number; z: number }[]): void => {
+      lines.forEach((s, k) => {
+        const e = onEdge(pts, s);
+        if (e) spans[k]!.push([Math.max(0, e[0]), Math.min(s.span / U, e[1])]);
+      });
+    };
+    // Parking lots and plazas standing in this block.
+    for (const o of t.openLots) {
+      if (!inside(b, o.x, o.z)) continue;
+      const fx = Math.sin(o.yaw);
+      const fz = Math.cos(o.yaw);
+      const rx = Math.cos(o.yaw);
+      const rz = -Math.sin(o.yaw);
+      const frontX = o.x + (fx * o.d) / 2;
+      const frontZ = o.z + (fz * o.d) / 2;
+      cover([-1, 1].flatMap((a) => [0, 1].map((d) => ({ x: frontX + rx * (a * o.w) / 2 - fx * d * o.d, z: frontZ + rz * (a * o.w) / 2 - fz * d * o.d }))));
+    }
+    // Buildings: every packed block of every run of this block.
+    for (const run of t.terraces) {
+      if (run.block !== b.id) continue;
+      const res = packed.get(run.id);
+      if (!res || res.blocks.length === 0) continue;
+      let s0 = 0;
+      for (const pb of res.blocks) {
+        const l = pb.lot;
+        const fx = Math.sin(l.yaw);
+        const fz = Math.cos(l.yaw);
+        const rx = Math.cos(l.yaw);
+        const rz = -Math.sin(l.yaw);
+        const frontX = l.x + (fx * l.d) / 2;
+        const frontZ = l.z + (fz * l.d) / 2;
+        const depth = pb.stack.depth_m * U;
+        cover([-1, 1].flatMap((a) => [0, 1].map((d) => ({ x: frontX + (rx * a * l.w) / 2 - fx * d * depth, z: frontZ + (rz * a * l.w) / 2 - fz * d * depth }))));
+        s0 += pb.stack.width_m;
+      }
+      // The far end: from the last building's pieces to the wall, lot or plaza beyond.
+      farEnds.runs++;
+      const k = lines.findIndex((s) => Math.abs(s.ux - run.ux) + Math.abs(s.uz - run.uz) < 1e-6);
+      const g = res.farGap_m;
+      const over = res.farOvershoot_m ?? 0;
+      let kind: "seam" | "overshoot" | "passage" | "open" = "open";
+      if (over > EPS) {
+        kind = "overshoot";
+        farEnds.overshoot++;
+        farEnds.overshootMax_m = Math.max(farEnds.overshootMax_m, over);
+        if (over > END_OVERLAP_MAX_M + FRONTAGE_TOL_M) farEnds.overshootBad++;
+      } else if (g <= TERRACE_SEAM_M + EPS) {
+        kind = "seam";
+        farEnds.seam++;
+      } else if (g >= PASSAGE_W_M.min - EPS && g <= PASSAGE_W_M.max + EPS) {
+        kind = "passage";
+        farEnds.passage++;
+      } else if (g < PASSAGE_W_M.min) farEnds.slit++;
+      else farEnds.wide++;
+      if (k < 0) continue;
+      const s = lines[k]!;
+      const t0 = ((run.ax - s.ax) * s.ux + (run.az - s.az) * s.uz) / U;
+      const from = t0 + s0 + res.farOverhang_m;
+      // The overhang of the last block's pieces covers the stretch it stands over, as the blocks' own extents do not reach it.
+      spans[k]!.push([t0 + s0, from]);
+      if (kind === "seam" || kind === "passage") spans[k]!.push([from, from + g]);
+      if (kind === "passage") {
+        const mid = (from + g / 2) * U;
+        const l = res.blocks[res.blocks.length - 1]!.lot;
+        passages.push({ x_m: (s.ax + s.ux * mid) / U, z_m: (s.az + s.uz * mid) / U, w_m: g, yaw: yawDegrees(l.yaw), run: run.id });
+      }
+    }
+    lines.forEach((s, k) => {
+      sides++;
+      const span = s.span / U;
+      const list = spans[k]!.slice().sort((p, q) => p[0] - q[0]);
+      let at = 0;
+      const open = (a: number, c: number): void => {
+        uncovered++;
+        uncoveredMax = Math.max(uncoveredMax, c - a);
+        if (gaps.length < GAPS_LISTED) gaps.push({ block: b.id, side: k as 0 | 1 | 2 | 3, from_m: a, to_m: c });
+      };
+      for (const [lo, hi] of list) {
+        if (lo > at + FRONTAGE_TOL_M) open(at, lo);
+        at = Math.max(at, hi);
+      }
+      if (span - at > FRONTAGE_TOL_M) open(at, span);
+    });
+  }
+  return { sides, uncovered, uncoveredMax_m: uncoveredMax, gaps, farEnds, passages };
+}
+
+/** The gated passages of a packed tile city (`TileCity.passages` once `withPassages` has them): where a run's far end closes with a gap of `PASSAGE_W_M`. */
+export function tilePassages(city: Pick<TileCity, "town">, packed: ReadonlyMap<string, PackResult>): TilePassage[] {
+  return [...edgeCoverage(city, packed).passages];
 }
 
 /** Whether `facade.ts` has a measured wall for the piece's street face (a key with none aligns on its front bound). */
@@ -130,5 +327,9 @@ export interface FrontageVerdict {
  */
 export function evaluateFrontage(m: FrontageMetrics): FrontageVerdict[] {
   const g1 = m.recessed + m.overlapped + (m.groundPieces === 0 ? 1 : 0);
-  return [{ id: "G1", value: g1, pass: g1 <= FRONTAGE_CHECK.G1 }];
+  const g2 = m.uncovered + m.farEnds.overshootBad + (m.sides === 0 ? 1 : 0);
+  return [
+    { id: "G1", value: g1, pass: g1 <= FRONTAGE_CHECK.G1 },
+    { id: "G2", value: g2, pass: g2 <= FRONTAGE_CHECK.G2 },
+  ];
 }

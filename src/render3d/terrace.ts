@@ -34,6 +34,7 @@ import { stableHash } from "../render/city";
 import { BUILDING_FRONTS, type FrontTable } from "./models";
 import { assembleStack, stackRange, type Stack, type StackAlign, type StackSide, type StackStyle } from "./stacks";
 import { TERRACE_BAYS, TERRACE_DEPTH_M, WORLD_PER_METRE, type Lot, type LotSpec, type TerraceRun } from "./town";
+import { END_OVERLAP_MAX_M, PASSAGE_W_M } from "./tilecity";
 
 /** The most a run's far end may be left short of its far wall, metres, to count as closed. */
 export const TERRACE_SEAM_M = 0.1;
@@ -78,6 +79,11 @@ export interface PackResult {
   farOverhang_m: number;
   /** Blocks planned from the probe widths that were dropped because the assembled stacks did not fit (a style whose pieces differ in width). 0 today. */
   dropped: number;
+  /**
+   * How far the last block's pieces stand inside the far wall, metres (ticket 057 B). Present only when the run could overshoot (`farOverlap_m` above 0 and a real corner block beyond), so every
+   * ladder result is as it was; 0 when the far end closed at a seam, an alley or a passage.
+   */
+  farOvershoot_m?: number;
 }
 
 export interface PackOptions {
@@ -87,6 +93,11 @@ export interface PackOptions {
   corner?: CornerBlock | undefined;
   /** How the stacks line up in z (ticket 057 A). Default: `alignOf(run)`, "wall" on a run that has a pavement frame (the tile city's) and "back" on every ladder run. */
   align?: StackAlign | undefined;
+  /**
+   * How far the last block may stand inside the far wall, metres (ticket 057 B): a far end closes at a seam first, else an overshoot of up to this, else an alley or a passage. It applies only
+   * where the far wall is a real corner block (`farWall_m` given on a corner end); everywhere else it is 0. Default: `farOverlapOf(run)`, which is 0 on every ladder run.
+   */
+  farOverlap_m?: number | undefined;
 }
 
 /**
@@ -94,6 +105,9 @@ export interface PackOptions {
  * edge, and its buildings stand on the pavement or just over it), "back" for the ladder's runs, which have none, so every ladder stack is as it was.
  */
 export const alignOf = (run: Pick<TerraceRun, "frame">): StackAlign => (run.frame ? "wall" : "back");
+
+/** The far overlap a run takes when the caller does not say (ticket 057 B): `END_OVERLAP_MAX_M` for a run with a pavement frame (the tile city's), 0 for every ladder run. */
+export const farOverlapOf = (run: Pick<TerraceRun, "frame">): number => (run.frame ? END_OVERLAP_MAX_M : 0);
 
 interface Opt {
   style: StackStyle;
@@ -230,7 +244,10 @@ export function farWall_m(
 /** The wall a run ends at when the row after it starts with `block`: its real back wall, metres from the run's start. */
 const wallTo = (run: TerraceRun, block: { stack: { depth_m: number } } | undefined): number | undefined => (block ? run.len / WORLD_PER_METRE + Math.max(0, TERRACE_DEPTH_M - block.stack.depth_m) : undefined);
 
-const closes = (g: number): boolean => g <= TERRACE_SEAM_M + EPS || (g >= ALLEY_MIN_M - EPS && g <= ALLEY_MAX_M + EPS);
+/**
+ * Whether a far gap counts as closed: a seam, an alley, or (on a run that may overshoot, the tile city's) a gated passage up to a column wide. An overshoot reports a gap of 0, so it is a seam here.
+ */
+const closes = (g: number, passage = false): boolean => g <= TERRACE_SEAM_M + EPS || (g >= ALLEY_MIN_M - EPS && g <= (passage ? PASSAGE_W_M.max : ALLEY_MAX_M) + EPS);
 
 /**
  * Every run of a town packed, each closed to its next row's REAL corner block: the one that run really builds. A row's last run ends at the next row's first run, whose corner
@@ -244,9 +261,15 @@ export function packTown(
   styles: readonly StackStyle[],
   entries: Entries,
   fronts: FrontTable = BUILDING_FRONTS,
-  opts: { align?: StackAlign } = {},
+  opts: { align?: StackAlign; farOverlap_m?: number } = {},
 ): Map<string, PackResult> {
   const alignFor = (run: TerraceRun): StackAlign => opts.align ?? alignOf(run);
+  const overlapFor = (run: TerraceRun): number => opts.farOverlap_m ?? farOverlapOf(run);
+  /**
+   * The wall a run that ends at a parking lot closes to when it may overshoot (the tile city's): the lot's own edge, which is the run's length. The ladder closes such a run to its last nominal
+   * lot (the ground beyond is not cleared) and keeps doing so; on the tile city every metre of the pavement's back edge is a wall, a seam, a passage or the lot (ticket 057, G2).
+   */
+  const lotWall = (run: TerraceRun): number | undefined => (run.endAbuts === "parking" && overlapFor(run) > 0 ? run.len / WORLD_PER_METRE : undefined);
   const nominalOf = (run: TerraceRun): Lot[] => run.lots.map((i) => town.lots[i]!);
   const link = (run: TerraceRun): TerraceRun | undefined => {
     if (run.endAbuts !== "corner") return undefined;
@@ -269,8 +292,8 @@ export function packTown(
       const id = `${run.id}|${Math.round(depth * 1000)}`;
       const hit = reach.get(id);
       if (hit !== undefined) return hit;
-      const r = packTerrace(run, nominalOf(run), styles, entries, fronts, { farWall_m: wallTo(run, { stack: { depth_m: depth } }), corner: i === 0 && rootFixed ? rootFixed : undefined, align: alignFor(run) });
-      const ok = r.blocks.length > 0 && closes(r.farGap_m);
+      const r = packTerrace(run, nominalOf(run), styles, entries, fronts, { farWall_m: wallTo(run, { stack: { depth_m: depth } }), corner: i === 0 && rootFixed ? rootFixed : undefined, align: alignFor(run), farOverlap_m: overlapFor(run) });
+      const ok = r.blocks.length > 0 && closes(r.farGap_m, overlapFor(run) > 0);
       reach.set(id, ok);
       return ok;
     };
@@ -278,9 +301,10 @@ export function packTown(
       const run = chain[i]!;
       const nominal = nominalOf(run);
       const after = chain[i + 1];
-      const wall = after ? wallTo(run, res.get(after.id)?.blocks[0]) : i === chain.length - 1 && rootFixed ? wallTo(run, rootFixed) : undefined;
+      const wall = after ? wallTo(run, res.get(after.id)?.blocks[0]) : i === chain.length - 1 && rootFixed ? wallTo(run, rootFixed) : lotWall(run);
+      const ov = overlapFor(run);
       if (i === 0 && rootFixed) {
-        res.set(run.id, packTerrace(run, nominal, styles, entries, fronts, { farWall_m: wall, corner: rootFixed, align: alignFor(run) }));
+        res.set(run.id, packTerrace(run, nominal, styles, entries, fronts, { farWall_m: wall, corner: rootFixed, align: alignFor(run), farOverlap_m: ov }));
         continue;
       }
       // Among the corner blocks that close this run, one the run before can close to (its depth is that run's wall).
@@ -288,8 +312,8 @@ export function packTown(
       if (i > 0 && run.startCorner !== null) {
         let closing: PackResult | null = null;
         for (const o of cornerOptions(run, nominal, styles, entries, fronts, alignFor(run))) {
-          const r = packTerrace(run, nominal, styles, entries, fronts, { farWall_m: wall, corner: o, align: alignFor(run) });
-          if (r.blocks.length === 0 || !closes(r.farGap_m)) continue;
+          const r = packTerrace(run, nominal, styles, entries, fronts, { farWall_m: wall, corner: o, align: alignFor(run), farOverlap_m: ov });
+          if (r.blocks.length === 0 || !closes(r.farGap_m, ov > 0)) continue;
           closing ??= r;
           if (canClose(i - 1, o.stack.depth_m)) {
             chosen = r;
@@ -298,7 +322,7 @@ export function packTown(
         }
         chosen ??= closing;
       }
-      res.set(run.id, chosen ?? packTerrace(run, nominal, styles, entries, fronts, { farWall_m: wall, align: alignFor(run) }));
+      res.set(run.id, chosen ?? packTerrace(run, nominal, styles, entries, fronts, { farWall_m: wall, align: alignFor(run), farOverlap_m: ov }));
     }
     return res;
   };
@@ -331,7 +355,7 @@ export function packTown(
     for (const o of options) {
       const res = packChain(chain, o);
       let score = 0;
-      for (const r of res.values()) if (r.blocks.length > 0 && closes(r.farGap_m)) score++;
+      for (const [id, r] of res) if (r.blocks.length > 0 && closes(r.farGap_m, overlapFor(chain.find((c) => c.id === id)!) > 0)) score++;
       if (score > bestScore) {
         best = res;
         bestScore = score;
@@ -353,7 +377,16 @@ export function packTerrace(run: TerraceRun, nominal: readonly Lot[], styles: re
   const first = nominal[0];
   const len = run.len / W;
   const nomEnd = nominal.reduce((sum, l) => sum + l.w, 0) / W;
-  const toEnd = run.endAbuts === "corner" ? Math.max(len, nomEnd, opts.farWall_m ?? 0) : run.endAbuts === "plaza" ? Math.max(len, nomEnd) : Math.min(len, nomEnd);
+  const overlapAsked = Math.max(0, opts.farOverlap_m ?? farOverlapOf(run));
+  // A run that may overshoot and was given a wall at a parking lot closes to the lot's edge (`packTown`'s `lotWall`); every other end is as it was.
+  const toEnd =
+    run.endAbuts === "corner"
+      ? Math.max(len, nomEnd, opts.farWall_m ?? 0)
+      : run.endAbuts === "plaza"
+        ? Math.max(len, nomEnd)
+        : overlapAsked > 0 && run.endAbuts === "parking" && opts.farWall_m !== undefined
+          ? Math.max(len, nomEnd, opts.farWall_m)
+          : Math.min(len, nomEnd);
   const avail = toEnd;
   const empty: PackResult = { blocks: [], farGap_m: Math.max(0, avail), farOverhang_m: 0, dropped: 0 };
   if (!first) return empty;
@@ -372,6 +405,8 @@ export function packTerrace(run: TerraceRun, nominal: readonly Lot[], styles: re
   };
 
   const align = opts.align ?? alignOf(run);
+  // The overshoot (057 B) goes only into a real corner block, whose flank is the far wall.
+  const overlap = run.endAbuts === "corner" && opts.farWall_m !== undefined ? overlapAsked : 0;
   const apartments = bayStyles(styles);
   const cornerSide: StackSide | null = run.startCorner ? run.startCorner.side : null;
   const cornerSides = run.startCorner ? [run.startCorner] : [];
@@ -450,12 +485,12 @@ export function packTerrace(run: TerraceRun, nominal: readonly Lot[], styles: re
       if (gap > ALLEY_MAX_M + EPS) leastBig = Math.min(leastBig, gap);
       if (accept(gap)) return true;
     }
-    if (room < minNeed - EPS || ++nodes > SEARCH_NODES) return false;
+    if (room + overlap < minNeed - EPS || ++nodes > SEARCH_NODES) return false;
     const last = i > 0 ? seq[i - 1]!.style.id : "";
     const memo = `${Math.round(room * 1000)}|${last}`;
     if (i > 0 && failed.has(memo)) return false;
     const before2 = i > 1 ? seq[i - 2]! : null;
-    const pool = (i === 0 && cornerSide ? cornerOpts : midOpts).filter((o) => o.style.id !== last && o.w + o.ov <= room + EPS && rangeOf(o.style, capAt(s, s + o.w)) !== null);
+    const pool = (i === 0 && cornerSide ? cornerOpts : midOpts).filter((o) => o.style.id !== last && o.w + o.ov <= room + overlap + EPS && rangeOf(o.style, capAt(s, s + o.w)) !== null);
     const score = (o: Opt): number =>
       (used.get(o.style.id) ?? 0) * 1000 + (before2 && before2.style.id === o.style.id ? 500 : 0) + (i > 0 && seq[i - 1]!.bays === o.bays ? 60 : 0) + (i === 0 && cornerOf && o.style.id !== cornerOf.id ? 100 : 0) + (stableHash(`${run.id}:${i}:${o.style.id}:${o.bays}`) % 50);
     const order = pool.map((o) => ({ o, k: score(o) })).sort((a, b) => a.k - b.k || (a.o.style.id < b.o.style.id ? -1 : a.o.style.id > b.o.style.id ? 1 : a.o.bays - b.o.bays));
@@ -476,9 +511,11 @@ export function packTerrace(run: TerraceRun, nominal: readonly Lot[], styles: re
     nodes = 0;
     return search(0, accept) ? seq.slice() : null;
   };
-  const inSeam = (g: number): boolean => g <= TERRACE_SEAM_M + EPS;
+  const inSeam = (g: number): boolean => g <= TERRACE_SEAM_M + EPS && (overlap === 0 || g >= -EPS);
+  const inOvershoot = (g: number): boolean => g < -EPS && g >= -overlap - EPS;
   const inAlley = (g: number): boolean => g >= ALLEY_MIN_M - EPS && g <= ALLEY_MAX_M + EPS;
-  let plan = pass(inSeam) ?? pass(inAlley);
+  // A seam first, then (where a corner block stands beyond) an overshoot into it, then an alley or a passage (ticket 057 B, 19.2).
+  let plan = pass(inSeam) ?? (overlap > 0 ? pass(inOvershoot) : null) ?? pass(inAlley);
   if (!plan && Number.isFinite(leastBig)) {
     const target = leastBig + TERRACE_SLACK_M;
     plan = pass((g) => g > ALLEY_MAX_M + EPS && g <= target + EPS);
@@ -518,7 +555,7 @@ export function packTerrace(run: TerraceRun, nominal: readonly Lot[], styles: re
     // overhang no longer fit before the far wall is dropped with the rest, one short of the plan, never the whole run.
     const w = stack.width_m;
     const ov = overhang(stack, farSide);
-    if (s + w + ov > avail + 1e-6) break;
+    if (s + w + ov > avail + overlap + 1e-6) break;
     const mid = (s + w / 2) * W;
     const fx = Math.sin(first.yaw);
     const fz = Math.cos(first.yaw);
@@ -550,5 +587,5 @@ export function packTerrace(run: TerraceRun, nominal: readonly Lot[], styles: re
     lastOv = ov;
   }
   if (blocks.length === 0) return empty;
-  return { blocks, farGap_m: Math.max(0, avail - s - lastOv), farOverhang_m: lastOv, dropped: plan.length - blocks.length };
+  return { blocks, farGap_m: Math.max(0, avail - s - lastOv), farOverhang_m: lastOv, dropped: plan.length - blocks.length, ...(overlap > 0 ? { farOvershoot_m: Math.max(0, s + lastOv - avail) } : {}) };
 }
