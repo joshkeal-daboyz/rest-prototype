@@ -2,7 +2,7 @@
 
 owner: renderer (src/render3d/, docs/city-style-guide.md)
 status: open (waiting for G1). Eight sections, each its own branch, each buildable alone except where Dependencies says. Sections B and C wait for Josh's answers (Open questions).
-branch: one per section: `ticket/063a-one-sidewalk`, `ticket/063b-street-width`, `ticket/063c-building-backs`, `ticket/063d-plain-interior-paving`, `ticket/063e1-corner-open-side`, `ticket/063e2-one-footprint`, `ticket/063f-kerb-line`, `ticket/063g-roof-access`, `ticket/063h-paved-inlets`, `ticket/063i-walls-touch`
+branch: one per section: `ticket/063a-one-sidewalk`, `ticket/063b-street-width`, `ticket/063c1-back-rows-plan`, `ticket/063c2-back-rows-draw`, `ticket/063d-plain-interior-paving`, `ticket/063e1-corner-open-side`, `ticket/063e2-one-footprint`, `ticket/063f-kerb-line`, `ticket/063g-roof-access`, `ticket/063h-paved-inlets`, `ticket/063i-walls-touch`
 - Section I was added on 19 Nov 2026, after A, D and H merged (`f4a728f`). It is buildable after E1 and E2.
 
 ## Josh's words (19 Nov 2026, in chat, looking at the tile city in daylight)
@@ -69,6 +69,14 @@ Measured by reading the code, the converted manifest, and `city-pack.glb` (the c
 - **What is left showing.** A band 4.1 to 4.8 m deep shows behind every row. It is paler than ring 3's `Sidewalk_Panel_02` apron beyond it.
 - **The passage floors.** The pale ground "beside the front row's ends" is the gated passages' floors (`TilePassage.floor`, 5 m deep). They are code-drawn in the same `PAVEMENT` colour.
 - **The backs themselves.** The stacks' backs are the pieces' blank rear faces, with no windows, and they are ragged (each piece's own depth). That is the red building's blank back wall.
+- **Josh's intent, with new evidence** (19 Nov 2026, in chat): "Notice how the backs of buildings are also butted up against the backs of other buildings Also intentional. Without this you end up with featurless walls."
+  - His reference shows no blank face anywhere.
+  - His screenshot of ours shows a blank, three-storey, dark green back and side wall beside a gap.
+- **Every side and back of a pack piece is blank.** Measured: `Apartment_01`'s ±x faces are each one solid plane of 14.9 m², the full 5.2 m by 3 m. Only a piece's front (+z) carries windows, doors or shopfronts. So a face shows windows only if a piece's front is turned to it.
+- **What depth there is.** A block side is 6 to 16 cells (`BLOCK_TILES`, 30 to 80 m) with a mean of at least 10. Ring 1 is the front row. Ring 2 is the strip, `APRON_STRIP`, which today is a code-drawn tile and, since 063 D, plain paving. A court's stalls start at ring 2, but only behind its drive, between the rows.
+  - A back row standing on ring 2 on every side uses 4 cells of a block's depth, so a 6-cell block keeps 2 interior cells (ring 3 apron, both sides) and a 16-cell block keeps 12.
+  - Two pieces back to back are 10.4 to 11.8 m deep, so a back row runs 0.4 to 1.8 m into ring 3's apron.
+  - The courts, greens and paths (rings 3 and up) do not move. The court's 2-cell opening through ring 2 is an intentional gap in the back row.
 
 ### D. The plates on the interior paving: an answer to Josh's question
 - **What the plates are.** No, they are not tree plots. The aprons, interior paths and park edges are `SM_Env_Sidewalk_Panel_02` (390 triangles, 5 x 0.094 x 5 m). Modelled into it are two inset plates about 0.04 m below the slab, 3.8 m² in all, with small studs at their corners. They sample `#4a5d4e`, a dark green-grey, and `#5f686e`. They read as utility or service access covers. `Sidewalk_Panel_01` (the plaza piece) has the same pair.
@@ -161,7 +169,7 @@ In the tile city in daylight:
 | --- | --- | --- | --- |
 | A | One sidewalk piece: `Straight_02` for every plain pavement and build-out cell | half a day | nothing |
 | B | Street width, once Josh picks an option (B1 is specified below) | half a day for B1; 1 to 2 days for B2 or B3 | Josh's answer to Q-B |
-| C | Building backs from the same stack pieces | about 1.5 days | Josh's answer to Q-C; D; E2 |
+| C | Buildings back to back: a back row on ring 2, plus the no-blank-face check | about 2 days (two builder rounds: C1 the pure plan and checks, C2 the drawing) | Josh's answers to Q-C and Q-C2; E2; I |
 | D | Plain interior paving: `Sidewalk_01` for the apron, the strip, the paths, the park edge and the passage floors | half a day | nothing (shares `tileslots.ts` with A) |
 | E1 | The corner pieces' open side, measured (the corner store, the roof-corner trim) | 1 day | nothing |
 | E2 | One footprint per column: storeys, trims and roof aligned on measured wall planes | 1 day | E1 |
@@ -199,16 +207,45 @@ In the tile city in daylight:
 9. [ ] The guide's 19.3 and chapter 18's measured lines are re-measured. The builder reports street metres per axis and the streets' share of city area, before and after.
 10. [ ] (Main session, screenshot) the same URLs as criterion 5: no 4-cell carriageway.
 
-### C. Building backs (after Josh answers Q-C; written for the recommended C-stack)
-11. [ ] **Pure plan.** `backFill(stack, part, city)` (new `src/render3d/backs.ts`) returns, for each column that qualifies, the column's own pieces repeated behind it: the same style, floor count and roof, turned 180°, with its back body plane on the front copy's back body plane (E2's footprint). Nothing is scaled. It is returned beside `Stack.pieces`, not in it, so dressing, sills, escapes and every R check read the front as today.
-12. [ ] **Ground row of the back copy.** The style's floor piece at ground level, plus the residents' door piece (`DOORS`) on one column per stack by hash. There are no shops, glass, awnings, signs, ATMs, door steps or fire escapes (19.6: rear escapes are not drawn). Its colourway is the front copy's (the same stack group, so `paintStack` paints both).
-13. [ ] **Where a back copy may stand.** Its footprint may cover ring 2 and run into ring 3 by at most `BACK_OVERSHOOT_MAX_M` (2 m), on `apron` cells only. It never overlaps a court, drive, alley, green, path or park-edge cell, a passage floor, another building, or another back copy.
-    - A column within one cell of a block corner, where the perpendicular row's back copies would meet, gets none.
-    - Neither does a column that cannot meet the rules above. Its share of ring 2 stays paved (D).
-14. [ ] **Coverage.** On the default city and seeds 1 to 10 at 3 x 3, at least `BACK_COVER_MIN` (0.8) of ring-2 strip area behind the rows is under a building. The builder reports the measured share.
-15. [ ] **The checks still hold.** G1 (the front walls are unchanged), G2, G3, G4, R1 to R13 and the tile floors hold unchanged. A fixture with a back copy over a court cell fails criterion 13.
-16. [ ] **Draw calls.** The builder reports the stack piece count before and after on the default city. The main session reports `renderer.info.render.calls` before and after, from the dev view's log line. Stacks are per-piece clones, not instanced, so expect up to about twice the building draws. If the frame is visibly slower on Josh's PC, that goes to Josh before merge.
-17. [ ] (Main session, screenshots) overhead and street views of the default city: no white band behind the rows, and the backs show windows and doors.
+### C. Buildings back to back (after Josh answers Q-C and Q-C2; written for the recommended C-rows)
+Josh (19 Nov 2026): "Notice how the backs of buildings are also butted up against the backs of other buildings Also intentional. Without this you end up with featurless walls."
+
+**C1, the pure plan and the checks** (Vitest)
+11. [ ] **The back row.** New `backRows(city, packed)` (in `src/render3d/backs.ts`) lays, behind each front run, a row of its own buildings on ring 2, facing the block's interior. Their backs are on the front row's back body plane (E2), within `WALL_JOINT_TOL_M`.
+    - The back row matches the front column for column: with I, every column is a 5.0 m body.
+    - Each back building has the same floor count as the front building behind it, so the party wall is covered from the ground to the lower roof. Roof heights differ by at most a roof piece's (0.25 m).
+    - Its style and colourway are its own, by hash, never its back-to-back partner's or its row neighbour's.
+    - Nothing is scaled.
+    - It is returned beside `Stack.pieces`, so the street dressing, sills, escapes and R1 to R13 read the front row as today.
+12. [ ] **What a back building is.** Its ground row is the style's residents' door (`DOORS`) on one column per building by hash, and floor pieces elsewhere: no shop, glass, awning, sign or ATM.
+    - Its floors and roof are the style's.
+    - Its fire escape and wall props follow 058 and 052 on its own front, the interior face, as on a street face.
+    - It gets no door steps, unless 062's sill table gives it one.
+13. [ ] **Where a back row stands.** On ring-2 strip cells, and 0.4 to 1.8 m into ring 3 on `apron` cells only (`BACK_OVERSHOOT_MAX_M`, 2 m). It never stands on a court, drive, alley, green, path or park-edge cell, or a passage floor, and never overlaps another building.
+    - It breaks only at intentional openings: a court's stalls behind its drive, a passage (its floor runs on through ring 2, 10 m deep in all), an alley side or a park edge.
+    - At an inner corner, the rows of sides 0 and 2 run through the corner cell of ring 2, and the rows of sides 1 and 3 stop against them as party walls.
+14. [ ] **Coverage.** On the default city, seeds 1 to 10 at 3 x 3 and seeds 1 to 3 at 6 x 4, at least `BACK_COVER_MIN` (0.9) of ring-2 strip area is under a building, other than the intentional openings. The builder reports the share.
+    - I's `wallJoints` runs on the back rows too, with their own intentional openings, and finds no accidental gap.
+15. [ ] **No blank face** (new `blankFaces(city, packed, dressing)`, pure, measured on the layout).
+    - An exposed face is any building face above the walk that does not touch another building within `WALL_JOINT_TOL_M`. A party wall that is itself covered is exempt.
+    - Exposed faces include a row's end flanks at an opening, and a taller neighbour's flank above the lower roof (heights are free, as in I).
+    - Along each exposed face, no stretch longer than `BLANK_RUN_MAX_M` may be without a feature: a piece's front (windows, a door or a shopfront), a fire escape, or a wall prop or sign placed on that face.
+    - `BLANK_RUN_MAX_M` is provisionally 3 m. That is about one window bay of the apartment fronts, so a longer blank stretch reads as a featureless wall. The builder measures the window pitch of `Apartment_01` to `_03`'s fronts in an `it.skipIf` and sets N to that pitch plus 0.5 m, reporting the value.
+    - A fixture of today's city fails: every back is blank, and so is each row end's 5.2 to 5.9 m flank.
+    - The fix for the faces left, on flanks and height steps, is Q-C2.
+16. [ ] **The checks still hold.**
+    - G1 to G4 hold, and G3 still finds no void.
+    - V1 to V4 hold.
+    - R1 to R13 and the tile floors hold on the front rows, which are unchanged.
+    - P1 to P6 hold on the new unit count. The back rows add homes, so `PARK_PER_HOME` asks for more courts. If P2 cannot hold, the builder stops and reports: it is a re-cut, not a looser band.
+    - A fixture of a back row over a court cell fails criterion 13.
+
+**C2, the drawing**
+17. [ ] `models3d.ts` and `tilecity3d.ts` draw the back rows like the front: stacks, colourways and their interior-face dressing.
+    - The builder reports the stack piece count before and after. The main session reports `renderer.info.render.calls` from the dev view's log line.
+    - Expect about twice the building draw calls: stacks are per-piece clones, not instanced. The flank dressing adds a few InstancedMeshes.
+    - If the frame is visibly slower on Josh's PC, that goes to Josh before merge.
+17a. [ ] (Main session, screenshots) overhead and street views of the default city: buildings stand back to back, the interior faces show windows and doors, and no blank wall longer than `BLANK_RUN_MAX_M` shows. Compare with Josh's reference.
 
 ### D. Plain interior paving (Vitest unless marked)
 18. [ ] `INTERIOR_KEYS.apron`, `.path` and `.parkEdge` are `[SM_Env_Sidewalk_01]`. `INTERIOR_KEYS.strip` is `[SM_Env_Sidewalk_01]`: the ring-2 strip is a pack tile from now on, with the code quad as its fallback only. The passage floors are drawn from the same key (one instance per whole or part cell, laid on the floor's rectangle; a part cell keeps the code quad).
@@ -316,6 +353,10 @@ An inlet is any opening in a row that has a kerb cut: a court drive (2 cells), a
 Josh's clarification (19 Nov 2026, in chat): "This doesn't mean the buildings need to be the same height. They can have gaps but those caps must be intentional (alley ways... etc)".
 - Heights stay free: neighbours may differ in floors and roof line, and nothing here checks heights.
 - Gaps are allowed only where they are intentional, never as a sliver left by lot widths, rounding or piece widths.
+- Josh, the same day: "Notice how the backs of buildings are also butted up against the backs of other buildings Also intentional. Without this you end up with featurless walls."
+  - The back-to-back rows are section C's. When C lands, `wallJoints` runs on its back rows too, with their own intentional openings.
+  - Every face this section leaves exposed (row ends at openings, a taller neighbour's flank above the lower roof) is held by C's no-blank-face check (criterion 15).
+  - Section I itself checks only that walls touch.
 
 46. [ ] **Columns on their bodies.** With the tile city's option (`assembleStack(..., { columns: "body" })`, which the tile city passes; the default "bounds" keeps the ladder), a column is as wide as its floor piece's **body** between its side wall planes (E2's `BODY_M`, `nx` and `px`), and `Stack.width_m` is the bodies' total.
     - Every piece of the column is centred on the body; a corner column's piece sits on its outer flank (E2).
@@ -369,9 +410,11 @@ Josh's clarification (19 Nov 2026, in chat): "This doesn't mean the buildings ne
   - `tilecity.ts` (profiles, `AVENUE_ONE_IN`);
   - `tilecity.test.ts`, `parkmetrics.test.ts`, `frontage.test.ts`, `alleys.test.ts` (re-measured numbers only, never a threshold).
 - **C:**
-  - new `src/render3d/backs.ts` and `backs.test.ts`;
-  - `models3d.ts` (drawing the back pieces in the stack's group);
-  - `tilecity3d.ts` (passing the city to it).
+  - C1: new `src/render3d/backs.ts` and `backs.test.ts` (`backRows`, `blankFaces`);
+  - C1: `parkmetrics.test.ts` (re-measured units only);
+  - C1: `tilecity.ts`, only if the passage floor must run on through ring 2;
+  - C2: `models3d.ts` (drawing the back rows), `tilecity3d.ts` (passing the city), `dressing.ts` (the interior-face and flank dressing).
+  - If back runs need `terraceBlockRows` (town.ts) to lay them, the builder stops for a re-cut.
 - **D:**
   - `tileslots.ts` (`INTERIOR_KEYS`, `TILE_BASE_M`);
   - `tilecity3d.ts` (the strip and passage floors from the key);
@@ -420,7 +463,7 @@ Josh's clarification (19 Nov 2026, in chat): "This doesn't mean the buildings ne
 ## Interfaces
 All in `src/render3d/`; the builder may rename any of them.
 - `tilecity.ts`: `PAVEMENT_GRATE = 1`, and `PAVEMENT_STRAIGHT_2` removed (A).
-- `backs.ts`: `backFill(stack, part, city): readonly StackPiece[]`, `BACK_OVERSHOOT_MAX_M = 2`, `BACK_COVER_MIN = 0.8` (C).
+- `backs.ts` (C): `backRows(city, packed): ReadonlyMap<string, PackResult>` (the back runs, keyed by their front run), `blankFaces(city, packed, dressing): readonly { face: string; from_m: number; to_m: number }[]`, `BACK_OVERSHOOT_MAX_M = 2`, `BACK_COVER_MIN = 0.9`, `BLANK_RUN_MAX_M = 3` (provisional, criterion 15).
 - `facade.ts`:
   - `measureOpenSide(mesh): "+x" | "-x" | null` and `OPEN_SIDE_MEASURED: Readonly<Partial<Record<CalibrationKey, { open: "+x" | "-x"; why: string }>>>` (E1);
   - `BODY_M: Readonly<Partial<Record<CalibrationKey, { front: number; back: number; nx: number; px: number }>>>` (E2).
@@ -444,12 +487,22 @@ All in `src/render3d/`; the builder may rename any of them.
     - It needs a single-lane piece (`Road_Lines_01`, or `Road_01` with `Road_Arrow_01/02`) in place of the yellow pair. Junctions become 2 x 2.
     - Cost: 1 to 1.5 days.
   - **B0:** keep today's widths.
-- **Q-C: the backs of the buildings.**
-  - **C-stack (recommended, Josh's own idea):** each column's pieces are repeated, back to back, toward the interior, so the backs show windows and doors.
-    - Cost: about 1.5 days, after D and E2.
-    - Up to about twice the building draw calls. Stacks are cloned, not instanced, so check the frame on Josh's PC.
-  - **C-pave:** D alone. The strip becomes the same plain paving as the rest of the apron: no white, no extra draws, but blank, ragged backs.
-  - D is built either way, so C-pave costs nothing more.
+- **Q-C: how the backs are covered.**
+  - **C-rows (recommended).** A back row of its own buildings on ring 2, back to back with the street row, facing the interior.
+    - It matches the front column for column and floor for floor, in its own styles and colours.
+    - Exposed faces left: the end flanks at intentional openings (now about 11 m deep, two pieces), and a taller neighbour's flank above the lower roof.
+    - Interior: unchanged, apart from ring 2 (strip to buildings). The courts, greens and aprons stay.
+    - Cost: about 2 days, after E2 and I, and about twice the building draw calls.
+  - **C-stack (Josh's first idea, "re use the stacked build blocks of the same type").** Each column's own pieces repeated behind it, turned 180°: the same style and colour, so the interior face repeats the street face with its shops replaced by doors.
+    - Exposed faces left: the same as C-rows.
+    - Cost: about 1.5 days, and the same draw calls.
+  - **C-dress.** No back buildings. Every back and flank stays exposed and gets only wall props (pipes, which 16.6 allows on back walls only, AC units, signs) to meet the no-blank-face check.
+    - Cost: half a day, and a few draw calls.
+    - The walls stay mostly blank, and Josh has said "Without this you end up with featurless walls".
+  - **C-thin.** Blocks two rows deep, so rows from opposite streets stand back to back. 19.3 weighed this and set it aside: roads would take about three quarters of the city. It re-cuts 057 F's block sizes and 19.4's interiors. Not recommended.
+- **Q-C2: the flanks that stay exposed in any option** (row ends at a passage, drive or alley, and height steps).
+  - **Recommended:** dress them: a fire escape where the flank has a window, else pipes, a wall sign or a painted advert (`BILLBOARD_FACES`), one at least every `BLANK_RUN_MAX_M`.
+  - **Alternative:** end a row at an intentional opening with the style's corner pieces, open side toward the opening, so the flank shows windows. That puts corner pieces mid-row, against Josh's ruling of 17 Nov 2026 ("corner buildings only on corners", R9). It needs his word.
 - **Q-A: the grates.** Keep the 1-in-6 `Sidewalk_Grate_01` cells? They are the same colour, opaque and on the same atlas. Default: keep.
 - **Q-E: fix the ladder too?** E1's corner fix and G's roof-exit fix change the ladder maps' corner shops and roof exits, as they should (the same bug). Default: yes, with `packpin` re-pinned and the change named. The alternative is the tile city only.
 - **Q-E2: roof pairing.** If a style's own roof still overhangs its floor after E2, may a style take another style's roof of a better fit (for example `Roof_02` on `Apartment_03`)? It changes that style's roof look. Default: no; report only.
