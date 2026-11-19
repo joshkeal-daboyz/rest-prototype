@@ -333,10 +333,10 @@ describe("the loader and the town agree on the pieces", () => {
   it("loads the whole recipe set for the fixture and takes each piece's front and open side from BUILDING_FRONTS", () => {
     expect(SET.stack).toHaveLength(34);
     const corner = SET.stack!.find((m) => m.entry.name === "SM_Bld_Shop_Corner_01")!;
-    expect(corner.corner).toBe("+x");
+    expect(corner.corner).toBe("-x"); // measured (063 E1), not the "+x" guess
     expect(SET.stack!.find((m) => m.entry.name === "SM_Bld_Shop_01")!.corner).toBe(false);
     const input = stackInput(SET)!;
-    expect(input.fronts[keyOf("SM_Bld_Shop_Corner_01")]).toEqual({ front: "+z", corner: true, open: "+x" });
+    expect(input.fronts[keyOf("SM_Bld_Shop_Corner_01")]).toEqual({ front: "+z", corner: true, open: "-x" });
     expect(input.fronts[keyOf("SM_Bld_Apartment_01")]).toEqual({ front: "+z" });
   });
 
@@ -679,13 +679,13 @@ describe("the City Pack stack pieces in BUILDING_FRONTS (provisional, from the s
     expect(Object.keys(BUILDING_FRONTS).filter((k) => k.startsWith("city-pack:")).sort()).toEqual(recipeKeys.slice().sort());
   });
 
-  it('gives every line "+z", and `corner: true, open: "+x"` to the eight corner pieces only', () => {
+  it('gives every line "+z", and `corner: true, open: "-x"` (measured, 063 E1) to the eight corner pieces only', () => {
     let corners = 0;
     for (const key of recipeKeys) {
       const line = BUILDING_FRONTS[key]!;
       if (isCorner(key)) {
         corners++;
-        expect(line, key).toEqual({ front: "+z", corner: true, open: "+x" });
+        expect(line, key).toEqual({ front: "+z", corner: true, open: "-x" });
       } else {
         expect(line, key).toEqual({ front: "+z" });
       }
@@ -704,7 +704,7 @@ describe("the City Pack stack pieces in BUILDING_FRONTS (provisional, from the s
   it("is what the recipe pieces plan to: a corner piece's open side is the line's", () => {
     const pieces = planStackPieces(WITH_CITY, allStackKeys())!;
     expect(pieces).toHaveLength(34);
-    for (const m of pieces) expect(m.corner, m.entry.name).toBe(isCorner(m.entry.name) ? "+x" : false);
+    for (const m of pieces) expect(m.corner, m.entry.name).toBe(isCorner(m.entry.name) ? "-x" : false);
   });
 });
 

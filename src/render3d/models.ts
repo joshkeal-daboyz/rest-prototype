@@ -104,7 +104,8 @@ export type FrontTable = Readonly<Record<CalibrationKey, BuildingFront>>;
 
 const FRONT_Z: BuildingFront = { front: "+z" };
 const FRONT_NZ: BuildingFront = { front: "-z" };
-const CORNER_PLUS_X: BuildingFront = { front: "+z", corner: true, open: "+x" };
+/** A City Pack corner piece: front on +z, its second street face on -x (measured, ticket 063 E1: `OPEN_SIDE_MEASURED` in facade.ts, which a test holds this to). */
+const CORNER_MINUS_X: BuildingFront = { front: "+z", corner: true, open: "-x" };
 /**
  * Which way every building model's door faces (ticket 042 A). Every `pack:name` in MODEL_TABLE's building rows must be here (a test fails on a
  * missing one), and so must the names of ticket 042 B's PLACE_MODELS. Started as a guess ("+z" for all: no data in the repo records the
@@ -177,7 +178,7 @@ export const BUILDING_FRONTS: FrontTable = {
   // (savedAt 2026-11-18T03:50:16.193Z) has 25 of them, every one "+z", which is what a first click on the gallery's first copy saves, so it is not evidence that he saw a
   // door. The other nine (Apartment_Corner_01, _03, Apartment_Door_01 and the six roofs, Apartment_Roof_01 to _03 and Apartment_Roof_Corner_01 to _03) were not in the
   // file and take the same "+z" guess. Nobody has confirmed them: the stack gallery (`&gallery=city-pack&stacks=1`) is where Josh does, and each fix is one line here.
-  // A corner piece's `open` is the recipe's "+x" guess too (it is read in the lot frame, after the front is turned). A saved file still overrides these in a dev build.
+  // A corner piece's `open` is "-x" (measured, ticket 063 E1; it was the recipe's "+x" guess: read in the lot frame, after the front is turned). A saved file still overrides these in a dev build.
   "city-pack:SM_Bld_Shop_01": { front: "+z" },
   "city-pack:SM_Bld_Shop_02": { front: "+z" },
   "city-pack:SM_Bld_Shop_03": { front: "+z" },
@@ -186,23 +187,23 @@ export const BUILDING_FRONTS: FrontTable = {
   "city-pack:SM_Bld_Shop_06": { front: "+z" },
   "city-pack:SM_Bld_Apartment_Door_01": { front: "+z" },
   "city-pack:SM_Bld_Apartment_Door_02": { front: "+z" },
-  "city-pack:SM_Bld_Shop_Corner_01": CORNER_PLUS_X,
-  "city-pack:SM_Bld_Shop_Corner_02": CORNER_PLUS_X,
+  "city-pack:SM_Bld_Shop_Corner_01": CORNER_MINUS_X,
+  "city-pack:SM_Bld_Shop_Corner_02": CORNER_MINUS_X,
   "city-pack:SM_Bld_Apartment_01": { front: "+z" },
-  "city-pack:SM_Bld_Apartment_Corner_01": CORNER_PLUS_X,
+  "city-pack:SM_Bld_Apartment_Corner_01": CORNER_MINUS_X,
   "city-pack:SM_Bld_Apartment_Stack_01": { front: "+z" },
   "city-pack:SM_Bld_Apartment_Roof_01": { front: "+z" },
-  "city-pack:SM_Bld_Apartment_Roof_Corner_01": CORNER_PLUS_X,
+  "city-pack:SM_Bld_Apartment_Roof_Corner_01": CORNER_MINUS_X,
   "city-pack:SM_Bld_Apartment_02": { front: "+z" },
-  "city-pack:SM_Bld_Apartment_Corner_02": CORNER_PLUS_X,
+  "city-pack:SM_Bld_Apartment_Corner_02": CORNER_MINUS_X,
   "city-pack:SM_Bld_Apartment_Stack_02": { front: "+z" },
   "city-pack:SM_Bld_Apartment_Roof_02": { front: "+z" },
-  "city-pack:SM_Bld_Apartment_Roof_Corner_02": CORNER_PLUS_X,
+  "city-pack:SM_Bld_Apartment_Roof_Corner_02": CORNER_MINUS_X,
   "city-pack:SM_Bld_Apartment_03": { front: "+z" },
-  "city-pack:SM_Bld_Apartment_Corner_03": CORNER_PLUS_X,
+  "city-pack:SM_Bld_Apartment_Corner_03": CORNER_MINUS_X,
   "city-pack:SM_Bld_Apartment_Stack_03": { front: "+z" },
   "city-pack:SM_Bld_Apartment_Roof_03": { front: "+z" },
-  "city-pack:SM_Bld_Apartment_Roof_Corner_03": CORNER_PLUS_X,
+  "city-pack:SM_Bld_Apartment_Roof_Corner_03": CORNER_MINUS_X,
   "city-pack:SM_Bld_OfficeOld_Small_Base_01": { front: "+z" },
   "city-pack:SM_Bld_OfficeOld_Small_Floor_01": { front: "+z" },
   "city-pack:SM_Bld_OfficeOld_Small_Roof_01": { front: "+z" },

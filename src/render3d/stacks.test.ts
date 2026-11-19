@@ -8,7 +8,10 @@ import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ASSET_MANIFEST_VERSION, type AssetEntry, type CalibrationKey } from "../core";
-import { frontAxis, frontYaw, type BuildingFront, type FrontTable } from "./models";
+import { OPEN_SIDE_MEASURED } from "./facade";
+import { tileCity } from "./tilecity";
+import { packTown } from "./terrace";
+import { BUILDING_FRONTS, frontAxis, frontYaw, type BuildingFront, type FrontTable } from "./models";
 import { STACK_FLOORS, STACK_STYLES, assembleStack, stackKeys, stackRange, type Stack, type StackPiece, type StackSide, type StackStyle } from "./stacks";
 import { LOT_TYPES, LOT_TYPE_NAMES, type CornerSide, type LotType } from "./town";
 
@@ -155,9 +158,12 @@ describe("the recipes", () => {
     expect(new Set(STACK_STYLES.map((s) => s.id)).size).toBe(STACK_STYLES.length);
   });
 
-  it("a corner piece's open side is in the recipe (a guess), and the door never doubles as a corner piece", () => {
+  it("a corner piece's open side is in the recipe (the measured one, 063 E1), and the door never doubles as a corner piece", () => {
     for (const style of STACK_STYLES.filter((s) => s.base.corner.length > 0)) {
-      for (const key of [...style.base.corner, ...style.floor.corner, ...style.roof.corner]) expect(style.open?.[key], `${style.id} ${key}`).toBeDefined();
+      for (const key of [...style.base.corner, ...style.floor.corner, ...style.roof.corner]) {
+        expect(style.open?.[key], `${style.id} ${key}`).toBeDefined();
+        expect(style.open?.[key], `${style.id} ${key}`).toBe(OPEN_SIDE_MEASURED[key]!.open);
+      }
       for (const d of style.base.door ?? []) expect(style.base.corner).not.toContain(d);
     }
   });
@@ -487,36 +493,110 @@ describe("corners", () => {
   });
 
   it("the second face is on the lot's corner side at its own end, and a quarter turn at the other end", () => {
-    const style = STYLE("apartment-01"); // every open side is "+x" (a guess)
+    const style = STYLE("apartment-01"); // every open side is "-x" (measured, 063 E1)
     const lot = { type: "large" as const, key: "c", cornerSides: cs("-x", "+x") };
     const s = assembleStack(style, lot, ENTRIES, NO_FRONTS)!;
     const at = (side: StackSide, role: "base" | "floor" | "roof") => s.pieces.find((p) => p.column === (side === "-x" ? 0 : s.columns.length - 1) && p.role === role)!;
     for (const role of ["base", "floor", "roof"] as const) {
-      expect(at("+x", role).yaw).toBeCloseTo(0, 9); // open "+x" at the +x end: no turn
-      expect(at("+x", role).street).toBe("front");
-      expect(at("-x", role).yaw).toBeCloseTo(-Math.PI / 2, 9); // at the -x end: a quarter turn
-      expect(at("-x", role).street).toBe("open");
+      expect(at("-x", role).yaw).toBeCloseTo(0, 9); // open "-x" at the -x end: no turn
+      expect(at("-x", role).street).toBe("front");
+      expect(at("+x", role).yaw).toBeCloseTo(Math.PI / 2, 9); // at the +x end: a quarter turn
+      expect(at("+x", role).street).toBe("open");
     }
-    const flipped: StackStyle = { ...style, open: Object.fromEntries(Object.keys(style.open ?? {}).map((c) => [c, "-x" as const])) };
-    const t = assembleStack(flipped, lot, ENTRIES, NO_FRONTS)!;
+    // The old guess ("+x") is the mirror image: a fixture of it fails the two lines above.
+    const guessed: StackStyle = { ...style, open: Object.fromEntries(Object.keys(style.open ?? {}).map((c) => [c, "+x" as const])) };
+    const t = assembleStack(guessed, lot, ENTRIES, NO_FRONTS)!;
     const first = t.pieces.find((p) => p.column === 0 && p.role === "floor")!;
     const last = t.pieces.find((p) => p.column === t.columns.length - 1 && p.role === "floor")!;
-    expect(first.yaw).toBeCloseTo(0, 9);
-    expect(last.yaw).toBeCloseTo(Math.PI / 2, 9);
+    expect(first.yaw).toBeCloseTo(-Math.PI / 2, 9);
+    expect(last.yaw).toBeCloseTo(0, 9);
+    expect(first.yaw).not.toBeCloseTo(at("-x", "floor").yaw, 3);
   });
 
   it("the fronts table's open side wins over the recipe's guess, and the recipe's (then \"+x\") is used when the table has none", () => {
-    const lot = { type: "large" as const, key: "c", cornerSides: cs("+x") };
+    const lot = { type: "large" as const, key: "c", cornerSides: cs("-x") };
     const key = keyOf("SM_Bld_Apartment_Corner_01");
-    const fronts: FrontTable = { [key]: { front: "+z", corner: true, open: "-x" } };
+    const fronts: FrontTable = { [key]: { front: "+z", corner: true, open: "+x" } }; // a side Josh saved in the gallery
     const bare: StackStyle = { ...STYLE("apartment-01"), open: {} };
     const corner = (st: StackStyle, f: FrontTable) => assembleStack(st, lot, ENTRIES, f)!.pieces.find((p) => p.key === key)!;
-    expect(corner(bare, fronts).yaw).toBeCloseTo(Math.PI / 2, 9); // the table says "-x", the end is "+x": turned
-    expect(corner(STYLE("apartment-01"), fronts).yaw).toBeCloseTo(Math.PI / 2, 9); // the table still wins over the recipe's "+x"
-    expect(corner(STYLE("apartment-01"), NO_FRONTS).yaw).toBeCloseTo(0, 9); // no table line: the recipe says "+x"
-    expect(corner(bare, NO_FRONTS).yaw).toBeCloseTo(0, 9); // neither: "+x"
-    const plain: FrontTable = { [key]: { front: "+z" } }; // a saved front has no open: the recipe's guess stays
+    expect(corner(bare, fronts).yaw).toBeCloseTo(-Math.PI / 2, 9); // the table says "+x", the end is "-x": turned
+    expect(corner(STYLE("apartment-01"), fronts).yaw).toBeCloseTo(-Math.PI / 2, 9); // the table still wins over the recipe's measured "-x"
+    expect(corner(STYLE("apartment-01"), NO_FRONTS).yaw).toBeCloseTo(0, 9); // no table line: the recipe says "-x"
+    expect(corner(bare, NO_FRONTS).yaw).toBeCloseTo(-Math.PI / 2, 9); // neither: "+x"
+    const plain: FrontTable = { [key]: { front: "+z" } }; // a saved front has no open: the recipe's measured side stays
     expect(corner(STYLE("apartment-01"), plain).yaw).toBeCloseTo(0, 9);
+  });
+});
+
+describe("the angled face is on the corner (063 E1, criterion 25)", () => {
+  /** A piece's front and its open face, as lot-frame directions (x along the row, z toward the road), given the open side its table says. */
+  const dirs = (yaw: number, open: StackSide): { front: [number, number]; open: [number, number] } => ({ front: rot(yaw, [0, 1]), open: rot(yaw, [open === "-x" ? -1 : 1, 0]) });
+  const near = (a: readonly [number, number], b: readonly [number, number]): boolean => Math.hypot(a[0] - b[0], a[1] - b[1]) < 1e-6;
+  /** The corner column pieces whose two street faces are not one on the road (+z) and one on the cross street (toward the corner side), given the open side the *measured* table says. */
+  function wrong(stack: Stack, measuredOpen: (key: CalibrationKey) => StackSide | undefined): string[] {
+    const bad: string[] = [];
+    for (const p of stack.pieces) {
+      const col = stack.columns[p.column]!;
+      const open = measuredOpen(p.key);
+      if (col.corner === null || open === undefined) continue;
+      const d = dirs(p.yaw, open);
+      const road: [number, number] = [0, 1];
+      const cross: [number, number] = [col.corner === "-x" ? -1 : 1, 0];
+      if (!((near(d.front, road) && near(d.open, cross)) || (near(d.open, road) && near(d.front, cross)))) bad.push(`${p.key} at ${col.corner}: front ${d.front.map((v) => v.toFixed(1))}, open ${d.open.map((v) => v.toFixed(1))}`);
+    }
+    return bad;
+  }
+  const measured = (key: CalibrationKey): StackSide | undefined => OPEN_SIDE_MEASURED[key]?.open;
+  const GUESS: FrontTable = Object.fromEntries(Object.keys(OPEN_SIDE_MEASURED).map((k) => [k, { front: "+z" as const, corner: true as const, open: "+x" as const }]));
+
+  it("puts one street face on the road and the other on the cross street, in every corner column of every style, at either end and both", () => {
+    let corners = 0;
+    for (const style of STACK_STYLES.filter((s) => s.base.corner.length > 0)) {
+      for (const sides of [["-x"], ["+x"], ["-x", "+x"]] as StackSide[][]) {
+        for (const bays of [2, 3, 4]) {
+          const st = assembleStack(style, { type: "large", key: `c${style.id}${sides.join("")}${bays}`, cornerSides: cs(...sides) }, ENTRIES, BUILDING_FRONTS, { spec: { frontage: 40, depth: 6, cap: 16 }, bays, align: "wall" });
+          if (!st) continue;
+          expect(wrong(st, measured), `${style.id} ${sides} ${bays}`).toEqual([]);
+          corners += st.pieces.filter((p) => st.columns[p.column]!.corner !== null).length;
+        }
+      }
+    }
+    expect(corners).toBeGreaterThan(40);
+  });
+
+  it("fails for the old guess: with \"+x\" in the table the same columns turn the wrong face onto the cross street", () => {
+    const style = STYLE("apartment-01");
+    const st = assembleStack(style, { type: "large", key: "guess", cornerSides: cs("-x", "+x") }, ENTRIES, GUESS, { spec: { frontage: 40, depth: 6, cap: 16 }, bays: 3, align: "wall" })!;
+    // The pieces were turned for "+x", but the model's street faces are on -x: every corner piece is wrong.
+    expect(wrong(st, measured).length).toBe(st.pieces.filter((p) => st.columns[p.column]!.corner !== null).length);
+  });
+
+  it("holds on the default tile city and seeds 1 to 10 at 3 x 3 (every packed corner block), where the corner piece's chamfer (Shop_Corner_02, on -x+z) points out of the block toward the junction", () => {
+    const cities = [tileCity(), ...Array.from({ length: 10 }, (_, k) => tileCity({ blocksX: 3, blocksZ: 3, seed: k + 1 }))];
+    let corners = 0;
+    let chamfers = 0;
+    for (const city of cities) {
+      const packed = packTown({ terraces: city.town.terraces, lots: city.town.lots }, STACK_STYLES, ENTRIES, BUILDING_FRONTS, { align: "wall" });
+      for (const res of packed.values()) {
+        for (const b of res.blocks) {
+          expect(wrong(b.stack, measured), `${city.seed} ${b.lot.key}`).toEqual([]);
+          for (const p of b.stack.pieces) {
+            const col = b.stack.columns[p.column]!;
+            if (col.corner === null) continue;
+            corners++;
+            if (p.key === keyOf("SM_Bld_Shop_Corner_02")) {
+              // The chamfer's outward normal is (-1, +1) in the piece's own frame: after its turn it points to the cross street's side and the road's.
+              const n = rot(p.yaw, [-Math.SQRT1_2, Math.SQRT1_2]);
+              expect(Math.sign(n[0]), `${city.seed} ${b.lot.key}`).toBe(col.corner === "-x" ? -1 : 1);
+              expect(n[1], `${city.seed} ${b.lot.key}`).toBeGreaterThan(0.5);
+              chamfers++;
+            }
+          }
+        }
+      }
+    }
+    expect(corners, "corner pieces were checked").toBeGreaterThan(30);
+    expect(chamfers, "Shop_Corner_02 chamfers were checked").toBeGreaterThan(0);
   });
 });
 

@@ -1,7 +1,7 @@
 /**
  * Ticket 057 A: where each stack piece's wall is. Pure: no three, no DOM, no fetch, no GLB. A piece's bounds include its sills, frames, signs and cornices, so the bound
  * stands further out than the wall a walker reads as the building's face. `WALL_FRONT_M[key]` is how far that wall plane stands behind the piece's front bound, metres, on the face
- * `BUILDING_FRONTS` calls its front; `WALL_SIDE_M[key]` is the same for a corner piece's second face (its open side, the model's +x). `assembleStack`'s `align: "wall"` puts the
+ * `BUILDING_FRONTS` calls its front; `WALL_SIDE_M[key]` is the same for a corner piece's second face (its open side, the model's -x, measured: `OPEN_SIDE_MEASURED`). `assembleStack`'s `align: "wall"` puts the
  * wall plane of every piece on one line (the lot's front, which in the tile city is the pavement's back edge), so no storey stands back from the pavement by what its neighbour's
  * sill or sign stands out by, which is what left the dark strip Josh saw (18 Nov 2026).
  *
@@ -83,30 +83,100 @@ export const WALL_FRONT_M: Readonly<Partial<Record<CalibrationKey, number>>> = {
 };
 
 /**
- * The same for a corner piece's second face, its open side (the model's +x face: every City Pack corner piece has `open: "+x"` in `BUILDING_FRONTS`). A corner piece at the end of
- * a row where that side is not on the row's cross street is turned so this face is on the row's own street (`StackPiece.street` "open"), and it is this wall that stands on the pavement then.
+ * Ticket 063 E1 (Josh, 19 Nov 2026: "corner store is not angled on the corner"). Which side of a City Pack corner piece carries its second street face, measured in the converted GLB (`measureOpenSide`, 19 Nov
+ * 2026) and typed in: `facade.test.ts` re-measures every entry when the GLB is on the machine, and pins this table as a fixture when it is not. The earlier "+x" in `BUILDING_FRONTS` was a guess (chapter 7: "Guesses: no data says
+ * which end"); with it a corner column at a row's +x end kept the piece unturned and its chamfer and glass pointed into the neighbouring column.
+ * All eight corner pieces have their two street faces on +z and -x and their two blank party walls on +x and -z. Josh's gallery check is still the last word: a value he saves in the stack gallery wins.
+ */
+export const OPEN_SIDE_MEASURED: Readonly<Partial<Record<CalibrationKey, { open: "+x" | "-x"; why: string }>>> = {
+  [k("SM_Bld_Shop_Corner_01")]: { open: "-x", why: "the shopfront (window openings, recesses 0.05 to 0.25 m) is on -x and +z, as in the pack's Shop_Corner_01_Glass (faces on +z and -x); +x is a blank 13.7 m2 wall at 0.20 m" },
+  [k("SM_Bld_Shop_Corner_02")]: { open: "-x", why: "-x and +z are the same shopfront (the chamfered corner, glass on +z and -x); +x and -z are the same blank wall (12.1 m2 at 0.15 m)" },
+  [k("SM_Bld_Apartment_Corner_01")]: { open: "-x", why: "-x and +z carry the same window reveals (0.20 m wall, 0.45 m recesses); +x is one blank 14.9 m2 plane at 0.00 m, as -z is" },
+  [k("SM_Bld_Apartment_Corner_02")]: { open: "-x", why: "-x and +z carry the same window reveals (0.10 to 0.35 m); +x and -z are one blank plane (12.6 m2 at 0.10 m)" },
+  [k("SM_Bld_Apartment_Corner_03")]: { open: "-x", why: "-x and +z carry the same window reveals (0.15 to 0.55 m); +x and -z are one blank plane (13.5 m2 at 0.15 m)" },
+  [k("SM_Bld_Apartment_Roof_Corner_01")]: { open: "-x", why: "the cornice's front profile (a pediment band 0.33 m2 at 0.00 m, the long band at 0.29 m) runs along +z and -x; +x and -z have the plain side profile of Roof_01" },
+  [k("SM_Bld_Apartment_Roof_Corner_02")]: { open: "-x", why: "the cornice's front profile runs along +z and -x; +x and -z have the plain side profile" },
+  [k("SM_Bld_Apartment_Roof_Corner_03")]: { open: "-x", why: "the cornice's front profile runs along +z and -x; +x and -z have the plain side profile" },
+};
+
+/** `measureOpenSide` compares faces down to this far behind their bound, metres: deeper than any window reveal, cornice step or sill. */
+export const OPEN_DEPTH_M = 1;
+/** The step the cumulative face area is sampled at, metres. */
+export const OPEN_STEP_M = 0.05;
+/** The side that matches the front must be this many times nearer to it than the other, or no side is named. A mid piece's two blank walls are equally near and name nothing. */
+export const OPEN_MARGIN = 4;
+
+/**
+ * Which of a piece's +x and -x faces is a second street face, or null when it cannot be told. A street face is modelled like the front: the same window reveals, shop openings or cornice steps, at the same depths; a party
+ * wall is a plain slab. So each side's profile (the area of the faces pointing that way, below `WALL_BAND_M`, counted cumulatively by depth behind the side's own bound, down to `OPEN_DEPTH_M`) is compared with the front's
+ * (+z): the side whose profile is nearer (the sum of absolute differences) is the open one, if it is `OPEN_MARGIN` times nearer than the other. Measured on the eight City Pack corner pieces the margin is 9 or more; the
+ * two blank walls of a mid piece are equally near and give null. `positions` and `indices` as for `measureWallPlane`. Pure and deterministic.
+ */
+export function measureOpenSide(positions: ArrayLike<number>, indices: ArrayLike<number> | null): "+x" | "-x" | null {
+  const at = (v: number, c: number): number => positions[v * 3 + c]!;
+  const nv = Math.floor(positions.length / 3);
+  if (nv === 0) return null;
+  const count = indices ? indices.length : nv;
+  const steps = Math.round(OPEN_DEPTH_M / OPEN_STEP_M);
+  const profile = (axis: 0 | 2, sign: 1 | -1): number[] => {
+    let bound = -Infinity;
+    for (let v = 0; v < nv; v++) bound = Math.max(bound, sign * at(v, axis));
+    const cum = new Array<number>(steps + 1).fill(0);
+    for (let i = 0; i + 2 < count; i += 3) {
+      const a = indices ? indices[i]! : i;
+      const b = indices ? indices[i + 1]! : i + 1;
+      const c = indices ? indices[i + 2]! : i + 2;
+      const ux = at(b, 0) - at(a, 0);
+      const uy = at(b, 1) - at(a, 1);
+      const uz = at(b, 2) - at(a, 2);
+      const vx = at(c, 0) - at(a, 0);
+      const vy = at(c, 1) - at(a, 1);
+      const vz = at(c, 2) - at(a, 2);
+      const n = [uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx];
+      const len = Math.hypot(n[0]!, n[1]!, n[2]!);
+      if (len < 1e-12 || (sign * n[axis]!) / len < WALL_FACE_COS) continue;
+      if ((at(a, 1) + at(b, 1) + at(c, 1)) / 3 >= WALL_BAND_M) continue;
+      const depth = bound - (sign * (at(a, axis) + at(b, axis) + at(c, axis))) / 3;
+      if (depth > OPEN_DEPTH_M + 1e-9) continue;
+      for (let s = Math.max(0, Math.ceil(depth / OPEN_STEP_M - 1e-9)); s <= steps; s++) cum[s]! += len / 2;
+    }
+    return cum;
+  };
+  const front = profile(2, 1);
+  const dist = (p: number[]): number => p.reduce((sum, v, i) => sum + Math.abs(v - front[i]!), 0) * OPEN_STEP_M;
+  const plus = dist(profile(0, 1));
+  const minus = dist(profile(0, -1));
+  if (minus * OPEN_MARGIN <= plus) return "-x";
+  if (plus * OPEN_MARGIN <= minus) return "+x";
+  return null;
+}
+
+/**
+ * The same for a corner piece's second face, its open side (`OPEN_SIDE_MEASURED`: the model's -x face on every City Pack corner piece; 063 E1 re-measured it there, where it had been measured on +x, the blank party wall). A corner
+ * piece at the end of a row where that side is not on the row's cross street is turned so this face is on the row's own street (`StackPiece.street` "open"), and it is this wall that stands on the pavement then.
  * The roof corners have none.
  */
 export const WALL_SIDE_M: Readonly<Partial<Record<CalibrationKey, number>>> = {
   [k("SM_Bld_Shop_Corner_01")]: 0.188,
   [k("SM_Bld_Shop_Corner_02")]: 0.166,
-  [k("SM_Bld_Apartment_Corner_01")]: 0,
-  [k("SM_Bld_Apartment_Corner_02")]: 0.085,
-  [k("SM_Bld_Apartment_Corner_03")]: 0.14,
+  [k("SM_Bld_Apartment_Corner_01")]: 0.196,
+  [k("SM_Bld_Apartment_Corner_02")]: 0.129,
+  [k("SM_Bld_Apartment_Corner_03")]: 0.351,
 };
 
 /**
  * How far behind its front bound, on the face that stands on the road, `key`'s wall plane is, metres; 0 for a key with no entry, and for a key whose front in `fronts` is not the
  * face `BUILDING_FRONTS` measured (a front Josh recalibrated in the stack gallery: the numbers no longer describe the face on the road, so the piece aligns on its bounds).
- * `street` is `StackPiece.street`: "front" (the piece's front faces the road) or "open" (its open side does). `open` is the piece's open side (default the table's, else "+x").
+ * `street` is `StackPiece.street`: "front" (the piece's front faces the road) or "open" (its open side does). `open` is the piece's open side (default the table's, else the measured one). The side wall was measured on the
+ * measured open face (`OPEN_SIDE_MEASURED`, the front on +z): an open side Josh set to the other end no longer describes the face on the road, so that piece aligns on its bounds (0), as a recalibrated front does.
  */
 export function wallOffset(key: CalibrationKey, street: "front" | "open", fronts: FrontTable = BUILDING_FRONTS, open?: "+x" | "-x"): number {
   const own = Object.prototype.hasOwnProperty.call(fronts, key) ? fronts[key] : undefined;
   const measured = Object.prototype.hasOwnProperty.call(BUILDING_FRONTS, key) ? BUILDING_FRONTS[key] : undefined;
   if (!measured || (own?.front ?? "+z") !== measured.front) return 0;
   if (street === "front") return WALL_FRONT_M[key] ?? 0;
-  // The side wall was measured on the model's +x face, with the front on +z.
-  return (open ?? own?.open ?? measured.open ?? "+x") === "+x" && measured.front === "+z" ? (WALL_SIDE_M[key] ?? 0) : 0;
+  const faceMeasured = OPEN_SIDE_MEASURED[key]?.open ?? "+x";
+  return (open ?? own?.open ?? measured.open ?? faceMeasured) === faceMeasured && measured.front === "+z" ? (WALL_SIDE_M[key] ?? 0) : 0;
 }
 
 /** Which rule a piece is measured by: "ground" (a base: only a plane that reaches the ground counts, reach `WALL_REACH_M`) or "floor" (reach `WALL_FLOOR_REACH_M`, no ground test). */

@@ -134,23 +134,27 @@ How to read it:
 - **Decided (042 A, Josh, 17 Nov 2026)**: "Corner buildings should only be placed on corners. They must also have two sides facing the street. Only corner buildings have this restriction. Other buildings can be placed on corners normally."
 - **Decided (042 A, implemented)**: a lot is a corner lot if a side edge of it lies within `CORNER_GAP` of another road's pavement (not its own road's), and that road's centreline lies toward that side, within `CORNER_ANGLE_MAX` degrees of the side's outward axis (a road behind the lot is not a cross street). `Lot.cornerSides` lists each such side ("+x" or "-x" in the lot's own frame) with the cross road's id; `Lot.corner` is true when it is not empty. A row end that meets no other road is not a corner, and a service strip is not a road.
 - **Decided (042 A, implemented)**: a corner model (`corner: true` in `BUILDING_FRONTS`) goes only on a lot whose `cornerSides` has the side of its `open` frontage. It faces its own road, with its second frontage toward the cross street. A yaw cannot mirror, so a model only goes where its open side is a lot side that meets a cross street. Every other model is unrestricted on corners.
-- **Info**: the only whole corner model is `store_corner_mesh`, in the table below. It is rarely placed, because few lots qualify. Its `open` side was flipped when the fronts were turned, and it is still an uncalibrated guess: Josh has not checked that its second face lands on the cross street. The City Pack's eight corner pieces (050 C) are in the same table and are guesses too.
+- **Info**: the only whole corner model is `store_corner_mesh`, in the table below. It is rarely placed, because few lots qualify. Its `open` side was flipped when the fronts were turned, and it is still an uncalibrated guess: Josh has not checked that its second face lands on the cross street. The City Pack's eight corner pieces (050 C) are in the same table; their `open` side is measured from the GLB (063 E1, below), not guessed.
 
 | Name | Front | Open |
 | --- | --- | --- |
 | `simple-town:store_corner_mesh` | -z | -x |
-| `city-pack:SM_Bld_Shop_Corner_01` | +z | +x |
-| `city-pack:SM_Bld_Shop_Corner_02` | +z | +x |
-| `city-pack:SM_Bld_Apartment_Corner_01` | +z | +x |
-| `city-pack:SM_Bld_Apartment_Corner_02` | +z | +x |
-| `city-pack:SM_Bld_Apartment_Corner_03` | +z | +x |
-| `city-pack:SM_Bld_Apartment_Roof_Corner_01` | +z | +x |
-| `city-pack:SM_Bld_Apartment_Roof_Corner_02` | +z | +x |
-| `city-pack:SM_Bld_Apartment_Roof_Corner_03` | +z | +x |
+| `city-pack:SM_Bld_Shop_Corner_01` | +z | -x |
+| `city-pack:SM_Bld_Shop_Corner_02` | +z | -x |
+| `city-pack:SM_Bld_Apartment_Corner_01` | +z | -x |
+| `city-pack:SM_Bld_Apartment_Corner_02` | +z | -x |
+| `city-pack:SM_Bld_Apartment_Corner_03` | +z | -x |
+| `city-pack:SM_Bld_Apartment_Roof_Corner_01` | +z | -x |
+| `city-pack:SM_Bld_Apartment_Roof_Corner_02` | +z | -x |
+| `city-pack:SM_Bld_Apartment_Roof_Corner_03` | +z | -x |
 
 - **Default (048 Q5)**: no POLYGON model is a corner model. A gallery click sets only a door, and `open` lives in code, so a Town Pack house gets `corner: true` and `open` only if Josh names one with two street faces and says which side. Until then a Town Pack house goes on any lot, corner or not, as an ordinary model.
 - **Decided (050, Josh, 18 Nov 2026: "the shop corners are intended to be base units for the larger structures.")**: a stack's ground floor on a corner takes the shop corner piece, and its upper floors and roof take the matching `_Corner_` pieces.
-- **Default (050 C, from the corner rule above)**: a stack has a corner column (shop corner base, corner floors, corner roof, never a `_Stack_` piece) on each side in its lot's `cornerSides` and on no other. It is built for its lot, so it stands only where that side meets a cross street and never mid-row, and its second street face is on the cross street. A stack with no corner column, and any style with no corner pieces (the offices), is an ordinary building and may stand on a corner lot as any model may. A corner piece's `open` side is read in the lot frame after its front is turned: at the other end of the row the corner column turns a quarter, so one piece serves both ends. A corner stack that cannot be assembled on its lot (it does not fit with the corner columns in) falls back to the same style mid-row. `open` comes from `BUILDING_FRONTS` first, then the recipe's guess, then "+x"; every one is a guess until Josh confirms it.
+- **Decided (063 E1, Josh, 19 Nov 2026: "The building roof tiles aren't properly scaled and the corner peices aren't being used properly" and "corner store is not angled on the corner")**: a corner piece's second street face stands on the cross street, and its angled face (a shop corner's chamfer and glass) is on the corner, toward the junction. The roof corner's trim runs along its two street faces and turns the corner with them.
+- **Info (063 E1, measured 19 Nov 2026)**: the "+x" the eight City Pack corner pieces had was the 050 C recipe's guess ("no data says which end"). `measureOpenSide` (facade.ts) compares each side's profile with the front's: a street face is modelled like the front (the same window reveals, shop openings or cornice steps at the same depths), a party wall is a plain slab. On all eight pieces the street faces are **+z and -x** and the party walls **+x and -z**; the nearer side is 9 or more times nearer (`OPEN_MARGIN` is 4). The pack's `Shop_Corner_01_Glass`, `Shop_Corner_02_Glass` and the L awning `Shop_Cover_05` have their faces on +z and -x too, so they follow the corner's turn. `OPEN_SIDE_MEASURED` holds each piece's side and the reason; `facade.test.ts` re-measures it when the GLB is on the machine.
+- **Default (063 E1)**: `BUILDING_FRONTS`, the recipes' `open` and `OPEN_SIDE_MEASURED` agree (a test holds them to it). At the row's -x end a corner column keeps its piece unturned (its open side is the lot's -x side, on the cross street); at the +x end it turns a quarter, so its open side is on the row's street and its front on the cross street. `WALL_SIDE_M`, the wall of the open face, was measured on +x (the blank party wall) and is re-measured on -x (chapter 19.1); `wallOffset` reads the open side whichever it is, and gives 0 for a side other than the measured one, as a recalibrated front does.
+- **Info (063 E1)**: this changes the ladder maps' corner stacks too (Josh's answer to the ticket's Q-E, the architect's default): only corner pieces' turn, x and z (and what is dressed on them) move. `packpin.test.ts` is re-pinned for it and lists every field that moved.
+- **Default (050 C, from the corner rule above)**: a stack has a corner column (shop corner base, corner floors, corner roof, never a `_Stack_` piece) on each side in its lot's `cornerSides` and on no other. It is built for its lot, so it stands only where that side meets a cross street and never mid-row, and its second street face is on the cross street. A stack with no corner column, and any style with no corner pieces (the offices), is an ordinary building and may stand on a corner lot as any model may. A corner piece's `open` side is read in the lot frame after its front is turned: at the other end of the row the corner column turns a quarter, so one piece serves both ends. A corner stack that cannot be assembled on its lot (it does not fit with the corner columns in) falls back to the same style mid-row. `open` comes from `BUILDING_FRONTS` first, then the recipe's (`OPEN_SIDE_MEASURED`), then "+x"; a value Josh saves in the gallery still wins over both.
 - **Info (053)**: corner blocks on a terrace, and the check that they stand only on true corners (R9), are in chapter 16 (16.3 and 16.8).
 
 ## 8. Lit places
@@ -755,7 +759,7 @@ How the tile city's buildings meet the pavement, how a row of them ends, what fi
   - The wall of a **floor** piece is the largest front-facing plane within `WALL_FLOOR_REACH_M` of the bound, with no ground test: an office floor is set back on purpose.
   - A plane counts only from triangles below `WALL_BAND_M`, within `WALL_FACE_COS` of the face's direction, grouped when their centroids are within `WALL_PLANE_TOL_M`, and with an area of at least `WALL_MIN_AREA_M2`.
   - This replaced the draft's "largest front-facing planar area below 3.5 m", which picked the back wall of a shop's interior (1.0 to 2.8 m behind the front) or a sign band.
-  - `WALL_SIDE_M` is the same for a corner piece's open side. A roof has no wall and no entry, and its pieces align on their front bound. A front that Josh recalibrated in the gallery makes a key's entry not apply (`wallOffset` gives 0), so that piece also aligns on its bound.
+  - `WALL_SIDE_M` is the same for a corner piece's open side, the measured one (-x, `OPEN_SIDE_MEASURED`; 063 E1 re-measured it there, it had been measured on the +x party wall). A roof has no wall and no entry, and its pieces align on their front bound. A front that Josh recalibrated in the gallery makes a key's entry not apply (`wallOffset` gives 0), so that piece also aligns on its bound.
 - **Info (057 A)**: `facade.test.ts` pins every value of both tables as a typed-in fixture and, where the converted GLB is on the machine, re-measures each key within 0.02 m. The tables hold a distance per piece, so the Numbers table pins their constants and not their entries.
 - **Default (057 D)**: `SM_Bld_OfficeOctagon_Base_01` is pinned by hand to its 0.174 m face (`WALL_OCTAGON_BASE_M`, in `WALL_FRONT_M`), before any office style is aligned on "wall". The rule of 19.1 finds two ground planes on its front, 0.174 m behind the bound (4.87 m2) and 0.595 m behind it (5.01 m2), and picks the bigger, which stands 0.42 m further back; the 057 A review took the 0.174 m plane for the building's face. `WALL_PINNED` lists the keys pinned this way, and `facade.test.ts` checks in the converted GLB that both planes are there and that the table holds the front one. No tile-city run uses an office style yet.
 - **Default (057 D)**: the tile city passes "wall" to `packTown` explicitly (`TILE_STACK_ALIGN`, through the scene options of `models3d.ts`), so it does not lean on the default that `alignOf` reads from the runs' pavement frame. `packpin.test.ts` pins `packTown` on the three protocol maps by a digest, taken at the merge of 057 G, so the ladder's "unchanged" is checked on every run and not only at review.
@@ -1284,6 +1288,9 @@ The drift test (`styleguide.test.ts`) reads this table. Each row names an export
 | `WALL_PLANE_TOL_M` | 0.02 | facade.ts |
 | `WALL_FACE_COS` | 0.99 | facade.ts |
 | `WALL_OCTAGON_BASE_M` | 0.174 | facade.ts |
+| `OPEN_DEPTH_M` | 1 | facade.ts |
+| `OPEN_STEP_M` | 0.05 | facade.ts |
+| `OPEN_MARGIN` | 4 | facade.ts |
 | `OVERLAP_MAX_M` | 0.6 | frontage.ts |
 | `RECESS_MAX_M` | 0 | frontage.ts |
 | `FRONTAGE_TOL_M` | 0.01 | frontage.ts |

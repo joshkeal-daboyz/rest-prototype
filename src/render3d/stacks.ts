@@ -13,7 +13,7 @@
 
 import type { AssetEntry, CalibrationKey } from "../core";
 import { stableHash } from "../render/city";
-import { wallOffset } from "./facade";
+import { OPEN_SIDE_MEASURED, wallOffset } from "./facade";
 import { BUILDING_FRONTS, STACK_LOT_TYPES, frontIsQuarter, frontYaw, sizeOf, type FrontTable, type ModelFront, type StackOffer } from "./models";
 import { LOT_TYPES, type Lot, type LotSpec, type LotType } from "./town";
 
@@ -55,8 +55,8 @@ export interface StackStyle {
   /** "bay": a row of columns, each one bay wide. "footprint": one column, the whole building (an office). */
   depth: "bay" | "footprint";
   /**
-   * A corner piece's second street face, on the lot side it is in once its front is turned to the road. Every entry is a guess until Josh confirms it
-   * in the stack gallery; a `BuildingFront.open` in the fronts table wins over it (section B, from the 050 A review).
+   * A corner piece's second street face, on the lot side it is in once its front is turned to the road. Measured from the GLB (ticket 063 E1, `OPEN_SIDE_MEASURED`: "-x" for every City Pack corner piece);
+   * a `BuildingFront.open` in the fronts table wins over it (section B, from the 050 A review), so Josh's gallery check is still the last word.
    */
   open?: Partial<Record<CalibrationKey, StackSide>>;
   /** Metres toward the street (+) or away (-) for a piece the gallery shows off. */
@@ -87,8 +87,8 @@ function apartment(n: "01" | "02" | "03", roofReserve: number): StackStyle {
     roof: { mid: [roof], corner: [roofCorner] },
     pitch_m: { base: 3, floor: 3, roof: roofReserve },
     depth: "bay",
-    // Guesses: no data says which end a corner piece's second face is on.
-    open: Object.fromEntries([...SHOP_CORNERS, corner, roofCorner].map((c) => [c, "+x" as const])),
+    // Measured (ticket 063 E1, `OPEN_SIDE_MEASURED`): every City Pack corner piece's second street face is on -x. A piece the table lacks keeps the old guess, "+x".
+    open: Object.fromEntries([...SHOP_CORNERS, corner, roofCorner].map((c) => [c, OPEN_SIDE_MEASURED[c]?.open ?? ("+x" as const)])),
     props: [],
   };
 }

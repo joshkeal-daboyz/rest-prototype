@@ -3,6 +3,10 @@
  * digits of the SHA-256 of the packing's JSON (every run's every packed block, to the last piece: style, lot, stack, pieces and their places, numbers rounded to 1e-9) taken on `goal/city-style` at d14f640, the merge
  * of 057 G, with a ladder map's default options (back alignment, no far overlap). A ticket that moves the ladder's packing on purpose re-pins here and says so. The stacks are typed in from the converted City
  * Pack manifest (18 Nov 2026); nothing here reads assets/private/ and nothing needs a canvas.
+ *
+ * Re-pinned by ticket 063 E1 (Josh, 19 Nov 2026: "corner store is not angled on the corner"; the ticket's Q-E, fix the ladder's corner stacks too): the eight corner pieces' open side is the measured "-x", not the
+ * "+x" guess, so the corner pieces of every corner block turn the other way at each end of a row. `PINS_BEFORE_063E` are the digests taken at f4a728f; the test below packs again with the old open side and finds them,
+ * and lists every field the measured side moved. `townpin.test.ts` is not touched.
  */
 
 import { describe, expect, it } from "vitest";
@@ -11,6 +15,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Group } from "three";
 import { ASSET_MANIFEST_VERSION, loadPuzzle, type AssetEntry, type AssetManifest } from "../core";
+import { OPEN_SIDE_MEASURED } from "./facade";
 import { NO_MODELS, allStackKeys, loadModels, stackInput, type ModelSet } from "./models3d";
 import { buildScene } from "./scene";
 import { STACK_STYLES } from "./stacks";
@@ -82,6 +87,12 @@ const SET: ModelSet = await loadModels({
 
 /** The three protocol maps, and the digest of `packTown`'s result on each (see the header). */
 const PINS: Readonly<Record<string, string>> = {
+  "01-first-light": "d79f7a1ec0b87e4166b3",
+  "09-shrine-circuit": "d7e40ab1771bf2c6f928",
+  "64-the-whole-chain": "b6eeb7619d814b847081",
+};
+/** The digests before 063 E1 (f4a728f, open side "+x"). */
+const PINS_BEFORE_063E: Readonly<Record<string, string>> = {
   "01-first-light": "1d0c5c1a8a8a04fe5e57",
   "09-shrine-circuit": "0f8f7e421211dfd60489",
   "64-the-whole-chain": "39f7f94b013199344f02",
@@ -91,9 +102,11 @@ const round = (_k: string, v: unknown): unknown => (typeof v === "number" ? Math
 const digest = (packed: ReadonlyMap<string, PackResult>): string => createHash("sha256").update(JSON.stringify([...packed].sort((a, b) => (a[0] < b[0] ? -1 : 1)), round)).digest("hex").slice(0, 20);
 const mapOf = (file: string) => loadPuzzle(JSON.parse(readFileSync(join("puzzles", `${file}.json`), "utf8")));
 
-function packOf(file: string, opts?: { align?: "back" | "wall" }): Map<string, PackResult> {
+function packOf(file: string, opts?: { align?: "back" | "wall" }, oldOpen = false): Map<string, PackResult> {
   const bundle = buildScene(mapOf(file), { text: stubTextSurface });
-  const stacks = stackInput(SET)!;
+  const input = stackInput(SET)!;
+  // The old guess: every corner piece's open side "+x" in the fronts table (which wins over the recipe's).
+  const stacks = oldOpen ? { ...input, fronts: { ...input.fronts, ...Object.fromEntries(Object.keys(OPEN_SIDE_MEASURED).map((key) => [key, { ...input.fronts[key as keyof typeof input.fronts]!, open: "+x" as const }])) } } : input;
   const runs = bundle.slots.blocks.terraces ?? [];
   const out = packTown({ terraces: runs, lots: bundle.slots.blocks.list }, STACK_STYLES, stacks.entries, stacks.fronts, ...(opts ? [opts] : []));
   bundle.dispose();
@@ -123,4 +136,70 @@ describe("packTown on the three protocol maps does not move (057 D, from the 057
   it("is a pin that can fail: the same maps packed on their wall plane are not the same packing", () => {
     expect(digest(packOf("01-first-light", { align: "wall" }))).not.toBe(PINS["01-first-light"]);
   });
+});
+
+// ---- ticket 063 E1: what the measured open side moved ----
+
+/** The paths (array indices turned into []) at which two JSON trees differ, each with how many leaves differ there. */
+function changedPaths(a: unknown, b: unknown, path = "", out = new Map<string, { n: number; max: number }>()): Map<string, { n: number; max: number }> {
+  if (Array.isArray(a) && Array.isArray(b) && a.length === b.length) a.forEach((v, i) => changedPaths(v, b[i], `${path}[]`, out));
+  else if (a && b && typeof a === "object" && typeof b === "object" && !Array.isArray(a) && !Array.isArray(b)) {
+    for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) changedPaths((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k], `${path}.${k}`, out);
+  } else if (JSON.stringify(a, round) !== JSON.stringify(b, round)) {
+    const e = out.get(path) ?? { n: 0, max: 0 };
+    e.n++;
+    // A number's change in metres (a yaw's in radians); anything else (a name, a flag) counts as a change of 1.
+    e.max = Math.max(e.max, typeof a === "number" && typeof b === "number" ? Math.abs(a - b) : 1);
+    out.set(path, e);
+  }
+  return out;
+}
+const asTree = (packed: ReadonlyMap<string, PackResult>): unknown => JSON.parse(JSON.stringify([...packed].sort((p, q) => (p[0] < q[0] ? -1 : 1)), round));
+
+/** A turned corner piece's width and depth differ a little (Apartment_Corner_03: 5.491 and 5.497), so the corner column, its block and the blocks laid flush from it move by millimetres. Measured 19 Nov 2026: a neighbouring piece at most 0.003 m along the row and 0.013 m in z (a back-aligned stack lines every back on its deepest piece), a block's width, offset, far gap and depth at most 0.013 m. */
+const NEIGHBOUR_MOVE_MAX_M = 0.02;
+const BLOCK_MOVE_MAX_M = 0.02;
+
+describe("the measured open side moves only corner pieces on the ladder (063 E1, Q-E)", () => {
+  for (const file of Object.keys(PINS)) {
+    it(`${file}: packed with the old "+x" it is exactly the base commit's packing, and the measured side changes it`, () => {
+      expect(digest(packOf(file, undefined, true)), file).toBe(PINS_BEFORE_063E[file]);
+      expect(PINS[file]).not.toBe(PINS_BEFORE_063E[file]);
+    });
+
+    it(`${file}: only corner pieces' yaw, x, z, street, w and d moved, and the blocks round them by at most ${BLOCK_MOVE_MAX_M} m`, () => {
+      const before = packOf(file, undefined, true);
+      const after = packOf(file);
+      // The same runs, blocks, stacks and pieces, in the same order: the packing's shape is unchanged.
+      const flat = (packed: ReadonlyMap<string, PackResult>): { key: string; p: Record<string, unknown> }[] =>
+        [...packed].sort((p, q) => (p[0] < q[0] ? -1 : 1)).flatMap(([, r]) => r.blocks.flatMap((b) => b.stack.pieces.map((p) => ({ key: p.key as string, p: JSON.parse(JSON.stringify(p, round)) as Record<string, unknown> }))));
+      const a = flat(before);
+      const b = flat(after);
+      expect(b.map((x) => x.key), file).toEqual(a.map((x) => x.key));
+      const corners = new Set<string>(Object.keys(OPEN_SIDE_MEASURED));
+      let turned = 0;
+      a.forEach((x, i) => {
+        const y = b[i]!;
+        if (corners.has(x.key)) {
+          // A corner piece turns the other way at its end: its yaw differs, and so do its size after the turn, its street face and where it stands.
+          expect(Math.abs((x.p["yaw"] as number) - (y.p["yaw"] as number)), x.key).toBeGreaterThan(1);
+          turned++;
+        } else {
+          // Any other piece keeps its key, role, height, turn, size and street face; only its place along the row may move by what its corner neighbour's width did.
+          for (const f of ["role", "y", "yaw", "w", "h", "d", "street", "column"]) expect(y.p[f], `${x.key} ${f}`).toEqual(x.p[f]);
+          expect(Math.abs((x.p["x"] as number) - (y.p["x"] as number)), `${x.key} x`).toBeLessThanOrEqual(NEIGHBOUR_MOVE_MAX_M);
+          expect(Math.abs((x.p["z"] as number) - (y.p["z"] as number)), `${x.key} z`).toBeLessThanOrEqual(NEIGHBOUR_MOVE_MAX_M);
+        }
+      });
+      expect(turned, file).toBeGreaterThan(20);
+      // Everything outside the pieces that changed is one of these, and by no more than the width of a turned corner piece differs from its depth.
+      const allowed = ["lot.x", "lot.w", "lot.z", "stack.width_m", "stack.columns[].x", "stack.columns[].w", "stack.depth_m", "farGap_m"];
+      for (const [path, e] of changedPaths(asTree(before), asTree(after))) {
+        if (/\.stack\.pieces\[\]\.(x|z|yaw|street|w|d)$/.test(path)) continue;
+        const rest = path.replace(/^\[\]\[\]\.blocks\[\]\./, "").replace(/^\[\]\[\]\./, "");
+        expect(allowed, `${file}: ${path} changed`).toContain(rest);
+        expect(e.max, `${file}: ${path}`).toBeLessThanOrEqual(BLOCK_MOVE_MAX_M);
+      }
+    });
+  }
 });
