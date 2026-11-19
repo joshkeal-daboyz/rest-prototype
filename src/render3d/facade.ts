@@ -42,6 +42,15 @@ export const WALL_FACE_COS = 0.99;
 const k = (name: string): CalibrationKey => `city-pack:${name}`;
 
 /**
+ * The Octagon office base's wall, pinned by hand (ticket 057 D, from the 057 A review's could-improve: "pin `SM_Bld_OfficeOctagon_Base_01` to its 0.174 m face before any office style is aligned on
+ * the wall"). The rule above finds two ground planes on its front face within the reach, 0.174 m behind the bound (4.87 m^2, lowest vertex 0.08 m) and 0.595 m behind it (5.01 m^2, lowest vertex 0.00 m);
+ * the second is bigger by 0.14 m^2 and so wins on area, but it stands a further 0.42 m back, and the review took the 0.174 m plane for the building's face. `facade.test.ts` checks in the converted GLB that both planes are there and that the table holds the front one; `WALL_PINNED` names the keys the rule's own pick is not compared to.
+ */
+export const WALL_OCTAGON_BASE_M = 0.174;
+/** The keys whose `WALL_FRONT_M` is pinned by hand and not the rule's own pick (the geometry test measures them by their own check). */
+export const WALL_PINNED: readonly CalibrationKey[] = [k("SM_Bld_OfficeOctagon_Base_01")];
+
+/**
  * The distance from a piece's front bound back to its wall plane, metres, on its front face, measured from the converted City Pack (see the file's comment). Every base, door,
  * corner, shop, floor and `Stack` piece of every `STACK_STYLES` recipe has one. Roof pieces have none.
  */
@@ -69,7 +78,7 @@ export const WALL_FRONT_M: Readonly<Partial<Record<CalibrationKey, number>>> = {
   [k("SM_Bld_OfficeOld_Small_Floor_01")]: 0,
   [k("SM_Bld_OfficeOld_Large_Base_01")]: 0.348,
   [k("SM_Bld_OfficeOld_Large_Floor_01")]: 0,
-  [k("SM_Bld_OfficeOctagon_Base_01")]: 0.595,
+  [k("SM_Bld_OfficeOctagon_Base_01")]: WALL_OCTAGON_BASE_M,
   [k("SM_Bld_OfficeOctagon_Floor_01")]: 0.232,
 };
 

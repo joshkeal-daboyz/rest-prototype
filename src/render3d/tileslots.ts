@@ -7,7 +7,19 @@
  */
 
 import type { CalibrationKey } from "../core";
-import { CITY_BLOCKS_DEFAULT, CITY_BLOCKS_MAX, SIDEWALK_WALK_M, TILE_M, type TileRole } from "./tilecity";
+import {
+  ALLEY_CELLS,
+  APRON_STRIP,
+  CITY_BLOCKS_DEFAULT,
+  CITY_BLOCKS_MAX,
+  SIDEWALK_WALK_M,
+  TILE_M,
+  type InteriorRole,
+  type TileCity,
+  type TilePassage,
+  type TileRole,
+  type TileYaw,
+} from "./tilecity";
 
 /** The pack every tile is drawn from. */
 export const TILE_PACK = "city-pack";
@@ -15,11 +27,21 @@ export const TILE_PACK = "city-pack";
 const k = (name: string): CalibrationKey => `${TILE_PACK}:${name}`;
 
 /**
+ * Every role the tile view draws a surface for (ticket 057 D): the street's `TileRole`s and the block interiors' `InteriorRole`s together. An interior cell is not a `TileCell` (`TileCity.interior` keeps them apart, and
+ * a court's drive and first row of stalls are also the `lotSurface` cells 056 laid), but the keys, the levels and the sheet's notes are one table, so the roles are merged here and not in `tilecity.ts`.
+ */
+export type SlotRole = TileRole | InteriorRole;
+
+/** The flat paving slab of the interiors' aprons, paths and park edges, and the grass tile of their greens. */
+const PANEL_FLAT = k("SM_Env_Sidewalk_Panel_02");
+const GRASS = k("SM_Env_Grass_01");
+
+/**
  * The keys of each role, in the order a cell's variant picks them (`tilecity.ts`: a lane cell's `LANE_RIGHT` bit picks the first or second, a pavement cell's variant
  * 0, 1 or 2 picks Straight_01, Straight_02 or the grate). A role whose keys are all missing or failed is drawn in code, cell by cell. `junction` and `lotSurface`
  * share `Road_Bare_01` (the ticket's own design), so they are present or absent together.
  */
-export const TILE_SLOTS: Readonly<Record<TileRole, readonly CalibrationKey[]>> = {
+export const TILE_SLOTS: Readonly<Record<SlotRole, readonly CalibrationKey[]>> = {
   lane: [k("SM_Env_Road_YellowLines_01"), k("SM_Env_Road_YellowLines_02")],
   parking: [k("SM_Env_Road_ParkingLines_01")],
   parkingPlain: [k("SM_Env_Road_01")],
@@ -33,6 +55,16 @@ export const TILE_SLOTS: Readonly<Record<TileRole, readonly CalibrationKey[]>> =
   buildout: [k("SM_Env_Sidewalk_Straight_01"), k("SM_Env_Sidewalk_Straight_02")],
   lotSurface: [k("SM_Env_Road_Bare_01")],
   plaza: [k("SM_Env_Sidewalk_Panel_01")],
+  // 057 D, the block interiors (Josh, 18 Nov 2026: "Grass and pavement should fill the blank areas."). The ticket drafted `Sidewalk_Panel_01` (the plaza piece) for every paving, but that piece has a kerb on its +z edge
+  // (a 0.23 m drop to the road level every 5 m), which would cross an apron; `Sidewalk_Panel_02` is the flat slab (0.07 m, the furniture layout's own plaza panel). The ragged strip behind the terraces
+  // (`APRON_STRIP`) is always code-drawn. A court's floor is the bare road (the drive's and the near stalls' own `lotSurface` cells already are) with `ParkingLines_01` over each row of stalls.
+  apron: [PANEL_FLAT],
+  court: [k("SM_Env_Road_Bare_01"), k("SM_Env_Road_ParkingLines_01")],
+  drive: [k("SM_Env_Road_Bare_01")],
+  green: [GRASS],
+  greenPath: [PANEL_FLAT],
+  alley: [k("SM_Env_Road_Bare_01")],
+  parkEdge: [PANEL_FLAT],
 };
 
 /**
@@ -86,7 +118,7 @@ export function tileFront(key: CalibrationKey, fronts: Readonly<Partial<Record<C
  * piece standing on the carriageway so its walking surface is at 0 (its kerb lip 0.07 m above), `ground` (a parking lot's surface) at 0 beside the pavement.
  */
 export type TileLevel = "carriage" | "pavement" | "ground";
-export const TILE_LEVELS: Readonly<Record<TileRole, TileLevel>> = {
+export const TILE_LEVELS: Readonly<Record<SlotRole, TileLevel>> = {
   lane: "carriage",
   parking: "carriage",
   parkingPlain: "carriage",
@@ -98,6 +130,24 @@ export const TILE_LEVELS: Readonly<Record<TileRole, TileLevel>> = {
   buildout: "pavement",
   lotSurface: "ground",
   plaza: "pavement",
+  // 057 D: the interiors' ground is flush with the pavement's walk (0); a key whose own surface stands above or below its origin has a base in `TILE_BASE_M`.
+  apron: "ground",
+  court: "ground",
+  drive: "ground",
+  green: "ground",
+  greenPath: "ground",
+  alley: "ground",
+  parkEdge: "ground",
+};
+
+/**
+ * Where a `ground`-level piece's origin stands, metres, when its surface is not at its origin (measured from the converted City Pack, 19 Nov 2026, the largest up-facing level of each piece): `Sidewalk_Panel_02` is a slab
+ * whose top is 0.072 m up (its joints 0.036), so its origin is 0.07 m down and its top is the walk's; `Grass_01`'s blades stand 0.12 m up (to 0.14 m), so its origin is 0.11 m down and the grass is 0.01 m over the walk,
+ * a hair above the paving beside it. A key not here stands at 0 (the bare road and the parking lines are flat at their origin).
+ */
+export const TILE_BASE_M: Readonly<Partial<Record<CalibrationKey, number>>> = {
+  [PANEL_FLAT]: -0.07,
+  [GRASS]: -0.11,
 };
 
 /**
@@ -116,9 +166,9 @@ export function tileWalkM(key?: CalibrationKey): number {
  * Where a piece's origin stands, metres (every piece's pivot is centred with its minimum y at 0): a carriageway piece at `-SIDEWALK_WALK_M`, a parking lot's surface at 0, and a sidewalk
  * piece on the carriageway's level (`-walk`), so its walking surface is at 0.
  */
-export function tileLevelY_m(role: TileRole, key?: CalibrationKey): number {
+export function tileLevelY_m(role: SlotRole, key?: CalibrationKey): number {
   const level = TILE_LEVELS[role];
-  if (level === "ground") return 0;
+  if (level === "ground") return key !== undefined && Object.prototype.hasOwnProperty.call(TILE_BASE_M, key) ? (TILE_BASE_M[key] ?? 0) : 0;
   if (level === "carriage") return -SIDEWALK_WALK_M;
   return -tileWalkM(key);
 }
@@ -137,7 +187,7 @@ export function tileKeys(): CalibrationKey[] {
 // ---- the tile sheet (what each piece should show, for the eye check) ----
 
 /** What a piece must show once turned by its `TILE_FRONTS` line: the sheet's arrow points along +z, and in a cell's own frame the street runs along x. */
-export const TILE_FRONT_TEXT: Readonly<Record<TileRole, string>> = {
+export const TILE_FRONT_TEXT: Readonly<Record<SlotRole, string>> = {
   lane: "the street runs along x: its lines must run left-right, across the arrow; arrow = toward the centre line, and the yellow line is on the arrow side",
   parking: "the street runs along x (2 cells long); the bay dividers run along the arrow",
   parkingPlain: "the street runs along x: its dashes run left-right; the dashed edge is on the arrow side",
@@ -149,20 +199,27 @@ export const TILE_FRONT_TEXT: Readonly<Record<TileRole, string>> = {
   buildout: "arrow = toward the carriageway (the kerb)",
   lotSurface: "no front",
   plaza: "no front",
+  apron: "no front (flat slab; a kerb on an edge would be wrong)",
+  court: "bare road: no front. parking lines: dividers along the arrow, which points to the aisle",
+  drive: "no front",
+  green: "no front",
+  greenPath: "no front (flat slab)",
+  alley: "no front",
+  parkEdge: "no front (flat slab)",
 };
 
 export interface SheetPiece {
   key: CalibrationKey;
   /** Every role that draws this key (empty for an extra piece no role uses). */
-  roles: readonly TileRole[];
+  roles: readonly SlotRole[];
   /** The piece's footprint in cells along x (2 for the parking lines). */
   cells: 1 | 2;
 }
 
 /** Every piece the sheet shows, once each, in role order and then the extras: a key several roles share appears once with all of them. */
 export function sheetPieces(): SheetPiece[] {
-  const out = new Map<CalibrationKey, TileRole[]>();
-  for (const role of Object.keys(TILE_SLOTS) as TileRole[]) {
+  const out = new Map<CalibrationKey, SlotRole[]>();
+  for (const role of Object.keys(TILE_SLOTS) as SlotRole[]) {
     for (const key of TILE_SLOTS[role]) {
       const list = out.get(key);
       if (list) list.push(role);
@@ -184,15 +241,35 @@ export function sheetShortName(key: CalibrationKey): string {
 }
 
 /** The two lines of a piece's label: its short name, then the turn it has now (or, when the pack has no such piece, that it is missing). Short, because a label keeps its pixel size while the grid is fitted to the window. */
-export function sheetLabel(key: CalibrationKey, present: boolean, fronts: Readonly<Partial<Record<CalibrationKey, 0 | 90 | 180 | 270>>> = TILE_FRONTS, roles: readonly TileRole[] = []): string[] {
+export function sheetLabel(key: CalibrationKey, present: boolean, fronts: Readonly<Partial<Record<CalibrationKey, 0 | 90 | 180 | 270>>> = TILE_FRONTS, roles: readonly SlotRole[] = []): string[] {
   // 056 B: a build-out shares its pieces with the pavement, so the sheet shows them once and says on the second line that they are the build-out's too (a third line would not fit between the rows).
   // A piece that is not in the pack says only that: "NOT IN PACK + build-out" is wider than the room between two columns at 1280 x 720.
-  const note = present && roles.includes("buildout") ? ` ${SHEET_BUILDOUT_NOTE}` : "";
+  const note = present ? roleNote(roles) : "";
   return [sheetShortName(key), (present ? `turn ${tileFront(key, fronts)}` : "NOT IN PACK") + note];
 }
 
 /** The label's last line on a piece the build-out is drawn from (it is the pavement's straight, so the sheet shows it once). */
 export const SHEET_BUILDOUT_NOTE = "+ build-out";
+/**
+ * The same for a piece a block interior is drawn from (057 D), by the interior roles it serves in their short names (the sheet shows a piece once, so `Bare_01` says `court drive alley` and `Panel_02` `apron path edge`): the
+ * roles `TileRole` does not have, each named in a word so the whole second line is at most 26 characters.
+ */
+export const SHEET_INTERIOR_NAMES: Readonly<Partial<Record<SlotRole, string>>> = {
+  apron: "apron",
+  greenPath: "path",
+  parkEdge: "edge",
+  green: "green",
+  court: "court",
+  drive: "drive",
+  alley: "alley",
+};
+
+/** What a label adds to its second line for the roles a piece serves: " + build-out", else " + " and the interior roles' short names, else nothing. */
+function roleNote(roles: readonly SlotRole[] | undefined): string {
+  if (roles?.includes("buildout")) return ` ${SHEET_BUILDOUT_NOTE}`;
+  const names = (roles ?? []).flatMap((r) => SHEET_INTERIOR_NAMES[r] ?? []);
+  return names.length > 0 ? ` + ${names.join(" ")}` : "";
+}
 
 /** The first lines of the sheet's legend: what the arrow means and what each kind of piece must show beside it. Every line is at most `SHEET_LEGEND_CHARS` characters. */
 export const SHEET_LEGEND: readonly string[] = [
@@ -211,9 +288,9 @@ export const SHEET_LEGEND_CHARS = 41;
  * The legend a sheet shows: `SHEET_LEGEND`, and, in a numbered sheet (a tall window has no room for names beside the pieces), one line per piece after it: its number, its short name and its turn
  * (or that it is missing from the pack).
  */
-export function sheetLegend(numbered: boolean, pieces: readonly { key: CalibrationKey; present: boolean; roles?: readonly TileRole[] }[], fronts: Readonly<Partial<Record<CalibrationKey, 0 | 90 | 180 | 270>>> = TILE_FRONTS): string[] {
+export function sheetLegend(numbered: boolean, pieces: readonly { key: CalibrationKey; present: boolean; roles?: readonly SlotRole[] }[], fronts: Readonly<Partial<Record<CalibrationKey, 0 | 90 | 180 | 270>>> = TILE_FRONTS): string[] {
   if (!numbered) return [...SHEET_LEGEND];
-  return [...SHEET_LEGEND, ...pieces.map((p, i) => `${i + 1} ${sheetShortName(p.key)} ${p.present ? `turn ${tileFront(p.key, fronts)}${p.roles?.includes("buildout") ? ` ${SHEET_BUILDOUT_NOTE}` : ""}` : "NOT IN PACK"}`)];
+  return [...SHEET_LEGEND, ...pieces.map((p, i) => `${i + 1} ${sheetShortName(p.key)} ${p.present ? `turn ${tileFront(p.key, fronts)}${roleNote(p.roles)}` : "NOT IN PACK"}`)];
 }
 
 // ---- the sheet's grid ----
@@ -221,13 +298,13 @@ export function sheetLegend(numbered: boolean, pieces: readonly { key: Calibrati
 /**
  * The sheet's grid, per window shape. A label keeps a fixed size in pixels (so it is readable at any zoom) while a piece scales with the picture, so the grid is fitted with room left for the
  * labels (each hangs under its piece; the sheet adds half a label's width at each side, a label's height at the bottom and the legend's height at the top to the rig's insets), its columns are far
- * enough apart that two labels side by side fit, and its rows far enough that a label fits between two pieces: a window at least `SHEET_WIDE_ASPECT` wide for its height gets `wide` (four
- * columns, each piece's name under it), any other `tall` (three columns, each piece's number under it and the names in the legend). `pitchX_m` is the distance between two columns' pieces, `pitchZ_m` between two rows' (a piece's 5 m and at least one cell, 5 m, of free ground).
+ * enough apart that two labels side by side fit, and its rows far enough that a label fits between two pieces: a window at least `SHEET_WIDE_ASPECT` wide for its height gets `wide` (five
+ * columns since 057 D, which added two pieces to the sheet and so a fifth row at four columns; each piece's name under it), any other `tall` (three columns, each piece's number under it and the names in the legend). `pitchX_m` is the distance between two columns' pieces, `pitchZ_m` between two rows' (a piece's 5 m and at least one cell, 5 m, of free ground).
  */
 export const SHEET_WIDE_ASPECT = 1.25;
 export const SHEET_SHAPES = {
-  wide: { cols: 4, pitchX_m: 16, pitchZ_m: 12, numbered: false },
-  tall: { cols: 3, pitchX_m: 13, pitchZ_m: 12, numbered: true },
+  wide: { cols: 5, pitchX_m: 14, pitchZ_m: 12, numbered: false },
+  tall: { cols: 3, pitchX_m: 13, pitchZ_m: 14, numbered: true },
 } as const;
 /** Metres of ground round the grid inside its frame. */
 export const SHEET_MARGIN_M = 1;
@@ -277,6 +354,177 @@ export function sheetLayout(aspect: number, pieces: readonly SheetPiece[] = shee
       maxZ: (rows - 1) * shape.pitchZ_m + TILE_M + SHEET_MARGIN_M,
     },
   };
+}
+
+// ---- the block interiors (ticket 057 D; Josh, 18 Nov 2026: "Grass and pavement should fill the blank areas.") ----
+
+/** The park bench and the two bins the interiors stand (optional dressing: the page loads them already as furniture, and `furniture.ts`'s `BENCHES` and `BINS` name the same keys; a test holds them equal). */
+export const TILE_BENCH: CalibrationKey = k("SM_Prop_ParkBench_01");
+export const TILE_BINS: readonly CalibrationKey[] = [k("SM_Prop_Trashbin_01"), k("SM_Prop_Trashbin_02")];
+/** Every prop key the interiors may stand, once each: the three trees (the build-outs' too), the bench and the bins. None is a tile role's key and none is on the sheet. */
+export const TILE_PROPS: readonly CalibrationKey[] = [...TILE_TREES, TILE_BENCH, ...TILE_BINS];
+/** The turn, degrees, added to a prop's yaw so its own front lands where the layout faces it (`GreenProp.yaw`, `AlleyBin.yaw`: the front toward the path or the lane). A piece with no line is not turned; one wrong by eye is one line here. */
+export const TILE_PROP_TURN: Readonly<Partial<Record<CalibrationKey, 0 | 90 | 180 | 270>>> = {};
+
+/** A `ParkingLines_01` tile laid over a court's row of stalls stands this far (metres) above the bare road under it, so the two do not fight for the pixel. */
+export const STALL_LINES_LIFT_M = 0.01;
+
+/** The most draw calls the interiors take (InstancedMeshes, pack and code together), on top of `TILE_DRAW_CALLS_MAX` for the street's tiles: the keys with the fewest instances are dropped first. */
+export const INTERIOR_DRAW_CALLS_MAX = 24;
+
+/**
+ * What a block interior's cell is drawn as. `strip` is the ragged apron behind the terraces (ring 2, `APRON_STRIP`): always code-drawn, never a pack tile (the buildings' backs stand over it). `apron`, `path` (a
+ * `greenPath`), `parkEdge`, `green`, `bare` (a court, drive or alley lane cell: the bare road) and `stalls` (`ParkingLines_01` laid over one row of a court's stalls, two cells) are pack tiles with a code-drawn fallback.
+ */
+export type InteriorKind = "strip" | "apron" | "path" | "parkEdge" | "green" | "bare" | "stalls";
+
+/** The pack keys of each kind, in the order they are tried: `strip` has none. */
+export const INTERIOR_KEYS: Readonly<Record<InteriorKind, readonly CalibrationKey[]>> = {
+  strip: [],
+  apron: TILE_SLOTS.apron,
+  path: TILE_SLOTS.greenPath,
+  parkEdge: TILE_SLOTS.parkEdge,
+  green: TILE_SLOTS.green,
+  bare: TILE_SLOTS.alley,
+  stalls: [TILE_SLOTS.court[1]!],
+};
+
+/** One thing drawn on a block's ground: its kind, the role it comes from, its first cell, its centre (metres; for a two-cell row the middle of the pair) and the turn of its front (degrees, as `InteriorCell.yaw`). */
+export interface InteriorItem {
+  kind: InteriorKind;
+  role: InteriorRole;
+  i: number;
+  j: number;
+  x_m: number;
+  z_m: number;
+  yaw: TileYaw;
+  cells: 1 | 2;
+}
+
+const keyOfCell = (i: number, j: number): string => `${i},${j}`;
+
+/**
+ * Everything a city draws on its blocks' ground, from `TileCity.interior` and `courts`, each cell once. A cell the street layer already drew is not drawn again: a court's drive and first row of stalls are
+ * the `lotSurface` cells 056 laid (`city.cells`), so they are not `bare` items. Then each row of every court's stalls (its near and far rows, not its aisle) adds one `stalls` item over its two cells, turned
+ * as the court's cell is (toward the aisle, which is the way the stalls open). Pure; the order is the interior's, then the courts'.
+ */
+export function interiorItems(city: Pick<TileCity, "cells" | "interior" | "courts">): InteriorItem[] {
+  const street = new Set<string>();
+  for (const c of city.cells) if (c.role === "lotSurface") street.add(keyOfCell(c.i, c.j));
+  const out: InteriorItem[] = [];
+  const at = new Map<string, TileYaw>();
+  for (const c of city.interior) at.set(keyOfCell(c.i, c.j), c.yaw);
+  for (const c of city.interior) {
+    let kind: InteriorKind;
+    switch (c.role) {
+      case "apron":
+        kind = c.variant === APRON_STRIP ? "strip" : "apron";
+        break;
+      case "greenPath":
+        kind = "path";
+        break;
+      case "parkEdge":
+        kind = "parkEdge";
+        break;
+      case "green":
+        kind = "green";
+        break;
+      case "court":
+      case "drive":
+      case "alley":
+        if (street.has(keyOfCell(c.i, c.j))) continue;
+        kind = "bare";
+        break;
+    }
+    out.push({ kind, role: c.role, i: c.i, j: c.j, x_m: c.x_m, z_m: c.z_m, yaw: c.yaw, cells: 1 });
+  }
+  for (const court of city.courts) {
+    for (const pair of [court.stallsNear, court.stallsFar]) {
+      const a = pair[0];
+      const b = pair[1];
+      out.push({ kind: "stalls", role: "court", i: a.i, j: a.j, x_m: ((a.i + b.i + 1) / 2) * TILE_M, z_m: ((a.j + b.j + 1) / 2) * TILE_M, yaw: at.get(keyOfCell(a.i, a.j)) ?? court.yaw, cells: 2 });
+    }
+  }
+  return out;
+}
+
+/** The dividers of a row of stalls drawn in code: where each stands along the row's 10 m (metres from its middle), and its size (width along the row, length across it, metres). The pack's tile has its three bays' dividers at about these. */
+export const STALL_DIVIDERS_X_M: readonly number[] = [-5, -5 / 3, 5 / 3, 5];
+export const STALL_DIVIDER_W_M = 0.12;
+export const STALL_DIVIDER_L_M = 4;
+
+// ---- gated passages ----
+
+/** The height of a passage's gate, metres; a gate at an alley's mouth is the small one (the lane is a service lane, and the gate is only there to close the gap beside it). The posts stand `GATE_POST_EXTRA_H_M` taller. */
+export const GATE_H_M = 2.2;
+export const GATE_SMALL_H_M = 1.3;
+export const GATE_POST_W_M = 0.2;
+export const GATE_POST_EXTRA_H_M = 0.25;
+export const GATE_THICK_M = 0.12;
+/** The gate's wood: a dark brown that reads in both light modes (not a lit surface key, so the rig leaves it). */
+export const GATE_COLOUR = 0x6b4b32;
+/** A passage whose middle is within this many metres of the edge of an alley's mouth (the lane's half width from the lane's centre line, plus half the passage, plus this) opens on that mouth. */
+export const GATE_ALLEY_REACH_M = 1.0;
+
+/** One gate: the middle of its passage on the pavement's back edge, the turn of its front (toward the street), the passage's width, whether it is the small alley-mouth gate, and the run it closes. */
+export interface GatePlan {
+  x_m: number;
+  z_m: number;
+  yaw: TileYaw;
+  w_m: number;
+  small: boolean;
+  run: string;
+}
+
+/** The middle of each alley's two mouths on the blocks' edges, metres. */
+export function alleyMouths(city: Pick<TileCity, "blocks">): { x_m: number; z_m: number }[] {
+  const out: { x_m: number; z_m: number }[] = [];
+  for (const b of city.blocks) {
+    const al = b.alley;
+    if (al === null) continue;
+    const mid = (al.at + ALLEY_CELLS / 2) * TILE_M;
+    if (al.axis === "z") out.push({ x_m: mid, z_m: b.j0 * TILE_M }, { x_m: mid, z_m: b.j1 * TILE_M });
+    else out.push({ x_m: b.i0 * TILE_M, z_m: mid }, { x_m: b.i1 * TILE_M, z_m: mid });
+  }
+  return out;
+}
+
+/** A gate for each of the city's gated passages: the small one when the passage opens on an alley's mouth (`GATE_ALLEY_REACH_M`). Pure; the order is `city.passages`'. */
+export function gatePlan(city: Pick<TileCity, "passages" | "blocks">): GatePlan[] {
+  const mouths = alleyMouths(city);
+  return city.passages.map((p: TilePassage) => {
+    const reach = (ALLEY_CELLS * TILE_M) / 2 + p.w_m / 2 + GATE_ALLEY_REACH_M;
+    return { x_m: p.x_m, z_m: p.z_m, yaw: p.yaw, w_m: p.w_m, small: mouths.some((m) => Math.hypot(m.x_m - p.x_m, m.z_m - p.z_m) <= reach), run: p.run };
+  });
+}
+
+/** One box of a gate, in the gate's own frame (x along the passage, y up, z through the wall line): its middle along x, and its width, height and thickness, metres. */
+export interface GatePart {
+  kind: "panel" | "post";
+  x_m: number;
+  w_m: number;
+  h_m: number;
+  d_m: number;
+}
+
+/** A gate's boxes: a post at each side of the passage and the gate's panel between them. A passage narrower than two posts and a hand is one panel and no posts. */
+export function gateParts(g: Pick<GatePlan, "w_m" | "small">): GatePart[] {
+  const h = g.small ? GATE_SMALL_H_M : GATE_H_M;
+  if (g.w_m < 2 * GATE_POST_W_M + 0.1) return [{ kind: "panel", x_m: 0, w_m: g.w_m, h_m: h, d_m: GATE_THICK_M }];
+  const side = g.w_m / 2 - GATE_POST_W_M / 2;
+  return [
+    { kind: "post", x_m: -side, w_m: GATE_POST_W_M, h_m: h + GATE_POST_EXTRA_H_M, d_m: GATE_POST_W_M },
+    { kind: "post", x_m: side, w_m: GATE_POST_W_M, h_m: h + GATE_POST_EXTRA_H_M, d_m: GATE_POST_W_M },
+    { kind: "panel", x_m: 0, w_m: g.w_m - 2 * GATE_POST_W_M, h_m: h, d_m: GATE_THICK_M },
+  ];
+}
+
+/** The floor of each gated passage as a rectangle, metres (centre and size): apron pavement from the back edge inward (`TilePassage.floor`), drawn so the way from the street to the apron has a surface. */
+export function passageFloors(city: Pick<TileCity, "passages">): { x_m: number; z_m: number; w_m: number; d_m: number }[] {
+  return city.passages.map((p) => {
+    const f = p.floor;
+    return { x_m: (f.minX_m + f.maxX_m) / 2, z_m: (f.minZ_m + f.maxZ_m) / 2, w_m: f.maxX_m - f.minX_m, d_m: f.maxZ_m - f.minZ_m };
+  });
 }
 
 // ---- the page's flags ----

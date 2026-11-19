@@ -45,7 +45,7 @@ import {
 } from "./models";
 import { pickPlaceholders } from "./placeholders";
 import type { ModelSlots, SceneBundle } from "./scene";
-import { STACK_STYLES, assembleStack, offeredStacks, stackKeys, type Stack } from "./stacks";
+import { STACK_STYLES, assembleStack, offeredStacks, stackKeys, type Stack, type StackAlign } from "./stacks";
 import { ALLEY_MAX_M, ALLEY_MIN_M, packTown, type PackedBlock, type PackResult } from "./terrace";
 import { PAVEMENT_Y, YARD, YARD_H } from "./scene";
 import { DOOR_SILLS, STEPS_D_M, STEPS_KEY, STEPS_RISE_M, STEPS_W_M, houseSill, modelPoint, stackSill, stepsYaw, type SillPlan, type SillTable } from "./sills";
@@ -396,6 +396,11 @@ export interface AppliedModels {
   terrace: readonly PackedBlock[];
   /** The dressing placed on the stacks (ticket 052 B), in `dressSites` order; empty when there is no dressing or no stack. */
   dress: readonly DressPlacement[];
+  /**
+   * `packTown`'s result for the terrace runs of the scene, by run id (ticket 057 D: the tile view reads it for `tilePassages`, the gated passages the runs leave); empty when nothing was packed
+   * (no City Pack stack, a map with no terrace). A puzzle map ignores it.
+   */
+  packed: ReadonlyMap<string, PackResult>;
   /** The InstancedMeshes the dressing added (its draw calls); 0 when none. */
   dressCalls: number;
   /** The street furniture and open-lot dressing placed (ticket 052 C), in `furnitureLayout` order; empty when there is none. */
@@ -1127,6 +1132,11 @@ export interface ApplyOptions {
   furnitureLevels?: FurnitureLevels;
   /** The measured door sills (ticket 055 F). Default: DOOR_SILLS. An empty table sinks nothing and stands no steps, so the scene is exactly what 055 E drew. */
   sills?: SillTable;
+  /**
+   * How the terrace stacks line up in z (ticket 057 D): the tile city passes `TILE_STACK_ALIGN` ("wall") explicitly, so it does not lean on `packTown`'s default (`alignOf`, which reads the runs' pavement frame).
+   * Default: none, so `packTown` decides as it always did and a puzzle map is exactly what it was.
+   */
+  align?: StackAlign;
 }
 
 /**
@@ -1215,7 +1225,7 @@ export function applyModels(bundle: SceneBundle, set: ModelSet, opts: ApplyOptio
   const runs = slots.blocks.terraces ?? [];
   if (stacks && runs.length > 0) {
     const lots = slots.blocks.list;
-    const packed = packTown({ terraces: runs, lots }, STACK_STYLES, stacks.entries, stacks.fronts);
+    const packed = packTown({ terraces: runs, lots }, STACK_STYLES, stacks.entries, stacks.fronts, opts.align ? { align: opts.align } : {});
     for (const [id, res] of packed) packedRuns.set(id, res);
     const row = new Group();
     row.name = "terrace-stacks";
@@ -1310,6 +1320,7 @@ export function applyModels(bundle: SceneBundle, set: ModelSet, opts: ApplyOptio
     buildings: placed,
     terrace,
     dress,
+    packed: packedRuns,
     dressCalls,
     furniture,
     furnitureCalls,

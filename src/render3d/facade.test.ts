@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { AssetEntry, CalibrationKey } from "../core";
-import { WALL_BAND_M, WALL_FLOOR_REACH_M, WALL_FRONT_M, WALL_GROUND_Y_M, WALL_MIN_AREA_M2, WALL_REACH_M, WALL_SIDE_M, measureWallPlane, wallOffset, type WallRule } from "./facade";
+import { WALL_BAND_M, WALL_FLOOR_REACH_M, WALL_FRONT_M, WALL_GROUND_Y_M, WALL_MIN_AREA_M2, WALL_OCTAGON_BASE_M, WALL_PINNED, WALL_REACH_M, WALL_SIDE_M, measureWallPlane, wallOffset, type WallRule } from "./facade";
 import { BUILDING_FRONTS, type FrontTable } from "./models";
 import { STACK_STYLES, assembleStack, stackKeys, type StackStyle } from "./stacks";
 import type { CornerSide } from "./town";
@@ -89,7 +89,7 @@ describe("the pinned wall planes (criterion 1)", () => {
     SM_Bld_OfficeOld_Small_Floor_01: 0,
     SM_Bld_OfficeOld_Large_Base_01: 0.348,
     SM_Bld_OfficeOld_Large_Floor_01: 0,
-    SM_Bld_OfficeOctagon_Base_01: 0.595,
+    SM_Bld_OfficeOctagon_Base_01: 0.174,
     SM_Bld_OfficeOctagon_Floor_01: 0.232,
   };
   const SIDE: Record<string, number> = {
@@ -127,6 +127,24 @@ describe("the pinned wall planes (criterion 1)", () => {
     }
     const all = new Set(STACK_STYLES.flatMap((s) => stackKeys(s)));
     for (const key of [...Object.keys(WALL_FRONT_M), ...Object.keys(WALL_SIDE_M)]) expect(all.has(key as CalibrationKey), key).toBe(true);
+  });
+});
+
+describe("the Octagon base is pinned to its 0.174 m face (057 A review, carried into D)", () => {
+  const octagon = k("SM_Bld_OfficeOctagon_Base_01");
+
+  it("holds the front plane and not the 0.595 m one the area rule picks, names it as hand-pinned, and aligns an octagon office on it", () => {
+    expect(WALL_OCTAGON_BASE_M).toBe(0.174);
+    expect(WALL_FRONT_M[octagon]).toBe(0.174);
+    expect([...WALL_PINNED]).toEqual([octagon]);
+    for (const key of WALL_PINNED) expect(key in WALL_FRONT_M, key).toBe(true);
+    expect(wallOffset(octagon, "front")).toBe(0.174);
+    const st = assembleStack(style("office-octagon"), { type: "tall", key: "office", cornerSides: [] }, ENTRIES, BUILDING_FRONTS, { spec: { frontage: 40, depth: 30, cap: 40 }, floors: "max", align: "wall" });
+    expect(st).not.toBeNull();
+    const base = st!.pieces.find((p) => p.key === octagon)!;
+    expect(base, "the base is in the stack").toBeDefined();
+    // The base's wall plane (its front bound less 0.174 m) is on the lot's front line.
+    expect(base.z + base.d / 2 - 0.174).toBeCloseTo(0, 9);
   });
 });
 
@@ -317,6 +335,36 @@ interface Gltf {
   bufferViews: { byteOffset?: number; byteStride?: number }[];
 }
 
+/** Every front-facing plane of a mesh on +z that reaches the ground, as `measureWallPlane` groups them (the same bands and tolerance), for the hand-pinned key's check. */
+function groundPlanes(positions: number[], indices: number[]): { offset: number; area: number }[] {
+  const at = (v: number, c: number): number => positions[v * 3 + c]!;
+  let bound = -Infinity;
+  for (let v = 0; v < positions.length / 3; v++) bound = Math.max(bound, at(v, 2));
+  const tris: { c: number; area: number; low: number }[] = [];
+  for (let i = 0; i + 2 < indices.length; i += 3) {
+    const [a, b, c] = [indices[i]!, indices[i + 1]!, indices[i + 2]!];
+    const u = [0, 1, 2].map((q) => at(b, q) - at(a, q));
+    const w = [0, 1, 2].map((q) => at(c, q) - at(a, q));
+    const n = [u[1]! * w[2]! - u[2]! * w[1]!, u[2]! * w[0]! - u[0]! * w[2]!, u[0]! * w[1]! - u[1]! * w[0]!];
+    const len = Math.hypot(n[0]!, n[1]!, n[2]!);
+    if (len < 1e-12 || n[2]! / len < WALL_FACE_COS_TEST || (at(a, 1) + at(b, 1) + at(c, 1)) / 3 >= WALL_BAND_M) continue;
+    tris.push({ c: (at(a, 2) + at(b, 2) + at(c, 2)) / 3, area: len / 2, low: Math.min(at(a, 1), at(b, 1), at(c, 1)) });
+  }
+  tris.sort((p, q) => p.c - q.c);
+  const planes: { sum: number; area: number; last: number; low: number }[] = [];
+  for (const t of tris) {
+    const p = planes[planes.length - 1];
+    if (p && t.c - p.last <= 0.02) {
+      p.sum += t.c * t.area;
+      p.area += t.area;
+      p.last = t.c;
+      p.low = Math.min(p.low, t.low);
+    } else planes.push({ sum: t.c * t.area, area: t.area, last: t.c, low: t.low });
+  }
+  return planes.filter((p) => p.low <= WALL_GROUND_Y_M).map((p) => ({ offset: bound - p.sum / p.area, area: p.area }));
+}
+const WALL_FACE_COS_TEST = 0.99;
+
 describe("the wall planes agree with the converted City Pack geometry when this machine has it (skipped when it does not)", () => {
   it("re-measures every key within 0.02 m, on the front face and, for a corner key, the open side", { timeout: 120000 }, (ctx) => {
     const file = join("assets", "private", "out", "city-pack.glb");
@@ -358,12 +406,21 @@ describe("the wall planes agree with the converted City Pack geometry when this 
       [WALL_SIDE_M, "+x"],
     ] as const) {
       for (const [key, want] of Object.entries(table)) {
+        if (WALL_PINNED.includes(key as CalibrationKey)) continue;
         const m = mesh(key.slice("city-pack:".length));
         const rule: WallRule = grounds.has(key) ? "ground" : "floor";
         const got = measureWallPlane(m.positions, m.indices, face, rule);
         if (!got) bad.push(`${key} ${face}: no wall found`);
         else if (Math.abs(got.offset - want!) > 0.02) bad.push(`${key} ${face}: measured ${got.offset.toFixed(3)}, table ${want}`);
       }
+    }
+    // The hand-pinned Octagon base: both ground planes are in the geometry, the table holds the front one, and it is within the reach (the rule's own pick, the other plane, is not what the table says).
+    for (const key of WALL_PINNED) {
+      const m = mesh(key.slice("city-pack:".length));
+      const planes = groundPlanes(m.positions, m.indices);
+      const near = (v: number): boolean => planes.some((p) => Math.abs(p.offset - v) <= 0.02 && p.area >= WALL_MIN_AREA_M2);
+      if (!near(WALL_FRONT_M[key]!)) bad.push(`${key}: no ground plane at the pinned ${WALL_FRONT_M[key]} m`);
+      if (!near(0.595)) bad.push(`${key}: the 0.595 m plane the rule picks is gone; re-read the pin`);
     }
     // The front a piece's wall was measured on is the one BUILDING_FRONTS names.
     for (const key of Object.keys(WALL_FRONT_M)) if (BUILDING_FRONTS[key as CalibrationKey]?.front !== "+z") bad.push(`${key}: front is not +z`);
