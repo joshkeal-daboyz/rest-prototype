@@ -18,7 +18,12 @@ import { PAVEMENT_Y, YARD, buildScene } from "./scene";
 import {
   DOOR_MIN_AREA_M2,
   DOOR_SILLS,
+  NO_FRONT_WINDOW,
+  NO_STREET_DOOR,
+  RECESS_DOOR_HALF_M,
   SILL_CEIL_M,
+  SILL_DEPTH_BY_KEY,
+  SILL_DEPTH_MAX_M,
   SILL_DEPTH_M,
   SILL_DOOR_HALF_M,
   SILL_MAX_M,
@@ -30,13 +35,17 @@ import {
   STEPS_SCALE_Y,
   STEPS_TUCK_M,
   STEPS_W_M,
+  STEP_MIN_M,
+  WINDOW_DEPTH_M,
   houseSill,
   leavesGap,
   measureDoor,
   modelPoint,
   planHouse,
+  sillDepth,
   stackSill,
   stepsYaw,
+  type DoorSill,
   type SillMesh,
   type SillTable,
 } from "./sills";
@@ -50,9 +59,9 @@ const TOWN_PACK_GLB = join("assets", "private", "out", "town-pack.glb");
 const SIMPLE_TOWN_GLB = join("assets", "private", "out", "simple-town.glb");
 const W = WORLD_PER_METRE;
 
-// ---- the measured table, typed in: [key, sill, lowest window, door's centre along the front] ----
+// ---- the measured table, typed in: [key, sill, lowest window, door's centre along the front, lowest front step when there is one] ----
 
-const PINNED: readonly (readonly [CalibrationKey, number, number | null, number])[] = [
+const PINNED: readonly (readonly [CalibrationKey, number, number | null, number, number?])[] = [
   ["city-pack:SM_Bld_Shop_01", 0.106, null, 0],
   ["city-pack:SM_Bld_Shop_02", 0.071, null, 0],
   ["city-pack:SM_Bld_Shop_03", 0.043, null, 0],
@@ -68,62 +77,78 @@ const PINNED: readonly (readonly [CalibrationKey, number, number | null, number]
   ["town-pack:SM_Bld_House_Preset_01", 1.151, 1.851, 0],
   ["town-pack:SM_Bld_House_Preset_02", 1.052, 1.752, 1.271],
   ["town-pack:SM_Bld_House_Preset_03", 1.151, 1.851, -2.479],
+  ["town-pack:SM_Bld_House_Preset_04", 1.151, 1.851, -2.5],
   ["town-pack:SM_Bld_House_Preset_05", 1.166, 1.866, -2.479],
   ["town-pack:SM_Bld_House_Preset_06", 1.052, 1.752, 0],
   ["town-pack:SM_Bld_House_Preset_07", 1.052, 1.752, 2.521],
   ["town-pack:SM_Bld_House_Preset_08", 1.102, 1.802, -4.979],
   ["town-pack:SM_Bld_House_Preset_09", 1.052, 1.752, -1.229],
-  ["simple-town:Building_Shop_01", 0.337, null, 0],
-  ["simple-town:Building_Shop_02", 0.337, null, 0],
-  ["simple-town:apartment_small_mesh", 0.212, null, 0],
-  ["simple-town:Building_House_01", 1.035, null, 0],
-  ["simple-town:Building_House_02", 1.035, null, 0],
-  ["simple-town:Building_House_03", 1.035, null, 0],
-  ["simple-town:Building_House_04", 1.035, null, 0],
-  ["simple-town:Building_House_09", 0.426, null, 0],
-  ["simple-town:Building_House_010", 0.426, null, 0],
-  ["simple-town:Building_House_011", 0.426, null, 0],
-  ["simple-town:Building_House_012", 1.053, null, 0],
-  ["simple-town:Building_House_013", 1.053, null, 0],
-  ["simple-town:Building_House_014", 1.053, null, 0],
-  ["simple-town:Building_House_015", 1.053, null, 0],
-  ["simple-town:office_small_mesh", 0.505, null, -2.991],
-  ["simple-town:Building_AutoRepair", 0.138, null, -5.965],
-  ["simple-town:Building_StripClub", 0.138, null, 0],
-  ["simple-town:Building_PoliceStation", 0.402, null, 0],
-  ["simple-town:apartment_large_mesh", 0.212, null, 0],
-  ["simple-town:office_medium_mesh", 0.505, null, -2.991],
-  ["simple-town:office_large_mesh", 0.505, null, -2.991],
+  ["town-pack:SM_Bld_House_Preset_10", 1.052, 1.752, -2.666],
+  ["town-pack:SM_Bld_House_Preset_11", 1.052, 1.752, 0],
+  ["town-pack:SM_Bld_House_Preset_Garage_01", 1.052, null, 0],
+  ["simple-town:Building_Shop_01", 0.337, 6.352, 0],
+  ["simple-town:Building_Shop_02", 0.337, 6.352, 0],
+  ["simple-town:Building_Shop_03", 0.199, 5.515, 0],
+  ["simple-town:Building_Shop_04", 0.199, 5.515, 0],
+  ["simple-town:Building_Shop_05", 0.199, 5.515, 0],
+  ["simple-town:Building_BaberShop", 0.333, 1.299, 2.461],
+  ["simple-town:Building_Gym", 0.337, 6.352, 0],
+  ["simple-town:store_small_mesh", 0.212, null, 0],
+  ["simple-town:store_corner_mesh", 0.212, 4.295, -3.799],
+  ["simple-town:apartment_small_mesh", 0.212, 2.137, 0],
+  ["simple-town:Building_House_01", 1.035, 1.721, 0, 0.601],
+  ["simple-town:Building_House_02", 1.035, 1.721, 0, 0.601],
+  ["simple-town:Building_House_03", 1.035, 1.721, 0, 0.601],
+  ["simple-town:Building_House_04", 1.035, 1.721, 0, 0.601],
+  ["simple-town:Building_House_09", 0.639, 2.832, 0, 0.213],
+  ["simple-town:Building_House_010", 0.639, 2.832, 0, 0.213],
+  ["simple-town:Building_House_011", 0.639, 2.832, 0, 0.213],
+  ["simple-town:Building_House_012", 1.053, 1.33, 0, 0.682],
+  ["simple-town:Building_House_013", 1.053, 1.33, 0, 0.682],
+  ["simple-town:Building_House_014", 1.053, 1.33, 0, 0.682],
+  ["simple-town:Building_House_015", 1.053, 1.33, 0, 0.682],
+  ["simple-town:office_small_mesh", 0.505, 1.959, -2.991, 0.245],
+  ["simple-town:Building_House_05", 0.33, 1.201, 0],
+  ["simple-town:Building_House_06", 0.33, 1.201, 0],
+  ["simple-town:Building_House_07", 0.33, 1.201, 0],
+  ["simple-town:Building_House_08", 0.33, 1.201, 0],
+  ["simple-town:Building_AutoRepair", 0.138, 1.182, -5.965],
+  ["simple-town:Building_StripClub", 0.138, 0.765, 0],
+  ["simple-town:Building_PoliceStation", 0.402, 0.529, 0],
+  ["simple-town:Building_CoffeeShop", 0.333, 5.954, 0],
+  ["simple-town:apartment_large_mesh", 0.212, 2.137, 0],
+  ["simple-town:office_medium_mesh", 0.505, 1.959, -2.991, 0.245],
+  ["simple-town:office_large_mesh", 0.505, 1.959, -2.991, 0.245],
 ];
 
 /**
- * The keys the town can place that the geometry could not settle (no entry, drawn unchanged), and why. `depth` is how far behind the front face the first door floor of at least
- * `DOOR_MIN_AREA_M2` starts, measured with no depth limit.
+ * The 22 keys the table of `1a356b9` (ticket 055 F) had no entry for: the geometry could not settle them within `SILL_DEPTH_M` and they were drawn unchanged. Ticket 062 A settles each (a per-key depth, a typed
+ * value, or `NO_STREET_DOOR`); the list stays here so the failing fixture can put the old table back.
  */
-const UNSETTLED: Readonly<Record<string, string>> = {
-  "city-pack:SM_Bld_Shop_06": "no upward surface of a door floor's size at all: a flat front with no floor behind it",
-  "town-pack:SM_Bld_House_Preset_04": "its door threshold (1.15 m) is 5.05 m behind the -x front face, in a deep porch; the front face itself shows only windows",
-  "town-pack:SM_Bld_House_Preset_10": "its door threshold (1.05 m) is 2.57 m behind the -z front face (a recessed porch)",
-  "town-pack:SM_Bld_House_Preset_11": "its door threshold (1.05 m) is 2.57 m behind the -z front face (a recessed porch)",
-  "town-pack:SM_Bld_House_Preset_Garage_01": "its only door threshold (1.05 m) is on the back, 8.17 m behind the -z front face (the front is the vehicle door)",
-  "simple-town:Building_Shop_03": "the first floor (0.20 m, 0.7 m2) is 2.29 m behind the front face",
-  "simple-town:Building_Shop_04": "the first floor (0.20 m, 0.7 m2) is 2.29 m behind the front face",
-  "simple-town:Building_Shop_05": "the first floor (0.20 m, 0.7 m2) is 2.29 m behind the front face",
-  "simple-town:Building_BaberShop": "the first floor (0.35 m) is 1.32 m behind the front face",
-  "simple-town:Building_Gym": "the first floor (0.35 m) is 2.45 m behind the front face",
-  "simple-town:store_small_mesh": "the only surface (0.20 m, 0.8 m2) starts 1.35 m behind the front face",
-  "simple-town:store_corner_mesh": "the only surface (0.20 m, 0.4 m2) starts 1.08 m behind the front face",
-  "simple-town:Building_Garage_01": "no floor within 14 m of the front face",
-  "simple-town:Building_Garage_02": "no floor within 14 m of the front face",
-  "simple-town:Building_Garage_03": "no floor within 14 m of the front face",
-  "simple-town:house_mesh": "the first floor (0.55 m) is 9.28 m behind the -z front face; its steps are at the back",
-  "simple-town:Building_House_05": "the first floor (0.35 m) is 2.43 m behind the front face",
-  "simple-town:Building_House_06": "the first floor (0.35 m) is 2.43 m behind the front face",
-  "simple-town:Building_House_07": "the first floor (0.35 m) is 2.43 m behind the front face",
-  "simple-town:Building_House_08": "the first floor (0.35 m) is 2.43 m behind the front face",
-  "simple-town:Building_PetrolStation": "the first floor (0.40 m) is 18.37 m behind the front face",
-  "simple-town:Building_CoffeeShop": "the first floor (0.35 m) is 3.49 m behind the front face",
-};
+const UNSETTLED_1A356B9: readonly CalibrationKey[] = [
+  "city-pack:SM_Bld_Shop_06",
+  "town-pack:SM_Bld_House_Preset_04",
+  "town-pack:SM_Bld_House_Preset_10",
+  "town-pack:SM_Bld_House_Preset_11",
+  "town-pack:SM_Bld_House_Preset_Garage_01",
+  "simple-town:Building_Shop_03",
+  "simple-town:Building_Shop_04",
+  "simple-town:Building_Shop_05",
+  "simple-town:Building_BaberShop",
+  "simple-town:Building_Gym",
+  "simple-town:store_small_mesh",
+  "simple-town:store_corner_mesh",
+  "simple-town:Building_Garage_01",
+  "simple-town:Building_Garage_02",
+  "simple-town:Building_Garage_03",
+  "simple-town:house_mesh",
+  "simple-town:Building_House_05",
+  "simple-town:Building_House_06",
+  "simple-town:Building_House_07",
+  "simple-town:Building_House_08",
+  "simple-town:Building_PetrolStation",
+  "simple-town:Building_CoffeeShop",
+];
 
 /** Every key the town can place on the ground: the base, door and corner pieces of every stack style, and every whole building of the model table. */
 function groundKeys(): CalibrationKey[] {
@@ -133,54 +158,151 @@ function groundKeys(): CalibrationKey[] {
   return [...out];
 }
 
-describe("the measured table (criterion 33)", () => {
-  it("pins every entry's three values, and changing one fails", () => {
-    const typed: Record<string, { sill_m: number; window_m: number | null; door_x_m: number }> = {};
-    for (const [key, sill, window, door] of PINNED) typed[key] = { sill_m: sill, window_m: window, door_x_m: door };
-    expect(DOOR_SILLS).toEqual(typed);
+/** The problems with a table of door sills against the keys the town places: a key with neither an entry nor a reason, or with both, or with a reason that is empty. Empty means the table is accounted for. */
+function accountingProblems(keys: readonly CalibrationKey[], table: SillTable, noStreet: Readonly<Partial<Record<CalibrationKey, string>>>): string[] {
+  const out: string[] = [];
+  for (const key of keys) {
+    const has = Object.prototype.hasOwnProperty.call(table, key);
+    const why = Object.prototype.hasOwnProperty.call(noStreet, key);
+    if (!has && !why) out.push(`${key}: neither an entry nor a reason`);
+    else if (has && why) out.push(`${key}: an entry and a reason it has none`);
+    else if (why && (noStreet[key] ?? "").trim() === "") out.push(`${key}: an empty reason`);
+  }
+  for (const key of [...Object.keys(table), ...Object.keys(noStreet)]) if (!keys.includes(key as CalibrationKey)) out.push(`${key}: not a key the town places`);
+  return out;
+}
+
+/** The measure's search depth for a key, as `SILL_DEPTH_BY_KEY` gives it. */
+const depthOf = (key: CalibrationKey): number => sillDepth(key);
+
+describe("the measured table (criterion 33; ticket 062 A criteria 1 to 3)", () => {
+  it("pins every entry's values, and changing one fails", () => {
+    const typed: Record<string, { sill_m: number; window_m: number | null; door_x_m: number; step_m?: number }> = {};
+    for (const [key, sill, window, door, step] of PINNED) typed[key] = { sill_m: sill, window_m: window, door_x_m: door, ...(step !== undefined ? { step_m: step } : {}) };
+    // The two typed-in entries carry a `why` the pin does not repeat (below); everything else is the pin.
+    const withoutWhy = Object.fromEntries(Object.entries(DOOR_SILLS).map(([k, v]) => [k, Object.fromEntries(Object.entries(v!).filter(([p]) => p !== "why"))]));
+    expect(withoutWhy).toEqual(typed);
     expect(Object.keys(DOOR_SILLS)).toHaveLength(PINNED.length);
     // The comparison is exact, so a changed value is a failure (checked on a copy: the table is not edited).
     const changed = { ...DOOR_SILLS, [PINNED[0]![0]]: { ...DOOR_SILLS[PINNED[0]![0]]!, sill_m: DOOR_SILLS[PINNED[0]![0]]!.sill_m + 0.001 } };
-    expect(changed).not.toEqual(typed);
+    expect(changed).not.toEqual(DOOR_SILLS);
   });
 
-  it("has an entry, or a reason it has none, for every key the town can place on the ground, and never both", () => {
+  it("accounts for every key the town can place on the ground: an entry or a NO_STREET_DOOR reason, never both and never neither (criterion 1)", () => {
     const keys = groundKeys();
     // 13 stack ground pieces (6 shops, 2 doors, 2 corners, 3 office bases) + 12 Town Pack buildings + the 38 SIMPLE Town buildings of the table.
     expect(keys.filter((k) => k.startsWith("city-pack:"))).toHaveLength(13);
     expect(keys.filter((k) => k.startsWith("town-pack:"))).toHaveLength(12);
     expect(keys.filter((k) => k.startsWith("simple-town:"))).toHaveLength(38);
-    for (const key of keys) {
-      const has = Object.prototype.hasOwnProperty.call(DOOR_SILLS, key);
-      const why = Object.prototype.hasOwnProperty.call(UNSETTLED, key);
-      expect(has !== why, `${key}: ${has ? "has an entry and a reason it has none" : why ? "" : "has neither an entry nor a reason"}`).toBe(true);
-    }
-    for (const key of Object.keys(DOOR_SILLS)) expect(keys, `${key} is not a key the town places`).toContain(key);
-    for (const key of Object.keys(UNSETTLED)) expect(keys, `${key} is not a key the town places`).toContain(key);
-    expect(Object.keys(DOOR_SILLS).length + Object.keys(UNSETTLED).length).toBe(keys.length);
+    expect(accountingProblems(keys, DOOR_SILLS, NO_STREET_DOOR)).toEqual([]);
+    expect(Object.keys(DOOR_SILLS).length + Object.keys(NO_STREET_DOOR).length).toBe(keys.length);
+    expect(Object.keys(NO_STREET_DOOR).sort()).toEqual(
+      ["city-pack:SM_Bld_Shop_06", "simple-town:Building_Garage_01", "simple-town:Building_Garage_02", "simple-town:Building_Garage_03", "simple-town:Building_PetrolStation", "simple-town:house_mesh"].sort(),
+    );
   });
 
-  it("holds sensible numbers: every sill under the ceiling, a window above its sill, a door inside the front", () => {
+  it("fails when the table of 1a356b9 is put back: the 22 keys it had no entry for, with no reason, are 22 problems (criterion 4)", () => {
+    const old = { ...DOOR_SILLS } as Record<string, DoorSill>;
+    for (const k of UNSETTLED_1A356B9) delete old[k];
+    expect(Object.keys(old)).toHaveLength(41);
+    const problems = accountingProblems(groundKeys(), old, {});
+    expect(problems).toHaveLength(22);
+    expect(problems.every((p) => p.endsWith("neither an entry nor a reason"))).toBe(true);
+    // A reason given for a key that has an entry is also a problem, and so is an empty one.
+    expect(accountingProblems(groundKeys(), DOOR_SILLS, { ...NO_STREET_DOOR, "city-pack:SM_Bld_Shop_01": "x" })).toHaveLength(1);
+    expect(accountingProblems(groundKeys(), DOOR_SILLS, { ...NO_STREET_DOOR, "simple-town:house_mesh": " " })).toHaveLength(1);
+  });
+
+  it("gives every SILL_DEPTH_BY_KEY entry a depth between SILL_DEPTH_M and SILL_DEPTH_MAX_M, a reason, and an entry in the table (criterion 1)", () => {
+    expect(SILL_DEPTH_MAX_M).toBe(4);
+    const keys = Object.keys(SILL_DEPTH_BY_KEY) as CalibrationKey[];
+    expect(keys).toHaveLength(17);
+    for (const key of keys) {
+      const row = SILL_DEPTH_BY_KEY[key]!;
+      expect(row.depth_m, key).toBeGreaterThan(SILL_DEPTH_M);
+      expect(row.depth_m, key).toBeLessThanOrEqual(SILL_DEPTH_MAX_M);
+      expect(row.why.trim().length, key).toBeGreaterThan(10);
+      expect(Object.prototype.hasOwnProperty.call(DOOR_SILLS, key), `${key} has a depth but no entry`).toBe(true);
+      expect(Object.prototype.hasOwnProperty.call(NO_STREET_DOOR, key), key).toBe(false);
+    }
+    expect(depthOf("simple-town:Building_CoffeeShop")).toBe(3.6);
+    expect(depthOf("city-pack:SM_Bld_Shop_01")).toBe(SILL_DEPTH_M);
+    // The two keys with a typed-in sill are beyond the limit, so they have no depth.
+    for (const k of ["town-pack:SM_Bld_House_Preset_04", "town-pack:SM_Bld_House_Preset_Garage_01"] as const) expect(SILL_DEPTH_BY_KEY[k], k).toBeUndefined();
+  });
+
+  it("types in Preset_04 and the Town Pack garage with their reasons, and lists every typed-in sill (criteria 1 and 2)", () => {
+    const typedIn = Object.entries(DOOR_SILLS).filter(([, r]) => r!.why !== undefined);
+    expect(typedIn.map(([k]) => k).sort()).toEqual(["town-pack:SM_Bld_House_Preset_04", "town-pack:SM_Bld_House_Preset_Garage_01"]);
+    for (const [k, r] of typedIn) expect(r!.why!.length, k).toBeGreaterThan(20);
+    // Preset_04: the 1.15 m threshold of its porch; the garage sinks like its houses, by their 1.052 m.
+    expect(DOOR_SILLS["town-pack:SM_Bld_House_Preset_04"]!.sill_m).toBe(1.151);
+    expect(DOOR_SILLS["town-pack:SM_Bld_House_Preset_Garage_01"]!.sill_m).toBe(DOOR_SILLS["town-pack:SM_Bld_House_Preset_09"]!.sill_m);
+    // Preset_10 and _11 read 1.05 m (+-0.02 m) with a 3 m search.
+    for (const k of ["town-pack:SM_Bld_House_Preset_10", "town-pack:SM_Bld_House_Preset_11"] as const) {
+      expect(Math.abs(DOOR_SILLS[k]!.sill_m - 1.05), k).toBeLessThanOrEqual(0.02);
+      expect(depthOf(k), k).toBe(3);
+    }
+  });
+
+  it("holds sensible numbers: every sill under the ceiling, a window above its sill, a step under it, a door inside the front", () => {
     for (const [key, row] of Object.entries(DOOR_SILLS)) {
       expect(row!.sill_m, key).toBeGreaterThan(0);
       expect(row!.sill_m, key).toBeLessThanOrEqual(SILL_CEIL_M);
       if (row!.window_m !== null) expect(row!.window_m, key).toBeGreaterThan(row!.sill_m);
+      if (row!.step_m !== undefined) {
+        expect(row!.step_m, key).toBeGreaterThanOrEqual(STEP_MIN_M);
+        expect(row!.step_m, key).toBeLessThan(row!.sill_m);
+      }
     }
-    // Only the Town Pack's houses have glass to tell a window from (its mesh has a glass material); the City Pack and SIMPLE Town have one material.
-    for (const key of Object.keys(DOOR_SILLS)) expect(DOOR_SILLS[key as CalibrationKey]!.window_m !== null, key).toBe(key.startsWith("town-pack:"));
   });
 
-  it("says which keys are over SILL_MAX_M: the buildings that change, and which stand steps and which leave a gap (none: every Town Pack house's lowest window is 0.7 m over its sill)", () => {
+  it("measures a window where the model has one, or says why it has none: no entry has window_m null without a reason (criterion 3)", () => {
+    const nullWindow = Object.entries(DOOR_SILLS).filter(([, r]) => r!.window_m === null).map(([k]) => k);
+    // Every null window is listed as having no front window, and every listed key has a null window.
+    expect(nullWindow.sort()).toEqual(Object.keys(NO_FRONT_WINDOW).sort());
+    for (const [k, why] of Object.entries(NO_FRONT_WINDOW)) expect(why!.length, k).toBeGreaterThan(10);
+    // The SIMPLE Town models, which have no glass material, now have a window read from their recessed faces, apart from the one flat front.
+    const simple = Object.entries(DOOR_SILLS).filter(([k]) => k.startsWith("simple-town:"));
+    expect(simple.filter(([, r]) => r!.window_m !== null)).toHaveLength(simple.length - 1);
+  });
+
+  it("says which keys are over SILL_MAX_M, which stand steps and which leave a gap (criterion 3)", () => {
     const over = Object.entries(DOOR_SILLS).filter(([, r]) => r!.sill_m > SILL_MAX_M);
-    expect(over).toHaveLength(33);
-    expect(over.filter(([k]) => k.startsWith("town-pack:"))).toHaveLength(8);
-    expect(Object.keys(DOOR_SILLS).filter((k) => houseSill(k as CalibrationKey).steps !== null)).toEqual([]);
-    expect(Object.keys(DOOR_SILLS).filter((k) => leavesGap(houseSill(k as CalibrationKey)))).toEqual([]);
-    for (const [k, r] of Object.entries(DOOR_SILLS)) {
-      if (!k.startsWith("town-pack:")) continue;
-      expect(r!.window_m! - r!.sill_m, k).toBeGreaterThan(SILL_WINDOW_CLEAR_M);
-      expect(houseSill(k as CalibrationKey).sink_m, k).toBe(r!.sill_m);
+    expect(over.length).toBeGreaterThan(33);
+    // Where the plan leaves a gap, a model whose steps are out of the concrete steps' range or cannot take them: none.
+    const whole = Object.keys(DOOR_SILLS).filter((k) => !k.startsWith("city-pack:")) as CalibrationKey[];
+    expect(whole.filter((k) => leavesGap(houseSill(k)))).toEqual([]);
+    // Only a model with a window near its sill or a step in front of it takes the concrete steps.
+    const stepped = whole.filter((k) => houseSill(k).steps !== null).sort();
+    expect(stepped.length).toBeGreaterThan(0);
+    for (const k of stepped) {
+      const r = DOOR_SILLS[k]!;
+      expect(r.step_m !== undefined || (r.window_m !== null && r.window_m - SILL_WINDOW_CLEAR_M < r.sill_m), `${k} takes steps for no reason`).toBe(true);
     }
+  });
+
+  it("never lets a window end less than SILL_WINDOW_CLEAR_M above the walk after the sink, and never buries a front step (criterion 3)", () => {
+    for (const k of Object.keys(DOOR_SILLS) as CalibrationKey[]) {
+      if (k.startsWith("city-pack:")) continue; // a stack's pieces sink as one: the lift in 062 B is judged against the first floor's window sill
+      const r = DOOR_SILLS[k]!;
+      const plan = houseSill(k);
+      if (r.window_m !== null) expect(r.window_m - plan.sink_m >= SILL_WINDOW_CLEAR_M - 1e-9 || plan.sink_m === 0, `${k}: window ${r.window_m} sunk to ${r.window_m - plan.sink_m}`).toBe(true);
+      if (r.step_m !== undefined) expect(r.step_m - plan.sink_m, `${k}: front step ${r.step_m} sunk by ${plan.sink_m}`).toBeGreaterThanOrEqual(-1e-9);
+    }
+  });
+
+  it("fails a house with a 1.04 m floor, a 0.6 m front step and no window, planned by the rule of 1a356b9 (criterion 4)", () => {
+    // 1a356b9: sink by the whole sill when no window is known. The 0.6 m step ends 0.44 m under the walk.
+    const old = planHouse(1.04, null, 0);
+    expect(old.sink_m).toBe(1.04);
+    expect(0.6 - old.sink_m).toBeLessThan(-0.4);
+    // The step check says so; the rule of 062 does not fail it: the sink stops at the step, and concrete steps make up the rest.
+    const now = planHouse(1.04, null, 0, 0.6);
+    expect(now.sink_m).toBeCloseTo(0.6, 9);
+    expect(0.6 - now.sink_m).toBeGreaterThanOrEqual(-1e-9);
+    expect(now.steps).not.toBeNull();
+    expect(leavesGap(now)).toBe(false);
   });
 });
 
@@ -238,10 +360,26 @@ describe("the plan: what a sill and a window make of a building (criterion 34)",
   });
 
   it("changes nothing for a key with no entry", () => {
-    expect(houseSill("town-pack:SM_Bld_House_Preset_04")).toEqual({ sink_m: 0, steps: null, leftOver_m: 0 });
+    expect(houseSill("city-pack:SM_Bld_Shop_06")).toEqual({ sink_m: 0, steps: null, leftOver_m: 0 });
     expect(houseSill("nowhere:Nothing", {})).toEqual({ sink_m: 0, steps: null, leftOver_m: 0 });
     // A name on Object.prototype is not an entry.
     expect(houseSill("x:toString" as CalibrationKey, {})).toEqual({ sink_m: 0, steps: null, leftOver_m: 0 });
+  });
+
+  it("caps the sink at the lowest front step so it stays at the walk, and makes the rest up with steps (062 A)", () => {
+    // A 1.04 m floor with a 0.6 m step in front and no window: sink 0.6, 0.44 left, steps scaled 0.88.
+    const p = planHouse(1.04, null, 0.5, 0.6);
+    expect(p.sink_m).toBeCloseTo(0.6, 9);
+    expect(p.leftOver_m).toBeCloseTo(0.44, 9);
+    expect(p.steps!.scaleY).toBeCloseTo(0.88, 9);
+    // A step above the window's room does not lift the sink; the window still decides.
+    expect(planHouse(1.04, 0.8, 0, 0.9).sink_m).toBeCloseTo(0.5, 9);
+    // A step as high as the sill is the sill: the whole sink stands.
+    expect(planHouse(0.4, null, 0, 0.4).sink_m).toBeCloseTo(0.4, 9);
+    // No step given: as it was.
+    expect(planHouse(1.04, null, 0, null)).toEqual(planHouse(1.04, null, 0));
+    // The cap never makes a sink that buries the step, over a grid.
+    for (let sill = 0.2; sill <= 1.5; sill += 0.05) for (const step of [0.05, 0.2, 0.4, 0.6, 0.9]) if (step < sill) expect(planHouse(sill, null, 0, step).sink_m, `${sill}/${step}`).toBeLessThanOrEqual(step + 1e-9);
   });
 
   it("after the rule, on every sill and window of a grid: the door is within SILL_MAX_M of the walk, or the steps' scaled top meets it within STEPS_FIT_M, and the window keeps its clearance", () => {
@@ -456,6 +594,56 @@ describe("measureDoor reads a door from a mesh (criterion 33's method)", () => {
     expect(DOOR_MIN_AREA_M2).toBe(0.2);
     expect(SILL_DOOR_HALF_M).toBe(0.45);
   });
+
+  it("looks as far back as it is told: a floor 2.57 m behind the front face is read with a 3 m search and not with the default (062 A)", () => {
+    for (const f of FRONTS) {
+      // A recessed porch: the building's floor starts 2.57 m behind the face.
+      const porch = new Frame(f).wall(4, -3, 3, 0, 4).wall(-4, -3, 3, 0, 4).up(1.05, -3, 3, -4, 4 - 2.57);
+      expect(measureDoor(porch.mesh(), f), f).toBeNull();
+      expect(measureDoor(porch.mesh(), f, SILL_DEPTH_M), f).toBeNull();
+      expect(measureDoor(porch.mesh(), f, 3)!.sill_m, f).toBe(1.05);
+      expect(measureDoor(porch.mesh(), f, 2.5), f).toBeNull();
+    }
+  });
+
+  it("reads the lowest front step: a level in front of the door floor, over STEP_MIN_M and under the floor, and none where there is none (062 A)", () => {
+    for (const f of FRONTS) {
+      // A floor at 1.0 from 0.6 m behind the face, and a 0.6 m step in front of it across the face.
+      const house = new Frame(f).wall(4, -3, 3, 0, 4).wall(-4, -3, 3, 0, 4).up(1, -3, 3, -4, 4 - 0.6).up(0.6, -2, 2, 4 - 0.6, 4);
+      expect(measureDoor(house.mesh(), f), f).toEqual({ sill_m: 1, window_m: null, door_x_m: 0, step_m: 0.6 });
+      // Two treads: the lowest is the step.
+      const stair = new Frame(f).wall(4, -3, 3, 0, 4).wall(-4, -3, 3, 0, 4).up(1, -3, 3, -4, 3).up(0.7, -2, 2, 3, 3.5).up(0.35, -2, 2, 3.5, 4);
+      expect(measureDoor(stair.mesh(), f)!.step_m, f).toBe(0.35);
+      // A level behind the floor's start, a level too low to be a step, and one too small are not steps.
+      const behind = new Frame(f).wall(4, -3, 3, 0, 4).wall(-4, -3, 3, 0, 4).up(1, -3, 3, -1, 4).up(0.5, -2, 2, -4, -1.5);
+      expect(measureDoor(behind.mesh(), f)!.step_m, f).toBeUndefined();
+      const low = new Frame(f).wall(4, -3, 3, 0, 4).wall(-4, -3, 3, 0, 4).up(1, -3, 3, -4, 3).up(STEP_MIN_M / 2, -2, 2, 3, 4);
+      expect(measureDoor(low.mesh(), f)!.step_m, f).toBeUndefined();
+      const small = new Frame(f).wall(4, -3, 3, 0, 4).wall(-4, -3, 3, 0, 4).up(1, -3, 3, -4, 3).up(0.5, 0, 0.3, 3.5, 4);
+      expect(measureDoor(small.mesh(), f)!.step_m, f).toBeUndefined();
+      // No step at all: the plain building.
+      expect(measureDoor(building(f, 0.35).mesh(), f)!.step_m).toBeUndefined();
+    }
+  });
+
+  it("reads a window from the lowest recessed front face over the door floor where the model has no glass (062 A)", () => {
+    for (const f of FRONTS) {
+      // A window's reveal 0.2 m behind the face, 1 x 0.8 m, over a door floor at 0.3; and a higher one.
+      const m = building(f, 0.3).wall(3.8, -2.5, -1.5, 1.2, 2, false).wall(3.8, 1.5, 2.5, 2.6, 3.4, false);
+      expect(measureDoor(m.mesh(), f)!.window_m, f).toBe(1.2);
+      // Not a window: a face in the front plane itself (no recess), one under the door floor, one under 0.3 m2, one behind WINDOW_DEPTH_M, and the door's own leaf.
+      const flat = building(f, 0.3).wall(4, -2.5, -1.5, 1.2, 2).wall(3.8, -2.5, -1.5, 0.2, 0.8).wall(3.8, 1.5, 1.9, 1.2, 1.6).wall(4 - WINDOW_DEPTH_M - 0.5, 0.5, 2.5, 1.2, 2.4);
+      expect(measureDoor(flat.mesh(), f)!.window_m, f).toBeNull();
+      const leaf = building(f, 0.3).wall(3.8, -RECESS_DOOR_HALF_M, RECESS_DOOR_HALF_M, 0.5, 2.1);
+      expect(measureDoor(leaf.mesh(), f)!.window_m, f).toBeNull();
+      // A reveal of several triangles on one plane joins into one surface; each triangle alone is under the area.
+      const split = building(f, 0.3).wall(3.8, -2.5, -2.2, 1.2, 1.9).wall(3.8, -2.2, -1.9, 1.2, 1.9).wall(3.8, -1.9, -1.6, 1.2, 1.9);
+      expect(measureDoor(split.mesh(), f)!.window_m, f).toBe(1.2);
+      // A model with glass takes the glass, as before.
+      const glassy = building(f, 0.3).wall(3.8, -2.5, -1.5, 1.2, 2).wall(3.9, 1.5, 2.5, 1.8, 2.6, true);
+      expect(measureDoor(glassy.mesh(), f)!.window_m, f).toBe(1.8);
+    }
+  });
 });
 
 // ---- the real geometry: re-measured where the GLBs are on this machine ----
@@ -548,31 +736,49 @@ describe("the real geometry (criterion 33; skipped on a machine with no converte
   const have = existsSync(CITY_PACK_GLB) && existsSync(TOWN_PACK_GLB) && existsSync(SIMPLE_TOWN_GLB);
 
   // Shown as skipped, not passed, where the GLBs are absent (CI, a fresh checkout).
-  it.skipIf(!have)("re-measures every entry within 0.02 m, finds nothing for every key with no entry, and measures the steps", () => {
+  it.skipIf(!have)("re-measures every entry within 0.02 m at its own depth, finds nothing for every NO_STREET_DOOR key and for the typed-in ones within the limit, and measures the steps", () => {
     const glbs: Record<string, Glb> = {};
     const open = (pack: string): Glb => (glbs[pack] ??= readGlb(join("assets", "private", "out", `${pack}.glb`)));
     const bad: string[] = [];
-    const near = (label: string, got: number | null, want: number | null): void => {
-      if ((got === null) !== (want === null) || (got !== null && want !== null && Math.abs(got - want) > 0.02)) bad.push(`${label}: measured ${String(got)}, table ${String(want)}`);
+    const near = (label: string, got: number | null | undefined, want: number | null | undefined): void => {
+      const g = got ?? null;
+      const w = want ?? null;
+      if ((g === null) !== (w === null) || (g !== null && w !== null && Math.abs(g - w) > 0.02)) bad.push(`${label}: measured ${String(g)}, table ${String(w)}`);
     };
     const frontOf = (key: CalibrationKey): ModelFront => BUILDING_FRONTS[key]?.front ?? "+z";
     for (const key of groundKeys()) {
       const [pack, name] = key.split(":") as [string, string];
       const mesh = sillMeshOf(open(pack), name);
       expect(mesh, `${key} is not in its GLB`).not.toBeNull();
-      const got = measureDoor(mesh!, frontOf(key));
       const want = DOOR_SILLS[key];
       if (!want) {
+        // No street door: nothing within the deepest search.
+        const got = measureDoor(mesh!, frontOf(key), SILL_DEPTH_MAX_M);
         if (got !== null) bad.push(`${key}: has no entry but measures ${JSON.stringify(got)}`);
         continue;
       }
+      if (want.why !== undefined) {
+        // A typed-in entry: the geometry gives nothing within the deepest search; with no limit it reads the door typed in (the back door of the garage, the porch of Preset_04).
+        const within = measureDoor(mesh!, frontOf(key), SILL_DEPTH_MAX_M);
+        if (within !== null) bad.push(`${key}: is typed in but measures ${JSON.stringify(within)} within ${SILL_DEPTH_MAX_M} m`);
+        const deep = measureDoor(mesh!, frontOf(key), 30);
+        if (!deep) bad.push(`${key}: measures nothing at any depth, table ${JSON.stringify(want)}`);
+        else near(`${key} typed sill`, deep.sill_m, want.sill_m);
+        continue;
+      }
+      const got = measureDoor(mesh!, frontOf(key), sillDepth(key));
       if (!got) {
         bad.push(`${key}: measures nothing, table ${JSON.stringify(want)}`);
         continue;
       }
       near(`${key} sill`, got.sill_m, want.sill_m);
-      near(`${key} window`, got.window_m, want.window_m);
       near(`${key} door`, got.door_x_m, want.door_x_m);
+      // A stack's ground piece (the City Pack's) has no window or step read: a stack sinks as one and its lift is judged against the first floor's window sill (062 B).
+      if (key.startsWith("city-pack:")) continue;
+      near(`${key} window`, got.window_m, want.window_m);
+      near(`${key} step`, got.step_m, want.step_m);
+      // Preset_10 and _11 read 1.05 m with a 3 m search.
+      if (key.endsWith("Preset_10") || key.endsWith("Preset_11")) near(`${key} 3 m search`, measureDoor(mesh!, frontOf(key), 3)!.sill_m, 1.05);
     }
     expect(bad).toEqual([]);
     // The steps: 1.2 wide, 0.5 high, 0.9 deep to the tenth of a metre (1.19 x 0.513 x 0.871 in the GLB), the rise at the top landing on the building side (-z).

@@ -224,7 +224,8 @@ describe("every placed building faces its road (every map)", () => {
       const applied = applyModels(bundle, set);
       const models = bundle.slots.models;
       models.updateMatrixWorld(true);
-      expect(models.children, name).toHaveLength(applied.buildings.length);
+      // The door steps (ticket 055 F, 062 A) are a group of their own in the stand-in, after the clones.
+      expect(models.children.filter((c) => c.name !== "door-steps"), name).toHaveLength(applied.buildings.length);
       const roads = new Map(town.roads.map((r) => [r.id, r] as const));
       applied.buildings.forEach((p, k) => {
         const lot = town.lots[p.lot]!;
