@@ -464,13 +464,14 @@ describe("what the captions say (ticket 050 B)", () => {
 
   it("a corner piece's open side says guess while it is the recipe's, and not once the table gives it", () => {
     const corner = keyOf("SM_Bld_Shop_Corner_01");
-    expect(openOf(style("apartment-01"), {}, corner)).toEqual({ side: "+x", guess: true });
-    expect(pieceCaption(style("apartment-01"), {}, corner)).toBe("Shop_Corner_01: +z guess, open +x guess");
-    const table: FrontTable = { [corner]: { front: "-z", corner: true, open: "-x" } };
-    expect(openOf(style("apartment-01"), table, corner)).toEqual({ side: "-x", guess: false });
-    expect(pieceCaption(style("apartment-01"), table, corner)).toBe("Shop_Corner_01: -z, open -x");
-    // a saved front has no open: the recipe's guess stands
-    expect(openOf(style("apartment-01"), { [corner]: { front: "-z" } }, corner)).toEqual({ side: "+x", guess: true });
+    // 063 E1: the recipe's side is the measured one ("-x"); the caption still says it is not Josh's (he has not confirmed it in the gallery).
+    expect(openOf(style("apartment-01"), {}, corner)).toEqual({ side: "-x", guess: true });
+    expect(pieceCaption(style("apartment-01"), {}, corner)).toBe("Shop_Corner_01: +z guess, open -x guess");
+    const table: FrontTable = { [corner]: { front: "-z", corner: true, open: "+x" } };
+    expect(openOf(style("apartment-01"), table, corner)).toEqual({ side: "+x", guess: false });
+    expect(pieceCaption(style("apartment-01"), table, corner)).toBe("Shop_Corner_01: -z, open +x");
+    // a saved front has no open: the recipe's side stands
+    expect(openOf(style("apartment-01"), { [corner]: { front: "-z" } }, corner)).toEqual({ side: "-x", guess: true });
     // a non-corner piece says nothing about open
     expect(pieceCaption(style("apartment-01"), {}, keyOf("SM_Bld_Shop_01"))).not.toMatch(/open/);
   });
@@ -589,7 +590,7 @@ describe("what a screenshot of the stack gallery has to show (pure checks on the
         expect(Math.abs(Math.sin(p.yaw)) > 0.5).toBe(open !== side);
       }
     }
-    expect(style("apartment-01").open?.[corner]).toBe("+x");
+    expect(style("apartment-01").open?.[corner]).toBe("-x"); // measured, 063 E1
   });
 });
 

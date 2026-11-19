@@ -13,7 +13,7 @@
 
 import type { AssetEntry, CalibrationKey } from "../core";
 import { stableHash } from "../render/city";
-import { wallOffset } from "./facade";
+import { BODY_M, OPEN_SIDE_MEASURED, wallOffset, type Body } from "./facade";
 import { BUILDING_FRONTS, STACK_LOT_TYPES, frontIsQuarter, frontYaw, sizeOf, type FrontTable, type ModelFront, type StackOffer } from "./models";
 import { LOT_TYPES, type Lot, type LotSpec, type LotType } from "./town";
 
@@ -55,8 +55,8 @@ export interface StackStyle {
   /** "bay": a row of columns, each one bay wide. "footprint": one column, the whole building (an office). */
   depth: "bay" | "footprint";
   /**
-   * A corner piece's second street face, on the lot side it is in once its front is turned to the road. Every entry is a guess until Josh confirms it
-   * in the stack gallery; a `BuildingFront.open` in the fronts table wins over it (section B, from the 050 A review).
+   * A corner piece's second street face, on the lot side it is in once its front is turned to the road. Measured from the GLB (ticket 063 E1, `OPEN_SIDE_MEASURED`: "-x" for every City Pack corner piece);
+   * a `BuildingFront.open` in the fronts table wins over it (section B, from the 050 A review), so Josh's gallery check is still the last word.
    */
   open?: Partial<Record<CalibrationKey, StackSide>>;
   /** Metres toward the street (+) or away (-) for a piece the gallery shows off. */
@@ -87,8 +87,8 @@ function apartment(n: "01" | "02" | "03", roofReserve: number): StackStyle {
     roof: { mid: [roof], corner: [roofCorner] },
     pitch_m: { base: 3, floor: 3, roof: roofReserve },
     depth: "bay",
-    // Guesses: no data says which end a corner piece's second face is on.
-    open: Object.fromEntries([...SHOP_CORNERS, corner, roofCorner].map((c) => [c, "+x" as const])),
+    // Measured (ticket 063 E1, `OPEN_SIDE_MEASURED`): every City Pack corner piece's second street face is on -x. A piece the table lacks keeps the old guess, "+x".
+    open: Object.fromEntries([...SHOP_CORNERS, corner, roofCorner].map((c) => [c, OPEN_SIDE_MEASURED[c]?.open ?? ("+x" as const)])),
     props: [],
   };
 }
@@ -453,7 +453,15 @@ export interface AssembleOptions {
    * all of them. Default: none, so a stack is exactly what it was.
    */
   sillBand?: ReadonlySet<CalibrationKey>;
+  /**
+   * Ticket 063 E2: how the pieces of a column line up. "bounds" (the default, so the ladder's stacks are exactly what they were): each piece is centred on its column by its bounds. "body": every piece's body box (`BODY_M`, the
+   * planes its walls stand on) is put on the column's floor piece's body (`seatOnBody`). It goes with `align: "wall"` (the tile city's: the front wall line is what a body is seated against) and is ignored on a back-aligned stack.
+   */
+  footprint?: StackFootprint;
 }
+
+/** How a column's pieces line up (ticket 063 E2): by their bounds, or by their bodies on the floor piece's. */
+export type StackFootprint = "bounds" | "body";
 
 interface Item {
   c: Cand;
@@ -610,7 +618,7 @@ export function assembleStack(
     const height = Math.max(...pieces.map((p) => p.y + p.h));
     if (height > spec.cap + EPS) return null;
     if (opts.bays === undefined && pieces.some((p) => p.x - p.w / 2 < -spec.frontage / 2 - EPS || p.x + p.w / 2 > spec.frontage / 2 + EPS)) return null;
-    return {
+    const built: Stack = {
       style: style.id,
       family: `city-pack:stack:${style.id}`,
       type: lot.type,
@@ -623,7 +631,166 @@ export function assembleStack(
       columns,
       pieces,
     };
+    return opts.footprint === "body" && align === "wall" ? seatOnBody(built, fronts) : built;
   }
+}
+
+// ---- one footprint per column (ticket 063 E2) ----
+
+/** The planes of a column's walls agree to within this, metres (Josh's "misalignment": a storey, a trim or a roof that stands off the floor's walls by more is seen). */
+export const STOREY_ALIGN_TOL_M = 0.03;
+/** A piece whose body plane stands further than this from the footprint's, metres, is reported (ticket 063 criterion 31): it is what the piece really carries (a cornice, a podium), and re-pairing roofs is Josh's to decide (Q-E2). */
+export const BODY_REPORT_M = 0.1;
+
+/** A piece's body box in the lot frame (metres): its two side planes along the row, its front plane and its back plane. */
+export interface BodyBox {
+  x0: number;
+  x1: number;
+  zFront: number;
+  zBack: number;
+}
+
+/** The distances from a piece's turned bounds in to its four body planes, in the lot frame, given the piece's `BODY_M` entry (own frame) and its turn; null for a turn that is not a quarter. */
+function lotInsets(b: Body, yaw: number): { front: number; back: number; left: number; right: number } | null {
+  const y = normYaw(yaw);
+  const q = Math.round(y / QUARTER);
+  if (Math.abs(y - q * QUARTER) > 0.01) return null;
+  switch (q) {
+    case 0:
+      return { front: b.front, back: b.back, left: b.nx, right: b.px };
+    case 1:
+      // x' = z, z' = -x: own +x is the back, own -x the front, own +z the right and own -z the left.
+      return { front: b.nx, back: b.px, left: b.back, right: b.front };
+    case -1:
+      return { front: b.px, back: b.nx, left: b.front, right: b.back };
+    default:
+      return { front: b.back, back: b.front, left: b.px, right: b.nx };
+  }
+}
+
+/**
+ * The body box of a stack piece in the lot frame, or null when it has none: no `BODY_M` entry, a front Josh recalibrated in the gallery (the numbers describe the measured front), a corner piece whose open side is not the
+ * measured one, or a turn that is not a quarter.
+ */
+export function bodyBox(p: Pick<StackPiece, "key" | "x" | "z" | "w" | "d" | "yaw">, fronts: FrontTable = BUILDING_FRONTS, bodies: Readonly<Partial<Record<CalibrationKey, Body>>> = BODY_M): BodyBox | null {
+  const b = bodies[p.key];
+  const base = Object.prototype.hasOwnProperty.call(BUILDING_FRONTS, p.key) ? BUILDING_FRONTS[p.key] : undefined;
+  if (!b || !base) return null;
+  const own = Object.prototype.hasOwnProperty.call(fronts, p.key) ? fronts[p.key] : undefined;
+  if ((own?.front ?? "+z") !== base.front) return null;
+  const side = OPEN_SIDE_MEASURED[p.key]?.open;
+  if (side && (own?.open ?? base.open) !== side) return null;
+  const i = lotInsets(b, p.yaw);
+  if (!i) return null;
+  return { x0: p.x - p.w / 2 + i.left, x1: p.x + p.w / 2 - i.right, zFront: p.z + p.d / 2 - i.front, zBack: p.z - p.d / 2 + i.back };
+}
+
+/** The columns a piece stands over: those whose axis is within its width (a double-bay shop spans two), else its own column. */
+function spanned(stack: Pick<Stack, "columns">, p: Pick<StackPiece, "x" | "w" | "column">): number[] {
+  const at = stack.columns.map((c, i) => (Math.abs(c.x - p.x) < p.w / 2 ? i : -1)).filter((i) => i >= 0);
+  return at.length > 0 ? at : [p.column];
+}
+
+/** The footprint of each column: the body box of its first floor piece, else of its base. Null for a column with no piece that has a body. */
+function footprints(stack: Stack, boxes: readonly (BodyBox | null)[]): (BodyBox | null)[] {
+  return stack.columns.map((_, i) => {
+    for (const role of ["floor", "base"] as const) {
+      const j = stack.pieces.findIndex((p, k) => p.column === i && p.role === role && boxes[k] !== null);
+      if (j >= 0) return boxes[j]!;
+    }
+    return null;
+  });
+}
+
+/**
+ * The stack with every piece's body on its column's footprint (ticket 063 E2, `footprint: "body"`). The footprint is the body of the column's floor piece, which stays where it stands, as does every base and floor in z (their
+ * front wall is already on the line, `align: "wall"`). What moves:
+ * - **Sides.** A mid column: the piece's body is centred on the footprint's, so a base, a three-storey piece or a roof is as far in or out on the left as on the right. A corner column: the piece's outer flank plane (the cross
+ *   street's side) is on the footprint's, so the corner's wall runs up the same line from the shop to the cornice, whatever each piece overhangs its flank by. A piece over two columns (a double-bay shop) is centred on both.
+ * - **Back.** A roof's back plane is on the footprint's: the cornice steps out from where it stands on the wall, and the roof stood up to 0.9 m past the wall at the back (and as much short of it at the front) while its
+ *   front bound was on the line. A base may stand deeper (every shop and door does), never shallower.
+ * A piece with no body (the Octagon roof, a recalibrated front) is left where it is. Columns, widths and floors are unchanged; `depth_m` is measured again, so a stack is no deeper than what stands behind its line.
+ * Pure. For a wall-aligned stack (a back-aligned one has no front line to seat against).
+ */
+export function seatOnBody(stack: Stack, fronts: FrontTable = BUILDING_FRONTS): Stack {
+  const boxes = stack.pieces.map((p) => bodyBox(p, fronts));
+  const foot = footprints(stack, boxes);
+  let moved = false;
+  const pieces = stack.pieces.map((p, j) => {
+    const box = boxes[j];
+    if (!box || p.role === "floor") return p;
+    const cols = spanned(stack, p).filter((i) => foot[i] !== null);
+    if (cols.length === 0) return p;
+    const col = stack.columns[p.column]!;
+    let dx: number;
+    if (col.corner === "-x") dx = foot[p.column]!.x0 - box.x0;
+    else if (col.corner === "+x") dx = foot[p.column]!.x1 - box.x1;
+    else dx = cols.reduce((s, i) => s + (foot[i]!.x0 + foot[i]!.x1) / 2, 0) / cols.length - (box.x0 + box.x1) / 2;
+    const dz = p.role === "roof" ? foot[cols[0]!]!.zBack - box.zBack : 0;
+    if (Math.abs(dx) < EPS && Math.abs(dz) < EPS) return p;
+    moved = true;
+    return { ...p, x: p.x + dx, z: p.z + dz };
+  });
+  if (!moved) return stack;
+  return { ...stack, depth_m: Math.max(...pieces.map((p) => -(p.z - p.d / 2))), pieces };
+}
+
+/** One piece whose body stands more than `BODY_REPORT_M` from its column's footprint on a side: what it really carries, reported and not fixed (ticket 063 criterion 31). */
+export interface BodyOverhang {
+  key: CalibrationKey;
+  role: StackRole;
+  column: number;
+  /** Which plane, and how far it stands outside the footprint's (negative: inside), metres. */
+  plane: "left" | "right" | "front" | "back";
+  off_m: number;
+}
+
+/**
+ * How well a stack's columns line up on their footprints (ticket 063 E2). `misfits` are what the rule must hold, each within `STOREY_ALIGN_TOL_M`: a floor's or a roof's back plane on the footprint's; a base no
+ * shallower than it; every piece's reference plane on the footprint's (a mid column's body centre, a corner column's outer flank); a floor's two side planes. `overhangs` are the planes of any piece that stand further
+ * than `BODY_REPORT_M` from the footprint's (a roof's cornice over the floor, an office's podium): reported, not a failure. `slight` are the same planes of the pieces that are further than `STOREY_ALIGN_TOL_M` but no
+ * further than `BODY_REPORT_M` off (a corner roof's inner flank, a roof's front, a turned shop corner's inner flank): also reported and not failed, so no difference over the tolerance goes unseen. A column whose pieces
+ * have no body is not looked at.
+ */
+export function storeyAlignment(
+  stack: Stack,
+  fronts: FrontTable = BUILDING_FRONTS,
+  bodies: Readonly<Partial<Record<CalibrationKey, Body>>> = BODY_M,
+): { misfits: string[]; overhangs: BodyOverhang[]; slight: BodyOverhang[] } {
+  const boxes = stack.pieces.map((p) => bodyBox(p, fronts, bodies));
+  const foot = footprints(stack, boxes);
+  const misfits: string[] = [];
+  const overhangs: BodyOverhang[] = [];
+  const slight: BodyOverhang[] = [];
+  stack.pieces.forEach((p, j) => {
+    const box = boxes[j];
+    const cols = spanned(stack, p).filter((i) => foot[i] !== null);
+    if (!box || cols.length === 0) return;
+    const f0 = foot[cols[0]!]!;
+    const f = { x0: Math.min(...cols.map((i) => foot[i]!.x0)), x1: Math.max(...cols.map((i) => foot[i]!.x1)), zFront: f0.zFront, zBack: f0.zBack };
+    const corner = stack.columns[p.column]!.corner;
+    const at = `${p.key} ${p.role} in column ${p.column}`;
+    const left = box.x0 - f.x0;
+    const right = box.x1 - f.x1;
+    const reference = corner === "-x" ? left : corner === "+x" ? right : (left + right) / 2;
+    if (Math.abs(reference) > STOREY_ALIGN_TOL_M + EPS) misfits.push(`${at}: its ${corner ? "outer flank" : "centre"} is ${reference.toFixed(3)} m off the footprint's`);
+    if (p.role === "floor" && (Math.abs(left) > STOREY_ALIGN_TOL_M + EPS || Math.abs(right) > STOREY_ALIGN_TOL_M + EPS)) misfits.push(`${at}: its sides are ${left.toFixed(3)} and ${right.toFixed(3)} m off the footprint's`);
+    const back = box.zBack - f.zBack;
+    if (p.role !== "base" && Math.abs(back) > STOREY_ALIGN_TOL_M + EPS) misfits.push(`${at}: its back plane is ${back.toFixed(3)} m off the footprint's`);
+    if (p.role === "base" && back > STOREY_ALIGN_TOL_M + EPS) misfits.push(`${at}: its back plane is ${back.toFixed(3)} m short of the footprint's`);
+    if (p.role === "floor") return;
+    for (const [plane, off] of [
+      ["left", -left],
+      ["right", right],
+      ["front", box.zFront - f.zFront],
+      ["back", -back],
+    ] as const) {
+      if (p.role === "base" && (plane === "back" || plane === "front")) continue;
+      if (Math.abs(off) > BODY_REPORT_M + EPS) overhangs.push({ key: p.key, role: p.role, column: p.column, plane, off_m: off });
+      else if (Math.abs(off) > STOREY_ALIGN_TOL_M + EPS) slight.push({ key: p.key, role: p.role, column: p.column, plane, off_m: off });
+    }
+  });
+  return { misfits, overhangs, slight };
 }
 
 /**

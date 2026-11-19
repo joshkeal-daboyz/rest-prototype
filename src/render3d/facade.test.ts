@@ -7,7 +7,30 @@ import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { AssetEntry, CalibrationKey } from "../core";
-import { WALL_BAND_M, WALL_FLOOR_REACH_M, WALL_FRONT_M, WALL_GROUND_Y_M, WALL_MIN_AREA_M2, WALL_OCTAGON_BASE_M, WALL_PINNED, WALL_REACH_M, WALL_SIDE_M, measureWallPlane, wallOffset, type WallRule } from "./facade";
+import {
+  BODY_M,
+  OPEN_MARGIN,
+  OPEN_SIDE_MEASURED,
+  ROOF_BASE_BAND_M,
+  ROOF_BASE_MIN_SPAN_M,
+  ROOF_SPAN_TIE_M,
+  WALL_BAND_M,
+  WALL_FLOOR_REACH_M,
+  WALL_FRONT_M,
+  WALL_GROUND_Y_M,
+  WALL_MIN_AREA_M2,
+  WALL_OCTAGON_BASE_M,
+  WALL_PINNED,
+  WALL_REACH_M,
+  WALL_SIDE_M,
+  bodyRuleOf,
+  measureBodyPlane,
+  measureOpenSide,
+  measureRoofBase,
+  measureWallPlane,
+  wallOffset,
+  type WallRule,
+} from "./facade";
 import { BUILDING_FRONTS, type FrontTable } from "./models";
 import { STACK_STYLES, assembleStack, stackKeys, type StackStyle } from "./stacks";
 import type { CornerSide } from "./town";
@@ -95,10 +118,19 @@ describe("the pinned wall planes (criterion 1)", () => {
   const SIDE: Record<string, number> = {
     SM_Bld_Shop_Corner_01: 0.188,
     SM_Bld_Shop_Corner_02: 0.166,
-    SM_Bld_Apartment_Corner_01: 0,
-    SM_Bld_Apartment_Corner_02: 0.085,
-    SM_Bld_Apartment_Corner_03: 0.14,
+    SM_Bld_Apartment_Corner_01: 0.196,
+    SM_Bld_Apartment_Corner_02: 0.129,
+    SM_Bld_Apartment_Corner_03: 0.351,
   };
+
+  // Ticket 063 E1: the side walls were measured on +x (the blank party wall) until 19 Nov 2026; they are the open face's, -x, now. These were the old values, so a revert is seen.
+  it("holds the side walls of the measured open face (-x), not the +x party walls it held before 063 E1", () => {
+    expect(WALL_SIDE_M[k("SM_Bld_Apartment_Corner_01")]).not.toBe(0);
+    expect(WALL_SIDE_M[k("SM_Bld_Apartment_Corner_02")]).not.toBe(0.085);
+    expect(WALL_SIDE_M[k("SM_Bld_Apartment_Corner_03")]).not.toBe(0.14);
+    // A corner floor's open face is modelled as its front, so its wall is the front's.
+    for (const n of ["SM_Bld_Apartment_Corner_01", "SM_Bld_Apartment_Corner_02", "SM_Bld_Apartment_Corner_03"]) expect(WALL_SIDE_M[k(n)], n).toBe(WALL_FRONT_M[k(n)]);
+  });
 
   it("holds exactly the measured front and side distances, and no other key", () => {
     expect(Object.fromEntries(Object.entries(WALL_FRONT_M).map(([key, v]) => [key.slice("city-pack:".length), v]))).toEqual(FRONT);
@@ -156,19 +188,32 @@ describe("wallOffset", () => {
     expect(wallOffset(shop2, "front")).toBe(0.425);
     expect(wallOffset(corner, "front")).toBe(0.211);
     expect(wallOffset(corner, "open")).toBe(0.188);
-    expect(wallOffset(corner, "open", BUILDING_FRONTS, "+x")).toBe(0.188);
+    expect(wallOffset(corner, "open", BUILDING_FRONTS, "-x")).toBe(0.188);
   });
 
-  it("is 0 for a key with no entry (a roof, an unknown key) and for an open side that is not the measured +x", () => {
+  it("is 0 for a key with no entry (a roof, an unknown key) and for an open side that is not the measured one (-x)", () => {
     expect(wallOffset(k("SM_Bld_Apartment_Roof_01"), "front")).toBe(0);
     expect(wallOffset(k("SM_Bld_Nothing_01"), "front")).toBe(0);
-    expect(wallOffset(corner, "open", BUILDING_FRONTS, "-x")).toBe(0);
+    expect(wallOffset(corner, "open", BUILDING_FRONTS, "+x")).toBe(0);
+  });
+
+  it("reads the open side whichever it is, not only +x (063 E1): the table's, Josh's from the gallery, or a measured one", () => {
+    // The table's own open side is the measured one, so the side wall counts.
+    expect(BUILDING_FRONTS[corner]!.open).toBe("-x");
+    expect(wallOffset(corner, "open")).toBe(0.188);
+    // A fronts table that says +x (a value Josh saved) no longer describes the measured face: 0, as a recalibrated front is.
+    expect(wallOffset(corner, "open", { ...BUILDING_FRONTS, [corner]: { front: "+z", corner: true, open: "+x" } })).toBe(0);
+    // A key whose measured open side is +x (a typed-in fixture of the old guess) reads its wall from +x.
+    expect(OPEN_SIDE_MEASURED[corner]?.open).toBe("-x");
+    for (const key of Object.keys(WALL_SIDE_M) as CalibrationKey[]) {
+      expect(wallOffset(key, "open", BUILDING_FRONTS, OPEN_SIDE_MEASURED[key]!.open), key).toBe(WALL_SIDE_M[key]);
+    }
   });
 
   it("is 0 when the front in the table passed is not the face that was measured (a front recalibrated in the gallery)", () => {
     const turned: FrontTable = { ...BUILDING_FRONTS, [shop2]: { front: "-z" } };
     expect(wallOffset(shop2, "front", turned)).toBe(0);
-    expect(wallOffset(corner, "open", { ...BUILDING_FRONTS, [corner]: { front: "+x", corner: true, open: "+x" } })).toBe(0);
+    expect(wallOffset(corner, "open", { ...BUILDING_FRONTS, [corner]: { front: "+x", corner: true, open: "-x" } })).toBe(0);
   });
 });
 
@@ -335,6 +380,47 @@ interface Gltf {
   bufferViews: { byteOffset?: number; byteStride?: number }[];
 }
 
+const CITY_GLB = join("assets", "private", "out", "city-pack.glb");
+/** True when the converted City Pack is on this machine (a fresh checkout and CI have none: every test that reads it is `it.skipIf(!HAVE_GLB)`). Only the file's presence is looked at here; it is read inside the test. */
+const HAVE_GLB = existsSync(CITY_GLB);
+let glbCache: ((name: string) => { positions: number[]; indices: number[] }) | null = null;
+
+/** The mesh (all primitives, every child) of the node called `name` in the converted City Pack, read lazily on first use and held for the run. */
+function glbMesh(name: string): { positions: number[]; indices: number[] } {
+  if (!glbCache) {
+    const glb = readFileSync(CITY_GLB);
+    const jsonLen = glb.readUInt32LE(12);
+    const gltf = JSON.parse(glb.subarray(20, 20 + jsonLen).toString("utf8")) as Gltf;
+    const bin = glb.subarray(20 + jsonLen + 8);
+    glbCache = (n) => {
+      const root = gltf.nodes.find((q) => q.name === n);
+      expect(root, n).toBeDefined();
+      const positions: number[] = [];
+      const indices: number[] = [];
+      const walk = (q: { mesh?: number; children?: number[] }): void => {
+        for (const prim of q.mesh !== undefined ? gltf.meshes[q.mesh]!.primitives : []) {
+          const a = gltf.accessors[prim.attributes.POSITION]!;
+          const bv = gltf.bufferViews[a.bufferView]!;
+          const base = (bv.byteOffset ?? 0) + (a.byteOffset ?? 0);
+          const first = positions.length / 3;
+          for (let i = 0; i < a.count; i++) {
+            const at = base + i * (bv.byteStride ?? 12);
+            positions.push(bin.readFloatLE(at), bin.readFloatLE(at + 4), bin.readFloatLE(at + 8));
+          }
+          const ia = gltf.accessors[prim.indices!]!;
+          const ib = gltf.bufferViews[ia.bufferView]!;
+          const at0 = (ib.byteOffset ?? 0) + (ia.byteOffset ?? 0);
+          for (let i = 0; i < ia.count; i++) indices.push(first + (ia.componentType === 5125 ? bin.readUInt32LE(at0 + i * 4) : bin.readUInt16LE(at0 + i * 2)));
+        }
+        for (const c of q.children ?? []) walk(gltf.nodes[c]!);
+      };
+      walk(root!);
+      return { positions, indices };
+    };
+  }
+  return glbCache(name);
+}
+
 /** Every front-facing plane of a mesh on +z that reaches the ground, as `measureWallPlane` groups them (the same bands and tolerance), for the hand-pinned key's check. */
 function groundPlanes(positions: number[], indices: number[]): { offset: number; area: number }[] {
   const at = (v: number, c: number): number => positions[v * 3 + c]!;
@@ -366,44 +452,14 @@ function groundPlanes(positions: number[], indices: number[]): { offset: number;
 const WALL_FACE_COS_TEST = 0.99;
 
 describe("the wall planes agree with the converted City Pack geometry when this machine has it (skipped when it does not)", () => {
-  it("re-measures every key within 0.02 m, on the front face and, for a corner key, the open side", { timeout: 120000 }, (ctx) => {
-    const file = join("assets", "private", "out", "city-pack.glb");
-    if (!existsSync(file)) ctx.skip();
-    const glb = readFileSync(file);
-    const jsonLen = glb.readUInt32LE(12);
-    const gltf = JSON.parse(glb.subarray(20, 20 + jsonLen).toString("utf8")) as Gltf;
-    const bin = glb.subarray(20 + jsonLen + 8);
-    const mesh = (name: string): { positions: number[]; indices: number[] } => {
-      const root = gltf.nodes.find((n) => n.name === name);
-      expect(root, name).toBeDefined();
-      const positions: number[] = [];
-      const indices: number[] = [];
-      const walk = (n: { mesh?: number; children?: number[] }): void => {
-        for (const prim of n.mesh !== undefined ? gltf.meshes[n.mesh]!.primitives : []) {
-          const a = gltf.accessors[prim.attributes.POSITION]!;
-          const bv = gltf.bufferViews[a.bufferView]!;
-          const base = (bv.byteOffset ?? 0) + (a.byteOffset ?? 0);
-          const first = positions.length / 3;
-          for (let i = 0; i < a.count; i++) {
-            const at = base + i * (bv.byteStride ?? 12);
-            positions.push(bin.readFloatLE(at), bin.readFloatLE(at + 4), bin.readFloatLE(at + 8));
-          }
-          const ia = gltf.accessors[prim.indices!]!;
-          const ib = gltf.bufferViews[ia.bufferView]!;
-          const at0 = (ib.byteOffset ?? 0) + (ia.byteOffset ?? 0);
-          for (let i = 0; i < ia.count; i++) indices.push(first + (ia.componentType === 5125 ? bin.readUInt32LE(at0 + i * 4) : bin.readUInt16LE(at0 + i * 2)));
-        }
-        for (const c of n.children ?? []) walk(gltf.nodes[c]!);
-      };
-      walk(root!);
-      return { positions, indices };
-    };
+  it.skipIf(!HAVE_GLB)("re-measures every key within 0.02 m, on the front face and, for a corner key, the measured open side (-x)", { timeout: 120000 }, () => {
+    const mesh = glbMesh;
     const bad: string[] = [];
     // A key that is a base in any recipe is measured by the ground rule; every other is a floor.
     const grounds = new Set<string>(STACK_STYLES.flatMap((st) => [...st.base.mid, ...(st.base.door ?? []), ...st.base.corner]));
     for (const [table, face] of [
       [WALL_FRONT_M, "+z"],
-      [WALL_SIDE_M, "+x"],
+      [WALL_SIDE_M, "-x"],
     ] as const) {
       for (const [key, want] of Object.entries(table)) {
         if (WALL_PINNED.includes(key as CalibrationKey)) continue;
@@ -427,3 +483,265 @@ describe("the wall planes agree with the converted City Pack geometry when this 
     expect(bad).toEqual([]);
   });
 });
+
+// ---- ticket 063 E1: the corner pieces' open side ----
+
+describe("measureOpenSide on a typed-in mesh (063 E1)", () => {
+  // A wall quad facing `face` on the plane at distance `at` from the origin, spanning y0..y1 and a0..a1 along the face (x for +z and -z, z for +x and -x). Wound so its normal points out.
+  function wall(face: "+x" | "-x" | "+z" | "-z", at: number, y0: number, y1: number, a0: number, a1: number): number[] {
+    const along = face === "+z" || face === "-z";
+    const sign = face === "+x" || face === "+z" ? 1 : -1;
+    const P = (q: number, y: number): number[] => (along ? [q, y, sign * at] : [sign * at, y, q]);
+    const quad = [P(a0, y0), P(a1, y0), P(a1, y1), P(a0, y0), P(a1, y1), P(a0, y1)];
+    // +z and -x are wound as written; the other two are reversed so the normal points out.
+    const flip = face === "-z" || face === "+x";
+    const t = flip ? [quad[0]!, quad[2]!, quad[1]!, quad[3]!, quad[5]!, quad[4]!] : quad;
+    return t.flat();
+  }
+  const blank = (face: "+x" | "-x" | "+z" | "-z"): number[] => wall(face, 2.5, 0, 3, -2.5, 2.5);
+  // A street face: frames at the bound, a window reveal 0.25 m behind it, and the room's wall deeper in.
+  const street = (face: "+x" | "-x" | "+z" | "-z"): number[] => [...wall(face, 2.5, 0, 1, -2.5, 2.5), ...wall(face, 2.25, 1, 2.2, -1.2, 1.2), ...wall(face, 2.5, 2.2, 3, -2.5, 2.5), ...wall(face, 1.8, 0.2, 2.9, -2, 2)];
+
+  it("names -x when the front's profile is on -x and +x is a blank wall, and +x when it is the other way round, wherever the piece is", () => {
+    expect(measureOpenSide([...street("+z"), ...street("-x"), ...blank("+x"), ...blank("-z")], null)).toBe("-x");
+    expect(measureOpenSide([...street("+z"), ...street("+x"), ...blank("-x"), ...blank("-z")], null)).toBe("+x");
+    const moved = [...street("+z"), ...street("-x"), ...blank("+x"), ...blank("-z")].map((v, i) => (i % 3 === 2 ? v + 1 : v));
+    expect(measureOpenSide(moved, null)).toBe("-x");
+  });
+
+  it("names nothing for a mid piece (two blank walls, equally far from the front) and for a piece with no front", () => {
+    expect(measureOpenSide([...street("+z"), ...blank("-x"), ...blank("+x"), ...blank("-z")], null)).toBeNull();
+    expect(measureOpenSide([...blank("-x"), ...blank("+x")], null)).toBeNull();
+    expect(measureOpenSide([], null)).toBeNull();
+  });
+
+  it("reads an index list, and states the margin the nearer side must beat the other by", () => {
+    const pos = [...street("+z"), ...street("-x"), ...blank("+x")];
+    const idx = Array.from({ length: pos.length / 3 }, (_, i) => i);
+    expect(measureOpenSide(pos, idx)).toBe("-x");
+    expect(OPEN_MARGIN).toBe(4);
+  });
+
+  it("fails the old guess: a corner whose street face is on +x is not read as -x, so a table that says -x for it would be caught", () => {
+    expect(measureOpenSide([...street("+z"), ...street("+x"), ...blank("-x"), ...blank("-z")], null)).toBe("+x");
+  });
+});
+
+describe("the measured open sides (063 E1)", () => {
+  const CORNERS = STACK_STYLES.flatMap((st) => [...st.base.corner, ...st.floor.corner, ...st.roof.corner]);
+  const unique = [...new Set(CORNERS)];
+
+  it("is a typed-in table with a reason for every corner piece of every recipe, and nothing else", () => {
+    expect(unique).toHaveLength(8);
+    expect(Object.keys(OPEN_SIDE_MEASURED).sort()).toEqual(unique.slice().sort());
+    for (const [key, m] of Object.entries(OPEN_SIDE_MEASURED)) {
+      expect(m!.open, key).toBe("-x");
+      expect(m!.why.length, key).toBeGreaterThan(30);
+    }
+  });
+
+  it("is the open side BUILDING_FRONTS plans with and every recipe's guess (the table, the fronts and the recipes cannot drift apart)", () => {
+    for (const key of unique) {
+      expect(BUILDING_FRONTS[key]?.open, key).toBe(OPEN_SIDE_MEASURED[key]!.open);
+      for (const st of STACK_STYLES) if (key in (st.open ?? {})) expect(st.open![key], `${st.id} ${key}`).toBe(OPEN_SIDE_MEASURED[key]!.open);
+    }
+  });
+
+  it.skipIf(!HAVE_GLB)("re-measures every corner piece of every recipe from the converted City Pack, and a mid piece names nothing", { timeout: 120000 }, () => {
+    const bad: string[] = [];
+    for (const key of unique) {
+      const m = glbMesh(key.slice("city-pack:".length));
+      const got = measureOpenSide(m.positions, m.indices);
+      if (got !== OPEN_SIDE_MEASURED[key]!.open) bad.push(`${key}: measured ${got}, table ${OPEN_SIDE_MEASURED[key]!.open}`);
+    }
+    for (const name of ["SM_Bld_Apartment_01", "SM_Bld_Apartment_Roof_01", "SM_Bld_Shop_01", "SM_Bld_Apartment_Stack_02"]) {
+      const m = glbMesh(name);
+      if (measureOpenSide(m.positions, m.indices) !== null) bad.push(`${name}: a mid piece names an open side`);
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it.skipIf(!HAVE_GLB)("agrees with the pack's own corner glass and L awning: their faces are on +z and -x and not on +x or -z", { timeout: 120000 }, () => {
+    for (const name of ["SM_Bld_Shop_Corner_01_Glass", "SM_Bld_Shop_Corner_02_Glass", "SM_Bld_Shop_Cover_05"]) {
+      const m = glbMesh(name);
+      const on = (face: "+x" | "-x" | "+z" | "-z"): boolean => areaFacing(m, face) > 0.3;
+      expect([on("+z"), on("-x"), on("+x"), on("-z")], name).toEqual([true, true, false, false]);
+    }
+  });
+});
+
+describe("the angled face of Shop_Corner_02 (063 E1, criterion 25)", () => {
+  /** The area of near-vertical triangles that face diagonally, per quadrant of (x, z): the chamfer is the biggest. */
+  function diagonals(m: { positions: number[]; indices: number[] }): Record<string, number> {
+    const out: Record<string, number> = { "-x+z": 0, "+x+z": 0, "-x-z": 0, "+x-z": 0 };
+    const at = (v: number, c: number): number => m.positions[v * 3 + c]!;
+    for (let i = 0; i + 2 < m.indices.length; i += 3) {
+      const [a, b, c] = [m.indices[i]!, m.indices[i + 1]!, m.indices[i + 2]!];
+      const u = [0, 1, 2].map((q) => at(b, q) - at(a, q));
+      const w = [0, 1, 2].map((q) => at(c, q) - at(a, q));
+      const n = [u[1]! * w[2]! - u[2]! * w[1]!, u[2]! * w[0]! - u[0]! * w[2]!, u[0]! * w[1]! - u[1]! * w[0]!];
+      const len = Math.hypot(n[0]!, n[1]!, n[2]!);
+      if (len < 1e-12 || Math.abs(n[1]! / len) > 0.2 || Math.abs(n[0]! / len) < 0.5 || Math.abs(n[2]! / len) < 0.5) continue;
+      const key = `${n[0]! > 0 ? "+x" : "-x"}${n[2]! > 0 ? "+z" : "-z"}`;
+      out[key] = out[key]! + len / 2;
+    }
+    return out;
+  }
+
+  it.skipIf(!HAVE_GLB)("is on the -x+z diagonal, the corner between the two street faces, with the glass wrapped round it", { timeout: 120000 }, () => {
+    for (const name of ["SM_Bld_Shop_Corner_02", "SM_Bld_Shop_Corner_02_Glass"]) {
+      const d = diagonals(glbMesh(name));
+      const best = Object.entries(d).sort((p, q) => q[1] - p[1]);
+      expect(best[0]![0], name).toBe("-x+z");
+      expect(best[0]![1], name).toBeGreaterThan(2);
+      // Well clear of the next diagonal, so it is a chamfer and not noise.
+      expect(best[0]![1] - best[1]![1], name).toBeGreaterThan(0.5);
+    }
+  });
+});
+
+// ---- ticket 063 E2: the bodies ----
+
+describe("measureRoofBase on a typed-in cornice (063 E2)", () => {
+  // A wall quad facing +x on the plane x = at, from y0 to y1, along z from a0 to a1; and the same facing +z at z = at, along x.
+  const plusX = (at: number, y0: number, y1: number, a0: number, a1: number): number[] => [at, y0, a0, at, y1, a0, at, y1, a1, at, y0, a0, at, y1, a1, at, y0, a1];
+  const plusZ = (at: number, y0: number, y1: number, a0: number, a1: number): number[] => [a0, y0, at, a1, y0, at, a1, y1, at, a0, y0, at, a1, y1, at, a0, y1, at];
+
+  // A cornice 0.5 m tall that steps out 0.05 m a tier: its foot (y 0 to 0.09) is at 2.5, its top (y 0.39 to 0.5) at 2.65, which is the bound and the biggest plane.
+  const cornice = (face: "x" | "z"): number[] => {
+    const q = face === "x" ? plusX : plusZ;
+    return [...q(2.5, 0, 0.09, -2.5, 2.5), ...q(2.55, 0.13, 0.23, -2.55, 2.55), ...q(2.6, 0.27, 0.35, -2.6, 2.6), ...q(2.65, 0.39, 0.5, -2.65, 2.65)];
+  };
+
+  it("takes the outer face of the lowest tier, where the roof stands on the wall, and not the top step the area rule picks", () => {
+    const m = measureRoofBase(cornice("x"), null, "+x")!;
+    expect(m.plane).toBeCloseTo(2.5, 9);
+    expect(m.bound).toBeCloseTo(2.65, 9);
+    expect(m.offset).toBeCloseTo(0.15, 9);
+    // The wall rule, on the same mesh, finds the top step (the largest plane within its reach of the bound): that is not where the roof stands.
+    expect(measureWallPlane(cornice("x"), null, "+x", "floor")!.offset).toBeCloseTo(0, 9);
+    expect(measureBodyPlane(cornice("x"), null, "+x", "roof")!.offset).toBeCloseTo(0.15, 9);
+    expect(measureBodyPlane(cornice("x"), null, "+x", "floor")!.offset).toBeCloseTo(0, 9);
+  });
+
+  it("takes the plane that runs furthest along the face over a bigger one that stands out for part of it (a pediment), and the outermost of two as long as each other", () => {
+    const pediment = plusZ(2.9, 0, 0.09, -1.3, 1.3); // 0.23 m2, a short plane further out
+    const wallFoot = plusZ(2.2, 0, 0.09, -2.5, 2.5); // 0.45 m2 at the foot, the full length
+    const m = measureRoofBase([...pediment, ...wallFoot], null, "+z")!;
+    expect(m.plane).toBeCloseTo(2.2, 9);
+    expect(m.offset).toBeCloseTo(0.7, 9);
+    const a = plusZ(2.2, 0, 0.09, -2.5, 2.5);
+    const b = plusZ(2.4, 0, 0.09, -2.5 + ROOF_SPAN_TIE_M / 2, 2.5);
+    expect(measureRoofBase([...a, ...b], null, "+z")!.plane).toBeCloseTo(2.4, 9);
+  });
+
+  it("ignores a plane shorter than ROOF_BASE_MIN_SPAN_M, anything above the foot (ROOF_BASE_BAND_M), and a face with nothing on it", () => {
+    expect(ROOF_BASE_MIN_SPAN_M).toBe(1);
+    expect(ROOF_BASE_BAND_M).toBe(0.1);
+    expect(measureRoofBase(plusZ(2, 0, 0.09, -0.4, 0.4), null, "+z")).toBeNull();
+    expect(measureRoofBase(plusZ(2, 0.2, 0.3, -2, 2), null, "+z")).toBeNull();
+    expect(measureRoofBase(plusX(2, 0, 0.09, -2, 2), null, "+z")).toBeNull();
+    expect(measureRoofBase([], null, "+z")).toBeNull();
+  });
+
+  it("reads an index list and the other faces by the same rule", () => {
+    const pos = cornice("x");
+    const idx = Array.from({ length: pos.length / 3 }, (_, i) => i);
+    expect(measureRoofBase(pos, idx, "+x")!.offset).toBeCloseTo(0.15, 9);
+    // A -x face: the same cornice mirrored through x = 0, wound the other way so its normal points at -x.
+    const mirrored: number[] = [];
+    for (let t = 0; t < pos.length; t += 9) {
+      const tri = [0, 1, 2].map((v) => [-pos[t + v * 3]!, pos[t + v * 3 + 1]!, pos[t + v * 3 + 2]!]);
+      mirrored.push(...tri[0]!, ...tri[2]!, ...tri[1]!);
+    }
+    expect(measureRoofBase(mirrored, null, "-x")!.offset).toBeCloseTo(0.15, 9);
+  });
+});
+
+describe("the measured bodies (063 E2)", () => {
+  const STACK_KEYS = [...new Set(STACK_STYLES.flatMap((s) => stackKeys(s)))];
+  const OCTAGON_ROOF = k("SM_Bld_OfficeOctagon_Roof_01");
+
+  it("has an entry for every stack piece but the round Octagon roof (it has no vertical wall), and for nothing else", () => {
+    expect(STACK_KEYS).toHaveLength(34);
+    expect(Object.keys(BODY_M).sort()).toEqual(STACK_KEYS.filter((key) => key !== OCTAGON_ROOF).sort());
+  });
+
+  it("agrees with the wall tables: the front is WALL_FRONT_M on every key that has a wall, and a corner piece's -x is WALL_SIDE_M", () => {
+    for (const [key, b] of Object.entries(BODY_M) as [CalibrationKey, NonNullable<(typeof BODY_M)[CalibrationKey]>][]) {
+      if (key in WALL_FRONT_M) expect(b.front, key).toBe(WALL_FRONT_M[key]);
+      if (key in WALL_SIDE_M) expect(b.nx, key).toBe(WALL_SIDE_M[key]);
+      for (const v of [b.front, b.back, b.nx, b.px]) {
+        expect(v, key).toBeGreaterThanOrEqual(0);
+        expect(v, key).toBeLessThan(1);
+      }
+    }
+  });
+
+  it("is symmetric along the row on every piece that is not a corner piece (a body is centred in its bounds), and a corner piece's party wall is flush or the piece's own side inset", () => {
+    for (const [key, b] of Object.entries(BODY_M) as [CalibrationKey, NonNullable<(typeof BODY_M)[CalibrationKey]>][]) {
+      if (key in OPEN_SIDE_MEASURED) continue;
+      expect(b.nx, key).toBe(b.px);
+    }
+  });
+
+  it("has every floor, three-storey piece and base of an apartment 5.0 m wide in the body, so they tile with each other whatever each overhangs by", () => {
+    const sizes = new Map<string, number>(SIZES.map(([n, w]) => [`city-pack:${n}`, w]));
+    for (const s of STACK_STYLES.filter((st) => st.depth === "bay")) {
+      for (const key of [...s.base.mid, ...(s.base.door ?? []), ...s.base.corner, ...s.floor.mid, ...s.floor.corner, ...(s.floor.stack3 ?? [])]) {
+        const b = BODY_M[key]!;
+        const width = sizes.get(key)! - b.nx - b.px;
+        expect(width, key).toBeCloseTo(key === k("SM_Bld_Shop_03") ? 10 : 5, 1);
+      }
+    }
+  });
+
+  it.skipIf(!HAVE_GLB)("re-measures every entry within 0.02 m on all four faces, a roof by its lowest tier and a base or floor by the wall rule, and finds nothing on the Octagon roof", { timeout: 120000 }, () => {
+    const grounds = new Set<CalibrationKey>(STACK_STYLES.flatMap((st) => [...st.base.mid, ...(st.base.door ?? []), ...st.base.corner]));
+    const bad: string[] = [];
+    for (const [key, want] of Object.entries(BODY_M) as [CalibrationKey, NonNullable<(typeof BODY_M)[CalibrationKey]>][]) {
+      const m = glbMesh(key.slice("city-pack:".length));
+      const rule = bodyRuleOf(key, grounds);
+      for (const [face, field] of [
+        ["+z", "front"],
+        ["-z", "back"],
+        ["-x", "nx"],
+        ["+x", "px"],
+      ] as const) {
+        // The Octagon base's front is the hand-pinned 0.174 m face (the rule would pick 0.595 m): its own check is above.
+        if (WALL_PINNED.includes(key) && field === "front") continue;
+        const got = measureBodyPlane(m.positions, m.indices, face, rule);
+        if (!got) bad.push(`${key} ${field}: no plane (rule ${rule})`);
+        else if (Math.abs(got.offset - want[field]) > 0.02) bad.push(`${key} ${field}: measured ${got.offset.toFixed(3)}, table ${want[field]} (rule ${rule})`);
+      }
+    }
+    const roof = glbMesh(OCTAGON_ROOF.slice("city-pack:".length));
+    for (const face of ["+z", "-z", "-x", "+x"] as const) if (measureBodyPlane(roof.positions, roof.indices, face, "roof") !== null) bad.push(`Octagon roof ${face}: a plane was found`);
+    expect(bad).toEqual([]);
+  });
+
+  it("names the rule by role: a roof is measured at its foot, a base by the ground rule, anything else by the floor rule", () => {
+    const grounds = new Set<CalibrationKey>([k("SM_Bld_Shop_01")]);
+    expect(bodyRuleOf(k("SM_Bld_Apartment_Roof_01"), grounds)).toBe("roof");
+    expect(bodyRuleOf(k("SM_Bld_OfficeOld_Small_Roof_01"), grounds)).toBe("roof");
+    expect(bodyRuleOf(k("SM_Bld_Shop_01"), grounds)).toBe("ground");
+    expect(bodyRuleOf(k("SM_Bld_Apartment_01"), grounds)).toBe("floor");
+  });
+});
+
+/** The area of a mesh's triangles whose normal points along `face` (within the wall-face cosine), m^2. */
+function areaFacing(m: { positions: number[]; indices: number[] }, face: "+x" | "-x" | "+z" | "-z"): number {
+  const axis = face === "+z" || face === "-z" ? 2 : 0;
+  const sign = face === "+z" || face === "+x" ? 1 : -1;
+  const at = (v: number, c: number): number => m.positions[v * 3 + c]!;
+  let area = 0;
+  for (let i = 0; i + 2 < m.indices.length; i += 3) {
+    const [a, b, c] = [m.indices[i]!, m.indices[i + 1]!, m.indices[i + 2]!];
+    const u = [0, 1, 2].map((q) => at(b, q) - at(a, q));
+    const w = [0, 1, 2].map((q) => at(c, q) - at(a, q));
+    const n = [u[1]! * w[2]! - u[2]! * w[1]!, u[2]! * w[0]! - u[0]! * w[2]!, u[0]! * w[1]! - u[1]! * w[0]!];
+    const len = Math.hypot(n[0]!, n[1]!, n[2]!);
+    if (len > 1e-12 && (sign * n[axis]!) / len >= 0.99) area += len / 2;
+  }
+  return area;
+}

@@ -45,7 +45,7 @@ import {
 } from "./models";
 import { pickPlaceholders } from "./placeholders";
 import type { ModelSlots, SceneBundle } from "./scene";
-import { STACK_STYLES, assembleStack, offeredStacks, stackKeys, type Stack, type StackAlign, type StackPiece, type StackStyle } from "./stacks";
+import { STACK_STYLES, assembleStack, offeredStacks, seatOnBody, stackKeys, type Stack, type StackAlign, type StackFootprint, type StackPiece, type StackStyle } from "./stacks";
 import { ALLEY_MAX_M, ALLEY_MIN_M, alignOf, packTown, type PackedBlock, type PackResult } from "./terrace";
 import { PAVEMENT_Y, YARD, YARD_H } from "./scene";
 import { DOOR_SILLS, STEPS_D_M, STEPS_KEY, STEPS_RISE_M, STEPS_W_M, fitSillBand, houseSill, modelPoint, stackLift, stackSill, stepsYaw, type SillPlan, type SillTable } from "./sills";
@@ -1027,8 +1027,19 @@ export function bandedStack(stack: Stack, style: StackStyle, table: SillTable, s
  * The packer's result with every block whose lifted ground pieces would reach their first floor's window sill assembled again within one sill band (ticket 062 B; pure). `terrace.ts` assembles with no band and is not
  * given one, so this pass runs on what `packTown` gave: the same lot, floors and columns, a ground row picked from one band, taken only where everything above the ground row is the same (`sameAboveGround`). `applyModels`
  * draws these blocks and hands them back as `applied.packed`, and the pure plan (metrics, frontage, the passage floors) is made from them, so what is checked is what is drawn. `align` is the packer's (default: each run's own).
+ *
+ * Ticket 063 E2: on a wall-aligned run (the tile city's) every block is then seated on its footprint (`seatOnBody`: each piece's body on its column's floor piece's, so the roof stands on the walls it covers and a corner's
+ * flank is one plane from the shop to the cornice). `footprint` says it outright ("bounds": not); the default is "body" exactly where the run is wall-aligned, so a ladder map's blocks (back-aligned) are untouched.
  */
-export function bandPacked(packed: ReadonlyMap<string, PackResult>, runs: readonly TerraceRun[], entries: ReadonlyMap<CalibrationKey, AssetEntry>, fronts: FrontTable, table: SillTable = DOOR_SILLS, align?: StackAlign): Map<string, PackResult> {
+export function bandPacked(
+  packed: ReadonlyMap<string, PackResult>,
+  runs: readonly TerraceRun[],
+  entries: ReadonlyMap<CalibrationKey, AssetEntry>,
+  fronts: FrontTable,
+  table: SillTable = DOOR_SILLS,
+  align?: StackAlign,
+  footprint?: StackFootprint,
+): Map<string, PackResult> {
   const out = new Map<string, PackResult>();
   for (const [id, res] of packed) {
     const run = runs.find((r) => r.id === id);
@@ -1038,11 +1049,14 @@ export function bandPacked(packed: ReadonlyMap<string, PackResult>, runs: readon
       if (!style || !run) return b;
       const cap = Math.round((b.lot.hMax / WORLD_PER_METRE) * 1e6) / 1e6;
       const lot = { type: b.lot.type, key: b.lot.key, cornerSides: b.lot.cornerSides };
-      const again = (sillBand: ReadonlySet<CalibrationKey>): Stack | null => assembleStack(style, lot, entries, fronts, { spec: { frontage: 40, depth: TERRACE_DEPTH_M, cap }, bays: b.bays, floors: b.floors, align: align ?? alignOf(run), sillBand });
+      const lined = align ?? alignOf(run);
+      const again = (sillBand: ReadonlySet<CalibrationKey>): Stack | null => assembleStack(style, lot, entries, fronts, { spec: { frontage: 40, depth: TERRACE_DEPTH_M, cap }, bays: b.bays, floors: b.floors, align: lined, sillBand });
       const fitted = bandedStack(b.stack, style, table, `${b.lot.key}${style.id}`, again);
-      if (fitted === b.stack) return b;
+      // The band pass compares stacks as the packer made them (same x and y above the ground row); the body seating is the last thing done to the block.
+      const seated = (footprint ?? (lined === "wall" ? "body" : "bounds")) === "body" && lined === "wall" ? seatOnBody(fitted, fronts) : fitted;
+      if (seated === b.stack) return b;
       changed = true;
-      return { ...b, stack: fitted };
+      return { ...b, stack: seated };
     });
     out.set(id, changed ? { ...res, blocks } : res);
   }
@@ -1230,6 +1244,11 @@ export interface ApplyOptions {
    * Default: none, so `packTown` decides as it always did and a puzzle map is exactly what it was.
    */
   align?: StackAlign;
+  /**
+   * How the pieces of a terrace column line up (ticket 063 E2): "body" puts each piece's body on its column's floor piece's (`seatOnBody`). Default: "body" when the stacks are wall-aligned (the tile city), "bounds"
+   * otherwise, so a puzzle map's stacks are exactly what they were. Only a wall-aligned stack can be seated.
+   */
+  footprint?: StackFootprint;
   /** The share of qualifying blocks that get a fire escape (ticket 061): the tile city passes its R7 floor (`TILE_CITY_R7_MIN`). Default: the ladder's (`ESCAPE_SHARE_LADDER`), so a puzzle map is unchanged by it. */
   escapeShare?: number;
 }
@@ -1326,7 +1345,7 @@ export function applyModels(bundle: SceneBundle, set: ModelSet, opts: ApplyOptio
     const lots = slots.blocks.list;
     // The packer assembles with no sill band; a block whose lifted ground pieces would reach its first floor's window sill is assembled again within one band (ticket 062 B, `bandPacked`). What is drawn, what the
     // furniture is laid by and what `applied.packed` hands back are those blocks.
-    const packed = bandPacked(packTown({ terraces: runs, lots }, STACK_STYLES, stacks.entries, stacks.fronts, opts.align ? { align: opts.align } : {}), runs, stacks.entries, stacks.fronts, sills, opts.align);
+    const packed = bandPacked(packTown({ terraces: runs, lots }, STACK_STYLES, stacks.entries, stacks.fronts, opts.align ? { align: opts.align } : {}), runs, stacks.entries, stacks.fronts, sills, opts.align, opts.footprint);
     for (const [id, res] of packed) packedRuns.set(id, res);
     const row = new Group();
     row.name = "terrace-stacks";
