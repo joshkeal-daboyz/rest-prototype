@@ -19,6 +19,8 @@ branch: one per section: `ticket/063a-one-sidewalk`, `ticket/063b-street-width`,
 
 > "It's ok to have curbs that stretch out like this in spots but the curb structures have to follow the crub."
 
+> "Here is an example of how the curbs may flow in this case scenario" (a screenshot of an inlet between buildings, with two green lines: on each side of the opening, the street kerb turns in at a rounded corner and runs along that side of the opening to the building line)
+
 > "roof top exists shouldn't open to the street. They should be on the roof."
 
 > "If you're going to have an inlet to areas between buildings it needs to be paved"
@@ -227,6 +229,34 @@ In the tile city in daylight:
 36. [ ] The code fallback's `kerbStrips` move to the same inset line, so fallback and pack agree. `Town.kerbs` and `TileStreet.carriage` (layout data) stay on the cell edge. `POLE_SLOT_FROM_KERB_M` is unchanged and is recorded as 0.10 m behind the pack's kerb face (059 reads it; Open item F1).
 37. [ ] (Main session, screenshots, street camera) along a street with build-outs, the kerb is one line with no trench, no open tile end and no step.
 
+#### F, worked example: the kerb at an inlet (Josh, 19 Nov 2026: "Here is an example of how the curbs may flow in this case scenario")
+An inlet is any opening in a row that has a kerb cut: a court drive (2 cells), a frontage lot of `TileCity.frontLots` (2 cells), or an alley mouth (1 cell). A gated passage has no kerb cut and is not an inlet. At an inlet the kerb does not stop and jog. It turns in at a rounded corner on each side and runs along that side of the opening to the building line (the pavement's back edge). Between the two returns, the mouth on the street edge is the kerb-cut dip. Plan view, street at the bottom, a two-cell court drive:
+
+```
+   ring 1   ██ building ██|     inlet: paved (H)    |██ building ██
+            ──────────────+ . . . building line . . +──────────────
+                          ║                         ║
+   pavement  Straight_02  ║ Dip_01      Dip_01      ║  Straight_02
+   band      (return cell ╰╮ (mouth: dip)          ╭╯ return cell)
+            ═══════════════╯ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ╰═══════════════
+   road      gutter / parking band / lanes
+```
+`═` is the street kerb, `╯` and `╰` are the rounded returns, `║` is the return kerb running up the opening's side to the building line, and `─ ─` is the dipped kerb of the mouth.
+
+37a. [ ] **The path, pure.** `kerbLine(city)` gives each street side one continuous path from crossing to crossing. At every inlet the path goes along the street edge, round the near return (rounded), up the opening's near side to the building line, then (after the opening, marked `opening`) down the far side, round the far return and on along the street edge. The mouth's edge on the street, between the two returns, is a `dip` segment whose ends meet both returns.
+37b. [ ] **The pieces.**
+   - The two cells of the mouth are `Sidewalk_Dip_01` (`kerbCut`, as today).
+   - The pavement cell on each side of the mouth is the return, `Sidewalk_Dip_Corner_01`, turned so its rounded kerb joins the street kerb to the kerb along the opening's side.
+   - The builder measures the dip corner's rounded and dipped sides in an `it.skipIf` and pins them in `KERB_FACES_M`. If a turned `Dip_Corner_01` cannot put its kerb on both legs within `KERB_TOL_M`, the return is drawn as the measured straight plus a code-drawn return strip (lip height, `#7b7b79`, rounded by the piece's radius or squared), and the builder reports which.
+   - This needs a new `TileRole` or variant for a return cell. `tilecity.ts` lays it, beside 055 B's kerb cut, and `TILE_SLOTS` stays exhaustive.
+37c. [ ] **The test** (pure, on the default city, seeds 1 to 10 at 3 x 3 and seeds 1 to 3 at 6 x 4):
+   - every inlet has a return on **both** sides;
+   - the kerb faces of adjacent cells coincide, within `KERB_TOL_M` in plan and 0.02 m in lip height, along the street edge, round each return and along each side to the building line;
+   - each return's kerb reaches the building line with no gap over 0.05 m;
+   - the `dip` segment joins both returns.
+   - A fixture of today's plan (a kerb cut with plain straights beside it, so no returns) fails this, and so does an inlet with one return removed.
+37d. [ ] (Main session, screenshot) the inlet Josh marked, on the default city: the kerb turns into the opening on both sides as on his drawing.
+
 ### G. The roof exit (Vitest unless marked)
 38. [ ] **The rule** (`dressing.ts`):
     - `SM_Bld_Roof_Access_01` stands wholly inside its roof cell (the `ROOF_EDGE_M` insets).
@@ -242,6 +272,7 @@ In the tile city in daylight:
     - the court's first row of stalls (ring 2) keeps the bare road and `ParkingLines_01`;
     - the alley lane beyond ring 1 keeps the bare road.
     - The kerb cut (`Dip_01`) on the pavement band stays as it is, so the dropped kerb meets paving.
+    - The paving starts at the building line, where F's return kerbs end (F's worked example). Paving and returns meet at the walk's level with no step. H can be built before F; until F merges the mouth keeps today's straights beside it.
 42a. [ ] **What is not paved.** A frontage lot of a block in `TileCity.frontLots` (a real lot, not an inlet) keeps its asphalt and stall lines.
 43. [ ] **The test, pure.**
     - Every drive cell and alley mouth cell resolves to the paving key.
@@ -281,8 +312,9 @@ In the tile city in daylight:
   - `facade.test.ts`, `stacks.test.ts`, `tilecity.test.ts`.
 - **F:**
   - new `src/render3d/kerbline.ts` and `kerbline.test.ts`;
-  - `tileslots.ts` (`KERB_FACES_M`), `tilecity3d.ts` (the kerb plan, the lifted slab, the flank strips, `kerbStrips`);
-  - `tilecity3d.test.ts`.
+  - `tileslots.ts` (`KERB_FACES_M`, the return cell's slot), `tilecity3d.ts` (the kerb plan, the lifted slab, the flank strips, the returns, `kerbStrips`);
+  - `tilecity.ts` (the return cells beside each kerb cut only);
+  - `tilecity3d.test.ts`, `tilecity.test.ts`, `tileslots.test.ts`.
 - **G:** `dressing.ts` (the access placement only), `dressing.test.ts`, `dressdraw.test.ts`.
 - **H:** `tileslots.ts`, `tilecity3d.ts` (drive and mouth cells drawn as paving), `tileinterior.test.ts`, `tilecity3d.test.ts`.
 - **Must not touch:**
@@ -309,7 +341,7 @@ All in `src/render3d/`; the builder may rename any of them.
   - `measureOpenSide(mesh): "+x" | "-x" | null` and `OPEN_SIDE_MEASURED: Readonly<Partial<Record<CalibrationKey, { open: "+x" | "-x"; why: string }>>>` (E1);
   - `BODY_M: Readonly<Partial<Record<CalibrationKey, { front: number; back: number; nx: number; px: number }>>>` (E2).
 - `stacks.ts`: `AssembleOptions.footprint?: "bounds" | "body"` (default "bounds") and `STOREY_ALIGN_TOL_M = 0.03` (E2).
-- `kerbline.ts`: `kerbLine(city): readonly { street: string; side: 1 | -1; points: readonly Pt[]; dips: readonly [number, number][] }[]` and `KERB_TOL_M = 0.03` (F).
+- `kerbline.ts`: `kerbLine(city): readonly { street: string; side: 1 | -1; points: readonly Pt[]; dips: readonly [number, number][]; openings: readonly [number, number][]; returns: readonly { inlet: string; at: Pt; side: "near" | "far" }[] }[]`, and a return cell (a `TileRole` "kerbReturn" or a `pavement` variant, the builder's choice) and `KERB_TOL_M = 0.03` (F).
 - `tileslots.ts`: `KERB_FACES_M: Readonly<Partial<Record<CalibrationKey, readonly { side: "+x" | "-x" | "+z" | "-z"; inset_m: number; top_m: number }[]>>>` (F).
 - `dressing.ts`: `ROOF_ACCESS_CLEAR_M = 1.2` (G).
 
@@ -337,6 +369,7 @@ All in `src/render3d/`; the builder may rename any of them.
 - **Q-A: the grates.** Keep the 1-in-6 `Sidewalk_Grate_01` cells? They are the same colour, opaque and on the same atlas. Default: keep.
 - **Q-E: fix the ladder too?** E1's corner fix and G's roof-exit fix change the ladder maps' corner shops and roof exits, as they should (the same bug). Default: yes, with `packpin` re-pinned and the change named. The alternative is the tile city only.
 - **Q-E2: roof pairing.** If a style's own roof still overhangs its floor after E2, may a style take another style's roof of a better fit (for example `Roof_02` on `Apartment_03`)? It changes that style's roof look. Default: no; report only.
+- **Q-F: how far the return kerbs run.** On Josh's example they run to the building line (the default). Should they go on along the building walls through ring 1 to the interior? That is a kerb against a wall, so it is not recommended.
 - **Q-H: how much of an inlet is paved.** Pave only the inlet through the row (recommended), or the whole court drive and aisle as well? The court then reads as a paved yard with painted stalls.
 
 ## Open items (not blocking)
