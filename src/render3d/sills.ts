@@ -14,7 +14,9 @@
 
 import type { CalibrationKey } from "../core";
 import { frontAxis, frontYaw, type ModelFront } from "./models";
-import type { Stack } from "./stacks";
+import { stableHash } from "../render/city";
+import { ESCAPE_TABLES, sillOf, type EscapeTables } from "./escapes";
+import type { Stack, StackPiece } from "./stacks";
 
 /** A sill up to this high is left alone: a door step (ticket 055 F, Josh's Q11 at its default). */
 export const SILL_MAX_M = 0.15;
@@ -280,6 +282,99 @@ export function leavesGap(plan: SillPlan): boolean {
   if (plan.leftOver_m <= SILL_MAX_M + 1e-9) return false;
   if (!plan.steps) return true;
   return plan.leftOver_m - STEPS_RISE_M * plan.steps.scaleY > STEPS_FIT_M + 1e-9;
+}
+
+// ---- a stack's ground pieces: the lift (ticket 062 B) ----
+
+/** A sill band's width (ticket 062 B): the ground pieces of a stack may be chosen from one band, so that the block's sink and its pieces' own sills differ by no more than a band. */
+export const SILL_BAND_M = 0.16;
+/** After sink and lift, a door's sill is at most this far under the walk (a sunk threshold; ticket 062 B). */
+export const SILL_UNDER_M = 0.05;
+/** A lifted ground piece's top stays at least this far under the first floor's measured window sill (ticket 062 B, over 058's `WINDOW_SILL_M`). */
+export const LIFT_CLEAR_M = 0.05;
+
+/** What `stackLift` says about a stack. `lift_m` is the lift of each ground piece by column (a piece two bays wide is in both), metres; `problems` is empty when every door meets the walk and no lifted top reaches a window sill (ticket 062 B). */
+export interface StackLift {
+  sink_m: number;
+  lift_m: ReadonlyMap<number, number>;
+  problems: readonly string[];
+}
+
+const rowOf = (table: SillTable, key: CalibrationKey): DoorSill | undefined => (Object.prototype.hasOwnProperty.call(table, key) ? table[key] : undefined);
+
+/** The columns a ground piece covers: every column whose axis lies inside the piece's width (a double-bay shop covers two). */
+function columnsOf(stack: Pick<Stack, "columns">, p: Pick<StackPiece, "x" | "w" | "column">): number[] {
+  const out = stack.columns.map((c, i) => (Math.abs(c.x - p.x) < p.w / 2 ? i : -1)).filter((i) => i >= 0);
+  return out.length > 0 ? out : [p.column];
+}
+
+/**
+ * The block's sink and each ground piece's lift (ticket 062 B; pure).
+ * - The block sinks by `stackSill`'s sink, as it always did.
+ * - Each ground piece with a measured sill is then lifted by (block sink - its own sill), so its door's sill meets the walk: its bottom stays at - its sill, under the walk, and its top rises into the first floor's lower band.
+ * - A lift is held back where the piece's top (its height over the first floor's base, plus the lift) would come within `LIFT_CLEAR_M` of the first floor's window sill (`windowSills`, 058's `WINDOW_SILL_M`); the door then
+ *   stands under the walk by what is left over, which is a problem when that is more than `SILL_UNDER_M`.
+ * - A piece with no measured sill (the City Pack's `Shop_06`, which has no door) is not lifted.
+ * `problems` names every door that is out of the +`SILL_MAX_M` and -`SILL_UNDER_M` range and every top that is too high; empty means the stack is fine as it is.
+ */
+export function stackLift(stack: Pick<Stack, "pieces" | "columns">, table: SillTable = DOOR_SILLS, windowSills: EscapeTables["sills"] = ESCAPE_TABLES.sills): StackLift {
+  const sink = stackSill(stack, table).sink_m;
+  const lift = new Map<number, number>();
+  const problems: string[] = [];
+  const floors = stack.pieces.filter((p) => p.role === "floor");
+  const pitch = floors.length > 0 ? Math.min(...floors.map((p) => p.y)) : null;
+  for (const p of stack.pieces) {
+    if (p.role !== "base") continue;
+    const row = rowOf(table, p.key);
+    if (!row) continue;
+    const cols = columnsOf(stack, p);
+    const want = sink > 0 ? Math.max(0, sink - row.sill_m) : 0;
+    let got = want;
+    if (want > 0 && pitch !== null) {
+      // The first floor's window sill above this piece: the lowest over the columns it covers.
+      const ws = Math.min(
+        ...cols.map((c) => {
+          const above = floors.filter((f) => f.column === c).sort((a, b) => a.y - b.y)[0];
+          return above ? sillOf(above.key, 0, windowSills) : Infinity;
+        }),
+      );
+      const reach = p.y + p.h - pitch;
+      got = Math.min(want, Math.max(0, ws - LIFT_CLEAR_M - reach));
+      if (Number.isFinite(ws) && reach + got > ws - LIFT_CLEAR_M + 1e-9) problems.push(`${p.key} (column ${p.column}): its top is ${(reach + got).toFixed(3)} m over the first floor, the window sill is ${ws.toFixed(3)} m`);
+    }
+    const door = row.sill_m - sink + got;
+    if (door < -SILL_UNDER_M - 1e-9 || door > SILL_MAX_M + 1e-9) problems.push(`${p.key} (column ${p.column}): its door ends ${door.toFixed(3)} m from the walk`);
+    for (const c of cols) lift.set(c, got);
+  }
+  return { sink_m: sink, lift_m: lift, problems };
+}
+
+/**
+ * The sill bands of a set of ground keys (ticket 062 B): the low band holds the keys whose sill is at most `SILL_BAND_M` and the high band the rest. A key with no measured sill (it has no door to
+ * meet the walk) is in both. A band with no measured key is left out. With today's pieces the low band is `Shop_01` to `_04`, `Door_01` and `Corner_01` and the high band `Shop_05`, `Door_02` and `Corner_02`
+ * (and `Shop_06` in both).
+ */
+export function sillBands(keys: readonly CalibrationKey[], table: SillTable = DOOR_SILLS): ReadonlySet<CalibrationKey>[] {
+  const none = keys.filter((k) => !rowOf(table, k));
+  const low = keys.filter((k) => rowOf(table, k) !== undefined && rowOf(table, k)!.sill_m <= SILL_BAND_M);
+  const high = keys.filter((k) => rowOf(table, k) !== undefined && rowOf(table, k)!.sill_m > SILL_BAND_M);
+  return [low, high].filter((b) => b.length > 0).map((b) => new Set<CalibrationKey>([...b, ...none]));
+}
+
+/**
+ * A stack as it should stand (ticket 062 B): itself when `stackLift` has no problem with it, else assembled again within one sill band. `again` is given a band's keys and returns the stack assembled
+ * with the same lot, floors and columns but its ground pieces picked from that band (`assembleStack`'s `sillBand`), or null. The band tried first is by `stableHash(salt)`, then the other; the first
+ * that `stackLift` has no problem with wins. When none does, the stack is returned as it was (the problems stay for the test or the reviewer to name).
+ */
+export function fitSillBand(stack: Stack, table: SillTable, groundKeys: readonly CalibrationKey[], salt: string, again: (band: ReadonlySet<CalibrationKey>) => Stack | null, windowSills: EscapeTables["sills"] = ESCAPE_TABLES.sills): Stack {
+  if (stackLift(stack, table, windowSills).problems.length === 0) return stack;
+  const bands = sillBands([...new Set(groundKeys)], table);
+  const order = bands.length < 2 || stableHash(salt) % 2 === 0 ? bands : [bands[1]!, bands[0]!];
+  for (const band of order) {
+    const again1 = again(band);
+    if (again1 && stackLift(again1, table, windowSills).problems.length === 0) return again1;
+  }
+  return stack;
 }
 
 // ---- the front frame ----

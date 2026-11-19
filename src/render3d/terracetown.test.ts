@@ -132,7 +132,11 @@ describe("applyModels stands each terrace run as its packed stacks", () => {
       want.forEach((b, k) => {
         const g = row.children[k]!;
         expect(g.name).toBe(`stack:${b.style}`);
-        expect(g.children).toHaveLength(b.stack.pieces.length);
+        // The block as drawn: the packer's, with its ground row assembled again within a sill band where the lift needs it (ticket 062 B), so its piece count may differ from the packer's.
+        const drawn = applied.terrace[k]!;
+        expect(drawn.lot).toEqual(b.lot);
+        expect(drawn.style).toBe(b.style);
+        expect(g.children).toHaveLength(drawn.stack.pieces.length);
         expect(g.position.x).toBeCloseTo(b.lot.x + Math.sin(b.lot.yaw) * (b.lot.d / 2), 6);
         expect(g.position.z).toBeCloseTo(b.lot.z + Math.cos(b.lot.yaw) * (b.lot.d / 2), 6);
         expect(g.rotation.y).toBeCloseTo(b.lot.yaw, 9);

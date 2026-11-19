@@ -337,7 +337,18 @@ describe("every automatic item holds on the three maps of the protocol", () => {
     expect(failing(cityMetrics(plan.town, plan.packed, plan.dressing, plan.furniture, { ...plan.extra, emissiveMaterials: emissive }), file)).toEqual([]);
     // The pure plan is the game's: the same blocks and the same dressing.
     expect(applied.terrace.length).toBe(runBlocks(plan.town.terraces, plan.packed).length);
-    expect(applied.dress.length).toBe(plan.dressing.reduce((s, d) => s + d.length, 0));
+    // Ticket 062 B: a block whose lifted ground pieces would reach a window is drawn with its ground row assembled again within a sill band, which has other ground dressing. On every block that was not,
+    // the dressing drawn is the plan's.
+    const key = (f: { x: number; z: number }): string => `${f.x.toFixed(6)},${f.z.toFixed(6)}`;
+    const ground = (s: { pieces: readonly { role: string; key: string }[] }): string => s.pieces.filter((p) => p.role === "base").map((p) => p.key).join();
+    const planned = runBlocks(plan.town.terraces, plan.packed);
+    const bandedFrames = new Set<string>();
+    let kept = 0;
+    dressSites(applied.terrace, [], bundle.slots.blocks.list).forEach((site, i) => {
+      if (ground(site.stack) !== ground(planned[i]!.block.stack)) bandedFrames.add(key(site.frame));
+      else kept += plan.dressing[i]!.length;
+    });
+    expect(applied.dress.filter((p) => !bandedFrames.has(key(p.frame))).length).toBe(kept);
     applied.remove();
     bundle.dispose();
   }, 60000);

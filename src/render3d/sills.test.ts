@@ -11,22 +11,26 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { BoxGeometry, Group, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, Raycaster, Vector3, type Object3D } from "three";
 import { ASSET_MANIFEST_VERSION, loadPuzzle, type AssetEntry, type AssetManifest, type CalibrationKey, type Puzzle } from "../core";
-import { dressKeys } from "./dressing";
+import { GLASS_SILL_M, dressKeys, type DressPiece } from "./dressing";
+import { ESCAPE_TABLES, escapeCheck, sillOf } from "./escapes";
 import { BUILDING_FRONTS, MODEL_TABLE, WORLD_PER_METRE, frontAxis, type ModelFront } from "./models";
-import { allStackKeys, applyModels, loadModels, stepsGroup, stepsPlacement, type ModelSet } from "./models3d";
+import { allStackKeys, applyModels, dressSites, liftDressing, loadModels, stackInput, stepsGroup, stepsPlacement, type AppliedModels, type ModelSet } from "./models3d";
 import { PAVEMENT_Y, YARD, buildScene } from "./scene";
 import {
   DOOR_MIN_AREA_M2,
   DOOR_SILLS,
+  LIFT_CLEAR_M,
   NO_FRONT_WINDOW,
   NO_STREET_DOOR,
   RECESS_DOOR_HALF_M,
   SILL_CEIL_M,
+  SILL_BAND_M,
   SILL_DEPTH_BY_KEY,
   SILL_DEPTH_MAX_M,
   SILL_DEPTH_M,
   SILL_DOOR_HALF_M,
   SILL_MAX_M,
+  SILL_UNDER_M,
   SILL_WINDOW_CLEAR_M,
   STEPS_D_M,
   STEPS_FIT_M,
@@ -37,19 +41,22 @@ import {
   STEPS_W_M,
   STEP_MIN_M,
   WINDOW_DEPTH_M,
+  fitSillBand,
   houseSill,
   leavesGap,
   measureDoor,
   modelPoint,
   planHouse,
+  sillBands,
   sillDepth,
+  stackLift,
   stackSill,
   stepsYaw,
   type DoorSill,
   type SillMesh,
   type SillTable,
 } from "./sills";
-import { STACK_STYLES, type Stack } from "./stacks";
+import { STACK_STYLES, assembleStack, type Stack } from "./stacks";
 import { tileCity } from "./tilecity";
 import { buildCityScene, cityApplyOptions } from "./tilecity3d";
 import { stubTextSurface } from "./text";
@@ -884,6 +891,72 @@ const loadMap = (file: string): Puzzle => loadPuzzle(JSON.parse(readFileSync(joi
 const MAPS = ["01-first-light", "09-shrine-circuit", "64-the-whole-chain"];
 const sceneOf = (file: string): ReturnType<typeof buildScene> => buildScene(loadMap(file), { text: stubTextSurface });
 
+/** The dressing that stands on a ground piece and so rises with its lift (ticket 062 B). */
+const GROUND_SLOTS: ReadonlySet<string> = new Set(["glass", "awning", "sign", "wall"]);
+
+/** Every stack of an applied town: the lone stacks first, then the terrace blocks, as `stackGroups` finds their groups. */
+const stacksOf = (applied: AppliedModels): Stack[] => [...applied.buildings.filter((b) => b.stack).map((b) => b.stack!), ...applied.terrace.map((t) => t.stack)];
+
+/** Two stacks that are one block with other ground pieces: the same columns, floors and width, and every piece above the ground row the same in key, column, x and y. */
+function sameAboveGround(a: Stack, b: Stack): boolean {
+  const up = (s: Stack): Stack["pieces"][number][] => s.pieces.filter((p) => p.role !== "base");
+  const x = up(a);
+  const y = up(b);
+  return a.bays === b.bays && a.floors === b.floors && Math.abs(a.width_m - b.width_m) < 1e-9 && x.length === y.length && x.every((p, i) => p.key === y[i]!.key && p.column === y[i]!.column && p.x === y[i]!.x && p.y === y[i]!.y);
+}
+
+/** The ground pieces' keys of a stack, in order. */
+const groundOf = (s: Stack): string[] => s.pieces.filter((p) => p.role === "base").map((p) => p.key);
+
+/** Whether the blocks of two applied towns are the same block for block above the ground row, and how many have other ground pieces. */
+function blocksDiffer(a: AppliedModels, b: AppliedModels): { same: boolean; banded: number } {
+  const x = stacksOf(a);
+  const y = stacksOf(b);
+  if (x.length !== y.length) return { same: false, banded: 0 };
+  return { same: x.every((s, i) => sameAboveGround(s, y[i]!)), banded: x.filter((s, i) => groundOf(s).join() !== groundOf(y[i]!).join()).length };
+}
+
+/**
+ * The dressing of two applied towns, block by block (by the site's frame): on a block whose ground pieces are the same in both, the same pieces in the same places, except that a ground piece's dressing is as high as
+ * its lift (y), and nothing else differs. A block that was assembled again within a sill band has other ground pieces, so other ground dressing and a different share of its column's room: it is left out.
+ */
+function dressDiffers(a: AppliedModels, lotsA: Parameters<typeof dressSites>[2], b: AppliedModels, lotsB: Parameters<typeof dressSites>[2]): { bad: string[]; compared: number } {
+  const bad: string[] = [];
+  const key = (f: { x: number; z: number }): string => `${f.x.toFixed(6)},${f.z.toFixed(6)}`;
+  const group = (m: AppliedModels, lots: Parameters<typeof dressSites>[2]): Map<string, { ground: string; items: AppliedModels["dress"][number][] }> => {
+    const out = new Map<string, { ground: string; items: AppliedModels["dress"][number][] }>();
+    for (const s of dressSites(m.terrace, m.buildings, lots)) out.set(key(s.frame), { ground: groundOf(s.stack).join(), items: [] });
+    for (const p of m.dress) out.get(key(p.frame))?.items.push(p);
+    return out;
+  };
+  const x = group(a, lotsA);
+  const y = group(b, lotsB);
+  let compared = 0;
+  if (x.size !== y.size) bad.push("different sites");
+  for (const [k, g] of x) {
+    const h = y.get(k);
+    if (!h) {
+      bad.push(`${k}: no such site`);
+      continue;
+    }
+    if (g.ground !== h.ground) continue;
+    compared++;
+    if (g.items.length !== h.items.length) {
+      bad.push(`${k}: ${g.items.length} pieces and ${h.items.length}`);
+      continue;
+    }
+    g.items.forEach((p, i) => {
+      const q = h.items[i]!;
+      const { y: ya, ...ra } = p.piece;
+      const { y: yb, ...rb } = q.piece;
+      if (JSON.stringify(ra) !== JSON.stringify(rb)) bad.push(`${p.piece.key}: another piece`);
+      else if (!GROUND_SLOTS.has(p.piece.slot) && ya !== yb) bad.push(`${p.piece.key} (${p.piece.slot}) moved from ${yb} to ${ya}`);
+      else if (GROUND_SLOTS.has(p.piece.slot) && ya < yb - 1e-12) bad.push(`${p.piece.key} (${p.piece.slot}) came down`);
+    });
+  }
+  return { bad, compared };
+}
+
 /** Every `stack:*` group of a scene: the lone stacks (children of the models group) and the terrace blocks (`terrace-stacks`), in the order applyModels stood them. */
 function stackGroups(scene: Object3D): Object3D[] {
   const out: Object3D[] = [];
@@ -939,9 +1012,12 @@ describe("applyModels sinks a stack by its measured sill and takes the dressing 
       for (const g of stackGroups(b.scene)) expect(g.position.y, g.name).toBe(0);
       expect(empty.dress.every((p) => p.frame.y === undefined)).toBe(true);
       // Nothing but heights changes: the same blocks, the same pieces on them, the same furniture.
-      expect(full.terrace.map((t) => t.stack)).toEqual(empty.terrace.map((t) => t.stack));
-      expect(full.dress.map((p) => p.piece)).toEqual(empty.dress.map((p) => p.piece));
-      expect(full.dress.map((p) => [p.frame.x, p.frame.z, p.frame.yaw])).toEqual(empty.dress.map((p) => [p.frame.x, p.frame.z, p.frame.yaw]));
+      // Ticket 062 B: a block whose lifted ground pieces would reach a window is assembled again within a sill band, so its ground pieces may differ; nothing above them does. The lift raises a ground
+      // piece's dressing and nothing else.
+      expect(blocksDiffer(full, empty).same).toBe(true);
+      const dd = dressDiffers(full, a.slots.blocks.list, empty, b.slots.blocks.list);
+      expect(dd.bad).toEqual([]);
+      expect(dd.compared).toBeGreaterThan(0);
       expect(full.furniture).toEqual(empty.furniture);
       expect(full.buildings.map((p) => [p.lot, p.x, p.z, p.yaw])).toEqual(empty.buildings.map((p) => [p.lot, p.x, p.z, p.yaw]));
       // A table that gives every key a sill within SILL_MAX_M is the empty table.
@@ -977,8 +1053,10 @@ describe("applyModels sinks a stack by its measured sill and takes the dressing 
     expect(empty.steps).toEqual([]);
     for (const g of stackGroups(b.scene)) expect(g.position.y, g.name).toBe(0);
     expect(empty.dress.every((p) => p.frame.y === undefined)).toBe(true);
-    expect(full.terrace.map((t) => t.stack)).toEqual(empty.terrace.map((t) => t.stack));
-    expect(full.dress.map((p) => p.piece)).toEqual(empty.dress.map((p) => p.piece));
+    expect(blocksDiffer(full, empty).same).toBe(true);
+    const dd = dressDiffers(full, a.slots.blocks.list, empty, b.slots.blocks.list);
+    expect(dd.bad).toEqual([]);
+    expect(dd.compared).toBeGreaterThan(0);
     expect(full.furniture).toEqual(empty.furniture);
     full.remove();
     empty.remove();
@@ -1183,5 +1261,343 @@ describe("the ladder maps change only as the ticket says (criterion 36)", () => 
 
   it("meets the lot's ground on the ladder: its pavement is far under SILL_MAX_M, so the sill is measured to y 0", () => {
     expect(PAVEMENT_Y / W).toBeLessThan(SILL_MAX_M);
+  });
+});
+
+// ---- ticket 062 B: the lift ----
+
+/** A first floor of apartment style 02 (its window sill is 0.417 m) in the column of each ground piece. */
+const ground = (key: string, column: number, x: number, w: number, h: number): Stack["pieces"][number] => ({ key: `city-pack:${key}`, x, y: 0, z: 0, yaw: 0, role: "base", column, w, h, d: 5, street: "front" });
+const floorOf = (column: number, x: number): Stack["pieces"][number] => ({ key: "city-pack:SM_Bld_Apartment_02", x, y: 3, z: 0, yaw: 0, role: "floor", column, w: 5.17, h: 3, d: 5.2, street: "front" });
+const stackOf = (grounds: Stack["pieces"][number][], cols: number): Pick<Stack, "pieces" | "columns"> => {
+  const columns = Array.from({ length: cols }, (_, i) => ({ x: (i - (cols - 1) / 2) * 5, w: 5, corner: null }));
+  return { columns, pieces: [...grounds, ...columns.map((c, i) => floorOf(i, c.x))] };
+};
+const shop = (n: string, i: number, cols = 3, h = 3.0): Stack["pieces"][number] => ground(n, i, (i - (cols - 1) / 2) * 5, 5, h);
+
+describe("stackLift gives the block's sink and each ground piece's lift (ticket 062 B criterion 5)", () => {
+  it("exports the constants of the ticket", () => {
+    expect(SILL_BAND_M).toBe(0.16);
+    expect(SILL_UNDER_M).toBe(0.05);
+    expect(LIFT_CLEAR_M).toBe(0.05);
+  });
+
+  it("sinks by the largest ground sill and lifts each ground piece by the sink less its own sill, so every door meets the walk", () => {
+    // Shop_05 (0.361) beside Door_01 (0.029) and Shop_01 (0.106): both rise to the walk (all three are 3.0 m tall, so no top gets near a window).
+    const st = stackOf([shop("SM_Bld_Shop_05", 0), shop("SM_Bld_Apartment_Door_01", 1), shop("SM_Bld_Shop_01", 2)], 3);
+    const r = stackLift(st);
+    expect(r.sink_m).toBe(0.361);
+    expect(r.problems).toEqual([]);
+    expect(r.lift_m.get(0)).toBeCloseTo(0, 9);
+    expect(r.lift_m.get(1)).toBeCloseTo(0.361 - 0.029, 9);
+    expect(r.lift_m.get(2)).toBeCloseTo(0.361 - 0.106, 9);
+    // Door after sink and lift: 0 for all; and the bottom, at - its own sill, is under the walk.
+    for (const [c, key] of [[0, "SM_Bld_Shop_05"], [1, "SM_Bld_Apartment_Door_01"], [2, "SM_Bld_Shop_01"]] as const) {
+      const sill = DOOR_SILLS[`city-pack:${key}`]!.sill_m;
+      expect(sill - r.sink_m + r.lift_m.get(c)!, key).toBeCloseTo(0, 9);
+      expect(-r.sink_m + r.lift_m.get(c)!, key).toBeLessThanOrEqual(1e-9);
+    }
+    // A block that does not sink lifts nothing.
+    const flat = stackLift(stackOf([shop("SM_Bld_Shop_01", 0, 2), shop("SM_Bld_Apartment_Door_01", 1, 2)], 2));
+    expect(flat.sink_m).toBe(0);
+    expect([...flat.lift_m.values()]).toEqual([0, 0]);
+    expect(flat.problems).toEqual([]);
+  });
+
+  it("puts a double-bay shop's lift on both its columns, and gives a piece with no sill (Shop_06) none", () => {
+    const wide = ground("SM_Bld_Shop_03", 0, -2.5, 10.087, 3.084);
+    const r = stackLift(stackOf([wide, shop("SM_Bld_Shop_05", 2)], 3));
+    expect(r.lift_m.get(0)).toBe(r.lift_m.get(1));
+    expect(r.lift_m.has(1)).toBe(true);
+    const none = stackLift(stackOf([shop("SM_Bld_Shop_06", 0, 2), shop("SM_Bld_Shop_05", 1, 2)], 2));
+    expect(none.lift_m.has(0)).toBe(false);
+    expect(none.problems).toEqual([]);
+  });
+
+  it("fails the block-sink-only rule of 1a356b9 on a Shop_05 and Shop_03 stack: Shop_03's door is 0.318 m under the walk (criterion 8)", () => {
+    // The rule of 1a356b9: the block sinks by the largest ground sill and nothing is lifted.
+    const old = (st: Pick<Stack, "pieces">): number[] => st.pieces.filter((p) => p.role === "base").map((p) => DOOR_SILLS[p.key]!.sill_m - stackSill(st).sink_m);
+    const st = stackOf([shop("SM_Bld_Shop_05", 0, 2), shop("SM_Bld_Shop_03", 1, 2, 3.084)], 2);
+    const doors = old(st);
+    expect(doors[1]).toBeCloseTo(-0.318, 3);
+    expect(doors[1]! < -SILL_UNDER_M).toBe(true);
+    // The lift meets it: within the range, and no problem.
+    const r = stackLift(st);
+    expect(r.problems).toEqual([]);
+    expect(0.043 - r.sink_m + r.lift_m.get(1)!).toBeGreaterThanOrEqual(-SILL_UNDER_M - 1e-9);
+  });
+
+  it("holds a lift back where a top would reach the first floor's window sill, and names the door that ends too far under the walk", () => {
+    // Shop_02 is 3.3 m tall: its top is 0.3 m over the first floor's base; the window sill of apartment 02 is 0.417 m, so the top may rise by 0.417 - 0.05 - 0.3 = 0.067 m only.
+    expect(sillOf("city-pack:SM_Bld_Apartment_02", 0)).toBe(0.417);
+    const st = stackOf([shop("SM_Bld_Shop_02", 0, 2, 3.3), shop("SM_Bld_Shop_05", 1, 2)], 2);
+    const r = stackLift(st);
+    expect(r.lift_m.get(0)).toBeCloseTo(0.417 - LIFT_CLEAR_M - 0.3, 9);
+    // 0.071 - 0.361 + 0.067 = -0.223 m: a door well under the walk.
+    expect(r.problems.some((p) => p.includes("SM_Bld_Shop_02") && p.includes("-0.223"))).toBe(true);
+    // Within a low band the same shop is fine: Corner_01 (0.159) is the largest sill, the lift is 0.088 m, held to 0.067 m, and the door ends 0.021 m under the walk.
+    const low = stackLift(stackOf([shop("SM_Bld_Shop_02", 0, 2, 3.3), shop("SM_Bld_Shop_Corner_01", 1, 2)], 2));
+    expect(low.sink_m).toBe(0.159);
+    expect(low.problems).toEqual([]);
+    expect(0.071 - low.sink_m + low.lift_m.get(0)!).toBeGreaterThanOrEqual(-SILL_UNDER_M);
+  });
+
+  it("is Door_01 in a Corner_02 block, inside the window rule with today's pieces (0.347 m lift, apartment 02's window sill 0.417 m)", () => {
+    const r = stackLift(stackOf([shop("SM_Bld_Apartment_Door_01", 0, 2), shop("SM_Bld_Shop_Corner_02", 1, 2)], 2));
+    expect(r.lift_m.get(0)).toBeCloseTo(0.376 - 0.029, 9);
+    expect(r.problems).toEqual([]);
+    expect(r.lift_m.get(0)! <= sillOf("city-pack:SM_Bld_Apartment_02", 0) - LIFT_CLEAR_M).toBe(true);
+  });
+});
+
+describe("sill bands and the sillBand option of assembleStack (ticket 062 B criterion 6)", () => {
+  const entries = stackInput(CITY_SET)!.entries;
+  const fronts = stackInput(CITY_SET)!.fronts;
+  const style = STACK_STYLES.find((st) => st.id === "apartment-02")!;
+  const base = [...style.base.mid, ...(style.base.door ?? []), ...style.base.corner];
+
+  it("splits today's ground pieces in two: Shop_01 to _04, Door_01 and Corner_01 are low; Shop_05, Door_02 and Corner_02 are high; Shop_06 has no sill and is in both", () => {
+    const [low, high] = sillBands(base);
+    const names = (b: ReadonlySet<CalibrationKey>): string[] => [...b].map((k) => k.slice("city-pack:SM_Bld_".length)).sort();
+    expect(names(low!)).toEqual(["Apartment_Door_01", "Shop_01", "Shop_02", "Shop_03", "Shop_04", "Shop_06", "Shop_Corner_01"]);
+    expect(names(high!)).toEqual(["Apartment_Door_02", "Shop_05", "Shop_06", "Shop_Corner_02"]);
+    // Every measured sill is in the band of its side of SILL_BAND_M, and a band is no wider than that plus what the pieces differ by.
+    for (const k of low!) if (DOOR_SILLS[k]) expect(DOOR_SILLS[k]!.sill_m).toBeLessThanOrEqual(SILL_BAND_M);
+    for (const k of high!) if (DOOR_SILLS[k]) expect(DOOR_SILLS[k]!.sill_m).toBeGreaterThan(SILL_BAND_M);
+    expect(sillBands(["city-pack:SM_Bld_Shop_01"]).length).toBe(1);
+  });
+
+  it("is off by default: with no sillBand a stack is exactly what it was, and with one every ground piece comes from the band (where its role has any) and nothing above the ground row changes", () => {
+    const [low, high] = sillBands(base);
+    let compared = 0;
+    for (let i = 0; i < 40; i++) {
+      for (const sides of [[], [{ side: "-x" as const, road: "r" }]]) {
+        const lot = { type: "large" as const, key: `band:${i}`, cornerSides: sides };
+        const plain = assembleStack(style, lot, entries, fronts, { bays: 3, floors: 2 });
+        if (!plain) continue;
+        expect(assembleStack(style, lot, entries, fronts, { bays: 3, floors: 2 })).toEqual(plain);
+        for (const band of [low!, high!]) {
+          const b = assembleStack(style, lot, entries, fronts, { bays: 3, floors: 2, sillBand: band })!;
+          expect(b, `${lot.key} band`).not.toBeNull();
+          for (const p of b.pieces.filter((q) => q.role === "base")) expect(band.has(p.key), `${lot.key}: ${p.key}`).toBe(true);
+          expect(b.pieces.filter((q) => q.role !== "base").map((q) => [q.key, q.column, q.x, q.y])).toEqual(plain.pieces.filter((q) => q.role !== "base").map((q) => [q.key, q.column, q.x, q.y]));
+          compared++;
+        }
+      }
+    }
+    expect(compared).toBeGreaterThan(20);
+    // A role with none of its candidates in the band keeps all of them.
+    const only = new Set<CalibrationKey>(["city-pack:SM_Bld_Shop_Corner_02"]);
+    const c = assembleStack(style, { type: "large", key: "band:c", cornerSides: [] }, entries, fronts, { bays: 3, floors: 2, sillBand: only })!;
+    expect(c.pieces.filter((q) => q.role === "base").length).toBeGreaterThan(0);
+  });
+
+  it("fitSillBand leaves a stack that passes alone and assembles one that fails within a band (a fixture on Shop_02 and Shop_05)", () => {
+    const bad = { ...stackOf([shop("SM_Bld_Shop_02", 0, 2, 3.3), shop("SM_Bld_Shop_05", 1, 2)], 2), style: "apartment-02" } as unknown as Stack;
+    const good = { ...stackOf([shop("SM_Bld_Shop_01", 0, 2), shop("SM_Bld_Shop_Corner_01", 1, 2)], 2), style: "apartment-02" } as unknown as Stack;
+    expect(stackLift(bad).problems.length).toBeGreaterThan(0);
+    const keys = base;
+    const seen: string[][] = [];
+    const again = (band: ReadonlySet<CalibrationKey>): Stack | null => {
+      seen.push([...band].map((k) => k.slice(-8)));
+      return band.has("city-pack:SM_Bld_Shop_01") ? good : bad;
+    };
+    // The band tried first is by hash; the one with Shop_01 in it is the one that passes, whichever comes first.
+    expect(fitSillBand(bad, DOOR_SILLS, keys, "any", again)).toBe(good);
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen.length).toBeLessThanOrEqual(2);
+    // A stack with no problem is not assembled again.
+    let called = 0;
+    expect(fitSillBand(good, DOOR_SILLS, keys, "any", () => (called++, null))).toBe(good);
+    expect(called).toBe(0);
+    // When no band passes, the stack is returned as it was.
+    expect(fitSillBand(bad, DOOR_SILLS, keys, "any", () => bad)).toBe(bad);
+    expect(fitSillBand(bad, DOOR_SILLS, keys, "any", () => null)).toBe(bad);
+  });
+});
+
+/** The scenes whose every stack criterion 5 is checked on: the default tile city, 3 x 3 at seeds 1 to 10, and the three maps of the protocol. */
+function liftScenes(): { name: string; run: () => { applied: AppliedModels; groups: Object3D[]; bundle: ReturnType<typeof buildScene>; dispose: () => void } }[] {
+  const out: { name: string; run: () => { applied: AppliedModels; groups: Object3D[]; bundle: ReturnType<typeof buildScene>; dispose: () => void } }[] = [];
+  const city = (name: string, c: ReturnType<typeof tileCity>): void => {
+    out.push({
+      name,
+      run: () => {
+        const bundle = buildCityScene(c);
+        const applied = applyModels(bundle, CITY_SET, cityApplyOptions(c));
+        return { applied, groups: stackGroups(bundle.scene), bundle, dispose: () => (applied.remove(), bundle.dispose()) };
+      },
+    });
+  };
+  city("the default tile city", tileCity({}));
+  for (let seed = 1; seed <= 10; seed++) city(`3 x 3 seed ${seed}`, tileCity({ blocksX: 3, blocksZ: 3, seed }));
+  for (const file of MAPS) {
+    out.push({
+      name: file,
+      run: () => {
+        const bundle = sceneOf(file);
+        const applied = applyModels(bundle, CITY_SET);
+        return { applied, groups: stackGroups(bundle.scene), bundle, dispose: () => (applied.remove(), bundle.dispose()) };
+      },
+    });
+  }
+  return out;
+}
+
+describe("the lift on every town of the protocol (ticket 062 B criteria 5, 7 and 9)", () => {
+  const scenes = liftScenes();
+  let blocks = 0;
+  let lifted = 0;
+  let risen = 0;
+  let escapesChecked = 0;
+  for (const sc of scenes) {
+    it(`${sc.name}: every door meets the walk, no lifted top reaches a window sill, no piece's bottom is over the walk, the dressing rises with its piece and the escapes still pass`, () => {
+      const { applied, groups, bundle, dispose } = sc.run();
+      const stacks = stacksOf(applied);
+      expect(groups).toHaveLength(stacks.length);
+      blocks += stacks.length;
+      groups.forEach((g, i) => {
+        const st = stacks[i]!;
+        const r = stackLift(st);
+        expect(r.problems, `${sc.name} ${g.name} #${i}`).toEqual([]);
+        expect(g.position.y, `${g.name} #${i}`).toBeCloseTo(-r.sink_m * W, 12);
+        // The pieces are drawn where the lift puts them: group y + piece y, bottom at or under the walk.
+        const wraps = g.children;
+        expect(wraps).toHaveLength(st.pieces.length);
+        const floors = st.pieces.filter((p) => p.role === "floor");
+        const pitch = floors.length > 0 ? Math.min(...floors.map((p) => p.y)) : 0;
+        st.pieces.forEach((p, k) => {
+          if (p.role !== "base") {
+            expect(wraps[k]!.position.y / W, `${p.key} stays`).toBeCloseTo(p.y, 9);
+            return;
+          }
+          const lift = r.lift_m.get(p.column) ?? 0;
+          const row = DOOR_SILLS[p.key];
+          const y = wraps[k]!.position.y / W;
+          expect(y, `${p.key} lifted`).toBeCloseTo(p.y + lift, 9);
+          // Its bottom in the walk's frame: under the walk (or on it).
+          expect(g.position.y / W + y, `${p.key} bottom`).toBeLessThanOrEqual(1e-9);
+          if (row) {
+            const door = row.sill_m - r.sink_m + lift;
+            expect(door, `${p.key} door`).toBeLessThanOrEqual(SILL_MAX_M + 1e-9);
+            expect(door, `${p.key} door`).toBeGreaterThanOrEqual(-SILL_UNDER_M - 1e-9);
+            if (lift > 0) lifted++;
+            // Its top is under the first floor's window sill by LIFT_CLEAR_M.
+            const above = floors.filter((q) => q.column === p.column).sort((a, b) => a.y - b.y)[0];
+            if (above && lift > 0) expect(p.y + p.h - pitch + lift, `${p.key} top`).toBeLessThanOrEqual(sillOf(above.key, 0) - LIFT_CLEAR_M + 1e-9);
+          }
+        });
+      });
+      // The dressing: a shop's glass stands at GLASS_SILL_M over its piece's lifted base.
+      const sites = dressSites(applied.terrace, applied.buildings, bundle.slots.blocks.list);
+      const lifts = new Map<string, ReadonlyMap<number, number>>();
+      for (const site of sites) lifts.set(`${site.frame.x.toFixed(6)},${site.frame.z.toFixed(6)}`, stackLift(site.stack).lift_m);
+      for (const p of applied.dress) {
+        if (p.piece.slot !== "glass") continue;
+        const lift = lifts.get(`${p.frame.x.toFixed(6)},${p.frame.z.toFixed(6)}`)?.get(p.piece.column) ?? 0;
+        expect(p.piece.y, `${p.piece.key} glass rises with its piece`).toBeCloseTo(GLASS_SILL_M + lift, 9);
+        if (lift > 0) risen++;
+      }
+      // The escapes keep their joints and their ladder foot: each block's escape passes escapeCheck against its own stack.
+      const byFrame = new Map<string, DressPiece[]>();
+      for (const p of applied.dress) {
+        const k = `${p.frame.x.toFixed(6)},${p.frame.z.toFixed(6)}`;
+        byFrame.set(k, [...(byFrame.get(k) ?? []), p.piece]);
+      }
+      let escapes = 0;
+      for (const site of sites) {
+        const ps = byFrame.get(`${site.frame.x.toFixed(6)},${site.frame.z.toFixed(6)}`) ?? [];
+        if (!ps.some((p) => p.slot === "escape")) continue;
+        escapes++;
+        expect(escapeCheck(site.stack, ps, ESCAPE_TABLES).every((r) => r.ok), `${sc.name}: escape of ${site.lot.key}`).toBe(true);
+        // An escape stands on a mid column that is not a door or corner column: no ground piece under it is lifted into it.
+        const col = ps.find((p) => p.slot === "escape")!.column;
+        expect(site.stack.columns[col]!.corner, "escape column").toBeNull();
+      }
+      escapesChecked += escapes;
+      dispose();
+    });
+  }
+
+  it("lifts doors and glass, and checks escapes, on these towns", () => {
+    expect(blocks).toBeGreaterThan(100);
+    expect(lifted).toBeGreaterThan(20);
+    expect(risen).toBeGreaterThan(20);
+    expect(escapesChecked).toBeGreaterThan(5);
+  });
+});
+
+describe("the dressing follows its ground piece (ticket 062 B criterion 7)", () => {
+  const frame = { x: 1, z: 2, yaw: 0 };
+  const other = { x: 9, z: 9, yaw: 0 };
+  const piece = (slot: DressPiece["slot"], column: number, y: number): DressPiece => ({ key: "city-pack:SM_Bld_Shop_01_Glass", slot, x: 0, y, z: 0, yaw: 0, column, w: 1, h: 1, d: 1 });
+  const lifts = new Map([[frame, new Map([[0, 0.3], [1, 0.1]])]]);
+
+  it("raises the glass, awning, sign and door canopy and the ATM of a lifted ground piece by its lift, and nothing else", () => {
+    const all: DressPiece["slot"][] = ["glass", "awning", "sign", "wall", "wallUpper", "escape", "roofSmall", "roofLarge"];
+    const before = all.map((slot) => ({ frame, piece: piece(slot, 0, 2) }));
+    const after = liftDressing(before, lifts);
+    expect(after.map((p) => p.piece.y)).toEqual([2.3, 2.3, 2.3, 2.3, 2, 2, 2, 2]);
+    // Every other field of every piece is as it was, and the escapes and the floors' dressing are the very objects.
+    after.forEach((p, i) => expect({ ...p.piece, y: 0 }).toEqual({ ...before[i]!.piece, y: 0 }));
+    expect(after[4]).toBe(before[4]);
+    expect(after[5]).toBe(before[5]);
+  });
+
+  it("lifts by the column of the piece, leaves a column with no lift and a site with none alone, and does not change its input", () => {
+    const input = [{ frame, piece: piece("glass", 1, 0.3) }, { frame, piece: piece("glass", 2, 0.3) }, { frame: other, piece: piece("glass", 0, 0.3) }];
+    const out = liftDressing(input, lifts);
+    expect(out.map((p) => p.piece.y)).toEqual([0.4, 0.3, 0.3]);
+    expect(input.map((p) => p.piece.y)).toEqual([0.3, 0.3, 0.3]);
+    expect(out[0]!.frame).toBe(frame);
+    expect(liftDressing([], lifts)).toEqual([]);
+  });
+});
+
+describe("the band is applied only where the lift would reach a window (ticket 062 B criteria 6 and 9)", () => {
+  const towns: { name: string; make: () => [ReturnType<typeof buildScene>, ReturnType<typeof buildScene>, "city" | "map"] }[] = [
+    { name: "the default tile city", make: () => [buildCityScene(tileCity({})), buildCityScene(tileCity({})), "city"] },
+    ...MAPS.map((file) => ({ name: file, make: (): [ReturnType<typeof buildScene>, ReturnType<typeof buildScene>, "city" | "map"] => [sceneOf(file), sceneOf(file), "map"] })),
+  ];
+  let bandedAll = 0;
+  let needed = 0;
+  for (const t of towns) {
+    it(`${t.name}: a block keeps its ground pieces unless the pieces of the unbanded block break the window rule, and a banded block passes it`, () => {
+      const [a, b, kind] = t.make();
+      const opts = kind === "city" ? cityApplyOptions(tileCity({})) : {};
+      const full = applyModels(a, CITY_SET, opts);
+      const empty = applyModels(b, CITY_SET, { ...opts, sills: {} });
+      const x = stacksOf(full);
+      const y = stacksOf(empty);
+      expect(x).toHaveLength(y.length);
+      x.forEach((s, i) => {
+        const before = stackLift(y[i]!);
+        const changed = groundOf(s).join() !== groundOf(y[i]!).join();
+        if (before.problems.length === 0) expect(changed, `block ${i} had no problem and kept its ground`).toBe(false);
+        else needed++;
+        if (changed) {
+          bandedAll++;
+          expect(before.problems.length, `block ${i} was banded for a reason`).toBeGreaterThan(0);
+          expect(sameAboveGround(s, y[i]!), `block ${i} differs only in its ground row`).toBe(true);
+          // One band: every measured ground sill of the block is on one side of SILL_BAND_M.
+          const sills = s.pieces.filter((p) => p.role === "base" && DOOR_SILLS[p.key]).map((p) => DOOR_SILLS[p.key]!.sill_m);
+          expect(sills.every((v) => v <= SILL_BAND_M) || sills.every((v) => v > SILL_BAND_M), `block ${i} in one band: ${sills.join()}`).toBe(true);
+        }
+        expect(stackLift(s).problems, `block ${i}`).toEqual([]);
+      });
+      // The layout is as it was: the same places, the same furniture.
+      expect(full.buildings.map((p) => [p.lot, p.x, p.z, p.yaw])).toEqual(empty.buildings.map((p) => [p.lot, p.x, p.z, p.yaw]));
+      expect(full.terrace.map((p) => p.lot)).toEqual(empty.terrace.map((p) => p.lot));
+      expect(full.furniture).toEqual(empty.furniture);
+      full.remove();
+      empty.remove();
+      a.dispose();
+      b.dispose();
+    });
+  }
+
+  it("bands some blocks on these towns, where today's pieces need it", () => {
+    expect(needed).toBeGreaterThan(0);
+    expect(bandedAll).toBe(needed);
   });
 });
