@@ -10,7 +10,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { BoxGeometry, Group, MeshBasicMaterial, Mesh, Scene, Vector3, type Object3D, type WebGLRenderer } from "three";
 import { ASSET_MANIFEST_VERSION, loadPuzzle, type AssetEntry, type AssetManifest, type CalibrationKey, type Puzzle } from "../core";
-import { SIDEWALK_TOP_M, SIDEWALK_WALK_M, TILE_CITY_R1_MIN, TILE_CITY_R6_MIN, TILE_CITY_R7_MIN, TILE_M, tileCity, tileKeepouts, bayMeters, BAYS_PER_PARKING_TILE, LANE_RIGHT, TILE_STACK_ALIGN, withPassages, type TileCity, type TileRole } from "./tilecity";
+import { PAVEMENT_FLUSH, SIDEWALK_TOP_M, SIDEWALK_WALK_M, TILE_CITY_R1_MIN, TILE_CITY_R6_MIN, TILE_CITY_R7_MIN, TILE_M, tileCity, tileKeepouts, bayMeters, BAYS_PER_PARKING_TILE, LANE_RIGHT, TILE_STACK_ALIGN, withPassages, type TileCity, type TileRole } from "./tilecity";
 import { CITY_ATM_BLOCKS_MIN, CITY_CHECK, cityMetrics, evaluateCity, isNeverUsed, runBlocks, type CityMetrics } from "./citymetrics";
 import { bandPacked, dressInput, dressSites, furnitureInput, furniturePlacement, loadModels, NO_MODELS, allStackKeys, applyModels, stackInput, type DressPlacement, type ModelSet } from "./models3d";
 import { AWNING_KERB_M, ESCAPE_SHARE_LADDER, KERB_FROM_FRONT_M, dressKeys, dressTown, type DressBlockInput } from "./dressing";
@@ -493,7 +493,8 @@ describe("lot and plaza cells drawn (criterion 26)", () => {
     const drives = inletKeys(c).size;
     expect(drives).toBeGreaterThan(0);
     expect(draw.perKey.get(bare)).toBe(c.cells.filter((q) => q.role === "junction").length + lot - drives);
-    expect(draw.perKey.get(TILE_SLOTS.apron[0]!)).toBe(drives);
+    // 063 F: the plain slab also draws every pavement cell with a build-out in front of it (flush, no kerb), in the same mesh.
+    expect(draw.perKey.get(TILE_SLOTS.apron[0]!)).toBe(drives + c.cells.filter((q) => q.role === "pavement" && (q.variant & PAVEMENT_FLUSH) !== 0).length);
     expect(draw.perKey.get(TILE_SLOTS.plaza[0]!)).toBe(plaza);
     draw.dispose();
     // No pack: every cell, lot and plaza cells included, is code-drawn: lot surfaces as road quads, plazas as pavement boxes.

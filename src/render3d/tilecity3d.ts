@@ -6,6 +6,9 @@
  *   pavement and kerb colours (a flat quad for a road, a box from the carriageway to the pavement top for a pavement or a build-out, a pale strip for each kerb edge). No tile can be picked.
  *   Ticket 056 B: a `buildout` cell is drawn as a pavement from the plain straight (063 A: the one, `Straight_02`), and each of `city.buildoutTrees` is one of `SM_Env_Tree_01..03` (`buildoutTreePlan`) at y 0 through
  *   one InstancedMesh per tree key, in the same group and under the same draw-call cap.
+ *   Ticket 063 F, the kerb (Josh, 19 Nov 2026: "the curb structures have to follow the crub"): the kerb runs as one line (`kerbline.ts`), and `tileGroup` draws what is on it. A pavement cell with a build-out in front (`PAVEMENT_FLUSH`) is the flat
+ *   slab with no kerb and no gutter; the flank of every build-out stretch and the side of every inlet's opening (the return, `PAVEMENT_RETURN_NEAR`/`_FAR`, from the street kerb to the building line) are code-drawn strips at the pack's lip height and
+ *   colour, in one InstancedMesh (`tile:kerb-strips`); a pavement or build-out cell drawn in code gets its strip on the same inset line.
  * - Ticket 057 D, the block interiors (Josh, 18 Nov 2026: "Grass and pavement should fill the blank areas."): `interiorGroup` draws everything `tilecity.ts` laid inside the blocks, from `interiorItems` (tileslots.ts): the ragged apron strip
  *   (the plain slab `Sidewalk_01` since 063 D, or a code quad), the aprons, paths and park edges (the same slab, or pavement quads), the greens (`Grass_01`, or grass quads), the bare road of a court, an alley lane (`Road_Bare_01`, or street quads) with
  *   `ParkingLines_01` over each row of a court's stalls (or code-drawn dividers), the passages' floors (the same slab a whole cell at a time, a part cell a code quad), the paved inlets (063 H), a gate and posts at each gated passage (always in code; the small one at an alley's mouth), and the trees,
@@ -51,18 +54,22 @@ import { scaleForPx } from "./captions";
 import { WORLD_PER_METRE, atFront } from "./models";
 import type { FurniturePiece } from "./furniture";
 import { applyModels, meshParts, sharedTileModels, tileInput, type AppliedModels, type ApplyOptions, type FurnitureLevels, type ModelSet } from "./models3d";
-import { KERB_H, LOT_TYPE_NAMES, STOREY_M, type Lot, type LotType } from "./town";
+import { LOT_TYPE_NAMES, STOREY_M, type Lot, type LotType } from "./town";
 import { ROOF_SHADE, TINTS, pickPlaceholders } from "./placeholders";
-import { KERB, PAVEMENT, STREET, GROUND, YARD, KERB_W, type SceneBundle } from "./scene";
+import { KERB, PAVEMENT, STREET, GROUND, YARD, type SceneBundle } from "./scene";
 import { createStreetView, streetCamRequested, streetMode, type StreetView } from "./streetcam";
 import { applyLightMode, addSurface, newLightOwners, sceneLightMode, setRendererMode } from "./lightrig";
 import { lightModeFor, type LightModeId } from "./lighting";
 import { createDayToggle, pageDayToggleHost, type DayToggle, type DayToggleHost } from "./daytoggle";
-import { LANE_PATCH, LANE_RIGHT, SIDEWALK_WALK_M, TILE_CITY_R7_MIN, TILE_M, TILE_STACK_ALIGN, bayMeters, tileCity, tileKeepouts, withPassages, type BuildoutTree, type TileCell, type TileYaw, type TileCity, type TilePassage, type TileRole } from "./tilecity";
+import { LANE_PATCH, LANE_RIGHT, PAVEMENT_FLUSH, PAVEMENT_GRATE, SIDEWALK_WALK_M, TILE_CITY_R7_MIN, TILE_M, TILE_STACK_ALIGN, bayMeters, tileCity, tileKeepouts, withPassages, type BuildoutTree, type TileCell, type TileYaw, type TileCity, type TilePassage, type TileRole } from "./tilecity";
+import { tileKerbPlan, type KerbPlan } from "./kerbline";
 import {
   GATE_COLOUR,
   INTERIOR_DRAW_CALLS_MAX,
   INTERIOR_KEYS,
+  KERB_LIP_TOP_M,
+  KERB_LIP_W_M,
+  KERB_STRIP_COLOUR,
   PASSAGE_FLOOR_KEYS,
   PAVING_SLAB_COLOUR,
   STALL_DIVIDERS_X_M,
@@ -115,7 +122,6 @@ export const OUTER_YARD_M = 15;
 const YARD_BELOW_M = 0.02;
 
 const roadLike = (role: TileRole): boolean => TILE_LEVELS[role] !== "pavement";
-const carriageRole = (role: TileRole): boolean => role === "lane" || role === "parking" || role === "parkingPlain";
 
 const noRay = (o: Object3D): void => {
   o.raycast = () => {};
@@ -151,9 +157,14 @@ export function tileMatrix(cell: Pick<TileCell, "x_m" | "z_m" | "yaw">, yM: numb
 /** The index into a role's keys a cell's variant picks. */
 function variantIndex(cell: TileCell): number {
   if (cell.role === "lane") return cell.variant & LANE_RIGHT;
-  if (cell.role === "pavement") return cell.variant & 3;
+  if (cell.role === "pavement") return cell.variant & PAVEMENT_GRATE;
   // 063 A: a build-out is always the one plain straight (variant 0), so the sidewalk is one colour.
   return 0;
+}
+
+/** The role whose level a cell's piece stands at: a flush pavement cell drawn from the plain slab (063 F) stands at the slab's ground level (the walk), not at a sidewalk piece's. */
+function levelRole(c: TileCell, key: CalibrationKey): SlotRole {
+  return c.role === "pavement" && (c.variant & PAVEMENT_FLUSH) !== 0 && PASSAGE_FLOOR_KEYS.includes(key) ? "apron" : c.role;
 }
 
 /** Where one street tree stands and which piece and turn it has: the tree's point and the key and quarter turn the hash gave it. */
@@ -205,6 +216,8 @@ export function inletKeys(city: Pick<TileCity, "courts" | "blocks">): ReadonlySe
  * is active, and falls to its role's keys (the bare road) when it is not.
  */
 export function tileKeyOf(cell: TileCell, active: ReadonlySet<CalibrationKey>, paved = false): CalibrationKey | null {
+  // 063 F: a pavement cell with a build-out in front of it is flush with it: the plain slab at the walk, with no kerb and no gutter, and the code pavement box when the slab is absent. Never a sidewalk piece (it would bring its kerb).
+  if (cell.role === "pavement" && (cell.variant & PAVEMENT_FLUSH) !== 0) return PASSAGE_FLOOR_KEYS.find((key) => active.has(key)) ?? null;
   if (paved) {
     const slab = PASSAGE_FLOOR_KEYS.find((key) => active.has(key));
     if (slab !== undefined) return slab;
@@ -223,6 +236,8 @@ export interface TileDraw {
   /** Cells drawn from the pack and cells drawn in code: always `city.cells.length` together. */
   fromPack: number;
   codeDrawn: number;
+  /** The kerb line's faces (063 F): each pack piece's own and each code strip. */
+  kerb: KerbPlan;
   /** The InstancedMeshes in `group` (draw calls), pack and code together. */
   calls: number;
   /** Instances per pack key (a key a role lost to the draw-call cap, or that never loaded, is absent). */
@@ -255,25 +270,24 @@ export function tileGroup(city: TileCity, roots: ReadonlyMap<CalibrationKey, Obj
     counts: Map<CalibrationKey, number>;
     patches: number;
     codeKinds: number;
+    /** What the kerb line is drawn from: each pack piece's own face, and the code strips (flanks, returns, a fallback cell's). */
+    kerb: KerbPlan;
     /** The build-out trees whose piece is in the pack: place and key (a tree whose own piece is missing takes another of the three, and none is drawn when none is there). */
     trees: TreePlace[];
   }
   const inlets = inletKeys(city);
+  const cellIndex = new Map<TileCell, number>(city.cells.map((c, i) => [c, i]));
   const planFor = (): Plan => {
     const keyOf = city.cells.map((c) => tileKeyOf(c, active, c.role === "lotSurface" && inlets.has(cellId(c.i, c.j))));
     const counts = new Map<CalibrationKey, number>();
     let quads = 0;
     let boxes = 0;
-    let strips = 0;
     let patches = 0;
     city.cells.forEach((c, i) => {
       const key = keyOf[i]!;
       if (key) counts.set(key, (counts.get(key) ?? 0) + 1);
       else if (roadLike(c.role)) quads++;
-      else {
-        boxes++;
-        if (c.role === "pavement" || c.role === "buildout") strips++;
-      }
+      else boxes++;
       if (c.role === "lane" && (c.variant & LANE_PATCH) !== 0 && active.has(TILE_PATCH)) patches++;
     });
     if (patches > 0) counts.set(TILE_PATCH, patches);
@@ -285,7 +299,9 @@ export function tileGroup(city: TileCity, roots: ReadonlyMap<CalibrationKey, Obj
       trees.push({ ...t, key });
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }
-    return { keyOf, counts, patches, codeKinds: (quads > 0 ? 1 : 0) + (boxes > 0 ? 1 : 0) + (strips > 0 ? 1 : 0), trees };
+    const kerb = tileKerbPlan(city, (c) => keyOf[cellIndex.get(c)!] ?? null);
+    const strips = kerb.faces.some((f) => f.kind === "code");
+    return { keyOf, counts, patches, codeKinds: (quads > 0 ? 1 : 0) + (boxes > 0 ? 1 : 0) + (strips ? 1 : 0), kerb, trees };
   };
   let plan = planFor();
   for (;;) {
@@ -329,7 +345,7 @@ export function tileGroup(city: TileCity, roots: ReadonlyMap<CalibrationKey, Obj
     for (const part of parts.get(key)!) {
       const im = new InstancedMesh(part.mesh.geometry, part.mesh.material, list.length);
       im.name = `tile:${key.slice(key.indexOf(":") + 1)}`;
-      list.forEach((c, i) => im.setMatrixAt(i, tileMatrix(c, tileOriginY_m(c.role, key), turn, m).multiply(part.local)));
+      list.forEach((c, i) => im.setMatrixAt(i, tileMatrix(c, tileOriginY_m(levelRole(c, key), key), turn, m).multiply(part.local)));
       im.instanceMatrix.needsUpdate = true;
       im.computeBoundingSphere();
       noRay(im);
@@ -411,13 +427,14 @@ export function tileGroup(city: TileCity, roots: ReadonlyMap<CalibrationKey, Obj
     group.add(im);
     instanced.push(im);
   }
-  const strips = kerbStrips(city, codeCells);
+  // The kerb strips (063 F): the flanks of the build-outs, the returns of the inlets and a fallback strip for a pavement or build-out cell drawn in code, all on the kerb line (kerbline.ts), at the pack's lip height and colour. They are
+  // not a cell's fallback (a city drawn wholly from the pack has them too), so the mesh is not named `tile:code-...`.
+  const strips = kerbStrips(plan.kerb);
   if (strips.length > 0) {
-    const kerbMat = own(new MeshStandardMaterial({ color: KERB, roughness: 1 }));
-    addSurface(surfaces, "kerb", kerbMat);
+    const kerbMat = own(new MeshStandardMaterial({ color: KERB_STRIP_COLOUR, roughness: 1 }));
     const im = new InstancedMesh(own(new BoxGeometry(1, 1, 1).translate(0, 0.5, 0)), kerbMat, strips.length);
-    im.name = "tile:code-kerb";
-    strips.forEach((s, i) => im.setMatrixAt(i, m.compose(tmpP.set(s.x, 0, s.z), q, tmpS.set(s.w, KERB_H, s.d))));
+    im.name = "tile:kerb-strips";
+    strips.forEach((s, i) => im.setMatrixAt(i, m.compose(tmpP.set(s.x, -SIDEWALK_WALK_M * S, s.z), q, tmpS.set(s.w, KERB_LIP_TOP_M * S, s.d))));
     im.instanceMatrix.needsUpdate = true;
     im.computeBoundingSphere();
     noRay(im);
@@ -429,6 +446,7 @@ export function tileGroup(city: TileCity, roots: ReadonlyMap<CalibrationKey, Obj
     group,
     fromPack,
     codeDrawn: codeCells.length,
+    kerb: plan.kerb,
     calls: instanced.length,
     perKey,
     surfaces: surfaces.materials,
@@ -441,7 +459,7 @@ export function tileGroup(city: TileCity, roots: ReadonlyMap<CalibrationKey, Obj
   };
 }
 
-/** A code-drawn kerb: its centre (map units) and size (x, z), standing on the pavement's top. */
+/** A code-drawn kerb strip: its centre (map units) and size (x, z). It stands from the carriageway (-`SIDEWALK_WALK_M`) up `KERB_LIP_TOP_M`, so its top is the pack's lip. */
 export interface KerbStrip {
   x: number;
   z: number;
@@ -450,28 +468,20 @@ export interface KerbStrip {
 }
 
 /**
- * The kerb strips of the code-drawn pavement cells: one `TILE_M` long on each edge of a `pavement` or `buildout` cell (056: the kerb follows a build-out's edge) whose neighbour is a lane or parking cell (never against a junction, a
- * crossing or a kerb cut: the kerb is the sidewalk tile's own edge, and there is none where the pavement drops), `KERB_W` wide just inside the pavement.
+ * The boxes of the plan's code-drawn faces (063 F): along each face, `KERB_LIP_W_M` wide on the walk side of it (a face is the strip's carriageway-side edge, so the strip lies behind the line, as the pack's lip does). A flank or a return
+ * runs the length of its face. Pure.
  */
-export function kerbStrips(city: TileCity, drawn: readonly TileCell[]): KerbStrip[] {
-  const pavements = drawn.filter((c) => c.role === "pavement" || c.role === "buildout");
-  if (pavements.length === 0) return [];
-  const at = new Map<number, TileCell>();
-  const stride = 4096;
-  for (const c of city.cells) {
-    at.set(c.j * stride + c.i, c);
-    if (c.cells === 2) at.set(c.yaw === 0 || c.yaw === 180 ? c.j * stride + c.i + 1 : (c.j + 1) * stride + c.i, c);
-  }
+export function kerbStrips(plan: KerbPlan): KerbStrip[] {
   const out: KerbStrip[] = [];
-  const half = (TILE_M * S) / 2;
-  for (const c of pavements) {
-    for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
-      const n = at.get((c.j + dj) * stride + c.i + di);
-      if (!n || !carriageRole(n.role)) continue;
-      const cx = c.x_m * S;
-      const cz = c.z_m * S;
-      out.push({ x: cx + di * (half - KERB_W / 2), z: cz + dj * (half - KERB_W / 2), w: di !== 0 ? KERB_W : TILE_M * S, d: di !== 0 ? TILE_M * S : KERB_W });
-    }
+  for (const f of plan.faces) {
+    if (f.kind !== "code") continue;
+    const dx = Math.abs(f.b.x - f.a.x);
+    const dz = Math.abs(f.b.z - f.a.z);
+    const alongX = dx >= dz;
+    const length = alongX ? dx : dz;
+    const cx = (f.a.x + f.b.x) / 2 + f.walk.x * (KERB_LIP_W_M / 2);
+    const cz = (f.a.z + f.b.z) / 2 + f.walk.z * (KERB_LIP_W_M / 2);
+    out.push({ x: cx * S, z: cz * S, w: (alongX ? length : KERB_LIP_W_M) * S, d: (alongX ? KERB_LIP_W_M : length) * S });
   }
   return out;
 }
