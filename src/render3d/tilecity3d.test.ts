@@ -7,15 +7,16 @@
 import { describe, expect, it, vi } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { BoxGeometry, Group, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, Quaternion, Raycaster, Scene, Sprite, Vector3, type Object3D, type WebGLRenderer } from "three";
+import { BoxGeometry, Group, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, Quaternion, Raycaster, Scene, Sprite, Vector3, type Object3D, type WebGLRenderer } from "three";
 import { ASSET_MANIFEST_VERSION, loadPuzzle, type AssetEntry, type AssetManifest, type CalibrationKey } from "../core";
 import { WORLD_PER_METRE } from "./models";
 import { NO_MODELS, allStackKeys, applyModels, loadModels, stackInput, tileInput, type ModelSet } from "./models3d";
 import { packTown } from "./terrace";
 import { STACK_STYLES } from "./stacks";
-import { LANE_PATCH, LANE_RIGHT, PAVEMENT_GRATE, SIDEWALK_TOP_M, SIDEWALK_WALK_M, TILE_M, tileCity, type TileCell, type TileCity, type TileRole } from "./tilecity";
+import { LANE_PATCH, LANE_RIGHT, PAVEMENT_FLUSH, PAVEMENT_GRATE, SIDEWALK_TOP_M, SIDEWALK_WALK_M, TILE_M, tileCity, type TileCell, type TileCity, type TileRole } from "./tilecity";
 import { buildCityScene, buildSheetScene, buildoutTreePlan, cellFootprint, createCityRenderer3d, createCityRig, kerbStrips, sheetRigInsets, tileCityLine, tileGroup, inletKeys, tileKeyOf, tileMatrix, tileOriginY_m, treeInput } from "./tilecity3d";
-import { SHEET_BUILDOUT_NOTE, TILE_DRAW_CALLS_MAX, TILE_FRONTS, TILE_BASE_M, TILE_PATCH, TILE_SHEET_EXTRA, TILE_SLOTS, TILE_TREES, sheetLabel, sheetPieces, sheetShortName, tileKeys, cityTilesRequested } from "./tileslots";
+import { tileKerbPlan } from "./kerbline";
+import { KERB_INSET_M, KERB_LIP_W_M, KERB_STRIP_COLOUR, SHEET_BUILDOUT_NOTE, TILE_DRAW_CALLS_MAX, TILE_FRONTS, TILE_BASE_M, TILE_PATCH, TILE_SHEET_EXTRA, TILE_SLOTS, TILE_TREES, sheetLabel, sheetPieces, sheetShortName, tileKeys, cityTilesRequested } from "./tileslots";
 import { stubTextSurface } from "./text";
 import { townLayout } from "./town";
 
@@ -79,12 +80,17 @@ const wantKey = (c: TileCell): CalibrationKey => {
   const keys = TILE_SLOTS[c.role];
   // 063 H: a street court's drive is the plain paving slab (the apron's), not the bare road.
   if (isInletCell(c)) return TILE_SLOTS.apron[0]!;
+  // 063 F: a pavement cell with a build-out in front of it is flush: the plain slab, not a sidewalk piece.
+  if (isFlushCell(c)) return TILE_SLOTS.apron[0]!;
   if (c.role === "lane") return keys[c.variant & LANE_RIGHT]!;
   // 063 A: variant 0 is the one plain straight, PAVEMENT_GRATE the grate; a build-out is always the plain straight.
   if (c.role === "pavement") return keys[c.variant === PAVEMENT_GRATE ? 1 : 0]!;
   return keys[0]!;
 };
 const CITY_INLETS = inletKeys(city);
+const isFlushCell = (c: TileCell): boolean => c.role === "pavement" && (c.variant & PAVEMENT_FLUSH) !== 0;
+/** The role whose level a cell's piece stands at: a flush pavement cell's slab stands at the slab's ground level (the walk), as the apron's does. */
+const levelRoleOf = (c: TileCell): TileRole | "apron" => (isFlushCell(c) ? "apron" : c.role);
 const isInletCell = (c: TileCell): boolean => c.role === "lotSurface" && CITY_INLETS.has(`${c.i},${c.j}`);
 
 const instances = (g: Group): InstancedMesh[] => g.children.filter((c): c is InstancedMesh => (c as InstancedMesh).isInstancedMesh === true);
@@ -149,7 +155,8 @@ describe("per-role fallback", () => {
       const lost = new Set(ROLES.filter((r) => TILE_SLOTS[r].every((k) => lack.includes(k))));
       expect(lost.has(role)).toBe(true);
       // A street court's drive is the paving slab, not the bare road: it stays in the pack when the bare road is the key that is absent.
-      const codeCells = city.cells.filter((c) => lost.has(c.role) && !(isInletCell(c) && !lack.includes(TILE_SLOTS.apron[0]!)));
+      // (And a flush pavement cell is the slab, not a sidewalk piece: it stays in the pack when the pavement's keys are the ones absent.)
+      const codeCells = city.cells.filter((c) => lost.has(c.role) && !(isInletCell(c) && !lack.includes(TILE_SLOTS.apron[0]!)) && !(isFlushCell(c) && !lack.includes(TILE_SLOTS.apron[0]!)));
       expect(draw.codeDrawn).toBe(codeCells.length);
       expect(draw.fromPack).toBe(city.cells.length - codeCells.length);
       for (const c of city.cells) expect(tileKeyOf(c, new Set(p.roots.keys()), isInletCell(c)) === null, `${c.role} ${c.i},${c.j}`).toBe(codeCells.includes(c));
@@ -255,7 +262,7 @@ describe("levels and seams", () => {
         m.decompose(pos, quat, scale);
         for (const s of [scale.x, scale.y, scale.z]) if (Math.abs(s / S - 1) > 1e-6) bad.push(`${key} scale ${s}`);
         if (Math.abs(pos.x - c.x_m * S) > 1e-5 || Math.abs(pos.z - c.z_m * S) > 1e-5) bad.push(`${key} at ${pos.x},${pos.z}`);
-        const want = expectedMatrix(c, tileOriginY_m(c.role, key), TILE_FRONTS[key] ?? 0);
+        const want = expectedMatrix(c, tileOriginY_m(levelRoleOf(c), key), TILE_FRONTS[key] ?? 0);
         for (let k = 0; k < 16; k++) if (Math.abs(m.elements[k]! - want.elements[k]!) > 1e-5) bad.push(`${key} cell ${c.i},${c.j} element ${k}`);
       });
     }
@@ -384,38 +391,84 @@ describe("levels and seams", () => {
     draw.dispose();
   });
 
-  it("puts a kerb strip on every code-drawn pavement or build-out edge that meets a lane or parking cell and on no other", () => {
-    // Independent of the code: a map of unit cells, expanded from the cell list.
-    const roleAt = new Map<string, TileRole>();
-    for (const c of baseCity.cells) {
-      roleAt.set(`${c.i},${c.j}`, c.role);
-      if (c.cells === 2) roleAt.set(c.yaw === 0 || c.yaw === 180 ? `${c.i + 1},${c.j}` : `${c.i},${c.j + 1}`, c.role);
-    }
-    let want = 0;
-    for (const c of baseCity.cells) {
-      if (c.role !== "pavement" && c.role !== "buildout") continue;
-      for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-        const n = roleAt.get(`${c.i + di!},${c.j + dj!}`);
-        if (n === "lane" || n === "parking" || n === "parkingPlain") want++;
-      }
-    }
-    expect(want).toBeGreaterThan(50);
-    const strips = kerbStrips(baseCity, baseCity.cells);
-    expect(strips).toHaveLength(want);
-    // Each lies on its pavement cell's edge, along it: 5 m long, narrow across, never over a junction or crossing.
-    for (const s of strips) {
+  it("draws the kerb strips (063 F) as one mesh of boxes, from the carriageway up the pack's lip (0.30 m), `KERB_LIP_W_M` wide on the walk side of their face, in the pack's kerb colour: one for every code face of the plan", () => {
+    const strips = kerbStrips(tileKerbPlan(baseCity, () => null));
+    const code = tileKerbPlan(baseCity, () => null).faces.filter((f) => f.kind === "code");
+    expect(strips).toHaveLength(code.length);
+    expect(strips.length).toBeGreaterThan(50);
+    code.forEach((f, i) => {
+      const s = strips[i]!;
       const long = Math.max(s.w, s.d);
       const narrow = Math.min(s.w, s.d);
-      expect(long).toBeCloseTo(TILE_M * S, 6);
-      expect(narrow).toBeLessThan(0.1);
-      const ci = Math.floor(s.x / (TILE_M * S));
-      const cj = Math.floor(s.z / (TILE_M * S));
-      expect(["pavement", "buildout"]).toContain(roleAt.get(`${ci},${cj}`));
+      expect(long, `${f.part} length`).toBeCloseTo(Math.hypot(f.b.x - f.a.x, f.b.z - f.a.z) * S, 6);
+      expect(narrow, `${f.part} width`).toBeCloseTo(KERB_LIP_W_M * S, 6);
+      // The strip lies on the walk side of its face: its centre is half a lip width from the face's middle along the walk vector.
+      expect(s.x / S - (f.a.x + f.b.x) / 2).toBeCloseTo(f.walk.x * (KERB_LIP_W_M / 2), 6);
+      expect(s.z / S - (f.a.z + f.b.z) / 2).toBeCloseTo(f.walk.z * (KERB_LIP_W_M / 2), 6);
+    });
+    // The pack draws only the flanks and the returns in code; a city with no pack draws every cell's own kerb as well.
+    const packed = tileKerbPlan(baseCity, (c) => tileKeyOf(c, new Set(tileKeys())));
+    expect(kerbStrips(packed).length).toBeLessThan(strips.length);
+    expect(packed.faces.filter((f) => f.kind === "code").every((f) => f.part === "flank" || f.part === "return")).toBe(true);
+  });
+
+  it("makes one InstancedMesh, `tile:kerb-strips`, of the plan's code faces at the lip's height, in the lip's colour, with the whole pack as with none, and it is not a cell's fallback", () => {
+    for (const lack of [[], tileKeys()]) {
+      const p = pack(lack);
+      const draw = tileGroup(baseCity, p.roots, p.entries);
+      const im = named(draw.group, "tile:kerb-strips");
+      expect(im, lack.length === 0 ? "the whole pack" : "no pack").toHaveLength(1);
+      expect(im[0]!.count).toBe(kerbStrips(draw.kerb).length);
+      expect(im[0]!.count).toBeGreaterThan(50);
+      const mat = im[0]!.material as MeshStandardMaterial;
+      expect(mat.color.getHex()).toBe(KERB_STRIP_COLOUR);
+      const m = new Matrix4();
+      const pos = new Vector3();
+      const q = new Quaternion();
+      const sc = new Vector3();
+      const bad: string[] = [];
+      for (let i = 0; i < im[0]!.count; i++) {
+        im[0]!.getMatrixAt(i, m);
+        m.decompose(pos, q, sc);
+        // The unit box stands on y = 0: its base is the carriageway (-0.23 m), its top the lip's (+0.07 m).
+        if (Math.abs(pos.y + SIDEWALK_WALK_M * S) > 1e-6 || Math.abs(pos.y + sc.y - 0.07 * S) > 1e-6) bad.push(`strip ${i}: base ${pos.y / S}, top ${(pos.y + sc.y) / S}`);
+      }
+      expect(bad).toEqual([]);
+      expect(draw.calls).toBe(instances(draw.group).length);
+      draw.dispose();
     }
-    // 056: the build-outs' edges carry strips too, and a build-out beside only pavement, a corner or a crossing carries none.
-    expect(baseCity.cells.some((c) => c.role === "buildout")).toBe(true);
-    expect(kerbStrips(baseCity, baseCity.cells.filter((c) => c.role === "buildout")).length).toBeGreaterThan(0);
-    expect(kerbStrips(baseCity, baseCity.cells.filter((c) => c.role !== "pavement" && c.role !== "buildout"))).toEqual([]);
+    // With the whole pack no mesh is named as a fallback.
+    const whole = pack();
+    const d = tileGroup(baseCity, whole.roots, whole.entries);
+    expect(instances(d.group).filter((q) => q.name.startsWith("tile:code"))).toHaveLength(0);
+    d.dispose();
+  });
+
+  it("puts a code-drawn pavement or build-out cell's own kerb strip on the inset line, `KERB_INSET_M` inside its carriageway edge, and a flush pavement cell's none", () => {
+    const plan = tileKerbPlan(baseCity, () => null);
+    const own = plan.faces.filter((f) => f.part === "edge" && f.cell !== null);
+    const cells = new Map(baseCity.cells.map((c) => [`${c.i},${c.j}`, c] as const));
+    let pav = 0;
+    let out = 0;
+    for (const f of own) {
+      const c = cells.get(`${f.cell!.i},${f.cell!.j}`)!;
+      expect(["pavement", "buildout"]).toContain(c.role);
+      expect(f.inset_m).toBe(KERB_INSET_M);
+      expect(f.kind).toBe("code");
+      if (c.role === "pavement") {
+        pav++;
+        expect(c.variant & PAVEMENT_FLUSH, "a flush cell has no strip of its own").toBe(0);
+      } else out++;
+      // The face is on the cell's carriageway edge, moved in by the inset: half a cell, less the inset, from its centre, across the street.
+      const across = Math.abs(f.a.x - f.b.x) < 1e-9 ? Math.abs(f.a.x - c.x_m) : Math.abs(f.a.z - c.z_m);
+      expect(across).toBeCloseTo(TILE_M / 2 - KERB_INSET_M, 9);
+    }
+    expect(pav).toBeGreaterThan(20);
+    expect(out).toBeGreaterThan(20);
+    // Every pavement cell not flush and every build-out has one; a corner, a crossing and a lane none.
+    const want = baseCity.cells.filter((c) => (c.role === "pavement" && (c.variant & PAVEMENT_FLUSH) === 0) || c.role === "buildout").length;
+    expect(own.length).toBeGreaterThanOrEqual(want - 0);
+    expect(own.length).toBe(want);
   });
 });
 
@@ -541,8 +594,8 @@ describe("build-outs and their street trees (056 B, criterion 9)", () => {
     const plain = pack();
     const without = tileGroup(defaultCity, plain.roots, plain.entries);
     expect(draw.calls - without.calls).toBe(3);
-    // The full pack with one mesh a piece takes 16 draw calls on the default city (the tile pieces it uses and the 3 trees), against a cap of 40: the cap holds with room.
-    expect(draw.calls).toBe(16);
+    // The full pack with one mesh a piece takes 17 draw calls on the default city (the tile pieces it uses, the 3 trees and, since 063 F, the kerb strips' one mesh; it was 16), against a cap of 40: the cap holds with room.
+    expect(draw.calls).toBe(17);
     without.dispose();
     draw.dispose();
   });
@@ -1091,7 +1144,8 @@ describe("one sidewalk piece (063 A, Josh, 19 Nov 2026: \"Make the side walk one
   /** The criterion-2 check on any cells and any way of picking a key: the keys the plain cells (a pavement or a build-out that is not the grate) are drawn from. One key is one colour. */
   const plainKeysDrawn = (cs: readonly TileCity[], keyFor: (q: TileCell) => CalibrationKey | null): Set<string> => {
     const out = new Set<string>();
-    for (const c of cs) for (const q of c.cells) if (q.role === "pavement" || q.role === "buildout") out.add(String(keyFor(q)));
+    // (063 F: a pavement cell with a build-out in front is flush, the plain slab and no sidewalk piece: it is its own check below.)
+    for (const c of cs) for (const q of c.cells) if ((q.role === "pavement" && !isFlushCell(q)) || q.role === "buildout") out.add(String(keyFor(q)));
     out.delete(GRATE);
     return out;
   };
@@ -1112,6 +1166,17 @@ describe("one sidewalk piece (063 A, Josh, 19 Nov 2026: \"Make the side walk one
     expect(before.has(PLAIN)).toBe(true);
   });
 
+  it("draws every flush pavement cell (063 F) from the plain slab, which has the same opaque colour, and no flush cell from a sidewalk piece", () => {
+    const flush = new Set<string>();
+    let n = 0;
+    for (const c of cities) for (const q of c.cells) if (isFlushCell(q)) {
+      flush.add(String(tileKeyOf(q, everyKey)));
+      n++;
+    }
+    expect([...flush]).toEqual([TILE_SLOTS.apron[0]]);
+    expect(n).toBeGreaterThan(100);
+  });
+
   it("resolves every plain pavement cell and every build-out cell to Straight_02, and a grate to the grate, on seeds 1 to 10 at 3 x 3 and 1 to 3 at 6 x 4", () => {
     let plain = 0;
     let outs = 0;
@@ -1121,14 +1186,16 @@ describe("one sidewalk piece (063 A, Josh, 19 Nov 2026: \"Make the side walk one
       for (const q of c.cells) {
         if (q.role !== "pavement" && q.role !== "buildout") continue;
         const key = tileKeyOf(q, everyKey);
+        // (063 F: a flush pavement cell is the plain slab: its own test above.)
+        if (isFlushCell(q)) continue;
         const want = q.role === "pavement" && q.variant === PAVEMENT_GRATE ? GRATE : PLAIN;
         if (key !== want) bad.push(`${c.seed} ${q.role} ${q.i},${q.j} variant ${q.variant}: ${key}`);
         if (want === GRATE) grates++;
         else if (q.role === "buildout") outs++;
         else plain++;
-        // The only variants are the plain straight's 0 and the grate's PAVEMENT_GRATE; a build-out is always 0.
+        // The only variants are the plain straight's 0 (with 063 F's return bits), and the grate's PAVEMENT_GRATE alone; a build-out is always 0.
         if (q.role === "buildout" && q.variant !== 0) bad.push(`${c.seed} buildout ${q.i},${q.j} variant ${q.variant}`);
-        if (q.role === "pavement" && q.variant !== 0 && q.variant !== PAVEMENT_GRATE) bad.push(`${c.seed} pavement ${q.i},${q.j} variant ${q.variant}`);
+        if (q.role === "pavement" && q.variant !== PAVEMENT_GRATE && (q.variant & PAVEMENT_GRATE) !== 0) bad.push(`${c.seed} pavement ${q.i},${q.j} variant ${q.variant}`);
       }
     }
     expect(bad).toEqual([]);
@@ -1141,7 +1208,7 @@ describe("one sidewalk piece (063 A, Josh, 19 Nov 2026: \"Make the side walk one
     const p = pack();
     const first = cities[0]!;
     const draw = tileGroup(first, p.roots, p.entries);
-    const plain = first.cells.filter((q) => (q.role === "pavement" && q.variant !== PAVEMENT_GRATE) || q.role === "buildout").length;
+    const plain = first.cells.filter((q) => (q.role === "pavement" && q.variant !== PAVEMENT_GRATE && !isFlushCell(q)) || q.role === "buildout").length;
     expect(draw.perKey.get(PLAIN)).toBe(plain);
     expect(named(draw.group, `tile:${shortName(PLAIN)}`)).toHaveLength(1);
     expect(draw.perKey.has("city-pack:SM_Env_Sidewalk_Straight_01")).toBe(false);
@@ -1191,12 +1258,15 @@ describe("paved inlets in the street tiles (063 H, Josh, 19 Nov 2026: \"If you'r
     const inlets = inletKeys(c);
     const lot = c.cells.filter((q) => q.role === "lotSurface");
     const drives = lot.filter((q) => inlets.has(`${q.i},${q.j}`));
-    expect(draw.perKey.get(SLAB)).toBe(drives.length);
+    // 063 F: the flush pavement cells are the same slab, in the same mesh, in city order with the drives.
+    const slabCells = c.cells.filter((q) => (q.role === "lotSurface" && inlets.has(`${q.i},${q.j}`)) || isFlushCell(q));
+    expect(slabCells.length).toBeGreaterThan(drives.length);
+    expect(draw.perKey.get(SLAB)).toBe(slabCells.length);
     expect(draw.perKey.get(BARE)).toBe(c.cells.filter((q) => q.role === "junction").length + lot.length - drives.length);
     expect(draw.codeDrawn).toBe(0);
     const im = named(draw.group, `tile:${shortName(SLAB)}`)[0]!;
     const m = new Matrix4();
-    drives.forEach((q, i) => {
+    slabCells.forEach((q, i) => {
       im.getMatrixAt(i, m);
       const pos = new Vector3().setFromMatrixPosition(m);
       expect([pos.x / S, pos.z / S].map((v) => Math.round(v * 1e4) / 1e4)).toEqual([q.x_m, q.z_m]);
@@ -1225,7 +1295,8 @@ describe("paved inlets in the street tiles (063 H, Josh, 19 Nov 2026: \"If you'r
     const lot = c.cells.filter((q) => q.role === "lotSurface").length;
     expect(draw.perKey.has(SLAB)).toBe(false);
     expect(draw.perKey.get(BARE)).toBe(c.cells.filter((q) => q.role === "junction").length + lot);
-    expect(draw.codeDrawn).toBe(0);
+    // (063 F: without the slab a flush pavement cell is the code pavement box, the pavement's colour, and nothing else is drawn in code.)
+    expect(draw.codeDrawn).toBe(c.cells.filter((q) => isFlushCell(q)).length);
     draw.dispose();
   });
 });

@@ -187,6 +187,48 @@ export function tileLevelY_m(role: SlotRole, key?: CalibrationKey): number {
   return -tileWalkM(key);
 }
 
+// ---- the kerb (ticket 063 F; Josh, 19 Nov 2026: "It's ok to have curbs that stretch out like this in spots but the curb structures have to follow the crub.") ----
+
+/** One kerb face of a sidewalk piece: the side of the cell it is on, how far inside the cell's edge it stands (the rest of that edge is the piece's own gutter and ramp), and the top of its lip above the carriageway. */
+export interface KerbFaceSpec {
+  side: "+x" | "-x" | "+z" | "-z";
+  inset_m: number;
+  top_m: number;
+}
+
+/**
+ * Where each sidewalk piece's kerb face stands, measured from the converted City Pack (19 Nov 2026, 063 F; a test re-measures every line within 0.02 m): the area-weighted mean of the piece's full-height faces (road level up to the lip) on
+ * each side, in from the cell's 2.5 m edge. The lip is 0.30 m above the road the piece stands on and 0.07 m above its walk (0.23 m), and 0.39 m wide; the 0.65 m outside the face is the piece's gutter and ramp, at road level.
+ * - `Straight_02` and `Grate_01`: one face on +z, the whole 5 m. A straight has no face on its +-x ends: an open edge 0.23 m high (the jog a build-out's flank closes).
+ * - `Dip_01`: the face on +z stands at the two ends only (about 1 m of full-height kerb in all); the 3 m between them is dipped to 0.14 m above the road.
+ * - `Dip_Corner_01`: a pedestrian ramp, not a kerb return. Each of its two legs (+x and +z) has only about 1.1 m of full-height kerb, at the far end of the leg, and the rest of the corner falls away on a diagonal ramp to road level. It cannot carry
+ *   a kerb round an inlet's return, so the returns are the straight with a code-drawn strip (`KerbPlan`).
+ */
+export const KERB_FACES_M: Readonly<Partial<Record<CalibrationKey, readonly KerbFaceSpec[]>>> = {
+  [k("SM_Env_Sidewalk_Straight_02")]: [{ side: "+z", inset_m: 0.66, top_m: 0.3 }],
+  [k("SM_Env_Sidewalk_Grate_01")]: [{ side: "+z", inset_m: 0.65, top_m: 0.3 }],
+  [k("SM_Env_Sidewalk_Dip_01")]: [{ side: "+z", inset_m: 0.66, top_m: 0.3 }],
+  [k("SM_Env_Sidewalk_Dip_Corner_01")]: [
+    { side: "+x", inset_m: 0.68, top_m: 0.3 },
+    { side: "+z", inset_m: 0.69, top_m: 0.3 },
+  ],
+};
+
+/** A kerb face with no measured piece behind it (a code-drawn strip's, a fallback cell's) stands this far inside the cell edge: the pack's, to a hundredth of a metre. */
+export const KERB_INSET_M = 0.66;
+/** The lip's top above the carriageway (0.30 m, so 0.07 m above the walk) and its width across (0.39 m, measured on `Straight_02`: the lip runs from 1.44 to 1.83 m). A code-drawn kerb strip has both. */
+export const KERB_LIP_TOP_M = 0.3;
+export const KERB_LIP_W_M = 0.39;
+/** The colour of a code-drawn kerb strip: the pack's kerb lip and joints (`#7b7b79`, sampled from the atlas), so a strip beside a pack piece reads as the same kerb. Not a lit-surface key: it takes the day and night light as the textured pieces do. */
+export const KERB_STRIP_COLOUR = 0x7b7b79;
+/**
+ * How near two kerb faces on one line must be, in plan (metres): the pack's faces stand 0.65 to 0.69 m in, so the one common inset is within 0.02 m of each of the three pieces the plan lays along the line (`kerbline.ts`). How much a face's lip
+ * height may differ from the line's. The longest gap in a kerb run: a return reaches the building line, and the faces along a path meet, within it.
+ */
+export const KERB_TOL_M = 0.03;
+export const KERB_HEIGHT_TOL_M = 0.02;
+export const KERB_GAP_MAX_M = 0.05;
+
 /** The most draw calls (InstancedMeshes) the tiles take, pack and code-drawn together. A key is a call per sub-mesh; the keys with the fewest cells are dropped first. */
 export const TILE_DRAW_CALLS_MAX = 40;
 
