@@ -1,9 +1,27 @@
-# 063 · Tile city fixes from Josh's daylight look: one sidewalk colour, street width, building backs, plain interior paving, roofs and corners, kerbs, roof exits, paved inlets
+# 063 · Tile city fixes from Josh's daylight look: one sidewalk colour, street width, plain interior paving, roofs and corners, kerbs, paved inlets (and the index of 064 to 068)
 
 owner: renderer (src/render3d/, docs/city-style-guide.md)
-status: open (waiting for G1). Eight sections, each its own branch, each buildable alone except where Dependencies says. Sections B and C wait for Josh's answers (Open questions).
-branch: one per section: `ticket/063a-one-sidewalk`, `ticket/063b-street-width`, `ticket/063c1-back-rows-plan`, `ticket/063c2-back-rows-draw`, `ticket/063d-plain-interior-paving`, `ticket/063e1-corner-open-side`, `ticket/063e2-one-footprint`, `ticket/063f-kerb-line`, `ticket/063g-roof-access`, `ticket/063h-paved-inlets`, `ticket/063i-walls-touch`
-- Section I was added on 19 Nov 2026, after A, D and H merged (`f4a728f`). It is buildable after E1 and E2.
+status: re-cut on 19 Nov 2026 on `docs/city-grammar.md`.
+- **Built.** A, D and H are merged. E1 and E2 are built on `ticket/063e-corners-roofs`, in gate and review. F is in review.
+- **Next.** B is next. 063's sections C, G and I moved to tickets 064 to 068.
+- **Decisions.** Josh's answers and the goal waiver are recorded below and in the grammar's status lines.
+
+branch: `ticket/063a-pavement` (A, D, H, merged), `ticket/063e-corners-roofs` (E1, E2), `ticket/063f-kerbs` (F), `ticket/063b-street-width` (B)
+
+## Index: the build order (the grammar's order)
+| Order | Ticket or section | What | Size | Status |
+| --- | --- | --- | --- | --- |
+| done | 063 A, D, H | one sidewalk piece; plain interior paving; paved inlets | | merged |
+| in flight | 063 E1, E2 | corner open side measured; one footprint per column (and M2, M9's alignment) | | gate and review |
+| in flight | 063 F | the kerb line, with returns at inlets | | review |
+| 1 | **063 B** | street width: no avenues (grammar rule 10; Q7) | half a day | next |
+| 2 | **064** | the lattice: 5.0 m bays on a 5.0 m band, columns on bodies, no passages (M1, M5's passage line) | 1 day | after B, E1, E2 |
+| 3 | **065 A, then 065 B** | back to back, the plan: ring 2, openings, lane rows, M3, M4, M5, M6 extended, M8, R9 | 2 days (two builder rounds; C1 is bigger than one) | after 064 and F |
+| 4 | **066** | back to back, drawn: quiet dressing, partner colourways, drives paved through ring 2 | 1 day | after 065 |
+| 5 | **067 A and 067 B** | party walls dressed (M7, the pipe lift); strips | 1 day each | after 066 |
+| 6 | **068** | the roof exit (M9's exit part) | half a day | after 066 |
+
+Each ticket has its own Files list, criteria with failing fixtures, checks, Josh's words and dependencies.
 
 ## Josh's words (19 Nov 2026, in chat, looking at the tile city in daylight)
 > "Make the side walk one uniform color. I also see alot of this. The streets do not need to be 4 tiles wide."
@@ -27,6 +45,11 @@ branch: one per section: `ticket/063a-one-sidewalk`, `ticket/063b-street-width`,
 > "If you're going to have an inlet to areas between buildings it needs to be paved"
 
 > "the buildings are intended to be butted up against eachother. You can see this illustrated in the screenshot and you can compare to the gap in the screenshot I provided" (a reference image of a continuous terrace, wall to wall, and a street view of ours with a vertical sliver of ground showing between a red brick building and an olive one, from the pavement to the roof line)
+
+> On the grammar's questions (`docs/city-grammar.md`, "Decide first"), 19 Nov 2026. Only Q1 and Q3 carry words of his own:
+> - Q1, corner pieces wherever two open sides meet: "Yes, allow it (Recommended)" (the grammar's rule 7 records the earlier wording "Yes, any corner").
+> - Q3, the wall above a lower neighbour's roof: "Dress it, lift the pipes (Recommended)".
+> - Q2 (backs are other buildings), Q4 (retire the gated passage), Q5 (keep 0.15 stalls a home and every threshold; measure in 065), Q6 (strips, in 067) and Q7 (no avenues, this ticket's B1) each take the recommendation under his goal waiver: "I don't want to constantly approve all of these improvments."
 
 Rulings already in the guide that every section keeps:
 - 19.1, Decided (Josh, 18 Nov 2026): "It's okay if the buildings rest on top of the sidewalk and overlap a little bit. It is not okay if the buildings sit recessed from the sidewalk and leave a gap of nothing between them."
@@ -62,21 +85,10 @@ Measured by reading the code, the converted manifest, and `city-pack.glb` (the c
   - 059's pole plan (approved, not built): poles on the side without the parking band, an avenue's side by hash, lights staggered on both sides of an avenue, a junction span of at most one carriageway plus 1.5 m.
   - 057's block sizes (`BLOCK_TILES`), G1 to G4 and V1 to V4 do not depend on street width: blocks are laid between the street lines. R1, R6 and R7 do not depend on it directly. 19.3's area share (streets about 65% of the city) does.
 
-### C. The white space behind the buildings
-- **Ring 1 and the stacks.** Each block's ring 1 (5 m) is the terraces' band. The stacks are wall-aligned (057 A): the wall plane is on the pavement's back edge.
-- **How deep the stacks are.** A stack piece is 5.2 to 5.9 m deep (`Apartment_01` 5.196, `_03` 5.497, `Shop_04` 5.886, `Roof_01` 5.918). So its back stands 0.2 to 0.9 m into ring 2.
-- **What ring 2 is.** Ring 2 is the apron strip (`InteriorCell.variant === APRON_STRIP`). `tileslots.ts` always draws it in code (`INTERIOR_KEYS.strip` is empty), and `tilecity3d.ts` draws it as one flat quad per whole 5 m cell in `PAVEMENT`. In day mode that is `surfaces.pavement` `0xa7abb1`, which reads near-white in the sun.
-- **What is left showing.** A band 4.1 to 4.8 m deep shows behind every row. It is paler than ring 3's `Sidewalk_Panel_02` apron beyond it.
-- **The passage floors.** The pale ground "beside the front row's ends" is the gated passages' floors (`TilePassage.floor`, 5 m deep). They are code-drawn in the same `PAVEMENT` colour.
-- **The backs themselves.** The stacks' backs are the pieces' blank rear faces, with no windows, and they are ragged (each piece's own depth). That is the red building's blank back wall.
-- **Josh's intent, with new evidence** (19 Nov 2026, in chat): "Notice how the backs of buildings are also butted up against the backs of other buildings Also intentional. Without this you end up with featurless walls."
-  - His reference shows no blank face anywhere.
-  - His screenshot of ours shows a blank, three-storey, dark green back and side wall beside a gap.
-- **Every side and back of a pack piece is blank.** Measured: `Apartment_01`'s ±x faces are each one solid plane of 14.9 m², the full 5.2 m by 3 m. Only a piece's front (+z) carries windows, doors or shopfronts. So a face shows windows only if a piece's front is turned to it.
-- **What depth there is.** A block side is 6 to 16 cells (`BLOCK_TILES`, 30 to 80 m) with a mean of at least 10. Ring 1 is the front row. Ring 2 is the strip, `APRON_STRIP`, which today is a code-drawn tile and, since 063 D, plain paving. A court's stalls start at ring 2, but only behind its drive, between the rows.
-  - A back row standing on ring 2 on every side uses 4 cells of a block's depth, so a 6-cell block keeps 2 interior cells (ring 3 apron, both sides) and a 16-cell block keeps 12.
-  - Two pieces back to back are 10.4 to 11.8 m deep, so a back row runs 0.4 to 1.8 m into ring 3's apron.
-  - The courts, greens and paths (rings 3 and up) do not move. The court's 2-cell opening through ring 2 is an intentional gap in the back row.
+### C. The white space behind the buildings: moved to 065 to 067
+- **What it was.** The white band was ring 2's apron strip, drawn in `PAVEMENT` (day `0xa7abb1`). The pale ground beside row ends was the passage floors.
+- **What has been done.** 063 D paved both.
+- **Where the backs went.** The backs are now covered by buildings standing back to back (grammar rule 4): tickets 065 (the plan), 066 (the drawing) and 067 (party walls and strips).
 
 ### D. The plates on the interior paving: an answer to Josh's question
 - **What the plates are.** No, they are not tree plots. The aprons, interior paths and park edges are `SM_Env_Sidewalk_Panel_02` (390 triangles, 5 x 0.094 x 5 m). Modelled into it are two inset plates about 0.04 m below the slab, 3.8 m² in all, with small studs at their corners. They sample `#4a5d4e`, a dark green-grey, and `#5f686e`. They read as utility or service access covers. `Sidewalk_Panel_01` (the plaza piece) has the same pair.
@@ -117,66 +129,40 @@ Measured by reading the code, the converted manifest, and `city-pack.glb` (the c
   4. The pale, "translucent-looking" run in his screenshot is `Straight_01` (finding A).
 - **What a model look would settle.** The dip corner's rounded or dipped side was measured only on the axis-aligned faces. Whether the Town Pack's `Sidewalk_Corner_03` to `_05` would make a bulb-out end is unknown.
 
-### G. The roof exit
-- **The piece.** `SM_Bld_Roof_Access_01` (2.76 x 2.74 x 2.85 m), `ROOF_ACCESS` in `dressing.ts`, one of the "big roof props" (tower, access, billboard, novelty; at most one per block, `P_ROOF_LARGE`).
-- **Why it opens to the street.** `onRoof(ROOF_ACCESS, …, "front", …)` puts its front edge on the roof cell's front (`ROOF_EDGE_M`, 0.3 m in from the roof's front bound), with `yaw = yawOf(key)`, so its door side ("+z", the default) faces the street. The door opens over the façade with no deck in front.
-- **What a model look would settle.** Which face is the door: the face areas (−z 5.9 m², +z 7.0 m²) do not settle it. Josh's screenshot shows the door facing the street, which fits "+z".
+### G. The roof exit: moved to 068
 
 ### H. The inlet Josh marked
 - **What it is.** The opening, two cells (10 m) wide with a kerb-cut ramp, is a residents' court's **drive** (057 C, `DRIVE_CELLS` 2, ring 1). An alley mouth is one cell, so it is not that.
 - **What is drawn there.** Its cells are 056's `lotSurface` cells, drawn as `SM_Env_Road_Bare_01`, which is asphalt, the street's colour. Behind it, the court (rings 2 to 4) is bare road with `ParkingLines_01` over each row of stalls.
 - **What is around it.** The kerb cut is `Dip_01` on the pavement band. The pale ground at its far edge is ring 2's code-drawn strip or a passage floor (C, D).
 
-### I. Why neighbouring buildings leave a sliver (measured 19 Nov 2026 at `f4a728f`, from `city-pack.glb`, no browser)
-- **The walls stand on a 5.0 m body.** Every apartment and shop piece's side wall plane is at **±2.50 m**, a 5.0 m body:
-  - `Apartment_01`, `_02` and `_03`;
-  - `Shop_01` and `_04`;
-  - `Apartment_Door_01`.
-- **The bounds are wider than the walls.** What goes past ±2.50 m is trim, which reaches beyond the wall:
-  - `Apartment_02`: a band at y 2.54 to 3.0 m, out to ±2.585 (bounds 5.170 m);
-  - `Apartment_03`: a plinth at y 0 to 0.14 m and a cornice at 2.86 to 3.0 m, out to ±2.64 (bounds 5.281 m);
-  - `Shop_04`'s and `Door_01`'s top bands, out to ±2.55;
-  - the roofs' parapets, out to ±2.57 to 2.65.
-- **The packer lays columns by bounds.** `stacks.ts` (`build`: `w = floorMid.w`) makes each column as wide as its floor piece's **bounds**. `terrace.ts` lays blocks flush by `Stack.width_m` and measures the far gap from the pieces' bounds.
-- **So the walls do not touch.** Between two columns, the walls stand apart by the two trims' overhangs:
-  - 0.17 m between two `Apartment_02` columns, 0.28 m between two `_03` columns, 0.09 to 0.14 m where a `_02` or `_03` column meets an `_01` column;
-  - at every column joint, inside a block and between blocks;
-  - from the pavement to the roof, because the shop below is also a 5.0 m body centred in the wider column.
-  - Only the trims bridge it, and only where both sides have one at the same height. That is the "sliver" and the "bands that do not meet" in Josh's screenshot.
-- **The same cause makes the passages.** The 057 B finding that "N unscaled columns span only 5.0 N to about 5.28 N metres", and so "nearly every row's end is a gated passage", comes from bounds widths too. On the bodies every column is 5.0 m. A row runs between corner blocks on the 5 m grid, so it closes to a seam far more often.
-- **Not the cause:**
-  - the lots: the packer re-cuts them;
-  - a deliberate passage: those are at row ends, 1.0 m or wider, with a gate;
-  - 062's lift and `bandPacked`: they move only y and the ground row's choice, with the same columns.
-  - A building is never scaled (041, Decided), so stretching is not an option.
-- **What a model look would settle:**
-  - whether two neighbouring trims, overlapping by 0.08 to 0.14 m where they are coplanar, z-fight visibly. They share one atlas swatch, so it may not show.
-  - the corner pieces' bodies along the street. `Apartment_Corner_01` and `Shop_Corner_01` were not measured on their faces here; E2's `BODY_M` measures them.
-  - whether Josh's screenshot shows a column joint (most likely, a sliver of about 0.1 to 0.3 m) or a 1 m passage (that would have a 2.2 m gate).
+### I. Why neighbouring buildings leave a sliver: moved to 064
+- **The cause.** Every piece's wall body is 5.00 m, while the packer lays columns by bounds (5.0 to 5.28 m). So walls stand 0.09 to 0.28 m apart at every joint, and 50 of 52 rows end in a passage.
+- **The cure.** The lattice (grammar rules 1 and 6), ticket 064.
 
 ## Goal
 In the tile city in daylight:
 - every pavement and build-out is one opaque sidewalk piece of one colour;
 - block interiors, passage floors and the inlets between buildings are the same plain paving, with no inset plates and no white strip;
 - each building's storeys, trims and roof share one footprint, and its corner pieces turn the corner (the corner store's angled face on the corner);
-- the kerb runs as one unbroken line round every build-out;
-- roof exits open onto the roof;
-- neighbouring buildings in a row stand wall to wall, and a row has a gap only where an opening is made on purpose (a drive, an alley mouth, or a passage the row cannot close);
-- if Josh chooses: the backs of the buildings fill the lot's depth with their own stack pieces, and the streets are narrower.
+- the kerb runs as one unbroken line round every build-out and into every inlet;
+- every street is 25 m with a 15 m carriageway (no avenues).
+
+Wall-to-wall rows, back-to-back buildings, dressed party walls and roof exits are the goals of 064 to 068.
 
 ## Sections
 | Section | What | Size | Needs |
 | --- | --- | --- | --- |
-| A | One sidewalk piece: `Straight_02` for every plain pavement and build-out cell | half a day | nothing |
-| B | Street width, once Josh picks an option (B1 is specified below) | half a day for B1; 1 to 2 days for B2 or B3 | Josh's answer to Q-B |
-| C | Buildings back to back: a back row on ring 2, plus the no-blank-face check | about 2 days (two builder rounds: C1 the pure plan and checks, C2 the drawing) | Josh's answers to Q-C and Q-C2; E2; I |
-| D | Plain interior paving: `Sidewalk_01` for the apron, the strip, the paths, the park edge and the passage floors | half a day | nothing (shares `tileslots.ts` with A) |
-| E1 | The corner pieces' open side, measured (the corner store, the roof-corner trim) | 1 day | nothing |
-| E2 | One footprint per column: storeys, trims and roof aligned on measured wall planes | 1 day | E1 |
-| F | The kerb line: one continuous kerb, build-outs included | 1 day | A |
-| G | The roof exit opens onto the roof | half a day | 061 merged (it owns `dressing.ts` now) |
-| H | Paved inlets: court drives and alley mouths, paved through the row | half a day | D |
-| I | Walls touch: columns laid on their wall bodies, not their bounds | 1 day | E1 and E2 merged (it reads E2's `BODY_M`); before C |
+| A | One sidewalk piece: `Straight_02` for every plain pavement and build-out cell | half a day | merged |
+| B | Street width: no avenues (B1; Q7 adopted under the waiver) | half a day | next; nothing else needed |
+| C | moved: 065, 066, 067 | | |
+| D | Plain interior paving: `Sidewalk_01` for the apron, the strip, the paths, the park edge and the passage floors | half a day | merged |
+| E1 | The corner pieces' open side, measured (the corner store, the roof-corner trim); grammar M6 | 1 day | built, in review |
+| E2 | One footprint per column: storeys, trims and roof aligned on measured wall planes; grammar M2 and M9's alignment | 1 day | built, in review |
+| F | The kerb line: one continuous kerb, build-outs and inlet returns | 1 day | in review |
+| G | moved: 068 | | |
+| H | Paved inlets: court drives and alley mouths, paved through the row | half a day | merged |
+| I | moved: 064 | | |
 
 ## Acceptance criteria
 **CI-safe throughout:**
@@ -200,52 +186,16 @@ In the tile city in daylight:
 4. [ ] **Nothing else moves.** The cities' cells deep-equal today's except `variant`. The layout, bays and interior are unchanged, and the tile draw calls do not grow: one key fewer.
 5. [ ] (Main session, screenshot, `npm run dev`) `/?puzzle=01-first-light&view=3d&city=tiles&light=day`, overhead and `&cam=street`: no pale or translucent slab on any pavement or build-out.
 
-### B. Street width (after Josh answers Q-B; written for the recommended B1)
+### B. Street width: B1, no avenues (grammar rule 10; Q7 adopted under Josh's goal waiver, "I don't want to constantly approve all of these improvments.")
+Built before 064, because it fixes the row lengths that the lattice cuts. Checks built here: the grammar's "street width" line (every carriageway 15 m, criterion 8).
 6. [ ] **B1, no avenues.** Every street line is the 5-cell street profile, carriageway 3 cells (15 m). `AVENUE_ONE_IN` becomes an off switch (0 = none), and 056's avenue-first bay order and `KERB_BAY_SHARE_MAX.avenue` are left in place, unused.
 7. [ ] P1 to P6 (`parkmetrics.test.ts`), G1 to G4, V1 to V4, R1 at `TILE_CITY_R1_MIN`, R6, R7 and the 057 C interior shares hold on the default city, seeds 1 to 10 at 3 x 3 and seeds 1 to 3 at 6 x 4, with no threshold changed. If P1's floor cannot hold, the builder stops and reports: it is a re-cut, not a looser band.
 8. [ ] A test pins every street's carriageway at 15 m and the largest junction at 3 x 3 cells. Tests that asserted an avenue exists are changed to assert that none does, and are listed in the report.
 9. [ ] The guide's 19.3 and chapter 18's measured lines are re-measured. The builder reports street metres per axis and the streets' share of city area, before and after.
 10. [ ] (Main session, screenshot) the same URLs as criterion 5: no 4-cell carriageway.
 
-### C. Buildings back to back (after Josh answers Q-C and Q-C2; written for the recommended C-rows)
-Josh (19 Nov 2026): "Notice how the backs of buildings are also butted up against the backs of other buildings Also intentional. Without this you end up with featurless walls."
-
-**C1, the pure plan and the checks** (Vitest)
-11. [ ] **The back row.** New `backRows(city, packed)` (in `src/render3d/backs.ts`) lays, behind each front run, a row of its own buildings on ring 2, facing the block's interior. Their backs are on the front row's back body plane (E2), within `WALL_JOINT_TOL_M`.
-    - The back row matches the front column for column: with I, every column is a 5.0 m body.
-    - Each back building has the same floor count as the front building behind it, so the party wall is covered from the ground to the lower roof. Roof heights differ by at most a roof piece's (0.25 m).
-    - Its style and colourway are its own, by hash, never its back-to-back partner's or its row neighbour's.
-    - Nothing is scaled.
-    - It is returned beside `Stack.pieces`, so the street dressing, sills, escapes and R1 to R13 read the front row as today.
-12. [ ] **What a back building is.** Its ground row is the style's residents' door (`DOORS`) on one column per building by hash, and floor pieces elsewhere: no shop, glass, awning, sign or ATM.
-    - Its floors and roof are the style's.
-    - Its fire escape and wall props follow 058 and 052 on its own front, the interior face, as on a street face.
-    - It gets no door steps, unless 062's sill table gives it one.
-13. [ ] **Where a back row stands.** On ring-2 strip cells, and 0.4 to 1.8 m into ring 3 on `apron` cells only (`BACK_OVERSHOOT_MAX_M`, 2 m). It never stands on a court, drive, alley, green, path or park-edge cell, or a passage floor, and never overlaps another building.
-    - It breaks only at intentional openings: a court's stalls behind its drive, a passage (its floor runs on through ring 2, 10 m deep in all), an alley side or a park edge.
-    - At an inner corner, the rows of sides 0 and 2 run through the corner cell of ring 2, and the rows of sides 1 and 3 stop against them as party walls.
-14. [ ] **Coverage.** On the default city, seeds 1 to 10 at 3 x 3 and seeds 1 to 3 at 6 x 4, at least `BACK_COVER_MIN` (0.9) of ring-2 strip area is under a building, other than the intentional openings. The builder reports the share.
-    - I's `wallJoints` runs on the back rows too, with their own intentional openings, and finds no accidental gap.
-15. [ ] **No blank face** (new `blankFaces(city, packed, dressing)`, pure, measured on the layout).
-    - An exposed face is any building face above the walk that does not touch another building within `WALL_JOINT_TOL_M`. A party wall that is itself covered is exempt.
-    - Exposed faces include a row's end flanks at an opening, and a taller neighbour's flank above the lower roof (heights are free, as in I).
-    - Along each exposed face, no stretch longer than `BLANK_RUN_MAX_M` may be without a feature: a piece's front (windows, a door or a shopfront), a fire escape, or a wall prop or sign placed on that face.
-    - `BLANK_RUN_MAX_M` is provisionally 3 m. That is about one window bay of the apartment fronts, so a longer blank stretch reads as a featureless wall. The builder measures the window pitch of `Apartment_01` to `_03`'s fronts in an `it.skipIf` and sets N to that pitch plus 0.5 m, reporting the value.
-    - A fixture of today's city fails: every back is blank, and so is each row end's 5.2 to 5.9 m flank.
-    - The fix for the faces left, on flanks and height steps, is Q-C2.
-16. [ ] **The checks still hold.**
-    - G1 to G4 hold, and G3 still finds no void.
-    - V1 to V4 hold.
-    - R1 to R13 and the tile floors hold on the front rows, which are unchanged.
-    - P1 to P6 hold on the new unit count. The back rows add homes, so `PARK_PER_HOME` asks for more courts. If P2 cannot hold, the builder stops and reports: it is a re-cut, not a looser band.
-    - A fixture of a back row over a court cell fails criterion 13.
-
-**C2, the drawing**
-17. [ ] `models3d.ts` and `tilecity3d.ts` draw the back rows like the front: stacks, colourways and their interior-face dressing.
-    - The builder reports the stack piece count before and after. The main session reports `renderer.info.render.calls` from the dev view's log line.
-    - Expect about twice the building draw calls: stacks are per-piece clones, not instanced. The flank dressing adds a few InstancedMeshes.
-    - If the frame is visibly slower on Josh's PC, that goes to Josh before merge.
-17a. [ ] (Main session, screenshots) overhead and street views of the default city: buildings stand back to back, the interior faces show windows and doors, and no blank wall longer than `BLANK_RUN_MAX_M` shows. Compare with Josh's reference.
+### C. Moved
+Criteria 11 to 17a are replaced by tickets 065 (the plan: M3, M4, M5, M6, M8), 066 (the drawing) and 067 (M7 and strips). The C-rows recommendation stands, as the grammar's rule 4. `BACK_OVERSHOOT_MAX_M` and `BACK_COVER_MIN` are retired by the lattice.
 
 ### D. Plain interior paving (Vitest unless marked)
 18. [ ] `INTERIOR_KEYS.apron`, `.path` and `.parkEdge` are `[SM_Env_Sidewalk_01]`. `INTERIOR_KEYS.strip` is `[SM_Env_Sidewalk_01]`: the ring-2 strip is a pack tile from now on, with the code quad as its fallback only. The passage floors are drawn from the same key (one instance per whole or part cell, laid on the floor's rectangle; a part cell keeps the code quad).
@@ -326,15 +276,8 @@ An inlet is any opening in a row that has a kerb cut: a court drive (2 cells), a
    - A fixture of today's plan (a kerb cut with plain straights beside it, so no returns) fails this, and so does an inlet with one return removed.
 37d. [ ] (Main session, screenshot) the inlet Josh marked, on the default city: the kerb turns into the opening on both sides as on his drawing.
 
-### G. The roof exit (Vitest unless marked)
-38. [ ] **The rule** (`dressing.ts`):
-    - `SM_Bld_Roof_Access_01` stands wholly inside its roof cell (the `ROOF_EDGE_M` insets).
-    - Its door faces away from every roof edge that faces a street or an alley, toward the roof's rear or its middle. With the housing at the cell's front, that is a half-turn.
-    - A clear deck at least `ROOF_ACCESS_CLEAR_M` (1.2 m) deep and the door's width lies in front of the door, inside the roof cell, with no other roof prop on it.
-    - If the cell cannot hold both, the block takes another big prop, as today when a prop does not fit.
-39. [ ] **The door side.** It is `DRESS_FRONTS`'s for the key, "+z" today; the builder confirms it from the GLB in an `it.skipIf` (the recessed door face) or lists it for Josh's gallery check.
-40. [ ] **The test, pure.** For every `ROOF_ACCESS` placement on the default city, seeds 1 to 10 and the three protocol maps: the footprint is inside the cell, the door's outward normal has a negative component along the street normal (and along each alley normal), and the deck is clear. A fixture of today's placement fails it.
-41. [ ] **Ladder.** This fixes the ladder maps' roof exits too (Q-G). Only `ROOF_ACCESS` placements change: a test diffs every dressing placement of the three protocol maps against `5c4329c`'s and finds only those.
+### G. Moved
+Criteria 38 to 41 are replaced by ticket 068.
 
 ### H. Paved inlets (Vitest unless marked)
 42. [ ] **What is paved.** The drawing gives every court drive's cells (`TileCourt.drive`, ring 1) and every alley's ring-1 mouth cell `Sidewalk_01` at the walk, the plain paving of D, in place of `Road_Bare_01`. The paving stops where the opening meets the interior:
@@ -349,53 +292,14 @@ An inlet is any opening in a row that has a kerb cut: a court drive (2 cells), a
     - `TileCity` data is unchanged, and so are G4 and `courtLotPieces`: no lines and no barriers on the drive.
 44. [ ] (Main session, screenshot) the inlet Josh marked (the default city overhead): paved between the two walls, from the kerb cut to the court.
 
-### I. Walls touch (Vitest unless marked)
-Josh's clarification (19 Nov 2026, in chat): "This doesn't mean the buildings need to be the same height. They can have gaps but those caps must be intentional (alley ways... etc)".
-- Heights stay free: neighbours may differ in floors and roof line, and nothing here checks heights.
-- Gaps are allowed only where they are intentional, never as a sliver left by lot widths, rounding or piece widths.
-- Josh, the same day: "Notice how the backs of buildings are also butted up against the backs of other buildings Also intentional. Without this you end up with featurless walls."
-  - The back-to-back rows are section C's. When C lands, `wallJoints` runs on its back rows too, with their own intentional openings.
-  - Every face this section leaves exposed (row ends at openings, a taller neighbour's flank above the lower roof) is held by C's no-blank-face check (criterion 15).
-  - Section I itself checks only that walls touch.
-
-46. [ ] **Columns on their bodies.** With the tile city's option (`assembleStack(..., { columns: "body" })`, which the tile city passes; the default "bounds" keeps the ladder), a column is as wide as its floor piece's **body** between its side wall planes (E2's `BODY_M`, `nx` and `px`), and `Stack.width_m` is the bodies' total.
-    - Every piece of the column is centred on the body; a corner column's piece sits on its outer flank (E2).
-    - Trims, cornices and parapets reach past the body into the neighbour's by what they really carry.
-    - Nothing is scaled.
-47. [ ] **The packer reads bodies.** `terrace.ts` lays blocks flush by the body widths. It measures the far gap from the last block's outermost **wall** plane (not its trim), and the overhang it allows for (`ov`) is the trim's reach.
-    - The far end keeps 057 B's order: seam, overshoot, then passage.
-    - `bandPacked` (062 B) passes the same `columns` option to its re-assembly, so a banded block keeps its columns. A test checks this on a banded fixture.
-48. [ ] **The check, pure.** New `wallJoints(city, packed)` (in `src/render3d/walljoints.ts`) runs over every row of the default city, seeds 1 to 10 at 3 x 3 and seeds 1 to 3 at 6 x 4.
-    - **Intentional openings.** They are listed from the layout data, never from the gap's own size:
-      - the court drives (`TileCity.courts`);
-      - the frontage lots (`frontLots`) and 056's lot openings;
-      - the alley mouths (`TileBlock.alley`);
-      - the plazas;
-      - the gated passages (`TileCity.passages`, from `withPassages`);
-      - a seam at a row's far end within `TERRACE_SEAM_M`.
-      - Each is an interval along its block side.
-    - **Joints.** Every other joint between neighbouring buildings or columns in a row is a joint. At each joint the side wall planes coincide within `WALL_JOINT_TOL_M` (0.02 m), over the height both buildings share, from the ground to the lower roof.
-    - **Heights are free.** Neighbours may differ in floors and roof line, and the taller one's flank above the lower roof is not checked. Trim bands are checked only where both neighbours have one at the same height, and then they meet or overlap.
-    - **Accidental gaps.** Any stretch of a block side's back edge more than 0.02 m wide that is neither wall nor inside an intentional opening is an accidental gap, and the check fails on it. It reports each one with its run, position and width.
-    - **Fixtures.**
-      - Today's bounds-width packing fails, because an `Apartment_02` block's joints are 0.17 m apart.
-      - A city with one passage's record removed fails at that passage: an opening has to be laid to count, not just wide.
-      - Two neighbours of different heights with touching walls pass.
-49. [ ] **Fewer passages.** The builder reports runs closed by seam, overshoot and passage, before and after, on the default city and seeds 1 to 5. The passage count is expected to drop sharply, and the report says by how much.
-    - G2 (no gap in the frontage) holds unchanged.
-    - Every passage left still meets `PASSAGE_W_M`, and its floor and gate follow it, because passages are found from the packed runs.
-50. [ ] **Nothing else loosens.** G1 to G4, R1 at `TILE_CITY_R1_MIN`, R7, the sills (062), `escapeCheck` and E2's `STOREY_ALIGN_TOL_M` check hold, and the R1 to R13 numbers are re-measured and reported.
-    - On the ladder, `packpin.test.ts` is unchanged, because the default is "bounds" (Q-I).
-51. [ ] **A leftover gap** that the row still cannot close (Q-I2) is closed, in this order:
-    1. a seam (≤ `TERRACE_SEAM_M`);
-    2. an overshoot of one more of the last block's own columns, up to `END_OVERLAP_MAX_M` inside the next corner block (057 B);
-    3. a choice of styles and column counts that fits;
-    4. only then 057 B's gated passage.
-    - A run's start is never shifted off its corner, which stays flush (057 B).
-52. [ ] (Main session, screenshots, street camera, `&light=day`) along a row of mixed styles and heights, no ground shows between buildings except at an alley, passage, drive or inlet. Where two neighbours share a height, their trim bands run on. Compare with Josh's reference.
+### I. Moved
+Criteria 46 to 52 are replaced by ticket 064, re-cut on the grammar.
+- The passage count is 0.
+- A leftover gap is a failed check, not something to close, so criterion 51 and Q-I2 go.
+- The `wallJoints` check became M1, plus M5's passage line.
 
 ### Guide (each section, its own lines)
-45. [ ] Each section adds its rule to the guide's chapter (A, D, F, H: 19.8 and 10; B: 3 and 18; C: 19.4; E1: 7; E2: 16.3; G: 16.5; I: 16.2, 16.3 and 19.2), with Josh's words as **Decided** and the rest as **Default**.
+45. [ ] Each section adds its rule to the guide's chapter (A, D, F, H: 19.8 and 10; B: 3 and 18; E1: 7; E2: 16.3), with Josh's words as **Decided** and the rest as **Default**.
     - Numbers rows cover each new constant.
     - The existing drift checks cover them, and no existing check is edited.
     - A closes the "two plain straights" lines of 056 B. D replaces 19.8's "the ragged strip is always code-drawn".
@@ -409,12 +313,6 @@ Josh's clarification (19 Nov 2026, in chat): "This doesn't mean the buildings ne
 - **B:**
   - `tilecity.ts` (profiles, `AVENUE_ONE_IN`);
   - `tilecity.test.ts`, `parkmetrics.test.ts`, `frontage.test.ts`, `alleys.test.ts` (re-measured numbers only, never a threshold).
-- **C:**
-  - C1: new `src/render3d/backs.ts` and `backs.test.ts` (`backRows`, `blankFaces`);
-  - C1: `parkmetrics.test.ts` (re-measured units only);
-  - C1: `tilecity.ts`, only if the passage floor must run on through ring 2;
-  - C2: `models3d.ts` (drawing the back rows), `tilecity3d.ts` (passing the city), `dressing.ts` (the interior-face and flank dressing).
-  - If back runs need `terraceBlockRows` (town.ts) to lay them, the builder stops for a re-cut.
 - **D:**
   - `tileslots.ts` (`INTERIOR_KEYS`, `TILE_BASE_M`);
   - `tilecity3d.ts` (the strip and passage floors from the key);
@@ -431,14 +329,7 @@ Josh's clarification (19 Nov 2026, in chat): "This doesn't mean the buildings ne
   - `tileslots.ts` (`KERB_FACES_M`, the return cell's slot), `tilecity3d.ts` (the kerb plan, the lifted slab, the flank strips, the returns, `kerbStrips`);
   - `tilecity.ts` (the return cells beside each kerb cut only);
   - `tilecity3d.test.ts`, `tilecity.test.ts`, `tileslots.test.ts`.
-- **G:** `dressing.ts` (the access placement only), `dressing.test.ts`, `dressdraw.test.ts`.
 - **H:** `tileslots.ts`, `tilecity3d.ts` (drive and mouth cells drawn as paving), `tileinterior.test.ts`, `tilecity3d.test.ts`.
-- **I:**
-  - `stacks.ts` (the `columns` option);
-  - `terrace.ts`, named here as an exception to the must-not-touch list below, for the block widths and the far-gap and overhang measure only;
-  - `models3d.ts` (passing the option, including in `bandPacked`);
-  - new `src/render3d/walljoints.ts` and `walljoints.test.ts`;
-  - `stacks.test.ts`, `terrace.test.ts`, `terracepack.test.ts`, `frontage.test.ts`, `alleys.test.ts`, `sills.test.ts` (re-measured numbers only, never a threshold).
 - **Must not touch:**
   - `src/core/`, `src/grid/`, `src/night/`, `src/render/`, `src/play/`, `src/ui/`, `src/main.ts`;
   - `tests/`, `puzzles/`, `tools/`, `package.json`, `assets/`, `tickets/`;
@@ -448,77 +339,39 @@ Josh's clarification (19 Nov 2026, in chat): "This doesn't mean the buildings ne
 ## Dependencies
 - **Shared files.** The main session merges one branch at a time:
   - `tileslots.ts` and `tilecity3d.ts`: A, D, F, H, and 059 A2;
-  - `models3d.ts`: C, E2, and 059 A2 and 062 B;
-  - `stacks.ts`: E1, E2, and 062 B;
-  - `dressing.ts`: G, after 061 merges.
-- **Order.** E1 before E2, and E2 before C, which needs the common back plane. D before H, and A before F (F's pieces are A's).
-- **Section I.**
-  - It waits for E1 and E2. It reads E2's `BODY_M`, and its column rule is E2's footprint applied across the row; E1's corner turn decides a corner column's body along the street.
-  - It goes before C, whose back copies repeat the final columns.
-  - It is independent of F, G and B, though B moves the rows' lengths and so the passage counts. 062 is merged: I passes its option through `bandPacked` (criterion 47).
-  - It shares `stacks.ts` and `models3d.ts` with E2 and C, so the main session merges one at a time.
+  - `models3d.ts`: E2, 059 A2, and 064 to 066;
+  - `stacks.ts`: E1, E2, 064 and 065;
+  - `tilecity.ts`: B, F, 064, 065 and 067.
+- **Order.** The index at the top. B goes before 064, because it fixes the row lengths. E1 and E2 also go before 064, which reads `BODY_M`.
 - 059 (approved, not built) reads the street profiles (B) and the kerb (F). If B or F merges first, 059's builder takes the new profiles and Open item F1.
 - No `src/core/` change, no schema or event change, no new dependency.
 
 ## Interfaces
 All in `src/render3d/`; the builder may rename any of them.
 - `tilecity.ts`: `PAVEMENT_GRATE = 1`, and `PAVEMENT_STRAIGHT_2` removed (A).
-- `backs.ts` (C): `backRows(city, packed): ReadonlyMap<string, PackResult>` (the back runs, keyed by their front run), `blankFaces(city, packed, dressing): readonly { face: string; from_m: number; to_m: number }[]`, `BACK_OVERSHOOT_MAX_M = 2`, `BACK_COVER_MIN = 0.9`, `BLANK_RUN_MAX_M = 3` (provisional, criterion 15).
 - `facade.ts`:
   - `measureOpenSide(mesh): "+x" | "-x" | null` and `OPEN_SIDE_MEASURED: Readonly<Partial<Record<CalibrationKey, { open: "+x" | "-x"; why: string }>>>` (E1);
   - `BODY_M: Readonly<Partial<Record<CalibrationKey, { front: number; back: number; nx: number; px: number }>>>` (E2).
 - `stacks.ts`: `AssembleOptions.footprint?: "bounds" | "body"` (default "bounds") and `STOREY_ALIGN_TOL_M = 0.03` (E2).
 - `kerbline.ts`: `kerbLine(city): readonly { street: string; side: 1 | -1; points: readonly Pt[]; dips: readonly [number, number][]; openings: readonly [number, number][]; returns: readonly { inlet: string; at: Pt; side: "near" | "far" }[] }[]`, and a return cell (a `TileRole` "kerbReturn" or a `pavement` variant, the builder's choice) and `KERB_TOL_M = 0.03` (F).
 - `tileslots.ts`: `KERB_FACES_M: Readonly<Partial<Record<CalibrationKey, readonly { side: "+x" | "-x" | "+z" | "-z"; inset_m: number; top_m: number }[]>>>` (F).
-- `dressing.ts`: `ROOF_ACCESS_CLEAR_M = 1.2` (G).
 
-## Open questions (for Josh)
-- **Q-B: how wide should the streets be?**
-  - **B1 (recommended): drop the avenues.** Every street is 5 cells (25 m), with a carriageway of 3 cells (15 m): one parking band and two lanes. Only avenues are 4 cells wide today.
-    - Cost: half a day.
-    - All of 056's parking rules stand. The city is about 5 m narrower per avenue.
-    - 059's staggered avenue lights go unused.
-  - **B2: two lanes, no parking band.** 4 cells (20 m), with a carriageway of 2 cells (10 m).
-    - The kerbside bays, build-outs and street trees go, so 056's "shoppers park at the kerb" and P1 and P3 to P6 must be re-cut: a decision for Josh, and a ticket of its own.
-    - 059's pole-side rule changes. Junctions become 2 x 2 and crossings 2 cells.
-    - Cost: about 2 days.
-  - **B3: one-way streets.** One lane and one parking band: 4 cells (20 m), with a carriageway of 2 cells (10 m).
-    - 056's parking stays as it is on today's streets.
-    - It needs a single-lane piece (`Road_Lines_01`, or `Road_01` with `Road_Arrow_01/02`) in place of the yellow pair. Junctions become 2 x 2.
-    - Cost: 1 to 1.5 days.
-  - **B0:** keep today's widths.
-- **Q-C: how the backs are covered.**
-  - **C-rows (recommended).** A back row of its own buildings on ring 2, back to back with the street row, facing the interior.
-    - It matches the front column for column and floor for floor, in its own styles and colours.
-    - Exposed faces left: the end flanks at intentional openings (now about 11 m deep, two pieces), and a taller neighbour's flank above the lower roof.
-    - Interior: unchanged, apart from ring 2 (strip to buildings). The courts, greens and aprons stay.
-    - Cost: about 2 days, after E2 and I, and about twice the building draw calls.
-  - **C-stack (Josh's first idea, "re use the stacked build blocks of the same type").** Each column's own pieces repeated behind it, turned 180°: the same style and colour, so the interior face repeats the street face with its shops replaced by doors.
-    - Exposed faces left: the same as C-rows.
-    - Cost: about 1.5 days, and the same draw calls.
-  - **C-dress.** No back buildings. Every back and flank stays exposed and gets only wall props (pipes, which 16.6 allows on back walls only, AC units, signs) to meet the no-blank-face check.
-    - Cost: half a day, and a few draw calls.
-    - The walls stay mostly blank, and Josh has said "Without this you end up with featurless walls".
-  - **C-thin.** Blocks two rows deep, so rows from opposite streets stand back to back. 19.3 weighed this and set it aside: roads would take about three quarters of the city. It re-cuts 057 F's block sizes and 19.4's interiors. Not recommended.
-- **Q-C2: the flanks that stay exposed in any option** (row ends at a passage, drive or alley, and height steps).
-  - **Recommended:** dress them: a fire escape where the flank has a window, else pipes, a wall sign or a painted advert (`BILLBOARD_FACES`), one at least every `BLANK_RUN_MAX_M`.
-  - **Alternative:** end a row at an intentional opening with the style's corner pieces, open side toward the opening, so the flank shows windows. That puts corner pieces mid-row, against Josh's ruling of 17 Nov 2026 ("corner buildings only on corners", R9). It needs his word.
-- **Q-A: the grates.** Keep the 1-in-6 `Sidewalk_Grate_01` cells? They are the same colour, opaque and on the same atlas. Default: keep.
-- **Q-E: fix the ladder too?** E1's corner fix and G's roof-exit fix change the ladder maps' corner shops and roof exits, as they should (the same bug). Default: yes, with `packpin` re-pinned and the change named. The alternative is the tile city only.
-- **Q-E2: roof pairing.** If a style's own roof still overhangs its floor after E2, may a style take another style's roof of a better fit (for example `Roof_02` on `Apartment_03`)? It changes that style's roof look. Default: no; report only.
-- **Q-F: how far the return kerbs run.** On Josh's example they run to the building line (the default). Should they go on along the building walls through ring 1 to the interior? That is a kerb against a wall, so it is not recommended.
-- **Q-H: how much of an inlet is paved.** Pave only the inlet through the row (recommended), or the whole court drive and aisle as well? The court then reads as a paved yard with painted stalls.
-
-- **Q-I: the ladder too?** The same slivers are on the ladder maps' terraces. Default: tile city only (`columns: "body"`), so the ladder's pins hold. The alternative is to make it the default everywhere, with `packpin` re-pinned and the change named.
-- **Q-I2: a gap the row still cannot close.**
-  - **Recommended:** criterion 51's order: seam, then an overshoot of one more of the building's own columns hidden in the corner block, then a better-fitting choice, then a gated passage as the last resort.
-  - **Alternatives:**
-    - extend the last building by repeating its own columns, as in C's idea, but along the row: the same as an overshoot where a corner block is there, and not possible against a drive or lot;
-    - shift the whole row, which breaks 057 B's flush corner;
-    - no passage at all, leaving the gap open, which breaks 19.2's no-gap rule;
-    - stretch a piece, which needs Josh to change 041's Decided no-scaling rule.
+## Questions: settled, and still open
+- **Settled on 19 Nov 2026.**
+  - **Q-B:** B1, no avenues. It is the grammar's Q7, adopted under the goal waiver.
+  - **Q-C:** back to back, C-rows. It is the grammar's Q2, adopted under the waiver. Now 065 to 067.
+  - **Q-C2:** settled two ways:
+    - corner pieces at openings (grammar Q1). Josh: "Yes, allow it (Recommended)";
+    - the party-wall kit on height steps (grammar Q3). Josh: "Dress it, lift the pipes (Recommended)".
+  - **Q-I** is moot: the lattice is the tile city's, and the ladder keeps bounds (064).
+  - **Q-I2** is gone: a leftover gap is a failed check (064).
+- **Defaults still standing**, none of them blocking:
+  - **Q-A:** keep the grates.
+  - **Q-E:** fix the ladder too, for E1 and 068.
+  - **Q-E2:** no roof borrowing (grammar rule 11).
+  - **Q-F:** the returns stop at the building line.
+  - **Q-H:** pave only the inlet. 066 extends this through ring 2.
 
 ## Open items (not blocking)
 - **A1.** The converter put `Straight_01` and `Merger_01` on an `01_A` atlas copy with an alpha channel and set BLEND. A `tools/` ticket could re-convert them opaque. Until then A does not use `Straight_01`.
 - **F1.** `POLE_SLOT_FROM_KERB_M` (0.75 m) is measured from the cell edge, so a pole stands 0.10 m behind the pack's kerb face, on the walk. 059's builder should know. No change here.
-- **Size.** This ticket now holds nine branches. C and E (E1 and E2) are each over a day and would sit better as tickets of their own, and B is its own ticket once Josh picks an option. A, D and H together are about a day and a half of one builder's time.
