@@ -123,10 +123,12 @@ describe("the checks fail where they should", () => {
 
   it("holds today's pairing as the failing fixture: its numbers are today's (hundreds of bays, three lots)", () => {
     const m = parkingMetrics(old);
-    expect(m.kerbBays).toBeGreaterThan(300);
+    // 063 B: 288 bays and 14.1 bays per 100 m on the default city now (above 300 and 15 with an avenue's second parking band); the fixture is still hundreds of bays against 57 wanted, and over twice P6's 6.
+    // These two are the fixture's own sanity numbers, not a check's threshold (PARK_CHECK is untouched).
+    expect(m.kerbBays).toBeGreaterThan(250);
     expect(m.lotStalls).toBe(3 * LOT_STALLS);
     expect(m.outerBays).toBeGreaterThan(30);
-    expect(m.bays100m).toBeGreaterThan(15);
+    expect(m.bays100m).toBeGreaterThan(12);
   });
 
   it.each(["P1", "P2", "P3", "P4", "P6"] as const)("fails %s on a city laid by 055's rule", (id) => {

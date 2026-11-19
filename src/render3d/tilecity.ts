@@ -8,7 +8,7 @@
  * section C. The town has roads, kerbs, pavements, pads (the junction boxes), blocks, terrace lots and runs and open lots, and no place.
  *
  * Parking (ticket 056 A, chapter 18 of the style guide): how much parking a block gets is a rule of its units, not of its kerb. Shoppers park at the kerb: a block's shops (a column that is not a
- * lot's door column) call for `PARK_PER_SHOP` bays each, laid as short runs of `ParkingLines_01` tiles on the block's own parking sides (avenues first), or on the band across its longest street when
+ * lot's door column) call for `PARK_PER_SHOP` bays each, laid as short runs of `ParkingLines_01` tiles on the block's own parking sides (avenues first, while there are any: 063 B has none), or on the band across its longest street when
  * it has none with room. Residents park off the street: a block's homes call for `PARK_PER_HOME` stalls each, laid as one or two 10 m parking lots in its rows (or a neighbour's across a street). From 057 C each lot is the mouth of a residents' court inside the block (`TileCity.courts`), and
  * `lotStalls` lists the court's stalls (a lot whose court does not fit keeps its frontage stalls, and its block is in `frontLots`).
  * The rest of the parking band is a `buildout` (a pavement-level tile with a street tree on every second cell of a stretch), except the cells in front of a kerb cut and the outer side of an
@@ -94,8 +94,11 @@ export const BLOCK_SMALL_MAX_M = 40;
 export const BLOCK_LONG_MIN_M = 60;
 export const BLOCK_LONG_SHORT_MAX_M = 45;
 export const BLOCK_LARGE_MIN_M = 55;
-/** One interior grid line in this many is an avenue, by hash. */
-export const AVENUE_ONE_IN = 3;
+/**
+ * One interior grid line in this many is an avenue (6 cells, 30 m, a 4-cell carriageway), by hash; 0 is off, and it is off (063 B, grammar rule 10 and its Q7): every street is the 5-cell street profile,
+ * 25 m with a 15 m carriageway. Josh, 19 Nov 2026: "The streets do not need to be 4 tiles wide." The avenue profile, 056's avenue-first bay order and `KERB_BAY_SHARE_MAX.avenue` stay in the file, unused while this is 0.
+ */
+export const AVENUE_ONE_IN = 0;
 /** Parking cells next to a junction box (the cross street's whole cross-section) that hold no bay. */
 export const BAY_JUNCTION_CLEAR = 1;
 /** Bays in one `ParkingLines_01` tile (10 m by 5 m): 3, from the GLB (E, 18 Nov 2026: its dividers stand at x of about -5, -1.75, +1.6 and +5, so three bays of about 3.3 m). */
@@ -529,8 +532,9 @@ const hashOf = (seed: number, ...key: (string | number)[]): number => stableHash
 function layoutAxis(seed: number, streetAxis: "x" | "z", blocks: number, lens: readonly number[]): AxisLayout {
   const lines = blocks + 1;
   const avenue: boolean[] = [];
-  for (let l = 0; l < lines; l++) avenue.push(l > 0 && l < lines - 1 && hashOf(seed, streetAxis, "avenue", l) % AVENUE_ONE_IN === 0);
-  if (lines >= 3 && !avenue.some(Boolean)) {
+  for (let l = 0; l < lines; l++) avenue.push(AVENUE_ONE_IN > 0 && l > 0 && l < lines - 1 && hashOf(seed, streetAxis, "avenue", l) % AVENUE_ONE_IN === 0);
+  // With avenues on, every axis of three or more lines gets at least one; with them off (AVENUE_ONE_IN = 0) none does.
+  if (AVENUE_ONE_IN > 0 && lines >= 3 && !avenue.some(Boolean)) {
     let best = 1;
     let bh = Infinity;
     for (let l = 1; l < lines - 1; l++) {

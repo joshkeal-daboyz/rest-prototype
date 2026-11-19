@@ -426,22 +426,21 @@ describe("kerbs (criterion 4)", () => {
 });
 
 describe("profiles and bays (criterion 5)", () => {
-  it("gives every street its profile's cross-section, and an avenue on every axis with three lines", () => {
+  it("gives every street the 5-cell street cross-section, and no avenue on any axis (063 B: it asserted an avenue on every axis with three lines)", () => {
     const left = ["pavement", "parking", "lane", "lane", "pavement"];
     const right = ["pavement", "lane", "lane", "parking", "pavement"];
-    const avenue = ["pavement", "parking", "lane", "lane", "parking", "pavement"];
     forAll((v, _l, ok) => {
       const c = v.c;
       for (const s of c.streets) {
         const b = [...s.bands];
-        ok(s.profile === "avenue" ? JSON.stringify(b) === JSON.stringify(avenue) : JSON.stringify(b) === JSON.stringify(left) || JSON.stringify(b) === JSON.stringify(right), `${s.id} bands`);
+        ok(s.profile === "street" && (JSON.stringify(b) === JSON.stringify(left) || JSON.stringify(b) === JSON.stringify(right)), `${s.id} bands`);
         const lines = (s.axis === "x" ? c.blocksZ : c.blocksX) + 1;
         if (s.line === 0 || s.line === lines - 1) ok(s.profile === "street", `${s.id} edge street`);
       }
       for (const axis of ["x", "z"] as const) {
         const own = c.streets.filter((s) => s.axis === axis);
         ok(own.every((s, k) => s.line === k), "lines in order");
-        if (own.length >= 3) ok(own.some((s) => s.profile === "avenue"), `avenue on axis ${axis}`);
+        ok(own.every((s) => s.profile !== "avenue"), `an avenue on axis ${axis}`);
       }
     });
   });
@@ -629,10 +628,96 @@ describe("the Town (criterion 7)", () => {
   });
 });
 
-describe("block sizes, variety and levels", () => {
-  it("makes every block BLOCK_TILES cells a side (6 to 16, 057 F), and avenues, patches and grates land near their ratios", () => {
-    let avenues = 0;
+describe("street width: no avenues (063 B, grammar rule 10; Josh, 19 Nov 2026: \"The streets do not need to be 4 tiles wide.\")", () => {
+  /** A street's carriageway in cells, counted from its bands alone: the lanes and the parking band. */
+  const carriageCells = (bands: readonly TileBand[]): number => bands.filter((b) => isCarriageBand(b)).length;
+  /** The old avenue profile (6 cells, 30 m), typed in: the failing fixture of the rule. */
+  const AVENUE: readonly TileBand[] = ["pavement", "parking", "lane", "lane", "parking", "pavement"];
+
+  it("switches avenues off (AVENUE_ONE_IN is 0) and leaves 056's avenue share in place, unused", () => {
+    expect(AVENUE_ONE_IN).toBe(0);
+    expect(KERB_BAY_SHARE_MAX.avenue).toBe(0.4);
+  });
+
+  it("holds every street at 5 cells (25 m) with a 3-cell, 15 m carriageway (two lanes and one parking band), on every size and seed", () => {
     let streets = 0;
+    forAll((v, _l, ok) => {
+      for (const s of v.c.streets) {
+        streets++;
+        ok(s.bands.length * TILE_M === 25, `${s.id} is ${s.bands.length * TILE_M} m across`);
+        ok(carriageCells(s.bands) === 3, `${s.id} has a ${carriageCells(s.bands)}-cell carriageway`);
+        ok(s.carriage.hi_m - s.carriage.lo_m === 15, `${s.id} carriageway is ${s.carriage.hi_m - s.carriage.lo_m} m`);
+        ok(s.bands.filter((b) => b === "lane").length === 2 && s.bands.filter((b) => b === "parking").length === 1 && s.bands.filter((b) => b === "pavement").length === 2, `${s.id} bands ${s.bands.join(",")}`);
+        ok(s.profile === "street", `${s.id} is an avenue`);
+      }
+    });
+    expect(streets).toBeGreaterThan(500);
+  });
+
+  it("makes every junction box 3 x 3 cells, and so the largest junction is 3 x 3", () => {
+    let boxes = 0;
+    let largest = 0;
+    forAll((v, _l, ok) => {
+      const found = new Map<string, { n: number; i0: number; i1: number; j0: number; j1: number }>();
+      for (const cell of v.c.cells) {
+        if (cell.role !== "junction") continue;
+        const key = `${v.zAt[cell.i]!.id}|${v.xAt[cell.j]!.id}`;
+        const b = found.get(key) ?? { n: 0, i0: cell.i, i1: cell.i, j0: cell.j, j1: cell.j };
+        b.n++;
+        b.i0 = Math.min(b.i0, cell.i);
+        b.i1 = Math.max(b.i1, cell.i);
+        b.j0 = Math.min(b.j0, cell.j);
+        b.j1 = Math.max(b.j1, cell.j);
+        found.set(key, b);
+      }
+      const zs = v.c.streets.filter((s) => s.axis === "z").length;
+      const xs = v.c.streets.filter((s) => s.axis === "x").length;
+      ok(found.size === zs * xs, `${found.size} boxes for ${zs} x ${xs} streets`);
+      for (const [key, b] of found) {
+        boxes++;
+        largest = Math.max(largest, b.n);
+        ok(b.n === 9 && b.i1 - b.i0 + 1 === 3 && b.j1 - b.j0 + 1 === 3, `box ${key} is ${b.i1 - b.i0 + 1} x ${b.j1 - b.j0 + 1} with ${b.n} cells`);
+      }
+    });
+    expect(boxes).toBeGreaterThan(500);
+    expect(largest).toBe(9);
+  });
+
+  it("fails on the avenue's profile: a 4-cell carriageway, and a 4 x 4 box where two avenues cross (the fixture of the old rule)", () => {
+    expect(AVENUE.length * TILE_M).toBe(30);
+    expect(carriageCells(AVENUE)).toBe(4);
+    expect(carriageCells(AVENUE)).not.toBe(3);
+    expect(carriageCells(AVENUE) * carriageCells(AVENUE)).toBe(16);
+  });
+
+  it("lays the default city 51 x 57 cells (255 x 285 m, was 53 x 58 with one avenue on each axis), 100 m of street on each axis and 60.5% of its area in streets (was 105 m and 110 m, 62.7%)", () => {
+    const v = view(3, 3, 1);
+    expect(tileCity().seed).toBe(1);
+    expect([v.W, v.H]).toEqual([51, 57]);
+    const cells = (axis: "x" | "z"): number => v.c.streets.filter((s) => s.axis === axis).reduce((n, s) => n + s.bands.length, 0);
+    expect([cells("x") * TILE_M, cells("z") * TILE_M]).toEqual([100, 100]);
+    const blockCells = v.c.blocks.reduce((n, b) => n + (b.i1 - b.i0) * (b.j1 - b.j0), 0);
+    expect(1 - blockCells / (v.W * v.H)).toBeCloseTo(0.6054, 4);
+    expect(v.c.blocks.length).toBe(9);
+  });
+
+  it("lays each street line 5 cells and one block after the one before it: the blocks' sizes are drawn apart from the streets, so taking the avenues out moves no block's size", () => {
+    const c = cityAt(1);
+    for (const axis of ["x", "z"] as const) {
+      const own = c.streets.filter((s) => s.axis === axis);
+      const lens = c.blocks.filter((b) => (axis === "x" ? b.bi === 0 : b.bj === 0)).map((b) => (axis === "x" ? b.j1 - b.j0 : b.i1 - b.i0));
+      expect(own.length).toBe(lens.length + 1);
+      // Between two street lines lies exactly one block of the drawn size: the lines are the blocks' sizes plus 5 cells each.
+      own.forEach((s, k) => {
+        if (k > 0) expect(s.across0 - own[k - 1]!.across0, `${s.id}`).toBe(5 + lens[k - 1]!);
+      });
+    }
+  });
+});
+
+describe("block sizes, variety and levels", () => {
+  it("makes every block BLOCK_TILES cells a side (6 to 16, 057 F), no street an avenue (063 B), and patches and grates land near their ratios", () => {
+    let avenues = 0;
     let patches = 0;
     let lanes = 0;
     let grates = 0;
@@ -643,10 +728,7 @@ describe("block sizes, variety and levels", () => {
         const d = b.j1 - b.j0;
         ok(w >= BLOCK_TILES.min && w <= BLOCK_TILES.max && d >= BLOCK_TILES.min && d <= BLOCK_TILES.max, `${b.id} is ${w} by ${d}`);
       }
-      for (const s of v.c.streets) {
-        streets++;
-        if (s.profile === "avenue") avenues++;
-      }
+      for (const s of v.c.streets) if (s.profile === "avenue") avenues++;
       let left = 0;
       let nLanes = 0;
       for (const cell of v.c.cells) {
@@ -667,8 +749,7 @@ describe("block sizes, variety and levels", () => {
       }
       ok(left * 2 === nLanes, "one lane of each side in every pair");
     });
-    expect(avenues / streets).toBeGreaterThan(0.1);
-    expect(avenues / streets).toBeLessThan(1 / AVENUE_ONE_IN + 0.25);
+    expect(avenues).toBe(0);
     expect(patches / lanes).toBeGreaterThan(0.5 / PATCH_ONE_IN);
     expect(patches / lanes).toBeLessThan(2 / PATCH_ONE_IN);
     expect(grates / pave).toBeGreaterThan(0.5 / GRATE_ONE_IN);
@@ -725,7 +806,7 @@ describe("block variety: 90 degrees, not a grid of squares (ticket 057 F, criter
             ok(v.role[j * v.W + i] !== null, `${s.id} band ${k} has no cell at ${a}`);
           }
         }
-        ok(s.bands.length === (s.profile === "avenue" ? 6 : 5), `${s.id} is a ${s.profile} of ${s.bands.length} bands`);
+        ok(s.bands.length === 5 && s.profile === "street", `${s.id} is a ${s.profile} of ${s.bands.length} bands`);
       }
     });
   });
@@ -1716,10 +1797,10 @@ describe("the layout (056 criterion 4)", () => {
     expect(PARK_CITIES.every((c) => c.cells.some((q) => q.role === "parking"))).toBe(true);
   });
 
-  it("puts most of the bays on avenue sides when a block has one", () => {
-    const avenueBays = PARK_CITIES.reduce((n, c) => n + c.bays.filter((b) => c.streets.find((s) => s.id === b.street)!.profile === "avenue").length, 0);
+  it("has no avenue side to put bays on (063 B; it asserted most bays are on avenue sides): every bay is on a street, and the avenue-first order is unused", () => {
     const all = PARK_CITIES.reduce((n, c) => n + c.bays.length, 0);
-    expect(avenueBays / all).toBeGreaterThan(0.5);
+    expect(all).toBeGreaterThan(500);
+    for (const c of PARK_CITIES) for (const b of c.bays) expect(c.streets.find((s) => s.id === b.street)!.profile, `${b.street} bay`).toBe("street");
   });
 
   it("gives every block its lot quota (clamp(round(homes x PARK_PER_HOME / LOT_STALLS), 1, LOTS_PER_BLOCK_MAX) lots, its own or a neighbour's across one street) or records the shortfall, and never more than LOTS_PER_BLOCK_MAX in one block", () => {
@@ -2220,7 +2301,7 @@ describe("the block interiors (057 C, criterion 8)", () => {
   });
 });
 
-describe("nothing else moves (063 A, criterion 4; re-pinned for 063 F): the layout is the layout at ab9d01f, but for the pavement cells' variants", () => {
+describe("nothing else moves (063 A, criterion 4; re-pinned for 063 F and again for 063 B): the layout is the layout at 063 B's commit, but for the pavement cells' variants", () => {
   /** The pavement cells 063 F marks (a return beside a kerb cut, a cell with a build-out in front), found from the roles and positions alone, not from the variants: the street's own cell list is the only input. */
   const kerbedCell = (c: TileCity, at: Map<string, string>, q: TileCity["cells"][number]): boolean => {
     const s = c.streets.find((x) => x.id === q.street)!;
@@ -2234,6 +2315,11 @@ describe("nothing else moves (063 A, criterion 4; re-pinned for 063 F): the layo
    * 063 F makes plain whatever the hash said, to "kerb"), the streets, bays, lot stalls, build-out trees, pole slots, interior, courts, frontage-lot blocks, parts, alley bins and blocks. The same function ran on ab9d01f's tilecity.ts (the
    * branch point, with the old grate variant 2) to give the pinned digests below, and on the 063 F city, and both gave these (a scratch run of both, 19 Nov 2026): so F changed pavement variants and nothing else. The old pins (taken without
    * the "kerb" fold) moved on purpose: a grate that the hash put on a marked cell is a plain straight now.
+   *
+   * 063 B re-took all four pins on purpose: it takes the avenue out (every street is 5 cells), so every city is one cell narrower on each axis for each avenue it had, and every cell, street, bay, tree, alley position and
+   * interior cell after that line has a new coordinate. The numbers cannot be compared with ab9d01f's. What B changed and what it did not is held by the tests of "street width: no avenues (063 B)" below: no avenue, 15 m
+   * carriageways, 3 x 3 junctions, and the blocks' sizes as they were (a scratch run of 13 cities and 162 blocks, before and after: every block's size, type, park and lot count is the same, 52 alleys moved with their
+   * cells, and 10 blocks have a shop count one up or down, which comes from a hash that reads cell coordinates; the cause was not isolated further).
    */
   const digestOf = (c: TileCity, grate: number): string => {
     const at = new Map<string, string>();
@@ -2245,20 +2331,36 @@ describe("nothing else moves (063 A, criterion 4; re-pinned for 063 F): the layo
     const body = { cells, streets: c.streets, bays: c.bays, lotStalls: c.lotStalls, buildoutTrees: c.buildoutTrees, poleSlots: c.poleSlots, interior: c.interior, courts: c.courts, frontLots: c.frontLots, parts: c.parts, alleyBins: c.alleyBins, blocks: c.blocks };
     return createHash("sha256").update(JSON.stringify(body)).digest("hex");
   };
-  const AT_AB9D01F: readonly (readonly [number, number, number, string])[] = [
+  const AT_063B: readonly (readonly [number, number, number, string])[] = [
+    [3, 3, 1, "ade2336cd653b9194eba99b647037b4c350a8936f667393e255852cff4319014"],
+    [3, 3, 2, "b470c9ad3f068b89824c0172e73c8be2d993fbc52b3ffcc53950feefd65e6747"],
+    [3, 3, 3, "f70c8c434971dcb7661a00ae8ad94f82b83f5bfc0975a66fad3abb0ebc691d0a"],
+    [6, 4, 1, "874241d4e6f12ea0a98bd2edbe0dfc2fb98ed1d428a90a18c9646b1663cc1ebd"],
+  ];
+
+  /**
+   * The pins as they stood on e23a494 (063 F's, taken with the avenues on: AVENUE_ONE_IN was 3). Kept for the record, not asserted against the city. They changed because the streets changed (the comment above),
+   * not because a cell, a bay or a tree was moved by hand. The test below holds only that they are not the pins now, so a re-take that changed nothing would not pass as one.
+   */
+  const PINS_BEFORE_063B: readonly (readonly [number, number, number, string])[] = [
     [3, 3, 1, "cfcda6c6b13c207cfa23377e987aec61079e231c1720780c11d1f9f882ccb2ec"],
     [3, 3, 2, "62fed200a04b0d09d729c2403e0f799d530c8bf9d60b69c848bf34a6694d57f3"],
     [3, 3, 3, "e4fea02544960cfba3b3b840c056eaefb9a641910ffec3e106732539a85eef36"],
     [6, 4, 1, "3359537a63cbad44e0fa515030384390cf9e9470cf826a661a352847ff8d0d41"],
   ];
 
-  it("lays the default city, seeds 2 and 3 at 3 x 3 and seed 1 at 6 x 4 exactly as ab9d01f did, but for the pavement cells' variants (the grates are on the same cells but the marked ones)", () => {
-    for (const [bx, bz, seed, want] of AT_AB9D01F) expect(digestOf(cityAt(seed, bx, bz), PAVEMENT_GRATE), `${bx}x${bz} seed ${seed}`).toBe(want);
+  it("lays the default city, seeds 2 and 3 at 3 x 3 and seed 1 at 6 x 4 as 063 B did (ab9d01f's pins, taken before B, moved with the streets), but for the pavement cells' variants", () => {
+    for (const [bx, bz, seed, want] of AT_063B) expect(digestOf(cityAt(seed, bx, bz), PAVEMENT_GRATE), `${bx}x${bz} seed ${seed}`).toBe(want);
+  });
+
+  it("re-took the pins on purpose: none of the four equals the pin it replaced (the avenues are out)", () => {
+    AT_063B.forEach(([, , , now], k) => expect(now).not.toBe(PINS_BEFORE_063B[k]![3]));
+    expect(PINS_BEFORE_063B).toHaveLength(AT_063B.length);
   });
 
   it("bites: a city with one build-out turned into a pavement, a court's drive dropped, or a grate moved does not match", () => {
     const c = cityAt(1);
-    const want = AT_AB9D01F[0]![3];
+    const want = AT_063B[0]![3];
     const buildout = c.cells.findIndex((q) => q.role === "buildout");
     expect(buildout).toBeGreaterThanOrEqual(0);
     expect(digestOf({ ...c, cells: c.cells.map((q, i) => (i === buildout ? { ...q, role: "pavement" as const } : q)) }, PAVEMENT_GRATE)).not.toBe(want);
