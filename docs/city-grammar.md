@@ -2,7 +2,7 @@
 
 Draft for Josh, 19 Nov 2026. Design only: no code, no puzzle, nothing under `src/grid/` or `src/night/` is touched by this file.
 
-- **Status.** Nothing here is Decided until Josh says so in chat. Lines marked **Law** quote a Decided line of `docs/city-style-guide.md` or Josh's words in `docs/city-state-2026-11-19.md`; everything else is **Proposed**.
+- **Status.** Nothing here is Decided until Josh says so in chat. So far he has answered one question: Q1, on 19 Nov 2026 (rule 7). Lines marked **Law** quote a Decided line of `docs/city-style-guide.md` or Josh's words in `docs/city-state-2026-11-19.md`; everything else is **Proposed**.
 - **Scope.** The tile city (`city=tiles`) on `goal/city-style`. The ladder maps keep chapters 4 and 16 as they are (`packpin.test.ts` and `townpin.test.ts` hold).
 - **Evidence.** The measurements are in the appendix. I took them today from `city-pack.glb` with a scratch script that is not committed. I have not seen a render, or Josh's reference image; where a rule leans on something only an eye can settle, it says so under **Not verified**.
 
@@ -168,7 +168,8 @@ A strip, 2 cells deep, between a street and a lane (rule 4):
   - Measured: every corner piece I read (the three apartment corners, the two corner doors, the two shop corners) carries windows on +z and -x and is blank on +x and -z; the corner roofs' shaped edges are on the same two sides (appendix A). Section E1, in flight, pins the same.
 - **Check M6, corner turn** (pure). Every corner column's two measured window faces lie on its two open sides; no corner piece stands in a mid or blind column (R9, unchanged in meaning); the roof corner is turned with its column. This is E1's criterion 25 run on every corner column of the city.
   - Fails today: every corner piece is turned on the guess "+x", so the windowed side faces the neighbouring column.
-- **Open.** Q1. The Law above says "two sides facing the street". This rule puts corner pieces wherever two open sides meet, which includes a lane mouth, a court drive, a plaza and the inside of a court. That widens Josh's ruling and needs his word. If he says no, the column beside an opening is a mid column with one blank flank from the pavement to the roof, dressed as rule 8 dresses a party wall, and strips (rule 4) are not built.
+- **Decided (Josh, 19 Nov 2026, in chat).** Asked "May corner pieces stand wherever two open sides meet, not only where two streets meet?", he answered: "Yes, any corner". So a corner piece stands wherever two open sides meet: where two streets meet, at a lane mouth, a court drive, a plaza, and inside a court. This widens chapter 7's "two sides facing the street"; the rest of that ruling stands (corner pieces only on corners). The guide's chapter 7 and R9 take his words when section C1 lands.
+- **Open.** None.
 
 ### 8. Heights, and the wall above a lower roof
 
@@ -294,7 +295,7 @@ No threshold is loosened. Stated plainly:
 - **R3 to R6** keep their thresholds and their count (street frontages). Quiet frontages get M8 instead. This is a scope, not a loosening: no bay counted today stops being counted.
 - **R7** keeps its guaranteed share over the same qualifying blocks (street-facing). Escapes on court faces are extra and not counted.
 - **R8** keeps its threshold over all buildings; the count grows with ring 2. The builder reports it.
-- **R9** changes meaning only if Josh answers Q1 with yes: a "true corner" becomes any column with two adjacent open sides.
+- **R9** changes meaning, by Josh's answer to Q1 ("Yes, any corner", 19 Nov 2026): a "true corner" is any column with two adjacent open sides. It still fails on a corner piece anywhere else.
 - **P1 to P6** keep their thresholds. Units are counted from 5.0 m cells and include ring 2 and lane rows (rule 5).
 - **V1 to V4**, `escapeCheck`, the sill checks and the draw-call caps are unchanged. The stack draw calls roughly double. If the frame rate on Josh's PC cannot hold, that goes to Josh, and the remedy is instancing the stack pieces, not a higher cap.
 - **Guide text that goes** when the sections land: 19.2's far-end order and its passages; 19.4's ring-2 strip; 19.6's alley rear; 18.2's 5.2 m bays; chapter 7's "+x" guesses.
@@ -310,7 +311,7 @@ No threshold is loosened. Stated plainly:
   - `wallJoints`' list of intentional openings loses the seam and the gated passage. The check is M1 plus M5's passage line.
 - **C (backs) is re-cut on the lattice.**
   - C-rows stays. Ring 2 is exactly one cell deep, so `BACK_OVERSHOOT_MAX_M` goes, and `BACK_COVER_MIN` (0.9 of the strip) is replaced by M3 and M4, which are exact.
-  - New in C1: blind corner columns; the drive runs through ring 2; lane rows on alley sides; quiet ground rows (M8); corner columns beside openings (if Q1 is yes).
+  - New in C1: blind corner columns; the drive runs through ring 2; lane rows on alley sides; quiet ground rows (M8); corner columns beside openings (Q1, decided).
   - `blankFaces` is M7, on storey faces. Q-C2 is answered: corner pieces at openings (Q1), the party-wall kit on height steps (Q3).
   - Three builds: **C1** the plan and M3, M4, M5, M8; **C2** the drawing; **C3** the party-wall dressing (M7), and strips if Q6 is yes.
 - **F, G, A, D, H** are unchanged. F's returns end on corner columns once C1 lands.
@@ -319,11 +320,10 @@ No threshold is loosened. Stated plainly:
 
 ## Decide first
 
-Questions only Josh can answer, most important first.
+Questions only Josh can answer, most important first. Q1 is answered; Q2 to Q7 are open.
 
-1. **May corner pieces stand wherever two open sides meet?** That is: at a lane mouth, a court drive, a plaza and inside a court, as well as where two streets meet. His ruling of 17 Nov says "two sides facing the street".
-   - **Recommended: yes.** It is the only way the kit puts windows on the side of a building at an opening.
-   - If no: each side of every opening is a blank flank from pavement to roof, dressed with boards and pipes; strips are not built.
+1. **May corner pieces stand wherever two open sides meet?** That is: at a lane mouth, a court drive, a plaza and inside a court, as well as where two streets meet.
+   - **Answered (Josh, 19 Nov 2026): "Yes, any corner".** Rule 7 records it.
 2. **The backs: other buildings, or the same building repeated?**
    - **Recommended: other buildings** (ring 2 has buildings of its own style and colour, the same height as the one in front). His later words: "butted up against the backs of other buildings".
    - Alternative, his first words ("re use the stacked build blocks of the same type"): each building is 10 m deep, one style and colour through, with a street face and a court face.
