@@ -913,3 +913,30 @@ describe("chapter 19 gives frontage and block interiors, and the numbers it name
     expect(pending).toContain("Corners and frontage (ticket 055 B, then 057; built, now chapter 19)");
   });
 });
+
+describe("chapter 10 and 19.8 record the pavement fixes (ticket 063 A, D and H)", () => {
+  const rows = table(section(/^## Numbers$/), ["Constant", "Value", "File"]);
+  const text10 = chapter(10).join("\n");
+  const text19 = chapter(19).join("\n");
+
+  it("pins the grate's variant and its rate in the Numbers table, and the code still exports both", () => {
+    for (const n of ["PAVEMENT_GRATE", "GRATE_ONE_IN"]) {
+      expect(tilecity as Record<string, unknown>, `tilecity.ts no longer exports ${n}`).toHaveProperty(n);
+      expect(rows.some((r) => r[2] === "tilecity.ts" && unquote(r[0]!) === n), `no Numbers row for ${n}`).toBe(true);
+    }
+    expect(tilecity.PAVEMENT_GRATE).toBe(1);
+  });
+
+  it("keeps Josh's three sentences as Decided lines in chapter 10, verbatim", () => {
+    expect(/^- \*\*Decided \(063 A, Josh, 19 Nov 2026: "Make the side walk one uniform color\."\)\*\*/m.test(text10)).toBe(true);
+    expect(/^- \*\*Decided \(063 D, Josh, 19 Nov 2026: "Are these tiles supposed to represent plots where trees should be planted\? It looks like the textures aren't being used properly"\)\*\*/m.test(text10)).toBe(true);
+    expect(/^- \*\*Decided \(063 H, Josh, 19 Nov 2026: "If you're going to have an inlet to areas between buildings it needs to be paved"\)\*\*/m.test(text10)).toBe(true);
+  });
+
+  it("names the plain slab and the paved inlets in 19.8, and no longer says the strip and the passage floors are always code-drawn", () => {
+    for (const w of ["SM_Env_Sidewalk_01", "PASSAGE_FLOOR_KEYS", "inletCells", "TileCourt.drive", "frontLots"]) expect(text19, w).toContain(w);
+    expect(text19).not.toContain("The ragged strip (`APRON_STRIP`) is always code-drawn");
+    expect(text19).not.toContain("SM_Env_Sidewalk_Panel_02` for the apron");
+    expect(text10).not.toContain("two plain straights");
+  });
+});

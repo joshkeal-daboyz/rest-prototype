@@ -13,8 +13,8 @@ import { WORLD_PER_METRE } from "./models";
 import { NO_MODELS, allStackKeys, applyModels, loadModels, stackInput, tileInput, type ModelSet } from "./models3d";
 import { packTown } from "./terrace";
 import { STACK_STYLES } from "./stacks";
-import { LANE_PATCH, LANE_RIGHT, PAVEMENT_GRATE, PAVEMENT_STRAIGHT_2, SIDEWALK_TOP_M, SIDEWALK_WALK_M, TILE_M, tileCity, type TileCell, type TileCity, type TileRole } from "./tilecity";
-import { buildCityScene, buildSheetScene, buildoutTreePlan, cellFootprint, createCityRenderer3d, createCityRig, kerbStrips, sheetRigInsets, tileCityLine, tileGroup, tileKeyOf, tileMatrix, tileOriginY_m, treeInput } from "./tilecity3d";
+import { LANE_PATCH, LANE_RIGHT, PAVEMENT_GRATE, SIDEWALK_TOP_M, SIDEWALK_WALK_M, TILE_M, tileCity, type TileCell, type TileCity, type TileRole } from "./tilecity";
+import { buildCityScene, buildSheetScene, buildoutTreePlan, cellFootprint, createCityRenderer3d, createCityRig, kerbStrips, sheetRigInsets, tileCityLine, tileGroup, inletKeys, tileKeyOf, tileMatrix, tileOriginY_m, treeInput } from "./tilecity3d";
 import { SHEET_BUILDOUT_NOTE, TILE_DRAW_CALLS_MAX, TILE_FRONTS, TILE_BASE_M, TILE_PATCH, TILE_SHEET_EXTRA, TILE_SLOTS, TILE_TREES, sheetLabel, sheetPieces, sheetShortName, tileKeys, cityTilesRequested } from "./tileslots";
 import { stubTextSurface } from "./text";
 import { townLayout } from "./town";
@@ -77,24 +77,29 @@ const city: TileCity = { ...baseCity, cells: [...baseCity.cells, extra("kerbCut"
 /** The key a cell should be drawn from, from the ticket's rule written out here (not `tileKeyOf`). */
 const wantKey = (c: TileCell): CalibrationKey => {
   const keys = TILE_SLOTS[c.role];
+  // 063 H: a street court's drive is the plain paving slab (the apron's), not the bare road.
+  if (isInletCell(c)) return TILE_SLOTS.apron[0]!;
   if (c.role === "lane") return keys[c.variant & LANE_RIGHT]!;
-  if (c.role === "pavement") return keys[c.variant & 3]!;
-  if (c.role === "buildout") return keys[c.variant & 1]!;
+  // 063 A: variant 0 is the one plain straight, PAVEMENT_GRATE the grate; a build-out is always the plain straight.
+  if (c.role === "pavement") return keys[c.variant === PAVEMENT_GRATE ? 1 : 0]!;
   return keys[0]!;
 };
+const CITY_INLETS = inletKeys(city);
+const isInletCell = (c: TileCell): boolean => c.role === "lotSurface" && CITY_INLETS.has(`${c.i},${c.j}`);
 
 const instances = (g: Group): InstancedMesh[] => g.children.filter((c): c is InstancedMesh => (c as InstancedMesh).isInstancedMesh === true);
 const named = (g: Group, name: string): InstancedMesh[] => instances(g).filter((im) => im.name === name);
 const shortName = (key: CalibrationKey): string => key.slice(key.indexOf(":") + 1);
 
 describe("the fixture city holds every case the tests mean", () => {
-  it("has every role, both lanes, a patch, a grate and the second straight pavement", () => {
+  it("has every role, both lanes, a patch, a grate, the plain straight and a paved inlet's drive", () => {
     expect(new Set(city.cells.map((c) => c.role))).toEqual(new Set(ROLES));
     expect(city.cells.some((c) => c.role === "lane" && (c.variant & LANE_RIGHT) === 0)).toBe(true);
     expect(city.cells.some((c) => c.role === "lane" && (c.variant & LANE_RIGHT) !== 0)).toBe(true);
     expect(city.cells.some((c) => c.role === "lane" && (c.variant & LANE_PATCH) !== 0)).toBe(true);
     expect(city.cells.some((c) => c.role === "pavement" && c.variant === PAVEMENT_GRATE)).toBe(true);
-    expect(city.cells.some((c) => c.role === "pavement" && c.variant === PAVEMENT_STRAIGHT_2)).toBe(true);
+    expect(city.cells.some((c) => c.role === "pavement" && c.variant === 0)).toBe(true);
+    expect(city.cells.some((c) => isInletCell(c))).toBe(true);
     expect(city.cells.some((c) => c.cells === 2)).toBe(true);
   });
 });
@@ -143,10 +148,11 @@ describe("per-role fallback", () => {
       const draw = tileGroup(city, p.roots, p.entries);
       const lost = new Set(ROLES.filter((r) => TILE_SLOTS[r].every((k) => lack.includes(k))));
       expect(lost.has(role)).toBe(true);
-      const codeCells = city.cells.filter((c) => lost.has(c.role));
+      // A street court's drive is the paving slab, not the bare road: it stays in the pack when the bare road is the key that is absent.
+      const codeCells = city.cells.filter((c) => lost.has(c.role) && !(isInletCell(c) && !lack.includes(TILE_SLOTS.apron[0]!)));
       expect(draw.codeDrawn).toBe(codeCells.length);
       expect(draw.fromPack).toBe(city.cells.length - codeCells.length);
-      for (const c of city.cells) expect(tileKeyOf(c, new Set(p.roots.keys())) === null, `${c.role} ${c.i},${c.j}`).toBe(lost.has(c.role));
+      for (const c of city.cells) expect(tileKeyOf(c, new Set(p.roots.keys()), isInletCell(c)) === null, `${c.role} ${c.i},${c.j}`).toBe(codeCells.includes(c));
       // The code-drawn meshes exist exactly for the lost roads and pavements.
       const roads = codeCells.filter((c) => c.role !== "pavement" && c.role !== "pavementCorner" && c.role !== "kerbCut" && c.role !== "buildout" && c.role !== "plaza");
       const boxes = codeCells.length - roads.length;
@@ -157,15 +163,14 @@ describe("per-role fallback", () => {
   }
 
   it("with one of a role's keys absent the cells that wanted it use the role's other key and stay in the pack", () => {
-    const [first, second, grate] = TILE_SLOTS.pavement as readonly [CalibrationKey, CalibrationKey, CalibrationKey];
-    const p = pack([second]);
+    const [first, grate] = TILE_SLOTS.pavement as readonly [CalibrationKey, CalibrationKey];
+    const p = pack([grate]);
     const draw = tileGroup(city, p.roots, p.entries);
     expect(draw.codeDrawn).toBe(0);
     const wanted = (key: CalibrationKey): number => city.cells.filter((c) => wantKey(c) === key).length;
-    expect(wanted(second)).toBeGreaterThan(0);
-    expect(draw.perKey.get(first)).toBe(wanted(first) + wanted(second));
-    expect(draw.perKey.get(grate)).toBe(wanted(grate));
-    expect(draw.perKey.has(second)).toBe(false);
+    expect(wanted(grate)).toBeGreaterThan(0);
+    expect(draw.perKey.get(first)).toBe(wanted(first) + wanted(grate));
+    expect(draw.perKey.has(grate)).toBe(false);
     draw.dispose();
   });
 
@@ -191,7 +196,8 @@ describe("per-role fallback", () => {
     const noEntry = TILE_SLOTS.junction[0]!;
     p.entries.delete(noEntry);
     const draw = tileGroup(city, p.roots, p.entries);
-    const lost = city.cells.filter((c) => c.role === "crossing" || c.role === "junction" || c.role === "lotSurface");
+    // (A street court's drive is the paving slab: it is in the pack whatever the bare road does.)
+    const lost = city.cells.filter((c) => c.role === "crossing" || c.role === "junction" || (c.role === "lotSurface" && !isInletCell(c)));
     expect(draw.codeDrawn).toBe(lost.length);
     draw.dispose();
   });
@@ -436,22 +442,22 @@ describe("build-outs and their street trees (056 B, criterion 9)", () => {
     return out;
   };
 
-  it("has build-outs of both variants in the fixture and the default city, and trees", () => {
+  it("has build-outs, all the one plain straight (variant 0, 063 A), in the fixture and the default city, and trees", () => {
     for (const c of [city, defaultCity]) {
       const outs = c.cells.filter((q) => q.role === "buildout");
       expect(outs.length).toBeGreaterThan(20);
-      expect(new Set(outs.map((q) => q.variant & 1))).toEqual(new Set([0, 1]));
+      expect(new Set(outs.map((q) => q.variant))).toEqual(new Set([0]));
       expect(c.buildoutTrees.length).toBeGreaterThan(5);
     }
   });
 
-  it("draws a build-out from the two plain straights by its variant, on the carriageway like every sidewalk piece (walk at 0), with its keys absent as the pavement box", () => {
+  it("draws a build-out from the one plain straight, on the carriageway like every sidewalk piece (walk at 0), with its key absent as the pavement box", () => {
     const p = pack();
     const draw = tileGroup(city, p.roots, p.entries);
-    const [first, second] = TILE_SLOTS.buildout as readonly [CalibrationKey, CalibrationKey];
-    for (const q of city.cells) if (q.role === "buildout") expect(tileKeyOf(q, new Set(p.roots.keys())), `${q.i},${q.j}`).toBe(q.variant & 1 ? second : first);
+    const [first] = TILE_SLOTS.buildout as readonly [CalibrationKey];
+    for (const q of city.cells) if (q.role === "buildout") expect(tileKeyOf(q, new Set(p.roots.keys())), `${q.i},${q.j}`).toBe(first);
     const m = new Matrix4();
-    for (const key of [first, second]) {
+    for (const key of [first]) {
       const mine = city.cells.filter((c) => wantKey(c) === key);
       const im = named(draw.group, `tile:${shortName(key)}`)[0]!;
       mine.forEach((c, i) => {
@@ -592,7 +598,7 @@ describe("build-outs and their street trees (056 B, criterion 9)", () => {
     info.mockRestore();
   });
 
-  it("shows the build-out once on the sheet, on the plain straights it shares with the pavement, labelled, and in the legend", () => {
+  it("shows the build-out once on the sheet, on the plain straight it shares with the pavement, labelled, and in the legend", () => {
     const pieces = sheetPieces();
     const withOut = pieces.filter((p) => p.roles.includes("buildout"));
     expect(withOut.map((p) => p.key)).toEqual([...TILE_SLOTS.buildout]);
@@ -604,7 +610,7 @@ describe("build-outs and their street trees (056 B, criterion 9)", () => {
     const full = pack();
     const sheet = buildSheetScene(full.roots, full.entries, { surface: stubTextSurface, aspect: 16 / 9 });
     const text = sheet.labels.map((l) => String(l.sprite.userData["text"]));
-    expect(text.filter((t) => t.includes(SHEET_BUILDOUT_NOTE))).toHaveLength(2);
+    expect(text.filter((t) => t.includes(SHEET_BUILDOUT_NOTE))).toHaveLength(1);
     expect(text[text.length - 1]).toContain("build-out");
     sheet.dispose();
     // A piece the pack lacks says only that, so its label stays inside the room between two columns.
@@ -1071,5 +1077,131 @@ describe("the real City Pack manifest", () => {
       if (key.includes("Sidewalk") && Math.abs(h - SIDEWALK_TOP_M) > 0.01) bad.push(`${key} is ${h} m high`);
     }
     expect(bad).toEqual([]);
+  });
+});
+
+// ---- ticket 063 A: one sidewalk piece; 063 H: paved inlets ----
+
+describe("one sidewalk piece (063 A, Josh, 19 Nov 2026: \"Make the side walk one uniform color.\")", () => {
+  const PLAIN = "city-pack:SM_Env_Sidewalk_Straight_02";
+  const GRATE = "city-pack:SM_Env_Sidewalk_Grate_01";
+  const everyKey = new Set<CalibrationKey>(tileKeys());
+  const cities: TileCity[] = [...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((seed) => tileCity({ blocksX: 3, blocksZ: 3, seed })), ...[1, 2, 3].map((seed) => tileCity({ blocksX: 6, blocksZ: 4, seed }))];
+
+  it("resolves every plain pavement cell and every build-out cell to Straight_02, and a grate to the grate, on seeds 1 to 10 at 3 x 3 and 1 to 3 at 6 x 4", () => {
+    let plain = 0;
+    let outs = 0;
+    let grates = 0;
+    const bad: string[] = [];
+    for (const c of cities) {
+      for (const q of c.cells) {
+        if (q.role !== "pavement" && q.role !== "buildout") continue;
+        const key = tileKeyOf(q, everyKey);
+        const want = q.role === "pavement" && q.variant === PAVEMENT_GRATE ? GRATE : PLAIN;
+        if (key !== want) bad.push(`${c.seed} ${q.role} ${q.i},${q.j} variant ${q.variant}: ${key}`);
+        if (want === GRATE) grates++;
+        else if (q.role === "buildout") outs++;
+        else plain++;
+        // The only variants are the plain straight's 0 and the grate's PAVEMENT_GRATE; a build-out is always 0.
+        if (q.role === "buildout" && q.variant !== 0) bad.push(`${c.seed} buildout ${q.i},${q.j} variant ${q.variant}`);
+        if (q.role === "pavement" && q.variant !== 0 && q.variant !== PAVEMENT_GRATE) bad.push(`${c.seed} pavement ${q.i},${q.j} variant ${q.variant}`);
+      }
+    }
+    expect(bad).toEqual([]);
+    expect(plain).toBeGreaterThan(500);
+    expect(outs).toBeGreaterThan(100);
+    expect(grates, "the grates stay, one cell in GRATE_ONE_IN").toBeGreaterThan(20);
+  });
+
+  it("draws the whole pavement and every build-out as one InstancedMesh of one key, so every plain cell is the same geometry, material and light", () => {
+    const p = pack();
+    const first = cities[0]!;
+    const draw = tileGroup(first, p.roots, p.entries);
+    const plain = first.cells.filter((q) => (q.role === "pavement" && q.variant !== PAVEMENT_GRATE) || q.role === "buildout").length;
+    expect(draw.perKey.get(PLAIN)).toBe(plain);
+    expect(named(draw.group, `tile:${shortName(PLAIN)}`)).toHaveLength(1);
+    expect(draw.perKey.has("city-pack:SM_Env_Sidewalk_Straight_01")).toBe(false);
+    expect(instances(draw.group).filter((im) => im.name.includes("Straight_01"))).toHaveLength(0);
+    // One key fewer than before: Straight_01 is gone from the keys a city draws.
+    expect([...draw.perKey.keys()].filter((k) => k.includes("Sidewalk_Straight_"))).toEqual([PLAIN]);
+    draw.dispose();
+  });
+});
+
+describe("paved inlets in the street tiles (063 H, Josh, 19 Nov 2026: \"If you're going to have an inlet to areas between buildings it needs to be paved\")", () => {
+  const SLAB = TILE_SLOTS.apron[0]!;
+  const BARE = TILE_SLOTS.lotSurface[0]!;
+  const cities: TileCity[] = [...[1, 2, 3, 4, 5].map((seed) => tileCity({ blocksX: 3, blocksZ: 3, seed })), tileCity({ blocksX: 6, blocksZ: 4, seed: 1 })];
+
+  it("resolves every street court's drive cell to the paving slab, and every other lot cell (the court's stalls, a frontage lot) to the bare road, as before", () => {
+    let drives = 0;
+    let others = 0;
+    const bad: string[] = [];
+    const active = new Set<CalibrationKey>(tileKeys());
+    for (const c of cities) {
+      const inlets = inletKeys(c);
+      const want = new Set(c.courts.filter((k) => !k.street.startsWith("alley:")).flatMap((k) => k.drive.map((q) => `${q.i},${q.j}`)));
+      expect([...inlets].sort()).toEqual([...want].sort());
+      for (const q of c.cells) {
+        if (q.role !== "lotSurface") continue;
+        const paved = inlets.has(`${q.i},${q.j}`);
+        const key = tileKeyOf(q, active, paved);
+        if (paved) {
+          drives++;
+          if (key !== SLAB) bad.push(`${c.seed} drive ${q.i},${q.j}: ${key}`);
+        } else {
+          others++;
+          if (key !== BARE) bad.push(`${c.seed} lot ${q.i},${q.j}: ${key}`);
+        }
+      }
+    }
+    expect(bad).toEqual([]);
+    expect(drives).toBeGreaterThan(20);
+    expect(others, "the court's near stalls and the frontage lots stay as they were").toBeGreaterThan(20);
+  });
+
+  it("draws the drives as slabs at the walk, in the one mesh of the slab, and leaves the bare road with the junctions and every other lot cell", () => {
+    const c = cities[0]!;
+    const p = pack();
+    const draw = tileGroup(c, p.roots, p.entries);
+    const inlets = inletKeys(c);
+    const lot = c.cells.filter((q) => q.role === "lotSurface");
+    const drives = lot.filter((q) => inlets.has(`${q.i},${q.j}`));
+    expect(draw.perKey.get(SLAB)).toBe(drives.length);
+    expect(draw.perKey.get(BARE)).toBe(c.cells.filter((q) => q.role === "junction").length + lot.length - drives.length);
+    expect(draw.codeDrawn).toBe(0);
+    const im = named(draw.group, `tile:${shortName(SLAB)}`)[0]!;
+    const m = new Matrix4();
+    drives.forEach((q, i) => {
+      im.getMatrixAt(i, m);
+      const pos = new Vector3().setFromMatrixPosition(m);
+      expect([pos.x / S, pos.z / S].map((v) => Math.round(v * 1e4) / 1e4)).toEqual([q.x_m, q.z_m]);
+      // Flat on the walk: the slab's own top is 0.01 m up, its origin 0.01 m down.
+      expect(pos.y / S, `${q.i},${q.j}`).toBeCloseTo(TILE_BASE_M[SLAB]!, 6);
+    });
+    draw.dispose();
+  });
+
+  it("keeps the kerb cut (Dip_01) on the pavement cells beside each drive, and changes no city data", () => {
+    const c = cities[0]!;
+    const before = JSON.stringify(c);
+    const p = pack();
+    const draw = tileGroup(c, p.roots, p.entries);
+    expect(draw.perKey.get(TILE_SLOTS.kerbCut[0]!)).toBe(c.cells.filter((q) => q.role === "kerbCut").length);
+    expect(c.cells.some((q) => q.role === "kerbCut")).toBe(true);
+    draw.dispose();
+    expect(JSON.stringify(c)).toBe(before);
+    expect(JSON.stringify(tileCity({ blocksX: 3, blocksZ: 3, seed: 1 }))).toBe(before);
+  });
+
+  it("falls back to the bare road for a drive when the slab is absent, and keeps it in the pack", () => {
+    const c = cities[0]!;
+    const p = pack([SLAB]);
+    const draw = tileGroup(c, p.roots, p.entries);
+    const lot = c.cells.filter((q) => q.role === "lotSurface").length;
+    expect(draw.perKey.has(SLAB)).toBe(false);
+    expect(draw.perKey.get(BARE)).toBe(c.cells.filter((q) => q.role === "junction").length + lot);
+    expect(draw.codeDrawn).toBe(0);
+    draw.dispose();
   });
 });

@@ -40,6 +40,7 @@ import {
   PASSAGE_W_M,
   CITY_BLOCKS_MAX,
   GRATE_ONE_IN,
+  PAVEMENT_GRATE,
   HOME_COLUMN_FLOORS,
   KERB_BAY_SHARE_MAX,
   KERB_GAP_MIN_M,
@@ -651,8 +652,8 @@ describe("block sizes, variety and levels", () => {
         }
         if (cell.role === "pavement") {
           pave++;
-          if (cell.variant === 2) grates++;
-          ok(cell.variant >= 0 && cell.variant <= 2, "pavement variant");
+          if (cell.variant === PAVEMENT_GRATE) grates++;
+          ok(cell.variant === 0 || cell.variant === PAVEMENT_GRATE, "pavement variant: the plain straight or the grate");
         }
       }
       ok(left * 2 === nLanes, "one lane of each side in every pair");

@@ -4,11 +4,11 @@
  * - `tileGroup` draws every cell: one `InstancedMesh` per City Pack key (and per sub-mesh of it), each instance at its cell centre, turned by the cell's yaw plus the key's
  *   `TILE_FRONTS` line, at `WORLD_PER_METRE` and never otherwise scaled. A cell whose role has no loaded piece is drawn in code at the same cell and level, in today's street,
  *   pavement and kerb colours (a flat quad for a road, a box from the carriageway to the pavement top for a pavement or a build-out, a pale strip for each kerb edge). No tile can be picked.
- *   Ticket 056 B: a `buildout` cell is drawn as a pavement from the two plain straights, and each of `city.buildoutTrees` is one of `SM_Env_Tree_01..03` (`buildoutTreePlan`) at y 0 through
+ *   Ticket 056 B: a `buildout` cell is drawn as a pavement from the plain straight (063 A: the one, `Straight_02`), and each of `city.buildoutTrees` is one of `SM_Env_Tree_01..03` (`buildoutTreePlan`) at y 0 through
  *   one InstancedMesh per tree key, in the same group and under the same draw-call cap.
  * - Ticket 057 D, the block interiors (Josh, 18 Nov 2026: "Grass and pavement should fill the blank areas."): `interiorGroup` draws everything `tilecity.ts` laid inside the blocks, from `interiorItems` (tileslots.ts): the ragged apron strip
- *   (always in code), the aprons, paths and park edges (`Sidewalk_Panel_02`, or pavement quads), the greens (`Grass_01`, or grass quads), the bare road of a court, an alley lane (`Road_Bare_01`, or street quads) with
- *   `ParkingLines_01` over each row of a court's stalls (or code-drawn dividers), the passages' floors, a gate and posts at each gated passage (always in code; the small one at an alley's mouth), and the trees,
+ *   (the plain slab `Sidewalk_01` since 063 D, or a code quad), the aprons, paths and park edges (the same slab, or pavement quads), the greens (`Grass_01`, or grass quads), the bare road of a court, an alley lane (`Road_Bare_01`, or street quads) with
+ *   `ParkingLines_01` over each row of a court's stalls (or code-drawn dividers), the passages' floors (the same slab a whole cell at a time, a part cell a code quad), the paved inlets (063 H), a gate and posts at each gated passage (always in code; the small one at an alley's mouth), and the trees,
  *   benches and bins (`propPlan`: pack pieces only, optional dressing). One InstancedMesh per key and sub-mesh at the interior's own draw-call cap, in a group of its own beside the tiles'. The ground is at 0, flush with the pavement's walk.
  * - `buildCityScene` is a puzzle-free `SceneBundle` (no wires, places, poles or captions) over the tile city's `Town`: the ground, the yards, the placeholder buildings on its lots,
  *   and the tiles. `applyModels` runs on it unchanged, so stacks, dressing, furniture and colourways stand as on a ladder map.
@@ -63,6 +63,7 @@ import {
   GATE_COLOUR,
   INTERIOR_DRAW_CALLS_MAX,
   INTERIOR_KEYS,
+  PASSAGE_FLOOR_KEYS,
   STALL_DIVIDERS_X_M,
   STALL_DIVIDER_L_M,
   STALL_DIVIDER_W_M,
@@ -79,7 +80,9 @@ import {
   TILE_TREES,
   gateParts,
   gatePlan,
+  inletCells,
   interiorItems,
+  passageFloorCells,
   passageFloors,
   sheetColumns,
   sheetLabel,
@@ -89,6 +92,7 @@ import {
   tileKeys,
   tileLevelY_m,
   type CityTilesRequest,
+  type GroundRect,
   type InteriorItem,
   type SheetLayout,
   type SlotRole,
@@ -147,8 +151,7 @@ export function tileMatrix(cell: Pick<TileCell, "x_m" | "z_m" | "yaw">, yM: numb
 function variantIndex(cell: TileCell): number {
   if (cell.role === "lane") return cell.variant & LANE_RIGHT;
   if (cell.role === "pavement") return cell.variant & 3;
-  // A build-out's variant is 0 or 1 (`tilecity.ts`): the first or the second plain straight, so a long stretch of them is not one tile repeated.
-  if (cell.role === "buildout") return cell.variant & 1;
+  // 063 A: a build-out is always the one plain straight (variant 0), so the sidewalk is one colour.
   return 0;
 }
 
@@ -185,8 +188,26 @@ export function treeInput(set: Pick<ModelSet, "dress">): { entries: Map<Calibrat
   return { entries, roots };
 }
 
-/** The key that draws `cell` among the `active` ones: its variant's, else another of its role's, else null (drawn in code). */
-export function tileKeyOf(cell: TileCell, active: ReadonlySet<CalibrationKey>): CalibrationKey | null {
+/** The id of a cell in `inletKeys`' set. */
+const cellId = (i: number, j: number): string => `${i},${j}`;
+
+/**
+ * The cells of `city.cells` that are paved inlets (063 H): the cells of every street court's drive, `lotSurface` cells that are drawn as the plain paving slab when it is in the pack, in place of the bare road. Ids for
+ * `tileKeyOf`'s `paved` flag. (An alley's mouth cell is an interior cell, drawn by `interiorGroup`.) Pure.
+ */
+export function inletKeys(city: Pick<TileCity, "courts" | "blocks">): ReadonlySet<string> {
+  return new Set(inletCells(city).drives.map((c) => cellId(c.i, c.j)));
+}
+
+/**
+ * The key that draws `cell` among the `active` ones: its variant's, else another of its role's, else null (drawn in code). A `paved` cell (an inlet's, `inletKeys`) is the plain paving slab (the interiors', `PASSAGE_FLOOR_KEYS`) when that
+ * is active, and falls to its role's keys (the bare road) when it is not.
+ */
+export function tileKeyOf(cell: TileCell, active: ReadonlySet<CalibrationKey>, paved = false): CalibrationKey | null {
+  if (paved) {
+    const slab = PASSAGE_FLOOR_KEYS.find((key) => active.has(key));
+    if (slab !== undefined) return slab;
+  }
   const keys = TILE_SLOTS[cell.role];
   const want = keys[Math.min(variantIndex(cell), keys.length - 1)];
   if (want !== undefined && active.has(want)) return want;
@@ -236,8 +257,9 @@ export function tileGroup(city: TileCity, roots: ReadonlyMap<CalibrationKey, Obj
     /** The build-out trees whose piece is in the pack: place and key (a tree whose own piece is missing takes another of the three, and none is drawn when none is there). */
     trees: TreePlace[];
   }
+  const inlets = inletKeys(city);
   const planFor = (): Plan => {
-    const keyOf = city.cells.map((c) => tileKeyOf(c, active));
+    const keyOf = city.cells.map((c) => tileKeyOf(c, active, c.role === "lotSurface" && inlets.has(cellId(c.i, c.j))));
     const counts = new Map<CalibrationKey, number>();
     let quads = 0;
     let boxes = 0;
@@ -511,7 +533,7 @@ export interface InteriorDraw {
 
 /**
  * Everything inside the blocks as one group (see the file's header): the surface items from the pack where their key is usable and in code where it is not, per kind (so a missing `Grass_01` leaves the apron's slabs
- * in the pack and draws only the greens in code), the passages' floors and gates in code, and the props from the pack. If the usable keys would take more than `maxCalls` InstancedMeshes (with the code-drawn ones), the
+ * in the pack and draws only the greens in code), the passages' floors (whole cells from the pack's slab, part cells in code) and gates, and the props from the pack. If the usable keys would take more than `maxCalls` InstancedMeshes (with the code-drawn ones), the
  * keys with the fewest instances are dropped first. A key is usable when its entry and a root with a mesh are both given, as in `tileGroup`. Nothing here reads the state or takes a ray.
  */
 export function interiorGroup(city: TileCity, roots: ReadonlyMap<CalibrationKey, Object3D>, entries: ReadonlyMap<CalibrationKey, AssetEntry>, maxCalls: number = INTERIOR_DRAW_CALLS_MAX): InteriorDraw {
@@ -519,6 +541,7 @@ export function interiorGroup(city: TileCity, roots: ReadonlyMap<CalibrationKey,
   const props = propPlan(city);
   const gates = gatePlan(city);
   const floors = passageFloors(city);
+  const floorCells = floors.map(passageFloorCells);
   const parts = new Map<CalibrationKey, { mesh: Mesh; local: Matrix4 }[]>();
   const active = new Set<CalibrationKey>();
   const wanted = new Set<CalibrationKey>([...Object.values(INTERIOR_KEYS).flat(), ...TILE_PROPS]);
@@ -540,19 +563,26 @@ export function interiorGroup(city: TileCity, roots: ReadonlyMap<CalibrationKey,
     propKey: (CalibrationKey | null)[];
     counts: Map<CalibrationKey, number>;
     codeKinds: number;
+    /** The pack's slab the passages' floors are laid from (a whole cell each), or null: then every floor is one code quad. */
+    floorKey: CalibrationKey | null;
+    /** The floors' rectangles drawn in code: the part cells (or the whole floors with no slab). */
+    floorCode: GroundRect[];
   }
   const planFor = (): Plan => {
     const itemKey = items.map(keyOfItem);
     const propKey = props.map(keyOfProp);
     const counts = new Map<CalibrationKey, number>();
-    const bump = (key: CalibrationKey | null): void => {
-      if (key) counts.set(key, (counts.get(key) ?? 0) + 1);
+    const bump = (key: CalibrationKey | null, n = 1): void => {
+      if (key) counts.set(key, (counts.get(key) ?? 0) + n);
     };
-    itemKey.forEach(bump);
-    propKey.forEach(bump);
+    itemKey.forEach((key) => bump(key));
+    propKey.forEach((key) => bump(key));
+    const floorKey = PASSAGE_FLOOR_KEYS.find((key) => active.has(key)) ?? null;
+    const floorCode = floorKey === null ? floors : floorCells.flatMap((c) => c.part);
+    if (floorKey !== null) bump(floorKey, floorCells.reduce((n, c) => n + c.whole.length, 0));
     const code = (kinds: readonly InteriorItem["kind"][]): boolean => items.some((it, i) => itemKey[i] === null && kinds.includes(it.kind));
-    const pavement = code(["strip", "apron", "path", "parkEdge"]) || floors.length > 0;
-    return { itemKey, propKey, counts, codeKinds: [pavement, code(["green"]), code(["bare"]), code(["stalls"]), gates.length > 0].filter(Boolean).length };
+    const pavement = code(["strip", "apron", "path", "parkEdge", "inlet"]) || floorCode.length > 0;
+    return { itemKey, propKey, counts, floorKey, floorCode, codeKinds: [pavement, code(["green"]), code(["bare"]), code(["stalls"]), gates.length > 0].filter(Boolean).length };
   };
   let plan = planFor();
   for (;;) {
@@ -616,6 +646,11 @@ export function interiorGroup(city: TileCity, roots: ReadonlyMap<CalibrationKey,
     propsDrawn++;
     put(key, { x_m: p.x_m, z_m: p.z_m, yaw: p.yaw, y_m: 0, turn: Object.prototype.hasOwnProperty.call(TILE_PROP_TURN, key) ? (TILE_PROP_TURN[key] ?? 0) : 0 });
   });
+  // The passages' floors: one whole slab per whole 5 m cell of each floor's rectangle (no slab is scaled), at the apron's level; the part cells are code quads below.
+  if (plan.floorKey !== null) {
+    const y_m = tileLevelY_m("apron", plan.floorKey);
+    for (const f of floorCells) for (const c of f.whole) put(plan.floorKey, { x_m: c.x_m, z_m: c.z_m, yaw: 0, y_m, turn: tileFront(plan.floorKey) });
+  }
   const perKey = new Map<CalibrationKey, number>();
   for (const [key, list] of byKey) {
     perKey.set(key, list.length);
@@ -636,7 +671,7 @@ export function interiorGroup(city: TileCity, roots: ReadonlyMap<CalibrationKey,
   };
   const cellRect = (it: InteriorItem): { x_m: number; z_m: number; w_m: number; d_m: number } => ({ x_m: it.x_m, z_m: it.z_m, w_m: TILE_M, d_m: TILE_M });
   const codeItems = (kinds: readonly InteriorItem["kind"][]): InteriorItem[] => items.filter((it, i) => plan.itemKey[i] === null && kinds.includes(it.kind));
-  const pavementCells = [...codeItems(["strip", "apron", "path", "parkEdge"]).map(cellRect), ...floors];
+  const pavementCells = [...codeItems(["strip", "apron", "path", "parkEdge", "inlet"]).map(cellRect), ...plan.floorCode];
   if (pavementCells.length > 0) {
     const mat = own(new MeshStandardMaterial({ color: PAVEMENT, roughness: 1 }));
     addSurface(surfaces, "pavement", mat);

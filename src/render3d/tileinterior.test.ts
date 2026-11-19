@@ -14,7 +14,7 @@ import { LIGHT_MODES } from "./lighting";
 import { applyLightMode } from "./lightrig";
 import { WORLD_PER_METRE } from "./models";
 import { APRON_STRIP, COURT_STALLS, TILE_M, tileCity, withPassages, type TileCity, type TilePassage } from "./tilecity";
-import { INTERIOR_DRAW_CALLS_MAX, STALL_DIVIDERS_X_M, STALL_LINES_LIFT_M, TILE_BASE_M, TILE_BENCH, TILE_BINS, TILE_DRAW_CALLS_MAX, TILE_PROPS, TILE_SLOTS, TILE_TREES, GATE_H_M, GATE_POST_W_M, GATE_SMALL_H_M, alleyMouths, gateParts, gatePlan, interiorItems, passageFloors, sheetLabel, sheetLegend, sheetPieces, tileKeys, type InteriorItem } from "./tileslots";
+import { INTERIOR_DRAW_CALLS_MAX, STALL_DIVIDERS_X_M, STALL_LINES_LIFT_M, TILE_BASE_M, TILE_BENCH, TILE_BINS, TILE_DRAW_CALLS_MAX, TILE_PROPS, TILE_SLOTS, TILE_TREES, GATE_H_M, GATE_POST_W_M, GATE_SMALL_H_M, alleyMouths, inletCells, gateParts, gatePlan, interiorItems, passageFloors, sheetLabel, sheetLegend, sheetPieces, tileKeys, type InteriorItem } from "./tileslots";
 import { buildCityScene, interiorGroup, interiorLine, propInput, propPlan } from "./tilecity3d";
 import { tilePassages } from "./frontage";
 
@@ -28,7 +28,7 @@ const MAT = new MeshBasicMaterial();
 const sizeOf = (name: string): [number, number, number] => {
   if (name.includes("ParkingLines")) return [10, 0, 5];
   if (name.includes("Grass")) return [5, 0.14, 5];
-  if (name.includes("Panel_02")) return [5, 0.09, 5];
+  if (name === "SM_Env_Sidewalk_01") return [5, 0.034, 5];
   if (name.includes("Sidewalk")) return [5, 0.3, 5];
   if (name.includes("Tree")) return [1.9, 4.2, 2.5];
   if (name.includes("ParkBench")) return [2.08, 1.05, 0.62];
@@ -121,21 +121,22 @@ describe("interiorItems: every cell of a block's inside is drawn once", () => {
     }
   });
 
-  it("names each kind from its role: the ring-2 strip, the apron, a path, a park edge, a green, and a bare road for a court, drive or alley lane cell", () => {
+  it("names each kind from its role: the ring-2 strip, the apron, a path, a park edge, a green, a bare road for a court, drive or alley lane cell, and the paved inlet for an alley lane's two mouth cells (063 H)", () => {
     for (const city of CITIES) {
       const items = interiorItems(city).filter((it) => it.cells === 1);
+      const mouths = new Set(inletCells(city).mouths.map((c) => cellKey(c.i, c.j)));
       const role = new Map(city.interior.map((c) => [cellKey(c.i, c.j), c] as const));
       for (const it of items) {
         const c = role.get(cellKey(it.i, it.j))!;
         expect(it.role).toBe(c.role);
-        const want = c.role === "apron" ? (c.variant === APRON_STRIP ? "strip" : "apron") : c.role === "greenPath" ? "path" : c.role === "parkEdge" ? "parkEdge" : c.role === "green" ? "green" : "bare";
+        const want = c.role === "apron" ? (c.variant === APRON_STRIP ? "strip" : "apron") : c.role === "greenPath" ? "path" : c.role === "parkEdge" ? "parkEdge" : c.role === "green" ? "green" : c.role === "alley" && mouths.has(cellKey(c.i, c.j)) ? "inlet" : "bare";
         expect(it.kind, `${city.seed}: ${c.role} ${cellKey(c.i, c.j)}`).toBe(want);
         expect([it.x_m, it.z_m, it.yaw]).toEqual([c.x_m, c.z_m, c.yaw]);
       }
       const kinds = new Set(items.map((it) => it.kind));
       for (const k of ["strip", "apron", "path", "parkEdge", "green", "bare"] as const) expect(kinds.has(k), `${city.seed}: a ${k}`).toBe(true);
-      // Every alley lane cell is bare road (no lotSurface cell is under a lane).
-      expect(items.filter((it) => it.role === "alley").every((it) => it.kind === "bare")).toBe(true);
+      // Every alley lane cell is bare road (no lotSurface cell is under a lane) but its two mouth cells, which are paved.
+      expect(items.filter((it) => it.role === "alley").every((it) => it.kind === (mouths.has(cellKey(it.i, it.j)) ? "inlet" : "bare"))).toBe(true);
       expect(items.filter((it) => it.role === "alley").length).toBe(city.interior.filter((c) => c.role === "alley").length);
     }
   });
@@ -289,14 +290,14 @@ describe("interiorGroup with the whole pack", () => {
   it("draws every item from the pack but the ragged strip, one InstancedMesh per key, and counts each key's instances", () => {
     const p = pack();
     const draw = interiorGroup(city, p.roots, p.entries);
+    // 063 D: the ring-2 strip is the plain slab too, so with the whole pack every item is from it.
     const strips = items.filter((it) => it.kind === "strip").length;
     expect(strips).toBeGreaterThan(100);
-    expect(draw.codeDrawn).toBe(strips);
-    expect(draw.fromPack).toBe(items.length - strips);
-    expect(draw.fromPack + draw.codeDrawn).toBe(items.length);
+    expect(draw.codeDrawn).toBe(0);
+    expect(draw.fromPack).toBe(items.length);
     const want = new Map<CalibrationKey, number>();
     const keyOf = (it: InteriorItem): CalibrationKey => (it.kind === "green" ? TILE_SLOTS.green[0]! : it.kind === "stalls" ? TILE_SLOTS.court[1]! : it.kind === "bare" ? TILE_SLOTS.alley[0]! : TILE_SLOTS.apron[0]!);
-    for (const it of items) if (it.kind !== "strip") want.set(keyOf(it), (want.get(keyOf(it)) ?? 0) + 1);
+    for (const it of items) want.set(keyOf(it), (want.get(keyOf(it)) ?? 0) + 1);
     for (const pr of props) want.set(pr.key, (want.get(pr.key) ?? 0) + 1);
     expect([...draw.perKey].sort()).toEqual([...want].sort());
     for (const [key, n] of want) {
@@ -312,7 +313,7 @@ describe("interiorGroup with the whole pack", () => {
     draw.dispose();
   });
 
-  it("stands every tile at its item's centre on the ground: the grass 0.11 m down, the slabs 0.07 m down, the bare road at 0, the stall lines a hair over it, and the props at 0, at WORLD_PER_METRE and never otherwise scaled", () => {
+  it("stands every tile at its item's centre on the ground: the grass 0.11 m down, the slabs 0.01 m down, the bare road at 0, the stall lines a hair over it, and the props at 0, at WORLD_PER_METRE and never otherwise scaled", () => {
     const p = pack();
     const draw = interiorGroup(city, p.roots, p.entries);
     const grass = TILE_SLOTS.green[0]!;
@@ -330,11 +331,11 @@ describe("interiorGroup with the whole pack", () => {
       });
     };
     check(grass, items.filter((it) => it.kind === "green"), TILE_BASE_M[grass]!);
-    check(slab, items.filter((it) => it.kind === "apron" || it.kind === "path" || it.kind === "parkEdge"), TILE_BASE_M[slab]!);
+    check(slab, items.filter((it) => it.kind === "strip" || it.kind === "apron" || it.kind === "path" || it.kind === "parkEdge" || it.kind === "inlet"), TILE_BASE_M[slab]!);
     check(bare, items.filter((it) => it.kind === "bare"), 0);
     check(lines, items.filter((it) => it.kind === "stalls"), STALL_LINES_LIFT_M);
     expect(TILE_BASE_M[grass]).toBe(-0.11);
-    expect(TILE_BASE_M[slab]).toBe(-0.07);
+    expect(TILE_BASE_M[slab]).toBe(-0.01);
     expect(bad).toEqual([]);
     // A prop stands at its point on the walk.
     const bench = named(draw.group, `interior:${shortName(TILE_BENCH)}`)[0]!;
@@ -373,14 +374,13 @@ describe("interiorGroup with the whole pack", () => {
     draw.dispose();
   });
 
-  it("draws the passages' floors as pavement quads and each gate as boxes, always in code, and nothing in the pack for them", () => {
+  it("draws a passage floor narrower than a cell as one pavement quad (a part cell) and each gate as boxes, in code", () => {
     const p = pack();
     const draw = interiorGroup(city, p.roots, p.entries);
     const pave = named(draw.group, "interior:code-pavement")[0]!;
-    const strips = items.filter((it) => it.kind === "strip").length;
-    expect(pave.count, "the strip cells and the two floors").toBe(strips + 2);
+    expect(pave.count, "the two floors, each under one whole cell wide: part cells").toBe(2);
     // A floor is a flat quad at the walk's level, as wide and deep as the passage's floor rectangle.
-    const floor = at(pave, strips);
+    const floor = at(pave, 0);
     expect([floor.scale.x, floor.scale.z].map((v) => Math.round(v / S * 1000) / 1000)).toEqual([3.7, TILE_M]);
     expect(floor.pos.y).toBe(0);
     const gates = named(draw.group, "interior:code-gates")[0]!;
@@ -403,7 +403,7 @@ describe("interiorGroup with no pack, or part of it (CI)", () => {
     expect(draw.calls).toBeLessThanOrEqual(INTERIOR_DRAW_CALLS_MAX);
     expect(instances(draw.group)).toHaveLength(draw.calls);
     const by = (k: InteriorItem["kind"][]): number => items.filter((it) => k.includes(it.kind)).length;
-    expect(named(draw.group, "interior:code-pavement")[0]!.count).toBe(by(["strip", "apron", "path", "parkEdge"]) + 1);
+    expect(named(draw.group, "interior:code-pavement")[0]!.count).toBe(by(["strip", "apron", "path", "parkEdge", "inlet"]) + 1);
     expect(named(draw.group, "interior:code-grass")[0]!.count).toBe(by(["green"]));
     expect(named(draw.group, "interior:code-bare")[0]!.count).toBe(by(["bare"]));
     expect(named(draw.group, "interior:code-stalls")[0]!.count).toBe(by(["stalls"]) * STALL_DIVIDERS_X_M.length);
@@ -428,16 +428,15 @@ describe("interiorGroup with no pack, or part of it (CI)", () => {
     const p = pack([grass]);
     const draw = interiorGroup(city, p.roots, p.entries);
     const greens = items.filter((it) => it.kind === "green").length;
-    const strips = items.filter((it) => it.kind === "strip").length;
-    expect(draw.codeDrawn).toBe(greens + strips);
+    expect(draw.codeDrawn).toBe(greens);
     expect(named(draw.group, "interior:code-grass")[0]!.count).toBe(greens);
     expect(draw.perKey.has(grass)).toBe(false);
     draw.dispose();
     const slab = TILE_SLOTS.apron[0]!;
     const q = pack([slab]);
     const no = interiorGroup(city, q.roots, q.entries);
-    const slabs = items.filter((it) => it.kind === "apron" || it.kind === "path" || it.kind === "parkEdge").length;
-    expect(no.codeDrawn).toBe(slabs + strips);
+    const slabs = items.filter((it) => it.kind === "strip" || it.kind === "apron" || it.kind === "path" || it.kind === "parkEdge" || it.kind === "inlet").length;
+    expect(no.codeDrawn).toBe(slabs);
     expect(no.perKey.has(grass)).toBe(true);
     no.dispose();
     // The stall lines absent: each row gets its dividers, and the bare road under it stays in the pack.
@@ -570,7 +569,7 @@ describe("the sheet shows each interior role once, labelled (criterion 11)", () 
     const grass = pieces.find((p) => p.key === TILE_SLOTS.green[0])!;
     const bare = pieces.find((p) => p.key === TILE_SLOTS.alley[0])!;
     const lines = pieces.find((p) => p.key === TILE_SLOTS.court[1])!;
-    expect(sheetLabel(slab.key, true, undefined, slab.roles)).toEqual(["Panel_02", "turn 0 + apron path edge"]);
+    expect(sheetLabel(slab.key, true, undefined, slab.roles)).toEqual(["Sidewalk_01", "turn 0 + apron path edge"]);
     expect(sheetLabel(grass.key, true, undefined, grass.roles)).toEqual(["Grass_01", "turn 0 + green"]);
     expect(sheetLabel(bare.key, true, undefined, bare.roles)).toEqual(["Bare_01", "turn 0 + court drive alley"]);
     expect(sheetLabel(lines.key, true, undefined, lines.roles)).toEqual(["ParkingLines_01", "turn 0 + court"]);
@@ -578,7 +577,7 @@ describe("the sheet shows each interior role once, labelled (criterion 11)", () 
     for (const p of pieces) expect(sheetLabel(p.key, true, undefined, p.roles)[1]!.length, p.key).toBeLessThanOrEqual(26);
     const have = pieces.map((p) => ({ key: p.key, present: true, roles: p.roles }));
     const legend = sheetLegend(true, have);
-    expect(legend.some((l) => l.includes("Panel_02 turn 0 + apron path edge"))).toBe(true);
+    expect(legend.some((l) => l.includes("Sidewalk_01 turn 0 + apron path edge"))).toBe(true);
     for (const l of legend) expect(l.length, l).toBeLessThanOrEqual(41);
   });
 });
@@ -665,5 +664,90 @@ describe("the interior cities are the ones the ticket names", () => {
     expect(defaultCity.greenProps.some((g) => g.key === "bench")).toBe(true);
     expect(defaultCity.greenProps.some((g) => g.key === "tree")).toBe(true);
     expect(gatePlan(defaultCity)).toEqual([]);
+  });
+});
+
+// ---- ticket 063 D and H: the passage floors from the slab, the alley mouths paved ----
+
+describe("the passage floors are the plain slab, a whole cell at a time (063 D)", () => {
+  it("lays one slab for each whole 5 m of a wide floor and a code quad for the part cell, each slab flat on the walk at the apron's level", () => {
+    // A floor 12.6 m wide and one cell deep: two whole cells and a 2.6 m part cell.
+    const wide = withPassages(defaultCity, [passage(55, 12.5, 12.6, 0, "r:w")]);
+    const p = pack();
+    const base = interiorGroup(withPassages(defaultCity, []), p.roots, p.entries);
+    const draw = interiorGroup(wide, p.roots, p.entries);
+    const slab = TILE_SLOTS.apron[0]!;
+    expect(draw.perKey.get(slab)).toBe(base.perKey.get(slab)! + 2);
+    const pave = named(draw.group, "interior:code-pavement")[0]!;
+    expect(pave.count, "the one part cell").toBe(1);
+    const part = at(pave, 0);
+    expect([part.scale.x, part.scale.z].map((v) => Math.round((v / S) * 1000) / 1000)).toEqual([2.6, TILE_M]);
+    // The two whole slabs are the last two instances of the slab's mesh, side by side from the floor's low x, at the apron's level.
+    const im = named(draw.group, `interior:${shortName(slab)}`)[0]!;
+    const last = [at(im, im.count - 2), at(im, im.count - 1)];
+    expect(last.map((m) => Math.round((m.pos.x / S) * 1000) / 1000)).toEqual([55 - 6.3 + 2.5, 55 - 6.3 + 7.5]);
+    for (const m of last) {
+      expect(m.pos.z / S).toBeCloseTo(15, 6);
+      expect(m.pos.y / S).toBeCloseTo(TILE_BASE_M[slab]!, 6);
+      for (const s of [m.scale.x, m.scale.y, m.scale.z]) expect(s / S).toBeCloseTo(1, 6);
+    }
+    // Without the slab in the pack the whole floor is one code quad, as before.
+    const q = pack([slab]);
+    const code = interiorGroup(wide, q.roots, q.entries);
+    expect(named(code.group, "interior:code-pavement")[0]!.count).toBe(items0(wide).filter((it) => ["strip", "apron", "path", "parkEdge", "inlet"].includes(it.kind)).length + 1);
+    base.dispose();
+    draw.dispose();
+    code.dispose();
+  });
+});
+
+const items0 = (city: TileCity): InteriorItem[] => interiorItems(city);
+
+describe("the paved inlets (063 H, Josh, 19 Nov 2026: \"If you're going to have an inlet to areas between buildings it needs to be paved\")", () => {
+  it("draws an alley's two mouth cells from the slab at the walk, and the lane beyond them from the bare road", () => {
+    const p = pack();
+    const draw = interiorGroup(defaultCity, p.roots, p.entries);
+    const slab = TILE_SLOTS.apron[0]!;
+    const bare = TILE_SLOTS.alley[0]!;
+    const items = interiorItems(defaultCity);
+    const mouth = items.filter((it) => it.kind === "inlet");
+    const lane = items.filter((it) => it.kind === "bare" && it.role === "alley");
+    expect(mouth.length).toBeGreaterThan(0);
+    expect(mouth.every((it) => it.role === "alley")).toBe(true);
+    expect(lane.length, "the lane beyond ring 1 stays the bare road").toBeGreaterThan(mouth.length);
+    // Each mouth cell is the first or last cell of its lane, in the block's outermost ring.
+    const cells = new Set(inletCells(defaultCity).mouths.map((q) => cellKey(q.i, q.j)));
+    for (const it of mouth) expect(cells.has(cellKey(it.i, it.j))).toBe(true);
+    expect(mouth).toHaveLength(cells.size);
+    const im = named(draw.group, `interior:${shortName(slab)}`)[0]!;
+    const slabItems = items.filter((it) => ["strip", "apron", "path", "parkEdge", "inlet"].includes(it.kind));
+    expect(im.count).toBe(slabItems.length);
+    slabItems.forEach((it, i) => {
+      if (it.kind !== "inlet") return;
+      const m = at(im, i);
+      expect([m.pos.x / S, m.pos.z / S, m.pos.y / S].map((v) => Math.round(v * 1e4) / 1e4)).toEqual([it.x_m, it.z_m, TILE_BASE_M[slab]!]);
+    });
+    const bareMesh = named(draw.group, `interior:${shortName(bare)}`)[0]!;
+    expect(bareMesh.count).toBe(items.filter((it) => it.kind === "bare").length);
+    draw.dispose();
+  });
+
+  it("draws an alley's mouth cells in code as pavement when the slab is absent, and the lane beyond as the bare road", () => {
+    const slab = TILE_SLOTS.apron[0]!;
+    const q = pack([slab]);
+    const draw = interiorGroup(defaultCity, q.roots, q.entries);
+    const items = interiorItems(defaultCity);
+    const flat = items.filter((it) => ["strip", "apron", "path", "parkEdge", "inlet"].includes(it.kind)).length;
+    expect(named(draw.group, "interior:code-pavement")[0]!.count).toBe(flat);
+    expect(draw.perKey.has(slab)).toBe(false);
+    draw.dispose();
+  });
+
+  it("changes no city data: drawing the tiles and the interiors leaves the city exactly as it was", () => {
+    const before = JSON.stringify(defaultCity);
+    const p = pack();
+    interiorGroup(defaultCity, p.roots, p.entries).dispose();
+    expect(JSON.stringify(defaultCity)).toBe(before);
+    expect(JSON.stringify(tileCity())).toBe(before);
   });
 });
