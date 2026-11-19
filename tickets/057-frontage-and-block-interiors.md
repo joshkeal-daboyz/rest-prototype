@@ -296,7 +296,7 @@ The build order is A, B, C, F, G, then D and E. The letters F and G were added a
 - *Seed selection (F).*
   - The hash key `"width"` in `blockLens` was chosen among a few keys tried, because R7 (the tile floor of 0.4) is noise on the dressing's own escape chance. The first key gave seed 3 an R7 of 0.373.
   - With 9 blocks R7 moves in ninths, so the floor is fragile, and section G will move it again.
-- *Follow-up for Josh (needs his word; recorded, not scheduled):* R7 should become a guarantee and not a chance. Escapes would be handed out by hash rank to ceil(0.4 x qualifying) blocks, keeping the no-two-neighbours rule. That is a change in 058's file (`dressing.ts`): a re-cut of 058 or a small ticket of its own.
+- *Follow-up, now ticket 061 (Josh, 18 Nov 2026: "Yes, cut it (Recommended)"):* R7 should become a guarantee and not a chance. Escapes would be handed out by hash rank to ceil(0.4 x qualifying) blocks, keeping the no-two-neighbours rule. That is a change in 058's file (`dressing.ts`): a re-cut of 058 or a small ticket of its own.
 
 ### G (Vitest)
 18. [ ] **Alleys.** Each alley is one cell wide and parallel to its block's short side.
@@ -311,7 +311,7 @@ The build order is A, B, C, F, G, then D and E. The letters F and G were added a
     - G1 to G4 hold, with a park edge counted as a frontage where buildings face it.
     - New role: `parkEdge` (pavement), plus the green roles of 19.4.
 *Could-improves carried from the 057 F review into G (G touches the same file):*
-- `blockLens`' comment says that its hash key was chosen among keys tried, and why (R7).
+- `blockLens`' comment says that its hash key was chosen among keys tried, and why (R7). Once ticket 061 (escapes by rank, approved 18 Nov 2026) lands, the comment also says that R7 no longer depends on the key.
 - `blockLens` gets a known-good fallback layout for when all 64 draws miss, with a test that forces the miss.
 - A test shows that block sizes near both ends of the 6 to 16-cell range occur over seeds 1 to 20.
 
