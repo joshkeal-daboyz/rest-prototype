@@ -287,6 +287,15 @@ function kitOf(style: StackStyle, entries: Entries, fronts: FrontTable): Kit {
   };
 }
 
+/** The kit with its ground candidates (shops, residents' door, corner bases) cut to a sill band; a role with none in the band keeps its own (ticket 062 B). */
+function bandedKit(kit: Kit, band: ReadonlySet<CalibrationKey>): Kit {
+  const cut = (xs: Cand[]): Cand[] => {
+    const inBand = xs.filter((c) => band.has(c.key));
+    return inBand.length > 0 ? inBand : xs;
+  };
+  return { ...kit, baseMid: cut(kit.baseMid), door: cut(kit.door), baseCorner: { "-x": cut(kit.baseCorner["-x"]), "+x": cut(kit.baseCorner["+x"]) } };
+}
+
 /** A style with corner pieces in any role is a corner-capable style; one with none (an office) never has a corner column. */
 function hasCornerPieces(style: StackStyle): boolean {
   return style.base.corner.length > 0 || style.floor.corner.length > 0 || style.roof.corner.length > 0;
@@ -439,6 +448,11 @@ export interface AssembleOptions {
   bays?: number;
   /** How the pieces line up in z (ticket 057 A). Default "back": every ladder stack is as it was. The tile city passes "wall". */
   align?: StackAlign;
+  /**
+   * Keep the ground row to one sill band (ticket 062 B): the keys the shops, the residents' door and the corner bases may be picked from (the caller's `sillBands`). A role with none of its candidates in the set keeps
+   * all of them. Default: none, so a stack is exactly what it was.
+   */
+  sillBand?: ReadonlySet<CalibrationKey>;
 }
 
 interface Item {
@@ -475,7 +489,7 @@ export function assembleStack(
   const align = opts.align ?? "back";
   const range = rangeFor(style, lot.type, entries, fronts, sides, spec, opts.bays, align);
   if (!range) return null;
-  const kit = kitOf(style, entries, fronts);
+  const kit = opts.sillBand ? bandedKit(kitOf(style, entries, fronts), opts.sillBand) : kitOf(style, entries, fronts);
   const salt = `${lot.key}${style.id}`;
   const floors =
     opts.floors === "max"

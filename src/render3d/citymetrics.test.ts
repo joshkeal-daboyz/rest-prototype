@@ -16,7 +16,7 @@ import { dressKeys, dressTown, type DressPiece } from "./dressing";
 import { alleyOf, furnitureKeys, furnitureLayout, type Alley, type FurnitureInput, type FurniturePiece, type Rect } from "./furniture";
 import { dropLayout, wireLayout } from "./layout";
 import { WORLD_PER_METRE } from "./models";
-import { allStackKeys, applyModels, avoidBoxOf, dressInput, dressSites, loadModels, stackInput, type DressPlacement, type ModelSet } from "./models3d";
+import { allStackKeys, applyModels, avoidBoxOf, bandPacked, dressInput, dressSites, loadModels, stackInput, type DressPlacement, type ModelSet } from "./models3d";
 import { buildScene } from "./scene";
 import { STACK_STYLES, stackKeys } from "./stacks";
 import { ALLEY_MAX_M, ALLEY_MIN_M, packTown, type PackResult } from "./terrace";
@@ -215,7 +215,8 @@ function planOf(file: string): Plan {
   if (hit) return hit;
   const puzzle = loadMap(file);
   const town = townLayout(puzzle);
-  const packed = packTown({ terraces: town.terraces, lots: town.lots }, STACK_STYLES, STACKS.entries, STACKS.fronts);
+  // Ticket 062 B: the pure plan is the game's, so it takes the same band pass as `applyModels`.
+  const packed = bandPacked(packTown({ terraces: town.terraces, lots: town.lots }, STACK_STYLES, STACKS.entries, STACKS.fronts), town.terraces, STACKS.entries, STACKS.fronts);
   const list = runBlocks(town.terraces, packed);
   const sites = dressSites(list.map((x) => x.block), [], town.lots);
   const dressing = dressTown(sites, DRESS.entries, DRESS.fronts).map((x) => [...x]);

@@ -11,17 +11,26 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { BoxGeometry, Group, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, Raycaster, Vector3, type Object3D } from "three";
 import { ASSET_MANIFEST_VERSION, loadPuzzle, type AssetEntry, type AssetManifest, type CalibrationKey, type Puzzle } from "../core";
-import { dressKeys } from "./dressing";
+import { GLASS_SILL_M, dressKeys, type DressPiece } from "./dressing";
+import { ESCAPE_TABLES, escapeCheck, sillOf } from "./escapes";
 import { BUILDING_FRONTS, MODEL_TABLE, WORLD_PER_METRE, frontAxis, type ModelFront } from "./models";
-import { allStackKeys, applyModels, loadModels, stepsGroup, stepsPlacement, type ModelSet } from "./models3d";
+import { allStackKeys, applyModels, dressSites, liftDressing, loadModels, sameAboveGround, stackInput, zShift, stepsGroup, stepsPlacement, type AppliedModels, type ModelSet } from "./models3d";
 import { PAVEMENT_Y, YARD, buildScene } from "./scene";
 import {
   DOOR_MIN_AREA_M2,
   DOOR_SILLS,
+  LIFT_CLEAR_M,
+  NO_FRONT_WINDOW,
+  NO_STREET_DOOR,
+  RECESS_DOOR_HALF_M,
   SILL_CEIL_M,
+  SILL_BAND_M,
+  SILL_DEPTH_BY_KEY,
+  SILL_DEPTH_MAX_M,
   SILL_DEPTH_M,
   SILL_DOOR_HALF_M,
   SILL_MAX_M,
+  SILL_UNDER_M,
   SILL_WINDOW_CLEAR_M,
   STEPS_D_M,
   STEPS_FIT_M,
@@ -30,17 +39,24 @@ import {
   STEPS_SCALE_Y,
   STEPS_TUCK_M,
   STEPS_W_M,
+  STEP_MIN_M,
+  WINDOW_DEPTH_M,
+  fitSillBand,
   houseSill,
   leavesGap,
   measureDoor,
   modelPoint,
   planHouse,
+  sillBands,
+  sillDepth,
+  stackLift,
   stackSill,
   stepsYaw,
+  type DoorSill,
   type SillMesh,
   type SillTable,
 } from "./sills";
-import { STACK_STYLES, type Stack } from "./stacks";
+import { STACK_STYLES, assembleStack, type Stack } from "./stacks";
 import { tileCity } from "./tilecity";
 import { buildCityScene, cityApplyOptions } from "./tilecity3d";
 import { stubTextSurface } from "./text";
@@ -50,9 +66,9 @@ const TOWN_PACK_GLB = join("assets", "private", "out", "town-pack.glb");
 const SIMPLE_TOWN_GLB = join("assets", "private", "out", "simple-town.glb");
 const W = WORLD_PER_METRE;
 
-// ---- the measured table, typed in: [key, sill, lowest window, door's centre along the front] ----
+// ---- the measured table, typed in: [key, sill, lowest window, door's centre along the front, lowest front step when there is one] ----
 
-const PINNED: readonly (readonly [CalibrationKey, number, number | null, number])[] = [
+const PINNED: readonly (readonly [CalibrationKey, number, number | null, number, number?])[] = [
   ["city-pack:SM_Bld_Shop_01", 0.106, null, 0],
   ["city-pack:SM_Bld_Shop_02", 0.071, null, 0],
   ["city-pack:SM_Bld_Shop_03", 0.043, null, 0],
@@ -68,62 +84,78 @@ const PINNED: readonly (readonly [CalibrationKey, number, number | null, number]
   ["town-pack:SM_Bld_House_Preset_01", 1.151, 1.851, 0],
   ["town-pack:SM_Bld_House_Preset_02", 1.052, 1.752, 1.271],
   ["town-pack:SM_Bld_House_Preset_03", 1.151, 1.851, -2.479],
+  ["town-pack:SM_Bld_House_Preset_04", 1.151, 1.851, -2.5],
   ["town-pack:SM_Bld_House_Preset_05", 1.166, 1.866, -2.479],
   ["town-pack:SM_Bld_House_Preset_06", 1.052, 1.752, 0],
   ["town-pack:SM_Bld_House_Preset_07", 1.052, 1.752, 2.521],
   ["town-pack:SM_Bld_House_Preset_08", 1.102, 1.802, -4.979],
   ["town-pack:SM_Bld_House_Preset_09", 1.052, 1.752, -1.229],
-  ["simple-town:Building_Shop_01", 0.337, null, 0],
-  ["simple-town:Building_Shop_02", 0.337, null, 0],
-  ["simple-town:apartment_small_mesh", 0.212, null, 0],
-  ["simple-town:Building_House_01", 1.035, null, 0],
-  ["simple-town:Building_House_02", 1.035, null, 0],
-  ["simple-town:Building_House_03", 1.035, null, 0],
-  ["simple-town:Building_House_04", 1.035, null, 0],
-  ["simple-town:Building_House_09", 0.426, null, 0],
-  ["simple-town:Building_House_010", 0.426, null, 0],
-  ["simple-town:Building_House_011", 0.426, null, 0],
-  ["simple-town:Building_House_012", 1.053, null, 0],
-  ["simple-town:Building_House_013", 1.053, null, 0],
-  ["simple-town:Building_House_014", 1.053, null, 0],
-  ["simple-town:Building_House_015", 1.053, null, 0],
-  ["simple-town:office_small_mesh", 0.505, null, -2.991],
-  ["simple-town:Building_AutoRepair", 0.138, null, -5.965],
-  ["simple-town:Building_StripClub", 0.138, null, 0],
-  ["simple-town:Building_PoliceStation", 0.402, null, 0],
-  ["simple-town:apartment_large_mesh", 0.212, null, 0],
-  ["simple-town:office_medium_mesh", 0.505, null, -2.991],
-  ["simple-town:office_large_mesh", 0.505, null, -2.991],
+  ["town-pack:SM_Bld_House_Preset_10", 1.052, 1.752, -2.666],
+  ["town-pack:SM_Bld_House_Preset_11", 1.052, 1.752, 0],
+  ["town-pack:SM_Bld_House_Preset_Garage_01", 1.052, null, 0],
+  ["simple-town:Building_Shop_01", 0.337, 6.352, 0],
+  ["simple-town:Building_Shop_02", 0.337, 6.352, 0],
+  ["simple-town:Building_Shop_03", 0.199, 5.515, 0],
+  ["simple-town:Building_Shop_04", 0.199, 5.515, 0],
+  ["simple-town:Building_Shop_05", 0.199, 5.515, 0],
+  ["simple-town:Building_BaberShop", 0.333, 1.299, 2.461],
+  ["simple-town:Building_Gym", 0.337, 6.352, 0],
+  ["simple-town:store_small_mesh", 0.212, null, 0],
+  ["simple-town:store_corner_mesh", 0.212, 4.295, -3.799],
+  ["simple-town:apartment_small_mesh", 0.212, 2.137, 0],
+  ["simple-town:Building_House_01", 1.035, 1.721, 0, 0.601],
+  ["simple-town:Building_House_02", 1.035, 1.721, 0, 0.601],
+  ["simple-town:Building_House_03", 1.035, 1.721, 0, 0.601],
+  ["simple-town:Building_House_04", 1.035, 1.721, 0, 0.601],
+  ["simple-town:Building_House_09", 0.639, 2.832, 0, 0.213],
+  ["simple-town:Building_House_010", 0.639, 2.832, 0, 0.213],
+  ["simple-town:Building_House_011", 0.639, 2.832, 0, 0.213],
+  ["simple-town:Building_House_012", 1.053, 1.33, 0, 0.682],
+  ["simple-town:Building_House_013", 1.053, 1.33, 0, 0.682],
+  ["simple-town:Building_House_014", 1.053, 1.33, 0, 0.682],
+  ["simple-town:Building_House_015", 1.053, 1.33, 0, 0.682],
+  ["simple-town:office_small_mesh", 0.505, 1.959, -2.991, 0.245],
+  ["simple-town:Building_House_05", 0.33, 1.201, 0],
+  ["simple-town:Building_House_06", 0.33, 1.201, 0],
+  ["simple-town:Building_House_07", 0.33, 1.201, 0],
+  ["simple-town:Building_House_08", 0.33, 1.201, 0],
+  ["simple-town:Building_AutoRepair", 0.138, 1.182, -5.965],
+  ["simple-town:Building_StripClub", 0.138, 0.765, 0],
+  ["simple-town:Building_PoliceStation", 0.402, 0.529, 0],
+  ["simple-town:Building_CoffeeShop", 0.333, 5.954, 0],
+  ["simple-town:apartment_large_mesh", 0.212, 2.137, 0],
+  ["simple-town:office_medium_mesh", 0.505, 1.959, -2.991, 0.245],
+  ["simple-town:office_large_mesh", 0.505, 1.959, -2.991, 0.245],
 ];
 
 /**
- * The keys the town can place that the geometry could not settle (no entry, drawn unchanged), and why. `depth` is how far behind the front face the first door floor of at least
- * `DOOR_MIN_AREA_M2` starts, measured with no depth limit.
+ * The 22 keys the table of `1a356b9` (ticket 055 F) had no entry for: the geometry could not settle them within `SILL_DEPTH_M` and they were drawn unchanged. Ticket 062 A settles each (a per-key depth, a typed
+ * value, or `NO_STREET_DOOR`); the list stays here so the failing fixture can put the old table back.
  */
-const UNSETTLED: Readonly<Record<string, string>> = {
-  "city-pack:SM_Bld_Shop_06": "no upward surface of a door floor's size at all: a flat front with no floor behind it",
-  "town-pack:SM_Bld_House_Preset_04": "its door threshold (1.15 m) is 5.05 m behind the -x front face, in a deep porch; the front face itself shows only windows",
-  "town-pack:SM_Bld_House_Preset_10": "its door threshold (1.05 m) is 2.57 m behind the -z front face (a recessed porch)",
-  "town-pack:SM_Bld_House_Preset_11": "its door threshold (1.05 m) is 2.57 m behind the -z front face (a recessed porch)",
-  "town-pack:SM_Bld_House_Preset_Garage_01": "its only door threshold (1.05 m) is on the back, 8.17 m behind the -z front face (the front is the vehicle door)",
-  "simple-town:Building_Shop_03": "the first floor (0.20 m, 0.7 m2) is 2.29 m behind the front face",
-  "simple-town:Building_Shop_04": "the first floor (0.20 m, 0.7 m2) is 2.29 m behind the front face",
-  "simple-town:Building_Shop_05": "the first floor (0.20 m, 0.7 m2) is 2.29 m behind the front face",
-  "simple-town:Building_BaberShop": "the first floor (0.35 m) is 1.32 m behind the front face",
-  "simple-town:Building_Gym": "the first floor (0.35 m) is 2.45 m behind the front face",
-  "simple-town:store_small_mesh": "the only surface (0.20 m, 0.8 m2) starts 1.35 m behind the front face",
-  "simple-town:store_corner_mesh": "the only surface (0.20 m, 0.4 m2) starts 1.08 m behind the front face",
-  "simple-town:Building_Garage_01": "no floor within 14 m of the front face",
-  "simple-town:Building_Garage_02": "no floor within 14 m of the front face",
-  "simple-town:Building_Garage_03": "no floor within 14 m of the front face",
-  "simple-town:house_mesh": "the first floor (0.55 m) is 9.28 m behind the -z front face; its steps are at the back",
-  "simple-town:Building_House_05": "the first floor (0.35 m) is 2.43 m behind the front face",
-  "simple-town:Building_House_06": "the first floor (0.35 m) is 2.43 m behind the front face",
-  "simple-town:Building_House_07": "the first floor (0.35 m) is 2.43 m behind the front face",
-  "simple-town:Building_House_08": "the first floor (0.35 m) is 2.43 m behind the front face",
-  "simple-town:Building_PetrolStation": "the first floor (0.40 m) is 18.37 m behind the front face",
-  "simple-town:Building_CoffeeShop": "the first floor (0.35 m) is 3.49 m behind the front face",
-};
+const UNSETTLED_1A356B9: readonly CalibrationKey[] = [
+  "city-pack:SM_Bld_Shop_06",
+  "town-pack:SM_Bld_House_Preset_04",
+  "town-pack:SM_Bld_House_Preset_10",
+  "town-pack:SM_Bld_House_Preset_11",
+  "town-pack:SM_Bld_House_Preset_Garage_01",
+  "simple-town:Building_Shop_03",
+  "simple-town:Building_Shop_04",
+  "simple-town:Building_Shop_05",
+  "simple-town:Building_BaberShop",
+  "simple-town:Building_Gym",
+  "simple-town:store_small_mesh",
+  "simple-town:store_corner_mesh",
+  "simple-town:Building_Garage_01",
+  "simple-town:Building_Garage_02",
+  "simple-town:Building_Garage_03",
+  "simple-town:house_mesh",
+  "simple-town:Building_House_05",
+  "simple-town:Building_House_06",
+  "simple-town:Building_House_07",
+  "simple-town:Building_House_08",
+  "simple-town:Building_PetrolStation",
+  "simple-town:Building_CoffeeShop",
+];
 
 /** Every key the town can place on the ground: the base, door and corner pieces of every stack style, and every whole building of the model table. */
 function groundKeys(): CalibrationKey[] {
@@ -133,54 +165,156 @@ function groundKeys(): CalibrationKey[] {
   return [...out];
 }
 
-describe("the measured table (criterion 33)", () => {
-  it("pins every entry's three values, and changing one fails", () => {
-    const typed: Record<string, { sill_m: number; window_m: number | null; door_x_m: number }> = {};
-    for (const [key, sill, window, door] of PINNED) typed[key] = { sill_m: sill, window_m: window, door_x_m: door };
-    expect(DOOR_SILLS).toEqual(typed);
+/** The problems with a table of door sills against the keys the town places: a key with neither an entry nor a reason, or with both, or with a reason that is empty. Empty means the table is accounted for. */
+function accountingProblems(keys: readonly CalibrationKey[], table: SillTable, noStreet: Readonly<Partial<Record<CalibrationKey, string>>>): string[] {
+  const out: string[] = [];
+  for (const key of keys) {
+    const has = Object.prototype.hasOwnProperty.call(table, key);
+    const why = Object.prototype.hasOwnProperty.call(noStreet, key);
+    if (!has && !why) out.push(`${key}: neither an entry nor a reason`);
+    else if (has && why) out.push(`${key}: an entry and a reason it has none`);
+    else if (why && (noStreet[key] ?? "").trim() === "") out.push(`${key}: an empty reason`);
+  }
+  for (const key of [...Object.keys(table), ...Object.keys(noStreet)]) if (!keys.includes(key as CalibrationKey)) out.push(`${key}: not a key the town places`);
+  return out;
+}
+
+/** The measure's search depth for a key, as `SILL_DEPTH_BY_KEY` gives it. */
+const depthOf = (key: CalibrationKey): number => sillDepth(key);
+
+describe("the measured table (criterion 33; ticket 062 A criteria 1 to 3)", () => {
+  it("pins every entry's values, and changing one fails", () => {
+    const typed: Record<string, { sill_m: number; window_m: number | null; door_x_m: number; step_m?: number }> = {};
+    for (const [key, sill, window, door, step] of PINNED) typed[key] = { sill_m: sill, window_m: window, door_x_m: door, ...(step !== undefined ? { step_m: step } : {}) };
+    // The two typed-in entries carry a `why` the pin does not repeat (below); everything else is the pin.
+    const withoutWhy = Object.fromEntries(Object.entries(DOOR_SILLS).map(([k, v]) => [k, Object.fromEntries(Object.entries(v!).filter(([p]) => p !== "why"))]));
+    expect(withoutWhy).toEqual(typed);
     expect(Object.keys(DOOR_SILLS)).toHaveLength(PINNED.length);
     // The comparison is exact, so a changed value is a failure (checked on a copy: the table is not edited).
     const changed = { ...DOOR_SILLS, [PINNED[0]![0]]: { ...DOOR_SILLS[PINNED[0]![0]]!, sill_m: DOOR_SILLS[PINNED[0]![0]]!.sill_m + 0.001 } };
-    expect(changed).not.toEqual(typed);
+    expect(changed).not.toEqual(DOOR_SILLS);
   });
 
-  it("has an entry, or a reason it has none, for every key the town can place on the ground, and never both", () => {
+  it("accounts for every key the town can place on the ground: an entry or a NO_STREET_DOOR reason, never both and never neither (criterion 1)", () => {
     const keys = groundKeys();
     // 13 stack ground pieces (6 shops, 2 doors, 2 corners, 3 office bases) + 12 Town Pack buildings + the 38 SIMPLE Town buildings of the table.
     expect(keys.filter((k) => k.startsWith("city-pack:"))).toHaveLength(13);
     expect(keys.filter((k) => k.startsWith("town-pack:"))).toHaveLength(12);
     expect(keys.filter((k) => k.startsWith("simple-town:"))).toHaveLength(38);
-    for (const key of keys) {
-      const has = Object.prototype.hasOwnProperty.call(DOOR_SILLS, key);
-      const why = Object.prototype.hasOwnProperty.call(UNSETTLED, key);
-      expect(has !== why, `${key}: ${has ? "has an entry and a reason it has none" : why ? "" : "has neither an entry nor a reason"}`).toBe(true);
-    }
-    for (const key of Object.keys(DOOR_SILLS)) expect(keys, `${key} is not a key the town places`).toContain(key);
-    for (const key of Object.keys(UNSETTLED)) expect(keys, `${key} is not a key the town places`).toContain(key);
-    expect(Object.keys(DOOR_SILLS).length + Object.keys(UNSETTLED).length).toBe(keys.length);
+    expect(accountingProblems(keys, DOOR_SILLS, NO_STREET_DOOR)).toEqual([]);
+    expect(Object.keys(DOOR_SILLS).length + Object.keys(NO_STREET_DOOR).length).toBe(keys.length);
+    expect(Object.keys(NO_STREET_DOOR).sort()).toEqual(
+      ["city-pack:SM_Bld_Shop_06", "simple-town:Building_Garage_01", "simple-town:Building_Garage_02", "simple-town:Building_Garage_03", "simple-town:Building_PetrolStation", "simple-town:house_mesh"].sort(),
+    );
   });
 
-  it("holds sensible numbers: every sill under the ceiling, a window above its sill, a door inside the front", () => {
+  it("fails when the table of 1a356b9 is put back: the 22 keys it had no entry for, with no reason, are 22 problems (criterion 4)", () => {
+    const old = { ...DOOR_SILLS } as Record<string, DoorSill>;
+    for (const k of UNSETTLED_1A356B9) delete old[k];
+    expect(Object.keys(old)).toHaveLength(41);
+    const problems = accountingProblems(groundKeys(), old, {});
+    expect(problems).toHaveLength(22);
+    expect(problems.every((p) => p.endsWith("neither an entry nor a reason"))).toBe(true);
+    // A reason given for a key that has an entry is also a problem, and so is an empty one.
+    expect(accountingProblems(groundKeys(), DOOR_SILLS, { ...NO_STREET_DOOR, "city-pack:SM_Bld_Shop_01": "x" })).toHaveLength(1);
+    expect(accountingProblems(groundKeys(), DOOR_SILLS, { ...NO_STREET_DOOR, "simple-town:house_mesh": " " })).toHaveLength(1);
+  });
+
+  it("gives every SILL_DEPTH_BY_KEY entry a depth between SILL_DEPTH_M and SILL_DEPTH_MAX_M, a reason, and an entry in the table (criterion 1)", () => {
+    expect(SILL_DEPTH_MAX_M).toBe(4);
+    const keys = Object.keys(SILL_DEPTH_BY_KEY) as CalibrationKey[];
+    expect(keys).toHaveLength(17);
+    for (const key of keys) {
+      const row = SILL_DEPTH_BY_KEY[key]!;
+      expect(row.depth_m, key).toBeGreaterThan(SILL_DEPTH_M);
+      expect(row.depth_m, key).toBeLessThanOrEqual(SILL_DEPTH_MAX_M);
+      expect(row.why.trim().length, key).toBeGreaterThan(10);
+      expect(Object.prototype.hasOwnProperty.call(DOOR_SILLS, key), `${key} has a depth but no entry`).toBe(true);
+      expect(Object.prototype.hasOwnProperty.call(NO_STREET_DOOR, key), key).toBe(false);
+    }
+    expect(depthOf("simple-town:Building_CoffeeShop")).toBe(3.6);
+    expect(depthOf("city-pack:SM_Bld_Shop_01")).toBe(SILL_DEPTH_M);
+    // The two keys with a typed-in sill are beyond the limit, so they have no depth.
+    for (const k of ["town-pack:SM_Bld_House_Preset_04", "town-pack:SM_Bld_House_Preset_Garage_01"] as const) expect(SILL_DEPTH_BY_KEY[k], k).toBeUndefined();
+  });
+
+  it("types in Preset_04 and the Town Pack garage with their reasons, and lists every typed-in sill (criteria 1 and 2)", () => {
+    const typedIn = Object.entries(DOOR_SILLS).filter(([, r]) => r!.why !== undefined);
+    expect(typedIn.map(([k]) => k).sort()).toEqual(["town-pack:SM_Bld_House_Preset_04", "town-pack:SM_Bld_House_Preset_Garage_01"]);
+    for (const [k, r] of typedIn) expect(r!.why!.length, k).toBeGreaterThan(20);
+    // Preset_04: the 1.15 m threshold of its porch; the garage sinks like its houses, by their 1.052 m.
+    expect(DOOR_SILLS["town-pack:SM_Bld_House_Preset_04"]!.sill_m).toBe(1.151);
+    expect(DOOR_SILLS["town-pack:SM_Bld_House_Preset_Garage_01"]!.sill_m).toBe(DOOR_SILLS["town-pack:SM_Bld_House_Preset_09"]!.sill_m);
+    // Preset_10 and _11 read 1.05 m (+-0.02 m) with a 3 m search.
+    for (const k of ["town-pack:SM_Bld_House_Preset_10", "town-pack:SM_Bld_House_Preset_11"] as const) {
+      expect(Math.abs(DOOR_SILLS[k]!.sill_m - 1.05), k).toBeLessThanOrEqual(0.02);
+      expect(depthOf(k), k).toBe(3);
+    }
+  });
+
+  it("holds sensible numbers: every sill under the ceiling, a window above its sill, a step under it, a door inside the front", () => {
     for (const [key, row] of Object.entries(DOOR_SILLS)) {
       expect(row!.sill_m, key).toBeGreaterThan(0);
       expect(row!.sill_m, key).toBeLessThanOrEqual(SILL_CEIL_M);
       if (row!.window_m !== null) expect(row!.window_m, key).toBeGreaterThan(row!.sill_m);
+      if (row!.step_m !== undefined) {
+        expect(row!.step_m, key).toBeGreaterThanOrEqual(STEP_MIN_M);
+        expect(row!.step_m, key).toBeLessThan(row!.sill_m);
+      }
     }
-    // Only the Town Pack's houses have glass to tell a window from (its mesh has a glass material); the City Pack and SIMPLE Town have one material.
-    for (const key of Object.keys(DOOR_SILLS)) expect(DOOR_SILLS[key as CalibrationKey]!.window_m !== null, key).toBe(key.startsWith("town-pack:"));
   });
 
-  it("says which keys are over SILL_MAX_M: the buildings that change, and which stand steps and which leave a gap (none: every Town Pack house's lowest window is 0.7 m over its sill)", () => {
+  it("measures a window where the model has one, or says why it has none: no entry has window_m null without a reason (criterion 3)", () => {
+    const nullWindow = Object.entries(DOOR_SILLS).filter(([, r]) => r!.window_m === null).map(([k]) => k);
+    // Every null window is listed as having no front window, and every listed key has a null window.
+    expect(nullWindow.sort()).toEqual(Object.keys(NO_FRONT_WINDOW).sort());
+    for (const [k, why] of Object.entries(NO_FRONT_WINDOW)) expect(why!.length, k).toBeGreaterThan(10);
+    // The SIMPLE Town models, which have no glass material, now have a window read from their recessed faces, apart from the one flat front.
+    const simple = Object.entries(DOOR_SILLS).filter(([k]) => k.startsWith("simple-town:"));
+    expect(simple.filter(([, r]) => r!.window_m !== null)).toHaveLength(simple.length - 1);
+  });
+
+  it("says which keys are over SILL_MAX_M, which stand steps and which leave a gap (criterion 3)", () => {
     const over = Object.entries(DOOR_SILLS).filter(([, r]) => r!.sill_m > SILL_MAX_M);
-    expect(over).toHaveLength(33);
-    expect(over.filter(([k]) => k.startsWith("town-pack:"))).toHaveLength(8);
-    expect(Object.keys(DOOR_SILLS).filter((k) => houseSill(k as CalibrationKey).steps !== null)).toEqual([]);
-    expect(Object.keys(DOOR_SILLS).filter((k) => leavesGap(houseSill(k as CalibrationKey)))).toEqual([]);
-    for (const [k, r] of Object.entries(DOOR_SILLS)) {
-      if (!k.startsWith("town-pack:")) continue;
-      expect(r!.window_m! - r!.sill_m, k).toBeGreaterThan(SILL_WINDOW_CLEAR_M);
-      expect(houseSill(k as CalibrationKey).sink_m, k).toBe(r!.sill_m);
+    expect(over.length).toBeGreaterThan(33);
+    // Where the plan leaves a gap, a model whose steps are out of the concrete steps' range or cannot take them: none.
+    const whole = Object.keys(DOOR_SILLS).filter((k) => !k.startsWith("city-pack:")) as CalibrationKey[];
+    expect(whole.filter((k) => leavesGap(houseSill(k)))).toEqual([]);
+    // Only a model with a window near its sill or a step in front of it takes the concrete steps.
+    const stepped = whole.filter((k) => houseSill(k).steps !== null).sort();
+    expect(stepped.length).toBeGreaterThan(0);
+    for (const k of stepped) {
+      const r = DOOR_SILLS[k]!;
+      expect(r.step_m !== undefined || (r.window_m !== null && r.window_m - SILL_WINDOW_CLEAR_M < r.sill_m), `${k} takes steps for no reason`).toBe(true);
     }
+  });
+
+  /** How far a house's lowest front step ends under the walk after a plan's sink (zero or less: it is not buried). The table-wide check and the failing fixture both use it. */
+  const stepBuried = (row: DoorSill, plan: { sink_m: number }): number => plan.sink_m - row.step_m!;
+
+  it("never lets a window end less than SILL_WINDOW_CLEAR_M above the walk after the sink, and never buries a front step (criterion 3)", () => {
+    for (const k of Object.keys(DOOR_SILLS) as CalibrationKey[]) {
+      if (k.startsWith("city-pack:")) continue; // a stack's pieces sink as one: the lift in 062 B is judged against the first floor's window sill
+      const r = DOOR_SILLS[k]!;
+      const plan = houseSill(k);
+      if (r.window_m !== null) expect(r.window_m - plan.sink_m >= SILL_WINDOW_CLEAR_M - 1e-9 || plan.sink_m === 0, `${k}: window ${r.window_m} sunk to ${r.window_m - plan.sink_m}`).toBe(true);
+      if (r.step_m !== undefined) expect(stepBuried(r, plan), `${k}: front step ${r.step_m} sunk by ${plan.sink_m}`).toBeLessThanOrEqual(1e-9);
+    }
+  });
+
+  it("fails a house with a 1.04 m floor, a 0.6 m front step and no window, planned by the rule of 1a356b9 (criterion 4)", () => {
+    // 1a356b9: sink by the whole sill when no window is known. The 0.6 m step ends 0.44 m under the walk.
+    const old = planHouse(1.04, null, 0);
+    expect(old.sink_m).toBe(1.04);
+    const row: DoorSill = { sill_m: 1.04, window_m: null, door_x_m: 0, step_m: 0.6 };
+    expect(stepBuried(row, old), "the 1a356b9 rule buries the step").toBeGreaterThan(0.4);
+    // The step check says so; the rule of 062 does not fail it: the sink stops at the step, and concrete steps make up the rest.
+    const now = planHouse(1.04, null, 0, 0.6);
+    expect(now.sink_m).toBeCloseTo(0.6, 9);
+    expect(stepBuried(row, now), "the 062 rule does not").toBeLessThanOrEqual(1e-9);
+    expect(stepBuried(row, houseSill("simple-town:Building_House_01", { "simple-town:Building_House_01": row }))).toBeLessThanOrEqual(1e-9);
+    expect(now.steps).not.toBeNull();
+    expect(leavesGap(now)).toBe(false);
   });
 });
 
@@ -238,10 +372,26 @@ describe("the plan: what a sill and a window make of a building (criterion 34)",
   });
 
   it("changes nothing for a key with no entry", () => {
-    expect(houseSill("town-pack:SM_Bld_House_Preset_04")).toEqual({ sink_m: 0, steps: null, leftOver_m: 0 });
+    expect(houseSill("city-pack:SM_Bld_Shop_06")).toEqual({ sink_m: 0, steps: null, leftOver_m: 0 });
     expect(houseSill("nowhere:Nothing", {})).toEqual({ sink_m: 0, steps: null, leftOver_m: 0 });
     // A name on Object.prototype is not an entry.
     expect(houseSill("x:toString" as CalibrationKey, {})).toEqual({ sink_m: 0, steps: null, leftOver_m: 0 });
+  });
+
+  it("caps the sink at the lowest front step so it stays at the walk, and makes the rest up with steps (062 A)", () => {
+    // A 1.04 m floor with a 0.6 m step in front and no window: sink 0.6, 0.44 left, steps scaled 0.88.
+    const p = planHouse(1.04, null, 0.5, 0.6);
+    expect(p.sink_m).toBeCloseTo(0.6, 9);
+    expect(p.leftOver_m).toBeCloseTo(0.44, 9);
+    expect(p.steps!.scaleY).toBeCloseTo(0.88, 9);
+    // A step above the window's room does not lift the sink; the window still decides.
+    expect(planHouse(1.04, 0.8, 0, 0.9).sink_m).toBeCloseTo(0.5, 9);
+    // A step as high as the sill is the sill: the whole sink stands.
+    expect(planHouse(0.4, null, 0, 0.4).sink_m).toBeCloseTo(0.4, 9);
+    // No step given: as it was.
+    expect(planHouse(1.04, null, 0, null)).toEqual(planHouse(1.04, null, 0));
+    // The cap never makes a sink that buries the step, over a grid.
+    for (let sill = 0.2; sill <= 1.5; sill += 0.05) for (const step of [0.05, 0.2, 0.4, 0.6, 0.9]) if (step < sill) expect(planHouse(sill, null, 0, step).sink_m, `${sill}/${step}`).toBeLessThanOrEqual(step + 1e-9);
   });
 
   it("after the rule, on every sill and window of a grid: the door is within SILL_MAX_M of the walk, or the steps' scaled top meets it within STEPS_FIT_M, and the window keeps its clearance", () => {
@@ -456,6 +606,56 @@ describe("measureDoor reads a door from a mesh (criterion 33's method)", () => {
     expect(DOOR_MIN_AREA_M2).toBe(0.2);
     expect(SILL_DOOR_HALF_M).toBe(0.45);
   });
+
+  it("looks as far back as it is told: a floor 2.57 m behind the front face is read with a 3 m search and not with the default (062 A)", () => {
+    for (const f of FRONTS) {
+      // A recessed porch: the building's floor starts 2.57 m behind the face.
+      const porch = new Frame(f).wall(4, -3, 3, 0, 4).wall(-4, -3, 3, 0, 4).up(1.05, -3, 3, -4, 4 - 2.57);
+      expect(measureDoor(porch.mesh(), f), f).toBeNull();
+      expect(measureDoor(porch.mesh(), f, SILL_DEPTH_M), f).toBeNull();
+      expect(measureDoor(porch.mesh(), f, 3)!.sill_m, f).toBe(1.05);
+      expect(measureDoor(porch.mesh(), f, 2.5), f).toBeNull();
+    }
+  });
+
+  it("reads the lowest front step: a level in front of the door floor, over STEP_MIN_M and under the floor, and none where there is none (062 A)", () => {
+    for (const f of FRONTS) {
+      // A floor at 1.0 from 0.6 m behind the face, and a 0.6 m step in front of it across the face.
+      const house = new Frame(f).wall(4, -3, 3, 0, 4).wall(-4, -3, 3, 0, 4).up(1, -3, 3, -4, 4 - 0.6).up(0.6, -2, 2, 4 - 0.6, 4);
+      expect(measureDoor(house.mesh(), f), f).toEqual({ sill_m: 1, window_m: null, door_x_m: 0, step_m: 0.6 });
+      // Two treads: the lowest is the step.
+      const stair = new Frame(f).wall(4, -3, 3, 0, 4).wall(-4, -3, 3, 0, 4).up(1, -3, 3, -4, 3).up(0.7, -2, 2, 3, 3.5).up(0.35, -2, 2, 3.5, 4);
+      expect(measureDoor(stair.mesh(), f)!.step_m, f).toBe(0.35);
+      // A level behind the floor's start, a level too low to be a step, and one too small are not steps.
+      const behind = new Frame(f).wall(4, -3, 3, 0, 4).wall(-4, -3, 3, 0, 4).up(1, -3, 3, -1, 4).up(0.5, -2, 2, -4, -1.5);
+      expect(measureDoor(behind.mesh(), f)!.step_m, f).toBeUndefined();
+      const low = new Frame(f).wall(4, -3, 3, 0, 4).wall(-4, -3, 3, 0, 4).up(1, -3, 3, -4, 3).up(STEP_MIN_M / 2, -2, 2, 3, 4);
+      expect(measureDoor(low.mesh(), f)!.step_m, f).toBeUndefined();
+      const small = new Frame(f).wall(4, -3, 3, 0, 4).wall(-4, -3, 3, 0, 4).up(1, -3, 3, -4, 3).up(0.5, 0, 0.3, 3.5, 4);
+      expect(measureDoor(small.mesh(), f)!.step_m, f).toBeUndefined();
+      // No step at all: the plain building.
+      expect(measureDoor(building(f, 0.35).mesh(), f)!.step_m).toBeUndefined();
+    }
+  });
+
+  it("reads a window from the lowest recessed front face over the door floor where the model has no glass (062 A)", () => {
+    for (const f of FRONTS) {
+      // A window's reveal 0.2 m behind the face, 1 x 0.8 m, over a door floor at 0.3; and a higher one.
+      const m = building(f, 0.3).wall(3.8, -2.5, -1.5, 1.2, 2, false).wall(3.8, 1.5, 2.5, 2.6, 3.4, false);
+      expect(measureDoor(m.mesh(), f)!.window_m, f).toBe(1.2);
+      // Not a window: a face in the front plane itself (no recess), one under the door floor, one under 0.3 m2, one behind WINDOW_DEPTH_M, and the door's own leaf.
+      const flat = building(f, 0.3).wall(4, -2.5, -1.5, 1.2, 2).wall(3.8, -2.5, -1.5, 0.2, 0.8).wall(3.8, 1.5, 1.9, 1.2, 1.6).wall(4 - WINDOW_DEPTH_M - 0.5, 0.5, 2.5, 1.2, 2.4);
+      expect(measureDoor(flat.mesh(), f)!.window_m, f).toBeNull();
+      const leaf = building(f, 0.3).wall(3.8, -RECESS_DOOR_HALF_M, RECESS_DOOR_HALF_M, 0.5, 2.1);
+      expect(measureDoor(leaf.mesh(), f)!.window_m, f).toBeNull();
+      // A reveal of several triangles on one plane joins into one surface; each triangle alone is under the area.
+      const split = building(f, 0.3).wall(3.8, -2.5, -2.2, 1.2, 1.9).wall(3.8, -2.2, -1.9, 1.2, 1.9).wall(3.8, -1.9, -1.6, 1.2, 1.9);
+      expect(measureDoor(split.mesh(), f)!.window_m, f).toBe(1.2);
+      // A model with glass takes the glass, as before.
+      const glassy = building(f, 0.3).wall(3.8, -2.5, -1.5, 1.2, 2).wall(3.9, 1.5, 2.5, 1.8, 2.6, true);
+      expect(measureDoor(glassy.mesh(), f)!.window_m, f).toBe(1.8);
+    }
+  });
 });
 
 // ---- the real geometry: re-measured where the GLBs are on this machine ----
@@ -548,31 +748,54 @@ describe("the real geometry (criterion 33; skipped on a machine with no converte
   const have = existsSync(CITY_PACK_GLB) && existsSync(TOWN_PACK_GLB) && existsSync(SIMPLE_TOWN_GLB);
 
   // Shown as skipped, not passed, where the GLBs are absent (CI, a fresh checkout).
-  it.skipIf(!have)("re-measures every entry within 0.02 m, finds nothing for every key with no entry, and measures the steps", () => {
+  it.skipIf(!have)("re-measures every entry within 0.02 m at its own depth, finds nothing for every NO_STREET_DOOR key and for the typed-in ones within the limit, and measures the steps", () => {
     const glbs: Record<string, Glb> = {};
     const open = (pack: string): Glb => (glbs[pack] ??= readGlb(join("assets", "private", "out", `${pack}.glb`)));
     const bad: string[] = [];
-    const near = (label: string, got: number | null, want: number | null): void => {
-      if ((got === null) !== (want === null) || (got !== null && want !== null && Math.abs(got - want) > 0.02)) bad.push(`${label}: measured ${String(got)}, table ${String(want)}`);
+    const near = (label: string, got: number | null | undefined, want: number | null | undefined): void => {
+      const g = got ?? null;
+      const w = want ?? null;
+      if ((g === null) !== (w === null) || (g !== null && w !== null && Math.abs(g - w) > 0.02)) bad.push(`${label}: measured ${String(g)}, table ${String(w)}`);
     };
     const frontOf = (key: CalibrationKey): ModelFront => BUILDING_FRONTS[key]?.front ?? "+z";
     for (const key of groundKeys()) {
       const [pack, name] = key.split(":") as [string, string];
       const mesh = sillMeshOf(open(pack), name);
       expect(mesh, `${key} is not in its GLB`).not.toBeNull();
-      const got = measureDoor(mesh!, frontOf(key));
       const want = DOOR_SILLS[key];
       if (!want) {
+        // No street door: nothing within the deepest search.
+        const got = measureDoor(mesh!, frontOf(key), SILL_DEPTH_MAX_M);
         if (got !== null) bad.push(`${key}: has no entry but measures ${JSON.stringify(got)}`);
         continue;
       }
+      if (want.why !== undefined) {
+        // A typed-in entry: the geometry gives nothing within the deepest search; with no limit it reads the door typed in (the back door of the garage, the porch of Preset_04).
+        const within = measureDoor(mesh!, frontOf(key), SILL_DEPTH_MAX_M);
+        if (within !== null) bad.push(`${key}: is typed in but measures ${JSON.stringify(within)} within ${SILL_DEPTH_MAX_M} m`);
+        const deep = measureDoor(mesh!, frontOf(key), 30);
+        if (!deep) bad.push(`${key}: measures nothing at any depth, table ${JSON.stringify(want)}`);
+        else near(`${key} typed sill`, deep.sill_m, want.sill_m);
+        continue;
+      }
+      const got = measureDoor(mesh!, frontOf(key), sillDepth(key));
       if (!got) {
         bad.push(`${key}: measures nothing, table ${JSON.stringify(want)}`);
         continue;
       }
       near(`${key} sill`, got.sill_m, want.sill_m);
-      near(`${key} window`, got.window_m, want.window_m);
+      // Each per-key depth is needed: at the default depth the key measures nothing, or another sill.
+      if (SILL_DEPTH_BY_KEY[key]) {
+        const shallow = measureDoor(mesh!, frontOf(key), SILL_DEPTH_M);
+        if (shallow !== null && Math.abs(shallow.sill_m - want.sill_m) <= 0.02) bad.push(`${key}: its depth ${sillDepth(key)} is not needed, the default reads ${shallow.sill_m}`);
+      }
       near(`${key} door`, got.door_x_m, want.door_x_m);
+      // A stack's ground piece (the City Pack's) has no window or step read: a stack sinks as one and its lift is judged against the first floor's window sill (062 B).
+      if (key.startsWith("city-pack:")) continue;
+      near(`${key} window`, got.window_m, want.window_m);
+      near(`${key} step`, got.step_m, want.step_m);
+      // Preset_10 and _11 read 1.05 m with a 3 m search.
+      if (key.endsWith("Preset_10") || key.endsWith("Preset_11")) near(`${key} 3 m search`, measureDoor(mesh!, frontOf(key), 3)!.sill_m, 1.05);
     }
     expect(bad).toEqual([]);
     // The steps: 1.2 wide, 0.5 high, 0.9 deep to the tenth of a metre (1.19 x 0.513 x 0.871 in the GLB), the rise at the top landing on the building side (-z).
@@ -678,6 +901,64 @@ const loadMap = (file: string): Puzzle => loadPuzzle(JSON.parse(readFileSync(joi
 const MAPS = ["01-first-light", "09-shrine-circuit", "64-the-whole-chain"];
 const sceneOf = (file: string): ReturnType<typeof buildScene> => buildScene(loadMap(file), { text: stubTextSurface });
 
+/** The dressing that stands on a ground piece and so rises with its lift (ticket 062 B). */
+const GROUND_SLOTS: ReadonlySet<string> = new Set(["glass", "awning", "sign", "wall"]);
+
+/** Every stack of an applied town: the lone stacks first, then the terrace blocks, as `stackGroups` finds their groups. */
+const stacksOf = (applied: AppliedModels): Stack[] => [...applied.buildings.filter((b) => b.stack).map((b) => b.stack!), ...applied.terrace.map((t) => t.stack)];
+
+/** The ground pieces' keys of a stack, in order. */
+const groundOf = (s: Stack): string[] => s.pieces.filter((p) => p.role === "base").map((p) => p.key);
+
+/** Whether the blocks of two applied towns are the same block for block above the ground row, and how many have other ground pieces. */
+function blocksDiffer(a: AppliedModels, b: AppliedModels): { same: boolean; banded: number } {
+  const x = stacksOf(a);
+  const y = stacksOf(b);
+  if (x.length !== y.length) return { same: false, banded: 0 };
+  return { same: x.every((s, i) => sameAboveGround(s, y[i]!)), banded: x.filter((s, i) => groundOf(s).join() !== groundOf(y[i]!).join()).length };
+}
+
+/**
+ * The dressing of two applied towns, block by block (by the site's frame): on a block whose ground pieces are the same in both, the same pieces in the same places, except that a ground piece's dressing is as high as
+ * its lift (y), and nothing else differs. A block that was assembled again within a sill band has other ground pieces, so other ground dressing and a different share of its column's room: it is left out.
+ */
+function dressDiffers(a: AppliedModels, lotsA: Parameters<typeof dressSites>[2], b: AppliedModels, lotsB: Parameters<typeof dressSites>[2]): { bad: string[]; compared: number } {
+  const bad: string[] = [];
+  const key = (f: { x: number; z: number }): string => `${f.x.toFixed(6)},${f.z.toFixed(6)}`;
+  const group = (m: AppliedModels, lots: Parameters<typeof dressSites>[2]): Map<string, { ground: string; items: AppliedModels["dress"][number][] }> => {
+    const out = new Map<string, { ground: string; items: AppliedModels["dress"][number][] }>();
+    for (const s of dressSites(m.terrace, m.buildings, lots)) out.set(key(s.frame), { ground: groundOf(s.stack).join(), items: [] });
+    for (const p of m.dress) out.get(key(p.frame))?.items.push(p);
+    return out;
+  };
+  const x = group(a, lotsA);
+  const y = group(b, lotsB);
+  let compared = 0;
+  if (x.size !== y.size) bad.push("different sites");
+  for (const [k, g] of x) {
+    const h = y.get(k);
+    if (!h) {
+      bad.push(`${k}: no such site`);
+      continue;
+    }
+    if (g.ground !== h.ground) continue;
+    compared++;
+    if (g.items.length !== h.items.length) {
+      bad.push(`${k}: ${g.items.length} pieces and ${h.items.length}`);
+      continue;
+    }
+    g.items.forEach((p, i) => {
+      const q = h.items[i]!;
+      const { y: ya, ...ra } = p.piece;
+      const { y: yb, ...rb } = q.piece;
+      if (JSON.stringify(ra) !== JSON.stringify(rb)) bad.push(`${p.piece.key}: another piece`);
+      else if (!GROUND_SLOTS.has(p.piece.slot) && ya !== yb) bad.push(`${p.piece.key} (${p.piece.slot}) moved from ${yb} to ${ya}`);
+      else if (GROUND_SLOTS.has(p.piece.slot) && ya < yb - 1e-12) bad.push(`${p.piece.key} (${p.piece.slot}) came down`);
+    });
+  }
+  return { bad, compared };
+}
+
 /** Every `stack:*` group of a scene: the lone stacks (children of the models group) and the terrace blocks (`terrace-stacks`), in the order applyModels stood them. */
 function stackGroups(scene: Object3D): Object3D[] {
   const out: Object3D[] = [];
@@ -733,9 +1014,12 @@ describe("applyModels sinks a stack by its measured sill and takes the dressing 
       for (const g of stackGroups(b.scene)) expect(g.position.y, g.name).toBe(0);
       expect(empty.dress.every((p) => p.frame.y === undefined)).toBe(true);
       // Nothing but heights changes: the same blocks, the same pieces on them, the same furniture.
-      expect(full.terrace.map((t) => t.stack)).toEqual(empty.terrace.map((t) => t.stack));
-      expect(full.dress.map((p) => p.piece)).toEqual(empty.dress.map((p) => p.piece));
-      expect(full.dress.map((p) => [p.frame.x, p.frame.z, p.frame.yaw])).toEqual(empty.dress.map((p) => [p.frame.x, p.frame.z, p.frame.yaw]));
+      // Ticket 062 B: a block whose lifted ground pieces would reach a window is assembled again within a sill band, so its ground pieces may differ; nothing above them does. The lift raises a ground
+      // piece's dressing and nothing else.
+      expect(blocksDiffer(full, empty).same).toBe(true);
+      const dd = dressDiffers(full, a.slots.blocks.list, empty, b.slots.blocks.list);
+      expect(dd.bad).toEqual([]);
+      expect(dd.compared).toBeGreaterThan(0);
       expect(full.furniture).toEqual(empty.furniture);
       expect(full.buildings.map((p) => [p.lot, p.x, p.z, p.yaw])).toEqual(empty.buildings.map((p) => [p.lot, p.x, p.z, p.yaw]));
       // A table that gives every key a sill within SILL_MAX_M is the empty table.
@@ -771,8 +1055,10 @@ describe("applyModels sinks a stack by its measured sill and takes the dressing 
     expect(empty.steps).toEqual([]);
     for (const g of stackGroups(b.scene)) expect(g.position.y, g.name).toBe(0);
     expect(empty.dress.every((p) => p.frame.y === undefined)).toBe(true);
-    expect(full.terrace.map((t) => t.stack)).toEqual(empty.terrace.map((t) => t.stack));
-    expect(full.dress.map((p) => p.piece)).toEqual(empty.dress.map((p) => p.piece));
+    expect(blocksDiffer(full, empty).same).toBe(true);
+    const dd = dressDiffers(full, a.slots.blocks.list, empty, b.slots.blocks.list);
+    expect(dd.bad).toEqual([]);
+    expect(dd.compared).toBeGreaterThan(0);
     expect(full.furniture).toEqual(empty.furniture);
     full.remove();
     empty.remove();
@@ -977,5 +1263,354 @@ describe("the ladder maps change only as the ticket says (criterion 36)", () => 
 
   it("meets the lot's ground on the ladder: its pavement is far under SILL_MAX_M, so the sill is measured to y 0", () => {
     expect(PAVEMENT_Y / W).toBeLessThan(SILL_MAX_M);
+  });
+});
+
+// ---- ticket 062 B: the lift ----
+
+/** A first floor of apartment style 02 (its window sill is 0.417 m) in the column of each ground piece. */
+const ground = (key: string, column: number, x: number, w: number, h: number): Stack["pieces"][number] => ({ key: `city-pack:${key}`, x, y: 0, z: 0, yaw: 0, role: "base", column, w, h, d: 5, street: "front" });
+const floorOf = (column: number, x: number): Stack["pieces"][number] => ({ key: "city-pack:SM_Bld_Apartment_02", x, y: 3, z: 0, yaw: 0, role: "floor", column, w: 5.17, h: 3, d: 5.2, street: "front" });
+const stackOf = (grounds: Stack["pieces"][number][], cols: number): Pick<Stack, "pieces" | "columns"> => {
+  const columns = Array.from({ length: cols }, (_, i) => ({ x: (i - (cols - 1) / 2) * 5, w: 5, corner: null }));
+  return { columns, pieces: [...grounds, ...columns.map((c, i) => floorOf(i, c.x))] };
+};
+const shop = (n: string, i: number, cols = 3, h = 3.0): Stack["pieces"][number] => ground(n, i, (i - (cols - 1) / 2) * 5, 5, h);
+
+describe("stackLift gives the block's sink and each ground piece's lift (ticket 062 B criterion 5)", () => {
+  it("exports the constants of the ticket", () => {
+    expect(SILL_BAND_M).toBe(0.16);
+    expect(SILL_UNDER_M).toBe(0.05);
+    expect(LIFT_CLEAR_M).toBe(0.05);
+  });
+
+  it("sinks by the largest ground sill and lifts each ground piece by the sink less its own sill, so every door meets the walk", () => {
+    // Shop_05 (0.361) beside Door_01 (0.029) and Shop_01 (0.106): both rise to the walk (all three are 3.0 m tall, so no top gets near a window).
+    const st = stackOf([shop("SM_Bld_Shop_05", 0), shop("SM_Bld_Apartment_Door_01", 1), shop("SM_Bld_Shop_01", 2)], 3);
+    const r = stackLift(st);
+    expect(r.sink_m).toBe(0.361);
+    expect(r.problems).toEqual([]);
+    expect(r.lift_m.get(0)).toBeCloseTo(0, 9);
+    expect(r.lift_m.get(1)).toBeCloseTo(0.361 - 0.029, 9);
+    expect(r.lift_m.get(2)).toBeCloseTo(0.361 - 0.106, 9);
+    // Door after sink and lift: 0 for all; and the bottom, at - its own sill, is under the walk.
+    for (const [c, key] of [[0, "SM_Bld_Shop_05"], [1, "SM_Bld_Apartment_Door_01"], [2, "SM_Bld_Shop_01"]] as const) {
+      const sill = DOOR_SILLS[`city-pack:${key}`]!.sill_m;
+      expect(sill - r.sink_m + r.lift_m.get(c)!, key).toBeCloseTo(0, 9);
+      expect(-r.sink_m + r.lift_m.get(c)!, key).toBeLessThanOrEqual(1e-9);
+    }
+    // A block that does not sink lifts nothing.
+    const flat = stackLift(stackOf([shop("SM_Bld_Shop_01", 0, 2), shop("SM_Bld_Apartment_Door_01", 1, 2)], 2));
+    expect(flat.sink_m).toBe(0);
+    expect([...flat.lift_m.values()]).toEqual([0, 0]);
+    expect(flat.problems).toEqual([]);
+  });
+
+  it("puts a double-bay shop's lift on both its columns, and gives a piece with no sill (Shop_06) none", () => {
+    const wide = ground("SM_Bld_Shop_03", 0, -2.5, 10.087, 3.084);
+    const r = stackLift(stackOf([wide, shop("SM_Bld_Shop_05", 2)], 3));
+    expect(r.lift_m.get(0)).toBe(r.lift_m.get(1));
+    expect(r.lift_m.has(1)).toBe(true);
+    const none = stackLift(stackOf([shop("SM_Bld_Shop_06", 0, 2), shop("SM_Bld_Shop_05", 1, 2)], 2));
+    expect(none.lift_m.has(0)).toBe(false);
+    expect(none.problems).toEqual([]);
+  });
+
+  it("fails the block-sink-only rule of 1a356b9 on a Shop_05 and Shop_03 stack: Shop_03's door is 0.318 m under the walk (criterion 8)", () => {
+    // The rule of 1a356b9: the block sinks by the largest ground sill and nothing is lifted.
+    const old = (st: Pick<Stack, "pieces">): number[] => st.pieces.filter((p) => p.role === "base").map((p) => DOOR_SILLS[p.key]!.sill_m - stackSill(st).sink_m);
+    const st = stackOf([shop("SM_Bld_Shop_05", 0, 2), shop("SM_Bld_Shop_03", 1, 2, 3.084)], 2);
+    const doors = old(st);
+    expect(doors[1]).toBeCloseTo(-0.318, 3);
+    expect(doors[1]! < -SILL_UNDER_M).toBe(true);
+    // The lift meets it: within the range, and no problem.
+    const r = stackLift(st);
+    expect(r.problems).toEqual([]);
+    expect(0.043 - r.sink_m + r.lift_m.get(1)!).toBeGreaterThanOrEqual(-SILL_UNDER_M - 1e-9);
+  });
+
+  it("holds a lift back where a top would reach the first floor's window sill, and names the door that ends too far under the walk", () => {
+    // Shop_02 is 3.3 m tall: its top is 0.3 m over the first floor's base; the window sill of apartment 02 is 0.417 m, so the top may rise by 0.417 - 0.05 - 0.3 = 0.067 m only.
+    expect(sillOf("city-pack:SM_Bld_Apartment_02", 0)).toBe(0.417);
+    const st = stackOf([shop("SM_Bld_Shop_02", 0, 2, 3.3), shop("SM_Bld_Shop_05", 1, 2)], 2);
+    const r = stackLift(st);
+    expect(r.lift_m.get(0)).toBeCloseTo(0.417 - LIFT_CLEAR_M - 0.3, 9);
+    // 0.071 - 0.361 + 0.067 = -0.223 m: a door well under the walk.
+    expect(r.problems.some((p) => p.includes("SM_Bld_Shop_02") && p.includes("-0.223"))).toBe(true);
+    // Within a low band the same shop is fine: Corner_01 (0.159) is the largest sill, the lift is 0.088 m, held to 0.067 m, and the door ends 0.021 m under the walk.
+    const low = stackLift(stackOf([shop("SM_Bld_Shop_02", 0, 2, 3.3), shop("SM_Bld_Shop_Corner_01", 1, 2)], 2));
+    expect(low.sink_m).toBe(0.159);
+    expect(low.problems).toEqual([]);
+    expect(0.071 - low.sink_m + low.lift_m.get(0)!).toBeGreaterThanOrEqual(-SILL_UNDER_M);
+  });
+
+  it("is Door_01 in a Corner_02 block, inside the window rule with today's pieces (0.347 m lift, apartment 02's window sill 0.417 m)", () => {
+    const r = stackLift(stackOf([shop("SM_Bld_Apartment_Door_01", 0, 2), shop("SM_Bld_Shop_Corner_02", 1, 2)], 2));
+    expect(r.lift_m.get(0)).toBeCloseTo(0.376 - 0.029, 9);
+    expect(r.problems).toEqual([]);
+    expect(r.lift_m.get(0)! <= sillOf("city-pack:SM_Bld_Apartment_02", 0) - LIFT_CLEAR_M).toBe(true);
+  });
+});
+
+describe("sill bands and the sillBand option of assembleStack (ticket 062 B criterion 6)", () => {
+  const entries = stackInput(CITY_SET)!.entries;
+  const fronts = stackInput(CITY_SET)!.fronts;
+  const style = STACK_STYLES.find((st) => st.id === "apartment-02")!;
+  const base = [...style.base.mid, ...(style.base.door ?? []), ...style.base.corner];
+
+  it("splits today's ground pieces in two: Shop_01 to _04, Door_01 and Corner_01 are low; Shop_05, Door_02 and Corner_02 are high; Shop_06 has no sill and is in neither", () => {
+    const [low, high] = sillBands(base);
+    const names = (b: ReadonlySet<CalibrationKey>): string[] => [...b].map((k) => k.slice("city-pack:SM_Bld_".length)).sort();
+    expect(names(low!)).toEqual(["Apartment_Door_01", "Shop_01", "Shop_02", "Shop_03", "Shop_04", "Shop_Corner_01"]);
+    expect(names(high!)).toEqual(["Apartment_Door_02", "Shop_05", "Shop_Corner_02"]);
+    // Every measured sill is in the band of its side of SILL_BAND_M, and a band is no wider than that plus what the pieces differ by.
+    for (const k of low!) if (DOOR_SILLS[k]) expect(DOOR_SILLS[k]!.sill_m).toBeLessThanOrEqual(SILL_BAND_M);
+    for (const k of high!) if (DOOR_SILLS[k]) expect(DOOR_SILLS[k]!.sill_m).toBeGreaterThan(SILL_BAND_M);
+    expect(sillBands(["city-pack:SM_Bld_Shop_01"]).length).toBe(1);
+  });
+
+  it("is off by default: with no sillBand a stack is exactly what it was, and with one every ground piece comes from the band (where its role has any) and no piece above the ground row changes in key, column, x or y", () => {
+    const [low, high] = sillBands(base);
+    let compared = 0;
+    for (let i = 0; i < 40; i++) {
+      for (const sides of [[], [{ side: "-x" as const, road: "r" }]]) {
+        const lot = { type: "large" as const, key: `band:${i}`, cornerSides: sides };
+        const plain = assembleStack(style, lot, entries, fronts, { bays: 3, floors: 2 });
+        if (!plain) continue;
+        expect(assembleStack(style, lot, entries, fronts, { bays: 3, floors: 2 })).toEqual(plain);
+        for (const band of [low!, high!]) {
+          const b = assembleStack(style, lot, entries, fronts, { bays: 3, floors: 2, sillBand: band })!;
+          expect(b, `${lot.key} band`).not.toBeNull();
+          for (const p of b.pieces.filter((q) => q.role === "base")) expect(band.has(p.key), `${lot.key}: ${p.key}`).toBe(true);
+          expect(b.pieces.filter((q) => q.role !== "base").map((q) => [q.key, q.column, q.x, q.y])).toEqual(plain.pieces.filter((q) => q.role !== "base").map((q) => [q.key, q.column, q.x, q.y]));
+          compared++;
+        }
+      }
+    }
+    expect(compared).toBeGreaterThan(20);
+    // A role with none of its candidates in the band keeps all of them.
+    const only = new Set<CalibrationKey>(["city-pack:SM_Bld_Shop_Corner_02"]);
+    const c = assembleStack(style, { type: "large", key: "band:c", cornerSides: [] }, entries, fronts, { bays: 3, floors: 2, sillBand: only })!;
+    expect(c.pieces.filter((q) => q.role === "base").length).toBeGreaterThan(0);
+  });
+
+  it("fitSillBand leaves a stack that passes alone and assembles one that fails within a band (a fixture on Shop_02 and Shop_05)", () => {
+    const bad = { ...stackOf([shop("SM_Bld_Shop_02", 0, 2, 3.3), shop("SM_Bld_Shop_05", 1, 2)], 2), style: "apartment-02" } as unknown as Stack;
+    const good = { ...stackOf([shop("SM_Bld_Shop_01", 0, 2), shop("SM_Bld_Shop_Corner_01", 1, 2)], 2), style: "apartment-02" } as unknown as Stack;
+    expect(stackLift(bad).problems.length).toBeGreaterThan(0);
+    const keys = base;
+    const seen: string[][] = [];
+    const again = (band: ReadonlySet<CalibrationKey>): Stack | null => {
+      seen.push([...band].map((k) => k.slice(-8)));
+      return band.has("city-pack:SM_Bld_Shop_01") ? good : bad;
+    };
+    // The band tried first is by hash; the one with Shop_01 in it is the one that passes, whichever comes first.
+    expect(fitSillBand(bad, DOOR_SILLS, keys, "any", again)).toBe(good);
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen.length).toBeLessThanOrEqual(2);
+    // A stack with no problem is not assembled again.
+    let called = 0;
+    expect(fitSillBand(good, DOOR_SILLS, keys, "any", () => (called++, null))).toBe(good);
+    expect(called).toBe(0);
+    // When no band passes, the stack is returned as it was.
+    expect(fitSillBand(bad, DOOR_SILLS, keys, "any", () => bad)).toBe(bad);
+    expect(fitSillBand(bad, DOOR_SILLS, keys, "any", () => null)).toBe(bad);
+  });
+});
+
+/** The scenes whose every stack criterion 5 is checked on: the default tile city, 3 x 3 at seeds 1 to 10, and the three maps of the protocol. */
+function liftScenes(): { name: string; run: () => { applied: AppliedModels; groups: Object3D[]; bundle: ReturnType<typeof buildScene>; dispose: () => void } }[] {
+  const out: { name: string; run: () => { applied: AppliedModels; groups: Object3D[]; bundle: ReturnType<typeof buildScene>; dispose: () => void } }[] = [];
+  const city = (name: string, c: ReturnType<typeof tileCity>): void => {
+    out.push({
+      name,
+      run: () => {
+        const bundle = buildCityScene(c);
+        const applied = applyModels(bundle, CITY_SET, cityApplyOptions(c));
+        return { applied, groups: stackGroups(bundle.scene), bundle, dispose: () => (applied.remove(), bundle.dispose()) };
+      },
+    });
+  };
+  city("the default tile city", tileCity({}));
+  for (let seed = 1; seed <= 10; seed++) city(`3 x 3 seed ${seed}`, tileCity({ blocksX: 3, blocksZ: 3, seed }));
+  for (const file of MAPS) {
+    out.push({
+      name: file,
+      run: () => {
+        const bundle = sceneOf(file);
+        const applied = applyModels(bundle, CITY_SET);
+        return { applied, groups: stackGroups(bundle.scene), bundle, dispose: () => (applied.remove(), bundle.dispose()) };
+      },
+    });
+  }
+  return out;
+}
+
+describe("the lift on every town of the protocol (ticket 062 B criteria 5, 7 and 9)", () => {
+  const scenes = liftScenes();
+  let blocks = 0;
+  let lifted = 0;
+  let risen = 0;
+  let escapesChecked = 0;
+  for (const sc of scenes) {
+    it(`${sc.name}: every door meets the walk, no lifted top reaches a window sill, no piece's bottom is over the walk, the dressing rises with its piece and the escapes still pass`, () => {
+      const { applied, groups, bundle, dispose } = sc.run();
+      const stacks = stacksOf(applied);
+      expect(groups).toHaveLength(stacks.length);
+      blocks += stacks.length;
+      groups.forEach((g, i) => {
+        const st = stacks[i]!;
+        const r = stackLift(st);
+        expect(r.problems, `${sc.name} ${g.name} #${i}`).toEqual([]);
+        expect(g.position.y, `${g.name} #${i}`).toBeCloseTo(-r.sink_m * W, 12);
+        // The pieces are drawn where the lift puts them: group y + piece y, bottom at or under the walk.
+        const wraps = g.children;
+        expect(wraps).toHaveLength(st.pieces.length);
+        const floors = st.pieces.filter((p) => p.role === "floor");
+        const pitch = floors.length > 0 ? Math.min(...floors.map((p) => p.y)) : 0;
+        st.pieces.forEach((p, k) => {
+          if (p.role !== "base") {
+            expect(wraps[k]!.position.y / W, `${p.key} stays`).toBeCloseTo(p.y, 9);
+            return;
+          }
+          const lift = r.lift_m.get(p.column) ?? 0;
+          const row = DOOR_SILLS[p.key];
+          const y = wraps[k]!.position.y / W;
+          expect(y, `${p.key} lifted`).toBeCloseTo(p.y + lift, 9);
+          // Its bottom in the walk's frame: under the walk (or on it).
+          expect(g.position.y / W + y, `${p.key} bottom`).toBeLessThanOrEqual(1e-9);
+          if (row) {
+            const door = row.sill_m - r.sink_m + lift;
+            expect(door, `${p.key} door`).toBeLessThanOrEqual(SILL_MAX_M + 1e-9);
+            expect(door, `${p.key} door`).toBeGreaterThanOrEqual(-SILL_UNDER_M - 1e-9);
+            if (lift > 0) lifted++;
+            // Its top is under the first floor's window sill by LIFT_CLEAR_M.
+            const above = floors.filter((q) => q.column === p.column).sort((a, b) => a.y - b.y)[0];
+            if (above && lift > 0) expect(p.y + p.h - pitch + lift, `${p.key} top`).toBeLessThanOrEqual(sillOf(above.key, 0) - LIFT_CLEAR_M + 1e-9);
+          }
+        });
+      });
+      // The dressing: a shop's glass stands at GLASS_SILL_M over its piece's lifted base.
+      const sites = dressSites(applied.terrace, applied.buildings, bundle.slots.blocks.list);
+      const lifts = new Map<string, ReadonlyMap<number, number>>();
+      for (const site of sites) lifts.set(`${site.frame.x.toFixed(6)},${site.frame.z.toFixed(6)}`, stackLift(site.stack).lift_m);
+      for (const p of applied.dress) {
+        if (p.piece.slot !== "glass") continue;
+        const lift = lifts.get(`${p.frame.x.toFixed(6)},${p.frame.z.toFixed(6)}`)?.get(p.piece.column) ?? 0;
+        expect(p.piece.y, `${p.piece.key} glass rises with its piece`).toBeCloseTo(GLASS_SILL_M + lift, 9);
+        if (lift > 0) risen++;
+      }
+      // The escapes keep their joints and their ladder foot: each block's escape passes escapeCheck against its own stack.
+      const byFrame = new Map<string, DressPiece[]>();
+      for (const p of applied.dress) {
+        const k = `${p.frame.x.toFixed(6)},${p.frame.z.toFixed(6)}`;
+        byFrame.set(k, [...(byFrame.get(k) ?? []), p.piece]);
+      }
+      let escapes = 0;
+      for (const site of sites) {
+        const ps = byFrame.get(`${site.frame.x.toFixed(6)},${site.frame.z.toFixed(6)}`) ?? [];
+        if (!ps.some((p) => p.slot === "escape")) continue;
+        escapes++;
+        expect(escapeCheck(site.stack, ps, ESCAPE_TABLES).every((r) => r.ok), `${sc.name}: escape of ${site.lot.key}`).toBe(true);
+        // An escape stands on a mid column that is not a door or corner column: no ground piece under it is lifted into it.
+        const col = ps.find((p) => p.slot === "escape")!.column;
+        expect(site.stack.columns[col]!.corner, "escape column").toBeNull();
+      }
+      escapesChecked += escapes;
+      dispose();
+    });
+  }
+
+  it("lifts doors and glass, and checks escapes, on these towns", () => {
+    expect(blocks).toBeGreaterThan(100);
+    expect(lifted).toBeGreaterThan(20);
+    expect(risen).toBeGreaterThan(20);
+    expect(escapesChecked).toBeGreaterThan(5);
+  });
+});
+
+describe("the dressing follows its ground piece (ticket 062 B criterion 7)", () => {
+  const frame = { x: 1, z: 2, yaw: 0 };
+  const other = { x: 9, z: 9, yaw: 0 };
+  const piece = (slot: DressPiece["slot"], column: number, y: number): DressPiece => ({ key: "city-pack:SM_Bld_Shop_01_Glass", slot, x: 0, y, z: 0, yaw: 0, column, w: 1, h: 1, d: 1 });
+  const lifts = new Map([[frame, new Map([[0, 0.3], [1, 0.1]])]]);
+
+  it("raises the glass, awning, sign and door canopy and the ATM of a lifted ground piece by its lift, and nothing else", () => {
+    const all: DressPiece["slot"][] = ["glass", "awning", "sign", "wall", "wallUpper", "escape", "roofSmall", "roofLarge"];
+    const before = all.map((slot) => ({ frame, piece: piece(slot, 0, 2) }));
+    const after = liftDressing(before, lifts);
+    expect(after.map((p) => p.piece.y)).toEqual([2.3, 2.3, 2.3, 2.3, 2, 2, 2, 2]);
+    // Every other field of every piece is as it was, and the escapes and the floors' dressing are the very objects.
+    after.forEach((p, i) => expect({ ...p.piece, y: 0 }).toEqual({ ...before[i]!.piece, y: 0 }));
+    expect(after[4]).toBe(before[4]);
+    expect(after[5]).toBe(before[5]);
+  });
+
+  it("lifts by the column of the piece, leaves a column with no lift and a site with none alone, and does not change its input", () => {
+    const input = [{ frame, piece: piece("glass", 1, 0.3) }, { frame, piece: piece("glass", 2, 0.3) }, { frame: other, piece: piece("glass", 0, 0.3) }];
+    const out = liftDressing(input, lifts);
+    expect(out.map((p) => p.piece.y)).toEqual([0.4, 0.3, 0.3]);
+    expect(input.map((p) => p.piece.y)).toEqual([0.3, 0.3, 0.3]);
+    expect(out[0]!.frame).toBe(frame);
+    expect(liftDressing([], lifts)).toEqual([]);
+  });
+});
+
+describe("the band is applied only where the lift would reach a window (ticket 062 B criteria 6 and 9)", () => {
+  const towns: { name: string; make: () => [ReturnType<typeof buildScene>, ReturnType<typeof buildScene>, "city" | "map"] }[] = [
+    { name: "the default tile city", make: () => [buildCityScene(tileCity({})), buildCityScene(tileCity({})), "city"] },
+    ...MAPS.map((file) => ({ name: file, make: (): [ReturnType<typeof buildScene>, ReturnType<typeof buildScene>, "city" | "map"] => [sceneOf(file), sceneOf(file), "map"] })),
+  ];
+  let bandedAll = 0;
+  let zMoved = 0;
+  let needed = 0;
+  for (const t of towns) {
+    it(`${t.name}: a block keeps its ground pieces unless the pieces of the unbanded block break the window rule, and a banded block passes it`, () => {
+      const [a, b, kind] = t.make();
+      const opts = kind === "city" ? cityApplyOptions(tileCity({})) : {};
+      const full = applyModels(a, CITY_SET, opts);
+      const empty = applyModels(b, CITY_SET, { ...opts, sills: {} });
+      const x = stacksOf(full);
+      const y = stacksOf(empty);
+      expect(x).toHaveLength(y.length);
+      x.forEach((s, i) => {
+        const before = stackLift(y[i]!);
+        const changed = groundOf(s).join() !== groundOf(y[i]!).join();
+        if (before.problems.length === 0) expect(changed, `block ${i} had no problem and kept its ground`).toBe(false);
+        else needed++;
+        if (changed) {
+          bandedAll++;
+          expect(before.problems.length, `block ${i} was banded for a reason`).toBeGreaterThan(0);
+          expect(sameAboveGround(s, y[i]!), `block ${i} differs only in its ground row, and in the z of what stands on it`).toBe(true);
+          // The z of the floors and roof: unchanged on the tile city (wall-aligned), up to 0.4 m on a back-aligned map.
+          const dz = zShift(y[i]!, s);
+          if (kind === "city") expect(dz, `block ${i} z`).toBeLessThan(1e-9);
+          else expect(dz, `block ${i} z`).toBeLessThanOrEqual(0.4);
+          if (dz > 1e-9) zMoved++;
+          // One band: every measured ground sill of the block is on one side of SILL_BAND_M.
+          const sills = s.pieces.filter((p) => p.role === "base" && DOOR_SILLS[p.key]).map((p) => DOOR_SILLS[p.key]!.sill_m);
+          expect(sills.every((v) => v <= SILL_BAND_M) || sills.every((v) => v > SILL_BAND_M), `block ${i} in one band: ${sills.join()}`).toBe(true);
+        }
+        expect(stackLift(s).problems, `block ${i}`).toEqual([]);
+        // Banding never trades a block's shops for blank fronts: it has no more Shop_06 than before.
+        const blank = (st: Stack): number => st.pieces.filter((p) => p.key === "city-pack:SM_Bld_Shop_06").length;
+        expect(blank(s), `block ${i} gained blank fronts`).toBeLessThanOrEqual(blank(y[i]!));
+      });
+      // The layout is as it was: the same places, the same furniture.
+      expect(full.buildings.map((p) => [p.lot, p.x, p.z, p.yaw])).toEqual(empty.buildings.map((p) => [p.lot, p.x, p.z, p.yaw]));
+      expect(full.terrace.map((p) => p.lot)).toEqual(empty.terrace.map((p) => p.lot));
+      expect(full.furniture).toEqual(empty.furniture);
+      full.remove();
+      empty.remove();
+      a.dispose();
+      b.dispose();
+    });
+  }
+
+  it("bands some blocks on these towns, where today's pieces need it", () => {
+    expect(needed).toBeGreaterThan(0);
+    expect(bandedAll).toBe(needed);
+    // On the maps (back-aligned) the floors and the roof of some banded blocks stand a little further back; the guide says so.
+    expect(zMoved).toBeGreaterThan(0);
   });
 });
