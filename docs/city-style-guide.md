@@ -308,7 +308,14 @@ How to read it:
 - **Default (050)**: the ground row of a mid column is a shop picked by hash from the six shop pieces; the two-column shop spans two free columns. Each block has one residents' door bay in a mid column, never in a corner column. So every ground bay is a shopfront, a shop corner or that one door (R3).
 - **Decided (042, Josh, 17 Nov 2026: "Corner buildings should only be placed on corners. They must also have two sides facing the street. Only corner buildings have this restriction. Other buildings can be placed on corners normally.")**: on a terrace the first block of a run that starts at a corner is the corner block, with its corner column on the corner side, and no other block has a corner column (R9). Its second street face is on the cross street. A run that starts at a plaza or a clearance gap starts with an ordinary block.
 - **Default (050)**: the floors over the base are `STACK_FLOORS` at least and as many as the cap allows, picked by a hash of the block key, so heights vary and never change. With the highest cap that is 2 to 4 floors, so 3 to 5 storeys with the ground floor (R2).
-- **Default (050 C)**: a stack's doors, and a corner piece's `open` side, come from `BUILDING_FRONTS` first, then the recipe's guess. All 34 City Pack stack pieces are provisional "+z" guesses (chapter 6). A wrong door is one line in `BUILDING_FRONTS`, and it moves nothing else.
+- **Default (050 C)**: a stack's doors, and a corner piece's `open` side, come from `BUILDING_FRONTS` first, then the recipe's (measured, 063 E1: chapter 7). All 34 City Pack stack pieces are provisional "+z" guesses (chapter 6). A wrong door is one line in `BUILDING_FRONTS`, and it moves nothing else.
+- **Decided (063 E2, Josh, 19 Nov 2026: "The building roof tiles aren't properly scaled and the corner peices aren't being used properly" and "You can see the misalignment and scaling on this red building")**: the storeys, trims and roof of a column share one footprint. Nothing is scaled (chapter 2): what he saw is pieces of different true sizes, each centred by its bounds, so a roof stood 0.7 m behind the walls it covers at the front and 0.8 m past them at the back, and a corner's flank stepped in and out from storey to storey.
+- **Default (063 E2, the architect's recommendation under Josh's goal waiver)**: a piece's **body** is the box its wall planes enclose (`BODY_M`: how far inside its bounds its front, back, -x and +x planes stand, in its own frame; measured from the GLB by `measureBodyPlane`, a base by the ground rule and a floor by the floor rule of 19.1, a roof by `measureRoofBase`: the outer face of its lowest cornice tier, the plane that runs furthest along the face, within `ROOF_BASE_BAND_M` of the foot, at least `ROOF_BASE_MIN_SPAN_M` long, the outermost on a tie within `ROOF_SPAN_TIE_M`). `assembleStack`'s `footprint: "body"` (and `seatOnBody`, which the tile city's block pass applies to each wall-aligned block) puts the body of every piece of a column on the column's floor piece's body. The ladder's stacks are back-aligned and keep "bounds", so they are unchanged by it.
+  - The floor piece is the footprint and stays where it stands; so does every base and floor in z (their front wall is on the line, 19.1).
+  - Sides: in a mid column the piece's body is centred on the footprint's; in a corner column its outer flank plane (the cross street's side) is on the footprint's, so the corner's wall is one plane from the shop to the cornice. A double-bay shop is centred on both of its columns.
+  - Back: a roof's back plane is on the footprint's, and the cornice steps out from there (a roof's foot is then about 0.1 m past the wall line at the front, 0.108 m at most, and its cornice top up to 0.8 m: what the piece really carries). A base may stand deeper at the back (every shop and door does), never shallower.
+  - A piece with no measured body (the Octagon roof is round) is left where its bounds put it, and so is any piece whose front or corner open side Josh recalibrated in the gallery.
+- **Default (063 E2)**: `storeyAlignment` checks every column: a floor's or a roof's back plane, a base's depth, every piece's reference plane (the body centre in a mid column, the outer flank in a corner column) and a floor's two side planes agree with the footprint's within `STOREY_ALIGN_TOL_M`. A plane that stands further than `BODY_REPORT_M` from the footprint's is reported, not failed (`BodyOverhang`): on the apartments `Apartment_Roof_02`'s foot (0.108 m past the wall at the front, over `apartment-02`), a turned `Apartment_Roof_Corner_03` (0.108 m wider than its floor, because its body is 5.108 m deep) and the two-bay `Shop_03` (0.142 m narrower on each side than the two floor bodies, which leave 0.28 m between them); and on the offices the small one's podium base (0.12 m beyond its floor's walls each side) and cornice (0.103 m each side, its foot 0.212 m past the front line), the large one's base (0.12 m) and its cornice's foot (0.135 m past the front), and the Octagon's base (0.205 m inside its floor's walls: a round roof has no body to report). It does not re-pair roofs across styles: a style may not borrow another style's roof (the ticket's Q-E2, default "no"), though the pack's own `Roof_02` fits `Apartment_03` best.
 
 ### 16.4 Variety
 
@@ -1018,6 +1025,8 @@ The drift test (`styleguide.test.ts`) reads this table. Each row names an export
 | `STACK_STYLES[3].pitch_m` | 6 x 3.19 x 4.22 | stacks.ts |
 | `STACK_STYLES[4].pitch_m` | 6 x 3.19 x 4.23 | stacks.ts |
 | `STACK_STYLES[5].pitch_m` | 3.9 x 3 x 5.38 | stacks.ts |
+| `STOREY_ALIGN_TOL_M` | 0.03 | stacks.ts |
+| `BODY_REPORT_M` | 0.1 | stacks.ts |
 | `NEIGHBOUR_GAP` | 0.5 | models.ts |
 | `STREET_REPEAT_GAP` | 3 | models.ts |
 | `FAMILY_SHARE_MAX` | 0.25 | models.ts |
@@ -1291,6 +1300,9 @@ The drift test (`styleguide.test.ts`) reads this table. Each row names an export
 | `OPEN_DEPTH_M` | 1 | facade.ts |
 | `OPEN_STEP_M` | 0.05 | facade.ts |
 | `OPEN_MARGIN` | 4 | facade.ts |
+| `ROOF_BASE_BAND_M` | 0.1 | facade.ts |
+| `ROOF_BASE_MIN_SPAN_M` | 1 | facade.ts |
+| `ROOF_SPAN_TIE_M` | 0.05 | facade.ts |
 | `OVERLAP_MAX_M` | 0.6 | frontage.ts |
 | `RECESS_MAX_M` | 0 | frontage.ts |
 | `FRONTAGE_TOL_M` | 0.01 | frontage.ts |

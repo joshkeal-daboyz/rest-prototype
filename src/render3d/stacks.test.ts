@@ -8,11 +8,12 @@ import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ASSET_MANIFEST_VERSION, type AssetEntry, type CalibrationKey } from "../core";
-import { OPEN_SIDE_MEASURED } from "./facade";
+import { BODY_M, OPEN_SIDE_MEASURED } from "./facade";
+import { bandPacked } from "./models3d";
 import { tileCity } from "./tilecity";
 import { packTown } from "./terrace";
 import { BUILDING_FRONTS, frontAxis, frontYaw, type BuildingFront, type FrontTable } from "./models";
-import { STACK_FLOORS, STACK_STYLES, assembleStack, stackKeys, stackRange, type Stack, type StackPiece, type StackSide, type StackStyle } from "./stacks";
+import { BODY_REPORT_M, STACK_FLOORS, STACK_STYLES, STOREY_ALIGN_TOL_M, assembleStack, bodyBox, seatOnBody, stackKeys, stackRange, storeyAlignment, type Stack, type StackPiece, type StackSide, type StackStyle } from "./stacks";
 import { LOT_TYPES, LOT_TYPE_NAMES, type CornerSide, type LotType } from "./town";
 
 // ---- a fixture copied from the converted City Pack manifest: [name, width, height, depth] in metres; bounds are centred ----
@@ -597,6 +598,205 @@ describe("the angled face is on the corner (063 E1, criterion 25)", () => {
     }
     expect(corners, "corner pieces were checked").toBeGreaterThan(30);
     expect(chamfers, "Shop_Corner_02 chamfers were checked").toBeGreaterThan(0);
+  });
+});
+
+// ---- ticket 063 E2: one footprint per column ----
+
+describe("one footprint per column (063 E2)", () => {
+  const SPEC = { frontage: 40, depth: 7, cap: 16 };
+  const APT = ["apartment-01", "apartment-02", "apartment-03"];
+  const lotOf = (key: string, sides: StackSide[]): { type: "large"; key: string; cornerSides: CornerSide[] } => ({ type: "large", key, cornerSides: cs(...sides) });
+  const wall = (id: string, sides: StackSide[], bays: number, extra: { footprint?: "bounds" | "body"; align?: "back" | "wall" } = {}, fronts: FrontTable = BUILDING_FRONTS): Stack =>
+    assembleStack(STYLE(id), lotOf(`${id}${sides.join("")}${bays}`, sides), ENTRIES, fronts, { spec: SPEC, bays, floors: 3, align: "wall", ...extra })!;
+  const at = (s: Stack, column: number, role: StackPiece["role"]): StackPiece => s.pieces.find((p) => p.column === column && p.role === role)!;
+  const box = (p: StackPiece) => bodyBox(p, BUILDING_FRONTS)!;
+
+  it("is off by default and on a back-aligned stack: no option, \"bounds\" and \"body\" with back alignment are the same stack the ladder always had", () => {
+    for (const id of APT) {
+      for (const sides of [[], ["-x"], ["+x"]] as StackSide[][]) {
+        const lot = lotOf(`off${id}${sides}`, sides);
+        const none = assembleStack(STYLE(id), lot, ENTRIES, BUILDING_FRONTS, { spec: SPEC, bays: 3 })!;
+        expect(assembleStack(STYLE(id), lot, ENTRIES, BUILDING_FRONTS, { spec: SPEC, bays: 3, footprint: "bounds" }), id).toEqual(none);
+        expect(assembleStack(STYLE(id), lot, ENTRIES, BUILDING_FRONTS, { spec: SPEC, bays: 3, footprint: "body" }), id).toEqual(none);
+        expect(assembleStack(STYLE(id), lot, ENTRIES, BUILDING_FRONTS, { spec: SPEC, bays: 3, footprint: "body", align: "back" }), id).toEqual(none);
+        const w = assembleStack(STYLE(id), lot, ENTRIES, BUILDING_FRONTS, { spec: SPEC, bays: 3, align: "wall" })!;
+        expect(assembleStack(STYLE(id), lot, ENTRIES, BUILDING_FRONTS, { spec: SPEC, bays: 3, align: "wall", footprint: "bounds" }), id).toEqual(w);
+      }
+    }
+  });
+
+  it("seats the option as seatOnBody does, and changes nothing but x and z, the depth, and only for the roof and the corner column", () => {
+    for (const id of APT) {
+      const plain = wall(id, ["-x"], 3);
+      const seated = wall(id, ["-x"], 3, { footprint: "body" });
+      expect(seated).toEqual(seatOnBody(plain));
+      expect(seated.pieces.map((p) => [p.key, p.y, p.yaw, p.role, p.column, p.w, p.h, p.d, p.street])).toEqual(plain.pieces.map((p) => [p.key, p.y, p.yaw, p.role, p.column, p.w, p.h, p.d, p.street]));
+      expect(seated.columns).toEqual(plain.columns);
+      expect(seated.width_m).toBe(plain.width_m);
+      expect(seated.height_m).toBe(plain.height_m);
+      // Bases and floors stay in z (their wall is on the line already), and in x in a mid column (their bodies are centred).
+      plain.pieces.forEach((p, i) => {
+        const q = seated.pieces[i]!;
+        if (p.role !== "roof") expect(q.z, `${id} ${p.key}`).toBeCloseTo(p.z, 9);
+        if (plain.columns[p.column]!.corner === null) expect(q.x, `${id} ${p.key}`).toBeCloseTo(p.x, 9);
+      });
+    }
+  });
+
+  it("puts the roof's back plane on the floor's, where today it stood up to 0.8 m past the wall (the red building's roof)", () => {
+    for (const id of APT) {
+      for (const sides of [[], ["-x"], ["+x"]] as StackSide[][]) {
+        const plain = wall(id, sides, 3);
+        const seated = wall(id, sides, 3, { footprint: "body" });
+        for (let c = 0; c < plain.columns.length; c++) {
+          const was = box(at(plain, c, "roof")).zBack - box(at(plain, c, "floor")).zBack;
+          const now = box(at(seated, c, "roof")).zBack - box(at(seated, c, "floor")).zBack;
+          expect(Math.abs(was), `${id} ${sides} column ${c} today`).toBeGreaterThan(0.3);// the roof is far off the walls it covers
+          expect(Math.abs(now), `${id} ${sides} column ${c} seated`).toBeLessThan(1e-9);
+        }
+      }
+    }
+  });
+
+  it("makes a corner one plane up the whole column: the outer flank of the shop corner, the floors and the corner roof, at either end", () => {
+    for (const id of APT) {
+      for (const side of ["-x", "+x"] as StackSide[]) {
+        const plain = wall(id, [side], 3);
+        const seated = wall(id, [side], 3, { footprint: "body" });
+        const col = plain.columns.findIndex((c) => c.corner !== null);
+        const outer = (s: Stack, role: StackPiece["role"]): number => (side === "-x" ? box(at(s, col, role)).x0 : box(at(s, col, role)).x1);
+        for (const role of ["base", "roof"] as const) {
+          expect(Math.abs(outer(seated, role) - outer(seated, "floor")), `${id} ${side} ${role} seated`).toBeLessThan(1e-9);
+        }
+        // Today the flank steps in and out between storeys.
+        const worst = Math.max(Math.abs(outer(plain, "base") - outer(plain, "floor")), Math.abs(outer(plain, "roof") - outer(plain, "floor")));
+        expect(worst, `${id} ${side} today`).toBeGreaterThan(0.05);
+      }
+    }
+  });
+
+  it("holds the rule on every column (storeyAlignment) and fails today's placement: the named fixture is apartment-01's corner stack, whose corner roof is 0.7 m wider than its floor in the bounds", () => {
+    for (const id of APT) {
+      for (const sides of [[], ["-x"], ["+x"], ["-x", "+x"]] as StackSide[][]) {
+        const plain = wall(id, sides, 4);
+        const seated = wall(id, sides, 4, { footprint: "body" });
+        expect(storeyAlignment(seated).misfits, `${id} ${sides}`).toEqual([]);
+        expect(storeyAlignment(plain).misfits.length, `${id} ${sides} today`).toBeGreaterThan(0);
+      }
+    }
+    // The red building: a corner stack of the first style. Today's roof is 0.79 m off the floor's back wall; seated, it is on it.
+    const today = storeyAlignment(wall("apartment-01", ["-x"], 3));
+    expect(today.misfits.some((m) => /Roof_Corner_01 roof in column 0: its back plane is -?0\.7\d\d m off/.test(m)), today.misfits.join("; ")).toBe(true);
+    expect(today.misfits.some((m) => /Roof_01 roof in column 1: its back plane is -?0\.7\d\d m off/.test(m)), today.misfits.join("; ")).toBe(true);
+    // The corner roof's flank is off by its overhang over the floor's.
+    expect(today.misfits.some((m) => /Roof_Corner_01 roof in column 0: its outer flank is/.test(m))).toBe(true);
+  });
+
+  it("reports what a piece really carries beyond the footprint by more than BODY_REPORT_M, and fails nothing for it (criterion 31)", () => {
+    expect(STOREY_ALIGN_TOL_M).toBe(0.03);
+    expect(BODY_REPORT_M).toBe(0.1);
+    const found = new Map<string, number>();
+    for (const id of APT) {
+      for (const sides of [[], ["-x"], ["+x"], ["-x", "+x"]] as StackSide[][]) {
+        const s = wall(id, sides, 4, { footprint: "body" });
+        for (const o of storeyAlignment(s).overhangs) found.set(`${id} ${o.key.slice("city-pack:SM_Bld_".length)} ${o.role} ${o.plane}`, Math.max(found.get(`${id} ${o.key.slice("city-pack:SM_Bld_".length)} ${o.role} ${o.plane}`) ?? 0, Math.abs(o.off_m)));
+      }
+    }
+    // Apartment_Roof_02's foot is 0.108 m past the wall line at the front (its body is 5.108 m deep over a 5.0 m floor); Roof_Corner_03 is 0.108 m wider than its floor
+    // when turned (its depth is its width then); and the two-bay Shop_03 is 0.142 m narrower than the two floor bodies it stands under, which leave a 0.28 m gap between them.
+    // Nothing else is over 0.1 m; the Shop_03 and the corner roof are in a stack only when the hash picks them, so they are allowed and the Roof_02 front is required.
+    const allowed = /^(apartment-02 Apartment_Roof_02 roof front|apartment-03 Apartment_Roof_Corner_03 roof (front|left|right)|apartment-03 Shop_03 base (left|right))$/;
+    expect([...found.keys()].filter((g) => !allowed.test(g))).toEqual([]);
+    for (const [k, v] of found) expect(v, k).toBeLessThan(0.15);
+    expect(found.get("apartment-02 Apartment_Roof_02 roof front")).toBeCloseTo(0.108, 3);
+    expect([...found.keys()].some((g) => /Roof_Corner_03 roof/.test(g))).toBe(true);
+  });
+
+  it("seats an office too: its roof's back on its floor's, its fronts on the line, and reports the roof 0.2 m wider than the floor and the Octagon base narrower than its floor", () => {
+    const office = (id: string): Stack => assembleStack(STYLE(id), { type: "tall", key: `office${id}`, cornerSides: [] }, ENTRIES, BUILDING_FRONTS, { spec: { frontage: 40, depth: 30, cap: 40 }, floors: "max", align: "wall", footprint: "body" })!;
+    for (const id of ["office-old-small", "office-old-large", "office-octagon"]) {
+      const s = office(id);
+      expect(storeyAlignment(s).misfits, id).toEqual([]);
+      const planes = storeyAlignment(s).overhangs.map((o) => `${o.role} ${o.plane}`).sort();
+      // What each really carries beyond its floor (metres, negative: inside it): the small office's base and roof are 0.12 and 0.103 m beyond its walls each side and its roof's foot 0.212 m past the front line;
+      // the large one's base is 0.12 m beyond and its roof's foot 0.135 m past the front; the Octagon's base is 0.205 m inside its floor's walls, and its round roof has no body to report.
+      const want = {
+        "office-old-small": [["base", "left", 0.12], ["base", "right", 0.12], ["roof", "front", 0.212], ["roof", "left", 0.103], ["roof", "right", 0.103]],
+        "office-old-large": [["base", "left", 0.12], ["base", "right", 0.12], ["roof", "front", 0.135]],
+        "office-octagon": [["base", "left", -0.205], ["base", "right", -0.205]],
+      }[id]!;
+      const got = storeyAlignment(s).overhangs.map((o) => [o.role, o.plane, +o.off_m.toFixed(3)]);
+      expect(got.map((g) => g.join(" ")).sort(), id).toEqual(want.map((g) => g.join(" ")).sort());
+      expect(planes.length, id).toBe(want.length);
+    }
+    const small = office("office-old-small");
+    const roof = small.pieces.find((p) => p.role === "roof")!;
+    const floor = small.pieces.find((p) => p.role === "floor")!;
+    expect(box(roof).zBack).toBeCloseTo(box(floor).zBack, 9);
+    expect(box(floor).zFront).toBeCloseTo(0, 9);
+  });
+
+  it("leaves a piece where it is when the table's front is not the measured one, or its open side is not (a recalibration in the gallery), and gives it no body", () => {
+    const roof = keyOf("SM_Bld_Apartment_Roof_01");
+    const odd: FrontTable = { ...BUILDING_FRONTS, [roof]: { front: "-z" } };
+    const plain = wall("apartment-01", [], 3, {}, odd);
+    expect(bodyBox(at(plain, 0, "roof"), odd)).toBeNull();
+    expect(seatOnBody(plain, odd).pieces.filter((p) => p.key === roof).map((p) => [p.x, p.z])).toEqual(plain.pieces.filter((p) => p.key === roof).map((p) => [p.x, p.z]));
+    const cornerRoof = keyOf("SM_Bld_Apartment_Roof_Corner_01");
+    const josh: FrontTable = { ...BUILDING_FRONTS, [cornerRoof]: { front: "+z", corner: true, open: "+x" } };
+    const c = wall("apartment-01", ["-x"], 3, {}, josh);
+    expect(bodyBox(c.pieces.find((p) => p.key === cornerRoof)!, josh)).toBeNull();
+    // A piece with no entry (a key outside the table) has none either.
+    expect(bodyBox({ key: keyOf("SM_Bld_OfficeOctagon_Roof_01"), x: 0, z: 0, w: 20, d: 20, yaw: 0 })).toBeNull();
+    expect(bodyBox({ key: keyOf("SM_Bld_Apartment_01"), x: 0, z: 0, w: 5, d: 5.196, yaw: 0.3 })).toBeNull();
+  });
+
+  it("states every base no shallower than its floor's body (the rule: a base may stand deeper, never shallower), from the typed-in sizes", () => {
+    const sizeOf = (key: CalibrationKey): { w: number; d: number } => {
+      const s = SIZES.find((x) => keyOf(x[0]) === key)!;
+      return { w: s[1], d: s[3] };
+    };
+    const depth = (key: CalibrationKey): number => sizeOf(key).d - BODY_M[key]!.front - BODY_M[key]!.back;
+    for (const s of STACK_STYLES.filter((x) => x.depth === "bay")) {
+      const floorDepth = depth(s.floor.mid[0]!);
+      for (const key of [...s.base.mid, ...(s.base.door ?? []), ...s.base.corner]) expect(depth(key), `${s.id} ${key}`).toBeGreaterThanOrEqual(floorDepth - STOREY_ALIGN_TOL_M);
+    }
+  });
+
+  it("holds on the default tile city, seeds 1 to 10 at 3 x 3 and seeds 1 to 3 at 6 x 4, in every block the game draws, and not on the packer's blocks as they were", { timeout: 120000 }, () => {
+    const cities = [tileCity(), ...Array.from({ length: 10 }, (_, k) => tileCity({ blocksX: 3, blocksZ: 3, seed: k + 1 })), ...[1, 2, 3].map((k) => tileCity({ blocksX: 6, blocksZ: 4, seed: k }))];
+    let blocks = 0;
+    let corners = 0;
+    let before = 0;
+    for (const city of cities) {
+      const raw = packTown({ terraces: city.town.terraces, lots: city.town.lots }, STACK_STYLES, ENTRIES, BUILDING_FRONTS, { align: "wall" });
+      // The game draws bandPacked's blocks; on a wall-aligned run they are seated on their footprints.
+      const drawn = bandPacked(raw, city.town.terraces, ENTRIES, BUILDING_FRONTS);
+      for (const res of drawn.values()) {
+        for (const b of res.blocks) {
+          blocks++;
+          corners += b.stack.cornerSides.length;
+          expect(storeyAlignment(b.stack).misfits, `${city.blocksX}x${city.blocksZ} seed ${city.seed} ${b.lot.key}`).toEqual([]);
+        }
+      }
+      for (const res of raw.values()) for (const b of res.blocks) before += storeyAlignment(b.stack).misfits.length;
+    }
+    expect(blocks).toBeGreaterThan(200);
+    expect(corners, "corner columns were checked").toBeGreaterThan(10);
+    expect(before, "the packer's own blocks fail it (today's placement)").toBeGreaterThan(blocks);
+  });
+
+  it("is applied to a ladder map's blocks never: bandPacked on a back-aligned run gives back exactly the blocks it was given", () => {
+    const city = tileCity();
+    const raw = packTown({ terraces: city.town.terraces, lots: city.town.lots }, STACK_STYLES, ENTRIES, BUILDING_FRONTS, { align: "back" });
+    const drawn = bandPacked(raw, city.town.terraces, ENTRIES, BUILDING_FRONTS, undefined, "back");
+    expect(bandPacked(raw, city.town.terraces, ENTRIES, BUILDING_FRONTS, undefined, "back", "bounds")).toEqual(drawn);
+    // Asked for outright on a back-aligned stack, "body" is ignored: there is no front line to seat against.
+    expect(bandPacked(raw, city.town.terraces, ENTRIES, BUILDING_FRONTS, undefined, "back", "body")).toEqual(drawn);
+    // And on the wall-aligned stacks it is what makes the difference.
+    const wallRaw = packTown({ terraces: city.town.terraces, lots: city.town.lots }, STACK_STYLES, ENTRIES, BUILDING_FRONTS, { align: "wall" });
+    expect(bandPacked(wallRaw, city.town.terraces, ENTRIES, BUILDING_FRONTS, undefined, "wall", "bounds")).not.toEqual(bandPacked(wallRaw, city.town.terraces, ENTRIES, BUILDING_FRONTS, undefined, "wall"));
   });
 });
 

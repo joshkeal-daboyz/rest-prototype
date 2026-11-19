@@ -8,8 +8,12 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { AssetEntry, CalibrationKey } from "../core";
 import {
+  BODY_M,
   OPEN_MARGIN,
   OPEN_SIDE_MEASURED,
+  ROOF_BASE_BAND_M,
+  ROOF_BASE_MIN_SPAN_M,
+  ROOF_SPAN_TIE_M,
   WALL_BAND_M,
   WALL_FLOOR_REACH_M,
   WALL_FRONT_M,
@@ -19,7 +23,10 @@ import {
   WALL_PINNED,
   WALL_REACH_M,
   WALL_SIDE_M,
+  bodyRuleOf,
+  measureBodyPlane,
   measureOpenSide,
+  measureRoofBase,
   measureWallPlane,
   wallOffset,
   type WallRule,
@@ -590,6 +597,135 @@ describe("the angled face of Shop_Corner_02 (063 E1, criterion 25)", () => {
       // Well clear of the next diagonal, so it is a chamfer and not noise.
       expect(best[0]![1] - best[1]![1], name).toBeGreaterThan(0.5);
     }
+  });
+});
+
+// ---- ticket 063 E2: the bodies ----
+
+describe("measureRoofBase on a typed-in cornice (063 E2)", () => {
+  // A wall quad facing +x on the plane x = at, from y0 to y1, along z from a0 to a1; and the same facing +z at z = at, along x.
+  const plusX = (at: number, y0: number, y1: number, a0: number, a1: number): number[] => [at, y0, a0, at, y1, a0, at, y1, a1, at, y0, a0, at, y1, a1, at, y0, a1];
+  const plusZ = (at: number, y0: number, y1: number, a0: number, a1: number): number[] => [a0, y0, at, a1, y0, at, a1, y1, at, a0, y0, at, a1, y1, at, a0, y1, at];
+
+  // A cornice 0.5 m tall that steps out 0.05 m a tier: its foot (y 0 to 0.09) is at 2.5, its top (y 0.39 to 0.5) at 2.65, which is the bound and the biggest plane.
+  const cornice = (face: "x" | "z"): number[] => {
+    const q = face === "x" ? plusX : plusZ;
+    return [...q(2.5, 0, 0.09, -2.5, 2.5), ...q(2.55, 0.13, 0.23, -2.55, 2.55), ...q(2.6, 0.27, 0.35, -2.6, 2.6), ...q(2.65, 0.39, 0.5, -2.65, 2.65)];
+  };
+
+  it("takes the outer face of the lowest tier, where the roof stands on the wall, and not the top step the area rule picks", () => {
+    const m = measureRoofBase(cornice("x"), null, "+x")!;
+    expect(m.plane).toBeCloseTo(2.5, 9);
+    expect(m.bound).toBeCloseTo(2.65, 9);
+    expect(m.offset).toBeCloseTo(0.15, 9);
+    // The wall rule, on the same mesh, finds the top step (the largest plane within its reach of the bound): that is not where the roof stands.
+    expect(measureWallPlane(cornice("x"), null, "+x", "floor")!.offset).toBeCloseTo(0, 9);
+    expect(measureBodyPlane(cornice("x"), null, "+x", "roof")!.offset).toBeCloseTo(0.15, 9);
+    expect(measureBodyPlane(cornice("x"), null, "+x", "floor")!.offset).toBeCloseTo(0, 9);
+  });
+
+  it("takes the plane that runs furthest along the face over a bigger one that stands out for part of it (a pediment), and the outermost of two as long as each other", () => {
+    const pediment = plusZ(2.9, 0, 0.09, -1.3, 1.3); // 0.23 m2, a short plane further out
+    const wallFoot = plusZ(2.2, 0, 0.09, -2.5, 2.5); // 0.45 m2 at the foot, the full length
+    const m = measureRoofBase([...pediment, ...wallFoot], null, "+z")!;
+    expect(m.plane).toBeCloseTo(2.2, 9);
+    expect(m.offset).toBeCloseTo(0.7, 9);
+    const a = plusZ(2.2, 0, 0.09, -2.5, 2.5);
+    const b = plusZ(2.4, 0, 0.09, -2.5 + ROOF_SPAN_TIE_M / 2, 2.5);
+    expect(measureRoofBase([...a, ...b], null, "+z")!.plane).toBeCloseTo(2.4, 9);
+  });
+
+  it("ignores a plane shorter than ROOF_BASE_MIN_SPAN_M, anything above the foot (ROOF_BASE_BAND_M), and a face with nothing on it", () => {
+    expect(ROOF_BASE_MIN_SPAN_M).toBe(1);
+    expect(ROOF_BASE_BAND_M).toBe(0.1);
+    expect(measureRoofBase(plusZ(2, 0, 0.09, -0.4, 0.4), null, "+z")).toBeNull();
+    expect(measureRoofBase(plusZ(2, 0.2, 0.3, -2, 2), null, "+z")).toBeNull();
+    expect(measureRoofBase(plusX(2, 0, 0.09, -2, 2), null, "+z")).toBeNull();
+    expect(measureRoofBase([], null, "+z")).toBeNull();
+  });
+
+  it("reads an index list and the other faces by the same rule", () => {
+    const pos = cornice("x");
+    const idx = Array.from({ length: pos.length / 3 }, (_, i) => i);
+    expect(measureRoofBase(pos, idx, "+x")!.offset).toBeCloseTo(0.15, 9);
+    // A -x face: the same cornice mirrored through x = 0, wound the other way so its normal points at -x.
+    const mirrored: number[] = [];
+    for (let t = 0; t < pos.length; t += 9) {
+      const tri = [0, 1, 2].map((v) => [-pos[t + v * 3]!, pos[t + v * 3 + 1]!, pos[t + v * 3 + 2]!]);
+      mirrored.push(...tri[0]!, ...tri[2]!, ...tri[1]!);
+    }
+    expect(measureRoofBase(mirrored, null, "-x")!.offset).toBeCloseTo(0.15, 9);
+  });
+});
+
+describe("the measured bodies (063 E2)", () => {
+  const STACK_KEYS = [...new Set(STACK_STYLES.flatMap((s) => stackKeys(s)))];
+  const OCTAGON_ROOF = k("SM_Bld_OfficeOctagon_Roof_01");
+
+  it("has an entry for every stack piece but the round Octagon roof (it has no vertical wall), and for nothing else", () => {
+    expect(STACK_KEYS).toHaveLength(34);
+    expect(Object.keys(BODY_M).sort()).toEqual(STACK_KEYS.filter((key) => key !== OCTAGON_ROOF).sort());
+  });
+
+  it("agrees with the wall tables: the front is WALL_FRONT_M on every key that has a wall, and a corner piece's -x is WALL_SIDE_M", () => {
+    for (const [key, b] of Object.entries(BODY_M) as [CalibrationKey, NonNullable<(typeof BODY_M)[CalibrationKey]>][]) {
+      if (key in WALL_FRONT_M) expect(b.front, key).toBe(WALL_FRONT_M[key]);
+      if (key in WALL_SIDE_M) expect(b.nx, key).toBe(WALL_SIDE_M[key]);
+      for (const v of [b.front, b.back, b.nx, b.px]) {
+        expect(v, key).toBeGreaterThanOrEqual(0);
+        expect(v, key).toBeLessThan(1);
+      }
+    }
+  });
+
+  it("is symmetric along the row on every piece that is not a corner piece (a body is centred in its bounds), and a corner piece's party wall is flush or the piece's own side inset", () => {
+    for (const [key, b] of Object.entries(BODY_M) as [CalibrationKey, NonNullable<(typeof BODY_M)[CalibrationKey]>][]) {
+      if (key in OPEN_SIDE_MEASURED) continue;
+      expect(b.nx, key).toBe(b.px);
+    }
+  });
+
+  it("has every floor, three-storey piece and base of an apartment 5.0 m wide in the body, so they tile with each other whatever each overhangs by", () => {
+    const sizes = new Map<string, number>(SIZES.map(([n, w]) => [`city-pack:${n}`, w]));
+    for (const s of STACK_STYLES.filter((st) => st.depth === "bay")) {
+      for (const key of [...s.base.mid, ...(s.base.door ?? []), ...s.base.corner, ...s.floor.mid, ...s.floor.corner, ...(s.floor.stack3 ?? [])]) {
+        const b = BODY_M[key]!;
+        const width = sizes.get(key)! - b.nx - b.px;
+        expect(width, key).toBeCloseTo(key === k("SM_Bld_Shop_03") ? 10 : 5, 1);
+      }
+    }
+  });
+
+  it.skipIf(!HAVE_GLB)("re-measures every entry within 0.02 m on all four faces, a roof by its lowest tier and a base or floor by the wall rule, and finds nothing on the Octagon roof", { timeout: 120000 }, () => {
+    const grounds = new Set<CalibrationKey>(STACK_STYLES.flatMap((st) => [...st.base.mid, ...(st.base.door ?? []), ...st.base.corner]));
+    const bad: string[] = [];
+    for (const [key, want] of Object.entries(BODY_M) as [CalibrationKey, NonNullable<(typeof BODY_M)[CalibrationKey]>][]) {
+      const m = glbMesh(key.slice("city-pack:".length));
+      const rule = bodyRuleOf(key, grounds);
+      for (const [face, field] of [
+        ["+z", "front"],
+        ["-z", "back"],
+        ["-x", "nx"],
+        ["+x", "px"],
+      ] as const) {
+        // The Octagon base's front is the hand-pinned 0.174 m face (the rule would pick 0.595 m): its own check is above.
+        if (WALL_PINNED.includes(key) && field === "front") continue;
+        const got = measureBodyPlane(m.positions, m.indices, face, rule);
+        if (!got) bad.push(`${key} ${field}: no plane (rule ${rule})`);
+        else if (Math.abs(got.offset - want[field]) > 0.02) bad.push(`${key} ${field}: measured ${got.offset.toFixed(3)}, table ${want[field]} (rule ${rule})`);
+      }
+    }
+    const roof = glbMesh(OCTAGON_ROOF.slice("city-pack:".length));
+    for (const face of ["+z", "-z", "-x", "+x"] as const) if (measureBodyPlane(roof.positions, roof.indices, face, "roof") !== null) bad.push(`Octagon roof ${face}: a plane was found`);
+    expect(bad).toEqual([]);
+  });
+
+  it("names the rule by role: a roof is measured at its foot, a base by the ground rule, anything else by the floor rule", () => {
+    const grounds = new Set<CalibrationKey>([k("SM_Bld_Shop_01")]);
+    expect(bodyRuleOf(k("SM_Bld_Apartment_Roof_01"), grounds)).toBe("roof");
+    expect(bodyRuleOf(k("SM_Bld_OfficeOld_Small_Roof_01"), grounds)).toBe("roof");
+    expect(bodyRuleOf(k("SM_Bld_Shop_01"), grounds)).toBe("ground");
+    expect(bodyRuleOf(k("SM_Bld_Apartment_01"), grounds)).toBe("floor");
   });
 });
 

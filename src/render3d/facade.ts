@@ -247,3 +247,154 @@ export function measureWallPlane(positions: ArrayLike<number>, indices: ArrayLik
   }
   return best;
 }
+
+// ---- ticket 063 E2: where each piece's body is (the planes its storeys, trims and roof line up on) ----
+
+/**
+ * Josh, 19 Nov 2026: "The building roof tiles aren't properly scaled" and "You can see the misalignment and scaling on this red building". Nothing is scaled (chapter 2): what he saw is pieces of different true sizes, each
+ * placed by its own bounds, so a roof stood 0.7 m behind the walls it sits on at the front and 0.8 m past them at the back, and a corner flank stepped in and out from storey to storey. A piece's *body* is the box its wall
+ * planes enclose: `BODY_M[key]` is how far inside its bounds (in the piece's own frame, its front on +z, a corner piece's open side on -x) each of its four wall planes stands. `assembleStack`'s `footprint: "body"` and
+ * `seatOnBody` (stacks.ts) put the body of every piece of a column on the column's floor piece's body.
+ *
+ * How the numbers were measured (`measureBodyPlane`, run on the converted `city-pack.glb` of 19 Nov 2026; `facade.test.ts` re-measures every entry within 0.02 m when the GLB is on the machine and pins the table as a
+ * fixture when it is not):
+ * - a base, floor or `Stack` piece: `measureWallPlane`'s rule on each face (the largest plane within `WALL_REACH_M` of the bound for a base, `WALL_FLOOR_REACH_M` for a floor), so the front is `WALL_FRONT_M` and a corner
+ *   piece's -x is `WALL_SIDE_M` (a test holds them to it). The Octagon base's front is the hand-pinned `WALL_OCTAGON_BASE_M`, and the rule's pick on the other three faces (0.595 m).
+ * - a roof: a cornice steps out as it rises (Apartment_Roof_01 is 0.5 m tall and 0.14 m wider at the top than at its foot), so the largest plane is the top step and it is not what the roof stands on. A roof's body is the
+ *   outer face of its lowest tier (`measureRoofBase`: the faces below `ROOF_BASE_BAND_M`, the plane that runs the furthest along the face, the outermost on a tie): the line it sits on the wall by. A front pediment that
+ *   stands out further for part of the width is shorter and is not taken.
+ * A key with no entry has no measurable plane (the Octagon roof is round, with no vertical wall), and its pieces stay where the bounds put them.
+ */
+export interface Body {
+  /** Metres from the front bound back to the front wall plane (the face on +z). */
+  front: number;
+  /** From the back bound (-z). */
+  back: number;
+  /** From the -x bound. A corner piece's open face is on -x. */
+  nx: number;
+  /** From the +x bound. */
+  px: number;
+}
+
+const body = (front: number, back: number, nx: number, px: number): Body => ({ front, back, nx, px });
+
+/** Where a cornice's lowest tier is: faces whose centroid is below this high are a roof's foot, metres (the roof pieces' tiers are 0.1 m tall and the lowest ends at 0.09). */
+export const ROOF_BASE_BAND_M = 0.1;
+/** A roof plane shorter than this along its face, metres, is a feature (a pediment), not the wall the roof stands on. */
+export const ROOF_BASE_MIN_SPAN_M = 1;
+/** Roof planes whose spans differ by less than this, metres, are as long as each other: the outermost is the body's. */
+export const ROOF_SPAN_TIE_M = 0.05;
+
+/**
+ * The body plane of a roof on one face, by the rule in the comment above, or null when none runs at least `ROOF_BASE_MIN_SPAN_M`. `positions`, `indices` and `face` as for `measureWallPlane`.
+ */
+export function measureRoofBase(positions: ArrayLike<number>, indices: ArrayLike<number> | null, face: ModelFront): WallPlane | null {
+  const axis = face === "+z" || face === "-z" ? 2 : 0;
+  const along = axis === 2 ? 0 : 2;
+  const sign = face === "+z" || face === "+x" ? 1 : -1;
+  const at = (v: number, c: number): number => positions[v * 3 + c]!;
+  const count = indices ? indices.length : Math.floor(positions.length / 3);
+  let bound = -Infinity;
+  for (let v = 0; v < Math.floor(positions.length / 3); v++) bound = Math.max(bound, sign * at(v, axis));
+  if (!Number.isFinite(bound)) return null;
+  const tris: { c: number; area: number; lo: number; hi: number }[] = [];
+  for (let i = 0; i + 2 < count; i += 3) {
+    const a = indices ? indices[i]! : i;
+    const b = indices ? indices[i + 1]! : i + 1;
+    const c = indices ? indices[i + 2]! : i + 2;
+    const ux = at(b, 0) - at(a, 0);
+    const uy = at(b, 1) - at(a, 1);
+    const uz = at(b, 2) - at(a, 2);
+    const vx = at(c, 0) - at(a, 0);
+    const vy = at(c, 1) - at(a, 1);
+    const vz = at(c, 2) - at(a, 2);
+    const n = [uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx];
+    const len = Math.hypot(n[0]!, n[1]!, n[2]!);
+    if (len < 1e-12 || (sign * n[axis]!) / len < WALL_FACE_COS) continue;
+    if ((at(a, 1) + at(b, 1) + at(c, 1)) / 3 >= ROOF_BASE_BAND_M) continue;
+    tris.push({
+      c: (sign * (at(a, axis) + at(b, axis) + at(c, axis))) / 3,
+      area: len / 2,
+      lo: Math.min(at(a, along), at(b, along), at(c, along)),
+      hi: Math.max(at(a, along), at(b, along), at(c, along)),
+    });
+  }
+  tris.sort((p, q) => p.c - q.c);
+  const planes: { sum: number; area: number; last: number; lo: number; hi: number }[] = [];
+  for (const t of tris) {
+    const p = planes[planes.length - 1];
+    if (p && t.c - p.last <= WALL_PLANE_TOL_M) {
+      p.sum += t.c * t.area;
+      p.area += t.area;
+      p.last = t.c;
+      p.lo = Math.min(p.lo, t.lo);
+      p.hi = Math.max(p.hi, t.hi);
+    } else planes.push({ sum: t.c * t.area, area: t.area, last: t.c, lo: t.lo, hi: t.hi });
+  }
+  let best: (WallPlane & { span: number }) | null = null;
+  for (const p of planes) {
+    const span = p.hi - p.lo;
+    if (span < ROOF_BASE_MIN_SPAN_M) continue;
+    const plane = p.sum / p.area;
+    if (!best || span > best.span + ROOF_SPAN_TIE_M || (Math.abs(span - best.span) <= ROOF_SPAN_TIE_M && plane > best.plane)) best = { plane, bound, offset: bound - plane, area: p.area, span };
+  }
+  return best ? { plane: best.plane, bound: best.bound, offset: best.offset, area: best.area } : null;
+}
+
+/** Which rule measures a key's body: `WallRule` for a base or floor, "roof" for a roof piece. */
+export type BodyRule = WallRule | "roof";
+
+/** The body plane of a mesh on one face under `rule` (see `BODY_M`), or null. */
+export function measureBodyPlane(positions: ArrayLike<number>, indices: ArrayLike<number> | null, face: ModelFront, rule: BodyRule): WallPlane | null {
+  return rule === "roof" ? measureRoofBase(positions, indices, face) : measureWallPlane(positions, indices, face, rule);
+}
+
+/**
+ * Every stack piece's body, measured (see the comment above). Front, back, -x and +x, metres inside the bounds, in the piece's own frame. The bases, floors and `Stack` pieces of the apartments, the offices, and every
+ * apartment roof; the Octagon roof has no entry.
+ */
+export const BODY_M: Readonly<Partial<Record<CalibrationKey, Body>>> = {
+  // Shops, doors and corner shops (the ground rule).
+  [k("SM_Bld_Shop_01")]: body(0.219, 0, 0, 0),
+  [k("SM_Bld_Shop_02")]: body(0.425, 0, 0, 0),
+  [k("SM_Bld_Shop_03")]: body(0.103, 0, 0.044, 0.044),
+  [k("SM_Bld_Shop_04")]: body(0.557, 0.059, 0.053, 0.053),
+  [k("SM_Bld_Shop_05")]: body(0.076, 0.091, 0.054, 0.054),
+  [k("SM_Bld_Shop_06")]: body(0.52, 0.088, 0.088, 0.088),
+  [k("SM_Bld_Apartment_Door_01")]: body(0.529, 0.048, 0.048, 0.048),
+  [k("SM_Bld_Apartment_Door_02")]: body(0.058, 0.057, 0.057, 0.057),
+  [k("SM_Bld_Shop_Corner_01")]: body(0.211, 0.188, 0.188, 0.188),
+  [k("SM_Bld_Shop_Corner_02")]: body(0.166, 0.166, 0.166, 0.166),
+  // Apartment floors, corner floors (open face on -x) and three-storey pieces (the floor rule).
+  [k("SM_Bld_Apartment_01")]: body(0.196, 0, 0, 0),
+  [k("SM_Bld_Apartment_Corner_01")]: body(0.196, 0, 0.196, 0),
+  [k("SM_Bld_Apartment_Stack_01")]: body(0.196, 0, 0, 0),
+  [k("SM_Bld_Apartment_02")]: body(0.129, 0.085, 0.085, 0.085),
+  [k("SM_Bld_Apartment_Corner_02")]: body(0.129, 0.085, 0.129, 0.085),
+  [k("SM_Bld_Apartment_Stack_02")]: body(0.129, 0.085, 0.085, 0.085),
+  [k("SM_Bld_Apartment_03")]: body(0.351, 0.146, 0.14, 0.14),
+  [k("SM_Bld_Apartment_Corner_03")]: body(0.351, 0.146, 0.351, 0.14),
+  [k("SM_Bld_Apartment_Stack_03")]: body(0.351, 0.146, 0.14, 0.14),
+  // Apartment roofs (the roof rule: the cornice's lowest tier).
+  [k("SM_Bld_Apartment_Roof_01")]: body(0.715, 0.125, 0.143, 0.143),
+  [k("SM_Bld_Apartment_Roof_Corner_01")]: body(0.715, 0.125, 0.715, 0.143),
+  [k("SM_Bld_Apartment_Roof_02")]: body(0.285, 0.095, 0.115, 0.115),
+  [k("SM_Bld_Apartment_Roof_Corner_02")]: body(0.421, 0.125, 0.421, 0.143),
+  [k("SM_Bld_Apartment_Roof_03")]: body(0.421, 0.125, 0.143, 0.143),
+  [k("SM_Bld_Apartment_Roof_Corner_03")]: body(0.285, 0.095, 0.285, 0.115),
+  // Offices.
+  [k("SM_Bld_OfficeOld_Small_Base_01")]: body(0.348, 0.348, 0.348, 0.348),
+  [k("SM_Bld_OfficeOld_Small_Floor_01")]: body(0, 0, 0, 0),
+  [k("SM_Bld_OfficeOld_Small_Roof_01")]: body(0.494, 0.494, 0.457, 0.457),
+  [k("SM_Bld_OfficeOld_Large_Base_01")]: body(0.348, 0.348, 0.348, 0.348),
+  [k("SM_Bld_OfficeOld_Large_Floor_01")]: body(0, 0, 0, 0),
+  [k("SM_Bld_OfficeOld_Large_Roof_01")]: body(0.494, 0.494, 0.457, 0.457),
+  // The Octagon base's front is the hand-pinned WALL_OCTAGON_BASE_M; its other faces are the rule's pick (0.595 m).
+  [k("SM_Bld_OfficeOctagon_Base_01")]: body(WALL_OCTAGON_BASE_M, 0.595, 0.595, 0.595),
+  [k("SM_Bld_OfficeOctagon_Floor_01")]: body(0.232, 0.232, 0.232, 0.232),
+};
+
+/** The rule a key's body is measured by: a roof's lowest tier, a base's ground plane, a floor's largest plane. */
+export function bodyRuleOf(key: CalibrationKey, grounds: ReadonlySet<CalibrationKey>): BodyRule {
+  return /_Roof_/.test(key) ? "roof" : grounds.has(key) ? "ground" : "floor";
+}
