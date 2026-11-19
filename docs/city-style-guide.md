@@ -357,7 +357,7 @@ How to read it:
 
 - **Info**: the pack has no animal models, so nothing needs excluding for them.
 - **Info (055 F)**: one model of a pack that is otherwise not placed is in use: the Town Pack's `SM_Bld_House_Concrete_Steps_01` (`STEPS_KEY`, 1.2 x 0.5 x 0.9 m), the door steps of 16.10. Its sibling `SM_Bld_House_DeckSteps_01` converts to 0 x 0 x 0 (`scale-suspect`), so it is broken and not used. The City Pack's only steps, `SM_Bld_Apartment_Stairs_*`, are in the never-used table above (2.4 to 4 m high and 5 to 10 m deep, far too big for a door).
-- **Pending (waits for 057 D, which draws it)**: the Town Pack pieces now placed by the tile city are `SM_Env_Fence_Wood_Gate_01` and `SM_Env_Fence_Wood_Post_01`, the gate and posts that close a gated passage (19.2), where the pack is present, with a code-drawn gate in the run's colourway where it is not. No piece of `CITY_NEVER_USED` is lifted, and the interiors of 19.4 use the City Pack and code only. Built by D.
+- **Default (057 D)**: the tile city places no Town Pack piece. The gate and posts that close a gated passage (19.2) are code-drawn boxes, so the Town Pack's `SM_Env_Fence_Wood_Gate_01` and `_Post_01`, which the 057 draft named, are not placed. No piece of `CITY_NEVER_USED` is lifted, and the interiors of 19.4 use the City Pack and code only.
 - **Open (waits for a pack that has glass windows, or a ticket that draws them in code)**: no glass for apartment windows and no lit-window variant: the windows are baked into the floor pieces. Josh's rule that nothing but lit places and live wires glows (chapter 12) means a lit window would be a ticket of its own, not a dressing.
 - **Open (waits for a pack that has them, or a ticket that draws them in code)**: no balconies, cornices or separate parapets; no roof railings or ladders; no roller shutters.
 - **Open (waits for a second model of each, or a ticket that varies them in code)**: one water tower, one satellite dish and one ATM model only, so variety there comes from placement, not models.
@@ -579,7 +579,7 @@ Where a fire escape's platforms stand against its block, and how they join. `esc
 | the building gallery | its own lights |
 
 - **Info (060)**: the earlier dev-only daylight (055 E) added one hemisphere light to a night scene, owned twice (`tilecity3d.ts` and `streetcam.ts`), and left the sky and the surfaces near black. Its three constants (the street camera's daylight sky, ground and intensity) are retired with it; their rows are gone from the Numbers table.
-- **Info (060)**: the grass colour has no night counterpart yet because no code draws grass; night's value is the yard's until a drawer registers it. The tile view brings a material it swaps in later (the pack's tiles arriving) to the mode it is in.
+- **Info (060, 057 D)**: the grass colour (`surfaces.grass` of each light mode, a Numbers row) was held for a drawer. Since 057 D the greens of the block interiors are drawn (19.4): the City Pack's `SM_Env_Grass_01` tiles, sunk 0.11 m so the blades stand a hair over the walk, or, where the piece is absent, flat quads in the mode's grass colour. The tile view brings a material it swaps in later (the pack's tiles arriving) to the mode it is in.
 - **Info (060)**: brightness of a rendered frame is not tested headless; the table and the screenshots of 16.8 are the measure.
 
 ## 18. Parking
@@ -702,7 +702,7 @@ How many parking spaces the tile city (`city=tiles`) gives a home and a shop, wh
 
 ## 19. Frontage and block interiors
 
-How the tile city's buildings meet the pavement, how a row of them ends, what fills the inside of every block, and how blocks differ from one another (ticket 057, sections A to G, in `facade.ts`, `frontage.ts`, `tilecity.ts` and `terrace.ts`). The layout and the checks (G1 to G4, V1 to V4) are pure data and are built; the drawing of the interiors is section D, built by another builder, and every line that depends on it is marked **Pending (waits for 057 D ...)** and says "built by D". Nothing on the ladder maps changes.
+How the tile city's buildings meet the pavement, how a row of them ends, what fills the inside of every block, and how blocks differ from one another (ticket 057, sections A to G, in `facade.ts`, `frontage.ts`, `tilecity.ts` and `terrace.ts`). The layout and the checks (G1 to G4, V1 to V4) are pure data and are built; the drawing of the interiors is section D (`tilecity3d.ts`, `tileslots.ts` and `models3d.ts`), also built, and 19.8 records it. Nothing on the ladder maps changes.
 
 - **Info (057)**: the ladder keeps chapter 4's rules: back-aligned stacks, and a far end that closes at a seam or at an alley of `ALLEY_MIN_M` to `ALLEY_MAX_M`. Every new option of this chapter defaults to today. The two defaults that are not zero (`alignOf` in `terrace.ts`: "wall"; `farOverlapOf`: `END_OVERLAP_MAX_M`) follow from a run having a pavement `frame`, which every tile-city run has and no ladder run has, so a ladder stack, run and town are as they were.
 - **Info (057)**: the draft of this chapter was written before sections A to G were built. Where the code differs from the draft, the line says "as built", and the code is the record.
@@ -724,7 +724,8 @@ How the tile city's buildings meet the pavement, how a row of them ends, what fi
   - This replaced the draft's "largest front-facing planar area below 3.5 m", which picked the back wall of a shop's interior (1.0 to 2.8 m behind the front) or a sign band.
   - `WALL_SIDE_M` is the same for a corner piece's open side. A roof has no wall and no entry, and its pieces align on their front bound. A front that Josh recalibrated in the gallery makes a key's entry not apply (`wallOffset` gives 0), so that piece also aligns on its bound.
 - **Info (057 A)**: `facade.test.ts` pins every value of both tables as a typed-in fixture and, where the converted GLB is on the machine, re-measures each key within 0.02 m. The tables hold a distance per piece, so the Numbers table pins their constants and not their entries.
-- **Pending (waits for 057 D)**: `SM_Bld_OfficeOctagon_Base_01` is pinned to its 0.174 m face in `WALL_FRONT_M` before any office style is aligned on "wall" (it holds 0.595 today, and no tile-city run uses an office style yet). D also passes "wall" to `packTown` explicitly, so the tile city does not depend on the default, and adds a committed pin of `packTown` on the three protocol maps so the ladder's "unchanged" is checked on every run.
+- **Default (057 D)**: `SM_Bld_OfficeOctagon_Base_01` is pinned by hand to its 0.174 m face (`WALL_OCTAGON_BASE_M`, in `WALL_FRONT_M`), before any office style is aligned on "wall". The rule of 19.1 finds two ground planes on its front, 0.174 m behind the bound (4.87 m2) and 0.595 m behind it (5.01 m2), and picks the bigger, which stands 0.42 m further back; the 057 A review took the 0.174 m plane for the building's face. `WALL_PINNED` lists the keys pinned this way, and `facade.test.ts` checks in the converted GLB that both planes are there and that the table holds the front one. No tile-city run uses an office style yet.
+- **Default (057 D)**: the tile city passes "wall" to `packTown` explicitly (`TILE_STACK_ALIGN`, through the scene options of `models3d.ts`), so it does not lean on the default that `alignOf` reads from the runs' pavement frame. `packpin.test.ts` pins `packTown` on the three protocol maps by a digest, taken at the merge of 057 G, so the ladder's "unchanged" is checked on every run and not only at review.
 
 ### 19.2 Corners and far ends
 
@@ -739,7 +740,9 @@ How the tile city's buildings meet the pavement, how a row of them ends, what fi
 - **Default (057 B)**: this replaces, for the tile city only, 055's far-gap share ("seam or alley on at least the ladder's share"), and retires 056 A's temporary far-gap floors. The run after a parking lot or a court drive closes like any other run.
 - **Info (057 B, as built; measured by 057 E on 19 Nov 2026)**: passages are not the rare third choice the draft pictured, because most row lengths fall in the packer's dead band (N unscaled columns span only 5.0 N to about 5.28 N metres) and a seam needs a gap of 0.1 m or less. On the default city, 52 runs close as 50 passages and 2 overshoots (0.415 m at most), with no seam, no slit and no wide gap; seeds 1 to 5 at 3 x 3 close 44 to 52 runs as 44 to 50 passages and 2 to 4 overshoots; 6 x 4, seed 1 closes 138 runs as 130 passages and 8 overshoots. So nearly every row's end is a gate onto the interior.
 - **Info (057 B and C, as built)**: the passages are known only once the runs are packed, so `tileCity` returns none and `withPassages(city, tilePassages(city, packed))` is the city with them. Each is `{ x_m, z_m, w_m, yaw, run, floor }`. The `floor` is apron pavement, `PASSAGE_FLOOR_DEPTH_M` (one cell) deep from the back edge inward and the passage wide: nothing else in the city lays a surface on that ground, and G3 credits only what is recorded there.
-- **Pending (waits for 057 D)**: the gate and its posts at each passage's wall line (the Town Pack's `SM_Env_Fence_Wood_Gate_01` and `_Post_01` where the pack is present, else a code-drawn wall and gate in the run's colourway, one storey high), a small gate at each passage that opens on an alley mouth, and the passage floor. Built by D.
+- **Default (057 D)**: the gate. Each gated passage has a gate at its wall line, built in code from boxes: a post at each side (`GATE_POST_W_M` wide, `GATE_POST_EXTRA_H_M` taller than the gate) and a panel between them, `GATE_H_M` high and `GATE_THICK_M` thick, standing on the walk, in one fixed dark brown (`GATE_COLOUR`, not a lit surface, so it reads in both light modes). A passage too narrow for two posts is one panel. A passage that opens on an alley's mouth (within `GATE_ALLEY_REACH_M` of the lane) gets the small gate, `GATE_SMALL_H_M` high.
+  - As built, not as drafted: the gate is always code-drawn, so no Town Pack piece is placed (16.6), the run's colourway is not applied to it, and it is 2.2 m high, not one storey.
+  - The passage's floor (`TilePassage.floor`, 19.2 above) is drawn in code as apron pavement.
 
 ### 19.3 Thinner blocks: considered, not the default
 
@@ -765,7 +768,7 @@ How the tile city's buildings meet the pavement, how a row of them ends, what fi
   - A lot whose court would leave its block part or cross another keeps 056's frontage lot, and its block is in `TileCity.frontLots`. At most `CITY_FRONT_LOT_BLOCKS_MAX` (one in nine) of a city's blocks may be there. Measured: none on the default city and on four of the five seeds at 3 x 3; one block on seed 5.
 - **Default (057 Q3)**: 056's 0.15 stalls per home (`PARK_PER_HOME`) is kept, so six stalls per court and one or two courts per block.
 - **Default (057 Q1)**: the apron is `APRON_CELLS` 1 deep, so the interiors are mostly pavement. If Josh finds them too grey, 0 drops the apron to the strip alone and gives about half the interior to grass: one constant.
-- **Default (057 Q6)**: the fill uses the City Pack and code only: `SM_Env_Grass_01`, `SM_Env_Sidewalk_Panel_01` (the apron and paths), `SM_Env_Tree_01` to `_03` and `SM_Prop_ParkBench_01`, each with a code-drawn fallback. The one Town Pack piece is the passage gate (19.2).
+- **Default (057 Q6, as built by 057 D)**: the fill uses the City Pack and code only, each with a code-drawn fallback: `SM_Env_Grass_01` for the greens, `SM_Env_Sidewalk_Panel_02` for the apron, paths and park edges, `SM_Env_Tree_01` to `_03` and `SM_Prop_ParkBench_01` for the dressing. The draft named `Sidewalk_Panel_01` for the paving, but that piece has a kerb on one edge (a 0.23 m drop to the road level every 5 m), which would cross an apron; `Panel_02` is the flat slab. No Town Pack piece is used: the passage gate is code-drawn (19.2).
 - **Info (057 C, as built)**: the drive is two cells, not the drafted one. 056's parking lot is a fixed 10 m opening laid by `terraceBlockRows` in `town.ts`, which 057 may not touch, so the drive takes the whole opening. One cell needs a `parkW_m` option in `town.ts` (a re-cut). So the frontage does not gain the drafted 45 m: the nine 10 m lots of 056 are nine 10 m drives, and the frontage cost of the parking lots stays about 90 m.
 - **Info (057 C and G, measured by 057 E on 19 Nov 2026)**: what the interiors are made of on the default city (3 x 3, seed 1), in m2 of block area (28,675 m2 in all). The remaining 8,225 m2 (28.7%) is the terrace band: buildings, plazas and frontage lots.
 
@@ -781,7 +784,7 @@ How the tile city's buildings meet the pavement, how a row of them ends, what fi
 | All | 20,450 | 100% (71.3% of block area) |
 
 - **Info (057 C, measured by 057 E)**: over seeds 1 to 5 at 3 x 3 and 6 x 4 seed 1, the interior is 70.7% to 73.1% of block area, grass is 12.0% to 14.5% of the interior (8.5% to 10.5% of block area), and pavement in all its roles is the rest. At most 0.28% of any block is unfilled, in squares of 0.25 m at most.
-- **Pending (waits for 057 D)**: drawing every interior role (19.8). Built by D.
+- **Default (057 D)**: every interior role is drawn (19.8).
 
 ### 19.5 Block variety: 90 degrees, not a grid of squares
 
@@ -834,7 +837,7 @@ How the tile city's buildings meet the pavement, how a row of them ends, what fi
 | large | terraces with the interior fill, or half of it a park by hash until the quota is met; an alley if a side is at least `ALLEY_SIDE_LONG_M` |
 
 - **Info (057 G, measured by 057 E on 19 Nov 2026)**: the default city has five alleys and two parks, both half-block (it has no small block: its narrowest, 30 x 45 m, has a side over 40 m); seeds 1 to 5 at 3 x 3 have 4 to 7 alleys and 2 parks; 6 x 4, seed 1 has 13 alleys and 4 parks, with 32 bins in all.
-- **Pending (waits for 057 D)**: drawing the alley lanes and bins, the park edges, the court cells whose run is "" and a small gate at each passage that opens on an alley mouth (19.8). Built by D.
+- **Default (057 D)**: the alley lanes and their bins, the park edges, the court cells whose run is "" and the small gate at an alley mouth are drawn (19.8).
 
 ### 19.7 The checks, and what they measured
 
@@ -867,17 +870,19 @@ How the tile city's buildings meet the pavement, how a row of them ends, what fi
 
 - **Info (057 E, measured on 19 Nov 2026)**: over seeds 1 to 5 at 3 x 3 and seed 1 at 6 x 4 every check above passes, every wall stands on the edge, 70.7% to 73.1% of block area is interior, 44 to 52 runs close as 44 to 50 passages and 2 to 4 overshoots at 3 x 3, and the frontage covers every block side. Seed 5 is the one city with a block that kept a frontage lot.
 
-### 19.8 What the drawing does (built by D)
+### 19.8 What the drawing does (ticket 057 D)
 
-- **Pending (waits for 057 D)**: `tilecity3d.ts` draws every interior role as one `InstancedMesh` per key, with a per-role code-drawn fallback when the keys are absent (CI and a fresh checkout), at interior ground level 0, flush with the pavement's walk, within the tile draw-call cap of `tileslots.ts`.
-  - **Grass:** a code-drawn grass surface in the colour of `lighting.ts`'s `surfaces.grass`, or City Pack `SM_Env_Grass_01` cells when present.
-  - **Pavement** (the apron, the paths, the park edge): `SM_Env_Sidewalk_Panel_01` cells, or code-drawn in `PAVEMENT` colour. The ragged strip (`APRON_STRIP`) and the passage floors are always code-drawn.
-  - **The court:** `SM_Env_Road_ParkingLines_01` on pavement-coloured `SM_Env_Road_Bare_01`. **The drive:** a kerb cut and lot surface, as 056's lot.
-  - **The passage gates** (19.2), the optional trees and benches of 19.4, the alley lane (`SM_Env_Road_Bare_01` or code-drawn) and its bins (`SM_Prop_Trashbin_01` and `_02`), the park greens, paths and park edges, the pad cells beside an alley court's aisle, and the court cells whose run is "" (alley courts, which belong to no terrace run).
-  - `&sheet=1` shows each new role once, labelled.
-- **Pending (waits for 057 D)**: the Town Pack pieces now placed are `SM_Env_Fence_Wood_Gate_01` and `SM_Env_Fence_Wood_Post_01`, for the passage gates only (16.6). No piece of `CITY_NEVER_USED` is lifted. Everything else of 19.4 and 19.6 uses the City Pack or code.
-- **Pending (waits for 057 D)**: 16.12 says the grass colour has no night counterpart because no code draws grass. That line is stale once D lands: the grass is then drawn, in `surfaces.grass` of each light mode (the same Numbers rows as now).
-- **Info (057)**: nothing in this chapter changes how the 3D play view reads: `puzzle=09-shrine-circuit&view=3d` is exactly as on `goal/city-style`.
+- **Default (057 D)**: `tilecity3d.ts` draws every interior role from `interiorItems` (`tileslots.ts`), one `InstancedMesh` per key and sub-mesh, in a group of its own beside the street tiles', with a code-drawn fallback per kind of surface when its key is absent (CI and a fresh checkout). Interior ground is at level 0, flush with the pavement's walk. It reads `TileCity.interior`, `courts`, `passages`, `greenProps` and `alleyBins` and nothing else, and takes no input.
+  - **Grass:** `SM_Env_Grass_01` cells, turned a quarter at a time by hash so a lawn is not one tile repeated, with the origin 0.11 m down so the blades stand 0.01 m over the walk; or flat quads in `lighting.ts`'s `surfaces.grass` colour.
+  - **Pavement** (the apron, the paths, the park edge): `SM_Env_Sidewalk_Panel_02`, the flat slab, with its origin 0.07 m down so its top is the walk's; or flat quads in `PAVEMENT` colour. The ragged strip (`APRON_STRIP`) is always code-drawn, and so are the passage floors.
+  - **The court:** `SM_Env_Road_Bare_01` (the bare road) under the cells, with `SM_Env_Road_ParkingLines_01` over each row of stalls, lifted by `STALL_LINES_LIFT_M` so the two do not fight for the pixel; the aisle is bare road. With no lines piece the dividers are drawn in code. **The drive:** the kerb cut and lot surface of 056, which the street layer already draws, so it is not drawn twice.
+  - **The alley lane:** `SM_Env_Road_Bare_01`, or street-coloured quads. **The gates** (19.2) and **the passage floors** are code-drawn.
+  - **Props** (optional dressing, pack pieces only): the trees and the bench of the greens and the bins of the alleys (`SM_Prop_Trashbin_01` and `_02`), each chosen by a hash of the city's seed and its point, so the same city gives the same props. A prop whose piece is missing, or lost to the draw-call cap, is not drawn.
+  - **Pad cells** beside an alley court's aisle are apron cells and are drawn as apron.
+- **Default (057 D)**: draw calls. The interiors have their own cap, `INTERIOR_DRAW_CALLS_MAX`, on top of `TILE_DRAW_CALLS_MAX` for the street's tiles: if the usable keys would take more, the keys with the fewest instances are dropped first. The dev view logs a "tile city interiors" line once its models are applied (what stands inside the blocks, from the pack and in code, and the draw calls); the main session reports 12 draw calls on the default city, which 057 E did not re-measure.
+- **Default (057 D)**: furniture. A lot that became a court is no longer dressed as a frontage lot (`courtLotPieces` in `tilecity3d.ts`): the town still holds each court's mouth as a 10 m parking lot, so `furnitureLayout` would put a second lines tile 5 mm under the interiors' own and barriers across the near stalls' opening. The drive is a kerb cut and a lot surface only. A block in `TileCity.frontLots` keeps its frontage lot's furniture.
+- **Default (057 D)**: `&sheet=1` shows each new piece once, labelled with the interior roles it serves. The two new pieces made the wide sheet five columns at a 14 m pitch (it was four), and the tall sheet's row pitch went from 12 m to 14 m.
+- **Info (057 D)**: `puzzle=09-shrine-circuit&view=3d` is unaffected: the interiors, passages and the explicit alignment are the tile view's, and a puzzle map's `packTown` call is as it was (`packpin.test.ts`).
 
 ## Decided, not yet built (the tile city, 18 Nov 2026)
 
@@ -913,7 +918,7 @@ Josh's rulings from the tile-city work, in his own words, each with the ticket t
 
 ## Numbers
 
-The drift test (`styleguide.test.ts`) reads this table. Each row names an export of the file in its last column. A value is a number (within 1e-9), a colour as `0x` hex (exactly), or `a x b x c` for a record, in the record's field order. `LOT_TYPES` is frontage x depth x cap in metres and `PLACE_SIZES` is width x depth in metres. `STACK_STYLES[i].pitch_m` is base x floor x roof in metres (the storey heights a recipe counts floors by; the roof is the height reserved under the cap), in the order `apartment-01`, `-02`, `-03`, `office-old-small`, `office-old-large`, `office-octagon`. `STACK_FLOORS` is the fewest floors over the base. `TINTS[i]` is the i-th wall tint. `CITY_CHECK` is the threshold of R1 to R13 in that order (a share to reach, or a count not to pass, chapter 16.8) and `CITY_STOREYS` is the fewest and most storeys. Changing a constant in code or a value here fails the test. Since ticket 053 the test also fails when `stacks.ts`, `terrace.ts`, `dressing.ts`, `furniture.ts`, `streetcam.ts` or `citymetrics.ts` exports a number that has no row here, and when `town.ts` does for a `TERRACE_*`, `PARKING_*` or `PLAZA_*` name. Since ticket 054 the test also fails when `colourway.ts` exports a constant (not a function) that has no row here; `COLOURWAY_POOL` is pinned by its length, and its ids are the table in 16.9. Since ticket 060 the same holds for `lighting.ts`: every number in `LIGHT_MODES` and every numeric export has a row (the mode's words, `toneMapping`, `shadows` and `nightLights`, are in 16.12). Since ticket 056 the test also fails when a constant of chapter 18 (the rows for `tilecity.ts` at the end of the table) is missing or changed, and when `parkmetrics.ts` exports a constant (not a function) that has no row; `KERB_BAY_SHARE_MAX` is avenue x street, `PARK_SUPPLY_BAND` is floor x ceiling and `PARK_CHECK` is P1 to P6 in that order. Since ticket 058 the test also fails when `escapes.ts` exports a number or a record of numbers that has no row here; `ESCAPE_SCALE_Y` is min x max, and `CODE_ESCAPE` is `w`, `d`, `deck`, `rail`, `bar`, `tread`, `riser`, `hatch0`, `hatch1`, `stair0`, `stair1`, `ladderX0`, `ladderX1`, `ladderZ`, in metres (16.11). Since ticket 055 F the test also fails when `sills.ts` exports a number or a record of numbers that has no row here; `STEPS_SCALE_Y` is min x max (16.10). Colours are `0x` hex. Since ticket 057 the test also fails when `facade.ts` or `frontage.ts` exports a number or a record of numbers that has no row here (a constant that `frontage.ts` re-exports from `tilecity.ts` is covered by the `tilecity.ts` row), and when a constant that chapter 19 names from `tilecity.ts` has none. `WALL_FRONT_M` and `WALL_SIDE_M` are the exceptions: they hold a distance per piece, which `facade.test.ts` pins as a fixture, so only their constants are rows. `BLOCK_TILES` is min x max, `PASSAGE_W_M` is min x max, `COURT_CELLS` is w x d, and `FRONTAGE_CHECK` and `VARIETY_CHECK` are G1 to G4 and V1 to V4 in that order. The `tilecity.ts` rows from `TILE_M` to `PARK_HALF_SIDE_MIN_CELLS` are the constants of chapter 19.
+The drift test (`styleguide.test.ts`) reads this table. Each row names an export of the file in its last column. A value is a number (within 1e-9), a colour as `0x` hex (exactly), or `a x b x c` for a record, in the record's field order. `LOT_TYPES` is frontage x depth x cap in metres and `PLACE_SIZES` is width x depth in metres. `STACK_STYLES[i].pitch_m` is base x floor x roof in metres (the storey heights a recipe counts floors by; the roof is the height reserved under the cap), in the order `apartment-01`, `-02`, `-03`, `office-old-small`, `office-old-large`, `office-octagon`. `STACK_FLOORS` is the fewest floors over the base. `TINTS[i]` is the i-th wall tint. `CITY_CHECK` is the threshold of R1 to R13 in that order (a share to reach, or a count not to pass, chapter 16.8) and `CITY_STOREYS` is the fewest and most storeys. Changing a constant in code or a value here fails the test. Since ticket 053 the test also fails when `stacks.ts`, `terrace.ts`, `dressing.ts`, `furniture.ts`, `streetcam.ts` or `citymetrics.ts` exports a number that has no row here, and when `town.ts` does for a `TERRACE_*`, `PARKING_*` or `PLAZA_*` name. Since ticket 054 the test also fails when `colourway.ts` exports a constant (not a function) that has no row here; `COLOURWAY_POOL` is pinned by its length, and its ids are the table in 16.9. Since ticket 060 the same holds for `lighting.ts`: every number in `LIGHT_MODES` and every numeric export has a row (the mode's words, `toneMapping`, `shadows` and `nightLights`, are in 16.12). Since ticket 056 the test also fails when a constant of chapter 18 (the rows for `tilecity.ts` at the end of the table) is missing or changed, and when `parkmetrics.ts` exports a constant (not a function) that has no row; `KERB_BAY_SHARE_MAX` is avenue x street, `PARK_SUPPLY_BAND` is floor x ceiling and `PARK_CHECK` is P1 to P6 in that order. Since ticket 058 the test also fails when `escapes.ts` exports a number or a record of numbers that has no row here; `ESCAPE_SCALE_Y` is min x max, and `CODE_ESCAPE` is `w`, `d`, `deck`, `rail`, `bar`, `tread`, `riser`, `hatch0`, `hatch1`, `stair0`, `stair1`, `ladderX0`, `ladderX1`, `ladderZ`, in metres (16.11). Since ticket 055 F the test also fails when `sills.ts` exports a number or a record of numbers that has no row here; `STEPS_SCALE_Y` is min x max (16.10). Colours are `0x` hex. Since ticket 057 D the rows for `tileslots.ts` (the draw-call caps and the gate's size and colour) are checked as well. Since ticket 057 the test also fails when `facade.ts` or `frontage.ts` exports a number or a record of numbers that has no row here (a constant that `frontage.ts` re-exports from `tilecity.ts` is covered by the `tilecity.ts` row), and when a constant that chapter 19 names from `tilecity.ts` has none. `WALL_FRONT_M` and `WALL_SIDE_M` are the exceptions: they hold a distance per piece, which `facade.test.ts` pins as a fixture, so only their constants are rows. `BLOCK_TILES` is min x max, `PASSAGE_W_M` is min x max, `COURT_CELLS` is w x d, and `FRONTAGE_CHECK` and `VARIETY_CHECK` are G1 to G4 and V1 to V4 in that order. The `tilecity.ts` rows from `TILE_M` to `PARK_HALF_SIDE_MIN_CELLS` are the constants of chapter 19.
 
 | Constant | Value | File |
 | --- | --- | --- |
@@ -1227,6 +1232,7 @@ The drift test (`styleguide.test.ts`) reads this table. Each row names an export
 | `WALL_MIN_AREA_M2` | 0.5 | facade.ts |
 | `WALL_PLANE_TOL_M` | 0.02 | facade.ts |
 | `WALL_FACE_COS` | 0.99 | facade.ts |
+| `WALL_OCTAGON_BASE_M` | 0.174 | facade.ts |
 | `OVERLAP_MAX_M` | 0.6 | frontage.ts |
 | `RECESS_MAX_M` | 0 | frontage.ts |
 | `FRONTAGE_TOL_M` | 0.01 | frontage.ts |
@@ -1235,6 +1241,16 @@ The drift test (`styleguide.test.ts`) reads this table. Each row names an export
 | `VOID_RASTER_M` | 0.25 | frontage.ts |
 | `FRONTAGE_CHECK` | 0 x 0 x 0 x 0 | frontage.ts |
 | `VARIETY_CHECK` | 0 x 0 x 0 x 0 | frontage.ts |
+| `TILE_DRAW_CALLS_MAX` | 40 | tileslots.ts |
+| `INTERIOR_DRAW_CALLS_MAX` | 24 | tileslots.ts |
+| `STALL_LINES_LIFT_M` | 0.01 | tileslots.ts |
+| `GATE_H_M` | 2.2 | tileslots.ts |
+| `GATE_SMALL_H_M` | 1.3 | tileslots.ts |
+| `GATE_POST_W_M` | 0.2 | tileslots.ts |
+| `GATE_POST_EXTRA_H_M` | 0.25 | tileslots.ts |
+| `GATE_THICK_M` | 0.12 | tileslots.ts |
+| `GATE_ALLEY_REACH_M` | 1 | tileslots.ts |
+| `GATE_COLOUR` | 0x6b4b32 | tileslots.ts |
 
 Night's global lighting as written in the table of `lighting.ts` (the rig reads it; since ticket 060 `scene.ts` holds no light literal of its own), pinned by the exact source text as well:
 

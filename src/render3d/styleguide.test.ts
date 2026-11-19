@@ -28,6 +28,7 @@ import * as stacks from "./stacks";
 import * as streetcam from "./streetcam";
 import * as terrace from "./terrace";
 import * as tilecity from "./tilecity";
+import * as tileslots from "./tileslots";
 import * as town from "./town";
 
 const GUIDE = "docs/city-style-guide.md";
@@ -56,6 +57,7 @@ const MODULES: Readonly<Record<string, Record<string, unknown>>> = {
   "colourway.ts": colourway as unknown as Record<string, unknown>,
   "lighting.ts": lighting as unknown as Record<string, unknown>,
   "tilecity.ts": tilecity as unknown as Record<string, unknown>,
+  "tileslots.ts": tileslots as unknown as Record<string, unknown>,
   "parkmetrics.ts": parkmetrics as unknown as Record<string, unknown>,
 };
 
@@ -831,11 +833,11 @@ describe("chapter 19 gives frontage and block interiors, and the numbers it name
     expect(have.filter((r) => r.startsWith("BLOCK_FALLBACK_DEPTHS[")).length).toBe(tilecity.BLOCK_FALLBACK_DEPTHS.length);
   });
 
-  it("has a row for every constant that chapter 19 names from tilecity.ts, facade.ts or frontage.ts", () => {
+  it("has a row for every constant that chapter 19 names from tilecity.ts, facade.ts, frontage.ts or tileslots.ts", () => {
     let checked = 0;
     for (const m of text.matchAll(/`([A-Z][A-Z0-9_]{2,})`/g)) {
       const name = m[1]!;
-      for (const file of ["tilecity.ts", "facade.ts", "frontage.ts"]) {
+      for (const file of ["tilecity.ts", "facade.ts", "frontage.ts", "tileslots.ts"]) {
         const v = (MODULES[file] as Record<string, unknown>)[name];
         if (v === undefined || !numeric(v) || name === "WALL_FRONT_M" || name === "WALL_SIDE_M") continue;
         const own = file === "frontage.ts" && reexported.has(name) ? refs("tilecity.ts") : refs(file);
@@ -871,9 +873,9 @@ describe("chapter 19 gives frontage and block interiors, and the numbers it name
       if (tag![1] === "Decided" || tag![1] === "Default") expect(/^- \*\*(Decided|Default) \(057\b/.test(b), `chapter 19: no ticket beside: ${b.slice(0, 80)}`).toBe(true);
       if (tag![1] === "Pending" || tag![1] === "Open") expect(b.startsWith(`- **${tag![1]} (waits for `), `chapter 19: no "what it waits for": ${b.slice(0, 80)}`).toBe(true);
     }
-    // What depends on section D is marked as such, never stated as built.
-    expect(chapter(19).filter((l) => l.startsWith("- **Pending (waits for 057 D")).length).toBeGreaterThanOrEqual(5);
-    expect(text).toMatch(/built by D/i);
+    // Section D is merged: nothing in the chapter waits for it, and what it built is recorded as 057 D (19.8).
+    expect(chapter(19).filter((l) => l.startsWith("- **Pending")), "chapter 19 has no Pending line left").toEqual([]);
+    expect(chapter(19).filter((l) => /^- \*\*Default \(057 D\)/.test(l)).length).toBeGreaterThanOrEqual(8);
   });
 
   it("keeps Josh's words as the Decided lines: the wall line, the fill, the grid, and the R1 floor", () => {
@@ -895,10 +897,13 @@ describe("chapter 19 gives frontage and block interiors, and the numbers it name
     expect(/^- \*\*Default \(056, 057 C\)\*\*: from 057 on, a block's lots are interior courts/m.test(parking)).toBe(true);
     expect(parking).not.toMatch(/waits for ticket 057 C/);
     expect(parking).toContain("(19.4)");
-    const gate = chapter(16).filter((l) => /^- \*\*Pending \(waits for 057 D[^)]*\)\*\*: the Town Pack pieces now placed/.test(l));
+    const gate = chapter(16).filter((l) => /^- \*\*Default \(057 D\)\*\*: the tile city places no Town Pack piece/.test(l));
     expect(gate).toHaveLength(1);
     expect(gate[0]).toContain("SM_Env_Fence_Wood_Gate_01");
-    expect(gate[0]).toContain("SM_Env_Fence_Wood_Post_01");
+    expect(gate[0]).toContain("_Post_01");
+    expect(gate[0]).toContain("`CITY_NEVER_USED`");
+    // 16.12 no longer says that no code draws grass.
+    expect(chapter(16).join("\n")).not.toMatch(/because no code draws grass/);
   });
 
   it("no longer holds the frontage and block rules among the decisions not yet built", () => {
