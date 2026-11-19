@@ -357,6 +357,7 @@ How to read it:
 
 - **Info**: the pack has no animal models, so nothing needs excluding for them.
 - **Info (055 F)**: one model of a pack that is otherwise not placed is in use: the Town Pack's `SM_Bld_House_Concrete_Steps_01` (`STEPS_KEY`, 1.2 x 0.5 x 0.9 m), the door steps of 16.10. Its sibling `SM_Bld_House_DeckSteps_01` converts to 0 x 0 x 0 (`scale-suspect`), so it is broken and not used. The City Pack's only steps, `SM_Bld_Apartment_Stairs_*`, are in the never-used table above (2.4 to 4 m high and 5 to 10 m deep, far too big for a door).
+- **Pending (waits for 057 D, which draws it)**: the Town Pack pieces now placed by the tile city are `SM_Env_Fence_Wood_Gate_01` and `SM_Env_Fence_Wood_Post_01`, the gate and posts that close a gated passage (19.2), where the pack is present, with a code-drawn gate in the run's colourway where it is not. No piece of `CITY_NEVER_USED` is lifted, and the interiors of 19.4 use the City Pack and code only. Built by D.
 - **Open (waits for a pack that has glass windows, or a ticket that draws them in code)**: no glass for apartment windows and no lit-window variant: the windows are baked into the floor pieces. Josh's rule that nothing but lit places and live wires glows (chapter 12) means a lit window would be a ticket of its own, not a dressing.
 - **Open (waits for a pack that has them, or a ticket that draws them in code)**: no balconies, cornices or separate parapets; no roof railings or ladders; no roller shutters.
 - **Open (waits for a second model of each, or a ticket that varies them in code)**: one water tower, one satellite dish and one ATM model only, so variety there comes from placement, not models.
@@ -595,8 +596,8 @@ How many parking spaces the tile city (`city=tiles`) gives a home and a shop, wh
   - A **home** gets `PARK_PER_HOME` (0.15) stalls in a parking lot, in its own block or across one street.
   - Residents never count on kerb bays, and shoppers never count on lot stalls.
 - **Info (056)**: these are drawn spaces, about half of what a real dense terraced core provides. A real core has about 0.3 spaces per home, and about 1 per 40 m2 of shop, which here is about 0.7 per 31 m2 shop bay. The camera reads every drawn stall at full size, and Josh found the full count overwhelming.
-- **Info (056, Josh 18 Nov 2026, "I approve one through three")**: Josh approved ticket 056 with its six open questions at their defaults, so each default below stands as written: the ratios of 18.1 (the alternative, double both, is not taken); build-outs in the parking band (18.5); no rear courts, so lots stay on the frontage (18.4); a space record for every lot stall as well as every bay (`TileCity.lotStalls`); no residents at the kerb; and a home of two column-floors (18.2).
-- **Pending (waits for ticket 057 C)**: from 057 on, a block's lots become interior courts in place of frontage lots. The quota of 18.4 and every check stay, and chapter 19 takes over the placement.
+- **Info (056, Josh 18 Nov 2026, "I approve one through three")**: Josh approved ticket 056 with its six open questions at their defaults, so each default below stands as written: the ratios of 18.1 (the alternative, double both, is not taken); build-outs in the parking band (18.5); a space record for every lot stall as well as every bay (`TileCity.lotStalls`); no residents at the kerb; and a home of two column-floors (18.2).
+- **Default (056, 057 C)**: from 057 on, a block's lots are interior courts in place of frontage lots (19.4), where each court fits. The quota of 18.4 and every check stay, and chapter 19 takes over the placement. This replaces 056 Q3's answer (rear courts: no), which Josh approved with the others at their defaults before he gave the 057 rulings.
 
 ### 18.2 Units
 
@@ -627,10 +628,11 @@ How many parking spaces the tile city (`city=tiles`) gives a home and a shop, wh
 
 ### 18.4 Lots (residents)
 
-- **Default (056)**: a block wants `clamp(round(homes x PARK_PER_HOME / LOT_STALLS), 1, LOTS_PER_BLOCK_MAX)` parking lots. `LOT_STALLS` is twice `BAYS_PER_PARKING_TILE`: a lot is two `ParkingLines_01` tiles.
+- **Default (056)**: a block wants `clamp(round(homes x PARK_PER_HOME / LOT_STALLS), 1, LOTS_PER_BLOCK_MAX)` parking lots. `LOT_STALLS` is twice `BAYS_PER_PARKING_TILE`: a lot is two `ParkingLines_01` tiles. From 057 C each lot is the mouth of a residents' court inside the block (19.4), and an alley block's own court answers one of its lots (19.6).
 - **Default (056)**: every lot is placed by demand, through the lot runs of 055 B. The terrace fill's hash lot (`PARKING_ONE_IN`, chapter 4) is switched off in the tile city (`parkByHash` false in the terrace options; the ladder's town keeps it).
-- **Default (056)**: lots stay 10 x 10 m on the tile grid with a kerb cut (055 B), and the cut's parking cells stay plain asphalt so cars can turn in. A run shorter than `TILE_PARK_MIN_RUN_M` cannot hold a lot.
-- **Default (056)**: every lot stall is a record, so a later cars ticket has every space: `TileCity.lotStalls` holds `LOT_STALLS` per lot in the same shape as a kerb bay.
+- **Default (056, 057 C)**: a lot's 10 m opening in the row stays on the tile grid with a kerb cut (055 B), and the cut's parking cells stay plain asphalt so cars can turn in. From 057 C the opening is the court's drive, and the lot's stalls are in the court behind it (19.4); a lot whose court does not fit keeps 056's 10 x 10 m frontage lot. A run shorter than `TILE_PARK_MIN_RUN_M` cannot hold a lot.
+- **Default (056, 057 C)**: every lot stall is a record, so a later cars ticket has every space: `TileCity.lotStalls` holds `LOT_STALLS` per lot (from 057 C, per court) in the same shape as a kerb bay.
+- **Info (057 C)**: the court's drive is as wide as 056's lot, so the frontage that parking lots cost stays about 90 m of the 1,800 m; the saving of about 45 m that the 057 draft counted would need a one-cell drive (19.4).
 
 ### 18.5 The parking band without bays
 
@@ -696,6 +698,186 @@ How many parking spaces the tile city (`city=tiles`) gives a home and a shop, wh
   - 3 x 3: 18 or 19 tiles, 54 to 57 bays, 9 lots with 54 stalls, 2.9 to 3.1 bays per 100 m of block kerb, 1 to 3 tiles of bays per block, no side over 0.40 of its kerb, no bay on an outer side, no short block, 196 to 247 build-outs with 73 to 98 trees. Today's rule laid 110 to 132 tiles, 330 to 396 bays (66 to 78 of them outer), 18.0 to 21.0 bays per 100 m, and 18 stalls.
   - 6 x 4: 46 to 51 tiles, 138 to 153 bays, 23 or 24 lots with 138 to 144 stalls (one block short in one seed, within the one in nine allowed), 3.0 to 3.1 bays per 100 m. Today's rule laid 248 to 290 tiles, 744 to 870 bays and 18 stalls.
   - Per block both sizes hold about 42 homes and 18 shops, so the 6 x 4 city lands where the 3 x 3 does: one to three tiles of bays and one lot per block.
+- **Info (057 E, measured 19 Nov 2026)**: the two tables above were measured on 056's layout, with block sides of 40 to 60 m. Since 057 F the blocks are 30 to 80 m and 057 G's alleys and parks change the blocks' quotas. On the default city (3 x 3, seed 1) the layout now has 57 bays and 11 courts with 66 court stalls (two blocks ask two lots, seven ask one), and no block keeps a frontage lot. P1 to P6 still pass on it (`parkmetrics.test.ts`); the tests, not these lines, are the record.
+
+## 19. Frontage and block interiors
+
+How the tile city's buildings meet the pavement, how a row of them ends, what fills the inside of every block, and how blocks differ from one another (ticket 057, sections A to G, in `facade.ts`, `frontage.ts`, `tilecity.ts` and `terrace.ts`). The layout and the checks (G1 to G4, V1 to V4) are pure data and are built; the drawing of the interiors is section D, built by another builder, and every line that depends on it is marked **Pending (waits for 057 D ...)** and says "built by D". Nothing on the ladder maps changes.
+
+- **Info (057)**: the ladder keeps chapter 4's rules: back-aligned stacks, and a far end that closes at a seam or at an alley of `ALLEY_MIN_M` to `ALLEY_MAX_M`. Every new option of this chapter defaults to today. The two defaults that are not zero (`alignOf` in `terrace.ts`: "wall"; `farOverlapOf`: `END_OVERLAP_MAX_M`) follow from a run having a pavement `frame`, which every tile-city run has and no ladder run has, so a ladder stack, run and town are as they were.
+- **Info (057)**: the draft of this chapter was written before sections A to G were built. Where the code differs from the draft, the line says "as built", and the code is the record.
+
+### 19.1 The wall line
+
+- **Decided (057, Josh 18 Nov 2026, after playing the tile city at `793bbf7`)**: "It's okay if the buildings rest on top of the sidewalk and overlap a little bit. It is not okay if the buildings sit recessed from the sidewalk and leave a gap of nothing between them."
+- **Default (057 A)**: in the tile city a terrace stack is aligned on its **wall plane**, not on its back faces (`TILE_STACK_ALIGN`, "wall"; the ladder keeps "back").
+  - Each column's ground and floor pieces put their measured wall plane (`WALL_FRONT_M`: how far behind the piece's front bound its wall stands, read from the GLB per key) on the lot's front line, which is the pavement's back edge.
+  - A street-level wall may stand up to `OVERLAP_MAX_M` onto the pavement, and none stands behind the edge (`RECESS_MAX_M`, with `FRONTAGE_TOL_M` of tolerance).
+  - Sills, frames, cornices and signs may stand further out than the wall, by up to `WALL_REACH_M` (the same number, because the reach is what sets the limit).
+  - The backs of the stacks are then ragged: each piece's back stands where its own depth puts it. They face the inside of the block, and 19.4 fills it.
+- **Default (057 Q4)**: the overlap limit is 0.6 m. The first draft said 0.5 m, and it was raised after the 057 A review because the real City Pack shop pieces stand up to 0.557 m (`Shop_04`), 0.529 m (`Apartment_Door_01`) and 0.520 m (`Shop_06`) in front of their wall.
+- **Info (057 A, as built; measured by 057 E on 19 Nov 2026 on the default city)**: with "wall" alignment every street-level wall plane stands exactly on the pavement's back edge (within 1e-15 m), so the walls rest on the edge and never behind it, and what overlaps the pavement is the pieces' own sills and signs: the furthest bound stands 0.557 m onto it, inside `OVERLAP_MAX_M`.
+- **Info (057 A, as built)**: how `WALL_FRONT_M` was measured (`measureWallPlane`, run on the converted `city-pack.glb`).
+  - The wall of a **ground** piece (a base, shop, door or corner) is the frontmost front-facing plane that reaches the ground (its lowest vertex at most `WALL_GROUND_Y_M` up), within `WALL_REACH_M` of the piece's front bound.
+  - The wall of a **floor** piece is the largest front-facing plane within `WALL_FLOOR_REACH_M` of the bound, with no ground test: an office floor is set back on purpose.
+  - A plane counts only from triangles below `WALL_BAND_M`, within `WALL_FACE_COS` of the face's direction, grouped when their centroids are within `WALL_PLANE_TOL_M`, and with an area of at least `WALL_MIN_AREA_M2`.
+  - This replaced the draft's "largest front-facing planar area below 3.5 m", which picked the back wall of a shop's interior (1.0 to 2.8 m behind the front) or a sign band.
+  - `WALL_SIDE_M` is the same for a corner piece's open side. A roof has no wall and no entry, and its pieces align on their front bound. A front that Josh recalibrated in the gallery makes a key's entry not apply (`wallOffset` gives 0), so that piece also aligns on its bound.
+- **Info (057 A)**: `facade.test.ts` pins every value of both tables as a typed-in fixture and, where the converted GLB is on the machine, re-measures each key within 0.02 m. The tables hold a distance per piece, so the Numbers table pins their constants and not their entries.
+- **Pending (waits for 057 D)**: `SM_Bld_OfficeOctagon_Base_01` is pinned to its 0.174 m face in `WALL_FRONT_M` before any office style is aligned on "wall" (it holds 0.595 today, and no tile-city run uses an office style yet). D also passes "wall" to `packTown` explicitly, so the tile city does not depend on the default, and adds a committed pin of `packTown` on the three protocol maps so the ladder's "unchanged" is checked on every run.
+
+### 19.2 Corners and far ends
+
+- **Default (057 B)**: this re-cuts Josh's earlier "Keep the inset" (055 design item 8), because his words above forbid the strip it leaves.
+  - Every row's first block stands **flush** with its corner: the inset is `TILE_ROW_INSET_M` (0), and the corner block's flank meets the cross street's pavement. 055 B's inset function and its 2.5 m cap are gone.
+  - Every first lot keeps its `cornerSides`, so the Decided corner rule of chapter 7 holds.
+  - The leftover length goes to the row's far end, which closes in one of three ways, tried in this order.
+    1. A **seam**: a gap of at most `TERRACE_SEAM_M`.
+    2. An **overshoot**: one more column when that ends at most `END_OVERLAP_MAX_M` inside the next row's corner block, where the two walls meet and nothing shows. It applies only where the far wall is a real corner block (the packer's `farOverlap_m`; `farOverlapOf` gives `END_OVERLAP_MAX_M` to a run with a frame and 0 to a ladder run).
+    3. A **gated passage**: whatever gap is left, from `PASSAGE_W_M`'s first number (1.0 m) to its second (one column, 5.3 m), closed at the wall line by a gate and posts. The passage leads to the interior (19.4).
+- **Default (057 B)**: nothing else is allowed. Every metre of a block side's pavement back edge is one of a building wall, a corner flank, a seam, a gated passage, or a deliberate opening: a parking lot or a plaza, a court's drive (with its kerb cut where cars cross), or an alley's one-cell mouth (19.6). A side that is the rear of a block part (beside an alley) is not a frontage and is not held to this.
+- **Default (057 B)**: this replaces, for the tile city only, 055's far-gap share ("seam or alley on at least the ladder's share"), and retires 056 A's temporary far-gap floors. The run after a parking lot or a court drive closes like any other run.
+- **Info (057 B, as built; measured by 057 E on 19 Nov 2026)**: passages are not the rare third choice the draft pictured, because most row lengths fall in the packer's dead band (N unscaled columns span only 5.0 N to about 5.28 N metres) and a seam needs a gap of 0.1 m or less. On the default city, 52 runs close as 50 passages and 2 overshoots (0.415 m at most), with no seam, no slit and no wide gap; seeds 1 to 5 at 3 x 3 close 44 to 52 runs as 44 to 50 passages and 2 to 4 overshoots; 6 x 4, seed 1 closes 138 runs as 130 passages and 8 overshoots. So nearly every row's end is a gate onto the interior.
+- **Info (057 B and C, as built)**: the passages are known only once the runs are packed, so `tileCity` returns none and `withPassages(city, tilePassages(city, packed))` is the city with them. Each is `{ x_m, z_m, w_m, yaw, run, floor }`. The `floor` is apron pavement, `PASSAGE_FLOOR_DEPTH_M` (one cell) deep from the back edge inward and the passage wide: nothing else in the city lays a surface on that ground, and G3 credits only what is recorded there.
+- **Pending (waits for 057 D)**: the gate and its posts at each passage's wall line (the Town Pack's `SM_Env_Fence_Wood_Gate_01` and `_Post_01` where the pack is present, else a code-drawn wall and gate in the run's colourway, one storey high), a small gate at each passage that opens on an alley mouth, and the passage floor. Built by D.
+
+### 19.3 Thinner blocks: considered, not the default
+
+- **Info (057)**: blocks whose terraces butt back to back would be about 12 m deep, two stacks of 5.2 to 5.9 m. On the 5 m grid that is 15 m, with a 3 m service strip. With 25 to 30 m streets between them, roads would take about three quarters of the city along that axis. They already took about 65% of the area (about 105 m of street to 150 m of blocks per axis on the default city at `793bbf7`).
+- **Default (057 Q2)**: keep blocks of the sizes of 19.5 and fill their interiors (19.4). Thinner blocks, with one axis of 15 m rowhouse blocks, are an alternative for a later ticket.
+
+### 19.4 The block interior
+
+- **Decided (057, Josh 18 Nov 2026)**: after "There are blank open areas where the buildings don't exist. Those need to be filled in with something. You could fill that with parking lots, parks, or you could have those squares of buildings be thinner so that the buildings are butted up right against each other.", he said: "Grass and pavement should fill the blank areas."
+- **Default (057 C)**: nothing inside a block is left unfilled. `frontage.ts` rasterises each block at `VOID_RASTER_M` (0.25 m); at most `VOID_MAX_SHARE` of it may be unfilled, in no square over `VOID_PATCH_MAX_M` on a side (check G3).
+- **Info (057 C, as built)**: the interior is laid on the 5 m grid (`TILE_M`). Ring 1, the outer band of cells, is the terraces' and is not an interior cell. The cells inside it are `TileCity.interior`, each with a role of `InteriorRole`: `apron`, `court`, `drive`, `green`, `greenPath`, and from 19.6 `alley` and `parkEdge`. The draft said `TileRole` would gain these; as built they are kept apart, because a court's drive and its first row of stalls are also the `lotSurface` cells of 056 and `tileslots.ts`'s table is exhaustive over `TileRole`.
+- **Default (057 C)**: the interior is, in this order:
+  1. **The rear apron (pavement).** Ring 2, the strip the terraces' backs stand over (`variant` `APRON_STRIP`, drawn in code and never a pack tile), and `APRON_CELLS` more rings (1) of whole cells. This is a continuous paved apron round the inside of the block, joining the backs, the gated passages, the court drive and the court.
+  2. **The residents' court**, which takes over 056's 18.4 (below), on the apron.
+  3. **The green** is every other interior cell: grass.
+     - A path one cell wide (`greenPath`) runs along the green's longer axis, and cross paths cut it wherever a row of green would run past `GREEN_SPAN_MAX_CELLS`, so the green never stretches further than that without a path.
+     - Benches beside each path and trees on one green cell in `GREEN_TREE_ONE_IN` (by hash, at a cell's middle, a bench `BENCH_FROM_PATH_M` from its path's edge) are optional dressing, in `TileCity.greenProps`. Nothing else (no playground, fountain or hedge) is required.
+  4. **Plazas** (055 B's corner plazas) stay as they are, on the street.
+- **Default (057 C)**: the residents' court. A block's lot quota (056: 18.4) becomes interior courts in place of frontage lots.
+  - A court unit is `COURT_CELLS` (2 x 3 cells, 10 m wide and 15 m deep): a row of three stalls (a `ParkingLines_01` tile), a 5 m aisle (`COURT_AISLE`) and a second row of stalls (`COURT_STALLS`), six stalls (`LOT_STALLS`). The aisle's two ends open on the apron beside the court, so a car reaches it over pavement.
+  - It is reached by a **drive**: `DRIVE_CELLS` cells (2, 10 m) through the terrace row, with 056's kerb cut on the street and plain parking cells in front, laid by demand as 056 does.
+  - `TileCity.courts` holds each court's cells, and `TileCity.lotStalls` (056) now lists the courts' stalls.
+  - A lot whose court would leave its block part or cross another keeps 056's frontage lot, and its block is in `TileCity.frontLots`. At most `CITY_FRONT_LOT_BLOCKS_MAX` (one in nine) of a city's blocks may be there. Measured: none on the default city and on four of the five seeds at 3 x 3; one block on seed 5.
+- **Default (057 Q3)**: 056's 0.15 stalls per home (`PARK_PER_HOME`) is kept, so six stalls per court and one or two courts per block.
+- **Default (057 Q1)**: the apron is `APRON_CELLS` 1 deep, so the interiors are mostly pavement. If Josh finds them too grey, 0 drops the apron to the strip alone and gives about half the interior to grass: one constant.
+- **Default (057 Q6)**: the fill uses the City Pack and code only: `SM_Env_Grass_01`, `SM_Env_Sidewalk_Panel_01` (the apron and paths), `SM_Env_Tree_01` to `_03` and `SM_Prop_ParkBench_01`, each with a code-drawn fallback. The one Town Pack piece is the passage gate (19.2).
+- **Info (057 C, as built)**: the drive is two cells, not the drafted one. 056's parking lot is a fixed 10 m opening laid by `terraceBlockRows` in `town.ts`, which 057 may not touch, so the drive takes the whole opening. One cell needs a `parkW_m` option in `town.ts` (a re-cut). So the frontage does not gain the drafted 45 m: the nine 10 m lots of 056 are nine 10 m drives, and the frontage cost of the parking lots stays about 90 m.
+- **Info (057 C and G, measured by 057 E on 19 Nov 2026)**: what the interiors are made of on the default city (3 x 3, seed 1), in m2 of block area (28,675 m2 in all). The remaining 8,225 m2 (28.7%) is the terrace band: buildings, plazas and frontage lots.
+
+| Interior role | m2 | Share of interior |
+| --- | --- | --- |
+| `apron` | 11,225 | 54.9% |
+| `court` | 1,650 | 8.1% |
+| `drive` | 550 | 2.7% |
+| `green` | 2,725 | 13.3% |
+| `greenPath` | 1,375 | 6.7% |
+| `parkEdge` | 1,800 | 8.8% |
+| `alley` | 1,125 | 5.5% |
+| All | 20,450 | 100% (71.3% of block area) |
+
+- **Info (057 C, measured by 057 E)**: over seeds 1 to 5 at 3 x 3 and 6 x 4 seed 1, the interior is 70.7% to 73.1% of block area, grass is 12.0% to 14.5% of the interior (8.5% to 10.5% of block area), and pavement in all its roles is the rest. At most 0.28% of any block is unfilled, in squares of 0.25 m at most.
+- **Pending (waits for 057 D)**: drawing every interior role (19.8). Built by D.
+
+### 19.5 Block variety: 90 degrees, not a grid of squares
+
+- **Decided (057, Josh 18 Nov 2026)**: "Keep in mind, 90 degrees does not mean a grid of squares. You can have varying widths for blocks, alleyways, parks... etc"
+- **Info (057 F)**: what `tilecity.ts` varied before: every street line ran the city's full length, each column of blocks took one width and each row one depth from 8 to 12 cells (40 to 60 m, nine footprints on the default city, one of them square), and one interior line in `AVENUE_ONE_IN` was an avenue. But every block in a column shared its width, the range was a 1.5 to 1 ratio at most, and no block was split, so it still read as a regular grid.
+- **Default (057 F)**: a wider range, from `BLOCK_TILES` (a block side is 6 to 16 cells, 30 to 80 m).
+  - Neighbouring lines on one axis differ by at least `BLOCK_STEP_MIN_CELLS` cells, by hash, and no size is repeated on an axis while a free one exists (with 11 sizes and at most 6 blocks, one does), so every column and every row is its own width.
+  - Every street keeps its profile along its whole length (055 design item 3), because the lines stay straight and continuous: a block's size changes the spacing between lines, never a street's cross-section. Streets that end at a T-junction are not built (057 Q8; a later ticket could let an interior line stop and merge two blocks into one long one).
+  - Alleys and parks (19.6) split or replace parts of blocks, so blocks in one column no longer look alike.
+- **Default (057 F)**: block types by size (`TileBlock.type`, from `blockType`):
+
+| Type | Both or one side | Constants |
+| --- | --- | --- |
+| small | both sides at most `BLOCK_SMALL_MAX_M` | 40 m |
+| long | one side at least `BLOCK_LONG_MIN_M` and the other at most `BLOCK_LONG_SHORT_MAX_M` | 60 m and 45 m |
+| large | both sides at least `BLOCK_LARGE_MIN_M` | 55 m |
+| medium | the rest | |
+
+- **Info (057 F, as built)**: the block draw has three rules the draft did not have. They are tuning choices, and they narrow the effective spread of the 6 to 16 cell range.
+  - A block whose longer side is under 7 cells (35 m) is rejected, because the kerbside bays of 056 (P1) cannot be laid on a 6 x 6 block on streets.
+  - The mean block size on each axis is at least `BLOCK_MEAN_MIN_CELLS` (10 cells, 50 m), because R1 was borderline (0.887 to 0.90) on cities of mostly short sides.
+  - A draw that misses the variety rules (V1 and V2 of 19.7) or cannot be laid is redrawn by hash, at most `BLOCK_DRAWS_MAX` times; if every draw misses, a known-good layout is used (`BLOCK_FALLBACK_WIDTHS` and `BLOCK_FALLBACK_DEPTHS`, cut to the city's size; `alleys.test.ts` forces the miss).
+  - The hash key `"width"` in `blockLens` was chosen among a few tried, because R7 (the tile city's fire-escape floor) is noise on the dressing's own escape chance and moves in ninths with nine blocks. Ticket 061 (R7 by rank, approved 18 Nov 2026) is to make it a guarantee.
+- **Info (057 F, measured by 057 E on 19 Nov 2026)**: on the default city the columns are 70, 55 and 30 m wide and the rows 65, 45 and 75 m deep: nine different footprints, none square, a coefficient of variation of 0.32 along x and 0.20 along z. On 6 x 4, seed 1, 24 blocks have 24 different footprints.
+
+### 19.6 Alleys and parks
+
+- **Default (057 G)**: an **alley** is a one-cell (`ALLEY_CELLS`, 5 m) service lane across a block, parallel to its short side, from street to street.
+  - It enters through a one-cell gap in each row it crosses, with a kerb cut at each end and a plain parking cell in front of it, as a lot's cut has. The rows it crosses end flush on the lane. The gap is a deliberate opening under 19.2.
+  - A block it splits is laid as two **parts** (`TileCity.parts`), each as a block of its own: its rows face the streets, and the side beside the alley is a rear (`TilePart.alleySide`), an apron and not a frontage. Quotas stay per street block, not per part (056 counts them on the block the alley splits).
+  - The lane is the interior role `alley`. It is dressed as a lane: bins (`TileCity.alleyBins`) on the aprons beside it every `ALLEY_BIN_EVERY_M`, alternating sides, at `ALLEY_BIN_OFFSET_M` from its centre line, and never in the lane, in an end cell or on a court. No furniture stands in the lane.
+  - Rear doors and rear fire escapes are not drawn: the City Pack has no rear-door piece, and fire escapes are 058's.
+  - Each alley block's first court opens on its alley lane: a two-cell drive beside the lane, then stalls, an aisle and stalls, in the wider part of the split block. The part must be at least `ALLEY_COURT_PART_MIN_CELLS` wide and the lane at least `ALLEY_COURT_LANE_MIN_CELLS` long. This court's `run` is "" (it belongs to no terrace run), its `street` is `alley:<block>`, it has no kerb cut (the lane is its way in), and it answers one lot of the block's quota, so the street rows are asked for one less.
+- **Default (057 G)**: alley rates.
+  - Every **long** block, and every block with a side of `ALLEY_SIDE_LONG_M` (70 m) or more, gets one at its middle, if a side is at least `ALLEY_SIDE_MIN_CELLS` cells (45 m), so each part has room for a court.
+  - Every city has at least one alley per `ALLEY_ONE_IN_BLOCKS` (4) blocks: where too few blocks qualify, the longest blocks take one, in id order.
+- **Default (057 G)**: **parks**, under Josh's grass-and-pavement fill (19.4). The planner `planBlocks` chooses them from the blocks' own types and sides and the seed, so one size and seed give one city.
+  - **Whole-block park:** a **small** block can become all green with crossing paths, benches, trees on one cell in `GREEN_TREE_ONE_IN`, and a pavement edge of `PARK_EDGE_CELLS` (the role `parkEdge`) round all four sides. It has no rows, so no units.
+  - **Half-block park:** a **large** block whose short side is at least `PARK_HALF_SIDE_MIN_CELLS` can give half its short side, rounded down, on one long side to green. The other half is laid as a part of its own, whose park-facing row faces the park's pavement edge (`TilePart.parkSide`), so those buildings front the park. A park edge counts as a frontage where buildings face it.
+  - Rate: at least one park per `PARK_ONE_IN_BLOCKS` (6) blocks. Small blocks go first, as whole parks by hash, then large blocks, as half parks, those with no claim to an alley first. A block never has both an alley and a park.
+  - A park's green has a cross path as well wherever it is at least three cells each way, so its paths cross.
+- **Info (057 G, as built)**: a whole-block park carries no units, but it still asks its neighbours across a street for a tile of kerb bays and one lot, as 056 serves any block with no side of its own that has room (`parkmetrics.ts` expects every street block to have both). A neighbour that cannot host leaves it unserved, which P2 allows for ceil(blocks / 9) blocks.
+- **Default (057 G)**: the mix by type.
+
+| Block type | Default treatment |
+| --- | --- |
+| small | terraces with the interior fill; a whole-block park by hash until the park quota is met |
+| medium | terraces with the interior fill of 19.4 |
+| long | terraces split by an alley |
+| large | terraces with the interior fill, or half of it a park by hash until the quota is met; an alley if a side is at least `ALLEY_SIDE_LONG_M` |
+
+- **Info (057 G, measured by 057 E on 19 Nov 2026)**: the default city has five alleys and two parks, both half-block (it has no small block: its narrowest, 30 x 45 m, has a side over 40 m); seeds 1 to 5 at 3 x 3 have 4 to 7 alleys and 2 parks; 6 x 4, seed 1 has 13 alleys and 4 parks, with 32 bins in all.
+- **Pending (waits for 057 D)**: drawing the alley lanes and bins, the park edges, the court cells whose run is "" and a small gate at each passage that opens on an alley mouth (19.8). Built by D.
+
+### 19.7 The checks, and what they measured
+
+- **Default (057)**: `frontageMetrics(city, packed)` measures a packed tile city from its cells, interior and packed stacks (never from the code that laid them), `evaluateFrontage(m)` gives a verdict per check (G1 to G4, against `FRONTAGE_CHECK`), and `blockVariety(city)` with `evaluateVariety(m)` gives V1 to V4 (against `VARIETY_CHECK`). Every check allows 0. Each holds on the default city, seeds 1 to 10 at 3 x 3 and seeds 1 to 3 at 6 x 4, and each fails on a fixture.
+
+| Check | What it holds | Fails on |
+| --- | --- | --- |
+| G1, no recess | every street-level wall plane is between the pavement's back edge and `OVERLAP_MAX_M` onto it (no recess over `RECESS_MAX_M`, with `FRONTAGE_TOL_M`); a second, independently pinned table of the ground faces is read as well | the same city packed "back"-aligned |
+| G2, no gap in the frontage | along every block side the back edge is covered by a wall, flank, seam, overshoot (within `END_OVERLAP_MAX_M`), gated passage, parking lot, plaza or court drive | the layout of `793bbf7` (today's insets and alleys) |
+| G3, no void | each block rasterised at `VOID_RASTER_M`: at most `VOID_MAX_SHARE` unfilled, no square over `VOID_PATCH_MAX_M` | the layout of `793bbf7` (55 to 67% void) |
+| G4, courts reached | every court touches a drive, every drive has its kerb cut (or opens on an alley lane), and every alley end has its kerb cut | a drive with its kerb cut removed |
+| V1, block sizes vary | on each axis the sizes' coefficient of variation is at least `BLOCK_CV_MIN`, and the city has at least ceil(blocks / 2) distinct footprints | a uniform 10 x 10 cell grid |
+| V2, not square | at least `BLOCK_NONSQUARE_MIN` of the blocks are not square | the same |
+| V3, alleys | at least ceil(blocks / `ALLEY_ONE_IN_BLOCKS`) alleys, counted from the interior's `alley` cells | the same |
+| V4, parks | at least ceil(blocks / `PARK_ONE_IN_BLOCKS`) parks, counted from the `parkEdge` cells | the same |
+
+- **Decided (057, Josh 19 Nov 2026, "Tile-city R1 floor 0.88 (Recommended)")**: R1 (the frontage share, 16.8) has a floor of `TILE_CITY_R1_MIN` on the tile city, beside `TILE_CITY_R6_MIN` (0.45, 18.7) and `TILE_CITY_R7_MIN` (0.4). The alleys cut R1 to 0.897 to 0.903 on 3 x 3 cities against the ladder's 0.90, which stays in `CITY_CHECK` (`citymetrics.ts` is unchanged).
+- **Info (057 E, measured on 19 Nov 2026, with the fixture stacks of `frontage.test.ts`, no browser)**: the default city (3 x 3, seed 1) before 057 (the architect's baseline of 18 Nov on `793bbf7`, bounds and not walls) and now (`goal/city-style` with 057 A, B, C, F and G merged). The tests, not these lines, are the record.
+
+| | Before (`793bbf7`) | Now |
+| --- | --- | --- |
+| Street-level wall behind the pavement's back edge | up to 0.80 m, mean 0.26 m (by bounds; 11% of the frontage flush) | none: every wall plane on the edge; the furthest sill or sign 0.557 m onto the pavement |
+| Corner inset at every block corner | 1.0 to 1.8 m, up to 2.5 m | 0 |
+| How rows' far ends close | 81 to 85% a 1.0 to 1.5 m alley, 8 to 9% a seam, 5 to 9% a 1.5 to 4 m gap, 0 to 3% over 4 m | 50 of 52 gated passages and 2 overshoots (0.415 m at most); no seam, slit or wide gap |
+| Uncovered stretches of a block side's back edge | many (the insets and far ends) | 0 of 46 sides |
+| Empty yard in each block | 1,015 to 2,146 m2, 56 to 65% of the block | none: at most 0.28% of a block unfilled, in squares of 0.25 m at most |
+| Blocks | 40 to 60 m each way, nine footprints, one square | 30 to 70 m by 45 to 75 m, nine footprints, none square |
+| Alleys and parks | none | 5 alleys, 2 half-block parks |
+| Residents' parking | 9 frontage lots, 54 stalls (056's layout on the old block sizes) | 11 courts with 66 stalls (the blocks' quotas on the new sizes), none on the frontage |
+
+- **Info (057 E, measured on 19 Nov 2026)**: over seeds 1 to 5 at 3 x 3 and seed 1 at 6 x 4 every check above passes, every wall stands on the edge, 70.7% to 73.1% of block area is interior, 44 to 52 runs close as 44 to 50 passages and 2 to 4 overshoots at 3 x 3, and the frontage covers every block side. Seed 5 is the one city with a block that kept a frontage lot.
+
+### 19.8 What the drawing does (built by D)
+
+- **Pending (waits for 057 D)**: `tilecity3d.ts` draws every interior role as one `InstancedMesh` per key, with a per-role code-drawn fallback when the keys are absent (CI and a fresh checkout), at interior ground level 0, flush with the pavement's walk, within the tile draw-call cap of `tileslots.ts`.
+  - **Grass:** a code-drawn grass surface in the colour of `lighting.ts`'s `surfaces.grass`, or City Pack `SM_Env_Grass_01` cells when present.
+  - **Pavement** (the apron, the paths, the park edge): `SM_Env_Sidewalk_Panel_01` cells, or code-drawn in `PAVEMENT` colour. The ragged strip (`APRON_STRIP`) and the passage floors are always code-drawn.
+  - **The court:** `SM_Env_Road_ParkingLines_01` on pavement-coloured `SM_Env_Road_Bare_01`. **The drive:** a kerb cut and lot surface, as 056's lot.
+  - **The passage gates** (19.2), the optional trees and benches of 19.4, the alley lane (`SM_Env_Road_Bare_01` or code-drawn) and its bins (`SM_Prop_Trashbin_01` and `_02`), the park greens, paths and park edges, the pad cells beside an alley court's aisle, and the court cells whose run is "" (alley courts, which belong to no terrace run).
+  - `&sheet=1` shows each new role once, labelled.
+- **Pending (waits for 057 D)**: the Town Pack pieces now placed are `SM_Env_Fence_Wood_Gate_01` and `SM_Env_Fence_Wood_Post_01`, for the passage gates only (16.6). No piece of `CITY_NEVER_USED` is lifted. Everything else of 19.4 and 19.6 uses the City Pack or code.
+- **Pending (waits for 057 D)**: 16.12 says the grass colour has no night counterpart because no code draws grass. That line is stale once D lands: the grass is then drawn, in `surfaces.grass` of each light mode (the same Numbers rows as now).
+- **Info (057)**: nothing in this chapter changes how the 3D play view reads: `puzzle=09-shrine-circuit&view=3d` is exactly as on `goal/city-style`.
 
 ## Decided, not yet built (the tile city, 18 Nov 2026)
 
@@ -706,16 +888,16 @@ Josh's rulings from the tile-city work, in his own words, each with the ticket t
 ### Roads and the grid (ticket 055; chapter 17 and chapter 10 when 055 D lands)
 - **Default (055, Josh 18 Nov 2026)**: roads on a 90 degree grid only, because the packs' road tiles allow nothing else: "In order for those tiles to work we are going to have to fix the power lines. Currently, the powerline puzzles define the map structure and distort the style of the city in such a way that the city pack doesnt allow."
 - **Default (055, Josh 18 Nov 2026)**: angled roads are deferred: "Maybe in the future, we could fix the city to accommodate for all roads that aren't 90*, but for now the map packs don't support that."
-- **Default (057, Josh 18 Nov 2026)**: 90 degrees is not a uniform square grid. The tile city's streets and everything on them are at 90 degrees, but blocks vary in width and depth, with alleys and parks: "Keep in mind, 90 degrees does not mean a grid of squares. You can have varying widths for blocks, alleyways, parks... etc" (057 F and G; chapter 19.5 and 19.6).
+- **Info (057 F and G, Josh 18 Nov 2026)**: built, now 19.5 and 19.6: 90 degrees is not a uniform square grid. The streets and everything on them are at 90 degrees, but blocks vary in width and depth, with alleys and parks: "Keep in mind, 90 degrees does not mean a grid of squares. You can have varying widths for blocks, alleyways, parks... etc"
 - **Default (055, Josh 18 Nov 2026)**: build the road tiles first, without power lines, and put parking in the map: "Build out the use of the road tiles first. If you don't have that built out without the power lines in place, you won't be able to test and verify that things look right when they are placed on the map. You're going to have to figure out a way to integrate things like parking lots into the map as well or else it will feel. A city with no place to park is strange."
 - **Default (055, Josh 18 Nov 2026)**: the puzzles are rebuilt later, to the new style: "The puzzles are going to have to be rebuilt in order to conform to the new style. These puzzles were built to demonstrate a skill. They aren't the final puzzles anyway. We can start with 10 puzzles and move from there." This is a puzzle-designer ticket after the circuit-on-the-grid ticket (059 stage B).
 - **Default (055, Josh 18 Nov 2026)**: R7 (fire escapes) has a floor of 0.4 on the tile city, and the ladder's 0.5 is unchanged: "Just choose the recommended option for now" (chapter 17).
-- **Default (057, Josh 19 Nov 2026)**: R1 (the frontage share) has a floor of 0.88 on the tile city, because its alleys cut R1 to about 0.90, and the ladder's 0.90 is unchanged: "Tile-city R1 floor 0.88 (Recommended)". It is set in `tilecity.ts` by 057 G, beside the tile-city floors for R6 (0.45) and R7 (0.4).
+- **Info (057 G, Josh 19 Nov 2026)**: built, now 19.7: R1 (the frontage share) has a floor of 0.88 on the tile city, because its alleys cut R1 to about 0.90, and the ladder's 0.90 is unchanged: "Tile-city R1 floor 0.88 (Recommended)". It is `TILE_CITY_R1_MIN`, beside the tile-city floors for R6 (0.45) and R7 (0.4).
 
-### Corners and frontage (tickets 055 B, then 057; chapter 19)
-- **Default (055, Josh 18 Nov 2026)**: the corner inset was kept at first: "Keep the inset". Each row's first block stood up to 2.5 m back from its corner.
-- **Default (057, Josh 18 Nov 2026)**: buildings meet the pavement with no gap, and an overlap of up to 0.6 m onto it is allowed (the City Pack shop pieces reach the ground up to 0.557 m in front of their walls). This overrides the inset wherever the inset leaves a strip, so corners are flush: "This is a great start. There are gaps between the buildings and the sidewalk. It's okay if the buildings rest on top of the sidewalk and overlap a little bit. It is not okay if the buildings sit recessed from the sidewalk and leave a gap of nothing between them." (19.1 and 19.2)
-- **Default (057, Josh 18 Nov 2026)**: blank block interiors are filled: "There are blank open areas where the buildings don't exist. Those need to be filled in with something. You could fill that with parking lots, parks, or you could have those squares of buildings be thinner so that the buildings are butted up right against each other." Then: "Grass and pavement should fill the blank areas." (19.4)
+### Corners and frontage (ticket 055 B, then 057; built, now chapter 19)
+- **Default (055, Josh 18 Nov 2026)**: the corner inset was kept at first: "Keep the inset". Each row's first block stood up to 2.5 m back from its corner. Replaced by 057: corners are flush (19.2).
+- **Info (057 A and B, Josh 18 Nov 2026)**: built, now 19.1 and 19.2: buildings meet the pavement with no gap, and an overlap of up to 0.6 m onto it is allowed (the City Pack shop pieces reach the ground up to 0.557 m in front of their walls). This overrode the inset, so corners are flush: "This is a great start. There are gaps between the buildings and the sidewalk. It's okay if the buildings rest on top of the sidewalk and overlap a little bit. It is not okay if the buildings sit recessed from the sidewalk and leave a gap of nothing between them."
+- **Info (057 C, Josh 18 Nov 2026)**: built, now 19.4: blank block interiors are filled: "There are blank open areas where the buildings don't exist. Those need to be filled in with something. You could fill that with parking lots, parks, or you could have those squares of buildings be thinner so that the buildings are butted up right against each other." Then: "Grass and pavement should fill the blank areas."
 
 ### Buildings (ticket 055 F is built, now section 16.10; ticket 058 is built, now section 16.11)
 - **Info (055 F, Josh 18 Nov 2026; F approved with Q10 to Q13 at their defaults: "Approved and confirmed")**: built, now section 16.10: each building's door sill is measured, and the building is sunk to the walk or given steps: "That's going to have to be a variable that we measure for each individual building."
@@ -731,7 +913,7 @@ Josh's rulings from the tile-city work, in his own words, each with the ticket t
 
 ## Numbers
 
-The drift test (`styleguide.test.ts`) reads this table. Each row names an export of the file in its last column. A value is a number (within 1e-9), a colour as `0x` hex (exactly), or `a x b x c` for a record, in the record's field order. `LOT_TYPES` is frontage x depth x cap in metres and `PLACE_SIZES` is width x depth in metres. `STACK_STYLES[i].pitch_m` is base x floor x roof in metres (the storey heights a recipe counts floors by; the roof is the height reserved under the cap), in the order `apartment-01`, `-02`, `-03`, `office-old-small`, `office-old-large`, `office-octagon`. `STACK_FLOORS` is the fewest floors over the base. `TINTS[i]` is the i-th wall tint. `CITY_CHECK` is the threshold of R1 to R13 in that order (a share to reach, or a count not to pass, chapter 16.8) and `CITY_STOREYS` is the fewest and most storeys. Changing a constant in code or a value here fails the test. Since ticket 053 the test also fails when `stacks.ts`, `terrace.ts`, `dressing.ts`, `furniture.ts`, `streetcam.ts` or `citymetrics.ts` exports a number that has no row here, and when `town.ts` does for a `TERRACE_*`, `PARKING_*` or `PLAZA_*` name. Since ticket 054 the test also fails when `colourway.ts` exports a constant (not a function) that has no row here; `COLOURWAY_POOL` is pinned by its length, and its ids are the table in 16.9. Since ticket 060 the same holds for `lighting.ts`: every number in `LIGHT_MODES` and every numeric export has a row (the mode's words, `toneMapping`, `shadows` and `nightLights`, are in 16.12). Since ticket 056 the test also fails when a constant of chapter 18 (the rows for `tilecity.ts` at the end of the table) is missing or changed, and when `parkmetrics.ts` exports a constant (not a function) that has no row; `KERB_BAY_SHARE_MAX` is avenue x street, `PARK_SUPPLY_BAND` is floor x ceiling and `PARK_CHECK` is P1 to P6 in that order. Since ticket 058 the test also fails when `escapes.ts` exports a number or a record of numbers that has no row here; `ESCAPE_SCALE_Y` is min x max, and `CODE_ESCAPE` is `w`, `d`, `deck`, `rail`, `bar`, `tread`, `riser`, `hatch0`, `hatch1`, `stair0`, `stair1`, `ladderX0`, `ladderX1`, `ladderZ`, in metres (16.11). Since ticket 055 F the test also fails when `sills.ts` exports a number or a record of numbers that has no row here; `STEPS_SCALE_Y` is min x max (16.10). Colours are `0x` hex.
+The drift test (`styleguide.test.ts`) reads this table. Each row names an export of the file in its last column. A value is a number (within 1e-9), a colour as `0x` hex (exactly), or `a x b x c` for a record, in the record's field order. `LOT_TYPES` is frontage x depth x cap in metres and `PLACE_SIZES` is width x depth in metres. `STACK_STYLES[i].pitch_m` is base x floor x roof in metres (the storey heights a recipe counts floors by; the roof is the height reserved under the cap), in the order `apartment-01`, `-02`, `-03`, `office-old-small`, `office-old-large`, `office-octagon`. `STACK_FLOORS` is the fewest floors over the base. `TINTS[i]` is the i-th wall tint. `CITY_CHECK` is the threshold of R1 to R13 in that order (a share to reach, or a count not to pass, chapter 16.8) and `CITY_STOREYS` is the fewest and most storeys. Changing a constant in code or a value here fails the test. Since ticket 053 the test also fails when `stacks.ts`, `terrace.ts`, `dressing.ts`, `furniture.ts`, `streetcam.ts` or `citymetrics.ts` exports a number that has no row here, and when `town.ts` does for a `TERRACE_*`, `PARKING_*` or `PLAZA_*` name. Since ticket 054 the test also fails when `colourway.ts` exports a constant (not a function) that has no row here; `COLOURWAY_POOL` is pinned by its length, and its ids are the table in 16.9. Since ticket 060 the same holds for `lighting.ts`: every number in `LIGHT_MODES` and every numeric export has a row (the mode's words, `toneMapping`, `shadows` and `nightLights`, are in 16.12). Since ticket 056 the test also fails when a constant of chapter 18 (the rows for `tilecity.ts` at the end of the table) is missing or changed, and when `parkmetrics.ts` exports a constant (not a function) that has no row; `KERB_BAY_SHARE_MAX` is avenue x street, `PARK_SUPPLY_BAND` is floor x ceiling and `PARK_CHECK` is P1 to P6 in that order. Since ticket 058 the test also fails when `escapes.ts` exports a number or a record of numbers that has no row here; `ESCAPE_SCALE_Y` is min x max, and `CODE_ESCAPE` is `w`, `d`, `deck`, `rail`, `bar`, `tread`, `riser`, `hatch0`, `hatch1`, `stair0`, `stair1`, `ladderX0`, `ladderX1`, `ladderZ`, in metres (16.11). Since ticket 055 F the test also fails when `sills.ts` exports a number or a record of numbers that has no row here; `STEPS_SCALE_Y` is min x max (16.10). Colours are `0x` hex. Since ticket 057 the test also fails when `facade.ts` or `frontage.ts` exports a number or a record of numbers that has no row here (a constant that `frontage.ts` re-exports from `tilecity.ts` is covered by the `tilecity.ts` row), and when a constant that chapter 19 names from `tilecity.ts` has none. `WALL_FRONT_M` and `WALL_SIDE_M` are the exceptions: they hold a distance per piece, which `facade.test.ts` pins as a fixture, so only their constants are rows. `BLOCK_TILES` is min x max, `PASSAGE_W_M` is min x max, `COURT_CELLS` is w x d, and `FRONTAGE_CHECK` and `VARIETY_CHECK` are G1 to G4 and V1 to V4 in that order. The `tilecity.ts` rows from `TILE_M` to `PARK_HALF_SIDE_MIN_CELLS` are the constants of chapter 19.
 
 | Constant | Value | File |
 | --- | --- | --- |
@@ -962,6 +1144,57 @@ The drift test (`styleguide.test.ts`) reads this table. Each row names an export
 | `BAY_JUNCTION_CLEAR` | 1 | tilecity.ts |
 | `TILE_PARK_MIN_RUN_M` | 35 | tilecity.ts |
 | `TILE_CITY_R6_MIN` | 0.45 | tilecity.ts |
+| `TILE_M` | 5 | tilecity.ts |
+| `AVENUE_ONE_IN` | 3 | tilecity.ts |
+| `TILE_CITY_R7_MIN` | 0.4 | tilecity.ts |
+| `TILE_CITY_R1_MIN` | 0.88 | tilecity.ts |
+| `TILE_ROW_INSET_M` | 0 | tilecity.ts |
+| `END_OVERLAP_MAX_M` | 1 | tilecity.ts |
+| `PASSAGE_W_M` | 1 x 5.3 | tilecity.ts |
+| `PASSAGE_FLOOR_DEPTH_M` | 5 | tilecity.ts |
+| `COURT_CELLS` | 2 x 3 | tilecity.ts |
+| `DRIVE_CELLS` | 2 | tilecity.ts |
+| `APRON_CELLS` | 1 | tilecity.ts |
+| `APRON_STRIP` | 1 | tilecity.ts |
+| `COURT_STALLS` | 0 | tilecity.ts |
+| `COURT_AISLE` | 1 | tilecity.ts |
+| `GREEN_SPAN_MAX_CELLS` | 6 | tilecity.ts |
+| `GREEN_TREE_ONE_IN` | 3 | tilecity.ts |
+| `BENCH_FROM_PATH_M` | 1 | tilecity.ts |
+| `CITY_FRONT_LOT_BLOCKS_MAX` | 0.111111111111 | tilecity.ts |
+| `BLOCK_TILES` | 6 x 16 | tilecity.ts |
+| `BLOCK_STEP_MIN_CELLS` | 2 | tilecity.ts |
+| `BLOCK_CV_MIN` | 0.15 | tilecity.ts |
+| `BLOCK_NONSQUARE_MIN` | 0.7 | tilecity.ts |
+| `BLOCK_DRAWS_MAX` | 64 | tilecity.ts |
+| `BLOCK_MEAN_MIN_CELLS` | 10 | tilecity.ts |
+| `BLOCK_SMALL_MAX_M` | 40 | tilecity.ts |
+| `BLOCK_LONG_MIN_M` | 60 | tilecity.ts |
+| `BLOCK_LONG_SHORT_MAX_M` | 45 | tilecity.ts |
+| `BLOCK_LARGE_MIN_M` | 55 | tilecity.ts |
+| `BLOCK_FALLBACK_WIDTHS[0]` | 13 | tilecity.ts |
+| `BLOCK_FALLBACK_WIDTHS[1]` | 9 | tilecity.ts |
+| `BLOCK_FALLBACK_WIDTHS[2]` | 15 | tilecity.ts |
+| `BLOCK_FALLBACK_WIDTHS[3]` | 11 | tilecity.ts |
+| `BLOCK_FALLBACK_WIDTHS[4]` | 16 | tilecity.ts |
+| `BLOCK_FALLBACK_WIDTHS[5]` | 12 | tilecity.ts |
+| `BLOCK_FALLBACK_DEPTHS[0]` | 10 | tilecity.ts |
+| `BLOCK_FALLBACK_DEPTHS[1]` | 14 | tilecity.ts |
+| `BLOCK_FALLBACK_DEPTHS[2]` | 8 | tilecity.ts |
+| `BLOCK_FALLBACK_DEPTHS[3]` | 13 | tilecity.ts |
+| `BLOCK_FALLBACK_DEPTHS[4]` | 15 | tilecity.ts |
+| `BLOCK_FALLBACK_DEPTHS[5]` | 9 | tilecity.ts |
+| `ALLEY_ONE_IN_BLOCKS` | 4 | tilecity.ts |
+| `ALLEY_CELLS` | 1 | tilecity.ts |
+| `ALLEY_BIN_EVERY_M` | 10 | tilecity.ts |
+| `ALLEY_BIN_OFFSET_M` | 3.3 | tilecity.ts |
+| `ALLEY_SIDE_LONG_M` | 70 | tilecity.ts |
+| `ALLEY_SIDE_MIN_CELLS` | 9 | tilecity.ts |
+| `ALLEY_COURT_PART_MIN_CELLS` | 6 | tilecity.ts |
+| `ALLEY_COURT_LANE_MIN_CELLS` | 6 | tilecity.ts |
+| `PARK_ONE_IN_BLOCKS` | 6 | tilecity.ts |
+| `PARK_EDGE_CELLS` | 1 | tilecity.ts |
+| `PARK_HALF_SIDE_MIN_CELLS` | 9 | tilecity.ts |
 | `PARK_CHECK` | 0 x 0 x 0 x 0 x 0 x 6 | parkmetrics.ts |
 | `ESCAPE_DECK_BELOW_SILL_M` | 0.15 | escapes.ts |
 | `ESCAPE_DECK_TOL_M` | 0.05 | escapes.ts |
@@ -987,6 +1220,21 @@ The drift test (`styleguide.test.ts`) reads this table. Each row names an export
 | `SILL_DOOR_HALF_M` | 0.45 | sills.ts |
 | `SILL_LEVEL_GAP_M` | 0.03 | sills.ts |
 | `SILL_JOIN_GAP_M` | 0.1 | sills.ts |
+| `WALL_REACH_M` | 0.6 | facade.ts |
+| `WALL_FLOOR_REACH_M` | 0.5 | facade.ts |
+| `WALL_GROUND_Y_M` | 0.3 | facade.ts |
+| `WALL_BAND_M` | 3.5 | facade.ts |
+| `WALL_MIN_AREA_M2` | 0.5 | facade.ts |
+| `WALL_PLANE_TOL_M` | 0.02 | facade.ts |
+| `WALL_FACE_COS` | 0.99 | facade.ts |
+| `OVERLAP_MAX_M` | 0.6 | frontage.ts |
+| `RECESS_MAX_M` | 0 | frontage.ts |
+| `FRONTAGE_TOL_M` | 0.01 | frontage.ts |
+| `VOID_MAX_SHARE` | 0.01 | frontage.ts |
+| `VOID_PATCH_MAX_M` | 1 | frontage.ts |
+| `VOID_RASTER_M` | 0.25 | frontage.ts |
+| `FRONTAGE_CHECK` | 0 x 0 x 0 x 0 | frontage.ts |
+| `VARIETY_CHECK` | 0 x 0 x 0 x 0 | frontage.ts |
 
 Night's global lighting as written in the table of `lighting.ts` (the rig reads it; since ticket 060 `scene.ts` holds no light literal of its own), pinned by the exact source text as well:
 
