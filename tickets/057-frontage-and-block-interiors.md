@@ -99,7 +99,7 @@ Empty here means block area minus stack footprints minus open lots (parking lots
 
 ### 19.1 The wall line
 - **Default:** in the tile city, a terrace stack is aligned on its **wall plane**, not its back faces.
-  - Each column's ground and floor pieces put their measured wall plane (`WALL_FRONT_M`, read from the GLB per key) on the pavement's back edge, or up to `OVERLAP_MAX_M` (0.5 m) onto the pavement.
+  - Each column's ground and floor pieces put their measured wall plane (`WALL_FRONT_M`, read from the GLB per key) on the pavement's back edge, or up to `OVERLAP_MAX_M` (0.6 m) onto the pavement (0.6 m, not the drafted 0.5 m, recorded 18 Nov 2026 after the 057 A review: the real City Pack shop pieces reach the ground up to 0.557 m in front of their wall (`Shop_04`), 0.529 (`Apartment_Door_01`) and 0.520 (`Shop_06`). Josh's "It's okay if the buildings rest on top of the sidewalk and overlap a little bit" covers it.).
   - Sills, frames, cornices and signs may stand further out, up to `OVERLAP_MAX_M` past the wall.
   - No street-level wall stands behind the pavement edge (`RECESS_MAX_M` 0, within 0.01 m).
   - The pieces' backs may then be ragged. They face the interior, and 19.4 fills it.
@@ -239,7 +239,7 @@ The build order is A, B, C, F, G, then D and E. The letters F and G were added a
 ### A (Vitest)
 1. [ ] **Measured wall planes.** New `src/render3d/facade.ts`, pure, holds `WALL_FRONT_M: Readonly<Partial<Record<CalibrationKey, number>>>`.
    - **What is measured:** for every base, door, corner, shop, floor and `stack3` piece of every `STACK_STYLES` style, the distance from the piece's front bound back to its main wall plane on the `BUILDING_FRONTS` face.
-   - **How:** read from the converted GLB as the largest front-facing planar area below 3.5 m (ground pieces) or over the floor (floor pieces), not guessed.
+   - **How (as built in 057 A, recorded 18 Nov 2026 after its review):** read from the converted GLB, not guessed. The wall is **the frontmost face that reaches the ground** (its lowest vertex at most 0.3 m above the piece's base) within **0.6 m** of the piece's front bound for ground pieces, and within **0.5 m** for floor pieces. This replaces the draft's "largest front-facing planar area below 3.5 m", which picked shops' interior back walls and signs.
    - **Tests:**
      - a CI-safe test pins every value as a typed-in fixture;
      - a real-geometry test inside an `it` re-measures each key within 0.02 m.
@@ -303,6 +303,12 @@ The build order is A, B, C, F, G, then D and E. The letters F and G were added a
 20. [ ] **V3 and V4.** They pass on the cities of criterion 17, and fail on the uniform-grid fixture.
 
 ### D (Vitest unless marked)
+- *Carried from the 057 A review (could-improves, 18 Nov 2026), done in D:*
+  - D passes the tile city's `"wall"` alignment to `packTown` explicitly, though a default (`alignOf`) exists, so the tile city does not depend on it.
+  - D pins `SM_Bld_OfficeOctagon_Base_01` to its 0.174 m face in `WALL_FRONT_M` before any office style is aligned on `"wall"`.
+  - D adds a committed pin (a digest test) of `packTown` on the three protocol maps, so the ladder's "unchanged" is checked on every run, not only at review.
+
+  D's Files gain `tilecity.ts` (the explicit argument), `facade.ts` and `facade.test.ts` (the Octagon pin), and a new `packpin.test.ts`.
 10. [ ] **Drawn.** `tilecity3d.ts` draws every interior role:
     - the parts:
       - grass: a code-drawn grass surface, or City Pack `SM_Env_Grass_01` cells when present;
@@ -390,7 +396,7 @@ The build order is A, B, C, F, G, then D and E. The letters F and G were added a
 Everything is local to `src/render3d/`, and the builder may rename it.
 - **`facade.ts`:** `WALL_FRONT_M`.
 - **`frontage.ts`:**
-  - constants: `OVERLAP_MAX_M = 0.5`, `RECESS_MAX_M = 0`, `END_OVERLAP_MAX_M = 1.0`, `PASSAGE_W_M = { min: 1.0, max: 5.3 }`, `VOID_MAX_SHARE = 0.01`, `VOID_PATCH_MAX_M = 1.0`;
+  - constants: `OVERLAP_MAX_M = 0.6` (0.5 in the first draft; see 19.1), `RECESS_MAX_M = 0`, `END_OVERLAP_MAX_M = 1.0`, `PASSAGE_W_M = { min: 1.0, max: 5.3 }`, `VOID_MAX_SHARE = 0.01`, `VOID_PATCH_MAX_M = 1.0`;
   - `type FrontageCheckId = "G1" | "G2" | "G3" | "G4"`;
   - `FRONTAGE_CHECK`, `frontageMetrics(city, packed)`, `evaluateFrontage(m)`.
 - **`stacks.ts`:** `AssembleOptions.align?: "back" | "wall"`.
@@ -407,7 +413,7 @@ Everything is local to `src/render3d/`, and the builder may rename it.
 1. **The interior mix.** Decided by Josh: "Grass and pavement should fill the blank areas". The default layout is a one-cell paved apron round the inside, the residents' court on pavement, and grass in the middle crossed by paths, with optional trees and benches. A tuning point remains: `APRON_CELLS` 0 gives more grass, about half the interior, if the eye check finds it too grey.
 2. **Thinner blocks?** Default: **no.** Back-to-back terraces need 15 m blocks, and roads would take about three quarters of the city along that axis (they take about 65% of the area now). Alternative: one axis of thin 15 m blocks, which reads as rowhouse streets.
 3. **More residents' parking, now that it is hidden inside.** Default: **keep 056's 0.15 stalls per home** (approved), so 6 stalls per block. Alternative: 0.3 per home, so 12 stalls (a 4 x 3-cell court) per block, with the green about 150 m² smaller.
-4. **How far a building may overlap the pavement.** Default: walls up to **0.5 m** onto it, and the same again for sills and signs. Alternative: walls exactly on the edge (0), with only sills and signs over it.
+4. **How far a building may overlap the pavement.** Default: walls up to **0.6 m** onto it (0.5 m in the first draft; raised after the 057 A review because shop pieces reach the ground up to 0.557 m out), and the same again for sills and signs. Alternative: walls exactly on the edge (0), with only sills and signs over it.
 5. **Closing a row's far end.** Default: a seam, else a hidden overlap of up to 1 m into the next corner block, else a **gated passage** into the interior. Alternative: always a gated passage, with no hidden overlaps.
 6. **Pack pieces inside the blocks.** Default: **the City Pack and code-drawn only**: `Grass_01`, `Sidewalk_Panel_01`, `Tree_*` and `ParkBench_01`, and a code-drawn gate. The one Town Pack piece is `SM_Env_Fence_Wood_Gate_01` for passage gates, where present. Alternative: the Town Pack's grass, hedges and trees for more variety (a second atlas).
 8. **Streets that end (T-junctions).** Default: **no**: street lines stay straight and continuous, so the 055 band rule holds unchanged, and variety comes from spacing, alleys and parks. Alternative: a later ticket lets an interior line stop at a T-junction, merging two blocks into one long one.
