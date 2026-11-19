@@ -173,6 +173,23 @@ describe("the checks fail where they should", () => {
     expect(m.lotStalls).toBeGreaterThanOrEqual(0.75 * m.stallDemand);
   });
 
+  it("counts the courts (057 C): every lot's six stalls are a court's, P2 passes on them, and a block that kept a frontage lot is allowed only at ceil(blocks / 9)", () => {
+    for (const { label, city } of CITIES) {
+      const lots = city.town.openLots.filter((o) => o.kind === "parking").length;
+      expect(city.lotStalls.length, label).toBe(lots * LOT_STALLS);
+      expect(lots - city.courts.length, label).toBeLessThanOrEqual(city.frontLots.length * 2);
+      expect(city.courts.length, label).toBeGreaterThan(0);
+      expect(parkingMetrics(city).frontLotBlocks, label).toBe(city.frontLots.length);
+      expect(verdict(city, "P2").pass, label).toBe(true);
+    }
+    const city = CITIES.find((c) => c.label === "6x4 seed 1")!.city;
+    const keep = (n: number): TileCity => ({ ...city, frontLots: city.blocks.slice(0, n).map((b) => b.id) });
+    // 6 x 4 is 24 blocks: ceil(24 / 9) = 3 may keep a frontage lot, a fourth fails P2.
+    expect(verdict(keep(3), "P2").pass).toBe(true);
+    expect(verdict(keep(4), "P2").pass).toBe(false);
+    expect(verdict(keep(4), "P2").value).toBe(1);
+  });
+
   it("fails each check on its own broken number", () => {
     const m = parkingMetrics(base);
     const fails = (patch: Partial<typeof m>, id: ParkCheckId): boolean => !evaluateParking({ ...m, ...patch }).find((v) => v.id === id)!.pass;
@@ -181,6 +198,7 @@ describe("the checks fail where they should", () => {
     expect(fails({ lotStalls: Math.floor(m.stallDemand * 0.5) }, "P2")).toBe(true);
     expect(fails({ blocksOverLots: 1 }, "P2")).toBe(true);
     expect(fails({ shortBlocks: m.blocks }, "P2")).toBe(true);
+    expect(fails({ frontLotBlocks: m.blocks }, "P2")).toBe(true);
     expect(fails({ outerBays: 1 }, "P3")).toBe(true);
     expect(fails({ sideShares: [{ street: "x:1", block: "block:0:0", share: 0.5, cap: 0.4 }] }, "P3")).toBe(true);
     expect(fails({ runs: [3] }, "P4")).toBe(true);

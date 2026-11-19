@@ -1,5 +1,9 @@
 /**
- * Ticket 057: the checks on the tile city's frontage, pure (no three, no DOM, no assets). Section A holds G1, B adds G2; C to G add G3, G4 and V1 to V4 here.
+ * Ticket 057: the checks on the tile city's frontage, pure (no three, no DOM, no assets). Section A holds G1, B adds G2, C adds G3 and G4; F and G add V1 to V4 here.
+ *
+ * G3, no void (19.4; Josh, 18 Nov 2026: "Grass and pavement should fill the blank areas."): each block is rasterised at `VOID_RASTER_M` (0.25 m) and every sample must be a building (its columns' ground
+ * footprint), a plaza or lot cell, an interior cell (apron, court, drive, green or path) or a gated passage's floor. At most `VOID_MAX_SHARE` (1%) of a block may be left, in no square over
+ * `VOID_PATCH_MAX_M` (1 m) on a side. G4, courts reached: every court touches a drive, and every drive's outer neighbour is a kerb cut.
  *
  * G2, no gap in the frontage (19.2): along every block side the pavement's back edge is a wall, a corner flank, a seam (0.1 m or less), an overshoot into the next corner block (at most
  * `END_OVERLAP_MAX_M`), a gated passage (`PASSAGE_W_M`), a parking lot or a plaza, within `FRONTAGE_TOL_M`. `edgeCoverage` below lays each side's covered stretches end to end.
@@ -14,9 +18,9 @@
 
 import { WALL_FRONT_M, WALL_REACH_M, WALL_SIDE_M, wallOffset } from "./facade";
 import { BUILDING_FRONTS, type FrontTable } from "./models";
-import { TERRACE_SEAM_M, nextTerraceRun, type PackResult } from "./terrace";
+import { TERRACE_SEAM_M, nextTerraceRun, type PackResult, type PackedBlock } from "./terrace";
 import type { Stack } from "./stacks";
-import { END_OVERLAP_MAX_M, PASSAGE_W_M, type TileCity, type TilePassage, type TileYaw } from "./tilecity";
+import { END_OVERLAP_MAX_M, PASSAGE_FLOOR_DEPTH_M, PASSAGE_W_M, TILE_M, type TileCity, type TilePassage, type TileYaw } from "./tilecity";
 import { WORLD_PER_METRE } from "./town";
 
 export { END_OVERLAP_MAX_M, PASSAGE_W_M };
@@ -28,13 +32,19 @@ export const RECESS_MAX_M = 0;
 /** How far from the limits a wall may be and still pass, metres (float noise, and the 0.01 m the ticket allows). */
 export const FRONTAGE_TOL_M = 0.01;
 
-export type FrontageCheckId = "G1" | "G2";
+/** The most of a block that may be left unfilled, as a share of its area (G3), and the largest unfilled square, metres on a side. */
+export const VOID_MAX_SHARE = 0.01;
+export const VOID_PATCH_MAX_M = 1.0;
+/** G3 rasterises every block at this pitch, metres. */
+export const VOID_RASTER_M = 0.25;
+
+export type FrontageCheckId = "G1" | "G2" | "G3" | "G4";
 
 /**
  * What each check allows: G1, how many street-level columns may stand off the wall line (behind the edge, or over the overlap limit); G2, how many stretches of a block side's pavement back edge
  * may be left with no wall, flank, seam, overshoot, gated passage, parking lot or plaza on them (and how many far ends may overshoot by more than `END_OVERLAP_MAX_M`).
  */
-export const FRONTAGE_CHECK: Readonly<Record<FrontageCheckId, number>> = { G1: 0, G2: 0 };
+export const FRONTAGE_CHECK: Readonly<Record<FrontageCheckId, number>> = { G1: 0, G2: 0, G3: 0, G4: 0 };
 
 /** How a run's far end closed (19.2), counted by `frontageMetrics`. `slit` is a gap of 0.1 to 1.0 m, `wide` one over a column wide; both are open. */
 export interface FarEnds {
@@ -56,6 +66,34 @@ export interface FrontageGap {
   side: 0 | 1 | 2 | 3;
   from_m: number;
   to_m: number;
+}
+
+/** One block's raster (G3): its area, what is left unfilled, that as a share, and the side of the largest unfilled square, metres. */
+export interface BlockVoid {
+  block: string;
+  area_m2: number;
+  unfilled_m2: number;
+  share: number;
+  patch_m: number;
+}
+
+/** G3 and G4: how well the blocks' insides are filled, and whether the courts are reached. */
+export interface InteriorMetrics {
+  blocks: number;
+  voids: readonly BlockVoid[];
+  /** Blocks left with more than `VOID_MAX_SHARE` unfilled, or with an unfilled square over `VOID_PATCH_MAX_M`. */
+  voidBlocks: number;
+  shareMax: number;
+  shareMean: number;
+  patchMax_m: number;
+  /** Court components (the court cells, edge-connected) and those that touch no drive. */
+  courts: number;
+  courtsUnreached: number;
+  /** Drive cells and those whose neighbour outside the block is not a kerb cut. */
+  drives: number;
+  drivesNoKerbCut: number;
+  /** Blocks that kept a frontage lot (`TileCity.frontLots`). */
+  frontLots: number;
 }
 
 export interface FrontageMetrics {
@@ -84,6 +122,8 @@ export interface FrontageMetrics {
   /** G2: how the runs' far ends closed, and the gated passages they leave (see `TileCity.passages`). */
   farEnds: FarEnds;
   passages: readonly TilePassage[];
+  /** G3 and G4 (057 C). */
+  interior: InteriorMetrics;
 }
 
 /**
@@ -99,7 +139,7 @@ const wallZ = (p: { z: number; d: number; key: `${string}:${string}`; street: "f
  * Where every street-level wall of a packed tile city stands against its pavement's back edge. `packed` is `packTown`'s result for the city (the map is keyed by run id); `fronts` as for
  * `assembleStack`. Pure: nothing is read but the packed stacks and the wall table.
  */
-export function frontageMetrics(city: Pick<TileCity, "town">, packed: ReadonlyMap<string, PackResult>, fronts: FrontTable = BUILDING_FRONTS, faceOffset?: FaceOffset): FrontageMetrics {
+export function frontageMetrics(city: Pick<TileCity, "town"> & Partial<Pick<TileCity, "cells" | "interior" | "blocks" | "frontLots" | "passages">>, packed: ReadonlyMap<string, PackResult>, fronts: FrontTable = BUILDING_FRONTS, faceOffset?: FaceOffset): FrontageMetrics {
   const face: FaceOffset = faceOffset ?? ((key, street) => wallOffset(key, street, fronts));
   let runs = 0;
   let columns = 0;
@@ -112,6 +152,7 @@ export function frontageMetrics(city: Pick<TileCity, "town">, packed: ReadonlyMa
   let upperMax = -Infinity;
   let frontMax = -Infinity;
   const unmeasured = new Set<string>();
+  const edge = edgeCoverage(city, packed);
   for (const run of city.town.terraces) {
     const blocks = packed.get(run.id)?.blocks ?? [];
     if (blocks.length === 0) continue;
@@ -149,7 +190,8 @@ export function frontageMetrics(city: Pick<TileCity, "town">, packed: ReadonlyMa
     upperMax_m: fin(upperMax),
     frontMax_m: fin(frontMax),
     unmeasured: [...unmeasured].sort(),
-    ...edgeCoverage(city, packed),
+    ...edge,
+    interior: interiorMetrics(city, packed),
   };
 }
 
@@ -298,7 +340,16 @@ function edgeCoverage(city: Pick<TileCity, "town">, packed: ReadonlyMap<string, 
       if (kind === "passage") {
         const mid = (from + g / 2) * U;
         const l = res.blocks[res.blocks.length - 1]!.lot;
-        passages.push({ x_m: (s.ax + s.ux * mid) / U, z_m: (s.az + s.uz * mid) / U, w_m: g, yaw: yawDegrees(l.yaw), run: run.id });
+        const px = (s.ax + s.ux * mid) / U;
+        const pz = (s.az + s.uz * mid) / U;
+        // The floor: the passage wide along the edge, `PASSAGE_FLOOR_DEPTH_M` in from it (the lot's front points at the street, so inward is -f).
+        const fx = Math.sin(l.yaw);
+        const fz = Math.cos(l.yaw);
+        const rx = Math.cos(l.yaw);
+        const rz = -Math.sin(l.yaw);
+        const xs = [-g / 2, g / 2].flatMap((a) => [0, -PASSAGE_FLOOR_DEPTH_M].map((back) => px + rx * a + fx * back));
+        const zs = [-g / 2, g / 2].flatMap((a) => [0, -PASSAGE_FLOOR_DEPTH_M].map((back) => pz + rz * a + fz * back));
+        passages.push({ x_m: px, z_m: pz, w_m: g, yaw: yawDegrees(l.yaw), run: run.id, floor: { minX_m: Math.min(...xs), minZ_m: Math.min(...zs), maxX_m: Math.max(...xs), maxZ_m: Math.max(...zs) } });
       }
     }
     lines.forEach((s, k) => {
@@ -319,6 +370,173 @@ function edgeCoverage(city: Pick<TileCity, "town">, packed: ReadonlyMap<string, 
     });
   }
   return { sides, uncovered, uncoveredMax_m: uncoveredMax, gaps, farEnds, passages };
+}
+
+// ---- G3 and G4: the blocks' insides (19.4) ----
+
+/** The ground footprint of each column of a packed block, as rectangles in the lot frame: across (metres along the road, from the lot's centre line) and how far back from the front line. */
+function columnFootprints(pb: PackedBlock): { x0: number; x1: number; depth: number }[] {
+  const base = pb.stack.pieces.filter((p) => p.role === "base");
+  return pb.stack.columns.map((c) => {
+    const x0 = c.x - c.w / 2;
+    const x1 = c.x + c.w / 2;
+    let depth = Infinity;
+    for (const p of base) {
+      // A piece belongs to every column it covers by more than a sliver (a shop two columns wide stands in both).
+      if (Math.min(x1, p.x + p.w / 2) - Math.max(x0, p.x - p.w / 2) > 0.05) depth = Math.min(depth, p.d / 2 - p.z);
+    }
+    return { x0, x1, depth: Number.isFinite(depth) ? depth : pb.stack.depth_m };
+  });
+}
+
+/** The side of the largest square of ones in a raster of `nx` by `nz` samples (0 where none). */
+function largestEmptySquare(empty: Uint8Array, nx: number, nz: number): number {
+  let prev = new Int32Array(nx + 1);
+  let cur = new Int32Array(nx + 1);
+  let best = 0;
+  for (let j = 0; j < nz; j++) {
+    cur[0] = 0;
+    for (let i = 0; i < nx; i++) {
+      if (empty[j * nx + i] === 0) cur[i + 1] = 0;
+      else {
+        cur[i + 1] = 1 + Math.min(prev[i]!, prev[i + 1]!, cur[i]!);
+        if (cur[i + 1]! > best) best = cur[i + 1]!;
+      }
+    }
+    [prev, cur] = [cur, prev];
+  }
+  return best;
+}
+
+/**
+ * G3 and G4 of a packed tile city (see the file header). The gated passages' floors are read from `city.passages` (`withPassages(city, tilePassages(...))`), never from the packing. The cells that count as filled are read from `city.cells` (plazas
+ * and frontage lots) and `city.interior`, never from the code that laid them, so a layout with no interior fails.
+ */
+export function interiorMetrics(city: Pick<TileCity, "town"> & Partial<Pick<TileCity, "cells" | "interior" | "blocks" | "frontLots" | "passages">>, packed: ReadonlyMap<string, PackResult>): InteriorMetrics {
+  const t = city.town;
+  const cells = city.cells ?? [];
+  const interior = city.interior ?? [];
+  const blocks = city.blocks ?? [];
+  const res = VOID_RASTER_M;
+  const voids: BlockVoid[] = [];
+  const cellsOf = new Map<string, { i: number; j: number }[]>();
+  const add = (block: string, i: number, j: number): void => {
+    const l = cellsOf.get(block);
+    if (l) l.push({ i, j });
+    else cellsOf.set(block, [{ i, j }]);
+  };
+  const blockOfCell = (i: number, j: number): string | undefined => blocks.find((b) => i >= b.i0 && i < b.i1 && j >= b.j0 && j < b.j1)?.id;
+  for (const c of cells) {
+    if (c.role !== "lotSurface" && c.role !== "plaza") continue;
+    const id = blockOfCell(c.i, c.j);
+    if (id !== undefined) add(id, c.i, c.j);
+  }
+  for (const c of interior) add(c.block, c.i, c.j);
+  const floors = (city.passages ?? []).map((q) => q.floor);
+  for (const b of t.blocks) {
+    const x0 = b.minX / U;
+    const z0 = b.minZ / U;
+    const nx = Math.round((b.maxX - b.minX) / U / res);
+    const nz = Math.round((b.maxZ - b.minZ) / U / res);
+    const empty = new Uint8Array(nx * nz).fill(1);
+    /** Marks the samples whose middles lie in the rectangle (metres, absolute). */
+    const fill = (ax0: number, ax1: number, az0: number, az1: number): void => {
+      const i0 = Math.max(0, Math.ceil((Math.min(ax0, ax1) - x0 - 1e-6) / res - 0.5));
+      const i1 = Math.min(nx - 1, Math.floor((Math.max(ax0, ax1) - x0 + 1e-6) / res - 0.5));
+      const j0 = Math.max(0, Math.ceil((Math.min(az0, az1) - z0 - 1e-6) / res - 0.5));
+      const j1 = Math.min(nz - 1, Math.floor((Math.max(az0, az1) - z0 + 1e-6) / res - 0.5));
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) empty[j * nx + i] = 0;
+    };
+    for (const c of cellsOf.get(b.id) ?? []) fill(c.i * TILE_M, (c.i + 1) * TILE_M, c.j * TILE_M, (c.j + 1) * TILE_M);
+    // Buildings: each column's ground footprint, from the pavement's back edge (the lot's front line) back to the column's own back wall.
+    for (const run of t.terraces) {
+      if (run.block !== b.id) continue;
+      for (const pb of packed.get(run.id)?.blocks ?? []) {
+        const l = pb.lot;
+        const fx = Math.sin(l.yaw);
+        const fz = Math.cos(l.yaw);
+        const rx = Math.cos(l.yaw);
+        const rz = -Math.sin(l.yaw);
+        const frontX = (l.x + (fx * l.d) / 2) / U;
+        const frontZ = (l.z + (fz * l.d) / 2) / U;
+        for (const c of columnFootprints(pb)) {
+          const xs = [c.x0, c.x1].flatMap((a) => [0, -c.depth].map((back) => frontX + rx * a + fx * back));
+          const zs = [c.x0, c.x1].flatMap((a) => [0, -c.depth].map((back) => frontZ + rz * a + fz * back));
+          fill(Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs));
+        }
+      }
+    }
+    // Gated passages: the floor each passage records (`TilePassage.floor`, apron pavement from the edge inward); a passage with no recorded floor leaves its slot unfilled. The raster clips to this block.
+    for (const f of floors) fill(f.minX_m, f.maxX_m, f.minZ_m, f.maxZ_m);
+    let left = 0;
+    for (let k = 0; k < empty.length; k++) left += empty[k]!;
+    const area = nx * nz * res * res;
+    voids.push({ block: b.id, area_m2: area, unfilled_m2: left * res * res, share: area > 0 ? (left * res * res) / area : 0, patch_m: largestEmptySquare(empty, nx, nz) * res });
+  }
+  const voidBlocks = voids.filter((v) => v.share > VOID_MAX_SHARE + 1e-9 || v.patch_m > VOID_PATCH_MAX_M + 1e-9).length;
+
+  // G4: every court touches a drive, and every drive's neighbour outside its block is a kerb cut.
+  const key = (i: number, j: number): string => `${i},${j}`;
+  const roleAt = new Map(interior.map((c) => [key(c.i, c.j), c.role] as const));
+  const kerbCut = new Set(cells.filter((c) => c.role === "kerbCut").map((c) => key(c.i, c.j)));
+  const seen = new Set<string>();
+  let courts = 0;
+  let courtsUnreached = 0;
+  const near = [
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+  ] as const;
+  for (const c of interior) {
+    if (c.role !== "court" || seen.has(key(c.i, c.j))) continue;
+    courts++;
+    let touches = false;
+    const todo = [{ i: c.i, j: c.j }];
+    seen.add(key(c.i, c.j));
+    while (todo.length > 0) {
+      const q = todo.pop()!;
+      for (const [di, dj] of near) {
+        const k = key(q.i + di, q.j + dj);
+        const r = roleAt.get(k);
+        if (r === "drive") touches = true;
+        if (r === "court" && !seen.has(k)) {
+          seen.add(k);
+          todo.push({ i: q.i + di, j: q.j + dj });
+        }
+      }
+    }
+    if (!touches) courtsUnreached++;
+  }
+  const driveCells = interior.filter((c) => c.role === "drive");
+  let drivesNoKerbCut = 0;
+  for (const d of driveCells) {
+    const b = blocks.find((q) => q.id === d.block);
+    if (!b) {
+      drivesNoKerbCut++;
+      continue;
+    }
+    const outs: [number, number][] = [];
+    if (d.i === b.i0) outs.push([d.i - 1, d.j]);
+    if (d.i === b.i1 - 1) outs.push([d.i + 1, d.j]);
+    if (d.j === b.j0) outs.push([d.i, d.j - 1]);
+    if (d.j === b.j1 - 1) outs.push([d.i, d.j + 1]);
+    if (!outs.some(([i, j]) => kerbCut.has(key(i, j)))) drivesNoKerbCut++;
+  }
+  const shares = voids.map((v) => v.share);
+  return {
+    blocks: voids.length,
+    voids,
+    voidBlocks,
+    shareMax: shares.length > 0 ? Math.max(...shares) : 0,
+    shareMean: shares.length > 0 ? shares.reduce((a, b) => a + b, 0) / shares.length : 0,
+    patchMax_m: voids.length > 0 ? Math.max(...voids.map((v) => v.patch_m)) : 0,
+    courts,
+    courtsUnreached,
+    drives: driveCells.length,
+    drivesNoKerbCut,
+    frontLots: (city.frontLots ?? []).length,
+  };
 }
 
 /** The gated passages of a packed tile city (`TileCity.passages` once `withPassages` has them): where a run's far end closes with a gap of `PASSAGE_W_M`. */
@@ -345,8 +563,12 @@ export interface FrontageVerdict {
 export function evaluateFrontage(m: FrontageMetrics): FrontageVerdict[] {
   const g1 = m.recessed + m.overlapped + (m.groundPieces === 0 ? 1 : 0);
   const g2 = m.uncovered + m.farEnds.overshootBad + (m.sides === 0 ? 1 : 0);
+  const g3 = m.interior.voidBlocks + (m.interior.blocks === 0 ? 1 : 0);
+  const g4 = m.interior.courtsUnreached + m.interior.drivesNoKerbCut + (m.interior.blocks === 0 ? 1 : 0);
   return [
     { id: "G1", value: g1, pass: g1 <= FRONTAGE_CHECK.G1 },
     { id: "G2", value: g2, pass: g2 <= FRONTAGE_CHECK.G2 },
+    { id: "G3", value: g3, pass: g3 <= FRONTAGE_CHECK.G3 },
+    { id: "G4", value: g4, pass: g4 <= FRONTAGE_CHECK.G4 },
   ];
 }
