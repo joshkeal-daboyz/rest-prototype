@@ -13,13 +13,14 @@
  * shop's front face, its base at `GLASS_SILL_M`; a corner shop's glass wraps the corner and is centred on it).
  *
  * Every choice is `dressUnit(lot.key, slot, column)`: a function of the lot key and the stack, never of the run or the order. Per-run caps (an ATM, a
- * billboard, a novelty sign, the alternate-block fire escape) are carried in `RunUsed`, which `dressTown` threads along a run in order.
+ * billboard, a novelty sign) are carried in `RunUsed`, which `dressTown` threads along a run in order.
  *
  * Two departures from the ticket's design text, both deliberate:
  *  - The ATM stands beside a residents' door (slot `wall` on `base.door`), not on a shop pier: a shop's glass is 4.3 to 8.7 m wide in a 5 or 10 m bay, so a
  *    shop has no pier to put it on.
  *  - "At most one block in two along a run has a fire escape" is "no two consecutive blocks of a run both have one"; the clause "unless every block
- *    qualifies" is dropped, as a block cannot know that. That caps the density below "most 3-bay blocks"; the two statements cannot both hold.
+ *    qualifies" is dropped, as a block cannot know that. That caps the density below "most 3-bay blocks"; the two statements cannot both hold. Which blocks get one is the map's choice
+ *    (ticket 061, `escapeBlocks` in `escapes.ts`, run first by `dressTown`), no longer a per-block coin toss.
  *
  * Fire escapes (ticket 058) stand one platform per storey, each deck under its storey's window sill and each flight meeting the deck above; `escapes.ts` holds the measured numbers and the
  * check, the block of `dressBlock` below places them, and a piece the pack lacks is drawn in code (a `code:escape` piece with boxes). Chapter 16.11 of the style guide has the rules.
@@ -30,7 +31,7 @@
 
 import type { AssetEntry, CalibrationKey } from "../core";
 import { stableHash } from "../render/city";
-import { CODE_ESCAPE, CODE_ESCAPE_KEY, ESCAPE_FIRST, ESCAPE_GEOMETRY, ESCAPE_GROUND_TOL_M, codeEscape, ladderParts, planEscape, storeysOfColumn, ESCAPE_DECK_BELOW_SILL_M, type EscapePart } from "./escapes";
+import { CODE_ESCAPE, CODE_ESCAPE_KEY, ESCAPE_FIRST, escapeBlocks, type EscapeSite, ESCAPE_GEOMETRY, ESCAPE_GROUND_TOL_M, codeEscape, ladderParts, planEscape, storeysOfColumn, ESCAPE_DECK_BELOW_SILL_M, type EscapePart } from "./escapes";
 import { frontYaw, sizeOf, type FrontTable, type ModelFront } from "./models";
 import type { Stack, StackPiece } from "./stacks";
 import { PAVE_W, SETBACK, WORLD_PER_METRE, type Lot } from "./town";
@@ -64,8 +65,9 @@ export const P_SIGN = 0.6;
 export const P_ATM = 0.3;
 export const ATM_PER_RUN = 2;
 export const P_CANOPY = 0.5;
-export const P_ESCAPE = 0.6;
 export const ESCAPE_MIN_BAYS = 3;
+/** Ticket 061: the share of qualifying blocks that get a fire escape on a puzzle map (the ladder), `CITY_CHECK.R7`. A tile city passes its own floor (`TILE_CITY_R7_MIN`). */
+export const ESCAPE_SHARE_LADDER = 0.5;
 export const P_WALL_AC = 0.15;
 export const P_PLANTER = 0.1;
 export const WALL_PROPS_PER_BLOCK = 4;
@@ -232,10 +234,8 @@ export interface RunUsed {
   atm: number;
   billboard: number;
   novelty: number;
-  /** The previous block in the run has a fire escape: this one does not (at most one block in two). */
-  escapePrev: boolean;
 }
-export const NO_USED: RunUsed = { atm: 0, billboard: 0, novelty: 0, escapePrev: false };
+export const NO_USED: RunUsed = { atm: 0, billboard: 0, novelty: 0 };
 
 export interface RunContext {
   id: string;
@@ -245,6 +245,11 @@ export interface RunContext {
   lowest: boolean;
   /** What earlier blocks used; absent means nothing (a block dressed alone). */
   used?: RunUsed;
+  /**
+   * Ticket 061: this block is one of the map's chosen escape blocks (`escapeBlocks`, which `dressTown` runs first). `false` means it gets none; absent means chosen, so a block dressed alone
+   * (`dressStack`) gets its escape wherever it can hold one.
+   */
+  escape?: boolean;
   /** The run's pavement frame (`TerraceRun.frame`, ticket 055 B): its `kerb_m` is the lot front to the road edge, and wins over the `kerbM` argument. Absent: the argument. */
   frame?: { readonly wall_m: number; readonly kerb_m: number };
 }
@@ -285,9 +290,10 @@ export function dressBlock(
   entries: Entries,
   fronts: FrontTable = {},
   kerbM: number = KERB_FROM_FRONT_M,
+  probe = false,
 ): DressResult {
   const used0 = run.used ?? NO_USED;
-  const used: RunUsed = { ...used0, escapePrev: false };
+  const used: RunUsed = { ...used0 };
   const out: DressPiece[] = [];
   const perColumn = new Map<number, number>();
   const kerb = run.frame?.kerb_m ?? kerbM;
@@ -379,10 +385,10 @@ export function dressBlock(
   // ---- fire escape: decided first, because its column keeps the ground row plain ----
   // Ticket 058: one platform on every storey over the base, the deck of each `ESCAPE_DECK_BELOW_SILL_M` under that storey's window sill, each piece scaled in y so its flight meets the deck above and
   // shifted in x so the flight arrives at the upper deck's hatch (`planEscape`); the first piece's ladder is drawn down to the walk. Where the pack's pieces are missing or do not fit the storey
-  // pitch, the escape is drawn in code (`codeEscape`). Eligibility is 052's: `P_ESCAPE`, `ESCAPE_MIN_BAYS`, no escape on the block before it, a mid column that is not a door column.
+  // pitch, the escape is drawn in code (`codeEscape`). Eligibility is 052's: `ESCAPE_MIN_BAYS`, a mid column that is not a door column. Whether this block gets one is not decided here (ticket 061):
+  // `run.escape` says it was chosen by `escapeBlocks`, by hash rank, so the share of qualifying blocks with an escape is a guarantee.
   const escape = ((): { col: number; pieces: DressPiece[]; weight: number } | null => {
-    if (!apartment || stack.bays < ESCAPE_MIN_BAYS || stack.floors < 2 || used0.escapePrev || firstFloorY === null) return null;
-    if (dressUnit(lot.key, "escape") >= P_ESCAPE) return null;
+    if (!apartment || stack.bays < ESCAPE_MIN_BAYS || stack.floors < 2 || run.escape === false || firstFloorY === null) return null;
     const doorCols = new Set(bays.filter((b) => b.kind === "door").flatMap((b) => b.cols));
     const eligible = cols.map((c, i) => ({ c, i })).filter(({ c, i }) => c.corner === null && !doorCols.has(i) && roofOf.has(i));
     const pick = pickOf(eligible, lot.key, "escapecol");
@@ -444,6 +450,13 @@ export function dressBlock(
     return { col: pick.i, pieces, weight: 1 };
   })();
   const plain = (b: Bay): boolean => !escape || !b.cols.includes(escape.col);
+  // Ticket 061: a chosen block's escape takes its column's room first (`DRESS_PER_BAY_MAX`), so no other piece can crowd it out. It joins the block's pieces where it always did (after the roof's large prop).
+  let escapeIn = false;
+  if (escape && escape.weight <= DRESS_PER_BAY_MAX) {
+    perColumn.set(escape.col, escape.weight);
+    escapeIn = true;
+  }
+  if (probe) return { pieces: escapeIn ? escape!.pieces : [], used };
 
   // ---- glass ----
   const glassOf = new Map<Bay, DressPiece>();
@@ -597,7 +610,7 @@ export function dressBlock(
   }
 
   // ---- fire escape goes in now (it was decided first) ----
-  if (escape && accept(escape.pieces, escape.weight)) used.escapePrev = true;
+  if (escapeIn) out.push(...escape!.pieces);
 
   // ---- signs: a fascia sign by probability over the awning (or the glass); at most one blade sign, on a bay with no awning ----
   {
@@ -734,24 +747,58 @@ export interface DressBlockInput {
   kerbM?: number;
 }
 
+/** What `dressTown` is given beyond the blocks (ticket 061). */
+export interface DressTownOptions {
+  /** The share of qualifying blocks that get a fire escape (default `ESCAPE_SHARE_LADDER`). */
+  escapeShare?: number;
+}
+
+/** The qualifying blocks of a town as `escapeBlocks` sees them: R7's definition (`citymetrics.ts`), and whether the block can hold an escape. */
+export function escapeSitesOf(blocks: readonly DressBlockInput[], entries: Entries, fronts: FrontTable = {}): EscapeSite[] {
+  return probeEscapes(blocks, entries, fronts).sites;
+}
+
+/** Each block's escape as it would stand (a probe of `dressBlock` that stops after the escape), and the sites `escapeBlocks` chooses among. A block that cannot hold one has no pieces. */
+function probeEscapes(blocks: readonly DressBlockInput[], entries: Entries, fronts: FrontTable): { sites: EscapeSite[]; pieces: DressPiece[][] } {
+  const pieces: DressPiece[][] = [];
+  const sites = blocks.map((bl, i) => {
+    const st = bl.stack;
+    const qualifies = st.bays >= ESCAPE_MIN_BAYS && st.floors >= 2 && st.style.startsWith("apartment");
+    pieces.push(qualifies ? dressBlock(st, bl.lot, { ...bl.run, escape: true }, entries, fronts, bl.kerbM, true).pieces : []);
+    return { id: String(i), key: bl.lot.key, run: bl.run.id, qualifies, hosts: pieces[i]!.length > 0 };
+  });
+  return { sites, pieces };
+}
+
 /**
- * The dressing of every block, in the order given (a run's blocks in run order), threading each run's caps (ATM, billboard, novelty sign, alternate-block
- * fire escape) along it. The result is aligned with `blocks`. Once `DRESS_MAX` pieces are placed, later blocks stay plain.
+ * The dressing of every block, in the order given (a run's blocks in run order), threading each run's caps (ATM, billboard, novelty sign) along it. The result is aligned with `blocks`. Once
+ * `DRESS_MAX` pieces are placed, later blocks stay plain, but for a chosen block's escape.
+ *
+ * Ticket 061: before any block is dressed, `escapeBlocks` chooses which blocks get a fire escape: exactly `ceil(escapeShare x qualifying)` of them, by hash rank, never two neighbours in a run. The
+ * share is the map's R7 floor: `ESCAPE_SHARE_LADDER` (the default) on a puzzle map, `TILE_CITY_R7_MIN` on a tile city. A block is told whether it was chosen (`run.escape`); the choice is made from what
+ * each block can hold (a probe of `dressBlock` that stops after its escape), so a chosen block always shows one.
  */
-export function dressTown(blocks: readonly DressBlockInput[], entries: Entries, fronts: FrontTable = {}): DressPiece[][] {
+export function dressTown(blocks: readonly DressBlockInput[], entries: Entries, fronts: FrontTable = {}, opts: DressTownOptions = {}): DressPiece[][] {
+  const probe = probeEscapes(blocks, entries, fronts);
+  const chosen = escapeBlocks(probe.sites, opts.escapeShare ?? ESCAPE_SHARE_LADDER).chosen;
   const runs = new Map<string, RunUsed>();
   const out: DressPiece[][] = [];
   let total = 0;
+  // A chosen block keeps its escape even past `DRESS_MAX` (the cap is on the rest of the dressing, and an escape is a handful of pieces): the share is a guarantee.
+  const escapeOnly = (): DressPiece[] => (chosen.has(String(out.length)) ? probe.pieces[out.length]! : []);
   for (const bl of blocks) {
     const used = runs.get(bl.run.id) ?? NO_USED;
     if (total >= DRESS_MAX) {
-      out.push([]);
+      const e = escapeOnly();
+      total += e.length;
+      out.push(e);
       continue;
     }
-    const r = dressBlock(bl.stack, bl.lot, { ...bl.run, used }, entries, fronts, bl.kerbM);
+    const r = dressBlock(bl.stack, bl.lot, { ...bl.run, used, escape: chosen.has(String(out.length)) }, entries, fronts, bl.kerbM);
     if (total + r.pieces.length > DRESS_MAX) {
-      out.push([]);
-      total = DRESS_MAX;
+      const e = escapeOnly();
+      out.push(e);
+      total = Math.max(DRESS_MAX, total) + e.length;
       continue;
     }
     total += r.pieces.length;

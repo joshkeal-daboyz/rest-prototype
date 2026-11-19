@@ -9,7 +9,8 @@
  * B. Place. `planEscape` puts one platform on every storey, its deck `ESCAPE_DECK_BELOW_SILL_M` under that storey's sill, each piece scaled in y so its flight's top meets the deck above (and
  *    shifted in x so the flight arrives at the upper deck's hatch), and `ladderParts` / `codeEscape` draw in boxes what the pack's piece does not reach (the drop ladder's last metres, or a whole
  *    escape when a piece does not fit the storey pitch or is absent). `escapeCheck` is the pure check of the result.
- * C. Nothing here draws: `models3d.ts` turns the boxes into one InstancedMesh.
+ * C. Choose (ticket 061). `escapeBlocks` picks which blocks of a map get an escape, by hash rank, so the share of qualifying blocks with one (R7) is a guarantee and not a coin toss.
+ * D. Nothing here draws: `models3d.ts` turns the boxes into one InstancedMesh.
  *
  * Frames are the dressing's: metres, the piece's own centred frame (x along the road, y up, z away from the wall), a piece standing with its back on the wall at yaw 0.
  */
@@ -625,4 +626,111 @@ export function escapeCheck(stack: Pick<Stack, "pieces">, pieces: readonly Dress
   });
   const ok = missing.length === 0 && worstDeck <= ESCAPE_DECK_TOL_M + 1e-9 && worstJoint <= ESCAPE_JOINT_TOL_M + 1e-9 && (ladder === null || Math.abs(ladder) <= ESCAPE_GROUND_TOL_M + 1e-9);
   return [{ column, storeys: storeys.length, platforms: decks.length, missing, worstDeck_m: worstDeck, worstJoint_m: worstJoint, ladderFoot_m: ladder, ok }];
+}
+
+// ---- which blocks get an escape (ticket 061) ----
+
+/** A block of a map as the choice sees it: `id` names it in the result, `key` is the lot key its rank hashes, `run` the run it stands in (sites of a run come in run order). */
+export interface EscapeSite {
+  id: string;
+  key: string;
+  run: string;
+  /** R7's count: an apartment style with at least `ESCAPE_MIN_BAYS` columns and 2 floors over the base. */
+  qualifies: boolean;
+  /** A qualifying block that can hold an escape (a mid column that is not a door or corner column and has a roof piece, and the escape fits). */
+  hosts: boolean;
+}
+
+export interface EscapeChoice {
+  /** The ids of the blocks that get an escape. */
+  chosen: ReadonlySet<string>;
+  /** The qualifying blocks, as R7 counts them. */
+  qualifying: number;
+  /** `ceil(share x qualifying)`. */
+  target: number;
+  /** How many of `target` could not be placed (fewer hostable blocks than the neighbour rule needs); 0 when the target is met. */
+  escapeShort: number;
+}
+
+/**
+ * A block's rank: lower comes first. A pure function of the lot key: `stableHash(key + "escape")` (FNV-1a over the UTF-16 units, `src/render/city.ts`), written out here because this file imports nothing of
+ * `src/render/`; `escapes.test.ts` pins it equal to `stableHash`.
+ */
+export function escapeRank(key: string): number {
+  let h = 0x811c9dc5;
+  const s = `${key}escape`;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+interface EscapeNode {
+  site: EscapeSite;
+  rank: number;
+  order: number;
+  seg: EscapeNode[];
+  pos: number;
+  picked: boolean;
+}
+
+/**
+ * Which blocks get a fire escape. Exactly `ceil(share x qualifying)` of them, however many blocks there are: the hostable blocks are ranked by `escapeRank` and take an escape in rank order,
+ * skipping one whose neighbour in its run (the block before or after) already has one. A greedy pass can stop short of the target (it picks blocks 2 and 4 of a run of five and leaves no room), so a
+ * run that holds fewer than ceil(k / 2) of its k hostable blocks in a row is re-laid alternating (first, third, fifth, from its better-ranked end), best-ranked run first, until the target is met; a
+ * surplus is trimmed from the worst-ranked end. A target above what the neighbour rule allows places every block it can, and `escapeShort` is the rest. Pure and deterministic.
+ */
+export function escapeBlocks(sites: readonly EscapeSite[], share: number): EscapeChoice {
+  const qualifying = sites.filter((s) => s.qualifies).length;
+  const target = share > 0 ? Math.ceil(share * qualifying - 1e-9) : 0;
+  // The hostable blocks of each run in a row; a block that cannot host breaks the row, so the two blocks either side of it are not neighbours.
+  const nodes: EscapeNode[] = [];
+  const segs: EscapeNode[][] = [];
+  const open = new Map<string, EscapeNode[]>();
+  sites.forEach((site, order) => {
+    if (!(site.qualifies && site.hosts)) {
+      open.delete(site.run);
+      return;
+    }
+    let seg = open.get(site.run);
+    if (!seg) {
+      seg = [];
+      open.set(site.run, seg);
+      segs.push(seg);
+    }
+    nodes.push({ site, rank: escapeRank(site.key), order, seg, pos: seg.length, picked: false });
+    seg.push(nodes[nodes.length - 1]!);
+  });
+  const capacity = segs.reduce((n, s) => n + Math.ceil(s.length / 2), 0);
+  const goal = Math.min(target, capacity);
+  const better = (a: EscapeNode, b: EscapeNode): number => a.rank - b.rank || a.order - b.order;
+  let count = 0;
+  for (const n of [...nodes].sort(better)) {
+    if (count >= goal) break;
+    if (n.seg[n.pos - 1]?.picked || n.seg[n.pos + 1]?.picked) continue;
+    n.picked = true;
+    count++;
+  }
+  if (count < goal) {
+    const best = (s: EscapeNode[]): EscapeNode => [...s].sort(better)[0]!;
+    for (const seg of [...segs].sort((a, b) => better(best(a), best(b)))) {
+      if (count >= goal) break;
+      const want = Math.ceil(seg.length / 2);
+      const have = seg.filter((n) => n.picked).length;
+      if (have >= want) continue;
+      // Alternate from the better-ranked end (an odd run holds both ends either way).
+      const fromLast = seg.length % 2 === 0 && better(seg[seg.length - 1]!, seg[0]!) < 0;
+      seg.forEach((n, i) => (n.picked = (fromLast ? seg.length - 1 - i : i) % 2 === 0));
+      count += want - have;
+    }
+  }
+  if (count > goal) {
+    for (const n of nodes.filter((q) => q.picked).sort(better).reverse()) {
+      if (count <= goal) break;
+      n.picked = false;
+      count--;
+    }
+  }
+  return { chosen: new Set(nodes.filter((n) => n.picked).map((n) => n.site.id)), qualifying, target, escapeShort: target - count };
 }

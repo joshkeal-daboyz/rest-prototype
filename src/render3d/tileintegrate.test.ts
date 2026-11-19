@@ -13,7 +13,7 @@ import { ASSET_MANIFEST_VERSION, loadPuzzle, type AssetEntry, type AssetManifest
 import { SIDEWALK_TOP_M, SIDEWALK_WALK_M, TILE_CITY_R1_MIN, TILE_CITY_R6_MIN, TILE_CITY_R7_MIN, TILE_M, tileCity, tileKeepouts, bayMeters, BAYS_PER_PARKING_TILE, LANE_RIGHT, TILE_STACK_ALIGN, withPassages, type TileCity, type TileRole } from "./tilecity";
 import { CITY_ATM_BLOCKS_MIN, CITY_CHECK, cityMetrics, evaluateCity, isNeverUsed, runBlocks, type CityMetrics } from "./citymetrics";
 import { dressInput, dressSites, furnitureInput, furniturePlacement, loadModels, NO_MODELS, allStackKeys, applyModels, stackInput, type DressPlacement, type ModelSet } from "./models3d";
-import { AWNING_KERB_M, KERB_FROM_FRONT_M, dressKeys, dressTown, type DressBlockInput } from "./dressing";
+import { AWNING_KERB_M, ESCAPE_SHARE_LADDER, KERB_FROM_FRONT_M, dressKeys, dressTown, type DressBlockInput } from "./dressing";
 import { FURN_KEEP_M, FURN_KERB_M, KERB_M, METERS, furnitureKeys, furnitureLayout, type FurniturePiece } from "./furniture";
 import { STACK_STYLES } from "./stacks";
 import { packTown, type PackResult, type PackedBlock } from "./terrace";
@@ -417,7 +417,7 @@ describe("R10 reads the frame (criterion 25)", () => {
     const t = plan.city.town;
     const list = runBlocks(t.terraces, plan.packed);
     const sites = dressSites(list.map((x) => x.block), [], t.lots, frameMap(t.terraces));
-    return cityMetrics(t, plan.packed, dressTown(sites, DRESSING.entries, DRESSING.fronts), furniture, { keep: { points: plan.keepPoints, rects: plan.keepRects } });
+    return cityMetrics(t, plan.packed, dressTown(sites, DRESSING.entries, DRESSING.fronts, { escapeShare: TILE_CITY_R7_MIN }), furniture, { keep: { points: plan.keepPoints, rects: plan.keepRects } });
   };
 
   it("is 0 on the integrated tile city (default and seeds 1 to 10 at 3 x 3, with furniture), and the other R checks pass with it (R7 on the tile city's floor)", { timeout: 300000 }, () => {
@@ -1055,5 +1055,33 @@ describe("the block interiors on the packed city (057 D)", () => {
     applied.remove();
     bundle.dispose();
     r.dispose();
+  });
+});
+
+// ---- ticket 061: the fire-escape share reaches the dressing the tile view stands ----
+
+describe("the tile city's escape share (061)", () => {
+  it("passes TILE_CITY_R7_MIN through applyModels' options, and the puzzle path passes none (so it is the ladder's)", () => {
+    expect(cityApplyOptions(tileCity()).escapeShare).toBe(TILE_CITY_R7_MIN);
+    expect(TILE_CITY_R7_MIN).toBe(0.4);
+    expect(ESCAPE_SHARE_LADDER).toBe(CITY_CHECK.R7);
+    const bundle = buildScene(mapOf("09-shrine-circuit"), { text: stubTextSurface });
+    const applied = applyModels(bundle, SET);
+    const blocks = new Set(applied.dress.filter((d) => d.piece.slot === "escape").map((d) => `${d.frame.x}|${d.frame.z}`));
+    const qualifying = applied.terrace.filter((b) => b.stack.bays >= 3 && b.stack.floors >= 2 && b.stack.style.startsWith("apartment")).length;
+    expect(qualifying).toBeGreaterThan(5);
+    expect(blocks.size).toBeGreaterThanOrEqual(Math.ceil(ESCAPE_SHARE_LADDER * qualifying));
+    applied.remove();
+    bundle.dispose();
+  });
+
+  it("stands at least the tile floor of the qualifying terrace blocks with an escape in the applied dressing of the default city and seeds 1 to 10", { timeout: 300000 }, () => {
+    for (const c of CITIES) {
+      const plan = planOf(c);
+      const qualifying = plan.terrace.filter((b) => b.stack.bays >= 3 && b.stack.floors >= 2 && b.stack.style.startsWith("apartment")).length;
+      const withEscape = new Set(plan.dress.filter((d) => d.piece.slot === "escape").map((d) => `${d.frame.x}|${d.frame.z}`));
+      expect(qualifying, `seed ${c.seed}`).toBeGreaterThan(20);
+      expect(withEscape.size / qualifying, `seed ${c.seed} R7 ${withEscape.size}/${qualifying}`).toBeGreaterThanOrEqual(TILE_CITY_R7_MIN);
+    }
   });
 });

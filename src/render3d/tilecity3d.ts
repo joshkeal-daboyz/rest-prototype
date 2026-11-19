@@ -58,7 +58,7 @@ import { createStreetView, streetCamRequested, streetMode, type StreetView } fro
 import { applyLightMode, addSurface, newLightOwners, sceneLightMode, setRendererMode } from "./lightrig";
 import { lightModeFor, type LightModeId } from "./lighting";
 import { createDayToggle, pageDayToggleHost, type DayToggle, type DayToggleHost } from "./daytoggle";
-import { LANE_PATCH, LANE_RIGHT, SIDEWALK_WALK_M, TILE_M, TILE_STACK_ALIGN, bayMeters, tileCity, tileKeepouts, withPassages, type BuildoutTree, type TileCell, type TileYaw, type TileCity, type TilePassage, type TileRole } from "./tilecity";
+import { LANE_PATCH, LANE_RIGHT, SIDEWALK_WALK_M, TILE_CITY_R7_MIN, TILE_M, TILE_STACK_ALIGN, bayMeters, tileCity, tileKeepouts, withPassages, type BuildoutTree, type TileCell, type TileYaw, type TileCity, type TilePassage, type TileRole } from "./tilecity";
 import {
   GATE_COLOUR,
   INTERIOR_DRAW_CALLS_MAX,
@@ -1297,7 +1297,7 @@ export const TILE_FURNITURE_LEVELS: FurnitureLevels = { pavement_m: 0 };
 export function cityApplyOptions(city: TileCity): ApplyOptions {
   const keep = tileKeepouts(city);
   // 057 D: the wall alignment is passed to `packTown` explicitly (it would default to it, by the runs' pavement frame), so the tile city does not depend on that default.
-  return { keepPoints: keep.keepPoints, keepRects: keep.keepRects, furnitureFilter: (pieces) => bayMeters(city, courtLotPieces(city, pieces)), furnitureLevels: TILE_FURNITURE_LEVELS, align: TILE_STACK_ALIGN };
+  return { keepPoints: keep.keepPoints, keepRects: keep.keepRects, furnitureFilter: (pieces) => bayMeters(city, courtLotPieces(city, pieces)), furnitureLevels: TILE_FURNITURE_LEVELS, align: TILE_STACK_ALIGN, escapeShare: TILE_CITY_R7_MIN };
 }
 
 /**
