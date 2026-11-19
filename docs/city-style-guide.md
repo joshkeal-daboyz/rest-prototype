@@ -213,7 +213,7 @@ How to read it:
 | --- | --- | --- | --- | --- |
 | apocalypse-power | POLYGON Apocalypse (the power subset) | 1 | in use | pole `SM_Prop_Powerpole_01`, lamp post `SM_Prop_LightPole_01` |
 | simple-town | SIMPLE Town | 100 | in use | every building today (placeholder style); `scaleOverrides` for two stations and one road tile |
-| town-pack | POLYGON Town Pack | 1 | in use | twelve whole houses and a garage (048: `SM_Bld_House_Preset_01` to `_11`, `SM_Bld_House_Preset_Garage_01`); a church, a shed and props are not placed |
+| town-pack | POLYGON Town Pack | 1 | in use | twelve whole houses and a garage (048: `SM_Bld_House_Preset_01` to `_11`, `SM_Bld_House_Preset_Garage_01`); a church, a shed and props are not placed, except the house concrete steps (055 F, 16.10) |
 | city-pack | POLYGON City Pack | 100 | in use | stacked buildings (050 C): shops, apartment and office floors and roofs, assembled from `STACK_STYLES`; roads, pavements and a city hall are not used |
 
 - **Info (manifest, 17 Nov 2026)**: `town-pack` has 704 entries and 9 failures (character files with duplicate names). Of its entries, 2 are `scale-suspect` (`SM_Bld_House_DeckSteps_01`, 0 x 0 x 0, and `POLYGON_Town_Demo`) and 62 carry `missing-texture`. Preassembled buildings: `SM_Bld_House_Preset_01` to `_11` (from 5.7 m to 18.2 m wide, 4 to 9.4 m high), `SM_Bld_House_Preset_Garage_01`, `SM_Bld_Church_01` (10.4 x 16.5 x 14.4 m) and `SM_Bld_GardenShed_01` (2.3 x 2.8 x 2.5 m, prop-sized). It also holds many loose wall, deck and door pieces that are not buildings.
@@ -356,6 +356,7 @@ How to read it:
 | `SM_Env_SubwayEntrance_*` | 8 to 15 m deep: past the kerb |
 
 - **Info**: the pack has no animal models, so nothing needs excluding for them.
+- **Info (055 F)**: one model of a pack that is otherwise not placed is in use: the Town Pack's `SM_Bld_House_Concrete_Steps_01` (`STEPS_KEY`, 1.2 x 0.5 x 0.9 m), the door steps of 16.10. Its sibling `SM_Bld_House_DeckSteps_01` converts to 0 x 0 x 0 (`scale-suspect`), so it is broken and not used. The City Pack's only steps, `SM_Bld_Apartment_Stairs_*`, are in the never-used table above (2.4 to 4 m high and 5 to 10 m deep, far too big for a door).
 - **Open (waits for a pack that has glass windows, or a ticket that draws them in code)**: no glass for apartment windows and no lit-window variant: the windows are baked into the floor pieces. Josh's rule that nothing but lit places and live wires glows (chapter 12) means a lit window would be a ticket of its own, not a dressing.
 - **Open (waits for a pack that has them, or a ticket that draws them in code)**: no balconies, cornices or separate parapets; no roof railings or ladders; no roller shutters.
 - **Open (waits for a second model of each, or a ticket that varies them in code)**: one water tower, one satellite dish and one ATM model only, so variety there comes from placement, not models.
@@ -473,6 +474,55 @@ How to read it:
 - **Info (054)**: the colour judgement is made with `light=day`: the hue difference is subtle in the night scene.
 - **Open (waits for a generated-recolour ticket, if the eye check finds too few colours)**: not every wall changes. The colourways recolour only some gradient columns (the brick, the warm browns, one tan); the grey-walled styles and the shopfront ground floors are the same in every colourway, so the variety is mostly the brick upper floors. Judged by eye by the main session on 18 Nov 2026: neighbouring blocks render in red, dark green, cream-tan and teal, and shopfronts and the grey styles look the same in every colourway. The follow-up, if wanted, is a per-column hue remap of the base made by the converter, not more of this pool.
 - **Info (054)**: R13 is measured by `citymetrics.test.ts` on the three maps of the protocol with a fixed fake set of 8 ids, not the real files (CI has none): it passes at 1 because the rule steps off a repeat. The eye half is in 16.8.
+
+### 16.10 Door sills (ticket 055 F)
+
+How high a building's door stands over the walk in front of it, and what is done about it. `sills.ts` holds the measured table, the plan and the measuring function, `models3d.ts` draws the result (the sink, the dressing's offset, the steps), and `sills.test.ts` pins every value and re-measures them from the converted GLBs where they are on the machine.
+
+- **Decided (055 F, Josh 18 Nov 2026: "That's going to have to be a variable that we measure for each individual building.")**: a building's door sill is measured, one number for each model, and a building whose sill is out of reach of the walk is sunk until its door meets it. Josh said this when house foundations stood higher than the street, so that no one could walk in. The rest of this section is the defaults the ticket chose to meet it (approved with "Approved and confirmed", Q10 to Q13 at their defaults).
+- **Default (055 F, Q10)**: the rule applies everywhere, on the tile city and on the ladder maps alike: they are the same buildings, and a door nobody can reach is wrong on both. On the ladder maps only building and stack heights, the dressing's heights on the blocks that sink, and the added steps change; the layout, the packer, the furniture, the open lots, the tiles, picking, the Relight and the playtest snapshots are as they were. The sink is applied when drawing (`applyModels`), never in the plans.
+- **Default (055 F, Q11)**: a sill up to `SILL_MAX_M` is left alone: a door step.
+- **Default (055 F, Q12)**: sink first. A house (a whole model) sinks by its sill, but no further than leaves its lowest ground-floor window `SILL_WINDOW_CLEAR_M` over the walk; if that leaves more than `SILL_MAX_M` to climb, the Town Pack's concrete steps stand at its door, outside its front face and tucked `STEPS_TUCK_M` into it, scaled in y alone (`STEPS_SCALE_Y`) until their top (`STEPS_RISE_M` at scale 1) meets the door to within `STEPS_FIT_M`. A rise under the steps' smallest is made by sinking less, so the steps still meet the door. A stack (a City Pack building, a terrace block or a tall-lot stack) always sinks, as one, by the largest sill of its ground pieces (the base, door and corner pieces, role "base"), never takes steps (a terrace's front is the walk, and steps there would stand in the walkers' way), and takes its dressing (glass, awnings, signs, fire escapes, roof props) down with it. Furniture, open lots, tiles and lot placeholders do not move.
+- **Default (055 F, Q13)**: the steps are `STEPS_KEY`, the Town Pack's `SM_Bld_House_Concrete_Steps_01`, 1.2 x 0.5 x 0.9 m (`STEPS_W_M` x `STEPS_RISE_M` x `STEPS_D_M`; 1.19 x 0.513 x 0.871 in the GLB): a second texture atlas beside the houses that already use it, drawn as one InstancedMesh and never picked. With the model absent (a fresh checkout, CI), the steps are one InstancedMesh of plain boxes of the same size in the lot's ground colour (`YARD`). Puzzle pages ask for the steps with the town; the tile city does not, because it has no house and would otherwise fetch the Town Pack's 110 MB for nothing. The Town Pack's `SM_Bld_House_DeckSteps_01` is broken (16.6).
+- **Info (055 F)**: how a sill is measured (`measureDoor`, from the converted GLB's geometry). The front face is the model's furthest vertex along the front `BUILDING_FRONTS` names; `v` is the depth behind it. A door floor is a horizontal, upward-facing surface up to `SILL_CEIL_M` high that starts within `SILL_DEPTH_M` behind the front face. Surfaces within `SILL_LEVEL_GAP_M` in height are one level, and those on a level within `SILL_JOIN_GAP_M` along the front are one cluster; a cluster under `DOOR_MIN_AREA_M2` is a fitting (a door's kick plate, a stair nosing), not a floor. The door is at the front's centre when a floor cluster covers it, else at the centre of the nearest floor cluster (a house's threshold slab, an office's lobby). The sill is the highest floor cluster within `SILL_DOOR_HALF_M` either side of the door's centre. `window_m` is the lowest vertex of the glass triangles within `SILL_DEPTH_M` of the front face: only the Town Pack's meshes have a glass material to tell a window by, so the City Pack's and SIMPLE Town's are `none` and their buildings sink by the whole sill. A model the geometry cannot settle has no entry and is drawn unchanged (the list below).
+- **Info (055 F)**: the table (`DOOR_SILLS`, in metres in the model's own frame, from the GLBs of 18 Nov 2026; the door's centre is along the front, to the right as seen from outside). 41 entries; 33 are over `SILL_MAX_M`.
+
+| Key | Sill | Lowest window | Door's centre |
+| --- | --- | --- | --- |
+| `city-pack:SM_Bld_Shop_01` | 0.106 | none | 0 |
+| `city-pack:SM_Bld_Shop_02` | 0.071 | none | 0 |
+| `city-pack:SM_Bld_Shop_03` | 0.043 | none | 0 |
+| `city-pack:SM_Bld_Shop_04` | 0.077 | none | 0 |
+| `city-pack:SM_Bld_Shop_05` | 0.361 | none | 0 |
+| `city-pack:SM_Bld_Apartment_Door_01` | 0.029 | none | 0 |
+| `city-pack:SM_Bld_Apartment_Door_02` | 0.206 | none | 0 |
+| `city-pack:SM_Bld_Shop_Corner_01` | 0.159 | none | 0 |
+| `city-pack:SM_Bld_Shop_Corner_02` | 0.376 | none | 0 |
+| `city-pack:SM_Bld_OfficeOld_Small_Base_01` | 0.915 | none | 2.5 |
+| `city-pack:SM_Bld_OfficeOld_Large_Base_01` | 0.915 | none | 0 |
+| `city-pack:SM_Bld_OfficeOctagon_Base_01` | 0.085 | none | 0 |
+| `town-pack:SM_Bld_House_Preset_01` | 1.151 | 1.851 | 0 |
+| `town-pack:SM_Bld_House_Preset_02` | 1.052 | 1.752 | 1.271 |
+| `town-pack:SM_Bld_House_Preset_03` | 1.151 | 1.851 | -2.479 |
+| `town-pack:SM_Bld_House_Preset_05` | 1.166 | 1.866 | -2.479 |
+| `town-pack:SM_Bld_House_Preset_06` | 1.052 | 1.752 | 0 |
+| `town-pack:SM_Bld_House_Preset_07` | 1.052 | 1.752 | 2.521 |
+| `town-pack:SM_Bld_House_Preset_08` | 1.102 | 1.802 | -4.979 |
+| `town-pack:SM_Bld_House_Preset_09` | 1.052 | 1.752 | -1.229 |
+| `simple-town:Building_Shop_01, _02` | 0.337 | none | 0 |
+| `simple-town:apartment_small_mesh, apartment_large_mesh` | 0.212 | none | 0 |
+| `simple-town:Building_House_01 to _04` | 1.035 | none | 0 |
+| `simple-town:Building_House_09, _010, _011` | 0.426 | none | 0 |
+| `simple-town:Building_House_012 to _015` | 1.053 | none | 0 |
+| `simple-town:office_small_mesh, office_medium_mesh, office_large_mesh` | 0.505 | none | -2.991 |
+| `simple-town:Building_AutoRepair` | 0.138 | none | -5.965 |
+| `simple-town:Building_StripClub` | 0.138 | none | 0 |
+| `simple-town:Building_PoliceStation` | 0.402 | none | 0 |
+
+- **Info (055 F)**: what it does on the real table. The eight Town Pack houses with an entry stand 1.05 to 1.17 m over their base and their lowest window 0.70 m over their sill, so each sinks by its whole sill and none takes steps; no building in the table takes steps and none leaves a rise out of reach (`leavesGap`). The steps are built, tested on fixture tables and drawn, and wait for a house whose window sits within `SILL_WINDOW_CLEAR_M` of its sill. A stack sinks by its largest ground sill: a block of City Pack shops with a `Shop_05` (0.361 m) sinks 0.361 m, and the `OfficeOld` bases 0.915 m.
+- **Open (waits for Josh's word on a deeper door search)**: 22 keys the town places have no entry, and are drawn as they were, because no door floor starts within `SILL_DEPTH_M` of the front face. Four are Town Pack buildings with a door floor about 1.05 to 1.15 m up, and `_10` and the garage stand on all three maps of 16.8, so those plinths stay: `SM_Bld_House_Preset_04` (door threshold 5.05 m behind its -x front face), `_10` and `_11` (2.57 m behind the -z front, in a recessed porch) and `SM_Bld_House_Preset_Garage_01` (its only threshold is on the back, 8.17 m behind). City Pack: `SM_Bld_Shop_06` has no floor under 1.5 m at all, so a stack with it sinks by its other ground pieces. SIMPLE Town: `Building_Shop_03` to `_05` (first floor 2.29 m behind the front), `Building_BaberShop` (1.32 m), `Building_Gym` (2.45 m), `store_small_mesh` (1.35 m), `store_corner_mesh` (1.08 m), the three garages (none within 14 m), `house_mesh` (9.28 m: its steps are at the back), `Building_House_05` to `_08` (2.43 m), `Building_PetrolStation` (18.37 m) and `Building_CoffeeShop` (3.49 m). Their floors are 0.2 to 0.55 m, except the Town Pack's four. A wider search depth would settle some of them and could misread others, so it is Josh's call.
+- **Open (waits for Josh's word on SIMPLE Town's recessed stoops)**: `Building_House_09`, `_010` and `_011` have stoop steps of 0.21, 0.43 and 0.64 m, and the door floor of 0.64 m starts 1.24 m behind the front face, past `SILL_DEPTH_M`, so the sill measures 0.43 m: the house sinks 0.43 m and its door is left 0.21 m over the walk, a step a person can take.
+- **Open (waits for Josh's eye on ticket 055 F criterion 38)**: a stack sinks by its largest ground sill, so a block whose shops have lower floors (Shop_01 at 0.106 m beside a Shop_05 at 0.361 m) puts those doors up to 0.26 m under the walk; and a sunk house shows less of its stoop. Nothing was seen in a browser by the builder.
 
 ### 16.11 Fire escapes (ticket 058)
 
@@ -666,8 +716,8 @@ Josh's rulings from the tile-city work, in his own words, each with the ticket t
 - **Default (057, Josh 18 Nov 2026)**: buildings meet the pavement with no gap, and an overlap of up to 0.6 m onto it is allowed (the City Pack shop pieces reach the ground up to 0.557 m in front of their walls). This overrides the inset wherever the inset leaves a strip, so corners are flush: "This is a great start. There are gaps between the buildings and the sidewalk. It's okay if the buildings rest on top of the sidewalk and overlap a little bit. It is not okay if the buildings sit recessed from the sidewalk and leave a gap of nothing between them." (19.1 and 19.2)
 - **Default (057, Josh 18 Nov 2026)**: blank block interiors are filled: "There are blank open areas where the buildings don't exist. Those need to be filled in with something. You could fill that with parking lots, parks, or you could have those squares of buildings be thinner so that the buildings are butted up right against each other." Then: "Grass and pavement should fill the blank areas." (19.4)
 
-### Buildings (ticket 055 F, section 16.10; ticket 058 is built, now section 16.11)
-- **Default (055 F, Josh 18 Nov 2026; F approved with Q10 to Q13 at their defaults: "Approved and confirmed")**: each building's door sill is measured, and the building is sunk to the walk or given steps: "That's going to have to be a variable that we measure for each individual building." (16.10)
+### Buildings (ticket 055 F is built, now section 16.10; ticket 058 is built, now section 16.11)
+- **Info (055 F, Josh 18 Nov 2026; F approved with Q10 to Q13 at their defaults: "Approved and confirmed")**: built, now section 16.10: each building's door sill is measured, and the building is sunk to the walk or given steps: "That's going to have to be a variable that we measure for each individual building."
 - **Info (058, Josh 18 Nov 2026)**: built, now section 16.11: fire escapes connect, and their platforms are level with the windows: "There are gaps on the fire escapes. Additionally, fire escapes should always be level with windows or else people can't get out of the building."
 
 ### Poles, wires and lights (ticket 059; chapter 20, with lines in chapters 8 and 12)
@@ -680,7 +730,7 @@ Josh's rulings from the tile-city work, in his own words, each with the ticket t
 
 ## Numbers
 
-The drift test (`styleguide.test.ts`) reads this table. Each row names an export of the file in its last column. A value is a number (within 1e-9), a colour as `0x` hex (exactly), or `a x b x c` for a record, in the record's field order. `LOT_TYPES` is frontage x depth x cap in metres and `PLACE_SIZES` is width x depth in metres. `STACK_STYLES[i].pitch_m` is base x floor x roof in metres (the storey heights a recipe counts floors by; the roof is the height reserved under the cap), in the order `apartment-01`, `-02`, `-03`, `office-old-small`, `office-old-large`, `office-octagon`. `STACK_FLOORS` is the fewest floors over the base. `TINTS[i]` is the i-th wall tint. `CITY_CHECK` is the threshold of R1 to R13 in that order (a share to reach, or a count not to pass, chapter 16.8) and `CITY_STOREYS` is the fewest and most storeys. Changing a constant in code or a value here fails the test. Since ticket 053 the test also fails when `stacks.ts`, `terrace.ts`, `dressing.ts`, `furniture.ts`, `streetcam.ts` or `citymetrics.ts` exports a number that has no row here, and when `town.ts` does for a `TERRACE_*`, `PARKING_*` or `PLAZA_*` name. Since ticket 054 the test also fails when `colourway.ts` exports a constant (not a function) that has no row here; `COLOURWAY_POOL` is pinned by its length, and its ids are the table in 16.9. Since ticket 060 the same holds for `lighting.ts`: every number in `LIGHT_MODES` and every numeric export has a row (the mode's words, `toneMapping`, `shadows` and `nightLights`, are in 16.12). Since ticket 056 the test also fails when a constant of chapter 18 (the rows for `tilecity.ts` at the end of the table) is missing or changed, and when `parkmetrics.ts` exports a constant (not a function) that has no row; `KERB_BAY_SHARE_MAX` is avenue x street, `PARK_SUPPLY_BAND` is floor x ceiling and `PARK_CHECK` is P1 to P6 in that order. Since ticket 058 the test also fails when `escapes.ts` exports a number or a record of numbers that has no row here; `ESCAPE_SCALE_Y` is min x max, and `CODE_ESCAPE` is `w`, `d`, `deck`, `rail`, `bar`, `tread`, `riser`, `hatch0`, `hatch1`, `stair0`, `stair1`, `ladderX0`, `ladderX1`, `ladderZ`, in metres (16.11). Colours are `0x` hex.
+The drift test (`styleguide.test.ts`) reads this table. Each row names an export of the file in its last column. A value is a number (within 1e-9), a colour as `0x` hex (exactly), or `a x b x c` for a record, in the record's field order. `LOT_TYPES` is frontage x depth x cap in metres and `PLACE_SIZES` is width x depth in metres. `STACK_STYLES[i].pitch_m` is base x floor x roof in metres (the storey heights a recipe counts floors by; the roof is the height reserved under the cap), in the order `apartment-01`, `-02`, `-03`, `office-old-small`, `office-old-large`, `office-octagon`. `STACK_FLOORS` is the fewest floors over the base. `TINTS[i]` is the i-th wall tint. `CITY_CHECK` is the threshold of R1 to R13 in that order (a share to reach, or a count not to pass, chapter 16.8) and `CITY_STOREYS` is the fewest and most storeys. Changing a constant in code or a value here fails the test. Since ticket 053 the test also fails when `stacks.ts`, `terrace.ts`, `dressing.ts`, `furniture.ts`, `streetcam.ts` or `citymetrics.ts` exports a number that has no row here, and when `town.ts` does for a `TERRACE_*`, `PARKING_*` or `PLAZA_*` name. Since ticket 054 the test also fails when `colourway.ts` exports a constant (not a function) that has no row here; `COLOURWAY_POOL` is pinned by its length, and its ids are the table in 16.9. Since ticket 060 the same holds for `lighting.ts`: every number in `LIGHT_MODES` and every numeric export has a row (the mode's words, `toneMapping`, `shadows` and `nightLights`, are in 16.12). Since ticket 056 the test also fails when a constant of chapter 18 (the rows for `tilecity.ts` at the end of the table) is missing or changed, and when `parkmetrics.ts` exports a constant (not a function) that has no row; `KERB_BAY_SHARE_MAX` is avenue x street, `PARK_SUPPLY_BAND` is floor x ceiling and `PARK_CHECK` is P1 to P6 in that order. Since ticket 058 the test also fails when `escapes.ts` exports a number or a record of numbers that has no row here; `ESCAPE_SCALE_Y` is min x max, and `CODE_ESCAPE` is `w`, `d`, `deck`, `rail`, `bar`, `tread`, `riser`, `hatch0`, `hatch1`, `stair0`, `stair1`, `ladderX0`, `ladderX1`, `ladderZ`, in metres (16.11). Since ticket 055 F the test also fails when `sills.ts` exports a number or a record of numbers that has no row here; `STEPS_SCALE_Y` is min x max (16.10). Colours are `0x` hex.
 
 | Constant | Value | File |
 | --- | --- | --- |
@@ -922,6 +972,20 @@ The drift test (`styleguide.test.ts`) reads this table. Each row names an export
 | `LADDER_RUNG_M` | 0.03 | escapes.ts |
 | `CODE_ESCAPE` | 3.25 x 1.64 x 0.08 x 0.9 x 0.05 x 0.25 x 0.2 x -0.9 x 1 x 0.07 x 0.67 x 0.853 x 1.303 x 0.83 | escapes.ts |
 | `SILL_MIN_AREA_M2` | 1 | escapes.ts |
+| `SILL_MAX_M` | 0.15 | sills.ts |
+| `SILL_WINDOW_CLEAR_M` | 0.3 | sills.ts |
+| `STEPS_RISE_M` | 0.5 | sills.ts |
+| `STEPS_SCALE_Y` | 0.5 x 1.5 | sills.ts |
+| `STEPS_W_M` | 1.2 | sills.ts |
+| `STEPS_D_M` | 0.9 | sills.ts |
+| `STEPS_TUCK_M` | 0.05 | sills.ts |
+| `STEPS_FIT_M` | 0.05 | sills.ts |
+| `SILL_DEPTH_M` | 1 | sills.ts |
+| `SILL_CEIL_M` | 1.5 | sills.ts |
+| `DOOR_MIN_AREA_M2` | 0.2 | sills.ts |
+| `SILL_DOOR_HALF_M` | 0.45 | sills.ts |
+| `SILL_LEVEL_GAP_M` | 0.03 | sills.ts |
+| `SILL_JOIN_GAP_M` | 0.1 | sills.ts |
 
 Night's global lighting as written in the table of `lighting.ts` (the rig reads it; since ticket 060 `scene.ts` holds no light literal of its own), pinned by the exact source text as well:
 

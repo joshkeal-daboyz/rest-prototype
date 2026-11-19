@@ -47,7 +47,8 @@ import { pickPlaceholders } from "./placeholders";
 import type { ModelSlots, SceneBundle } from "./scene";
 import { STACK_STYLES, assembleStack, offeredStacks, stackKeys, type Stack } from "./stacks";
 import { ALLEY_MAX_M, ALLEY_MIN_M, packTown, type PackedBlock, type PackResult } from "./terrace";
-import { PAVEMENT_Y, YARD_H } from "./scene";
+import { PAVEMENT_Y, YARD, YARD_H } from "./scene";
+import { DOOR_SILLS, STEPS_D_M, STEPS_KEY, STEPS_RISE_M, STEPS_W_M, houseSill, modelPoint, stackSill, stepsYaw, type SillPlan, type SillTable } from "./sills";
 import { LOT_TYPE_NAMES, type Lot, type Pt, type TerraceRun } from "./town";
 
 /** A planned model whose root node was found in its pack's GLB. */
@@ -72,6 +73,11 @@ export type ModelSet = Record<ModelSlot, LoadedModel[] | null> & {
    * for, which is every page but the dev-only tile city (`city=tiles`): the town and every puzzle map never ask.
    */
   tile?: LoadedModel[] | null;
+  /**
+   * The door steps (ticket 055 F: the Town Pack's `SM_Bld_House_Concrete_Steps_01`), in `LoadDeps.stepKeys` order; null when they were asked for and none loaded. Absent when not asked for, which is
+   * every set but the puzzle pages' (the tile city has no house, so it never fetches the Town Pack for them): then a step is drawn as a plain box.
+   */
+  steps?: LoadedModel[] | null;
   /**
    * The City Pack colourway atlases that loaded (ticket 054 B), by id (`02_A`), each carrying its base atlas's name in `userData.colourwayBase`. Only ids in COLOURWAY_POOL are ever loaded. Absent when none
    * loaded or none was asked for (a fresh checkout, CI, no `colourways` in the manifest, no `loadTexture`): then every stack is drawn with the cached materials, exactly as before.
@@ -98,6 +104,8 @@ export interface LoadDeps {
   dressKeys?: readonly CalibrationKey[];
   /** The ground tiles to load too (ticket 055 C, the dev-only tile city), keyed `pack:name`, into `ModelSet.tile`. Default: none, so nothing extra is read from the GLB. */
   tileKeys?: readonly CalibrationKey[];
+  /** The door steps to load too (ticket 055 F), keyed `pack:name`, into `ModelSet.steps`. Default: none, so nothing extra is read from the GLB. */
+  stepKeys?: readonly CalibrationKey[];
   /** Resolves to the image at `url` as a texture (ticket 054 B: the City Pack's colourways), and rejects if it cannot be fetched. Default: none, so no colourway is fetched. */
   loadTexture?: (url: string) => Promise<Texture>;
   /** Folder of the manifest, ending in "/". Default: `${BASE_URL}assets/private/out/`. */
@@ -168,8 +176,12 @@ export async function loadModels(deps: LoadDeps): Promise<ModelSet> {
     // The ground tiles (ticket 055 C) are planned like the dressing (a flat 5 x 0 x 5 road tile and a 5 x 0.30 x 5 sidewalk both pass); only a page that asks for them reads any.
     const wantTile = deps.tileKeys ?? [];
     const tilePlan = wantTile.length > 0 ? planDress(manifest as AssetManifest, wantTile, {}) : null;
+    // The door steps (ticket 055 F) are planned like the dressing too (1.2 x 0.5 x 0.9 m passes); only a page that asks for them reads any.
+    const wantSteps = (deps.stepKeys ?? []).filter((key) => !exclude.includes(key));
+    const stepsPlan = wantSteps.length > 0 ? planDress(manifest as AssetManifest, wantSteps, {}) : null;
     const globs = new Set<string>();
     for (const slot of MODEL_SLOTS) for (const p of plan[slot] ?? []) globs.add(p.glb);
+    for (const p of stepsPlan ?? []) globs.add(p.glb);
     for (const p of stackPlan ?? []) globs.add(p.glb);
     for (const p of dressPlan ?? []) globs.add(p.glb);
     for (const p of tilePlan ?? []) globs.add(p.glb);
@@ -240,6 +252,16 @@ export async function loadModels(deps: LoadDeps): Promise<ModelSet> {
         (set.tile ??= []).push({ ...p, root });
       }
       if ((set.tile?.length ?? 0) < deps.tileKeys.length) info(`3D models: ${set.tile?.length ?? 0} of ${deps.tileKeys.length} ground tile pieces loaded; the rest are drawn in code.`);
+    }
+    if (deps.stepKeys && deps.stepKeys.length > 0) {
+      set.steps = null;
+      // A steps model missing from the manifest or its GLB is drawn as a plain box instead (`applyModels`).
+      for (const p of stepsPlan ?? []) {
+        const root = roots.get(p.glb)?.getObjectByName(p.entry.name);
+        if (!root) continue;
+        nearestTextures(root);
+        (set.steps ??= []).push({ ...p, root });
+      }
     }
     return set;
   } catch (e) {
@@ -322,7 +344,7 @@ function loadPageModels(extra: Pick<LoadDeps, "table" | "tileKeys">): Promise<Mo
   return loadSavedCalibration({ dev: import.meta.env.DEV, fetchJson }).then((saved) => {
     const tables = effectiveFronts({ fronts: BUILDING_FRONTS, exclude: BUILDING_EXCLUDE }, saved);
     // The City Pack's stack pieces load too (ticket 050 C); with no City Pack in the manifest nothing extra is fetched and the set has no stack slot.
-    return loadModels({ fetchJson, loadGlb: async (url) => (await new GLTFLoader().loadAsync(url)).scene, loadTexture: (url) => new TextureLoader().loadAsync(url), fronts: tables.fronts, exclude: tables.exclude, stackKeys: allStackKeys(), dressKeys: [...dressKeys(), ...furnitureKeys()], ...extra });
+    return loadModels({ fetchJson, loadGlb: async (url) => (await new GLTFLoader().loadAsync(url)).scene, loadTexture: (url) => new TextureLoader().loadAsync(url), fronts: tables.fronts, exclude: tables.exclude, stackKeys: allStackKeys(), dressKeys: [...dressKeys(), ...furnitureKeys()], stepKeys: extra.tileKeys ? [] : [STEPS_KEY], ...extra });
   });
 }
 
@@ -380,6 +402,19 @@ export interface AppliedModels {
   furniture: readonly FurniturePiece[];
   /** The InstancedMeshes the furniture added (its draw calls); 0 when none. */
   furnitureCalls: number;
+  /** The buildings that were sunk or given steps (ticket 055 F), in the order they were stood: whole models and lone stacks first, then the terrace blocks. Empty when nothing was changed. */
+  doors: readonly DoorWork[];
+  /** The door steps drawn (ticket 055 F), one placement per house that has them; empty when none. */
+  steps: readonly DressPlacement[];
+}
+
+/** One building sunk to meet the walk, or stood on a rise that its steps make up (ticket 055 F). */
+export interface DoorWork {
+  key: CalibrationKey;
+  kind: "house" | "stack";
+  sink_m: number;
+  steps: boolean;
+  leftOver_m: number;
 }
 
 /** A clone of `m` in a wrapper that scales, turns and places it. The clone shares the cache's geometry and materials; nothing can pick it. */
@@ -544,11 +579,12 @@ export function dressInput(set: ModelSet): DressInput | null {
   return { entries, fronts, roots };
 }
 
-/** Where a stack group stands in the world: its origin (the lot's front-centre) and its turn about y. */
+/** Where a stack group stands in the world: its origin (the lot's front-centre) and its turn about y. `y` (ticket 055 F: how far the block was sunk) is absent for a block that stands on the walk. */
 export interface DressFrame {
   x: number;
   z: number;
   yaw: number;
+  y?: number;
 }
 
 /** One piece of dressing in its stack's frame, and that frame. */
@@ -570,7 +606,7 @@ const tmpB = new Matrix4();
  */
 export function dressMatrix(frame: DressFrame, piece: Pick<DressPiece, "x" | "y" | "z" | "yaw"> & { scaleY?: number }, out: Matrix4 = new Matrix4()): Matrix4 {
   const s = WORLD_PER_METRE;
-  tmpA.compose(tmpP.set(frame.x, 0, frame.z), tmpQ.setFromAxisAngle(UP, frame.yaw), tmpS.set(1, 1, 1));
+  tmpA.compose(tmpP.set(frame.x, frame.y ?? 0, frame.z), tmpQ.setFromAxisAngle(UP, frame.yaw), tmpS.set(1, 1, 1));
   tmpB.compose(tmpP.set(piece.x * s, piece.y * s, piece.z * s), tmpQ.setFromAxisAngle(UP, piece.yaw), tmpS.set(s, s * (piece.scaleY ?? 1), s));
   return out.multiplyMatrices(tmpA, tmpB);
 }
@@ -957,6 +993,68 @@ export function buildingPlacements(lots: readonly Lot[], buildings: readonly Loa
   return out;
 }
 
+/** The height a building of scale `scale` stands at when it is sunk `sink_m` metres: below the walk by that much, and exactly 0 (never -0) when it is not sunk. */
+function lowered(sink_m: number, scale: number): number {
+  return sink_m > 0 ? -sink_m * scale : 0;
+}
+
+/**
+ * Where the door steps of a house stand (ticket 055 F): in the placement's frame (the model's own, in metres), `steps` is in the front frame (along the front, out from the front face), which
+ * `modelPoint` turns into the model's x and z. The steps stand on the walk (world y 0, the model itself being sunk), turned to face the lot's road, and scaled in y alone to the rise left over.
+ */
+export function stepsPlacement(model: Pick<LoadedModel, "entry" | "front">, at: Pick<BuildingPlacement, "x" | "z" | "yaw">, steps: NonNullable<SillPlan["steps"]>): DressPlacement {
+  const b = model.entry.bounds;
+  const f = model.front;
+  const half = f === "+z" ? b.max[2] : f === "-z" ? -b.min[2] : f === "+x" ? b.max[0] : -b.min[0];
+  const pt = modelPoint(f, steps.x_m, half + steps.z_m);
+  return { frame: { x: at.x, z: at.z, yaw: at.yaw }, piece: { key: STEPS_KEY, slot: "wall", x: pt.x, y: 0, z: pt.z, yaw: stepsYaw(f), column: 0, w: STEPS_W_M, h: STEPS_RISE_M * steps.scaleY, d: STEPS_D_M, scaleY: steps.scaleY } };
+}
+
+/**
+ * Draw the door steps (ticket 055 F): the pack's model as one InstancedMesh per sub-mesh when `root` is given (the dressing's instancer, so nothing takes a ray and nothing is lit), else, with no model
+ * loaded (a fresh checkout, CI), one InstancedMesh of plain boxes of the same size in the lot's ground colour. Either way the group is named `door-steps` and shared with no scene disposal; `dispose()`
+ * frees what it owns (never the cached model's geometry or textures).
+ */
+export function stepsGroup(placements: readonly DressPlacement[], root: Object3D | undefined): DressDraw {
+  if (root) {
+    const drawn = dressGroup(placements, new Map([[STEPS_KEY, root]]), DRESS_DRAW_CALLS_MAX);
+    if (drawn.calls > 0) {
+      drawn.group.name = "door-steps";
+      return drawn;
+    }
+    drawn.dispose();
+  }
+  const group = new Group();
+  group.name = "door-steps";
+  group.userData["sharedModel"] = true;
+  group.raycast = () => {};
+  const geometry = new BoxGeometry(1, 1, 1);
+  const material = new MeshStandardMaterial({ color: new Color(YARD), roughness: 1 });
+  const im = new InstancedMesh(geometry, material, placements.length);
+  im.name = "dress:steps-box";
+  im.raycast = () => {};
+  const size = new Matrix4();
+  const m = new Matrix4();
+  placements.forEach((p, i) => {
+    // The box's centre is half its height over the steps' base, in the piece's frame; its size is the steps' own, in metres, at the same WORLD_PER_METRE as every model.
+    const base = dressMatrix(p.frame, { x: p.piece.x, y: p.piece.y + p.piece.h / 2, z: p.piece.z, yaw: p.piece.yaw });
+    im.setMatrixAt(i, m.multiplyMatrices(base, size.makeScale(p.piece.w, p.piece.h, p.piece.d)));
+  });
+  im.instanceMatrix.needsUpdate = true;
+  im.computeBoundingSphere();
+  group.add(im);
+  return {
+    group,
+    calls: 1,
+    boxCalls: 0,
+    dispose() {
+      im.dispose();
+      geometry.dispose();
+      material.dispose();
+    },
+  };
+}
+
 const ZERO = new Matrix4().makeScale(0, 0, 0);
 
 /**
@@ -1027,6 +1125,8 @@ export interface ApplyOptions {
   keepRects?: readonly Rect[];
   furnitureFilter?: (pieces: readonly FurniturePiece[]) => FurniturePiece[];
   furnitureLevels?: FurnitureLevels;
+  /** The measured door sills (ticket 055 F). Default: DOOR_SILLS. An empty table sinks nothing and stands no steps, so the scene is exactly what 055 E drew. */
+  sills?: SillTable;
 }
 
 /**
@@ -1069,6 +1169,9 @@ export function applyModels(bundle: SceneBundle, set: ModelSet, opts: ApplyOptio
     }
   }
   const buildings = set.building;
+  const sills = opts.sills ?? DOOR_SILLS;
+  const doors: DoorWork[] = [];
+  const stepPlacements: DressPlacement[] = [];
   const stacks = stackInput(set);
   const stackRootsOf = stackRoots(set);
   let placed: readonly BuildingPlacement[] = [];
@@ -1088,11 +1191,23 @@ export function applyModels(bundle: SceneBundle, set: ModelSet, opts: ApplyOptio
         // The group's origin is the stack frame's: the lot's front-centre, which is the footprint centre moved toward the road by half its depth.
         const half = (p.stack.depth_m * WORLD_PER_METRE) / 2;
         const g = stackGroup(p.stack, stackRootsOf);
-        g.position.set(p.x + Math.sin(p.yaw) * half, 0, p.z + Math.cos(p.yaw) * half);
+        // A stack sinks as one by its measured sill (ticket 055 F): its door meets the walk.
+        const plan = stackSill(p.stack, sills);
+        g.position.set(p.x + Math.sin(p.yaw) * half, lowered(plan.sink_m, WORLD_PER_METRE), p.z + Math.cos(p.yaw) * half);
         g.rotation.y = p.yaw;
         add(slots.models, g);
         paintLone.push({ group: g, at: { key: slots.blocks.list[p.lot]!.key } });
-      } else add(slots.models, place(p.model, p.scale, p.x, p.z, p.yaw));
+        if (plan.sink_m > 0) doors.push({ key: `city-pack:${g.name}`, kind: "stack", sink_m: plan.sink_m, steps: false, leftOver_m: plan.leftOver_m });
+      } else {
+        // A whole model sinks by its measured sill, no further than keeps its lowest window clear of the walk, and stands steps for what is left (ticket 055 F).
+        const key = calibrationKey(p.model.pack, p.model.entry.name);
+        const plan = houseSill(key, sills);
+        const g = place(p.model, p.scale, p.x, p.z, p.yaw);
+        g.position.y = lowered(plan.sink_m, p.scale);
+        add(slots.models, g);
+        if (plan.steps) stepPlacements.push(stepsPlacement(p.model, p, plan.steps));
+        if (plan.sink_m > 0 || plan.steps) doors.push({ key, kind: "house", sink_m: plan.sink_m, steps: plan.steps !== null, leftOver_m: plan.leftOver_m });
+      }
     }
   }
   // The terrace rows (ticket 051 D): each run's nominal placeholders give way to its packed stacks, one `stack:<style>` group per block, in a group of their own that is a sibling of `slots.models` (so the lots' clones there are exactly as before). With no City Pack stack
@@ -1114,9 +1229,12 @@ export function applyModels(bundle: SceneBundle, set: ModelSet, opts: ApplyOptio
       for (const b of blocks) {
         // The stack frame's origin is the block's front-centre: its lot centre moved toward the road by half the lot's depth.
         const g = stackGroup(b.stack, stackRootsOf);
-        g.position.set(b.lot.x + Math.sin(b.lot.yaw) * (b.lot.d / 2), 0, b.lot.z + Math.cos(b.lot.yaw) * (b.lot.d / 2));
+        // A terrace block always sinks, never takes steps: its front is the walk (ticket 055 F).
+        const plan = stackSill(b.stack, sills);
+        g.position.set(b.lot.x + Math.sin(b.lot.yaw) * (b.lot.d / 2), lowered(plan.sink_m, WORLD_PER_METRE), b.lot.z + Math.cos(b.lot.yaw) * (b.lot.d / 2));
         g.rotation.y = b.lot.yaw;
         row.add(g);
+        if (plan.sink_m > 0) doors.push({ key: `city-pack:${g.name}`, kind: "stack", sink_m: plan.sink_m, steps: false, leftOver_m: plan.leftOver_m });
         paintTerrace.push({ group: g, at: { key: b.lot.key, run: run.id } });
         terrace.push(b);
       }
@@ -1145,7 +1263,12 @@ export function applyModels(bundle: SceneBundle, set: ModelSet, opts: ApplyOptio
     // A run's pavement frame (the tile city's) goes to the dressing of its blocks, by run id; a ladder run has none.
     const frames = new Map<string, TerraceRun["frame"]>();
     for (const r of slots.blocks.terraces ?? []) if (r.frame) frames.set(r.id, r.frame);
-    const placements = dressPlacements(dressSites(terrace, placed, slots.blocks.list, frames), dressing.entries, dressing.fronts);
+    // A block's dressing sinks with it (ticket 055 F): the site's frame is lowered by the block's sink, so glass, awnings, signs, fire escapes and roof props stay where they were on the block.
+    const sites = dressSites(terrace, placed, slots.blocks.list, frames).map((s) => {
+      const sink = stackSill(s.stack, sills).sink_m;
+      return sink > 0 ? { ...s, frame: { ...s.frame, y: lowered(sink, WORLD_PER_METRE) } } : s;
+    });
+    const placements = dressPlacements(sites, dressing.entries, dressing.fronts);
     if (placements.length > 0) {
       const drawn = dressGroup(placements, dressing.roots);
       if (drawn.calls > 0) {
@@ -1176,6 +1299,13 @@ export function applyModels(bundle: SceneBundle, set: ModelSet, opts: ApplyOptio
       } else drawn.dispose();
     }
   }
+  // The door steps (ticket 055 F): one group, drawn last so a missing model (CI) costs nothing else.
+  if (stepPlacements.length > 0) {
+    const root = set.steps?.find((m) => calibrationKey(m.pack, m.entry.name) === STEPS_KEY)?.root;
+    const drawn = stepsGroup(stepPlacements, root);
+    add(slots.models.parent ?? slots.models, drawn.group);
+    undo.push(() => drawn.dispose());
+  }
   return {
     buildings: placed,
     terrace,
@@ -1183,6 +1313,8 @@ export function applyModels(bundle: SceneBundle, set: ModelSet, opts: ApplyOptio
     dressCalls,
     furniture,
     furnitureCalls,
+    doors,
+    steps: stepPlacements,
     remove() {
       for (let i = undo.length - 1; i >= 0; i--) undo[i]!();
       undo.length = 0;

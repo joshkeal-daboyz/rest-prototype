@@ -21,6 +21,7 @@ import * as models from "./models";
 import * as parkmetrics from "./parkmetrics";
 import * as placeholders from "./placeholders";
 import * as scene from "./scene";
+import * as sills from "./sills";
 import * as stacks from "./stacks";
 import * as streetcam from "./streetcam";
 import * as terrace from "./terrace";
@@ -44,6 +45,7 @@ const MODULES: Readonly<Record<string, Record<string, unknown>>> = {
   "terrace.ts": terrace as unknown as Record<string, unknown>,
   "dressing.ts": dressing as unknown as Record<string, unknown>,
   "escapes.ts": escapes as unknown as Record<string, unknown>,
+  "sills.ts": sills as unknown as Record<string, unknown>,
   "furniture.ts": furniture as unknown as Record<string, unknown>,
   "streetcam.ts": streetcam as unknown as Record<string, unknown>,
   "citymetrics.ts": citymetrics as unknown as Record<string, unknown>,
@@ -705,5 +707,73 @@ describe("escapes.ts is drift-checked and 16.11 gives the fire-escape rules (tic
     const pending = section(/^## Decided, not yet built/).join("\n");
     expect(pending).not.toMatch(/^- \*\*Default \(058/m);
     expect(pending).toContain("now section 16.11");
+  });
+});
+
+// ---- ticket 055 F: sills.ts joins the drift-checked files ----
+
+describe("sills.ts is drift-checked and 16.10 gives the door-sill rule (ticket 055 F)", () => {
+  const rows = table(section(/^## Numbers$/), ["Constant", "Value", "File"]);
+  const have = rows.filter((r) => r[2] === "sills.ts").map((r) => unquote(r[0]!));
+  /** A number or a record of numbers: what a tuning constant looks like (the measured table holds records of records and is pinned by sills.test.ts). */
+  const numeric = (v: unknown): boolean => typeof v === "number" || (typeof v === "object" && v !== null && !Array.isArray(v) && Object.keys(v).length > 0 && Object.values(v).every((x) => typeof x === "number"));
+  const uncovered = (mod: Record<string, unknown>, names: readonly string[]): string[] =>
+    Object.entries(mod)
+      .filter(([, v]) => numeric(v))
+      .map(([name]) => name)
+      .filter((name) => !names.some((r) => r === name || r.startsWith(`${name}.`) || r.startsWith(`${name}[`)));
+  const sectionText = (): string => {
+    const from = lines.findIndex((l) => /^### 16\.10 /.test(l));
+    const to = lines.findIndex((l, i) => i > from && /^##+ /.test(l));
+    return lines.slice(from, to < 0 ? lines.length : to).join("\n");
+  };
+
+  it("has a Numbers row for every number and record of numbers sills.ts exports, and the check finds one with no row", () => {
+    expect(Object.values(MODULES["sills.ts"]!).filter(numeric).length, "sills.ts exports constants").toBeGreaterThan(10);
+    expect(uncovered(MODULES["sills.ts"]!, have), "no Numbers row for these sills.ts exports").toEqual([]);
+    expect(uncovered({ ...MODULES["sills.ts"]!, NEW_TUNING: 3 }, have)).toEqual(["NEW_TUNING"]);
+    expect(uncovered(MODULES["sills.ts"]!, [])).toContain("SILL_MAX_M");
+  });
+
+  it("gives 16.10 the Decided line with Josh's words verbatim, and every rule tagged with ticket 055 F or with what it waits for", () => {
+    const text = sectionText();
+    expect(text).toContain("That's going to have to be a variable that we measure for each individual building.");
+    expect(/^- \*\*Decided \(055 F, Josh 18 Nov 2026: "That's going to have to be a variable that we measure for each individual building\."/m.test(text)).toBe(true);
+    expect(text).toContain("Approved and confirmed");
+    for (const b of text.split("\n").filter((l) => l.startsWith("- "))) {
+      const tag = /^- \*\*(Decided|Default|Pending|Open|Info)\b/.exec(b);
+      expect(tag, `16.10: untagged bullet: ${b.slice(0, 80)}`).not.toBeNull();
+      if (tag![1] === "Open" || tag![1] === "Pending") expect(b.startsWith(`- **${tag![1]} (waits for `), `16.10: no "what it waits for": ${b.slice(0, 80)}`).toBe(true);
+      else expect(/^- \*\*\w+ \(055 F\b/.test(b), `16.10: no ticket beside: ${b.slice(0, 80)}`).toBe(true);
+    }
+  });
+
+  it("names every constant of sills.ts and the table and the steps' key in 16.10, records the steps in 16.6 and the pack table, and no longer holds the rule among the decisions not yet built", () => {
+    const text = sectionText();
+    for (const [name, v] of Object.entries(MODULES["sills.ts"]!)) if (numeric(v)) expect(text, name).toContain(`\`${name}\``);
+    for (const n of ["STEPS_KEY", "DOOR_SILLS", "measureDoor", "leavesGap"]) {
+      expect(Object.keys(MODULES["sills.ts"]!), n).toContain(n);
+      expect(text, n).toContain(`\`${n}\``);
+    }
+    expect(sills.STEPS_KEY).toBe("town-pack:SM_Bld_House_Concrete_Steps_01");
+    const sixSix = chapter(16).filter((l) => /^- \*\*Info \(055 F\)\*\*: one model of a pack that is otherwise not placed/.test(l));
+    expect(sixSix).toHaveLength(1);
+    expect(sixSix[0]).toContain("SM_Bld_House_Concrete_Steps_01");
+    expect(sixSix[0]).toContain("SM_Bld_House_DeckSteps_01");
+    const packs = table(chapter(13), ["Pack id", "Style", "Converter scale", "Status", "What it supplies"]);
+    expect(packs.find((r) => r[0] === "town-pack")![4]).toContain("except the house concrete steps");
+    const pending = section(/^## Decided, not yet built/).join("\n");
+    expect(pending).not.toMatch(/^- \*\*Default \(055 F/m);
+    expect(pending).toContain("now section 16.10");
+  });
+
+  it("lists in 16.10 a row for every entry of the measured table, grouped as the table's rows say", () => {
+    const text = sectionText();
+    for (const key of Object.keys(sills.DOOR_SILLS)) {
+      const [pack, name] = key.split(":") as [string, string];
+      // A group of names shares one row (Building_House_01 to _04); the first name or its stem is always on it.
+      const stem = name.replace(/_\d+$/, "").replace(/\d+$/, "");
+      expect(text.includes(key) || text.includes(`${pack}:${stem}`) || text.includes(name), `16.10 has no row for ${key}`).toBe(true);
+    }
   });
 });
