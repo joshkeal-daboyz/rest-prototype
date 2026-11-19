@@ -76,7 +76,7 @@ export const TILE_COLUMN_WIDE_M = 5.28;
 export const TILE_INSET_MAX_M = 2.5;
 /**
  * How the tile city's terrace stacks line up in z (ticket 057 A, 19.1): on their measured wall plane (`facade.ts`), which is the lot's front line, which is the pavement's back edge, so a
- * shop or storey stands on the pavement or up to 0.5 m over it and never behind it. The ladder keeps "back" (this is `StackAlign`'s "wall"; the type is not imported here, so the file keeps to the imports its purity test allows). `packTown` takes this from the runs' `frame` below (every tile-city run has
+ * shop or storey stands on the pavement or up to 0.6 m over it (0.557 m at most today) and never behind it. The ladder keeps "back" (this is `StackAlign`'s "wall"; the type is not imported here, so the file keeps to the imports its purity test allows). `packTown` takes this from the runs' `frame` below (every tile-city run has
  * one and no ladder run does), and the tests pass this constant to it as well.
  */
 export const TILE_STACK_ALIGN = "wall" as const;

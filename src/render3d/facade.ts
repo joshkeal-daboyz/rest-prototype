@@ -10,19 +10,26 @@
  * - the front-facing triangles of the piece (unit normal within about 8 degrees of the face's, `WALL_FACE_COS`) whose centroid is below `WALL_BAND_M` (3.5 m, the ground floor and the first
  *   storey; a floor piece is 3 m and a `Stack` piece 9 m of the same wall);
  * - grouped into planes (centroids within `WALL_PLANE_TOL_M` of each other), each with its summed area;
- * - only planes between the front bound and `WALL_REACH_M` (0.5 m, the most a sill, frame or sign may stand past the wall) behind it, of at least `WALL_MIN_AREA_M2`, are walls;
- * - the wall is the one of largest area (the frontmost on a tie).
- *   The ticket's wording is "the largest front-facing planar area below 3.5 m". Taken over the whole piece it names the back wall of a shop's interior (1.4 m to 2.6 m behind the
- *   shopfront on the shops: Shop_01 at 1.40, Shop_03 at 0.15 m), which would put the shop's frame 1.4 to 2.6 m onto the pavement. The reach window keeps the rule's meaning (the biggest
- *   flat face) and the limit the ticket gives sills and signs.
+ * - the wall is the one of largest area (the frontmost on a tie) among the planes between the front bound and `reach` behind it, of at least `WALL_MIN_AREA_M2`; and
+ *   for a GROUND piece (a base: shop, door, corner, office base; `rule: "ground"`) only a plane that reaches the ground (its lowest vertex at most `WALL_GROUND_Y_M` up) counts, so a sign
+ *   band or fascia above the shopfront (Shop_01's sign at y 2.22 to 2.84, Shop_06's fascia at 2.43 to 3.0) is never the wall: the wall is the face that meets the pavement. A ground
+ *   piece's reach is `WALL_REACH_M` (0.6 m, the overlap Josh allows: "overlap a little bit"); a floor piece keeps the first rule (reach `WALL_FLOOR_REACH_M`, 0.5 m, no ground test:
+ *   every floor piece's walls start at its bottom edge, and Office floors are set back on purpose).
+ *   The ticket's wording is "the largest front-facing planar area below 3.5 m". Taken over the whole piece it names the back wall of a shop's interior (Shop_01's at 1.37 m behind its
+ *   front bound, Shop_02's 1.80, Shop_03's 2.60, Shop_04's 2.76, Shop_05's 1.02), which would put the shop's frame up to 2.6 m onto the pavement. The reach window keeps the rule's
+ *   meaning (the biggest flat face) and the limit the ticket gives sills and signs.
  * A key the rule cannot settle (a roof: a cornice has no wall) has no entry, and its pieces align on their front bound (`wallOffset` gives 0).
  */
 
 import type { CalibrationKey } from "../core";
 import { BUILDING_FRONTS, type FrontTable, type ModelFront } from "./models";
 
-/** How far behind the front bound a plane may stand to be the wall, metres: the most a sill, frame or sign may stand past the wall (frontage.ts's `OVERLAP_MAX_M`, the same number). */
-export const WALL_REACH_M = 0.5;
+/** How far behind the front bound a ground piece's wall may stand, metres: the most a sill, frame or sign may stand past the wall, and the most a wall may stand onto the pavement (frontage.ts's `OVERLAP_MAX_M`, the same number; the ticket's 0.5 m became 0.6 m after the 057 A review). */
+export const WALL_REACH_M = 0.6;
+/** The same for a floor piece (the first round's rule, kept for the storeys above the ground floor), metres. */
+export const WALL_FLOOR_REACH_M = 0.5;
+/** A ground piece's wall plane must have a vertex at most this high, metres: it meets the pavement. */
+export const WALL_GROUND_Y_M = 0.3;
 /** Only the triangles whose centroid is below this height count, metres. */
 export const WALL_BAND_M = 3.5;
 /** The least area, m^2, a plane needs to be a wall. */
@@ -39,13 +46,13 @@ const k = (name: string): CalibrationKey => `city-pack:${name}`;
  * corner, shop, floor and `Stack` piece of every `STACK_STYLES` recipe has one. Roof pieces have none.
  */
 export const WALL_FRONT_M: Readonly<Partial<Record<CalibrationKey, number>>> = {
-  [k("SM_Bld_Shop_01")]: 0.004,
+  [k("SM_Bld_Shop_01")]: 0.219,
   [k("SM_Bld_Shop_02")]: 0.425,
   [k("SM_Bld_Shop_03")]: 0.103,
-  [k("SM_Bld_Shop_04")]: 0.146,
+  [k("SM_Bld_Shop_04")]: 0.557,
   [k("SM_Bld_Shop_05")]: 0.076,
-  [k("SM_Bld_Shop_06")]: 0.377,
-  [k("SM_Bld_Apartment_Door_01")]: 0.262,
+  [k("SM_Bld_Shop_06")]: 0.52,
+  [k("SM_Bld_Apartment_Door_01")]: 0.529,
   [k("SM_Bld_Apartment_Door_02")]: 0.058,
   [k("SM_Bld_Shop_Corner_01")]: 0.211,
   [k("SM_Bld_Shop_Corner_02")]: 0.166,
@@ -58,11 +65,11 @@ export const WALL_FRONT_M: Readonly<Partial<Record<CalibrationKey, number>>> = {
   [k("SM_Bld_Apartment_03")]: 0.351,
   [k("SM_Bld_Apartment_Corner_03")]: 0.351,
   [k("SM_Bld_Apartment_Stack_03")]: 0.351,
-  [k("SM_Bld_OfficeOld_Small_Base_01")]: 0.468,
+  [k("SM_Bld_OfficeOld_Small_Base_01")]: 0.348,
   [k("SM_Bld_OfficeOld_Small_Floor_01")]: 0,
-  [k("SM_Bld_OfficeOld_Large_Base_01")]: 0.468,
+  [k("SM_Bld_OfficeOld_Large_Base_01")]: 0.348,
   [k("SM_Bld_OfficeOld_Large_Floor_01")]: 0,
-  [k("SM_Bld_OfficeOctagon_Base_01")]: 0.174,
+  [k("SM_Bld_OfficeOctagon_Base_01")]: 0.595,
   [k("SM_Bld_OfficeOctagon_Floor_01")]: 0.232,
 };
 
@@ -93,6 +100,9 @@ export function wallOffset(key: CalibrationKey, street: "front" | "open", fronts
   return (open ?? own?.open ?? measured.open ?? "+x") === "+x" && measured.front === "+z" ? (WALL_SIDE_M[key] ?? 0) : 0;
 }
 
+/** Which rule a piece is measured by: "ground" (a base: only a plane that reaches the ground counts, reach `WALL_REACH_M`) or "floor" (reach `WALL_FLOOR_REACH_M`, no ground test). */
+export type WallRule = "ground" | "floor";
+
 /** What `measureWallPlane` finds. */
 export interface WallPlane {
   /** The wall plane's coordinate along the face's axis, metres (in the face's direction: larger is further out). */
@@ -109,7 +119,9 @@ export interface WallPlane {
  * The wall plane of a mesh on one face, by the rule in the file's comment, or null when no plane qualifies. `positions` is x,y,z per vertex and `indices` the triangle list (null: the
  * vertices are consecutive triangles). `face` is the face to measure, as a `ModelFront`: "+z" for a City Pack piece's front, "+x" for a corner piece's open side. Pure and deterministic.
  */
-export function measureWallPlane(positions: ArrayLike<number>, indices: ArrayLike<number> | null, face: ModelFront): WallPlane | null {
+export function measureWallPlane(positions: ArrayLike<number>, indices: ArrayLike<number> | null, face: ModelFront, rule: WallRule = "floor"): WallPlane | null {
+  const ground = rule === "ground";
+  const reach = ground ? WALL_REACH_M : WALL_FLOOR_REACH_M;
   const axis = face === "+z" || face === "-z" ? 2 : 0;
   const sign = face === "+z" || face === "+x" ? 1 : -1;
   const at = (v: number, c: number): number => positions[v * 3 + c]!;
@@ -117,7 +129,7 @@ export function measureWallPlane(positions: ArrayLike<number>, indices: ArrayLik
   let bound = -Infinity;
   for (let v = 0; v < Math.floor(positions.length / 3); v++) bound = Math.max(bound, sign * at(v, axis));
   if (!Number.isFinite(bound)) return null;
-  const tris: { c: number; area: number }[] = [];
+  const tris: { c: number; area: number; low: number }[] = [];
   for (let i = 0; i + 2 < count; i += 3) {
     const a = indices ? indices[i]! : i;
     const b = indices ? indices[i + 1]! : i + 1;
@@ -133,23 +145,25 @@ export function measureWallPlane(positions: ArrayLike<number>, indices: ArrayLik
     if (len < 1e-12) continue;
     if ((sign * n[axis]!) / len < WALL_FACE_COS) continue;
     if ((at(a, 1) + at(b, 1) + at(c, 1)) / 3 >= WALL_BAND_M) continue;
-    tris.push({ c: (sign * (at(a, axis) + at(b, axis) + at(c, axis))) / 3, area: len / 2 });
+    tris.push({ c: (sign * (at(a, axis) + at(b, axis) + at(c, axis))) / 3, area: len / 2, low: Math.min(at(a, 1), at(b, 1), at(c, 1)) });
   }
   tris.sort((p, q) => p.c - q.c);
-  const planes: { sum: number; area: number; last: number }[] = [];
+  const planes: { sum: number; area: number; last: number; low: number }[] = [];
   for (const t of tris) {
     const p = planes[planes.length - 1];
     if (p && t.c - p.last <= WALL_PLANE_TOL_M) {
       p.sum += t.c * t.area;
       p.area += t.area;
       p.last = t.c;
-    } else planes.push({ sum: t.c * t.area, area: t.area, last: t.c });
+      p.low = Math.min(p.low, t.low);
+    } else planes.push({ sum: t.c * t.area, area: t.area, last: t.c, low: t.low });
   }
   let best: WallPlane | null = null;
   for (const p of planes) {
     const plane = p.sum / p.area;
     const offset = bound - plane;
-    if (offset < -0.01 || offset > WALL_REACH_M + 1e-9 || p.area < WALL_MIN_AREA_M2) continue;
+    if (offset < -0.01 || offset > reach + 1e-9 || p.area < WALL_MIN_AREA_M2) continue;
+    if (ground && p.low > WALL_GROUND_Y_M + 1e-9) continue;
     if (!best || p.area > best.area + 1e-9 || (Math.abs(p.area - best.area) <= 1e-9 && plane > best.plane)) best = { plane, bound, offset, area: p.area };
   }
   return best;

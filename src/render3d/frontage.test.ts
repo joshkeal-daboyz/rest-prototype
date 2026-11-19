@@ -6,7 +6,8 @@
 
 import { describe, expect, it } from "vitest";
 import type { AssetEntry, CalibrationKey } from "../core";
-import { FRONTAGE_CHECK, FRONTAGE_TOL_M, OVERLAP_MAX_M, RECESS_MAX_M, evaluateFrontage, frontageMetrics } from "./frontage";
+import { wallOffset } from "./facade";
+import { FRONTAGE_CHECK, FRONTAGE_TOL_M, OVERLAP_MAX_M, RECESS_MAX_M, evaluateFrontage, frontageMetrics, type FaceOffset } from "./frontage";
 import { BUILDING_FRONTS } from "./models";
 import { STACK_STYLES } from "./stacks";
 import { alignOf, packTown, type PackResult } from "./terrace";
@@ -50,6 +51,28 @@ const ENTRIES: ReadonlyMap<CalibrationKey, AssetEntry> = new Map(
   ),
 );
 
+/**
+ * A second, independent pin (057 A review): for every ground piece, how far behind its front bound the frontmost face that reaches the pavement (y at most 0.3 m, at least 0.5 m2) stands,
+ * measured separately from `WALL_FRONT_M` on the converted City Pack (18 Nov 2026). G1 reads these, not the table the stacks aligned on, so it fails if the face at the pavement is recessed
+ * whatever the table says. `side` is the open side of a corner piece. A key not here (a floor, a roof) falls back to the stack's own table.
+ */
+const GROUND_FACE_M: Record<string, { front: number; side?: number }> = {
+  SM_Bld_Shop_01: { front: 0.219 },
+  SM_Bld_Shop_02: { front: 0.191 },
+  SM_Bld_Shop_03: { front: 0.103 },
+  SM_Bld_Shop_04: { front: 0.557 },
+  SM_Bld_Shop_05: { front: 0.076 },
+  SM_Bld_Shop_06: { front: 0.52 },
+  SM_Bld_Apartment_Door_01: { front: 0 },
+  SM_Bld_Apartment_Door_02: { front: 0.005 },
+  SM_Bld_Shop_Corner_01: { front: 0.073, side: 0.188 },
+  SM_Bld_Shop_Corner_02: { front: 0.107, side: 0.107 },
+};
+const groundFace: FaceOffset = (key, street) => {
+  const g = GROUND_FACE_M[key.slice("city-pack:".length)];
+  return g ? (street === "front" ? g.front : (g.side ?? g.front)) : wallOffset(key, street);
+};
+
 /** The cities the criterion names: the default (3 x 3, seed 1), seeds 1 to 10 at 3 x 3, and seeds 1 to 3 at 6 x 4. */
 const CITIES: { label: string; blocksX: number; blocksZ: number; seed: number }[] = [
   ...Array.from({ length: 10 }, (_, k) => ({ label: `3x3 seed ${k + 1}`, blocksX: 3, blocksZ: 3, seed: k + 1 })),
@@ -68,9 +91,9 @@ const cityOf = (c: (typeof CITIES)[number]): { city: TileCity; wall: Map<string,
 };
 
 describe("G1, no recess (criterion 3)", () => {
-  it("holds its limits: no recess, and the walls at most OVERLAP_MAX_M (half a metre) onto the pavement, with the ticket's 0.01 m", () => {
+  it("holds its limits: no recess, and the walls at most OVERLAP_MAX_M (0.6 m, the ticket's 0.5 m raised after the review) onto the pavement, with the ticket's 0.01 m", () => {
     expect(RECESS_MAX_M).toBe(0);
-    expect(OVERLAP_MAX_M).toBe(0.5);
+    expect(OVERLAP_MAX_M).toBe(0.6);
     expect(FRONTAGE_TOL_M).toBe(0.01);
     expect(FRONTAGE_CHECK).toEqual({ G1: 0 });
   });
@@ -81,6 +104,12 @@ describe("G1, no recess (criterion 3)", () => {
       const { city, wall } = cityOf(c);
       const m = frontageMetrics(city, wall);
       const g1 = evaluateFrontage(m)[0]!;
+      // The independent pin: no street-level face that meets the pavement stands behind its back edge, and the furthest one over it is within the reach.
+      const ind = frontageMetrics(city, wall, undefined, groundFace);
+      if (!evaluateFrontage(ind)[0]!.pass) bad.push(`${c.label}: independent pin: ${ind.recessed} recessed, ${ind.overlapped} over, from ${ind.wallMin_m.toFixed(3)} to ${ind.wallMax_m.toFixed(3)} m`);
+      expect(ind.recessed, c.label).toBe(0);
+      expect(ind.wallMin_m, c.label).toBeGreaterThanOrEqual(-FRONTAGE_TOL_M);
+      expect(ind.wallMax_m, c.label).toBeLessThanOrEqual(OVERLAP_MAX_M + FRONTAGE_TOL_M);
       expect(m.runs, c.label).toBe(city.town.terraces.length);
       expect(m.groundPieces, c.label).toBeGreaterThan(40);
       expect(m.unmeasured, c.label).toEqual([]);
@@ -95,6 +124,16 @@ describe("G1, no recess (criterion 3)", () => {
     expect(bad).toEqual([]);
   });
 
+  it("reports how far the buildings overlap the pavement: the furthest front bound is Shop_04's 0.557 m, inside the 0.6 m reach, and no street-level piece is recessed (0%)", () => {
+    for (const c of CITIES) {
+      const { city, wall } = cityOf(c);
+      const m = frontageMetrics(city, wall, undefined, groundFace);
+      expect(m.recessed / m.groundPieces, c.label).toBe(0);
+      expect(m.frontMax_m, c.label).toBeLessThanOrEqual(0.557 + 1e-9);
+      expect(m.frontMax_m, c.label).toBeLessThanOrEqual(OVERLAP_MAX_M);
+    }
+  });
+
   it("measures a column from its piece's wall, not its bound: on the default city every street-level wall is on the edge within 1e-6", () => {
     const { city, wall } = cityOf(CITIES[0]!);
     const m = frontageMetrics(city, wall);
@@ -102,6 +141,7 @@ describe("G1, no recess (criterion 3)", () => {
     expect(Math.abs(m.wallMax_m)).toBeLessThan(1e-6);
     // The front bounds stand out further than the walls (sills, frames, signs), by the table's offsets and no more than the reach.
     expect(m.frontMax_m).toBeGreaterThan(0.1);
+    expect(Math.abs(frontageMetrics(city, wall).frontMax_m)).toBeLessThanOrEqual(OVERLAP_MAX_M);
   });
 
   it("fails on today's back-aligned packing of the default city (the failing fixture: the same city with align: \"back\")", () => {
@@ -113,6 +153,24 @@ describe("G1, no recess (criterion 3)", () => {
     expect(m.recessed).toBeGreaterThan(m.groundPieces / 3);
     // Josh's strip: the street-level wall stands back by up to the depth difference of the pieces, about 0.5 m on this city.
     expect(m.wallMin_m).toBeLessThan(-0.4);
+  });
+
+  it("the independent pin fails a packing aligned on a face that is not the one at the pavement: Shop_01 aligned on its sign (0.004) stands 0.215 m behind the edge", () => {
+    const { city, wall } = cityOf(CITIES[0]!);
+    const shop1 = "city-pack:SM_Bld_Shop_01";
+    let moved = 0;
+    const wrong = new Map(
+      [...wall].map(([id, r]) => [
+        id,
+        { ...r, blocks: r.blocks.map((b) => ({ ...b, stack: { ...b.stack, pieces: b.stack.pieces.map((p) => (p.key === shop1 && p.role === "base" ? (moved++, { ...p, z: p.z - (0.219 - 0.004) }) : p)) } })) },
+      ]),
+    );
+    expect(moved).toBeGreaterThan(0);
+    // z - 0.004: the piece sits as the old table (0.004) put it. Its pavement face (0.219 back of the bound) is then 0.215 behind the edge.
+    const m = frontageMetrics(city, wrong, undefined, groundFace);
+    expect(m.recessed).toBe(moved);
+    expect(evaluateFrontage(m)[0]!.pass).toBe(false);
+    expect(m.wallMin_m).toBeCloseTo(-0.215, 6);
   });
 
   it("fails on a city with nothing packed, which has shown no wall on the pavement", () => {

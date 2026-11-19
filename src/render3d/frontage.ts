@@ -3,7 +3,7 @@
  *
  * G1, no recess (19.1): on every terrace column, the street-level wall plane (`facade.ts`) stands between the pavement's back edge and `OVERLAP_MAX_M` onto the pavement. Josh, 18 Nov 2026:
  * "It's okay if the buildings rest on top of the sidewalk and overlap a little bit. It is not okay if the buildings sit recessed from the sidewalk and leave a gap of nothing between them."
- * A recess is a wall behind the edge by more than `RECESS_MAX_M` (0) and `FRONTAGE_TOL_M`. A sill, frame or sign may stand past the wall (`WALL_REACH_M`, the same 0.5 m) and is not measured here.
+ * A recess is a wall behind the edge by more than `RECESS_MAX_M` (0) and `FRONTAGE_TOL_M`. A sill, frame or sign may stand past the wall (`WALL_REACH_M`, the same 0.6 m) and is not measured here.
  *
  * Where the wall plane of a piece is: `z + d / 2 - wallOffset(key, street)` in the lot frame (z is the piece's centre, d its depth after the turn, z = 0 the lot's front line), less the run's
  * `frame.wall_m` (where the pavement's back edge stands in front of the front line: 0 for every tile-city run). A key with no measured wall counts as its front bound.
@@ -46,14 +46,21 @@ export interface FrontageMetrics {
   unmeasured: readonly string[];
 }
 
+/**
+ * How far behind its front bound a piece's street-level face stands, metres, for a key and the face on the road ("front" or "open"). `wallOffset` (the table the stacks align on) is the
+ * default; a test passes a second, independently pinned source so G1 does not just agree with the table it aligned on (057 A review).
+ */
+export type FaceOffset = (key: `${string}:${string}`, street: "front" | "open") => number;
+
 /** The wall plane of a piece, metres from the lot's front line toward the road. */
-const wallZ = (p: { z: number; d: number; key: `${string}:${string}`; street: "front" | "open" }, fronts: FrontTable): number => p.z + p.d / 2 - wallOffset(p.key, p.street, fronts);
+const wallZ = (p: { z: number; d: number; key: `${string}:${string}`; street: "front" | "open" }, face: FaceOffset): number => p.z + p.d / 2 - face(p.key, p.street);
 
 /**
  * Where every street-level wall of a packed tile city stands against its pavement's back edge. `packed` is `packTown`'s result for the city (the map is keyed by run id); `fronts` as for
  * `assembleStack`. Pure: nothing is read but the packed stacks and the wall table.
  */
-export function frontageMetrics(city: Pick<TileCity, "town">, packed: ReadonlyMap<string, PackResult>, fronts: FrontTable = BUILDING_FRONTS): FrontageMetrics {
+export function frontageMetrics(city: Pick<TileCity, "town">, packed: ReadonlyMap<string, PackResult>, fronts: FrontTable = BUILDING_FRONTS, faceOffset?: FaceOffset): FrontageMetrics {
+  const face: FaceOffset = faceOffset ?? ((key, street) => wallOffset(key, street, fronts));
   let runs = 0;
   let columns = 0;
   let groundPieces = 0;
@@ -73,7 +80,7 @@ export function frontageMetrics(city: Pick<TileCity, "town">, packed: ReadonlyMa
     for (const b of blocks) {
       columns += b.stack.columns.length;
       for (const p of b.stack.pieces) {
-        const onto = wallZ(p, fronts) - edge;
+        const onto = wallZ(p, face) - edge;
         frontMax = Math.max(frontMax, p.z + p.d / 2 - edge);
         if (p.role === "base") {
           groundPieces++;

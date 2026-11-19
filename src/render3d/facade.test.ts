@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { AssetEntry, CalibrationKey } from "../core";
-import { WALL_BAND_M, WALL_FRONT_M, WALL_MIN_AREA_M2, WALL_REACH_M, WALL_SIDE_M, measureWallPlane, wallOffset } from "./facade";
+import { WALL_BAND_M, WALL_FLOOR_REACH_M, WALL_FRONT_M, WALL_GROUND_Y_M, WALL_MIN_AREA_M2, WALL_REACH_M, WALL_SIDE_M, measureWallPlane, wallOffset, type WallRule } from "./facade";
 import { BUILDING_FRONTS, type FrontTable } from "./models";
 import { STACK_STYLES, assembleStack, stackKeys, type StackStyle } from "./stacks";
 import type { CornerSide } from "./town";
@@ -66,13 +66,13 @@ const k = (name: string): CalibrationKey => `city-pack:${name}`;
 describe("the pinned wall planes (criterion 1)", () => {
   // The values measured on the converted City Pack (18 Nov 2026), typed in: a change to the table must change this too.
   const FRONT: Record<string, number> = {
-    SM_Bld_Shop_01: 0.004,
+    SM_Bld_Shop_01: 0.219,
     SM_Bld_Shop_02: 0.425,
     SM_Bld_Shop_03: 0.103,
-    SM_Bld_Shop_04: 0.146,
+    SM_Bld_Shop_04: 0.557,
     SM_Bld_Shop_05: 0.076,
-    SM_Bld_Shop_06: 0.377,
-    SM_Bld_Apartment_Door_01: 0.262,
+    SM_Bld_Shop_06: 0.52,
+    SM_Bld_Apartment_Door_01: 0.529,
     SM_Bld_Apartment_Door_02: 0.058,
     SM_Bld_Shop_Corner_01: 0.211,
     SM_Bld_Shop_Corner_02: 0.166,
@@ -85,11 +85,11 @@ describe("the pinned wall planes (criterion 1)", () => {
     SM_Bld_Apartment_03: 0.351,
     SM_Bld_Apartment_Corner_03: 0.351,
     SM_Bld_Apartment_Stack_03: 0.351,
-    SM_Bld_OfficeOld_Small_Base_01: 0.468,
+    SM_Bld_OfficeOld_Small_Base_01: 0.348,
     SM_Bld_OfficeOld_Small_Floor_01: 0,
-    SM_Bld_OfficeOld_Large_Base_01: 0.468,
+    SM_Bld_OfficeOld_Large_Base_01: 0.348,
     SM_Bld_OfficeOld_Large_Floor_01: 0,
-    SM_Bld_OfficeOctagon_Base_01: 0.174,
+    SM_Bld_OfficeOctagon_Base_01: 0.595,
     SM_Bld_OfficeOctagon_Floor_01: 0.232,
   };
   const SIDE: Record<string, number> = {
@@ -191,6 +191,29 @@ describe("measureWallPlane on a typed-in mesh", () => {
     expect(measureWallPlane(quad(2, 0, 0.4, 0, 1), null, "+z")).toBeNull();
     // A big plane 0.6 m behind the bound is out of reach, so the small bound plane (too small) leaves nothing.
     expect(measureWallPlane([...quad(2, 0, 0.2, 0, 1), ...quad(1.4, 0, 4, 0, 2)], null, "+z")).toBeNull();
+  });
+
+  it("a sign band at the front bound loses to a shopfront that reaches the ground, under the ground rule (057 A review)", () => {
+    const sign = quad(2.8, -2.4, 2.4, 2.2, 2.84); // 3.07 m2, y 2.2 to 2.84: the bound, but it hangs in the air
+    const shopfront = quad(2.5, -2.4, 2.4, 0, 2.1); // 10.1 m2, 0.3 back, reaches y = 0
+    const pos = [...sign, ...shopfront];
+    const ground = measureWallPlane(pos, null, "+z", "ground");
+    expect(ground!.offset).toBeCloseTo(0.3, 9);
+    expect(ground!.area).toBeCloseTo(10.08, 9);
+    // With only the sign in reach (the shopfront too small) the ground rule finds no wall at all, where the floor rule takes the sign.
+    const small = [...sign, ...quad(2.5, -0.2, 0.2, 0, 1)];
+    expect(measureWallPlane(small, null, "+z", "ground")).toBeNull();
+    expect(measureWallPlane(small, null, "+z", "floor")!.offset).toBeCloseTo(0, 9);
+    expect(WALL_GROUND_Y_M).toBe(0.3);
+  });
+
+  it("reaches 0.6 m for a ground piece and 0.5 m for a floor piece", () => {
+    const pos = quad(1.45, -2, 2, 0, 2); // 0.55 behind a bound of 2.0 set by a small plane
+    const all = [...pos, ...quad(2, -0.1, 0.1, 0, 0.2)];
+    expect(WALL_REACH_M).toBe(0.6);
+    expect(WALL_FLOOR_REACH_M).toBe(0.5);
+    expect(measureWallPlane(all, null, "+z", "ground")!.offset).toBeCloseTo(0.55, 9);
+    expect(measureWallPlane(all, null, "+z", "floor")).toBeNull();
   });
 
   it("measures the +x face of a mesh the same way", () => {
@@ -295,9 +318,9 @@ interface Gltf {
 }
 
 describe("the wall planes agree with the converted City Pack geometry when this machine has it (skipped when it does not)", () => {
-  it("re-measures every key within 0.02 m, on the front face and, for a corner key, the open side", { timeout: 120000 }, () => {
+  it("re-measures every key within 0.02 m, on the front face and, for a corner key, the open side", { timeout: 120000 }, (ctx) => {
     const file = join("assets", "private", "out", "city-pack.glb");
-    if (!existsSync(file)) return;
+    if (!existsSync(file)) ctx.skip();
     const glb = readFileSync(file);
     const jsonLen = glb.readUInt32LE(12);
     const gltf = JSON.parse(glb.subarray(20, 20 + jsonLen).toString("utf8")) as Gltf;
@@ -328,13 +351,16 @@ describe("the wall planes agree with the converted City Pack geometry when this 
       return { positions, indices };
     };
     const bad: string[] = [];
+    // A key that is a base in any recipe is measured by the ground rule; every other is a floor.
+    const grounds = new Set<string>(STACK_STYLES.flatMap((st) => [...st.base.mid, ...(st.base.door ?? []), ...st.base.corner]));
     for (const [table, face] of [
       [WALL_FRONT_M, "+z"],
       [WALL_SIDE_M, "+x"],
     ] as const) {
       for (const [key, want] of Object.entries(table)) {
         const m = mesh(key.slice("city-pack:".length));
-        const got = measureWallPlane(m.positions, m.indices, face);
+        const rule: WallRule = grounds.has(key) ? "ground" : "floor";
+        const got = measureWallPlane(m.positions, m.indices, face, rule);
         if (!got) bad.push(`${key} ${face}: no wall found`);
         else if (Math.abs(got.offset - want!) > 0.02) bad.push(`${key} ${face}: measured ${got.offset.toFixed(3)}, table ${want}`);
       }
