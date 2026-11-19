@@ -1,5 +1,5 @@
 /**
- * Ticket 057: the checks on the tile city's frontage, pure (no three, no DOM, no assets). Section A holds G1, B adds G2, C adds G3 and G4; F and G add V1 to V4 here.
+ * Ticket 057: the checks on the tile city's frontage, pure (no three, no DOM, no assets). Section A holds G1, B adds G2, C adds G3 and G4; F adds V1 and V2 (block variety, at the bottom of the file) and G will add V3 and V4.
  *
  * G3, no void (19.4; Josh, 18 Nov 2026: "Grass and pavement should fill the blank areas."): each block is rasterised at `VOID_RASTER_M` (0.25 m) and every sample must be a building (its columns' ground
  * footprint), a plaza or lot cell, an interior cell (apron, court, drive, green or path) or a gated passage's floor. At most `VOID_MAX_SHARE` (1%) of a block may be left, in no square over
@@ -20,7 +20,7 @@ import { WALL_FRONT_M, WALL_REACH_M, WALL_SIDE_M, wallOffset } from "./facade";
 import { BUILDING_FRONTS, type FrontTable } from "./models";
 import { TERRACE_SEAM_M, nextTerraceRun, type PackResult, type PackedBlock } from "./terrace";
 import type { Stack } from "./stacks";
-import { END_OVERLAP_MAX_M, PASSAGE_FLOOR_DEPTH_M, PASSAGE_W_M, TILE_M, type TileCity, type TilePassage, type TileYaw } from "./tilecity";
+import { BLOCK_CV_MIN, BLOCK_NONSQUARE_MIN, END_OVERLAP_MAX_M, PASSAGE_FLOOR_DEPTH_M, PASSAGE_W_M, TILE_M, type TileBlock, type TileCity, type TilePassage, type TileYaw } from "./tilecity";
 import { WORLD_PER_METRE } from "./town";
 
 export { END_OVERLAP_MAX_M, PASSAGE_W_M };
@@ -570,5 +570,83 @@ export function evaluateFrontage(m: FrontageMetrics): FrontageVerdict[] {
     { id: "G2", value: g2, pass: g2 <= FRONTAGE_CHECK.G2 },
     { id: "G3", value: g3, pass: g3 <= FRONTAGE_CHECK.G3 },
     { id: "G4", value: g4, pass: g4 <= FRONTAGE_CHECK.G4 },
+  ];
+}
+
+// ---- block variety (ticket 057 F, 19.5): V1 and V2 ----
+
+export { BLOCK_CV_MIN, BLOCK_NONSQUARE_MIN };
+
+/**
+ * Josh, 18 Nov 2026: "Keep in mind, 90 degrees does not mean a grid of squares. You can have varying widths for blocks, alleyways, parks... etc". V1, block sizes vary: on each axis the sizes of the
+ * blocks along it (the spacing between its street lines, less the street, in cells) have a coefficient of variation (standard deviation over mean) of at least `BLOCK_CV_MIN`, and the city has at least
+ * ceil(blocks / 2) distinct footprints (a footprint is the block's pair of sides, so 50 x 60 m and 60 x 50 m are one). V2, not square: at least `BLOCK_NONSQUARE_MIN` of the blocks are not square.
+ * An axis with fewer than two blocks has nothing to vary and is not held to V1's CV. V3 (alleys) and V4 (parks) are section G's.
+ */
+export type VarietyCheckId = "V1" | "V2";
+
+/** What each check allows: V1, how many of its parts may fail (an axis under `BLOCK_CV_MIN`, too few footprints); V2, how many blocks over the square allowance. */
+export const VARIETY_CHECK: Readonly<Record<VarietyCheckId, number>> = { V1: 0, V2: 0 };
+
+/** The part of a block `blockVariety` reads: its place in the city's grid of blocks and its cells. */
+export type VarietyBlock = Pick<TileBlock, "bi" | "bj" | "i0" | "i1" | "j0" | "j1">;
+
+export interface BlockVariety {
+  blocks: number;
+  /** The block sizes along x (one per column of blocks, in cells) and along z (one per row of blocks). */
+  widths: readonly number[];
+  depths: readonly number[];
+  /** Each axis's coefficient of variation; 0 for an axis with fewer than two blocks (which V1 does not hold). */
+  cvX: number;
+  cvZ: number;
+  /** Distinct footprints, and how many V1 asks for: ceil(blocks / 2). */
+  footprints: number;
+  footprintsNeeded: number;
+  /** Square blocks, and the share that are not. */
+  square: number;
+  nonSquareShare: number;
+}
+
+const cvOf = (a: readonly number[]): number => {
+  if (a.length < 2) return 0;
+  const m = a.reduce((x, y) => x + y, 0) / a.length;
+  return m > 0 ? Math.sqrt(a.reduce((x, y) => x + (y - m) ** 2, 0) / a.length) / m : 0;
+};
+
+/** The numbers behind V1 and V2, read from the blocks' cells alone (never from the code that drew the sizes). */
+export function blockVariety(city: { blocks: readonly VarietyBlock[] }): BlockVariety {
+  const widthAt = new Map<number, number>();
+  const depthAt = new Map<number, number>();
+  const shapes = new Set<string>();
+  let square = 0;
+  for (const b of city.blocks) {
+    const w = b.i1 - b.i0;
+    const d = b.j1 - b.j0;
+    widthAt.set(b.bi, w);
+    depthAt.set(b.bj, d);
+    shapes.add(`${Math.min(w, d)}x${Math.max(w, d)}`);
+    if (w === d) square++;
+  }
+  const widths = [...widthAt].sort((p, q) => p[0] - q[0]).map(([, v]) => v);
+  const depths = [...depthAt].sort((p, q) => p[0] - q[0]).map(([, v]) => v);
+  const n = city.blocks.length;
+  return { blocks: n, widths, depths, cvX: cvOf(widths), cvZ: cvOf(depths), footprints: shapes.size, footprintsNeeded: Math.ceil(n / 2), square, nonSquareShare: n > 0 ? (n - square) / n : 0 };
+}
+
+export interface VarietyVerdict {
+  id: VarietyCheckId;
+  value: number;
+  pass: boolean;
+}
+
+/** V1 and V2 against `VARIETY_CHECK`. A city with no blocks fails both (value 1): nothing has shown any variety. */
+export function evaluateVariety(m: BlockVariety): VarietyVerdict[] {
+  const cvLow = (axis: readonly number[], cv: number): number => (axis.length >= 2 && cv < BLOCK_CV_MIN - 1e-9 ? 1 : 0);
+  const v1 = cvLow(m.widths, m.cvX) + cvLow(m.depths, m.cvZ) + (m.footprints < m.footprintsNeeded ? 1 : 0) + (m.blocks === 0 ? 1 : 0);
+  const allowed = Math.floor(m.blocks * (1 - BLOCK_NONSQUARE_MIN) + 1e-9);
+  const v2 = Math.max(0, m.square - allowed) + (m.blocks === 0 ? 1 : 0);
+  return [
+    { id: "V1", value: v1, pass: v1 <= VARIETY_CHECK.V1 },
+    { id: "V2", value: v2, pass: v2 <= VARIETY_CHECK.V2 },
   ];
 }

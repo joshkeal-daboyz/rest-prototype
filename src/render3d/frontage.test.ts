@@ -7,7 +7,7 @@
 import { describe, expect, it } from "vitest";
 import type { AssetEntry, CalibrationKey } from "../core";
 import { wallOffset } from "./facade";
-import { END_OVERLAP_MAX_M, FRONTAGE_CHECK, FRONTAGE_TOL_M, OVERLAP_MAX_M, PASSAGE_W_M, RECESS_MAX_M, VOID_MAX_SHARE, VOID_PATCH_MAX_M, VOID_RASTER_M, evaluateFrontage, frontageMetrics, groundDepth_m, tilePassages, type FaceOffset, type FrontageMetrics } from "./frontage";
+import { BLOCK_CV_MIN, BLOCK_NONSQUARE_MIN, END_OVERLAP_MAX_M, FRONTAGE_CHECK, FRONTAGE_TOL_M, OVERLAP_MAX_M, PASSAGE_W_M, RECESS_MAX_M, VOID_MAX_SHARE, VOID_PATCH_MAX_M, VOID_RASTER_M, VARIETY_CHECK, blockVariety, evaluateFrontage, evaluateVariety, frontageMetrics, groundDepth_m, tilePassages, type FaceOffset, type FrontageMetrics, type VarietyBlock } from "./frontage";
 import { BUILDING_FRONTS } from "./models";
 import { STACK_STYLES } from "./stacks";
 import { alignOf, farOverlapOf, nextTerraceRun, packTown, type PackResult } from "./terrace";
@@ -457,15 +457,15 @@ describe("G3 and G4, no void and courts reached (ticket 057 C, criterion 9)", ()
     expect(bad).toEqual([]);
   });
 
-  it("fails G3 on 793bbf7's layout (nothing inside the blocks): every block is 50 to 70% void", { timeout: 60000 }, () => {
+  it("fails G3 on 793bbf7's layout (nothing inside the blocks): every block is 40 to 80% void (057 F: the 80 m blocks of the wider range are 49% and the 30 m ones 70 to 78%; 793bbf7's were 56 to 65%)", { timeout: 60000 }, () => {
     for (const c of [CITIES[0]!, CITIES[10]!]) {
       const { city, wall } = placedOf(c);
       const m = frontageMetrics(bare(city), wall);
       expect(verdictOf(m, "G3").pass, c.label).toBe(false);
       expect(m.interior.voidBlocks, c.label).toBe(city.blocks.length);
       for (const v of m.interior.voids) {
-        expect(v.share, `${c.label} ${v.block}`).toBeGreaterThan(0.5);
-        expect(v.share, `${c.label} ${v.block}`).toBeLessThan(0.7);
+        expect(v.share, `${c.label} ${v.block}`).toBeGreaterThan(0.4);
+        expect(v.share, `${c.label} ${v.block}`).toBeLessThan(0.8);
         expect(v.patch_m, `${c.label} ${v.block}`).toBeGreaterThan(VOID_PATCH_MAX_M);
       }
     }
@@ -584,5 +584,117 @@ describe("G3 and G4, no void and courts reached (ticket 057 C, criterion 9)", ()
     }
     expect(passages).toBeGreaterThan(20);
     expect(fails).toEqual([]);
+  });
+});
+
+describe("V1 and V2, block variety (ticket 057 F, criterion 17)", () => {
+  /** A city of blocks laid out as `tileCity` lays them, typed in: `cols` widths and `rows` depths in cells, a 5-cell street between neighbours. Only the cells the checks read. */
+  const gridOf = (cols: readonly number[], rows: readonly number[]): { blocks: VarietyBlock[] } => {
+    const blocks: VarietyBlock[] = [];
+    let j0 = 5;
+    rows.forEach((d, bj) => {
+      let i0 = 5;
+      cols.forEach((w, bi) => {
+        blocks.push({ bi, bj, i0, i1: i0 + w, j0, j1: j0 + d });
+        i0 += w + 5;
+      });
+      j0 += d + 5;
+    });
+    return { blocks };
+  };
+  const verdicts = (c: { blocks: readonly VarietyBlock[] }): { V1: boolean; V2: boolean } => {
+    const v = evaluateVariety(blockVariety(c));
+    return { V1: v.find((x) => x.id === "V1")!.pass, V2: v.find((x) => x.id === "V2")!.pass };
+  };
+
+  it("holds its limits: V1 and V2 each allow none, a spacing's coefficient of variation is at least 0.15 and at least 70% of the blocks are not square", () => {
+    expect(VARIETY_CHECK).toEqual({ V1: 0, V2: 0 });
+    expect(BLOCK_CV_MIN).toBe(0.15);
+    expect(BLOCK_NONSQUARE_MIN).toBe(0.7);
+  });
+
+  it("passes on the default city, seeds 1 to 10 at 3 x 3 and seeds 1 to 10 at 6 x 4 (not packed: the sizes are the layout's alone)", () => {
+    const bad: string[] = [];
+    const sets: [number, number, number][] = [[3, 3, 1]];
+    for (let s = 1; s <= 10; s++) sets.push([3, 3, s], [6, 4, s]);
+    for (const [bx, bz, seed] of sets) {
+      const city = tileCity({ blocksX: bx, blocksZ: bz, seed });
+      const m = blockVariety(city);
+      for (const v of evaluateVariety(m)) if (!v.pass) bad.push(`${bx}x${bz} seed ${seed}: ${v.id} ${v.value}`);
+      // Not vacuous: the numbers are the city's own.
+      expect(m.blocks, `${bx}x${bz}`).toBe(bx * bz);
+      expect(m.widths.length).toBe(bx);
+      expect(m.depths.length).toBe(bz);
+      expect(m.cvX, `${bx}x${bz} seed ${seed}`).toBeGreaterThanOrEqual(BLOCK_CV_MIN);
+      expect(m.cvZ, `${bx}x${bz} seed ${seed}`).toBeGreaterThanOrEqual(BLOCK_CV_MIN);
+      expect(m.footprints, `${bx}x${bz} seed ${seed}`).toBeGreaterThanOrEqual(Math.ceil((bx * bz) / 2));
+      expect(m.nonSquareShare, `${bx}x${bz} seed ${seed}`).toBeGreaterThanOrEqual(BLOCK_NONSQUARE_MIN);
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it("fails on the uniform grid: 3 x 3 blocks of 10 x 10 cells have no variation, one footprint and nine squares", () => {
+    const uniform = gridOf([10, 10, 10], [10, 10, 10]);
+    const m = blockVariety(uniform);
+    expect(m.cvX).toBe(0);
+    expect(m.cvZ).toBe(0);
+    expect(m.footprints).toBe(1);
+    expect(m.footprintsNeeded).toBe(5);
+    expect(m.square).toBe(9);
+    expect(verdicts(uniform)).toEqual({ V1: false, V2: false });
+    const [v1, v2] = evaluateVariety(m);
+    expect(v1!.value).toBe(3);
+    expect(v2!.value).toBe(9 - 2);
+  });
+
+  it("fails V1 and not V2 on 793bbf7's default city (9, 10 and 11 cells wide, 12, 8 and 10 deep): the column widths vary by 8%, under 15%", () => {
+    const old = gridOf([9, 10, 11], [12, 8, 10]);
+    const m = blockVariety(old);
+    expect(m.cvX).toBeCloseTo(0.0816, 3);
+    expect(m.cvZ).toBeCloseTo(0.1633, 3);
+    expect(m.footprints).toBe(9);
+    expect(verdicts(old)).toEqual({ V1: false, V2: true });
+  });
+
+  it("fails V2 and not V1 where over 30% of the blocks are square, and V1 alone on too few distinct footprints", () => {
+    // 8, 10, 12 either way: the diagonal is square, 3 of 9 (33%); 6 footprints, enough.
+    const diag = gridOf([8, 10, 12], [8, 10, 12]);
+    expect(blockVariety(diag).footprints).toBe(6);
+    expect(verdicts(diag)).toEqual({ V1: true, V2: false });
+    // Two sizes either way, in a pattern: widths vary and depths vary, but 2 x 2 = 4 footprints for 9 blocks need 5.
+    const few = gridOf([8, 14, 8], [9, 15, 9]);
+    const f = blockVariety(few);
+    expect(f.footprints).toBe(4);
+    expect(f.cvX).toBeGreaterThan(BLOCK_CV_MIN);
+    expect(f.cvZ).toBeGreaterThan(BLOCK_CV_MIN);
+    expect(verdicts(few)).toEqual({ V1: false, V2: true });
+  });
+
+  it("reads a rotated block as the same footprint, and an axis with one block as having nothing to vary", () => {
+    // 10 x 14 and 14 x 10 are one footprint: widths 10 and 14 over depths 14 and 10 give 3 footprints, not 4.
+    const m = blockVariety(gridOf([10, 14], [14, 10]));
+    expect(m.footprints).toBe(3);
+    expect(m.square).toBe(2);
+    // A single column: its width has no spread, and V1 holds it to its depths alone.
+    const one = gridOf([12], [8, 14, 10]);
+    expect(blockVariety(one).cvX).toBe(0);
+    expect(verdicts(one)).toEqual({ V1: true, V2: true });
+  });
+
+  it("counts a square allowance of floor(blocks x 0.3): 3 of 10 may be square and 4 may not", () => {
+    // Ten blocks as 5 x 2: widths 8, 10, 12, 14, 16 over depths 8 and 10: squares are (8,8) and (10,10), 2 of 10.
+    const two = gridOf([8, 10, 12, 14, 16], [8, 10]);
+    expect(blockVariety(two).square).toBe(2);
+    expect(verdicts(two).V2).toBe(true);
+    // Four squares in ten fails.
+    const four = { blocks: gridOf([8, 10, 12, 14, 16], [8, 10]).blocks.map((b, k) => (k < 10 && b.bj === 1 && b.bi >= 2 ? { ...b, j1: b.j0 + (b.i1 - b.i0) } : b)) };
+    expect(blockVariety(four).square).toBeGreaterThan(3);
+    expect(verdicts(four).V2).toBe(false);
+  });
+
+  it("fails both on a city with no blocks", () => {
+    const m = blockVariety({ blocks: [] });
+    expect(m.blocks).toBe(0);
+    expect(verdicts({ blocks: [] })).toEqual({ V1: false, V2: false });
   });
 });

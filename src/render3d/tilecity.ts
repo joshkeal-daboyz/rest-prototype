@@ -19,6 +19,10 @@
  * the residents' courts in place of 056's frontage lots (`TileCity.courts`: a drive through the row, then a stalls row, an aisle and a stalls row, 2 x 3 cells behind it), and grass for the rest,
  * crossed by one-cell pavement paths (`greenPath`) with optional trees and a bench (`TileCity.greenProps`). `frontage.ts` holds it to G3 (no void) and G4 (courts reached).
  *
+ * Block variety (ticket 057 F, 19.5; Josh, 18 Nov 2026: "Keep in mind, 90 degrees does not mean a grid of squares. You can have varying widths for blocks, alleyways, parks... etc"): every street line still runs the
+ * city's full length with its own profile, but the spacing between lines is drawn from `BLOCK_TILES` (6 to 16 cells, 30 to 80 m), neighbours at least `BLOCK_STEP_MIN_CELLS` apart and no size repeated on an axis, and
+ * every block carries a `type` (small, medium, long, large) from its sides. A draw that misses the variety rules (`blockSizesVary`, held by V1 and V2 in `frontage.ts`) or cannot be laid (`blockSizesWork`) is drawn again.
+ *
  * Conventions (everything below is in metres unless a name says map units):
  * - The city starts at (0, 0). Cell (i, j) covers x in [i, i+1) * TILE_M and z in [j, j+1) * TILE_M. Streets run on every grid line, the four edges included.
  * - A street's `axis` is the axis it runs along: an "x" street runs along +x on grid row `line` (counted from z = 0), a "z" street runs along +z on grid column `line`
@@ -54,8 +58,34 @@ export const SIDEWALK_WALK_M = 0.23;
 export const CITY_BLOCKS_MAX = 6;
 /** The blocks along each axis when none are asked for. */
 export const CITY_BLOCKS_DEFAULT = 3;
-/** A block's side, in cells (40 to 60 m). */
-export const BLOCK_TILES = { min: 8, max: 12 } as const;
+/**
+ * A block's side, in cells (30 to 80 m; ticket 057 F, 19.5). Josh, 18 Nov 2026: "Keep in mind, 90 degrees does not mean a grid of squares. You can have varying widths for blocks, alleyways, parks... etc".
+ * It was 8 to 12 cells (40 to 60 m, a 1.5 to 1 ratio at most), which still read as a regular grid.
+ */
+export const BLOCK_TILES = { min: 6, max: 16 } as const;
+/** Neighbouring blocks on one axis differ by at least this many cells (19.5), by hash, so no two neighbouring columns (or rows) are the same size. */
+export const BLOCK_STEP_MIN_CELLS = 2;
+/**
+ * What the layout holds itself to (the checks V1 and V2 in `frontage.ts` re-measure it from the finished city, and re-export these): on each axis with two or more blocks the block sizes' coefficient of
+ * variation (standard deviation over mean) is at least `BLOCK_CV_MIN`; the city has at least ceil(blocks / 2) distinct footprints (a footprint is the pair of sides, so a 50 x 60 m block and a 60 x 50 m one
+ * are one); and at least `BLOCK_NONSQUARE_MIN` of the blocks are not square. A seed whose first draw misses any of these draws again (`BLOCK_DRAWS_MAX` at the most), by hash, so the city is still one city per size and seed.
+ */
+export const BLOCK_CV_MIN = 0.15;
+export const BLOCK_NONSQUARE_MIN = 0.7;
+export const BLOCK_DRAWS_MAX = 64;
+/**
+ * The mean block size on each axis is at least this many cells (50 m, the middle of 055's old range): small blocks are balanced by large ones. Every run of a short side closes its far end with a gap of up
+ * to one column, so a city of mostly 30 to 40 m sides covers less of its frontage (R1 was 0.887 to 0.90 on three of the thirteen cities of the ticket with no mean rule, against 0.907 and over with it).
+ */
+export const BLOCK_MEAN_MIN_CELLS = 10;
+/**
+ * Block types by size, metres (19.5): small, both sides at most `BLOCK_SMALL_MAX_M`; long, one side at least `BLOCK_LONG_MIN_M` and the other at most `BLOCK_LONG_SHORT_MAX_M`; large, both sides at least
+ * `BLOCK_LARGE_MIN_M`; medium, the rest.
+ */
+export const BLOCK_SMALL_MAX_M = 40;
+export const BLOCK_LONG_MIN_M = 60;
+export const BLOCK_LONG_SHORT_MAX_M = 45;
+export const BLOCK_LARGE_MIN_M = 55;
 /** One interior grid line in this many is an avenue, by hash. */
 export const AVENUE_ONE_IN = 3;
 /** Parking cells next to a junction box (the cross street's whole cross-section) that hold no bay. */
@@ -236,8 +266,12 @@ export interface PoleSlot {
 }
 
 /** A block in cells: columns `i0` to `i1` and rows `j0` to `j1`, both ends exclusive on the high side. Its id is `Town.blocks`'s. */
+export type BlockType = "small" | "medium" | "long" | "large";
+
 export interface TileBlock {
   id: string;
+  /** The block's size class (19.5), from its two sides: see `blockType`. */
+  type: BlockType;
   bi: number;
   bj: number;
   i0: number;
@@ -388,7 +422,7 @@ interface AxisLayout {
 const hashOf = (seed: number, ...key: (string | number)[]): number => stableHash(`tile:${seed}:${key.join(":")}`);
 
 /** `streetAxis` is the axis the streets of this layout run along ("z" streets stand at columns, so their layout counts cells along x). */
-function layoutAxis(seed: number, streetAxis: "x" | "z", blocks: number): AxisLayout {
+function layoutAxis(seed: number, streetAxis: "x" | "z", blocks: number, lens: readonly number[]): AxisLayout {
   const lines = blocks + 1;
   const avenue: boolean[] = [];
   for (let l = 0; l < lines; l++) avenue.push(l > 0 && l < lines - 1 && hashOf(seed, streetAxis, "avenue", l) % AVENUE_ONE_IN === 0);
@@ -411,7 +445,7 @@ function layoutAxis(seed: number, streetAxis: "x" | "z", blocks: number): AxisLa
     out.streets.push({ line: l, first: pos, profile: avenue[l] ? "avenue" : "street", bands });
     pos += bands.length;
     if (l < blocks) {
-      const len = BLOCK_TILES.min + (hashOf(seed, streetAxis, "block", l) % (BLOCK_TILES.max - BLOCK_TILES.min + 1));
+      const len = lens[l]!;
       out.blocks.push({ first: pos, len });
       pos += len;
     }
@@ -420,10 +454,70 @@ function layoutAxis(seed: number, streetAxis: "x" | "z", blocks: number): AxisLa
   return out;
 }
 
+/**
+ * The sizes, in cells, of the `n` blocks along one axis, in order (19.5): each by hash from `BLOCK_TILES`, at least `BLOCK_STEP_MIN_CELLS` from the one before, and not one already used while a size
+ * that is still free exists (with 11 sizes and at most 6 blocks one does, so every column, and every row, is its own width). `draw` is the draw number: 0 first, and a draw that misses the variety rules
+ * (`blockSizesVary`) is repeated with the next. Pure.
+ */
+function blockLens(seed: number, streetAxis: "x" | "z", n: number, draw: number): number[] {
+  const out: number[] = [];
+  for (let l = 0; l < n; l++) {
+    const prev = l > 0 ? out[l - 1]! : null;
+    const apart: number[] = [];
+    for (let v = BLOCK_TILES.min; v <= BLOCK_TILES.max; v++) if (prev === null || Math.abs(v - prev) >= BLOCK_STEP_MIN_CELLS) apart.push(v);
+    const fresh = apart.filter((v) => !out.includes(v));
+    const pool = fresh.length > 0 ? fresh : apart;
+    out.push(pool[hashOf(seed, streetAxis, "width", l, draw) % pool.length]!);
+  }
+  return out;
+}
+
+const cvOf = (a: readonly number[]): number => {
+  const m = a.reduce((x, y) => x + y, 0) / a.length;
+  return Math.sqrt(a.reduce((x, y) => x + (y - m) ** 2, 0) / a.length) / m;
+};
+
+/**
+ * Whether a city's column widths and row depths can be laid (ticket 057 F): a block needs one side long enough to hold a tile of kerbside bays inside a street side's share cap (056's P3: a 10 m tile in
+ * `KERB_BAY_SHARE_MAX.street` of the side, so 7 cells, 35 m), or P1 (every block has bays serving it) could not be met for a 6 by 6 block on streets; and `BLOCK_MEAN_MIN_CELLS` on each axis.
+ */
+function blockSizesWork(widths: readonly number[], depths: readonly number[]): boolean {
+  const longEnough = Math.ceil((2 * TILE_M) / KERB_BAY_SHARE_MAX.street / TILE_M - 1e-9);
+  for (const w of widths) for (const d of depths) if (Math.max(w, d) < longEnough) return false;
+  const mean = (a: readonly number[]): number => a.reduce((x, y) => x + y, 0) / a.length;
+  return mean(widths) >= BLOCK_MEAN_MIN_CELLS && mean(depths) >= BLOCK_MEAN_MIN_CELLS;
+}
+
+/** Whether a city's column widths and row depths meet the variety rules V1 and V2 hold (see `BLOCK_CV_MIN`); an axis with fewer than two blocks has nothing to vary. */
+function blockSizesVary(widths: readonly number[], depths: readonly number[]): boolean {
+  if (widths.length >= 2 && cvOf(widths) < BLOCK_CV_MIN) return false;
+  if (depths.length >= 2 && cvOf(depths) < BLOCK_CV_MIN) return false;
+  const total = widths.length * depths.length;
+  const footprints = new Set<number>();
+  let square = 0;
+  for (const w of widths) {
+    for (const d of depths) {
+      footprints.add(Math.min(w, d) * 100 + Math.max(w, d));
+      if (w === d) square++;
+    }
+  }
+  return footprints.size >= Math.ceil(total / 2) && (total - square) / total >= BLOCK_NONSQUARE_MIN;
+}
+
 // ---- helpers ----
 
 /** A block's cells, before the parking rules have said what it holds. */
 type BlockBase = Omit<TileBlock, "units" | "parkingShort" | "lots">;
+
+/** A block's type (19.5) from its sides in cells: small, long, large, else medium (the first three cannot overlap: small needs both sides at most 40 m, long one at least 60 m, large both at least 55 m). */
+export function blockType(wCells: number, dCells: number): BlockType {
+  const lo = Math.min(wCells, dCells) * TILE_M;
+  const hi = Math.max(wCells, dCells) * TILE_M;
+  if (hi <= BLOCK_SMALL_MAX_M) return "small";
+  if (hi >= BLOCK_LONG_MIN_M && lo <= BLOCK_LONG_SHORT_MAX_M) return "long";
+  if (lo >= BLOCK_LARGE_MIN_M) return "large";
+  return "medium";
+}
 
 /** What a block holds, from its nominal terrace lots (18.2): `columns` is the lots' bays, a shop is a column that is not a lot's door column, a home is `HOME_COLUMN_FLOORS` column-floors of the `UNIT_FLOORS_NOMINAL` over the base. */
 const unitsOf = (columns: number, lots: number): TileBlock["units"] => ({ columns, shops: Math.max(0, columns - lots), homes: Math.floor((columns * UNIT_FLOORS_NOMINAL) / HOME_COLUMN_FLOORS) });
@@ -466,8 +560,16 @@ export function tileCity(opts: { blocksX?: number; blocksZ?: number; seed?: numb
   const u = WORLD_PER_METRE;
 
   // Columns hold the "z" streets (which run along z) and the block widths; rows hold the "x" streets and the block depths.
-  const cols = layoutAxis(seed, "z", blocksX);
-  const rows = layoutAxis(seed, "x", blocksZ);
+  let draw = 0;
+  let widths = blockLens(seed, "z", blocksX, draw);
+  let depths = blockLens(seed, "x", blocksZ, draw);
+  while (!(blockSizesVary(widths, depths) && blockSizesWork(widths, depths)) && draw < BLOCK_DRAWS_MAX) {
+    draw++;
+    widths = blockLens(seed, "z", blocksX, draw);
+    depths = blockLens(seed, "x", blocksZ, draw);
+  }
+  const cols = layoutAxis(seed, "z", blocksX, widths);
+  const rows = layoutAxis(seed, "x", blocksZ, depths);
   const W = cols.total;
   const H = rows.total;
 
@@ -548,7 +650,7 @@ export function tileCity(opts: { blocksX?: number; blocksZ?: number; seed?: numb
       const cb = cols.blocks[bi]!;
       const rb = rows.blocks[bj]!;
       const id = `block:${bi}:${bj}`;
-      tileBlocks.push({ id, bi, bj, i0: cb.first, i1: cb.first + cb.len, j0: rb.first, j1: rb.first + rb.len });
+      tileBlocks.push({ id, type: blockType(cb.len, rb.len), bi, bj, i0: cb.first, i1: cb.first + cb.len, j0: rb.first, j1: rb.first + rb.len });
       townBlocks.push({ id, minX: cb.first * TILE_M * u, minZ: rb.first * TILE_M * u, maxX: (cb.first + cb.len) * TILE_M * u, maxZ: (rb.first + rb.len) * TILE_M * u });
     }
   }
@@ -802,6 +904,13 @@ export function tileCity(opts: { blocksX?: number; blocksZ?: number; seed?: numb
     const next = new Map(tileBlocks.map((b) => [b.id, lotQuota(unitsById.get(b.id)!.homes)] as const));
     if (tileBlocks.every((b) => next.get(b.id) === wantedLots.get(b.id))) break;
     wantedLots = next;
+    plan = planLots(wantedLots);
+    unitsById = unitsOfRows(plan.laid);
+  }
+  // A block at the edge of a quota can flip (057 F, with its wider range of block sizes): one lot leaves it 61 homes (a quota of 2), two leave it 55 (a quota of 1), and the rounds above would
+  // end on the one-lot layout with a quota of 2 unmet. Where the quotas have not stood still, the dearer layout wins: each block is asked for the larger of its last ask and its quota now.
+  if (tileBlocks.some((b) => lotQuota(unitsById.get(b.id)!.homes) !== wantedLots.get(b.id))) {
+    wantedLots = new Map(tileBlocks.map((b) => [b.id, Math.max(wantedLots.get(b.id)!, lotQuota(unitsById.get(b.id)!.homes))] as const));
     plan = planLots(wantedLots);
     unitsById = unitsOfRows(plan.laid);
   }
