@@ -32,7 +32,7 @@
 import type { AssetEntry, CalibrationKey } from "../core";
 import { stableHash } from "../render/city";
 import { BUILDING_FRONTS, type FrontTable } from "./models";
-import { assembleStack, stackRange, type Stack, type StackSide, type StackStyle } from "./stacks";
+import { assembleStack, stackRange, type Stack, type StackAlign, type StackSide, type StackStyle } from "./stacks";
 import { TERRACE_BAYS, TERRACE_DEPTH_M, WORLD_PER_METRE, type Lot, type LotSpec, type TerraceRun } from "./town";
 
 /** The most a run's far end may be left short of its far wall, metres, to count as closed. */
@@ -85,7 +85,15 @@ export interface PackOptions {
   farWall_m?: number | undefined;
   /** Take this corner block as the run's first (one of `cornerOptions`): the row before has closed to its real back wall. Default: the packer chooses it with the rest. */
   corner?: CornerBlock | undefined;
+  /** How the stacks line up in z (ticket 057 A). Default: `alignOf(run)`, "wall" on a run that has a pavement frame (the tile city's) and "back" on every ladder run. */
+  align?: StackAlign | undefined;
 }
+
+/**
+ * The alignment a run's stacks take when the caller does not say (ticket 057 A): "wall" for a run with a pavement `frame` (the tile city's; its front line is the pavement's back
+ * edge, and its buildings stand on the pavement or just over it), "back" for the ladder's runs, which have none, so every ladder stack is as it was.
+ */
+export const alignOf = (run: Pick<TerraceRun, "frame">): StackAlign => (run.frame ? "wall" : "back");
 
 interface Opt {
   style: StackStyle;
@@ -152,7 +160,7 @@ export interface CornerBlock {
  * for that style and columns (key `<run id>:b0`, floors by hash under the cap of the nominal lots it overlaps), so its `stack.depth_m` is the real back wall the row before it must
  * close to. Order: `cornerStyle(run)` first, then the other corner styles in turn; the columns by hash of the id over 2 to 4, then the others in turn. A block must fit the run.
  */
-export function cornerOptions(run: TerraceRun, nominal: readonly Lot[], styles: readonly StackStyle[], entries: Entries, fronts: FrontTable = BUILDING_FRONTS): CornerBlock[] {
+export function cornerOptions(run: TerraceRun, nominal: readonly Lot[], styles: readonly StackStyle[], entries: Entries, fronts: FrontTable = BUILDING_FRONTS, align: StackAlign = alignOf(run)): CornerBlock[] {
   const out: CornerBlock[] = [];
   const corner = run.startCorner;
   if (!corner || nominal.length === 0) return out;
@@ -168,12 +176,12 @@ export function cornerOptions(run: TerraceRun, nominal: readonly Lot[], styles: 
     const style = ok[(start + si) % ok.length]!;
     for (let bi = 0; bi < nBays; bi++) {
       const bays = TERRACE_BAYS.min + ((bayStart + bi) % nBays);
-      const probe = assembleStack(style, lot, entries, fronts, { spec: specFor(16, 40), bays });
+      const probe = assembleStack(style, lot, entries, fronts, { spec: specFor(16, 40), bays, align });
       if (!probe || probe.width_m > room + EPS) continue;
       const cap = capOver(nominal, 0, probe.width_m);
       const range = stackRange(style, "large", entries, fronts, specFor(cap, 40));
       if (!range) continue;
-      const stack = assembleStack(style, lot, entries, fronts, { spec: specFor(cap, 40), bays, floors: firstFloors(run.id, range) });
+      const stack = assembleStack(style, lot, entries, fronts, { spec: specFor(cap, 40), bays, floors: firstFloors(run.id, range), align });
       if (stack) out.push({ style, bays, floors: stack.floors, stack });
     }
   }
@@ -181,8 +189,8 @@ export function cornerOptions(run: TerraceRun, nominal: readonly Lot[], styles: 
 }
 
 /** The first of `cornerOptions` (the hash's own choice), or null. */
-export function cornerBlock(run: TerraceRun, nominal: readonly Lot[], styles: readonly StackStyle[], entries: Entries, fronts: FrontTable = BUILDING_FRONTS): CornerBlock | null {
-  return cornerOptions(run, nominal, styles, entries, fronts)[0] ?? null;
+export function cornerBlock(run: TerraceRun, nominal: readonly Lot[], styles: readonly StackStyle[], entries: Entries, fronts: FrontTable = BUILDING_FRONTS, align: StackAlign = alignOf(run)): CornerBlock | null {
+  return cornerOptions(run, nominal, styles, entries, fronts, align)[0] ?? null;
 }
 
 /** The floors a run's first block takes: by hash within the range (no neighbour before it to differ from). */
@@ -212,9 +220,10 @@ export function farWall_m(
   styles: readonly StackStyle[],
   entries: Entries,
   fronts: FrontTable = BUILDING_FRONTS,
+  align: StackAlign = alignOf(next ?? run),
 ): number | undefined {
   if (run.endAbuts !== "corner" || !next || next.startCorner === null) return undefined;
-  const block = cornerBlock(next, nextNominal, styles, entries, fronts);
+  const block = cornerBlock(next, nextNominal, styles, entries, fronts, align);
   return block ? run.len / WORLD_PER_METRE + Math.max(0, TERRACE_DEPTH_M - block.stack.depth_m) : undefined;
 }
 
@@ -235,7 +244,9 @@ export function packTown(
   styles: readonly StackStyle[],
   entries: Entries,
   fronts: FrontTable = BUILDING_FRONTS,
+  opts: { align?: StackAlign } = {},
 ): Map<string, PackResult> {
+  const alignFor = (run: TerraceRun): StackAlign => opts.align ?? alignOf(run);
   const nominalOf = (run: TerraceRun): Lot[] => run.lots.map((i) => town.lots[i]!);
   const link = (run: TerraceRun): TerraceRun | undefined => {
     if (run.endAbuts !== "corner") return undefined;
@@ -258,7 +269,7 @@ export function packTown(
       const id = `${run.id}|${Math.round(depth * 1000)}`;
       const hit = reach.get(id);
       if (hit !== undefined) return hit;
-      const r = packTerrace(run, nominalOf(run), styles, entries, fronts, { farWall_m: wallTo(run, { stack: { depth_m: depth } }), corner: i === 0 && rootFixed ? rootFixed : undefined });
+      const r = packTerrace(run, nominalOf(run), styles, entries, fronts, { farWall_m: wallTo(run, { stack: { depth_m: depth } }), corner: i === 0 && rootFixed ? rootFixed : undefined, align: alignFor(run) });
       const ok = r.blocks.length > 0 && closes(r.farGap_m);
       reach.set(id, ok);
       return ok;
@@ -269,15 +280,15 @@ export function packTown(
       const after = chain[i + 1];
       const wall = after ? wallTo(run, res.get(after.id)?.blocks[0]) : i === chain.length - 1 && rootFixed ? wallTo(run, rootFixed) : undefined;
       if (i === 0 && rootFixed) {
-        res.set(run.id, packTerrace(run, nominal, styles, entries, fronts, { farWall_m: wall, corner: rootFixed }));
+        res.set(run.id, packTerrace(run, nominal, styles, entries, fronts, { farWall_m: wall, corner: rootFixed, align: alignFor(run) }));
         continue;
       }
       // Among the corner blocks that close this run, one the run before can close to (its depth is that run's wall).
       let chosen: PackResult | null = null;
       if (i > 0 && run.startCorner !== null) {
         let closing: PackResult | null = null;
-        for (const o of cornerOptions(run, nominal, styles, entries, fronts)) {
-          const r = packTerrace(run, nominal, styles, entries, fronts, { farWall_m: wall, corner: o });
+        for (const o of cornerOptions(run, nominal, styles, entries, fronts, alignFor(run))) {
+          const r = packTerrace(run, nominal, styles, entries, fronts, { farWall_m: wall, corner: o, align: alignFor(run) });
           if (r.blocks.length === 0 || !closes(r.farGap_m)) continue;
           closing ??= r;
           if (canClose(i - 1, o.stack.depth_m)) {
@@ -287,7 +298,7 @@ export function packTown(
         }
         chosen ??= closing;
       }
-      res.set(run.id, chosen ?? packTerrace(run, nominal, styles, entries, fronts, { farWall_m: wall }));
+      res.set(run.id, chosen ?? packTerrace(run, nominal, styles, entries, fronts, { farWall_m: wall, align: alignFor(run) }));
     }
     return res;
   };
@@ -310,7 +321,7 @@ export function packTown(
     if (done.has(head.id)) continue;
     const chain: TerraceRun[] = [head];
     for (let n = link(head); n && n !== head && !chain.includes(n); n = link(n)) chain.push(n);
-    const options = cornerOptions(head, nominalOf(head), styles, entries, fronts);
+    const options = cornerOptions(head, nominalOf(head), styles, entries, fronts, alignFor(head));
     if (options.length === 0 || link(chain[chain.length - 1]!) !== head) {
       take(packChain(chain, null));
       continue;
@@ -360,6 +371,7 @@ export function packTerrace(run: TerraceRun, nominal: readonly Lot[], styles: re
     return Number.isFinite(cap) ? cap : bounds[bounds.length - 1]!.cap;
   };
 
+  const align = opts.align ?? alignOf(run);
   const apartments = bayStyles(styles);
   const cornerSide: StackSide | null = run.startCorner ? run.startCorner.side : null;
   const cornerSides = run.startCorner ? [run.startCorner] : [];
@@ -374,11 +386,11 @@ export function packTerrace(run: TerraceRun, nominal: readonly Lot[], styles: re
   const cache = byFronts.get(fronts) ?? new Map<string, Probe | null>();
   byFronts.set(fronts, cache);
   const probeOf = (style: StackStyle, bays: number, side: StackSide | null): Probe | null => {
-    const id = `${style.id}|${bays}|${side ?? "-"}`;
+    const id = `${style.id}|${bays}|${side ?? "-"}|${align}`;
     if (cache.has(id)) return cache.get(id)!;
     let out: Probe | null = null;
     for (let k = 0; k < PROBE_KEYS; k++) {
-      const stack = assembleStack(style, { type: "large", key: `probe${k}`, cornerSides: side ? [{ side, road: "probe" }] : [] }, entries, fronts, { spec: specFor(16, 40), bays });
+      const stack = assembleStack(style, { type: "large", key: `probe${k}`, cornerSides: side ? [{ side, road: "probe" }] : [] }, entries, fronts, { spec: specFor(16, 40), bays, align });
       if (!stack) {
         out = null;
         break;
@@ -499,7 +511,7 @@ export function packTerrace(run: TerraceRun, nominal: readonly Lot[], styles: re
     const stack =
       isCorner && fixed
         ? fixed.stack
-        : assembleStack(o.style, { type: "large", key, cornerSides: isCorner ? cornerSides : [] }, entries, fronts, { spec: specFor(cap, 40), bays: o.bays, floors: choice[stableHash(`${run.id}:floors:${i}`) % choice.length]! });
+        : assembleStack(o.style, { type: "large", key, cornerSides: isCorner ? cornerSides : [] }, entries, fronts, { spec: specFor(cap, 40), bays: o.bays, floors: choice[stableHash(`${run.id}:floors:${i}`) % choice.length]!, align });
     if (!stack) break;
     const floors = stack.floors;
     // The probe widths and overhangs planned this block; the real stack may differ (a style with several floor pieces of different widths). A block whose real width and
