@@ -4,6 +4,7 @@
  */
 
 import type { CityBlock, CityLane, CityLandBlock, CityPark, CityPart, CityPartEdge, CitySide, CityTreatment } from "../../core";
+import { CityStageError } from "../pipeline/error";
 import type { StageRand } from "../pipeline/seeds";
 import { ALLEY_CELLS, ALLEY_ONE_IN_BLOCKS, ALLEY_SIDE_LONG_M, ALLEY_SIDE_MIN_CELLS, COURT_PART_MIN_CELLS, PARK_HALF_SIDE_MIN_CELLS, PARK_ONE_IN_BLOCKS, STRIP_CELLS, TILE_M } from "./constants";
 
@@ -75,7 +76,7 @@ export interface LandPlan {
   readonly parks: CityPark[];
 }
 
-const shapeOf = (a: number, b: number): CityPart["shape"] => (Math.min(a, b) <= STRIP_CELLS ? "strip" : "court");
+const shapeOf = (a: number, b: number): CityPart["shape"] => (Math.min(a, b) === STRIP_CELLS ? "strip" : "court");
 
 function mkPart(id: string, b: PlanBlock, r: Pick<CityPart, "i0" | "i1" | "j0" | "j1">, edges: Partial<Record<CitySide, CityPartEdge>>): CityPart {
   return {
@@ -118,7 +119,8 @@ export function planLand(blocks: readonly CityBlock[], rand: StageRand): LandPla
         out.parks.push({ block: b.id, kind, i0: side === 3 ? b.i0 : b.i1 - pd, i1: side === 3 ? b.i0 + pd : b.i1, j0: b.j0, j1: b.j1, side: SIDE_OF_NUMBER[side]! });
         out.parts.push(mkPart(`${b.id}/built`, b, { i0: side === 3 ? b.i0 + pd : b.i0, i1: side === 3 ? b.i1 : b.i1 - pd, j0: b.j0, j1: b.j1 }, { [side === 3 ? "-x" : "+x"]: "park" }));
       }
-    } else if (plan.alleys.has(b.id) && options.length > 0) {
+    } else if (plan.alleys.has(b.id)) {
+      if (options.length === 0) throw new CityStageError(`M4a: block ${b.id} is chosen for an alley but no lane place leaves parts of 2 or 6 and more (side ${Math.max(w, d)} cells)`, [{ i: b.i0, j: b.j0 }]);
       treatment = "alley";
       // The lane runs across the short side, at a place along the long one that leaves parts of 2 or 6 and more, by hash; a square block's runs along z.
       const before = options[rand("lane", b.id) % options.length]!;

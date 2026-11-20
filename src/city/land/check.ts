@@ -21,8 +21,9 @@ export interface LandVerdict {
 /** The cells of every lane, and of every park. */
 export function laneCells(layer: Pick<CityLandLayer, "lanes">, blocks: readonly CityBlock[]): CityCell[] {
   const out: CityCell[] = [];
+  const byId = new Map(blocks.map((x) => [x.id, x] as const));
   for (const l of layer.lanes) {
-    const b = blocks.find((x) => x.id === l.block);
+    const b = byId.get(l.block);
     if (!b) continue;
     if (l.axis === "z") for (let j = b.j0; j < b.j1; j++) for (let i = l.at; i < l.at + ALLEY_CELLS; i++) out.push({ i, j });
     else for (let i = b.i0; i < b.i1; i++) for (let j = l.at; j < l.at + ALLEY_CELLS; j++) out.push({ i, j });
