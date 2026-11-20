@@ -9,7 +9,8 @@ status: approved; section A1 merged 19 Nov 2026 (6eb4d26) (G1, Josh, 19 Nov 2026
 - **A1 waits for nothing.** 063 B is merged into `goal/city-style` (2edac93), and 069 is dropped (see What happens to the other tickets).
 - **A2's purity test widened** (Josh, 19 Nov 2026, in chat: "Yes, widen it"): `tilecity.test.ts`'s allowed imports for `tilecity.ts` gain `../city/streets` and `../core` (A2 criterion 2).
 - **A3 added** after A2 merged (a933e54): the puzzle HUD hides the plan picture's title and top-left corner on a phone. Asked "Should the HUD be hidden on ?city=plan as a small follow-up section?", Josh answered: "Yes, hide it" (19 Nov 2026, in chat).
-- Questions: Q2 and Q3 answered; Q1 not yet asked for, L waits for his word; Q4, Q5 and Q6 open.
+- **C2 stopped on its stop rule; B2 added and C2 re-cut** (19 Nov 2026). Asked "Do you approve all four rulings as recommended ("Yes, all four"), or do you want to keep 0.15 instead?", with the four rulings of `docs/070-c2-options.md`, Josh answered: "Yes, all four". So `PARK_PER_HOME` is 0.075 on the pipeline, yard courts are allowed, Land lanes leave court parts at least 8 long (B2), and a driveless court part gets a walk-through beside a lane (C2).
+- Questions: Q2, Q3 and Q5 answered; Q7 settled by the rulings; Q1 not yet asked for, L waits for his word; Q4 and Q6 open.
 branch: one per section, `ticket/070<section>-<slug>` (named in each section), each cut from `goal/city-style`.
 
 ## Josh's words (19 Nov 2026, in chat)
@@ -25,7 +26,9 @@ Three differences from his example order, which he has seen and accepted:
 - Kerbs come after Mass, because the kerb turns in at every drive and lane mouth.
 - The circuit has its own stage.
 
-The spec is `docs/city-grammar.md` (rules 1 to 12, checks M1 to M9, Josh's rulings Q1 to Q7). No section edits it. Where it and this ticket disagree, the grammar wins and the architect re-cuts.
+The spec is `docs/city-grammar.md` (rules 1 to 12, checks M1 to M9, Josh's rulings Q1 to Q7). No section edits it, except L for the lines it lists. Where it and this ticket disagree, the grammar wins and the architect re-cuts.
+
+**Exception:** Josh's 19 Nov 2026 rulings recorded in this ticket (the four C2 rulings, "Yes, all four": B2 and C2) take precedence over the grammar text they change, until L rewrites that text.
 
 ## Why
 - One function, `tileCity` (`src/render3d/tilecity.ts`, lines 730 to 1975 of 2008), decides streets, block sizes, parking, alleys, parks and courts together. One `renderer` agent owns all of `src/render3d/` (about 48,000 lines).
@@ -99,10 +102,10 @@ A check runs in the stage whose layer it judges. It may read earlier layers. Thr
 | street width (grammar 10) | every carriageway 15 m, no avenue | 1 streets | A1 |
 | V1, V2 | block sizes vary; not square | 1 streets | A1 |
 | V3, V4 | alleys and parks at their rates | 2 land | B |
-| M4a | no part has a short side of 3 to 5 cells | 2 land | B |
+| M4a | no part has a short side of 3 to 5 cells; no lane leaves a court part with a long side under 8 | 2 land | B, B2 |
 | M3 face rule | 0, 1 or 2 adjacent open sides; the column kind matches | 3 mass | C1 |
 | M4b | every outer column of a court part, and every strip column, has a partner or a recorded opening behind it | 3 mass | C1 |
-| M5 openings | whole cells, recorded, from rule 6's table; no row stretch of 1 cell; every interior touches an opening; no passage exists (the plan has no passage type) | 3 mass | C1 |
+| M5 openings | whole cells, recorded, from rule 6's table; no row stretch of 1 cell; every interior touches an opening; no passage exists (the plan has no passage type) | 3 mass | C1, made strict in C2 (no lane exemption) |
 | G2 | every block side's back edge is built or a recorded opening | 3 mass | C1 |
 | G3 | no void: every block cell has a use | 3 mass | C1 |
 | R1 | continuous frontage share (`TILE_CITY_R1_MIN`), from cells | 3 mass | C1 |
@@ -131,12 +134,12 @@ A check runs in the stage whose layer it judges. It may read earlier layers. Thr
 | draw-call caps | tile, dressing and furniture caps unchanged | 9 assemble | G, J |
 | R11 | a lot and a plaza on `64-the-whole-chain` | ladder only, not run by the pipeline | none |
 
-No threshold in this table changes. A ported check keeps its numbers. Its old copy in `src/render3d/` stays for the old path until L, and the two must agree on the named cities while both exist.
+No threshold in this table changes. A ported check keeps its numbers. Its old copy in `src/render3d/` stays for the old path until L, and the two must agree on the named cities while both exist. **One exception, P2 only:** the pipeline's `PARK_PER_HOME` is 0.075 and the old path keeps 0.15 until L (Josh's ruling 1, 19 Nov 2026: "Yes, all four"), so P2's wanted and floor differ between the two paths and are not compared. P2's band, its lots-per-block cap and its short-block count are the same on both.
 
 ## Sections
 Each is one builder session at most. They run in this order:
 - A1 → A2 → A3
-- B → C1 → C2 → D1 → D2 → E
+- B → B2 → C1 → C2 → D1 → D2 → E (B2 was added after C1 merged and runs before C2 resumes. C1 is merged and does not re-open: its walk-through and M5 code change inside C2.)
 - F1 → F2 → G
 - H1 → H2 → H3
 - I → J → L
@@ -232,6 +235,23 @@ H and I can run alongside each other once F2 has merged. Stage 6 (K) is not cut 
 
 - **Files:** new `src/city/land/`.
 
+### B2 · Stage 2, Land: a lane leaves room for a drive (planner, pure). Branch `ticket/070b2-land-lanes`
+**Goal.** Land cuts no court part that nothing can open: a lane goes only where every court part it leaves is long enough for a drive, and a block with no such place takes no alley. Josh sees it at `?view=3d&city=plan&stage=land`: on some cities a lane moves, and the alley and park counts stay.
+
+Josh's ruling 3 (19 Nov 2026, in chat; asked "Do you approve all four rulings as recommended ("Yes, all four"), or do you want to keep 0.15 instead?", he answered: "Yes, all four"): Land places a lane only where every court part it leaves is at least 8 cells long, so a drive always fits; a block with no such place takes no alley. The measurements are in `docs/070-c2-options.md`.
+
+1. [ ] **Lane places** (`lanePositions`, Vitest). It also takes the block's side across the cut. A place is dropped when a court part it leaves (short side 6 or more) has a long side under 8 cells. A part's two sides are its depth from the cut and the block's side across the cut. Strips (short side 2) are judged as in B. Among the places left, the lane's place is by hash, as in B.
+2. [ ] **No alley without a place** (`planBlocks`, Vitest). It never chooses an alley block that has no place under criterion 1; such a block takes no alley. The alley quota and `ALLEY_*` are unchanged.
+3. [ ] **M4a gains the clause** (Vitest): no lane leaves a court part with a long side under 8. Failing fixture: a 6 by 13 block cut 6, lane, 6 (two 6 by 6 parts) fails M4a with this clause named. A whole block from the streets that no lane cuts is not judged by this clause (see Q7).
+4. [ ] **V3, V4** hold on the named cities with their thresholds (Vitest). The builder reports, per named city, alleys, strips and parks before (B as merged) and after, and which cities' lanes moved. The options note measured lanes moving on 9 of the 13, with alley and park counts unchanged.
+   - If V3 or V4 cannot hold, the builder stops and reports (R-2). No rate falls.
+5. [ ] **R-4.** Land's four digest pins are re-taken, and the test names them as moved by B2. Mass reads land, so mass's four pins move too: B2 re-takes their values in `src/city/mass/stage.test.ts` and names them as moved by B2 (C2 re-takes them again). C1's mass checks still hold on the named cities; if one does not, the builder stops and reports.
+6. [ ] **The 6 x 6 streets test stops at its own stage.** `src/city/streets/stage.test.ts`'s "6 x 6 (R-7)" test calls `runCity({ blocksX: 6, blocksZ: 6, seed: 1 }, "streets")` (its `until` set to `"streets"`), so a later stage failing on 6 x 6 no longer breaks stage 1's test. Its assertion is otherwise unchanged.
+7. [ ] R-1 to R-7 for `land` still hold. Tests run: `npx vitest run --maxWorkers=2 src/city/land/ src/city/mass/ src/city/streets/` and one `npx tsc --noEmit`.
+
+- **Files:** `src/city/land/`; `src/city/streets/stage.test.ts` (the 6 x 6 test's `until` only); `src/city/mass/stage.test.ts` (the four digest pin values and their test's name only).
+- **Must not:** `src/city/mass/`'s code, every other file in `src/city/streets/`.
+
 ### C1 · Stage 3, Mass: rings, openings, the face rule (planner, pure). Branch `ticket/070c1-mass`
 **Goal.** Every cell of every block is built or a named open use before any building exists. Josh sees it at `?city=plan&stage=mass`: built cells by column kind, and openings by kind.
 
@@ -256,23 +276,40 @@ H and I can run alongside each other once F2 has merged. Stage 6 (K) is not cut 
 - **Files:** new `src/city/mass/`; `src/render3d/planview.test.ts` (the unbuilt-stage example only, by the renderer; the planner never edits render3d).
 
 ### C2 · Stage 3, Mass: units, lots and courts (planner, pure). Branch `ticket/070c2-mass-parking`
-**Goal.** Parking demand is fixed from the mass, and residents' courts and frontage lots are laid as openings, so P2 holds before any kerb is drawn.
+**Goal.** Parking demand is fixed from the mass, and residents' courts (a court behind a drive, or a yard court in a 6-deep part) and frontage lots are laid as openings, so P2 holds before any kerb is drawn. Every court part has a drive or a walk-through. Josh sees it at `?view=3d&city=plan&stage=mass`.
 
+**Re-cut, 19 Nov 2026.** The first build stopped on its stop rule (WIP commit `560193a`: P2 could not hold, and M5 failed on 10 of 13 named cities). The causes and the measured options are in `docs/070-c2-options.md`. Asked "Do you approve all four rulings as recommended ("Yes, all four"), or do you want to keep 0.15 instead?", Josh answered: "Yes, all four". Rulings 1, 2 and 4 land here; ruling 3 is B2's.
+
+**Where it starts.** After B2 merges, the branch's WIP commit `560193a` is rebased onto the `goal/city-style` head. Kept as they are: `unitsOf`, the quota rounds and the dearer-layout rule, the P2 port, and the drive and court laying in `plan.ts`. C1 does not re-open as a section: its walk-through code changes here, and its digest pins were always re-taken here.
+
+0. [ ] **First, on this branch, by the lead-architect (before the builder resumes):** `CityOpening.mouth` in `src/core/cityplan.ts` becomes a list, so a lane is one opening with two mouths (rule 6; the C1 reviewer's suggestion). `mouth: readonly { street: string; cells: readonly CityCell[] }[]`, empty for a plaza, park or walk-through (it was `null`). The builder then adapts `src/city/mass/` to it: a lane is one `CityOpening` with its two mouths, where C1 recorded `/lane/a` and `/lane/b`. No other folder reads `CityOpening.mouth` today.
 1. [ ] **Nominal units** (18.2, on 5 m cells). These are the parking demand of record (`CityBlockUnits`), and no later stage changes them:
    - columns: every built cell of the block;
    - shops: street-frontage outer ground columns, less one door column per street run of up to `TERRACE_BAYS.max` columns, rounded up;
    - homes: `floor(columns x UNIT_FLOORS_NOMINAL / HOME_COLUMN_FLOORS)`.
 2. [ ] **Lots.** `unitsOf`, `lotQuota` and `planLots` (their quota rounds and the dearer-layout rule) are moved and run on cells.
-   - Each lot is a court behind a 2-cell drive through both rings, with stalls and aisle from ring 3 (from 065 criterion 3). Where that does not fit, it is a 2 x 2 frontage lot, within `CITY_FRONT_LOT_BLOCKS_MAX`.
-   - An alley block's court opens on its lane, as 057 G's does.
+   - A lot is a court behind a 2-cell drive through both rings, with stalls and aisle from ring 3 (from 065 criterion 3), or a yard court (criterion 3). Where neither fits, it is a 2 x 2 frontage lot, within `CITY_FRONT_LOT_BLOCKS_MAX`.
    - A drive replaces that interior's walk-through.
-   - C1's checks still hold.
-3. [ ] **P2** holds on the named cities with `PARK_PER_HOME` 0.15 and every threshold. It is ported from `parkmetrics.ts` onto the layer.
-   - The builder reports homes, stalls wanted and stalls laid on the default city and seeds 1 to 5. The grammar estimated about 860 homes, 129 stalls wanted and 108 from two courts a block.
-   - **Stop rule:** if P2 cannot hold, the builder stops and reports with the numbers (R-2, Q5).
-4. [ ] R-1 to R-7 for `mass`. C1's pin is re-taken here, and the test names it as moved by C2.
+   - `LOTS_PER_BLOCK_MAX` stays 2, and the frontage-lot cap stays.
+3. [ ] **The yard court** (Josh's ruling 2: a part 6 cells deep may park in its own paved yard, a drive in, six stalls along the far side; "Yes, all four"). A second court shape in `sites.ts`, for a court part whose yard (inside ring 2) is exactly 2 cells deep:
+   - a 2-cell drive through both rings, on a side of at least 8 cells;
+   - six stalls along the yard's far side (two stall tiles, one each side of the drive's line), and the near side as the aisle;
+   - it is a court behind a drive, not a frontage lot, so it does not count toward `CITY_FRONT_LOT_BLOCKS_MAX`.
+   - Tests (Vitest): it fits a 6 by 8 part and not a 6 by 7 one; its stall cells are on the far side and its aisle on the near side; a part whose yard is 3 or more deep takes the ordinary court, as before.
+4. [ ] **Lane parts.** A court part with a lane edge opens its court on the lane where one fits (as 057 G's alley court does; the drive costs no street frontage). Where none fits on the lane, it is planned like any other part. It never throws for want of a lane court.
+5. [ ] **Walk-throughs** (Josh's ruling 4: a court part with no drive gets a walk-through even with a lane beside it; "Yes, all four"). Every court part that ends with no drive gets a walk-through, on its lane side where one fits, else as in C1. The C1-era lane exemption in M5 is removed: M5 is strict, and every interior touches an opening.
+   - Failing fixture: a lane part with its drive and walk-through removed fails M5.
+   - A whole 6 x 6 block from the streets that Land leaves alone cannot take a legal walk-through. It stays an honest M5 failure (R-2), and never occurs on the named cities (Q7).
+6. [ ] **P2** holds on the named cities with `PARK_PER_HOME` 0.075 (Josh's ruling 1: "the lot ratio may go from 0.15 to 0.075 stalls a home"; "Yes, all four") and every other threshold unchanged: `PARK_SUPPLY_BAND`, `LOTS_PER_BLOCK_MAX` 2, the short-block count, the frontage-lot cap, R1's floor. It is ported from `parkmetrics.ts` onto the layer.
+   - 0.075 is the pipeline's value only. `tilecity.ts` keeps 0.15 for `city=tiles` until L, so P2 is the one check the two paths do not share (see the checks table).
+   - The test pinning the mass constants to `tilecity.ts`'s (`lots.test.ts`) excepts `PARK_PER_HOME`, which it pins to 0.075 and names Josh's ruling. Every other constant there still equals the old path's.
+   - The builder reports, for all 13 named cities, the columns of the note's recommended row: homes, stalls wanted, floor, stalls laid, R1, drives (and how many on a street). The note's probe measured 66 laid against a floor of 54.3 on the default city, R1 0.927; the builder's numbers may differ by a lot or two.
+   - **Stop rule:** if P2, M5 or R1 cannot hold on a named city, the builder stops and reports with the numbers (R-2). Nothing is tuned to pass.
+7. [ ] **C1's checks** (M3, M4b, M5, G2, G3, R1) still hold on the named cities.
+8. [ ] R-1 to R-7 for `mass`. The four mass digest pins (last re-taken by B2) are re-taken here, and the test names them as moved by C2.
 
-- **Files:** `src/city/mass/`.
+- **Files:** `src/city/mass/`. `src/core/cityplan.ts` (`CityOpening.mouth` only, criterion 0, by the lead-architect, not the builder).
+- **Interfaces:** `CityOpening.mouth` becomes `readonly { street: string; cells: readonly CityCell[] }[]` (criterion 0). It is written at the start of the re-cut on this branch, not on `goal/city-style` before: the merged C1 code reads `mouth` as one record or `null` and would stop typechecking. No new dependency.
 - **Heavy:** the named-city loop with the quota rounds. Its own file, a 120 s timeout.
 
 ### D1 · Stage 4, the parking band (streetscape, pure). Branch `ticket/070d1-edge-band`
@@ -357,6 +394,7 @@ H and I can run alongside each other once F2 has merged. Stage 6 (K) is not cut 
    - on a quiet one: a residents' door (one per building), the style's floor piece, or `Apartment_Door_Corner_01` or `_02` at a quiet corner (rule 7).
 2. [ ] **Moved.** `dressBlock`'s shopfront rules (glass, awnings, fascia and blade signs, ATMs; `P_*`, `ATM_PER_RUN`), and the sill tables (062) as typed-in data.
 3. [ ] **M8, R3, R4, R5, R6, sills** hold on the named cities. Failing fixture: an inner building with a shop piece.
+4. [ ] **No door behind a stall** (from the yard court, Josh's ruling 2, 19 Nov 2026: "Yes, all four"). No door on a column whose open side is a stall cell. Holds on the named cities (Vitest). Failing fixture: a residents' door on a ring-2 column facing a yard court's stalls.
 
 - **Files:** new `src/city/facades/`. The render3d pin test of the sill table.
 
@@ -404,9 +442,13 @@ H and I can run alongside each other once F2 has merged. Stage 6 (K) is not cut 
    - The old path's tile-only code in `tilecity.ts` (everything after stage 1 that only the tile city uses) and its tile-only tests are deleted.
    - Every check now runs only in its stage (the table).
 2. [ ] **The guide.** Chapter 19 says the tile city is made by the pipeline, and points to the grammar and this ticket for the stages. The retired lines go (19.2's far-end order, 19.4's ring-2 strip, 19.6's alley rear, 18.2's 5.2 m bays), as the grammar's "Guide text that goes" lists. Drift checks follow the constants to their new modules.
+   - **Lines that change with Josh's four rulings of 19 Nov 2026 ("Yes, all four"; B2 and C2):**
+     - grammar rule 4's table: the 6-or-more row says a part whose interior is 2 cells deep parks in its own paved yard (a drive in, six stalls along the far side, the near side the aisle), and a lane leaves no court part with a long side under 8;
+     - grammar rule 6's walk-through row and its Decided paragraph: "only for an interior that has no drive and no lane" becomes "only for an interior that has no drive" (a lane beside the rings is not a way in);
+     - guide 18.1: `PARK_PER_HOME` 0.075, not 0.15, with Josh's ruling; and the same number where it is repeated (the guide's 057 Q3 default and its constants table row, and grammar rule 5's parking estimate).
 3. [ ] R-8. The playtest shows no ladder change.
 
-- **Files:** `tilecity.ts` and its tests, `renderer.ts`, `docs/city-style-guide.md`, `styleguide.test.ts`.
+- **Files:** `tilecity.ts` and its tests, `renderer.ts`, `docs/city-style-guide.md`, `styleguide.test.ts`; `docs/city-grammar.md` (only the lines listed under criterion 2: rule 4's table, rule 6's walk-through row and its Decided paragraph, rule 5's parking estimate).
 
 ## What happens to the other tickets
 - **063 B (street width)** is merged into `goal/city-style` (2edac93). A1 starts from that head and copies `layoutAxis` after B's change. With the merge Josh accepted P1 failing on cities outside 063 criterion 7's list, and the old path's `P1_ONE_SHORT` pin in `alleys.test.ts` (merge message of 2edac93). D1 moves the allocator as it is there.
@@ -489,5 +531,7 @@ These five do not exist. The main session writes each `.claude/agents/<name>.md`
    - Recommendation: decide it when 059 is re-cut. The default is streetscape for the layout (poles stand on its pavement) and the renderer for the drawing.
 5. **Carried from 065, only if C2's stop rule fires:** may `LOTS_PER_BLOCK_MAX` be 3 on blocks of at least 10 cells each way, if P2 cannot hold?
    - Recommendation: answer when C2 brings the numbers.
+   - **Closed, not needed (19 Nov 2026).** C2's stop rule fired, and the options note (`docs/070-c2-options.md`) found P2 holds on all 13 named cities with two lots a block once the ratio is 0.075 and yard courts exist. Asked "Do you approve all four rulings as recommended ("Yes, all four"), or do you want to keep 0.15 instead?", Josh answered: "Yes, all four". So `LOTS_PER_BLOCK_MAX` stays 2.
 6. **Should the pipeline fix the cause of P1's known shortfall, or inherit it?** On the old path P1 fails on 3 x 3 seeds 12, 15, 17, 18, 19 and 6 x 4 seeds 5, 7, 11, 12, 15, 16, 18, which he accepted with the 063 B merge. D1 moves the greedy allocator unchanged, so the pipeline will most likely fail on the same cities. R-2 forbids pinning them, so D1 reports them and requires P1 only on the named cities.
    - Recommendation: inherit it in D1, so that D1 stays a move whose numbers can be checked against the old path. Then decide from D1's report. If he wants P1 on every seed, it is a follow-on section in Edge after D1 (a first tile for every block, the approach 063 B2 described). Edge is where the order fault is, and a fix in Land or Mass would change where parks go. Until he answers, a block left short is recorded in the edge layer and the stage does not throw, as on the old path.
+7. **The lane-less 6 x 6 court part (from the C1 review): settled by rulings 3 and 4.** C1's reviewer found that such a part cannot take a walk-through without un-blinding a ring-2 corner (rule 4) or leaving a 1-cell stretch (rule 6). Josh's rulings 3 and 4 ("Yes, all four", 19 Nov 2026) settle it: Land no longer cuts a lane that leaves a short court part (B2), and a driveless court part beside a lane gets a walk-through (C2). One case is left: a whole 6 x 6 block from the streets that Land leaves alone. It stays an honest M5 failure (R-2), never patched or pinned, and never occurs on the named cities. Not asked now; it returns when larger cities are looked at.
