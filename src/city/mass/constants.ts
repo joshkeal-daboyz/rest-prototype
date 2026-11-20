@@ -52,3 +52,9 @@ export const COURT_CELLS = { w: 2, d: 3 } as const;
 export const YARD_DEPTH_CELLS = 2;
 /** A yard court's drive stands on a part side of at least this many cells (a building, the drive, a building, and room for the stalls). */
 export const YARD_SIDE_MIN_CELLS = 8;
+
+/**
+ * S6 (Josh, 20 Nov 2026, "Yes, all four"): a drive's or frontage lot's mouth keeps this many cells clear either side of a junction-facing stretch of a block side. A typed-in copy of
+ * `tilecity.ts`'s `BAY_JUNCTION_CLEAR` (pinned equal in `lots.test.ts`).
+ */
+export const BAY_JUNCTION_CLEAR = 1;
