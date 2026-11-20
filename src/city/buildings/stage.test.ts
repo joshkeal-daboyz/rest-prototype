@@ -14,7 +14,7 @@ import { massStage } from "../mass/stage";
 import { pictureProblems } from "../pipeline/picture";
 import { stageRand } from "../pipeline/seeds";
 import type { CityStageDef } from "../pipeline/types";
-import { runCity } from "../stages";
+import { BUILT_STAGES, runCity } from "../stages";
 import { streetsStage, streetsStageWith } from "../streets/stage";
 import { buildingFailures, neighbourShares } from "./check";
 import { CITY_STOREYS, COLOURWAY_POOL, COLOURWAY_SWATCH, TERRACE_BAYS } from "./constants";
@@ -106,7 +106,7 @@ describe("rows and buildings (criterion 1)", { timeout: 120_000 }, () => {
     for (const o of NAMED) {
       const { land, mass, buildings } = layersOf(o);
       const built = new Map(mass.built.map((b) => [keyOf(b), b] as const));
-      const tight = land.parts.flatMap((p) => tightCornersOf(p, rowsOfPart(p), built));
+      const tight = land.parts.flatMap((p) => tightCornersOf(p, rowsOfPart(p), built, mass.built.filter((b) => b.part === p.id)));
       const ls = buildings.buildings.filter((b) => b.bend !== null);
       expect(ls.map((b) => keyOf(b.cells[1]!)).sort(), label(o)).toEqual(tight.map((t) => keyOf(t.corner)).sort());
       for (const l of ls) {
@@ -348,15 +348,16 @@ describe("R-1 to R-7 for buildings", { timeout: 120_000 }, () => {
     expect(ok.ok && r.plan.digests.buildings === ok.plan.digests.buildings).toBe(true);
   });
 
-  it("a test double for buildings leaves the digests of streets, land and mass equal to the standard run's (R-4)", () => {
-    const r = cityOf(DEFAULT);
+  it("a test double for buildings leaves the digests of streets, land, mass and edge equal to the standard run's (R-4)", () => {
+    const r = runCity(optionsOf(DEFAULT), "buildings");
     if (!r.ok) throw new Error("default city failed");
     const double: CityStageDef = { name: "buildings", run: () => ({ stage: "buildings", rows: [], buildings: [] }), picture: buildingsStage.picture };
-    const d = runCity(optionsOf(DEFAULT), "buildings", stagesOf("on", double));
+    const d = runCity(optionsOf(DEFAULT), "buildings", [...BUILT_STAGES.slice(0, -1), double]);
     expect(d.ok).toBe(true);
     expect(d.plan.digests.streets).toBe(r.plan.digests.streets);
     expect(d.plan.digests.land).toBe(r.plan.digests.land);
     expect(d.plan.digests.mass).toBe(r.plan.digests.mass);
+    expect(d.plan.digests.edge).toBe(r.plan.digests.edge);
     expect(d.plan.digests.buildings).not.toBe(r.plan.digests.buildings);
   });
 

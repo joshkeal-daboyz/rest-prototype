@@ -34,7 +34,7 @@ export function buildBuildings(land: Pick<CityLandLayer, "parts">, mass: Pick<Ci
     const positions = positionsOf(defs);
     for (const [id, m] of positions) posOfRow.set(id, m);
     const lookup = (id: string): ReadonlyMap<string, number> | undefined => positions.get(id);
-    const mine = groupPart(part, defs, built, rand, lookup);
+    const mine = groupPart(part, defs, built, rand, lookup, cells);
     assignPart(mine, built, rand, lookup);
     for (const d of mine) drafts.push(d);
     const mineRows = new Set(mine.flatMap((d) => (d.bend ? [d.rowId, d.bend] : [d.rowId])));

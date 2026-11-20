@@ -28,11 +28,13 @@ export function buildingFailures(layer: CityBuildingsLayer, input: BuildingsInpu
   const built = new Map<string, CityBuiltCell>(input.mass.built.map((b) => [keyOf(b), b] as const));
   const defs = new Map<string, RowDef>();
   const leads = new Set<string>();
+  const byPart = new Map<string, CityBuiltCell[]>();
+  for (const b of input.mass.built) (byPart.get(b.part) ?? byPart.set(b.part, []).get(b.part)!).push(b);
   const tight = input.land.parts.flatMap((p) => {
     const rows = rowsOfPart(p);
     for (const r of rows) defs.set(r.id, r);
     for (const id of leadRowIds(p, rows, built)) leads.add(id);
-    return tightCornersOf(p, rows, built);
+    return tightCornersOf(p, rows, built, byPart.get(p.id) ?? []);
   });
   const positions = positionsOf([...defs.values()]);
   const posOf = (id: string): ReadonlyMap<string, number> | undefined => positions.get(id);

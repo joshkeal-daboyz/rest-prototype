@@ -3,13 +3,14 @@
  * the rows, the tight corners (Ls), the through share, the storey histogram, the shortest and longest row stretch, and R2, R13 and M4c. For the outside cities (3 x 3 and 6 x 4, seeds 1 to 20, off and on) it prints
  * whether stage 5 is ok, and its failure if not. The named runs must be ok (R-2). Nothing about an outside city is asserted, and nothing is tuned for one.
  *
- * Stages 1 to 3 and 5 are run; stage 4 (edge) is left out, because stage 5 reads no edge layer and the buildings layer does not depend on it.
+ * Stages 1 to 5 are run, edge included.
  */
 import { describe, expect, it } from "vitest";
 import type { CityPlanRun } from "../../core";
 import { landStage } from "../land/stage";
 import { massStage } from "../mass/stage";
 import type { CityStageDef } from "../pipeline/types";
+import { edgeStage } from "../edge/stage";
 import { runCity } from "../stages";
 import { streetsStage, streetsStageWith } from "../streets/stage";
 import { buildingFailures, neighbourShares } from "./check";
@@ -32,7 +33,7 @@ for (const [blocksX, blocksZ] of [
   for (const way of ["off", "on"] as const) for (let seed = 1; seed <= 20; seed++) OUTSIDE.push({ blocksX, blocksZ, seed, way });
 const label = (o: City): string => `${o.blocksX}x${o.blocksZ} s${o.seed} ${o.way}`;
 
-const stagesOf = (way: "on" | "off"): CityStageDef[] => [(way === "on" ? streetsStage : streetsStageWith(0)) as unknown as CityStageDef, landStage as unknown as CityStageDef, massStage as unknown as CityStageDef, buildingsStage as unknown as CityStageDef];
+const stagesOf = (way: "on" | "off"): CityStageDef[] => [(way === "on" ? streetsStage : streetsStageWith(0)) as unknown as CityStageDef, landStage as unknown as CityStageDef, massStage as unknown as CityStageDef, edgeStage as unknown as CityStageDef, buildingsStage as unknown as CityStageDef];
 const runOf = (o: City): CityPlanRun => runCity({ blocksX: o.blocksX, blocksZ: o.blocksZ, seed: o.seed }, "buildings", stagesOf(o.way));
 
 function measure(o: City): { text: string; ok: boolean } {

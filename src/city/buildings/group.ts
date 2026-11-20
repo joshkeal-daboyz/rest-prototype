@@ -37,13 +37,14 @@ function arms(r: RowDef, at: CityCell, isBuilt: (c: CityCell) => boolean): CityC
 }
 
 /** Every tight corner of a court part, computed from the mass alone (the stage's choices and the check both read it). */
-export function tightCornersOf(part: CityPart, rows: readonly RowDef[], built: ReadonlyMap<string, CityBuiltCell>): TightCorner[] {
+/** `cells` are the part's own built cells; `built` is the whole mass by key, for lookups. */
+export function tightCornersOf(part: CityPart, rows: readonly RowDef[], built: ReadonlyMap<string, CityBuiltCell>, cells: readonly CityBuiltCell[]): TightCorner[] {
   if (part.shape !== "court") return [];
   const isBuilt = builtIn(part.id, built);
   const out: TightCorner[] = [];
   const inner = rows.filter((r) => r.row === "inner");
-  for (const b of built.values()) {
-    if (b.part !== part.id || b.column !== "blind" || b.row !== "inner") continue;
+  for (const b of cells) {
+    if (b.column !== "blind" || b.row !== "inner") continue;
     const here = inner.filter((r) => r.along.some((c) => c.i === b.i && c.j === b.j));
     if (here.length !== 2) continue;
     const found = here.map((r) => arms(r, b, isBuilt).flat());
@@ -75,6 +76,7 @@ export function groupPart(
   built: ReadonlyMap<string, CityBuiltCell>,
   rand: StageRand,
   positions: (rowId: string) => ReadonlyMap<string, number> | undefined,
+  partCells: readonly CityBuiltCell[],
 ): Draft[] {
   const isBuilt = builtIn(part.id, built);
   const leadIds = leadRowIds(part, rows, built);
@@ -88,7 +90,6 @@ export function groupPart(
       else onLines.set(keyOf(c), [r]);
     }
   }
-  const partCells = [...built.values()].filter((b) => b.part === part.id);
   for (const b of partCells) if (!onLines.has(keyOf(b))) throw new CityStageError(`N1: built cell (${b.i}, ${b.j}) of ${part.id} is on no row`, [{ i: b.i, j: b.j }]);
   const options = new Map<string, RowDef[]>();
   for (const [key, rs] of onLines) {
@@ -97,7 +98,7 @@ export function groupPart(
     if (ok.length === 0) throw new CityStageError(`N1: built cell (${b.i}, ${b.j}) of ${part.id} shows no row front`, [{ i: b.i, j: b.j }]);
     options.set(key, ok);
   }
-  const tight = tightCornersOf(part, rows, built);
+  const tight = tightCornersOf(part, rows, built, partCells);
   const tightCells = new Set(tight.flatMap((t) => t.cells.map(keyOf)));
 
   let lastReason = "no draw";
