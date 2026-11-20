@@ -204,6 +204,33 @@ describe("stage 4, the ground and the kerb line (D2), on the named runs", { time
         expect(kerb).toHaveLength(sides + 4);
       });
 
+      it("kerb line: every inlet goes round as Josh drew it: a return before and after each opening on the chain, one near and one far return, a dip from the near return's `at` to the far one's, as many dips as openings, each return 5 m or 10 m long (063 F, criterion 2)", () => {
+        const { kerb } = layersOf(o);
+        const same = (p: { x: number; z: number }, q: { x: number; z: number }): number => Math.hypot(p.x - q.x, p.z - q.z);
+        for (const p of kerb) {
+          const chain = p.segs.filter((q) => q.kind !== "dip");
+          const kinds = chain.map((q) => q.kind);
+          for (const id of new Set(p.returns.map((r) => r.inlet))) {
+            const near = p.returns.filter((r) => r.inlet === id && r.side === "near");
+            const far = p.returns.filter((r) => r.inlet === id && r.side === "far");
+            expect([near.length, far.length], `${p.id} ${id}`).toEqual([1, 1]);
+            const dip = p.dips.find((d) => d.inlet === id);
+            expect(dip, `${p.id} ${id}: a dip`).toBeDefined();
+            expect(same(dip!.a, near[0]!.at), `${p.id} ${id}: dip a`).toBeLessThan(1e-9);
+            expect(same(dip!.b, far[0]!.at), `${p.id} ${id}: dip b`).toBeLessThan(1e-9);
+          }
+          for (const [i0, i1] of p.openings) {
+            expect(kinds[i0 - 1], `${p.id}: before an opening`).toBe("return");
+            expect(kinds[i1], `${p.id}: after an opening`).toBe("return");
+          }
+          expect(p.openings.length, p.id).toBe(p.dips.length);
+          for (const q of chain.filter((x) => x.kind === "return")) {
+            const len = same(q.a, q.b);
+            expect(Math.abs(len - TILE_M) < 1e-9 || Math.abs(len - 2 * TILE_M) < 1e-9, `${p.id}: a return ${len} m long`).toBe(true);
+          }
+        }
+      });
+
       it("kerb line: a path walks only its street's own span and own cells: no cell of a path lies beyond the span (criterion 2)", () => {
         const { streets, ground, kerb } = layersOf(o);
         const groundAt = new Map(ground.map((g) => [key(g.i, g.j), g] as const));

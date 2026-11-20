@@ -571,7 +571,7 @@ describe("the failing and first-pass fixtures (criterion 12 (c))", { timeout: 12
     expect(e.tiles).toHaveLength(0);
     expect(e.blocks).toEqual([{ block: b.id, wanted: Math.round(30 / 3 / 3), first: null, shortTiles: Math.round(30 / 3 / 3) }]);
     expect(e.kerbCuts).toHaveLength(2 * (b.i1 - b.i0) + 2 * (b.j1 - b.j0));
-    // the stage itself runs ok on it (D1 criterion 2): the short block is recorded, not thrown on
+    // the short block is recorded, not thrown on (D1 criterion 2); the stage is run on it below
     const fixtureMass = { name: "mass", run: () => mass, picture: massStage.picture } as unknown as CityStageDef;
     const fixtureLand = { name: "land", run: () => land, picture: landStage.picture } as unknown as CityStageDef;
     const run = runCity({ blocksX: 1, blocksZ: 1, seed: 1 }, "edge", [streetsStage as CityStageDef, fixtureLand, fixtureMass, edgeStage as CityStageDef]);
