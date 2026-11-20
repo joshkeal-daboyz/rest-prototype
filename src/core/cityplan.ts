@@ -98,6 +98,114 @@ export interface CityBlock {
   readonly type: CityBlockType;
 }
 
+// ---- stage 1, the split plan (ticket 070 A4; Josh, 20 Nov 2026: "C, split plan") ----
+//
+// Written before A4 starts, as standalone types, so `goal/city-style` keeps type-checking. A4's criterion 0 (the lead-architect, on A4's branch) wires them into
+// `CityStreetsLayer` as `CityStreetsLayerA4` below says. Until then nothing reads them.
+//
+// On the split plan nothing is a grid coordinate:
+// - a block's `bi` and `bj` are ranks: `bi` is the number of distinct block `i0` values below its `i0`, `bj` likewise for `j0`. Its id stays "block:<bi>:<bj>".
+//   The pair is unique (two blocks with the same `i0` and `j0` are the same block), and on a lattice it equals today's grid coordinates. Two blocks whose `bi`
+//   differ by one need not share a street: neighbours come only from `CityPlanBlock.sides`.
+// - a street's `line` is its ordinal among the streets of its axis, ordered by `across0` and then `span.lo`, and its id stays "<axis>:<line>". It is not a lattice
+//   line: no stage finds a block or the city's edge from it (`CityPlanStreet.outer` says which streets are on the edge).
+// The old lattice functions (`layStreets` and the rest, which `city=tiles` imports; R-9) keep today's meanings and are not typed by these.
+
+/** A stretch along a street or a block side, in cells along the street's axis (i for an "x" street, j for a "z" street), high end exclusive. */
+export interface CitySpan {
+  readonly lo: number;
+  readonly hi: number;
+}
+
+/** A junction's kind (S1): "corner" (two streets, both end there; the city's four corners), "T" (one street ends on another that runs through), "crossroads" (two run through). */
+export type CityJunctionKind = "corner" | "T" | "crossroads";
+
+/** One end of a street: the junction it ends in (S1: every street ends on a street; no dead end). */
+export interface CityStreetEnd {
+  readonly junction: string;
+}
+
+/** A street on the split plan: today's fields, plus where it runs and how it ends. */
+export interface CityPlanStreet extends CityStreet {
+  /** The cells along its axis it runs over, its end junctions' squares included (so a T's ending street reaches the far kerb of the through street's carriageway). */
+  readonly span: CitySpan;
+  /** Its two ends, the low end (`span.lo`) first. */
+  readonly ends: readonly [CityStreetEnd, CityStreetEnd];
+  /** For one of the four edge streets, the side of it that faces out of the city (its outer pavement and parking band face no block); null for every other street. */
+  readonly outer: CitySide | null;
+}
+
+/** Where streets meet: the 3 by 3 carriageway square (grammar rule 10, unchanged; S2). Its id is "junction:<i>:<j>", its low corner cell. */
+export interface CityJunction {
+  readonly id: string;
+  readonly kind: CityJunctionKind;
+  /** The nine carriageway cells (role `junction`). */
+  readonly cells: readonly CityCell[];
+  /** The streets that meet there: `passes` true for a street that runs through it, false for one that ends in it. A T has one of each; a crossroads two passing; a corner two ending. */
+  readonly streets: readonly { readonly street: string; readonly passes: boolean }[];
+  /** The sides of the square a carriageway leaves by: two for a corner, three for a T, four for a crossroads. */
+  readonly arms: readonly CitySide[];
+  /** True when none of its streets is an edge street. S5's share is counted over these. */
+  readonly inner: boolean;
+}
+
+/** A block across a block side's street, and the stretch of the side it faces (the two blocks' spans along the street, intersected). */
+export interface CityBlockAcross {
+  readonly block: string;
+  readonly span: CitySpan;
+}
+
+/** A stretch of a block side that has a junction in front of it (for S6): the far side of a T, opposite the street that ends there. */
+export interface CityJunctionFacing {
+  readonly junction: string;
+  /** The street that ends in the junction, opposite this side. */
+  readonly street: string;
+  /** The ending street's cross-section along this side: the 5 cells opposite it. Clearances either side (`BAY_JUNCTION_CLEAR`) are the reading stage's, not stage 1's. */
+  readonly span: CitySpan;
+}
+
+/** One of a block's four sides on the split plan (S4: every side has a street). */
+export interface CityBlockSide {
+  readonly side: CitySide;
+  /** The street along it. */
+  readonly street: string;
+  /** The block's own extent along the street: i0 to i1 for a "-z" or "+z" side, j0 to j1 for "-x" or "+x". */
+  readonly span: CitySpan;
+  /** The blocks across the street, in order along it (two or more where one long side faces several). Empty when the street is an edge street and this side faces out. */
+  readonly across: readonly CityBlockAcross[];
+  /** The stretches of this side that face a junction (S6), in order along it; empty when none does. */
+  readonly junctions: readonly CityJunctionFacing[];
+}
+
+/** A block on the split plan: today's rectangle, type and id (`bi`, `bj` are ranks; see above), plus its four sides. */
+export interface CityPlanBlock extends CityBlock {
+  readonly sides: { readonly [S in CitySide]: CityBlockSide };
+}
+
+/** The city's ground: the land inside the four edge streets, in cells (high ends exclusive), from today's `blockSizes` draw for the asked size, and the draw that gave it (null: the fallback lists). */
+export interface CityOutline {
+  readonly i0: number;
+  readonly i1: number;
+  readonly j0: number;
+  readonly j1: number;
+  readonly draw: number | null;
+}
+
+/**
+ * The street layer as ticket 070 A4 makes it. Criterion 0 (the lead-architect, on A4's branch) renames this to `CityStreetsLayer` and deletes the old one:
+ * `streets` and `blocks` gain their new fields, `junctions` is added, and `sizes` becomes `outline`. Today's `cells` are unchanged in shape.
+ */
+export interface CityStreetsLayerA4 {
+  readonly stage: "streets";
+  readonly w: number;
+  readonly h: number;
+  readonly streets: readonly CityPlanStreet[];
+  readonly cells: readonly CityStreetCell[];
+  readonly blocks: readonly CityPlanBlock[];
+  readonly junctions: readonly CityJunction[];
+  readonly outline: CityOutline;
+}
+
 export interface CityStreetsLayer {
   readonly stage: "streets";
   /** The lattice, in cells. */
