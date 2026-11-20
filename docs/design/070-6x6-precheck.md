@@ -1,5 +1,11 @@
 # 070 pre-check: the pipeline as built, on the 6 x 6 named cities
 
+## Josh's answers (20 Nov 2026, in chat)
+
+Asked (1) "On the 6 x 6 cities, three whole-block parks get no kerb parking: the streets around them park on the far side, but only along sides too short for a bay, or in front of another park. Should such a park take one bay on its own kerb, only when nothing across the street can give it one (Yes / No)?" and (2) "With one-way streets on, 6 x 6 seed 2 finds no street split in 64 tries; it finds one at try 82. Should stage 1 try up to 128 splits (Yes / No)?", Josh answered: "yes, yes".
+
+So: PB (a whole park nothing across can serve takes one tile on its own kerb; grammar 19.6 changes accordingly) and D (stage 1's split limit 128; the old grid's 64 stays).
+
 Pipeline designer, 20 Nov 2026, on `ticket/070a4-split-plan` at e9de2a1 (A4, A4b, A4c, B3 and C3 merged; D1b not built). This is a sketch probe. The builders' numbers are the record. Nothing here is decided.
 
 **Josh's answers this rests on** (top of `070-A4-precheck-2.md`):
