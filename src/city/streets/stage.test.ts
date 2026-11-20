@@ -47,8 +47,8 @@ describe("stage 1 picture (criterion 8, R-5)", () => {
       }
       const blockCells = layer.blocks.reduce((n, b) => n + (b.i1 - b.i0) * (b.j1 - b.j0), 0);
       expect(listed.size + blockCells).toBe(layer.w * layer.h);
-      // each of the eight cell kinds appears (these cities have a one-way street); the ninth entry is the arrows' points
-      expect(new Set(pic.cells)).toEqual(new Set([0, 1, 2, 3, 4, 5, 6, 7]));
+      // each cell kind appears; the one-way lane (7) only where the plan has a one-way street (3 x 3 seed 2 has none since Josh's T floor moved its draw); the ninth entry is the arrows' points
+      expect(new Set(pic.cells)).toEqual(new Set(oneWay.size > 0 ? [0, 1, 2, 3, 4, 5, 6, 7] : [0, 1, 2, 3, 4, 5, 6]));
       expect(pic.points).toHaveLength(layer.arrows.length);
     });
   }
@@ -76,10 +76,10 @@ describe("stage 1 layer shape", () => {
   });
 });
 
-describe("stage 1 digest pins (R-4), moved by ticket 070 A4b (one-way streets: a new layer shape and new cuts, so every pin is re-taken once; A4 moved them before it)", () => {
+describe("stage 1 digest pins (R-4), moved by ticket 070 A4b and re-checked by A4c (park places: none of these four draws moved, so their pins stand; Josh's T floor 0.30 moved 3 x 3 seed 2 only, draw 12 to 11, and its pin is re-taken; one-way streets: a new layer shape and new cuts, so every pin is re-taken once; A4 moved them before it)", () => {
   const PINS: readonly (readonly [number, number, number, string])[] = [
     [3, 3, 1, "9fefa1f6"],
-    [3, 3, 2, "cfd63d14"],
+    [3, 3, 2, "7f1426a9"],
     [3, 3, 3, "6125f735"],
     [6, 4, 1, "cfb9d8f1"],
   ];

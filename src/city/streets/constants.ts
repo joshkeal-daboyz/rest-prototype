@@ -44,9 +44,10 @@ export const CUT_MIN_CELLS = BLOCK_TILES.min * 2 + STREET_CELLS;
  */
 export const JUNCTION_GAP_MIN_CELLS = 7;
 /**
- * S5, PROVISIONAL (same note; not decided): at least this share of the junctions inside the city (none of its streets an edge street) are Ts (half).
+ * S5, Decided (Josh, 20 Nov 2026, in chat: "It should be the T's should have a floor of 0.30%", confirmed as 30%: "Yes 30%"):
+ * at least this share of the junctions inside the city (none of its streets an edge street) are Ts.
  */
-export const T_SHARE_MIN = 0.5;
+export const T_SHARE_MIN = 0.3;
 
 // ---- one-way streets (ticket 070 A4b; docs/design/070-streets-one-way.md) ----
 
@@ -63,3 +64,8 @@ export const ONE_WAY_SHARE = 0.4;
 export const ONE_WAY_BARE_SHARE = 1 / 3;
 /** PROVISIONAL (same note): one painted arrow every this many lane cells (30 m) after the first lane cell past a junction. */
 export const ONE_WAY_ARROW_EVERY = 6;
+
+// ---- park places (ticket 070 A4c; Josh, 20 Nov 2026, the A4 pre-check's Q3: "yes") ----
+
+/** A typed-in copy of `tilecity.ts`'s `PARK_ONE_IN_BLOCKS` (a test pins them equal): V4 needs one park in this many blocks, so S11 asks for `ceil(blocks / PARK_ONE_IN_BLOCKS)` park places. */
+export const PARK_ONE_IN_BLOCKS = 6;

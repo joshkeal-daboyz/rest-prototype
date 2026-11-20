@@ -4,8 +4,8 @@
  * thresholds unchanged (V3 and V4 are stage 2's). S6 is stages 2 and 3's. Pure.
  */
 
-import type { CityBlock, CityBlockSide, CityCell, CityJunction, CityPlanStreet, CitySide, CityStreet, CityStreetBand, CityStreetSection, CityStreetTraffic } from "../../core";
-import { BLOCK_CV_MIN, BLOCK_MEAN_MIN_CELLS, BLOCK_NONSQUARE_MIN, BLOCK_TILES, CARRIAGE_M, JUNCTION_GAP_MIN_CELLS, KERB_BAY_SHARE_MAX, ONE_WAY_CARRIAGE_M, T_SHARE_MIN, TILE_M } from "./constants";
+import type { CityBlock, CityBlockSide, CityBlockType, CityCell, CityJunction, CityPlanStreet, CitySide, CityStreet, CityStreetBand, CityStreetSection, CityStreetTraffic } from "../../core";
+import { BLOCK_CV_MIN, BLOCK_MEAN_MIN_CELLS, BLOCK_NONSQUARE_MIN, BLOCK_TILES, CARRIAGE_M, BLOCK_LARGE_MIN_M, BLOCK_SMALL_MAX_M, JUNCTION_GAP_MIN_CELLS, KERB_BAY_SHARE_MAX, ONE_WAY_CARRIAGE_M, PARK_ONE_IN_BLOCKS, T_SHARE_MIN, TILE_M } from "./constants";
 
 export type StreetsCheckId = "width" | "V1" | "V2";
 
@@ -424,8 +424,47 @@ export function s10Violations(layer: { readonly streets: readonly Pick<CityPlanS
 
 export const s10Failures = (layer: Parameters<typeof s10Violations>[0]): string[] => s10Violations(layer).map((v) => `${v.block}: its only own parking band is on the bare one-way street ${v.street} (S10)`);
 
+// ---- S11 (park places; ticket 070 A4c) ----
+
+/** Whether the street along a block's `side` has a parking band on the far side of the carriageway from the block (the row next to the across block's pavement): the mirror of `ownBand`. */
+export function farBand(street: Pick<CityPlanStreet, "bands">, side: CitySide): boolean {
+  const n = street.bands.length;
+  return street.bands[side === "+z" || side === "-x" ? n - 2 : 1] === "parking";
+}
+
+type ParkBlockIn = { readonly id: string; readonly type: CityBlockType; readonly sides: { readonly [S in CitySide]: Pick<CityBlockSide, "street" | "across"> } };
+
+export interface ParkPlaces {
+  /** Small blocks that are served: a side with a block across it, on a street that parks on the far side. */
+  readonly whole: number;
+  /** Large blocks. */
+  readonly half: number;
+}
+
+/** The blocks Land can make a park of (A4c criterion 1): whole-park places (small and served) and half-park places (large). Medium and long blocks are not places. */
+export function parkPlaces(layer: { readonly streets: readonly Pick<CityPlanStreet, "id" | "bands">[]; readonly blocks: readonly ParkBlockIn[] }): ParkPlaces {
+  const byId = new Map(layer.streets.map((s) => [s.id, s] as const));
+  let whole = 0;
+  let half = 0;
+  for (const b of layer.blocks) {
+    if (b.type === "large") half++;
+    else if (b.type === "small" && (["-x", "+x", "-z", "+z"] as const).some((side) => b.sides[side].across.length > 0 && farBand(byId.get(b.sides[side].street)!, side))) whole++;
+  }
+  return { whole, half };
+}
+
+/** The park places V4 needs: one in `PARK_ONE_IN_BLOCKS` blocks, rounded up. */
+export const parksNeeded = (blocks: number): number => Math.ceil(blocks / PARK_ONE_IN_BLOCKS);
+
+/** S11: the split leaves Land at least `parksNeeded` park places. */
+export function s11Failures(layer: Parameters<typeof parkPlaces>[0]): string[] {
+  const p = parkPlaces(layer);
+  const need = parksNeeded(layer.blocks.length);
+  return p.whole + p.half >= need ? [] : [`S11: ${p.whole} whole and ${p.half} half park places for ${layer.blocks.length} blocks, ${need} needed`];
+}
+
 export interface SplitFailure {
-  readonly rule: "S1" | "S3" | "S4" | "S5" | "S7" | "S8" | "S9" | "S10" | "V1" | "V2";
+  readonly rule: "S1" | "S3" | "S4" | "S5" | "S7" | "S8" | "S9" | "S10" | "S11" | "V1" | "V2";
   readonly reason: string;
 }
 

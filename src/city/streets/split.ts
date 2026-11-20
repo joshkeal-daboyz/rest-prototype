@@ -6,7 +6,7 @@
  * The outline and the four edge streets come from today's lattice functions (`blockSizes`, `layoutAxis`), so a city covers the ground of today's city of that size (Josh, Q10). The edge streets are
  * two-way, 5 cells (S8). Every other street is a cut: two-way (5 cells, rule 10), or one-way (4 cells with a parking tile, 3 bare: Josh, 20 Nov 2026). A cut ends on the two streets that bound its
  * piece, and meets a collinear cut of the piece across the street it ends on as one street (a crossroads), with that cut's section. Directions are a pass after the cuts (S9). A draw that misses
- * S1, S3, S4, S5, S7, S8, S9, V1 or V2 is repeated with the next; if every draw misses, the stage fails (R-2). A bare one-way street that would break S10 keeps its parking (the cuts are redone).
+ * S1, S3, S4, S5, S7, S8, S9, S11, V1 or V2 is repeated with the next; if every draw misses, the stage fails (R-2). A bare one-way street that would break S10 keeps its parking (the cuts are redone).
  */
 
 import type {
@@ -29,7 +29,7 @@ import type {
 } from "../../core";
 import { CityStageError } from "../pipeline/error";
 import type { StageRand } from "../pipeline/seeds";
-import { oneWayNeighbours, s10Violations, splitFailures, tOf, type SplitFailure } from "./check";
+import { oneWayNeighbours, s10Violations, s11Failures, splitFailures, tOf, type SplitFailure } from "./check";
 import { BLOCK_DRAWS_MAX, BLOCK_TILES, CUT_MIN_CELLS, JUNCTION_GAP_MIN_CELLS, ONE_WAY_ARROW_EVERY, ONE_WAY_BARE_SHARE, ONE_WAY_SHARE, SECTION_CELLS, STREET_CELLS, TILE_M } from "./constants";
 import { blockSizes, blockType, hashOf, layoutAxis, mkStreet } from "./layout";
 
@@ -538,6 +538,13 @@ export function laySplit(
           continue;
         }
         last = { rule: "S10", reason: `S10: ${bad[0]!.block} has no parking band of its own beside the bare one-way street ${bad[0]!.street}, and it cannot keep its parking` };
+        miss([last]);
+        break;
+      }
+      // S11: the split leaves Land its park places (judged on the final layer, after S9 and S10)
+      const parks = s11Failures({ streets, blocks: planBlocks });
+      if (parks.length > 0) {
+        last = { rule: "S11", reason: parks[0]! };
         miss([last]);
         break;
       }
