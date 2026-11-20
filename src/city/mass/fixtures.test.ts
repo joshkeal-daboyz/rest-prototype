@@ -105,7 +105,7 @@ describe("stage 3 on fixtures", () => {
     expect(inner.open.map((o) => [o.side, o.faces, o.frontage])).toEqual([["-x", "plaza", "street"], ["+z", "court", "quiet"]]);
   });
 
-  it("a lane block: two parts, each opening on the lane (a frontage lot, a court); one lane opening with two mouths, each its own street; no walk-through", () => {
+  it("a lane block: two parts, each opening on the lane (a frontage lot, a court); one lane opening with two mouths, each its own street; a walk-through only in the part whose lot is a frontage lot (Josh, 20 Nov 2026)", () => {
     const b = block(2, 16, 2, 11);
     const land = landOf([part("block:0:0/a", b, { i0: 2, i1: 8, j0: 2, j1: 11 }, { "+x": "lane" }), part("block:0:0/b", b, { i0: 9, i1: 16, j0: 2, j1: 11 }, { "-x": "lane" })], [{ block: b.id, axis: "z", at: 8 }]);
     const cells: CityStreetCell[] = [
@@ -131,7 +131,7 @@ describe("stage 3 on fixtures", () => {
     expect(lanes.reduce((n, o) => n + o.cells.length, 0)).toBe(9);
     expect(mass.cells.find((c) => c.i === 8 && c.j === 2)!.use).toBe("laneMouth");
     expect(mass.cells.find((c) => c.i === 8 && c.j === 5)!.use).toBe("lane");
-    expect(mass.openings.some((o) => o.kind === "walk")).toBe(false);
+    expect(mass.openings.filter((o) => o.kind === "walk").map((o) => o.id)).toEqual(["block:0:0/a/walk"]);
     const rowOne = mass.built.find((c) => c.i === 7 && c.j === 8)!;
     expect(rowOne.open.map((o) => [o.side, o.faces, o.frontage])).toEqual([["+x", "lane", "quiet"]]);
     const corner = mass.built.find((c) => c.i === 7 && c.j === 2)!;

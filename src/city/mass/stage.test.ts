@@ -149,10 +149,10 @@ describe("stage 3, mass, on the named cities", { timeout: 120_000 }, () => {
           const corner = [[b.i0, b.j0], [b.i1 - 2, b.j0], [b.i0, b.j1 - 2], [b.i1 - 2, b.j1 - 2]].some(([i, j]) => at(i!, j!) && at(i! + 1, j!) && at(i!, j! + 1) && at(i! + 1, j! + 1));
           expect(corner, `${x.id} is 2 x 2 at a block corner`).toBe(true);
         }
-        // walk-throughs: one per court part with no drive or frontage lot (a drive replaces it; a lane beside it does not), none elsewhere
+        // walk-throughs: one per court part with no court or yard-court drive (a drive replaces it; a lane beside it or a frontage lot does not), none elsewhere
         for (const p of land.parts) {
           const walks = ofKind("walk").filter((x) => x.id === `${p.id}/walk`);
-          const hasLot = mass.openings.some((x) => (x.kind === "drive" || x.kind === "frontLot") && x.id.startsWith(`${p.id}/`) && x.cells.every((c) => ringOf(p, c.i, c.j) < 2));
+          const hasLot = mass.openings.some((x) => x.kind === "drive" && x.id.startsWith(`${p.id}/`) && x.cells.every((c) => ringOf(p, c.i, c.j) < 2));
           const wants = p.shape === "court" && !hasLot;
           expect(walks, p.id).toHaveLength(wants ? 1 : 0);
           for (const w of walks) {

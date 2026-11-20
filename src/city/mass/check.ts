@@ -7,7 +7,7 @@
  */
 
 import type { CityBlock, CityCell, CityLandLayer, CityMassCell, CityMassLayer, CityMassUse, CityPart } from "../../core";
-import { CITY_FRONT_LOT_BLOCKS_MAX, LOTS_PER_BLOCK_MAX, LOT_STALLS, PARK_PER_HOME, PARK_SUPPLY_BAND, ROW_STRETCH_MIN_CELLS, SHORT_BLOCKS_ONE_IN, TILE_CITY_R1_MIN } from "./constants";
+import { CITY_FRONT_LOT_BLOCKS_MAX, LOTS_PER_BLOCK_MAX, PARK_PER_HOME, PARK_SUPPLY_BAND, ROW_STRETCH_MIN_CELLS, SHORT_BLOCKS_ONE_IN, TILE_CITY_R1_MIN } from "./constants";
 import { DELTA, SIDES, behindOf, cellKey, columnOfSides, keyOf, openSidesFrom, ringOf, shortSideOf } from "./geometry";
 
 export type MassCheckId = "M3" | "M4b" | "M5" | "G2" | "G3" | "R1" | "P2";
@@ -193,14 +193,14 @@ function checkM5(mass: CityMassLayer, ix: Index, land: LandParts, out: MassFailu
     if (shortSideOf(p) < 6) continue;
     // no row stretch of fewer than one building
     for (const c of stretchProblems(p, (i, j) => { const m = ix.byKey.get(keyOf(i, j)); return m === undefined || m.use === "built" ? null : (m.opening ?? m.use); })) out.push({ id: "M5", reason: `M5: a row of part ${p.id} has a stretch of fewer than ${ROW_STRETCH_MIN_CELLS} cells at (${c.i}, ${c.j})`, cells: [c] });
-    // every interior touches an opening: a walk-through, a drive (a court's, which opens on a street or on the part's lane) or a frontage lot through both rings
+    // every interior touches an opening: a walk-through, or a drive (a court's, which opens on a street or on the part's lane); a frontage lot is parking, not a way in
     const interior: CityCell[] = [];
     for (let j = p.j0; j < p.j1; j++) for (let i = p.i0; i < p.i1; i++) if (ringOf(p, i, j) >= 2) interior.push({ i, j });
     if (interior.length === 0) continue;
     const touches = interior.some((c) =>
       SIDES.some((s) => {
         const u = ix.useAt(c.i + DELTA[s][0], c.j + DELTA[s][1]);
-        return u === "walk" || u === "drive" || u === "frontLot";
+        return u === "walk" || u === "drive";
       }),
     );
     if (!touches) out.push({ id: "M5", reason: `M5: the interior of part ${p.id} touches no opening`, cells: [interior[0]!] });

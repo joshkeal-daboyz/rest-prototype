@@ -263,6 +263,39 @@ describe("a lane part (C2 criterion 4): its court opens on the lane where one fi
   });
 });
 
+describe("a frontage lot is parking, not a way in (C2 criterion 5; Josh, 20 Nov 2026, \"Yes, agreed\")", () => {
+  const narrow = block(2, 8, 2, 15); // 6 wide, 13 long: a frontage lot fits its -x side, a court does not
+  const q = part("block:0:0", narrow, narrow);
+  const land = landOf([q]);
+  const west: CityStreetCell[] = [];
+  for (let j = 2; j < 15; j++) west.push(pavement(1, j, "z:0"));
+  const lot: LotSite = { part: q.id, block: narrow.id, serves: narrow.id, kind: "frontLot", side: "-x", t: 5 };
+
+  it("a part whose only lot is a frontage lot still gets its walk-through, and M5 holds", () => {
+    const mass = planMass(streetsOf([narrow], west), land, () => 1, [lot]);
+    expect(mass.openings.filter((o) => o.kind === "frontLot")).toHaveLength(1);
+    const walks = mass.openings.filter((o) => o.kind === "walk");
+    expect(walks.map((o) => o.id)).toEqual([`${q.id}/walk`]);
+    const layer: CityMassLayer = { stage: "mass", cells: mass.cells, built: mass.built, openings: mass.openings, courts: [], units: [] };
+    expect(massFailures(layer, [narrow], land).filter((f) => f.id === "M5")).toEqual([]);
+  });
+
+  it("failing fixture, M5: with the walk-through removed the frontage lot is no opening into the interior", () => {
+    const mass = planMass(streetsOf([narrow], west), land, () => 1, [lot]);
+    const walk = mass.openings.find((o) => o.kind === "walk")!;
+    const walled = mass.cells.map((c) => (walk.cells.some((w) => w.i === c.i && w.j === c.j) ? { ...c, use: "built" as const, opening: null } : c));
+    const layer: CityMassLayer = { stage: "mass", cells: walled, built: mass.built, openings: mass.openings.filter((o) => o !== walk), courts: [], units: [] };
+    expect(massFailures(layer, [narrow], land).some((f) => f.id === "M5" && /interior of part block:0:0 touches no opening/.test(f.reason))).toBe(true);
+  });
+
+  it("a 6 by 6 part with a frontage lot is still the honest M5 failure: no place for a walk-through (ticket Q7)", () => {
+    const small = block(2, 8, 2, 8);
+    const s = part("block:0:0", small, small);
+    const sLot: LotSite = { part: s.id, block: small.id, serves: small.id, kind: "frontLot", side: "-z", t: 2 };
+    expect(() => planMass(streetsOf([small], [pavement(4, 1, "x:0"), pavement(5, 1, "x:0")]), landOf([s]), () => 1, [sLot])).toThrow(/^M5: part block:0:0 has an interior and no place for a walk-through/);
+  });
+});
+
 describe("P2 (ported from parkmetrics.ts)", () => {
   const nine: CityBlock[] = [];
   for (let bj = 0; bj < 3; bj++) for (let bi = 0; bi < 3; bi++) nine.push(block(bi * 20, bi * 20 + 14, bj * 20, bj * 20 + 14, bi, bj));

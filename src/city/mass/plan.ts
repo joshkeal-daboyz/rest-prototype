@@ -190,7 +190,7 @@ export function planMass(streets: Pick<CityStreetsLayer, "blocks" | "cells">, la
     for (const part of (partsOf.get(b.id) ?? [])) {
       const s = shortSideOf(part);
       const court = s >= 6;
-      const taken = new Map<string, "plaza" | "walk">();
+      const taken = new Map<string, "plaza" | "walk" | "lot">();
       const openingAt = (i: number, j: number): string | null => taken.get(keyOf(i, j)) ?? null;
       const plaza = court ? plazaOf(part, rand) : [];
       for (const c of plaza) taken.set(cellKey(c), "plaza");
@@ -221,8 +221,10 @@ export function planMass(streets: Pick<CityStreetsLayer, "blocks" | "cells">, la
         laidHere.push({ site, opening: id, stalls: behindDrive ? cells.stalls : cells.drive, aisle: cells.aisle });
       });
       out.laid.push(...laidHere);
-      if (court && mine.length === 0) {
-        // a court part with no drive gets one walk-through, one cell wide through both rings, where every row stretch stays at least one building long (and the walk is not at a row's end). Josh's ruling 4
+      // a frontage lot is parking, not a way in (Josh, 20 Nov 2026, "Yes, agreed"): its cells count in the row-stretch check below, but a part with only one still gets its walk-through
+      for (const [k, d] of driveAt) if (d.use === "frontLot") taken.set(k, "lot");
+      if (court && !mine.some((s) => s.kind !== "frontLot")) {
+        // a court part with no court or yard-court drive gets one walk-through, one cell wide through both rings, where every row stretch stays at least one building long (and the walk is not at a row's end). Josh's ruling 4
         // (19 Nov 2026, "Yes, all four"): a lane beside the rings is not a way in, so it gets one too, on its lane side where one fits, else on any side.
         const options: CityCell[][] = [];
         const lanes: CityCell[][] = [];
@@ -230,6 +232,7 @@ export function planMass(streets: Pick<CityStreetsLayer, "blocks" | "cells">, la
           const len = sideLength(part, side);
           for (let t = ROW_STRETCH_MIN_CELLS; t <= len - 1 - ROW_STRETCH_MIN_CELLS; t++) {
             const cells = walkAt(part, side, t);
+            if (cells.some((c) => taken.has(cellKey(c)))) continue; // a lot's cells are not a walk's
             for (const c of cells) taken.set(cellKey(c), "walk");
             if (stretchProblems(part, openingAt).length === 0) (part.edges[side] === "lane" ? lanes : options).push(cells);
             for (const c of cells) taken.delete(cellKey(c));
