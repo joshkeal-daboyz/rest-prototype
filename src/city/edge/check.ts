@@ -210,11 +210,18 @@ export function edgeVerdicts(m: EdgeMetrics): { id: EdgeCheckId; value: number; 
 }
 
 /** The failing checks of a layer, each naming the rule, for the stage to throw on (R-2). Empty when every check holds. */
-export function edgeFailures(edge: CityEdgeLayer, streets: CityStreetsLayer, mass: CityMassLayer, options: Pick<CityPlanOptions, "blocksX" | "blocksZ">): { id: EdgeCheckId; reason: string }[] {
+export function edgeFailures(edge: CityEdgeLayer, streets: CityStreetsLayer, mass: CityMassLayer, options: Pick<CityPlanOptions, "blocksX" | "blocksZ">, shortBlocksOk = false): { id: EdgeCheckId; reason: string }[] {
   const m = edgeMetrics(edge, streets, mass, options);
   const out: { id: EdgeCheckId; reason: string }[] = [];
   for (const v of edgeVerdicts(m)) {
     if (v.pass) continue;
+    // D1 criterion 2: a block left with too few tiles is recorded in the layer, not thrown on; P1's other terms (supply band, far-served bays) still fail the stage.
+    // The supply-band term is let go only when supply is under the band AND a block is recorded short: that shortfall is the same one, seen city-wide. Over the band, or under it with nothing recorded short, still throws.
+    if (v.id === "P1" && shortBlocksOk) {
+      const recordedShort = edge.blocks.some((b) => b.shortTiles > 0);
+      const lowBecauseShort = recordedShort && !supplyInBand(m) && m.kerbBays < PARK_SUPPLY_BAND.lo * m.bayDemand;
+      if (v.value - m.blocksWithoutBays - (lowBecauseShort ? 1 : 0) <= EDGE_CHECK.P1) continue;
+    }
     const why =
       v.id === "P1"
         ? `${m.blocksWithoutBays} blocks with no kerb tile, ${m.bayServedFar} bays serving a far block, supply ${m.kerbBays} bays against a demand of ${m.bayDemand.toFixed(1)}`

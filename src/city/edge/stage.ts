@@ -32,7 +32,7 @@ function run(plan: CityPlan, rand: StageRand): CityEdgeLayer {
   const { streets, land, mass } = plan.layers;
   if (!streets || !land || !mass) throw new CityStageError("edge: the plan has no streets, land or mass layer");
   const layer = buildEdge(streets, land, mass, plan.options, rand);
-  const failures = edgeFailures(layer, streets, mass, plan.options);
+  const failures = edgeFailures(layer, streets, mass, plan.options, true);
   if (failures.length > 0) throw new CityStageError(failures[0]!.reason);
   return layer;
 }

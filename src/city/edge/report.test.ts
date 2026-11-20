@@ -29,14 +29,15 @@ function oldPath(o: City): string {
   const m = parkingMetrics(city);
   return `old ${v.filter((x) => x.id !== "P2").map((x) => `${x.id}=${x.id === "P6" ? x.value.toFixed(2) : x.value}`).join(" ")} s/d=${(m.bayDemand > 0 ? m.kerbBays / m.bayDemand : 1).toFixed(3)}`;
 }
-function pipeline(o: City): { text: string; p1: number | null; ok: boolean } {
+function pipeline(o: City): { text: string; p1: number | null; ok: boolean; runOk: boolean } {
   const r = runCity(o, "mass");
-  if (!r.ok) return { text: `pipe mass failed: ${r.failure.reason.slice(0, 90)}`, p1: null, ok: false };
+  if (!r.ok) return { text: `pipe mass failed: ${r.failure.reason.slice(0, 90)}`, p1: null, ok: false, runOk: false };
   const { streets, land, mass } = r.plan.layers;
   const edge = buildEdge(streets!, land!, mass!, o, stageRand("edge", o.seed));
   const m = edgeMetrics(edge, streets!, mass!, o);
+  const runOk = runCity(o, "edge").ok;
   const v = edgeVerdicts(m);
-  return { text: `pipe ${v.map((x) => `${x.id}=${x.id === "P6" ? x.value.toFixed(2) : x.value}`).join(" ")} s/d=${supplyOverDemand(m).toFixed(3)}`, p1: v[0]!.value, ok: v.every((x) => x.pass) };
+  return { text: `pipe ${v.map((x) => `${x.id}=${x.id === "P6" ? x.value.toFixed(2) : x.value}`).join(" ")} s/d=${supplyOverDemand(m).toFixed(3)} run.ok=${runOk}`, p1: v[0]!.value, ok: v.every((x) => x.pass), runOk };
 }
 
 describe("criterion 4's report: P1 to P6, old path beside pipeline", { timeout: 120_000 }, () => {
@@ -45,7 +46,10 @@ describe("criterion 4's report: P1 to P6, old path beside pipeline", { timeout: 
     for (const o of [...NAMED, ...OTHERS]) {
       const p = pipeline(o);
       lines.push(`${label(o).padEnd(8)} ${oldPath(o)} | ${p.text}`);
-      if (NAMED.includes(o)) expect(p.ok, label(o)).toBe(true);
+      if (NAMED.includes(o)) {
+        expect(p.ok, label(o)).toBe(true);
+        expect(p.runOk, label(o)).toBe(true);
+      }
     }
     console.log(`D1 REPORT\n${lines.join("\n")}`);
   });
