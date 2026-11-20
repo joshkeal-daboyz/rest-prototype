@@ -217,15 +217,15 @@ describe("stage 3, mass, on the named cities", { timeout: 120_000 }, () => {
     });
   }
 
-  it("R-4: the layer's digest is pinned on the default city, 3 x 3 seeds 2 and 3, and 6 x 4 seed 1 (re-taken in C2, on purpose, when courts, units and lots join the layer)", () => {
+  it("R-4: the layer's digest is pinned on the default city, 3 x 3 seeds 2 and 3, and 6 x 4 seed 1 (pins moved by B2, because mass reads land; C2 re-takes them again, on purpose, when courts, units and lots join the layer)", () => {
     const got = Object.fromEntries(
       [{ blocksX: 3, blocksZ: 3, seed: 1 }, { blocksX: 3, blocksZ: 3, seed: 2 }, { blocksX: 3, blocksZ: 3, seed: 3 }, { blocksX: 6, blocksZ: 4, seed: 1 }].map((o) => [label(o), cityOf(o).plan.digests.mass] as const),
     );
     expect(got).toEqual({
-      "3 x 3 seed 1": "28f93aa2",
+      "3 x 3 seed 1": "b04dea0a",
       "3 x 3 seed 2": "254afa4f",
-      "3 x 3 seed 3": "d53c7d50",
-      "6 x 4 seed 1": "8084c6df",
+      "3 x 3 seed 3": "8f2ab5c9",
+      "6 x 4 seed 1": "4be24138",
     });
   });
 

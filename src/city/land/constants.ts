@@ -21,3 +21,5 @@ export const PARK_HALF_SIDE_MIN_CELLS = 9;
 export const STRIP_CELLS = 2;
 /** ... or at least this many (a court block: ring 1, ring 2 and an interior of at least 2 cells). 3, 4 and 5 are never laid. */
 export const COURT_PART_MIN_CELLS = 6;
+/** B2 (Josh, 19 Nov 2026, "Yes, all four"): a lane leaves only court parts whose long side is at least this many cells, so a drive always fits. */
+export const COURT_LONG_MIN_CELLS = 8;

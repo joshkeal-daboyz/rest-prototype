@@ -129,15 +129,15 @@ describe("stage 2, land, on the named cities", { timeout: 120_000 }, () => {
     });
   }
 
-  it("R-4: the layer's digest is pinned on the default city, 3 x 3 seeds 2 and 3, and 6 x 4 seed 1", () => {
+  it("R-4: the layer's digest is pinned on the default city, 3 x 3 seeds 2 and 3, and 6 x 4 seed 1 (pins moved by B2: a lane leaves court parts at least 8 long; seed 2's lane did not move, so its pin is unchanged)", () => {
     const got = Object.fromEntries(
       [{ blocksX: 3, blocksZ: 3, seed: 1 }, { blocksX: 3, blocksZ: 3, seed: 2 }, { blocksX: 3, blocksZ: 3, seed: 3 }, { blocksX: 6, blocksZ: 4, seed: 1 }].map((o) => [label(o), cityOf(o).plan.digests.land] as const),
     );
     expect(got).toEqual({
-      "3 x 3 seed 1": "d5091d7e",
+      "3 x 3 seed 1": "c4ad5a90",
       "3 x 3 seed 2": "6d1dae32",
-      "3 x 3 seed 3": "3a8d0394",
-      "6 x 4 seed 1": "ba20532c",
+      "3 x 3 seed 3": "99e5a95e",
+      "6 x 4 seed 1": "49e7bd77",
     });
   });
 

@@ -89,7 +89,7 @@ describe("stage 1 digest pins (R-4)", () => {
 
 describe("stage 1 at the largest size (R-7)", () => {
   it("runs on one 6 x 6 city, seed 1, and ends ok or with a stage failure, never an uncaught error", () => {
-    const r = runCity({ blocksX: 6, blocksZ: 6, seed: 1 });
+    const r = runCity({ blocksX: 6, blocksZ: 6, seed: 1 }, "streets");
     if (!r.ok) {
       expect(r.failure.stage).toBe("streets");
       expect(r.failure.reason.startsWith("bug:")).toBe(false);
