@@ -213,3 +213,14 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 070 D1 round 2 | gate (main session) | - | - | - | 0 | tsc clean, 135 files, 3135 passed, 20 skipped |
 | 070 D1 round 2 | code-reviewer | opus | 29K total (one figure in the readout) | - | 0 | meets, must-fix 0 |
 | 070 D1 round 2 | playtester | sonnet | 15K total (one figure in the readout) | - | 0 | regressions 0; stopped early |
+| 070 T-junction design | Fable design session (separate session) | fable (first minutes opus) | not in this session's readout | - | 0 | docs/design/070-streets-t-junctions.md; Josh "C, split plan", "Yes, all four" |
+| 070 A4 cut | lead-architect | opus | 135K total (one figure in the readout) | - | 0 | A4 cut, street-layer types (f8c9fc5) |
+| 070 A4 cut | lead-architect | opus | 40K total (one figure in the readout) | - | 0 | criterion 0 + Q13 recorded (1d35551) |
+| 070 A4 | planner (general-purpose with planner.md) | sonnet | 222K total (one figure in the readout) | - | 0 | split plan, 13 named ok (ca4382f) |
+| 070 A4 | gate (main session, A4's own gate per Q13) | - | - | - | 0 | tsc clean; streets, pipeline, planview 111 passed |
+| 070 A4 | code-reviewer | opus | 80K total (one figure in the readout) | - | 0 | partly, must-fix 1 (R-7 pair scans) |
+| 070 A4 | playtester | sonnet | 19K total (one figure in the readout) | - | 0 | regressions 0; stopped early |
+| 070 A4 round 2 | planner (general-purpose with planner.md) | sonnet | 90K total (one figure in the readout) | - | 0 | indexed lookups, digests unchanged (76db703) |
+| 070 A4 round 2 | gate (main session) | - | - | - | 0 | tsc clean; 111 passed |
+| 070 A4 round 2 | code-reviewer | opus | review round 2 (figure not reported) | - | 0 | meets, must-fix 0 |
+| 070 A4 round 2 | playtester | sonnet | 15K total (one figure in the readout) | - | 0 | regressions 0; stopped early |
