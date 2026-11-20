@@ -163,3 +163,16 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 070 A2 | gate (main session) | - | - | - | 0 | tsc clean, 127 files, 2747 passed, 20 skipped |
 | 070 A2 | code-reviewer | agent default (opus) | 59K total (one figure in the readout) | - | 0 | meets, must-fix 0 |
 | 070 A2 | playtester | agent default (sonnet) | 15K total (one figure in the readout) | - | 0 | regressions 0; stopped early |
+| 070 A3 cut | lead-architect | agent default (opus) | 54K total (one figure in the readout) | - | 0 | section A3 (hide the HUD on the plan view); Josh: "Yes, hide it" |
+| 070 A3 | renderer (general-purpose with renderer.md) | sonnet | 75K total (one figure in the readout) | - | 0 | planHidesHud + one main.ts line (5e13b97) |
+| 070 A3 | gate (main session) | - | - | - | 0 | tsc clean, 127 files, 2757 passed, 20 skipped |
+| 070 A3 | code-reviewer | agent default (opus) | 26K total (one figure in the readout) | - | 0 | meets, must-fix 0 |
+| 070 A3 | playtester | agent default (sonnet) | 14K total (one figure in the readout) | - | 0 | regressions 0; stopped early |
+| 070 B | planner (general-purpose with planner.md) | sonnet | 174K total (one figure in the readout) | - | 0 | stage 2 land, stage-list move (ccc5562) |
+| 070 B | gate (main session) | - | - | - | 0 | tsc clean, 129 files, 2834 passed, 20 skipped |
+| 070 B | code-reviewer | agent default (opus) | 60K total (one figure in the readout) | - | 0 | partly, must-fix 1 (laneCells quadratic, R-7) |
+| 070 B | playtester | agent default (sonnet) | 19K total (one figure in the readout) | - | 0 | regressions 0; stopped early |
+| 070 B round 2 | planner (resumed) | sonnet | 180K total, cumulative with round 1 (one figure in the readout) | - | 0 | laneCells Map; silent court fallback throws (4eabf0e) |
+| 070 B round 2 | gate (main session) | - | - | - | 0 | with A3 merged in: tsc clean, 129 files, 2844 passed, 20 skipped |
+| 070 B round 2 | code-reviewer | agent default (opus) | 22K total (one figure in the readout) | - | 0 | meets, must-fix 0 |
+| 070 B round 2 | playtester | agent default (sonnet) | 14K total (one figure in the readout) | - | 0 | regressions 0; stopped early |
