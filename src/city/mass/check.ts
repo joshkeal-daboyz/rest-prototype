@@ -112,12 +112,13 @@ function checkM3(mass: CityMassLayer, ix: Index, out: MassFailure[]): void {
 /** M4b: every outer column has a partner, or a recorded opening, behind it; no part is 3 to 5 deep (its ring 2 would be shared by two rows). */
 function checkM4b(mass: CityMassLayer, ix: Index, land: LandParts, out: MassFailure[]): void {
   const openingIds = new Set(mass.openings.map((o) => o.id));
+  const partById = new Map(land.parts.map((x) => [x.id, x] as const));
   for (const p of land.parts) {
     const s = shortSideOf(p);
     if (s !== 2 && s < 6) out.push({ id: "M4b", reason: `M4b: part ${p.id} is ${s} deep: its ring 2 would be shared by two rows (2, or 6 and more)`, cells: [{ i: p.i0, j: p.j0 }] });
   }
   for (const b of mass.built) {
-    const p = land.parts.find((x) => x.id === b.part);
+    const p = partById.get(b.part);
     if (!p) {
       out.push({ id: "M4b", reason: `M4b: cell (${b.i}, ${b.j}) names part ${b.part}, which the land layer does not have`, cells: [b] });
       continue;
@@ -151,6 +152,7 @@ const OPENING_SHAPE: Readonly<Record<string, { uses: readonly CityMassUse[]; mou
 /** M5: every open cell of the two outer rings is in a recorded opening of rule 6's table, shaped as the table says; no row stretch of one cell; every interior touches an opening. */
 function checkM5(mass: CityMassLayer, ix: Index, land: LandParts, out: MassFailure[]): void {
   const recorded = new Map(mass.openings.map((o) => [o.id, o] as const));
+  const partById = new Map(land.parts.map((x) => [x.id, x] as const));
   if (recorded.size !== mass.openings.length) out.push({ id: "M5", reason: "M5: two openings share an id", cells: [] });
   for (const o of mass.openings) {
     const shape = OPENING_SHAPE[o.kind];
@@ -178,7 +180,7 @@ function checkM5(mass: CityMassLayer, ix: Index, land: LandParts, out: MassFailu
   // every open cell of the two outer rings, every lane cell and every park cell belongs to a recorded opening
   for (const c of mass.cells) {
     if (c.use === "built") continue;
-    const p = c.part === null ? undefined : land.parts.find((x) => x.id === c.part);
+    const p = c.part === null ? undefined : partById.get(c.part);
     const mustBeOpening = c.part === null || (p !== undefined && ringOf(p, c.i, c.j) < 2) || c.use === "plaza" || c.use === "walk" || c.use === "drive" || c.use === "frontLot";
     if (!mustBeOpening) continue;
     if (c.opening === null || !recorded.has(c.opening)) out.push({ id: "M5", reason: `M5: cell (${c.i}, ${c.j}) is open (${c.use}) but no recorded opening owns it`, cells: [c] });

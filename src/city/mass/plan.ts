@@ -96,6 +96,15 @@ const sideLength = (p: CityPart, side: CitySide): number => (side === "-z" || si
  */
 export function planMass(streets: Pick<CityStreetsLayer, "blocks" | "cells">, land: Pick<CityLandLayer, "parts" | "lanes" | "parks">, rand: StageRand): MassPlan {
   const out: MassPlan = { cells: [], built: [], openings: [] };
+  const group = <T extends { block: string }>(xs: readonly T[]): Map<string, T[]> => {
+    const m = new Map<string, T[]>();
+    for (const x of xs) m.set(x.block, [...(m.get(x.block) ?? []), x]);
+    return m;
+  };
+  const lanesOf = group(land.lanes);
+  const parksOf = group(land.parks);
+  const partsOf = group(land.parts);
+  const partById = new Map(land.parts.map((x) => [x.id, x] as const));
   const streetAt = new Map(streets.cells.map((c) => [keyOf(c.i, c.j), c.street] as const));
 
   for (const b of streets.blocks) {
@@ -110,7 +119,7 @@ export function planMass(streets: Pick<CityStreetsLayer, "blocks" | "cells">, la
     };
 
     // lanes: one cell wide from street to street; two openings each, one per mouth, so each mouth is recorded with its own street
-    for (const l of land.lanes.filter((x) => x.block === b.id)) {
+    for (const l of (lanesOf.get(b.id) ?? [])) {
       const cells: CityCell[] = [];
       if (l.axis === "z") for (let j = b.j0; j < b.j1; j++) cells.push({ i: l.at, j });
       else for (let i = b.i0; i < b.i1; i++) cells.push({ i, j: l.at });
@@ -132,7 +141,7 @@ export function planMass(streets: Pick<CityStreetsLayer, "blocks" | "cells">, la
     }
 
     // parks: the pavement edge round the park, green with crossing paths inside it
-    for (const p of land.parks.filter((x) => x.block === b.id)) {
+    for (const p of (parksOf.get(b.id) ?? [])) {
       const id = `${b.id}/park`;
       const path = pathCells(p.i0 + PARK_EDGE_CELLS, p.i1 - 1 - PARK_EDGE_CELLS, p.j0 + PARK_EDGE_CELLS, p.j1 - 1 - PARK_EDGE_CELLS, true);
       const cells: CityCell[] = [];
@@ -147,7 +156,7 @@ export function planMass(streets: Pick<CityStreetsLayer, "blocks" | "cells">, la
     }
 
     // parts: rings 1 and 2 built, the apron, the green; a corner plaza and a walk-through are laid first
-    for (const part of land.parts.filter((x) => x.block === b.id)) {
+    for (const part of (partsOf.get(b.id) ?? [])) {
       const s = shortSideOf(part);
       const court = s >= 6;
       const taken = new Map<string, "plaza" | "walk">();
@@ -201,7 +210,7 @@ export function planMass(streets: Pick<CityStreetsLayer, "blocks" | "cells">, la
     for (let j = b.j0; j < b.j1; j++) {
       for (let i = b.i0; i < b.i1; i++) if (!uses.has(keyOf(i, j))) throw new CityStageError(`G3: cell (${i}, ${j}) of ${b.id} is in no part, lane or park (a void)`, [{ i, j }]);
     }
-    layBlock(b, uses, new Map(land.parts.map((p) => [p.id, p] as const)), out);
+    layBlock(b, uses, partById, out);
   }
   return out;
 }
