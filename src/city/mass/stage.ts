@@ -1,4 +1,7 @@
-/** Stage 3: every block cell built or a named open use, the openings recorded, each built cell's open sides, column kind and partner (ticket 070 C1; grammar rules 3 to 6). Courts and units are C2's. */
+/**
+ * Stage 3: every block cell built or a named open use, the openings recorded, each built cell's open sides, column kind and partner (ticket 070 C1; grammar rules 3 to 6), and, from C2, each block's nominal
+ * units, its residents' courts and frontage lots with their drives, and P2 (the lots against the homes).
+ */
 
 import type { CityMassLayer, CityMassUse, CityPicture, CityPlan } from "../../core";
 import { CityStageError } from "../pipeline/error";
@@ -7,7 +10,7 @@ import type { StageRand } from "../pipeline/seeds";
 import type { CityStageDef } from "../pipeline/types";
 import { massFailures } from "./check";
 import { keyOf } from "./geometry";
-import { planMass } from "./plan";
+import { buildMass } from "./lots";
 
 /** Index 0 is a street cell: nothing of this layer. Built cells read by column kind, the rest by use. */
 export const MASS_LEGEND: readonly LegendEntry[] = [
@@ -49,8 +52,8 @@ function run(plan: CityPlan, rand: StageRand): CityMassLayer {
   const streets = plan.layers.streets;
   const land = plan.layers.land;
   if (!streets || !land) throw new CityStageError("mass: the plan has no streets or land layer");
-  const p = planMass(streets, land, rand);
-  const layer: CityMassLayer = { stage: "mass", cells: p.cells, built: p.built, openings: p.openings, courts: [], units: [] };
+  const b = buildMass(streets, land, rand);
+  const layer: CityMassLayer = { stage: "mass", cells: b.plan.cells, built: b.plan.built, openings: b.plan.openings, courts: b.courts, units: b.units };
   const failures = massFailures(layer, streets.blocks, land);
   if (failures.length > 0) {
     const f = failures[0]!;

@@ -227,13 +227,22 @@ export interface CityBuiltCell extends CityCell {
   readonly partner: CityCell | null;
 }
 
+/** Where an opening a vehicle enters meets a street: the street and the mouth cells on the building line. The kerb turns in there (rule 10). */
+export interface CityMouth {
+  readonly street: string;
+  readonly cells: readonly CityCell[];
+}
+
 export interface CityOpening {
   readonly id: string;
   readonly kind: CityOpeningKind;
   readonly block: string;
   readonly cells: readonly CityCell[];
-  /** The street it opens on and its mouth cells on the building line, for an opening a vehicle enters (lane, drive, frontage lot): the kerb turns in there (rule 10). Null for a plaza, park or walk-through: the kerb runs straight past. */
-  readonly mouth: { readonly street: string; readonly cells: readonly CityCell[] } | null;
+  /**
+   * The opening's street mouths, one per street end it opens on. A lane is one opening with two (one at each end); a drive or frontage lot off a street has one.
+   * Empty when no vehicle enters it from a street, so the kerb runs straight past: a plaza, park or walk-through, and a lane drive (entered from the lane, whose mouths carry the kerb cuts).
+   */
+  readonly mouth: readonly CityMouth[];
 }
 
 /** A residents' court (style guide 19.4) or a frontage lot: its stalls are lot supply for P2. */
