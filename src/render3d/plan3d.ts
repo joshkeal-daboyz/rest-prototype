@@ -501,7 +501,8 @@ const GROUND_BELOW_M = 0.02;
 export function createPlanAssembleRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasElement, req: PlanAssembleRequest, opts: PlanRendererOptions): MapRenderer3d {
   const w0 = Math.max(canvas.clientWidth, 1);
   const h0 = Math.max(canvas.clientHeight, 1);
-  let insets: Insets = { ...(opts.insets ?? {}) };
+  // The plan page has no HUD to keep clear (the puzzle HUD is not the plan's), and the page's insets measure that HUD: a tall one leaves the rig no room to fit the city and it backs off past the far plane (blank sky). They are ignored.
+  let insets: Insets = {};
   let disposed = false;
   const run = opts.run ?? runCity({ blocksX: req.blocksX, blocksZ: req.blocksZ, seed: req.seed }, "edge");
   const lightId0: LightModeId = lightModeFor("tiles", opts.search, import.meta.env.DEV);
@@ -642,8 +643,8 @@ export function createPlanAssembleRenderer3d(gl: WebGLRenderer, canvas: HTMLCanv
     },
     hitTest: () => null,
     resize,
-    setInsets(next) {
-      insets = { ...next };
+    setInsets() {
+      insets = {};
       rig.resize(Math.max(canvas.clientWidth, 1), Math.max(canvas.clientHeight, 1), insets);
     },
     notify() {},

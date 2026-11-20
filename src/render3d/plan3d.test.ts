@@ -726,6 +726,26 @@ describe("createPlanAssembleRenderer3d and the routing (criterion 7)", () => {
     vi.restoreAllMocks();
   });
 
+  it("ignores the page's HUD insets: with a tall HUD the overhead camera still fits the city inside its far plane, at a phone and a desktop size", async () => {
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    for (const [w, h] of [[375, 812], [1024, 768]] as const) {
+      const rendered: PerspectiveCamera[] = [];
+      const gl = { setPixelRatio() {}, setSize() {}, render: (_s: Scene, c: PerspectiveCamera) => rendered.push(c) } as unknown as WebGLRenderer;
+      const canvas = { ...fakeCanvas, clientWidth: w, clientHeight: h } as unknown as HTMLCanvasElement;
+      const tall = { top: Math.round(h * 0.5), bottom: Math.round(h * 0.45) };
+      const r = createPlanAssembleRenderer3d(gl, canvas, planAssembleRequested("?city=plan&stage=assemble")!, { dpr: 1, search: "", insets: tall, load: async () => ({ ...NO_MODELS }), run: { ok: true, plan: planOf(DEFAULT) } });
+      r.setInsets(tall);
+      r.resetView();
+      r.draw(undefined as never, undefined as never, 0);
+      const cam = rendered[rendered.length - 1]!;
+      const streets = planOf(DEFAULT).layers.streets!;
+      const centre = new Vector3((streets.w * TILE_M * 0.18) / 2, 0, (streets.h * TILE_M * 0.18) / 2);
+      expect(cam.position.distanceTo(centre), `${w}x${h}`).toBeLessThan(cam.far / 2);
+      r.dispose();
+    }
+    vi.restoreAllMocks();
+  });
+
   it("the street camera stands over the city, looks along its street at a point inside it, and sees the plan", async () => {
     vi.spyOn(console, "info").mockImplementation(() => {});
     const plan = planOf(DEFAULT);
