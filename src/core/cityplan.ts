@@ -100,8 +100,8 @@ export interface CityBlock {
 
 // ---- stage 1, the split plan (ticket 070 A4; Josh, 20 Nov 2026: "C, split plan") ----
 //
-// Written before A4 starts, as standalone types, so `goal/city-style` keeps type-checking. A4's criterion 0 (the lead-architect, on A4's branch) wires them into
-// `CityStreetsLayer` as `CityStreetsLayerA4` below says. Until then nothing reads them.
+// Written before A4 started, as standalone types, so `goal/city-style` kept type-checking. A4's criterion 0 (the lead-architect, on A4's branch, 20 Nov 2026)
+// wired them into `CityStreetsLayer` (the old lattice layer is deleted; `sizes` became `outline`).
 //
 // On the split plan nothing is a grid coordinate:
 // - a block's `bi` and `bj` are ranks: `bi` is the number of distinct block `i0` values below its `i0`, `bj` likewise for `j0`. Its id stays "block:<bi>:<bj>".
@@ -191,32 +191,19 @@ export interface CityOutline {
   readonly draw: number | null;
 }
 
-/**
- * The street layer as ticket 070 A4 makes it. Criterion 0 (the lead-architect, on A4's branch) renames this to `CityStreetsLayer` and deletes the old one:
- * `streets` and `blocks` gain their new fields, `junctions` is added, and `sizes` becomes `outline`. Today's `cells` are unchanged in shape.
- */
-export interface CityStreetsLayerA4 {
+/** The street layer (stage 1) on the split plan (ticket 070 A4). Today's `cells` are unchanged in shape. */
+export interface CityStreetsLayer {
   readonly stage: "streets";
+  /** The city's extent, in cells. */
   readonly w: number;
   readonly h: number;
   readonly streets: readonly CityPlanStreet[];
+  /** Every street cell once. A cell not listed is inside a block. */
   readonly cells: readonly CityStreetCell[];
   readonly blocks: readonly CityPlanBlock[];
   readonly junctions: readonly CityJunction[];
+  /** The city's ground inside the four edge streets, and the draw that gave it (null: the fallback lists). */
   readonly outline: CityOutline;
-}
-
-export interface CityStreetsLayer {
-  readonly stage: "streets";
-  /** The lattice, in cells. */
-  readonly w: number;
-  readonly h: number;
-  readonly streets: readonly CityStreet[];
-  /** Every street cell once. A cell not listed is inside a block. */
-  readonly cells: readonly CityStreetCell[];
-  readonly blocks: readonly CityBlock[];
-  /** The block sizes in cells, and the draw that gave them (null: the fallback lists). */
-  readonly sizes: { readonly widths: readonly number[]; readonly depths: readonly number[]; readonly draw: number | null };
 }
 
 // ---- stage 2: land ----
