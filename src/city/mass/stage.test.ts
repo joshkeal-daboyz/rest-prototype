@@ -1,5 +1,5 @@
 /**
- * Stage 3, mass (sections C1 and C2), on the named cities (default 3 x 3 seed 1, 3 x 3 seeds 1 to 10, 6 x 4 seeds 1 to 3): rings, strips, openings, drives, courts, units, open sides and partners, M3, M4b, M5 (strict:
+ * Stage 3, mass (sections C1 and C2), on the named cities (A4d: 6 x 6 seeds 1 to 10, the default seed 1 first): rings, strips, openings, drives, courts, units, open sides and partners, M3, M4b, M5 (strict:
  * no lane exemption), G2, G3, R1, P2, the picture, the digest pins, R-1 to R-7. HEAVY: each city is built once, through a module-level cache.
  *
  * C2 (re-cut 19 Nov 2026, Josh: "Yes, all four"): the stage returns ok on all 13 named cities, with PARK_PER_HOME 0.075, yard courts, and a walk-through for every court part with no drive. Nothing is loosened and no city is pinned (R-2).
@@ -28,8 +28,7 @@ interface City {
   readonly seed: number;
 }
 const NAMED: City[] = [];
-for (let seed = 1; seed <= 10; seed++) NAMED.push({ blocksX: 3, blocksZ: 3, seed });
-for (let seed = 1; seed <= 3; seed++) NAMED.push({ blocksX: 6, blocksZ: 4, seed });
+for (let seed = 1; seed <= 10; seed++) NAMED.push({ blocksX: 6, blocksZ: 6, seed });
 
 const cache = new Map<string, ReturnType<typeof runCity>>();
 function cityOf(o: City): ReturnType<typeof runCity> {
@@ -52,11 +51,9 @@ const layersOf = (o: City): { streets: CityStreetsLayer; land: CityLandLayer; ma
 const label = (o: City): string => `${o.blocksX} x ${o.blocksZ} seed ${o.seed}`;
 
 describe("stage 3, mass, on the named cities", { timeout: 120_000 }, () => {
-  it("the default city is the 3 x 3 seed 1 city, and the named cities are 13", () => {
-    expect(NAMED).toHaveLength(13);
-    const first = runCity({}, "mass");
-    expect(first.ok).toBe(cityOf({ blocksX: 3, blocksZ: 3, seed: 1 }).ok);
-    expect(first.plan.digests.mass).toBe(cityOf({ blocksX: 3, blocksZ: 3, seed: 1 }).plan.digests.mass);
+  it("the named cities are 10, the default 6 x 6 seed 1 first (A4d)", () => {
+    expect(NAMED).toHaveLength(10);
+    expect(NAMED[0]).toEqual({ blocksX: 6, blocksZ: 6, seed: 1 });
   });
 
   for (const o of NAMED) {
@@ -297,21 +294,19 @@ describe("stage 3, mass, on the named cities", { timeout: 120_000 }, () => {
     });
   }
 
-  // The mass digest pins as C2 left them (3 x 3 seed 1 "3fde3b89", seed 2 "03431b98", seed 3 "7b79789d", 6 x 4 seed 1 "c2d261bc") are MOVED BY C3 on purpose: the split plan (A4, A4b, A4c), B3's Land (S6 for lanes,
-  // the served park) and S6 for drives and frontage lots.
-  it("R-4: the layer's digest is pinned on the default city, 3 x 3 seeds 2 and 3, and 6 x 4 seed 1 (re-taken, MOVED BY C3: the split plan, B3's Land, S6)", () => {
+  // The mass digest pins are MOVED BY A4d on purpose: the 6 x 6 named cities (seeds 1, 2, 3 and 8, one-way on) and the split limit 128 (C3 pinned the 3 x 3 and 6 x 4 cities).
+  it("R-4: the layer's digest is pinned on 6 x 6 seeds 1, 2, 3 and 8, one-way on (re-taken, MOVED BY A4d: the 6 x 6 named cities, the split limit 128)", () => {
     const pins: [City, string][] = [
-      [{ blocksX: 3, blocksZ: 3, seed: 1 }, "7b0ed426"],
-      [{ blocksX: 3, blocksZ: 3, seed: 2 }, "1bbb2edd"],
-      [{ blocksX: 3, blocksZ: 3, seed: 3 }, "0d9cf91b"],
-      [{ blocksX: 6, blocksZ: 4, seed: 1 }, "709bcf08"],
+      [{ blocksX: 6, blocksZ: 6, seed: 1 }, "6426e5c1"],
+      [{ blocksX: 6, blocksZ: 6, seed: 2 }, "a874d043"],
+      [{ blocksX: 6, blocksZ: 6, seed: 3 }, "186b4e85"],
+      [{ blocksX: 6, blocksZ: 6, seed: 8 }, "9a90c018"],
     ];
     for (const [o, digest] of pins) expect(layersOf(o).plan.digests.mass, label(o)).toBe(digest);
-    expect(runCity({}, "mass").plan.digests.mass).toBe(pins[0]![1]);
   });
 
   it("R-4: a test double for the mass stage leaves the streets and land digests equal to the standard run's", () => {
-    const o = { blocksX: 3, blocksZ: 3, seed: 2 };
+    const o = { blocksX: 6, blocksZ: 6, seed: 2 };
     const double: CityStageDef = { name: "mass", run: () => ({ stage: "mass", cells: [], built: [], openings: [], courts: [], units: [] }), picture: massStage.picture } as unknown as CityStageDef;
     const doubled = runCity(o, "mass", [streetsStage as unknown as CityStageDef, landStage as unknown as CityStageDef, double]);
     expect(doubled.ok).toBe(true);
@@ -322,8 +317,8 @@ describe("stage 3, mass, on the named cities", { timeout: 120_000 }, () => {
 
   it("R-3: the stage's randomness is its own: the same city twice is the same layer, and another seed is another layer", () => {
     const finger = (r: ReturnType<typeof runCity>): string | undefined => (r.ok ? r.plan.digests.mass : r.failure.reason);
-    expect(finger(runCity({ blocksX: 3, blocksZ: 3, seed: 2 }, "mass"))).toBe(finger(cityOf({ blocksX: 3, blocksZ: 3, seed: 2 })));
-    expect(finger(cityOf({ blocksX: 3, blocksZ: 3, seed: 2 }))).not.toBe(finger(cityOf({ blocksX: 3, blocksZ: 3, seed: 3 })));
+    expect(finger(runCity({ blocksX: 6, blocksZ: 6, seed: 2 }, "mass"))).toBe(finger(cityOf({ blocksX: 6, blocksZ: 6, seed: 2 })));
+    expect(finger(cityOf({ blocksX: 6, blocksZ: 6, seed: 2 }))).not.toBe(finger(cityOf({ blocksX: 6, blocksZ: 6, seed: 3 })));
   });
 
   it("R-1: the layer is frozen when the stage returns", () => {
@@ -336,7 +331,7 @@ describe("stage 3, mass, on the named cities", { timeout: 120_000 }, () => {
   });
 
   it("R-7: a 6 x 6 city (seed 1) ends ok or with a failure naming a check, never an uncaught error", () => {
-    const r = runCity({ blocksX: 6, blocksZ: 6, seed: 1 }, "mass");
+    const r = cityOf({ blocksX: 6, blocksZ: 6, seed: 1 });
     if (!r.ok) {
       expect(["land", "mass"]).toContain(r.failure.stage);
       expect(r.failure.reason).not.toMatch(/^bug:/);

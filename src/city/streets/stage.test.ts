@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { CityPlanRun, CityStreetRole } from "../../core";
 import { pictureProblems } from "../pipeline/picture";
 import { runCity } from "../stages";
+import { CITY_BLOCKS_DEFAULT, CITY_BLOCKS_MAX, PLAN_BLOCKS_DEFAULT } from "./constants";
 import { STREETS_LEGEND, streetsStage } from "./stage";
 import { laySplit } from "./split";
 
@@ -25,7 +26,7 @@ describe("stage 1 picture (criterion 8, R-5)", () => {
   it("has the legend lane, parking band, junction, crossing, pavement, pavement corner, block, and from A4b one-way lane and one-way arrow", () => {
     expect(STREETS_LEGEND.map((e) => e.name)).toEqual(["lane", "parking band", "junction", "crossing", "pavement", "pavement corner", "block", "one-way lane", "one-way arrow"]);
   });
-  for (const [x, z, s] of [[3, 3, 1], [3, 3, 2], [3, 3, 3], [6, 4, 1]] as const) {
+  for (const [x, z, s] of [[6, 6, 1], [6, 6, 2], [6, 6, 3], [6, 6, 8]] as const) {
     it(`${x} x ${z} seed ${s}: the size is the lattice's, every index is in the legend, each cell matches the layer`, () => {
       const layer = layerOf(x, z, s);
       const r = city(x, z, s);
@@ -47,7 +48,7 @@ describe("stage 1 picture (criterion 8, R-5)", () => {
       }
       const blockCells = layer.blocks.reduce((n, b) => n + (b.i1 - b.i0) * (b.j1 - b.j0), 0);
       expect(listed.size + blockCells).toBe(layer.w * layer.h);
-      // each cell kind appears; the one-way lane (7) only where the plan has a one-way street (3 x 3 seed 2 has none since Josh's T floor moved its draw); the ninth entry is the arrows' points
+      // each cell kind appears; the one-way lane (7) only where the plan has a one-way street (a named city may have none); the ninth entry is the arrows' points
       expect(new Set(pic.cells)).toEqual(new Set(oneWay.size > 0 ? [0, 1, 2, 3, 4, 5, 6, 7] : [0, 1, 2, 3, 4, 5, 6]));
       expect(pic.points).toHaveLength(layer.arrows.length);
     });
@@ -56,7 +57,7 @@ describe("stage 1 picture (criterion 8, R-5)", () => {
 
 describe("stage 1 layer shape", () => {
   it("is the lattice, the streets with ends, every street cell once, the blocks with sides, the junctions and the outline", () => {
-    const layer = layerOf(3, 3, 1);
+    const layer = layerOf(6, 6, 1);
     expect(layer.stage).toBe("streets");
     expect(layer.streets.length).toBeGreaterThanOrEqual(4);
     expect(layer.blocks.length).toBeGreaterThan(0);
@@ -72,35 +73,34 @@ describe("stage 1 layer shape", () => {
     }
   });
   it("is what the layout gives (the stage adds nothing and takes nothing away)", () => {
-    expect(layerOf(3, 3, 1)).toEqual(laySplit(1, 3, 3).layer);
+    expect(layerOf(6, 6, 1)).toEqual(laySplit(1, 6, 6).layer);
   });
 });
 
-describe("stage 1 digest pins (R-4), moved by ticket 070 A4b and re-checked by A4c (park places: none of these four draws moved, so their pins stand; Josh's T floor 0.30 moved 3 x 3 seed 2 only, draw 12 to 11, and its pin is re-taken; one-way streets: a new layer shape and new cuts, so every pin is re-taken once; A4 moved them before it)", () => {
+describe("stage 1 digest pins (R-4), moved by ticket 070 A4d: the 6 x 6 named cities, seeds 1, 2, 3 and 8 with one-way on; the split limit 128", () => {
   const PINS: readonly (readonly [number, number, number, string])[] = [
-    [3, 3, 1, "9fefa1f6"],
-    [3, 3, 2, "7f1426a9"],
-    [3, 3, 3, "6125f735"],
-    [6, 4, 1, "cfb9d8f1"],
+    [6, 6, 1, "d13a5101"],
+    [6, 6, 2, "d039a14d"],
+    [6, 6, 3, "d804a9ef"],
+    [6, 6, 8, "3e7f947b"],
   ];
   for (const [x, z, s, digest] of PINS) {
     it(`${x} x ${z} seed ${s} has digest ${digest}`, () => {
       expect(city(x, z, s).plan.digests.streets).toBe(digest);
     });
   }
-  it("the default city is 3 x 3 seed 1", () => {
-    expect(runCity({}, "streets").plan.digests.streets).toBe(city(3, 3, 1).plan.digests.streets);
+  it("runCity's own default stays 3 x 3 seed 1 (CITY_BLOCKS_DEFAULT, city=tiles); the plan view's default is PLAN_BLOCKS_DEFAULT, below", () => {
+    expect(runCity({}, "streets").plan.digests.streets).toBe(runCity({ blocksX: CITY_BLOCKS_DEFAULT, blocksZ: CITY_BLOCKS_DEFAULT, seed: 1 }, "streets").plan.digests.streets);
+  });
+  it("PLAN_BLOCKS_DEFAULT is 6 (Josh, 20 Nov 2026, Q17: the default 6 x 6 seed 1, \"yes\"), at most CITY_BLOCKS_MAX; CITY_BLOCKS_DEFAULT stays 3", () => {
+    expect(PLAN_BLOCKS_DEFAULT).toBe(6);
+    expect(PLAN_BLOCKS_DEFAULT).toBeLessThanOrEqual(CITY_BLOCKS_MAX);
+    expect(CITY_BLOCKS_DEFAULT).toBe(3);
   });
 });
 
-describe("stage 1 at the largest size (R-7)", () => {
-  it("runs on one 6 x 6 city, seed 1, and ends ok or with a stage failure, never an uncaught error; no block count is asserted (a size, not a count: Josh, Q10)", () => {
-    const r = runCity({ blocksX: 6, blocksZ: 6, seed: 1 }, "streets");
-    if (!r.ok) {
-      expect(r.failure.stage).toBe("streets");
-      expect(r.failure.reason.startsWith("bug:")).toBe(false);
-    } else {
-      expect(r.plan.layers.streets!.blocks.length).toBeGreaterThan(0);
-    }
+describe("stage 1 on every named run (R-2, R-7)", () => {
+  it("the default 6 x 6 seed 1 ends ok", () => {
+    expect(city(6, 6, 1).ok).toBe(true);
   });
 });

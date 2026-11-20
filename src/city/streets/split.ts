@@ -30,7 +30,7 @@ import type {
 import { CityStageError } from "../pipeline/error";
 import type { StageRand } from "../pipeline/seeds";
 import { oneWayNeighbours, s10Violations, s11Failures, splitFailures, tOf, type SplitFailure } from "./check";
-import { BLOCK_DRAWS_MAX, BLOCK_TILES, CUT_MIN_CELLS, JUNCTION_GAP_MIN_CELLS, ONE_WAY_ARROW_EVERY, ONE_WAY_BARE_SHARE, ONE_WAY_SHARE, SECTION_CELLS, STREET_CELLS, TILE_M } from "./constants";
+import { SPLIT_DRAWS_MAX, BLOCK_TILES, CUT_MIN_CELLS, JUNCTION_GAP_MIN_CELLS, ONE_WAY_ARROW_EVERY, ONE_WAY_BARE_SHARE, ONE_WAY_SHARE, SECTION_CELLS, STREET_CELLS, TILE_M } from "./constants";
 import { blockSizes, blockType, hashOf, layoutAxis, mkStreet } from "./layout";
 
 type BandRow = readonly CityStreetBand[];
@@ -466,7 +466,7 @@ export interface SplitLayout {
 
 /**
  * Stage 1's layout on the split plan, for a city of `blocksX` by `blocksZ` blocks' worth of ground (both already clamped). Throws `CityStageError` naming the rule when every draw
- * of `BLOCK_DRAWS_MAX + 1` misses (R-2): there is no fallback list. `held` is the test a draw must pass (`splitFailures`; a test may hand in another). `rand` is stage 1's hash (the runner's; by
+ * of `SPLIT_DRAWS_MAX + 1` misses (R-2): there is no fallback list. `held` is the test a draw must pass (`splitFailures`; a test may hand in another). `rand` is stage 1's hash (the runner's; by
  * default `hashOf`, the same function) and draws every cut. `oneWayShare` is the share of the candidate streets made one-way (default `ONE_WAY_SHARE`; 0 gives A4's plan with every street two-way).
  */
 export function laySplit(
@@ -506,7 +506,7 @@ export function laySplit(
     for (const r of new Set(f.map((x) => x.rule))) misses[r] = (misses[r] ?? 0) + 1;
   };
   let last: SplitFailure | null = null;
-  for (let draw = 0; draw <= BLOCK_DRAWS_MAX; draw++) {
+  for (let draw = 0; draw <= SPLIT_DRAWS_MAX; draw++) {
     const keep = new Set<string>();
     let refusals = 0;
     for (let round = 0; ; round++) {
@@ -555,7 +555,7 @@ export function laySplit(
   }
   const worst = Object.entries(misses).sort((p, q) => q[1] - p[1])[0];
   throw new CityStageError(
-    `${worst?.[0] ?? "S4"}: no split of the ${blocksX} x ${blocksZ} ground held every rule in ${BLOCK_DRAWS_MAX + 1} draws (misses ${JSON.stringify(misses)}; last: ${last?.reason ?? "none"})`,
+    `${worst?.[0] ?? "S4"}: no split of the ${blocksX} x ${blocksZ} ground held every rule in ${SPLIT_DRAWS_MAX + 1} draws (misses ${JSON.stringify(misses)}; last: ${last?.reason ?? "none"})`,
     [{ i: outline.i0, j: outline.j0 }],
   );
 }

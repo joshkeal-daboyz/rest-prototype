@@ -82,8 +82,7 @@ describe("S11 (criterion 2)", () => {
 });
 
 const NAMED: { blocksX: number; blocksZ: number; seed: number }[] = [];
-for (let seed = 1; seed <= 10; seed++) NAMED.push({ blocksX: 3, blocksZ: 3, seed });
-for (let seed = 1; seed <= 3; seed++) NAMED.push({ blocksX: 6, blocksZ: 4, seed });
+for (let seed = 1; seed <= 10; seed++) NAMED.push({ blocksX: 6, blocksZ: 6, seed }); // A4d: 6 x 6 seeds 1 to 10, the default seed 1 first
 const cache = new Map<string, SplitLayout>();
 const laid = (o: (typeof NAMED)[number], share?: number): SplitLayout => {
   const key = `${o.blocksX}x${o.blocksZ}:${o.seed}:${share ?? "default"}`;
