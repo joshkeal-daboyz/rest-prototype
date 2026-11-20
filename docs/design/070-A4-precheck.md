@@ -1,5 +1,18 @@
 # 070 A4 pre-check: Land, Mass and Edge on the split plan, one-way streets off and on
 
+## Josh's answers (20 Nov 2026, in chat)
+
+Asked the four questions in section 4 word for word, Josh answered: "1. yes, 2. yes, 3. yes, 4. Lower P1's floor. Is P1's floor the parking ratio?" Told that P1's floor is the kerb-parking ratio only (kerb bays laid over shops x `PARK_PER_SHOP`, at least 0.75 city-wide, plus a tile for every block), not the lot ratio `PARK_PER_HOME` (P2), that 0.69 is just enough for 3 x 3 seed 2 with one-way off, and that with one-way on three cities still fail for other reasons, and asked "Do you still want P1's floor lowered from 0.75 to 0.69, knowing it's kerb parking only (yes), or would you rather have the street cuts redesigned instead?", he answered: "yes lower it."
+
+So:
+
+1. The 30% kerb-bay cap counts over the whole block side, not per stretch.
+2. Land makes a whole park only of a block with a parking band across one of its streets (the served park).
+3. Stage 1 redraws a split that leaves Land too few park places (V4).
+4. P1's supply floor (`PARK_SUPPLY_BAND.lo`) is lowered from 0.75 to 0.69. Option B, not A.
+
+Then this pre-check is re-run once with all four, which also decides whether one-way stays on as built.
+
 Pipeline designer, 20 Nov 2026, on `ticket/070a4-split-plan` at c938c9c (A4 and A4b merged into it; B, B2, C1, C2 and D1 as merged on `goal/city-style`). This is a sketch probe. The builders' numbers are the record.
 
 Nothing here is decided. Josh's answers go at the top of this note.
