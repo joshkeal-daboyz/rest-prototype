@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import type { CityStreetRole } from "../../core";
 import { tileCity, type TileRole } from "../../render3d/tilecity";
-import { runCity } from "../pipeline/run";
+import { runCity } from "../stages";
 
 const NAMED: { blocksX: number; blocksZ: number; seed: number }[] = [];
 for (let seed = 1; seed <= 10; seed++) NAMED.push({ blocksX: 3, blocksZ: 3, seed });
