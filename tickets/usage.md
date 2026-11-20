@@ -249,3 +249,9 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 070 A2b | renderer (general-purpose with renderer.md) | sonnet | 74K total (one figure in the readout) | - | 0 | plan view default 6x6 (13c3d16) |
 | 070 A2b | code-reviewer / playtester | opus / sonnet | 27K / 14K | - | 0 | meets, must-fix 0; regressions 0 |
 | 070 group | gate (main session) | - | - | - | 0 | full gate dd8bde1: tsc clean, 139 files, 3348 passed, 20 skipped; merged 41d6cbc |
+| 070 D2 re-cut | lead-architect | opus | 135K total (one figure in the readout) | - | 0 | D2 re-cut, kerb types (14d62a7) |
+| 070 D2 pre-check | pipeline-designer (general-purpose) | opus | 179K total (one figure in the readout) | - | 0 | holds (ac27ce5) |
+| 070 D2 | streetscape (general-purpose with streetscape.md) | sonnet | 309K + 93K | - | 0 | kerb line, ground pieces (26a6fe7); inlet checks (a42dc73) |
+| 070 D2 | gate (main session) | - | - | - | 0 | full gate a42dc73: tsc clean, 140 files, 3610 passed, 20 skipped |
+| 070 D2 | code-reviewer | opus | 103K + 24K | - | 0 | round 1 must-fix 1; round 2 meets |
+| 070 D2 | playtester | sonnet | 14K + 16K | - | 0 | regressions 0 both rounds; merged 86e9e5c |
