@@ -6,8 +6,8 @@ status: approved (G1, Josh, 19 Nov 2026, in chat, relayed by the main session). 
 2. "Do the sections merge into goal/city-style under your 19 Nov waiver once each is green? (the agents and the final switch still needing your word)" Josh: "Yes".
 3. "Do you want the grey-box 3D view (section E) before real buildings?" Josh: "Yes".
 - **The five agents may now be created** (planner, streetscape, buildings, facades, landscape; see Agents).
-- **A1 still waits** for 063 B and 069 to merge (see What happens to the other tickets).
-- Questions: Q2 and Q3 answered; Q1 not yet asked for, L waits for his word; Q4 and Q5 open.
+- **A1 waits for nothing.** 063 B is merged into `goal/city-style` (2edac93), and 069 is dropped (see What happens to the other tickets).
+- Questions: Q2 and Q3 answered; Q1 not yet asked for, L waits for his word; Q4, Q5 and Q6 open.
 branch: one per section, `ticket/070<section>-<slug>` (named in each section), each cut from `goal/city-style`.
 
 ## Josh's words (19 Nov 2026, in chat)
@@ -261,15 +261,18 @@ H and I can run alongside each other once F2 has merged. Stage 6 (K) is not cut 
 **Goal.** Every parking-band cell is a bay, a build-out or plain, as 18.5 says, laid against the mass's openings. Josh sees it at `?city=plan&stage=edge`.
 
 1. [ ] **Kerb cuts.** Every vehicle opening's mouth (`CityOpening.mouth`) cuts the pavement in front of it. The parking cell in front of a cut is plain.
-2. [ ] **Moved.** `BandState`, `startsOf`, `tryAdd`, `ownStates`, the block order, `shortTiles`, and ticket 069's `matchFirstTiles` with its two phases. They are taken from `tilecity.ts` as it is after 069 merges.
+2. [ ] **Moved.** 056's greedy allocator as it is in `tilecity.ts` on 2edac93 (the 063 B merge): `BandState`, `startsOf`, `tryAdd`, `ownStates`, the block order (fewest own parking sides first, ties by id), own sides first and then the band across the longest street, and `shortTiles`. Nothing is added to it: no matching (069, which would have added one, was dropped and never built).
    - The allocator reads demand from `mass.units` (shops x `PARK_PER_SHOP`), never from buildings or facades.
+   - Every block left short keeps its `shortTiles` count in the layer, so P1 reads it from the layer.
 3. [ ] **Build-outs and their trees** (`BUILDOUT_TREE_EVERY`, never next to a crossing). The outer side of an edge street stays plain.
-4. [ ] **P1, P3, P4, P5, P6**, ported from `parkmetrics.ts` with every threshold, hold on the default city and on 3 x 3 and 6 x 4 seeds 1 to 20 (069's forty-one cities), with no named exception.
-   - Failing fixture: 069's, a block's only tile removed, gives P1 = 1.
+4. [ ] **P1, P3, P4, P5, P6**, ported from `parkmetrics.ts` with every threshold, hold on the named cities (the default, 3 x 3 seeds 1 to 10, 6 x 4 seeds 1 to 3), with no named exception. They hold there on the old path at 2edac93 (`parkmetrics.test.ts`, "passes every check on the default city, seeds 1 to 10 at 3 x 3 and seeds 1 to 3 at 6 x 4").
+   - **Known shortfall outside the named cities, reported, not pinned, not required.** On the old path at 2edac93, P1 fails on 3 x 3 seeds 12, 15, 17, 18, 19 and 6 x 4 seeds 5, 7, 11, 12, 15, 16, 18 (Josh accepted this with the 063 B merge; the cause is in ticket 063 section B2: one parking band to a street capped at one tile, whole-block parks with no band of their own, and the greedy order letting a neighbour take the only tile). The builder reports P1 to P6 on 3 x 3 and 6 x 4 seeds 11 to 20 and 6 x 4 seeds 4 to 10, old path beside pipeline. No test names these cities, expects them to fail, or skips them. `alleys.test.ts`'s `P1_ONE_SHORT` pin (6 x 4 seeds 5 and 7) belongs to the old path and is not copied into `src/city/`.
+   - Whether the pipeline should go on to fix that cause is Q6; D1 does not decide it.
+   - Failing fixture: the default city's edge layer, typed in from the run in the test (not pinned by hash), with one block's only serving tile removed, gives P1 = 1.
 5. [ ] R-1 to R-7 for `edge`, in part (the kerb line is D2's). Legend: bay, build-out, plain, kerb cut, pavement, crossing, junction, lane.
 
 - **Files:** new `src/city/edge/`.
-- **Heavy:** criterion 4's 41 cities. Its own file, a 120 s timeout.
+- **Heavy:** criterion 4's report runs 41 cities. Its own file, a 120 s timeout.
 
 ### D2 · Stage 4, the kerb line and the ground pieces (streetscape, pure). Branch `ticket/070d2-edge-kerb`
 **Goal.** The edge layer carries one unbroken kerb line a side and every street cell's piece, variant and yaw, so the assembler only draws it.
@@ -388,7 +391,8 @@ H and I can run alongside each other once F2 has merged. Stage 6 (K) is not cut 
 - **Files:** `tilecity.ts` and its tests, `renderer.ts`, `docs/city-style-guide.md`, `styleguide.test.ts`.
 
 ## What happens to the other tickets
-- **063 B (street width) and 069 (parking matching)** finish and merge as they are. Then A1 starts from that head. A1 copies `layoutAxis` after B's change, and D1 moves 069's `matchFirstTiles`. Starting earlier would copy code that is about to change.
+- **063 B (street width)** is merged into `goal/city-style` (2edac93). A1 starts from that head and copies `layoutAxis` after B's change. With the merge Josh accepted P1 failing on cities outside 063 criterion 7's list, and the old path's `P1_ONE_SHORT` pin in `alleys.test.ts` (merge message of 2edac93). D1 moves the allocator as it is there.
+- **069 (the parking allocator re-cut, `matchFirstTiles`) is dropped, on Josh's word, and was never built.** Josh, 19 Nov 2026, in chat to the main session: "69 is dropped. I'm waiting on 63b to merge"; and, to the session merging 063 B (recorded in 2edac93's message): "Merge 063 B and 069", then "Then don't bother with 069". 063 section B2, which 069 would have built, is likewise not built. Nothing in this ticket depends on it.
 - **063 E1 and E2** are merged (15af0a2). `BODY_M`, the −x corner face and `storeyAlignment`'s check become F2's kit table and M1, M6 and M9a.
 - **064 (lattice): superseded, not re-homed.**
   - The pipeline never packs by widths. Columns are cells, so the lattice holds by construction.
@@ -408,7 +412,7 @@ These five do not exist. The main session writes each `.claude/agents/<name>.md`
 | Agent | Folder it owns | Reads before work | Never touches |
 | --- | --- | --- | --- |
 | planner | `src/city/pipeline/`, `streets/`, `land/`, `mass/` | grammar rules 3 to 6, 10 and 12, M3 to M5; guide 18.2, 18.4, 18.6, 19.3 to 19.6 | other stage folders, `src/render3d/`, `src/core/` |
-| streetscape | `src/city/edge/` | grammar rule 10; guide chapter 18 (P1 and P3 to P6), 19.1, 063 F's kerb rules; tickets 056 and 069 | the same, plus `mass/`'s code (it reads the layer, never the code) |
+| streetscape | `src/city/edge/` | grammar rule 10; guide chapter 18 (P1 and P3 to P6), 19.1, 063 F's kerb rules; ticket 056, and 063 section B2 for the cause of P1's known shortfall | the same, plus `mass/`'s code (it reads the layer, never the code) |
 | buildings | `src/city/buildings/` (plus the named render3d pin tests) | grammar rules 1 to 4, 7, 11 and 12, M1, M2, M4, M6, M9; guide chapters 2 and 7, 16.2 to 16.4, 16.9 | ground keys (stage 7's), the dressing |
 | facades | `src/city/facades/` (plus the sill pin test) | grammar rules 8, 9 and 11, M7 to M9; guide 16.5, 16.6, 16.11; tickets 058, 061, 062 and 068 | piece kinds, yaws and placements (stage 5's) |
 | landscape | `src/city/ground/` | grammar rule 5; guide 19.4, 19.6 and the furniture chapter (R10) | every other layer's content |
@@ -467,3 +471,5 @@ These five do not exist. The main session writes each `.claude/agents/<name>.md`
    - Recommendation: decide it when 059 is re-cut. The default is streetscape for the layout (poles stand on its pavement) and the renderer for the drawing.
 5. **Carried from 065, only if C2's stop rule fires:** may `LOTS_PER_BLOCK_MAX` be 3 on blocks of at least 10 cells each way, if P2 cannot hold?
    - Recommendation: answer when C2 brings the numbers.
+6. **Should the pipeline fix the cause of P1's known shortfall, or inherit it?** On the old path P1 fails on 3 x 3 seeds 12, 15, 17, 18, 19 and 6 x 4 seeds 5, 7, 11, 12, 15, 16, 18, which he accepted with the 063 B merge. D1 moves the greedy allocator unchanged, so the pipeline will most likely fail on the same cities. R-2 forbids pinning them, so D1 reports them and requires P1 only on the named cities.
+   - Recommendation: inherit it in D1, so that D1 stays a move whose numbers can be checked against the old path. Then decide from D1's report. If he wants P1 on every seed, it is a follow-on section in Edge after D1 (a first tile for every block, the approach 063 B2 described). Edge is where the order fault is, and a fix in Land or Mass would change where parks go. Until he answers, a block left short is recorded in the edge layer and the stage does not throw, as on the old path.

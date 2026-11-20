@@ -151,3 +151,4 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 054 section C | playtester | agent default | 22K total (one figure in the readout) | — | 0 | regressions 0; stopped early |
 | 070 cut | lead-architect | agent default | 173K total (one figure in the readout) | - | 0 | Ticket 070 and src/core/cityplan.ts types; 35 tool uses |
 | 070 approval pass | lead-architect | agent default | 51K total (one figure in the readout) | - | 0 | 070 status approved; 064 to 068 superseded; 059 and 063 pointers |
+| 070 correction (069 dropped) | lead-architect | agent default | figure not shown yet | - | 0 | D1 moves the 056 allocator as merged; P1 on named cities; Q6 added |
