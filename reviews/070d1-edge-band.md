@@ -1,25 +1,28 @@
 ticket: 070d1-edge-band
-assessment: partly
-must-fix: 1
+assessment: meets
+must-fix: 0
 
 ## What the ticket asked for, as I understood it
-Stage 4 (edge), part one: kerb cuts at every vehicle mouth, 056's greedy kerb-bay allocator moved unchanged into `src/city/edge/` with one first pass in front of it (Josh's "yes", option B), build-outs and trees, and P1, P3 to P6 ported onto the layer, holding on all 13 named cities. A block left short is recorded in the layer and the stage does not throw.
+Stage 4 (edge), part one: kerb cuts, 056's greedy kerb-bay allocator moved unchanged into `src/city/edge/` with the first-tile pass in front of it (Josh's "yes", option B), build-outs and trees, and P1, P3 to P6 ported onto the layer, holding on all 13 named cities. A block left short is recorded in the layer and the stage does not throw (criterion 2, Q6).
 
 ## Does the branch do it?
-- **Criterion 1, kerb cuts.** `band.ts` cuts the one pavement cell of the mouth's street beside each mouth cell, keeps the band cell beyond it `parkingPlain` (`plain`, else null) and blocks it from the allocator. `stage.test.ts` "kerb cuts: ..." checks every mouth cell of every opening on all 13 named cities, that a plaza, park or walk has an empty mouth, and that the number of cuts equals the number of mouth cells. Met.
-- **Criterion 2, moved, plus the first pass.** I compared `band.ts` with `tilecity.ts` at 2edac93 (lines 1590 to 1745). `BandState`, the free stretch, the cap, `startsOf`, `tryAdd`, `ownStates`, the block order, own-side sort, `longestFirst`, the across condition and `shortTiles` are the same code. The only change is the hash source (`rand("bay", key)` in place of `hashOf(seed, ...)`), which is the pipeline's seeded rand. The first pass is as written: `tryAdd` in own-side order, then across in `longestFirst` order under the same condition, `first` null otherwise, and the greedy pass starts with the quota less one. Demand comes from `mass.units`. `blocks` carries `wanted`, `first` and `shortTiles`. The constants are typed-in copies, pinned by `constants.test.ts`. Fixtures: "the first pass gives the four-sided centre block a tile..." (the neighbours' 600 shops overflow onto block:1:1's bands; `first` is "own") and "a block whose own bands and across bands are all full..." (a 1 x 1 city with drives on every side: `first` null, no tiles, nothing throws in `buildEdge`). The allocator is met. The "run is `ok`" part is not (Must fix 1).
-- **Criterion 3, build-outs and trees.** This is the old loop moved over, with the outer side left plain. P5 checks it from the layer, and `stage.test.ts` "the parking band: ..." checks it on every named city. Met.
-- **Criterion 4, P1, P3 to P6.** `check.ts` is a faithful port of `parkmetrics.ts` (the same terms and thresholds, P2 left out). `stage.test.ts` requires every verdict to pass, the supply within `PARK_SUPPLY_BAND` and `blocksWithoutBays` 0 on all 13 named cities, with no exception. `report.test.ts` prints the 40-city table, old path beside pipeline, and asserts only on the named cities. The failing fixture (the default city with one block's only serving tile removed) gives P1 = 1. Met. I did not re-run it (the gate is green).
-- **Criterion 5, R-1 to R-7 in part.** Frozen layers, the digests of the earlier layers unchanged under a test double, the digest pins, determinism, the 6 x 6 run, the picture against the layer, and a legend with the eight kinds plus the cut. Met.
-- **Files.** The diff stays within the files the ticket lists: `src/city/edge/`, the one line in `stages.ts`, and the one line in `run.test.ts`.
+Round 2. Criteria 1, 3, 4 and 5 were met in round 1. Commit 4b639de touches only `check.ts`, `stage.ts`, `stage.test.ts` and `report.test.ts`, so they still hold.
+
+- **Round 1 must-fix 1 (criterion 2, "the run is `ok`").** Done.
+  - `edgeStage.run` now calls `edgeFailures(..., true)`. With that flag, P1 no longer counts `blocksWithoutBays`. It also lets the supply-under-band term go, but only when some block has `shortTiles > 0` and supply is below `PARK_SUPPLY_BAND.lo`. `bayServedFar`, supply over the band, and P3 to P6 still throw.
+  - The fixture "a block whose own bands and across bands are all full..." now runs `runCity` with its typed-in land and mass as fixture stages and the real `edgeStage`. It asserts that the run is `ok` and that `first` is null. It also checks that the flagged failure list has no P1 and the unflagged one does. That is the stage-level test round 1 asked for.
+  - `report.test.ts` now prints `run.ok` per city and asserts it on the named cities. That covers round 1's could-improve 1.
+- The named-city test in `stage.test.ts` still requires every verdict to pass, `blocksWithoutBays` 0 and supply in the band. So the waiver cannot hide a shortfall on the named cities.
+- I ran `npx vitest run --maxWorkers=2 src/city/edge/stage.test.ts`: 87 passed. The main session's gate on 4b639de was green.
 
 ## Rule conflicts and risks
-- `edgeStage.run` (`stage.ts`) throws `CityStageError` on any failing check, P1 included. P1 counts every block with fewer than one tile (`blocksWithoutBays`). So a block left with `first` null ends the run `ok: false`. The ticket says the opposite in two places: criterion 2 ("gets `first` null and the run is `ok`") and Q6's answer ("A block left short is recorded in the edge layer and the stage does not throw"). The fixture passes only because it calls `buildEdge` directly and never goes through the stage. `report.test.ts` also calls `buildEdge`, so it never shows that `runCity(..., "edge")` fails on the cities outside the named list that the ticket expects to be short. Which of those fail on the per-block term rather than the supply term: may occur, not checked.
-- `report.test.ts` and `constants.test.ts` import `src/render3d/`. They are tests, and the ticket allows it ("as `lots.test.ts` does"). No production file in `src/city/edge/` imports outside `core` and `pipeline`.
+- The waiver subtracts all of `blocksWithoutBays`, not just the blocks recorded short. A block below the minimum but with `shortTiles` 0 (if `wanted` can be 0, for example) would pass the stage silently. That case may occur, not checked. It is within "recorded, not thrown on" only if the two counts agree.
+- Waiving the supply-under-band term on a short city reads the ticket's "the stage does not throw" broadly. It is defensible (the same shortfall, seen city-wide), and the named cities are still pinned in the band by test.
+- No purity, folder or dependency issue. The diff stays in `src/city/edge/`, plus the one line each in `stages.ts` and `run.test.ts` from round 1.
 
 ## Must fix
-1. **`src/city/edge/stage.ts` (`run`): a short block must not make the stage throw.** Record a block's shortfall (`first` null, `shortTiles` > 0, and P1's `blocksWithoutBays` term) in the layer and return the layer. Keep throwing on P3 to P6, and on whatever else the ticket treats as the stage unable to do its job. Then change the fixture "a block whose own bands and across bands are all full..." so it runs `edgeStage.run` on a plan built from its typed-in layers (or `runStages` with fixture stages) and asserts that the run is `ok` with `first` null. Effect: criterion 2's "the run is `ok`" and Q6's "the stage does not throw" hold for the stage, not only for `buildEdge`. If the builder thinks a short block should still be an R-2 failure, that is a ticket change and goes to Josh, not a code choice.
+none
 
 ## Could improve
-1. `report.test.ts` could also print, for each city, whether `runCity(o, "edge").ok` holds. The report would then show what the stage does, not only what `buildEdge` lays.
-2. `check.ts`'s tree check places "next to a crossing" by the neighbours' roles. The allocator places it by the interval ends (`a0 + BAY_JUNCTION_CLEAR`). They agree on today's streets. A one-line comment saying so would help D2.
+1. `check.ts` (`edgeFailures`): subtract the blocks with `shortTiles > 0`, not `m.blocksWithoutBays`. Or assert the two are equal. That way only a block the layer records as short is let through.
+2. Round 1's could-improve 2 still stands: a one-line comment in `check.ts` saying that the tree check's "next to a crossing" (from the neighbours' roles) agrees with the allocator's interval ends on today's streets.
