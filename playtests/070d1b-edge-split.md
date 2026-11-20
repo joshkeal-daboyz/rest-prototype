@@ -6,7 +6,7 @@ regressions: 0
 Split the edge band stage (src/city/edge/) to the new plan; no play behaviour.
 
 ## What I ran
-No `npm run playtest`. Diff against ticket/070a4-split-plan touches only `src/city/edge/*` (band, check, constants and tests). The harness imports only core, grid, play, render, audio and `puzzles/`, none changed, so no map can play differently.
+No `npm run playtest` (round 2). The fix commit 7e0e82f changes only `src/city/edge/report.test.ts` and `stage.test.ts`. The harness imports core, grid, play, render, audio and `puzzles/`, none changed, so no map can play differently. Round 1 found 0 regressions.
 
 ## Intended differences, snapshots updated
 none
