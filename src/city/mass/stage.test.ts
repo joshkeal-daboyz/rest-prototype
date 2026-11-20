@@ -1,5 +1,5 @@
 /**
- * Stage 3, mass (sections C1 and C2), on the named cities (default 3 x 3 seed 1, 3 x 3 seeds 1 to 10, 6 x 4 seeds 1 to 3): rings, strips, openings, drives, courts, units, open sides and partners, M3, M4b, M5 (strict:
+ * Stage 3, mass (sections C1 and C2), on the named cities (A4d: 6 x 6 seeds 1 to 10, the default seed 1 first): rings, strips, openings, drives, courts, units, open sides and partners, M3, M4b, M5 (strict:
  * no lane exemption), G2, G3, R1, P2, the picture, the digest pins, R-1 to R-7. HEAVY: each city is built once, through a module-level cache.
  *
  * C2 (re-cut 19 Nov 2026, Josh: "Yes, all four"): the stage returns ok on all 13 named cities, with PARK_PER_HOME 0.075, yard courts, and a walk-through for every court part with no drive. Nothing is loosened and no city is pinned (R-2).
@@ -12,10 +12,12 @@ import { pictureProblems } from "../pipeline/picture";
 import type { CityStageDef } from "../pipeline/types";
 import { runCity } from "../stages";
 import { landStage } from "../land/stage";
-import { streetsStage } from "../streets/stage";
+import { streetsStage, streetsStageWith } from "../streets/stage";
+import { stageRand } from "../pipeline/seeds";
 import { TILE_CITY_R1_MIN } from "./constants";
 import { frontageShare, massFailures, p2Value, parkingNumbers } from "./check";
-import { lotQuota, unitsOf } from "./lots";
+import { buildMass, lotQuota, unitsOf } from "./lots";
+import { mouthFacesJunction } from "./reach";
 import { LOTS_PER_BLOCK_MAX, LOT_STALLS } from "./constants";
 import { DELTA, SIDES, columnOfSides, keyOf, ringOf } from "./geometry";
 import { MASS_LEGEND, massStage } from "./stage";
@@ -26,14 +28,20 @@ interface City {
   readonly seed: number;
 }
 const NAMED: City[] = [];
-for (let seed = 1; seed <= 10; seed++) NAMED.push({ blocksX: 3, blocksZ: 3, seed });
-for (let seed = 1; seed <= 3; seed++) NAMED.push({ blocksX: 6, blocksZ: 4, seed });
+for (let seed = 1; seed <= 10; seed++) NAMED.push({ blocksX: 6, blocksZ: 6, seed });
 
 const cache = new Map<string, ReturnType<typeof runCity>>();
 function cityOf(o: City): ReturnType<typeof runCity> {
   const k = `${o.blocksX}x${o.blocksZ}:${o.seed}`;
   if (!cache.has(k)) cache.set(k, runCity(o, "mass"));
   return cache.get(k)!;
+}
+/** The same city with every street two-way (C3's criterion 6 reports both ways). */
+const cacheOff = new Map<string, ReturnType<typeof runCity>>();
+function cityOff(o: City): ReturnType<typeof runCity> {
+  const k = `${o.blocksX}x${o.blocksZ}:${o.seed}`;
+  if (!cacheOff.has(k)) cacheOff.set(k, runCity(o, "mass", [streetsStageWith(0) as unknown as CityStageDef, landStage as unknown as CityStageDef, massStage as unknown as CityStageDef]));
+  return cacheOff.get(k)!;
 }
 const layersOf = (o: City): { streets: CityStreetsLayer; land: CityLandLayer; mass: CityMassLayer; plan: CityPlan } => {
   const r = cityOf(o);
@@ -43,11 +51,9 @@ const layersOf = (o: City): { streets: CityStreetsLayer; land: CityLandLayer; ma
 const label = (o: City): string => `${o.blocksX} x ${o.blocksZ} seed ${o.seed}`;
 
 describe("stage 3, mass, on the named cities", { timeout: 120_000 }, () => {
-  it("the default city is the 3 x 3 seed 1 city, and the named cities are 13", () => {
-    expect(NAMED).toHaveLength(13);
-    const first = runCity({}, "mass");
-    expect(first.ok).toBe(cityOf({ blocksX: 3, blocksZ: 3, seed: 1 }).ok);
-    expect(first.plan.digests.mass).toBe(cityOf({ blocksX: 3, blocksZ: 3, seed: 1 }).plan.digests.mass);
+  it("the named cities are 10, the default 6 x 6 seed 1 first (A4d)", () => {
+    expect(NAMED).toHaveLength(10);
+    expect(NAMED[0]).toEqual({ blocksX: 6, blocksZ: 6, seed: 1 });
   });
 
   for (const o of NAMED) {
@@ -288,21 +294,19 @@ describe("stage 3, mass, on the named cities", { timeout: 120_000 }, () => {
     });
   }
 
-  // The mass digest pins as B2 left them (3 x 3 seed 1 "b04dea0a", seed 2 "254afa4f", seed 3 "8f2ab5c9", 6 x 4 seed 1 "4be24138") are MOVED BY C2 on purpose: courts, units, lots and yard courts join the layer, a lane
-  // is one opening with two mouths, and a walk-through goes only where no drive does.
-  it("R-4: the layer's digest is pinned on the default city, 3 x 3 seeds 2 and 3, and 6 x 4 seed 1 (re-taken, MOVED BY C2)", () => {
+  // The mass digest pins are MOVED BY A4d on purpose: the 6 x 6 named cities (seeds 1, 2, 3 and 8, one-way on) and the split limit 128 (C3 pinned the 3 x 3 and 6 x 4 cities).
+  it("R-4: the layer's digest is pinned on 6 x 6 seeds 1, 2, 3 and 8, one-way on (re-taken, MOVED BY A4d: the 6 x 6 named cities, the split limit 128)", () => {
     const pins: [City, string][] = [
-      [{ blocksX: 3, blocksZ: 3, seed: 1 }, "3fde3b89"],
-      [{ blocksX: 3, blocksZ: 3, seed: 2 }, "03431b98"],
-      [{ blocksX: 3, blocksZ: 3, seed: 3 }, "7b79789d"],
-      [{ blocksX: 6, blocksZ: 4, seed: 1 }, "c2d261bc"],
+      [{ blocksX: 6, blocksZ: 6, seed: 1 }, "6426e5c1"],
+      [{ blocksX: 6, blocksZ: 6, seed: 2 }, "a874d043"],
+      [{ blocksX: 6, blocksZ: 6, seed: 3 }, "186b4e85"],
+      [{ blocksX: 6, blocksZ: 6, seed: 8 }, "9a90c018"],
     ];
     for (const [o, digest] of pins) expect(layersOf(o).plan.digests.mass, label(o)).toBe(digest);
-    expect(runCity({}, "mass").plan.digests.mass).toBe(pins[0]![1]);
   });
 
   it("R-4: a test double for the mass stage leaves the streets and land digests equal to the standard run's", () => {
-    const o = { blocksX: 3, blocksZ: 3, seed: 2 };
+    const o = { blocksX: 6, blocksZ: 6, seed: 2 };
     const double: CityStageDef = { name: "mass", run: () => ({ stage: "mass", cells: [], built: [], openings: [], courts: [], units: [] }), picture: massStage.picture } as unknown as CityStageDef;
     const doubled = runCity(o, "mass", [streetsStage as unknown as CityStageDef, landStage as unknown as CityStageDef, double]);
     expect(doubled.ok).toBe(true);
@@ -313,8 +317,8 @@ describe("stage 3, mass, on the named cities", { timeout: 120_000 }, () => {
 
   it("R-3: the stage's randomness is its own: the same city twice is the same layer, and another seed is another layer", () => {
     const finger = (r: ReturnType<typeof runCity>): string | undefined => (r.ok ? r.plan.digests.mass : r.failure.reason);
-    expect(finger(runCity({ blocksX: 3, blocksZ: 3, seed: 2 }, "mass"))).toBe(finger(cityOf({ blocksX: 3, blocksZ: 3, seed: 2 })));
-    expect(finger(cityOf({ blocksX: 3, blocksZ: 3, seed: 2 }))).not.toBe(finger(cityOf({ blocksX: 3, blocksZ: 3, seed: 3 })));
+    expect(finger(runCity({ blocksX: 6, blocksZ: 6, seed: 2 }, "mass"))).toBe(finger(cityOf({ blocksX: 6, blocksZ: 6, seed: 2 })));
+    expect(finger(cityOf({ blocksX: 6, blocksZ: 6, seed: 2 }))).not.toBe(finger(cityOf({ blocksX: 6, blocksZ: 6, seed: 3 })));
   });
 
   it("R-1: the layer is frozen when the stage returns", () => {
@@ -327,7 +331,7 @@ describe("stage 3, mass, on the named cities", { timeout: 120_000 }, () => {
   });
 
   it("R-7: a 6 x 6 city (seed 1) ends ok or with a failure naming a check, never an uncaught error", () => {
-    const r = runCity({ blocksX: 6, blocksZ: 6, seed: 1 }, "mass");
+    const r = cityOf({ blocksX: 6, blocksZ: 6, seed: 1 });
     if (!r.ok) {
       expect(["land", "mass"]).toContain(r.failure.stage);
       expect(r.failure.reason).not.toMatch(/^bug:/);
@@ -371,6 +375,75 @@ describe("stage 3, mass, on the named cities", { timeout: 120_000 }, () => {
     }
     console.log(rows.join("\n"));
     expect(rows).toHaveLength(NAMED.length + 1);
+  });
+
+  for (const way of ["on", "off"] as const) {
+    it(`C3: one-way ${way}: every named city returns ok and M3, M4b, M5 (with the S6 clause), G2, G3, R1 and P2 hold; no mouth lies in a widened junction-facing span (criteria 1, 2, 6)`, () => {
+      for (const o of NAMED) {
+        const r = way === "on" ? cityOf(o) : cityOff(o);
+        if (!r.ok) throw new Error(`${label(o)} one-way ${way}: stage ${r.failure.stage}: ${r.failure.reason}`);
+        const streets = r.plan.layers.streets!;
+        const land = r.plan.layers.land!;
+        const mass = r.plan.layers.mass!;
+        expect(massFailures(mass, streets.blocks, land), `${label(o)} ${way}`).toEqual([]);
+        expect(frontageShare(mass).share, `${label(o)} ${way}`).toBeGreaterThanOrEqual(TILE_CITY_R1_MIN);
+        // read here from the sides with its own arithmetic: each vehicle mouth cell on a block edge against that side's junction-facing stretches, widened by 1
+        const blockOf = new Map(streets.blocks.map((b) => [b.id, b] as const));
+        for (const op of mass.openings) {
+          const b = blockOf.get(op.block)!;
+          for (const m of op.mouth) {
+            for (const c of m.cells) {
+              const onSide = { "-x": c.i === b.i0, "+x": c.i === b.i1 - 1, "-z": c.j === b.j0, "+z": c.j === b.j1 - 1 } as const;
+              for (const s of ["-x", "+x", "-z", "+z"] as const) {
+                if (!onSide[s]) continue;
+                const along = s === "-z" || s === "+z" ? c.i : c.j;
+                for (const fj of b.sides[s].junctions) expect(along >= fj.span.lo - 1 && along < fj.span.hi + 1, `${label(o)} ${way} ${op.id} at (${c.i}, ${c.j}) vs ${fj.span.lo}..${fj.span.hi}`).toBe(false);
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  it("C3 criteria 3 and 5: Mass reads no block's bi or bj and no street's line (grep over src/city/mass/)", () => {
+    const dir = fileURLToPath(new URL(".", import.meta.url));
+    for (const f of readdirSync(dir).filter((n) => n.endsWith(".ts") && !n.endsWith(".test.ts"))) {
+      const text = readFileSync(dir + f, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+      expect(text, f).not.toMatch(/\.(bi|bj|line)\b|\b(bi|bj)\s*[:=]|\[\s*["'](bi|bj|line)["']\s*\]/);
+    }
+  });
+
+  it("C3 report (criterion 6): per named city, one-way on and off, P2's stalls over wanted, R1, and the vehicle mouths S6 moved", () => {
+    const rows: string[] = ["city | way | P2 stalls | wanted | R1 | vehicle mouths | mouths S6 moved"];
+    for (const way of ["on", "off"] as const) {
+      for (const o of NAMED) {
+        const r = way === "on" ? cityOf(o) : cityOff(o);
+        if (!r.ok) {
+          rows.push(`${label(o)} | ${way} | stopped at ${r.failure.stage}: ${r.failure.reason}`);
+          continue;
+        }
+        const streets = r.plan.layers.streets!;
+        const land = r.plan.layers.land!;
+        const mass = r.plan.layers.mass!;
+        const n = parkingNumbers(mass, streets.blocks);
+        // the same layout with S6 off: the vehicle mouths it would have put onto a widened junction-facing stretch are the ones S6 moved
+        const blockOf = new Map(streets.blocks.map((b) => [b.id, b] as const));
+        const free = buildMass(streets, land, stageRand("mass", o.seed), false);
+        let moved = 0;
+        let mouths = 0;
+        for (const op of free.plan.openings) {
+          if (op.kind === "lane" || op.mouth.length === 0) continue;
+          mouths++;
+          const b = blockOf.get(op.block)!;
+          const hit = op.mouth.some((m) => m.cells.some((c) => (["-x", "+x", "-z", "+z"] as const).some((s) => (s === "-x" ? c.i === b.i0 : s === "+x" ? c.i === b.i1 - 1 : s === "-z" ? c.j === b.j0 : c.j === b.j1 - 1) && mouthFacesJunction(b, s, c))));
+          if (hit) moved++;
+        }
+        rows.push([label(o), way, n.lotStalls, n.stallDemand.toFixed(1), frontageShare(mass).share.toFixed(3), mouths, moved].join(" | "));
+      }
+    }
+    console.log(rows.join("\n"));
+    expect(rows).toHaveLength(2 * NAMED.length + 1);
   });
 });
 

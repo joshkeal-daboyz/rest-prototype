@@ -69,7 +69,7 @@ export interface CityStreet {
   readonly across0: number;
   /** The carriageway, kerb to kerb, across the street, metres. */
   readonly carriage: { readonly lo_m: number; readonly hi_m: number };
-  /** The centre line, same coordinate. */
+  /** The centre line, same coordinate. On a one-way street (ticket 070 A4b) it is the middle of its one lane cell, not a lane edge (on one lane that edge is a kerb). */
   readonly centre_m: number;
 }
 
@@ -100,8 +100,8 @@ export interface CityBlock {
 
 // ---- stage 1, the split plan (ticket 070 A4; Josh, 20 Nov 2026: "C, split plan") ----
 //
-// Written before A4 starts, as standalone types, so `goal/city-style` keeps type-checking. A4's criterion 0 (the lead-architect, on A4's branch) wires them into
-// `CityStreetsLayer` as `CityStreetsLayerA4` below says. Until then nothing reads them.
+// Written before A4 started, as standalone types, so `goal/city-style` kept type-checking. A4's criterion 0 (the lead-architect, on A4's branch, 20 Nov 2026)
+// wired them into `CityStreetsLayer` (the old lattice layer is deleted; `sizes` became `outline`).
 //
 // On the split plan nothing is a grid coordinate:
 // - a block's `bi` and `bj` are ranks: `bi` is the number of distinct block `i0` values below its `i0`, `bj` likewise for `j0`. Its id stays "block:<bi>:<bj>".
@@ -125,8 +125,8 @@ export interface CityStreetEnd {
   readonly junction: string;
 }
 
-/** A street on the split plan: today's fields, plus where it runs and how it ends. */
-export interface CityPlanStreet extends CityStreet {
+/** A street on the split plan: today's fields, plus where it runs, how it ends, and (from A4b) its section and direction (`CityStreetTraffic`, below). */
+export interface CityPlanStreet extends CityStreet, CityStreetTraffic {
   /** The cells along its axis it runs over, its end junctions' squares included (so a T's ending street reaches the far kerb of the through street's carriageway). */
   readonly span: CitySpan;
   /** Its two ends, the low end (`span.lo`) first. */
@@ -135,11 +135,14 @@ export interface CityPlanStreet extends CityStreet {
   readonly outer: CitySide | null;
 }
 
-/** Where streets meet: the 3 by 3 carriageway square (grammar rule 10, unchanged; S2). Its id is "junction:<i>:<j>", its low corner cell. */
+/**
+ * Where streets meet: the rectangle where the two carriageways cross (S2). On A4's plan every carriageway is 3 cells, so it is 3 by 3 (grammar rule 10).
+ * From A4b (one-way streets) it is the x street's carriageway width by the z street's: 3, 2 or 1 cells each way. Its id is "junction:<i>:<j>", its low corner cell.
+ */
 export interface CityJunction {
   readonly id: string;
   readonly kind: CityJunctionKind;
-  /** The nine carriageway cells (role `junction`). */
+  /** Its carriageway cells (role `junction`): nine on two two-way streets; 1 to 6 where a one-way street meets (A4b). */
   readonly cells: readonly CityCell[];
   /** The streets that meet there: `passes` true for a street that runs through it, false for one that ends in it. A T has one of each; a crossroads two passing; a corner two ending. */
   readonly streets: readonly { readonly street: string; readonly passes: boolean }[];
@@ -160,7 +163,7 @@ export interface CityJunctionFacing {
   readonly junction: string;
   /** The street that ends in the junction, opposite this side. */
   readonly street: string;
-  /** The ending street's cross-section along this side: the 5 cells opposite it. Clearances either side (`BAY_JUNCTION_CLEAR`) are the reading stage's, not stage 1's. */
+  /** The ending street's cross-section along this side: the cells opposite it, its full width (5 cells two-way; 4 or 3 one-way, from A4b). Clearances either side (`BAY_JUNCTION_CLEAR`) are the reading stage's, not stage 1's. */
   readonly span: CitySpan;
 }
 
@@ -191,32 +194,51 @@ export interface CityOutline {
   readonly draw: number | null;
 }
 
-/**
- * The street layer as ticket 070 A4 makes it. Criterion 0 (the lead-architect, on A4's branch) renames this to `CityStreetsLayer` and deletes the old one:
- * `streets` and `blocks` gain their new fields, `junctions` is added, and `sizes` becomes `outline`. Today's `cells` are unchanged in shape.
- */
-export interface CityStreetsLayerA4 {
+/** The street layer (stage 1) on the split plan (ticket 070 A4), with one-way streets (A4b). Today's `cells` are unchanged in shape. */
+export interface CityStreetsLayer {
   readonly stage: "streets";
+  /** The city's extent, in cells. */
   readonly w: number;
   readonly h: number;
   readonly streets: readonly CityPlanStreet[];
+  /** Every street cell once. A cell not listed is inside a block. */
   readonly cells: readonly CityStreetCell[];
   readonly blocks: readonly CityPlanBlock[];
   readonly junctions: readonly CityJunction[];
+  /** The city's ground inside the four edge streets, and the draw that gave it (null: the fallback lists). */
   readonly outline: CityOutline;
+  /** Every one-way arrow cell (A4b), row-major. Empty when the city has no one-way street. */
+  readonly arrows: readonly CityStreetArrow[];
 }
 
-export interface CityStreetsLayer {
-  readonly stage: "streets";
-  /** The lattice, in cells. */
-  readonly w: number;
-  readonly h: number;
-  readonly streets: readonly CityStreet[];
-  /** Every street cell once. A cell not listed is inside a block. */
-  readonly cells: readonly CityStreetCell[];
-  readonly blocks: readonly CityBlock[];
-  /** The block sizes in cells, and the draw that gave them (null: the fallback lists). */
-  readonly sizes: { readonly widths: readonly number[]; readonly depths: readonly number[]; readonly draw: number | null };
+// ---- stage 1, one-way streets (ticket 070 A4b; docs/design/070-streets-one-way.md) ----
+//
+// Josh, 20 Nov 2026, in chat: "I'm sorry, it should be a maximum of 2 tiles wide. 1 for parking (discretionary), 1 for the road"; asked whether the pavement
+// stays on each side, "correct". Folded in by A4b's criterion 0 (the lead-architect, on A4b's branch): `CityPlanStreet` extends `CityStreetTraffic`, and
+// `CityStreetsLayer` has `arrows`.
+
+/** A street's cross-section (grammar rule 10 for "twoWay"; Josh's one-way ruling for the other two). Its `bands` match it, kerb to kerb across.
+ * - "twoWay": pavement, parking, lane, lane, pavement (5 cells, 25 m; carriageway 15 m). Every edge street (S8) and every street before A4b.
+ * - "oneWay": pavement, parking, lane, pavement, the parking on either side (4 cells, 20 m; carriageway 10 m).
+ * - "oneWayBare": pavement, lane, pavement (3 cells, 15 m; carriageway 5 m). Only where S10 lets it.
+ */
+export type CityStreetSection = "twoWay" | "oneWay" | "oneWayBare";
+
+/** Which way traffic runs along the street's axis: "both" (two-way), "+" (towards higher i for an "x" street, higher j for a "z" street), "-" (lower). */
+export type CityStreetFlow = "both" | "+" | "-";
+
+/** A street's section and direction. `flow` is "both" exactly when `section` is "twoWay". */
+export interface CityStreetTraffic {
+  readonly section: CityStreetSection;
+  readonly flow: CityStreetFlow;
+}
+
+/** A lane cell of a one-way street that carries a painted arrow (the City Pack's `SM_Env_Road_Arrow_01`/`_02`, drawn by E), pointing with the traffic.
+ * Stage 1 places them (the assembler decides nothing): the first lane cell after each junction exit, then one every `ONE_WAY_ARROW_EVERY` cells (PROVISIONAL). */
+export interface CityStreetArrow extends CityCell {
+  readonly street: string;
+  /** The way the arrow points, which is the street's flow: "+x"/"-x" on an "x" street, "+z"/"-z" on a "z" street. */
+  readonly toward: CitySide;
 }
 
 // ---- stage 2: land ----
@@ -463,7 +485,7 @@ export interface CityEdgeBlock {
   readonly block: string;
   /** Its quota in tiles: max(`BAY_TILES_PER_BLOCK_MIN`, round(shops x `PARK_PER_SHOP` / `BAYS_PER_PARKING_TILE`)), shops from `mass.units`. */
   readonly wanted: number;
-  /** Where the first pass laid its first tile: on its own band, on the band across a street, or nowhere (no band could take one). */
+  /** Where the first pass laid its first tile: on its own band, on the band across a street, or nowhere (no band could take one). From D1b (PB, Josh, 20 Nov 2026: "yes, yes"), "own" also covers a whole park's one tile on its own kerb, laid only when nothing across could serve it. */
   readonly first: "own" | "across" | null;
   /** Tiles of its quota no band could take (the old path's `shortTiles`): 0 when served in full. P1 reads it from here. */
   readonly shortTiles: number;

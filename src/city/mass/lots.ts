@@ -8,12 +8,13 @@
  * Pure: it reads the street and land layers and the stage's own `rand`, and keeps nothing between calls.
  */
 
-import type { CityBlock, CityBuiltCell, CityCourt, CityBlockUnits, CityCell, CityLandLayer, CitySide, CityStreetsLayer } from "../../core";
+import type { CityBuiltCell, CityCourt, CityBlockUnits, CityCell, CityLandLayer, CityPlanBlock, CitySide, CityStreetsLayer } from "../../core";
 
 import type { StageRand } from "../pipeline/seeds";
 import { CITY_FRONT_LOT_BLOCKS_MAX, HOME_COLUMN_FLOORS, LOTS_PER_BLOCK_MAX, LOT_STALLS, PARK_PER_HOME, TERRACE_BAYS_MAX, UNIT_FLOORS_NOMINAL } from "./constants";
 import { cellKey, keyOf } from "./geometry";
 import { planMass, plazaOf, type MassPlan } from "./plan";
+import { mouthFacesJunction } from "./reach";
 import { SIDE_ORDER, cellOnSide, lengthOf, offsetsOf, type LotKind, type LotSite } from "./sites";
 
 type StreetsIn = Pick<CityStreetsLayer, "blocks" | "cells">;
@@ -29,7 +30,7 @@ export interface Counted {
  * What each block holds, counted from its built cells (18.2 on 5 m cells). A shop is a street-frontage outer ground column that is not its run's door column: a run is the cells in one straight row facing
  * the street (or a plaza or park edge) on one side, and it has one door column per `TERRACE_BAYS_MAX` columns, rounded up. A column that is on two runs (a corner) counts once.
  */
-export function unitsOf(plan: { readonly built: readonly CityBuiltCell[] }, blocks: readonly CityBlock[]): Map<string, Counted> {
+export function unitsOf(plan: { readonly built: readonly CityBuiltCell[] }, blocks: readonly Pick<CityPlanBlock, "id">[]): Map<string, Counted> {
   const byBlock = new Map<string, CityBuiltCell[]>();
   for (const b of plan.built) {
     const list = byBlock.get(b.block);
@@ -78,19 +79,20 @@ export interface MassBuild {
   readonly units: CityBlockUnits[];
 }
 
-/** The block across `side` of `b` (a block shares a street with it), or undefined at the city's edge. */
-const NEIGH: Readonly<Record<CitySide, readonly [number, number]>> = { "-x": [-1, 0], "+x": [1, 0], "-z": [0, -1], "+z": [0, 1] };
-const sideLen = (b: CityBlock, side: CitySide): number => (side === "-z" || side === "+z" ? b.i1 - b.i0 : b.j1 - b.j0);
+const sideLen = (b: CityPlanBlock, side: CitySide): number => (side === "-z" || side === "+z" ? b.i1 - b.i0 : b.j1 - b.j0);
+/** The blocks across `side` of `b`, the longest shared stretch first, ties by id (a block shares a street with each; none at the city's edge). */
+const acrossOrder = (b: CityPlanBlock, side: CitySide): string[] =>
+  [...b.sides[side].across].sort((p, q) => q.span.hi - q.span.lo - (p.span.hi - p.span.lo) || (p.block < q.block ? -1 : p.block > q.block ? 1 : 0)).map((a) => a.block);
 /** Runs within 5 cells of each other in length are as good as each other; among them the first by id (a plain rule: no tuned number). */
 const bucket = (len: number): number => Math.floor(len / 5);
 
 /**
  * Lays the whole mass: the rings, the openings, the lots and the units. The lot sites are chosen by quota (`planLots` below) and the layout is asked again of the units it leaves, as 056 did, until the quotas stand still.
- * Throws `CityStageError` where a rule cannot be met (`planMass`'s own failures).
+ * Throws `CityStageError` where a rule cannot be met (`planMass`'s own failures). `s6` is true except in the report test, which lays the city without S6 to count the mouths S6 moved.
  */
-export function buildMass(streets: StreetsIn, land: LandIn, rand: StageRand): MassBuild {
+export function buildMass(streets: StreetsIn, land: LandIn, rand: StageRand, s6 = true): MassBuild {
   const blocks = streets.blocks;
-  const blockAt = new Map(blocks.map((b) => [`${b.bi},${b.bj}`, b] as const));
+  const blockById = new Map(blocks.map((b) => [b.id, b] as const));
   const partsOf = new Map<string, CityLandLayer["parts"][number][]>();
   for (const p of land.parts) {
     if (p.shape !== "court") continue;
@@ -137,8 +139,9 @@ export function buildMass(streets: StreetsIn, land: LandIn, rand: StageRand): Ma
       if (site) add(site);
     }
 
+    const mouthFaces = (host: CityPlanBlock, p: CityLandLayer["parts"][number], side: CitySide, t: number): boolean => s6 && [0, 1].some((k) => mouthFacesJunction(host, side, cellOnSide(p, side, t + k, 0)));
     /** The best site in `host` for a lot that counts toward `serves`: a court first, a frontage lot only where no court fits and the city's share of them allows. */
-    const pick = (host: CityBlock, serves: string): LotSite | null => {
+    const pick = (host: CityPlanBlock, serves: string): LotSite | null => {
       for (const kind of ["court", "yard", "frontLot"] as LotKind[]) {
         if (kind === "frontLot" && !frontBlocks.has(host.id) && frontBlocks.size >= frontMax) break;
         let best: { rank: readonly [number, number]; site: LotSite } | null = null;
@@ -146,7 +149,8 @@ export function buildMass(streets: StreetsIn, land: LandIn, rand: StageRand): Ma
           const existing = chosen.get(p.id) ?? [];
           for (const side of SIDE_ORDER) {
             if (p.edges[side] !== "street") continue;
-            const opts = offsetsOf(p, plazas.get(p.id)!, existing, side, kind);
+            // S6: a drive or frontage lot onto a street keeps both mouth cells off the junction-facing stretches of the side, widened (a lane-side drive is not offered here, so not judged)
+            const opts = offsetsOf(p, plazas.get(p.id)!, existing, side, kind).filter((o) => !mouthFaces(host, p, side, o));
             if (opts.length === 0) continue;
             const t = opts[rand("lot", p.id, side, kind, existing.length) % opts.length]!;
             const rank = [parkedAt(p, side, t), -bucket(lengthOf(p, side))] as const;
@@ -176,14 +180,16 @@ export function buildMass(streets: StreetsIn, land: LandIn, rand: StageRand): Ma
       for (const b of blocks) {
         if ((served.get(b.id) ?? 0) >= (wanted.get(b.id) ?? 0)) continue;
         const sides = [...SIDE_ORDER].sort((p, q) => sideLen(b, q) - sideLen(b, p));
-        for (const side of sides) {
-          const n = blockAt.get(`${b.bi + NEIGH[side][0]},${b.bj + NEIGH[side][1]}`);
-          if (!n || (hosted.get(n.id) ?? 0) >= LOTS_PER_BLOCK_MAX) continue;
-          const s = pick(n, b.id);
-          if (!s) continue;
-          add(s);
-          moved = true;
-          break;
+        search: for (const side of sides) {
+          for (const id of acrossOrder(b, side)) {
+            const n = blockById.get(id);
+            if (!n || (hosted.get(n.id) ?? 0) >= LOTS_PER_BLOCK_MAX) continue;
+            const s = pick(n, b.id);
+            if (!s) continue;
+            add(s);
+            moved = true;
+            break search;
+          }
         }
       }
       if (!moved) break;

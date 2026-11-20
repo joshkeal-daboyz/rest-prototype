@@ -6,8 +6,9 @@
  * square over 1 m) left unfilled, and on 5 m cells any unused cell is a 5 m square, so none is allowed; R1's floor is `TILE_CITY_R1_MIN`.
  */
 
-import type { CityBlock, CityCell, CityLandLayer, CityMassCell, CityMassLayer, CityMassUse, CityPart } from "../../core";
+import type { CityBlock, CityCell, CityLandLayer, CityMassCell, CityMassLayer, CityMassUse, CityPart, CityPlanBlock, CitySide } from "../../core";
 import { CITY_FRONT_LOT_BLOCKS_MAX, LOTS_PER_BLOCK_MAX, PARK_PER_HOME, PARK_SUPPLY_BAND, ROW_STRETCH_MIN_CELLS, SHORT_BLOCKS_ONE_IN, TILE_CITY_R1_MIN } from "./constants";
+import { mouthFacesJunction } from "./reach";
 import { DELTA, SIDES, behindOf, cellKey, columnOfSides, keyOf, openSidesFrom, ringOf, shortSideOf } from "./geometry";
 
 export type MassCheckId = "M3" | "M4b" | "M5" | "G2" | "G3" | "R1" | "P2";
@@ -149,8 +150,11 @@ const OPENING_SHAPE: Readonly<Record<string, { uses: readonly CityMassUse[]; mou
   walk: { uses: ["walk"], mouth: false },
 };
 
+const BLOCK_SIDES: readonly CitySide[] = ["-x", "+x", "-z", "+z"];
+
 /** M5: every open cell of the two outer rings is in a recorded opening of rule 6's table, shaped as the table says; no row stretch of one cell; every interior touches an opening. */
-function checkM5(mass: CityMassLayer, ix: Index, land: LandParts, out: MassFailure[]): void {
+function checkM5(mass: CityMassLayer, ix: Index, land: LandParts, blocks: readonly CityPlanBlock[], out: MassFailure[]): void {
+  const blockById = new Map(blocks.map((b) => [b.id, b] as const));
   const recorded = new Map(mass.openings.map((o) => [o.id, o] as const));
   const partById = new Map(land.parts.map((x) => [x.id, x] as const));
   if (recorded.size !== mass.openings.length) out.push({ id: "M5", reason: "M5: two openings share an id", cells: [] });
@@ -173,6 +177,18 @@ function checkM5(mass: CityMassLayer, ix: Index, land: LandParts, out: MassFailu
     const wantsMouth = shape.mouth && !onLane;
     const mouths = o.kind === "lane" ? 2 : wantsMouth ? 1 : 0;
     if (o.mouth.length !== mouths) out.push({ id: "M5", reason: `M5: opening ${o.id} (${o.kind}) ${mouths === 0 ? "has a mouth, but the kerb runs straight past it" : o.mouth.length === 0 ? "has no mouth" : `has ${o.mouth.length} mouths, not ${mouths}`}`, cells: o.cells });
+    // S6 (C3): no vehicle mouth on a street (a lane's, a drive's or a frontage lot's) lies in a junction-facing stretch of its block's side, widened by `BAY_JUNCTION_CLEAR`
+    const host = blockById.get(o.block);
+    if (host) {
+      for (const m of o.mouth) {
+        for (const c of m.cells) {
+          for (const s of BLOCK_SIDES) {
+            const onEdge = s === "-x" ? c.i === host.i0 : s === "+x" ? c.i === host.i1 - 1 : s === "-z" ? c.j === host.j0 : c.j === host.j1 - 1;
+            if (onEdge && mouthFacesJunction(host, s, c)) out.push({ id: "M5", reason: `M5: opening ${o.id} (${o.kind}) faces a junction: its mouth cell (${c.i}, ${c.j}) is in a junction-facing stretch of ${host.id}'s ${s} side`, cells: [c] });
+          }
+        }
+      }
+    }
     const is = o.cells.map((c) => c.i);
     const js = o.cells.map((c) => c.j);
     const w = Math.max(...is) - Math.min(...is) + 1;
@@ -240,14 +256,10 @@ export interface ParkingNumbers {
 }
 
 /** The numbers P2 counts, from the layer alone (ported from `parkingMetrics` in `src/render3d/parkmetrics.ts`). */
-export function parkingNumbers(mass: Pick<CityMassLayer, "courts" | "units" | "openings">, blocks: readonly CityBlock[]): ParkingNumbers {
-  const at = new Map(blocks.map((b) => [b.id, b] as const));
-  const adjacent = (a: string, b: string): boolean => {
-    if (a === b) return true;
-    const p = at.get(a);
-    const q = at.get(b);
-    return p !== undefined && q !== undefined && Math.abs(p.bi - q.bi) + Math.abs(p.bj - q.bj) === 1;
-  };
+export function parkingNumbers(mass: Pick<CityMassLayer, "courts" | "units" | "openings">, blocks: readonly Pick<CityPlanBlock, "id" | "sides">[]): ParkingNumbers {
+  // two blocks are adjacent when one lists the other in one of its sides' `across` (they face each other over one street)
+  const across = new Map(blocks.map((b) => [b.id, new Set(BLOCK_SIDES.flatMap((s) => b.sides[s].across.map((a) => a.block)))] as const));
+  const adjacent = (a: string, b: string): boolean => a === b || (across.get(a)?.has(b) ?? false) || (across.get(b)?.has(a) ?? false);
   const kindOf = new Map(mass.openings.map((o) => [o.id, o.kind] as const));
   const serving = new Map<string, number>();
   const held = new Map<string, number>();
@@ -277,7 +289,7 @@ export function p2Value(m: ParkingNumbers): number {
   return (inBand ? 0 : 1) + m.blocksOverLots + m.stallServedFar + Math.max(0, m.shortBlocks - Math.ceil(m.blocks / SHORT_BLOCKS_ONE_IN)) + Math.max(0, m.frontLotBlocks - Math.ceil(m.blocks * CITY_FRONT_LOT_BLOCKS_MAX - 1e-9));
 }
 
-function checkP2(mass: CityMassLayer, blocks: readonly CityBlock[], out: MassFailure[]): void {
+function checkP2(mass: CityMassLayer, blocks: readonly CityPlanBlock[], out: MassFailure[]): void {
   const m = parkingNumbers(mass, blocks);
   const v = p2Value(m);
   if (v > 0) {
@@ -318,12 +330,12 @@ function checkR1(mass: CityMassLayer, out: MassFailure[]): void {
 }
 
 /** Every failure of the seven checks on a mass layer, in the order M3, M4b, M5, G2, G3, R1, P2. Empty when the layer passes. */
-export function massFailures(mass: CityMassLayer, blocks: readonly CityBlock[], land: LandParts): MassFailure[] {
+export function massFailures(mass: CityMassLayer, blocks: readonly CityPlanBlock[], land: LandParts): MassFailure[] {
   const ix = indexOf(mass);
   const out: MassFailure[] = [];
   checkM3(mass, ix, out);
   checkM4b(mass, ix, land, out);
-  checkM5(mass, ix, land, out);
+  checkM5(mass, ix, land, blocks, out);
   checkG2(mass, ix, blocks, out);
   checkG3(mass, blocks, out);
   checkR1(mass, out);

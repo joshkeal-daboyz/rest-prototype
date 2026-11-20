@@ -50,9 +50,9 @@ export function edgeMetrics(edge: CityEdgeLayer, streets: CityStreetsLayer, mass
   // ---- who the bays serve ----
   const adjacent = (a: string, b: string): boolean => {
     if (a === b) return true;
-    const p = blockOf.get(a);
-    const q = blockOf.get(b);
-    return p !== undefined && q !== undefined && Math.abs(p.bi - q.bi) + Math.abs(p.bj - q.bj) === 1;
+    // two blocks are adjacent when one lists the other across a street, in any side's `across` (D1b)
+    const lists = (x: string, y: string): boolean => Object.values(blockOf.get(x)?.sides ?? {}).some((side) => side.across.some((e) => e.block === y));
+    return lists(a, b) || lists(b, a);
   };
   const baysServing = new Map<string, number>();
   let bayServedFar = 0;
@@ -77,7 +77,9 @@ export function edgeMetrics(edge: CityEdgeLayer, streets: CityStreetsLayer, mass
     const [street, block] = k.split("|") as [string, string];
     const s = streetOf.get(street)!;
     const b = blockOf.get(block)!;
-    const kerb = (s.axis === "x" ? b.i1 - b.i0 : b.j1 - b.j0) * TILE_M;
+    // the block side's own length along the street: one cap for the whole side, shared by its stretches (D1b)
+    const side = Object.values(b.sides).find((sd) => sd.street === street);
+    const kerb = (side ? side.span.hi - side.span.lo : s.axis === "x" ? b.i1 - b.i0 : b.j1 - b.j0) * TILE_M;
     sideShares.push({ street, block, share: len / kerb, cap: KERB_BAY_SHARE_MAX[s.profile] });
   }
 
@@ -118,24 +120,35 @@ export function edgeMetrics(edge: CityEdgeLayer, streets: CityStreetsLayer, mass
   let badBandCells = 0;
   const wantTrees = new Set<string>();
   const keyOf = (x: number, z: number): string => `${Math.round(x * 1000)},${Math.round(z * 1000)}`;
+  // The scan runs only over each street's own span and its own cells (D1b): a street that ends in a T has a lattice line that runs on past the junction, into other streets' pavements and lanes.
+  const ownBand = new Map<number, { street: string; band: number }>();
+  for (const c of streets.cells) if (c.street !== null && c.band >= 0) ownBand.set(c.j * W + c.i, { street: c.street, band: c.band });
   for (const s of streets.streets) {
     const n = s.bands.length;
     const x = s.axis === "x";
-    const len = x ? W : H;
-    const last = x ? options.blocksZ : options.blocksX;
     for (let k = 0; k < n; k++) {
       if (s.bands[k] !== "parking") continue;
       const across = x ? s.across0 + k : s.across0 + n - 1 - k;
       const out = s.centre_m > (across + 0.5) * TILE_M ? -1 : 1;
-      const outer = (s.line === 0 && out < 0) || (s.line === last && out > 0);
+      const outer = s.outer !== null && (s.outer[0] === "+" ? 1 : -1) === out;
+      const own = (a: number): boolean => {
+        const o = ownBand.get(x ? across * W + a : a * W + across);
+        return o !== undefined && o.street === s.id && o.band === k;
+      };
+      const nextToCrossing = (a: number): boolean => {
+        const r = x ? at(a, across) : at(across, a);
+        return !own(a) || CROSSING_ROLES.includes(r);
+      };
       let stretch = 0;
-      for (let a = 0; a < len; a++) {
+      for (let a = s.span.lo; a < s.span.hi; a++) {
+        if (!own(a)) {
+          stretch = 0;
+          continue;
+        }
         const r = x ? at(a, across) : at(across, a);
         if (r === "buildout") {
           stretch++;
-          const before = x ? at(a - 1, across) : at(across, a - 1);
-          const after = x ? at(a + 1, across) : at(across, a + 1);
-          if (stretch % BUILDOUT_TREE_EVERY === 0 && !CROSSING_ROLES.includes(before) && !CROSSING_ROLES.includes(after)) wantTrees.add(keyOf(x ? (a + 0.5) * TILE_M : (across + 0.5) * TILE_M, x ? (across + 0.5) * TILE_M : (a + 0.5) * TILE_M));
+          if (stretch % BUILDOUT_TREE_EVERY === 0 && !nextToCrossing(a - 1) && !nextToCrossing(a + 1)) wantTrees.add(keyOf(x ? (a + 0.5) * TILE_M : (across + 0.5) * TILE_M, x ? (across + 0.5) * TILE_M : (a + 0.5) * TILE_M));
           continue;
         }
         stretch = 0;

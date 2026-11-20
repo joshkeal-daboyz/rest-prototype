@@ -3,9 +3,10 @@
  * (moved from `tileCity`'s parts loop). Grammar rule 4 is the one change in the moving: every part has a short side of exactly `STRIP_CELLS` or `COURT_PART_MIN_CELLS` and more. Pure.
  */
 
-import type { CityBlock, CityLane, CityLandBlock, CityPark, CityPart, CityPartEdge, CitySide, CityTreatment } from "../../core";
+import type { CityBlock, CityLane, CityLandBlock, CityPark, CityPart, CityPartEdge, CityPlanStreet, CitySide, CityTreatment } from "../../core";
 import { CityStageError } from "../pipeline/error";
 import type { StageRand } from "../pipeline/seeds";
+import { type SidedBlock, bandsOf, facesJunction, isServed } from "./reach";
 import { ALLEY_CELLS, ALLEY_ONE_IN_BLOCKS, ALLEY_SIDE_LONG_M, ALLEY_SIDE_MIN_CELLS, COURT_LONG_MIN_CELLS, COURT_PART_MIN_CELLS, PARK_HALF_SIDE_MIN_CELLS, PARK_ONE_IN_BLOCKS, STRIP_CELLS, TILE_M } from "./constants";
 
 export type ParkKind = "whole" | "half";
@@ -17,7 +18,9 @@ export interface BlockPlan {
   readonly parks: ReadonlyMap<string, ParkKind>;
 }
 
-type PlanBlock = Pick<CityBlock, "id" | "type" | "i0" | "i1" | "j0" | "j1">;
+/** A block as Land reads it: its rectangle and type, and its sides (ticket 070 B3). */
+export type PlanBlock = Pick<CityBlock, "id" | "type" | "i0" | "i1" | "j0" | "j1"> & SidedBlock;
+type StreetIn = Pick<CityPlanStreet, "id" | "bands">;
 const wOf = (b: PlanBlock): number => b.i1 - b.i0;
 const dOf = (b: PlanBlock): number => b.j1 - b.j0;
 const longOf = (b: PlanBlock): number => Math.max(wOf(b), dOf(b));
@@ -29,6 +32,16 @@ export const partSideOk = (cells: number): boolean => cells === STRIP_CELLS || c
 /** A court part (short side `COURT_PART_MIN_CELLS` or more) `depth` cells from a lane, across a block side of `across`, needs a long side of `COURT_LONG_MIN_CELLS` or more so a drive fits (B2). A strip is judged as in B. */
 export const courtPartRoomy = (depth: number, across: number): boolean => Math.min(depth, across) < COURT_PART_MIN_CELLS || Math.max(depth, across) >= COURT_LONG_MIN_CELLS;
 
+/**
+ * Where a lane may cut block `b` (the cells before it along its long side): `lanePositions`, less the places whose mouths face a junction (S6). The lane runs across the short side (a square block's along z),
+ * so its two mouths are on the two sides across that axis, at the lane's own cell.
+ */
+export function lanePlaces(b: PlanBlock): number[] {
+  const alongZ = wOf(b) >= dOf(b);
+  const [a, c, start] = alongZ ? (["-z", "+z", b.i0] as const) : (["-x", "+x", b.j0] as const);
+  return lanePositions(longOf(b), shortOf(b)).filter((before) => !facesJunction(b.sides[a], start + before) && !facesJunction(b.sides[c], start + before));
+}
+
 /** The built part a half park leaves is the short side less its half (rounded down); it must be a court part. */
 const halfParkLeaves = (short: number): number => short - Math.floor(short / 2);
 
@@ -36,19 +49,20 @@ const halfParkLeaves = (short: number): number => short - Math.floor(short / 2);
  * Which blocks get an alley and which a park (19.6), from the blocks' own types and sides and the seed, so one size and seed give one city. Moved from `planBlocks`, with the one change rule 4 asks for:
  * a block takes a half park only where the built part it leaves has a short side of `COURT_PART_MIN_CELLS` or more. (Every side of 9 cells or more can be cut into parts of 2 and 6 or more, so an alley
  * block always finds a place for its lane.) Parks first, at least one per `PARK_ONE_IN_BLOCKS` blocks: small blocks (whole-block parks) by hash, then large blocks with a short side of at least
- * `PARK_HALF_SIDE_MIN_CELLS` (half-block parks) by hash, those with no claim to an alley first. Then alleys: every long block, and every block with a side of `ALLEY_SIDE_LONG_M` or more, that no park has
+ * `PARK_HALF_SIDE_MIN_CELLS` (half-block parks) by hash, those with no claim to an alley first. A small block is a whole-park place only where it is served (B3: a parking band across one of its streets); an unserved one is passed over and the quota goes on down the list. Then alleys: every long block, and every block with a side of `ALLEY_SIDE_LONG_M` or more, that no park has
  * taken; and where that leaves fewer than one per `ALLEY_ONE_IN_BLOCKS` blocks, the longest of the others (a side of at least `ALLEY_SIDE_MIN_CELLS`) in id order. A block never has both.
  */
-export function planBlocks(blocks: readonly PlanBlock[], rand: StageRand): BlockPlan {
+export function planBlocks(blocks: readonly PlanBlock[], rand: StageRand, streets: readonly StreetIn[]): BlockPlan {
+  const bands = bandsOf(streets);
   const n = blocks.length;
   const byId = (p: PlanBlock, q: PlanBlock): number => (p.id < q.id ? -1 : p.id > q.id ? 1 : 0);
   const byHash = (kind: string) => (p: PlanBlock, q: PlanBlock): number => rand(kind, p.id) - rand(kind, q.id) || byId(p, q);
-  // B2: a block with no lane place (every court part its lane leaves is at least COURT_LONG_MIN_CELLS long) takes no alley.
-  const hasPlace = (b: PlanBlock): boolean => lanePositions(longOf(b), shortOf(b)).length > 0;
+  // B2: a block with no lane place (every court part its lane leaves is at least COURT_LONG_MIN_CELLS long) takes no alley; B3: nor does one whose every place opens onto a junction (S6).
+  const hasPlace = (b: PlanBlock): boolean => lanePlaces(b).length > 0;
   const claimsAlley = (b: PlanBlock): boolean => hasPlace(b) && longOf(b) >= ALLEY_SIDE_MIN_CELLS && (b.type === "long" || longOf(b) * TILE_M >= ALLEY_SIDE_LONG_M);
   const parks = new Map<string, ParkKind>();
   const parkQuota = Math.ceil(n / PARK_ONE_IN_BLOCKS);
-  const smalls = blocks.filter((b) => b.type === "small").sort(byHash("park"));
+  const smalls = blocks.filter((b) => b.type === "small" && isServed(b, bands)).sort(byHash("park"));
   const larges = blocks.filter((b) => b.type === "large" && shortOf(b) >= PARK_HALF_SIDE_MIN_CELLS && halfParkLeaves(shortOf(b)) >= COURT_PART_MIN_CELLS);
   const largeOrder = [...larges.filter((b) => !claimsAlley(b)).sort(byHash("park")), ...larges.filter(claimsAlley).sort(byHash("park"))];
   for (const b of smalls) if (parks.size < parkQuota) parks.set(b.id, "whole");
@@ -100,15 +114,15 @@ function mkPart(id: string, b: PlanBlock, r: Pick<CityPart, "i0" | "i1" | "j0" |
 }
 
 /** Lays every block: its treatment, and the parts, lane and park it gives. Moved from `tileCity`'s parts loop, re-keyed on `rand`. */
-export function planLand(blocks: readonly CityBlock[], rand: StageRand): LandPlan {
-  const plan = planBlocks(blocks, rand);
+export function planLand(blocks: readonly PlanBlock[], rand: StageRand, streets: readonly StreetIn[]): LandPlan {
+  const plan = planBlocks(blocks, rand, streets);
   const out: LandPlan = { blocks: [], parts: [], lanes: [], parks: [] };
   for (const b of blocks) {
     const w = wOf(b);
     const d = dOf(b);
     const kind = plan.parks.get(b.id);
     let treatment: CityTreatment = "court";
-    const options = lanePositions(Math.max(w, d), Math.min(w, d));
+    const options = lanePlaces(b);
     if (kind === "whole") {
       treatment = "parkWhole";
       out.parks.push({ block: b.id, kind, i0: b.i0, i1: b.i1, j0: b.j0, j1: b.j1, side: null });

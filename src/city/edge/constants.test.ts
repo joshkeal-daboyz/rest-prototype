@@ -27,6 +27,11 @@ describe("the parking constants moved from the tile city keep their values", () 
     expect(BAYS_PER_100M_MAX).toBe(OLD_BAYS_100);
     expect(BAY_JUNCTION_CLEAR).toBe(OLD_CLEAR);
     expect(BUILDOUT_TREE_EVERY).toBe(OLD_TREE);
-    expect(PARK_SUPPLY_BAND).toEqual(OLD_BAND);
+    expect(PARK_SUPPLY_BAND.hi).toBe(OLD_BAND.hi);
+  });
+
+  it("P1's supply floor is 0.69 on the pipeline (Josh, 20 Nov 2026: \"yes lower it\"); the old tile city keeps 0.75 until section L", () => {
+    expect(PARK_SUPPLY_BAND).toEqual({ lo: 0.69, hi: 1.5 });
+    expect(OLD_BAND.lo).toBe(0.75);
   });
 });

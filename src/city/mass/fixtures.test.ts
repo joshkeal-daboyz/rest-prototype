@@ -3,13 +3,15 @@
  * rule, a lane block (C2: whose parts open on the lane, and strict M5) and a plaza block. The fixtures are small blocks typed in here; the checks read only the layer, so each failure is made by editing a layer the planner produced.
  */
 import { describe, expect, it } from "vitest";
-import type { CityBlock, CityLandLayer, CityMassLayer, CityPart, CityStreetCell, CityStreetsLayer } from "../../core";
+import type { CityPlanBlock, CityLandLayer, CityMassLayer, CityPart, CityStreetCell, CityStreetsLayer } from "../../core";
 import { frontageShare, massFailures, stretchProblems } from "./check";
 import { planMass } from "./plan";
 import type { LotSite } from "./sites";
 
-const block = (i0: number, i1: number, j0: number, j1: number): CityBlock => ({ id: "block:0:0", bi: 0, bj: 0, i0, i1, j0, j1, type: "medium" });
-const part = (id: string, b: CityBlock, r: Pick<CityPart, "i0" | "i1" | "j0" | "j1">, edges: Partial<CityPart["edges"]> = {}): CityPart => ({
+/** A block with no neighbour and no junction in front of any side: what the checks read of stage 1 (`sides`), typed in. */
+const NO_SIDES = Object.fromEntries((["-x", "+x", "-z", "+z"] as const).map((s) => [s, { side: s, street: "x:0", span: { lo: 0, hi: 1 }, across: [], junctions: [] }])) as unknown as CityPlanBlock["sides"];
+const block = (i0: number, i1: number, j0: number, j1: number): CityPlanBlock => ({ id: "block:0:0", bi: 0, bj: 0, i0, i1, j0, j1, type: "medium", sides: NO_SIDES });
+const part = (id: string, b: CityPlanBlock, r: Pick<CityPart, "i0" | "i1" | "j0" | "j1">, edges: Partial<CityPart["edges"]> = {}): CityPart => ({
   id,
   block: b.id,
   ...r,
@@ -17,7 +19,7 @@ const part = (id: string, b: CityBlock, r: Pick<CityPart, "i0" | "i1" | "j0" | "
   edges: { "+x": "street", "-x": "street", "+z": "street", "-z": "street", ...edges },
 });
 const landOf = (parts: CityPart[], lanes: CityLandLayer["lanes"] = []): CityLandLayer => ({ stage: "land", blocks: [], parts, lanes, parks: [] });
-const streetsOf = (blocks: CityBlock[], cells: CityStreetCell[] = []): Pick<CityStreetsLayer, "blocks" | "cells"> => ({ blocks, cells });
+const streetsOf = (blocks: CityPlanBlock[], cells: CityStreetCell[] = []): Pick<CityStreetsLayer, "blocks" | "cells"> => ({ blocks: blocks as unknown as CityStreetsLayer["blocks"], cells });
 const layerOf = (p: ReturnType<typeof planMass>): CityMassLayer => ({ stage: "mass", cells: p.cells, built: p.built, openings: p.openings, courts: [], units: [] });
 const ids = (l: ReturnType<typeof massFailures>): string[] => l.map((f) => f.id);
 

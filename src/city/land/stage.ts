@@ -5,7 +5,7 @@ import { CityStageError } from "../pipeline/error";
 import { makePicture, type LegendEntry } from "../pipeline/picture";
 import type { StageRand } from "../pipeline/seeds";
 import type { CityStageDef } from "../pipeline/types";
-import { evaluateLand, landVariety, laneCells } from "./check";
+import { evaluateLand, landVariety, laneCells, laneMouthsAtJunctions, unservedWholeParks } from "./check";
 import { planLand } from "./plan";
 
 /** Index 0 is a street cell: nothing of this layer. */
@@ -26,9 +26,14 @@ const L_HALF = 5;
 function run(plan: CityPlan, rand: StageRand): CityLandLayer {
   const streets = plan.layers.streets;
   if (!streets) throw new CityStageError("land: the plan has no streets layer");
-  const p = planLand(streets.blocks, rand);
+  const p = planLand(streets.blocks, rand, streets.streets);
   const layer: CityLandLayer = { stage: "land", blocks: p.blocks, parts: p.parts, lanes: p.lanes, parks: p.parks };
   const m = landVariety(layer, streets.blocks);
+  const cell = (id: string): CityCell[] => streets.blocks.filter((b) => b.id === id).map((b): CityCell => ({ i: b.i0, j: b.j0 }));
+  const faced = laneMouthsAtJunctions(layer, streets.blocks);
+  if (faced.length > 0) throw new CityStageError(`S6: a lane mouth faces a junction: ${faced[0]}`, cell(faced[0]!.split(" ")[0]!));
+  const unserved = unservedWholeParks(layer, streets.blocks, streets.streets);
+  if (unserved.length > 0) throw new CityStageError(`served park: block ${unserved[0]} is a whole park with no parking band across any of its streets`, cell(unserved[0]!));
   for (const v of evaluateLand(m)) {
     if (v.pass) continue;
     if (v.id === "M4a") {
