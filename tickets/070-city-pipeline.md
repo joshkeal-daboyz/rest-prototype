@@ -7,6 +7,7 @@ status: approved; section A1 merged 19 Nov 2026 (6eb4d26) (G1, Josh, 19 Nov 2026
 3. "Do you want the grey-box 3D view (section E) before real buildings?" Josh: "Yes".
 - **The five agents may now be created** (planner, streetscape, buildings, facades, landscape; see Agents).
 - **A1 waits for nothing.** 063 B is merged into `goal/city-style` (2edac93), and 069 is dropped (see What happens to the other tickets).
+- **A2's purity test widened** (Josh, 19 Nov 2026, in chat: "Yes, widen it"): `tilecity.test.ts`'s allowed imports for `tilecity.ts` gain `../city/streets` and `../core` (A2 criterion 2).
 - Questions: Q2 and Q3 answered; Q1 not yet asked for, L waits for his word; Q4, Q5 and Q6 open.
 branch: one per section, `ticket/070<section>-<slug>` (named in each section), each cut from `goal/city-style`.
 
@@ -186,6 +187,7 @@ H and I can run alongside each other once F2 has merged. Stage 6 (K) is not cut 
    - It re-exports every name tests or other modules import today (`blockSizes`, `blockType`, `BLOCK_FALLBACK_*`, `TILE_M`, the constants), so no other file changes.
    - `TileStreet` becomes an alias of `CityStreet`.
 2. [ ] **Nothing moved.** `tilecity.test.ts`, `tilecity3d.test.ts`, `kerbline.test.ts`, `parkmetrics.test.ts`, `alleys.test.ts`, `styleguide.test.ts` and the city-data digest pins pass without being edited, and R-8 holds.
+   - **One exception:** `tilecity.test.ts`'s "pure (criterion 8)" test's allowed-import list for `tilecity.ts` gains `"../city/streets"` and `"../core"`. Every other ban in that test, and every other line of the file, is unchanged. Asked "May the tilecity purity test's import list gain ../city/streets and ../core?", Josh answered: "Yes, widen it" (19 Nov 2026, in chat).
 3. [ ] **The viewer** (`src/render3d/planview.ts`, dev builds only, like the gallery).
    - `planViewRequested(search)` parses `city=plan`, `stage` (a name, or 1 to 8), `blocks` and `seed` as `cityTilesRequested` does.
    - It runs `runCity(opts, stage)` and draws the stage's picture on a 2D canvas, fitted to the window, with the legend under it.
@@ -194,7 +196,7 @@ H and I can run alongside each other once F2 has merged. Stage 6 (K) is not cut 
    - Tests: the parser on typed-in strings, and a pure `pictureToRgba(picture, scale)` on a fixture.
 4. [ ] (Main session, phone-sized screenshot) `?city=plan&stage=streets` and `&blocks=6x4&seed=3`: streets, junctions and blocks read at a glance. `?city=tiles` looks as on `goal/city-style`.
 
-- **Files:** `src/render3d/tilecity.ts` (stage 1's imports and deletions only); new `src/render3d/planview.ts` and `planview.test.ts`; `src/render3d/renderer.ts` (routing `city=plan` only).
+- **Files:** `src/render3d/tilecity.ts` (stage 1's imports and deletions only); `src/render3d/tilecity.test.ts` (the purity test's allowed-import list only, criterion 2); new `src/render3d/planview.ts` and `planview.test.ts`; `src/render3d/renderer.ts` (routing `city=plan` only).
 - **Must not:** `src/city/` (read only), and every other render3d file.
 
 ### B · Stage 2, Land (planner, pure). Branch `ticket/070b-land`

@@ -878,7 +878,7 @@ describe("pure (criterion 8)", () => {
       expect(s).not.toMatch(/three/);
       expect(s).not.toMatch(/(^|\/)grid(\/|$)/);
       expect(s).not.toMatch(/(^|\/)night(\/|$)/);
-      expect(["./town", "./furniture", "../render/city"]).toContain(s);
+      expect(["./town", "./furniture", "../render/city", "../city/streets", "../core"]).toContain(s);
     }
     expect(src).not.toMatch(/\b(document|HTMLElement|HTMLCanvasElement|navigator|requestAnimationFrame|localStorage)\b/);
     expect(src).not.toMatch(/\bimport\s*\(/);
