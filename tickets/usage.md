@@ -202,3 +202,4 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 070 C2 round 2 | gate (main session) | - | - | - | 0 | tsc clean, 132 files, 3046 passed, 20 skipped |
 | 070 C2 round 2 | code-reviewer | agent default (opus) | 36K total (one figure in the readout) | - | 0 | meets, must-fix 0 |
 | 070 C2 round 2 | playtester | agent default (sonnet) | 14K total (one figure in the readout) | - | 0 | regressions 0; stopped early |
+| 070 D1 pre-check | pipeline-designer (general-purpose with pipeline-designer.md) | opus | 154K total (one figure in the readout) | - | 0 | P1 fails on 6x4 seeds 1 and 2 as written; first-tile pass recommended |
