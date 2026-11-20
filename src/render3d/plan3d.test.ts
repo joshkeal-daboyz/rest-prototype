@@ -7,7 +7,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { BoxGeometry, Group, InstancedMesh, Mesh, MeshBasicMaterial, Quaternion, Scene, Vector3, type Object3D, type WebGLRenderer } from "three";
+import { Box3, Frustum, Matrix4, PerspectiveCamera, BoxGeometry, Group, InstancedMesh, Mesh, MeshBasicMaterial, Quaternion, Scene, Vector3, type Object3D, type WebGLRenderer } from "three";
 import type { AssetEntry, CalibrationKey, CityKerbPath, CityMassLayer, CityPlan, CityPlanRun, CitySide } from "../core";
 import { stableHash } from "../render/city";
 import { digestOf, runCity } from "../city/pipeline";
@@ -288,7 +288,8 @@ describe("planKeyOf and planCells (criteria 2 and 5)", () => {
     const lacking = new Set(ACTIVE);
     lacking.delete(TILE_SLOTS.kerbCut[0]!);
     expect(planKeyOf(cell, lacking, set)).toBeNull();
-    expect(PASSAGE_FLOOR_KEYS).toContain(planKeyOf({ ...cell, variant: V.pavementDip | V.pavementFlush }, ACTIVE, set));
+    expect(() => planKeyOf({ ...cell, variant: V.pavementDip | V.pavementFlush }, ACTIVE, set)).toThrow(PlanStopError);
+    expect(PASSAGE_FLOOR_KEYS).toContain(planKeyOf({ ...cell, variant: V.pavementFlush }, ACTIVE, set));
     expect(planKeyOf({ ...cell, variant: 0 }, ACTIVE, set)).toBe(TILE_SLOTS.pavement[0]);
     expect(planKeyOf({ ...cell, variant: V.pavementGrate }, ACTIVE, set)).toBe(TILE_SLOTS.pavement[1]);
   });
@@ -357,8 +358,9 @@ describe("massInteriorItems (criterion 2, the interiors)", () => {
     }
   });
 
+
   it("leaves a frontage lot's cells bare (the layer gives them no row to line)", () => {
-    const m = massOf([cell(0, 0, "frontLot"), cell(1, 0, "frontLot"), cell(0, 1, "frontLot"), cell(1, 1, "frontLot")], [[0, 0], [1, 0], [0, 1], [1, 1]], []);
+    const m = massOf([cell(0, 0, "frontLot"), cell(1, 0, "frontLot"), cell(0, 1, "frontLot"), cell(1, 1, "frontLot")], [], []);
     const items = massInteriorItems(m);
     expect(items).toHaveLength(4);
     expect(items.every((it) => it.kind === "bare")).toBe(true);
@@ -599,7 +601,6 @@ describe("plan3dGroups, on the 20 named runs (criteria 2, 4, 5 and 6)", { timeou
         // The arrow's way is its street's flow.
         const s = streets.streets.find((q) => q.id === a.street)!;
         expect(a.toward, `${label(o)} ${a.i},${a.j}`).toBe(`${s.flow}${s.axis}`);
-        expect(c.variant & V.lanePatch, "no patch over an arrow").toBe(0);
       }
       for (const c of set.oneWay) if (!set.arrows.has(c)) expect(planKeyOf(c, ACTIVE, set), `${label(o)} ${c.i},${c.j}`).toBe(PLAN_LINES);
     }
@@ -692,6 +693,68 @@ describe("createPlanAssembleRenderer3d and the routing (criterion 7)", () => {
     expect(info.mock.calls.some((c) => String(c[0]).includes('stage "mass"') && String(c[0]).includes("M3"))).toBe(true);
     failed.dispose();
     info.mockRestore();
+  });
+
+
+  it("the plan stands in the rendered scene and the overhead camera sees all of it, at a phone and a desktop size (the 6 x 6 city, in code and from a pack-less load)", async () => {
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    for (const [w, h] of [[375, 812], [1280, 720]] as const) {
+      const rendered: { scene: Scene; camera: PerspectiveCamera }[] = [];
+      const gl = { setPixelRatio() {}, setSize() {}, render: (s: Scene, c: PerspectiveCamera) => rendered.push({ scene: s, camera: c }) } as unknown as WebGLRenderer;
+      const canvas = { ...fakeCanvas, clientWidth: w, clientHeight: h } as unknown as HTMLCanvasElement;
+      const r = createPlanAssembleRenderer3d(gl, canvas, planAssembleRequested("?city=plan&stage=assemble")!, { dpr: 1, search: "", load: async () => ({ ...NO_MODELS }), run: { ok: true, plan: planOf(DEFAULT) } });
+      await new Promise<void>((done) => setTimeout(done, 0));
+      r.draw(undefined as never, undefined as never, 0);
+      const { scene, camera } = rendered[rendered.length - 1]!;
+      const root = scene.getObjectByName("plan3d")!;
+      let up: Object3D | null = root;
+      while (up && up !== scene) up = up.parent;
+      expect(up, "the plan is a descendant of the rendered scene").toBe(scene);
+      scene.updateMatrixWorld(true);
+      camera.updateMatrixWorld(true);
+      const box = new Box3().setFromObject(root);
+      expect(box.isEmpty()).toBe(false);
+      const frustum = new Frustum().setFromProjectionMatrix(new Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
+      const corners = [box.min.x, box.max.x].flatMap((x) => [box.min.z, box.max.z].map((z) => new Vector3(x, 0, z)));
+      for (const c of corners) expect(frustum.containsPoint(c), `corner ${c.x},${c.z} at ${w}x${h}`).toBe(true);
+      // Inside the depth range too: the far plane reaches past the far corner.
+      const far = Math.max(...corners.map((c) => c.distanceTo(camera.position)));
+      expect(far).toBeLessThan(camera.far);
+      expect(box.min.distanceTo(camera.position)).toBeGreaterThan(camera.near);
+      r.dispose();
+    }
+    vi.restoreAllMocks();
+  });
+
+  it("the street camera stands over the city, looks along its street at a point inside it, and sees the plan", async () => {
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    const plan = planOf(DEFAULT);
+    const streets = plan.layers.streets!;
+    const rendered: { scene: Scene; camera: PerspectiveCamera }[] = [];
+    const gl = { setPixelRatio() {}, setSize() {}, render: (s: Scene, c: PerspectiveCamera) => rendered.push({ scene: s, camera: c }) } as unknown as WebGLRenderer;
+    const req = planAssembleRequested("?city=plan&stage=assemble&cam=street")!;
+    const r = createPlanAssembleRenderer3d(gl, fakeCanvas, req, { dpr: 1, search: "", load: async () => ({ ...NO_MODELS }), run: { ok: true, plan } });
+    await new Promise<void>((done) => setTimeout(done, 0));
+    r.draw(undefined as never, undefined as never, 0);
+    const { scene, camera } = rendered[rendered.length - 1]!;
+    const pose = planStreetPose(streets, req)!;
+    const w = streets.w * TILE_M * 0.18;
+    const d = streets.h * TILE_M * 0.18;
+    expect(pose.look[0]).toBeGreaterThan(0);
+    expect(pose.look[0]).toBeLessThan(w);
+    expect(pose.look[2]).toBeGreaterThan(0);
+    expect(pose.look[2]).toBeLessThan(d);
+    camera.updateMatrixWorld(true);
+    const frustum = new Frustum().setFromProjectionMatrix(new Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
+    expect(frustum.containsPoint(new Vector3(...pose.look))).toBe(true);
+    scene.updateMatrixWorld(true);
+    let seen = 0;
+    scene.traverse((o) => {
+      if ((o as Mesh).isMesh && o.name !== "" && frustum.intersectsObject(o as Mesh)) seen++;
+    });
+    expect(seen).toBeGreaterThan(0);
+    r.dispose();
+    vi.restoreAllMocks();
   });
 
   it("is routed in renderer.ts ahead of the flat picture and the town's scene, and takes no other address", () => {

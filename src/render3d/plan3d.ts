@@ -41,7 +41,7 @@ import { planViewRequested } from "./planview";
 import type { MapRenderer3d } from "./renderer";
 import { GROUND } from "./scene";
 import { STREET_CAM_BACK_M, STREET_CAM_EYE_M, STREET_CAM_FOV_DEG, STREET_CAM_LOOK_M } from "./streetcam";
-import { LANE_PATCH, SIDEWALK_WALK_M, TILE_M, type TileCell, type TileYaw } from "./tilecity";
+import { SIDEWALK_WALK_M, TILE_M, type TileCell, type TileYaw } from "./tilecity";
 import { createCityRig, interiorGroupOf, propInput, tileGroupOf, tileKeyOf, type CityRig, type InteriorDraw, type TileDraw } from "./tilecity3d";
 import { STOREY_M } from "./town";
 import { CITY_GROUND_VARIANT as V } from "../core";
@@ -155,7 +155,7 @@ export interface PlanCells {
 const cellId = (i: number, j: number): string => `${i},${j}`;
 
 /**
- * The ground records as cells (`CityGroundCell` has `TileCell`'s fields, so each is copied as it is), the arrow cells turned by `arrowYaw` with no pothole patch on them, and the one-way lanes marked. Throws
+ * The ground records as cells (`CityGroundCell` has `TileCell`'s fields, so each is copied as it is), the arrow cells turned by `arrowYaw` (the patch bit the layer set stays), and the one-way lanes marked. Throws
  * `PlanStopError` when an arrow is on no lane record. Pure.
  */
 export function planCells(streets: CityStreetsLayer, ground: readonly CityGroundCell[]): PlanCells {
@@ -170,7 +170,6 @@ export function planCells(streets: CityStreetsLayer, ground: readonly CityGround
     if (a !== undefined) {
       seen.add(cellId(g.i, g.j));
       cell.yaw = arrowYaw(a.toward);
-      cell.variant &= ~LANE_PATCH;
       arrows.add(cell);
     }
     if (g.role === "lane" && g.street !== null && (flowOf.get(g.street) ?? "both") !== "both") oneWay.add(cell);
@@ -190,7 +189,8 @@ export function planKeyOf(cell: TileCell, active: ReadonlySet<CalibrationKey>, s
     if (set.arrows.has(cell) && active.has(PLAN_ARROW)) return PLAN_ARROW;
     if (set.oneWay.has(cell)) return active.has(PLAN_LINES) ? PLAN_LINES : active.has(PLAN_BARE) ? PLAN_BARE : null;
   }
-  if (cell.role === "pavement" && (cell.variant & V.pavementDip) !== 0 && (cell.variant & V.pavementFlush) === 0) return active.has(PLAN_DIP) ? PLAN_DIP : null;
+  if (cell.role === "pavement" && (cell.variant & V.pavementDip) !== 0 && (cell.variant & V.pavementFlush) !== 0) throw new PlanStopError(`pavement cell (${cell.i}, ${cell.j}) is both a dropped kerb and flush: the layer does not say which to draw`, [{ i: cell.i, j: cell.j }]);
+  if (cell.role === "pavement" && (cell.variant & V.pavementDip) !== 0) return active.has(PLAN_DIP) ? PLAN_DIP : null;
   return tileKeyOf(cell, active);
 }
 
