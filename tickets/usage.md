@@ -156,3 +156,10 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 070 A1 | gate (main session) | - | - | - | 0 | tsc clean, 126 files, 2732 passed, 20 skipped |
 | 070 A1 | code-reviewer | agent default (opus) | 92K total (one figure in the readout) | - | 0 | meets, must-fix 0 |
 | 070 A1 | playtester | agent default (sonnet) | 15K total (one figure in the readout) | - | 0 | regressions 0; stopped early |
+| 070 A2 (A1 review fix) | planner (general-purpose with planner.md) | sonnet | 69K total (one figure in the readout) | - | 0 | STREETS_LEGEND "none" dropped (d8e09d4) |
+| 070 A2 | renderer (general-purpose with renderer.md) | sonnet | 142K total (one figure in the readout) | - | 0 | tilecity reads stage 1; planview (60b7986); stopped on the purity whitelist |
+| 070 A2 ruling | lead-architect | agent default (opus) | 24K total (one figure in the readout) | - | 0 | Josh's "Yes, widen it" recorded in A2 |
+| 070 A2 ruling | renderer (general-purpose with renderer.md) | sonnet | 60K total (one figure in the readout) | - | 0 | purity whitelist widened (5ffcbca) |
+| 070 A2 | gate (main session) | - | - | - | 0 | tsc clean, 127 files, 2747 passed, 20 skipped |
+| 070 A2 | code-reviewer | agent default (opus) | 59K total (one figure in the readout) | - | 0 | meets, must-fix 0 |
+| 070 A2 | playtester | agent default (sonnet) | 15K total (one figure in the readout) | - | 0 | regressions 0; stopped early |
