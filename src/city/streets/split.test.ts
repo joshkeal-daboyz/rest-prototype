@@ -1,12 +1,13 @@
 /**
  * Stage 1 on the split plan (ticket 070 A4): criteria 2 to 10 and 12, on the named cities (the default, 3 x 3 seeds 1 to 10, 6 x 4 seeds 1 to 3). Each city is laid once, through a module cache.
  * No test asserts a block count (R-7, Josh Q10). `JUNCTION_GAP_MIN_CELLS` and `T_SHARE_MIN` are PROVISIONAL and are read by name; only the two fixtures use their values as numbers.
+ * Ticket 070 A4b made these checks width-aware (a one-way street is 4 or 3 cells, a junction is the two carriageways' rectangle); its own criteria are in `oneway.test.ts`.
  */
 import { describe, expect, it } from "vitest";
-import type { CityCell, CityJunction, CitySide, CityStreetsLayer } from "../../core";
+import type { CityCell, CityJunction, CitySide, CityStreetBand, CityStreetsLayer } from "../../core";
 import { CityStageError } from "../pipeline/error";
 import { BLOCK_LONG_ENOUGH_CELLS, blockSizeFailures, coverageProblems, evaluateStreets, innerTShare, s1Failures, s3Failures, s5Failures, streetWidthFailures, streetsVariety, tOf } from "./check";
-import { BLOCK_DRAWS_MAX, BLOCK_MEAN_MIN_CELLS, BLOCK_TILES, JUNCTION_GAP_MIN_CELLS, STREET_CELLS, T_SHARE_MIN } from "./constants";
+import { BLOCK_DRAWS_MAX, BLOCK_MEAN_MIN_CELLS, BLOCK_TILES, JUNCTION_GAP_MIN_CELLS, SECTION_CELLS, STREET_CELLS, T_SHARE_MIN } from "./constants";
 import { blockSizes, cvOf, layStreets } from "./layout";
 import { laySplit, type SplitLayout } from "./split";
 
@@ -28,6 +29,8 @@ const eachCity = (f: (layer: CityStreetsLayer, o: (typeof NAMED)[number], r: Spl
   for (const o of NAMED) f(laid(o).layer, o, laid(o));
 };
 const tag = (o: (typeof NAMED)[number]): string => `${o.blocksX}x${o.blocksZ} seed ${o.seed}`;
+const TWO_WAY: readonly CityStreetBand[] = ["pavement", "parking", "lane", "lane", "pavement"];
+const THREE: readonly CityStreetBand[] = ["pavement", "lane", "pavement"];
 
 describe("the outline (criterion 2)", () => {
   it("is today's ground: w, h, the four edge streets' across0, bands and profile, and the draw", () => {
@@ -48,13 +51,13 @@ describe("the outline (criterion 2)", () => {
 });
 
 describe("the split (criterion 3)", () => {
-  it("every other street is a cut: profile street, 5 cells, a parking side by hash, and never an edge street", () => {
+  it("every other street is a cut: profile street, its section's width (5, 4 or 3 cells), a parking side by hash, and never an edge street", () => {
     eachCity((layer, o) => {
       for (const s of layer.streets) {
         expect(s.profile, `${tag(o)} ${s.id}`).toBe("street");
-        expect(s.bands, s.id).toHaveLength(STREET_CELLS);
-        expect(s.bands.filter((b) => b === "parking"), s.id).toHaveLength(1);
-        expect(s.carriage.hi_m - s.carriage.lo_m, s.id).toBe(15);
+        expect(s.bands, s.id).toHaveLength(SECTION_CELLS[s.section]);
+        expect(s.bands.filter((b) => b === "parking"), s.id).toHaveLength(s.section === "oneWayBare" ? 0 : 1);
+        expect(s.carriage.hi_m - s.carriage.lo_m, s.id).toBe((s.bands.length - 2) * 5);
       }
       expect(layer.streets.filter((s) => s.outer === null).length, tag(o)).toBeGreaterThan(0);
     });
@@ -99,7 +102,7 @@ describe("S1: every street ends on a street (criterion 4)", () => {
           const j = byId.get(e.junction)!;
           expect(j, `${s.id} ${e.junction}`).toBeDefined();
           expect(j.streets.find((m) => m.street === s.id)?.passes, `${s.id} at ${j.id}`).toBe(false);
-          // the end is a real junction in the cells: its nine cells are carriageway junction cells
+          // the end is a real junction in the cells: its cells (the two carriageways' rectangle) are junction cells
           for (const c of j.cells) expect(layer.cells.find((x) => x.i === c.i && x.j === c.j)?.role, `${j.id}`).toBe("junction");
         }
       }
@@ -112,7 +115,7 @@ describe("S1: every street ends on a street (criterion 4)", () => {
     });
   });
   it("fails a street whose end touches no street, naming the street", () => {
-    const streets = [{ id: "z:9", axis: "z" as const, across0: 20, ends: [{ junction: "junction:21:1" }, { junction: "junction:21:30" }] as const }];
+    const streets = [{ id: "z:9", axis: "z" as const, across0: 20, bands: THREE, ends: [{ junction: "junction:21:1" }, { junction: "junction:21:30" }] as const }];
     const failures = s1Failures({ streets, junctions: [] });
     expect(failures).toHaveLength(2);
     expect(failures[0]).toContain("z:9");
@@ -126,30 +129,34 @@ describe("S1: every street ends on a street (criterion 4)", () => {
   });
 });
 
-describe("S2: a T is a crossroads with one arm missing (criterion 5)", () => {
-  /** The vector of a side. */
-  const dir = (s: CitySide): [number, number] => (s === "+x" ? [1, 0] : s === "-x" ? [-1, 0] : s === "+z" ? [0, 1] : [0, -1]);
-  it("every T: 3 x 3 junction cells, 9 crossings, 2 pavement corners on the ending street's side, 5 pavement cells opposite it, and no parking cell among them", () => {
+describe("S2: a T is a crossroads with one arm missing (criterion 5; width-aware from A4b)", () => {
+  it("every T: the carriageways' rectangle of junction cells, one row of crossings across the ending street, one across the through street each side of it, 2 pavement corners on the ending street's side, the ending street's full width of pavement opposite it, and no parking cell among them", () => {
     let ts = 0;
     eachCity((layer, o) => {
       const role = new Map<string, string>(layer.cells.map((c) => [`${c.i},${c.j}`, c.role] as const));
+      const at = (i: number, j: number): string | undefined => role.get(`${i},${j}`);
       for (const j of layer.junctions.filter((x) => x.kind === "T")) {
         ts++;
         const t = tOf(j)!;
-        const [du, dv] = dir(t.arm); // the ending street's direction
-        const [pu, pv] = [Math.abs(dv), Math.abs(du)]; // across it
-        const mid = { i: j.cells[4]!.i, j: j.cells[4]!.j };
-        const at = (s: number, p: number): string => `${mid.i + s * du + p * pu},${mid.j + s * dv + p * pv}`;
         const where = `${tag(o)} ${j.id}`;
-        expect(j.cells, where).toHaveLength(9);
-        for (let s = -1; s <= 1; s++) for (let p = -1; p <= 1; p++) expect(role.get(at(s, p)), where).toBe("junction");
-        // crossings: 3 across the ending street (on the near row), 3 across the through street each side of it
-        const crossings = [at(2, -1), at(2, 0), at(2, 1), at(-1, -2), at(0, -2), at(1, -2), at(-1, 2), at(0, 2), at(1, 2)];
-        for (const k of crossings) expect(role.get(k), `${where} crossing ${k}`).toBe("crossing");
-        // pavement corners on the ending street's side
-        expect([role.get(at(2, -2)), role.get(at(2, 2))], where).toEqual(["pavementCorner", "pavementCorner"]);
-        // the far side: the through street's pavement straight past, 5 cells
-        for (let p = -2; p <= 2; p++) expect(role.get(at(-2, p)), `${where} far ${p}`).toBe("pavement");
+        const [cmin, cmax] = [Math.min(...j.cells.map((c) => c.i)), Math.max(...j.cells.map((c) => c.i))];
+        const [rmin, rmax] = [Math.min(...j.cells.map((c) => c.j)), Math.max(...j.cells.map((c) => c.j))];
+        expect(j.cells, where).toHaveLength((cmax - cmin + 1) * (rmax - rmin + 1));
+        for (let r = rmin; r <= rmax; r++) for (let c = cmin; c <= cmax; c++) expect(at(c, r), where).toBe("junction");
+        const got: string[] = [];
+        const want: string[] = [];
+        const along = t.arm === "-z" || t.arm === "+z"; // the ending street runs along z: its carriageway is the rectangle's columns
+        const [lo, hi] = along ? [cmin, cmax] : [rmin, rmax]; // across the ending street (its carriageway)
+        const [tlo, thi] = along ? [rmin, rmax] : [cmin, cmax]; // along it (the through street's carriageway)
+        const near = t.arm === "-z" || t.arm === "-x" ? tlo - 1 : thi + 1;
+        const far = t.arm === "-z" || t.arm === "-x" ? thi + 1 : tlo - 1;
+        const cell = (u: number, p: number): string | undefined => (along ? at(p, u) : at(u, p)); // u along the ending street's axis, p across it
+        for (let p = lo; p <= hi; p++) (got.push(cell(near, p)!), want.push("crossing")); // across the ending street, on the near row
+        (got.push(cell(near, lo - 1)!, cell(near, hi + 1)!), want.push("pavementCorner", "pavementCorner"));
+        for (let u = tlo; u <= thi; u++) (got.push(cell(u, lo - 1)!, cell(u, hi + 1)!), want.push("crossing", "crossing")); // across the through street, each side of it
+        for (let p = lo - 1; p <= hi + 1; p++) (got.push(cell(far, p)!), want.push("pavement")); // the far side: the through street's pavement straight past, the ending street's full width
+        expect(got, where).toEqual(want);
+        expect(hi - lo + 3, where).toBe(layer.streets.find((x) => x.id === t.ending)!.bands.length);
       }
       // a plain parking cell lies on its street's parking band, and on no other band
       const byId = new Map(layer.streets.map((s) => [s.id, s] as const));
@@ -173,11 +180,11 @@ describe("S3: junction spacing (criterion 6)", () => {
   it("holds on the named cities", () => {
     eachCity((layer, o) => expect(s3Failures(layer), tag(o)).toEqual([]));
   });
-  const fixture = (gap: number) => {
+  const fixture = (gap: number, second: readonly CityStreetBand[] = TWO_WAY) => {
     const streets = [
-      { id: "x:1", axis: "x" as const, across0: 10, ends: [{ junction: "a" }, { junction: "b" }] as const },
-      { id: "x:2", axis: "x" as const, across0: 10 + gap, ends: [{ junction: "c" }, { junction: "d" }] as const },
-      { id: "z:1", axis: "z" as const, across0: 30, ends: [{ junction: "e" }, { junction: "f" }] as const },
+      { id: "x:1", axis: "x" as const, across0: 10, bands: TWO_WAY, ends: [{ junction: "a" }, { junction: "b" }] as const },
+      { id: "x:2", axis: "x" as const, across0: 10 + gap, bands: second, ends: [{ junction: "c" }, { junction: "d" }] as const },
+      { id: "z:1", axis: "z" as const, across0: 30, bands: TWO_WAY, ends: [{ junction: "e" }, { junction: "f" }] as const },
     ];
     const t = (id: string, ending: string, arm: CitySide) => ({
       id,
@@ -195,6 +202,10 @@ describe("S3: junction spacing (criterion 6)", () => {
   });
   it("fixture: two ends JUNCTION_GAP_MIN_CELLS apart pass", () => {
     expect(s3Failures(fixture(JUNCTION_GAP_MIN_CELLS))).toEqual([]);
+  });
+  it("fixture: the gap is between centre lines, so a 3-cell street JUNCTION_GAP_MIN_CELLS across0 away from a 5-cell one is a cell too near, and one more cell away passes", () => {
+    expect(s3Failures(fixture(JUNCTION_GAP_MIN_CELLS, THREE))).toHaveLength(1);
+    expect(s3Failures(fixture(JUNCTION_GAP_MIN_CELLS + 1, THREE))).toEqual([]);
   });
 });
 
@@ -269,10 +280,12 @@ describe("what later stages read (criterion 9)", () => {
       const streets = new Map(layer.streets.map((s) => [s.id, s] as const));
       for (const b of layer.blocks) {
         expect(Object.keys(b.sides).sort(), b.id).toEqual(["+x", "+z", "-x", "-z"]);
-        const want: Record<CitySide, [string, number]> = { "-z": ["x", b.j0 - STREET_CELLS], "+z": ["x", b.j1], "-x": ["z", b.i0 - STREET_CELLS], "+x": ["z", b.i1] };
+        // the street whose pavement touches the block edge: it begins at the edge on the "+" sides and ends there on the "-" sides
+        const touch: Record<CitySide, [string, number, "first" | "last"]> = { "-z": ["x", b.j0, "last"], "+z": ["x", b.j1, "first"], "-x": ["z", b.i0, "last"], "+x": ["z", b.i1, "first"] };
         for (const s of ["-x", "+x", "-z", "+z"] as const) {
           const st = streets.get(b.sides[s].street)!;
-          expect([st.axis, st.across0], `${tag(o)} ${b.id} ${s}`).toEqual(want[s]);
+          const [axis, edge, from] = touch[s];
+          expect([st.axis, from === "first" ? st.across0 : st.across0 + st.bands.length], `${tag(o)} ${b.id} ${s}`).toEqual([axis, edge]);
           const along = s === "-z" || s === "+z" ? [b.i0, b.i1] : [b.j0, b.j1];
           expect([b.sides[s].span.lo, b.sides[s].span.hi]).toEqual(along);
           expect(st.span.lo <= along[0]! && along[1]! <= st.span.hi, `${b.id} ${s} inside ${st.id}`).toBe(true);
@@ -317,7 +330,7 @@ describe("what later stages read (criterion 9)", () => {
       }
     });
   });
-  it("a side's junctions entry names a T whose ending street is opposite it, over that street's 5 cells", () => {
+  it("a side's junctions entry names a T whose ending street is opposite it, over that street's full width (5, 4 or 3 cells)", () => {
     eachCity((layer, o) => {
       const streets = new Map(layer.streets.map((s) => [s.id, s] as const));
       const juncs = new Map(layer.junctions.map((j) => [j.id, j] as const));
@@ -332,7 +345,7 @@ describe("what later stages read (criterion 9)", () => {
             expect(t.through, `${tag(o)} ${b.id} ${s}`).toBe(b.sides[s].street);
             expect(t.ending).toBe(f.street);
             expect(t.arm).toBe(s);
-            expect(f.span).toEqual({ lo: streets.get(f.street)!.across0, hi: streets.get(f.street)!.across0 + STREET_CELLS });
+            expect(f.span).toEqual({ lo: streets.get(f.street)!.across0, hi: streets.get(f.street)!.across0 + streets.get(f.street)!.bands.length });
           }
         }
       }
@@ -345,7 +358,10 @@ describe("what later stages read (criterion 9)", () => {
         const sq = (id: string): number[] => id.split(":").slice(1).map(Number);
         const [lo, hi] = [sq(s.ends[0].junction), sq(s.ends[1].junction)];
         const k = s.axis === "x" ? 0 : 1;
-        expect([s.span.lo, s.span.hi], `${tag(o)} ${s.id}`).toEqual([lo[k]!, hi[k]! + 3]);
+        // the high end's junction is as wide along the axis as the street it ends on has carriageway
+        const hiJunction = layer.junctions.find((x) => x.id === s.ends[1].junction)!;
+        const hiWidth = new Set(hiJunction.cells.map((c) => (s.axis === "x" ? c.i : c.j))).size;
+        expect([s.span.lo, s.span.hi], `${tag(o)} ${s.id}`).toEqual([lo[k]!, hi[k]! + hiWidth]);
         expect(lo[1 - k], s.id).toBe(s.across0 + 1);
       }
       expect(layer.streets.filter((s) => s.outer !== null).map((s) => s.outer).sort(), tag(o)).toEqual(["+x", "+z", "-x", "-z"]);
