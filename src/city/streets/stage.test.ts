@@ -21,8 +21,8 @@ const layerOf = (blocksX: number, blocksZ: number, seed: number) => {
 };
 
 describe("stage 1 picture (criterion 8, R-5)", () => {
-  it("has the legend lane, parking band, junction, crossing, pavement, pavement corner, block (after index 0, nothing)", () => {
-    expect(STREETS_LEGEND.map((e) => e.name)).toEqual(["none", "lane", "parking band", "junction", "crossing", "pavement", "pavement corner", "block"]);
+  it("has the legend lane, parking band, junction, crossing, pavement, pavement corner, block", () => {
+    expect(STREETS_LEGEND.map((e) => e.name)).toEqual(["lane", "parking band", "junction", "crossing", "pavement", "pavement corner", "block"]);
   });
   for (const [x, z, s] of [[3, 3, 1], [3, 3, 2], [3, 3, 3], [6, 4, 1]] as const) {
     it(`${x} x ${z} seed ${s}: the size is the lattice's, every index is in the legend, each cell matches the layer`, () => {
@@ -31,7 +31,7 @@ describe("stage 1 picture (criterion 8, R-5)", () => {
       const pic = streetsStage.picture(r.plan);
       expect(pic.stage).toBe("streets");
       expect(pictureProblems(pic, layer.w, layer.h)).toEqual([]);
-      const index: Record<CityStreetRole, number> = { lane: 1, parkingPlain: 2, junction: 3, crossing: 4, pavement: 5, pavementCorner: 6 };
+      const index: Record<CityStreetRole, number> = { lane: 0, parkingPlain: 1, junction: 2, crossing: 3, pavement: 4, pavementCorner: 5 };
       const listed = new Set<number>();
       for (const c of layer.cells) {
         listed.add(c.j * layer.w + c.i);
@@ -40,14 +40,14 @@ describe("stage 1 picture (criterion 8, R-5)", () => {
       for (const b of layer.blocks) {
         for (let j = b.j0; j < b.j1; j++) for (let i = b.i0; i < b.i1; i++) {
           expect(listed.has(j * layer.w + i)).toBe(false);
-          expect(pic.cells[j * layer.w + i]).toBe(7);
+          expect(pic.cells[j * layer.w + i]).toBe(6);
         }
       }
       // every lattice cell is a street cell or a block cell
       const blockCells = layer.blocks.reduce((n, b) => n + (b.i1 - b.i0) * (b.j1 - b.j0), 0);
       expect(listed.size + blockCells).toBe(layer.w * layer.h);
       // each of the seven kinds appears
-      expect(new Set(pic.cells)).toEqual(new Set([1, 2, 3, 4, 5, 6, 7]));
+      expect(new Set(pic.cells)).toEqual(new Set([0, 1, 2, 3, 4, 5, 6]));
     });
   }
 });

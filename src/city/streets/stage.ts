@@ -8,9 +8,8 @@ import type { CityStageDef } from "../pipeline/types";
 import { blockCorner, evaluateStreets, streetWidthFailures } from "./check";
 import { clampBlocks, layStreets } from "./layout";
 
-/** Index 0 is "nothing of this layer here"; no lattice cell is nothing in this layer (every cell is a street cell or a block). */
+/** Seven entries, no "nothing": every lattice cell is a street cell or a block. */
 export const STREETS_LEGEND: readonly LegendEntry[] = [
-  { name: "none", rgb: 0x000000 },
   { name: "lane", rgb: 0x3a3d42 },
   { name: "parking band", rgb: 0x5b6068 },
   { name: "junction", rgb: 0x2b2d31 },
@@ -20,8 +19,8 @@ export const STREETS_LEGEND: readonly LegendEntry[] = [
   { name: "block", rgb: 0x6f8a5a },
 ];
 
-const LEGEND_OF_ROLE: Readonly<Record<CityStreetRole, number>> = { lane: 1, parkingPlain: 2, junction: 3, crossing: 4, pavement: 5, pavementCorner: 6 };
-const LEGEND_BLOCK = 7;
+const LEGEND_OF_ROLE: Readonly<Record<CityStreetRole, number>> = { lane: 0, parkingPlain: 1, junction: 2, crossing: 3, pavement: 4, pavementCorner: 5 };
+const LEGEND_BLOCK = 6;
 
 function run(plan: CityPlan, rand: StageRand): CityStreetsLayer {
   void rand; // stage 1's hash is `hashOf` in layout.ts, which is `stageRand("streets", seed)`: the same function the runner passes.
