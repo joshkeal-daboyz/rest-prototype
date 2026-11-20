@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CityPlanRun, CityStreetRole } from "../../core";
 import { pictureProblems } from "../pipeline/picture";
-import { runCity } from "../pipeline/run";
+import { runCity } from "../stages";
 import { STREETS_LEGEND, streetsStage } from "./stage";
 
 const cache = new Map<string, CityPlanRun>();

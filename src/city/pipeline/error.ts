@@ -12,7 +12,7 @@ export class CityStageError extends Error {
   }
 }
 
-/** Thrown by `runCity` (not returned as a failure) when `until` names a stage that has not been built. */
+/** Thrown by `runStages` (and so by `runCity`, which calls it; not returned as a failure) when `until` names a stage that has not been built. */
 export class CityRunError extends Error {
   constructor(message: string) {
     super(message);

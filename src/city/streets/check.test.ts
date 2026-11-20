@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CityBlock, CityStreet, CityStreetsLayer } from "../../core";
-import { runCity } from "../pipeline/run";
+import { runCity } from "../stages";
 import { evaluateStreets, evaluateStreetsVariety, streetWidthFailures, streetsVariety } from "./check";
 
 const NAMED: { blocksX: number; blocksZ: number; seed: number }[] = [];

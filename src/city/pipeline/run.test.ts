@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { CityLandLayer, CityPlan } from "../../core";
 import { streetsStage } from "../streets/stage";
 import { CityRunError, CityStageError } from "./error";
-import { runCity } from "./run";
+import { runCity } from "../stages";
 import type { CityStageDef } from "./types";
 
 const landLayer: CityLandLayer = { stage: "land", blocks: [], parts: [], lanes: [], parks: [] };
@@ -13,7 +13,7 @@ const SMALL = { blocksX: 1, blocksZ: 1, seed: 1 };
 
 describe("runCity (R-1, R-2)", () => {
   it("runs stage 1 and records its digest and a frozen layer", () => {
-    const r = runCity(SMALL);
+    const r = runCity(SMALL, "streets");
     expect(r.ok).toBe(true);
     expect(Object.keys(r.plan.layers)).toEqual(["streets"]);
     expect(r.plan.digests.streets).toMatch(/^[0-9a-f]{8}$/);
@@ -26,7 +26,7 @@ describe("runCity (R-1, R-2)", () => {
     expect(r.plan.options).toEqual({ blocksX: 6, blocksZ: 1, seed: 2 });
   });
   it("is a typed error when `until` is a stage that is not built", () => {
-    expect(() => runCity(SMALL, "land")).toThrow(CityRunError);
+    expect(() => runCity(SMALL, "mass")).toThrow(CityRunError);
     expect(() => runCity(SMALL, "ground")).toThrow(CityRunError);
   });
   it("hands each stage only the layers before it", () => {
