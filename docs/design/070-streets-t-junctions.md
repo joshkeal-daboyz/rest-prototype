@@ -1,5 +1,11 @@
 # 070 streets: T junctions, and a street plan that is not one lattice
 
+## Josh's answer (20 Nov 2026, in chat)
+
+Asked "Which street plan do you want for stage 1?" (question 1 below: C the split plan, B staggered rows, or A knock-outs), Josh answered: "C, split plan".
+
+So stage 1 is designed as option C. Questions 2 to 5 are not answered yet.
+
 Design note for Josh, 20 Nov 2026, on `goal/city-style` at 7d28123 (A1, A2, A3, B, B2, C1, C2 and D1 merged; D2 held). Design only: no code, no ticket, no rule changed. Nothing here is Decided until Josh says so in chat.
 
 ## Josh's words (20 Nov 2026, in chat)
