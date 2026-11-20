@@ -27,6 +27,7 @@ You are the renderer for *Rest: Circuits*. Read `CLAUDE.md`, the ticket, `src/co
 - **Events only.** You read `GridState` snapshots and listen to events from `src/core/`. Never import from `src/grid/`, `src/night/` or `src/play/`. If you need something the state doesn't carry, ask for it in your reply.
 - **Light states never depend on colour alone** (GDD accessibility rule): pulses move, sparks flicker, lit lamps have a pool. A colour-blind player must still read the grid.
 - **Cheap.** 60 fps on an integrated GPU. No per-frame allocations in the draw loop; precompute cable geometry once per puzzle.
+- **The city plan is drawn, never decided** (ticket 070). `src/render3d/plan3d.ts` and `planview.ts` draw the `CityPlan` that `src/city/` produced. You never edit `src/city/`, and you never choose, move or drop anything the plan placed; if the plan cannot be drawn as given, say so in your reply.
 - **No input, no UI.** HUD text and prompts belong to `src/ui/`; keyboard and mouse belong to `src/play/`.
 
 ## When given a ticket
