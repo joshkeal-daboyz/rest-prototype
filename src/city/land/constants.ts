@@ -23,3 +23,5 @@ export const STRIP_CELLS = 2;
 export const COURT_PART_MIN_CELLS = 6;
 /** B2 (Josh, 19 Nov 2026, "Yes, all four"): a lane leaves only court parts whose long side is at least this many cells, so a drive always fits. */
 export const COURT_LONG_MIN_CELLS = 8;
+/** S6 (Josh, 20 Nov 2026: "Yes, all four"): lane mouths keep this many cells clear of a junction-facing stretch, each side. A typed-in copy of `tilecity.ts`'s `BAY_JUNCTION_CLEAR`, pinned equal by a test. */
+export const BAY_JUNCTION_CLEAR = 1;
