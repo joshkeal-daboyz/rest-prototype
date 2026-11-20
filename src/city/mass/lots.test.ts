@@ -3,17 +3,19 @@
  * block, a lane part with no place for a drive, and P2 with its failing fixtures. The named cities are in `stage.test.ts`.
  */
 import { describe, expect, it } from "vitest";
-import type { CityBlock, CityCourt, CityLandLayer, CityMassLayer, CityOpening, CityPart, CityStreetCell, CityStreetsLayer, CityBlockUnits } from "../../core";
-import { CITY_FRONT_LOT_BLOCKS_MAX as OLD_FRONT, COURT_CELLS as OLD_COURT, DRIVE_CELLS as OLD_DRIVE, HOME_COLUMN_FLOORS as OLD_HCF, LOTS_PER_BLOCK_MAX as OLD_LOTS, LOT_STALLS as OLD_STALLS, PARK_PER_HOME as OLD_PPH, PARK_SUPPLY_BAND as OLD_BAND, UNIT_FLOORS_NOMINAL as OLD_UFN } from "../../render3d/tilecity";
+import type { CityPlanBlock, CityCourt, CityLandLayer, CityMassLayer, CityOpening, CityPart, CityStreetCell, CityStreetsLayer, CityBlockUnits } from "../../core";
+import { BAY_JUNCTION_CLEAR as OLD_CLEAR, CITY_FRONT_LOT_BLOCKS_MAX as OLD_FRONT, COURT_CELLS as OLD_COURT, DRIVE_CELLS as OLD_DRIVE, HOME_COLUMN_FLOORS as OLD_HCF, LOTS_PER_BLOCK_MAX as OLD_LOTS, LOT_STALLS as OLD_STALLS, PARK_PER_HOME as OLD_PPH, PARK_SUPPLY_BAND as OLD_BAND, UNIT_FLOORS_NOMINAL as OLD_UFN } from "../../render3d/tilecity";
 import { TERRACE_BAYS } from "../../render3d/town";
 import { massFailures, p2Value, parkingNumbers, type ParkingNumbers } from "./check";
-import { CITY_FRONT_LOT_BLOCKS_MAX, COURT_CELLS, DRIVE_CELLS, HOME_COLUMN_FLOORS, LOTS_PER_BLOCK_MAX, LOT_STALLS, PARK_PER_HOME, PARK_SUPPLY_BAND, TERRACE_BAYS_MAX, UNIT_FLOORS_NOMINAL } from "./constants";
+import { BAY_JUNCTION_CLEAR, CITY_FRONT_LOT_BLOCKS_MAX, COURT_CELLS, DRIVE_CELLS, HOME_COLUMN_FLOORS, LOTS_PER_BLOCK_MAX, LOT_STALLS, PARK_PER_HOME, PARK_SUPPLY_BAND, TERRACE_BAYS_MAX, UNIT_FLOORS_NOMINAL } from "./constants";
 import { buildMass, lotQuota, unitsOf } from "./lots";
 import { planMass } from "./plan";
 import { offsetsOf, siteCells, siteFits, type LotSite } from "./sites";
 
-const block = (i0: number, i1: number, j0: number, j1: number, bi = 0, bj = 0): CityBlock => ({ id: `block:${bi}:${bj}`, bi, bj, i0, i1, j0, j1, type: "medium" });
-const part = (id: string, b: CityBlock, r: Pick<CityPart, "i0" | "i1" | "j0" | "j1">, edges: Partial<CityPart["edges"]> = {}): CityPart => ({
+/** A block with no neighbour and no junction in front of any side: what the checks read of stage 1 (`sides`), typed in. */
+const NO_SIDES = Object.fromEntries((["-x", "+x", "-z", "+z"] as const).map((s) => [s, { side: s, street: "x:0", span: { lo: 0, hi: 1 }, across: [], junctions: [] }])) as unknown as CityPlanBlock["sides"];
+const block = (i0: number, i1: number, j0: number, j1: number, bi = 0, bj = 0): CityPlanBlock => ({ id: `block:${bi}:${bj}`, bi, bj, i0, i1, j0, j1, type: "medium", sides: NO_SIDES });
+const part = (id: string, b: CityPlanBlock, r: Pick<CityPart, "i0" | "i1" | "j0" | "j1">, edges: Partial<CityPart["edges"]> = {}): CityPart => ({
   id,
   block: b.id,
   ...r,
@@ -21,7 +23,7 @@ const part = (id: string, b: CityBlock, r: Pick<CityPart, "i0" | "i1" | "j0" | "
   edges: { "+x": "street", "-x": "street", "+z": "street", "-z": "street", ...edges },
 });
 const landOf = (parts: CityPart[], lanes: CityLandLayer["lanes"] = []): CityLandLayer => ({ stage: "land", blocks: [], parts, lanes, parks: [] });
-const streetsOf = (blocks: CityBlock[], cells: CityStreetCell[] = []): Pick<CityStreetsLayer, "blocks" | "cells"> => ({ blocks: blocks as unknown as CityStreetsLayer["blocks"], cells });
+const streetsOf = (blocks: CityPlanBlock[], cells: CityStreetCell[] = []): Pick<CityStreetsLayer, "blocks" | "cells"> => ({ blocks: blocks as unknown as CityStreetsLayer["blocks"], cells });
 const pavement = (i: number, j: number, street: string): CityStreetCell => ({ i, j, role: "pavement", street, band: 0 });
 
 describe("the constants moved from the tile city keep their values", () => {
@@ -37,6 +39,8 @@ describe("the constants moved from the tile city keep their values", () => {
     expect(CITY_FRONT_LOT_BLOCKS_MAX).toBe(OLD_FRONT);
     expect(TERRACE_BAYS_MAX).toBe(TERRACE_BAYS.max);
     expect(DRIVE_CELLS).toBe(OLD_DRIVE);
+    expect(BAY_JUNCTION_CLEAR).toBe(OLD_CLEAR);
+    expect(BAY_JUNCTION_CLEAR).toBe(1);
     expect(COURT_CELLS).toEqual(OLD_COURT);
   });
 });
@@ -297,8 +301,15 @@ describe("a frontage lot is parking, not a way in (C2 criterion 5; Josh, 20 Nov 
 });
 
 describe("P2 (ported from parkmetrics.ts)", () => {
-  const nine: CityBlock[] = [];
+  const nine: CityPlanBlock[] = [];
   for (let bj = 0; bj < 3; bj++) for (let bi = 0; bi < 3; bi++) nine.push(block(bi * 20, bi * 20 + 14, bj * 20, bj * 20 + 14, bi, bj));
+  // the nine blocks of a plain 3 by 3 plan: each side has the block across its street (typed in here from the ranks; the stage reads only `across`)
+  const across = (b: CityPlanBlock): CityPlanBlock["sides"] => {
+    const at = (bi: number, bj: number): string[] => (bi >= 0 && bi < 3 && bj >= 0 && bj < 3 ? [`block:${bi}:${bj}`] : []);
+    const of = (ids: string[]) => ids.map((block) => ({ block, span: { lo: 0, hi: 1 } }));
+    return { "-x": { ...b.sides["-x"], across: of(at(b.bi - 1, b.bj)) }, "+x": { ...b.sides["+x"], across: of(at(b.bi + 1, b.bj)) }, "-z": { ...b.sides["-z"], across: of(at(b.bi, b.bj - 1)) }, "+z": { ...b.sides["+z"], across: of(at(b.bi, b.bj + 1)) } };
+  };
+  for (let n = 0; n < nine.length; n++) nine[n] = { ...nine[n]!, sides: across(nine[n]!) };
   const unit = (id: string, homes: number, lots: number, wanted = lots): CityBlockUnits => ({ block: id, columns: 0, shops: 0, homes, lotsWanted: wanted, lots, stallsShort: Math.max(0, wanted - lots) * LOT_STALLS });
   const court = (block: string, serves: string, opening = `${block}/drive/0`): CityCourt => ({ block, serves, opening, stallCells: [], aisleCells: [], stalls: LOT_STALLS });
   const drive = (c: CityCourt): CityOpening => ({ id: c.opening, kind: "drive", block: c.block, cells: [], mouth: [] });
@@ -342,6 +353,17 @@ describe("P2 (ported from parkmetrics.ts)", () => {
     expect(value(far, units).n.stallServedFar).toBe(LOT_STALLS);
   });
 
+  it("C3 criterion 4: a stall is served near when a side's `across` lists the served block, and far when none does (adjacency from the sides, not from ranks)", () => {
+    const { courts, units } = ideal();
+    const next = courts.map((c, n) => (n === 0 ? { ...c, serves: "block:1:0" } : c)); // block:0:0 hosts, block:1:0 is across its +x street
+    expect(value(next, units).n.stallServedFar).toBe(0);
+    const diagonal = courts.map((c, n) => (n === 0 ? { ...c, serves: "block:1:1" } : c)); // a corner away: no side lists it
+    expect(value(diagonal, units).n.stallServedFar).toBe(LOT_STALLS);
+    // either block's list is enough: strip block:1:0's own sides, and block:0:0's still names it
+    const bare = nine.map((b) => (b.id === "block:1:0" ? { ...b, sides: block(0, 1, 0, 1).sides } : b));
+    expect(parkingNumbers({ courts: next, units, openings: next.map(drive) }, bare).stallServedFar).toBe(0);
+  });
+
   it("failing fixture: more blocks short than ceil(blocks / 9)", () => {
     const { courts, units } = ideal();
     const short = units.map((u, n) => (n < 2 ? unit(u.block, 160, 0, 2) : u));
@@ -358,5 +380,66 @@ describe("P2 (ported from parkmetrics.ts)", () => {
     const { n } = value(courts, units, openings);
     expect(n.frontLotBlocks).toBe(2);
     expect(p2Value(n)).toBe(1);
+  });
+});
+
+describe("S6 for drives and frontage lots (C3 criteria 1 to 3)", () => {
+  const b0 = block(2, 18, 2, 13);
+  const land = landOf([part("block:0:0", b0, b0)]);
+  const cells: CityStreetCell[] = [];
+  for (let i = 2; i < 18; i++) cells.push(pavement(i, 1, "x:0"), pavement(i, 13, "x:1"));
+  for (let j = 2; j < 13; j++) cells.push(pavement(1, j, "z:0"), pavement(18, j, "z:1"));
+  const facing = (lo: number, hi: number) => [{ junction: "junction:0:0", street: "z:9", span: { lo, hi } }];
+  type Spans = Partial<Record<"-x" | "+x" | "-z" | "+z", { lo: number; hi: number }>>;
+  const withJunctions = (b: CityPlanBlock, on: Spans): CityPlanBlock => ({
+    ...b,
+    sides: Object.fromEntries((["-x", "+x", "-z", "+z"] as const).map((s) => [s, { ...b.sides[s], junctions: on[s] ? facing(on[s]!.lo, on[s]!.hi) : [] }])) as unknown as CityPlanBlock["sides"],
+  });
+  const mouthsOf = (m: ReturnType<typeof buildMass>["plan"]): { id: string; c: { i: number; j: number } }[] => m.openings.flatMap((o) => o.mouth.flatMap((x) => x.cells.map((c) => ({ id: o.id, c }))));
+
+  it("no mouth cell of a drive or frontage lot lies in a widened junction-facing span of its side, and the laid layer passes M5 with the clause", () => {
+    const b = withJunctions(b0, { "-z": { lo: 2, hi: 18 }, "+x": { lo: 4, hi: 9 } });
+    const built = buildMass(streetsOf([b], cells), land, () => 1);
+    const mouths = mouthsOf(built.plan);
+    expect(mouths.length).toBeGreaterThan(0);
+    for (const m of mouths) {
+      expect(m.c.j === 2, `${m.id} on the -z side`).toBe(false);
+      if (m.c.i === 17) expect(m.c.j < 4 - BAY_JUNCTION_CLEAR || m.c.j >= 9 + BAY_JUNCTION_CLEAR, `${m.id} at ${m.c.j}`).toBe(true);
+    }
+    const layer: CityMassLayer = { stage: "mass", cells: built.plan.cells, built: built.plan.built, openings: built.plan.openings, courts: built.courts, units: built.units };
+    expect(massFailures(layer, [b], land).filter((f) => f.id === "M5")).toEqual([]);
+  });
+
+  it("when the only street sites a part has face a junction none is offered, and the part goes on without a drive (a walk-through)", () => {
+    const b = withJunctions(b0, { "-z": { lo: 2, hi: 18 }, "+z": { lo: 2, hi: 18 }, "-x": { lo: 2, hi: 13 }, "+x": { lo: 2, hi: 13 } });
+    const built = buildMass(streetsOf([b], cells), land, () => 1);
+    expect(built.plan.openings.filter((o) => o.kind === "drive" || o.kind === "frontLot")).toEqual([]);
+    expect(built.plan.openings.filter((o) => o.kind === "walk")).toHaveLength(1);
+    expect(built.courts).toEqual([]);
+  });
+
+  it("failing fixture, M5: a drive moved onto a junction-facing span fails with \"faces a junction\" and the opening named", () => {
+    const site: LotSite = { part: "block:0:0", block: b0.id, serves: b0.id, kind: "court", side: "-z", t: 6 };
+    const mass = planMass(streetsOf([b0], cells), land, () => 1, [site]);
+    const layer: CityMassLayer = { stage: "mass", cells: mass.cells, built: mass.built, openings: mass.openings, courts: [], units: [] };
+    expect(massFailures(layer, [b0], land).filter((f) => f.id === "M5")).toEqual([]);
+    const facingBlock = withJunctions(b0, { "-z": { lo: 7, hi: 9 } }); // the drive's mouth cells are i = 8 and 9: inside the span widened by one
+    const faults = massFailures(layer, [facingBlock], land).filter((f) => f.id === "M5");
+    expect(faults).toHaveLength(2);
+    expect(faults[0]!.reason).toMatch(/block:0:0\/drive\/0 \(drive\) faces a junction/);
+  });
+
+  it("criterion 3: a block with no room for its lot asks the block across its street, read from `across`", () => {
+    const a = block(2, 4, 2, 14, 0, 0); // a 2-wide strip: no court part, so no lot of its own
+    const host = block(6, 16, 2, 13, 1, 0); // homes for one lot of its own, so it has room for a second, the neighbour's
+    const near = (bl: CityPlanBlock, lists: string[]): CityPlanBlock => ({ ...bl, sides: { ...bl.sides, "+x": { ...bl.sides["+x"], across: lists.map((id) => ({ block: id, span: { lo: 2, hi: 14 } })) } } });
+    const parts = landOf([part("block:0:0", a, a), part("block:1:0", host, host)]);
+    const ring: CityStreetCell[] = [];
+    for (let i = 6; i < 16; i++) ring.push(pavement(i, 1, "x:0"), pavement(i, 13, "x:1"));
+    for (let j = 2; j < 13; j++) ring.push(pavement(5, j, "z:0"), pavement(16, j, "z:1"));
+    const asks = buildMass(streetsOf([near(a, [host.id]), host], ring), parts, () => 1);
+    expect(asks.courts.some((c) => c.block === host.id && c.serves === a.id)).toBe(true);
+    const alone = buildMass(streetsOf([near(a, []), host], ring), parts, () => 1);
+    expect(alone.courts.some((c) => c.serves === a.id)).toBe(false);
   });
 });
