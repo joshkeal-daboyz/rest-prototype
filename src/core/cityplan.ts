@@ -492,23 +492,119 @@ export interface CityEdgeBlock {
 }
 
 /**
+ * The bits of `CityGroundCell.variant` (ticket 070 D2). Data, like `CITY_STAGES`: the one contract between stage 4, which writes the bits, and the assembler, which picks a piece by them.
+ * Every bit but `pavementDip` has the value of the old tile city's constant of the same meaning (`LANE_RIGHT`, `LANE_PATCH`, `PAVEMENT_GRATE`, `PAVEMENT_RETURN_NEAR`, `PAVEMENT_RETURN_FAR`,
+ * `PAVEMENT_FLUSH` in src/render3d/tilecity.ts), so `tilecity3d.ts` draws those cells unchanged; D2 pins each equal by a test while both exist.
+ * - A lane cell: `laneRight` (0 for the street's first lane in `bands`, 1 for its second; always 0 on a one-way street's one lane), `lanePatch` (a patch decal on it).
+ * - A pavement cell: `pavementGrate` (`Sidewalk_Grate_01`), or any of the kerb bits, never both. `pavementReturnNear` / `pavementReturnFar`: the cell just before / after a kerb cut along its street (increasing i or j),
+ *   whose side edge carries the inlet's return. `pavementFlush`: a build-out stands in front of it (no kerb, no gutter). `pavementDip` (new on the pipeline, D2; S2's far side of a T): a crossing lands in front
+ *   of it, so its kerb is dropped (`Sidewalk_Dip_01`) and the kerb line runs straight on past it. The old path never writes `pavementDip`; the assembler (section E) draws it.
+ * - Every other role: 0.
+ */
+export const CITY_GROUND_VARIANT = {
+  laneRight: 1,
+  lanePatch: 2,
+  pavementGrate: 1,
+  pavementReturnNear: 2,
+  pavementReturnFar: 4,
+  pavementFlush: 8,
+  pavementDip: 16,
+} as const;
+
+/**
  * One street piece as the assembler draws it: the same fields as the old tile city's `TileCell` (src/render3d/tilecity.ts), so `tilecity3d.ts` draws it unchanged.
- * Written by section D2 (variants, yaws, the kerb returns); D1 leaves `CityEdgeLayer.ground` absent.
+ * Written by section D2 (variants, yaws, the kerb returns, the dips); D1 leaves `CityEdgeLayer.ground` absent.
+ * `ground` covers every cell of `CityEdgeLayer.cells` exactly once: a `ParkingLines_01` tile is one record with `cells` 2 (its first cell, the lower i on an "x" street or the lower j on a "z" street, is `i`, `j`);
+ * every other cell is its own record, row-major, with the edge cell's `role` and `street`.
  */
 export interface CityGroundCell extends CityCell {
   /** 2 for a `ParkingLines_01` tile (its first cell is `i`, `j`), else 1. */
   readonly cells: 1 | 2;
   readonly role: CityEdgeRole;
-  /** Which model of the role's set; 0 for a role with one model. */
+  /** Which model of the role's set, as `CITY_GROUND_VARIANT`'s bits; 0 for a role with one model. */
   readonly variant: number;
-  /** The piece's centre, metres. */
+  /** The piece's centre, metres: the cell's centre, or the shared cell edge along the street for a 2-cell tile. */
   readonly x_m: number;
   readonly z_m: number;
   readonly yaw: CityYaw;
+  /** As `CityEdgeCell.street`. */
   readonly street: string | null;
 }
 
-/** Stage 4: the street edge. D1 writes the parking band and the kerb cuts; D2 adds the kerb line (typed by the architect before D2) and `ground`. */
+// ---- stage 4, the kerb line (ticket 070 D2; grammar rule 10; moved from src/render3d/kerbline.ts, 063 F) ----
+//
+// The same shapes as the old path's `KerbPath` and its parts (src/render3d/kerbline.ts), so the assembler can put the old path's kerb faces (`tileKerbPlan`) on it, plus what the split plan needs:
+// the `crossingDip` stretch (the far side of a T), the block side a path runs along (`faces`, `blockSide`), and each return's opening and building-line end. Points are metres in plan, on the cell edges.
+
+/** A point in plan, metres (the old path's `Mp`). */
+export interface CityKerbPoint {
+  readonly x: number;
+  readonly z: number;
+}
+
+/**
+ * What a stretch of a kerb path is:
+ * - `edge`: a pavement or build-out cell's carriageway edge;
+ * - `crossingDip` (new on the pipeline, S2): the carriageway edge of a pavement cell with a crossing in front of it on the far side of a T (`CITY_GROUND_VARIANT.pavementDip`). It is on the path's chain:
+ *   the line runs straight on past it, dropped, with no return;
+ * - `dip`: a vehicle opening's mouth edge on the street, between its two returns; off the chain, as the old path has it;
+ * - `flank`: the side of a stretch of build-outs;
+ * - `return`: the side of a vehicle opening, from the street kerb to the building line;
+ * - `opening`: across the opening at the building line (no kerb).
+ */
+export type CityKerbSegKind = "edge" | "crossingDip" | "dip" | "flank" | "return" | "opening";
+
+export interface CityKerbSeg {
+  readonly kind: CityKerbSegKind;
+  readonly a: CityKerbPoint;
+  readonly b: CityKerbPoint;
+  /** The unit vector, in plan, from the kerb line toward the walk: across the street for an edge, a crossing dip or a dip; along it for a flank or a return; 0 0 for an opening. */
+  readonly walk: CityKerbPoint;
+  /** The cell that carries the stretch: an edge's or a crossing dip's pavement or build-out cell, a dip's kerb-cut cell, a return's pavement cell on that side (null where there is none); null for a flank and an opening. */
+  readonly cell: CityCell | null;
+  /** An edge along a build-out: the pavement cell under it (flush). null otherwise. */
+  readonly under: CityCell | null;
+  /** A return: which side of its opening it is on, in the direction the path runs; null for every other stretch. */
+  readonly which: "near" | "far" | null;
+}
+
+export interface CityKerbReturn {
+  /** `<path id>|<i>,<j>`, the mouth's first kerb-cut cell along the path, as the old path names an inlet. */
+  readonly inlet: string;
+  /** The `CityOpening.id` whose mouth it turns in at (from `CityKerbCut.opening`). */
+  readonly opening: string;
+  /** Where the return meets the street edge, on the cell edges. */
+  readonly at: CityKerbPoint;
+  readonly side: "near" | "far";
+  /** Its other end, on the building line: within 0.05 m of the corner column's wall plane (the grammar's second addition; the cell edge until F2's `BODY_M` table exists). */
+  readonly end: CityKerbPoint;
+}
+
+/** One kerb line: the kerb of one pavement band along one street, from the corner at one end to the corner at the other (grammar rule 10 as D2 re-words it: "from block corner to block corner"). */
+export interface CityKerbPath {
+  /** `<street>|<side>|<first cell along the street>`, as the old path. */
+  readonly id: string;
+  readonly street: string;
+  /** The old path's `Kerb.side` of the pavement the path is on. */
+  readonly side: 1 | -1;
+  /** The block whose side the path runs along ("block:<bi>:<bj>"), or "outer" on the outer pavement of an edge street (as `CityEdgeCell.faces`). */
+  readonly faces: string;
+  /** That block's side (`CityBlockSide.side`); null when `faces` is "outer". */
+  readonly blockSide: CitySide | null;
+  /** The unit vector across the street, from the carriageway toward the walk. */
+  readonly across: CityKerbPoint;
+  /** The path in order, each mouth's dips after its opening. */
+  readonly segs: readonly CityKerbSeg[];
+  /** The chain of the path's vertices, in order: every segment but the dips (a crossing dip is on it). */
+  readonly points: readonly CityKerbPoint[];
+  /** Each vehicle mouth's edge on the street, between its two returns. */
+  readonly dips: readonly { readonly inlet: string; readonly a: CityKerbPoint; readonly b: CityKerbPoint }[];
+  /** The index ranges into `points` (start, end) of the segments that cross an opening. */
+  readonly openings: readonly (readonly [number, number])[];
+  readonly returns: readonly CityKerbReturn[];
+}
+
+/** Stage 4: the street edge. D1 writes the parking band and the kerb cuts; D2 adds `ground` and `kerb`. */
 export interface CityEdgeLayer {
   readonly stage: "edge";
   /** Every street cell once, dressed (`streets.cells`' order). */
@@ -520,8 +616,10 @@ export interface CityEdgeLayer {
   readonly buildoutTrees: readonly CityBuildoutTree[];
   /** Every block of `streets.blocks` once, whole-block parks included (their quota is from `mass.units` like any other block's). */
   readonly blocks: readonly CityEdgeBlock[];
-  /** The drawn street pieces: absent until section D2 fills it. */
+  /** The drawn street pieces (D2): every cell of `cells` once, a bay tile as one 2-cell record. Optional only so D1's layer and fixtures type-check; from D2 the stage always writes it. */
   readonly ground?: readonly CityGroundCell[];
+  /** The kerb lines (D2): one path per pavement band of each street side, from block corner to block corner, in the streets' order, then along the street. Optional as `ground`; from D2 always written. */
+  readonly kerb?: readonly CityKerbPath[];
 }
 /** Stage 5: buildings. Typed before section F1. */
 export interface CityBuildingsLayer {
