@@ -63,3 +63,8 @@ export const ONE_WAY_SHARE = 0.4;
 export const ONE_WAY_BARE_SHARE = 1 / 3;
 /** PROVISIONAL (same note): one painted arrow every this many lane cells (30 m) after the first lane cell past a junction. */
 export const ONE_WAY_ARROW_EVERY = 6;
+
+// ---- park places (ticket 070 A4c; Josh, 20 Nov 2026, the A4 pre-check's Q3: "yes") ----
+
+/** A typed-in copy of `tilecity.ts`'s `PARK_ONE_IN_BLOCKS` (a test pins them equal): V4 needs one park in this many blocks, so S11 asks for `ceil(blocks / PARK_ONE_IN_BLOCKS)` park places. */
+export const PARK_ONE_IN_BLOCKS = 6;

@@ -76,7 +76,7 @@ describe("stage 1 layer shape", () => {
   });
 });
 
-describe("stage 1 digest pins (R-4), moved by ticket 070 A4b (one-way streets: a new layer shape and new cuts, so every pin is re-taken once; A4 moved them before it)", () => {
+describe("stage 1 digest pins (R-4), moved by ticket 070 A4b and re-checked by A4c (park places: none of these four draws moved, so their pins stand; one-way streets: a new layer shape and new cuts, so every pin is re-taken once; A4 moved them before it)", () => {
   const PINS: readonly (readonly [number, number, number, string])[] = [
     [3, 3, 1, "9fefa1f6"],
     [3, 3, 2, "cfd63d14"],
