@@ -176,3 +176,14 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 070 B round 2 | gate (main session) | - | - | - | 0 | with A3 merged in: tsc clean, 129 files, 2844 passed, 20 skipped |
 | 070 B round 2 | code-reviewer | agent default (opus) | 22K total (one figure in the readout) | - | 0 | meets, must-fix 0 |
 | 070 B round 2 | playtester | agent default (sonnet) | 14K total (one figure in the readout) | - | 0 | regressions 0; stopped early |
+| 070 C1 | planner (general-purpose with planner.md) | sonnet | 273K total (one figure in the readout) | - | 0 | stage 3 mass, no courts (aac424b) |
+| 070 C1 | gate (main session) | - | - | - | 0 | red: planview.test.ts used "mass" as its unbuilt stage (130/131 files) |
+| 070 C1 fix | lead-architect | agent default (opus) | 15K total (one figure in the readout) | - | 0 | C1 Files gains planview.test.ts's unbuilt-stage example |
+| 070 C1 fix | renderer (general-purpose with renderer.md) | sonnet | 64K total (one figure in the readout) | - | 0 | unbuilt-stage example follows CITY_STAGES (dc8793c) |
+| 070 C1 | gate (main session) | - | - | - | 0 | tsc clean, 131 files, 2957 passed, 20 skipped |
+| 070 C1 | code-reviewer | agent default (opus) | 89K total (one figure in the readout) | - | 0 | partly, must-fix 1 (R-7 linearity); five readings judged |
+| 070 C1 | playtester | agent default (sonnet) | 14K total (one figure in the readout) | - | 0 | regressions 0; stopped early |
+| 070 C1 round 2 | planner (resumed) | sonnet | 276K total, cumulative with round 1 (one figure in the readout) | - | 0 | partById and per-block grouping (c53a2a7) |
+| 070 C1 round 2 | gate (main session) | - | - | - | 0 | tsc clean, 131 files, 2957 passed, 20 skipped |
+| 070 C1 round 2 | code-reviewer | agent default (opus) | 34K total (one figure in the readout) | - | 0 | meets, must-fix 0 |
+| 070 C1 round 2 | playtester | agent default (sonnet) | 14K total (one figure in the readout) | - | 0 | regressions 0; stopped early |
