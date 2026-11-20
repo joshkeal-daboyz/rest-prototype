@@ -4,7 +4,17 @@
 
 Asked "Which street plan do you want for stage 1?" (question 1 below: C the split plan, B staggered rows, or A knock-outs), Josh answered: "C, split plan".
 
-So stage 1 is designed as option C. Questions 2 to 5 are not answered yet.
+Asked "Do you approve 2 to 5 as recommended ("Yes, all four"), or do you want to take them one at a time?", Josh answered: "Yes, all four".
+
+So:
+
+- Stage 1 is designed as option C, the split plan (question 1).
+- The pipeline's cities may stop matching `city=tiles`, which keeps today's grid until section L (question 2).
+- `blocks=3x3` means the size of the city, not an exact block count (question 3).
+- Nothing a car enters faces a T: no alley mouth, court drive or frontage lot directly opposite a street that ends there (question 4, rule S6).
+- The streets go first: stage 1 is rebuilt and shown as the flat picture, Land, Mass and Edge are measured on the new plans, and only then D2 and the grey boxes (question 5).
+
+The two provisional numbers (S3's 7 cells, S5's half) are not decided; they wait for the pre-check and his eye. The `lead-architect` re-cuts from here.
 
 Design note for Josh, 20 Nov 2026, on `goal/city-style` at 7d28123 (A1, A2, A3, B, B2, C1, C2 and D1 merged; D2 held). Design only: no code, no ticket, no rule changed. Nothing here is Decided until Josh says so in chat.
 
