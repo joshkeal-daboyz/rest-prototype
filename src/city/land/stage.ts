@@ -32,6 +32,10 @@ function run(plan: CityPlan, rand: StageRand): CityLandLayer {
   for (const v of evaluateLand(m)) {
     if (v.pass) continue;
     if (v.id === "M4a") {
+      if (m.badParts.length === 0) {
+        const c = layer.parts.find((x) => x.id === m.cramped[0])!;
+        throw new CityStageError(`M4a: part ${c.id} is beside a lane and has a long side of ${Math.max(c.i1 - c.i0, c.j1 - c.j0)} cells (8 or more, so a drive fits)`, [{ i: c.i0, j: c.j0 }]);
+      }
       const bad = layer.parts.find((x) => x.id === m.badParts[0])!;
       throw new CityStageError(`M4a: part ${bad.id} has a short side of ${Math.min(bad.i1 - bad.i0, bad.j1 - bad.j0)} cells (2, or 6 or more)`, [{ i: bad.i0, j: bad.j0 }]);
     }

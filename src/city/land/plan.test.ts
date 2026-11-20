@@ -12,15 +12,50 @@ describe("land: the parts rule (criterion 2, M4a)", () => {
     expect([1, 2, 3, 4, 5, 6, 7, 20].map(partSideOk)).toEqual([false, true, false, false, false, true, true, true]);
   });
   it("a 9-cell side is cut 2, lane, 6 (or 6, lane, 2), never 4, lane, 4", () => {
-    expect(lanePositions(9)).toEqual([2, 6]);
-    expect(lanePositions(10)).toEqual([2, 7]);
-    expect(lanePositions(13)).toEqual([2, 6, 10]);
-    expect(lanePositions(14)).toEqual([2, 6, 7, 11]);
-    expect(lanePositions(8)).toEqual([]);
-    for (let len = 9; len <= 40; len++) for (const at of lanePositions(len)) expect([partSideOk(at), partSideOk(len - 1 - at)]).toEqual([true, true]);
+    expect(lanePositions(9, 8)).toEqual([2, 6]);
+    expect(lanePositions(10, 8)).toEqual([2, 7]);
+    expect(lanePositions(13, 9)).toEqual([2, 6, 10]);
+    expect(lanePositions(14, 9)).toEqual([2, 6, 7, 11]);
+    expect(lanePositions(8, 9)).toEqual([]);
+    for (let len = 9; len <= 40; len++) for (const at of lanePositions(len, 12)) expect([partSideOk(at), partSideOk(len - 1 - at)]).toEqual([true, true]);
   });
-  it("every side of 9 cells or more has a place for a lane", () => {
-    for (let len = 9; len <= 40; len++) expect(lanePositions(len).length).toBeGreaterThan(0);
+  it("every side of 9 cells or more has a place for a lane when the block is 8 or more across (B2)", () => {
+    for (let len = 9; len <= 40; len++) expect(lanePositions(len, 8).length).toBeGreaterThan(0);
+  });
+  it("B2: a place is dropped when a court part it leaves has a long side under 8 (criterion 1)", () => {
+    expect(lanePositions(13, 6)).toEqual([2, 10]); // 6, lane, 6 would leave two 6 x 6 parts
+    expect(lanePositions(9, 7)).toEqual([]); // 2, lane, 6 leaves a 6 x 7 part
+    expect(lanePositions(12, 6)).toEqual([2, 9]);
+    expect(lanePositions(14, 7)).toEqual([2, 11]);
+  });
+  it("B2: a block with no lane place takes no alley, though its side is long", () => {
+    const tight = block("block:0:0", "long", 9, 7);
+    expect(planBlocks([tight], zero).alleys.size).toBe(0);
+    expect(planLand([tight], zero).blocks[0]!.treatment).toBe("court");
+    expect(planBlocks([block("block:0:0", "long", 9, 8)], zero).alleys.size).toBe(1);
+    // a block that a quota would give an alley, with a place, still takes one; one without is passed over
+    const rest = [block("block:0:0", "medium", 9, 7), block("block:1:0", "medium", 9, 8, 20)];
+    expect([...planBlocks(rest, zero).alleys]).toEqual(["block:1:0"]);
+  });
+  it("B2 failing fixture: a 6 by 13 block cut 6, lane, 6 (two 6 x 6 parts) fails M4a with the long-side clause named", () => {
+    const layer: CityLandLayer = {
+      stage: "land",
+      blocks: [{ block: "block:0:0", biome: "town", treatment: "alley" }],
+      parts: [
+        { id: "block:0:0/a", block: "block:0:0", i0: 0, i1: 6, j0: 0, j1: 6, shape: "court", edges: { "+x": "street", "-x": "street", "+z": "lane", "-z": "street" } },
+        { id: "block:0:0/b", block: "block:0:0", i0: 0, i1: 6, j0: 7, j1: 13, shape: "court", edges: { "+x": "street", "-x": "street", "+z": "street", "-z": "lane" } },
+      ],
+      lanes: [{ block: "block:0:0", axis: "x", at: 6 }],
+      parks: [],
+    };
+    const m = landVariety(layer, [block("block:0:0", "long", 6, 13)]);
+    expect(m.badParts).toEqual([]);
+    expect(m.cramped).toEqual(["block:0:0/a", "block:0:0/b"]);
+    expect(evaluateLand(m).find((v) => v.id === "M4a")).toEqual({ id: "M4a", value: 2, pass: false });
+  });
+  it("B2: a whole block no lane cuts (6 x 6) is not judged by the long-side clause (Q7)", () => {
+    const layer: CityLandLayer = { stage: "land", blocks: [{ block: "block:0:0", biome: "town", treatment: "court" }], parts: [{ id: "block:0:0", block: "block:0:0", i0: 0, i1: 6, j0: 0, j1: 6, shape: "court", edges: { "+x": "street", "-x": "street", "+z": "street", "-z": "street" } }], lanes: [], parks: [] };
+    expect(landVariety(layer, [block("block:0:0", "small", 6, 6)]).cramped).toEqual([]);
   });
   it("failing fixture: a 9-cell side cut into two parts of 4 fails M4a, naming both parts", () => {
     const layer: CityLandLayer = {
@@ -37,8 +72,8 @@ describe("land: the parts rule (criterion 2, M4a)", () => {
     expect(m.badParts).toEqual(["block:0:0/a", "block:0:0/b"]);
     expect(evaluateLand(m).find((v) => v.id === "M4a")).toEqual({ id: "M4a", value: 2, pass: false });
   });
-  it("the planner cuts a 9 x 7 block into a strip and a 6-cell court, by the hash's pick among the places", () => {
-    const b = block("block:0:0", "long", 9, 7);
+  it("the planner cuts a 9 x 8 block into a strip and a 6-cell court, by the hash's pick among the places", () => {
+    const b = block("block:0:0", "long", 9, 8);
     const first = planLand([b], zero); // the first place: 2 cells before the lane
     expect(first.lanes).toEqual([{ block: b.id, axis: "z", at: 2 }]);
     expect(first.parts.map((p) => [p.id, p.i0, p.i1, p.shape])).toEqual([[`${b.id}/a`, 0, 2, "strip"], [`${b.id}/b`, 3, 9, "court"]]);
@@ -55,7 +90,7 @@ describe("land: the parts rule (criterion 2, M4a)", () => {
 
 describe("land: edges (criterion 3)", () => {
   it("a strip has one street edge and one lane edge on its long sides; its short ends are streets", () => {
-    const b = block("block:0:0", "long", 9, 7);
+    const b = block("block:0:0", "long", 9, 8);
     const strip = planLand([b], zero).parts[0]!;
     expect(strip.edges).toEqual({ "-x": "street", "+x": "lane", "-z": "street", "+z": "street" });
     const stripHigh = planLand([b], () => 1).parts[1]!;

@@ -1,10 +1,10 @@
 /**
  * Stage 2's checks, run on the layer: V3 (alleys) and V4 (parks), ported from `blockVariety` and `evaluateVariety` in `src/render3d/frontage.ts` with their thresholds unchanged, and M4a (no part has a short
- * side of 3 to 5 cells; grammar rule 4). V3 and V4 are counted from the layer's cells alone: an alley is an edge-connected set of lane cells, a park an edge-connected set of park cells. Pure.
+ * side of 3 to 5 cells, grammar rule 4; and, from B2, no lane leaves a court part with a long side under 8). V3 and V4 are counted from the layer's cells alone: an alley is an edge-connected set of lane cells, a park an edge-connected set of park cells. Pure.
  */
 
 import type { CityBlock, CityCell, CityLandLayer } from "../../core";
-import { ALLEY_CELLS, ALLEY_ONE_IN_BLOCKS, PARK_ONE_IN_BLOCKS } from "./constants";
+import { ALLEY_CELLS, ALLEY_ONE_IN_BLOCKS, COURT_LONG_MIN_CELLS, PARK_ONE_IN_BLOCKS } from "./constants";
 import { partSideOk } from "./plan";
 
 export type LandCheckId = "V3" | "V4" | "M4a";
@@ -62,6 +62,8 @@ export interface LandVariety {
   readonly parksNeeded: number;
   /** The parts whose short side is not 2 and not 6 or more. */
   readonly badParts: readonly string[];
+  /** B2: the court parts a lane leaves whose long side is under `COURT_LONG_MIN_CELLS` (no drive fits). A whole block no lane cuts is not judged here. */
+  readonly cramped: readonly string[];
 }
 
 /** The numbers behind V3, V4 and M4a, read from the layer's cells alone (never from the code that chose the alleys and parks). */
@@ -74,6 +76,7 @@ export function landVariety(layer: CityLandLayer, blocks: readonly CityBlock[]):
     parks: components(parkCells(layer)),
     parksNeeded: Math.ceil(n / PARK_ONE_IN_BLOCKS),
     badParts: layer.parts.filter((p) => !partSideOk(Math.min(p.i1 - p.i0, p.j1 - p.j0))).map((p) => p.id),
+    cramped: layer.parts.filter((p) => p.shape === "court" && Object.values(p.edges).includes("lane") && Math.max(p.i1 - p.i0, p.j1 - p.j0) < COURT_LONG_MIN_CELLS).map((p) => p.id),
   };
 }
 
@@ -81,7 +84,7 @@ export function landVariety(layer: CityLandLayer, blocks: readonly CityBlock[]):
 export function evaluateLand(m: LandVariety): LandVerdict[] {
   const v3 = Math.max(0, m.alleysNeeded - m.alleys) + (m.blocks === 0 ? 1 : 0);
   const v4 = Math.max(0, m.parksNeeded - m.parks) + (m.blocks === 0 ? 1 : 0);
-  const m4a = m.badParts.length;
+  const m4a = m.badParts.length + m.cramped.length;
   return [
     { id: "V3", value: v3, pass: v3 <= LAND_CHECK.V3 },
     { id: "V4", value: v4, pass: v4 <= LAND_CHECK.V4 },
