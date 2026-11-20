@@ -11,7 +11,7 @@
  * - Each layer has a digest, so a test can prove that a change to stage N leaves stages 1 to N-1 as they were.
  * - Each plan stage has a flat top-down picture (`CityPicture`) of its own layer.
  *
- * Layers 1 to 3 are typed here in full. Layers 4 to 8 are typed by the architect before their sections of ticket 070 start; until then each is a stub
+ * Layers 1 to 4 are typed here in full, and layer 5 as far as F1. Layers 6 to 8 are typed by the architect before their sections of ticket 070 start; until then each is a stub
  * with only its `stage` field, so the envelope type-checks.
  */
 
@@ -621,9 +621,66 @@ export interface CityEdgeLayer {
   /** The kerb lines (D2): one path per pavement band of each street side, from block corner to block corner, in the streets' order, then along the street. Optional as `ground`; from D2 always written. */
   readonly kerb?: readonly CityKerbPath[];
 }
-/** Stage 5: buildings. Typed before section F1. */
+// ---- stage 5: buildings (ticket 070 F1; grammar rules 1, 4 and 12; F2 adds each storey's piece, turn and placement, and the roofs) ----
+//
+// Typed by the lead-architect before F1 (20 Nov 2026, on Josh's "Start F1"). A row and a building are defined on the mass layer's built cells:
+// - **A row** is the line of built cells of one part along one of its sides. In a court part: for each side `s`, the outer row is the cells at distance 0 from `s`
+//   (front `s`), and the inner row is the cells at distance 1 from `s` and at least 1 from the two sides beside it (front: the side opposite `s`, toward the interior).
+//   In a strip: its two long sides' rows, each fronting its own edge; a strip's short ends are not rows. A ring-1 corner cell lies in two outer rows, a ring-2 blind
+//   corner in two inner rows, and a strip's end cell in its one long row.
+// - **A building** is 2 to 4 consecutive cells of one row (`TERRACE_BAYS`, grammar rule 1). Every cell is in exactly one building. A cell that lies in two rows is in
+//   the building of one of them.
+// - **Lead and follow.** Every building of a court part's outer rows leads. Every building of its inner rows follows: its partner building is the building of the mass
+//   partners (`CityBuiltCell.partner`) of its cells that are not blind. In a strip one row leads and the other follows (F1 criterion 4 says which).
+
+/** A row of built cells (see above): one part, one ring, one front. Its id is "<part>|<row>|<front>", unique in the city. */
+export interface CityBuildingRow {
+  readonly id: string;
+  readonly block: string;
+  readonly part: string;
+  /** As `CityBuiltCell.row`: "outer" for ring 1 and both rows of a strip, "inner" for ring 2. */
+  readonly row: "outer" | "inner";
+  /** The side every non-blind cell of the row shows: the part side for an outer row, the side toward the interior for an inner row. */
+  readonly front: CitySide;
+  /** Its buildings' ids, in order along the row (increasing i on a "-z"/"+z" front, increasing j on a "-x"/"+x" front). Openings may break the row: two buildings with an opening between them are in the same row but are not row neighbours. */
+  readonly buildings: readonly string[];
+}
+
+/** How a following building stands to its partner (grammar rule 4, Decided, Josh, 19 Nov 2026: "They can be either."). */
+export type CityBuildingBack = "through" | "another";
+
+/** One building (grammar rule 1): 2 to 4 columns of one row that share one style, one colourway and one floor count. */
+export interface CityBuilding {
+  /** "<row id>|<i>,<j>", its first cell along the row. */
+  readonly id: string;
+  readonly block: string;
+  readonly part: string;
+  /** Its `CityBuildingRow.id`. */
+  readonly rowId: string;
+  /** As its row's. */
+  readonly row: "outer" | "inner";
+  readonly front: CitySide;
+  /** Its cells in order along the row, 2 to 4, consecutive. */
+  readonly cells: readonly CityCell[];
+  /** A style id of the buildings stage's typed-in style table (one of `STACK_STYLES`' "bay" styles, src/render3d/stacks.ts: "apartment-01", "apartment-02", "apartment-03"). */
+  readonly style: string;
+  /** A colourway id of the typed-in pool (`COLOURWAY_POOL`, src/render3d/colourway.ts: "base", "01_C", ...). The assembler falls back to "base" for an id whose atlas did not load; the plan never knows what loaded. */
+  readonly colourway: string;
+  /** Storeys, the ground storey included: `CITY_STOREYS` 3 to 5 (R2). The old path's `floors` is this less one. */
+  readonly storeys: number;
+  /** A following building's partner building id; null for a leading building. */
+  readonly partner: string | null;
+  /** A following building's kind: "through" (its partner's style and colourway) or "another" (its own style, a colourway not its partner's); null for a leading building. */
+  readonly back: CityBuildingBack | null;
+}
+
+/** Stage 5: buildings. F1 writes `rows` and `buildings`; F2 adds each storey's kind, turn, piece and placement, and the roof pieces (typed by the architect before F2). */
 export interface CityBuildingsLayer {
   readonly stage: "buildings";
+  /** Every row once, in `mass.built` order of its first cell. */
+  readonly rows: readonly CityBuildingRow[];
+  /** Every building once, row by row in `rows` order, along each row. Every `mass.built` cell is in exactly one. */
+  readonly buildings: readonly CityBuilding[];
 }
 /** Stage 6: the circuit. Typed when ticket 059 is re-cut onto the pipeline; until then the layer is empty. */
 export interface CityCircuitLayer {
