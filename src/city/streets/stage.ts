@@ -6,7 +6,8 @@ import { makePicture, type LegendEntry } from "../pipeline/picture";
 import type { StageRand } from "../pipeline/seeds";
 import type { CityStageDef } from "../pipeline/types";
 import { blockCorner, evaluateStreets, streetWidthFailures } from "./check";
-import { clampBlocks, layStreets } from "./layout";
+import { clampBlocks } from "./layout";
+import { laySplit } from "./split";
 
 /** Seven entries, no "nothing": every lattice cell is a street cell or a block. */
 export const STREETS_LEGEND: readonly LegendEntry[] = [
@@ -27,8 +28,8 @@ function run(plan: CityPlan, rand: StageRand): CityStreetsLayer {
   const blocksX = clampBlocks(plan.options.blocksX);
   const blocksZ = clampBlocks(plan.options.blocksZ);
   const seed = Math.trunc(plan.options.seed);
-  const lay = layStreets(seed, blocksX, blocksZ);
-  const layer: CityStreetsLayer = { stage: "streets", w: lay.w, h: lay.h, streets: lay.streets, cells: lay.cells, blocks: lay.blocks, sizes: lay.sizes };
+  // The split plan (ticket 070 A4). Throws CityStageError naming the rule when no draw holds S1, S3, S4, S5, V1 and V2 (R-2).
+  const layer = laySplit(seed, blocksX, blocksZ).layer;
 
   const width = streetWidthFailures(layer);
   if (width.length > 0) throw new CityStageError(`street width (grammar 10): ${width[0]}`);

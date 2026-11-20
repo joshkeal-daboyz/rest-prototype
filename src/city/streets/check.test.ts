@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { CityBlock, CityStreet, CityStreetsLayer } from "../../core";
+import type { CityBlock, CityStreet } from "../../core";
 import { runCity } from "../stages";
 import { evaluateStreets, evaluateStreetsVariety, streetWidthFailures, streetsVariety } from "./check";
 
@@ -49,7 +49,7 @@ describe("street width and V1, V2 on the layer", () => {
   });
 
   it("a street with an avenue profile fails street width", () => {
-    const layer: Pick<CityStreetsLayer, "streets"> = { streets: [street("avenue", 5, 25)] };
+    const layer: { streets: CityStreet[] } = { streets: [street("avenue", 5, 25)] };
     const failures = streetWidthFailures(layer);
     expect(failures.length).toBeGreaterThan(0);
     expect(failures.join(" ")).toContain("x:1");

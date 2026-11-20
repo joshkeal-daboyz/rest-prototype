@@ -1,12 +1,12 @@
 /**
- * Criterion 6, the proof that the move changed nothing: on the named cities (and 6 x 4 seeds 4 to 6) stage 1's layer deep-equals today's `tileCity` on the streets,
+ * A1 criterion 6, kept by A4 (criterion 1) for the old lattice functions: on the named cities (and 6 x 4 seeds 4 to 6) `layStreets` deep-equals today's `tileCity` on the streets,
  * the blocks and every street cell's base role. HEAVY: builds `tileCity` once per city (16 cities), so the timeout is 120 s.
  * The `src/render3d/` import is test-only, the one the ticket allows.
  */
 import { describe, expect, it } from "vitest";
 import type { CityStreetRole } from "../../core";
 import { tileCity, type TileRole } from "../../render3d/tilecity";
-import { runCity } from "../stages";
+import { clampBlocks, layStreets } from "./layout";
 
 const NAMED: { blocksX: number; blocksZ: number; seed: number }[] = [];
 for (let seed = 1; seed <= 10; seed++) NAMED.push({ blocksX: 3, blocksZ: 3, seed });
@@ -25,16 +25,14 @@ const BASE: Partial<Record<TileRole, CityStreetRole>> = {
   kerbCut: "pavement",
 };
 
-describe("stage 1 equals today's tile city (criterion 6)", { timeout: 120_000 }, () => {
+describe("the old lattice (layStreets) equals today's tile city (A1 criterion 6, A4 criterion 1)", { timeout: 120_000 }, () => {
   it("covers the default city, 3 x 3 seeds 1 to 10 and 6 x 4 seeds 1 to 6", () => {
     expect(NAMED).toHaveLength(16);
   });
   for (const o of NAMED) {
     it(`${o.blocksX} x ${o.blocksZ} seed ${o.seed}: streets, blocks and street-cell roles are the same`, () => {
       const old = tileCity(o);
-      const r = runCity(o, "streets");
-      expect(r.ok).toBe(true);
-      const layer = r.plan.layers.streets!;
+      const layer = layStreets(o.seed, clampBlocks(o.blocksX), clampBlocks(o.blocksZ));
 
       // the streets
       expect(layer.streets).toEqual(old.streets);

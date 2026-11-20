@@ -1,0 +1,383 @@
+/**
+ * Stage 1 on the split plan (ticket 070 A4): criteria 2 to 10 and 12, on the named cities (the default, 3 x 3 seeds 1 to 10, 6 x 4 seeds 1 to 3). Each city is laid once, through a module cache.
+ * No test asserts a block count (R-7, Josh Q10). `JUNCTION_GAP_MIN_CELLS` and `T_SHARE_MIN` are PROVISIONAL and are read by name; only the two fixtures use their values as numbers.
+ */
+import { describe, expect, it } from "vitest";
+import type { CityCell, CityJunction, CitySide, CityStreetsLayer } from "../../core";
+import { CityStageError } from "../pipeline/error";
+import { blockSizeFailures, coverageProblems, evaluateStreets, innerTShare, s1Failures, s3Failures, s5Failures, streetWidthFailures, streetsVariety, tOf } from "./check";
+import { BLOCK_DRAWS_MAX, BLOCK_TILES, JUNCTION_GAP_MIN_CELLS, STREET_CELLS, T_SHARE_MIN } from "./constants";
+import { blockSizes, cvOf, layStreets } from "./layout";
+import { laySplit, type SplitLayout } from "./split";
+
+const NAMED: { blocksX: number; blocksZ: number; seed: number }[] = [];
+for (let seed = 1; seed <= 10; seed++) NAMED.push({ blocksX: 3, blocksZ: 3, seed });
+for (let seed = 1; seed <= 3; seed++) NAMED.push({ blocksX: 6, blocksZ: 4, seed });
+
+const cache = new Map<string, SplitLayout>();
+const laid = (o: { blocksX: number; blocksZ: number; seed: number }): SplitLayout => {
+  const key = `${o.blocksX}x${o.blocksZ}:${o.seed}`;
+  let r = cache.get(key);
+  if (!r) {
+    r = laySplit(o.seed, o.blocksX, o.blocksZ);
+    cache.set(key, r);
+  }
+  return r;
+};
+const eachCity = (f: (layer: CityStreetsLayer, o: (typeof NAMED)[number], r: SplitLayout) => void): void => {
+  for (const o of NAMED) f(laid(o).layer, o, laid(o));
+};
+const tag = (o: (typeof NAMED)[number]): string => `${o.blocksX}x${o.blocksZ} seed ${o.seed}`;
+
+describe("the outline (criterion 2)", () => {
+  it("is today's ground: w, h, the four edge streets' across0, bands and profile, and the draw", () => {
+    eachCity((layer, o) => {
+      const lat = layStreets(o.seed, o.blocksX, o.blocksZ);
+      expect(layer.w, tag(o)).toBe(lat.w);
+      expect(layer.h, tag(o)).toBe(lat.h);
+      const edge = (axis: "x" | "z", outer: CitySide) => layer.streets.find((s) => s.axis === axis && s.outer === outer)!;
+      const pairs: [CitySide, "x" | "z", number][] = [["-z", "x", 0], ["+z", "x", o.blocksZ], ["-x", "z", 0], ["+x", "z", o.blocksX]];
+      for (const [outer, axis, line] of pairs) {
+        const want = lat.streets.find((s) => s.axis === axis && s.line === line)!;
+        const got = edge(axis, outer);
+        expect({ a: got.across0, b: got.bands, p: got.profile }, `${tag(o)} ${outer}`).toEqual({ a: want.across0, b: want.bands, p: want.profile });
+      }
+      expect(layer.outline, tag(o)).toEqual({ i0: STREET_CELLS, i1: lat.w - STREET_CELLS, j0: STREET_CELLS, j1: lat.h - STREET_CELLS, draw: blockSizes(o.seed, o.blocksX, o.blocksZ).draw });
+    });
+  });
+});
+
+describe("the split (criterion 3)", () => {
+  it("every other street is a cut: profile street, 5 cells, a parking side by hash, and never an edge street", () => {
+    eachCity((layer, o) => {
+      for (const s of layer.streets) {
+        expect(s.profile, `${tag(o)} ${s.id}`).toBe("street");
+        expect(s.bands, s.id).toHaveLength(STREET_CELLS);
+        expect(s.bands.filter((b) => b === "parking"), s.id).toHaveLength(1);
+        expect(s.carriage.hi_m - s.carriage.lo_m, s.id).toBe(15);
+      }
+      expect(layer.streets.filter((s) => s.outer === null).length, tag(o)).toBeGreaterThan(0);
+    });
+  });
+  it("collinear streets never overlap: where two cuts meet across a street they are one street, a crossroads", () => {
+    eachCity((layer, o) => {
+      for (const a of layer.streets) {
+        for (const b of layer.streets) {
+          if (a.id >= b.id || a.axis !== b.axis || a.across0 !== b.across0) continue;
+          expect(a.span.hi <= b.span.lo || b.span.hi <= a.span.lo, `${tag(o)} ${a.id} ${b.id}`).toBe(true);
+        }
+      }
+      for (const j of layer.junctions.filter((x) => x.kind === "crossroads")) expect(j.streets.every((m) => m.passes)).toBe(true);
+    });
+  });
+  it("is the same for the same seed, and finishes on every named city (no draw left over)", () => {
+    eachCity((layer, o, r) => {
+      expect(laySplit(o.seed, o.blocksX, o.blocksZ).layer, tag(o)).toEqual(layer);
+      expect(r.draw).toBeLessThanOrEqual(BLOCK_DRAWS_MAX);
+    });
+  });
+  it("fails with the rule named when every draw misses (R-2): there is no fallback list", () => {
+    let err: unknown;
+    try {
+      laySplit(1, 3, 3, () => [{ rule: "S3", reason: "S3: a near miss" }]);
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeInstanceOf(CityStageError);
+    expect((err as CityStageError).reason).toMatch(/^S3: no split of the 3 x 3 ground held every rule in 65 draws/);
+  });
+});
+
+describe("S1: every street ends on a street (criterion 4)", () => {
+  it("holds on the named cities: ends name junctions that list the street as ending, and each kind has its streets and arms", () => {
+    eachCity((layer, o) => {
+      expect(s1Failures(layer), tag(o)).toEqual([]);
+      const byId = new Map(layer.junctions.map((j) => [j.id, j] as const));
+      for (const s of layer.streets) {
+        expect(s.ends, s.id).toHaveLength(2);
+        for (const e of s.ends) {
+          const j = byId.get(e.junction)!;
+          expect(j, `${s.id} ${e.junction}`).toBeDefined();
+          expect(j.streets.find((m) => m.street === s.id)?.passes, `${s.id} at ${j.id}`).toBe(false);
+          // the end is a real junction in the cells: its nine cells are carriageway junction cells
+          for (const c of j.cells) expect(layer.cells.find((x) => x.i === c.i && x.j === c.j)?.role, `${j.id}`).toBe("junction");
+        }
+      }
+      for (const j of layer.junctions) {
+        const passing = j.streets.filter((m) => m.passes).length;
+        const want = { corner: [0, 2], T: [1, 3], crossroads: [2, 4] }[j.kind]!;
+        expect([passing, j.arms.length], j.id).toEqual(want);
+        expect(j.streets.length, j.id).toBe(2);
+      }
+    });
+  });
+  it("fails a street whose end touches no street, naming the street", () => {
+    const streets = [{ id: "z:9", axis: "z" as const, across0: 20, ends: [{ junction: "junction:21:1" }, { junction: "junction:21:30" }] as const }];
+    const failures = s1Failures({ streets, junctions: [] });
+    expect(failures).toHaveLength(2);
+    expect(failures[0]).toContain("z:9");
+    expect(failures[0]).toContain("S1");
+  });
+  it("fails a junction whose street list does not agree with its kind", () => {
+    const j = { id: "junction:1:1", kind: "T" as const, streets: [{ street: "x:0", passes: true }, { street: "z:0", passes: true }], arms: ["-x", "+x", "-z", "+z"] as CitySide[] };
+    const failures = s1Failures({ streets: [], junctions: [j] });
+    expect(failures).toHaveLength(1);
+    expect(failures[0]).toContain("junction:1:1");
+  });
+});
+
+describe("S2: a T is a crossroads with one arm missing (criterion 5)", () => {
+  /** The vector of a side. */
+  const dir = (s: CitySide): [number, number] => (s === "+x" ? [1, 0] : s === "-x" ? [-1, 0] : s === "+z" ? [0, 1] : [0, -1]);
+  it("every T: 3 x 3 junction cells, 9 crossings, 2 pavement corners on the ending street's side, 5 pavement cells opposite it, and no parking cell among them", () => {
+    let ts = 0;
+    eachCity((layer, o) => {
+      const role = new Map<string, string>(layer.cells.map((c) => [`${c.i},${c.j}`, c.role] as const));
+      for (const j of layer.junctions.filter((x) => x.kind === "T")) {
+        ts++;
+        const t = tOf(j)!;
+        const [du, dv] = dir(t.arm); // the ending street's direction
+        const [pu, pv] = [Math.abs(dv), Math.abs(du)]; // across it
+        const mid = { i: j.cells[4]!.i, j: j.cells[4]!.j };
+        const at = (s: number, p: number): string => `${mid.i + s * du + p * pu},${mid.j + s * dv + p * pv}`;
+        const where = `${tag(o)} ${j.id}`;
+        expect(j.cells, where).toHaveLength(9);
+        for (let s = -1; s <= 1; s++) for (let p = -1; p <= 1; p++) expect(role.get(at(s, p)), where).toBe("junction");
+        // crossings: 3 across the ending street (on the near row), 3 across the through street each side of it
+        const crossings = [at(2, -1), at(2, 0), at(2, 1), at(-1, -2), at(0, -2), at(1, -2), at(-1, 2), at(0, 2), at(1, 2)];
+        for (const k of crossings) expect(role.get(k), `${where} crossing ${k}`).toBe("crossing");
+        // pavement corners on the ending street's side
+        expect([role.get(at(2, -2)), role.get(at(2, 2))], where).toEqual(["pavementCorner", "pavementCorner"]);
+        // the far side: the through street's pavement straight past, 5 cells
+        for (let p = -2; p <= 2; p++) expect(role.get(at(-2, p)), `${where} far ${p}`).toBe("pavement");
+      }
+      for (const c of layer.cells) if (c.role === "junction" || c.role === "crossing") expect(c.role).not.toBe("parkingPlain");
+    });
+    expect(ts).toBeGreaterThan(0);
+  });
+  it("street cells keep today's fields: junction and corner cells have no street, a crossing has no band, a band cell has one", () => {
+    eachCity((layer) => {
+      for (const c of layer.cells) {
+        if (c.role === "junction" || c.role === "pavementCorner") expect(c.street).toBeNull();
+        else expect(c.street).not.toBeNull();
+        if (c.role === "crossing") expect(c.band).toBe(-1);
+        if (c.role === "lane" || c.role === "parkingPlain" || c.role === "pavement") expect(c.band).toBeGreaterThanOrEqual(0);
+      }
+    });
+  });
+});
+
+describe("S3: junction spacing (criterion 6)", () => {
+  it("holds on the named cities", () => {
+    eachCity((layer, o) => expect(s3Failures(layer), tag(o)).toEqual([]));
+  });
+  const fixture = (gap: number) => {
+    const streets = [
+      { id: "x:1", axis: "x" as const, across0: 10, ends: [{ junction: "a" }, { junction: "b" }] as const },
+      { id: "x:2", axis: "x" as const, across0: 10 + gap, ends: [{ junction: "c" }, { junction: "d" }] as const },
+      { id: "z:1", axis: "z" as const, across0: 30, ends: [{ junction: "e" }, { junction: "f" }] as const },
+    ];
+    const t = (id: string, ending: string, arm: CitySide) => ({
+      id,
+      kind: "T" as const,
+      streets: [{ street: ending, passes: false }, { street: "z:1", passes: true }],
+      arms: ["-z", "+z", arm] as CitySide[],
+    });
+    return { streets, junctions: [t("junction:31:11", "x:1", "-x"), t(`junction:31:${11 + gap}`, "x:2", "+x")] };
+  };
+  it("fixture: two ends one cell under JUNCTION_GAP_MIN_CELLS apart fail, naming both streets", () => {
+    const failures = s3Failures(fixture(JUNCTION_GAP_MIN_CELLS - 1));
+    expect(failures).toHaveLength(1);
+    expect(failures[0]).toContain("x:1");
+    expect(failures[0]).toContain("x:2");
+  });
+  it("fixture: two ends JUNCTION_GAP_MIN_CELLS apart pass", () => {
+    expect(s3Failures(fixture(JUNCTION_GAP_MIN_CELLS))).toEqual([]);
+  });
+});
+
+describe("S4: blocks (criterion 7)", () => {
+  it("every block is a rectangle with a street on all four sides, each side 6 to 16 cells; blockSizesWork's two tests hold over blocks", () => {
+    eachCity((layer, o) => {
+      expect(blockSizeFailures(layer.blocks), tag(o)).toEqual([]);
+      for (const b of layer.blocks) {
+        for (const len of [b.i1 - b.i0, b.j1 - b.j0]) {
+          expect(len, `${tag(o)} ${b.id}`).toBeGreaterThanOrEqual(BLOCK_TILES.min);
+          expect(len, `${tag(o)} ${b.id}`).toBeLessThanOrEqual(BLOCK_TILES.max);
+        }
+        expect(Math.max(b.i1 - b.i0, b.j1 - b.j0), b.id).toBeGreaterThanOrEqual(7);
+        for (const s of ["-x", "+x", "-z", "+z"] as const) expect(b.sides[s].street, `${b.id} ${s}`).toMatch(/^[xz]:\d+$/);
+      }
+      const mean = (f: (b: (typeof layer.blocks)[number]) => number): number => layer.blocks.reduce((n, b) => n + f(b), 0) / layer.blocks.length;
+      expect(mean((b) => b.i1 - b.i0)).toBeGreaterThanOrEqual(10);
+      expect(mean((b) => b.j1 - b.j0)).toBeGreaterThanOrEqual(10);
+    });
+  });
+  it("every lattice cell is a street cell or in exactly one block", () => {
+    eachCity((layer, o) => expect(coverageProblems(layer), tag(o)).toEqual([]));
+  });
+  it("bi and bj are ranks of i0 and j0; ids are block:<bi>:<bj> and unique", () => {
+    eachCity((layer, o) => {
+      const i0s = [...new Set(layer.blocks.map((b) => b.i0))].sort((a, b) => a - b);
+      const j0s = [...new Set(layer.blocks.map((b) => b.j0))].sort((a, b) => a - b);
+      for (const b of layer.blocks) {
+        expect(b.bi, `${tag(o)} ${b.id}`).toBe(i0s.indexOf(b.i0));
+        expect(b.bj, `${tag(o)} ${b.id}`).toBe(j0s.indexOf(b.j0));
+        expect(b.id).toBe(`block:${b.bi}:${b.bj}`);
+      }
+      expect(new Set(layer.blocks.map((b) => b.id)).size).toBe(layer.blocks.length);
+    });
+  });
+  it("fixture: a side of 5, a side of 17, and blocks with no side of 7 fail, naming the block", () => {
+    const f = blockSizeFailures([
+      { id: "a", i0: 0, i1: 5, j0: 0, j1: 10 },
+      { id: "b", i0: 0, i1: 17, j0: 0, j1: 10 },
+      { id: "c", i0: 0, i1: 6, j0: 0, j1: 6 },
+    ]);
+    expect(f.filter((x) => x.startsWith("a:") || x.startsWith("b:") || x.startsWith("c:"))).toHaveLength(3);
+  });
+});
+
+describe("S5: Ts are common (criterion 8)", () => {
+  it("at least T_SHARE_MIN of the inner junctions are Ts on the named cities", () => {
+    eachCity((layer, o) => {
+      expect(layer.junctions.some((j) => j.inner), tag(o)).toBe(true);
+      expect(innerTShare(layer.junctions), tag(o)).toBeGreaterThanOrEqual(T_SHARE_MIN);
+      expect(s5Failures(layer.junctions), tag(o)).toEqual([]);
+      for (const j of layer.junctions) expect(j.inner, j.id).toBe(j.streets.every((m) => layer.streets.find((s) => s.id === m.street)!.outer === null));
+    });
+  });
+  it("fixture: today's lattice (the default city's junctions) fails S5", () => {
+    const lat = layStreets(1, 3, 3);
+    const edge = (line: number, last: number): boolean => line === 0 || line === last;
+    const xs = lat.streets.filter((s) => s.axis === "x");
+    const zs = lat.streets.filter((s) => s.axis === "z");
+    const junctions: Pick<CityJunction, "kind" | "inner">[] = [];
+    for (const x of xs) for (const z of zs) junctions.push({ kind: "crossroads", inner: !edge(x.line, xs.length - 1) && !edge(z.line, zs.length - 1) });
+    expect(junctions.some((j) => j.inner)).toBe(true);
+    expect(innerTShare(junctions)).toBe(0);
+    expect(s5Failures(junctions)).toHaveLength(1);
+  });
+});
+
+describe("what later stages read (criterion 9)", () => {
+  const opposite: Record<CitySide, CitySide> = { "+x": "-x", "-x": "+x", "+z": "-z", "-z": "+z" };
+  it("every block has its four sides, each naming the street along it", () => {
+    eachCity((layer, o) => {
+      const streets = new Map(layer.streets.map((s) => [s.id, s] as const));
+      for (const b of layer.blocks) {
+        expect(Object.keys(b.sides).sort(), b.id).toEqual(["+x", "+z", "-x", "-z"]);
+        const want: Record<CitySide, [string, number]> = { "-z": ["x", b.j0 - STREET_CELLS], "+z": ["x", b.j1], "-x": ["z", b.i0 - STREET_CELLS], "+x": ["z", b.i1] };
+        for (const s of ["-x", "+x", "-z", "+z"] as const) {
+          const st = streets.get(b.sides[s].street)!;
+          expect([st.axis, st.across0], `${tag(o)} ${b.id} ${s}`).toEqual(want[s]);
+          const along = s === "-z" || s === "+z" ? [b.i0, b.i1] : [b.j0, b.j1];
+          expect([b.sides[s].span.lo, b.sides[s].span.hi]).toEqual(along);
+          expect(st.span.lo <= along[0]! && along[1]! <= st.span.hi, `${b.id} ${s} inside ${st.id}`).toBe(true);
+        }
+      }
+    });
+  });
+  it("on every side not facing out, across and junctions are disjoint and cover the side's span exactly; a side facing out has both empty", () => {
+    eachCity((layer, o) => {
+      const streets = new Map(layer.streets.map((s) => [s.id, s] as const));
+      let outs = 0;
+      for (const b of layer.blocks) {
+        for (const s of ["-x", "+x", "-z", "+z"] as const) {
+          const side = b.sides[s];
+          const where = `${tag(o)} ${b.id} ${s}`;
+          if (streets.get(side.street)!.outer === s) {
+            outs++;
+            expect([side.across, side.junctions], where).toEqual([[], []]);
+            continue;
+          }
+          const marks = new Array<number>(side.span.hi - side.span.lo).fill(0);
+          const spans = [...side.across.map((a) => a.span), ...side.junctions.map((j) => j.span)];
+          for (const sp of spans) for (let k = sp.lo; k < sp.hi; k++) marks[k - side.span.lo]!++;
+          expect(marks.every((m) => m === 1), `${where} ${JSON.stringify(spans)}`).toBe(true);
+          expect(side.across.length, where).toBeGreaterThan(0);
+        }
+      }
+      expect(outs, tag(o)).toBeGreaterThan(0);
+    });
+  });
+  it("across is symmetric: when A lists B across its side with span s, B lists A across its opposite side with the same s", () => {
+    eachCity((layer, o) => {
+      const byId = new Map(layer.blocks.map((b) => [b.id, b] as const));
+      for (const a of layer.blocks) {
+        for (const s of ["-x", "+x", "-z", "+z"] as const) {
+          for (const x of a.sides[s].across) {
+            const back = byId.get(x.block)!.sides[opposite[s]];
+            expect(back.street, `${tag(o)} ${a.id} ${s}`).toBe(a.sides[s].street);
+            expect(back.across.find((y) => y.block === a.id)?.span, `${tag(o)} ${a.id} ${s} -> ${x.block}`).toEqual(x.span);
+          }
+        }
+      }
+    });
+  });
+  it("a side's junctions entry names a T whose ending street is opposite it, over that street's 5 cells", () => {
+    eachCity((layer, o) => {
+      const streets = new Map(layer.streets.map((s) => [s.id, s] as const));
+      const juncs = new Map(layer.junctions.map((j) => [j.id, j] as const));
+      let seen = 0;
+      for (const b of layer.blocks) {
+        for (const s of ["-x", "+x", "-z", "+z"] as const) {
+          for (const f of b.sides[s].junctions) {
+            seen++;
+            const j = juncs.get(f.junction)!;
+            const t = tOf(j)!;
+            expect(j.kind).toBe("T");
+            expect(t.through, `${tag(o)} ${b.id} ${s}`).toBe(b.sides[s].street);
+            expect(t.ending).toBe(f.street);
+            expect(t.arm).toBe(s);
+            expect(f.span).toEqual({ lo: streets.get(f.street)!.across0, hi: streets.get(f.street)!.across0 + STREET_CELLS });
+          }
+        }
+      }
+      expect(seen, tag(o)).toBeGreaterThan(0);
+    });
+  });
+  it("each street's span runs from its low end's junction square to its high end's, and outer is set on exactly the four edge streets", () => {
+    eachCity((layer, o) => {
+      for (const s of layer.streets) {
+        const sq = (id: string): number[] => id.split(":").slice(1).map(Number);
+        const [lo, hi] = [sq(s.ends[0].junction), sq(s.ends[1].junction)];
+        const k = s.axis === "x" ? 0 : 1;
+        expect([s.span.lo, s.span.hi], `${tag(o)} ${s.id}`).toEqual([lo[k]!, hi[k]! + 3]);
+        expect(lo[1 - k], s.id).toBe(s.across0 + 1);
+      }
+      expect(layer.streets.filter((s) => s.outer !== null).map((s) => s.outer).sort(), tag(o)).toEqual(["+x", "+z", "-x", "-z"]);
+      expect(layer.streets.map((s) => s.id).length, tag(o)).toBe(new Set(layer.streets.map((s) => s.id)).size);
+      // the junction list is every junction once, row-major by its low corner cell
+      const cells: CityCell[] = layer.junctions.map((j) => j.cells[0]!);
+      for (let k = 1; k < cells.length; k++) expect(cells[k]!.j > cells[k - 1]!.j || (cells[k]!.j === cells[k - 1]!.j && cells[k]!.i > cells[k - 1]!.i)).toBe(true);
+    });
+  });
+});
+
+describe("V1 reworded, V2 unchanged, street width (criterion 10)", () => {
+  it("hold on every street and block of the named cities", () => {
+    eachCity((layer, o) => {
+      expect(streetWidthFailures(layer), tag(o)).toEqual([]);
+      for (const v of evaluateStreets(layer)) expect(v.pass, `${tag(o)} ${v.id}`).toBe(true);
+    });
+  });
+  it("on a lattice the new reading (over all blocks) and the old (one size per column and row) give the same number", () => {
+    const lat = layStreets(1, 3, 3);
+    const v = streetsVariety(lat);
+    expect(v.cvX).toBeCloseTo(cvOf(lat.sizes.widths), 12);
+    expect(v.cvZ).toBeCloseTo(cvOf(lat.sizes.depths), 12);
+    expect(v.blocks).toBe(9);
+  });
+});
+
+describe("the 6 x 6 city (R-7)", () => {
+  it("is laid, or fails the stage with the rule named; no block count is asserted", () => {
+    try {
+      const r = laySplit(1, 6, 6);
+      expect(coverageProblems(r.layer)).toEqual([]);
+    } catch (e) {
+      expect(e).toBeInstanceOf(CityStageError);
+    }
+  });
+});

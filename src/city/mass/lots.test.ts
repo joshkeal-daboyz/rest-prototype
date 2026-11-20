@@ -21,7 +21,7 @@ const part = (id: string, b: CityBlock, r: Pick<CityPart, "i0" | "i1" | "j0" | "
   edges: { "+x": "street", "-x": "street", "+z": "street", "-z": "street", ...edges },
 });
 const landOf = (parts: CityPart[], lanes: CityLandLayer["lanes"] = []): CityLandLayer => ({ stage: "land", blocks: [], parts, lanes, parks: [] });
-const streetsOf = (blocks: CityBlock[], cells: CityStreetCell[] = []): Pick<CityStreetsLayer, "blocks" | "cells"> => ({ blocks, cells });
+const streetsOf = (blocks: CityBlock[], cells: CityStreetCell[] = []): Pick<CityStreetsLayer, "blocks" | "cells"> => ({ blocks: blocks as unknown as CityStreetsLayer["blocks"], cells });
 const pavement = (i: number, j: number, street: string): CityStreetCell => ({ i, j, role: "pavement", street, band: 0 });
 
 describe("the constants moved from the tile city keep their values", () => {

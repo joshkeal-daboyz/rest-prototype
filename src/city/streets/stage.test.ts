@@ -3,6 +3,7 @@ import type { CityPlanRun, CityStreetRole } from "../../core";
 import { pictureProblems } from "../pipeline/picture";
 import { runCity } from "../stages";
 import { STREETS_LEGEND, streetsStage } from "./stage";
+import { laySplit } from "./split";
 
 const cache = new Map<string, CityPlanRun>();
 const city = (blocksX: number, blocksZ: number, seed: number): CityPlanRun => {
@@ -43,7 +44,6 @@ describe("stage 1 picture (criterion 8, R-5)", () => {
           expect(pic.cells[j * layer.w + i]).toBe(6);
         }
       }
-      // every lattice cell is a street cell or a block cell
       const blockCells = layer.blocks.reduce((n, b) => n + (b.i1 - b.i0) * (b.j1 - b.j0), 0);
       expect(listed.size + blockCells).toBe(layer.w * layer.h);
       // each of the seven kinds appears
@@ -53,13 +53,14 @@ describe("stage 1 picture (criterion 8, R-5)", () => {
 });
 
 describe("stage 1 layer shape", () => {
-  it("is the lattice, the streets, every street cell once, the blocks and the sizes", () => {
+  it("is the lattice, the streets with ends, every street cell once, the blocks with sides, the junctions and the outline", () => {
     const layer = layerOf(3, 3, 1);
     expect(layer.stage).toBe("streets");
-    expect(layer.streets).toHaveLength(8);
-    expect(layer.blocks).toHaveLength(9);
-    expect(layer.sizes.widths).toHaveLength(3);
-    expect(layer.sizes.depths).toHaveLength(3);
+    expect(layer.streets.length).toBeGreaterThanOrEqual(4);
+    expect(layer.blocks.length).toBeGreaterThan(0);
+    expect(layer.junctions.length).toBeGreaterThan(0);
+    expect(layer.outline.i0).toBeLessThan(layer.outline.i1);
+    expect("sizes" in layer).toBe(false);
     for (const c of layer.cells) {
       expect(c.i).toBeGreaterThanOrEqual(0);
       expect(c.i).toBeLessThan(layer.w);
@@ -68,14 +69,17 @@ describe("stage 1 layer shape", () => {
       if (c.role === "crossing") expect(c.band).toBe(-1);
     }
   });
+  it("is what the layout gives (the stage adds nothing and takes nothing away)", () => {
+    expect(layerOf(3, 3, 1)).toEqual(laySplit(1, 3, 3).layer);
+  });
 });
 
-describe("stage 1 digest pins (R-4)", () => {
+describe("stage 1 digest pins (R-4), moved by ticket 070 A4 (the split plan: a new layout, so every pin is re-taken once)", () => {
   const PINS: readonly (readonly [number, number, number, string])[] = [
-    [3, 3, 1, "74b42aad"],
-    [3, 3, 2, "c2d2b771"],
-    [3, 3, 3, "bbc2ff15"],
-    [6, 4, 1, "20192658"],
+    [3, 3, 1, "eee10488"],
+    [3, 3, 2, "7f5f7578"],
+    [3, 3, 3, "350c5846"],
+    [6, 4, 1, "e1e85cf2"],
   ];
   for (const [x, z, s, digest] of PINS) {
     it(`${x} x ${z} seed ${s} has digest ${digest}`, () => {
@@ -88,13 +92,13 @@ describe("stage 1 digest pins (R-4)", () => {
 });
 
 describe("stage 1 at the largest size (R-7)", () => {
-  it("runs on one 6 x 6 city, seed 1, and ends ok or with a stage failure, never an uncaught error", () => {
+  it("runs on one 6 x 6 city, seed 1, and ends ok or with a stage failure, never an uncaught error; no block count is asserted (a size, not a count: Josh, Q10)", () => {
     const r = runCity({ blocksX: 6, blocksZ: 6, seed: 1 }, "streets");
     if (!r.ok) {
       expect(r.failure.stage).toBe("streets");
       expect(r.failure.reason.startsWith("bug:")).toBe(false);
     } else {
-      expect(r.plan.layers.streets!.blocks).toHaveLength(36);
+      expect(r.plan.layers.streets!.blocks.length).toBeGreaterThan(0);
     }
   });
 });

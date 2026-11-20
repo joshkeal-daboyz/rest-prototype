@@ -31,3 +31,19 @@ export const AVENUE_ONE_IN = 0;
 export const KERB_BAY_SHARE_MAX = { street: 0.3 } as const;
 /** Grammar rule 10: every carriageway, kerb to kerb, is this wide (3 cells, 15 m). */
 export const CARRIAGE_M = 15;
+
+// ---- the split plan (ticket 070 A4) ----
+
+/** A street's cross-section, in cells (grammar rule 10: pavement, parking or lane, two lane, pavement). */
+export const STREET_CELLS = 5;
+/** A piece of land is cut by a street where a side is at least this long: a block, a street and a block (6 + 5 + 6 = 17 cells). */
+export const CUT_MIN_CELLS = BLOCK_TILES.min * 2 + STREET_CELLS;
+/**
+ * S3, PROVISIONAL (docs/design/070-streets-t-junctions.md, "Proposed rules"; Josh has not decided it; it waits for the pre-check and his eye on the flat picture):
+ * two streets that end on the same street from opposite sides either line up (one crossroads) or have centre lines at least this many cells apart (7 cells, 35 m).
+ */
+export const JUNCTION_GAP_MIN_CELLS = 7;
+/**
+ * S5, PROVISIONAL (same note; not decided): at least this share of the junctions inside the city (none of its streets an edge street) are Ts (half).
+ */
+export const T_SHARE_MIN = 0.5;
