@@ -47,14 +47,59 @@
  */
 
 import type { CityRect } from "../render/city";
-import { stableHash } from "../render/city";
+import {
+  AVENUE_ONE_IN,
+  BLOCK_CV_MIN,
+  BLOCK_DRAWS_MAX,
+  BLOCK_FALLBACK_DEPTHS,
+  BLOCK_FALLBACK_WIDTHS,
+  BLOCK_LARGE_MIN_M,
+  BLOCK_LONG_MIN_M,
+  BLOCK_LONG_SHORT_MAX_M,
+  BLOCK_MEAN_MIN_CELLS,
+  BLOCK_NONSQUARE_MIN,
+  BLOCK_SMALL_MAX_M,
+  BLOCK_STEP_MIN_CELLS,
+  BLOCK_TILES,
+  CITY_BLOCKS_DEFAULT,
+  CITY_BLOCKS_MAX,
+  TILE_M,
+  blockSizes,
+  clampBlocks,
+  blockType,
+  hashOf,
+  layStreets,
+  streetBandAt,
+} from "../city/streets";
+import type { CityBlockType, CityStreet, CityStreetBand } from "../core";
 import { METERS, type FurniturePiece, type Rect } from "./furniture";
 import { TERRACE_DEPTH_M, WORLD_PER_METRE, terraceBlockRows, terraceRunKey, type CornerSide, type Kerb, type Lot, type OpenLot, type Pad, type Pavement, type Pt, type Road, type TerraceBox, type TerraceRun, type TerraceSide, type Town, type TownBlock } from "./town";
 
+// Stage 1 (ticket 070 A2): these names moved to src/city/streets/ and are re-exported so every importer stays as it was.
+export {
+  AVENUE_ONE_IN,
+  BLOCK_CV_MIN,
+  BLOCK_DRAWS_MAX,
+  BLOCK_FALLBACK_DEPTHS,
+  BLOCK_FALLBACK_WIDTHS,
+  BLOCK_LARGE_MIN_M,
+  BLOCK_LONG_MIN_M,
+  BLOCK_LONG_SHORT_MAX_M,
+  BLOCK_MEAN_MIN_CELLS,
+  BLOCK_NONSQUARE_MIN,
+  BLOCK_SMALL_MAX_M,
+  BLOCK_STEP_MIN_CELLS,
+  BLOCK_TILES,
+  CITY_BLOCKS_DEFAULT,
+  CITY_BLOCKS_MAX,
+  TILE_M,
+  blockSizes,
+  blockType,
+  streetBandAt,
+};
+
 // ---- constants (ticket 055) ----
 
-/** One tile, metres: the City Pack's road and pavement tiles are 5 m squares. */
-export const TILE_M = 5;
 /** The sidewalk tile's bounding height (its kerb lip): what the manifest's bounds say and what criterion 14's manifest check reads. The levels use `SIDEWALK_WALK_M`. */
 export const SIDEWALK_TOP_M = 0.3;
 /**
@@ -62,43 +107,7 @@ export const SIDEWALK_TOP_M = 0.3;
  * walk (design item 7), and every sidewalk-family tile stands on the carriageway, so its walk is at 0 (shopfronts, yards and lots are flush with it) and its lip 0.07 m above.
  */
 export const SIDEWALK_WALK_M = 0.23;
-/** The most blocks along either axis (tests build 6 x 6 at the most). */
-export const CITY_BLOCKS_MAX = 6;
-/** The blocks along each axis when none are asked for. */
-export const CITY_BLOCKS_DEFAULT = 3;
-/**
- * A block's side, in cells (30 to 80 m; ticket 057 F, 19.5). Josh, 18 Nov 2026: "Keep in mind, 90 degrees does not mean a grid of squares. You can have varying widths for blocks, alleyways, parks... etc".
- * It was 8 to 12 cells (40 to 60 m, a 1.5 to 1 ratio at most), which still read as a regular grid.
- */
-export const BLOCK_TILES = { min: 6, max: 16 } as const;
-/** Neighbouring blocks on one axis differ by at least this many cells (19.5), by hash, so no two neighbouring columns (or rows) are the same size. */
-export const BLOCK_STEP_MIN_CELLS = 2;
-/**
- * What the layout holds itself to (the checks V1 and V2 in `frontage.ts` re-measure it from the finished city, and re-export these): on each axis with two or more blocks the block sizes' coefficient of
- * variation (standard deviation over mean) is at least `BLOCK_CV_MIN`; the city has at least ceil(blocks / 2) distinct footprints (a footprint is the pair of sides, so a 50 x 60 m block and a 60 x 50 m one
- * are one); and at least `BLOCK_NONSQUARE_MIN` of the blocks are not square. A seed whose first draw misses any of these draws again (`BLOCK_DRAWS_MAX` at the most), by hash, so the city is still one city per size and seed.
- */
-export const BLOCK_CV_MIN = 0.15;
-export const BLOCK_NONSQUARE_MIN = 0.7;
-export const BLOCK_DRAWS_MAX = 64;
-/**
- * The mean block size on each axis is at least this many cells (50 m, the middle of 055's old range): small blocks are balanced by large ones. Every run of a short side closes its far end with a gap of up
- * to one column, so a city of mostly 30 to 40 m sides covers less of its frontage (R1 was 0.887 to 0.90 on three of the thirteen cities of the ticket with no mean rule, against 0.907 and over with it).
- */
-export const BLOCK_MEAN_MIN_CELLS = 10;
-/**
- * Block types by size, metres (19.5): small, both sides at most `BLOCK_SMALL_MAX_M`; long, one side at least `BLOCK_LONG_MIN_M` and the other at most `BLOCK_LONG_SHORT_MAX_M`; large, both sides at least
- * `BLOCK_LARGE_MIN_M`; medium, the rest.
- */
-export const BLOCK_SMALL_MAX_M = 40;
-export const BLOCK_LONG_MIN_M = 60;
-export const BLOCK_LONG_SHORT_MAX_M = 45;
-export const BLOCK_LARGE_MIN_M = 55;
-/**
- * One interior grid line in this many is an avenue (6 cells, 30 m, a 4-cell carriageway), by hash; 0 is off, and it is off (063 B, grammar rule 10 and its Q7): every street is the 5-cell street profile,
- * 25 m with a 15 m carriageway. Josh, 19 Nov 2026: "The streets do not need to be 4 tiles wide." The avenue profile, 056's avenue-first bay order and `KERB_BAY_SHARE_MAX.avenue` stay in the file, unused while this is 0.
- */
-export const AVENUE_ONE_IN = 0;
+// Stage 1's constants (TILE_M, CITY_BLOCKS_*, BLOCK_*, AVENUE_ONE_IN) live in src/city/streets/constants.ts since ticket 070 A2; their reasons are in that file and in this file's git history. They are re-exported above.
 /** Parking cells next to a junction box (the cross street's whole cross-section) that hold no bay. */
 export const BAY_JUNCTION_CLEAR = 1;
 /** Bays in one `ParkingLines_01` tile (10 m by 5 m): 3, from the GLB (E, 18 Nov 2026: its dividers stand at x of about -5, -1.75, +1.6 and +5, so three bays of about 3.3 m). */
@@ -257,7 +266,7 @@ export type TileRole =
   | "lotSurface"
   | "plaza";
 
-export type TileBand = "pavement" | "parking" | "lane";
+export type TileBand = CityStreetBand;
 export type TileYaw = 0 | 90 | 180 | 270;
 
 export interface TileCell {
@@ -276,20 +285,8 @@ export interface TileCell {
   street: string | null;
 }
 
-export interface TileStreet {
-  /** "x:<line>" or "z:<line>". */
-  id: string;
-  axis: "x" | "z";
-  line: number;
-  profile: "avenue" | "street";
-  bands: readonly TileBand[];
-  /** The first cell (row for an "x" street, column for a "z" street) of its cross-section. */
-  across0: number;
-  /** The carriageway (parking and lanes), kerb to kerb, as coordinates across the street (z for an "x" street, x for a "z" street), metres. */
-  carriage: { readonly lo_m: number; readonly hi_m: number };
-  /** The centre line, between the two lanes, same coordinate. */
-  centre_m: number;
-}
+/** One street: stage 1's `CityStreet` (src/city/streets/), the same fields as before (ticket 070 A2). */
+export type TileStreet = CityStreet;
 
 export interface ParkingBay {
   x_m: number;
@@ -317,7 +314,7 @@ export interface PoleSlot {
 }
 
 /** A block in cells: columns `i0` to `i1` and rows `j0` to `j1`, both ends exclusive on the high side. Its id is `Town.blocks`'s. */
-export type BlockType = "small" | "medium" | "long" | "large";
+export type BlockType = CityBlockType;
 
 /** An alley (057 G, 19.6): the lane's axis ("z": it runs along +z, in cell column `at`; "x": along +x, in cell row `at`). It runs from the block's one edge to the other (its cells are the block's whole width, or depth, in that line). */
 export interface TileAlley {
@@ -498,161 +495,12 @@ export function withPassages(city: TileCity, passages: readonly TilePassage[]): 
   return Object.freeze({ ...city, passages: Object.freeze(passages.map((p) => Object.freeze({ ...p }))) });
 }
 
-// ---- cross-sections ----
-
-const AVENUE_BANDS: readonly TileBand[] = ["pavement", "parking", "lane", "lane", "parking", "pavement"];
-const STREET_BANDS_LEFT: readonly TileBand[] = ["pavement", "parking", "lane", "lane", "pavement"];
-const STREET_BANDS_RIGHT: readonly TileBand[] = ["pavement", "lane", "lane", "parking", "pavement"];
-
-/** The band of `street` at cell row (x street) or column (z street) `across`, or null when the cell is outside its cross-section. */
-export function streetBandAt(street: Pick<TileStreet, "axis" | "bands" | "across0">, across: number): TileBand | null {
-  const n = street.bands.length;
-  const o = across - street.across0;
-  if (o < 0 || o >= n) return null;
-  return street.bands[street.axis === "x" ? o : n - 1 - o] ?? null;
-}
-
-// ---- layout of one axis ----
-
-interface AxisStreet {
-  line: number;
-  first: number;
-  profile: "avenue" | "street";
-  bands: readonly TileBand[];
-}
-interface AxisLayout {
-  streets: AxisStreet[];
-  blocks: { first: number; len: number }[];
-  total: number;
-}
-
-const hashOf = (seed: number, ...key: (string | number)[]): number => stableHash(`tile:${seed}:${key.join(":")}`);
-
-/** `streetAxis` is the axis the streets of this layout run along ("z" streets stand at columns, so their layout counts cells along x). */
-function layoutAxis(seed: number, streetAxis: "x" | "z", blocks: number, lens: readonly number[]): AxisLayout {
-  const lines = blocks + 1;
-  const avenue: boolean[] = [];
-  for (let l = 0; l < lines; l++) avenue.push(AVENUE_ONE_IN > 0 && l > 0 && l < lines - 1 && hashOf(seed, streetAxis, "avenue", l) % AVENUE_ONE_IN === 0);
-  // With avenues on, every axis of three or more lines gets at least one; with them off (AVENUE_ONE_IN = 0) none does.
-  if (AVENUE_ONE_IN > 0 && lines >= 3 && !avenue.some(Boolean)) {
-    let best = 1;
-    let bh = Infinity;
-    for (let l = 1; l < lines - 1; l++) {
-      const h = hashOf(seed, streetAxis, "avenue", l);
-      if (h < bh) {
-        bh = h;
-        best = l;
-      }
-    }
-    avenue[best] = true;
-  }
-  const out: AxisLayout = { streets: [], blocks: [], total: 0 };
-  let pos = 0;
-  for (let l = 0; l < lines; l++) {
-    const bands = avenue[l] ? AVENUE_BANDS : hashOf(seed, streetAxis, "park", l) % 2 === 0 ? STREET_BANDS_LEFT : STREET_BANDS_RIGHT;
-    out.streets.push({ line: l, first: pos, profile: avenue[l] ? "avenue" : "street", bands });
-    pos += bands.length;
-    if (l < blocks) {
-      const len = lens[l]!;
-      out.blocks.push({ first: pos, len });
-      pos += len;
-    }
-  }
-  out.total = pos;
-  return out;
-}
-
-/**
- * The sizes, in cells, of the `n` blocks along one axis, in order (19.5): each by hash from `BLOCK_TILES`, at least `BLOCK_STEP_MIN_CELLS` from the one before, and not one already used while a size
- * that is still free exists (with 11 sizes and at most 6 blocks one does, so every column, and every row, is its own width). `draw` is the draw number: 0 first, and a draw that misses the variety rules
- * (`blockSizesVary`) is repeated with the next. Pure.
- */
-function blockLens(seed: number, streetAxis: "x" | "z", n: number, draw: number): number[] {
-  // The key "width" is one of a few that were tried (057 F): R7 (the tile floor of 0.4 on the share of qualifying blocks with a fire escape) is noise on the dressing's own escape chance, and with nine blocks
-  // it moves in ninths, so the first key tried left seed 3 at 0.373. Nothing else about the key matters; changing it moves every city, and R7 with it (see the ticket's follow-up to make R7 a guarantee).
-  const out: number[] = [];
-  for (let l = 0; l < n; l++) {
-    const prev = l > 0 ? out[l - 1]! : null;
-    const apart: number[] = [];
-    for (let v = BLOCK_TILES.min; v <= BLOCK_TILES.max; v++) if (prev === null || Math.abs(v - prev) >= BLOCK_STEP_MIN_CELLS) apart.push(v);
-    const fresh = apart.filter((v) => !out.includes(v));
-    const pool = fresh.length > 0 ? fresh : apart;
-    out.push(pool[hashOf(seed, streetAxis, "width", l, draw) % pool.length]!);
-  }
-  return out;
-}
-
-const cvOf = (a: readonly number[]): number => {
-  const m = a.reduce((x, y) => x + y, 0) / a.length;
-  return Math.sqrt(a.reduce((x, y) => x + (y - m) ** 2, 0) / a.length) / m;
-};
-
-/**
- * Whether a city's column widths and row depths can be laid (ticket 057 F): a block needs one side long enough to hold a tile of kerbside bays inside a street side's share cap (056's P3: a 10 m tile in
- * `KERB_BAY_SHARE_MAX.street` of the side, so 7 cells, 35 m), or P1 (every block has bays serving it) could not be met for a 6 by 6 block on streets; and `BLOCK_MEAN_MIN_CELLS` on each axis.
- */
-function blockSizesWork(widths: readonly number[], depths: readonly number[]): boolean {
-  const longEnough = Math.ceil((2 * TILE_M) / KERB_BAY_SHARE_MAX.street / TILE_M - 1e-9);
-  for (const w of widths) for (const d of depths) if (Math.max(w, d) < longEnough) return false;
-  const mean = (a: readonly number[]): number => a.reduce((x, y) => x + y, 0) / a.length;
-  return mean(widths) >= BLOCK_MEAN_MIN_CELLS && mean(depths) >= BLOCK_MEAN_MIN_CELLS;
-}
-
-/** Whether a city's column widths and row depths meet the variety rules V1 and V2 hold (see `BLOCK_CV_MIN`); an axis with fewer than two blocks has nothing to vary. */
-function blockSizesVary(widths: readonly number[], depths: readonly number[]): boolean {
-  if (widths.length >= 2 && cvOf(widths) < BLOCK_CV_MIN) return false;
-  if (depths.length >= 2 && cvOf(depths) < BLOCK_CV_MIN) return false;
-  const total = widths.length * depths.length;
-  const footprints = new Set<number>();
-  let square = 0;
-  for (const w of widths) {
-    for (const d of depths) {
-      footprints.add(Math.min(w, d) * 100 + Math.max(w, d));
-      if (w === d) square++;
-    }
-  }
-  return footprints.size >= Math.ceil(total / 2) && (total - square) / total >= BLOCK_NONSQUARE_MIN;
-}
-
-/**
- * A layout of block sizes that holds every rule at every city size up to `CITY_BLOCKS_MAX` blocks a side (`blockSizesVary` and `blockSizesWork` for each prefix pair of these two lists: a test pins it), used when all
- * `BLOCK_DRAWS_MAX` draws of a seed miss (057 G, the 057 F review's could-improve). Steps of 2 or more between neighbours, no size repeated on an axis, a mean of at least `BLOCK_MEAN_MIN_CELLS`, and a long side of at least 7 cells.
- */
-export const BLOCK_FALLBACK_WIDTHS: readonly number[] = [13, 9, 15, 11, 16, 12];
-export const BLOCK_FALLBACK_DEPTHS: readonly number[] = [10, 14, 8, 13, 15, 9];
-
-/**
- * The widths (one per column of blocks) and depths (one per row) of a city, in cells: the first draw of `blockLens` that holds the variety rules and can be laid, at most `BLOCK_DRAWS_MAX` draws after it, else the
- * known-good fallback above (cut to the city's size). `accept` is the test the draws must pass; it is the layout's own rules, and a test passes one that never holds to force the fallback. Pure.
- */
-export function blockSizes(
-  seed: number,
-  blocksX: number,
-  blocksZ: number,
-  accept: (widths: readonly number[], depths: readonly number[]) => boolean = (w, d) => blockSizesVary(w, d) && blockSizesWork(w, d),
-): { widths: number[]; depths: number[]; draw: number | null } {
-  for (let draw = 0; draw <= BLOCK_DRAWS_MAX; draw++) {
-    const widths = blockLens(seed, "z", blocksX, draw);
-    const depths = blockLens(seed, "x", blocksZ, draw);
-    if (accept(widths, depths)) return { widths, depths, draw };
-  }
-  return { widths: BLOCK_FALLBACK_WIDTHS.slice(0, blocksX), depths: BLOCK_FALLBACK_DEPTHS.slice(0, blocksZ), draw: null };
-}
+// Stage 1's cross-sections, layout, block sizes and `hashOf` are in src/city/streets/ (ticket 070 A2).
 
 // ---- helpers ----
 
 /** A block's cells, before the parking rules have said what it holds. */
 type BlockBase = Omit<TileBlock, "units" | "parkingShort" | "lots">;
-
-/** A block's type (19.5) from its sides in cells: small, long, large, else medium (the first three cannot overlap: small needs both sides at most 40 m, long one at least 60 m, large both at least 55 m). */
-export function blockType(wCells: number, dCells: number): BlockType {
-  const lo = Math.min(wCells, dCells) * TILE_M;
-  const hi = Math.max(wCells, dCells) * TILE_M;
-  if (hi <= BLOCK_SMALL_MAX_M) return "small";
-  if (hi >= BLOCK_LONG_MIN_M && lo <= BLOCK_LONG_SHORT_MAX_M) return "long";
-  if (lo >= BLOCK_LARGE_MIN_M) return "large";
-  return "medium";
-}
 
 /** A block as `planBlocks` sees it: its id, type and sides in cells. */
 export interface PlanBlock {
@@ -700,11 +548,6 @@ export function planBlocks(blocks: readonly PlanBlock[], seed: number): BlockPla
 /** What a block holds, from its nominal terrace lots (18.2): `columns` is the lots' bays, a shop is a column that is not a lot's door column, a home is `HOME_COLUMN_FLOORS` column-floors of the `UNIT_FLOORS_NOMINAL` over the base. */
 const unitsOf = (columns: number, lots: number): TileBlock["units"] => ({ columns, shops: Math.max(0, columns - lots), homes: Math.floor((columns * UNIT_FLOORS_NOMINAL) / HOME_COLUMN_FLOORS) });
 
-const clampBlocks = (v: number | undefined): number => {
-  if (v === undefined || !Number.isFinite(v)) return CITY_BLOCKS_DEFAULT;
-  return Math.min(CITY_BLOCKS_MAX, Math.max(1, Math.floor(v)));
-};
-
 /** The yaw that points a piece's front toward +across (sign 1) or -across (sign -1) of a street running along `axis`. */
 function yawToward(axis: "x" | "z", sign: number): TileYaw {
   if (axis === "x") return sign > 0 ? 0 : 180;
@@ -737,93 +580,56 @@ export function tileCity(opts: { blocksX?: number; blocksZ?: number; seed?: numb
   const seed = opts.seed !== undefined && Number.isFinite(opts.seed) ? Math.trunc(opts.seed) : 1;
   const u = WORLD_PER_METRE;
 
-  // Columns hold the "z" streets (which run along z) and the block widths; rows hold the "x" streets and the block depths.
-  const { widths, depths } = blockSizes(seed, blocksX, blocksZ);
-  const cols = layoutAxis(seed, "z", blocksX, widths);
-  const rows = layoutAxis(seed, "x", blocksZ, depths);
-  const W = cols.total;
-  const H = rows.total;
+  // Stage 1 (src/city/streets/) lays the streets, the base role of every street cell and the block rectangles; the rest of this function reads them (ticket 070 A2).
+  const lay = layStreets(seed, blocksX, blocksZ);
+  const W = lay.w;
+  const H = lay.h;
+  const streets: TileStreet[] = [...lay.streets];
+  const xStreets = lay.streets.filter((s) => s.axis === "x");
+  const zStreets = lay.streets.filter((s) => s.axis === "z");
+  const byId = new Map(lay.streets.map((s) => [s.id, s] as const));
 
-  const streets: TileStreet[] = [];
-  const mkStreet = (axis: "x" | "z", a: AxisStreet): TileStreet => {
-    const n = a.bands.length;
-    // Pavements are the first and last band of every profile, so the carriageway is the cells between them, in either direction.
-    const lo = (a.first + 1) * TILE_M;
-    const hi = (a.first + n - 1) * TILE_M;
-    const lane0 = a.bands.indexOf("lane");
-    const centre = axis === "x" ? (a.first + lane0 + 1) * TILE_M : (a.first + n - 1 - lane0) * TILE_M;
-    return { id: `${axis}:${a.line}`, axis, line: a.line, profile: a.profile, bands: a.bands, across0: a.first, carriage: { lo_m: lo, hi_m: hi }, centre_m: centre };
-  };
-  const xStreets = rows.streets.map((a) => mkStreet("x", a));
-  const zStreets = cols.streets.map((a) => mkStreet("z", a));
-  streets.push(...xStreets, ...zStreets);
-
-  // Which street and band each column and row belongs to.
+  // Which street and band each column and row belongs to (a "z" street's band k is column across0 + n - 1 - k; an "x" street's is row across0 + k).
   const colStreet = new Int16Array(W).fill(-1);
   const colBand = new Int16Array(W).fill(-1);
   const rowStreet = new Int16Array(H).fill(-1);
   const rowBand = new Int16Array(H).fill(-1);
-  for (const a of cols.streets) {
-    const n = a.bands.length;
+  for (const s of zStreets) {
+    const n = s.bands.length;
     for (let k = 0; k < n; k++) {
-      colStreet[a.first + n - 1 - k] = a.line;
-      colBand[a.first + n - 1 - k] = k;
+      colStreet[s.across0 + n - 1 - k] = s.line;
+      colBand[s.across0 + n - 1 - k] = k;
     }
   }
-  for (const a of rows.streets) {
-    for (let k = 0; k < a.bands.length; k++) {
-      rowStreet[a.first + k] = a.line;
-      rowBand[a.first + k] = k;
+  for (const s of xStreets) {
+    for (let k = 0; k < s.bands.length; k++) {
+      rowStreet[s.across0 + k] = s.line;
+      rowBand[s.across0 + k] = k;
     }
   }
+  // The block intervals along each axis: columns of blocks (block row 0) and rows of blocks (block column 0).
+  const cols = { blocks: lay.blocks.filter((b) => b.bj === 0).map((b) => ({ first: b.i0, len: b.i1 - b.i0 })) };
+  const rows = { blocks: lay.blocks.filter((b) => b.bi === 0).map((b) => ({ first: b.j0, len: b.j1 - b.j0 })) };
 
-  // ---- the role of every cell: the band rule ----
+  // ---- the role of every cell: stage 1's base roles (a cell not listed is inside a block) ----
   const role: (TileRole | null)[] = new Array<TileRole | null>(W * H).fill(null);
-  /** A cell's own street index (a band cell) or the carriageway street a crossing lies in; -1 for a junction or a corner. */
+  /** A cell's own street (a band cell) or the carriageway street a crossing lies in; null for a junction, a corner or a block cell. */
   const owner = new Array<TileStreet | null>(W * H).fill(null);
   /** The cell's band index in its street (single-street cells). */
   const bandIdx = new Int16Array(W * H).fill(-1);
-  const isCarriage = (b: TileBand): boolean => b === "lane" || b === "parking";
-  for (let j = 0; j < H; j++) {
-    for (let i = 0; i < W; i++) {
-      const idx = j * W + i;
-      const zs = colStreet[i]! >= 0 ? zStreets[colStreet[i]!]! : null;
-      const xs = rowStreet[j]! >= 0 ? xStreets[rowStreet[j]!]! : null;
-      if (!zs && !xs) continue;
-      const vb = zs ? zs.bands[colBand[i]!]! : null;
-      const hb = xs ? xs.bands[rowBand[j]!]! : null;
-      if (vb && !hb) {
-        role[idx] = vb === "parking" ? "parkingPlain" : vb;
-        owner[idx] = zs;
-        bandIdx[idx] = colBand[i]!;
-      } else if (hb && !vb) {
-        role[idx] = hb === "parking" ? "parkingPlain" : hb;
-        owner[idx] = xs;
-        bandIdx[idx] = rowBand[j]!;
-      } else if (vb && hb) {
-        if (isCarriage(vb) && isCarriage(hb)) role[idx] = "junction";
-        else if (isCarriage(vb)) {
-          role[idx] = "crossing";
-          owner[idx] = zs;
-        } else if (isCarriage(hb)) {
-          role[idx] = "crossing";
-          owner[idx] = xs;
-        } else role[idx] = "pavementCorner";
-      }
-    }
+  for (const c of lay.cells) {
+    const idx = c.j * W + c.i;
+    role[idx] = c.role;
+    owner[idx] = c.street === null ? null : byId.get(c.street)!;
+    bandIdx[idx] = c.band;
   }
 
   // ---- blocks ----
   const tileBlocks: BlockBase[] = [];
   const townBlocks: TownBlock[] = [];
-  for (let bj = 0; bj < blocksZ; bj++) {
-    for (let bi = 0; bi < blocksX; bi++) {
-      const cb = cols.blocks[bi]!;
-      const rb = rows.blocks[bj]!;
-      const id = `block:${bi}:${bj}`;
-      tileBlocks.push({ id, type: blockType(cb.len, rb.len), alley: null, park: null, bi, bj, i0: cb.first, i1: cb.first + cb.len, j0: rb.first, j1: rb.first + rb.len });
-      townBlocks.push({ id, minX: cb.first * TILE_M * u, minZ: rb.first * TILE_M * u, maxX: (cb.first + cb.len) * TILE_M * u, maxZ: (rb.first + rb.len) * TILE_M * u });
-    }
+  for (const cb of lay.blocks) {
+    tileBlocks.push({ id: cb.id, type: cb.type, alley: null, park: null, bi: cb.bi, bj: cb.bj, i0: cb.i0, i1: cb.i1, j0: cb.j0, j1: cb.j1 });
+    townBlocks.push({ id: cb.id, minX: cb.i0 * TILE_M * u, minZ: cb.j0 * TILE_M * u, maxX: cb.i1 * TILE_M * u, maxZ: cb.j1 * TILE_M * u });
   }
 
   // ---- alleys and parks (057 G), and the parts every block is laid in ----
