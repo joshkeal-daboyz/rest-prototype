@@ -44,9 +44,10 @@ export const CUT_MIN_CELLS = BLOCK_TILES.min * 2 + STREET_CELLS;
  */
 export const JUNCTION_GAP_MIN_CELLS = 7;
 /**
- * S5, PROVISIONAL (same note; not decided): at least this share of the junctions inside the city (none of its streets an edge street) are Ts (half).
+ * S5, Decided (Josh, 20 Nov 2026, in chat: "It should be the T's should have a floor of 0.30%", confirmed as 30%: "Yes 30%"):
+ * at least this share of the junctions inside the city (none of its streets an edge street) are Ts.
  */
-export const T_SHARE_MIN = 0.5;
+export const T_SHARE_MIN = 0.3;
 
 // ---- one-way streets (ticket 070 A4b; docs/design/070-streets-one-way.md) ----
 

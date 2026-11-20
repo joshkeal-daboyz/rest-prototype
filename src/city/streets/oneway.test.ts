@@ -115,7 +115,7 @@ describe("one-way off gives A4's plan (criterion 3)", () => {
   const A4: readonly (readonly [number, number, number, string])[] = [
     [3, 3, 1, "6e77b385"],
     [3, 3, 2, "f6ebff6d"],
-    [3, 3, 3, "de13d489"],
+    [3, 3, 3, "eab33cbb"], // re-taken for Josh's T floor 0.30 (A4c criterion 8): one-way off draw 13 to 4
     [3, 3, 4, "d9e02ff9"],
     [3, 3, 5, "e981cd16"],
     [3, 3, 6, "e26b524b"],

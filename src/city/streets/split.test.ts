@@ -1,6 +1,6 @@
 /**
  * Stage 1 on the split plan (ticket 070 A4): criteria 2 to 10 and 12, on the named cities (the default, 3 x 3 seeds 1 to 10, 6 x 4 seeds 1 to 3). Each city is laid once, through a module cache.
- * No test asserts a block count (R-7, Josh Q10). `JUNCTION_GAP_MIN_CELLS` and `T_SHARE_MIN` are PROVISIONAL and are read by name; only the two fixtures use their values as numbers.
+ * No test asserts a block count (R-7, Josh Q10). `JUNCTION_GAP_MIN_CELLS` is PROVISIONAL and is read by name. `T_SHARE_MIN` is Decided (Josh, 20 Nov 2026: 30%) and is pinned below.
  * Ticket 070 A4b made these checks width-aware (a one-way street is 4 or 3 cells, a junction is the two carriageways' rectangle); its own criteria are in `oneway.test.ts`.
  */
 import { describe, expect, it } from "vitest";
@@ -259,6 +259,9 @@ describe("S5: Ts are common (criterion 8)", () => {
       expect(s5Failures(layer.junctions), tag(o)).toEqual([]);
       for (const j of layer.junctions) expect(j.inner, j.id).toBe(j.streets.every((m) => layer.streets.find((s) => s.id === m.street)!.outer === null));
     });
+  });
+  it("T_SHARE_MIN is Josh's 0.30 (Decided, 20 Nov 2026)", () => {
+    expect(T_SHARE_MIN).toBe(0.3);
   });
   it("fixture: today's lattice (the default city's junctions) fails S5", () => {
     const lat = layStreets(1, 3, 3);
