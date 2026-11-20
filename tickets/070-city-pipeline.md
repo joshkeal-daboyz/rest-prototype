@@ -8,6 +8,7 @@ status: approved; section A1 merged 19 Nov 2026 (6eb4d26) (G1, Josh, 19 Nov 2026
 - **The five agents may now be created** (planner, streetscape, buildings, facades, landscape; see Agents).
 - **A1 waits for nothing.** 063 B is merged into `goal/city-style` (2edac93), and 069 is dropped (see What happens to the other tickets).
 - **A2's purity test widened** (Josh, 19 Nov 2026, in chat: "Yes, widen it"): `tilecity.test.ts`'s allowed imports for `tilecity.ts` gain `../city/streets` and `../core` (A2 criterion 2).
+- **A3 added** after A2 merged (a933e54): the puzzle HUD hides the plan picture's title and top-left corner on a phone. Asked "Should the HUD be hidden on ?city=plan as a small follow-up section?", Josh answered: "Yes, hide it" (19 Nov 2026, in chat).
 - Questions: Q2 and Q3 answered; Q1 not yet asked for, L waits for his word; Q4, Q5 and Q6 open.
 branch: one per section, `ticket/070<section>-<slug>` (named in each section), each cut from `goal/city-style`.
 
@@ -134,7 +135,7 @@ No threshold in this table changes. A ported check keeps its numbers. Its old co
 
 ## Sections
 Each is one builder session at most. They run in this order:
-- A1 → A2
+- A1 → A2 → A3
 - B → C1 → C2 → D1 → D2 → E
 - F1 → F2 → G
 - H1 → H2 → H3
@@ -181,7 +182,9 @@ H and I can run alongside each other once F2 has merged. Stage 6 (K) is not cut 
 - **Heavy:** criterion 6 builds `tileCity` 16 times. One file, a 120 s timeout.
 
 ### A2 · The old city reads stage 1; the flat picture on screen (renderer). Branch `ticket/070a2-plan-view`
-**Goal.** Josh opens `?city=plan&stage=streets` (also `&blocks=6x4&seed=3`) on his phone and sees the street layer as coloured cells with a legend. `city=tiles` draws exactly as before, but its streets now come from stage 1.
+**Goal.** Josh opens `?view=3d&city=plan&stage=streets` (also `&blocks=6x4&seed=3`) on his phone and sees the street layer as coloured cells with a legend. `city=tiles` draws exactly as before, but its streets now come from stage 1.
+
+**Note (added with A3).** `view=3d` is required: `main.ts` takes the 3D path only from `view=3d`, and the plan view is routed inside it. Every `?city=plan` address in this ticket means `?view=3d&city=plan`.
 
 1. [ ] **`tilecity.ts` uses stage 1.** It imports the A1 functions and constants and deletes its own copies.
    - It re-exports every name tests or other modules import today (`blockSizes`, `blockType`, `BLOCK_FALLBACK_*`, `TILE_M`, the constants), so no other file changes.
@@ -194,10 +197,23 @@ H and I can run alongside each other once F2 has merged. Stage 6 (K) is not cut 
    - On a failure it draws the last good layer and a banner naming the stage, the seed and the reason.
    - An unknown stage lists the built ones.
    - Tests: the parser on typed-in strings, and a pure `pictureToRgba(picture, scale)` on a fixture.
-4. [ ] (Main session, phone-sized screenshot) `?city=plan&stage=streets` and `&blocks=6x4&seed=3`: streets, junctions and blocks read at a glance. `?city=tiles` looks as on `goal/city-style`.
+4. [ ] (Main session, phone-sized screenshot) `?view=3d&city=plan&stage=streets` and `&blocks=6x4&seed=3`: streets, junctions and blocks read at a glance. `?view=3d&city=tiles` looks as on `goal/city-style`.
 
 - **Files:** `src/render3d/tilecity.ts` (stage 1's imports and deletions only); `src/render3d/tilecity.test.ts` (the purity test's allowed-import list only, criterion 2); new `src/render3d/planview.ts` and `planview.test.ts`; `src/render3d/renderer.ts` (routing `city=plan` only).
 - **Must not:** `src/city/` (read only), and every other render3d file.
+
+### A3 · The plan view without the puzzle HUD (renderer). Branch `ticket/070a3-plan-hud`
+**Goal.** On `?view=3d&city=plan` Josh sees only the plan picture: no map picker, power-source box, "Priests want lit", parts tray or sound button over it, so its title and top-left corner show on his phone. Every other address keeps its HUD exactly as on `goal/city-style`, `city=tiles` included. Josh, 19 Nov 2026, in chat: "Yes, hide it".
+
+1. [ ] **One rule, beside the viewer's** (`src/render3d/planview.ts`). A pure `planHidesHud(search: string, dev: boolean): boolean` is true exactly when `dev`, `view=3d` and `planViewRequested(search) !== null`, which is when `renderer.ts` draws the plan view. It is exported from `src/render3d/index.ts`. Tests (Vitest, `planview.test.ts`), on typed-in strings:
+   - true: `?view=3d&city=plan&stage=streets`, `?view=3d&city=plan&stage=1&blocks=6x4&seed=3`, `?view=3d&city=plan` (no stage), `?view=3d&city=plan&stage=nope` (the viewer's unknown-stage list);
+   - false: the first of those with `dev` false; `?city=plan&stage=streets` (no `view=3d`); `?view=3d&city=tiles`; `?view=3d`; `?view=3d&gallery=city`; `""`.
+2. [ ] **The wiring** (`src/main.ts`). In the `view3d` branch, once the render3d module has loaded and before `open(first)`, if `m.planHidesHud(location.search, import.meta.env.DEV)` the `#ui` root is set `hidden`. Nothing else in `main.ts` changes: `mountUI`, the insets and the frame loop run as before (a hidden HUD measures 0, so the insets are 0). No test: it is two lines of DOM, checked by criterion 3.
+3. [ ] (Main session, phone-sized screenshots) `?view=3d&city=plan&stage=streets` and `?view=3d&city=plan&stage=streets&blocks=6x4&seed=3`: no HUD element shows, and the picture's title and top-left corner are in view. `?view=3d&city=tiles`, `?view=3d` (the first ladder map) and `/` (2D) show the HUD as on `goal/city-style`.
+4. [ ] R-8 and R-11 hold. Tests run: `npx vitest run --maxWorkers=2 src/render3d/planview.test.ts` and one `npx tsc --noEmit`.
+
+- **Files (an explicit exception to "Every section's must-not-touch" for `src/main.ts`, this section only):** `src/render3d/planview.ts` (the new `planHidesHud` only); `src/render3d/planview.test.ts` (its tests only); `src/render3d/index.ts` (the one export line); `src/main.ts` (the `hidden` call in the `view3d` branch only).
+- **Must not:** `src/ui/` (the HUD itself is not changed; it is only not shown), `index.html`, `src/render3d/renderer.ts`, `tilecity.ts`, `src/city/`, every other render3d file, and every other line of `src/main.ts`.
 
 ### B · Stage 2, Land (planner, pure). Branch `ticket/070b-land`
 **Goal.** Each block has a biome (`"town"`), a treatment and its parts, by grammar rules 4 and 12 and style guide 19.6. Josh sees it at `?city=plan&stage=land`.
