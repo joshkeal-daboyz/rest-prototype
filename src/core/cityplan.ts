@@ -485,7 +485,7 @@ export interface CityEdgeBlock {
   readonly block: string;
   /** Its quota in tiles: max(`BAY_TILES_PER_BLOCK_MIN`, round(shops x `PARK_PER_SHOP` / `BAYS_PER_PARKING_TILE`)), shops from `mass.units`. */
   readonly wanted: number;
-  /** Where the first pass laid its first tile: on its own band, on the band across a street, or nowhere (no band could take one). */
+  /** Where the first pass laid its first tile: on its own band, on the band across a street, or nowhere (no band could take one). From D1b (PB, Josh, 20 Nov 2026: "yes, yes"), "own" also covers a whole park's one tile on its own kerb, laid only when nothing across could serve it. */
   readonly first: "own" | "across" | null;
   /** Tiles of its quota no band could take (the old path's `shortTiles`): 0 when served in full. P1 reads it from here. */
   readonly shortTiles: number;
