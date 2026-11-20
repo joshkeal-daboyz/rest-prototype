@@ -16,6 +16,7 @@ status: approved; section A1 merged 19 Nov 2026 (6eb4d26) (G1, Josh, 19 Nov 2026
 - **The A4 pre-check did not hold; Land, Mass and Edge re-cut on Josh's four answers; A4c added** (20 Nov 2026), from `docs/design/070-A4-precheck.md`. Asked its four questions word for word, Josh answered: "1. yes, 2. yes, 3. yes, 4. Lower P1's floor. Is P1's floor the parking ratio?" Told that P1's floor is the kerb-parking ratio only (kerb bays laid over shops x `PARK_PER_SHOP`, at least 0.75 city-wide, plus a tile for every block), not the lot ratio `PARK_PER_HOME` (P2), that 0.69 is just enough for 3 x 3 seed 2 with one-way off, and that with one-way on three cities still fail for other reasons, and asked "Do you still want P1's floor lowered from 0.75 to 0.69, knowing it's kerb parking only (yes), or would you rather have the street cuts redesigned instead?", he answered: "yes lower it". So: P3's cap counts over the whole block side (D1b); Land makes a whole park only of a served block (B3); stage 1 redraws a split that leaves Land too few park places (new section A4c); and P1's floor is 0.69 on the pipeline (D1b; `city=tiles` keeps 0.75 until L). Q14 records it. The order is now A4c, then the pre-check re-run, then B3, C3, D1b.
 - **A4c stopped on its criterion 4; S5's T floor decided at 0.30** (20 Nov 2026), from `docs/design/070-A4c-stop.md`. Told that S5 (the provisional `T_SHARE_MIN` 0.5) rejects 53 of 65 draws on 3 x 3 seed 10 with one-way on, Josh answered: "have the junctions do not need to be Ts. It should be the T's should have a floor of 0.30%". Asked whether that means 30%, he confirmed: "Yes 30%". So `T_SHARE_MIN` is 0.30, Decided (A4, A4c criterion 8); the note's question 1 (129 draws) and question 2 are withdrawn, not needed. Q15 records it; Q16 (3 x 3 seed 12, one-way off) is open.
 - **The named cities move to 6 x 6; A4d and A2b added; D1b gains M and PB** (20 Nov 2026), from `docs/design/070-A4-precheck-2.md` and `docs/design/070-6x6-precheck.md`. To the re-run's question 1 (lever K), Josh answered: "No, we need to stop basing these tests on a 3x3. Start basing them on 6x6 or greater." To question 2 (lever M): "yes". To 3 x 3 seed 12 (Q16): "3x3 seeds are too small. They're going to result in regular failures because they cannot accommodate for all of changes I suggested. Yes". Asked which cities the named list should be: "6x6"; whether the default city should become 6 x 6 seed 1: "yes". To the 6 x 6 pre-check's two questions (PB, and a split limit of 128): "yes, yes". So: the named cities are 6 x 6 seeds 1 to 10, one-way off and on (the orchestrator's reading of "6x6", recorded as such); 3 x 3 and 6 x 4 are outside cities, reported, never required or pinned; the pipeline's default city is 6 x 6 seed 1; stage 1's split has its own limit, `SPLIT_DRAWS_MAX` 128 (the outline's `BLOCK_DRAWS_MAX` stays 64). Section A4d (planner) re-takes stages 1 to 3 on the new list, A2b (renderer) moves the plan view's default, and D1b gains lever M and PB. Q17 and Q18 record it.
+- **E re-cut against D2** (20 Nov 2026, against 2800ab3). Asked whether to start E, Josh said: "Start E". E now draws `edge.ground` and `edge.kerb` (the dropped kerbs, the crossing dips, the returns), the one-way sections and their arrows, and the 6 x 6 default, at `?view=3d&city=plan&stage=assemble`. It adds no rule, so it skips the pre-check.
 - Questions: Q2, Q3, Q5, Q6, Q8 to Q18 answered; Q7 settled by the rulings; Q1 not yet asked for, L waits for his word; Q4 open.
 branch: one per section, `ticket/070<section>-<slug>` (named in each section), each cut from `goal/city-style`.
 
@@ -175,7 +176,7 @@ Each is one builder session at most. They run in this order:
   - **The pre-check re-run** (`pipeline-designer`, "re-run pre-check 070 A4", on `ticket/070a4-split-plan` once A4c is merged into it) measures once more, as the first run did and with the same probe, with all four answers in: P3's cap per block side, the served park, A4c's S11 (as built), and P1's floor at 0.69. One-way off and on. **It decides whether one-way stays on as built** (the note's section 6, Q4 B): if a named city still fails with one-way on and not with it off, the question whether one-way stays on, as built or otherwise, goes to Josh through the main session before B3 starts. If every named city holds both ways, B3, C3 and D1b start as cut. If a named city fails both ways, the re-run reports it, and the main session takes it to Josh (R-2); nothing is tuned.
   - **The re-cut** comes after the re-run, one section per owner, each in its own folder, in the order B3, C3, D1b, each branched from `ticket/070a4-split-plan` once the one before is merged into it. Each is a section below (B3, C3, D1b), written from the pre-check's section 4 and Josh's answers; the re-run may add to them, not take from them.
     - Each of the three ends with a test that no file of its folder reads `bi`, `bj` or a street's `line` (grep, Vitest).
-  - **D2** (re-cut 20 Nov 2026 against de522a8, on Josh's "Start D2"; see D2) gains one clause: on the far side of a T the kerb line runs straight past and dips at the two crossings (`Sidewalk_Dip_01`); "from junction to junction" becomes "from block corner to block corner"; from A4b, a junction is carriageway by carriageway, not 3 by 3. **E** reads cells, and from A4b also stage 1's `arrows` (E's criterion 5). Both wait for the re-cut.
+  - **D2** (re-cut 20 Nov 2026 against de522a8, on Josh's "Start D2"; see D2) gains one clause: on the far side of a T the kerb line runs straight past and dips at the two crossings (`Sidewalk_Dip_01`); "from junction to junction" becomes "from block corner to block corner"; from A4b, a junction is carriageway by carriageway, not 3 by 3. **E** (re-cut 20 Nov 2026 against 2800ab3, on Josh's "Start E"; see E) draws `edge.ground`, `edge.kerb`, stage 1's `arrows` and the mass, through two entries split out of `tileGroup` and `interiorGroup`.
   - **Merging.** A4 changes stage 1 for every later stage, so Land's, Mass's and Edge's tests (their digest pins and their named-city checks) are expected to fail on A4's branch until their re-cut lands. A4 is therefore held on its branch, like D2 was. A4's own gate before its review is `npx tsc --noEmit` plus `npx vitest run --maxWorkers=2 src/city/streets/ src/city/pipeline/ src/render3d/planview.test.ts` (Josh's Q13, 20 Nov 2026: "yes").
     - **A4b and A4c are held under the same terms** (Q13's "yes"; for A4b also Josh's Q4 on the one-way note, "do what you recommend"; for A4c his answer 3 to the pre-check, "yes", Q14). Each one's own gate before its review is A4's small gate above. Once its review settles it is merged into `ticket/070a4-split-plan` (a merge between held branches; nothing reaches `goal/city-style`).
     - **B3, C3 and D1b** are branched from `ticket/070a4-split-plan` in turn, each after the one before is merged into it (B3 after the re-run; C3 after B3; D1b after C3, and from 20 Nov 2026 after A4d). Each one's own gate before its review is `npx tsc --noEmit` plus its own folder's tests and the folders before it (B3: `src/city/streets/ src/city/land/`; C3: those plus `src/city/mass/`; D1b: those plus `src/city/edge/`).
@@ -663,21 +664,93 @@ Josh's ruling 3 (19 Nov 2026, in chat; asked "Do you approve all four rulings as
 - **Heavy:** the named-run tests build the 10 named cities both ways once through `stage.test.ts`'s module cache; the outside report stays in `report.test.ts` (120 s).
 
 ### E · Assemble, first cut: the ground and the massing in 3D (renderer). Branch `ticket/070e-plan3d-massing`
-**Goal.** At `?city=plan` (3D) Josh walks the pipeline's city: the street edge drawn with today's tile pieces, the interiors paved and green, and every built cell a plain grey box three storeys high. He judges the mass in 3D before a single building is chosen (Q2).
+**Branch.** Cut from `goal/city-style` at 2800ab3 or later (D2 merged: `ground` and `kerb` written on every run).
 
-1. [ ] **Plan to scene** (`src/render3d/plan3d.ts`). It draws `edge`'s ground cells and `mass`'s interior uses through `tilecity3d.ts`'s existing tile drawing and `tileslots.ts`'s keys. Built cells are one `InstancedMesh` of boxes.
-   - It reads the plan and decides nothing: a test diffs the plan's digests before and after drawing.
-2. [ ] **Draw calls.** At most `TILE_DRAW_CALLS_MAX` plus 1. Day and night as `city=tiles`.
-3. [ ] **Paving through both rings.** Drive, walk-through and lane-mouth cells take 063 H's paving (from 066 criterion 4).
-4. [ ] (Main session, screenshots: overhead and street camera, day, default city and 6 x 4 seed 3; from 20 Nov 2026, Q17, the default is 6 x 6 seed 1 and the second city 6 x 6 seed 3) no ground shows between built cells; rings stand back to back; drives and walk-throughs are paved; kerbs return at drives and lane mouths.
-5. [ ] **One-way streets (from A4b; Josh's Q5 on the one-way note: "the kit has them, use them").** E draws, and decides nothing:
-   - each cell in stage 1's `arrows` takes the City Pack's `SM_Env_Road_Arrow_01` (or `_02`, once the renderer has measured what `_02` shows), turned to point `toward`. The renderer measures each arrow piece's own pointing direction as `tileslots.ts` does the other road pieces' turns, and a test pins it inside `it.skipIf(!have)` (R-6);
-   - the other lane cells of a one-way street take `Road_Lines_01` or `Road_Bare_01`, never the two-way's yellow centre-line pieces;
-   - each new key is one instanced mesh, and the renderer reports whether criterion 2's cap still holds;
-   - `SM_Prop_Sign_Arrow_01` on the pavement at a one-way entry is optional, not required (not yet seen rendered).
-   - (Main session, screenshot) a one-way street in the street camera, its arrows pointing with the traffic.
+**Goal.** At `?view=3d&city=plan&stage=assemble` Josh walks the pipeline's city in 3D: the street edge drawn with today's tile pieces from `edge.ground` and `edge.kerb` (one-way streets with their arrows, the dropped kerbs on the far side of each T, the returns at drives and lane mouths), the interiors paved and green from `mass.cells`, and every built cell a plain grey box three storeys high. He judges the mass in 3D before a single building is chosen (Q2).
 
-- **Files:** new `plan3d.ts` and `plan3d.test.ts`; `renderer.ts` (routing); `tilecity3d.ts` and `tileslots.ts` (an entry that takes ground cells and interior uses not from a `TileCity`, without changing the `TileCity` path).
+**Josh's words (20 Nov 2026, in chat).** Asked whether to start E: "Start E". Q3 (19 Nov 2026): "Yes" to the grey-box view. A4b's Q5, on the arrows: "the kit has them, use them".
+
+**Re-cut (20 Nov 2026, the lead-architect, against 2800ab3).** Brings E up to D2 (the kerb line, `crossingDip`, `pavementDip`, the returns), A4b (the three sections, junction rectangles 1 x 1 to 3 x 3, `arrows`) and Q17 (the 6 x 6 default). E only draws: it adds no rule, check or number, so it skips the pre-check (CLAUDE.md). It reads the plan through `runCity`'s `CityPlan` and never derives a layout choice the layers do not hold (stage 9: "It draws the plan with Three.js and decides nothing"). **Stop rule:** where a layer does not say what to draw (a cell with no use, a stall row E cannot pair, a key the layer needs that the pack lacks), the builder commits, stops and reports with the cells. The gap is a re-cut of that layer's section, never a choice made in `src/render3d/`.
+
+**What the existing tile drawing can and cannot take** (read on 2800ab3):
+- **Takes as it is.** `tileKeyOf`, `tileMatrix` and `tileGroup`'s per-key instancing work cell by cell from role, variant and yaw. They assume no street width and no junction size, so these draw unchanged: a 3-, 4- or 5-cell street; a 1 x 1 to 3 x 3 junction (`junction` cells, `Road_Bare_01`, yaw 0); a crossing of any width (`Road_Crossing_01` on its own yaw); `pavementCorner`, `kerbCut`, `buildout`, `parking` (the 2-cell `ParkingLines_01`) and `parkingPlain`. `CityGroundCell` has `TileCell`'s fields, and its roles are `TileRole`s. `kerbStrips` takes any `KerbPlan`, and `buildoutTreePlan` takes `edge.buildoutTrees`.
+- **Cannot take, today:**
+  1. `tileGroup` and `interiorGroup` take a `TileCity` (its `cells`, `courts`, `blocks`, `interior`, `seed`), and `tileGroup` recomputes the kerb from it (`tileKerbPlan` calls the old `kerbLine`).
+  2. A `pavement` cell with `pavementDip` would draw as the straight (`variantIndex` reads only the grate bit).
+  3. A one-way lane (`laneRight` 0) would draw as `Road_YellowLines_01`, with a yellow line on one edge.
+  4. No arrow piece is keyed, turned or loaded, and no `crossingDip` segment becomes a face.
+  5. `interiorItems` reads the old `InteriorCell` roles. Mass's uses (`laneMouth`, `walk`, `plaza`, `frontLot`, `stalls`, `aisle`) and its courts' stall cells have no path to an `InteriorItem`.
+- **How E adds them, in its own files** (criteria 1 to 5). `kerbline.ts`, `tilecity.ts`, `tileslots.ts` and `planview.ts` are not edited (R-9).
+
+1. [ ] **Two entries, with no change to the `TileCity` path** (`tilecity3d.ts`, Vitest).
+   - `tileGroup`'s body becomes an exported `tileGroupOf(input, roots, entries, maxCalls)`. Its input is the cells, the build-out trees, the seed, the keys it may use, a `keyOf(cell, active)` and a `kerb(keyOf): KerbPlan`. `tileGroup(city, ...)` calls it with `city.cells`, `tileKeys()`, today's `tileKeyOf` with the inlet flag, and `tileKerbPlan(city, ...)`.
+   - Likewise `interiorGroupOf(items, props, gates, floors, seed, ...)`, which `interiorGroup` calls with `interiorItems(city)` and the rest.
+   - `tilecity3d.test.ts`, `tileintegrate.test.ts`, `tileinterior.test.ts`, `kerbline.test.ts` and `tileslots.test.ts` pass unedited. One new test checks that `tileGroup` and `interiorGroup` give the same `perKey`, `calls`, `fromPack` and instance matrices as before on the default `city=tiles` city (code-drawn, no GLB).
+2. [ ] **Plan to scene** (`src/render3d/plan3d.ts`, Vitest). `plan3dGroups(plan, roots, entries)` draws four things.
+   - **The street pieces:** every `edge.ground` record through `tileGroupOf`, with plan3d's own `keyOf`. It is `tileKeyOf` with three exceptions:
+     - a `pavement` record with `CITY_GROUND_VARIANT.pavementDip` takes `Sidewalk_Dip_01` (`TILE_SLOTS.kerbCut`, on the pavement's yaw; its kerb is on +z like the straight's);
+     - a `lane` record on a street whose `flow` is not "both" takes `Road_Lines_01` (it already has a `TILE_FRONTS` turn, 270), or `Road_Bare_01` when that is absent. It never takes a `YellowLines` piece;
+     - a `lane` record in `streets.arrows` takes the arrow (criterion 5).
+
+     The build-out trees are `edge.buildoutTrees`.
+   - **The kerb:** plan3d's own `planKerbPlan(kerb, ground, keyOf)` turns `edge.kerb` into a `KerbPlan`, the way `tileKerbPlan` turns a path's segments, reading `KERB_FACES_M`, `KERB_INSET_M` and `KERB_LIP_TOP_M`:
+     - an `edge` or `dip` seg's cell brings its piece's face (a flush cell has none; a build-out's `under` cell brings its own, one cell in);
+     - a `crossingDip` seg brings its `Sidewalk_Dip_01` face;
+     - each `flank` is a code strip;
+     - each `return` is a code strip from the street kerb face to its building-line end (the seg's own end, which is the `CityKerbReturn.end`).
+
+     It recomputes no line: every face comes from a seg of `edge.kerb`.
+   - **The interiors:** every `mass.cells` cell that is not `built` becomes one `InteriorItem` through `interiorGroupOf`, by this table:
+
+     | Mass use | Interior kind |
+     | --- | --- |
+     | `apron`, `plaza` | `apron` |
+     | `green` | `green` |
+     | `greenPath` | `path` |
+     | `parkEdge` | `parkEdge` |
+     | `drive`, `walk`, `laneMouth` | `inlet` (063 H's slab; criterion 4) |
+     | `lane`, `stalls`, `aisle`, `frontLot` | `bare` |
+
+     Each `mass.courts` entry's stall cells add `stalls` items (`ParkingLines_01`, two cells each, lifted `STALL_LINES_LIFT_M`). Each run of stall cells along a row is paired from its low end and yawed toward the row's aisle cells (`aisleCells`). A run of odd length, or a row with aisle cells on both sides or on neither, triggers the stop rule. There are no props, gates or passage floors (stages 7 and 8 have none yet).
+   - **The mass:** every `mass.built` cell is one instance of a single `InstancedMesh` of unit boxes: the cell's 5 m square, `CITY_STOREYS.min` (3) x `STOREY_M` high, one grey material.
+   - **Draws only.** A test runs it on the default city. It checks that each layer's digest is the same before and after, and that each of these is drawn exactly once (pack or code): every `ground` record, every kerb seg but `opening`, every non-built mass cell and every built cell.
+3. [ ] **The kerb on the line, on the 20 named runs** (Vitest; 063 F's criteria 34, 35, 37b and 37c, which D2 left to E). Run with every piece code-drawn (no GLB) and with `KERB_FACES_M`'s insets:
+   - every face of `planKerbPlan` lies on its seg within `KERB_TOL_M` in plan and `KERB_HEIGHT_TOL_M` in lip height;
+   - no part of a chain seg (`edge`, `crossingDip`, `flank`, `return`) or of a `dip` is uncovered for more than `KERB_GAP_MAX_M`. This is the check `kerbline.test.ts` has for the old path, typed again in `plan3d.test.ts`;
+   - every `pavementDip` record is drawn from `Sidewalk_Dip_01` when that key is active, and no `lane` record of a one-way street is drawn from a `YellowLines` piece.
+
+   Failing fixtures: a plan with one return seg removed, and a plan with a `crossingDip` seg's face removed, each fail the check.
+4. [ ] **Paving through both rings** (Vitest). Every `drive`, `walk` and `laneMouth` cell is drawn from the plain slab (`PASSAGE_FLOOR_KEYS`) when it is active, and as code pavement when it is not (from 066 criterion 4).
+5. [ ] **One-way streets (A4b; Josh's Q5: "the kit has them, use them").** E draws them and decides nothing.
+   - Each `streets.arrows` cell takes `SM_Env_Road_Arrow_01`, turned so it points `toward`. The builder measures two things from the converted GLB and reports both:
+     - whether the piece is a whole 5 m road tile, which then replaces the lane piece on that cell, or a decal, which then stands `PATCH_LIFT_M` over the cell's `Road_Lines_01` as `TILE_PATCH` does;
+     - which way it points. The turn is a typed-in `PLAN_FRONTS` line in `plan3d.ts`, pinned by a test inside `it.skipIf(!have)` (R-6).
+   - `_02` and `SM_Prop_Sign_Arrow_01` are not drawn in E: a sign's place on the pavement is a placement no layer holds yet.
+   - plan3d's renderer loads its own keys through `sharedTileModels`: `tileKeys()` plus `Road_Lines_01` and `Road_Arrow_01`. `city=tiles` loads what it loads today.
+   - (Vitest) On the 20 named runs, every arrow cell has its arrow and every one-way lane cell its `Road_Lines_01` (code-drawn, so counted by key choice, not by GLB).
+6. [ ] **Draw calls** (Vitest, code-drawn; the builder reports the pack numbers).
+   - The street pieces stay within `TILE_DRAW_CALLS_MAX` (40). The arrows, `Road_Lines_01` and `Sidewalk_Dip_01` count inside it and are dropped fewest-first by `tileGroupOf`'s loop, as today.
+   - The interiors stay within `INTERIOR_DRAW_CALLS_MAX` (24). The boxes add 1. No cap is raised.
+   - The builder reports the calls and any dropped key on 6 x 6 seeds 1 and 3, with the pack.
+7. [ ] **Routing** (Vitest).
+   - `renderer.ts` routes `?view=3d&city=plan&stage=assemble` (and `stage=9`) to plan3d's renderer, ahead of the flat picture. Every other `city=plan` request draws the flat picture as today, and `planview.test.ts` passes unedited. The HUD stays hidden (`planHidesHud` already returns true for it).
+   - `blocks` and `seed` are read as `planViewRequested` reads them: the default is 6 x 6 seed 1 (A2b), one-way on.
+   - The renderer is built from `tilecity3d.ts`'s exported rig, street camera, light modes (`lightModeFor("tiles", ...)`: day unless `light=night`) and day toggle. `createCityRenderer3d` is not edited.
+   - A run that ends `ok: false` draws nothing and shows the failure's stage and reason as text.
+8. [ ] (Main session, screenshots: overhead and street camera in day, and one overhead at night; 6 x 6 seed 1 and 6 x 6 seed 3, one-way on.) The screenshots should show:
+   - no ground between built cells, and the rings standing back to back;
+   - drives, walk-throughs and lane mouths paved, and kerbs that return at drives and lane mouths;
+   - the far side of a T running straight past, with its two dropped kerbs;
+   - a bare one-way street's kerb running straight from corner to corner;
+   - one-way streets narrower and without a yellow line, their arrows pointing with the traffic (street camera);
+   - junctions from 1 x 1 to 3 x 3 with no gap or overlap against their crossings;
+   - `?view=3d&city=tiles` looking as it does on `goal/city-style`.
+9. [ ] R-8, R-10 and R-11. Tests run: `npx vitest run --maxWorkers=2 src/render3d/plan3d.test.ts src/render3d/tilecity3d.test.ts src/render3d/tileinterior.test.ts src/render3d/kerbline.test.ts src/render3d/planview.test.ts` and one `npx tsc --noEmit`.
+
+- **Files:** new `src/render3d/plan3d.ts` and `plan3d.test.ts`; `renderer.ts` (the routing only); `tilecity3d.ts` (`tileGroupOf` and `interiorGroupOf` split out of `tileGroup` and `interiorGroup`, plus the export of any helper the renderer needs, with no change of behaviour).
+- **Must not:** `src/city/**` and `src/core/` (read only); `tilecity.ts`, `kerbline.ts`, `tileslots.ts`, `planview.ts` and their tests; `town.ts` (`STOREY_M` is read only); every other render3d file.
+- **Interfaces:** nothing new in `src/core/`. E reads `CityGroundCell`, `CITY_GROUND_VARIANT`, `CityKerbPath`, `CityStreetArrow`, `CityPlanStreet.flow`, `CityMassCell`, `CityCourt` and `CityBuiltCell` as D2, A4b and C2 left them. `tileGroupOf`, `interiorGroupOf`, `plan3dGroups`, `planKerbPlan` and `PLAN_FRONTS` belong to the renderer. No new dependency.
+- **Heavy:** the named-run tests build the 10 named cities both ways once, through a module cache in `plan3d.test.ts`, with a 120 s timeout. No GLB is read outside `it.skipIf`.
 
 ### F1 · Stage 5, Buildings: grouping, style, colour, floors (buildings, pure). Branch `ticket/070f1-buildings`
 **Goal.** Built cells become buildings, and every row reads varied. Josh sees it at `?city=plan&stage=buildings`: each building a colour, with its floors written on it.
