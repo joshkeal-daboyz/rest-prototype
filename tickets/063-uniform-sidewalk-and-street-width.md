@@ -21,6 +21,8 @@ branch: `ticket/063a-pavement` (A, D, H, merged), `ticket/063e-corners-roofs` (E
 | 5 | **067 A and 067 B** | party walls dressed (M7, the pipe lift); strips | 1 day each | after 066 |
 | 6 | **068** | the roof exit (M9's exit part) | half a day | after 066 |
 
+**Superseded:** 064 to 068 are superseded by ticket 070 (`tickets/070-city-pipeline.md`, approved by Josh 19 Nov 2026); after 063 B (and 069), the next work is 070's section A1.
+
 Each ticket has its own Files list, criteria with failing fixtures, checks, Josh's words and dependencies.
 
 ## Josh's words (19 Nov 2026, in chat, looking at the tile city in daylight)

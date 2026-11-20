@@ -1,7 +1,9 @@
 # 065 · Back to back, the plan: ring 2, openings, lane rows, the face rule, quiet rows and corner columns at openings (C1)
 
+**Superseded by ticket 070** (`tickets/070-city-pipeline.md`) on Josh's approval of 070 (19 Nov 2026, in chat). Not to be built as written. Where its content went (070's "What happens to the other tickets"): 065 A's ring 2, lane rows, walk-throughs, M4b and M5 to 070 C1; drives through both rings, units, P2 and Q-065-1 to C2; the parts rule to B; the kerb at openings (criterion 10) to D2. 065 B's `openSides` and M3 to C1; corner and blind columns, M6 and R9 to F2; quiet ground rows and M8 to H1; R2 on quiet rows to F1.
+
 owner: renderer (src/render3d/, docs/city-style-guide.md)
-status: open. Cut from 063 section C on 19 Nov 2026, re-cut on `docs/city-grammar.md` (rules 3 to 7 and 9). It is covered by Josh's goal waiver; the main session records the start.
+status: superseded by 070 (Josh's approval of 070, 19 Nov 2026). Was: open. Cut from 063 section C on 19 Nov 2026, re-cut on `docs/city-grammar.md` (rules 3 to 7 and 9). It is covered by Josh's goal waiver; the main session records the start.
 branch: `ticket/065a-rings-openings`, `ticket/065b-faces-columns`
 size: **bigger than one builder day.** Two sections, A then B, each about a day.
 

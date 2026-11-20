@@ -1,7 +1,13 @@
 # 070 · The city pipeline: the tile city built in stages, each stage a pure function with its own layer, owner and picture
 
 owner: per section (planner, streetscape, buildings, facades, landscape, renderer; see Sections). Five of these agents do not exist yet (see Agents).
-status: open. Cut 19 Nov 2026 on Josh's request. Needs Josh's G1 for the ticket and for creating the five agents (see Questions, Q3).
+status: approved (G1, Josh, 19 Nov 2026, in chat, relayed by the main session). Cut 19 Nov 2026 on Josh's request. The main session asked three questions; Josh answered each in one word:
+1. "Do you approve ticket 070 and creating the five new agents (planner, streetscape, buildings, facades, landscape)?" Josh: "Yes".
+2. "Do the sections merge into goal/city-style under your 19 Nov waiver once each is green? (the agents and the final switch still needing your word)" Josh: "Yes".
+3. "Do you want the grey-box 3D view (section E) before real buildings?" Josh: "Yes".
+- **The five agents may now be created** (planner, streetscape, buildings, facades, landscape; see Agents).
+- **A1 still waits** for 063 B and 069 to merge (see What happens to the other tickets).
+- Questions: Q2 and Q3 answered; Q1 not yet asked for, L waits for his word; Q4 and Q5 open.
 branch: one per section, `ticket/070<section>-<slug>` (named in each section), each cut from `goal/city-style`.
 
 ## Josh's words (19 Nov 2026, in chat)
@@ -394,7 +400,7 @@ H and I can run alongside each other once F2 has merged. Stage 6 (K) is not cut 
 - **067 A** (party walls, the pipe lift) → H2. **067 B** (strips) → B and C1.
 - **068** (roof exit) → H3.
 - **059** → K (stage 6). Its A2 drawing becomes a renderer section of the re-cut.
-- **064 to 068's files** are marked superseded by 070 when Josh approves this ticket. The architect does that on the main session's word, in a separate pass; they are not edited here.
+- **064 to 068's files** are marked superseded by 070 when Josh approves this ticket. The architect does that on the main session's word, in a separate pass; they are not edited here. (Done 19 Nov 2026, after Josh's approval.)
 
 ## Agents
 These five do not exist. The main session writes each `.claude/agents/<name>.md` on Josh's approval, modelled on `renderer.md`. Each file needs:
@@ -449,11 +455,14 @@ These five do not exist. The main session writes each `.claude/agents/<name>.md`
 1. **When does the pipeline replace the old tile city at `city=tiles`?**
    - Recommendation: only on his word, after he has played `?city=plan` through section J (section L).
    - Until then both exist, and the old path gets no new features.
+   - **Not yet asked for; L waits for his word.** (19 Nov 2026: he was told the recommendation and did not object, but did not answer it in words.)
 2. **Should the pipeline's 3D view show the mass as plain grey boxes before buildings exist (section E)?** It lets him judge the built and open cells in 3D, not only in the flat picture.
    - Recommendation: yes. It is half a day, and it catches a wrong mass before three more stages are built on it.
+   - **Answered, Josh, 19 Nov 2026, in chat.** Asked "Do you want the grey-box 3D view (section E) before real buildings?", he said: "Yes".
 3. **Do the five new agents, and this ticket's sections merging into `goal/city-style`, fall under his 19 Nov waiver** ("I don't want to constantly approve all of these improvments")?
    - Recommendation: the sections A1 to J merge under the waiver once each is green.
    - Creating the agents and the switch (L) need his word.
+   - **Answered, Josh, 19 Nov 2026, in chat.** Asked "Do you approve ticket 070 and creating the five new agents (planner, streetscape, buildings, facades, landscape)?", he said: "Yes". Asked "Do the sections merge into goal/city-style under your 19 Nov waiver once each is green? (the agents and the final switch still needing your word)", he said: "Yes". So the agents may be created, and A1 to J merge into `goal/city-style` once each is green; L still needs his word, and `main` still does.
 4. **Who owns stage 6, the circuit?**
    - Recommendation: decide it when 059 is re-cut. The default is streetscape for the layout (poles stand on its pavement) and the renderer for the drawing.
 5. **Carried from 065, only if C2's stop rule fires:** may `LOTS_PER_BLOCK_MAX` be 3 on blocks of at least 10 cells each way, if P2 cannot hold?

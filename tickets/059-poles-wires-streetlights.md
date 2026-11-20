@@ -1,5 +1,7 @@
 # 059 · Poles, power lines and street lights on the tile city
 
+**To be re-cut as stage 6 (`circuit`) of ticket 070, section K** (`tickets/070-city-pipeline.md`, after Josh's approval of 070 on 19 Nov 2026). Not to be built as written.
+
 owner: renderer (src/render3d/, docs/city-style-guide.md)
 status: approved (G1, Josh, 18 Nov 2026, in chat, relayed by the main session: "Approve 057, 058 and 059"; given on the main session's summary of the scope, before he saw this text). Every open question is at its default.
 - **Exception, recorded as asked:** any change to the never-used list (16.6) is **not** decided by that approval. The default below lifts nothing. Each possible lift (Q4) is a recorded item: "default applies unless Josh objects when shown the ticket".

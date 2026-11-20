@@ -1,7 +1,9 @@
 # 068 · The roof exit opens onto the roof, on a blind or court-side column where it can
 
+**Superseded by ticket 070** (`tickets/070-city-pipeline.md`) on Josh's approval of 070 (19 Nov 2026, in chat). Not to be built as written. Where its content went (070's "What happens to the other tickets"): the roof exit to 070 H3.
+
 owner: renderer (src/render3d/, docs/city-style-guide.md)
-status: open. Moved from 063 section G on 19 Nov 2026, with the grammar's rule 11 added. It is covered by Josh's goal waiver; the main session records the start.
+status: superseded by 070 (Josh's approval of 070, 19 Nov 2026). Was: open. Moved from 063 section G on 19 Nov 2026, with the grammar's rule 11 added. It is covered by Josh's goal waiver; the main session records the start.
 branch: `ticket/068-roof-exit`
 
 ## Josh's words (19 Nov 2026, in chat)

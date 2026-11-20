@@ -1,7 +1,9 @@
 # 064 · The tile-city lattice: rows cut in 5.0 m bays on a 5.0 m band, columns on their bodies, no passages
 
+**Superseded by ticket 070** (`tickets/070-city-pipeline.md`) on Josh's approval of 070 (19 Nov 2026, in chat). Not to be built as written. Where its content went (070's "What happens to the other tickets"): dropped, not re-homed. The pipeline never packs by widths; columns are cells, so the lattice holds by construction. M1 survives as 070 F2's check on placements, and passages cannot exist (070 C1's G2 and M5 cover "passage count 0").
+
 owner: renderer (src/render3d/, docs/city-style-guide.md)
-status: open. Cut from 063 section I on 19 Nov 2026, re-cut on `docs/city-grammar.md` (rules 1 and 6). It is covered by Josh's goal waiver (see Josh's words); the main session records the start.
+status: superseded by 070 (Josh's approval of 070, 19 Nov 2026). Was: open. Cut from 063 section I on 19 Nov 2026, re-cut on `docs/city-grammar.md` (rules 1 and 6). It is covered by Josh's goal waiver (see Josh's words); the main session records the start.
 branch: `ticket/064-lattice`
 
 ## Josh's words (19 Nov 2026, in chat)

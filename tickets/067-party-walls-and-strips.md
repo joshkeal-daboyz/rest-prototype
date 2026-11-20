@@ -1,7 +1,9 @@
 # 067 · Party walls dressed above a lower roof (M7, the pipe lift) and strips between a street and a lane (C3)
 
+**Superseded by ticket 070** (`tickets/070-city-pipeline.md`) on Josh's approval of 070 (19 Nov 2026, in chat). Not to be built as written. Where its content went (070's "What happens to the other tickets"): 067 A (party walls, the pipe lift) to 070 H2; 067 B (strips) to B and C1.
+
 owner: renderer (src/render3d/, docs/city-style-guide.md)
-status: open. Cut from 063 section C on 19 Nov 2026, re-cut on `docs/city-grammar.md` (rules 4, 8 and 12).
+status: superseded by 070 (Josh's approval of 070, 19 Nov 2026). Was: open. Cut from 063 section C on 19 Nov 2026, re-cut on `docs/city-grammar.md` (rules 4, 8 and 12).
 - Q3 is Decided by Josh.
 - Q6 (strips) takes the grammar's recommendation under his goal waiver.
 

@@ -1,7 +1,9 @@
 # 066 · Back to back, drawn: ring 2, lane rows and blind columns on screen, with quiet-frontage dressing (C2)
 
+**Superseded by ticket 070** (`tickets/070-city-pipeline.md`) on Josh's approval of 070 (19 Nov 2026, in chat). Not to be built as written. Where its content went (070's "What happens to the other tickets"): the drawing to 070 E and G; partner colourways (M4c) to F1; quiet dressing to H1 and H2; inlets paved to E; draw calls to G and J.
+
 owner: renderer (src/render3d/, docs/city-style-guide.md)
-status: open. Cut from 063 section C on 19 Nov 2026, re-cut on `docs/city-grammar.md` (rules 4, 9 and 12). It is covered by Josh's goal waiver; the main session records the start.
+status: superseded by 070 (Josh's approval of 070, 19 Nov 2026). Was: open. Cut from 063 section C on 19 Nov 2026, re-cut on `docs/city-grammar.md` (rules 4, 9 and 12). It is covered by Josh's goal waiver; the main session records the start.
 branch: `ticket/066-back-to-back-draw`
 
 ## Josh's words (19 Nov 2026, in chat)
