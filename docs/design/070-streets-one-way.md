@@ -14,7 +14,26 @@ Asked whether, on 5 m cells, a "half-width" one-way street should be 20 m (pavem
 
 > "I'm sorry, it should be a maximum of 2 tiles wide. 1 for parking (discretionary), 1 for the road."
 
-He has not yet answered whether S10 (section 2) stands. It stays Proposed and open.
+Then the note's two questions (section 8) were put to him (20 Nov 2026, in chat, relayed verbatim by the orchestrator):
+
+- Asked "Do you accept the guard that a one-way street only drops its parking when every block along it keeps another parking side (recommended)? Or no guard?", he answered: "yes, the recommended". **So S10 is his ruling.**
+- Asked "Do your "2 tiles" for a one-way street mean the road only, with the usual pavement still on each side? That makes it 4 tiles with parking or 3 without, and every block keeps its pavement and kerb (recommended). Or no pavement at all...", he answered: "correct". **So the pavements stay: a one-way street is 4 tiles with parking, 3 without.**
+
+**What is Decided, and what is not.**
+
+- **Decided (Josh's words above):**
+  - the one-way sections: a carriageway of 1 lane tile plus at most 1 parking tile, at the street stage's discretion, with a pavement on each side (4 tiles or 3). This replaces the 15 m carriageway ruling for one-way streets only;
+  - which streets are one-way is the street stage's choice (Q2);
+  - S9 (Q3);
+  - S10;
+  - A4b on A4's branch before the pre-check (Q4);
+  - the kit's arrow pieces (Q5).
+- **Proposed, not covered by his words:**
+  - S7, reachability;
+  - S8, the edge streets stay two-way;
+  - the lattice working of section 2 (junction rectangles, cut widths, S2, S6 span, `centre_m`). It follows from his sections; the architect and the pre-check may refine it.
+- **Provisional, for his eye on the flat picture:** `ONE_WAY_SHARE`, `ONE_WAY_BARE_SHARE`, `ONE_WAY_ARROW_EVERY`, and A4's S3 gap and S5 share. Nothing pins them.
+- **No question is open.**
 
 So:
 
@@ -26,7 +45,7 @@ So:
     - every street in the grammar has a pavement and a kerb line on both sides (rule 10);
     - the pole slots, the street frontages' doors and shopfronts, and S2's pavement corners all stand on that pavement.
 
-    Question 1 at the end asks him to confirm this in one line, because the other reading (no pavement, 2 cells overall) would change A4b's whole lattice.
+    He confirmed it: "correct".
   - "Discretionary": no check requires a one-way street to have parking, or to have none (section 2).
 - **Q2.** Which streets are one-way is the street stage's choice. Section 3 says what must still hold.
 - **Q3.** Between two one-way streets that run the same way there is always a two-way street, or a one-way street the other way. This is rule S9 (section 6).
@@ -94,7 +113,7 @@ A one-way street's carriageway is "a maximum of 2 tiles wide. 1 for parking (dis
 - no pole slots, kerb line or pavement corners on that street;
 - a junction with no crossings.
 
-It is close to an alley (rule 6), which has no pavement and no parking. Question 1 asks Josh to rule it out.
+It is close to an alley (rule 6), which has no pavement and no parking. Josh ruled it out ("correct", question 1).
 
 **Ruled out by his words:** parking on both sides, and two lanes.
 
@@ -109,7 +128,7 @@ It is close to an alley (rule 6), which has no pavement and no parking. Question
   - how many go without.
 
   The street stage chooses: by hash, a share `ONE_WAY_BARE_SHARE` (provisional, 1 in 3) of one-way streets go without parking.
-- **One guard, which is mine, not Josh's (Proposed, S10; asked as question 2, not yet answered).** A one-way street may go without parking only if every block along it still has a parking band of its own on another side. Stage 1 lays every band, so it can check this.
+- **One guard, S10. Decided (Josh, 20 Nov 2026: "yes, the recommended").** A one-way street may go without parking only if every block along it still has a parking band of its own on another side. Stage 1 lays every band, so it can check this.
   - The reason: Edge's P1 margin is thin (lowest 0.757 against a floor of 0.75). P1 struggles most where a block has few parking sides of its own. S10 keeps a bare one-way street from taking any block's last one.
   - If no candidate passes S10, the one-way street keeps its parking. Nothing fails.
 
@@ -222,14 +241,14 @@ Josh left this to the street designer. What the stage chooses, and what must hol
 
 ## 6. Checks
 
-- **S7. Every junction reaches every other.** The junction graph is strongly connected: one search forwards and one backwards, linear in junctions.
+- **S7. Every junction reaches every other.** The junction graph is strongly connected: one search forwards and one backwards, linear in junctions. (Proposed.)
   - Failing fixture: a corner whose two edge streets both point into it.
-- **S8. The four edge streets are two-way.**
-- **S9. Josh's rule (Q3): between two one-way streets that run the same way there is always a two-way street, or a one-way street the other way.**
+- **S8. The four edge streets are two-way.** (Proposed.)
+- **S9. Josh's rule (Q3): between two one-way streets that run the same way there is always a two-way street, or a one-way street the other way.** Decided (Q3).
   - How it is read: take any line straight across the streets of one axis, at any cell along it. In the order that line crosses them, no two one-way streets that run the same way are next to each other without a two-way street, or a one-way street the other way, between them.
   - It is checked on every lattice line, which is linear in cells.
   - Failing fixture: two parallel one-way streets, same direction, with no street between them.
-- **S10. A bare one-way street leaves every block along it a parking band of its own** (Proposed, mine).
+- **S10. A bare one-way street leaves every block along it a parking band of its own** Decided (Josh, 20 Nov 2026: "yes, the recommended").
   - Failing fixture: a block whose only own band is on a bare one-way street.
 - **Street width, per section:** 15 m two-way; 10 m or 5 m one-way; no other shape.
 - **The report** (the A4b builder, per named city): the one-way streets, their sections, lengths and directions; the share of candidates made one-way; the share bare; and the junctions by size.
@@ -245,7 +264,7 @@ Josh left this to the street designer. What the stage chooses, and what must hol
 - **Seen in passing:** `laySplit` throws on 3 x 3 seeds 12 and 34 (not named cities).
 - **The probe** is in `C:\Users\Josh\AppData\Local\Temp\claude\56b8fba0bedb55d2\f6afb8b7-24f6-402c-b71c-26b0040c602b\scratchpad\oneway`. It is not committed, and the scratchpad may be cleared.
 
-## 8. Questions for Josh
+## 8. Questions for Josh (answered 20 Nov 2026: 1 "correct", 2 "yes, the recommended")
 
 1. **Do your "2 tiles" for a one-way street mean the road only, with the usual pavement still on each side?**
    Recommended: yes. The street is 4 tiles with parking or 3 without, and every block keeps its pavement and kerb.
