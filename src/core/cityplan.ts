@@ -629,9 +629,15 @@ export interface CityEdgeLayer {
 //   In a strip: its two long sides' rows, each fronting its own edge; a strip's short ends are not rows. A ring-1 corner cell lies in two outer rows, a ring-2 blind
 //   corner in two inner rows, and a strip's end cell in its one long row.
 // - **A building** is 2 to 4 consecutive cells of one row (`TERRACE_BAYS`, grammar rule 1). Every cell is in exactly one building. A cell that lies in two rows is in
-//   the building of one of them.
+//   the building of one of them, with one exception, the L (lever L1, Josh, 20 Nov 2026: "1-4 i approve your recommendations"):
+// - **The L (L1).** A **tight corner** is a ring-2 blind corner where, in each of its two inner rows, the stretch that holds it (from the corner to the first opening or
+//   the row's end) is exactly 2 cells: the corner and one cell beside it. (It happens where a drive and a frontage lot meet at one block corner.) Its building is the
+//   whole of both stretches, 3 cells in an L: `cells` lists the cell of `rowId`'s row, then the corner, then the cell of `bend`'s row. `rowId` is the inner row whose
+//   front is "-z" or "+z"; `bend` is the other, and the building's id is also listed in that row's `buildings`. It follows; its `partner` is the building that holds the
+//   ring-1 corner cell. A bent building anywhere else, or a tight corner not built as an L, fails the stage.
 // - **Lead and follow.** Every building of a court part's outer rows leads. Every building of its inner rows follows: its partner building is the building of the mass
-//   partners (`CityBuiltCell.partner`) of its cells that are not blind. In a strip one row leads and the other follows (F1 criterion 4 says which).
+//   partners (`CityBuiltCell.partner`) of its cells that are not blind (an L backs onto the two leaders round the ring-1 corner, which M4c ties to one height). In a
+//   strip one row leads and the other follows (F1 criterion 4 says which).
 
 /** A row of built cells (see above): one part, one ring, one front. Its id is "<part>|<row>|<front>", unique in the city. */
 export interface CityBuildingRow {
@@ -649,7 +655,7 @@ export interface CityBuildingRow {
 /** How a following building stands to its partner (grammar rule 4, Decided, Josh, 19 Nov 2026: "They can be either."). */
 export type CityBuildingBack = "through" | "another";
 
-/** One building (grammar rule 1): 2 to 4 columns of one row that share one style, one colourway and one floor count. */
+/** One building (grammar rule 1): 2 to 4 columns of one row, or the 3-cell L at a tight corner (L1), that share one style, one colourway and one floor count. */
 export interface CityBuilding {
   /** "<row id>|<i>,<j>", its first cell along the row. */
   readonly id: string;
@@ -657,11 +663,13 @@ export interface CityBuilding {
   readonly part: string;
   /** Its `CityBuildingRow.id`. */
   readonly rowId: string;
-  /** As its row's. */
+  /** As its row's (an L: `rowId`'s row; its `bend` cell fronts the `bend` row's front). */
   readonly row: "outer" | "inner";
   readonly front: CitySide;
-  /** Its cells in order along the row, 2 to 4, consecutive. */
+  /** Its cells in order along the row, 2 to 4, consecutive. An L: its `rowId` cell, the corner, its `bend` cell (see above). */
   readonly cells: readonly CityCell[];
+  /** An L's second row id (the inner row whose front is "-x" or "+x"); null for every straight building. */
+  readonly bend: string | null;
   /** A style id of the buildings stage's typed-in style table (one of `STACK_STYLES`' "bay" styles, src/render3d/stacks.ts: "apartment-01", "apartment-02", "apartment-03"). */
   readonly style: string;
   /** A colourway id of the typed-in pool (`COLOURWAY_POOL`, src/render3d/colourway.ts: "base", "01_C", ...). The assembler falls back to "base" for an id whose atlas did not load; the plan never knows what loaded. */
