@@ -199,10 +199,13 @@ describe("S9: Josh's Q3 (criterion 6)", () => {
         for (let p = 0; p < lines; p++) {
           const seq: string[] = [];
           for (let q = 0; q < (axis === "x" ? layer.h : layer.w); q++) {
-            const id = own(axis === "x" ? at.get(q * layer.w + p) : at.get(p * layer.w + q), axis);
-            if (id !== null && seq[seq.length - 1] !== id) seq.push(id);
+            const c = axis === "x" ? at.get(q * layer.w + p) : at.get(p * layer.w + q);
+            const id = own(c, axis);
+            // a street cell that is not this axis's own (a junction, or the crossing street's cells) means the line runs along the other street there: it is between them, a barrier
+            const here = id ?? (c ? "#" : null);
+            if (here !== null && seq[seq.length - 1] !== here) seq.push(here);
           }
-          for (let k = 0; k + 1 < seq.length; k++) if (byId.get(seq[k]!)!.section !== "twoWay" && byId.get(seq[k + 1]!)!.section !== "twoWay") found.add(`${seq[k]}|${seq[k + 1]}`);
+          for (let k = 0; k + 1 < seq.length; k++) if (seq[k] !== "#" && seq[k + 1] !== "#" && byId.get(seq[k]!)!.section !== "twoWay" && byId.get(seq[k + 1]!)!.section !== "twoWay") found.add(`${seq[k]}|${seq[k + 1]}`);
         }
       }
       const mine = new Set(oneWayNeighbours(layer.streets, layer.junctions).map(([a, b]) => `${a.id}|${b.id}`));
