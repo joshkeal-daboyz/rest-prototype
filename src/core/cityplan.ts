@@ -282,11 +282,116 @@ export interface CityMassLayer {
   readonly units: readonly CityBlockUnits[];
 }
 
-// ---- stages 4 to 8: typed before their sections start (ticket 070) ----
+// ---- stage 4: edge (typed before section D1; D2 adds the kerb line and fills `ground`) ----
 
-/** Stage 4: the street edge. Typed before section D1. */
+/**
+ * What a street cell is once the street edge is dressed (style guide 18.3 to 18.5). Stage 1's roles, with two refined:
+ * - a parking-band cell (`parkingPlain` in stage 1) is `parking` (half of a `ParkingLines_01` tile), `buildout`, or stays `parkingPlain` (in front of a kerb cut, or on an edge street's outer side);
+ * - a `pavement` cell in front of a vehicle opening's mouth is a `kerbCut`.
+ * Every value is also a value of the old tile city's `TileRole` (src/render3d/tilecity.ts), so a cell of this role can be drawn by `tilecity3d.ts` unchanged.
+ */
+export type CityEdgeRole = "lane" | "parking" | "parkingPlain" | "buildout" | "junction" | "crossing" | "pavement" | "pavementCorner" | "kerbCut";
+
+/** A turn about y, degrees, on the lattice. */
+export type CityYaw = 0 | 90 | 180 | 270;
+
+/** One street cell, dressed. The edge layer lists every cell of `streets.cells` exactly once, in the same order, with the same `street` and `band`. */
+export interface CityEdgeCell extends CityCell {
+  readonly role: CityEdgeRole;
+  /** As `CityStreetCell.street`. */
+  readonly street: string | null;
+  /** As `CityStreetCell.band`. */
+  readonly band: number;
+  /** A parking-band cell: the block its band faces ("block:<bi>:<bj>"), or "outer" on the outside of an edge street. null for every other cell. */
+  readonly faces: string | null;
+}
+
+/** A kerb cut (rule 10, 18.4): the pavement cell in front of one mouth cell of a vehicle opening, and the parking-band cell in front of it, which stays plain. */
+export interface CityKerbCut {
+  /** The pavement cell (role `kerbCut`). */
+  readonly cell: CityCell;
+  readonly street: string;
+  /** The `CityOpening.id` whose mouth it is in front of. */
+  readonly opening: string;
+  /** The parking-band cell in front of the cut (role `parkingPlain`), or null where the street has no parking band on that side (a traffic lane is behind the cut). */
+  readonly plain: CityCell | null;
+}
+
+/** One `ParkingLines_01` tile: two band cells along the street, `BAYS_PER_PARKING_TILE` bays (18.3). */
+export interface CityBayTile {
+  /** The two cells, the lower i (an "x" street) or the lower j (a "z" street) first. Both have role `parking`. */
+  readonly cells: readonly [CityCell, CityCell];
+  readonly street: string;
+  /** The block the band faces (never "outer": 056 lays no bay on an edge street's outer side). */
+  readonly block: string;
+  /** The block whose quota it counts toward: `block`, or the block across the street (18.6). */
+  readonly serves: string;
+}
+
+/** One kerbside bay, the same fields as the old tile city's `ParkingBay`: what P1, P3 and P6 count, and what a later cars or meters stage reads. */
+export interface CityKerbBay {
+  readonly x_m: number;
+  readonly z_m: number;
+  readonly yaw: number;
+  /** Along the street, and across it, metres. */
+  readonly w_m: number;
+  readonly d_m: number;
+  readonly street: string;
+  /** As `CityBayTile.block` and `.serves`. */
+  readonly block: string;
+  readonly serves: string;
+}
+
+/** A street tree on a build-out cell (18.5), at the cell's centre, metres. */
+export interface CityBuildoutTree {
+  readonly cell: CityCell;
+  readonly x_m: number;
+  readonly z_m: number;
+  readonly street: string;
+}
+
+/** A block's kerbside parking, as the allocator left it (ticket 070 D1, criterion 2). */
+export interface CityEdgeBlock {
+  readonly block: string;
+  /** Its quota in tiles: max(`BAY_TILES_PER_BLOCK_MIN`, round(shops x `PARK_PER_SHOP` / `BAYS_PER_PARKING_TILE`)), shops from `mass.units`. */
+  readonly wanted: number;
+  /** Where the first pass laid its first tile: on its own band, on the band across a street, or nowhere (no band could take one). */
+  readonly first: "own" | "across" | null;
+  /** Tiles of its quota no band could take (the old path's `shortTiles`): 0 when served in full. P1 reads it from here. */
+  readonly shortTiles: number;
+}
+
+/**
+ * One street piece as the assembler draws it: the same fields as the old tile city's `TileCell` (src/render3d/tilecity.ts), so `tilecity3d.ts` draws it unchanged.
+ * Written by section D2 (variants, yaws, the kerb returns); D1 leaves `CityEdgeLayer.ground` absent.
+ */
+export interface CityGroundCell extends CityCell {
+  /** 2 for a `ParkingLines_01` tile (its first cell is `i`, `j`), else 1. */
+  readonly cells: 1 | 2;
+  readonly role: CityEdgeRole;
+  /** Which model of the role's set; 0 for a role with one model. */
+  readonly variant: number;
+  /** The piece's centre, metres. */
+  readonly x_m: number;
+  readonly z_m: number;
+  readonly yaw: CityYaw;
+  readonly street: string | null;
+}
+
+/** Stage 4: the street edge. D1 writes the parking band and the kerb cuts; D2 adds the kerb line (typed by the architect before D2) and `ground`. */
 export interface CityEdgeLayer {
   readonly stage: "edge";
+  /** Every street cell once, dressed (`streets.cells`' order). */
+  readonly cells: readonly CityEdgeCell[];
+  readonly kerbCuts: readonly CityKerbCut[];
+  readonly tiles: readonly CityBayTile[];
+  /** `BAYS_PER_PARKING_TILE` per tile. */
+  readonly bays: readonly CityKerbBay[];
+  readonly buildoutTrees: readonly CityBuildoutTree[];
+  /** Every block of `streets.blocks` once, whole-block parks included (their quota is from `mass.units` like any other block's). */
+  readonly blocks: readonly CityEdgeBlock[];
+  /** The drawn street pieces: absent until section D2 fills it. */
+  readonly ground?: readonly CityGroundCell[];
 }
 /** Stage 5: buildings. Typed before section F1. */
 export interface CityBuildingsLayer {

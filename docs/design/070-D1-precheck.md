@@ -1,5 +1,11 @@
 # 070 D1 pre-check: the parking band on the pipeline's mass
 
+## Josh's answer (20 Nov 2026, in chat)
+
+Asked "On the pipeline, two named 6x4 cities (seeds 1 and 2) leave a block with no kerb parking, because the new shop count is about 25% higher. Should D1 give every block its first kerb tile before the rest are shared out (Yes), or stop as written (No)?", Josh first said "you should ask the design agent". Told that this note already recommends Yes (option B) but that the decision is his, and asked "Shall I go with the design agent's recommendation (Yes), or send it back to look for more margin first?", he answered: "yes".
+
+So: option B. D1 gets the first-tile pass, and Q6 is answered "fix, in D1".
+
 Pipeline designer, 20 Nov 2026, on `goal/city-style` at 50c7f27 (A1, A2, A3, B, B2, C1, C2 merged). This is a sketch probe. The builder's numbers are the record.
 
 ## 1. What is wrong: D1 as written does not hold
