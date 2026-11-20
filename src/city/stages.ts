@@ -5,13 +5,14 @@
 
 import type { CityPlanOptions, CityPlanRun, CityPlanStage } from "../core";
 import { landStage } from "./land/stage";
+import { massStage } from "./mass/stage";
 import { runStages } from "./pipeline/run";
 import type { CityStageDef } from "./pipeline/types";
 import { clampBlocks } from "./streets/layout";
 import { streetsStage } from "./streets/stage";
 
 /** The stages built so far, in `CITY_STAGES` order. Stages not yet built are absent. */
-export const BUILT_STAGES: readonly CityStageDef[] = [streetsStage as CityStageDef, landStage as CityStageDef];
+export const BUILT_STAGES: readonly CityStageDef[] = [streetsStage as CityStageDef, landStage as CityStageDef, massStage as CityStageDef];
 
 /** `runStages` on `stages` (default `BUILT_STAGES`), with the options normalised: block counts clamped, the seed an integer (default 1). */
 export function runCity(options: Partial<CityPlanOptions> = {}, until?: CityPlanStage, stages: readonly CityStageDef[] = BUILT_STAGES): CityPlanRun {
