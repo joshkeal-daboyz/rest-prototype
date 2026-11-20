@@ -260,3 +260,9 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 070 E | gate (main session) | - | - | - | 0 | full gate 682a0d3: tsc clean, 141 files, 3634 passed, 21 skipped |
 | 070 E | code-reviewer | opus | 94K + 27K | - | 0 | round 1 must-fix 1; round 2 meets |
 | 070 E | playtester | sonnet | 15K + 18K | - | 0 | regressions 0 both rounds |
+| 070 F1 re-cut | lead-architect | opus | 162K + 57K | - | 0 | F1 re-cut, buildings types; L1 (ca61068, fca1bbc) |
+| 070 F1 pre-check | pipeline-designer (general-purpose) | opus | 188K total (one figure in the readout) | - | 0 | 15/20 as cut; L1 fixes 20/20 (2ec3449) |
+| 070 F1 | buildings (general-purpose with buildings.md) | sonnet | 252K + 84K | - | 0 | buildings stage (eeda1e6); R-7 + R-4 fixes (c2cc5ca) |
+| 070 F1 | gate (main session) | - | - | - | 0 | full gate c2cc5ca: tsc clean, 145 files, 3678 passed, 21 skipped |
+| 070 F1 | code-reviewer | opus | 96K + review round 2 | - | 0 | round 1 must-fix 2; round 2 meets |
+| 070 F1 | playtester | sonnet | 14K + 15K | - | 0 | regressions 0 both rounds |
