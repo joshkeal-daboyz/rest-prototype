@@ -203,3 +203,13 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 070 C2 round 2 | code-reviewer | agent default (opus) | 36K total (one figure in the readout) | - | 0 | meets, must-fix 0 |
 | 070 C2 round 2 | playtester | agent default (sonnet) | 14K total (one figure in the readout) | - | 0 | regressions 0; stopped early |
 | 070 D1 pre-check | pipeline-designer (general-purpose with pipeline-designer.md) | opus | 154K total (one figure in the readout) | - | 0 | P1 fails on 6x4 seeds 1 and 2 as written; first-tile pass recommended |
+| 070 D1 re-cut | lead-architect (general-purpose with lead-architect.md) | opus | 148K total (one figure in the readout) | - | 0 | edge-layer types; ticket write blocked by the guard (wrong agent type), edits handed on |
+| 070 D1 re-cut | lead-architect | opus | 39K total (one figure in the readout) | - | 0 | applied the D1 re-cut and Q6 (2556ef5) |
+| 070 D1 | streetscape (general-purpose with streetscape.md) | sonnet | 207K total (one figure in the readout) | - | 0 | D1 with the first pass, 13 named ok (2bdf6ef) |
+| 070 D1 | gate (main session) | - | - | - | 0 | tsc clean, 135 files, 3135 passed, 20 skipped |
+| 070 D1 | code-reviewer | opus | 65K total (one figure in the readout) | - | 0 | partly, must-fix 1 (stage threw on a short block) |
+| 070 D1 | playtester | sonnet | 18K total (one figure in the readout) | - | 0 | regressions 0; stopped early |
+| 070 D1 round 2 | streetscape (general-purpose with streetscape.md) | sonnet | 80K total (one figure in the readout) | - | 0 | a short block leaves the run ok (4b639de) |
+| 070 D1 round 2 | gate (main session) | - | - | - | 0 | tsc clean, 135 files, 3135 passed, 20 skipped |
+| 070 D1 round 2 | code-reviewer | opus | 29K total (one figure in the readout) | - | 0 | meets, must-fix 0 |
+| 070 D1 round 2 | playtester | sonnet | 15K total (one figure in the readout) | - | 0 | regressions 0; stopped early |
