@@ -10,12 +10,24 @@ He was asked the five questions of the first version of this note (8a01272; they
 > 4 - do what you recommend
 > 5 - the kit has them, use them."
 
+Asked whether, on 5 m cells, a "half-width" one-way street should be 20 m (pavement, parking, one lane, pavement) or 15 m without the parking, Josh answered (20 Nov 2026, in chat, relayed verbatim by the orchestrator):
+
+> "I'm sorry, it should be a maximum of 2 tiles wide. 1 for parking (discretionary), 1 for the road."
+
+He has not yet answered whether S10 (section 2) stands. It stays Proposed and open.
+
 So:
 
-- **Q1. A one-way street is narrower:** one traffic lane, parking on one side at most, sometimes none, "half the width of a normal road".
+- **Q1. A one-way street is narrower. Its carriageway is at most 2 tiles: 1 lane tile, plus 1 parking tile at the street stage's discretion.** That is 1 or 2 tiles, 5 m or 10 m, against a two-way street's 3 tiles (15 m).
   - **This changes his ruling of 19 Nov 2026 (Q7, "Yes, no avenues": "every street is 25 m with a 15 m carriageway") for one-way streets only.** A two-way street stays exactly as rule 10 has it: 5 cells, 25 m, 15 m carriageway.
-  - The cell lattice cannot make an exact half (7.5 m of carriageway, or 12.5 m of street). Section 2 says how his words sit on the lattice. Question 1 at the end asks him to confirm that reading.
-  - "This isn't a hard rule": no check requires a one-way street to have parking, or to have none (section 2).
+  - "Half the width" is withdrawn: his second answer replaces it with the tile count.
+  - **The reading taken: the 2 tiles are the carriageway.** The pavements stay one tile on each side, as on every street. So a one-way street is 4 cells overall with parking, or 3 without. Those are the two sections section 2 already had, so the sections stand; only the wording changes. Why this reading:
+    - his "1 for parking, 1 for the road" names carriageway parts only;
+    - every street in the grammar has a pavement and a kerb line on both sides (rule 10);
+    - the pole slots, the street frontages' doors and shopfronts, and S2's pavement corners all stand on that pavement.
+
+    Question 1 at the end asks him to confirm this in one line, because the other reading (no pavement, 2 cells overall) would change A4b's whole lattice.
+  - "Discretionary": no check requires a one-way street to have parking, or to have none (section 2).
 - **Q2.** Which streets are one-way is the street stage's choice. Section 3 says what must still hold.
 - **Q3.** Between two one-way streets that run the same way there is always a two-way street, or a one-way street the other way. This is rule S9 (section 6).
 - **Q4.** As recommended: a new section, A4b, on A4's branch, after A4's review settles and before the A4 pre-check (section 5).
@@ -69,28 +81,27 @@ The probe used A4's 5-cell cuts. Narrower one-way cuts move the streets a cell o
 
 A two-way street is pavement, parking, lane, lane, pavement: 5 cells, 25 m. Its carriageway is 15 m: parking and two lanes.
 
-A one-way street is "a single lane, parking on 1 side maximum - sometimes none". On 5 m cells that gives two sections:
+A one-way street's carriageway is "a maximum of 2 tiles wide. 1 for parking (discretionary), 1 for the road", with a pavement on each side as on every street. That gives two sections:
 
 | Section | Cells, across | Street | Carriageway |
 | --- | --- | --- | --- |
 | one-way with parking | pavement, parking, lane, pavement (the parking on either side) | 4 cells, 20 m | 10 m |
 | one-way without parking | pavement, lane, pavement | 3 cells, 15 m | 5 m |
 
-**"Half the width of a normal road".**
+**The other reading, not taken:** no pavement, so a one-way street is 2 cells overall (a parking tile and a lane tile, kerb to building line). It would mean:
 
-- Against the 15 m carriageway, half is 7.5 m, which falls between the two sections (10 m and 5 m).
-- Against the 25 m street, half is 12.5 m. The narrower section (15 m) is nearest.
-- A half cell is not on the lattice: no kit piece is 2.5 m, and the grammar puts each piece on a whole cell. So "half" is read as "about half", which Josh's "this isn't a hard rule" allows.
+- buildings fronting straight onto the carriageway;
+- no pole slots, kerb line or pavement corners on that street;
+- a junction with no crossings.
 
-**Rejected readings:**
+It is close to an alley (rule 6), which has no pavement and no parking. Question 1 asks Josh to rule it out.
 
-- A 2-cell pavement with one lane: a 5 m carriageway on a 20 m street. It is wider than the no-parking section, with no gain.
-- Parking on both sides: Josh said one side at most.
+**Ruled out by his words:** parking on both sides, and two lanes.
 
-### How a check treats "not a hard rule"
+### How a check treats "discretionary"
 
-- **What a check enforces:** the section's shape. A one-way street is one of the two sections above: exactly one lane cell, at most one parking cell, a pavement on each side.
-  - The street-width check reads the carriageway from the section: 15 m for two-way, 10 m for one-way with parking, 5 m without.
+- **What a check enforces:** the section's shape. A one-way street is one of the two sections above: a carriageway of at most 2 tiles, exactly one lane tile and at most one parking tile, with a pavement on each side.
+  - The street-width check reads the carriageway from the section: 15 m (3 tiles) for two-way; 10 m (2 tiles) for one-way with parking, 5 m (1 tile) without.
   - It still fails an avenue, and any other shape.
 - **What a check does not enforce:**
   - whether a one-way street has parking;
@@ -98,7 +109,7 @@ A one-way street is "a single lane, parking on 1 side maximum - sometimes none".
   - how many go without.
 
   The street stage chooses: by hash, a share `ONE_WAY_BARE_SHARE` (provisional, 1 in 3) of one-way streets go without parking.
-- **One guard, which is mine, not Josh's (Proposed, S10).** A one-way street may go without parking only if every block along it still has a parking band of its own on another side. Stage 1 lays every band, so it can check this.
+- **One guard, which is mine, not Josh's (Proposed, S10; asked as question 2, not yet answered).** A one-way street may go without parking only if every block along it still has a parking band of its own on another side. Stage 1 lays every band, so it can check this.
   - The reason: Edge's P1 margin is thin (lowest 0.757 against a floor of 0.75). P1 struggles most where a block has few parking sides of its own. S10 keeps a bare one-way street from taking any block's last one.
   - If no candidate passes S10, the one-way street keeps its parking. Nothing fails.
 
@@ -234,10 +245,19 @@ Josh left this to the street designer. What the stage chooses, and what must hol
 - **Seen in passing:** `laySplit` throws on 3 x 3 seeds 12 and 34 (not named cities).
 - **The probe** is in `C:\Users\Josh\AppData\Local\Temp\claude\56b8fba0bedb55d2\f6afb8b7-24f6-402c-b71c-26b0040c602b\scratchpad\oneway`. It is not committed, and the scratchpad may be cleared.
 
-## 8. Question for Josh
+## 8. Questions for Josh
 
-1. **On 5 m cells, a half-width one-way street can be 20 m (pavement, parking, one lane, pavement) or 15 m without the parking. Is that the right reading of "half the width"?**
-   Recommended: yes, both, with the street stage choosing which, and parking on either side. Or: always the 15 m street, with no parking on one-way streets.
+1. **Do your "2 tiles" for a one-way street mean the road only, with the usual pavement still on each side?**
+   Recommended: yes. The street is 4 tiles with parking or 3 without, and every block keeps its pavement and kerb.
+   Or: no pavement, so the street is just the 2 tiles and buildings front straight onto it, like an alley.
+
+2. **May a one-way street drop its parking only where every block along it still has parking on another side?**
+   Recommended: yes. It protects the kerb-parking check, which is the closest to failing.
+   Or: no, the street designer drops parking wherever it likes.
+
+## The width question as asked (18ce938)
+
+1. On 5 m cells, a half-width one-way street can be 20 m (pavement, parking, one lane, pavement) or 15 m without the parking. Is that the right reading of "half the width"? Recommended then: yes, both, with the street stage choosing which, and parking on either side. Or: always the 15 m street, with no parking on one-way streets.
 
 ## The questions as first asked (8a01272)
 
