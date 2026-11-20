@@ -1,5 +1,5 @@
 /**
- * Stage 2 on the named cities (default 3 x 3 seed 1, 3 x 3 seeds 1 to 10, 6 x 4 seeds 1 to 3): V3, V4, M4a, the parts and their edges, the picture, the digest pins, R-1 to R-7.
+ * Stage 2 on the named cities (A4d: 6 x 6 seeds 1 to 10, the default seed 1 first): V3, V4, M4a, the parts and their edges, the picture, the digest pins, R-1 to R-7.
  * HEAVY: each city is built once, through a module-level cache. The `src/render3d/` import (the old `planBlocks`, for the criterion 4 report) is test-only.
  */
 import { readdirSync, readFileSync } from "node:fs";
@@ -22,8 +22,7 @@ interface City {
   readonly seed: number;
 }
 const NAMED: City[] = [];
-for (let seed = 1; seed <= 10; seed++) NAMED.push({ blocksX: 3, blocksZ: 3, seed });
-for (let seed = 1; seed <= 3; seed++) NAMED.push({ blocksX: 6, blocksZ: 4, seed });
+for (let seed = 1; seed <= 10; seed++) NAMED.push({ blocksX: 6, blocksZ: 6, seed });
 
 const cache = new Map<string, ReturnType<typeof runCity>>();
 function cityOf(o: City): ReturnType<typeof runCity> {
@@ -55,9 +54,9 @@ const layersWay = (o: City, way: Way): { streets: CityStreetsLayer; land: CityLa
 };
 
 describe("stage 2, land, on the named cities", { timeout: 120_000 }, () => {
-  it("the default city is the 3 x 3 seed 1 city, and the named cities are 13", () => {
-    expect(NAMED).toHaveLength(13);
-    expect(runCity({}, "land").plan.digests.land).toBe(cityOf({ blocksX: 3, blocksZ: 3, seed: 1 }).plan.digests.land);
+  it("the named cities are 10, the default 6 x 6 seed 1 first (A4d)", () => {
+    expect(NAMED).toHaveLength(10);
+    expect(NAMED[0]).toEqual({ blocksX: 6, blocksZ: 6, seed: 1 });
   });
 
   for (const o of NAMED) {
@@ -194,20 +193,20 @@ describe("stage 2, land, on the named cities", { timeout: 120_000 }, () => {
     expect(rows).toHaveLength(2 * NAMED.length + 1);
   });
 
-  it("R-4: the layer's digest is pinned on the default city, 3 x 3 seeds 2 and 3, and 6 x 4 seed 1 (all four pins moved by B3: the split plan, S6 for lanes, the served park; earlier by B2)", () => {
+  it("R-4: the layer's digest is pinned on 6 x 6 seeds 1, 2, 3 and 8, one-way on (all four pins MOVED BY A4d: the 6 x 6 named cities, the split limit 128; earlier by B3)", () => {
     const got = Object.fromEntries(
-      [{ blocksX: 3, blocksZ: 3, seed: 1 }, { blocksX: 3, blocksZ: 3, seed: 2 }, { blocksX: 3, blocksZ: 3, seed: 3 }, { blocksX: 6, blocksZ: 4, seed: 1 }].map((o) => [label(o), cityOf(o).plan.digests.land] as const),
+      [{ blocksX: 6, blocksZ: 6, seed: 1 }, { blocksX: 6, blocksZ: 6, seed: 2 }, { blocksX: 6, blocksZ: 6, seed: 3 }, { blocksX: 6, blocksZ: 6, seed: 8 }].map((o) => [label(o), cityOf(o).plan.digests.land] as const),
     );
     expect(got).toEqual({
-      "3 x 3 seed 1": "a8cc3009",
-      "3 x 3 seed 2": "1dd859fc",
-      "3 x 3 seed 3": "c2fc4800",
-      "6 x 4 seed 1": "177014d5",
+      "6 x 6 seed 1": "98c75479",
+      "6 x 6 seed 2": "f1fb1d91",
+      "6 x 6 seed 3": "e0458f9c",
+      "6 x 6 seed 8": "3b30b1e4",
     });
   });
 
   it("R-4: a test double for the land stage leaves the streets digest equal to the standard run's", () => {
-    const o = { blocksX: 3, blocksZ: 3, seed: 2 };
+    const o = { blocksX: 6, blocksZ: 6, seed: 2 };
     const double: CityStageDef = { name: "land", run: () => ({ stage: "land", blocks: [], parts: [], lanes: [], parks: [] }), picture: landStage.picture } as unknown as CityStageDef;
     const doubled = runCity(o, "land", [streetsStage as unknown as CityStageDef, double]);
     expect(doubled.plan.digests.streets).toBe(cityOf(o).plan.digests.streets);
@@ -215,8 +214,8 @@ describe("stage 2, land, on the named cities", { timeout: 120_000 }, () => {
   });
 
   it("R-3: the stage's randomness is its own: the same city twice is the same layer, and another seed is another layer", () => {
-    expect(runCity({ blocksX: 3, blocksZ: 3, seed: 2 }, "land").plan.digests.land).toBe(cityOf({ blocksX: 3, blocksZ: 3, seed: 2 }).plan.digests.land);
-    expect(cityOf({ blocksX: 3, blocksZ: 3, seed: 2 }).plan.digests.land).not.toBe(cityOf({ blocksX: 3, blocksZ: 3, seed: 3 }).plan.digests.land);
+    expect(runCity({ blocksX: 6, blocksZ: 6, seed: 2 }, "land").plan.digests.land).toBe(cityOf({ blocksX: 6, blocksZ: 6, seed: 2 }).plan.digests.land);
+    expect(cityOf({ blocksX: 6, blocksZ: 6, seed: 2 }).plan.digests.land).not.toBe(cityOf({ blocksX: 6, blocksZ: 6, seed: 3 }).plan.digests.land);
   });
 
   it("R-1: the layer is frozen when the stage returns", () => {
@@ -229,7 +228,7 @@ describe("stage 2, land, on the named cities", { timeout: 120_000 }, () => {
   });
 
   it("R-7: a 6 x 6 city (seed 1) ends ok or with a failure naming a rule, never an uncaught error", () => {
-    const r = runCity({ blocksX: 6, blocksZ: 6, seed: 1 }, "land");
+    const r = cityOf({ blocksX: 6, blocksZ: 6, seed: 1 });
     if (!r.ok) {
       expect(r.failure.stage).toBe("land");
       expect(r.failure.reason).not.toMatch(/^bug:/);

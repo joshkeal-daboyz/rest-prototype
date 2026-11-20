@@ -1,5 +1,5 @@
 /**
- * Stage 1 on the split plan (ticket 070 A4): criteria 2 to 10 and 12, on the named cities (the default, 3 x 3 seeds 1 to 10, 6 x 4 seeds 1 to 3). Each city is laid once, through a module cache.
+ * Stage 1 on the split plan (ticket 070 A4): criteria 2 to 10 and 12, on the named cities (A4d: 6 x 6 seeds 1 to 10, the default seed 1 first). Each city is laid once, through a module cache.
  * No test asserts a block count (R-7, Josh Q10). `JUNCTION_GAP_MIN_CELLS` is PROVISIONAL and is read by name. `T_SHARE_MIN` is Decided (Josh, 20 Nov 2026: 30%) and is pinned below.
  * Ticket 070 A4b made these checks width-aware (a one-way street is 4 or 3 cells, a junction is the two carriageways' rectangle); its own criteria are in `oneway.test.ts`.
  */
@@ -7,13 +7,12 @@ import { describe, expect, it } from "vitest";
 import type { CityCell, CityJunction, CitySide, CityStreetBand, CityStreetsLayer } from "../../core";
 import { CityStageError } from "../pipeline/error";
 import { BLOCK_LONG_ENOUGH_CELLS, blockSizeFailures, coverageProblems, evaluateStreets, innerTShare, s1Failures, s3Failures, s5Failures, streetWidthFailures, streetsVariety, tOf } from "./check";
-import { BLOCK_DRAWS_MAX, BLOCK_MEAN_MIN_CELLS, BLOCK_TILES, JUNCTION_GAP_MIN_CELLS, SECTION_CELLS, STREET_CELLS, T_SHARE_MIN } from "./constants";
+import { BLOCK_DRAWS_MAX, SPLIT_DRAWS_MAX, CITY_BLOCKS_MAX, BLOCK_MEAN_MIN_CELLS, BLOCK_TILES, JUNCTION_GAP_MIN_CELLS, SECTION_CELLS, STREET_CELLS, T_SHARE_MIN } from "./constants";
 import { blockSizes, cvOf, layStreets } from "./layout";
 import { laySplit, type SplitLayout } from "./split";
 
 const NAMED: { blocksX: number; blocksZ: number; seed: number }[] = [];
-for (let seed = 1; seed <= 10; seed++) NAMED.push({ blocksX: 3, blocksZ: 3, seed });
-for (let seed = 1; seed <= 3; seed++) NAMED.push({ blocksX: 6, blocksZ: 4, seed });
+for (let seed = 1; seed <= 10; seed++) NAMED.push({ blocksX: 6, blocksZ: 6, seed });
 
 const cache = new Map<string, SplitLayout>();
 const laid = (o: { blocksX: number; blocksZ: number; seed: number }): SplitLayout => {
@@ -76,7 +75,7 @@ describe("the split (criterion 3)", () => {
   it("is the same for the same seed, and finishes on every named city (no draw left over)", () => {
     eachCity((layer, o, r) => {
       expect(laySplit(o.seed, o.blocksX, o.blocksZ).layer, tag(o)).toEqual(layer);
-      expect(r.draw).toBeLessThanOrEqual(BLOCK_DRAWS_MAX);
+      expect(r.draw).toBeLessThanOrEqual(SPLIT_DRAWS_MAX);
     });
   });
   it("fails with the rule named when every draw misses (R-2): there is no fallback list", () => {
@@ -87,7 +86,7 @@ describe("the split (criterion 3)", () => {
       err = e;
     }
     expect(err).toBeInstanceOf(CityStageError);
-    expect((err as CityStageError).reason).toMatch(/^S3: no split of the 3 x 3 ground held every rule in 65 draws/);
+    expect((err as CityStageError).reason).toMatch(/^S3: no split of the 3 x 3 ground held every rule in 129 draws/);
   });
 });
 
@@ -264,7 +263,7 @@ describe("S5: Ts are common (criterion 8)", () => {
     expect(T_SHARE_MIN).toBe(0.3);
   });
   it("fixture: today's lattice (the default city's junctions) fails S5", () => {
-    const lat = layStreets(1, 3, 3);
+    const lat = layStreets(1, 6, 6);
     const edge = (line: number, last: number): boolean => line === 0 || line === last;
     const xs = lat.streets.filter((s) => s.axis === "x");
     const zs = lat.streets.filter((s) => s.axis === "z");
@@ -384,21 +383,23 @@ describe("V1 reworded, V2 unchanged, street width (criterion 10)", () => {
     });
   });
   it("on a lattice the new reading (over all blocks) and the old (one size per column and row) give the same number", () => {
-    const lat = layStreets(1, 3, 3);
+    const lat = layStreets(1, 6, 6);
     const v = streetsVariety(lat);
     expect(v.cvX).toBeCloseTo(cvOf(lat.sizes.widths), 12);
     expect(v.cvZ).toBeCloseTo(cvOf(lat.sizes.depths), 12);
-    expect(v.blocks).toBe(9);
+    expect(v.blocks).toBe(lat.sizes.widths.length * lat.sizes.depths.length);
   });
 });
 
-describe("the 6 x 6 city (R-7)", () => {
-  it("is laid, or fails the stage with the rule named; no block count is asserted", () => {
-    try {
-      const r = laySplit(1, 6, 6);
-      expect(coverageProblems(r.layer)).toEqual([]);
-    } catch (e) {
-      expect(e).toBeInstanceOf(CityStageError);
-    }
+describe("the split's own limit and the default 6 x 6 city (A4d criterion 1, R-7)", () => {
+  it("SPLIT_DRAWS_MAX is 128 (Josh, 20 Nov 2026, Q18: \"yes, yes\") and BLOCK_DRAWS_MAX, the outline's, stays 64", () => {
+    expect(SPLIT_DRAWS_MAX).toBe(128);
+    expect(BLOCK_DRAWS_MAX).toBe(64);
+  });
+  it("the named cities are 10, the default 6 x 6 seed 1 first, at the largest size", () => {
+    expect(NAMED).toHaveLength(10);
+    expect(NAMED[0]).toEqual({ blocksX: 6, blocksZ: 6, seed: 1 });
+    expect(NAMED.every((o) => o.blocksX === CITY_BLOCKS_MAX && o.blocksZ === CITY_BLOCKS_MAX)).toBe(true);
+    expect(coverageProblems(laid(NAMED[0]!).layer)).toEqual([]);
   });
 });

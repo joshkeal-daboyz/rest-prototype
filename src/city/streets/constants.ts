@@ -9,6 +9,8 @@ export const TILE_M = 5;
 export const CITY_BLOCKS_MAX = 6;
 /** The blocks along each axis when none are asked for. */
 export const CITY_BLOCKS_DEFAULT = 3;
+/** The pipeline's default city is this many blocks' worth of ground a side. Decided (Josh, 20 Nov 2026, Q17: asked whether the default should become 6 x 6 seed 1, "yes"). `CITY_BLOCKS_DEFAULT` stays 3 for `city=tiles`. */
+export const PLAN_BLOCKS_DEFAULT = 6;
 /** A block's side, in cells (30 to 80 m). */
 export const BLOCK_TILES = { min: 6, max: 16 } as const;
 /** Neighbouring blocks on one axis differ by at least this many cells, by hash. */
@@ -18,6 +20,8 @@ export const BLOCK_CV_MIN = 0.15;
 export const BLOCK_NONSQUARE_MIN = 0.7;
 /** A seed whose first draw misses the variety rules draws again, this many times at the most, then the fallback lists are used. */
 export const BLOCK_DRAWS_MAX = 64;
+/** Stage 1's split tries this many draws at the most before it fails (R-2). Decided (Josh, 20 Nov 2026, Q18: asked "Should stage 1 try up to 128 splits (Yes / No)?", "yes, yes"). `BLOCK_DRAWS_MAX` stays 64 for the outline. */
+export const SPLIT_DRAWS_MAX = 128;
 /** The mean block size on each axis is at least this many cells (50 m). */
 export const BLOCK_MEAN_MIN_CELLS = 10;
 /** Block types by size, metres: small, long, large, else medium. */

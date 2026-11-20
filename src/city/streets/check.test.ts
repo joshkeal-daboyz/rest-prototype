@@ -1,20 +1,24 @@
 import { describe, expect, it } from "vitest";
 import type { CityBlock, CityStreet } from "../../core";
+import type { CityStageDef } from "../pipeline/types";
 import { runCity } from "../stages";
+import { streetsStageWith } from "./stage";
 import { evaluateStreets, evaluateStreetsVariety, streetWidthFailures, streetsVariety } from "./check";
 
 const NAMED: { blocksX: number; blocksZ: number; seed: number }[] = [];
-for (let seed = 1; seed <= 10; seed++) NAMED.push({ blocksX: 3, blocksZ: 3, seed });
-for (let seed = 1; seed <= 3; seed++) NAMED.push({ blocksX: 6, blocksZ: 4, seed });
+for (let seed = 1; seed <= 10; seed++) NAMED.push({ blocksX: 6, blocksZ: 6, seed });
 
 describe("street width and V1, V2 on the layer", () => {
-  it("hold on the named cities", () => {
+  it("hold on the named cities, one-way on and off (A4d: the 20 named runs)", () => {
     for (const o of NAMED) {
-      const r = runCity(o, "streets");
-      expect(r.ok, JSON.stringify(o)).toBe(true);
-      const layer = r.plan.layers.streets!;
-      expect(streetWidthFailures(layer), JSON.stringify(o)).toEqual([]);
-      for (const v of evaluateStreets(layer)) expect(v.pass, `${v.id} ${JSON.stringify(o)}`).toBe(true);
+      for (const stages of [undefined, [streetsStageWith(0) as CityStageDef]] as const) {
+        const r = runCity(o, "streets", stages);
+        const tag = `${JSON.stringify(o)} one-way ${stages ? "off" : "on"}`;
+        expect(r.ok, tag).toBe(true);
+        const layer = r.plan.layers.streets!;
+        expect(streetWidthFailures(layer), tag).toEqual([]);
+        for (const v of evaluateStreets(layer)) expect(v.pass, `${v.id} ${tag}`).toBe(true);
+      }
     }
   });
 

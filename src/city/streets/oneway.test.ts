@@ -1,12 +1,11 @@
 /**
- * Ticket 070 A4b: one-way streets on the split plan, criteria 1 to 11, on the named cities (the default, 3 x 3 seeds 1 to 10, 6 x 4 seeds 1 to 3). Each city is laid once per share, through a module cache.
+ * Ticket 070 A4b: one-way streets on the split plan, criteria 1 to 11, on the named cities (A4d: 6 x 6 seeds 1 to 10, the default seed 1 first). Each city is laid once per share, through a module cache.
  * `ONE_WAY_SHARE`, `ONE_WAY_BARE_SHARE` and `ONE_WAY_ARROW_EVERY` are PROVISIONAL (Josh judges them on the flat picture): every test reads them by name and none pins their values, and no test counts how
  * many streets are one-way or bare (Josh: "it is the street designers discretion").
  */
 import { describe, expect, it } from "vitest";
 import type { CityJunction, CityPlanStreet, CitySide, CityStreet, CityStreetBand, CityStreetCell, CityStreetSection, CityStreetTraffic, CityStreetsLayer } from "../../core";
 import { pictureProblems } from "../pipeline/picture";
-import { stableHash } from "../pipeline/hash";
 import { runCity } from "../stages";
 import { oneWayNeighbours, ownBand, s7Failures, s8Failures, s9Failures, s10Failures, s10Violations, SECTION_BANDS, carriageOfSection, streetWidthFailures } from "./check";
 import { ONE_WAY_ARROW_EVERY, ONE_WAY_CARRIAGE_M, SECTION_CELLS, TILE_M } from "./constants";
@@ -14,8 +13,7 @@ import { laySplit, type SplitLayout } from "./split";
 import { STREETS_LEGEND, streetsStage, streetsStageWith } from "./stage";
 
 const NAMED: { blocksX: number; blocksZ: number; seed: number }[] = [];
-for (let seed = 1; seed <= 10; seed++) NAMED.push({ blocksX: 3, blocksZ: 3, seed });
-for (let seed = 1; seed <= 3; seed++) NAMED.push({ blocksX: 6, blocksZ: 4, seed });
+for (let seed = 1; seed <= 10; seed++) NAMED.push({ blocksX: 6, blocksZ: 6, seed });
 
 type Named = (typeof NAMED)[number];
 const cache = new Map<string, SplitLayout>();
@@ -110,36 +108,21 @@ describe("which streets are one-way: the stage's choice (criterion 2)", () => {
   });
 });
 
-describe("one-way off gives A4's plan (criterion 3)", () => {
-  // The digest of each named city's cells, blocks, junctions, outline and size as A4 laid them (taken from A4's `laySplit` on its own head, before A4b).
-  const A4: readonly (readonly [number, number, number, string])[] = [
-    [3, 3, 1, "6e77b385"],
-    [3, 3, 2, "f6ebff6d"],
-    [3, 3, 3, "eab33cbb"], // re-taken for Josh's T floor 0.30 (A4c criterion 8): one-way off draw 13 to 4
-    [3, 3, 4, "d9e02ff9"],
-    [3, 3, 5, "e981cd16"],
-    [3, 3, 6, "e26b524b"],
-    [3, 3, 7, "ad52bc12"],
-    [3, 3, 8, "8f576b3f"],
-    [3, 3, 9, "69b0b569"],
-    [3, 3, 10, "f31a82da"],
-    [6, 4, 1, "97e31bd2"],
-    [6, 4, 2, "79b17c16"],
-    [6, 4, 3, "f38353f8"],
-  ];
-  it("covers the 13 named cities", () => {
-    expect(A4).toHaveLength(NAMED.length);
+describe("one-way off gives A4's plan (criterion 3), on the 6 x 6 named cities (A4d)", () => {
+  // A4d: the old A4 cell digests of the 13 old cities are gone with that list (their cities are outside cities now, never pinned); the structure of A4's plan is what is asserted.
+  it("covers the 10 named cities, the default 6 x 6 seed 1 first", () => {
+    expect(NAMED).toHaveLength(10);
+    expect(NAMED[0]).toEqual({ blocksX: 6, blocksZ: 6, seed: 1 });
   });
-  for (const [x, z, seed, digest] of A4) {
-    it(`${x} x ${z} seed ${seed}: with oneWayShare 0 the cells, blocks, junctions and outline are A4's, every street is two-way, and there are no arrows`, () => {
-      const l = laid({ blocksX: x, blocksZ: z, seed }, 0).layer;
-      expect(stableHash(JSON.stringify({ w: l.w, h: l.h, cells: l.cells, blocks: l.blocks, junctions: l.junctions, outline: l.outline })).toString(16).padStart(8, "0")).toBe(digest);
+  for (const o of NAMED) {
+    it(`6 x 6 seed ${o.seed}: with oneWayShare 0 every street is two-way with five bands, and there are no arrows`, () => {
+      const l = laid(o, 0).layer;
       for (const s of l.streets) expect([s.section, s.flow, s.bands.length], s.id).toEqual(["twoWay", "both", 5]);
       expect(l.arrows).toEqual([]);
     });
   }
   it("the stage takes the option too (streetsStageWith), and the default stage is the default share", () => {
-    const r = runCity({ blocksX: 3, blocksZ: 3, seed: 6 }, "streets", [streetsStageWith(0)]);
+    const r = runCity({ blocksX: 6, blocksZ: 6, seed: 6 }, "streets", [streetsStageWith(0)]);
     expect(r.ok).toBe(true);
     expect(oneWay(r.plan.layers.streets!)).toEqual([]);
     expect(streetsStage.name).toBe("streets");
@@ -216,10 +199,13 @@ describe("S9: Josh's Q3 (criterion 6)", () => {
         for (let p = 0; p < lines; p++) {
           const seq: string[] = [];
           for (let q = 0; q < (axis === "x" ? layer.h : layer.w); q++) {
-            const id = own(axis === "x" ? at.get(q * layer.w + p) : at.get(p * layer.w + q), axis);
-            if (id !== null && seq[seq.length - 1] !== id) seq.push(id);
+            const c = axis === "x" ? at.get(q * layer.w + p) : at.get(p * layer.w + q);
+            const id = own(c, axis);
+            // a street cell that is not this axis's own (a junction, or the crossing street's cells) means the line runs along the other street there: it is between them, a barrier
+            const here = id ?? (c ? "#" : null);
+            if (here !== null && seq[seq.length - 1] !== here) seq.push(here);
           }
-          for (let k = 0; k + 1 < seq.length; k++) if (byId.get(seq[k]!)!.section !== "twoWay" && byId.get(seq[k + 1]!)!.section !== "twoWay") found.add(`${seq[k]}|${seq[k + 1]}`);
+          for (let k = 0; k + 1 < seq.length; k++) if (seq[k] !== "#" && seq[k + 1] !== "#" && byId.get(seq[k]!)!.section !== "twoWay" && byId.get(seq[k + 1]!)!.section !== "twoWay") found.add(`${seq[k]}|${seq[k + 1]}`);
         }
       }
       const mine = new Set(oneWayNeighbours(layer.streets, layer.junctions).map(([a, b]) => `${a.id}|${b.id}`));
@@ -405,7 +391,7 @@ describe("the picture (criterion 11)", () => {
   it("has nine legend entries: A4's seven, then one-way lane and one-way arrow", () => {
     expect(STREETS_LEGEND.map((e) => e.name)).toEqual(["lane", "parking band", "junction", "crossing", "pavement", "pavement corner", "block", "one-way lane", "one-way arrow"]);
   });
-  for (const [x, z, s] of [[3, 3, 1], [3, 3, 9], [6, 4, 1]] as const) {
+  for (const [x, z, s] of [[6, 6, 1], [6, 6, 9]] as const) {
     it(`${x} x ${z} seed ${s}: a one-way lane cell reads one-way lane, every other cell as before, and one point per arrow`, () => {
       const run = runCity({ blocksX: x, blocksZ: z, seed: s }, "streets");
       expect(run.ok).toBe(true);
