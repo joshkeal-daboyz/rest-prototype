@@ -88,6 +88,7 @@ import {
   TILE_TREES,
   gateParts,
   gatePlan,
+  type GatePlan,
   inletCells,
   interiorItems,
   passageFloorCells,
@@ -254,9 +255,41 @@ export interface TileDraw {
  * are dropped first and their cells fall to the role's other keys or to code. Nothing here reads the state or takes a ray.
  */
 export function tileGroup(city: TileCity, roots: ReadonlyMap<CalibrationKey, Object3D>, entries: ReadonlyMap<CalibrationKey, AssetEntry>, maxCalls: number = TILE_DRAW_CALLS_MAX): TileDraw {
+  const inlets = inletKeys(city);
+  return tileGroupOf(
+    {
+      cells: city.cells,
+      buildoutTrees: city.buildoutTrees,
+      seed: city.seed,
+      keys: [...tileKeys(), ...TILE_TREES],
+      keyOf: (c, active) => tileKeyOf(c, active, c.role === "lotSurface" && inlets.has(cellId(c.i, c.j))),
+      kerb: (keyOf) => tileKerbPlan(city, keyOf),
+    },
+    roots,
+    entries,
+    maxCalls,
+  );
+}
+
+/**
+ * What `tileGroupOf` draws (ticket 070 E): the cells, the build-out trees and the seed that picks them, the keys it may use, the key a cell is drawn from among the active ones (null: in code), and the kerb line's faces
+ * once the keys are known. `fronts` is the turn table (default `TILE_FRONTS`). `tileGroup` is this with a `TileCity`'s own; the pipeline's drawing (plan3d.ts) is this with its plan's.
+ */
+export interface TileGroupInput {
+  cells: readonly TileCell[];
+  buildoutTrees: readonly BuildoutTree[];
+  seed: number;
+  keys: readonly CalibrationKey[];
+  keyOf(cell: TileCell, active: ReadonlySet<CalibrationKey>): CalibrationKey | null;
+  kerb(keyOf: (c: TileCell) => CalibrationKey | null): KerbPlan;
+  fronts?: Readonly<Partial<Record<CalibrationKey, 0 | 90 | 180 | 270>>>;
+}
+
+/** The body of `tileGroup`, on a `TileGroupInput` (see it, and `tileGroup`). */
+export function tileGroupOf(city: TileGroupInput, roots: ReadonlyMap<CalibrationKey, Object3D>, entries: ReadonlyMap<CalibrationKey, AssetEntry>, maxCalls: number = TILE_DRAW_CALLS_MAX): TileDraw {
   const parts = new Map<CalibrationKey, { mesh: Mesh; local: Matrix4 }[]>();
   const active = new Set<CalibrationKey>();
-  for (const key of [...tileKeys(), ...TILE_TREES]) {
+  for (const key of city.keys) {
     const root = roots.get(key);
     if (!root || !entries.has(key)) continue;
     const found = meshParts(root);
@@ -275,10 +308,9 @@ export function tileGroup(city: TileCity, roots: ReadonlyMap<CalibrationKey, Obj
     /** The build-out trees whose piece is in the pack: place and key (a tree whose own piece is missing takes another of the three, and none is drawn when none is there). */
     trees: TreePlace[];
   }
-  const inlets = inletKeys(city);
   const cellIndex = new Map<TileCell, number>(city.cells.map((c, i) => [c, i]));
   const planFor = (): Plan => {
-    const keyOf = city.cells.map((c) => tileKeyOf(c, active, c.role === "lotSurface" && inlets.has(cellId(c.i, c.j))));
+    const keyOf = city.cells.map((c) => city.keyOf(c, active));
     const counts = new Map<CalibrationKey, number>();
     let quads = 0;
     let boxes = 0;
@@ -299,7 +331,7 @@ export function tileGroup(city: TileCity, roots: ReadonlyMap<CalibrationKey, Obj
       trees.push({ ...t, key });
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }
-    const kerb = tileKerbPlan(city, (c) => keyOf[cellIndex.get(c)!] ?? null);
+    const kerb = city.kerb((c) => keyOf[cellIndex.get(c)!] ?? null);
     const strips = kerb.faces.some((f) => f.kind === "code");
     return { keyOf, counts, patches, codeKinds: (quads > 0 ? 1 : 0) + (boxes > 0 ? 1 : 0) + (strips ? 1 : 0), kerb, trees };
   };
@@ -341,7 +373,7 @@ export function tileGroup(city: TileCity, roots: ReadonlyMap<CalibrationKey, Obj
   for (const [key, list] of byKey) {
     perKey.set(key, list.length);
     fromPack += list.length;
-    const turn = tileFront(key);
+    const turn = tileFront(key, city.fronts);
     for (const part of parts.get(key)!) {
       const im = new InstancedMesh(part.mesh.geometry, part.mesh.material, list.length);
       im.name = `tile:${key.slice(key.indexOf(":") + 1)}`;
@@ -374,7 +406,7 @@ export function tileGroup(city: TileCity, roots: ReadonlyMap<CalibrationKey, Obj
     }
   }
   if (plan.patches > 0) {
-    const turn = tileFront(TILE_PATCH);
+    const turn = tileFront(TILE_PATCH, city.fronts);
     const decals = city.cells.filter((c) => c.role === "lane" && (c.variant & LANE_PATCH) !== 0);
     for (const part of parts.get(TILE_PATCH)!) {
       const im = new InstancedMesh(part.mesh.geometry, part.mesh.material, decals.length);
@@ -548,10 +580,20 @@ export interface InteriorDraw {
  * keys with the fewest instances are dropped first. A key is usable when its entry and a root with a mesh are both given, as in `tileGroup`. Nothing here reads the state or takes a ray.
  */
 export function interiorGroup(city: TileCity, roots: ReadonlyMap<CalibrationKey, Object3D>, entries: ReadonlyMap<CalibrationKey, AssetEntry>, maxCalls: number = INTERIOR_DRAW_CALLS_MAX): InteriorDraw {
-  const items = interiorItems(city);
-  const props = propPlan(city);
-  const gates = gatePlan(city);
-  const floors = passageFloors(city);
+  return interiorGroupOf(interiorItems(city), propPlan(city), gatePlan(city), passageFloors(city), city.seed, roots, entries, maxCalls);
+}
+
+/** The body of `interiorGroup` on the things it draws (ticket 070 E): the surface items, the props, the gates, the passage floors and the seed that turns the greens. See `interiorGroup`. */
+export function interiorGroupOf(
+  items: readonly InteriorItem[],
+  props: readonly PropPlace[],
+  gates: readonly GatePlan[],
+  floors: readonly GroundRect[],
+  seed: number,
+  roots: ReadonlyMap<CalibrationKey, Object3D>,
+  entries: ReadonlyMap<CalibrationKey, AssetEntry>,
+  maxCalls: number = INTERIOR_DRAW_CALLS_MAX,
+): InteriorDraw {
   const floorCells = floors.map(passageFloorCells);
   const parts = new Map<CalibrationKey, { mesh: Mesh; local: Matrix4 }[]>();
   const active = new Set<CalibrationKey>();
@@ -577,7 +619,7 @@ export function interiorGroup(city: TileCity, roots: ReadonlyMap<CalibrationKey,
     /** The pack's slab the passages' floors are laid from (a whole cell each), or null: then every floor is one code quad. */
     floorKey: CalibrationKey | null;
     /** The floors' rectangles drawn in code: the part cells (or the whole floors with no slab). */
-    floorCode: GroundRect[];
+    floorCode: readonly GroundRect[];
   }
   const planFor = (): Plan => {
     const itemKey = items.map(keyOfItem);
@@ -633,7 +675,7 @@ export function interiorGroup(city: TileCity, roots: ReadonlyMap<CalibrationKey,
   };
   const shortOf = (key: CalibrationKey): string => key.slice(key.indexOf(":") + 1);
   /** Green cells take a quarter turn by hash, so a lawn is not one tile repeated; every other item is turned as the layout says. */
-  const yawOfItem = (it: InteriorItem): number => (it.kind === "green" ? ((stableHash(`grass:${city.seed}:${it.i}:${it.j}`) >>> 8) % 4) * 90 : it.yaw);
+  const yawOfItem = (it: InteriorItem): number => (it.kind === "green" ? ((stableHash(`grass:${seed}:${it.i}:${it.j}`) >>> 8) % 4) * 90 : it.yaw);
 
   // The pack: one InstancedMesh per key and sub-mesh, items and props together.
   type Place = { x_m: number; z_m: number; yaw: number; y_m: number; turn: number };
