@@ -27,6 +27,11 @@ export interface PlanViewRequest {
 /** The plan stages, in order: `CITY_STAGES` without "assemble". Stage numbers 1 to 8 index this list. */
 const PLAN_STAGES: readonly CityPlanStage[] = CITY_STAGES.filter((s): s is CityPlanStage => s !== "assemble");
 
+/** True exactly when the page draws the plan view: a dev build, `view=3d` and a `city=plan` request. Then the puzzle HUD is hidden. Pure. */
+export function planHidesHud(search: string, dev: boolean): boolean {
+  return dev && new URLSearchParams(search).get("view") === "3d" && planViewRequested(search) !== null;
+}
+
 /** The names of the stages that are built, in order. */
 export const builtStageNames = (): string[] => BUILT_STAGES.map((s) => s.name);
 
