@@ -102,3 +102,21 @@ Not asked now: a whole block that streets makes 6 by 6 and Land leaves alone sti
 4. Screenshot of `?view=3d&city=plan&stage=mass` for Josh after C2 merges, with the stalls, wanted and floor numbers for the default city.
 
 The probe (throwaway): `C:\Users\Josh\AppData\Local\Temp\claude\3682bd600b44598b\7e6c1d18-8b21-40c5-800e-40e14f1a654a\scratchpad\probe` (`src/probe.test.ts`, switches in `src/city/mass/knobs.ts`, raw output in `out.txt`, `out2.txt`, `out3.txt`, a picture of the default city in `default-mass-recommended.png`).
+
+## Addendum, 19 Nov 2026 late: the round-1 must-fix (a frontage lot and the walk-through)
+
+Measured on a scratch copy of `cdfb84f` (`scratchpad\probe2`, throwaway), 13 named cities plus 15 others.
+
+- **The review's premise does not hold on 3 x 3 seed 4.** The part with the frontage lot (`block:1:0/b`, 9 by 8) already has a court behind a drive on its lane side. The frontage lot is its second lot and serves the block across the street (`block:2:0`). So that part has a drive and needs no walk-through under either reading.
+- In all 28 cities, 8 parts hold a frontage lot and every one also has a court drive. No part has a frontage lot as its only lot.
+- With the strict rule switched on ("a walk-through unless the part has a drive"), nothing moves: 0 walk-throughs laid, every number and R1 identical (seed 4 stays 0.8988), all 28 pass.
+- The code's rule (`mine.length === 0`) is still wrong for a case that can occur on other cities: a part where no court or yard court fits but a 2 by 2 frontage lot does (a 6 by 6 or 6 by 7 part). There the frontage lot would stand in for the walk-through, and would turn the 6 by 6 block's honest M5 failure (Q7) into a pass.
+
+Recommendation: a frontage lot is parking, not a way in. It is four cells of stalls with cars on them, and counting it would make more parking the cheap way to pass M5. The ticket's criterion 5 and grammar line 161 already say "no drive", so this is the ticket as written, not a new rule.
+
+Question for Josh: "A frontage lot is parking, not a way in: a court part whose only opening is a frontage lot still gets a walk-through. Agreed?"
+
+**Ruled (Josh, 20 Nov 2026, in chat):** asked "A frontage lot is parking, not a way in, so a court part whose only opening is a frontage lot still gets a walk-through. Agreed: yes or no?", he answered: **"Yes, agreed"**. The "Yes" path below applies.
+
+- **Yes:** planner only. `plan.ts` lays the walk-through unless the part has a court or yard-court drive, with the frontage lot's cells counted in the stretch check; M5's "interior touches an opening" does not count a frontage lot; the stage test's `hasLot` counts only drives; one fixture (a part whose only lot is a frontage lot gets a walk-through, and fails M5 without one) and one for 6 by 6 (still the honest M5 failure). No named city's digest should move; if one does, stop.
+- **No:** architect adds one line to C2 criterion 5 and to L's grammar line ("no drive and no frontage lot"), with his words; planner adds a fixture pinning it. Cost: a 6 by 6 block can then pass M5 on a frontage lot alone.
