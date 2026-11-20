@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CityPicture } from "../core";
 import { BUILT_STAGES } from "../city/pipeline";
-import { builtStageNames, lastGoodPicture, pictureToRgba, planShown, planViewRequested, wrapLines } from "./planview";
+import { builtStageNames, lastGoodPicture, planHidesHud, pictureToRgba, planShown, planViewRequested, wrapLines } from "./planview";
 
 describe("planViewRequested", () => {
   it("is null unless city=plan", () => {
@@ -123,5 +123,27 @@ describe("planShown", () => {
 describe("lastGoodPicture", () => {
   it("is null when no layer was written", () => {
     expect(lastGoodPicture({ ok: false, plan: { options: { blocksX: 3, blocksZ: 3, seed: 1 }, layers: {}, digests: {} }, failure: { stage: "streets", seed: 1, blocksX: 3, blocksZ: 3, reason: "x", cells: [] } })).toBeNull();
+  });
+});
+
+describe("planHidesHud", () => {
+  it.each([
+    "?view=3d&city=plan&stage=streets",
+    "?view=3d&city=plan&stage=1&blocks=6x4&seed=3",
+    "?view=3d&city=plan",
+    "?view=3d&city=plan&stage=nope",
+  ])("hides the HUD on %s in a dev build", (search) => {
+    expect(planHidesHud(search, true)).toBe(true);
+  });
+
+  it.each([
+    ["?view=3d&city=plan&stage=streets", false],
+    ["?city=plan&stage=streets", true],
+    ["?view=3d&city=tiles", true],
+    ["?view=3d", true],
+    ["?view=3d&gallery=city", true],
+    ["", true],
+  ] as const)("keeps the HUD on %j (dev %s)", (search, dev) => {
+    expect(planHidesHud(search, dev)).toBe(false);
   });
 });
