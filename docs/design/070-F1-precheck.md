@@ -1,5 +1,11 @@
 # 070 F1 pre-check: rows, buildings, M4c, R2 and R13 on the split plan
 
+## Josh's answer (20 Nov 2026, in chat)
+
+Asked the four questions in this note, each with a recommendation (1 yes: the hidden ring-2 corner joins both back rows as one L-shaped building of 3 cells where a drive and a frontage lot meet at one block corner; 2 yes: that corner takes its floors from the street-corner building and its style and colour from the building it is grouped with; 3 after: BACK_SAME_SHARE 0.5 is made Decided after he sees the F1 screenshots; 4 no new rule now: the two buildings meeting at a street corner are not also required to differ in style and colour), Josh answered: "1-4 i approve your recommendations".
+
+So: lever L1 is in F1; BACK_SAME_SHARE stays Proposed until he sees F1; no style/colour rule at street corners.
+
 Pre-check of F1 as re-cut at ca61068 (`goal/city-style`). Every number below was measured by a probe: a sketch grouper (random restarts over the corner choices and the leading rows' cuts, followers derived by N3, storeys by search) on a copy of `src/core` and `src/city` outside the repo. It is not the builder's code. The builder's numbers are the record.
 
 ## 1. Verdict: holds, except at one kind of corner
