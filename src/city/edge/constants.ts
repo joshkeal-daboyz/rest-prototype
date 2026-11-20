@@ -21,5 +21,8 @@ export const BAYS_PER_100M_MAX = 6;
 export const BAY_JUNCTION_CLEAR = 1;
 /** A tree on every this many cells of a stretch of build-outs, never next to a crossing (18.5). */
 export const BUILDOUT_TREE_EVERY = 2;
-/** The band the city's kerb bays must lie in, as a multiple of the demand (shops x `PARK_PER_SHOP`): check P1. */
-export const PARK_SUPPLY_BAND = { lo: 0.75, hi: 1.5 } as const;
+/**
+ * The band the city's kerb bays must lie in, as a multiple of the demand (shops x `PARK_PER_SHOP`): check P1. From D1b the floor is 0.69 on the pipeline only (Josh, 20 Nov 2026, on the A4 pre-check's question 4:
+ * "Lower P1's floor", then "yes lower it"); the old tile city keeps 0.75 until section L. `hi` is unchanged.
+ */
+export const PARK_SUPPLY_BAND = { lo: 0.69, hi: 1.5 } as const;
