@@ -69,7 +69,7 @@ export interface CityStreet {
   readonly across0: number;
   /** The carriageway, kerb to kerb, across the street, metres. */
   readonly carriage: { readonly lo_m: number; readonly hi_m: number };
-  /** The centre line, same coordinate. */
+  /** The centre line, same coordinate. On a one-way street (ticket 070 A4b) it is the middle of its one lane cell, not a lane edge (on one lane that edge is a kerb). */
   readonly centre_m: number;
 }
 
@@ -135,11 +135,14 @@ export interface CityPlanStreet extends CityStreet {
   readonly outer: CitySide | null;
 }
 
-/** Where streets meet: the 3 by 3 carriageway square (grammar rule 10, unchanged; S2). Its id is "junction:<i>:<j>", its low corner cell. */
+/**
+ * Where streets meet: the rectangle where the two carriageways cross (S2). On A4's plan every carriageway is 3 cells, so it is 3 by 3 (grammar rule 10).
+ * From A4b (one-way streets) it is the x street's carriageway width by the z street's: 3, 2 or 1 cells each way. Its id is "junction:<i>:<j>", its low corner cell.
+ */
 export interface CityJunction {
   readonly id: string;
   readonly kind: CityJunctionKind;
-  /** The nine carriageway cells (role `junction`). */
+  /** Its carriageway cells (role `junction`): nine on two two-way streets; 1 to 6 where a one-way street meets (A4b). */
   readonly cells: readonly CityCell[];
   /** The streets that meet there: `passes` true for a street that runs through it, false for one that ends in it. A T has one of each; a crossroads two passing; a corner two ending. */
   readonly streets: readonly { readonly street: string; readonly passes: boolean }[];
@@ -160,7 +163,7 @@ export interface CityJunctionFacing {
   readonly junction: string;
   /** The street that ends in the junction, opposite this side. */
   readonly street: string;
-  /** The ending street's cross-section along this side: the 5 cells opposite it. Clearances either side (`BAY_JUNCTION_CLEAR`) are the reading stage's, not stage 1's. */
+  /** The ending street's cross-section along this side: the cells opposite it, its full width (5 cells two-way; 4 or 3 one-way, from A4b). Clearances either side (`BAY_JUNCTION_CLEAR`) are the reading stage's, not stage 1's. */
   readonly span: CitySpan;
 }
 
@@ -204,6 +207,47 @@ export interface CityStreetsLayer {
   readonly junctions: readonly CityJunction[];
   /** The city's ground inside the four edge streets, and the draw that gave it (null: the fallback lists). */
   readonly outline: CityOutline;
+}
+
+// ---- stage 1, one-way streets (ticket 070 A4b; docs/design/070-streets-one-way.md) ----
+//
+// Josh, 20 Nov 2026, in chat: "I'm sorry, it should be a maximum of 2 tiles wide. 1 for parking (discretionary), 1 for the road"; asked whether the pavement
+// stays on each side, "correct". Written before A4b starts, as standalone types, so A4's branch keeps type-checking. A4b's criterion 0 (the lead-architect,
+// on A4b's branch) folds them in: `CityPlanStreet` gains `CityStreetTraffic`, `CityStreetsLayer` gains `arrows`, and the two `...A4b` names are deleted.
+// Only `src/city/streets/split.ts` (planner, A4b's own file) stops type-checking then; no other consumer builds a street or the layer.
+
+/** A street's cross-section (grammar rule 10 for "twoWay"; Josh's one-way ruling for the other two). Its `bands` match it, kerb to kerb across.
+ * - "twoWay": pavement, parking, lane, lane, pavement (5 cells, 25 m; carriageway 15 m). Every edge street (S8) and every street before A4b.
+ * - "oneWay": pavement, parking, lane, pavement, the parking on either side (4 cells, 20 m; carriageway 10 m).
+ * - "oneWayBare": pavement, lane, pavement (3 cells, 15 m; carriageway 5 m). Only where S10 lets it.
+ */
+export type CityStreetSection = "twoWay" | "oneWay" | "oneWayBare";
+
+/** Which way traffic runs along the street's axis: "both" (two-way), "+" (towards higher i for an "x" street, higher j for a "z" street), "-" (lower). */
+export type CityStreetFlow = "both" | "+" | "-";
+
+/** A street's section and direction. `flow` is "both" exactly when `section` is "twoWay". */
+export interface CityStreetTraffic {
+  readonly section: CityStreetSection;
+  readonly flow: CityStreetFlow;
+}
+
+/** A lane cell of a one-way street that carries a painted arrow (the City Pack's `SM_Env_Road_Arrow_01`/`_02`, drawn by E), pointing with the traffic.
+ * Stage 1 places them (the assembler decides nothing): the first lane cell after each junction exit, then one every `ONE_WAY_ARROW_EVERY` cells (PROVISIONAL). */
+export interface CityStreetArrow extends CityCell {
+  readonly street: string;
+  /** The way the arrow points, which is the street's flow: "+x"/"-x" on an "x" street, "+z"/"-z" on a "z" street. */
+  readonly toward: CitySide;
+}
+
+/** A street on the split plan with one-way streets (A4b). Folded into `CityPlanStreet` by A4b's criterion 0. */
+export interface CityPlanStreetA4b extends CityPlanStreet, CityStreetTraffic {}
+
+/** The street layer with one-way streets (A4b). Folded into `CityStreetsLayer` by A4b's criterion 0. */
+export interface CityStreetsLayerA4b extends Omit<CityStreetsLayer, "streets"> {
+  readonly streets: readonly CityPlanStreetA4b[];
+  /** Every arrow cell, row-major. Empty when the city has no one-way street. */
+  readonly arrows: readonly CityStreetArrow[];
 }
 
 // ---- stage 2: land ----
