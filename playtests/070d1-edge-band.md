@@ -6,7 +6,7 @@ regressions: 0
 Add stage 4 (edge band) of the city pipeline: new `src/city/edge/` and its registration in `src/city/stages.ts`.
 
 ## What I ran
-No `npm run playtest`. The branch diff against goal/city-style touches only `src/city/edge/*`, `src/city/stages.ts` and `src/city/pipeline/run.test.ts`. The harness imports only `src/core`, `src/grid`, `src/play`, `src/render`, `src/audio` and `puzzles/`, none of which changed, so no map can play differently.
+Round 2. No `npm run playtest`. Diff against goal/city-style still touches only `src/city/edge/*`, `src/city/stages.ts`, `src/city/pipeline/run.test.ts` (plus review/playtest notes). The harness imports only `src/core`, `src/grid`, `src/play`, `src/render`, `src/audio` and `puzzles/`, none changed, so no map can play differently. Round 1 had no regressions to re-check.
 
 ## Intended differences, snapshots updated
 none
