@@ -15,6 +15,7 @@ import { applyModels, sharedModels, type AppliedModels } from "./models3d";
 import { applyLightMode } from "./lightrig";
 import { lightModeFor } from "./lighting";
 import { buildScene } from "./scene";
+import { createPlanAssembleRenderer3d, planAssembleRequested } from "./plan3d";
 import { createPlanRenderer3d, planViewRequested } from "./planview";
 import { createCityRenderer3d } from "./tilecity3d";
 import { cityTilesRequested } from "./tileslots";
@@ -35,7 +36,9 @@ const glByCanvas = new WeakMap<HTMLCanvasElement, WebGLRenderer>();
 
 export function createMapRenderer3d(canvas: HTMLCanvasElement, puzzle: Puzzle, opts?: MapRenderer3dOptions): MapRenderer3d {
   // `?city=plan` (debug, ticket 070 A2) draws a stage of the city plan as a flat picture on a 2D canvas; a canvas keeps one kind of context for good, so this is decided before any WebGL one is made. Dev builds only, like the gallery.
-  const planView = import.meta.env.DEV && typeof location !== "undefined" ? planViewRequested(location.search) : null;
+  // `stage=assemble` (or 9, ticket 070 E) is the plan drawn in 3D: decided ahead of the flat picture, and routed below once the WebGL renderer is made.
+  const assemble = import.meta.env.DEV && typeof location !== "undefined" ? planAssembleRequested(location.search) : null;
+  const planView = assemble === null && import.meta.env.DEV && typeof location !== "undefined" ? planViewRequested(location.search) : null;
   if (planView !== null) return createPlanRenderer3d(canvas, planView, { dpr: Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 2) });
   let gl = glByCanvas.get(canvas);
   if (!gl) {
@@ -43,6 +46,10 @@ export function createMapRenderer3d(canvas: HTMLCanvasElement, puzzle: Puzzle, o
     glByCanvas.set(canvas, gl);
   }
   const renderer = gl;
+  if (assemble !== null) {
+    const ratio = Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 2);
+    return createPlanAssembleRenderer3d(renderer, canvas, assemble, { insets: opts?.insets, dpr: ratio, search: location.search });
+  }
   // `?gallery=<pack-id>` (debug, ticket 043 B) shows every building of one pack instead of the town; this is the one place the address is read.
   // Dev builds only (ticket 045 C): `import.meta.env.DEV` is false in `npm run build`, so the gallery and its save code are dropped from the bundle.
   const galleryPack = import.meta.env.DEV && typeof location !== "undefined" ? galleryRequested(location.search) : null;
