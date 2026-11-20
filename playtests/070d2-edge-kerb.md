@@ -6,7 +6,7 @@ regressions: 0
 Section D2 adds kerb/ground checks to the city edge stage (src/city/edge/ only).
 
 ## What I ran
-Not run: the diff touches only src/city/edge/; the harness (loadPuzzle, createGrid, createMapPlay) imports nothing from src/city, so no map's play can have moved.
+Not run (round 2): since round 1 only kerb.test.ts, stage.test.ts and the review file changed. Nothing the harness loads moved, and it imports nothing from src/city.
 
 ## Intended differences, snapshots updated
 none
@@ -18,4 +18,4 @@ none
 nothing
 
 ## Noticed
-Kerb checks are covered by kerb.test.ts in the folder; none belong in the harness.
+Nothing new.
