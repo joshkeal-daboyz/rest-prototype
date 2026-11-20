@@ -288,11 +288,24 @@ describe("stage 4, edge, on the named cities", { timeout: 120_000 }, () => {
   it("some block side has two stretches (a T's far side), and the bands on them share one cap (criteria 1 and 4)", () => {
     let twoStretch = 0;
     let shared = 0;
+    // tiles on a stretch under 7 cells whose own cap floor(share x stretchLen / 2) would be 0: they can exist only if the cap counts over the whole side
+    let onZeroCapStretch = 0;
     for (const o of NAMED) {
       const { streets, edge } = layersOf(o);
+      const street = new Map(streets.streets.map((s) => [s.id, s] as const));
       for (const b of streets.blocks) {
         for (const name of SIDES) {
           const side = b.sides[name];
+          const st = street.get(side.street)!;
+          for (const e of side.across) {
+            const own = Math.floor((KERB_BAY_SHARE_MAX[st.profile] * (e.span.hi - e.span.lo)) / 2 + 1e-9);
+            if (own !== 0) continue;
+            onZeroCapStretch += edge.tiles.filter((t) => {
+              if (t.block !== b.id || t.street !== side.street) return false;
+              const a = st.axis === "x" ? t.cells[0]!.i : t.cells[0]!.j;
+              return a >= e.span.lo && a < e.span.hi;
+            }).length;
+          }
           if (side.across.length < 2) continue;
           const hit = side.across.map((e) => edge.tiles.filter((t) => t.block === b.id && t.street === side.street && (t.cells[0]!.i >= e.span.lo && t.cells[0]!.i < e.span.hi || t.cells[0]!.j >= e.span.lo && t.cells[0]!.j < e.span.hi)).length);
           twoStretch++;
@@ -301,6 +314,7 @@ describe("stage 4, edge, on the named cities", { timeout: 120_000 }, () => {
       }
     }
     expect(twoStretch).toBeGreaterThan(0);
+    expect(onZeroCapStretch, "a tile on a stretch whose own per-stretch cap would be 0 (criterion 4: the cap counts over the whole block side)").toBeGreaterThan(0);
     console.log(`D1b: ${twoStretch} block sides with two or more stretches on the named runs, ${shared} of them with tiles on two stretches`);
   });
 

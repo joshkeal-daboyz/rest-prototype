@@ -18,7 +18,7 @@ interface City {
   readonly way: "on" | "off";
 }
 const NAMED: City[] = [];
-for (const way of ["off", "on"] as const) for (let seed = 1; seed <= 10; seed++) NAMED.push({ blocksX: 6, blocksZ: 6, seed, way });
+for (const way of ["on", "off"] as const) for (let seed = 1; seed <= 10; seed++) NAMED.push({ blocksX: 6, blocksZ: 6, seed, way });
 const OUTSIDE: City[] = [];
 for (const [blocksX, blocksZ] of [
   [3, 3],
