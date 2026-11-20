@@ -5,8 +5,8 @@
 import { describe, expect, it } from "vitest";
 import type { CityCell, CityJunction, CitySide, CityStreetsLayer } from "../../core";
 import { CityStageError } from "../pipeline/error";
-import { blockSizeFailures, coverageProblems, evaluateStreets, innerTShare, s1Failures, s3Failures, s5Failures, streetWidthFailures, streetsVariety, tOf } from "./check";
-import { BLOCK_DRAWS_MAX, BLOCK_TILES, JUNCTION_GAP_MIN_CELLS, STREET_CELLS, T_SHARE_MIN } from "./constants";
+import { BLOCK_LONG_ENOUGH_CELLS, blockSizeFailures, coverageProblems, evaluateStreets, innerTShare, s1Failures, s3Failures, s5Failures, streetWidthFailures, streetsVariety, tOf } from "./check";
+import { BLOCK_DRAWS_MAX, BLOCK_MEAN_MIN_CELLS, BLOCK_TILES, JUNCTION_GAP_MIN_CELLS, STREET_CELLS, T_SHARE_MIN } from "./constants";
 import { blockSizes, cvOf, layStreets } from "./layout";
 import { laySplit, type SplitLayout } from "./split";
 
@@ -151,7 +151,9 @@ describe("S2: a T is a crossroads with one arm missing (criterion 5)", () => {
         // the far side: the through street's pavement straight past, 5 cells
         for (let p = -2; p <= 2; p++) expect(role.get(at(-2, p)), `${where} far ${p}`).toBe("pavement");
       }
-      for (const c of layer.cells) if (c.role === "junction" || c.role === "crossing") expect(c.role).not.toBe("parkingPlain");
+      // a plain parking cell lies on its street's parking band, and on no other band
+      const byId = new Map(layer.streets.map((s) => [s.id, s] as const));
+      for (const c of layer.cells) if (c.role === "parkingPlain") expect(byId.get(c.street!)!.bands[c.band], `parking cell (${c.i}, ${c.j})`).toBe("parking");
     });
     expect(ts).toBeGreaterThan(0);
   });
@@ -205,12 +207,12 @@ describe("S4: blocks (criterion 7)", () => {
           expect(len, `${tag(o)} ${b.id}`).toBeGreaterThanOrEqual(BLOCK_TILES.min);
           expect(len, `${tag(o)} ${b.id}`).toBeLessThanOrEqual(BLOCK_TILES.max);
         }
-        expect(Math.max(b.i1 - b.i0, b.j1 - b.j0), b.id).toBeGreaterThanOrEqual(7);
+        expect(Math.max(b.i1 - b.i0, b.j1 - b.j0), b.id).toBeGreaterThanOrEqual(BLOCK_LONG_ENOUGH_CELLS);
         for (const s of ["-x", "+x", "-z", "+z"] as const) expect(b.sides[s].street, `${b.id} ${s}`).toMatch(/^[xz]:\d+$/);
       }
       const mean = (f: (b: (typeof layer.blocks)[number]) => number): number => layer.blocks.reduce((n, b) => n + f(b), 0) / layer.blocks.length;
-      expect(mean((b) => b.i1 - b.i0)).toBeGreaterThanOrEqual(10);
-      expect(mean((b) => b.j1 - b.j0)).toBeGreaterThanOrEqual(10);
+      expect(mean((b) => b.i1 - b.i0)).toBeGreaterThanOrEqual(BLOCK_MEAN_MIN_CELLS);
+      expect(mean((b) => b.j1 - b.j0)).toBeGreaterThanOrEqual(BLOCK_MEAN_MIN_CELLS);
     });
   });
   it("every lattice cell is a street cell or in exactly one block", () => {

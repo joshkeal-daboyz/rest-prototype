@@ -24,12 +24,11 @@ const LEGEND_OF_ROLE: Readonly<Record<CityStreetRole, number>> = { lane: 0, park
 const LEGEND_BLOCK = 6;
 
 function run(plan: CityPlan, rand: StageRand): CityStreetsLayer {
-  void rand; // stage 1's hash is `hashOf` in layout.ts, which is `stageRand("streets", seed)`: the same function the runner passes.
   const blocksX = clampBlocks(plan.options.blocksX);
   const blocksZ = clampBlocks(plan.options.blocksZ);
   const seed = Math.trunc(plan.options.seed);
   // The split plan (ticket 070 A4). Throws CityStageError naming the rule when no draw holds S1, S3, S4, S5, V1 and V2 (R-2).
-  const layer = laySplit(seed, blocksX, blocksZ).layer;
+  const layer = laySplit(seed, blocksX, blocksZ, undefined, rand).layer;
 
   const width = streetWidthFailures(layer);
   if (width.length > 0) throw new CityStageError(`street width (grammar 10): ${width[0]}`);

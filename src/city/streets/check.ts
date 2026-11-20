@@ -150,20 +150,30 @@ export function tOf(j: JunctionIn): { through: string; ending: string; arm: City
  */
 export function s3Failures(layer: { readonly streets: readonly StreetIn[]; readonly junctions: readonly JunctionIn[] }, gapMin: number = JUNCTION_GAP_MIN_CELLS): string[] {
   const across0 = new Map(layer.streets.map((s) => [s.id, s.across0] as const));
-  const ts = layer.junctions.flatMap((j) => {
+  // the Ts by through street; only Ts on one street can meet S3, so only those are paired (in the order of the junctions, as a scan over all pairs would)
+  const onStreet = new Map<string, { t: NonNullable<ReturnType<typeof tOf>>; n: number }[]>();
+  let n = 0;
+  for (const j of layer.junctions) {
     const t = tOf(j);
-    return t ? [t] : [];
-  });
-  const out: string[] = [];
-  for (let a = 0; a < ts.length; a++) {
-    for (let b = a + 1; b < ts.length; b++) {
-      const p = ts[a]!;
-      const q = ts[b]!;
-      if (p.through !== q.through || p.arm === q.arm) continue;
-      const gap = Math.abs(across0.get(p.ending)! - across0.get(q.ending)!);
-      if (gap < gapMin) out.push(`${p.ending} and ${q.ending}: end on ${p.through} from opposite sides ${gap} cells apart, under ${gapMin} (S3: line up or keep apart)`);
+    if (!t) continue;
+    const list = onStreet.get(t.through);
+    if (list) list.push({ t, n });
+    else onStreet.set(t.through, [{ t, n }]);
+    n++;
+  }
+  const found: { a: number; b: number; reason: string }[] = [];
+  for (const list of onStreet.values()) {
+    for (let a = 0; a < list.length; a++) {
+      for (let b = a + 1; b < list.length; b++) {
+        const p = list[a]!.t;
+        const q = list[b]!.t;
+        if (p.arm === q.arm) continue;
+        const gap = Math.abs(across0.get(p.ending)! - across0.get(q.ending)!);
+        if (gap < gapMin) found.push({ a: list[a]!.n, b: list[b]!.n, reason: `${p.ending} and ${q.ending}: end on ${p.through} from opposite sides ${gap} cells apart, under ${gapMin} (S3: line up or keep apart)` });
+      }
     }
   }
+  const out = found.sort((p, q) => p.a - q.a || p.b - q.b).map((f) => f.reason);
   return out;
 }
 

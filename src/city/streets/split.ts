@@ -23,6 +23,7 @@ import type {
   CityStreetsLayer,
 } from "../../core";
 import { CityStageError } from "../pipeline/error";
+import type { StageRand } from "../pipeline/seeds";
 import { splitFailures, tOf, type SplitFailure } from "./check";
 import { BLOCK_DRAWS_MAX, BLOCK_TILES, CUT_MIN_CELLS, JUNCTION_GAP_MIN_CELLS, STREET_CELLS } from "./constants";
 import { blockSizes, blockType, hashOf, layoutAxis, mkStreet } from "./layout";
@@ -53,7 +54,7 @@ const SIDES: readonly CitySide[] = ["-x", "+x", "-z", "+z"];
 // ---- the cuts ----
 
 /** The pieces of `outline` after every cut of draw `draw`, and the cut streets (not yet merged). */
-function cutOutline(seed: number, outline: Rect, draw: number): { pieces: Rect[]; cuts: RawStreet[] } {
+function cutOutline(rand: StageRand, outline: Rect, draw: number): { pieces: Rect[]; cuts: RawStreet[] } {
   const pieces: Rect[] = [];
   const cuts: RawStreet[] = [];
   const stack: Rect[] = [outline];
@@ -67,7 +68,7 @@ function cutOutline(seed: number, outline: Rect, draw: number): { pieces: Rect[]
       continue;
     }
     const key = `${piece.i0}:${piece.j0}:${piece.i1}:${piece.j1}`;
-    const cutColumn = wide && deep ? hashOf(seed, "split", draw, "axis", key) % 2 === 0 : wide;
+    const cutColumn = wide && deep ? rand("split", draw, "axis", key) % 2 === 0 : wide;
     const axis = cutColumn ? "z" : "x";
     const a0 = cutColumn ? piece.i0 : piece.j0;
     const len = cutColumn ? w : d;
@@ -83,8 +84,8 @@ function cutOutline(seed: number, outline: Rect, draw: number): { pieces: Rect[]
     const s3 = all.filter(keepsS3);
     const good = s3.filter((c) => fine(c - a0) && fine(a0 + len - c - STREET_CELLS));
     const pool = good.length > 0 ? good : s3.length > 0 ? s3 : all;
-    const c = pool[hashOf(seed, "split", draw, "at", key) % pool.length]!;
-    const bands = hashOf(seed, "split", draw, "park", axis, c) % 2 === 0 ? BANDS_LEFT : BANDS_RIGHT;
+    const c = pool[rand("split", draw, "at", key) % pool.length]!;
+    const bands = rand("split", draw, "park", axis, c) % 2 === 0 ? BANDS_LEFT : BANDS_RIGHT;
     cuts.push({ axis, across0: c, lo, hi, bands, outer: null });
     stack.push(cutColumn ? { ...piece, i1: c } : { ...piece, j1: c }, cutColumn ? { ...piece, i0: c + STREET_CELLS } : { ...piece, j0: c + STREET_CELLS });
   }
@@ -123,37 +124,50 @@ function finishStreets(raw: readonly RawStreet[]): CityPlanStreet[] {
   return out;
 }
 
-/** Every junction: each pair of streets whose junction square lies inside both spans. Row-major by low corner. */
+/** The streets by `axis:across0` (several may share a line when their spans do not meet). */
+function streetsByLine(streets: readonly CityPlanStreet[]): Map<string, CityPlanStreet[]> {
+  const m = new Map<string, CityPlanStreet[]>();
+  for (const s of streets) {
+    const k = `${s.axis}:${s.across0}`;
+    const list = m.get(k);
+    if (list) list.push(s);
+    else m.set(k, [s]);
+  }
+  return m;
+}
+
+/** Every junction: each x street and z street whose junction square lies inside both spans, found by walking each x street's squares and looking up the z street there. Row-major by low corner. */
 function findJunctions(streets: readonly CityPlanStreet[]): CityJunction[] {
   const out: CityJunction[] = [];
-  const xs = streets.filter((s) => s.axis === "x");
-  const zs = streets.filter((s) => s.axis === "z");
-  for (const x of xs) {
-    for (const z of zs) {
-      const c0 = z.across0 + 1;
-      const r0 = x.across0 + 1;
-      if (!(x.span.lo <= c0 && c0 + 3 <= x.span.hi && z.span.lo <= r0 && r0 + 3 <= z.span.hi)) continue;
-      const xEnds = x.span.lo === c0 || x.span.hi === c0 + 3;
-      const zEnds = z.span.lo === r0 || z.span.hi === r0 + 3;
-      const kind: CityJunctionKind = xEnds && zEnds ? "corner" : xEnds || zEnds ? "T" : "crossroads";
-      const arms: CitySide[] = [];
-      if (x.span.lo < c0) arms.push("-x");
-      if (x.span.hi > c0 + 3) arms.push("+x");
-      if (z.span.lo < r0) arms.push("-z");
-      if (z.span.hi > r0 + 3) arms.push("+z");
-      const cells: CityCell[] = [];
-      for (let j = r0; j < r0 + 3; j++) for (let i = c0; i < c0 + 3; i++) cells.push({ i, j });
-      out.push({
-        id: junctionId(c0, r0),
-        kind,
-        cells,
-        streets: [
-          { street: x.id, passes: !xEnds },
-          { street: z.id, passes: !zEnds },
-        ],
-        arms,
-        inner: x.outer === null && z.outer === null,
-      });
+  const line = streetsByLine(streets);
+  for (const x of streets) {
+    if (x.axis !== "x") continue;
+    const r0 = x.across0 + 1;
+    for (let c0 = x.span.lo; c0 + 3 <= x.span.hi; c0++) {
+      for (const z of line.get(`z:${c0 - 1}`) ?? []) {
+        if (!(z.span.lo <= r0 && r0 + 3 <= z.span.hi)) continue;
+        const xEnds = x.span.lo === c0 || x.span.hi === c0 + 3;
+        const zEnds = z.span.lo === r0 || z.span.hi === r0 + 3;
+        const kind: CityJunctionKind = xEnds && zEnds ? "corner" : xEnds || zEnds ? "T" : "crossroads";
+        const arms: CitySide[] = [];
+        if (x.span.lo < c0) arms.push("-x");
+        if (x.span.hi > c0 + 3) arms.push("+x");
+        if (z.span.lo < r0) arms.push("-z");
+        if (z.span.hi > r0 + 3) arms.push("+z");
+        const cells: CityCell[] = [];
+        for (let j = r0; j < r0 + 3; j++) for (let i = c0; i < c0 + 3; i++) cells.push({ i, j });
+        out.push({
+          id: junctionId(c0, r0),
+          kind,
+          cells,
+          streets: [
+            { street: x.id, passes: !xEnds },
+            { street: z.id, passes: !zEnds },
+          ],
+          arms,
+          inner: x.outer === null && z.outer === null,
+        });
+      }
     }
   }
   return out.sort((p, q) => p.cells[0]!.j - q.cells[0]!.j || p.cells[0]!.i - q.cells[0]!.i);
@@ -168,8 +182,9 @@ function layBlocks(pieces: readonly Rect[], streets: readonly CityPlanStreet[], 
   const bj = rank(pieces.map((p) => p.j0));
   const blocks = pieces.map((p) => ({ ...p, id: `block:${bi.get(p.i0)!}:${bj.get(p.j0)!}`, bi: bi.get(p.i0)!, bj: bj.get(p.j0)! })).sort((p, q) => p.bj - q.bj || p.bi - q.bi);
 
+  const line = streetsByLine(streets);
   const streetOf = (axis: "x" | "z", across0: number, span: CitySpan, id: string): CityPlanStreet => {
-    const s = streets.find((t) => t.axis === axis && t.across0 === across0 && t.span.lo <= span.lo && span.hi <= t.span.hi);
+    const s = (line.get(`${axis}:${across0}`) ?? []).find((t) => t.span.lo <= span.lo && span.hi <= t.span.hi);
     if (!s) throw new CityStageError(`S4: ${id} has no street along its side at ${axis}:${across0}, cells ${span.lo} to ${span.hi}`, [{ i: span.lo, j: across0 }]);
     return s;
   };
@@ -190,10 +205,16 @@ function layBlocks(pieces: readonly Rect[], streets: readonly CityPlanStreet[], 
     list.push({ id: b.id, span: along[s].span });
     onSide.set(k, list);
   }
-  const ts = junctions.flatMap((j) => {
+  // the Ts by the street they run along and the side they open to: `through|arm`
+  const tsOn = new Map<string, { junction: string; ending: string }[]>();
+  for (const j of junctions) {
     const t = tOf(j);
-    return t ? [{ junction: j.id, ...t }] : [];
-  });
+    if (!t) continue;
+    const k = `${t.through}|${t.arm}`;
+    const list = tsOn.get(k);
+    if (list) list.push({ junction: j.id, ending: t.ending });
+    else tsOn.set(k, [{ junction: j.id, ending: t.ending }]);
+  }
   const endingStreet = new Map(streets.map((s) => [s.id, s] as const));
 
   return base.map(({ b, along }) => {
@@ -209,8 +230,7 @@ function layBlocks(pieces: readonly Rect[], streets: readonly CityPlanStreet[], 
             .sort((p, q) => p.span.lo - q.span.lo);
       const junctionsFacing: CityJunctionFacing[] = [];
       if (!facesOut) {
-        for (const t of ts) {
-          if (t.through !== street.id || t.arm !== s) continue;
+        for (const t of tsOn.get(`${street.id}|${s}`) ?? []) {
           const e = endingStreet.get(t.ending)!;
           const facing = { lo: e.across0, hi: e.across0 + STREET_CELLS };
           if (span.lo <= facing.lo && facing.hi <= span.hi) junctionsFacing.push({ junction: t.junction, street: e.id, span: facing });
@@ -294,9 +314,9 @@ export interface SplitLayout {
 
 /**
  * Stage 1's layout on the split plan, for a city of `blocksX` by `blocksZ` blocks' worth of ground (both already clamped). Throws `CityStageError` naming the rule when every draw
- * of `BLOCK_DRAWS_MAX + 1` misses (R-2): there is no fallback list. `held` is the test a draw must pass (`splitFailures`; a test may hand in another).
+ * of `BLOCK_DRAWS_MAX + 1` misses (R-2): there is no fallback list. `held` is the test a draw must pass (`splitFailures`; a test may hand in another). `rand` is stage 1's hash (the runner's; by default `hashOf`, the same function) and draws every cut.
  */
-export function laySplit(seed: number, blocksX: number, blocksZ: number, held: typeof splitFailures = splitFailures): SplitLayout {
+export function laySplit(seed: number, blocksX: number, blocksZ: number, held: typeof splitFailures = splitFailures, rand: StageRand = (...key) => hashOf(seed, ...key)): SplitLayout {
   const { widths, depths, draw: outlineDraw } = blockSizes(seed, blocksX, blocksZ);
   const cols = layoutAxis(seed, "z", blocksX, widths);
   const rows = layoutAxis(seed, "x", blocksZ, depths);
@@ -318,7 +338,7 @@ export function laySplit(seed: number, blocksX: number, blocksZ: number, held: t
   const misses: Record<string, number> = {};
   let last: SplitFailure | null = null;
   for (let draw = 0; draw <= BLOCK_DRAWS_MAX; draw++) {
-    const { pieces, cuts } = cutOutline(seed, outline, draw);
+    const { pieces, cuts } = cutOutline(rand, outline, draw);
     const streets = finishStreets([...edges, ...mergeCuts(cuts)]);
     const junctions = findJunctions(streets);
     const blocks = pieces.map((p) => ({ ...p }));
