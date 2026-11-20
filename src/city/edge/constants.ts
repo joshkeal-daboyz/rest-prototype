@@ -26,3 +26,9 @@ export const BUILDOUT_TREE_EVERY = 2;
  * "Lower P1's floor", then "yes lower it"); the old tile city keeps 0.75 until section L. `hi` is unchanged.
  */
 export const PARK_SUPPLY_BAND = { lo: 0.69, hi: 1.5 } as const;
+
+/** One pavement cell in this many is a grate (`Sidewalk_Grate_01`) and one lane cell in this many carries a patch decal. Typed-in copies of the tile city's (ticket 070 D2), pinned equal by `constants.test.ts`. */
+export const GRATE_ONE_IN = 6;
+export const PATCH_ONE_IN = 12;
+/** A return's end lies within this of the wall plane of the built cell beside the opening (grammar rule 10's second addition, 065 criterion 10). */
+export const RETURN_WALL_TOL_M = 0.05;

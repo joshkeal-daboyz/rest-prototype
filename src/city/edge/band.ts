@@ -1,5 +1,5 @@
 /**
- * Stage 4, section D1: the kerb cuts at vehicle openings, the parking band (056's greedy allocator, moved from `src/render3d/tilecity.ts` at 2edac93, plus one first pass: every block's first kerb tile, Josh,
+ * Stage 4, sections D1 and D2: the kerb cuts at vehicle openings, the parking band (056's greedy allocator, moved from `src/render3d/tilecity.ts` at 2edac93, plus one first pass: every block's first kerb tile, Josh,
  * 20 Nov 2026, "yes", option B of `docs/design/070-D1-precheck.md`), the build-outs and their trees. Pure. Demand is read from `mass.units`, never from buildings.
  */
 
@@ -23,6 +23,8 @@ import type {
 } from "../../core";
 import { CityStageError } from "../pipeline/error";
 import type { StageRand } from "../pipeline/seeds";
+import { layGround } from "./ground";
+import { kerbLine } from "./kerbline";
 import { BAYS_PER_100M_MAX, BAYS_PER_PARKING_TILE, BAY_JUNCTION_CLEAR, BAY_RUN_TILES_MAX, BAY_TILES_PER_BLOCK_MIN, BUILDOUT_TREE_EVERY, KERB_BAY_SHARE_MAX, KERB_GAP_MIN_M, PARK_PER_SHOP, TILE_M } from "./constants";
 
 /** A block side's cap on kerb tiles, shared by every stretch (band) on that side (Josh, 20 Nov 2026, D1b: "1. yes"). */
@@ -481,5 +483,8 @@ export function buildEdge(streets: CityStreetsLayer, land: CityLandLayer, mass: 
     return { i: c.i, j: c.j, role: er[idx]!, street: c.street, band: c.band, faces };
   });
   const edgeBlocks: CityEdgeBlock[] = blocks.map((b) => ({ block: b.id, wanted: quota.get(b.id)!, first: first.get(b.id) ?? null, shortTiles: shortTiles.get(b.id) ?? 0 }));
-  return { stage: "edge", cells, kerbCuts, tiles, bays, buildoutTrees, blocks: edgeBlocks };
+  // ---- D2: the ground pieces and the kerb line, read from the layer so far ----
+  const ground = layGround(streets, cells, tiles, rand);
+  const kerb = kerbLine(streets, ground, kerbCuts);
+  return { stage: "edge", cells, kerbCuts, tiles, bays, buildoutTrees, blocks: edgeBlocks, ground, kerb };
 }

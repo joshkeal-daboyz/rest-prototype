@@ -7,6 +7,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { CITY_GROUND_VARIANT } from "../../core";
 import type { CityBlock, CityEdgeLayer, CityLandLayer, CityMassLayer, CityOpening, CityPlanBlock, CityPlanRun, CityStreetsLayer } from "../../core";
 import { pictureProblems } from "../pipeline/picture";
 import { stageRand } from "../pipeline/seeds";
@@ -18,6 +19,7 @@ import { PLAN_BLOCKS_DEFAULT } from "../streets/constants";
 import { streetsStage, streetsStageWith } from "../streets/stage";
 import { bestFit, buildEdge } from "./band";
 import { edgeFailures, edgeMetrics, edgeVerdicts, supplyOverDemand } from "./check";
+import { kerbFailures } from "./kerbcheck";
 import { BAYS_PER_100M_MAX, BAYS_PER_PARKING_TILE, BAY_TILES_PER_BLOCK_MIN, KERB_BAY_SHARE_MAX, PARK_SUPPLY_BAND, TILE_M } from "./constants";
 import { EDGE_LEGEND, EDGE_LEGEND_OF_ROLE, edgeStage } from "./stage";
 
@@ -265,9 +267,12 @@ describe("stage 4, edge, on the named cities", { timeout: 120_000 }, () => {
         const pic = edgeStage.picture(r.plan);
         expect(pic.stage).toBe("edge");
         expect(pictureProblems(pic, streets.w, streets.h)).toEqual([]);
-        for (const c of edge.cells) expect(pic.cells[c.j * streets.w + c.i]).toBe(EDGE_LEGEND_OF_ROLE[c.role]);
+        // (a dropped kerb, D2, is a pavement cell the picture marks with its own legend entry: see kerb.test.ts)
+        const dropped = new Set((edge.ground ?? []).filter((g) => (g.variant & CITY_GROUND_VARIANT.pavementDip) !== 0).map((g) => key(g.i, g.j)));
+        for (const c of edge.cells) expect(pic.cells[c.j * streets.w + c.i]).toBe(dropped.has(key(c.i, c.j)) ? EDGE_LEGEND.findIndex((e) => e.name === "dropped kerb") : EDGE_LEGEND_OF_ROLE[c.role]);
         for (const b of streets.blocks) for (let j = b.j0; j < b.j1; j++) for (let i = b.i0; i < b.i1; i++) expect(pic.cells[j * streets.w + i]).toBe(0);
-        expect(pic.points).toHaveLength(edge.buildoutTrees.length);
+        // the points: a tree on each build-out tree, and (D2) one per return's end
+        expect(pic.points).toHaveLength(edge.buildoutTrees.length + edge.kerb!.reduce((n, p) => n + p.returns.length, 0));
       });
     });
   }
@@ -338,14 +343,27 @@ describe("stage 4, edge, on the named cities", { timeout: 120_000 }, () => {
     expect(d.plan.digests.edge).not.toBe(r.plan.digests.edge);
   });
 
-  it("the digest pins (R-4), moved by D1b (the split plan, the side-list bands, the cap per side, P1's floor, M, PB, the 6 x 6 named cities): 6 x 6 seeds 1 (the default), 2, 3 and 8, one-way on", () => {
+  it("the digest pins (R-4), moved by D1b (the split plan, the side-list bands, the cap per side, P1's floor, M, PB, the 6 x 6 named cities) and again by D2 (`ground` and `kerb` added to the layer; the streets', land's and mass's pins do not move): 6 x 6 seeds 1 (the default), 2, 3 and 8, one-way on", () => {
     const PINS: [number, string][] = [
-      [1, "79ab00b8"],
-      [2, "bb35e862"],
-      [3, "7f031940"],
-      [8, "40212bff"],
+      [1, "ac7cc850"],
+      [2, "cb9855be"],
+      [3, "d0e043ef"],
+      [8, "7507ba04"],
     ];
     for (const [seed, pin] of PINS) expect(cityOf({ blocksX: 6, blocksZ: 6, seed, way: "on" }).plan.digests.edge, `seed ${seed}`).toBe(pin);
+    // D2 moved edge's pins only: the three layers before it are as they were (D1b's pins, kept by their own stages' tests)
+    const r = cityOf({ blocksX: 6, blocksZ: 6, seed: 1, way: "on" });
+    expect(Object.keys(r.plan.digests)).toEqual(["streets", "land", "mass", "edge"]);
+  });
+
+  it("the stage always writes `ground` and `kerb` (D2, R-2): both are in every named run's layer, and a layer cut of either fails the stage's own check", () => {
+    for (const o of NAMED) {
+      const { edge, streets, mass } = layersOf(o);
+      expect(edge.ground, label(o)).toBeDefined();
+      expect(edge.kerb, label(o)).toBeDefined();
+      expect(edge.ground!.length).toBe(edge.cells.length - edge.tiles.length);
+      expect(kerbFailures(edge, streets, mass)).toEqual([]);
+    }
   });
 
   it("the same city twice gives the same digest, and another seed another (R-3)", () => {
@@ -365,8 +383,23 @@ describe("stage 4, edge, on the named cities", { timeout: 120_000 }, () => {
     expect(own(8, "on")).toEqual(expect.arrayContaining(["block:5:9", "block:5:11"]));
   });
 
+  it("R-6: every file of edge imports only src/core and src/city (the pipeline's helpers and its own files), and none reads a clock, the DOM or Math.random", () => {
+    for (const f of ["band.ts", "check.ts", "stage.ts", "constants.ts", "ground.ts", "kerbline.ts", "kerbcheck.ts", "index.ts"]) {
+      const src = readFileSync(fileURLToPath(new URL(`./${f}`, import.meta.url)), "utf8");
+      for (const m of src.matchAll(/from\s+"([^"]+)"/g)) {
+        const path = m[1]!;
+        expect(path.startsWith("./") || path === "../../core" || path.startsWith("../pipeline/"), `${f} imports ${path}`).toBe(true);
+      }
+      const code = src
+        .split("\n")
+        .filter((l) => !l.trim().startsWith("//") && !l.trim().startsWith("*") && !l.trim().startsWith("/*"))
+        .join("\n");
+      expect(code, f).not.toMatch(/Math\.random|Date\.now|performance\.now|\bdocument\b|\bwindow\b/);
+    }
+  });
+
   it("the grid lookups are gone: edge's code reads no block's rank fields and no street's line (criterion 9)", () => {
-    for (const f of ["band.ts", "check.ts", "stage.ts", "constants.ts"]) {
+    for (const f of ["band.ts", "check.ts", "stage.ts", "constants.ts", "ground.ts", "kerbline.ts", "kerbcheck.ts"]) {
       const src = readFileSync(fileURLToPath(new URL(`./${f}`, import.meta.url)), "utf8");
       const code = src
         .split("\n")
@@ -542,8 +575,9 @@ describe("the failing and first-pass fixtures (criterion 12 (c))", { timeout: 12
     const fixtureMass = { name: "mass", run: () => mass, picture: massStage.picture } as unknown as CityStageDef;
     const fixtureLand = { name: "land", run: () => land, picture: landStage.picture } as unknown as CityStageDef;
     const run = runCity({ blocksX: 1, blocksZ: 1, seed: 1 }, "edge", [streetsStage as CityStageDef, fixtureLand, fixtureMass, edgeStage as CityStageDef]);
-    expect(run.ok ? "" : run.failure.reason).toBe("");
-    expect(run.plan.layers.edge?.blocks[0]?.first).toBeNull();
+    // D2: this typed-in mass has drives along every whole side and no built cell beside any of them, so no return has a wall plane to end on: the stage stops on that rule (D2's), and never on P1 (the short block is recorded, not thrown on)
+    expect(run.ok ? "" : run.failure.reason).toMatch(/^return ends on the wall plane/);
+    expect(e.blocks[0]?.first).toBeNull();
     // and P1 says so, from the layer, while the stage's own failure list lets the short block through
     expect(edgeFailures(e, streets, mass, { blocksX: 1, blocksZ: 1 }, true).filter((f) => f.id === "P1")).toHaveLength(0);
     expect(edgeFailures(e, streets, mass, { blocksX: 1, blocksZ: 1 }).some((f) => f.id === "P1")).toBe(true);
