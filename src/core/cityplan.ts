@@ -125,8 +125,8 @@ export interface CityStreetEnd {
   readonly junction: string;
 }
 
-/** A street on the split plan: today's fields, plus where it runs and how it ends. */
-export interface CityPlanStreet extends CityStreet {
+/** A street on the split plan: today's fields, plus where it runs, how it ends, and (from A4b) its section and direction (`CityStreetTraffic`, below). */
+export interface CityPlanStreet extends CityStreet, CityStreetTraffic {
   /** The cells along its axis it runs over, its end junctions' squares included (so a T's ending street reaches the far kerb of the through street's carriageway). */
   readonly span: CitySpan;
   /** Its two ends, the low end (`span.lo`) first. */
@@ -194,7 +194,7 @@ export interface CityOutline {
   readonly draw: number | null;
 }
 
-/** The street layer (stage 1) on the split plan (ticket 070 A4). Today's `cells` are unchanged in shape. */
+/** The street layer (stage 1) on the split plan (ticket 070 A4), with one-way streets (A4b). Today's `cells` are unchanged in shape. */
 export interface CityStreetsLayer {
   readonly stage: "streets";
   /** The city's extent, in cells. */
@@ -207,14 +207,15 @@ export interface CityStreetsLayer {
   readonly junctions: readonly CityJunction[];
   /** The city's ground inside the four edge streets, and the draw that gave it (null: the fallback lists). */
   readonly outline: CityOutline;
+  /** Every one-way arrow cell (A4b), row-major. Empty when the city has no one-way street. */
+  readonly arrows: readonly CityStreetArrow[];
 }
 
 // ---- stage 1, one-way streets (ticket 070 A4b; docs/design/070-streets-one-way.md) ----
 //
 // Josh, 20 Nov 2026, in chat: "I'm sorry, it should be a maximum of 2 tiles wide. 1 for parking (discretionary), 1 for the road"; asked whether the pavement
-// stays on each side, "correct". Written before A4b starts, as standalone types, so A4's branch keeps type-checking. A4b's criterion 0 (the lead-architect,
-// on A4b's branch) folds them in: `CityPlanStreet` gains `CityStreetTraffic`, `CityStreetsLayer` gains `arrows`, and the two `...A4b` names are deleted.
-// Only `src/city/streets/split.ts` (planner, A4b's own file) stops type-checking then; no other consumer builds a street or the layer.
+// stays on each side, "correct". Folded in by A4b's criterion 0 (the lead-architect, on A4b's branch): `CityPlanStreet` extends `CityStreetTraffic`, and
+// `CityStreetsLayer` has `arrows`.
 
 /** A street's cross-section (grammar rule 10 for "twoWay"; Josh's one-way ruling for the other two). Its `bands` match it, kerb to kerb across.
  * - "twoWay": pavement, parking, lane, lane, pavement (5 cells, 25 m; carriageway 15 m). Every edge street (S8) and every street before A4b.
@@ -238,16 +239,6 @@ export interface CityStreetArrow extends CityCell {
   readonly street: string;
   /** The way the arrow points, which is the street's flow: "+x"/"-x" on an "x" street, "+z"/"-z" on a "z" street. */
   readonly toward: CitySide;
-}
-
-/** A street on the split plan with one-way streets (A4b). Folded into `CityPlanStreet` by A4b's criterion 0. */
-export interface CityPlanStreetA4b extends CityPlanStreet, CityStreetTraffic {}
-
-/** The street layer with one-way streets (A4b). Folded into `CityStreetsLayer` by A4b's criterion 0. */
-export interface CityStreetsLayerA4b extends Omit<CityStreetsLayer, "streets"> {
-  readonly streets: readonly CityPlanStreetA4b[];
-  /** Every arrow cell, row-major. Empty when the city has no one-way street. */
-  readonly arrows: readonly CityStreetArrow[];
 }
 
 // ---- stage 2: land ----
