@@ -1,5 +1,14 @@
 # 070 A4 pre-check, re-run after Josh's answers
 
+## Josh's answers (20 Nov 2026, in chat)
+
+- Q1 (stage 1 redraws a split that leaves a block no kerb place): after a worked example (3 x 3 s9's corner block), Josh answered: "No, we need to stop basing these tests on a 3x3. Start basing them on 6x6 or greater." So lever K is not adopted.
+- Q2 (the first pass as a best fit over the city): "yes" (lever M).
+- Q3 (3 x 3 s12 an honest failure, reported, not pinned): "3x3 seeds are too small. They're going to result in regular failures because they cannot accommodate for all of changes I suggested. Yes".
+- The named cities: asked which cities the new named list should be (6 x 6 seeds 1 to 10 plus 8 x 8 seeds 1 to 3 suggested), he answered "6x6". Asked whether the default city should become 6 x 6 seed 1, he answered "yes".
+
+So the named cities become 6 x 6 cities only (the orchestrator's reading: 6 x 6 seeds 1 to 10, the default being 6 x 6 seed 1), replacing the default 3 x 3, 3 x 3 seeds 1 to 10 and 6 x 4 seeds 1 to 3. 3 x 3 and 6 x 4 runs become outside cities: reported, not required. Every stage is measured again on the new list before D1b.
+
 Pipeline designer, 20 Nov 2026, on `ticket/070a4-split-plan` at 85c7236 (A4, A4b, A4c merged; `T_SHARE_MIN` 0.30). This is a sketch probe. The builders' numbers are the record. Nothing here is decided. Josh's answers go at the top of this note.
 
 **What was run.** B3, C3 and D1b as the ticket now cuts them (d9314cf onward), on stage 1 as built:
