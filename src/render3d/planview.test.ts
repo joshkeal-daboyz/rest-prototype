@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { CITY_STAGES } from "../core";
 import type { CityPicture } from "../core";
 import { BUILT_STAGES } from "../city/pipeline";
 import { builtStageNames, lastGoodPicture, planHidesHud, pictureToRgba, planShown, planViewRequested, wrapLines } from "./planview";
@@ -106,7 +107,8 @@ describe("planShown", () => {
   });
 
   it("lists the built stages for an unknown stage and for one not built", () => {
-    for (const text of ["bogus", "9", "mass"]) {
+    const unbuilt = CITY_STAGES.find((name) => !builtStageNames().includes(name));
+    for (const text of unbuilt === undefined ? ["bogus", "9"] : ["bogus", "9", unbuilt]) {
       const s = planShown(planViewRequested(`?city=plan&stage=${text}`)!);
       expect(s.picture).toBeNull();
       expect(s.banner).toContain(builtStageNames().join(", "));

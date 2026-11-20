@@ -26,7 +26,7 @@ describe("runCity (R-1, R-2)", () => {
     expect(r.plan.options).toEqual({ blocksX: 6, blocksZ: 1, seed: 2 });
   });
   it("is a typed error when `until` is a stage that is not built", () => {
-    expect(() => runCity(SMALL, "mass")).toThrow(CityRunError);
+    expect(() => runCity(SMALL, "edge")).toThrow(CityRunError);
     expect(() => runCity(SMALL, "ground")).toThrow(CityRunError);
   });
   it("hands each stage only the layers before it", () => {

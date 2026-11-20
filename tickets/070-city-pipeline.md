@@ -253,7 +253,7 @@ H and I can run alongside each other once F2 has merged. Stage 6 (K) is not cut 
    - G3 and R1 are ported from `frontage.ts` (`interiorMetrics`, and the R1 share in `citymetrics.ts`) onto cells, with their thresholds.
 6. [ ] R-1 to R-7 for `mass`, without courts. The digest pin is re-taken in C2, on purpose, and named there.
 
-- **Files:** new `src/city/mass/`.
+- **Files:** new `src/city/mass/`; `src/render3d/planview.test.ts` (the unbuilt-stage example only, by the renderer; the planner never edits render3d).
 
 ### C2 · Stage 3, Mass: units, lots and courts (planner, pure). Branch `ticket/070c2-mass-parking`
 **Goal.** Parking demand is fixed from the mass, and residents' courts and frontage lots are laid as openings, so P2 holds before any kerb is drawn.
