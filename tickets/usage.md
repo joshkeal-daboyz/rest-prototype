@@ -224,3 +224,28 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 070 A4 round 2 | gate (main session) | - | - | - | 0 | tsc clean; 111 passed |
 | 070 A4 round 2 | code-reviewer | opus | review round 2 (figure not reported) | - | 0 | meets, must-fix 0 |
 | 070 A4 round 2 | playtester | sonnet | 15K total (one figure in the readout) | - | 0 | regressions 0; stopped early |
+| 070 one-way design | Opus design session (separate session) | opus | not in this session's readout | - | 0 | docs/design/070-streets-one-way.md; Josh's five answers + width + S10 |
+| 070 A4b | lead-architect | opus | 103K total (one figure in the readout) | - | 0 | A4b cut + criterion 0 (322b110, a331094) |
+| 070 A4b | planner (general-purpose with planner.md) | sonnet | 277K total (one figure in the readout) | - | 0 | one-way streets (dd5c25b) |
+| 070 A4b | code-reviewer / playtester | opus / sonnet | 95K / 14K | - | 0 | meets, must-fix 0; regressions 0 |
+| 070 A4 pre-check | pipeline-designer (general-purpose) | opus | 342K total (one figure in the readout) | - | 0 | does not hold; four questions (1acb528) |
+| 070 re-cut | lead-architect | opus | 129K total (one figure in the readout) | - | 0 | B3, C3, D1b re-cut; A4c added (d9314cf) |
+| 070 A4c | planner (general-purpose with planner.md) | sonnet | 119K + 95K | - | 0 | S11; stopped on R-2; T floor 0.30 (aa2aa72, 3ec20e7) |
+| 070 A4c stop | pipeline-designer (general-purpose) | opus | 161K total (one figure in the readout) | - | 0 | stop note + T floor measure (2013d85, c0c9042) |
+| 070 A4c | lead-architect | opus | 49K total (one figure in the readout) | - | 0 | T floor recorded (2edc38e) |
+| 070 A4c | code-reviewer / playtester | opus / sonnet | 46K / 14K | - | 0 | meets, must-fix 0; regressions 0 |
+| 070 A4 pre-check re-run | pipeline-designer (general-purpose) | opus | 194K total (one figure in the readout) | - | 0 | holds off; on 11/13 (ec891f7) |
+| 070 B3 | planner (general-purpose with planner.md) | sonnet | 141K total (one figure in the readout) | - | 0 | land on the split plan (a08d005) |
+| 070 B3 | code-reviewer / playtester | opus / sonnet | 53K / 15K | - | 0 | meets, must-fix 0; regressions 0 |
+| 070 C3 | planner (general-purpose with planner.md) | sonnet | 175K total (one figure in the readout) | - | 0 | mass on the split plan (1cddf1d) |
+| 070 C3 | code-reviewer / playtester | opus / sonnet | 50K / 14K | - | 0 | meets, must-fix 0; regressions 0 |
+| 070 6x6 pre-check | pipeline-designer (general-purpose) | opus | 178K total (one figure in the readout) | - | 0 | 16/20 with M; PB + 128 recommended (b44122f) |
+| 070 6x6 re-cut | lead-architect | opus | 138K total (one figure in the readout) | - | 0 | A4d, A2b; D1b gains M and PB (4c1bd2a) |
+| 070 A4d | planner (general-purpose with planner.md) | sonnet | 157K total (one figure in the readout) | - | 0 | 6x6 named list, split limit 128 (4d5cdb9, 03797ee) |
+| 070 A4d | code-reviewer / playtester | opus / sonnet | 76K / 14K | - | 0 | meets, must-fix 0; regressions 0 |
+| 070 D1b | streetscape (general-purpose with streetscape.md) | sonnet | 206K + 78K | - | 0 | edge on the split plan; round 2 cap test (60f6fc2, 7e0e82f) |
+| 070 D1b | code-reviewer | opus | 73K + 27K | - | 0 | round 1 must-fix 1; round 2 meets |
+| 070 D1b | playtester | sonnet | 14K + 15K | - | 0 | regressions 0 both rounds |
+| 070 A2b | renderer (general-purpose with renderer.md) | sonnet | 74K total (one figure in the readout) | - | 0 | plan view default 6x6 (13c3d16) |
+| 070 A2b | code-reviewer / playtester | opus / sonnet | 27K / 14K | - | 0 | meets, must-fix 0; regressions 0 |
+| 070 group | gate (main session) | - | - | - | 0 | full gate dd8bde1: tsc clean, 139 files, 3348 passed, 20 skipped; merged 41d6cbc |
