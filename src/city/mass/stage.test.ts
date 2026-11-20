@@ -2,8 +2,7 @@
  * Stage 3, mass (sections C1 and C2), on the named cities (default 3 x 3 seed 1, 3 x 3 seeds 1 to 10, 6 x 4 seeds 1 to 3): rings, strips, openings, drives, courts, units, open sides and partners, M3, M4b, M5 (strict:
  * no lane exemption), G2, G3, R1, P2, the picture, the digest pins, R-1 to R-7. HEAVY: each city is built once, through a module-level cache.
  *
- * C2 STOPPED ON ITS STOP RULE (ticket 070 C2 criterion 3, Q5): P2 cannot hold on the named cities, so the stage returns a failure there and "returns ok" is red by design. Every other test of a city runs only where the
- * stage returned ok (`it.skipIf`), so they are skipped now and become the acceptance tests the day P2 can hold. Nothing is loosened and no city is pinned (R-2). The digest pins cannot be re-taken until then.
+ * C2 (re-cut 19 Nov 2026, Josh: "Yes, all four"): the stage returns ok on all 13 named cities, with PARK_PER_HOME 0.075, yard courts, and a walk-through for every court part with no drive. Nothing is loosened and no city is pinned (R-2).
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -42,8 +41,6 @@ const layersOf = (o: City): { streets: CityStreetsLayer; land: CityLandLayer; ma
   return { streets: r.plan.layers.streets!, land: r.plan.layers.land!, mass: r.plan.layers.mass!, plan: r.plan };
 };
 const label = (o: City): string => `${o.blocksX} x ${o.blocksZ} seed ${o.seed}`;
-/** Whether the stage returned ok on the city: C2's acceptance tests of a city run only then (see the header). */
-const isOk = (o: City): boolean => cityOf(o).ok;
 
 describe("stage 3, mass, on the named cities", { timeout: 120_000 }, () => {
   it("the default city is the 3 x 3 seed 1 city, and the named cities are 13", () => {
@@ -55,7 +52,6 @@ describe("stage 3, mass, on the named cities", { timeout: 120_000 }, () => {
 
   for (const o of NAMED) {
     describe(label(o), () => {
-      // RED BY DESIGN while C2 is stopped (see the header): the failure names the check and its numbers
       it("returns ok, and M3, M4b, M5 (strict), G2, G3, R1 and P2 all hold (criteria 2, 3 and C1's 5)", () => {
         const r = cityOf(o);
         if (!r.ok) throw new Error(`stage ${r.failure.stage}: ${r.failure.reason}`);
@@ -64,7 +60,7 @@ describe("stage 3, mass, on the named cities", { timeout: 120_000 }, () => {
         expect(frontageShare(mass).share).toBeGreaterThanOrEqual(TILE_CITY_R1_MIN);
       });
 
-      it.skipIf(!isOk(o))("every block cell has exactly one use, and every cell is in a block (G3, from the street layer's blocks)", () => {
+      it("every block cell has exactly one use, and every cell is in a block (G3, from the street layer's blocks)", () => {
         const { streets, mass } = layersOf(o);
         const want = new Set<string>();
         for (const b of streets.blocks) for (let j = b.j0; j < b.j1; j++) for (let i = b.i0; i < b.i1; i++) want.add(keyOf(i, j));
@@ -72,7 +68,7 @@ describe("stage 3, mass, on the named cities", { timeout: 120_000 }, () => {
         expect(new Set(mass.cells.map((c) => keyOf(c.i, c.j)))).toEqual(want);
       });
 
-      it.skipIf(!isOk(o))("court parts: rings 1 and 2 are built (but for plaza, walk-through, drive and frontage-lot cells), then the apron, then green, with the courts' stalls and aisles in the interior; the four ring-2 corners are blind unless a plaza took one (C1 criterion 1)", () => {
+      it("court parts: rings 1 and 2 are built (but for plaza, walk-through, drive and frontage-lot cells), then the apron, then green, with the courts' stalls and aisles in the interior; the four ring-2 corners are blind unless a plaza took one (C1 criterion 1)", () => {
         const { land, mass } = layersOf(o);
         const cell = new Map(mass.cells.map((c) => [keyOf(c.i, c.j), c] as const));
         const builtAt = new Map(mass.built.map((b) => [keyOf(b.i, b.j), b] as const));
@@ -98,7 +94,7 @@ describe("stage 3, mass, on the named cities", { timeout: 120_000 }, () => {
         expect(courts).toBeGreaterThan(0);
       });
 
-      it.skipIf(!isOk(o))("strips: both rows are built and outer, and each faces its own edge (criterion 2)", () => {
+      it("strips: both rows are built and outer, and each faces its own edge (criterion 2)", () => {
         const { land, streets, mass } = layersOf(o);
         const builtAt = new Map(mass.built.map((b) => [keyOf(b.i, b.j), b] as const));
         const blockOf = new Map(streets.blocks.map((b) => [b.id, b] as const));
@@ -120,42 +116,44 @@ describe("stage 3, mass, on the named cities", { timeout: 120_000 }, () => {
         }
       });
 
-      it.skipIf(!isOk(o))("openings: lanes with their two mouths, plazas 2 x 2 at a block corner, one walk-through per interior with no lane and no drive, parks with their edges (C1 criterion 3, C2 criterion 2)", () => {
+      it("openings: lanes with their two mouths, plazas 2 x 2 at a block corner, one walk-through per interior with no lane and no drive, parks with their edges (C1 criterion 3, C2 criterion 2)", () => {
         const { land, streets, mass } = layersOf(o);
         const blockOf = new Map(streets.blocks.map((b) => [b.id, b] as const));
         const streetCell = new Map(streets.cells.map((c) => [keyOf(c.i, c.j), c] as const));
         const ofKind = (k: string) => mass.openings.filter((x) => x.kind === k);
         // lanes
-        expect(ofKind("lane")).toHaveLength(land.lanes.length * 2);
+        expect(ofKind("lane")).toHaveLength(land.lanes.length);
         for (const l of land.lanes) {
           const mine = ofKind("lane").filter((x) => x.block === l.block);
-          expect(mine).toHaveLength(2);
+          expect(mine).toHaveLength(1);
           const b = blockOf.get(l.block)!;
           const length = l.axis === "z" ? b.j1 - b.j0 : b.i1 - b.i0;
           expect(mine.reduce((n, x) => n + x.cells.length, 0)).toBe(length);
           for (const x of mine) {
-            expect(x.mouth, x.id).not.toBeNull();
-            const m = x.mouth!.cells[0]!;
-            const onLine = l.axis === "z" ? m.j === b.j0 || m.j === b.j1 - 1 : m.i === b.i0 || m.i === b.i1 - 1;
-            expect(onLine, `${x.id} mouth on the building line`).toBe(true);
-            const out = l.axis === "z" ? { i: m.i, j: m.j === b.j0 ? m.j - 1 : m.j + 1 } : { i: m.i === b.i0 ? m.i - 1 : m.i + 1, j: m.j };
-            expect(streetCell.get(keyOf(out.i, out.j))?.street, x.id).toBe(x.mouth!.street);
+            expect(x.mouth, x.id).toHaveLength(2);
+            for (const mouth of x.mouth) {
+              const m = mouth.cells[0]!;
+              const onLine = l.axis === "z" ? m.j === b.j0 || m.j === b.j1 - 1 : m.i === b.i0 || m.i === b.i1 - 1;
+              expect(onLine, `${x.id} mouth on the building line`).toBe(true);
+              const out = l.axis === "z" ? { i: m.i, j: m.j === b.j0 ? m.j - 1 : m.j + 1 } : { i: m.i === b.i0 ? m.i - 1 : m.i + 1, j: m.j };
+              expect(streetCell.get(keyOf(out.i, out.j))?.street, x.id).toBe(mouth.street);
+            }
           }
         }
         // plazas
         for (const x of ofKind("plaza")) {
           expect(x.cells).toHaveLength(4);
-          expect(x.mouth).toBeNull();
+          expect(x.mouth).toEqual([]);
           const b = blockOf.get(x.block)!;
           const at = (i: number, j: number): boolean => x.cells.some((c) => c.i === i && c.j === j);
           const corner = [[b.i0, b.j0], [b.i1 - 2, b.j0], [b.i0, b.j1 - 2], [b.i1 - 2, b.j1 - 2]].some(([i, j]) => at(i!, j!) && at(i! + 1, j!) && at(i!, j! + 1) && at(i! + 1, j! + 1));
           expect(corner, `${x.id} is 2 x 2 at a block corner`).toBe(true);
         }
-        // walk-throughs: one per court part with an interior and no lane edge and no drive or frontage lot (a drive replaces it), none elsewhere
+        // walk-throughs: one per court part with no drive or frontage lot (a drive replaces it; a lane beside it does not), none elsewhere
         for (const p of land.parts) {
           const walks = ofKind("walk").filter((x) => x.id === `${p.id}/walk`);
           const hasLot = mass.openings.some((x) => (x.kind === "drive" || x.kind === "frontLot") && x.id.startsWith(`${p.id}/`) && x.cells.every((c) => ringOf(p, c.i, c.j) < 2));
-          const wants = p.shape === "court" && !Object.values(p.edges).includes("lane") && !hasLot;
+          const wants = p.shape === "court" && !hasLot;
           expect(walks, p.id).toHaveLength(wants ? 1 : 0);
           for (const w of walks) {
             expect(w.cells).toHaveLength(2);
@@ -177,7 +175,7 @@ describe("stage 3, mass, on the named cities", { timeout: 120_000 }, () => {
         }
       });
 
-      it.skipIf(!isOk(o))("drives and frontage lots: 2 cells wide through both rings, a mouth on a street (none on a lane), a court behind each drive; every lane part's interior is reached (C2 criterion 2, M5 strict)", () => {
+      it("drives and frontage lots: 2 cells wide through both rings, a mouth on a street (none on a lane), a court behind each drive; every lane part's interior is reached (C2 criterion 2, M5 strict)", () => {
         const { land, mass, streets } = layersOf(o);
         const cell = new Map(mass.cells.map((c) => [keyOf(c.i, c.j), c] as const));
         const streetCell = new Map(streets.cells.map((c) => [keyOf(c.i, c.j), c] as const));
@@ -189,13 +187,13 @@ describe("stage 3, mass, on the named cities", { timeout: 120_000 }, () => {
           const p = land.parts.find((q) => x.id.startsWith(`${q.id}/`) && q.block === x.block)!;
           for (const c of x.cells) expect(ringOf(p, c.i, c.j), `${x.id} through both rings`).toBeLessThan(2);
           const onLane = x.cells.some((c) => SIDES.some((side) => ["lane", "laneMouth"].includes(cell.get(keyOf(c.i + DELTA[side][0], c.j + DELTA[side][1]))?.use ?? "")));
-          if (onLane) expect(x.mouth, x.id).toBeNull();
+          if (onLane) expect(x.mouth, x.id).toEqual([]);
           else {
-            expect(x.mouth, x.id).not.toBeNull();
-            for (const c of x.mouth!.cells) {
+            expect(x.mouth, x.id).toHaveLength(1);
+            for (const c of x.mouth[0]!.cells) {
               expect(ringOf(p, c.i, c.j), `${x.id} mouth on the building line`).toBe(0);
               const out = SIDES.map((side) => streetCell.get(keyOf(c.i + DELTA[side][0], c.j + DELTA[side][1]))).find((q) => q !== undefined);
-              expect(out?.street, x.id).toBe(x.mouth!.street);
+              expect(out?.street, x.id).toBe(x.mouth[0]!.street);
             }
           }
         }
@@ -209,7 +207,20 @@ describe("stage 3, mass, on the named cities", { timeout: 120_000 }, () => {
         }
       });
 
-      it.skipIf(!isOk(o))("units: each block's columns, shops and homes are counted again from its built cells (criterion 1), and its lots serve it as recorded", () => {
+      it("yard courts (Josh's ruling 2): a drive, then the aisle beside the drive's inner end, then the six stalls beyond it; no yard court counts as a frontage lot", () => {
+        const { mass } = layersOf(o);
+        const near = (a: { i: number; j: number }, b: { i: number; j: number }): boolean => Math.abs(a.i - b.i) + Math.abs(a.j - b.j) === 1;
+        for (const c of mass.courts.filter((x) => x.stallCells.length === 2)) {
+          const drive = mass.openings.find((x) => x.id === c.opening)!;
+          expect(drive.kind, c.opening).toBe("drive");
+          expect(c.stalls).toBe(LOT_STALLS);
+          expect(c.aisleCells).toHaveLength(2);
+          expect(c.aisleCells.every((a) => drive.cells.some((d) => near(a, d))), `${c.opening} aisle is on the near side`).toBe(true);
+          expect(c.stallCells.every((s) => c.aisleCells.some((a) => near(a, s)) && !drive.cells.some((d) => near(s, d))), `${c.opening} stalls are on the far side`).toBe(true);
+        }
+      });
+
+      it("units: each block's columns, shops and homes are counted again from its built cells (criterion 1), and its lots serve it as recorded", () => {
         const { streets, mass } = layersOf(o);
         const again = unitsOf(mass, streets.blocks);
         expect(mass.units.map((u) => u.block)).toEqual(streets.blocks.map((b) => b.id));
@@ -223,12 +234,12 @@ describe("stage 3, mass, on the named cities", { timeout: 120_000 }, () => {
         }
       });
 
-      it.skipIf(!isOk(o))("P2: the lot stalls lie in the band of the homes' demand at PARK_PER_HOME 0.15, no block over its lots, none served far, few short, few frontage lots (criterion 3)", () => {
+      it("P2: the lot stalls lie in the band of the homes' demand at PARK_PER_HOME 0.075, no block over its lots, none served far, few short, few frontage lots (criterion 3)", () => {
         const { streets, mass } = layersOf(o);
         expect(p2Value(parkingNumbers(mass, streets.blocks))).toBe(0);
       });
 
-      it.skipIf(!isOk(o))("open sides, column kind and partner of every built cell follow from its neighbours (criterion 4)", () => {
+      it("open sides, column kind and partner of every built cell follow from its neighbours (criterion 4)", () => {
         const { mass } = layersOf(o);
         const useAt = new Map(mass.cells.map((c) => [keyOf(c.i, c.j), c.use] as const));
         const builtAt = new Map(mass.built.map((b) => [keyOf(b.i, b.j), b] as const));
@@ -258,7 +269,7 @@ describe("stage 3, mass, on the named cities", { timeout: 120_000 }, () => {
         expect(kinds.blind).toBeGreaterThan(0);
       });
 
-      it.skipIf(!isOk(o))("the picture holds R-5: the lattice's size, every index in the legend, and each cell's legend matches the layer", () => {
+      it("the picture holds R-5: the lattice's size, every index in the legend, and each cell's legend matches the layer", () => {
         const { streets, mass, plan } = layersOf(o);
         const pic = massStage.picture(plan);
         expect(pictureProblems(pic, streets.w, streets.h)).toEqual([]);
@@ -277,9 +288,18 @@ describe("stage 3, mass, on the named cities", { timeout: 120_000 }, () => {
     });
   }
 
-  // The mass digest pins as B2 left them (3 x 3 seed 1 "b04dea0a", seed 2 "254afa4f", seed 3 "8f2ab5c9", 6 x 4 seed 1 "4be24138") are MOVED BY C2 on purpose: courts, units and lots join the layer, and the walk-throughs a drive
-  // replaces go. They cannot be re-taken while the stage fails on these cities (no layer, no digest), so the test waits for the day P2 can hold.
-  it.todo("R-4: the layer's digest is pinned on the default city, 3 x 3 seeds 2 and 3, and 6 x 4 seed 1, re-taken in C2 and named there as moved by C2");
+  // The mass digest pins as B2 left them (3 x 3 seed 1 "b04dea0a", seed 2 "254afa4f", seed 3 "8f2ab5c9", 6 x 4 seed 1 "4be24138") are MOVED BY C2 on purpose: courts, units, lots and yard courts join the layer, a lane
+  // is one opening with two mouths, and a walk-through goes only where no drive does.
+  it("R-4: the layer's digest is pinned on the default city, 3 x 3 seeds 2 and 3, and 6 x 4 seed 1 (re-taken, MOVED BY C2)", () => {
+    const pins: [City, string][] = [
+      [{ blocksX: 3, blocksZ: 3, seed: 1 }, "3fde3b89"],
+      [{ blocksX: 3, blocksZ: 3, seed: 2 }, "03431b98"],
+      [{ blocksX: 3, blocksZ: 3, seed: 3 }, "7b79789d"],
+      [{ blocksX: 6, blocksZ: 4, seed: 1 }, "c2d261bc"],
+    ];
+    for (const [o, digest] of pins) expect(layersOf(o).plan.digests.mass, label(o)).toBe(digest);
+    expect(runCity({}, "mass").plan.digests.mass).toBe(pins[0]![1]);
+  });
 
   it("R-4: a test double for the mass stage leaves the streets and land digests equal to the standard run's", () => {
     const o = { blocksX: 3, blocksZ: 3, seed: 2 };
@@ -292,14 +312,13 @@ describe("stage 3, mass, on the named cities", { timeout: 120_000 }, () => {
   });
 
   it("R-3: the stage's randomness is its own: the same city twice is the same layer, and another seed is another layer", () => {
-    // the fingerprint is the digest where the stage returned ok, and its failure reason where it did not (C2 is stopped: see the header)
     const finger = (r: ReturnType<typeof runCity>): string | undefined => (r.ok ? r.plan.digests.mass : r.failure.reason);
     expect(finger(runCity({ blocksX: 3, blocksZ: 3, seed: 2 }, "mass"))).toBe(finger(cityOf({ blocksX: 3, blocksZ: 3, seed: 2 })));
     expect(finger(cityOf({ blocksX: 3, blocksZ: 3, seed: 2 }))).not.toBe(finger(cityOf({ blocksX: 3, blocksZ: 3, seed: 3 })));
   });
 
-  it.skipIf(!NAMED.some(isOk))("R-1: the layer is frozen when the stage returns", () => {
-    const { mass } = layersOf(NAMED.find(isOk)!);
+  it("R-1: the layer is frozen when the stage returns", () => {
+    const { mass } = layersOf(NAMED[0]!);
     expect(Object.isFrozen(mass)).toBe(true);
     expect(Object.isFrozen(mass.cells[0])).toBe(true);
     expect(() => {
@@ -335,7 +354,7 @@ describe("stage 3, mass, on the named cities", { timeout: 120_000 }, () => {
   });
 
   it("report: what each named city did (the failure where the stage stopped), and where it returned ok its R1, openings, homes, stalls wanted and stalls laid", () => {
-    const rows: string[] = ["city | result | R1 (built / frontage cells) | lanes | plazas | walks | parks | drives | frontage lots | homes | stalls wanted | stalls laid"];
+    const rows: string[] = ["city | result | homes | stalls wanted | floor | stalls laid | R1 | drives (on a street) | yard courts | full courts | walks | frontage lots | lanes | plazas | parks | digest"];
     for (const o of NAMED) {
       const r = cityOf(o);
       if (!r.ok) {
@@ -346,7 +365,9 @@ describe("stage 3, mass, on the named cities", { timeout: 120_000 }, () => {
       const f = frontageShare(mass);
       const n = parkingNumbers(mass, streets.blocks);
       const kind = (k: string): number => mass.openings.filter((x) => x.kind === k).length;
-      rows.push([label(o), "ok", `${f.share.toFixed(3)} (${f.built}/${f.total})`, kind("lane") / 2, kind("plaza"), kind("walk"), kind("park"), kind("drive"), kind("frontLot"), n.homes, n.stallDemand.toFixed(1), n.lotStalls].join(" | "));
+      const drives = mass.openings.filter((x) => x.kind === "drive");
+      const yard = mass.courts.filter((c) => c.stallCells.length === 2 && mass.openings.find((x) => x.id === c.opening)?.kind === "drive").length;
+      rows.push([label(o), "ok", n.homes, n.stallDemand.toFixed(1), (n.stallDemand * 0.75).toFixed(1), n.lotStalls, f.share.toFixed(3), `${drives.length} (${drives.filter((x) => x.mouth.length > 0).length})`, yard, drives.length - yard, kind("walk"), kind("frontLot"), kind("lane"), kind("plaza"), kind("park"), r.plan.digests.mass].join(" | "));
     }
     console.log(rows.join("\n"));
     expect(rows).toHaveLength(NAMED.length + 1);

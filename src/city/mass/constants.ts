@@ -24,8 +24,11 @@ export const TILE_CITY_R1_MIN = 0.88;
 
 // ---- units, lots and courts (ticket 070 C2). Moved from src/render3d/tilecity.ts with their values unchanged; the old file keeps its own copies until section L. ----
 
-/** Short-stay stalls a home calls for in a lot (18.1). Josh's Q5 default: unchanged by the ring-2 homes (grammar rule 5). */
-export const PARK_PER_HOME = 0.15;
+/**
+ * Short-stay stalls a home calls for in a lot (18.1). Josh, 19 Nov 2026, in chat, asked "Do you approve all four rulings as recommended ("Yes, all four"), or do you want to keep 0.15 instead?", answered
+ * "Yes, all four"; ruling 1 is that the lot ratio goes from 0.15 to 0.075 stalls a home, since ring 2 doubled the homes. This is the pipeline's value only: `tilecity.ts` keeps 0.15 for `city=tiles` until section L.
+ */
+export const PARK_PER_HOME = 0.075;
 /** A home is this many column-floors, and a block's upper floors are nominally this many over the base (18.2). */
 export const HOME_COLUMN_FLOORS = 2;
 export const UNIT_FLOORS_NOMINAL = 3;
@@ -45,3 +48,7 @@ export const SHORT_BLOCKS_ONE_IN = 9;
 export const DRIVE_CELLS = 2;
 /** A court is `w` cells along the edge and `d` cells deep from ring 3: a row of stalls, an aisle and a row of stalls (19.4; 065 criterion 3: "stalls and aisle at rings 3 to 5"). */
 export const COURT_CELLS = { w: 2, d: 3 } as const;
+/** A yard court (Josh's ruling 2, 19 Nov 2026, "Yes, all four"): a court part whose yard inside ring 2 is exactly this many cells deep parks in it, the near row the aisle and the far row the stalls. */
+export const YARD_DEPTH_CELLS = 2;
+/** A yard court's drive stands on a part side of at least this many cells (a building, the drive, a building, and room for the stalls). */
+export const YARD_SIDE_MIN_CELLS = 8;

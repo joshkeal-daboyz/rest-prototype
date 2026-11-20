@@ -148,7 +148,7 @@ export function planMass(streets: Pick<CityStreetsLayer, "blocks" | "cells">, la
       out.openings.push({ id, kind, block: b.id, cells: [...cells].sort(byRowMajor), mouth });
     };
 
-    // lanes: one cell wide from street to street; two openings each, one per mouth, so each mouth is recorded with its own street
+    // lanes: one cell wide from street to street; one opening with two mouths, each recorded with its own street
     for (const l of (lanesOf.get(b.id) ?? [])) {
       const cells: CityCell[] = [];
       if (l.axis === "z") for (let j = b.j0; j < b.j1; j++) cells.push({ i: l.at, j });
@@ -163,11 +163,12 @@ export function planMass(streets: Pick<CityStreetsLayer, "blocks" | "cells">, la
         if (!s) throw new CityStageError(`M5: the lane of ${b.id} has no street beyond its mouth at (${c.i}, ${c.j})`, [c]);
         return s;
       };
-      const half = Math.floor(cells.length / 2);
-      const ids = [`${b.id}/lane/a`, `${b.id}/lane/b`];
-      cells.forEach((c, n) => put(c.i, c.j, n === 0 || n === cells.length - 1 ? "laneMouth" : "lane", null, n < half ? ids[0]! : ids[1]!));
-      open(ids[0]!, "lane", cells.slice(0, half), { street: streetOf(before), cells: [first] });
-      open(ids[1]!, "lane", cells.slice(half), { street: streetOf(after), cells: [last] });
+      const id = `${b.id}/lane`;
+      cells.forEach((c, n) => put(c.i, c.j, n === 0 || n === cells.length - 1 ? "laneMouth" : "lane", null, id));
+      open(id, "lane", cells, [
+        { street: streetOf(before), cells: [first] },
+        { street: streetOf(after), cells: [last] },
+      ]);
     }
 
     // parks: the pavement edge round the park, green with crossing paths inside it
@@ -182,7 +183,7 @@ export function planMass(streets: Pick<CityStreetsLayer, "blocks" | "cells">, la
           cells.push({ i, j });
         }
       }
-      open(id, "park", cells, null);
+      open(id, "park", cells, []);
     }
 
     // parts: rings 1 and 2 built, the apron, the green; a corner plaza and a walk-through are laid first
@@ -202,35 +203,39 @@ export function planMass(streets: Pick<CityStreetsLayer, "blocks" | "cells">, la
       const laidHere: LaidLot[] = [];
       mine.forEach((site, n) => {
         const cells = siteCells(part, site.side, site.t, site.kind);
-        const id = `${part.id}/${site.kind === "court" ? "drive" : "lot"}/${n}`;
-        for (const c of cells.drive) driveAt.set(cellKey(c), { use: site.kind === "court" ? "drive" : "frontLot", opening: id });
+        const behindDrive = site.kind !== "frontLot";
+        const id = `${part.id}/${behindDrive ? "drive" : "lot"}/${n}`;
+        for (const c of cells.drive) driveAt.set(cellKey(c), { use: behindDrive ? "drive" : "frontLot", opening: id });
         for (const c of cells.stalls) courtAt.set(cellKey(c), "stalls");
         for (const c of cells.aisle) courtAt.set(cellKey(c), "aisle");
         for (const c of cells.pads) padAt.add(cellKey(c));
         // a drive onto a street has that street as its mouth, on the building line; one onto a lane has none (the lane's own mouths are cut)
-        let mouth: CityOpening["mouth"] = null;
+        let mouth: CityOpening["mouth"] = [];
         if (part.edges[site.side] === "street") {
           const beyond = cellOnSide(part, site.side, site.t, -1);
           const street = streetAt.get(cellKey(beyond));
           if (!street) throw new CityStageError(`M5: the ${site.kind} of ${part.id} has no street beyond its mouth at (${beyond.i}, ${beyond.j})`, [beyond]);
-          mouth = { street, cells: cells.drive.slice(0, 2).map((c) => ({ i: c.i, j: c.j })) };
+          mouth = [{ street, cells: cells.drive.slice(0, 2).map((c) => ({ i: c.i, j: c.j })) }];
         }
-        open(id, site.kind === "court" ? "drive" : "frontLot", cells.drive, mouth);
-        laidHere.push({ site, opening: id, stalls: site.kind === "court" ? cells.stalls : cells.drive, aisle: cells.aisle });
+        open(id, behindDrive ? "drive" : "frontLot", cells.drive, mouth);
+        laidHere.push({ site, opening: id, stalls: behindDrive ? cells.stalls : cells.drive, aisle: cells.aisle });
       });
       out.laid.push(...laidHere);
-      if (court && mine.length === 0 && !Object.values(part.edges).includes("lane")) {
-        // an interior with no lane and no drive gets one walk-through, one cell wide through both rings, where every row stretch stays at least one building long (and the walk is not at a row's end)
+      if (court && mine.length === 0) {
+        // a court part with no drive gets one walk-through, one cell wide through both rings, where every row stretch stays at least one building long (and the walk is not at a row's end). Josh's ruling 4
+        // (19 Nov 2026, "Yes, all four"): a lane beside the rings is not a way in, so it gets one too, on its lane side where one fits, else on any side.
         const options: CityCell[][] = [];
+        const lanes: CityCell[][] = [];
         for (const side of ["-z", "+x", "+z", "-x"] as const) {
           const len = sideLength(part, side);
           for (let t = ROW_STRETCH_MIN_CELLS; t <= len - 1 - ROW_STRETCH_MIN_CELLS; t++) {
             const cells = walkAt(part, side, t);
             for (const c of cells) taken.set(cellKey(c), "walk");
-            if (stretchProblems(part, openingAt).length === 0) options.push(cells);
+            if (stretchProblems(part, openingAt).length === 0) (part.edges[side] === "lane" ? lanes : options).push(cells);
             for (const c of cells) taken.delete(cellKey(c));
           }
         }
+        if (lanes.length > 0) options.splice(0, options.length, ...lanes);
         if (options.length === 0) throw new CityStageError(`M5: part ${part.id} has an interior and no place for a walk-through (every row stretch must stay 2 cells or more)`, [{ i: part.i0, j: part.j0 }]);
         walk = options[rand("walk", part.id) % options.length]!;
       }
@@ -254,8 +259,8 @@ export function planMass(streets: Pick<CityStreetsLayer, "blocks" | "cells">, la
           else put(i, j, path.has(k) ? "greenPath" : "green", part.id, null);
         }
       }
-      if (plaza.length > 0) open(plazaId, "plaza", plaza, null);
-      if (walk.length > 0) open(walkId, "walk", walk, null);
+      if (plaza.length > 0) open(plazaId, "plaza", plaza, []);
+      if (walk.length > 0) open(walkId, "walk", walk, []);
     }
 
     // every block cell has a use (G3)

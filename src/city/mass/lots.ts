@@ -3,13 +3,13 @@
  * `unitsOf`, `lotQuota` and `planLots` are moved from `tilecity.ts` (their quota rounds and the dearer-layout rule are kept) and run on cells, not on terrace runs:
  * - **Units** are counted from the built cells (a column is one cell): shops are the street-frontage outer columns less one door column per street run of up to `TERRACE_BAYS_MAX`; homes are
  *   `floor(columns x UNIT_FLOORS_NOMINAL / HOME_COLUMN_FLOORS)`. A lot takes frontage, so the units of a laid city are a little under the nominal ones: the quotas are asked again of them, until they stand still.
- * - **Lots**: a block wants `clamp(round(homes x PARK_PER_HOME / LOT_STALLS), 1, LOTS_PER_BLOCK_MAX)`. Each is a court behind a 2-cell drive through both rings, or, where its parts have no room for a court,
- *   a 2 by 2 frontage lot (at most `CITY_FRONT_LOT_BLOCKS_MAX` of the blocks). A part with a lane edge opens its court on the lane, as 057 G's did. A block that has no room asks the neighbour across its longest street.
+ * - **Lots**: a block wants `clamp(round(homes x PARK_PER_HOME / LOT_STALLS), 1, LOTS_PER_BLOCK_MAX)`. Each is a court behind a 2-cell drive through both rings, a yard court (a part whose yard is 2 deep: a drive and six stalls on the far side), or, where its parts have no room for a court,
+ *   a 2 by 2 frontage lot (at most `CITY_FRONT_LOT_BLOCKS_MAX` of the blocks). A part with a lane edge opens its court on the lane where one fits, as 057 G's did. A block that has no room asks the neighbour across its longest street.
  * Pure: it reads the street and land layers and the stage's own `rand`, and keeps nothing between calls.
  */
 
 import type { CityBlock, CityBuiltCell, CityCourt, CityBlockUnits, CityCell, CityLandLayer, CitySide, CityStreetsLayer } from "../../core";
-import { CityStageError } from "../pipeline/error";
+
 import type { StageRand } from "../pipeline/seeds";
 import { CITY_FRONT_LOT_BLOCKS_MAX, HOME_COLUMN_FLOORS, LOTS_PER_BLOCK_MAX, LOT_STALLS, PARK_PER_HOME, TERRACE_BAYS_MAX, UNIT_FLOORS_NOMINAL } from "./constants";
 import { cellKey, keyOf } from "./geometry";
@@ -86,7 +86,7 @@ const bucket = (len: number): number => Math.floor(len / 5);
 
 /**
  * Lays the whole mass: the rings, the openings, the lots and the units. The lot sites are chosen by quota (`planLots` below) and the layout is asked again of the units it leaves, as 056 did, until the quotas stand still.
- * Throws `CityStageError` where a rule cannot be met (a lane part with no place for a drive onto its lane, or `planMass`'s own failures).
+ * Throws `CityStageError` where a rule cannot be met (`planMass`'s own failures).
  */
 export function buildMass(streets: StreetsIn, land: LandIn, rand: StageRand): MassBuild {
   const blocks = streets.blocks;
@@ -121,11 +121,11 @@ export function buildMass(streets: StreetsIn, land: LandIn, rand: StageRand): Ma
       if (s.kind === "frontLot") frontBlocks.add(s.block);
     };
 
-    // A part with a lane edge opens its court on the lane (057 G; grammar rule 6: every interior touches an opening).
+    // A part with a lane edge opens its court on the lane where one fits (057 G; the drive costs no street frontage). Where none fits it is planned like any other part, and never throws for want of one.
     for (const p of land.parts) {
       if (p.shape !== "court" || !SIDE_ORDER.some((s) => p.edges[s] === "lane")) continue;
       let site: LotSite | null = null;
-      for (const kind of ["court", "frontLot"] as const) {
+      for (const kind of ["court", "yard"] as const) {
         for (const side of SIDE_ORDER) {
           if (p.edges[side] !== "lane") continue;
           const opts = offsetsOf(p, plazas.get(p.id)!, [], side, kind);
@@ -134,13 +134,12 @@ export function buildMass(streets: StreetsIn, land: LandIn, rand: StageRand): Ma
         }
         if (site) break;
       }
-      if (!site) throw new CityStageError(`M5: part ${p.id} has a lane edge and no place for a drive onto it (a 2 by 2 opening whose row stretches stay 2 cells or more)`, [{ i: p.i0, j: p.j0 }]);
-      add(site);
+      if (site) add(site);
     }
 
     /** The best site in `host` for a lot that counts toward `serves`: a court first, a frontage lot only where no court fits and the city's share of them allows. */
     const pick = (host: CityBlock, serves: string): LotSite | null => {
-      for (const kind of ["court", "frontLot"] as LotKind[]) {
+      for (const kind of ["court", "yard", "frontLot"] as LotKind[]) {
         if (kind === "frontLot" && !frontBlocks.has(host.id) && frontBlocks.size >= frontMax) break;
         let best: { rank: readonly [number, number]; site: LotSite } | null = null;
         for (const p of partsOf.get(host.id) ?? []) {

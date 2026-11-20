@@ -26,8 +26,9 @@ const pavement = (i: number, j: number, street: string): CityStreetCell => ({ i,
 
 describe("the constants moved from the tile city keep their values", () => {
   it("PARK_PER_HOME, the unit and lot constants, the supply band and the front-lot share equal tilecity.ts's", () => {
-    expect(PARK_PER_HOME).toBe(OLD_PPH);
-    expect(PARK_PER_HOME).toBe(0.15);
+    // the one exception: Josh's ruling 1 (19 Nov 2026, "Yes, all four"): 0.075 on the pipeline, while the old tile city keeps 0.15 until section L
+    expect(PARK_PER_HOME).toBe(0.075);
+    expect(OLD_PPH).toBe(0.15);
     expect(HOME_COLUMN_FLOORS).toBe(OLD_HCF);
     expect(UNIT_FLOORS_NOMINAL).toBe(OLD_UFN);
     expect(LOTS_PER_BLOCK_MAX).toBe(OLD_LOTS);
@@ -41,12 +42,12 @@ describe("the constants moved from the tile city keep their values", () => {
 });
 
 describe("lotQuota (18.4)", () => {
-  it("a block wants clamp(round(homes x 0.15 / 6), 1, 2) lots", () => {
+  it("a block wants clamp(round(homes x 0.075 / 6), 1, 2) lots", () => {
     expect(lotQuota(0)).toBe(1);
-    expect(lotQuota(40)).toBe(1);
-    expect(lotQuota(60)).toBe(2); // 1.5 rounds up
-    expect(lotQuota(84)).toBe(2);
-    expect(lotQuota(400)).toBe(LOTS_PER_BLOCK_MAX);
+    expect(lotQuota(80)).toBe(1);
+    expect(lotQuota(120)).toBe(2); // 1.5 rounds up
+    expect(lotQuota(160)).toBe(2);
+    expect(lotQuota(800)).toBe(LOTS_PER_BLOCK_MAX);
   });
 });
 
@@ -84,13 +85,39 @@ describe("where a lot fits (sites.ts)", () => {
     expect(cells.pads).toEqual([{ i: 7, j: 5 }, { i: 10, j: 5 }]);
   });
 
-  it("a part 6 deep has an interior 2 deep: no court from its long side, but a frontage lot", () => {
+  it("a part 6 deep has a yard 2 deep: no court from its long side, but a yard court (and a frontage lot)", () => {
     const narrow = block(2, 8, 2, 15);
     const q = part("block:0:0", narrow, narrow);
     expect(offsetsOf(q, [], [], "-x", "court")).toEqual([]);
+    expect(offsetsOf(q, [], [], "-x", "yard").length).toBeGreaterThan(0);
     expect(offsetsOf(q, [], [], "-x", "frontLot").length).toBeGreaterThan(0);
     // and a side of 6 cells has no drive window at all
     expect(offsetsOf(q, [], [], "-z", "frontLot")).toEqual([]);
+    expect(offsetsOf(q, [], [], "-z", "yard")).toEqual([]);
+  });
+
+  it("the yard court (Josh's ruling 2): it fits a 6 by 8 part and not a 6 by 7 one", () => {
+    const fits = block(2, 8, 2, 10); // 6 wide, 8 long
+    const tooShort = block(2, 8, 2, 9); // 6 wide, 7 long
+    expect(offsetsOf(part("block:0:0", fits, fits), [], [], "-x", "yard")).toEqual([3]); // the ring-2 corners leave a building each side of the drive
+    expect(offsetsOf(part("block:0:0", tooShort, tooShort), [], [], "-x", "yard")).toEqual([]);
+  });
+
+  it("the yard court's six stalls are on the far side of the yard and its aisle on the near side, with the drive through both rings", () => {
+    const b = block(2, 8, 2, 12); // 6 wide, 10 long: the drive on the -x side, going in along +x
+    const p = part("block:0:0", b, b);
+    const c = siteCells(p, "-x", 4, "yard");
+    expect(c.drive).toEqual([{ i: 2, j: 6 }, { i: 2, j: 7 }, { i: 3, j: 6 }, { i: 3, j: 7 }]);
+    expect(c.aisle).toEqual([{ i: 4, j: 6 }, { i: 4, j: 7 }]); // the near row of the yard
+    expect(c.stalls).toEqual([{ i: 5, j: 6 }, { i: 5, j: 7 }]); // the far row: one tile each side of the drive's line
+    expect(c.pads).toEqual([]);
+  });
+
+  it("a part whose yard is 3 or more deep takes the ordinary court and no yard court", () => {
+    const b = block(2, 9, 2, 12); // 7 wide: a yard 3 deep
+    const p = part("block:0:0", b, b);
+    expect(offsetsOf(p, [], [], "-x", "yard")).toEqual([]);
+    expect(offsetsOf(p, [], [], "-x", "court").length).toBeGreaterThan(0);
   });
 
   it("a drive is never at a row's end, and never beside another opening closer than a building", () => {
@@ -132,7 +159,7 @@ describe("a court laid", () => {
 
   it("records the street it opens on and its two mouth cells on the building line", () => {
     const drive = mass.openings.find((o) => o.kind === "drive")!;
-    expect(drive.mouth).toEqual({ street: "x:0", cells: [{ i: 8, j: 2 }, { i: 9, j: 2 }] });
+    expect(drive.mouth).toEqual([{ street: "x:0", cells: [{ i: 8, j: 2 }, { i: 9, j: 2 }] }]);
   });
 
   it("the columns beside the drive are corner columns that face it, and the ring-2 corners stay blind", () => {
@@ -146,7 +173,7 @@ describe("a court laid", () => {
     const drive = mass.openings.find((o) => o.kind === "drive")!;
     const gone = massFailures({ ...mass, openings: mass.openings.filter((o) => o !== drive) }, [b], land);
     expect(gone.some((f) => f.id === "M5" && /no recorded opening owns it/.test(f.reason))).toBe(true);
-    const noMouth = massFailures({ ...mass, openings: mass.openings.map((o) => (o === drive ? { ...o, mouth: null } : o)) }, [b], land);
+    const noMouth = massFailures({ ...mass, openings: mass.openings.map((o) => (o === drive ? { ...o, mouth: [] } : o)) }, [b], land);
     expect(noMouth.some((f) => f.id === "M5" && /has no mouth/.test(f.reason))).toBe(true);
   });
 
@@ -194,12 +221,45 @@ describe("buildMass on one court block", () => {
   });
 });
 
-describe("a lane part with no place for a drive stops the stage (M5, R-2): nothing is patched", () => {
-  it("a lane across a block 6 cells long leaves parts whose lane sides are too short for a drive", () => {
-    const b = block(2, 16, 2, 8);
-    const land = landOf([part("block:0:0/a", b, { i0: 2, i1: 8, j0: 2, j1: 8 }, { "+x": "lane" }), part("block:0:0/b", b, { i0: 9, i1: 16, j0: 2, j1: 8 }, { "-x": "lane" })], [{ block: b.id, axis: "z", at: 8 }]);
+describe("a lane part (C2 criterion 4): its court opens on the lane where one fits, else it is planned like any other part, and nothing throws for want of one", () => {
+  const tall = block(2, 17, 2, 14); // two parts 7 by 12, either side of a lane 12 long at i = 9
+  const left = part("block:0:0/a", tall, { i0: 2, i1: 9, j0: 2, j1: 14 }, { "+x": "lane" });
+  const right = part("block:0:0/b", tall, { i0: 10, i1: 17, j0: 2, j1: 14 }, { "-x": "lane" });
+  const tallLand = landOf([left, right], [{ block: tall.id, axis: "z", at: 9 }]);
+  const laneStreets = [pavement(9, 1, "x:0"), pavement(9, 14, "x:1")];
+
+  it("a lane part opens a court on its lane, with no mouth of its own, and every check but P2 holds", () => {
+    const built = buildMass(streetsOf([tall], laneStreets), tallLand, () => 1);
+    const drives = built.plan.openings.filter((o) => o.kind === "drive");
+    expect(drives.length).toBeGreaterThan(0);
+    expect(drives.every((o) => o.mouth.length === 0)).toBe(true);
+    for (const o of drives) expect(o.cells.every((q) => q.i === 7 || q.i === 8 || q.i === 10 || q.i === 11)).toBe(true);
+    const layer: CityMassLayer = { stage: "mass", cells: built.plan.cells, built: built.plan.built, openings: built.plan.openings, courts: built.courts, units: built.units };
+    expect(massFailures(layer, [tall], tallLand).filter((f) => f.id !== "P2")).toEqual([]);
+  });
+
+  it("a court part with no drive gets a walk-through even with a lane beside it, on its lane side where one fits (Josh's ruling 4)", () => {
+    const mass = planMass(streetsOf([tall], laneStreets), tallLand, () => 1);
+    const walks = mass.openings.filter((o) => o.kind === "walk");
+    expect(walks.map((o) => o.id).sort()).toEqual(["block:0:0/a/walk", "block:0:0/b/walk"]);
+    expect(walks.find((o) => o.id.endsWith("/a/walk"))!.cells.map((q) => q.i).sort()).toEqual([7, 8]); // ring 1 on the lane's side
+    const layer: CityMassLayer = { stage: "mass", cells: mass.cells, built: mass.built, openings: mass.openings, courts: [], units: [] };
+    expect(massFailures(layer, [tall], tallLand).filter((f) => f.id !== "P2")).toEqual([]);
+  });
+
+  it("failing fixture, M5: a lane part with its drive and walk-through removed fails (every interior touches an opening)", () => {
+    const mass = planMass(streetsOf([tall], laneStreets), tallLand, () => 1);
+    const walk = mass.openings.find((o) => o.id === "block:0:0/a/walk")!;
+    const walled = mass.cells.map((q) => (walk.cells.some((w) => w.i === q.i && w.j === q.j) ? { ...q, use: "built" as const, opening: null } : q));
+    const layer: CityMassLayer = { stage: "mass", cells: walled, built: mass.built, openings: mass.openings.filter((o) => o !== walk), courts: [], units: [] };
+    expect(massFailures(layer, [tall], tallLand).some((f) => f.id === "M5" && /interior of part block:0:0\/a touches no opening/.test(f.reason))).toBe(true);
+  });
+
+  it("a lane part with no place for a drive and none for a walk-through (6 by 6) stops the stage, naming it (M5, R-2): nothing is patched", () => {
+    const short = block(2, 16, 2, 8);
+    const land = landOf([part("block:0:0/a", short, { i0: 2, i1: 8, j0: 2, j1: 8 }, { "+x": "lane" }), part("block:0:0/b", short, { i0: 9, i1: 16, j0: 2, j1: 8 }, { "-x": "lane" })], [{ block: short.id, axis: "z", at: 8 }]);
     const cells: CityStreetCell[] = [pavement(8, 1, "x:0"), pavement(8, 8, "x:1")];
-    expect(() => buildMass(streetsOf([b], cells), land, () => 1)).toThrow(/^M5: part block:0:0\/a has a lane edge and no place for a drive onto it/);
+    expect(() => buildMass(streetsOf([short], cells), land, () => 1)).toThrow(/^M5: part block:0:0\/a has an interior and no place for a walk-through/);
   });
 });
 
@@ -208,11 +268,11 @@ describe("P2 (ported from parkmetrics.ts)", () => {
   for (let bj = 0; bj < 3; bj++) for (let bi = 0; bi < 3; bi++) nine.push(block(bi * 20, bi * 20 + 14, bj * 20, bj * 20 + 14, bi, bj));
   const unit = (id: string, homes: number, lots: number, wanted = lots): CityBlockUnits => ({ block: id, columns: 0, shops: 0, homes, lotsWanted: wanted, lots, stallsShort: Math.max(0, wanted - lots) * LOT_STALLS });
   const court = (block: string, serves: string, opening = `${block}/drive/0`): CityCourt => ({ block, serves, opening, stallCells: [], aisleCells: [], stalls: LOT_STALLS });
-  const drive = (c: CityCourt): CityOpening => ({ id: c.opening, kind: "drive", block: c.block, cells: [], mouth: null });
-  /** Every block with homes for two lots and two courts of its own: 18 lots, 108 stalls, 720 homes (demand 108). */
+  const drive = (c: CityCourt): CityOpening => ({ id: c.opening, kind: "drive", block: c.block, cells: [], mouth: [] });
+  /** Every block with homes for two lots and two courts of its own: 18 lots, 108 stalls, 1440 homes (demand 108 at 0.075). */
   const ideal = (): { courts: CityCourt[]; units: CityBlockUnits[] } => ({
     courts: nine.flatMap((b) => [court(b.id, b.id, `${b.id}/drive/0`), court(b.id, b.id, `${b.id}/drive/1`)]),
-    units: nine.map((b) => unit(b.id, 80, 2)),
+    units: nine.map((b) => unit(b.id, 160, 2)),
   });
   const value = (courts: CityCourt[], units: CityBlockUnits[], openings?: CityOpening[]): { n: ParkingNumbers; v: number } => {
     const n = parkingNumbers({ courts, units, openings: openings ?? courts.map(drive) }, nine);
@@ -222,7 +282,7 @@ describe("P2 (ported from parkmetrics.ts)", () => {
   it("holds with two courts a block and homes for them", () => {
     const { courts, units } = ideal();
     const { n, v } = value(courts, units);
-    expect(n.homes).toBe(720);
+    expect(n.homes).toBe(1440);
     expect(n.stallDemand).toBeCloseTo(108, 9);
     expect(n.lotStalls).toBe(108);
     expect(v).toBe(0);
@@ -230,9 +290,9 @@ describe("P2 (ported from parkmetrics.ts)", () => {
 
   it("failing fixture: stalls under the band (0.75 of the demand) fail", () => {
     const { courts, units } = ideal();
-    const more = units.map((u) => ({ ...u, homes: 100 })); // demand 135, floor 101.25, laid 108: holds
+    const more = units.map((u) => ({ ...u, homes: 200 })); // demand 135, floor 101.25, laid 108: holds
     expect(value(courts, more).v).toBe(0);
-    const most = units.map((u) => ({ ...u, homes: 120 })); // demand 162, floor 121.5 > 108
+    const most = units.map((u) => ({ ...u, homes: 240 })); // demand 162, floor 121.5 > 108
     expect(value(courts, most).v).toBe(1);
   });
 
@@ -251,7 +311,7 @@ describe("P2 (ported from parkmetrics.ts)", () => {
 
   it("failing fixture: more blocks short than ceil(blocks / 9)", () => {
     const { courts, units } = ideal();
-    const short = units.map((u, n) => (n < 2 ? unit(u.block, 80, 0, 2) : u));
+    const short = units.map((u, n) => (n < 2 ? unit(u.block, 160, 0, 2) : u));
     const fewer = courts.filter((c) => c.block !== nine[0]!.id && c.block !== nine[1]!.id);
     const { n, v } = value(fewer, short);
     expect(n.shortBlocks).toBe(2);

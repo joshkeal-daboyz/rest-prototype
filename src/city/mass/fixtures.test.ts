@@ -105,7 +105,7 @@ describe("stage 3 on fixtures", () => {
     expect(inner.open.map((o) => [o.side, o.faces, o.frontage])).toEqual([["-x", "plaza", "street"], ["+z", "court", "quiet"]]);
   });
 
-  it("a lane block: two parts, each opening on the lane (a frontage lot, a court); two lane openings, each with its own mouth street; no walk-through", () => {
+  it("a lane block: two parts, each opening on the lane (a frontage lot, a court); one lane opening with two mouths, each its own street; no walk-through", () => {
     const b = block(2, 16, 2, 11);
     const land = landOf([part("block:0:0/a", b, { i0: 2, i1: 8, j0: 2, j1: 11 }, { "+x": "lane" }), part("block:0:0/b", b, { i0: 9, i1: 16, j0: 2, j1: 11 }, { "-x": "lane" })], [{ block: b.id, axis: "z", at: 8 }]);
     const cells: CityStreetCell[] = [
@@ -121,13 +121,12 @@ describe("stage 3 on fixtures", () => {
     expect(massFailures(mass, [b], land)).toEqual([]);
     const onLane = mass.openings.filter((o) => o.kind === "drive" || o.kind === "frontLot");
     expect(onLane.map((o) => [o.id, o.kind, o.mouth])).toEqual([
-      ["block:0:0/a/lot/0", "frontLot", null],
-      ["block:0:0/b/drive/0", "drive", null],
+      ["block:0:0/a/lot/0", "frontLot", []],
+      ["block:0:0/b/drive/0", "drive", []],
     ]);
     const lanes = mass.openings.filter((o) => o.kind === "lane");
-    expect(lanes.map((o) => [o.id, o.mouth!.street, o.mouth!.cells])).toEqual([
-      ["block:0:0/lane/a", "x:0", [{ i: 8, j: 2 }]],
-      ["block:0:0/lane/b", "x:1", [{ i: 8, j: 10 }]],
+    expect(lanes.map((o) => [o.id, o.mouth.map((m) => [m.street, m.cells])])).toEqual([
+      ["block:0:0/lane", [["x:0", [{ i: 8, j: 2 }]], ["x:1", [{ i: 8, j: 10 }]]]],
     ]);
     expect(lanes.reduce((n, o) => n + o.cells.length, 0)).toBe(9);
     expect(mass.cells.find((c) => c.i === 8 && c.j === 2)!.use).toBe("laneMouth");
@@ -140,14 +139,19 @@ describe("stage 3 on fixtures", () => {
     expect(corner.open.map((o) => [o.side, o.faces])).toEqual([["+x", "lane"], ["-z", "street"]]);
   });
 
-  it("failing fixture, M5 strict: a lane part's interior with no drive onto it touches no opening (C1's lane exemption is gone)", () => {
+  it("failing fixture, M5 strict: a lane part with its drive and walk-through removed fails: its interior touches no opening (C1's lane exemption is gone)", () => {
     const b = block(2, 16, 2, 11);
     const land = landOf([part("block:0:0/a", b, { i0: 2, i1: 8, j0: 2, j1: 11 }, { "+x": "lane" }), part("block:0:0/b", b, { i0: 9, i1: 16, j0: 2, j1: 11 }, { "-x": "lane" })], [{ block: b.id, axis: "z", at: 8 }]);
     const cells: CityStreetCell[] = [
       { i: 8, j: 1, role: "pavement", street: "x:0", band: 0 },
       { i: 8, j: 11, role: "pavement", street: "x:1", band: 0 },
     ];
-    const mass = layerOf(planMass(streetsOf([b], cells), land, () => 1));
+    const laid = layerOf(planMass(streetsOf([b], cells), land, () => 1));
+    // laid as it is (no drive chosen), each lane part gets a walk-through on its lane side and passes (Josh's ruling 4)
+    expect(laid.openings.filter((o) => o.kind === "walk").map((o) => o.id).sort()).toEqual(["block:0:0/a/walk", "block:0:0/b/walk"]);
+    expect(massFailures(laid, [b], land)).toEqual([]);
+    const walks = new Set(laid.openings.filter((o) => o.kind === "walk").flatMap((o) => o.cells.map((c) => `${c.i},${c.j}`)));
+    const mass = { ...laid, openings: laid.openings.filter((o) => o.kind !== "walk"), cells: laid.cells.map((c) => (walks.has(`${c.i},${c.j}`) ? { ...c, use: "built" as const, opening: null } : c)) };
     const faults = massFailures(mass, [b], land).filter((f) => f.id === "M5");
     expect(faults.map((f) => f.reason)).toEqual(["M5: the interior of part block:0:0/a touches no opening", "M5: the interior of part block:0:0/b touches no opening"]);
   });

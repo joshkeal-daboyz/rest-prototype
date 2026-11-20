@@ -168,10 +168,11 @@ function checkM5(mass: CityMassLayer, ix: Index, land: LandParts, out: MassFailu
       const m = ix.byKey.get(cellKey(c));
       if (!m || m.opening !== o.id || !shape.uses.includes(m.use)) out.push({ id: "M5", reason: `M5: opening ${o.id} (${o.kind}) names cell (${c.i}, ${c.j}), which is not its own ${shape.uses.join(" or ")} cell`, cells: [c] });
     }
-    // a drive or frontage lot onto a street has that street as its mouth; one onto a lane has none (the lane's own two mouths are cut)
+    // a lane has two mouths (one at each end); a drive or frontage lot onto a street has that street as its one mouth; one onto a lane has none (the lane's own two mouths are cut)
     const onLane = (o.kind === "drive" || o.kind === "frontLot") && o.cells.some((c) => SIDES.some((s) => { const u = ix.useAt(c.i + DELTA[s][0], c.j + DELTA[s][1]); return u === "lane" || u === "laneMouth"; }));
     const wantsMouth = shape.mouth && !onLane;
-    if (wantsMouth !== (o.mouth !== null)) out.push({ id: "M5", reason: `M5: opening ${o.id} (${o.kind}) ${wantsMouth ? "has no mouth" : "has a mouth, but the kerb runs straight past it"}`, cells: o.cells });
+    const mouths = o.kind === "lane" ? 2 : wantsMouth ? 1 : 0;
+    if (o.mouth.length !== mouths) out.push({ id: "M5", reason: `M5: opening ${o.id} (${o.kind}) ${mouths === 0 ? "has a mouth, but the kerb runs straight past it" : o.mouth.length === 0 ? "has no mouth" : `has ${o.mouth.length} mouths, not ${mouths}`}`, cells: o.cells });
     const is = o.cells.map((c) => c.i);
     const js = o.cells.map((c) => c.j);
     const w = Math.max(...is) - Math.min(...is) + 1;

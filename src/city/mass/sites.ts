@@ -6,10 +6,11 @@
 
 import type { CityCell, CityPart, CitySide } from "../../core";
 import { stretchProblems } from "./check";
-import { COURT_CELLS, DRIVE_CELLS, ROW_STRETCH_MIN_CELLS } from "./constants";
+import { BUILT_RINGS, COURT_CELLS, DRIVE_CELLS, ROW_STRETCH_MIN_CELLS, YARD_DEPTH_CELLS, YARD_SIDE_MIN_CELLS } from "./constants";
 import { SIDES, cellKey, ringOf } from "./geometry";
 
-export type LotKind = "court" | "frontLot";
+/** A "court" (stalls, aisle, stalls from ring 3), a "yard" court (a part whose yard is 2 deep: an aisle row, then one row of stalls) or a "frontLot". */
+export type LotKind = "court" | "yard" | "frontLot";
 
 export interface LotSite {
   readonly part: string;
@@ -62,6 +63,8 @@ export function siteCells(p: PartBox, side: CitySide, t: number, kind: LotKind):
   if (kind === "frontLot") return { drive, stalls: [], aisle: [], pads: [] };
   const row = (d: number): CityCell[] => across.map((u) => at(u, d));
   const first = DRIVE_CELLS;
+  // a yard court: the near row of the yard is the aisle, the far row the six stalls (two tiles, one each side of the drive's line); the yard is apron already, so it needs no pads
+  if (kind === "yard") return { drive, stalls: row(first + YARD_DEPTH_CELLS - 1), aisle: row(first), pads: [] };
   return { drive, stalls: [...row(first), ...row(first + COURT_CELLS.d - 1)], aisle: row(first + 1), pads: [at(t - 1, first + 1), at(t + COURT_CELLS.w, first + 1)] };
 }
 
@@ -80,6 +83,8 @@ export function siteFits(p: CityPart, plaza: readonly CityCell[], existing: read
   if (t < ROW_STRETCH_MIN_CELLS || t + DRIVE_CELLS > len - ROW_STRETCH_MIN_CELLS) return false;
   const cells = siteCells(p, side, t, kind);
   if (kind === "court" && !courtInside(p, cells)) return false;
+  // a yard court is only for a part whose yard (inside ring 2) is exactly 2 deep from the drive's side, on a side of at least 8
+  if (kind === "yard" && (depthOf(p, side) - 2 * BUILT_RINGS !== YARD_DEPTH_CELLS || len < YARD_SIDE_MIN_CELLS || !courtInside(p, cells))) return false;
   const taken = new Map<string, string>();
   for (const c of plaza) taken.set(cellKey(c), "plaza");
   const used = new Set<string>();
