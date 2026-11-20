@@ -149,3 +149,4 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 054 section C | gate (main session) | — | — | — | 0 | tsc clean, 102 files, 2031 passed |
 | 054 section C | code-reviewer | agent default | see 054 B: figure not shown | — | 0 | meets, must-fix 0 |
 | 054 section C | playtester | agent default | 22K total (one figure in the readout) | — | 0 | regressions 0; stopped early |
+| 070 cut | lead-architect | agent default | 173K total (one figure in the readout) | - | 0 | Ticket 070 and src/core/cityplan.ts types; 35 tool uses |
