@@ -1,5 +1,44 @@
 # 070 A4c stop: 3 x 3 seed 10 finds no split with one-way streets on
 
+## Josh's answer (20 Nov 2026, in chat)
+
+He asked what the blocker was. He was told that S5 (the provisional `T_SHARE_MIN` 0.5) rejects 53 of 65 draws on 3 x 3 s10 with one-way on, then V1 38 and S4 17. He answered: "have the junctions do not need to be Ts. It should be the T's should have a floor of 0.30%".
+
+**The orchestrator's reading:** `T_SHARE_MIN` = 0.30, so at least 30% of the inner junctions are Ts. This is now his ruling, not provisional. Literally, "0.30%" is 0.003. Section 0 measures that reading too: on the named cities it gives the same plans. The 129-draws question (section 4, Q1) is not answered. Section 0 shows it is no longer needed for the named cities.
+
+## 0. Re-measured with `T_SHARE_MIN` 0.30 (65 draws, S11 in, `BLOCK_DRAWS_MAX` 64 unchanged)
+
+**Verdict: holds on all 13 named cities, one-way off and on.** No question is left for the named cities.
+
+| City | Off: draw (was) | Off: inner T share, crossroads / inner | Off: places / needed | On: draw (was) | On: inner T share, crossroads / inner | On: places / needed | On: good draws of 65 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 3 x 3 s1 | 13 (13) | 0.67, 2/6 | 2/2 | 2 (2) | 0.75, 2/8 | 5/2 | 9 |
+| 3 x 3 s2 | 0 (0) | 1.0, 0/8 | 5/2 | **11 (12)** | 0.40, 3/5 | 3/2 | 12 |
+| 3 x 3 s3 | **4 (13)** | 0.40, 3/5 | 2/2 | 11 (11) | 0.67, 2/6 | 2/2 | 7 |
+| 3 x 3 s4 | 7 (7) | 0.67, 2/6 | 5/2 | **4 (26)** | 0.40, 3/5 | 4/2 | 5 |
+| 3 x 3 s5 | 2 (2) | 0.67, 2/6 | 2/2 | **11 (29)** | 0.40, 3/5 | 3/2 | 8 |
+| 3 x 3 s6 | 3 (3) | 0.75, 2/8 | 7/2 | 0 (0) | 0.67, 3/9 | 4/2 | 4 |
+| 3 x 3 s7 | 1 (1) | 0.67, 2/6 | 3/2 | 1 (1) | 0.67, 2/6 | 3/2 | 7 |
+| 3 x 3 s8 | 19 (19) | 0.67, 2/6 | 2/2 | 37 (37) | 0.67, 2/6 | 2/2 | 6 |
+| 3 x 3 s9 | 1 (1) | 0.67, 2/6 | 3/2 | 3 (3) | 0.50, 3/6 | 4/2 | 7 |
+| 3 x 3 s10 | 11 (11) | 0.67, 2/6 | 2/2 | **15 (none)** | 0.40, 3/5 | 2/2 | **1** |
+| 6 x 4 s1 | 4 (4) | 0.57, 9/21 | 12/4 | 10 (10) | 0.79, 5/24 | 11/4 | 4 |
+| 6 x 4 s2 | 0 (0) | 0.67, 8/24 | 10/5 | 1 (1) | 0.56, 11/25 | 8/5 | 4 |
+| 6 x 4 s3 | 7 (7) | 0.68, 8/25 | 7/5 | 21 (21) | 0.63, 10/27 | 6/5 | 2 |
+
+"Was" is A4c as built (aa2aa72). The same draw at the same share gives the same plan.
+
+- **Plans moved:** 5 of 26 named runs: 3 x 3 s3 off, and s2, s4, s5 and s10 on.
+- **Pins moved:** 1 of 4. The pins run one-way on. 3 x 3 s2 moves (draw 12 to 11). 3 x 3 s1, s3 and 6 x 4 s1 keep their draws, so their pins stand.
+- **The 129-draws limit is not needed for the named cities.** The margin is thin, though. 3 x 3 s10 on has 1 good draw of 65 (draw 15, exactly 2 of 2 park places). 6 x 4 s3 on has 2.
+- **No plain grid.** The lowest inner T share taken on any city is 0.33 (6 x 4 s17 off, outside the list). The highest inner crossroads share is 0.67. On a 3 x 3 city, 0.30 needs at least 2 Ts (1 of 4 is 0.25). Today's grid has 4 crossroads and 0 Ts. The named 3 x 3 plans have 2 or 3 crossroads among 5 to 9 inner junctions.
+- **Outside the named list** (3 x 3 s11 to 20, 6 x 4 s4 to 20, off and on; 54 runs): only **3 x 3 s12 off fails** (S5 65, V1 44, V2 17). Its square ground always cuts into a plain grid with 0 Ts, so no T floor above 0 passes it. 3 x 3 s19 on is now ok (draw 23). 27 outside runs take an earlier draw than before (reported, not pinned).
+- **The literal reading (0.003):** the named cities get the same draws as 0.30. Outside, 6 x 4 s12 and s15 off then take plans with a T share of 0.16 (84% crossroads), and 6 x 4 s4 on takes 0.24. So 0.30 is the reading that keeps plans off the grid look.
+
+**Still failing on a named city: none.** So sections 2 to 5 below are kept for the record only. Q1 and Q2 fall away unless Josh wants a margin. Q3 (3 x 3 s12 off, outside the list) still stands, word for word.
+
+Probe run: `probe/t30.test.ts` (output `probe/t30.json`). S5's floor is a switch (`probeT`) in the probe's `check.ts`.
+
 Pipeline designer, 20 Nov 2026, on `ticket/070a4c-park-places` at aa2aa72. This is a sketch probe; the builder's numbers are the record. Nothing here is decided. Josh's answers go at the top of this note.
 
 ## 1. What is wrong
