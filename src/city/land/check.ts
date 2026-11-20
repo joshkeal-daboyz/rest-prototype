@@ -3,9 +3,10 @@
  * side of 3 to 5 cells, grammar rule 4; and, from B2, no lane leaves a court part with a long side under 8). V3 and V4 are counted from the layer's cells alone: an alley is an edge-connected set of lane cells, a park an edge-connected set of park cells. Pure.
  */
 
-import type { CityBlock, CityCell, CityLandLayer } from "../../core";
+import type { CityBlock, CityCell, CityLandLayer, CityPlanStreet } from "../../core";
 import { ALLEY_CELLS, ALLEY_ONE_IN_BLOCKS, COURT_LONG_MIN_CELLS, PARK_ONE_IN_BLOCKS } from "./constants";
-import { partSideOk } from "./plan";
+import { partSideOk, type PlanBlock } from "./plan";
+import { bandsOf, facesJunction, isServed } from "./reach";
 
 export type LandCheckId = "V3" | "V4" | "M4a";
 
@@ -90,4 +91,23 @@ export function evaluateLand(m: LandVariety): LandVerdict[] {
     { id: "V4", value: v4, pass: v4 <= LAND_CHECK.V4 },
     { id: "M4a", value: m4a, pass: m4a <= LAND_CHECK.M4a },
   ];
+}
+
+/** S6 for lanes: the lanes whose mouth lies in a junction-facing stretch of a side it opens on, widened by `BAY_JUNCTION_CLEAR`. Each entry names the block and the side. */
+export function laneMouthsAtJunctions(layer: Pick<CityLandLayer, "lanes">, blocks: readonly PlanBlock[]): string[] {
+  const byId = new Map(blocks.map((x) => [x.id, x] as const));
+  const out: string[] = [];
+  for (const l of layer.lanes) {
+    const b = byId.get(l.block);
+    if (!b) continue;
+    for (const side of l.axis === "z" ? (["-z", "+z"] as const) : (["-x", "+x"] as const)) if (facesJunction(b.sides[side], l.at)) out.push(`${l.block} ${side}`);
+  }
+  return out;
+}
+
+/** The served park: the blocks laid as a whole park that no parking band across one of their streets serves. */
+export function unservedWholeParks(layer: Pick<CityLandLayer, "parks">, blocks: readonly PlanBlock[], streets: readonly Pick<CityPlanStreet, "id" | "bands">[]): string[] {
+  const byId = new Map(blocks.map((x) => [x.id, x] as const));
+  const bands = bandsOf(streets);
+  return layer.parks.filter((p) => p.kind === "whole" && !(byId.has(p.block) && isServed(byId.get(p.block)!, bands))).map((p) => p.block);
 }
