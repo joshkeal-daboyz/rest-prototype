@@ -9,7 +9,7 @@
 
 import { CITY_STAGES, type CityPicture, type CityPlanRun, type CityPlanStage } from "../core";
 import { BUILT_STAGES, runCity } from "../city/pipeline";
-import { CITY_BLOCKS_DEFAULT, CITY_BLOCKS_MAX, TILE_M } from "../city/streets";
+import { CITY_BLOCKS_MAX, PLAN_BLOCKS_DEFAULT, TILE_M } from "../city/streets";
 import type { MapRenderer3d } from "./renderer";
 
 // ---- the page's flags ----
@@ -37,13 +37,13 @@ export const builtStageNames = (): string[] => BUILT_STAGES.map((s) => s.name);
 
 /**
  * What the page asks of the plan view, or null when it does not ask: `city=plan`, `stage` (a name, or 1 to 8 for the stages in order; absent means the last stage built), `blocks=WxD` (each clamped to
- * 1..CITY_BLOCKS_MAX; anything else is the default 3 x 3) and `seed=N` (an integer; anything else is 1), read as `cityTilesRequested` reads them. Pure.
+ * 1..CITY_BLOCKS_MAX; anything else is the default 6 x 6) and `seed=N` (an integer; anything else is 1), read as `cityTilesRequested` reads them. Pure.
  */
 export function planViewRequested(search: string): PlanViewRequest | null {
   const q = new URLSearchParams(search);
   if (q.get("city") !== "plan") return null;
-  let blocksX = CITY_BLOCKS_DEFAULT;
-  let blocksZ = CITY_BLOCKS_DEFAULT;
+  let blocksX = PLAN_BLOCKS_DEFAULT;
+  let blocksZ = PLAN_BLOCKS_DEFAULT;
   const m = /^(\d+)x(\d+)$/i.exec((q.get("blocks") ?? "").trim());
   if (m) {
     const clamp = (v: number): number => Math.min(CITY_BLOCKS_MAX, Math.max(1, v));

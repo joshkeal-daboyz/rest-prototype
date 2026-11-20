@@ -11,8 +11,8 @@ describe("planViewRequested", () => {
     expect(planViewRequested("?stage=streets")).toBeNull();
   });
 
-  it("defaults to 3 x 3, seed 1 and the last built stage", () => {
-    expect(planViewRequested("?city=plan")).toEqual({ blocksX: 3, blocksZ: 3, seed: 1, stage: BUILT_STAGES[BUILT_STAGES.length - 1]!.name, stageText: "" });
+  it("defaults to 6 x 6, seed 1 and the last built stage", () => {
+    expect(planViewRequested("?city=plan")).toEqual({ blocksX: 6, blocksZ: 6, seed: 1, stage: BUILT_STAGES[BUILT_STAGES.length - 1]!.name, stageText: "" });
   });
 
   it("reads a stage by name or by number 1 to 8", () => {
@@ -34,7 +34,7 @@ describe("planViewRequested", () => {
   it("reads blocks and seed as city=tiles does", () => {
     expect(planViewRequested("?city=plan&stage=streets&blocks=6x4&seed=3")).toMatchObject({ blocksX: 6, blocksZ: 4, seed: 3 });
     expect(planViewRequested("?city=plan&blocks=9x0")).toMatchObject({ blocksX: 6, blocksZ: 1 });
-    expect(planViewRequested("?city=plan&blocks=big&seed=abc")).toMatchObject({ blocksX: 3, blocksZ: 3, seed: 1 });
+    expect(planViewRequested("?city=plan&blocks=big&seed=abc")).toMatchObject({ blocksX: 6, blocksZ: 6, seed: 1 });
     expect(planViewRequested("?city=plan&seed=-7")?.seed).toBe(-7);
     expect(planViewRequested("?city=plan&seed=99999999999999999999")?.seed).toBe(1);
   });
