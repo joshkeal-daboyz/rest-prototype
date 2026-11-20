@@ -41,6 +41,8 @@ How to read it:
 - **Default (042 Q7)**: odd-angled junction pads stay code-drawn, even when roads come from a pack (Pending 042 C, chapter 10).
 - **Default (041 Q8)**: no street furniture (trees, bins, hydrants, traffic lights, parked cars) yet. A later ticket may add it.
 - **Info (053)**: terrace pavements now carry street furniture, and the outer blocks are terraces: the whole procedural city, from lot to prop, is chapter 16.
+- **Decided (063 B, Josh, 19 Nov 2026, looking at the tile city in daylight)**: "The streets do not need to be 4 tiles wide." The tile city (`city=tiles`) has no avenues: every street line is the 5-cell street profile (pavement, parking band, two lanes, pavement: 25 m across, a 3-cell carriageway of 15 m), and a junction is 3 x 3 cells. The grammar's Q7 (no avenues) is an adopted recommendation under his goal waiver, "I don't want to constantly approve all of these improvments."
+- **Default (063 B)**: `AVENUE_ONE_IN` is 0, an off switch (0 is none; before, one interior line in 3 by hash, and at least one on every axis, was a 6-cell avenue with a 4-cell carriageway and a parking band on both sides). The avenue profile, 056's avenue-first bay order and `KERB_BAY_SHARE_MAX.avenue` stay in `tilecity.ts`, unused. Tests pin every carriageway at 15 m and the largest junction at 3 x 3 (`tilecity.test.ts`, "street width: no avenues"). The ladder's maps and `town.ts` are not touched.
 
 ## 4. Lots
 
@@ -663,8 +665,8 @@ How many parking spaces the tile city (`city=tiles`) gives a home and a shop, wh
 
 - **Default (056)**: a block's quota is `max(BAY_TILES_PER_BLOCK_MIN, round(shops x PARK_PER_SHOP / BAYS_PER_PARKING_TILE))` `ParkingLines_01` tiles, each of `BAYS_PER_PARKING_TILE` bays (10 m of kerb). That is one to three tiles per block, three to nine bays.
 - **Default (056)**: where the bays go.
-  - They go on the block's own sides that have a parking band: both sides of an avenue, and the hash side of a street.
-  - Avenue sides fill first, then longer sides, with ties by id.
+  - They go on the block's own sides that have a parking band: the hash side of a street (and, before 063 B, both sides of an avenue: the tile city has no avenue now).
+  - Avenue sides fill first, then longer sides, with ties by id. With no avenue (063 B) that is the longer sides first.
   - The fill is round-robin: one run per side before any side takes a second.
   - A run is centred on its side's free stretch, offset by hash.
 - **Default (056)**: run and gap limits.
@@ -672,7 +674,7 @@ How many parking spaces the tile city (`city=tiles`) gives a home and a shop, wh
   - Two runs on one side have at least `KERB_GAP_MIN_M` of kerb without bays between them.
   - The `BAY_JUNCTION_CLEAR` cell next to each crossing never holds a bay, and neither does the cell in front of a kerb cut.
 - **Default (056)**: caps.
-  - A side's bay length is at most `KERB_BAY_SHARE_MAX` of its kerb: the first field for an avenue, the second for a street.
+  - A side's bay length is at most `KERB_BAY_SHARE_MAX` of its kerb: the first field for an avenue, the second for a street. Every street is a street since 063 B, so the first field is unused.
   - The city has at most `BAYS_PER_100M_MAX` bays per 100 m of block kerb.
 - **Default (056)**: the outer side of an edge street faces yard. It holds no bay, and its parking band is plain.
 
@@ -750,6 +752,17 @@ How many parking spaces the tile city (`city=tiles`) gives a home and a shop, wh
   - Per block both sizes hold about 42 homes and 18 shops, so the 6 x 4 city lands where the 3 x 3 does: one to three tiles of bays and one lot per block.
 - **Info (057 E, measured 19 Nov 2026)**: the two tables above were measured on 056's layout, with block sides of 40 to 60 m. Since 057 F the blocks are 30 to 80 m and 057 G's alleys and parks change the blocks' quotas. On the default city (3 x 3, seed 1) the layout now has 57 bays and 11 courts with 66 court stalls (two blocks ask two lots, seven ask one), and no block keeps a frontage lot. P1 to P6 still pass on it (`parkmetrics.test.ts`); the tests, not these lines, are the record.
 
+- **Info (063 B, measured 19 Nov 2026 with the avenues out; the tests, not these lines, are the record)**: what moved on the default city (3 x 3, seed 1), 063 A's layout against 063 B's.
+  - The city is 51 x 57 cells (255 x 285 m), was 53 x 58. The nine blocks are the same sizes.
+  - Kerb bays are 57 against 57 (demand 57), court stalls 66 against 66 (demand 60.15), P6 2.794 against 2.794. Build-outs fall from 259 to 158 cells and their trees from 105 to 64, because an avenue's second parking band was almost all build-out; the pole slots are 227 against 227.
+  - Junction cells are 144 (16 boxes of 3 x 3), were 182; crossing cells 192, were 216.
+  - Across 3 x 3 seeds 1 to 10 and 6 x 4 seeds 1 to 3, P1 to P6 all pass (kerb bays 51 to 66 against a demand of 49 to 68 at 3 x 3, and 150 to 165 against 154 to 167 at 6 x 4), with no threshold changed. `PARK_SUPPLY_BAND` is unchanged.
+- **Info (063 B, measured 19 Nov 2026, before at e23a494 and after)**: the tile city's R-checks hold on the default city and the seeds, at their tile floors (R1 `TILE_CITY_R1_MIN` 0.88, R6 `TILE_CITY_R6_MIN` 0.45, R7 `TILE_CITY_R7_MIN` 0.4).
+  - Default city: R1 0.897 before, 0.899 after; R6 0.529 and 0.520; R7 0.509 and 0.509. Its nine blocks are 14 x 13, 11 x 13, 6 x 13, 14 x 9, 11 x 9, 6 x 9, 14 x 15, 11 x 15 and 6 x 15 cells before and after: no block moves in size.
+  - Over 3 x 3 seeds 1 to 10 and 6 x 4 seeds 1 to 3: R1 0.897 to 0.916 (the same before), R6 0.491 to 0.557 (was 0.491 to 0.551), R7 0.500 to 0.509 (was 0.500 to 0.510).
+  - Kerb bays and court stalls on the default city are 57 and 66 before and after. On 3 x 3 seeds 2, 5, 9 and 10 the bays fall by 3 (60 to 54, 57 to 54, 60 to 57, 54 to 51), and on 6 x 4 seeds 1 and 2 by 9 and 3 (159 to 150, 159 to 156), because a block's shop count follows a hash that reads cell coordinates and the demand moves with it; P1 to P6 pass.
+- **Info (063 B)**: P1 is less robust without avenues, so the layout has a weakness the named cities do not show. An avenue gave a block a second parking band and a cap of 0.4. A street gives one band to each side of its two blocks, and a side of up to 12 cells (60 m) holds one tile (the 0.3 cap). A block with no parking side of its own asks the bands across its streets, and its neighbours may take their only tile first. P1 then fails by one block ("no tile of bays serves it"). Over seeds 1 to 20 it fails on 6 x 4 seeds 5, 7, 11, 12, 15, 16 and 18, and on 3 x 3 seeds 12, 15, 17, 18 and 19; before B it failed on 6 x 4 seed 18 only, and on no 3 x 3 seed. The cities the ticket names pass. A first tile for every block by matching (a re-cut of 056's allocator) would mend it; B did not touch the allocator.
+
 ## 19. Frontage and block interiors
 
 How the tile city's buildings meet the pavement, how a row of them ends, what fills the inside of every block, and how blocks differ from one another (ticket 057, sections A to G, in `facade.ts`, `frontage.ts`, `tilecity.ts` and `terrace.ts`). The layout and the checks (G1 to G4, V1 to V4) are pure data and are built; the drawing of the interiors is section D (`tilecity3d.ts`, `tileslots.ts` and `models3d.ts`), also built, and 19.8 records it. Nothing on the ladder maps changes.
@@ -797,6 +810,7 @@ How the tile city's buildings meet the pavement, how a row of them ends, what fi
 ### 19.3 Thinner blocks: considered, not the default
 
 - **Info (057)**: blocks whose terraces butt back to back would be about 12 m deep, two stacks of 5.2 to 5.9 m. On the 5 m grid that is 15 m, with a 3 m service strip. With 25 to 30 m streets between them, roads would take about three quarters of the city along that axis. They already took about 65% of the area (about 105 m of street to 150 m of blocks per axis on the default city at `793bbf7`).
+- **Info (063 B, re-measured 19 Nov 2026)**: with no avenues the default city has 100 m of street on each axis (was 105 m and 110 m), and streets take 60.5% of its area (was 62.7%, over 53 x 58 cells). Over seeds 1 to 10 at 3 x 3 and seeds 1 to 3 at 6 x 4 the share is 55.2% to 62.6% (was 56.6% to 64.1%).
 - **Default (057 Q2)**: keep blocks of the sizes of 19.5 and fill their interiors (19.4). Thinner blocks, with one axis of 15 m rowhouse blocks, are an alternative for a later ticket.
 
 ### 19.4 The block interior
@@ -1209,7 +1223,7 @@ The drift test (`styleguide.test.ts`) reads this table. Each row names an export
 | `TILE_PARK_MIN_RUN_M` | 35 | tilecity.ts |
 | `TILE_CITY_R6_MIN` | 0.45 | tilecity.ts |
 | `TILE_M` | 5 | tilecity.ts |
-| `AVENUE_ONE_IN` | 3 | tilecity.ts |
+| `AVENUE_ONE_IN` | 0 | tilecity.ts |
 | `TILE_CITY_R7_MIN` | 0.4 | tilecity.ts |
 | `TILE_CITY_R1_MIN` | 0.88 | tilecity.ts |
 | `TILE_ROW_INSET_M` | 0 | tilecity.ts |
