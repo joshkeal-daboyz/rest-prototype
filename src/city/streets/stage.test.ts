@@ -22,8 +22,8 @@ const layerOf = (blocksX: number, blocksZ: number, seed: number) => {
 };
 
 describe("stage 1 picture (criterion 8, R-5)", () => {
-  it("has the legend lane, parking band, junction, crossing, pavement, pavement corner, block", () => {
-    expect(STREETS_LEGEND.map((e) => e.name)).toEqual(["lane", "parking band", "junction", "crossing", "pavement", "pavement corner", "block"]);
+  it("has the legend lane, parking band, junction, crossing, pavement, pavement corner, block, and from A4b one-way lane and one-way arrow", () => {
+    expect(STREETS_LEGEND.map((e) => e.name)).toEqual(["lane", "parking band", "junction", "crossing", "pavement", "pavement corner", "block", "one-way lane", "one-way arrow"]);
   });
   for (const [x, z, s] of [[3, 3, 1], [3, 3, 2], [3, 3, 3], [6, 4, 1]] as const) {
     it(`${x} x ${z} seed ${s}: the size is the lattice's, every index is in the legend, each cell matches the layer`, () => {
@@ -34,9 +34,10 @@ describe("stage 1 picture (criterion 8, R-5)", () => {
       expect(pictureProblems(pic, layer.w, layer.h)).toEqual([]);
       const index: Record<CityStreetRole, number> = { lane: 0, parkingPlain: 1, junction: 2, crossing: 3, pavement: 4, pavementCorner: 5 };
       const listed = new Set<number>();
+      const oneWay = new Set(layer.streets.filter((s) => s.section !== "twoWay").map((s) => s.id));
       for (const c of layer.cells) {
         listed.add(c.j * layer.w + c.i);
-        expect(pic.cells[c.j * layer.w + c.i]).toBe(index[c.role]);
+        expect(pic.cells[c.j * layer.w + c.i]).toBe(c.role === "lane" && oneWay.has(c.street!) ? 7 : index[c.role]);
       }
       for (const b of layer.blocks) {
         for (let j = b.j0; j < b.j1; j++) for (let i = b.i0; i < b.i1; i++) {
@@ -46,8 +47,9 @@ describe("stage 1 picture (criterion 8, R-5)", () => {
       }
       const blockCells = layer.blocks.reduce((n, b) => n + (b.i1 - b.i0) * (b.j1 - b.j0), 0);
       expect(listed.size + blockCells).toBe(layer.w * layer.h);
-      // each of the seven kinds appears
-      expect(new Set(pic.cells)).toEqual(new Set([0, 1, 2, 3, 4, 5, 6]));
+      // each of the eight cell kinds appears (these cities have a one-way street); the ninth entry is the arrows' points
+      expect(new Set(pic.cells)).toEqual(new Set([0, 1, 2, 3, 4, 5, 6, 7]));
+      expect(pic.points).toHaveLength(layer.arrows.length);
     });
   }
 });
@@ -74,12 +76,12 @@ describe("stage 1 layer shape", () => {
   });
 });
 
-describe("stage 1 digest pins (R-4), moved by ticket 070 A4 (the split plan: a new layout, so every pin is re-taken once)", () => {
+describe("stage 1 digest pins (R-4), moved by ticket 070 A4b (one-way streets: a new layer shape and new cuts, so every pin is re-taken once; A4 moved them before it)", () => {
   const PINS: readonly (readonly [number, number, number, string])[] = [
-    [3, 3, 1, "eee10488"],
-    [3, 3, 2, "7f5f7578"],
-    [3, 3, 3, "350c5846"],
-    [6, 4, 1, "e1e85cf2"],
+    [3, 3, 1, "9fefa1f6"],
+    [3, 3, 2, "cfd63d14"],
+    [3, 3, 3, "6125f735"],
+    [6, 4, 1, "cfb9d8f1"],
   ];
   for (const [x, z, s, digest] of PINS) {
     it(`${x} x ${z} seed ${s} has digest ${digest}`, () => {

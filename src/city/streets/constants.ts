@@ -47,3 +47,19 @@ export const JUNCTION_GAP_MIN_CELLS = 7;
  * S5, PROVISIONAL (same note; not decided): at least this share of the junctions inside the city (none of its streets an edge street) are Ts (half).
  */
 export const T_SHARE_MIN = 0.5;
+
+// ---- one-way streets (ticket 070 A4b; docs/design/070-streets-one-way.md) ----
+
+/** A street's width in cells by section, kerb to kerb across (pavement, carriageway, pavement). Josh, 20 Nov 2026: a one-way carriageway is "a maximum of 2 tiles wide. 1 for parking (discretionary), 1 for the road". */
+export const SECTION_CELLS = { twoWay: 5, oneWay: 4, oneWayBare: 3 } as const;
+/** A one-way street's carriageway, kerb to kerb, metres: with a parking tile 10, bare 5 (a two-way street's is `CARRIAGE_M`). */
+export const ONE_WAY_CARRIAGE_M = { parking: 10, bare: 5 } as const;
+/**
+ * PROVISIONAL (the one-way note, section 3; Josh: "it is the street designers discretion"; he judges it on the flat picture; nothing pins it):
+ * the share of the candidate streets (inner, not running edge to edge) that are one-way.
+ */
+export const ONE_WAY_SHARE = 0.4;
+/** PROVISIONAL (same note): the share of the one-way streets that go without parking, where S10 allows it. */
+export const ONE_WAY_BARE_SHARE = 1 / 3;
+/** PROVISIONAL (same note): one painted arrow every this many lane cells (30 m) after the first lane cell past a junction. */
+export const ONE_WAY_ARROW_EVERY = 6;
