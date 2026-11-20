@@ -241,6 +241,7 @@ if (entries.length === 0) {
   if (view3d) {
     void import("./render3d").then((m) => {
       make3d = m.createMapRenderer3d;
+      if (m.planHidesHud(location.search, import.meta.env.DEV)) uiRoot.hidden = true;
       open(first);
     });
   } else {
