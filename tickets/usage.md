@@ -187,3 +187,18 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 070 C1 round 2 | gate (main session) | - | - | - | 0 | tsc clean, 131 files, 2957 passed, 20 skipped |
 | 070 C1 round 2 | code-reviewer | agent default (opus) | 34K total (one figure in the readout) | - | 0 | meets, must-fix 0 |
 | 070 C1 round 2 | playtester | agent default (sonnet) | 14K total (one figure in the readout) | - | 0 | regressions 0; stopped early |
+| 070 C2 (stopped) | planner (general-purpose with planner.md) | sonnet | 306K total (one figure in the readout) | - | 0 | stopped on the stop rule: P2 cannot hold (560193a) |
+| 070 re-cut | lead-architect | agent default (opus) | 80K total, two passes (one figure in the readout) | - | 0 | B2 added, C2 re-cut, H1 door rule, P2 exception; Josh "Yes, all four" |
+| 070 B2 | planner (general-purpose with planner.md) | sonnet | 119K total (one figure in the readout) | - | 0 | lanes only where court parts stay 8+ (ef992c7) |
+| 070 B2 | gate (main session) | - | - | - | 0 | tsc clean, 131 files, 2961 passed, 20 skipped |
+| 070 B2 | code-reviewer | agent default (opus) | 39K total (one figure in the readout) | - | 0 | meets, must-fix 0 |
+| 070 B2 | playtester | agent default (sonnet) | 14K total (one figure in the readout) | - | 0 | regressions 0; stopped early |
+| 070 C2 | lead-architect | agent default (opus) | 18K total (one figure in the readout) | - | 0 | CityOpening.mouth becomes a list (960ebf5) |
+| 070 C2 | planner (general-purpose with planner.md) | sonnet | 194K total (one figure in the readout) | - | 0 | C2 under the four rulings, ok on 13 cities (cdfb84f) |
+| 070 C2 | gate (main session) | - | - | - | 0 | tsc clean, 132 files, 3043 passed, 20 skipped |
+| 070 C2 | code-reviewer | agent default (opus) | 109K total (one figure in the readout) | - | 0 | partly, must-fix 1 (frontage lot as a way in) |
+| 070 C2 | playtester | agent default (sonnet) | 16K total (one figure in the readout) | - | 0 | regressions 0; stopped early |
+| 070 C2 round 2 | planner (general-purpose with planner.md) | sonnet | 107K total (one figure in the readout) | - | 0 | frontage lot is not a way in; Josh "Yes, agreed" (6520b44) |
+| 070 C2 round 2 | gate (main session) | - | - | - | 0 | tsc clean, 132 files, 3046 passed, 20 skipped |
+| 070 C2 round 2 | code-reviewer | agent default (opus) | 36K total (one figure in the readout) | - | 0 | meets, must-fix 0 |
+| 070 C2 round 2 | playtester | agent default (sonnet) | 14K total (one figure in the readout) | - | 0 | regressions 0; stopped early |
