@@ -7,10 +7,10 @@
  */
 
 import type { CityBlock, CityCell, CityLandLayer, CityMassCell, CityMassLayer, CityMassUse, CityPart } from "../../core";
-import { ROW_STRETCH_MIN_CELLS, TILE_CITY_R1_MIN } from "./constants";
+import { CITY_FRONT_LOT_BLOCKS_MAX, LOTS_PER_BLOCK_MAX, LOT_STALLS, PARK_PER_HOME, PARK_SUPPLY_BAND, ROW_STRETCH_MIN_CELLS, SHORT_BLOCKS_ONE_IN, TILE_CITY_R1_MIN } from "./constants";
 import { DELTA, SIDES, behindOf, cellKey, columnOfSides, keyOf, openSidesFrom, ringOf, shortSideOf } from "./geometry";
 
-export type MassCheckId = "M3" | "M4b" | "M5" | "G2" | "G3" | "R1";
+export type MassCheckId = "M3" | "M4b" | "M5" | "G2" | "G3" | "R1" | "P2";
 
 export interface MassFailure {
   readonly id: MassCheckId;
@@ -168,7 +168,10 @@ function checkM5(mass: CityMassLayer, ix: Index, land: LandParts, out: MassFailu
       const m = ix.byKey.get(cellKey(c));
       if (!m || m.opening !== o.id || !shape.uses.includes(m.use)) out.push({ id: "M5", reason: `M5: opening ${o.id} (${o.kind}) names cell (${c.i}, ${c.j}), which is not its own ${shape.uses.join(" or ")} cell`, cells: [c] });
     }
-    if (shape.mouth !== (o.mouth !== null)) out.push({ id: "M5", reason: `M5: opening ${o.id} (${o.kind}) ${shape.mouth ? "has no mouth" : "has a mouth, but the kerb runs straight past it"}`, cells: o.cells });
+    // a drive or frontage lot onto a street has that street as its mouth; one onto a lane has none (the lane's own two mouths are cut)
+    const onLane = (o.kind === "drive" || o.kind === "frontLot") && o.cells.some((c) => SIDES.some((s) => { const u = ix.useAt(c.i + DELTA[s][0], c.j + DELTA[s][1]); return u === "lane" || u === "laneMouth"; }));
+    const wantsMouth = shape.mouth && !onLane;
+    if (wantsMouth !== (o.mouth !== null)) out.push({ id: "M5", reason: `M5: opening ${o.id} (${o.kind}) ${wantsMouth ? "has no mouth" : "has a mouth, but the kerb runs straight past it"}`, cells: o.cells });
     const is = o.cells.map((c) => c.i);
     const js = o.cells.map((c) => c.j);
     const w = Math.max(...is) - Math.min(...is) + 1;
@@ -189,10 +192,10 @@ function checkM5(mass: CityMassLayer, ix: Index, land: LandParts, out: MassFailu
     if (shortSideOf(p) < 6) continue;
     // no row stretch of fewer than one building
     for (const c of stretchProblems(p, (i, j) => { const m = ix.byKey.get(keyOf(i, j)); return m === undefined || m.use === "built" ? null : (m.opening ?? m.use); })) out.push({ id: "M5", reason: `M5: a row of part ${p.id} has a stretch of fewer than ${ROW_STRETCH_MIN_CELLS} cells at (${c.i}, ${c.j})`, cells: [c] });
-    // every interior touches an opening: a walk-through or a drive on its edge; for a part with a lane edge the lane is its way in, which a later section opens
+    // every interior touches an opening: a walk-through, a drive (a court's, which opens on a street or on the part's lane) or a frontage lot through both rings
     const interior: CityCell[] = [];
     for (let j = p.j0; j < p.j1; j++) for (let i = p.i0; i < p.i1; i++) if (ringOf(p, i, j) >= 2) interior.push({ i, j });
-    if (interior.length === 0 || Object.values(p.edges).includes("lane")) continue;
+    if (interior.length === 0) continue;
     const touches = interior.some((c) =>
       SIDES.some((s) => {
         const u = ix.useAt(c.i + DELTA[s][0], c.j + DELTA[s][1]);
@@ -215,6 +218,73 @@ function checkG2(mass: CityMassLayer, ix: Index, blocks: readonly CityBlock[], o
         if (c.opening === null || !recorded.has(c.opening)) out.push({ id: "G2", reason: `G2: the back edge of ${b.id} at (${i}, ${j}) is neither built nor a recorded opening`, cells: [{ i, j }] });
       }
     }
+  }
+}
+
+export interface ParkingNumbers {
+  readonly blocks: number;
+  readonly homes: number;
+  /** Stalls the homes call for: homes x `PARK_PER_HOME`. */
+  readonly stallDemand: number;
+  /** Stalls laid, in courts and frontage lots. */
+  readonly lotStalls: number;
+  /** Blocks that hold, or are served by, more than `LOTS_PER_BLOCK_MAX` lots. */
+  readonly blocksOverLots: number;
+  /** Stalls whose host block is neither the block they serve nor next to it across one street. */
+  readonly stallServedFar: number;
+  /** Blocks that wanted lots and got fewer, or that no lot serves. */
+  readonly shortBlocks: number;
+  /** Blocks that kept a frontage lot because their court did not fit. */
+  readonly frontLotBlocks: number;
+}
+
+/** The numbers P2 counts, from the layer alone (ported from `parkingMetrics` in `src/render3d/parkmetrics.ts`). */
+export function parkingNumbers(mass: Pick<CityMassLayer, "courts" | "units" | "openings">, blocks: readonly CityBlock[]): ParkingNumbers {
+  const at = new Map(blocks.map((b) => [b.id, b] as const));
+  const adjacent = (a: string, b: string): boolean => {
+    if (a === b) return true;
+    const p = at.get(a);
+    const q = at.get(b);
+    return p !== undefined && q !== undefined && Math.abs(p.bi - q.bi) + Math.abs(p.bj - q.bj) === 1;
+  };
+  const kindOf = new Map(mass.openings.map((o) => [o.id, o.kind] as const));
+  const serving = new Map<string, number>();
+  const held = new Map<string, number>();
+  const front = new Set<string>();
+  let stallServedFar = 0;
+  let lotStalls = 0;
+  for (const c of mass.courts) {
+    serving.set(c.serves, (serving.get(c.serves) ?? 0) + 1);
+    held.set(c.block, (held.get(c.block) ?? 0) + 1);
+    lotStalls += c.stalls;
+    if (!adjacent(c.block, c.serves)) stallServedFar += c.stalls;
+    if (kindOf.get(c.opening) === "frontLot") front.add(c.block);
+  }
+  let blocksOverLots = 0;
+  let shortBlocks = 0;
+  for (const b of blocks) {
+    if ((serving.get(b.id) ?? 0) > LOTS_PER_BLOCK_MAX || (held.get(b.id) ?? 0) > LOTS_PER_BLOCK_MAX) blocksOverLots++;
+  }
+  for (const u of mass.units) if (u.stallsShort > 0 || (serving.get(u.block) ?? 0) === 0) shortBlocks++;
+  const homes = mass.units.reduce((n, u) => n + u.homes, 0);
+  return { blocks: blocks.length, homes, stallDemand: homes * PARK_PER_HOME, lotStalls, blocksOverLots, stallServedFar, shortBlocks, frontLotBlocks: front.size };
+}
+
+/** P2's value (0 holds): lot stalls in the band of the demand, no block over its lots, no stall served far, few blocks short, few frontage lots. Same terms and thresholds as `evaluateParking`. */
+export function p2Value(m: ParkingNumbers): number {
+  const inBand = m.stallDemand <= 0 || (m.lotStalls >= PARK_SUPPLY_BAND.lo * m.stallDemand - 1e-9 && m.lotStalls <= PARK_SUPPLY_BAND.hi * m.stallDemand + 1e-9);
+  return (inBand ? 0 : 1) + m.blocksOverLots + m.stallServedFar + Math.max(0, m.shortBlocks - Math.ceil(m.blocks / SHORT_BLOCKS_ONE_IN)) + Math.max(0, m.frontLotBlocks - Math.ceil(m.blocks * CITY_FRONT_LOT_BLOCKS_MAX - 1e-9));
+}
+
+function checkP2(mass: CityMassLayer, blocks: readonly CityBlock[], out: MassFailure[]): void {
+  const m = parkingNumbers(mass, blocks);
+  const v = p2Value(m);
+  if (v > 0) {
+    out.push({
+      id: "P2",
+      reason: `P2: ${v} fault(s): ${m.lotStalls} stalls laid for ${m.stallDemand.toFixed(1)} wanted (band ${PARK_SUPPLY_BAND.lo} to ${PARK_SUPPLY_BAND.hi}), ${m.blocksOverLots} blocks over ${LOTS_PER_BLOCK_MAX} lots, ${m.stallServedFar} stalls served far, ${m.shortBlocks} blocks short, ${m.frontLotBlocks} frontage-lot blocks`,
+      cells: [],
+    });
   }
 }
 
@@ -246,7 +316,7 @@ function checkR1(mass: CityMassLayer, out: MassFailure[]): void {
   if (f.share < TILE_CITY_R1_MIN - 1e-9) out.push({ id: "R1", reason: `R1: ${f.built} of ${f.total} frontage cells are built (${f.share.toFixed(3)}), under ${TILE_CITY_R1_MIN}`, cells: [] });
 }
 
-/** Every failure of the six checks on a mass layer, in the order M3, M4b, M5, G2, G3, R1. Empty when the layer passes. */
+/** Every failure of the seven checks on a mass layer, in the order M3, M4b, M5, G2, G3, R1, P2. Empty when the layer passes. */
 export function massFailures(mass: CityMassLayer, blocks: readonly CityBlock[], land: LandParts): MassFailure[] {
   const ix = indexOf(mass);
   const out: MassFailure[] = [];
@@ -256,5 +326,6 @@ export function massFailures(mass: CityMassLayer, blocks: readonly CityBlock[], 
   checkG2(mass, ix, blocks, out);
   checkG3(mass, blocks, out);
   checkR1(mass, out);
+  checkP2(mass, blocks, out);
   return out;
 }

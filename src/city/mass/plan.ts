@@ -1,6 +1,7 @@
 /**
  * Stage 3's planner (ticket 070 C1; grammar rules 3 to 6): every cell of every block is built or a named open use. A court part has ring 1 and ring 2 built, an apron ring, then green with paths; a strip is
- * both rows built; a lane, a plaza, a walk-through and a park are the recorded openings. Courts, drives, frontage lots and units are C2's. Pure: it reads the street and land layers and its own `rand`.
+ * both rows built; a lane, a plaza, a walk-through and a park are the recorded openings. From C2 a chosen lot site (`sites.ts`) is laid as a drive through both rings with its court (stalls, aisle, the pads beside
+ * the aisle's ends), or as a frontage lot, and a part with a drive needs no walk-through. Which sites are chosen, and the units, are `lots.ts`'s. Pure: it reads the street and land layers and its own `rand`.
  *
  * The plaza is `terraceBlockRows`'s rule (town.ts): one part in `PLAZA_ONE_IN`, by hash, takes one corner, if the rows it touches stay long enough. The green's paths are `fillGreen`'s (tilecity.ts).
  */
@@ -11,11 +12,21 @@ import type { StageRand } from "../pipeline/seeds";
 import { stretchProblems } from "./check";
 import { APRON_CELLS, BUILT_RINGS, GREEN_SPAN_MAX_CELLS, PARK_EDGE_CELLS, PLAZA_CELLS, PLAZA_ONE_IN, ROW_STRETCH_MIN_CELLS } from "./constants";
 import { behindOf, cellKey, columnOfSides, keyOf, openSidesFrom, ringOf, shortSideOf } from "./geometry";
+import { cellOnSide, siteCells, type LotSite } from "./sites";
+
+/** A lot site as laid: the id of its opening and its stall and aisle cells (a court's, or a frontage lot's own cells in `stalls`). */
+export interface LaidLot {
+  readonly site: LotSite;
+  readonly opening: string;
+  readonly stalls: CityCell[];
+  readonly aisle: CityCell[];
+}
 
 export interface MassPlan {
   readonly cells: CityMassCell[];
   readonly built: CityBuiltCell[];
   readonly openings: CityOpening[];
+  readonly laid: LaidLot[];
 }
 
 interface Use {
@@ -90,17 +101,36 @@ function walkAt(p: CityPart, side: CitySide, t: number): CityCell[] {
 
 const sideLength = (p: CityPart, side: CitySide): number => (side === "-z" || side === "+z" ? p.i1 - p.i0 : p.j1 - p.j0);
 
+/** The corner plaza of a court part, or none: one part in `PLAZA_ONE_IN` by hash, at a corner where two street edges meet, if the rows it touches stay long enough. */
+export function plazaOf(part: CityPart, rand: StageRand): CityCell[] {
+  if (part.shape !== "court" || rand("plaza", part.id) % PLAZA_ONE_IN !== 0) return [];
+  const cand = plazaAt(part, rand("plazacorner", part.id) % 4);
+  if (!cand.sides.every((side) => part.edges[side] === "street")) return [];
+  const taken = new Set(cand.cells.map(cellKey));
+  return stretchProblems(part, (i, j) => (taken.has(keyOf(i, j)) ? "plaza" : null)).length === 0 ? cand.cells : [];
+}
+
 /**
  * Lays every block. Throws `CityStageError` where a rule cannot be met: a block cell no part, lane or park covers (G3), a cell with opposite open sides (M3), a lane mouth with no street beyond it, or a court
  * part with an interior and no place for a walk-through (M5). Nothing is patched.
  */
-export function planMass(streets: Pick<CityStreetsLayer, "blocks" | "cells">, land: Pick<CityLandLayer, "parts" | "lanes" | "parks">, rand: StageRand): MassPlan {
-  const out: MassPlan = { cells: [], built: [], openings: [] };
+export function planMass(streets: Pick<CityStreetsLayer, "blocks" | "cells">, land: Pick<CityLandLayer, "parts" | "lanes" | "parks">, rand: StageRand, lots: readonly LotSite[] = []): MassPlan {
+  const out: MassPlan = { cells: [], built: [], openings: [], laid: [] };
   const group = <T extends { block: string }>(xs: readonly T[]): Map<string, T[]> => {
     const m = new Map<string, T[]>();
-    for (const x of xs) m.set(x.block, [...(m.get(x.block) ?? []), x]);
+    for (const x of xs) {
+      const list = m.get(x.block);
+      if (list) list.push(x);
+      else m.set(x.block, [x]);
+    }
     return m;
   };
+  const lotsOf = new Map<string, LotSite[]>();
+  for (const l of lots) {
+    const list = lotsOf.get(l.part);
+    if (list) list.push(l);
+    else lotsOf.set(l.part, [l]);
+  }
   const lanesOf = group(land.lanes);
   const parksOf = group(land.parks);
   const partsOf = group(land.parts);
@@ -161,18 +191,36 @@ export function planMass(streets: Pick<CityStreetsLayer, "blocks" | "cells">, la
       const court = s >= 6;
       const taken = new Map<string, "plaza" | "walk">();
       const openingAt = (i: number, j: number): string | null => taken.get(keyOf(i, j)) ?? null;
-      let plaza: CityCell[] = [];
+      const plaza = court ? plazaOf(part, rand) : [];
+      for (const c of plaza) taken.set(cellKey(c), "plaza");
       let walk: CityCell[] = [];
-      if (court && rand("plaza", part.id) % PLAZA_ONE_IN === 0) {
-        const cand = plazaAt(part, rand("plazacorner", part.id) % 4);
-        if (cand.sides.every((side) => part.edges[side] === "street")) {
-          for (const c of cand.cells) taken.set(cellKey(c), "plaza");
-          if (stretchProblems(part, openingAt).length === 0) plaza = cand.cells;
-          else for (const c of cand.cells) taken.delete(cellKey(c));
+      // the lots chosen for this part: each is a drive (or a frontage lot) through both rings, with its court behind it
+      const mine = lotsOf.get(part.id) ?? [];
+      const driveAt = new Map<string, { use: "drive" | "frontLot"; opening: string }>();
+      const courtAt = new Map<string, "stalls" | "aisle">();
+      const padAt = new Set<string>();
+      const laidHere: LaidLot[] = [];
+      mine.forEach((site, n) => {
+        const cells = siteCells(part, site.side, site.t, site.kind);
+        const id = `${part.id}/${site.kind === "court" ? "drive" : "lot"}/${n}`;
+        for (const c of cells.drive) driveAt.set(cellKey(c), { use: site.kind === "court" ? "drive" : "frontLot", opening: id });
+        for (const c of cells.stalls) courtAt.set(cellKey(c), "stalls");
+        for (const c of cells.aisle) courtAt.set(cellKey(c), "aisle");
+        for (const c of cells.pads) padAt.add(cellKey(c));
+        // a drive onto a street has that street as its mouth, on the building line; one onto a lane has none (the lane's own mouths are cut)
+        let mouth: CityOpening["mouth"] = null;
+        if (part.edges[site.side] === "street") {
+          const beyond = cellOnSide(part, site.side, site.t, -1);
+          const street = streetAt.get(cellKey(beyond));
+          if (!street) throw new CityStageError(`M5: the ${site.kind} of ${part.id} has no street beyond its mouth at (${beyond.i}, ${beyond.j})`, [beyond]);
+          mouth = { street, cells: cells.drive.slice(0, 2).map((c) => ({ i: c.i, j: c.j })) };
         }
-      }
-      if (court && !Object.values(part.edges).includes("lane")) {
-        // an interior with no lane gets one walk-through, one cell wide through both rings, where every row stretch stays at least one building long (and the walk is not at a row's end)
+        open(id, site.kind === "court" ? "drive" : "frontLot", cells.drive, mouth);
+        laidHere.push({ site, opening: id, stalls: site.kind === "court" ? cells.stalls : cells.drive, aisle: cells.aisle });
+      });
+      out.laid.push(...laidHere);
+      if (court && mine.length === 0 && !Object.values(part.edges).includes("lane")) {
+        // an interior with no lane and no drive gets one walk-through, one cell wide through both rings, where every row stretch stays at least one building long (and the walk is not at a row's end)
         const options: CityCell[][] = [];
         for (const side of ["-z", "+x", "+z", "-x"] as const) {
           const len = sideLength(part, side);
@@ -195,9 +243,13 @@ export function planMass(streets: Pick<CityStreetsLayer, "blocks" | "cells">, la
         for (let i = part.i0; i < part.i1; i++) {
           const k = keyOf(i, j);
           const ring = ringOf(part, i, j);
+          const drive = driveAt.get(k);
           if (inPlaza.has(k)) put(i, j, "plaza", part.id, plazaId);
           else if (inWalk.has(k)) put(i, j, "walk", part.id, walkId);
+          else if (drive) put(i, j, drive.use, part.id, drive.opening);
           else if (ring < BUILT_RINGS) put(i, j, "built", part.id, null);
+          else if (courtAt.has(k)) put(i, j, courtAt.get(k)!, part.id, null);
+          else if (padAt.has(k)) put(i, j, "apron", part.id, null);
           else if (ring < BUILT_RINGS + APRON_CELLS) put(i, j, "apron", part.id, null);
           else put(i, j, path.has(k) ? "greenPath" : "green", part.id, null);
         }
@@ -245,7 +297,12 @@ function layBlock(b: CityBlock, uses: ReadonlyMap<string, Use>, parts: ReadonlyM
   }
   // A blind column backs onto the building whose back faces it: the corner column if there is one (grammar rule 4: a ring-2 corner takes its ring-1 corner's building), else the first in row order.
   const pointers = new Map<string, Raw[]>();
-  for (const r of raws) if (r.behind !== null) pointers.set(cellKey(r.behind), [...(pointers.get(cellKey(r.behind)) ?? []), r]);
+  for (const r of raws) {
+    if (r.behind === null) continue;
+    const list = pointers.get(cellKey(r.behind));
+    if (list) list.push(r);
+    else pointers.set(cellKey(r.behind), [r]);
+  }
   for (const r of raws) {
     let partner: CityCell | null = r.behind;
     if (r.column === "blind") {
