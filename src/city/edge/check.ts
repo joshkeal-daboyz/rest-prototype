@@ -3,7 +3,8 @@
  * never from the code that laid them. P2 is stage 3's (lots). Every verdict's `value` is the number of violations (0 passes), except P6's, which is the bays per 100 m of block kerb (it passes at `BAYS_PER_100M_MAX` or fewer).
  */
 
-import type { CityEdgeLayer, CityEdgeRole, CityMassLayer, CityPlanOptions, CityStreetsLayer } from "../../core";
+import type { CityEdgeLayer, CityEdgeRole, CityLandLayer, CityMassLayer, CityPlanOptions, CityStreetsLayer } from "../../core";
+import type { EdgeFailure } from "./kerbcheck";
 import { BAYS_PER_100M_MAX, BAYS_PER_PARKING_TILE, BAY_JUNCTION_CLEAR, BAY_RUN_TILES_MAX, BAY_TILES_PER_BLOCK_MIN, BUILDOUT_TREE_EVERY, KERB_BAY_SHARE_MAX, KERB_GAP_MIN_M, PARK_PER_SHOP, PARK_SUPPLY_BAND, TILE_M } from "./constants";
 
 export type EdgeCheckId = "P1" | "P3" | "P4" | "P5" | "P6";
@@ -243,5 +244,50 @@ export function edgeFailures(edge: CityEdgeLayer, streets: CityStreetsLayer, mas
           : `${v.value} violations`;
     out.push({ id: v.id, reason: `${v.id}: ${why}` });
   }
+  return out;
+}
+
+/**
+ * G4 on the layer (ticket 070 D2, criterion 6): every court touches its opening (the opening's cells are the court's stall or aisle cells, or share an edge with one); every mouth cell of every vehicle opening has its kerb cut
+ * (a cut in front of it, naming the opening); each of a lane's two ends has its cut, and every lane of the land layer has its opening. Empty when it holds.
+ */
+export function g4Failures(edge: CityEdgeLayer, mass: CityMassLayer, land: CityLandLayer): EdgeFailure[] {
+  const out: EdgeFailure[] = [];
+  const fail = (reason: string): void => {
+    if (out.length < 40) out.push({ id: "G4", reason: `G4: ${reason}` });
+  };
+  const key = (c: { i: number; j: number }): string => `${c.i},${c.j}`;
+  const openings = new Map(mass.openings.map((o) => [o.id, o] as const));
+  for (const court of mass.courts) {
+    const o = openings.get(court.opening);
+    if (o === undefined) {
+      fail(`the court of ${court.block} names the opening ${court.opening}, which the mass layer does not have`);
+      continue;
+    }
+    const mine = new Set([...court.stallCells, ...court.aisleCells].map(key));
+    const touches = o.cells.some((c) => mine.has(key(c)) || [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([di, dj]) => mine.has(key({ i: c.i + di!, j: c.j + dj! }))));
+    if (!touches) fail(`the court of ${court.block} does not touch its opening ${court.opening}`);
+  }
+  const cutsOf = new Map<string, Set<string>>();
+  for (const k of edge.kerbCuts) {
+    const s = cutsOf.get(k.opening) ?? new Set<string>();
+    s.add(`${key(k.cell)}|${k.street}`);
+    cutsOf.set(k.opening, s);
+  }
+  for (const o of mass.openings) {
+    for (const m of o.mouth) {
+      for (const c of m.cells) {
+        const cuts = cutsOf.get(o.id) ?? new Set<string>();
+        const has = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([di, dj]) => cuts.has(`${c.i + di!},${c.j + dj!}|${m.street}`));
+        if (!has) fail(`the mouth cell (${c.i}, ${c.j}) of ${o.id} has no kerb cut`);
+      }
+    }
+    if (o.kind === "lane" && o.mouth.length !== 2) fail(`the lane ${o.id} has ${o.mouth.length} ends with a cut, not two`);
+  }
+  const laneOpenings = new Map<string, number>();
+  for (const o of mass.openings) if (o.kind === "lane") laneOpenings.set(o.block, (laneOpenings.get(o.block) ?? 0) + 1);
+  const lanes = new Map<string, number>();
+  for (const l of land.lanes) lanes.set(l.block, (lanes.get(l.block) ?? 0) + 1);
+  for (const [block, n] of lanes) if ((laneOpenings.get(block) ?? 0) !== n) fail(`${block} has ${n} lanes in the land layer and ${laneOpenings.get(block) ?? 0} lane openings`);
   return out;
 }
