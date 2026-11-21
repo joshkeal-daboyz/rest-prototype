@@ -876,7 +876,7 @@ export interface CityWallPiece {
 //   piece is turned round: a roof exit always, a turnable small prop by hash). Its base stands on the roof's deck, `ROOF_DECK_M` 0.5 over the roof piece's base on every roof key (H3's RT; Josh, 21 Nov 2026,
 //   Q24 answer 1), its footprint `ROOF_EDGE_M` inside the cell's edges (rule 11: the body's edge, not the cornice's; the body is the cell, M1), a billboard's `BILLBOARD_EDGE_M` 0.28 (H3's BB, Q24 answer 2).
 // - **No novelty sign in H3** (Josh, 21 Nov 2026, Q24: "They can be placed on the face of a build in addition to the roof. They represent the store in the storefront."). H3 writes no "novelty" piece; the kind
-//   is kept for section H1c, which places a roof novelty sign over its own shop (and types a list for face signs at its re-cut).
+//   is kept for section H1c, which places a roof novelty sign over its own shop, on one of that shop's mid columns, as its building's big prop (Q26; the face signs are `CityFacadesLayer.novelty`, below).
 // - **Which roofs.** A big piece ("waterTower", "exit", "billboard" with its "billboardFace", "novelty") only on a mid roof (a mid or blind column), at most one big prop a building; "small" pieces on any
 //   roof (mid or corner), never on the column that holds the building's big prop.
 // - **The roof exit** (M9b). Wholly on its roof; its door (its own +z, H3's reading RD) faces away from every open side of its column, with `ROOF_ACCESS_CLEAR_M` (1.2 m) of clear deck in front of it; on a
@@ -898,7 +898,66 @@ export interface CityRoofPiece {
   readonly placement: CityPlacement;
 }
 
-/** Stage 7: facades. H1 writes `ground`; H1b writes `dressing`; H2 and H2b write `walls`; H3 writes `roofs`. */
+// ---- stage 7, H1c: shop kinds and novelty signs (ticket 070 H1c; Josh, 21 Nov 2026, Q24 and Q26) ----
+//
+// Typed by the lead-architect before H1c (21 Nov 2026, H1c's re-cut on Josh's "Yes, all four", Q26). Two lists of their own, not fields on `CityGroundPiece` and not more kinds in `dressing`, so H1's, H1b's,
+// H2's and H2b's checks and digests read exactly what they read (H2b's PW7 stop is not repeated), and G2 reads `ground` unchanged.
+// - **A shop's kind** (Q26 answers 1 and 3). Every shop ground piece ("shop", "shopDouble", "shopCorner") gets one kind, once, in the shopfront pass. Where H1b put a trade sign on it (the fascia or blade sign on
+//   its first cell: Bar and Pub give "bar", Cafe "cafe", Chinese_Noodles "noodles", Pizza and DeliPizza "pizza", Barber "barber", Hotel "hotel"), the kind is read from that sign; H1b's signs do not change.
+//   Every other shop (no sign, or the plain Entrance sign) gets a kind by the stage's hash, avoiding a kind already used in its building where it can.
+// - **Which key stands for which kind** (Q26 answer 2): the facades kit's table (pizza `Pizza_01`; burger `Burger_01`; hot dog `Hotdog_01`; taco `Taco_01`; noodles `Noodles_01`; cafe `Coffee_01`; donut
+//   `Donut_01`; ice cream `Icecream_01`, `Milkshake_01`; diner `Milkshake_01`, `Soda_01`; sweets `Popcorn_01`, `Lollypop_01`; bar `Beer_01`, the pint; liquor store `Bottle_01`, the beer bottle; corner store
+//   `Bottle_01`, `Soda_01`; music shop `Guitar_01`). Barber and hotel have no key, so such a shop never carries a novelty sign; `BowlingBall_01` and `BowlingPin_01` are never used.
+// - **A face sign** (Q26 answer 4, rule F): flat against storey 1's wall (its back on the column's front cell edge), centred over its shop (a "shopDouble" over both columns), its broad side to the street,
+//   its base on top of the shopfront's tallest piece on that face (and never under storey 1's base), its top under the roof; on a street front only, never on an escape's column; placed after the roofs, only
+//   where its column has room under `DRESS_PER_BAY_MAX`. No bracket. A sign is optional (Josh, 21 Nov 2026: "an added detail"): no share is required anywhere.
+
+/** What a shop sells (Q26). The 14 kinds with a novelty key, then barber and hotel, which H1b's blade signs name and no novelty key shows. */
+export type CityShopKind =
+  | "pizza"
+  | "burger"
+  | "hotDog"
+  | "taco"
+  | "noodles"
+  | "cafe"
+  | "donut"
+  | "iceCream"
+  | "diner"
+  | "sweets"
+  | "bar"
+  | "liquorStore"
+  | "cornerStore"
+  | "musicShop"
+  | "barber"
+  | "hotel";
+
+/** One shop: a shop ground piece and its kind. */
+export interface CityShop {
+  /** Its `CityBuilding.id`. */
+  readonly building: string;
+  /** Its ground piece's `cells` (a "shopDouble": two, in the building's row order). */
+  readonly cells: readonly CityCell[];
+  readonly kind: CityShopKind;
+  /** Where the kind came from: H1b's trade sign on the shop ("sign", with that sign's key in `sign`), or the stage's hash ("hash", `sign` null; the shop has no sign, or the plain Entrance sign). */
+  readonly source: "sign" | "hash";
+  readonly sign: CalibrationKey | null;
+}
+
+/** One novelty sign on a building's face (rule F, above). A roof novelty sign is a `CityRoofPiece` of kind "novelty". */
+export interface CityNoveltySign {
+  /** Its `CityBuilding.id`. */
+  readonly building: string;
+  /** The shop it stands for: that shop's first cell (the `CityShop` whose `cells[0]` this is). It counts against this column's `DRESS_PER_BAY_MAX`, as H1b's dressing does. */
+  readonly cell: CityCell;
+  /** The open side it stands on: always its column's `front`, a street open side. */
+  readonly face: CitySide;
+  /** Its shop's kind, as `facades.shops` gives it; `placement.key` is one of that kind's keys. */
+  readonly kind: CityShopKind;
+  /** `placement.yaw_deg` is its column's `yaw`, or a quarter-turn more where the key's broad side is its own x (rule F's "broad side to the street"); `placement.y_m` is its base. */
+  readonly placement: CityPlacement;
+}
+
+/** Stage 7: facades. H1 writes `ground`; H1b writes `dressing`; H2 and H2b write `walls`; H3 writes `roofs`; H1c writes `shops` and `novelty` (and its roof signs into `roofs`). */
 export interface CityFacadesLayer {
   readonly stage: "facades";
   /** H1: one piece per ground slot, every `buildings.columns` entry's slot filled exactly once (a "shopDouble" fills two), in `buildings.columns` order of each piece's first cell. */
@@ -917,9 +976,13 @@ export interface CityFacadesLayer {
   /**
    * H3: the rooftop pieces, building by building in `buildings.buildings` order; in a building, its big prop first (a billboard: its structure, then its face), then its small props by column along the row,
    * and in a column its first then its second (the left half, then the right, in the column's own frame). Optional only so H1's to H2b's layers and fixtures (and G2's, which reads `ground` only) type-check;
-   * from H3 the stage always writes it.
+   * from H3 the stage always writes it. From H1c a building's big prop may be a "novelty" sign over one of its shops.
    */
   readonly roofs?: readonly CityRoofPiece[];
+  /** H1c: one entry per shop ground piece, in `ground`'s order. Optional only so H1's to H3b's layers and fixtures (and G2's) type-check; from H1c the stage always writes it. */
+  readonly shops?: readonly CityShop[];
+  /** H1c: the face novelty signs, building by building in `buildings.buildings` order, then along the row by column. Optional as `shops` is; from H1c the stage always writes it (often empty). */
+  readonly novelty?: readonly CityNoveltySign[];
 }
 /** Stage 8: ground dressing. Typed before section I. */
 export interface CityGroundLayer {
