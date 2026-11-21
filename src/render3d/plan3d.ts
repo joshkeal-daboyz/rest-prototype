@@ -1,6 +1,6 @@
 /**
  * The city plan, drawn in 3D (ticket 070, section E; dev only: `?view=3d&city=plan&stage=assemble`, or `stage=9`). Stage 9 of the pipeline: it draws the plan and decides nothing. Everything here is read from the layers
- * `src/city/` wrote (`streets`, `mass`, `edge`); nothing is chosen, moved or dropped that a layer placed. Where a layer does not say what to draw, `PlanStopError` names the cells (the ticket's stop rule) and the gap is a
+ * `src/city/` wrote (`streets`, `mass`, `edge`, `buildings`); nothing is chosen, moved or dropped that a layer placed. Where a layer does not say what to draw, `PlanStopError` names the cells (the ticket's stop rule) and the gap is a
  * re-cut of that layer's section.
  *
  * Four things are drawn, each from the plan's own records:
@@ -9,7 +9,8 @@
  *   asphalt, the arrow painted on it, 0 m high) turned so its arrow points with the traffic (`PLAN_FRONTS`);
  * - the kerb: `planKerbPlan` turns `edge.kerb` into the faces the pieces and code strips stand on, recomputing no line;
  * - the interiors: every `mass.cells` cell that is not built, through `interiorGroupOf` (`massInteriorItems`), with `ParkingLines_01` over each row of a court's stalls;
- * - the mass: every built cell is a plain grey box, `CITY_STOREYS.min` storeys high, one `InstancedMesh`.
+ * - the buildings (G): every piece of every column of the `buildings` layer, cloned from the pack at the placement stage 5 wrote (key, position, turn; never scaled), one group per building painted in its colourway;
+ *   and one grey `InstancedMesh` box per column (the ground storey's slot until stage 7 places its pieces, or the whole column where a model is missing).
  * No props, gates or passage floors are drawn (stages 7 and 8 have none yet).
  */
 
@@ -26,24 +27,23 @@ import {
   Scene,
   Vector3,
   type Material,
+  type Texture,
   type WebGLRenderer,
 } from "three";
-import { type AssetEntry, type CalibrationKey, type CityCell, type CityGroundCell, type CityKerbPath, type CityMassLayer, type CityPlan, type CityPlanRun, type CitySide, type CityStageFailure, type CityStreetsLayer } from "../core";
+import { type AssetEntry, type CalibrationKey, type CityBuildingsLayer, type CityCell, type CityGroundCell, type CityKerbPath, type CityMassLayer, type CityPieceRole, type CityPlacement, type CityPlan, type CityPlanRun, type CitySide, type CityStageFailure, type CityStreetsLayer } from "../core";
 import { runCity } from "../city/pipeline";
 import type { Insets } from "../render/geometry";
-import { CITY_STOREYS } from "./citymetrics";
 import { createDayToggle, pageDayToggleHost, type DayToggle, type DayToggleHost } from "./daytoggle";
 import { applyLightMode, addSurface, newLightOwners, setRendererMode, type LightOwners } from "./lightrig";
 import { lightModeFor, type LightModeId } from "./lighting";
 import { WORLD_PER_METRE } from "./models";
-import { sharedTileModels, tileInput, type ModelSet } from "./models3d";
+import { allStackKeys, createColourwayCache, paintStack, sharedTileModels, stackRoots, tileInput, type ModelSet } from "./models3d";
 import { planViewRequested } from "./planview";
 import type { MapRenderer3d } from "./renderer";
 import { GROUND } from "./scene";
 import { STREET_CAM_BACK_M, STREET_CAM_EYE_M, STREET_CAM_FOV_DEG, STREET_CAM_LOOK_M } from "./streetcam";
 import { SIDEWALK_WALK_M, TILE_M, type TileCell, type TileYaw } from "./tilecity";
 import { createCityRig, interiorGroupOf, propInput, tileGroupOf, tileKeyOf, type CityRig, type InteriorDraw, type TileDraw } from "./tilecity3d";
-import { STOREY_M } from "./town";
 import { CITY_GROUND_VARIANT as V } from "../core";
 import type { KerbFace, KerbPlan, Mp } from "./kerbline";
 import {
@@ -328,41 +328,146 @@ export function massInteriorItems(mass: CityMassLayer): InteriorItem[] {
   return items;
 }
 
-// ---- the mass ----
+// ---- the buildings (ticket 070 G) ----
 
-/** The grey of the massing: a plain grey box (no style, no colourway: those are stages 5 and later). */
+/** The grey of the placeholder: a plain grey box (the ground storey until stage 7 places its pieces, and a whole column whose models are missing). */
 export const MASS_GREY = 0x8f949c;
-/** How high a built cell stands, metres: `CITY_STOREYS.min` storeys. */
-export const MASS_HEIGHT_M = CITY_STOREYS.min * STOREY_M;
 
-export interface MassDraw {
+/** One piece of one column, as `plan3dGroups` draws it: the building it belongs to, its column's cell, its role, its placement as stage 5 wrote it, and its own building's colourway. */
+export interface PlanPieceDraw {
+  readonly building: string;
+  readonly column: CityCell;
+  readonly role: CityPieceRole;
+  readonly placement: CityPlacement;
+  readonly colourway: string;
+}
+
+/**
+ * Every piece of every column of the buildings layer, in `columns` order and each column's pieces bottom up: the list `plan3dGroups` draws exactly. A layer with no `columns`, a column whose building is not in the layer,
+ * a column with no roof (or more than one), or a piece whose key is not one the page loads for stacks (`allStackKeys`) is a gap in stage 5's layer: `PlanStopError`, the cells named. Pure.
+ */
+export function planPieceDraws(buildings: CityBuildingsLayer): PlanPieceDraw[] {
+  const columns = buildings.columns;
+  if (!columns) throw new PlanStopError("the buildings layer has no columns (stage 5 writes them from F2)", []);
+  const colourway = new Map(buildings.buildings.map((b) => [b.id, b.colourway] as const));
+  const known = new Set<CalibrationKey>(allStackKeys());
+  const out: PlanPieceDraw[] = [];
+  for (const c of columns) {
+    const cell = { i: c.i, j: c.j };
+    const own = colourway.get(c.building);
+    if (own === undefined) throw new PlanStopError(`column ${c.i},${c.j} is in building ${c.building}, which the layer does not hold`, [cell]);
+    if (c.pieces.filter((p) => p.role === "roof").length !== 1) throw new PlanStopError(`column ${c.i},${c.j} has no single roof piece`, [cell]);
+    for (const p of c.pieces) {
+      if (!known.has(p.placement.key)) throw new PlanStopError(`column ${c.i},${c.j} has a piece (${p.placement.key}) that is not a stack key the page loads`, [cell]);
+      out.push({ building: c.building, column: cell, role: p.role, placement: p.placement, colourway: own });
+    }
+  }
+  return out;
+}
+
+export interface GreyDraw {
   mesh: InstancedMesh;
-  /** One instance per built cell, in `mass.built`'s order. */
+  /** One instance per column, in `columns` order. */
   count: number;
+  /** The columns drawn whole in grey, with none of their pieces cloned (a model missing, or no models at all). */
+  fallback: number;
   dispose(): void;
 }
 
-function massBoxes(mass: CityMassLayer): MassDraw {
+export interface BuildingsDraw {
+  /** One group per building (`building:<id>`), in the layer's order. */
+  groups: readonly Group[];
+  /** Every piece of every column, as listed; `pieces` of them are cloned (the rest are in columns that fell back to grey). */
+  draws: readonly PlanPieceDraw[];
+  pieces: number;
+  dispose(): void;
+}
+
+interface BuildingsBuilt {
+  buildings: BuildingsDraw;
+  grey: GreyDraw;
+}
+
+const colId = (c: CityCell): string => `${c.i},${c.j}`;
+
+/**
+ * The buildings: one `Group` per building holding one wrapper per piece (at the placement's position, turn and `WORLD_PER_METRE` scale, a clone of the key's root), painted in the building's colourway; and the grey
+ * instances, one per column: the ground slot where all of the column's pieces are drawn, else the whole column from 0 to its roof piece's height with none of its pieces cloned.
+ */
+function buildingBoxes(layer: CityBuildingsLayer, mass: CityMassLayer, roots: ReadonlyMap<CalibrationKey, Object3D>, colourways: ReadonlyMap<string, Texture> | undefined): BuildingsBuilt {
+  const draws = planPieceDraws(layer);
+  const columns = layer.columns!;
+  const at = new Set(columns.map(colId));
+  for (const b of mass.built) if (!at.has(colId(b))) throw new PlanStopError(`built cell ${b.i},${b.j} has no column in the buildings layer`, [{ i: b.i, j: b.j }]);
+  const cache = createColourwayCache();
+  const groups = new Map<string, Group>();
+  for (const b of layer.buildings) {
+    const g = new Group();
+    g.name = `building:${b.id}`;
+    g.raycast = () => {};
+    groups.set(b.id, g);
+  }
   const geometry = new BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
   const material = new MeshStandardMaterial({ color: MASS_GREY, roughness: 1 });
-  const mesh = new InstancedMesh(geometry, material, Math.max(mass.built.length, 1));
-  mesh.name = "plan:mass";
+  const mesh = new InstancedMesh(geometry, material, Math.max(columns.length, 1));
+  mesh.name = "plan:grey";
   const m = new Matrix4();
   const q = new Quaternion();
   const p = new Vector3();
-  const sc = new Vector3(TILE_M * S, MASS_HEIGHT_M * S, TILE_M * S);
-  mass.built.forEach((b, i) => mesh.setMatrixAt(i, m.compose(p.set((b.i + 0.5) * TILE_M * S, 0, (b.j + 0.5) * TILE_M * S), q, sc)));
-  mesh.count = mass.built.length;
+  const sc = new Vector3();
+  let pieces = 0;
+  let fallback = 0;
+  columns.forEach((c, n) => {
+    const whole = c.pieces.every((pc) => roots.has(pc.placement.key));
+    let top = c.ground.top_m;
+    let base = c.ground.y_m;
+    if (!whole) {
+      fallback++;
+      base = 0;
+      top = c.pieces.find((pc) => pc.role === "roof")!.placement.y_m;
+    } else {
+      const group = groups.get(c.building)!;
+      for (const pc of c.pieces) {
+        const wrap = new Group();
+        wrap.name = `piece:${pc.placement.key}`;
+        wrap.position.set(pc.placement.x_m * S, pc.placement.y_m * S, pc.placement.z_m * S);
+        wrap.rotation.y = (pc.placement.yaw_deg * Math.PI) / 180;
+        wrap.scale.setScalar(S);
+        wrap.raycast = () => {};
+        const clone = roots.get(pc.placement.key)!.clone(true);
+        clone.traverse((o) => {
+          o.raycast = () => {};
+        });
+        wrap.add(clone);
+        group.add(wrap);
+        pieces++;
+      }
+    }
+    mesh.setMatrixAt(n, m.compose(p.set((c.i + 0.5) * TILE_M * S, base * S, (c.j + 0.5) * TILE_M * S), q, sc.set(TILE_M * S, (top - base) * S, TILE_M * S)));
+  });
+  mesh.count = columns.length;
   mesh.instanceMatrix.needsUpdate = true;
   mesh.computeBoundingSphere();
   mesh.raycast = () => {};
+  for (const b of layer.buildings) paintStack(groups.get(b.id)!, b.colourway, colourways ? { colourways } : {}, cache);
   return {
-    mesh,
-    count: mass.built.length,
-    dispose() {
-      geometry.dispose();
-      material.dispose();
-      mesh.dispose();
+    buildings: {
+      groups: [...groups.values()],
+      draws,
+      pieces,
+      dispose() {
+        cache.dispose();
+      },
+    },
+    grey: {
+      mesh,
+      count: columns.length,
+      fallback,
+      dispose() {
+        geometry.dispose();
+        material.dispose();
+        mesh.dispose();
+      },
     },
   };
 }
@@ -370,11 +475,12 @@ function massBoxes(mass: CityMassLayer): MassDraw {
 // ---- plan to scene ----
 
 export interface PlanDraw {
-  /** The tiles, the interiors and the mass, in one group. */
+  /** The tiles, the interiors, the buildings and the grey boxes, in one group. */
   group: Group;
   tiles: TileDraw;
   interior: InteriorDraw;
-  mass: MassDraw;
+  buildings: BuildingsDraw;
+  grey: GreyDraw;
   /** The ground cells the street pieces were drawn from, and the interior items, as the drawing took them. */
   cells: readonly TileCell[];
   items: readonly InteriorItem[];
@@ -385,12 +491,13 @@ export interface PlanDraw {
 const NO_PROPS: readonly PropPlace[] = [];
 
 /**
- * The plan as a group (see the file's header). `roots` and `entries` are the pack's pieces by key (empty: every cell in code). Needs the `streets`, `mass` and `edge` layers, with the edge's `ground` and `kerb` (D2).
+ * The plan as a group (see the file's header). `roots` and `entries` are the pack's pieces by key (empty: every cell in code), `colourways` the loaded colourway atlases by id (none: every building keeps its pack
+ * materials). Needs the `streets`, `mass`, `edge` and `buildings` layers, with the edge's `ground` and `kerb` (D2) and the buildings' `columns` (F2).
  * Draws only: it reads the layers and writes none. Throws `PlanStopError` where a layer does not say how to draw something.
  */
-export function plan3dGroups(plan: CityPlan, roots: ReadonlyMap<CalibrationKey, Object3D>, entries: ReadonlyMap<CalibrationKey, AssetEntry>): PlanDraw {
-  const { streets, mass, edge } = plan.layers;
-  if (!streets || !mass || !edge) throw new PlanStopError("the plan has no streets, mass and edge layers to draw", []);
+export function plan3dGroups(plan: CityPlan, roots: ReadonlyMap<CalibrationKey, Object3D>, entries: ReadonlyMap<CalibrationKey, AssetEntry>, colourways?: ReadonlyMap<string, Texture>): PlanDraw {
+  const { streets, mass, edge, buildings } = plan.layers;
+  if (!streets || !mass || !edge || !buildings) throw new PlanStopError("the plan has no streets, mass, edge and buildings layers to draw", []);
   if (!edge.ground || !edge.kerb) throw new PlanStopError("the edge layer has no ground and kerb (stage 4 writes them from D2)", []);
   const set = planCells(streets, edge.ground);
   const kerb = edge.kerb;
@@ -410,31 +517,36 @@ export function plan3dGroups(plan: CityPlan, roots: ReadonlyMap<CalibrationKey, 
   );
   const items = massInteriorItems(mass);
   const interior = interiorGroupOf(items, NO_PROPS, [], [], plan.options.seed, roots, entries, INTERIOR_DRAW_CALLS_MAX);
-  const boxes = massBoxes(mass);
+  const built = buildingBoxes(buildings, mass, roots, colourways);
   const group = new Group();
   group.name = "plan3d";
-  group.add(tiles.group, interior.group, boxes.mesh);
+  group.add(tiles.group, interior.group, ...built.buildings.groups, built.grey.mesh);
   return {
     group,
     tiles,
     interior,
-    mass: boxes,
+    buildings: built.buildings,
+    grey: built.grey,
     cells: set.cells,
     items,
     kerb: tiles.kerb,
     dispose() {
       tiles.dispose();
       interior.dispose();
-      boxes.dispose();
+      built.buildings.dispose();
+      built.grey.dispose();
     },
   };
 }
 
-/** The pieces `planKeys` names that a loaded model set offers, with the trees: roots and entries by key (the way the tile city's renderer reads them). */
-export function planInput(set: ModelSet): { roots: Map<CalibrationKey, Object3D>; entries: Map<CalibrationKey, AssetEntry> } {
+/**
+ * The pieces `planKeys` names that a loaded model set offers, with the trees and the stack pieces the buildings stand on: roots and entries by key (the way the tile city's renderer reads them), and the loaded colourway
+ * atlases by id (none when the set has none).
+ */
+export function planInput(set: ModelSet): { roots: Map<CalibrationKey, Object3D>; entries: Map<CalibrationKey, AssetEntry>; colourways: ReadonlyMap<string, Texture> | undefined } {
   const input = tileInput(set);
   const props = propInput(set);
-  return { roots: new Map([...(input?.roots ?? []), ...props.roots]), entries: new Map([...(input?.entries ?? []), ...props.entries]) };
+  return { roots: new Map([...stackRoots(set), ...(input?.roots ?? []), ...props.roots]), entries: new Map([...(input?.entries ?? []), ...props.entries]), colourways: set.colourways };
 }
 
 // ---- the street camera ----
@@ -494,7 +606,7 @@ const GROUND_MARGIN_M = 60;
 const GROUND_BELOW_M = 0.02;
 
 /**
- * The 3D view of the assembled plan (dev only): the same interface as the tile city's renderer. It runs the pipeline up to the edge stage; a run that fails draws nothing and shows the failure's stage and reason as text
+ * The 3D view of the assembled plan (dev only): the same interface as the tile city's renderer. It runs the pipeline up to the buildings stage; a run that fails draws nothing and shows the failure's stage and reason as text
  * over the page. The city opens from above on the tile city's rig (day, `light=night` for the game's night; the L key and the button flip it) or, with `cam=street`, from the street (`planStreetPose`). The models load once
  * the view is up; until they do (and if they never do) every piece is code-drawn.
  */
@@ -504,7 +616,7 @@ export function createPlanAssembleRenderer3d(gl: WebGLRenderer, canvas: HTMLCanv
   // The plan page has no HUD to keep clear (the puzzle HUD is not the plan's), and the page's insets measure that HUD: a tall one leaves the rig no room to fit the city and it backs off past the far plane (blank sky). They are ignored.
   let insets: Insets = {};
   let disposed = false;
-  const run = opts.run ?? runCity({ blocksX: req.blocksX, blocksZ: req.blocksZ, seed: req.seed }, "edge");
+  const run = opts.run ?? runCity({ blocksX: req.blocksX, blocksZ: req.blocksZ, seed: req.seed }, "buildings");
   const lightId0: LightModeId = lightModeFor("tiles", opts.search, import.meta.env.DEV);
   const scene = new Scene();
   const owners: LightOwners = newLightOwners();
@@ -515,6 +627,8 @@ export function createPlanAssembleRenderer3d(gl: WebGLRenderer, canvas: HTMLCanv
   let frame = { minX: 0, minY: 0, maxX: 1, maxY: 1 };
   let ground: Mesh | null = null;
   let stopText: string | null = null;
+  /** The console line the next frame prints, once the models have swapped in (it needs the frame's own draw-call count). */
+  let report: ((calls: number) => string) | null = null;
   const plan: CityPlan | null = run.ok ? run.plan : null;
   const streetsLayer = plan?.layers.streets;
   if (!run.ok) stopText = planFailureText(run.failure);
@@ -529,10 +643,10 @@ export function createPlanAssembleRenderer3d(gl: WebGLRenderer, canvas: HTMLCanv
     addSurface(owners, "ground", ground.material as Material);
     scene.add(ground);
   }
-  const build = (roots: ReadonlyMap<CalibrationKey, Object3D>, entries: ReadonlyMap<CalibrationKey, AssetEntry>): void => {
+  const build = (roots: ReadonlyMap<CalibrationKey, Object3D>, entries: ReadonlyMap<CalibrationKey, AssetEntry>, colourways?: ReadonlyMap<string, Texture>): void => {
     if (!plan || stopText !== null) return;
     try {
-      const next = plan3dGroups(plan, roots, entries);
+      const next = plan3dGroups(plan, roots, entries, colourways);
       if (draw) {
         scene.remove(draw.group);
         draw.dispose();
@@ -605,8 +719,11 @@ export function createPlanAssembleRenderer3d(gl: WebGLRenderer, canvas: HTMLCanv
     .then((set) => {
       if (disposed || stopText !== null) return;
       const input = planInput(set);
-      build(input.roots, input.entries);
-      if (draw) console.info(`plan 3d: ${draw.tiles.fromPack} street pieces from the pack, ${draw.tiles.codeDrawn} code-drawn, ${draw.tiles.calls} + ${draw.interior.calls} draw calls (caps ${TILE_DRAW_CALLS_MAX} and ${INTERIOR_DRAW_CALLS_MAX}), ${draw.mass.count} built cells`);
+      build(input.roots, input.entries, input.colourways);
+      if (draw) {
+        const d = draw;
+        report = (calls) => `plan 3d: ${d.tiles.fromPack} street pieces from the pack, ${d.tiles.codeDrawn} code-drawn, ${d.tiles.calls} + ${d.interior.calls} draw calls (caps ${TILE_DRAW_CALLS_MAX} and ${INTERIOR_DRAW_CALLS_MAX}), ${d.buildings.groups.length} building groups, ${d.buildings.pieces} pieces cloned, ${d.grey.fallback} of ${d.grey.count} columns fell back to grey, ${calls} draw calls in the next frame`;
+      }
     })
     .catch((e: unknown) => {
       console.info(`3D models: not applied (${e instanceof Error ? e.message : String(e)}).`);
@@ -640,6 +757,11 @@ export function createPlanAssembleRenderer3d(gl: WebGLRenderer, canvas: HTMLCanv
   return {
     draw() {
       gl.render(scene, camera());
+      if (report) {
+        const line = report(gl.info?.render.calls ?? 0);
+        report = null;
+        console.info(line);
+      }
     },
     hitTest: () => null,
     resize,

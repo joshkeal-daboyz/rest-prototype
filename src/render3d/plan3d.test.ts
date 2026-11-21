@@ -7,23 +7,26 @@
 import { describe, expect, it, vi } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { Box3, Frustum, Matrix4, PerspectiveCamera, BoxGeometry, Group, InstancedMesh, Mesh, MeshBasicMaterial, Quaternion, Scene, Vector3, type Object3D, type WebGLRenderer } from "three";
-import type { AssetEntry, CalibrationKey, CityKerbPath, CityMassLayer, CityPlan, CityPlanRun, CitySide } from "../core";
+import { Box3, Frustum, Matrix4, PerspectiveCamera, BoxGeometry, Group, InstancedMesh, Mesh, MeshBasicMaterial, Quaternion, Scene, Texture, Vector3, type Object3D, type WebGLRenderer } from "three";
+import type { AssetEntry, CalibrationKey, CityBuildingsLayer, CityKerbPath, CityMassLayer, CityPlan, CityPlacement, CityPlanRun, CitySide } from "../core";
 import { stableHash } from "../render/city";
 import { digestOf, runCity } from "../city/pipeline";
 import type { CityStageDef } from "../city/pipeline/types";
+import { buildingsStage } from "../city/buildings/stage";
 import { edgeStage } from "../city/edge/stage";
 import { landStage } from "../city/land/stage";
 import { massStage } from "../city/mass/stage";
 import { streetsStageWith } from "../city/streets/stage";
-import { CITY_STOREYS } from "./citymetrics";
 import { KERB_GAP_MAX_M, KERB_HEIGHT_TOL_M, KERB_TOL_M, type KerbFace, type KerbPlan, type Mp } from "./kerbline";
 import {
-  MASS_HEIGHT_M,
   PLAN_ARROW,
   PLAN_FRONTS,
   PLAN_LINES,
   PlanStopError,
+  planInput,
+  planPieceDraws,
+  type PlanDraw,
+  type PlanPieceDraw,
   arrowYaw,
   createPlanAssembleRenderer3d,
   kerbSegFaces,
@@ -37,11 +40,10 @@ import {
   planKeys,
   planStreetPose,
 } from "./plan3d";
-import { NO_MODELS } from "./models3d";
+import { NO_MODELS, allStackKeys, type LoadedModel, type ModelSet } from "./models3d";
 import { tileCity, TILE_M, type TileCell } from "./tilecity";
 import { interiorGroup, tileGroup } from "./tilecity3d";
 import { INTERIOR_DRAW_CALLS_MAX, INTERIOR_KEYS, KERB_INSET_M, KERB_LIP_TOP_M, PASSAGE_FLOOR_KEYS, TILE_DRAW_CALLS_MAX, TILE_FRONTS, TILE_PROPS, TILE_SLOTS, TILE_TREES, tileKeys } from "./tileslots";
-import { STOREY_M } from "./town";
 import { CITY_GROUND_VARIANT } from "../core";
 
 // ---- the 20 named runs ----
@@ -53,13 +55,13 @@ interface City {
 const NAMED: City[] = [];
 for (const way of ["on", "off"] as const) for (let seed = 1; seed <= 10; seed++) NAMED.push({ seed, way });
 const label = (o: City): string => `6 x 6 seed ${o.seed} one-way ${o.way}`;
-const offStages = (): CityStageDef[] => [streetsStageWith(0) as unknown as CityStageDef, landStage as unknown as CityStageDef, massStage as unknown as CityStageDef, edgeStage as unknown as CityStageDef];
+const offStages = (): CityStageDef[] => [streetsStageWith(0) as unknown as CityStageDef, landStage as unknown as CityStageDef, massStage as unknown as CityStageDef, edgeStage as unknown as CityStageDef, buildingsStage as unknown as CityStageDef];
 const cache = new Map<string, CityPlanRun>();
 function planOf(o: City): CityPlan {
   const k = `${o.seed}:${o.way}`;
   if (!cache.has(k)) {
     const opts = { blocksX: 6, blocksZ: 6, seed: o.seed };
-    cache.set(k, o.way === "on" ? runCity(opts, "edge") : runCity(opts, "edge", offStages()));
+    cache.set(k, o.way === "on" ? runCity(opts, "buildings") : runCity(opts, "buildings", offStages()));
   }
   const r = cache.get(k)!;
   if (!r.ok) throw new Error(`${label(o)} failed at ${r.failure.stage}: ${r.failure.reason}`);
@@ -567,8 +569,8 @@ describe("plan3dGroups, on the 20 named runs (criteria 2, 4, 5 and 6)", { timeou
       expect(flat, label(o)).toHaveLength(open.length);
       expect(new Set(flat.map((it) => cellId(it.i, it.j))).size, label(o)).toBe(open.length);
       expect(d.interior.fromPack + d.interior.codeDrawn, label(o)).toBe(d.items.length);
-      expect(d.mass.count, label(o)).toBe(mass.built.length);
-      expect(d.mass.mesh.count, label(o)).toBe(mass.built.length);
+      expect(d.grey.count, label(o)).toBe(mass.built.length);
+      expect(d.grey.mesh.count, label(o)).toBe(mass.built.length);
       expect(mass.cells.length, label(o)).toBe(open.length + mass.built.length);
       // Every kerb seg but an opening brings its faces, and the plan holds each once (the per-seg sum is the next block's test).
       expect(edge.kerb!.reduce((n, p) => n + p.segs.filter((s) => s.kind !== "opening").length, 0), label(o)).toBeGreaterThan(0);
@@ -577,8 +579,6 @@ describe("plan3dGroups, on the 20 named runs (criteria 2, 4, 5 and 6)", { timeou
       expect(d.tiles.calls, label(o)).toBeLessThanOrEqual(TILE_DRAW_CALLS_MAX);
       expect(d.interior.calls, label(o)).toBeLessThanOrEqual(INTERIOR_DRAW_CALLS_MAX);
       expect(d.group.children.filter((c) => (c as InstancedMesh).isInstancedMesh === true)).toHaveLength(1);
-      // The mass: a plain grey box a cell wide and CITY_STOREYS.min storeys high.
-      expect(MASS_HEIGHT_M).toBeCloseTo(CITY_STOREYS.min * STOREY_M, 12);
       d.dispose();
     }
   });
@@ -662,6 +662,295 @@ describe("plan3dGroups, on the 20 named runs (criteria 2, 4, 5 and 6)", { timeou
   });
 });
 
+// ---- the buildings (ticket 070 G) ----
+
+const STUB_SOURCE = new Texture();
+STUB_SOURCE.name = "PolygonCity_Texture";
+const STUB_MAT = new MeshBasicMaterial({ map: STUB_SOURCE });
+const stubRoot = (key: CalibrationKey): Object3D => {
+  const g = new Group();
+  g.name = key.slice(key.indexOf(":") + 1);
+  g.add(new Mesh(BOX, STUB_MAT));
+  return g;
+};
+/** A small group per stack key, one mesh each, whose material's map is the base atlas. `lack` leaves keys out. */
+const stackRoots = (lack: readonly CalibrationKey[] = []): Map<CalibrationKey, Object3D> => new Map(allStackKeys().filter((k) => !lack.includes(k)).map((k) => [k, stubRoot(k)] as const));
+const stubColourway = (id: string): Texture => {
+  const t = new Texture();
+  t.name = `stub-${id}`;
+  return t;
+};
+const LOADED_WAYS = new Map<string, Texture>([["01_C", stubColourway("01_C")], ["02_A", stubColourway("02_A")]]);
+const buildingsOf = (plan: CityPlan): CityBuildingsLayer => plan.layers.buildings!;
+const PINS: City[] = [1, 2, 3, 8].map((seed) => ({ seed, way: "on" }));
+/** Every piece of the layer is in the list exactly once (by the identity of its placement), and nothing else is. */
+const listedOnce = (layer: CityBuildingsLayer, draws: readonly PlanPieceDraw[]): boolean => {
+  const seen = new Map<CityPlacement, number>();
+  for (const d of draws) seen.set(d.placement, (seen.get(d.placement) ?? 0) + 1);
+  let n = 0;
+  for (const c of layer.columns!) for (const p of c.pieces) {
+    n++;
+    if (seen.get(p.placement) !== 1) return false;
+  }
+  return seen.size === n && draws.length === n;
+};
+const wrappersOf = (group: Object3D): Object3D[] => group.children.filter((c) => c.name.startsWith("piece:"));
+const meshesOf = (o: Object3D): Mesh[] => {
+  const out: Mesh[] = [];
+  o.traverse((m) => {
+    if ((m as Mesh).isMesh === true) out.push(m as Mesh);
+  });
+  return out;
+};
+/** The wrapper's world matrix is exactly its placement's position, turn about y, and WORLD_PER_METRE scale. */
+function expectPlaced(d: PlanDraw, label: string): void {
+  d.group.updateMatrixWorld(true);
+  const byBuilding = new Map<string, PlanPieceDraw[]>();
+  for (const p of d.buildings.draws) byBuilding.set(p.building, [...(byBuilding.get(p.building) ?? []), p]);
+  let wrappers = 0;
+  for (const g of d.buildings.groups) {
+    const id = g.name.slice("building:".length);
+    const pieces = byBuilding.get(id) ?? [];
+    const ws = wrappersOf(g);
+    wrappers += ws.length;
+    expect(ws, `${label} ${id}`).toHaveLength(pieces.length);
+    ws.forEach((w, n) => {
+      const pl = pieces[n]!.placement;
+      expect(w.name, `${label} ${id}`).toBe(`piece:${pl.key}`);
+      const want = new Matrix4().compose(new Vector3(pl.x_m * 0.18, pl.y_m * 0.18, pl.z_m * 0.18), new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), (pl.yaw_deg * Math.PI) / 180), new Vector3(0.18, 0.18, 0.18));
+      w.matrixWorld.elements.forEach((e, k) => expect(e, `${label} ${id} ${pl.key} [${k}]`).toBeCloseTo(want.elements[k]!, 9));
+      expect(w.children, `${label} ${id}`).toHaveLength(1);
+    });
+  }
+  expect(wrappers, label).toBe(d.buildings.draws.length);
+}
+
+describe("the buildings: pieces from placements only (criteria 2 and 3)", { timeout: 120_000 }, () => {
+  it("draws one wrapper per piece at its placement's position, turn and scale, one group per building, and every corner turn", () => {
+    const plan = planOf(DEFAULT);
+    const d = plan3dGroups(plan, stackRoots(), none.entries, LOADED_WAYS);
+    const layer = buildingsOf(plan);
+    expect(d.buildings.groups).toHaveLength(layer.buildings.length);
+    expect(d.buildings.groups.map((g) => g.name)).toEqual(layer.buildings.map((b) => `building:${b.id}`));
+    expect(d.buildings.pieces).toBe(d.buildings.draws.length);
+    expectPlaced(d, "default");
+    const corner = new Set(layer.columns!.filter((c) => c.kind === "corner").flatMap((c) => c.pieces.map((p) => p.placement.yaw_deg)));
+    expect([...corner].sort((a, b) => a - b)).toEqual([0, 90, 180, 270]);
+    d.dispose();
+  });
+
+  it("paints a building in its loaded colourway, and leaves a base building and one whose id did not load on the source material", () => {
+    const plan = planOf(DEFAULT);
+    const layer = buildingsOf(plan);
+    const d = plan3dGroups(plan, stackRoots(), none.entries, LOADED_WAYS);
+    const seen = { painted: 0, base: 0, missing: 0 };
+    for (const b of layer.buildings) {
+      const g = d.buildings.groups.find((x) => x.name === `building:${b.id}`)!;
+      for (const m of meshesOf(g)) {
+        const map = (m.material as MeshBasicMaterial).map!;
+        if (LOADED_WAYS.has(b.colourway)) {
+          expect(map.name, b.id).toBe(`stub-${b.colourway}`);
+          seen.painted++;
+        } else {
+          expect(m.material, b.id).toBe(STUB_MAT);
+          if (b.colourway === "base") seen.base++;
+          else seen.missing++;
+        }
+      }
+    }
+    expect(seen.painted).toBeGreaterThan(0);
+    expect(seen.base).toBeGreaterThan(0);
+    expect(seen.missing).toBeGreaterThan(0);
+    // The cached roots' own material is never written, and nothing is emissive.
+    expect(STUB_MAT.map).toBe(STUB_SOURCE);
+    for (const g of d.buildings.groups) for (const m of meshesOf(g)) expect((m.material as MeshBasicMaterial).color.getHex()).toBe(STUB_MAT.color.getHex());
+    // With no colourways at all, every building keeps the source material.
+    const plain = plan3dGroups(plan, stackRoots(), none.entries);
+    for (const g of plain.buildings.groups) for (const m of meshesOf(g)) expect(m.material).toBe(STUB_MAT);
+    plain.dispose();
+    d.dispose();
+  });
+
+  it("with empty roots clones no piece and draws one grey box per column at its full height; with one root missing only the columns that use it fall back", () => {
+    const plan = planOf(DEFAULT);
+    const layer = buildingsOf(plan);
+    const columns = layer.columns!;
+    const heightOf = (d: PlanDraw, n: number): { y: number; h: number } => {
+      const m = new Matrix4();
+      d.grey.mesh.getMatrixAt(n, m);
+      const p = new Vector3();
+      const s = new Vector3();
+      m.decompose(p, new Quaternion(), s);
+      return { y: p.y, h: s.y };
+    };
+    const e = plan3dGroups(plan, none.roots, none.entries);
+    expect(e.buildings.pieces).toBe(0);
+    expect(e.buildings.groups.every((g) => g.children.length === 0)).toBe(true);
+    expect(e.grey.count).toBe(columns.length);
+    expect(e.grey.mesh.count).toBe(columns.length);
+    expect(e.grey.fallback).toBe(columns.length);
+    columns.forEach((c, n) => {
+      const { y, h } = heightOf(e, n);
+      expect(y).toBeCloseTo(0, 5);
+      expect(h, `${c.i},${c.j}`).toBeCloseTo(c.pieces.find((p) => p.role === "roof")!.placement.y_m * 0.18, 5);
+    });
+    e.dispose();
+
+    const full = plan3dGroups(plan, stackRoots(), none.entries);
+    expect(full.grey.fallback).toBe(0);
+    columns.forEach((c, n) => {
+      const { y, h } = heightOf(full, n);
+      expect(y).toBeCloseTo(c.ground.y_m * 0.18, 5);
+      expect(h, `${c.i},${c.j}`).toBeCloseTo((c.ground.top_m - c.ground.y_m) * 0.18, 5);
+    });
+    full.dispose();
+
+    const count = new Map<CalibrationKey, number>();
+    for (const c of columns) for (const k of new Set(c.pieces.map((p) => p.placement.key))) count.set(k, (count.get(k) ?? 0) + 1);
+    const [lack] = [...count.entries()].sort((a, b) => b[1] - a[1])[0]!;
+    const part = plan3dGroups(plan, stackRoots([lack]), none.entries);
+    const uses = columns.filter((c) => c.pieces.some((p) => p.placement.key === lack));
+    expect(uses.length).toBeGreaterThan(0);
+    expect(uses.length).toBeLessThan(columns.length);
+    expect(part.grey.fallback).toBe(uses.length);
+    expect(part.buildings.pieces).toBe(columns.filter((c) => !uses.includes(c)).reduce((n, c) => n + c.pieces.length, 0));
+    columns.forEach((c, n) => {
+      const { h } = heightOf(part, n);
+      if (uses.includes(c)) expect(h).toBeCloseTo(c.pieces.find((p) => p.role === "roof")!.placement.y_m * 0.18, 5);
+      else expect(h).toBeCloseTo(c.ground.top_m * 0.18, 5);
+    });
+    part.dispose();
+  });
+
+  it("brings the stack pieces and the colourways of a loaded set into the plan's input", () => {
+    const key = allStackKeys()[0]!;
+    const name = key.slice(key.indexOf(":") + 1);
+    const root = stubRoot(key);
+    const set: ModelSet = { ...NO_MODELS, stack: [{ pack: "city-pack", entry: { ...entryOf(key, 0), name }, root } as unknown as LoadedModel], colourways: LOADED_WAYS };
+    const input = planInput(set);
+    expect(input.roots.get(key)).toBe(root);
+    expect(input.colourways).toBe(LOADED_WAYS);
+    expect(planInput({ ...NO_MODELS }).colourways).toBeUndefined();
+  });
+});
+
+describe("the buildings, on the 20 named runs (criterion 3)", { timeout: 120_000 }, () => {
+  it("draws only, lists every piece exactly once with its building's colourway, and gives every column one grey instance and every Ls' column its own pieces", () => {
+    let ls = 0;
+    for (const o of NAMED) {
+      const plan = planOf(o);
+      const layers = plan.layers;
+      const digests = (): Record<string, string> => ({ streets: digestOf(layers.streets), land: digestOf(layers.land), mass: digestOf(layers.mass), edge: digestOf(layers.edge), buildings: digestOf(layers.buildings) });
+      const before = digests();
+      expect(before, label(o)).toEqual({ streets: plan.digests.streets, land: plan.digests.land, mass: plan.digests.mass, edge: plan.digests.edge, buildings: plan.digests.buildings });
+      const d = plan3dGroups(plan, none.roots, none.entries);
+      expect(digests(), `${label(o)}: no layer changed`).toEqual(before);
+      const layer = buildingsOf(plan);
+      expect(listedOnce(layer, d.buildings.draws), label(o)).toBe(true);
+      const way = new Map(layer.buildings.map((b) => [b.id, b.colourway] as const));
+      for (const p of d.buildings.draws) expect(p.colourway, `${label(o)} ${p.building}`).toBe(way.get(p.building));
+      expect(d.grey.count, label(o)).toBe(layer.columns!.length);
+      expect(d.grey.mesh.count, label(o)).toBe(layers.mass!.built.length);
+      expect(layer.columns!.length, label(o)).toBe(layers.mass!.built.length);
+      // E's counts hold: every ground record, every non-built mass cell, every kerb seg but an opening.
+      const edge = layers.edge!;
+      const mass = layers.mass!;
+      expect(d.tiles.fromPack + d.tiles.codeDrawn, label(o)).toBe(edge.ground!.length);
+      expect(d.items.filter((it) => it.kind !== "stalls"), label(o)).toHaveLength(mass.cells.filter((c) => c.use !== "built").length);
+      expect(d.interior.fromPack + d.interior.codeDrawn, label(o)).toBe(d.items.length);
+      expect(d.kerb.faces.length, label(o)).toBeGreaterThan(0);
+      expect(d.tiles.calls, label(o)).toBeLessThanOrEqual(TILE_DRAW_CALLS_MAX);
+      expect(d.interior.calls, label(o)).toBeLessThanOrEqual(INTERIOR_DRAW_CALLS_MAX);
+      expect(d.group.children.filter((c) => (c as InstancedMesh).isInstancedMesh === true), `${label(o)}: the grey boxes are one call`).toHaveLength(1);
+      // An L's three columns are drawn from their own pieces, like any other column.
+      for (const b of layer.buildings.filter((x) => x.bend !== null)) {
+        ls++;
+        for (const cell of b.cells) {
+          const col = layer.columns!.find((c) => c.i === cell.i && c.j === cell.j)!;
+          expect(col.building, `${label(o)} L ${b.id}`).toBe(b.id);
+          const listed = d.buildings.draws.filter((p) => p.column.i === cell.i && p.column.j === cell.j);
+          expect(listed.map((p) => p.placement), `${label(o)} L ${b.id}`).toEqual(col.pieces.map((p) => p.placement));
+        }
+      }
+      d.dispose();
+    }
+    expect(ls).toBeGreaterThan(0);
+  });
+
+  it("builds the full group with stub roots on the default city and the four pin cities: one wrapper per listed piece, each at its placement", () => {
+    const roots = stackRoots();
+    for (const o of [DEFAULT, ...PINS]) {
+      const d = plan3dGroups(planOf(o), roots, none.entries, LOADED_WAYS);
+      expect(d.buildings.pieces, label(o)).toBe(d.buildings.draws.length);
+      expectPlaced(d, label(o));
+      d.dispose();
+    }
+  });
+
+  it("fails the exactly-once check for a draw list with one piece dropped, and with one piece listed twice", () => {
+    const layer = buildingsOf(planOf(DEFAULT));
+    const draws = planPieceDraws(layer);
+    expect(listedOnce(layer, draws)).toBe(true);
+    expect(listedOnce(layer, draws.slice(1))).toBe(false);
+    expect(listedOnce(layer, [...draws, draws[5]!])).toBe(false);
+  });
+
+  it("stops (PlanStopError, the cell named) on a buildings layer with a built cell's column removed, with no columns, with a column that has no roof, and with a piece that is not a stack key", () => {
+    const plan = planOf(DEFAULT);
+    const layer = buildingsOf(plan);
+    const withLayer = (b: CityBuildingsLayer): CityPlan => ({ ...plan, layers: { ...plan.layers, buildings: b } });
+    const first = layer.columns![0]!;
+    const cut = { ...layer, columns: layer.columns!.slice(1) };
+    let stop: unknown = null;
+    try {
+      plan3dGroups(withLayer(cut), none.roots, none.entries);
+    } catch (e) {
+      stop = e;
+    }
+    expect(stop).toBeInstanceOf(PlanStopError);
+    expect((stop as PlanStopError).cells).toEqual([{ i: first.i, j: first.j }]);
+
+    const bare = { ...layer } as { -readonly [K in keyof CityBuildingsLayer]: CityBuildingsLayer[K] };
+    delete bare.columns;
+    expect(() => plan3dGroups(withLayer(bare), none.roots, none.entries)).toThrow(PlanStopError);
+
+    const noRoof = { ...layer, columns: [{ ...first, pieces: first.pieces.filter((p) => p.role !== "roof") }, ...layer.columns!.slice(1)] };
+    expect(() => planPieceDraws(noRoof)).toThrow(/no single roof/);
+    const alien = { ...layer, columns: [{ ...first, pieces: first.pieces.map((p) => ({ ...p, placement: { ...p.placement, key: "city-pack:Nothing_01" as CalibrationKey } })) }, ...layer.columns!.slice(1)] };
+    expect(() => planPieceDraws(alien)).toThrow(/not a stack key/);
+  });
+
+  const HAVE_GLB = existsSync(join("assets", "private", "out", "city-pack.glb"));
+  it.skipIf(!HAVE_GLB)("reports the building draw calls from the converted City Pack on 6 x 6 seeds 1 and 3: the meshes each key's clones bring, times its pieces (skipped when the GLB is absent)", () => {
+    const glb = readFileSync(join("assets", "private", "out", "city-pack.glb"));
+    const jsonLen = glb.readUInt32LE(12);
+    const gltf = JSON.parse(glb.subarray(20, 20 + jsonLen).toString("utf8")) as { nodes: { name?: string; mesh?: number; children?: number[] }[]; meshes: { primitives: unknown[] }[] };
+    // One three.js mesh (one draw call) per glTF primitive under the key's node.
+    const prims = (name: string): number => {
+      const root = gltf.nodes.find((n) => n.name === name);
+      expect(root, name).toBeDefined();
+      const walk = (n: { mesh?: number; children?: number[] }): number => (n.mesh !== undefined ? gltf.meshes[n.mesh]!.primitives.length : 0) + (n.children ?? []).reduce((s, c) => s + walk(gltf.nodes[c]!), 0);
+      return walk(root!);
+    };
+    for (const o of [DEFAULT, { seed: 3, way: "on" } as City]) {
+      const draws = planPieceDraws(buildingsOf(planOf(o)));
+      const byRole = { floor: 0, floor3: 0, roof: 0 };
+      const byKey = new Map<CalibrationKey, number>();
+      let calls = 0;
+      for (const d of draws) {
+        const key = d.placement.key;
+        const n = prims(key.slice(key.indexOf(":") + 1));
+        expect(n, key).toBeGreaterThan(0);
+        calls += n;
+        byRole[d.role]++;
+        byKey.set(key, (byKey.get(key) ?? 0) + 1);
+      }
+      expect(calls).toBeGreaterThan(1);
+      console.info(`G draw calls, ${label(o)}: building calls before (E) 1, after ${calls + 1} (${calls} from ${draws.length} cloned pieces + 1 grey box call); pieces by role ${JSON.stringify(byRole)}; distinct keys ${byKey.size}`);
+    }
+  });
+});
+
 // ---- the renderer ----
 
 describe("createPlanAssembleRenderer3d and the routing (criterion 7)", () => {
@@ -679,9 +968,9 @@ describe("createPlanAssembleRenderer3d and the routing (criterion 7)", () => {
     expect(scene.userData["lightMode"]).toBe("day");
     let masses = 0;
     scene.traverse((o) => {
-      if (o.name === "plan:mass") masses += (o as InstancedMesh).count;
+      if (o.name === "plan:grey") masses += (o as InstancedMesh).count;
     });
-    expect(masses).toBe(planOf(DEFAULT).layers.mass!.built.length);
+    expect(masses).toBe(planOf(DEFAULT).layers.buildings!.columns!.length);
     ok.dispose();
 
     const failure = { stage: "mass" as const, seed: 7, blocksX: 6, blocksZ: 6, reason: "M3: cell (14, 9) has opposite open sides", cells: [{ i: 14, j: 9 }] };
@@ -692,6 +981,13 @@ describe("createPlanAssembleRenderer3d and the routing (criterion 7)", () => {
     expect(planFailureText(failure)).toBe('City plan failed at stage "mass" (seed 7, 6 x 6): M3: cell (14, 9) has opposite open sides');
     expect(info.mock.calls.some((c) => String(c[0]).includes('stage "mass"') && String(c[0]).includes("M3"))).toBe(true);
     failed.dispose();
+    const atBuildings = { stage: "buildings" as const, seed: 7, blocksX: 6, blocksZ: 6, reason: "rule 6: a row stretch of 1 cell", cells: [{ i: 3, j: 4 }] };
+    const stopped = createPlanAssembleRenderer3d(gl, fakeCanvas, planAssembleRequested("?city=plan&stage=9&seed=7")!, { dpr: 1, search: "?city=plan&stage=9&seed=7", load: async () => ({ ...NO_MODELS }), run: { ok: false, plan: planOf(DEFAULT), failure: atBuildings } });
+    await new Promise<void>((done) => setTimeout(done, 0));
+    stopped.draw(undefined as never, undefined as never, 0);
+    expect(scenes[scenes.length - 1]!.getObjectByName("plan3d")).toBeUndefined();
+    expect(planFailureText(atBuildings)).toBe('City plan failed at stage "buildings" (seed 7, 6 x 6): rule 6: a row stretch of 1 cell');
+    stopped.dispose();
     info.mockRestore();
   });
 
