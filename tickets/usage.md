@@ -286,3 +286,4 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 070 G2 | renderer (general-purpose with renderer.md) | sonnet | 176K total | - | 0 | ground storeys drawn (a5d0730) |
 | 070 G2 | gate (main session) | - | - | - | 0 | a5d0730: 154 files, 3788 passed, 25 skipped |
 | 070 G2 | code-reviewer / playtester | opus / sonnet | 56K / 17K | - | 0 | meets, must-fix 0; regressions 0 |
+| 070 H1b pre-check | pipeline-designer (general-purpose with pipeline-designer.md) | opus | 222K total | - | 0 | T1, X1, W1+LG need Josh (387b9bf) |
