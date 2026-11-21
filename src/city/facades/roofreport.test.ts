@@ -14,7 +14,7 @@ import { stageRand } from "../pipeline/seeds";
 import { runCity } from "../stages";
 import { DRESS_MAX } from "./dresskit";
 import { PARTY_WALL_KINDS } from "./partykit";
-import { ROOF_DRESSED_MIN, BIG_ROOF_RUNS_MIN, ROOF_EDGE_M, BILLBOARD_EDGE_M } from "./roofkit";
+import { ROOF_DRESSED_MIN, BIG_ROOF_RUNS_MIN, ROOF_EDGE_M, BILLBOARD_EDGE_M, WATER_TOWER_PER_BUILDINGS } from "./roofkit";
 import { roofReport } from "./roofcheck";
 import { buildRoofs, deckOf, footprintOf, lowestOfRuns, roofInsets, within, type RoofStats } from "./roofs";
 import { keyOf } from "./place";
@@ -120,6 +120,110 @@ describe("H3 report, criterion 8 (reported, not asserted, except as the ticket p
     }
     console.log(
       `H3 REPORT, named\n${lines.join("\n")}\nR8 lowest: first ${f3(minFirst.v)} on ${minFirst.run}; second ${f3(minSecond.v)} on ${minSecond.run}\nPIECES by kind ${JSON.stringify(kinds)}; roof pieces a run ${minPieces} to ${maxPieces}\nKEYS ${JSON.stringify(keys)}\nSMALL by key ${JSON.stringify(smallKeys)}; columns with one ${tot.one}, with two ${tot.two}\nBIG by column kind ${JSON.stringify(byColumn)}; by storeys ${JSON.stringify(byStoreys)}; tallest top ${f3(tot.tallest)}\nEXITS blind ${tot.exitBlind}, mid ${tot.exitMid}; fell through ${tot.exitFell}\nBILLBOARDS ${tot.billboards}; rotation fell through from them ${tot.billFell}; skipped by the run's cap ${tot.billRunCap}; RB turned away: blind ${tot.rbBlind}, mid ${tot.rbMid}, corner ${tot.rbCorner}; RK turned away (all kinds) ${tot.rkTurned}\nNV the run's lowest building took ${JSON.stringify(lowestTook)}\nCAP turned away: small ${tot.capSmall}, big ${tot.capBig}; fullest column ${maxPerColumn}\nRK insets by kit piece ${JSON.stringify(insetKinds)}; plain-port clashes ${tot.clashes}; RK failures in the layer ${tot.rkFail}\nDRESS_MAX ${DRESS_MAX}: all dressing from ${minAll.v} (${minAll.run}) to ${maxAll.v} (${maxAll.run}); runs over: ${over.length} of ${NAMED.length}${over.length > 0 ? `: ${over.join("; ")}` : ""} (reported as passed, not applied: Q24 answer 5)\nBig prop draws ${tot.drawn}, with no kind placed ${tot.noBig}`,
+    );
+  });
+
+  it("prints H3b's numbers: the water-tower cap per street block against the uncapped layer, the freed roofs and R8 (criterion 7)", () => {
+    const lines: string[] = [];
+    const med = (xs: number[]): number => (xs.length === 0 ? 0 : [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]!);
+    const tot = { buildings: 0, blocks: 0, towers: 0, towers1: 0, freed: 0, bare: 0, topped: 0, exitBlind: 0, exitMid: 0, none: 0, exits: 0, exits1: 0, pieces: 0, pieces1: 0, small: 0, small1: 0, b0: 0, b1: 0, b2: 0, b3: 0, under: 0, bigRuns: 0, bigRuns1: 0 };
+    let maxBlock = 0;
+    let towersMin = Infinity;
+    let towersMax = 0;
+    let exitsMin = Infinity;
+    let exitsMax = 0;
+    let minFirst = { v: Infinity, run: "" };
+    let minSecond = { v: Infinity, run: "" };
+    let minSecondH3 = { v: Infinity, run: "" };
+    let minFirstH3 = { v: Infinity, run: "" };
+    let maxFirstDrop = 0;
+    const medians: number[] = [];
+    let secondEqual = 0;
+    for (const o of NAMED) {
+      const r = cityOf(o);
+      expect(r.ok, label(o)).toBe(true);
+      if (!r.ok) continue;
+      const { mass, buildings, facades } = r.plan.layers;
+      const rand = stageRand("facades", o.seed);
+      const capped = buildRoofs(mass!, buildings!, facades!, rand, WATER_TOWER_PER_BUILDINGS);
+      const open = buildRoofs(mass!, buildings!, facades!, rand, 1);
+      const rep = roofReport(facades!, { mass: mass!, buildings: buildings! });
+      const rep1 = roofReport({ ...facades!, roofs: open.roofs }, { mass: mass!, buildings: buildings! });
+      const m = rep.metrics;
+      const first = m.dressed / m.buildings;
+      const second = m.bigRuns / m.runs;
+      const second1 = rep1.metrics.bigRuns / rep1.metrics.runs;
+      const first1 = rep1.metrics.dressed / rep1.metrics.buildings;
+      if (first1 < minFirstH3.v) minFirstH3 = { v: first1, run: label(o) };
+      maxFirstDrop = Math.max(maxFirstDrop, first1 - first);
+      if (second === second1) secondEqual++;
+      if (first < minFirst.v) minFirst = { v: first, run: label(o) };
+      if (second < minSecond.v) minSecond = { v: second, run: label(o) };
+      if (second1 < minSecondH3.v) minSecondH3 = { v: second1, run: label(o) };
+      const perBlock = new Map<string, { n: number; towers: number; cands: number }>();
+      for (const b of buildings!.buildings) (perBlock.get(b.block) ?? perBlock.set(b.block, { n: 0, towers: 0, cands: 0 }).get(b.block)!).n++;
+      const blockOf = new Map(buildings!.buildings.map((b) => [b.id, b.block] as const));
+      for (const p of facades!.roofs!) if (p.kind === "waterTower") perBlock.get(blockOf.get(p.building)!)!.towers++;
+      for (const p of open.roofs) if (p.kind === "waterTower") perBlock.get(blockOf.get(p.building)!)!.cands++;
+      let b0 = 0;
+      let b1 = 0;
+      let b2 = 0;
+      let b3 = 0;
+      let under = 0;
+      let bm = 0;
+      for (const v of perBlock.values()) {
+        if (v.towers === 0) b0++;
+        else if (v.towers === 1) b1++;
+        else if (v.towers === 2) b2++;
+        else b3++;
+        if (v.n < WATER_TOWER_PER_BUILDINGS) under++;
+        bm = Math.max(bm, v.towers);
+      }
+      maxBlock = Math.max(maxBlock, bm);
+      const towers = facades!.roofs!.filter((p) => p.kind === "waterTower");
+      const exits = facades!.roofs!.filter((p) => p.kind === "exit").length;
+      const exits1 = open.roofs.filter((p) => p.kind === "exit").length;
+      const dist = towers.map((p) => Math.min(...towers.filter((q) => q !== p).map((q) => Math.hypot(p.cell.i - q.cell.i, p.cell.j - q.cell.j))));
+      const md = med(dist.filter((d) => Number.isFinite(d)));
+      medians.push(md);
+      const st = capped.stats;
+      const small = facades!.roofs!.filter((p) => p.kind === "small").length;
+      tot.buildings += m.buildings;
+      tot.blocks += perBlock.size;
+      tot.towers += towers.length;
+      tot.towers1 += open.roofs.filter((p) => p.kind === "waterTower").length;
+      tot.freed += st.freed;
+      tot.bare += st.bareRuns;
+      tot.topped += st.bareRunsToppedUp;
+      tot.exitBlind += st.freedTook.exitBlind;
+      tot.exitMid += st.freedTook.exitMid;
+      tot.none += st.freedTook.none;
+      tot.exits += exits;
+      tot.exits1 += exits1;
+      tot.pieces += facades!.roofs!.length;
+      tot.pieces1 += open.roofs.length;
+      tot.small += small;
+      tot.small1 += open.roofs.filter((p) => p.kind === "small").length;
+      tot.b0 += b0;
+      tot.b1 += b1;
+      tot.b2 += b2;
+      tot.b3 += b3;
+      tot.under += under;
+      tot.bigRuns += m.bigRuns;
+      tot.bigRuns1 += rep1.metrics.bigRuns;
+      towersMin = Math.min(towersMin, towers.length);
+      towersMax = Math.max(towersMax, towers.length);
+      exitsMin = Math.min(exitsMin, exits);
+      exitsMax = Math.max(exitsMax, exits);
+      const blocks = [...perBlock.values()].map((v) => `${v.towers}/${Math.floor(v.n / WATER_TOWER_PER_BUILDINGS)}(${v.n})`).join(" ");
+      lines.push(
+        `${label(o)}: buildings ${m.buildings}, blocks ${perBlock.size} | towers ${towers.length} (uncapped ${open.stats.placed.waterTower}), blocks with 0/1/2/3+ towers ${b0}/${b1}/${b2}/${b3}, blocks under ${WATER_TOWER_PER_BUILDINGS} buildings ${under}, most on a block ${bm}, median nearest tower ${f3(md)} cells | freed roofs ${st.freed}: exit on blind ${st.freedTook.exitBlind}, on mid ${st.freedTook.exitMid}, none ${st.freedTook.none}; bare runs ${st.bareRuns}, topped up ${st.bareRunsToppedUp} | exits ${exits} (uncapped ${exits1}), share of buildings ${f3(exits / m.buildings)} (uncapped ${f3(exits1 / m.buildings)}) | R8 first ${f3(first)} (uncapped ${f3(first1)}), second ${f3(second)} (uncapped ${f3(second1)}) | roof pieces ${facades!.roofs!.length} (uncapped ${open.roofs.length}) | blocks towers/cap(buildings): ${blocks}`,
+      );
+    }
+    const n = NAMED.length;
+    const a = (x: number): string => (x / n).toFixed(1);
+    console.log(
+      `H3b REPORT, named (X = ${WATER_TOWER_PER_BUILDINGS})\n${lines.join("\n")}\nA CITY (mean of ${n}): buildings ${a(tot.buildings)}, blocks ${a(tot.blocks)}; towers ${a(tot.towers)} (${towersMin} to ${towersMax}) against ${a(tot.towers1)} uncapped; blocks with 0/1/2/3+ towers ${a(tot.b0)}/${a(tot.b1)}/${a(tot.b2)}/${a(tot.b3)}; blocks under ${WATER_TOWER_PER_BUILDINGS} buildings ${a(tot.under)}; most towers on any block ${maxBlock}; median nearest tower ${f3(medians.reduce((x, y) => x + y, 0) / n)} cells\nFREED roofs ${a(tot.freed)}: exit on blind ${a(tot.exitBlind)}, on mid ${a(tot.exitMid)}, none ${a(tot.none)}; bare runs with a freed roof ${a(tot.bare)}, topped up ${a(tot.topped)}\nEXITS ${a(tot.exits)} (${exitsMin} to ${exitsMax}) against ${a(tot.exits1)} uncapped; roof pieces ${a(tot.pieces)} against ${a(tot.pieces1)}; small props ${a(tot.small)} against ${a(tot.small1)}\nR8 lowest: first ${f3(minFirst.v)} on ${minFirst.run} (uncapped lowest first ${f3(minFirstH3.v)} on ${minFirstH3.run}; largest drop on any run ${f3(maxFirstDrop)}); second ${f3(minSecond.v)} on ${minSecond.run} (uncapped lowest second ${f3(minSecondH3.v)} on ${minSecondH3.run}); runs with a big prop ${tot.bigRuns} against ${tot.bigRuns1} uncapped; second number equal to the uncapped on ${secondEqual} of ${n} runs`,
     );
   });
 
