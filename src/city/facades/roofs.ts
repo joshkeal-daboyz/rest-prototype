@@ -1,5 +1,5 @@
 /**
- * Stage 7, H3: the roofs placed (ticket 070 H3; grammar rule 11 and M9b; readings RE, RT, BB, RB, RX, RD, RW, HC, RC and RK; NV: no novelty sign). The tile city's rooftop items (`dressBlock`'s big roof prop and small roof props,
+ * Stage 7, H3: the roofs placed (ticket 070 H3; grammar rule 11 and M9b; readings RE, RT, BB, RB, RX, RD, RW, HC, RC and RK; NV, H1c: a novelty sign only as a planned roof sign, RS). The tile city's rooftop items (`dressBlock`'s big roof prop and small roof props,
  * src/render3d/dressing.ts) and 068's roof exit, on stage 5's roof pieces. Pure: it reads `mass`, `buildings`, H1b's `dressing`, H2's and H2b's `walls` (only to count a column's pieces against the cap and to keep clear of
  * the party-wall kit) and the stage's `rand`; the kit is `roofkit.ts`.
  * - **B1/B2** a block is a building and a run is `runsOf`'s chain: the big prop's draw and every salt are per building, `RunUsed`'s billboard is per run, threaded along each run in `buildings.buildings` order.
@@ -9,6 +9,8 @@
  * - **The big prop** (at most one a building, by `P_ROOF_LARGE`): the kinds water tower, roof exit and billboard tried in a hashed rotation (NV), each over the building's mid-roof columns (mid and blind) in a hashed rotation, the exit's blind
  *   columns first (RX); the first kind and column that fits the deck (HC: no height cap) and the column's room (RC) is taken. A billboard only on a mid column with a street front (RB), at most one a run.
  * - **The exit** (RD, RW): its back on the deck's front edge, turned a half-turn so its door faces the column's back, with `ROOF_ACCESS_CLEAR_M` of deck in front of the door, as wide as the housing.
+ * - **RS (H1c)**: an optional sixth argument, the roof signs (`RoofSignPlan`: a novelty sign over one of a building's shops that drew `P_ROOF_LARGE`), takes its building's big prop in place of the kind loop in pass 1;
+ *   with none, the layer is H3b's exactly.
  * - **The small props**: each roof column without the big prop, by `P_ROOF_SMALL`, one or two (`P_ROOF_SECOND`) in its left and right halves, at a hashed spot.
  * - **RC** a piece is placed only where the column has room left after H1b's dressing, the escape's weight, H2's canopies and upper-wall props and the roof pieces already placed (a billboard counts as two; no party-wall piece counts, PW7).
  */
@@ -149,6 +151,18 @@ export function columnLoads(layer: Pick<CityFacadesLayer, "dressing" | "walls">,
 export const within = (r: { x0: number; x1: number; z0: number; z1: number }, d: Rect): boolean => r.x0 >= d.left - EPS && r.x1 <= d.right + EPS && r.z0 >= d.back - EPS && r.z1 <= d.front + EPS;
 const fitsSize = (w: number, depth: number, d: Rect): boolean => w <= d.right - d.left + EPS && depth <= d.front - d.back + EPS;
 
+/** RS (H1c): a roof novelty sign planned over one of a building's shops: the key, and the index in the building's cells of the (mid) column it stands on. */
+export interface RoofSignPlan {
+  readonly n: number;
+  readonly key: CalibrationKey;
+}
+
+/** RS: the quarter a roof novelty sign turns from its column's yaw to fit the deck: 0 where it fits as it is, else 90, else null (it does not fit). */
+export function signTurn(deck: Rect, key: CalibrationKey): 0 | 90 | null {
+  const e = roofBounds(key);
+  return fitsSize(e.w, e.d, deck) ? 0 : fitsSize(e.d, e.w, deck) ? 90 : null;
+}
+
 /**
  * The clear deck in front of an exit's door, in its column's frame (RW): as wide as its housing, `ROOF_ACCESS_CLEAR_M` deep from the door face, the door being the housing's own +z turned by its turn from the column's
  * (a half-turn: toward the column's back, so the clear deck lies between the housing and the back edge).
@@ -197,6 +211,9 @@ export interface RoofStats {
   bareRuns: number;
   bareRunsToppedUp: number;
   freedTook: { exitBlind: number; exitMid: number; none: number };
+  /** H1c (RS): roof novelty signs placed, and planned ones that did not fit when their building's turn came (never expected). */
+  novelty: number;
+  noveltyFailed: number;
 }
 
 const emptyStats = (): RoofStats => ({
@@ -215,6 +232,8 @@ const emptyStats = (): RoofStats => ({
   bareRuns: 0,
   bareRunsToppedUp: 0,
   freedTook: { exitBlind: 0, exitMid: 0, none: 0 },
+  novelty: 0,
+  noveltyFailed: 0,
 });
 
 type Big = "tower" | "exit" | "billboard";
@@ -262,6 +281,8 @@ export function buildRoofs(
   layer: Pick<CityFacadesLayer, "dressing" | "walls">,
   rand: StageRand,
   towerPer: number = WATER_TOWER_PER_BUILDINGS,
+  /** H1c, RS: the roof signs by building id (default none: H3b's layer exactly). */
+  signs: ReadonlyMap<string, RoofSignPlan> = new Map(),
 ): { roofs: CityRoofPiece[]; stats: RoofStats } {
   const ctx = makeCtx(mass, buildings);
   const insets = roofInsets(layer.walls ?? []);
@@ -300,6 +321,24 @@ export function buildRoofs(
     const { b, cols, run, order } = h;
     if (unitOf(rand("roof", "large", b.id)) >= P_ROOF_LARGE) continue;
     stats.drawn++;
+    // RS (H1c): the building's roof sign, in place of the kind loop
+    const plan = signs.get(b.id);
+    if (plan) {
+      const col = cols[plan.n]!;
+      const deck = deckOf(col, insets, ROOF_EDGE_M);
+      const turn = signTurn(deck, plan.key);
+      if (turn !== null && room(col, 1)) {
+        const e = roofBounds(plan.key);
+        const p = placeOnRoof(col, plan.key, (deck.left + deck.right) / 2, deck.front - (turn === 0 ? e.d : e.w) / 2, deckY(col), 0);
+        const placement = turn === 0 ? p : { ...p, yaw_deg: (col.yaw + turn) % 360 };
+        addLoad(col, 1);
+        h.big = [piece(h, "novelty", col, planSide(placement.yaw_deg, 0, 1), placement)];
+        h.bigN = plan.n;
+        stats.novelty++;
+        continue;
+      }
+      stats.noveltyFailed++;
+    }
     const kinds = rotated<Big>(["tower", "exit", "billboard"], rand("roof", "largekind", b.id));
     let done = false;
     for (const kind of kinds) {

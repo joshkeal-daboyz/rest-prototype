@@ -3,10 +3,11 @@
  * numbers (src/render3d/citymetrics.ts), the bounds of the 14 roof keys (as `dressing.test.ts`' and `citymetrics.test.ts`' fixtures have them), the six roof keys' bounds heights (the buildings kit's), and the numbers H3 adds:
  * `ROOF_ACCESS_CLEAR_M` (grammar rule 11), and Josh's two of 21 Nov 2026 (Q24), `ROOF_DECK_M` (RT, answer 1) and `BILLBOARD_EDGE_M` (BB, answer 2). Every copied number is pinned equal by `src/render3d/roofpin.test.ts` while both
  * paths exist (this folder cannot import `src/render3d/`, R-1). A piece's pivot is its bounds' centre in x and z and its base at y; every key's own front is +z (`DRESS_NUDGE_M` and `DRESS_FRONTS` are empty), so the roof exit's door,
- * the recessed face the GLB shows, is its own +z (RD). No novelty key: H3 places no novelty sign (NV; section H1c's).
+ * the recessed face the GLB shows, is its own +z (RD). The 17 novelty keys' bounds are `noveltykit.ts`' (H1c: `roofBounds` reads them; `ROOF_BOUNDS` is H3's table, unchanged).
  */
 
 import type { CalibrationKey, CityRoofPieceKind } from "../../core";
+import { NOVELTY_BOUNDS } from "./noveltykit";
 
 const key = (name: string): CalibrationKey => `city-pack:${name}`;
 const seq = (prefix: string, ...nn: string[]): CalibrationKey[] => nn.map((n) => key(`${prefix}${n}`));
@@ -78,9 +79,9 @@ export const ROOF_BOUNDS: Readonly<Record<CalibrationKey, RoofBounds>> = {
   ...Object.fromEntries(BILLBOARD_FACES.map((k) => [k, b(4.193, 2.028, 0.118)] as const)),
 };
 
-/** The bounds of a roof key: throws on a key that is not in the table. */
+/** The bounds of a roof key (H1c: or a novelty key, `noveltykit.ts`'): throws on a key that is in neither table. */
 export function roofBounds(k: CalibrationKey): RoofBounds {
-  const e = ROOF_BOUNDS[k];
+  const e = ROOF_BOUNDS[k] ?? NOVELTY_BOUNDS[k];
   if (!e) throw new Error(`${k} is not in the roof table`);
   return e;
 }

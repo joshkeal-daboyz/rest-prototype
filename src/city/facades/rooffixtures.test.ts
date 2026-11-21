@@ -153,9 +153,10 @@ describe("the failing fixtures (criterion 5)", () => {
     expect(has(checkWith(roofs), "roofs", "billboards")).toBe(true);
   });
 
-  it("a novelty piece (LargeSign_Pizza_01) put on a street mid column with room for it fails the roofs (NV)", () => {
-    const spot = freeStreetMid((c) => streetMid(ctx, c));
-    expect(spot, "the default city has a free street mid column").toBeDefined();
+  it("a novelty piece (LargeSign_Pizza_01) put on a street mid column with room for it that is not a shop's (a door's or a floor's) fails the roofs (NV; H1c)", () => {
+    const shopCells = new Set(facades.shops!.flatMap((s) => s.cells.map(key)));
+    const spot = freeStreetMid((c) => streetMid(ctx, c) && !shopCells.has(key(c)));
+    expect(spot, "the default city has a free street mid column that is not a shop's").toBeDefined();
     const { col, building } = spot!;
     const roofs = roofsOf();
     roofs.push({ kind: "novelty", building, cell: { i: col.i, j: col.j }, facing: col.front, placement: placeOnRoof(col, "city-pack:SM_Prop_LargeSign_Pizza_01", 0, 0, deckY(col), 0) });
