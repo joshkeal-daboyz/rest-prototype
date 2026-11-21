@@ -266,8 +266,8 @@ describe("the checks hold on the named runs (criterion 4)", { timeout: 120_000 }
 
 describe("the picture (criterion 5, R-5)", { timeout: 120_000 }, () => {
   it("has one legend entry per ground kind and 0 elsewhere, and (H1b) four entries for the dressing's points; its size is the lattice's; each built cell's entry is its piece's kind; each point is a piece's, with its own legend", () => {
-    expect(FACADES_LEGEND).toHaveLength(12);
-    expect(FACADES_LEGEND.map((e) => e.name)).toEqual(["no ground piece", "shop", "double shop", "shop corner", "residents' door", "corner door", "floor", "corner floor", "awning", "fascia sign", "blade sign", "ATM"]);
+    expect(FACADES_LEGEND).toHaveLength(15);
+    expect(FACADES_LEGEND.map((e) => e.name)).toEqual(["no ground piece", "shop", "double shop", "shop corner", "residents' door", "corner door", "floor", "corner floor", "awning", "fascia sign", "blade sign", "ATM", "fire escape", "door canopy", "wall prop"]);
     for (const o of [DEFAULT, { ...DEFAULT, seed: 2 }]) {
       const r = cityOf(o);
       if (!r.ok) throw new Error(label(o));
@@ -276,9 +276,11 @@ describe("the picture (criterion 5, R-5)", { timeout: 120_000 }, () => {
       expect(pictureProblems(pic, s.w, s.h)).toEqual([]);
       expect(pic.stage).toBe("facades");
       const v = viewOf(o);
-      // one point per awning, fascia sign, blade sign and ATM, at the piece's x_m, z_m, in the dressing's order; glass has none
+      // one point per awning, fascia sign, blade sign and ATM, at the piece's x_m, z_m, in the dressing's order; glass has none (H1b's points are unchanged); then (H2) one per escape at its first piece, one per canopy and one per wall prop, in the walls' order
       const marked = v.layer.dressing!.filter((p) => p.kind !== "glass");
-      expect(pic.points).toHaveLength(marked.length);
+      const wallMarked = v.layer.walls!.filter((p) => p.kind !== "escape" || p.storey === 1);
+      expect(pic.points).toHaveLength(marked.length + wallMarked.length);
+      expect(wallMarked.filter((p) => p.kind === "escape").length).toBeGreaterThan(100);
       expect(marked.length).toBeGreaterThan(1000);
       const legendOfKind = { awning: "awning", fasciaSign: "fascia sign", bladeSign: "blade sign", atm: "ATM" } as const;
       marked.forEach((p, n) => {
@@ -286,6 +288,13 @@ describe("the picture (criterion 5, R-5)", { timeout: 120_000 }, () => {
         expect(pt.x_m).toBe(p.placement.x_m);
         expect(pt.z_m).toBe(p.placement.z_m);
         expect(pic.legend[pt.legend]!.name).toBe(legendOfKind[p.kind as keyof typeof legendOfKind]);
+      });
+      const legendOfWall = { escape: "fire escape", canopy: "door canopy", aircon: "wall prop", planter: "wall prop" } as const;
+      wallMarked.forEach((p, n) => {
+        const pt = pic.points[marked.length + n]!;
+        expect(pt.x_m).toBe(p.placement.x_m);
+        expect(pt.z_m).toBe(p.placement.z_m);
+        expect(pic.legend[pt.legend]!.name).toBe(legendOfWall[p.kind as keyof typeof legendOfWall]);
       });
       let nonzero = 0;
       for (let j = 0; j < s.h; j++) {
@@ -313,6 +322,8 @@ describe("R-1 to R-7 for facades (criterion 6)", { timeout: 120_000 }, () => {
     expect(Object.isFrozen(r.plan.layers.facades!.ground[0]!.placement)).toBe(true);
     expect(Object.isFrozen(r.plan.layers.facades!.dressing)).toBe(true);
     expect(Object.isFrozen(r.plan.layers.facades!.dressing![0]!.placement)).toBe(true);
+    expect(Object.isFrozen(r.plan.layers.facades!.walls)).toBe(true);
+    expect(Object.isFrozen(r.plan.layers.facades!.walls![0]!.placement)).toBe(true);
   });
 
   it("stage 6 (circuit) is still not built: asking for it throws, as run.test.ts's example says", () => {
@@ -345,10 +356,11 @@ describe("R-1 to R-7 for facades (criterion 6)", { timeout: 120_000 }, () => {
 
   it("the digest pins (R-4): 6 x 6 seeds 1 (the default), 2, 3 and 8, one-way on; the layers before it are as their stages pin them", () => {
     const PINS: readonly (readonly [number, string])[] = [
-      [1, "7a95c899"],
-      [2, "2281779d"],
-      [3, "f965837b"],
-      [8, "9a3c4f10"],
+      // H2 re-pin: `walls` is new and EP changes `dressing` on escape buildings (H1b's pins were 7a95c899, 2281779d, f965837b, 9a3c4f10)
+      [1, "ce662196"],
+      [2, "e5d43765"],
+      [3, "9f4fa9c4"],
+      [8, "d0d30400"],
     ];
     const BUILDINGS_PINS: readonly (readonly [number, string])[] = [
       [1, "8a702264"],
@@ -381,7 +393,7 @@ describe("R-1 to R-7 for facades (criterion 6)", { timeout: 120_000 }, () => {
     expect(cityOf(DEFAULT).ok).toBe(true);
   });
 
-  const FILES = ["check.ts", "constants.ts", "facts.ts", "hash.ts", "index.ts", "kit.ts", "place.ts", "stage.ts", "dress.ts", "dresscheck.ts", "dresskit.ts"];
+  const FILES = ["check.ts", "constants.ts", "facts.ts", "hash.ts", "index.ts", "kit.ts", "place.ts", "stage.ts", "dress.ts", "dresscheck.ts", "dresskit.ts", "wallkit.ts", "escape.ts", "walls.ts", "wallcheck.ts"];
   const codeOf = (f: string): string =>
     readFileSync(fileURLToPath(new URL(`./${f}`, import.meta.url)), "utf8")
       .split("\n")

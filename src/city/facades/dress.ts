@@ -9,7 +9,8 @@
  * - **W1** a column is as wide as its first floor piece's bounds; a bay spans its columns so measured. **LG** no L awning beside an L awning (the corner takes the building's flat key where it fits).
  * - **X1** a wrap (a corner's own glass, the L awning) stands on a shop corner whatever its second side faces; a single-face piece stands only where the column's front is a street side.
  * - **T1** a front-face piece reaches at most `CELL_M` past its column's front cell edge, an awning `CELL_M` - `AWNING_KERB_M`.
- * - **E1** no fire escape yet: every bay is plain. **C1** `DRESS_MAX` is not applied. **A1** is the check's.
+ * - **EP** (H2) a bay that spans an escape column is plain: no awning, no L awning, no fascia or blade sign, and not a "wanting" bay in the awning key's choice; its glass stays, and the escape takes its
+ *   column's room first. With no escape columns this is H1b's dressing exactly. **C1** `DRESS_MAX` is not applied. **A1** is the check's.
  * Every choice is `rand("dress", slot, building id, column index ...)` through `unitOf`.
  */
 
@@ -270,6 +271,8 @@ export function buildDressing(
   buildings: Pick<CityBuildingsLayer, "rows" | "columns" | "buildings">,
   ground: readonly CityGroundPiece[],
   rand: StageRand,
+  /** H2, EP: the cell key of each escape column and what its escape counts against the column's cap. Empty: H1b's dressing. */
+  escapes: ReadonlyMap<string, number> = new Map(),
 ): { dressing: CityDressingPiece[]; stats: DressStats } {
   const ctx = makeCtx(mass, buildings);
   const groundOf = new Map<string, CityGroundPiece[]>();
@@ -296,6 +299,11 @@ export function buildDressing(
     const doorBays = bays.filter((x) => x.kind === "door");
     const placed: { n: number; piece: CityDressingPiece }[] = [];
     const perColumn = new Map<number, number>();
+    b.cells.forEach((c, n) => {
+      const w = escapes.get(keyOf(c));
+      if (w !== undefined && w <= DRESS_PER_BAY_MAX) perColumn.set(n, w);
+    });
+    const plain = (bay: Bay): boolean => !bay.g.cells.some((c) => escapes.has(keyOf(c)));
 
     const emit = (bay: Bay, kind: CityDressingKind, key: CalibrationKey, wrap: boolean, x: number, y: number, z: number): boolean => {
       if ((perColumn.get(bay.n) ?? 0) + 1 > DRESS_PER_BAY_MAX) return false;
@@ -323,7 +331,7 @@ export function buildDressing(
     const awningOf = new Map<Bay, number>();
     const flatY = (bay: Bay): number => Math.max(AWNING_BASE_M, glassTop.get(bay) ?? 0);
     const tryFlat = (key: CalibrationKey, bay: Bay): { x: number; z: number } | null => (bay.frontStreet ? onFace(bay.frame, key, bay.frame.gx, flatY(bay), AWNING_REACH_M) : null);
-    const wanting = shopBays.filter((x) => unit("awning", b.id, x.n) < P_AWNING);
+    const wanting = shopBays.filter((x) => plain(x) && unit("awning", b.id, x.n) < P_AWNING);
     let best: CalibrationKey | null = null;
     let bestN = -1;
     for (const key of rotated(AWNINGS, "awningkey", b.id)) {
@@ -370,7 +378,7 @@ export function buildDressing(
     const signY = (bay: Bay): number => awnTop.get(bay) ?? Math.max(SIGN_BASE_M, glassTop.get(bay) ?? 0);
     const roofCapOk = (bay: Bay, y: number, h: number): boolean => y + bay.frame.yM + h <= bay.roofY + EPS;
     let bladeBay: Bay | null = null;
-    if (unit("blade", b.id) < P_BLADE) bladeBay = pickOf(shopBays.filter((x) => !awningOf.has(x) && x.frontStreet), "bladebay", b.id) ?? null;
+    if (unit("blade", b.id) < P_BLADE) bladeBay = pickOf(shopBays.filter((x) => plain(x) && !awningOf.has(x) && x.frontStreet), "bladebay", b.id) ?? null;
     if (bladeBay) {
       for (const key of rotated(SIGNS_BLADE, "bladekey", b.id)) {
         const y = Math.max(signY(bladeBay), SIGN_BASE_M);
@@ -384,7 +392,7 @@ export function buildDressing(
       }
     }
     for (const bay of shopBays) {
-      if (bay === bladeBay || !bay.frontStreet || unit("sign", b.id, bay.n) >= P_SIGN) continue;
+      if (bay === bladeBay || !plain(bay) || !bay.frontStreet || unit("sign", b.id, bay.n) >= P_SIGN) continue;
       for (const key of rotated(SIGNS_FASCIA, "signkey", b.id, bay.n)) {
         if (usedSigns.has(key)) continue;
         const y = signY(bay);
