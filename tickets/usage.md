@@ -282,3 +282,7 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 070 F3 | buildings (general-purpose with buildings.md) | sonnet | 82K total (incl. round 2) | - | 0 | BACK_SAME_SHARE Decided; R-4 double by name (28c31a3) |
 | 070 H1 + F3 | gate (main session) | - | - | - | 0 | 5318f5c failed 1 (buildings R-4); ba8eac3 failed 1; 80bc0e9: 154 files, 3783 passed, 25 skipped |
 | 070 F3 / H1 | code-reviewer x2 / playtester | opus / sonnet | 28K, 89K / 25K | - | 0 | both meet, must-fix 0; regressions 0 |
+| 070 H1b re-cut | lead-architect | opus | 189K total | - | 0 | H1b re-cut, CityDressingPiece types (ae39d10); asks for a pre-check |
+| 070 G2 | renderer (general-purpose with renderer.md) | sonnet | 176K total | - | 0 | ground storeys drawn (a5d0730) |
+| 070 G2 | gate (main session) | - | - | - | 0 | a5d0730: 154 files, 3788 passed, 25 skipped |
+| 070 G2 | code-reviewer / playtester | opus / sonnet | 56K / 17K | - | 0 | meets, must-fix 0; regressions 0 |
