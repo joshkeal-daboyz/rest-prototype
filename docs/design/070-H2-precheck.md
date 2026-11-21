@@ -1,5 +1,7 @@
 # 070 H2 and H2b pre-check: fire escapes, wall props and party walls on the pipeline's cells
 
+**Josh's answer (21 Nov 2026, in chat).** Asked the seven questions as recommended (1: an escape bay keeps its glass but loses its awning and signs (EP); 2: extra escapes on quiet sides, not counted in R7 (EX); 3: no escape whose ladder comes down among parked cars (ET); 4: quiet escapes may face each other across a lane, 0.78 m apart (RQ, no pair-drop rule); 5: door corners get no canopy (WP3); 6: a one-storey party wall over style 2 and 3 roofs takes only the painted board, and `Pipe_Present_01` is never used (PW3); 7: `BLANK_RUN_MAX_M` 2.1), he answered: "Yes, 2.1m". The escape share stays at 0.4.
+
 21 Nov 2026, pipeline-designer, on `goal/city-style` at 9d173c5.
 
 This is a sketch. A throwaway probe outside the repo imports the merged stages 1 to 7 read-only and runs them on the 20 named runs (6 x 6 seeds 1 to 10, one-way off and on).
