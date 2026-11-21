@@ -1,4 +1,5 @@
 /**
+ * Stage 7: facades, H3 adds `roofs` (ticket 070 H3: small roof props, one big prop a building (water tower, roof exit, billboard) and the roof exit that stands wholly on its roof, `roofs.ts`; judged by `roofcheck.ts`), placed last over what H1b, H2 and H2b placed.
  * Stage 7: facades, H2b adds the party-wall kit to `walls` (ticket 070 H2b: painted boards, windows and pipe runs on every storey face above a lower roof, `party.ts`; judged by `partycheck.ts`), after each building's H2 pieces.
  * Stage 7: facades, H2 adds `walls` (ticket 070 H2: fire escapes, door canopies, wall air-conditioners and window planters). The escapes are decided first, from `mass`, `buildings` and the ground pieces (`escape.ts`); H1b's dressing is then built
  * with the escape columns plain (EP); `walls.ts` places the canopies and the upper-wall props; `wallcheck.ts` judges them.
@@ -8,7 +9,7 @@
  * floor pieces, never a shop; a quiet ring-2 building with no door place has no door (Josh, Q21 answer 3). Reads `mass` and `buildings` (and `streets` only for the lattice's size, for the picture). Writes only `facades`.
  */
 
-import type { CalibrationKey, CityBuilding, CityBuildingsLayer, CityCell, CityColumn, CityDressingKind, CityFacadesLayer, CityGroundPiece, CityGroundPieceKind, CityMassLayer, CityPicture, CityPlan, CityWallPiece } from "../../core";
+import type { CalibrationKey, CityBuilding, CityBuildingsLayer, CityCell, CityColumn, CityDressingKind, CityFacadesLayer, CityGroundPiece, CityGroundPieceKind, CityMassLayer, CityPicture, CityPlan, CityRoofPiece, CityWallPiece } from "../../core";
 import { CityStageError } from "../pipeline/error";
 import { makePicture, type LegendEntry } from "../pipeline/picture";
 import type { StageRand } from "../pipeline/seeds";
@@ -23,6 +24,8 @@ import { DOUBLE_KEY, FIRST_FLOOR_SILL_M, GROUND_STYLES, groundEntry, type Ground
 import { keyOf, levelOf, placeGround } from "./place";
 import { mergeWalls, buildParty } from "./party";
 import { partyFailures } from "./partycheck";
+import { roofFailures } from "./roofcheck";
+import { buildRoofs } from "./roofs";
 import { wallFailures } from "./wallcheck";
 import { TILE_CITY_R7_MIN } from "./wallkit";
 import { buildWalls } from "./walls";
@@ -133,13 +136,17 @@ function run(plan: CityPlan, rand: StageRand): CityFacadesLayer {
   const h2 = buildWalls(mass, buildings, ground, dressing, escapes, rand).walls;
   // H2b: the party-wall kit, appended after each building's own H2 pieces
   const walls = mergeWalls(buildings, h2, buildParty(mass, buildings, rand).pieces);
-  const layer: CityFacadesLayer = { stage: "facades", ground, dressing, walls };
+  // H3: the roofs, last, over what H1b, H2 and H2b placed (RC: a roof piece takes only the room a column has left)
+  const roofs = buildRoofs(mass, buildings, { dressing, walls }, rand).roofs;
+  const layer: CityFacadesLayer = { stage: "facades", ground, dressing, walls, roofs };
   const dressFailed = dressFailures(layer, { mass, buildings });
   if (dressFailed.length > 0) throw new CityStageError(`${dressFailed[0]!.check}: ${dressFailed[0]!.reason}`, dressFailed[0]!.cells);
   const wallFailed = wallFailures(layer, { mass, buildings });
   if (wallFailed.length > 0) throw new CityStageError(`${wallFailed[0]!.check}: ${wallFailed[0]!.reason}`, wallFailed[0]!.cells);
   const partyFailed = partyFailures(layer, { mass, buildings });
   if (partyFailed.length > 0) throw new CityStageError(`${partyFailed[0]!.check}: ${partyFailed[0]!.reason}`, partyFailed[0]!.cells);
+  const roofFailed = roofFailures(layer, { mass, buildings });
+  if (roofFailed.length > 0) throw new CityStageError(`${roofFailed[0]!.check}: ${roofFailed[0]!.reason}`, roofFailed[0]!.cells);
   return layer;
 }
 
@@ -163,6 +170,9 @@ export const FACADES_LEGEND: readonly LegendEntry[] = [
   { name: "door canopy", rgb: 0x7088d0 },
   { name: "wall prop", rgb: 0x90c090 },
   { name: "party-wall kit", rgb: 0xc080c0 },
+  { name: "roof prop", rgb: 0x70a8e0 },
+  { name: "big roof prop", rgb: 0xe0d070 },
+  { name: "roof exit", rgb: 0xe07070 },
 ];
 
 const KINDS: readonly CityGroundPieceKind[] = ["shop", "shopDouble", "shopCorner", "door", "doorCorner", "floor", "floorCorner"];
@@ -173,6 +183,9 @@ export const legendOf = (kind: CityGroundPieceKind): number => 1 + KINDS.indexOf
 /** The legend index of a dressing kind that the picture marks with a point (glass has none). */
 /** The legend index of a wall piece the picture marks with a point: an escape's first piece ("fire escape"), a canopy ("door canopy"), an air-conditioner or a planter ("wall prop"), a party-wall kit piece ("party-wall kit"); null for the escape's other pieces. */
 export const wallLegendOf = (p: CityWallPiece): number | null => (p.kind === "escape" ? (p.storey === 1 ? 12 : null) : p.kind === "canopy" ? 13 : p.kind === "aircon" || p.kind === "planter" ? 14 : p.kind === "partyBoard" || p.kind === "partyPipe" || p.kind === "partyWindow" ? 15 : null);
+
+/** H3: the legend index of a roof piece the picture marks with a point: a small prop ("roof prop"), a water tower or a billboard's structure ("big roof prop"), an exit ("roof exit"); null for a billboard's face (and H1c adds the novelty sign's). */
+export const roofLegendOf = (p: CityRoofPiece): number | null => (p.kind === "small" ? 16 : p.kind === "waterTower" || p.kind === "billboard" ? 17 : p.kind === "exit" ? 18 : null);
 
 export const dressingLegendOf = (kind: CityDressingKind): number | null => (kind === "awning" ? 8 : kind === "fasciaSign" ? 9 : kind === "bladeSign" ? 10 : kind === "atm" ? 11 : null);
 
@@ -190,7 +203,11 @@ function picture(plan: CityPlan): CityPicture {
     const legend = wallLegendOf(p);
     return legend === null ? [] : [{ x_m: p.placement.x_m, z_m: p.placement.z_m, legend }];
   });
-  return makePicture("facades", streets.w, streets.h, FACADES_LEGEND, (i, j) => at.get(j * streets.w + i) ?? 0, [...points, ...wallPoints]);
+  const roofPoints = (layer.roofs ?? []).flatMap((p) => {
+    const legend = roofLegendOf(p);
+    return legend === null ? [] : [{ x_m: p.placement.x_m, z_m: p.placement.z_m, legend }];
+  });
+  return makePicture("facades", streets.w, streets.h, FACADES_LEGEND, (i, j) => at.get(j * streets.w + i) ?? 0, [...points, ...wallPoints, ...roofPoints]);
 }
 
 export const facadesStage: CityStageDef<"facades"> = { name: "facades", run, picture };

@@ -266,8 +266,8 @@ describe("the checks hold on the named runs (criterion 4)", { timeout: 120_000 }
 
 describe("the picture (criterion 5, R-5)", { timeout: 120_000 }, () => {
   it("has one legend entry per ground kind and 0 elsewhere, and (H1b) four entries for the dressing's points; its size is the lattice's; each built cell's entry is its piece's kind; each point is a piece's, with its own legend", () => {
-    expect(FACADES_LEGEND).toHaveLength(16);
-    expect(FACADES_LEGEND.map((e) => e.name)).toEqual(["no ground piece", "shop", "double shop", "shop corner", "residents' door", "corner door", "floor", "corner floor", "awning", "fascia sign", "blade sign", "ATM", "fire escape", "door canopy", "wall prop", "party-wall kit"]);
+    expect(FACADES_LEGEND).toHaveLength(19);
+    expect(FACADES_LEGEND.map((e) => e.name)).toEqual(["no ground piece", "shop", "double shop", "shop corner", "residents' door", "corner door", "floor", "corner floor", "awning", "fascia sign", "blade sign", "ATM", "fire escape", "door canopy", "wall prop", "party-wall kit", "roof prop", "big roof prop", "roof exit"]);
     for (const o of [DEFAULT, { ...DEFAULT, seed: 2 }]) {
       const r = cityOf(o);
       if (!r.ok) throw new Error(label(o));
@@ -279,7 +279,10 @@ describe("the picture (criterion 5, R-5)", { timeout: 120_000 }, () => {
       // one point per awning, fascia sign, blade sign and ATM, at the piece's x_m, z_m, in the dressing's order; glass has none (H1b's points are unchanged); then (H2) one per escape at its first piece, one per canopy and one per wall prop, and (H2b) one per party-wall piece ("party-wall kit"), in the walls' order
       const marked = v.layer.dressing!.filter((p) => p.kind !== "glass");
       const wallMarked = v.layer.walls!.filter((p) => p.kind !== "escape" || p.storey === 1);
-      expect(pic.points).toHaveLength(marked.length + wallMarked.length);
+      // (H3) then one per small roof prop, water tower, billboard structure and exit, in the roofs' order; a billboard's face has none
+      const roofMarked = v.layer.roofs!.filter((p) => p.kind !== "billboardFace");
+      expect(pic.points).toHaveLength(marked.length + wallMarked.length + roofMarked.length);
+      expect(roofMarked.length).toBeGreaterThan(1000);
       expect(wallMarked.filter((p) => p.kind === "escape").length).toBeGreaterThan(100);
       expect(wallMarked.filter((p) => p.kind === "partyBoard" || p.kind === "partyPipe" || p.kind === "partyWindow").length).toBeGreaterThan(500);
       expect(marked.length).toBeGreaterThan(1000);
@@ -296,6 +299,13 @@ describe("the picture (criterion 5, R-5)", { timeout: 120_000 }, () => {
         expect(pt.x_m).toBe(p.placement.x_m);
         expect(pt.z_m).toBe(p.placement.z_m);
         expect(pic.legend[pt.legend]!.name).toBe(legendOfWall[p.kind as keyof typeof legendOfWall]);
+      });
+      const legendOfRoof = { small: "roof prop", waterTower: "big roof prop", billboard: "big roof prop", exit: "roof exit" } as const;
+      roofMarked.forEach((p, n) => {
+        const pt = pic.points[marked.length + wallMarked.length + n]!;
+        expect(pt.x_m).toBe(p.placement.x_m);
+        expect(pt.z_m).toBe(p.placement.z_m);
+        expect(pic.legend[pt.legend]!.name).toBe(legendOfRoof[p.kind as keyof typeof legendOfRoof]);
       });
       let nonzero = 0;
       for (let j = 0; j < s.h; j++) {
@@ -357,12 +367,23 @@ describe("R-1 to R-7 for facades (criterion 6)", { timeout: 120_000 }, () => {
 
   it("the digest pins (R-4): 6 x 6 seeds 1 (the default), 2, 3 and 8, one-way on; the layers before it are as their stages pin them", () => {
     const PINS: readonly (readonly [number, string])[] = [
-      // H2b re-pin: the party-wall kit is appended to `walls` (H2's pins were ce662196, e5d43765, 9f4fa9c4, d0d30400; before them, H1b's 7a95c899, 2281779d, f965837b, 9a3c4f10)
-      [1, "40e4d207"],
-      [2, "06116698"],
-      [3, "60227c74"],
-      [8, "3610b49d"],
+      // H3 re-pin: `roofs` is new (H2b's pins were 40e4d207, 06116698, 60227c74, 3610b49d; before them, H2's ce662196, e5d43765, 9f4fa9c4, d0d30400; before them, H1b's 7a95c899, 2281779d, f965837b, 9a3c4f10)
+      [1, "85f425f5"],
+      [2, "40ff1675"],
+      [3, "e1ee93b5"],
+      [8, "06de80d5"],
     ];
+    // H3: `walls` is H2b's, unchanged (its digests on the four pin cities, taken from H2b's run at 4ddae06 before any H3 code)
+    const WALLS_PINS: readonly (readonly [number, string])[] = [
+      [1, "5c713506"],
+      [2, "663df51b"],
+      [3, "13d0b0a6"],
+      [8, "13cfe3b5"],
+    ];
+    for (const [seed, walls] of WALLS_PINS) {
+      const r = cityOf({ blocksX: 6, blocksZ: 6, seed, way: "on" });
+      expect(r.ok && digestOf(r.plan.layers.facades!.walls!), `seed ${seed} walls`).toBe(walls);
+    }
     // H2b: `ground` and `dressing` are H2's, unchanged (their digests on the four pin cities, as H2's run gave them)
     const H2_LAYERS: readonly (readonly [number, string, string])[] = [
       [1, "fe001069", "87f50860"],

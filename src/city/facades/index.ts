@@ -15,3 +15,6 @@ export * from "./wallcheck";
 export * from "./partykit";
 export * from "./party";
 export * from "./partycheck";
+export * from "./roofkit";
+export * from "./roofs";
+export * from "./roofcheck";
