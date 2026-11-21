@@ -299,4 +299,4 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 070 H2b re-cut (PW7) | lead-architect | opus | 64K total | - | 0 | H2's checks read H2's kinds only (e93632d) |
 | 070 H2b | facades (general-purpose with facades.md) | sonnet | 278K total (2 rounds) | - | 0 | party-wall kit (150ab12 stopped; c5b67f0) |
 | 070 H2b | gate (main session) | - | - | - | 0 | c5b67f0: 166 files, 3898 passed, 29 skipped |
-| 070 H2b | code-reviewer / playtester | opus / sonnet | see readout / 21K | - | 0 | meets, must-fix 0; regressions 0 |
+| 070 H2b | code-reviewer / playtester | opus / sonnet | 75K / 21K | - | 0 | meets, must-fix 0; regressions 0 |
