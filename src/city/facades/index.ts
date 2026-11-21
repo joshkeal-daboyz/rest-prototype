@@ -8,3 +8,7 @@ export * from "./place";
 export * from "./dresskit";
 export * from "./dress";
 export * from "./dresscheck";
+export * from "./wallkit";
+export * from "./escape";
+export * from "./walls";
+export * from "./wallcheck";

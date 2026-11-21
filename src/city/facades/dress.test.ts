@@ -67,7 +67,8 @@ describe("the dressing on the named runs (criterion 2)", { timeout: 120_000 }, (
       for (const [b, s] of keys) expect(s.size, `${label(o)} ${b}`).toBe(1);
     }
     expect(l).toBeGreaterThan(1000);
-    expect(flat).toBeGreaterThan(10000);
+    // H2 (EP): the bays over an escape column take no awning, so H1b's 10000 is now 9000 (9103 on the named runs)
+    expect(flat).toBeGreaterThan(9000);
   });
 
   it("LG: no L awning on a column beside one that carries one, in its own building or across a row neighbour; a corner bay LG turned away took a flat key where it fitted", () => {
