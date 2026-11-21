@@ -19,9 +19,10 @@ export const NAMED: readonly City[] = (["on", "off"] as const).flatMap((way) => 
 export const DEFAULT: City = { blocksX: 6, blocksZ: 6, seed: 1, way: "on" };
 export const label = (o: City): string => `${o.blocksX} x ${o.blocksZ} seed ${o.seed} one-way ${o.way}`;
 
-/** The built stages, with stage 1 swapped for the one-way-off variant when `way` is "off". */
+/** The built stages up to and including facades (stage 8 is not run here), with stage 1 swapped for the one-way-off variant when `way` is "off". */
 export const stagesOf = (way: "on" | "off", swap?: CityStageDef): CityStageDef[] => {
-  const all = way === "on" ? [...BUILT_STAGES] : [streetsStageWith(0) as unknown as CityStageDef, ...BUILT_STAGES.slice(1)];
+  const upToFacades = BUILT_STAGES.slice(0, BUILT_STAGES.findIndex((s) => s.name === "facades") + 1);
+  const all = way === "on" ? [...upToFacades] : [streetsStageWith(0) as unknown as CityStageDef, ...upToFacades.slice(1)];
   return swap ? all.map((s) => (s.name === swap.name ? swap : s)) : all;
 };
 
