@@ -1,5 +1,5 @@
 /**
- * The tile city, drawn (ticket 055, section C; dev only: `/?puzzle=<any>&view=3d&city=tiles`). `tilecity.ts` lays the cells; this file turns them into a scene.
+ * The tile city, drawn (ticket 055, section C; dev only: `/?puzzle=<any>&view=3d&city=tiles-old` since ticket 070 L1; plain `city=tiles` is the pipeline's city). `tilecity.ts` lays the cells; this file turns them into a scene.
  *
  * - `tileGroup` draws every cell: one `InstancedMesh` per City Pack key (and per sub-mesh of it), each instance at its cell centre, turned by the cell's yaw plus the key's
  *   `TILE_FRONTS` line, at `WORLD_PER_METRE` and never otherwise scaled. A cell whose role has no loaded piece is drawn in code at the same cell and level, in today's street,

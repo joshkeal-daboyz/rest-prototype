@@ -49,6 +49,7 @@ import {
   massInteriorItems,
   plan3dGroups,
   planAssembleRequested,
+  tilesPlanRequested,
   planCells,
   planFailureText,
   planKerbPlan,
@@ -1905,5 +1906,39 @@ describe("createPlanAssembleRenderer3d and the routing (criterion 7)", () => {
     expect(renderer.indexOf("planAssembleRequested(location.search)")).toBeLessThan(renderer.indexOf("planViewRequested(location.search)"));
     expect(renderer.indexOf("createPlanAssembleRenderer3d(renderer")).toBeLessThan(renderer.indexOf("createGalleryRenderer3d("));
     expect(renderer.indexOf("createPlanAssembleRenderer3d(renderer")).toBeLessThan(renderer.indexOf("buildScene(puzzle"));
+  });
+});
+
+describe("tilesPlanRequested (ticket 070 L1, criterion 1)", () => {
+  it("gives what planAssembleRequested gives for the same query with city=plan&stage=assemble", () => {
+    for (const rest of ["", "&blocks=5x4&seed=2", "&cam=street&at=3,4&dir=%2Bx", "&cam=street&at=0", "&blocks=9x0&seed=x", "&cam=street&at=nope&dir=up"]) {
+      expect(tilesPlanRequested(`?puzzle=01-first-light&view=3d&city=tiles${rest}`), rest).toEqual(planAssembleRequested(`?puzzle=01-first-light&view=3d&city=plan&stage=assemble${rest}`));
+    }
+  });
+
+  it("the bare city=tiles is the 6 x 6 seed 1 overhead view", () => {
+    expect(tilesPlanRequested("?city=tiles")).toEqual({ blocksX: 6, blocksZ: 6, seed: 1, street: false, at: null, dir: null });
+  });
+
+  it("reads blocks, seed, cam=street, at and dir", () => {
+    expect(tilesPlanRequested("?city=tiles&blocks=5x4&seed=2")).toMatchObject({ blocksX: 5, blocksZ: 4, seed: 2, street: false });
+    expect(tilesPlanRequested("?city=tiles&cam=street&at=3,4&dir=%2Bx")).toMatchObject({ street: true, at: { i: 3, j: 4 }, dir: "+x" });
+  });
+
+  it("an old-style at=0 is a null at, and does not throw", () => {
+    expect(() => tilesPlanRequested("?city=tiles&cam=street&at=0")).not.toThrow();
+    expect(tilesPlanRequested("?city=tiles&cam=street&at=0")).toMatchObject({ street: true, at: null });
+  });
+
+  it("is null for sheet=1, city=plan, city=tiles-old and no city", () => {
+    for (const s of ["?city=tiles&sheet=1", "?city=plan", "?city=plan&stage=assemble", "?city=tiles-old", "?city=tiles-old&sheet=1", "", "?stage=assemble"]) expect(tilesPlanRequested(s), s).toBeNull();
+  });
+
+  it("is routed in renderer.ts with the assembled plan, ahead of the old city branch", () => {
+    const renderer = readFileSync("src/render3d/renderer.ts", "utf8");
+    expect(renderer).toMatch(/planAssembleRequested\(location\.search\) \?\? tilesPlanRequested\(location\.search\)/);
+    expect(renderer).toMatch(/oldTilesRequested\(location\.search\)/);
+    expect(renderer.indexOf("tilesPlanRequested(location.search)")).toBeLessThan(renderer.indexOf("oldTilesRequested(location.search)"));
+    expect(renderer.indexOf("createPlanAssembleRenderer3d(renderer")).toBeLessThan(renderer.indexOf("createCityRenderer3d("));
   });
 });

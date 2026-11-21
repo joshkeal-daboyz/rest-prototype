@@ -157,6 +157,18 @@ export function planAssembleRequested(search: string): PlanAssembleRequest | nul
   };
 }
 
+/**
+ * What `city=tiles` asks (ticket 070 L1, Josh, 21 Nov 2026: "We need to integrate the new city design with the game itself."): the pipeline's city, exactly what `planAssembleRequested` gives for the same query with
+ * `city=plan&stage=assemble`. `sheet=1` is the tile sheet (a piece-orientation tool, `tileslots.ts`'s) and any other `city` is not this view: null. Pure; renderer.ts passes the address in, behind `import.meta.env.DEV`.
+ */
+export function tilesPlanRequested(search: string): PlanAssembleRequest | null {
+  const q = new URLSearchParams(search);
+  if (q.get("city") !== "tiles" || q.get("sheet") === "1") return null;
+  q.set("city", "plan");
+  q.set("stage", "assemble");
+  return planAssembleRequested(`?${q.toString()}`);
+}
+
 /** The line the failure is shown as: the stage, the seed and the size, and the reason (nothing is drawn). Pure. */
 export function planFailureText(f: CityStageFailure): string {
   return `City plan failed at stage "${f.stage}" (seed ${f.seed}, ${f.blocksX} x ${f.blocksZ}): ${f.reason}`;

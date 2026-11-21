@@ -1,6 +1,6 @@
 /**
  * The tile city's keys and flags (ticket 055, section C). Pure: no three, no DOM, no assets. Which City Pack piece draws each tile role, which way each piece's own
- * front must be turned to sit on its cell, which level it stands at, how many draw calls the tiles may take, and the page's flags (`city=tiles`).
+ * front must be turned to sit on its cell, which level it stands at, how many draw calls the tiles may take, and the page's flags (`city=tiles-old` since ticket 070 L1, and `city=tiles&sheet=1`).
  *
  * Every key is the City Pack's (`city-pack`, 5 m squares, finding 2 of the ticket). Their orientation cannot be read from bounds: it is confirmed by eye on the tile sheet
  * (`&city=tiles&sheet=1`), and a wrong one is corrected here as one `TILE_FRONTS` line. Section E added the walking level, the yellow centre line, the sheet's grid and its labels.
@@ -678,4 +678,19 @@ export function cityTilesRequested(search: string): CityTilesRequest | null {
   const seedText = (q.get("seed") ?? "").trim();
   const seed = /^-?\d+$/.test(seedText) ? Number.parseInt(seedText, 10) : 1;
   return { blocksX, blocksZ, seed: Number.isSafeInteger(seed) ? seed : 1, sheet: q.get("sheet") === "1" };
+}
+
+/**
+ * The old tile city's address after ticket 070 L1 (Josh, Q31 open): `city=tiles-old` is read as `cityTilesRequested` reads `city=tiles` (default 3 x 3, `blocks`, `seed`, `sheet`), and `city=tiles&sheet=1` still opens the tile
+ * sheet, a piece-orientation tool and not the old city. Everything else is null (plain `city=tiles` is the pipeline's city now: `plan3d.ts`'s `tilesPlanRequested`). Goes with the old path in L2. Pure.
+ */
+export function oldTilesRequested(search: string): CityTilesRequest | null {
+  const q = new URLSearchParams(search);
+  const city = q.get("city");
+  if (city === "tiles-old") {
+    q.set("city", "tiles");
+    return cityTilesRequested(`?${q.toString()}`);
+  }
+  if (city === "tiles" && q.get("sheet") === "1") return cityTilesRequested(search);
+  return null;
 }

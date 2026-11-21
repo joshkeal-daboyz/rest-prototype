@@ -37,6 +37,7 @@ import {
   TILE_TREES,
   TILE_WALK_M,
   cityTilesRequested,
+  oldTilesRequested,
   inletCells,
   passageFloorCells,
   sheetColumns,
@@ -880,5 +881,23 @@ describe("the converted City Pack agrees with 063's pieces when this machine has
     expect(lengthOf("SM_Env_Sidewalk_Straight_02", "+z")).toBeGreaterThan(RETURN_LEG_M);
     // The dip piece's own kerb is the two ends only (about 1 m in all): the 3 m between them is dipped to 0.14 m above the road, so the mouth is a dip, not a kerb.
     expect(lengthOf("SM_Env_Sidewalk_Dip_01", "+z")).toBeLessThan(1.5);
+  });
+});
+
+describe("oldTilesRequested (ticket 070 L1, criterion 2; Q31)", () => {
+  it("reads city=tiles-old as cityTilesRequested reads city=tiles: 3 x 3 by default, blocks, seed", () => {
+    expect(oldTilesRequested("?puzzle=01-first-light&view=3d&city=tiles-old")).toEqual({ blocksX: CITY_BLOCKS_DEFAULT, blocksZ: CITY_BLOCKS_DEFAULT, seed: 1, sheet: false });
+    expect(oldTilesRequested("?city=tiles-old&blocks=5x4&seed=2")).toEqual(cityTilesRequested("?city=tiles&blocks=5x4&seed=2"));
+    expect(oldTilesRequested("?city=tiles-old&blocks=0x99")).toEqual({ blocksX: 1, blocksZ: CITY_BLOCKS_MAX, seed: 1, sheet: false });
+    expect(oldTilesRequested("?city=tiles-old&blocks=2X6&seed=-7&sheet=1")).toEqual(cityTilesRequested("?city=tiles&blocks=2X6&seed=-7&sheet=1"));
+  });
+
+  it("keeps city=tiles&sheet=1 opening the tile sheet", () => {
+    expect(oldTilesRequested("?city=tiles&sheet=1")).toEqual(cityTilesRequested("?city=tiles&sheet=1"));
+    expect(oldTilesRequested("?city=tiles&sheet=1")?.sheet).toBe(true);
+  });
+
+  it("is null for everything else, plain city=tiles included (that is the pipeline's city now)", () => {
+    for (const s of ["", "?city=tiles", "?city=tiles&sheet=0", "?city=plan", "?city=Tiles-old", "?city=tiles-older", "?gallery=city-pack", "?puzzle=01-first-light&view=3d"]) expect(oldTilesRequested(s), s).toBeNull();
   });
 });

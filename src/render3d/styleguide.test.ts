@@ -27,6 +27,8 @@ import * as sills from "./sills";
 import * as stacks from "./stacks";
 import * as streetcam from "./streetcam";
 import * as terrace from "./terrace";
+import * as edgeConstants from "../city/edge/constants";
+import * as massConstants from "../city/mass/constants";
 import * as tilecity from "./tilecity";
 import * as tileslots from "./tileslots";
 import * as town from "./town";
@@ -59,6 +61,9 @@ const MODULES: Readonly<Record<string, Record<string, unknown>>> = {
   "tilecity.ts": tilecity as unknown as Record<string, unknown>,
   "tileslots.ts": tileslots as unknown as Record<string, unknown>,
   "parkmetrics.ts": parkmetrics as unknown as Record<string, unknown>,
+  // The pipeline's stage modules (ticket 070 L1: a guide line that changed reads the pipeline's constant, not the old path's). The File cell of a Numbers row is the short name.
+  "edge/constants.ts": edgeConstants as unknown as Record<string, unknown>,
+  "mass/constants.ts": massConstants as unknown as Record<string, unknown>,
 };
 
 // ---- reading the guide ----
@@ -587,10 +592,10 @@ describe("lighting.ts is drift-checked and 16.12 describes the testing daylight 
 describe("chapter 18 gives the parking rules, and the numbers it names cannot drift (ticket 056)", () => {
   const rows = table(section(/^## Numbers$/), ["Constant", "Value", "File"]);
   const refs = (file: string): string[] => rows.filter((r) => r[2] === file).map((r) => unquote(r[0]!));
-  /** The constants of 056 criterion 1, and the others chapter 18 names from tilecity.ts. */
+  /** The constants of 056 criterion 1, and the others chapter 18 names from tilecity.ts. `PARK_PER_HOME` and `PARK_SUPPLY_BAND` are the pipeline's since ticket 070 L1 (see the last describe). */
   const PARK_CONSTANTS = [
-    "PARK_PER_SHOP", "PARK_PER_HOME", "HOME_COLUMN_FLOORS", "UNIT_FLOORS_NOMINAL", "BAY_TILES_PER_BLOCK_MIN", "BAY_RUN_TILES_MAX", "KERB_GAP_MIN_M",
-    "KERB_BAY_SHARE_MAX", "BAYS_PER_100M_MAX", "LOTS_PER_BLOCK_MAX", "LOT_STALLS", "PARK_SUPPLY_BAND", "BUILDOUT_TREE_EVERY",
+    "PARK_PER_SHOP", "HOME_COLUMN_FLOORS", "UNIT_FLOORS_NOMINAL", "BAY_TILES_PER_BLOCK_MIN", "BAY_RUN_TILES_MAX", "KERB_GAP_MIN_M",
+    "KERB_BAY_SHARE_MAX", "BAYS_PER_100M_MAX", "LOTS_PER_BLOCK_MAX", "LOT_STALLS", "BUILDOUT_TREE_EVERY",
     "BAYS_PER_PARKING_TILE", "BAY_JUNCTION_CLEAR", "TILE_PARK_MIN_RUN_M", "TILE_CITY_R6_MIN",
   ];
   const text = chapter(18).join("\n");
@@ -616,8 +621,8 @@ describe("chapter 18 gives the parking rules, and the numbers it names cannot dr
     expect(parkmetrics.PARK_CHECK.P6).toBe(tilecity.BAYS_PER_100M_MAX);
   });
 
-  it("has a row for every tilecity.ts constant that chapter 18 names", () => {
-    const have = refs("tilecity.ts");
+  it("has a row for every tilecity.ts constant that chapter 18 names (the two the pipeline owns are read from its stage modules)", () => {
+    const have = [...refs("tilecity.ts"), ...refs("mass/constants.ts"), ...refs("edge/constants.ts")];
     for (const m of text.matchAll(/`([A-Z][A-Z0-9_]{2,})`/g)) {
       const name = m[1]!;
       const v = (MODULES["tilecity.ts"] as Record<string, unknown>)[name];
@@ -840,7 +845,7 @@ describe("chapter 19 gives frontage and block interiors, and the numbers it name
       for (const file of ["tilecity.ts", "facade.ts", "frontage.ts", "tileslots.ts"]) {
         const v = (MODULES[file] as Record<string, unknown>)[name];
         if (v === undefined || !numeric(v) || name === "WALL_FRONT_M" || name === "WALL_SIDE_M") continue;
-        const own = file === "frontage.ts" && reexported.has(name) ? refs("tilecity.ts") : refs(file);
+        const own = file === "frontage.ts" && reexported.has(name) ? refs("tilecity.ts") : file === "tilecity.ts" ? [...refs(file), ...refs("mass/constants.ts"), ...refs("edge/constants.ts")] : refs(file);
         checked++;
         expect(covered(own, name), `chapter 19 names ${name} of ${file}, which has no Numbers row`).toBe(true);
       }
@@ -938,5 +943,81 @@ describe("chapter 10 and 19.8 record the pavement fixes (ticket 063 A, D and H)"
     expect(text19).not.toContain("The ragged strip (`APRON_STRIP`) is always code-drawn");
     expect(text19).not.toContain("SM_Env_Sidewalk_Panel_02` for the apron");
     expect(text10).not.toContain("two plain straights");
+  });
+});
+
+// ---- ticket 070 L1: the guide and the grammar catch up with the pipeline (Josh's rulings of 19 to 21 Nov 2026) ----
+
+describe("the guide catches up with the pipeline (ticket 070 L1)", () => {
+  const rows = table(section(/^## Numbers$/), ["Constant", "Value", "File"]);
+  const refs = (file: string): string[] => rows.filter((r) => r[2] === file).map((r) => unquote(r[0]!));
+  const t18 = chapter(18).join("\n");
+  const t19 = chapter(19).join("\n");
+
+  it("pins PARK_PER_HOME and the two PARK_SUPPLY_BAND floors to the stage modules that own them, and not to the old path's 0.15 and 0.75", () => {
+    expect(massConstants.PARK_PER_HOME).toBe(0.075);
+    expect(edgeConstants.PARK_SUPPLY_BAND.lo, "P1's kerb floor (Josh, 20 Nov 2026: \"yes lower it\")").toBe(0.69);
+    expect(massConstants.PARK_SUPPLY_BAND.lo, "P2's lot band stays 0.75 to 1.5").toBe(0.75);
+    expect(massConstants.PARK_SUPPLY_BAND.hi).toBe(1.5);
+    expect(refs("mass/constants.ts")).toContain("PARK_PER_HOME");
+    expect(refs("mass/constants.ts")).toContain("PARK_SUPPLY_BAND");
+    expect(refs("edge/constants.ts")).toContain("PARK_SUPPLY_BAND");
+    expect(refs("tilecity.ts"), "the old path's 0.15 has no guide pin").not.toContain("PARK_PER_HOME");
+    expect(refs("tilecity.ts"), "the old path's 0.75 has no guide pin").not.toContain("PARK_SUPPLY_BAND");
+  });
+
+  it("states the pipeline's numbers in the lines that changed (18.1, P1, P2, 057 Q3), read from the stage modules", () => {
+    expect(t18).toContain(`\`PARK_PER_HOME\` (${massConstants.PARK_PER_HOME}) stalls in a parking lot`);
+    expect(t18).not.toContain("`PARK_PER_HOME` (0.15)");
+    expect(t18).toMatch(new RegExp(`^\\| P1 \\|.*the floor is ${edgeConstants.PARK_SUPPLY_BAND.lo}, not 0\\.75, for kerb bays only`, "m"));
+    expect(t18).toMatch(new RegExp(`^\\| P2 \\|.*\\(still ${massConstants.PARK_SUPPLY_BAND.lo} to ${massConstants.PARK_SUPPLY_BAND.hi}\\)`, "m"));
+    expect(t18).toMatch(/^\| P3 \|.*counted over the whole block side/m);
+    expect(t19).toContain(`\`PARK_PER_HOME\` is ${massConstants.PARK_PER_HOME} (18.1`);
+    expect(t18).toContain('Josh\'s ruling of 19 Nov 2026');
+    expect(t18).toContain('"Yes, all four"');
+  });
+
+  it("opens chapters 18 and 19 by saying the pipeline makes the tile city, names the stages, and keeps the old path's tables as its own", () => {
+    expect(t18).toMatch(/The tile city is made by the pipeline, stage by stage \(ticket 070;/);
+    expect(t18).toContain("stage 3's lots and units are in `src/city/mass/`");
+    expect(t18).toContain("stage 4's parking band, kerb bays and build-outs are in `src/city/edge/`");
+    expect(t18).not.toContain("The layout is in `tilecity.ts`");
+    expect(t19).toMatch(/Since ticket 070 the tile city \(`city=tiles`\) is made by the pipeline, stage by stage/);
+    expect(t19).toContain("`docs/city-grammar.md`");
+    expect(t19).toContain("`tickets/070-city-pipeline.md`");
+    expect(t18).toMatch(/Info \(070 L1\)\*\*: the two tables and the ranges below are the old path's numbers \(`city=tiles-old`, until L2\)/);
+    expect(t19).toMatch(/Info \(070 L1\)\*\*: the tables and ranges of this part are the old path's numbers \(`city=tiles-old`, until L2\)/);
+  });
+
+  it("drops the retired lines: 19.2's far-end order, 19.4's ring-2 strip, 19.6's alley rear and 18.2's 5.2 m bays", () => {
+    expect(t19).not.toContain("closes in one of three ways");
+    expect(t19).not.toMatch(/^ {4}1\. A \*\*seam\*\*/m);
+    expect(t19).toContain("a row always closes");
+    // The old words stay findable, as the old path's.
+    for (const w of ["a seam", "overshoot", "gated passage"]) expect(t19, w).toContain(w);
+    expect(t19).not.toContain("Ring 2, the strip the terraces' backs stand over");
+    expect(t19).toContain("ring 2 is buildings (grammar rule 5)");
+    expect(t19).not.toContain("an apron and not a frontage.");
+    expect(t19).toContain("a quiet frontage with a row of its own");
+    expect(t18).not.toContain("  - Columns are the lots' 5.2 m bays.");
+    expect(t18).toContain("The old path counted the lots' 5.2 m bays.");
+  });
+
+  it("writes down the whole-park and best-fit rulings (Q17, Q18), the roofs sentence (Q26) and the pipe row (J's R12 audit)", () => {
+    expect(t19).toMatch(/a whole park that nothing across a street can serve takes one tile of kerb bays on its own kerb \(D1b criterion 13;/);
+    expect(t19).toMatch(/the first tiles are handed out as a best fit over the city \(D1b criterion 12;/);
+    expect(doc).toContain("On the pipeline's city grammar rule 11 places the roof items (H3, H3b, H1c;");
+    const pipe = chapter(16).find((l) => l.startsWith("| `SM_Prop_Pipe_Present_*`"));
+    expect(pipe).toContain("`_03` stands on party walls (grammar rule 8");
+    expect(pipe).toContain("`_01` and `_02` never");
+  });
+
+  it("the stage modules the guide now names exist and export what it says", () => {
+    expect(Object.keys(edgeConstants)).toContain("PARK_SUPPLY_BAND");
+    expect(Object.keys(massConstants)).toContain("PARK_PER_HOME");
+    expect(existsSync("src/city/mass/check.ts")).toBe(true);
+    expect(existsSync("src/city/edge/check.ts")).toBe(true);
+    expect(existsSync("src/city/edge/kerbline.ts")).toBe(true);
+    expect(existsSync("src/city/land/plan.ts")).toBe(true);
   });
 });
