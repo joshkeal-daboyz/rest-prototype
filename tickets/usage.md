@@ -275,3 +275,10 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 070 G | renderer | sonnet | 138K total (one figure in the readout) | - | 0 | buildings drawn piece by piece (d8fd481) |
 | 070 G | gate (main session) | - | - | - | 0 | full gate d8fd481: tsc clean, 148 files, 3715 passed, 23 skipped |
 | 070 G | code-reviewer / playtester | opus / sonnet | 59K / 18K | - | 0 | meets, must-fix 0; regressions 0 |
+| 070 G Q20 + H1 re-cut | lead-architect | opus | 181K total (one figure in the readout) | - | 0 | Q20 recorded; H1 split into H1/H1b/G2; F3 cut (9f711b6) |
+| 070 H1 pre-check | pipeline-designer (general-purpose) | opus | 209K total (one figure in the readout) | - | 0 | did not hold; three questions (ff2da41) |
+| 070 H1 re-cut | lead-architect | opus | 84K + 38K | - | 0 | Q21 recorded (4ef1779); F3 criterion 4 (962dccd) |
+| 070 H1 | facades (general-purpose with facades.md) | sonnet | 301K total (one figure in the readout) | - | 0 | stage 7 ground storeys (5318f5c) |
+| 070 F3 | buildings (general-purpose with buildings.md) | sonnet | 82K total (incl. round 2) | - | 0 | BACK_SAME_SHARE Decided; R-4 double by name (28c31a3) |
+| 070 H1 + F3 | gate (main session) | - | - | - | 0 | 5318f5c failed 1 (buildings R-4); ba8eac3 failed 1; 80bc0e9: 154 files, 3783 passed, 25 skipped |
+| 070 F3 / H1 | code-reviewer x2 / playtester | opus / sonnet | 28K, 89K / 25K | - | 0 | both meet, must-fix 0; regressions 0 |
