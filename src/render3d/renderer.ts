@@ -15,10 +15,10 @@ import { applyModels, sharedModels, type AppliedModels } from "./models3d";
 import { applyLightMode } from "./lightrig";
 import { lightModeFor } from "./lighting";
 import { buildScene } from "./scene";
-import { createPlanAssembleRenderer3d, planAssembleRequested } from "./plan3d";
+import { createPlanAssembleRenderer3d, planAssembleRequested, tilesPlanRequested } from "./plan3d";
 import { createPlanRenderer3d, planViewRequested } from "./planview";
 import { createCityRenderer3d } from "./tilecity3d";
-import { cityTilesRequested } from "./tileslots";
+import { cityTilesRequested, oldTilesRequested } from "./tileslots";
 import { createStreetView, streetCamRequested, streetMode, type StreetView } from "./streetcam";
 import { townLayout } from "./town";
 
@@ -37,7 +37,8 @@ const glByCanvas = new WeakMap<HTMLCanvasElement, WebGLRenderer>();
 export function createMapRenderer3d(canvas: HTMLCanvasElement, puzzle: Puzzle, opts?: MapRenderer3dOptions): MapRenderer3d {
   // `?city=plan` (debug, ticket 070 A2) draws a stage of the city plan as a flat picture on a 2D canvas; a canvas keeps one kind of context for good, so this is decided before any WebGL one is made. Dev builds only, like the gallery.
   // `stage=assemble` (or 9, ticket 070 E) is the plan drawn in 3D: decided ahead of the flat picture, and routed below once the WebGL renderer is made.
-  const assemble = import.meta.env.DEV && typeof location !== "undefined" ? planAssembleRequested(location.search) : null;
+  // `?city=tiles` (without `sheet=1`, ticket 070 L1) is the same view: the pipeline's city. The old tile city is `city=tiles-old` below, until L2.
+  const assemble = import.meta.env.DEV && typeof location !== "undefined" ? planAssembleRequested(location.search) ?? tilesPlanRequested(location.search) : null;
   const planView = assemble === null && import.meta.env.DEV && typeof location !== "undefined" ? planViewRequested(location.search) : null;
   if (planView !== null) return createPlanRenderer3d(canvas, planView, { dpr: Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 2) });
   let gl = glByCanvas.get(canvas);
@@ -57,8 +58,9 @@ export function createMapRenderer3d(canvas: HTMLCanvasElement, puzzle: Puzzle, o
     const ratio = Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 2);
     return createGalleryRenderer3d(renderer, canvas, galleryPack, { insets: opts?.insets, dpr: ratio, search: location.search });
   }
-  // `?city=tiles` (debug, ticket 055 C) shows a puzzle-free city of City Pack road tiles instead of the puzzle's map (the puzzle passed in is ignored); dev builds only, like the gallery.
-  const cityTiles = import.meta.env.DEV && typeof location !== "undefined" ? cityTilesRequested(location.search) : null;
+  // `?city=tiles-old` (debug, ticket 055 C) shows the old puzzle-free city of City Pack road tiles instead of the puzzle's map (the puzzle passed in is ignored); `?city=tiles&sheet=1` is the tile sheet. Dev builds only, like the gallery.
+  // Plain `city=tiles` never reaches here (the pipeline's city took it above), so `cityTilesRequested` only answers for the sheet.
+  const cityTiles = import.meta.env.DEV && typeof location !== "undefined" ? cityTilesRequested(location.search) ?? oldTilesRequested(location.search) : null;
   if (cityTiles !== null) {
     const ratio = Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 2);
     return createCityRenderer3d(renderer, canvas, cityTiles, { insets: opts?.insets, dpr: ratio, search: location.search });

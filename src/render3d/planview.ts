@@ -27,9 +27,24 @@ export interface PlanViewRequest {
 /** The plan stages, in order: `CITY_STAGES` without "assemble". Stage numbers 1 to 8 index this list. */
 const PLAN_STAGES: readonly CityPlanStage[] = CITY_STAGES.filter((s): s is CityPlanStage => s !== "assemble");
 
-/** True exactly when the page draws the plan view: a dev build, `view=3d` and a `city=plan` request. Then the puzzle HUD is hidden. Pure. */
+/**
+ * True exactly when the page draws the plan view: a dev build, `view=3d` and a `city=plan` request, or `city=tiles` without `sheet=1` (the pipeline's city, ticket 070 L1; the sheet and `city=tiles-old` keep the HUD).
+ * Then the puzzle HUD is hidden. Pure.
+ */
 export function planHidesHud(search: string, dev: boolean): boolean {
-  return dev && new URLSearchParams(search).get("view") === "3d" && planViewRequested(search) !== null;
+  const q = new URLSearchParams(search);
+  if (!dev || q.get("view") !== "3d") return false;
+  return planViewRequested(search) !== null || (q.get("city") === "tiles" && q.get("sheet") !== "1");
+}
+
+/**
+ * The legend's column width (ticket 070 L1, Q30): the widest measured name plus the swatch (`font`) and its gap (6), never under the old `Math.max(120, font x 9)`. `measure` gives a name's width at `font`
+ * (the canvas's `measureText` in the page). Names are not wrapped or cut. Pure.
+ */
+export function legendColumnWidth(names: readonly string[], font: number, measure: (name: string, font: number) => number): number {
+  let widest = 0;
+  for (const n of names) widest = Math.max(widest, measure(n, font));
+  return Math.max(120, Math.round(font * 9), Math.ceil(widest + font + 6 + 8));
 }
 
 /** The names of the stages that are built, in order. */
@@ -227,7 +242,7 @@ export function createPlanRenderer3d(canvas: HTMLCanvasElement, req: PlanViewReq
     const pic = shown.picture;
     if (!pic) return;
     // The legend under the picture: swatch and name, in as many columns as fit.
-    const colW = Math.max(120, Math.round(font * 9));
+    const colW = legendColumnWidth(pic.legend.map((e) => e.name), font, (name) => ctx.measureText(name).width);
     const cols = Math.max(1, Math.floor((cssW - 2 * pad) / colW));
     const legendRows = Math.ceil(pic.legend.length / cols);
     const legendH = legendRows * lineH + 4;

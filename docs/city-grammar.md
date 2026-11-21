@@ -69,9 +69,9 @@ A strip, 2 cells deep, between a street and a lane (rule 4):
   - Law: "the buildings are intended to be butted up against eachother."
   - Law (chapter 2): no building model is ever shrunk or grown.
   - Measured: every apartment and shop piece is a 5.00 by 5.00 m body; the corner pieces are too, 0.10 m off the centre of their bounds (appendix A).
-- **Check M1, lattice fit** (pure, over the packed city). Every column's four body planes lie on its cell's edges within `WALL_JOINT_TOL_M` (0.02 m).
+- **Check M1, lattice fit** (pure, over the packed city). Every column's four body planes lie on its cell's edges within `WALL_JOINT_TOL_M` (0.02 m). On the ground storey the six deep shop keys stand front-aligned: their width, front and open sides lie on the cell's within 0.02 m, and their back stands up to `OVERLAP_MAX_M` (0.6 m) into the built cell behind (H1 D5; Josh, 20 Nov 2026, Q21: "Yez, all three").
   - Fails today: a three-column `Apartment_02` building is laid 15.51 m wide by its bounds, so its side walls stand 0.17 m from its neighbours'. The tile city's rows are also cut in 5.2 m bays on a 6 m band (`TERRACE_BAY_M`, `TERRACE_DEPTH_M`).
-- **Check M2, the kit holds** (`it.skipIf`, reads the GLB). Every piece of `STACK_STYLES` used by the tile city has a body of 5.00 by 5.00 m within 0.02 m (10.00 by 5.00 for `Shop_03`). A piece that fails is dropped from the tile city's styles; the lattice is not bent to fit it.
+- **Check M2, the kit holds** (`it.skipIf`, reads the GLB). Every piece of `STACK_STYLES` used by the tile city has a body of 5.00 by 5.00 m within 0.02 m (10.00 by 5.00 for `Shop_03`). A piece that fails is dropped from the tile city's styles; the lattice is not bent to fit it. The six deep shop keys are the one exception to the 5.00 m depth: on the ground storey they stand front-aligned, width, front and open sides within 0.02 m, their back up to `OVERLAP_MAX_M` (0.6 m) into the built cell behind (H1 D5; Josh, 20 Nov 2026, Q21: "Yez, all three").
 - **Open.** `Shop_04`'s back wall measures 0.27 m deeper than 5.00 behind the wall plane `WALL_FRONT_M` gives it (appendix A). Section E2 keeps "a base piece may stand deeper at the back, never shallower". The extra is then inside the column behind it and cannot be seen. E2's builder confirms.
 
 ### 2. Trim
@@ -80,7 +80,7 @@ A strip, 2 cells deep, between a street and a lane (rule 4):
 - **Why.**
   - Law (19.1): "It's okay if the buildings rest on top of the sidewalk and overlap a little bit. It is not okay if the buildings sit recessed from the sidewalk and leave a gap of nothing between them."
   - Measured: trim reaches 0.05 to 0.14 m past the side walls and up to 0.557 m past the front wall.
-- **Check.** G1 (19.7) with its numbers unchanged, now run on every open side of the built mass (lane and court faces as well as street faces).
+- **Check.** G1 (19.7) with its numbers unchanged, now run on every open side of the built mass (lane and court faces as well as street faces). `OVERLAP_MAX_M` (0.6 m) holds wall trim, not a roof's cornice, which overhangs by what the piece carries (rule 11's words; style 01 up to 0.79 m) (Josh, 20 Nov 2026, Q20, U2: "Yes to all"). Awnings, signs and ATMs are shop dressing, not trim: they reach over the pavement as rule 9's 16.5 says (at most `CELL_M` past the front cell edge, an awning `CELL_M` - `AWNING_KERB_M`), and `OVERLAP_MAX_M` holds the buildings' own trim (H1b T1; Josh, 21 Nov 2026, Q22: "Yes all three").
 - **Not verified.** Two neighbours' trims overlap by up to 0.28 m where they meet. Whether that shimmers needs a look.
 
 ### 3. The face rule (the party-wall rule)
@@ -109,7 +109,7 @@ A strip, 2 cells deep, between a street and a lane (rule 4):
 | Short side | Shape | What it is |
 | --- | --- | --- |
 | 2 cells | strip | two rows back to back, each facing its own edge; no interior |
-| 6 cells or more | court block | ring 1 faces out, ring 2 faces in onto an interior of at least 2 cells |
+| 6 cells or more | court block | ring 1 faces out, ring 2 faces in onto an interior of at least 2 cells; a part whose interior is 2 cells deep parks in its own paved yard (a drive in, six stalls along the far side, the near side the aisle), and a lane leaves no court part with a long side under 8 (Josh, 19 Nov 2026, "Yes, all four"; B2 and C2) |
 | 3, 4 or 5 cells | not laid | 3 leaves a single row or a 5 m slot between blank backs; 4 and 5 are nearly all blind columns |
 
   - **Decided (Josh, 19 Nov 2026, in chat).** Asked "Should the backs be other buildings, or the same building repeated?", he answered: "They can be either." So the building behind a ring-1 building is one of two kinds, chosen per building by hash:
@@ -136,7 +136,7 @@ A strip, 2 cells deep, between a street and a lane (rule 4):
   - Law (19.4): "Grass and pavement should fill the blank areas."
   - Law: "If you're going to have an inlet to areas between buildings it needs to be paved".
 - **Check.** G3 (no void) and G4 (courts reached) with their numbers unchanged. G3 now credits rings 1 and 2 as buildings. New in M5: every interior touches an opening.
-- **Parking.** The checks P1 to P6 and every threshold stay. Units are counted from cells: a column is a 5.0 m cell (18.2 says 5.2 m bays). Ring 2 and the lane rows add homes. My estimate for the default city is about 860 homes against 379 today, so about 129 stalls wanted. Two courts a block (`LOTS_PER_BLOCK_MAX`) give 108, which is 0.84 of demand and inside `PARK_SUPPLY_BAND`, but only if every block fits two courts, and the 6-cell-wide blocks may not. Section C1's builder measures it. If P2 does not hold it comes to Josh with the numbers (Q5); it is never met by widening the band.
+- **Parking.** The checks P1 to P6 and every threshold stay. Units are counted from cells: a column is a 5.0 m cell (18.2 now says so). Ring 2 and the lane rows add homes. `PARK_PER_HOME` is 0.075, not 0.15 (Josh, 19 Nov 2026, "Yes, all four"; C2). My estimate for the default city is about 860 homes against 379 today, so about 65 stalls wanted at 0.075 (129 at 0.15, which two courts a block could not meet). Two courts a block (`LOTS_PER_BLOCK_MAX`) hold P2 on all 13 named cities once the ratio is 0.075 and yard courts exist (`docs/070-c2-options.md`). It is never met by widening the band.
 
 ### 6. Openings: the only gaps
 
@@ -149,7 +149,7 @@ A strip, 2 cells deep, between a street and a lane (rule 4):
 | frontage lot | 2 by 2 cells, at most one block in nine (19.4) | asphalt and stall lines | turns in, with returns |
 | plaza | 2 by 2 cells at a block corner (`TILE_PLAZA_W_M`) | paving | runs straight past |
 | park | a whole block or half of one (19.6) | green, with its pavement edge | runs straight past |
-| walk-through | 1 cell wide, through both rings; only for an interior that has no drive and no lane | paved | runs straight past |
+| walk-through | 1 cell wide, through both rings; only for an interior that has no drive (a lane beside the rings is not a way in) | paved | runs straight past |
 
   - Between two openings, and between an opening and a block corner, a row is at least 2 cells long (one building).
   - **A row always closes.** Columns and openings are whole cells, so the stretch between them is a whole number of columns. There is no leftover to close. The tile city has no seam, no overshoot and no gated passage. If a row ever fails to close, the layout is wrong and the check fails; nothing is drawn to hide it.
@@ -158,7 +158,7 @@ A strip, 2 cells deep, between a street and a lane (rule 4):
   - Measured: the passages come from the outlines. "N unscaled columns span only 5.0 N to about 5.28 N metres" (19.2), so 50 of the default city's 52 rows end in a passage of 1.0 to 5.3 m. On bodies, N columns span exactly 5 N metres.
 - **Check M5, openings** (pure). Every cell of rings 1 and 2 is built or belongs to a recorded opening of the table. `TileCity.passages` is empty. Every interior touches an opening. No row stretch is 1 cell long.
   - Fails today: the default city has 50 passages, none a whole cell. A city with one opening's record removed also fails: an opening has to be laid to count (section I's fixture, kept).
-- **Decided (Josh, 19 Nov 2026, in chat).** Asked "Retire the gated passages, with a 5 m paved walk-through only where an interior has no other way in?", he answered: "Yes, retire them". So the tile city has no gated passage, and the walk-through of the table above is the only pedestrian way through a row: one cell wide, paved, and laid only for an interior with no drive and no lane.
+- **Decided (Josh, 19 Nov 2026, in chat).** Asked "Retire the gated passages, with a 5 m paved walk-through only where an interior has no other way in?", he answered: "Yes, retire them". So the tile city has no gated passage, and the walk-through of the table above is the only pedestrian way through a row: one cell wide, paved, and laid only for an interior with no drive. A lane beside the rings is not a way in (Josh, 19 Nov 2026, "Yes, all four"; C2).
 - **Open.** None.
 
 ### 7. Corners
@@ -179,12 +179,12 @@ A strip, 2 cells deep, between a street and a lane (rule 4):
 
 ### 8. Heights, and the wall above a lower roof
 
-- **Rule.** Heights are free between buildings in a row (3 to 5 storeys, neighbours differ: R2, unchanged). Where a building is taller than its neighbour, its party wall shows above the lower roof, 5 m wide and one or two storeys high. That is the only blank wall the grammar lets be seen, and it is dressed: every such storey face carries at least one piece of the **party-wall kit**, so no stretch of it longer than `BLANK_RUN_MAX_M` (3 m, section C's provisional number) is bare.
+- **Rule.** Heights are free between buildings in a row (3 to 5 storeys, neighbours differ: R2, unchanged). Where a building is taller than its neighbour, its party wall shows above the lower roof, 5 m wide and one or two storeys high. That is the only blank wall the grammar lets be seen, and it is dressed: every such storey face carries at least one piece of the **party-wall kit**, so no stretch of it longer than `BLANK_RUN_MAX_M` (2.1 m, Decided: Josh, 21 Nov 2026, Q23: "Yes, 2.1m"; H2b PW4) is bare.
 
 | Kit piece | Size | Fit |
 | --- | --- | --- |
 | `SM_Prop_Billboard_Sign_01` to `_07` (a painted board) | 4.19 by 2.03 m | one storey face, 0.4 m margins |
-| `SM_Prop_Pipe_Present_01` to `_03` (a pipe run) | 2.8 to 4.5 m wide, 4.2 to 7.1 m high | one or two storeys |
+| `SM_Prop_Pipe_Present_03` (a pipe run) | 2.8 to 4.5 m wide, 4.2 to 7.1 m high | over a two-storey step only; `_01` is never used and `_02` stands off the wall (H2b PW3, PW5; Josh, 21 Nov 2026, Q23: "Yes, 2.1m") |
 | `SM_Prop_Window_01` (a window) | 1.30 by 2.31 m | two to a storey face |
 
   - By hash, with no key twice running along a row. A fire escape never stands on a party wall: it has no window to step out of (16.11's Law).
@@ -205,7 +205,7 @@ A strip, 2 cells deep, between a street and a lane (rule 4):
 
 | Kind | Where | Ground row | Dressing |
 | --- | --- | --- | --- |
-| street | a street's pavement, a park's pavement edge, a plaza | shops, and one residents' door per building (R3, unchanged) | 16.5 unchanged: glass, awnings, signs, ATM, fire escapes, wall props |
+| street | a street's pavement, a park's pavement edge, a plaza | shops, and one residents' door per building (R3, unchanged); a shop's novelty sign is the last line of rule 11 | 16.5 unchanged: glass, awnings, signs, ATM, fire escapes, wall props |
 | quiet | a lane, a court drive, a walk-through, the court | one residents' door per building; windowed floor pieces in the other columns; no shop | door canopy, wall air-conditioners, planters, fire escapes by 058's rules, bins against the wall clear of doors |
 
   - A windowed face needs nothing more to pass rule 3: the piece's own windows are its feature.
@@ -213,7 +213,7 @@ A strip, 2 cells deep, between a street and a lane (rule 4):
 - **Why.**
   - Law (18.1): "shoppers park at the kerb"; a shop on a court or a lane has no kerb.
   - Josh's reference, as the brief records it: "every visible face carrying windows, fire escapes, awnings, signs".
-- **Check M8, quiet rows** (pure). No shop, glass, awning, fascia sign or ATM stands on a quiet frontage; every building there has exactly one door. R3 to R6 keep their thresholds and count street frontages only, as today.
+- **Check M8, quiet rows** (pure). No shop, glass, awning, fascia sign or ATM stands on a quiet frontage; every building there has exactly one door, or none on a ring-2 building with no door place (H1 D1; Josh, 20 Nov 2026, Q21: "Yez, all three"). A shop corner with one street and one quiet side keeps its wrap (its own glass and the L awning) on both faces, and its single-face pieces only on a street front (H1b X1; Josh, 21 Nov 2026, Q22: "Yes all three"). R3 to R6 keep their thresholds and count street frontages only, as today.
   - Fails on a fixture: a ring-2 building with a shop piece.
 - **Open.** None blocking. The pack's washing lines (5.21 m, the width of a lane) would suit lanes and courts; a later dressing ticket.
 
@@ -250,15 +250,17 @@ A strip, 2 cells deep, between a street and a lane (rule 4):
 - **Rule.**
   - Every built cell has exactly one roof piece of its building's own style: the mid roof on mid and blind columns, the corner roof on corner columns, turned with its column. No roof is borrowed from another style (Q-E2's default).
   - The roof's base course sits on the body. Its cornice is trim (rule 2) and overhangs by what the piece carries.
-  - Rooftop props stand `ROOF_EDGE_M` inside the body's edge, not the cornice's.
+  - A roof billboard stands `BILLBOARD_EDGE_M` (0.28 m) inside the body's edge, every other rooftop prop `ROOF_EDGE_M`, not the cornice's (H3 BB; Josh, 21 Nov 2026, Q24: "Yes to all except novelty signs ...").
   - A roof exit stands wholly on its roof with its door away from every open side of its column and 1.2 m of clear deck in front (063 G). Where its building has a blind or court-side column, it stands there.
   - A roof billboard faces a street.
+  - At most one water tower per `WATER_TOWER_PER_BUILDINGS` (16) buildings of a street block, Decided (H3b; Josh, 21 Nov 2026, Q25: "Yes to all").
+  - A novelty sign stands for the shop under it and always agrees with that shop's trade sign (H1c SK, SN). It stands flat on the wall over the shopfront, centred, above the awning or sign and under the roof line, on a street front only (H1c F), or on that shop's roof as the building's one big roof item (H1c RS). It is an extra, not a share to meet (Josh, 21 Nov 2026, Q26: "Yes, all four").
 - **Why.**
   - Josh, 19 Nov: "The building roof tiles aren't properly scaled"; "roof top exists shouldn't open to the street. They should be on the roof."
   - Measured: each mid roof's base course is 5.02 m wide, on the 5.00 m body; the cornices flare to 5.25 to 5.31 m, and to 5.6 to 5.9 m on the corner roofs (appendix A).
 - **Check M9, roofs** (pure). One roof piece per built cell, its kind matching the column's kind. E2's criterion 30 (storeys and roof aligned within `STOREY_ALIGN_TOL_M`) and G's criterion 40 stand as written.
   - Fails today: the red building, a corner roof 5.90 m wide centred over a 5.20 m outline.
-- **Not verified.** All three roofs have their deck at 0.50 m. A ring-1 building and its ring-2 partner have the same height by rule 4, so their cornices overlap along the party line at the same level. If that shimmers, ring 2's roofs sit 0.02 m lower: a move, not a scale.
+- **Not verified.** Measured since (H3 RT; Josh, 21 Nov 2026, Q24): the deck is at 0.50 m on all six roof keys (`ROOF_DECK_M`); styles 2 and 3 have a 0.744 m rim outside it. A ring-1 building and its ring-2 partner have the same height by rule 4, so their cornices overlap along the party line at the same level. If that shimmers, ring 2's roofs sit 0.02 m lower: a move, not a scale.
 
 ### 12. Variety
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { CITY_STAGES } from "../core";
 import type { CityPicture } from "../core";
 import { BUILT_STAGES } from "../city/pipeline";
-import { builtStageNames, lastGoodPicture, planHidesHud, pictureToRgba, planShown, planViewRequested, wrapLines } from "./planview";
+import { builtStageNames, lastGoodPicture, legendColumnWidth, planHidesHud, pictureToRgba, planShown, planViewRequested, wrapLines } from "./planview";
 
 describe("planViewRequested", () => {
   it("is null unless city=plan", () => {
@@ -141,11 +141,66 @@ describe("planHidesHud", () => {
   it.each([
     ["?view=3d&city=plan&stage=streets", false],
     ["?city=plan&stage=streets", true],
-    ["?view=3d&city=tiles", true],
+    ["?view=3d&city=tiles-old", true], // was city=tiles: that address is the pipeline's city since ticket 070 L1 (criterion 3)
     ["?view=3d", true],
     ["?view=3d&gallery=city", true],
     ["", true],
   ] as const)("keeps the HUD on %j (dev %s)", (search, dev) => {
     expect(planHidesHud(search, dev)).toBe(false);
+  });
+});
+
+describe("planHidesHud on city=tiles (ticket 070 L1, criterion 3)", () => {
+  it.each(["?view=3d&city=tiles", "?view=3d&city=tiles&blocks=5x4&seed=2", "?view=3d&city=tiles&cam=street"])("hides the HUD on %s in a dev build", (search) => {
+    expect(planHidesHud(search, true)).toBe(true);
+  });
+
+  it.each([
+    ["?view=3d&city=tiles&sheet=1", true],
+    ["?view=3d&city=tiles-old", true],
+    ["?view=3d&city=tiles-old&sheet=1", true],
+    ["?view=3d&city=tiles", false],
+    ["?city=tiles", true],
+  ] as const)("keeps the HUD on %j (dev %s)", (search, dev) => {
+    expect(planHidesHud(search, dev)).toBe(false);
+  });
+});
+
+describe("legendColumnWidth (ticket 070 L1, criterion 4)", () => {
+  const GROUND_LEGEND = ["nothing", "pavement run", "tree", "bench", "bin", "planter or pot plant", "mailbox or newspaper box", "meter", "hydrant", "bus stop", "bollard", "lot piece", "plaza piece"];
+  const measure = (name: string, font: number): number => name.length * font * 0.6;
+
+  it("is never under today's Math.max(120, font x 9)", () => {
+    for (const font of [14, 17, 20]) expect(legendColumnWidth(["a"], font, measure)).toBe(Math.max(120, Math.round(font * 9)));
+    expect(legendColumnWidth([], 14, measure)).toBe(126);
+  });
+
+  it("is the widest name plus the swatch and its gap when that is wider", () => {
+    const font = 14;
+    const w = legendColumnWidth(GROUND_LEGEND, font, measure);
+    expect(w).toBeGreaterThanOrEqual(measure("mailbox or newspaper box", font) + font + 6);
+  });
+
+  it.each([1000, 390])("draws no two names of the stage=ground legend over each other at %i px wide", (cssW) => {
+    const pad = 12;
+    const font = Math.max(14, Math.min(20, Math.round(cssW / 28)));
+    const colW = legendColumnWidth(GROUND_LEGEND, font, measure);
+    const cols = Math.max(1, Math.floor((cssW - 2 * pad) / colW));
+    // Where each name is drawn: the same arithmetic as the painter's (swatch, gap, then the name).
+    const span = (k: number): { row: number; left: number; right: number } => {
+      const left = pad + (k % cols) * colW + font + 6;
+      return { row: Math.floor(k / cols), left, right: left + measure(GROUND_LEGEND[k]!, font) };
+    };
+    for (let a = 0; a < GROUND_LEGEND.length; a++) {
+      for (let b = a + 1; b < GROUND_LEGEND.length; b++) {
+        const A = span(a);
+        const B = span(b);
+        if (A.row !== B.row) continue;
+        expect(A.right <= B.left - font - 6 || B.right <= A.left - font - 6, `${GROUND_LEGEND[a]} / ${GROUND_LEGEND[b]}`).toBe(true);
+      }
+    }
+    const mailbox = span(GROUND_LEGEND.indexOf("mailbox or newspaper box"));
+    const meter = span(GROUND_LEGEND.indexOf("meter"));
+    if (mailbox.row === meter.row) expect(mailbox.right).toBeLessThanOrEqual(meter.left - font - 6);
   });
 });
