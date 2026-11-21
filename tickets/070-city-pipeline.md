@@ -19,7 +19,9 @@ status: approved; section A1 merged 19 Nov 2026 (6eb4d26) (G1, Josh, 19 Nov 2026
 - **E re-cut against D2** (20 Nov 2026, against 2800ab3). Asked whether to start E, Josh said: "Start E". E now draws `edge.ground` and `edge.kerb` (the dropped kerbs, the crossing dips, the returns), the one-way sections and their arrows, and the 6 x 6 default, at `?view=3d&city=plan&stage=assemble`. It adds no rule, so it skips the pre-check.
 - **F1 re-cut against 4b840ff** (20 Nov 2026). Josh said: "Start F1". F1 now reads C3's mass on the split plan, runs on the 20 named runs and the four pin cities, and defines a row and a building on cells; `CityBuildingsLayer` is typed. It adds five readings of rules (N1 to N5, listed in F1), so the `pipeline-designer`'s pre-check comes before the builder.
 - **F2 re-cut against 768b657** (20 Nov 2026). Josh said: "Go ahead and start f2". F2 now pieces F1's buildings as merged: one column per built cell, its kind and forced turn, a ground slot for H1, its floors and roof placed by body on the cell, the L's bend column by column; `CityColumn` and its parts are typed. It adds five readings (P1 to P5, listed in F2), so the `pipeline-designer`'s pre-check comes before the builder. `BACK_SAME_SHARE` waits for G's screenshots (Josh: "Let me see the 3D buildings first").
-- Questions: Q2, Q3, Q5, Q6, Q8 to Q18 answered; Q7 settled by the rulings; Q1 not yet asked for, L waits for his word; Q4 open.
+- **G merged (8f091db); Josh's answers with G's screenshots** (20 Nov 2026, Q20). Shown G's 3D screenshots and asked (1) whether `BACK_SAME_SHARE` 0.5 becomes Decided, (2) whether a hidden back building taller than the one in front may show its windows above the lower roof (recommended yes), (3) whether style-1 roofs may overhang up to 0.79 m, past the 0.6 m trim limit (recommended yes), (4) whether the 8 to 11 cm corner roof-base step is judged by eye with no rule (recommended yes), and (5) whether to cut an instancing ticket for the ~7.7k building draw calls now or later, he answered: "Yes to all, instancing later". So `BACK_SAME_SHARE` 0.5 is Decided; the F2 pre-check's three readings (U1 to U3) stand; instancing is a later ticket, not cut now. Its comment in `src/city/buildings/constants.ts` (the buildings agent's) still says PROPOSED: section F3 (buildings, one comment) changes it.
+- **H1 re-cut against 2d003a5; split into H1, H1b and G2** (20 Nov 2026, the lead-architect). H1 (facades) fills every ground slot with a keyed, placed piece; H1b (facades) moves the shopfront dressing; G2 (renderer) draws the ground pieces in 3D. `CityFacadesLayer`, `CityGroundPiece` and `CityGroundPieceKind` are typed. H1 adds readings (S1, D1 to D4, listed in H1), so the `pipeline-designer`'s pre-check comes before its builder.
+- Questions: Q2, Q3, Q5, Q6, Q8 to Q20 answered; Q7 settled by the rulings; Q1 not yet asked for, L waits for his word; Q4 open.
 branch: one per section, `ticket/070<section>-<slug>` (named in each section), each cut from `goal/city-style`.
 
 ## Josh's words (19 Nov 2026, in chat)
@@ -145,13 +147,15 @@ A check runs in the stage whose layer it judges. It may read earlier layers. Thr
 | M4c | partner floor counts equal; partner is "through" (same style and colourway) or "another" (different colourway), by `BACK_SAME_SHARE` | 5 buildings | F1 |
 | M1 lattice fit | every column's four body planes on its cell's edges within `WALL_JOINT_TOL_M` | 5 buildings (floors); 7 facades (the ground storey) | F2; H1 |
 | M2 the kit holds | every piece used has a 5.00 m body (10.00 m for `Shop_03`); `it.skipIf` GLB pin in render3d. From F2's re-cut: the wall pieces; roofs are held by M9a (F2's P4) | 5 buildings; 7 facades (ground keys) | F2; H1 |
-| M6 corner turn | window faces on the two open sides, every storey; no corner piece off a corner column | 5 buildings | F2 |
-| R9 | a true corner is any column with two adjacent open sides (Josh: "Yes, any corner") | 5 buildings | F2 |
+| M6 corner turn | window faces on the two open sides, every storey; no corner piece off a corner column | 5 buildings; 7 facades (the ground storey: shop corner, door corner, corner floor) | F2; H1 |
+| R9 | a true corner is any column with two adjacent open sides (Josh: "Yes, any corner") | 5 buildings; 7 facades (ground keys) | F2; H1 |
 | M9a | one roof piece per built cell, kind and turn matching; storeys and roof aligned within `STOREY_ALIGN_TOL_M` (063 E2's check) | 5 buildings | F2 |
 | G1 | every wall plane within `OVERLAP_MAX_M` of its open side's edge; no recess | 5 buildings (floors); 7 facades (the ground storey) | F2; H1 |
-| M8 | no shop piece or shop dressing on a quiet frontage (a corner whose other side is street excepted); one door per quiet building | 7 facades | H1 |
-| R3, R4, R5, R6 | ground bays, glass, awnings, signs and ATMs on street frontages | 7 facades | H1 |
-| door sills (062) | the sill checks | 7 facades | H1 |
+| M8 | no shop piece or shop dressing on a quiet frontage (a corner whose other side is street excepted); one door per quiet building | 7 facades | H1 (pieces, doors); H1b (dressing) |
+| R3 | street ground bays are a shop, a shop corner or the building's one door | 7 facades | H1 |
+| R4, R5, R6 | glass, awnings, signs and ATMs on street frontages | 7 facades | H1b |
+| door sills (062) | the sill checks. From H1's re-cut, on stage 5's fixed frame: each ground piece at its own level (H1's S1) | 7 facades | H1 |
+| no door behind a stall (Josh's ruling 2, 19 Nov 2026) | no door or door corner on a column with an open side onto stalls | 7 facades | H1 |
 | R7, `escapeCheck` | fire escapes on street faces of qualifying blocks; they connect | 7 facades | H2 |
 | M7 | no bare party wall above a lower roof; the pipe runs only on party walls (Josh: "Yes, dress it") | 7 facades | H2 |
 | R8 | roofs dressed; big roof props | 7 facades | H3 |
@@ -184,11 +188,11 @@ Each is one builder session at most. They run in this order:
     - **B3, C3 and D1b** are branched from `ticket/070a4-split-plan` in turn, each after the one before is merged into it (B3 after the re-run; C3 after B3; D1b after C3, and from 20 Nov 2026 after A4d). Each one's own gate before its review is `npx tsc --noEmit` plus its own folder's tests and the folders before it (B3: `src/city/streets/ src/city/land/`; C3: those plus `src/city/mass/`; D1b: those plus `src/city/edge/`).
     - **A4d and A2b (20 Nov 2026)** are held under the same terms. A4d's own gate before its review is `npx tsc --noEmit` plus `npx vitest run --maxWorkers=2 src/city/streets/ src/city/pipeline/ src/city/land/ src/city/mass/` (Edge's tests are expected to fail until D1b). A2b's is `npx tsc --noEmit` plus `npx vitest run --maxWorkers=2 src/render3d/planview.test.ts`. Each is merged into `ticket/070a4-split-plan` once its review settles; D1b then branches after A4d (A2b may still be in flight).
     - **All eight merge together** into `goal/city-style`, in the order A4, A4b, A4c, B3, C3, A4d, A2b, D1b, once the full `npm run gate` is green on `ticket/070a4-split-plan` with all eight in (Q13: "yes"). None of them reaches `goal/city-style` on its own.
-- F1 → F2 → G
-- H1 → H2 → H3
+- F1 → F2 → G (all merged) → F3 (any time; no shared file with H1)
+- **the H1 pre-check → H1 → (H1b and G2 alongside) → H2 → H3** (20 Nov 2026, H1's re-cut). H1b and G2 each branch from `goal/city-style` once H1 is merged; they share no file. J draws H1b's dressing.
 - I → J → L
 
-H and I can run alongside each other once F2 has merged. Stage 6 (K) is not cut here.
+H and I can run alongside each other once F2 has merged. Stage 6 (K) is not cut here. **Instancing the stack pieces** (G's ~7.7k building draw calls) is a later ticket, not cut here (Josh, 20 Nov 2026, Q20: "instancing later").
 
 **Every section's must-not-touch** (in addition to its own list):
 - `src/core/`, `src/grid/`, `src/night/`, `src/render/`, `src/play/`, `src/ui/`, `src/main.ts`;
@@ -964,6 +968,8 @@ It draws on E's assemble view (`plan3d.ts`). G only draws. It adds no rule, chec
       - **U3:** is the 8 to 11 cm step in the roof's base at a corner judged on the screenshots, with no rule now?
 
       The note's section 5 says what each answer leads to. A "No" leads to a re-cut of F2 or H2 and a pre-check, never to a change in G.
+
+   **Answered, Josh, 20 Nov 2026, in chat (Q20).** Shown the screenshots and asked the four, with a fifth (cut an instancing ticket for the ~7.7k building draw calls now, or later), he answered: "Yes to all, instancing later". So: `BACK_SAME_SHARE` 0.5 is Decided (F3 changes its comment); U1, U2 and U3 are yes as recommended (U1 adds a line to H2 criterion 2; U2 reads rule 2's 0.6 m as not holding a roof's cornice, a grammar line L edits; U3 changes nothing); instancing is a later ticket. G does not change.
 8. [ ] R-8, R-10 and R-11. Tests run: `npx vitest run --maxWorkers=2 src/render3d/plan3d.test.ts src/render3d/planview.test.ts src/render3d/tilecity3d.test.ts`, and one `npx tsc --noEmit`. The main session's gate is the full `npm run gate`.
 
 - **Files:** `src/render3d/plan3d.ts`, `src/render3d/plan3d.test.ts`. E's mass tests in `plan3d.test.ts` (the `mass.count` and `MASS_HEIGHT_M` checks) become criterion 2's grey-box tests.
@@ -976,23 +982,225 @@ It draws on E's assemble view (`plan3d.ts`). G only draws. It adds no rule, chec
 - **Adds no rule or number.** It draws the placements, colourways and ground slots stage 5 wrote. The grey placeholder and the fallback are drawing only, and no cap is added. So no pre-check.
 - **Heavy:** the named-run tests build the 10 named cities both ways once, through a module cache in `plan3d.test.ts`, with a 120 s timeout. The Three.js groups are built on five cities only (criterion 3). No GLB is read outside `it.skipIf`. No browser for the builder (Josh's PC); the browser checks are the main session's.
 
-### H1 · Stage 7, Facades: ground storeys and shopfronts (facades, pure). Branch `ticket/070h1-facades-ground`
-**Goal.** Street fronts carry shops, doors, glass, awnings and signs; quiet fronts carry one residents' door per building and windows; no shop faces a court.
+### F3 · Stage 5: `BACK_SAME_SHARE` is Decided (buildings, pure). Branch `ticket/070f3-back-share-decided`
+**Branch.** Cut from `goal/city-style` at 2d003a5 or later. It shares no file with H1, H1b or G2 and may run alongside any of them.
 
-**From F2's re-cut (20 Nov 2026).** F2 gives each column a ground slot (`CityColumn.ground`: kind and yaw, its base and top) and places only the floors and the roof. The ground piece's key is H1's, so its body table (the ground keys' bounds and `BODY_M` insets, typed in and pinned as F2's kit table is), its placement (body on the cell, as F2's P1), a double shop over two slots of one building, and M1 and G1 on the ground storey are H1's too, to be written when H1 is re-cut.
+**Goal.** The constant's comment says what Josh decided, and a test holds his number.
 
-1. [ ] **Ground keys.** For each ground slot (F2) a key of its kind:
-   - on a street frontage: a shop, a double shop, a door, or a shop corner (R3);
-   - on a quiet one: a residents' door (one per building), the style's floor piece, or `Apartment_Door_Corner_01` or `_02` at a quiet corner (rule 7).
-2. [ ] **Moved.** `dressBlock`'s shopfront rules (glass, awnings, fascia and blade signs, ATMs; `P_*`, `ATM_PER_RUN`), and the sill tables (062) as typed-in data.
-3. [ ] **M8, R3, R4, R5, R6, sills** hold on the named cities. Failing fixture: an inner building with a shop piece.
-4. [ ] **No door behind a stall** (from the yard court, Josh's ruling 2, 19 Nov 2026: "Yes, all four"). No door on a column whose open side is a stall cell. Holds on the named cities (Vitest). Failing fixture: a residents' door on a ring-2 column facing a yard court's stalls.
+**Josh's words (20 Nov 2026, in chat; Q20).** Shown G's 3D screenshots and asked, first, "should BACK_SAME_SHARE 0.5 become Decided", with four more questions, he answered: "Yes to all, instancing later".
 
-- **Files:** new `src/city/facades/`. The render3d pin test of the sill table.
+1. [ ] `BACK_SAME_SHARE`'s comment in `src/city/buildings/constants.ts` says Decided, with his words and the date, in place of PROPOSED and "No test pins its value", as A4c criterion 8 did for `T_SHARE_MIN` (Vitest: none; the reviewer reads it).
+2. [ ] A test pins its value: `BACK_SAME_SHARE` equals 0.5 (Vitest).
+3. [ ] Nothing else changes: the value is the same, so every digest pin holds unedited. R-8 to R-11. Tests: `npx vitest run --maxWorkers=2 src/city/buildings/`, and one `npx tsc --noEmit`.
+
+- **Files:** `src/city/buildings/constants.ts` (that one comment); one test file in `src/city/buildings/` (the builder's choice, new or existing).
+- **Adds no rule or number** (it records a Decided one). No pre-check.
+- If the main session would rather spare a gate round, F3 may instead be folded into the next buildings-owned section, as its first criterion. Until it lands, Q20 here is the record, and the stale comment binds no one.
+
+### H1 · Stage 7, Facades: ground storeys (facades, pure). Branch `ticket/070h1-facades-ground`
+**Branch.** Cut from `goal/city-style` at 2d003a5 or later (G merged, 8f091db), once the H1 pre-check holds or Josh has answered it.
+
+**Goal.** Every ground slot that stage 5 left has its piece, keyed and placed on its cell:
+- street fronts carry shops, double shops, shop corners, and one residents' door per building;
+- quiet fronts carry one residents' door (or corner door) per building, and windowed floor pieces, never a shop;
+- no door opens onto stalls.
+
+Nothing changes in 3D until G2 draws the pieces. The flat picture gains the `facades` stage.
+
+**Re-cut (20 Nov 2026, the lead-architect, against 2d003a5).** H1 was first cut, four lines long, before F2 and G. It now reads what is merged:
+- `buildings.columns` (F2): each column's `kind`, `front`, `side`, `yaw`, `rowId` and `ground` (a `CityGroundSlot`: kind, yaw, `y_m` 0, `top_m` 3), and its first piece above the ground (for the window sill over the ground piece, S1);
+- `buildings.buildings` (F1): style, cells in row order, the L's `bend`;
+- `mass.built` (C3): each column's open sides, with `faces` and `frontage`; and `mass.cells`, for the use of the cell across each open side (a `stalls` cell);
+- G's assemble view (`plan3d.ts`), which draws each ground slot as a grey box. G2 replaces those boxes with H1's pieces.
+
+It runs on the 20 named runs (6 x 6 seeds 1 to 10, one-way off and on) and pins the four pin cities (6 x 6 seeds 1, 2, 3 and 8, one-way on).
+
+`CityFacadesLayer.ground`, `CityGroundPiece` and `CityGroundPieceKind` are typed (`src/core/cityplan.ts`, "stage 7, H1"), with the kind, turn and placement rules in the comment above them.
+
+Two things leave the first cut:
+- **The shopfront dressing** (glass, awnings, fascia and blade signs, ATMs: `dressBlock`'s rules; R4 to R6; M8's dressing half) moves to **H1b**, which dresses H1's pieces.
+- **The drawing** is **G2**'s, a renderer section, because a section has one owner.
+
+**Pre-check first** (CLAUDE.md: this section adds readings and one rule). Before the builder starts, the `pipeline-designer` ("pre-check 070 H1", on `goal/city-style`) measures on the 20 named runs, with a probe outside the repo:
+- the readings below;
+- M1, M2, M6, G1 and the sill checks at the thresholds here;
+- criterion 7's numbers;
+- from the converted GLB, what no table has yet: `Apartment_Door_Corner_01` and `_02`'s body insets (`BODY_M`'s ground rule), their second window face (`OPEN_SIDE_MEASURED`'s method), their door sills (`measureDoor`), and every ground key's height (its bounds).
+
+If it does not report "holds", its note goes to Josh before any builder is spawned.
+
+**Which criteria are moves and which are new** (for the pre-check):
+- **Moves of existing rules, numbers unchanged:**
+  - The ground keys, as `STACK_STYLES` lists them: `SHOPS` (with `Shop_03` over two bays), `DOORS` and `SHOP_CORNERS`. They are picked by hash as `assembleStack` picks them: a shop per column; `Shop_03` over two free columns, else a single; one residents' door per building, by hash among its mid columns, never in a corner.
+  - `BODY_M`'s ground insets and the manifest's bounds, as typed-in data.
+  - Rule 1: the body on the cell.
+  - Rule 7: the forced turn, and its ground piece (a shop corner where either open side is a street or park edge, else the residents' corner door).
+  - Rule 9 and M8's piece half: no shop on a quiet frontage; one door per quiet building.
+  - R3, as `citymetrics` counts it: every street ground bay is a shop, a shop corner or its building's one door, and a building has at most one door.
+  - M1 at `WALL_JOINT_TOL_M` (0.02). M2 at 0.02 (10.00 m for `Shop_03`). G1 at `OVERLAP_MAX_M` 0.6, `RECESS_MAX_M` 0 and `FRONTAGE_TOL_M` 0.01, on the ground pieces' open faces.
+  - 062's door numbers: `DOOR_SILLS`, `SILL_MAX_M` 0.15, `SILL_UNDER_M` 0.05, `LIFT_CLEAR_M` 0.05, and 058's `WINDOW_SILL_M`.
+  - No door behind a stall (Josh's ruling 2, 19 Nov 2026: "Yes, all four").
+- **New or changed (the architect's readings, for the pre-check to measure and Josh to see):**
+  - **S1. Each ground piece stands at its own level** (criterion 3; one new rule). The old path sank a whole stack by its ground row's deepest sill, floors and all, then lifted each ground piece back (062 B, `stackLift`). On the pipeline, stage 5's frame is fixed: the slot runs from 0 to `top_m` (3), the first floor stands at 3, and nothing is sunk. Stage 7 cannot move stage 5's pieces (R-1). So each ground piece's `y_m` is the value nearest `-sill` (its door at the walk, y 0) inside a window where:
+    - its door is from `SILL_UNDER_M` below the walk to `SILL_MAX_M` above it (062's numbers);
+    - its top (`y_m` plus its height) is at or above `top_m`. **New: no gap under the first floor, at 0 tolerance**;
+    - its top is no higher than `top_m`, plus the first floor's lowest window sill (`WINDOW_SILL_M` of the column's first piece), less `LIFT_CLEAR_M` (062's top rule).
+
+    A key with no door (`Shop_06`, a floor piece) stands at `y_m` 0. Where a key's window is empty on a column, it is not picked there: the next key of its kind by hash is tried. If no key of the kind is left, the stage fails, naming the kind and the cell. The pre-check reports each key's window, the keys that are ever left out, and how far the fascia tops spread along a building.
+  - **S2. 062 B's sill band is not carried** (follows from S1). The band exists because the old stack sank as one. Here each piece has its own level, so a building's ground pieces are not held to one band. If Josh's eye wants an even fascia line, a band is a later reading.
+  - **D1. A quiet building's one door** (criterion 2). Rule 7 as written gives every quiet corner a residents' corner door. On a building with two quiet corners that is two doors, against rule 9's one. D1 reads rule 9 as winning:
+    - if the building has a quiet corner with no open side onto stalls, its door is a door corner, on the first such corner along the row;
+    - its other quiet corners take the style's corner floor (`floorCorner`; corner pieces from the ground to the roof, rule 7, still holds);
+    - otherwise its door is a residents' door, by hash among its mid columns with no open side onto stalls.
+  - **D2. Quiet mid ground and blind ground take the style's mid floor** (criterion 2). This is `Apartment_0n`, at `y_m` 0, with its body on the cell. Rule 9 says "windowed floor pieces in the other columns", and rule 3 gives a blind column "any floor pieces". The facades folder types these keys in itself: it cannot import the buildings folder (R-1), and the pin test ties them to `STACK_STYLES`.
+  - **D3. A building's frontage is its row front's** (criterion 2). Every non-blind column of a building fronts one part side or the court, so its row front's frontage is the building's: street (street, park edge, plaza) or quiet (lane, drive, walk-through, court). A corner's ground piece still follows rule 7 by its own two open sides. So a quiet building may have a shop corner, at a strip's end, where its lane row meets a street; this is M8's exception "a corner whose other side is street". If a building's non-blind columns disagree on the row front's frontage, the stage fails, naming the building. The pre-check counts both cases.
+  - **D4. The residents' corner doors are measured, not yet typed** (criterion 1). `Apartment_Door_Corner_01` and `_02` are in no table yet (`STACK_STYLES`, `BODY_M`, `DOOR_SILLS`, `OPEN_SIDE_MEASURED`). The grammar's appendix gives their walls (5.00 by 5.00 m, windows on +z and -x). The pre-check measures them; the builder types the numbers in; the pin test re-measures them. If one fails M2, or its second face is not -x, the pre-check reports it and the question goes to Josh before the builder starts.
+  - **The walk at y 0 on every open side** (S1's reference). This is tilecity3d's frame: a sidewalk's walk and a lot's surface stand at 0. The pre-check confirms that E draws the cell across every door's open side at 0 (pavement, apron, aisle, lane, drive). If one is not at 0, it reports which, before the builder starts.
+
+0. [ ] **First, by the lead-architect (done with this re-cut, on `goal/city-style`):** `CityGroundPieceKind`, `CityGroundPiece` and `CityFacadesLayer.ground` in `src/core/cityplan.ts`, with the frontage, kind, turn and placement rules in the comment above them. No reader changes.
+1. [ ] **The ground kit table** (R-6; D2, D4; M2). Typed-in data in the folder, for every key the stage places:
+   - the keys: the six shops, the two residents' doors, the two shop corners, the two residents' corner doors, and each apartment style's mid floor and corner floor (as ground pieces);
+   - for each key: its bounds (w, h, d, metres, as the manifest has them), its body insets (front, back, -x, +x), its second face for a corner key, its door sill (`DOOR_SILLS`' `sill_m`; the corner doors as measured), and for a floor key its lowest window sill (`WINDOW_SILL_M`, for S1's top rule);
+   - the kind lists, in `STACK_STYLES`' order: each style's `base.mid`, `base.door` and `base.corner`, the two corner doors, and each style's `floor.mid` and `floor.corner`.
+
+   New `src/render3d/groundpin.test.ts`:
+   - **Always (no GLB):**
+     - every entry's insets equal `BODY_M[key]` where `BODY_M` has the key;
+     - every sill equals `DOOR_SILLS[key].sill_m` where `DOOR_SILLS` has the key;
+     - every corner face equals `OPEN_SIDE_MEASURED[key].open` where that table has the key;
+     - every window sill equals `WINDOW_SILL_M`;
+     - the kind lists equal `STACK_STYLES`';
+     - `SILL_MAX_M`, `SILL_UNDER_M`, `LIFT_CLEAR_M`, `OVERLAP_MAX_M`, `RECESS_MAX_M` and `FRONTAGE_TOL_M` equal the old path's (`sills.ts`, `frontage.ts`);
+     - every key's body (bounds less insets) is 5.00 by 5.00 m within 0.02, and `Shop_03`'s is 10.00 by 5.00 (M2).
+   - **Inside `it.skipIf(!HAVE_GLB)`**, read lazily as `facade.test.ts` does:
+     - every entry's bounds equal the converted GLB's within 0.005 m;
+     - the corner doors' insets (`measureBodyPlane`), second face and sill (`measureDoor`) re-measure to the table's values.
+2. [ ] **Frontage, kinds and keys** (rules 3, 7 and 9; D1 to D3; Vitest, on the 20 named runs).
+   - Every column's slot is filled by exactly one piece. A `shopDouble` fills two consecutive mid columns of one building along its row, both on a street front, neither being the door.
+   - Kind by column:
+     - blind: `floor`;
+     - a corner with a street or park-edge open side: `shopCorner`;
+     - a quiet corner: `doorCorner` or `floorCorner` (D1);
+     - a mid column of a street building: `shop`, `shopDouble` or `door`;
+     - a mid column of a quiet building: `door` or `floor`.
+   - Doors by building:
+     - a street building has at most one door, and exactly one when it has a mid column;
+     - a quiet building has exactly one `door` or `doorCorner` (M8), on the column D1 names.
+   - Keys:
+     - each key is of its kind's list, picked by the stage's `rand` (R-3);
+     - `floor` and `floorCorner` are of the building's own style;
+     - `frontage` is the column's, as `cityplan.ts` defines it.
+3. [ ] **Placements** (rule 1; S1). From the kit table only:
+   - across: the body's centre on the cell's centre (a `shopDouble`'s on the midpoint of its two cells' shared edge), so each body plane lies on its cell edge;
+   - the turn: the column's `yaw`;
+   - up: `y_m` by S1, and `door_m` = `y_m` + the key's sill (null for a key with no door). No scale.
+   - A test checks one hand-worked placement per kind, a `shopDouble` at two turns, and a `doorCorner` at each of the four turns, its pivot computed by hand from its bounds and insets.
+4. [ ] **The checks** (Vitest, on the 20 named runs). Each is a function of the layer, `buildings` and `mass`, run by the stage before it returns; a failure names the check and the cells. **Stop rule:** if one fails on a named run, the builder stops and reports (R-2). It does not loosen a rule.
+   - **M1, the ground storey:** every ground piece's four body planes lie on its cells' outer edges, within `WALL_JOINT_TOL_M`.
+   - **M6 and R9, the ground storey:** a corner kind stands only on a corner column, its measured +z and -x faces on the column's two open sides. No corner key stands on a mid or blind column.
+   - **G1, the ground storey:** on every open side, the piece's body plane stands no more than `RECESS_MAX_M` + `FRONTAGE_TOL_M` behind the cell edge, and no more than `OVERLAP_MAX_M` + `FRONTAGE_TOL_M` past it.
+   - **M8, the pieces:** no `shop`, `shopDouble` or `shopCorner` on a column whose open sides are all quiet. Every quiet building has exactly one door.
+   - **R3:** every ground piece on a street frontage is a `shop`, `shopDouble`, `shopCorner` or `door`. No building has more than one `door` or `doorCorner`.
+   - **Sills (062, on S1):** every `door_m` is from -`SILL_UNDER_M` to +`SILL_MAX_M`; every piece's top is at or above `top_m`; every top is at most `top_m` + the first floor's window sill - `LIFT_CLEAR_M`.
+   - **No door behind a stall:** no `door` or `doorCorner` on a column with an open side onto a `stalls` cell.
+   - **Failing fixtures.** Each is built from the default city's layer, typed in from the run in the test (not pinned by hash), with one thing changed:
+     - a ring-2 building given a shop piece fails M8;
+     - a quiet building given a second door fails M8;
+     - a residents' door on a ring-2 column across from a yard court's stalls fails the stall check (on the default city's mass, with one cell across that column's open side set to `stalls` if no such column exists);
+     - a ground piece set 0.05 m back from its open edge fails G1;
+     - a shop corner turned a quarter off fails M6;
+     - a `Shop_05` at `y_m` 0 (its door 0.361 m over the walk) fails the sill check;
+     - a `Shop_03` placed by its bounds' centre fails M1.
+5. [ ] **The picture** (R-5). One legend entry per ground kind (shop, double shop, shop corner, residents' door, corner door, floor, corner floor) on built cells, and 0 elsewhere; no points. The R-5 test, as F1's.
+6. [ ] **R-1 to R-7 for `facades`** (Vitest).
+   - The stage reads only `mass`, `buildings`, and the streets' `w` and `h` (for the picture). A grep test does what F1's does.
+   - R-4: the facades digest is pinned on the four pin cities. The streets, land, mass, edge and buildings digests are unchanged, and the test double leaves them equal.
+   - R-7: 6 x 6 seed 1 ends `ok`.
+   - `src/city/stages.ts` adds the facades stage to `BUILT_STAGES` (one line, as F1 did for buildings). Stage 6 (`circuit`) is still not built: the runner runs the stages it is given in order and skips it. `run.test.ts`'s "not built" example, `"circuit"`, still holds and is not edited.
+7. [ ] **The numbers** (reported, not asserted; its own report file). For each of the 20 named runs:
+   - ground pieces by kind and by key;
+   - buildings, street and quiet; doors per building; street buildings with no door; quiet buildings whose door is a corner and whose is mid; `floorCorner`s;
+   - columns the stall rule kept a door off;
+   - per key, its S1 level, `door_m` and top, and the columns where its window was empty;
+   - the spread of fascia tops along each building (S2);
+   - ground pieces in all (G2's draw-call estimate).
+
+   For the outside cities that reach stage 7: whether it is ok, and its failure if not.
+8. [ ] (Main session, phone-sized screenshot) `?view=3d&city=plan&stage=facades` shows the picture: shops along the streets, doors and floors on the courts and lanes, corner doors at quiet corners. `?view=3d&city=plan&stage=assemble` and `?view=3d&city=tiles` look as on `goal/city-style`; the assemble view runs to `buildings` until G2.
+9. [ ] R-8 to R-11. The builder runs these tests: `npx vitest run --maxWorkers=2 src/city/facades/ src/city/pipeline/run.test.ts src/render3d/groundpin.test.ts src/render3d/planview.test.ts`, and one `npx tsc --noEmit`. The main session's gate is the full `npm run gate`.
+
+- **Files:** new `src/city/facades/`; `src/city/stages.ts` (the one line, criterion 6); new `src/render3d/groundpin.test.ts` (the one render3d file this section adds).
+- **Must not:**
+  - `src/core/` (criterion 0 is the architect's);
+  - every other `src/city/` folder (`buildings/` is read through the layer, never imported);
+  - `src/city/pipeline/` (`run.test.ts` is run, not edited);
+  - every other `src/render3d/` file (`sills.ts`, `facade.ts`, `escapes.ts`, `stacks.ts`, `frontage.ts` and their tests are read only, and `plan3d.ts` is G2's).
+- **Interfaces:** criterion 0. G2 reads `facades.ground` (each piece's `placement` and `building`); H1b reads each piece's `kind`, `frontage`, `cells` and `placement`. No new dependency.
+- **Adds a rule and readings.** S1's no-gap rule (a ground piece's top at or above the first floor, 0 tolerance) is new, and S2 drops 062 B's band on the pipeline. D1 to D4 read the grammar where it is silent or in conflict. No existing number changes. So the pre-check comes first.
+- **Heavy:** the named-run tests build the 10 named cities, both ways, once each, through a module cache, with a 120 s timeout. Criterion 7's report has its own file.
+
+### H1b · Stage 7, Facades: shopfront dressing (facades, pure). Branch `ticket/070h1b-facades-shopfronts`
+**Branch.** Cut from `goal/city-style` once H1 is merged. It may run alongside G2: they share no file.
+
+**Goal.** The pipeline's shops are dressed as `city=tiles`' are: glass, awnings, fascia and blade signs, and ATMs on street frontages; nothing on quiet ones.
+
+**First cut (20 Nov 2026, split out of H1).** The architect re-cuts it against H1's merged layer before it starts, as F2 and G were, and types its layer field then (`CityFacadesLayer`'s dressing list, in `src/core/`). Expected content:
+1. [ ] **Moved.** `dressBlock`'s shopfront rules (`SHOP_GLASS`, `AWNINGS` and `AWNING_CORNER`, fascia and blade signs, `ATMS`; `P_AWNING`, `P_SIGN`, `P_BLADE`, `P_ATM`, `ATM_PER_RUN`), as typed-in data, placed on H1's street ground pieces. The re-cut says what `dressBlock`'s "run" and "block" mean on cells.
+2. [ ] **R4, R5 and R6** hold on the named runs, at the tile city's numbers: R4 1; R5 0.55 with no mixed-awning building; R6 `TILE_CITY_R6_MIN` 0.45 (Josh, 18 Nov 2026) and `CITY_ATM_BLOCKS_MIN` 0.15. A ported check keeps its numbers.
+3. [ ] **M8's dressing half.** No glass, awning, fascia sign or ATM on a quiet frontage; on a street corner of a quiet building, only on its street face. Failing fixture: an awning on a ring-2 door.
+
+- **Files:** `src/city/facades/`; a render3d pin test of its dressing tables, if it types in measured sizes.
+- J draws its pieces.
+
+### G2 · Assemble: ground storeys drawn (renderer). Branch `ticket/070g2-plan3d-ground`
+**Branch.** Cut from `goal/city-style` once H1 is merged (every ground slot has a `CityGroundPiece`). It may run alongside H1b.
+
+**Goal.** At `?view=3d&city=plan&stage=assemble`, the grey ground boxes become the shops, doors, corners and floor pieces that stage 7 placed, in each building's colourway. Josh walks streets with shopfronts and courts with doors.
+
+**Why a section of its own (the architect's call, 20 Nov 2026).** The pieces need the renderer to show them. The change is plan3d-only and small, but H1 is the facades agent's and a section has one owner (Cutting rules). The renderer also has to load two keys that no stack style names, so this is its own section, after H1.
+
+G2 only draws. It adds no rule, check or number, so it skips the pre-check (CLAUDE.md). The stop rule is G's: where the layer does not say what to draw, the builder commits, stops and reports the cells (`PlanStopError`). The gap is a re-cut of H1, never a choice made in `src/render3d/`.
+
+1. [ ] **The run goes to stage 7** (Vitest). `createPlanAssembleRenderer3d` runs `runCity(..., "facades")` where it ran `"buildings"`. A run that fails at `facades` draws nothing and shows that stage and its reason (`planFailureText`), as E does.
+2. [ ] **Ground pieces from placements only** (`plan3d.ts`, Vitest).
+   - The draw list gains every `CityGroundPiece`, once each, with the colourway of its own building, whether in `planPieceDraws` or in a sibling list the builder names.
+   - `plan3dGroups` adds one wrapper per ground piece, named `piece:<key>`, to its building's group. It is placed, turned, scaled, cloned and painted exactly as G's floor pieces are.
+   - **The grey boxes** (still one `InstancedMesh`):
+     - a column whose ground piece and above-ground pieces all have a loaded root has no grey box;
+     - a column whose ground piece's root did not load has the ground-slot box (both columns of a `shopDouble`);
+     - G's whole-column fallback is unchanged: when any of a column's pieces above the ground lacks a root, the column is one grey box and its ground piece is not cloned.
+   - Tests, with stub roots and no GLB:
+     - every ground wrapper's world position, turn and scale equal its placement's, at the four turns;
+     - a `shopDouble` is one wrapper over two cells;
+     - with one ground key's root missing, only the slots that use it are grey.
+3. [ ] **The keys load.** `planKeys()` gains `city-pack:SM_Bld_Apartment_Door_Corner_01` and `_02`. No stack style names them, so `allStackKeys()` does not bring them. If `sharedTileModels` cannot load a key from its name alone, the builder stops and reports: a re-cut then adds `models3d.ts`, plan path only.
+4. [ ] **Draws only** (Vitest, on the 20 named runs).
+   - Every layer's digest (streets to facades) is the same before and after `plan3dGroups`.
+   - Every `CityGroundPiece` is drawn exactly once. G's counts hold for everything else.
+   - Failing fixtures, from the default city's run:
+     - the exactly-once check fails with one ground piece dropped, and with one listed twice;
+     - `plan3dGroups` throws `PlanStopError`, naming the cell, on a facades layer missing one column's ground piece.
+5. [ ] **Draw calls** (reported, not capped). Inside `it.skipIf(!HAVE_GLB)`, on 6 x 6 seeds 1 and 3, the builder reports the building calls after G and after G2, and the ground pieces by kind. The renderer's console line gains the ground pieces. No cap is raised or added. The remedy for the frame rate is instancing, a later ticket (Josh, 20 Nov 2026, Q20: "instancing later").
+6. [ ] **Nothing else changes.** `?view=3d&city=tiles` draws as on `goal/city-style`. `tilecity3d.ts`, `models3d.ts`, `renderer.ts`, `planview.ts` and their tests are not edited. `planview.test.ts` and `tilecity3d.test.ts` pass unedited. The ladder is unchanged.
+7. [ ] (Main session, in the browser, then phone-sized screenshots sent to Josh: street camera, day and night, 6 x 6 seeds 1 and 3, one-way on; G's three street-camera views.) The screenshots should show:
+   - shops along every street front;
+   - one door per building;
+   - the corner doors at quiet corners;
+   - no shop on a court or lane;
+   - the doors meeting the walk;
+   - no grey box left once the models load.
+8. [ ] R-8, R-10 and R-11. Tests: `npx vitest run --maxWorkers=2 src/render3d/plan3d.test.ts src/render3d/planview.test.ts src/render3d/tilecity3d.test.ts`, and one `npx tsc --noEmit`.
+
+- **Files:** `src/render3d/plan3d.ts`, `src/render3d/plan3d.test.ts`.
+- **Must not:** `src/city/**` and `src/core/` (read only); every other render3d file (as G's list).
+- **Interfaces:** nothing new in `src/core/`. G2 reads `CityFacadesLayer.ground` as H1 leaves it. No new dependency.
+- **Adds no rule or number.** No pre-check.
+- **Heavy:** as G: the named runs are built once each through the module cache, and the Three.js groups are built on five cities only.
 
 ### H2 · Stage 7, Facades: fire escapes, party walls, wall props (facades, pure). Branch `ticket/070h2-facades-walls`
 1. [ ] **Fire escapes.** `planEscape`, `storeysOfColumn`, `sillOf` and 058 and 061's ranking, moved. Escapes on quiet faces are extra and do not count toward R7.
 2. [ ] **Party walls** (rule 8, Josh: "Yes, dress it"). Every party-wall storey face above a lower roof carries a board, pipe run or window, by hash, with no key twice running. `SM_Prop_Pipe_Present_*` is allowed only there. No fire escape stands on a party wall.
+   - **(20 Nov 2026, Q20, U1: "Yes to all")** A blind column's windowed front above a lower roof in front of it counts as dressed: it is not a party wall, and M7 asks no kit piece of it (`docs/design/070-F2-precheck.md`, section 5).
 3. [ ] **Wall props** (air-conditioners, planters, canopies; 066 criterion 3's quiet list).
 4. [ ] **R7, `escapeCheck`, M7** hold. Failing fixture: a height step with no kit piece.
 
@@ -1017,7 +1225,7 @@ It draws on E's assemble view (`plan3d.ts`). G only draws. It adds no rule, chec
 - **Files:** new `src/city/ground/`.
 
 ### J · Assemble: facades and ground drawn; the whole-plan audit (renderer). Branch `ticket/070j-plan3d-dressing`
-1. [ ] Stage 7 and 8 placements are drawn as instanced meshes per key, as `dressdraw` and the furniture do today, under `DRESS_DRAW_CALLS_MAX` and `FURN_DRAW_CALLS_MAX`.
+1. [ ] Stage 7 and 8 placements are drawn as instanced meshes per key, as `dressdraw` and the furniture do today, under `DRESS_DRAW_CALLS_MAX` and `FURN_DRAW_CALLS_MAX`. **(20 Nov 2026, H1's re-cut)** Stage 7's ground pieces are G2's, drawn as G draws the floors; J draws H1b's, H2's and H3's dressing and stage 8.
 2. [ ] **R12.** No never-used key in any layer (`isNeverUsed`, with the party-wall pipe allowance). No emissive dressing.
 3. [ ] (Main session, screenshots: street camera, day and night) the pipeline's city beside `city=tiles` at the same seed.
 
@@ -1039,10 +1247,11 @@ It draws on E's assemble view (`plan3d.ts`). G only draws. It adds no rule, chec
      - grammar rule 6's walk-through row and its Decided paragraph: "only for an interior that has no drive and no lane" becomes "only for an interior that has no drive" (a lane beside the rings is not a way in);
      - guide 18.1: `PARK_PER_HOME` 0.075, not 0.15, with Josh's ruling; and the same number where it is repeated (the guide's 057 Q3 default and its constants table row, and grammar rule 5's parking estimate).
    - **Lines that change with Josh's answers to the A4 pre-check (20 Nov 2026, Q14):** guide chapter 18's P1 and its constants table row: the kerb supply floor `PARK_SUPPLY_BAND.lo` is 0.69, not 0.75 ("yes lower it"), for kerb bays only (P2's lot band stays 0.75 to 1.5); and P3's cap counts over the whole block side ("1. yes"). The old path's 0.75 and its pin go with the old path.
+   - **The line that changes with Josh's answer of 20 Nov 2026 (Q20, U2: "Yes to all"):** grammar rule 2's check line: `OVERLAP_MAX_M` (0.6 m) holds wall trim, not a roof's cornice, which overhangs by what the piece carries (rule 11's words; style 01 up to 0.79 m).
    - **Lines that change with Josh's answers of 20 Nov 2026 (Q17, Q18):** guide 19.6's whole-block park and its Info line: a whole park that nothing across a street can serve takes one tile of kerb bays on its own kerb ("yes, yes"; D1b criterion 13), and the first tiles are handed out as a best fit over the city ("yes"; D1b criterion 12). L (renderer) makes this edit; no earlier section touches the guide. The guide's named cities for its checks become the pipeline's (6 x 6 seeds 1 to 10) when the old path goes.
 3. [ ] R-8. The playtest shows no ladder change.
 
-- **Files:** `tilecity.ts` and its tests, `renderer.ts`, `docs/city-style-guide.md`, `styleguide.test.ts`; `docs/city-grammar.md` (only the lines listed under criterion 2: rule 4's table, rule 6's walk-through row and its Decided paragraph, rule 5's parking estimate).
+- **Files:** `tilecity.ts` and its tests, `renderer.ts`, `docs/city-style-guide.md`, `styleguide.test.ts`; `docs/city-grammar.md` (only the lines listed under criterion 2: rule 2's check line, rule 4's table, rule 6's walk-through row and its Decided paragraph, rule 5's parking estimate).
 
 ## What happens to the other tickets
 - **063 B (street width)** is merged into `goal/city-style` (2edac93). A1 starts from that head and copies `layoutAxis` after B's change. With the merge Josh accepted P1 failing on cities outside 063 criterion 7's list, and the old path's `P1_ONE_SHORT` pin in `alleys.test.ts` (merge message of 2edac93). D1 moves the allocator as it is there.
@@ -1091,7 +1300,7 @@ These five do not exist. The main session writes each `.claude/agents/<name>.md`
   - the `streets`, `land` and `mass` layer types in full;
   - stubs for `edge`, `buildings`, `circuit`, `facades` and `ground`;
   - `CityLayers`, `CityPlan`, `CityDigest`, `CityStageFailure`, `CityPlanRun`, `CityPicture`.
-- **Typed by the architect before their sections start:** `CityEdgeLayer` (written 20 Nov 2026 with D1's re-cut: dressed cells, kerb cuts, tiles, bays, build-out trees, per-block shortfall, and `CityGroundCell`, the same shape as `TileCell`, for D2 to fill; the kerb line is typed before D2), `CityBuildingsLayer` (written 20 Nov 2026 with F1's re-cut: rows and buildings, with style, colourway, storeys, partner and back; F2's columns, ground slots, pieces and roofs written 20 Nov 2026 with F2's re-cut: `CityColumn`, `CityGroundSlot`, `CityPiece`, `CityPieceRole`, `CityBuildingsLayer.columns`), `CityFacadesLayer` (before H1), `CityGroundLayer` (before I), and `CityCircuitLayer` (at 059's re-cut).
+- **Typed by the architect before their sections start:** `CityEdgeLayer` (written 20 Nov 2026 with D1's re-cut: dressed cells, kerb cuts, tiles, bays, build-out trees, per-block shortfall, and `CityGroundCell`, the same shape as `TileCell`, for D2 to fill; the kerb line is typed before D2), `CityBuildingsLayer` (written 20 Nov 2026 with F1's re-cut: rows and buildings, with style, colourway, storeys, partner and back; F2's columns, ground slots, pieces and roofs written 20 Nov 2026 with F2's re-cut: `CityColumn`, `CityGroundSlot`, `CityPiece`, `CityPieceRole`, `CityBuildingsLayer.columns`), `CityFacadesLayer` (written 20 Nov 2026 with H1's re-cut: `ground`, `CityGroundPiece`, `CityGroundPieceKind`; H1b's dressing field at H1b's re-cut), `CityGroundLayer` (before I), and `CityCircuitLayer` (at 059's re-cut).
 - **Typed 20 Nov 2026 for A4** (standalone until A4's criterion 0 wires them into `CityStreetsLayer`): `CitySpan`, `CityJunctionKind`, `CityStreetEnd`, `CityPlanStreet`, `CityJunction`, `CityBlockAcross`, `CityJunctionFacing`, `CityBlockSide`, `CityPlanBlock`, `CityOutline`, `CityStreetsLayerA4`. On the split plan `bi`, `bj` are ranks and a street's `line` an ordinal, never grid coordinates; B3, C3 and D1b replace every read of them.
 - **Typed 20 Nov 2026 for A4b** (standalone until A4b's criterion 0 folds them into `CityPlanStreet` and `CityStreetsLayer`): `CityStreetSection`, `CityStreetFlow`, `CityStreetTraffic`, `CityStreetArrow`, `CityPlanStreetA4b`, `CityStreetsLayerA4b`. E reads `arrows`; K (cars, later) reads `flow`.
 - **In `src/city/pipeline/`** (planner, A1):
@@ -1107,7 +1316,7 @@ These five do not exist. The main session writes each `.claude/agents/<name>.md`
   - R-7 only keeps the contracts from assuming a small city.
 - **More biomes.** One, `"town"`. The field is there and nothing reads it.
 - **Office towers** (the grammar's "Not in this grammar yet").
-- **Instancing the stack pieces**, unless G's draw calls say so to Josh.
+- **Instancing the stack pieces.** G's ~7.7k building draw calls were put to Josh with its screenshots; he answered "instancing later" (20 Nov 2026, Q20). It is a later ticket, not cut here.
 - **Changing any check's threshold, any Decided rule, or the ladder.**
 - **The circuit and the rebuilt puzzles** (K and after).
 
@@ -1171,7 +1380,13 @@ These five do not exist. The main session writes each `.claude/agents/<name>.md`
    - 2 (yes): rule 4's corner sentence is read as floors only. No change to the checks; recorded in F1.
    - 3 (after): `BACK_SAME_SHARE` stays Proposed, and no test pins its value. He is asked again with F1's screenshots (criterion 9). **On F1's pictures (20 Nov 2026, in chat):** "Let me see the 3D buildings first". So it is asked with G's screenshots (G criterion 3).
    - 4 (no new rule now): no style or colour check between the two buildings that meet at a street corner; judged on the screenshots.
-20. **Four questions asked with G's screenshots** (G criterion 7). Not yet asked. The main session asks each word for word, with its recommendation, and records his answer here:
+20. **Four questions asked with G's screenshots** (G criterion 7). **Answered, Josh, 20 Nov 2026, in chat.** Shown G's 3D screenshots and asked (1) "should BACK_SAME_SHARE 0.5 become Decided"; (2) "may a hidden back building taller than the one in front show its windows above the lower roof" (recommended yes); (3) "may style-1 roofs overhang up to 0.79 m, past the 0.6 m trim limit" (recommended yes); (4) "is the 8-11 cm corner roof-base step judged by eye, no rule" (recommended yes); (5) "cut an instancing ticket for the ~7.7k building draw calls now, or later", he answered: "Yes to all, instancing later". So:
+   - 1: `BACK_SAME_SHARE` 0.5 is **Decided** (grammar rule 4's "one constant for Josh's eye"). Other sections may treat it as settled and a test may pin it. Its comment in `src/city/buildings/constants.ts` says PROPOSED; that file is the buildings agent's, so the one-comment change is section F3, not an architect's edit.
+   - 2 (U1, yes): a hidden back building's windowed front may show above a lower roof in front of it. Per the F2 note's section 5, H2 criterion 2 gains the line: such a front counts as dressed (it is not a party wall), and M7 does not ask a kit piece of it.
+   - 3 (U2, yes): roofs overhang by what the piece carries (style 01 up to 0.79 m at the front, 0.715 m on a corner's outer flank). Rule 2's 0.6 m (`OVERLAP_MAX_M`) is read as not holding a roof's cornice; rule 11 already says the cornice "overhangs by what the piece carries". L adds the reading to rule 2's check line (L criterion 2). No code changes: F2's G1 runs on floor pieces only (P5).
+   - 4 (U3, yes): the 8 to 11 cm roof-base step at a corner is judged by eye; no rule, no check.
+   - 5 (instancing later): no instancing ticket now. Non-goals keeps it; the remedy for the frame rate stays instancing, never a cap.
+   - The questions as they were put, for the record:
    - `BACK_SAME_SHARE` 0.5 becomes Decided? (Q19, answer 3; on F1's pictures: "Let me see the 3D buildings first".) Until he says so it stays Proposed.
    - The F2 pre-check's three questions (`docs/design/070-F2-precheck.md`, section 4; each recommended yes):
      - U1: may a hidden back building's windows show above a lower roof?

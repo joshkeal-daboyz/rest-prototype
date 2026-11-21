@@ -757,9 +757,44 @@ export interface CityBuildingsLayer {
 export interface CityCircuitLayer {
   readonly stage: "circuit";
 }
-/** Stage 7: facades. Typed before section H1. */
+
+// ---- stage 7, H1: the ground storeys (ticket 070 H1; grammar rules 1, 3, 7 and 9) ----
+//
+// Typed by the lead-architect before H1 (20 Nov 2026, H1's re-cut against 2d003a5). Stage 5 gave every column a ground slot (`CityColumn.ground`: kind, yaw, base 0, top 3) and no key; stage 7 fills
+// every slot with exactly one ground piece, keyed and placed. Nothing here changes a column's kind, turn or storeys, and nothing above the ground storey moves.
+// - **Frontage** (rule 9). A mid column's frontage is its one open side's; a corner column's is "street" when either of its two open sides is (rule 7), else "quiet"; a blind column has none (null).
+// - **Kinds** (rules 3, 7 and 9). On a street frontage: "shop" (one cell), "shopDouble" (`Shop_03`, two consecutive mid columns of one building along its row), "shopCorner" on a corner, and "door" (the
+//   residents' door, at most one per building, never on a corner). On a quiet frontage: no shop; one door per building, "doorCorner" (`Apartment_Door_Corner_01`, `_02`) on a quiet corner or "door" on a
+//   mid column; the building's other quiet mid columns take "floor" (its style's mid floor piece) and its other quiet corners "floorCorner" (its style's corner floor piece; H1's reading D1). A blind column
+//   takes "floor" (rule 3: "any floor pieces"). No door or door corner on a column with an open side onto a "stalls" cell (Josh's ruling 2, 19 Nov 2026).
+// - **The turn.** Every ground piece takes its column's `yaw` (rule 7: corner pieces from the ground to the roof, the forced turn); a "shopDouble" takes the one yaw its two columns share.
+// - **The placement** (rule 1; H1's reading S1). Across, a ground piece's body (from the stage's typed-in ground kit table, the same insets as `BODY_M`) is its cell, or its two cells for a "shopDouble":
+//   its wall planes on the cell edges. Up, the slot's frame is stage 5's and fixed (base 0, the first floor at `top_m`), and the walk is at y 0; so each piece is set at its own level, the one that puts
+//   its door sill nearest the walk while its top neither stops short of `top_m` nor rises into the first floor's window sill (062's numbers). Nothing is scaled.
+
+/** What fills a ground slot (see above). */
+export type CityGroundPieceKind = "shop" | "shopDouble" | "shopCorner" | "door" | "doorCorner" | "floor" | "floorCorner";
+
+/** One ground-storey piece, placed. */
+export interface CityGroundPiece {
+  readonly kind: CityGroundPieceKind;
+  /** Its `CityBuilding.id`. */
+  readonly building: string;
+  /** The column it fills, or for a "shopDouble" its two columns, in the building's row order. */
+  readonly cells: readonly CityCell[];
+  /** Its column's frontage (see above); null on a blind column. A "shopDouble"'s two columns share one. */
+  readonly frontage: CityFrontage | null;
+  /** `placement.yaw_deg` is its column's `yaw`; `placement.y_m` is its level (S1): 0, or a few centimetres below or above. */
+  readonly placement: CityPlacement;
+  /** Its door sill's height over the walk, metres (`placement.y_m` plus the key's measured sill); null for a key with no door (`Shop_06`, a floor piece). */
+  readonly door_m: number | null;
+}
+
+/** Stage 7: facades. H1 writes `ground`; H1b (shopfront dressing), H2 (walls) and H3 (roofs) add their own fields when each is cut. */
 export interface CityFacadesLayer {
   readonly stage: "facades";
+  /** H1: one piece per ground slot, every `buildings.columns` entry's slot filled exactly once (a "shopDouble" fills two), in `buildings.columns` order of each piece's first cell. */
+  readonly ground: readonly CityGroundPiece[];
 }
 /** Stage 8: ground dressing. Typed before section I. */
 export interface CityGroundLayer {
