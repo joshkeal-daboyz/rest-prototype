@@ -18,6 +18,7 @@ import { hostFront, runsOf } from "./dress";
 import { DRESS_PER_BAY_MAX } from "./dresskit";
 import { columnWidth, escapeCheck, escapeWeight, floorFront, floorOver, frameOfColumn, qualifiesBySize, toFrame, type EscapeReport } from "./escape";
 import { type Ctx, facesStalls, makeCtx } from "./facts";
+import { PARTY_WALL_KINDS } from "./partykit";
 import { SIDE_VEC, keyOf } from "./place";
 import { frameOfGround } from "./walls";
 import {
@@ -124,7 +125,8 @@ export function wallReport(layer: CityFacadesLayer, input: GroundInput): WallRep
     failures.push({ check, reason, cells });
   };
   const at = (c: CityCell): string => `(${c.i}, ${c.j})`;
-  const walls = layer.walls;
+  // PW7: the party-wall kinds are H2b's, judged by `partyFailures`
+  const walls = layer.walls?.filter((p) => !PARTY_WALL_KINDS.includes(p.kind));
   if (!walls) {
     fail("H2", "the facades layer has no walls", []);
     return { failures, metrics: empty() };

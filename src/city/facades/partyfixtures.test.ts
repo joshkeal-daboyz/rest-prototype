@@ -5,6 +5,7 @@
 import { describe, expect, it } from "vitest";
 import type { CityFacadesLayer, CityWallPiece } from "../../core";
 import { partyFaces, placeParty, scanParty, type PartyFace } from "./party";
+import { wallReport } from "./wallcheck";
 import { partyFailures, partyReport } from "./partycheck";
 import { BLANK_RUN_MAX_M, PARTY_PIPES, PARTY_WINDOW, partyBounds } from "./partykit";
 import { keyOf, rotate } from "./place";
@@ -42,6 +43,17 @@ describe("the failing fixtures (criterion 4)", { timeout: 120_000 }, () => {
     expect(rep.metrics.pipe01).toBe(0);
     expect(rep.metrics.nothingFits).toBe(0);
     expect(rep.metrics.u1Faces).toBeGreaterThan(0);
+  });
+
+  it("PW7: H2's wallReport of the whole layer equals its wallReport with the party pieces taken out, failures and metrics", () => {
+    const whole = wallReport(L.facades, input);
+    const without = wallReport(layerOf(walls.filter((p) => !isParty(p))), input);
+    expect(walls.some(isParty)).toBe(true);
+    expect(whole.failures).toEqual([]);
+    expect(whole).toEqual(without);
+    // a kind that is neither H2's nor H2b's still fails
+    const odd = wallReport(layerOf([...walls, { ...walls[0]!, kind: "mystery" as CityWallPiece["kind"] }]), input);
+    expect(odd.failures.some((f) => f.check === "H2" && /does not place/.test(f.reason))).toBe(true);
   });
 
   it("a layer with no walls fails the shape check", () => {

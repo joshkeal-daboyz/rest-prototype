@@ -7,11 +7,13 @@
  * The named runs must be ok (R-2); the numbers are reported, the few the ticket pins (no `_01`, no face where nothing fits, the stretch under `BLANK_RUN_MAX_M`) are asserted.
  */
 import { describe, expect, it } from "vitest";
-import type { CityPlanRun } from "../../core";
+import type { CityPlanRun, CityWallPiece } from "../../core";
 import { stageRand } from "../pipeline/seeds";
 import { runCity } from "../stages";
 import { DRESS_MAX } from "./dresskit";
 import { buildParty } from "./party";
+import { escapeWeight } from "./escape";
+import { keyOf } from "./place";
 import { partyReport } from "./partycheck";
 import { BLANK_RUN_MAX_M } from "./partykit";
 import { type City, cityOf, label, NAMED, stagesOf } from "./testcities";
@@ -28,6 +30,7 @@ describe("H2b report, criterion 7 (reported, not asserted, except as the ticket 
     let maxParty = 0;
     let maxTotal = 0;
     let minFaces = Infinity;
+    let fullest = { n: 0, run: "" };
     for (const o of NAMED) {
       const r = cityOf(o);
       expect(r.ok, label(o)).toBe(true);
@@ -37,9 +40,20 @@ describe("H2b report, criterion 7 (reported, not asserted, except as the ticket 
       expect(rep.failures.slice(0, 3), label(o)).toEqual([]);
       const m = rep.metrics;
       const stats = buildParty(mass!, buildings!, stageRand("facades", o.seed)).stats;
+      // the fullest column counting H2's pieces, H1b's dressing and the party pieces together (reported only; PW7)
+      const perCol = new Map<string, number>();
+      const add = (k: string, n: number): void => void perCol.set(k, (perCol.get(k) ?? 0) + n);
+      for (const p of facades!.dressing!) add(keyOf(p.cell), 1);
+      for (const p of facades!.walls!) if (p.kind !== "escape") add(keyOf(p.cell), 1);
+      const colAt = new Map(buildings!.columns!.map((c) => [keyOf(c), c] as const));
+      const escapes = new Map<string, CityWallPiece[]>();
+      for (const p of facades!.walls!) if (p.kind === "escape") (escapes.get(keyOf(p.cell)) ?? escapes.set(keyOf(p.cell), []).get(keyOf(p.cell))!).push(p);
+      for (const [cell, ps] of escapes) add(cell, escapeWeight(colAt.get(cell)!, ps));
+      const top = Math.max(...perCol.values());
+      if (top > fullest.n) fullest = { n: top, run: label(o) };
       const total = facades!.dressing!.length + facades!.walls!.length;
       lines.push(
-        `${label(o)}: faces ${m.faces} on ${m.walls} walls (one-storey step ${m.byStep["1"]}, two-storey ${m.byStep["2"]}) | by where: row joint ${m.byWhere.row}, L leg ${m.byWhere.leg}, blind cell ${m.byWhere.blind} | U1 fronts left undressed ${m.u1Faces} | pieces ${m.pieces} ${JSON.stringify(m.byKind)} (boards ${stats.boards}, window pairs ${stats.windowPairs}, pipes ${stats.pipes}) | running rule took a kind away on ${stats.runningRemoved} faces (a key away on ${stats.keyRemoved}) | widest bare ${f3(m.widestBare)} of ${BLANK_RUN_MAX_M} | Pipe_Present_01 ${m.pipe01}, faces where nothing fits ${m.nothingFits} | walls ${facades!.walls!.length} (party ${m.pieces}), with dressing ${total} of ${DRESS_MAX}`,
+        `${label(o)}: faces ${m.faces} on ${m.walls} walls (one-storey step ${m.byStep["1"]}, two-storey ${m.byStep["2"]}) | by where: row joint ${m.byWhere.row}, L leg ${m.byWhere.leg}, blind cell ${m.byWhere.blind} | U1 fronts left undressed ${m.u1Faces} | pieces ${m.pieces} ${JSON.stringify(m.byKind)} (boards ${stats.boards}, window pairs ${stats.windowPairs}, pipes ${stats.pipes}) | running rule took a kind away on ${stats.runningRemoved} faces (a key away on ${stats.keyRemoved}) | widest bare ${f3(m.widestBare)} of ${BLANK_RUN_MAX_M} | Pipe_Present_01 ${m.pipe01}, faces where nothing fits ${m.nothingFits} | fullest column ${top} | walls ${facades!.walls!.length} (party ${m.pieces}), with dressing ${total} of ${DRESS_MAX}`,
       );
       sum.faces += m.faces;
       sum.one += m.byStep["1"];
@@ -62,7 +76,8 @@ describe("H2b report, criterion 7 (reported, not asserted, except as the ticket 
       for (const [k, v] of Object.entries(m.byKind)) kinds[k] = (kinds[k] ?? 0) + v;
     }
     console.log(
-      `H2b REPORT, named\n${lines.join("\n")}\nTOTAL faces ${sum.faces} on ${sum.walls} walls (one-storey ${sum.one}, two-storey ${sum.two}); by where: row joint ${sum.row}, L leg ${sum.leg}, blind cell ${sum.blind}; U1 fronts left undressed ${sum.u1}; fewest faces in a run ${minFaces}\nPIECES ${sum.pieces} (most in a run ${maxParty}; with walls and dressing most ${maxTotal} of ${DRESS_MAX}) ${JSON.stringify(kinds)}\nKEYS ${JSON.stringify(keys)}\nrunning rule removed a kind on ${sum.removed} faces, a key on ${sum.keyRemoved}; widest bare stretch ${f3(widest)} (limit ${BLANK_RUN_MAX_M}); Pipe_Present_01 ${sum.pipe01}; faces where nothing fits ${sum.nothing}`,
+      `H2b REPORT, named\n${lines.join("\n")}\nTOTAL faces ${sum.faces} on ${sum.walls} walls (one-storey ${sum.one}, two-storey ${sum.two}); by where: row joint ${sum.row}, L leg ${sum.leg}, blind cell ${sum.blind}; U1 fronts left undressed ${sum.u1}; fewest faces in a run ${minFaces}\nPIECES ${sum.pieces} (most in a run ${maxParty}; with walls and dressing most ${maxTotal} of ${DRESS_MAX}) ${JSON.stringify(kinds)}\nKEYS ${JSON.stringify(keys)}\nfullest column with all three counted ${fullest.n} on ${fullest.run}
+running rule removed a kind on ${sum.removed} faces, a key on ${sum.keyRemoved}; widest bare stretch ${f3(widest)} (limit ${BLANK_RUN_MAX_M}); Pipe_Present_01 ${sum.pipe01}; faces where nothing fits ${sum.nothing}`,
     );
     expect(sum.pipe01).toBe(0);
     expect(sum.nothing).toBe(0);

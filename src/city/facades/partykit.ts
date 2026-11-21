@@ -5,9 +5,12 @@
  * base at y; its own front is +z, its back -z.
  */
 
-import type { CalibrationKey } from "../../core";
+import type { CalibrationKey, CityWallPieceKind } from "../../core";
 
 const key = (name: string): CalibrationKey => `city-pack:${name}`;
+
+/** The wall piece kinds H2b places (PW7: H2's checks and the column cap skip them; `partyFailures` judges them). */
+export const PARTY_WALL_KINDS: readonly CityWallPieceKind[] = ["partyBoard", "partyPipe", "partyWindow"];
 
 /** The painted boards (one to a face). */
 export const PARTY_BOARDS: readonly CalibrationKey[] = ["01", "02", "03", "04", "05", "06", "07"].map((n) => key(`SM_Prop_Billboard_Sign_${n}`));

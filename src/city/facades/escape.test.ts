@@ -15,6 +15,7 @@ import { finalise, indexOf } from "./hash";
 import { placeGround, keyOf, centreOf } from "./place";
 import { buildGround } from "./stage";
 import { cityOf, DEFAULT, label, layersOf, NAMED, stagesOf } from "./testcities";
+import { PARTY_WALL_KINDS } from "./partykit";
 import { wallFailures } from "./wallcheck";
 import {
   CODE_ESCAPE_KEY,
@@ -232,7 +233,7 @@ describe("canopies and wall props (WP1 to WP3, criterion 4)", { timeout: 120_000
             expect((p.kind === "aircon" ? WALL_ACS : WALL_PLANTERS) as readonly string[]).toContain(p.placement.key);
             expect(p.placement.y_m, `${label(o)} ${id}`).toBeCloseTo(3 * p.storey + (p.kind === "aircon" ? WALL_AC_LIFT_M : PLANTER_LIFT_M), 9);
           }
-          if (p.kind !== "escape") perCell.set(keyOf(p.cell), (perCell.get(keyOf(p.cell)) ?? 0) + 1);
+          if (p.kind !== "escape" && !PARTY_WALL_KINDS.includes(p.kind)) perCell.set(keyOf(p.cell), (perCell.get(keyOf(p.cell)) ?? 0) + 1);
         }
         if (esc.length > 0) perCell.set(escCol!, (perCell.get(escCol!) ?? 0) + escapeWeight(v.colAt.get(escCol!)!, esc));
       }

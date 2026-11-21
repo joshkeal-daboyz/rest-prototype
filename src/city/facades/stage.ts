@@ -136,7 +136,7 @@ function run(plan: CityPlan, rand: StageRand): CityFacadesLayer {
   const layer: CityFacadesLayer = { stage: "facades", ground, dressing, walls };
   const dressFailed = dressFailures(layer, { mass, buildings });
   if (dressFailed.length > 0) throw new CityStageError(`${dressFailed[0]!.check}: ${dressFailed[0]!.reason}`, dressFailed[0]!.cells);
-  const wallFailed = wallFailures({ ...layer, walls: h2 }, { mass, buildings });
+  const wallFailed = wallFailures(layer, { mass, buildings });
   if (wallFailed.length > 0) throw new CityStageError(`${wallFailed[0]!.check}: ${wallFailed[0]!.reason}`, wallFailed[0]!.cells);
   const partyFailed = partyFailures(layer, { mass, buildings });
   if (partyFailed.length > 0) throw new CityStageError(`${partyFailed[0]!.check}: ${partyFailed[0]!.reason}`, partyFailed[0]!.cells);
