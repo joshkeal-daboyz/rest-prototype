@@ -868,7 +868,35 @@ export interface CityWallPiece {
   readonly boxes: readonly CityWallBox[];
 }
 
-/** Stage 7: facades. H1 writes `ground`; H1b writes `dressing`; H2 and H2b write `walls`; H3 (roofs) adds its own field when it is cut. */
+// ---- stage 7, H3: the roofs (ticket 070 H3; grammar rule 11 and M9b; the checklist's R8; ticket 068, Josh, 19 Nov 2026: "roof top exists shouldn't open to the street. They should be on the roof.") ----
+//
+// Typed by the lead-architect before H3 (21 Nov 2026, H3's re-cut against 4ddae06). The tile city's rooftop items (`dressBlock`'s big roof prop and small roof props, src/render3d/dressing.ts) and 068's roof exit,
+// moved onto stage 5's roof pieces. A field of its own, not more kinds in `walls`, so H1b's, H2's and H2b's checks keep reading exactly the lists they read (H2b's PW7 stop is not repeated).
+// - **Where a piece stands.** Worked out in its host column's own frame (its front +z, F2's fixed frame: the roof piece's base at 3 x `storeys`), then turned by the column's `yaw` (plus a half-turn where the
+//   piece is turned round: a roof exit always, a turnable small prop by hash). Its base stands on the roof's deck (H3's reading RT), its footprint `ROOF_EDGE_M` inside the cell's edges (rule 11: the body's
+//   edge, not the cornice's; the body is the cell, M1).
+// - **Which roofs.** A big piece ("waterTower", "exit", "billboard" with its "billboardFace", "novelty") only on a mid roof (a mid or blind column), at most one big prop a building; "small" pieces on any
+//   roof (mid or corner), never on the column that holds the building's big prop.
+// - **The roof exit** (M9b). Wholly on its roof; its door (its own +z, H3's reading RD) faces away from every open side of its column, with `ROOF_ACCESS_CLEAR_M` (1.2 m) of clear deck in front of it; on a
+//   blind column of its building where it has one, else on a mid column (068's order on cells, H3's reading RX).
+
+/** What a rooftop piece is: a small roof prop (`ROOF_SMALL`), or one of the big ones: the water tower, the roof exit (`SM_Bld_Roof_Access_01`), a billboard's structure and its face (two pieces, one big prop), a novelty sign. */
+export type CityRoofPieceKind = "small" | "waterTower" | "exit" | "billboard" | "billboardFace" | "novelty";
+
+/** One rooftop piece, placed. */
+export interface CityRoofPiece {
+  readonly kind: CityRoofPieceKind;
+  /** Its `CityBuilding.id`. */
+  readonly building: string;
+  /** The column whose roof it stands on. */
+  readonly cell: CityCell;
+  /** The side of `cell` the piece's own +z faces after its turn: for an exit, its door's side; for a billboard's face, the side it shows. */
+  readonly facing: CitySide;
+  /** `placement.y_m` is its base, on the roof's deck. */
+  readonly placement: CityPlacement;
+}
+
+/** Stage 7: facades. H1 writes `ground`; H1b writes `dressing`; H2 and H2b write `walls`; H3 writes `roofs`. */
 export interface CityFacadesLayer {
   readonly stage: "facades";
   /** H1: one piece per ground slot, every `buildings.columns` entry's slot filled exactly once (a "shopDouble" fills two), in `buildings.columns` order of each piece's first cell. */
@@ -884,6 +912,12 @@ export interface CityFacadesLayer {
    * Optional only so H1's and H1b's layers and fixtures (and G2's, which reads `ground` only) type-check; from H2 the stage always writes it.
    */
   readonly walls?: readonly CityWallPiece[];
+  /**
+   * H3: the rooftop pieces, building by building in `buildings.buildings` order; in a building, its big prop first (a billboard: its structure, then its face), then its small props by column along the row,
+   * and in a column its first then its second (the left half, then the right, in the column's own frame). Optional only so H1's to H2b's layers and fixtures (and G2's, which reads `ground` only) type-check;
+   * from H3 the stage always writes it.
+   */
+  readonly roofs?: readonly CityRoofPiece[];
 }
 /** Stage 8: ground dressing. Typed before section I. */
 export interface CityGroundLayer {
