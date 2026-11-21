@@ -39,6 +39,7 @@ import {
   ROOF_SMALL,
   ROOF_SMALL_PER_BAY,
   ROOF_WATER_TOWER,
+  WATER_TOWER_PER_BUILDINGS,
   isTurnable,
   roofBounds,
 } from "./roofkit";
@@ -189,6 +190,13 @@ export interface RoofStats {
   capTurned: Record<"waterTower" | "exit" | "billboard" | "small", number>;
   /** Roof columns that drew a small prop, with one or with two. */
   smallColumns: { one: number; two: number };
+  /** H3b: water towers placed before the cap (TS's candidates), and the freed roofs (candidates the cap gave up). */
+  towerCandidates: number;
+  freed: number;
+  /** H3b (TF): bare runs (no big roof item left) that have a freed roof, those whose ranked freed roof took an exit, and the freed roofs by what they took (an exit on a blind or a mid column, none). */
+  bareRuns: number;
+  bareRunsToppedUp: number;
+  freedTook: { exitBlind: number; exitMid: number; none: number };
 }
 
 const emptyStats = (): RoofStats => ({
@@ -202,6 +210,11 @@ const emptyStats = (): RoofStats => ({
   rkTurned: { waterTower: 0, exit: 0, billboard: 0, small: 0 },
   capTurned: { waterTower: 0, exit: 0, billboard: 0, small: 0 },
   smallColumns: { one: 0, two: 0 },
+  towerCandidates: 0,
+  freed: 0,
+  bareRuns: 0,
+  bareRunsToppedUp: 0,
+  freedTook: { exitBlind: 0, exitMid: 0, none: 0 },
 });
 
 type Big = "tower" | "exit" | "billboard";
@@ -219,15 +232,36 @@ export function streetMid(ctx: Ctx, col: CityColumn): boolean {
   return col.kind === "mid" && ctx.built.get(keyOf(col))?.open.find((o) => o.side === col.front)?.frontage === "street";
 }
 
+/** What one building keeps between the passes of `buildRoofs`: its columns, its big prop's piece group and column, and whether that prop is a water tower candidate (TS). */
+interface Held {
+  readonly b: CityBuilding;
+  readonly cols: CityColumn[];
+  readonly run: string;
+  /** The hashed column order of the big prop's try (`largecol`), over the building's non-corner columns. */
+  readonly order: number[];
+  /** The big prop's pieces (a billboard's structure and face) and its column's index, once placed. */
+  big: CityRoofPiece[];
+  bigN: number;
+  tower: boolean;
+}
+
+/** TS's order: the hashed rank ascending, ties by building id. */
+const byRank = (p: { h: Held; rank: number }, q: { h: Held; rank: number }): number => p.rank - q.rank || (p.h.b.id < q.h.b.id ? -1 : p.h.b.id > q.h.b.id ? 1 : 0);
+
 /**
  * The roof pieces of every building, in `buildings.buildings` order: in a building its big prop first (a billboard: its structure, then its face), then its small props by column along the row, in a column the first then the
  * second (the left half, then the right). `layer` is H1b's and H2's output (read only). Fails with `CityStageError` where a column has no roof piece (R-2).
+ *
+ * Four passes (H3b): (1) every building's big prop, H3's kind loop, each water tower held as a candidate; (2) TX and TS, each street block keeps at most floor(n / `towerPer`) of its candidates, ranked by the hash, and a freed roof
+ * gives its tower and that column's load back; (3) TF, in each bare run with a freed roof (a run with no big roof item left) the run's first freed roof, ranked by the hash, tries the roof exit; (4) every building's small props.
+ * With `towerPer` 1 the cap holds every candidate and the layer is H3's exactly.
  */
 export function buildRoofs(
   mass: Pick<CityMassLayer, "cells" | "built">,
   buildings: Pick<CityBuildingsLayer, "rows" | "columns" | "buildings">,
   layer: Pick<CityFacadesLayer, "dressing" | "walls">,
   rand: StageRand,
+  towerPer: number = WATER_TOWER_PER_BUILDINGS,
 ): { roofs: CityRoofPiece[]; stats: RoofStats } {
   const ctx = makeCtx(mass, buildings);
   const insets = roofInsets(layer.walls ?? []);
@@ -235,92 +269,155 @@ export function buildRoofs(
   const runOf = runsOf(buildings);
   const billboards = new Map<string, number>();
   const stats = emptyStats();
-  const roofs: CityRoofPiece[] = [];
+  const cellOf = (col: CityColumn): CityCell => ({ i: col.i, j: col.j });
+  const room = (col: CityColumn, n: number): boolean => (load.get(keyOf(col)) ?? 0) + n <= DRESS_PER_BAY_MAX;
+  const addLoad = (col: CityColumn, n: number): void => void load.set(keyOf(col), (load.get(keyOf(col)) ?? 0) + n);
+  const piece = (h: Held, kind: CityRoofPiece["kind"], col: CityColumn, facing: CitySide, placement: CityPlacement): CityRoofPiece => ({ kind, building: h.b.id, cell: cellOf(col), facing, placement });
 
-  for (const b of buildings.buildings) {
+  /** The roof exit on a column (RD, RW, RK), or null; counts what RK turned away. */
+  const exitGroup = (h: Held, col: CityColumn): CityRoofPiece[] | null => {
+    const e = roofBounds(ROOF_ACCESS);
+    const deck = deckOf(col, insets, ROOF_EDGE_M);
+    if (exitFits(deck)) return [piece(h, "exit", col, OPPOSITE[col.front], placeOnRoof(col, ROOF_ACCESS, (deck.left + deck.right) / 2, deck.front - e.d / 2, deckY(col), 180))];
+    if (exitFits(deckOf(col, NO_INSETS, ROOF_EDGE_M))) stats.rkTurned.exit++;
+    return null;
+  };
+  /** RX: the exit tries the building's blind columns first, then its mid columns, each in the hashed rotation. */
+  const exitTries = (h: Held): number[] => [...h.order.filter((n) => h.cols[n]!.kind === "blind"), ...h.order.filter((n) => h.cols[n]!.kind !== "blind")];
+
+  const helds: Held[] = buildings.buildings.map((b) => {
     const cols = b.cells.map((c) => {
       const col = ctx.col.get(keyOf(c));
       if (!col) throw new CityStageError(`H3: building ${b.id} has the cell (${c.i}, ${c.j}), which has no column`, [c]);
       return col;
     });
-    const mine: CityRoofPiece[] = [];
-    const run = runOf.get(b.id) ?? b.id;
-    const cellOf = (col: CityColumn): CityCell => ({ i: col.i, j: col.j });
-    const room = (col: CityColumn, n: number): boolean => (load.get(keyOf(col)) ?? 0) + n <= DRESS_PER_BAY_MAX;
-    const take = (col: CityColumn, pieces: readonly CityRoofPiece[]): void => {
-      load.set(keyOf(col), (load.get(keyOf(col)) ?? 0) + pieces.length);
-      mine.push(...pieces);
-    };
-    const piece = (kind: CityRoofPiece["kind"], col: CityColumn, facing: CitySide, placement: CityPlacement): CityRoofPiece => ({ kind, building: b.id, cell: cellOf(col), facing, placement });
+    const roofCols = cols.map((c, n) => ({ c, n })).filter(({ c }) => c.kind !== "corner").map(({ n }) => n);
+    return { b, cols, run: runOf.get(b.id) ?? b.id, order: rotated(roofCols, rand("roof", "largecol", b.id)), big: [], bigN: -1, tower: false };
+  });
 
-    // ---- the big roof prop: at most one per building, chosen before the small ones so it takes its column ----
-    const bigCols = new Set<number>();
-    if (unitOf(rand("roof", "large", b.id)) < P_ROOF_LARGE) {
-      stats.drawn++;
-      const kinds = rotated<Big>(["tower", "exit", "billboard"], rand("roof", "largekind", b.id));
-      const roofCols = cols.map((c, n) => ({ c, n })).filter(({ c }) => c.kind !== "corner").map(({ n }) => n);
-      const order = rotated(roofCols, rand("roof", "largecol", b.id));
-      let done = false;
-      for (const kind of kinds) {
-        if (done) break;
-        if (kind === "billboard" && (billboards.get(run) ?? 0) > 0) {
-          stats.billboardRunCap++;
+  // ---- pass 1: the big roof prop, at most one per building, chosen before the small ones so it takes its column ----
+  for (const h of helds) {
+    const { b, cols, run, order } = h;
+    if (unitOf(rand("roof", "large", b.id)) >= P_ROOF_LARGE) continue;
+    stats.drawn++;
+    const kinds = rotated<Big>(["tower", "exit", "billboard"], rand("roof", "largekind", b.id));
+    let done = false;
+    for (const kind of kinds) {
+      if (done) break;
+      if (kind === "billboard" && (billboards.get(run) ?? 0) > 0) {
+        stats.billboardRunCap++;
+        continue;
+      }
+      const tries = kind === "exit" ? exitTries(h) : order;
+      const face = kind === "billboard" ? BILLBOARD_FACES[indexOf(rand("roof", "face", b.id), BILLBOARD_FACES.length)]! : null;
+      for (const n of tries) {
+        const col = cols[n]!;
+        const y = deckY(col);
+        let group: CityRoofPiece[] | null = null;
+        if (kind === "tower") {
+          const e = roofBounds(ROOF_WATER_TOWER);
+          const deck = deckOf(col, insets, ROOF_EDGE_M);
+          if (fitsSize(e.w, e.d, deck)) group = [piece(h, "waterTower", col, col.front, placeOnRoof(col, ROOF_WATER_TOWER, (deck.left + deck.right) / 2, deck.front - e.d / 2, y, 0))];
+          else if (fitsSize(e.w, e.d, deckOf(col, NO_INSETS, ROOF_EDGE_M))) stats.rkTurned.waterTower++;
+        } else if (kind === "exit") {
+          group = exitGroup(h, col);
+        } else {
+          const s = roofBounds(BILLBOARD_STRUCTURE);
+          const f = roofBounds(face!);
+          const plain = deckOf(col, NO_INSETS, BILLBOARD_EDGE_M);
+          const deck = deckOf(col, insets, BILLBOARD_EDGE_M);
+          const fits = (r: Rect): boolean => fitsSize(s.w, s.d + f.d, r) && f.w <= r.right - r.left + EPS;
+          if (!streetMid(ctx, col)) {
+            if (fits(plain)) stats.rbTurned[col.kind]++;
+          } else if (fits(deck)) {
+            const x = (deck.left + deck.right) / 2;
+            group = [
+              piece(h, "billboard", col, col.front, placeOnRoof(col, BILLBOARD_STRUCTURE, x, deck.front - f.d - s.d / 2, y, 0)),
+              piece(h, "billboardFace", col, col.front, placeOnRoof(col, face!, x, deck.front - f.d / 2, y + BILLBOARD_SIGN_Y_M, 0)),
+            ];
+          } else if (fits(plain)) stats.rkTurned.billboard++;
+        }
+        if (!group) continue;
+        if (!room(col, group.length)) {
+          stats.capTurned[NAME[kind]]++;
           continue;
         }
-        // RX: the exit tries the building's blind columns first, then its mid columns, each in the hashed rotation
-        const tries = kind === "exit" ? [...order.filter((n) => cols[n]!.kind === "blind"), ...order.filter((n) => cols[n]!.kind !== "blind")] : order;
-        const face = kind === "billboard" ? BILLBOARD_FACES[indexOf(rand("roof", "face", b.id), BILLBOARD_FACES.length)]! : null;
-        for (const n of tries) {
-          const col = cols[n]!;
-          const y = deckY(col);
-          let group: CityRoofPiece[] | null = null;
-          if (kind === "tower") {
-            const e = roofBounds(ROOF_WATER_TOWER);
-            const deck = deckOf(col, insets, ROOF_EDGE_M);
-            if (fitsSize(e.w, e.d, deck)) group = [piece("waterTower", col, col.front, placeOnRoof(col, ROOF_WATER_TOWER, (deck.left + deck.right) / 2, deck.front - e.d / 2, y, 0))];
-            else if (fitsSize(e.w, e.d, deckOf(col, NO_INSETS, ROOF_EDGE_M))) stats.rkTurned.waterTower++;
-          } else if (kind === "exit") {
-            const e = roofBounds(ROOF_ACCESS);
-            const deck = deckOf(col, insets, ROOF_EDGE_M);
-            if (exitFits(deck)) group = [piece("exit", col, OPPOSITE[col.front], placeOnRoof(col, ROOF_ACCESS, (deck.left + deck.right) / 2, deck.front - e.d / 2, y, 180))];
-            else if (exitFits(deckOf(col, NO_INSETS, ROOF_EDGE_M))) stats.rkTurned.exit++;
-          } else {
-            const s = roofBounds(BILLBOARD_STRUCTURE);
-            const f = roofBounds(face!);
-            const plain = deckOf(col, NO_INSETS, BILLBOARD_EDGE_M);
-            const deck = deckOf(col, insets, BILLBOARD_EDGE_M);
-            const fits = (r: Rect): boolean => fitsSize(s.w, s.d + f.d, r) && f.w <= r.right - r.left + EPS;
-            if (!streetMid(ctx, col)) {
-              if (fits(plain)) stats.rbTurned[col.kind]++;
-            } else if (fits(deck)) {
-              const x = (deck.left + deck.right) / 2;
-              group = [
-                piece("billboard", col, col.front, placeOnRoof(col, BILLBOARD_STRUCTURE, x, deck.front - f.d - s.d / 2, y, 0)),
-                piece("billboardFace", col, col.front, placeOnRoof(col, face!, x, deck.front - f.d / 2, y + BILLBOARD_SIGN_Y_M, 0)),
-              ];
-            } else if (fits(plain)) stats.rkTurned.billboard++;
-          }
-          if (!group) continue;
-          if (!room(col, group.length)) {
-            stats.capTurned[NAME[kind]]++;
-            continue;
-          }
-          take(col, group);
-          bigCols.add(n);
-          stats.placed[NAME[kind]]++;
-          if (kind === "exit") stats.exitOn[col.kind === "blind" ? "blind" : "mid"]++;
-          if (kind === "billboard") billboards.set(run, (billboards.get(run) ?? 0) + 1);
-          done = true;
-          break;
-        }
-        if (!done) stats.fellThrough[NAME[kind]]++;
+        addLoad(col, group.length);
+        h.big = group;
+        h.bigN = n;
+        if (kind === "tower") {
+          h.tower = true;
+          stats.towerCandidates++;
+        } else stats.placed[NAME[kind]]++;
+        if (kind === "exit") stats.exitOn[col.kind === "blind" ? "blind" : "mid"]++;
+        if (kind === "billboard") billboards.set(run, (billboards.get(run) ?? 0) + 1);
+        done = true;
+        break;
       }
-      if (!done) stats.noBig++;
+      if (!done) stats.fellThrough[NAME[kind]]++;
     }
+    if (!done) stats.noBig++;
+  }
 
-    // ---- the small roof props: each roof column without the big prop, by probability, one or two, in cells ----
+  // ---- pass 2: TX and TS, each block keeps at most floor(n / towerPer) of its tower candidates, by the hashed rank ----
+  const perBlock = new Map<string, number>();
+  for (const b of buildings.buildings) perBlock.set(b.block, (perBlock.get(b.block) ?? 0) + 1);
+  const candidates = new Map<string, { h: Held; rank: number }[]>();
+  for (const h of helds) if (h.tower) (candidates.get(h.b.block) ?? candidates.set(h.b.block, []).get(h.b.block)!).push({ h, rank: unitOf(rand("roof", "tower", h.b.block, h.b.id)) });
+  const freed: Held[] = [];
+  for (const [block, list] of candidates) {
+    const cap = Math.floor((perBlock.get(block) ?? 0) / towerPer);
+    list.sort(byRank);
+    list.forEach(({ h }, n) => {
+      if (n < cap) {
+        stats.placed.waterTower++;
+        return;
+      }
+      addLoad(h.cols[h.bigN]!, -h.big.length);
+      h.big = [];
+      h.bigN = -1;
+      h.tower = false;
+      freed.push(h);
+    });
+  }
+  stats.freed = freed.length;
+
+  // ---- pass 3: TF, the bare-run top-up: in a run with no big roof item left, its first freed roof (by the hashed rank) tries the roof exit ----
+  const runHasBig = new Set(helds.filter((h) => h.big.length > 0).map((h) => h.run));
+  const freedOfRun = new Map<string, Held[]>();
+  for (const h of freed) if (!runHasBig.has(h.run)) (freedOfRun.get(h.run) ?? freedOfRun.set(h.run, []).get(h.run)!).push(h);
+  let toppedUp = 0;
+  for (const [run, list] of freedOfRun) {
+    stats.bareRuns++;
+    const h = list.map((x) => ({ h: x, rank: unitOf(rand("roof", "exit", run, x.b.id)) })).sort(byRank)[0]!.h;
+    for (const n of exitTries(h)) {
+      const col = h.cols[n]!;
+      const group = exitGroup(h, col);
+      if (!group) continue;
+      if (!room(col, group.length)) {
+        stats.capTurned.exit++;
+        continue;
+      }
+      addLoad(col, group.length);
+      h.big = group;
+      h.bigN = n;
+      stats.placed.exit++;
+      stats.exitOn[col.kind === "blind" ? "blind" : "mid"]++;
+      stats.freedTook[col.kind === "blind" ? "exitBlind" : "exitMid"]++;
+      toppedUp++;
+      break;
+    }
+  }
+  stats.bareRunsToppedUp = toppedUp;
+  stats.freedTook.none = freed.length - toppedUp;
+
+  // ---- pass 4: the small roof props: each roof column without the big prop, by probability, one or two, in cells ----
+  const roofs: CityRoofPiece[] = [];
+  for (const h of helds) {
+    const { b, cols } = h;
+    const mine: CityRoofPiece[] = [...h.big];
     cols.forEach((col, n) => {
-      if (bigCols.has(n)) return;
+      if (n === h.bigN) return;
       if (unitOf(rand("roof", "small", b.id, n)) >= P_ROOF_SMALL) return;
       const deck = deckOf(col, insets, ROOF_EDGE_M);
       if (deck.right <= deck.left || deck.front <= deck.back) return;
@@ -348,7 +445,8 @@ export function buildRoofs(
           const fx = c.left + e.w / 2 + unitOf(rand("roof", "x", b.id, n, m)) * (c.right - c.left - e.w);
           const fz = c.back + e.d / 2 + unitOf(rand("roof", "z", b.id, n, m)) * (c.front - c.back - e.d);
           const own = planSide(col.yaw + (flip ? 180 : 0), 0, 1);
-          take(col, [piece("small", col, own, placeOnRoof(col, key, fx, fz, y, flip ? 180 : 0))]);
+          addLoad(col, 1);
+          mine.push(piece(h, "small", col, own, placeOnRoof(col, key, fx, fz, y, flip ? 180 : 0)));
           break;
         }
       });

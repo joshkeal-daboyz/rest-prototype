@@ -7,11 +7,12 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { CityBuildingsLayer, CityCell, CityColumn, CityFacadesLayer, CityMassLayer, CityRoofPiece, CitySide } from "../../core";
+import { digestOf } from "../pipeline/digest";
 import { stageRand } from "../pipeline/seeds";
 import { runsOf } from "./dress";
 import { unitOf } from "./hash";
 import { roofReport } from "./roofcheck";
-import { BILLBOARD_FACES, BILLBOARD_SIGN_Y_M, ROOF_ACCESS, ROOF_SMALL, ROOF_WATER_TOWER, roofBounds } from "./roofkit";
+import { BILLBOARD_FACES, BILLBOARD_SIGN_Y_M, ROOF_ACCESS, ROOF_SMALL, ROOF_WATER_TOWER, WATER_TOWER_PER_BUILDINGS, roofBounds } from "./roofkit";
 import { buildRoofs, roofInsets } from "./roofs";
 import { cityOf, label, layersOf, NAMED, type City } from "./testcities";
 
@@ -410,6 +411,129 @@ describe("the checks hold on the named runs, and the cap (criteria 5 and RC)", {
       expect(m.pieces, label(o)).toBe(v.roofs.length);
       expect(m.buildings, label(o)).toBe(v.buildings.buildings.length);
     }
+  });
+});
+
+/** H3b: a named run's capped layer (the stage's) beside its uncapped one (`towerPer` 1: the candidates). */
+interface Pair {
+  readonly v: View;
+  readonly open: readonly CityRoofPiece[];
+}
+const pairs = new Map<string, Pair>();
+function pairOf(o: City): Pair {
+  const k = label(o);
+  if (!pairs.has(k)) {
+    const v = viewOf(o);
+    pairs.set(k, { v, open: buildRoofs(v.mass, v.buildings, v.layer, stageRand("facades", o.seed), 1).roofs });
+  }
+  return pairs.get(k)!;
+}
+const isBig = (p: CityRoofPiece): boolean => p.kind === "waterTower" || p.kind === "exit" || p.kind === "billboard";
+const byBuilding = (roofs: readonly CityRoofPiece[]): Map<string, CityRoofPiece[]> => {
+  const m = new Map<string, CityRoofPiece[]>();
+  for (const p of roofs) (m.get(p.building) ?? m.set(p.building, []).get(p.building)!).push(p);
+  return m;
+};
+
+describe("H3b: the water-tower cap (criteria 2 to 4)", { timeout: 120_000 }, () => {
+  it("towerPer 1 gives H3's layer: with it in place of the stage's roofs, the facades digest is H3's pin on the four pin cities (85f425f5, 40ff1675, e1ee93b5, 06de80d5)", () => {
+    const H3: readonly (readonly [number, string])[] = [
+      [1, "85f425f5"],
+      [2, "40ff1675"],
+      [3, "e1ee93b5"],
+      [8, "06de80d5"],
+    ];
+    for (const [seed, pin] of H3) {
+      const o: City = { blocksX: 6, blocksZ: 6, seed, way: "on" };
+      const v = viewOf(o);
+      const open = pairOf(o).open;
+      expect(digestOf({ ...v.layer, roofs: open }), `seed ${seed}`).toBe(pin);
+      expect(digestOf(v.layer), `seed ${seed} (the stage's own layer is the capped one)`).not.toBe(pin);
+    }
+  });
+
+  it("TX and TS: every block holds at most floor(n / 16) towers, none under 16 buildings, exactly min(cap, its candidates), the block's first candidates by the hashed rank, on the same column and placement as uncapped; the pick is exercised", () => {
+    let exercised = 0;
+    let under = 0;
+    for (const o of NAMED) {
+      const { v, open } = pairOf(o);
+      const rand = stageRand("facades", o.seed);
+      const blockOf = new Map(v.buildings.buildings.map((b) => [b.id, b.block] as const));
+      const n = new Map<string, number>();
+      for (const b of v.buildings.buildings) n.set(b.block, (n.get(b.block) ?? 0) + 1);
+      const candidates = new Map<string, string[]>();
+      for (const p of open) if (p.kind === "waterTower") (candidates.get(blockOf.get(p.building)!) ?? candidates.set(blockOf.get(p.building)!, []).get(blockOf.get(p.building)!)!).push(p.building);
+      const kept = new Map<string, string[]>();
+      for (const p of v.roofs) if (p.kind === "waterTower") (kept.get(blockOf.get(p.building)!) ?? kept.set(blockOf.get(p.building)!, []).get(blockOf.get(p.building)!)!).push(p.building);
+      for (const [block, count] of n) {
+        const cap = Math.floor(count / 16);
+        if (count < 16) {
+          under++;
+          expect(cap).toBe(0);
+        }
+        const cands = candidates.get(block) ?? [];
+        const got = kept.get(block) ?? [];
+        expect(got.length, `${label(o)} ${block}`).toBeLessThanOrEqual(cap);
+        expect(got.length, `${label(o)} ${block}`).toBe(Math.min(cap, cands.length));
+        if (cands.length > cap) exercised++;
+        const want = [...cands].sort((a, b) => unitOf(rand("roof", "tower", block, a)) - unitOf(rand("roof", "tower", block, b)) || (a < b ? -1 : a > b ? 1 : 0)).slice(0, cap);
+        expect([...got].sort(), `${label(o)} ${block}`).toEqual([...want].sort());
+      }
+      // the same column and placement as in the uncapped layer
+      const openTower = new Map(open.filter((p) => p.kind === "waterTower").map((p) => [p.building, p] as const));
+      for (const p of v.roofs) if (p.kind === "waterTower") expect(p, `${label(o)} ${p.building}`).toEqual(openTower.get(p.building));
+    }
+    expect(exercised).toBeGreaterThan(500);
+    expect(under).toBeGreaterThanOrEqual(1);
+  });
+
+  it("TF: a building that is not a freed roof has the same roof pieces as uncapped; a freed roof has an exit or no big prop; an exit is on the first freed roof, by the hashed rank, of a bare run and only there; every run keeps a big prop (R8's second number is H3's, run by run)", () => {
+    let blind = 0;
+    let mid = 0;
+    let none = 0;
+    for (const o of NAMED) {
+      const { v, open } = pairOf(o);
+      const rand = stageRand("facades", o.seed);
+      const runOf = runsOf(v.buildings);
+      const was = byBuilding(open);
+      const now = byBuilding(v.roofs);
+      const freed = v.buildings.buildings.filter((b) => (was.get(b.id) ?? []).some((p) => p.kind === "waterTower") && !(now.get(b.id) ?? []).some((p) => p.kind === "waterTower"));
+      const freedIds = new Set(freed.map((b) => b.id));
+      for (const b of v.buildings.buildings) if (!freedIds.has(b.id)) expect(now.get(b.id) ?? [], `${label(o)} ${b.id}`).toEqual(was.get(b.id) ?? []);
+      // the bare runs: those whose every big prop, uncapped, is a freed roof's tower
+      const bigRuns = new Set<string>();
+      for (const p of open) if (isBig(p) && !freedIds.has(p.building)) bigRuns.add(runOf.get(p.building)!);
+      const freedByRun = new Map<string, typeof freed>();
+      for (const b of freed) (freedByRun.get(runOf.get(b.id)!) ?? freedByRun.set(runOf.get(b.id)!, []).get(runOf.get(b.id)!)!).push(b);
+      for (const b of freed) {
+        const mine = (now.get(b.id) ?? []).filter(isBig);
+        expect(mine.every((p) => p.kind === "exit"), `${label(o)} ${b.id} a freed roof takes an exit or no big prop`).toBe(true);
+        expect(mine.length).toBeLessThanOrEqual(1);
+        const run = runOf.get(b.id)!;
+        if (mine.length === 0) {
+          none++;
+          continue;
+        }
+        expect(bigRuns.has(run), `${label(o)} ${b.id} an exit on a freed roof is in a bare run`).toBe(false);
+        const first = [...freedByRun.get(run)!].sort((a, c) => unitOf(rand("roof", "exit", run, a.id)) - unitOf(rand("roof", "exit", run, c.id)) || (a.id < c.id ? -1 : a.id > c.id ? 1 : 0))[0]!;
+        expect(b.id, `${label(o)} run ${run}: the first freed roof by TF's ranking`).toBe(first.id);
+        const col = v.colAt.get(key(mine[0]!.cell))!;
+        if (col.kind === "blind") blind++;
+        else mid++;
+      }
+      // every bare run that has a freed roof topped one up (the stop rule: the ranked roof's exit fits a column)
+      for (const [run, list] of freedByRun) {
+        if (bigRuns.has(run)) continue;
+        expect(list.filter((b) => (now.get(b.id) ?? []).some((p) => p.kind === "exit")).length, `${label(o)} bare run ${run}: exactly one freed roof with an exit`).toBe(1);
+      }
+      // R8's second number is H3's, run by run: every run with a big prop uncapped has one capped
+      const had = new Set(open.filter(isBig).map((p) => runOf.get(p.building)!));
+      const has = new Set(v.roofs.filter(isBig).map((p) => runOf.get(p.building)!));
+      for (const r of had) expect(has.has(r), `${label(o)} run ${r} kept a big roof prop`).toBe(true);
+    }
+    expect(blind).toBeGreaterThan(100);
+    expect(mid).toBeGreaterThan(500);
+    expect(none).toBeGreaterThan(500);
   });
 });
 

@@ -8,6 +8,7 @@
  *   party-wall pieces over its roof (the deck's side inset by the deepest, where deeper than `ROOF_EDGE_M`);
  * - roofs (criterion 2): the big prop on a mid roof only and one a building, a billboard whole (its structure and one face, one column) and one a run; RB: a billboard only on a mid column with a street front; no `novelty` piece (NV);
  *   small props off the big prop's column and at most `ROOF_SMALL_PER_BAY` a column; every key of its kind's list, and its turn;
+ * - TC (H3b), the tower cap: a street block's water towers are at most floor(its buildings / `WATER_TOWER_PER_BUILDINGS`);
  * - cap (RC): a column's pieces, H1b's dressing, the escape's weight, H2's canopies and upper-wall props and the roof pieces together, at most `DRESS_PER_BAY_MAX` (no party-wall piece counts: PW7).
  * It also measures what the report prints.
  */
@@ -31,6 +32,7 @@ import {
   ROOF_SMALL,
   ROOF_SMALL_PER_BAY,
   ROOF_WATER_TOWER,
+  WATER_TOWER_PER_BUILDINGS,
   isTurnable,
   roofBounds,
 } from "./roofkit";
@@ -260,6 +262,17 @@ export function roofReport(layer: CityFacadesLayer, input: GroundInput): RoofRep
     const total = (loads.get(ck) ?? 0) + ps.length;
     maxPerColumn = Math.max(maxPerColumn, total);
     if (total > DRESS_PER_BAY_MAX) fail("cap", `the column ${at(ctx.col.get(ck)!)} has ${total} pieces, over ${DRESS_PER_BAY_MAX}`, [ctx.col.get(ck)!]);
+  }
+
+  // ---- TC, the tower cap (H3b): a street block's water towers are at most floor(its buildings / WATER_TOWER_PER_BUILDINGS) ----
+  const blockOf = new Map(input.buildings.buildings.map((b) => [b.id, b.block] as const));
+  const inBlock = new Map<string, number>();
+  for (const b of input.buildings.buildings) inBlock.set(b.block, (inBlock.get(b.block) ?? 0) + 1);
+  const towersOf = new Map<string, CityRoofPiece[]>();
+  for (const p of roofs) if (p.kind === "waterTower" && blockOf.has(p.building)) (towersOf.get(blockOf.get(p.building)!) ?? towersOf.set(blockOf.get(p.building)!, []).get(blockOf.get(p.building)!)!).push(p);
+  for (const [block, ps] of towersOf) {
+    const cap = Math.floor((inBlock.get(block) ?? 0) / WATER_TOWER_PER_BUILDINGS);
+    if (ps.length > cap) fail("TC", `the block ${block} has ${ps.length} water towers, over its cap of ${cap} (one for every ${WATER_TOWER_PER_BUILDINGS} of its ${inBlock.get(block) ?? 0} buildings), at ${ps.map((q) => at(q.cell)).join(", ")}`, ps.map((q) => q.cell));
   }
 
   // ---- R8 ----

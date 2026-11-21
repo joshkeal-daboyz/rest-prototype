@@ -91,6 +91,10 @@ describe("the roof kit table equals the old path's numbers (070 H3, criterion 1)
     expect(w).toBeGreaterThan(5 - 2 * NEW.ROOF_EDGE_M);
   });
 
+  it("WATER_TOWER_PER_BUILDINGS is 16 (H3b: Josh, 21 Nov 2026, Q25 answer 2, \"Yes to all\"), pinned: the old path has no water-tower cap", () => {
+    expect(NEW.WATER_TOWER_PER_BUILDINGS).toBe(16);
+  });
+
   it("no roof key is in DRESS_NUDGE_M, DRESS_FRONTS or BUILDING_FRONTS, so every key's own front is +z (the exit's door, RD: the GLB's recessed face)", () => {
     expect(Object.keys(OLD.DRESS_NUDGE_M)).toEqual([]);
     expect(Object.keys(OLD.DRESS_FRONTS)).toEqual([]);

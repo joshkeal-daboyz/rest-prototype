@@ -5,11 +5,11 @@
 import { describe, expect, it } from "vitest";
 import type { CityCell, CityColumn, CityRoofPiece, CityWallPiece } from "../../core";
 import { roofReport, type RoofFailure } from "./roofcheck";
-import { ROOF_ACCESS, ROOF_SMALL, ROOF_WATER_TOWER, BILLBOARD_STRUCTURE, BILLBOARD_FACES, BILLBOARD_SIGN_Y_M, roofBounds } from "./roofkit";
+import { ROOF_ACCESS, ROOF_SMALL, ROOF_WATER_TOWER, BILLBOARD_STRUCTURE, BILLBOARD_FACES, BILLBOARD_SIGN_Y_M, WATER_TOWER_PER_BUILDINGS, roofBounds } from "./roofkit";
 import { columnLoads, deckY, placeOnRoof, roofInsets, streetMid } from "./roofs";
 import { makeCtx } from "./facts";
 import { runsOf } from "./dress";
-import { DEFAULT, layersOf } from "./testcities";
+import { DEFAULT, NAMED, label, layersOf, type Layers } from "./testcities";
 
 const { mass, buildings, facades } = layersOf(DEFAULT);
 const ctx = makeCtx(mass, buildings);
@@ -205,6 +205,72 @@ describe("the failing fixtures (criterion 5)", () => {
     const f = checkWith(roofsOf(), walls);
     expect(has(f, "cap")).toBe(false);
     expect(columnLoads({ dressing: facades.dressing!, walls }, buildings).get(key(party.cell))).toBe(columnLoads(facades, buildings).get(key(party.cell)));
+  });
+
+  /**
+   * TC's fixtures: `target` is a layer, `pick` finds a block and a building of it with no big prop and a mid column to put a water tower on, placed as H3's tower is (its front edge on the deck's front, centred), the column's
+   * small props removed so nothing else fails. Returns the roofs with the tower in its building's place in the order.
+   */
+  const withExtraTower = (l: Layers, want: (blockSize: number, towers: number, cap: number) => boolean): { roofs: CityRoofPiece[]; block: string } => {
+    const c = makeCtx(l.mass, l.buildings);
+    const col = (cell: CityCell): CityColumn => c.col.get(key(cell))!;
+    const insets = roofInsets(l.facades.walls!);
+    const loads = columnLoads(l.facades, l.buildings);
+    const size = new Map<string, number>();
+    for (const b of l.buildings.buildings) size.set(b.block, (size.get(b.block) ?? 0) + 1);
+    const blockOf = new Map(l.buildings.buildings.map((b) => [b.id, b.block] as const));
+    const towers = new Map<string, number>();
+    for (const p of l.facades.roofs!) if (p.kind === "waterTower") towers.set(blockOf.get(p.building)!, (towers.get(blockOf.get(p.building)!) ?? 0) + 1);
+    const hasBig = new Set(l.facades.roofs!.filter((p) => p.kind !== "small").map((p) => p.building));
+    const e = roofBounds(ROOF_WATER_TOWER);
+    for (const [idx, b] of l.buildings.buildings.entries()) {
+      const n = size.get(b.block)!;
+      if (hasBig.has(b.id) || !want(n, towers.get(b.block) ?? 0, Math.floor(n / WATER_TOWER_PER_BUILDINGS))) continue;
+      const cell = b.cells.find((q) => {
+        const m = col(q);
+        if (m.kind !== "mid" || insets.has(key(m))) return false;
+        return (loads.get(key(m)) ?? 0) + 1 <= 6;
+      });
+      if (!cell) continue;
+      const m = col(cell);
+      const roofs = l.facades.roofs!.filter((p) => key(p.cell) !== key(m)).map((p) => ({ ...p, cell: { ...p.cell }, placement: { ...p.placement } }));
+      const tower: CityRoofPiece = { kind: "waterTower", building: b.id, cell: { i: m.i, j: m.j }, facing: m.front, placement: placeOnRoof(m, ROOF_WATER_TOWER, 0, 2.2 - e.d / 2, deckY(m), 0) };
+      const at = roofs.findIndex((p) => l.buildings.buildings.findIndex((q) => q.id === p.building) >= idx);
+      roofs.splice(at < 0 ? roofs.length : at, 0, tower);
+      return { roofs, block: b.block };
+    }
+    throw new Error("no such building in this layer");
+  };
+  const checkOn = (l: Layers, roofs: readonly CityRoofPiece[]): RoofFailure[] => roofReport({ ...l.facades, roofs }, { mass: l.mass, buildings: l.buildings }).failures;
+
+  it("TC, one over the cap: a water tower put on another building of a block that holds its cap (placed as H3's tower is, its column's small props removed) fails TC, and only TC; the positive control passes TC", () => {
+    const l = layersOf(DEFAULT);
+    expect(checkOn(l, l.facades.roofs!), "positive control, TC included").toEqual([]);
+    const { roofs, block } = withExtraTower(l, (n, t, cap) => cap >= 1 && t === cap);
+    const f = checkOn(l, roofs);
+    expect([...new Set(f.map((x) => x.check))], f.map((x) => x.reason).join("; ")).toEqual(["TC"]);
+    expect(f[0]!.reason).toContain(block);
+    expect(f[0]!.cells.length).toBeGreaterThan(1);
+  });
+
+  it("TC, a small block: a water tower put on a block of fewer than 16 buildings (the default city's if it has one, else the first named run's that has one) fails TC, and only TC", () => {
+    let l = layersOf(DEFAULT);
+    const small = (x: Layers): boolean => {
+      const size = new Map<string, number>();
+      for (const b of x.buildings.buildings) size.set(b.block, (size.get(b.block) ?? 0) + 1);
+      return [...size.values()].some((n) => n < WATER_TOWER_PER_BUILDINGS);
+    };
+    let from = label(DEFAULT);
+    if (!small(l)) {
+      const o = NAMED.find((q) => small(layersOf(q)));
+      expect(o, "a named run has a block under 16 buildings").toBeDefined();
+      l = layersOf(o!);
+      from = label(o!);
+    }
+    const { roofs, block } = withExtraTower(l, (n) => n < WATER_TOWER_PER_BUILDINGS);
+    const f = checkOn(l, roofs);
+    expect([...new Set(f.map((x) => x.check))], `${from}: ${f.map((x) => x.reason).join("; ")}`).toEqual(["TC"]);
+    expect(f[0]!.reason).toContain(block);
   });
 
   it("every roof piece removed fails R8's first number; every big prop removed fails its second", () => {

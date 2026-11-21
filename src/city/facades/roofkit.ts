@@ -51,6 +51,12 @@ export const ROOF_DECK_M = 0.5;
 /** BB (Josh, 21 Nov 2026, Q24 answer 2: "Yes"): a billboard's structure and face stand this far inside the cell's edge, metres (the board is 4.428 m wide, 0.028 m too wide for `ROOF_EDGE_M`'s 4.40 m deck). */
 export const BILLBOARD_EDGE_M = 0.28;
 
+/**
+ * TX and X (H3b; Josh, 21 Nov 2026, Q25 answer 2, "Yes to all"; his rule: "You get one water tower per x amount of buildings. I don't want to see water towers across the entire city because they just fit"): each street block
+ * holds at most one water tower for every 16 of its buildings. Decided; pinned by `roofpin.test.ts`, not compared (the old path has no cap).
+ */
+export const WATER_TOWER_PER_BUILDINGS = 16;
+
 // ---- the bounds of the roof keys (width, height, depth; metres) ----
 export interface RoofBounds {
   readonly w: number;

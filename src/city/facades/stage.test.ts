@@ -367,11 +367,11 @@ describe("R-1 to R-7 for facades (criterion 6)", { timeout: 120_000 }, () => {
 
   it("the digest pins (R-4): 6 x 6 seeds 1 (the default), 2, 3 and 8, one-way on; the layers before it are as their stages pin them", () => {
     const PINS: readonly (readonly [number, string])[] = [
-      // H3 re-pin: `roofs` is new (H2b's pins were 40e4d207, 06116698, 60227c74, 3610b49d; before them, H2's ce662196, e5d43765, 9f4fa9c4, d0d30400; before them, H1b's 7a95c899, 2281779d, f965837b, 9a3c4f10)
-      [1, "85f425f5"],
-      [2, "40ff1675"],
-      [3, "e1ee93b5"],
-      [8, "06de80d5"],
+      // H3b re-pin: the water-tower cap (TX, TS) and the bare-run top-up (TF) change `roofs`; H3's pins, replaced, were 85f425f5, 40ff1675, e1ee93b5, 06de80d5 (before them H2b's 40e4d207, 06116698, 60227c74, 3610b49d; H2's ce662196, e5d43765, 9f4fa9c4, d0d30400; H1b's 7a95c899, 2281779d, f965837b, 9a3c4f10)
+      [1, "88cc62e0"],
+      [2, "d424e8df"],
+      [3, "ea9ad368"],
+      [8, "a6511846"],
     ];
     // H3: `walls` is H2b's, unchanged (its digests on the four pin cities, taken from H2b's run at 4ddae06 before any H3 code)
     const WALLS_PINS: readonly (readonly [number, string])[] = [
