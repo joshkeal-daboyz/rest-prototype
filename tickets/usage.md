@@ -310,3 +310,4 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 070 H3b | facades (general-purpose with facades.md) | sonnet | 205K total | - | 0 | water-tower cap (4308d88) |
 | 070 H3b | gate (main session) | - | - | - | 0 | 4308d88: 170 files, 3948 passed, 31 skipped |
 | 070 H3b | code-reviewer / playtester | opus / sonnet | 48K / 21K | - | 0 | meets, must-fix 0; regressions 0 |
+| 070 H1c pre-check | pipeline-designer (general-purpose) | opus | 260K total | - | 0 | holds; 4 questions; sketches in scratchpad h1cprobe |
