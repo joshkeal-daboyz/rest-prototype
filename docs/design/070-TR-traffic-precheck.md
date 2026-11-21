@@ -1,5 +1,29 @@
 # 070 TR pre-check: stage 9, traffic control
 
+## Answer (Josh, 21 Nov 2026, in chat)
+
+> "I will take all of the recommendations"
+
+He was answering this list (the main session's wording, the recommended answer first). Every item is now answered as recommended. Ticket 070 records them as Q32 to Q35 and Q36 to Q44 (the lead-architect, TR re-cut).
+
+| # | Question | Answer | Ticket 070 |
+| --- | --- | --- | --- |
+| 1 | Traffic keeps right (DS) | yes | Q36 |
+| 2 | Masts on the far-left corner, heads where `Arm_01` puts them (not moved to build-outs) | yes | Q37 |
+| 3 | Signals only at inner crossroads of two two-way streets (SJ) | yes | Q38 |
+| 4 | Every other inner crossroads an all-way stop; at a T only the ending street stops (AS) | yes | Q39 |
+| 5 | Stop sign on the kerbside pavement at the near corner, facing traffic; no give-way signs (ST) | yes | Q40 |
+| 6 | No one-way signs: `Sign_Arrow_01` does not read as a sign (the main session's gallery screenshot shows a bent arrow). Firmer than section 4's "only if the gallery shows it reads": the check was done, it does not read, and OW is dropped | yes | Q41 |
+| 7 | The stop sign draws its STOP-on-red face from the pack's `01_A` atlas (TR2) | yes | Q42 |
+| 8 | No street-name signs | yes | Q35 |
+| 9 | `SIGN_KERB_M` 0.5, `SIGN_CORNER_M` 1.0, `MAST_INSET_M` 0.75, `SIGNAL_HEAD_MIN_M` 4.6 | yes | Q43 |
+| 10 | Q33 narrowed: lift only `SM_Prop_LightPole_Base_01`, `_Arm_01`, `_CrossLights_01`, `_CrossButton_01`, `_Box_01` off the never-used list, always drawn dark | yes | Q33 |
+| 11 | TR1b: a parking sign at the start of each bay stretch, skipped where there is no room | yes | Q44 |
+| 12 | Signals are scenery only, never powered or in the puzzle | yes | Q34 |
+| 13 | No no-entry signs or stop lines; stage 9 after ground, streetscape owns `src/city/traffic/` | yes | Q35, Q32 |
+
+What this settles, for the re-cut: no `signalHead` piece (the arm carries its heads), no give-way and no one-way sign, no street names, no option E (`Base_02` is not used). TR1's criterion 3 reads "the arm crosses its approach over the carriageway, heads facing it". The rest of this note is unchanged below.
+
 21 Nov 2026, pipeline-designer, on `goal/city-style` at a95e118 (TR's first cut). Not committed. Nothing here is decided until Josh says so in chat. (The ticket names this note `070-TR-precheck.md`; the main session asked for this name.)
 
 **This is a sketch.** A throwaway probe outside the repo builds each city through stage 8 with the merged code (read-only), then places stage 9 as TR1 words it: IN, SJ (a, b, c), AS, T, C, MA, ST, OW and CL, plus TR1b's parking signs. Every grounded piece is checked against stage 8's props (`FURN_GAP_M`), stage 7's boxes (I's AV and EL rule, with I's own bounds) and the build-out trees, and must lie inside its cell. The kit was read from `city-pack.glb` (node bounds, a vertex profile per 0.25 m of height, and each triangle's colour sampled from its atlas). The builder's numbers are the record.

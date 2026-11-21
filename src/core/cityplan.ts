@@ -1082,11 +1082,15 @@ export interface CityGroundLayer {
 // Written standalone by the lead-architect before TR1 (21 Nov 2026), so `goal/city-style` keeps type-checking with no stage of this name built. TR1's criterion 0 (the architect,
 // on TR1's branch) adds "traffic" to `CITY_STAGES` between "ground" and "assemble", and `traffic: CityTrafficLayer` to `CityLayers`. Until then nothing reads these types.
 // - **What stage 9 does.** It reads every layer before it and writes only its own: how each junction is controlled, and the pieces that say so: signal masts with their arms and
-//   heads at signal junctions, stop and give-way signs, one-way signs (TR1); parking signs and street-name signs (TR1b). It decides no street, junction, flow, kerb, crossing,
-//   arrow or road marking: those are stages 1 and 4's, and E draws them.
-// - **Not a puzzle part** (070 Q34, as recommended; the stage is cut on it). No signal is powered, lit or picked; the drawing swaps every emissive material for a dark one (TR2).
-// - **Last of the plan stages,** so that it keeps clear of everything placed before it (stage 7's boxes, stage 8's props, stage 6's poles once typed) and no merged layer moves.
-// - The rules for which junction gets what, where a piece stands and which way it faces are TR1's (its readings, PROPOSED until the TR pre-check and Josh's answers).
+//   heads at signal junctions, and stop signs (TR1); parking signs (TR1b). It decides no street, junction, flow, kerb, crossing, arrow or road marking: those are stages 1 and
+//   4's, and E draws them.
+// - **Re-cut on Josh's answers** (21 Nov 2026, in chat: "I will take all of the recommendations"; `docs/design/070-TR-traffic-precheck.md`). No give-way, one-way or street-name
+//   sign is placed (Q40, Q41, Q35), and `SM_Prop_LightPole_Arm_01` carries its own two signal heads, so there is no separate head piece. Those four piece kinds and the "giveWay"
+//   control are not typed; one comes back only with a re-cut on Josh's word.
+// - **Not a puzzle part** (070 Q34, Josh). No signal is powered, lit or picked; the drawing leaves every piece dark (TR2).
+// - **Last of the plan stages** (Q32, Josh), so that it keeps clear of everything placed before it (stage 7's boxes, stage 8's props, stage 6's poles once typed) and no merged
+//   layer moves.
+// - The rules for which junction gets what, where a piece stands and which way it faces are TR1's (DS, IN, SJ, AS, T, C, MA, ST, CL; Josh's answers Q36 to Q44).
 
 /** How a junction is controlled:
  * - "signals": a signal junction (TR1's SJ);
@@ -1095,8 +1099,8 @@ export interface CityGroundLayer {
  * - "none": a corner of the city (two edge streets, both ending), or a junction with no inbound approach that must stop. */
 export type CityJunctionControl = "signals" | "allStop" | "stop" | "none";
 
-/** What faces an approach's inbound traffic: a signal head, a stop or give-way sign, or nothing ("none": a through arm of a T, or an arm no traffic drives in by). */
-export type CityApproachControl = "signal" | "stop" | "giveWay" | "none";
+/** What faces an approach's inbound traffic: a signal arm's heads, a stop sign, or nothing ("none": a through arm of a T, or an arm no traffic drives in by). No give-way (Q40). */
+export type CityApproachControl = "signal" | "stop" | "none";
 
 /** One arm of a junction as traffic meets it. Its id is "<junction>|<arm>". */
 export interface CityApproach {
@@ -1119,31 +1123,21 @@ export interface CityJunctionTraffic {
   readonly approaches: readonly CityApproach[];
 }
 
-/** What a traffic piece is. A signal assembly: "signalMast" (stands on the walk), "signalArm", "signalHead" (faces an approach), "walkHead" (faces along a crossing),
- * "pushButton", and one "signalBox" a junction. Signs, each a pack piece with its own post: "stopSign", "giveWaySign", "oneWaySign" (TR1), "parkingSign" (TR1b).
- * "streetName" (TR1b): a name plate fixed to a mast or a sign post, typed only if TR1b's re-cut finds a plate that stands (Q35). */
-export type CityTrafficPieceKind =
-  | "signalMast"
-  | "signalArm"
-  | "signalHead"
-  | "walkHead"
-  | "pushButton"
-  | "signalBox"
-  | "stopSign"
-  | "giveWaySign"
-  | "oneWaySign"
-  | "parkingSign"
-  | "streetName";
+/** What a traffic piece is, each one City Pack key. A signal assembly: "signalMast" (`SM_Prop_LightPole_Base_01`, stands on the walk; its lamp head is drawn unlit),
+ * "signalArm" (`_Arm_01`, its two signal heads part of the piece, facing the approach it crosses), "walkHead" (`_CrossLights_01`, faces along a crossing), "pushButton"
+ * (`_CrossButton_01`), and one "signalBox" (`_Box_01`) a junction. Signs, each a pack piece with its own post: "stopSign" (`SM_Prop_Sign_Stop_01`, TR1), "parkingSign"
+ * (`SM_Prop_Sign_Parking_01`, TR1b). */
+export type CityTrafficPieceKind = "signalMast" | "signalArm" | "walkHead" | "pushButton" | "signalBox" | "stopSign" | "parkingSign";
 
 /** One traffic piece, placed. */
 export interface CityTrafficPiece {
   readonly kind: CityTrafficPieceKind;
-  /** What it belongs to: a junction id for every signal piece and every stop, give-way, one-way and street-name sign; for a parking sign, "<street>|<block>|<i>,<j>", the first cell of
-   * the stretch of `CityBayTile`s it marks. */
+  /** What it belongs to: a junction id for every signal piece and every stop sign; for a parking sign, "<street>|<block>|<i>,<j>", the first cell of the stretch of `CityBayTile`s
+   * it marks. */
   readonly host: string;
-  /** The `CityApproach.id` whose traffic it faces (a signal head, a stop or give-way sign), or the approach its arm reaches over (a signal arm); null for every other piece. */
+  /** The `CityApproach.id` whose traffic it faces: a signal arm (its heads, over that approach's carriageway), the mast that carries it, or a stop sign; null for every other piece. */
   readonly approach: string | null;
-  /** The pieces of one assembly share it, "<host>|<n>": a mast with its arm, heads, walk heads and button; a sign post with a street-name plate. A piece on its own has its own group. */
+  /** The pieces of one assembly share it, "<host>|<n>": a mast with its arm, walk heads and button. A piece on its own has its own group. */
   readonly group: string;
   /** True for the piece of its group that stands on the walk (a mast, a box, a sign with its post); false for a piece fixed to another piece of its group. */
   readonly grounded: boolean;
@@ -1161,7 +1155,8 @@ export interface CityTrafficLayer {
   readonly stage: "traffic";
   /** Every junction of `streets.junctions` once, in that order. */
   readonly junctions: readonly CityJunctionTraffic[];
-  /** Every piece: junction by junction in `junctions` order (its signal assemblies, each grounded piece first, then its signs), then TR1b's parking signs in `streets.streets` order, along each street. */
+  /** Every piece: junction by junction in `junctions` order (its signal assemblies, each grounded piece first, then its stop signs), then TR1b's parking signs in `streets.streets`
+   * order, along each street. */
   readonly pieces: readonly CityTrafficPiece[];
 }
 

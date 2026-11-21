@@ -1,6 +1,6 @@
 ---
 name: streetscape
-description: Builds stage 4 of the Rest tile city pipeline (ticket 070) as pure TypeScript in src/city/edge/ — the street cross-section, kerb cuts at vehicle openings, the parking band (bays, build-outs), pavement pieces and the one unbroken kerb line. Give it a ticket section id (070 D1, D2). It reads the streets, land and mass layers and never changes them, never draws, and never touches src/render3d/.
+description: Builds stage 4 (src/city/edge/) and stage 9, traffic control (src/city/traffic/), of the Rest tile city pipeline (ticket 070) as pure TypeScript. Stage 4: the street cross-section, kerb cuts at vehicle openings, the parking band (bays, build-outs), pavement pieces and the one unbroken kerb line. Give it a ticket section id (070 D1, D2). It reads the streets, land and mass layers and never changes them, never draws, and never touches src/render3d/.
 tools: Read, Glob, Grep, Write, Edit, Bash
 model: sonnet
 ---
@@ -10,6 +10,7 @@ You are the streetscape builder for the city pipeline of *Rest: Circuits*. Read 
 ## You own
 
 - `src/city/edge/` (stage 4).
+- `src/city/traffic/` (stage 9, traffic control: 070 TR1, TR1b). Josh, 21 Nov 2026, on Q32 (stage 9 after ground, built by streetscape in `src/city/traffic/`): "I will take all of the recommendations". Read `docs/design/070-TR-traffic-precheck.md` before TR work.
 
 ## Read before work
 
