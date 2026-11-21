@@ -8,24 +8,28 @@ import { describe, expect, it, vi } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Box3, Frustum, Matrix4, PerspectiveCamera, BoxGeometry, Group, InstancedMesh, Mesh, MeshBasicMaterial, Quaternion, Scene, Texture, Vector3, type Object3D, type WebGLRenderer } from "three";
-import type { AssetEntry, CalibrationKey, CityBuildingsLayer, CityKerbPath, CityMassLayer, CityPlan, CityPlacement, CityPlanRun, CitySide } from "../core";
+import type { AssetEntry, CalibrationKey, CityBuildingsLayer, CityFacadesLayer, CityGroundPiece, CityKerbPath, CityMassLayer, CityPlan, CityPlacement, CityPlanRun, CitySide } from "../core";
 import { stableHash } from "../render/city";
 import { digestOf, runCity } from "../city/pipeline";
 import type { CityStageDef } from "../city/pipeline/types";
 import { buildingsStage } from "../city/buildings/stage";
 import { edgeStage } from "../city/edge/stage";
+import { facadesStage } from "../city/facades/stage";
 import { landStage } from "../city/land/stage";
 import { massStage } from "../city/mass/stage";
 import { streetsStageWith } from "../city/streets/stage";
 import { KERB_GAP_MAX_M, KERB_HEIGHT_TOL_M, KERB_TOL_M, type KerbFace, type KerbPlan, type Mp } from "./kerbline";
 import {
   PLAN_ARROW,
+  PLAN_DOOR_CORNERS,
   PLAN_FRONTS,
   PLAN_LINES,
   PlanStopError,
   planInput,
+  planGroundDraws,
   planPieceDraws,
   type PlanDraw,
+  type PlanGroundDraw,
   type PlanPieceDraw,
   arrowYaw,
   createPlanAssembleRenderer3d,
@@ -55,13 +59,13 @@ interface City {
 const NAMED: City[] = [];
 for (const way of ["on", "off"] as const) for (let seed = 1; seed <= 10; seed++) NAMED.push({ seed, way });
 const label = (o: City): string => `6 x 6 seed ${o.seed} one-way ${o.way}`;
-const offStages = (): CityStageDef[] => [streetsStageWith(0) as unknown as CityStageDef, landStage as unknown as CityStageDef, massStage as unknown as CityStageDef, edgeStage as unknown as CityStageDef, buildingsStage as unknown as CityStageDef];
+const offStages = (): CityStageDef[] => [streetsStageWith(0) as unknown as CityStageDef, landStage as unknown as CityStageDef, massStage as unknown as CityStageDef, edgeStage as unknown as CityStageDef, buildingsStage as unknown as CityStageDef, facadesStage as unknown as CityStageDef];
 const cache = new Map<string, CityPlanRun>();
 function planOf(o: City): CityPlan {
   const k = `${o.seed}:${o.way}`;
   if (!cache.has(k)) {
     const opts = { blocksX: 6, blocksZ: 6, seed: o.seed };
-    cache.set(k, o.way === "on" ? runCity(opts, "buildings") : runCity(opts, "buildings", offStages()));
+    cache.set(k, o.way === "on" ? runCity(opts, "facades") : runCity(opts, "facades", offStages()));
   }
   const r = cache.get(k)!;
   if (!r.ok) throw new Error(`${label(o)} failed at ${r.failure.stage}: ${r.failure.reason}`);
@@ -673,8 +677,8 @@ const stubRoot = (key: CalibrationKey): Object3D => {
   g.add(new Mesh(BOX, STUB_MAT));
   return g;
 };
-/** A small group per stack key, one mesh each, whose material's map is the base atlas. `lack` leaves keys out. */
-const stackRoots = (lack: readonly CalibrationKey[] = []): Map<CalibrationKey, Object3D> => new Map(allStackKeys().filter((k) => !lack.includes(k)).map((k) => [k, stubRoot(k)] as const));
+/** A small group per key the page loads for buildings (the stack keys and the two corner doors), one mesh each, whose material's map is the base atlas. `lack` leaves keys out. */
+const stackRoots = (lack: readonly CalibrationKey[] = []): Map<CalibrationKey, Object3D> => new Map([...allStackKeys(), ...PLAN_DOOR_CORNERS].filter((k) => !lack.includes(k)).map((k) => [k, stubRoot(k)] as const));
 const stubColourway = (id: string): Texture => {
   const t = new Texture();
   t.name = `stub-${id}`;
@@ -703,27 +707,53 @@ const meshesOf = (o: Object3D): Mesh[] => {
   return out;
 };
 /** The wrapper's world matrix is exactly its placement's position, turn about y, and WORLD_PER_METRE scale. */
+function expectWrapper(w: Object3D, pl: CityPlacement, what: string): void {
+  expect(w.name, what).toBe(`piece:${pl.key}`);
+  const want = new Matrix4().compose(new Vector3(pl.x_m * 0.18, pl.y_m * 0.18, pl.z_m * 0.18), new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), (pl.yaw_deg * Math.PI) / 180), new Vector3(0.18, 0.18, 0.18));
+  w.matrixWorld.elements.forEach((e, k) => expect(e, `${what} ${pl.key} [${k}]`).toBeCloseTo(want.elements[k]!, 9));
+  expect(w.children, what).toHaveLength(1);
+}
+/** With every root loaded: each building's floor wrappers (in the list's order) and then its ground wrappers (in the facades' order) are the listed placements, and nothing else is in the group. */
 function expectPlaced(d: PlanDraw, label: string): void {
   d.group.updateMatrixWorld(true);
   const byBuilding = new Map<string, PlanPieceDraw[]>();
   for (const p of d.buildings.draws) byBuilding.set(p.building, [...(byBuilding.get(p.building) ?? []), p]);
+  const groundBy = new Map<string, PlanGroundDraw[]>();
+  for (const p of d.buildings.groundDraws) groundBy.set(p.building, [...(groundBy.get(p.building) ?? []), p]);
   let wrappers = 0;
   for (const g of d.buildings.groups) {
     const id = g.name.slice("building:".length);
     const pieces = byBuilding.get(id) ?? [];
+    const ground = groundBy.get(id) ?? [];
     const ws = wrappersOf(g);
     wrappers += ws.length;
-    expect(ws, `${label} ${id}`).toHaveLength(pieces.length);
-    ws.forEach((w, n) => {
-      const pl = pieces[n]!.placement;
-      expect(w.name, `${label} ${id}`).toBe(`piece:${pl.key}`);
-      const want = new Matrix4().compose(new Vector3(pl.x_m * 0.18, pl.y_m * 0.18, pl.z_m * 0.18), new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), (pl.yaw_deg * Math.PI) / 180), new Vector3(0.18, 0.18, 0.18));
-      w.matrixWorld.elements.forEach((e, k) => expect(e, `${label} ${id} ${pl.key} [${k}]`).toBeCloseTo(want.elements[k]!, 9));
-      expect(w.children, `${label} ${id}`).toHaveLength(1);
-    });
+    expect(ws, `${label} ${id}`).toHaveLength(pieces.length + ground.length);
+    ws.slice(0, pieces.length).forEach((w, n) => expectWrapper(w, pieces[n]!.placement, `${label} ${id}`));
+    ws.slice(pieces.length).forEach((w, n) => expectWrapper(w, ground[n]!.placement, `${label} ${id} ground`));
   }
-  expect(wrappers, label).toBe(d.buildings.draws.length);
+  expect(wrappers, label).toBe(d.buildings.draws.length + d.buildings.groundDraws.length);
 }
+/** The grey instances as (cell, base, height) in world units, in drawn order. */
+function greyOf(d: PlanDraw): { i: number; j: number; y: number; h: number }[] {
+  const out: { i: number; j: number; y: number; h: number }[] = [];
+  for (let n = 0; n < d.grey.mesh.count; n++) {
+    const m = new Matrix4();
+    d.grey.mesh.getMatrixAt(n, m);
+    const p = new Vector3();
+    const s = new Vector3();
+    m.decompose(p, new Quaternion(), s);
+    out.push({ i: Math.round(p.x / (TILE_M * 0.18) - 0.5), j: Math.round(p.z / (TILE_M * 0.18) - 0.5), y: p.y, h: s.y });
+  }
+  return out;
+}
+/** Every ground piece of the facades layer is in the list exactly once (by the identity of its placement), and nothing else is. */
+const groundListedOnce = (facades: CityFacadesLayer, draws: readonly PlanGroundDraw[]): boolean => {
+  const seen = new Map<CityPlacement, number>();
+  for (const d of draws) seen.set(d.placement, (seen.get(d.placement) ?? 0) + 1);
+  for (const g of facades.ground) if (seen.get(g.placement) !== 1) return false;
+  return seen.size === facades.ground.length && draws.length === facades.ground.length;
+};
+const facadesOf = (plan: CityPlan): CityFacadesLayer => plan.layers.facades!;
 
 describe("the buildings: pieces from placements only (criteria 2 and 3)", { timeout: 120_000 }, () => {
   it("draws one wrapper per piece at its placement's position, turn and scale, one group per building, and every corner turn", () => {
@@ -771,38 +801,33 @@ describe("the buildings: pieces from placements only (criteria 2 and 3)", { time
     d.dispose();
   });
 
-  it("with empty roots clones no piece and draws one grey box per column at its full height; with one root missing only the columns that use it fall back", () => {
+  it("with empty roots clones no piece and draws one grey box per column at its full height; with every root loaded no column is grey; with one above-ground key missing only the columns that use it fall back (their ground piece is not cloned)", () => {
     const plan = planOf(DEFAULT);
     const layer = buildingsOf(plan);
     const columns = layer.columns!;
-    const heightOf = (d: PlanDraw, n: number): { y: number; h: number } => {
-      const m = new Matrix4();
-      d.grey.mesh.getMatrixAt(n, m);
-      const p = new Vector3();
-      const s = new Vector3();
-      m.decompose(p, new Quaternion(), s);
-      return { y: p.y, h: s.y };
-    };
+    const roofY = (c: (typeof columns)[number]): number => c.pieces.find((p) => p.role === "roof")!.placement.y_m * 0.18;
     const e = plan3dGroups(plan, none.roots, none.entries);
     expect(e.buildings.pieces).toBe(0);
+    expect(e.buildings.groundPieces).toBe(0);
     expect(e.buildings.groups.every((g) => g.children.length === 0)).toBe(true);
     expect(e.grey.count).toBe(columns.length);
     expect(e.grey.mesh.count).toBe(columns.length);
     expect(e.grey.fallback).toBe(columns.length);
+    expect(e.grey.slots).toBe(0);
+    const eg = greyOf(e);
     columns.forEach((c, n) => {
-      const { y, h } = heightOf(e, n);
-      expect(y).toBeCloseTo(0, 5);
-      expect(h, `${c.i},${c.j}`).toBeCloseTo(c.pieces.find((p) => p.role === "roof")!.placement.y_m * 0.18, 5);
+      expect({ i: eg[n]!.i, j: eg[n]!.j }, `${c.i},${c.j}`).toEqual({ i: c.i, j: c.j });
+      expect(eg[n]!.y).toBeCloseTo(0, 5);
+      expect(eg[n]!.h, `${c.i},${c.j}`).toBeCloseTo(roofY(c), 5);
     });
     e.dispose();
 
+    // Every root loaded: every ground slot is filled by its piece, so no column is grey.
     const full = plan3dGroups(plan, stackRoots(), none.entries);
     expect(full.grey.fallback).toBe(0);
-    columns.forEach((c, n) => {
-      const { y, h } = heightOf(full, n);
-      expect(y).toBeCloseTo(c.ground.y_m * 0.18, 5);
-      expect(h, `${c.i},${c.j}`).toBeCloseTo((c.ground.top_m - c.ground.y_m) * 0.18, 5);
-    });
+    expect(full.grey.slots).toBe(0);
+    expect(full.grey.mesh.count).toBe(0);
+    expect(full.buildings.groundPieces).toBe(full.buildings.groundDraws.length);
     full.dispose();
 
     const count = new Map<CalibrationKey, number>();
@@ -813,13 +838,90 @@ describe("the buildings: pieces from placements only (criteria 2 and 3)", { time
     expect(uses.length).toBeGreaterThan(0);
     expect(uses.length).toBeLessThan(columns.length);
     expect(part.grey.fallback).toBe(uses.length);
+    expect(part.grey.slots).toBe(0);
     expect(part.buildings.pieces).toBe(columns.filter((c) => !uses.includes(c)).reduce((n, c) => n + c.pieces.length, 0));
-    columns.forEach((c, n) => {
-      const { h } = heightOf(part, n);
-      if (uses.includes(c)) expect(h).toBeCloseTo(c.pieces.find((p) => p.role === "roof")!.placement.y_m * 0.18, 5);
-      else expect(h).toBeCloseTo(c.ground.top_m * 0.18, 5);
+    const pg = greyOf(part);
+    expect(pg).toHaveLength(uses.length);
+    uses.forEach((c, n) => {
+      expect({ i: pg[n]!.i, j: pg[n]!.j }).toEqual({ i: c.i, j: c.j });
+      expect(pg[n]!.h, `${c.i},${c.j}`).toBeCloseTo(roofY(c), 5);
     });
+    // A fallback column's ground piece is not cloned.
+    const fell = new Set(uses.map((c) => `${c.i},${c.j}`));
+    const want = part.buildings.groundDraws.filter((g) => g.cells.every((c) => !fell.has(`${c.i},${c.j}`))).length;
+    expect(part.buildings.groundPieces).toBe(want);
+    expect(part.buildings.groundPieces).toBeLessThan(part.buildings.groundDraws.length);
     part.dispose();
+  });
+
+  it("draws every ground wrapper at its placement's position, turn and scale (all four turns), a shopDouble as one wrapper over two cells, in its own building's colourway", () => {
+    const turns = new Set<number>();
+    let doubles = 0;
+    let corners = 0;
+    for (const o of [DEFAULT, ...PINS]) {
+      const plan = planOf(o);
+      const d = plan3dGroups(plan, stackRoots(), none.entries, LOADED_WAYS);
+      expectPlaced(d, label(o));
+      const facades = facadesOf(plan);
+      expect(d.buildings.groundDraws, label(o)).toHaveLength(facades.ground.length);
+      expect(d.buildings.groundPieces, label(o)).toBe(facades.ground.length);
+      for (const g of facades.ground) turns.add(g.placement.yaw_deg);
+      for (const g of facades.ground.filter((x) => x.kind === "shopDouble")) {
+        doubles++;
+        expect(g.cells, label(o)).toHaveLength(2);
+        expect(d.buildings.groundDraws.filter((x) => x.placement === g.placement), label(o)).toHaveLength(1);
+      }
+      corners += facades.ground.filter((g) => PLAN_DOOR_CORNERS.includes(g.placement.key)).length;
+      // The colourway reaches the ground wrappers: a loaded one swaps the map, a base one keeps the source.
+      for (const b of buildingsOf(plan).buildings) {
+        const grp = d.buildings.groups.find((x) => x.name === `building:${b.id}`)!;
+        const nFloor = d.buildings.draws.filter((p) => p.building === b.id).length;
+        for (const w of wrappersOf(grp).slice(nFloor)) {
+          for (const m of meshesOf(w)) {
+            if (LOADED_WAYS.has(b.colourway)) expect((m.material as MeshBasicMaterial).map!.name, b.id).toBe(`stub-${b.colourway}`);
+            else expect(m.material, b.id).toBe(STUB_MAT);
+          }
+        }
+      }
+      d.dispose();
+    }
+    expect([...turns].sort((a, b) => a - b)).toEqual([0, 90, 180, 270]);
+    expect(doubles).toBeGreaterThan(0);
+    expect(corners).toBeGreaterThan(0);
+  });
+
+  it("with one ground key's root missing only the slots that use it are grey (both columns of a shopDouble)", () => {
+    const plan = planOf(DEFAULT);
+    const layer = buildingsOf(plan);
+    const ground = facadesOf(plan).ground;
+    const cols = new Map(layer.columns!.map((c) => [`${c.i},${c.j}`, c] as const));
+    const above = new Set(layer.columns!.flatMap((c) => c.pieces.map((p) => p.placement.key)));
+    // A ground key that no column above the ground uses, so only the ground slots are affected.
+    const only = [...new Set(ground.map((g) => g.placement.key))].filter((key) => !above.has(key));
+    expect(only.length).toBeGreaterThan(0);
+    for (const lack of only) {
+      const part = plan3dGroups(plan, stackRoots([lack]), none.entries);
+      const uses = ground.filter((g) => g.placement.key === lack);
+      const slots = uses.flatMap((g) => g.cells.map((c) => `${c.i},${c.j}`));
+      expect(part.grey.fallback, lack).toBe(0);
+      expect(part.grey.slots, lack).toBe(slots.length);
+      expect(part.grey.mesh.count, lack).toBe(slots.length);
+      expect(part.buildings.groundPieces, lack).toBe(ground.length - uses.length);
+      const g = greyOf(part);
+      expect(g.map((x) => `${x.i},${x.j}`).sort(), lack).toEqual([...slots].sort());
+      for (const x of g) {
+        const c = cols.get(`${x.i},${x.j}`)!;
+        expect(x.y).toBeCloseTo(c.ground.y_m * 0.18, 5);
+        expect(x.h).toBeCloseTo((c.ground.top_m - c.ground.y_m) * 0.18, 5);
+      }
+      part.dispose();
+    }
+    // A shopDouble's key missing: both of its columns are grey.
+    const double = ground.find((g) => g.kind === "shopDouble")!;
+    const lackDouble = plan3dGroups(plan, stackRoots([double.placement.key]), none.entries);
+    const greyCells = new Set(greyOf(lackDouble).map((x) => `${x.i},${x.j}`));
+    for (const c of double.cells) expect(greyCells.has(`${c.i},${c.j}`), `shopDouble ${c.i},${c.j}`).toBe(true);
+    lackDouble.dispose();
   });
 
   it("brings the stack pieces and the colourways of a loaded set into the plan's input", () => {
@@ -840,15 +942,19 @@ describe("the buildings, on the 20 named runs (criterion 3)", { timeout: 120_000
     for (const o of NAMED) {
       const plan = planOf(o);
       const layers = plan.layers;
-      const digests = (): Record<string, string> => ({ streets: digestOf(layers.streets), land: digestOf(layers.land), mass: digestOf(layers.mass), edge: digestOf(layers.edge), buildings: digestOf(layers.buildings) });
+      const digests = (): Record<string, string> => ({ streets: digestOf(layers.streets), land: digestOf(layers.land), mass: digestOf(layers.mass), edge: digestOf(layers.edge), buildings: digestOf(layers.buildings), facades: digestOf(layers.facades) });
       const before = digests();
-      expect(before, label(o)).toEqual({ streets: plan.digests.streets, land: plan.digests.land, mass: plan.digests.mass, edge: plan.digests.edge, buildings: plan.digests.buildings });
+      expect(before, label(o)).toEqual({ streets: plan.digests.streets, land: plan.digests.land, mass: plan.digests.mass, edge: plan.digests.edge, buildings: plan.digests.buildings, facades: plan.digests.facades });
       const d = plan3dGroups(plan, none.roots, none.entries);
       expect(digests(), `${label(o)}: no layer changed`).toEqual(before);
       const layer = buildingsOf(plan);
       expect(listedOnce(layer, d.buildings.draws), label(o)).toBe(true);
       const way = new Map(layer.buildings.map((b) => [b.id, b.colourway] as const));
       for (const p of d.buildings.draws) expect(p.colourway, `${label(o)} ${p.building}`).toBe(way.get(p.building));
+      // G2: every ground piece once, in its own building's colourway, and every column filled by exactly one.
+      expect(groundListedOnce(facadesOf(plan), d.buildings.groundDraws), label(o)).toBe(true);
+      for (const p of d.buildings.groundDraws) expect(p.colourway, `${label(o)} ground ${p.building}`).toBe(way.get(p.building));
+      expect(d.buildings.groundDraws.reduce((n, g) => n + g.cells.length, 0), label(o)).toBe(layer.columns!.length);
       expect(d.grey.count, label(o)).toBe(layer.columns!.length);
       expect(d.grey.mesh.count, label(o)).toBe(layers.mass!.built.length);
       expect(layer.columns!.length, label(o)).toBe(layers.mass!.built.length);
@@ -893,6 +999,50 @@ describe("the buildings, on the 20 named runs (criterion 3)", { timeout: 120_000
     expect(listedOnce(layer, draws)).toBe(true);
     expect(listedOnce(layer, draws.slice(1))).toBe(false);
     expect(listedOnce(layer, [...draws, draws[5]!])).toBe(false);
+  });
+
+  it("fails the ground exactly-once check for a draw list with one ground piece dropped, and with one listed twice", () => {
+    const plan = planOf(DEFAULT);
+    const draws = planGroundDraws(facadesOf(plan), buildingsOf(plan));
+    expect(groundListedOnce(facadesOf(plan), draws)).toBe(true);
+    expect(groundListedOnce(facadesOf(plan), draws.slice(1))).toBe(false);
+    expect(groundListedOnce(facadesOf(plan), [...draws, draws[5]!])).toBe(false);
+  });
+
+  it("stops (PlanStopError, the cell named) on a facades layer missing one column's ground piece, one that fills a column twice, one with no ground, and a ground key the page does not load", () => {
+    const plan = planOf(DEFAULT);
+    const facades = facadesOf(plan);
+    const withFacades = (f: CityFacadesLayer): CityPlan => ({ ...plan, layers: { ...plan.layers, facades: f } });
+    const single = facades.ground.findIndex((g) => g.cells.length === 1);
+    const gone = facades.ground[single]!;
+    let stop: unknown = null;
+    try {
+      plan3dGroups(withFacades({ ...facades, ground: facades.ground.filter((_, n) => n !== single) }), stackRoots(), none.entries);
+    } catch (e) {
+      stop = e;
+    }
+    expect(stop).toBeInstanceOf(PlanStopError);
+    expect((stop as PlanStopError).cells).toEqual([gone.cells[0]]);
+    const dup = [...facades.ground, facades.ground[single]!];
+    expect(() => plan3dGroups(withFacades({ ...facades, ground: dup }), stackRoots(), none.entries)).toThrow(PlanStopError);
+    const bare = { ...facades } as { -readonly [K in keyof CityFacadesLayer]?: CityFacadesLayer[K] };
+    delete bare.ground;
+    expect(() => planGroundDraws(bare as CityFacadesLayer, buildingsOf(plan))).toThrow(PlanStopError);
+    const alien: CityGroundPiece = { ...gone, placement: { ...gone.placement, key: "city-pack:Nothing_01" as CalibrationKey } };
+    expect(() => planGroundDraws({ ...facades, ground: facades.ground.map((g, n) => (n === single ? alien : g)) }, buildingsOf(plan))).toThrow(/not one the page loads/);
+    const noFacades = { ...plan, layers: { ...plan.layers } } as { -readonly [K in keyof CityPlan]: CityPlan[K] };
+    const noLayers = { ...plan.layers } as { -readonly [K in keyof typeof plan.layers]?: (typeof plan.layers)[K] };
+    delete noLayers.facades;
+    noFacades.layers = noLayers;
+    expect(() => plan3dGroups(noFacades, stackRoots(), none.entries)).toThrow(PlanStopError);
+  });
+
+  it("loads the two corner doors by name: planKeys() names them and allStackKeys() does not", () => {
+    expect(PLAN_DOOR_CORNERS).toHaveLength(2);
+    for (const k of PLAN_DOOR_CORNERS) {
+      expect(planKeys()).toContain(k);
+      expect(allStackKeys()).not.toContain(k);
+    }
   });
 
   it("stops (PlanStopError, the cell named) on a buildings layer with a built cell's column removed, with no columns, with a column that has no roof, and with a piece that is not a stack key", () => {
@@ -947,6 +1097,18 @@ describe("the buildings, on the 20 named runs (criterion 3)", { timeout: 120_000
       }
       expect(calls).toBeGreaterThan(1);
       console.info(`G draw calls, ${label(o)}: building calls before (E) 1, after ${calls + 1} (${calls} from ${draws.length} cloned pieces + 1 grey box call); pieces by role ${JSON.stringify(byRole)}; distinct keys ${byKey.size}`);
+      const gdraws = planGroundDraws(facadesOf(planOf(o)), buildingsOf(planOf(o)));
+      const byKind: Record<string, number> = {};
+      let groundCalls = 0;
+      for (const g of gdraws) {
+        const key = g.placement.key;
+        const n = prims(key.slice(key.indexOf(":") + 1));
+        expect(n, key).toBeGreaterThan(0);
+        groundCalls += n;
+        byKind[g.kind] = (byKind[g.kind] ?? 0) + 1;
+      }
+      expect(groundCalls).toBeGreaterThan(0);
+      console.info(`G2 draw calls, ${label(o)}: building calls after G ${calls + 1}, after G2 ${calls + groundCalls + 1} (${calls} floors and roofs from ${draws.length} pieces + ${groundCalls} from ${gdraws.length} ground pieces + 1 grey box call, empty when every model loads); ground pieces by kind ${JSON.stringify(byKind)}`);
     }
   });
 });
