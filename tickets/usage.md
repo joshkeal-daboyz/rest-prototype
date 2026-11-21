@@ -320,3 +320,7 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 070 I | landscape (general-purpose with landscape.md) | sonnet | 400K total | - | 0 | ground dressing (4ae2a41) |
 | 070 I | gate (main session) | - | - | - | 0 | 4ae2a41: 183 files, 4147 passed, 33 skipped |
 | 070 I | code-reviewer / playtester | opus / sonnet | 128K / 28K | - | 0 | meets, must-fix 0; regressions 0 |
+| 070 J re-cut | lead-architect | opus | 232K total | - | 0 | J re-cut, no pre-check (9ae060c) |
+| 070 J | renderer (general-purpose with renderer.md) | sonnet | 266K total | - | 0 | stages 7 and 8 drawn, R12 audit (f799495) |
+| 070 J | gate (main session) | - | - | - | 0 | f799495: 183 files, 4163 passed, 35 skipped |
+| 070 J | code-reviewer / playtester | opus / sonnet | 77K / 21K | - | 0 | meets, must-fix 0; regressions 0 |
