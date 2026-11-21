@@ -1,5 +1,7 @@
 # 070 H1c pre-check: shop kinds and novelty signs
 
+**Josh's answer (21 Nov 2026, in chat).** Asked the four questions as recommended (1: shop kinds and novelty signs belong to the shopfront work, the roof sign reads the same kind; 2: the key-to-shop table as proposed, bowling ball and pin unused, `Bottle_01` is the beer bottle; 3: a shop with an H1b Bar, Pub, Cafe, Noodles or Pizza sign takes that kind, others random, H1b unchanged; 4: face rule F, flat above the shop's awning or sign, centred, up to the roof line), he answered: "Yes, all four".
+
 21 Nov 2026, pipeline-designer, on `goal/city-style` at 2303966 (H3b merged, 01a77f3).
 
 **This is a sketch.** A throwaway probe outside the repo reads the merged facades layer read-only and adds the shop kinds and the novelty signs on top.
