@@ -59,7 +59,10 @@ function viewOf(o: City): View {
   const k = label(o);
   if (!views.has(k)) {
     const { mass, buildings, facades } = layersOf(o);
-    views.set(k, { o, mass, buildings, layer: facades, colAt: new Map(buildings.columns!.map((c) => [key(c), c] as const)), roofs: facades.roofs! });
+    // H1c, criterion 8: H3 and H3b's tests read H3b's layer exactly: the stage's ground, dressing and walls, and the roofs `buildRoofs` gives with no plan, without `shops` and `novelty`
+    const roofs = buildRoofs(mass, buildings, { dressing: facades.dressing!, walls: facades.walls! }, stageRand("facades", o.seed)).roofs;
+    const layer: CityFacadesLayer = { stage: "facades", ground: facades.ground, dressing: facades.dressing!, walls: facades.walls!, roofs };
+    views.set(k, { o, mass, buildings, layer, colAt: new Map(buildings.columns!.map((c) => [key(c), c] as const)), roofs });
   }
   return views.get(k)!;
 }

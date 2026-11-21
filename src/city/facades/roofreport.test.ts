@@ -6,7 +6,7 @@
  * H2's and H2b's walls against `DRESS_MAX` (C1, for J's draw calls), which is reported as passed and not applied (Q24 answer 5). For the outside cities (3 x 3 and 6 x 4, seeds 1 to 20, off and on) it prints whether stage 7 is ok,
  * and its failure if not: reported, never asserted (Josh, 21 Nov 2026).
  *
- * The named runs must be ok (R-2); the numbers are reported, the few the ticket pins (R8's two, no novelty piece, a billboard on every run) are asserted.
+ * The named runs must be ok (R-2); the numbers are reported, the few the ticket pins (R8's two, a billboard on every run; H1c: the novelty roof signs are reported) are asserted.
  */
 import { describe, expect, it } from "vitest";
 import type { CityPlanRun } from "../../core";
@@ -38,6 +38,7 @@ describe("H3 report, criterion 8 (reported, not asserted, except as the ticket p
     const tot = { exitBlind: 0, exitMid: 0, exitFell: 0, billboards: 0, billFell: 0, billRunCap: 0, rbBlind: 0, rbMid: 0, rbCorner: 0, rkTurned: 0, capSmall: 0, capBig: 0, clashes: 0, rkFail: 0, one: 0, two: 0, pieces: 0, noBig: 0, drawn: 0, tallest: 0 };
     let minFirst = { v: Infinity, run: "" };
     let minSecond = { v: Infinity, run: "" };
+    let novelty = 0;
     let maxAll = { v: 0, run: "" };
     let minAll = { v: Infinity, run: "" };
     let maxPieces = 0;
@@ -56,7 +57,7 @@ describe("H3 report, criterion 8 (reported, not asserted, except as the ticket p
       const second = m.bigRuns / m.runs;
       expect(first, label(o)).toBeGreaterThanOrEqual(ROOF_DRESSED_MIN);
       expect(second, label(o)).toBeGreaterThanOrEqual(BIG_ROOF_RUNS_MIN);
-      expect(m.byKind["novelty"] ?? 0, label(o)).toBe(0);
+      novelty += m.byKind["novelty"] ?? 0;
       expect(m.byKind["billboard"] ?? 0, label(o)).toBeGreaterThanOrEqual(1);
       if (first < minFirst.v) minFirst = { v: first, run: label(o) };
       if (second < minSecond.v) minSecond = { v: second, run: label(o) };
@@ -119,7 +120,8 @@ describe("H3 report, criterion 8 (reported, not asserted, except as the ticket p
       );
     }
     console.log(
-      `H3 REPORT, named\n${lines.join("\n")}\nR8 lowest: first ${f3(minFirst.v)} on ${minFirst.run}; second ${f3(minSecond.v)} on ${minSecond.run}\nPIECES by kind ${JSON.stringify(kinds)}; roof pieces a run ${minPieces} to ${maxPieces}\nKEYS ${JSON.stringify(keys)}\nSMALL by key ${JSON.stringify(smallKeys)}; columns with one ${tot.one}, with two ${tot.two}\nBIG by column kind ${JSON.stringify(byColumn)}; by storeys ${JSON.stringify(byStoreys)}; tallest top ${f3(tot.tallest)}\nEXITS blind ${tot.exitBlind}, mid ${tot.exitMid}; fell through ${tot.exitFell}\nBILLBOARDS ${tot.billboards}; rotation fell through from them ${tot.billFell}; skipped by the run's cap ${tot.billRunCap}; RB turned away: blind ${tot.rbBlind}, mid ${tot.rbMid}, corner ${tot.rbCorner}; RK turned away (all kinds) ${tot.rkTurned}\nNV the run's lowest building took ${JSON.stringify(lowestTook)}\nCAP turned away: small ${tot.capSmall}, big ${tot.capBig}; fullest column ${maxPerColumn}\nRK insets by kit piece ${JSON.stringify(insetKinds)}; plain-port clashes ${tot.clashes}; RK failures in the layer ${tot.rkFail}\nDRESS_MAX ${DRESS_MAX}: all dressing from ${minAll.v} (${minAll.run}) to ${maxAll.v} (${maxAll.run}); runs over: ${over.length} of ${NAMED.length}${over.length > 0 ? `: ${over.join("; ")}` : ""} (reported as passed, not applied: Q24 answer 5)\nBig prop draws ${tot.drawn}, with no kind placed ${tot.noBig}`,
+      `H3 REPORT, named\n${lines.join("\n")}\nR8 lowest: first ${f3(minFirst.v)} on ${minFirst.run}; second ${f3(minSecond.v)} on ${minSecond.run}\nPIECES by kind ${JSON.stringify(kinds)}; roof pieces a run ${minPieces} to ${maxPieces}\nKEYS ${JSON.stringify(keys)}\nSMALL by key ${JSON.stringify(smallKeys)}; columns with one ${tot.one}, with two ${tot.two}\nBIG by column kind ${JSON.stringify(byColumn)}; by storeys ${JSON.stringify(byStoreys)}; tallest top ${f3(tot.tallest)}\nEXITS blind ${tot.exitBlind}, mid ${tot.exitMid}; fell through ${tot.exitFell}\nBILLBOARDS ${tot.billboards}; rotation fell through from them ${tot.billFell}; skipped by the run's cap ${tot.billRunCap}; RB turned away: blind ${tot.rbBlind}, mid ${tot.rbMid}, corner ${tot.rbCorner}; RK turned away (all kinds) ${tot.rkTurned}\nNOVELTY roof signs (H1c) in the stage layer ${novelty}
+NV the run's lowest building took ${JSON.stringify(lowestTook)}\nCAP turned away: small ${tot.capSmall}, big ${tot.capBig}; fullest column ${maxPerColumn}\nRK insets by kit piece ${JSON.stringify(insetKinds)}; plain-port clashes ${tot.clashes}; RK failures in the layer ${tot.rkFail}\nDRESS_MAX ${DRESS_MAX}: all dressing from ${minAll.v} (${minAll.run}) to ${maxAll.v} (${maxAll.run}); runs over: ${over.length} of ${NAMED.length}${over.length > 0 ? `: ${over.join("; ")}` : ""} (reported as passed, not applied: Q24 answer 5)\nBig prop draws ${tot.drawn}, with no kind placed ${tot.noBig}`,
     );
   });
 

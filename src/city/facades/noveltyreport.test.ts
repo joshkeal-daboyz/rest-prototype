@@ -73,7 +73,7 @@ function rowOf(o: City, mass: CityMassLayer, buildings: CityBuildingsLayer, laye
   }
   const runsWith = new Set([...layer.novelty!.map((s) => runOf.get(s.building) ?? s.building), ...roofSigns.map((p) => runOf.get(p.building) ?? p.building)]);
   const now = roofReport(layer, { mass, buildings }).metrics;
-  const before = roofReport({ ...layer, roofs: noPlan, shops: undefined, novelty: undefined }, { mass, buildings }).metrics;
+  const before = roofReport({ stage: "facades", ground: layer.ground, dressing: layer.dressing!, walls: layer.walls!, roofs: noPlan }, { mass, buildings }).metrics;
   return {
     name: label(o),
     shopsByKind,
