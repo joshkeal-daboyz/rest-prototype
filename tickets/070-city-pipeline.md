@@ -879,13 +879,102 @@ Josh's ruling 3 (19 Nov 2026, in chat; asked "Do you approve all four rulings as
 - **Heavy:** the named-run tests build the 10 named cities both ways once, through a module cache, with a 120 s timeout. Criterion 6's report has its own file.
 
 ### G · Assemble: buildings drawn (renderer). Branch `ticket/070g-plan3d-buildings`
-**Goal.** At `?city=plan` the grey boxes become City Pack buildings, piece by piece at the plan's placements. Ground storeys use a placeholder floor piece until H1.
+**Branch.** Cut from `goal/city-style` at a2511a6 or later (F2 merged, fac37be: every built cell has a `CityColumn` with its pieces placed).
 
-1. [ ] **Drawn from placements only.** One clone per placement, as stacks are today, with no choice made in render3d. Colourway materials by the plan's colourway id. The digest-diff test as in E.
-2. [ ] **Draw calls.** The builder reports building calls before and after on the default city (the grammar expects about twice `city=tiles`). No cap is raised: if the frame rate cannot hold it goes to Josh, and the remedy is instancing (a later ticket).
-3. [ ] (Main session, screenshots) back-to-back rows, corners turned to their two open sides, roofs on their cells, no gap between walls. With them Josh is asked whether `BACK_SAME_SHARE` 0.5 becomes Decided (20 Nov 2026, on F1's pictures: "Let me see the 3D buildings first"); until he says so it stays Proposed.
+**Goal.** At `?view=3d&city=plan&stage=assemble` the grey boxes become City Pack buildings, piece by piece, each piece at the placement stage 5 wrote for it, in its building's colourway. Ground storeys stay a plain grey placeholder until H1 places their pieces. Josh walks the pipeline's city with real walls and roofs. With the screenshots he answers `BACK_SAME_SHARE` and the F2 pre-check's three questions.
 
-- **Files:** `plan3d.ts`, `plan3d.test.ts`, `models3d.ts` (loading for the plan path only; the ladder and `city=tiles` paths unchanged).
+**Josh's words.** On F1's pictures (20 Nov 2026, in chat): "Let me see the 3D buildings first" (`BACK_SAME_SHARE`, Q19 answer 3). Sections A1 to J merge into `goal/city-style` under his 19 Nov waiver once green (Q3: "Yes").
+
+**Re-cut (20 Nov 2026, the lead-architect, against a2511a6).** G was first cut before F1 and F2 were re-cut and merged. It now reads the stage 5 layer as merged:
+- `CityBuildingsLayer.buildings`: style, `colourway`, storeys, and the L's `bend`;
+- `CityBuildingsLayer.columns`: one `CityColumn` per built cell, with `kind`, `front`, `side`, `yaw`, `ground` (a `CityGroundSlot`) and `pieces` (`CityPiece`: role `floor`, `floor3` or `roof`, with its `CityPlacement`).
+
+It draws on E's assemble view (`plan3d.ts`). G only draws. It adds no rule, check or number, so it skips the pre-check (CLAUDE.md).
+
+**No choices in render3d.** Every piece is drawn where its `CityPlacement` says: its key, its pivot (`x_m`, `y_m`, `z_m`, the converter's bounds-centre and base), and its turn (`yaw_deg`, three.js's convention). Nothing is scaled. G picks no key, no turn and no offset, and reads no kit table, style table or `BODY_M`. The L is three straight columns, each drawn from its own pieces (F2's P3), so G needs nothing for the bend.
+
+**The ground storey.** Stage 5 gives each column a ground slot (kind, yaw, `y_m` 0, `top_m` 3) and no key; stage 7 (H1) picks the key. The first cut said "a placeholder floor piece". Drawing a pack piece there would mean render3d choosing its key, so the placeholder is E's plain grey box filling the slot instead: the cell's 5 m square from `ground.y_m` to `ground.top_m`. H1 replaces it with real pieces, and J draws them.
+
+**Stop rule (as in E).** Where the layer does not say what to draw, the builder commits, stops and reports the cells (`PlanStopError`). Examples: no `columns`; a piece whose key is not a stack key the page loads; a column with no roof. The gap is a re-cut of F2, never a choice in `src/render3d/`. A piece whose key is a stack key but whose model did not load is not a gap: criterion 2's fallback covers it.
+
+1. [ ] **The run goes to stage 5** (Vitest). `createPlanAssembleRenderer3d` runs `runCity(..., "buildings")` where it ran `"edge"`.
+   - A run that fails at `buildings` draws nothing and shows that stage and its reason as text, as E does for every stage (`planFailureText`).
+   - `?view=3d&city=plan&stage=buildings` (the flat picture) is still `planview.ts`'s, unedited. `planview.test.ts` passes unedited.
+2. [ ] **Pieces from placements only** (`plan3d.ts`, Vitest). `plan3dGroups(plan, roots, entries, colourways?)` replaces E's grey mass with three things:
+   - **The buildings.** One `Group` per building, named `building:<id>`. It holds one wrapper per piece of each of its columns, named `piece:<key>`. The wrapper's position is (`x_m`, `y_m`, `z_m`) x `WORLD_PER_METRE`, its `rotation.y` is `yaw_deg` in radians, and its scale is `WORLD_PER_METRE`. It holds one clone of the key's loaded root, the way `stackGroup` clones (shared geometry and materials, `raycast` off).
+   - **The colourway.** Each building group is painted with `paintStack(group, building.colourway, { colourways }, cache)` (`models3d.ts`, read as it is). There is one `createColourwayCache` per draw, freed by `dispose`. "base", or an id whose atlas did not load, leaves the cached materials as they are (the layer's comment: "the plan never knows what loaded"). Nothing emissive is set.
+   - **The grey boxes: one `InstancedMesh`, E's grey `MASS_GREY`, one draw call.** It has one instance per column:
+     - the ground slot (the cell's 5 m square, `ground.y_m` to `ground.top_m`) when all of the column's pieces have a loaded root;
+     - otherwise, the whole column as one grey box from 0 to its roof piece's `y_m`, with no piece of it cloned. This covers code-only, CI, before the models load, and a stack key that failed to load. It is E's box at the building's height, read from the plan.
+   - **A pure list** the tests read without Three.js: `planPieceDraws(buildings): { building: string; column: CityCell; role: CityPieceRole; placement: CityPlacement; colourway: string }[]`. `plan3dGroups` draws exactly it.
+   - Tests, with stub roots and no GLB: a small `Group` per kit key holding one `Mesh` whose material's `map` is named `PolygonCity_Texture`, and one stub colourway texture:
+     - Every wrapper's world position, turn and scale equal its placement's. A corner column's four turns (0, 90, 180, 270) are among those checked.
+     - One wrapper per piece, and one building group per building.
+     - A building in a loaded colourway has its meshes' `map` swapped to that colourway's texture. A "base" building, and one whose id did not load, keep the source material.
+     - With empty `roots`, no piece is cloned, and there is one grey instance per column at its full height.
+     - With one key's root missing, only the columns that use that key fall back.
+3. [ ] **Draws only; the digest-diff test, as in E** (Vitest, on the 20 named runs: 6 x 6 seeds 1 to 10, one-way off and on).
+   - Every layer's digest (streets, land, mass, edge, buildings) is the same before and after `plan3dGroups`.
+   - `planPieceDraws` lists every `CityPiece` of every column exactly once, with the colourway of the column's own building.
+   - Every column has exactly one grey instance (ground slot or fallback).
+   - E's counts hold unchanged: every `ground` record, every kerb seg but `opening`, and every non-built mass cell drawn once.
+   - The Ls' columns (on 6 x 6 s8 off, and s3, s5, s8 and s10 on) are drawn from their own pieces, like any other column.
+   - The full Three.js group (with stub roots) is built only on the default city and the four pin cities (6 x 6 seeds 1, 2, 3 and 8, one-way on). There, the wrapper count equals the `planPieceDraws` length, and the matrices equal the placements.
+   - Failing fixtures, built from the default city's run in the test, not pinned by hash:
+     - the exactly-once check fails when given the city's draw list with one piece dropped;
+     - it also fails with one piece listed twice;
+     - `plan3dGroups` throws `PlanStopError`, the cell named, on the buildings layer with one built cell's column removed from `columns`;
+     - it also throws `PlanStopError` on a layer with no `columns`.
+4. [ ] **Draw calls** (Vitest, code-drawn; the builder reports the pack's numbers). No cap is raised or added.
+   - The street pieces stay within `TILE_DRAW_CALLS_MAX` (40), and the interiors within `INTERIOR_DRAW_CALLS_MAX` (24), as in E. The grey boxes are 1 call, as E's mass was.
+   - The building clones have no cap (none exists, and G adds none: that would be a new number). Inside `it.skipIf(!HAVE_GLB)`, read lazily, the builder reports on the default city (6 x 6 seed 1): building calls before (E: 1) and after. "After" is the meshes the clones bring, counted per key from the converted GLB, times the key's pieces. It also gives the pieces by role, and the same for 6 x 6 seed 3.
+     - The grammar expects about twice `city=tiles`. If the builder can count `city=tiles`' stack meshes on 6 x 6 seed 1 from exported functions without editing another file, it reports that too; otherwise it says so.
+   - The renderer's console line, after the models swap in, gains the building groups, the pieces cloned, the columns that fell back, and `gl.info.render.calls` for the next frame drawn.
+   - If the frame rate cannot hold (criterion 6), the main session takes it to Josh. The remedy is instancing the stack pieces, in a later ticket (Non-goals). It is never a cap, and never dropping pieces.
+5. [ ] **Nothing else changes** (Vitest and R-8, R-9).
+   - `?view=3d&city=tiles` draws as on `goal/city-style`. `tilecity3d.ts`, `models3d.ts`, `renderer.ts`, `planview.ts` and their tests are not edited, and `tilecity3d.test.ts` and `planview.test.ts` pass unedited.
+   - The plan path loads what it loads today: `sharedTileModels(planKeys())` already brings `allStackKeys()` (every kit key: mid and corner floors, `Apartment_Stack_*`, mid and corner roofs) and the colourway atlases. G adds no load.
+   - If a kit key turns out not to load on the plan path, the builder stops and reports it. That would be a re-cut to add `models3d.ts` (plan path only); G never adds it on its own.
+   - The ladder is unchanged (`npm run playtest`).
+6. [ ] (Main session, in the browser: the plan view checked by eye, since E's blank-sky bug got past every test.) Open `?view=3d&city=plan&stage=assemble` at a phone size and at a desktop size, overhead and street camera, day and `light=night`. Check that:
+   - the city is in view (not blank sky);
+   - no failure text shows;
+   - the buildings swap in from grey once the models load;
+   - the console line shows the counts of criterion 4 and a frame rate that holds while panning.
+
+   Then check that `?view=3d&city=plan&stage=buildings` (the flat picture) and `?view=3d&city=tiles` look as on `goal/city-style`.
+7. [ ] (Main session, screenshots, phone-sized and sent to Josh: overhead and street camera, day and one at night; 6 x 6 seed 1 and 6 x 6 seed 3, one-way on.) The screenshots should show:
+   - back-to-back rows, ring 2 standing behind ring 1 column for column;
+   - corners turned to their two open sides, with windows on both street faces;
+   - roofs on their cells;
+   - no gap between walls along a row or across the back;
+   - the Ls on seed 3 reading as one building round the bend;
+   - ground storeys as plain grey (the placeholder until H1).
+
+   **Street-camera views that frame corners** (worked out from the plan on 6 x 6 seed 1, one-way on, at a2511a6; not yet seen in a browser, so the main session adjusts `at` if a view is blocked):
+   - `?view=3d&city=plan&stage=assemble&cam=street&at=48,15&dir=+x`: along street x:1 into the crossroads at cells 50 to 52 / 14 to 16. Its style-01 corners stand at 48,12 (3 storeys), 54,12 (5) and 54,18 (4). This view is for questions 2 and 3 below.
+   - `?view=3d&city=plan&stage=assemble&cam=street&at=19,35&dir=+x`: the crossroads at 21 to 23 / 34 to 36, with four corners in styles 02 and 03 (19,32; 25,32; 19,38; 25,38). This view is for question 3's 11 cm step.
+   - A taller hidden back building over a lower roof (question 1): seed 1 has 32 such blind columns. For example, 55,11 (5 storeys) fronts 55,10 (3 storeys), and 66,11 (5) fronts 65,11 (3). They are seen from the overhead rig, panned there.
+
+   **With the screenshots the main session asks Josh four questions, word for word, each with its recommendation.** It records his words under Questions for Josh (Q20). G does not change for any answer:
+   1. Whether `BACK_SAME_SHARE` 0.5 becomes Decided (Q19, answer 3; "Let me see the 3D buildings first"). Until he says so it stays Proposed, and no test pins it.
+   2. The three F2 pre-check questions (`docs/design/070-F2-precheck.md`, section 4), judged on these screenshots:
+      - **U1:** may a hidden back building's windows show above a lower roof in front of it?
+      - **U2:** may the style-01 roofs overhang by what the piece carries (up to 0.79 m at the front, 0.715 m on a corner's outer flank), past rule 2's 0.6 m trim?
+      - **U3:** is the 8 to 11 cm step in the roof's base at a corner judged on the screenshots, with no rule now?
+
+      The note's section 5 says what each answer leads to. A "No" leads to a re-cut of F2 or H2 and a pre-check, never to a change in G.
+8. [ ] R-8, R-10 and R-11. Tests run: `npx vitest run --maxWorkers=2 src/render3d/plan3d.test.ts src/render3d/planview.test.ts src/render3d/tilecity3d.test.ts`, and one `npx tsc --noEmit`. The main session's gate is the full `npm run gate`.
+
+- **Files:** `src/render3d/plan3d.ts`, `src/render3d/plan3d.test.ts`. E's mass tests in `plan3d.test.ts` (the `mass.count` and `MASS_HEIGHT_M` checks) become criterion 2's grey-box tests.
+- **Must not:**
+  - `src/city/**` and `src/core/` (read only);
+  - `models3d.ts`, `tilecity3d.ts`, `renderer.ts`, `planview.ts`, `tilecity.ts`, `kerbline.ts`, `tileslots.ts`, `stacks.ts`, `colourway.ts`, `facade.ts` and their tests (read only);
+  - every other render3d file;
+  - `town.ts` (`STOREY_M` is read only).
+- **Interfaces:** nothing new in `src/core/`. G reads `CityBuilding.colourway`, `CityColumn`, `CityGroundSlot`, `CityPiece`, `CityPieceRole` and `CityPlacement` as F1 and F2 left them. `planPieceDraws` and the new `PlanDraw` fields (the buildings and the grey boxes, replacing `mass`) belong to the renderer. No new dependency.
+- **Adds no rule or number.** It draws the placements, colourways and ground slots stage 5 wrote. The grey placeholder and the fallback are drawing only, and no cap is added. So no pre-check.
+- **Heavy:** the named-run tests build the 10 named cities both ways once, through a module cache in `plan3d.test.ts`, with a 120 s timeout. The Three.js groups are built on five cities only (criterion 3). No GLB is read outside `it.skipIf`. No browser for the builder (Josh's PC); the browser checks are the main session's.
 
 ### H1 · Stage 7, Facades: ground storeys and shopfronts (facades, pure). Branch `ticket/070h1-facades-ground`
 **Goal.** Street fronts carry shops, doors, glass, awnings and signs; quiet fronts carry one residents' door per building and windows; no shop faces a court.
@@ -1082,3 +1171,10 @@ These five do not exist. The main session writes each `.claude/agents/<name>.md`
    - 2 (yes): rule 4's corner sentence is read as floors only. No change to the checks; recorded in F1.
    - 3 (after): `BACK_SAME_SHARE` stays Proposed, and no test pins its value. He is asked again with F1's screenshots (criterion 9). **On F1's pictures (20 Nov 2026, in chat):** "Let me see the 3D buildings first". So it is asked with G's screenshots (G criterion 3).
    - 4 (no new rule now): no style or colour check between the two buildings that meet at a street corner; judged on the screenshots.
+20. **Four questions asked with G's screenshots** (G criterion 7). Not yet asked. The main session asks each word for word, with its recommendation, and records his answer here:
+   - `BACK_SAME_SHARE` 0.5 becomes Decided? (Q19, answer 3; on F1's pictures: "Let me see the 3D buildings first".) Until he says so it stays Proposed.
+   - The F2 pre-check's three questions (`docs/design/070-F2-precheck.md`, section 4; each recommended yes):
+     - U1: may a hidden back building's windows show above a lower roof?
+     - U2: may roofs overhang by what the piece carries (style 01: up to 0.79 m)?
+     - U3: is the 8 to 11 cm roof-base step at a corner judged on the screenshots, with no rule now?
+   - What each answer leads to is in the note's section 5. A "No" re-cuts F2 or H2 after a pre-check; G does not change.
