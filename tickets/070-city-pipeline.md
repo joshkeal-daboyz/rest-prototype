@@ -37,7 +37,8 @@ status: approved; section A1 merged 19 Nov 2026 (6eb4d26) (G1, Josh, 19 Nov 2026
 - **I pre-check: Josh answered; I re-cut** (21 Nov 2026, Q28, the lead-architect, against 1b7a0e5). The note (`docs/design/070-I-precheck.md`, pre-check c8cb583) found every check of I's list holding on 20 of 20 runs at its recommendation. The stage as cut failed all 20, on plaza and lot pieces (stage 7 and the R10 keep-outs). Asked its five questions as recommended, Josh answered: "Yes 5"; asked whether that meant all five or only question 5, he answered: "All 5". So EL and DK stand. LB's walk moves half a cell onto a building bay (criterion 4's hand-worked bin moves to 12.5 m). There is no extra keep-out in front of the ground storeys (GS). Plaza and lot groups under a stage 7 box are left out, and KO and the R10 keep-outs read pavement props and lane bins only (Q5). No type changes. I's builder may start.
 - **J re-cut against cdb425e** (21 Nov 2026, the lead-architect). Josh said "Yes" to starting J. J now draws every stage 7 list (`dressing`, `walls` with the escapes' boxes and the party pieces, `roofs` with the roof novelty signs, `novelty`) and stage 8's `props` through the tile city's per-key instancer (`dressGroup`), from placements only and once each, with R12's whole-plan audit (its one allowance the party pipe `_03`). `planKeys()` gains `SM_Prop_Window_01` and `SM_Prop_Pipe_Present_03`, which load by name; `models3d.ts` leaves J's Files. Measured: about 10,300 draw calls before J and about 10,360 to 10,510 after; cloned, it would be about 18,300. J adds no rule or number, so no pre-check. Q29 (J2, instancing the stack pieces, only if the frame rate does not hold) and Q30 (the stage=ground legend overlap) are open.
 - **L re-cut as L1 and L2; K outlined on Q4** (21 Nov 2026, the lead-architect, against 883cab7). Josh gave his word on L (Q1): "Yes, let's work on L. We need to integrate the new city design with the game itself." On the legend overlap (Q30): "Leave it" (for L). On who owns stage 6 (Q4): "I think that's stage 6 should be the collaborative work between the puzzle designer and the electrical grid agent". Read on 883cab7, `city=tiles` feeds the game nothing (a dev-only, puzzle-free view; no wires, poles, lamps or picking; nothing in `src/grid/`, `src/play/`, `src/ui/`, `src/render/` or `src/core/` reads it; its `poleSlots` are reserved points, only furniture keep-outs). The old path's code is still read by `plan3d.ts`, by the ladder's `terrace.ts` and by six stage-folder tests, so L splits: **L1** (renderer) switches `city=tiles` to the pipeline's 3D city, keeps the old one at `city=tiles-old` (Q31), fixes the legend and writes the guide and grammar lines; **L2** (outline) deletes the old path after K1. K is outlined as K1 (puzzle-designer: the circuit's design) → `CityCircuitLayer` typed → K2 (grid-simulator: `src/city/circuit/`) → I2 (landscape) → K3 and K4 (renderer: drawn, then played) → K5 (puzzle-designer: puzzles on the city). L1 adds no rule or number. L1's builder may start.
-- Questions: Q1 to Q28 and Q30 answered (Q4 on 21 Nov 2026: K's owners); Q29 open; Q31 open (L1 builds its default); Q7 settled by the rulings.
+- **TR first cut: stage 9, traffic control** (21 Nov 2026, the lead-architect, against 1eeb706). Josh: "we are missing traffic lights and traffic signage. I want you to create a new stage. It ahould include all of this." New stage 9 `traffic`, after `ground` and before `assemble`, so that no merged layer, digest or pin moves. Owner streetscape, in a new folder `src/city/traffic/` (Q32). TR1 places the signals, stop signs and one-way signs; TR1b the parking and street-name signs; TR2 (renderer) draws them J-style and gives the R12 audit its allowance. The signals need City Pack keys from the never-used list (Q33). `CityTrafficLayer` and its parts are typed standalone. TR1 and TR1b add rules and numbers, so the `pipeline-designer`'s pre-check comes first. Q32 to Q35 are open. 071 and K are not edited: their interactions are noted in TR.
+- Questions: Q1 to Q28 and Q30 answered (Q4 on 21 Nov 2026: K's owners); Q29 open; Q31 open (L1 builds its default); Q32 to Q35 open (TR); Q7 settled by the rulings.
 branch: one per section, `ticket/070<section>-<slug>` (named in each section), each cut from `goal/city-style`.
 
 ## Josh's words (19 Nov 2026, in chat)
@@ -81,7 +82,8 @@ The spec is `docs/city-grammar.md` (rules 1 to 12, checks M1 to M9, Josh's rulin
 | 6 | `circuit` | poles, wires, street lights, later the puzzle's nodes. Empty until ticket 059 is re-cut onto the pipeline | **left open** (Q4) | `src/city/circuit/` |
 | 7 | `facades` | each ground storey's piece (shop, double shop, door, shop corner, residents' corner door); shopfront dressing; signs, awnings, ATMs; fire escapes; the party-wall kit; rooftop items and the roof exit | facades | `src/city/facades/` |
 | 8 | `ground` | park and court furnishing, green trees and benches, alley bins, street furniture, planters, kerb bay meters | landscape | `src/city/ground/` |
-| 9 | `assemble` | nothing. It draws the plan with Three.js and decides nothing | renderer | `src/render3d/plan3d.ts` |
+| 9 | `traffic` (21 Nov 2026, TR; joins `CITY_STAGES` at TR1 criterion 0) | each junction's control; traffic signals (dark, scenery), stop and one-way signs (TR1); parking and street-name signs (TR1b) | streetscape (Q32) | `src/city/traffic/` |
+| 10 | `assemble` | nothing. It draws the plan with Three.js and decides nothing | renderer | `src/render3d/plan3d.ts` |
 
 - **Shared:** the plan type is in `src/core/cityplan.ts` (lead-architect; written with this ticket). The runner, sub-seeds, digests, picture helpers and the hash are in `src/city/pipeline/` (planner).
 - **The flat picture viewer** is `src/render3d/planview.ts` (renderer).
@@ -178,7 +180,8 @@ A check runs in the stage whose layer it judges. It may read earlier layers. Thr
 | M9b (063 G criterion 40) | the roof exit stands on its roof, its door away from every open side, with clear deck | 7 facades | H3 |
 | water-tower cap (Josh, 21 Nov 2026: "You get one water tower per x amount of buildings") | at most floor(n / 16) water towers on a street block of n buildings (`WATER_TOWER_PER_BUILDINGS` 16, Decided; Josh, Q25: "Yes to all"); a freed roof takes an exit only in a run with no other big roof item (TC, TF) | 7 facades | H3b |
 | R10 | street furniture pitch, corners, keep-outs | 8 ground | I |
-| R12 | no never-used key anywhere in the plan; no emissive dressing | 9 assemble (whole-plan audit) | J |
+| TC1 to TC5 (21 Nov 2026, TR; PROPOSED until the TR pre-check and Josh's answers) | each junction's control (SJ, AS, T, C); the signals (MA, DS); the signs (ST, OW); every piece on the walk and clear of stages 4, 6, 7 and 8 (CL) | 9 traffic | TR1, TR1b |
+| R12 | no never-used key anywhere in the plan; no emissive dressing. From TR2: Q33's signal keys allowed on `traffic` pieces of their own kind only | 10 assemble (whole-plan audit) | J, TR2 |
 | draw-call caps | tile, dressing and furniture caps unchanged | 9 assemble | G, J |
 | R11 | a lot and a plaza on `64-the-whole-chain` | ladder only, not run by the pipeline | none |
 
@@ -209,13 +212,15 @@ Each is one builder session at most. They run in this order:
 - **the H1 pre-check → H1 → (H1b and G2 alongside) → H2 → H3** (20 Nov 2026, H1's re-cut). H1b and G2 each branch from `goal/city-style` once H1 is merged; they share no file. J draws H1b's dressing. **(21 Nov 2026, H1b's re-cut)** H1b's pre-check comes before its builder; G2 does not wait for it. **(21 Nov 2026, H2's re-cut)** H2 is split: the H2 pre-check (one for H2 and H2b) → H2 → H2b → H3. H2b branches once H2 is merged (they share `stage.ts`, `stage.test.ts` and the digest pins). **(21 Nov 2026, Q24)** H3 → the H1c pre-check → Josh's answers → H1c's re-cut → H1c. H1c branches once H3 is merged (they share `stage.ts`, `stage.test.ts`, the digest pins and `roofs`). **(21 Nov 2026, H3b's first cut)** H3 (merged, 194643e) → the H3b pre-check → Josh's answers (Q25) → H3b's re-cut → H3b → the H1c pre-check → and on as above. H3b branches from `goal/city-style`. H1c's pre-check runs once H3b is merged (they share `roofs.ts`, `roofcheck.ts`, the roof tests and the digest pins).
 - I → J → L. **(21 Nov 2026, I's re-cut)** The I pre-check → Josh's answers (Q28) → I's re-cut on them → I → J → L. **(21 Nov 2026, Q28)** The pre-check, his answers and the re-cut are done; I's builder may start. I branches from `goal/city-style`; it shares no file with an open section.
 
+- **TR (21 Nov 2026, first cut):** the TR pre-check → Josh's answers → TR1's re-cut → TR1 → TR1b → TR2. TR1 branches from `goal/city-style`; it shares no file with K, L2 or 071 and may run alongside K1.
+
 H and I can run alongside each other once F2 has merged. Stage 6 (K) is outlined, not cut (Q4, 21 Nov 2026). **(21 Nov 2026, Q1)** L1 starts now; K1 → K2 → I2 → K3 → K4 → K5 follow, and L2 after K1. **Instancing the stack pieces** (G's ~7.7k building draw calls) is a later ticket, not cut here (Josh, 20 Nov 2026, Q20: "instancing later").
 
 **Every section's must-not-touch** (in addition to its own list):
 - `src/core/`, `src/grid/`, `src/night/`, `src/render/`, `src/play/`, `src/ui/`, `src/main.ts`;
 - `src/render3d/town.ts`, `terrace.ts`, `packpin.test.ts`, `townpin.test.ts`;
 - `tests/`, `puzzles/`, `tools/`, `package.json`, `assets/`, `tickets/`;
-- `docs/city-grammar.md`, `docs/city-style-guide.md` (changed once, in L).
+- `docs/city-grammar.md`, `docs/city-style-guide.md` (changed once, in L; and from 21 Nov 2026 in TR2, only the lines TR2 names).
 
 ### A1 · The skeleton, and stage 1 on it (planner, pure). Branch `ticket/070a1-pipeline-skeleton`
 **Goal.** The pipeline runs stage 1 (`streets`) and gives a layer, a digest and a picture that match today's tile city exactly. Nothing on screen changes.
@@ -2345,6 +2350,177 @@ So **L1** (this section) switches the view and brings the guide and grammar up t
 - **L2b (renderer):** the old path's tile-only code in `tilecity.ts`, `tilecity3d.ts`, `tileslots.ts` and `kerbline.ts`, and its tile-only tests, are deleted; what `plan3d.ts`, `terrace.ts`, `frontage.ts` and `models3d.ts` still read moves to a module they own or stays; `city=tiles-old` goes; every check runs only in its stage (the table); the guide's named cities for its checks become the pipeline's (6 x 6 seeds 1 to 10) and the old-path tables in 18.8 and 19.7 go. R-8 holds.
 - **Why after K1:** the old pole-slot rule is K1's starting point, and K2 replaces `tileKeepouts`' pole keep-outs (I2). Deleting before K1 loses the only written version of it.
 
+### TR · Stage 9, traffic control: signals and signs (first cut, 21 Nov 2026; the TR pre-check comes first)
+**Josh's words (21 Nov 2026, in chat; relayed by the main session from `docs/handoff-2026-11-21.md`, item 1).** "we are missing traffic lights and traffic signage. I want you to create a new stage. It ahould include all of this. I want you to create a fable session to update the pipeline."
+
+**Why a section group of 070, not a new ticket.** It is a pipeline stage: it holds R-1 to R-11, the named runs, the pin cities, the stage table, "Every check has one stage", the never-used audit (J's R12) and this ticket's question numbers. A separate ticket would have to repeat or point at all of them. 071 (pack power lines) is a ticket of its own because it changes the ladder and `src/render3d/` kits outside the pipeline; TR does not.
+
+**Where it sits: a new stage 9, `traffic`, after `ground` and before `assemble` (which becomes 10).** The architect's call, for these reasons:
+- It needs streets, junction kinds, one-way sections and flow (stage 1), and the kerb, the pavement corners, the crossings, the dips and the kerb cuts (stage 4). Those come early; but it must also stand clear of what stages 6, 7 and 8 place: awnings and escapes (7), the kerb-line furniture, meters, hydrants, bus stops and bollards (8), and later the circuit's poles and street lights (6).
+- **Last means nothing merged moves.** Every digest and pin of stages 1 to 8 stays as it is, and no merged section re-opens (I placed its keep points list for stage 6, not for this). Put before buildings, the ground stage's digest would move and need its own landscape re-cut (as I2 does for the circuit).
+- **The places it needs are already free.** Stage 8 puts nothing within `FURN_CORNER_M` (4 m) of a run's end, nothing within `FURN_KEEP_M` of a `pavementCorner`, `kerbCut` or dip cell, and nothing on the pavement of a park edge, plaza, lane mouth, drive or frontage lot (I's RN, KO). A stop sign beside the crossing and a mast on the corner fall in those gaps. The pre-check measures that it holds on every named run; where it does not, the stage fails (R-2) and the question goes to Josh. Nothing is moved.
+- **The cost:** the circuit (stage 6) cannot see the signals. That is right only while signals are scenery, not puzzle parts (Q34). If Josh says they are puzzle parts, the signals move into K1's design (stage 6) and this stage keeps the signs only; the re-cut says so.
+
+**What it places (TR1 and TR1b), and what it does not.**
+- **Traffic signals** (TR1): at signal junctions (SJ below), a mast on each `pavementCorner` cell with an arm over the carriageway and heads facing each inbound approach, walk heads across each crossing, a push button, and one controller box per junction. Drawn dark. They are never lit, powered or picked (Q33, Q34).
+- **Stop signs** (TR1): on every inbound approach of an unsignalled junction that must stop (AS and the T rule below), one at its kerbside (DS), beside the crossing, facing the traffic.
+- **Give-way signs** (TR1): the City Pack has three (`SM_Prop_Sign_GiveWay_01..03`). The first cut places none: every stop is a stop sign. The pre-check reports where a give-way would go (a T whose ending street is `oneWayBare`), as an option for Josh, not a rule.
+- **One-way signs** (TR1): `SM_Prop_Sign_Arrow_01` where a one-way section leaves a junction, its arrow with the flow, facing the cross street (OW below).
+- **Parking signs** (TR1b): `SM_Prop_Sign_Parking_01` on the kerb line at the start of each stretch of kerb bays, where stage 8 left room. A sign that has no room is skipped, not moved.
+- **Street-name signs** (TR1b, only on Q35's answer): the City Pack's `SM_Prop_Sign_Street_01/_02` plates are 1.28 m long, 0.37 m deep and 0.02 m high, so they lie flat, and the pack has no name-sign pole. A `CityPlacement` turns about y only and is never scaled. So a plate stands only if the pre-check finds it can be fixed to a mast or sign post with a yaw alone. Otherwise there are no street names. The Town Pack's `SM_Prop_StreetSign_Pole_01` and `StreetSign_01..06` do stand, but the tile city never fetches the Town Pack ("the Town Pack's 110 MB is never fetched for a city that has no puzzle", `sharedTileModels`), so using them would add 110 MB to the city page and need a `models3d.ts` change. Not recommended (Q35).
+- **Not placed:**
+  - **No-entry signs.** No converted pack has one; the one-way sign stands at the entry instead.
+  - **Stop lines.** The City Pack has no piece for them.
+  - **Pedestrian crossings and lane markings:** already drawn. Stage 1 lays a `crossing` on every arm and E draws `SM_Env_Road_Crossing_01` there; E also draws the lane lines and the one-way arrows. TR adds no road marking.
+  - **Warning signs, bus-stop signs, cones and speed bumps.** The bus stop is stage 8's.
+- **The Sci-Fi Frontier pack** (`assets/private/in/sci-fi-frontier-pack/`, not converted) is 071's and not read here.
+
+**Pack keys** (all `city-pack`, read from `assets/private/out/manifest.json` on 21 Nov 2026; no warning on any; sizes x by z by height, m):
+
+| Kind | Key | Size | On the never-used list? |
+| --- | --- | --- | --- |
+| signalMast | `SM_Prop_LightPole_Base_01` (6.48 m), `_Base_02` (4.95 m) | 0.35 x 2.48 x 6.48; 1.10 x 0.41 x 4.95 | yes, `SM_Prop_LightPole_*` ("a lamp reads as a puzzle lamp") |
+| signalArm | `SM_Prop_LightPole_Arm_01` | 0.40 x 6.28 x 0.92 | yes, as above |
+| signalHead | `SM_Prop_LightPole_Lights_01/_02`; or `SM_Prop_TrafficLight_01..03` | 0.53 x 0.33 x 0.90; about 0.33 x 0.37 x 1.1 | yes; `SM_Prop_TrafficLight_*` too ("red and green read as puzzle state") |
+| walkHead | `SM_Prop_LightPole_CrossLights_01` | 0.45 x 0.31 x 0.40 | yes |
+| pushButton | `SM_Prop_LightPole_CrossButton_01` | 0.16 x 0.17 x 0.30 | yes |
+| signalBox | `SM_Prop_LightPole_Box_01` | 0.23 x 0.39 x 0.53 | yes |
+| stopSign | `SM_Prop_Sign_Stop_01` (post included) | 0.77 x 0.12 x 2.27 | no |
+| giveWaySign | `SM_Prop_Sign_GiveWay_01..03` (not placed in the first cut) | 0.86 x 0.13 x 2.18 | no |
+| oneWaySign | `SM_Prop_Sign_Arrow_01` (post included) | 0.93 x 0.08 x 2.28 | no |
+| parkingSign | `SM_Prop_Sign_Parking_01` (post included) | 0.44 x 0.12 x 1.72 | no |
+| streetName | `SM_Prop_Sign_Street_01/_02` (flat: see above); `SM_Prop_Sign_Attachment_01..03` brackets | 1.28 x 0.37 x 0.02 | no |
+
+- **The lift is Josh's call (Q33).** Signals cannot be built from any converted piece that is not on the never-used list. Recommended: allow exactly the City Pack keys above, on `traffic` pieces of the matching kind only, drawn dark. `CITY_NEVER_USED` keeps both stems, so a street lamp from `SM_Prop_LightPole_*`, or a light pole anywhere else in the plan, is still caught. The allowance is one typed table in `plan3d.ts`'s R12 audit, as J's party pipe is (TR2). The guide's two 16.6 rows are reworded, quoting him. The Apocalypse `SM_Prop_LightPole_01` (the ladder's puzzle lamp post) is not in it.
+- **Ticket 071 is not edited.** Its pre-check asks Josh to lift `SM_Prop_Power_Cables_*` and keeps `SM_Prop_LightPole_*` and `SM_Prop_PowerBox_*` listed ("Josh asked for poles and lines, not lamp posts or boxes"), and its key survey calls `LightPole_Base_01/02` and `_Arm_01` "traffic-signal masts". Q33's allowance covers `traffic` pieces only, so it leaves 071's line true. If 071's answer ever uses a `LightPole_Base_*` as a street-light mast, the two allowances must not overlap: a question for 071's re-cut, not for TR.
+- **K (stage 6) is not edited.** Two things touch it, both noted for K1 and not decided here:
+  - (a) K1's pole slots and street lights stand on the kerb line. The old slot rule already keeps them off corners, crossing landings and kerb cuts, where TR's masts and signs stand. TR reads `CityCircuitLayer` and keeps `FURN_KEEP_M` from whatever stage 6 places (empty today), as I does. When K types the circuit, the traffic digest re-pins in K's re-cut.
+  - (b) If Q34 is answered "puzzle parts", the signals belong to K1.
+
+**Owner: streetscape,** in a new folder **`src/city/traffic/`** (one folder per stage; streetscape owns the cross-section, the kerb and the crossings, which every TR rule reads). The main session adds the folder to `.claude/agents/streetscape.md` on Josh's word (Q32), quoting him, as for the grid-simulator's `src/city/circuit/`. The renderer draws it (TR2).
+
+**Order.** The TR pre-check → Josh's answers → TR1's re-cut → TR1 → TR1b → TR2. TR1 branches from `goal/city-style` and shares no file with K, L2 or 071. TR1b branches once TR1 is merged (they share `stage.ts`, its tests and the digest pins). TR2 branches once TR1b is merged. If Josh says "no street names, no parking signs" or wants the signals seen sooner, TR2 may branch after TR1 and TR1b drops. TR may run alongside K1 (a design note, no shared file).
+
+**The pre-check** (`pipeline-designer`, "pre-check 070 TR", on `goal/city-style` at this cut or later, its probe outside the repo as its instructions say; it writes `docs/design/070-TR-precheck.md` with its questions in section 4, each with a recommendation). On the 20 named runs, one-way off and on, it measures:
+- **Junctions:** their kinds (corner, T, crossroads; inner or on an edge street) by the sections of the streets that meet (two-way, one-way, one-way bare), and their inbound approaches. Then the signal junctions under SJ (a) and the alternatives (b) every inner crossroads and (c) (a) plus Ts of two two-way streets, with the masts, signs and pieces a city each gives.
+- **The kit:**
+  - how the City Pack's mast goes together: `Base_01`/`_02`, `Arm_01`, `Lights_01/_02` or `TrafficLight_01..03`. Where the arm fixes, the head heights, the arm's reach against the 15, 10 and 5 m carriageways (its heads over the inbound lanes), and where `CrossLights_01`, `CrossButton_01` and `Box_01` sit. From the GLB's node bounds and the gallery (`?gallery=city-pack`), with screenshots for Josh;
+  - whether any key has an emissive factor or map;
+  - what colour the lenses are drawn in unlit (Q33's concern: red and green reading as puzzle state);
+  - whether `Sign_Arrow_01` reads as a one-way sign;
+  - whether a `Sign_Street_*` plate can stand on a mast or post by a yaw alone (Q35).
+- **The places:**
+  - each proposed spot's edge cell and role;
+  - its clearance from every stage 8 prop footprint (`FURN_GAP_M`), from every stage 7 box (I's AV height rule: an awning's base against a sign's top), from the build-out trees, the kerb cuts and the dips;
+  - the arm's clearance from the facades (it must stay over the carriageway).
+  - Any required spot that is not clear on a named run is a stop, reported with its cells.
+- **TR1b's numbers:** the parking stretches, and the signs skipped for room.
+- **Draw calls:** about one per key (about 12 to 15) for TR2, inside `FURN_DRAW_CALLS_MAX` beside stage 8's 24.
+- **The time per city.**
+- **Outside cities** (3 x 3, 6 x 4, seeds 1 to 20, off and on): reported only (Josh: "3x3 cities will always be best effort, its better that we don't put energy into it").
+
+The questions it is expected to put to Josh are the readings marked PROPOSED in TR1: DS, SJ, AS, ST's spot, OW, and any spot that does not clear. They are recorded as Q36 onward when he answers.
+
+### TR1 · Stage 9, traffic control: signals, stop signs, one-way signs (streetscape, pure). Branch `ticket/070tr1-traffic` (first cut; re-cut after the pre-check)
+**Goal.** Every junction of the pipeline's city is controlled as a town's would be. The busy crossroads have traffic signals on their corners (dark: the power is gone), the side streets stop at their Ts and at the quiet crossroads, and every one-way street is signed where it starts. The flat picture `?city=plan&stage=traffic` shows each junction's control and every piece as a point. Nothing changes in 3D until TR2 draws them.
+
+**The architect's readings** (each PROPOSED until the pre-check and Josh's answers; the re-cut writes his words in):
+- **DS. Traffic keeps right.** Inbound traffic on an arm drives on the right-hand half of the carriageway as it faces the junction; its kerbside is the pavement on its right. This follows the City Pack's US kit: yellow centre lines, an octagonal stop sign. No pipeline rule says so today: stage 1's `laneRight` bit only numbers the lanes. It decides which corner a sign stands on and which lanes a head hangs over.
+- **IN. Inbound.** A two-way arm is inbound. A one-way arm is inbound when its street's `flow` points toward the junction. An arm with no inbound traffic gets no signal head and no stop sign (`control` "none").
+- **SJ. Signal junctions** (the first question): an **inner crossroads whose two streets are both two-way** (`CityJunction.inner`, kind "crossroads", both `section` "twoWay"). The pre-check gives the counts for this and for (b) and (c).
+- **AS. Every other inner crossroads is an all-way stop:** each inbound approach stops. The grid has no street hierarchy, so neither street has priority.
+- **T. At a T** the street that ends stops (its one arm, if inbound) and the through street does not. This holds on an edge street too.
+- **C. A corner of the city** (two edge streets ending) has no control and no piece.
+- **MA. A signal junction's masts:** one grounded `signalMast` on each of its `pavementCorner` cells, four on a crossroads. Each has a `signalArm` reaching over the carriageway, with a `signalHead` over the inbound lanes of the approach it faces. DS chooses which approach: the one arriving at that corner's far side, as a US mast arm is hung. Each corner also has a `walkHead` facing along each crossing that lands at it, and a `pushButton` on the mast. One `signalBox` stands on one corner, chosen by `rand("traffic", "box", <junction id>) % corners`. Fixed parts take their place from the kit's typed fix points (the pre-check measures them). No head hangs lower than `SIGNAL_HEAD_MIN_M` above the carriageway; the pre-check gives the number.
+- **ST. A stop sign** stands on the approach's kerbside pavement cell next to its `pavementCorner` (in front of the corner column, before the crossing), on the kerb line (its post `SIGN_KERB_M` from the kerb edge), `SIGN_CORNER_M` from the cell's corner end, facing the inbound traffic. Where that cell is not `pavement` (a kerb cut, a dip), it stands on the `pavementCorner` cell instead. The pre-check reports how often.
+- **OW. A one-way sign** stands at every junction where a one-way section starts (its flow leaves the junction). It goes on the `pavementCorner` on that street's right as traffic turns into it (DS), arrow along the flow, broad side to the cross street.
+- **CL. Clear of everything before it.**
+  - A grounded piece's footprint lies inside the walk of its cell: from the wall edge to the kerb edge, never over the carriageway.
+  - It keeps `FURN_GAP_M` from every stage 8 prop's footprint, and stands under no stage 7 box whose base is lower than its top (I's AV rule, with I's stage 7 boxes; stage 9 keeps its own copy of the bounds, R-6).
+  - It keeps `FURN_KEEP_M` from every point stage 6 places (none today: a list the stage passes empty, with a fixture, as I's NL).
+  - It is clear of the build-out trees, and never on a `kerbCut` cell.
+  - An arm and its heads stay over carriageway cells and below no stage 7 or stage 5 piece.
+  - **Stop rule (R-2):** a required piece (a mast, a stop sign, a one-way sign) that cannot stand clear fails the stage, with its cells. It is never moved off its rule, and nothing earlier is moved.
+- **Numbers** (PROPOSED, in `src/city/traffic/constants.ts`, each with a one-line comment; set by the pre-check): `SIGN_KERB_M`, `SIGN_CORNER_M`, `MAST_INSET_M` (the mast from the corner cell's kerb corner), `SIGNAL_HEAD_MIN_M`. `FURN_GAP_M` and `FURN_KEEP_M` are ground's and are copied with a pin equal, not changed.
+
+**Acceptance criteria** (first cut; the re-cut fills in the numbers and the rulings):
+0. [ ] **The architect's part.** Done with this cut: `CityJunctionControl`, `CityApproachControl`, `CityApproach`, `CityJunctionTraffic`, `CityTrafficPieceKind`, `CityTrafficPiece` and `CityTrafficLayer` in `src/core/cityplan.ts`, standalone, with `npx tsc --noEmit` passing. On TR1's branch before the builder starts: "traffic" goes into `CITY_STAGES` between "ground" and "assemble", and `traffic: CityTrafficLayer` into `CityLayers`; then one `npx tsc --noEmit` and `npx vitest run --maxWorkers=2 src/city/pipeline/ src/render3d/planview.test.ts`, both passing.
+1. [ ] **The kit** (R-6). A new `kit.ts`: TR1's keys (the table above, less street names and parking) with their bounds, kinds and typed fix points, every front +z. A new `facadebounds.ts`: the stage 7 bounds CL reads, a copy pinned equal to ground's. A new `src/render3d/trafficpin.test.ts`:
+   - **Always (no GLB):** each bound equals a typed fixture. Every kit key that `isNeverUsed` names is in the kit's `TRAFFIC_ALLOWED` list, which holds exactly Q33's keys, and no other key is. `facadebounds.ts` equals ground's copy key by key.
+   - **Inside `it.skipIf(!HAVE_GLB)`, read lazily:** every bound equals the converted GLB's within 0.005 m.
+2. [ ] **Control on the 20 named runs** (Vitest, `control.test.ts`).
+   - Every junction appears once, with its approaches in `arms` order; `inbound` follows IN.
+   - The control follows SJ, AS, T and C. A signal junction's inbound approaches are "signal", an all-way stop's "stop", a T's ending arm "stop" and its through arms "none".
+   - The test finds every control kind on the named runs, and a one-way arm with no inbound traffic.
+   - **Hand-worked:** a fixture T whose ending street is two-way, and a crossroads of a one-way and a two-way street, both with their controls worked out by hand.
+3. [ ] **Signals on the 20 named runs** (Vitest, `signals.test.ts`).
+   - Every signal junction has one mast group per `pavementCorner`, and every inbound approach has its head over its inbound lanes (DS). Each crossing has a walk head at both ends, and each junction one box.
+   - No head is below `SIGNAL_HEAD_MIN_M`, and no arm reaches past the carriageway.
+   - No mast stands at any junction that is not a signal junction.
+   - **Hand-worked:** one mast's pivot and yaw, and its head's.
+4. [ ] **Signs on the 20 named runs** (Vitest, `signs.test.ts`).
+   - Every "stop" approach has exactly one stop sign on its kerbside (DS), facing its traffic.
+   - Every one-way start has one one-way sign, its arrow along the flow.
+   - There is none on an arm with no inbound traffic and no give-way sign anywhere.
+   - **Hand-worked:** a stop sign's pivot and yaw on each of the four sides.
+5. [ ] **The checks** (Vitest). A new `trafficcheck.ts`, `trafficFailures(layer, input)`, run by the stage before it returns; a failure names its check and its cells. **Failing fixtures** (`fixtures.test.ts`) each start from the default city's layer (6 x 6 seed 1, one-way on) with one thing changed, and each fails its own check and no other unless it says so. Positive control: the default layer passes.
+   - **TC1 control:** a crossroads relabelled "stop".
+   - **TC2 signals:** a head removed; a head turned away from its approach; an arm lengthened over a pavement.
+   - **TC3 signs:** a stop sign moved to the left kerb; a second stop sign on one approach; a one-way sign's arrow reversed; a stop sign on an arm with no inbound traffic.
+   - **TC4 place:** a sign moved onto the carriageway; one onto a `kerbCut` cell.
+   - **TC5 clear:** a sign moved onto a stage 8 bench; one under an awning; a keep point added at a mast.
+   - **keys:** a stop sign given `SM_Prop_LightPole_Base_01`, which is allowed for "signalMast" only.
+6. [ ] **The picture** (R-5).
+   - **Cells:** 0 "nothing", 1 "signal junction", 2 "all-way stop", 3 "T, side street stops", 4 "corner, no control" (the junction's cells).
+   - **Points:** 5 "signal mast", 6 "stop sign", 7 "one-way sign", 8 "signal box".
+   - The R-5 test in `stage.test.ts` checks the lattice size, the legend, each junction's cells against `junctions`, and one point per grounded piece.
+7. [ ] **R-1 to R-7 and the stage list** (Vitest, `stage.test.ts`).
+   - `src/city/stages.ts` adds `trafficStage` to `BUILT_STAGES` (one line).
+   - **R-4:** the traffic digest is pinned on the four pin cities. A test double for traffic leaves every earlier digest (streets to ground) equal to the standard run's; its list is built by replacing the stage named `traffic`.
+   - **R-1, R-3:** the layer is frozen, and a stage that writes into `ground` fails, naming itself. The same city run twice gives the same layer.
+   - **R-7:** 6 x 6 seed 1 ends `ok`. The stage reads only the plan, `circuit` included, and the grep tests hold: no file of `src/city/traffic/` imports another stage folder, `src/render*/`, three or the DOM, or reads `bi`, `bj` or a street's `line`.
+   - **The other folders' lines** (the only edits outside the folder):
+     - `src/city/facades/stage.test.ts` and `src/city/ground/stage.test.ts`: their `BUILT_STAGES` names assertion gains `"traffic"` (those lines only);
+     - `src/city/ground/testcities.ts`: `stagesOf` stops at ground (that function only), so every ground test runs exactly the stages it ran before TR1.
+   - Every edge, facades, ground and pipeline test passes as merged.
+8. [ ] **The numbers** (reported, not asserted; `report.test.ts`).
+   - Per named run, junctions by control and kind, the pieces by kind, and the closest clearance to stage 7 and to stage 8 with its run.
+   - The time per city.
+   - **Outside cities**, best effort and report only: each `ok` or its failure named. No test asserts them.
+9. [ ] (Main session, a phone-sized screenshot.) `?city=plan&stage=traffic` on 6 x 6 seed 1 shows the junction colours and the points. `?view=3d&city=plan&stage=assemble` looks as it does on `goal/city-style`, because TR2 draws the pieces.
+10. [ ] R-8 to R-11. **The builder runs only:** `npx vitest run --maxWorkers=2 src/city/traffic/ src/city/facades/stage.test.ts src/city/ground/stage.test.ts src/city/pipeline/run.test.ts src/render3d/trafficpin.test.ts`, and one `npx tsc --noEmit`. The main session's gate is the full `npm run gate`.
+
+- **Files:**
+  - new `src/city/traffic/`: `constants.ts`, `kit.ts`, `facadebounds.ts`, `hash.ts`, `control.ts`, `signals.ts`, `signs.ts`, `clear.ts`, `trafficcheck.ts`, `stage.ts`, `index.ts`, `testcities.ts`, and the tests named above;
+  - `src/city/stages.ts` (one line);
+  - the three test lines of criterion 7;
+  - new `src/render3d/trafficpin.test.ts`.
+- **Must not:** `src/core/` (criterion 0 is the architect's); every other `src/city/` folder but the lines above; `src/render3d/` but the new pin test; `docs/`. Stage 9 reads earlier layers, never their code.
+- **Interfaces:** criterion 0. TR2 reads `traffic.pieces` (`placement`, `kind`, `grounded`). No new dependency.
+- **Adds rules and numbers,** so the pre-check comes before the builder. DS, SJ, AS, T, MA, ST, OW and CL are new rules for the pipeline, and the four numbers are new. It also uses keys from the never-used list, on Josh's Q33.
+- **Heavy:** the named-run tests build each named city once through `testcities.ts`' module cache (through ground, then traffic), with a 120 s timeout. The report has its own file.
+
+### TR1b · Stage 9: parking signs and street names (streetscape, pure). Branch `ticket/070tr1b-traffic-signs` (outline; cut after TR1 merges and Q35 is answered)
+- **Parking signs:** one `SM_Prop_Sign_Parking_01` at the low end of each unbroken stretch of `CityBayTile`s along a block side, on the kerb line, facing the walk. It is skipped where CL refuses it, and a skipped sign is not moved. It counts in the report.
+- **Street names:** two plates per junction, one for each street, fixed to the mast or the stop-sign post on one corner (hashed), each turned to its own street. Only if the pre-check finds a City Pack plate that stands with a yaw alone (Q35). Otherwise street names are left out and the guide's 16.6 "Open" line stays.
+- The picture gains 9 "parking sign" and 10 "street name". The traffic digest re-pins on the pin cities; digests 1 to 8 do not move.
+- **Adds rules** (where a parking sign goes, which corner the names go on), so its own pre-check questions come with TR's: one pre-check note covers TR1 and TR1b.
+
+### TR2 · Assemble: the traffic pieces drawn; the audit's allowance (renderer). Branch `ticket/070tr2-plan3d-traffic` (outline; cut after TR1b merges)
+- **Draws only, as J does.** `createPlanAssembleRenderer3d` runs `runCity(..., "traffic")` where it ran `"ground"`. A new pure `planTrafficDraws(plan)` lists every `traffic.pieces` entry once. Stage 9 goes through the same `dressGroup(..., FURN_DRAW_CALLS_MAX)` call as stage 8 (about 12 to 15 more keys beside stage 8's 24, inside the 80; no cap raised or added), with `furniturePlacement` at the walk's level 0. The emissive swap leaves every head dark. A piece is drawn only when its key's root loaded, and gets no grey box.
+- **The keys load.** `planKeys()` gains exactly the TR1 and TR1b keys. They are all in `city-pack.glb` and load by name, as J's two did. If one does not load in the browser, the main session stops and a re-cut adds `models3d.ts`.
+- **R12.** `planAudit` reads `traffic.pieces`. Its allowance gains one typed table: Q33's keys, each on its own kind only. Failing fixtures:
+  - a stage 8 prop re-keyed to `SM_Prop_LightPole_Base_01`;
+  - a stop sign re-keyed to `SM_Prop_TrafficLight_01`;
+  - `SM_Prop_LightPole_Arm_01` on a "signalMast".
+- **The guide and grammar lines** (as L1 did; `styleguide.test.ts` keeps the table and `CITY_NEVER_USED` agreeing):
+  - guide 16.6, the `SM_Prop_LightPole_*` and `SM_Prop_TrafficLight_*` rows: "the City Pack's signal pieces stand at signal junctions only, dark (070 TR, Josh, Q33)";
+  - 16.6's "Open (waits for a ticket that adds a sign pole)" line: replaced or kept, by Q35;
+  - a new grammar rule 13, "Traffic control", writing TR1's and TR1b's rules as Josh answers them, and a row in its check table.
+- **Main session, in the browser:** `?view=3d&city=plan&stage=assemble` and `city=tiles` on 6 x 6 seeds 1 and 3, street camera, day and `light=night`, at phone and desktop sizes. It checks that the masts stand on the corners with the arms over the road, the stop and one-way signs read, nothing glows, and the frame rate holds. Screenshots go to Josh.
+- **Adds no rule or number** (no pre-check): it draws the placements stage 9 wrote, and the allowance is Josh's Q33.
+- **Files:** `src/render3d/plan3d.ts`, `plan3d.test.ts`, `styleguide.test.ts`, `docs/city-style-guide.md` (the 16.6 lines above), `docs/city-grammar.md` (rule 13 and its check row only). **Must not:** `src/city/**`, `src/core/`, `models3d.ts`, `citymetrics.ts` (`CITY_NEVER_USED` is unchanged), `planview.ts` (the flat picture reads the new stage by name; if it does not, the builder stops and reports).
+
 ## What happens to the other tickets
 - **063 B (street width)** is merged into `goal/city-style` (2edac93). A1 starts from that head and copies `layoutAxis` after B's change. With the merge Josh accepted P1 failing on cities outside 063 criterion 7's list, and the old path's `P1_ONE_SHORT` pin in `alleys.test.ts` (merge message of 2edac93). D1 moves the allocator as it is there.
 - **069 (the parking allocator re-cut, `matchFirstTiles`) is dropped, on Josh's word, and was never built.** Josh, 19 Nov 2026, in chat to the main session: "69 is dropped. I'm waiting on 63b to merge"; and, to the session merging 063 B (recorded in 2edac93's message): "Merge 063 B and 069", then "Then don't bother with 069". 063 section B2, which 069 would have built, is likewise not built. Nothing in this ticket depends on it.
@@ -2381,6 +2557,8 @@ These five do not exist. The main session writes each `.claude/agents/<name>.md`
 - Its test command, `npx vitest run --maxWorkers=2 src/city/<folder>/`, and one `npx tsc --noEmit`.
 - It reports in its final message: the tests added, the numbers asked for, and anything it stopped on.
 
+**Streetscape gains `src/city/traffic/`** (stage 9, TR; 21 Nov 2026), on Josh's word only (Q32). The main session adds the folder, and grammar rule 10 plus TR's section as reading, to `.claude/agents/streetscape.md`, quoting him.
+
 **The renderer** keeps `src/render3d/`. Its `.md` gains one line: it draws the plan and decides nothing about it (`plan3d.ts`, `planview.ts`).
 
 **The hook.** `.claude/hooks/pipeline_guard.py` has no folder map today. It guards reviews, playtests, tickets, `puzzles/locked/` and the playtester's writes, and the playtester's `src/` rule already covers `src/city/`. So the new agents work without a hook change. Per-agent folder enforcement would be a new rule; I do not recommend it now. The reviewer's "diff only in Files" check does that job.
@@ -2395,6 +2573,7 @@ These five do not exist. The main session writes each `.claude/agents/<name>.md`
 - **Typed by the architect before their sections start:** `CityEdgeLayer` (written 20 Nov 2026 with D1's re-cut: dressed cells, kerb cuts, tiles, bays, build-out trees, per-block shortfall, and `CityGroundCell`, the same shape as `TileCell`, for D2 to fill; the kerb line is typed before D2), `CityBuildingsLayer` (written 20 Nov 2026 with F1's re-cut: rows and buildings, with style, colourway, storeys, partner and back; F2's columns, ground slots, pieces and roofs written 20 Nov 2026 with F2's re-cut: `CityColumn`, `CityGroundSlot`, `CityPiece`, `CityPieceRole`, `CityBuildingsLayer.columns`), `CityFacadesLayer` (written 20 Nov 2026 with H1's re-cut: `ground`, `CityGroundPiece`, `CityGroundPieceKind`; H1b's `dressing`, `CityDressingPiece` and `CityDressingKind` written 21 Nov 2026 with H1b's re-cut; H2's `walls`, `CityWallPiece`, `CityWallPieceKind` and `CityWallBox` with H2's; H3's `roofs`, `CityRoofPiece` and `CityRoofPieceKind` written 21 Nov 2026 with H3's re-cut; H1c's `shops`, `novelty`, `CityShop`, `CityShopKind` and `CityNoveltySign` written 21 Nov 2026 with H1c's re-cut, Q26), `CityGroundLayer` (written 21 Nov 2026 with I's re-cut: `runs` and `props`, `CityPavementRun`, `CityGroundProp`, `CityGroundPropKind`, `CityGroundPlace`), and `CityCircuitLayer` (at 059's re-cut).
 - **Typed 20 Nov 2026 for A4** (standalone until A4's criterion 0 wires them into `CityStreetsLayer`): `CitySpan`, `CityJunctionKind`, `CityStreetEnd`, `CityPlanStreet`, `CityJunction`, `CityBlockAcross`, `CityJunctionFacing`, `CityBlockSide`, `CityPlanBlock`, `CityOutline`, `CityStreetsLayerA4`. On the split plan `bi`, `bj` are ranks and a street's `line` an ordinal, never grid coordinates; B3, C3 and D1b replace every read of them.
 - **Typed 20 Nov 2026 for A4b** (standalone until A4b's criterion 0 folds them into `CityPlanStreet` and `CityStreetsLayer`): `CityStreetSection`, `CityStreetFlow`, `CityStreetTraffic`, `CityStreetArrow`, `CityPlanStreetA4b`, `CityStreetsLayerA4b`. E reads `arrows`; K (cars, later) reads `flow`.
+- **Typed 21 Nov 2026 for TR1** (standalone until TR1's criterion 0 adds "traffic" to `CITY_STAGES` and `traffic` to `CityLayers`): `CityJunctionControl`, `CityApproachControl`, `CityApproach`, `CityJunctionTraffic`, `CityTrafficPieceKind`, `CityTrafficPiece`, `CityTrafficLayer`. TR2 reads `traffic.pieces`.
 - **In `src/city/pipeline/`** (planner, A1):
   - `runCity`;
   - `CityStageError`;
@@ -2586,3 +2765,7 @@ These five do not exist. The main session writes each `.claude/agents/<name>.md`
 29. **J2: instance the stack pieces, if the frame rate does not hold** (J criterion 8). Open; asked only if the main session's browser check finds the frame rate does not hold with J's dressing on. J draws stages 7 and 8 per key (about 85 calls), so the view's calls are about 10,360 (6 x 6 seed 1) and 10,510 (seed 3), nearly all of them G and G2's building clones. Ask: "The 3D city runs at about N frames a second on a phone with everything drawn. Nearly all the cost is the buildings (about 10,300 draw calls). Shall I cut a section J2 to instance the building pieces now (a day's work, plan3d only, changes how G and G2 draw), or leave it for later as you said in Q20?" (recommended: cut J2 now if the phone stutters; otherwise later.) J does not change for either answer.
 30. **The stage=ground legend overlap** (the flat picture, `?city=plan&stage=ground`: "mailbox or newspaper box" is drawn over "meter"). Open. The layout is `planview.ts`'s (renderer); J may not edit it. Ask: "The ground picture's legend has two labels drawn over each other. Fix it now as a small renderer section (the legend columns sized to the longest name), or leave it for the switch (L)?" (recommended: a small section now, since L waits for Q1.) **Answered, Josh, 21 Nov 2026, in chat: "Leave it"** (recorded in 9696f49's merge message). L1 criterion 4 fixes it.
 31. **Keep the old tile city at `city=tiles-old` until L2?** (L1 criterion 2.) Open. Ask: "When `city=tiles` becomes the new city, shall the old one stay reachable at `city=tiles-old` so you can compare them, until it is deleted after the circuit's design (K1)?" Recommended: yes; it costs one small function and goes with L2. L1 builds it; on "no", the builder leaves the alias out and only `city=tiles&sheet=1` (the tile sheet) stays.
+32. **TR: approve stage 9 and its owner?** (TR, 21 Nov 2026.) Open. Ask: "Traffic lights and signs become a new stage 9, after the ground dressing and before the 3D drawing, so nothing already built changes. The streetscape agent builds it in a new folder, `src/city/traffic/`, after a design pre-check. Then the renderer draws it. Approve?" Recommended: yes. Placed last, it moves no merged layer or pin, and the corners and crossing ends it needs are already kept free of furniture by stage 8.
+33. **TR: lift the never-used rows for the signals only?** (TR's pack keys.) Open. Ask: "Traffic lights can only be built from City Pack pieces on the never-used list (`SM_Prop_LightPole_*` masts, arms and heads: 'a lamp reads as a puzzle lamp'; `SM_Prop_TrafficLight_*`: 'red and green read as puzzle state'). Allow exactly those City Pack pieces, at signal junctions only, always dark (never lit), with every other lamp and light pole still banned?" Recommended: yes. There is no traffic light without them, dark heads keep your rule that only lit places and live wires glow, and the audit still catches any other use. The pre-check shows you the unlit lens colours before TR2 draws them.
+34. **TR: signals are scenery, not puzzle parts?** (TR's stage order.) Open. Ask: "Are traffic lights only scenery (never powered, never in the puzzle or its overlay), or should the circuit be able to use them as loads?" Recommended: scenery. It keeps K1's puzzle design separate and lets the stage come last. If you choose puzzle parts, the signals move into the circuit's design (K1) and stage 9 keeps the signs only.
+35. **TR: what to leave out when the City Pack has no piece?** (TR1b.) Open. Ask: "The City Pack has no no-entry sign and no stop-line marking. Its street-name plates lie flat, and it has no pole for them. The Town Pack has a street-name pole and plates, but loading it adds about 110 MB to the city page. Leave out no-entry signs and stop lines, and put up street names only if the pre-check finds the City Pack plate can stand on a signal mast or stop-sign post, never loading the Town Pack?" Recommended: yes. Pedestrian crossings, lane lines and one-way arrows are already drawn, the one-way sign covers the entry, and 110 MB is too much for a page that only shows the city.

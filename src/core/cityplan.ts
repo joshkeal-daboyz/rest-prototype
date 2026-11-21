@@ -11,7 +11,7 @@
  * - Each layer has a digest, so a test can prove that a change to stage N leaves stages 1 to N-1 as they were.
  * - Each plan stage has a flat top-down picture (`CityPicture`) of its own layer.
  *
- * Layers 1 to 5, 7 and 8 are typed here (layer 8 with section I's re-cut, 21 Nov 2026). Layer 6 is typed by the architect before its section of ticket 070 starts; until then it is a stub
+ * Layers 1 to 5, 7 and 8 are typed here (layer 8 with section I's re-cut, 21 Nov 2026). Layer 9 (traffic control, TR1) is typed standalone and joins the stage list at TR1's criterion 0. Layer 6 is typed by the architect before its section of ticket 070 starts; until then it is a stub
  * with only its `stage` field, so the envelope type-checks.
  */
 
@@ -1075,6 +1075,94 @@ export interface CityGroundLayer {
    * then the lane bins (`land.lanes` order, along each lane), then the plazas' and frontage lots' pieces (`mass.openings` order), then the greens' trees and benches (row-major by cell).
    */
   readonly props: readonly CityGroundProp[];
+}
+
+// ---- stage 9: traffic control (ticket 070 TR1 and TR1b; Josh, 21 Nov 2026: "we are missing traffic lights and traffic signage. I want you to create a new stage.") ----
+//
+// Written standalone by the lead-architect before TR1 (21 Nov 2026), so `goal/city-style` keeps type-checking with no stage of this name built. TR1's criterion 0 (the architect,
+// on TR1's branch) adds "traffic" to `CITY_STAGES` between "ground" and "assemble", and `traffic: CityTrafficLayer` to `CityLayers`. Until then nothing reads these types.
+// - **What stage 9 does.** It reads every layer before it and writes only its own: how each junction is controlled, and the pieces that say so: signal masts with their arms and
+//   heads at signal junctions, stop and give-way signs, one-way signs (TR1); parking signs and street-name signs (TR1b). It decides no street, junction, flow, kerb, crossing,
+//   arrow or road marking: those are stages 1 and 4's, and E draws them.
+// - **Not a puzzle part** (070 Q34, as recommended; the stage is cut on it). No signal is powered, lit or picked; the drawing swaps every emissive material for a dark one (TR2).
+// - **Last of the plan stages,** so that it keeps clear of everything placed before it (stage 7's boxes, stage 8's props, stage 6's poles once typed) and no merged layer moves.
+// - The rules for which junction gets what, where a piece stands and which way it faces are TR1's (its readings, PROPOSED until the TR pre-check and Josh's answers).
+
+/** How a junction is controlled:
+ * - "signals": a signal junction (TR1's SJ);
+ * - "allStop": every inbound approach stops (an unsignalled crossroads, TR1's AS);
+ * - "stop": a T, where the street that ends stops and the through street does not;
+ * - "none": a corner of the city (two edge streets, both ending), or a junction with no inbound approach that must stop. */
+export type CityJunctionControl = "signals" | "allStop" | "stop" | "none";
+
+/** What faces an approach's inbound traffic: a signal head, a stop or give-way sign, or nothing ("none": a through arm of a T, or an arm no traffic drives in by). */
+export type CityApproachControl = "signal" | "stop" | "giveWay" | "none";
+
+/** One arm of a junction as traffic meets it. Its id is "<junction>|<arm>". */
+export interface CityApproach {
+  readonly id: string;
+  readonly junction: string;
+  /** The street the arm is part of. */
+  readonly street: string;
+  /** The side of the junction square the arm leaves by: one of `CityJunction.arms`. */
+  readonly arm: CitySide;
+  /** True when traffic on this arm drives into the junction: every two-way arm, and a one-way arm whose `flow` points toward the junction. */
+  readonly inbound: boolean;
+  readonly control: CityApproachControl;
+}
+
+/** One junction's control. */
+export interface CityJunctionTraffic {
+  readonly junction: string;
+  readonly control: CityJunctionControl;
+  /** Its arms, in `CityJunction.arms` order. */
+  readonly approaches: readonly CityApproach[];
+}
+
+/** What a traffic piece is. A signal assembly: "signalMast" (stands on the walk), "signalArm", "signalHead" (faces an approach), "walkHead" (faces along a crossing),
+ * "pushButton", and one "signalBox" a junction. Signs, each a pack piece with its own post: "stopSign", "giveWaySign", "oneWaySign" (TR1), "parkingSign" (TR1b).
+ * "streetName" (TR1b): a name plate fixed to a mast or a sign post, typed only if TR1b's re-cut finds a plate that stands (Q35). */
+export type CityTrafficPieceKind =
+  | "signalMast"
+  | "signalArm"
+  | "signalHead"
+  | "walkHead"
+  | "pushButton"
+  | "signalBox"
+  | "stopSign"
+  | "giveWaySign"
+  | "oneWaySign"
+  | "parkingSign"
+  | "streetName";
+
+/** One traffic piece, placed. */
+export interface CityTrafficPiece {
+  readonly kind: CityTrafficPieceKind;
+  /** What it belongs to: a junction id for every signal piece and every stop, give-way, one-way and street-name sign; for a parking sign, "<street>|<block>|<i>,<j>", the first cell of
+   * the stretch of `CityBayTile`s it marks. */
+  readonly host: string;
+  /** The `CityApproach.id` whose traffic it faces (a signal head, a stop or give-way sign), or the approach its arm reaches over (a signal arm); null for every other piece. */
+  readonly approach: string | null;
+  /** The pieces of one assembly share it, "<host>|<n>": a mast with its arm, heads, walk heads and button; a sign post with a street-name plate. A piece on its own has its own group. */
+  readonly group: string;
+  /** True for the piece of its group that stands on the walk (a mast, a box, a sign with its post); false for a piece fixed to another piece of its group. */
+  readonly grounded: boolean;
+  /** The street it stands beside, or null for a piece on a pavement corner cell. */
+  readonly street: string | null;
+  /** The cell its pivot stands over (a grounded piece: a `pavement` or `pavementCorner` edge cell). */
+  readonly cell: CityCell;
+  readonly placement: CityPlacement;
+  /** Its extent in plan after the turn (world x and z) and its height, metres: the key's bounds, as `CityGroundProp.size`. */
+  readonly size: { readonly x_m: number; readonly z_m: number; readonly h_m: number };
+}
+
+/** Stage 9: traffic control. */
+export interface CityTrafficLayer {
+  readonly stage: "traffic";
+  /** Every junction of `streets.junctions` once, in that order. */
+  readonly junctions: readonly CityJunctionTraffic[];
+  /** Every piece: junction by junction in `junctions` order (its signal assemblies, each grounded piece first, then its signs), then TR1b's parking signs in `streets.streets` order, along each street. */
+  readonly pieces: readonly CityTrafficPiece[];
 }
 
 export interface CityLayers {
