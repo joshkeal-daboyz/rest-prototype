@@ -11,7 +11,7 @@
  * - Each layer has a digest, so a test can prove that a change to stage N leaves stages 1 to N-1 as they were.
  * - Each plan stage has a flat top-down picture (`CityPicture`) of its own layer.
  *
- * Layers 1 to 4 are typed here in full, and layer 5 as far as F1. Layers 6 to 8 are typed by the architect before their sections of ticket 070 start; until then each is a stub
+ * Layers 1 to 4 are typed here in full, and layer 5 as far as F2. Layers 6 to 8 are typed by the architect before their sections of ticket 070 start; until then each is a stub
  * with only its `stage` field, so the envelope type-checks.
  */
 
@@ -41,7 +41,11 @@ export interface CityCell {
 /** A side of a cell (or of a part), by the outward normal: "+x" is the side at larger x. */
 export type CitySide = "+x" | "-x" | "+z" | "-z";
 
-/** A model placed by a plan stage: its key, its position in metres and its turn about y in degrees. Never scaled (style guide chapter 2, Decided). */
+/**
+ * A model placed by a plan stage: its key, its position in metres and its turn about y in degrees. Never scaled (style guide chapter 2, Decided).
+ * The position is the model's pivot: its bounds' centre in x and z and its base at y (the converter centres every pivot so, src/core/assets.ts). The turn is three.js's, as
+ * stacks.ts' `yaw` and `TileYaw`: at 90 a piece's own +z front faces +x (x' = x cos + z sin, z' = -x sin + z cos).
+ */
 export interface CityPlacement {
   readonly key: CalibrationKey;
   readonly x_m: number;
@@ -682,13 +686,72 @@ export interface CityBuilding {
   readonly back: CityBuildingBack | null;
 }
 
-/** Stage 5: buildings. F1 writes `rows` and `buildings`; F2 adds each storey's kind, turn, piece and placement, and the roof pieces (typed by the architect before F2). */
+// ---- stage 5, F2: columns, storeys, pieces, roofs (ticket 070 F2; grammar rules 1, 3, 7 and 11) ----
+//
+// Typed by the lead-architect before F2 (20 Nov 2026, on Josh's "Go ahead and start f2"). One `CityColumn` per built cell: its kind (the mass's `CityBuiltCell.column`),
+// its turn, the ground storey's slot (kind and turn only: the ground piece's key, and so its placement, is stage 7's, H1), each piece above the ground, and its roof.
+// - **The turn.** Every storey of a column and its roof take the column's one `yaw` (rule 7: "from the ground to the roof"). A mid column's pieces front its one open side.
+//   A corner column's turn is forced (rule 7; measured, 063 E1: a corner piece's second windowed face is its own -x, on the left of its front seen from in front): open sides
+//   {+z, -x} are yaw 0 (front +z), {+x, +z} 90 (front +x), {-z, +x} 180 (front -z), {-x, -z} 270 (front -x). A blind column fronts its building's `front` (for the L's
+//   corner, the `rowId` row's). Every column is turned by its own open sides, not its building's: the L's `bend` cell fronts the `bend` row.
+// - **The pieces.** Storey 0 is the ground (`ground`). Storeys 1 to `storeys - 1` are floor pieces of the building's style: the corner floor on a corner column, the mid
+//   floor elsewhere; on a mid or blind column each run of three, from storey 1 up, is one three-storey piece (`floor3`, `Apartment_Stack_*`), as `assembleStack` lays them.
+//   Storey k stands at y = 3 k (the style's `pitch_m`: base 3, floor 3); the roof at y = 3 * `storeys`. Then one roof piece of the building's own style (rule 11): the
+//   corner roof on a corner column, the mid roof on a mid or blind one.
+// - **The placement** (rule 1). A floor piece's body (its `BODY_M` box, from the stage's typed-in kit table) is the cell: its four wall planes on the cell's four edges.
+//   A roof's body (its cornice's lowest tier, 0.02 to 0.11 m wider or deeper than 5 m) is seated as 063 E2's `seatOnBody` seats it: its back plane on the cell's back edge,
+//   a mid or blind roof centred across, a corner roof's outer flank (the column's `side`) on that edge; what stands past is trim. Nothing is scaled.
+
+/** What a piece above the ground is: one storey's floor, three storeys' floors in one piece (a mid or blind column only), or the roof. */
+export type CityPieceRole = "floor" | "floor3" | "roof";
+
+/** One piece of a column, placed (`placement.yaw_deg` is its column's `yaw`). */
+export interface CityPiece {
+  readonly role: CityPieceRole;
+  /** The storey it stands on: 1 to `storeys - 1` for a floor, its lowest for a `floor3`, and `storeys` (its building's) for the roof. */
+  readonly storey: number;
+  /** The storeys it covers: 1 for a floor, 3 for a `floor3`, 0 for the roof. */
+  readonly span: 0 | 1 | 3;
+  readonly placement: CityPlacement;
+}
+
+/** The ground storey of a column: its kind and turn, the column's (rule 7). Stage 7 (H1) picks its key and places it; stage 5 never does. */
+export interface CityGroundSlot {
+  readonly kind: CityColumnKind;
+  readonly yaw: CityYaw;
+  /** Its base, metres: 0. */
+  readonly y_m: number;
+  /** The top of the storey it fills, metres (the style's `pitch_m.base`, 3): where the first floor piece stands. */
+  readonly top_m: number;
+}
+
+/** One building column (grammar rule 1): a built cell, its kind, its turn and its pieces from the ground to the roof. */
+export interface CityColumn extends CityCell {
+  /** Its `CityBuilding.id`. */
+  readonly building: string;
+  /** The row whose front its pieces show: its building's `rowId`, or for an L's `bend` cell the `bend` row. A blind cell: its building's `rowId`. */
+  readonly rowId: string;
+  /** As the mass's `CityBuiltCell.column` (R9: a corner is any column with two adjacent open sides). */
+  readonly kind: CityColumnKind;
+  /** The side its pieces' own +z front faces (see above): a mid column's open side, a corner's forced front, a blind column's building front. */
+  readonly front: CitySide;
+  /** A corner column's second open side (its pieces' own -x face, and its roof's outer flank); null on a mid or blind column. */
+  readonly side: CitySide | null;
+  readonly yaw: CityYaw;
+  readonly ground: CityGroundSlot;
+  /** Its pieces above the ground, bottom up: the floors, then the roof (exactly one, last). */
+  readonly pieces: readonly CityPiece[];
+}
+
+/** Stage 5: buildings. F1 writes `rows` and `buildings`; F2 adds `columns` (each storey's kind, turn, piece and placement, and the roof pieces). */
 export interface CityBuildingsLayer {
   readonly stage: "buildings";
   /** Every row once, in `mass.built` order of its first cell. */
   readonly rows: readonly CityBuildingRow[];
   /** Every building once, row by row in `rows` order, along each row. Every `mass.built` cell is in exactly one. */
   readonly buildings: readonly CityBuilding[];
+  /** F2: one column per `mass.built` cell, in `mass.built` order. Optional, as `CityEdgeLayer.ground` was, so F1's layers type-check; from F2 always written. */
+  readonly columns?: readonly CityColumn[];
 }
 /** Stage 6: the circuit. Typed when ticket 059 is re-cut onto the pipeline; until then the layer is empty. */
 export interface CityCircuitLayer {
