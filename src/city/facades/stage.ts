@@ -1,4 +1,5 @@
 /**
+ * Stage 7: facades, H2b adds the party-wall kit to `walls` (ticket 070 H2b: painted boards, windows and pipe runs on every storey face above a lower roof, `party.ts`; judged by `partycheck.ts`), after each building's H2 pieces.
  * Stage 7: facades, H2 adds `walls` (ticket 070 H2: fire escapes, door canopies, wall air-conditioners and window planters). The escapes are decided first, from `mass`, `buildings` and the ground pieces (`escape.ts`); H1b's dressing is then built
  * with the escape columns plain (EP); `walls.ts` places the canopies and the upper-wall props; `wallcheck.ts` judges them.
  * Stage 7: facades, H1b adds the shopfront dressing (ticket 070 H1b, `dress.ts`: glass, awnings, fascia and blade signs and ATMs on the street fronts, none on a quiet one) after the ground pieces, which it does not touch.
@@ -20,6 +21,8 @@ import { factsOf, makeCtx, type BuildingFacts, type Ctx, columnFrontage } from "
 import { indexOf } from "./hash";
 import { DOUBLE_KEY, FIRST_FLOOR_SILL_M, GROUND_STYLES, groundEntry, type GroundStyle } from "./kit";
 import { keyOf, levelOf, placeGround } from "./place";
+import { mergeWalls, buildParty } from "./party";
+import { partyFailures } from "./partycheck";
 import { wallFailures } from "./wallcheck";
 import { TILE_CITY_R7_MIN } from "./wallkit";
 import { buildWalls } from "./walls";
@@ -127,12 +130,16 @@ function run(plan: CityPlan, rand: StageRand): CityFacadesLayer {
   const { escapes } = decideEscapes(mass, buildings, ground, rand, TILE_CITY_R7_MIN, runsOf(buildings));
   const columns = new Map<string, number>([...escapes.values()].map((e) => [keyOf(e.col), escapeWeight(e.col, e.result.pieces)] as const));
   const dressing = buildDressing(mass, buildings, ground, rand, columns).dressing;
-  const walls = buildWalls(mass, buildings, ground, dressing, escapes, rand).walls;
+  const h2 = buildWalls(mass, buildings, ground, dressing, escapes, rand).walls;
+  // H2b: the party-wall kit, appended after each building's own H2 pieces
+  const walls = mergeWalls(buildings, h2, buildParty(mass, buildings, rand).pieces);
   const layer: CityFacadesLayer = { stage: "facades", ground, dressing, walls };
   const dressFailed = dressFailures(layer, { mass, buildings });
   if (dressFailed.length > 0) throw new CityStageError(`${dressFailed[0]!.check}: ${dressFailed[0]!.reason}`, dressFailed[0]!.cells);
   const wallFailed = wallFailures(layer, { mass, buildings });
   if (wallFailed.length > 0) throw new CityStageError(`${wallFailed[0]!.check}: ${wallFailed[0]!.reason}`, wallFailed[0]!.cells);
+  const partyFailed = partyFailures(layer, { mass, buildings });
+  if (partyFailed.length > 0) throw new CityStageError(`${partyFailed[0]!.check}: ${partyFailed[0]!.reason}`, partyFailed[0]!.cells);
   return layer;
 }
 
@@ -155,6 +162,7 @@ export const FACADES_LEGEND: readonly LegendEntry[] = [
   { name: "fire escape", rgb: 0xb05030 },
   { name: "door canopy", rgb: 0x7088d0 },
   { name: "wall prop", rgb: 0x90c090 },
+  { name: "party-wall kit", rgb: 0xc080c0 },
 ];
 
 const KINDS: readonly CityGroundPieceKind[] = ["shop", "shopDouble", "shopCorner", "door", "doorCorner", "floor", "floorCorner"];
@@ -163,8 +171,8 @@ const KINDS: readonly CityGroundPieceKind[] = ["shop", "shopDouble", "shopCorner
 export const legendOf = (kind: CityGroundPieceKind): number => 1 + KINDS.indexOf(kind);
 
 /** The legend index of a dressing kind that the picture marks with a point (glass has none). */
-/** The legend index of a wall piece the picture marks with a point: an escape's first piece ("fire escape"), a canopy ("door canopy"), an air-conditioner or a planter ("wall prop"); null for the escape's other pieces. */
-export const wallLegendOf = (p: CityWallPiece): number | null => (p.kind === "escape" ? (p.storey === 1 ? 12 : null) : p.kind === "canopy" ? 13 : p.kind === "aircon" || p.kind === "planter" ? 14 : null);
+/** The legend index of a wall piece the picture marks with a point: an escape's first piece ("fire escape"), a canopy ("door canopy"), an air-conditioner or a planter ("wall prop"), a party-wall kit piece ("party-wall kit"); null for the escape's other pieces. */
+export const wallLegendOf = (p: CityWallPiece): number | null => (p.kind === "escape" ? (p.storey === 1 ? 12 : null) : p.kind === "canopy" ? 13 : p.kind === "aircon" || p.kind === "planter" ? 14 : p.kind === "partyBoard" || p.kind === "partyPipe" || p.kind === "partyWindow" ? 15 : null);
 
 export const dressingLegendOf = (kind: CityDressingKind): number | null => (kind === "awning" ? 8 : kind === "fasciaSign" ? 9 : kind === "bladeSign" ? 10 : kind === "atm" ? 11 : null);
 
