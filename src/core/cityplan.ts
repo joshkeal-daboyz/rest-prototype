@@ -873,14 +873,16 @@ export interface CityWallPiece {
 // Typed by the lead-architect before H3 (21 Nov 2026, H3's re-cut against 4ddae06). The tile city's rooftop items (`dressBlock`'s big roof prop and small roof props, src/render3d/dressing.ts) and 068's roof exit,
 // moved onto stage 5's roof pieces. A field of its own, not more kinds in `walls`, so H1b's, H2's and H2b's checks keep reading exactly the lists they read (H2b's PW7 stop is not repeated).
 // - **Where a piece stands.** Worked out in its host column's own frame (its front +z, F2's fixed frame: the roof piece's base at 3 x `storeys`), then turned by the column's `yaw` (plus a half-turn where the
-//   piece is turned round: a roof exit always, a turnable small prop by hash). Its base stands on the roof's deck (H3's reading RT), its footprint `ROOF_EDGE_M` inside the cell's edges (rule 11: the body's
-//   edge, not the cornice's; the body is the cell, M1).
+//   piece is turned round: a roof exit always, a turnable small prop by hash). Its base stands on the roof's deck, `ROOF_DECK_M` 0.5 over the roof piece's base on every roof key (H3's RT; Josh, 21 Nov 2026,
+//   Q24 answer 1), its footprint `ROOF_EDGE_M` inside the cell's edges (rule 11: the body's edge, not the cornice's; the body is the cell, M1), a billboard's `BILLBOARD_EDGE_M` 0.28 (H3's BB, Q24 answer 2).
+// - **No novelty sign in H3** (Josh, 21 Nov 2026, Q24: "They can be placed on the face of a build in addition to the roof. They represent the store in the storefront."). H3 writes no "novelty" piece; the kind
+//   is kept for section H1c, which places a roof novelty sign over its own shop (and types a list for face signs at its re-cut).
 // - **Which roofs.** A big piece ("waterTower", "exit", "billboard" with its "billboardFace", "novelty") only on a mid roof (a mid or blind column), at most one big prop a building; "small" pieces on any
 //   roof (mid or corner), never on the column that holds the building's big prop.
 // - **The roof exit** (M9b). Wholly on its roof; its door (its own +z, H3's reading RD) faces away from every open side of its column, with `ROOF_ACCESS_CLEAR_M` (1.2 m) of clear deck in front of it; on a
 //   blind column of its building where it has one, else on a mid column (068's order on cells, H3's reading RX).
 
-/** What a rooftop piece is: a small roof prop (`ROOF_SMALL`), or one of the big ones: the water tower, the roof exit (`SM_Bld_Roof_Access_01`), a billboard's structure and its face (two pieces, one big prop), a novelty sign. */
+/** What a rooftop piece is: a small roof prop (`ROOF_SMALL`), or one of the big ones: the water tower, the roof exit (`SM_Bld_Roof_Access_01`), a billboard's structure and its face (two pieces, one big prop), a novelty sign (H1c's; H3 writes none). */
 export type CityRoofPieceKind = "small" | "waterTower" | "exit" | "billboard" | "billboardFace" | "novelty";
 
 /** One rooftop piece, placed. */
