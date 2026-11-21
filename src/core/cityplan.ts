@@ -822,7 +822,53 @@ export interface CityDressingPiece {
   readonly placement: CityPlacement;
 }
 
-/** Stage 7: facades. H1 writes `ground`; H1b writes `dressing`; H2 (walls) and H3 (roofs) add their own fields when each is cut. */
+// ---- stage 7, H2 and H2b: the walls (ticket 070 H2: fire escapes and wall props; H2b: the party-wall kit; grammar rules 8 and 9, M7; the checklist's R7; tickets 058 and 061) ----
+//
+// Typed by the lead-architect before H2 (21 Nov 2026, H2's re-cut against b49a282). Everything a building's walls carry beside its shopfront dressing: the tile city's fire escapes, door canopies, wall
+// air-conditioners and window planters (`dressBlock`, src/render3d/dressing.ts; `escapes.ts`), and the party-wall kit that no path has built yet (grammar rule 8, Josh, 19 Nov 2026: "Yes, dress it").
+// - **Where a piece stands.** As H1b's dressing: worked out in its host column's own frame (its front +z, the walk at y 0, storey k's floor at 3 k, F2's fixed frame), then turned by the column's `yaw` (a party-wall
+//   piece: by the yaw that brings its own +z onto `face`). A canopy rides its door's ground piece (raised by its `y_m`, H1b's L1); an escape and an upper-wall prop ride the floors, which do not move.
+// - **Faces.** An escape, a canopy and an upper-wall prop stand on their column's `front`, which is an open side (never a blind column's front, never a party wall). A party-wall piece stands on a side of its column
+//   that is not open, above the roof of the lower building across it (H2b; a blind column's windowed front is not a party wall: Josh, 20 Nov 2026, Q20 U1).
+// - **An escape** is one piece per storey over the ground (`ESCAPE_FIRST` on storey 1, `ESCAPE_MID` between, `ESCAPE_TOP` on the top storey), each scaled in y so its flight meets the deck above (`scaleY`); the first
+//   piece carries the drop ladder's boxes down to the walk. Where the pack's pieces do not fit, the escape is one code-drawn piece (key `code:escape`) whose `boxes` are the whole escape (`codeEscape`).
+
+/** What a wall piece is. H2: "escape", "canopy" (a door canopy), "aircon" and "planter" (the upper-wall props). H2b: the party-wall kit, "partyBoard" (a painted board), "partyPipe" (a pipe run), "partyWindow". */
+export type CityWallPieceKind = "escape" | "canopy" | "aircon" | "planter" | "partyBoard" | "partyPipe" | "partyWindow";
+
+/** One box drawn with a wall piece (`escapes.ts`' `EscapePart`), metres, in the piece's own frame at scale 1: its centre, its size, and a turn about the piece's own z (a stringer), radians (0 for every other box). */
+export interface CityWallBox {
+  readonly kind: "deck" | "rail" | "post" | "stringer" | "tread" | "ladderRail" | "rung";
+  readonly x_m: number;
+  readonly y_m: number;
+  readonly z_m: number;
+  readonly w_m: number;
+  readonly h_m: number;
+  readonly d_m: number;
+  readonly rz_rad: number;
+}
+
+/** One wall piece, placed. */
+export interface CityWallPiece {
+  readonly kind: CityWallPieceKind;
+  /** Its `CityBuilding.id`. */
+  readonly building: string;
+  /** The column it stands on (a party-wall piece: the taller column, whose wall it dresses). */
+  readonly cell: CityCell;
+  /** The side of `cell` it stands on: the column's `front` for H2's kinds; a party wall (a side that is not open) for H2b's. */
+  readonly face: CitySide;
+  /** The storey it serves: an escape piece the storey whose window it stands under (1 up); a canopy 0; an upper-wall prop the storey it hangs on (2 up); a party-wall piece the lowest storey face it covers. */
+  readonly storey: number;
+  /** The storey faces it covers: 1, or 2 for a pipe run over a two-storey step (H2b). */
+  readonly span: 1 | 2;
+  readonly placement: CityPlacement;
+  /** Its y-scale about its base: an escape piece's (`planEscape`, within `ESCAPE_SCALE_Y`); 1 for every other piece. */
+  readonly scaleY: number;
+  /** The boxes drawn with it: the first escape piece's drop ladder, or a code-drawn escape's every part; empty for every other piece. */
+  readonly boxes: readonly CityWallBox[];
+}
+
+/** Stage 7: facades. H1 writes `ground`; H1b writes `dressing`; H2 and H2b write `walls`; H3 (roofs) adds its own field when it is cut. */
 export interface CityFacadesLayer {
   readonly stage: "facades";
   /** H1: one piece per ground slot, every `buildings.columns` entry's slot filled exactly once (a "shopDouble" fills two), in `buildings.columns` order of each piece's first cell. */
@@ -832,6 +878,12 @@ export interface CityFacadesLayer {
    * Optional only so H1's layers and fixtures (and G2's, which reads `ground` only) type-check; from H1b the stage always writes it.
    */
   readonly dressing?: readonly CityDressingPiece[];
+  /**
+   * H2 and H2b: the wall pieces, building by building in `buildings.buildings` order; in a building, its escape's pieces bottom up, then its canopies along the row, then its upper-wall props storey by storey and
+   * along the row in each (`dressBlock`'s level-then-column loop), then (H2b) its party-wall pieces by column along the row, then by side in the order "+x", "-x", "+z", "-z", then bottom up.
+   * Optional only so H1's and H1b's layers and fixtures (and G2's, which reads `ground` only) type-check; from H2 the stage always writes it.
+   */
+  readonly walls?: readonly CityWallPiece[];
 }
 /** Stage 8: ground dressing. Typed before section I. */
 export interface CityGroundLayer {
