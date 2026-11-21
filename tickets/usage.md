@@ -295,4 +295,4 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 070 H2 re-cut 2 | lead-architect | opus | 88K total | - | 0 | Q23 recorded (1d3d4f7) |
 | 070 H2 | facades (general-purpose with facades.md) | sonnet | 344K total | - | 0 | fire escapes and wall props (6afc055) |
 | 070 H2 | gate (main session) | - | - | - | 0 | 6afc055: 162 files, 3863 passed, 28 skipped |
-| 070 H2 | code-reviewer / playtester | opus / sonnet | see readout / 25K | - | 0 | meets, must-fix 0; regressions 0 |
+| 070 H2 | code-reviewer / playtester | opus / sonnet | 100K / 25K | - | 0 | meets, must-fix 0; regressions 0 |
