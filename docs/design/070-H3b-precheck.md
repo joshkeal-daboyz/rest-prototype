@@ -1,5 +1,7 @@
 # 070 H3b pre-check: the water-tower cap
 
+**Josh's answer (21 Nov 2026, in chat).** Asked the three questions as recommended (1: count one water tower per X buildings on each street block, hashed pick; 2: X = 16, about 44 towers a city; 3: option (c), a roof that loses its tower gets a roof exit only where its row would otherwise have no big roof item, small props otherwise), he answered: "Yes to all".
+
 21 Nov 2026, pipeline-designer, on `goal/city-style` at b8ba0be (H3 merged, 194643e).
 
 **This is a sketch.** A throwaway probe outside the repo copies H3's merged `buildRoofs` and adds one hook: a tower refused by the cap. Everything else is imported read-only.
