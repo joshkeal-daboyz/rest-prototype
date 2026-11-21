@@ -1,15 +1,18 @@
 /**
+ * Stage 7: facades, H1b adds the shopfront dressing (ticket 070 H1b, `dress.ts`: glass, awnings, fascia and blade signs and ATMs on the street fronts, none on a quiet one) after the ground pieces, which it does not touch.
  * Stage 7: facades, H1 (ticket 070 H1; grammar rules 1, 3, 7 and 9; readings S1, D1 to D5). Every ground slot stage 5 left (`buildings.columns[].ground`) is filled with exactly one ground piece, keyed from the ground kit
  * table and placed on its cell, front-aligned, at its own level (S1). Street fronts carry shops, double shops, shop corners and one residents' door per building; quiet fronts one residents' door (or corner door) and windowed
  * floor pieces, never a shop; a quiet ring-2 building with no door place has no door (Josh, Q21 answer 3). Reads `mass` and `buildings` (and `streets` only for the lattice's size, for the picture). Writes only `facades`.
  */
 
-import type { CalibrationKey, CityBuilding, CityBuildingsLayer, CityCell, CityColumn, CityFacadesLayer, CityGroundPiece, CityGroundPieceKind, CityMassLayer, CityPicture, CityPlan } from "../../core";
+import type { CalibrationKey, CityBuilding, CityBuildingsLayer, CityCell, CityColumn, CityDressingKind, CityFacadesLayer, CityGroundPiece, CityGroundPieceKind, CityMassLayer, CityPicture, CityPlan } from "../../core";
 import { CityStageError } from "../pipeline/error";
 import { makePicture, type LegendEntry } from "../pipeline/picture";
 import type { StageRand } from "../pipeline/seeds";
 import type { CityStageDef } from "../pipeline/types";
 import { groundFailures } from "./check";
+import { buildDressing } from "./dress";
+import { dressFailures } from "./dresscheck";
 import { factsOf, makeCtx, type BuildingFacts, type Ctx, columnFrontage } from "./facts";
 import { indexOf } from "./hash";
 import { DOUBLE_KEY, FIRST_FLOOR_SILL_M, GROUND_STYLES, groundEntry, type GroundStyle } from "./kit";
@@ -110,9 +113,13 @@ export function buildGround(mass: Pick<CityMassLayer, "cells" | "built">, buildi
 function run(plan: CityPlan, rand: StageRand): CityFacadesLayer {
   const { mass, buildings } = plan.layers;
   if (!mass || !buildings) throw new CityStageError("facades: the plan has no mass or buildings layer");
-  const layer: CityFacadesLayer = { stage: "facades", ground: buildGround(mass, buildings, rand) };
-  const failures = groundFailures(layer, { mass, buildings });
+  const ground = buildGround(mass, buildings, rand);
+  const groundOnly: CityFacadesLayer = { stage: "facades", ground };
+  const failures = groundFailures(groundOnly, { mass, buildings });
   if (failures.length > 0) throw new CityStageError(`${failures[0]!.check}: ${failures[0]!.reason}`, failures[0]!.cells);
+  const layer: CityFacadesLayer = { stage: "facades", ground, dressing: buildDressing(mass, buildings, ground, rand).dressing };
+  const dressFailed = dressFailures(layer, { mass, buildings });
+  if (dressFailed.length > 0) throw new CityStageError(`${dressFailed[0]!.check}: ${dressFailed[0]!.reason}`, dressFailed[0]!.cells);
   return layer;
 }
 
@@ -128,6 +135,10 @@ export const FACADES_LEGEND: readonly LegendEntry[] = [
   { name: "corner door", rgb: 0x60a0f0 },
   { name: "floor", rgb: 0x808890 },
   { name: "corner floor", rgb: 0xa8b0b8 },
+  { name: "awning", rgb: 0xd04848 },
+  { name: "fascia sign", rgb: 0xf0e060 },
+  { name: "blade sign", rgb: 0x60d0c0 },
+  { name: "ATM", rgb: 0xffffff },
 ];
 
 const KINDS: readonly CityGroundPieceKind[] = ["shop", "shopDouble", "shopCorner", "door", "doorCorner", "floor", "floorCorner"];
@@ -135,13 +146,20 @@ const KINDS: readonly CityGroundPieceKind[] = ["shop", "shopDouble", "shopCorner
 /** The legend index of a ground kind. */
 export const legendOf = (kind: CityGroundPieceKind): number => 1 + KINDS.indexOf(kind);
 
+/** The legend index of a dressing kind that the picture marks with a point (glass has none). */
+export const dressingLegendOf = (kind: CityDressingKind): number | null => (kind === "awning" ? 8 : kind === "fasciaSign" ? 9 : kind === "bladeSign" ? 10 : kind === "atm" ? 11 : null);
+
 function picture(plan: CityPlan): CityPicture {
   const layer = plan.layers.facades;
   const streets = plan.layers.streets;
   if (!layer || !streets) throw new CityStageError("picture: the plan has no facades layer");
   const at = new Map<number, number>();
   for (const p of layer.ground) for (const c of p.cells) at.set(c.j * streets.w + c.i, legendOf(p.kind));
-  return makePicture("facades", streets.w, streets.h, FACADES_LEGEND, (i, j) => at.get(j * streets.w + i) ?? 0);
+  const points = (layer.dressing ?? []).flatMap((p) => {
+    const legend = dressingLegendOf(p.kind);
+    return legend === null ? [] : [{ x_m: p.placement.x_m, z_m: p.placement.z_m, legend }];
+  });
+  return makePicture("facades", streets.w, streets.h, FACADES_LEGEND, (i, j) => at.get(j * streets.w + i) ?? 0, points);
 }
 
 export const facadesStage: CityStageDef<"facades"> = { name: "facades", run, picture };

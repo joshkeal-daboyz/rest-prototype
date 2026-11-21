@@ -16,3 +16,8 @@ export function finalise(hash: number): number {
 export function indexOf(hash: number, count: number): number {
   return count < 1 ? 0 : finalise(hash) % count;
 }
+
+/** A float in [0, 1) from a hash: the finaliser over 2^32 (H1b's `dressUnit`: `dressBlock`'s chances are compared against it). */
+export function unitOf(hash: number): number {
+  return finalise(hash) / 4294967296;
+}

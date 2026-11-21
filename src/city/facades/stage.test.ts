@@ -265,9 +265,9 @@ describe("the checks hold on the named runs (criterion 4)", { timeout: 120_000 }
 });
 
 describe("the picture (criterion 5, R-5)", { timeout: 120_000 }, () => {
-  it("has one legend entry per ground kind and 0 elsewhere, no points; its size is the lattice's; each built cell's entry is its piece's kind", () => {
-    expect(FACADES_LEGEND).toHaveLength(8);
-    expect(FACADES_LEGEND.map((e) => e.name)).toEqual(["no ground piece", "shop", "double shop", "shop corner", "residents' door", "corner door", "floor", "corner floor"]);
+  it("has one legend entry per ground kind and 0 elsewhere, and (H1b) four entries for the dressing's points; its size is the lattice's; each built cell's entry is its piece's kind; each point is a piece's, with its own legend", () => {
+    expect(FACADES_LEGEND).toHaveLength(12);
+    expect(FACADES_LEGEND.map((e) => e.name)).toEqual(["no ground piece", "shop", "double shop", "shop corner", "residents' door", "corner door", "floor", "corner floor", "awning", "fascia sign", "blade sign", "ATM"]);
     for (const o of [DEFAULT, { ...DEFAULT, seed: 2 }]) {
       const r = cityOf(o);
       if (!r.ok) throw new Error(label(o));
@@ -275,8 +275,18 @@ describe("the picture (criterion 5, R-5)", { timeout: 120_000 }, () => {
       const s = r.plan.layers.streets!;
       expect(pictureProblems(pic, s.w, s.h)).toEqual([]);
       expect(pic.stage).toBe("facades");
-      expect(pic.points).toEqual([]);
       const v = viewOf(o);
+      // one point per awning, fascia sign, blade sign and ATM, at the piece's x_m, z_m, in the dressing's order; glass has none
+      const marked = v.layer.dressing!.filter((p) => p.kind !== "glass");
+      expect(pic.points).toHaveLength(marked.length);
+      expect(marked.length).toBeGreaterThan(1000);
+      const legendOfKind = { awning: "awning", fasciaSign: "fascia sign", bladeSign: "blade sign", atm: "ATM" } as const;
+      marked.forEach((p, n) => {
+        const pt = pic.points[n]!;
+        expect(pt.x_m).toBe(p.placement.x_m);
+        expect(pt.z_m).toBe(p.placement.z_m);
+        expect(pic.legend[pt.legend]!.name).toBe(legendOfKind[p.kind as keyof typeof legendOfKind]);
+      });
       let nonzero = 0;
       for (let j = 0; j < s.h; j++) {
         for (let i = 0; i < s.w; i++) {
@@ -301,6 +311,8 @@ describe("R-1 to R-7 for facades (criterion 6)", { timeout: 120_000 }, () => {
     expect(Object.isFrozen(r.plan.layers.facades!.ground)).toBe(true);
     expect(Object.isFrozen(r.plan.layers.facades!.ground[0])).toBe(true);
     expect(Object.isFrozen(r.plan.layers.facades!.ground[0]!.placement)).toBe(true);
+    expect(Object.isFrozen(r.plan.layers.facades!.dressing)).toBe(true);
+    expect(Object.isFrozen(r.plan.layers.facades!.dressing![0]!.placement)).toBe(true);
   });
 
   it("stage 6 (circuit) is still not built: asking for it throws, as run.test.ts's example says", () => {
@@ -333,10 +345,10 @@ describe("R-1 to R-7 for facades (criterion 6)", { timeout: 120_000 }, () => {
 
   it("the digest pins (R-4): 6 x 6 seeds 1 (the default), 2, 3 and 8, one-way on; the layers before it are as their stages pin them", () => {
     const PINS: readonly (readonly [number, string])[] = [
-      [1, "35b183c5"],
-      [2, "8dcd0f55"],
-      [3, "ede2bede"],
-      [8, "5e46ebc7"],
+      [1, "7a95c899"],
+      [2, "2281779d"],
+      [3, "f965837b"],
+      [8, "9a3c4f10"],
     ];
     const BUILDINGS_PINS: readonly (readonly [number, string])[] = [
       [1, "8a702264"],
@@ -369,7 +381,7 @@ describe("R-1 to R-7 for facades (criterion 6)", { timeout: 120_000 }, () => {
     expect(cityOf(DEFAULT).ok).toBe(true);
   });
 
-  const FILES = ["check.ts", "constants.ts", "facts.ts", "hash.ts", "index.ts", "kit.ts", "place.ts", "stage.ts"];
+  const FILES = ["check.ts", "constants.ts", "facts.ts", "hash.ts", "index.ts", "kit.ts", "place.ts", "stage.ts", "dress.ts", "dresscheck.ts", "dresskit.ts"];
   const codeOf = (f: string): string =>
     readFileSync(fileURLToPath(new URL(`./${f}`, import.meta.url)), "utf8")
       .split("\n")
