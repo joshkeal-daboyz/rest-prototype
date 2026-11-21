@@ -1,5 +1,7 @@
 # 070 H1 pre-check: ground storeys on stage 5's fixed frame
 
+**Josh's answer (20 Nov 2026, in chat).** Asked the three questions as recommended (1: a ground piece may stop up to 1 cm short of the floor above; 2: the six deep shop pieces may run back up to 0.6 m into the always-built building behind, placed against the front edge; 3: the 58 ring-2 buildings that face stalls on every column may have no door), he answered: "Yez, all three".
+
 20 Nov 2026, pipeline-designer, on `goal/city-style` at 9f711b6. This is a sketch: a throwaway probe outside the repo that runs stages 1 to 5 as merged on the 20 named runs (6 x 6 seeds 1 to 10, one-way off and on) and lays H1's kinds, doors and S1 levels over them. The GLB numbers are measured from `city-pack.glb` with the repo's own `measureDoor`, `measureBodyPlane` and `measureOpenSide`. The builder's numbers are the record.
 
 ## 1. What is wrong: it does not hold, for three reasons
