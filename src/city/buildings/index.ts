@@ -4,3 +4,7 @@ export * from "./constants";
 export * from "./hash";
 export * from "./rows";
 export { tightCornersOf, leadRowIds } from "./group";
+export * from "./kit";
+export * from "./place";
+export { buildColumns, floorPlan, CORNER_TURN } from "./columns";
+export { columnFailures, columnReport } from "./columncheck";

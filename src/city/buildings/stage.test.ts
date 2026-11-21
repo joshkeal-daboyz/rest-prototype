@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 import type { CityBuildingsLayer, CityBuilding, CityLandLayer, CityMassLayer, CityPlanRun } from "../../core";
 import { landStage } from "../land/stage";
 import { massStage } from "../mass/stage";
+import { digestOf } from "../pipeline/digest";
 import { pictureProblems } from "../pipeline/picture";
 import { stageRand } from "../pipeline/seeds";
 import type { CityStageDef } from "../pipeline/types";
@@ -257,8 +258,10 @@ describe("style, storeys and colourway (criterion 3)", { timeout: 120_000 }, () 
   it("the same plan gives the same layer twice, and another seed another layer", () => {
     const l = layersOf(DEFAULT);
     const again = buildBuildings(l.land, l.mass, stageRand("buildings", 1));
-    expect(again).toEqual(l.buildings);
-    expect(buildBuildings(l.land, l.mass, stageRand("buildings", 2))).not.toEqual(l.buildings);
+    // `buildBuildings` is F1's rows and buildings; F2's `columns` come on top of them.
+    const { columns: _columns, ...f1 } = l.buildings;
+    expect(again).toEqual(f1);
+    expect(buildBuildings(l.land, l.mass, stageRand("buildings", 2))).not.toEqual(f1);
   });
 
   it("every style is a row style, every colourway is of the pool, and the storeys are spread over 3, 4 and 5", () => {
@@ -375,8 +378,16 @@ describe("R-1 to R-7 for buildings", { timeout: 120_000 }, () => {
     if (!r.ok) expect(r.failure.stage).toBe("buildings");
   });
 
-  it("the digest pins (R-4): 6 x 6 seeds 1 (the default), 2, 3 and 8, one-way on", () => {
+  it("the digest pins (R-4): 6 x 6 seeds 1 (the default), 2, 3 and 8, one-way on; re-taken once with `columns` (F2), and F1's four pins held by the layer with `columns` removed", () => {
+    // F2's pins: the layer with its columns.
     const PINS: readonly (readonly [number, string])[] = [
+      [1, "8a702264"],
+      [2, "8511fb2f"],
+      [3, "9af6a96f"],
+      [8, "6564b680"],
+    ];
+    // F1's pins, unchanged: the same layer without `columns`.
+    const F1_PINS: readonly (readonly [number, string])[] = [
       [1, "c549bddc"],
       [2, "6e87a01e"],
       [3, "3c9e46b3"],
@@ -385,6 +396,12 @@ describe("R-1 to R-7 for buildings", { timeout: 120_000 }, () => {
     for (const [seed, pin] of PINS) {
       const r = cityOf({ blocksX: 6, blocksZ: 6, seed, way: "on" });
       expect(r.ok && r.plan.digests.buildings, `seed ${seed}`).toBe(pin);
+    }
+    for (const [seed, pin] of F1_PINS) {
+      const l = layersOf({ blocksX: 6, blocksZ: 6, seed, way: "on" }).buildings;
+      expect(l.columns, `seed ${seed}`).toBeDefined();
+      const { columns: _columns, ...f1 } = l;
+      expect(digestOf(f1), `seed ${seed} without columns`).toBe(pin);
     }
     // the layers before it are as their own stages pin them: stage 5 changed none of them
     const r = cityOf(DEFAULT);
@@ -403,7 +420,7 @@ describe("R-1 to R-7 for buildings", { timeout: 120_000 }, () => {
     expect(cityOf(DEFAULT).ok).toBe(true);
   });
 
-  const FILES = ["assign.ts", "check.ts", "constants.ts", "draft.ts", "group.ts", "hash.ts", "index.ts", "rows.ts", "stage.ts"];
+  const FILES = ["assign.ts", "check.ts", "columncheck.ts", "columns.ts", "constants.ts", "draft.ts", "group.ts", "hash.ts", "index.ts", "kit.ts", "place.ts", "rows.ts", "stage.ts"];
   const codeOf = (f: string): string =>
     readFileSync(fileURLToPath(new URL(`./${f}`, import.meta.url)), "utf8")
       .split("\n")
