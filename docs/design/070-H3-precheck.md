@@ -1,5 +1,7 @@
 # 070 H3 pre-check: roofs and the roof exit on the pipeline's cells
 
+**Josh's answer (21 Nov 2026, in chat).** Asked the five questions as recommended, he answered: "Yes to all except novelty signs. They can be placed on the face of a build in addition to the roof. They represent the store in the storefront. A pizza should correspond with a pizza shop and a beer bottle, for example, should correspond with a liquor store or a corner store." So: Q1 yes (`ROOF_DECK_M` 0.5), Q2 yes (billboard edge 0.28 m), Q4 yes (HC, RC, RK, RW as written), Q5 yes (`DRESS_MAX` left off, J checks the frame rate). Q3 is neither yes nor no: a novelty sign stands for the shop under it (pizza over a pizza shop, a beer bottle over a liquor or corner store), and may go on the building's face as well as its roof.
+
 21 Nov 2026, pipeline-designer, on `goal/city-style` at 55aba63.
 
 This is a sketch. A throwaway probe outside the repo imports the merged stages 1 to 7 read-only and runs them on the 20 named runs (6 x 6 seeds 1 to 10, one-way off and on). No 3 x 3 or 6 x 4 city was run (Josh, 21 Nov 2026).
