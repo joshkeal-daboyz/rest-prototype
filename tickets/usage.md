@@ -287,3 +287,7 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 070 G2 | gate (main session) | - | - | - | 0 | a5d0730: 154 files, 3788 passed, 25 skipped |
 | 070 G2 | code-reviewer / playtester | opus / sonnet | 56K / 17K | - | 0 | meets, must-fix 0; regressions 0 |
 | 070 H1b pre-check | pipeline-designer (general-purpose with pipeline-designer.md) | opus | 222K total | - | 0 | T1, X1, W1+LG need Josh (387b9bf) |
+| 070 H1b re-cut 2 | lead-architect | opus | 65K total | - | 0 | Q22 recorded; T1, X1, W1+LG (bd6f438) |
+| 070 H1b | facades (general-purpose with facades.md) | sonnet | 307K total | - | 0 | shopfront dressing (3f1a260) |
+| 070 H1b | gate (main session) | - | - | - | 0 | 3f1a260: 158 files, 3828 passed, 27 skipped |
+| 070 H1b | code-reviewer / playtester | opus / sonnet | reviewer total not read / 23K | - | 0 | meets, must-fix 0; regressions 0 |
