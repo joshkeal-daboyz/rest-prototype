@@ -51,7 +51,7 @@ type Role = "base" | "floor" | "roof";
 export interface BuildingStyle {
   readonly id: string;
   readonly base: { readonly mid: readonly CalibrationKey[]; readonly door: readonly CalibrationKey[]; readonly corner: readonly CalibrationKey[] };
-  readonly floor: { readonly mid: readonly CalibrationKey[]; readonly corner: readonly CalibrationKey[] };
+  readonly floor: { readonly mid: readonly CalibrationKey[]; readonly corner: readonly CalibrationKey[]; readonly stack3: readonly CalibrationKey[] };
   readonly roof: { readonly mid: readonly CalibrationKey[]; readonly corner: readonly CalibrationKey[] };
   readonly pitch_m: Readonly<Record<Role, number>>;
 }
@@ -65,7 +65,7 @@ function apartment(n: "01" | "02" | "03", roofReserve: number): BuildingStyle {
   return {
     id: `apartment-${n}`,
     base: { mid: SHOPS, door: DOORS, corner: SHOP_CORNERS },
-    floor: { mid: [k(`SM_Bld_Apartment_${n}`)], corner: [k(`SM_Bld_Apartment_Corner_${n}`)] },
+    floor: { mid: [k(`SM_Bld_Apartment_${n}`)], corner: [k(`SM_Bld_Apartment_Corner_${n}`)], stack3: [k(`SM_Bld_Apartment_Stack_${n}`)] },
     roof: { mid: [k(`SM_Bld_Apartment_Roof_${n}`)], corner: [k(`SM_Bld_Apartment_Roof_Corner_${n}`)] },
     pitch_m: { base: 3, floor: 3, roof: roofReserve },
   };
@@ -74,3 +74,16 @@ function apartment(n: "01" | "02" | "03", roofReserve: number): BuildingStyle {
 /** The three apartment styles, a copy of the `depth: "bay"` entries of stacks.ts' `STACK_STYLES`. */
 export const BUILDING_STYLES: readonly BuildingStyle[] = [apartment("01", 0.5), apartment("02", 0.75), apartment("03", 0.75)];
 export const STYLE_IDS: readonly string[] = BUILDING_STYLES.map((s) => s.id);
+
+// ---- ticket 070 F2: the thresholds the F2 checks use (R-6: typed-in copies, pinned equal to the old path's by src/render3d/kitpin.test.ts) ----
+
+/** M1's number (grammar): a floor piece's body planes stand on its cell's edges within this, metres. New in code (ticket 064 would have added it). */
+export const WALL_JOINT_TOL_M = 0.02;
+/** M9a's number, a copy of stacks.ts' `STOREY_ALIGN_TOL_M`: the planes of a column's pieces agree to within this, metres. */
+export const STOREY_ALIGN_TOL_M = 0.03;
+/** G1: a wall may stand this far past its cell edge, metres; a copy of frontage.ts' `OVERLAP_MAX_M`. */
+export const OVERLAP_MAX_M = 0.6;
+/** G1: a wall may stand this far behind its cell edge, metres; a copy of frontage.ts' `RECESS_MAX_M`. */
+export const RECESS_MAX_M = 0;
+/** G1: the tolerance on both, metres; a copy of frontage.ts' `FRONTAGE_TOL_M`. */
+export const FRONTAGE_TOL_M = 0.01;

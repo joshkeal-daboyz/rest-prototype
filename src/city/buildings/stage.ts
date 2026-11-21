@@ -1,6 +1,6 @@
 /**
  * Stage 5: buildings (ticket 070 F1; grammar rules 1, 4 and 12). The mass's built cells are grouped into buildings of 2 to 4 columns (the L at a tight corner aside), each with a style, a colourway and a storey
- * count; each ring-2 building stands behind a ring-1 building at the same height, "through" or "another". Reads `land` and `mass` (and `streets` only for the lattice's size, for the picture). F2 adds the pieces.
+ * count; each ring-2 building stands behind a ring-1 building at the same height, "through" or "another". Reads `land` and `mass` (and `streets` only for the lattice's size, for the picture). F2 adds the columns: each storey's kind, turn, piece and placement, and the roofs (`columns.ts`, checked by `columncheck.ts`).
  */
 
 import type { CityBuilding, CityBuildingRow, CityBuildingsLayer, CityBuiltCell, CityLandLayer, CityMassLayer, CityPicture, CityPlan } from "../../core";
@@ -10,6 +10,8 @@ import type { StageRand } from "../pipeline/seeds";
 import type { CityStageDef } from "../pipeline/types";
 import { assignPart } from "./assign";
 import { buildingFailures } from "./check";
+import { buildColumns } from "./columns";
+import { columnFailures } from "./columncheck";
 import { CELL_M, COLOURWAY_POOL, COLOURWAY_SWATCH, CITY_STOREYS } from "./constants";
 import type { Draft } from "./draft";
 import { groupPart } from "./group";
@@ -78,8 +80,9 @@ export function buildBuildings(land: Pick<CityLandLayer, "parts">, mass: Pick<Ci
 function run(plan: CityPlan, rand: StageRand): CityBuildingsLayer {
   const { land, mass } = plan.layers;
   if (!land || !mass) throw new CityStageError("buildings: the plan has no land or mass layer");
-  const layer = buildBuildings(land, mass, rand);
-  const failures = buildingFailures(layer, { land, mass });
+  const grouped = buildBuildings(land, mass, rand);
+  const layer: CityBuildingsLayer = { ...grouped, columns: buildColumns(grouped.buildings, mass.built) };
+  const failures = [...buildingFailures(layer, { land, mass }), ...columnFailures(layer, { mass })];
   if (failures.length > 0) throw new CityStageError(`${failures[0]!.check}: ${failures[0]!.reason}`, failures[0]!.cells);
   return layer;
 }
