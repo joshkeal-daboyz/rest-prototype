@@ -99,9 +99,9 @@ only once every manifest name is a root node in it; if that check fails the temp
 transform is read before any empty, bone or other non-mesh object is deleted, so a model nested under a rotated or scaled parent keeps its pose
 and size. Run by hand if you need to:
 
-    blender --background --factory-startup --python tools/blender/convert_fbx.py -- --in <packDir> --out <glb> --report <json> [--atlas <png>] [--scale <n>] [--textures <dir>] [--texture-override <stem>=<image> ...] [--texture-alias <key>=<image> ...] [--scale-override <stem>=<factor> ...]
+    blender --background --factory-startup --python tools/blender/convert_fbx.py -- --in <packDir> --out <glb> --report <json> [--atlas <png>] [--scale <n>] [--textures <dir>] [--texture-override <stem>=<image> ...] [--texture-alias <key>=<image> ...] [--scale-override <stem>=<factor> ...] [--exclude <path> ...]
 
-(`--texture-alias` takes the normalised key: the lowercased file stem, or `material:` and the lowercased name. The wrapper does this for you.)
+(`--exclude` skips every FBX at or under a folder or file and leaves the texture and OBJ search alone. `--texture-alias` takes the normalised key: the lowercased file stem, or `material:` and the lowercased name. The wrapper does this for you.)
 
 ## Worked example: SIMPLE Town (aliases found from evidence)
 
