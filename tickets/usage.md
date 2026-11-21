@@ -301,3 +301,7 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 070 H2b | gate (main session) | - | - | - | 0 | c5b67f0: 166 files, 3898 passed, 29 skipped |
 | 070 H2b | code-reviewer / playtester | opus / sonnet | 75K / 21K | - | 0 | meets, must-fix 0; regressions 0 |
 | 070 H3 re-cut / pre-check | lead-architect / pipeline-designer (general-purpose) | opus / opus | 180K / 224K | - | 0 | H3 re-cut with roofs field (55aba63); pre-check: 5 questions |
+| 070 H3 re-cut 2 + H1c cut | lead-architect | opus | 138K total | - | 0 | Q24 recorded; H1c first cut (7d0fba1) |
+| 070 H3 | facades (general-purpose with facades.md) | sonnet | 310K total | - | 0 | roofs and the roof exit (12f8959) |
+| 070 H3 | gate (main session) | - | - | - | 0 | 12f8959: 170 files, 3941 passed, 31 skipped |
+| 070 H3 | code-reviewer / playtester | opus / sonnet | see readout / 27K | - | 0 | meets, must-fix 0; regressions 0 |
