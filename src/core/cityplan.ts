@@ -11,7 +11,7 @@
  * - Each layer has a digest, so a test can prove that a change to stage N leaves stages 1 to N-1 as they were.
  * - Each plan stage has a flat top-down picture (`CityPicture`) of its own layer.
  *
- * Layers 1 to 4 are typed here in full, and layer 5 as far as F2. Layers 6 to 8 are typed by the architect before their sections of ticket 070 start; until then each is a stub
+ * Layers 1 to 5, 7 and 8 are typed here (layer 8 with section I's re-cut, 21 Nov 2026). Layer 6 is typed by the architect before its section of ticket 070 starts; until then it is a stub
  * with only its `stage` field, so the envelope type-checks.
  */
 
@@ -984,9 +984,97 @@ export interface CityFacadesLayer {
   /** H1c: the face novelty signs, building by building in `buildings.buildings` order, then along the row by column. Optional as `shops` is; from H1c the stage always writes it (often empty). */
   readonly novelty?: readonly CityNoveltySign[];
 }
-/** Stage 8: ground dressing. Typed before section I. */
+// ---- stage 8: ground dressing (ticket 070 I; style guide 16.5's furniture, 19.4's greens, 19.6's lanes; grammar rules 5, 9 and 10; the checklist's R10) ----
+//
+// Typed by the lead-architect before I (21 Nov 2026, I's re-cut against 5b2998c, on Josh's "I think the ground dressing first"). The tile city's ground dressing moved onto the pipeline's cells:
+// `furnitureLayout`'s pavement lines and open-lot dressing (src/render3d/furniture.ts), `bayMeters`, `fillGreen`'s trees and benches, and the alley bins (src/render3d/tilecity.ts). A layer of its own: no
+// earlier layer changes, and nothing G2 or stage 7 reads changes.
+// - **Where a prop stands.** Plan metres on the lattice (cell (i, j) covers x in [i, i+1) * 5 m, z in [j, j+1) * 5 m). `placement` is the key's pivot (its bounds' centre in x and z, its base at y);
+//   `placement.y_m` is its base over the top of the surface it stands on (`on`): 0 for every prop but a pole billboard's board (`BILLBOARD_BOARD_LIFT_M`). The assembler (J) sets each surface's drawn level.
+// - **Turns.** Every turn is a quarter (`placement.yaw_deg` one of 0, 90, 180, 270), and every key's own front is +z (the tile city's guess; no furniture key is in `BUILDING_FRONTS`), so `size` is the key's
+//   bounds with w and d swapped at 90 and 270.
+// - **A pavement run** (`CityPavementRun`; the tile city's terrace run, the only pavement `furnitureLayout` furnishes, 16.5): a chain of row neighbours (H1b's run: consecutive buildings of one
+//   `CityBuildingRow`, no opening between) on an outer row whose front is a "street" open side onto a street cell, with the pavement cell in front of each of its cells. An edge street's outer side, and
+//   the pavement in front of a park, a plaza, a lane mouth, a drive or a frontage lot, is in no run and carries no pavement prop.
+// - **No lamp.** Stage 8 places no lamp, pole or light of any kind (16.6: `SM_Prop_LightPole_*` is never used, "a lamp reads as a puzzle lamp"). Street lights and the game's lamps are stage 6's (section K,
+//   ticket 059); stage 8 keeps `FURN_KEEP_M` clear of whatever stage 6 places, once `CityCircuitLayer` is typed.
+
+/** What a ground prop is (the tile city's furniture groups, its green props and its lane bins). "lotLines" is a frontage lot's flat `ParkingLines_01` tile. */
+export type CityGroundPropKind =
+  | "tree"
+  | "bench"
+  | "bin"
+  | "planter"
+  | "potPlant"
+  | "mailbox"
+  | "newspaper"
+  | "meter"
+  | "hydrant"
+  | "busStop"
+  | "bollard"
+  | "lotLines"
+  | "barrier"
+  | "lotMeter"
+  | "billboardPole"
+  | "billboardBoard"
+  | "picnicTable"
+  | "umbrella"
+  | "hotdogStand";
+
+/** What a prop stands on: a pavement run's walk, a green cell (a court part's or a park's), a lane cell, a plaza, a frontage lot. */
+export type CityGroundPlace = "pavement" | "green" | "lane" | "plaza" | "frontLot";
+
+/** One pavement run (see above), in the frame `furnitureLayout` uses on the tile city: along the street from `lo_m`, across from the wall edge (`wall_m`) to the kerb edge (`kerb_m`). */
+export interface CityPavementRun {
+  /** "<street>|<first building id>". */
+  readonly id: string;
+  readonly street: string;
+  readonly block: string;
+  /** The block side it fronts: its row's `front`. */
+  readonly side: CitySide;
+  /** Its `CityBuilding.id`s, in row order. */
+  readonly buildings: readonly string[];
+  /** Its built cells, in increasing i (a "-z" or "+z" side) or j (a "-x" or "+x" side). */
+  readonly cells: readonly CityCell[];
+  /** The pavement cell in front of each of `cells`, in the same order. */
+  readonly pavement: readonly CityCell[];
+  /** Its two ends along the street's axis, metres: the low edge of its first cell and the high edge of its last. */
+  readonly lo_m: number;
+  readonly hi_m: number;
+  /** Across the street's axis, metres: the pavement's wall edge (the built cells' front cell edge) and its kerb edge (`CELL_M` from it, toward the carriageway). */
+  readonly wall_m: number;
+  readonly kerb_m: number;
+}
+
+/** One ground prop, placed. */
+export interface CityGroundProp {
+  readonly kind: CityGroundPropKind;
+  readonly on: CityGroundPlace;
+  /** The street block it stands in or in front of. */
+  readonly block: string;
+  /** What it belongs to: a pavement prop its `CityPavementRun.id`; a lane bin "<block>|<axis>|<at>" (its `CityLane`); a plaza or frontage-lot piece the `CityOpening.id`; a green prop its mass cell's `part`, or its `opening` on a park cell. */
+  readonly host: string;
+  /** A pavement prop's line ("wall" or "kerb", 16.5); a lane bin "wall" (grammar rule 9: against the wall); null elsewhere. */
+  readonly line: "wall" | "kerb" | null;
+  /** The cell its pivot stands in. */
+  readonly cell: CityCell;
+  readonly placement: CityPlacement;
+  /** Its extent in plan after the turn (world x and z) and its height, metres: the key's bounds. */
+  readonly size: { readonly x_m: number; readonly z_m: number; readonly h_m: number };
+  /** True for a flat piece ("lotLines", height under `SLAB_MAX_M`): other props may stand on it. */
+  readonly flat: boolean;
+}
+
+/** Stage 8: ground dressing. */
 export interface CityGroundLayer {
   readonly stage: "ground";
+  /** The pavement runs, in `buildings.rows` order, then along each row. */
+  readonly runs: readonly CityPavementRun[];
+  /**
+   * Every prop: the pavement runs' (in `runs` order; in a run its bollards, then its wall line, then its kerb line, each along the run, as `furnitureLayout`, with the meters `bayMeters` drops taken out),
+   * then the lane bins (`land.lanes` order, along each lane), then the plazas' and frontage lots' pieces (`mass.openings` order), then the greens' trees and benches (row-major by cell).
+   */
+  readonly props: readonly CityGroundProp[];
 }
 
 export interface CityLayers {
