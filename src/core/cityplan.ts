@@ -792,11 +792,46 @@ export interface CityGroundPiece {
   readonly door_m: number | null;
 }
 
-/** Stage 7: facades. H1 writes `ground`; H1b (shopfront dressing), H2 (walls) and H3 (roofs) add their own fields when each is cut. */
+// ---- stage 7, H1b: the shopfront dressing (ticket 070 H1b; grammar rule 9 and M8; the checklist's R4, R5 and R6) ----
+//
+// Typed by the lead-architect before H1b (21 Nov 2026, H1b's re-cut against 455db33). The tile city's `dressBlock` (src/render3d/dressing.ts) glass, awning, sign and ATM rules, moved onto H1's ground pieces:
+// - **A block** (`dressBlock`'s `stack` and `lot`) is one `CityBuilding`: "one awning key for the block", "at most one blade sign" and "at most one ATM per block" are per building. Its bays are its street ground
+//   pieces (`shop`, `shopDouble`, `shopCorner`; a street `door` for the ATM), in the building's row order.
+// - **A run** (`dressBlock`'s `RunContext`, a terrace run of `city=tiles`) is a chain of row neighbours: consecutive buildings of one `CityBuildingRow` with no opening between them (F1's "row neighbours"), in the
+//   row's order. `ATM_PER_RUN` is per run.
+// - **Where a piece stands.** Every piece is worked out in its host column's own frame (its front +z, a corner's second face -x, the ground piece's base at 0 and the first floor at `top_m`), as `dressBlock` works
+//   in its lot frame, then turned by the column's `yaw` and raised by the ground piece's `y_m` (H1's S1), as 062 B's `liftDressing` raised a lifted ground piece's dressing.
+// - **Faces** (M8; H1b's reading X1, for the pre-check). A single-face piece (a flat awning, a fascia sign, a blade sign, an ATM) stands on its column's front, which must be a street open side. A wrap (a corner
+//   shop's own glass, the L-shaped awning `Shop_Cover_05`) stands on both open sides of a shop corner that has at least one street open side.
+
+/** What a piece of shopfront dressing is (`dressBlock`'s slots "glass", "awning", "sign" and the ATM's "wall", split the way H1b's checks count them). */
+export type CityDressingKind = "glass" | "awning" | "fasciaSign" | "bladeSign" | "atm";
+
+/** One piece of shopfront dressing, placed. */
+export interface CityDressingPiece {
+  readonly kind: CityDressingKind;
+  /** Its `CityBuilding.id`. */
+  readonly building: string;
+  /** The column it counts against (`dressBlock`'s `column`): its host ground piece's first cell (a "shopDouble"'s first, in row order); an ATM's, its door's. */
+  readonly cell: CityCell;
+  /** The open side it stands on: always its column's `front` (a wrap stands on the column's `side` as well). */
+  readonly face: CitySide;
+  /** True for a piece that wraps a corner (a shop corner's glass, the L-shaped awning): placed on its host ground piece's footprint, not on its face. */
+  readonly wrap: boolean;
+  /** `placement.yaw_deg` is its column's `yaw` (every H1b key's own front is +z); `placement.y_m` already carries the ground piece's `y_m`. */
+  readonly placement: CityPlacement;
+}
+
+/** Stage 7: facades. H1 writes `ground`; H1b writes `dressing`; H2 (walls) and H3 (roofs) add their own fields when each is cut. */
 export interface CityFacadesLayer {
   readonly stage: "facades";
   /** H1: one piece per ground slot, every `buildings.columns` entry's slot filled exactly once (a "shopDouble" fills two), in `buildings.columns` order of each piece's first cell. */
   readonly ground: readonly CityGroundPiece[];
+  /**
+   * H1b: the shopfront dressing, building by building in `buildings.buildings` order, then along the row by column, and in a column in `dressBlock`'s order (glass, awning, blade sign, fascia sign, ATM).
+   * Optional only so H1's layers and fixtures (and G2's, which reads `ground` only) type-check; from H1b the stage always writes it.
+   */
+  readonly dressing?: readonly CityDressingPiece[];
 }
 /** Stage 8: ground dressing. Typed before section I. */
 export interface CityGroundLayer {

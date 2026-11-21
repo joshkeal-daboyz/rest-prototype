@@ -23,6 +23,7 @@ status: approved; section A1 merged 19 Nov 2026 (6eb4d26) (G1, Josh, 19 Nov 2026
 - **H1 re-cut against 2d003a5; split into H1, H1b and G2** (20 Nov 2026, the lead-architect). H1 (facades) fills every ground slot with a keyed, placed piece; H1b (facades) moves the shopfront dressing; G2 (renderer) draws the ground pieces in 3D. `CityFacadesLayer`, `CityGroundPiece` and `CityGroundPieceKind` are typed. H1 adds readings (S1, D1 to D4, listed in H1), so the `pipeline-designer`'s pre-check comes before its builder.
 - **H1 pre-check did not hold; Josh answered its three questions; H1 re-cut** (20 Nov 2026, Q21). The note (`docs/design/070-H1-precheck.md`) found no shop corner fits S1 at 0 gap, six shop keys deeper than 5.00 m, and 58 ring-2 buildings with no door place. Asked its three questions as recommended, Josh answered: "Yez, all three". So S1 allows a 0.01 m gap under the first floor, the six deep shop keys stand front-aligned with up to 0.6 m running back into the building behind, and a quiet building with no door place has no door. H1's S1, D1, D4, D5 and criteria 1 to 4 and 7 now say so. H1b and G2 do not change. H1's builder may start.
 - **F3 gains criterion 4; H1 merges after F3** (20 Nov 2026, the lead-architect). H1's full gate at 5318f5c failed buildings' R-4 test double, which drops the last built stage (`BUILT_STAGES.slice(0, -1)`) and so drops facades, not buildings. F3 now makes that test replace buildings by name. F3 merges first and into H1's branch before H1's gate. No rule added.
+- **H1b re-cut against 455db33** (21 Nov 2026, the lead-architect). Josh said: "Yes, start both" (G2 and H1b). H1b now moves `dressBlock`'s glass, awnings, signs and ATMs onto H1's merged ground pieces: a block is a building, a run a chain of row neighbours; R4 to R6 and M8's dressing half at the tile city's numbers. `CityDressingKind`, `CityDressingPiece` and `CityFacadesLayer.dressing` (optional, so G2 reads `ground` unchanged) are typed. It changes no number but adds readings (B1, B2, W1, X1, T1, L1, E1, C1, A1, listed in H1b), so the `pipeline-designer`'s pre-check comes before its builder. G2 starts as cut.
 - Questions: Q2, Q3, Q5, Q6, Q8 to Q21 answered; Q7 settled by the rulings; Q1 not yet asked for, L waits for his word; Q4 open.
 branch: one per section, `ticket/070<section>-<slug>` (named in each section), each cut from `goal/city-style`.
 
@@ -191,7 +192,7 @@ Each is one builder session at most. They run in this order:
     - **A4d and A2b (20 Nov 2026)** are held under the same terms. A4d's own gate before its review is `npx tsc --noEmit` plus `npx vitest run --maxWorkers=2 src/city/streets/ src/city/pipeline/ src/city/land/ src/city/mass/` (Edge's tests are expected to fail until D1b). A2b's is `npx tsc --noEmit` plus `npx vitest run --maxWorkers=2 src/render3d/planview.test.ts`. Each is merged into `ticket/070a4-split-plan` once its review settles; D1b then branches after A4d (A2b may still be in flight).
     - **All eight merge together** into `goal/city-style`, in the order A4, A4b, A4c, B3, C3, A4d, A2b, D1b, once the full `npm run gate` is green on `ticket/070a4-split-plan` with all eight in (Q13: "yes"). None of them reaches `goal/city-style` on its own.
 - F1 → F2 → G (all merged) → F3 (no shared file with H1, but **before H1 merges**: F3 is merged into H1's branch before H1's gate; F3 criterion 4)
-- **the H1 pre-check → H1 → (H1b and G2 alongside) → H2 → H3** (20 Nov 2026, H1's re-cut). H1b and G2 each branch from `goal/city-style` once H1 is merged; they share no file. J draws H1b's dressing.
+- **the H1 pre-check → H1 → (H1b and G2 alongside) → H2 → H3** (20 Nov 2026, H1's re-cut). H1b and G2 each branch from `goal/city-style` once H1 is merged; they share no file. J draws H1b's dressing. **(21 Nov 2026, H1b's re-cut)** H1b's pre-check comes before its builder; G2 does not wait for it.
 - I → J → L
 
 H and I can run alongside each other once F2 has merged. Stage 6 (K) is not cut here. **Instancing the stack pieces** (G's ~7.7k building draw calls) is a later ticket, not cut here (Josh, 20 Nov 2026, Q20: "instancing later").
@@ -1193,17 +1194,151 @@ If it does not report "holds", its note goes to Josh before any builder is spawn
 - **Heavy:** the named-run tests build the 10 named cities, both ways, once each, through a module cache, with a 120 s timeout. Criterion 7's report has its own file.
 
 ### H1b · Stage 7, Facades: shopfront dressing (facades, pure). Branch `ticket/070h1b-facades-shopfronts`
-**Branch.** Cut from `goal/city-style` once H1 is merged. It may run alongside G2: they share no file.
+**Branch.** Cut from `goal/city-style` at the commit of this re-cut or later (H1 and F3 are merged). It runs alongside G2: G2 edits only `src/render3d/plan3d.ts` and `plan3d.test.ts`, and H1b edits neither. **The pre-check comes first** (below): no builder is spawned until it reports "holds", or Josh has answered its note.
 
-**Goal.** The pipeline's shops are dressed as `city=tiles`' are: glass, awnings, fascia and blade signs, and ATMs on street frontages; nothing on quiet ones.
+**Goal.** The pipeline's shops are dressed as `city=tiles`' are: glass in every shop that has a glass key, awnings, fascia and blade signs on the street fronts, and ATMs beside street doors; nothing on a quiet front. Nothing changes in 3D until J draws the dressing. The flat picture of the `facades` stage gains the dressing as points.
 
-**First cut (20 Nov 2026, split out of H1).** The architect re-cuts it against H1's merged layer before it starts, as F2 and G were, and types its layer field then (`CityFacadesLayer`'s dressing list, in `src/core/`). Expected content:
-1. [ ] **Moved.** `dressBlock`'s shopfront rules (`SHOP_GLASS`, `AWNINGS` and `AWNING_CORNER`, fascia and blade signs, `ATMS`; `P_AWNING`, `P_SIGN`, `P_BLADE`, `P_ATM`, `ATM_PER_RUN`), as typed-in data, placed on H1's street ground pieces. The re-cut says what `dressBlock`'s "run" and "block" mean on cells.
-2. [ ] **R4, R5 and R6** hold on the named runs, at the tile city's numbers: R4 1; R5 0.55 with no mixed-awning building; R6 `TILE_CITY_R6_MIN` 0.45 (Josh, 18 Nov 2026) and `CITY_ATM_BLOCKS_MIN` 0.15. A ported check keeps its numbers.
-3. [ ] **M8's dressing half.** No glass, awning, fascia sign or ATM on a quiet frontage; on a street corner of a quiet building, only on its street face. Failing fixture: an awning on a ring-2 door.
+**First cut (20 Nov 2026, split out of H1).** Glass, awnings, fascia and blade signs and ATMs (`dressBlock`'s rules); R4 to R6; M8's dressing half. The re-cut below replaces it.
 
-- **Files:** `src/city/facades/`; a render3d pin test of its dressing tables, if it types in measured sizes.
-- J draws its pieces.
+**Re-cut (21 Nov 2026, the lead-architect, against 455db33, on Josh's "Yes, start both").** It reads what is merged:
+- `facades.ground` (H1): each ground piece's `kind`, `building`, `cells`, `frontage` and `placement` (its key, pivot, turn and level `y_m`);
+- `buildings.columns` (F2): each column's `kind`, `front`, `side`, `yaw`, `rowId`, `ground.top_m`, its first piece above the ground (the host of a sign over an awning) and its roof piece (a sign's height cap);
+- `buildings.rows` and `buildings.buildings` (F1): the rows, their buildings in order, and each building's cells;
+- `mass.built` and `mass.cells` (C3): each column's open sides with their `frontage`, and the openings between buildings of a row;
+- the tile city's dressing as `city=tiles` runs it today: `dressBlock` and `dressTown` in `src/render3d/dressing.ts` (the glass, awning, sign and ATM blocks only), R4 to R6 in `src/render3d/citymetrics.ts` (`cityMetrics`' per-block count and `evaluateCity`), and the tile city's floor `TILE_CITY_R6_MIN` (`src/render3d/tilecity.ts`).
+
+The type is written: `CityDressingKind`, `CityDressingPiece` and `CityFacadesLayer.dressing` (`src/core/cityplan.ts`, "stage 7, H1b"), with the block, run, frame and face rules in the comment above them. `dressing` is optional, as `CityEdgeLayer.ground` was, so H1's fixtures and G2's type-check unchanged; from H1b the stage always writes it. `CityFacadesLayer.ground` and `CityGroundPiece` do not change, so G2 reads exactly what it read.
+
+It runs on the 20 named runs (6 x 6 seeds 1 to 10, one-way off and on; `NAMED` in `src/city/facades/testcities.ts`) and pins the four pin cities (6 x 6 seeds 1, 2, 3 and 8, one-way on).
+
+**What `dressBlock`'s words mean on cells.**
+- **B1. A block is a building.** `dressBlock` dresses one stack on one lot: on `city=tiles` that is one packed terrace block, of one style. Its pipeline twin is one `CityBuilding` (2 to 4 columns, or the L). So "one awning key for the block" (and R5's "no mixed-awning building"), "at most one blade sign", "no fascia key twice" and "at most one ATM per block" are per building. The `lot.key` every `dressUnit` call is salted with becomes the building's id, through the stage's own `rand` (R-3; a unit float is `finalise(rand(...)) / 2^32`, a helper the builder adds to `hash.ts`).
+- **A bay** is a street ground piece of the building, in row order: a `shop` or `shopDouble` (`dressBlock`'s "shop"; a `shopDouble` is one bay over two columns and counts against its first), a `shopCorner` ("corner"), and, for the ATM only, a `door` on a street frontage ("door"). A quiet building's pieces are not bays, except a `shopCorner` (D3's strip end), which is a corner bay under X1.
+- **B2. A run is a chain of row neighbours.** On `city=tiles` a terrace run is one street side's row of blocks, and it ends at a plaza, a parking lot or the next corner (`TerraceRun.endAbuts`). Its pipeline twin is a maximal stretch of consecutive buildings of one `CityBuildingRow` with no opening between them (F1's "row neighbours"), taken in the row's `buildings` order. `ATM_PER_RUN` (2) is per run, threaded in that order as `dressTown` threads `RunUsed`. `RunUsed`'s billboard and novelty caps are H3's, not H1b's.
+- **A column's width** (`StackColumn.w`, which bounds what fits in a bay): see W1.
+
+**Which criteria are moves and which are new** (for the pre-check):
+- **Moves, numbers unchanged:**
+  - The keys: `SHOP_GLASS`, `AWNINGS`, `AWNING_CORNER`, `SIGNS_FASCIA`, `SIGNS_BLADE`, `ATMS`. A shop's glass key is its own key plus `_Glass`, where `SHOP_GLASS` has it (`Shop_06` has none).
+  - The chances and caps: `P_AWNING` 0.75, `P_SIGN` 0.6, `P_BLADE` 0.25, `P_ATM` 0.3, `ATM_PER_RUN` 2, `DRESS_PER_BAY_MAX` 6.
+  - The attachment numbers: `GLASS_INSET_M` 0.05, `GLASS_SILL_M` 0.3, `GLASS_WRAP_DEPTH_M` 1, `AWNING_BASE_M` 2.85, `SIGN_BASE_M` 2.85, `AWNING_KERB_M` 0.3, `ATM_Y_M` 0.6, `ATM_PIER_M` 0.35, `BLADE_INSET_M` 0.1.
+  - `dressBlock`'s order and choices, block by block:
+    - glass on every bay that has a glass key;
+    - the block's one awning key: the key of `AWNINGS`, tried in its hashed rotation, that fits the most wanting bays (a bay wants one by `P_AWNING`);
+    - the L awning on a wanting corner bay where it fits, else the block's key;
+    - at most one blade sign, on an awning-less bay, by `P_BLADE`;
+    - a fascia sign on each other bay by `P_SIGN`, no key twice in a block, standing on the awning's top (or the glass's, or `SIGN_BASE_M`);
+    - an ATM beside one door by `P_ATM`, its side by hash, under `ATM_PER_RUN`.
+  - `onFace`'s rule: a front-face piece's back lies on the front face (bounds) of the piece behind it at its base height (`hostAt`: the ground piece below `top_m`, the first floor piece from `top_m` up). It is centred on its bay and clamped inside it. A piece wider than its bay, or a sign whose top would pass its column's roof, is not placed. Glass: its back `GLASS_INSET_M` inside the shop's front face; a wrap pane (deeper than `GLASS_WRAP_DEPTH_M`) is centred on the corner shop's footprint.
+  - R4 at `CITY_CHECK.R4` 1; R5 at `CITY_CHECK.R5` 0.55 with no mixed-awning building; R6 at `TILE_CITY_R6_MIN` 0.45 (Josh, 18 Nov 2026: "Lower it to 0.45 (Recommended)") and `CITY_ATM_BLOCKS_MIN` 0.15. Each is counted as `cityMetrics` counts it, over street frontages only, as the grammar's rule 9 says ("R3 to R6 keep their thresholds and count street frontages only").
+  - M8's dressing half (grammar rule 9: "No shop, glass, awning, fascia sign or ATM stands on a quiet frontage").
+- **New or changed (the architect's readings, for the pre-check to measure and Josh to see):**
+  - **B1 and B2** above: the two words on cells.
+  - **W1. A column's width is its first floor piece's bounds width**, as `assembleStack` lays its columns (`floorMid.w`, or the corner floor's on a corner), centred on its cell. A bay spans its columns so measured (a `shopDouble`: its first column's left to its second's right).
+    - This ports what fits unchanged: `Shop_Cover_04` (5.104 m) fits a style 2 or 3 bay, and the L awning (5.394 m) only a style 3 corner (5.491 m), as on `city=tiles`.
+    - But the pipeline's columns stand 5.00 m apart, not their bounds' width apart. So two neighbouring bays' spans overlap by half of each width's excess over 5.00 m (0.39 m between a style 3 corner and its mid neighbour), and two neighbouring pieces may too.
+    - The other reading, **W2**, spans each column on its cell's edges (5.00 m): no overlap, but `Shop_Cover_04` and the L awning never fit, and every corner shop takes a flat awning. The pre-check measures both.
+  - **X1. Mixed corners** (M8's corner exception). A shop corner may have one street and one quiet open side: a lane, drive or walk-through beside it, or, on a quiet building, D3's strip end. The ticket's M8 row excepts "a corner whose other side is street" for pieces and dressing; the first cut said "only on its street face". X1 reads it so:
+    - a **wrap** (the corner's own glass, `Shop_Corner_0n_Glass`, and the L awning) stands on both faces, as the shop corner piece itself does under H1's M8 exception: it is one piece and cannot be split;
+    - a **single-face piece** (a flat awning, a fascia or blade sign) stands only on its column's front (the piece's own +z, rule 7's forced turn), and only where that front is a street side. A corner whose front is quiet gets none: nothing is turned onto its other face. The bay still counts in R5 and R6.
+    - The other reading, **X2**, the first cut's, puts nothing on a quiet face: no glass and no L awning on a mixed corner, and R4 then counts those corners out. The pre-check counts the mixed corners, both ways.
+  - **T1. Dressing is not trim.** The grammar's rule 2 names awnings and signs as trim that "may reach up to `OVERLAP_MAX_M` (0.6 m)". Its rule 9 keeps "16.5 unchanged" on street fronts, where an awning reaches up to 3.5 m over the pavement and stops `AWNING_KERB_M` short of the kerb. The two disagree. T1 reads rule 2's trim as a piece's own model beyond its body (cornices, sills, the shops' fascias), and holds the dressing to 16.5's reach:
+    - a front-face piece's outer face at most `CELL_M` (the 5 m pavement band; the tile city's run frame `{ wall_m: 0, kerb_m: 5 }`) past its column's front cell edge;
+    - an awning's at most `CELL_M` - `AWNING_KERB_M`.
+    - The stage reads no edge layer for it (H1's R-1 grep test stands), so the reach is the same on a street, a park edge and a plaza.
+  - **L1. The dressing rides with its ground piece.** Every piece is worked out with the ground piece's base at 0 (`dressBlock`'s frame), then raised by the ground piece's `y_m` (S1: 0, or a few centimetres under it), as 062 B's `liftDressing` raised the dressing of a lifted ground piece. A sign over an awning is still hosted on the first floor piece, whose face does not move.
+  - **E1. No fire escape yet.** `dressBlock` decides the escape first and keeps its column plain (no awning, no sign). Escapes are H2's, after H1b. So H1b dresses every bay as plain, and H2's re-cut says how its escape column and H1b's dressing meet (H2 runs in the same stage and may order the two; R5 and R6 are then measured again).
+  - **C1. `DRESS_MAX` is not applied.** `dressTown` stops dressing a town past 6,000 pieces. H1b places only ground dressing; the cap is a whole-town budget for H3 (roof props) and J to settle. The report gives each run's count beside it.
+  - **A1. R6's ATM share is counted over street buildings** (a building whose frontage, D3, is street), the grammar's "count street frontages only". On `city=tiles` every block faced a road, so its count was all blocks. A quiet building has no street door and may carry no ATM (M8).
+
+**Pre-check first** (CLAUDE.md: this section adds readings). Before the builder starts, the `pipeline-designer` ("pre-check 070 H1b", on `goal/city-style` at this commit) measures on the 20 named runs, with a probe outside the repo and the fixture bounds of `src/render3d/dressing.test.ts`:
+- R4, R5 (with the mixed-awning count) and R6 (the signed share and the ATM share), with W1 and X1 as written, then with W2 and with X2 in turn;
+- the overlaps W1 makes: pairs of dressing pieces of neighbouring columns whose plan boxes overlap, and by how much;
+- the mixed corners (X1): how many, how many have a quiet front, and what X2 would take off R4;
+- the furthest reach of any piece past its cell edge (T1), by key;
+- pieces per run by kind and in all, against `DRESS_MAX` (C1);
+- the ATM share over street buildings and over all buildings (A1), and the runs (B2) that reach `ATM_PER_RUN`.
+
+If it does not report "holds", its note goes to Josh before any builder is spawned. The architect re-cuts on his answer.
+
+0. [ ] **First, by the lead-architect (done with this re-cut, on `goal/city-style`):** `CityDressingKind`, `CityDressingPiece` and `CityFacadesLayer.dressing` in `src/core/cityplan.ts`. No reader changes.
+1. [ ] **The dressing table** (R-6). Typed-in data in the folder (a new `dresskit.ts`):
+   - the six key lists and every number listed under "Moves" above, as copies;
+   - each dressing key's bounds (w, h, d, metres; the 22 keys of the six lists), as `src/render3d/dressing.test.ts`'s fixture has them;
+   - for the hosts: each first floor key's bounds width (W1) and front inset (`BODY_M`'s `front`), for the nine keys of `FIRST_FLOOR_SILL_M`. The ground pieces' own come from H1's `GROUND_KIT`.
+
+   New `src/render3d/shopfrontpin.test.ts`:
+   - **Always (no GLB):**
+     - each key list equals `dressing.ts`' list;
+     - each number equals `dressing.ts`'; `CITY_CHECK.R4`, `CITY_CHECK.R5`, `CITY_ATM_BLOCKS_MIN` and `TILE_CITY_R6_MIN` equal the old path's;
+     - each host width and front inset equals the floor piece's `BODY_M` entry and its bounds in the old path's tables;
+     - `DRESS_NUDGE_M` and `DRESS_FRONTS` are empty and `BUILDING_FRONTS` names none of the 22 keys, so every key's own front is +z (the turn rule in `cityplan.ts`).
+   - **Inside `it.skipIf(!HAVE_GLB)`**, read lazily as `groundpin.test.ts` does: every dressing key's bounds equal the converted GLB's within 0.005 m.
+2. [ ] **The dressing** (B1, B2, W1, X1, T1, L1, E1, A1; Vitest, on the 20 named runs). The stage writes `facades.dressing`, in the order `cityplan.ts` gives, after `ground`:
+   - every shop bay whose key has a glass key has exactly that glass, and no other piece has glass;
+   - every building's flat awnings are of one key of `AWNINGS`; an L awning stands only on a corner bay;
+   - a building has at most one blade sign, never on a bay with an awning; no fascia key twice in a building; no bay has two signs;
+   - an ATM stands only beside a `door` on a street frontage: one at most per building, `ATM_PER_RUN` at most per run (B2);
+   - every choice is the stage's `rand` (R-3), salted with the building's id where `dressBlock` salts with `lot.key`; the same city twice gives the same layer;
+   - `ground` is exactly H1's: on the four pin cities, `digestOf({ stage: "facades", ground })` equals H1's pinned facades digest.
+3. [ ] **Placements** (`onFace`, the glass and the wraps, ported; W1, T1, L1). From the tables only:
+   - in the host column's own frame, then turned by its `yaw` about the cell and raised by the ground piece's `y_m`; no scale;
+   - a front-face piece's back plane on its host's bounds front within 1e-6 m (glass: `GLASS_INSET_M` inside it), centred on its bay across and clamped inside the bay's span (W1);
+   - a wrap's pivot on its corner shop's pivot;
+   - no piece's outer face more than `CELL_M` past the front cell edge, and no awning's more than `CELL_M` - `AWNING_KERB_M` (T1); no sign's top over its column's roof piece's `y_m`.
+   - A test checks hand-worked placements, each pivot computed by hand from the bounds and insets:
+     - a `Shop_01_Glass` and a `Shop_Cover_03` on a `Shop_01`, at two turns;
+     - a fascia sign on an awning's top (hosted on the first floor);
+     - a blade sign on an awning-less bay;
+     - an ATM beside a `Door_01`, on each side;
+     - a `Shop_Corner_01_Glass` wrap at each of the four turns;
+     - one piece on a ground piece at `y_m` -0.071 (L1).
+4. [ ] **The checks** (Vitest, on the 20 named runs). Each is a function of the layer, `buildings` and `mass`, run by the stage before it returns; a failure names the check and the cells. **Stop rule:** if one fails on a named run, the builder stops and reports (R-2). It does not loosen a rule.
+   - **R4:** every shop bay whose key has a glass key carries it; the share is 1.
+   - **R5:** the share of shop bays (`shop`, `shopDouble`, `shopCorner`, each once) with an awning of `AWNINGS` or `AWNING_CORNER` on its column is at least 0.55; no building has two keys of `AWNINGS`.
+   - **R6:** the share of shop bays with a sign (fascia or blade) on its column is at least `TILE_CITY_R6_MIN` 0.45; the share of street buildings with an ATM is at least `CITY_ATM_BLOCKS_MIN` 0.15 (A1).
+   - **M8, the dressing:** no piece on a column with no street open side; every single-face piece's `face` is its column's `front` and a street side; a wrap only on a `shopCorner` (X1).
+   - **The caps:** at most `DRESS_PER_BAY_MAX` pieces a column; one ATM a building and `ATM_PER_RUN` a run; one blade sign a building.
+   - **Attachment:** criterion 3's planes, reach and roof cap, as a check.
+   - **Failing fixtures.** Each is built from the default city's layer (6 x 6 seed 1, one-way on), typed in from the run in the test (not pinned by hash), with one thing changed:
+     - an awning on a ring-2 building's door fails M8 (the first cut's fixture);
+     - a fascia sign on a quiet building's mid column fails M8;
+     - an ATM beside a quiet building's door fails M8;
+     - a flat awning on a mixed corner whose front is quiet fails M8 (X1; with one corner's open side set to `lane` in the fixture's mass if the default city has no such corner);
+     - one shop's glass removed fails R4;
+     - one building's second awning changed to another key of `AWNINGS` fails R5;
+     - every awning removed fails R5's share; every sign removed fails R6's; every ATM removed fails R6's ATM share;
+     - a third ATM on a run that has two fails the run cap; a second ATM on one building fails the building cap;
+     - an awning moved 0.6 m further out fails the reach (T1); a sign moved 0.1 m off its host's face fails attachment.
+5. [ ] **The picture** (R-5). The facades picture's cells are H1's, unchanged. It gains points: one per awning, fascia sign, blade sign and ATM (legend entries "awning", "fascia sign", "blade sign", "ATM"), at the piece's `x_m`, `z_m`; glass has no point. The R-5 test, as H1's, also checks that every point's legend matches its piece.
+6. [ ] **R-1 to R-7 for `facades`** (Vitest).
+   - The stage still reads only `mass`, `buildings`, and the streets' `w` and `h`; H1's grep test stands unedited and covers the new files.
+   - R-4: the facades digest is re-pinned on the four pin cities. It changes, because `dressing` is new; criterion 2 holds that `ground` did not. The streets, land, mass, edge and buildings digests are unchanged, and the test double still leaves them equal.
+   - R-7: 6 x 6 seed 1 ends `ok`.
+7. [ ] **The numbers** (reported, not asserted; a new `dressreport.test.ts`). For each of the 20 named runs:
+   - shop bays; R4, R5 and R6's shares and the ATM share;
+   - pieces by kind and by key; awning keys per building;
+   - L awnings placed, and corner bays that fell back to a flat key;
+   - mixed corners, and those with a quiet front (X1);
+   - overlapping neighbour pairs and the largest overlap (W1);
+   - the furthest reach, by key (T1);
+   - runs, and the runs at `ATM_PER_RUN` (B2);
+   - dressing pieces in all, against `DRESS_MAX` (C1).
+
+   For the outside cities that reach stage 7: whether it is ok, and its failure if not.
+8. [ ] (Main session, phone-sized screenshot) `?view=3d&city=plan&stage=facades` shows the picture with the dressing points along the street fronts and none on courts or lanes. `?view=3d&city=tiles` looks as on `goal/city-style`.
+9. [ ] R-8 to R-11. The builder runs these tests only: `npx vitest run --maxWorkers=2 src/city/facades/stage.test.ts src/city/facades/place.test.ts src/city/facades/fixtures.test.ts src/city/facades/report.test.ts src/city/facades/dress.test.ts src/city/facades/dressfixtures.test.ts src/city/facades/dressreport.test.ts src/city/pipeline/run.test.ts src/render3d/shopfrontpin.test.ts src/render3d/groundpin.test.ts src/render3d/planview.test.ts`, and one `npx tsc --noEmit`. Not `plan3d.test.ts` (G2's, in flight). The main session's gate is the full `npm run gate`.
+
+- **Files:** `src/city/facades/`: new `dresskit.ts`, `dress.ts`, `dresscheck.ts`, `dress.test.ts`, `dressfixtures.test.ts`, `dressreport.test.ts`; edits to `stage.ts` (write `dressing`, run its checks, the picture's points), `stage.test.ts` (the re-pin, the picture), `hash.ts` (the unit float) and `index.ts`. New `src/render3d/shopfrontpin.test.ts` (the one render3d file it adds).
+- **Must not:**
+  - `src/core/` (criterion 0 is the architect's);
+  - every other `src/city/` folder, and `src/city/stages.ts` (the facades stage is already in `BUILT_STAGES`);
+  - `src/city/pipeline/` (`run.test.ts` is run, not edited);
+  - `src/render3d/plan3d.ts` and `plan3d.test.ts` (G2's, in flight); `groundpin.test.ts` (H1's: run, not edited); every other `src/render3d/` file (`dressing.ts`, `citymetrics.ts`, `tilecity.ts`, `models3d.ts` and their tests are read only);
+  - H1's ground pieces: H1b adds `dressing` and changes nothing in `ground` (criterion 2).
+- **Interfaces:** criterion 0. J reads `facades.dressing` (each piece's `placement`); H2's re-cut reads it for E1. G2 reads nothing new. No new dependency.
+- **Adds readings; changes no number.** Every key list, chance, cap and threshold is the tile city's, copied and pinned. B1, B2, W1, X1, T1, L1, E1, C1 and A1 are the architect's readings of where `dressBlock`'s words fall on cells. X1 reads M8's corner exception for dressing, T1 settles a disagreement between the grammar's rules 2 and 9, and A1 scopes R6's ATM count as rule 9 says. So the pre-check comes first.
+- **Heavy:** the named-run tests build the 10 named cities, both ways, once each, through `testcities.ts`' module cache, with a 120 s timeout. Criterion 7's report has its own file.
 
 ### G2 · Assemble: ground storeys drawn (renderer). Branch `ticket/070g2-plan3d-ground`
 **Branch.** Cut from `goal/city-style` once H1 is merged (every ground slot has a `CityGroundPiece`). It may run alongside H1b.
@@ -1251,7 +1386,7 @@ G2 only draws. It adds no rule, check or number, so it skips the pre-check (CLAU
 - **Heavy:** as G: the named runs are built once each through the module cache, and the Three.js groups are built on five cities only.
 
 ### H2 · Stage 7, Facades: fire escapes, party walls, wall props (facades, pure). Branch `ticket/070h2-facades-walls`
-1. [ ] **Fire escapes.** `planEscape`, `storeysOfColumn`, `sillOf` and 058 and 061's ranking, moved. Escapes on quiet faces are extra and do not count toward R7.
+1. [ ] **Fire escapes.** `planEscape`, `storeysOfColumn`, `sillOf` and 058 and 061's ranking, moved. Escapes on quiet faces are extra and do not count toward R7. **(21 Nov 2026, H1b's re-cut, E1)** `dressBlock` keeps an escape's column plain (no awning, no sign); H1b dresses every bay as plain, so H2's re-cut says how its escape columns and `facades.dressing` meet, and R5 and R6 are measured again.
 2. [ ] **Party walls** (rule 8, Josh: "Yes, dress it"). Every party-wall storey face above a lower roof carries a board, pipe run or window, by hash, with no key twice running. `SM_Prop_Pipe_Present_*` is allowed only there. No fire escape stands on a party wall.
    - **(20 Nov 2026, Q20, U1: "Yes to all")** A blind column's windowed front above a lower roof in front of it counts as dressed: it is not a party wall, and M7 asks no kit piece of it (`docs/design/070-F2-precheck.md`, section 5).
 3. [ ] **Wall props** (air-conditioners, planters, canopies; 066 criterion 3's quiet list).
@@ -1354,7 +1489,7 @@ These five do not exist. The main session writes each `.claude/agents/<name>.md`
   - the `streets`, `land` and `mass` layer types in full;
   - stubs for `edge`, `buildings`, `circuit`, `facades` and `ground`;
   - `CityLayers`, `CityPlan`, `CityDigest`, `CityStageFailure`, `CityPlanRun`, `CityPicture`.
-- **Typed by the architect before their sections start:** `CityEdgeLayer` (written 20 Nov 2026 with D1's re-cut: dressed cells, kerb cuts, tiles, bays, build-out trees, per-block shortfall, and `CityGroundCell`, the same shape as `TileCell`, for D2 to fill; the kerb line is typed before D2), `CityBuildingsLayer` (written 20 Nov 2026 with F1's re-cut: rows and buildings, with style, colourway, storeys, partner and back; F2's columns, ground slots, pieces and roofs written 20 Nov 2026 with F2's re-cut: `CityColumn`, `CityGroundSlot`, `CityPiece`, `CityPieceRole`, `CityBuildingsLayer.columns`), `CityFacadesLayer` (written 20 Nov 2026 with H1's re-cut: `ground`, `CityGroundPiece`, `CityGroundPieceKind`; H1b's dressing field at H1b's re-cut), `CityGroundLayer` (before I), and `CityCircuitLayer` (at 059's re-cut).
+- **Typed by the architect before their sections start:** `CityEdgeLayer` (written 20 Nov 2026 with D1's re-cut: dressed cells, kerb cuts, tiles, bays, build-out trees, per-block shortfall, and `CityGroundCell`, the same shape as `TileCell`, for D2 to fill; the kerb line is typed before D2), `CityBuildingsLayer` (written 20 Nov 2026 with F1's re-cut: rows and buildings, with style, colourway, storeys, partner and back; F2's columns, ground slots, pieces and roofs written 20 Nov 2026 with F2's re-cut: `CityColumn`, `CityGroundSlot`, `CityPiece`, `CityPieceRole`, `CityBuildingsLayer.columns`), `CityFacadesLayer` (written 20 Nov 2026 with H1's re-cut: `ground`, `CityGroundPiece`, `CityGroundPieceKind`; H1b's `dressing`, `CityDressingPiece` and `CityDressingKind` written 21 Nov 2026 with H1b's re-cut), `CityGroundLayer` (before I), and `CityCircuitLayer` (at 059's re-cut).
 - **Typed 20 Nov 2026 for A4** (standalone until A4's criterion 0 wires them into `CityStreetsLayer`): `CitySpan`, `CityJunctionKind`, `CityStreetEnd`, `CityPlanStreet`, `CityJunction`, `CityBlockAcross`, `CityJunctionFacing`, `CityBlockSide`, `CityPlanBlock`, `CityOutline`, `CityStreetsLayerA4`. On the split plan `bi`, `bj` are ranks and a street's `line` an ordinal, never grid coordinates; B3, C3 and D1b replace every read of them.
 - **Typed 20 Nov 2026 for A4b** (standalone until A4b's criterion 0 folds them into `CityPlanStreet` and `CityStreetsLayer`): `CityStreetSection`, `CityStreetFlow`, `CityStreetTraffic`, `CityStreetArrow`, `CityPlanStreetA4b`, `CityStreetsLayerA4b`. E reads `arrows`; K (cars, later) reads `flow`.
 - **In `src/city/pipeline/`** (planner, A1):
