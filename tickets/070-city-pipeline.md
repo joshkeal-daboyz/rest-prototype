@@ -29,7 +29,8 @@ status: approved; section A1 merged 19 Nov 2026 (6eb4d26) (G1, Josh, 19 Nov 2026
 - **H2 pre-check: seven readings need Josh's word; he answered; H2 and H2b re-cut** (21 Nov 2026, Q23). The note (`docs/design/070-H2-precheck.md`) found every check holding on 20 of 20 runs at the 0.4 escape share, but EP, EX, ET, RQ, WP3 and PW3 add or change a rule and PW4 needed a number. Asked its seven questions as recommended, Josh answered: "Yes, 2.1m". So EP, EX, ET, RQ (with no pair-drop rule), WP3 and PW3 stand as written and quote him; the escape share stays 0.4; the R6 watch run is 6 x 6 seed 3 one-way on (0.474), not seed 3 off; `BLANK_RUN_MAX_M` is 2.1 m, Decided; the window's and pipes' bounds come from the note; H2b's stretch fixture becomes two windows pushed to one end; `SM_Prop_Pipe_Present_01` is never used. L gains rule 8's lines. H2's builder may start; H2b's starts after H2 merges.
 - **H2b stopped on its stop rule; H2's checks read H2's kinds; H2b re-cut** (21 Nov 2026, the lead-architect, against 150ab12 on `ticket/070h2b-facades-party-walls`). H2b's criterion 3 appends the party pieces to `facades.walls`, and H2's merged checks read the whole list: `wallcheck.ts` fails any kind H2 does not place, and `escape.test.ts`' per-column cap test counts every non-escape wall piece. The builder worked round it in `stage.ts` (H2's check on H2's pieces only) and stopped. Re-cut (PW7, criterion 4b): H2's check and report skip H2b's three kinds in one place (`wallcheck.ts`), `stage.ts` goes back to one `wallFailures` call on the whole layer, and the cap test counts H2's kinds only. `DRESS_PER_BAY_MAX` (6) does not count party-wall pieces: a counting scope the style guide and rule 8 settle (PW7), not a change to the number or to a rule, so not a question for Josh. `wallcheck.ts` and `escape.test.ts` leave H2b's must-not list for those lines only.
 - **H3 pre-check: Josh answered; H3 re-cut; H1c first cut** (21 Nov 2026, Q24, the lead-architect, against f9c8ade). The note (`docs/design/070-H3-precheck.md`) found R8, M9b, the deck, the roofs and the cap holding on 20 of 20 runs, with RT, BB and RN needing Josh's word. Asked its five questions as recommended, Josh answered: "Yes to all except novelty signs. They can be placed on the face of a build in addition to the roof. They represent the store in the storefront. A pizza should correspond with a pizza shop and a beer bottle, for example, should correspond with a liquor store or a corner store." So `ROOF_DECK_M` is 0.5 on all six roof keys, typed and pinned to the GLB (RT); the billboard stands 0.28 m from the roof's edge (BB) and criterion 2 expects street billboards; HC, RC, RK and RW stand as written and quote him; `DRESS_MAX` is left off on the pipeline and J checks the frame rate. **H3 places no novelty sign** (NV): the rotation is water tower, exit and billboard on every building, and R8 holds without them (NV's reasoning on the note's numbers; criterion 8 confirms). Novelty signs, each standing for the shop under it, on the face or the roof, are the new section **H1c** (facades), first cut only. Josh added: "Perhaps novelty signs should be placed alongside the shop fronts instead of the decoration phase? I'm not sure which makes more sense." and "A novelty sign doesn't always have to be placed with a shop either. It's an added detail. That's fun. It should be placed per the discretion of the storefront agent." H1c is framed as shopfront work, recommended, not his ruling. H1c starts only after H3 merges and its own pre-check is answered. H3's builder may start.
-- Questions: Q2, Q3, Q5, Q6, Q8 to Q24 answered; Q7 settled by the rulings; Q1 not yet asked for, L waits for his word; Q4 open.
+- **H3 merged (194643e); H3b first cut: the water-tower cap** (21 Nov 2026, the lead-architect). On H3's 20 named runs there are 5,108 water towers (about 255 a city, 1 building in 4). Josh said: "Create a rule where there can only be so many water towers per city blocks", then: "Fine. You get one water tower per x amount of buildings. I don't want to see water towers across the entire city because they just fit". New section **H3b** (facades), first cut only: at most one tower per X buildings, with X Josh's and not set here; the recommended reading counts per street-bounded block (`CityBuilding.block`), floor(n / X). On H3's rotation a refused tower almost always becomes a roof exit, so R8 holds at any X. The pre-check measures that, the spread, and the plain-roof alternative. Order: H3b's pre-check, Josh's answers (Q25), its re-cut and its builder, all before H1c's pre-check. No `src/core/` type changes.
+- Questions: Q2, Q3, Q5, Q6, Q8 to Q24 answered; Q7 settled by the rulings; Q1 not yet asked for, L waits for his word; Q4 open; Q25 (H3b) to be asked with its pre-check note.
 branch: one per section, `ticket/070<section>-<slug>` (named in each section), each cut from `goal/city-style`.
 
 ## Josh's words (19 Nov 2026, in chat)
@@ -168,6 +169,7 @@ A check runs in the stage whose layer it judges. It may read earlier layers. Thr
 | M7 | no bare party wall above a lower roof; the pipe runs only on party walls (Josh: "Yes, dress it") | 7 facades | H2b (21 Nov 2026, H2's split) |
 | R8 | roofs dressed; big roof props | 7 facades | H3 |
 | M9b (063 G criterion 40) | the roof exit stands on its roof, its door away from every open side, with clear deck | 7 facades | H3 |
+| water-tower cap (Josh, 21 Nov 2026: "You get one water tower per x amount of buildings") | at most one water tower per X buildings (X Josh's; counted as Q25 settles) | 7 facades | H3b |
 | R10 | street furniture pitch, corners, keep-outs | 8 ground | I |
 | R12 | no never-used key anywhere in the plan; no emissive dressing | 9 assemble (whole-plan audit) | J |
 | draw-call caps | tile, dressing and furniture caps unchanged | 9 assemble | G, J |
@@ -197,7 +199,7 @@ Each is one builder session at most. They run in this order:
     - **A4d and A2b (20 Nov 2026)** are held under the same terms. A4d's own gate before its review is `npx tsc --noEmit` plus `npx vitest run --maxWorkers=2 src/city/streets/ src/city/pipeline/ src/city/land/ src/city/mass/` (Edge's tests are expected to fail until D1b). A2b's is `npx tsc --noEmit` plus `npx vitest run --maxWorkers=2 src/render3d/planview.test.ts`. Each is merged into `ticket/070a4-split-plan` once its review settles; D1b then branches after A4d (A2b may still be in flight).
     - **All eight merge together** into `goal/city-style`, in the order A4, A4b, A4c, B3, C3, A4d, A2b, D1b, once the full `npm run gate` is green on `ticket/070a4-split-plan` with all eight in (Q13: "yes"). None of them reaches `goal/city-style` on its own.
 - F1 → F2 → G (all merged) → F3 (no shared file with H1, but **before H1 merges**: F3 is merged into H1's branch before H1's gate; F3 criterion 4)
-- **the H1 pre-check → H1 → (H1b and G2 alongside) → H2 → H3** (20 Nov 2026, H1's re-cut). H1b and G2 each branch from `goal/city-style` once H1 is merged; they share no file. J draws H1b's dressing. **(21 Nov 2026, H1b's re-cut)** H1b's pre-check comes before its builder; G2 does not wait for it. **(21 Nov 2026, H2's re-cut)** H2 is split: the H2 pre-check (one for H2 and H2b) → H2 → H2b → H3. H2b branches once H2 is merged (they share `stage.ts`, `stage.test.ts` and the digest pins). **(21 Nov 2026, Q24)** H3 → the H1c pre-check → Josh's answers → H1c's re-cut → H1c. H1c branches once H3 is merged (they share `stage.ts`, `stage.test.ts`, the digest pins and `roofs`).
+- **the H1 pre-check → H1 → (H1b and G2 alongside) → H2 → H3** (20 Nov 2026, H1's re-cut). H1b and G2 each branch from `goal/city-style` once H1 is merged; they share no file. J draws H1b's dressing. **(21 Nov 2026, H1b's re-cut)** H1b's pre-check comes before its builder; G2 does not wait for it. **(21 Nov 2026, H2's re-cut)** H2 is split: the H2 pre-check (one for H2 and H2b) → H2 → H2b → H3. H2b branches once H2 is merged (they share `stage.ts`, `stage.test.ts` and the digest pins). **(21 Nov 2026, Q24)** H3 → the H1c pre-check → Josh's answers → H1c's re-cut → H1c. H1c branches once H3 is merged (they share `stage.ts`, `stage.test.ts`, the digest pins and `roofs`). **(21 Nov 2026, H3b's first cut)** H3 (merged, 194643e) → the H3b pre-check → Josh's answers (Q25) → H3b's re-cut → H3b → the H1c pre-check → and on as above. H3b branches from `goal/city-style`. H1c's pre-check runs once H3b is merged (they share `roofs.ts`, `roofcheck.ts`, the roof tests and the digest pins).
 - I → J → L
 
 H and I can run alongside each other once F2 has merged. Stage 6 (K) is not cut here. **Instancing the stack pieces** (G's ~7.7k building draw calls) is a later ticket, not cut here (Josh, 20 Nov 2026, Q20: "instancing later").
@@ -1744,8 +1746,99 @@ It runs on the 20 named runs (6 x 6 seeds 1 to 10, one-way off and on; `NAMED` i
 9. **RB and RN.** Novelty signs per run by where (street front, quiet front, blind column); billboards that RB would keep off quiet fronts and blind columns if BB did not hold.
 10. **The totals.** Roof pieces per run by kind, and with H1b's dressing and H2's and H2b's walls against `DRESS_MAX` (C1), for J.
 
+### H3b · Stage 7, Facades: the water-tower cap (facades, pure). Branch `ticket/070h3b-facades-tower-cap`
+**First cut (21 Nov 2026, the lead-architect, on `goal/city-style` after H3's merge, 194643e), like H1c's: it says what the section is for, how H3's merged code reacts, and what the pre-check must measure; not yet the builder's criteria in full.** It adds a rule and needs Josh's number, so the `pipeline-designer`'s pre-check comes first, then Josh's answers, then the architect's re-cut, then the builder. **It goes before H1c's pre-check**: H1c's roof sign takes the place of a building's big prop, so H1c measures on the capped rotation.
+
+**Josh's words (21 Nov 2026, in chat).** "Create a rule where there can only be so many water towers per city blocks", then: "Fine. You get one water tower per x amount of buildings. I don't want to see water towers across the entire city because they just fit".
+
+**Goal.** Water towers are a landmark, not a filler. A city has at most one water tower for every X buildings, spread over the city, so no part of it is a field of towers. Nothing changes in 3D until J draws the roofs; the facades picture's "big roof prop" points thin out.
+
+**Why it is needed.** On H3's 20 named runs there are 5,108 water towers, about 255 a city, roughly 1 building in 4 (about 950 buildings a city). The tower comes first in one of H3's three hashed kind orders and second, after a billboard that RB or the run's cap often refuses, in another. It also fits every mid and blind deck (2.420 x 2.419 m on 4.40 m). So it is placed "because it just fits", as Josh says.
+
+**X is Josh's.** The number is not set in this cut. At the re-cut it is typed in `roofkit.ts` as `WATER_TOWER_PER_BUILDINGS`, with Josh's word, and pinned by `roofpin.test.ts` naming his answer. The pre-check measures X = 8, 12, 16 and 24 for him to choose from.
+
+**TX. How "one per X buildings" is counted** (the architect's readings; Josh's choice, question 1 below):
+- **(a) Per street-bounded block (recommended).** Each block of stage 1 holds at most floor(n / X) water towers. The block is `CityBuilding.block`, "block:<bi>:<bj>"; no new type, since every building already carries it. n is the number of that block's `CityBuilding`s: both rings, street and quiet fronts; a park block has none.
+  - This is his first message ("per city blocks") with his second's measure ("one per x amount of buildings").
+  - It spreads the towers by construction: no block can be crowded with them, which is "I don't want to see water towers across the entire city".
+  - A block of fewer than X buildings has no tower. Rounding up instead (at least one a block) would put a tower on nearly every block, which is the look he rejects. So floor, not round or ceiling.
+- **(b) Per city.** The city holds at most floor(N / X) towers, N its buildings. Simplest, but it says nothing about where they stand: a city cap alone may leave clumps, so it needs TS below to spread them.
+- **(c) Per B2 run** (H1b's chain of row neighbours, what R8's second number counts). Not recommended. Runs are short: 140 to 245 of a city's 398 to 538 runs are one building long (the H3 note). So at X of 8 or more, floor(n / X) is 0 on nearly every run, which is "no towers", not "one per X".
+- **Not per part or per row** (`CityLandPart`, `CityBuildingRow`): no word of Josh's points at them.
+
+**TS. Which buildings keep their tower** (the architect's reading; measured by the pre-check, not a question unless it clumps).
+- H3 places big props building by building in `buildings.buildings` order. A first-come cap would give each block's towers to its first-listed buildings: one row, often one corner of the block.
+- Instead, where a block (or the city, under (b)) would hold more towers than its cap, the towers kept are those of its buildings ranked first by the stage's `rand("roof", "tower", <block id>, building id)` (R-3).
+- As many are kept as the cap allows. Where H3 would have placed fewer than the cap, all of them are kept.
+- The others are re-chosen with the tower refused (next paragraph).
+- The pre-check reports whether the hashed pick leaves clumps. If it does, a spacing rule is a question for Josh, not the builder's call.
+
+**What a refused roof gets, on H3's merged code** (`buildRoofs` in `src/city/facades/roofs.ts`, at 194643e). The cap is one more refusal in the kind loop, like the run's billboard cap (`billboardRunCap`: `continue` to the next kind). The kind order is `rotated(["tower", "exit", "billboard"], ...)`, so it is one of three orders:
+- **tower, exit, billboard:** the refused tower falls to the **roof exit**.
+- **billboard, tower, exit:** the billboard was tried first and refused (or the tower would never have been reached), so the refused tower falls to the **roof exit**.
+- **exit, billboard, tower:** the tower is reached only when the exit and the billboard both failed. Then the building has **no big prop**. Every one of its columns, the would-be tower's included, takes small props by `P_ROOF_SMALL`, as any column without the big prop does.
+
+The exit fits every mid and blind deck H3 met (the H3 note: 0 exit fall-throughs; RC turned 1 away in 20 runs). So **on H3's rotation nearly every refused tower becomes a roof exit.** Almost none becomes a billboard, because the exit comes before it in both orders that reach the tower first. Almost none is left with small props only.
+
+At X = 16, for example, about 200 towers a city would become about 200 more exits, taking the city to several hundred exits. The pre-check counts this, because "exits across the entire city" may be what Josh sees next. That is question 3 below.
+
+**What it does to R8's second number.** That number is the share of B2 runs with a big prop: floor `BIG_ROOF_RUNS_MIN` 0.5; lowest on H3 0.652, on 6 x 6 seed 10 one-way on.
+- **On H3's rotation: unchanged at every X**, by the architect's reading.
+  - A building that drew `P_ROOF_LARGE` keeps a big prop (the exit instead of the tower), and the second number counts runs with any big prop.
+  - R8's first number (buildings with any roof piece) is unchanged too.
+  - So under the rotation no X is too small for R8, not even "no towers at all". The pre-check confirms it, run by run.
+- **If Josh wants the freed roofs plain** (small props only, the other answer to question 3):
+  - Every run whose only big prop was a tower loses its big prop. Towers are over half of H3's big props, so with few towers the second number would fall far below 0.652, and likely below 0.5.
+  - There is then a lowest X that keeps 0.5, and the pre-check finds it.
+  - **R8's 0.5 is never lowered** (R-2): under that answer, no X below that lowest is built.
+
+**RX's latent mismatch becomes likely.**
+- H3's reviewer found a mismatch (`reviews/070h3-facades-roofs.md`, the RX note). `roofcheck.ts` fails an exit on a mid column whenever its building has a blind column whose deck fits it. But `buildRoofs` also moves on from a blind column when the cap (RC) turns the exit away there.
+- It never happened on the 20 named runs with about 1,600 exits. With several thousand more exits it may. The pre-check counts the cases.
+- If any occurs on a named run, H3b's re-cut changes the check to read "holds it" as the choice does: the blind column's deck fits the exit **and** the column has room under `DRESS_PER_BAY_MAX`.
+- That change is in `roofcheck.ts`, by the same owner, with a failing fixture. It corrects H3's check to H3's ruled rules (RX, RC); it is not a new rule.
+
+**Files (as first cut; the re-cut confirms).**
+- `src/city/facades/`:
+  - `roofkit.ts`: the number X, Josh's;
+  - `roofs.ts`: the cap in the kind loop, TX and TS, its stats;
+  - `roofcheck.ts`: the cap check, and RX's "holds it" if the pre-check needs it;
+  - `roof.test.ts`;
+  - `rooffixtures.test.ts`: a block one tower over its cap fails; under (a), a block of fewer than X buildings with a tower fails;
+  - `roofreport.test.ts`: towers per city and per block, what the refused roofs took, R8;
+  - `stage.test.ts`: the facades digest re-pin on the four pin cities; `ground`, `dressing` and `walls` keep their pins.
+- `src/render3d/roofpin.test.ts`: X pinned, naming Josh's answer.
+- **Must not:** as H3's list. H3's other files stay unedited; `stage.ts` needs no change, since the stats and the cap live in `roofs.ts`.
+- **Interfaces:** none new in `src/core/` (`CityBuilding.block` and `CityRoofPiece` carry all it needs). No new dependency.
+
+**The H3b pre-check's questions** ("pre-check 070 H3b", the `pipeline-designer`, on `goal/city-style` at this cut). It runs on the 20 named runs, one-way off and on, with a probe outside the repo that wraps H3's `buildRoofs` with the cap; no 3 x 3 or 6 x 4 city. Each question is measured for each of X = 8, 12, 16 and 24 and for each counting, (a) per block and (b) per city, with TS's hashed pick in both. (c) is run once, to show it leaves almost no towers.
+1. **Towers per city and per block.** Per run:
+   - buildings, blocks, and buildings per block (lowest, median, highest);
+   - the cap, and towers placed (against today's 255 or so a city);
+   - blocks with 0, 1, 2, and 3 or more towers;
+   - blocks of fewer than X buildings (no tower under (a)).
+2. **How they spread (no clumps).** Under the hashed pick and, for comparison, first-come in `buildings.buildings` order:
+   - per run, the nearest-tower distance in cells (lowest, median);
+   - towers on row neighbours or on the same building row;
+   - the most towers on one block side;
+   - the facades picture of 6 x 6 seed 1 one-way on, with the towers marked, at the recommended X.
+3. **What fills the freed roofs.** The towers refused, and what each building took instead on H3's rotation: an exit (blind or mid column), a billboard, or no big prop (small props only). Exits a city after the cap, and the share of buildings with an exit, against H3's.
+4. **R8 at each X.** Both numbers per run, and the lowest of each with its run: (i) on H3's rotation; (ii) with the freed roofs plain (no big prop).
+5. **The lowest X that keeps R8's 0.5** on all 20 runs, under (i) (expected: no limit, every X holds) and under (ii).
+6. **RX and RC on the extra exits.**
+   - Exits the cap (RC) turns away from a blind column onto a mid one, and whether `roofcheck.ts` as merged fails any named run (the reviewer's latent RX mismatch).
+   - The small props and other pieces the cap turns away, against H3's.
+7. **What moves.**
+   - The facades digest on the four pin cities (expected to move, because `roofs` changes).
+   - Roof pieces in all, against H3's (a tower and an exit are one piece each).
+
+**Questions for Josh, put with the note** (Q25; the architect's wording, to be finished with the note's numbers):
+1. "One water tower per X buildings, counted on each street block (recommended: a block of fewer than X buildings gets none, so towers stay spread), or across the whole city?"
+2. "X = ?" (with the note's table: towers a city and per block at 8, 12, 16 and 24, and the picture).
+3. "A roof that loses its water tower gets a roof exit instead, as the roof rotation does now (R8 holds at any X; about N more exits a city), or just small roof props (the lowest X that keeps R8 is M)?" No recommendation until the note's numbers and picture are in; the exits-everywhere risk is the reason it is asked.
+
 ### H1c · Stage 7, Facades: shop kinds and novelty signs (facades, pure). Branch `ticket/070h1c-facades-novelty`
-**First cut (21 Nov 2026, the lead-architect, on `goal/city-style` after f9c8ade), like H1b's first cut: it says what the section is for and what is missing, not yet how it is built.** It does not start until H3 is merged and its pre-check (below) is answered by Josh; the architect then re-cuts it on his answer and types its interfaces in `src/core/` before the builder starts.
+**First cut (21 Nov 2026, the lead-architect, on `goal/city-style` after f9c8ade), like H1b's first cut: it says what the section is for and what is missing, not yet how it is built.** It does not start until H3 is merged and its pre-check (below) is answered by Josh (**21 Nov 2026:** and H3b, the water-tower cap, is merged before that pre-check runs); the architect then re-cuts it on his answer and types its interfaces in `src/core/` before the builder starts.
 
 **Josh's words (21 Nov 2026, in chat).**
 - To the H3 pre-check's question 3 (novelty signs on street roofs only): "Yes to all except novelty signs. They can be placed on the face of a build in addition to the roof. They represent the store in the storefront. A pizza should correspond with a pizza shop and a beer bottle, for example, should correspond with a liquor store or a corner store." (Q24)
@@ -1766,7 +1859,7 @@ It runs on the 20 named runs (6 x 6 seeds 1 to 10, one-way off and on; `NAMED` i
 
 So the roof sign lives in this section too, as its last criterion, if the pre-check finds the whole fits one builder day; otherwise it is split off as a small follow-on (H1d, facades) after H1c merges. Both ways the owner is **facades**: it owns H1b's and H3's files, so "each agent stays in its folder" holds with one owner. If Josh prefers "the decoration phase", the section's content does not change, only its name and where the kind is first given (H3's roof pass instead of H1b's shopfront pass); that is his first question below.
 
-**Order.** H3 merges first (H1c reads and extends `roofs` and counts against H3's cap). Then the H1c pre-check, then Josh's answers, then the architect's re-cut with the types, then the builder. Its branch is cut from `goal/city-style` once H3 is merged.
+**Order.** H3 merges first (H1c reads and extends `roofs` and counts against H3's cap), then H3b (the water-tower cap: H1c's roof sign replaces a building's big prop, so H1c measures on the capped rotation). Then the H1c pre-check, then Josh's answers, then the architect's re-cut with the types, then the builder. Its branch is cut from `goal/city-style` once H3 is merged.
 
 **What is missing today** (the architect's reading, 21 Nov 2026, at f9c8ade):
 - **No shop kinds anywhere.** Neither the pipeline nor the tile city knows what a shop sells.
@@ -2057,3 +2150,4 @@ These five do not exist. The main session writes each `.claude/agents/<name>.md`
    - 4 (yes): HC, RC, RK and RW stand as written and quote him.
    - 5 (yes): `DRESS_MAX` is not applied on the pipeline; H3's criterion 8 reports it as passed, and J checks the frame rate.
    - No threshold moves: R8's 0.9 and 0.5, `DRESS_PER_BAY_MAX` 6 and the chances stay. No merged section re-opens. H3's files, must-not list and test commands do not change.
+25. **The water-tower cap (H3b).** Josh asked for it (21 Nov 2026, in chat): "Create a rule where there can only be so many water towers per city blocks", then: "Fine. You get one water tower per x amount of buildings. I don't want to see water towers across the entire city because they just fit". So the rule itself is his. H3b's three questions (how X is counted, the number X, and what a roof that loses its tower gets) go to him with the H3b pre-check's note. **Not yet asked.**
