@@ -35,7 +35,8 @@ status: approved; section A1 merged 19 Nov 2026 (6eb4d26) (G1, Josh, 19 Nov 2026
 - **H1c criterion 3 amended; the builder's readings ruled** (21 Nov 2026, Q27, the lead-architect, against 322f205). The builder stopped on R8's first number moving by one building on 3 of 20 runs. Asked "Shall I accept this one-building change and let the builder finish the tests?", Josh answered: "Yes". So R8's second number stays identical run by run; the first stays at or above 0.9, its change reported. The attach plane is `bayFrame.floorFront`, T1 from the cell edge (FA); roofcheck takes a novelty piece at 0 or 90 (FR); a corner face sign needs `bay.frontStreet` and frontage "street" (FC); a blade sign is a clash target, not a base (FB). H1c's builder may finish.
 - **I re-cut against 5b2998c; its pre-check first** (21 Nov 2026, the lead-architect). Stages 1 to 5 and 7 are merged (H1c, 0795283). Josh chose I next: "I think the ground dressing first". I (landscape) now ports the tile city's ground dressing onto the merged layers: `furnitureLayout`'s pavement lines on pavement runs (H1b's runs on street fronts), `bayMeters`, `fillGreen`'s trees and benches on stage 3's greens, the lane bins, and the plaza and frontage-lot dressing; clear of stage 4's kerb cuts, corners and dips and of stage 7's awnings, signs, ATMs, escapes and face signs. It places no lamp (the lamps, the game's and the street lights, are stage 6's). `CityGroundLayer`, `CityPavementRun`, `CityGroundProp`, `CityGroundPropKind` and `CityGroundPlace` are typed; no earlier layer's type changes. EL, DK and LB add or change a rule, so the `pipeline-designer`'s pre-check comes before the builder (Q28).
 - **I pre-check: Josh answered; I re-cut** (21 Nov 2026, Q28, the lead-architect, against 1b7a0e5). The note (`docs/design/070-I-precheck.md`, pre-check c8cb583) found every check of I's list holding on 20 of 20 runs at its recommendation. The stage as cut failed all 20, on plaza and lot pieces (stage 7 and the R10 keep-outs). Asked its five questions as recommended, Josh answered: "Yes 5"; asked whether that meant all five or only question 5, he answered: "All 5". So EL and DK stand. LB's walk moves half a cell onto a building bay (criterion 4's hand-worked bin moves to 12.5 m). There is no extra keep-out in front of the ground storeys (GS). Plaza and lot groups under a stage 7 box are left out, and KO and the R10 keep-outs read pavement props and lane bins only (Q5). No type changes. I's builder may start.
-- Questions: Q2, Q3, Q5, Q6, Q8 to Q28 answered; Q7 settled by the rulings; Q1 not yet asked for, L waits for his word; Q4 open.
+- **J re-cut against cdb425e** (21 Nov 2026, the lead-architect). Josh said "Yes" to starting J. J now draws every stage 7 list (`dressing`, `walls` with the escapes' boxes and the party pieces, `roofs` with the roof novelty signs, `novelty`) and stage 8's `props` through the tile city's per-key instancer (`dressGroup`), from placements only and once each, with R12's whole-plan audit (its one allowance the party pipe `_03`). `planKeys()` gains `SM_Prop_Window_01` and `SM_Prop_Pipe_Present_03`, which load by name; `models3d.ts` leaves J's Files. Measured: about 10,300 draw calls before J and about 10,360 to 10,510 after; cloned, it would be about 18,300. J adds no rule or number, so no pre-check. Q29 (J2, instancing the stack pieces, only if the frame rate does not hold) and Q30 (the stage=ground legend overlap) are open.
+- Questions: Q2, Q3, Q5, Q6, Q8 to Q28 answered; Q29 and Q30 open; Q7 settled by the rulings; Q1 not yet asked for, L waits for his word; Q4 open.
 branch: one per section, `ticket/070<section>-<slug>` (named in each section), each cut from `goal/city-style`.
 
 ## Josh's words (19 Nov 2026, in chat)
@@ -2112,11 +2113,158 @@ It runs on the 20 named runs (6 x 6 seeds 1 to 10, one-way off and on; `NAMED` i
 **The pre-check** (done, c8cb583; Josh answered it, Q28) (`pipeline-designer`, "pre-check 070 I", on `goal/city-style` at the re-cut before it or later, its probe outside the repo as its instructions say). On the 20 named runs, one-way off and on, with the stage as cut here run three ways (as cut; without EL; without DK), it measures: the runs (count, lengths; any run whose front cell is not a pavement cell, none expected, else a stop); props by kind and place, and pavement props per 10 m against the tile city's R10 eye number; what EL and DK each cost (places refused, on pavements and in lanes); the lane bins (places, refused by reason, the lane width left clear); benches and trees on greens against `fillGreen`'s rule; plazas and lots dressed; the ground storeys' bounds front past the cell edge on run faces (if any is more than `FURN_WALL_M` below `FURN_MAX_H_M`, that is a fourth question, a ground-storey keep-out); and every check of the list above on every run. It writes `docs/design/070-I-precheck.md` with its questions in section 4, each with a recommendation; Q28 records Josh's answers.
 
 ### J · Assemble: facades and ground drawn; the whole-plan audit (renderer). Branch `ticket/070j-plan3d-dressing`
-1. [ ] Stage 7 and 8 placements are drawn as instanced meshes per key, as `dressdraw` and the furniture do today, under `DRESS_DRAW_CALLS_MAX` and `FURN_DRAW_CALLS_MAX`. **(20 Nov 2026, H1's re-cut)** Stage 7's ground pieces are G2's, drawn as G draws the floors; J draws H1b's, H2's, H2b's, H3's and H1c's dressing and stage 8.
-2. [ ] **R12.** No never-used key in any layer (`isNeverUsed`, with the party-wall pipe allowance). No emissive dressing.
-3. [ ] (Main session, screenshots: street camera, day and night) the pipeline's city beside `city=tiles` at the same seed.
+**Branch.** Cut from `goal/city-style` at cdb425e or later (stages 1 to 5, 7 and 8 merged; I's merge 45ede81; G and G2 draw the buildings and ground pieces in `plan3d.ts`).
 
-- **Files:** `plan3d.ts`, `plan3d.test.ts`, `models3d.ts` (the plan path only).
+**Josh's words (21 Nov 2026, in chat).** Asked whether to start J, he said: "Yes". Earlier rulings J follows: Q20 (20 Nov 2026): "instancing later"; Q24 answer 5 (21 Nov 2026): "Yes", to leaving `DRESS_MAX` off on the pipeline and letting J check the frame rate; Q23 (21 Nov 2026): "Yes, 2.1m", with PW3 (only `SM_Prop_Pipe_Present_03` fits a party wall; `_01` never fits and is never used).
+
+**Goal.** At `?view=3d&city=plan&stage=assemble` Josh walks the whole pipeline city. G and G2's buildings and shopfronts now carry their glass, awnings, signs and ATMs, fire escapes, door canopies, wall props, party-wall boards, windows and pipes, rooftop items (water towers, roof exits, billboards, novelty signs) and face novelty signs; the streets, greens, lanes, plazas and frontage lots carry their furniture. He checks the frame rate with everything on.
+
+**Re-cut (21 Nov 2026, the lead-architect, against cdb425e).** The first cut (three lines) was written before H1b to H3b, H1c and I. J now reads stage 7 and stage 8 as merged. It only draws: every piece is drawn where its `CityPlacement` says, through the tile city's own instancer, and J picks no key, turn, offset or level that a layer or E's drawing does not hold. So J adds no rule, threshold or number, and skips the pre-check (CLAUDE.md; see "Adds no rule or number" below). **Stop rule (as in E, G and G2):** where a layer does not say what to draw, the builder commits, stops and reports the cells (`PlanStopError`). The gap is a re-cut of that layer's section (facades or landscape), never a choice in `src/render3d/`.
+
+**What J draws, and from where** (read on cdb425e):
+
+| List (`src/core/cityplan.ts`) | What it holds | Host column |
+| --- | --- | --- |
+| `facades.dressing` (H1b) | glass, awnings, fascia and blade signs, ATMs | `cell` (its ground piece's first cell) |
+| `facades.walls` (H2, H2b) | escape pieces (with `scaleY`, and the first piece's drop-ladder `boxes`; a `code:escape` piece is all boxes), canopies, wall air-conditioners, window planters; party boards, pipes and windows | `cell` (a party piece: the taller column) |
+| `facades.roofs` (H3, H3b, H1c) | small roof props, water towers, roof exits, billboard structures and faces, roof novelty signs | `cell` |
+| `facades.novelty` (H1c) | face novelty signs (`facades.shops` has no placement and is not drawn; a sign's kind is facades' to check) | `cell` (its shop's first cell) |
+| `ground.props` (I) | every stage 8 prop: pavement furniture, lane bins, the greens' trees and benches, plaza and frontage-lot pieces | none |
+
+`ground.runs` has no placement and is not drawn. `facades.ground` stays G2's.
+
+**Measured on cdb425e** (a probe outside the repo). Every stage 7 and 8 key has one glTF primitive in the converted City Pack: one draw call per key when instanced, one per piece when cloned.
+
+| City | G2's calls (floors and roofs + ground pieces + 1 grey) | stage 7 pieces / keys | stage 8 props / keys | J cloned per piece | J instanced per key (criterion 2) |
+| --- | --- | --- | --- | --- | --- |
+| 6 x 6 seed 1, one-way on | 10,279 (7,668 + 2,610 + 1) | 7,387 / 59 | 615 / 22 | about 18,280 | about 10,361 (+59, +1 escape boxes, +22) |
+| 6 x 6 seed 3, one-way on | 10,427 (7,810 + 2,616 + 1) | 7,475 / 59 | 683 / 24 | about 18,590 | about 10,511 (+59, +1, +24) |
+
+Over the four runs measured (seeds 1 and 3, one-way off and on), stage 7 uses at most 60 keys (of `DRESS_DRAW_CALLS_MAX`'s 120) and stage 8 at most 24 (of `FURN_DRAW_CALLS_MAX`'s 80). Stage 7 has 7,116 to 7,505 pieces a city. That is over `DRESS_MAX` (6,000), which is not applied on the pipeline (Q24 answer 5). No stage 7 or 8 key has an emissive factor or map in the GLB.
+
+**Performance, plainly.** Cloning J's pieces one wrapper each, as G and G2 clone the floors, would take the view from about 10,300 to about 18,300 draw calls. J does not do that. It draws stages 7 and 8 through the tile city's existing per-key instancer (`dressGroup`, `models3d.ts`, read as it is), as `city=tiles` draws its dressing and furniture today. That was the first cut's criterion 1, and it is not new instancing work. It keeps J's addition under 100 calls (about 10,360 and 10,510 in all). So **J does not have to instance anything new to be usable.**
+
+The 10,300 calls that remain are G and G2's building clones, which Josh has had on screen since G2. Whether the whole view holds its frame rate on a phone is what the main session's browser check measures (criterion 8). If it does not hold, the remedy is to instance the stack pieces (Q20's "instancing later"). That belongs in its own section, **J2** (renderer, `plan3d.ts` only), which needs Josh's separate approval (Q29). It is not part of J. It would rewrite G's and G2's one-group-per-building, `piece:<key>` wrappers and per-building colourway painting into instancing per key and colourway, along with their tests, which is a day's work on its own. The remedy is never a cap, and never dropping pieces.
+
+**The keys load.** `sharedTileModels` already loads `dressKeys()` and `furnitureKeys()` into `ModelSet.dress` for every tile page, and `planInput` already merges those roots (`propInput`). Of the 85 keys stages 7 and 8 place on the runs measured, two are in neither list:
+- `SM_Prop_Window_01` (the party window);
+- `SM_Prop_Pipe_Present_03` (the party pipe; H2b's kit).
+
+Both are in the converted manifest with a non-zero width and height and no warning, and both are nodes of `city-pack.glb`. So `sharedTileModels` loads them by name through its tile list (`planDress`), as it loads G2's corner doors. `planKeys()` gains those two keys and nothing else, and J needs no change to `models3d.ts` (the first cut's third file is dropped). `SM_Prop_Pipe_Present_01` is listed in `PARTY_PIPES` but stage 7 never places it (H2b; Q23's PW3), so it is not added.
+
+1. [ ] **The run goes to stage 8** (Vitest). `createPlanAssembleRenderer3d` runs `runCity(..., "ground")` where it ran `"facades"`. A run that fails at `ground` draws nothing and shows that stage and its reason (`planFailureText`), as E does. `?view=3d&city=plan&stage=ground` (the flat picture) is still `planview.ts`'s, unedited.
+2. [ ] **Pieces from placements only, instanced per key** (`plan3d.ts`, Vitest).
+   - **Two pure lists** the tests read without Three.js:
+     - `planDressDraws(plan)`: every piece of `facades.dressing`, `facades.walls`, `facades.roofs` and `facades.novelty`, once each, in those lists' order. Each entry carries its list's name, its index in that list, its `building`, its host `cell` (the table above) and its `placement`; a wall piece also carries its `scaleY` and `boxes`.
+     - `planPropDraws(plan)`: every `ground.props` entry, once each, in order, with its `on`, `flat` and `placement`.
+   - **Stage 7** is one `dressGroup(placements, roots, DRESS_DRAW_CALLS_MAX)` call. Each listed piece becomes one `DressPlacement` with the identity frame (`{ x: 0, z: 0, yaw: 0 }`) and the piece at (`x_m`, `y_m`, `z_m`), with `yaw_deg` in radians, a wall piece's `scaleY`, and its `boxes` as `EscapePart`s (`x_m` to `x`, ..., `rz_rad` to `rz`). So, as on `city=tiles`:
+     - an escape's flights are scaled;
+     - its ladder, and a code-drawn escape (`code:escape`, `CODE_ESCAPE_KEY`), go into `dressGroup`'s one box call;
+     - the shop glass is `dressGroup`'s see-through glass;
+     - every emissive material is swapped for a plain one.
+   - **Stage 8** is one `dressGroup(..., FURN_DRAW_CALLS_MAX)` call. Each prop goes through `furniturePlacement` (`models3d.ts`) with the levels `{ pavement_m: 0, yard_m: 0 }`:
+     - every place a prop stands on (`on`) is drawn at 0 by E. The pavement is the walk (`TILE_LEVELS` "pavement"). A green, lane, plaza or frontage lot is interior "ground" (057 D: "flush with the pavement's walk (0)");
+     - a prop's base is that level plus its `placement.y_m` (a pole billboard's board: `BILLBOARD_BOARD_LIFT_M`);
+     - a flat piece (`lotLines`) is lifted by `furniturePlacement`'s own `GROUND_LIFT_M`. J types no level.
+   - **Colourways: none apply.** Stage 7 and 8 pieces keep the base atlas, whatever colourway their building is drawn in (style guide 16.9, its Info (054) line: "dressing and furniture keep the base atlas whatever colourway their block is drawn in"). The party boards, pipes and windows are stage 7 dressing, so the same holds for them. G and G2's buildings stay painted as they are.
+   - **The fallback** (drawing only, as G and G2's):
+     - a stage 7 piece is drawn only when its key's root loaded (`code:escape` needs no root) and its host column is drawn from the pack, not one of G's whole-column grey fallbacks. A grey fallback box stands from 0 to the roof piece's base, so roof items on it would float;
+     - a stage 8 prop is drawn when its key's root loaded;
+     - a piece that is not drawn gets no grey box (the tile city's dressing has no code fallback). So with empty `roots` (code only, CI, before the models load) no stage 7 or 8 piece is drawn, and the view is G2's;
+     - a stage 7 piece on a column whose ground slot alone is grey (its ground piece's root missing) is still drawn.
+   - Tests, with stub roots (one mesh per key) and no GLB:
+     - one piece of each list and each kind is checked: glass, awning, each sign, ATM, each wall kind, each roof kind, a face novelty sign, and each stage 8 kind. Its instance matrix equals `dressMatrix` of its placement: position, turn (at the four turns where the list has them) and `WORLD_PER_METRE` scale, an escape piece's `scaleY`, and one drop-ladder box's matrix;
+     - a flat `lotLines` stands 0.01 m (`furniturePlacement`'s lift) over 0, and a `billboardBoard` at its `y_m`;
+     - with one stage 7 key's root missing, only that key's pieces are not drawn. With one above-ground key missing, the stage 7 pieces on the columns that fall back are not drawn and those on other columns are;
+     - a stub root whose material is emissive is drawn with emissive 0 and no emissive map;
+     - on a building painted in a loaded colourway, no stage 7 or 8 material is a colourway clone (its `map` is the stub's base texture).
+3. [ ] **Draws only, every piece once** (Vitest, on the 20 named runs: 6 x 6 seeds 1 to 10, one-way off and on).
+   - Every layer's digest (streets, land, mass, edge, buildings, facades, ground) is the same before and after `plan3dGroups`.
+   - `planDressDraws` lists every piece of the four stage 7 lists exactly once, and `planPropDraws` lists every `ground.props` entry exactly once.
+   - With a full stub pack, every listed piece is drawn. For each key, its `dressGroup` instance count equals its listed count, and neither cap leaves a key out.
+   - G and G2's counts hold unchanged: every column piece and ground piece once, and one grey instance or none per column, as G2 says. E's counts hold too: every `ground` record, every kerb seg but `opening`, every non-built mass cell.
+   - The full Three.js group (stub roots) is built only on the default city and the four pin cities (6 x 6 seeds 1, 2, 3 and 8, one-way on).
+   - **Failing fixtures**, built from the default city's run in the test, not pinned by hash:
+     - the exactly-once check fails with one piece dropped from each of `dressing`, `walls`, `roofs`, `novelty` and `props` in turn, and with one of each listed twice;
+     - the per-key drawn check fails, naming the key, on a stub pack where one key's root has more meshes than the cap leaves room for (so the key is left out);
+     - `plan3dGroups` throws `PlanStopError`, naming the cell, on each of these plans:
+       - a facades layer with a stage 7 piece whose key the page does not load (`dressKeys()`, `planKeys()` or `code:escape`);
+       - a stage 7 piece whose `cell` is not a column of the buildings layer;
+       - a stage 8 prop whose key the page does not load;
+       - a plan with no `dressing`, `walls`, `roofs` or `novelty` list (optional in the type, but every merged stage 7 writes them), or no `ground` layer.
+4. [ ] **R12, the whole-plan audit** (Vitest; the checklist's R12 is stage 9's, "Every check has one stage").
+   - A pure `planAudit(plan)` lists every key of the plan that `isNeverUsed` (`citymetrics.ts`, read as it is) names, with its layer, list and cell. It reads every placement of `buildings.columns`, `facades.ground`, `dressing`, `walls`, `roofs` and `novelty`, and `ground.props`, and every key the street pieces and interiors are drawn from (the tile and interior groups' keys).
+   - **The one allowance is the party-wall pipe:** `SM_Prop_Pipe_Present_03` on a `walls` piece of kind `partyPipe` (grammar rule 8's kit table; Josh, 19 Nov 2026: "Yes, dress it"; Q23 PW3). `SM_Prop_Pipe_Present_01` and `_02` are never allowed: the audit names them anywhere, on a `partyPipe` too. The allowance is one typed line in `plan3d.ts` (key and kind), not a change to `CITY_NEVER_USED` (L's guide line, below).
+   - `planAudit` is empty on the 20 named runs, and no `SM_Prop_Pipe_Present_01` stands on any of them (H2b's PW3: it never fits).
+   - **No emissive dressing:** with stub roots whose materials carry emission, no stage 7 or 8 mesh that `plan3dGroups` draws is emissive (criterion 2's `dressGroup` swap). Inside `it.skipIf(!HAVE_GLB)`, read lazily: no key the plan places on 6 x 6 seed 1 has an emissive factor or map in `city-pack.glb`.
+   - `plan3dGroups` runs `planAudit` and throws `PlanStopError` (the cells named) when it is not empty. A never-used key is a gap in the layer that placed it, and is never filtered out in `src/render3d/`.
+   - **Failing fixtures**, from the default city's run. Each makes `planAudit` name exactly that piece, and makes `plan3dGroups` throw:
+     - a dressing piece re-keyed to `SM_Prop_LightPole_01`;
+     - a `partyPipe` re-keyed to `SM_Prop_Pipe_Present_01`;
+     - `SM_Prop_Pipe_Present_03` on a `canopy` piece;
+     - a stage 8 prop re-keyed to `SM_Veh_Car_01`.
+5. [ ] **The keys load** (Vitest).
+   - `planKeys()` gains `city-pack:SM_Prop_Window_01` and `city-pack:SM_Prop_Pipe_Present_03`, and no other key.
+   - A test checks that every key `planDressDraws` and `planPropDraws` list on the 20 named runs (but `code:escape`) is in `dressKeys()`, `furnitureKeys()` or `planKeys()`. It also checks that the two new keys are in none of `dressKeys()`, `furnitureKeys()` and `allStackKeys()`.
+   - `tileGroupOf`'s `keys` stay what they were before J (the tile keys, the arrow, the corner doors and the trees), so E's street counts do not move.
+   - If either key does not load from its name alone in the browser (the console's "N of M ground tile pieces loaded" line), the main session stops and reports. A re-cut then adds `models3d.ts`, plan path only. J never adds it on its own.
+6. [ ] **Draw calls** (Vitest, code-drawn; the builder reports the pack's numbers). No cap is raised or added, and `DRESS_MAX` stays off (Q24 answer 5).
+   - With a stub pack of one mesh per key, on the 20 named runs, stage 7's group stays within `DRESS_DRAW_CALLS_MAX` (120) and stage 8's within `FURN_DRAW_CALLS_MAX` (80), with no key left out. The street pieces stay within `TILE_DRAW_CALLS_MAX` (40) and the interiors within `INTERIOR_DRAW_CALLS_MAX` (24), as in E.
+   - Inside `it.skipIf(!HAVE_GLB)`, read lazily, on 6 x 6 seeds 1 and 3 (one-way on), the builder reports:
+     - the calls before J (G2's: floors and roofs, ground pieces, the grey call);
+     - the calls after J: those plus stage 7's calls (counted per key from the GLB's primitives), the escape boxes' call, and stage 8's calls;
+     - what cloning per piece would have cost;
+     - stage 7's pieces by list and kind against `DRESS_MAX` (the runs over 6,000, and by how much), and stage 8's props by kind;
+     - the triangles stages 7 and 8 add (each key's manifest `triangles` times its pieces).
+   - If a real key has more primitives than the caps leave room for on either city, the builder stops and reports: the caps do not move without Josh.
+   - After the models swap in, the renderer's console line gains: stage 7's pieces drawn out of those listed, and its calls; the same for stage 8; any key left out (none expected); and `gl.info.render.calls` for the next frame drawn, as G's line has.
+7. [ ] **Nothing else changes** (Vitest and R-8, R-9). `?view=3d&city=tiles` draws as on `goal/city-style`. `tilecity3d.ts`, `models3d.ts`, `dressing.ts`, `furniture.ts`, `escapes.ts`, `citymetrics.ts`, `renderer.ts`, `planview.ts` and their tests are not edited. `planview.test.ts` and `tilecity3d.test.ts` pass unedited. The ladder is unchanged (`npm run playtest`).
+8. [ ] (Main session, in the browser; the frame rate is J's to check, Q24 answer 5.) Open `?view=3d&city=plan&stage=assemble` on 6 x 6 seeds 1 and 3, at a phone size and at a desktop size, with the overhead and street cameras, in day and with `light=night`. Check that:
+   - the city is in view, and no failure or stop text shows;
+   - the dressing and furniture swap in with the buildings once the models load;
+   - the console shows criterion 6's line, with no key left out and both new keys loaded;
+   - the frame rate holds while panning, on the phone size and the desktop size.
+
+   **The main session reports the frame rate to Josh plainly.** If it does not hold, it asks Q29 (J2). J does not change for the answer.
+9. [ ] (Main session, screenshots sent to Josh.) Take two sets: phone-sized, and a higher-resolution set as Josh asked (desktop size, or a 2x device pixel ratio). Each has the street camera in day and at night and the overhead camera in day, on 6 x 6 seeds 1 and 3, one-way on, with G's three street-camera views, and `?view=3d&city=tiles` at seed 1 beside them. The screenshots should show:
+   - shop glass, awnings and signs on the street fronts, an ATM here and there, and no shop dressing on a lane or court;
+   - fire escapes on street faces with their ladders reaching the walk, and the quiet-side escapes over the lanes;
+   - door canopies over residents' doors, and wall air-conditioners and window planters on the upper floors;
+   - party walls above lower roofs dressed with boards, windows and pipes (in the base atlas on painted buildings, 16.9's rule);
+   - on the roofs: water towers (about one per 16 buildings of a street block), roof exits, billboards and the odd novelty sign; and novelty signs on a few shop faces, matching their shops;
+   - pavement furniture along the terrace runs: bins, planters, benches, mailboxes and newspaper boxes on the wall line; meters by kerb bays, hydrants, bus stops and trees on the kerb line; bollards at the corners;
+   - bins in the lanes, trees and benches on the greens, and the plazas and frontage lots dressed;
+   - nothing lit at night but the game's lighting (no emissive dressing), and nothing standing under an awning or a fire escape.
+10. [ ] R-8, R-10 and R-11. Tests run: `npx vitest run --maxWorkers=2 src/render3d/plan3d.test.ts src/render3d/planview.test.ts src/render3d/tilecity3d.test.ts`, and one `npx tsc --noEmit`. The main session's gate is the full `npm run gate`.
+
+- **Files:** `src/render3d/plan3d.ts`, `src/render3d/plan3d.test.ts`. The test's module cache builds the named runs through `"ground"` (its one-way-off stage list gains `groundStage`, read only).
+- **Must not:**
+  - `src/city/**` and `src/core/` (read only);
+  - every other render3d file. These are read and imported only:
+    - `models3d.ts` (`dressGroup`, `dressMatrix`, `furniturePlacement`, `planInput`'s inputs);
+    - `dressing.ts` (`dressKeys`, `DRESS_DRAW_CALLS_MAX`);
+    - `furniture.ts` (`furnitureKeys`, `FURN_DRAW_CALLS_MAX`);
+    - `escapes.ts` (`CODE_ESCAPE_KEY`, `EscapePart`);
+    - `citymetrics.ts` (`isNeverUsed`);
+    - `tilecity3d.ts`, `tileslots.ts`, `renderer.ts`, `planview.ts`, `tilecity.ts`, `kerbline.ts`, `stacks.ts`, `colourway.ts` and their tests;
+    - `town.ts` (`STOREY_M`).
+
+  If J needs any of them changed, the builder stops and reports.
+- **Interfaces:** nothing new in `src/core/`. J reads `CityFacadesLayer.dressing`, `walls`, `roofs` and `novelty`, `CityWallBox`, and `CityGroundLayer.props` as H1b to H1c and I left them. These belong to the renderer: `planDressDraws`, `planPropDraws`, `planAudit`, the allowance line, and the new `PlanDraw` fields (stage 7's and stage 8's `DressDraw`s and lists). No new dependency.
+- **Adds no rule or number** (CLAUDE.md pre-check: none needed).
+  - It draws the placements stages 7 and 8 wrote, with the tile city's instancer, its glass, its emissive swap and its flat lift.
+  - The surface levels are E's drawn levels (0), read from `TILE_LEVELS`, not new numbers.
+  - The caps are unchanged, and `DRESS_MAX` stays off (Josh, Q24).
+  - The fallback (nothing drawn without a root or on a grey column, and no grey box for dressing) is drawing only, as G and G2's.
+  - The R12 audit is the checklist's own check at its own stage. Its one allowance is Josh's rule 8 pipe (19 Nov 2026, "Yes, dress it"; Q23 PW3).
+  - No threshold, Decided rule, digest pin or approved number moves.
+- **Heavy:** the named-run tests build the 10 named cities both ways once, through the module cache, with a 120 s timeout. The Three.js groups are built on five cities only. No GLB is read outside `it.skipIf`. No browser for the builder (Josh's PC); the browser checks are the main session's.
+
+**Not J's: the stage=ground legend overlap.** On `?city=plan&stage=ground` the flat picture's legend draws "mailbox or newspaper box" over the "meter" entry beside it. The legend's layout belongs to `planview.ts` (`createPlanRenderer3d`), whose columns are a fixed `Math.max(120, font x 9)` px wide and whose names are not measured. So the fix is the renderer's, in `planview.ts`:
+- not the landscape agent's picture (its names are right);
+- not J's (J must not edit `planview.ts`, whose test every plan section keeps unedited).
+
+Recommended: a small renderer section after J (legend columns as wide as the longest name, or names wrapped, with a `planview.test.ts` case), on Josh's word (Q30). Otherwise L takes it.
 
 ### K · Stage 6, the circuit (not cut here)
 - Ticket 059 is re-cut onto the pipeline later. Its A1 (`tileLines`) becomes the `circuit` stage, and its pole slots move there from `tilecity.ts`.
@@ -2139,6 +2287,7 @@ It runs on the 20 named runs (6 x 6 seeds 1 to 10, one-way off and on; `NAMED` i
    - **Lines that change with Josh's answers of 21 Nov 2026 (Q22: "Yes all three"):** grammar rule 2's check line: awnings, signs and ATMs are shop dressing, not trim; they reach over the pavement as rule 9's 16.5 says (at most `CELL_M` past the front cell edge, an awning `CELL_M` - `AWNING_KERB_M`), and `OVERLAP_MAX_M` (0.6 m) holds the buildings' own trim (H1b T1); M8's check line: a shop corner with one street and one quiet side keeps its wrap (its own glass and the L awning) on both faces, and its single-face pieces only on a street front (H1b X1). W1's overlap and LG are the pipeline's own rules, not in the grammar, and need no line.
    - **Lines that change with Josh's answers of 21 Nov 2026 (Q23: "Yes, 2.1m"):** grammar rule 8's Rule line: `BLANK_RUN_MAX_M` is 2.1 m, Decided, not "3 m, section C's provisional number" (H2b PW4); rule 8's kit table, the pipe row: only `_03` fits (over a two-storey step), `_01` is never used and `_02` stands off the wall (H2b PW3, PW5). EP, EX, ET, RQ and WP3 are the pipeline's readings of rules the grammar already has (rule 9's quiet row, R7's line), and need no line.
    - **Lines that change with Josh's answers of 21 Nov 2026 (Q24: "Yes to all except novelty signs ..."):** grammar rule 11's Rule list: a roof billboard stands `BILLBOARD_EDGE_M` (0.28 m) inside the body's edge, every other rooftop prop `ROOF_EDGE_M` (H3 BB); rule 11's "Not verified" line: the deck is at 0.50 m on all six roof keys, measured (`ROOF_DECK_M`; styles 2 and 3 have a 0.744 m rim outside it; H3 RT). The novelty sign's line (it stands for the shop under it, on the face or the roof) is written once H1c's re-cut has Josh's answers; L adds it then. HC, RC, RK and RW are the pipeline's readings and need no line.
+   - **The line that changes with J's R12 audit (Q23 PW3; grammar rule 8, Josh, 19 Nov 2026: "Yes, dress it"):** the guide's never-used table, its `SM_Prop_Pipe_Present_` row: `_03` stands on party walls (grammar rule 8), `_01` and `_02` never. `CITY_NEVER_USED` keeps its stem; the allowance is `plan3d.ts`'s one line (J criterion 4).
    - **Lines that change with Josh's answers of 20 Nov 2026 (Q17, Q18):** guide 19.6's whole-block park and its Info line: a whole park that nothing across a street can serve takes one tile of kerb bays on its own kerb ("yes, yes"; D1b criterion 13), and the first tiles are handed out as a best fit over the city ("yes"; D1b criterion 12). L (renderer) makes this edit; no earlier section touches the guide. The guide's named cities for its checks become the pipeline's (6 x 6 seeds 1 to 10) when the old path goes.
 3. [ ] R-8. The playtest shows no ladder change.
 
@@ -2381,3 +2530,5 @@ These five do not exist. The main session writes each `.claude/agents/<name>.md`
    3. **LB.** "The lanes have buildings on both sides, so the tile city's spot for lane bins (on paving beside the lane) does not exist. Bins stand in the lane against a wall instead, every 10 m, alternating sides, clear of doors, about 1.1 m of the lane's 5 m. Yes?" (recommended yes; the grammar's rule 9 already says "bins against the wall clear of doors"; L edits 19.6's line)
    4. Only if the pre-check finds a ground storey reaching more than 0.4 m onto a pavement below 3.2 m: a keep-out in front of it.
    - Not questions (the architect's readings, I): RN, PF, KO, AV, GB, PZ, FL, MT, NL, QF. Stage 8 places no lamp: the game's lamps and the street lights are stage 6's (K). No threshold moves; every ported number keeps its value.
+29. **J2: instance the stack pieces, if the frame rate does not hold** (J criterion 8). Open; asked only if the main session's browser check finds the frame rate does not hold with J's dressing on. J draws stages 7 and 8 per key (about 85 calls), so the view's calls are about 10,360 (6 x 6 seed 1) and 10,510 (seed 3), nearly all of them G and G2's building clones. Ask: "The 3D city runs at about N frames a second on a phone with everything drawn. Nearly all the cost is the buildings (about 10,300 draw calls). Shall I cut a section J2 to instance the building pieces now (a day's work, plan3d only, changes how G and G2 draw), or leave it for later as you said in Q20?" (recommended: cut J2 now if the phone stutters; otherwise later.) J does not change for either answer.
+30. **The stage=ground legend overlap** (the flat picture, `?city=plan&stage=ground`: "mailbox or newspaper box" is drawn over "meter"). Open. The layout is `planview.ts`'s (renderer); J may not edit it. Ask: "The ground picture's legend has two labels drawn over each other. Fix it now as a small renderer section (the legend columns sized to the longest name), or leave it for the switch (L)?" (recommended: a small section now, since L waits for Q1.)
