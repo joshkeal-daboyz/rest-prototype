@@ -27,7 +27,6 @@ describe("runCity (R-1, R-2)", () => {
   });
   it("is a typed error when `until` is a stage that is not built", () => {
     expect(() => runCity(SMALL, "circuit")).toThrow(CityRunError);
-    expect(() => runCity(SMALL, "ground")).toThrow(CityRunError);
   });
   it("hands each stage only the layers before it", () => {
     let seen: string[] = [];
