@@ -1,5 +1,7 @@
 # 070 I pre-check: stage 8, ground dressing
 
+**Josh's answer (21 Nov 2026, in chat).** Asked the five questions as recommended (1: EL, nothing under a fire escape; 2: DK, nothing in a 1.5 m strip in front of a residents' door, pavement or lane; 3: LB, lane bins against the wall in the lane every 10 m, alternating, centred on a building bay; 4: no extra keep-out for ground-floor fronts; 5: plaza and lot pieces left out under a stage 7 box, keep-outs read pavement items and lane bins only), he answered "Yes 5", and asked whether that meant all five or only question 5, "All 5".
+
 21 Nov 2026, pipeline-designer, on `goal/city-style` at 4f57528 (I's re-cut).
 
 **This is a sketch.** A throwaway probe outside the repo builds each named city through stage 7 with the merged code (read-only). It then places stage 8 as I's re-cut words it: RN, PF, KO, AV, EL, DK, MT, GB, PZ, FL and LB, with `furnitureLayout`'s run walk and open-lot pieces copied into it. Every check of I's list is then run on every prop.
