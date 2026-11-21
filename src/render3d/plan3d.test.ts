@@ -4,17 +4,18 @@
  * HEAVY: 120 s.
  */
 
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { Box3, Frustum, Matrix4, PerspectiveCamera, BoxGeometry, Group, InstancedMesh, Mesh, MeshBasicMaterial, Quaternion, Scene, Texture, Vector3, type Object3D, type WebGLRenderer } from "three";
-import type { AssetEntry, CalibrationKey, CityBuildingsLayer, CityFacadesLayer, CityGroundPiece, CityKerbPath, CityMassLayer, CityPlan, CityPlacement, CityPlanRun, CitySide } from "../core";
+import { Box3, Frustum, Matrix4, PerspectiveCamera, BoxGeometry, Group, InstancedMesh, Mesh, MeshBasicMaterial, MeshStandardMaterial, Quaternion, Scene, Texture, Vector3, type Object3D, type WebGLRenderer } from "three";
+import type { AssetEntry, CalibrationKey, CityBuildingsLayer, CityFacadesLayer, CityGroundLayer, CityGroundPiece, CityKerbPath, CityCell, CityMassLayer, CityPlan, CityPlacement, CityPlanRun, CitySide } from "../core";
 import { stableHash } from "../render/city";
 import { digestOf, runCity } from "../city/pipeline";
 import type { CityStageDef } from "../city/pipeline/types";
 import { buildingsStage } from "../city/buildings/stage";
 import { edgeStage } from "../city/edge/stage";
 import { facadesStage } from "../city/facades/stage";
+import { groundStage } from "../city/ground/stage";
 import { landStage } from "../city/land/stage";
 import { massStage } from "../city/mass/stage";
 import { streetsStageWith } from "../city/streets/stage";
@@ -24,8 +25,19 @@ import {
   PLAN_DOOR_CORNERS,
   PLAN_FRONTS,
   PLAN_LINES,
+  PLAN_PARTY_PIPE,
+  PLAN_PARTY_WINDOW,
   PlanStopError,
+  dressStage,
+  planAudit,
+  planDressDraws,
   planInput,
+  planPropDraws,
+  planTileKeys,
+  propStage,
+  type PlanDressDraw,
+  type PlanInstanced,
+  type PlanPropDraw,
   planGroundDraws,
   planPieceDraws,
   type PlanDraw,
@@ -44,11 +56,19 @@ import {
   planKeys,
   planStreetPose,
 } from "./plan3d";
-import { NO_MODELS, allStackKeys, type LoadedModel, type ModelSet } from "./models3d";
+import { NO_MODELS, allStackKeys, dressMatrix, partMatrix, type LoadedModel, type ModelSet } from "./models3d";
+import { CODE_ESCAPE_KEY } from "./escapes";
+import { DRESS_DRAW_CALLS_MAX, DRESS_MAX, dressKeys } from "./dressing";
+import { FURN_DRAW_CALLS_MAX, furnitureKeys } from "./furniture";
 import { tileCity, TILE_M, type TileCell } from "./tilecity";
 import { interiorGroup, tileGroup } from "./tilecity3d";
 import { INTERIOR_DRAW_CALLS_MAX, INTERIOR_KEYS, KERB_INSET_M, KERB_LIP_TOP_M, PASSAGE_FLOOR_KEYS, TILE_DRAW_CALLS_MAX, TILE_FRONTS, TILE_PROPS, TILE_SLOTS, TILE_TREES, tileKeys } from "./tileslots";
 import { CITY_GROUND_VARIANT } from "../core";
+
+// Most tests here are one long synchronous stretch (the named runs are built once, through the cache). A macrotask between tests lets the runner's reports to the main process through, so a slow file is not reported as a timeout.
+beforeEach(async () => {
+  await new Promise<void>((done) => setTimeout(done, 0));
+});
 
 // ---- the 20 named runs ----
 
@@ -59,13 +79,13 @@ interface City {
 const NAMED: City[] = [];
 for (const way of ["on", "off"] as const) for (let seed = 1; seed <= 10; seed++) NAMED.push({ seed, way });
 const label = (o: City): string => `6 x 6 seed ${o.seed} one-way ${o.way}`;
-const offStages = (): CityStageDef[] => [streetsStageWith(0) as unknown as CityStageDef, landStage as unknown as CityStageDef, massStage as unknown as CityStageDef, edgeStage as unknown as CityStageDef, buildingsStage as unknown as CityStageDef, facadesStage as unknown as CityStageDef];
+const offStages = (): CityStageDef[] => [streetsStageWith(0) as unknown as CityStageDef, landStage as unknown as CityStageDef, massStage as unknown as CityStageDef, edgeStage as unknown as CityStageDef, buildingsStage as unknown as CityStageDef, facadesStage as unknown as CityStageDef, groundStage as unknown as CityStageDef];
 const cache = new Map<string, CityPlanRun>();
 function planOf(o: City): CityPlan {
   const k = `${o.seed}:${o.way}`;
   if (!cache.has(k)) {
     const opts = { blocksX: 6, blocksZ: 6, seed: o.seed };
-    cache.set(k, o.way === "on" ? runCity(opts, "facades") : runCity(opts, "facades", offStages()));
+    cache.set(k, o.way === "on" ? runCity(opts, "ground") : runCity(opts, "ground", offStages()));
   }
   const r = cache.get(k)!;
   if (!r.ok) throw new Error(`${label(o)} failed at ${r.failure.stage}: ${r.failure.reason}`);
@@ -1113,6 +1133,630 @@ describe("the buildings, on the 20 named runs (criterion 3)", { timeout: 120_000
   });
 });
 
+// ---- the facades and the ground (ticket 070 J) ----
+
+const IDENT = { x: 0, z: 0, yaw: 0 };
+const RAD = Math.PI / 180;
+const shortOf = (key: CalibrationKey): string => key.slice(key.indexOf(":") + 1);
+const PIPE_01: CalibrationKey = "city-pack:SM_Prop_Pipe_Present_01";
+/** One stub root (one mesh, the base atlas) per key the page loads for buildings, dressing, furniture and the plan's named keys. `lack` leaves keys out; `meshes` gives a key more than one mesh. */
+const jRoots = (lack: readonly CalibrationKey[] = [], meshes: ReadonlyMap<CalibrationKey, number> = new Map()): Map<CalibrationKey, Object3D> => {
+  const keys = new Set<CalibrationKey>([...allStackKeys(), ...PLAN_DOOR_CORNERS, ...dressKeys(), ...furnitureKeys(), ...planKeys(), ...TILE_PROPS]);
+  const out = new Map<CalibrationKey, Object3D>();
+  for (const key of keys) {
+    if (lack.includes(key)) continue;
+    const n = meshes.get(key);
+    if (n === undefined) out.set(key, stubRoot(key));
+    else {
+      const g = new Group();
+      g.name = shortOf(key);
+      for (let i = 0; i < n; i++) g.add(new Mesh(BOX, STUB_MAT));
+      out.set(key, g);
+    }
+  }
+  return out;
+};
+const maxDiff = (a: Matrix4, b: Matrix4): number => a.elements.reduce((m, e, n) => Math.max(m, Math.abs(e - b.elements[n]!)), 0);
+const instancedBy = (group: Object3D): Map<string, InstancedMesh> => new Map(group.children.filter((c) => (c as InstancedMesh).isInstancedMesh === true).map((c) => [c.name, c as InstancedMesh] as const));
+const facadesWith = (plan: CityPlan, patch: Partial<{ -readonly [K in keyof CityFacadesLayer]: CityFacadesLayer[K] }>): CityPlan => ({ ...plan, layers: { ...plan.layers, facades: { ...facadesOf(plan), ...patch } } });
+const groundWith = (plan: CityPlan, props: CityGroundLayer["props"]): CityPlan => ({ ...plan, layers: { ...plan.layers, ground: { ...plan.layers.ground!, props } } });
+const reKey = (pl: CityPlacement, key: string): CityPlacement => ({ ...pl, key: key as CalibrationKey });
+const groundOf = (plan: CityPlan): CityGroundLayer => plan.layers.ground!;
+
+/** Every piece of the four stage 7 lists is in the draw list exactly once (by the identity of its placement), and nothing else is. */
+const dressListedOnce = (f: CityFacadesLayer, draws: readonly PlanDressDraw[]): boolean => {
+  const seen = new Map<CityPlacement, number>();
+  for (const d of draws) seen.set(d.placement, (seen.get(d.placement) ?? 0) + 1);
+  const all = [...(f.dressing ?? []), ...(f.walls ?? []), ...(f.roofs ?? []), ...(f.novelty ?? [])];
+  return all.every((p) => seen.get(p.placement) === 1) && seen.size === all.length && draws.length === all.length;
+};
+const propsListedOnce = (g: CityGroundLayer, draws: readonly PlanPropDraw[]): boolean => {
+  const seen = new Map<CityPlacement, number>();
+  for (const d of draws) seen.set(d.placement, (seen.get(d.placement) ?? 0) + 1);
+  return g.props.every((p) => seen.get(p.placement) === 1) && seen.size === g.props.length && draws.length === g.props.length;
+};
+/** The keys whose listed pieces (those with a root) do not all have an instance: the keys the cap left out. */
+const notDrawn = (listed: readonly { placement: CityPlacement }[], stage: PlanInstanced, roots: ReadonlyMap<CalibrationKey, Object3D>): CalibrationKey[] => {
+  const want = new Map<CalibrationKey, number>();
+  for (const d of listed) if (d.placement.key !== CODE_ESCAPE_KEY && roots.has(d.placement.key)) want.set(d.placement.key, (want.get(d.placement.key) ?? 0) + 1);
+  return [...want].filter(([key, n]) => stage.perKey.get(key) !== n).map(([key]) => key);
+};
+const allColumns = (plan: CityPlan): Map<string, boolean> => new Map(buildingsOf(plan).columns!.map((c) => [`${c.i},${c.j}`, true] as const));
+
+/** With every root loaded, every stage 7 piece's instance matrix is `dressMatrix` of its placement (a wall piece's y-scale too), at its own position in its key's mesh. Returns the kinds and the turns seen. */
+function expectDressPlaced(d: PlanDraw, what: string): { kinds: Set<string>; yaws: Set<number> } {
+  const by = instancedBy(d.dress.group);
+  const next = new Map<CalibrationKey, number>();
+  const kinds = new Set<string>();
+  const yaws = new Set<number>();
+  const m = new Matrix4();
+  let worst = 0;
+  for (const p of d.dressDraws) {
+    const key = p.placement.key;
+    kinds.add(`${p.list}:${p.kind}`);
+    yaws.add(p.placement.yaw_deg);
+    if (key === CODE_ESCAPE_KEY) continue;
+    const im = by.get(`dress:${shortOf(key)}`);
+    expect(im, `${what} ${key}`).toBeDefined();
+    const n = next.get(key) ?? 0;
+    next.set(key, n + 1);
+    im!.getMatrixAt(n, m);
+    const want = dressMatrix(IDENT, { x: p.placement.x_m, y: p.placement.y_m, z: p.placement.z_m, yaw: p.placement.yaw_deg * RAD, scaleY: p.scaleY ?? 1 });
+    worst = Math.max(worst, maxDiff(m, want));
+  }
+  expect(worst, `${what}: every stage 7 instance is dressMatrix of its placement`).toBeLessThan(1e-4);
+  for (const [key, n] of next) expect(d.dress.perKey.get(key), `${what} ${key}`).toBe(n);
+  return { kinds, yaws };
+}
+
+/** Every escape box (a pack escape's drop ladder, a code escape's every part) is `dressMatrix` of its piece (no y-scale) times `partMatrix`, in the one box mesh, in the pieces' order. Returns the number of boxes. */
+function expectBoxes(d: PlanDraw, what: string): number {
+  let box: InstancedMesh | null = null;
+  d.dress.group.traverse((o) => {
+    if (o.name === "dress:escape-code") box = o as InstancedMesh;
+  });
+  const boxed = d.dressDraws.filter((p) => (p.boxes?.length ?? 0) > 0);
+  const total = boxed.reduce((n, p) => n + p.boxes!.length, 0);
+  if (total === 0) {
+    expect(box, what).toBeNull();
+    return 0;
+  }
+  expect(box, what).not.toBeNull();
+  const mesh = box as unknown as InstancedMesh;
+  expect(mesh.count, what).toBe(total);
+  const m = new Matrix4();
+  let n = 0;
+  let worst = 0;
+  for (const p of boxed) {
+    const base = dressMatrix(IDENT, { x: p.placement.x_m, y: p.placement.y_m, z: p.placement.z_m, yaw: p.placement.yaw_deg * RAD });
+    for (const b of p.boxes!) {
+      mesh.getMatrixAt(n++, m);
+      worst = Math.max(worst, maxDiff(m, new Matrix4().multiplyMatrices(base, partMatrix({ x: b.x_m, y: b.y_m, z: b.z_m, w: b.w_m, h: b.h_m, d: b.d_m, rz: b.rz_rad }))));
+    }
+  }
+  expect(worst, `${what}: every box`).toBeLessThan(1e-4);
+  return total;
+}
+
+/** Every prop's instance matrix is its placement with the surface at 0: x, z and turn as placed, its base at `y_m` (a flat piece 0.01 m over it). Returns the kinds seen. */
+function expectPropsPlaced(d: PlanDraw, what: string): Set<string> {
+  const by = instancedBy(d.furniture.group);
+  const next = new Map<CalibrationKey, number>();
+  const kinds = new Set<string>();
+  const m = new Matrix4();
+  let worst = 0;
+  for (const p of d.propDraws) {
+    const key = p.placement.key;
+    kinds.add(p.kind);
+    const im = by.get(`dress:${shortOf(key)}`);
+    expect(im, `${what} ${key}`).toBeDefined();
+    const n = next.get(key) ?? 0;
+    next.set(key, n + 1);
+    im!.getMatrixAt(n, m);
+    const want = dressMatrix(IDENT, { x: p.placement.x_m, y: p.placement.y_m + (p.flat ? 0.01 : 0), z: p.placement.z_m, yaw: p.placement.yaw_deg * RAD });
+    worst = Math.max(worst, maxDiff(m, want));
+  }
+  expect(worst, `${what}: every stage 8 instance`).toBeLessThan(1e-4);
+  for (const [key, n] of next) expect(d.furniture.perKey.get(key), `${what} ${key}`).toBe(n);
+  return kinds;
+}
+const firstWith = (pred: (plan: CityPlan) => boolean): CityPlan => {
+  for (const o of [DEFAULT, ...PINS]) if (pred(planOf(o))) return planOf(o);
+  throw new Error("no named city has it");
+};
+
+describe("the facades and the ground: pieces from placements only (J criteria 2 and 3)", { timeout: 120_000 }, () => {
+  it("draws every stage 7 piece at its placement through one dressGroup call, at the four turns, with a wall piece's y-scale and every box; and every stage 8 prop on the surfaces at 0", () => {
+    const kinds = new Set<string>();
+    const propKinds = new Set<string>();
+    const turns = new Set<number>();
+    let boxes = 0;
+    let scaled = 0;
+    for (const o of [DEFAULT, ...PINS]) {
+      const plan = planOf(o);
+      const d = plan3dGroups(plan, jRoots(), none.entries, LOADED_WAYS);
+      const seen = expectDressPlaced(d, label(o));
+      for (const kd of seen.kinds) kinds.add(kd);
+      for (const y of seen.yaws) turns.add(y);
+      boxes += expectBoxes(d, label(o));
+      for (const kd of expectPropsPlaced(d, label(o))) propKinds.add(kd);
+      scaled += d.dressDraws.filter((p) => p.scaleY !== undefined && p.scaleY !== 1).length;
+      expect(d.dress.listed, label(o)).toBe(d.dress.placed);
+      expect(d.dress.drawn, label(o)).toBe(d.dress.listed);
+      expect(d.furniture.drawn, label(o)).toBe(d.furniture.listed);
+      expect(d.dress.leftOut, label(o)).toEqual([]);
+      expect(d.furniture.leftOut, label(o)).toEqual([]);
+      d.dispose();
+    }
+    console.info(`J kinds checked: ${[...kinds].sort().join(" ")}; props: ${[...propKinds].sort().join(" ")}`);
+    expect(kinds.size).toBeGreaterThan(15);
+    expect(propKinds.size).toBeGreaterThan(8);
+    expect([...turns].sort((a, b) => a - b)).toEqual([0, 90, 180, 270]);
+    expect(boxes).toBeGreaterThan(0);
+    expect(scaled).toBeGreaterThan(0);
+  });
+
+  it("stands a flat lotLines 0.01 m over the surface, and a billboardBoard at its own y_m; a tree and a bench stand on it", () => {
+    const plan = firstWith((p) => groundOf(p).props.some((q) => q.kind === "lotLines") && groundOf(p).props.some((q) => q.kind === "billboardBoard"));
+    const d = plan3dGroups(plan, jRoots(), none.entries);
+    const by = instancedBy(d.furniture.group);
+    const m = new Matrix4();
+    const pos = new Vector3();
+    // The height of each instance of a kind over its own placement's y_m, metres.
+    const over = (kind: string): number[] => {
+      const heights: number[] = [];
+      const next = new Map<CalibrationKey, number>();
+      for (const p of d.propDraws) {
+        const n = next.get(p.placement.key) ?? 0;
+        next.set(p.placement.key, n + 1);
+        if (p.kind !== kind) continue;
+        by.get(`dress:${shortOf(p.placement.key)}`)!.getMatrixAt(n, m);
+        heights.push(pos.setFromMatrixPosition(m).y / 0.18 - p.placement.y_m);
+      }
+      return heights;
+    };
+    const lot = over("lotLines");
+    expect(lot.length).toBeGreaterThan(0);
+    for (const h of lot) expect(h).toBeCloseTo(0.01, 6);
+    const board = over("billboardBoard");
+    expect(board.length).toBeGreaterThan(0);
+    for (const h of board) expect(h).toBeCloseTo(0, 6);
+    expect(d.propDraws.find((p) => p.kind === "billboardBoard")!.placement.y_m).toBeGreaterThan(0);
+    for (const kind of ["tree", "bench", "bin"]) for (const h of over(kind)) expect(h, kind).toBeCloseTo(0, 6);
+    d.dispose();
+  });
+
+  it("draws a piece only when its key's root loaded: with one stage 7 key's root missing only that key's pieces are not drawn, and the same for stage 8; with empty roots none is", () => {
+    const plan = planOf(DEFAULT);
+    const e = plan3dGroups(plan, none.roots, none.entries);
+    expect(e.dress.placed).toBe(0);
+    expect(e.dress.drawn).toBe(0);
+    expect(e.furniture.drawn).toBe(0);
+    expect(e.dress.group.children).toHaveLength(0);
+    expect(e.furniture.group.children).toHaveLength(0);
+    e.dispose();
+    const count = (draws: readonly { placement: CityPlacement }[]): Map<CalibrationKey, number> => {
+      const c = new Map<CalibrationKey, number>();
+      for (const d of draws) c.set(d.placement.key, (c.get(d.placement.key) ?? 0) + 1);
+      return c;
+    };
+    const dd = planDressDraws(plan);
+    const [lack7] = [...count(dd)].filter(([kd]) => kd !== CODE_ESCAPE_KEY).sort((a, b) => b[1] - a[1])[0]!;
+    const part7 = plan3dGroups(plan, jRoots([lack7]), none.entries);
+    expect(part7.dress.placed).toBe(dd.length - count(dd).get(lack7)!);
+    expect(part7.dress.perKey.has(lack7)).toBe(false);
+    expect(part7.dress.perKey.size).toBe(count(dd).size - 1 - (count(dd).has(CODE_ESCAPE_KEY) ? 1 : 0));
+    part7.dispose();
+    const pd = planPropDraws(plan);
+    const [lack8] = [...count(pd)].sort((a, b) => b[1] - a[1])[0]!;
+    const part8 = plan3dGroups(plan, jRoots([lack8]), none.entries);
+    expect(part8.furniture.placed).toBe(pd.length - count(pd).get(lack8)!);
+    expect(part8.furniture.perKey.has(lack8)).toBe(false);
+    part8.dispose();
+  });
+
+  it("draws no stage 7 piece on a column that fell back to grey (it would float), and every piece on the other columns; a column whose ground slot alone is grey keeps its pieces", () => {
+    const plan = planOf(DEFAULT);
+    const columns = buildingsOf(plan).columns!;
+    const count = new Map<CalibrationKey, number>();
+    for (const c of columns) for (const kd of new Set(c.pieces.map((p) => p.placement.key))) count.set(kd, (count.get(kd) ?? 0) + 1);
+    const [lack] = [...count.entries()].sort((a, b) => b[1] - a[1])[0]!;
+    const fell = new Set(columns.filter((c) => c.pieces.some((p) => p.placement.key === lack)).map((c) => `${c.i},${c.j}`));
+    const part = plan3dGroups(plan, jRoots([lack]), none.entries);
+    const dd = planDressDraws(plan);
+    const onFell = dd.filter((p) => fell.has(`${p.cell.i},${p.cell.j}`)).length;
+    expect(onFell).toBeGreaterThan(0);
+    expect(onFell).toBeLessThan(dd.length);
+    expect(part.dress.placed).toBe(dd.length - onFell);
+    expect(part.furniture.drawn).toBe(part.furniture.listed);
+    part.dispose();
+    // A ground key that no column above the ground uses: only ground slots are grey, and no stage 7 piece is lost.
+    const above = new Set(columns.flatMap((c) => c.pieces.map((p) => p.placement.key)));
+    const only = [...new Set(facadesOf(plan).ground.map((g) => g.placement.key))].filter((kd) => !above.has(kd));
+    expect(only.length).toBeGreaterThan(0);
+    for (const lackGround of only) {
+      const g = plan3dGroups(plan, jRoots([lackGround]), none.entries);
+      expect(g.grey.slots, lackGround).toBeGreaterThan(0);
+      expect(g.dress.placed, lackGround).toBe(dd.length);
+      g.dispose();
+    }
+  });
+
+  it("swaps an emissive material for a plain one: with emissive stub roots no stage 7 or 8 mesh is emissive, and none carries an emissive map", () => {
+    const plan = planOf(DEFAULT);
+    const glow = new MeshStandardMaterial({ color: 0xffffff, emissive: 0xffeecc, emissiveIntensity: 2, emissiveMap: new Texture() });
+    const roots = jRoots();
+    for (const key of new Set<CalibrationKey>([...planDressDraws(plan).map((p) => p.placement.key), ...planPropDraws(plan).map((p) => p.placement.key)])) {
+      if (key === CODE_ESCAPE_KEY || !roots.has(key)) continue;
+      const g = new Group();
+      g.name = shortOf(key);
+      g.add(new Mesh(BOX, glow));
+      roots.set(key, g);
+    }
+    const d = plan3dGroups(plan, roots, none.entries);
+    let meshes = 0;
+    for (const grp of [d.dress.group, d.furniture.group]) {
+      grp.traverse((o) => {
+        if ((o as InstancedMesh).isInstancedMesh !== true || o.name === "dress:escape-code") return;
+        meshes++;
+        const mat = (o as InstancedMesh).material as MeshStandardMaterial;
+        expect(mat.emissive?.getHex() ?? 0, o.name).toBe(0);
+        expect(mat.emissiveMap ?? null, o.name).toBeNull();
+      });
+    }
+    expect(meshes).toBeGreaterThan(10);
+    expect(glow.emissive.getHex(), "the cached root's own material is never written").toBe(0xffeecc);
+    d.dispose();
+  });
+
+  it("keeps the base atlas on every stage 7 and 8 piece, on a building painted in a loaded colourway", () => {
+    const plan = planOf(DEFAULT);
+    const d = plan3dGroups(plan, jRoots(), none.entries, LOADED_WAYS);
+    let painted = 0;
+    for (const b of buildingsOf(plan).buildings) {
+      if (!LOADED_WAYS.has(b.colourway)) continue;
+      const g = d.buildings.groups.find((x) => x.name === `building:${b.id}`)!;
+      for (const m of meshesOf(g)) if ((m.material as MeshBasicMaterial).map!.name.startsWith("stub-")) painted++;
+    }
+    expect(painted).toBeGreaterThan(0);
+    let checked = 0;
+    for (const grp of [d.dress.group, d.furniture.group]) {
+      grp.traverse((o) => {
+        if ((o as InstancedMesh).isInstancedMesh !== true || o.name === "dress:escape-code") return;
+        const map = ((o as InstancedMesh).material as MeshBasicMaterial).map;
+        checked++;
+        expect(map?.name.startsWith("stub-") ?? false, o.name).toBe(false);
+        if (map) expect(map, o.name).toBe(STUB_SOURCE);
+      });
+    }
+    expect(checked).toBeGreaterThan(10);
+    d.dispose();
+  });
+
+  it("fails the exactly-once check with one piece dropped from each of dressing, walls, roofs, novelty and props in turn, and with one of each listed twice", () => {
+    const plan = planOf(DEFAULT);
+    const f = facadesOf(plan);
+    const dd = planDressDraws(plan);
+    const pd = planPropDraws(plan);
+    expect(dressListedOnce(f, dd)).toBe(true);
+    expect(propsListedOnce(groundOf(plan), pd)).toBe(true);
+    for (const list of ["dressing", "walls", "roofs", "novelty"] as const) {
+      const items = f[list] as readonly { placement: CityPlacement }[];
+      expect(items.length, list).toBeGreaterThan(0);
+      expect(dressListedOnce({ ...f, [list]: items.slice(1) }, dd), `${list} dropped from the layer`).toBe(false);
+      expect(dressListedOnce(f, dd.filter((p) => p.placement !== items[0]!.placement)), `${list} dropped from the draws`).toBe(false);
+      expect(dressListedOnce(f, [...dd, dd.find((p) => p.list === list)!]), `${list} listed twice`).toBe(false);
+    }
+    expect(propsListedOnce({ ...groundOf(plan), props: groundOf(plan).props.slice(1) }, pd)).toBe(false);
+    expect(propsListedOnce(groundOf(plan), pd.slice(1))).toBe(false);
+    expect(propsListedOnce(groundOf(plan), [...pd, pd[3]!])).toBe(false);
+  });
+
+  it("names the key a cap leaves out: a stub root with more meshes than DRESS_DRAW_CALLS_MAX leaves room for", () => {
+    const plan = planOf(DEFAULT);
+    const dd = planDressDraws(plan);
+    const okRoots = jRoots();
+    const ok = dressStage(dd, okRoots, allColumns(plan));
+    expect(notDrawn(dd, ok, okRoots)).toEqual([]);
+    ok.dispose();
+    const key = dd.find((p) => p.list === "roofs" && p.kind === "waterTower")!.placement.key;
+    const roots = jRoots([], new Map([[key, DRESS_DRAW_CALLS_MAX + 10]]));
+    const big = dressStage(dd, roots, allColumns(plan));
+    expect(notDrawn(dd, big, roots)).toEqual([key]);
+    expect(big.leftOut).toEqual([key]);
+    expect(big.drawn).toBe(big.placed - dd.filter((p) => p.placement.key === key).length);
+    big.dispose();
+    const pd = planPropDraws(plan);
+    const pkey = pd[0]!.placement.key;
+    const proots = jRoots([], new Map([[pkey, FURN_DRAW_CALLS_MAX + 10]]));
+    const pbig = propStage(pd, proots);
+    expect(notDrawn(pd, pbig, proots)).toEqual([pkey]);
+    pbig.dispose();
+  });
+
+  it("stops (PlanStopError, the cell named) on a stage 7 piece whose key the page does not load, one whose cell is no column, a stage 8 prop whose key the page does not load, a missing list, and a plan with no ground layer", () => {
+    const plan = planOf(DEFAULT);
+    const f = facadesOf(plan);
+    const roots = jRoots();
+    const stop = (p: CityPlan): PlanStopError => {
+      let caught: unknown = null;
+      try {
+        plan3dGroups(p, roots, none.entries);
+      } catch (e) {
+        caught = e;
+      }
+      expect(caught).toBeInstanceOf(PlanStopError);
+      return caught as PlanStopError;
+    };
+    const alien = "city-pack:Nothing_01";
+    for (const list of ["dressing", "walls", "roofs", "novelty"] as const) {
+      const items = f[list] as readonly { cell: CityCell; placement: CityPlacement }[];
+      const e = stop(facadesWith(plan, { [list]: items.map((p, n) => (n === 0 ? { ...p, placement: reKey(p.placement, alien) } : p)) }));
+      expect(e.cells, `${list} key`).toEqual([items[0]!.cell]);
+      expect(e.message).toMatch(/not one the page loads/);
+      const off = { i: -1, j: -1 };
+      const e2 = stop(facadesWith(plan, { [list]: items.map((p, n) => (n === 0 ? { ...p, cell: off } : p)) }));
+      expect(e2.cells, `${list} cell`).toEqual([off]);
+      expect(e2.message).toMatch(/not a column/);
+      const bare = { ...f } as { -readonly [K in keyof CityFacadesLayer]?: CityFacadesLayer[K] };
+      delete bare[list];
+      expect(stop({ ...plan, layers: { ...plan.layers, facades: bare as CityFacadesLayer } }).message, list).toMatch(new RegExp(`no ${list} list`));
+    }
+    const props = groundOf(plan).props;
+    const e3 = stop(groundWith(plan, props.map((p, n) => (n === 0 ? { ...p, placement: reKey(p.placement, alien) } : p))));
+    expect(e3.cells).toEqual([props[0]!.cell]);
+    expect(e3.message).toMatch(/not one the page loads/);
+    const noGround = { ...plan.layers } as { -readonly [K in keyof CityPlan["layers"]]?: CityPlan["layers"][K] };
+    delete noGround.ground;
+    expect(stop({ ...plan, layers: noGround }).message).toMatch(/ground layers/);
+  });
+});
+
+describe("the facades and the ground, on the 20 named runs (J criteria 3, 4, 5 and 6)", { timeout: 120_000 }, () => {
+  it("draws only, lists every stage 7 piece and every prop exactly once, draws every listed piece with a full stub pack (no key left out, both caps held), and leaves G, G2 and E's counts as they were", () => {
+    for (const o of NAMED) {
+      const plan = planOf(o);
+      const layers = plan.layers;
+      const digests = (): Record<string, string> => ({ streets: digestOf(layers.streets), land: digestOf(layers.land), mass: digestOf(layers.mass), edge: digestOf(layers.edge), buildings: digestOf(layers.buildings), facades: digestOf(layers.facades), ground: digestOf(layers.ground) });
+      const before = digests();
+      expect(before, label(o)).toEqual({ streets: plan.digests.streets, land: plan.digests.land, mass: plan.digests.mass, edge: plan.digests.edge, buildings: plan.digests.buildings, facades: plan.digests.facades, ground: plan.digests.ground });
+      const dd = planDressDraws(plan);
+      const pd = planPropDraws(plan);
+      expect(dressListedOnce(facadesOf(plan), dd), label(o)).toBe(true);
+      expect(propsListedOnce(groundOf(plan), pd), label(o)).toBe(true);
+      // The order is the lists': dressing, walls, roofs, novelty, each in its own order.
+      const f = facadesOf(plan);
+      expect(dd.map((p) => p.placement), label(o)).toEqual([...f.dressing!, ...f.walls!, ...f.roofs!, ...f.novelty!].map((p) => p.placement));
+      expect(pd.map((p) => p.placement), label(o)).toEqual(groundOf(plan).props.map((p) => p.placement));
+      // The instancer alone, over every column drawn from the pack: nothing is left out, and neither cap is passed.
+      const roots = jRoots();
+      const s7 = dressStage(dd, roots, allColumns(plan));
+      const s8 = propStage(pd, roots);
+      expect(s7.placed, label(o)).toBe(dd.length);
+      expect(s7.drawn, label(o)).toBe(dd.length);
+      expect(notDrawn(dd, s7, roots), label(o)).toEqual([]);
+      expect(notDrawn(pd, s8, roots), label(o)).toEqual([]);
+      expect(s8.drawn, label(o)).toBe(pd.length);
+      expect(s7.leftOut, label(o)).toEqual([]);
+      expect(s8.leftOut, label(o)).toEqual([]);
+      expect(s7.calls, label(o)).toBeLessThanOrEqual(DRESS_DRAW_CALLS_MAX);
+      expect(s8.calls, label(o)).toBeLessThanOrEqual(FURN_DRAW_CALLS_MAX);
+      s7.dispose();
+      s8.dispose();
+      // In code (no roots) the whole draw leaves every layer alone, and G, G2 and E's counts hold.
+      const d = plan3dGroups(plan, none.roots, none.entries);
+      expect(digests(), `${label(o)}: no layer changed`).toEqual(before);
+      expect(d.dressDraws, label(o)).toHaveLength(dd.length);
+      expect(d.propDraws, label(o)).toHaveLength(pd.length);
+      expect(d.dress.drawn + d.furniture.drawn, label(o)).toBe(0);
+      expect(groundListedOnce(facadesOf(plan), d.buildings.groundDraws), label(o)).toBe(true);
+      expect(listedOnce(buildingsOf(plan), d.buildings.draws), label(o)).toBe(true);
+      expect(d.grey.count, label(o)).toBe(buildingsOf(plan).columns!.length);
+      expect(d.tiles.fromPack + d.tiles.codeDrawn, label(o)).toBe(layers.edge!.ground!.length);
+      expect(d.interior.fromPack + d.interior.codeDrawn, label(o)).toBe(d.items.length);
+      expect(d.tiles.calls, label(o)).toBeLessThanOrEqual(TILE_DRAW_CALLS_MAX);
+      expect(d.interior.calls, label(o)).toBeLessThanOrEqual(INTERIOR_DRAW_CALLS_MAX);
+      d.dispose();
+    }
+  });
+
+  it("builds the full group (stub roots) on the default city and the four pin cities with the facades, ground and buildings digests unchanged", () => {
+    for (const o of [DEFAULT, ...PINS]) {
+      const plan = planOf(o);
+      const before = digestOf(plan.layers.facades) + digestOf(plan.layers.ground) + digestOf(plan.layers.buildings);
+      const d = plan3dGroups(plan, jRoots(), none.entries, LOADED_WAYS);
+      expect(digestOf(plan.layers.facades) + digestOf(plan.layers.ground) + digestOf(plan.layers.buildings), label(o)).toBe(before);
+      expect(d.dress.drawn, label(o)).toBe(d.dressDraws.length);
+      expect(d.furniture.drawn, label(o)).toBe(d.propDraws.length);
+      expect(d.dress.calls, label(o)).toBeLessThanOrEqual(DRESS_DRAW_CALLS_MAX);
+      expect(d.furniture.calls, label(o)).toBeLessThanOrEqual(FURN_DRAW_CALLS_MAX);
+      d.dispose();
+    }
+  });
+
+  it("R12: planAudit is empty on every named run, no SM_Prop_Pipe_Present_01 stands on any, and the party pipe that does is _03 on a partyPipe", () => {
+    let pipes = 0;
+    for (const o of NAMED) {
+      const plan = planOf(o);
+      expect(planAudit(plan), label(o)).toEqual([]);
+      const f = facadesOf(plan);
+      for (const w of f.walls!) {
+        expect(w.placement.key, label(o)).not.toBe(PIPE_01);
+        if (w.placement.key === PLAN_PARTY_PIPE) {
+          pipes++;
+          expect(w.kind, label(o)).toBe("partyPipe");
+        }
+      }
+      for (const p of [...f.dressing!, ...f.roofs!, ...f.novelty!, ...groundOf(plan).props]) expect(p.placement.key, label(o)).not.toBe(PIPE_01);
+    }
+    expect(pipes).toBeGreaterThan(0);
+  });
+
+  it("R12 fixtures: each makes planAudit name exactly that piece, and plan3dGroups stop", () => {
+    const plan = planOf(DEFAULT);
+    const f = facadesOf(plan);
+    const stops = (p: CityPlan): boolean => {
+      try {
+        plan3dGroups(p, jRoots(), none.entries);
+        return false;
+      } catch (e) {
+        return e instanceof PlanStopError && /R12/.test(e.message);
+      }
+    };
+    expect(planAudit(plan)).toEqual([]);
+    // A dressing piece re-keyed to a light pole.
+    const lamp = "city-pack:SM_Prop_LightPole_01" as CalibrationKey;
+    const a = facadesWith(plan, { dressing: f.dressing!.map((p, n) => (n === 2 ? { ...p, placement: reKey(p.placement, lamp) } : p)) });
+    expect(planAudit(a)).toEqual([{ layer: "facades", list: "dressing", cell: f.dressing![2]!.cell, key: lamp }]);
+    expect(stops(a)).toBe(true);
+    // A partyPipe re-keyed to _01 (and _02), and _03 on a canopy; _03 on a partyPipe is the one allowance.
+    const pipe = f.walls!.findIndex((w) => w.kind === "partyPipe");
+    const canopy = f.walls!.findIndex((w) => w.kind === "canopy");
+    expect(pipe).toBeGreaterThanOrEqual(0);
+    expect(canopy).toBeGreaterThanOrEqual(0);
+    expect(f.walls![pipe]!.placement.key).toBe(PLAN_PARTY_PIPE);
+    const b = facadesWith(plan, { walls: f.walls!.map((w, n) => (n === pipe ? { ...w, placement: reKey(w.placement, PIPE_01) } : w)) });
+    expect(planAudit(b)).toEqual([{ layer: "facades", list: "walls", cell: f.walls![pipe]!.cell, key: PIPE_01 }]);
+    expect(stops(b)).toBe(true);
+    const p02 = "city-pack:SM_Prop_Pipe_Present_02" as CalibrationKey;
+    expect(planAudit(facadesWith(plan, { walls: f.walls!.map((w, n) => (n === pipe ? { ...w, placement: reKey(w.placement, p02) } : w)) })).map((e) => e.key)).toEqual([p02]);
+    const c = facadesWith(plan, { walls: f.walls!.map((w, n) => (n === canopy ? { ...w, placement: reKey(w.placement, PLAN_PARTY_PIPE) } : w)) });
+    expect(planAudit(c)).toEqual([{ layer: "facades", list: "walls", cell: f.walls![canopy]!.cell, key: PLAN_PARTY_PIPE }]);
+    expect(stops(c)).toBe(true);
+    // A stage 8 prop re-keyed to a car.
+    const car = "city-pack:SM_Veh_Car_01" as CalibrationKey;
+    const props = groundOf(plan).props;
+    const d = groundWith(plan, props.map((p, n) => (n === 5 ? { ...p, placement: reKey(p.placement, car) } : p)));
+    expect(planAudit(d)).toEqual([{ layer: "ground", list: "props", cell: props[5]!.cell, key: car }]);
+    expect(stops(d)).toBe(true);
+  });
+
+  it("loads the party window and the party pipe by name: planKeys() names them and no other new key, and no dressing, furniture or stack list does; every key the plan places is loaded", () => {
+    expect(planKeys()).toEqual([...planTileKeys(), PLAN_PARTY_WINDOW, PLAN_PARTY_PIPE]);
+    expect(planKeys().slice(0, -2)).toEqual([...tileKeys(), PLAN_ARROW, ...PLAN_DOOR_CORNERS]);
+    expect([PLAN_PARTY_WINDOW, PLAN_PARTY_PIPE]).toEqual(["city-pack:SM_Prop_Window_01", "city-pack:SM_Prop_Pipe_Present_03"]);
+    for (const key of [PLAN_PARTY_WINDOW, PLAN_PARTY_PIPE]) {
+      expect(dressKeys()).not.toContain(key);
+      expect(furnitureKeys()).not.toContain(key);
+      expect(allStackKeys()).not.toContain(key);
+    }
+    expect(planKeys()).not.toContain(PIPE_01);
+    const loaded = new Set<CalibrationKey>([...dressKeys(), ...furnitureKeys(), ...planKeys()]);
+    const missing = new Set<string>();
+    for (const o of NAMED) {
+      const plan = planOf(o);
+      for (const d of planDressDraws(plan)) if (d.placement.key !== CODE_ESCAPE_KEY && !loaded.has(d.placement.key)) missing.add(d.placement.key);
+      for (const d of planPropDraws(plan)) if (!loaded.has(d.placement.key)) missing.add(d.placement.key);
+    }
+    expect([...missing]).toEqual([]);
+  });
+
+  it("brings the dressing and furniture of a loaded set into the plan's input, and the tile keys of the street pieces are what they were before J", () => {
+    const key = dressKeys()[0]!;
+    const root = stubRoot(key);
+    const set: ModelSet = { ...NO_MODELS, dress: [{ pack: "city-pack", entry: { ...entryOf(key, 0), name: shortOf(key) }, root } as unknown as LoadedModel] };
+    expect(planInput(set).roots.get(key)).toBe(root);
+    expect(planInput(set).entries.has(key)).toBe(true);
+    expect(planTileKeys()).toEqual([...tileKeys(), PLAN_ARROW, ...PLAN_DOOR_CORNERS]);
+    for (const kd of [PLAN_PARTY_WINDOW, PLAN_PARTY_PIPE]) expect(planTileKeys()).not.toContain(kd);
+  });
+
+  const HAVE_GLB = existsSync(join("assets", "private", "out", "city-pack.glb"));
+  interface Gltf {
+    nodes: { name?: string; mesh?: number; children?: number[] }[];
+    meshes: { primitives: { material?: number }[] }[];
+    materials: { emissiveFactor?: number[]; emissiveTexture?: unknown }[];
+  }
+  const readGlb = (): Gltf => {
+    const glb = readFileSync(join("assets", "private", "out", "city-pack.glb"));
+    return JSON.parse(glb.subarray(20, 20 + glb.readUInt32LE(12)).toString("utf8")) as Gltf;
+  };
+  const primsOf = (gltf: Gltf, key: CalibrationKey): { prims: number; materials: number[] } => {
+    const root = gltf.nodes.find((n) => n.name === shortOf(key));
+    expect(root, key).toBeDefined();
+    const mats: number[] = [];
+    let prims = 0;
+    const walk = (n: { mesh?: number; children?: number[] }): void => {
+      if (n.mesh !== undefined) {
+        for (const p of gltf.meshes[n.mesh]!.primitives) {
+          prims++;
+          if (p.material !== undefined) mats.push(p.material);
+        }
+      }
+      for (const c of n.children ?? []) walk(gltf.nodes[c]!);
+    };
+    walk(root!);
+    return { prims, materials: mats };
+  };
+
+  it.skipIf(!HAVE_GLB)("no key the plan places on 6 x 6 seed 1 has an emissive factor or map in city-pack.glb (skipped when the GLB is absent)", () => {
+    const gltf = readGlb();
+    const plan = planOf(DEFAULT);
+    const keys = new Set<CalibrationKey>([...planDressDraws(plan).map((p) => p.placement.key), ...planPropDraws(plan).map((p) => p.placement.key)]);
+    keys.delete(CODE_ESCAPE_KEY);
+    expect(keys.size).toBeGreaterThan(40);
+    for (const key of keys) {
+      const { prims, materials } = primsOf(gltf, key);
+      expect(prims, key).toBeGreaterThan(0);
+      for (const m of materials) {
+        const mat = gltf.materials[m]!;
+        expect((mat.emissiveFactor ?? [0, 0, 0]).every((e) => e === 0), `${key} emissive factor`).toBe(true);
+        expect(mat.emissiveTexture, `${key} emissive map`).toBeUndefined();
+      }
+    }
+  });
+
+  it.skipIf(!HAVE_GLB)("reports the draw calls of stages 7 and 8 from the converted City Pack on 6 x 6 seeds 1 and 3, and holds both caps (skipped when the GLB is absent)", () => {
+    const gltf = readGlb();
+    const manifest = JSON.parse(readFileSync(join("assets", "private", "out", "manifest.json"), "utf8")) as { packs: { pack: string; assets: { name: string; triangles: number }[] }[] };
+    const triangles = new Map(manifest.packs.find((p) => p.pack === "city-pack")!.assets.map((a) => [a.name, a.triangles] as const));
+    for (const o of [DEFAULT, { seed: 3, way: "on" } as City]) {
+      const plan = planOf(o);
+      const dd = planDressDraws(plan);
+      const pd = planPropDraws(plan);
+      const keyCalls = (draws: readonly { placement: CityPlacement }[]): { perKey: Map<CalibrationKey, number>; clone: number; tris: number } => {
+        const pieces = new Map<CalibrationKey, number>();
+        for (const d of draws) if (d.placement.key !== CODE_ESCAPE_KEY) pieces.set(d.placement.key, (pieces.get(d.placement.key) ?? 0) + 1);
+        const perKey = new Map<CalibrationKey, number>();
+        let clone = 0;
+        let tris = 0;
+        for (const [key, n] of pieces) {
+          const { prims } = primsOf(gltf, key);
+          perKey.set(key, prims);
+          clone += prims * n;
+          tris += (triangles.get(shortOf(key)) ?? 0) * n;
+        }
+        return { perKey, clone, tris };
+      };
+      const s7 = keyCalls(dd);
+      const s8 = keyCalls(pd);
+      const calls7 = [...s7.perKey.values()].reduce((a, b) => a + b, 0);
+      const calls8 = [...s8.perKey.values()].reduce((a, b) => a + b, 0);
+      const boxCall = dd.some((p) => (p.boxes?.length ?? 0) > 0) ? 1 : 0;
+      expect(calls7, `${label(o)} stage 7 keys' meshes`).toBeLessThanOrEqual(DRESS_DRAW_CALLS_MAX);
+      expect(calls8, `${label(o)} stage 8 keys' meshes`).toBeLessThanOrEqual(FURN_DRAW_CALLS_MAX);
+      // The calls before J (G2's: floors and roofs, ground pieces, the grey call), counted per piece from the GLB.
+      const g = planPieceDraws(buildingsOf(plan));
+      const gd = planGroundDraws(facadesOf(plan), buildingsOf(plan));
+      const floors = g.reduce((n, p) => n + primsOf(gltf, p.placement.key).prims, 0);
+      const grounds = gd.reduce((n, p) => n + primsOf(gltf, p.placement.key).prims, 0);
+      const before = floors + grounds + 1;
+      const kinds7: Record<string, number> = {};
+      for (const p of dd) kinds7[`${p.list}:${p.kind}`] = (kinds7[`${p.list}:${p.kind}`] ?? 0) + 1;
+      const kinds8: Record<string, number> = {};
+      for (const p of pd) kinds8[p.kind] = (kinds8[p.kind] ?? 0) + 1;
+      const lists: Record<string, number> = {};
+      for (const p of dd) lists[p.list] = (lists[p.list] ?? 0) + 1;
+      console.info(
+        `J draw calls, ${label(o)}: before J (G2's) ${before} (${floors} floors and roofs + ${grounds} ground pieces + 1 grey); after J ${before + calls7 + boxCall + calls8} (+${calls7} stage 7 calls from ${s7.perKey.size} keys, +${boxCall} escape boxes, +${calls8} stage 8 calls from ${s8.perKey.size} keys); ` +
+          `cloning per piece would add ${s7.clone + s8.clone} (${before + s7.clone + s8.clone} in all); stage 7 pieces ${dd.length} by list ${JSON.stringify(lists)} (DRESS_MAX ${DRESS_MAX}, ${dd.length > DRESS_MAX ? `over by ${dd.length - DRESS_MAX}` : "under"}) by kind ${JSON.stringify(kinds7)}; ` +
+          `stage 8 props ${pd.length} by kind ${JSON.stringify(kinds8)}; triangles added: stage 7 ${s7.tris}, stage 8 ${s8.tris}`,
+      );
+      expect(calls7 + calls8).toBeGreaterThan(0);
+    }
+  });
+});
+
 // ---- the renderer ----
 
 describe("createPlanAssembleRenderer3d and the routing (criterion 7)", () => {
@@ -1133,6 +1777,9 @@ describe("createPlanAssembleRenderer3d and the routing (criterion 7)", () => {
       if (o.name === "plan:grey") masses += (o as InstancedMesh).count;
     });
     expect(masses).toBe(planOf(DEFAULT).layers.buildings!.columns!.length);
+    expect(scene.getObjectByName("plan:dress")).toBeDefined();
+    expect(scene.getObjectByName("plan:furniture")).toBeDefined();
+    expect(info.mock.calls.some((c) => String(c[0]).includes("stage 7: 0 of ") && String(c[0]).includes("stage 8: 0 of ") && String(c[0]).includes("keys left out: none"))).toBe(true);
     ok.dispose();
 
     const failure = { stage: "mass" as const, seed: 7, blocksX: 6, blocksZ: 6, reason: "M3: cell (14, 9) has opposite open sides", cells: [{ i: 14, j: 9 }] };
@@ -1150,6 +1797,14 @@ describe("createPlanAssembleRenderer3d and the routing (criterion 7)", () => {
     expect(scenes[scenes.length - 1]!.getObjectByName("plan3d")).toBeUndefined();
     expect(planFailureText(atBuildings)).toBe('City plan failed at stage "buildings" (seed 7, 6 x 6): rule 6: a row stretch of 1 cell');
     stopped.dispose();
+    const atGround = { stage: "ground" as const, seed: 7, blocksX: 6, blocksZ: 6, reason: "R10: a prop with no pavement", cells: [{ i: 3, j: 4 }] };
+    const groundStopped = createPlanAssembleRenderer3d(gl, fakeCanvas, planAssembleRequested("?city=plan&stage=9&seed=7")!, { dpr: 1, search: "?city=plan&stage=9&seed=7", load: async () => ({ ...NO_MODELS }), run: { ok: false, plan: planOf(DEFAULT), failure: atGround } });
+    await new Promise<void>((done) => setTimeout(done, 0));
+    groundStopped.draw(undefined as never, undefined as never, 0);
+    expect(scenes[scenes.length - 1]!.getObjectByName("plan3d")).toBeUndefined();
+    expect(planFailureText(atGround)).toBe('City plan failed at stage "ground" (seed 7, 6 x 6): R10: a prop with no pavement');
+    expect(info.mock.calls.some((c) => String(c[0]).includes('stage "ground"') && String(c[0]).includes("R10"))).toBe(true);
+    groundStopped.dispose();
     info.mockRestore();
   });
 
@@ -1233,6 +1888,13 @@ describe("createPlanAssembleRenderer3d and the routing (criterion 7)", () => {
     expect(seen).toBeGreaterThan(0);
     r.dispose();
     vi.restoreAllMocks();
+  });
+
+  it("runs the pipeline to the ground stage when the page does not give a run (the flat picture at stage=ground stays planview.ts's)", () => {
+    const source = readFileSync("src/render3d/plan3d.ts", "utf8");
+    expect(source).toMatch(/runCity\(\{ blocksX: req\.blocksX, blocksZ: req\.blocksZ, seed: req\.seed \}, "ground"\)/);
+    expect(source).not.toMatch(/seed: req\.seed \}, "facades"\)/);
+    expect(planAssembleRequested("?city=plan&stage=ground")).toBeNull();
   });
 
   it("is routed in renderer.ts ahead of the flat picture and the town's scene, and takes no other address", () => {
