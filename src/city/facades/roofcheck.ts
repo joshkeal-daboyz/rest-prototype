@@ -6,7 +6,7 @@
  *   no other roof piece on it; RX: on a blind column wherever its building has a blind column that holds it, never on a corner column;
  * - deck (RE, RT, BB): every piece's footprint inside its column's deck (`ROOF_EDGE_M` in; `BILLBOARD_EDGE_M` for a billboard's two pieces), its base on the deck within 1e-6 m, no two footprints overlapping; RK: and clear of the
  *   party-wall pieces over its roof (the deck's side inset by the deepest, where deeper than `ROOF_EDGE_M`);
- * - roofs (criterion 2): the big prop on a mid roof only and one a building, a billboard whole (its structure and one face, one column) and one a run; RB: a billboard only on a mid column with a street front; no `novelty` piece (NV);
+ * - roofs (criterion 2): the big prop on a mid roof only and one a building, a billboard whole (its structure and one face, one column) and one a run; RB: a billboard only on a mid column with a street front; NV (H1c): a `novelty` piece only with a key of `NOVELTY_KEYS`, on a mid column of a shop in `layer.shops`;
  *   small props off the big prop's column and at most `ROOF_SMALL_PER_BAY` a column; every key of its kind's list, and its turn;
  * - TC (H3b), the tower cap: a street block's water towers are at most floor(its buildings / `WATER_TOWER_PER_BUILDINGS`);
  * - cap (RC): a column's pieces, H1b's dressing, the escape's weight, H2's canopies and upper-wall props and the roof pieces together, at most `DRESS_PER_BAY_MAX` (no party-wall piece counts: PW7).
@@ -18,6 +18,7 @@ import type { GroundInput } from "./check";
 import { runsOf } from "./dress";
 import { DRESS_PER_BAY_MAX } from "./dresskit";
 import { makeCtx } from "./facts";
+import { NOVELTY_KEYS } from "./noveltykit";
 import { OPPOSITE, SIDE_VEC, keyOf, rotate, sideOf } from "./place";
 import {
   BIG_ROOF_KINDS,
@@ -79,6 +80,7 @@ const KEYS: Readonly<Record<string, readonly CalibrationKey[]>> = {
   exit: [ROOF_ACCESS],
   billboard: [BILLBOARD_STRUCTURE],
   billboardFace: BILLBOARD_FACES,
+  novelty: NOVELTY_KEYS,
 };
 
 const emptyMetrics = (): RoofMetrics => ({ buildings: 0, dressed: 0, runs: 0, bigRuns: 0, pieces: 0, byKind: {}, byKey: {}, bigByColumn: {}, bigByStoreys: {}, tallestTop: 0, smallOne: 0, smallTwo: 0, maxPerColumn: 0 });
@@ -102,6 +104,8 @@ export function roofReport(layer: CityFacadesLayer, input: GroundInput): RoofRep
   const insets = roofInsets(layer.walls ?? []);
   const loads = columnLoads(layer, input.buildings);
   const runOf = runsOf(input.buildings);
+  /** NV (H1c): the cells of every shop, a novelty piece's column must be one of them. */
+  const shopCells = new Set((layer.shops ?? []).flatMap((s) => s.cells.map((c) => keyOf(c))));
   const at = (c: CityCell): string => `(${c.i}, ${c.j})`;
   const buildingIndex = new Map(input.buildings.buildings.map((b, n) => [b.id, n] as const));
   const colIndex = new Map<string, number>();
@@ -129,8 +133,8 @@ export function roofReport(layer: CityFacadesLayer, input: GroundInput): RoofRep
       fail("H3", `${where} is on a column that is not in building ${p.building}`, [p.cell]);
       continue;
     }
-    if (p.kind === "novelty") {
-      fail("roofs", `${where}: NV, H3 places no novelty sign (section H1c's)`, [p.cell]);
+    if (p.kind === "novelty" && (!NOVELTY_KEYS.includes(p.placement.key) || col.kind !== "mid" || !shopCells.has(ck))) {
+      fail("roofs", `${where}: NV, a novelty sign stands only with a novelty key on a mid column of a shop`, [p.cell]);
       continue;
     }
     const list = KEYS[p.kind];
@@ -149,7 +153,7 @@ export function roofReport(layer: CityFacadesLayer, input: GroundInput): RoofRep
 
     // the turn: the column's, plus a half-turn for the exit always and a turnable small prop by hash
     const rel = ((((p.placement.yaw_deg - col.yaw) % 360) + 360) % 360) as number;
-    const turnOk = p.kind === "exit" ? rel === 180 : p.kind === "small" ? rel === 0 || (rel === 180 && isTurnable(p.placement.key)) : rel === 0;
+    const turnOk = p.kind === "exit" ? rel === 180 : p.kind === "small" ? rel === 0 || (rel === 180 && isTurnable(p.placement.key)) : p.kind === "novelty" ? rel === 0 || rel === 90 : rel === 0;
     if (!turnOk) fail(p.kind === "exit" ? "M9b" : "roofs", `${where} is turned ${p.placement.yaw_deg} against its column's ${col.yaw}`, [p.cell]);
     const facing = sideOf(rotate(p.placement.yaw_deg, 0, 1));
     if (facing !== p.facing) fail("roofs", `${where} says it faces ${p.facing} and its turn faces ${String(facing)}`, [p.cell]);
