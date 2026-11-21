@@ -8,7 +8,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import type { CityBuildingsLayer, CityBuilding, CityLandLayer, CityLayers, CityMassLayer, CityPlanRun } from "../../core";
+import type { CityBuildingsLayer, CityBuilding, CityLandLayer, CityMassLayer, CityPlanRun } from "../../core";
 import { landStage } from "../land/stage";
 import { massStage } from "../mass/stage";
 import { digestOf } from "../pipeline/digest";
@@ -355,12 +355,18 @@ describe("R-1 to R-7 for buildings", { timeout: 120_000 }, () => {
     const r = runCity(optionsOf(DEFAULT), "buildings");
     if (!r.ok) throw new Error("default city failed");
     const double: CityStageDef = { name: "buildings", run: () => ({ stage: "buildings", rows: [], buildings: [] }), picture: buildingsStage.picture };
-    // A stand-in stage after buildings, as H1's facades stage will be: the double must hold whatever follows buildings.
-    const standIn: CityStageDef = { name: "facades", run: () => ({ stage: "facades" }) as unknown as CityLayers["facades"], picture: buildingsStage.picture };
+    // A stand-in stage after buildings, as H1's facades stage is: it fails on an empty buildings layer, so the run must stop at buildings and never reach it.
+    const standIn: CityStageDef = {
+      name: "facades",
+      run: () => {
+        throw new Error("a stage after buildings ran on the double's empty buildings layer");
+      },
+      picture: buildingsStage.picture,
+    };
     // The list is built by replacing the stage named `buildings`, never by dropping the last one.
     const swap = (list: readonly CityStageDef[]): CityStageDef[] => list.map((s) => (s.name === "buildings" ? double : s));
     for (const list of [swap(BUILT_STAGES), swap([...BUILT_STAGES, standIn])]) {
-      const d = runCity(optionsOf(DEFAULT), undefined, list);
+      const d = runCity(optionsOf(DEFAULT), "buildings", list);
       expect(d.ok).toBe(true);
       expect(d.plan.digests.streets).toBe(r.plan.digests.streets);
       expect(d.plan.digests.land).toBe(r.plan.digests.land);
