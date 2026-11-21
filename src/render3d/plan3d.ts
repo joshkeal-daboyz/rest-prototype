@@ -11,8 +11,10 @@
  * - the interiors: every `mass.cells` cell that is not built, through `interiorGroupOf` (`massInteriorItems`), with `ParkingLines_01` over each row of a court's stalls;
  * - the buildings (G): every piece of every column of the `buildings` layer, cloned from the pack at the placement stage 5 wrote (key, position, turn; never scaled), one group per building painted in its colourway;
  * - the ground storeys (G2): every `facades.ground` piece, cloned and placed the same way into its building's group;
- *   and one grey `InstancedMesh` of boxes (a ground slot whose piece is not drawn, or the whole column where a model above the ground is missing).
- * No props, gates or passage floors are drawn (stage 7's dressing and stage 8 have none yet).
+ *   and one grey `InstancedMesh` of boxes (a ground slot whose piece is not drawn, or the whole column where a model above the ground is missing);
+ * - the facades and the ground (J): every piece of `facades.dressing`, `walls`, `roofs` and `novelty` (stage 7) and every `ground.props` entry (stage 8), at its placement, through the tile city's own per-key instancer
+ *   (`dressGroup`): no colourway, no grey fallback, nothing emissive. `planAudit` (R12) refuses a plan that places a never-used key (one allowance: the party-wall pipe).
+ * No gates or passage floors are drawn.
  */
 
 import {
@@ -31,14 +33,18 @@ import {
   type Texture,
   type WebGLRenderer,
 } from "three";
-import { type AssetEntry, type CalibrationKey, type CityBuildingsLayer, type CityCell, type CityFacadesLayer, type CityGroundPieceKind, type CityGroundCell, type CityKerbPath, type CityMassLayer, type CityPieceRole, type CityPlacement, type CityPlan, type CityPlanRun, type CitySide, type CityStageFailure, type CityStreetsLayer } from "../core";
+import { type AssetEntry, type CalibrationKey, type CityBuildingsLayer, type CityCell, type CityFacadesLayer, type CityGroundPieceKind, type CityGroundCell, type CityGroundPlace, type CityGroundProp, type CityWallBox, type CityKerbPath, type CityMassLayer, type CityPieceRole, type CityPlacement, type CityPlan, type CityPlanRun, type CitySide, type CityStageFailure, type CityStreetsLayer } from "../core";
 import { runCity } from "../city/pipeline";
 import type { Insets } from "../render/geometry";
 import { createDayToggle, pageDayToggleHost, type DayToggle, type DayToggleHost } from "./daytoggle";
 import { applyLightMode, addSurface, newLightOwners, setRendererMode, type LightOwners } from "./lightrig";
 import { lightModeFor, type LightModeId } from "./lighting";
 import { WORLD_PER_METRE } from "./models";
-import { allStackKeys, createColourwayCache, paintStack, sharedTileModels, stackRoots, tileInput, type ModelSet } from "./models3d";
+import { CODE_ESCAPE_KEY, type EscapePart } from "./escapes";
+import { isNeverUsed } from "./citymetrics";
+import { DRESS_DRAW_CALLS_MAX, dressKeys, type DressPiece } from "./dressing";
+import { FURN_DRAW_CALLS_MAX, furnitureKeys, type FurniturePiece } from "./furniture";
+import { allStackKeys, createColourwayCache, dressGroup, dressInput, furniturePlacement, paintStack, sharedTileModels, stackRoots, tileInput, type DressPlacement, type ModelSet } from "./models3d";
 import { planViewRequested } from "./planview";
 import type { MapRenderer3d } from "./renderer";
 import { GROUND } from "./scene";
@@ -53,8 +59,10 @@ import {
   KERB_INSET_M,
   KERB_LIP_TOP_M,
   STALL_LINES_LIFT_M,
+  INTERIOR_KEYS,
   TILE_DRAW_CALLS_MAX,
   TILE_FRONTS,
+  TILE_PROPS,
   TILE_SLOTS,
   TILE_TREES,
   tileKeys,
@@ -90,9 +98,18 @@ export function arrowYaw(toward: CitySide): TileYaw {
 /** The two corner-door keys stage 7 may place on a quiet corner. No stack style names them, so `allStackKeys()` does not bring them: the plan loads them by name with the tile keys. */
 export const PLAN_DOOR_CORNERS: readonly CalibrationKey[] = [k("SM_Bld_Apartment_Door_Corner_01"), k("SM_Bld_Apartment_Door_Corner_02")];
 
-/** The keys the plan's renderer loads: the tile city's, plus the arrow and the two corner doors. */
-export function planKeys(): CalibrationKey[] {
+/** The party-wall kit's two keys that no dressing or furniture list names (H2b): the window, and the one pipe that fits a party wall (`_01` never fits and is never drawn; Q23's PW3). */
+export const PLAN_PARTY_WINDOW: CalibrationKey = k("SM_Prop_Window_01");
+export const PLAN_PARTY_PIPE: CalibrationKey = k("SM_Prop_Pipe_Present_03");
+
+/** The keys the street pieces and the corner doors are drawn from (`tileGroupOf`'s active keys, before the trees): the tile city's, the arrow and the two corner doors. */
+export function planTileKeys(): CalibrationKey[] {
   return [...tileKeys(), PLAN_ARROW, ...PLAN_DOOR_CORNERS];
+}
+
+/** The keys the plan's renderer loads by name: the tile keys, plus the party window and the party pipe (J). */
+export function planKeys(): CalibrationKey[] {
+  return [...planTileKeys(), PLAN_PARTY_WINDOW, PLAN_PARTY_PIPE];
 }
 
 /** A plan the drawing cannot draw as given (the stop rule): what, and the cells. */
@@ -436,6 +453,8 @@ export interface BuildingsDraw {
 interface BuildingsBuilt {
   buildings: BuildingsDraw;
   grey: GreyDraw;
+  /** By column (`i,j`): true when every one of its pieces above the ground has a loaded root, so it is drawn from the pack and not as a whole grey box. Stage 7's pieces on a grey column would float, so they are not drawn. */
+  whole: ReadonlyMap<string, boolean>;
 }
 
 const colId = (c: CityCell): string => `${c.i},${c.j}`;
@@ -523,6 +542,7 @@ function buildingBoxes(layer: CityBuildingsLayer, facades: CityFacadesLayer, mas
   mesh.raycast = () => {};
   for (const b of layer.buildings) paintStack(groups.get(b.id)!, b.colourway, colourways ? { colourways } : {}, cache);
   return {
+    whole,
     buildings: {
       groups: [...groups.values()],
       draws,
@@ -547,15 +567,215 @@ function buildingBoxes(layer: CityBuildingsLayer, facades: CityFacadesLayer, mas
   };
 }
 
+// ---- the facades and the ground (ticket 070 J) ----
+
+export type PlanDressList = "dressing" | "walls" | "roofs" | "novelty";
+
+/** One piece of stage 7's dressing, walls, roofs or novelty lists, as `plan3dGroups` draws it: which list and where in it, its kind, its building, its host column, its placement as stage 7 wrote it; a wall piece also its y-scale and boxes. */
+export interface PlanDressDraw {
+  readonly list: PlanDressList;
+  readonly index: number;
+  readonly kind: string;
+  readonly building: string;
+  readonly cell: CityCell;
+  readonly placement: CityPlacement;
+  readonly scaleY?: number;
+  readonly boxes?: readonly CityWallBox[];
+}
+
+/** One stage 8 prop, as `plan3dGroups` draws it. */
+export interface PlanPropDraw {
+  readonly index: number;
+  readonly kind: CityGroundProp["kind"];
+  readonly on: CityGroundPlace;
+  readonly host: string;
+  readonly flat: boolean;
+  readonly cell: CityCell;
+  readonly placement: CityPlacement;
+  readonly size: CityGroundProp["size"];
+}
+
+/** The keys a stage 7 piece may be drawn from: the dressing keys and the plan's named ones the page loads, and the code-drawn escape. */
+const dressKnown = (): Set<CalibrationKey> => new Set<CalibrationKey>([...dressKeys(), ...planKeys(), CODE_ESCAPE_KEY]);
+/** The keys a stage 8 prop may be drawn from: the furniture and dressing keys the page loads, the plan's named ones, and the tile city's own props. */
+const propKnown = (): Set<CalibrationKey> => new Set<CalibrationKey>([...furnitureKeys(), ...dressKeys(), ...planKeys(), ...TILE_PROPS]);
+
+/**
+ * Every piece of `facades.dressing`, `walls`, `roofs` and `novelty` once each, in those lists' order: the list `plan3dGroups` draws exactly (J). A missing list, a piece whose key the page does not load (`dressKeys()`, `planKeys()`,
+ * or `code:escape`), or whose host `cell` is not a column of the buildings layer is a gap in stage 7's layer: `PlanStopError`, the cells named. Pure.
+ */
+export function planDressDraws(plan: CityPlan): PlanDressDraw[] {
+  const { facades, buildings } = plan.layers;
+  if (!facades || !buildings?.columns) throw new PlanStopError("the plan has no facades layer or no buildings columns to dress", []);
+  const known = dressKnown();
+  const columns = new Set(buildings.columns.map(colId));
+  const out: PlanDressDraw[] = [];
+  const add = (list: PlanDressList, index: number, kind: string, building: string, cell: CityCell, placement: CityPlacement, extra: { scaleY?: number; boxes?: readonly CityWallBox[] } = {}): void => {
+    if (!known.has(placement.key)) throw new PlanStopError(`the ${list} piece ${index} at ${colId(cell)} has a key (${placement.key}) that is not one the page loads`, [cell]);
+    if (!columns.has(colId(cell))) throw new PlanStopError(`the ${list} piece ${index} (${kind}) is on ${colId(cell)}, which is not a column of the buildings layer`, [cell]);
+    out.push({ list, index, kind, building, cell, placement, ...extra });
+  };
+  const lists = { dressing: facades.dressing, walls: facades.walls, roofs: facades.roofs, novelty: facades.novelty };
+  for (const [name, list] of Object.entries(lists)) if (!list) throw new PlanStopError(`the facades layer has no ${name} list (stage 7 writes it from H1b to H1c)`, []);
+  facades.dressing!.forEach((p, n) => add("dressing", n, p.kind, p.building, p.cell, p.placement));
+  facades.walls!.forEach((p, n) => add("walls", n, p.kind, p.building, p.cell, p.placement, { scaleY: p.scaleY, boxes: p.boxes }));
+  facades.roofs!.forEach((p, n) => add("roofs", n, p.kind, p.building, p.cell, p.placement));
+  facades.novelty!.forEach((p, n) => add("novelty", n, p.kind, p.building, p.cell, p.placement));
+  return out;
+}
+
+/**
+ * Every `ground.props` entry once each, in order: the list `plan3dGroups` draws exactly (J). No `ground` layer, or a prop whose key the page does not load (`furnitureKeys()`, `dressKeys()`, `planKeys()`), is a gap in stage 8's
+ * layer: `PlanStopError`, the cells named. Pure.
+ */
+export function planPropDraws(plan: CityPlan): PlanPropDraw[] {
+  const ground = plan.layers.ground;
+  if (!ground) throw new PlanStopError("the plan has no ground layer to dress (stage 8 writes it from I)", []);
+  const known = propKnown();
+  return ground.props.map((p, index) => {
+    if (!known.has(p.placement.key)) throw new PlanStopError(`the ground prop ${index} at ${colId(p.cell)} has a key (${p.placement.key}) that is not one the page loads`, [p.cell]);
+    return { index, kind: p.kind, on: p.on, host: p.host, flat: p.flat, cell: p.cell, placement: p.placement, size: p.size };
+  });
+}
+
+/** One never-used key the plan places: the layer and list it is in, its cell (null for a key the street pieces and interiors are drawn from), and the key. */
+export interface PlanAuditEntry {
+  readonly layer: string;
+  readonly list: string;
+  readonly cell: CityCell | null;
+  readonly key: CalibrationKey;
+}
+
+/** The audit's one allowance: the party-wall pipe the kit places on a party wall (grammar rule 8; Josh, 19 Nov 2026: "Yes, dress it"; Q23's PW3). `_01` and `_02` are never allowed, on a party pipe too. */
+export const PLAN_AUDIT_ALLOWED = { key: PLAN_PARTY_PIPE, kind: "partyPipe" } as const;
+
+/**
+ * R12, the whole-plan audit (the checklist's own check at its own stage): every key the plan places that `isNeverUsed` names, with its layer, list and cell. It reads the buildings' pieces, `facades.ground`, `dressing`, `walls`,
+ * `roofs` and `novelty`, `ground.props`, and the keys the street pieces and interiors are drawn from. Empty when the plan is clean; never filtered. Pure.
+ */
+export function planAudit(plan: CityPlan): PlanAuditEntry[] {
+  const { buildings, facades, ground } = plan.layers;
+  const out: PlanAuditEntry[] = [];
+  const check = (layer: string, list: string, cell: CityCell | null, key: CalibrationKey, kind?: string): void => {
+    if (!isNeverUsed(key)) return;
+    if (key === PLAN_AUDIT_ALLOWED.key && kind === PLAN_AUDIT_ALLOWED.kind) return;
+    out.push({ layer, list, cell, key });
+  };
+  for (const key of [...tileKeys(), PLAN_ARROW, ...TILE_TREES, ...TILE_PROPS, ...Object.values(INTERIOR_KEYS).flat()]) check("edge", "street pieces and interiors", null, key);
+  for (const c of buildings?.columns ?? []) for (const p of c.pieces) check("buildings", "columns", { i: c.i, j: c.j }, p.placement.key);
+  for (const g of facades?.ground ?? []) check("facades", "ground", g.cells[0] ?? null, g.placement.key);
+  for (const p of facades?.dressing ?? []) check("facades", "dressing", p.cell, p.placement.key, p.kind);
+  for (const p of facades?.walls ?? []) check("facades", "walls", p.cell, p.placement.key, p.kind);
+  for (const p of facades?.roofs ?? []) check("facades", "roofs", p.cell, p.placement.key, p.kind);
+  for (const p of facades?.novelty ?? []) check("facades", "novelty", p.cell, p.placement.key, p.kind);
+  for (const p of ground?.props ?? []) check("ground", "props", p.cell, p.placement.key, p.kind);
+  return out;
+}
+
+/** What the per-key instancer made of one stage's pieces. */
+export interface PlanInstanced {
+  /** The `dressGroup`'s group, named `plan:dress` or `plan:furniture`. */
+  group: Group;
+  /** InstancedMeshes (draw calls), and the one more call of the code-drawn boxes (`DressDraw`'s). */
+  calls: number;
+  boxCalls: number;
+  /** The pieces the layer lists; those sent to the instancer (their root loaded, and for stage 7 their host column drawn from the pack); those that are in the group (a key the cap leaves out is not). */
+  listed: number;
+  placed: number;
+  drawn: number;
+  /** The instances drawn, by key. */
+  perKey: ReadonlyMap<CalibrationKey, number>;
+  /** The keys sent to the instancer that have nothing in the group (a root with no mesh, or more meshes than the cap leaves room for). None expected. */
+  leftOut: readonly CalibrationKey[];
+  dispose(): void;
+}
+
+const RAD = Math.PI / 180;
+
+/** The boxes of a wall piece as `escapes.ts`' parts (the names differ by the `_m` and `_rad` suffixes). */
+const partOf = (b: CityWallBox): EscapePart => ({ kind: b.kind, x: b.x_m, y: b.y_m, z: b.z_m, w: b.w_m, h: b.h_m, d: b.d_m, rz: b.rz_rad });
+
+/**
+ * A stage 7 piece as the instancer's placement: the identity frame, the piece at its placement in metres, its turn in radians, a wall piece's y-scale and boxes (`DressPlacement`'s piece fields `w`, `h`, `d`, `column` and
+ * `slot` are what `dressGroup` does not read: the instancer chooses glass by key).
+ */
+function dressPlacementOf(d: PlanDressDraw): DressPlacement {
+  const pl = d.placement;
+  const piece: DressPiece = {
+    key: pl.key,
+    slot: "wall",
+    x: pl.x_m,
+    y: pl.y_m,
+    z: pl.z_m,
+    yaw: pl.yaw_deg * RAD,
+    column: 0,
+    w: 0,
+    h: 0,
+    d: 0,
+    ...(d.scaleY !== undefined ? { scaleY: d.scaleY } : {}),
+    ...(d.boxes !== undefined && d.boxes.length > 0 ? { parts: d.boxes.map(partOf) } : {}),
+  };
+  return { frame: { x: 0, z: 0, yaw: 0 }, piece };
+}
+
+/** Which furniture group a surface is, for `FurniturePiece.kind` (`furniturePlacement` does not read it). */
+const FURN_KIND: Readonly<Record<CityGroundPlace, FurniturePiece["kind"]>> = { pavement: "pavement", lane: "alley", plaza: "plaza", green: "parking", frontLot: "parking" };
+
+/**
+ * A stage 8 prop as the instancer's placement, through `furniturePlacement` with the surfaces at the levels E draws them (the walk, and every interior ground, at 0): its base is that level plus `placement.y_m` (a pole
+ * billboard's board), and a flat piece takes `furniturePlacement`'s own lift.
+ */
+function propPlacementOf(d: PlanPropDraw): DressPlacement {
+  const pl = d.placement;
+  const piece: FurniturePiece = { key: pl.key, x: pl.x_m * S, z: pl.z_m * S, yaw: pl.yaw_deg * RAD, w: d.size.x_m, h: d.size.h_m, d: d.size.z_m, kind: FURN_KIND[d.on], run: d.host, ground: d.on === "pavement" ? "pavement" : "yard", lift: pl.y_m, flat: d.flat };
+  return furniturePlacement(piece, { pavement_m: 0, yard_m: 0 });
+}
+
+const shortName = (key: CalibrationKey): string => key.slice(key.indexOf(":") + 1);
+
+/** One `dressGroup` call over `placements`, and what is in it by key. */
+function instancedOf(name: string, listed: number, placements: readonly DressPlacement[], roots: ReadonlyMap<CalibrationKey, Object3D>, cap: number): PlanInstanced {
+  const drawn = dressGroup(placements, roots, cap);
+  drawn.group.name = name;
+  const byName = new Map<string, CalibrationKey>(placements.map((p) => [`dress:${shortName(p.piece.key)}`, p.piece.key] as const));
+  const perKey = new Map<CalibrationKey, number>();
+  for (const c of drawn.group.children) {
+    const key = byName.get(c.name);
+    if (key !== undefined && (c as InstancedMesh).isInstancedMesh === true) perKey.set(key, (c as InstancedMesh).count);
+  }
+  const sent = new Map<CalibrationKey, number>();
+  for (const p of placements) if (p.piece.key !== CODE_ESCAPE_KEY) sent.set(p.piece.key, (sent.get(p.piece.key) ?? 0) + 1);
+  const leftOut = [...sent.keys()].filter((key) => !perKey.has(key));
+  const lost = leftOut.reduce((n, key) => n + sent.get(key)!, 0);
+  return { group: drawn.group, calls: drawn.calls, boxCalls: drawn.boxCalls, listed, placed: placements.length, drawn: placements.length - lost, perKey, leftOut, dispose: () => drawn.dispose() };
+}
+
+/** Stage 7: each listed piece whose root loaded (`code:escape` needs none) and whose host column is drawn from the pack, in one `dressGroup` call under `DRESS_DRAW_CALLS_MAX`. A piece not drawn gets no grey box. */
+export function dressStage(draws: readonly PlanDressDraw[], roots: ReadonlyMap<CalibrationKey, Object3D>, whole: ReadonlyMap<string, boolean>): PlanInstanced {
+  const placements = draws.filter((d) => (d.placement.key === CODE_ESCAPE_KEY || roots.has(d.placement.key)) && whole.get(colId(d.cell)) === true).map(dressPlacementOf);
+  return instancedOf("plan:dress", draws.length, placements, roots, DRESS_DRAW_CALLS_MAX);
+}
+
+/** Stage 8: each listed prop whose root loaded, in one `dressGroup` call under `FURN_DRAW_CALLS_MAX`. */
+export function propStage(draws: readonly PlanPropDraw[], roots: ReadonlyMap<CalibrationKey, Object3D>): PlanInstanced {
+  const placements = draws.filter((d) => roots.has(d.placement.key)).map(propPlacementOf);
+  return instancedOf("plan:furniture", draws.length, placements, roots, FURN_DRAW_CALLS_MAX);
+}
+
 // ---- plan to scene ----
 
 export interface PlanDraw {
-  /** The tiles, the interiors, the buildings and the grey boxes, in one group. */
+  /** The tiles, the interiors, the buildings, the grey boxes, and stage 7's and stage 8's pieces, in one group. */
   group: Group;
   tiles: TileDraw;
   interior: InteriorDraw;
   buildings: BuildingsDraw;
   grey: GreyDraw;
+  /** J: stage 7's pieces (`dressDraws`) and stage 8's (`propDraws`), as listed and as drawn. */
+  dress: PlanInstanced;
+  furniture: PlanInstanced;
+  dressDraws: readonly PlanDressDraw[];
+  propDraws: readonly PlanPropDraw[];
   /** The ground cells the street pieces were drawn from, and the interior items, as the drawing took them. */
   cells: readonly TileCell[];
   items: readonly InteriorItem[];
@@ -567,13 +787,20 @@ const NO_PROPS: readonly PropPlace[] = [];
 
 /**
  * The plan as a group (see the file's header). `roots` and `entries` are the pack's pieces by key (empty: every cell in code), `colourways` the loaded colourway atlases by id (none: every building keeps its pack
- * materials). Needs the `streets`, `mass`, `edge`, `buildings` and `facades` layers, with the edge's `ground` and `kerb` (D2), the buildings' `columns` (F2) and the facades' `ground` (H1).
- * Draws only: it reads the layers and writes none. Throws `PlanStopError` where a layer does not say how to draw something.
+ * materials). Needs the `streets`, `mass`, `edge`, `buildings`, `facades` and `ground` layers, with the edge's `ground` and `kerb` (D2), the buildings' `columns` (F2), the facades' `ground` (H1) and its `dressing`,
+ * `walls`, `roofs` and `novelty` lists (H1b to H1c), and the ground layer's `props` (I). Draws only: it reads the layers and writes none. Throws `PlanStopError` where a layer does not say how to draw something, and where
+ * `planAudit` (R12) finds a never-used key.
  */
 export function plan3dGroups(plan: CityPlan, roots: ReadonlyMap<CalibrationKey, Object3D>, entries: ReadonlyMap<CalibrationKey, AssetEntry>, colourways?: ReadonlyMap<string, Texture>): PlanDraw {
-  const { streets, mass, edge, buildings, facades } = plan.layers;
-  if (!streets || !mass || !edge || !buildings || !facades) throw new PlanStopError("the plan has no streets, mass, edge, buildings and facades layers to draw", []);
+  const { streets, mass, edge, buildings, facades, ground: groundLayer } = plan.layers;
+  if (!streets || !mass || !edge || !buildings || !facades || !groundLayer) throw new PlanStopError("the plan has no streets, mass, edge, buildings, facades and ground layers to draw", []);
   if (!edge.ground || !edge.kerb) throw new PlanStopError("the edge layer has no ground and kerb (stage 4 writes them from D2)", []);
+  // R12: a never-used key is a gap in the layer that placed it, and is never filtered out here.
+  const audit = planAudit(plan);
+  if (audit.length > 0) {
+    const first = audit[0]!;
+    throw new PlanStopError(`R12: ${audit.length} never-used key(s) in the plan (first: ${first.key} in ${first.layer} ${first.list}${first.cell ? ` at ${colId(first.cell)}` : ""})`, audit.flatMap((a) => (a.cell ? [a.cell] : [])));
+  }
   const set = planCells(streets, edge.ground);
   const kerb = edge.kerb;
   const tiles = tileGroupOf(
@@ -581,7 +808,7 @@ export function plan3dGroups(plan: CityPlan, roots: ReadonlyMap<CalibrationKey, 
       cells: set.cells,
       buildoutTrees: edge.buildoutTrees,
       seed: plan.options.seed,
-      keys: [...planKeys(), ...TILE_TREES],
+      keys: [...planTileKeys(), ...TILE_TREES],
       keyOf: (c, active) => planKeyOf(c, active, set),
       kerb: (keyOf) => planKerbPlan(kerb, set.cells, keyOf),
       fronts: PLAN_FRONTS,
@@ -593,11 +820,19 @@ export function plan3dGroups(plan: CityPlan, roots: ReadonlyMap<CalibrationKey, 
   const items = massInteriorItems(mass);
   const interior = interiorGroupOf(items, NO_PROPS, [], [], plan.options.seed, roots, entries, INTERIOR_DRAW_CALLS_MAX);
   const built = buildingBoxes(buildings, facades, mass, roots, colourways);
+  const dressDraws = planDressDraws(plan);
+  const propDraws = planPropDraws(plan);
+  const dress = dressStage(dressDraws, roots, built.whole);
+  const furniture = propStage(propDraws, roots);
   const group = new Group();
   group.name = "plan3d";
-  group.add(tiles.group, interior.group, ...built.buildings.groups, built.grey.mesh);
+  group.add(tiles.group, interior.group, ...built.buildings.groups, built.grey.mesh, dress.group, furniture.group);
   return {
     group,
+    dress,
+    furniture,
+    dressDraws,
+    propDraws,
     tiles,
     interior,
     buildings: built.buildings,
@@ -610,6 +845,8 @@ export function plan3dGroups(plan: CityPlan, roots: ReadonlyMap<CalibrationKey, 
       interior.dispose();
       built.buildings.dispose();
       built.grey.dispose();
+      dress.dispose();
+      furniture.dispose();
     },
   };
 }
@@ -621,7 +858,9 @@ export function plan3dGroups(plan: CityPlan, roots: ReadonlyMap<CalibrationKey, 
 export function planInput(set: ModelSet): { roots: Map<CalibrationKey, Object3D>; entries: Map<CalibrationKey, AssetEntry>; colourways: ReadonlyMap<string, Texture> | undefined } {
   const input = tileInput(set);
   const props = propInput(set);
-  return { roots: new Map([...stackRoots(set), ...(input?.roots ?? []), ...props.roots]), entries: new Map([...(input?.entries ?? []), ...props.entries]), colourways: set.colourways };
+  // The dressing and furniture keys of stages 7 and 8 are `ModelSet.dress` (the page loads `dressKeys()` and `furnitureKeys()` there); `propInput` offers only the tile props among them.
+  const dress = dressInput(set);
+  return { roots: new Map([...stackRoots(set), ...(input?.roots ?? []), ...props.roots, ...(dress?.roots ?? [])]), entries: new Map([...(input?.entries ?? []), ...props.entries, ...(dress?.entries ?? [])]), colourways: set.colourways };
 }
 
 // ---- the street camera ----
@@ -681,7 +920,7 @@ const GROUND_MARGIN_M = 60;
 const GROUND_BELOW_M = 0.02;
 
 /**
- * The 3D view of the assembled plan (dev only): the same interface as the tile city's renderer. It runs the pipeline up to the facades stage; a run that fails draws nothing and shows the failure's stage and reason as text
+ * The 3D view of the assembled plan (dev only): the same interface as the tile city's renderer. It runs the pipeline up to the ground stage; a run that fails draws nothing and shows the failure's stage and reason as text
  * over the page. The city opens from above on the tile city's rig (day, `light=night` for the game's night; the L key and the button flip it) or, with `cam=street`, from the street (`planStreetPose`). The models load once
  * the view is up; until they do (and if they never do) every piece is code-drawn.
  */
@@ -691,7 +930,7 @@ export function createPlanAssembleRenderer3d(gl: WebGLRenderer, canvas: HTMLCanv
   // The plan page has no HUD to keep clear (the puzzle HUD is not the plan's), and the page's insets measure that HUD: a tall one leaves the rig no room to fit the city and it backs off past the far plane (blank sky). They are ignored.
   let insets: Insets = {};
   let disposed = false;
-  const run = opts.run ?? runCity({ blocksX: req.blocksX, blocksZ: req.blocksZ, seed: req.seed }, "facades");
+  const run = opts.run ?? runCity({ blocksX: req.blocksX, blocksZ: req.blocksZ, seed: req.seed }, "ground");
   const lightId0: LightModeId = lightModeFor("tiles", opts.search, import.meta.env.DEV);
   const scene = new Scene();
   const owners: LightOwners = newLightOwners();
@@ -797,7 +1036,7 @@ export function createPlanAssembleRenderer3d(gl: WebGLRenderer, canvas: HTMLCanv
       build(input.roots, input.entries, input.colourways);
       if (draw) {
         const d = draw;
-        report = (calls) => `plan 3d: ${d.tiles.fromPack} street pieces from the pack, ${d.tiles.codeDrawn} code-drawn, ${d.tiles.calls} + ${d.interior.calls} draw calls (caps ${TILE_DRAW_CALLS_MAX} and ${INTERIOR_DRAW_CALLS_MAX}), ${d.buildings.groups.length} building groups, ${d.buildings.pieces} pieces cloned, ${d.buildings.groundPieces} of ${d.buildings.groundDraws.length} ground pieces cloned, ${d.grey.fallback} columns fell back to grey and ${d.grey.slots} ground slots are grey (${d.grey.count} grey boxes), ${calls} draw calls in the next frame`;
+        report = (calls) => `plan 3d: ${d.tiles.fromPack} street pieces from the pack, ${d.tiles.codeDrawn} code-drawn, ${d.tiles.calls} + ${d.interior.calls} draw calls (caps ${TILE_DRAW_CALLS_MAX} and ${INTERIOR_DRAW_CALLS_MAX}), ${d.buildings.groups.length} building groups, ${d.buildings.pieces} pieces cloned, ${d.buildings.groundPieces} of ${d.buildings.groundDraws.length} ground pieces cloned, ${d.grey.fallback} columns fell back to grey and ${d.grey.slots} ground slots are grey (${d.grey.count} grey boxes), stage 7: ${d.dress.drawn} of ${d.dress.listed} pieces drawn in ${d.dress.calls} calls (+${d.dress.boxCalls} box, cap ${DRESS_DRAW_CALLS_MAX}), stage 8: ${d.furniture.drawn} of ${d.furniture.listed} props drawn in ${d.furniture.calls} calls (cap ${FURN_DRAW_CALLS_MAX}), keys left out: ${[...d.dress.leftOut, ...d.furniture.leftOut].join(", ") || "none"}, ${calls} draw calls in the next frame`;
       }
     })
     .catch((e: unknown) => {
