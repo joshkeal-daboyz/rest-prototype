@@ -35,8 +35,8 @@ export const COLOURWAY_SWATCH: Readonly<Record<string, number>> = {
 };
 
 /**
- * PROPOSED (grammar rule 4, 19 Nov 2026): "one constant for Josh's eye". The share of following buildings that stand "through" (the same building as their partner, so the same style and colourway);
- * the rest stand "another" (a different colourway). Josh: "They can be either." It stays Proposed until he has seen F1's screenshots (his answer 3, Q19). No test pins its value.
+ * DECIDED (Josh, 20 Nov 2026, Q20, shown G's 3D screenshots and asked whether it should become Decided: "Yes to all, instancing later"). Grammar rule 4's "one constant for Josh's eye". The share of following
+ * buildings that stand "through" (the same building as their partner, so the same style and colourway); the rest stand "another" (a different colourway). Josh (19 Nov 2026): "They can be either." `constants.test.ts` pins the value.
  */
 export const BACK_SAME_SHARE = 0.5;
 
