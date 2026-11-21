@@ -328,4 +328,4 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 071 cut | lead-architect | opus | 118K total | - | 0 | pack power lines first cut (b816d97) |
 | 070 L1 | renderer (general-purpose with renderer.md) | sonnet | 255K total | - | 0 | the switch, guide and grammar (6a8eb65) |
 | 070 L1 | gate (main session) | - | - | - | 0 | 6a8eb65: 183 files, 4190 passed, 35 skipped |
-| 070 L1 | code-reviewer / playtester | opus / sonnet | see readout / 20K | - | 0 | meets, must-fix 0; regressions 0 |
+| 070 L1 | code-reviewer / playtester | opus / sonnet | 79K / 20K | - | 0 | meets, must-fix 0; regressions 0 |
