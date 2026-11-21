@@ -1,5 +1,7 @@
 # 070 H1b pre-check: shopfront dressing on the pipeline's cells
 
+**Josh's answer (21 Nov 2026, in chat).** Asked the three questions as recommended (1: shop dressing may reach over the pavement as on the tile city, the 0.6 m trim limit kept for the buildings' own trim (T1); 2: corner shops on a street and a lane keep their wrap-round glass and L awning on the lane side (X1); 3: neighbouring awnings may overlap by up to about 10 cm so all five awning kinds stay, with the guard against two L awnings side by side (W1 with LG)), he answered: "Yes all three".
+
 21 Nov 2026, pipeline-designer, on `goal/city-style` at ae39d10.
 
 This is a sketch. A throwaway probe outside the repo imports the merged stages 1 to 7 read-only and runs them on the 20 named runs (6 x 6 seeds 1 to 10, one-way off and on). It then lays `dressBlock`'s glass, awning, sign and ATM rules over H1's ground pieces, using the re-cut's readings. Key sizes come from `dressing.test.ts`' fixture, and the hosts from H1's `GROUND_KIT` and the floor bounds.
