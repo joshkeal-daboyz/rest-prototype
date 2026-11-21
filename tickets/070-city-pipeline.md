@@ -21,7 +21,8 @@ status: approved; section A1 merged 19 Nov 2026 (6eb4d26) (G1, Josh, 19 Nov 2026
 - **F2 re-cut against 768b657** (20 Nov 2026). Josh said: "Go ahead and start f2". F2 now pieces F1's buildings as merged: one column per built cell, its kind and forced turn, a ground slot for H1, its floors and roof placed by body on the cell, the L's bend column by column; `CityColumn` and its parts are typed. It adds five readings (P1 to P5, listed in F2), so the `pipeline-designer`'s pre-check comes before the builder. `BACK_SAME_SHARE` waits for G's screenshots (Josh: "Let me see the 3D buildings first").
 - **G merged (8f091db); Josh's answers with G's screenshots** (20 Nov 2026, Q20). Shown G's 3D screenshots and asked (1) whether `BACK_SAME_SHARE` 0.5 becomes Decided, (2) whether a hidden back building taller than the one in front may show its windows above the lower roof (recommended yes), (3) whether style-1 roofs may overhang up to 0.79 m, past the 0.6 m trim limit (recommended yes), (4) whether the 8 to 11 cm corner roof-base step is judged by eye with no rule (recommended yes), and (5) whether to cut an instancing ticket for the ~7.7k building draw calls now or later, he answered: "Yes to all, instancing later". So `BACK_SAME_SHARE` 0.5 is Decided; the F2 pre-check's three readings (U1 to U3) stand; instancing is a later ticket, not cut now. Its comment in `src/city/buildings/constants.ts` (the buildings agent's) still says PROPOSED: section F3 (buildings, one comment) changes it.
 - **H1 re-cut against 2d003a5; split into H1, H1b and G2** (20 Nov 2026, the lead-architect). H1 (facades) fills every ground slot with a keyed, placed piece; H1b (facades) moves the shopfront dressing; G2 (renderer) draws the ground pieces in 3D. `CityFacadesLayer`, `CityGroundPiece` and `CityGroundPieceKind` are typed. H1 adds readings (S1, D1 to D4, listed in H1), so the `pipeline-designer`'s pre-check comes before its builder.
-- Questions: Q2, Q3, Q5, Q6, Q8 to Q20 answered; Q7 settled by the rulings; Q1 not yet asked for, L waits for his word; Q4 open.
+- **H1 pre-check did not hold; Josh answered its three questions; H1 re-cut** (20 Nov 2026, Q21). The note (`docs/design/070-H1-precheck.md`) found no shop corner fits S1 at 0 gap, six shop keys deeper than 5.00 m, and 58 ring-2 buildings with no door place. Asked its three questions as recommended, Josh answered: "Yez, all three". So S1 allows a 0.01 m gap under the first floor, the six deep shop keys stand front-aligned with up to 0.6 m running back into the building behind, and a quiet building with no door place has no door. H1's S1, D1, D4, D5 and criteria 1 to 4 and 7 now say so. H1b and G2 do not change. H1's builder may start.
+- Questions: Q2, Q3, Q5, Q6, Q8 to Q21 answered; Q7 settled by the rulings; Q1 not yet asked for, L waits for his word; Q4 open.
 branch: one per section, `ticket/070<section>-<slug>` (named in each section), each cut from `goal/city-style`.
 
 ## Josh's words (19 Nov 2026, in chat)
@@ -998,11 +999,17 @@ It draws on E's assemble view (`plan3d.ts`). G only draws. It adds no rule, chec
 - If the main session would rather spare a gate round, F3 may instead be folded into the next buildings-owned section, as its first criterion. Until it lands, Q20 here is the record, and the stale comment binds no one.
 
 ### H1 · Stage 7, Facades: ground storeys (facades, pure). Branch `ticket/070h1-facades-ground`
-**Branch.** Cut from `goal/city-style` at 2d003a5 or later (G merged, 8f091db), once the H1 pre-check holds or Josh has answered it.
+**Branch.** Cut from `goal/city-style` at 816bad2 or later (the pre-check and Josh's answer). The pre-check did not hold and Josh has answered it (Q21), so the builder may start.
+
+**Josh's words (20 Nov 2026, in chat; Q21).** Asked the H1 pre-check's three questions (`docs/design/070-H1-precheck.md`, section 4), each with its recommendation (1: a ground piece may stop up to 1 cm short of the floor above; 2: the six deep shop pieces may run back up to 0.6 m into the always-built building behind, placed against the front edge; 3: the ring-2 buildings that face stalls on every column may have no door), he answered: "Yez, all three". The re-cut below (20 Nov 2026, the lead-architect, at 816bad2) writes in the note's section 5 for "all three yes":
+- **Answer 1:** S1's gap tolerance is `GROUND_GAP_MAX_M` 0.01 (S1; criteria 1 and 4).
+- **Answer 2:** reading D5, the deep ground pieces: front-aligned, back allowance `OVERLAP_MAX_M` (criteria 1, 3 and 4's M1).
+- **Answer 3:** D1's no-door case (criteria 2 and 4's M8), with failing fixtures.
+- **D4:** the corner-door numbers measured in the note are typed in (criterion 1).
 
 **Goal.** Every ground slot that stage 5 left has its piece, keyed and placed on its cell:
 - street fronts carry shops, double shops, shop corners, and one residents' door per building;
-- quiet fronts carry one residents' door (or corner door) per building, and windowed floor pieces, never a shop;
+- quiet fronts carry one residents' door (or corner door) per building, and windowed floor pieces, never a shop; a ring-2 building whose every door place faces stalls has no door (Q21);
 - no door opens onto stalls.
 
 Nothing changes in 3D until G2 draws the pieces. The flat picture gains the `facades` stage.
@@ -1029,39 +1036,71 @@ Two things leave the first cut:
 
 If it does not report "holds", its note goes to Josh before any builder is spawned.
 
+**Pre-check done (20 Nov 2026, the pipeline-designer, at 9f711b6).** It did not hold, for three reasons: (A) S1 at 0 gap left no shop corner; (B) six ground keys are deeper than M2 allows; (C) 58 quiet buildings on ring 2 have no door place. Josh answered its three questions (Q21), and S1, D1, D4 and the new D5 below are written to his answers. D2, D3 and the walk at y 0 held as written.
+
 **Which criteria are moves and which are new** (for the pre-check):
 - **Moves of existing rules, numbers unchanged:**
   - The ground keys, as `STACK_STYLES` lists them: `SHOPS` (with `Shop_03` over two bays), `DOORS` and `SHOP_CORNERS`. They are picked by hash as `assembleStack` picks them: a shop per column; `Shop_03` over two free columns, else a single; one residents' door per building, by hash among its mid columns, never in a corner.
   - `BODY_M`'s ground insets and the manifest's bounds, as typed-in data.
   - Rule 1: the body on the cell.
   - Rule 7: the forced turn, and its ground piece (a shop corner where either open side is a street or park edge, else the residents' corner door).
-  - Rule 9 and M8's piece half: no shop on a quiet frontage; one door per quiet building.
+  - Rule 9 and M8's piece half: no shop on a quiet frontage; one door per quiet building (with D1's no-door case, Q21 answer 3).
   - R3, as `citymetrics` counts it: every street ground bay is a shop, a shop corner or its building's one door, and a building has at most one door.
-  - M1 at `WALL_JOINT_TOL_M` (0.02). M2 at 0.02 (10.00 m for `Shop_03`). G1 at `OVERLAP_MAX_M` 0.6, `RECESS_MAX_M` 0 and `FRONTAGE_TOL_M` 0.01, on the ground pieces' open faces.
+  - M1 at `WALL_JOINT_TOL_M` (0.02). M2 at 0.02 (10.00 m for `Shop_03`). Both with D5's back allowance for the six deep keys (Q21 answer 2). G1 at `OVERLAP_MAX_M` 0.6, `RECESS_MAX_M` 0 and `FRONTAGE_TOL_M` 0.01, on the ground pieces' open faces.
   - 062's door numbers: `DOOR_SILLS`, `SILL_MAX_M` 0.15, `SILL_UNDER_M` 0.05, `LIFT_CLEAR_M` 0.05, and 058's `WINDOW_SILL_M`.
   - No door behind a stall (Josh's ruling 2, 19 Nov 2026: "Yes, all four").
 - **New or changed (the architect's readings, for the pre-check to measure and Josh to see):**
   - **S1. Each ground piece stands at its own level** (criterion 3; one new rule). The old path sank a whole stack by its ground row's deepest sill, floors and all, then lifted each ground piece back (062 B, `stackLift`). On the pipeline, stage 5's frame is fixed: the slot runs from 0 to `top_m` (3), the first floor stands at 3, and nothing is sunk. Stage 7 cannot move stage 5's pieces (R-1). So each ground piece's `y_m` is the value nearest `-sill` (its door at the walk, y 0) inside a window where:
     - its door is from `SILL_UNDER_M` below the walk to `SILL_MAX_M` above it (062's numbers);
-    - its top (`y_m` plus its height) is at or above `top_m`. **New: no gap under the first floor, at 0 tolerance**;
+    - its top (`y_m` plus its height) is at or above `top_m` less `GROUND_GAP_MAX_M`. **New: a ground piece may stop up to 0.01 m short of the first floor** (Josh, 20 Nov 2026, Q21 answer 1: "Yez, all three"; the same size as `FRONTAGE_TOL_M`). `GROUND_GAP_MAX_M` 0.01 is Decided: it is typed in the facades folder's constants, and a test may pin it;
     - its top is no higher than `top_m`, plus the first floor's lowest window sill (`WINDOW_SILL_M` of the column's first piece), less `LIFT_CLEAR_M` (062's top rule).
 
-    A key with no door (`Shop_06`, a floor piece) stands at `y_m` 0. Where a key's window is empty on a column, it is not picked there: the next key of its kind by hash is tried. If no key of the kind is left, the stage fails, naming the kind and the cell. The pre-check reports each key's window, the keys that are ever left out, and how far the fascia tops spread along a building.
+    A key with no door (`Shop_06`, a floor piece) stands at `y_m` 0. Where a key's window is empty on a column, it is not picked there: the next key of its kind by hash is tried. If no key of the kind is left, the stage fails, naming the kind and the cell.
+
+    **As measured with the 0.01 gap** (the note's sections 1 and 2): `Shop_Corner_01` stands at y -0.010 (door 0.149, top 2.990). Four keys have an empty window everywhere and are never placed: `Shop_05` (sill 0.361), `Apartment_Door_02` and `Apartment_Door_Corner_02` (0.206), `Shop_Corner_02` (0.376). So every residents' door is `Door_01`, every corner door `Door_Corner_01`, every shop corner `Shop_Corner_01`. The window sills never bind. The fascia tops along a building spread by up to 0.239 m (S2). The four keys stay in the kit table (criterion 1); the stage skips them by their window, not by a list.
   - **S2. 062 B's sill band is not carried** (follows from S1). The band exists because the old stack sank as one. Here each piece has its own level, so a building's ground pieces are not held to one band. If Josh's eye wants an even fascia line, a band is a later reading.
   - **D1. A quiet building's one door** (criterion 2). Rule 7 as written gives every quiet corner a residents' corner door. On a building with two quiet corners that is two doors, against rule 9's one. D1 reads rule 9 as winning:
     - if the building has a quiet corner with no open side onto stalls, its door is a door corner, on the first such corner along the row;
     - its other quiet corners take the style's corner floor (`floorCorner`; corner pieces from the ground to the roof, rule 7, still holds);
-    - otherwise its door is a residents' door, by hash among its mid columns with no open side onto stalls.
+    - otherwise its door is a residents' door, by hash among its mid columns with no open side onto stalls;
+    - **otherwise it has no door** (Josh, 20 Nov 2026, Q21 answer 3: "Yez, all three"). A quiet building's **door places** are its quiet corners and its mid columns with no open side onto stalls; a building with none has no `door` or `doorCorner`, and M8's "exactly one door" reads "exactly one, or none when the building has no door place". Its mid columns take `floor` and its quiet corners `floorCorner`. The pre-check found 58 such buildings on the 20 named runs (0 to 6 a run; only seed 5, one-way off, has none), every one 2 or 3 columns on ring 2 (`row` "inner") facing a yard court, and Josh's answer was asked of those. So the case is held to ring 2: a doorless building on an `outer` row is a stage failure naming the building (the stop rule; it goes to Josh, never loosened).
   - **D2. Quiet mid ground and blind ground take the style's mid floor** (criterion 2). This is `Apartment_0n`, at `y_m` 0, with its body on the cell. Rule 9 says "windowed floor pieces in the other columns", and rule 3 gives a blind column "any floor pieces". The facades folder types these keys in itself: it cannot import the buildings folder (R-1), and the pin test ties them to `STACK_STYLES`.
   - **D3. A building's frontage is its row front's** (criterion 2). Every non-blind column of a building fronts one part side or the court, so its row front's frontage is the building's: street (street, park edge, plaza) or quiet (lane, drive, walk-through, court). A corner's ground piece still follows rule 7 by its own two open sides. So a quiet building may have a shop corner, at a strip's end, where its lane row meets a street; this is M8's exception "a corner whose other side is street". If a building's non-blind columns disagree on the row front's frontage, the stage fails, naming the building. The pre-check counts both cases.
-  - **D4. The residents' corner doors are measured, not yet typed** (criterion 1). `Apartment_Door_Corner_01` and `_02` are in no table yet (`STACK_STYLES`, `BODY_M`, `DOOR_SILLS`, `OPEN_SIDE_MEASURED`). The grammar's appendix gives their walls (5.00 by 5.00 m, windows on +z and -x). The pre-check measures them; the builder types the numbers in; the pin test re-measures them. If one fails M2, or its second face is not -x, the pre-check reports it and the question goes to Josh before the builder starts.
+  - **D4. The residents' corner doors, as measured** (criterion 1). `Apartment_Door_Corner_01` and `_02` are in no table yet (`STACK_STYLES`, `BODY_M`, `DOOR_SILLS`, `OPEN_SIDE_MEASURED`). The grammar's appendix gives their walls (5.00 by 5.00 m, windows on +z and -x). The pre-check measured them from `city-pack.glb` with the repo's `measureBodyPlane`, `measureOpenSide` and `measureDoor` (the note's section 1, D4); the builder types these numbers in, and the pin test re-measures them:
+
+    | Key | Insets (front, back, -x, +x), m | Body, m | Second face | Sill, m | Height, m |
+    | --- | --- | --- | --- | --- | --- |
+    | `SM_Bld_Apartment_Door_Corner_01` | 0.529, 0.048, 0.529, 0.048 | 5.000 x 5.000 | -x | 0.029 | 3.000 |
+    | `SM_Bld_Apartment_Door_Corner_02` | 0.058, 0.057, 0.058, 0.057 | 5.000 x 5.000 | -x | 0.206 | 3.000 |
+
+    Both pass M2 and both have their second face on -x. `_02`'s sill puts it out of S1's window, so it is never placed (S1).
+  - **D5. The deep ground pieces: front-aligned, the back may run into the building behind** (criteria 1, 3 and 4; Josh, 20 Nov 2026, Q21 answer 2: "Yez, all three"). Six ground keys are deeper than 5.00 m (body, bounds less `BODY_M`'s ground insets; the note's section 1, B):
+
+    | Key | Body, w x d (m) | Extra depth (m) |
+    | --- | --- | --- |
+    | `Shop_01` | 5.000 x 5.317 | 0.317 |
+    | `Shop_03` | 10.000 x 5.390 | 0.390 |
+    | `Shop_04` | 5.000 x 5.270 | 0.270 |
+    | `Shop_05` | 5.000 x 5.057 | 0.057 |
+    | `Shop_06` | 5.000 x 5.269 | 0.269 |
+    | `Shop_Corner_01` | 5.000 x 5.072 | 0.072 |
+
+    Every other ground key and every floor key is 5.000 x 5.000. For these six only (the **deep keys**, typed as a list in the folder), M2 and M1 read:
+    - **width** (across the row) within 0.02 of 5.00 (10.00 for `Shop_03`), as before;
+    - **depth** from 5.00 - 0.02 to 5.00 + `OVERLAP_MAX_M` (0.6), so the extra runs no more than 0.6 m past the back edge;
+    - **placement front-aligned**, not centred: the body's front plane on the column's front cell edge, centred across, so the front plane and every open side's plane lie on their cell edges within `WALL_JOINT_TOL_M`, and only the back plane stands past its edge;
+    - **the cell behind is built**: the extra depth runs into the cell across the back edge (the column's `partner`), which must be a built cell. The pre-check found every one of the 26,376 street columns on the 20 named runs has a built partner (0 with an opening behind), so this is a check, not a branch: a deep key on a column whose back is an opening (`partner` null) is a stage failure, naming the cell (the stop rule).
+
+    Any key not on the deep list is held to 5.00 by 5.00 within 0.02 as before. The deep pieces overlap the back building's ground piece inside the block, out of sight.
   - **The walk at y 0 on every open side** (S1's reference). This is tilecity3d's frame: a sidewalk's walk and a lot's surface stand at 0. The pre-check confirms that E draws the cell across every door's open side at 0 (pavement, apron, aisle, lane, drive). If one is not at 0, it reports which, before the builder starts.
 
 0. [ ] **First, by the lead-architect (done with this re-cut, on `goal/city-style`):** `CityGroundPieceKind`, `CityGroundPiece` and `CityFacadesLayer.ground` in `src/core/cityplan.ts`, with the frontage, kind, turn and placement rules in the comment above them. No reader changes.
-1. [ ] **The ground kit table** (R-6; D2, D4; M2). Typed-in data in the folder, for every key the stage places:
+1. [ ] **The ground kit table** (R-6; D2, D4, D5; M2). Typed-in data in the folder, for every key the stage may place (the four that S1 never places included):
    - the keys: the six shops, the two residents' doors, the two shop corners, the two residents' corner doors, and each apartment style's mid floor and corner floor (as ground pieces);
-   - for each key: its bounds (w, h, d, metres, as the manifest has them), its body insets (front, back, -x, +x), its second face for a corner key, its door sill (`DOOR_SILLS`' `sill_m`; the corner doors as measured), and for a floor key its lowest window sill (`WINDOW_SILL_M`, for S1's top rule);
-   - the kind lists, in `STACK_STYLES`' order: each style's `base.mid`, `base.door` and `base.corner`, the two corner doors, and each style's `floor.mid` and `floor.corner`.
+   - for each key: its bounds (w, h, d, metres, as the manifest has them), its body insets (front, back, -x, +x), its second face for a corner key, its door sill (`DOOR_SILLS`' `sill_m`; the corner doors as D4's table), and for a floor key its lowest window sill (`WINDOW_SILL_M`, for S1's top rule);
+   - the kind lists, in `STACK_STYLES`' order: each style's `base.mid`, `base.door` and `base.corner`, the two corner doors, and each style's `floor.mid` and `floor.corner`;
+   - the deep keys (D5): `Shop_01`, `Shop_03`, `Shop_04`, `Shop_05`, `Shop_06`, `Shop_Corner_01`;
+   - `GROUND_GAP_MAX_M` 0.01 (S1; Josh, Q21 answer 1).
 
    New `src/render3d/groundpin.test.ts`:
    - **Always (no GLB):**
@@ -1070,11 +1109,12 @@ If it does not report "holds", its note goes to Josh before any builder is spawn
      - every corner face equals `OPEN_SIDE_MEASURED[key].open` where that table has the key;
      - every window sill equals `WINDOW_SILL_M`;
      - the kind lists equal `STACK_STYLES`';
-     - `SILL_MAX_M`, `SILL_UNDER_M`, `LIFT_CLEAR_M`, `OVERLAP_MAX_M`, `RECESS_MAX_M` and `FRONTAGE_TOL_M` equal the old path's (`sills.ts`, `frontage.ts`);
-     - every key's body (bounds less insets) is 5.00 by 5.00 m within 0.02, and `Shop_03`'s is 10.00 by 5.00 (M2).
+     - `SILL_MAX_M`, `SILL_UNDER_M`, `LIFT_CLEAR_M`, `OVERLAP_MAX_M`, `RECESS_MAX_M` and `FRONTAGE_TOL_M` equal the old path's (`sills.ts`, `frontage.ts`); `GROUND_GAP_MAX_M` is 0.01 (Decided, pinned);
+     - the corner doors' entries equal D4's table (insets, second face -x, sill, height);
+     - **M2 with D5's allowance:** every key's body width (bounds less insets) is 5.00 m within 0.02 (10.00 for `Shop_03`); every key's body depth is at least 4.98 m; a key not on the deep list is at most 5.02 m deep; a deep key is at most 5.00 + `OVERLAP_MAX_M` (5.60 m) deep; and the keys deeper than 5.02 m are exactly the deep list (so a new deep key cannot slip in unnamed).
    - **Inside `it.skipIf(!HAVE_GLB)`**, read lazily as `facade.test.ts` does:
      - every entry's bounds equal the converted GLB's within 0.005 m;
-     - the corner doors' insets (`measureBodyPlane`), second face and sill (`measureDoor`) re-measure to the table's values.
+     - the corner doors' insets (`measureBodyPlane`), second face and sill (`measureDoor`) re-measure to the table's values (D4) within 0.005 m.
 2. [ ] **Frontage, kinds and keys** (rules 3, 7 and 9; D1 to D3; Vitest, on the 20 named runs).
    - Every column's slot is filled by exactly one piece. A `shopDouble` fills two consecutive mid columns of one building along its row, both on a street front, neither being the door.
    - Kind by column:
@@ -1085,23 +1125,26 @@ If it does not report "holds", its note goes to Josh before any builder is spawn
      - a mid column of a quiet building: `door` or `floor`.
    - Doors by building:
      - a street building has at most one door, and exactly one when it has a mid column;
-     - a quiet building has exactly one `door` or `doorCorner` (M8), on the column D1 names.
+     - a quiet building with a door place (D1) has exactly one `door` or `doorCorner` (M8), on the column D1 names;
+     - a quiet building with no door place has none, and is on ring 2 (`row` "inner"; D1's no-door case, Q21 answer 3). The test finds at least one such building on the named runs (the pre-check found 58), so the case is exercised, not only allowed.
    - Keys:
      - each key is of its kind's list, picked by the stage's `rand` (R-3);
      - `floor` and `floorCorner` are of the building's own style;
      - `frontage` is the column's, as `cityplan.ts` defines it.
-3. [ ] **Placements** (rule 1; S1). From the kit table only:
-   - across: the body's centre on the cell's centre (a `shopDouble`'s on the midpoint of its two cells' shared edge), so each body plane lies on its cell edge;
+3. [ ] **Placements** (rule 1; S1; D5). From the kit table only, **front-aligned** (Josh, Q21 answer 2):
+   - across the row: the body centred on the cell (a `shopDouble`'s on the midpoint of its two cells' shared edge), so both side planes lie on the cell edges;
+   - front to back: the body's front plane on the column's front cell edge, so a deep key's extra depth runs back past the back edge into the partner cell (D5), and every other key's back plane lies on its back edge;
    - the turn: the column's `yaw`;
    - up: `y_m` by S1, and `door_m` = `y_m` + the key's sill (null for a key with no door). No scale.
-   - A test checks one hand-worked placement per kind, a `shopDouble` at two turns, and a `doorCorner` at each of the four turns, its pivot computed by hand from its bounds and insets.
+   - A test checks one hand-worked placement per kind, a `shopDouble` at two turns, a `doorCorner` at each of the four turns, and a deep `Shop_01` at two turns (its back plane 0.317 m past the back edge, its front plane on the front edge), each pivot computed by hand from its bounds and insets.
+   - A test checks one hand-worked `y_m` per S1 case: `Shop_Corner_01` at -0.010 (held by the gap, door 0.149), `Shop_02` at -0.071 (door 0.000), `Shop_06` at 0 (no door).
 4. [ ] **The checks** (Vitest, on the 20 named runs). Each is a function of the layer, `buildings` and `mass`, run by the stage before it returns; a failure names the check and the cells. **Stop rule:** if one fails on a named run, the builder stops and reports (R-2). It does not loosen a rule.
-   - **M1, the ground storey:** every ground piece's four body planes lie on its cells' outer edges, within `WALL_JOINT_TOL_M`.
+   - **M1, the ground storey, front-aligned (D5):** every ground piece's front plane and two side planes lie on its cells' outer edges, within `WALL_JOINT_TOL_M`. Its back plane lies on the back edge within `WALL_JOINT_TOL_M`, except for a deep key, whose back plane stands from 0 to `OVERLAP_MAX_M` past the back edge, and only where every cell it covers has a built `partner` behind it.
    - **M6 and R9, the ground storey:** a corner kind stands only on a corner column, its measured +z and -x faces on the column's two open sides. No corner key stands on a mid or blind column.
    - **G1, the ground storey:** on every open side, the piece's body plane stands no more than `RECESS_MAX_M` + `FRONTAGE_TOL_M` behind the cell edge, and no more than `OVERLAP_MAX_M` + `FRONTAGE_TOL_M` past it.
-   - **M8, the pieces:** no `shop`, `shopDouble` or `shopCorner` on a column whose open sides are all quiet. Every quiet building has exactly one door.
+   - **M8, the pieces:** no `shop`, `shopDouble` or `shopCorner` on a column whose open sides are all quiet. Every quiet building has exactly one door, or none when it has no door place (D1's no-door case; Q21 answer 3), and a doorless quiet building is on ring 2. The check reads the door places from `mass` (each column's open sides and the use of the cell across each), not from the layer.
    - **R3:** every ground piece on a street frontage is a `shop`, `shopDouble`, `shopCorner` or `door`. No building has more than one `door` or `doorCorner`.
-   - **Sills (062, on S1):** every `door_m` is from -`SILL_UNDER_M` to +`SILL_MAX_M`; every piece's top is at or above `top_m`; every top is at most `top_m` + the first floor's window sill - `LIFT_CLEAR_M`.
+   - **Sills (062, on S1):** every `door_m` is from -`SILL_UNDER_M` to +`SILL_MAX_M`; every piece's top is at or above `top_m` - `GROUND_GAP_MAX_M`; every top is at most `top_m` + the first floor's window sill - `LIFT_CLEAR_M`.
    - **No door behind a stall:** no `door` or `doorCorner` on a column with an open side onto a `stalls` cell.
    - **Failing fixtures.** Each is built from the default city's layer, typed in from the run in the test (not pinned by hash), with one thing changed:
      - a ring-2 building given a shop piece fails M8;
@@ -1110,7 +1153,14 @@ If it does not report "holds", its note goes to Josh before any builder is spawn
      - a ground piece set 0.05 m back from its open edge fails G1;
      - a shop corner turned a quarter off fails M6;
      - a `Shop_05` at `y_m` 0 (its door 0.361 m over the walk) fails the sill check;
-     - a `Shop_03` placed by its bounds' centre fails M1.
+     - a `Shop_Corner_01` at `y_m` -0.020 (its top 0.020 m short of the first floor, past `GROUND_GAP_MAX_M`; its door 0.139, inside the sill limits) fails the sill check on the gap alone;
+     - a `Shop_03` placed by its bounds' centre fails M1;
+     - a `Shop_01` placed with its body centred front to back (its front plane 0.159 m behind the front edge) fails M1;
+     - a deep shop on a column whose `partner` is set to null (its back an opening) fails M1's back allowance;
+     - **the no-door case, three fixtures** (Q21 answer 3):
+       - a quiet building with a door place, its door replaced by `floor` (or `floorCorner`), fails M8;
+       - a doorless ring-2 building, with the `stalls` cell across one of its mid columns' open side set to `aisle` (so that column is a door place), fails M8, the layer unchanged;
+       - a doorless building moved to an `outer` row (its cells' `row` set to "outer" in the fixture's mass) fails M8's ring-2 hold.
 5. [ ] **The picture** (R-5). One legend entry per ground kind (shop, double shop, shop corner, residents' door, corner door, floor, corner floor) on built cells, and 0 elsewhere; no points. The R-5 test, as F1's.
 6. [ ] **R-1 to R-7 for `facades`** (Vitest).
    - The stage reads only `mass`, `buildings`, and the streets' `w` and `h` (for the picture). A grep test does what F1's does.
@@ -1120,8 +1170,9 @@ If it does not report "holds", its note goes to Josh before any builder is spawn
 7. [ ] **The numbers** (reported, not asserted; its own report file). For each of the 20 named runs:
    - ground pieces by kind and by key;
    - buildings, street and quiet; doors per building; street buildings with no door; quiet buildings whose door is a corner and whose is mid; `floorCorner`s;
-   - columns the stall rule kept a door off;
-   - per key, its S1 level, `door_m` and top, and the columns where its window was empty;
+   - columns the stall rule kept a door off; quiet buildings with no door place (D1's no-door case), by row;
+   - per key, its S1 level, `door_m` and top, and the columns where its window was empty; the keys never placed (expected: the four S1 names);
+   - deep pieces by key, and the largest back overrun (D5; expected at most 0.390);
    - the spread of fascia tops along each building (S2);
    - ground pieces in all (G2's draw-call estimate).
 
@@ -1136,7 +1187,7 @@ If it does not report "holds", its note goes to Josh before any builder is spawn
   - `src/city/pipeline/` (`run.test.ts` is run, not edited);
   - every other `src/render3d/` file (`sills.ts`, `facade.ts`, `escapes.ts`, `stacks.ts`, `frontage.ts` and their tests are read only, and `plan3d.ts` is G2's).
 - **Interfaces:** criterion 0. G2 reads `facades.ground` (each piece's `placement` and `building`); H1b reads each piece's `kind`, `frontage`, `cells` and `placement`. No new dependency.
-- **Adds a rule and readings.** S1's no-gap rule (a ground piece's top at or above the first floor, 0 tolerance) is new, and S2 drops 062 B's band on the pipeline. D1 to D4 read the grammar where it is silent or in conflict. No existing number changes. So the pre-check comes first.
+- **Adds a rule and readings.** S1's gap rule (a ground piece's top at most `GROUND_GAP_MAX_M` 0.01 short of the first floor) is new, and S2 drops 062 B's band on the pipeline. D1 to D5 read the grammar where it is silent or in conflict; D1's no-door case and D5's back allowance change how M8 and M1/M2 are read on the ground storey. All three are Josh's (Q21: "Yez, all three"). No existing number changes (`SILL_MAX_M` stays 0.15). The pre-check is done; the builder starts on this text.
 - **Heavy:** the named-run tests build the 10 named cities, both ways, once each, through a module cache, with a 120 s timeout. Criterion 7's report has its own file.
 
 ### H1b · Stage 7, Facades: shopfront dressing (facades, pure). Branch `ticket/070h1b-facades-shopfronts`
@@ -1248,10 +1299,11 @@ G2 only draws. It adds no rule, check or number, so it skips the pre-check (CLAU
      - guide 18.1: `PARK_PER_HOME` 0.075, not 0.15, with Josh's ruling; and the same number where it is repeated (the guide's 057 Q3 default and its constants table row, and grammar rule 5's parking estimate).
    - **Lines that change with Josh's answers to the A4 pre-check (20 Nov 2026, Q14):** guide chapter 18's P1 and its constants table row: the kerb supply floor `PARK_SUPPLY_BAND.lo` is 0.69, not 0.75 ("yes lower it"), for kerb bays only (P2's lot band stays 0.75 to 1.5); and P3's cap counts over the whole block side ("1. yes"). The old path's 0.75 and its pin go with the old path.
    - **The line that changes with Josh's answer of 20 Nov 2026 (Q20, U2: "Yes to all"):** grammar rule 2's check line: `OVERLAP_MAX_M` (0.6 m) holds wall trim, not a roof's cornice, which overhangs by what the piece carries (rule 11's words; style 01 up to 0.79 m).
+   - **Lines that change with Josh's answers of 20 Nov 2026 (Q21: "Yez, all three"):** grammar M1's and M2's check lines: on the ground storey the six deep shop keys stand front-aligned, width, front and open sides within 0.02, their back up to `OVERLAP_MAX_M` (0.6 m) into the built cell behind (H1 D5); M8's check line: exactly one door, or none on a ring-2 building with no door place (H1 D1). The ground storey's 0.01 m gap under the first floor (H1 S1) is the pipeline's own rule, not in the grammar, and needs no line.
    - **Lines that change with Josh's answers of 20 Nov 2026 (Q17, Q18):** guide 19.6's whole-block park and its Info line: a whole park that nothing across a street can serve takes one tile of kerb bays on its own kerb ("yes, yes"; D1b criterion 13), and the first tiles are handed out as a best fit over the city ("yes"; D1b criterion 12). L (renderer) makes this edit; no earlier section touches the guide. The guide's named cities for its checks become the pipeline's (6 x 6 seeds 1 to 10) when the old path goes.
 3. [ ] R-8. The playtest shows no ladder change.
 
-- **Files:** `tilecity.ts` and its tests, `renderer.ts`, `docs/city-style-guide.md`, `styleguide.test.ts`; `docs/city-grammar.md` (only the lines listed under criterion 2: rule 2's check line, rule 4's table, rule 6's walk-through row and its Decided paragraph, rule 5's parking estimate).
+- **Files:** `tilecity.ts` and its tests, `renderer.ts`, `docs/city-style-guide.md`, `styleguide.test.ts`; `docs/city-grammar.md` (only the lines listed under criterion 2: rule 2's check line, rule 4's table, rule 6's walk-through row and its Decided paragraph, rule 5's parking estimate, and M1's, M2's and M8's check lines).
 
 ## What happens to the other tickets
 - **063 B (street width)** is merged into `goal/city-style` (2edac93). A1 starts from that head and copies `layoutAxis` after B's change. With the merge Josh accepted P1 failing on cities outside 063 criterion 7's list, and the old path's `P1_ONE_SHORT` pin in `alleys.test.ts` (merge message of 2edac93). D1 moves the allocator as it is there.
@@ -1393,3 +1445,13 @@ These five do not exist. The main session writes each `.claude/agents/<name>.md`
      - U2: may roofs overhang by what the piece carries (style 01: up to 0.79 m)?
      - U3: is the 8 to 11 cm roof-base step at a corner judged on the screenshots, with no rule now?
    - What each answer leads to is in the note's section 5. A "No" re-cuts F2 or H2 after a pre-check; G does not change.
+21. **The H1 pre-check's three questions** (`docs/design/070-H1-precheck.md`, section 4). **Answered, Josh, 20 Nov 2026, in chat.** Asked the three as recommended, word for word:
+   1. "No shop corner fits a 3 m storey with its door at the walk. May a ground piece stop up to 1 cm short of the floor above?" (recommended yes; no means pick a larger gap or raise the sill limit)
+   2. "Six shop pieces are 5.06 to 5.39 m deep. May their extra depth run back into the building behind them (always built), instead of dropping those six shops?" (recommended yes)
+   3. "58 ring-2 buildings (about 3 a city) face parked cars on every column. May they have no door?" (recommended yes; no means a door behind the stalls)
+
+   he answered: **"Yez, all three"**. So:
+   - 1 (yes): S1's gap tolerance is `GROUND_GAP_MAX_M` 0.01, Decided. `Shop_Corner_01` becomes placeable; `Shop_05`, `Apartment_Door_02`, `Apartment_Door_Corner_02` and `Shop_Corner_02` are never placed (their sills are over `SILL_MAX_M` at that gap). `SILL_MAX_M` stays 0.15. H1's S1, criteria 1, 3 and 4.
+   - 2 (yes): the six deep shop keys (`Shop_01`, `03`, `04`, `05`, `06`, `Shop_Corner_01`) stand front-aligned; width, front and open sides within 0.02; the back may run up to `OVERLAP_MAX_M` 0.6 m into the built partner behind. This changes how the grammar's M1 and M2 are read on the ground storey for those keys only. H1's D5, criteria 1, 3 and 4. Grammar text: L adds the reading to M1 and M2's check lines, as it does for Q20's U2.
+   - 3 (yes): a quiet building with no door place has no door; M8 reads "exactly one, or none when the building has no door place", held to ring 2, where all 58 measured stand. H1's D1, criteria 2 and 4. Grammar text: L adds it to M8's check line.
+   - H1b and G2 do not change. No merged section, digest pin or approved number moves.

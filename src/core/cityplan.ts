@@ -766,11 +766,13 @@ export interface CityCircuitLayer {
 // - **Kinds** (rules 3, 7 and 9). On a street frontage: "shop" (one cell), "shopDouble" (`Shop_03`, two consecutive mid columns of one building along its row), "shopCorner" on a corner, and "door" (the
 //   residents' door, at most one per building, never on a corner). On a quiet frontage: no shop; one door per building, "doorCorner" (`Apartment_Door_Corner_01`, `_02`) on a quiet corner or "door" on a
 //   mid column; the building's other quiet mid columns take "floor" (its style's mid floor piece) and its other quiet corners "floorCorner" (its style's corner floor piece; H1's reading D1). A blind column
-//   takes "floor" (rule 3: "any floor pieces"). No door or door corner on a column with an open side onto a "stalls" cell (Josh's ruling 2, 19 Nov 2026).
+//   takes "floor" (rule 3: "any floor pieces"). No door or door corner on a column with an open side onto a "stalls" cell (Josh's ruling 2, 19 Nov 2026). A quiet building with no door place (no quiet
+//   corner and no mid column free of "stalls") has no door at all; it is held to ring 2 (Josh, 20 Nov 2026, H1 pre-check answer 3: "Yez, all three").
 // - **The turn.** Every ground piece takes its column's `yaw` (rule 7: corner pieces from the ground to the roof, the forced turn); a "shopDouble" takes the one yaw its two columns share.
-// - **The placement** (rule 1; H1's reading S1). Across, a ground piece's body (from the stage's typed-in ground kit table, the same insets as `BODY_M`) is its cell, or its two cells for a "shopDouble":
-//   its wall planes on the cell edges. Up, the slot's frame is stage 5's and fixed (base 0, the first floor at `top_m`), and the walk is at y 0; so each piece is set at its own level, the one that puts
-//   its door sill nearest the walk while its top neither stops short of `top_m` nor rises into the first floor's window sill (062's numbers). Nothing is scaled.
+// - **The placement** (rule 1; H1's readings S1 and D5). Across, a ground piece's body (from the stage's typed-in ground kit table, the same insets as `BODY_M`) is its cell, or its two cells for a
+//   "shopDouble": front-aligned, its front and side planes on the cell edges. Six deep shop keys run back past the back edge, up to 0.6 m into the built partner cell behind (H1 pre-check answer 2).
+//   Up, the slot's frame is stage 5's and fixed (base 0, the first floor at `top_m`), and the walk is at y 0; so each piece is set at its own level, the one that puts its door sill nearest the walk while
+//   its top neither stops more than 0.01 m short of `top_m` (answer 1) nor rises into the first floor's window sill (062's numbers). Nothing is scaled.
 
 /** What fills a ground slot (see above). */
 export type CityGroundPieceKind = "shop" | "shopDouble" | "shopCorner" | "door" | "doorCorner" | "floor" | "floorCorner";
