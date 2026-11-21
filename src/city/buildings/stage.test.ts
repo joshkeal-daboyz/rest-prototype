@@ -355,13 +355,25 @@ describe("R-1 to R-7 for buildings", { timeout: 120_000 }, () => {
     const r = runCity(optionsOf(DEFAULT), "buildings");
     if (!r.ok) throw new Error("default city failed");
     const double: CityStageDef = { name: "buildings", run: () => ({ stage: "buildings", rows: [], buildings: [] }), picture: buildingsStage.picture };
-    const d = runCity(optionsOf(DEFAULT), "buildings", [...BUILT_STAGES.slice(0, -1), double]);
-    expect(d.ok).toBe(true);
-    expect(d.plan.digests.streets).toBe(r.plan.digests.streets);
-    expect(d.plan.digests.land).toBe(r.plan.digests.land);
-    expect(d.plan.digests.mass).toBe(r.plan.digests.mass);
-    expect(d.plan.digests.edge).toBe(r.plan.digests.edge);
-    expect(d.plan.digests.buildings).not.toBe(r.plan.digests.buildings);
+    // A stand-in stage after buildings, as H1's facades stage is: it fails on an empty buildings layer, so the run must stop at buildings and never reach it.
+    const standIn: CityStageDef = {
+      name: "facades",
+      run: () => {
+        throw new Error("a stage after buildings ran on the double's empty buildings layer");
+      },
+      picture: buildingsStage.picture,
+    };
+    // The list is built by replacing the stage named `buildings`, never by dropping the last one.
+    const swap = (list: readonly CityStageDef[]): CityStageDef[] => list.map((s) => (s.name === "buildings" ? double : s));
+    for (const list of [swap(BUILT_STAGES), swap([...BUILT_STAGES, standIn])]) {
+      const d = runCity(optionsOf(DEFAULT), "buildings", list);
+      expect(d.ok).toBe(true);
+      expect(d.plan.digests.streets).toBe(r.plan.digests.streets);
+      expect(d.plan.digests.land).toBe(r.plan.digests.land);
+      expect(d.plan.digests.mass).toBe(r.plan.digests.mass);
+      expect(d.plan.digests.edge).toBe(r.plan.digests.edge);
+      expect(d.plan.digests.buildings).not.toBe(r.plan.digests.buildings);
+    }
   });
 
   it("an earlier layer is not edited by the stage: a stage that writes into mass fails the run naming itself", () => {
