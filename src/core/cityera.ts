@@ -8,6 +8,7 @@
  * - **The era layers** are held in `CityEraPlan`, beside the clean `CityPlan`, not in `CityLayers`. A clean run never builds one.
  * - **The circuit is not referenced yet.** Poles, spans, drops and street lights (K's ids), the era-added circuit pieces (the hold-out's makeshift poles and spans, the tech roof net) and the
  *   plant place `{ plant: <id> }` are section A2's, typed once K's `CityCircuitLayer` has merged. Until then a `{ id }` reference names an era add only.
+ * - **The passes' kinds** (section A3): D1's tech kinds and E2's hold-out kinds, and the hold-out's steps, so E2's barricades have a digest of their own. The ruin's kinds stay `string` until F1 and F2.
  */
 
 import type { CalibrationKey } from "./calibration";
@@ -159,16 +160,75 @@ export interface CityEraLayer<S extends CityPassStage, P extends CityEraPiece = 
   readonly changes: readonly CityChange[];
 }
 
-/** The tech pass's kinds: D1 and D2's cuts name them. */
-export type CityTechPieceKind = string;
-/** The hold-out's kinds: E1 and E2's cuts name them. */
-export type CityHoldoutPieceKind = string;
+/**
+ * The tech pass's kinds (section A3, for D1; D2 widens it with its roof kinds). One per slot of D1's kit table:
+ * - "bolt-on": a small wall piece in a free third above the ground storey; "camera": `Prop_Security_Camera_*`, storey 1 walls only; "tall": a tall piece on a free bare side wall;
+ * - "overhang": `Prop_Overhang_*` over a whole free storey face; "sign": a storey 1 street-face sign; "shopfront": an added `Bld_Advanced_*` panel; "pavement": a piece on a pavement's wall or kerb line.
+ */
+export type CityTechPieceKind = "bolt-on" | "camera" | "tall" | "overhang" | "sign" | "shopfront" | "pavement";
+export const CITY_TECH_PIECE_KINDS: readonly CityTechPieceKind[] = ["bolt-on", "camera", "tall", "overhang", "sign", "shopfront", "pavement"];
+
+/**
+ * The hold-out's kinds (section A3, for E2). E1's plant and makeshift poles, lines and drops are added with A2, in K's shapes, and join the "power" step below.
+ * - "camp": a tent or pod in a court or a park that is not a farm; "water-tower": `Bld_WaterTower_01`, on the ground in a court;
+ * - "farm": a field piece inside a park; "irrigator": `Prop_Irrigator_*`, with its field; "stall": `Bld_Market_Stall_02`, one per plaza or front lot;
+ * - "container": `Prop_Container_*` in a court stall or a kerb bay (the district's stores: no other store kind); "clutter": crates, fuel tanks and standing greebles on a pavement cell;
+ * - "roof": a roof item on a roof deck; "barricade": one `Bld_Wall_02` of a line across a street mouth.
+ */
+export type CityHoldoutPieceKind = "camp" | "water-tower" | "farm" | "irrigator" | "stall" | "container" | "clutter" | "roof" | "barricade";
+export const CITY_HOLDOUT_PIECE_KINDS: readonly CityHoldoutPieceKind[] = ["camp", "water-tower", "farm", "irrigator", "stall", "container", "clutter", "roof", "barricade"];
+
 /** The ruin's kinds: F1 and F2's cuts name them. */
 export type CityRuinPieceKind = string;
 
 export type CityTechLayer = CityEraLayer<"tech", CityEraPiece<CityTechPieceKind>>;
-export type CityHoldoutLayer = CityEraLayer<"holdout", CityEraPiece<CityHoldoutPieceKind>>;
 export type CityRuinLayer = CityEraLayer<"ruin", CityEraPiece<CityRuinPieceKind>>;
+
+// ---- the hold-out's steps (section A3, for E2's barricades) ----
+//
+// The hold-out runs in three steps, in this order: E1's plant and lines ("power"), E2's camps, farms, markets, stores, clutter and roof items ("settle"), then E2's barricades ("barricade"), each placed
+// only where T-1 and T-2 still hold with everything before it (option C). Its layer lists its adds and its changes step by step, in that order, and says how many of each every step wrote, so each step's
+// part of the layer can be cut out and digested on its own: the barricades depend on E1's plant and lines, so their digest is pinned apart from the rest until E1 merges (taken under the goal, 22 Nov 2026
+// night; Josh may reverse).
+
+export const CITY_HOLDOUT_STEPS = ["power", "settle", "barricade"] as const;
+export type CityHoldoutStep = (typeof CITY_HOLDOUT_STEPS)[number];
+
+/** The step each hold-out kind belongs to. E1's kinds (A2) join "power". */
+export const CITY_HOLDOUT_STEP_OF: Readonly<Record<CityHoldoutPieceKind, CityHoldoutStep>> = {
+  camp: "settle",
+  "water-tower": "settle",
+  farm: "settle",
+  irrigator: "settle",
+  stall: "settle",
+  container: "settle",
+  clutter: "settle",
+  roof: "settle",
+  barricade: "barricade",
+};
+
+/** How many adds and changes one step wrote. A step that wrote nothing is listed with 0 and 0. */
+export interface CityHoldoutStepCount {
+  readonly step: CityHoldoutStep;
+  readonly adds: number;
+  readonly changes: number;
+}
+
+/**
+ * Stage 12's layer. `steps` lists every step of `CITY_HOLDOUT_STEPS`, in order; its counts sum to `adds.length` and `changes.length`, and step n's adds and changes are the ones after steps 0 to n-1's.
+ * The hold-out pass always writes `steps`; it is optional only so a layer with no steps (a test double, C1's fixtures) is still a hold-out layer. The resolver reads `adds` and `changes` only.
+ */
+export interface CityHoldoutLayer extends CityEraLayer<"holdout", CityEraPiece<CityHoldoutPieceKind>> {
+  readonly steps?: readonly CityHoldoutStepCount[];
+}
+
+/** One step's part of the hold-out layer, cut out by its counts: the record a step's own digest is taken of (`digestOf`, as a layer's). */
+export interface CityHoldoutStepPart {
+  readonly stage: "holdout";
+  readonly step: CityHoldoutStep;
+  readonly adds: CityHoldoutLayer["adds"];
+  readonly changes: readonly CityChange[];
+}
 
 /** The era layers, beside the clean `CityLayers` (see the file's head). */
 export interface CityEraLayers {

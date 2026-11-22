@@ -211,7 +211,8 @@ export function resolvePlan(eraPlan: CityEraPlan, era: CityEra): CityResolvedPla
     changedAny = true;
   }
 
-  const addsOut: { tech?: readonly CityEraPiece[]; holdout?: readonly CityEraPiece[]; ruin?: readonly CityEraPiece[] } = {};
+  // Each pass keeps its own kind type (the layer's `adds` type); the stage key picks the slot, so the write below casts per slot.
+  const addsOut: { -readonly [S in keyof CityResolvedPlan["adds"]]: CityResolvedPlan["adds"][S] } = {};
   for (const stage of included) {
     const mine = addsByStage.get(stage);
     if (mine === undefined) continue;
@@ -223,7 +224,7 @@ export function resolvePlan(eraPlan: CityEraPlan, era: CityEra): CityResolvedPla
       if (a.swapped) swapped.push({ id: item.id });
       if (a.state !== null) states.push({ target: { id: item.id }, state: a.state.state, stage: a.state.stage });
     }
-    addsOut[stage] = Object.freeze(kept);
+    (addsOut as Record<CityPassStage, readonly CityEraPiece[]>)[stage] = Object.freeze(kept);
   }
 
   const plan: CityPlan = changedAny ? { ...clean, layers: { ...clean.layers, ...Object.fromEntries(Object.entries(layers).map(([k, v]) => [k, Object.freeze(v)])) } } : clean;

@@ -2,9 +2,10 @@
 
 owner: per section (lead-architect, planner, renderer, grid-simulator, pipeline-designer, and three new agents: tech-pass, holdout-pass, ruin-pass; see Agents)
 status: open. Cut 21 Nov 2026 from `docs/design/073-transformations.md` and Josh's answers on its eight cards and its questions 6 and 9. Updated the same day with his answers to this ticket's Q10 to Q15 and the feed-place card.
-- **Cut in full:** A (types, no circuit; **merged** into `goal/city-transformations` at 4a5077f), A2 (the circuit references, waiting for K's type), the B pre-check (done), B, C1, C2, F0 (**done**), the D1 pre-check (done), D1, D1g.
-- **Outlined:** D2, D3, J2 (instancing), E1, E1g, E2, E3, F1, F2, F2g, F3. Each is cut in full when what it waits for has merged.
+- **Cut in full:** A (types, no circuit; **merged** into `goal/city-transformations` at 4a5077f), A2 (the circuit references, waiting for K's type), A3 (the passes' kinds and the hold-out's steps), the B pre-check (done), B, C1, C2, F0 (**done**), the D1 pre-check (done), D1, D1g, the E2 pre-check (done), E2.
+- **Outlined:** D2, D3, J2 (instancing), E1, E1g, E3, F1, F2, F2g, F3. Each is cut in full when what it waits for has merged.
 - Questions: Q1 to Q9 of the note answered. Q10 to Q15 and the feed-place card answered (21 Nov 2026, below). The B and D1 pre-checks' questions were answered overnight, on Josh's delegation or under the goal; none is Josh's ruling and he may reverse any. **One of them Josh should look at: B-Q3** (see "Questions for Josh").
+- **Re-cut 22 Nov 2026 night, under the goal:** A3 cut and typed (D1's `CityTechPieceKind`, E2's `CityHoldoutPieceKind`, the hold-out's steps); E2 cut in full against its pre-check's answers; D1 told which of C1's helpers it calls. The answers are logged under "Questions for Josh", each in its group.
 - **Re-cut 21 Nov 2026 night, second time, under the goal:** B and C1 cut in full against the pre-check answers; D1 cut in full; D2 and F1 take the intended-use note's plan-level readings; F0's result recorded.
 - **Re-cut 21 Nov 2026 night, under the goal** (the orchestrator's instruction; Josh approved the goal, "Can we turn this into a goal and let this run over night?", and the ticket, "Approved"). Each item below is **taken under the goal (21 Nov 2026 night); Josh may reverse**. None is Josh's ruling.
   - **A split into A (now) and A2 (after K).** A types everything that needs no circuit, in a new file `src/core/cityera.ts`; A2 types the circuit references once K's `CityCircuitLayer` merges. B and C1 wait for A, not A2.
@@ -164,8 +165,10 @@ Josh's Q6: "I like all of your suggestions, make them so": a job's district is a
 Order:
 - A (merged) → B and C1 alongside → C2. A2 after K's `CityCircuitLayer` merges; E1, E1g and F2 wait for it.
 - The B pre-check, the D1 pre-check and F0 are done.
-- **D1 after B and C1 merge** (the architect first narrows `CityTechPieceKind`, D1's Interfaces).
-- B → D1 → D1g (after C2) → D2 (after K2) → D3 → J2 → E1, E2 → E1g → E3 → F1, F2 → F2g → F3.
+- **A3 before D1 and E2:** the passes' kinds and the hold-out's steps (`ticket/073a3-pass-kinds`).
+- **D1 and E2 after B, C1 and A3 merge.** Both are built now, their circuit keeps proven on fixtures; their digests re-pin when K2 lands (taken under the goal, 22 Nov 2026 night; Josh may reverse).
+- B → D1 → D1g (after C2) → D2 (after K2) → D3 → J2 → E1 → E1g → E3 → F1, F2 → F2g → F3.
+- **E2 is built beside D1, ahead of E1** (the Fable session, on Josh's delegation, 22 Nov 2026 night; Josh may reverse). Its barricades are pinned on the named runs only once E1 merges.
 
 Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/night/`, `src/render/`, `src/play/`, `src/ui/`, `src/main.ts`, `town.ts`, `terrace.ts`, the two pin tests, `tests/`, `puzzles/`, `tools/`, `package.json`, `assets/`, `tickets/`, the grammar and the guide), plus every clean stage folder (`src/city/streets/` to `src/city/traffic/`) unless the section names a line in it.
 
@@ -216,6 +219,28 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 2. [ ] `npx tsc --noEmit` passes. `npx vitest run --maxWorkers=2 src/city/pipeline/ src/render3d/planview.test.ts` passes, or each failure is listed with the one-line change its owner makes for it.
 
 **Files:** `src/core/cityera.ts`, `src/core/index.ts`, and `src/core/cityplan.ts` only as above. No new dependency.
+
+### A3 · Types: the passes' kinds and the hold-out's steps (lead-architect). Branch `ticket/073a3-pass-kinds`
+
+**Cut under the goal** (22 Nov 2026 night; Josh may reverse), from `goal/city-transformations` at 6ddffae, so D1 and E2 code against named kinds. **D1 and E2 wait for A3.**
+
+**What A3 adds, in `src/core/cityera.ts` only** (`cityplan.ts` and `index.ts` untouched; `index.ts` already exports the file):
+- **`CityTechPieceKind`** narrowed to D1's slots: `"bolt-on" | "camera" | "tall" | "overhang" | "sign" | "shopfront" | "pavement"`, and `CITY_TECH_PIECE_KINDS`. D2 widens it with its roof kinds.
+- **`CityHoldoutPieceKind`** for E2: `"camp" | "water-tower" | "farm" | "irrigator" | "stall" | "container" | "clutter" | "roof" | "barricade"`, and `CITY_HOLDOUT_PIECE_KINDS`. "container" is the stores kind (the note's "Parking stalls: stores"); there is no other. E1's plant and makeshift poles, lines and drops are typed with A2, in K's shapes.
+- **The hold-out's steps**, so E2's barricades have their own digest:
+  - `CITY_HOLDOUT_STEPS` (`"power"`, `"settle"`, `"barricade"`, in run order) and `CityHoldoutStep`.
+  - `CITY_HOLDOUT_STEP_OF`: each hold-out kind's step (every E2 kind "settle" except "barricade"; E1's join "power").
+  - `CityHoldoutStepCount` (`step`, `adds`, `changes`).
+  - `CityHoldoutLayer` becomes an interface: `CityEraLayer<"holdout", CityEraPiece<CityHoldoutPieceKind>>` plus `steps?`. Its adds and changes are listed step by step, and `steps` gives each step's counts. It is optional only so a layer with no steps (a test double, C1's fixtures) still type-checks; the pass always writes it.
+  - `CityHoldoutStepPart` (`stage`, `step`, `adds`, `changes`): one step's slice. A step's digest is `digestOf` of its slice.
+- `CityTechLayer` narrows through its kind. `CityRuinPieceKind` stays `string` (F1, F2).
+
+**Acceptance criteria:**
+1. [x] (the architect) The types above in `src/core/cityera.ts`. `cityplan.ts` is not edited.
+2. [x] `npx tsc --noEmit` passes. `npx vitest run --maxWorkers=1 src/city/pipeline/` passes unchanged.
+3. [ ] **When C1 merges beside A3** (the main session, in the merge): C1's `erafixtures.ts` `add()` returns `CityEraPiece` with `kind: "thing"`, a `string`. Under the narrowed kinds that no longer fits a tech or hold-out layer, so `npx tsc --noEmit` fails on C1's tests. The fix is one line in C1's fixture file, the planner's: `add()` returns `CityEraPiece<never>` with `kind: "thing" as never`. It goes in C1 before it merges, or as the planner's one-line follow-up. (See "Questions for Josh", A3's point.)
+
+**Files:** `src/core/cityera.ts`, this ticket. No new dependency.
 
 ### The B pre-check · history, and T-1 and T-2 on the clean city (pipeline-designer). No branch: a note `docs/design/073-B-precheck.md` and a probe outside the repo
 
@@ -329,7 +354,15 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 
 ### D1 · `tech` walls, signs, shopfronts and pavement (tech-pass, pure). Branch `ticket/073d1-tech-walls`
 
-**Waits for:** B and C1 merged into `goal/city-transformations`. The pre-check, its answers and its kit check against `docs/design/073-pack-intended-use.md` are done. The tech-pass agent file (the main session's).
+**Waits for:** B, C1 and A3 merged into `goal/city-transformations`. The pre-check, its answers and its kit check against `docs/design/073-pack-intended-use.md` are done. The tech-pass agent file (the main session's).
+
+**Built now, against fixtures for the circuit** (taken under the goal, 22 Nov 2026 night; Josh may reverse). D1 does not wait for K2. Its pole, light, lamp-post and drop keep-outs are proven on fixtures, and **its tech digests are re-pinned when K2 lands** (the tech-pass, in a one-line follow-up named in K2's merge). D1 is kept whole, not split (the same night, under the goal).
+
+**C1's helpers, as C1 built them** (`src/city/pipeline/eras.ts`, `readable.ts`):
+- `techStage` is a `CityEraStageDef<"tech">`. Its `run` reads the plan before it through `resolveBefore(plan, "tech")` (the clean plan).
+- It ends with `assertEraReadable(plan, "tech", layer, options)`, which resolves the plan with its layer at `tech`, runs `t1Failures` and `t2Failures`, and throws `CityStageError` on either.
+- It supplies `options.bounds`, a `BoundsOf` lookup read from its typed kit table (X-8), and `options.isTree`, false for every key of its kit (no Sci-Fi City key is a tree; C1's default reads a `Tree` word in the name).
+- It adds `techStage` to `ERA_STAGES` in `src/city/stages.ts`: one line.
 
 **Goal.** At the `tech` era, each district gets Sci-Fi City wall bolt-ons, cameras, signs, pavement tech and, in its most technical districts, new shopfronts, as much as its `tech` value says. The clean city is unchanged; the era's pieces are D1's `adds`, and the only changes are the `remove`s of the dressing a new shopfront covers.
 
@@ -375,15 +408,15 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 3. [ ] **The slots.** Every add stands in its slot as the kit table says: bolt-ons in a free third above the ground storey; cameras on storey 1 walls only; tall pieces on free bare side walls only, `Prop_Pipes_01` vertical; signs on storey 1 street faces; no `Sign_Billboard_Border_*`, `_Tall_*`, `Sign_Ad_*` or `Sign_Neon_*` key anywhere in the layer. A fixture for each slot.
 4. [ ] **The pavement.** On the 20 named runs every pavement add keeps every distance above, and the 2 m clear walk counting panels. A fixture for each keep (a pole, a light, a lamp-post place, a span, a corner, a stage 8 prop) and for two pieces across a pavement (the second refused).
 5. [ ] **The switch.** With the shopfront constant false (a test that sets it through the pass's options or a test double, not by editing the file), the layer has no `shopfront` add and no change, and every other add is the same.
-6. [ ] **T-1 and T-2.** The stage resolves the plan at the era before its own (`clean`) through `resolvePlan`, runs C1's `t1Failures` and `t2Failures` on its own era before it returns, and throws `CityStageError` on a failure (X-4, R-2). A fixture where a forced add covers a pole fails.
+6. [ ] **T-1 and T-2.** The stage reads the plan at the era before its own (`clean`) through C1's `resolveBefore`, and before it returns calls C1's `assertEraReadable` with its kit's `bounds` and `isTree`, which runs `t1Failures` and `t2Failures` on its own era and throws `CityStageError` on a failure (X-4, R-2). A fixture where a forced add covers a pole fails.
 7. [ ] **Dark and textured (X-5).** Every key in the kit table is on the converter's textured list; no kit key is emissive (a typed table, pinned below).
 8. [ ] **The kit pin (X-8).** The kit table's sizes, and each key's front (read from the GLB's face directions, as the pre-check's kit probe did), are typed in `src/city/tech/` and pinned against `sci-fi-city-pack.glb` by one new test in `src/render3d/`, inside `it.skipIf(!have)` (R-6).
 9. [ ] **R-1 to R-7, X-1.** The layer is frozen; its digest is pinned on the four pin cities; every clean digest is equal with and without the pass; the same city twice gives the same layer; no file of `src/city/tech/` imports another stage folder or reads `bi`, `bj` or a street's `line`. `runCity()` runs no tech code (X-7).
 10. [ ] **The numbers** (reported, not asserted), beside the pre-check's sketch (section 3's rows at 0.2, 0.5 and 0.8): pieces a city by slot, shopfronts and their removes, distinct keys, pavement places used of those free, `Prop_Pipes_01`'s vertical places, the time per city.
 
-**Files:** new `src/city/tech/`; one new kit pin test in `src/render3d/` (the tech-pass's, X-8); `src/city/stages.ts` (one line, `techStage` in the era list, if the era list needs it). Nothing in `src/core/` (the architect writes the kind union below first), no clean stage folder. The builder runs `npx vitest run --maxWorkers=2 src/city/tech/` and its pin test, and one `npx tsc --noEmit`. No browser, no Blender.
+**Files:** new `src/city/tech/`; one new kit pin test in `src/render3d/` (the tech-pass's, X-8); `src/city/stages.ts` (one line, `techStage` in `ERA_STAGES`). Nothing in `src/core/` (A3 typed the kind union), no clean stage folder. The builder runs `npx vitest run --maxWorkers=2 src/city/tech/` and its pin test, and one `npx tsc --noEmit`. No browser, no Blender.
 
-**Interfaces.** Before D1 starts, the architect narrows `CityTechPieceKind` in `src/core/cityera.ts` (D2 widens it later): `"bolt-on" | "camera" | "tall" | "overhang" | "sign" | "shopfront" | "pavement"`. No new dependency.
+**Interfaces.** Done by A3: `CityTechPieceKind` in `src/core/cityera.ts` is `"bolt-on" | "camera" | "tall" | "overhang" | "sign" | "shopfront" | "pavement"` (D2 widens it later). D1 codes against C1's `CityEraStageDef`, `resolveBefore`, `assertEraReadable`, `ReadableOptions` and `BoundsOf` as merged. No new dependency.
 
 ### D1g · `tech` walls and pavement drawn (renderer). Branch `ticket/073d1g-tech-walls-drawn`
 
@@ -433,10 +466,84 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 - K2's feed-outside check skips a job whose feed is its district's plant (the feed-place card, Josh: "Yes, plant inside"). A district with no plant keeps K1's check (Q11, Josh).
 - The plant place is typed by A2 first (re-cut under the goal, 21 Nov 2026 night; Josh may reverse). E1g waits for A2.
 
-### E2 · `holdout` camps, farms, markets, stores, barricades (holdout-pass, pure). Outline. Branch `ticket/073e2-holdout-camps`
-- **Waits for:** B, C1, its pre-check. Needs nothing from the circuit but T-1 and T-2.
-- **Its pre-check measures:** tents and pods in courts and parks; parks that become farms (the trees and benches removed); market stalls in front lots and plazas; containers in stalls, one each; barricades at a district's street mouths, with at least one way in kept; clutter on pavements (B7); roof items (B10); T-1 and T-2 on the resolved plan.
-- Excluded pieces: alien plants, sand, cliffs, weapons, character parts, the cantina interior.
+### E2 pre-check · the hold-out's camps, farms, markets, stores, barricades, clutter and roof items (pipeline-designer). No branch
+
+**Done 22 Nov 2026:** `docs/design/073-E2-precheck.md` (a sketch: stage 6 is K1's words laid by a probe; D1, D2 and E1 not built). Its Q1 to Q5 were taken under the goal; its Q6 (the X-11 departures) and the order were answered by the Fable session on Josh's delegation. E2 below is cut against them.
+
+### E2 · `holdout` camps, farms, markets, stores, clutter, roof items, barricades (holdout-pass, pure). Branch `ticket/073e2-holdout-camps`
+
+**Waits for:** B and C1 merged into `goal/city-transformations`, and A3. It does not wait for E1, D1, D2, K2 or J2 (the Fable session, on Josh's delegation, 22 Nov 2026 night: "build E2 now"). The holdout-pass agent file (the main session's).
+
+**Goal.** At the `holdout` era, each district that held out gets camps, stores, clutter and roof panels, and from a third market stalls, water towers and barricades, and from two thirds farms in its parks: as much as its `held` says. Nothing goes where a district was left at once. The clean city is unchanged. The era's pieces are E2's `adds`. Its only changes are `remove`s of the pieces its farms, markets and barricades stand on. A flat picture only: E2 is not drawn before J2 (E3 draws it).
+
+**Not E2's:** each held district's plant, makeshift poles, lines and drops (E1, after A2). E2 writes its layer's "power" step empty (`adds: 0`, `changes: 0`); E1 fills it.
+
+**The order (the steps, A3).**
+- The layer lists its adds and changes by step: "power" (empty until E1), then "settle", then "barricade", with `steps` giving each step's counts.
+- **Settle:** camps, water towers, farms and irrigators, stalls, containers, clutter, roof items, each with its removes.
+- **Barricade:** last of all, in hashed order, each placed only if T-1 and T-2 still hold with everything before it (option C).
+
+**The kit** (the pre-check's sections 2 and 5). Textured only, none emissive (X-5). Sizes from the Sci-Fi Frontier GLB, typed in `src/city/holdout/` (X-8).
+
+| Kind | Pieces | Where |
+| --- | --- | --- |
+| `camp` | `Bld_Tent_01..03`, `Bld_Pod_01..04` | a court's lawn, apron and paths; a park that is not a farm. Inside the place's cells, 1 m off any building, 1.5 m apart, 0.3 m clear of the place's clean trees and benches. **No removes** for camps |
+| `water-tower` | `Bld_WaterTower_01` | **on the ground in a court**, one per court at most, as the images show. Never on a roof |
+| `farm`, `irrigator` | `Env_Farm_Circle_01..03`, `Env_Farm_Straight_01`, `Prop_Irrigator_01/02` (one per field) | a park's lawn. **Only a piece whose footprint, after its turn, fits inside the park's rectangle within its pavement edge. Never scaled. Never across a kerb.** The park's trees and benches (its `ground.props`) are removed |
+| `stall` | `Bld_Market_Stall_02` only (`_01` and `_03` are 10.06 m, the plaza 10.00 m) | **one per plaza or front lot**, that place's props it stands on removed. A front lot with a stall takes no container |
+| `container` | `Prop_Container_01..07` | one per court stall or kerb bay, centred (both: E2-Q4). The district's stores |
+| `clutter` | `Prop_Crate_*`, `Prop_Fuel_Tank_*`, the 11 standing `Prop_Greeble_*` | one per pavement cell fronting a held block at most, on a hashed spot; 0.3 m clear of clean pieces and of every pole, light and lamp-post place (T-1). Beside a pole is allowed (B7) |
+| `roof` | **`Prop_Solar_Panel_02` and `Prop_Fabric_01/02` only** | on a roof deck (the cell less 0.3 m, H3's RE), up to 2 per column, 0.1 m clear of H3's pieces (B10). `Solar_Panel_03/04` and `Fabric_03` fit no deck |
+| `barricade` | `Bld_Wall_02`, 3 to 5 in a row | across a street mouth at its crossing line, pavement corner to pavement corner, through the cells' middles (below) |
+
+**Excluded:** alien plants, sand, cliffs, weapons, character parts, the cantina interior; the `_Insert` pieces, the flat greebles, `Bld_Wall_Large_01`, `Bld_Wall_Tower_01` (not shown); `Bld_Market_Stall_01/03`, `Prop_Solar_Panel_03/04`, `Prop_Fabric_03` (do not fit); the plant pieces (E1's); the Apocalypse pack's `Prop_Barricade_*` and `Prop_Road_Barrier_*` (the ruin's kit). A test lists every key the layer uses against the kit table.
+
+**The density (HD; E2-Q1).** For each district, by its `held` value only (X-6):
+- **`held` 0:** nothing.
+- **Always** (`held` above 0): clutter in each pavement cell, chance 0.3 x `held`; a container in each court stall and each kerb bay, chance 0.5 x `held`; each court, and each park that is not a farm, filled with camps to `held` x its room; each free roof spot, chance 0.3 x `held`.
+- **From `held` 1/3:** the market stalls; the court water towers; a barricade on each street mouth but the district's hashed-first, chance `held`.
+- **From `held` 2/3:** the parks become farms.
+- The chances and the two band edges are named constants in one file of `src/city/holdout/`.
+
+**Barricades (option C; E2-Q2, E2-Q3).**
+- **A street mouth** of a held district is a junction arm such that the junction has an arm one of the district's blocks fronts, and this arm has none of the district's blocks on either side (the pre-check's ring reading).
+- The district's hashed-first mouth is always open.
+- A candidate is placed only if, with it standing (and the stage 9 pieces under it removed), `t1Failures` and `t2Failures` on the plan so far are still empty. Otherwise it is skipped. This is a placement rule, not a loosened check: `assertEraReadable` still runs on the whole layer at the end and throws (X-4).
+- **A barricade removes the stage 9 piece under it** (a `traffic.pieces` entry whose footprint its wall line meets): one `remove` each, never two for one piece (A's "twice").
+- **Until K2 lands** the circuit is empty, so every candidate passes T-1 and T-2 on the named runs. Option C's skips are proven on fixtures with hand-placed poles (below). **Until E1 merges** the barricades are placed without the plant and lines before them. So **the barricade step has its own digest and is not pinned on the named runs until E1 merges**; the rest of E2 is pinned now.
+
+**Departures from the store images (X-11)** (the pre-check's section 5; E2-Q6, the Fable session on Josh's delegation):
+- **Departure:** farms in city parks. Reason: a park is the city's open soil, which the images show farms on. Only pieces that fit the park, never scaled, never across a kerb.
+- **Not shown in the images:** containers in court stalls and kerb bays (stall-sized boxes, the district's stores). `Prop_Fuel_Tank_*` as clutter.
+- **Not shown in the images:** `Bld_Wall_02` across a street mouth. The images show Frontier walls enclosing a settlement; closing a street mouth is the same job. The Apocalypse barricades stay in the ruin's kit.
+- **As shown:** tents and pods on open ground, the water tower on the ground, one market stall facing a square, clutter on the ground, `Prop_Solar_Panel_02` and `Prop_Fabric_01/02` on a building top.
+
+**C1's helpers, as C1 built them** (`src/city/pipeline/eras.ts`, `readable.ts`):
+- `holdoutStage` is a `CityEraStageDef<"holdout">`. Its `run` reads the plan before it through `resolveBefore(plan, "holdout")` (the `tech` era: D1's pieces once D1 merges).
+- It ends with `assertEraReadable(plan, "holdout", layer, options)`.
+- It supplies `options.bounds`, a `BoundsOf` lookup read from its typed kit table. Option C's per-candidate test calls `t1Failures` and `t2Failures` with the same options.
+- It adds `holdoutStage` to `ERA_STAGES` in `src/city/stages.ts`: one line.
+
+**Acceptance criteria** (Vitest unless said):
+1. [ ] **The layer.** `holdoutStage` writes a `CityHoldoutLayer`: adds with ids `holdout:<kind>:<plan data>` (never list order), each add's `district` the district its cell is in, each kind from `CityHoldoutPieceKind` and in its step (`CITY_HOLDOUT_STEP_OF`). Its changes are only `remove`s: a farm's park props, a stall's place props, a barricade's stage 9 pieces. No `swap`, no `state`. `steps` lists "power" (0, 0), "settle" and "barricade", in order, its counts summing to the layer's.
+2. [ ] **The bands.** A fixture city with four districts at `held` 0, 0.2, 0.5 and 0.8: nothing in the first; clutter, containers, camps and roof items only in the second; stalls, water towers and barricades too in the third; farms too in the fourth. Density reads `held` only (X-6): the same district with a higher `held` never gets fewer pieces on a fixed hash.
+3. [ ] **The places.** A fixture for each kind of the kit table: camps inside their place, 1 m off buildings, 1.5 m apart, clear of clean trees and benches, with no remove; one water tower per court at most, on the ground, none on a roof; a farm piece inside its park's rectangle, never scaled, never across a kerb, and a park too small for any piece left a park; one `Bld_Market_Stall_02` per plaza or front lot and no container on that lot; one container per stall or bay; one clutter piece per pavement cell at most, clear of poles, lights and lamp-post places; roof items only `Prop_Solar_Panel_02`, `Prop_Fabric_01/02`, at most 2 per column. No excluded key anywhere in the layer.
+4. [ ] **Barricades (option C).** Fixtures with hand-placed poles: a mouth whose wall would seal a pole in is skipped (T-2); a mouth whose wall would cover a lamp-post place is skipped (T-1); **two touching held districts keep both districts' poles joined**; the hashed-first mouth is always open; each stage 9 piece under a wall is removed once. The barricades come last in the layer, after every settle add and change.
+5. [ ] **T-1 and T-2.** The stage reads `resolveBefore(plan, "holdout")` and ends with `assertEraReadable` with its kit's `bounds`. A fixture where a forced add covers a pole throws `CityStageError` (X-4, R-2).
+6. [ ] **Dark and textured (X-5).** Every key in the kit table is on the converter's textured list for the Sci-Fi Frontier pack; none is emissive (a typed table, pinned below).
+7. [ ] **The kit pin (X-8).** The kit's sizes are typed in `src/city/holdout/` and pinned against the Sci-Fi Frontier GLB by one new test in `src/render3d/`, inside `it.skipIf(!have)` (R-6). It reads its asset lazily (CI has none).
+8. [ ] **R-1 to R-7, X-1, the pins.** The layer is frozen; the same city twice gives the same layer; every clean digest is equal with and without the pass; no file of `src/city/holdout/` imports another stage folder or reads `bi`, `bj` or a street's `line`; `runCity()` runs no hold-out code (X-7). **Its pin test pins, on the four pin cities, the digest of the layer's "power" and "settle" parts** (`CityHoldoutStepPart`, cut out by `steps`, through `digestOf`). The "barricade" part's digest is computed and reported, **not pinned until E1 merges**.
+9. [ ] **The picture (R-5):** a flat `CityEraPicture` of stage "holdout", one legend entry per kind, the R-5 test as 070's. Nothing in `src/render3d/` draws it (E3, after J2).
+10. [ ] **The numbers** (reported, not asserted), beside the pre-check's sketch (section 4, at the density): pieces a city by kind (sketch 444 to 1,131), distinct keys (43 to 46), camps (36 to 127), water towers (6 to 22), farms (0 to 5 parks) and their removes, stalls and their removes, containers (court 31 to 94, bays 33 to 64), clutter (85 to 281), roof items (163 to 418; per held building about 3.2), barricades (16 to 40) and the mouths option C skipped, stage 9 removes, T-2's closed cells, the time per city. Until K2 lands, the barricades and the circuit keeps find no circuit on the named runs: say so beside those rows.
+
+**When others land** (taken under the goal, 22 Nov 2026 night; Josh may reverse):
+- **E1:** the barricade step is re-placed after the plant and lines, and its digest is pinned on the four pin cities then (the holdout-pass, in E1's ticket).
+- **K2:** clutter and barricades meet the real circuit. E2's pins are re-taken, as D1's are.
+- **D1 and D2:** `resolveBefore` then holds their pieces, so E2's pavement and roof room shrink. Its pins are re-taken by the holdout-pass, named in that section's merge.
+
+**Files:** new `src/city/holdout/` and its tests; one new kit pin test in `src/render3d/` (the holdout-pass's, X-8); `src/city/stages.ts` (one line, `holdoutStage` in `ERA_STAGES`). Nothing in `src/core/` (A3 typed the kinds and steps), `src/city/pipeline/`, `src/city/circuit/` or any clean stage folder. Test command `npx vitest run --maxWorkers=1 src/city/holdout/` and its pin test, and one `npx tsc --noEmit`. No browser, no Blender.
+
+**Interfaces.** Done by A3: `CityHoldoutPieceKind`, `CITY_HOLDOUT_STEPS`, `CityHoldoutStep`, `CITY_HOLDOUT_STEP_OF`, `CityHoldoutStepCount`, `CityHoldoutLayer.steps`, `CityHoldoutStepPart`. E2 codes against C1's `CityEraStageDef`, `resolveBefore`, `assertEraReadable`, `t1Failures`, `t2Failures`, `ReadableOptions`, `BoundsOf` and `digestOf` as merged. No new dependency.
 
 ### E3 · `holdout` drawn (renderer). Outline. Branch `ticket/073e3-holdout-drawn`
 - **Waits for:** E1, E2, J2. R12 gains B3's allowance, era-scoped.
@@ -572,7 +679,7 @@ Josh's card 8: "Yes, three agents (Recommended)". The main session writes each `
 
 ## Interfaces
 - Section A: `src/core/cityera.ts`, written on `ticket/073a-era-types` under the goal and merged (4a5077f); `cityplan.ts` is not edited. Section A2, after K's type merges: the circuit references and the plant place.
-- Before D1: `CityTechPieceKind` narrowed to D1's kinds (D1's Interfaces), one edit to `cityera.ts` by the architect.
+- Section A3 (`ticket/073a3-pass-kinds`, under the goal): `CityTechPieceKind` narrowed to D1's kinds; `CityHoldoutPieceKind` for E2; the hold-out's steps (`CITY_HOLDOUT_STEPS`, `CITY_HOLDOUT_STEP_OF`, `CityHoldoutStepCount`, `CityHoldoutLayer.steps`, `CityHoldoutStepPart`). One file, `cityera.ts`.
 - `rules-coverage.md` is unchanged: no brief rule is tested here.
 - **No new dependency.**
 
@@ -600,7 +707,7 @@ Josh's card 8: "Yes, three agents (Recommended)". The main session writes each `
 
 **Open:**
 - B-Q3 above, for Josh to confirm or reverse.
-- **The D1 timing point** (for the main session; not a rule): stage 6 is empty until K2 merges, so D1's pole, light, lamp-post and drop keep-outs, and T-1, find nothing on the named runs before then. Cut as: D1 builds now, reads the circuit layer, proves each keep on fixtures, and its tech digests re-pin when K2 merges. The other way: D1 waits for K2, as D2 does.
+- **A3's point** (for the main session; not a rule): A3's narrowed kinds make C1's fixture `add()` (kind `"thing"`, a `string`) fail `tsc` once both are on the goal branch. The planner's one-line fix in `src/city/pipeline/erafixtures.ts` (`add()` returns `CityEraPiece<never>`, `kind: "thing" as never`), before C1 merges or straight after (A3 criterion 3). The other way: A3 keeps the layers' kind `string` and only exports the unions, which loses the check that a pass writes only its own kinds.
 - D2's pre-check will ask whether `Bld_Raised_*` may go on roofs as extra storeys (the images show it only at street level). Each later pre-check brings its own, recommended answer first.
 
 **Answered by the Fable session on Josh's delegation (21 Nov 2026 night); Josh may reverse.** The delegation: Josh, 21 Nov 2026, in chat: "If the opus session has questions, it can hand off the questions to you, feel free to answer those questions on my behalf". None of these is Josh's ruling.
@@ -625,7 +732,25 @@ Josh's card 8: "Yes, three agents (Recommended)". The main session writes each `
 - **The Sci-Fi City power pole:** the images show it on the pavement at the kerb. Josh's ruling stands (roofs and objects, not the ground). Recorded only that the rooftop use is Josh's own choice, not what the images show (D2).
 - **Plan-level readings** (folded into D2 and F1): `Prop_Bridge_01` is an open truss across a street carrying cables and signs, not a walkway (the roof walkway dropped; D2 may use it as shown); `Bld_Raised_*` is a raised deck on pillars at street level, not a roof storey (not on roofs without Josh; D2's pre-check lists roof storeys as an open question for him); Palm City `Env_Vines` only 01/04/05 are flat wall sheets, the rest drape over eaves, arches and columns; Nature `Tree_Vines` hang from branches only (F1).
 
-**Taken under the goal (21 Nov 2026 night); Josh may reverse.** None of these is Josh's ruling.
+*The E2 pre-check* (`docs/design/073-E2-precheck.md`), answered by the Fable session on Josh's delegation (22 Nov 2026 night); Josh may reverse:
+- **E2-Q6a, farms in city parks:** allow, as a departure (a park is the city's open soil, which the images show farms on). Only farm pieces whose footprint fits inside the park rectangle; never scaled; never across a kerb in this pass.
+- **E2-Q6b, containers in court stalls and kerb bays:** allow, listed "not shown in the images".
+- **E2-Q6c, Frontier walls as barricades:** allow (the images show them enclosing a settlement; closing a street mouth is the same job). The Apocalypse barricades stay in the ruin's kit.
+- **Q1 to Q5** (option C included): agreed.
+- **The order:** build E2 now. Barricades are the pass's last step, their own sub-step with their own digest, **not pinned on the named runs until E1 merges**; the rest of E2 may be pinned now.
+- **E2 merges as a pure stage with its flat picture only** (not drawn before J2). The plant's place and the makeshift lines stay with E1.
+
+**Taken under the goal (21 to 22 Nov 2026 night); Josh may reverse.** None of these is Josh's ruling.
+- **E2-Q1, density bands by `held`:** nothing at 0; clutter, containers, camps and roof panels above 0; barricades, stalls and water towers from 1/3; parks become farms from 2/3. (E2.)
+- **E2-Q2, barricades by option C:** placed only where T-1 and T-2 still hold, last in the pass, after E1's plant and lines (until E1 lands, against what exists; re-checked when E1 lands). (E2.)
+- **E2-Q3:** a barricade removes the stage 9 piece it stands on. (E2.)
+- **E2-Q4:** containers in court stalls and kerb bays, both. (E2.)
+- **E2-Q5:** one `Bld_Market_Stall_02` per plaza or front lot (`_01` and `_03` are 10.06 m, too wide). (E2.)
+- **E2's fit:** roof panels `Prop_Solar_Panel_02` and `Prop_Fabric_01/02` only; the water tower on the ground in courts, as the images show, never on roofs. (E2.)
+- **C1 and D1 are built now against fixtures,** and D1's tech digests are re-pinned when K2 lands. E2 likewise. (The D1 timing point, formerly open.)
+- **The merged district id stays:** `district:<its first block in streets.blocks order>`, A's type, where the B pre-check wrote "least block id". (B.)
+- **D1 is kept whole,** not split into walls and pavement. (D1.)
+- **A3:** the passes' kinds and the hold-out's steps typed in `cityera.ts` before D1 and E2; "container" is the hold-out's stores kind.
 - **D1's kit:** `Sign_Billboard_Border_*` and `_Tall_*` dropped (empty frames; the picture pieces, `Sign_Ad_*`, are untextured). The Fable session agreed.
 - **A's road-tile question:** the ruin marks an `edge.ground` tile `broken` and the renderer picks the damaged road piece (option a). No type added, no clean digest moved. The F1 and F2 pre-checks confirm it (F2, F3).
 - **F0:** the ticket's 24 `SM_Env_RoadPiece_Damaged_*` was wrong: the pack has 12, all already in `apocalypse-power`. F1 and F2 read road sizes from there.
