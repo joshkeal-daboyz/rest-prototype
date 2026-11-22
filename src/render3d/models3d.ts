@@ -13,6 +13,7 @@ import { effectiveFronts, loadSavedCalibration } from "./calibration";
 import { COLOURWAY_POOL, assignColourways, isBaseAtlasName, isColourwayId, type ColourwayBlock } from "./colourway";
 import { CODE_ESCAPE_KEY, type EscapePart } from "./escapes";
 import { DRESS_DRAW_CALLS_MAX, KERB_FROM_FRONT_M, SHOP_GLASS, dressKeys, dressTown, type DressBlockInput, type DressPiece, type DressSlotKind, type DressTownOptions } from "./dressing";
+import { TECH_BOUNDS } from "../city/tech/kit";
 import { FURN_DRAW_CALLS_MAX, alleyOf, furnitureKeys, furnitureLayout, openLotsOf, type Alley, type AvoidBox, type FurnitureInput, type FurniturePiece, type Rect } from "./furniture";
 import {
   BUILDING_EXCLUDE,
@@ -358,7 +359,8 @@ let shared: Promise<ModelSet> | null = null;
 let sharedTile: Promise<ModelSet> | null = null;
 
 /** The real fetch and GLTFLoader, with Josh's saved fronts laid over the code's table first (dev only, ticket 045; a production build never fetches the file). */
-function loadPageModels(extra: Pick<LoadDeps, "table" | "tileKeys" | "signColourways">): Promise<ModelSet> {
+function loadPageModels(extra: Pick<LoadDeps, "table" | "tileKeys" | "signColourways"> & { techKeys?: readonly CalibrationKey[] }): Promise<ModelSet> {
+  const { techKeys, ...deps } = extra;
   const fetchJson = async (url: string, init?: { cache: "no-store" }): Promise<unknown> => {
     const r = await fetch(url, init);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -367,7 +369,7 @@ function loadPageModels(extra: Pick<LoadDeps, "table" | "tileKeys" | "signColour
   return loadSavedCalibration({ dev: import.meta.env.DEV, fetchJson }).then((saved) => {
     const tables = effectiveFronts({ fronts: BUILDING_FRONTS, exclude: BUILDING_EXCLUDE }, saved);
     // The City Pack's stack pieces load too (ticket 050 C); with no City Pack in the manifest nothing extra is fetched and the set has no stack slot.
-    return loadModels({ fetchJson, loadGlb: async (url) => (await new GLTFLoader().loadAsync(url)).scene, loadTexture: (url) => new TextureLoader().loadAsync(url), fronts: tables.fronts, exclude: tables.exclude, stackKeys: allStackKeys(), dressKeys: [...dressKeys(), ...furnitureKeys()], stepKeys: extra.tileKeys ? [] : [STEPS_KEY], ...extra });
+    return loadModels({ fetchJson, loadGlb: async (url) => (await new GLTFLoader().loadAsync(url)).scene, loadTexture: (url) => new TextureLoader().loadAsync(url), fronts: tables.fronts, exclude: tables.exclude, stackKeys: allStackKeys(), dressKeys: [...dressKeys(), ...furnitureKeys(), ...(techKeys ?? [])], stepKeys: deps.tileKeys ? [] : [STEPS_KEY], ...deps });
   });
 }
 
@@ -382,7 +384,9 @@ export function sharedModels(): Promise<ModelSet> {
  * nothing else (an empty table: no building, pole or lamp model, so the Town Pack's 110 MB is never fetched for a city that has no puzzle). Fetched once. Only the tile view calls it.
  */
 export function sharedTileModels(tileKeys: readonly CalibrationKey[], signColourways?: readonly string[]): Promise<ModelSet> {
-  sharedTile ??= signColourways ? loadPageModels({ table: [], tileKeys, signColourways }) : loadPageModels({ table: [], tileKeys });
+  // The tech pass Sci-Fi City pieces (ticket 073 D1g) load with the page too, as dressing; the plan draws them only at an era above clean.
+  const more = { techKeys: Object.keys(TECH_BOUNDS) as CalibrationKey[] };
+  sharedTile ??= signColourways ? loadPageModels({ table: [], tileKeys, signColourways, ...more }) : loadPageModels({ table: [], tileKeys, ...more });
   return sharedTile;
 }
 
