@@ -154,8 +154,8 @@ Kept by ticket 073 (X-11) as the record of each use a pass takes that this note'
 **Nature and Palm City, the ruin's growth (F1, 22 Nov 2026 night):** every one is **not shown, taken as a departure**. Apocalypse `Env_Overgrowth_*` is used first wherever it fits, since that is what the images show.
 - `Terrain_Ground_Mound_Small_02` as a cell-sized patch on hard ground (road, parking band, open paving): B9, ruin only. Only where no `Env_Overgrowth_*` piece fits; on a crossing only flat ground cover, never the mound; never scaled.
 - Saplings (`Tree_Birch_*`, `Tree_Round_*`) in the carriageway: B9, ruin only. Never on a junction or crossing; never scaled; never with a crown over a pole, light, lamp-post place, drop end or span (T-1).
-- `Plant_Bush_01` and `Tree_Dead_01/02` on roofs: B10, ruin only. Only where the footprint fits the roof deck unscaled; never over or against a rooftop pole or line. If a roof dead tree reads silly in the street screenshot, dead trees are dropped and bushes kept (the main session's call from the picture).
-- `Env_Vines_06` on street sign posts and signal masts: only if its shape wraps or hangs on a post (its bounds and one screenshot). If it reads as a flat sheet like `_01/04/05`, it is dropped. Never on a circuit pole, street light or lamp post.
+- `Plant_Bush_01` and `Tree_Dead_01/02` on roofs: B10, ruin only. Only where the footprint fits the roof deck unscaled; never over or against a rooftop pole or line. If a roof dead tree reads silly in the street screenshot, dead trees are dropped and bushes kept (the main session's call from the picture). **Held for Josh:** roof growth widens B10, which is his for tech and hold-out only, so the ruin's roof slot is built behind `RUIN_ROOF_GROWTH`, off, until he says.
+- `Env_Vines_06` on street sign posts and signal masts: only if its shape wraps or hangs on a post (its bounds and one screenshot). If it reads as a flat sheet like `_01/04/05`, it is dropped. Never on a circuit pole, street light or lamp post, and never on a wall face (beside a drop, only `_08`).
 
 ## Could not check
 
