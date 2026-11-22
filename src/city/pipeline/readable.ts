@@ -128,6 +128,7 @@ interface Placed {
   readonly canopy: number;
 }
 
+const item0 = (item: unknown): string => (item as Sized).placement.key;
 const DEFAULT_TREE = /(^|[:_])tree(_|$)/i;
 
 function turned(p: CityPlacement, b: KitBounds): { hx: number; hz: number } {
@@ -145,6 +146,7 @@ function place(ref: string, source: Placed["source"], item: Sized, useBounds: bo
   let hz: number;
   let h: number;
   const kb = useBounds || item.size === undefined ? o.bounds?.(pl.key) : undefined;
+  if (useBounds && kb === undefined) return null;
   if (kb !== undefined) {
     ({ hx, hz } = turned(pl, kb));
     h = kb.h_m;
@@ -173,6 +175,7 @@ function collect(resolved: CityResolvedPlan, o: ReadableOptions): Collected {
     const swap = swapKeys.has(`${list}|${column ?? ""}|${index}`);
     const ref = column === null ? `${list}[${index}]` : `${list}[${column}][${index}]`;
     const p = place(ref, swap ? "swap" : "clean", item as Sized, swap, o, isTree, treeKind);
+    if (p === null && swap) throw new Error(`T-1/T-2: swapped piece ${ref} (key ${item0(item)}) has no kit bounds in options.bounds`);
     if (p !== null) (swap ? judged : clean).push(p);
   };
   L.ground?.props.forEach((it, i) => push("ground.props", null, i, it, it.kind === "tree"));
@@ -193,7 +196,8 @@ function collect(resolved: CityResolvedPlan, o: ReadableOptions): Collected {
     for (const a of list ?? []) {
       const swap = swapKeys.has(a.id);
       const p = place(a.id, "add", a, swap, o, isTree, false);
-      if (p !== null) judged.push(p);
+      if (p === null) throw new Error(`T-1/T-2: era add ${a.id} (key ${a.placement.key}) has no size and no kit bounds in options.bounds`);
+      judged.push(p);
     }
   }
   return { clean, judged };

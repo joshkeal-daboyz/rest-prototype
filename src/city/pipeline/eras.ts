@@ -42,8 +42,8 @@ export function runEraStages(clean: CityPlan, era: CityEra, eraStages: readonly 
   let digests: Partial<Record<CityEraStage, CityDigest>> = {};
   const snapshot = (): CityEraPlan => deepFreezeShallow({ plan: clean, layers: { ...layers }, digests: { ...digests } });
   if (era === "clean") return { ok: true, plan: snapshot() };
-  const last = CITY_ERA_LAST[era];
-  const ordered = [...eraStages].sort((a, b) => CITY_ERA_STAGES.indexOf(a.name) - CITY_ERA_STAGES.indexOf(b.name));
+  const lastAt = CITY_ERA_STAGES.indexOf(CITY_ERA_LAST[era] as CityEraStage);
+  const ordered = eraStages.filter((s) => CITY_ERA_STAGES.indexOf(s.name) <= lastAt).sort((a, b) => CITY_ERA_STAGES.indexOf(a.name) - CITY_ERA_STAGES.indexOf(b.name));
   for (const stage of ordered) {
     try {
       const layer = deepFreeze(stage.run(snapshot(), stageRand(stage.name, clean.options.seed)));
@@ -60,7 +60,6 @@ export function runEraStages(clean: CityPlan, era: CityEra, eraStages: readonly 
       };
       return { ok: false, plan: snapshot(), failure };
     }
-    if (stage.name === last) break;
   }
   return { ok: true, plan: snapshot() };
 }

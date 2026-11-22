@@ -44,8 +44,8 @@ export function fixturePlan(): CityPlan {
 
 export const eraPlan = (plan: CityPlan, layers: Partial<CityEraLayers> = {}): CityEraPlan => deepFreeze({ plan, layers, digests: {} });
 
-export function add(id: string, key: CalibrationKey, x: number, z: number, size = { x_m: 1, z_m: 1, h_m: 1 }, y = 0, district = "district:a", yaw = 0): CityEraPiece {
-  return { id, kind: "thing", district, cell: { i: Math.floor(x / 5), j: Math.floor(z / 5) }, placement: pl(key, x, z, y, yaw), size };
+export function add(id: string, key: CalibrationKey, x: number, z: number, size = { x_m: 1, z_m: 1, h_m: 1 }, y = 0, district = "district:a", yaw = 0): CityEraPiece<never> {
+  return { id, kind: "thing" as never, district, cell: { i: Math.floor(x / 5), j: Math.floor(z / 5) }, placement: pl(key, x, z, y, yaw), size };
 }
 
 export const history = (districts: { id: string; blocks: string[] }[]): CityHistoryLayer => ({

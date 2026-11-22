@@ -129,3 +129,18 @@ describe("T-2 (B-Q5)", () => {
     expect(t2Failures(withAdds(plan, [barricade(3, 2)], h), { circuit: c })).toEqual([]);
   });
 });
+
+describe("a piece that cannot be footprinted fails loudly", () => {
+  const c = circuit({ poles: [POLE] });
+  it("an era add with no size and no bounds throws, naming it", () => {
+    const noSize = { ...add("holdout:n:1", k("box"), 1, 1), size: undefined } as never;
+    expect(() => t1Failures(era([noSize]), { circuit: c })).toThrow(/holdout:n:1/);
+  });
+  it("a swapped piece with no bounds entry throws, and is never judged at the old key's size", () => {
+    const prop = { kind: "bin", placement: { key: k("gp"), x_m: 50, y_m: 0, z_m: 50, yaw_deg: 0 }, size: { x_m: 1, z_m: 1, h_m: 1 } };
+    const plan = { ...base, layers: { ...base.layers, ground: { ...base.layers.ground!, props: [prop] } } } as unknown as CityPlan;
+    const r = resolvePlan(eraPlan(plan, { tech: { stage: "tech", adds: [], changes: [{ ref: { list: "ground.props", index: 0, key: k("gp") }, op: "swap", key: k("wide") }] } }), "tech");
+    expect(() => t1Failures(r, { circuit: c })).toThrow(/ground\.props\[0\]/);
+    expect(() => t1Failures(r, { circuit: c, bounds: () => undefined })).toThrow();
+  });
+});

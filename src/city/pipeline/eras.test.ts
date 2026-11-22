@@ -121,3 +121,11 @@ describe("the pass helpers (C1, criterion 5)", () => {
     expect(() => assertEraReadable(ep, "holdout", bad)).toThrow(/X-2/);
   });
 });
+
+describe("the era's last stage bounds the run", () => {
+  it("with a pass missing, later passes still do not run: tech with history and holdout in the list writes no holdout layer", () => {
+    const r = runCityEra(SMALL, "tech", [double("history", hist), double("holdout", holdout)], CLEAN);
+    expect(r.ok).toBe(true);
+    expect(Object.keys(r.plan.layers)).toEqual(["history"]);
+  });
+});
