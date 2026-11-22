@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CityEraLayers, CityPlan, CityStreetCell } from "../../core";
 import { add, eraPlan, fixturePlan, history, k } from "./erafixtures";
-import { EMPTY_CIRCUIT, t1CleanClashes, t1Failures, t1WireCrossings, t2Failures, type CircuitPoints, type KitBounds } from "./readable";
+import { EMPTY_CIRCUIT, t1CleanClashes, t1Failures, t1RuinTreeCovers, t1WireCrossings, t2Failures, type CircuitPoints, type KitBounds } from "./readable";
 import { resolvePlan } from "./resolve";
 
 const base = fixturePlan();
@@ -142,5 +142,53 @@ describe("a piece that cannot be footprinted fails loudly", () => {
     const r = resolvePlan(eraPlan(plan, { tech: { stage: "tech", adds: [], changes: [{ ref: { list: "ground.props", index: 0, key: k("gp") }, op: "swap", key: k("wide") }] } }), "tech");
     expect(() => t1Failures(r, { circuit: c })).toThrow(/ground\.props\[0\]/);
     expect(() => t1Failures(r, { circuit: c, bounds: () => undefined })).toThrow();
+  });
+});
+
+describe("T-1 at the ruin era: trees exempt (F1b1; Josh, 22 Nov 2026: \"Through any dead line\", \"Poles too\")", () => {
+  const TREE = { x_m: 4, z_m: 4, h_m: 6 };
+  const ruinPlan = (adds: ReturnType<typeof add>[]) => resolvePlan(eraPlan(base, { ruin: { stage: "ruin", adds, changes: [], steps: [] } as unknown as CityEraLayers["ruin"] }), "ruin");
+  const c = circuit({
+    poles: [POLE],
+    lights: [{ id: "light:1", x_m: 60, z_m: 60 }],
+    lampPlaces: [{ id: "lamp:1", x_m: 80, z_m: 80 }],
+    drops: [{ id: "drop:1", wall: { x_m: 100, z_m: 100 }, out: { x_m: 1, z_m: 0 } }],
+    lines: [{ id: "span:1", a: { x_m: 0, z_m: 40 }, b: { x_m: 40, z_m: 40 } }],
+  });
+  const treeAt = (id: string, x: number, z: number) => add(id, k("SM_Env_Tree_01"), x, z, TREE);
+  const covering = [treeAt("ruin:t:pole", 20, 20), treeAt("ruin:t:light", 60, 60), treeAt("ruin:t:lamp", 80, 80), treeAt("ruin:t:drop", 101, 100), treeAt("ruin:t:span", 20, 40)];
+  const WHAT = ["pole", "light", "lampPlace", "dropEnd", "canopyOverLine"];
+
+  it("a ruin tree over a pole, light, lamp-post place, drop end or span is no failure at the ruin era, and is each failure with no era or at another era", () => {
+    const r = ruinPlan(covering);
+    expect(t1Failures(r, { circuit: c, era: "ruin" })).toEqual([]);
+    expect(t1Failures(r, { circuit: c }).map((f) => f.what).sort()).toEqual([...WHAT].sort());
+    for (const era of ["tech", "holdout"] as const) expect(t1Failures(r, { circuit: c, era }).map((f) => f.what).sort()).toEqual([...WHAT].sort());
+  });
+  it("a tree the tech or hold-out era adds is still judged when the plan is judged at the ruin era", () => {
+    const r = resolvePlan(eraPlan(base, { holdout: { stage: "holdout", adds: [treeAt("holdout:t:1", 20, 20)], changes: [] }, ruin: { stage: "ruin", adds: [], changes: [], steps: [] } as unknown as CityEraLayers["ruin"] }), "ruin");
+    expect(t1Failures(r, { circuit: c, era: "ruin" }).map((f) => f.what)).toEqual(["pole"]);
+  });
+  it("only trees: a solid ruin add over the same points fails, and so does a key that is not a tree under options.isTree", () => {
+    const solid = [add("ruin:b:pole", k("box"), 20, 20, TREE), add("ruin:b:light", k("box"), 60, 60, TREE), add("ruin:b:lamp", k("box"), 80, 80, TREE), add("ruin:b:drop", k("box"), 101, 100, TREE)];
+    expect(t1Failures(ruinPlan(solid), { circuit: c, era: "ruin" }).map((f) => f.what)).toEqual(["pole", "light", "lampPlace", "dropEnd"]);
+    const dead = ruinPlan([add("ruin:d:1", k("Tree_Dead_01"), 20, 20, TREE)]);
+    expect(t1Failures(dead, { circuit: c, era: "ruin", isTree: (key) => /Tree_Generic/.test(key) }).map((f) => f.what)).toEqual(["pole"]);
+  });
+  it("T-2 still holds: a ruin tree's trunk that seals a one-cell street between two poles fails, exempt crown or not", () => {
+    const poles = [poleAt("pole:a", 0, 2), poleAt("pole:b", 7, 2), poleAt("pole:c", 3, 2)]; // pole:c stands under the crown
+    const trunk = add("ruin:tree:1", k("SM_Env_Tree_01"), 17.5, 12.5, { x_m: 5, z_m: 5, h_m: 6 });
+    const r = resolvePlan(eraPlan(grid([2]), { ruin: { stage: "ruin", adds: [trunk], changes: [], steps: [] } as unknown as CityEraLayers["ruin"] }), "ruin");
+    expect(t1Failures(r, { circuit: circuit({ poles }) }).map((x) => x.what)).toEqual(["pole"]); // judged with no era, the crown over pole:c fails
+    expect(t1Failures(r, { circuit: circuit({ poles }), era: "ruin" })).toEqual([]);
+    expect(t2Failures(r, { circuit: circuit({ poles }), era: "ruin" })).toMatchObject([{ rule: "T-2", pole: "pole:b" }]);
+  });
+  it("t1RuinTreeCovers lists what each ruin tree's crown covers, never throws, and lists nothing for solid pieces or other eras' trees", () => {
+    const r = ruinPlan([...covering, add("ruin:b:1", k("box"), 20, 20, TREE)]);
+    const got = t1RuinTreeCovers(r, { circuit: c });
+    expect(got.map((f) => f.what).sort()).toEqual([...WHAT].sort());
+    expect(got.every((f) => f.source === "add" && f.piece.startsWith("ruin:t:"))).toBe(true);
+    expect(t1RuinTreeCovers(ruinPlan([treeAt("ruin:t:clear", 150, 150)]), { circuit: c })).toEqual([]);
+    expect(t1RuinTreeCovers(ruinPlan([]), { circuit: EMPTY_CIRCUIT })).toEqual([]);
   });
 });

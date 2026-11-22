@@ -15,7 +15,7 @@
  * piece use `options.bounds`, the key's kit bounds, which the caller owns (this folder imports no stage's kit).
  */
 
-import type { CalibrationKey, CityPieceList, CityPlacement, CityResolvedPlan } from "../../core";
+import type { CalibrationKey, CityEra, CityPieceList, CityPlacement, CityResolvedPlan } from "../../core";
 import { swappedOf, type ResolvedSwap } from "./resolve";
 
 /** A cell is 5 m (the streets' lattice). */
@@ -89,6 +89,11 @@ export interface ReadableOptions {
   readonly circuit?: CircuitPoints;
   /** The swapped pieces; default what `resolvePlan` recorded. */
   readonly swapped?: readonly ResolvedSwap[];
+  /**
+   * The era being judged (F1b1; Josh, 22 Nov 2026: "Through any dead line", "Poles too"). At `"ruin"`, a tree the ruin adds is not judged by T-1 at all: its crown may cover a span, pole, light, lamp-post
+   * place or drop end. Solid pieces, and trees at every other era, are judged as before; T-2 is unchanged. No era judges as today.
+   */
+  readonly era?: CityEra;
 }
 
 export type T1What = "pole" | "light" | "lampPlace" | "dropEnd" | "canopyOverLine";
@@ -126,6 +131,8 @@ interface Placed {
   readonly top: number;
   /** A canopy's radius, or 0 for a solid piece. */
   readonly canopy: number;
+  /** A ruin tree at the ruin era: T-1 does not judge it (F1b1). */
+  readonly exempt?: boolean;
 }
 
 const item0 = (item: unknown): string => (item as Sized).placement.key;
@@ -162,6 +169,7 @@ function place(ref: string, source: Placed["source"], item: Sized, useBounds: bo
 interface Collected {
   readonly clean: Placed[];
   readonly judged: Placed[];
+  /** (the ruin's trees are in `judged`, flagged `exempt`: T-1 skips them at the ruin era, T-2 counts them) */
 }
 
 function collect(resolved: CityResolvedPlan, o: ReadableOptions): Collected {
@@ -192,12 +200,12 @@ function collect(resolved: CityResolvedPlan, o: ReadableOptions): Collected {
       clean.push({ ref: `edge.buildoutTrees[${i}]`, source: "clean", x: tr.x_m, z: tr.z_m, hx: t.x_m / 2, hz: t.z_m / 2, base: 0, top: t.h_m, canopy: Math.max(t.x_m, t.z_m) / 2 }),
     );
   }
-  for (const list of [resolved.adds.tech, resolved.adds.holdout, resolved.adds.ruin]) {
+  for (const [era, list] of [["tech", resolved.adds.tech], ["holdout", resolved.adds.holdout], ["ruin", resolved.adds.ruin]] as const) {
     for (const a of list ?? []) {
       const swap = swapKeys.has(a.id);
       const p = place(a.id, "add", a, swap, o, isTree, false);
       if (p === null) throw new Error(`T-1/T-2: era add ${a.id} (key ${a.placement.key}) has no size and no kit bounds in options.bounds`);
-      judged.push(p);
+      judged.push(era === "ruin" && o.era === "ruin" && p.canopy > 0 ? { ...p, exempt: true } : p);
     }
   }
   return { clean, judged };
@@ -246,7 +254,17 @@ function judge(pieces: readonly Placed[], c: CircuitPoints): T1Failure[] {
 export function t1Failures(resolved: CityResolvedPlan, options: ReadableOptions = {}): readonly T1Failure[] {
   const c = options.circuit ?? circuitPoints(resolved);
   if (c.poles.length + c.lights.length + c.lampPlaces.length + c.drops.length + c.lines.length === 0) return [];
-  return judge(collect(resolved, options).judged, c);
+  return judge(collect(resolved, options).judged.filter((p) => p.exempt !== true), c);
+}
+
+/**
+ * The ruin's trees whose crowns cover a circuit point or line, by T-1's reading: reported each run, never thrown (F1b1), so the ruin's numbers can count them. Same split as `t1CleanClashes`.
+ * Each entry has `source` "add"; `what` and `at` say what the crown covers.
+ */
+export function t1RuinTreeCovers(resolved: CityResolvedPlan, options: ReadableOptions = {}): readonly T1Failure[] {
+  const c = options.circuit ?? circuitPoints(resolved);
+  if (c.poles.length + c.lights.length + c.lampPlaces.length + c.drops.length + c.lines.length === 0) return [];
+  return judge(collect(resolved, { ...options, era: "ruin" }).judged.filter((p) => p.exempt === true), c);
 }
 
 /** The clean pieces that cover the circuit by the same reading: reported each run, never failed (X-1). */

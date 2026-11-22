@@ -95,9 +95,10 @@ function resolve(plan: CityEraPlan, era: CityEra, stage: CityPassStage): CityRes
 export function assertEraReadable<S extends CityPassStage>(plan: CityEraPlan, stage: S, layer: CityEraLayers[S], options: ReadableOptions = {}): CityResolvedPlan {
   const own: CityEraPlan = { plan: plan.plan, layers: { ...plan.layers, [stage]: layer }, digests: plan.digests };
   const resolved = resolve(own, stage, stage);
-  const t1 = t1Failures(resolved, options);
+  const judged: ReadableOptions = { ...options, era: stage };
+  const t1 = t1Failures(resolved, judged);
   if (t1.length > 0) throw new CityStageError(`T-1: ${t1.length} circuit points covered; first: ${t1[0]!.piece} ${t1[0]!.reason}`);
-  const t2 = t2Failures(resolved, options);
+  const t2 = t2Failures(resolved, judged);
   if (t2.length > 0) throw new CityStageError(`T-2: ${t2.length} poles sealed in; first: ${t2[0]!.reason}`);
   return resolved;
 }

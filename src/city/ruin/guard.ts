@@ -55,3 +55,23 @@ function segmentDistance(x: number, z: number, a: { readonly x_m: number; readon
   const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((x - a.x_m) * dx + (z - a.z_m) * dz) / len2));
   return Math.hypot(x - (a.x_m + t * dx), z - (a.z_m + t * dz));
 }
+
+/** True when the segment a to b meets the rectangle in plan (an end inside it, or a crossing of an edge). Used for a roof piece and a rooftop line. */
+export function segmentMeetsRect(a: { readonly x_m: number; readonly z_m: number }, b: { readonly x_m: number; readonly z_m: number }, r: Rect): boolean {
+  // Liang-Barsky clip of the segment against the rectangle
+  let t0 = 0;
+  let t1 = 1;
+  const dx = b.x_m - a.x_m;
+  const dz = b.z_m - a.z_m;
+  for (const [p, q] of [[-dx, a.x_m - r.x0], [dx, r.x1 - a.x_m], [-dz, a.z_m - r.z0], [dz, r.z1 - a.z_m]] as const) {
+    if (p === 0) {
+      if (q < 0) return false;
+    } else {
+      const t = q / p;
+      if (p < 0) t0 = Math.max(t0, t);
+      else t1 = Math.min(t1, t);
+      if (t0 > t1) return false;
+    }
+  }
+  return true;
+}

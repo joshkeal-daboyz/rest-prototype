@@ -27,13 +27,15 @@ import {
   PATCH_TRIES,
   POST_VINE_MARGIN_M,
   ROOF_GAP_M,
+  ROOF_POLE_CLEAR_M,
+  TRUNK_CLEAR_M,
   ROOF_PER_COLUMN_MAX,
   ROOF_TRIES,
   TREE_VINE_TOP,
   VINE_TRIES,
 } from "./constants";
 import { cellKey, cellsOver, grow as growRect, inside, overlaps, rectAt, RectIndex, snap, turned, type Rect } from "./geom";
-import { circuitHit, crownVerdict } from "./guard";
+import { circuitHit, crownVerdict, segmentMeetsRect } from "./guard";
 import {
   EDGE_KEYS,
   FERN_BUSH_KEYS,
@@ -160,6 +162,17 @@ export function growRuin(world: World, rand: StageRand, o: GrowOptions): GrowRes
       return false;
     }
     return true;
+  };
+  /** What a tree at a spot does to the circuit. With `treesUnderSpans` (Josh, F1-Q1 and "Poles too": a ruin crown may cover anything) only the trunk is judged: it keeps TRUNK_CLEAR_M from a pole, light or lamp-post place. Without it F1's crown-clear rule stands. */
+  const treeVerdict = (x: number, z: number, radius: number, top: number): "clear" | "over-span" | "over-point" | "trunk" | "blocked" => {
+    const v = crownVerdict(circuit, x, z, radius, top, CROWN_MARGIN_M);
+    if (!o.treesUnderSpans) return v === "clear" ? "clear" : v === "over-span" ? "over-span" : "blocked";
+    for (const q of [...circuit.poles, ...circuit.lights, ...circuit.lampPlaces]) if (Math.hypot(q.x_m - x, q.z_m - z) < TRUNK_CLEAR_M) return "trunk";
+    return v === "clear" ? "clear" : v === "over-span" ? "over-span" : "over-point";
+  };
+  const placedTree = (verdict: string): void => {
+    if (verdict === "over-span") count("crownOverSpan");
+    if (verdict === "over-point") count("crownOverPoint");
   };
   const posIn = (r: Rect, tx: number, tz: number, ...key: (string | number)[]): [number, number] => {
     const loX = r.x0 + tx / 2;
@@ -333,8 +346,8 @@ export function growRuin(world: World, rand: StageRand, o: GrowOptions): GrowRes
       count("skippedFit:sapling");
       return;
     }
-    const verdict = crownVerdict(circuit, x, z, Math.max(t.x, t.z) / 2, kit.h, CROWN_MARGIN_M);
-    if (verdict === "blocked") {
+    const verdict = treeVerdict(x, z, Math.max(t.x, t.z) / 2, kit.h);
+    if (verdict === "blocked" || verdict === "trunk") {
       count("skippedCircuit:sapling");
       return;
     }
@@ -342,7 +355,7 @@ export function growRuin(world: World, rand: StageRand, o: GrowOptions): GrowRes
       underSpanSpots.push({ id: c.id, key, x_m: x, z_m: z });
       if (!o.treesUnderSpans) return;
     }
-    treeAt("sapling", c.id, c.district, key, x, z, yaw);
+    if (treeAt("sapling", c.id, c.district, key, x, z, yaw) === "placed") placedTree(verdict);
   };
 
   const tryParkTree = (c: Extract<Cand, { kind: "park-tree" }>): void => {
@@ -371,13 +384,16 @@ export function growRuin(world: World, rand: StageRand, o: GrowOptions): GrowRes
       const rect = rectAt(x, z, t.x, t.z);
       if (!cellsOver(rect).every((q) => c.park.cells.has(cellKey(q.i, q.j)))) continue;
       if (!free(rect, 0, kit.h, CLEAR_M)) continue;
-      const verdict = crownVerdict(circuit, x, z, Math.max(t.x, t.z) / 2, kit.h, CROWN_MARGIN_M);
-      if (verdict === "blocked") continue;
+      const verdict = treeVerdict(x, z, Math.max(t.x, t.z) / 2, kit.h);
+      if (verdict === "blocked" || verdict === "trunk") continue;
       if (verdict === "over-span") {
-        spanSpot ??= { id: c.id, key: c.key, x_m: x, z_m: z };
-        if (!o.treesUnderSpans) continue;
+        if (!o.treesUnderSpans) {
+          spanSpot ??= { id: c.id, key: c.key, x_m: x, z_m: z };
+          continue;
+        }
+        underSpanSpots.push({ id: c.id, key: c.key, x_m: x, z_m: z });
       }
-      treeAt("park-tree", c.id, c.district, c.key, x, z, yaw);
+      if (treeAt("park-tree", c.id, c.district, c.key, x, z, yaw) === "placed") placedTree(verdict);
       return;
     }
     if (spanSpot !== null && !o.treesUnderSpans) underSpanSpots.push(spanSpot);
@@ -399,7 +415,8 @@ export function growRuin(world: World, rand: StageRand, o: GrowOptions): GrowRes
         const t = turned(kit.w, kit.d, yaw);
         const [x, z] = posIn(d.rect, t.x, t.z, c.id, "pos", set === OVERGROWTH_KEYS ? 0 : 1, k);
         const rect = rectAt(x, z, t.x, t.z);
-        if (!fits(rect) || circuitHit(circuit, rect, d.y + kit.h, CIRCUIT_MARGIN_M)) continue;
+        // never over or against a rooftop pole (0.3 m clear of its point) or over a rooftop line (no footprint meets it in plan): a Tree_Dead_* included
+        if (!fits(rect) || circuitHit(circuit, rect, d.y + kit.h, ROOF_POLE_CLEAR_M) || circuit.lines.some((s) => segmentMeetsRect(s.a, s.b, rect))) continue;
         taken.push(rect);
         adds.push(make("roof", c.id, c.district, { i: d.i, j: d.j }, key, x, d.y, z, yaw));
         count("placed:roof");

@@ -5,7 +5,7 @@
 import { describe, expect, it } from "vitest";
 import type { CalibrationKey, CityEraPlan, CityRuinLayer, CityRuinPieceKind } from "../../core";
 import { assertEraReadable } from "../pipeline/eras";
-import { t2Failures } from "../pipeline/readable";
+import { t1RuinTreeCovers, t2Failures } from "../pipeline/readable";
 import { CityStageError } from "../pipeline/error";
 import { stageRand, type StageRand } from "../pipeline/seeds";
 import { CLEAR_M, ROOF_GAP_M, RUIN_ROOF_DEAD_TREES, RUIN_ROOF_GROWTH, RUIN_TREES_UNDER_SPANS, RUIN_VINE_06 } from "./constants";
@@ -194,28 +194,46 @@ describe("trees and T-1 (B8; criterion 4)", () => {
     expect(r.underSpanSpots).toHaveLength(0);
   });
 
-  it("one whose crown meets the span is not placed and is in the under-span set", () => {
+  it("with the constant off (a test double: F1's crown-clear rule) one whose crown meets the span is not placed and is in the under-span set", () => {
     const { w } = world();
     const r = growRuin(w, zeroRand, { ...OPTS, circuit: span(26.5) });
     expect(sapling(r)).toBeUndefined();
     expect(r.underSpanSpots).toHaveLength(1);
     expect(r.underSpanSpots[0]).toMatchObject({ id: "ruin:sapling:6,5" });
-    expect(RUIN_TREES_UNDER_SPANS).toBe(false);
+    expect(RUIN_TREES_UNDER_SPANS).toBe(true); // as built it is on (Josh, F1-Q1: "Through any dead line"); the options turn it off here
   });
 
-  it("with the under-span constant true (through the options) the spot is tried and, against today's T-1, the stage throws CityStageError: T-1 is not loosened", () => {
+  it("on (as built; F1b2): a sapling whose crown meets the span is placed, is in the under-span set, and the stage does not throw: T-1 no longer judges a ruin crown, and t1RuinTreeCovers reports it", () => {
     const { w } = world();
     const circuit = span(26.5);
     const r = growRuin(w, zeroRand, { ...OPTS, circuit, treesUnderSpans: true });
-    const s = sapling(r);
-    expect(s).toBeDefined();
+    expect(sapling(r)).toBeDefined();
+    expect(r.underSpanSpots).toHaveLength(1);
+    expect(r.stats["crownOverSpan"]).toBe(1);
     const layer = layerOf(r.adds);
     const plan = eraPlanOf(layer, w.resolved);
-    expect(() => assertEraReadable(plan, "ruin", layer, { bounds: ruinBounds, isTree: ruinIsTree, circuit })).toThrow(CityStageError);
-    expect(() => assertEraReadable(plan, "ruin", layer, { bounds: ruinBounds, isTree: ruinIsTree, circuit })).toThrow(/T-1/);
+    const resolved = assertEraReadable(plan, "ruin", layer, { bounds: ruinBounds, isTree: ruinIsTree, circuit });
+    expect(t1RuinTreeCovers(resolved, { bounds: ruinBounds, isTree: ruinIsTree, circuit }).map((f) => f.what)).toEqual(["canopyOverLine"]);
   });
 
-  it("a tree whose crown is over a pole, a street light or a lamp-post place is neither placed nor in the set", () => {
+  it("on: a crown that covers a pole, a street light or a lamp-post place is placed (\"Poles too\"), and counted; a trunk within 0.3 m of one is not", () => {
+    for (const key of ["poles", "lights", "lampPlaces"] as const) {
+      const far = emptyCircuit({ [key]: [{ id: "p", x_m: 31.2, z_m: 27.2 }] });
+      const r = growRuin(world().w, zeroRand, { ...OPTS, circuit: far, treesUnderSpans: true });
+      expect(sapling(r), key).toBeDefined();
+      expect(r.stats["crownOverPoint"], key).toBe(1);
+      const near = emptyCircuit({ [key]: [{ id: "p", x_m: 31.2, z_m: 26.3 }] }); // 0.2 m from the trunk
+      const rn = growRuin(world().w, zeroRand, { ...OPTS, circuit: near, treesUnderSpans: true });
+      expect(sapling(rn), key).toBeUndefined();
+      const edge = emptyCircuit({ [key]: [{ id: "p", x_m: 31.2, z_m: 26.5 }] }); // 0.4 m from the trunk: clear
+      expect(sapling(growRuin(world().w, zeroRand, { ...OPTS, circuit: edge, treesUnderSpans: true })), key).toBeDefined();
+    }
+    // a drop end under the crown does not stop it either
+    const drop = emptyCircuit({ drops: [{ id: "d", wall: { x_m: 31.2, z_m: 27.2 }, out: { x_m: 0, z_m: -1 } }] });
+    expect(sapling(growRuin(world().w, zeroRand, { ...OPTS, circuit: drop, treesUnderSpans: true }))).toBeDefined();
+  });
+
+  it("off: a tree whose crown is over a pole, a street light or a lamp-post place is neither placed nor in the set", () => {
     for (const over of [{ poles: [{ id: "p", x_m: 31.2, z_m: 27.2 }] }, { lights: [{ id: "l", x_m: 31.2, z_m: 27.2 }] }, { lampPlaces: [{ id: "k", x_m: 31.2, z_m: 27.2 }] }]) {
       const { w } = world();
       const r = growRuin(w, zeroRand, { ...OPTS, circuit: emptyCircuit(over) });
@@ -354,10 +372,10 @@ describe("vines (criterion 6)", () => {
 });
 
 describe("the switches (criterion 7)", () => {
-  it("are exported with the values the ticket says: roof growth off, dead trees on, trees under spans off, the post vine on", () => {
-    expect(RUIN_ROOF_GROWTH).toBe(false);
+  it("are exported with the values the ticket says: roof growth on and trees under spans on (Josh, 22 Nov 2026), dead trees on, the post vine on", () => {
+    expect(RUIN_ROOF_GROWTH).toBe(true);
     expect(RUIN_ROOF_DEAD_TREES).toBe(true);
-    expect(RUIN_TREES_UNDER_SPANS).toBe(false);
+    expect(RUIN_TREES_UNDER_SPANS).toBe(true);
     expect(RUIN_VINE_06).toBe(true);
   });
 
@@ -404,6 +422,26 @@ describe("the switches (criterion 7)", () => {
         expect(overlaps({ x0: a.x0 - ROOF_GAP_M + 1e-6, x1: a.x1 + ROOF_GAP_M - 1e-6, z0: a.z0 - ROOF_GAP_M + 1e-6, z1: a.z1 + ROOF_GAP_M - 1e-6 }, b)).toBe(false);
       }
     }
+  });
+
+  it("roof pieces, a Tree_Dead_* included, never sit within 0.3 m of a rooftop pole or have a footprint that meets a rooftop line in plan", () => {
+    const bigDecks = [deck(0, 0), deck(1, 0)];
+    const poles = [{ id: "rp", x_m: 2.5, z_m: 2.5 }];
+    const lines = [{ id: "rl", a: { x_m: 5.4, z_m: 0 }, b: { x_m: 5.4, z_m: 30 } }];
+    for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
+      const r = growRuin(fxWorld({ decks: bigDecks }), stageRand("ruin", seed), { ...OPTS, roofGrowth: true, circuit: emptyCircuit({ poles, lines }) });
+      for (const p of ofKind(r.adds, "roof")) {
+        const rc = rectOf(p);
+        const dx = 2.5 - Math.max(rc.x0, Math.min(2.5, rc.x1));
+        const dz = 2.5 - Math.max(rc.z0, Math.min(2.5, rc.z1));
+        expect(Math.hypot(dx, dz), p.id).toBeGreaterThan(0.3);
+        expect(rc.x0 <= 5.4 && rc.x1 >= 5.4, p.id).toBe(false);
+      }
+    }
+    // with no pole or line the same decks take pieces: the limit is what keeps them off
+    let n = 0;
+    for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) n += ofKind(growRuin(fxWorld({ decks: bigDecks }), stageRand("ruin", seed), { ...OPTS, roofGrowth: true }).adds, "roof").length;
+    expect(n).toBeGreaterThan(0);
   });
 
   it("with roof dead trees off the layer has no Tree_Dead_* and every other add is the same", () => {
@@ -476,13 +514,15 @@ describe("T-1 and T-2 on the era (criterion 8)", () => {
     expect(ruinIsTree(dead)).toBe(false);
     expect(ruinIsTree(SAPLING_KEYS[0]!)).toBe(true);
     expect(ruinIsTree(GIANT_KEY)).toBe(true);
-    // a snag near a span passes where a birch of the same crown width fails
+    // in the ruin T-1 judges neither; t1RuinTreeCovers lists the birch's crown over the span and not the snag's
     const circuit = emptyCircuit({ lines: [{ id: "s", a: { x_m: 0, z_m: 22 }, b: { x_m: 80, z_m: 22 } }] });
     const at22 = (key: CalibrationKey, h: number, x: number): RuinPiece => ({ ...forced, id: `ruin:t:${key}`, kind: "sapling", placement: { key, x_m: x, y_m: 0, z_m: 21.5, yaw_deg: 0 }, size: { x_m: KIT[key]!.w, z_m: KIT[key]!.d, h_m: h } });
     const snag = layerOf([at22(dead, KIT[dead]!.h, 17.5)]);
-    expect(() => assertEraReadable(eraPlanOf(snag, w.resolved), "ruin", snag, readable(circuit))).not.toThrow();
+    const rs = assertEraReadable(eraPlanOf(snag, w.resolved), "ruin", snag, readable(circuit));
+    expect(t1RuinTreeCovers(rs, readable(circuit))).toHaveLength(0);
     const birch = layerOf([at22(SAPLING_KEYS[0]!, KIT[SAPLING_KEYS[0]!]!.h, 17.5)]);
-    expect(() => assertEraReadable(eraPlanOf(birch, w.resolved), "ruin", birch, readable(circuit))).toThrow(/T-1/);
+    const rb = assertEraReadable(eraPlanOf(birch, w.resolved), "ruin", birch, readable(circuit));
+    expect(t1RuinTreeCovers(rb, readable(circuit)).map((f) => f.what)).toEqual(["canopyOverLine"]);
     void CLEAR_M;
   });
 });
