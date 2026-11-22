@@ -1,27 +1,43 @@
 ticket: 073f1b1-t1-ruin-trees
-assessment: partly
-must-fix: 1
+assessment: meets
+must-fix: 0
 
 ## What the ticket asked for, as I understood it
-At the ruin era only, T-1 stops judging the crown of a tree the ruin adds (over spans, poles, lights, lamp-post places, drop ends), following Josh's "Through any dead line" and "Poles too". Solid pieces and the other eras' trees are judged as before, T-2 stays as it is, and a new function reports the crowns it no longer fails. The era comes from what is being judged (for example `assertEraReadable`'s `stage`).
+At the ruin era only, T-1 stops judging the crown of a tree the ruin adds, whatever it covers: spans, poles, lights, lamp-post places and drop ends (Josh's "Through any dead line" and "Poles too"). Solid pieces and the other eras' trees are judged as before, T-2 stays as it is, and a new function reports the crowns T-1 no longer fails. The era comes from what is being judged (`assertEraReadable`'s `stage`).
 
 ## Does the branch do it?
-Diff: `src/city/pipeline/readable.ts` and `readable.test.ts` only. `npx vitest run --maxWorkers=1 src/city/pipeline/ src/city/ruin/` gives 15 files and 209 tests, all passing. I did not run the whole suite or typecheck again: the main session's gate already did, per the load note.
+Round 2. The F1b1 commits are 3296013 and 34ab95f. They change `src/city/pipeline/readable.ts`, `readable.test.ts`, `eras.ts` and `eras.test.ts`, all on the ticket's list. At the branch head (75f4171), `npx vitest run --maxWorkers=1 src/city/pipeline/ src/city/ruin/ src/render3d/ruinpin.test.ts` gives 16 files and 224 tests, all passing. `npx tsc --noEmit` is clean. Per the load note, I did not run the whole suite.
 
-1. **The exemption, era-scoped.** Partly met. `ReadableOptions.era?: CityEra` was added. `collect` moves a ruin add with `canopy > 0` into a new `exempt` list, but only when `o.era === "ruin"`. Test "a ruin tree over a pole, light, lamp-post place, drop end or span is no failure at the ruin era, and is each failure with no era or at another era" covers all five `what`s at ruin, tech, hold-out and with no era. The gap is in where the era comes from. The criterion says it "is read from what is being judged (for example `assertEraReadable`'s `stage` ...)", and the ticket lets `eras.ts` be edited for exactly that. `eras.ts` is not touched. `assertEraReadable(plan, "ruin", layer, opts)` still passes `opts` through with no era, so the check the ruin pass actually runs (`src/city/ruin/stage.ts:69`) still throws on a ruin tree's crown over the circuit. As built, the exemption only exists for a caller who sets `era: "ruin"` by hand. Must fix 1.
-2. **Only trees.** Met. The test "only trees: a solid ruin add ... fails, and so does a key that is not a tree under options.isTree" shows four solid boxes still failing at ruin, and a `Tree_Dead_01` key with an `isTree` that rejects it still failing `pole`. A hold-out tree judged at the ruin era is still judged (its own test), because the exemption is limited to `resolved.adds.ruin`.
-3. **T-2 unchanged.** Met in behaviour. Exempt trees are put back into `closedCells` (`[...clean, ...judged, ...exempt]`), so a trunk still closes ground. The test "T-2 still holds: a ruin tree's trunk that seals a one-cell street between two poles fails" asserts the `pole:b` T-2 failure at ruin. Strictly, the criterion says "`t2Failures` is not edited", and one line of it was edited to add `exempt`. The effect is the same set, so I list this as could-improve, not must-fix.
-4. **Reported, not failed.** Met. `t1RuinTreeCovers` runs `judge` over `exempt` with `era: "ruin"` forced, and returns `[]` for an empty circuit, the same split as `t1CleanClashes`. Its test checks that all five `what`s are listed, that only `ruin:t:` trees appear (the solid box is left out), and that it returns nothing for a clear tree and for an empty circuit.
-5. **Nothing else moves.** Met as far as I ran it. The existing `readable.test.ts` cases are unchanged (the diff only adds lines), and `eras.test.ts` and the ruin tests pass. With no era set, behaviour is identical. `t1CleanClashes` is untouched. No digest or pin file changed.
+**Round 1's must-fix 1 is done.** `assertEraReadable` now builds `{ ...options, era: stage }` and passes it to both `t1Failures` and `t2Failures` (`eras.ts`). The new `eras.test.ts` case shows three things:
+- `assertEraReadable(ep, "ruin", ...)` with a ruin tree over a pole and one over a span does not throw, and returns both adds.
+- A solid ruin box over the pole still throws `T-1`.
+- A hold-out tree over the pole still throws `T-1` at `"holdout"`.
+
+So `src/city/ruin/stage.ts:69` now carries out the ruling without the caller setting the era.
+
+**Both of round 1's could-improves were taken.**
+- Exempt trees stay in `judged` with an `exempt` flag, and only `t1Failures` filters them out. `t2Failures` is unchanged from the base.
+- The T-2 test now has `pole:c` under the crown. It fails `pole` with no era and passes at `"ruin"`, so "exempt crown or not" is actually exercised.
+
+The criteria:
+1. **The exemption, era-scoped.** Met. `ReadableOptions.era?: CityEra` is added. `collect` flags a ruin add with `canopy > 0` only when `o.era === "ruin"`. The test "a ruin tree over a pole, light, lamp-post place, drop end or span is no failure at the ruin era ..." covers all five `what`s at ruin, tech and hold-out, and with no era. The era is read from `stage` (above). No era judges as before.
+2. **Only trees.** Met. In the test "only trees: ...", four solid ruin boxes still fail at ruin. A `Tree_Dead_01` key that `isTree` rejects still fails `pole`. The flag is limited to `adds.ruin`, so a hold-out tree judged at the ruin era is still judged (its own test).
+3. **T-2 unchanged.** Met, now literally: `t2Failures` is not edited, and exempt trees reach it through `judged`. The test asserts that `pole:b` is sealed at ruin while a crown sits over `pole:c`.
+4. **Reported, not failed.** Met. `t1RuinTreeCovers` judges only the flagged trees, with `era: "ruin"` forced, and returns `[]` for an empty circuit (the `t1CleanClashes` split). Its test shows all five `what`s and only `ruin:t:` ids (the box is left out). It also shows nothing for a clear tree and nothing for an empty circuit.
+5. **Nothing else moves.** Met at the branch head. The existing `readable.test.ts` and `eras.test.ts` cases are unchanged, and so is `t1CleanClashes`. No clean, tech or hold-out digest moves, and the F1b1 commits change no pin. On 34ab95f alone, see the risk below.
 
 ## Rule conflicts and risks
-- No hard rule broken: the files are inside the ticket's list, there is no new dependency, the code is pure TypeScript with no DOM or timers, and nothing touches `src/core/`, `src/grid/` or `src/night/`.
-- Risk, which is why Must fix 1 matters: F1b2 may only touch `src/city/ruin/`, and its criterion 2 expects the stage "does **not** throw (F1b1's exemption)". If the era is not passed in `assertEraReadable`, F1b2 has to add `era: "ruin"` to its own options. That works by accident of the caller, not by "the era being judged", and any other ruin caller of `assertEraReadable` would still fail Josh's ruling.
-- `options.era` and the resolved era can disagree, for example `era: "ruin"` on a plan resolved at hold-out. This is harmless today because `adds.ruin` is then empty. Deriving the era from `stage` removes the question.
+- No hard rule broken. The files are on the ticket's list, there is no new dependency, the code is pure TypeScript, and nothing touches `src/core/`, `src/grid/` or `src/night/`. No GDD Decided rule changes; this is the era check Josh ruled on.
+- **34ab95f must not merge on its own.** Now that the era is passed, three F1 tests that expected a throw stop throwing:
+  - `grow.test.ts`, "with the under-span constant true ... the stage throws";
+  - `grow.test.ts`, the birch `toThrow(/T-1/)`;
+  - `stage.test.ts`, "with the under-span constant on, the same city throws".
+
+  F1b2's 75f4171 replaces all three, as F1b2 criterion 2 says. The ticket's order ("F1b2 after F1b1 merges") would leave a red `src/city/ruin/` between the two merges, so merge the branch head as one unit. I read this from the code at 34ab95f and did not run it there.
+- `options.era` can still disagree with the resolved era for a direct `t1Failures` caller. That is harmless: `adds.ruin` is empty below the ruin era.
 
 ## Must fix
-1. `src/city/pipeline/eras.ts`, `assertEraReadable`: pass the stage as the era judged, for example `const opts = { ...options, era: stage };`, and use it for both `t1Failures` and `t2Failures`. Add a test in `readable.test.ts` (or `eras.test.ts`) that `assertEraReadable(plan, "ruin", layer)` does not throw for a ruin tree whose crown covers a pole and a span, and still throws `T-1` for a hold-out tree over a pole judged at `"holdout"`. Effect: the check the ruin pass already runs carries out Josh's "Poles too" ruling without each caller having to remember to set the era.
+none
 
 ## Could improve
-1. `readable.ts`: keep the ruin trees inside `judged` (or mark them on `Placed`) and filter them out in `t1Failures` only. That leaves `t2Failures` byte-for-byte as it was, which is what criterion 3 literally asks for.
-2. The `t1Failures(..., era: "ruin")` assertion in the T-2 test passes on its own, because that tree's crown covers nothing in that circuit. Either drop it or move a pole under the crown, so it shows "exempt crown or not" and is not just an empty circuit.
+1. `readable.ts`: `t1RuinTreeCovers` repeats `t1Failures`' empty-circuit guard. A shared one-line helper would keep the two in step.
