@@ -8,7 +8,7 @@ import { CITY_RUIN_PIECE_KINDS, CITY_RUIN_STEP_OF, CITY_RUIN_STEPS, type CityEra
 import { digestOf } from "../pipeline/digest";
 import { resolveBefore } from "../pipeline/eras";
 import { pictureProblems } from "../pipeline/picture";
-import { t1Failures, t2Failures, type CircuitPoints } from "../pipeline/readable";
+import { t1Failures, t1RuinTreeCovers, t2Failures, type CircuitPoints } from "../pipeline/readable";
 import { stageRand } from "../pipeline/seeds";
 import { ERA_STAGES } from "../stages";
 import { RUIN_ROOF_GROWTH } from "./constants";
@@ -49,12 +49,12 @@ describe("criterion 1: the layer", { timeout: 300_000 }, () => {
     expect(() => stepPart({ stage: "ruin", adds: [], changes: [] } as CityRuinLayer, "growth")).toThrow();
   });
 
-  it("as built (RUIN_ROOF_GROWTH false) the layer has no roof add; with it on (through the options) it has, and every other add is the same", () => {
-    expect(RUIN_ROOF_GROWTH).toBe(false);
-    expect(layer.adds.filter((a) => a.kind === "roof")).toHaveLength(0);
-    const on = buildRuin(BASE, rand, { roofGrowth: true }).layer;
-    expect(on.adds.filter((a) => a.kind === "roof").length).toBeGreaterThan(100);
-    expect(on.adds.filter((a) => a.kind !== "roof")).toEqual(layer.adds);
+  it("as built (RUIN_ROOF_GROWTH true) the layer has roof adds; with it off (through the options) it has none, and every other add is the same", () => {
+    expect(RUIN_ROOF_GROWTH).toBe(true);
+    expect(layer.adds.filter((a) => a.kind === "roof").length).toBeGreaterThan(100);
+    const off = buildRuin(BASE, rand, { roofGrowth: false }).layer;
+    expect(off.adds.filter((a) => a.kind === "roof")).toHaveLength(0);
+    expect(layer.adds.filter((a) => a.kind !== "roof")).toEqual(off.adds);
   });
 
   it("is registered as the era stage ruin, after holdout, with one line in ERA_STAGES; a ruin stage with options is the same stage", () => {
@@ -147,10 +147,14 @@ describe("T-1 and T-2 with a hand-placed circuit on the real city (stage 6 is em
     expect(out.layer.adds.length).toBeGreaterThan(500);
   });
 
-  it("some tree spots are under a span (B8) and are not placed", () => {
+  it("some tree spots are under a span (B8, Josh: \"Through any dead line\") and are placed now; the off switch keeps them out", () => {
     expect(out.underSpanSpots.length).toBeGreaterThan(0);
-    const placed = new Set(out.layer.adds.filter((a) => a.kind === "sapling").map((a) => a.id));
-    for (const s of out.underSpanSpots) expect(placed.has(s.id)).toBe(false);
+    const placed = new Set(out.layer.adds.filter((a) => a.kind === "sapling" || a.kind === "park-tree").map((a) => a.id));
+    for (const s of out.underSpanSpots) expect(placed.has(s.id)).toBe(true);
+    const off = buildRuin(wildPlan, rand, { circuit, treesUnderSpans: false });
+    const offPlaced = new Set(off.layer.adds.map((a) => a.id));
+    for (const s of off.underSpanSpots) expect(offPlaced.has(s.id)).toBe(false);
+    expect(off.underSpanSpots.length).toBeGreaterThan(0);
   });
 
   it("pieces were left out by option G or by the circuit, and are counted", () => {
@@ -158,15 +162,23 @@ describe("T-1 and T-2 with a hand-placed circuit on the real city (stage 6 is em
     expect(leftOut.length).toBeGreaterThan(0);
   });
 
-  it("with the under-span constant on, the same city throws a CityStageError naming T-1", () => {
-    expect(() => buildRuin(wildPlan, rand, { circuit, treesUnderSpans: true })).toThrow(/T-1/);
+  it("with the under-span constant off (a test double) the crown-clear rule stands and the stage still returns; with it on the crowns over the circuit are reported by t1RuinTreeCovers", () => {
+    expect(() => buildRuin(wildPlan, rand, { circuit, treesUnderSpans: false })).not.toThrow();
+    const own: CityEraPlan = { plan: wildPlan.plan, layers: { ...wildPlan.layers, ruin: out.layer }, digests: wildPlan.digests };
+    const resolved = resolveBefore(own, "ruin");
+    const withRuin = { ...resolved, adds: { ...resolved.adds, ruin: out.layer.adds } };
+    const covers = t1RuinTreeCovers(withRuin, { bounds: ruinBounds, isTree: ruinIsTree, circuit });
+    const byWhat: Record<string, number> = {};
+    for (const f of covers) byWhat[f.what] = (byWhat[f.what] ?? 0) + 1;
+    console.info(`F1b2 hand-placed circuit: poles ${poles.length}, spans ${lines.length}; under-span spots placed ${out.underSpanSpots.length}; crown over span (placed) ${out.stats["crownOverSpan"] ?? 0}, over a point (placed) ${out.stats["crownOverPoint"] ?? 0}; roof pieces ${out.layer.adds.filter((a) => a.kind === "roof").length}; t1RuinTreeCovers ${covers.length} ${JSON.stringify(byWhat)}`);
+    expect(covers.length).toBeGreaterThan(0);
   });
 
   it("the independent checks, called by name on the resolved era, find nothing", () => {
     const own: CityEraPlan = { plan: wildPlan.plan, layers: { ...wildPlan.layers, ruin: out.layer }, digests: wildPlan.digests };
     const resolved = resolveBefore(own, "ruin");
     const withRuin = { ...resolved, adds: { ...resolved.adds, ruin: out.layer.adds } };
-    const options = { bounds: ruinBounds, isTree: ruinIsTree, circuit };
+    const options = { bounds: ruinBounds, isTree: ruinIsTree, circuit, era: "ruin" as const };
     expect(t1Failures(withRuin, options)).toHaveLength(0);
     expect(t2Failures(withRuin, options)).toHaveLength(0);
   });

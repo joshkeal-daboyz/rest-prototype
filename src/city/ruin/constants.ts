@@ -9,17 +9,17 @@ export const CELL_M = 5;
 // ---- the switches (each exported, each tested both ways) ----
 
 /**
- * HELD FOR JOSH (F1-Q5; B10). Growth on roofs (`Env_Overgrowth_*`, bushes, dead trees) is many more roof items, and B10 is Josh's for the tech and hold-out passes only. Off as built: the layer has no
- * `roof` add. On (his word, then this one line and a re-pin), the slot places as the ticket says.
+ * ON (Josh, 22 Nov 2026: "Yes, switch it on (Recommended)"; F1b2; B10 gains the ruin). Growth on roofs (`Env_Overgrowth_*`, bushes, dead trees). Off, the layer has no `roof` add. A roof piece never sits over or against a
+ * rooftop pole or line.
  */
-export const RUIN_ROOF_GROWTH = false;
+export const RUIN_ROOF_GROWTH = true;
 /** Only with `RUIN_ROOF_GROWTH` on: `Tree_Dead_01/02` on roofs. False drops the dead trees and keeps the bushes (the main session's call from the street picture, F3). */
 export const RUIN_ROOF_DEAD_TREES = true;
 /**
- * HELD FOR JOSH (F1-Q1, way-out (b)). The spots whose crown meets a span and is otherwise clear are computed every run (`underSpanSpots`) and not placed. True places them; against today's T-1 the stage
- * then throws, so true is only for after T-1's own change (C1's, for Josh).
+ * ON (Josh, 22 Nov 2026: "Through any dead line" and "Poles too"; F1b1, F1b2). A ruin tree's crown may meet any line and cover any circuit point; only its trunk keeps `TRUNK_CLEAR_M` from a pole, light or lamp-post place.
+ * The spots whose crown meets a span are `underSpanSpots`, and are placed. Off, F1's crown-clear rule stands (a test double).
  */
-export const RUIN_TREES_UNDER_SPANS = false;
+export const RUIN_TREES_UNDER_SPANS = true;
 /** `Env_Vines_06` on traffic posts (posts only). False drops it: if F3's picture shows it as a flat sheet, the ruin-pass's one line and a re-pin. */
 export const RUIN_VINE_06 = true;
 
@@ -69,3 +69,8 @@ export const ROOF_GAP_M = 0.1;
 export const FLAT_COVER_MAX_H_M = 0.15;
 /** A hanging tree-vine's top is this share of its tree's height. */
 export const TREE_VINE_TOP = 0.85;
+
+/** A trunk keeps this far from a pole, a street light or a lamp-post place (a lamp-post place stays usable). */
+export const TRUNK_CLEAR_M = 0.3;
+/** A roof piece keeps this far clear of a rooftop pole's point. */
+export const ROOF_POLE_CLEAR_M = 0.3;

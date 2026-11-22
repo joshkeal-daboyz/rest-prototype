@@ -33,14 +33,15 @@ interface Run {
 }
 
 /**
+ * Re-taken in F1b2 (22 Nov 2026) for Josh's two rulings: roof growth on ("Yes, switch it on") and ruin trees under spans ("Through any dead line", "Poles too"); the roof pieces move the growth digests. FLAG for K2 and F2g: a tree may now stand over a job's own pole, line or drop end; each cut should say whether that stays, is listed for the puzzle-designer, or goes back to Josh.
  * What the pin test pins: the digest of the layer's "growth" part on each pin city, one-way on (taken 22 Nov 2026 night, on the clean city, `history`, the tech and hold-out layers, and no circuit. Re-taken when D2,
  * E1 or E2's barricade step changes what stands before it, and when K2's circuit lands: the ruin-pass, in a one-line follow-up named in that merge).
  */
 const PIN_GROWTH: Readonly<Record<number, string>> = {
-  1: "2a2b4587",
-  2: "e021f93c",
-  3: "5ea160da",
-  8: "f3ad1867",
+  1: "e51a4fe7",
+  2: "ca840282",
+  3: "50153fce",
+  8: "47ee6639",
 };
 
 const CLEAN_STAGES = CITY_STAGES.filter((s): s is CityPlanStage => s !== "assemble");
@@ -90,7 +91,7 @@ describe("the named runs (X-4, X-1, R-1)", { timeout: 1_800_000 }, () => {
     }
   });
 
-  it("each layer meets the layer rules: unique ids, no change, no roof add as built, only kit keys, steps summing, every kind in its step", () => {
+  it("each layer meets the layer rules: unique ids, no change, only kit keys, steps summing, every kind in its step", () => {
     for (const r of runs) {
       const l = r.layer;
       const ids = l.adds.map((a) => a.id);
@@ -98,7 +99,6 @@ describe("the named runs (X-4, X-1, R-1)", { timeout: 1_800_000 }, () => {
       expect(l.adds.length, label(r.city)).toBeGreaterThan(300);
       for (const s of CITY_RUIN_STEPS) for (const a of stepPart(l, s).adds) expect(CITY_RUIN_STEP_OF[a.kind]).toBe(s);
       for (const a of l.adds) expect(KIT_KEYS.has(a.placement.key), a.placement.key).toBe(true);
-      expect(l.adds.some((a) => a.kind === "roof"), label(r.city)).toBe(false);
       expect(l.changes).toEqual([]);
       expect(l.steps!.map((s) => s.step)).toEqual([...CITY_RUIN_STEPS]);
       expect(l.steps![1]).toEqual({ step: "remnants", adds: 0, changes: 0 });
@@ -243,7 +243,9 @@ describe("criterion 13: the numbers (reported, not asserted)", { timeout: 900_00
     lines.push(`left out for no room (patch / clump / sapling): ${range(runs.map((r) => stat(r, "skippedFit:patch")))} / ${range(runs.map((r) => stat(r, "skippedFit:clump")))} / ${range(runs.map((r) => stat(r, "skippedFit:sapling")))}`);
     lines.push(`left out by option G (T-2), per run: patch ${range(runs.map((r) => stat(r, "leftOutT2:patch")))}, sapling ${range(runs.map((r) => stat(r, "leftOutT2:sapling")))}, clump ${range(runs.map((r) => stat(r, "leftOutT2:clump")))} (no circuit on the named runs until K2: so none)`);
     lines.push(`under-span set (B8): ${range(runs.map((r) => stat(r, "underSpanSpots")))} (no circuit on the named runs until K2: so none)`);
-    lines.push(`roof pieces with RUIN_ROOF_GROWTH on (0 as built): ${range(runs.map((r) => r.roofsOn))}`);
+    const roofKeys = [...new Set(runs.flatMap((r) => r.layer.adds.filter((a) => a.kind === "roof").map((a) => a.placement.key.split("SM_")[1]!)))].sort();
+    lines.push(`roof pieces a city (RUIN_ROOF_GROWTH on as built): ${range(runs.map((r) => count(r, "roof")))}`);
+    for (const k of roofKeys) lines.push(`  roof ${k}: ${range(runs.map((r) => r.layer.adds.filter((a) => a.kind === "roof" && a.placement.key.endsWith(k)).length))}`);
     lines.push(`time a city (the stage alone): ${range(runs.map((r) => Math.round(r.ms)))} ms`);
     console.info(`F1 numbers\n${lines.join("\n")}`);
     expect(lines.length).toBeGreaterThan(10);
