@@ -136,6 +136,27 @@ Planned pieces I could not find in use in any image. Treat silence as "unknown",
 - Apocalypse: `Prop_Powerpole_Broken_*` in a scene, `Env_Overgrowth_Wall_*` told apart from the other overgrowth pieces.
 - Palm City: the vines on a plain flat wall with no eave or edge above.
 
+## Uses taken that the images do not show
+
+Kept by ticket 073 (X-11) as the record of each use a pass takes that this note's images do not show or contradict. None is Josh's ruling: each was answered by the Fable session on his delegation, and Josh may reverse any. *Not shown* means the images are silent; *departure* means they show the piece used another way. Each carries its limits.
+
+**Sci-Fi City, the tech pass (D1, 21 Nov 2026 night):**
+- `Prop_Overhang_01/02` as canopies over a whole free storey face: **not shown**. Its shape (1.44 m deep, closed on all sides) reads as one, and nothing contradicts it. (D1 as built types and pins it but never places it: the density rule gives the slot no chance.)
+- `Prop_ChargingStation_01` on the pavement's kerb line: **not shown** (a vehicle charger belongs by the road; the images do not tell it apart from the other terminals). It keeps every pavement rule D1 keeps.
+- `Bld_Advanced_01/02` as an added front, 0.71 m out in front of an old shop, on single and double shops only, never corner shops: **departure**. The images show these strips as a building's own ground storey; an added front is what Josh's "augmented" city needs. Behind one constant, off if its partly faced end reads as a loose panel at street level (D1g).
+- The rooftop `Prop_Powerpoll_01/02` (D2) is **Josh's own ruling**, not a departure question: the images show the pole on the pavement (above, "Where the plan disagrees", 1).
+
+**Sci-Fi Frontier, the hold-out pass (E2, 22 Nov 2026 night):**
+- `Env_Farm_*` and `Prop_Irrigator_*` in city parks: **departure** (the images show farms on open land outside a settlement; a park is the city's open soil). Only pieces that fit inside the park's rectangle; never scaled; never across a kerb.
+- `Prop_Container_*` in court stalls and kerb bays, and `Prop_Fuel_Tank_*` as clutter: **not shown**.
+- `Bld_Wall_02` across a street mouth as a barricade: **not shown** (the images show Frontier walls enclosing a settlement; closing a street mouth is the same job).
+
+**Nature and Palm City, the ruin's growth (F1, 22 Nov 2026 night):** every one is **not shown, taken as a departure**. Apocalypse `Env_Overgrowth_*` is used first wherever it fits, since that is what the images show.
+- `Terrain_Ground_Mound_Small_02` as a cell-sized patch on hard ground (road, parking band, open paving): B9, ruin only. Only where no `Env_Overgrowth_*` piece fits; on a crossing only flat ground cover, never the mound; never scaled.
+- Saplings (`Tree_Birch_*`, `Tree_Round_*`) in the carriageway: B9, ruin only. Never on a junction or crossing; never scaled; never with a crown over a pole, light, lamp-post place, drop end or span (T-1).
+- `Plant_Bush_01` and `Tree_Dead_01/02` on roofs: B10, ruin only. Only where the footprint fits the roof deck unscaled; never over or against a rooftop pole or line. If a roof dead tree reads silly in the street screenshot, dead trees are dropped and bushes kept (the main session's call from the picture).
+- `Env_Vines_06` on street sign posts and signal masts: only if its shape wraps or hangs on a post (its bounds and one screenshot). If it reads as a flat sheet like `_01/04/05`, it is dropped. Never on a circuit pole, street light or lamp post.
+
 ## Could not check
 
 - The pages showed no sign-in, challenge or terms prompt. None of the four packs was blocked.

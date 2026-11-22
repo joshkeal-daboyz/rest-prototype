@@ -2,9 +2,10 @@
 
 owner: per section (lead-architect, planner, renderer, grid-simulator, pipeline-designer, and three new agents: tech-pass, holdout-pass, ruin-pass; see Agents)
 status: open. Cut 21 Nov 2026 from `docs/design/073-transformations.md` and Josh's answers on its eight cards and its questions 6 and 9. Updated the same day with his answers to this ticket's Q10 to Q15 and the feed-place card.
-- **Cut in full:** A (types, no circuit; **merged** into `goal/city-transformations` at 4a5077f), A2 (the circuit references, waiting for K's type), A3 (the passes' kinds and the hold-out's steps), the B pre-check (done), B, C1, C2, F0 (**done**), the D1 pre-check (done), D1, D1g, the E2 pre-check (done), E2.
-- **Outlined:** D2, D3, J2 (instancing), E1, E1g, E3, F1, F2, F2g, F3. Each is cut in full when what it waits for has merged.
-- Questions: Q1 to Q9 of the note answered. Q10 to Q15 and the feed-place card answered (21 Nov 2026, below). The B and D1 pre-checks' questions were answered overnight, on Josh's delegation or under the goal; none is Josh's ruling and he may reverse any. **One of them Josh should look at: B-Q3** (see "Questions for Josh").
+- **Cut in full:** A (types, no circuit; **merged** into `goal/city-transformations` at 4a5077f), A2 (the circuit references, waiting for K's type), A3 (the passes' kinds and the hold-out's steps), the B pre-check (done), B, C1, C2, F0 (**done**), the D1 pre-check (done), D1, D1g, the E2 pre-check (done), E2, the F1 pre-check (done), A4, F1.
+- **Outlined:** D2, D3, J2 (instancing), E1, E1g, E3, F2, F2g, F3. Each is cut in full when what it waits for has merged.
+- Questions: Q1 to Q9 of the note answered. Q10 to Q15 and the feed-place card answered (21 Nov 2026, below). The B and D1 pre-checks' questions were answered overnight, on Josh's delegation or under the goal; none is Josh's ruling and he may reverse any. **Two of them Josh should look at: B-Q3 and F1-Q1** (see "Questions for Josh").
+- **Re-cut 22 Nov 2026 night, second time, under the goal:** F1 cut in full against its pre-check's answers (`docs/design/073-F1-precheck.md`), with A4 before it (the ruin's growth kinds and steps; A3's `cell` comment reworded). F1-Q6's broken road written into F2's and F3's outlines. D1's build report recorded in D1's section. The X-11 departures taken so far listed in `docs/design/073-pack-intended-use.md`. The answers are logged under "Questions for Josh", each in its group; **F1-Q1 is flagged for Josh beside B-Q3.**
 - **Re-cut 22 Nov 2026 night, under the goal:** A3 cut and typed (D1's `CityTechPieceKind`, E2's `CityHoldoutPieceKind`, the hold-out's steps); E2 cut in full against its pre-check's answers; D1 told which of C1's helpers it calls. The answers are logged under "Questions for Josh", each in its group.
 - **Re-cut 21 Nov 2026 night, second time, under the goal:** B and C1 cut in full against the pre-check answers; D1 cut in full; D2 and F1 take the intended-use note's plan-level readings; F0's result recorded.
 - **Re-cut 21 Nov 2026 night, under the goal** (the orchestrator's instruction; Josh approved the goal, "Can we turn this into a goal and let this run over night?", and the ticket, "Approved"). Each item below is **taken under the goal (21 Nov 2026 night); Josh may reverse**. None is Josh's ruling.
@@ -133,7 +134,7 @@ On top of them:
 | B7 | A pavement keeps its clear walk; furniture keeps `FURN_KEEP_M` from poles (rule 10) | growth, rubble and barricades on the walk and beside poles, under T-1 and T-2 | holdout, ruin |
 | B8 | Nothing over 3.2 m under a wire span (`FURN_MAX_H_M`) | trees growing up through dead lines, under T-1 | ruin |
 | B9 | Street trees only in build-outs; parks keep their kerb (stages 4, 8) | trees in the carriageway; parks past their kerbs | ruin |
-| B10 | Roof items capped (towers 1 per 16 buildings; roof dressing counts) | many more roof items | tech, holdout |
+| B10 | Roof items capped (towers 1 per 16 buildings; roof dressing counts) | many more roof items | tech, holdout; **ruin's roof growth (F1)** read as B10 by the Fable session on Josh's delegation (22 Nov 2026 night, F1-Q5; Josh may reverse) |
 | B11 | Openings are the only gaps (rule 6); heights follow rule 8 | **not broken** (card 6: "Yes, all stand") | none |
 
 So, plainly:
@@ -169,6 +170,7 @@ Order:
 - **D1 and E2 after B, C1 and A3 merge.** Both are built now, their circuit keeps proven on fixtures; their digests re-pin when K2 lands (taken under the goal, 22 Nov 2026 night; Josh may reverse).
 - B → D1 → D1g (after C2) → D2 (after K2) → D3 → J2 → E1 → E1g → E3 → F1, F2 → F2g → F3.
 - **E2 is built beside D1, ahead of E1** (the Fable session, on Josh's delegation, 22 Nov 2026 night; Josh may reverse). Its barricades are pinned on the named runs only once E1 merges.
+- **F1 is built ahead of its place in the chain** (taken under the goal, 22 Nov 2026 night; Josh may reverse): **A4 → F1, after E2 merges** (E2's barricades stand before the ruin's growth in the stage order, so option G judges growth against them). F1 does not wait for E1, E3, J2 or K2: its circuit keeps are proven on fixtures, and its pins are re-taken when an earlier pass or K2 lands, as D1's and E2's are. F1 is not drawn before J2 (F3 draws it).
 
 Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/night/`, `src/render/`, `src/play/`, `src/ui/`, `src/main.ts`, `town.ts`, `terrace.ts`, the two pin tests, `tests/`, `puzzles/`, `tools/`, `package.json`, `assets/`, `tickets/`, the grammar and the guide), plus every clean stage folder (`src/city/streets/` to `src/city/traffic/`) unless the section names a line in it.
 
@@ -239,6 +241,34 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 1. [x] (the architect) The types above in `src/core/cityera.ts`. `cityplan.ts` is not edited.
 2. [x] `npx tsc --noEmit` passes. `npx vitest run --maxWorkers=1 src/city/pipeline/` passes unchanged.
 3. [ ] **When C1 merges beside A3** (the main session, in the merge): C1's `erafixtures.ts` `add()` returns `CityEraPiece` with `kind: "thing"`, a `string`. Under the narrowed kinds that no longer fits a tech or hold-out layer, so `npx tsc --noEmit` fails on C1's tests. The fix is one line in C1's fixture file, the planner's: `add()` returns `CityEraPiece<never>` with `kind: "thing" as never`. It goes in C1 before it merges, or as the planner's one-line follow-up. (See "Questions for Josh", A3's point.)
+
+**Files:** `src/core/cityera.ts`, this ticket. No new dependency.
+
+### A4 · Types: the ruin's growth kinds and steps (lead-architect). Branch `ticket/073a4-ruin-kinds`
+
+**Cut under the goal** (22 Nov 2026 night; Josh may reverse), so F1 codes against named kinds, as D1 and E2 do. **F1 waits for A4.** To be typed from `goal/city-transformations` before F1 starts.
+
+**What A4 adds, in `src/core/cityera.ts` only** (`cityplan.ts` and `index.ts` untouched):
+- **`CityRuinPieceKind`** narrowed to F1's slots, and `CITY_RUIN_PIECE_KINDS`. F2 widens it with its remnants (wrecks, rubble, logs, fallen signs, barricades).
+  - `"patch"`: ground cover on a grown carriageway, parking band, junction, crossing or open-ground cell.
+  - `"clump"`: a fern, bush or overgrowth edge on a grown pavement cell's wall line.
+  - `"sapling"`: a ruin tree (birch or round) in a grown cell.
+  - `"park-tree"`: `Tree_Generic_Giant_01` or `Tree_Large_01` in a park.
+  - `"roof"`: growth on a roof deck.
+  - `"vine"`: an `Env_Vines_*` hung from a roof edge, an awning or canopy, or a post.
+  - `"tree-vine"`: a `Tree_Vines_*` hung from a tree's branches.
+- **The ruin's steps**, so F1's digest does not move when F2 lands (as E2's settle part does not move for its barricades):
+  - `CITY_RUIN_STEPS` (`"growth"`, `"remnants"`, in run order) and `CityRuinStep`.
+  - `CITY_RUIN_STEP_OF`: every F1 kind is `"growth"`. F2's kinds join `"remnants"`.
+  - `CityRuinStepCount` (`step`, `adds`, `changes`).
+  - `CityRuinLayer` becomes an interface: `CityEraLayer<"ruin", CityEraPiece<CityRuinPieceKind>>` plus `steps?`. Optional for the same reason as the hold-out's (test doubles, C1's fixtures); the pass always writes it.
+  - `CityRuinStepPart` (`stage`, `step`, `adds`, `changes`): one step's slice, digested with `digestOf`.
+  - Why growth first: F1 is built first, and F2 appends after it. F2's wrecks and rubble are then placed against the growth (option G, as F1's growth is placed against E2's barricades), and F1's pin does not move.
+- **`CityEraPiece.cell` reworded (comment only, no type change).** A3's comment says "the cell its pivot stands in". D1 as built uses the host cell for wall pieces and shopfronts (D1's build report, below). The new comment: the cell the piece belongs to. For a piece on the ground or a roof, the cell its pivot stands in. For a piece on a wall (a bolt-on, a camera, a tall piece, an overhang, a sign, an added shopfront, a vine on a face or awning), its host: the built cell whose face it is on. F1's vines follow it.
+
+**Acceptance criteria:**
+1. [ ] (the architect) The types and the comment above in `src/core/cityera.ts`. `cityplan.ts` is not edited.
+2. [ ] `npx tsc --noEmit` passes. `npx vitest run --maxWorkers=1 src/city/pipeline/` passes unchanged. C1's fixture `add()` already returns `CityEraPiece<never>` (A3 criterion 3), so the narrowed ruin kind breaks no fixture.
 
 **Files:** `src/core/cityera.ts`, this ticket. No new dependency.
 
@@ -418,6 +448,10 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 
 **Interfaces.** Done by A3: `CityTechPieceKind` in `src/core/cityera.ts` is `"bolt-on" | "camera" | "tall" | "overhang" | "sign" | "shopfront" | "pavement"` (D2 widens it later). D1 codes against C1's `CityEraStageDef`, `resolveBefore`, `assertEraReadable`, `ReadableOptions` and `BoundsOf` as merged. No new dependency.
 
+**From D1's build report** (22 Nov 2026 night; recorded, not a ruling; D1 is in review on its own branch):
+- **Typed and pinned, never placed:** `Prop_Pipes_01` and `Prop_Overhang_01/02`. They are in the kit table and its pin, but no add uses them. `Prop_Pipes_01`: a placement cannot roll a piece upright, so it cannot stand with its 2.5 m up the wall (the kit table's "leaves the kit" case). `Prop_Overhang_01/02`: the density rule (DT) gives the overhang slot no chance, so it is never tried. Neither is a departure in the drawn city while unplaced; D1g has nothing of them to draw.
+- **An add's `cell` is its host cell** for wall pieces and shopfronts (the built cell whose face it is on), not the cell its pivot stands in. That departs from A3's comment on `CityEraPiece.cell`. A4 rewords the comment to match; no type changes.
+
 ### D1g · `tech` walls and pavement drawn (renderer). Branch `ticket/073d1g-tech-walls-drawn`
 
 **Cut under the goal** (21 Nov 2026 night; Josh may reverse), so Josh has the tech pass's walls and pavement to look at before D2 and D3, which wait on K2.
@@ -577,12 +611,95 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 **Done 21 Nov 2026 night.** 89 models converted, 0 failures, 0 warnings, scale 1, one run, a 7.4 MB GLB.
 - **The starting list was wrong on one line** (recorded under the goal; Josh may reverse): the pack has 12 `SM_Env_RoadPiece_Damaged_*`, not 24, and all 12 are already in `apocalypse-power`. So `apocalypse-ruin` does not hold them, and **F1 and F2 read the damaged road pieces' sizes from `apocalypse-power`**.
 
-### F1 · `ruin` growth: ground, walls, roofs (ruin-pass, pure). Outline. Branch `ticket/073f1-ruin-growth`
-- **Waits for:** E2, F0, its pre-check.
-- **Its pre-check measures:** growth spreading cell by cell from soil (parks, greens, build-out trees, planters, farms), against `wild`; carriageway cells grown (B9); trees under dead spans and their heights (B8); every canopy against T-1 (`Tree_Generic_Giant_01` is 12.6 x 11.2 m); vines (`Env_Vines_*`, `Tree_Vines_*`) against escapes and signs, by the reading below; roof growth; T-2. Damaged road sizes come from `apocalypse-power` (F0).
-- **Vines as the intended-use note shows them** (answered on Josh's delegation, 21 Nov 2026 night; Josh may reverse):
-  - Palm City `Env_Vines_01/04/05` are the only flat sheets (0.7 to 0.8 m deep). `02/03/07/08` (2.1 to 4 m deep) drape over eaves, roof edges, canopies, balconies, parapets and arches; `06` wraps a column or post. Choose the variant by its depth, and hang each from something above it: never a full sheet on a plain wall with no eave or edge over it.
-  - Nature `Tree_Vines_01..04` hang from tree branches only. Never on a wall.
+### F1 pre-check · the ruin's growth (pipeline-designer). No branch
+
+**Done 22 Nov 2026:** `docs/design/073-F1-precheck.md` (a sketch: stage 6 is K1's words laid by a probe; D1, E2 and F2 not built). Its Q2, Q3, Q4 and Q6 and its two corrections were taken under the goal; its Q1 (B8 against T-1) and Q5 (the X-11 departures) were answered by the Fable session on Josh's delegation. **F1-Q1 is provisional and flagged for Josh** (top of "Questions for Josh"). F1 below is cut against them.
+
+### F1 · `ruin` growth: ground, walls, roofs (ruin-pass, pure). Branch `ticket/073f1-ruin-growth`
+
+**Waits for:** E2 merged into `goal/city-transformations` (E2's barricades stand before the ruin's growth in the stage order, so option G judges growth against them), F0 (done), its pre-check (done), and **A4** (the ruin's kinds and steps). It does not wait for E1, E3, J2, F2 or K2 (taken under the goal, 22 Nov 2026 night; Josh may reverse). The ruin-pass agent file (the main session's).
+
+**Built now, against fixtures for the circuit.** Until K2 merges, stage 6 is empty, so T-1, T-2, option G and the under-span set find nothing on the named runs. Each is proven on fixtures with hand-placed poles, lights, lamp-post places, drops and spans. **F1's growth digest is re-pinned when K2 lands, and when D1, D2, E1 or E2's barricade step changes what stands before it** (the ruin-pass, in a one-line follow-up named in that merge).
+
+**Goal.** At the `ruin` era, growth spreads from each district's soil over its streets, pavements, open ground, walls and roofs, as far as its `wild` value says. Trees grow up through the city, beside its dead wires but never with a crown over one. The clean city and the earlier eras are unchanged: F1 writes only `adds`, no change. A flat picture only: the ruin is not drawn before J2 (F3 draws it).
+
+**C1's helpers, as C1 built them** (`src/city/pipeline/eras.ts`, `readable.ts`):
+- `ruinStage` is a `CityEraStageDef<"ruin">`. Its `run` reads the plan before it through `resolveBefore(plan, "ruin")` (the `holdout` era: E2's pieces, and D1's once D1 merges).
+- It ends with `assertEraReadable(plan, "ruin", layer, options)`.
+- It supplies `options.bounds` from its typed kit table, and **its own `options.isTree`**: true only for the tree keys F1 plants (`Tree_Birch_01..04`, `Tree_Round_01..05`, `Tree_Large_01`, `Tree_Generic_Giant_01`). C1's default (a `Tree` word in the key) would make `Tree_Vines_*`, `Tree_Log_*`, `Tree_Stump_*` and `Tree_Dead_*` canopies.
+- Option G's per-candidate test calls `t2Failures` (and `t1Failures` where it checks T-1 the same way) with the same options.
+- It adds `ruinStage` to `ERA_STAGES` in `src/city/stages.ts`: one line.
+
+**T-1 and C1's code are not touched.** F1 places pieces only where T-1 already holds. No check is loosened, no clean stage or `src/city/pipeline/` file is edited (beyond the `ERA_STAGES` test line below).
+
+**The kit** (the pre-check's sections 2 and 7). Textured only, none emissive (X-5). Never scaled. Sizes w x h x d in metres, typed in `src/city/ruin/` and pinned (X-8). Where an Apocalypse `Env_Overgrowth_*` piece fits a slot, it is used first (it is what the images show); the Nature pieces fill only what it does not.
+
+| Kind | Pieces | Where |
+| --- | --- | --- |
+| `patch` | **first** `Env_Overgrowth_*` (`apocalypse-ruin`) that fits the cell unscaled; else `Terrain_Ground_Mound_Small_02` (5.09 x 0.42 x 4.98) | one per grown carriageway, parking-band, junction or open-ground cell. **On a crossing only flat ground cover:** an `Env_Overgrowth_*` piece under 0.15 m high by its bounds, never the mound |
+| `clump` | **first** `Env_Overgrowth_Edge_*` where it fits; else `Plant_Fern_01/02`, `Plant_Bush_01/02` | a grown pavement cell, on its wall line, off the cell's middle |
+| `sapling` | `Tree_Birch_01..04`, `Tree_Round_01..05` (3.6 to 5.4 m) | a hashed spot in a grown cell, never a junction or a crossing; crown clear (below) |
+| `park-tree` | `Tree_Generic_Giant_01` (**12.6 x 11.19 x 13.12**, so its crown is 13.12 m across, radius 6.56 m), `Tree_Large_01` (9.3 x 8.83 x 5.42) | one of each per park in a district from `wild` 1/3, alone as the images show; crown clear |
+| `roof` | **first** `Env_Overgrowth_*` that fits the deck; else `Plant_Bush_01`, `Tree_Dead_01/02` | a roof deck (the cell less 0.3 m, H3's RE), up to 2 per column, 0.1 m clear of H3's pieces |
+| `vine` | Palm City `Env_Vines_01..08`, by depth (below) | roof edges, awnings and canopies, posts (below) |
+| `tree-vine` | Nature `Tree_Vines_01..04` | from the branches of a standing tree only (a clean ground tree, a placed sapling or park tree). Never on a wall |
+
+- **Left out:** `Plant_Bush_Leaves_03` (missing texture), `Plant_Grass_01` (zero bounds), `Plant_PalmBush_01` (the palm is on the never-used list); the damaged road pieces (F2's, F3's); logs, stumps, rubble and wrecks (F2's); `Env_Sidewalk_Overgrown_*` (not measured by the pre-check; a later cut). A key that is not on the converter's textured list leaves the kit, and the builder reports it; no substitute is invented. A test lists every key the layer uses against the kit table.
+- **Every add's footprint** is 0.3 m clear of every standing piece before it (clean, tech, hold-out and its own), save a `patch`, which may lie up to a standing piece but never under one.
+
+**Soil and the spread (GD; F1-Q3).**
+- **Soil:** park and court lawns (`mass` cells `green`; farms are parks), build-out tree cells, and the pavement and plaza cells holding a tree, planter or pot plant. A soil cell takes nothing but its park trees and vines.
+- **The spread.** From every soil cell, growth spreads cell by cell to its four neighbours, up to `round(wild x 3)` cells (half up), `wild` being the soil's district's. It crosses street cells (pavement, parking band, lane, junction, crossing) and open ground (aprons, stalls, drives, lanes, plazas, lots, park edges), never a building.
+- A grown cell takes the district of the nearest soil that reaches it (a tie: the least district id). That is its add's `district`, and its `wild` sets the chances. A roof or wall piece takes its building's district.
+- So a district that held to the end (`wild` under 1/6) grows nothing: the reach rounds to 0.
+
+**The density (by `wild` only, X-6).** For each grown cell, roof and slot:
+- a `patch` on each eligible grown cell (as the table);
+- a `clump` on each grown pavement cell, chance 0.6 x `wild`;
+- a `sapling` on each eligible grown cell, chance 0.3 x `wild`;
+- a `roof` piece on each roof spot, chance 0.3 x `wild`;
+- a `vine` on each free slot, chance 0.3 x `wild`, and a `tree-vine` on each standing tree, chance 0.3 x `wild` (**the architect's starting values**: the pre-check measured the slots, not a chance; reported, and Josh may change them);
+- **from `wild` 1/3:** a park's `park-tree`s.
+- The chances, the reach factor (3) and the band edge are named constants in one file of `src/city/ruin/`.
+
+**Trees and T-1 (B8; F1-Q1, provisional, flagged for Josh).** Ruin trees are free of the 3.2 m cap (`FURN_MAX_H_M`), but stand **beside** a line, never with a crown over one. T-1 decides:
+- A tree (`sapling`, `park-tree`) is placed only where its crown (C1's disc: half its key's wider bound) is clear, by T-1's reading, of every pole, street light, lamp-post place and drop end, and meets no span in plan.
+- **The under-span set.** The spots whose crown meets a span and is otherwise clear are computed every run, as their own named set (for example `underSpanSpots`), and **not placed**. One exported constant gates them (for example `RUIN_TREES_UNDER_SPANS`, false). It exists so way-out (b) below, if Josh takes it, is that constant set true and a re-pin, after T-1's own change (C1's, for Josh). F1 does not change T-1.
+
+**T-2 (option G; F1-Q2).** A piece that closes a street cell (C1's reading, B-Q5 unchanged: standing on the ground with its base under 2 m, covering the cell's centre) is placed only if `t2Failures` on the plan so far, with it standing, is still empty; otherwise it is left out and counted. The candidates go in one hashed order of their ids; a `tree-vine` is a candidate only once its tree stands. This is a placement rule, not a loosened check: `assertEraReadable` still runs on the whole layer at the end and throws (X-4). G's check is incremental (only the districts whose walk the candidate's cell can cut) and gives the same set as the brute-force check.
+
+**Vines (F1-Q4; the intended-use note's reading).** Every vine hangs from something above it:
+- **Roof edges.** On an open face (street or court) with no fire escape, no face novelty sign and no drop wall point in the vine's drop: a flat sheet (`_01/04/05`) or a drape (`_02/03/07/08`) chosen by depth, read from the GLB. A drape that stands out over a drop's first 2 m fails T-1 like a sheet.
+- **Beside a drop:** `Env_Vines_08` (2.08 m) where it fits beside the drop's 2 m, and `_06` the same where it fits (the answer names both; `_06` under its constant below). Nothing else on a drop face.
+- **Awnings and canopies** that carry no fascia or blade sign: a drape over the edge.
+- **Posts:** `Env_Vines_06` (0.6 x 3.0 x 0.6) on traffic posts only (signal masts, stop and parking signs) clear of every circuit point. Never on a circuit pole, a street light or a lamp post (T-1).
+- **Trees:** `Tree_Vines_*` from branches only.
+
+**Departures from the store images (X-11; F1-Q5, the Fable session on Josh's delegation, 22 Nov 2026 night; Josh may reverse),** each with its limit. Listed in `docs/design/073-pack-intended-use.md`:
+- **Grass mounds on hard ground** (`Terrain_Ground_Mound_Small_02`; not shown, taken as a departure): B9, ruin only; only where no `Env_Overgrowth_*` fits; never on a crossing; never scaled.
+- **Saplings in the carriageway** (not shown, taken as a departure): B9, ruin only; never on a junction or crossing; never scaled.
+- **Bushes and dead trees on roofs** (`Plant_Bush_01`, `Tree_Dead_01/02`; not shown, taken as a departure): B10, ruin only; only where the footprint fits the deck unscaled; never over or against a rooftop pole or line (0.3 m clear of a roof pole's footprint; no footprint meets a roof line in plan; nothing to judge until D2). **Behind one constant** (for example `RUIN_ROOF_DEAD_TREES`, true): if a roof dead tree reads silly in the street screenshot (F3), the main session's call from the picture is to set it false (dead trees out, bushes kept), the ruin-pass's one line and re-pin.
+- **`Env_Vines_06` on street sign posts** (not shown, taken as a departure; inferred from the images' columns): only if its shape wraps or hangs on a post. Its bounds (0.6 x 3.0 x 0.6) say a strand, not a sheet; the builder checks them against the GLB. **Behind one constant** (for example `RUIN_VINE_06`, true): if F3's picture shows it as a flat sheet like `_01/04/05`, it is set false, the ruin-pass's one line and re-pin.
+- **As shown:** `Env_Overgrowth_*` on pavements, kerbs, roads and flat roofs; `Tree_Generic_Giant_01` alone in a park; ferns and bushes at path edges; `Tree_Vines_*` from branches; `Env_Vines_*` over eaves, awnings and posts.
+
+**Acceptance criteria** (Vitest unless said):
+1. [ ] **The layer.** `ruinStage` writes a `CityRuinLayer`: adds with ids `ruin:<kind>:<plan data>` (never list order), each kind from A4's `CityRuinPieceKind`, each add's `district` as above and its `cell` as A4's comment says (a vine's host cell). **No changes.** `steps` lists `"growth"` and `"remnants"` (0, 0), its counts summing to the layer's.
+2. [ ] **The spread.** A fixture city with districts at `wild` 0.1, 0.2, 0.5 and 0.9 grows 0, 1, 2 and 3 cells out from its soil (hand-worked in the test); growth never enters a building; a cell reached from two districts' soil takes the nearer's (a tie: the least id). Density reads `wild` only (X-6): the same district with a higher `wild` never gets fewer pieces on a fixed hash. Park trees only from `wild` 1/3.
+3. [ ] **The slots.** A fixture for each kind of the kit table: a patch per eligible cell, an `Env_Overgrowth_*` where one fits and the mound only where none does; on a crossing only flat ground cover, and no sapling or clump on a junction or crossing; a clump on the wall line off the cell's middle; a sapling at its hashed spot; the giant and large tree in a park; roof pieces on the deck, at most 2 per column, 0.1 m clear of H3's pieces; a tree-vine only on a standing tree. No key outside the kit anywhere in the layer, and no piece scaled.
+4. [ ] **Trees and T-1 (B8).** A fixture with a hand-placed span: a tall sapling beside the span is placed; one whose crown meets the span is not placed and is in the under-span set. With the under-span constant set true (through the stage's options or a test double, not by editing the file), the spot is tried and, against today's T-1, the stage throws `CityStageError`: T-1 is not loosened. A tree whose crown is over a pole, a light or a lamp-post place is neither placed nor in the set. `Tree_Generic_Giant_01`'s crown is a 6.56 m radius.
+5. [ ] **T-2 (option G).** Fixtures with hand-placed poles: a patch that would seal a pole in is left out; one that leaves a way round is placed; two touching districts keep both districts' poles joined. G's incremental check gives the same placed set as calling `t2Failures` for every candidate, on a small fixture city.
+6. [ ] **Vines.** Fixtures: no vine in a drop with a fire escape, a face novelty sign or a drop wall point, but `_08` beside a drop where it fits; a drape that stands out over a drop's first 2 m is not placed; a vine on an awning with no sign, none on an awning with a fascia or blade sign; `_06` on a traffic post, never on a circuit pole, light or lamp post; no `Tree_Vines_*` on a wall.
+7. [ ] **The switches.** With `RUIN_ROOF_DEAD_TREES` false, the layer has no `Tree_Dead_*` and every other add is the same; with `RUIN_VINE_06` false, no `Env_Vines_06` and every other add the same (each through options or a test double).
+8. [ ] **T-1 and T-2 on the era.** The stage reads `resolveBefore(plan, "ruin")` and ends with `assertEraReadable` with its kit's `bounds` and its own `isTree`. A fixture where a forced add covers a pole throws `CityStageError` (X-4, R-2). A fixture shows that `Tree_Vines_*` and `Tree_Dead_*` are not canopies under F1's `isTree`.
+9. [ ] **Dark and textured (X-5).** Every key in the kit table is on the converter's textured list for its pack; none is emissive (a typed table, pinned below).
+10. [ ] **The kit pin (X-8).** The kit's sizes are typed in `src/city/ruin/` and pinned against the `nature-pack`, `palm-city-pack` and `apocalypse-ruin` GLBs by one new test in `src/render3d/`, inside `it.skipIf(!have)` (R-6). It reads its assets lazily (CI has none). The giant tree is pinned at 12.6 x 11.19 x 13.12.
+11. [ ] **R-1 to R-7, X-1, the pins.** The layer is frozen; the same city twice gives the same layer; every clean digest, and the tech and hold-out layers' digests, are equal with and without the pass; no file of `src/city/ruin/` imports another stage folder or reads `bi`, `bj` or a street's `line`; `runCity()` runs no ruin code (X-7). **Its pin test pins the digest of the layer's `"growth"` part** (`CityRuinStepPart`, through `digestOf`) on the four pin cities.
+12. [ ] **The picture (R-5):** a flat `CityEraPicture` of stage `"ruin"`, one legend entry per kind, the R-5 test as 070's. Nothing in `src/render3d/` draws it (F3, after J2).
+13. [ ] **The numbers** (reported, not asserted), beside the pre-check's sketch at reach x 3 (sections 3 to 6): cells grown by cell kind (sketch 1,445 to 3,503); pieces a city by kind (sketch: patches 1,042 to 2,595, clumps 192 to 517, saplings 290 to 713, park trees 2 to 8 of each, roofs 484 to 1,008); patches that are overgrowth and that are mounds; vines by slot; distinct keys; **the pieces option G left out, per run, by kind** (sketch: patches 18 to 133, saplings 9 to 56, clumps 3 to 27); **the under-span set's size per run** (sketch 109 to 283); the time per city. Until K2 lands, G, T-1 and the under-span set find no circuit on the named runs: say so beside those rows.
+
+**Files:** new `src/city/ruin/` and its tests; one new kit pin test in `src/render3d/` (the ruin-pass's, X-8); `src/city/stages.ts` (one line, `ruinStage` in `ERA_STAGES`); and the line of any test that asserts the `ERA_STAGES` list (today `src/city/pipeline/eras.test.ts`, `expect(ERA_STAGES.map((s) => s.name)).toEqual([...])`). Nothing in `src/core/` (A4 types the kinds and steps), the rest of `src/city/pipeline/`, `src/city/circuit/`, `src/city/tech/`, `src/city/holdout/` or any clean stage folder. Test command `npx vitest run --maxWorkers=1 src/city/ruin/` and its pin test, and one `npx tsc --noEmit`. No browser, no Blender.
+
+**Interfaces.** A4, typed before F1 starts: `CityRuinPieceKind` (`"patch" | "clump" | "sapling" | "park-tree" | "roof" | "vine" | "tree-vine"`), `CITY_RUIN_PIECE_KINDS`, `CITY_RUIN_STEPS`, `CityRuinStep`, `CITY_RUIN_STEP_OF`, `CityRuinStepCount`, `CityRuinLayer.steps`, `CityRuinStepPart`. F1 codes against C1's `CityEraStageDef`, `resolveBefore`, `assertEraReadable`, `t1Failures`, `t2Failures`, `ReadableOptions`, `BoundsOf` and `digestOf` as merged. No new dependency.
 
 ### F2 · `ruin` remnants and the broken grid (ruin-pass, pure). Outline. Branch `ticket/073f2-ruin-remnants`
 - **Waits for:** E1, K2, A2, F0, its pre-check. (Q12 is answered.)
@@ -590,6 +707,8 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 - **Its pre-check measures:** wrecks on carriageway, bays and lots (B1); fallen signs, logs, rubble; the changes by kind and by layer; toppled poles and cut spans per district; T-1 and T-2.
 - Every toppled pole lists its spans' states (A's no-cascade rule).
 - **Broken road** (A's road-tile question, taken under the goal, 21 Nov 2026 night; Josh may reverse): the ruin marks an `edge.ground` tile with `state: "broken"`, and F3 draws a damaged road piece there (sizes from `apocalypse-power`, F0). No type is added and no clean digest moves. The F1 and F2 pre-checks confirm it.
+  - **Which pieces** (F1-Q6, taken under the goal, 22 Nov 2026 night; Josh may reverse): only the damaged pieces that fit one 5 m tile. Of `apocalypse-power`'s 12, `_01` (7.38 x 6.63), `_03` (5.23 m long) and `_04` (3.39 x 9.22) do not; the other nine (2.0 to 3.95 m) do. **No heaved slab (`_08`, `_09`, `_12`, 1.1 to 1.2 m high) on a crossing:** a state is not a piece, so T-1 and T-2 never see it, and a slab there would stand in the walk unjudged. F2 marks no crossing tile whose drawn piece would be one.
+- **F2's pieces append after F1's** in the ruin layer's `"remnants"` step (A4), placed against F1's growth by option G as F1's growth is against E2's barricades.
 
 ### F2g · Jobs on the broken grid (grid-simulator, pure). Outline. Branch `ticket/073f2g-ruin-jobs`
 - **Waits for:** F2, E1g. (Q12 is answered.)
@@ -597,7 +716,8 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 - A ruin `state` (cut, toppled, broken) on a part the job names is dropped for that job. The puzzle's own faults are its only damage (Q12, Josh: "On a job's own parts only the puzzle's faults are drawn.").
 
 ### F3 · `ruin` drawn (renderer). Outline. Branch `ticket/073f3-ruin-drawn`
-- **Waits for:** F1, F2. R12 gains B1's allowance, era-scoped. Draws `state`: toppled, cut, broken, boarded, dark. A `broken` `edge.ground` tile draws as a damaged road piece (F2's broken road).
+- **Waits for:** F1, F2. R12 gains B1's allowance, era-scoped. Draws `state`: toppled, cut, broken, boarded, dark. A `broken` `edge.ground` tile draws as a damaged road piece (F2's broken road): only the nine that fit one tile, never scaled or cropped, and never a heaved slab (`_08`, `_09`, `_12`) on a crossing (F1-Q6, under the goal; Josh may reverse).
+- Draws F1's growth too. The main session's street-level screenshots then settle F1's two switches: roof dead trees (`RUIN_ROOF_DEAD_TREES`) and the post vine (`RUIN_VINE_06`); a "no" is the ruin-pass's one line and re-pin, not the renderer's.
 - Never on a played job's own parts (Q12, Josh). Dead wires keep today's look; a rusted, frayed look waits for K4's overlay (Q14, Josh).
 
 ## Check (a): can a change reference today's pieces?
@@ -680,6 +800,7 @@ Josh's card 8: "Yes, three agents (Recommended)". The main session writes each `
 ## Interfaces
 - Section A: `src/core/cityera.ts`, written on `ticket/073a-era-types` under the goal and merged (4a5077f); `cityplan.ts` is not edited. Section A2, after K's type merges: the circuit references and the plant place.
 - Section A3 (`ticket/073a3-pass-kinds`, under the goal): `CityTechPieceKind` narrowed to D1's kinds; `CityHoldoutPieceKind` for E2; the hold-out's steps (`CITY_HOLDOUT_STEPS`, `CITY_HOLDOUT_STEP_OF`, `CityHoldoutStepCount`, `CityHoldoutLayer.steps`, `CityHoldoutStepPart`). One file, `cityera.ts`.
+- Section A4 (`ticket/073a4-ruin-kinds`, under the goal; not typed yet, typed before F1 starts): `CityRuinPieceKind` narrowed to F1's kinds (F2 widens it); the ruin's steps (`CITY_RUIN_STEPS`, `CITY_RUIN_STEP_OF`, `CityRuinStepCount`, `CityRuinLayer.steps`, `CityRuinStepPart`); `CityEraPiece.cell`'s comment reworded to D1's host-cell reading. One file, `cityera.ts`.
 - `rules-coverage.md` is unchanged: no brief rule is tested here.
 - **No new dependency.**
 
@@ -705,8 +826,13 @@ Josh's card 8: "Yes, three agents (Recommended)". The main session writes each `
 
 **Josh, please look at this one: B-Q3.** This ticket said that if the clean city fails T-1, "that goes to Josh before any pass, never tuned". The B pre-check found it does, on 20/20 runs (the fire escapes and face signs over drops he chose to leave on K1's card 1, street furniture on poles until K's I2, furniture on about 1 in 30 lamp-post places). It did **not** go to Josh. It was answered on his delegation instead: **T-1 judges only what a pass adds or swaps; the clean city's own clashes are reported each run, not failed.** C1 is cut on that answer. If Josh wants T-1 to judge the whole plan instead, no pass can pass it until H2 and H1c re-open (which he declined on card 1); C1's criterion 4 changes and D1 onwards wait.
 
+**Josh, please look at this one too: F1-Q1, B8 against T-1** (provisional; answered by the Fable session on Josh's delegation, 22 Nov 2026 night; Josh may reverse). Two of Josh's own choices collide. Card 5 gave the ruin "Trees under dead wires" (B8), and the same card granted its breaks "with T-1 and T-2 holding". T-1 fails every crown that meets a pole line. The F1 pre-check found 109 to 283 sapling spots a run under spans, 3.6 to 5.4 m high: every one is over the 3.2 m cap and every one fails T-1, so B8 as worded grants nothing. **The answer taken:** ruin trees are free of the 3.2 m cap (`FURN_MAX_H_M`) but stand beside a line, never with a crown over one. T-1's check and C1's code are not touched; loosening T-1 stays held for Josh. **The two ways out:**
+- **(a) As built:** beside only. The under-span spots are not placed.
+- **(b)** T-1 judges only a job's live lines, and trees grow through scenery-only dead spans. This needs K2's split of job lines from scenery. F1 keeps the under-span spots as a computed, separately named set that is not placed (one constant or filter), so (b) is that switch and a re-pin, after T-1's own change.
+
 **Open:**
 - B-Q3 above, for Josh to confirm or reverse.
+- F1-Q1 above, for Josh: (a) or (b).
 - **A3's point** (for the main session; not a rule): A3's narrowed kinds make C1's fixture `add()` (kind `"thing"`, a `string`) fail `tsc` once both are on the goal branch. The planner's one-line fix in `src/city/pipeline/erafixtures.ts` (`add()` returns `CityEraPiece<never>`, `kind: "thing" as never`), before C1 merges or straight after (A3 criterion 3). The other way: A3 keeps the layers' kind `string` and only exports the unions, which loses the check that a pass writes only its own kinds.
 - D2's pre-check will ask whether `Bld_Raised_*` may go on roofs as extra storeys (the images show it only at street level). Each later pre-check brings its own, recommended answer first.
 
@@ -740,6 +866,15 @@ Josh's card 8: "Yes, three agents (Recommended)". The main session writes each `
 - **The order:** build E2 now. Barricades are the pass's last step, their own sub-step with their own digest, **not pinned on the named runs until E1 merges**; the rest of E2 may be pinned now.
 - **E2 merges as a pure stage with its flat picture only** (not drawn before J2). The plant's place and the makeshift lines stay with E1.
 
+*The F1 pre-check* (`docs/design/073-F1-precheck.md`), answered by the Fable session on Josh's delegation (22 Nov 2026 night); Josh may reverse:
+- **F1-Q1, B8 against T-1: provisional, flagged for Josh** (above, beside B-Q3). Ruin trees are free of the 3.2 m cap (`FURN_MAX_H_M`) but stand beside a line, never with a crown over one. Way-outs (a) and (b) as above; the builder keeps the under-span spots as a computed, separately named set that is not placed. T-1's check and C1's code are not touched. (F1.)
+- **F1-Q5, the X-11 departures:** all four allowed, listed in `docs/design/073-pack-intended-use.md` as "not shown, taken as a departure"; Apocalypse `Env_Overgrowth_*` first wherever it fits. (F1.)
+  - Grass mounds and saplings on the road: B9, ruin only; on a crossing only flat ground cover; never scaled.
+  - Bushes and dead trees on roofs: B10, ruin only; only where the footprint fits the roof deck unscaled; never over or against a rooftop pole or line. If a roof dead tree reads silly in the street screenshot, drop dead trees, keep bushes (the main session's call from the picture).
+  - `Env_Vines_06` on street sign posts: only if its shape wraps or hangs on a post (bounds and one screenshot); if it is a flat sheet like `_01/04/05`, drop it.
+- **Q2, Q3, Q4, Q6:** agreed. Q2: report the left-out count per run, as E2 does for barricades. (F1.)
+- **The ruin is not drawn before instancing (J2).** (F1, F3.)
+
 **Taken under the goal (21 to 22 Nov 2026 night); Josh may reverse.** None of these is Josh's ruling.
 - **E2-Q1, density bands by `held`:** nothing at 0; clutter, containers, camps and roof panels above 0; barricades, stalls and water towers from 1/3; parks become farms from 2/3. (E2.)
 - **E2-Q2, barricades by option C:** placed only where T-1 and T-2 still hold, last in the pass, after E1's plant and lines (until E1 lands, against what exists; re-checked when E1 lands). (E2.)
@@ -754,6 +889,12 @@ Josh's card 8: "Yes, three agents (Recommended)". The main session writes each `
 - **D1's kit:** `Sign_Billboard_Border_*` and `_Tall_*` dropped (empty frames; the picture pieces, `Sign_Ad_*`, are untextured). The Fable session agreed.
 - **A's road-tile question:** the ruin marks an `edge.ground` tile `broken` and the renderer picks the damaged road piece (option a). No type added, no clean digest moved. The F1 and F2 pre-checks confirm it (F2, F3).
 - **F0:** the ticket's 24 `SM_Env_RoadPiece_Damaged_*` was wrong: the pack has 12, all already in `apocalypse-power`. F1 and F2 read road sizes from there.
+- **F1-Q2, T-2 by option G:** growth is placed only where T-2 still holds (as E2's barricades); about 1 in 20 left out. C1's walk rule (B-Q5) is unchanged. (F1.)
+- **F1-Q3, growth density:** spreads from parks, lawns, street trees and planters up to `round(wild x 3)` cells; none where a district held to the end. (F1.)
+- **F1-Q4, vine slots as measured:** roof edges, awnings, posts; never over a fire escape, a face sign or a drop (`Env_Vines_08` / `_06` beside a drop where it fits). (F1.)
+- **F1-Q6, the broken road:** only damaged pieces that fit one 5 m tile; no heaved slab (`_08`, `_09`, `_12`) on a crossing. (F2, F3.)
+- **The F1 pre-check's corrections:** `Tree_Generic_Giant_01` is 12.6 x 11.19 x 13.12 m; F1 passes its own `isTree` (C1's default counts `Tree_Vines`, `Tree_Log`, `Tree_Stump` and `Tree_Dead` as canopies). (F1.)
+- **The architect's readings in the F1 cut:** A4 types the ruin's kinds and a `"growth"` / `"remnants"` step split, so F1's pin does not move when F2 lands; F1 waits for E2 merged but not for E1, J2 or K2 (its pins re-taken as earlier passes and K2 land); the vine and tree-vine chances (0.3 x `wild`) are starting values the pre-check did not measure; the ruin's roof growth is recorded as B10 for the ruin, as the Fable session's F1-Q5 answer reads it, though the break table listed B10 for tech and hold-out only. (A4, F1.)
 - **The architect's readings in this re-cut:** a district's id is A's merged type's (its first block in `streets.blocks` order), where the B pre-check wrote "least block id"; until K2 merges, C1's and D1's circuit checks find no points on the named runs and are proven on fixtures (B, C1, D1).
 
 **Answered by Josh himself** (21 Nov 2026, in chat; his words are in the tables under "Josh's words"):
