@@ -267,8 +267,8 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 - **`CityEraPiece.cell` reworded (comment only, no type change).** A3's comment says "the cell its pivot stands in". D1 as built uses the host cell for wall pieces and shopfronts (D1's build report, below). The new comment: the cell the piece belongs to. For a piece on the ground or a roof, the cell its pivot stands in. For a piece on a wall (a bolt-on, a camera, a tall piece, an overhang, a sign, an added shopfront, a vine on a face or awning), its host: the built cell whose face it is on. F1's vines follow it.
 
 **Acceptance criteria:**
-1. [ ] (the architect) The types and the comment above in `src/core/cityera.ts`. `cityplan.ts` is not edited.
-2. [ ] `npx tsc --noEmit` passes. `npx vitest run --maxWorkers=1 src/city/pipeline/` passes unchanged. C1's fixture `add()` already returns `CityEraPiece<never>` (A3 criterion 3), so the narrowed ruin kind breaks no fixture.
+1. [x] (the architect) The types and the comment above in `src/core/cityera.ts`. `cityplan.ts` is not edited.
+2. [x] `npx tsc --noEmit` passes. `npx vitest run --maxWorkers=1 src/city/pipeline/` passes unchanged. C1's fixture `add()` already returns `CityEraPiece<never>` (A3 criterion 3), so the narrowed ruin kind breaks no fixture.
 
 **Files:** `src/core/cityera.ts`, this ticket. No new dependency.
 
