@@ -381,3 +381,6 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 073 F1b3 | lead-architect / ruin-pass / gate / code-reviewer / playtester | opus / sonnet / - / opus / sonnet | ~80K / ~125K / - / ~60K / 22K | - | 0 | 4964d8b: 4726 passed, 1 failed (powerkit, on base); meets, must-fix 0; regressions 0 |
 | 073 E2g | lead-architect / renderer / gate / code-reviewer / playtester | opus / sonnet / - / opus / sonnet | 119K / 212K / - / 50K / 17K | - | 0 | 1220431: 4743 passed, 1 failed (powerkit, on base); meets, must-fix 0; regressions 0 |
 | 073 F1g | renderer / gate / code-reviewer / playtester | sonnet / - / opus / sonnet | 187K / - / 47K / 17K | - | 0 | b4595bd: 4759 passed, 1 failed (powerkit, on base); meets, must-fix 0; regressions 0 |
+| 074 cut | lead-architect | opus | 127K total | - | 0 | asset gallery ticket and types (399c1ad) |
+| 074 A | renderer / gate / code-reviewer / playtester | sonnet / - / opus / sonnet | 157K / - / ~45K / 20K | - | 0 | 05b2168: 4773 passed, 1 failed (powerkit, on base); meets, must-fix 0; regressions 0 |
+| 073 E2g/F1g cut | lead-architect | opus | 119K total | - | 0 | 5a040b1 |
