@@ -336,3 +336,42 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 073 A | code-reviewer / playtester | opus / sonnet | 66K / 15K | - | 0 | meets, must-fix 0; regressions 0 (merged 4a5077f) |
 | 073 D1 kit check | pipeline-designer (general-purpose with pipeline-designer.md) | opus | 95K total | - | 0 | D1 kit against the intended-use note (98762a2) |
 | 073 answers logged, B C1 D1 cut in full | lead-architect | opus | ~110K total | - | 0 | 82948fb |
+| 073 B | planner (general-purpose with planner.md) | sonnet | 164K total | - | 0 | history stage (0e8f4f5) |
+| 073 C1 | planner (general-purpose with planner.md) | sonnet | 207K total | - | 0 | resolver, era runner, T-1 and T-2 (0cefac1) |
+| 073 E2 pre-check | pipeline-designer (general-purpose with pipeline-designer.md) | opus | 304K total | - | 0 | barricades by option C hold 20/20 (6ddffae) |
+| 073 A3 | lead-architect | opus | 111K total | - | 0 | pass kinds, E2 cut (3b4a6d7) |
+| 073 B r1 | code-reviewer / playtester | opus / sonnet | 64K / 19K | - | 0 | partly, must-fix 1 (era stage shape); regressions 0 |
+| 073 C1 r1 | code-reviewer / playtester | opus / sonnet | 70K / 20K | - | 0 | partly, must-fix 1 (runner stop); regressions 0 |
+| 073 B, C1 | gate (main session) | - | - | - | 0 | 0e8f4f5: 4407 passed; 0cefac1: 4480 passed; 1 failed each (powerkit fitLine, on base) |
+| 073 C1 r2 | planner / code-reviewer / playtester | sonnet / opus / sonnet | ~7K / 31K / 17K | - | 0 | runner fix; meets, must-fix 0; regressions 0 (merged 5a0ad0f) |
+| 073 B r2 | planner / code-reviewer / playtester | sonnet / opus / sonnet | ~16K / 35K / 15K | - | 0 | era stage shape; meets, must-fix 0; regressions 0 (merged 62b7cd2) |
+| 073 A3 fix | planner (general-purpose with planner.md) | sonnet | 69K total | - | 0 | resolver keeps each pass kind (c91b148) |
+| 073 C2 | renderer (general-purpose with renderer.md) | sonnet | 137K total | - | 0 | era switch, stage=history (60e2370) |
+| 073 C2 | gate (main session) | - | - | - | 0 | 60e2370: 4510 passed, 1 failed (powerkit fitLine, on base) |
+| 073 C2 | code-reviewer / playtester | opus / sonnet | ~60K / 17K | - | 0 | meets, must-fix 0; regressions 0 |
+| 073 A3 | code-reviewer / playtester | opus / sonnet | 41K / 19K | - | 0 | meets, must-fix 0; regressions 0 (merged ba9cc62) |
+| 073 D1 | tech-pass (general-purpose with tech-pass.md) | sonnet | 370K total | - | 0 | tech walls and pavement (838d90d) |
+| 073 D1 eraview fix | renderer (general-purpose with renderer.md) | sonnet | 75K total | - | 0 | 3b92526 |
+| 073 E2 | holdout-pass (general-purpose with holdout-pass.md) | sonnet | ~400K total | - | 0 | camps, farms, markets, barricades (e4864d0) |
+| 073 F1 pre-check | pipeline-designer (general-purpose with pipeline-designer.md) | opus | 265K total | - | 0 | growth; option G for T-2 (63b3f36) |
+| 073 D1 r1 | code-reviewer / playtester | opus / sonnet | ~70K / 22K | - | 0 | partly, must-fix 1 (free-third test); regressions 0 |
+| 073 D1 | gate (main session) | - | - | - | 0 | e89a8a7: eraview premise failure (fixed 3b92526); 3b92526: 4547 passed, 1 failed (powerkit, on base) |
+| 073 F1 cut, A4 cut | lead-architect | opus | 129K total + amend | - | 0 | b377c1e, fc13df8 |
+| 073 D1 r2 | tech-pass / code-reviewer / playtester | sonnet / opus / sonnet | ~7K / ~40K / 17K | - | 0 | free-third test; meets, must-fix 0; regressions 0 |
+| 073 A4 | lead-architect / code-reviewer / playtester | opus / opus / sonnet | 34K / ~30K / 20K | - | 0 | ruin kinds; meets, must-fix 0; regressions 0 |
+| 073 E2 merge-in | holdout-pass | sonnet | ~8K | - | 0 | ERA_STAGES conflict; settle pins re-taken (bbaf67b) |
+| 073 E2 | gate (main session) | - | - | - | 0 | bbaf67b: 4604 passed, 1 failed (powerkit, on base) |
+| 073 D1g | renderer (general-purpose with renderer.md) | sonnet | ~250K total | - | 0 | tech drawn per key, 30 calls (f9d93b5) |
+| 073 E2 | code-reviewer / playtester | opus / sonnet | ~60K / 18K | - | 0 | meets, must-fix 0; regressions 0 |
+| 073 D1g r1 | code-reviewer / playtester | opus / sonnet | ~70K / 18K | - | 0 | partly, must-fix 1 (swap test); regressions 0 |
+| 073 D1g | gate (main session) | - | - | - | 0 | f9d93b5: 4558 passed, 1 failed (powerkit, on base) |
+| 073 D1g r2 | renderer | sonnet | ~7K | - | 0 | swap test, plan-view keys (d96304a); gate 4559 passed, 1 failed (powerkit, on base) |
+| 073 F1 | ruin-pass (general-purpose with ruin-pass.md) | sonnet | 401K total | - | 0 | ruin growth, option G (9284f14) |
+| 073 D1g r2 | code-reviewer / playtester | opus / sonnet | 30K / 18K | - | 0 | meets, must-fix 0; regressions 0 |
+| 073 F1 r1 | code-reviewer / playtester | opus / sonnet | ~80K / 21K | - | 0 | partly, must-fix 1 (facade obstacles); regressions 0 |
+| 073 F1 | gate (main session) | - | - | - | 0 | 9284f14: 4695 passed, 1 failed (powerkit, on base) |
+| 073 F1 r2 | ruin-pass / code-reviewer / playtester | sonnet / opus / sonnet | ~30K / ~50K / 17K | - | 0 | facade obstacles; gate 4698 passed; meets, must-fix 0; regressions 0 |
+| 073 goal head | gate (main session) | - | - | - | 0 | 9be274a: 4709 passed, 1 failed (powerkit, on base) |
+| 073 E2 facade probe | general-purpose | sonnet | 79K total | - | 0 | found 30 to 45 hold-out pieces through facade pieces a city |
+| 073 E2b | holdout-pass / ruin-pass re-pin | sonnet / sonnet | 166K / ~10K | - | 0 | hold-out keeps 0.3 m from facades (91da32c); F1 pins re-taken (e97b3f9) |
+| 073 E2b | code-reviewer / playtester | opus / sonnet | ~60K / 16K | - | 0 | gate e97b3f9 4712 passed; meets, must-fix 0; regressions 0 |
