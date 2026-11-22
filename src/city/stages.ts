@@ -8,6 +8,7 @@ import { runEraStages, type CityEraStageDef } from "./pipeline/eras";
 import { historyStage } from "./history/stage";
 import { techStage } from "./tech/stage";
 import { holdoutStage } from "./holdout/stage";
+import { ruinStage } from "./ruin/stage";
 import { edgeStage } from "./edge/stage";
 import { facadesStage } from "./facades/stage";
 import { groundStage } from "./ground/stage";
@@ -34,10 +35,10 @@ export function runCity(options: Partial<CityPlanOptions> = {}, until?: CityPlan
 }
 
 /**
- * The era stages built so far (ticket 073), in `CITY_ERA_STAGES` order. `history` (ticket 073 B), `tech` (ticket 073 D1) and `holdout` (ticket 073 E2) are registered; each pass adds its line here when it merges. Not part of `BUILT_STAGES`,
+ * The era stages built so far (ticket 073), in `CITY_ERA_STAGES` order. `history` (ticket 073 B), `tech` (ticket 073 D1) and `holdout` (ticket 073 E2) and `ruin` (ticket 073 F1) are registered; each pass adds its line here when it merges. Not part of `BUILT_STAGES`,
  * so a clean run never reaches one (X-7).
  */
-export const ERA_STAGES: readonly CityEraStageDef[] = [historyStage as CityEraStageDef, techStage as CityEraStageDef, holdoutStage as CityEraStageDef];
+export const ERA_STAGES: readonly CityEraStageDef[] = [historyStage as CityEraStageDef, techStage as CityEraStageDef, holdoutStage as CityEraStageDef, ruinStage as CityEraStageDef];
 
 /**
  * The plan at an era: the clean stages (`runCity`), then, for an era above "clean", `history` and the passes up to the era's last stage. "clean" runs no era stage. A failed clean stage is returned as the run's
