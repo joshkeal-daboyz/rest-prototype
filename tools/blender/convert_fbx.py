@@ -6,7 +6,7 @@ Run it headless, once per pack (tools/assets/convert.ts does this):
   blender --background --factory-startup --python tools/blender/convert_fbx.py -- \
       --in <packDir> --out <glbPath> --report <json> [--atlas <png>] [--scale <n>] \
       [--textures <dir>] [--texture-override <stem>=<image> ...] [--texture-alias <key>=<image> ...] \
-      [--scale-override <stem>=<factor> ...]
+      [--scale-override <stem>=<factor> ...] [--exclude <path> ...]
 
   ... -- --selftest --in <dir> --out <glbPath> --report <json>
       builds boxes in code, exports them to FBX in <dir>/Fbx (Unity-style: centimetres) with images in
@@ -26,6 +26,8 @@ Two texture modes (amendment A of ticket 038):
 The report is JSON in the shape of src/core/assets.ts (AssetEntry, AssetFailure) plus "blenderVersion" and "scale"
 (the pack's scale). Each entry's "scale" is the factor its model was imported with: the pack scale times its
 --scale-override factor (ticket 040).
+--exclude <abs path> (repeatable, ticket 072) drops every FBX at or under that folder or file from the conversion. It does not
+narrow the texture or OBJ-copy search, which still covers the whole pack (or --textures).
 Bounds in it are glTF space (Y up). Exit code is 1 if nothing could be converted or the script failed.
 
 Nothing here may be committed with data from a purchased pack: assets/private/ is gitignored.
@@ -56,6 +58,7 @@ SELFTEST_ALIAS_MAT = "alias_mat"
 SELFTEST_ALIAS_ORDER = "alias_order"
 SELFTEST_CLASH_HOLDER = "clash_holder"  # its child mesh is named like the next file's stem
 SELFTEST_CLASH_STEM = "clash_stem"
+SELFTEST_EXCLUDED = "excluded_box"  # an FBX in the excluded folder (ticket 072)
 SELFTEST_PARENTED = "SelfTest_ParentedPole"  # the pole under an empty with a rotation and a 0.01 scale (ticket 040)
 SELFTEST_SCALED = "scaled_box"  # a 1 m box converted with --scale-override scaled_box=10 (ticket 040)
 
@@ -157,6 +160,7 @@ def parse_args(argv):
     p.add_argument("--texture-override", dest="overrides", action="append", default=[])
     p.add_argument("--texture-alias", dest="aliases", action="append", default=[])
     p.add_argument("--scale-override", dest="scale_overrides", action="append", default=[])
+    p.add_argument("--exclude", dest="exclude", action="append", default=[])
     p.add_argument("--selftest", dest="selftest", action="store_true")
     return p.parse_args(argv)
 
@@ -173,9 +177,19 @@ def find_files(indir, extensions):
     return found
 
 
-def find_fbx(indir):
-    """Every .fbx under indir, recursive, sorted by relative path (forward slashes)."""
-    return find_files(indir, (".fbx",))
+def is_excluded(indir, rel, excludes):
+    """Is the file `rel` (relative to indir) at or under one of the --exclude paths?"""
+    path = os.path.normcase(os.path.normpath(os.path.join(indir, rel)))
+    for ex in excludes:
+        e = os.path.normcase(os.path.normpath(ex))
+        if path == e or path.startswith(e + os.sep):
+            return True
+    return False
+
+
+def find_fbx(indir, excludes=()):
+    """Every .fbx under indir, recursive, sorted by relative path (forward slashes), minus anything at or under an exclude path."""
+    return [rel for rel in find_files(indir, (".fbx",)) if not is_excluded(indir, rel, excludes)]
 
 
 def inside(parent, child):
@@ -796,7 +810,7 @@ def import_one(path, rel, stem, scale, ctx):
     }
 
 
-def convert(indir, out, report_path, atlas, scale, textures_dir, overrides, aliases, scale_overrides):
+def convert(indir, out, report_path, atlas, scale, textures_dir, overrides, aliases, scale_overrides, excludes=()):
     import bpy
 
     empty_scene()
@@ -817,7 +831,7 @@ def convert(indir, out, report_path, atlas, scale, textures_dir, overrides, alia
     obj_copies = find_obj_copies(indir)
 
     assets, failures, names = [], [], set()
-    for rel in find_fbx(indir):
+    for rel in find_fbx(indir, excludes):
         stem = os.path.splitext(os.path.basename(rel))[0]
         if stem in names:
             failures.append({"source": rel, "error": "another file in this pack has the same name (%s)" % stem})
@@ -1037,6 +1051,10 @@ def build_selftest(indir):
     holder.data.name = SELFTEST_CLASH_STEM + "_src"
     clash = _box_object(SELFTEST_CLASH_STEM, (0.5, 0.5, 0.5), 0.0, True)
     _export_fbx(clash, os.path.join(fbx, SELFTEST_CLASH_STEM + ".fbx"))
+    # Ticket 072: a folder the run excludes (--exclude <pack>/Fbx/Excluded). Its FBX must not be converted.
+    os.makedirs(os.path.join(fbx, "Excluded"), exist_ok=True)
+    excluded = _box_object(SELFTEST_EXCLUDED, (0.5, 0.5, 0.5), 0.0, True)
+    _export_fbx(excluded, os.path.join(fbx, "Excluded", SELFTEST_EXCLUDED + ".fbx"))
     # A reference no rule can find.
     lost = _box_object(SELFTEST_LOST_REF, (0.5, 0.5, 0.5), 0.0, True, _referencing_material("LostMat", os.path.join(missing_dir, "nowhere.png")))
     _export_fbx(lost, os.path.join(fbx, SELFTEST_LOST_REF + ".fbx"))
@@ -1050,7 +1068,7 @@ def main():
         build_selftest(args.indir)
     return convert(
         args.indir, args.out, args.report, args.atlas, args.scale, args.textures,
-        parse_overrides(args.overrides), parse_aliases(args.aliases), parse_scale_overrides(args.scale_overrides),
+        parse_overrides(args.overrides), parse_aliases(args.aliases), parse_scale_overrides(args.scale_overrides), args.exclude,
     )
 
 

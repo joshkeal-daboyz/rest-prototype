@@ -480,6 +480,8 @@ describe("Amendment B: pack.json textureAliases", () => {
       `tex_crate=${join(dir, "Textures", "alias_atlas.png")}`,
       "--scale-override",
       "scaled_box=10",
+      "--exclude",
+      join(flag(args, "--in") ?? "", "Fbx", "Excluded"),
     ]);
   });
 });
@@ -864,6 +866,123 @@ describe("Ticket 040: the self-test's rotated 0.01-scaled parent and the scaled 
     expect(edit((r) => ((boxOf(r, "alias_ref") as Scaled).scale = 0.01)).join("\n")).toContain("alias_ref scale is 0.01, expected 1");
     expect(edit((r) => ((boxOf(r, "SelfTest_ParentedPole") as Scaled).scale = 0.01)).join("\n")).toContain("SelfTest_ParentedPole scale is 0.01, expected 1");
     expect(edit((r) => ((r as unknown as { scale: number }).scale = 100)).join("\n")).toContain("pack scale is 100, expected 1");
+  });
+});
+
+describe("Ticket 072: pack.json exclude", () => {
+  const pack = "big pack";
+  const packDir = join(L.inRoot, pack);
+  const fbx = (...parts: string[]): Record<string, string> => Object.fromEntries(parts.map((p) => [join(packDir, p), "fbx"]));
+  const files = {
+    ...fbx("FBX/Wall.fbx", "FBX/Collision/Wall_Collision.fbx", "FBX/FX/Flame.FBX", "Demo.fbx", "Chars/Hero.fbx", "Chars/Hero2.fbx"),
+    [join(packDir, "Notes.txt")]: "text",
+  };
+  const withJson = (json: unknown, extra: Record<string, string> = files) =>
+    setup({ packs: [pack], extraFiles: { [join(packDir, "pack.json")]: JSON.stringify(json), ...extra } });
+  const abs = (...p: string[]) => join(packDir, ...p);
+
+  it("passes one --exclude per entry as an absolute path, sorted, after the scale overrides; either slash is accepted", async () => {
+    const s = withJson({ scale: 100, scaleOverrides: { Wall: 2 }, exclude: ["FBX\\Collision", "Demo.fbx", "FBX/FX/", "Chars"] });
+    expect(await convert([], s.deps)).toBe(0);
+    const args = s.conversions()[0]?.args ?? [];
+    expect(args.slice(args.indexOf("--scale-override"))).toEqual([
+      "--scale-override",
+      "Wall=2",
+      ...["Chars", "Demo.fbx", "FBX/Collision", "FBX/FX"].flatMap((e) => ["--exclude", abs(...e.split("/"))]),
+    ]);
+  });
+
+  it("without exclude (key absent or an empty array) the arguments carry no --exclude", async () => {
+    for (const json of [{ scale: 100 }, { scale: 100, exclude: [] }]) {
+      const s = withJson(json);
+      expect(await convert([], s.deps), JSON.stringify(json)).toBe(0);
+      expect(s.conversions()[0]?.args ?? [], JSON.stringify(json)).not.toContain("--exclude");
+    }
+    const none = setup({ packs: ["plain"] });
+    expect(await convert([], none.deps)).toBe(0);
+    expect(none.conversions()[0]?.args ?? []).not.toContain("--exclude");
+  });
+
+  it("refuses a bad exclude before spawning, in plain words", async () => {
+    const cases: Array<{ json: unknown; mention: string[] }> = [
+      { json: { exclude: "FBX/Collision" }, mention: ['"exclude"', "array of non-empty"] },
+      { json: { exclude: {} }, mention: ['"exclude"', "array of non-empty"] },
+      { json: { exclude: [""] }, mention: ['"exclude"', "array of non-empty"] },
+      { json: { exclude: [3] }, mention: ['"exclude"', "array of non-empty"] },
+      { json: { exclude: ["FBX/FX", null] }, mention: ['"exclude"', "array of non-empty"] },
+      { json: { exclude: ["../other"] }, mention: ['entry "../other"', "outside the pack folder"] },
+      { json: { exclude: ["FBX/../../other"] }, mention: ["outside the pack folder"] },
+      { json: { exclude: ["."] }, mention: ['entry "."', "the pack folder itself"] },
+      { json: { exclude: ["FBX/.."] }, mention: ["the pack folder itself"] },
+      { json: { exclude: ["Nope"] }, mention: ['entry "Nope"', "not found"] },
+      { json: { exclude: ["FBX/Wall.fbx", "FBX/Missing.fbx"] }, mention: ['entry "FBX/Missing.fbx"', "not found"] },
+      { json: { exclude: ["Notes.txt"] }, mention: ['entry "Notes.txt"', "not an .fbx"] },
+      { json: { exclude: ["FBX/Collision", "FBX\\Collision\\"] }, mention: ["are the same path", '"FBX/Collision"'] },
+      { json: { exclude: ["Demo.fbx", "./Demo.fbx"] }, mention: ["are the same path"] },
+    ];
+    for (const c of cases) {
+      const label = JSON.stringify(c.json);
+      const s = withJson(c.json);
+      expect(await convert([], s.deps), label).toBe(1);
+      expect(s.conversions(), label).toEqual([]);
+      expect(s.err(), label).toContain(pack);
+      for (const m of c.mention) expect(s.err(), label).toContain(m);
+      expect(s.writes, label).toEqual([]);
+    }
+  });
+
+  it("an excluded .fbx file is accepted in any case of its extension", async () => {
+    const s = withJson({ exclude: ["FBX/FX/Flame.FBX"] });
+    expect(await convert([], s.deps)).toBe(0);
+    expect(s.conversions()[0]?.args ?? []).toContain(abs("FBX", "FX", "Flame.FBX"));
+  });
+
+  it("listFbxStems skips excluded paths: a scaleOverrides key naming an excluded model fails with the no-such-fbx error", async () => {
+    for (const exclude of [["FBX/Collision"], ["FBX/Collision/Wall_Collision.fbx"], ["FBX"]]) {
+      const s = withJson({ exclude, scaleOverrides: { Wall_Collision: 2 } });
+      expect(await convert([], s.deps), exclude.join()).toBe(1);
+      expect(s.err(), exclude.join()).toContain('key "Wall_Collision"');
+      expect(s.err(), exclude.join()).toContain("there is no Wall_Collision.fbx in the pack");
+      expect(s.conversions()).toEqual([]);
+    }
+    // not excluded: the same key is fine, and so is a key for a model outside the excluded folder
+    const ok = withJson({ exclude: ["FBX/FX"], scaleOverrides: { Wall_Collision: 2, Hero: 3 } });
+    expect(await convert([], ok.deps)).toBe(0);
+  });
+
+  it("the usage text documents exclude and says it affects only which FBX are converted, not the texture or OBJ search", () => {
+    expect(USAGE).toContain('"exclude"');
+    expect(USAGE).toMatch(/"exclude" affects only which FBX are converted/);
+    expect(USAGE).toContain("texture and OBJ-copy search still covers the whole pack");
+  });
+
+  it("the self-test passes its excluded folder as --exclude, and the script drops it and keeps the whole-pack texture search", async () => {
+    const py = readFileSync(join(repoRoot, "tools", "blender", "convert_fbx.py"), "utf8");
+    const s = setup({ behaviour: () => ({ code: 0, report: fixtureText("report-selftest.json") }) });
+    expect(await convert(["--selftest"], s.deps)).toBe(0);
+    const args = s.conversions()[0]?.args ?? [];
+    expect(flag(args, "--exclude")).toBe(join(flag(args, "--in") ?? "", "Fbx", "Excluded"));
+    expect(py).toContain('"--exclude"');
+    expect(py).toContain("def is_excluded(indir, rel, excludes)");
+    expect(py).toContain("for rel in find_fbx(indir, excludes):");
+    expect(py).toContain('SELFTEST_EXCLUDED = "excluded_box"');
+    // the image search is not given the excludes
+    expect(py).toContain("build_texture_index(texdir)");
+    expect(py).toContain("find_obj_copies(indir)");
+  });
+
+  it("checkSelftest fails when the excluded box reaches the report (as a model or as a failure)", () => {
+    type Loose = { assets: Array<Record<string, unknown>>; failures: Array<Record<string, unknown>> };
+    const good = fixtureText("report-selftest.json");
+    const run = (f: (r: Loose) => void): string => {
+      const copy = JSON.parse(good) as Loose;
+      f(copy);
+      return checkSelftest(copy as unknown as PackReport).join("\n");
+    };
+    expect(checkSelftest(parsePackReport("selftest", JSON.parse(good)))).toEqual([]);
+    const box = { ...(good ? (JSON.parse(good) as Loose).assets[0] : {}), name: "excluded_box", source: "Fbx/Excluded/excluded_box.fbx" };
+    expect(run((r) => r.assets.push(box))).toContain("excluded_box is in the report");
+    expect(run((r) => r.failures.push({ source: "Fbx/Excluded/excluded_box.fbx", error: "x" }))).toContain("excluded_box was tried");
   });
 });
 

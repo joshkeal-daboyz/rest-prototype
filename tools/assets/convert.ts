@@ -72,7 +72,9 @@ Lay a pack out like this (nothing under assets/private/ is ever committed):
         "textureOverrides": { "town_hall_mesh": "Src/Textures/Town_Hall_b.png" },   pins a model's image
         "textureAliases": { "MasterTexture02.psd": "Src/Textures/Atlas.png",     a missing source file name (any extension, any case)
                             "material:Lambert1": "Src/Textures/Road.png" },      or a material name, mapped to an image
-        "scaleOverrides": { "Building_PetrolStation": 0.01 } }   one model's factor, multiplied on the pack's "scale"
+        "scaleOverrides": { "Building_PetrolStation": 0.01 },   one model's factor, multiplied on the pack's "scale"
+        "exclude": ["FBX/Collision", "FBX/Demo.fbx"] }    folders or single .fbx files (paths from the pack folder) never converted
+"exclude" affects only which FBX are converted. The texture and OBJ-copy search still covers the whole pack (or "textures").
 With no "atlas", each model's own image is found in the pack (per-model mode).
 With no pack names, every folder in assets/private/in/ is converted.
 `;
@@ -112,6 +114,8 @@ export interface BlenderArgsInput {
   aliases?: readonly { key: string; abs: string }[];
   /** Per-model scale factors, a model stem and a factor above 0. Passed in the order given, after the aliases (readPackSettings sorts them). */
   scaleOverrides?: readonly { stem: string; factor: number }[];
+  /** Absolute folders or .fbx files the script skips. Passed in the order given, after the scale overrides (readPackSettings sorts them). */
+  exclude?: readonly string[];
   selftest?: boolean;
 }
 
@@ -126,6 +130,7 @@ export function buildBlenderArgs(a: BlenderArgsInput): string[] {
   for (const o of a.overrides ?? []) args.push("--texture-override", `${o.stem}=${o.abs}`);
   for (const t of a.aliases ?? []) args.push("--texture-alias", `${t.key}=${t.abs}`);
   for (const o of a.scaleOverrides ?? []) args.push("--scale-override", `${o.stem}=${o.factor}`);
+  for (const e of a.exclude ?? []) args.push("--exclude", e);
   return args;
 }
 
@@ -169,13 +174,16 @@ interface PackSettings {
   aliases: { key: string; abs: string }[];
   /** Sorted by model stem. */
   scaleOverrides: { stem: string; factor: number }[];
+  /** Absolute paths (folders or .fbx files), sorted. */
+  exclude: string[];
 }
 
 /** The stems of every .fbx in a folder tree (the way the script lists them: any depth, the extension in any case, the stem up to the last dot). */
-function listFbxStems(deps: ConvertDeps, dir: string, into: Set<string> = new Set()): Set<string> {
+function listFbxStems(deps: ConvertDeps, dir: string, excluded: ReadonlySet<string> = new Set(), into: Set<string> = new Set()): Set<string> {
   for (const name of deps.listDir(dir)) {
     const path = join(dir, name);
-    if (deps.isDirectory(path)) listFbxStems(deps, path, into);
+    if (excluded.has(path)) continue;
+    if (deps.isDirectory(path)) listFbxStems(deps, path, excluded, into);
     else if (name.toLowerCase().endsWith(".fbx")) into.add(name.slice(0, name.lastIndexOf(".")));
   }
   return into;
@@ -184,7 +192,7 @@ function listFbxStems(deps: ConvertDeps, dir: string, into: Set<string> = new Se
 /** Read the optional pack.json. Throws an Error with a plain message when it is unusable. */
 function readPackSettings(deps: ConvertDeps, packDir: string): PackSettings {
   const file = join(packDir, "pack.json");
-  if (!deps.exists(file)) return { overrides: [], aliases: [], scaleOverrides: [] };
+  if (!deps.exists(file)) return { overrides: [], aliases: [], scaleOverrides: [], exclude: [] };
   let raw: unknown;
   try {
     raw = JSON.parse(deps.readText(file));
@@ -193,7 +201,7 @@ function readPackSettings(deps: ConvertDeps, packDir: string): PackSettings {
   }
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) throw new Error("pack.json must be a JSON object");
   const obj = raw as Record<string, unknown>;
-  const settings: PackSettings = { overrides: [], aliases: [], scaleOverrides: [] };
+  const settings: PackSettings = { overrides: [], aliases: [], scaleOverrides: [], exclude: [] };
   if (obj["atlas"] !== undefined) {
     if (typeof obj["atlas"] !== "string" || obj["atlas"] === "") throw new Error('pack.json "atlas" must be a path string');
     const abs = resolve(packDir, obj["atlas"]);
@@ -261,12 +269,31 @@ function readPackSettings(deps: ConvertDeps, packDir: string): PackSettings {
     }
     settings.aliases = entries.sort((a, b) => compareNames(a.key, b.key));
   }
+  const exclude = obj["exclude"];
+  if (exclude !== undefined) {
+    if (!Array.isArray(exclude) || exclude.some((e) => typeof e !== "string" || e === "")) {
+      throw new Error('pack.json "exclude" must be an array of non-empty path strings (folders or .fbx files, relative to the pack folder)');
+    }
+    const seen = new Map<string, string>(); // normalised absolute path -> the entry as written
+    for (const written of exclude as string[]) {
+      const where = `pack.json "exclude" entry "${written}"`;
+      const abs = resolve(packDir, written.split("\\").join("/"));
+      if (abs === packDir) throw new Error(`${where} is the pack folder itself`);
+      if (!isInside(packDir, abs)) throw new Error(`${where} points outside the pack folder`);
+      if (!deps.exists(abs)) throw new Error(`${where}: not found: ${abs}`);
+      if (!deps.isDirectory(abs) && !abs.toLowerCase().endsWith(".fbx")) throw new Error(`${where} is a file that is not an .fbx`);
+      const clash = seen.get(abs);
+      if (clash !== undefined) throw new Error(`pack.json "exclude" entries "${clash}" and "${written}" are the same path`);
+      seen.set(abs, written);
+    }
+    settings.exclude = [...seen.keys()].sort(compareNames);
+  }
   const factors = obj["scaleOverrides"];
   if (factors !== undefined) {
     if (typeof factors !== "object" || factors === null || Array.isArray(factors)) {
       throw new Error('pack.json "scaleOverrides" must be an object of { "<model stem>": <factor above 0> }');
     }
-    const stems = listFbxStems(deps, packDir);
+    const stems = listFbxStems(deps, packDir, new Set(settings.exclude));
     for (const stem of Object.keys(factors).sort(compareNames)) {
       const value = (factors as Record<string, unknown>)[stem];
       const where = `pack.json "scaleOverrides" key "${stem}"`;
@@ -365,6 +392,7 @@ async function convertPack(deps: ConvertDeps, blender: BlenderInfo, pack: string
     overrides: settings.overrides,
     aliases: settings.aliases,
     scaleOverrides: settings.scaleOverrides,
+    exclude: settings.exclude,
   });
   deps.stdout(`Converting ${pack} ...\n`);
   let result: RunResult;
@@ -615,6 +643,10 @@ export const SELFTEST_ALIAS_ORDER = "alias_order";
 export const SELFTEST_PARENTED = "SelfTest_ParentedPole";
 /** A 1 m box converted with `--scale-override scaled_box=10`: it must come out 10 m, with scale 10 in the report. */
 export const SELFTEST_SCALED = "scaled_box";
+/** Ticket 072: an FBX in the self-test's excluded folder (`Fbx/Excluded`, passed as --exclude); it must reach neither the report nor the GLB. */
+export const SELFTEST_EXCLUDED = "excluded_box";
+/** The self-test's excluded folder, relative to its pack folder. */
+export const SELFTEST_EXCLUDED_DIR = "Fbx/Excluded";
 /** The factor the self-test passes for SELFTEST_SCALED, as the wrapper would for a pack.json with "scaleOverrides": { "scaled_box": 10 }. */
 export const SELFTEST_SCALE_OVERRIDES: readonly { stem: string; factor: number }[] = [{ stem: SELFTEST_SCALED, factor: 10 }];
 
@@ -659,6 +691,8 @@ export function checkSelftest(report: PackReport): string[] {
     if (Math.abs(got - want) > tol) problems.push(`${what} is ${got}, expected ${want} (within ${tol})`);
   };
   if (report.failures.length > 0) problems.push(`failures: ${report.failures.map((f) => `${f.source} (${f.error})`).join("; ")}`);
+  if (report.assets.some((a) => a.name === SELFTEST_EXCLUDED)) problems.push(`${SELFTEST_EXCLUDED} is in the report, but its folder was excluded`);
+  if (report.failures.some((f) => f.source.includes(SELFTEST_EXCLUDED))) problems.push(`${SELFTEST_EXCLUDED} was tried (it is in the report's failures), but its folder was excluded`);
   if (report.scale !== 1) problems.push(`pack scale is ${report.scale}, expected 1`);
   // The scale each box was converted with: 1 (the self-test pack has no scale), except the box with an override.
   for (const a of report.assets) {
@@ -730,7 +764,7 @@ async function runSelftest(deps: ConvertDeps, blender: BlenderInfo): Promise<num
   try {
     result = await deps.run(
       blender.path,
-      buildBlenderArgs({ script: L.script, packDir, outGlb, report, selftest: true, aliases: selftestAliases(packDir), scaleOverrides: SELFTEST_SCALE_OVERRIDES }),
+      buildBlenderArgs({ script: L.script, packDir, outGlb, report, selftest: true, aliases: selftestAliases(packDir), scaleOverrides: SELFTEST_SCALE_OVERRIDES, exclude: [resolve(packDir, SELFTEST_EXCLUDED_DIR)] }),
     );
   } catch (e) {
     deps.stderr(`selftest failed: could not start Blender: ${(e as Error).message}\n`);
