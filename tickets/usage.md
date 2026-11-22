@@ -394,3 +394,4 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 073 E2c | holdout-pass | sonnet | ~10K | - | 0 | barricade check: no bug; regression tests (917a67f) |
 | 073/074 cleanup | lead-architect | opus | 174K | - | 0 | statuses, answer labels, intended-use note (a043b1f) |
 | 074 notes sync | renderer (general-purpose with renderer.md) | sonnet | ~110K | - | 0 | PIECE_NOTES in step with the note; crowns row (d7ea58d, ba175be) |
+| 07x cleanup | gate / code-reviewer / playtester | - / opus / sonnet | - / ~45K / 16K | - | 0 | 9741c6f: 4869 passed, 1 failed (powerkit, on base); meets, must-fix 0; regressions 0 |
