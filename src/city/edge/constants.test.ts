@@ -1,29 +1,32 @@
-/** Stage 4's typed-in parking constants, each pinned equal to the old tile city's (ticket 070 D1, criterion 2), while both exist. Light. */
+/** Stage 4's typed-in parking constants, each pinned equal to the old tile city's (ticket 070 D1, criterion 2), while both existed; the old values are now typed in below. Light. */
 import { describe, expect, it } from "vitest";
 import { CITY_GROUND_VARIANT } from "../../core";
-import {
-  BAYS_PER_100M_MAX as OLD_BAYS_100,
-  BAYS_PER_PARKING_TILE as OLD_PER_TILE,
-  BAY_JUNCTION_CLEAR as OLD_CLEAR,
-  BAY_RUN_TILES_MAX as OLD_RUN,
-  BAY_TILES_PER_BLOCK_MIN as OLD_TILES_MIN,
-  BUILDOUT_TREE_EVERY as OLD_TREE,
-  GRATE_ONE_IN as OLD_GRATE,
-  LANE_PATCH as OLD_LANE_PATCH,
-  LANE_RIGHT as OLD_LANE_RIGHT,
-  PATCH_ONE_IN as OLD_PATCH,
-  PAVEMENT_FLUSH as OLD_FLUSH,
-  PAVEMENT_GRATE as OLD_GRATE_BIT,
-  PAVEMENT_RETURN_FAR as OLD_RETURN_FAR,
-  PAVEMENT_RETURN_NEAR as OLD_RETURN_NEAR,
-  KERB_BAY_SHARE_MAX as OLD_SHARE,
-  KERB_GAP_MIN_M as OLD_GAP,
-  PARK_PER_SHOP as OLD_PER_SHOP,
-  PARK_SUPPLY_BAND as OLD_BAND,
-  TILE_M as OLD_TILE_M,
-} from "../../render3d/tilecity";
 import { GRATE_ONE_IN, PATCH_ONE_IN, RETURN_WALL_TOL_M } from "./constants";
 import { BAYS_PER_100M_MAX, BAYS_PER_PARKING_TILE, BAY_JUNCTION_CLEAR, BAY_RUN_TILES_MAX, BAY_TILES_PER_BLOCK_MIN, BUILDOUT_TREE_EVERY, KERB_BAY_SHARE_MAX, KERB_GAP_MIN_M, PARK_PER_SHOP, PARK_SUPPLY_BAND, TILE_M } from "./constants";
+
+/**
+ * The old tile city's values, typed in (ticket 070 L2b). Each is the value of the constant of the same name in `src/render3d/tilecity.ts` at b42b65f, with its line there.
+ * The old file is no longer read; these numbers stand for it.
+ */
+const OLD_TILE_M = 5; // src/city/streets/constants.ts line 7 at b42b65f (tilecity.ts imported it from ../city/streets at its line 66)
+const OLD_PER_TILE = 3; // tilecity.ts line 114, BAYS_PER_PARKING_TILE
+const OLD_CLEAR = 1; // tilecity.ts line 112, BAY_JUNCTION_CLEAR
+const OLD_GRATE = 6; // tilecity.ts line 116, GRATE_ONE_IN
+const OLD_PATCH = 12; // tilecity.ts line 118, PATCH_ONE_IN
+const OLD_PER_SHOP = 1 / 3; // tilecity.ts line 164, PARK_PER_SHOP
+const OLD_TILES_MIN = 1; // tilecity.ts line 171, BAY_TILES_PER_BLOCK_MIN
+const OLD_RUN = 2; // tilecity.ts line 173, BAY_RUN_TILES_MAX
+const OLD_GAP = 10; // tilecity.ts line 174, KERB_GAP_MIN_M
+const OLD_SHARE = { avenue: 0.4, street: 0.3 }; // tilecity.ts line 176, KERB_BAY_SHARE_MAX
+const OLD_BAYS_100 = 6; // tilecity.ts line 177, BAYS_PER_100M_MAX
+const OLD_BAND = { lo: 0.75, hi: 1.5 }; // tilecity.ts line 182, PARK_SUPPLY_BAND
+const OLD_TREE = 2; // tilecity.ts line 184, BUILDOUT_TREE_EVERY
+const OLD_LANE_RIGHT = 1; // tilecity.ts line 241, LANE_RIGHT
+const OLD_LANE_PATCH = 2; // tilecity.ts line 242, LANE_PATCH
+const OLD_GRATE_BIT = 1; // tilecity.ts line 249, PAVEMENT_GRATE
+const OLD_RETURN_NEAR = 2; // tilecity.ts line 250, PAVEMENT_RETURN_NEAR
+const OLD_RETURN_FAR = 4; // tilecity.ts line 251, PAVEMENT_RETURN_FAR
+const OLD_FLUSH = 8; // tilecity.ts line 252, PAVEMENT_FLUSH
 
 describe("the parking constants moved from the tile city keep their values", () => {
   it("every one equals tilecity.ts's", () => {
