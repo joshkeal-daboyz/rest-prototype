@@ -2,9 +2,10 @@
 
 owner: per section (lead-architect, planner, renderer, grid-simulator, pipeline-designer, and three new agents: tech-pass, holdout-pass, ruin-pass; see Agents)
 status: open. Cut 21 Nov 2026 from `docs/design/073-transformations.md` and Josh's answers on its eight cards and its questions 6 and 9. Updated the same day with his answers to this ticket's Q10 to Q15 and the feed-place card.
-- **Cut in full:** A (types, no circuit), A2 (the circuit references, waiting for K's type), the B pre-check, B, C1, C2, F0, the D1 pre-check, D1g.
-- **Outlined:** D1, D2, D3, J2 (instancing), E1, E1g, E2, E3, F1, F2, F2g, F3. Each is cut in full when what it waits for has merged.
-- Questions: Q1 to Q9 of the note answered. Q10 to Q15 and the feed-place card answered (21 Nov 2026, below). None is open now; the pre-checks will bring their own.
+- **Cut in full:** A (types, no circuit; **merged** into `goal/city-transformations` at 4a5077f), A2 (the circuit references, waiting for K's type), the B pre-check (done), B, C1, C2, F0 (**done**), the D1 pre-check (done), D1, D1g.
+- **Outlined:** D2, D3, J2 (instancing), E1, E1g, E2, E3, F1, F2, F2g, F3. Each is cut in full when what it waits for has merged.
+- Questions: Q1 to Q9 of the note answered. Q10 to Q15 and the feed-place card answered (21 Nov 2026, below). The B and D1 pre-checks' questions were answered overnight, on Josh's delegation or under the goal; none is Josh's ruling and he may reverse any. **One of them Josh should look at: B-Q3** (see "Questions for Josh").
+- **Re-cut 21 Nov 2026 night, second time, under the goal:** B and C1 cut in full against the pre-check answers; D1 cut in full; D2 and F1 take the intended-use note's plan-level readings; F0's result recorded.
 - **Re-cut 21 Nov 2026 night, under the goal** (the orchestrator's instruction; Josh approved the goal, "Can we turn this into a goal and let this run over night?", and the ticket, "Approved"). Each item below is **taken under the goal (21 Nov 2026 night); Josh may reverse**. None is Josh's ruling.
   - **A split into A (now) and A2 (after K).** A types everything that needs no circuit, in a new file `src/core/cityera.ts`; A2 types the circuit references once K's `CityCircuitLayer` merges. B and C1 wait for A, not A2.
   - **The era stages and layers stay out of `CITY_STAGES` and `CityLayers`.** They are `CITY_ERA_STAGES` and `CityEraPlan`, in `cityera.ts`, so `cityplan.ts` is not edited and no clean type, digest or test moves (X-1, X-7).
@@ -161,9 +162,9 @@ Josh's Q6: "I like all of your suggestions, make them so": a job's district is a
 ## Sections
 
 Order:
-- A → B and C1 alongside → C2. A2 after K's `CityCircuitLayer` merges; E1, E1g and F2 wait for it.
-- The B pre-check and the D1 pre-check may start now. They are probes outside the repo.
-- F0 may start now. It touches nothing in git.
+- A (merged) → B and C1 alongside → C2. A2 after K's `CityCircuitLayer` merges; E1, E1g and F2 wait for it.
+- The B pre-check, the D1 pre-check and F0 are done.
+- **D1 after B and C1 merge** (the architect first narrows `CityTechPieceKind`, D1's Interfaces).
 - B → D1 → D1g (after C2) → D2 (after K2) → D3 → J2 → E1, E2 → E1g → E3 → F1, F2 → F2g → F3.
 
 Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/night/`, `src/render/`, `src/play/`, `src/ui/`, `src/main.ts`, `town.ts`, `terrace.ts`, the two pin tests, `tests/`, `puzzles/`, `tools/`, `package.json`, `assets/`, `tickets/`, the grammar and the guide), plus every clean stage folder (`src/city/streets/` to `src/city/traffic/`) unless the section names a line in it.
@@ -192,11 +193,13 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 - A later era may change an earlier era's adds, by id.
 
 **Acceptance criteria:**
-1. [ ] (the architect) The types above in `src/core/cityera.ts`, exported from `src/core/index.ts`. `cityplan.ts` is not edited: `CITY_STAGES`, `CityLayers` and every clean layer's type are as they were.
-2. [ ] `npx tsc --noEmit` passes. `npx vitest run --maxWorkers=2 src/city/pipeline/ src/render3d/planview.test.ts` passes unchanged (no literal moves, since `CITY_STAGES` does not change).
-3. [ ] No circuit type is referenced. A2 is written into this ticket.
+1. [x] (the architect) The types above in `src/core/cityera.ts`, exported from `src/core/index.ts`. `cityplan.ts` is not edited: `CITY_STAGES`, `CityLayers` and every clean layer's type are as they were.
+2. [x] `npx tsc --noEmit` passes. `npx vitest run --maxWorkers=2 src/city/pipeline/ src/render3d/planview.test.ts` passes unchanged (no literal moves, since `CITY_STAGES` does not change).
+3. [x] No circuit type is referenced. A2 is written into this ticket.
 
 **Files:** new `src/core/cityera.ts`, `src/core/index.ts` (one line), this ticket. No new dependency.
+
+**Done:** merged into `goal/city-transformations` at 4a5077f (under the goal). Review: meets, must-fix 0. Playtest: regressions 0.
 
 ### A2 · Types: the circuit references (lead-architect). Branch `ticket/073a2-circuit-refs`
 
@@ -228,26 +231,59 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 - The time per city for `history`.
 - **It proposes:** the district rule, the story rule, the T-2 walk graph, and how T-1's "covers from above" is measured for solid pieces and canopies (wires never cover: Q13, Josh). Each comes with a recommended answer first, as a question for Josh.
 
+**Done 21 Nov 2026:** `docs/design/073-B-precheck.md` (a sketch: stage 6 is not built, so its circuit is K1's words laid by a probe). Its five questions were answered on Josh's delegation (B-Q1 to B-Q5, under "Questions for Josh"). B and C1 below are cut against those answers.
+
 ### B · Stage 10, `history`: districts and their stories (planner, pure). Branch `ticket/073b-history`
 
-**Waits for:** A (not A2), and Josh's answers to the B pre-check.
+**Waits for:** A (merged). The pre-check's answers are in (B-Q1, B-Q2: on Josh's delegation; Josh may reverse).
 
 **Goal.** Every named city is cut into districts of 1 to 4 touching blocks. Each has a short story: `tech`, `held`, `wild`. `?city=plan&stage=history` shows them on Josh's phone.
 
+**The district rule (rule A of the pre-check; B-Q1).**
+- Take the blocks of `streets.blocks` in a hashed order (`history:<seed>:order:<block id>`).
+- Each block not yet in a district starts one. Its size is hashed: 1 block 20%, 2 blocks 30%, 3 blocks 25%, 4 blocks 25%.
+- It grows, one block at a time, onto the free neighbour across a street (`sides[*].across`) with the longest shared stretch of street with the district so far. On a tie, the least block id.
+- It stops at its size, or when no neighbour is free. (A block whose size was 2 to 4 but whose neighbours are all taken stays a single: 1 to 5 a run in the pre-check.)
+- Its id is A's: `district:<its first block in streets.blocks order>` (the type's doc comment, merged). The pre-check wrote "least block id"; the merged type governs.
+- It reads only `streets.blocks` and the hash. Never `bi`, `bj` or a street's `line` (R-7).
+
+**The story rule (the pre-check's section 3; B-Q2).**
+- **`tech`.** The centre is the district holding the hashed-first inner block (an inner block has no side without a block across it). A district's step is the fewest streets crossed from the centre district's blocks to one of its own. `tech` = 1 − step / (the city's most steps + 1), ± 0.1 by hash. If a city has no inner block, the centre is the district of the hashed-first block (no named run has none).
+- **`held`.** A hash u in 0 to 1. Where u < 0.25, `held` is 0: the district was left at once, gets no plant, and its feed is a pole just outside it (Q11, Josh). Otherwise `held` = (u − 0.25) / 0.75.
+- **`wild`.** 1 − `held`, ± 0.15 by hash.
+- Every value is rounded to 2 decimals and clamped to 0 to 1. Each hash is keyed `history:<seed>:<what>:<district or block id>`.
+
 **Acceptance criteria** (Vitest unless said):
-1. [ ] On the 20 named runs, every block is in exactly one district. Each has 1 to 4 blocks that touch across a street (`CityPlanBlock.sides[*].across`).
-2. [ ] Each story follows the rule Josh answered in the pre-check. Each value is in 0 to 1. A hand-worked fixture city has its districts and stories worked out by hand.
+1. [ ] On the 20 named runs, every block is in exactly one district. Each has 1 to 4 blocks that touch across a street (`CityPlanBlock.sides[*].across`). Each district's id is its first block's, in `streets.blocks` order.
+2. [ ] The districts follow the district rule above, and each story follows the story rule above (answered on Josh's delegation, B-Q1 and B-Q2). Each value is in 0 to 1, at 2 decimals. A hand-worked fixture city (at least 6 blocks, one inner) has its districts, steps and stories worked out by hand in the test, against a fixed hash.
 3. [ ] The picture (R-5): one legend entry per district band, and the district's id per cell. The R-5 test as 070's.
 4. [ ] R-1 to R-7: the layer is frozen; the digest is pinned on the four pin cities; a test double for `history` leaves every clean digest equal; the same city run twice gives the same layer; no file of the folder imports another stage folder or reads `bi`, `bj` or a street's `line`.
 5. [ ] `src/city/stages.ts` gains `historyStage` (one line), behind C1's era runner so a clean run never runs it (X-7). If C1 is not merged yet, B adds it to a separate era list C1 reads.
-6. [ ] The numbers (reported, not asserted): districts per run by size, the stories' spread, the time per city.
+6. [ ] The numbers (reported, not asserted), beside the pre-check's sketch: districts per run by size (sketch: 12 to 23 a run, 348 in all; sizes 1/2/3/4 at 117 / 111 / 65 / 55; singles with no free neighbour 1 to 5 a run), the stories' spread (sketch: `tech` median 0.61; `held` 0 on 1 to 10 districts a run; `wild` against `held` r = −0.97), the mean `tech` per step, the time per city (sketch: 0.2 to 0.8 ms).
 7. [ ] (main session, phone screenshot) `?city=plan&stage=history` on 6 x 6 seed 1.
 
 **Files:** new `src/city/history/`; `src/city/stages.ts` (one line). The builder runs `npx vitest run --maxWorkers=2 src/city/history/ src/city/pipeline/` and one `npx tsc --noEmit`.
 
 ### C1 · The resolver, the era runner, and T-1 and T-2 (planner, pure). Branch `ticket/073c1-resolver`
 
-**Waits for:** A (not A2), and the B pre-check's answers (for the T readings).
+**Waits for:** A (merged). The T readings are answered (B-Q3, B-Q5: on Josh's delegation; Josh may reverse. **B-Q3 is the one Josh should look at**).
+
+**The circuit it reads.** T-1 and T-2 read poles, street lights, lamp-post places and drops from the plan's stage 6 layer. Until K2 merges, that layer is empty on `goal/city-transformations` (`cityplan.ts`: "until then the layer is empty"). So on the named runs both checks find no point to judge until then; the fixtures carry their own hand-placed poles. The pre-check's numbers below are what the clean report should give once K2's circuit is in (a sketch, from K1's words laid by a probe).
+
+**T-1's reading (B-Q3; Q13, Josh).**
+- **Judged:** only what an era adds or swaps (its `adds`, and a swapped piece at its new key's bounds), against every pole, street light, lamp-post place and drop end. The clean city's own pieces are never failed (X-1: a pass is never judged by a clean check).
+- **A solid piece covers** a pole, a street light or a lamp-post place when its plan footprint (its kit bounds at its placement, after its turn), widened by 0.15 m, contains the point. Its height does not matter.
+- **A drop end** (a building's lamp place) is covered when a piece whose top is over 5.5 m stands over any point of the drop's first 2 m from the wall.
+- **A canopy** is a disc of half the tree key's wider bound. It covers a point within its radius plus 0.15 m. It "closes over a pole line" when it meets an along, corner or crossing span in plan.
+- **Wires never cover** (Q13, Josh: "Yes, all four"). A roof-net or makeshift span over a pole line is reported, never failed.
+- **The clean clashes** (clean pieces over or on those points, by the same reading) are reported each run, never failed.
+
+**T-2's walk graph (B-Q5).**
+- **Walkable:** every stage 1 street cell (`streets.cells`: pavement, pavement corner, kerb cut, crossing, parking band, lane, junction), joined to its four neighbours.
+- **Closed:** a cell where a piece standing on the ground (base under 2 m) covers the cell's centre, on the resolved plan, clean pieces included.
+- **Never in the graph:** service lanes, walks, plazas, courts and parks.
+- A pole's own cell is its start, closed or not.
+- **Fails** when any pole of a district cannot reach every other pole of that district. This judges the whole resolved plan: the clean city passes it (pre-check: 0 districts fail on 20/20).
 
 **Goal.** One pure helper turns a plan into the plan at an era. A run can ask for an era. T-1 and T-2 can be checked on any era.
 
@@ -255,7 +291,7 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 1. [ ] `resolvePlan(plan, era)` in `src/city/pipeline/` meets A's contract. Fixtures: each change kind on each `CityPieceList`; a change by id; every failure case in the contract, each failing with the stage named.
 2. [ ] `clean` resolves to the plan itself on the 20 named runs, deep-equal.
 3. [ ] **The era runner.** `runCity(options)` and `runCity(options, until)` for a clean stage run exactly what they run today (X-7). A new `runCityEra(options, era)` runs the clean stages, then `history` and the passes up to the era's last stage. A test shows a clean run calls no era stage.
-4. [ ] `t1Failures(resolved)` and `t2Failures(resolved)` with the readings Josh answered. Each has a failing fixture (a piece over a pole; a barricade that seals a pole in) and a passing control. On the clean city they give what the pre-check reported.
+4. [ ] `t1Failures(resolved)` and `t2Failures(resolved)` with the readings above (answered on Josh's delegation, B-Q3 and B-Q5), and `t1CleanClashes(resolved)`, the clean report. Each check has a failing fixture and a passing control: an era add on a pole, on a light, on a lamp-post place, over a drop end, and a canopy meeting a span (each fails); the same clean piece in the same spot (reported by `t1CleanClashes`, never a T-1 failure); a span over a pole line (never a failure, Q13); a ground piece that seals a pole in (T-2 fails) and one that leaves a way round (passes). On the clean city: `t1Failures` and `t2Failures` are empty on the 20 named runs; `t1CleanClashes` is reported per run in the hand-back, not asserted. Until K2 it is empty (no circuit). Once K2 is in, the pre-check's sketch says it should give, a run: poles 5 to 18 (street furniture on the spot; pavement-tree canopies 0 to 7), street lights 1 to 8, lamp-post places 5 to 16, drop ends 11 to 25 (escapes 7 to 19, face signs 3 to 8) plus window planters 20 to 39, canopies over a pole line 17 to 32, build-out trees and stage 9 pieces 0. After K's planned I2: poles 0, lights 0, lamp-post places 6 to 17, drop ends the same, canopies over a line 8 to 22.
 5. [ ] A pass's stage calls the resolver for the era before its own, and the two checks on its own era before it returns. C1 gives the helper; each pass calls it.
 6. [ ] No file of `src/city/pipeline/` imports a stage folder.
 
@@ -289,10 +325,65 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 - **The cost:** distinct keys and pieces per city at the most the room allows, as a draw-call estimate (instancing comes after D3, card 7).
 - **It proposes:** how density follows `tech` (bands, shares), with a recommended answer first.
 
-### D1 · `tech` walls and pavement (tech-pass, pure). Outline. Branch `ticket/073d1-tech-walls`
-- **Waits for:** B, C1, the D1 pre-check and Josh's answers (or the answers taken under the goal), and the pre-check's kit checked against `docs/design/073-pack-intended-use.md` (X-11). The tech-pass agent file.
-- Places D1's pieces by the answered rules; its changes are shopfront `swap`s and the `remove`s of the dressing they float.
-- Uses B2 for dark signs. Keeps rule 10 on the pavement (X-3).
+**Done 21 Nov 2026:** `docs/design/073-D1-precheck.md` (a sketch: the circuit is K1's words laid by a probe; one `tech` value for the whole city), with its last section, "Kit against the intended-use note" (X-11). Its six questions were answered on Josh's delegation (D1-Q1 to D1-Q6), and its kit verdict taken (the billboard frames dropped under the goal). D1 below is cut against them.
+
+### D1 · `tech` walls, signs, shopfronts and pavement (tech-pass, pure). Branch `ticket/073d1-tech-walls`
+
+**Waits for:** B and C1 merged into `goal/city-transformations`. The pre-check, its answers and its kit check against `docs/design/073-pack-intended-use.md` are done. The tech-pass agent file (the main session's).
+
+**Goal.** At the `tech` era, each district gets Sci-Fi City wall bolt-ons, cameras, signs, pavement tech and, in its most technical districts, new shopfronts, as much as its `tech` value says. The clean city is unchanged; the era's pieces are D1's `adds`, and the only changes are the `remove`s of the dressing a new shopfront covers.
+
+**The kit** (the pre-check's section 1, less what the kit check dropped). Sizes w x h x d in metres; every piece's origin is at its base centre. Textured only (X-5).
+
+| Slot | Pieces | Where |
+| --- | --- | --- |
+| Small bolt-on | `Prop_WallAttach_Electronics_02/03/04/06`, `Prop_AirConditioningUnit_01/02`, `Prop_Pipes_03` | a free third of a storey face above the ground storey |
+| Camera | `Prop_Security_Camera_01/02` | on storey 1 walls only, never on the pavement (D1-Q5): one in four of storey 1's bolt-ons |
+| Tall | `Prop_WallAttach_Electronics_01/05`, `Prop_WallAttach_Vent_01..04`, `Prop_Pipes_01` **vertical only** | free bare side walls above a lower neighbour only, never over windows (D1-Q3). `Prop_Pipes_01` stands with its 2.5 m running up the wall, as the images show; if no side-wall place holds it vertical, it leaves the kit (the builder reports which) |
+| Overhang | `Prop_Overhang_01/02` | a whole free storey face, as a canopy (a departure: not shown in the images; below) |
+| Sign | `Sign_01..09`, `Sign_011` | a free third of a storey 1 street face. **Not** `Sign_Billboard_Border_*` or `_Tall_*` (dropped: empty frames, and the pictures the images show are the untextured `Sign_Ad_*`) |
+| Shopfront | `Bld_Advanced_01` (single shop), `_02` (double shop) | added in front of an eligible shop (below) |
+| Pavement, wall line | `Prop_VendingMachine_01`, `Prop_Atm_01` | backs to the wall |
+| Pavement, kerb line | `Prop_Advertisement_Pillar_01`, `Prop_ChargingStation_01` | the kerb line (the charger: a departure, not shown in the images; below) |
+
+**The density rule (DT; D1-Q1).** For each district, by its `tech` value only (X-6):
+- **Always:** each storey face with a free third takes a small bolt-on with chance 0.3 x `tech` (on storey 1, one in four is a camera); each free bare side wall takes a tall piece with chance 0.3 x `tech`.
+- **From `tech` 1/3:** each storey 1 street face with a free third takes a sign with chance 0.3 x `tech` (tried before a bolt-on); each pavement place takes a piece with chance 0.5 x `tech`.
+- **From `tech` 2/3:** each eligible shop takes a shopfront with chance 0.5 x `tech`.
+- The four chances and the two band edges are named constants in one file of `src/city/tech/`.
+
+**A free third** (the pre-check's section 2). A storey face (one open side of a column at one storey above the ground) is cut into thirds of 1.67 m. A third is free when nothing of stage 7 enters a box over it, 1.5 m out from the wall, over the whole storey: dressing (not glass), escapes and their ladder boxes, canopies, air-conditioners, planters, face novelty signs and roof pieces. On storey 1, the middle third over a drop's wall point (5.5 m) is never free.
+
+**The shopfront (D1-Q2): an add plus removes, never a swap.**
+- A's `swap` keeps the placement; a shop ground piece's pivot is 2.29 to 2.64 m behind its front wall, so a swapped `Bld_Advanced_*` would stand inside the building, and removing the shop instead leaves a hollow storey (rule 1's body; B11 is not broken, card 6). So the panel is an **add**, standing 0.71 m out from the old shop's front wall onto the pavement, its top at 3.0 m.
+- **Eligible:** single and double shops only, **never corner shops**, with no escape ladder in front below 3 m and no stage 8 prop within 0.71 m of the front.
+- **Removes:** that face's glass, awnings, fascia signs and blade signs below 3 m (about 2.1 a shop in the pre-check). Face novelty signs above 3 m stay.
+- **Behind a constant.** The rule is behind one boolean constant (for example `TECH_SHOPFRONTS`, true). Set false, the top band adds no shopfront and lists no change: the band then adds nothing over the middle one. It exists so the shopfronts can be switched off if D1g's street-level picture shows the panel's partly faced end as a loose panel (D1g criterion 6).
+
+**The pavement (D1-Q4, D1-Q6; X-3: the tech pass keeps rule 10).** A place is a footprint on stage 8's wall line or kerb line of a pavement run, facing the street. It keeps everything furniture keeps: the 4 m corner keep-out and the 7 m pitch on its line (against stage 8's props and the pass's own); KO, AV, EL and DK; 0.3 m from every stage 8 and 9 footprint; `FURN_KEEP_M` from every pole and street light, **and from every lamp-post place** (D1-Q6); `FURN_MAX_H_M` under a span. **And at least 2 m of clear walk** beside it (D1-Q4), counting stage 8's pieces, the pass's other pavement pieces and its shopfront panels.
+
+**The circuit points.** Drop wall points, poles, lights, lamp-post places and spans are read from the stage 6 layer through `CityPlan`. Until K2 merges that layer is empty, so those keep-outs and the T-1 check find nothing on the named runs; a fixture with hand-placed poles, lights, a lamp-post place and a drop shows each one held. (See "Questions for Josh", the D1 timing point.)
+
+**Departures from the store images (X-11)**, each with its reason, from the kit check:
+- **Not shown in the images:** `Prop_Overhang_01/02` as canopies (its shape, 1.44 m deep and closed on all sides, reads as one; nothing contradicts it). `Prop_ChargingStation_01` at the kerb (a vehicle charger belongs by the road; the images do not tell it apart from the other terminals).
+- **Departure:** the added shopfronts. The images show `Bld_Advanced_*` as a building's own ground storey; an added front is what Josh's "augmented" city needs (the Fable session, on Josh's delegation).
+- `Prop_Pipes_01` vertical and `Prop_Security_Camera_*` on walls are as the images show: not departures.
+
+**Acceptance criteria** (Vitest unless said):
+1. [ ] **The layer.** `techStage` writes a `CityTechLayer`: its `adds` (ids `tech:<kind>:<plan data>`, never list order) and its `changes`, which are only `remove`s of a shopfront's face dressing. No `swap`, no `state`. Each add's `district` is the district its cell is in. A fixture shows a shopfront's add and its removes; another, a corner shop left alone.
+2. [ ] **The bands.** A fixture city with three districts at `tech` 0.2, 0.5 and 0.8 gets bolt-ons only in the first; signs and pavement pieces too in the second; shopfronts too in the third. Density reads `tech` only (X-6): the same district with a higher `tech` never gets fewer pieces on a fixed hash.
+3. [ ] **The slots.** Every add stands in its slot as the kit table says: bolt-ons in a free third above the ground storey; cameras on storey 1 walls only; tall pieces on free bare side walls only, `Prop_Pipes_01` vertical; signs on storey 1 street faces; no `Sign_Billboard_Border_*`, `_Tall_*`, `Sign_Ad_*` or `Sign_Neon_*` key anywhere in the layer. A fixture for each slot.
+4. [ ] **The pavement.** On the 20 named runs every pavement add keeps every distance above, and the 2 m clear walk counting panels. A fixture for each keep (a pole, a light, a lamp-post place, a span, a corner, a stage 8 prop) and for two pieces across a pavement (the second refused).
+5. [ ] **The switch.** With the shopfront constant false (a test that sets it through the pass's options or a test double, not by editing the file), the layer has no `shopfront` add and no change, and every other add is the same.
+6. [ ] **T-1 and T-2.** The stage resolves the plan at the era before its own (`clean`) through `resolvePlan`, runs C1's `t1Failures` and `t2Failures` on its own era before it returns, and throws `CityStageError` on a failure (X-4, R-2). A fixture where a forced add covers a pole fails.
+7. [ ] **Dark and textured (X-5).** Every key in the kit table is on the converter's textured list; no kit key is emissive (a typed table, pinned below).
+8. [ ] **The kit pin (X-8).** The kit table's sizes, and each key's front (read from the GLB's face directions, as the pre-check's kit probe did), are typed in `src/city/tech/` and pinned against `sci-fi-city-pack.glb` by one new test in `src/render3d/`, inside `it.skipIf(!have)` (R-6).
+9. [ ] **R-1 to R-7, X-1.** The layer is frozen; its digest is pinned on the four pin cities; every clean digest is equal with and without the pass; the same city twice gives the same layer; no file of `src/city/tech/` imports another stage folder or reads `bi`, `bj` or a street's `line`. `runCity()` runs no tech code (X-7).
+10. [ ] **The numbers** (reported, not asserted), beside the pre-check's sketch (section 3's rows at 0.2, 0.5 and 0.8): pieces a city by slot, shopfronts and their removes, distinct keys, pavement places used of those free, `Prop_Pipes_01`'s vertical places, the time per city.
+
+**Files:** new `src/city/tech/`; one new kit pin test in `src/render3d/` (the tech-pass's, X-8); `src/city/stages.ts` (one line, `techStage` in the era list, if the era list needs it). Nothing in `src/core/` (the architect writes the kind union below first), no clean stage folder. The builder runs `npx vitest run --maxWorkers=2 src/city/tech/` and its pin test, and one `npx tsc --noEmit`. No browser, no Blender.
+
+**Interfaces.** Before D1 starts, the architect narrows `CityTechPieceKind` in `src/core/cityera.ts` (D2 widens it later): `"bolt-on" | "camera" | "tall" | "overhang" | "sign" | "shopfront" | "pavement"`. No new dependency.
 
 ### D1g · `tech` walls and pavement drawn (renderer). Branch `ticket/073d1g-tech-walls-drawn`
 
@@ -300,21 +391,25 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 
 **Waits for:** D1 and C2.
 
-**Goal.** At `?view=3d&city=plan&stage=assemble&era=tech` (and `holdout`, `ruin`), Josh sees D1's wall bolt-ons, shopfront swaps, signs and pavement tech on the city, and the pieces D1 removed gone.
+**Goal.** At `?view=3d&city=plan&stage=assemble&era=tech` (and `holdout`, `ruin`), Josh sees D1's wall bolt-ons, cameras, signs, added shopfronts and pavement tech on the city, and the dressing D1 removed gone.
 
 **Acceptance criteria:**
-1. [ ] (Vitest) At `era=tech` and later, the draw places every D1 add once, at its placement, draws each swapped piece with its new key and each removed piece not at all, reading them only through `resolvePlan`. At `clean` the draw is exactly today's (the existing plan3d tests and pins pass untouched).
+1. [ ] (Vitest) At `era=tech` and later, the draw places every D1 add once, at its placement (shopfront panels included), draws a swapped piece (any pass's) with its new key and each removed piece not at all, reading them only through `resolvePlan`. At `clean` the draw is exactly today's (the existing plan3d tests and pins pass untouched).
 2. [ ] (Vitest) **Dark (X-5).** No material of a D1 piece is emissive or lit; a test walks the era's drawn meshes.
 3. [ ] (Vitest) **R12 gains B2's allowance, era-scoped (X-9):** one typed table of the never-used keys D1 may use as dark signs and lamps, allowed only at `era=tech` and later and only on D1's own piece kinds. At `clean` the R12 audit is exactly today's.
 4. [ ] (Vitest) **No draw-call cap rises.** Draw calls at each era are reported in the hand-back.
 5. [ ] (main session, browser screenshot, full resolution) 6 x 6 seed 1 at `era=clean` and `era=tech` from one camera spot, on a street with wall bolt-ons and pavement tech.
+6. [ ] (main session, browser screenshot, full resolution) **One street-level picture along a pavement past a new shopfront**, at `era=tech`, so the panel's end return (only partly faced in the GLB) is seen as a walker sees it. If the end reads as a loose panel, the top band's shopfronts stay out of the merge into `main`: the tech-pass sets D1's shopfront constant false (one line in `src/city/tech/`, its pins re-taken), and the picture goes to Josh. No filler piece is invented to hide it. (Taken on Josh's delegation, 21 Nov 2026 night; Josh may reverse.)
 
 **Files:** `src/render3d/plan3d.ts` and its tests, and the R12 audit's test in `src/render3d/`. Nothing in `src/city/`. The builder runs `npx vitest run --maxWorkers=2` on its own test files and one `npx tsc --noEmit`; no browser.
 
 ### D2 · `tech` roofs: storeys, plant, holograms, the roof net (tech-pass, pure). Outline. Branch `ticket/073d2-tech-roofs`
 - **Waits for:** K2's circuit layer, B, its own pre-check.
-- **Its pre-check measures:** flat roof runs that fit `Bld_Raised_01/02`, `Building_Shack_*`, `Bld_Roof_Pagoda_02`, clear of stage 7's towers, exits, billboards and roof novelty; the roof items per building against B10; roof-to-roof span lengths across streets and lanes, and the `Prop_Powerpoll_01/02` attach height; whether one net per high-tech district connects; walkway fits (`Prop_Bridge_01` is 5.0 m, a lane is 5 m wall to wall); how many roof-net spans cross a stage 6 pole line in plan (allowed: Q13, Josh; reported, not failed); T-1 and T-2.
-- Josh's ruling holds: Sci-Fi City poles stand on roofs and objects, never on the ground.
+- **Its pre-check measures:** flat roof runs that fit `Building_Shack_*`, `Bld_Roof_Pagoda_02`, clear of stage 7's towers, exits, billboards and roof novelty; the roof items per building against B10; roof-to-roof span lengths across streets and lanes, and the `Prop_Powerpoll_01/02` attach height; whether one net per high-tech district connects; where `Prop_Bridge_01` spans as a street truss (below); how many roof-net spans cross a stage 6 pole line in plan (allowed: Q13, Josh; reported, not failed); T-1 and T-2.
+- **Read from the intended-use note** (`docs/design/073-pack-intended-use.md`; answered on Josh's delegation, 21 Nov 2026 night; Josh may reverse):
+  - **`Prop_Bridge_01` is a street truss, not a walkway.** The images show open lattice trusses spanning between facing façades about 6 to 10 m up, carrying cables and hung signs, with no deck, no railings, nobody on them. The roof walkway is dropped. D2 may use the truss as shown: between facing walls (it is 5.0 m long; a lane is 5 m wall to wall), with roof-net cables over it and signs under it.
+  - **`Bld_Raised_01/02` is a street-level deck on pillars, not a roof storey.** It goes on no roof without Josh's word. D2's pre-check lists "roof storeys" as an open question for Josh, recommended answer first; until he answers, D2 places no `Bld_Raised_*` on a roof.
+- **Josh's ruling holds:** Sci-Fi City poles stand on roofs and objects, never on the ground (Josh, 21 Nov 2026). Recorded under X-11: the store images show `Prop_Powerpoll_01/02` standing on the pavement at the kerb (Screenshot_11, 13), never on a roof. The rooftop use is Josh's own choice, not what the images show. It needs no departure question: his ruling stands.
 
 ### D3 · `tech` drawn (renderer). Outline. Branch `ticket/073d3-tech-drawn`
 - **Waits for:** D1g, D2.
@@ -355,32 +450,39 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 **How `apocalypse-power` was made** (read 21 Nov 2026): it is its own folder under `assets/private/in/`, holding 96 FBX copied from the pack and a copy of its `Textures/` (30 MB), with no `pack.json`. F0 does the same. Nothing in `in/apocalypse-pack/` is moved or changed.
 
 **The starting list** (stems in `in/apocalypse-pack/FBX/`, top level only; counts read 21 Nov 2026):
-- `SM_Env_RoadPiece_Damaged_*` (24); `SM_Env_Overgrowth_*` (10) and `SM_Env_Overgrowth_Edge_*` (4); `SM_Env_Sidewalk_Overgrown_*` (3)
+- `SM_Env_RoadPiece_Damaged_*` (24: **wrong**, see the result below); `SM_Env_Overgrowth_*` (10) and `SM_Env_Overgrowth_Edge_*` (4); `SM_Env_Sidewalk_Overgrown_*` (3)
 - `SM_Prop_Car_Wrecked_*` (cars, SUV, van, bus, stacks, wheels; about 27)
 - `SM_Prop_Barricade_*` (13), `SM_Prop_Road_Barrier_*` (2), `SM_Bld_Door_Barricaded_*` (9)
 - `SM_Prop_Rubble_Concrete_*` (6), `SM_Prop_Powerpole_Broken_*` (4), `SM_Prop_Wall_Wire_Damaged_*` (3)
 - Not: `Characters/`, `Collision/`, `FX/`, `Rigged/`, weapons (`SM_Wep_*`), vehicle attachments (`SM_Veh_Attach_*`), anything already in `apocalypse-power`.
 
 **Acceptance criteria** (the builder checks; Josh's PC freezes under load):
-1. [ ] **The junction first.** The worktree it runs from has `assets/private/in` resolving to `D:\rest-prototype-main\assets\private\in`, listing all nine pack folders. `D:\rest-prototype-goal\assets\private\` has only `calibration` and `out` today. Without `in`, do not convert: the manifest merge would drop every pack (072's warning).
-2. [ ] `in/apocalypse-ruin/FBX/` holds a copy of exactly the starting list, and `in/apocalypse-ruin/Textures/` a copy of the pack's `Textures/`. The builder lists each stem copied, with its count.
-3. [ ] Back up `out/manifest.json` to `out/manifest.json.bak-073f0`. Run `npm run assets:convert -- apocalypse-ruin` once, in the background, with nothing else heavy running. Never with no pack name.
-4. [ ] Every other pack's manifest entry equals its entry in the backup (a node one-liner). Their GLBs, `out/city-pack/colourways/` and `calibration/` keep their modified times. If any moved, restore the backup and stop.
-5. [ ] Scale as 072 B: start with none; one more run at 100 or 0.01 only if more than 10% are `scale-suspect` at about 100x or 0.01x. No third run.
-6. [ ] **The report** (in the hand-back; no file): models converted, failures with their first line, each warning's count, the scale and runs, the GLB size, the wall time, and each piece's bounds in metres, by group.
-7. [ ] No file in `src/`, `tools/` or anywhere in git changes. `git status` is clean.
+1. [x] **The junction first.** The worktree it runs from has `assets/private/in` resolving to `D:\rest-prototype-main\assets\private\in`, listing all nine pack folders. `D:\rest-prototype-goal\assets\private\` has only `calibration` and `out` today. Without `in`, do not convert: the manifest merge would drop every pack (072's warning).
+2. [x] `in/apocalypse-ruin/FBX/` holds a copy of exactly the starting list, and `in/apocalypse-ruin/Textures/` a copy of the pack's `Textures/`. The builder lists each stem copied, with its count.
+3. [x] Back up `out/manifest.json` to `out/manifest.json.bak-073f0`. Run `npm run assets:convert -- apocalypse-ruin` once, in the background, with nothing else heavy running. Never with no pack name.
+4. [x] Every other pack's manifest entry equals its entry in the backup (a node one-liner). Their GLBs, `out/city-pack/colourways/` and `calibration/` keep their modified times. If any moved, restore the backup and stop.
+5. [x] Scale as 072 B: start with none; one more run at 100 or 0.01 only if more than 10% are `scale-suspect` at about 100x or 0.01x. No third run.
+6. [x] **The report** (in the hand-back; no file): models converted, failures with their first line, each warning's count, the scale and runs, the GLB size, the wall time, and each piece's bounds in metres, by group.
+7. [x] No file in `src/`, `tools/` or anywhere in git changes. `git status` is clean.
 
 **Files (not in git):** `assets/private/in/apocalypse-ruin/`, `assets/private/out/` (written by the converter only), the manifest backup.
 
+**Done 21 Nov 2026 night.** 89 models converted, 0 failures, 0 warnings, scale 1, one run, a 7.4 MB GLB.
+- **The starting list was wrong on one line** (recorded under the goal; Josh may reverse): the pack has 12 `SM_Env_RoadPiece_Damaged_*`, not 24, and all 12 are already in `apocalypse-power`. So `apocalypse-ruin` does not hold them, and **F1 and F2 read the damaged road pieces' sizes from `apocalypse-power`**.
+
 ### F1 · `ruin` growth: ground, walls, roofs (ruin-pass, pure). Outline. Branch `ticket/073f1-ruin-growth`
 - **Waits for:** E2, F0, its pre-check.
-- **Its pre-check measures:** growth spreading cell by cell from soil (parks, greens, build-out trees, planters, farms), against `wild`; carriageway cells grown (B9); trees under dead spans and their heights (B8); every canopy against T-1 (`Tree_Generic_Giant_01` is 12.6 x 11.2 m); vines (`Env_Vines_*`, `Tree_Vines_*`) against escapes and signs; roof growth; T-2.
+- **Its pre-check measures:** growth spreading cell by cell from soil (parks, greens, build-out trees, planters, farms), against `wild`; carriageway cells grown (B9); trees under dead spans and their heights (B8); every canopy against T-1 (`Tree_Generic_Giant_01` is 12.6 x 11.2 m); vines (`Env_Vines_*`, `Tree_Vines_*`) against escapes and signs, by the reading below; roof growth; T-2. Damaged road sizes come from `apocalypse-power` (F0).
+- **Vines as the intended-use note shows them** (answered on Josh's delegation, 21 Nov 2026 night; Josh may reverse):
+  - Palm City `Env_Vines_01/04/05` are the only flat sheets (0.7 to 0.8 m deep). `02/03/07/08` (2.1 to 4 m deep) drape over eaves, roof edges, canopies, balconies, parapets and arches; `06` wraps a column or post. Choose the variant by its depth, and hang each from something above it: never a full sheet on a plain wall with no eave or edge over it.
+  - Nature `Tree_Vines_01..04` hang from tree branches only. Never on a wall.
 
 ### F2 · `ruin` remnants and the broken grid (ruin-pass, pure). Outline. Branch `ticket/073f2-ruin-remnants`
 - **Waits for:** E1, K2, A2, F0, its pre-check. (Q12 is answered.)
 - Its states are scenery. They are never drawn on a job's own parts (Q12, Josh: "No, puzzle faults only"); F2g and F3 hold that.
 - **Its pre-check measures:** wrecks on carriageway, bays and lots (B1); fallen signs, logs, rubble; the changes by kind and by layer; toppled poles and cut spans per district; T-1 and T-2.
 - Every toppled pole lists its spans' states (A's no-cascade rule).
+- **Broken road** (A's road-tile question, taken under the goal, 21 Nov 2026 night; Josh may reverse): the ruin marks an `edge.ground` tile with `state: "broken"`, and F3 draws a damaged road piece there (sizes from `apocalypse-power`, F0). No type is added and no clean digest moves. The F1 and F2 pre-checks confirm it.
 
 ### F2g · Jobs on the broken grid (grid-simulator, pure). Outline. Branch `ticket/073f2g-ruin-jobs`
 - **Waits for:** F2, E1g. (Q12 is answered.)
@@ -388,7 +490,7 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 - A ruin `state` (cut, toppled, broken) on a part the job names is dropped for that job. The puzzle's own faults are its only damage (Q12, Josh: "On a job's own parts only the puzzle's faults are drawn.").
 
 ### F3 · `ruin` drawn (renderer). Outline. Branch `ticket/073f3-ruin-drawn`
-- **Waits for:** F1, F2. R12 gains B1's allowance, era-scoped. Draws `state`: toppled, cut, broken, boarded, dark.
+- **Waits for:** F1, F2. R12 gains B1's allowance, era-scoped. Draws `state`: toppled, cut, broken, boarded, dark. A `broken` `edge.ground` tile draws as a damaged road piece (F2's broken road).
 - Never on a played job's own parts (Q12, Josh). Dead wires keep today's look; a rusted, frayed look waits for K4's overlay (Q14, Josh).
 
 ## Check (a): can a change reference today's pieces?
@@ -469,7 +571,8 @@ Josh's card 8: "Yes, three agents (Recommended)". The main session writes each `
 **Others:** the planner gains `src/city/history/` (the main session adds it, quoting card 8 and card 1). The grid-simulator keeps F0, E1g and F2g in its own folders. The hook needs no change (070's reasoning).
 
 ## Interfaces
-- Section A: `src/core/cityera.ts`, written on `ticket/073a-era-types` under the goal; `cityplan.ts` is not edited. Section A2, after K's type merges: the circuit references and the plant place.
+- Section A: `src/core/cityera.ts`, written on `ticket/073a-era-types` under the goal and merged (4a5077f); `cityplan.ts` is not edited. Section A2, after K's type merges: the circuit references and the plant place.
+- Before D1: `CityTechPieceKind` narrowed to D1's kinds (D1's Interfaces), one edit to `cityera.ts` by the architect.
 - `rules-coverage.md` is unchanged: no brief rule is tested here.
 - **No new dependency.**
 
@@ -488,12 +591,47 @@ Josh's card 8: "Yes, three agents (Recommended)". The main session writes each `
 - **"The plan always runs all stages"** (note, section 3) would make every existing `runCity()` run four more stages, and every clean test slower (`plan3d.test.ts` is 113 s today). X-7 and C1 criterion 3 run the new stages only for an era run.
 - **"New owner, with the grid-simulator"** for E1 and F2 is two owners. Split into E1/E1g and F2/F2g, one owner each.
 - **B7 scope.** The note's table lists B7 for hold-out and ruin. Its pavement tech is the tech pass's, so the tech pass keeps rule 10 (X-3).
+- **Shopfront swaps** (D1's outline). A swap keeps the placement, which would put the panel inside the building. D1 adds the panel in front and removes that face's dressing (the D1 pre-check, section 0). A's `swap` stays for other passes.
+- **Cameras on the pavement, the billboard frames, a horizontal `Prop_Pipes_01`, a roof walkway, `Bld_Raised_*` on roofs.** Each against the store images (X-11); see D1, D2.
 
 ## Questions for Josh
 
-**Open:** none. The B pre-check, the D1 pre-check and each later pre-check will bring their own, recommended answer first.
+**Josh, please look at this one: B-Q3.** This ticket said that if the clean city fails T-1, "that goes to Josh before any pass, never tuned". The B pre-check found it does, on 20/20 runs (the fire escapes and face signs over drops he chose to leave on K1's card 1, street furniture on poles until K's I2, furniture on about 1 in 30 lamp-post places). It did **not** go to Josh. It was answered on his delegation instead: **T-1 judges only what a pass adds or swaps; the clean city's own clashes are reported each run, not failed.** C1 is cut on that answer. If Josh wants T-1 to judge the whole plan instead, no pass can pass it until H2 and H1c re-open (which he declined on card 1); C1's criterion 4 changes and D1 onwards wait.
 
-**Answered** (21 Nov 2026, in chat; his words are in the tables under "Josh's words"):
+**Open:**
+- B-Q3 above, for Josh to confirm or reverse.
+- **The D1 timing point** (for the main session; not a rule): stage 6 is empty until K2 merges, so D1's pole, light, lamp-post and drop keep-outs, and T-1, find nothing on the named runs before then. Cut as: D1 builds now, reads the circuit layer, proves each keep on fixtures, and its tech digests re-pin when K2 merges. The other way: D1 waits for K2, as D2 does.
+- D2's pre-check will ask whether `Bld_Raised_*` may go on roofs as extra storeys (the images show it only at street level). Each later pre-check brings its own, recommended answer first.
+
+**Answered by the Fable session on Josh's delegation (21 Nov 2026 night); Josh may reverse.** The delegation: Josh, 21 Nov 2026, in chat: "If the opus session has questions, it can hand off the questions to you, feel free to answer those questions on my behalf". None of these is Josh's ruling.
+
+*The B pre-check* (`docs/design/073-B-precheck.md`):
+- **B-Q1, the district rule:** rule A (hashed sizes 1/2/3/4 blocks at 20/30/25/25, grown onto the neighbour sharing the most street). Yes. (B.)
+- **B-Q2, the story rule:** `tech` falls off by street steps from a hashed inner centre; `held` 0 for about a quarter of districts (no plant, so the feed is on a pole just outside); `wild` = 1 − `held` ± 0.15. Yes. (B.)
+- **B-Q3, T-1 on the clean city: T-1 judges only what a pass adds or swaps; the clean city's own clashes are reported per run, not failed.** Reason given: Josh allowed those clean clashes himself ("Leave the clashes", K1 card 1), and no clean check is loosened. **This is the one Josh should look at** (above): the ticket had said it goes to him. (C1.)
+- **B-Q4, covered lamp-post places:** the puzzle designer skips them; no furniture moves. Yes. (A line for K's architect and the designer, not this ticket.)
+- **B-Q5, T-2's walk graph:** "reachable on foot" is through street cells only; a cell is blocked when a standing piece covers its middle. Yes. (C1.)
+- For K's architect (not a question for Josh): 8 to 22 tree canopies a run stay over wires after I2 unless I2's span rule reads a tall item's bounds in plan.
+
+*The D1 pre-check* (`docs/design/073-D1-precheck.md`):
+- **D1-Q1, density:** three bands by `tech` (under 1/3 wall bolt-ons only; from 1/3 signs and pavement pieces too; from 2/3 new shopfronts too), about 2,000 pieces a city at the top. Yes.
+- **D1-Q2, shopfronts:** added 0.7 m out in front of the old shop, the old face's dressing removed, never on corner shops. Yes. A departure under X-11 (the images show shopfronts as the building's own ground storey; reason: an added front is what Josh's "augmented" city needs). D1 is an add plus removes, never a swap.
+- **D1-Q3, tall vents:** only on bare side walls, never over windows. Yes.
+- **D1-Q4, the walk:** every pavement tech piece leaves at least 2 m of clear walk. Yes.
+- **D1-Q5, cameras:** on walls at the first floor, not on the pavement. Yes (matches the images).
+- **D1-Q6, lamp-post places:** pavement tech keeps 1.5 m from them too. Yes.
+- **Kit against the intended-use note:** `Prop_Pipes_01` vertical only, as the images show (dropped if no vertical place holds); `Prop_Overhang_01/02` as canopies, allowed, listed "not shown in the images"; `Prop_ChargingStation_01` at the kerb, allowed, the same listing.
+- **The shopfront panel's ends** (about 70% faced): keep. The main session takes a street-level picture along a pavement past a new front when drawn (D1g criterion 6); if the end reads as a loose panel, the top band's shopfronts stay out of the merge (the rule's constant set off) and the picture goes to Josh. No invented filler piece.
+- **The Sci-Fi City power pole:** the images show it on the pavement at the kerb. Josh's ruling stands (roofs and objects, not the ground). Recorded only that the rooftop use is Josh's own choice, not what the images show (D2).
+- **Plan-level readings** (folded into D2 and F1): `Prop_Bridge_01` is an open truss across a street carrying cables and signs, not a walkway (the roof walkway dropped; D2 may use it as shown); `Bld_Raised_*` is a raised deck on pillars at street level, not a roof storey (not on roofs without Josh; D2's pre-check lists roof storeys as an open question for him); Palm City `Env_Vines` only 01/04/05 are flat wall sheets, the rest drape over eaves, arches and columns; Nature `Tree_Vines` hang from branches only (F1).
+
+**Taken under the goal (21 Nov 2026 night); Josh may reverse.** None of these is Josh's ruling.
+- **D1's kit:** `Sign_Billboard_Border_*` and `_Tall_*` dropped (empty frames; the picture pieces, `Sign_Ad_*`, are untextured). The Fable session agreed.
+- **A's road-tile question:** the ruin marks an `edge.ground` tile `broken` and the renderer picks the damaged road piece (option a). No type added, no clean digest moved. The F1 and F2 pre-checks confirm it (F2, F3).
+- **F0:** the ticket's 24 `SM_Env_RoadPiece_Damaged_*` was wrong: the pack has 12, all already in `apocalypse-power`. F1 and F2 read road sizes from there.
+- **The architect's readings in this re-cut:** a district's id is A's merged type's (its first block in `streets.blocks` order), where the B pre-check wrote "least block id"; until K2 merges, C1's and D1's circuit checks find no points on the named runs and are proven on fixtures (B, C1, D1).
+
+**Answered by Josh himself** (21 Nov 2026, in chat; his words are in the tables under "Josh's words"):
 - The note's 1 to 9: cards 1 to 8, and "I like all of your suggestions, make them so" for 6 and 9.
 - **Feed place:** "Yes, plant inside (Recommended)". Where a district has a plant, it is the feed; K2's feed-outside check skips those jobs.
 - **10. Which era is a city job played in?** "The ruin (Recommended)".
@@ -508,5 +646,5 @@ Josh's card 8: "Yes, three agents (Recommended)". The main session writes each `
 - **F2 and F2g:** no longer wait for Q12; they wait for their builds and pre-checks only.
 - **F3:** knows what not to draw on a job's parts.
 - **D2's and E1's pre-checks:** a roof-net or makeshift wire over a pole line is reported, not failed (Q13). E1's no-plant districts have a feed rule (Q11).
-- **C1's T-1 reading:** "what covers" is settled (Q13). T-2's reading still comes from the B pre-check.
+- **C1's T-1 reading:** "what covers" is settled (Q13). What T-1 judges, and T-2's walk graph, were answered on Josh's delegation (B-Q3, B-Q5).
 - **K2's cut** (outside this ticket): its feed check must skip plant-fed jobs.
