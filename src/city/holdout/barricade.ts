@@ -13,11 +13,11 @@ import type { CityChange, CityDistrict, CityEraPiece, CityHoldoutPieceKind, City
 import { swappedOf } from "../pipeline/resolve";
 import { t1Failures, t2Failures, type ReadableOptions } from "../pipeline/readable";
 import type { StageRand } from "../pipeline/seeds";
-import { BAND_MID, CELL_M, P_BARRICADE } from "./constants";
+import { BAND_MID, CELL_M, CLEAN_GAP_M, P_BARRICADE } from "./constants";
 import { cellKey, cellOfPoint, rectAt, turned, type Rect } from "./geom";
 import { BARRICADE_KEY, KIT } from "./kit";
 import { drawsOf } from "./rng";
-import type { JunctionRing, World } from "./world";
+import { meetsFacade, type JunctionRing, type World } from "./world";
 
 type HoldoutPiece = CityEraPiece<CityHoldoutPieceKind>;
 
@@ -185,6 +185,7 @@ export function placeBarricades(world: World, rand: StageRand, base: CityResolve
     let blocked = false;
     for (const w of walls) {
       const r: Rect = rectAt(w.placement.x_m, w.placement.z_m, w.size.x_m, w.size.z_m);
+      if (meetsFacade(world, r, w.placement.y_m, w.placement.y_m + w.size.h_m, CLEAN_GAP_M)) blocked = true;
       for (const hit of world.obstacles.query(r)) {
         if (hit.tag.piece === null) blocked = true;
         else if (!removed.has(hit.tag.piece)) under.add(hit.tag.piece);

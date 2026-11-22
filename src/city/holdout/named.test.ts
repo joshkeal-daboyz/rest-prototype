@@ -8,8 +8,10 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
-import { CITY_HOLDOUT_STEP_OF, CITY_HOLDOUT_STEPS, CITY_STAGES, type CityEraPlan, type CityHoldoutLayer, type CityHoldoutPieceKind, type CityPlanStage } from "../../core";
+import { CITY_HOLDOUT_STEP_OF, CITY_HOLDOUT_STEPS, CITY_STAGES, type CityEraPlan, type CityFacadesLayer, type CityHoldoutLayer, type CityHoldoutPieceKind, type CityPlanStage } from "../../core";
 import { digestOf } from "../pipeline/digest";
+import { resolveBefore } from "../pipeline/eras";
+import { boxHit, s7Boxes } from "../tech/boxes";
 import { stageRand } from "../pipeline/seeds";
 import { BUILT_STAGES, ERA_STAGES, runCity, runCityEra } from "../stages";
 import { KIT_KEYS } from "./kit";
@@ -27,14 +29,15 @@ interface Run {
   readonly held: { readonly heldBuildings: number };
   readonly closed: { readonly settle: number; readonly barricade: number };
   readonly parks: number;
+  readonly facades: CityFacadesLayer;
 }
 
-/** What the pin test pins: the digest of the "power" and "settle" parts on each pin city, one-way on (taken 22 Nov 2026 night, on the clean city and `history` alone, with no circuit; re-taken 22 Nov 2026 once D1 merged, since the tech layer's removes now reach the plan; K2 re-takes them). The power part is the same on every city: it is empty until E1. */
+/** What the pin test pins: the digest of the "power" and "settle" parts on each pin city, one-way on (taken 22 Nov 2026 night, on the clean city and `history` alone, with no circuit; re-taken 22 Nov 2026 once D1 merged, since the tech layer's removes now reach the plan; re-taken 22 Nov 2026 once the pass kept clear of stage 7's facade pieces; K2 re-takes them). The power part is the same on every city: it is empty until E1. */
 const PIN_PARTS: Readonly<Record<number, { readonly power: string; readonly settle: string }>> = {
-  1: { power: "5aa380c8", settle: "87b76815" },
-  2: { power: "5aa380c8", settle: "849c7c3f" },
-  3: { power: "5aa380c8", settle: "733a2555" },
-  8: { power: "5aa380c8", settle: "d0be899e" },
+  1: { power: "5aa380c8", settle: "c1826ed7" },
+  2: { power: "5aa380c8", settle: "64f7ab59" },
+  3: { power: "5aa380c8", settle: "040734d8" },
+  8: { power: "5aa380c8", settle: "9b365707" },
 };
 
 const CLEAN_STAGES = CITY_STAGES.filter((s): s is CityPlanStage => s !== "assemble");
@@ -81,6 +84,7 @@ describe("the named runs (X-4, X-1, R-1)", { timeout: 900_000 }, () => {
         ms,
         held: { heldBuildings },
         closed: { settle: closedBy(stepPart(layer, "settle").adds), barricade: closedBy(stepPart(layer, "barricade").adds) },
+        facades: resolveBefore(before, "holdout").plan.layers.facades!,
         parks: (L.mass?.openings ?? []).filter((o) => o.kind === "park").length,
       });
       const p = PINNED.find((x) => x.seed === c.seed && c.way === "on");
@@ -111,6 +115,23 @@ describe("the named runs (X-4, X-1, R-1)", { timeout: 900_000 }, () => {
       expect(l.steps!.reduce((n, s) => n + s.adds, 0)).toBe(l.adds.length);
       expect(l.steps!.reduce((n, s) => n + s.changes, 0)).toBe(l.changes.length);
     }
+  });
+
+  it("no hold-out add meets a stage 7 piece (the tech pass's own boxes, read from the plan's facades layer as the era before the pass resolves it: the tech pass may have removed some): plan and height, every add on every run", () => {
+    const eps = 1e-6;
+    let checked = 0;
+    for (const r of runs) {
+      const boxes = s7Boxes({ facades: r.facades });
+      const bad: string[] = [];
+      for (const a of r.layer.adds) {
+        const rect = { x0: a.placement.x_m - a.size.x_m / 2, x1: a.placement.x_m + a.size.x_m / 2, z0: a.placement.z_m - a.size.z_m / 2, z1: a.placement.z_m + a.size.z_m / 2 };
+        const hit = boxHit(boxes, rect, a.placement.y_m + eps, a.placement.y_m + a.size.h_m - eps);
+        if (hit !== null) bad.push(`${a.id} meets stage 7 ${hit.src}`);
+        checked++;
+      }
+      expect(bad, label(r.city)).toEqual([]);
+    }
+    expect(checked).toBeGreaterThan(6000);
   });
 
   it("nothing goes where a district was left at once (held 0)", () => {

@@ -27,7 +27,7 @@ import type {
 import { CityStageError } from "../pipeline/error";
 import type { CircuitPoints } from "../pipeline/readable";
 import { CELL_M, ROOF_DECK_M, ROOF_EDGE_M } from "./constants";
-import { CLEAN_ROOF_BOUNDS } from "./kit";
+import { CLEAN_ROOF_BOUNDS, CODE_ESCAPE_D_M, CODE_ESCAPE_KEY, CODE_ESCAPE_W_M, FACADE_BOUNDS, PARTY_BOUNDS } from "./kit";
 import { cellKey, grow, rectAt, RectIndex, turned, type Rect } from "./geom";
 
 /** A piece standing on the ground: its footprint, its base and its top. */
@@ -37,6 +37,22 @@ export interface Obstacle {
   readonly top: number;
   /** The traffic piece it is, or null: a barricade removes the traffic pieces under it and keeps clear of every other obstacle. */
   readonly piece: CityTrafficPiece | null;
+}
+
+/** A stage 7 piece in plan, with the heights it fills. */
+export interface FacadeBox {
+  readonly rect: Rect;
+  readonly base: number;
+  readonly top: number;
+  /** A party-wall piece (on a wall above the lower roof across it, never over a street): only a roof item keeps clear of it. */
+  readonly party: boolean;
+}
+
+/** A point turned by a quarter yaw, as the tech pass's `rotate`. */
+function rotateQuarter(yaw: number, x: number, z: number): readonly [number, number] {
+  const q = ((Math.round(yaw / 90) % 4) + 4) % 4;
+  const n = (v: number): number => (v === 0 ? 0 : v);
+  return q === 0 ? [n(x), n(z)] : q === 1 ? [n(z), n(-x)] : q === 2 ? [n(-x), n(-z)] : [n(-z), n(x)];
 }
 
 /** A court (a block part of shape "court"): the cells a camp or water tower may use. */
@@ -126,6 +142,8 @@ export interface World {
   readonly ring: ReadonlySet<number>;
   /** Pieces standing on the ground: the ground layer's props (flat ones left out), the traffic pieces, and the tech era's ground adds. */
   readonly obstacles: RectIndex<Obstacle>;
+  /** Stage 7's facade pieces (non-glass dressing, walls with the escapes' ladder boxes, face novelty signs), each with its height range: a piece keeps 0.3 m clear of them in plan and height. */
+  readonly facadeBoxes: RectIndex<FacadeBox>;
   readonly courts: readonly Court[];
   readonly parks: readonly Park[];
   readonly squares: readonly Square[];
@@ -228,6 +246,41 @@ export function buildWorld(resolved: CityResolvedPlan, clean: CityPlan, district
     if (a.placement.y_m >= GROUND_BASE_M) continue;
     const rect = rectAt(a.placement.x_m, a.placement.z_m, a.size.x_m, a.size.z_m);
     obstacles.add(rect, { rect, base: a.placement.y_m, top: a.placement.y_m + a.size.h_m, piece: null });
+  }
+
+  // ---- stage 7's facade pieces: dressing but glass, walls (escapes with their ladder boxes, canopies, air-conditioners, planters), face novelty signs ----
+  const facadeBoxes = new RectIndex<FacadeBox>();
+  const unknown = (key: string, what: string): never => {
+    throw new CityStageError(`holdout: the ${what} key ${key} is not in the hold-out stage's copy of stage 7's bounds`);
+  };
+  const fbox = (x: number, z: number, w: number, d: number, yaw: number, y0: number, y1: number, party = false): void => {
+    const t = turned(w, d, yaw);
+    const rect = rectAt(x, z, t.x, t.z);
+    facadeBoxes.add(rect, { rect, base: y0, top: y1, party });
+  };
+  for (const p of facades.dressing ?? []) {
+    if (p.kind === "glass") continue;
+    const b = FACADE_BOUNDS[p.placement.key] ?? unknown(p.placement.key, "dressing");
+    fbox(p.placement.x_m, p.placement.z_m, b.w, b.d, p.placement.yaw_deg, p.placement.y_m, p.placement.y_m + b.h);
+  }
+  for (const p of facades.novelty ?? []) {
+    const b = CLEAN_ROOF_BOUNDS[p.placement.key] ?? unknown(p.placement.key, "novelty");
+    fbox(p.placement.x_m, p.placement.z_m, b.w, b.d, p.placement.yaw_deg, p.placement.y_m, p.placement.y_m + b.h);
+  }
+  for (const p of facades.walls ?? []) {
+    const party = p.kind === "partyBoard" || p.kind === "partyPipe" || p.kind === "partyWindow";
+    const pl = p.placement;
+    if (pl.key === CODE_ESCAPE_KEY) {
+      const top = Math.max(pl.y_m, ...p.boxes.map((bx) => pl.y_m + bx.y_m + bx.h_m / 2));
+      fbox(pl.x_m, pl.z_m, CODE_ESCAPE_W_M, CODE_ESCAPE_D_M, pl.yaw_deg, pl.y_m, top);
+      continue;
+    }
+    const b = (party ? (PARTY_BOUNDS[pl.key] ?? CLEAN_ROOF_BOUNDS[pl.key]) : FACADE_BOUNDS[pl.key]) ?? unknown(pl.key, "wall");
+    fbox(pl.x_m, pl.z_m, b.w, b.d, pl.yaw_deg, pl.y_m, pl.y_m + b.h * p.scaleY, party);
+    for (const bx of p.boxes) {
+      const c = rotateQuarter(pl.yaw_deg, bx.x_m, bx.z_m);
+      fbox(pl.x_m + c[0], pl.z_m + c[1], bx.w_m, bx.d_m, pl.yaw_deg, pl.y_m + bx.y_m - bx.h_m / 2, pl.y_m + bx.y_m + bx.h_m / 2, party);
+    }
   }
 
   // ---- courts ----
@@ -373,6 +426,7 @@ export function buildWorld(resolved: CityResolvedPlan, clean: CityPlan, district
     built,
     ring,
     obstacles,
+    facadeBoxes,
     courts,
     parks,
     squares,
@@ -395,5 +449,11 @@ export function meetsBuilding(world: World, r: Rect, m: number): boolean {
   const j0 = Math.floor(g.z0 / CELL_M);
   const j1 = Math.floor((g.z1 - 1e-9) / CELL_M);
   for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) if (world.built.has(cellKey(i, j))) return true;
+  return false;
+}
+
+/** True when a piece over [`y0`, `y1`) in plan `r` comes within `gap` of a stage 7 facade piece, in plan and in height. */
+export function meetsFacade(world: World, r: Rect, y0: number, y1: number, gap: number, roof = false): boolean {
+  for (const hit of world.facadeBoxes.query(grow(r, gap))) if ((roof || !hit.tag.party) && hit.tag.base < y1 + gap && hit.tag.top > y0 - gap) return true;
   return false;
 }

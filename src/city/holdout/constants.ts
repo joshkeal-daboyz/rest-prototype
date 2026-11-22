@@ -31,7 +31,7 @@ export const TOWER_TRIES = 48;
 /** Farm pieces tried in a park. */
 export const FARM_ATTEMPTS = 6;
 /** Positions tried for a market stall in a plaza or front lot; the one that removes the fewest props wins. */
-export const STALL_TRIES = 8;
+export const STALL_TRIES = 24;
 /** Positions tried for a clutter piece in a pavement cell. */
 export const CLUTTER_TRIES = 8;
 /** Positions tried for a roof item on a deck. */
