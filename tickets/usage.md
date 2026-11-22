@@ -330,3 +330,9 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 070 L1 | gate (main session) | - | - | - | 0 | 6a8eb65: 183 files, 4190 passed, 35 skipped |
 | 070 L1 | code-reviewer / playtester | opus / sonnet | 79K / 20K | - | 0 | meets, must-fix 0; regressions 0 |
 | 073 cut | lead-architect | opus | 203K total | - | 0 | city transformations first cut, from docs/design/073-transformations.md |
+| 073 F0 | grid-simulator | sonnet | 35K total | - | 0 | apocalypse-ruin converted: 89 models, 0 failures, scale 1, one run |
+| 073 A | lead-architect | opus | 101K total | - | 0 | era types in src/core/cityera.ts; re-cut A2, D1g, X-11 (252838b) |
+| 073 A | gate (main session) | - | - | - | 0 | 252838b: 193 files, 4391 passed, 1 failed (powerkit fitLine, also on base 45baf20) |
+| 073 A | code-reviewer / playtester | opus / sonnet | 66K / 15K | - | 0 | meets, must-fix 0; regressions 0 (merged 4a5077f) |
+| 073 D1 kit check | pipeline-designer (general-purpose with pipeline-designer.md) | opus | 95K total | - | 0 | D1 kit against the intended-use note (98762a2) |
+| 073 answers logged, B C1 D1 cut in full | lead-architect | opus | ~110K total | - | 0 | 82948fb |
