@@ -1,7 +1,7 @@
 # 074 · Asset gallery: every piece of every pack, named, measured and flagged
 
 owner: renderer (sections A, B), ui (section C)
-status: building (A only; B and C wait, see G1)
+status: A merged; B and C approved to build
 branch: `ticket/074-asset-gallery` (one branch per section: `ticket/074a-asset-catalogue`, `ticket/074b-asset-viewer`, `ticket/074c-asset-gallery-page`)
 
 ## Josh's words (22 Nov 2026, in chat, relayed by the Fable planning session)
@@ -19,6 +19,24 @@ Josh said this after he was shown the Fable session's outline: one gallery per p
   - **Q3**: nine packs, where the outline named seven.
   - **The small additions**: the triangle count, the flag filter and paging.
   - **Q4**: the missing store URLs for City, Town and SIMPLE Town.
+
+## Josh's answers (22 Nov 2026, on cards, relayed by the Fable planning session)
+The main session records them from his own message (CLAUDE.md: approval never comes from an agent's report).
+
+- **Card 1.** Asked: "Asset gallery ticket 074 is cut and matches what you approved, with these differences. It shows nine packs instead of seven (adding SIMPLE Town and the Apocalypse power pieces), and adds triangle counts, a filter by flag, and paging at 24 pieces a page to keep your PC responsive. Build it with these?" Josh:
+  > "Yes, all of them (Recommended)"
+
+  This settles Q3 (all nine packs) and the small additions (triangles, flag filter, paging at 24). **Sections B and C are approved to build**: B now, C after A and B merge.
+- **Card 2.** Asked: "The gallery links each pack to its store page, but City, Town and SIMPLE Town have no store address on file. How should those three get their links?" Josh:
+  > "You find them (Recommended)"
+
+  This settles Q4. The Fable session found them on the Synty Store's own search results (the product paths were seen there; the pages were not opened one by one):
+  - `city-pack` (POLYGON City): https://syntystore.com/products/polygon-city-pack
+  - `town-pack` (POLYGON Town): https://syntystore.com/products/polygon-town-pack
+  - `simple-town` (SIMPLE Town): https://syntystore.com/products/simple-town-cartoon-assets
+
+  Section B adds them to the catalogue's `PACK_PAGES` table (see B).
+- **Q1, Q2, Q5, Q6** were not on a card. They are taken on the Fable session's reading, the recommended answers, and Josh may reverse any of them: `/?assets=<pack-id>` as its own address (Q1); Copy copies `pack:name` (Q2); three-quarter-front thumbnails (Q5); no all-packs-by-pass view in this ticket (Q6).
 
 ## Goal
 Josh opens `npm run dev`, goes to `/?assets=<pack-id>`, and sees one gallery per pack in the converted manifest: POLYGON City, Town, Palm City, Sci-Fi City, Sci-Fi Frontier, Nature, the two Apocalypse subsets (ruin, power), and SIMPLE Town. Each piece is shown as a small rendered card with its exact name (one click copies it), its size in metres, its triangle count and its manifest flags (untextured, missing textures, scale-suspect, never used). The card also lists which passes use the piece, and shows the intended-use note where the research note has one. He can search by name, filter by use (any pass, or "unused") and by flag, and page through. Clicking a card opens it large with orbit, a 5 m module square under it, a 1.8 m person marker beside it and its +z front marked. Every pack has a link to its store page. Every state of the page has its own address, so he can paste a link to a piece into an instruction. It runs only on his machine and only in a dev build. Nothing from the packs is committed or saved.
@@ -60,6 +78,12 @@ Josh opens `npm run dev`, goes to `/?assets=<pack-id>`, and sees one gallery per
 - [ ] (Vitest, lazy) When `assets/private/out/manifest.json` exists on the machine: every key `pieceUses()` names is in the manifest (any that is not is listed in the failure message), and every `PIECE_NOTES` pattern matches at least one piece of its pack. When the file is absent, the test is skipped with a line saying so.
 
 ### B. The viewer (renderer; three; Vitest for the pure parts, Josh in the browser). After A.
+First, three fixes to A's catalogue (`src/render3d/assetcatalogue.ts`), from A's review and Josh's Card 2. Josh will instruct from this page, so the notes must be whole and must name only what they say.
+- [ ] (Vitest) `PACK_PAGES` has the three store URLs Josh's Card 2 settled, as listed under "Josh's answers": `city-pack`, `town-pack` and `simple-town`. All nine manifest packs then have a `storeUrl`.
+- [ ] (Vitest) No `PIECE_NOTES` row is shortened. Every row carries its note in full from `docs/design/073-pack-intended-use.md`: the text, its limits, and any departure with Josh's words. Tests pin the two A's review found short: `palm-city-pack:SM_Env_Vines_06` has its limits, and the sapling row has Josh's words and T-2.
+- [ ] (Vitest) Every `PIECE_NOTES` row matches only the pieces its note names. A's review found rows that match more: the roof-growth row (on every `Tree_Dead_*`), `Plant_Bush_02/03`, the mound, the sapling and the street-mouth wall rows. Each is split into rows, or its pattern narrowed, so it matches exactly the pieces the note names. A test per row runs it over a fixture of near-miss names and pins what it matches. The lazy manifest test also checks, on the real manifest, that each row matches only names in the note's named set.
+
+Then the viewer:
 `src/render3d/assetviewer.ts`, exported as `createAssetGallery(canvas, deps?)` from `src/render3d/index.ts`. It implements `AssetGallery` on A's functions. `deps` takes `fetchJson`, `loadGlb` and the folder, as `LoadDeps` does, so tests pass fakes.
 - [ ] (Vitest) `packs()` fetches `manifest.json` once. With no manifest, or one `isManifest` refuses, it resolves to `[]` and `problem()` gives one readable line. It never rejects.
 - [ ] (Vitest, fake loader) `loadPack(p)` frees the loaded pack before fetching `p`: it disposes every geometry, material and texture under the old scene and revokes every thumbnail URL. Then it fetches only `p`'s GLB. Loading the pack that is already loaded fetches nothing. Two quick switches leave only the last pack loaded. A fetch or parse failure rejects with the pack and the reason.
@@ -84,7 +108,7 @@ Josh opens `npm run dev`, goes to `/?assets=<pack-id>`, and sees one gallery per
 
   Flags are words, never colour alone.
 - [ ] (Josh, browser) The header shows a tab per pack (title, piece count, failures count; the failures are listed on click), the store link, a search box, a use filter (any, each use, unused), a flag filter (any, untextured, warnings), and "a to b of N" with previous and next. Changing any of them updates the address (`history.replaceState`) and asks for the new page's thumbnails, cancelling the old ones.
-- [ ] (Josh, browser) Each card's Copy button puts the text Q2 settles on the clipboard (`navigator.clipboard.writeText`). If the clipboard is refused, it selects the name text instead. The name is selectable as plain text.
+- [ ] (Josh, browser) Each card's Copy button puts the key `pack:name` (Q2) on the clipboard (`navigator.clipboard.writeText`). If the clipboard is refused, it selects the name text instead. The name is selectable as plain text.
 - [ ] (Josh, browser) Clicking a card, or Enter on it, opens the inspect panel: the large canvas, the name with Copy, size, flags, uses, every note in full with its images and departure, and the store link. Esc or Close shuts it, and the left and right arrows step through the page's pieces. `piece=<name>` in the address opens it directly.
 - [ ] (Josh, browser, phone-sized too) The cards wrap to the width, text is never under 14 CSS px, and every control works by keyboard.
 - [ ] (Josh, browser) With no manifest, the page shows `problem()`'s line and nothing else. In a `npm run build` + `npm run preview`, `/?assets=city-pack` shows the normal puzzle page.
@@ -92,7 +116,7 @@ Josh opens `npm run dev`, goes to `/?assets=<pack-id>`, and sees one gallery per
 ## Files
 - **Before the build (lead-architect, this cut):** `src/core/assetgallery.ts`, and its line in `src/core/index.ts`.
 - **A (renderer):** `src/render3d/assetcatalogue.ts`, `src/render3d/assetcatalogue.test.ts`. Read-only imports from `src/city/*/kit.ts`, `src/city/facades/*kit.ts` and the render3d tables named above; none of those files change.
-- **B (renderer):** `src/render3d/assetviewer.ts`, `src/render3d/assetviewer.test.ts`, `src/render3d/index.ts` (one export line).
+- **B (renderer):** `src/render3d/assetcatalogue.ts` and `src/render3d/assetcatalogue.test.ts` (the three catalogue fixes only), `src/render3d/assetviewer.ts`, `src/render3d/assetviewer.test.ts`, `src/render3d/index.ts` (one export line).
 - **C (ui):** `src/ui/assetgallery.ts`, `src/ui/assetgallerylogic.ts`, `src/ui/assetgallerylogic.test.ts`, `src/ui/assetgallery.test.ts` (the static `main.ts` check), `src/main.ts` (the dev-only branch only), `index.html` (styles only, if needed).
 - Out of scope: `src/render3d/gallery.ts`, `stackgallery.ts`, `renderer.ts`, every `src/city/` file, `tools/`, `assets/`, `docs/design/073-pack-intended-use.md` (A transcribes it and does not edit it).
 
@@ -103,6 +127,8 @@ Written into `src/core/assetgallery.ts` on this branch: `ASSET_GALLERY_USES`, `A
 - **The intended-use note is typed, not parsed.** A table keeps a test able to pin every row against the manifest. The markdown stays the source: a later change to the note is a one-row change to `PIECE_NOTES`.
 
 ## Open questions (recommended answer first)
+All six are settled; see "Josh's answers". Q3 and Q4 by his cards; Q1, Q2, Q5 and Q6 on the Fable session's reading, which Josh may reverse. Kept below as asked.
+
 1. **Address.** `/?assets=<pack-id>` on its own, with no puzzle and no `view=3d` (recommended: it is not a map). Or `?view=3d&assets=<pack-id>`, beside the other 3D dev views.
 2. **What Copy copies.** The key `pack:name`, for example `sci-fi-city-pack:SM_Prop_Powerpoll_01` (recommended: it is what every kit table and ticket uses), with the bare name still selectable. Or the bare name only.
 3. **Which packs.** Every pack in the manifest, including SIMPLE Town (the 16 Nov test pack) and `apocalypse-power` (071's subset) (recommended: the manifest is the record, and a pack nobody uses shows as all "unused"). Or only the seven the Fable session named.
