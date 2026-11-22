@@ -4,6 +4,7 @@ import type { CalibrationKey, CityEra, CityEraPiece, CityEraRun, CityPlan, CityP
 import { resolvePlan, runCity, runCityEra } from "../city/pipeline";
 import { TECH_KIT } from "../city/tech/kit";
 import { isNeverUsed } from "./citymetrics";
+import { dressKeys } from "./dressing";
 import { WORLD_PER_METRE } from "./models";
 import { PLAN_AUDIT_TECH_ALLOWED, PLAN_AUDIT_TECH_ERAS, PlanStopError, TECH_DRAW_CALLS_MAX, planAudit, planAtEra, plan3dGroups, planTechDraws } from "./plan3d";
 
@@ -89,7 +90,7 @@ describe("D1g criterion 1: the draw places every tech add once, through resolveP
       }
     }
     expect(seen).toBe(adds.length);
-    // The shopfront panels are among them, and their turn is the one D1 wrote (the face outward is D1's yaw: a +z front turned to the street).
+    // The shopfront panels are among them.
     expect(adds.some((a) => a.kind === "shopfront")).toBe(true);
     // The removed dressing is not drawn: the drawn stage 7 list is the resolved plan's, shorter than the clean one.
     const cleanDress = clean().layers.facades!.dressing!.length;
@@ -188,5 +189,37 @@ describe("D1g criterion 4: the tech group is its own draw-call cap", () => {
     expect(draw.tech!.calls).toBe(new Set(adds.map((a) => a.placement.key)).size);
     expect(draw.tech!.calls).toBeLessThanOrEqual(TECH_DRAW_CALLS_MAX);
     draw.dispose();
+  });
+});
+
+describe("D1g criterion 1: a swapped piece is drawn with its new key, a removed one not at all", () => {
+  it("one swap and one remove in a synthetic tech layer show in the drawn dressing, by key, placement and identity", () => {
+    const base = eraRun("tech");
+    if (!base.ok) throw new Error("era run failed");
+    const dressing = clean().layers.facades!.dressing!;
+    const oldKey = dressing[0]!.placement.key;
+    const newKey = dressKeys().find((k) => k !== oldKey)!;
+    const gone = dressing[1]!;
+    const layer = {
+      stage: "tech" as const,
+      adds: [],
+      changes: [
+        { ref: { list: "facades.dressing" as const, index: 0, key: oldKey }, op: "swap" as const, key: newKey },
+        { ref: { list: "facades.dressing" as const, index: 1, key: gone.placement.key }, op: "remove" as const },
+      ],
+    };
+    const run: CityEraRun = { ok: true, plan: { ...base.plan, layers: { ...base.plan.layers, tech: layer } } };
+    const r = planAtEra(clean(), "tech", run);
+    expect(r.text).toBeNull();
+    const before = clean().layers.facades!.dressing!;
+    const drawn = plan3dGroups(r.plan!, new Map(), new Map()).dressDraws.filter((d) => d.list === "dressing");
+    expect(drawn.length).toBe(before.length - 1);
+    const count = (list: readonly { placement: { key: CalibrationKey } }[], key: CalibrationKey): number => list.filter((p) => p.placement.key === key).length;
+    // The swapped piece: same placement, the new key; the old key's count drops by one, the new key's rises by one.
+    expect(drawn[0]!.placement).toEqual({ ...before[0]!.placement, key: newKey });
+    expect(count(drawn, oldKey)).toBe(count(before, oldKey) - 1 - (gone.placement.key === oldKey ? 1 : 0));
+    expect(count(drawn, newKey)).toBe(count(before, newKey) + 1 - (gone.placement.key === newKey ? 1 : 0));
+    // The removed piece, by identity: the drawn list is the clean list without it (the swapped one in its place).
+    expect(drawn.slice(1).map((d) => d.placement)).toEqual(before.slice(2).map((p) => p.placement));
   });
 });

@@ -358,7 +358,7 @@ function describe(e: unknown): string {
 let shared: Promise<ModelSet> | null = null;
 let sharedTile: Promise<ModelSet> | null = null;
 
-/** The tech pass Sci-Fi City pieces (ticket 073 D1g): loaded as dressing by the tile and plan views only (they ask for tile keys), drawn only at an era above clean. */
+/** The tech pass Sci-Fi City pieces (ticket 073 D1g): loaded as dressing by the plan view only (it asks for tile keys and sign colourways), drawn only at an era above clean. */
 const TECH_KEYS = Object.keys(TECH_BOUNDS) as CalibrationKey[];
 
 /** The real fetch and GLTFLoader, with Josh's saved fronts laid over the code's table first (dev only, ticket 045; a production build never fetches the file). */
@@ -371,7 +371,7 @@ function loadPageModels(extra: Pick<LoadDeps, "table" | "tileKeys" | "signColour
   return loadSavedCalibration({ dev: import.meta.env.DEV, fetchJson }).then((saved) => {
     const tables = effectiveFronts({ fronts: BUILDING_FRONTS, exclude: BUILDING_EXCLUDE }, saved);
     // The City Pack's stack pieces load too (ticket 050 C); with no City Pack in the manifest nothing extra is fetched and the set has no stack slot.
-    return loadModels({ fetchJson, loadGlb: async (url) => (await new GLTFLoader().loadAsync(url)).scene, loadTexture: (url) => new TextureLoader().loadAsync(url), fronts: tables.fronts, exclude: tables.exclude, stackKeys: allStackKeys(), dressKeys: [...dressKeys(), ...furnitureKeys(), ...(extra.tileKeys ? TECH_KEYS : [])], stepKeys: extra.tileKeys ? [] : [STEPS_KEY], ...extra });
+    return loadModels({ fetchJson, loadGlb: async (url) => (await new GLTFLoader().loadAsync(url)).scene, loadTexture: (url) => new TextureLoader().loadAsync(url), fronts: tables.fronts, exclude: tables.exclude, stackKeys: allStackKeys(), dressKeys: [...dressKeys(), ...furnitureKeys(), ...(extra.signColourways ? TECH_KEYS : [])], stepKeys: extra.tileKeys ? [] : [STEPS_KEY], ...extra });
   });
 }
 
