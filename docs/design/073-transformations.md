@@ -24,7 +24,8 @@ Each card's question and Josh's answer are quoted as he saw and chose them. Wher
 **What the answers settle.**
 - The breaks B1 to B10 are **Josh's (21 Nov 2026)**, each for the pass section 7 names and no wider. The clean city's stages keep every one of those rules. B11 is not broken.
 - B7 and B8 were allowed with T-1 and T-2 in the card's own words, so T-1 and T-2 are part of the answer.
-- Still open: question 6 (a job's district and feed) and question 9 (neon glowing on a relit circuit, later). Every number, and every rule in sections 4 to 6 marked "in outline", stays **Proposed** until its pre-check.
+- **Questions 6 and 9 (Josh, 21 Nov 2026, in chat, his own words): "I like all of your suggestions, make them so".** He was answering a message that listed the two as still open, each with its recommendation: "Whether a puzzle's district should be one of these history districts, with that district's makeshift plant as its feed. I recommend yes." and "Whether neon should glow on a relit circuit. I recommend a later ticket". So: a job's district is a history district by default and its feed is that district's plant; neon is dark in every era for now, and glowing on a relit circuit is a later ticket.
+- Every number, and every rule in sections 4 to 6 marked "in outline", stays **Proposed** until its pre-check.
 
 ## 1. Josh's words
 
