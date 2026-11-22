@@ -7,6 +7,8 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { stageRand } from "../pipeline/seeds";
 import { buildTraffic } from "./stage";
 import { clearOf, closestBox, closestProp, poleOf } from "./clear";
+import { parkingSigns } from "./signs";
+import { edgeInfoOf } from "./control";
 import { ARM } from "./kit";
 import { NAMED, label, layersOf, stagesOf, warm } from "./testcities";
 import { runCity } from "../stages";
@@ -23,6 +25,8 @@ describe("the traffic numbers (criterion 8; reported, not asserted)", { timeout:
     let nearestProp = { d: Infinity, run: "" };
     let nearestBox = { d: Infinity, run: "" };
     let slowest = { ms: 0, run: "" };
+    const parkTotal = { stretches: 0, signs: 0, skipped: 0, reasons: {} as Record<string, number> };
+    const park = { stretches: [Infinity, 0], signs: [Infinity, 0], skipped: [Infinity, 0] };
     for (const o of NAMED) {
       const l = layersOf(o);
       const { streets, edge, traffic } = l;
@@ -72,6 +76,21 @@ describe("the traffic numbers (criterion 8; reported, not asserted)", { timeout:
       total.over += over;
       total.notOver += notOver;
       const ctx = clearOf({ mass: l.mass, edge: l.edge, facades: l.facades, ground: l.ground });
+      // TR1b: the parking signs (stretches, signs placed, skips by reason)
+      const pk = parkingSigns(l, ctx, edgeInfoOf(edge));
+      const reasons: Record<string, number> = {};
+      for (const k of pk.skipped) {
+        add(reasons, k.reason);
+        add(parkTotal.reasons, k.reason);
+      }
+      parkTotal.stretches += pk.stretches;
+      parkTotal.signs += pk.pieces.length;
+      parkTotal.skipped += pk.skipped.length;
+      for (const [name, n] of [["stretches", pk.stretches], ["signs", pk.pieces.length], ["skipped", pk.skipped.length]] as const) {
+        park[name][0] = Math.min(park[name][0]!, n);
+        park[name][1] = Math.max(park[name][1]!, n);
+      }
+      expect(pk.pieces.length + pk.skipped.length).toBe(pk.stretches);
       let dProp = Infinity;
       let dBox = Infinity;
       for (const p of traffic.pieces) {
@@ -84,11 +103,11 @@ describe("the traffic numbers (criterion 8; reported, not asserted)", { timeout:
       buildTraffic(l, stageRand("traffic", o.seed));
       const ms = Date.now() - t0;
       if (ms > slowest.ms) slowest = { ms, run: label(o) };
-      rows.push({ run: label(o), control, pieces, headsOverOwnLane: over, headsNotOver: notOver, closestStage8Prop_m: Number(dProp.toFixed(2)), closestStage7Box_m: Number(dBox.toFixed(2)), placeMs: ms });
+      rows.push({ run: label(o), control, pieces, parking: { stretches: pk.stretches, signs: pk.pieces.length, skipped: pk.skipped.length, reasons }, headsOverOwnLane: over, headsNotOver: notOver, closestStage8Prop_m: Number(dProp.toFixed(2)), closestStage7Box_m: Number(dBox.toFixed(2)), placeMs: ms });
       expect(Number.isFinite(over + notOver)).toBe(true);
     }
     // eslint-disable-next-line no-console
-    console.log(`TRAFFIC REPORT ${JSON.stringify({ rows, total, nearestProp, nearestBox, slowest })}`);
+    console.log(`TRAFFIC REPORT ${JSON.stringify({ rows, total, nearestProp, nearestBox, slowest, parkTotal, parkRange: park })}`);
     expect(rows).toHaveLength(20);
   });
 

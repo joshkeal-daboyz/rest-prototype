@@ -5,6 +5,7 @@
 import { describe, expect, it } from "vitest";
 import type { CalibrationKey, CityJunctionTraffic, CityTrafficPiece } from "../../core";
 import { poleOf } from "./clear";
+import { bayStretches } from "./signs";
 import { trafficFailures, type TrafficInput } from "./trafficcheck";
 import { DEFAULT, inputOf, layersOf } from "./testcities";
 
@@ -27,6 +28,8 @@ const cellOf = (x: number, z: number): { i: number; j: number } => ({ i: Math.fl
 const signs = base.pieces.filter((p) => p.kind === "stopSign");
 const masts = base.pieces.filter((p) => p.kind === "signalMast");
 const arms = base.pieces.filter((p) => p.kind === "signalArm");
+const parking = base.pieces.filter((p) => p.kind === "parkingSign");
+const stretches = bayStretches(L.streets, L.edge);
 const signalJunctions = base.junctions.filter((t) => t.control === "signals");
 
 /** The first candidate whose pieces give exactly the wanted checks. */
@@ -223,10 +226,71 @@ describe("the failing fixtures (criterion 5)", { timeout: 120_000 }, () => {
     expect(checksOf(base.pieces, inp)).toEqual(["TC5 clear"]);
   });
 
+  // ---- TR1b: parking signs (TC3, TC5) ----
+  it("TR1b positive control: the default city has parking signs, one a stretch at most, and some stretches without one", () => {
+    expect(parking.length).toBeGreaterThan(20);
+    expect(parking.length).toBeLessThan(stretches.length);
+    expect(new Set(parking.map((p) => p.host)).size).toBe(parking.length);
+  });
+
+  it("TC3: a second parking sign on one stretch", () => {
+    expect(checksOf([...base.pieces, parking[0]!])).toEqual(["TC3 signs"]);
+  });
+
+  it("TC3: a parking sign at its stretch's high end (the sign moved along the stretch, its cell updated)", () => {
+    const hit = first(
+      parking,
+      (p) => {
+        const st = stretches.find((q) => q.host === p.host)!;
+        const alongX = st.along === "x";
+        const lo = (alongX ? st.cells[0]!.i : st.cells[0]!.j) * 5;
+        const hi = lo + st.cells.length * 5;
+        const d = hi - 1 - (alongX ? p.placement.x_m : p.placement.z_m);
+        const x = alongX ? p.placement.x_m + d : p.placement.x_m;
+        const z = alongX ? p.placement.z_m : p.placement.z_m + d;
+        return replace(p, { ...p, cell: cellOf(x, z), placement: { ...p.placement, x_m: x, z_m: z } });
+      },
+      ["TC3 signs"],
+    );
+    expect(hit).toBeDefined();
+  });
+
+  it("TC3: a stretch with no parking sign where nothing refuses one", () => {
+    expect(checksOf(without(parking[0]!))).toEqual(["TC3 signs"]);
+  });
+
+  it("TC3: a parking sign turned away from the walk", () => {
+    expect(checksOf(replace(parking[0]!, turnedAround(parking[0]!)))).toEqual(["TC3 signs"]);
+  });
+
+  it("TC5: a parking sign moved onto a stage 8 meter (it fails TC3 for leaving its place, and TC5 for the meter)", () => {
+    const meters = L.ground.props.filter((p) => p.kind === "meter");
+    expect(meters.length).toBeGreaterThan(0);
+    const hit = first(
+      meters.flatMap((m) => parking.map((p) => ({ m, p }))).filter(({ m, p }) => Math.hypot(m.placement.x_m - p.placement.x_m, m.placement.z_m - p.placement.z_m) < 12),
+      ({ m, p }) => replace(p, { ...p, cell: cellOf(m.placement.x_m, m.placement.z_m), placement: { ...p.placement, x_m: m.placement.x_m, z_m: m.placement.z_m } }),
+      ["TC3 signs", "TC5 clear"],
+    );
+    expect(hit).toBeDefined();
+  });
+
+  it("TC5: a stage 8 meter put at a parking sign", () => {
+    const p = parking[0]!;
+    const meter = L.ground.props.find((q) => q.kind === "meter")!;
+    const onSign = { ...meter, placement: { ...meter.placement, x_m: p.placement.x_m, z_m: p.placement.z_m }, size: { ...meter.size } };
+    const inp: TrafficInput = { ...input, ground: { props: [...L.ground.props, onSign] } };
+    expect(checksOf(base.pieces, inp)).toEqual(["TC5 clear"]);
+  });
+
   // ---- keys ----
   it("keys: a stop sign given SM_Prop_LightPole_Base_01, which is allowed for signalMast only", () => {
     const s = signs[0]!;
     expect(checksOf(replace(s, { ...s, placement: { ...s.placement, key: "city-pack:SM_Prop_LightPole_Base_01" } }))).toEqual(["keys"]);
+  });
+
+  it("keys: a parking sign given the stop sign's key", () => {
+    const p = parking[0]!;
+    expect(checksOf(replace(p, { ...p, placement: { ...p.placement, key: "city-pack:SM_Prop_Sign_Stop_01" } }))).toEqual(["keys"]);
   });
 
   it("keys: an arm given SM_Prop_LightPole_Lights_01, which is not allowed at all", () => {

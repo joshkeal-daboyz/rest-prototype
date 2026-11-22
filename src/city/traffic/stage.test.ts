@@ -67,10 +67,10 @@ describe("R-1 to R-7 for stage 9 (criterion 7)", { timeout: 120_000 }, () => {
 
   it("the digest pins (R-4): 6 x 6 seeds 1 (the default), 2, 3 and 8, one-way on; the layers before it are as their stages pin them", () => {
     const PINS: readonly (readonly [number, string])[] = [
-      [1, "33ea54e8"],
-      [2, "412eb2eb"],
-      [3, "7794112c"],
-      [8, "552cf394"],
+      [1, "1cce0a4c"],
+      [2, "11abcffd"],
+      [3, "1e045c0b"],
+      [8, "4488262f"],
     ];
     // stages 7 and 8's pins, unchanged by stage 9 (their own tests pin them as well)
     const GROUND_PINS: readonly (readonly [number, string])[] = [
@@ -154,7 +154,7 @@ describe("the picture (criterion 6, R-5)", { timeout: 120_000 }, () => {
     const { streets, traffic } = r.plan.layers;
     expect(pictureProblems(pic, streets!.w, streets!.h)).toEqual([]);
     expect(pic.stage).toBe("traffic");
-    expect(pic.legend.map((e) => e.name)).toEqual(["nothing", "signal junction", "all-way stop", "T, side street stops", "corner, no control", "signal mast", "stop sign", "signal box"]);
+    expect(pic.legend.map((e) => e.name)).toEqual(["nothing", "signal junction", "all-way stop", "T, side street stops", "corner, no control", "signal mast", "stop sign", "signal box", "parking sign"]);
     expect(pic.legend).toBe(TRAFFIC_LEGEND);
     const want = new Map<number, number>();
     const control = new Map(traffic!.junctions.map((t) => [t.junction, t.control] as const));
@@ -171,7 +171,7 @@ describe("the picture (criterion 6, R-5)", { timeout: 120_000 }, () => {
       const at = p.kind === "signalMast" ? poleOf(p) : { x: p.placement.x_m, z: p.placement.z_m };
       expect(pt).toEqual({ x_m: at.x, z_m: at.z, legend: legendOf(p) });
     });
-    expect(new Set(pic.points.map((q) => q.legend))).toEqual(new Set([5, 6, 7]));
+    expect(new Set(pic.points.map((q) => q.legend))).toEqual(new Set([5, 6, 7, 8]));
     expect(layersOf(DEFAULT).traffic).toBe(traffic);
   });
 });
