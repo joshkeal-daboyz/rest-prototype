@@ -29,7 +29,7 @@ import { circuitHit } from "./guard";
 import { CLEAN_ROOF_BOUNDS, EXCLUDED_KEYS, KIT, KIT_KEYS, holdoutBounds } from "./kit";
 import { holdoutPicture, buildHoldout, stepPart, stepParts } from "./stage";
 import { settle } from "./settle";
-import { PINNED, beforeHoldout, withHeld } from "./testcities";
+import { PINNED, acrossProblems, beforeHoldout, withHeld } from "./testcities";
 import { buildWorld, meetsBuilding, type World } from "./world";
 
 const CITY = PINNED[0]!;
@@ -388,6 +388,16 @@ describe("criterion 4: barricades (option C)", { timeout: 300_000 }, () => {
         }
       }
     }
+  });
+
+  it("every wall line lies across its street: on a street along x and on one along z, each wall long across it, the walls together spanning the carriageway", () => {
+    const r = acrossProblems(FULL, full.layer);
+    expect(r.problems).toEqual([]);
+    expect(r.xStreets).toBeGreaterThan(5);
+    expect(r.zStreets).toBeGreaterThan(5);
+    // a failing fixture: a line turned the wrong way is caught
+    const turnedWrong = { adds: full.layer.adds.map((a) => (a.kind === "barricade" ? { ...a, size: { ...a.size, x_m: a.size.z_m, z_m: a.size.x_m } } : a)) };
+    expect(acrossProblems(FULL, turnedWrong).problems.length).toBeGreaterThan(50);
   });
 
   it("a district's hashed-first mouth is always open", () => {
