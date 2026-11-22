@@ -1,7 +1,7 @@
 # 071 · Power lines and poles from the packs: one pole and wire kit for the ladder and the pipeline city
 
 owner: per section (pipeline-designer for A; renderer for B, C and E; grid-simulator for D)
-status: open. G1 given (Josh, 21 Nov 2026, in chat: "Start 071,K1&L2"). Re-cut the same day for the four packs of ticket 072. Q12 answered the same day ("Yes to all recommendations"). Q10, Q11, Q13 and Q14 answered the same day by question card: a makeshift mix of poles (Decided 041 "one pole style" changes on his word), pack wire pieces, small GLBs (D is live) and the overlay built now (E is live). Every section is live. A's pre-check is written (`docs/design/071-power-kit-precheck.md`, c1a3154 on `ticket/071a-power-kit-precheck`). Josh's picks and Q15, Q17 and Q18 answered the same day by question card; Q16 does not arise (see "Josh's picks and answers"). B and D may start; C waits for B and D.
+status: open. G1 given (Josh, 21 Nov 2026, in chat: "Start 071,K1&L2"). Re-cut the same day for the four packs of ticket 072. Q12 answered the same day ("Yes to all recommendations"). Q10, Q11, Q13 and Q14 answered the same day by question card: a makeshift mix of poles (Decided 041 "one pole style" changes on his word), pack wire pieces, small GLBs (D is live) and the overlay built now (E is live). Every section is live. A's pre-check is written (`docs/design/071-power-kit-precheck.md`, c1a3154 on `ticket/071a-power-kit-precheck`). Josh's picks and Q15, Q17 and Q18 answered the same day by question card; Q16 does not arise (see "Josh's picks and answers"). B and D may start; C waits for B and D. **Re-cut 21 Nov 2026 (the lead-architect) on Josh's ruling that the Sci-Fi City poles are roof and object poles, not ground poles** (see "The Sci-Fi City poles leave the ground mix"): the mix is three poles, D is one run, and B (built at 34880ed, not merged) drops the two Sci-Fi City poles before its review.
 branch: `ticket/071a-power-kit-precheck` (A, a design note only), `ticket/071b-power-kit` (B), `ticket/071c-ladder-pack-lines` (C), `ticket/071d-power-glbs` (D), `ticket/071e-ladder-overlay` (E)
 
 ## Josh's words (21 Nov 2026, in chat)
@@ -26,12 +26,28 @@ He also said he will look over the models in the packs himself and pick the ones
 ## Josh's picks and answers (21 Nov 2026, in chat, question cards, after the main session's picture sheet of A's shortlist, the rejected poles, the four wires and a mixed run)
 - **Picks.** Asked: "which poles go in the makeshift mix, and which wire? The recommendation is three wooden poles (Apocalypse Powerpole_01, Palm Powerpole_01 and Palm Powerpole_02) and the City Pack's Power_Cables_03 for every line." Josh, verbatim:
   > "Add the sci-fi city poles as well, the story is post apocalyptic. We will be updating this pipeline in the future to accommodate for this anyway."
-  - **The pole mix (five):** `apocalypse-power:SM_Prop_Powerpole_01`, `palm-city-pack:SM_Prop_Powerpole_01`, `palm-city-pack:SM_Prop_Powerpole_02`, `sci-fi-city-pack:SM_Prop_Powerpoll_01`, `sci-fi-city-pack:SM_Prop_Powerpoll_02`. A measured `Powerpoll_02` in full; `_01` only for contrast and triangles ("alike"). B measures `_01` the same way (B1).
+  - **The pole mix (five, as picked):** `apocalypse-power:SM_Prop_Powerpole_01`, `palm-city-pack:SM_Prop_Powerpole_01`, `palm-city-pack:SM_Prop_Powerpole_02`, `sci-fi-city-pack:SM_Prop_Powerpoll_01`, `sci-fi-city-pack:SM_Prop_Powerpoll_02`. A measured `Powerpoll_02` in full; `_01` only for contrast and triangles ("alike"). B measured `_01` the same way (B1). **Superseded the same day for the ground mix:** the two Sci-Fi City poles leave it (next section). The ground mix is the first three.
   - **The wire:** `city-pack:SM_Prop_Power_Cables_03` for every line. This pick takes it off the never-used list (C6).
-  - **D runs for `palm-city-pack` and `sci-fi-city-pack`.** Nothing is picked from Sci-Fi Frontier, so it gets no run.
-  - The Sci-Fi City poles are metal, so Decided 041's "wooden" changes (C6). Their yellow, blue and red cable bundles were on the sheet Josh saw when he picked them.
+  - **D runs for `palm-city-pack` only** (re-cut on the ruling below; it first read "`palm-city-pack` and `sci-fi-city-pack`"). Nothing is picked from Sci-Fi Frontier, so it gets no run.
+  - *(Withdrawn by the ruling below.)* The Sci-Fi City poles are metal, so Decided 041's "wooden" would have changed. With them out of the ground mix, every pole in it is wood, and "wooden" stays.
+
+## The Sci-Fi City poles leave the ground mix (Josh, 21 Nov 2026, in chat)
+> "The scifi power poles are intended to be atop buildings and other objects they are not intended to come out of the ground"
+
+- **The ground mix** (the ladder's poles and the city's street poles) is **three poles**: `apocalypse-power:SM_Prop_Powerpole_01`, `palm-city-pack:SM_Prop_Powerpole_01`, `palm-city-pack:SM_Prop_Powerpole_02`. `POWER_MIX` is these three, in this order.
+- **`sci-fi-city-pack:SM_Prop_Powerpoll_01` and `_02` are roof and object poles. They are future work, not this ticket's.** They belong to the Fable session that will plan the city's transformations: sci-fi tech integration, per-district desperate power repairs, then ruin. Josh said those will break rules. **Deferred there; not designed here.** No section of 071 places, converts or draws them.
+- **`Powerpoll_02`'s earlier answer is moot for the ground mix.** On B's finding about `_02`, the main session relayed a question card (21 Nov 2026), which Josh answered **"Accept as is (Recommended)"**. B found that `_02` has no top crossbar. Its wires seat on the 4.338 m bar, a sign box stands just in front of the centre wire, and on the ladder its outer wires sit 0.043 u beyond the line. The answer no longer applies to anything 071 builds.
+- **The measurements stay recorded, for the roof-mount future** (B's hand-back and A's note, section 2; metres, pole's own frame):
+  - **`Powerpoll_01`:** top 5.073. Arm along x. Foot offset (0.036, −0.073). Along offset 0.176. Three attachments on the top crossbar's lip at 5.021 m, across 0 and ±0.70, with no insulators. The crossbar is an angle iron 1.425 m long, a 0.02 m lip with a ledge at 4.939.
+  - **`Powerpoll_02`:** top 5.073. Arm along x. Foot (−0.06, −0.073). Along 0.176. **No top crossbar:** the widest bars are at 4.338 and 3.751, ±0.712. The wires seat on the 4.338 lip, across 0 and ±0.70, with no insulators. A 0.47 x 0.66 x 0.26 m sign box stands from 4.257 to 4.914 m, its face 0.01 m in front of the lip.
+  - **Both:** ladder scale at `POLE_HEIGHT` 0.319 u/m for `_02` on A's 5.02. Contrast 2.46 (`_02`) and 2.21 (`_01`) against `STREET`. Yellow, blue and red cable bundles. 644 (`_02`) and 1,016 (`_01`) triangles. A's estimate for a subset GLB is about 0.55 MB for `_02`.
+- **What moves with it** (the sections below are re-cut to match):
+  - **B** drops the two poles before its review (see "B's change" in B).
+  - **C** draws three poles, and the guide keeps "wooden".
+  - **D** is one run.
+  - **070** (carried on 070's own branch, not here): the city's lowest crossing is now Apocalypse at both ends, 5.20 m on 16.5 m. The 4.2 m crossing floor is still Josh's. The largest height step on a span is 2.68 m (Apocalypse beside Palm).
 - **Q15 (contrast):** "Keep them as is (Recommended)". Pack poles under 3:1 are kept. Decided 037's 3:1 bar no longer applies to the poles, because the overlay tells the parts apart. The `POLE_WOOD` test stays for the no-pack fallback.
-- **Q16 (arm wider than the wire spacing):** not asked. **It does not arise**: the two wider arms (Apocalypse, Sci-Fi City) already have their attachments within 0.015 u of the wires (A's note, sections 1 and 6).
+- **Q16 (arm wider than the wire spacing):** not asked. **It does not arise**: the two wider arms (Apocalypse, and Sci-Fi City, now out of the mix) already have their attachments within 0.015 u of the wires (A's note, sections 1 and 6).
 - **Q17 (Palm's insulators inside the wires):** "Stretch Palm across (Recommended)". On the ladder only, the Palm poles are stretched x1.37 across the arm so the outer wires land on their insulators. In the city they stand at true size.
 - **Q18 (ladder strands too thin):** "Fatten on puzzle maps (Recommended)". Ladder strands are fattened to a radius of 0.0286 u. In the city they are true size.
 
@@ -41,7 +57,7 @@ He also said he will look over the models in the packs himself and pick the ones
 - A Palm `Powerline_*` piece chains as two pieces at 1.07x on a 16.5 m crossing, not three. (No Palm piece is picked, so this only corrects the inventory.)
 - Ladder spans compress `Cables_03` to 0.29x at today's 0.254 u/m (A's floor suggestion: about 0.25x). B's floor is 0.25x, not 0.5x.
 - The arm runs along z on Apocalypse and along x on Palm and Sci-Fi City, and the insulators sit 0.05 to 0.22 m in front of the post along the run. `placePole` needs a yaw and an along offset per pole.
-- At true size, centre attachments differ by up to 3.5 m (Palm 8.54, Apocalypse 5.86, Sci-Fi City 5.02). B2's 1 m and 2 m height-step cases gain 2.7 m and 3.5 m.
+- At true size, centre attachments differ by up to 3.5 m (Palm 8.54, Apocalypse 5.86, Sci-Fi City 5.02). B2's 1 m and 2 m height-step cases gain 2.7 m and 3.5 m. *(With the Sci-Fi City poles out of the ground mix, the largest step is 2.68 m, Apocalypse beside Palm. B2's 3.5 m case stays as a margin.)*
 
 ## What changed in this re-cut (21 Nov 2026)
 - **Four more packs are converted** (ticket 072). Palm City has real utility poles and line pieces; Sci-Fi Frontier has line pieces and masts with no cross-arm (A's correction). Sci-Fi City has two short poles with a crossbar. The inventory below lists them, and A measures them alongside the Apocalypse and City Pack pieces.
@@ -109,9 +125,9 @@ The Town Pack has `SM_Prop_ElectricalCover_01` and `SM_Prop_PowerPlug_01`. Neith
   - The ladder (C) and the pipeline city (070 K3) both draw with it. Each view supplies only its scale, its spots and its spans:
     - the ladder: its `WireRun`s, each pole fitted to `POLE_HEIGHT` at its own attachment (041 Q3: poles are the scale exception);
     - the city: `CityCircuitLayer`'s spans, at `WORLD_PER_METRE`, each pole at its true size. Mixed pole heights then give spans with one end higher, which `fitLine` handles.
-- **Poles: a mix (Q10, answered "Makeshift mix (Recommended)").** A short list of poles that carry a cross-arm. Josh picks them from A's sheet, and each spot gets one by `stableHash` of the spot's id. Every puzzle line still carries three conductors on a cross-arm (Decided 041, unchanged in that part). Josh's list is five poles: Apocalypse `Powerpole_01`, Palm `Powerpole_01` and `_02`, Sci-Fi City `Powerpoll_01` and `_02` (all carry three; the Sci-Fi City ones on their top crossbar).
+- **Poles: a mix (Q10, answered "Makeshift mix (Recommended)").** A short list of poles that carry a cross-arm. Josh picks them from A's sheet, and each spot gets one by `stableHash` of the spot's id. Every puzzle line still carries three conductors on a cross-arm (Decided 041, unchanged in that part). Josh's ground list is three poles: Apocalypse `Powerpole_01`, Palm `Powerpole_01` and `_02`, all wooden, all carrying three. (He picked the Sci-Fi City `Powerpoll_01` and `_02` too, then ruled them roof and object poles: see "The Sci-Fi City poles leave the ground mix".)
   - Each pole is placed so that its measured attachment tops meet the wires. This is 042 D's pending item: the scale is set from the attachment height, not the pole's top.
-  - The code-drawn insulators are hidden at each attachment whose model has its own: all three on Palm, the outer pair on Apocalypse (its centre keeps a code insulator), none on Sci-Fi City.
+  - The code-drawn insulators are hidden at each attachment whose model has its own: all three on Palm, the outer pair on Apocalypse (its centre keeps a code insulator).
   - On the ladder the Palm poles are stretched x1.37 across the arm (Q17); in the city every pole is true size.
   - The code placeholder pole stays as the fallback when there is no pack (CI).
 - **Wires: pack single strands, three per span, one piece per line (Q11, answered "Pack wire pieces (Recommended)").** Each conductor of each span is one instance of a pack strand. It is stretched along its length to the span's chord and scaled vertically so that its lowest point meets `sagSpan`'s. All spans and conductors of one line use one piece, so a line reads as one line. Josh picked one piece, `city-pack:SM_Prop_Power_Cables_03`, for every line. On the ladder its strands are fattened to 0.0286 u (Q18); in the city they are true size.
@@ -124,7 +140,7 @@ The Town Pack has `SM_Prop_ElectricalCover_01` and `SM_Prop_PowerPlug_01`. Neith
     - the drops and cans.
   - The dead look becomes the pack strand instead of the code `whole` tube. Pack strands cast no shadow, and nothing new raycasts.
   - With no pack, today's code tubes draw, so CI and the ladder's tests see today's scene.
-- **Load (Q13 answered yes, D).** D converts only the picked models of Palm City (103 MB) and Sci-Fi City (35 MB) into small GLBs, `out/<pack>-power.glb`. Their manifest entries are `<pack>-power`, with the names unchanged, just as `apocalypse-power` is already a subset pack. `MODEL_TABLE` and the kit name those keys, never the full packs. Nothing is picked from Sci-Fi Frontier.
+- **Load (Q13 answered yes, D).** D converts only the picked models of Palm City (103 MB) into a small GLB, `out/palm-city-pack-power.glb` (Sci-Fi City's run is dropped with its poles). Its manifest entry is `palm-city-pack-power`, with the names unchanged, just as `apocalypse-power` is already a subset pack. `MODEL_TABLE` and the kit name those keys, never the full packs. Nothing is picked from Sci-Fi Frontier.
 - **The overlay on the ladder (Q14 answered yes, E).** One icon per component is drawn over each component's projected 3D position, on the ladder's 3D view, by the view itself. The glyphs come from `src/render/map-renderer.ts`, moved first into an exported module. 070 K4 reuses E's module on the city.
 
 ## Defaults (this cut takes them; Josh can overturn any)
@@ -138,7 +154,7 @@ The Town Pack has `SM_Prop_ElectricalCover_01` and `SM_Prop_PowerPlug_01`. Neith
 - **Decided 041 (guide 9):** "lines are wooden poles of one style on the pavement, each carrying three conductors on a cross-arm."
   - **Changed on Josh's word (Q10, 21 Nov 2026, in chat, question card: "Makeshift mix (Recommended)").** "Of one style" becomes the mix: a short list Josh picks from A's sheet, one per pole by a fixed hash. C rewrites the line in the guide, quoting his answer and naming his picks.
   - "Three conductors on a cross-arm" stays: it was part of the answer he chose.
-  - "Wooden": Josh picked the Sci-Fi City poles, which are metal. C rewords "wooden", quoting his pick ("Add the sci-fi city poles as well, the story is post apocalyptic. We will be updating this pipeline in the future to accommodate for this anyway.").
+  - "Wooden" **stays**. The three ground poles are all wood. The metal Sci-Fi City poles are roof and object poles, outside the ground mix (Josh, 21 Nov 2026: "The scifi power poles are intended to be atop buildings and other objects they are not intended to come out of the ground"). The earlier line here had C reword "wooden"; that is withdrawn.
 - **Default 042 Q9 (guide 9):** "conductors stay code-generated ... Pack line meshes (`*_Lines_*`, `*_Preset_*`) are never used." Josh's first words overtake this Default. C rewrites the line as Decided, quoting him and naming the pieces and the kit. `_Preset_*` (poles and lines in one mesh) stays unused, because the kit places poles and lines apart.
 - **16.6, the never-used list (Default 052), and `CITY_NEVER_USED`:**
   - Josh picked `city-pack:SM_Prop_Power_Cables_03`, so C lifts **`SM_Prop_Power_Cables_03`** off 16.6 and `CITY_NEVER_USED`. `_01` and `_02` (multi-strand, not picked) stay listed.
@@ -152,11 +168,11 @@ The Town Pack has `SM_Prop_ElectricalCover_01` and `SM_Prop_PowerPlug_01`. Neith
 ## How 071 lines up with 070 (070 is not edited here; its architect or the main session carries these)
 - **K1 (being cut now, puzzle-designer).**
   - (a) The pole slot pitch need not stay 12.5 m. The kit fits any span from `LINE_STRETCH_MIN` (0.25x) to `LINE_STRETCH_MAX` (1.25x) a piece's length, and chains above that. K1 may choose its pitch on the circuit's own grounds. The picked piece is City Pack `Cables_03`, 13.49 m: one piece up to 16.9 m.
-  - (d) At true size the mixed poles' attachments differ by up to 3.5 m (Palm 8.54 m, Apocalypse 5.86 m, Sci-Fi City 5.02 m). The lowest point on a 16.5 m crossing is still 4.4 m (A, section 2).
+  - (d) At true size the ground mix's attachments differ by up to 2.68 m (Palm 8.54 m, Apocalypse 5.86 m). The lowest point on a 16.5 m crossing is 5.20 m, with Apocalypse at both ends. *(It was 4.4 m with Sci-Fi City, before Josh's ruling of 21 Nov 2026 took those poles out of the ground mix.)*
   - (b) Q12 is answered: a city line hangs from power poles, with street lights apart as lamps (Josh, 21 Nov 2026, "Yes to all recommendations"). K1's text carries it.
   - (c) 070 Q45 is answered the same way: no corner poles; lines turn round block corners and cross streets between junctions, never over a junction. A city crossing is then about 16.5 m mid-block, not 25 to 45 m over a junction. A's item 13 and the "Long city spans" default now use K1's crossing spans (about 16.5 m until K1 gives them).
 - **The architect's `CityCircuitLayer` typing.** Each pole spot needs a stable id, because the mix rule hashes it. Its attachment height comes from the kit, not the layer: the layer gives spots and spans, and the kit gives poles and pieces.
-- **K3 (renderer).** It draws through B's kit at `WORLD_PER_METRE`, poles at true size (no Palm stretch, Q17) and strands at true thickness (Q18). It needs B and D merged (Palm City and Sci-Fi City picks). A City Pack cable is picked, so K3 needs its own R12 allowance for `SM_Prop_Power_Cables_03` as a typed table, as TR2's is (C lifts it from the list; K3's allowance names its kind).
+- **K3 (renderer).** It draws through B's kit at `WORLD_PER_METRE`, poles at true size (no Palm stretch, Q17) and strands at true thickness (Q18). It needs B and D merged (the Palm City picks). A City Pack cable is picked, so K3 needs its own R12 allowance for `SM_Prop_Power_Cables_03` as a typed table, as TR2's is (C lifts it from the list; K3's allowance names its kind).
 - **K4 (renderer).** Q14 is answered yes: E builds the overlay on the ladder, and K4 reuses `overlay.ts` and `glyphs.ts` on the plan city. K4 then adds only the city's projected positions and its `hitTest`.
 - **TR (stage 9).** Its `SM_Prop_LightPole_*` allowance covers `traffic` pieces only. With Q12 answered "power poles", no circuit allowance for line supports is needed; if K3 later picks a City Pack street light, its allowance must name different kinds. TR's digest re-pins when K types the circuit (TR's own note (a)).
 - **L2b (renderer).** It edits `models3d.ts`, the guide's chapters 18 and 19, and `styleguide.test.ts`. C edits `models3d.ts`, chapter 9, 16.6 and `styleguide.test.ts`. They share files but not lines. L2b also removes the `city=tiles-old` route from `renderer.ts`, which E edits for the overlay canvas. Whichever of C (or E) and L2b merges second rebases onto the other, and its gate runs on the rebased branch.
@@ -165,7 +181,8 @@ The Town Pack has `SM_Prop_ElectricalCover_01` and `SM_Prop_PowerPlug_01`. Neith
 **Order: A, then Josh's picks, then B and D side by side, then C, then 070 K3 and K4. E may run at any time from now.**
 - **A is the pre-check.** It starts first, after 072's texture-alias re-runs end, so that its colours and pictures are final and nothing heavy runs beside Blender. A is itself the pre-check, so B and C need no separate one.
 - **A is done** (its note, c1a3154; the main session merges it into `goal/city-style`). Josh's picks are in. **B and D may start now**, side by side.
-- **D** is live (Q13 answered yes). It runs for `palm-city-pack` and `sci-fi-city-pack` (Josh's picks); Sci-Fi Frontier gets no run. It shares no file with B.
+- **D** is live (Q13 answered yes). It runs for `palm-city-pack` only: the Sci-Fi City poles left the ground mix (Josh, 21 Nov 2026), and Sci-Fi Frontier gets no run. It shares no file with B.
+- **B is built (34880ed, not merged) and must change before review** (see "B's change" in B).
 - **E** needs no pre-check, because it adds a view element, not a city rule or number. Josh checks the icons in the browser. It does not wait for A, and it shares no file with B, C or D.
 - **C** waits for B and D (both large-pack picks need D's GLBs).
 
@@ -212,14 +229,30 @@ Each picture is titled with its key. The pictures go in the scratchpad, the note
 **Goal.** One pure module says how each picked pole stands, which pole stands at which spot, and how each picked line piece hangs between any two attachment points. The ladder and the pipeline city draw from the same tables.
 
 **Acceptance criteria (Vitest, new `src/render3d/powerkit.test.ts`).**
-1. [ ] **Measured tables.** `POWER_POLES` holds exactly the five picked poles and `POWER_LINES` exactly `city-pack:SM_Prop_Power_Cables_03`, keyed `pack:name`, typed in, in metres, from A's note (sections 2 and 3). The fields are the ones A measured:
-   - poles: top height; the three wire attachments (across, up, and whether each has its own insulator: Apocalypse's centre has none, Sci-Fi City's three have none, Palm's have their own); the arm axis (z for Apocalypse, x for Palm and Sci-Fi City); the along offset of the attachments from the post (0.05 to 0.22 m);
+**B's change (re-cut 21 Nov 2026, on Josh's ruling: "The scifi power poles are intended to be atop buildings and other objects they are not intended to come out of the ground").** B is built at 34880ed on `ticket/071b-power-kit` and not merged. Before its review, on the same branch, in `powerkit.ts` and `powerkit.test.ts` only:
+- **`powerkit.ts`:**
+  - `POWER_MIX` loses `sci-fi-city-pack:SM_Prop_Powerpoll_01` and `_02`. It is the three ground poles, in this order: Apocalypse `Powerpole_01`, Palm `Powerpole_01`, Palm `Powerpole_02`.
+  - `POWER_POLES` loses both entries, so criterion 1 ("exactly the picked poles") still holds. Their numbers are kept in this ticket ("The Sci-Fi City poles leave the ground mix"), not in code.
+  - The comments that say "five" or name Sci-Fi City (the frame comment, `POWER_POLES`' and `POWER_MIX`'s) say three.
+- **`powerkit.test.ts`:**
+  - The tables test expects the three keys.
+  - The two `own("sci-fi-city-pack:...")` lines go.
+  - The ladder-outer test loses its `Powerpoll_02` skip and its `ladderAcross("sci-fi-city-pack:SM_Prop_Powerpoll_01")` line.
+  - The test "Sci-Fi City _02 stands its outer wires about 0.04 u beyond the line" goes.
+  - The GLB re-measure's `have` list drops `"sci-fi-city-pack"`.
+  - The mix's share test compares each share with `1 / POWER_MIX.length` (1/3), not 0.2, within 0.05.
+  - The neighbour tests are unchanged: they hold for any list of two or more.
+- **`LADDER_LINE_SCALE` stays 0.254 u/m.** It was never the Sci-Fi City pole's 0.319. It is 1.6 / 6.303, today's ladder pole scale, and it lies inside the three ground poles' 0.187 to 0.273. The ladder's stretch stays 0.29x to 0.88x with no chain, so its test is unchanged.
+- **Nothing else moves.** Criteria 2 to 7 hold as written. B2's 3.5 m height-step case stays as a margin over the mix's 2.68 m. The builder runs B's two commands again and hands back the new test count.
+
+1. [ ] **Measured tables.** `POWER_POLES` holds exactly the three ground poles of the mix and `POWER_LINES` exactly `city-pack:SM_Prop_Power_Cables_03`, keyed `pack:name`, typed in, in metres, from A's note (sections 2 and 3). The fields are the ones A measured:
+   - poles: top height; the three wire attachments (across, up, and whether each has its own insulator: Apocalypse's centre has none, Palm's have their own); the arm axis (z for Apocalypse, x for Palm); the along offset of the attachments from the post (0.05 to 0.22 m);
    - the line: length, conductor count, end points, sag fraction and radius.
-   - **`sci-fi-city-pack:SM_Prop_Powerpoll_01` was not measured in full by A** ("`_01` alike"). The builder measures it from the GLB the same way, outside the repo, before typing it in, and gives its numbers in the hand-back. If its top crossbar cannot carry three wires, the builder stops and reports (a re-cut, and a question for Josh).
+   - *(Done, then withdrawn by the ruling.)* The builder measured `sci-fi-city-pack:SM_Prop_Powerpoll_01` from the GLB, as asked. Its numbers are recorded above for the roof-mount future.
    - Inside `it.skipIf(!have)`, each is re-measured lazily from its GLB, within 0.02 m (0.005 m for the radius).
 2. [ ] **A span is fitted.** For any `a` and `b`, `fitLine(piece, a, b, sagRatio, scale, radius?)` gives a transform. Its ends land on `a` and `b` within 0.01 m. Its lowest point lands on `sagSpan`'s within A's residual (0.019 m for `Cables_03`) plus 0.01 m. The cases:
    - level spans of `LINE_STRETCH_MIN` (0.25x), 1x and `LINE_STRETCH_MAX` (1.25x) the piece's length. The floor is 0.25x, not 0.5x: ladder spans compress `Cables_03` to 0.29x at `LADDER_LINE_SCALE` (A, section 4);
-   - spans with one end 1 m, 2 m, 2.7 m and 3.5 m higher (mixed true-size poles in the city: Apocalypse beside Palm is 2.7 m, Sci-Fi City beside Palm 3.5 m);
+   - spans with one end 1 m, 2 m, 2.7 m and 3.5 m higher (mixed true-size poles in the city: Apocalypse beside Palm is 2.7 m; 3.5 m was Sci-Fi City beside Palm and stays as a margin);
    - a span along each axis, and a diagonal.
    - **Radius (Q18, answered "Fatten on puzzle maps").** With `radius` given, the fitted cross-section radius is that value within 0.0005 units; the ladder passes `LADDER_STRAND_RADIUS` = 0.0286 u. Without it, the radius is the piece's true radius x `scale` (the city).
    - **The ladder's length scale** is one constant, `LADDER_LINE_SCALE` = 0.254 u/m (today's pole scale), for every line whatever poles it hangs from, so the stretch on the ladder runs 0.29x to 0.88x and never chains.
@@ -228,8 +261,8 @@ Each picture is titled with its key. The pictures go in the scratchpad, the note
    - Its measured centre attachment is at `attachY` above the spot within 0.01 m, and on the run's line within 0.01 m (the along offset and the pole's yaw from its arm axis are applied).
    - Its arm runs across the run within 0.5 degrees.
    - **Palm across stretch (Q17, answered "Stretch Palm across").** `across` is a factor along the arm only; the ladder passes `PALM_ACROSS_STRETCH` = 1.37 for the two Palm poles and 1 for the rest, and the city passes 1 for all. With it, each outer attachment of every picked pole is at `±PHASE_OFFSET` within 0.01 u on the ladder. (Palm `_02`'s crooked arm: its ends' 0.06 u height difference is within its own tolerance, asserted from the table.)
-   - Q16 does not arise (Apocalypse and Sci-Fi City are within 0.015 u of the wires); no wire-spacing change.
-5. [ ] **The mix (Q10, answered: a mix; picks of 21 Nov 2026).** `poleAt(list, spotId)` is a pure function of the list and the id, through `stableHash`: the same id always gives the same pole. `POWER_MIX` is the five picked keys.
+   - Q16 does not arise (Apocalypse is within 0.015 u of the wires); no wire-spacing change.
+5. [ ] **The mix (Q10, answered: a mix; picks of 21 Nov 2026, the Sci-Fi City poles out by his ruling the same day).** `poleAt(list, spotId)` is a pure function of the list and the id, through `stableHash`: the same id always gives the same pole. `POWER_MIX` is the three ground poles.
    - Over 1,000 ids, each listed pole's share is within 0.05 of an even share.
    - Over the ladder's maps, no two neighbouring spots on one run share a pole when the list has two or more (or the rule Josh gives in Q10).
    - With a one-pole list it returns that pole everywhere.
@@ -241,7 +274,7 @@ Each picture is titled with its key. The pictures go in the scratchpad, the note
 **Tests the builder runs:** `npx vitest run --maxWorkers=2 src/render3d/powerkit.test.ts` and one `npx tsc --noEmit`.
 
 ### C · The ladder drawn with the kit (renderer; after B and D). Branch `ticket/071c-ladder-pack-lines`
-**Goal.** Josh opens any ladder map at `?puzzle=<id>&view=3d` with the packs present. The poles are his five picks, mixed (Q10), the Palm ones stretched across so the wires land on their insulators (Q17), and the dead wires are `Cables_03` strands fattened to 0.0286 u (Q18). Live wires, the Relight and a cut cable look and play exactly as today.
+**Goal.** Josh opens any ladder map at `?puzzle=<id>&view=3d` with the packs present. The poles are his three ground picks, mixed (Q10), the Palm ones stretched across so the wires land on their insulators (Q17), and the dead wires are `Cables_03` strands fattened to 0.0286 u (Q18). Live wires, the Relight and a cut cable look and play exactly as today.
 
 **Acceptance criteria.**
 1. [ ] **Pack wires when the pack is there (Vitest, `scene.test.ts` or a new `packlines.test.ts`).**
@@ -256,13 +289,13 @@ Each picture is titled with its key. The pictures go in the scratchpad, the note
    - The live overlay is drawn over the pack piece: its radius (0.0336 u) is at least the piece's fitted radius (`LADDER_STRAND_RADIUS`, 0.0286 u) plus 0.005 units.
    - If an existing test asserts `whole.visible` on a dead wire, the builder stops and reports. That is a re-cut, not an edit to the test.
 4. [ ] **The poles (Vitest).** `applyModels` places each spot's `poleAt` pick through `placePole`, so each centre attachment is at `POLE_HEIGHT` and each outer one at `±PHASE_OFFSET` within 0.01 u. Palm poles get `PALM_ACROSS_STRETCH`; the others 1.
-   - Code insulators are hidden at each attachment that carries its own, and stay at each one that does not: on Apocalypse `Powerpole_01` the centre keeps its code insulator; on the Sci-Fi City poles all three stay; on the Palm poles all three are hidden.
+   - Code insulators are hidden at each attachment that carries its own, and stay at each one that does not: on Apocalypse `Powerpole_01` the centre keeps its code insulator; on the Palm poles all three are hidden.
    - With a fake model set missing one listed pole, that pole is dropped from the list with one `info` line. The other poles do not fall back to code.
-5. [ ] **The model table (Vitest, `models.test.ts`).** `MODEL_TABLE` names the picks by `pack:name`: the Palm poles as `palm-city-pack-power:`, the Sci-Fi City poles as `sci-fi-city-pack-power:`, the wire as `city-pack:SM_Prop_Power_Cables_03`. No slot names `palm-city-pack`, `sci-fi-city-pack` or `sci-fi-frontier-pack`.
+5. [ ] **The model table (Vitest, `models.test.ts`).** `MODEL_TABLE` names the picks by `pack:name`: the Palm poles as `palm-city-pack-power:`, the wire as `city-pack:SM_Prop_Power_Cables_03`. No slot names `palm-city-pack`, `sci-fi-city-pack` or `sci-fi-frontier-pack`.
    - **The ladder must already load `city-pack.glb`** (A thinks it does, for its City Pack stack buildings, but did not confirm). The builder confirms it first. If the ladder does not load it, the wire adds 23 MB to every ladder page: the builder stops and reports, and the architect re-cuts D to add a `city-pack-power` subset.
 6. [ ] **The guide (Vitest `styleguide.test.ts`; the reviewer reads the diff).**
    - Guide chapter 9: the 042 Q9 Default line becomes Josh's words of 21 Nov 2026 as **Decided**, naming the pieces and the kit.
-   - Decided 041's "of one style" changes to the mix, quoting Josh's Q10 answer ("Makeshift mix (Recommended)", 21 Nov 2026, in chat, question card) and his picks ("Add the sci-fi city poles as well, the story is post apocalyptic. We will be updating this pipeline in the future to accommodate for this anyway."), and naming the five poles. "Three conductors on a cross-arm" stays. "Wooden" goes: the Sci-Fi City poles are metal.
+   - Decided 041's "of one style" changes to the mix, quoting Josh's Q10 answer ("Makeshift mix (Recommended)", 21 Nov 2026, in chat, question card) and naming the three ground poles. "Three conductors on a cross-arm" stays. "Wooden" stays: all three are wood. The Sci-Fi City poles are not in the line. Josh ruled them roof and object poles, for later ("The scifi power poles are intended to be atop buildings and other objects they are not intended to come out of the ground", 21 Nov 2026).
    - Decided 037's pole line (3:1 against the street) is rewritten for pack poles, quoting Josh's Q15 answer ("Keep them as is (Recommended)"): the overlay tells the parts apart. The `POLE_WOOD` 3:1 test stays for the fallback.
    - Chapter 9 records Q17 ("Stretch Palm across (Recommended)": Palm x1.37 across the arm, ladder only) and Q18 ("Fatten on puzzle maps (Recommended)": ladder strands 0.0286 u, true size in the city) as Decided, with his words.
    - 16.6 and `CITY_NEVER_USED` lose `SM_Prop_Power_Cables_03` (Josh's wire pick). `_01` and `_02` stay listed.
@@ -276,8 +309,9 @@ Each picture is titled with its key. The pictures go in the scratchpad, the note
    - the Relight still runs down the wires;
    - the cut still hangs and sparks;
    - a click on any conductor still picks the line;
-   - the Palm poles' insulators sit on the outer wires, and the Sci-Fi City poles' coloured bundles do not read as a component's state;
-   - the page loads neither `palm-city-pack.glb` nor `sci-fi-city-pack.glb`, only their `-power` subsets (check the network panel).
+   - the Palm poles' insulators sit on the outer wires;
+   - no Sci-Fi City pole stands on the ladder;
+   - the page does not load `palm-city-pack.glb`, only `palm-city-pack-power` (check the network panel), and loads nothing from `sci-fi-city-pack`.
 8. [ ] **The playtester:** `npm run playtest` shows no ladder change (no grid file is touched).
 
 **Files.**
@@ -296,11 +330,10 @@ Each picture is titled with its key. The pictures go in the scratchpad, the note
 **Tests the builder runs:** `npx vitest run --maxWorkers=2 src/render3d/scene.test.ts src/render3d/live.test.ts src/render3d/relight3d.test.ts src/render3d/pick.test.ts src/render3d/models.test.ts src/render3d/styleguide.test.ts`, plus its new test file, and one `npx tsc --noEmit`.
 
 ### D · Small power GLBs (grid-simulator; Q13 answered yes). Branch `ticket/071d-power-glbs`
-**Goal.** Each large pack Josh picked from has its own `out/<pack>-power.glb`, a few MB at most. That is two runs (Josh's picks, 21 Nov 2026):
-- `palm-city-pack-power`: `SM_Prop_Powerpole_01`, `SM_Prop_Powerpole_02` (A estimates about 2.5 MB, against 103 MB);
-- `sci-fi-city-pack-power`: `SM_Prop_Powerpoll_01`, `SM_Prop_Powerpoll_02` (A estimates about 0.55 MB for `_02`; `_01` adds a little; against 35 MB).
+**Goal.** Each large pack the ground mix draws from has its own `out/<pack>-power.glb`, a few MB at most. That is one run (Josh's picks, 21 Nov 2026, less the Sci-Fi City poles by his ruling the same day):
+- `palm-city-pack-power`: `SM_Prop_Powerpole_01`, `SM_Prop_Powerpole_02` (A estimates about 2.5 MB, against 103 MB).
 
-Sci-Fi Frontier gets no run: nothing is picked from it. Each subset GLB holds only the picked models, with the same names, metre scale and textures as the full pack. `manifest.json` lists it as pack `<pack>-power`. The full pack's GLB and every existing manifest entry are unchanged.
+No `sci-fi-city-pack-power` subset is made now. The Sci-Fi City poles are roof and object poles ("The scifi power poles are intended to be atop buildings and other objects they are not intended to come out of the ground"), deferred to the session that plans the city's transformations, which makes its own subset if it uses them. Sci-Fi Frontier gets no run: nothing is picked from it. Each subset GLB holds only the picked models, with the same names, metre scale and textures as the full pack. `manifest.json` lists it as pack `<pack>-power`. The full pack's GLB and every existing manifest entry are unchanged.
 
 **Acceptance criteria.**
 1. [ ] **The settings (Vitest, `convert.test.ts`).** A pack folder's `pack.json` may name a source pack and an `"include"` list of FBX stems. For example, `in/palm-city-power/pack.json` = `{ "from": "palm-city-pack", "include": ["SM_Prop_Powerpole_01", ...], "textures": "SourceFiles/Textures" }`. Paths resolve inside the source pack.
@@ -308,7 +341,7 @@ Sci-Fi Frontier gets no run: nothing is picked from it. Each subset GLB holds on
    - The builder may choose a different mechanism if it keeps these checks and needs no new dependency. A mechanism that would need one is a re-cut.
 2. [ ] **Nothing else changes (Vitest).** Without `from` and `include`, the arguments and behaviour are as today, and the existing `tools/assets` tests pass unchanged.
 3. [ ] **The selftest (one Blender run).** The selftest fixture gains an included pack. `checkSelftest` fails if a model outside `include` reaches its GLB.
-4. [ ] **The runs (the builder; one pack at a time, as in 072).** Back up the manifest first. Then run `npm run assets:convert -- palm-city-pack-power`, and after it `npm run assets:convert -- sci-fi-city-pack-power`.
+4. [ ] **The runs (the builder; one pack at a time, as in 072).** Back up the manifest first. Then run `npm run assets:convert -- palm-city-pack-power` (one run).
    - Afterwards, each existing entry is identical to its backup, and the full packs' GLBs keep their modified times.
    - The hand-back gives each new GLB's size and its model list, with each model's bounds equal to the full pack's within 0.001 m.
 
@@ -358,7 +391,7 @@ Out of scope: `src/`, and every other pack's files.
 - `powerkit.ts` (B; the builder may rename):
   - `POWER_POLES: Record<PackKey, { height_m; armAxis: "x" | "z"; attach_m: { along: number; across: number; up: number; ownInsulator: boolean }[] }>` (three wire attachments, centre first; insulators are per attachment, not per pole, because Apocalypse's centre has none);
   - `POWER_LINES: Record<PackKey, { length_m; conductors: number; spacing_m; radius_m; sag: number; ends: ... }>`;
-  - `POWER_MIX` (the five picked pole keys), `POWER_LINE` (`city-pack:SM_Prop_Power_Cables_03`);
+  - `POWER_MIX` (the three ground pole keys; the Sci-Fi City poles left it, Josh, 21 Nov 2026), `POWER_LINE` (`city-pack:SM_Prop_Power_Cables_03`);
   - `LINE_STRETCH_MIN` (0.25), `LINE_STRETCH_MAX` (1.25), `LADDER_LINE_SCALE` (0.254 u/m), `LADDER_STRAND_RADIUS` (0.0286 u, Q18), `PALM_ACROSS_STRETCH` (1.37, Q17);
   - `fitLine(piece, a, b, sagRatio, scale, radius?)`, `placePole(pole, spot, runDir, attachY, scale, across?)`, `poleAt(list, spotId)`, `lineOf(list, lineId)`.
 - `overlay.ts` (E): `overlayIcons(puzzle, state, project): OverlayIcon[]` and `OVERLAY_NUDGE`. `glyphs.ts` (E): the glyph functions.
@@ -381,6 +414,6 @@ From A's note (`docs/design/071-power-kit-precheck.md`, section 6):
 17. **Palm's outer insulators sit inside the wires on the ladder (±0.16 u against ±0.22 u). Stretch, leave the gap, or drop Palm from the ladder?** **Answered, Josh, 21 Nov 2026, in chat (question card): "Stretch Palm across (Recommended)".** x1.37 across the arm, ladder only (B4, C4).
 18. **A true-thickness pack strand is under 1 px on the ladder. Fatten, or keep true size?** **Answered, Josh, 21 Nov 2026, in chat (question card): "Fatten on puzzle maps (Recommended)".** Ladder strands 0.0286 u; true size in the city (B2, C3).
 
-**Picks** (asked with these cards): five poles and `Cables_03`; see "Josh's picks and answers".
+**Picks** (asked with these cards): five poles and `Cables_03`; see "Josh's picks and answers". The ground mix is three of them, by his ruling on the Sci-Fi City poles (21 Nov 2026). **`Powerpoll_02`'s card** ("Accept as is (Recommended)", 21 Nov 2026) is moot for the ground mix; its measurements stay recorded for the roof-mount future.
 
 The component model table (feed, breaker, switch, fuse box, junction, battery, lamp) stays open until Josh has looked over the packs. It is not part of this ticket.
