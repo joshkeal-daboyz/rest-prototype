@@ -808,7 +808,8 @@ describe("isolation from the town", () => {
     expect(text.indexOf("createGalleryRenderer3d(")).toBeGreaterThan(-1);
     expect(text.indexOf("createGalleryRenderer3d(")).toBeLessThan(text.indexOf("buildScene(puzzle"));
     // main.ts and the 2D renderer know nothing of it.
-    for (const f of ["src/main.ts", "src/render/index.ts"]) expect(/gallery/i.test(readFileSync(f, "utf8")), f).toBe(false);
+    // Narrowed to the building gallery's own names: the dev-only asset gallery (ticket 074) has a branch in main.ts, and that is a different page that this test says nothing about.
+    for (const f of ["src/main.ts", "src/render/index.ts"]) expect(/galleryRequested|galleryPageRequested|stackGalleryRequested|createGalleryRenderer3d|createGalleryRig|from "[^"]*render3d.gallery"|[?&]gallery=/.test(readFileSync(f, "utf8")), f).toBe(false);
   });
 
   it("is never imported by the scene, the town or the models: nothing in the play path reaches it", () => {
