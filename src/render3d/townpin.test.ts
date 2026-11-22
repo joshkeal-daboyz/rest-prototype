@@ -79,6 +79,8 @@ const PINS: Readonly<Record<string, readonly [string, string]>> = {
   "63-keep-the-wire.json": ["167fe79bc01f8a3fe716", "3b094dc2c4f2c163d5d9"],
   "64-the-whole-chain.json": ["4e7331e1d70c9862586e", "cb0b764c4041b870ef2b"],
   "lamp-row.grid.json": ["abad7fb394c9ce46dc6a", "ae50ba2d4d11291f5e07"],
+  // Taken at K1's tip (56bdec6, on the map of 4c46da7), not on 2f7a0bf; it pins today's layout.
+  "city-two-ways-round.json": ["8214ecfde10505394254", "03731a8c8c18f6ce58cb"],
 };
 
 const digest = (t: unknown): string => createHash("sha256").update(JSON.stringify(t)).digest("hex").slice(0, 20);
