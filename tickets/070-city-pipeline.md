@@ -2665,7 +2665,7 @@ If a deletion needs one of these, stop and report: that is a re-cut.
 - **Numbers** (Josh's, Q43; in `src/city/traffic/constants.ts`, each with a one-line comment quoting the answer): `SIGN_KERB_M` 0.5 (stage 8's own kerb line, `FURN_KERB_M`), `SIGN_CORNER_M` 1.0, `MAST_INSET_M` 0.75, `SIGNAL_HEAD_MIN_M` 4.6 (the US 15 ft clearance under a head). `FURN_GAP_M` and `FURN_KEEP_M` are ground's and are copied with a pin equal, not changed.
 
 **Acceptance criteria:**
-0. [ ] **The architect's part.** Done: `CityJunctionControl`, `CityApproachControl`, `CityApproach`, `CityJunctionTraffic`, `CityTrafficPieceKind`, `CityTrafficPiece` and `CityTrafficLayer` in `src/core/cityplan.ts`, standalone, re-cut 21 Nov 2026 on Josh's answers (seven piece kinds; no "giveWay" control). On TR1's branch before the builder starts: "traffic" goes into `CITY_STAGES` between "ground" and "assemble", and `traffic: CityTrafficLayer` into `CityLayers`; then one `npx tsc --noEmit` and `npx vitest run --maxWorkers=2 src/city/pipeline/ src/render3d/planview.test.ts`, both passing.
+0. [ ] **The architect's part.** Done: `CityJunctionControl`, `CityApproachControl`, `CityApproach`, `CityJunctionTraffic`, `CityTrafficPieceKind`, `CityTrafficPiece` and `CityTrafficLayer` in `src/core/cityplan.ts`, standalone, re-cut 21 Nov 2026 on Josh's answers (seven piece kinds; no "giveWay" control). On TR1's branch before the builder starts: "traffic" goes into `CITY_STAGES` between "ground" and "assemble", and `traffic: CityTrafficLayer` into `CityLayers`; then one `npx tsc --noEmit` and `npx vitest run --maxWorkers=2 src/city/pipeline/ src/render3d/planview.test.ts`. Done at 6956157: tsc passes and 60 of 61 tests pass. The one failure is `planview.test.ts`' "not a plan stage" example `"9"`, which is now stage 9 (`traffic`). It fails until the builder's one-line change in criterion 7 (re-cut 21 Nov 2026).
 1. [ ] **The kit** (R-6). A new `kit.ts`: TR1's six keys (the five signal keys and `SM_Prop_Sign_Stop_01`) with their bounds, kinds and typed fix points (the arm's clamp on `Base_01`'s upper collar, the heads' lowest point on the arm, the walk heads, the button, the box), the mast's `foot`, every front +z. A new `facadebounds.ts`: the stage 7 bounds CL reads, a copy pinned equal to ground's. A new `src/render3d/trafficpin.test.ts`:
    - **Always (no GLB):** each bound and fix point equals a typed fixture. Every kit key that `isNeverUsed` names is in the kit's `TRAFFIC_ALLOWED` list, which holds exactly Q33's five keys, and no other key is. `facadebounds.ts` equals ground's copy key by key. The four numbers equal Q43's.
    - **Inside `it.skipIf(!HAVE_GLB)`, read lazily:** every bound equals the converted GLB's within 0.005 m; the arm's two heads lie 4.26 m and 6.0 m from its clamp's pole axis within 0.05 m.
@@ -2702,21 +2702,24 @@ If a deletion needs one of these, stop and report: that is a re-cut.
    - **R-7:** 6 x 6 seed 1 ends `ok`. The stage reads only the plan, `circuit` included, and the grep tests hold: no file of `src/city/traffic/` imports another stage folder, `src/render*/`, three or the DOM, or reads `bi`, `bj` or a street's `line`.
    - **The other folders' lines** (the only edits outside the folder):
      - `src/city/facades/stage.test.ts` and `src/city/ground/stage.test.ts`: their `BUILT_STAGES` names assertion gains `"traffic"` (those lines only);
-     - `src/city/ground/testcities.ts`: `stagesOf` stops at ground (that function only), so every ground test runs exactly the stages it ran before TR1.
+     - `src/city/ground/testcities.ts`: `stagesOf` stops at ground (that function only), so every ground test runs exactly the stages it ran before TR1;
+     - `src/render3d/planview.test.ts`: the not-a-plan-stage example `"9"` becomes `"10"` (that literal only; stage 9 is now `traffic`. Re-cut 21 Nov 2026, after criterion 0);
+     - `src/city/facades/stage.test.ts`, also: one `afterEach(() => new Promise<void>((r) => setTimeout(r, 0)))` and `afterEach` added to its vitest import (that line and that import only). The file's back-to-back synchronous tests ran about 60 s with no macrotask turn, so under TR1's added load the worker missed vitest's 60 s `onTaskUpdate` reply ("Timeout calling \"onTaskUpdate\"", an unhandled error at the gate with every test passing). The yield changes no check, timeout or config (re-cut 21 Nov 2026, after the gate).
    - Every edge, facades, ground and pipeline test passes as merged.
 8. [ ] **The numbers** (reported, not asserted; `report.test.ts`).
    - Per named run, junctions by control and kind, the pieces by kind, the approaches whose heads hang over their own inbound lane and those that do not (the pre-check: 442 and 442), and the closest clearance to stage 7 and to stage 8 with its run.
    - The time per city.
    - **Outside cities**, best effort and report only: each `ok` or its failure named. No test asserts them.
 9. [ ] (Main session, a phone-sized screenshot.) `?city=plan&stage=traffic` on 6 x 6 seed 1 shows the junction colours and the points. `?view=3d&city=plan&stage=assemble` looks as it does on `goal/city-style`, because TR2 draws the pieces.
-10. [ ] R-8 to R-11. **The builder runs only:** `npx vitest run --maxWorkers=2 src/city/traffic/ src/city/facades/stage.test.ts src/city/ground/stage.test.ts src/city/pipeline/run.test.ts src/render3d/trafficpin.test.ts`, and one `npx tsc --noEmit`. The main session's gate is the full `npm run gate`.
+10. [ ] R-8 to R-11. **The builder runs only:** `npx vitest run --maxWorkers=2 src/city/traffic/ src/city/facades/stage.test.ts src/city/ground/stage.test.ts src/city/pipeline/run.test.ts src/render3d/trafficpin.test.ts src/render3d/planview.test.ts`, and one `npx tsc --noEmit`. The main session's gate is the full `npm run gate`.
 
 - **Files:**
   - new `src/city/traffic/`: `constants.ts`, `kit.ts`, `facadebounds.ts`, `hash.ts`, `control.ts`, `signals.ts`, `signs.ts`, `clear.ts`, `trafficcheck.ts`, `stage.ts`, `index.ts`, `testcities.ts`, and the tests named above;
   - `src/city/stages.ts` (one line);
-  - the three test lines of criterion 7;
-  - new `src/render3d/trafficpin.test.ts`.
-- **Must not:** `src/core/` (criterion 0 is the architect's); every other `src/city/` folder but the lines above; `src/render3d/` but the new pin test; `docs/`. Stage 9 reads earlier layers, never their code.
+  - the test lines of criterion 7, including `src/city/facades/stage.test.ts`' `afterEach` yield and its import;
+  - new `src/render3d/trafficpin.test.ts`;
+  - `src/render3d/planview.test.ts` (criterion 7's one literal).
+- **Must not:** `src/core/` (criterion 0 is the architect's); every other `src/city/` folder but the lines above (in `src/city/facades/stage.test.ts`, the stage-list line, the `afterEach` yield and its import only); `src/render3d/` but the new pin test and `planview.test.ts`' one literal; `docs/`. Stage 9 reads earlier layers, never their code.
 - **Interfaces:** criterion 0, written. TR2 reads `traffic.pieces` (`placement`, `kind`, `grounded`). No new dependency.
 - **Rules and numbers:** DS, IN, SJ, AS, T, C, MA, ST and CL, and the four numbers, are Josh's (Q36 to Q43). The five never-used keys are his lift (Q33).
 - **Heavy:** the named-run tests build each named city once through `testcities.ts`' module cache (through ground, then traffic), with a 120 s timeout. The report has its own file.
