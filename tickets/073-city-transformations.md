@@ -2,9 +2,14 @@
 
 owner: per section (lead-architect, planner, renderer, grid-simulator, pipeline-designer, and three new agents: tech-pass, holdout-pass, ruin-pass; see Agents)
 status: open. Cut 21 Nov 2026 from `docs/design/073-transformations.md` and Josh's answers on its eight cards and its questions 6 and 9. Updated the same day with his answers to this ticket's Q10 to Q15 and the feed-place card.
-- **Cut in full:** A (types, no circuit; **merged** into `goal/city-transformations` at 4a5077f), A2 (the circuit references, waiting for K's type), A3 (the passes' kinds and the hold-out's steps), the B pre-check (done), B, C1, C2, F0 (**done**), the D1 pre-check (done), D1, D1g, the E2 pre-check (done), E2 and its follow-up E2b (merged, f225819), the F1 pre-check (done), A4, F1 (merged, 9be274a), **F1b1 and F1b2 (cut 22 Nov 2026 on Josh's rulings; approved to build on the goal branch, Josh, 22 Nov 2026: "Yes, build now (Recommended)"; both merged into the goal branch, b9f9b9f)**, **F1b3 (cut 22 Nov 2026 on Josh's ruling "Yes, from the trunk (Recommended)"; approved to build on the goal branch by that ruling)**.
+- **Cut in full:** A (types, no circuit; **merged** into `goal/city-transformations` at 4a5077f), A2 (the circuit references, waiting for K's type), A3 (the passes' kinds and the hold-out's steps), the B pre-check (done), B, C1, C2, F0 (**done**), the D1 pre-check (done), D1, D1g, the E2 pre-check (done), E2 and its follow-up E2b (merged, f225819), the F1 pre-check (done), A4, F1 (merged, 9be274a), **F1b1 and F1b2 (cut 22 Nov 2026 on Josh's rulings; approved to build on the goal branch, Josh, 22 Nov 2026: "Yes, build now (Recommended)"; both merged into the goal branch, b9f9b9f)**, **F1b3 (cut 22 Nov 2026 on Josh's ruling "Yes, from the trunk (Recommended)"; approved to build on the goal branch by that ruling)**, **E2g and F1g (cut 22 Nov 2026 on Josh's ruling 7, "Draw both eras now (Recommended)": the hold-out and the ruin drawn, and each pass's flat picture, before instancing)**.
 - **Outlined:** D2, D3, J2 (instancing), E1, E1g, E3, F2, F2g, F3. Each is cut in full when what it waits for has merged.
-- Questions: Q1 to Q9 of the note answered. Q10 to Q15 and the feed-place card answered (21 Nov 2026, below). B-Q3, F1-Q1, the ruin roof growth and the Sci-Fi City power pole answered by Josh on question cards, 22 Nov 2026 (below). The other pre-check questions were answered overnight, on Josh's delegation or under the goal; none of those is Josh's ruling and he may reverse any.
+- **Re-cut 22 Nov 2026, fourth time, on one more of Josh's cards** (relayed by the Fable planning session; quoted under "Questions for Josh", ruling 7). Card: "Only the technology era is drawn in 3D; the hold-out and ruin are merged but invisible. You ruled instancing is built before the hold-out is drawn. Drawing both eras now adds only about 80 draw calls and needs no circuit work. Which order do you want, so you can review all three eras?" Josh: **"Draw both eras now (Recommended)"** ("Draw the hold-out and the ruin in 3D first, plus flat pictures of each stage; instancing comes after. Fastest route to your artistic review. Changes your earlier order.").
+  - **Card 7's order changes.** Card 7 put J2 before the hold-out is drawn; this ruling replaces that order.
+  - **Two new sections, both the renderer's (`src/render3d/` only):** **E2g** draws the hold-out and adds the flat pictures at `stage=tech|holdout|ruin`. **F1g** comes after it and draws F1's growth, with a draw-only yaw for ruin trees. **J2 follows them.**
+  - **Narrowed outlines:** E3 now draws only E1's plant and lines, and F3 only F2's remnants and states.
+  - **For the main session:** the card's option text is Josh's word to draw both eras now. The main session confirms whether it also stands as the build approval (G1), as F1b3's card did.
+- Questions: Q1 to Q9 of the note answered. Q10 to Q15 and the feed-place card answered (21 Nov 2026, below). B-Q3, F1-Q1, the ruin roof growth, the Sci-Fi City power pole, crowns from the trunk and the drawing order answered by Josh on question cards, 22 Nov 2026 (below). The other pre-check questions were answered overnight, on Josh's delegation or under the goal; none of those is Josh's ruling and he may reverse any.
 - **Re-cut 22 Nov 2026, third time, on one more of Josh's cards** (relayed by the Fable planning session; quoted under "Questions for Josh"). "Yes, from the trunk (Recommended)": a ruin tree's clearance from standing pieces is measured from its **trunk**, so its crown may overhang poles, street lights, lamp-post places and drop ends. In chat, 22 Nov 2026, relayed by the Fable planning session, Josh narrowed it: **"Hold no, trees crowns can absolutely grow into buildings, but the trunks should not grow out of buildings"**, and, asked about fire escapes, awnings and hold-out structures, **"Yes trees don't care about structures outside of where they"** / **"Start their growth"**. So a ruin tree's crown is unconstrained; only the trunk's spot is checked (never in a building, 0.3 m from standing pieces, judged for T-2). New section **F1b3** (the ruin-pass, `src/city/ruin/` only), approved to build on the goal branch by the card's option text. The open "trunk reading" question is closed by it. Nothing outside the ruin moves.
 - **Re-cut 22 Nov 2026, second time, on two more of Josh's cards** (relayed by the Fable planning session; quoted under "Questions for Josh"). "Poles too": in the ruin a tree crown may cover anything, so F1b1 drops T-1 for ruin tree crowns entirely; T-1 is unchanged for solid pieces and for trees in the other eras; T-2 untouched. "Yes, build now (Recommended)": **F1b1 and F1b2 are approved to build** on `goal/city-transformations`, merged there when gate, review and playtest are clean; nothing touches `main` or is pushed. The roof limit stands.
 - **Re-cut 22 Nov 2026 morning, on Josh's rulings** (four question cards, relayed by the Fable planning session; quoted under "Questions for Josh"). B-Q3 stands as his. F1-Q1: trees grow through any dead line in the ruin, so T-1 gains an era-scoped tree exemption (F1b1, the planner's) and F1's under-span set is placed (F1b2, the ruin-pass's). Ruin roof growth is switched on (F1b2), keeping off rooftop poles and lines; B10 gains the ruin. The Sci-Fi City pole may stand on roofs and at the kerb in the tech pass (D2's outline, the intended-use note). E2b recorded in E2's section. F1b1 and F1b2 waited for Josh's word to build (given since; above); nothing else changes. Rulings 2 and 3 move the ruin's growth pins when F1b2 is built (the ruin's own checks, not a clean-city check).
@@ -50,7 +55,7 @@ branch: one per section, `ticket/073<section>-<slug>` (named in each), each cut 
 | 4, the Apocalypse pack | "Yes, convert it (Recommended)" | F0 |
 | 5, more breaks | all four chosen: "Clutter on pavements", "Trees under dead wires", "Growth on the road", "Crowded roofs" | B7 to B10, with T-1 and T-2 holding (the card's own words) |
 | 6, buildings | "Yes, all stand (Recommended)" | B11 is not broken |
-| 7, instancing | "Yes, lift it (Recommended)" ("Instancing becomes a section of this work, built after the technology pass is drawn and before the hold-out pass is.") | section J2, between D3 and E3 |
+| 7, instancing | "Yes, lift it (Recommended)" ("Instancing becomes a section of this work, built after the technology pass is drawn and before the hold-out pass is.") | section J2, between D3 and E3. **Order changed by Josh, 22 Nov 2026** ("Draw both eras now (Recommended)", ruling 7): the hold-out and ruin are drawn first (E2g, F1g), then J2 |
 | 8, agents | "Yes, three agents (Recommended)" | tech-pass, holdout-pass, ruin-pass |
 
 **Questions 6 and 9 (21 Nov 2026, in chat, his own words): "I like all of your suggestions, make them so".** He was answering a message that listed both as open, with these recommendations: "Whether a puzzle's district should be one of these history districts, with that district's makeshift plant as its feed. I recommend yes." and "Whether neon should glow on a relit circuit. I recommend a later ticket". So:
@@ -175,7 +180,10 @@ Order:
 - The B pre-check, the D1 pre-check and F0 are done.
 - **A3 before D1 and E2:** the passes' kinds and the hold-out's steps (`ticket/073a3-pass-kinds`).
 - **D1 and E2 after B, C1 and A3 merge.** Both are built now, their circuit keeps proven on fixtures; their digests re-pin when K2 lands (taken under the goal, 22 Nov 2026 night; Josh may reverse).
-- B → D1 → D1g (after C2) → D2 (after K2) → D3 → J2 → E1 → E1g → E3 → F1, F2 → F2g → F3.
+- B → D1 → D1g (after C2) → D2 (after K2) → D3 → J2 → E1 → E1g → E3 → F1, F2 → F2g → F3. **Changed by Josh, 22 Nov 2026** (ruling 7, "Draw both eras now (Recommended)"; this replaces card 7's J2-before-hold-out):
+  - **E2g → F1g → J2.** E2g goes first; F1g starts after E2g merges. Neither waits for K2, D2, D3, E1 or F2.
+  - **J2** waits for D3, E2g and F1g.
+  - **E3** draws only what E2g did not (E1's plant and lines); **F3** draws only what F1g did not (F2's remnants and states).
 - **E2 is built beside D1, ahead of E1** (the Fable session, on Josh's delegation, 22 Nov 2026 night; Josh may reverse). Its barricades are pinned on the named runs only once E1 merges.
 - **F1b1 → F1b2, after F1 (merged); approved to build** (Josh, 22 Nov 2026: "Yes, build now (Recommended)"): F1b1 (the planner, T-1's ruin tree exemption) first; F1b2 (the ruin-pass, the under-span set and roof growth on, re-pinned) after F1b1 merges. Neither waits for K2, E1 or J2. Both merged (b9f9b9f).
 - **F1b3, after F1b2 (merged); approved to build** (Josh, 22 Nov 2026: "Yes, from the trunk (Recommended)"): the ruin-pass: crowns unconstrained, only the trunk's spot checked ("Hold no, trees crowns can absolutely grow into buildings, but the trunks should not grow out of buildings"), re-pinned. Does not wait for K2, E1 or J2.
@@ -496,9 +504,9 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 - Reports draw calls and frame rate at each era, before J2.
 
 ### J2 · Instancing (renderer). Outline. Branch `ticket/073j2-instancing`
-- **Josh's card 7:** "Instancing becomes a section of this work, built after the technology pass is drawn and before the hold-out pass is."
-- **Waits for:** D3. **E3 waits for it.**
-- Instances the stack pieces and the dressing (070 Q29's J2). Every clean picture and pin stays the same. Adds no rule, so no pre-check.
+- **Josh's card 7:** "Instancing becomes a section of this work, built after the technology pass is drawn and before the hold-out pass is." **Order changed by Josh, 22 Nov 2026** (ruling 7): "Draw both eras now (Recommended)" ("... instancing comes after."). J2 now comes after E2g and F1g.
+- **Waits for:** D3, E2g, F1g. **E3 waits for it.**
+- Instances the stack pieces and the dressing (070 Q29's J2), and the tech, hold-out and ruin groups. Every clean picture and pin stays the same, and every era's picture is unchanged against E2g's and F1g's screenshots. Adds no rule, so no pre-check.
 
 ### E1 · `holdout` plants and makeshift lines (holdout-pass, pure). Outline. Branch `ticket/073e1-holdout-power`
 - **Waits for:** D2, K2, A2, B, its pre-check.
@@ -520,7 +528,7 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 
 **Waits for:** B and C1 merged into `goal/city-transformations`, and A3. It does not wait for E1, D1, D2, K2 or J2 (the Fable session, on Josh's delegation, 22 Nov 2026 night: "build E2 now"). The holdout-pass agent file (the main session's).
 
-**Goal.** At the `holdout` era, each district that held out gets camps, stores, clutter and roof panels, and from a third market stalls, water towers and barricades, and from two thirds farms in its parks: as much as its `held` says. Nothing goes where a district was left at once. The clean city is unchanged. The era's pieces are E2's `adds`. Its only changes are `remove`s of the pieces its farms, markets and barricades stand on. A flat picture only: E2 is not drawn before J2 (E3 draws it).
+**Goal.** At the `holdout` era, each district that held out gets camps, stores, clutter and roof panels, and from a third market stalls, water towers and barricades, and from two thirds farms in its parks: as much as its `held` says. Nothing goes where a district was left at once. The clean city is unchanged. The era's pieces are E2's `adds`. Its only changes are `remove`s of the pieces its farms, markets and barricades stand on. A flat picture only: E2 is not drawn before J2 (E3 draws it). (As merged; since changed by Josh, 22 Nov 2026, ruling 7: E2g draws it before J2.)
 
 **Not E2's:** each held district's plant, makeshift poles, lines and drops (E1, after A2). E2 writes its layer's "power" step empty (`adds: 0`, `changes: 0`); E1 fills it.
 
@@ -599,7 +607,8 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 - **The stall reading it took (for Josh; taken under the goal, Josh may reverse):** E2's "one `Bld_Market_Stall_02` per plaza or front lot" gives way to the clearance. **A plaza where every try meets a facade piece gets no stall.** On the named runs that is 2 to 12 stalls placed in 3 to 13 places a city (`STALL_TRIES` raised from 8 to 24 to keep the losses small). The other way: keep one stall per place and let it stand through an awning, which is the bug E2b fixed.
 
 ### E3 · `holdout` drawn (renderer). Outline. Branch `ticket/073e3-holdout-drawn`
-- **Waits for:** E1, E2, J2. R12 gains B3's allowance, era-scoped.
+- **Waits for:** E1, E2g, J2. R12 gains B3's allowance, era-scoped. That table is E2g's; E3 adds E1's keys to it, if any.
+- **Narrowed by Josh's ruling 7** (22 Nov 2026, "Draw both eras now (Recommended)"): E2's pieces and the flat pictures are drawn by E2g. E3 draws only E1's plant, makeshift poles, lines and drops, dark.
 
 ### F0 · The Apocalypse ruin pieces converted (grid-simulator; config and one Blender run, no code). No branch: nothing in git changes
 
@@ -640,7 +649,7 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 
 **Built now, against fixtures for the circuit.** Until K2 merges, stage 6 is empty, so T-1, T-2, option G and the under-span set find nothing on the named runs. Each is proven on fixtures with hand-placed poles, lights, lamp-post places, drops and spans. **F1's growth digest is re-pinned when K2 lands, and when D1, D2, E1 or E2's barricade step changes what stands before it** (the ruin-pass, in a one-line follow-up named in that merge).
 
-**Goal.** At the `ruin` era, growth spreads from each district's soil over its streets, pavements, open ground and walls (its roofs as merged only behind `RUIN_ROOF_GROWTH`, off; Josh has since switched it on, F1b2), as far as its `wild` value says. Trees grow up through the city, beside its dead wires but never with a crown over one (as merged; F1b1 and F1b2 let ruin trees grow through lines, Josh's F1-Q1). The clean city and the earlier eras are unchanged: F1 writes only `adds`, no change. A flat picture only: the ruin is not drawn before J2 (F3 draws it).
+**Goal.** At the `ruin` era, growth spreads from each district's soil over its streets, pavements, open ground and walls (its roofs as merged only behind `RUIN_ROOF_GROWTH`, off; Josh has since switched it on, F1b2), as far as its `wild` value says. Trees grow up through the city, beside its dead wires but never with a crown over one (as merged; F1b1 and F1b2 let ruin trees grow through lines, Josh's F1-Q1). The clean city and the earlier eras are unchanged: F1 writes only `adds`, no change. A flat picture only: the ruin is not drawn before J2 (F3 draws it). (As merged; since changed by Josh, 22 Nov 2026, ruling 7: F1g draws F1's growth before J2.)
 
 **C1's helpers, as C1 built them** (`src/city/pipeline/eras.ts`, `readable.ts`):
 - `ruinStage` is a `CityEraStageDef<"ruin">`. Its `run` reads the plan before it through `resolveBefore(plan, "ruin")` (the `holdout` era: E2's pieces, and D1's once D1 merges).
@@ -819,7 +828,77 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 **Interfaces.** None in `src/core/`: `trunk_r_m`, `trunkTop_m` and the crown `BoundsOf` are the ruin kit's own (`src/city/ruin/kit.ts`). No new dependency (the GLB read uses plain Node outside the repo).
 
 **Open questions** (for Josh; none blocks the build):
-- **The drawn picture.** A crown through a wall or a fire escape will show foliage poking out of a facade once F3 draws the ruin. That is what the ruling asks; F3's screenshot is where Josh sees it.
+- **The drawn picture.** A crown through a wall or a fire escape will show foliage poking out of a facade once the ruin is drawn. That is what the ruling asks. F1g's screenshot is where Josh sees it (it was F3's before Josh's ruling 7).
+
+### E2g · `holdout` drawn, and each pass's flat picture (renderer). Branch `ticket/073e2g-holdout-drawn`
+
+**Cut 22 Nov 2026 on Josh's ruling 7** (a question card, relayed by the Fable planning session; quoted under "Questions for Josh"): **"Draw both eras now (Recommended)"** ("Draw the hold-out and the ruin in 3D first, plus flat pictures of each stage; instancing comes after. Fastest route to your artistic review. Changes your earlier order."). So the hold-out is drawn before J2, E1 and E3. Modelled on D1g: its tech group in `plan3d.ts` and `techdraw.test.ts`.
+
+**Waits for:** E2 and E2b merged (done, f225819), D1g merged (done). Not E1, K2, D2, D3 or J2. **F1g waits for it.**
+
+**Goal.** Josh can look at each pass as a flat picture, at `?view=3d&city=plan&stage=tech`, `stage=holdout` and `stage=ruin`, as he does at `stage=history`. At `?view=3d&city=plan&stage=assemble&era=holdout` (and `era=ruin`) he sees E2's camps, water towers, farms and irrigators, stalls, containers, clutter, roof items and barricades on the city, dark. The park props, stall props and stage 9 pieces that E2 removed are gone. Clean and tech are drawn exactly as today.
+
+**What is drawn is E2 as merged.** That includes the barricade step, which is placed against what stands and not pinned until E1. There is no plant, makeshift pole or line: those are E1's, not built yet, and E3 draws them.
+
+**Acceptance criteria:**
+1. [ ] (Vitest) **The flat pictures.** `planViewRequested` reads `stage=tech`, `stage=holdout` and `stage=ruin` (any case) as that pass's picture, as it reads `history`. `planShown` runs the era runner on `ERA_STAGES` up to and including that pass (nothing after it), on the request's size and seed. It returns that stage's own `picture` (`techPicture`, `holdoutPicture` or `ruinPicture`) with the title `<stage> - <size> seed <n>`. A failed run gives the banner and no picture, as `historyShown` does. The HUD hides as it does for `history`. `stage=history` and every clean stage are unchanged. On 6 x 6 seed 1 each of the three has a picture, and `pictureProblems` finds nothing in it.
+2. [ ] (Vitest) **Drawn per key, through `resolvePlan`, with removes applied.** At `era=holdout` and `era=ruin`, every hold-out add in `resolvePlan(eraRun.plan, era).adds.holdout` is drawn exactly once, at its placement: its turn, and its `y_m` (roof items stand on the deck). The adds go into one group, `plan:holdout`, through `dressGroup` per key. Each piece E2 removes is not drawn at all: a farm's park props, a stall's place props, a barricade's stage 9 pieces. The adds are read only through `resolvePlan`: `PlanAtEra` carries them beside `techAdds`. An add whose key is not in E2's kit (`src/city/holdout/kit.ts`, `KIT`) stops the draw with `PlanStopError`, naming its cell.
+3. [ ] (Vitest) **Clean and tech unchanged.** At `clean` the draw is exactly today's: the existing plan3d tests and pins pass untouched, and there is no hold-out group. At `tech` the draw's children are the same with and without this section: no hold-out group, and D1g's tech group as it is.
+4. [ ] (Vitest) **Dark (X-5).** The Sci-Fi Frontier GLB carries emissive maps, so they are swapped out as D1g's `dressGroup` does it. A test gives the draw a loaded root whose material has an emissive map and an emissive colour, then walks the drawn `plan:holdout` meshes. It must find no emissive map, no emissive colour above black and no lit material.
+5. [ ] (Vitest) **R12, era-scoped (X-9; B3's allowance in E3's outline, taken here).** `planAudit` reads the hold-out adds beside the tech adds. A never-used key among them is a finding unless one typed table, `PLAN_AUDIT_HOLDOUT_ALLOWED` (key and kind), allows it, and the table holds only at `holdout` and `ruin`. If no key in E2's kit starts with a `CITY_NEVER_USED` stem (expected), the table is empty, and a test says so by checking every kit key with `isNeverUsed`. At `clean` the audit is exactly today's. At `tech` it is D1g's.
+6. [ ] (Vitest) **Its own draw-call cap.** `HOLDOUT_DRAW_CALLS_MAX` is the hold-out group's own cap. E2's kit has 44 keys, and each key costs one call per sub-mesh. No existing cap rises: `TILE_`, `INTERIOR_`, `DRESS_`, `FURN_` and `TECH_DRAW_CALLS_MAX` stay as they are. The page's report line adds the hold-out's pieces drawn, pieces listed, calls and cap.
+7. [ ] (hand-back) **Draw calls per era** on 6 x 6 seed 1: each group's calls and the total at `clean`, `tech`, `holdout` and `ruin`, beside D1g's numbers. Count them with the converted GLBs where they are present: a test inside `it.skipIf(!have)` (R-6) that reads its assets lazily, since CI has none. Otherwise, say the numbers come from synthetic roots. The page's report line gives the real figure in the main session's browser.
+8. [ ] (main session, browser screenshots, full resolution) Three sets of pictures, all on 6 x 6 seed 1:
+   - the flat pictures at `stage=tech`, `stage=holdout` and `stage=ruin`;
+   - `era=tech` and `era=holdout` from one camera spot, over a held district with camps, a farm or a stall, and a barricade;
+   - one street-level picture (`cam=street`) at `era=holdout`, along a held street with clutter and a barricade.
+9. [ ] (hand-back; X-11) **Wrong-looking pieces are listed, not hidden.** Where a drawn piece looks wrong against the Sci-Fi Frontier store images, list it in the hand-back with its key and cell. Examples: a tent floating or sunk, a farm piece flickering against the lawn (z-fighting), a barricade wall turned along the street instead of across it, a roof item through a parapet. The builder finds these from the bounds and placements, the main session from the screenshots. Nothing is nudged, hidden or dropped in the renderer. A fix is the holdout-pass's, in a later section.
+
+**Files:** `src/render3d/plan3d.ts`; `src/render3d/planview.ts`; `src/render3d/models3d.ts`, which loads the hold-out kit's keys as dressing for the plan view only, as D1g's `TECH_KEYS`, with the loader pins as they are; a new `src/render3d/holdoutdraw.test.ts`; and `src/render3d/eraview.test.ts` (criterion 1). Nothing in `src/city/` or `src/core/`. Test command: `npx vitest run --maxWorkers=2 src/render3d/holdoutdraw.test.ts src/render3d/eraview.test.ts src/render3d/techdraw.test.ts`, and one `npx tsc --noEmit`. No browser: the main session takes the screenshots.
+
+**Interfaces.** None in `src/core/`. A3's `CityHoldoutPieceKind` and the resolver's `adds.holdout` exist already. The draw's own types are the renderer's, in `plan3d.ts`: a `PlanHoldoutDraw`, the allowance table and the cap. No new dependency.
+
+**Open questions:** none for Josh. One reading is noted here: the hold-out is drawn before E1, so at `era=holdout` there is no plant and no makeshift line yet.
+
+### F1g · `ruin` growth drawn (renderer). Branch `ticket/073f1g-ruin-drawn`
+
+**Cut 22 Nov 2026 on Josh's ruling 7** (as E2g): "Draw both eras now (Recommended)". Modelled on D1g and E2g.
+
+**Waits for:** E2g merged into `goal/city-transformations`. F1, F1b1, F1b2 and F1b3 are merged. Not F2, K2, E1 or J2.
+
+**Goal.** At `?view=3d&city=plan&stage=assemble&era=ruin`, Josh sees F1's growth over the city, dark: patches, clumps, saplings, park trees, roof growth, vines and tree-vines. Each ruin tree is turned its own way. The tech and hold-out pieces are still drawn beneath it. Clean, tech and holdout are drawn exactly as they were after E2g.
+
+**Trees are sized from the crown, not from `size`.** Since F1b3, a sapling's or park tree's `size` is its trunk square, not the tree. The draw never scales a piece. Whatever the draw reads about a tree's extent comes from `ruinCrownBounds` (`src/city/ruin/kit.ts`): its bounds, any culling box, the report and the tests. It never comes from `size`.
+
+**The yaw point (the architect's reading; draw-only; Josh may reverse).** Every sapling and park tree has `yaw_deg` 0 in the plan (F1b3's trunk piece), so drawn as placed, every crown would face the same way.
+- **The drawn yaw.** For `sapling` and `park-tree` adds only, the draw turns the tree about its pivot by `stableHash(id) % 360` degrees. `stableHash` is already exported from `src/city/pipeline`. The plan's placement is not touched, so no plan digest, pin or flat picture moves.
+- **The trunk.** The trunk is a disc of `trunk_r_m` about the pivot, and the readable checks judge the square of side 2 x `trunk_r_m` around it. A disc turned about its centre stays where it was, inside that square at any angle. Turning the trunk is harmless.
+- **The crown.** A crown's bounds are not round: `Tree_Large_01` is 9.3 x 5.42 m, the giant 12.6 x 13.12 m. So turning a tree changes which way its crown overhangs. Since F1b3, no plan rule reads the crown, so the turned crown covers only what Josh's ruling already allows ("trees crowns can absolutely grow into buildings"). What does move is the picture: which facades, poles and roofs a crown pokes through.
+- **Tree-vines are not moved.** F1 hangs a tree-vine 0.45 x the crown's half-width (its larger side) from the trunk, at a hashed angle, and checks it there. Rotating the vine with its tree would move it off the spot the ruin-pass checked, so the vine is drawn where it was placed. It still hangs inside the turned crown's bounds whenever the crown's narrower side is more than 0.45 x its wider side. A test checks that for every sapling and park-tree key, by `ruinCrownBounds`. A key that fails is listed (X-11), not worked around.
+- **The other way**, only if the draw-only yaw cannot work: a plan-side yaw for ruin trees, inside the ruin's own pins. That is a ruin-pass section and moves `PIN_GROWTH`.
+
+**Acceptance criteria:**
+1. [ ] (Vitest) **Drawn per key, through `resolvePlan`.** At `era=ruin`, every add in `resolvePlan(eraRun.plan, "ruin").adds.ruin` is drawn exactly once, at its placement, in one group `plan:ruin`, through `dressGroup` per key. Saplings and park trees also take their drawn yaw. The adds are read only through `resolvePlan`. An add whose key is not in F1's kit stops the draw with `PlanStopError`, naming its cell. The E2g and D1g groups are drawn as they are.
+2. [ ] (Vitest) **Crown, not size.** Given a synthetic root of the key's crown bounds, a drawn sapling and a drawn park tree are at scale 1. Their world bounds match `ruinCrownBounds` turned by the drawn yaw, not the trunk square in `size`. Turning them does not change any placement in the plan (the layer is deep-equal before and after the draw).
+3. [ ] (Vitest) **The drawn yaw.** The drawn yaw is `stableHash(id) % 360` and is the same on every draw. Saplings and park trees on 6 x 6 seed 1 do not all share one yaw. Every other ruin kind is drawn at its plan yaw. Tree-vines are drawn at their placement, and every sapling and park-tree key passes the 0.45 check above (or is listed).
+4. [ ] (Vitest) **Clean, tech and holdout unchanged.** At `clean`, `tech` and `holdout`, the draw's children are the same with and without this section, and there is no ruin group.
+5. [ ] (Vitest) **Dark (X-5).** As E2g's criterion 4, for `plan:ruin`: Nature, Palm City and Apocalypse materials end up with no emissive map, no emissive colour above black and no lit material.
+6. [ ] (Vitest) **R12, era-scoped (X-9; B1's and B9's allowances if needed).** One typed table, `PLAN_AUDIT_RUIN_ALLOWED`, holds only at `ruin`. It is empty if no key in F1's kit starts with a never-used stem, and a test says so. Clean, tech and holdout audit exactly as after E2g.
+7. [ ] (Vitest) **Its own draw-call cap.** `RUIN_DRAW_CALLS_MAX` is the ruin group's own cap; F1's kit has about 50 keys. No other cap rises. The page's report line adds the ruin's pieces drawn, pieces listed, calls and cap.
+8. [ ] (hand-back) **Draw calls per era**, as E2g's criterion 7, with the ruin group added.
+9. [ ] (main session, browser screenshots, full resolution) Two sets of pictures, both on 6 x 6 seed 1:
+   - `era=holdout` and `era=ruin` from one camera spot, over a wild district with a park;
+   - street-level pictures (`cam=street`) at `era=ruin` showing: a grown street; a crown through a facade (F1b3's open question); a roof bush or dead tree; an `Env_Vines_06` on a post; and the giant tree in its park.
+
+   These pictures settle F1's picture switches, which moved here from F3: `RUIN_ROOF_DEAD_TREES` and `RUIN_VINE_06`. The call is the main session's, from the pictures. A "no" is the ruin-pass's one line and re-pin, not the renderer's.
+10. [ ] (hand-back; X-11) **Wrong-looking pieces are listed, not hidden.** Where a drawn piece looks wrong against the Nature, Palm City or Apocalypse store images, list it with its key and cell. Examples: a patch floating over a kerb or sunk into it, a clump through a wall, a vine standing off its eave, a tree-vine hanging in air, a crown poking through in a way that reads badly. Nothing is nudged, hidden or dropped in the renderer.
+
+**Files:** `src/render3d/plan3d.ts`; `src/render3d/models3d.ts`, which loads the ruin kit's keys for the plan view only; and a new `src/render3d/ruindraw.test.ts`. Nothing in `src/city/` or `src/core/`. Test command: `npx vitest run --maxWorkers=2 src/render3d/ruindraw.test.ts src/render3d/holdoutdraw.test.ts src/render3d/techdraw.test.ts`, and one `npx tsc --noEmit`. No browser.
+
+**Interfaces.** None in `src/core/`. The resolver's `adds.ruin` and A4's `CityRuinPieceKind` exist already. The draw reads `ruinCrownBounds` and F1's `KIT` from `src/city/ruin/kit.ts`, and `stableHash` from `src/city/pipeline`, as it reads `TECH_BOUNDS` today. No new dependency.
+
+**Open questions** (for Josh; none blocks the build):
+- **The ruin trees' facing.** As cut, each tree is turned at draw time by a hash of its id, so no pin moves and the plan still says yaw 0. The other way is a real yaw in the plan, set by the ruin-pass inside its own pins, so that anything else reading the plan gets the same facing. Recommended: the draw-only yaw now, and the plan-side yaw later if the plan itself should carry the facing.
 
 ### F2 · `ruin` remnants and the broken grid (ruin-pass, pure). Outline. Branch `ticket/073f2-ruin-remnants`
 - **Waits for:** E1, K2, A2, F0, its pre-check. (Q12 is answered.)
@@ -836,8 +915,8 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 - A ruin `state` (cut, toppled, broken) on a part the job names is dropped for that job. The puzzle's own faults are its only damage (Q12, Josh: "On a job's own parts only the puzzle's faults are drawn.").
 
 ### F3 · `ruin` drawn (renderer). Outline. Branch `ticket/073f3-ruin-drawn`
-- **Waits for:** F1, F2. R12 gains B1's allowance, era-scoped. Draws `state`: toppled, cut, broken, boarded, dark. A `broken` `edge.ground` tile draws as a damaged road piece (F2's broken road): only the nine that fit one tile, never scaled or cropped, and never a heaved slab (`_08`, `_09`, `_12`) on a crossing (F1-Q6, under the goal; Josh may reverse).
-- Draws F1's growth too. The main session's street-level screenshots then settle F1's picture switches: the post vine (`RUIN_VINE_06`), and roof dead trees (`RUIN_ROOF_DEAD_TREES`) only if Josh has turned roof growth (`RUIN_ROOF_GROWTH`) on; a "no" is the ruin-pass's one line and re-pin, not the renderer's.
+- **Waits for:** F1g, F2. **Narrowed by Josh's ruling 7** (22 Nov 2026, "Draw both eras now (Recommended)"): F1's growth is drawn by F1g, so F3 draws only F2's remnants and states. R12 gains B1's allowance, era-scoped: F3 adds F2's keys to F1g's ruin table. Draws `state`: toppled, cut, broken, boarded, dark. A `broken` `edge.ground` tile draws as a damaged road piece (F2's broken road): only the nine that fit one tile, never scaled or cropped, and never a heaved slab (`_08`, `_09`, `_12`) on a crossing (F1-Q6, under the goal; Josh may reverse).
+- F1's picture switches (`RUIN_VINE_06`, `RUIN_ROOF_DEAD_TREES`) are settled by F1g's screenshots, not F3's.
 - Never on a played job's own parts (Q12, Josh). Dead wires keep today's look; a rusted, frayed look waits for K4's overlay (Q14, Josh).
 
 ## Check (a): can a change reference today's pieces?
@@ -956,7 +1035,10 @@ Josh's card 8: "Yes, three agents (Recommended)". The main session writes each `
 5. **The build.** Card: "...Should the Opus session build them now on the goal branch?" Josh: **"Yes, build now (Recommended)"** ("Built, reviewed and playtested on goal/city-transformations, merged there when all three are clean. Nothing touches main or is pushed."). F1b1 and F1b2 are approved to build.
 4. **The Sci-Fi City power pole.** Card: "The Sci-Fi City store images show its power pole standing on the pavement at the kerb, not on a roof. You ruled it goes atop buildings and other objects. Keep your ruling?" Josh: **"Allow both"** ("The pole may stand on roofs and on pavements at the kerb in the technology pass."). His 21 Nov quote, "The scifi power poles are intended to be atop buildings and other objects they are not intended to come out of the ground", is superseded for the tech pass. D2's outline and `docs/design/073-pack-intended-use.md` are updated: at the kerb the pole holds rule 10, `FURN_KEEP_M` and T-1 and T-2 like any pavement piece. D2 still waits on K2.
 
+7. **The drawing order.** Card: "Only the technology era is drawn in 3D; the hold-out and ruin are merged but invisible. You ruled instancing is built before the hold-out is drawn. Drawing both eras now adds only about 80 draw calls and needs no circuit work. Which order do you want, so you can review all three eras?" Josh: **"Draw both eras now (Recommended)"** (option text: "Draw the hold-out and the ruin in 3D first, plus flat pictures of each stage; instancing comes after. Fastest route to your artistic review. Changes your earlier order."). Card 7's J2-before-hold-out is changed by this. New sections E2g (the hold-out drawn, and the flat pictures at `stage=tech|holdout|ruin`) and F1g (F1's growth drawn), the renderer's, before J2. E3 and F3 are narrowed to what those two do not draw. See "Sections".
+
 **Open:**
+- **The ruin trees' facing** (F1g): as cut, each sapling and park tree is turned at draw time by a hash of its id (draw-only; no pin moves). The other way is a plan-side yaw from the ruin-pass inside its own pins. The architect's reading; Josh may reverse.
 - F1b2's trunk reading: **settled by Josh**, 22 Nov 2026, "Yes, from the trunk (Recommended)" (ruling 6; F1b3).
 - A tree through a job's own line, or over a job's own pole, on the ruin (ruling 2): for K2's cut and F2g to raise.
 - E2b's stall reading (E2's section): a plaza where every try meets a facade piece gets no stall. Taken under the goal; for Josh to confirm or reverse.
@@ -991,7 +1073,7 @@ Josh's card 8: "Yes, three agents (Recommended)". The main session writes each `
 - **E2-Q6c, Frontier walls as barricades:** allow (the images show them enclosing a settlement; closing a street mouth is the same job). The Apocalypse barricades stay in the ruin's kit.
 - **Q1 to Q5** (option C included): agreed.
 - **The order:** build E2 now. Barricades are the pass's last step, their own sub-step with their own digest, **not pinned on the named runs until E1 merges**; the rest of E2 may be pinned now.
-- **E2 merges as a pure stage with its flat picture only** (not drawn before J2). The plant's place and the makeshift lines stay with E1.
+- **E2 merges as a pure stage with its flat picture only** (not drawn before J2). The plant's place and the makeshift lines stay with E1. *(The drawing order is superseded by Josh, 22 Nov 2026, ruling 7: E2g draws E2 before J2.)*
 
 *The F1 pre-check* (`docs/design/073-F1-precheck.md`), answered by the Fable session on Josh's delegation (22 Nov 2026 night); Josh may reverse:
 - **F1-Q1, B8 against T-1:** moved to Josh's own answers (22 Nov 2026: "Through any dead line"). The delegation's provisional answer (beside lines only) is replaced; F1b1 and F1b2 build his. (F1.)
@@ -1000,7 +1082,7 @@ Josh's card 8: "Yes, three agents (Recommended)". The main session writes each `
   - Bushes and dead trees on roofs: B10, ruin only; only where the footprint fits the roof deck unscaled; never over or against a rooftop pole or line. If a roof dead tree reads silly in the street screenshot, drop dead trees, keep bushes (the main session's call from the picture). It was held for Josh; **moved to Josh's own answers** (22 Nov 2026: "Yes, switch it on (Recommended)"). F1b2 turns `RUIN_ROOF_GROWTH` on.
   - `Env_Vines_06` on street sign posts: only if its shape wraps or hangs on a post (bounds and one screenshot); if it is a flat sheet like `_01/04/05`, drop it.
 - **Q2, Q3, Q4, Q6:** agreed. Q2: report the left-out count per run, as E2 does for barricades. (F1.)
-- **The ruin is not drawn before instancing (J2).** (F1, F3.)
+- **The ruin is not drawn before instancing (J2).** (F1, F3.) *(Superseded by Josh, 22 Nov 2026, ruling 7: F1g draws F1's growth before J2.)*
 
 **Taken under the goal (21 to 22 Nov 2026 night); Josh may reverse.** None of these is Josh's ruling.
 - **E2-Q1, density bands by `held`:** nothing at 0; clutter, containers, camps and roof panels above 0; barricades, stalls and water towers from 1/3; parks become farms from 2/3. (E2.)
@@ -1041,6 +1123,7 @@ Josh's card 8: "Yes, three agents (Recommended)". The main session writes each `
 - **Crowns measured from the trunk:** "Yes, from the trunk (Recommended)". Card: "The tree changes are merged, but your "Poles too" answer barely shows: a tree's whole crown still keeps 0.3 m off every standing piece, so crowns reach over wire spans but never over a pole or light. Should the clearance be measured from the trunk instead, so crowns really do spread over poles in the ruin?" Option text: "A small extra section on the goal branch: trunks keep clear of poles, crowns may overhang them. The ruin's checks are re-pinned. This is what "Poles too" asked for." Then, in chat: "Hold no, trees crowns can absolutely grow into buildings, but the trunks should not grow out of buildings", and "Yes trees don't care about structures outside of where they" / "Start their growth". Crowns ignore every structure; only the trunk's spot is checked. (F1b3.)
 - **Ruin roof growth:** "Yes, switch it on (Recommended)", with "Pieces must fit the roof unscaled and never sit over a rooftop pole or line." (F1b2; B10.)
 - **The Sci-Fi City power pole:** "Allow both". Roofs and the kerb in the tech pass (D2).
+- **The drawing order:** "Draw both eras now (Recommended)". Card: "Only the technology era is drawn in 3D; the hold-out and ruin are merged but invisible. You ruled instancing is built before the hold-out is drawn. Drawing both eras now adds only about 80 draw calls and needs no circuit work. Which order do you want, so you can review all three eras?" Option text: "Draw the hold-out and the ruin in 3D first, plus flat pictures of each stage; instancing comes after. Fastest route to your artistic review. Changes your earlier order." Card 7's J2-before-hold-out is changed: E2g, then F1g, then J2. (E2g, F1g, J2, E3, F3.)
 
 **Unblocked by these answers:**
 - **E1g:** no longer waits on a question; it waits only for E1 and K2.
