@@ -165,3 +165,35 @@ export const CLEAN_ROOF_BOUNDS: Readonly<Record<CalibrationKey, HostBounds>> = {
   [city("Prop_LargeSign_Soda_01")]: hb(1.915, 5.595, 1.915),
   [city("Prop_LargeSign_Taco_01")]: hb(1.215, 2.223, 3.701),
 };
+
+// ---- the stage 7 pieces the growth keeps clear of (the tech pass's `s7Boxes` reading; copies of the facades kits' bounds, pinned equal by `ruinpin.test.ts`) ----
+/** H1b's dressing but glass (the awning covers, the ATM, the trade signs) and H2's wall keys (canopies, escapes, air-conditioner, window planters). The novelty signs are in `CLEAN_ROOF_BOUNDS`. */
+export const FACADE_BOUNDS: Readonly<Record<CalibrationKey, HostBounds>> = {
+  [city("Bld_Shop_Cover_01")]: hb(4.574, 0.297, 2.815),
+  [city("Bld_Shop_Cover_02")]: hb(4.706, 1.202, 3.235),
+  [city("Bld_Shop_Cover_03")]: hb(5.0, 1.758, 3.501),
+  [city("Bld_Shop_Cover_04")]: hb(5.104, 0.663, 0.732),
+  [city("Bld_Shop_Cover_05")]: hb(5.394, 0.682, 5.394),
+  [city("Prop_ATM_01")]: hb(1.128, 1.537, 0.519),
+  [city("Prop_Sign_Bar_01")]: hb(1.327, 0.673, 0.138),
+  [city("Prop_Sign_Cafe_01")]: hb(1.347, 0.553, 0.11),
+  [city("Prop_Sign_Chinese_Noodles_01")]: hb(0.853, 0.507, 0.179),
+  [city("Prop_Sign_Pizza_01")]: hb(2.211, 0.704, 0.144),
+  [city("Prop_Sign_Pub_01")]: hb(1.13, 0.547, 0.112),
+  [city("Prop_Sign_Entrance_01")]: hb(1.0, 0.436, 0.063),
+  [city("Prop_Sign_Barber_01")]: hb(0.316, 0.948, 0.474),
+  [city("Prop_Sign_DeliPizza_01")]: hb(0.301, 1.551, 0.14),
+  [city("Prop_Sign_Hotel_01")]: hb(1.267, 3.801, 0.3),
+  [city("Bld_Cover_01")]: hb(4.832, 1.075, 1.0),
+  [city("Bld_Cover_02")]: hb(1.366, 0.974, 0.701),
+  [city("Bld_FireEscape_01")]: hb(3.251, 1.492, 1.644),
+  [city("Bld_FireEscape_02")]: hb(3.251, 3.609, 1.644),
+  [city("Bld_FireEscape_03")]: hb(4.252, 3.802, 1.76),
+  [city("Prop_Aircon_01")]: hb(0.823, 0.995, 0.651),
+  [city("Prop_PlanterWindow_01")]: hb(0.988, 0.743, 0.37),
+  [city("Prop_PlanterWindow_02")]: hb(0.87, 0.743, 0.332),
+};
+/** The key a code-drawn escape's piece carries, and its footprint. */
+export const CODE_ESCAPE_KEY: CalibrationKey = "code:escape";
+export const CODE_ESCAPE_W_M = 3.25;
+export const CODE_ESCAPE_D_M = 1.64;

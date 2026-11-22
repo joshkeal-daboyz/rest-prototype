@@ -17,7 +17,7 @@ import { CityStageError } from "../pipeline/error";
 import type { CalibrationKey } from "../../core";
 import { CELL_M, ROOF_DECK_M, ROOF_EDGE_M } from "./constants";
 import { cellKey, rectAt, RectIndex, turned, type Rect } from "./geom";
-import { CLEAN_ROOF_BOUNDS, HOST_BOUNDS } from "./kit";
+import { CLEAN_ROOF_BOUNDS, CODE_ESCAPE_D_M, CODE_ESCAPE_KEY, CODE_ESCAPE_W_M, FACADE_BOUNDS, HOST_BOUNDS } from "./kit";
 import type { SoilSource } from "./spread";
 import type { Standing } from "./walk";
 
@@ -29,6 +29,8 @@ export interface Obstacle {
   readonly rect: Rect;
   readonly base: number;
   readonly top: number;
+  /** A facade piece's own place ("<x*10>,<z*10>", rounded): the awning or canopy a vine on it may ignore. */
+  readonly at?: string;
 }
 
 /** A park: its district, and the cells of its green interior. */
@@ -138,6 +140,13 @@ const need = <T>(v: T | undefined, what: string): T => {
   return v;
 };
 
+/** A point turned by a quarter yaw, as the tech pass's `rotate`. */
+function rotateQuarter(yaw: number, x: number, z: number): readonly [number, number] {
+  const q = ((Math.round(yaw / 90) % 4) + 4) % 4;
+  const n = (v: number): number => (v === 0 ? 0 : v);
+  return q === 0 ? [n(x), n(z)] : q === 1 ? [n(z), n(-x)] : q === 2 ? [n(-x), n(-z)] : [n(-z), n(x)];
+}
+
 const SIDE_DIR: Readonly<Record<CitySide, readonly [number, number]>> = { "+x": [1, 0], "-x": [-1, 0], "+z": [0, 1], "-z": [0, -1] };
 export const sideDir = (s: CitySide): readonly [number, number] => SIDE_DIR[s];
 
@@ -244,6 +253,41 @@ export function buildWorld(resolved: CityResolvedPlan, districts: readonly CityD
     }
   }
 
+  // ---- stage 7's pieces: dressing but glass, walls (escapes with their ladder boxes, canopies, air-conditioners, planters), face novelty signs ----
+  const unknown = (key: CalibrationKey, what: string): never => {
+    throw new CityStageError(`R-6: the ${what} key ${key} is not in the ruin stage's copy of stage 7's bounds`);
+  };
+  const box = (x: number, z: number, w: number, d: number, yaw: number, y0: number, y1: number, at?: string): void => {
+    const t = turned(w, d, yaw);
+    const rect = rectAt(x, z, t.x, t.z);
+    obstacles.add(rect, at === undefined ? { rect, base: y0, top: y1 } : { rect, base: y0, top: y1, at });
+  };
+  const spot = (x: number, z: number): string => `${Math.round(x * 10)},${Math.round(z * 10)}`;
+  for (const p of facades.dressing ?? []) {
+    if (p.kind === "glass") continue;
+    const b = FACADE_BOUNDS[p.placement.key] ?? unknown(p.placement.key, "dressing");
+    box(p.placement.x_m, p.placement.z_m, b.w, b.d, p.placement.yaw_deg, p.placement.y_m, p.placement.y_m + b.h, spot(p.placement.x_m, p.placement.z_m));
+  }
+  for (const p of facades.novelty ?? []) {
+    const b = CLEAN_ROOF_BOUNDS[p.placement.key] ?? unknown(p.placement.key, "novelty");
+    box(p.placement.x_m, p.placement.z_m, b.w, b.d, p.placement.yaw_deg, p.placement.y_m, p.placement.y_m + b.h);
+  }
+  for (const p of facades.walls ?? []) {
+    if (p.kind === "partyBoard" || p.kind === "partyPipe" || p.kind === "partyWindow") continue; // on a wall above the lower roof across it, never over a street
+    const pl = p.placement;
+    if (pl.key === CODE_ESCAPE_KEY) {
+      const top = Math.max(pl.y_m, ...p.boxes.map((bx) => pl.y_m + bx.y_m + bx.h_m / 2));
+      box(pl.x_m, pl.z_m, CODE_ESCAPE_W_M, CODE_ESCAPE_D_M, pl.yaw_deg, pl.y_m, top);
+      continue;
+    }
+    const b = FACADE_BOUNDS[pl.key] ?? unknown(pl.key, "wall");
+    box(pl.x_m, pl.z_m, b.w, b.d, pl.yaw_deg, pl.y_m, pl.y_m + b.h * p.scaleY, spot(pl.x_m, pl.z_m));
+    for (const bx of p.boxes) {
+      const c = rotateQuarter(pl.yaw_deg, bx.x_m, bx.z_m);
+      box(pl.x_m + c[0], pl.z_m + c[1], bx.w_m, bx.d_m, pl.yaw_deg, pl.y_m + bx.y_m - bx.h_m / 2, pl.y_m + bx.y_m + bx.h_m / 2);
+    }
+  }
+
   // ---- parks ----
   const parkCells = new Map<string, number[]>();
   for (const c of mass.cells) {
@@ -267,7 +311,7 @@ export function buildWorld(resolved: CityResolvedPlan, districts: readonly CityD
   const roofsAt = new Map<number, Rect[]>();
   for (const r of facades.roofs ?? []) {
     const b = CLEAN_ROOF_BOUNDS[r.placement.key];
-    if (b === undefined) continue;
+    if (b === undefined) throw new CityStageError(`R-6: the roof key ${r.placement.key} is not in the ruin stage's copy of stage 7's roof bounds`);
     const t = turned(b.w, b.d, r.placement.yaw_deg);
     const k = cellKey(r.cell.i, r.cell.j);
     const rect = rectAt(r.placement.x_m, r.placement.z_m, t.x, t.z);
@@ -321,7 +365,6 @@ export function buildWorld(resolved: CityResolvedPlan, districts: readonly CityD
       faces.push({ id: k, cell: { i: c.i, j: c.j }, side: o.side, district: d.id, wild: d.wild, roofY: y, escape: escapes.has(k), novelty: novelty.has(k) });
     }
   }
-  void blockOfBuilt;
 
   const signed = new Set<string>();
   for (const p of facades.dressing ?? []) if (p.kind === "fasciaSign" || p.kind === "bladeSign") signed.add(`${p.building}|${p.cell.i},${p.cell.j}`);

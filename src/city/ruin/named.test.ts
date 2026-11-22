@@ -10,6 +10,8 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import { CITY_RUIN_STEP_OF, CITY_RUIN_STEPS, CITY_STAGES, type CityEraPlan, type CityPlanStage, type CityRuinLayer } from "../../core";
 import { digestOf } from "../pipeline/digest";
+import { resolveBefore } from "../pipeline/eras";
+import { boxHit, s7Boxes } from "../tech/boxes";
 import { stageRand } from "../pipeline/seeds";
 import { BUILT_STAGES, ERA_STAGES, runCity, runCityEra } from "../stages";
 import { KIT_KEYS } from "./kit";
@@ -27,6 +29,7 @@ interface Run {
   readonly ms: number;
   readonly earlierOk: boolean;
   readonly wild: ReadonlyMap<string, number>;
+  readonly before: CityEraPlan;
 }
 
 /**
@@ -34,10 +37,10 @@ interface Run {
  * E1 or E2's barricade step changes what stands before it, and when K2's circuit lands: the ruin-pass, in a one-line follow-up named in that merge).
  */
 const PIN_GROWTH: Readonly<Record<number, string>> = {
-  1: "bd5b16bb",
-  2: "eee5020e",
-  3: "6670d5d0",
-  8: "bbde14c7",
+  1: "72d7e8a3",
+  2: "ac945ba3",
+  3: "067ba0f7",
+  8: "0e9e1f8f",
 };
 
 const CLEAN_STAGES = CITY_STAGES.filter((s): s is CityPlanStage => s !== "assemble");
@@ -70,6 +73,7 @@ describe("the named runs (X-4, X-1, R-1)", { timeout: 1_800_000 }, () => {
         roofsOn,
         ms,
         earlierOk,
+        before,
         wild: new Map(run.plan.layers.history!.districts.map((d) => [d.id, d.wild] as const)),
       });
       if (PINNED.some((p) => p.seed === c.seed) && c.way === "on") pinned.set(c.seed, { plan: before, layer: layer! });
@@ -99,6 +103,43 @@ describe("the named runs (X-4, X-1, R-1)", { timeout: 1_800_000 }, () => {
       expect(l.steps!.map((s) => s.step)).toEqual([...CITY_RUIN_STEPS]);
       expect(l.steps![1]).toEqual({ step: "remnants", adds: 0, changes: 0 });
       expect(l.steps!.reduce((n, s) => n + s.adds, 0)).toBe(l.adds.length);
+    }
+  });
+
+  it("no non-patch add meets a stage 7 piece (the tech pass's own boxes, read from the plan's layers), a ground prop, a traffic piece, or an earlier era's add; a patch meets none of them but a ground piece's lower part", () => {
+    const eps = 1e-6;
+    const meets = (a: CityRuinLayer["adds"][number], r: { x0: number; x1: number; z0: number; z1: number }, y0: number, y1: number): boolean => {
+      const hx = a.size.x_m / 2;
+      const hz = a.size.z_m / 2;
+      return a.placement.x_m - hx < r.x1 - eps && a.placement.x_m + hx > r.x0 + eps && a.placement.z_m - hz < r.z1 - eps && a.placement.z_m + hz > r.z0 + eps && a.placement.y_m < y1 - eps && a.placement.y_m + a.size.h_m > y0 + eps;
+    };
+    for (const r of runs) {
+      const resolved = resolveBefore(r.before, "ruin");
+      const L = resolved.plan.layers;
+      const boxes = s7Boxes({ facades: L.facades! });
+      const earlier = [...(resolved.adds.tech ?? []), ...(resolved.adds.holdout ?? [])];
+      const ground = [...(L.ground?.props ?? []).filter((p) => !p.flat), ...(L.traffic?.pieces ?? [])];
+      const bad: string[] = [];
+      for (const a of r.layer.adds) {
+        if (a.kind === "roof") continue;
+        const hostVine = a.kind === "vine" && /^ruin:vine:(awning|canopy):/.test(a.id);
+        const rect = { x0: a.placement.x_m - a.size.x_m / 2, x1: a.placement.x_m + a.size.x_m / 2, z0: a.placement.z_m - a.size.z_m / 2, z1: a.placement.z_m + a.size.z_m / 2 };
+        if (a.kind !== "patch" && !hostVine && !a.id.startsWith("ruin:tree-vine:") && !a.id.startsWith("ruin:vine:post:")) {
+          const hit = boxHit(boxes, rect, a.placement.y_m + eps, a.placement.y_m + a.size.h_m - eps);
+          if (hit !== null) bad.push(`${a.id} meets stage 7 ${hit.src}`);
+        }
+        const exempt = a.id.startsWith("ruin:tree-vine:") || a.id.startsWith("ruin:vine:post:"); // they hang on their own tree or post
+        for (const e of earlier) {
+          if (exempt) continue;
+          if (meets(a, { x0: e.placement.x_m - e.size.x_m / 2, x1: e.placement.x_m + e.size.x_m / 2, z0: e.placement.z_m - e.size.z_m / 2, z1: e.placement.z_m + e.size.z_m / 2 }, e.placement.y_m, e.placement.y_m + e.size.h_m)) bad.push(`${a.id} meets earlier add ${e.id}`);
+        }
+        for (const p of ground) {
+          if (exempt) continue;
+          if (a.kind === "patch") continue; // a patch may lie up to a piece; it never lies under one (the stage tests that)
+          if (meets(a, { x0: p.placement.x_m - p.size.x_m / 2, x1: p.placement.x_m + p.size.x_m / 2, z0: p.placement.z_m - p.size.z_m / 2, z1: p.placement.z_m + p.size.z_m / 2 }, p.placement.y_m, p.placement.y_m + p.size.h_m)) bad.push(`${a.id} meets a ground piece`);
+        }
+      }
+      expect(bad.slice(0, 5), label(r.city)).toEqual([]);
     }
   });
 

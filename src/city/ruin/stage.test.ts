@@ -95,6 +95,13 @@ describe("criterion 2: density reads wild only (X-6)", { timeout: 300_000 }, () 
     expect(s09["candidates:patch"]).toBeGreaterThan(s02["candidates:patch"]!);
   });
 
+  it("and never fewer pieces placed: patches, saplings and clumps across 0.2, 0.5 and 0.9", () => {
+    for (const what of ["placed:patch", "placed:sapling", "placed:clump"]) {
+      expect(s05[what] ?? 0, what).toBeGreaterThanOrEqual(s02[what] ?? 0);
+      expect(s09[what] ?? 0, what).toBeGreaterThanOrEqual(s05[what] ?? 0);
+    }
+  });
+
   it("park trees only from wild 1/3", () => {
     expect(at(0.3)["candidates:park-tree"] ?? 0).toBe(0);
     expect(at(1 / 3 + 0.001)["candidates:park-tree"] ?? 0).toBeGreaterThan(0);

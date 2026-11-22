@@ -18,7 +18,6 @@ import {
   CLEAR_M,
   CLUMP_TRIES,
   CROWN_MARGIN_M,
-  FLAT_COVER_MAX_H_M,
   P_CLUMP,
   P_ROOF,
   P_SAPLING,
@@ -153,9 +152,10 @@ export function growRuin(world: World, rand: StageRand, o: GrowOptions): GrowRes
     return { id, kind, district, cell, placement: { key, x_m: x, y_m: y, z_m: z, yaw_deg: yaw }, size: { x_m: t.x, z_m: t.z, h_m: k.h } };
   };
   /** True when nothing standing meets the footprint (grown by `gap`) over the vertical span `base` to `top`, ignoring any obstacle that contains a point of `ignoreAt`. */
-  const free = (rect: Rect, base: number, top: number, gap: number, ignoreAt?: readonly [number, number]): boolean => {
+  const free = (rect: Rect, base: number, top: number, gap: number, ignoreAt?: readonly [number, number], ignoreTag?: string): boolean => {
     for (const hit of obstacles.query(growRect(rect, gap))) {
       if (hit.tag.base >= top || hit.tag.top <= base) continue;
+      if (ignoreTag !== undefined && hit.tag.at === ignoreTag) continue;
       if (ignoreAt !== undefined && ignoreAt[0] >= hit.rect.x0 && ignoreAt[0] <= hit.rect.x1 && ignoreAt[1] >= hit.rect.z0 && ignoreAt[1] <= hit.rect.z1) continue;
       return false;
     }
@@ -267,7 +267,7 @@ export function growRuin(world: World, rand: StageRand, o: GrowOptions): GrowRes
       const x = (r.x0 + r.x1) / 2;
       const z = (r.z0 + r.z1) / 2;
       const rect = rectAt(x, z, kit.w, kit.d);
-      if (kit.h < FLAT_COVER_MAX_H_M || (free(rect, 0, kit.h, 0) && !circuitHit(circuit, rect, kit.h, CIRCUIT_MARGIN_M))) {
+      if (free(rect, 0, kit.h, 0) && !circuitHit(circuit, rect, kit.h, CIRCUIT_MARGIN_M)) {
         piece = make("patch", c.id, c.district, c.cell, MOUND_KEY, x, 0, z, 0);
       }
     }
@@ -377,7 +377,6 @@ export function growRuin(world: World, rand: StageRand, o: GrowOptions): GrowRes
         spanSpot ??= { id: c.id, key: c.key, x_m: x, z_m: z };
         if (!o.treesUnderSpans) continue;
       }
-      if (spanSpot !== null) underSpanSpots.push(spanSpot);
       treeAt("park-tree", c.id, c.district, c.key, x, z, yaw);
       return;
     }
@@ -411,7 +410,7 @@ export function growRuin(world: World, rand: StageRand, o: GrowOptions): GrowRes
   };
 
   /** A vine on a wall: tries the keys in hashed order. `keys` are the pieces allowed; `place` builds the vine's centre, base and top from a key. */
-  const tryVineKeys = (c: Cand & { kind: "vine-face" | "vine-host" }, keys: readonly CalibrationKey[], frame: FaceFrame, hostCell: CityCell, shape: (key: CalibrationKey, k: number) => { x: number; z: number; top: number } | null, slot: string): void => {
+  const tryVineKeys = (c: Cand & { kind: "vine-face" | "vine-host" }, keys: readonly CalibrationKey[], frame: FaceFrame, hostCell: CityCell, shape: (key: CalibrationKey, k: number) => { x: number; z: number; top: number } | null, slot: string, ignoreTag?: string): void => {
     let tries = 0;
     for (const key of shuffled(keys, c.id, "vine")) {
       if (tries >= VINE_TRIES) break;
@@ -422,7 +421,7 @@ export function growRuin(world: World, rand: StageRand, o: GrowOptions): GrowRes
       const base = at.top - kit.h;
       const t = turned(kit.w, kit.d, frame.yaw);
       const rect = rectAt(at.x, at.z, t.x, t.z);
-      if (!free(rect, base, at.top, CLEAR_M) || circuitHit(circuit, rect, at.top, CIRCUIT_MARGIN_M)) continue;
+      if (!free(rect, base, at.top, CLEAR_M, undefined, ignoreTag) || circuitHit(circuit, rect, at.top, CIRCUIT_MARGIN_M)) continue;
       if (add(make("vine", c.id, c.district, hostCell, key, at.x, base, at.z, frame.yaw), false)) count(`vine:${slot}`);
       return;
     }
@@ -463,7 +462,7 @@ export function growRuin(world: World, rand: StageRand, o: GrowOptions): GrowRes
       const jitter = (u(c.id, "jit", key, k) - 0.5) * 0.6;
       const normal = outer - (fr.alongX ? fr.out[1] * (t.z / 2) : fr.out[0] * (t.x / 2));
       return { x: fr.alongX ? s.x + jitter : normal, z: fr.alongX ? normal : s.z + jitter, top: s.top };
-    }, s.id.startsWith("awning") ? "awning" : "canopy");
+    }, s.id.startsWith("awning") ? "awning" : "canopy", `${Math.round(s.x * 10)},${Math.round(s.z * 10)}`); // a vine draped over a host ignores that host
   };
 
   const tryVinePost = (c: Extract<Cand, { kind: "vine-post" }>): void => {
