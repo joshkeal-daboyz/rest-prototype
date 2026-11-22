@@ -1,5 +1,22 @@
 # 070 K1 pre-check: the circuit on the 20 named runs
 
+## Answer (Josh, 21 Nov 2026, in chat; recorded by the lead-architect)
+
+**The stop signs (question 1), on a question card.**
+- **Asked:** "K1 pre-check: every circuit rule holds on all 20 test cities, except one. The traffic stage's keep-out check measures from a stop sign's board, and the nearest end pole is 1.44 m from it, inside the 1.5 m keep-out on every city. The 1.52 m you saw earlier was measured to the sign's post. How should it be fixed?"
+- **Answer:** **"Measure from the post (Recommended)"**. The option read: "Change the traffic check to measure from the sign's post. No pole moves; the margin is the +0.02 m you accepted. This changes a merged check."
+- **So:** option A of section 4. Stage 9's CL measures a stage 6 keep point from a stop sign's post, not its board's footprint. That is TR1c in ticket 070 (owner streetscape, `src/city/traffic/`), and it branches after K1 merges. No pole moves, and K1's note is unchanged in its layout: end slots stay at 2.5 m and corner spans at 9.55 m.
+
+**The Sci-Fi City poles, in his own words (the same chat):** "The scifi power poles are intended to be atop buildings and other objects they are not intended to come out of the ground".
+- **So:** `sci-fi-city-pack:SM_Prop_Powerpoll_01` and `_02` leave the ground pole mix, both on the ladder and on the city streets. The ground mix is Apocalypse `Powerpole_01`, Palm `Powerpole_01` and Palm `Powerpole_02`.
+- **Roof and object poles are deferred.** They are future work for the session that plans the city's transformations, and are not designed here.
+- **The numbers below assumed the five-pole mix.** Where Sci-Fi City set a lowest point, the three-pole numbers are:
+  - **CK7, crossings:** lowest 5.20 m, Apocalypse at both ends of a 16.5 m crossing (it was 4.36 m). The 4.2 m floor is still Josh's.
+  - **CK7, along and corner spans:** lowest 5.14 m, Apocalypse at both ends of an 18 m along span (it was 4.30 m).
+  - **The largest height step on a span:** 2.68 m, Palm beside Apocalypse (it was 3.52 m).
+  - **Estimated, not re-run** (the mix is now `stableHash % 3`): the corner spans through a stage 7 box with heights are at most the all-Apocalypse count, 8 over the 20 runs (it was 6 on the five-pole mix), and the tall pavement trees that reach a wire. K2's numbers are the record.
+  - **Unchanged:** no other number in this note depends on the pole picked.
+
 21 Nov 2026, pipeline-designer. Measured on `goal/city-style` at 638b7a2, which has stage 9 (TR1, TR1b) merged. The K1 branch (`ticket/070k1-circuit-design`, d88492b) changes no `src/`, and its base has no stage 9. Not committed. Nothing here is decided until Josh says so in chat.
 
 **This is a sketch.** A throwaway probe, outside the repo, laid CK1 to CK12 as `docs/design/070-K1-circuit.md` words them on a read-only copy of `src/core` and `src/city`. It then measured the clearances against the merged stages 4, 7, 8 and 9, and re-ran stages 8 and 9 with the circuit's poles and lights as their keep points. K2's numbers are the record. Pole picks per pole use `stableHash(pole id) % 5` over 071's five poles. That is an **estimate**: B's `poleAt` is not written yet.
