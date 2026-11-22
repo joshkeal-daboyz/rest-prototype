@@ -176,9 +176,10 @@ describe("T-1 at the ruin era: trees exempt (F1b1; Josh, 22 Nov 2026: \"Through 
     expect(t1Failures(dead, { circuit: c, era: "ruin", isTree: (key) => /Tree_Generic/.test(key) }).map((f) => f.what)).toEqual(["pole"]);
   });
   it("T-2 still holds: a ruin tree's trunk that seals a one-cell street between two poles fails, exempt crown or not", () => {
-    const poles = [poleAt("pole:a", 0, 2), poleAt("pole:b", 7, 2)];
+    const poles = [poleAt("pole:a", 0, 2), poleAt("pole:b", 7, 2), poleAt("pole:c", 3, 2)]; // pole:c stands under the crown
     const trunk = add("ruin:tree:1", k("SM_Env_Tree_01"), 17.5, 12.5, { x_m: 5, z_m: 5, h_m: 6 });
     const r = resolvePlan(eraPlan(grid([2]), { ruin: { stage: "ruin", adds: [trunk], changes: [], steps: [] } as unknown as CityEraLayers["ruin"] }), "ruin");
+    expect(t1Failures(r, { circuit: circuit({ poles }) }).map((x) => x.what)).toEqual(["pole"]); // judged with no era, the crown over pole:c fails
     expect(t1Failures(r, { circuit: circuit({ poles }), era: "ruin" })).toEqual([]);
     expect(t2Failures(r, { circuit: circuit({ poles }), era: "ruin" })).toMatchObject([{ rule: "T-2", pole: "pole:b" }]);
   });

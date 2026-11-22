@@ -116,6 +116,16 @@ describe("the pass helpers (C1, criterion 5)", () => {
     expect(() => assertEraReadable(ep, "holdout", forced, { circuit: c })).toThrow(/^T-1/);
     expect(() => assertEraReadable(ep, "holdout", forced, { circuit: c })).toThrow(CityStageError);
   });
+  it("assertEraReadable judges at its own era: a ruin tree over a pole and a span passes at \"ruin\" (F1b1), a hold-out tree over a pole still throws T-1 at \"holdout\"", () => {
+    const tree = { x_m: 4, z_m: 4, h_m: 4 };
+    const c = { ...EMPTY_CIRCUIT, poles: [{ id: "pole:1", x_m: 40, z_m: 40 }], lines: [{ id: "span:1", a: { x_m: 0, z_m: 40 }, b: { x_m: 80, z_m: 40 } }] };
+    const ruin = { stage: "ruin" as const, adds: [add("ruin:t:1", k("SM_Env_Tree_01"), 40, 40, tree), add("ruin:t:2", k("SM_Env_Tree_01"), 10, 40.5, tree)], changes: [], steps: [] } as unknown as CityEraLayers["ruin"];
+    expect(assertEraReadable(ep, "ruin", ruin, { circuit: c }).adds.ruin).toHaveLength(2);
+    const solid = { ...ruin, adds: [add("ruin:b:1", k("box"), 40, 40, tree)] } as unknown as CityEraLayers["ruin"];
+    expect(() => assertEraReadable(ep, "ruin", solid, { circuit: c })).toThrow(/^T-1/);
+    const hold = { stage: "holdout" as const, adds: [add("holdout:t:1", k("SM_Env_Tree_01"), 40, 40, tree)], changes: [] };
+    expect(() => assertEraReadable(ep, "holdout", hold, { circuit: c })).toThrow(/^T-1/);
+  });
   it("assertEraReadable throws CityStageError for a change that cannot apply (X-2)", () => {
     const bad = { stage: "holdout" as const, adds: [], changes: [{ ref: { id: "nope" }, op: "remove" as const }] };
     expect(() => assertEraReadable(ep, "holdout", bad)).toThrow(/X-2/);

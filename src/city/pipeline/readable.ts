@@ -131,6 +131,8 @@ interface Placed {
   readonly top: number;
   /** A canopy's radius, or 0 for a solid piece. */
   readonly canopy: number;
+  /** A ruin tree at the ruin era: T-1 does not judge it (F1b1). */
+  readonly exempt?: boolean;
 }
 
 const item0 = (item: unknown): string => (item as Sized).placement.key;
@@ -167,8 +169,7 @@ function place(ref: string, source: Placed["source"], item: Sized, useBounds: bo
 interface Collected {
   readonly clean: Placed[];
   readonly judged: Placed[];
-  /** The ruin's trees, when the era judged is the ruin: not judged by T-1 (F1b1), but they still close the ground for T-2. */
-  readonly exempt: Placed[];
+  /** (the ruin's trees are in `judged`, flagged `exempt`: T-1 skips them at the ruin era, T-2 counts them) */
 }
 
 function collect(resolved: CityResolvedPlan, o: ReadableOptions): Collected {
@@ -177,7 +178,6 @@ function collect(resolved: CityResolvedPlan, o: ReadableOptions): Collected {
   const swapKeys = new Set(swaps.map((s) => ("id" in s ? s.id : `${s.list}|${s.column ?? ""}|${s.index}`)));
   const clean: Placed[] = [];
   const judged: Placed[] = [];
-  const exempt: Placed[] = [];
   const L = resolved.plan.layers;
   const push = (list: CityPieceList, column: number | null, index: number, item: unknown, treeKind = false): void => {
     const swap = swapKeys.has(`${list}|${column ?? ""}|${index}`);
@@ -205,11 +205,10 @@ function collect(resolved: CityResolvedPlan, o: ReadableOptions): Collected {
       const swap = swapKeys.has(a.id);
       const p = place(a.id, "add", a, swap, o, isTree, false);
       if (p === null) throw new Error(`T-1/T-2: era add ${a.id} (key ${a.placement.key}) has no size and no kit bounds in options.bounds`);
-      if (era === "ruin" && o.era === "ruin" && p.canopy > 0) exempt.push(p);
-      else judged.push(p);
+      judged.push(era === "ruin" && o.era === "ruin" && p.canopy > 0 ? { ...p, exempt: true } : p);
     }
   }
-  return { clean, judged, exempt };
+  return { clean, judged };
 }
 
 // ---- T-1 ----
@@ -255,7 +254,7 @@ function judge(pieces: readonly Placed[], c: CircuitPoints): T1Failure[] {
 export function t1Failures(resolved: CityResolvedPlan, options: ReadableOptions = {}): readonly T1Failure[] {
   const c = options.circuit ?? circuitPoints(resolved);
   if (c.poles.length + c.lights.length + c.lampPlaces.length + c.drops.length + c.lines.length === 0) return [];
-  return judge(collect(resolved, options).judged, c);
+  return judge(collect(resolved, options).judged.filter((p) => p.exempt !== true), c);
 }
 
 /**
@@ -265,7 +264,7 @@ export function t1Failures(resolved: CityResolvedPlan, options: ReadableOptions 
 export function t1RuinTreeCovers(resolved: CityResolvedPlan, options: ReadableOptions = {}): readonly T1Failure[] {
   const c = options.circuit ?? circuitPoints(resolved);
   if (c.poles.length + c.lights.length + c.lampPlaces.length + c.drops.length + c.lines.length === 0) return [];
-  return judge(collect(resolved, { ...options, era: "ruin" }).exempt, c);
+  return judge(collect(resolved, { ...options, era: "ruin" }).judged.filter((p) => p.exempt === true), c);
 }
 
 /** The clean pieces that cover the circuit by the same reading: reported each run, never failed (X-1). */
@@ -318,8 +317,8 @@ export function t2Failures(resolved: CityResolvedPlan, options: ReadableOptions 
   const streets = resolved.plan.layers.streets;
   if (c.poles.length === 0 || streets === undefined) return [];
   const { w, h } = streets;
-  const { clean, judged, exempt } = collect(resolved, options);
-  const closed = closedCells([...clean, ...judged, ...exempt], w, h);
+  const { clean, judged } = collect(resolved, options);
+  const closed = closedCells([...clean, ...judged], w, h);
   const walk = new Set<number>();
   for (const cell of streets.cells) if (!closed.has(cell.j * w + cell.i)) walk.add(cell.j * w + cell.i);
 
