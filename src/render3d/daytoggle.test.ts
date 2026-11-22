@@ -17,7 +17,7 @@ import { cityTilesRequested } from "./tileslots";
 
 /** The pipeline's city (6 x 6 seed 1, what `city=tiles` asks), run once for the file. */
 let planRun: ReturnType<typeof runCity> | null = null;
-const cachedRun = (): ReturnType<typeof runCity> => (planRun ??= runCity({ blocksX: 6, blocksZ: 6, seed: 1 }, "ground"));
+const cachedRun = (): ReturnType<typeof runCity> => (planRun ??= runCity({ blocksX: 6, blocksZ: 6, seed: 1 }, "traffic"));
 
 /** A host that records what was added and removed. */
 function fakeHost(): { host: DayToggleHost; press(e: KeyEventLike): void; click(): void; state: { listeners: number; button: boolean; states: LightModeId[] } } {
