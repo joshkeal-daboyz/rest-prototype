@@ -2,10 +2,16 @@
 
 owner: per section (lead-architect, planner, renderer, grid-simulator, pipeline-designer, and three new agents: tech-pass, holdout-pass, ruin-pass; see Agents)
 status: open. Cut 21 Nov 2026 from `docs/design/073-transformations.md` and Josh's answers on its eight cards and its questions 6 and 9. Updated the same day with his answers to this ticket's Q10 to Q15 and the feed-place card.
-- **Cut in full:** A (types, waiting for K's type), the B pre-check, B, C1, C2, F0, the D1 pre-check.
+- **Cut in full:** A (types, no circuit), A2 (the circuit references, waiting for K's type), the B pre-check, B, C1, C2, F0, the D1 pre-check, D1g.
 - **Outlined:** D1, D2, D3, J2 (instancing), E1, E1g, E2, E3, F1, F2, F2g, F3. Each is cut in full when what it waits for has merged.
 - Questions: Q1 to Q9 of the note answered. Q10 to Q15 and the feed-place card answered (21 Nov 2026, below). None is open now; the pre-checks will bring their own.
-branch: one per section, `ticket/073<section>-<slug>` (named in each), each cut from `goal/city-style`.
+- **Re-cut 21 Nov 2026 night, under the goal** (the orchestrator's instruction; Josh approved the goal, "Can we turn this into a goal and let this run over night?", and the ticket, "Approved"). Each item below is **taken under the goal (21 Nov 2026 night); Josh may reverse**. None is Josh's ruling.
+  - **A split into A (now) and A2 (after K).** A types everything that needs no circuit, in a new file `src/core/cityera.ts`; A2 types the circuit references once K's `CityCircuitLayer` merges. B and C1 wait for A, not A2.
+  - **The era stages and layers stay out of `CITY_STAGES` and `CityLayers`.** They are `CITY_ERA_STAGES` and `CityEraPlan`, in `cityera.ts`, so `cityplan.ts` is not edited and no clean type, digest or test moves (X-1, X-7).
+  - **Sections are cut from `goal/city-transformations`**, not `goal/city-style`.
+  - **D1g, a drawn section for D1 alone,** so Josh sees the tech pass's walls and pavement before D2 and D3 (which wait on K2). D3 then draws only what D1g did not.
+  - **X-11, pieces used as the pack shows them.** Josh's words, relayed by the Fable planning session; the rule's wording is this re-cut's. D1 also waits for its pre-check's kit to be checked against `docs/design/073-pack-intended-use.md`.
+branch: one per section, `ticket/073<section>-<slug>` (named in each), each cut from `goal/city-transformations` (taken under the goal, 21 Nov 2026 night; Josh may reverse).
 
 ## Josh's words
 
@@ -102,6 +108,10 @@ On top of them:
 - **X-8. Kits are typed and pinned.** Each pass's piece sizes are typed tables in its folder, pinned against the GLB by a test in `src/render3d/` inside `it.skipIf(!have)` (R-6).
 - **X-9. Never-used keys.** A key on the guide's never-used list is used only under one of Josh's breaks, for its pass, on its own piece kind. The drawn section adds that allowance to the R12 audit as one typed table, era-scoped, as TR2 did.
 - **X-10. Shown, never explained.** The GDD's "What the player knows" is Decided: "The world is shown, never explained." No piece carries readable text that says what happened to the city or its people.
+- **X-11. Pieces used as the pack shows them** (re-cut under the goal, 21 Nov 2026 night; Josh may reverse the wording). Josh, 21 Nov 2026, in chat to the Fable planning session (relayed by it): "Sometimes the assets are treated poorly by the city building agents. You should check some of the images on the asset pack page to ensure that the agents are using the assets properly. If they're in disagreement on how an asset should be used. A good example of this is the science fiction power pole. It's intended to be used on an existing structure and not out of the ground."
+  - Every pre-check and every pass builder reads `docs/design/073-pack-intended-use.md` and uses a piece as the store images show it.
+  - A use the images do not show, or contradict, is listed in the pre-check as a departure, with its reason.
+  - A departure the plan needs is a question for the Fable session (answered on Josh's delegation), never a builder's decision.
 
 **T-1 and T-2 (every era; Josh's, card 5, in the card's words).**
 - **T-1, the circuit stays readable.** No piece of any pass covers a stage 6 pole, node place or street light from above, and no canopy closes over a pole line. A tree may grow beside a line, not over it.
@@ -137,7 +147,7 @@ Josh's Q6: "I like all of your suggestions, make them so": a job's district is a
 - **CK14's edge.** K1 says "the edge is the designer's choice". Now the designer starts from a history district. A district of the designer's own (still 1 to 4 touching blocks) is the exception, and the note says why.
 - **The feed's place.** K1 question 10 (Josh) put "each job's own feed on a pole just outside its district". For a job on a history district with a plant, the feed is the plant, inside the district. K2's check "each feed stands outside the district, joined by exactly one span that enters it" skips that job (the card's words: "The circuit builder's 'feed stands outside' check skips those jobs."). K2's cut must say so.
 - **No plant** (Josh, Q11): a district with no plant keeps K1's rule, the feed on a pole just outside it, and K2's check applies as K1 wrote it.
-- **CK15's places.** A node's `place` gains a plant place, `{ plant: <plant id> }`, read from the `holdout` layer. Typed with E1g, not now.
+- **CK15's places.** A node's `place` gains a plant place, `{ plant: <plant id> }`, read from the `holdout` layer. Typed by A2 (re-cut under the goal, 21 Nov 2026 night; Josh may reverse), before E1g.
 
 **What it leaves alone:**
 - CK14's extent (1 to 4 blocks, first jobs at one), the dead rest of the city, and that unnamed parts in the district are scenery.
@@ -151,70 +161,58 @@ Josh's Q6: "I like all of your suggestions, make them so": a job's district is a
 ## Sections
 
 Order:
-- A (after K's `CityCircuitLayer` merges) → B and C1 alongside → C2.
+- A → B and C1 alongside → C2. A2 after K's `CityCircuitLayer` merges; E1, E1g and F2 wait for it.
 - The B pre-check and the D1 pre-check may start now. They are probes outside the repo.
 - F0 may start now. It touches nothing in git.
-- B → D1 → D2 (after K2) → D3 → J2 → E1, E2 → E1g → E3 → F1, F2 → F2g → F3.
+- B → D1 → D1g (after C2) → D2 (after K2) → D3 → J2 → E1, E2 → E1g → E3 → F1, F2 → F2g → F3.
 
 Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/night/`, `src/render/`, `src/play/`, `src/ui/`, `src/main.ts`, `town.ts`, `terrace.ts`, the two pin tests, `tests/`, `puzzles/`, `tools/`, `package.json`, `assets/`, `tickets/`, the grammar and the guide), plus every clean stage folder (`src/city/streets/` to `src/city/traffic/`) unless the section names a line in it.
 
-### A · Types: the four layers, adds and changes, references, the era option, the resolver's contract (lead-architect). Branch `ticket/073a-era-types`
+### A · Types without the circuit: eras, history, references, changes, era layers, the resolver's contract (lead-architect). Branch `ticket/073a-era-types`
 
-**Waits for:** K's `CityCircuitLayer` merged into `goal/city-style`. Another session's architect types it in `src/core/cityplan.ts` now. **A does not edit that file until then.** The shapes below are a sketch. A writes them after reading K's layer as merged.
+**Re-cut under the goal** (21 Nov 2026 night; Josh may reverse). A no longer waits for K. It types everything that needs no circuit, in a new file, so nothing conflicts with K's typing in `cityplan.ts`. The circuit references are A2's.
 
-**What A adds (sketch; names are free):**
+**What A adds, in `src/core/cityera.ts`:**
+- **Eras and stages.** `CITY_ERAS` (`clean`, `tech`, `holdout`, `ruin`), `CityEra`; `CITY_ERA_STAGES` (`history`, `tech`, `holdout`, `ruin`), `CityEraStage`, `CityPassStage`, `CityLayerStage`; `CITY_ERA_LAST` (clean `traffic`, each other era its own stage).
+- **Stage 10.** `CityDistrict` (id `district:<its first block in streets.blocks order>`, 1 to 4 blocks, `tech`, `held`, `wild` in 0 to 1) and `CityHistoryLayer`.
+- **References.** `CITY_PIECE_LISTS` and `CityPieceList` (`edge.ground`, `edge.buildoutTrees`, `buildings.pieces`, `facades.ground`, `.dressing`, `.walls`, `.roofs`, `.novelty`, `ground.props`, `traffic.pieces`); `CITY_KEYLESS_PIECE_LISTS` (the two edge lists); `CityPieceListItem` (each list's entry type); `CityPieceRef` (by id; by list, index and key guard; a column's piece by column, index and key).
+- **States and changes.** `CityPieceState`, `CITY_PIECE_STATES`, `CityChange` (remove, swap, state).
+- **Era layers.** `CityEraPiece<K>`, `CityEraLayer<S, P>`, `CityTechLayer`, `CityHoldoutLayer`, `CityRuinLayer` (each pass's kind is `string` until its own cut names the union), `CityEraLayers`, `CityEraPlan` (the clean plan untouched, plus the era layers and their digests), `CityEraStageFailure`, `CityEraRun`, `CityEraPicture`.
+- **The resolver's contract.** `CityResolve` (`(plan: CityEraPlan, era: CityEra) => CityResolvedPlan`), `CityResolvedPlan`, `CityResolvedState`, `CityResolveFailure`, `CityResolveFailureKind`; the contract below, as the file's doc comments.
 
-```ts
-// The eras. "clean" is the plan through "traffic".
-export const CITY_ERAS = ["clean", "tech", "holdout", "ruin"] as const;
-export type CityEra = (typeof CITY_ERAS)[number];
-// The last stage each era runs: clean "traffic", tech "tech", holdout "holdout", ruin "ruin".
-export const CITY_ERA_LAST: Readonly<Record<CityEra, CityPlanStage>>;
-
-// Stage 10.
-interface CityDistrict { id: string;            // "district:<least block id>"
-  blocks: readonly string[];                    // 1 to 4, touching across a street (CK14)
-  tech: number; held: number; wild: number; }   // 0 to 1
-interface CityHistoryLayer { stage: "history"; districts: readonly CityDistrict[]; }
-
-// A reference to a piece of an earlier layer (see "Check (a)" below).
-type CityPieceRef =
-  | { id: string }                                          // a piece with its own id
-  | { list: CityPieceList; index: number; key: CalibrationKey | null };  // by place in a frozen list, with a guard
-type CityPieceList = "facades.ground" | "facades.dressing" | "facades.walls" | "facades.roofs"
-  | "facades.novelty" | "ground.props" | "edge.ground" | "edge.buildoutTrees"
-  | "traffic.pieces" | "buildings.columns" | ...;          // A lists every list a pass may change
-
-type CityPieceState = "dark" | "boarded" | "broken" | "toppled" | "cut";
-type CityChange =
-  | { ref: CityPieceRef; op: "remove" }
-  | { ref: CityPieceRef; op: "swap"; key: CalibrationKey }   // same place, another key
-  | { ref: CityPieceRef; op: "state"; state: CityPieceState };
-
-// Stages 11 to 13: adds and changes. Each pass's piece kinds are its own.
-interface CityEraLayer<S extends "tech" | "holdout" | "ruin", P> {
-  stage: S; adds: readonly P[]; changes: readonly CityChange[]; }
-interface CityEraPiece<K extends string> { id: string;    // "<stage>:<kind>:<...>", unique in the plan
-  kind: K; district: string; cell: CityCell; placement: CityPlacement;
-  size: { x_m: number; z_m: number; h_m: number }; }
-// The hold-out's plant, makeshift poles and spans, and the tech roof net, carry ids
-// in K's scheme, namespaced by stage (see the note for K's architect).
-```
+**Why not `CITY_STAGES` and `CityLayers`.** Adding the four stages to `CITY_STAGES` puts them in the clean runner's order (`runStages` sorts by it) and moves `planview.test.ts`' literals; adding the layers to `CityLayers` makes `CityStageDef`, `CityPlan.digests` and `CityPicture.stage` treat them as clean stages. Kept apart, a clean run cannot reach them (X-7) and `cityplan.ts` is untouched. C1's era runner reads `CITY_ERA_STAGES`; a failure or picture of an era stage uses `CityEraStageFailure` or `CityEraPicture`.
 
 **The resolver's contract** (built in C1):
 - `resolvePlan(plan, era)` is pure. It never mutates a layer. It returns the plan as it stands at that era: every layer up to the era, each era's adds, and every change applied in stage order, then list order.
-- `clean` resolves to the plan itself, deep-equal, same digests.
-- A removed piece is gone. A swapped piece keeps its placement with the new key. A stated piece carries `state`.
-- No cascade. A pass that topples a pole also lists the state of each span on it. C1's check fails a toppled pole with an uncut span.
-- It fails (a typed error naming the stage whose change it is) when: a reference finds nothing; a key guard does not match; one layer changes a piece twice; a change targets a piece an earlier era removed; a swap targets a piece with no key (a cell record without one).
-- A later era may change an earlier era's adds (the ruin cuts a makeshift span).
+- `clean` resolves to the clean plan itself (`CityResolvedPlan.plan` deep-equal to `CityEraPlan.plan`, same digests), with no history, adds or states.
+- A removed piece is gone. A swapped piece keeps its placement with the new key. A stated piece is listed in `states`, by its place in the resolved lists; a later era's state replaces an earlier one's.
+- References are read against the lists as their stages wrote them; a key guard is checked against the key as it stands when the change applies.
+- No cascade: a change touches only the piece it names. (A2 adds the circuit's case.)
+- It fails (a `CityResolveFailure` naming the stage and the change's index) when: a reference finds nothing (`missing`); a key guard does not match (`key`); one layer changes a piece twice (`twice`); a change targets a piece an earlier era removed (`removed`); a swap targets a keyless list's record (`keyless`).
+- A later era may change an earlier era's adds, by id.
 
 **Acceptance criteria:**
-1. [ ] (the architect) The types above, as merged against K's layer, in `src/core/cityplan.ts`, exported from `src/core/index.ts`. `CityLayers` gains `history`, `tech`, `holdout`, `ruin`. `CITY_STAGES` gains the four between `traffic` and `assemble`.
-2. [ ] `npx tsc --noEmit` passes. `npx vitest run --maxWorkers=2 src/city/pipeline/ src/render3d/planview.test.ts` passes, or each failure is listed with the one-line change C1 or C2 makes for it (070 TR1 criterion 0's pattern; `planview.test.ts`' "not a plan stage" literal will move).
-3. [ ] No clean layer's type changes, except what K's own cut asks.
+1. [ ] (the architect) The types above in `src/core/cityera.ts`, exported from `src/core/index.ts`. `cityplan.ts` is not edited: `CITY_STAGES`, `CityLayers` and every clean layer's type are as they were.
+2. [ ] `npx tsc --noEmit` passes. `npx vitest run --maxWorkers=2 src/city/pipeline/ src/render3d/planview.test.ts` passes unchanged (no literal moves, since `CITY_STAGES` does not change).
+3. [ ] No circuit type is referenced. A2 is written into this ticket.
 
-**Files:** `src/core/cityplan.ts`, `src/core/index.ts`. No new dependency.
+**Files:** new `src/core/cityera.ts`, `src/core/index.ts` (one line), this ticket. No new dependency.
+
+### A2 · Types: the circuit references (lead-architect). Branch `ticket/073a2-circuit-refs`
+
+**Waits for:** K's `CityCircuitLayer` merged (typed by another session in `src/core/cityplan.ts`) and brought into `goal/city-transformations`. **E1, E1g and F2 wait for A2.** B, C1, C2, D1, D1g and E2 do not.
+
+**What A2 adds** (to `src/core/cityera.ts`; `cityplan.ts` only if K's layer lacks something the note for K's architect asked for):
+- **Circuit references.** A `{ id }` reference may name a pole, span, drop or street light by K's id; the contract's `missing` covers them. Which states apply to which (a pole `toppled`, a span `cut`, a light `dark`).
+- **No cascade on the circuit.** A pass that topples a pole lists the state of each span on it; C1's helper (or the planner's next section) fails a toppled pole with an uncut span.
+- **Era-added circuit pieces.** The hold-out's plant, makeshift poles and spans, and the tech roof net, in K's shapes, ids prefixed by stage (`holdout:pole:…`, `tech:span:…`); a span's ends take any pole id.
+- **The plant place** `{ plant: <plant id> }` in the city-puzzle `place` union (Q6), which E1g reads. (The Q6 section said E1g types it; under the goal it is A2's.)
+
+**Acceptance criteria:**
+1. [ ] (the architect) The types above, against K's layer as merged, exported from `src/core/index.ts`. No clean layer's type changes, except what K's own cut asks.
+2. [ ] `npx tsc --noEmit` passes. `npx vitest run --maxWorkers=2 src/city/pipeline/ src/render3d/planview.test.ts` passes, or each failure is listed with the one-line change its owner makes for it.
+
+**Files:** `src/core/cityera.ts`, `src/core/index.ts`, and `src/core/cityplan.ts` only as above. No new dependency.
 
 ### The B pre-check · history, and T-1 and T-2 on the clean city (pipeline-designer). No branch: a note `docs/design/073-B-precheck.md` and a probe outside the repo
 
@@ -232,7 +230,7 @@ interface CityEraPiece<K extends string> { id: string;    // "<stage>:<kind>:<..
 
 ### B · Stage 10, `history`: districts and their stories (planner, pure). Branch `ticket/073b-history`
 
-**Waits for:** A, and Josh's answers to the B pre-check.
+**Waits for:** A (not A2), and Josh's answers to the B pre-check.
 
 **Goal.** Every named city is cut into districts of 1 to 4 touching blocks. Each has a short story: `tech`, `held`, `wild`. `?city=plan&stage=history` shows them on Josh's phone.
 
@@ -245,11 +243,11 @@ interface CityEraPiece<K extends string> { id: string;    // "<stage>:<kind>:<..
 6. [ ] The numbers (reported, not asserted): districts per run by size, the stories' spread, the time per city.
 7. [ ] (main session, phone screenshot) `?city=plan&stage=history` on 6 x 6 seed 1.
 
-**Files:** new `src/city/history/`; `src/city/stages.ts` (one line); `src/render3d/planview.test.ts` (one literal, if A's criterion 2 lists it). The builder runs `npx vitest run --maxWorkers=2 src/city/history/ src/city/pipeline/` and one `npx tsc --noEmit`.
+**Files:** new `src/city/history/`; `src/city/stages.ts` (one line). The builder runs `npx vitest run --maxWorkers=2 src/city/history/ src/city/pipeline/` and one `npx tsc --noEmit`.
 
 ### C1 · The resolver, the era runner, and T-1 and T-2 (planner, pure). Branch `ticket/073c1-resolver`
 
-**Waits for:** A, and the B pre-check's answers (for the T readings).
+**Waits for:** A (not A2), and the B pre-check's answers (for the T readings).
 
 **Goal.** One pure helper turns a plan into the plan at an era. A run can ask for an era. T-1 and T-2 can be checked on any era.
 
@@ -292,9 +290,26 @@ interface CityEraPiece<K extends string> { id: string;    // "<stage>:<kind>:<..
 - **It proposes:** how density follows `tech` (bands, shares), with a recommended answer first.
 
 ### D1 · `tech` walls and pavement (tech-pass, pure). Outline. Branch `ticket/073d1-tech-walls`
-- **Waits for:** B, C1, the D1 pre-check and Josh's answers. The tech-pass agent file.
+- **Waits for:** B, C1, the D1 pre-check and Josh's answers (or the answers taken under the goal), and the pre-check's kit checked against `docs/design/073-pack-intended-use.md` (X-11). The tech-pass agent file.
 - Places D1's pieces by the answered rules; its changes are shopfront `swap`s and the `remove`s of the dressing they float.
 - Uses B2 for dark signs. Keeps rule 10 on the pavement (X-3).
+
+### D1g · `tech` walls and pavement drawn (renderer). Branch `ticket/073d1g-tech-walls-drawn`
+
+**Cut under the goal** (21 Nov 2026 night; Josh may reverse), so Josh has the tech pass's walls and pavement to look at before D2 and D3, which wait on K2.
+
+**Waits for:** D1 and C2.
+
+**Goal.** At `?view=3d&city=plan&stage=assemble&era=tech` (and `holdout`, `ruin`), Josh sees D1's wall bolt-ons, shopfront swaps, signs and pavement tech on the city, and the pieces D1 removed gone.
+
+**Acceptance criteria:**
+1. [ ] (Vitest) At `era=tech` and later, the draw places every D1 add once, at its placement, draws each swapped piece with its new key and each removed piece not at all, reading them only through `resolvePlan`. At `clean` the draw is exactly today's (the existing plan3d tests and pins pass untouched).
+2. [ ] (Vitest) **Dark (X-5).** No material of a D1 piece is emissive or lit; a test walks the era's drawn meshes.
+3. [ ] (Vitest) **R12 gains B2's allowance, era-scoped (X-9):** one typed table of the never-used keys D1 may use as dark signs and lamps, allowed only at `era=tech` and later and only on D1's own piece kinds. At `clean` the R12 audit is exactly today's.
+4. [ ] (Vitest) **No draw-call cap rises.** Draw calls at each era are reported in the hand-back.
+5. [ ] (main session, browser screenshot, full resolution) 6 x 6 seed 1 at `era=clean` and `era=tech` from one camera spot, on a street with wall bolt-ons and pavement tech.
+
+**Files:** `src/render3d/plan3d.ts` and its tests, and the R12 audit's test in `src/render3d/`. Nothing in `src/city/`. The builder runs `npx vitest run --maxWorkers=2` on its own test files and one `npx tsc --noEmit`; no browser.
 
 ### D2 · `tech` roofs: storeys, plant, holograms, the roof net (tech-pass, pure). Outline. Branch `ticket/073d2-tech-roofs`
 - **Waits for:** K2's circuit layer, B, its own pre-check.
@@ -302,8 +317,8 @@ interface CityEraPiece<K extends string> { id: string;    // "<stage>:<kind>:<..
 - Josh's ruling holds: Sci-Fi City poles stand on roofs and objects, never on the ground.
 
 ### D3 · `tech` drawn (renderer). Outline. Branch `ticket/073d3-tech-drawn`
-- **Waits for:** D1, D2, C2.
-- Draws `tech` adds and changes at `era=tech` and later. R12 gains B2's allowance, era-scoped (X-9). Dark (X-5).
+- **Waits for:** D1g, D2.
+- Draws only what D1g did not: D2's roof adds and changes at `era=tech` and later. B2's era-scoped R12 table is D1g's; D3 adds D2's keys to it, if any. Dark (X-5).
 - Reports draw calls and frame rate at each era, before J2.
 
 ### J2 · Instancing (renderer). Outline. Branch `ticket/073j2-instancing`
@@ -312,16 +327,16 @@ interface CityEraPiece<K extends string> { id: string;    // "<stage>:<kind>:<..
 - Instances the stack pieces and the dressing (070 Q29's J2). Every clean picture and pin stays the same. Adds no rule, so no pre-check.
 
 ### E1 · `holdout` plants and makeshift lines (holdout-pass, pure). Outline. Branch `ticket/073e1-holdout-power`
-- **Waits for:** D2, K2, B, its pre-check.
+- **Waits for:** D2, K2, A2, B, its pre-check.
 - **Its pre-check measures:** in each held district, the largest open place and whether a plant (`Prop_Generator_01`, `Prop_Solar_Panel_02..04`, `Prop_Battery_03/04`, `Prop_Windmill_01`) fits there, reachable on foot (T-2); makeshift line routes from the plant to the district's street and roof poles: lengths, how many run over junctions (B5), off light posts, masts or walls (B4), drops across streets (B6); T-1; how many held districts get no plant (those keep K1's feed outside: Q11, Josh).
 - Uses B3 to B6. Its plant, makeshift poles and spans carry ids in K's scheme, prefixed `holdout:` (A).
 - The plant is the job's feed (Q6), so E1g follows.
 
 ### E1g · The conversion learns the plant (grid-simulator, pure). Outline. Branch `ticket/073e1g-plant-feed`
-- **Waits for:** E1, K2. (Q10 and Q11 are answered.)
+- **Waits for:** E1, K2, A2. (Q10 and Q11 are answered.)
 - CK15's conversion accepts `{ plant: <id> }` as a feed's place and makeshift spans as runs, in `src/city/circuit/`, on the plan resolved at the ruin era (Q10, Josh: "The ruin"). The converted `Puzzle` still passes `validatePuzzle`, and `src/grid/` runs it unchanged.
 - K2's feed-outside check skips a job whose feed is its district's plant (the feed-place card, Josh: "Yes, plant inside"). A district with no plant keeps K1's check (Q11, Josh).
-- The architect types the plant place in `src/core/` first.
+- The plant place is typed by A2 first (re-cut under the goal, 21 Nov 2026 night; Josh may reverse). E1g waits for A2.
 
 ### E2 · `holdout` camps, farms, markets, stores, barricades (holdout-pass, pure). Outline. Branch `ticket/073e2-holdout-camps`
 - **Waits for:** B, C1, its pre-check. Needs nothing from the circuit but T-1 and T-2.
@@ -362,7 +377,7 @@ interface CityEraPiece<K extends string> { id: string;    // "<stage>:<kind>:<..
 - **Its pre-check measures:** growth spreading cell by cell from soil (parks, greens, build-out trees, planters, farms), against `wild`; carriageway cells grown (B9); trees under dead spans and their heights (B8); every canopy against T-1 (`Tree_Generic_Giant_01` is 12.6 x 11.2 m); vines (`Env_Vines_*`, `Tree_Vines_*`) against escapes and signs; roof growth; T-2.
 
 ### F2 · `ruin` remnants and the broken grid (ruin-pass, pure). Outline. Branch `ticket/073f2-ruin-remnants`
-- **Waits for:** E1, K2, F0, its pre-check. (Q12 is answered.)
+- **Waits for:** E1, K2, A2, F0, its pre-check. (Q12 is answered.)
 - Its states are scenery. They are never drawn on a job's own parts (Q12, Josh: "No, puzzle faults only"); F2g and F3 hold that.
 - **Its pre-check measures:** wrecks on carriageway, bays and lots (B1); fallen signs, logs, rubble; the changes by kind and by layer; toppled poles and cut spans per district; T-1 and T-2.
 - Every toppled pole lists its spans' states (A's no-cascade rule).
@@ -454,7 +469,7 @@ Josh's card 8: "Yes, three agents (Recommended)". The main session writes each `
 **Others:** the planner gains `src/city/history/` (the main session adds it, quoting card 8 and card 1). The grid-simulator keeps F0, E1g and F2g in its own folders. The hook needs no change (070's reasoning).
 
 ## Interfaces
-- Section A, after K's type merges. Nothing in `src/core/` changes before then.
+- Section A: `src/core/cityera.ts`, written on `ticket/073a-era-types` under the goal; `cityplan.ts` is not edited. Section A2, after K's type merges: the circuit references and the plant place.
 - `rules-coverage.md` is unchanged: no brief rule is tested here.
 - **No new dependency.**
 
