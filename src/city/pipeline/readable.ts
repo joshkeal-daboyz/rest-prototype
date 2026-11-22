@@ -15,7 +15,7 @@
  * piece use `options.bounds`, the key's kit bounds, which the caller owns (this folder imports no stage's kit).
  */
 
-import type { CalibrationKey, CityPieceList, CityPlacement, CityResolvedPlan } from "../../core";
+import type { CalibrationKey, CityEra, CityPieceList, CityPlacement, CityResolvedPlan } from "../../core";
 import { swappedOf, type ResolvedSwap } from "./resolve";
 
 /** A cell is 5 m (the streets' lattice). */
@@ -89,6 +89,11 @@ export interface ReadableOptions {
   readonly circuit?: CircuitPoints;
   /** The swapped pieces; default what `resolvePlan` recorded. */
   readonly swapped?: readonly ResolvedSwap[];
+  /**
+   * The era being judged (F1b1; Josh, 22 Nov 2026: "Through any dead line", "Poles too"). At `"ruin"`, a tree the ruin adds is not judged by T-1 at all: its crown may cover a span, pole, light, lamp-post
+   * place or drop end. Solid pieces, and trees at every other era, are judged as before; T-2 is unchanged. No era judges as today.
+   */
+  readonly era?: CityEra;
 }
 
 export type T1What = "pole" | "light" | "lampPlace" | "dropEnd" | "canopyOverLine";
@@ -162,6 +167,8 @@ function place(ref: string, source: Placed["source"], item: Sized, useBounds: bo
 interface Collected {
   readonly clean: Placed[];
   readonly judged: Placed[];
+  /** The ruin's trees, when the era judged is the ruin: not judged by T-1 (F1b1), but they still close the ground for T-2. */
+  readonly exempt: Placed[];
 }
 
 function collect(resolved: CityResolvedPlan, o: ReadableOptions): Collected {
@@ -170,6 +177,7 @@ function collect(resolved: CityResolvedPlan, o: ReadableOptions): Collected {
   const swapKeys = new Set(swaps.map((s) => ("id" in s ? s.id : `${s.list}|${s.column ?? ""}|${s.index}`)));
   const clean: Placed[] = [];
   const judged: Placed[] = [];
+  const exempt: Placed[] = [];
   const L = resolved.plan.layers;
   const push = (list: CityPieceList, column: number | null, index: number, item: unknown, treeKind = false): void => {
     const swap = swapKeys.has(`${list}|${column ?? ""}|${index}`);
@@ -192,15 +200,16 @@ function collect(resolved: CityResolvedPlan, o: ReadableOptions): Collected {
       clean.push({ ref: `edge.buildoutTrees[${i}]`, source: "clean", x: tr.x_m, z: tr.z_m, hx: t.x_m / 2, hz: t.z_m / 2, base: 0, top: t.h_m, canopy: Math.max(t.x_m, t.z_m) / 2 }),
     );
   }
-  for (const list of [resolved.adds.tech, resolved.adds.holdout, resolved.adds.ruin]) {
+  for (const [era, list] of [["tech", resolved.adds.tech], ["holdout", resolved.adds.holdout], ["ruin", resolved.adds.ruin]] as const) {
     for (const a of list ?? []) {
       const swap = swapKeys.has(a.id);
       const p = place(a.id, "add", a, swap, o, isTree, false);
       if (p === null) throw new Error(`T-1/T-2: era add ${a.id} (key ${a.placement.key}) has no size and no kit bounds in options.bounds`);
-      judged.push(p);
+      if (era === "ruin" && o.era === "ruin" && p.canopy > 0) exempt.push(p);
+      else judged.push(p);
     }
   }
-  return { clean, judged };
+  return { clean, judged, exempt };
 }
 
 // ---- T-1 ----
@@ -247,6 +256,16 @@ export function t1Failures(resolved: CityResolvedPlan, options: ReadableOptions 
   const c = options.circuit ?? circuitPoints(resolved);
   if (c.poles.length + c.lights.length + c.lampPlaces.length + c.drops.length + c.lines.length === 0) return [];
   return judge(collect(resolved, options).judged, c);
+}
+
+/**
+ * The ruin's trees whose crowns cover a circuit point or line, by T-1's reading: reported each run, never thrown (F1b1), so the ruin's numbers can count them. Same split as `t1CleanClashes`.
+ * Each entry has `source` "add"; `what` and `at` say what the crown covers.
+ */
+export function t1RuinTreeCovers(resolved: CityResolvedPlan, options: ReadableOptions = {}): readonly T1Failure[] {
+  const c = options.circuit ?? circuitPoints(resolved);
+  if (c.poles.length + c.lights.length + c.lampPlaces.length + c.drops.length + c.lines.length === 0) return [];
+  return judge(collect(resolved, { ...options, era: "ruin" }).exempt, c);
 }
 
 /** The clean pieces that cover the circuit by the same reading: reported each run, never failed (X-1). */
@@ -299,8 +318,8 @@ export function t2Failures(resolved: CityResolvedPlan, options: ReadableOptions 
   const streets = resolved.plan.layers.streets;
   if (c.poles.length === 0 || streets === undefined) return [];
   const { w, h } = streets;
-  const { clean, judged } = collect(resolved, options);
-  const closed = closedCells([...clean, ...judged], w, h);
+  const { clean, judged, exempt } = collect(resolved, options);
+  const closed = closedCells([...clean, ...judged, ...exempt], w, h);
   const walk = new Set<number>();
   for (const cell of streets.cells) if (!closed.has(cell.j * w + cell.i)) walk.add(cell.j * w + cell.i);
 
