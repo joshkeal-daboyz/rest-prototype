@@ -2,11 +2,11 @@
  * Stage 10: history (ticket 073 B; Josh's card 1, "Yes, districts (Recommended)"). Cuts the city into districts of 1 to 4 touching blocks, each with its story (`tech`, `held`, `wild`). Reads only `streets`
  * (the blocks and what lies across their sides) and the seed. Writes only the history layer, which is not in `CITY_STAGES` or `CityLayers` (X-1, X-7): it is an era stage, run only by the era runner (C1).
  *
- * `historyStage` is exported for C1's era list; this folder does not register it (`src/city/stages.ts` is C1's). Its shape follows `CityStageDef`: `run(plan)` takes the clean plan and returns the layer;
- * `picture(plan, layer)` takes the layer too, since an era layer is not in the clean plan.
+ * `historyStage` is a `CityEraStageDef` (`pipeline/eras.ts`) and is registered in `ERA_STAGES` in `src/city/stages.ts`. `runHistory(plan)` is the same stage on the clean plan alone (it reads only `streets`).
  */
 
 import type { CityDistrict, CityEraPicture, CityHistoryLayer, CityPlan, CityPlanBlock } from "../../core";
+import type { CityEraStageDef } from "../pipeline/eras";
 import { CityStageError } from "../pipeline/error";
 import { makePicture, type LegendEntry } from "../pipeline/picture";
 import { DISTRICT_MAX_BLOCKS } from "./constants";
@@ -73,7 +73,7 @@ function deepFreeze<T>(o: T): T {
 }
 
 /** The layer comes back deep-frozen (R-1), as the clean runner freezes a clean layer; the era runner freezing it again is harmless. */
-function run(plan: CityPlan): CityHistoryLayer {
+export function runHistory(plan: CityPlan): CityHistoryLayer {
   const streets = plan.layers.streets;
   if (!streets) throw new CityStageError("history: the plan has no streets layer");
   const layer = buildHistory(streets.blocks, plan.options.seed);
@@ -132,10 +132,13 @@ export function historyPicture(plan: CityPlan, layer: CityHistoryLayer): CityEra
   return { ...makePicture("streets", streets.w, streets.h, legend, (i, j) => at.get(`${i},${j}`) ?? 0), stage: "history" };
 }
 
-/** The era stage the era runner (C1) registers: `name` "history"; `run` reads the clean plan's streets only; `picture` is given the layer too. */
-export const historyStage = {
-  name: "history" as const,
-  run,
-  picture: (plan: CityPlan, layer: CityHistoryLayer): CityEraPicture => historyPicture(plan, layer),
+/** The era stage, as the era runner (C1) takes it: `run` reads only the clean plan's streets and the seed, ignoring `rand` (its hashes are keyed `history:<seed>:...`); `picture` draws the plan's history layer. */
+export const historyStage: CityEraStageDef<"history"> = {
+  name: "history",
+  run: (plan) => runHistory(plan.plan),
+  picture: (plan) => {
+    const layer = plan.layers.history;
+    if (!layer) throw new CityStageError("picture: the plan has no history layer");
+    return historyPicture(plan.plan, layer);
+  },
 };
-export type HistoryStageDef = typeof historyStage;

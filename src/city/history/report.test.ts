@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 import { historyHash, sizeOf } from "./districts";
 import { stepsFrom } from "./stories";
-import { historyStage } from "./stage";
+import { runHistory } from "./stage";
 import { NAMED, label, planOf } from "./testcities";
 
 const quartile = (xs: number[], q: number): number => {
@@ -29,7 +29,7 @@ describe("criterion 6: the numbers (reported)", { timeout: 120_000 }, () => {
       const plan = planOf(c);
       const seed = plan.options.seed;
       const blocks = plan.layers.streets!.blocks;
-      const layer = historyStage.run(plan);
+      const layer = runHistory(plan);
       perRun.push(layer.districts.length);
       total += layer.districts.length;
       let s = 0;
@@ -69,7 +69,7 @@ describe("criterion 6: the numbers (reported)", { timeout: 120_000 }, () => {
     lines.push(`mean tech per step: ${[...stepSum.entries()].sort((a, b) => a[0] - b[0]).map(([k, v]) => `${k}: ${(v.sum / v.n).toFixed(2)} (${v.n})`).join(", ")}`);
     const plan = planOf(NAMED[0]!);
     const t0 = performance.now();
-    for (let k = 0; k < 50; k++) historyStage.run(plan);
+    for (let k = 0; k < 50; k++) runHistory(plan);
     lines.push(`time per city (${label(NAMED[0]!)}, mean of 50): ${((performance.now() - t0) / 50).toFixed(2)} ms`);
     console.info(`\n073 B numbers\n${lines.join("\n")}`);
     expect(total).toBeGreaterThan(0);

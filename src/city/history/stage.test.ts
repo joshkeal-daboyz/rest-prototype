@@ -8,12 +8,12 @@ import { describe, expect, it } from "vitest";
 import type { CityHistoryLayer, CityPlan, CityPlanBlock } from "../../core";
 import { digestOf } from "../pipeline/digest";
 import { pictureProblems } from "../pipeline/picture";
-import { runCity } from "../stages";
+import { runCity, runCityEra } from "../stages";
 import { historyHash, historyUnit, sizeOf } from "./districts";
-import { buildHistory, historyFailures, historyPicture, historyStage } from "./stage";
+import { buildHistory, historyFailures, historyPicture, historyStage, runHistory } from "./stage";
 import { NAMED, PINNED, FIXTURE_H, FIXTURE_W, fixtureBlocks, label, planOf } from "./testcities";
 
-const layerOf = (c: (typeof NAMED)[number]): CityHistoryLayer => historyStage.run(planOf(c));
+const layerOf = (c: (typeof NAMED)[number]): CityHistoryLayer => runHistory(planOf(c));
 
 describe("criterion 1: the districts on the 20 named runs", { timeout: 120_000 }, () => {
   it("every block is in exactly one district; each has 1 to 4 blocks that touch across a street; the id is its first block's in streets.blocks order", () => {
@@ -242,7 +242,7 @@ describe("criterion 4: R-1 to R-7, X-1, X-7", { timeout: 120_000 }, () => {
 
   it("R-3: the same city twice gives the same layer, another seed another", () => {
     const a = layerOf(NAMED[0]!);
-    const b = historyStage.run(planOf(NAMED[0]!));
+    const b = runHistory(planOf(NAMED[0]!));
     expect(b).toEqual(a);
     expect(digestOf(b)).toBe(digestOf(a));
     expect(digestOf(layerOf(NAMED[1]!))).not.toBe(digestOf(a));
@@ -257,7 +257,7 @@ describe("criterion 4: R-1 to R-7, X-1, X-7", { timeout: 120_000 }, () => {
         return Reflect.get(target, key, receiver);
       },
     });
-    historyStage.run({ ...plan, layers });
+    runHistory({ ...plan, layers });
     expect([...read]).toEqual(["streets"]);
   });
 
@@ -265,7 +265,7 @@ describe("criterion 4: R-1 to R-7, X-1, X-7", { timeout: 120_000 }, () => {
     const r = runCity({ blocksX: 6, blocksZ: 6, seed: 1 });
     if (!r.ok) throw new Error("default city failed");
     const before = { ...r.plan.digests };
-    const layer = historyStage.run(r.plan);
+    const layer = runHistory(r.plan);
     const double: CityHistoryLayer = { stage: "history", districts: [] };
     expect(digestOf(double)).not.toBe(digestOf(layer));
     expect(r.plan.digests).toEqual(before);
@@ -283,7 +283,7 @@ describe("criterion 4: R-1 to R-7, X-1, X-7", { timeout: 120_000 }, () => {
 
   it("fails, naming its stage, when the plan has no streets or no block", () => {
     const plan = planOf(NAMED[0]!);
-    expect(() => historyStage.run({ ...plan, layers: {} })).toThrow(/streets/);
+    expect(() => runHistory({ ...plan, layers: {} })).toThrow(/streets/);
     expect(() => buildHistory([] as CityPlanBlock[], 1)).toThrow(/no block/);
   });
 
@@ -304,7 +304,30 @@ describe("criterion 4: R-1 to R-7, X-1, X-7", { timeout: 120_000 }, () => {
       }
       expect(codeOf(f), f).not.toMatch(/Math\.random|Date\.now|performance\.now|\bdocument\b|\bwindow\b|\bfetch\b|readFileSync|from\s+"three"/);
       expect(codeOf(f), f).not.toMatch(/\.(bi|bj)\b|\bstreets?\.line\b|\bs\.line\b/);
-      expect(codeOf(f), f).not.toMatch(/layers\.(?!streets\b)[a-z]+/);
+      expect(codeOf(f), f).not.toMatch(/layers\.(?!streets\b|history\b)[a-z]+/);
     }
+  });
+});
+
+describe("criterion 5: the era runner runs history", { timeout: 120_000 }, () => {
+  it("runCityEra(options, \"tech\") on 6 x 6 seed 1 writes the history layer with the pinned digest, and its picture has the district legend", () => {
+    const r = runCityEra({ blocksX: 6, blocksZ: 6, seed: 1 }, "tech");
+    if (!r.ok) throw new Error(`era run failed at ${r.failure.stage}: ${r.failure.reason}`);
+    expect(Object.keys(r.plan.layers)).toEqual(["history"]);
+    expect(r.plan.digests.history).toBe("11f95e7f");
+    const layer = r.plan.layers.history!;
+    expect(Object.isFrozen(layer)).toBe(true);
+    expect(digestOf(layer)).toBe("11f95e7f");
+    const pic = historyStage.picture(r.plan);
+    expect(pic.stage).toBe("history");
+    expect(pic.legend).toHaveLength(layer.districts.length + 1);
+    expect(Object.keys(r.plan.plan.layers)).not.toContain("history");
+  });
+
+  it("X-7: era \"clean\" runs no era stage, and the clean run builds no history", () => {
+    const r = runCityEra({ blocksX: 6, blocksZ: 6, seed: 1 }, "clean");
+    if (!r.ok) throw new Error("clean failed");
+    expect(r.plan.layers).toEqual({});
+    expect(Object.keys(r.plan.plan.layers)).not.toContain("history");
   });
 });
