@@ -5,9 +5,9 @@
  *
  * Every number is typed in, in metres of the converted GLB (the model's own frame: y up, the origin at the foot), from 071 A's pre-check
  * (`docs/design/071-power-kit-precheck.md`, sections 2 and 3) and B's own re-measure from the GLBs (21 Nov 2026). Keys are `pack:name`.
- * Where B's measure differs from A's note, the table follows the GLB (see the comments on `Powerpoll_02`).
+ * Where B's measure differs from A's note, the table follows the GLB (see the comments on Palm `_02`).
  *
- * The frame of a pole: `armAxis` is the model axis the cross-arm runs along (z for Apocalypse, x for Palm and Sci-Fi City). The other horizontal
+ * The frame of a pole: `armAxis` is the model axis the cross-arm runs along (z for Apocalypse, x for Palm). The other horizontal
  * model axis is the one the wires run along: the attachments sit `along_m` in front of the post on it (positive model direction).
  * `across` is measured on the arm axis from the post's axis (`foot_m`), `up` is the height of the wire's seat.
  */
@@ -72,7 +72,7 @@ export interface PowerLine {
   residual_m: number;
 }
 
-/** The five picked poles (Josh, 21 Nov 2026: three wooden, two Sci-Fi City). */
+/** The three picked poles (Josh, 21 Nov 2026; the Sci-Fi City poles were ruled out of the ground mix the same day). */
 export const POWER_POLES: Readonly<Record<string, PowerPole>> = {
   "apocalypse-power:SM_Prop_Powerpole_01": {
     key: "apocalypse-power:SM_Prop_Powerpole_01",
@@ -114,35 +114,6 @@ export const POWER_POLES: Readonly<Record<string, PowerPole>> = {
       { across: 0.79, up: 8.731, ownInsulator: true, surface_m: 8.731 },
     ],
   },
-  "sci-fi-city-pack:SM_Prop_Powerpoll_01": {
-    key: "sci-fi-city-pack:SM_Prop_Powerpoll_01",
-    height_m: 5.073,
-    armAxis: "x",
-    foot_m: { x: 0.036, z: -0.073 },
-    along_m: 0.176,
-    // The top crossbar is an angle iron 1.425 m long, symmetric about the post's axis: a lip 0.02 m thick rising to 5.021, and a ledge 0.08 m in front of it
-    // at 4.939. The wires seat on the lip (as A's 5.02), 0.0125 m inside the bar's ends. No insulators.
-    attach_m: [
-      { across: 0, up: 5.021, ownInsulator: false, surface_m: 5.021 },
-      { across: -0.7, up: 5.021, ownInsulator: false, surface_m: 5.021 },
-      { across: 0.7, up: 5.021, ownInsulator: false, surface_m: 5.021 },
-    ],
-  },
-  "sci-fi-city-pack:SM_Prop_Powerpoll_02": {
-    key: "sci-fi-city-pack:SM_Prop_Powerpoll_02",
-    height_m: 5.073,
-    armAxis: "x",
-    foot_m: { x: -0.06, z: -0.073 },
-    along_m: 0.176,
-    // B's measure differs from A's note (A: crossbar at 5.02). `_02` has NO top crossbar: its widest bars are at 4.338 and 3.751 (angle irons, +-0.712).
-    // The wires seat on the 4.338 lip. A 0.47 x 0.66 x 0.26 m box (a sign) stands on the pole from 4.257 to 4.914, its face 0.01 m in front of the lip:
-    // the centre wire, at the ladder's fattened radius, grazes it. Reported to the main session.
-    attach_m: [
-      { across: 0, up: 4.338, ownInsulator: false, surface_m: 4.338 },
-      { across: -0.7, up: 4.338, ownInsulator: false, surface_m: 4.338 },
-      { across: 0.7, up: 4.338, ownInsulator: false, surface_m: 4.338 },
-    ],
-  },
 };
 
 /** The picked wire piece: City Pack `SM_Prop_Power_Cables_03`, a single strand, level, one primitive of 56 triangles. */
@@ -161,13 +132,11 @@ export const POWER_LINES: Readonly<Record<string, PowerLine>> = {
   },
 };
 
-/** The five picked poles, in the order Josh named them. */
+/** The three picked poles, in the order Josh named them. */
 export const POWER_MIX: readonly string[] = [
   "apocalypse-power:SM_Prop_Powerpole_01",
   "palm-city-pack:SM_Prop_Powerpole_01",
   "palm-city-pack:SM_Prop_Powerpole_02",
-  "sci-fi-city-pack:SM_Prop_Powerpoll_01",
-  "sci-fi-city-pack:SM_Prop_Powerpoll_02",
 ];
 /** The one wire piece for every line (Josh, 21 Nov 2026). */
 export const POWER_LINE = "city-pack:SM_Prop_Power_Cables_03";

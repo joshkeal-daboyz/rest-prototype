@@ -56,14 +56,12 @@ const RINGS: [number, number][] = [
 
 // ---------------------------------------------------------------------------------------------------------------------------------------------------
 describe("measured tables", () => {
-  it("holds exactly the five picked poles and the one wire piece, keyed pack:name", () => {
+  it("holds exactly the three picked poles and the one wire piece, keyed pack:name", () => {
     expect(Object.keys(POWER_POLES).sort()).toEqual([...POWER_MIX].sort());
     expect(POWER_MIX).toEqual([
       "apocalypse-power:SM_Prop_Powerpole_01",
       "palm-city-pack:SM_Prop_Powerpole_01",
       "palm-city-pack:SM_Prop_Powerpole_02",
-      "sci-fi-city-pack:SM_Prop_Powerpoll_01",
-      "sci-fi-city-pack:SM_Prop_Powerpoll_02",
     ]);
     expect(Object.keys(POWER_LINES)).toEqual(["city-pack:SM_Prop_Power_Cables_03"]);
     expect(POWER_LINE).toBe("city-pack:SM_Prop_Power_Cables_03");
@@ -80,8 +78,6 @@ describe("measured tables", () => {
     expect(own("apocalypse-power:SM_Prop_Powerpole_01")).toEqual([false, true, true]);
     expect(own("palm-city-pack:SM_Prop_Powerpole_01")).toEqual([true, true, true]);
     expect(own("palm-city-pack:SM_Prop_Powerpole_02")).toEqual([true, true, true]);
-    expect(own("sci-fi-city-pack:SM_Prop_Powerpoll_01")).toEqual([false, false, false]);
-    expect(own("sci-fi-city-pack:SM_Prop_Powerpoll_02")).toEqual([false, false, false]);
     expect(POWER_POLES["apocalypse-power:SM_Prop_Powerpole_01"]!.armAxis).toBe("z");
     for (const k of POWER_MIX.slice(1)) expect(POWER_POLES[k]!.armAxis).toBe("x");
     for (const p of Object.values(POWER_POLES)) {
@@ -101,7 +97,7 @@ describe("measured tables", () => {
 // ---------------------------------------------------------------------------------------------------------------------------------------------------
 // The GLB re-measure: lazy, and skipped when the GLBs are absent.
 const OUT = join("assets", "private", "out");
-const have = ["apocalypse-power", "palm-city-pack", "sci-fi-city-pack", "city-pack"].every((f) => existsSync(join(OUT, `${f}.glb`)));
+const have = ["apocalypse-power", "palm-city-pack", "city-pack"].every((f) => existsSync(join(OUT, `${f}.glb`)));
 
 interface GNode {
   name?: string;
@@ -480,7 +476,6 @@ describe("placePole", () => {
   it("on the ladder the outer attachments of each pole are at +-PHASE_OFFSET (Palm stretched across by PALM_ACROSS_STRETCH)", () => {
     for (const key of POWER_MIX) {
       const pole = POWER_POLES[key]!;
-      if (key === "sci-fi-city-pack:SM_Prop_Powerpoll_02") continue;
       for (const d of dirs) {
         const r = ladder(pole, d);
         expect(r.sideLo * r.sideHi, key).toBeLessThan(0);
@@ -491,7 +486,6 @@ describe("placePole", () => {
     expect(ladderAcross("palm-city-pack:SM_Prop_Powerpole_01")).toBe(PALM_ACROSS_STRETCH);
     expect(ladderAcross("palm-city-pack:SM_Prop_Powerpole_02")).toBe(PALM_ACROSS_STRETCH);
     expect(ladderAcross("apocalypse-power:SM_Prop_Powerpole_01")).toBe(1);
-    expect(ladderAcross("sci-fi-city-pack:SM_Prop_Powerpoll_01")).toBe(1);
     // Without the stretch, Palm's outer wires would miss by the pre-check's 0.06 u.
     const bare = ladder(POWER_POLES["palm-city-pack:SM_Prop_Powerpole_01"]!, dirs[0]!, 1);
     expect(PHASE_OFFSET - Math.abs(bare.sideHi)).toBeGreaterThan(0.05);
@@ -502,11 +496,6 @@ describe("placePole", () => {
     const t = placePole(pole, spot, dirs[0]!, POLE_HEIGHT, poleScaleFor(pole, POLE_HEIGHT), PALM_ACROSS_STRETCH);
     const dy = poleToWorld(t, poleAttachModel(pole, 2)).y - poleToWorld(t, poleAttachModel(pole, 1)).y;
     expect(Math.abs(dy - 0.06)).toBeLessThan(0.005);
-  });
-
-  it("Sci-Fi City _02 stands its outer wires about 0.04 u beyond the line, because its bar is at 4.338 m (not A's 5.02); reported, not fitted", () => {
-    const r = ladder(POWER_POLES["sci-fi-city-pack:SM_Prop_Powerpoll_02"]!, dirs[0]!);
-    expect(Math.abs(Math.abs(r.sideHi) - PHASE_OFFSET - 0.043)).toBeLessThan(0.005);
   });
 
   it("in the city every pole stands at true size: the scale is the city's, across 1, the attachments at the span's height", () => {
@@ -551,7 +540,7 @@ describe("the mix", () => {
   it("over 1,000 ids each listed pole's share is within 0.05 of an even share", () => {
     const plain = Array.from({ length: 1000 }, (_, i) => `spot-${i}`);
     const runs = Array.from({ length: 1000 }, (_, i) => `run-${Math.floor(i / 5)}#${(i % 5) + 1}`);
-    for (const ids of [plain, runs]) for (const s of share(ids)) expect(Math.abs(s - 0.2)).toBeLessThan(0.05);
+    for (const ids of [plain, runs]) for (const s of share(ids)) expect(Math.abs(s - 1 / POWER_MIX.length)).toBeLessThan(0.05);
   });
   it("gives neighbouring spots on a run different poles, over every ladder map", () => {
     let pairs = 0;
