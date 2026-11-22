@@ -44,7 +44,7 @@ import { cellKey, cellOfPoint, cellRect, cellsOver, grow, inside, overlaps, rect
 import { CAMP_KEYS, CLUTTER_KEYS, CONTAINER_KEYS, FARM_KEYS, IRRIGATOR_KEYS, KIT, ROOF_KEYS, STALL_KEY, WATER_TOWER_KEY } from "./kit";
 import { circuitHit } from "./guard";
 import { drawsOf } from "./rng";
-import { meetsBuilding, type World } from "./world";
+import { meetsBuilding, meetsFacade, type World } from "./world";
 
 type HoldoutPiece = CityEraPiece<CityHoldoutPieceKind>;
 
@@ -100,7 +100,7 @@ export function settle(world: World, rand: StageRand): SettleResult {
     return true;
   };
 
-  const clearOfClean = (r: Rect): boolean => !world.obstacles.any(grow(r, CLEAN_GAP_M));
+  const clearOfClean = (r: Rect, y0: number, y1: number): boolean => !world.obstacles.any(grow(r, CLEAN_GAP_M)) && !meetsFacade(world, r, y0, y1, CLEAN_GAP_M);
   const clearOfCircuit = (r: Rect, top: number): boolean => !circuitHit(world.circuit, r, top, CIRCUIT_CLEAR_M);
 
   // ---- courts: the water tower first, then the camps; parks: a farm or the camps ----
@@ -134,7 +134,7 @@ export function settle(world: World, rand: StageRand): SettleResult {
         const r = rectAt(x, z, t.x, t.z);
         if (!insideCells(r)) continue;
         if (meetsBuilding(world, r, CAMP_BUILDING_GAP_M)) continue;
-        if (!clearOfClean(r)) continue;
+        if (!clearOfClean(r, 0, k.h)) continue;
         if (placed.some((p) => overlaps(grow(r, CAMP_GAP_M), p))) continue;
         if (!clearOfCircuit(r, k.h)) continue;
         placed.push(r);
@@ -168,7 +168,7 @@ export function settle(world: World, rand: StageRand): SettleResult {
           const r = rectAt(x, z, k.w, k.d);
           if (!cellsOver(r).every((c) => set.has(cellKey(c.i, c.j)))) continue;
           if (meetsBuilding(world, r, CAMP_BUILDING_GAP_M)) continue;
-          if (!clearOfClean(r)) continue;
+          if (!clearOfClean(r, 0, k.h)) continue;
           if (!clearOfCircuit(r, k.h)) continue;
           placed.push(r);
           adds.push(make("water-tower", court.id, h.id, WATER_TOWER_KEY, x, z, 0));
@@ -209,6 +209,7 @@ export function settle(world: World, rand: StageRand): SettleResult {
         const z = snap(rect.z0 + t.z / 2 + u("farm", parkId, n, "z", tr) * spanZ);
         const r = rectAt(x, z, t.x, t.z);
         if (!inside(r, rect)) continue;
+        if (meetsFacade(world, r, 0, k.h, CLEAN_GAP_M)) continue;
         if (fields.some((f) => overlaps(grow(r, FARM_GAP_M), f.rect))) continue;
         if (!clearOfCircuit(r, k.h)) continue;
         fields.push({ rect: r, key, x, z, yaw });
@@ -226,7 +227,7 @@ export function settle(world: World, rand: StageRand): SettleResult {
         const yaw = (ikit.d >= ikit.w) === wide ? 90 : 0;
         const t = turned(ikit.w, ikit.d, yaw);
         const r = rectAt(f.x, f.z, t.x, t.z);
-        if (!inside(r, f.rect) || !clearOfCircuit(r, ikit.h)) continue;
+        if (!inside(r, f.rect) || !clearOfCircuit(r, ikit.h) || meetsFacade(world, r, 0, ikit.h, CLEAN_GAP_M)) continue;
         adds.push(make("irrigator", `${parkId}:${n}`, districtId, ik, f.x, f.z, yaw));
         break;
       }
@@ -253,7 +254,7 @@ export function settle(world: World, rand: StageRand): SettleResult {
       const x = snap(sq.rect.x0 + t.x / 2 + u("stall", sq.id, tr, "x") * spanX);
       const z = snap(sq.rect.z0 + t.z / 2 + u("stall", sq.id, tr, "z") * spanZ);
       const r = rectAt(x, z, t.x, t.z);
-      if (!inside(r, sq.rect) || !clearOfCircuit(r, k.h)) continue;
+      if (!inside(r, sq.rect) || !clearOfCircuit(r, k.h) || meetsFacade(world, r, 0, k.h, CLEAN_GAP_M)) continue;
       const hits = props.filter((e) => overlaps(e.rect, r)).length;
       if (best === null || hits < best.hits) best = { x, z, yaw, hits };
     }
@@ -277,7 +278,7 @@ export function settle(world: World, rand: StageRand): SettleResult {
     const t = turned(k.w, k.d, yaw);
     const r = rectAt(bay.x, bay.z, t.x, t.z);
     const bayRect = rectAt(bay.x, bay.z, bay.alongX ? bay.along : bay.across, bay.alongX ? bay.across : bay.along);
-    if (!inside(r, bayRect) || !clearOfClean(r) || !clearOfCircuit(r, k.h)) {
+    if (!inside(r, bayRect) || !clearOfClean(r, 0, k.h) || !clearOfCircuit(r, k.h)) {
       stats.containersNoRoom++;
       continue;
     }
@@ -304,7 +305,7 @@ export function settle(world: World, rand: StageRand): SettleResult {
       if (!inside(r, grow(cell, -CELL_INSET_M + 1e-9))) continue;
       // The cell's middle stays open (T-2 closes a cell whose middle a ground piece covers).
       if (Math.abs(cx - x) <= t.x / 2 + CENTRE_CLEAR_M && Math.abs(cz - z) <= t.z / 2 + CENTRE_CLEAR_M) continue;
-      if (!clearOfClean(r) || !clearOfCircuit(r, k.h)) continue;
+      if (!clearOfClean(r, 0, k.h) || !clearOfCircuit(r, k.h)) continue;
       adds.push(make("clutter", `${pc.i},${pc.j}`, h.id, key, x, z, yaw));
       done = true;
     }
@@ -332,7 +333,7 @@ export function settle(world: World, rand: StageRand): SettleResult {
           const r = rectAt(x, z, t.x, t.z);
           if (!inside(r, deck.rect)) continue;
           if (taken.some((p) => overlaps(grow(r, ROOF_GAP_M), p))) continue;
-          if (!clearOfCircuit(r, deck.y + k.h)) continue;
+          if (!clearOfCircuit(r, deck.y + k.h) || meetsFacade(world, r, deck.y, deck.y + k.h, CLEAN_GAP_M, true)) continue;
           taken.push(r);
           adds.push(make("roof", `${deck.i},${deck.j}:${slot}`, h.id, key, x, z, yaw, deck.y));
           done = true;

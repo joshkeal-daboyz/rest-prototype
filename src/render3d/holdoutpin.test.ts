@@ -9,9 +9,12 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { CELL_M, ROOF_DECK_M, ROOF_EDGE_M } from "../city/holdout/constants";
-import { CLEAN_ROOF_BOUNDS, CLUTTER_KEYS, KIT, KIT_KEYS } from "../city/holdout/kit";
+import { CLEAN_ROOF_BOUNDS, CLUTTER_KEYS, CODE_ESCAPE_D_M, CODE_ESCAPE_KEY, CODE_ESCAPE_W_M, FACADE_BOUNDS, KIT, PARTY_BOUNDS, KIT_KEYS } from "../city/holdout/kit";
 import * as ROOFS from "../city/facades/roofkit";
 import { NOVELTY_BOUNDS } from "../city/facades/noveltykit";
+import { DRESS_BOUNDS } from "../city/facades/dresskit";
+import { PARTY_BOUNDS as FACADES_PARTY_BOUNDS } from "../city/facades/partykit";
+import { CODE_ESCAPE, CODE_ESCAPE_KEY as WALL_CODE_ESCAPE_KEY, WALL_BOUNDS } from "../city/facades/wallkit";
 
 describe("the hold-out kit table: what needs no asset", () => {
   it("holds 44 Sci-Fi Frontier keys, none emissive", () => {
@@ -27,6 +30,23 @@ describe("the hold-out kit table: what needs no asset", () => {
     const want = { ...ROOFS.ROOF_BOUNDS, ...NOVELTY_BOUNDS };
     expect(Object.keys(CLEAN_ROOF_BOUNDS).sort()).toEqual(Object.keys(want).sort());
     for (const [k, b] of Object.entries(want)) expect(CLEAN_ROOF_BOUNDS[k as keyof typeof CLEAN_ROOF_BOUNDS], k).toEqual({ w: b.w, h: b.h, d: b.d });
+  });
+
+  it("the facade bounds the pass keeps clear of equal the facades kit's: the non-glass dressing keys and the wall keys, and the code escape's key and footprint", () => {
+    const want: Record<string, { w: number; h: number; d: number }> = {};
+    for (const [k, b] of Object.entries(DRESS_BOUNDS)) if (!/_Glass$/.test(k)) want[k] = b;
+    for (const [k, b] of Object.entries(WALL_BOUNDS)) want[k] = b;
+    expect(Object.keys(FACADE_BOUNDS).sort()).toEqual(Object.keys(want).sort());
+    for (const [k, b] of Object.entries(want)) expect(FACADE_BOUNDS[k as keyof typeof FACADE_BOUNDS], k).toEqual({ w: b.w, h: b.h, d: b.d });
+    expect(CODE_ESCAPE_KEY).toBe(WALL_CODE_ESCAPE_KEY);
+    expect([CODE_ESCAPE_W_M, CODE_ESCAPE_D_M]).toEqual([CODE_ESCAPE.w, CODE_ESCAPE.d]);
+  });
+
+  it("the party-wall bounds the roof items keep clear of equal the facades kit's: the window and the two pipe runs (the boards are in the roof table)", () => {
+    const want = Object.entries(FACADES_PARTY_BOUNDS).filter(([k]) => !/Billboard_Sign/.test(k));
+    expect(Object.keys(PARTY_BOUNDS).sort()).toEqual(want.map(([k]) => k).sort());
+    for (const [k, b] of want) expect(PARTY_BOUNDS[k as keyof typeof PARTY_BOUNDS], k).toEqual({ w: b.w, h: b.h, d: b.d });
+    for (const k of Object.keys(FACADES_PARTY_BOUNDS).filter((x) => /Billboard_Sign/.test(x))) expect(CLEAN_ROOF_BOUNDS[k as keyof typeof CLEAN_ROOF_BOUNDS], k).toBeDefined();
   });
 
   it("the deck numbers equal H3's: the edge 0.3 m (RE), the deck 0.5 m over the roof piece (RT); the lattice cell is 5 m", () => {
