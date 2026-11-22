@@ -1,13 +1,24 @@
 # 074 · Asset gallery: every piece of every pack, named, measured and flagged
 
 owner: renderer (sections A, B), ui (section C)
-status: open
+status: building (A only; B and C wait, see G1)
 branch: `ticket/074-asset-gallery` (one branch per section: `ticket/074a-asset-catalogue`, `ticket/074b-asset-viewer`, `ticket/074c-asset-gallery-page`)
 
 ## Josh's words (22 Nov 2026, in chat, relayed by the Fable planning session)
 > "I think it might be best for me to review and inspect each pass before moving on. I would like an asset gallery created for each pack. So that I have a splid reference while instructing the use of each component."
 
-This cut needs Josh's G1 before any build. Nothing here changes a city stage, a pass or a Decided rule.
+Nothing here changes a city stage, a pass or a Decided rule.
+
+## G1 (22 Nov 2026, relayed by the Fable session): for the outline only
+> "This looks good i approve"
+
+Josh said this after he was shown the Fable session's outline: one gallery per pack in the dev app; each piece rendered with its exact name, size in metres and an untextured flag; click to see it large and orbit, with a person-height marker; search by name, filter by pass or "unused"; the intended-use note and a store-page link; nothing from the packs committed, never in a web build. **He had not seen this ticket's text.** His words were relayed to the architect by the coordinator, not read in chat here. The main session records them from his own message (CLAUDE.md: approval never comes from an agent's report).
+
+- **Section A starts now.** It is a pure catalogue with tests and changes nothing Josh can see.
+- **Sections B and C wait** for his answers to three things that go past the outline:
+  - **Q3**: nine packs, where the outline named seven.
+  - **The small additions**: the triangle count, the flag filter and paging.
+  - **Q4**: the missing store URLs for City, Town and SIMPLE Town.
 
 ## Goal
 Josh opens `npm run dev`, goes to `/?assets=<pack-id>`, and sees one gallery per pack in the converted manifest: POLYGON City, Town, Palm City, Sci-Fi City, Sci-Fi Frontier, Nature, the two Apocalypse subsets (ruin, power), and SIMPLE Town. Each piece is shown as a small rendered card with its exact name (one click copies it), its size in metres, its triangle count and its manifest flags (untextured, missing textures, scale-suspect, never used). The card also lists which passes use the piece, and shows the intended-use note where the research note has one. He can search by name, filter by use (any pass, or "unused") and by flag, and page through. Clicking a card opens it large with orbit, a 5 m module square under it, a 1.8 m person marker beside it and its +z front marked. Every pack has a link to its store page. Every state of the page has its own address, so he can paste a link to a piece into an instruction. It runs only on his machine and only in a dev build. Nothing from the packs is committed or saved.
