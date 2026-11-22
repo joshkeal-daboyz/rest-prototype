@@ -38,7 +38,7 @@ describe("runCityEra (C1, criterion 3)", () => {
     expect(r.plan.layers).toEqual({});
     expect(runCity(SMALL, undefined, CLEAN).ok).toBe(true);
     expect(BUILT_STAGES.some((s) => (CITY_ERA_STAGES as readonly string[]).includes(s.name))).toBe(false);
-    expect(ERA_STAGES).toEqual([]);
+    expect(ERA_STAGES.map((s) => s.name)).toEqual(["history"]);
   });
   it("runCity until a clean stage runs exactly the clean stages; an era run's clean plan has the same digests", () => {
     const plain = runCity(SMALL, undefined, CLEAN);
