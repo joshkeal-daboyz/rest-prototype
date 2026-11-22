@@ -8,7 +8,7 @@ import { BAYS_PER_100M_MAX, BAYS_PER_PARKING_TILE, BAY_JUNCTION_CLEAR, BAY_RUN_T
  * The old tile city's values, typed in (ticket 070 L2b). Each is the value of the constant of the same name in `src/render3d/tilecity.ts` at b42b65f, with its line there.
  * The old file is no longer read; these numbers stand for it.
  */
-const OLD_TILE_M = 5; // src/core/cityplan.ts line 7 at b42b65f (tilecity.ts re-exported it; imported at its line 66)
+const OLD_TILE_M = 5; // src/city/streets/constants.ts line 7 at b42b65f (tilecity.ts imported it from ../city/streets at its line 66)
 const OLD_PER_TILE = 3; // tilecity.ts line 114, BAYS_PER_PARKING_TILE
 const OLD_CLEAR = 1; // tilecity.ts line 112, BAY_JUNCTION_CLEAR
 const OLD_GRATE = 6; // tilecity.ts line 116, GRATE_ONE_IN
