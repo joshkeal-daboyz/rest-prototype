@@ -35,11 +35,12 @@ import {
   type Texture,
   type WebGLRenderer,
 } from "three";
-import { type AssetEntry, type CalibrationKey, type CityBuildingsLayer, type CityCell, type CityEra, type CityEraPiece, type CityEraRun, type CityEraStageFailure, type CityFacadesLayer, type CityGroundPieceKind, type CityGroundCell, type CityGroundPlace, type CityGroundProp, type CityHoldoutPieceKind, type CityWallBox, type CityKerbPath, type CityMassLayer, type CityPieceRole, type CityPlacement, type CityPlan, type CityPlanRun, type CitySide, type CityStageFailure, type CityStreetsLayer, type CityTechPieceKind, type CityTrafficPieceKind } from "../core";
+import { type AssetEntry, type CalibrationKey, type CityBuildingsLayer, type CityCell, type CityEra, type CityEraPiece, type CityEraRun, type CityEraStageFailure, type CityFacadesLayer, type CityGroundPieceKind, type CityGroundCell, type CityGroundPlace, type CityGroundProp, type CityHoldoutPieceKind, type CityWallBox, type CityKerbPath, type CityMassLayer, type CityPieceRole, type CityPlacement, type CityPlan, type CityPlanRun, type CityRuinPieceKind, type CitySide, type CityStageFailure, type CityStreetsLayer, type CityTechPieceKind, type CityTrafficPieceKind } from "../core";
 import { CITY_ERAS } from "../core";
-import { CityResolveError, resolvePlan, runCity, runCityEra } from "../city/pipeline";
+import { CityResolveError, resolvePlan, runCity, runCityEra, stableHash } from "../city/pipeline";
 import { TECH_BOUNDS } from "../city/tech/kit";
 import { KIT_KEYS as HOLDOUT_KIT_KEYS } from "../city/holdout/kit";
+import { KIT_KEYS as RUIN_KIT_KEYS, ruinCrownBounds } from "../city/ruin/kit";
 import type { Insets } from "../render/geometry";
 import { createDayToggle, pageDayToggleHost, type DayToggle, type DayToggleHost } from "./daytoggle";
 import { applyLightMode, addSurface, newLightOwners, setRendererMode, type LightOwners } from "./lightrig";
@@ -215,25 +216,26 @@ export function nextEra(era: CityEra): CityEra {
 
 const NO_TECH: readonly CityEraPiece<CityTechPieceKind>[] = Object.freeze([]);
 const NO_HOLDOUT: readonly CityEraPiece<CityHoldoutPieceKind>[] = Object.freeze([]);
+const NO_RUIN: readonly CityEraPiece<CityRuinPieceKind>[] = Object.freeze([]);
 
-/** What the draw reads at an era: the plan to draw, or the text that says why there is none. `holdoutAdds` (E2g) are the hold-out pass's adds, beside `techAdds`; none at clean and tech. */
+/** What the draw reads at an era: the plan to draw, or the text that says why there is none. `holdoutAdds` (E2g) are the hold-out pass's adds, beside `techAdds`; none at clean and tech. `ruinAdds` (F1g) are the ruin pass's, at ruin only. */
 export type PlanAtEra =
-  | { readonly plan: CityPlan; readonly text: null; readonly techAdds: readonly CityEraPiece<CityTechPieceKind>[]; readonly holdoutAdds: readonly CityEraPiece<CityHoldoutPieceKind>[] }
-  | { readonly plan: null; readonly text: string; readonly techAdds: readonly CityEraPiece<CityTechPieceKind>[]; readonly holdoutAdds: readonly CityEraPiece<CityHoldoutPieceKind>[] };
+  | { readonly plan: CityPlan; readonly text: null; readonly techAdds: readonly CityEraPiece<CityTechPieceKind>[]; readonly holdoutAdds: readonly CityEraPiece<CityHoldoutPieceKind>[]; readonly ruinAdds: readonly CityEraPiece<CityRuinPieceKind>[] }
+  | { readonly plan: null; readonly text: string; readonly techAdds: readonly CityEraPiece<CityTechPieceKind>[]; readonly holdoutAdds: readonly CityEraPiece<CityHoldoutPieceKind>[]; readonly ruinAdds: readonly CityEraPiece<CityRuinPieceKind>[] };
 
 /**
  * The plan the draw reads at `era`. "clean" is the clean plan itself, with no era stage run (X-7). An era above it reads `resolvePlan(eraRun.plan, era).plan`, never the raw layers (ticket 073 C2, criterion 2);
  * with no pass built, that plan is the clean one. The tech pass's adds (D1g) come from the same `resolvePlan` and are drawn beside the plan; at "clean" there are none. `eraRun` is the era run for that era (the caller runs it). A failed run or a failed resolve gives the text and no plan. Pure.
  */
 export function planAtEra(clean: CityPlan, era: CityEra, eraRun: CityEraRun | null): PlanAtEra {
-  if (era === "clean") return { plan: clean, text: null, techAdds: NO_TECH, holdoutAdds: NO_HOLDOUT };
-  if (eraRun === null) return { plan: null, text: `City plan at era "${era}" has no era run`, techAdds: NO_TECH, holdoutAdds: NO_HOLDOUT };
-  if (!eraRun.ok) return { plan: null, text: planFailureText(eraRun.failure), techAdds: NO_TECH, holdoutAdds: NO_HOLDOUT };
+  if (era === "clean") return { plan: clean, text: null, techAdds: NO_TECH, holdoutAdds: NO_HOLDOUT, ruinAdds: NO_RUIN };
+  if (eraRun === null) return { plan: null, text: `City plan at era "${era}" has no era run`, techAdds: NO_TECH, holdoutAdds: NO_HOLDOUT, ruinAdds: NO_RUIN };
+  if (!eraRun.ok) return { plan: null, text: planFailureText(eraRun.failure), techAdds: NO_TECH, holdoutAdds: NO_HOLDOUT, ruinAdds: NO_RUIN };
   try {
     const resolved = resolvePlan(eraRun.plan, era);
-    return { plan: resolved.plan, text: null, techAdds: resolved.adds.tech ?? NO_TECH, holdoutAdds: resolved.adds.holdout ?? NO_HOLDOUT };
+    return { plan: resolved.plan, text: null, techAdds: resolved.adds.tech ?? NO_TECH, holdoutAdds: resolved.adds.holdout ?? NO_HOLDOUT, ruinAdds: resolved.adds.ruin ?? NO_RUIN };
   } catch (e) {
-    if (e instanceof CityResolveError) return { plan: null, text: `City plan cannot be resolved at era "${era}": ${e.message}`, techAdds: NO_TECH, holdoutAdds: NO_HOLDOUT };
+    if (e instanceof CityResolveError) return { plan: null, text: `City plan cannot be resolved at era "${era}": ${e.message}`, techAdds: NO_TECH, holdoutAdds: NO_HOLDOUT, ruinAdds: NO_RUIN };
     throw e;
   }
 }
@@ -746,6 +748,8 @@ export interface PlanTech {
   readonly adds: readonly CityEraPiece<CityTechPieceKind>[];
   /** E2g: the hold-out pass's adds, drawn at "holdout" and "ruin" only. */
   readonly holdoutAdds?: readonly CityEraPiece<CityHoldoutPieceKind>[];
+  /** F1g: the ruin pass's adds, drawn at "ruin" only. */
+  readonly ruinAdds?: readonly CityEraPiece<CityRuinPieceKind>[];
 }
 
 /** One never-used key the tech pass may place, as dark scenery, and the one kind of its adds that may carry it (X-9; B2: dark lamps, signs, neon). */
@@ -775,6 +779,18 @@ export const PLAN_AUDIT_HOLDOUT_ERAS: readonly CityEra[] = ["holdout", "ruin"];
 /** The hold-out's allowance, as one typed table. E2's kit (Sci-Fi Frontier pieces, none of whose names starts with a never-used stem) needs none, so it is empty; a test checks every kit key with `isNeverUsed`. */
 export const PLAN_AUDIT_HOLDOUT_ALLOWED: readonly PlanHoldoutAllowance[] = [];
 
+/** One never-used key the ruin pass may place, as dark scenery, and the one kind of its adds that may carry it (F1g; X-9). */
+export interface PlanRuinAllowance {
+  readonly key: CalibrationKey;
+  readonly kind: CityRuinPieceKind;
+}
+
+/** The ruin allowance's era: it holds at "ruin" only. */
+export const PLAN_AUDIT_RUIN_ERAS: readonly CityEra[] = ["ruin"];
+
+/** The ruin's allowance, as one typed table. F1's kit (Apocalypse, Nature and Palm City pieces; none of whose names starts with a never-used stem) needs none, so it is empty; a test checks every kit key with `isNeverUsed`. */
+export const PLAN_AUDIT_RUIN_ALLOWED: readonly PlanRuinAllowance[] = [];
+
 /** One never-used key the plan places: the layer and list it is in, its cell (null for a key the street pieces and interiors are drawn from), and the key. */
 export interface PlanAuditEntry {
   readonly layer: string;
@@ -790,7 +806,7 @@ export const PLAN_AUDIT_ALLOWED = { key: PLAN_PARTY_PIPE, kind: "partyPipe" } as
  * R12, the whole-plan audit (the checklist's own check at its own stage): every key the plan places that `isNeverUsed` names, with its layer, list and cell. It reads the buildings' pieces, `facades.ground`, `dressing`, `walls`,
  * `roofs` and `novelty`, `ground.props`, and the keys the street pieces and interiors are drawn from. Empty when the plan is clean; never filtered. Pure.
  */
-export function planAudit(plan: CityPlan, tech?: PlanTech, allowed: readonly PlanTechAllowance[] = PLAN_AUDIT_TECH_ALLOWED, holdoutAllowed: readonly PlanHoldoutAllowance[] = PLAN_AUDIT_HOLDOUT_ALLOWED): PlanAuditEntry[] {
+export function planAudit(plan: CityPlan, tech?: PlanTech, allowed: readonly PlanTechAllowance[] = PLAN_AUDIT_TECH_ALLOWED, holdoutAllowed: readonly PlanHoldoutAllowance[] = PLAN_AUDIT_HOLDOUT_ALLOWED, ruinAllowed: readonly PlanRuinAllowance[] = PLAN_AUDIT_RUIN_ALLOWED): PlanAuditEntry[] {
   const { buildings, facades, ground, traffic } = plan.layers;
   const out: PlanAuditEntry[] = [];
   const check = (layer: string, list: string, cell: CityCell | null, key: CalibrationKey, kind?: string): void => {
@@ -820,6 +836,12 @@ export function planAudit(plan: CityPlan, tech?: PlanTech, allowed: readonly Pla
     if (!isNeverUsed(p.placement.key)) continue;
     if (PLAN_AUDIT_HOLDOUT_ERAS.includes(tech!.era) && holdoutAllowed.some((a) => a.key === p.placement.key && a.kind === p.kind)) continue;
     out.push({ layer: "holdout", list: "adds", cell: p.cell, key: p.placement.key });
+  }
+  // The ruin pass's adds (F1g; X-9), with their own table, at "ruin" only.
+  for (const p of tech?.ruinAdds ?? []) {
+    if (!isNeverUsed(p.placement.key)) continue;
+    if (PLAN_AUDIT_RUIN_ERAS.includes(tech!.era) && ruinAllowed.some((a) => a.key === p.placement.key && a.kind === p.kind)) continue;
+    out.push({ layer: "ruin", list: "adds", cell: p.cell, key: p.placement.key });
   }
   return out;
 }
@@ -861,6 +883,36 @@ export function planHoldoutDraws(adds: readonly CityEraPiece<CityHoldoutPieceKin
   return adds.map((p) => {
     if (!HOLDOUT_KIT_KEYS.has(p.placement.key)) throw new PlanStopError(`the hold-out add ${p.id} has a key (${p.placement.key}) that is not in the hold-out kit`, [p.cell]);
     return { id: p.id, kind: p.kind, district: p.district, cell: p.cell, placement: p.placement };
+  });
+}
+
+/** One ruin add as `plan3dGroups` draws it: the era piece itself (a kit key, at the placement F1 wrote) and the turn it is drawn at. */
+export interface PlanRuinDraw {
+  readonly id: string;
+  readonly kind: CityRuinPieceKind;
+  readonly district: string;
+  readonly cell: CityCell;
+  readonly placement: CityPlacement;
+  /** The yaw the piece is drawn at, degrees: `drawnYawDeg`. A sapling's or park tree's is a hash of its id (draw-only); every other kind's is the plan's. */
+  readonly yaw_deg: number;
+}
+
+/** The most InstancedMeshes the ruin pass's pieces may take (its own group, so no other cap rises). The kit has about 50 keys; a key is one call per sub-mesh (a tree has two or three). */
+export const RUIN_DRAW_CALLS_MAX = 200;
+
+/**
+ * The yaw a ruin add is drawn at (F1g; draw-only). Every sapling and park tree has `yaw_deg` 0 in the plan (F1b3), so each is turned about its pivot by `stableHash(id) % 360` degrees; every other kind, tree-vines
+ * included (F1 checked them where they were placed), keeps the plan's yaw. Pure.
+ */
+export function drawnYawDeg(p: Pick<CityEraPiece<CityRuinPieceKind>, "id" | "kind" | "placement">): number {
+  return p.kind === "sapling" || p.kind === "park-tree" ? stableHash(p.id) % 360 : p.placement.yaw_deg;
+}
+
+/** Every ruin add once each, in order, with its drawn yaw. A key that is not in F1's kit is a gap in F1's layer: `PlanStopError`, the cell named. Pure. */
+export function planRuinDraws(adds: readonly CityEraPiece<CityRuinPieceKind>[]): PlanRuinDraw[] {
+  return adds.map((p) => {
+    if (!RUIN_KIT_KEYS.has(p.placement.key) || ruinCrownBounds(p.placement.key) === undefined) throw new PlanStopError(`the ruin add ${p.id} has a key (${p.placement.key}) that is not in the ruin kit`, [p.cell]);
+    return { id: p.id, kind: p.kind, district: p.district, cell: p.cell, placement: p.placement, yaw_deg: drawnYawDeg(p) };
   });
 }
 
@@ -933,6 +985,12 @@ function techPlacementOf(d: PlanTechDraw): DressPlacement {
 function holdoutPlacementOf(d: PlanHoldoutDraw): DressPlacement {
   const pl = d.placement;
   return { frame: { x: 0, z: 0, yaw: 0 }, piece: { key: pl.key, slot: "wall", x: pl.x_m, y: pl.y_m, z: pl.z_m, yaw: pl.yaw_deg * RAD, column: 0, w: 0, h: 0, d: 0 } };
+}
+
+/** A ruin add as the instancer's placement: the identity frame, the piece at its placement in metres, at scale 1 (never `size`), turned by its drawn yaw. A roof piece's `y_m` is the deck. */
+function ruinPlacementOf(d: PlanRuinDraw): DressPlacement {
+  const pl = d.placement;
+  return { frame: { x: 0, z: 0, yaw: 0 }, piece: { key: pl.key, slot: "wall", x: pl.x_m, y: pl.y_m, z: pl.z_m, yaw: d.yaw_deg * RAD, column: 0, w: 0, h: 0, d: 0 } };
 }
 
 const shortName = (key: CalibrationKey): string => key.slice(key.indexOf(":") + 1);
@@ -1011,6 +1069,12 @@ export function holdoutStage(draws: readonly PlanHoldoutDraw[], roots: ReadonlyM
   return instancedOf("plan:holdout", draws.length, placements, roots, HOLDOUT_DRAW_CALLS_MAX);
 }
 
+/** The ruin pass's pieces (F1g): each add whose root loaded, in one `dressGroup` call under `RUIN_DRAW_CALLS_MAX`, dark (the instancer swaps any emissive material for one with none). */
+export function ruinStage(draws: readonly PlanRuinDraw[], roots: ReadonlyMap<CalibrationKey, Object3D>): PlanInstanced {
+  const placements = draws.filter((d) => roots.has(d.placement.key)).map(ruinPlacementOf);
+  return instancedOf("plan:ruin", draws.length, placements, roots, RUIN_DRAW_CALLS_MAX);
+}
+
 /** Stage 8: each listed prop whose root loaded, in one `dressGroup` call under `FURN_DRAW_CALLS_MAX` (the call `plan3dGroups` shares with stage 9's pieces; this one has none of them). */
 export function propStage(draws: readonly PlanPropDraw[], roots: ReadonlyMap<CalibrationKey, Object3D>): PlanInstanced {
   return furnitureStages(draws, [], roots).furniture;
@@ -1038,6 +1102,9 @@ export interface PlanDraw {
   /** E2g: the hold-out pass's adds, in `holdout.group` (`plan:holdout`, in `group` too). Null at "clean" and "tech", and wherever the plan is drawn with no hold-out adds. */
   holdout: PlanInstanced | null;
   holdoutDraws: readonly PlanHoldoutDraw[];
+  /** F1g: the ruin pass's adds, in `ruin.group` (`plan:ruin`, in `group` too). Null at every era but "ruin", and wherever the plan is drawn with no ruin adds. */
+  ruin: PlanInstanced | null;
+  ruinDraws: readonly PlanRuinDraw[];
   dressDraws: readonly PlanDressDraw[];
   propDraws: readonly PlanPropDraw[];
   trafficDraws: readonly PlanTrafficDraw[];
@@ -1112,11 +1179,15 @@ export function plan3dGroups(plan: CityPlan, roots: ReadonlyMap<CalibrationKey, 
   // E2g: the hold-out pass's adds, at "holdout" and "ruin" only.
   const holdoutDraws = tech !== undefined && PLAN_AUDIT_HOLDOUT_ERAS.includes(tech.era) ? planHoldoutDraws(tech.holdoutAdds ?? []) : [];
   const holdoutDrawn = holdoutDraws.length > 0 ? holdoutStage(holdoutDraws, roots) : null;
+  // F1g: the ruin pass's adds, at "ruin" only.
+  const ruinDraws = tech !== undefined && PLAN_AUDIT_RUIN_ERAS.includes(tech.era) ? planRuinDraws(tech.ruinAdds ?? []) : [];
+  const ruinDrawn = ruinDraws.length > 0 ? ruinStage(ruinDraws, roots) : null;
   const group = new Group();
   group.name = "plan3d";
   group.add(tiles.group, interior.group, ...built.buildings.groups, built.grey.mesh, dress.group, furniture.group);
   if (techDrawn) group.add(techDrawn.group);
   if (holdoutDrawn) group.add(holdoutDrawn.group);
+  if (ruinDrawn) group.add(ruinDrawn.group);
   return {
     group,
     dress,
@@ -1127,6 +1198,8 @@ export function plan3dGroups(plan: CityPlan, roots: ReadonlyMap<CalibrationKey, 
     techDraws,
     holdout: holdoutDrawn,
     holdoutDraws,
+    ruin: ruinDrawn,
+    ruinDraws,
     dressDraws,
     propDraws,
     trafficDraws,
@@ -1146,6 +1219,7 @@ export function plan3dGroups(plan: CityPlan, roots: ReadonlyMap<CalibrationKey, 
       furniture.dispose();
       techDrawn?.dispose();
       holdoutDrawn?.dispose();
+      ruinDrawn?.dispose();
       paint.dispose();
     },
   };
@@ -1259,17 +1333,19 @@ export function createPlanAssembleRenderer3d(gl: WebGLRenderer, canvas: HTMLCanv
     }
     return r;
   };
-  const atEra = (e: CityEra): PlanAtEra => (cleanPlan ? planAtEra(cleanPlan, e, e === "clean" ? null : eraRunOf(e)) : { plan: null, text: stopText ?? "", techAdds: NO_TECH, holdoutAdds: NO_HOLDOUT });
+  const atEra = (e: CityEra): PlanAtEra => (cleanPlan ? planAtEra(cleanPlan, e, e === "clean" ? null : eraRunOf(e)) : { plan: null, text: stopText ?? "", techAdds: NO_TECH, holdoutAdds: NO_HOLDOUT, ruinAdds: NO_RUIN });
   const cleanFailed = stopText !== null;
   let eraText: string | null = null;
   let plan: CityPlan | null = cleanPlan;
   let techAdds: readonly CityEraPiece<CityTechPieceKind>[] = NO_TECH;
   let holdoutAdds: readonly CityEraPiece<CityHoldoutPieceKind>[] = NO_HOLDOUT;
+  let ruinAdds: readonly CityEraPiece<CityRuinPieceKind>[] = NO_RUIN;
   if (stopText === null && cleanPlan) {
     const first = atEra(era);
     plan = first.plan;
     techAdds = first.techAdds;
     holdoutAdds = first.holdoutAdds;
+    ruinAdds = first.ruinAdds;
     eraText = first.text;
     if (eraText !== null) stopText = eraText;
   }
@@ -1289,7 +1365,7 @@ export function createPlanAssembleRenderer3d(gl: WebGLRenderer, canvas: HTMLCanv
     if (!plan || stopText !== null) return;
     lastBuild = [roots, entries, colourways, stopAtlas];
     try {
-      const next = plan3dGroups(plan, roots, entries, colourways, stopAtlas, { era, adds: techAdds, holdoutAdds });
+      const next = plan3dGroups(plan, roots, entries, colourways, stopAtlas, { era, adds: techAdds, holdoutAdds, ruinAdds });
       if (draw) {
         scene.remove(draw.group);
         draw.dispose();
@@ -1375,6 +1451,7 @@ export function createPlanAssembleRenderer3d(gl: WebGLRenderer, canvas: HTMLCanv
     plan = r.plan;
     techAdds = r.techAdds;
     holdoutAdds = r.holdoutAdds;
+    ruinAdds = r.ruinAdds;
     if (lastBuild) build(...lastBuild);
     else build(new Map(), new Map());
   };
@@ -1416,7 +1493,7 @@ export function createPlanAssembleRenderer3d(gl: WebGLRenderer, canvas: HTMLCanv
       build(input.roots, input.entries, input.colourways, input.stopAtlas);
       if (draw) {
         const d = draw;
-        report = (calls) => `plan 3d: ${d.tiles.fromPack} street pieces from the pack, ${d.tiles.codeDrawn} code-drawn, ${d.tiles.calls} + ${d.interior.calls} draw calls (caps ${TILE_DRAW_CALLS_MAX} and ${INTERIOR_DRAW_CALLS_MAX}), ${d.buildings.groups.length} building groups, ${d.buildings.pieces} pieces cloned, ${d.buildings.groundPieces} of ${d.buildings.groundDraws.length} ground pieces cloned, ${d.grey.fallback} columns fell back to grey and ${d.grey.slots} ground slots are grey (${d.grey.count} grey boxes), stage 7: ${d.dress.drawn} of ${d.dress.listed} pieces drawn in ${d.dress.calls} calls (+${d.dress.boxCalls} box, cap ${DRESS_DRAW_CALLS_MAX}), stage 8: ${d.furniture.drawn} of ${d.furniture.listed} props drawn in ${d.furniture.calls} calls (cap ${FURN_DRAW_CALLS_MAX} shared with stage 9), stage 9: ${d.traffic.drawn} of ${d.traffic.listed} traffic pieces drawn in ${d.traffic.calls} calls, tech: ${d.tech ? d.tech.drawn : 0} of ${d.tech ? d.tech.listed : 0} added pieces drawn in ${d.tech ? d.tech.calls : 0} calls (cap ${TECH_DRAW_CALLS_MAX}), hold-out: ${d.holdout ? d.holdout.drawn : 0} of ${d.holdout ? d.holdout.listed : 0} added pieces drawn in ${d.holdout ? d.holdout.calls : 0} calls (cap ${HOLDOUT_DRAW_CALLS_MAX}), stop sign on 01_A: ${d.stopPainted ? "yes" : "no"}, keys left out: ${[...d.dress.leftOut, ...d.furniture.leftOut, ...d.traffic.leftOut].join(", ") || "none"}, ${calls} draw calls in the next frame`;
+        report = (calls) => `plan 3d: ${d.tiles.fromPack} street pieces from the pack, ${d.tiles.codeDrawn} code-drawn, ${d.tiles.calls} + ${d.interior.calls} draw calls (caps ${TILE_DRAW_CALLS_MAX} and ${INTERIOR_DRAW_CALLS_MAX}), ${d.buildings.groups.length} building groups, ${d.buildings.pieces} pieces cloned, ${d.buildings.groundPieces} of ${d.buildings.groundDraws.length} ground pieces cloned, ${d.grey.fallback} columns fell back to grey and ${d.grey.slots} ground slots are grey (${d.grey.count} grey boxes), stage 7: ${d.dress.drawn} of ${d.dress.listed} pieces drawn in ${d.dress.calls} calls (+${d.dress.boxCalls} box, cap ${DRESS_DRAW_CALLS_MAX}), stage 8: ${d.furniture.drawn} of ${d.furniture.listed} props drawn in ${d.furniture.calls} calls (cap ${FURN_DRAW_CALLS_MAX} shared with stage 9), stage 9: ${d.traffic.drawn} of ${d.traffic.listed} traffic pieces drawn in ${d.traffic.calls} calls, tech: ${d.tech ? d.tech.drawn : 0} of ${d.tech ? d.tech.listed : 0} added pieces drawn in ${d.tech ? d.tech.calls : 0} calls (cap ${TECH_DRAW_CALLS_MAX}), hold-out: ${d.holdout ? d.holdout.drawn : 0} of ${d.holdout ? d.holdout.listed : 0} added pieces drawn in ${d.holdout ? d.holdout.calls : 0} calls (cap ${HOLDOUT_DRAW_CALLS_MAX}), ruin: ${d.ruin ? d.ruin.drawn : 0} of ${d.ruin ? d.ruin.listed : 0} added pieces drawn in ${d.ruin ? d.ruin.calls : 0} calls (cap ${RUIN_DRAW_CALLS_MAX}), stop sign on 01_A: ${d.stopPainted ? "yes" : "no"}, keys left out: ${[...d.dress.leftOut, ...d.furniture.leftOut, ...d.traffic.leftOut, ...(d.ruin?.leftOut ?? [])].join(", ") || "none"}, ${calls} draw calls in the next frame`;
       }
     })
     .catch((e: unknown) => {
