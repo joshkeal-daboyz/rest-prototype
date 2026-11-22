@@ -9,7 +9,10 @@ import { mountUI, restoreAudio, type UI } from "./ui";
 import { brownoutNotices, nextMap, noticeFor, placeHighlight, splashDue } from "./ui/logic";
 import { measureBlockers } from "./ui/blockers";
 import { collectMaps, type MapEntry } from "./ui/maps";
+import { assetGalleryRequested } from "./ui/assetgallerylogic";
 
+// The puzzle page. It is a function so the dev-only asset gallery (at the end of this file) can take the page instead, with no puzzle, HUD or map renderer made.
+function startPuzzle(): void {
 const files = import.meta.glob("../puzzles/**/*.json", { eager: true, import: "default" }) as Record<string, unknown>;
 const { entries, problems } = collectMaps(files);
 for (const problem of problems) console.warn(`[puzzles] skipped ${problem}`);
@@ -298,4 +301,17 @@ if (entries.length === 0) {
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
+}
+}
+
+// Dev only (ticket 074, section C): the asset gallery page at `/?assets=<pack>`. The page is taken instead of a puzzle: `startPuzzle()` is not called, so no puzzle, HUD or map
+// renderer is made. The gallery's own code loads only here. `npm run build` is built with import.meta.env.DEV false, so this branch and both its imports are dropped.
+if (import.meta.env.DEV && assetGalleryRequested(location.search) !== null) {
+  const app = document.getElementById("app");
+  if (app) app.hidden = true;
+  void Promise.all([import("./render3d"), import("./ui/assetgallery")]).then(([r, page]) => {
+    page.mountAssetGallery(document.body, (c) => r.createAssetGallery(c), location.search);
+  });
+} else {
+  startPuzzle();
 }
