@@ -18,9 +18,11 @@ Branch `goal/city-style` in `D:\rest-prototype-goal`. Nothing is pushed and `mai
 
 The last gate on goal-equivalent code passed 193 files, about 4,320 tests.
 
-## In flight when this was written
+## Also merged, after this note was first written
 
-- **070 TR1d**: traffic masts move 2.6 m in onto the corner's walk, one push button per crosswalk (Josh: "Functionally these stop lights don't make sense. They should be on the side walk. Pedestrians would not be able to touch the button to indicate they want to use the crosswalk."; Q50 "Back on the corner (Recommended)"). Builder on `ticket/070tr1d-mast-on-walk` (`D:\rest-prototype-070tr1d`). Check the git log: if it isn't merged, it needs gate, review, playtest, and a browser re-shoot of `?view=3d&city=plan&stage=assemble&seed=1&cam=street&at=51,15&dir=+x`.
+- **070 TR1d** (3a762fc): traffic masts 2.6 m in on the corner's walk, one push button per crosswalk (Josh: "Functionally these stop lights don't make sense. They should be on the side walk. Pedestrians would not be able to touch the button to indicate they want to use the crosswalk."; Q50 "Back on the corner (Recommended)"). 0 of 884 masts and 0 of 1,768 buttons off the walk; heads hang over the near half of the street (accepted). Gate 193 files, 4352 passed.
+- **071 B2** (same merge): `powerkit.test.ts`'s ladder-span test reads ladder maps (`NN-*.json`) only; K1's city map had given 0.248x. **K3 owes a true-size span check for the city map** (B2 review).
+- Nothing is in flight in this session.
 
 ## Next, cut and waiting
 
@@ -54,7 +56,7 @@ Assets on disk for it (`assets/private/out`): `sci-fi-city-pack.glb` (602 models
 ## Lessons from tonight
 
 - The vitest worker timeout (`Timeout calling "onTaskUpdate"`) appears when long synchronous test files run under load. TR1 added an `afterEach` yield to `facades/stage.test.ts`; `plan3d.test.ts` (113 s), `facades/escapereport.test.ts`, `traffic/report.test.ts` are still long. If it recurs on an unrelated branch, re-run the gate with less parallel load; a test-only ticket adding the same yield to the long files would end it.
-- Branches cut before a merge miss its test fixes: merge `goal/city-style` into the branch and gate the result before it lands (done for TR2 and K1 tonight).
+- Always gate the combination before a branch lands: 071 B was merged after K1 without it and broke `goal/city-style` for one test until B2. Branches cut before a merge miss its test fixes: merge `goal/city-style` into the branch and gate the result before it lands (done for TR2 and K1 tonight).
 - A data check that counts a whole cell as walkable can hide a piece standing in a gutter: TR1's TC4 passed while every mast stood outside the kerb return. Look at the browser picture, not only the checks.
 - Reviewers sometimes write into `D:\rest-prototype` instead of the worktree; check `reviews/` there after each review.
 
