@@ -35,7 +35,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { type AssetEntry, type AssetGallery, type AssetGalleryPack, type AssetGalleryPage, type AssetGalleryPiece, type AssetGalleryQuery, type AssetManifest, type CalibrationKey } from "../core";
 import { assetGalleryPacks, assetGalleryPage, assetGalleryPieces } from "./assetcatalogue";
-import { applyLightMode } from "./lightrig";
+import { applyLightMode, setRendererMode, type RigRenderer } from "./lightrig";
 import { isManifest, sizeOf } from "./models";
 import { defaultDir, nearestTextures } from "./models3d";
 
@@ -158,6 +158,11 @@ export function inspectMarkers(size_m: V3): InspectMarkers {
   };
 }
 
+/** Sets the renderer's tone mapping and exposure as the city shows its day view (the rig's day mode, as the plan view does), so a piece is exposed as it will look in the city. */
+export function configureRenderer(gl: RigRenderer): void {
+  setRendererMode(gl, "day");
+}
+
 /** A scene lit by the light rig's day mode, as the city is by day (one sun, one hemisphere light, the rig's sky background), and nothing else. Units are metres (1 world unit = 1 m). */
 export function buildAssetScene(): Scene {
   const scene = new Scene();
@@ -245,6 +250,7 @@ class WebGLSurface implements ViewerSurface {
   private ensure(): { renderer: WebGLRenderer; target: WebGLRenderTarget } {
     if (this.renderer === null || this.target === null) {
       const renderer = new WebGLRenderer({ canvas: this.canvas, antialias: true });
+      configureRenderer(renderer);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
       const target = new WebGLRenderTarget(THUMB_PX.w, THUMB_PX.h, { samples: 4 });
       target.texture.colorSpace = SRGBColorSpace;
