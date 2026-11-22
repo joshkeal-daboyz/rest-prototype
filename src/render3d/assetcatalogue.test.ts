@@ -79,14 +79,20 @@ describe("assetGalleryPacks", () => {
     expect(packs[3]).toMatchObject({ title: "mystery-pack", storeUrl: null });
   });
 
-  it("holds the five store pages of the research note and none the note does not give", () => {
-    const urls = Object.entries(PACK_PAGES)
-      .filter(([, v]) => v.storeUrl !== null)
-      .map(([k]) => k)
-      .sort();
-    expect(urls).toEqual(["apocalypse-power", "apocalypse-ruin", "nature-pack", "palm-city-pack", "sci-fi-city-pack", "sci-fi-frontier-pack"]);
-    expect(PACK_PAGES["apocalypse-ruin"]!.storeUrl).toBe(PACK_PAGES["apocalypse-power"]!.storeUrl);
-    for (const k of ["city-pack", "town-pack", "simple-town"]) expect(PACK_PAGES[k]!.storeUrl, k).toBeNull();
+  it("pins all eight store pages (the research note's five and Josh's three, 22 Nov 2026), every pack of the manifest having one", () => {
+    const urls = Object.fromEntries(Object.entries(PACK_PAGES).map(([k, v]) => [k, v.storeUrl]));
+    expect(urls).toEqual({
+      "apocalypse-power": "https://syntystore.com/products/polygon-apocalypse-pack",
+      "apocalypse-ruin": "https://syntystore.com/products/polygon-apocalypse-pack",
+      "city-pack": "https://syntystore.com/products/polygon-city-pack",
+      "nature-pack": "https://syntystore.com/products/polygon-nature-pack",
+      "palm-city-pack": "https://syntystore.com/products/polygon-palm-city",
+      "sci-fi-city-pack": "https://syntystore.com/products/polygon-sci-fi-city",
+      "sci-fi-frontier-pack": "https://syntystore.com/products/polygon-sci-fi-frontier",
+      "simple-town": "https://syntystore.com/products/simple-town-cartoon-assets",
+      "town-pack": "https://syntystore.com/products/polygon-town-pack",
+    });
+    expect(new Set(Object.values(urls)).size).toBe(8);
   });
 
   it("does not take a title from the prototype chain", () => {
@@ -205,9 +211,41 @@ describe("PIECE_NOTES and notesFor", () => {
 
   it("gives Palm City vines their row", () => {
     const notes = notesFor("palm-city-pack:SM_Env_Vines_06");
-    expect(notes).toHaveLength(1);
+    expect(notes).toHaveLength(2);
     expect(notes[0]!.text).toContain("vines");
     expect(notes[0]!.images).toContain("Screenshot_06");
+    // the 06 limits are shown in full, and only on 06
+    expect(notes[1]!.departure).toContain("only _08");
+    expect(notes[1]!.departure).toContain("lamp post");
+    expect(notesFor("palm-city-pack:SM_Env_Vines_08")).toHaveLength(1);
+    expect(notesFor("palm-city-pack:SM_Env_Vines_08")[0]!.departure ?? "").not.toContain("sign posts");
+  });
+
+  it("lands each ruin-pass departure only on the pieces it names", () => {
+    const dep = (key: string): string[] => notesFor(key as never).map((n) => n.departure ?? "").filter((d) => d !== "");
+    // roof growth: Tree_Dead_01/02 and Plant_Bush_01 only
+    expect(dep("nature-pack:SM_Tree_Dead_01").some((d) => d.includes("roofs"))).toBe(true);
+    expect(dep("nature-pack:SM_Tree_Dead_02").some((d) => d.includes("roofs"))).toBe(true);
+    expect(dep("nature-pack:SM_Tree_Dead_03")).toEqual([]);
+    expect(notesFor("nature-pack:SM_Tree_Dead_03")).toHaveLength(1);
+    expect(dep("nature-pack:SM_Plant_Bush_01").some((d) => d.includes("roofs"))).toBe(true);
+    expect(dep("nature-pack:SM_Plant_Bush_02")).toEqual([]);
+    expect(dep("nature-pack:SM_Plant_Bush_03")).toEqual([]);
+    expect(notesFor("nature-pack:SM_Plant_Bush_02")).toHaveLength(1);
+    // the mound patch and the saplings
+    expect(dep("nature-pack:SM_Terrain_Ground_Mound_Small_02").some((d) => d.includes("cell-sized"))).toBe(true);
+    expect(dep("nature-pack:SM_Terrain_Ground_Mound_Small_01")).toEqual([]);
+    expect(notesFor("nature-pack:SM_Terrain_Ground_Mound_Small_01")).toHaveLength(1);
+    expect(dep("nature-pack:SM_Tree_Birch_01")[0]).toContain("Saplings");
+    expect(dep("nature-pack:SM_Tree_Large_01")).toEqual([]);
+    // the sapling note carries Josh's words and T-2 in full
+    expect(dep("nature-pack:SM_Tree_Round_01")[0]).toContain("Poles too");
+    expect(dep("nature-pack:SM_Tree_Round_01")[0]).toContain("T-2");
+    // the street-mouth wall
+    expect(dep("sci-fi-frontier-pack:SM_Bld_Wall_02")[0]).toContain("street mouth");
+    expect(dep("sci-fi-frontier-pack:SM_Bld_Wall_01")).toEqual([]);
+    expect(dep("sci-fi-frontier-pack:SM_Bld_Wall_Tower_01")).toEqual([]);
+    expect(notesFor("sci-fi-frontier-pack:SM_Bld_Wall_Tower_01")).toHaveLength(1);
   });
 
   it("gives a piece with no row no notes, and does not cross packs", () => {
@@ -226,6 +264,28 @@ describe("PIECE_NOTES and notesFor", () => {
   it("returns every matching row, in table order", () => {
     const m = PIECE_NOTES.filter((r) => r.pack === "sci-fi-city-pack" && r.pattern.test("SM_Prop_Pipes_03"));
     expect(notesFor("sci-fi-city-pack:SM_Prop_Pipes_03").map((n) => n.text)).toEqual(m.map((r) => r.text));
+  });
+
+  it("carries every row's text, images and departure exactly as docs/design/073-pack-intended-use.md has them (markdown marks aside), so nothing is shortened", () => {
+    const doc = readFileSync(join(process.cwd(), "docs/design/073-pack-intended-use.md"), "utf8").split("\r").join("").split("**").join("").split("`").join("");
+    const bad: string[] = [];
+    for (const r of PIECE_NOTES) {
+      for (const line of r.text.split("\n")) if (!doc.includes(line.replace(/^Sureness: /, ""))) bad.push(`${r.pattern.source} text: ${line.slice(0, 60)}`);
+      if (r.images !== "" && !doc.includes(r.images)) bad.push(`${r.pattern.source} images: ${r.images.slice(0, 60)}`);
+      if (r.departure !== null && !doc.includes(r.departure)) bad.push(`${r.pattern.source} departure: ${r.departure.slice(0, 60)}`);
+    }
+    expect(bad, bad.join(String.fromCharCode(10))).toEqual([]);
+  });
+
+  it("keeps the limits a pass relies on: the roof-growth fallback and Josh's words, the mound's hard ground, the pole's single clear case", () => {
+    const roof = notesFor("nature-pack:SM_Tree_Dead_01")[0]!.departure!;
+    expect(roof).toContain("dead trees are dropped and bushes kept (the main session's call from the picture)");
+    expect(roof).toContain("Pieces must fit the roof unscaled and never sit over a rooftop pole or line.");
+    expect(roof).toContain("RUIN_ROOF_GROWTH goes on in ticket 073 F1b2");
+    expect(notesFor("nature-pack:SM_Plant_Bush_01")[0]!.departure).toBe(roof);
+    expect(notesFor("nature-pack:SM_Terrain_Ground_Mound_Small_02")[0]!.departure).toContain("(road, parking band, open paving)");
+    expect(notesFor("sci-fi-city-pack:SM_Prop_Powerpoll_01")[0]!.text).toContain("the base sits directly on the paving with a small square foot");
+    expect(notesFor("palm-city-pack:SM_Env_Vines_01")[0]!.text).toContain("On the layout sheet they are sheets, clumps and a single column-wrap strand.");
   });
 
   it("has well-formed rows: a known sureness word, text, and a pack in the table", () => {
@@ -339,6 +399,30 @@ describe.skipIf(!HAVE_MANIFEST)("against the real manifest (lazy)", () => {
     const m = load();
     const unmatched = PIECE_NOTES.filter((r) => !(m.packs.find((p) => p.pack === r.pack)?.assets ?? []).some((a) => r.pattern.test(a.name))).map((r) => `${r.pack}: ${r.pattern.source}`);
     expect(unmatched, `note rows that match no piece:\n${unmatched.join("\n")}`).toEqual([]);
+  });
+
+  it("each split note row matches only the pieces its note names", () => {
+    const m = load();
+    const named: [string, string, (n: string) => boolean][] = [
+      ["nature-pack", "Tree_Dead_0[12]", (n) => n === "Tree_Dead_01" || n === "Tree_Dead_02"],
+      ["nature-pack", "Plant_Bush_01", (n) => n === "Plant_Bush_01"],
+      ["nature-pack", "Terrain_Ground_Mound_Small_02", (n) => n === "Terrain_Ground_Mound_Small_02"],
+      ["nature-pack", "Tree_(?:Birch|Round)_.*", (n) => /^Tree_(?:Birch|Round)_/.test(n)],
+      ["sci-fi-frontier-pack", "Bld_Wall_02", (n) => n === "Bld_Wall_02"],
+      ["palm-city-pack", "Env_Vines_06", (n) => n === "Env_Vines_06"],
+      ["palm-city-pack", "Env_Vines_0[1-8]", (n) => /^Env_Vines_0[1-8]$/.test(n)],
+      ["sci-fi-city-pack", "Prop_Powerpoll_0[12]", (n) => n === "Prop_Powerpoll_01" || n === "Prop_Powerpoll_02"],
+      ["nature-pack", "Tree_Dead_(?!0[12]$).*", (n) => /^Tree_Dead_/.test(n) && !/^Tree_Dead_0[12]$/.test(n)],
+    ];
+    const stray: string[] = [];
+    for (const [pk, src, ok] of named) {
+      const r = PIECE_NOTES.find((x) => x.pack === pk && x.pattern.source.includes(src));
+      expect(r, `${pk}: no row for ${src}`).toBeDefined();
+      for (const a of m.packs.find((p) => p.pack === pk)?.assets ?? []) {
+        if (r!.pattern.test(a.name) && !ok(a.name.replace(/^SM_/, ""))) stray.push(`${pk}:${a.name} matched by ${src}`);
+      }
+    }
+    expect(stray, stray.join(", ")).toEqual([]);
   });
 
   it("builds a piece for every asset, with the manifest's own counts", () => {
