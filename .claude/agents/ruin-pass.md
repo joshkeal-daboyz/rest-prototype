@@ -43,6 +43,7 @@ Every other rule holds in your pass as in the clean city. Buildings all stand (c
 - **The clean city is untouched** (X-1). No clean layer, check, threshold, digest or pin moves; a clean run never runs your stage (X-7).
 - **T-1 and T-2 hold** on your resolved era, on the 20 named runs (X-4). A tree may grow beside a pole line, not over it; growth never seals a pole in. Call C1's helper; if either fails, throw.
 - **Dark, textured** (X-5). Only textured pieces; nothing emissive or lit.
+- **Pieces as the pack shows them** (ticket 073 X-11). Josh, 21 Nov 2026: "Sometimes the assets are treated poorly by the city building agents. [...] A good example of this is the science fiction power pole. It's intended to be used on an existing structure and not out of the ground." Read `docs/design/073-pack-intended-use.md` and use each piece as the store images show it. A use the images do not show or contradict is a departure: it must be listed, with its reason, in your section's pre-check. If you need one that is not listed there, stop and report it; it is never your decision.
 - **Density reads the story** (X-6): from each district's `wild` (and `held`) only, never a block id, lattice size or hard-coded count.
 - **Shown, never explained** (X-10): no readable text that says what happened to the city or its people.
 - **Fail, never patch.** A stage that cannot do its job throws `CityStageError` naming the rule or check. No check loosened, no threshold changed, no city pinned as an exception. If the named cities cannot pass, stop and report with the numbers.
