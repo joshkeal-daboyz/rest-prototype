@@ -1,10 +1,10 @@
 # 073 · The city's transformations: technology, the hold-out, the ruin
 
 owner: per section (lead-architect, planner, renderer, grid-simulator, pipeline-designer, and three new agents: tech-pass, holdout-pass, ruin-pass; see Agents)
-status: open. Cut 21 Nov 2026 from `docs/design/073-transformations.md` and Josh's answers on its eight cards and its questions 6 and 9.
+status: open. Cut 21 Nov 2026 from `docs/design/073-transformations.md` and Josh's answers on its eight cards and its questions 6 and 9. Updated the same day with his answers to this ticket's Q10 to Q15 and the feed-place card.
 - **Cut in full:** A (types, waiting for K's type), the B pre-check, B, C1, C2, F0, the D1 pre-check.
 - **Outlined:** D1, D2, D3, J2 (instancing), E1, E1g, E2, E3, F1, F2, F2g, F3. Each is cut in full when what it waits for has merged.
-- Questions: Q1 to Q9 of the note answered (below). Q10 to Q15 are new and open.
+- Questions: Q1 to Q9 of the note answered. Q10 to Q15 and the feed-place card answered (21 Nov 2026, below). None is open now; the pre-checks will bring their own.
 branch: one per section, `ticket/073<section>-<slug>` (named in each), each cut from `goal/city-style`.
 
 ## Josh's words
@@ -43,6 +43,15 @@ branch: one per section, `ticket/073<section>-<slug>` (named in each), each cut 
 - **Q6:** a job's district is a history district by default, and its feed is that district's makeshift plant. What this changes in K1 is under "Q6 and K1" below.
 - **Q9:** neon is dark in every era for now. Glowing on a relit circuit is a later ticket, not part of this one.
 
+**His answers to this ticket's questions (21 Nov 2026, in chat, on question cards).** Each card quoted as he saw and chose it.
+
+| Card | Asked | Josh's answer | Settles |
+| --- | --- | --- | --- |
+| feed place | "Your yes to 'a job's feed is its district's makeshift plant' overrides an earlier answer of yours on the circuit design: 'each job brings its own feed on a pole just outside its district'. For districts that have a plant, the feed would now sit inside the district. Is that what you want?" | **"Yes, plant inside (Recommended)"** (option: "Where a district has a plant, the plant is the feed. The circuit builder's 'feed stands outside' check skips those jobs.") | Q6 and K1, below |
+| Q10 | "Which era of the city is a puzzle job played in?" | **"The ruin (Recommended)"** | a city job is played on the ruin era |
+| Q12 | "The ruin pass cuts wires and topples poles as scenery. On the poles and wires a job actually uses, should that scenery damage show?" | **"No, puzzle faults only (Recommended)"** (option: "On a job's own parts only the puzzle's faults are drawn. A wire that looks cut but still carries power would mislead the player.") | F2, F2g, F3 |
+| Q11, Q13, Q14, Q15 | "Four smaller questions in ticket 073, each with a recommendation: a district with no plant gets its feed on a pole just outside it; a thin wire may cross over a pole line (only solid pieces and tree canopies count as covering it); a rusted, frayed look for dead wires waits for the 2D overlay ticket; the tribe's own marks on the ruin are a later ticket. Take all four recommendations?" | **"Yes, all four (Recommended)"** | Q11: no plant, so the feed is on a pole just outside (K1's rule). Q13: a wire may cross a pole line (T-1). Q14: the dead-wire look waits for K4. Q15: the tribe's marks are a later ticket |
+
 Nothing else in the note is a ruling. Every number, and every rule the note marks "in outline", is **Proposed** until its pre-check and Josh's answer.
 
 ## Why
@@ -55,7 +64,8 @@ Nothing else in the note is a ruling. Every number, and every rule the note mark
 - `clean` is today's city, unchanged: same layers, checks, digests and pins.
 - Each era adds pieces and changes earlier ones (remove, swap, state) through a list of changes. No earlier layer is edited.
 - Each pass breaks only the rules Josh allowed for it. T-1 and T-2 hold in every era.
-- The ruin era is the city a job is played on (Q10, recommended), and a job's feed is its district's plant (Q6).
+- A city job is played on the ruin era (Josh, Q10: "The ruin"). Its feed is its district's plant (Q6), or a pole just outside a district with no plant (Q11).
+- On a job's own poles, wires and drops, only the puzzle's faults show (Josh, Q12).
 
 ## The stages
 
@@ -94,7 +104,8 @@ On top of them:
 - **X-10. Shown, never explained.** The GDD's "What the player knows" is Decided: "The world is shown, never explained." No piece carries readable text that says what happened to the city or its people.
 
 **T-1 and T-2 (every era; Josh's, card 5, in the card's words).**
-- **T-1, the circuit stays readable.** No piece of any pass covers a stage 6 pole, node place or street light from above, and no canopy closes over a pole line. A tree may grow beside a line, not over it. (Whether a thin wire crossing over a line counts is Q13.)
+- **T-1, the circuit stays readable.** No piece of any pass covers a stage 6 pole, node place or street light from above, and no canopy closes over a pole line. A tree may grow beside a line, not over it.
+  - **What covers** (Josh, Q13, "Yes, all four"): only solid pieces and tree canopies. A thin wire (the roof net, a makeshift line) may cross over a pole line.
 - **T-2, every node place stays reachable.** From any pole a job could use, there is a way on foot along pavement or road to every other pole of its district. Barricades and growth never seal a pole in.
 
 **The breaks (Josh's, 21 Nov 2026, cards 3 and 5). Each for its pass only.**
@@ -120,11 +131,12 @@ So, plainly:
 
 ## Q6 and K1
 
-Josh's Q6: "a job's district is a history district by default, and its feed is that district's plant".
+Josh's Q6: "I like all of your suggestions, make them so": a job's district is a history district by default, and its feed is that district's plant. Confirmed on the feed-place card, with the override of K1 question 10 put to him: **"Yes, plant inside (Recommended)"**.
 
 **What it changes:**
 - **CK14's edge.** K1 says "the edge is the designer's choice". Now the designer starts from a history district. A district of the designer's own (still 1 to 4 touching blocks) is the exception, and the note says why.
-- **The feed's place.** K1 question 10 (Josh) put "each job's own feed on a pole just outside its district". For a job on a history district with a plant, the feed is the plant, inside the district. K2's check "each feed stands outside the district, joined by exactly one span that enters it" does not apply to that job. Josh's later words win; this ticket records it so K2's cut can say so.
+- **The feed's place.** K1 question 10 (Josh) put "each job's own feed on a pole just outside its district". For a job on a history district with a plant, the feed is the plant, inside the district. K2's check "each feed stands outside the district, joined by exactly one span that enters it" skips that job (the card's words: "The circuit builder's 'feed stands outside' check skips those jobs."). K2's cut must say so.
+- **No plant** (Josh, Q11): a district with no plant keeps K1's rule, the feed on a pole just outside it, and K2's check applies as K1 wrote it.
 - **CK15's places.** A node's `place` gains a plant place, `{ plant: <plant id> }`, read from the `holdout` layer. Typed with E1g, not now.
 
 **What it leaves alone:**
@@ -134,7 +146,7 @@ Josh's Q6: "a job's district is a history district by default, and its feed is t
 - `puzzles/city-two-ways-round.json` (K1's worked map, block:6:6, feed outside). It stays as it is: it was laid before `history` existed.
 - The ladder and `puzzles/locked/`.
 
-**What it does not settle:** a district with no plant (Q11) and the era a job is played in (Q10).
+**Also settled with it:** a job is played on the ruin era (Q10), and on its own parts only the puzzle's faults show (Q12).
 
 ## Sections
 
@@ -210,13 +222,13 @@ interface CityEraPiece<K extends string> { id: string;    // "<stage>:<kind>:<..
 
 **It measures, on the 20 named runs, and sets no threshold of its own:**
 - **Districts** as the note proposes (1 to 4 touching blocks): how many per city; the sizes; every block in exactly one; how many single blocks are left that touch no free neighbour.
-- **The stories:** the spread of `tech`, `held`, `wild`; how `tech` falls off from its centre (by street steps); how strongly `wild` follows `held`; how many districts have `held` near 0 (no plant, Q11).
+- **The stories:** the spread of `tech`, `held`, `wild`; how `tech` falls off from its centre (by street steps); how strongly `wild` follows `held`; how many districts have `held` near 0 (no plant, so the feed is a pole just outside: Q11, Josh).
 - **Jobs (Q6):** for each district, the CK12 places it holds (poles with 2 and 3 or more attachments, buildings with drops, posts), so the designer knows which districts can hold a job.
 - **The plant's ground:** each district's largest open place (court, park, lot, plaza) by cells. Districts with none.
 - **T-1 on the clean city:** every clean piece that covers a pole, a node place or a street light from above (awnings, build-out trees, stage 7 boxes), with its run. If the clean city fails T-1, that goes to Josh before any pass, never tuned.
 - **T-2 on the clean city:** whether every district's poles reach each other on foot along pavement and road. Its graph (which cells count as walkable) is the note's reading, written down for C1.
 - The time per city for `history`.
-- **It proposes:** the district rule, the story rule, and the T-1 and T-2 readings, each with a recommended answer first, as questions for Josh.
+- **It proposes:** the district rule, the story rule, the T-2 walk graph, and how T-1's "covers from above" is measured for solid pieces and canopies (wires never cover: Q13, Josh). Each comes with a recommended answer first, as a question for Josh.
 
 ### B · Stage 10, `history`: districts and their stories (planner, pure). Branch `ticket/073b-history`
 
@@ -286,7 +298,7 @@ interface CityEraPiece<K extends string> { id: string;    // "<stage>:<kind>:<..
 
 ### D2 · `tech` roofs: storeys, plant, holograms, the roof net (tech-pass, pure). Outline. Branch `ticket/073d2-tech-roofs`
 - **Waits for:** K2's circuit layer, B, its own pre-check.
-- **Its pre-check measures:** flat roof runs that fit `Bld_Raised_01/02`, `Building_Shack_*`, `Bld_Roof_Pagoda_02`, clear of stage 7's towers, exits, billboards and roof novelty; the roof items per building against B10; roof-to-roof span lengths across streets and lanes, and the `Prop_Powerpoll_01/02` attach height; whether one net per high-tech district connects; walkway fits (`Prop_Bridge_01` is 5.0 m, a lane is 5 m wall to wall); how many roof-net spans cross a stage 6 pole line in plan (Q13); T-1 and T-2.
+- **Its pre-check measures:** flat roof runs that fit `Bld_Raised_01/02`, `Building_Shack_*`, `Bld_Roof_Pagoda_02`, clear of stage 7's towers, exits, billboards and roof novelty; the roof items per building against B10; roof-to-roof span lengths across streets and lanes, and the `Prop_Powerpoll_01/02` attach height; whether one net per high-tech district connects; walkway fits (`Prop_Bridge_01` is 5.0 m, a lane is 5 m wall to wall); how many roof-net spans cross a stage 6 pole line in plan (allowed: Q13, Josh; reported, not failed); T-1 and T-2.
 - Josh's ruling holds: Sci-Fi City poles stand on roofs and objects, never on the ground.
 
 ### D3 · `tech` drawn (renderer). Outline. Branch `ticket/073d3-tech-drawn`
@@ -301,14 +313,14 @@ interface CityEraPiece<K extends string> { id: string;    // "<stage>:<kind>:<..
 
 ### E1 · `holdout` plants and makeshift lines (holdout-pass, pure). Outline. Branch `ticket/073e1-holdout-power`
 - **Waits for:** D2, K2, B, its pre-check.
-- **Its pre-check measures:** in each held district, the largest open place and whether a plant (`Prop_Generator_01`, `Prop_Solar_Panel_02..04`, `Prop_Battery_03/04`, `Prop_Windmill_01`) fits there, reachable on foot (T-2); makeshift line routes from the plant to the district's street and roof poles: lengths, how many run over junctions (B5), off light posts, masts or walls (B4), drops across streets (B6); T-1; how many held districts get no plant (Q11).
+- **Its pre-check measures:** in each held district, the largest open place and whether a plant (`Prop_Generator_01`, `Prop_Solar_Panel_02..04`, `Prop_Battery_03/04`, `Prop_Windmill_01`) fits there, reachable on foot (T-2); makeshift line routes from the plant to the district's street and roof poles: lengths, how many run over junctions (B5), off light posts, masts or walls (B4), drops across streets (B6); T-1; how many held districts get no plant (those keep K1's feed outside: Q11, Josh).
 - Uses B3 to B6. Its plant, makeshift poles and spans carry ids in K's scheme, prefixed `holdout:` (A).
 - The plant is the job's feed (Q6), so E1g follows.
 
 ### E1g · The conversion learns the plant (grid-simulator, pure). Outline. Branch `ticket/073e1g-plant-feed`
-- **Waits for:** E1, K2, and Q10 and Q11.
-- CK15's conversion accepts `{ plant: <id> }` as a feed's place and makeshift spans as runs, in `src/city/circuit/`. The converted `Puzzle` still passes `validatePuzzle`, and `src/grid/` runs it unchanged.
-- K2's feed-outside check skips a job whose feed is its district's plant (Q6 and K1, above).
+- **Waits for:** E1, K2. (Q10 and Q11 are answered.)
+- CK15's conversion accepts `{ plant: <id> }` as a feed's place and makeshift spans as runs, in `src/city/circuit/`, on the plan resolved at the ruin era (Q10, Josh: "The ruin"). The converted `Puzzle` still passes `validatePuzzle`, and `src/grid/` runs it unchanged.
+- K2's feed-outside check skips a job whose feed is its district's plant (the feed-place card, Josh: "Yes, plant inside"). A district with no plant keeps K1's check (Q11, Josh).
 - The architect types the plant place in `src/core/` first.
 
 ### E2 · `holdout` camps, farms, markets, stores, barricades (holdout-pass, pure). Outline. Branch `ticket/073e2-holdout-camps`
@@ -350,16 +362,19 @@ interface CityEraPiece<K extends string> { id: string;    // "<stage>:<kind>:<..
 - **Its pre-check measures:** growth spreading cell by cell from soil (parks, greens, build-out trees, planters, farms), against `wild`; carriageway cells grown (B9); trees under dead spans and their heights (B8); every canopy against T-1 (`Tree_Generic_Giant_01` is 12.6 x 11.2 m); vines (`Env_Vines_*`, `Tree_Vines_*`) against escapes and signs; roof growth; T-2.
 
 ### F2 · `ruin` remnants and the broken grid (ruin-pass, pure). Outline. Branch `ticket/073f2-ruin-remnants`
-- **Waits for:** E1, K2, F0, its pre-check, and Q12.
+- **Waits for:** E1, K2, F0, its pre-check. (Q12 is answered.)
+- Its states are scenery. They are never drawn on a job's own parts (Q12, Josh: "No, puzzle faults only"); F2g and F3 hold that.
 - **Its pre-check measures:** wrecks on carriageway, bays and lots (B1); fallen signs, logs, rubble; the changes by kind and by layer; toppled poles and cut spans per district; T-1 and T-2.
 - Every toppled pole lists its spans' states (A's no-cascade rule).
 
 ### F2g · Jobs on the broken grid (grid-simulator, pure). Outline. Branch `ticket/073f2g-ruin-jobs`
-- **Waits for:** F2, E1g, Q12.
-- In `src/city/circuit/`: a city puzzle laid on the ruin era fails to load if it names a removed or toppled piece. Q12's answer says what a job's own parts show.
+- **Waits for:** F2, E1g. (Q12 is answered.)
+- In `src/city/circuit/`: a city puzzle on the ruin era fails to load if it names a piece the ruin removed.
+- A ruin `state` (cut, toppled, broken) on a part the job names is dropped for that job. The puzzle's own faults are its only damage (Q12, Josh: "On a job's own parts only the puzzle's faults are drawn.").
 
 ### F3 · `ruin` drawn (renderer). Outline. Branch `ticket/073f3-ruin-drawn`
 - **Waits for:** F1, F2. R12 gains B1's allowance, era-scoped. Draws `state`: toppled, cut, broken, boarded, dark.
+- Never on a played job's own parts (Q12, Josh). Dead wires keep today's look; a rusted, frayed look waits for K4's overlay (Q14, Josh).
 
 ## Check (a): can a change reference today's pieces?
 
@@ -411,8 +426,8 @@ Read from the local clone `C:\Users\Josh\Documents\Rest GDD` (at dfd45b2), 21 No
 - **The GDD's salvage text names "wrecked vans, and old electrical boxes"** as salvage spots. That fits B1 and B3.
 - **"Kept lit" means the ruin is not wholly dark** in the game's present. Light's grid still runs where jobs relight it. That fits F2's broken grid being the puzzle's ground, and Q10.
 - **Two Draft lines (not law) that touch this work:**
-  - 05: "Every cable is a grid cable. [...] Decorative wires in the ruins look clearly different: thin, rusted, and ending in frayed stubs." The plan draws makeshift and roof-net spans like today's wires. Q14.
-  - 08: "The tribe's craft over human ruin" (raccoon salvage, ribbons on every control). No pass places it. Q15.
+  - 05: "Every cable is a grid cable. [...] Decorative wires in the ruins look clearly different: thin, rusted, and ending in frayed stubs." The plan draws makeshift and roof-net spans like today's wires. That look waits for K4's overlay (Q14, Josh).
+  - 08: "The tribe's craft over human ruin" (raccoon salvage, ribbons on every control). No pass places it; a later ticket (Q15, Josh).
 
 ## Agents
 
@@ -451,19 +466,32 @@ Josh's card 8: "Yes, three agents (Recommended)". The main session writes each `
 - Palm City in the clean city's tables (stages 7 to 9's owners).
 - Larger cities.
 - Cars or traffic.
+- A rusted, frayed look for dead wires (Q14: waits for K4's 2D overlay).
+- The tribe's own marks on the ruin: raccoon salvage, ribbons, shrines (Q15: a later ticket).
 
 ## Plan points this ticket corrects
 - **"The plan always runs all stages"** (note, section 3) would make every existing `runCity()` run four more stages, and every clean test slower (`plan3d.test.ts` is 113 s today). X-7 and C1 criterion 3 run the new stages only for an era run.
 - **"New owner, with the grid-simulator"** for E1 and F2 is two owners. Split into E1/E1g and F2/F2g, one owner each.
 - **B7 scope.** The note's table lists B7 for hold-out and ruin. Its pavement tech is the tech pass's, so the tech pass keeps rule 10 (X-3).
 
-## Questions for Josh (recommended answer first)
+## Questions for Josh
 
-Answered: the note's 1 to 9 (cards 1 to 8, and "I like all of your suggestions, make them so" for 6 and 9).
+**Open:** none. The B pre-check, the D1 pre-check and each later pre-check will bring their own, recommended answer first.
 
-10. **Which era is a city job played in?** **The ruin.** It is the game's present: "a ruined human city kept lit long after its people died". The other eras are the history you can step through.
-11. **A district with no plant** (it was left at once, so it never held out). **Its feed is a pole just outside it, as K1 had it.** So every district can still hold a job.
-12. **Does the ruin's broken grid show on a job's own parts?** **No.** On the poles, wires and drops a job uses, only the puzzle's own faults show. Otherwise a cut wire that still carries power would mislead the player.
-13. **Can a wire pass over a pole line?** (T-1 says nothing may cover a pole from above.) **Yes, a thin wire may cross over. Only solid pieces and tree canopies count as covering.** Roof-to-roof wires cross streets.
-14. **Dead wires in the ruin.** The GDD (Draft) says decorative wires should look clearly different: thin, rusted, frayed. **Later, with the 2D overlay (K4), which already marks a job's parts.**
-15. **The tribe's own marks** (raccoon salvage, ribbons, shrines on the ruin, from the GDD's art direction). **A later era or ticket, not this one.**
+**Answered** (21 Nov 2026, in chat; his words are in the tables under "Josh's words"):
+- The note's 1 to 9: cards 1 to 8, and "I like all of your suggestions, make them so" for 6 and 9.
+- **Feed place:** "Yes, plant inside (Recommended)". Where a district has a plant, it is the feed; K2's feed-outside check skips those jobs.
+- **10. Which era is a city job played in?** "The ruin (Recommended)".
+- **11. A district with no plant:** its feed is a pole just outside it, as K1 had it. ("Yes, all four (Recommended)".)
+- **12. The ruin's broken grid on a job's own parts:** "No, puzzle faults only (Recommended)".
+- **13. A wire over a pole line:** allowed. Only solid pieces and tree canopies count as covering. ("Yes, all four".)
+- **14. Dead wires' look:** rusted and frayed waits for the 2D overlay ticket (K4). ("Yes, all four".)
+- **15. The tribe's own marks:** a later ticket. ("Yes, all four".)
+
+**Unblocked by these answers:**
+- **E1g:** no longer waits on a question; it waits only for E1 and K2.
+- **F2 and F2g:** no longer wait for Q12; they wait for their builds and pre-checks only.
+- **F3:** knows what not to draw on a job's parts.
+- **D2's and E1's pre-checks:** a roof-net or makeshift wire over a pole line is reported, not failed (Q13). E1's no-plant districts have a feed rule (Q11).
+- **C1's T-1 reading:** "what covers" is settled (Q13). T-2's reading still comes from the B pre-check.
+- **K2's cut** (outside this ticket): its feed check must skip plant-fed jobs.
