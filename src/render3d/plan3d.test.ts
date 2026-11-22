@@ -165,7 +165,7 @@ describe("planAssembleRequested", () => {
   });
 
   it("reads blocks and seed as planViewRequested does (default 6 x 6 seed 1), and the street camera's flags", () => {
-    expect(planAssembleRequested("?city=plan&stage=assemble")).toEqual({ blocksX: 6, blocksZ: 6, seed: 1, street: false, at: null, dir: null });
+    expect(planAssembleRequested("?city=plan&stage=assemble")).toEqual({ blocksX: 6, blocksZ: 6, seed: 1, street: false, at: null, dir: null, era: "clean" });
     expect(planAssembleRequested("?city=plan&stage=9&blocks=6x6&seed=3")).toMatchObject({ blocksX: 6, blocksZ: 6, seed: 3 });
     expect(planAssembleRequested("?city=plan&stage=9&blocks=2x4&seed=x")).toMatchObject({ blocksX: 2, blocksZ: 4, seed: 1 });
     expect(planAssembleRequested("?city=plan&stage=9&cam=street&at=12,30&dir=-z")).toMatchObject({ street: true, at: { i: 12, j: 30 }, dir: "-z" });
@@ -1933,7 +1933,7 @@ describe("tilesPlanRequested (ticket 070 L1, criterion 1)", () => {
   });
 
   it("the bare city=tiles is the 6 x 6 seed 1 overhead view", () => {
-    expect(tilesPlanRequested("?city=tiles")).toEqual({ blocksX: 6, blocksZ: 6, seed: 1, street: false, at: null, dir: null });
+    expect(tilesPlanRequested("?city=tiles")).toEqual({ blocksX: 6, blocksZ: 6, seed: 1, street: false, at: null, dir: null, era: "clean" });
   });
 
   it("reads blocks, seed, cam=street, at and dir", () => {
