@@ -586,7 +586,9 @@ describe("lots", { timeout: 20000 }, () => {
 
 describe("places", { timeout: 20000 }, () => {
   /** Pool places beyond 2D's: the ticket asks for none. These maps have a lamp frontage fill can not reach (see the report); each entry is the excess today. */
-  const KNOWN_POOL_EXCESS: Record<string, number> = {"07-past-the-fuse.json":1,"13-one-box-three-lamps.json":1,"15-meet-in-the-middle.json":1,"17-count-the-dark.json":1,"22-look-both-ways.json":1,"29-open-point.json":1,"40-the-priests-list.json":1,"41-room-to-charge.json":1,"42-two-windows.json":1,"44-set-in-the-light.json":1,"45-live-relays.json":1,"46-read-it-from-behind.json":1,"49-two-cells.json":3,"50-the-whole-quarter.json":2,"53-from-behind.json":2,"54-the-whole-circuit.json":2,"55-leave-it-blown.json":1,"56-whole-ward.json":2};
+  const KNOWN_POOL_EXCESS: Record<string, number> = {"07-past-the-fuse.json":1,"13-one-box-three-lamps.json":1,"15-meet-in-the-middle.json":1,"17-count-the-dark.json":1,"22-look-both-ways.json":1,"29-open-point.json":1,"40-the-priests-list.json":1,"41-room-to-charge.json":1,"42-two-windows.json":1,"44-set-in-the-light.json":1,"45-live-relays.json":1,"46-read-it-from-behind.json":1,"49-two-cells.json":3,"50-the-whole-quarter.json":2,"53-from-behind.json":2,"54-the-whole-circuit.json":2,"55-leave-it-blown.json":1,"56-whole-ward.json":2,
+    // K1a: the lamps "homes" (row3) and "shrine" (whole) get a pool in 3D and none in 2D: no frontage slot in reach of either clears, the same cause as the maps above.
+    "city-two-ways-round.json":2};
 
   it("has one place per lamp, in nodes order, with its lamp id, slotKind and today's label", () => {
     for (const { file, puzzle, town } of maps) {
