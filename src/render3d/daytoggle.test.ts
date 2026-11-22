@@ -10,8 +10,14 @@ import { LIGHT_MODES, type LightModeId } from "./lighting";
 import { DAY_TOGGLE_LABEL, createDayToggle, isFlipKey, type ButtonLike, type DayToggleHost, type KeyEventLike } from "./daytoggle";
 import { NO_MODELS } from "./models3d";
 import { stubTextSurface } from "./text";
+import { runCity } from "../city/pipeline";
+import { createPlanAssembleRenderer3d, tilesPlanRequested } from "./plan3d";
 import { createCityRenderer3d } from "./tilecity3d";
 import { cityTilesRequested } from "./tileslots";
+
+/** The pipeline's city (6 x 6 seed 1, what `city=tiles` asks), run once for the file. */
+let planRun: ReturnType<typeof runCity> | null = null;
+const cachedRun = (): ReturnType<typeof runCity> => (planRun ??= runCity({ blocksX: 6, blocksZ: 6, seed: 1 }, "ground"));
 
 /** A host that records what was added and removed. */
 function fakeHost(): { host: DayToggleHost; press(e: KeyEventLike): void; click(): void; state: { listeners: number; button: boolean; states: LightModeId[] } } {
@@ -107,8 +113,11 @@ describe("the tile view's toggle (criterion 6)", () => {
   async function open(search: string, host: DayToggleHost): Promise<{ gl: { toneMapping: number; toneMappingExposure: number }; scenes: Scene[]; draw(): Scene; dispose(): void }> {
     const scenes: Scene[] = [];
     const gl = { toneMapping: NoToneMapping, toneMappingExposure: 1, setPixelRatio() {}, setSize() {}, render: (s: Scene) => void scenes.push(s) };
-    const req = cityTilesRequested(search)!;
-    const r = createCityRenderer3d(gl as unknown as WebGLRenderer, canvas(), req, { dpr: 1, search, load: async () => NO_MODELS, surface: stubTextSurface, toggleHost: host });
+    // Ticket 070 L2c: `city=tiles` is the pipeline's city (the plan renderer, as since L1); only the sheet (`sheet=1`) is still the tile view's.
+    const plan = tilesPlanRequested(search);
+    const r = plan
+      ? createPlanAssembleRenderer3d(gl as unknown as WebGLRenderer, canvas(), plan, { dpr: 1, search, load: async () => NO_MODELS, toggleHost: host, run: cachedRun() })
+      : createCityRenderer3d(gl as unknown as WebGLRenderer, canvas(), cityTilesRequested(search)!, { dpr: 1, search, load: async () => NO_MODELS, surface: stubTextSurface, toggleHost: host });
     await new Promise<void>((done) => setTimeout(done, 0));
     return {
       gl,
@@ -205,6 +214,13 @@ describe("the tile view's toggle (criterion 6)", () => {
 
 describe("dev only (criterion 7's source half)", () => {
   const tile = readFileSync("src/render3d/tilecity3d.ts", "utf8");
+  const plan3d = readFileSync("src/render3d/plan3d.ts", "utf8");
+
+  it("the plan view (city=tiles) makes the toggle only behind import.meta.env.DEV, and reads the mode through lightModeFor", () => {
+    expect(plan3d).toMatch(/if \(import\.meta\.env\.DEV\) \{[\s\S]*?createDayToggle\(/);
+    expect(plan3d).toMatch(/lightModeFor\("tiles", opts\.search, import\.meta\.env\.DEV\)/);
+  });
+
   const renderer = readFileSync("src/render3d/renderer.ts", "utf8");
 
   it("the tile view makes the toggle only behind import.meta.env.DEV, and reads the mode through lightModeFor", () => {

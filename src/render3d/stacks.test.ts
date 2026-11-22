@@ -7,7 +7,7 @@
 import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { ASSET_MANIFEST_VERSION, type AssetEntry, type CalibrationKey } from "../core";
+import { ASSET_MANIFEST_VERSION, loadPuzzle, type AssetEntry, type CalibrationKey } from "../core";
 import { BODY_M, OPEN_SIDE_MEASURED } from "./facade";
 import { bandPacked } from "./models3d";
 import { tileCity } from "./tilecity";
@@ -15,7 +15,11 @@ import { cityApplyOptions } from "./tilecity3d";
 import { packTown } from "./terrace";
 import { BUILDING_FRONTS, frontAxis, frontYaw, type BuildingFront, type FrontTable } from "./models";
 import { BODY_REPORT_M, STACK_FLOORS, STACK_STYLES, STOREY_ALIGN_TOL_M, assembleStack, bodyBox, seatOnBody, stackKeys, stackRange, storeyAlignment, type Stack, type StackPiece, type StackSide, type StackStyle } from "./stacks";
-import { LOT_TYPES, LOT_TYPE_NAMES, type CornerSide, type LotType } from "./town";
+import { LOT_TYPES, LOT_TYPE_NAMES, townLayout, type CornerSide, type LotType } from "./town";
+
+// Ticket 070 L2c: the old tile city was these cases' input town (the default city, 3 x 3 seeds 1 to 10, 6 x 4 seeds 1 to 3). The input is now the ladder maps' towns, packed wall-aligned where the case says so.
+const LADDER_TOWNS = ["56-whole-ward", "55-leave-it-blown", "63-keep-the-wire", "59-move-the-meeting", "64-the-whole-chain", "49-two-cells", "35-cell-light", "50-the-whole-quarter", "33-take-the-feed-out", "15-meet-in-the-middle", "09-shrine-circuit"];
+const ladderTown = (file: string) => townLayout(loadPuzzle(JSON.parse(readFileSync(join("puzzles", `${file}.json`), "utf8"))));
 
 // ---- a fixture copied from the converted City Pack manifest: [name, width, height, depth] in metres; bounds are centred ----
 const SIZES: [string, number, number, number][] = [
@@ -573,8 +577,8 @@ describe("the angled face is on the corner (063 E1, criterion 25)", () => {
     expect(wrong(st, measured).length).toBe(st.pieces.filter((p) => st.columns[p.column]!.corner !== null).length);
   });
 
-  it("holds on the default tile city and seeds 1 to 10 at 3 x 3 (every packed corner block), where the corner piece's chamfer (Shop_Corner_02, on -x+z) points out of the block toward the junction", () => {
-    const cities = [tileCity(), ...Array.from({ length: 10 }, (_, k) => tileCity({ blocksX: 3, blocksZ: 3, seed: k + 1 }))];
+  it("holds on eleven ladder maps' towns packed wall-aligned (every packed corner block), where the corner piece's chamfer (Shop_Corner_02, on -x+z) points out of the block toward the junction", () => {
+    const cities = LADDER_TOWNS.map((file) => ({ seed: file, town: ladderTown(file) }));
     let corners = 0;
     let chamfers = 0;
     for (const city of cities) {
@@ -808,20 +812,20 @@ describe("one footprint per column (063 E2)", () => {
     }
   });
 
-  it("holds on the default tile city, seeds 1 to 10 at 3 x 3 and seeds 1 to 3 at 6 x 4, in every block the game draws, and not on the packer's blocks as they were", { timeout: 120000 }, () => {
-    const cities = [tileCity(), ...Array.from({ length: 10 }, (_, k) => tileCity({ blocksX: 3, blocksZ: 3, seed: k + 1 })), ...[1, 2, 3].map((k) => tileCity({ blocksX: 6, blocksZ: 4, seed: k }))];
+  it("holds on eleven ladder maps' towns packed wall-aligned, in every block the game draws, and not on the packer's blocks as they were", { timeout: 120000 }, () => {
+    const cities = LADDER_TOWNS.map((file) => ({ seed: file, town: ladderTown(file) }));
     let blocks = 0;
     let corners = 0;
     let before = 0;
     for (const city of cities) {
       const raw = packTown({ terraces: city.town.terraces, lots: city.town.lots }, STACK_STYLES, ENTRIES, BUILDING_FRONTS, { align: "wall" });
       // The game draws bandPacked's blocks; on a wall-aligned run they are seated on their footprints.
-      const drawn = bandPacked(raw, city.town.terraces, ENTRIES, BUILDING_FRONTS);
+      const drawn = bandPacked(raw, city.town.terraces, ENTRIES, BUILDING_FRONTS, undefined, "wall");
       for (const res of drawn.values()) {
         for (const b of res.blocks) {
           blocks++;
           corners += b.stack.cornerSides.length;
-          expect(storeyAlignment(b.stack).misfits, `${city.blocksX}x${city.blocksZ} seed ${city.seed} ${b.lot.key}`).toEqual([]);
+          expect(storeyAlignment(b.stack).misfits, `${city.seed} ${b.lot.key}`).toEqual([]);
         }
       }
       for (const res of raw.values()) for (const b of res.blocks) before += storeyAlignment(b.stack).misfits.length;
@@ -832,7 +836,7 @@ describe("one footprint per column (063 E2)", () => {
   });
 
   it("is applied to a ladder map's blocks never: bandPacked on a back-aligned run gives back exactly the blocks it was given", () => {
-    const city = tileCity();
+    const city = { town: ladderTown("64-the-whole-chain") };
     const raw = packTown({ terraces: city.town.terraces, lots: city.town.lots }, STACK_STYLES, ENTRIES, BUILDING_FRONTS, { align: "back" });
     const drawn = bandPacked(raw, city.town.terraces, ENTRIES, BUILDING_FRONTS, undefined, "back");
     expect(bandPacked(raw, city.town.terraces, ENTRIES, BUILDING_FRONTS, undefined, "back", "bounds")).toEqual(drawn);
