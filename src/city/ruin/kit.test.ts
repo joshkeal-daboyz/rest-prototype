@@ -27,6 +27,8 @@ import {
   VINE_POST_KEY,
   VINE_SHEETS,
   ruinBounds,
+  ruinCrownBounds,
+  trunkOf,
   ruinIsTree,
 } from "./kit";
 
@@ -89,10 +91,44 @@ describe("the kit table (X-8, X-5)", () => {
   });
 
   it("ruinBounds reads the table (width x, depth z, height) and knows no other key", () => {
-    expect(ruinBounds(GIANT_KEY)).toEqual({ x_m: 12.604, z_m: 13.12, h_m: 11.192 });
+    expect(ruinCrownBounds(GIANT_KEY)).toEqual({ x_m: 12.604, z_m: 13.12, h_m: 11.192 }); // the whole crown (what the reports read)
+    expect(ruinBounds(GIANT_KEY)).toEqual({ x_m: 2.2, z_m: 2.2, h_m: 1.7 }); // the trunk square (what T-2 reads)
+    expect(ruinBounds(VINE_POST_KEY)).toEqual(ruinCrownBounds(VINE_POST_KEY));
     expect(ruinBounds("city-pack:SM_Bld_Apartment_Roof_01")).toBeUndefined();
     expect(Object.keys(HOST_BOUNDS)).toHaveLength(6);
     expect(Object.keys(CLEAN_ROOF_BOUNDS)).toHaveLength(9 + 7 + 17); // H3's nine roof keys, its seven billboard faces, and H1c's seventeen large signs
+  });
+});
+
+describe("the trunks (F1b3, criterion 1)", () => {
+  it("every sapling and park-tree key has a trunk radius (above 0, under half its narrower bound) and a trunk height (above 0, under its height); no other key has one", () => {
+    for (const [key, e] of Object.entries(KIT)) {
+      const treeKey = e.kinds.includes("sapling") || e.kinds.includes("park-tree");
+      expect(e.trunk !== undefined, key).toBe(treeKey);
+      if (e.trunk === undefined) continue;
+      expect(e.trunk.r_m, key).toBeGreaterThan(0);
+      expect(e.trunk.r_m, key).toBeLessThan(Math.min(e.w, e.d) / 2);
+      expect(e.trunk.top_m, key).toBeGreaterThan(0);
+      expect(e.trunk.top_m, key).toBeLessThan(e.h);
+    }
+  });
+
+  it("pins the values (read from the GLBs 22 Nov 2026: the trunk primitive's widest extent below the lowest leaf vertex; the five round trees and the large tree are conservative, measured false)", () => {
+    const want: Record<string, [number, number, boolean]> = {
+      Tree_Birch_01: [0.11, 1.02, true],
+      Tree_Birch_02: [0.1, 0.22, true],
+      Tree_Birch_03: [0.09, 1.29, true],
+      Tree_Birch_04: [0.11, 1.43, true],
+      Tree_Round_01: [0.35, 1.5, false],
+      Tree_Round_02: [0.35, 1.5, false],
+      Tree_Round_03: [0.3, 1.5, false],
+      Tree_Round_04: [0.3, 1.5, false],
+      Tree_Round_05: [0.35, 1.5, false],
+      Tree_Generic_Giant_01: [1.1, 1.7, true],
+      Tree_Large_01: [1.65, 2.0, false],
+    };
+    for (const [name, [r, top, measured]] of Object.entries(want)) expect(trunkOf(`nature-pack:SM_${name}`), name).toEqual({ r_m: r, top_m: top, measured });
+    expect(() => trunkOf(VINE_POST_KEY)).toThrow();
   });
 });
 

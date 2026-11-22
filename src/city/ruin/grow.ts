@@ -35,7 +35,7 @@ import {
   VINE_TRIES,
 } from "./constants";
 import { cellKey, cellsOver, grow as growRect, inside, overlaps, rectAt, RectIndex, snap, turned, type Rect } from "./geom";
-import { circuitHit, crownVerdict, segmentMeetsRect } from "./guard";
+import { circuitHit, crownCovers, distToRect, segmentMeetsRect } from "./guard";
 import {
   EDGE_KEYS,
   FERN_BUSH_KEYS,
@@ -48,6 +48,7 @@ import {
   ROOF_DEAD_KEYS,
   SAPLING_KEYS,
   TREE_VINE_KEYS,
+  trunkOf,
   VINE_DRAPES,
   VINE_DROP_KEY,
   VINE_POST_KEY,
@@ -163,17 +164,35 @@ export function growRuin(world: World, rand: StageRand, o: GrowOptions): GrowRes
     }
     return true;
   };
-  /** What a tree at a spot does to the circuit. With `treesUnderSpans` (Josh, F1-Q1 and "Poles too": a ruin crown may cover anything) only the trunk is judged: it keeps TRUNK_CLEAR_M from a pole, light or lamp-post place. Without it F1's crown-clear rule stands. */
-  const treeVerdict = (x: number, z: number, radius: number, top: number): "clear" | "over-span" | "over-point" | "trunk" | "blocked" => {
-    const v = crownVerdict(circuit, x, z, radius, top, CROWN_MARGIN_M);
-    if (!o.treesUnderSpans) return v === "clear" ? "clear" : v === "over-span" ? "over-span" : "blocked";
-    for (const q of [...circuit.poles, ...circuit.lights, ...circuit.lampPlaces]) if (Math.hypot(q.x_m - x, q.z_m - z) < TRUNK_CLEAR_M) return "trunk";
-    return v === "clear" ? "clear" : v === "over-span" ? "over-span" : "over-point";
+  /**
+   * What stops a tree's trunk (F1b3: the crown is unconstrained and only the trunk is judged). The trunk is the square of side 2 x `r` at the pivot (the disc's bounding square: what T-2 and the obstacle index also read, so a trunk the
+   * guard lets through is one the checks accept), standing from 0 to `top`: "building" when it is under CLEAR_M from a built cell; "standing" when it is under CLEAR_M from a standing piece over that height; "circuit" when it is
+   * under TRUNK_CLEAR_M from a pole, a street light or a lamp-post place; else "ok".
+   */
+  const trunkVerdict = (x: number, z: number, r: number, top: number): "ok" | "building" | "standing" | "circuit" => {
+    const sq = rectAt(x, z, 2 * r, 2 * r);
+    const gap = (b: Rect): number => Math.hypot(Math.max(sq.x0 - b.x1, b.x0 - sq.x1, 0), Math.max(sq.z0 - b.z1, b.z0 - sq.z1, 0));
+    const reach = r + CLEAR_M;
+    for (let j = Math.floor((z - reach) / CELL_M); j <= Math.floor((z + reach) / CELL_M); j++) {
+      for (let i = Math.floor((x - reach) / CELL_M); i <= Math.floor((x + reach) / CELL_M); i++) {
+        if (world.built.has(cellKey(i, j)) && gap(cellRectOf({ i, j })) < CLEAR_M) return "building";
+      }
+    }
+    for (const hit of obstacles.query(growRect(sq, CLEAR_M))) {
+      if (hit.tag.base >= top || hit.tag.top <= 0) continue;
+      if (gap(hit.rect) < CLEAR_M) return "standing";
+    }
+    for (const q of [...circuit.poles, ...circuit.lights, ...circuit.lampPlaces]) if (distToRect(q.x_m, q.z_m, sq) < TRUNK_CLEAR_M) return "circuit";
+    return "ok";
   };
-  const placedTree = (verdict: string): void => {
-    if (verdict === "over-span") count("crownOverSpan");
-    if (verdict === "over-point") count("crownOverPoint");
+  /** True when the crown's disc meets a built cell (reported as `crownIntoBuilding`; never a reason to refuse). */
+  const crownMeetsBuilding = (x: number, z: number, radius: number): boolean => {
+    for (let j = Math.floor((z - radius) / CELL_M); j <= Math.floor((z + radius) / CELL_M); j++) {
+      for (let i = Math.floor((x - radius) / CELL_M); i <= Math.floor((x + radius) / CELL_M); i++) if (world.built.has(cellKey(i, j)) && distToRect(x, z, cellRectOf({ i, j })) <= radius) return true;
+    }
+    return false;
   };
+  const meetsBuilt = (rect: Rect): boolean => cellsOver(rect).some((q) => world.built.has(cellKey(q.i, q.j)));
   const posIn = (r: Rect, tx: number, tz: number, ...key: (string | number)[]): [number, number] => {
     const loX = r.x0 + tx / 2;
     const hiX = r.x1 - tx / 2;
@@ -326,42 +345,51 @@ export function growRuin(world: World, rand: StageRand, o: GrowOptions): GrowRes
     if (!placed) count("skippedFit:clump");
   };
 
-  const treeAt = (kind: "sapling" | "park-tree", id: string, district: string, key: CalibrationKey, x: number, z: number, yaw: number): "placed" | "t2" => {
-    const p = make(kind, id, district, cellAt(x, z), key, x, 0, z, yaw);
+  /**
+   * Places a tree by its trunk (F1b3): its `size` is the trunk square and its height the trunk's, so the walk guard and the final T-2 check judge the trunk, and the obstacle index holds the trunk only. The crown (the key's full
+   * bounds) is reported by what it covers and never refused, unless `treesUnderSpans` is off (a test double): then a crown over any circuit point or span is refused, as F1 did.
+   */
+  const treeAt = (kind: "sapling" | "park-tree", id: string, district: string, key: CalibrationKey, x: number, z: number): "placed" | "t2" | "crown" => {
+    const kit = KIT[key]!;
+    const tk = trunkOf(key);
+    const crownR = Math.max(kit.w, kit.d) / 2;
+    const cov = crownCovers(circuit, x, z, crownR, kit.h);
+    if (!o.treesUnderSpans && (cov.pole || cov.light || cov.lampPlace || cov.dropEnd || cov.span)) {
+      count(`skippedCircuit:${kind}`);
+      return "crown";
+    }
+    const p: RuinPiece = { id, kind, district, cell: cellAt(x, z), placement: { key, x_m: x, y_m: 0, z_m: z, yaw_deg: 0 }, size: { x_m: 2 * tk.r_m, z_m: 2 * tk.r_m, h_m: tk.top_m } };
     if (!add(p, false)) return "t2";
-    placedTrees.push({ id, x: p.placement.x_m, z: p.placement.z_m, radius: Math.max(p.size.x_m, p.size.z_m) / 2, h: p.size.h_m, district, cell: p.cell });
+    placedTrees.push({ id, x, z, radius: crownR, h: kit.h, district, cell: p.cell });
+    if (cov.pole) count("crownOverPole");
+    if (cov.light) count("crownOverLight");
+    if (cov.lampPlace) count("crownOverLampPlace");
+    if (cov.dropEnd) count("crownOverDropEnd");
+    if (cov.span) {
+      count("crownOverSpan");
+      underSpanSpots.push({ id, key, x_m: x, z_m: z });
+    }
+    if (crownMeetsBuilding(x, z, crownR)) count("crownIntoBuilding");
     return "placed";
   };
 
   const trySapling = (c: Extract<Cand, { kind: "sapling" }>): void => {
     const r = cellRectOf(c.cell);
     const key = pick(SAPLING_KEYS, c.id, "key");
-    const yaw = pick(YAWS, c.id, "yaw");
-    const kit = KIT[key]!;
-    const t = turned(kit.w, kit.d, yaw);
-    if (t.x > CELL_M || t.z > CELL_M) return;
-    const [x, z] = posIn(r, t.x, t.z, c.id, "spot");
-    const rect = rectAt(x, z, t.x, t.z);
-    if (!free(rect, 0, kit.h, CLEAR_M)) {
+    const tk = trunkOf(key);
+    // the spot is drawn so the trunk, not the crown, fits the cell
+    const [x, z] = posIn(r, 2 * tk.r_m, 2 * tk.r_m, c.id, "spot");
+    const why = trunkVerdict(x, z, tk.r_m, tk.top_m);
+    if (why !== "ok") {
+      count(`refusedTrunk:${why}`);
       count("skippedFit:sapling");
       return;
     }
-    const verdict = treeVerdict(x, z, Math.max(t.x, t.z) / 2, kit.h);
-    if (verdict === "blocked" || verdict === "trunk") {
-      count("skippedCircuit:sapling");
-      return;
-    }
-    if (verdict === "over-span") {
-      underSpanSpots.push({ id: c.id, key, x_m: x, z_m: z });
-      if (!o.treesUnderSpans) return;
-    }
-    if (treeAt("sapling", c.id, c.district, key, x, z, yaw) === "placed") placedTree(verdict);
+    treeAt("sapling", c.id, c.district, key, x, z);
   };
 
   const tryParkTree = (c: Extract<Cand, { kind: "park-tree" }>): void => {
-    const kit = KIT[c.key]!;
-    const yaw = pick(YAWS, c.id, "yaw");
-    const t = turned(kit.w, kit.d, yaw);
+    const tk = trunkOf(c.key);
     let x0 = Infinity;
     let x1 = -Infinity;
     let z0 = Infinity;
@@ -374,29 +402,20 @@ export function growRuin(world: World, rand: StageRand, o: GrowOptions): GrowRes
       z0 = Math.min(z0, j * CELL_M);
       z1 = Math.max(z1, (j + 1) * CELL_M);
     }
-    if (x1 - x0 < t.x || z1 - z0 < t.z) {
-      count("skippedFit:park-tree");
-      return;
-    }
-    let spanSpot: UnderSpanSpot | null = null;
     for (let k = 0; k < PARK_TREE_TRIES; k++) {
-      const [x, z] = posIn({ x0, x1, z0, z1 }, t.x, t.z, c.id, "spot", k);
-      const rect = rectAt(x, z, t.x, t.z);
-      if (!cellsOver(rect).every((q) => c.park.cells.has(cellKey(q.i, q.j)))) continue;
-      if (!free(rect, 0, kit.h, CLEAR_M)) continue;
-      const verdict = treeVerdict(x, z, Math.max(t.x, t.z) / 2, kit.h);
-      if (verdict === "blocked" || verdict === "trunk") continue;
-      if (verdict === "over-span") {
-        if (!o.treesUnderSpans) {
-          spanSpot ??= { id: c.id, key: c.key, x_m: x, z_m: z };
-          continue;
-        }
-        underSpanSpots.push({ id: c.id, key: c.key, x_m: x, z_m: z });
+      const [x, z] = posIn({ x0, x1, z0, z1 }, 2 * tk.r_m, 2 * tk.r_m, c.id, "spot", k);
+      // the trunk stands inside the park's cells; the crown may reach past them
+      if (!cellsOver(rectAt(x, z, 2 * tk.r_m, 2 * tk.r_m)).every((q) => c.park.cells.has(cellKey(q.i, q.j)))) continue;
+      const why = trunkVerdict(x, z, tk.r_m, tk.top_m);
+      if (why !== "ok") {
+        count(`refusedTrunk:${why}`);
+        continue;
       }
-      if (treeAt("park-tree", c.id, c.district, c.key, x, z, yaw) === "placed") placedTree(verdict);
-      return;
+      const placed = treeAt("park-tree", c.id, c.district, c.key, x, z);
+      if (placed === "crown") continue;
+      if (placed === "placed") return;
+      return; // option G refused the trunk: the tree is left out, counted by treeAt
     }
-    if (spanSpot !== null && !o.treesUnderSpans) underSpanSpots.push(spanSpot);
     count("skippedFit:park-tree");
   };
 
@@ -508,7 +527,7 @@ export function growRuin(world: World, rand: StageRand, o: GrowOptions): GrowRes
     const top = Math.max(kit.h, TREE_VINE_TOP * c.tree.h);
     const base = top - kit.h;
     const rect = rectAt(x, z, t.x, t.z);
-    if (circuitHit(circuit, rect, top, CIRCUIT_MARGIN_M) || !free(rect, base, top, 0, [c.tree.x, c.tree.z])) {
+    if (meetsBuilt(rect) || circuitHit(circuit, rect, top, CIRCUIT_MARGIN_M) || !free(rect, base, top, 0, [c.tree.x, c.tree.z])) {
       count("skippedFit:tree-vine");
       return;
     }

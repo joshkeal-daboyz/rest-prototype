@@ -31,7 +31,7 @@ import {
   ruinIsTree,
 } from "./kit";
 import { mix } from "./rng";
-import { layerOf } from "./stage";
+import { crownSized, layerOf } from "./stage";
 import type { Deck, FaceSlot, HostSlot, Park, PostSlot, TreeSlot } from "./world";
 
 const OPTS: GrowOptions = { circuit: emptyCircuit(), roofGrowth: false, roofDeadTrees: true, treesUnderSpans: false, vine06: true };
@@ -160,11 +160,16 @@ describe("the slots of the kit table (criterion 3)", () => {
     expect(ofKind(growRuin(fxWorld({ w: 8, h: 8, parks: [park(1 / 3)] }), real, OPTS).adds, "park-tree")).toHaveLength(2);
   });
 
-  it("a park too small for a giant tree gets none (nothing is scaled)", () => {
+  it("a park too small for a giant's crown still takes its trunk: the trunk stands inside the park's cells, the crown reaches past them (F1b3)", () => {
     const cells = new Set<number>([cellKey(0, 0), cellKey(1, 0), cellKey(0, 1), cellKey(1, 1)]);
     const w2 = fxWorld({ parks: [{ id: "opening:s", block: "block:d1", district: "d1", wild: 0.9, cells }] });
-    // 10 m by 10 m: the large tree (9.3 x 5.4) fits, the giant (12.6 x 13.1) does not
-    expect(ofKind(growRuin(w2, real, OPTS).adds, "park-tree").map((t) => t.placement.key)).toEqual([LARGE_KEY]);
+    const trees = ofKind(growRuin(w2, real, OPTS).adds, "park-tree");
+    expect(trees.map((t) => t.placement.key).sort()).toEqual([GIANT_KEY, LARGE_KEY].sort());
+    for (const t of trees) {
+      const r = rectOf(t);
+      expect(r.x0).toBeGreaterThanOrEqual(0);
+      expect(r.x1).toBeLessThanOrEqual(10);
+    }
   });
 
   it("no key outside the kit anywhere in the layer, and no piece scaled (the size is the key's bounds, turned)", () => {
@@ -172,99 +177,165 @@ describe("the slots of the kit table (criterion 3)", () => {
       expect(KIT_KEYS.has(p.placement.key), p.placement.key).toBe(true);
       const k = KIT[p.placement.key]!;
       const quarter = Math.round(p.placement.yaw_deg / 90) % 2 !== 0;
-      expect(p.size).toEqual({ x_m: quarter ? k.d : k.w, z_m: quarter ? k.w : k.d, h_m: k.h });
+      // a sapling or park tree is its trunk (F1b3); every other piece is its key's bounds, turned
+      if (k.trunk !== undefined) expect(p.size).toEqual({ x_m: 2 * k.trunk.r_m, z_m: 2 * k.trunk.r_m, h_m: k.trunk.top_m });
+      else expect(p.size).toEqual({ x_m: quarter ? k.d : k.w, z_m: quarter ? k.w : k.d, h_m: k.h });
       expect(p.id).toMatch(/^ruin:(patch|clump|sapling|park-tree|roof|vine|tree-vine):/);
     }
     expect(new Set(run.adds.map((p) => p.id)).size).toBe(run.adds.length);
   });
 });
 
-describe("trees and T-1 (B8; criterion 4)", () => {
-  // one grown lane cell (6, 5) beside soil at (5, 5); with every draw 0 the sapling is Tree_Birch_01 (2.454 x 2.289) at the cell's low corner: x 31.2, z 26.1, crown radius 1.227
-  const world = (circuit = emptyCircuit()) => ({ w: fxWorld({ d: district("d1", 0.2), classes: [[6, 5, "lane"]], soil: [[5, 5]] }), circuit });
+/** A rand that draws `v` (0 to 1, to about 0.001) for every position draw and 0 for the rest: every pick is the first of its list, every roll passes. */
+function spotRand(vx: number, vz = vx): StageRand {
+  const find = (want: number): number => {
+    for (let r = 0; r < 5_000_000; r++) if (Math.abs(mix(r) / 4294967296 - want) < 0.001) return r;
+    throw new Error("no draw near " + want);
+  };
+  const rx = find(vx);
+  const rz = find(vz);
+  return (...key) => {
+    const s = key.join(":");
+    return s.endsWith(":spot:x") ? rx : s.endsWith(":spot:z") ? rz : 0;
+  };
+}
+
+describe("trees: the crown is free, only the trunk is judged (F1b3; Josh, 22 Nov 2026)", () => {
+  // one grown lane cell (6, 5) beside soil at (5, 5), cell x 30 to 35, z 25 to 30. With every draw 0 the sapling is Tree_Birch_01 (trunk r 0.11, crown 2.454 x 2.289, 4.547 m high) with its trunk
+  // square at the cell's low corner: x 30.11, z 25.11, so its trunk's edge is at x 30.22 and its crown reaches x 31.3.
+  const world = (extra: Parameters<typeof fxWorld>[0] = {}) => fxWorld({ d: district("d1", 0.2), classes: [[6, 5, "lane"]], soil: [[5, 5]], ...extra });
   const sapling = (r: ReturnType<typeof growRuin>): RuinPiece | undefined => ofKind(r.adds, "sapling")[0];
   const span = (zz: number) => emptyCircuit({ lines: [{ id: "span", a: { x_m: 0, z_m: zz }, b: { x_m: 80, z_m: zz } }] });
+  const ON: GrowOptions = { ...OPTS, treesUnderSpans: true };
 
-  it("a tall sapling beside a span is placed", () => {
-    const { w } = world();
-    const r = growRuin(w, zeroRand, { ...OPTS, circuit: span(40) });
+  it("a tall sapling beside a span is placed (B8 lifts the 3.2 m cap)", () => {
+    const r = growRuin(world(), zeroRand, { ...ON, circuit: span(40) });
     const s = sapling(r);
     expect(s).toBeDefined();
-    expect(KIT[s!.placement.key]!.h).toBeGreaterThan(3.2); // over FURN_MAX_H_M: B8 lifts the cap
+    expect(KIT[s!.placement.key]!.h).toBeGreaterThan(3.2);
     expect(r.underSpanSpots).toHaveLength(0);
   });
 
-  it("with the constant off (a test double: F1's crown-clear rule) one whose crown meets the span is not placed and is in the under-span set", () => {
-    const { w } = world();
-    const r = growRuin(w, zeroRand, { ...OPTS, circuit: span(26.5) });
-    expect(sapling(r)).toBeUndefined();
-    expect(r.underSpanSpots).toHaveLength(1);
-    expect(r.underSpanSpots[0]).toMatchObject({ id: "ruin:sapling:6,5" });
+  it("with the constant off (a test double: F1's crown-clear rule) a tree whose crown meets a span, a pole, a light or a lamp-post place is not placed, and nothing is listed under a span", () => {
+    expect(sapling(growRuin(world(), zeroRand, { ...OPTS, circuit: span(25.5) }))).toBeUndefined();
+    expect(growRuin(world(), zeroRand, { ...OPTS, circuit: span(25.5) }).underSpanSpots).toHaveLength(0);
+    for (const key of ["poles", "lights", "lampPlaces"] as const) expect(sapling(growRuin(world(), zeroRand, { ...OPTS, circuit: emptyCircuit({ [key]: [{ id: "p", x_m: 31, z_m: 25.11 }] }) })), key).toBeUndefined();
     expect(RUIN_TREES_UNDER_SPANS).toBe(true); // as built it is on (Josh, F1-Q1: "Through any dead line"); the options turn it off here
   });
 
-  it("on (as built; F1b2): a sapling whose crown meets the span is placed, is in the under-span set, and the stage does not throw: T-1 no longer judges a ruin crown, and t1RuinTreeCovers reports it", () => {
-    const { w } = world();
-    const circuit = span(26.5);
-    const r = growRuin(w, zeroRand, { ...OPTS, circuit, treesUnderSpans: true });
+  it("on (as built): a sapling whose crown meets the span is placed, is listed once placed, counted as crownOverSpan, and the stage does not throw; t1RuinTreeCovers reports it from its full crown", () => {
+    const w = world();
+    const circuit = span(25.5);
+    const r = growRuin(w, zeroRand, { ...ON, circuit });
     expect(sapling(r)).toBeDefined();
     expect(r.underSpanSpots).toHaveLength(1);
     expect(r.stats["crownOverSpan"]).toBe(1);
     const layer = layerOf(r.adds);
-    const plan = eraPlanOf(layer, w.resolved);
-    const resolved = assertEraReadable(plan, "ruin", layer, { bounds: ruinBounds, isTree: ruinIsTree, circuit });
-    expect(t1RuinTreeCovers(resolved, { bounds: ruinBounds, isTree: ruinIsTree, circuit }).map((f) => f.what)).toEqual(["canopyOverLine"]);
+    const resolved = assertEraReadable(eraPlanOf(layer, w.resolved), "ruin", layer, { bounds: ruinBounds, isTree: ruinIsTree, circuit });
+    const crowned = { ...resolved, adds: { ...resolved.adds, ruin: crownSized(layer.adds) } };
+    expect(t1RuinTreeCovers(crowned, { bounds: ruinBounds, isTree: ruinIsTree, circuit }).map((f) => f.what)).toEqual(["canopyOverLine"]);
   });
 
-  it("on: a crown that covers a pole, a street light or a lamp-post place is placed (\"Poles too\"), and counted; a trunk within 0.3 m of one is not", () => {
+  it("on: a crown over a pole, a street light or a lamp-post place is placed and counted in its own row; a trunk edge 0.2 m from one is not, 0.4 m is", () => {
+    const rows = { poles: "crownOverPole", lights: "crownOverLight", lampPlaces: "crownOverLampPlace" } as const;
     for (const key of ["poles", "lights", "lampPlaces"] as const) {
-      const far = emptyCircuit({ [key]: [{ id: "p", x_m: 31.2, z_m: 27.2 }] });
-      const r = growRuin(world().w, zeroRand, { ...OPTS, circuit: far, treesUnderSpans: true });
-      expect(sapling(r), key).toBeDefined();
-      expect(r.stats["crownOverPoint"], key).toBe(1);
-      const near = emptyCircuit({ [key]: [{ id: "p", x_m: 31.2, z_m: 26.3 }] }); // 0.2 m from the trunk
-      const rn = growRuin(world().w, zeroRand, { ...OPTS, circuit: near, treesUnderSpans: true });
-      expect(sapling(rn), key).toBeUndefined();
-      const edge = emptyCircuit({ [key]: [{ id: "p", x_m: 31.2, z_m: 26.5 }] }); // 0.4 m from the trunk: clear
-      expect(sapling(growRuin(world().w, zeroRand, { ...OPTS, circuit: edge, treesUnderSpans: true })), key).toBeDefined();
-    }
-    // a drop end under the crown does not stop it either
-    const drop = emptyCircuit({ drops: [{ id: "d", wall: { x_m: 31.2, z_m: 27.2 }, out: { x_m: 0, z_m: -1 } }] });
-    expect(sapling(growRuin(world().w, zeroRand, { ...OPTS, circuit: drop, treesUnderSpans: true }))).toBeDefined();
-  });
-
-  it("off: a tree whose crown is over a pole, a street light or a lamp-post place is neither placed nor in the set", () => {
-    for (const over of [{ poles: [{ id: "p", x_m: 31.2, z_m: 27.2 }] }, { lights: [{ id: "l", x_m: 31.2, z_m: 27.2 }] }, { lampPlaces: [{ id: "k", x_m: 31.2, z_m: 27.2 }] }]) {
-      const { w } = world();
-      const r = growRuin(w, zeroRand, { ...OPTS, circuit: emptyCircuit(over) });
-      expect(sapling(r)).toBeUndefined();
-      expect(r.underSpanSpots).toHaveLength(0);
+      const at = (x: number) => growRuin(world(), zeroRand, { ...ON, circuit: emptyCircuit({ [key]: [{ id: "p", x_m: x, z_m: 25.11 }] }) });
+      const far = at(31); // 0.78 m from the trunk's edge (30.22), 0.89 m from its pivot: under the crown's 1.23 m
+      expect(sapling(far), key).toBeDefined();
+      expect(far.stats[rows[key]], key).toBe(1);
+      expect(sapling(at(30.42)), key).toBeUndefined(); // 0.2 m from the trunk's edge
+      expect(sapling(at(30.62)), key).toBeDefined(); // 0.4 m
+      expect(at(30.42).stats["refusedTrunk:circuit"], key).toBe(1);
     }
   });
 
-  it("a tree whose crown is over a drop end (a tree over 5.5 m) is not placed; a lower one is", () => {
-    // a drop's wall point at (31.2, 27.2), out toward -z: its first 2 m run under the crown; a 4.5 to 5.4 m sapling is under 5.5 m, so a drop end does not stop it
-    const drop = emptyCircuit({ drops: [{ id: "d", wall: { x_m: 31.2, z_m: 27.2 }, out: { x_m: 0, z_m: -1 } }] });
-    const { w } = world();
-    expect(sapling(growRuin(w, zeroRand, { ...OPTS, circuit: drop }))).toBeDefined();
+  it("on: a park tree taller than 5.5 m whose crown covers a drop end is placed and counted in crownOverDropEnd, with its trunk clear; with the switch off it is not placed", () => {
+    const cells = new Set<number>();
+    for (let j = 0; j < 5; j++) for (let i = 0; i < 5; i++) cells.add(cellKey(i, j));
+    const mk = () => fxWorld({ parks: [{ id: "opening:p", block: "block:d1", district: "d1", wild: 0.9, cells }] });
+    const first = growRuin(mk(), real, ON);
+    const giant = ofKind(first.adds, "park-tree").find((t) => t.placement.key === GIANT_KEY)!;
+    expect(giant).toBeDefined();
+    // the drop's wall point is 3 m from the giant's trunk: its first 2 m run under the 6.56 m crown
+    const drop = emptyCircuit({ drops: [{ id: "d", wall: { x_m: giant.placement.x_m + 3, z_m: giant.placement.z_m }, out: { x_m: 0, z_m: 1 } }] });
+    const on = growRuin(mk(), real, { ...ON, circuit: drop });
+    expect(ofKind(on.adds, "park-tree").some((t) => t.placement.key === GIANT_KEY)).toBe(true);
+    expect(on.stats["crownOverDropEnd"]).toBeGreaterThanOrEqual(1);
+    const off = growRuin(mk(), real, { ...OPTS, circuit: drop });
+    expect(off.stats["crownOverDropEnd"]).toBeUndefined();
   });
 
-  it("Tree_Generic_Giant_01's crown is a 6.56 m radius: a span 6 m from its centre stops it, one 7.5 m away does not", () => {
+  it("on: a crown that passes over a building's cell and through its wall is placed and counted (crownIntoBuilding), the trunk outside it", () => {
+    // a building cell at (5, 5) (x 25 to 30) beside the lane cell: a trunk at x about 30.5 has its edge 0.39 m from the wall and its crown (radius 1.23) reaches x 29.3
+    const w = world({ built: new Set([cellKey(5, 5)]) });
+    const r = growRuin(w, spotRand(0.08, 0.5), ON);
+    const s = sapling(r);
+    expect(s).toBeDefined();
+    expect(s!.placement.x_m - 0.11).toBeGreaterThanOrEqual(30.3);
+    expect(r.stats["crownIntoBuilding"]).toBe(1);
+  });
+
+  it("on: a crown over a fire escape's box or an awning (standing pieces) is placed; the trunk beside it is not clear of one", () => {
+    const w = world();
+    obstacle(w.obstacles, 31.5, 25.5, 1, 1, 3); // trunk edge 30.22, box from 31.0: 0.78 m away; the crown reaches 31.3
+    expect(sapling(growRuin(w, zeroRand, ON))).toBeDefined();
+    const bench = world();
+    obstacle(bench.obstacles, 30.72, 25.11, 1, 1, 1); // box from 30.22: 0 m... a bench 0.2 m from the trunk's edge is its edge at 30.42
+    expect(sapling(growRuin(bench, zeroRand, ON))).toBeUndefined();
+    const ok = world();
+    obstacle(ok.obstacles, 30.92, 25.11, 1, 1, 1); // box from 30.42... edge 30.22 plus 0.2
+    expect(sapling(growRuin(ok, zeroRand, ON))).toBeUndefined();
+    const far = world();
+    obstacle(far.obstacles, 31.12, 25.11, 1, 1, 1); // box from 30.62: 0.4 m from the trunk's edge
+    expect(sapling(growRuin(far, zeroRand, ON))).toBeDefined();
+  });
+
+  it("the trunk is never inside a building: a spot whose trunk stands inside or within 0.3 m of a building footprint is not placed", () => {
+    const w = world({ built: new Set([cellKey(5, 5)]) }); // the trunk's edge is at x 30.0, the building's wall at 30
+    const r = growRuin(w, zeroRand, ON);
+    expect(sapling(r)).toBeUndefined();
+    expect(r.stats["refusedTrunk:building"]).toBe(1);
+    const inside = growRuin(world({ built: new Set([cellKey(6, 5)]) }), zeroRand, ON); // the whole cell is a building
+    expect(sapling(inside)).toBeUndefined();
+  });
+
+  it("T-2 judges the trunk: a crown that covers the only street cell to a pole is placed, a trunk that closes it is refused and not listed", () => {
+    const cells: [number, number, "lane" | "open"][] = Array.from({ length: 9 }, (_, n) => [n + 1, 5, "lane"] as [number, number, "lane"]);
+    cells.push([5, 4, "open"]);
+    const poles = [{ id: "a", x_m: centre(1), z_m: centre(5) }, { id: "b", x_m: centre(9), z_m: centre(5) }];
+    const circuit = emptyCircuit({ poles, lines: [{ id: "s", a: { x_m: 0, z_m: centre(5) }, b: { x_m: 80, z_m: centre(5) } }] });
+    const mk = () => fxWorld({ w: 12, h: 8, d: district("d1", 0.9), classes: cells, soil: [[5, 4]] });
+    // trunks at the low corner of each cell: the crown (2.4 m wide, 4.5 m high) covers cell centres but the 0.22 m trunk does not
+    const low = growRuin(mk(), zeroRand, { ...ON, circuit });
+    const streetCells = cells.filter((c) => c[2] === "lane").map(([i, j]) => [i, j] as const);
+    expect(ofKind(low.adds, "sapling").length).toBeGreaterThan(3);
+    expect(t2Failures(resolvedOf(12, 8, streetCells, low.adds), { circuit })).toHaveLength(0);
+    // trunks at the middle of each cell: option G refuses the ones that close the way
+    const mid = growRuin(mk(), spotRand(0.5), { ...ON, circuit });
+    expect(mid.stats["leftOutT2:sapling"]).toBeGreaterThan(0);
+    expect(t2Failures(resolvedOf(12, 8, streetCells, mid.adds), { circuit })).toHaveLength(0);
+    // an under-span spot is listed only once its tree is placed
+    const ids = new Set(ofKind(mid.adds, "sapling").map((p) => p.id));
+    for (const sp of mid.underSpanSpots) expect(ids.has(sp.id)).toBe(true);
+    expect(mid.underSpanSpots.length).toBe(ofKind(mid.adds, "sapling").length + ofKind(mid.adds, "park-tree").length);
+  });
+
+  it("the giant's crown is a 6.56 m radius and is free: a span through the middle of its park does not stop it; it is listed and counted when placed", () => {
     const cells = new Set<number>();
     for (let j = 0; j < 5; j++) for (let i = 0; i < 5; i++) cells.add(cellKey(i, j));
     const mk = () => fxWorld({ parks: [{ id: "opening:p", block: "block:d1", district: "d1", wild: 0.9, cells }] }); // a run puts its own pieces in the world: one world a run
-    const placed = ofKind(growRuin(mk(), real, OPTS).adds, "park-tree").find((t) => t.placement.key === GIANT_KEY)!;
-    expect(placed).toBeDefined();
-    expect(Math.max(placed.size.x_m, placed.size.z_m)).toBe(13.12);
-    // the park is 25 m square, so the giant stands with its centre between 6.56 and 18.44 m: a span through the middle (z 12.5) is under its crown wherever it stands
-    const through = (zz: number) => emptyCircuit({ lines: [{ id: "s", a: { x_m: -40, z_m: zz }, b: { x_m: 80, z_m: zz } }] });
-    const blocked = growRuin(mk(), real, { ...OPTS, circuit: through(12.5) });
-    expect(ofKind(blocked.adds, "park-tree").some((t) => t.placement.key === GIANT_KEY)).toBe(false);
-    expect(blocked.underSpanSpots.some((s) => s.key === GIANT_KEY)).toBe(true);
-    // a span 7.6 m beyond the park's far side of the giant's range is clear of a 6.56 m crown wherever it stands in the park
-    const clear = growRuin(mk(), real, { ...OPTS, circuit: through(26) });
-    expect(ofKind(clear.adds, "park-tree").some((t) => t.placement.key === GIANT_KEY)).toBe(true);
-    for (const t of ofKind(clear.adds, "park-tree")) expect(Math.abs(t.placement.z_m - 26)).toBeGreaterThan(Math.max(t.size.x_m, t.size.z_m) / 2);
+    expect(Math.max(KIT[GIANT_KEY]!.w, KIT[GIANT_KEY]!.d) / 2).toBeCloseTo(6.56, 2);
+    const through = (_zz: number) => emptyCircuit({ lines: [3, 8, 12.5, 17, 22].map((zz) => ({ id: `s${zz}`, a: { x_m: -40, z_m: zz }, b: { x_m: 80, z_m: zz } })) }); // a span every 5 m: any 6.56 m crown meets one
+    const r = growRuin(mk(), real, { ...ON, circuit: through(0) });
+    const giant = ofKind(r.adds, "park-tree").find((t) => t.placement.key === GIANT_KEY)!;
+    expect(giant).toBeDefined();
+    expect(r.underSpanSpots.some((s) => s.key === GIANT_KEY)).toBe(true);
+    expect(r.stats["crownOverSpan"]).toBeGreaterThanOrEqual(1);
+    expect(Math.max(giant.size.x_m, giant.size.z_m)).toBeCloseTo(2.2, 6); // what is judged is the trunk
+    // off: the crown-clear rule stands
+    const off = growRuin(mk(), real, { ...OPTS, circuit: through(0) });
+    expect(ofKind(off.adds, "park-tree").some((t) => t.placement.key === GIANT_KEY)).toBe(false);
+    expect(off.underSpanSpots).toHaveLength(0);
   });
 });
 
@@ -359,9 +430,9 @@ describe("vines (criterion 6)", () => {
     expect(TREE_VINE_KEYS).toContain(v[0]!.placement.key);
     expect(Math.hypot(v[0]!.placement.x_m - 10, v[0]!.placement.z_m - 10)).toBeLessThanOrEqual(1.5);
     // a placed sapling gets one (the late step), an under-span sapling that is not placed gets none
-    const grown = (zz: number) => growRuin(fxWorld({ d: district("d1", 0.2), classes: [[6, 5, "lane"]], soil: [[5, 5]] }), zeroRand, { ...OPTS, circuit: emptyCircuit({ lines: [{ id: "s", a: { x_m: 0, z_m: zz }, b: { x_m: 80, z_m: zz } }] }) });
-    expect(ofKind(grown(40).adds, "tree-vine").map((p) => p.id)).toEqual(["ruin:tree-vine:ruin:sapling:6,5"]);
-    expect(ofKind(grown(26.5).adds, "tree-vine")).toHaveLength(0);
+    const grown = (zz: number, on: boolean) => growRuin(fxWorld({ d: district("d1", 0.2), classes: [[6, 5, "lane"]], soil: [[5, 5]] }), zeroRand, { ...OPTS, treesUnderSpans: on, circuit: emptyCircuit({ lines: [{ id: "s", a: { x_m: 0, z_m: zz }, b: { x_m: 80, z_m: zz } }] }) });
+    expect(ofKind(grown(40, true).adds, "tree-vine").map((p) => p.id)).toEqual(["ruin:tree-vine:ruin:sapling:6,5"]);
+    expect(ofKind(grown(25.5, false).adds, "tree-vine")).toHaveLength(0); // the switch off keeps the under-span tree out, so it has no vine
     // and no Tree_Vines_* is ever a wall vine; no Env_Vines_* is ever a tree-vine
     const all = growRuin(fxWorld({ faces: [face()], trees: [tree] }), zeroRand, OPTS).adds;
     for (const p of all) {
