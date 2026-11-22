@@ -15,6 +15,9 @@ function clean(): CityPlan {
   return cleanRun.plan;
 }
 const eraRunOf = (era: "tech" | "holdout" | "ruin"): CityEraRun => runCityEra(OPTS, era);
+/** The era stages with no pass built: history only. */
+const HISTORY_ONLY = ERA_STAGES.filter((s) => s.name === "history");
+const noPassRunOf = (era: "tech" | "holdout" | "ruin"): CityEraRun => runCityEra(OPTS, era, HISTORY_ONLY);
 
 /** A fake tech layer that removes the first piece of the first of these lists that has one. The drawing must read the resolved plan, not these raw layers. */
 function removingRun(): { run: CityEraRun; list: string } {
@@ -74,10 +77,25 @@ describe("the draw reads the resolved plan (criterion 2)", () => {
   it("with no pass built, every era above clean draws the clean city", () => {
     const p = clean();
     for (const era of ["tech", "holdout", "ruin"] as const) {
-      const r = planAtEra(p, era, eraRunOf(era));
+      const r = planAtEra(p, era, noPassRunOf(era));
       expect(r.text).toBeNull();
       expect(r.plan).toEqual(p);
     }
+  });
+
+  it("with the registered ERA_STAGES (tech built), the tech era differs from clean only through the resolver", () => {
+    const p = clean();
+    const run = eraRunOf("tech");
+    if (!run.ok) throw new Error("era run failed");
+    // techStage removes shopfront glass from facades.dressing; the layer says so, and only the resolved plan shows it.
+    const removed = (run.plan.layers.tech?.changes ?? []).filter((c) => c.op === "remove" && "list" in c.ref && c.ref.list === "facades.dressing").length;
+    expect(removed).toBeGreaterThan(0);
+    const before = p.layers.facades!.dressing!.length;
+    const tech = planAtEra(p, "tech", run);
+    expect(tech.text).toBeNull();
+    expect(tech.plan!.layers.facades!.dressing!.length).toBe(before - removed);
+    expect(planAtEra(p, "clean", null).plan).toBe(p);
+    expect(p.layers.facades!.dressing!.length).toBe(before);
   });
 
   it("a change in a pass's layer shows only through the resolver: the removed piece is gone from the drawn plan", () => {
