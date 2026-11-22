@@ -1,11 +1,13 @@
 /** Ticket 070 B3 on typed-in fixtures: S6 for lanes (criterion 1) and the served park (criterion 2). Light: no city is built. */
 import { describe, expect, it } from "vitest";
 import type { CityJunctionFacing, CityPlanBlock, CitySide, CityStreetBand } from "../../core";
-import { BAY_JUNCTION_CLEAR as TILE_CLEAR } from "../../render3d/tilecity";
 import { laneMouthsAtJunctions, unservedWholeParks } from "./check";
 import { BAY_JUNCTION_CLEAR } from "./constants";
 import { lanePlaces, planBlocks, planLand } from "./plan";
 import { farParking, isServed } from "./reach";
+
+/** The old tile city's `BAY_JUNCTION_CLEAR`: src/render3d/tilecity.ts line 112 at b42b65f. */
+const TILE_CLEAR = 1;
 
 interface Facing {
   readonly street: string;

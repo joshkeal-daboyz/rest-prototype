@@ -4,13 +4,24 @@
  */
 import { describe, expect, it } from "vitest";
 import type { CityPlanBlock, CityCourt, CityLandLayer, CityMassLayer, CityOpening, CityPart, CityStreetCell, CityStreetsLayer, CityBlockUnits } from "../../core";
-import { BAY_JUNCTION_CLEAR as OLD_CLEAR, CITY_FRONT_LOT_BLOCKS_MAX as OLD_FRONT, COURT_CELLS as OLD_COURT, DRIVE_CELLS as OLD_DRIVE, HOME_COLUMN_FLOORS as OLD_HCF, LOTS_PER_BLOCK_MAX as OLD_LOTS, LOT_STALLS as OLD_STALLS, PARK_PER_HOME as OLD_PPH, PARK_SUPPLY_BAND as OLD_BAND, UNIT_FLOORS_NOMINAL as OLD_UFN } from "../../render3d/tilecity";
 import { TERRACE_BAYS } from "../../render3d/town";
 import { massFailures, p2Value, parkingNumbers, type ParkingNumbers } from "./check";
 import { BAY_JUNCTION_CLEAR, CITY_FRONT_LOT_BLOCKS_MAX, COURT_CELLS, DRIVE_CELLS, HOME_COLUMN_FLOORS, LOTS_PER_BLOCK_MAX, LOT_STALLS, PARK_PER_HOME, PARK_SUPPLY_BAND, TERRACE_BAYS_MAX, UNIT_FLOORS_NOMINAL } from "./constants";
 import { buildMass, lotQuota, unitsOf } from "./lots";
 import { planMass } from "./plan";
 import { offsetsOf, siteCells, siteFits, type LotSite } from "./sites";
+
+/** The old tile city's constants, typed in with their source lines in src/render3d/tilecity.ts at b42b65f (BAYS_PER_PARKING_TILE is 3, line 114). */
+const OLD_CLEAR = 1; // line 112, BAY_JUNCTION_CLEAR
+const OLD_PPH = 0.15; // line 166, PARK_PER_HOME
+const OLD_HCF = 2; // line 168, HOME_COLUMN_FLOORS
+const OLD_UFN = 3; // line 169, UNIT_FLOORS_NOMINAL
+const OLD_LOTS = 2; // line 179, LOTS_PER_BLOCK_MAX
+const OLD_STALLS = 2 * 3; // line 180, LOT_STALLS = 2 * BAYS_PER_PARKING_TILE
+const OLD_BAND = { lo: 0.75, hi: 1.5 }; // line 182, PARK_SUPPLY_BAND
+const OLD_COURT = { w: 2, d: 3 }; // line 194, COURT_CELLS
+const OLD_DRIVE = 2; // line 199, DRIVE_CELLS
+const OLD_FRONT = 1 / 9; // line 207, CITY_FRONT_LOT_BLOCKS_MAX
 
 /** A block with no neighbour and no junction in front of any side: what the checks read of stage 1 (`sides`), typed in. */
 const NO_SIDES = Object.fromEntries((["-x", "+x", "-z", "+z"] as const).map((s) => [s, { side: s, street: "x:0", span: { lo: 0, hi: 1 }, across: [], junctions: [] }])) as unknown as CityPlanBlock["sides"];

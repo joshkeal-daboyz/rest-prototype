@@ -1,12 +1,11 @@
 /**
  * Stage 2 on the named cities (A4d: 6 x 6 seeds 1 to 10, the default seed 1 first): V3, V4, M4a, the parts and their edges, the picture, the digest pins, R-1 to R-7.
- * HEAVY: each city is built once, through a module-level cache. The `src/render3d/` import (the old `planBlocks`, for the criterion 4 report) is test-only.
+ * HEAVY: each city is built once, through a module-level cache.
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { CityLandLayer, CityPlan, CityStreetsLayer } from "../../core";
-import { planBlocks as oldPlanBlocks } from "../../render3d/tilecity";
 import { pictureProblems } from "../pipeline/picture";
 import type { CityStageDef } from "../pipeline/types";
 import { runCity } from "../stages";
@@ -264,27 +263,15 @@ describe("stage 2, land, on the named cities", { timeout: 120_000 }, () => {
     }
   });
 
-  it("criterion 4 report: alleys, strips and parks per named city, the old planBlocks beside the new", () => {
-    const rows: string[] = ["city | blocks | old alleys | old parks | old cuts breaking rule 4 | new alleys | strips | court parts | whole parks | half parks | needed alleys/parks"];
+  it("criterion 4 report: alleys, strips and parks per named city", () => {
+    const rows: string[] = ["city | blocks | alleys | strips | court parts | whole parks | half parks | needed alleys/parks"];
     for (const o of NAMED) {
       const { streets, land } = layersOf(o);
-      const old = oldPlanBlocks(streets.blocks.map((b) => ({ id: b.id, type: b.type, w: b.i1 - b.i0, d: b.j1 - b.j0 })), o.seed);
-      // the old planner cut each alley block at the middle of its long side: floor((len - 1) / 2) cells before the lane
-      let oldBad = 0;
-      for (const id of old.alleys) {
-        const b = streets.blocks.find((x) => x.id === id)!;
-        const len = Math.max(b.i1 - b.i0, b.j1 - b.j0);
-        const before = Math.floor((len - 1) / 2);
-        for (const side of [before, len - 1 - before]) if (side !== 2 && side < 6) oldBad++;
-      }
       const m = landVariety(land, streets.blocks);
       rows.push(
         [
           label(o),
           streets.blocks.length,
-          old.alleys.size,
-          old.parks.size,
-          oldBad === 0 ? "0" : `${oldBad} parts`,
           land.lanes.length,
           land.parts.filter((p) => p.shape === "strip").length,
           land.parts.filter((p) => p.shape === "court").length,
