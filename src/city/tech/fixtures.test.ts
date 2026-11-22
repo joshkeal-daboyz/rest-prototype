@@ -303,7 +303,12 @@ describe("criterion 4, the pavement's keeps, one fixture each", { timeout: 300_0
     const rect = rectOf(panel);
     state.add(run, { rect, s: (run.along === "x" ? panel.placement.x_m : panel.placement.z_m) - run.lo_m, at: "panel" });
     const mid = (run.along === "x" ? panel.placement.x_m : panel.placement.z_m) - run.lo_m;
-    expect(clearWalk(ctx, state, run, worldOf(run, mid, CELL_M - 0.5 - pillar.d / 2, pillar.w, pillar.d).rect)).toBeLessThan(CELL_M);
+    const k = worldOf(run, mid, CELL_M - 0.5 - pillar.d / 2, pillar.w, pillar.d).rect;
+    const without = clearWalk(ctx, new PaveState(), run, k);
+    const withPanel = clearWalk(ctx, state, run, k);
+    // the panel takes its 0.709 m off the widest gap, so a walk that ignored it would give the same number
+    expect(without - withPanel).toBeGreaterThan(0.7);
+    expect(without - withPanel).toBeLessThan(0.72);
   });
 });
 

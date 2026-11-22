@@ -14,6 +14,10 @@ import { CAMERAS, BOLT_ONS, KERB_LINE, SIGNS, SHOP_DOUBLE, SHOP_SINGLE, TALLS, T
 import { buildTech, techPicture, techStage } from "./stage";
 import { CLEAR_WALK_M, CELL_M, FURN_CORNER_M, FURN_GAP_M, FURN_KEEP_M, FURN_MAX_H_M, FURN_PITCH_M, STOREY_M } from "./constants";
 import { geoOf } from "./runs";
+import { DRESS_BOUNDS } from "../facades/dresskit";
+import { NOVELTY_BOUNDS } from "../facades/noveltykit";
+import { ROOF_BOUNDS } from "../facades/roofkit";
+import { CODE_ESCAPE, CODE_ESCAPE_KEY, WALL_BOUNDS } from "../facades/wallkit";
 import { DEFAULT, NAMED, PINNED, cleanOf, historyPlanOf, label, techOf } from "./testcities";
 
 const FORBIDDEN = /Sign_Billboard|Sign_Ad_|Sign_Neon|Pipes_01|Overhang|Soda|Doorway|Powerpoll|Streetlight/;
@@ -265,6 +269,77 @@ describe("the tech pass on the 20 named runs", { timeout: 600_000 }, () => {
     }
   });
 
+
+  it("criterion 3, the free third: every bolt-on, camera and sign (and every tall piece over its whole face) is clear of stage 7's escapes, canopies, aircon, planters, dressing, novelty signs and roof pieces, read from the plan's own layers", () => {
+    const OUT = 1.5;
+    for (const c of NAMED) {
+      const F = cleanOf(c).layers.facades!;
+      interface B {
+        r: R;
+        y0: number;
+        y1: number;
+        what: string;
+      }
+      const boxes: B[] = [];
+      const bnd = (key: string): { w: number; h: number; d: number } => {
+        const e = (DRESS_BOUNDS as Record<string, { w: number; h: number; d: number }>)[key] ?? (WALL_BOUNDS as Record<string, { w: number; h: number; d: number }>)[key] ?? (NOVELTY_BOUNDS as Record<string, { w: number; h: number; d: number }>)[key] ?? (ROOF_BOUNDS as Record<string, { w: number; h: number; d: number }>)[key];
+        if (!e) throw new Error(`no bounds for ${key}`);
+        return e;
+      };
+      const foot = (x: number, z: number, w: number, d: number, yaw: number): R => (yaw % 180 === 0 ? { x0: x - w / 2, x1: x + w / 2, z0: z - d / 2, z1: z + d / 2 } : { x0: x - d / 2, x1: x + d / 2, z0: z - w / 2, z1: z + w / 2 });
+      for (const p of F.dressing!) {
+        if (p.kind === "glass") continue;
+        const e = bnd(p.placement.key);
+        boxes.push({ r: foot(p.placement.x_m, p.placement.z_m, e.w, e.d, p.placement.yaw_deg), y0: p.placement.y_m, y1: p.placement.y_m + e.h, what: p.kind });
+      }
+      for (const p of F.novelty!) {
+        const e = bnd(p.placement.key);
+        boxes.push({ r: foot(p.placement.x_m, p.placement.z_m, e.w, e.d, p.placement.yaw_deg), y0: p.placement.y_m, y1: p.placement.y_m + e.h, what: "novelty" });
+      }
+      for (const p of F.roofs!) {
+        const e = bnd(p.placement.key);
+        boxes.push({ r: foot(p.placement.x_m, p.placement.z_m, e.w, e.d, p.placement.yaw_deg), y0: p.placement.y_m, y1: p.placement.y_m + e.h, what: "roof" });
+      }
+      for (const p of F.walls!) {
+        if (p.kind === "partyBoard" || p.kind === "partyPipe" || p.kind === "partyWindow") continue;
+        const pl = p.placement;
+        if (p.kind === "escape" && pl.key === CODE_ESCAPE_KEY) {
+          boxes.push({ r: foot(pl.x_m, pl.z_m, CODE_ESCAPE.w, CODE_ESCAPE.d, pl.yaw_deg), y0: pl.y_m + Math.min(0, ...p.boxes.map((b) => b.y_m - b.h_m / 2)), y1: pl.y_m + Math.max(0, ...p.boxes.map((b) => b.y_m + b.h_m / 2)), what: "escape" });
+          continue;
+        }
+        const e = bnd(pl.key);
+        boxes.push({ r: foot(pl.x_m, pl.z_m, e.w, e.d, pl.yaw_deg), y0: pl.y_m, y1: pl.y_m + e.h * p.scaleY, what: p.kind });
+        for (const b of p.boxes) {
+          const q = pl.yaw_deg % 360;
+          const cx = q === 0 ? b.x_m : q === 90 ? b.z_m : q === 180 ? -b.x_m : -b.z_m;
+          const cz = q === 0 ? b.z_m : q === 90 ? -b.x_m : q === 180 ? -b.z_m : b.x_m;
+          boxes.push({ r: foot(pl.x_m + cx, pl.z_m + cz, b.w_m, b.d_m, pl.yaw_deg), y0: pl.y_m + b.y_m - b.h_m / 2, y1: pl.y_m + b.y_m + b.h_m / 2, what: "ladder" });
+        }
+      }
+      let checked = 0;
+      for (const a of techOf(c).build.layer.adds) {
+        if (!["bolt-on", "camera", "sign", "tall"].includes(a.kind)) continue;
+        const side = SIDE_OF_YAW[a.placement.yaw_deg]!;
+        const r = rectOf(a);
+        // the zone: the piece's own span along the wall (a tall piece: the whole 5 m face), from the wall out OUT metres
+        const cell = { x0: a.cell.i * CELL_M, x1: (a.cell.i + 1) * CELL_M, z0: a.cell.j * CELL_M, z1: (a.cell.j + 1) * CELL_M };
+        const alongX = side === "+z" || side === "-z";
+        const lo = a.kind === "tall" ? (alongX ? cell.x0 : cell.z0) : alongX ? r.x0 : r.z0;
+        const hi = a.kind === "tall" ? (alongX ? cell.x1 : cell.z1) : alongX ? r.x1 : r.z1;
+        const zone: R =
+          side === "+x" ? { x0: cell.x1, x1: cell.x1 + OUT, z0: lo, z1: hi } : side === "-x" ? { x0: cell.x0 - OUT, x1: cell.x0, z0: lo, z1: hi } : side === "+z" ? { x0: lo, x1: hi, z0: cell.z1, z1: cell.z1 + OUT } : { x0: lo, x1: hi, z0: cell.z0 - OUT, z1: cell.z0 };
+        const storey = Math.floor(a.placement.y_m / STOREY_M + 1e-9);
+        const y0 = a.kind === "tall" ? a.placement.y_m : storey * STOREY_M;
+        const y1 = a.kind === "tall" ? a.placement.y_m + a.size.h_m : (storey + 1) * STOREY_M;
+        for (const b of boxes) {
+          if (over(zone, b.r) && b.y0 < y1 - 1e-6 && b.y1 > y0 + 1e-6) throw new Error(`${label(c)} ${a.id} is not clear of stage 7's ${b.what}`);
+        }
+        checked++;
+      }
+      expect(checked, label(c)).toBeGreaterThan(500);
+    }
+  });
+
   it("criterion 6, T-1 and T-2: the stage's own layer is read by C1's assertEraReadable (a stage that fails either throws); the pass reads the plan through resolveBefore", async () => {
     const { readFileSync } = await import("node:fs");
     const { fileURLToPath } = await import("node:url");
@@ -300,7 +375,7 @@ describe("the tech pass on the 20 named runs", { timeout: 600_000 }, () => {
     expect(pictureProblems({ ...pic, stage: "streets" }, clean.layers.streets!.w, clean.layers.streets!.h)).toEqual([]);
     expect(techPicture(r.plan, layer).cells.some((v) => v === 3)).toBe(true);
     // the source: no file of this folder (tests and their support apart) imports another stage folder or reads bi, bj or a street's line
-    // (checked in sources.test.ts)
+    // (the source scan is in fixtures.test.ts)
   });
 
   it("criterion 9, the digest pins (R-4): 6 x 6 seeds 1, 2, 3 and 8, one-way on. Stage 6 is empty: these are re-pinned when K2 lands", () => {
