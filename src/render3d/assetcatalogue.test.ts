@@ -79,14 +79,20 @@ describe("assetGalleryPacks", () => {
     expect(packs[3]).toMatchObject({ title: "mystery-pack", storeUrl: null });
   });
 
-  it("holds the five store pages of the research note and none the note does not give", () => {
-    const urls = Object.entries(PACK_PAGES)
-      .filter(([, v]) => v.storeUrl !== null)
-      .map(([k]) => k)
-      .sort();
-    expect(urls).toEqual(["apocalypse-power", "apocalypse-ruin", "nature-pack", "palm-city-pack", "sci-fi-city-pack", "sci-fi-frontier-pack"]);
-    expect(PACK_PAGES["apocalypse-ruin"]!.storeUrl).toBe(PACK_PAGES["apocalypse-power"]!.storeUrl);
-    for (const k of ["city-pack", "town-pack", "simple-town"]) expect(PACK_PAGES[k]!.storeUrl, k).toBeNull();
+  it("pins all eight store pages (the research note's five and Josh's three, 22 Nov 2026), every pack of the manifest having one", () => {
+    const urls = Object.fromEntries(Object.entries(PACK_PAGES).map(([k, v]) => [k, v.storeUrl]));
+    expect(urls).toEqual({
+      "apocalypse-power": "https://syntystore.com/products/polygon-apocalypse-pack",
+      "apocalypse-ruin": "https://syntystore.com/products/polygon-apocalypse-pack",
+      "city-pack": "https://syntystore.com/products/polygon-city-pack",
+      "nature-pack": "https://syntystore.com/products/polygon-nature-pack",
+      "palm-city-pack": "https://syntystore.com/products/polygon-palm-city",
+      "sci-fi-city-pack": "https://syntystore.com/products/polygon-sci-fi-city",
+      "sci-fi-frontier-pack": "https://syntystore.com/products/polygon-sci-fi-frontier",
+      "simple-town": "https://syntystore.com/products/simple-town-cartoon-assets",
+      "town-pack": "https://syntystore.com/products/polygon-town-pack",
+    });
+    expect(new Set(Object.values(urls)).size).toBe(8);
   });
 
   it("does not take a title from the prototype chain", () => {
@@ -205,9 +211,41 @@ describe("PIECE_NOTES and notesFor", () => {
 
   it("gives Palm City vines their row", () => {
     const notes = notesFor("palm-city-pack:SM_Env_Vines_06");
-    expect(notes).toHaveLength(1);
+    expect(notes).toHaveLength(2);
     expect(notes[0]!.text).toContain("vines");
     expect(notes[0]!.images).toContain("Screenshot_06");
+    // the 06 limits are shown in full, and only on 06
+    expect(notes[1]!.departure).toContain("only _08");
+    expect(notes[1]!.departure).toContain("lamp post");
+    expect(notesFor("palm-city-pack:SM_Env_Vines_08")).toHaveLength(1);
+    expect(notesFor("palm-city-pack:SM_Env_Vines_08")[0]!.departure ?? "").not.toContain("sign posts");
+  });
+
+  it("lands each ruin-pass departure only on the pieces it names", () => {
+    const dep = (key: string): string[] => notesFor(key as never).map((n) => n.departure ?? "").filter((d) => d !== "");
+    // roof growth: Tree_Dead_01/02 and Plant_Bush_01 only
+    expect(dep("nature-pack:SM_Tree_Dead_01").some((d) => d.includes("roofs"))).toBe(true);
+    expect(dep("nature-pack:SM_Tree_Dead_02").some((d) => d.includes("roofs"))).toBe(true);
+    expect(dep("nature-pack:SM_Tree_Dead_03")).toEqual([]);
+    expect(notesFor("nature-pack:SM_Tree_Dead_03")).toHaveLength(1);
+    expect(dep("nature-pack:SM_Plant_Bush_01").some((d) => d.includes("roofs"))).toBe(true);
+    expect(dep("nature-pack:SM_Plant_Bush_02")).toEqual([]);
+    expect(dep("nature-pack:SM_Plant_Bush_03")).toEqual([]);
+    expect(notesFor("nature-pack:SM_Plant_Bush_02")).toHaveLength(1);
+    // the mound patch and the saplings
+    expect(dep("nature-pack:SM_Terrain_Ground_Mound_Small_02").some((d) => d.includes("cell-sized"))).toBe(true);
+    expect(dep("nature-pack:SM_Terrain_Ground_Mound_Small_01")).toEqual([]);
+    expect(notesFor("nature-pack:SM_Terrain_Ground_Mound_Small_01")).toHaveLength(1);
+    expect(dep("nature-pack:SM_Tree_Birch_01")[0]).toContain("Saplings");
+    expect(dep("nature-pack:SM_Tree_Large_01")).toEqual([]);
+    // the sapling note carries Josh's words and T-2 in full
+    expect(dep("nature-pack:SM_Tree_Round_01")[0]).toContain("Poles too");
+    expect(dep("nature-pack:SM_Tree_Round_01")[0]).toContain("T-2");
+    // the street-mouth wall
+    expect(dep("sci-fi-frontier-pack:SM_Bld_Wall_02")[0]).toContain("street mouth");
+    expect(dep("sci-fi-frontier-pack:SM_Bld_Wall_01")).toEqual([]);
+    expect(dep("sci-fi-frontier-pack:SM_Bld_Wall_Tower_01")).toEqual([]);
+    expect(notesFor("sci-fi-frontier-pack:SM_Bld_Wall_Tower_01")).toHaveLength(1);
   });
 
   it("gives a piece with no row no notes, and does not cross packs", () => {
