@@ -5,7 +5,7 @@
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import type { CityBuiltCell, CityCell, CityFacadesLayer, CityGroundPiece, CityPlanRun } from "../../core";
 import { digestOf } from "../pipeline/digest";
 import { pictureProblems } from "../pipeline/picture";
@@ -17,6 +17,8 @@ import { DEEP_KEYS, groundEntry } from "./kit";
 import { bodyBoxOf, cellsBox, keyOf, planeOf } from "./place";
 import { facadesStage, FACADES_LEGEND, legendOf } from "./stage";
 import { type City, cityOf, DEFAULT, label, layersOf, NAMED, stagesOf } from "./testcities";
+
+afterEach(() => new Promise<void>((r) => setTimeout(r, 0)));
 
 const SIDE_VEC = { "+x": [1, 0], "-x": [-1, 0], "+z": [0, 1], "-z": [0, -1] } as const;
 const OPP = { "+x": "-x", "-x": "+x", "+z": "-z", "-z": "+z" } as const;
