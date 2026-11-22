@@ -253,6 +253,16 @@ describe("PIECE_NOTES and notesFor", () => {
     expect(notesFor("palm-city-pack:SM_Prop_Powerpoll_01")).toEqual([]);
   });
 
+  it("shows the ruin tree crowns ruling on the saplings and the park trees only", () => {
+    const crowns = (key: string): string[] => notesFor(key as never).map((n) => n.text).filter((t) => t.startsWith("Ruin tree crowns are free; only the trunk is checked"));
+    for (const k of ["Tree_Birch_01", "Tree_Round_03", "Tree_Large_01", "Tree_Generic_Giant_01"]) expect(crowns("nature-pack:SM_" + k), k).toHaveLength(1);
+    expect(crowns("nature-pack:SM_Tree_Dead_01")).toEqual([]);
+    expect(crowns("nature-pack:SM_Tree_Pine_01")).toEqual([]);
+    const text = crowns("nature-pack:SM_Tree_Large_01")[0]!;
+    expect(text).toContain("Hold no, trees crowns can absolutely grow into buildings, but the trunks should not grow out of buildings");
+    expect(text).toContain("T-2");
+  });
+
   it("matches with or without the SM_ prefix, and whole names only", () => {
     const row = PIECE_NOTES.find((r) => r.pack === "sci-fi-city-pack" && r.pattern.test("Prop_Powerpoll_01"))!;
     expect(row.pattern.test("SM_Prop_Powerpoll_01")).toBe(true);
@@ -407,6 +417,7 @@ describe.skipIf(!HAVE_MANIFEST)("against the real manifest (lazy)", () => {
       ["nature-pack", "Plant_Bush_01", (n) => n === "Plant_Bush_01"],
       ["nature-pack", "Terrain_Ground_Mound_Small_02", (n) => n === "Terrain_Ground_Mound_Small_02"],
       ["nature-pack", "Tree_(?:Birch|Round)_.*", (n) => /^Tree_(?:Birch|Round)_/.test(n)],
+      ["nature-pack", "Tree_Large_01|Tree_Generic_Giant_01", (n) => /^Tree_(?:Birch|Round)_/.test(n) || n === "Tree_Large_01" || n === "Tree_Generic_Giant_01"],
       ["sci-fi-frontier-pack", "Bld_Wall_02", (n) => n === "Bld_Wall_02"],
       ["palm-city-pack", "Env_Vines_06", (n) => n === "Env_Vines_06"],
       ["palm-city-pack", "Env_Vines_0[1-8]", (n) => /^Env_Vines_0[1-8]$/.test(n)],
