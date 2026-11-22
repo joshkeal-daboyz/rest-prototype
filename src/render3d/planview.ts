@@ -7,7 +7,7 @@
  * whole width, and the legend wraps under it.
  */
 
-import { CITY_ERAS, CITY_STAGES, type CityEra, type CityEraPicture, type CityPicture, type CityPlanRun, type CityPlanStage } from "../core";
+import { CITY_ERAS, CITY_ERA_STAGES, CITY_STAGES, type CityEra, type CityEraPicture, type CityPicture, type CityPlanRun, type CityPlanStage } from "../core";
 import { BUILT_STAGES, ERA_STAGES, runCity, runCityEra } from "../city/pipeline";
 import { CITY_BLOCKS_MAX, PLAN_BLOCKS_DEFAULT, TILE_M } from "../city/streets";
 import type { MapRenderer3d } from "./renderer";
@@ -19,12 +19,16 @@ export interface PlanViewRequest {
   blocksZ: number;
   seed: number;
   /** The stage asked for, or null when `stage` is not a plan stage (the viewer then lists the built ones). */
-  stage: CityPlanStage | "history" | null;
+  stage: CityPlanStage | "history" | PassPictureStage | null;
   /** `era=clean|tech|holdout|ruin` (ticket 073 C2); anything else, or absent, is "clean". The 3D view reads it; the flat pictures ignore it. */
   era: CityEra;
   /** What `stage` said, as typed (empty when absent). */
   stageText: string;
 }
+
+/** The era passes whose own flat picture the page shows beside history's (ticket 073 E2g): `stage=tech|holdout|ruin`. */
+export type PassPictureStage = "tech" | "holdout" | "ruin";
+const PASS_PICTURE_STAGES: readonly PassPictureStage[] = ["tech", "holdout", "ruin"];
 
 /** The plan stages, in order: `CITY_STAGES` without "assemble". Stage numbers 1 to 8 index this list. */
 const PLAN_STAGES: readonly CityPlanStage[] = CITY_STAGES.filter((s): s is CityPlanStage => s !== "assemble");
@@ -76,10 +80,11 @@ export function planViewRequested(search: string): PlanViewRequest | null {
   const seedText = (q.get("seed") ?? "").trim();
   const seed = /^-?\d+$/.test(seedText) ? Number.parseInt(seedText, 10) : 1;
   const stageText = (q.get("stage") ?? "").trim();
-  let stage: CityPlanStage | "history" | null;
+  let stage: CityPlanStage | "history" | PassPictureStage | null;
   if (stageText === "") stage = BUILT_STAGES[BUILT_STAGES.length - 1]!.name;
   else if (/^\d+$/.test(stageText)) stage = PLAN_STAGES[Number.parseInt(stageText, 10) - 1] ?? null;
   else if (stageText.toLowerCase() === "history") stage = "history";
+  else if (PASS_PICTURE_STAGES.includes(stageText.toLowerCase() as PassPictureStage)) stage = stageText.toLowerCase() as PassPictureStage;
   else stage = PLAN_STAGES.find((s) => s === stageText.toLowerCase()) ?? null;
   return { blocksX, blocksZ, seed: Number.isSafeInteger(seed) ? seed : 1, stage, stageText, era: eraRequested(search) };
 }
@@ -179,6 +184,7 @@ export function planShown(req: PlanViewRequest): PlanShown {
   const unknown = (what: string): PlanShown => ({ picture: null, banner: `${what}. Built stages: ${built.join(", ")}.`, title: `city plan ${where}` });
   if (req.stage === null) return unknown(`Unknown stage "${req.stageText}"`);
   if (req.stage === "history") return historyShown(req, where);
+  if (req.stage === "tech" || req.stage === "holdout" || req.stage === "ruin") return passShown(req, req.stage, where);
   if (!built.includes(req.stage)) return unknown(`Stage "${req.stage}" is not built yet`);
   let run: CityPlanRun;
   try {
@@ -208,6 +214,27 @@ function historyShown(req: PlanViewRequest, where: string): PlanShown {
       return { picture: null, banner: `Stage ${f.stage} failed (seed ${f.seed}, ${f.blocksX}x${f.blocksZ}): ${f.reason}`, title: `${f.stage} failed` };
     }
     return { picture: history[0]!.picture(run.plan), banner: null, title: `history - ${where}` };
+  } catch (e) {
+    return { picture: null, banner: e instanceof Error ? e.message : String(e), title: `city plan ${where}` };
+  }
+}
+
+/**
+ * A pass's own flat picture (ticket 073 E2g): `stage=tech`, `stage=holdout` or `stage=ruin`, as history's. It runs the era runner on `ERA_STAGES` up to and including that pass and nothing after it, at the
+ * request's size and seed, and draws that stage's `picture`. A failed run gives the banner and no picture.
+ */
+function passShown(req: PlanViewRequest, stage: "tech" | "holdout" | "ruin", where: string): PlanShown {
+  const upTo = CITY_ERA_STAGES.indexOf(stage);
+  const stages = ERA_STAGES.filter((s) => CITY_ERA_STAGES.indexOf(s.name) <= upTo);
+  try {
+    const run = runCityEra({ blocksX: req.blocksX, blocksZ: req.blocksZ, seed: req.seed }, stage, stages);
+    if (!run.ok) {
+      const f = run.failure;
+      return { picture: null, banner: `Stage ${f.stage} failed (seed ${f.seed}, ${f.blocksX}x${f.blocksZ}): ${f.reason}`, title: `${f.stage} failed` };
+    }
+    const def = stages.find((s) => s.name === stage);
+    if (!def) return { picture: null, banner: `Stage "${stage}" is not built yet.`, title: `city plan ${where}` };
+    return { picture: def.picture(run.plan), banner: null, title: `${stage} - ${where}` };
   } catch (e) {
     return { picture: null, banner: e instanceof Error ? e.message : String(e), title: `city plan ${where}` };
   }

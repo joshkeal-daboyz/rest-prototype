@@ -14,6 +14,7 @@ import { COLOURWAY_POOL, assignColourways, isBaseAtlasName, isColourwayId, type 
 import { CODE_ESCAPE_KEY, type EscapePart } from "./escapes";
 import { DRESS_DRAW_CALLS_MAX, KERB_FROM_FRONT_M, SHOP_GLASS, dressKeys, dressTown, type DressBlockInput, type DressPiece, type DressSlotKind, type DressTownOptions } from "./dressing";
 import { TECH_BOUNDS } from "../city/tech/kit";
+import { KIT_KEYS as HOLDOUT_KIT_KEYS } from "../city/holdout/kit";
 import { FURN_DRAW_CALLS_MAX, alleyOf, furnitureKeys, furnitureLayout, openLotsOf, type Alley, type AvoidBox, type FurnitureInput, type FurniturePiece, type Rect } from "./furniture";
 import {
   BUILDING_EXCLUDE,
@@ -361,6 +362,9 @@ let sharedTile: Promise<ModelSet> | null = null;
 /** The tech pass Sci-Fi City pieces (ticket 073 D1g): loaded as dressing by the plan view only (it asks for tile keys and sign colourways), drawn only at an era above clean. */
 const TECH_KEYS = Object.keys(TECH_BOUNDS) as CalibrationKey[];
 
+/** The hold-out pass Sci-Fi Frontier pieces (ticket 073 E2g): loaded as dressing by the plan view only, as `TECH_KEYS`, drawn only at the hold-out and ruin eras. */
+const HOLDOUT_KEYS = [...HOLDOUT_KIT_KEYS] as CalibrationKey[];
+
 /** The real fetch and GLTFLoader, with Josh's saved fronts laid over the code's table first (dev only, ticket 045; a production build never fetches the file). */
 function loadPageModels(extra: Pick<LoadDeps, "table" | "tileKeys" | "signColourways">): Promise<ModelSet> {
   const fetchJson = async (url: string, init?: { cache: "no-store" }): Promise<unknown> => {
@@ -371,7 +375,7 @@ function loadPageModels(extra: Pick<LoadDeps, "table" | "tileKeys" | "signColour
   return loadSavedCalibration({ dev: import.meta.env.DEV, fetchJson }).then((saved) => {
     const tables = effectiveFronts({ fronts: BUILDING_FRONTS, exclude: BUILDING_EXCLUDE }, saved);
     // The City Pack's stack pieces load too (ticket 050 C); with no City Pack in the manifest nothing extra is fetched and the set has no stack slot.
-    return loadModels({ fetchJson, loadGlb: async (url) => (await new GLTFLoader().loadAsync(url)).scene, loadTexture: (url) => new TextureLoader().loadAsync(url), fronts: tables.fronts, exclude: tables.exclude, stackKeys: allStackKeys(), dressKeys: [...dressKeys(), ...furnitureKeys(), ...(extra.signColourways ? TECH_KEYS : [])], stepKeys: extra.tileKeys ? [] : [STEPS_KEY], ...extra });
+    return loadModels({ fetchJson, loadGlb: async (url) => (await new GLTFLoader().loadAsync(url)).scene, loadTexture: (url) => new TextureLoader().loadAsync(url), fronts: tables.fronts, exclude: tables.exclude, stackKeys: allStackKeys(), dressKeys: [...dressKeys(), ...furnitureKeys(), ...(extra.signColourways ? [...TECH_KEYS, ...HOLDOUT_KEYS] : [])], stepKeys: extra.tileKeys ? [] : [STEPS_KEY], ...extra });
   });
 }
 

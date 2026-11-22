@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Scene, WebGLRenderer } from "three";
 import type { CityEra, CityEraRun, CityPlan, CityPlanRun } from "../core";
 import { ERA_STAGES, runCity, runCityEra } from "../city/pipeline";
+import { pictureProblems } from "../city/pipeline/picture";
 import { NO_MODELS } from "./models3d";
 import { createPlanAssembleRenderer3d, nextEra, planAssembleRequested, planAtEra } from "./plan3d";
 import { eraRequested, planHidesHud, planShown, planViewRequested } from "./planview";
@@ -164,4 +165,34 @@ describe("stage=history is the flat district picture (B criterion 7, moved to C2
     expect(shown.title).toContain("history");
     expect(ERA_STAGES.some((s) => s.name === "history")).toBe(true);
   });
+});
+
+describe("E2g criterion 1: stage=tech, stage=holdout and stage=ruin are each pass's flat picture", () => {
+  const upTo = { tech: 1, holdout: 2, ruin: 3 } as const;
+  for (const stage of ["tech", "holdout", "ruin"] as const) {
+    it(`${stage}: requested in any case, the HUD hides, and planShown draws that stage's own picture on 6 x 6 seed 1`, () => {
+      for (const text of [stage, stage.toUpperCase(), stage[0]!.toUpperCase() + stage.slice(1)]) {
+        const req = planViewRequested(`?view=3d&city=plan&stage=${text}`)!;
+        expect(req.stage).toBe(stage);
+        expect(planHidesHud(`?view=3d&city=plan&stage=${text}`, true)).toBe(true);
+        expect(planAssembleRequested(`?view=3d&city=plan&stage=${text}`)).toBeNull();
+      }
+      const shown = planShown(planViewRequested(`?view=3d&city=plan&stage=${stage}`)!);
+      expect(shown.banner).toBeNull();
+      expect(shown.picture?.stage).toBe(stage);
+      expect(shown.title).toBe(`${stage} - 6x6 seed 1`);
+      const streets = clean().layers.streets!;
+      expect(shown.picture!.w).toBe(streets.w);
+      expect(shown.picture!.h).toBe(streets.h);
+      expect(shown.picture!.legend.length).toBeGreaterThan(1);
+      expect(pictureProblems(shown.picture! as never, streets.w, streets.h)).toEqual([]);
+      expect(ERA_STAGES.filter((s) => ["history", "tech", "holdout", "ruin"].indexOf(s.name) <= upTo[stage])).toHaveLength(upTo[stage] + 1);
+    }, 120000);
+  }
+
+  it("a stage after the asked one is not run: the tech picture is the tech pass's alone, and history and the clean stages are unchanged", () => {
+    expect(planShown(planViewRequested("?view=3d&city=plan&stage=history")!).picture?.stage).toBe("history");
+    expect(planShown(planViewRequested("?view=3d&city=plan&stage=streets")!).picture?.stage).toBe("streets");
+    expect(planViewRequested("?view=3d&city=plan&stage=stone")?.stage).toBeNull();
+  }, 120000);
 });
