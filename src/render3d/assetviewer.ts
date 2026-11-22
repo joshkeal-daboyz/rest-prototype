@@ -12,11 +12,8 @@
  */
 
 import {
-  AmbientLight,
   BufferGeometry,
   CylinderGeometry,
-  DirectionalLight,
-  Color,
   Float32BufferAttribute,
   Group,
   LineBasicMaterial,
@@ -38,6 +35,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { type AssetEntry, type AssetGallery, type AssetGalleryPack, type AssetGalleryPage, type AssetGalleryPiece, type AssetGalleryQuery, type AssetManifest, type CalibrationKey } from "../core";
 import { assetGalleryPacks, assetGalleryPage, assetGalleryPieces } from "./assetcatalogue";
+import { applyLightMode } from "./lightrig";
 import { isManifest, sizeOf } from "./models";
 import { defaultDir, nearestTextures } from "./models3d";
 
@@ -160,17 +158,10 @@ export function inspectMarkers(size_m: V3): InspectMarkers {
   };
 }
 
-/** The neutral daylight the gallery draws in (not the night city's light): one ambient, one directional, a mid-grey background. */
-export const ASSET_SCENE = { background: 0x808080, ambient: 1.4, sun: 2.2 } as const;
-
-/** A scene with the neutral daylight and nothing else. Units are metres (1 world unit = 1 m). */
+/** A scene lit by the light rig's day mode, as the city is by day (one sun, one hemisphere light, the rig's sky background), and nothing else. Units are metres (1 world unit = 1 m). */
 export function buildAssetScene(): Scene {
   const scene = new Scene();
-  scene.background = new Color(ASSET_SCENE.background);
-  scene.add(new AmbientLight(0xffffff, ASSET_SCENE.ambient));
-  const sun = new DirectionalLight(0xffffff, ASSET_SCENE.sun);
-  sun.position.set(40, 80, 60);
-  scene.add(sun);
+  applyLightMode(scene, null, "day");
   return scene;
 }
 

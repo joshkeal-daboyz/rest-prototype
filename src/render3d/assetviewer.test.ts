@@ -2,11 +2,10 @@
  * Ticket 074 B: the asset gallery's viewer. No WebGL, no DOM, no asset file: the surface, the frame clock, the controls and both loaders are fakes, and the packs are small typed-in
  * manifests with hand-made scenes. Nothing here reads `assets/`.
  */
-import { BoxGeometry, Color, Group, MathUtils, Mesh, MeshStandardMaterial, NearestFilter, Object3D, PerspectiveCamera, Texture, Vector3, AmbientLight, DirectionalLight, type Scene } from "three";
+import { BoxGeometry, Color, Group, MathUtils, Mesh, MeshStandardMaterial, NearestFilter, Object3D, PerspectiveCamera, Texture, Vector3, Scene, type Light } from "three";
 import { describe, expect, it, vi } from "vitest";
 import type { AssetEntry, AssetManifest, AssetPack } from "../core";
 import {
-  ASSET_SCENE,
   MODULE_M,
   PERSON_GAP_M,
   PERSON_HEIGHT_M,
@@ -19,6 +18,7 @@ import {
   type ViewerControls,
   type ViewerSurface,
 } from "./assetviewer";
+import { applyLightMode, sceneLightMode } from "./lightrig";
 import { createAssetGallery as exported } from "./index";
 
 function entry(name: string, size: readonly [number, number, number], over: Partial<AssetEntry> = {}): AssetEntry {
@@ -111,7 +111,7 @@ function rig(opts: { manifest?: unknown; reject?: boolean; glbs?: Record<string,
       this.clears++;
     },
     async thumb(scene: Scene): Promise<string> {
-      const clones = scene.children.filter((c) => !(c instanceof AmbientLight) && !(c instanceof DirectionalLight));
+      const clones = scene.children.filter((c) => (c as Light).isLight !== true);
       this.sceneCounts.push(clones.length);
       this.drawn.push(clones.map((c) => c.name).join(","));
       if (opts.thumbGate) await opts.thumbGate();
@@ -467,14 +467,17 @@ describe("inspectMarkers", () => {
 });
 
 describe("the scene", () => {
-  it("is neutral daylight: one ambient, one directional, a mid-grey background", () => {
+  it("is lit by the light rig's day mode, as the city is by day: its sun and hemisphere light and sky, no lights of its own", () => {
     const s = buildAssetScene();
-    expect(s.children.filter((c) => c instanceof AmbientLight)).toHaveLength(1);
-    expect(s.children.filter((c) => c instanceof DirectionalLight)).toHaveLength(1);
-    expect(s.children).toHaveLength(2);
-    expect(s.background).toBeInstanceOf(Color);
-    expect((s.background as Color).getHex()).toBe(ASSET_SCENE.background);
-    expect(ASSET_SCENE.background).toBe(0x808080);
+    const lights: Light[] = [];
+    s.traverse((o) => {
+      if ((o as Light).isLight === true) lights.push(o as Light);
+    });
+    expect(lights.map((l) => String(l.userData["lightRig"])).sort()).toEqual(["hemi", "key"]);
+    expect(sceneLightMode(s)).toBe("day");
+    const ref = new Scene();
+    applyLightMode(ref, null, "day");
+    expect((s.background as Color).getHex()).toBe((ref.background as Color).getHex());
   });
 
   it("draws pieces in metres: the clone is unscaled, at the GLB's own orientation", async () => {
