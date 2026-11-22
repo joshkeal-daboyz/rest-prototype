@@ -44,6 +44,7 @@ status: approved; section A1 merged 19 Nov 2026 (6eb4d26) (G1, Josh, 19 Nov 2026
   - **The Sci-Fi City poles.** In his own words: "The scifi power poles are intended to be atop buildings and other objects they are not intended to come out of the ground". So 071's `sci-fi-city-pack:SM_Prop_Powerpoll_01` and `_02` leave the ground pole mix, on the ladder and on the city streets. The ground mix is Apocalypse `Powerpole_01`, Palm `Powerpole_01` and Palm `Powerpole_02`.
     - Roof and object-mounted Sci-Fi City poles are **deferred** to the session that will plan the city's transformations: sci-fi tech integration, per-district desperate power repairs, then ruin. Josh said those will break rules. Nothing in 070 designs them.
     - K1's CK7 numbers move: the lowest crossing is now Apocalypse at 5.20 m on 16.5 m (it was Sci-Fi City at 4.36 m). The 4.2 m floor is still Josh's (Q13 of K1). No CK rule changes. 071's own re-cut is on `goal/city-style`.
+- **K1's gate failed; K1a cut (renderer)** (21 Nov 2026, the lead-architect, against 4c46da7). The gate on 4c46da7 failed two `src/render3d/` checks, both because K1 adds a `puzzles/*.json`. 3D's `townLayout` reads every map in the folder, and its tests cover every map in the folder. `townpin.test.ts` wants every map pinned, and K1's map has no pin. `town.test.ts` found 2 pool places beyond 2D's on it, against an allowed 0. K1 may not touch `src/`, so the fix is a renderer section, **K1a**, on K1's branch. K1a adds one new pin and one named excess. No existing pin or excess moves, and no check is loosened. The map stays in the 3D town tests, as off-ladder `lamp-row.grid.json` does: the picker lists it, so 3D can show it. No question for Josh.
 - Questions: Q1 to Q28, Q30, Q32 to Q47 and Q48 answered (Q4 on 21 Nov 2026: K's owners; Q32 to Q44 on 21 Nov 2026: TR; Q48 on 21 Nov 2026: the K1 pre-check); Q29 open; Q31 open (L1 builds its default); Q49 open (TR1c's parking signs; TR1c's default holds until he answers); Q7 settled by the rulings.
 branch: one per section, `ticket/070<section>-<slug>` (named in each section), each cut from `goal/city-style`.
 
@@ -2370,6 +2371,7 @@ Recommended: a small renderer section after J (legend columns as wide as the lon
 6. [ ] **No ruling moves** (the reviewer reads it). No Decided GDD rule and no ruling of Josh's is changed; any change is a proposal under (i). No pack key is chosen: the pole, wire, lamp and component models are 071's, K3's and K4's.
 7. [ ] **R-8** (the playtester). `npm run playtest` shows no ladder change, and the map is not on the ladder.
 8. [ ] **Josh plays it and reads the note** (`npm run dev`, pick the city map). He judges it on what follows.
+9. [ ] **The gate is green with the map in the folder** (`npm run gate`, the main session). The map is a new `puzzles/*.json`, so the 3D town tests read it too. Their two edits are K1a's, made on this branch by the renderer, and are the only `src/` change on it (see K1a).
 
 **What Josh judges it on.**
 - Do the rules read like a town's power? Poles along one side, lines crossing between blocks, drops to the houses, street lights where people walk.
@@ -2387,10 +2389,11 @@ Then Josh answers K1's questions and the pre-check's (K1's questions 1 to 13 are
 **Files.**
 - new `docs/design/070-K1-circuit.md`. This is outside the designer's usual `puzzles/`, and this ticket grants it;
 - new `puzzles/city-<slug>.json` and `puzzles/city-<slug>.md`;
-- the probe lives outside the repo (the scratchpad) and is never committed.
+- the probe lives outside the repo (the scratchpad) and is never committed;
+- K1a's two files, `src/render3d/townpin.test.ts` and `src/render3d/town.test.ts`, are edited by the renderer only, in K1a, not by the puzzle-designer.
 
 **Must not.** Touch any of:
-- `src/`, `tests/`, `tools/`, `tickets/`, `.claude/`;
+- `src/` (K1a's two test files excepted, and those are the renderer's), `tests/`, `tools/`, `tickets/`, `.claude/`;
 - `puzzles/locked/`, `puzzles/README.md`, any `puzzles/NN-*` file, `puzzles/SCHEMA.md` (a field the map needs is a request to the architect, made in the note);
 - `docs/city-grammar.md`, `docs/city-style-guide.md`.
 
@@ -2402,6 +2405,30 @@ Then Josh answers K1's questions and the pre-check's (K1's questions 1 to 13 are
 The probe builds one city at a time (6 x 6 seed 1, through `ground`, with `runCity` from `src/city/pipeline/`). It never runs a stage folder's tests, and never opens a browser.
 
 **What it adds.** Rules and numbers, all Proposed, hence the pre-check. No `src/core/` change before it starts, since it codes nothing. No new dependency. `tickets/rules-coverage.md` is unchanged: the map plays by the brief's rules as they are.
+
+### K1a · The 3D town tests take K1's map: one new pin, one named excess (renderer; tests only). Branch `ticket/070k1-circuit-design` (K1's own branch)
+**Why** (the lead-architect, 21 Nov 2026, against 4c46da7). The gate on K1's tip failed two checks, both caused by K1's new `puzzles/city-two-ways-round.json`:
+- `src/render3d/townpin.test.ts`, "pins every puzzles/*.json, and nothing else". The table has 65 pins and the folder now has 66 maps. The file's header says what to do: a new puzzle file gets its two digests, and no existing pin moves.
+- `src/render3d/town.test.ts`, places, "has no more pool places than 2D's footprintLayout, apart from the maps listed". On `city-two-ways-round.json` 3D lays out 2 more pool places than 2D's `footprintLayout`, and the test allows 0. `KNOWN_POOL_EXCESS` already names 18 maps whose lamps the frontage fill can't reach.
+
+**Must the city map go through the ladder town?** Yes, for now. The picker lists every map (`main.ts` globs the folder), so the 3D view can show it. Off-ladder `lamp-row.grid.json` is pinned on the same terms. The city map is a plain draft-5 `Puzzle` with no new field (K1). Until K3 and K4 draw city puzzles on the pipeline's city, the 3D town is how 3D shows it. Taking it out of these tests would mean a filter on the folder read, which loosens the checks, so it is not done here. Once K defines a city-puzzle field, K3 or K4 decides how 3D routes a city puzzle, and whether its pin and excess stay.
+
+**Goal.** K1's branch passes the gate without loosening either check. The 3D town of every existing map is pinned exactly as before.
+
+**Acceptance criteria.**
+1. [ ] **One new pin, and none moves** (Vitest, `src/render3d/townpin.test.ts`). `PINS` gains exactly one entry, `"city-two-ways-round.json"`, with its two digests (with terraces, and with `{ terraces: false }`), taken from `townLayout` on this branch. Its line comment says it was taken at K1's tip (name the commit), not on 2f7a0bf, and that it pins today's layout. The other 65 entries are unchanged, character for character (`git diff` shows one added line in the table). Both tests in the file pass.
+2. [ ] **One named excess, and none moves** (Vitest, `src/render3d/town.test.ts`). `KNOWN_POOL_EXCESS` gains exactly one entry, `"city-two-ways-round.json": 2`, and the other 18 are unchanged. The builder first confirms that the excess is 2 and that its cause is the same as the listed maps': the lamps' frontage can't be reached by the fill. It names the two lamps and the cause in a comment by the entry, and in its report. If the excess is not 2, or the cause is something else (a layout fault on this map, say), the builder stops and reports instead of listing it. That is a re-cut.
+3. [ ] **The gate is green** (`npm run gate`, the main session, on the branch). No other test changes, and the test count does not drop.
+
+**Files.** `src/render3d/townpin.test.ts` and `src/render3d/town.test.ts`, the two tables and their comments only. Nothing else: no `src/render3d/` source, no `puzzles/` file, no `docs/`.
+
+**Order.** After K1's map commit (4c46da7) and before K1's review and playtest. K1's review and playtest then cover the branch with both sections.
+
+**Commands** (Josh's PC; one heavy step at a time): `npx vitest run --maxWorkers=2 src/render3d/townpin.test.ts src/render3d/town.test.ts`. To read the digests, a scratch script in the session's scratchpad that calls `townLayout`, never committed.
+
+**Interfaces.** None. No `src/core/` change, no new dependency, and `tickets/rules-coverage.md` is unchanged.
+
+**Open questions.** None. The fix follows `townpin.test.ts`'s own header and the precedent of `KNOWN_POOL_EXCESS`.
 
 ### L1 · The switch: `city=tiles` shows the pipeline's city; the guide and grammar catch up (renderer). Branch `ticket/070l1-switch`
 **Branch.** Cut from `goal/city-style` at the commit of this re-cut or later (883cab7: stages 1 to 5, 7, 8 and J merged).
