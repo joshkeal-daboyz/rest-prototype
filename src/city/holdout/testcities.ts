@@ -1,0 +1,40 @@
+/**
+ * Test support for stage 12 (ticket 073 E2): the named cities run through the clean stages and the eras before the hold-out, once per test file. Imported by tests only, never by the stage.
+ */
+import type { CityEraPlan, CityEraRun, CityHistoryLayer } from "../../core";
+import { deepFreeze } from "../pipeline/run";
+import type { CityStageDef } from "../pipeline/types";
+import { ERA_STAGES, BUILT_STAGES, runCityEra } from "../stages";
+import { streetsStageWith } from "../streets/stage";
+
+export interface City {
+  readonly blocksX: number;
+  readonly blocksZ: number;
+  readonly seed: number;
+  readonly way: "on" | "off";
+}
+
+/** The 20 named runs: 6 x 6 seeds 1 to 10, one-way off and on. */
+export const NAMED: readonly City[] = (["on", "off"] as const).flatMap((way) => Array.from({ length: 10 }, (_, n) => ({ blocksX: 6, blocksZ: 6, seed: n + 1, way })));
+/** The four pin cities: 6 x 6 seeds 1, 2, 3 and 8, one-way on. */
+export const PINNED: readonly City[] = [1, 2, 3, 8].map((seed) => ({ blocksX: 6, blocksZ: 6, seed, way: "on" as const }));
+export const label = (o: City): string => `${o.blocksX} x ${o.blocksZ} seed ${o.seed} one-way ${o.way}`;
+
+const stagesOf = (way: "on" | "off"): readonly CityStageDef[] => (way === "on" ? BUILT_STAGES : BUILT_STAGES.map((s) => (s.name === "streets" ? (streetsStageWith(0) as unknown as CityStageDef) : s)));
+
+/** The city run through the clean stages and the eras up to and including `era`. Throws on a failed stage, naming it. */
+export function eraRun(o: City, era: "tech" | "holdout"): Extract<CityEraRun, { ok: true }> {
+  const r = runCityEra({ blocksX: o.blocksX, blocksZ: o.blocksZ, seed: o.seed }, era, ERA_STAGES, stagesOf(o.way));
+  if (!r.ok) throw new Error(`${label(o)} failed at ${r.failure.stage}: ${r.failure.reason}`);
+  return r;
+}
+
+/** The plan the hold-out reads: the clean stages, history, and the tech era's layer when that pass is registered. */
+export const beforeHoldout = (o: City): CityEraPlan => eraRun(o, "tech").plan;
+
+/** The same plan with every district's `held` replaced (the districts and their blocks are kept). */
+export function withHeld(plan: CityEraPlan, held: (index: number) => number): CityEraPlan {
+  const h = plan.layers.history!;
+  const history: CityHistoryLayer = { stage: "history", districts: h.districts.map((d, n) => ({ ...d, held: held(n) })) };
+  return deepFreeze({ plan: plan.plan, layers: { ...plan.layers, history }, digests: plan.digests });
+}
