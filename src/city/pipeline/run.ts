@@ -5,7 +5,7 @@ import { stageRand } from "./seeds";
 import type { CityStageDef } from "./types";
 
 
-function deepFreeze<T>(o: T): T {
+export function deepFreeze<T>(o: T): T {
   if (typeof o === "object" && o !== null && !Object.isFrozen(o)) {
     Object.freeze(o);
     for (const v of Object.values(o)) deepFreeze(v);
