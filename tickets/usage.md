@@ -375,3 +375,4 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 073 E2 facade probe | general-purpose | sonnet | 79K total | - | 0 | found 30 to 45 hold-out pieces through facade pieces a city |
 | 073 E2b | holdout-pass / ruin-pass re-pin | sonnet / sonnet | 166K / ~10K | - | 0 | hold-out keeps 0.3 m from facades (91da32c); F1 pins re-taken (e97b3f9) |
 | 073 E2b | code-reviewer / playtester | opus / sonnet | ~60K / 16K | - | 0 | gate e97b3f9 4712 passed; meets, must-fix 0; regressions 0 |
+| 073 Josh rulings re-cut | lead-architect | opus | ~90K | - | 0 | four rulings logged; F1b1, F1b2 cut (9052b0c) |
