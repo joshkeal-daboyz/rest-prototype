@@ -391,3 +391,6 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 074 B r2-r3 | renderer / code-reviewer | sonnet / opus | ~40K / 64K | - | 0 | notes in full, exposure (19d0716); meets, must-fix 0 |
 | 074 gate | gate (main session) | - | - | - | 0 | 87a3e8c: gallery.test.ts main.ts word check tripped by the asset gallery (fixing) |
 | 074 B+C | gate (main session) | - | - | - | 0 | 3c35cd6: 4866 passed, 1 failed (powerkit, on base) |
+| 073 E2c | holdout-pass | sonnet | ~10K | - | 0 | barricade check: no bug; regression tests (917a67f) |
+| 073/074 cleanup | lead-architect | opus | 174K | - | 0 | statuses, answer labels, intended-use note (a043b1f) |
+| 074 notes sync | renderer (general-purpose with renderer.md) | sonnet | ~110K | - | 0 | PIECE_NOTES in step with the note; crowns row (d7ea58d, ba175be) |
