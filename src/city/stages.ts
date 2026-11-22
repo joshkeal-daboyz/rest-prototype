@@ -3,7 +3,8 @@
  * so adding a stage is one line here and creates no cycle.
  */
 
-import type { CityPlanOptions, CityPlanRun, CityPlanStage } from "../core";
+import type { CityEra, CityEraRun, CityPlanOptions, CityPlanRun, CityPlanStage } from "../core";
+import { runEraStages, type CityEraStageDef } from "./pipeline/eras";
 import { edgeStage } from "./edge/stage";
 import { facadesStage } from "./facades/stage";
 import { groundStage } from "./ground/stage";
@@ -27,4 +28,20 @@ export function runCity(options: Partial<CityPlanOptions> = {}, until?: CityPlan
     seed: options.seed !== undefined && Number.isFinite(options.seed) ? Math.trunc(options.seed) : 1,
   };
   return runStages(norm, until, stages);
+}
+
+/**
+ * The era stages built so far (ticket 073), in `CITY_ERA_STAGES` order. Empty until section B and the passes merge: `historyStage` is added here, one line, when B and C1 meet. Not part of `BUILT_STAGES`,
+ * so a clean run never reaches one (X-7).
+ */
+export const ERA_STAGES: readonly CityEraStageDef[] = [];
+
+/**
+ * The plan at an era: the clean stages (`runCity`), then, for an era above "clean", `history` and the passes up to the era's last stage. "clean" runs no era stage. A failed clean stage is returned as the run's
+ * failure with an empty era plan.
+ */
+export function runCityEra(options: Partial<CityPlanOptions> = {}, era: CityEra = "clean", eraStages: readonly CityEraStageDef[] = ERA_STAGES, stages: readonly CityStageDef[] = BUILT_STAGES): CityEraRun {
+  const clean = runCity(options, undefined, stages);
+  if (!clean.ok) return { ok: false, plan: { plan: clean.plan, layers: {}, digests: {} }, failure: clean.failure };
+  return runEraStages(clean.plan, era, eraStages);
 }
