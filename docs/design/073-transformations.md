@@ -6,6 +6,26 @@ A plan, written by the Fable planning session on 21 Nov 2026 for Josh and the le
 - **Numbers.** Piece sizes are read from `assets/private/out/manifest.json` (bounds, metres, one decimal). No threshold is set here: each pass's pre-check measures and proposes its own.
 - **Scope.** No code, no `src/core/` type, no pack key table. Those are the architect's and the builders'.
 
+## Josh's answers (21 Nov 2026, in chat, on question cards)
+
+Each card's question and Josh's answer are quoted as he saw and chose them. Where a card's text differs from this note's, the card is what he answered.
+
+| Card | Asked | Josh's answer | Covers |
+| --- | --- | --- | --- |
+| 1, districts | "The plan cuts the city into districts of 1 to 4 blocks, each with its own story: how much technology it got, how long it kept its power on, how long it has been abandoned. Districts that held out are full of makeshift kit; ones abandoned early are deep in overgrowth. Do you want that?" | **"Yes, districts (Recommended)"** | Section 2; question 1 |
+| 2, the era switch | "The plan leaves today's clean city exactly as it is and adds three eras on top (technology, hold-out, ruin), with a switch in the viewer to step one city through all four. Do you want that?" | **"Yes, eras on top (Recommended)"** | Section 3; question 2 |
+| 3, rule breaks | "The passes break current rules, and each break needs your words. Which of these do you allow?" Options: "Wrecked vehicles" (vehicles are on the never-used list; the ruin would leave abandoned and wrecked ones); "Dark lamps and neon" (unlit Sci-Fi lamps, neon and holograms in the technology pass); "Makeshift power plants" (each held district gets a generator, solar panels and batteries as its last power source); "Makeshift lines anywhere" (hold-out lines run the shortest way off any support) | **All four chosen** | B1, B2, B3, and B4 to B6 together |
+| 4, the Apocalypse pack | "Convert a ruin subset of it?" | **"Yes, convert it (Recommended)"** | Section 6's gap; section F0; question 4 |
+| 5, more breaks | "Four smaller rule breaks the hold-out and ruin passes want. Two rules would still hold in every era: nothing covers a power pole or line from above, and every pole stays reachable on foot. Which do you allow?" Options: "Clutter on pavements"; "Trees under dead wires"; "Growth on the road"; "Crowded roofs" | **All four chosen** | B7, B8, B9, B10, with T-1 and T-2 holding |
+| 6, buildings | "In version one, should every building stay standing (boarded up, vined and stripped, but no collapsed buildings and no Sci-Fi towers replacing buildings)?" | **"Yes, all stand (Recommended)"** | B11 stays unbroken; question 5 |
+| 7, instancing | "Lift the hold so it is built before the hold-out pass is drawn?" | **"Yes, lift it (Recommended)"** (the option read: "Instancing becomes a section of this work, built after the technology pass is drawn and before the hold-out pass is.") | J2's hold; question 7 |
+| 8, agents | "May I add three new builder agents, one per pass (technology, hold-out, ruin), each with its own folder under src/city/?" | **"Yes, three agents (Recommended)"** | Section 10's owners; question 8 |
+
+**What the answers settle.**
+- The breaks B1 to B10 are **Josh's (21 Nov 2026)**, each for the pass section 7 names and no wider. The clean city's stages keep every one of those rules. B11 is not broken.
+- B7 and B8 were allowed with T-1 and T-2 in the card's own words, so T-1 and T-2 are part of the answer.
+- Still open: question 6 (a job's district and feed) and question 9 (neon glowing on a relit circuit, later). Every number, and every rule in sections 4 to 6 marked "in outline", stays **Proposed** until its pre-check.
+
 ## 1. Josh's words
 
 | When | Words | What it fixes |
