@@ -38,3 +38,52 @@ export function withHeld(plan: CityEraPlan, held: (index: number) => number): Ci
   const history: CityHistoryLayer = { stage: "history", districts: h.districts.map((d, n) => ({ ...d, held: held(n) })) };
   return deepFreeze({ plan: plan.plan, layers: { ...plan.layers, history }, digests: plan.digests });
 }
+
+/**
+ * The barricade lines that do not lie across their street: for each line (its walls, by the arm in their ids) the street the arm runs along is the junction's street on the arm's axis; every wall's long axis must be
+ * perpendicular to that street's direction, and the walls together must span its carriageway. Returns one text a fault; empty when every line is across its street. Also reports the numbers it judged.
+ */
+export function acrossProblems(plan: CityEraPlan, layer: { readonly adds: readonly { readonly id: string; readonly kind: string; readonly size: { readonly x_m: number; readonly z_m: number } ; readonly placement: { readonly x_m: number; readonly z_m: number } }[] }): { problems: string[]; lines: number; xStreets: number; zStreets: number } {
+  const streets = plan.plan.layers.streets!;
+  const junctions = new Map(streets.junctions.map((j) => [j.id, j] as const));
+  const byId = new Map(streets.streets.map((s) => [s.id, s] as const));
+  const lines = new Map<string, { x0: number; x1: number; z0: number; z1: number; n: number }>();
+  const problems: string[] = [];
+  for (const a of layer.adds) {
+    if (a.kind !== "barricade") continue;
+    const m = /^holdout:barricade:(junction:\d+:\d+)\|([+-])([xz]):\d+$/.exec(a.id);
+    if (m === null) {
+      problems.push(`${a.id}: not a barricade id`);
+      continue;
+    }
+    const key = `${m[1]}|${m[2]}${m[3]}`;
+    const axis = m[3]!;
+    const longX = a.size.x_m > a.size.z_m;
+    // a street along x is crossed by a wall that is long along z, and a street along z by one long along x
+    if ((axis === "x") === longX) problems.push(`${a.id}: a wall on a street along ${axis} is long along ${longX ? "x" : "z"}`);
+    const r = lines.get(key) ?? { x0: Infinity, x1: -Infinity, z0: Infinity, z1: -Infinity, n: 0 };
+    r.x0 = Math.min(r.x0, a.placement.x_m - a.size.x_m / 2);
+    r.x1 = Math.max(r.x1, a.placement.x_m + a.size.x_m / 2);
+    r.z0 = Math.min(r.z0, a.placement.z_m - a.size.z_m / 2);
+    r.z1 = Math.max(r.z1, a.placement.z_m + a.size.z_m / 2);
+    r.n++;
+    lines.set(key, r);
+  }
+  let xStreets = 0;
+  let zStreets = 0;
+  for (const [key, r] of lines) {
+    const [jid, arm] = key.split("|") as [string, string];
+    const j = junctions.get(jid)!;
+    const street = j.streets.map((s) => byId.get(s.street)!).find((s) => s.axis === arm[1]);
+    if (street === undefined) {
+      problems.push(`${key}: the junction has no street on the arm's axis`);
+      continue;
+    }
+    const lo = street.axis === "x" ? r.z0 : r.x0;
+    const hi = street.axis === "x" ? r.z1 : r.x1;
+    if (street.axis === "x") xStreets++;
+    else zStreets++;
+    if (lo > street.carriage.lo_m + 1e-6 || hi < street.carriage.hi_m - 1e-6) problems.push(`${key}: the walls span ${lo} to ${hi}, not the carriageway ${street.carriage.lo_m} to ${street.carriage.hi_m}`);
+  }
+  return { problems, lines: lines.size, xStreets, zStreets };
+}

@@ -1,15 +1,17 @@
 # 073 · The city's transformations: technology, the hold-out, the ruin
 
 owner: per section (lead-architect, planner, renderer, grid-simulator, pipeline-designer, and three new agents: tech-pass, holdout-pass, ruin-pass; see Agents)
-status: open. Cut 21 Nov 2026 from `docs/design/073-transformations.md` and Josh's answers on its eight cards and its questions 6 and 9. Updated the same day with his answers to this ticket's Q10 to Q15 and the feed-place card.
-- **Cut in full:** A (types, no circuit; **merged** into `goal/city-transformations` at 4a5077f), A2 (the circuit references, waiting for K's type), A3 (the passes' kinds and the hold-out's steps), the B pre-check (done), B, C1, C2, F0 (**done**), the D1 pre-check (done), D1, D1g, the E2 pre-check (done), E2 and its follow-up E2b (merged, f225819), the F1 pre-check (done), A4, F1 (merged, 9be274a), **F1b1 and F1b2 (cut 22 Nov 2026 on Josh's rulings; approved to build on the goal branch, Josh, 22 Nov 2026: "Yes, build now (Recommended)"; both merged into the goal branch, b9f9b9f)**, **F1b3 (cut 22 Nov 2026 on Josh's ruling "Yes, from the trunk (Recommended)"; approved to build on the goal branch by that ruling)**, **E2g and F1g (cut 22 Nov 2026 on Josh's ruling 7, "Draw both eras now (Recommended)": the hold-out and the ruin drawn, and each pass's flat picture, before instancing)**.
-- **Outlined:** D2, D3, J2 (instancing), E1, E1g, E3, F2, F2g, F3. Each is cut in full when what it waits for has merged.
+status: per section (below). **No section is done.** Each built section is merged on the goal branch, awaiting Josh's review. Cut 21 Nov 2026 from `docs/design/073-transformations.md` and Josh's answers on its eight cards and its questions 6 and 9. Updated the same day with his answers to this ticket's Q10 to Q15 and the feed-place card.
+- **Merged on the goal branch, awaiting Josh's review** (merge commits from `git log --first-parent goal/city-transformations`): A 4a5077f, B 62b7cd2, C1 5a0ad0f, A3 ba9cc62, C2 2a92eec, D1 3cd522a, A4 25dd338, E2 a254591, D1g 5b29623, F1 9be274a, E2b f225819, F1b1 and F1b2 b9f9b9f, F1b3 a56cfef, E2g 845b5bc, F1g 2207244. F0 is not in git: its conversion ran outside the repo on 21 Nov 2026 night. **E2c** is merging now (22 Nov 2026): barricade regression tests only (917a67f on its branch), no stage code changed.
+- **Pre-check notes written:** B, D1, E2, F1 (notes in `docs/design/`, not sections).
+- **Not built, and what each waits for:** A2 (K's `CityCircuitLayer`, with K2); D2 (K2); D3 (D2, so K2); E1 (K2, A2, D2); E1g (E1, K2, A2); E3 (E1 and J2); F2 (E1, K2, A2); F2g (F2, E1g); F3 (F2). **J2** comes after the drawing sections (D3, E2g, F1g), by Josh's "Draw both eras now (Recommended)" (ruling 7). Each outline is cut in full when what it waits for has merged.
+- **All pass work is stopped** until Josh has reviewed the tech pass, then the hold-out, then the ruin. Josh, 22 Nov 2026, in chat, relayed by the Fable planning session: "I think it might be best for me to review and inspect each pass before moving on." No pass section starts until he says so.
 - **Re-cut 22 Nov 2026, fourth time, on one more of Josh's cards** (relayed by the Fable planning session; quoted under "Questions for Josh", ruling 7). Card: "Only the technology era is drawn in 3D; the hold-out and ruin are merged but invisible. You ruled instancing is built before the hold-out is drawn. Drawing both eras now adds only about 80 draw calls and needs no circuit work. Which order do you want, so you can review all three eras?" Josh: **"Draw both eras now (Recommended)"** ("Draw the hold-out and the ruin in 3D first, plus flat pictures of each stage; instancing comes after. Fastest route to your artistic review. Changes your earlier order.").
   - **Card 7's order changes.** Card 7 put J2 before the hold-out is drawn; this ruling replaces that order.
   - **Two new sections, both the renderer's (`src/render3d/` only):** **E2g** draws the hold-out and adds the flat pictures at `stage=tech|holdout|ruin`. **F1g** comes after it and draws F1's growth, with a draw-only yaw for ruin trees. **J2 follows them.**
   - **Narrowed outlines:** E3 now draws only E1's plant and lines, and F3 only F2's remnants and states.
-  - **For the main session:** the card's option text is Josh's word to draw both eras now. The main session confirms whether it also stands as the build approval (G1), as F1b3's card did.
-- Questions: Q1 to Q9 of the note answered. Q10 to Q15 and the feed-place card answered (21 Nov 2026, below). B-Q3, F1-Q1, the ruin roof growth, the Sci-Fi City power pole, crowns from the trunk and the drawing order answered by Josh on question cards, 22 Nov 2026 (below). The other pre-check questions were answered overnight, on Josh's delegation or under the goal; none of those is Josh's ruling and he may reverse any.
+  - **The build approval.** The card's option text is Josh's word to draw both eras now. The main session took it as E2g's and F1g's build approval on the goal branch, as F1b3's card was (taken under the goal by the main session; Josh may reverse). Both are merged on the goal branch, awaiting his review.
+- Questions: Q1 to Q9 of the note answered. Q10 to Q15 and the feed-place card answered (21 Nov 2026, below). B-Q3, F1-Q1, the ruin roof growth, the Sci-Fi City power pole, crowns from the trunk and the drawing order answered by Josh on question cards, 22 Nov 2026, relayed by the Fable planning session (below). The other pre-check questions were answered overnight, on Josh's delegation or under the goal; none of those is Josh's ruling and he may reverse any.
 - **Re-cut 22 Nov 2026, third time, on one more of Josh's cards** (relayed by the Fable planning session; quoted under "Questions for Josh"). "Yes, from the trunk (Recommended)": a ruin tree's clearance from standing pieces is measured from its **trunk**, so its crown may overhang poles, street lights, lamp-post places and drop ends. In chat, 22 Nov 2026, relayed by the Fable planning session, Josh narrowed it: **"Hold no, trees crowns can absolutely grow into buildings, but the trunks should not grow out of buildings"**, and, asked about fire escapes, awnings and hold-out structures, **"Yes trees don't care about structures outside of where they"** / **"Start their growth"**. So a ruin tree's crown is unconstrained; only the trunk's spot is checked (never in a building, 0.3 m from standing pieces, judged for T-2). New section **F1b3** (the ruin-pass, `src/city/ruin/` only), approved to build on the goal branch by the card's option text. The open "trunk reading" question is closed by it. Nothing outside the ruin moves.
 - **Re-cut 22 Nov 2026, second time, on two more of Josh's cards** (relayed by the Fable planning session; quoted under "Questions for Josh"). "Poles too": in the ruin a tree crown may cover anything, so F1b1 drops T-1 for ruin tree crowns entirely; T-1 is unchanged for solid pieces and for trees in the other eras; T-2 untouched. "Yes, build now (Recommended)": **F1b1 and F1b2 are approved to build** on `goal/city-transformations`, merged there when gate, review and playtest are clean; nothing touches `main` or is pushed. The roof limit stands.
 - **Re-cut 22 Nov 2026 morning, on Josh's rulings** (four question cards, relayed by the Fable planning session; quoted under "Questions for Josh"). B-Q3 stands as his. F1-Q1: trees grow through any dead line in the ruin, so T-1 gains an era-scoped tree exemption (F1b1, the planner's) and F1's under-span set is placed (F1b2, the ruin-pass's). Ruin roof growth is switched on (F1b2), keeping off rooftop poles and lines; B10 gains the ruin. The Sci-Fi City pole may stand on roofs and at the kerb in the tech pass (D2's outline, the intended-use note). E2b recorded in E2's section. F1b1 and F1b2 waited for Josh's word to build (given since; above); nothing else changes. Rulings 2 and 3 move the ruin's growth pins when F1b2 is built (the ruin's own checks, not a clean-city check).
@@ -177,7 +179,8 @@ Josh's Q6: "I like all of your suggestions, make them so": a job's district is a
 
 Order:
 - A (merged) → B and C1 alongside → C2. A2 after K's `CityCircuitLayer` merges; E1, E1g and F2 wait for it.
-- The B pre-check, the D1 pre-check and F0 are done.
+- The B, D1, E2 and F1 pre-checks are written; F0 is converted (outside git).
+- **Since 22 Nov 2026, every pass section waits for Josh's review** of the passes before it: tech, then hold-out, then ruin (his words at the top of this ticket).
 - **A3 before D1 and E2:** the passes' kinds and the hold-out's steps (`ticket/073a3-pass-kinds`).
 - **D1 and E2 after B, C1 and A3 merge.** Both are built now, their circuit keeps proven on fixtures; their digests re-pin when K2 lands (taken under the goal, 22 Nov 2026 night; Josh may reverse).
 - B → D1 → D1g (after C2) → D2 (after K2) → D3 → J2 → E1 → E1g → E3 → F1, F2 → F2g → F3. **Changed by Josh, 22 Nov 2026** (ruling 7, "Draw both eras now (Recommended)"; this replaces card 7's J2-before-hold-out):
@@ -186,7 +189,7 @@ Order:
   - **E3** draws only what E2g did not (E1's plant and lines); **F3** draws only what F1g did not (F2's remnants and states).
 - **E2 is built beside D1, ahead of E1** (the Fable session, on Josh's delegation, 22 Nov 2026 night; Josh may reverse). Its barricades are pinned on the named runs only once E1 merges.
 - **F1b1 → F1b2, after F1 (merged); approved to build** (Josh, 22 Nov 2026: "Yes, build now (Recommended)"): F1b1 (the planner, T-1's ruin tree exemption) first; F1b2 (the ruin-pass, the under-span set and roof growth on, re-pinned) after F1b1 merges. Neither waits for K2, E1 or J2. Both merged (b9f9b9f).
-- **F1b3, after F1b2 (merged); approved to build** (Josh, 22 Nov 2026: "Yes, from the trunk (Recommended)"): the ruin-pass: crowns unconstrained, only the trunk's spot checked ("Hold no, trees crowns can absolutely grow into buildings, but the trunks should not grow out of buildings"), re-pinned. Does not wait for K2, E1 or J2.
+- **F1b3, after F1b2 (merged); approved to build** (Josh, 22 Nov 2026: "Yes, from the trunk (Recommended)"): the ruin-pass: crowns unconstrained, only the trunk's spot checked ("Hold no, trees crowns can absolutely grow into buildings, but the trunks should not grow out of buildings"), re-pinned. Does not wait for K2, E1 or J2. Merged (a56cfef).
 - **F1 is built ahead of its place in the chain** (taken under the goal, 22 Nov 2026 night; Josh may reverse): **A4 → F1, after E2 merges** (E2's barricades stand before the ruin's growth in the stage order, so option G judges growth against them). F1 does not wait for E1, E3, J2 or K2: its circuit keeps are proven on fixtures, and its pins are re-taken when an earlier pass or K2 lands, as D1's and E2's are. F1 is not drawn before J2 (F3 draws it).
 
 Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/night/`, `src/render/`, `src/play/`, `src/ui/`, `src/main.ts`, `town.ts`, `terrace.ts`, the two pin tests, `tests/`, `puzzles/`, `tools/`, `package.json`, `assets/`, `tickets/`, the grammar and the guide), plus every clean stage folder (`src/city/streets/` to `src/city/traffic/`) unless the section names a line in it.
@@ -221,9 +224,11 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 
 **Files:** new `src/core/cityera.ts`, `src/core/index.ts` (one line), this ticket. No new dependency.
 
-**Done:** merged into `goal/city-transformations` at 4a5077f (under the goal). Review: meets, must-fix 0. Playtest: regressions 0.
+**Status:** merged on the goal branch at 4a5077f (under the goal), awaiting Josh's review. Review: meets, must-fix 0. Playtest: regressions 0.
 
 ### A2 · Types: the circuit references (lead-architect). Branch `ticket/073a2-circuit-refs`
+
+**Status:** not built. Waits on K2 (K's circuit layer), and stopped with all pass work until Josh has reviewed the passes.
 
 **Waits for:** K's `CityCircuitLayer` merged (typed by another session in `src/core/cityplan.ts`) and brought into `goal/city-transformations`. **E1, E1g and F2 wait for A2.** B, C1, C2, D1, D1g and E2 do not.
 
@@ -240,6 +245,8 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 **Files:** `src/core/cityera.ts`, `src/core/index.ts`, and `src/core/cityplan.ts` only as above. No new dependency.
 
 ### A3 · Types: the passes' kinds and the hold-out's steps (lead-architect). Branch `ticket/073a3-pass-kinds`
+
+**Status:** merged on the goal branch at ba9cc62 (under the goal), awaiting Josh's review.
 
 **Cut under the goal** (22 Nov 2026 night; Josh may reverse), from `goal/city-transformations` at 6ddffae, so D1 and E2 code against named kinds. **D1 and E2 wait for A3.**
 
@@ -263,7 +270,9 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 
 ### A4 · Types: the ruin's growth kinds and steps (lead-architect). Branch `ticket/073a4-ruin-kinds`
 
-**Cut under the goal** (22 Nov 2026 night; Josh may reverse), so F1 codes against named kinds, as D1 and E2 do. **F1 waits for A4.** To be typed from `goal/city-transformations` before F1 starts.
+**Status:** merged on the goal branch at 25dd338 (under the goal), awaiting Josh's review.
+
+**Cut under the goal** (22 Nov 2026 night; Josh may reverse), so F1 codes against named kinds, as D1 and E2 do. **F1 waits for A4.** Typed from `goal/city-transformations` before F1 started.
 
 **What A4 adds, in `src/core/cityera.ts` only** (`cityplan.ts` and `index.ts` untouched):
 - **`CityRuinPieceKind`** narrowed to F1's slots, and `CITY_RUIN_PIECE_KINDS`. F2 widens it with its remnants (wrecks, rubble, logs, fallen signs, barricades).
@@ -303,11 +312,13 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 - The time per city for `history`.
 - **It proposes:** the district rule, the story rule, the T-2 walk graph, and how T-1's "covers from above" is measured for solid pieces and canopies (wires never cover: Q13, Josh). Each comes with a recommended answer first, as a question for Josh.
 
-**Done 21 Nov 2026:** `docs/design/073-B-precheck.md` (a sketch: stage 6 is not built, so its circuit is K1's words laid by a probe). Its five questions were answered on Josh's delegation (B-Q1 to B-Q5, under "Questions for Josh"). B and C1 below are cut against those answers.
+**Written 21 Nov 2026:** `docs/design/073-B-precheck.md` (a sketch: stage 6 is not built, so its circuit is K1's words laid by a probe). Its five questions were answered by the Fable session on Josh's delegation (B-Q1 to B-Q5; B-Q3 since answered by Josh himself; under "Questions for Josh"). B and C1 below are cut against those answers.
 
 ### B · Stage 10, `history`: districts and their stories (planner, pure). Branch `ticket/073b-history`
 
-**Waits for:** A (merged). The pre-check's answers are in (B-Q1, B-Q2: on Josh's delegation; Josh may reverse).
+**Status:** merged on the goal branch at 62b7cd2 (under the goal), awaiting Josh's review.
+
+**Waits for:** A (merged). The pre-check's answers are in (B-Q1, B-Q2: answered by the Fable session on Josh's delegation; Josh may reverse).
 
 **Goal.** Every named city is cut into districts of 1 to 4 touching blocks. Each has a short story: `tech`, `held`, `wild`. `?city=plan&stage=history` shows them on Josh's phone.
 
@@ -327,7 +338,7 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 
 **Acceptance criteria** (Vitest unless said):
 1. [ ] On the 20 named runs, every block is in exactly one district. Each has 1 to 4 blocks that touch across a street (`CityPlanBlock.sides[*].across`). Each district's id is its first block's, in `streets.blocks` order.
-2. [ ] The districts follow the district rule above, and each story follows the story rule above (answered on Josh's delegation, B-Q1 and B-Q2). Each value is in 0 to 1, at 2 decimals. A hand-worked fixture city (at least 6 blocks, one inner) has its districts, steps and stories worked out by hand in the test, against a fixed hash.
+2. [ ] The districts follow the district rule above, and each story follows the story rule above (answered by the Fable session on Josh's delegation, B-Q1 and B-Q2). Each value is in 0 to 1, at 2 decimals. A hand-worked fixture city (at least 6 blocks, one inner) has its districts, steps and stories worked out by hand in the test, against a fixed hash.
 3. [ ] The picture (R-5): one legend entry per district band, and the district's id per cell. The R-5 test as 070's.
 4. [ ] R-1 to R-7: the layer is frozen; the digest is pinned on the four pin cities; a test double for `history` leaves every clean digest equal; the same city run twice gives the same layer; no file of the folder imports another stage folder or reads `bi`, `bj` or a street's `line`.
 5. [ ] `src/city/stages.ts` gains `historyStage` (one line), behind C1's era runner so a clean run never runs it (X-7). If C1 is not merged yet, B adds it to a separate era list C1 reads.
@@ -338,7 +349,9 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 
 ### C1 · The resolver, the era runner, and T-1 and T-2 (planner, pure). Branch `ticket/073c1-resolver`
 
-**Waits for:** A (merged). The T readings are answered (B-Q5 on Josh's delegation, Josh may reverse; B-Q3 confirmed by Josh, 22 Nov 2026: "Yes, passes only (Recommended)").
+**Status:** merged on the goal branch at 5a0ad0f (under the goal), awaiting Josh's review.
+
+**Waits for:** A (merged). The T readings are answered (B-Q5 by the Fable session on Josh's delegation, Josh may reverse; B-Q3 confirmed by Josh, 22 Nov 2026, on a question card relayed by the Fable planning session: "Yes, passes only (Recommended)").
 
 **The circuit it reads.** T-1 and T-2 read poles, street lights, lamp-post places and drops from the plan's stage 6 layer. Until K2 merges, that layer is empty on `goal/city-transformations` (`cityplan.ts`: "until then the layer is empty"). So on the named runs both checks find no point to judge until then; the fixtures carry their own hand-placed poles. The pre-check's numbers below are what the clean report should give once K2's circuit is in (a sketch, from K1's words laid by a probe).
 
@@ -363,13 +376,15 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 1. [ ] `resolvePlan(plan, era)` in `src/city/pipeline/` meets A's contract. Fixtures: each change kind on each `CityPieceList`; a change by id; every failure case in the contract, each failing with the stage named.
 2. [ ] `clean` resolves to the plan itself on the 20 named runs, deep-equal.
 3. [ ] **The era runner.** `runCity(options)` and `runCity(options, until)` for a clean stage run exactly what they run today (X-7). A new `runCityEra(options, era)` runs the clean stages, then `history` and the passes up to the era's last stage. A test shows a clean run calls no era stage.
-4. [ ] `t1Failures(resolved)` and `t2Failures(resolved)` with the readings above (answered on Josh's delegation, B-Q3 and B-Q5), and `t1CleanClashes(resolved)`, the clean report. Each check has a failing fixture and a passing control: an era add on a pole, on a light, on a lamp-post place, over a drop end, and a canopy meeting a span (each fails); the same clean piece in the same spot (reported by `t1CleanClashes`, never a T-1 failure); a span over a pole line (never a failure, Q13); a ground piece that seals a pole in (T-2 fails) and one that leaves a way round (passes). On the clean city: `t1Failures` and `t2Failures` are empty on the 20 named runs; `t1CleanClashes` is reported per run in the hand-back, not asserted. Until K2 it is empty (no circuit). Once K2 is in, the pre-check's sketch says it should give, a run: poles 5 to 18 (street furniture on the spot; pavement-tree canopies 0 to 7), street lights 1 to 8, lamp-post places 5 to 16, drop ends 11 to 25 (escapes 7 to 19, face signs 3 to 8) plus window planters 20 to 39, canopies over a pole line 17 to 32, build-out trees and stage 9 pieces 0. After K's planned I2: poles 0, lights 0, lamp-post places 6 to 17, drop ends the same, canopies over a line 8 to 22.
+4. [ ] `t1Failures(resolved)` and `t2Failures(resolved)` with the readings above (B-Q3 Josh's own, 22 Nov 2026, relayed by the Fable planning session; B-Q5 answered by the Fable session on Josh's delegation), and `t1CleanClashes(resolved)`, the clean report. Each check has a failing fixture and a passing control: an era add on a pole, on a light, on a lamp-post place, over a drop end, and a canopy meeting a span (each fails); the same clean piece in the same spot (reported by `t1CleanClashes`, never a T-1 failure); a span over a pole line (never a failure, Q13); a ground piece that seals a pole in (T-2 fails) and one that leaves a way round (passes). On the clean city: `t1Failures` and `t2Failures` are empty on the 20 named runs; `t1CleanClashes` is reported per run in the hand-back, not asserted. Until K2 it is empty (no circuit). Once K2 is in, the pre-check's sketch says it should give, a run: poles 5 to 18 (street furniture on the spot; pavement-tree canopies 0 to 7), street lights 1 to 8, lamp-post places 5 to 16, drop ends 11 to 25 (escapes 7 to 19, face signs 3 to 8) plus window planters 20 to 39, canopies over a pole line 17 to 32, build-out trees and stage 9 pieces 0. After K's planned I2: poles 0, lights 0, lamp-post places 6 to 17, drop ends the same, canopies over a line 8 to 22.
 5. [ ] A pass's stage calls the resolver for the era before its own, and the two checks on its own era before it returns. C1 gives the helper; each pass calls it.
 6. [ ] No file of `src/city/pipeline/` imports a stage folder.
 
 **Files:** `src/city/pipeline/` (new `resolve.ts`, `eras.ts`, `readable.ts` and their tests); `src/city/stages.ts` (the era list and `runCityEra`). The builder runs `npx vitest run --maxWorkers=2 src/city/pipeline/` and one `npx tsc --noEmit`.
 
 ### C2 · The era switch, drawn (renderer). Branch `ticket/073c2-era-switch`
+
+**Status:** merged on the goal branch at 2a92eec (under the goal), awaiting Josh's review.
 
 **Waits for:** C1, and B (so `history` has a picture).
 
@@ -397,11 +412,13 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 - **The cost:** distinct keys and pieces per city at the most the room allows, as a draw-call estimate (instancing comes after D3, card 7).
 - **It proposes:** how density follows `tech` (bands, shares), with a recommended answer first.
 
-**Done 21 Nov 2026:** `docs/design/073-D1-precheck.md` (a sketch: the circuit is K1's words laid by a probe; one `tech` value for the whole city), with its last section, "Kit against the intended-use note" (X-11). Its six questions were answered on Josh's delegation (D1-Q1 to D1-Q6), and its kit verdict taken (the billboard frames dropped under the goal). D1 below is cut against them.
+**Written 21 Nov 2026:** `docs/design/073-D1-precheck.md` (a sketch: the circuit is K1's words laid by a probe; one `tech` value for the whole city), with its last section, "Kit against the intended-use note" (X-11). Its six questions were answered by the Fable session on Josh's delegation (D1-Q1 to D1-Q6), and its kit verdict taken (the billboard frames dropped under the goal). D1 below is cut against them.
 
 ### D1 · `tech` walls, signs, shopfronts and pavement (tech-pass, pure). Branch `ticket/073d1-tech-walls`
 
-**Waits for:** B, C1 and A3 merged into `goal/city-transformations`. The pre-check, its answers and its kit check against `docs/design/073-pack-intended-use.md` are done. The tech-pass agent file (the main session's).
+**Status:** merged on the goal branch at 3cd522a (under the goal), awaiting Josh's review.
+
+**Waits for:** B, C1 and A3 merged into `goal/city-transformations`. The pre-check, its answers and its kit check against `docs/design/073-pack-intended-use.md` are written. The tech-pass agent file (the main session's).
 
 **Built now, against fixtures for the circuit** (taken under the goal, 22 Nov 2026 night; Josh may reverse). D1 does not wait for K2. Its pole, light, lamp-post and drop keep-outs are proven on fixtures, and **its tech digests are re-pinned when K2 lands** (the tech-pass, in a one-line follow-up named in K2's merge). D1 is kept whole, not split (the same night, under the goal).
 
@@ -465,11 +482,13 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 
 **Interfaces.** Done by A3: `CityTechPieceKind` in `src/core/cityera.ts` is `"bolt-on" | "camera" | "tall" | "overhang" | "sign" | "shopfront" | "pavement"` (D2 widens it later). D1 codes against C1's `CityEraStageDef`, `resolveBefore`, `assertEraReadable`, `ReadableOptions` and `BoundsOf` as merged. No new dependency.
 
-**From D1's build report** (22 Nov 2026 night; recorded, not a ruling; D1 is in review on its own branch):
+**From D1's build report** (22 Nov 2026 night; recorded, not a ruling; written while D1 was in review, before it merged):
 - **Typed and pinned, never placed:** `Prop_Pipes_01` and `Prop_Overhang_01/02`. They are in the kit table and its pin, but no add uses them. `Prop_Pipes_01`: a placement cannot roll a piece upright, so it cannot stand with its 2.5 m up the wall (the kit table's "leaves the kit" case). `Prop_Overhang_01/02`: the density rule (DT) gives the overhang slot no chance, so it is never tried. Neither is a departure in the drawn city while unplaced; D1g has nothing of them to draw.
 - **An add's `cell` is its host cell** for wall pieces and shopfronts (the built cell whose face it is on), not the cell its pivot stands in. That departs from A3's comment on `CityEraPiece.cell`. A4 rewords the comment to match; no type changes.
 
 ### D1g · `tech` walls and pavement drawn (renderer). Branch `ticket/073d1g-tech-walls-drawn`
+
+**Status:** merged on the goal branch at 5b29623 (under the goal), awaiting Josh's review.
 
 **Cut under the goal** (21 Nov 2026 night; Josh may reverse), so Josh has the tech pass's walls and pavement to look at before D2 and D3, which wait on K2.
 
@@ -483,14 +502,15 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 3. [ ] (Vitest) **R12 gains B2's allowance, era-scoped (X-9):** one typed table of the never-used keys D1 may use as dark signs and lamps, allowed only at `era=tech` and later and only on D1's own piece kinds. At `clean` the R12 audit is exactly today's.
 4. [ ] (Vitest) **No draw-call cap rises.** Draw calls at each era are reported in the hand-back.
 5. [ ] (main session, browser screenshot, full resolution) 6 x 6 seed 1 at `era=clean` and `era=tech` from one camera spot, on a street with wall bolt-ons and pavement tech.
-6. [ ] (main session, browser screenshot, full resolution) **One street-level picture along a pavement past a new shopfront**, at `era=tech`, so the panel's end return (only partly faced in the GLB) is seen as a walker sees it. If the end reads as a loose panel, the top band's shopfronts stay out of the merge into `main`: the tech-pass sets D1's shopfront constant false (one line in `src/city/tech/`, its pins re-taken), and the picture goes to Josh. No filler piece is invented to hide it. (Taken on Josh's delegation, 21 Nov 2026 night; Josh may reverse.)
+6. [ ] (main session, browser screenshot, full resolution) **One street-level picture along a pavement past a new shopfront**, at `era=tech`, so the panel's end return (only partly faced in the GLB) is seen as a walker sees it. If the end reads as a loose panel, the top band's shopfronts stay out of the merge into `main`: the tech-pass sets D1's shopfront constant false (one line in `src/city/tech/`, its pins re-taken), and the picture goes to Josh. No filler piece is invented to hide it. (Answered by the Fable session on Josh's delegation, 21 Nov 2026 night; Josh may reverse.)
 
 **Files:** `src/render3d/plan3d.ts` and its tests, and the R12 audit's test in `src/render3d/`. Nothing in `src/city/`. The builder runs `npx vitest run --maxWorkers=2` on its own test files and one `npx tsc --noEmit`; no browser.
 
 ### D2 · `tech` roofs: storeys, plant, holograms, the roof net (tech-pass, pure). Outline. Branch `ticket/073d2-tech-roofs`
+- **Status:** not built. Waits on K2, and stopped with all pass work until Josh has reviewed the passes.
 - **Waits for:** K2's circuit layer, B, its own pre-check.
 - **Its pre-check measures:** flat roof runs that fit `Building_Shack_*`, `Bld_Roof_Pagoda_02`, clear of stage 7's towers, exits, billboards and roof novelty; the roof items per building against B10; roof-to-roof span lengths across streets and lanes, and the `Prop_Powerpoll_01/02` attach height; whether one net per high-tech district connects; where `Prop_Bridge_01` spans as a street truss (below); how many roof-net spans cross a stage 6 pole line in plan (allowed: Q13, Josh; reported, not failed); T-1 and T-2.
-- **Read from the intended-use note** (`docs/design/073-pack-intended-use.md`; answered on Josh's delegation, 21 Nov 2026 night; Josh may reverse):
+- **Read from the intended-use note** (`docs/design/073-pack-intended-use.md`; answered by the Fable session on Josh's delegation, 21 Nov 2026 night; Josh may reverse):
   - **`Prop_Bridge_01` is a street truss, not a walkway.** The images show open lattice trusses spanning between facing façades about 6 to 10 m up, carrying cables and hung signs, with no deck, no railings, nobody on them. The roof walkway is dropped. D2 may use the truss as shown: between facing walls (it is 5.0 m long; a lane is 5 m wall to wall), with roof-net cables over it and signs under it.
   - **`Bld_Raised_01/02` is a street-level deck on pillars, not a roof storey.** It goes on no roof without Josh's word. D2's pre-check lists "roof storeys" as an open question for Josh, recommended answer first; until he answers, D2 places no `Bld_Raised_*` on a roof.
 - **The Sci-Fi City power pole: roofs and the kerb** (Josh, 22 Nov 2026, on a question card, relayed by the Fable planning session). Card: "The Sci-Fi City store images show its power pole standing on the pavement at the kerb, not on a roof. You ruled it goes atop buildings and other objects. Keep your ruling?" Josh: **"Allow both"** ("The pole may stand on roofs and on pavements at the kerb in the technology pass."). This supersedes, for the tech pass, his 21 Nov "The scifi power poles are intended to be atop buildings and other objects they are not intended to come out of the ground".
@@ -499,22 +519,26 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
   - D2's pre-check measures the kerb places too (how many free kerb spots keep those rules, by district `tech`). D2 still waits on K2.
 
 ### D3 · `tech` drawn (renderer). Outline. Branch `ticket/073d3-tech-drawn`
+- **Status:** not built. Waits on D2, so on K2.
 - **Waits for:** D1g, D2.
 - Draws only what D1g did not: D2's roof adds and changes at `era=tech` and later. B2's era-scoped R12 table is D1g's; D3 adds D2's keys to it, if any. Dark (X-5).
 - Reports draw calls and frame rate at each era, before J2.
 
 ### J2 · Instancing (renderer). Outline. Branch `ticket/073j2-instancing`
+- **Status:** not built. Comes after the drawing sections (D3, E2g, F1g), by Josh's "Draw both eras now (Recommended)".
 - **Josh's card 7:** "Instancing becomes a section of this work, built after the technology pass is drawn and before the hold-out pass is." **Order changed by Josh, 22 Nov 2026** (ruling 7): "Draw both eras now (Recommended)" ("... instancing comes after."). J2 now comes after E2g and F1g.
 - **Waits for:** D3, E2g, F1g. **E3 waits for it.**
 - Instances the stack pieces and the dressing (070 Q29's J2), and the tech, hold-out and ruin groups. Every clean picture and pin stays the same, and every era's picture is unchanged against E2g's and F1g's screenshots. Adds no rule, so no pre-check.
 
 ### E1 · `holdout` plants and makeshift lines (holdout-pass, pure). Outline. Branch `ticket/073e1-holdout-power`
+- **Status:** not built. Waits on K2 and A2 (and D2), and stopped with all pass work until Josh has reviewed the passes.
 - **Waits for:** D2, K2, A2, B, its pre-check.
 - **Its pre-check measures:** in each held district, the largest open place and whether a plant (`Prop_Generator_01`, `Prop_Solar_Panel_02..04`, `Prop_Battery_03/04`, `Prop_Windmill_01`) fits there, reachable on foot (T-2); makeshift line routes from the plant to the district's street and roof poles: lengths, how many run over junctions (B5), off light posts, masts or walls (B4), drops across streets (B6); T-1; how many held districts get no plant (those keep K1's feed outside: Q11, Josh).
 - Uses B3 to B6. Its plant, makeshift poles and spans carry ids in K's scheme, prefixed `holdout:` (A).
 - The plant is the job's feed (Q6), so E1g follows.
 
 ### E1g · The conversion learns the plant (grid-simulator, pure). Outline. Branch `ticket/073e1g-plant-feed`
+- **Status:** not built. Waits on K2 and A2 (and E1).
 - **Waits for:** E1, K2, A2. (Q10 and Q11 are answered.)
 - CK15's conversion accepts `{ plant: <id> }` as a feed's place and makeshift spans as runs, in `src/city/circuit/`, on the plan resolved at the ruin era (Q10, Josh: "The ruin"). The converted `Puzzle` still passes `validatePuzzle`, and `src/grid/` runs it unchanged.
 - K2's feed-outside check skips a job whose feed is its district's plant (the feed-place card, Josh: "Yes, plant inside"). A district with no plant keeps K1's check (Q11, Josh).
@@ -522,7 +546,7 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 
 ### E2 pre-check · the hold-out's camps, farms, markets, stores, barricades, clutter and roof items (pipeline-designer). No branch
 
-**Done 22 Nov 2026:** `docs/design/073-E2-precheck.md` (a sketch: stage 6 is K1's words laid by a probe; D1, D2 and E1 not built). Its Q1 to Q5 were taken under the goal; its Q6 (the X-11 departures) and the order were answered by the Fable session on Josh's delegation. E2 below is cut against them.
+**Written 22 Nov 2026:** `docs/design/073-E2-precheck.md` (a sketch: stage 6 is K1's words laid by a probe; D1, D2 and E1 not built). Its Q1 to Q5 were taken under the goal; its Q6 (the X-11 departures) and the order were answered by the Fable session on Josh's delegation. E2 below is cut against them.
 
 ### E2 · `holdout` camps, farms, markets, stores, clutter, roof items, barricades (holdout-pass, pure). Branch `ticket/073e2-holdout-camps`
 
@@ -599,14 +623,18 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 
 **Interfaces.** Done by A3: `CityHoldoutPieceKind`, `CITY_HOLDOUT_STEPS`, `CityHoldoutStep`, `CITY_HOLDOUT_STEP_OF`, `CityHoldoutStepCount`, `CityHoldoutLayer.steps`, `CityHoldoutStepPart`. E2 codes against C1's `CityEraStageDef`, `resolveBefore`, `assertEraReadable`, `t1Failures`, `t2Failures`, `ReadableOptions`, `BoundsOf` and `digestOf` as merged. No new dependency.
 
-**Done:** merged at a254591 (under the goal).
+**Status:** merged on the goal branch at a254591 (under the goal), awaiting Josh's review.
 
-**E2b · the facade clearance (holdout-pass; found after E2 merged).** Merged into `goal/city-transformations` at f225819 under the goal's terms (fix 91da32c; F1's growth pins re-taken by the ruin-pass, e97b3f9). Review: meets, must-fix 0. Playtest: regressions 0.
+**E2b · the facade clearance (holdout-pass; found after E2 merged).** **Status:** merged on the goal branch at f225819 (under the goal's terms), awaiting Josh's review (fix 91da32c; F1's growth pins re-taken by the ruin-pass, e97b3f9). Review: meets, must-fix 0. Playtest: regressions 0.
 - **What was wrong:** a probe found 30 to 45 hold-out pieces a city running through fire escapes, canopies and awnings. E2 had read only the facades' roofs.
 - **The fix:** every hold-out piece keeps E2's 0.3 m clearance from stage 7's facade pieces (dressing other than glass, walls with their escapes and ladder boxes, face novelty signs; party-wall pieces for roof items), in plan and in height.
 - **The stall reading it took (for Josh; taken under the goal, Josh may reverse):** E2's "one `Bld_Market_Stall_02` per plaza or front lot" gives way to the clearance. **A plaza where every try meets a facade piece gets no stall.** On the named runs that is 2 to 12 stalls placed in 3 to 13 places a city (`STALL_TRIES` raised from 8 to 24 to keep the losses small). The other way: keep one stall per place and let it stand through an awning, which is the bug E2b fixed.
 
+**E2c · barricade regression tests (holdout-pass). Branch `ticket/073e2c-barricade-yaw`.** **Status:** merged on the goal branch, awaiting Josh's review (merging 22 Nov 2026; its commit 917a67f). Tests only, in `src/city/holdout/`; no stage code, pin or digest changed.
+- Barricades along the street: reported 22 Nov 2026 from a screenshot, checked, not a bug (all 225 seed-1 walls lie across their streets); E2c adds a regression test.
+
 ### E3 · `holdout` drawn (renderer). Outline. Branch `ticket/073e3-holdout-drawn`
+- **Status:** not built. Waits on E1 (so K2 and A2) and J2.
 - **Waits for:** E1, E2g, J2. R12 gains B3's allowance, era-scoped. That table is E2g's; E3 adds E1's keys to it, if any.
 - **Narrowed by Josh's ruling 7** (22 Nov 2026, "Draw both eras now (Recommended)"): E2's pieces and the flat pictures are drawn by E2g. E3 draws only E1's plant, makeshift poles, lines and drops, dark.
 
@@ -636,16 +664,18 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 
 **Files (not in git):** `assets/private/in/apocalypse-ruin/`, `assets/private/out/` (written by the converter only), the manifest backup.
 
-**Done 21 Nov 2026 night.** 89 models converted, 0 failures, 0 warnings, scale 1, one run, a 7.4 MB GLB.
+**Status:** converted 21 Nov 2026 night, outside git (nothing in git changed), awaiting Josh's review. 89 models converted, 0 failures, 0 warnings, scale 1, one run, a 7.4 MB GLB.
 - **The starting list was wrong on one line** (recorded under the goal; Josh may reverse): the pack has 12 `SM_Env_RoadPiece_Damaged_*`, not 24, and all 12 are already in `apocalypse-power`. So `apocalypse-ruin` does not hold them, and **F1 and F2 read the damaged road pieces' sizes from `apocalypse-power`**.
 
 ### F1 pre-check · the ruin's growth (pipeline-designer). No branch
 
-**Done 22 Nov 2026:** `docs/design/073-F1-precheck.md` (a sketch: stage 6 is K1's words laid by a probe; D1, E2 and F2 not built). Its Q2, Q3, Q4 and Q6 and its two corrections were taken under the goal; its Q1 (B8 against T-1) and Q5 (the X-11 departures) were answered by the Fable session on Josh's delegation. F1-Q1 was provisional; **Josh has since ruled on it, and on the roof growth (22 Nov 2026; top of "Questions for Josh"; F1b1, F1b2).** F1 below is cut against them.
+**Written 22 Nov 2026:** `docs/design/073-F1-precheck.md` (a sketch: stage 6 is K1's words laid by a probe; D1, E2 and F2 not built). Its Q2, Q3, Q4 and Q6 and its two corrections were taken under the goal; its Q1 (B8 against T-1) and Q5 (the X-11 departures) were answered by the Fable session on Josh's delegation. F1-Q1 was provisional; **Josh has since ruled on it, and on the roof growth (22 Nov 2026; top of "Questions for Josh"; F1b1, F1b2).** F1 below is cut against them.
 
 ### F1 · `ruin` growth: ground, walls, roofs (ruin-pass, pure). Branch `ticket/073f1-ruin-growth`
 
-**Waits for:** E2 merged into `goal/city-transformations` (E2's barricades stand before the ruin's growth in the stage order, so option G judges growth against them), F0 (done), its pre-check (done), and **A4** (the ruin's kinds and steps). It does not wait for E1, E3, J2, F2 or K2 (taken under the goal, 22 Nov 2026 night; Josh may reverse). The ruin-pass agent file (the main session's).
+**Status:** merged on the goal branch at 9be274a (under the goal), awaiting Josh's review.
+
+**Waits for:** E2 merged into `goal/city-transformations` (E2's barricades stand before the ruin's growth in the stage order, so option G judges growth against them), F0 (converted), its pre-check (done), and **A4** (the ruin's kinds and steps). It does not wait for E1, E3, J2, F2 or K2 (taken under the goal, 22 Nov 2026 night; Josh may reverse). The ruin-pass agent file (the main session's).
 
 **Built now, against fixtures for the circuit.** Until K2 merges, stage 6 is empty, so T-1, T-2, option G and the under-span set find nothing on the named runs. Each is proven on fixtures with hand-placed poles, lights, lamp-post places, drops and spans. **F1's growth digest is re-pinned when K2 lands, and when D1, D2, E1 or E2's barricade step changes what stands before it** (the ruin-pass, in a one-line follow-up named in that merge).
 
@@ -730,11 +760,11 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 
 **Interfaces.** A4, typed before F1 starts: `CityRuinPieceKind` (`"patch" | "clump" | "sapling" | "park-tree" | "roof" | "vine" | "tree-vine"`), `CITY_RUIN_PIECE_KINDS`, `CITY_RUIN_STEPS`, `CityRuinStep`, `CITY_RUIN_STEP_OF`, `CityRuinStepCount`, `CityRuinLayer.steps`, `CityRuinStepPart`. F1 codes against C1's `CityEraStageDef`, `resolveBefore`, `assertEraReadable`, `t1Failures`, `t2Failures`, `ReadableOptions`, `BoundsOf` and `digestOf` as merged. No new dependency.
 
-**Done:** merged at 9be274a (under the goal); its growth pins re-taken after E2b (e97b3f9). Josh's rulings of 22 Nov 2026 on F1-Q1 and the ruin roof growth are built by F1b1 and F1b2 below.
+**Merged** at 9be274a (under the goal); its growth pins re-taken after E2b (e97b3f9). Josh's rulings of 22 Nov 2026 on F1-Q1 and the ruin roof growth are built by F1b1 and F1b2 below.
 
 ### F1b1 · T-1's ruin tree exemption (planner, pure). Branch `ticket/073f1b1-t1-ruin-trees`
 
-**Status: approved to build** (Josh, 22 Nov 2026, on a question card, relayed by the Fable planning session: "...Should the Opus session build them now on the goal branch?" Josh: **"Yes, build now (Recommended)"**, option text "Built, reviewed and playtested on goal/city-transformations, merged there when all three are clean. Nothing touches main or is pushed."). Built on the goal branch, merged there when the gate, review and playtest are all clean; nothing touches `main` or is pushed.
+**Status:** merged on the goal branch at b9f9b9f (with F1b2), awaiting Josh's review. Approved to build by Josh, 22 Nov 2026, on a question card, relayed by the Fable planning session: "...Should the Opus session build them now on the goal branch?" Josh: **"Yes, build now (Recommended)"**, option text "Built, reviewed and playtested on goal/city-transformations, merged there when all three are clean. Nothing touches main or is pushed."
 
 **Josh's rulings** (22 Nov 2026, on question cards, relayed by the Fable planning session):
 - F1-Q1. Card: "Which should win in the ruin?" (options "Beside lines only", "Through scenery lines", "Through any dead line"). Josh: **"Through any dead line"** ("Trees may grow through every line in the ruin, including a job's. This drops the cover rule for trees in the ruin.").
@@ -757,7 +787,7 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 
 ### F1b2 · Ruin trees under spans, and roof growth on (ruin-pass, pure). Branch `ticket/073f1b2-ruin-growth-on`
 
-**Status: approved to build** (Josh, 22 Nov 2026: "Yes, build now (Recommended)"; quoted under F1b1), after F1b1 merges into `goal/city-transformations`.
+**Status:** merged on the goal branch at b9f9b9f (with F1b1), awaiting Josh's review. Approved to build by Josh, 22 Nov 2026: "Yes, build now (Recommended)" (quoted under F1b1).
 
 **Josh's rulings** (22 Nov 2026, on question cards, relayed by the Fable planning session):
 - F1-Q1: **"Through any dead line"**, and what a crown may cover: **"Poles too"** (both quoted under F1b1).
@@ -787,7 +817,7 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 
 ### F1b3 · Ruin crowns free; only the trunk is judged (ruin-pass, pure). Branch `ticket/073f1b3-crowns-from-trunk`
 
-**Status: approved to build** on `goal/city-transformations` by Josh's ruling below (the card's option text names this section), as narrowed by his chat correction. Built, reviewed and playtested on the goal branch, merged there when all three are clean; nothing touches `main` or is pushed.
+**Status:** merged on the goal branch at a56cfef, awaiting Josh's review. Approved to build on `goal/city-transformations` by Josh's ruling below (the card's option text names this section), as narrowed by his chat correction.
 
 **Josh's rulings** (22 Nov 2026):
 - On a question card, relayed by the Fable planning session. Card: "The tree changes are merged, but your "Poles too" answer barely shows: a tree's whole crown still keeps 0.3 m off every standing piece, so crowns reach over wire spans but never over a pole or light. Should the clearance be measured from the trunk instead, so crowns really do spread over poles in the ruin?" Josh: **"Yes, from the trunk (Recommended)"** (option text: "A small extra section on the goal branch: trunks keep clear of poles, crowns may overhang them. The ruin's checks are re-pinned. This is what "Poles too" asked for.").
@@ -834,7 +864,9 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 
 **Cut 22 Nov 2026 on Josh's ruling 7** (a question card, relayed by the Fable planning session; quoted under "Questions for Josh"): **"Draw both eras now (Recommended)"** ("Draw the hold-out and the ruin in 3D first, plus flat pictures of each stage; instancing comes after. Fastest route to your artistic review. Changes your earlier order."). So the hold-out is drawn before J2, E1 and E3. Modelled on D1g: its tech group in `plan3d.ts` and `techdraw.test.ts`.
 
-**Waits for:** E2 and E2b merged (done, f225819), D1g merged (done). Not E1, K2, D2, D3 or J2. **F1g waits for it.**
+**Status:** merged on the goal branch at 845b5bc, awaiting Josh's review. Built on the main session's reading of ruling 7 as its build approval (taken under the goal; see the top of this ticket).
+
+**Waits for:** E2 and E2b merged (f225819), D1g merged (5b29623). Not E1, K2, D2, D3 or J2. **F1g waits for it.**
 
 **Goal.** Josh can look at each pass as a flat picture, at `?view=3d&city=plan&stage=tech`, `stage=holdout` and `stage=ruin`, as he does at `stage=history`. At `?view=3d&city=plan&stage=assemble&era=holdout` (and `era=ruin`) he sees E2's camps, water towers, farms and irrigators, stalls, containers, clutter, roof items and barricades on the city, dark. The park props, stall props and stage 9 pieces that E2 removed are gone. Clean and tech are drawn exactly as today.
 
@@ -863,6 +895,8 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 ### F1g · `ruin` growth drawn (renderer). Branch `ticket/073f1g-ruin-drawn`
 
 **Cut 22 Nov 2026 on Josh's ruling 7** (as E2g): "Draw both eras now (Recommended)". Modelled on D1g and E2g.
+
+**Status:** merged on the goal branch at 2207244, awaiting Josh's review. Built on the main session's reading of ruling 7 as its build approval (taken under the goal; see the top of this ticket).
 
 **Waits for:** E2g merged into `goal/city-transformations`. F1, F1b1, F1b2 and F1b3 are merged. Not F2, K2, E1 or J2.
 
@@ -901,6 +935,7 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 - **The ruin trees' facing.** As cut, each tree is turned at draw time by a hash of its id, so no pin moves and the plan still says yaw 0. The other way is a real yaw in the plan, set by the ruin-pass inside its own pins, so that anything else reading the plan gets the same facing. Recommended: the draw-only yaw now, and the plan-side yaw later if the plan itself should carry the facing.
 
 ### F2 · `ruin` remnants and the broken grid (ruin-pass, pure). Outline. Branch `ticket/073f2-ruin-remnants`
+- **Status:** not built. Waits on K2 and A2 (and E1), and stopped with all pass work until Josh has reviewed the passes.
 - **Waits for:** E1, K2, A2, F0, its pre-check. (Q12 is answered.)
 - Its states are scenery. They are never drawn on a job's own parts (Q12, Josh: "No, puzzle faults only"); F2g and F3 hold that.
 - **Its pre-check measures:** wrecks on carriageway, bays and lots (B1); fallen signs, logs, rubble; the changes by kind and by layer; toppled poles and cut spans per district; T-1 and T-2.
@@ -910,11 +945,13 @@ Every section's must-not-touch is 070's list (`src/core/`, `src/grid/`, `src/nig
 - **F2's pieces append after F1's** in the ruin layer's `"remnants"` step (A4), placed against F1's growth by option G as F1's growth is against E2's barricades.
 
 ### F2g · Jobs on the broken grid (grid-simulator, pure). Outline. Branch `ticket/073f2g-ruin-jobs`
+- **Status:** not built. Waits on F2 and E1g, so on K2 and A2.
 - **Waits for:** F2, E1g. (Q12 is answered.)
 - In `src/city/circuit/`: a city puzzle on the ruin era fails to load if it names a piece the ruin removed.
 - A ruin `state` (cut, toppled, broken) on a part the job names is dropped for that job. The puzzle's own faults are its only damage (Q12, Josh: "On a job's own parts only the puzzle's faults are drawn.").
 
 ### F3 · `ruin` drawn (renderer). Outline. Branch `ticket/073f3-ruin-drawn`
+- **Status:** not built. Waits on F2, so on K2 and A2.
 - **Waits for:** F1g, F2. **Narrowed by Josh's ruling 7** (22 Nov 2026, "Draw both eras now (Recommended)"): F1's growth is drawn by F1g, so F3 draws only F2's remnants and states. R12 gains B1's allowance, era-scoped: F3 adds F2's keys to F1g's ruin table. Draws `state`: toppled, cut, broken, boarded, dark. A `broken` `edge.ground` tile draws as a damaged road piece (F2's broken road): only the nine that fit one tile, never scaled or cropped, and never a heaved slab (`_08`, `_09`, `_12`) on a crossing (F1-Q6, under the goal; Josh may reverse).
 - F1's picture switches (`RUIN_VINE_06`, `RUIN_ROOF_DEAD_TREES`) are settled by F1g's screenshots, not F3's.
 - Never on a played job's own parts (Q12, Josh). Dead wires keep today's look; a rusted, frayed look waits for K4's overlay (Q14, Josh).
@@ -999,7 +1036,7 @@ Josh's card 8: "Yes, three agents (Recommended)". The main session writes each `
 ## Interfaces
 - Section A: `src/core/cityera.ts`, written on `ticket/073a-era-types` under the goal and merged (4a5077f); `cityplan.ts` is not edited. Section A2, after K's type merges: the circuit references and the plant place.
 - Section A3 (`ticket/073a3-pass-kinds`, under the goal): `CityTechPieceKind` narrowed to D1's kinds; `CityHoldoutPieceKind` for E2; the hold-out's steps (`CITY_HOLDOUT_STEPS`, `CITY_HOLDOUT_STEP_OF`, `CityHoldoutStepCount`, `CityHoldoutLayer.steps`, `CityHoldoutStepPart`). One file, `cityera.ts`.
-- Section A4 (`ticket/073a4-ruin-kinds`, under the goal; not typed yet, typed before F1 starts): `CityRuinPieceKind` narrowed to F1's kinds (F2 widens it); the ruin's steps (`CITY_RUIN_STEPS`, `CITY_RUIN_STEP_OF`, `CityRuinStepCount`, `CityRuinLayer.steps`, `CityRuinStepPart`); `CityEraPiece.cell`'s comment reworded to D1's host-cell reading. One file, `cityera.ts`.
+- Section A4 (`ticket/073a4-ruin-kinds`, under the goal; typed before F1 started, merged at 25dd338): `CityRuinPieceKind` narrowed to F1's kinds (F2 widens it); the ruin's steps (`CITY_RUIN_STEPS`, `CITY_RUIN_STEP_OF`, `CityRuinStepCount`, `CityRuinLayer.steps`, `CityRuinStepPart`); `CityEraPiece.cell`'s comment reworded to D1's host-cell reading. One file, `cityera.ts`.
 - `rules-coverage.md` is unchanged: no brief rule is tested here.
 - **No new dependency.**
 
@@ -1023,7 +1060,7 @@ Josh's card 8: "Yes, three agents (Recommended)". The main session writes each `
 
 ## Questions for Josh
 
-**Josh's rulings, 22 Nov 2026, on question cards, relayed by the Fable planning session.** Each card and his answer quoted as relayed. These were the questions flagged or held for him here; they are now his own answers (listed again under "Answered by Josh himself").
+**Josh's rulings, 22 Nov 2026, on question cards, relayed by the Fable planning session.** Each card and his answer quoted as relayed. Rulings 1 to 4 came on the morning's four cards (the questions flagged or held for him here); "Poles too" (under 2) and rulings 5 to 7 on later cards. All are his own answers (listed again under "Answered by Josh himself").
 
 1. **B-Q3, what T-1 judges.** Card: "Should that rule judge only what the three passes add or swap, with the clean city's own clashes just reported?" Josh: **"Yes, passes only (Recommended)"**. The overnight answer stands, now as his: T-1 judges only what a pass adds or swaps; the clean city's own clashes are reported each run, not failed. C1 as merged is unchanged.
 2. **F1-Q1, B8 against T-1.** Card: "Which should win in the ruin?" (options "Beside lines only", "Through scenery lines", "Through any dead line"). Josh: **"Through any dead line"** ("Trees may grow through every line in the ruin, including a job's. This drops the cover rule for trees in the ruin."). So, in the ruin era only, T-1 no longer fails a tree crown over a line. T-1 still holds for solid pieces in every era, and for trees in the other eras. F1's under-span set is placed (`RUIN_TREES_UNDER_SPANS` on). Built by **F1b1** (the planner, C1's `readable.ts`: an era-scoped tree exemption; not a clean-city check) then **F1b2** (the ruin-pass: the switch and a re-pin).
@@ -1031,21 +1068,20 @@ Josh's card 8: "Yes, three agents (Recommended)". The main session writes each `
    - **Raised, not settled:** a job is played on the ruin (Q10), so a tree through a job's own line, or over a job's own pole, that the puzzle later relights is covered by his answers as worded. Flagged for K2's cut and F2g (see F1b2).
 3. **Ruin roof growth.** Card: "Should the ruin also put bushes and dead trees on roofs? It is built but switched off." Josh: **"Yes, switch it on (Recommended)"** ("Pieces must fit the roof unscaled and never sit over a rooftop pole or line."). `RUIN_ROOF_GROWTH` goes on in F1b2, with that limit. B10 gains the ruin (the B-table, quoting him).
    - **The roof limit stands:** the card's own words ("never sit over a rooftop pole or line") are narrower than ruling 2, and they are the more specific answer. So roof pieces, dead trees included, keep off rooftop poles and lines; ruling 2's trees are trees grown from the ground. The build card stated this and Josh approved the build as described. **The tension, noted:** a ground tree's crown may now cover a pole in the ruin while a roof piece may not sit over a rooftop pole; that follows his two cards as worded.
-6. **Crowns measured from the trunk.** Card: "The tree changes are merged, but your "Poles too" answer barely shows: a tree's whole crown still keeps 0.3 m off every standing piece, so crowns reach over wire spans but never over a pole or light. Should the clearance be measured from the trunk instead, so crowns really do spread over poles in the ruin?" Josh: **"Yes, from the trunk (Recommended)"** (option text: "A small extra section on the goal branch: trunks keep clear of poles, crowns may overhang them. The ruin's checks are re-pinned. This is what "Poles too" asked for."). Built by **F1b3** (the ruin-pass). It also settles F1b2's trunk reading. In chat, 22 Nov 2026, relayed by the Fable planning session, Josh narrowed it: **"Hold no, trees crowns can absolutely grow into buildings, but the trunks should not grow out of buildings"**, and, asked about fire escapes, awnings and hold-out structures, **"Yes trees don't care about structures outside of where they"** / **"Start their growth"**. So a ruin tree's crown is unconstrained; only the trunk's spot is checked (never in a building, 0.3 m from standing pieces, judged for T-2).
-5. **The build.** Card: "...Should the Opus session build them now on the goal branch?" Josh: **"Yes, build now (Recommended)"** ("Built, reviewed and playtested on goal/city-transformations, merged there when all three are clean. Nothing touches main or is pushed."). F1b1 and F1b2 are approved to build.
 4. **The Sci-Fi City power pole.** Card: "The Sci-Fi City store images show its power pole standing on the pavement at the kerb, not on a roof. You ruled it goes atop buildings and other objects. Keep your ruling?" Josh: **"Allow both"** ("The pole may stand on roofs and on pavements at the kerb in the technology pass."). His 21 Nov quote, "The scifi power poles are intended to be atop buildings and other objects they are not intended to come out of the ground", is superseded for the tech pass. D2's outline and `docs/design/073-pack-intended-use.md` are updated: at the kerb the pole holds rule 10, `FURN_KEEP_M` and T-1 and T-2 like any pavement piece. D2 still waits on K2.
-
+5. **The build.** Card: "...Should the Opus session build them now on the goal branch?" Josh: **"Yes, build now (Recommended)"** ("Built, reviewed and playtested on goal/city-transformations, merged there when all three are clean. Nothing touches main or is pushed."). F1b1 and F1b2 are approved to build.
+6. **Crowns measured from the trunk.** Card: "The tree changes are merged, but your "Poles too" answer barely shows: a tree's whole crown still keeps 0.3 m off every standing piece, so crowns reach over wire spans but never over a pole or light. Should the clearance be measured from the trunk instead, so crowns really do spread over poles in the ruin?" Josh: **"Yes, from the trunk (Recommended)"** (option text: "A small extra section on the goal branch: trunks keep clear of poles, crowns may overhang them. The ruin's checks are re-pinned. This is what "Poles too" asked for."). Built by **F1b3** (the ruin-pass). It also settles F1b2's trunk reading. In chat, 22 Nov 2026, relayed by the Fable planning session, Josh narrowed it: **"Hold no, trees crowns can absolutely grow into buildings, but the trunks should not grow out of buildings"**, and, asked about fire escapes, awnings and hold-out structures, **"Yes trees don't care about structures outside of where they"** / **"Start their growth"**. So a ruin tree's crown is unconstrained; only the trunk's spot is checked (never in a building, 0.3 m from standing pieces, judged for T-2).
 7. **The drawing order.** Card: "Only the technology era is drawn in 3D; the hold-out and ruin are merged but invisible. You ruled instancing is built before the hold-out is drawn. Drawing both eras now adds only about 80 draw calls and needs no circuit work. Which order do you want, so you can review all three eras?" Josh: **"Draw both eras now (Recommended)"** (option text: "Draw the hold-out and the ruin in 3D first, plus flat pictures of each stage; instancing comes after. Fastest route to your artistic review. Changes your earlier order."). Card 7's J2-before-hold-out is changed by this. New sections E2g (the hold-out drawn, and the flat pictures at `stage=tech|holdout|ruin`) and F1g (F1's growth drawn), the renderer's, before J2. E3 and F3 are narrowed to what those two do not draw. See "Sections".
 
-**Open:**
-- **The ruin trees' facing** (F1g): as cut, each sapling and park tree is turned at draw time by a hash of its id (draw-only; no pin moves). The other way is a plan-side yaw from the ruin-pass inside its own pins. The architect's reading; Josh may reverse.
-- F1b2's trunk reading: **settled by Josh**, 22 Nov 2026, "Yes, from the trunk (Recommended)" (ruling 6; F1b3).
-- A tree through a job's own line, or over a job's own pole, on the ruin (ruling 2): for K2's cut and F2g to raise.
-- E2b's stall reading (E2's section): a plaza where every try meets a facade piece gets no stall. Taken under the goal; for Josh to confirm or reverse.
-- **A3's point** (for the main session; not a rule): A3's narrowed kinds make C1's fixture `add()` (kind `"thing"`, a `string`) fail `tsc` once both are on the goal branch. The planner's one-line fix in `src/city/pipeline/erafixtures.ts` (`add()` returns `CityEraPiece<never>`, `kind: "thing" as never`), before C1 merges or straight after (A3 criterion 3). The other way: A3 keeps the layers' kind `string` and only exports the unions, which loses the check that a pass writes only its own kinds.
-- D2's pre-check will ask whether `Bld_Raised_*` may go on roofs as extra storeys (the images show it only at street level). Each later pre-check brings its own, recommended answer first.
+**Open** (each says whose the reading in force is; none is Josh's ruling unless it says so):
+- **The ruin trees' facing** (F1g): as cut and merged, each sapling and park tree is turned at draw time by a hash of its id (draw-only; no pin moves). The other way is a plan-side yaw from the ruin-pass inside its own pins. **Taken under the goal** (the architect's reading); Josh may reverse.
+- F1b2's trunk reading: closed. **Josh's own answer**, 22 Nov 2026, on a question card relayed by the Fable planning session: "Yes, from the trunk (Recommended)" (ruling 6; F1b3).
+- A tree through a job's own line, or over a job's own pole, on the ruin (ruling 2): **not answered**; for K2's cut and F2g to raise with Josh.
+- E2b's stall reading (E2's section): a plaza where every try meets a facade piece gets no stall. **Taken under the goal** by the main session; for Josh to confirm or reverse.
+- **A3's point** (for the main session; not a rule; **closed**: C1 merged with the fix, `add()` returns `CityEraPiece<never>`, taken under the goal): A3's narrowed kinds make C1's fixture `add()` (kind `"thing"`, a `string`) fail `tsc` once both are on the goal branch. The planner's one-line fix in `src/city/pipeline/erafixtures.ts` (`add()` returns `CityEraPiece<never>`, `kind: "thing" as never`), before C1 merges or straight after (A3 criterion 3). The other way: A3 keeps the layers' kind `string` and only exports the unions, which loses the check that a pass writes only its own kinds.
+- D2's pre-check will ask whether `Bld_Raised_*` may go on roofs as extra storeys (the images show it only at street level): **not answered**; until Josh answers, none goes on a roof. Each later pre-check brings its own, recommended answer first.
 
-**Answered by the Fable session on Josh's delegation (21 Nov 2026 night); Josh may reverse.** The delegation: Josh, 21 Nov 2026, in chat: "If the opus session has questions, it can hand off the questions to you, feel free to answer those questions on my behalf". None of these is Josh's ruling.
+**Answered by the Fable session on Josh's delegation (21 to 22 Nov 2026 night); Josh may reverse.** The delegation: Josh, 21 Nov 2026, in chat: "If the opus session has questions, it can hand off the questions to you, feel free to answer those questions on my behalf". None of these is Josh's ruling.
 
 *The B pre-check* (`docs/design/073-B-precheck.md`):
 - **B-Q1, the district rule:** rule A (hashed sizes 1/2/3/4 blocks at 20/30/25/25, grown onto the neighbour sharing the most street). Yes. (B.)
@@ -1071,7 +1107,7 @@ Josh's card 8: "Yes, three agents (Recommended)". The main session writes each `
 - **E2-Q6a, farms in city parks:** allow, as a departure (a park is the city's open soil, which the images show farms on). Only farm pieces whose footprint fits inside the park rectangle; never scaled; never across a kerb in this pass.
 - **E2-Q6b, containers in court stalls and kerb bays:** allow, listed "not shown in the images".
 - **E2-Q6c, Frontier walls as barricades:** allow (the images show them enclosing a settlement; closing a street mouth is the same job). The Apocalypse barricades stay in the ruin's kit.
-- **Q1 to Q5** (option C included): agreed.
+- **Q1 to Q5** (option C included): **taken under the goal** (listed below); the Fable session agreed with them. Not Josh's.
 - **The order:** build E2 now. Barricades are the pass's last step, their own sub-step with their own digest, **not pinned on the named runs until E1 merges**; the rest of E2 may be pinned now.
 - **E2 merges as a pure stage with its flat picture only** (not drawn before J2). The plant's place and the makeshift lines stay with E1. *(The drawing order is superseded by Josh, 22 Nov 2026, ruling 7: E2g draws E2 before J2.)*
 
@@ -1081,10 +1117,12 @@ Josh's card 8: "Yes, three agents (Recommended)". The main session writes each `
   - Grass mounds and saplings on the road: B9, ruin only; on a crossing only flat ground cover; never scaled.
   - Bushes and dead trees on roofs: B10, ruin only; only where the footprint fits the roof deck unscaled; never over or against a rooftop pole or line. If a roof dead tree reads silly in the street screenshot, drop dead trees, keep bushes (the main session's call from the picture). It was held for Josh; **moved to Josh's own answers** (22 Nov 2026: "Yes, switch it on (Recommended)"). F1b2 turns `RUIN_ROOF_GROWTH` on.
   - `Env_Vines_06` on street sign posts: only if its shape wraps or hangs on a post (bounds and one screenshot); if it is a flat sheet like `_01/04/05`, drop it.
-- **Q2, Q3, Q4, Q6:** agreed. Q2: report the left-out count per run, as E2 does for barricades. (F1.)
+- **Q2, Q3, Q4, Q6:** **taken under the goal** (listed below); the Fable session agreed with them, and added for Q2: report the left-out count per run, as E2 does for barricades. Not Josh's. (F1.)
 - **The ruin is not drawn before instancing (J2).** (F1, F3.) *(Superseded by Josh, 22 Nov 2026, ruling 7: F1g draws F1's growth before J2.)*
 
-**Taken under the goal (21 to 22 Nov 2026 night); Josh may reverse.** None of these is Josh's ruling.
+**Taken under the goal by the main session (21 to 22 Nov 2026; the architect's readings included); Josh may reverse.** None of these is Josh's ruling.
+- **E2g and F1g built on ruling 7's option text** as their build approval, as F1b3 was on its card (the main session).
+- **E2b's stall reading:** a plaza where every try meets a facade piece gets no stall (E2b; open above for Josh).
 - **E2-Q1, density bands by `held`:** nothing at 0; clutter, containers, camps and roof panels above 0; barricades, stalls and water towers from 1/3; parks become farms from 2/3. (E2.)
 - **E2-Q2, barricades by option C:** placed only where T-1 and T-2 still hold, last in the pass, after E1's plant and lines (until E1 lands, against what exists; re-checked when E1 lands). (E2.)
 - **E2-Q3:** a barricade removes the stage 9 piece it stands on. (E2.)
@@ -1130,5 +1168,5 @@ Josh's card 8: "Yes, three agents (Recommended)". The main session writes each `
 - **F2 and F2g:** no longer wait for Q12; they wait for their builds and pre-checks only.
 - **F3:** knows what not to draw on a job's parts.
 - **D2's and E1's pre-checks:** a roof-net or makeshift wire over a pole line is reported, not failed (Q13). E1's no-plant districts have a feed rule (Q11).
-- **C1's T-1 reading:** "what covers" is settled (Q13). What T-1 judges is Josh's (B-Q3, 22 Nov 2026), with the ruin's tree exemption (F1-Q1, 22 Nov 2026; F1b1). T-2's walk graph was answered on Josh's delegation (B-Q5).
+- **C1's T-1 reading:** "what covers" is settled (Q13). What T-1 judges is Josh's (B-Q3, 22 Nov 2026), with the ruin's tree exemption (F1-Q1, 22 Nov 2026; F1b1). T-2's walk graph was answered by the Fable session on Josh's delegation (B-Q5).
 - **K2's cut** (outside this ticket): its feed check must skip plant-fed jobs.
