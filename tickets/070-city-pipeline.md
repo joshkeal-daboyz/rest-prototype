@@ -2291,6 +2291,15 @@ Recommended: a small renderer section after J (legend columns as wide as the lon
 ### K1 · Stage 6's design: where the circuit and a puzzle's nodes stand (puzzle-designer; a design note and one worked map, no code). Branch `ticket/070k1-circuit-design`
 **Cut 21 Nov 2026** on Josh's words in chat: "Start 071,K1&L2". Q4: "I think that's stage 6 should be the collaborative work between the puzzle designer and the electrical grid agent".
 
+**Josh's answers to the note's questions** (21 Nov 2026, in chat, on question cards; recorded by the lead-architect; the full table is at the top of `docs/design/070-K1-circuit.md`):
+- **Drops against facades** (question 5). Asked: "on 6x6 seed 1, 24 of 250 service drops (pole-to-building wires at 5.5 m) run into fire escapes or face signs. How should that be handled?" Answer: **"Leave the clashes"** (option text: "Accept about 24 clashes a city for now and fix them later."). So **H2 and H1c are not re-opened**. CK16's stage 7 rows record the clashes as accepted, to fix later. The K1 pre-check reports the count and does not fail on it.
+- **End poles** (question 2). Asked to keep 2.5 m from block ends (corner turns 9.55 m; stop-sign margin 0.02 m). Answer: **"Keep 2.5 m (Recommended)"**.
+- **The layout set** (questions 1, 3, 4 and 6: the pole side; the crossing 2.5 m past the corner; drops on the pole side only; street lights on the far side about every 25 m, at least 3 m from a pole). Answer: **"Yes, all four (Recommended)"**.
+- **The jobs set** (questions 7, 8, 9 and 10: a job is 1 to 4 blocks, starting at one; the crossing height left to 071's pick, with the sag flattened on crossings only for the 6.3 m pole; fuse boxes, breakers and switches on poles only; each job brings its own feed on a pole just outside its district, and the rest is dead). Answer: **"Yes, all of it (Recommended)"**.
+- **Moved from Proposed to Josh's:** CK1, CK6 and CK10 in full. CK5's place (9.55 m). CK2's end slots. CK7's crossing-height rule. CK8's feed per job. CK9's pole side only, and its 5.5 m wall point with the clashes. CK12's poles-only places for fuse boxes, breakers and switches, and the feed's place. CK14's extent, feed span and dead rest. CK16's stage 7 rows and the stop-sign margin. **Still Proposed:** CK4, CK11, CK13 and CK15, and the rest of CK2, CK7, CK8, CK9, CK12 and CK14 (the note's table at the top lists them).
+- **New, unanswered: question 11 (CK7).** 071's picks are now Apocalypse `Powerpole_01` (attachment 5.86 m), Palm `Powerpole_01` and `_02` (8.54 m) and Sci-Fi City `Powerpoll_01` and `_02` (5.02 m). The Sci-Fi City poles attach below the 5.5 m road clearance before any sag, so they cannot carry a crossing even with the flattened sag. Apocalypse holds at a crossing sag of 0.36 m or less (a ratio of about 0.022 on 16.5 m). The recommended answer keeps Sci-Fi City poles off every pole that holds a crossing span. It goes to Josh with the pre-check's questions.
+- **Criterion 8 stays open.** Josh has not played the worked map yet.
+
 **Branch.** From `goal/city-style` at b42b65f or later. It shares no file with TR1, L2 or 071 and may run alongside them.
 
 **Goal.** Josh reads one note that says, as rules a stage can follow, where the pipeline city's power goes: pole slots, spans, service drops, street lights, and the places a puzzle's feed, breakers, switches, fuse boxes, junctions and lamps may stand. He plays one worked map laid by those rules on 6 x 6 seed 1 in the 2D view (`npm run dev`, pick it). K2 (grid-simulator) builds stage 6 from the note once the pre-check has measured it and Josh has answered its questions. Nothing in 3D changes.
@@ -2353,7 +2362,7 @@ Recommended: a small renderer section after J (legend columns as wide as the lon
 - the clearances against stage 4's cells and against stages 7, 8 and 9 as merged;
 - the map's places, re-measured on 6 x 6 seed 1.
 
-Then Josh answers K1's questions and the pre-check's. Then the architect types `CityCircuitLayer` and the city-puzzle fields, and cuts K2.
+Then Josh answers K1's questions and the pre-check's (K1's questions 1 to 10 are answered, 21 Nov 2026, above; question 11 is open; the pre-check reports the stage 7 clashes and the stop-sign margin, and fails on neither). Then the architect types `CityCircuitLayer` and the city-puzzle fields, and cuts K2.
 
 **Files.**
 - new `docs/design/070-K1-circuit.md`. This is outside the designer's usual `puzzles/`, and this ticket grants it;

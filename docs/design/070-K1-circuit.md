@@ -2,9 +2,54 @@
 
 21 Nov 2026, puzzle-designer, branch `ticket/070k1-circuit-design` (from 54d4ddc). Ticket 070, section K1.
 
+## Josh's answers (21 Nov 2026, in chat, on question cards)
+
+Recorded by the lead-architect. Each card's question and Josh's answer are quoted as he saw and chose them.
+
+| Card | Asked | Josh's answer | Covers |
+| --- | --- | --- | --- |
+| 1, drops against facades | "on 6x6 seed 1, 24 of 250 service drops (pole-to-building wires at 5.5 m) run into fire escapes or face signs. How should that be handled?" | **"Leave the clashes"** (the option read: "Accept about 24 clashes a city for now and fix them later.") | Question 5, answered against the recommendation |
+| 2, end poles | Keep 2.5 m from the block ends (corner turns 9.55 m; stop-sign margin 0.02 m) | **"Keep 2.5 m (Recommended)"** | Question 2 |
+| 3, the layout set | Questions 1, 3, 4 and 6: the pole side; the crossing 2.5 m past the corner; drops on the pole side only; street lights on the far side about every 25 m, at least 3 m from a pole | **"Yes, all four (Recommended)"** | Questions 1, 3, 4, 6 |
+| 4, the jobs set | Questions 7, 8, 9 and 10: a job is 1 to 4 blocks, starting at one; the crossing height left to 071's pick, with the sag flattened on crossings only for the 6.3 m pole; fuse boxes, breakers and switches on poles only; each job brings its own feed on a pole just outside its district, and the rest is dead | **"Yes, all of it (Recommended)"** | Questions 7, 8, 9, 10 |
+
+**What the answers settle.**
+- **H2 and H1c are not re-opened.** Drops stay at `DROP_WALL_Y_M` 5.5 m. CK16's stage 7 row for drops records the clashes as **accepted, to fix later**. Because H1c does not re-open, the 2 corner spans through a face novelty sign (CK16's corner-span row) stay too. The K1 pre-check (item 10) **reports** the number of drops and spans meeting a stage 7 box on each run. It does not fail on them.
+- **The 2.5 m end clearance stands.** The stop-sign margin of 0.021 m over `FURN_KEEP_M` is accepted. The pre-check reports the margin on every run.
+- **I2 is still planned**, which is not a re-open. **TR1** fills its keep list once the layer is typed, as before.
+
+**Which rules move from Proposed to Josh's.** The status lines in section 4 are updated to match.
+
+| Rule | Now Josh's (21 Nov 2026) | Still Proposed |
+| --- | --- | --- |
+| CK1 | All of it, including the edge-street and bare-street additions (card 3, question 1) | |
+| CK2 | The end slots, 2.5 m from both ends of a side (card 2) | The even pitch (12.5 m or less), the nudge, `SPAN_ALONG_MAX_M` 20 m |
+| CK3 | (already a ruling; unchanged) | |
+| CK4 | | All of it |
+| CK5 | The span's place, end slot to end slot, 9.55 m (card 2: "every corner turn is then the same 9.55 m") | |
+| CK6 | All of it, including the crossing 2.5 m past the corner (card 3, question 3) | |
+| CK7 | 5.5 m over the road (059, already a ruling); the crossing height left to 071's pick, with the sag flattened on crossings only (card 4, question 8) | The walk clearance (`FURN_MAX_H_M` + 1 m). **The lowest pick breaks the rule: see the CK7 finding below, and question 11.** |
+| CK8 | A feed per job, and the rest of the city dead (card 4, question 10) | One connected network for the city |
+| CK9 | Drops on the pole side only, never across a street (card 3, question 4); the wall point at 5.5 m, with the clashes left in (card 1) | The pairing of column and pole, the tie rule, `DROP_MAX_M` 7.5 m |
+| CK10 | All of it, including the skip at end positions and 3 m from a pole (card 3, question 6) | |
+| CK11 | | All of it |
+| CK12 | Fuse boxes, breakers and switches on poles only (card 4, question 9); the feed on a pole just outside the district (card 4, question 10) | One node per pole, the attachment counts per kind, and the battery, junction and lamp rows |
+| CK13 | | All of it |
+| CK14 | The extent: 1 to 4 blocks, with the first jobs at one (card 4, question 7). One feed span entering per feed, and the rest of the city dead scenery (question 10) | That unnamed poles, spans and drops inside the district are scenery too |
+| CK15 | | All of it (the architect types it) |
+| CK16 | The stage 7 rows: the clashes accepted, to fix later (card 1); the stop-sign margin (card 2) | |
+
+**The CK7 finding (architect, from 071's picks).** 071's picks are now Apocalypse `Powerpole_01` (centre attachment 5.86 m), Palm `Powerpole_01` and `_02` (8.54 m), and Sci-Fi City `Powerpoll_01` and `_02` (5.02 m). The heights are from 071 A's note, section 2. A crossing's lowest conductor must be 5.5 m over the carriageway (059, a ruling).
+- **Palm** clears every crossing at today's `SAG_RATIO` 0.04. On 16.5 m: 8.54 − 0.66 = 7.88 m.
+- **Apocalypse** holds with the flattened sag that card 4 approved. Any crossing may sag at most 0.36 m: a ratio of about 0.022 on 16.5 m and 0.031 on 11.5 m. A 6.5 m crossing clears at 0.04.
+- **Sci-Fi City breaks the rule.** Its attachment, 5.02 m, is already below 5.5 m before any sag, so no sag ratio lets it carry a crossing. On 16.5 m at 0.04 the low point is 4.36 m, as 071 noted. Card 4's "flatten the sag on crossings only" does not cover it. The kerb's height over the carriageway is not counted here, and it would not close a 0.48 m gap. This is **question 11** in section (i).
+- Along and corner spans on a Sci-Fi City pole keep the Proposed walk clearance: an 18.5 m span at 0.04 sags to 4.28 m, over 4.2 m. So the break is on crossings only.
+
+**Still open.** Josh has not played the worked map yet (ticket 070 K1, criterion 8). Question 11 is new and unanswered.
+
 This note sets out the rules stage 6 (`circuit`) follows on the pipeline's cells: pole slots, spans, service drops, street lights, the places a puzzle's nodes may stand, the district a job takes, and how a puzzle laid on the circuit becomes a plain `Puzzle`. It also has one worked map: [`puzzles/city-two-ways-round.json`](../../puzzles/city-two-ways-round.json) and [its note](../../puzzles/city-two-ways-round.md).
 
-- **Status.** Every rule marked **Proposed** is the designer's and is nothing until Josh answers section (i) in chat. Rules marked **Ruling** quote Josh and are not up for change here.
+- **Status.** Every rule marked **Proposed** is the designer's and is nothing until Josh answers section (i) in chat. Rules marked **Ruling** quote Josh and are not up for change here. Josh answered questions 1 to 10 on 21 Nov 2026 (top of this note). The parts those answers settle are marked **Josh's (21 Nov 2026)**.
 - **Numbers.** The numbers are a **sketch**, taken by a throwaway probe outside the repo on 6 x 6 seed 1, one-way on (section 10). The pipeline-designer's pre-check is the record.
 - **Scope.** No code, no `src/core/` type, and no pack key. The pole, wire, lamp and component models belong to 071, K3 and K4.
 
@@ -63,7 +108,7 @@ Each rule gives: the rule, the layer fields it reads, its status, the check K2 m
 
 - **Band.** Bays and build-outs are on the parking band, so on every inner street the pole pavement has no build-out in front of it. Only the two edge streets above and the crossing poles (CK6) stand on `pavementFlush` cells: 129 poles on seed 1.
 - **Reads:** `CityPlanStreet.across0`, `bands`, `section`, `flow`, `outer`; `CityEdgeCell.role`, `street`, `band`.
-- **Status:** **Ruling** (059's default: "the side without the parking band"), with two **Proposed** additions: the edge-street rule and the bare-street rule. Those cases are 059's "avenues on the side whose hash says so", and there are no avenues now (grammar rule 10).
+- **Status:** **Ruling** (059's default: "the side without the parking band"). The edge-street rule and the bare-street rule were Proposed additions and are now **Josh's (21 Nov 2026)**: question 1, "Yes, all four (Recommended)". Those cases are 059's "avenues on the side whose hash says so", and there are no avenues now (grammar rule 10).
 - **K2 checks** that every street has poles on exactly one pavement, the one CK1 names.
 - **Fails:** `x:4`'s poles moved to its lo pavement, beside its parking band.
 
@@ -75,7 +120,7 @@ Each rule gives: the rule, the layer fields it reads, its status, the check K2 m
 - **What changes from the old rule:** the last slot is fixed, the pitch is even rather than fixed, and a slot is moved, not dropped. Both ends of a line then stand at the same place relative to the corner, so every corner span is the same length (CK5). No gap is left where a slot was dropped.
 - On seed 1: **478 slots** (end slots included), 10 landings, and 49 slots nudged.
 - **Reads:** `CityPlanBlock.sides[*].span`, `CityPlanStreet.carriage`, `axis`; `CityEdgeCell.role`; `CityGroundCell.variant` (for CK3).
-- **Status:** **Proposed** (it changes the old rule; 071 (a) says K1 may choose its pitch).
+- **Status:** The end slots at 2.5 m from both ends are **Josh's (21 Nov 2026)**: question 2, "Keep 2.5 m (Recommended)". The even pitch, the nudge and `SPAN_ALONG_MAX_M` stay **Proposed** (they change the old rule; 071 (a) says K1 may choose its pitch).
 - **K2 checks** that the end slots are 2.5 m from the side's ends, every slot is 0.75 m from the carriageway edge, and no along span is longer than `SPAN_ALONG_MAX_M` (**20 m**, Proposed; 18.5 m is the longest on the ten one-way-on runs).
 - **Fails:** a line whose last slot is 9 m from the block's end, or a dropped slot that leaves a 25 m span.
 
@@ -111,7 +156,7 @@ A `pavementFlush` cell (a build-out in front) is allowed: the pole stands on the
   - it passes 5.08 m from a signal mast on that corner, which stands 0.75 m in from the kerb corner along the cell's diagonal (Q43).
 - **Count.** 126 corner spans on seed 1.
 - **Reads:** `CityPlanBlock.sides`.
-- **Status:** **Ruling** that lines turn round block corners (Q45). The span's place is **Proposed**.
+- **Status:** **Ruling** that lines turn round block corners (Q45). The span's place, end slot to end slot at 9.55 m, is **Josh's (21 Nov 2026)**: question 2, "Keep 2.5 m (Recommended)".
 - **K2 checks** that every corner span joins the two end slots at one corner of one block, and that a block corner whose two sides are both pole lines has one.
 - **Fails:** a corner span between two different blocks' end slots (that would cross a junction).
 
@@ -128,7 +173,7 @@ A `pavementFlush` cell (a build-out in front) is allowed: the pole stands on the
 
 - **Results.** On seed 1 every open end found its crossing: 74 crossings, 0 failures. On all ten one-way-on runs there were 0 failures too.
 - **Reads:** `CityPlanBlock.sides[*].across` (the facing block and its span), `CityPlanStreet.carriage`.
-- **Status:** **Ruling** that a line crosses only between junctions (Q45). The crossing's place, at the block end rather than mid-block, is **Proposed**: see question 3.
+- **Status:** **Ruling** that a line crosses only between junctions (Q45). The crossing's place, at the block end rather than mid-block, is **Josh's (21 Nov 2026)**: question 3, "Yes, all four (Recommended)".
 - **K2 checks:**
   - every open end has exactly one crossing;
   - every crossing span is square to its street, starts and ends 0.75 m behind the kerbs, and lies outside every junction's carriageway square and its crossing cells;
@@ -140,7 +185,9 @@ A `pavementFlush` cell (a build-out in front) is allowed: the pole stands on the
 - With 059's `SAG_RATIO` 0.04, a 16.5 m crossing sags 0.66 m, so its conductors must be fixed at **6.16 m** or higher at both poles. The attachment height is the kit's, not the layer's (071: "the layer gives spots and spans, and the kit gives poles and pieces").
 - Along and corner spans are over the walk. They keep their lowest point above `FURN_MAX_H_M` 3.2 m plus 1 m (Proposed), the height stage 8 already names for "an item taller than this keeps clear of wire spans".
 - **Reads:** the spans, and the kit's attachment heights (071 B).
-- **Status:** **Ruling** for 5.5 m (059). The walk clearance is **Proposed**.
+- **Crossing height (Josh's, 21 Nov 2026,** question 8, "Yes, all of it (Recommended)"**).** The attachment height is 071's pick. Where a pick is too short for a crossing at `SAG_RATIO`, the sag is flattened on crossings only.
+- **The lowest pick breaks it.** Sci-Fi City `Powerpoll_01/02` attaches at 5.02 m, under 5.5 m before any sag, so no flattening lets it carry a crossing. Apocalypse `Powerpole_01` (5.86 m) holds at a crossing sag of 0.36 m or less. See the CK7 finding at the top, and question 11.
+- **Status:** **Ruling** for 5.5 m (059). The crossing-height rule is **Josh's (21 Nov 2026)**, pending question 11 for the Sci-Fi City poles. The walk clearance is **Proposed**.
 - **K2 checks** each crossing's lowest point against the kit's attachment table.
 - **Fails:** a crossing hung on a pole whose conductors sit at 6.0 m (5.34 m over the road).
 
@@ -148,7 +195,7 @@ A `pavementFlush` cell (a build-out in front) is allowed: the pole stands on the
 - **Network.** The city's spans make **one connected network**. On seed 1 all 562 poles are in one component. On seeds 1 to 10, one-way on, each run is one component (sketch).
 - **Feed.** The network is **dead** until a job feeds it. Each puzzle has its own feed or feeds (CK12), standing at its district's edge (CK14). The rest of the city is never fed.
 - **Reads:** the poles and spans.
-- **Status:** **Proposed.**
+- **Status:** The feed per job and the dead rest of the city are **Josh's (21 Nov 2026)**: question 10, "Yes, all of it (Recommended)". One connected network for the city stays **Proposed**.
 - **K2 checks** that the city's network is connected, and that each city puzzle's lines are connected from its feed.
 - **Fails:** a city whose crossings are left out at one T: two components.
 
@@ -160,7 +207,7 @@ A `pavementFlush` cell (a build-out in front) is allowed: the pole stands on the
 - **Never across a street.** A building on the non-pole pavement takes no drop. A drop across the street would need its pole end near 6.4 m for 5.5 m over the road, which is storey 2 at the wall.
 - **Numbers.** On seed 1: **250 drops** for 426 street-front buildings (176 face a non-pole pavement), 4.25 to 5.20 m long in plan. In the worked district: 15 drops for 15 buildings.
 - **Reads:** `CityBuildingsLayer.buildings` (`front`, `cells`, `block`); `CityMassLayer.built` (`open`); `CityBuildingsLayer.columns` (`kind`, `front`); the poles.
-- **Status:** **Proposed.** See questions 4 and 5.
+- **Status:** Drops on the pole side only, never across a street, are **Josh's (21 Nov 2026)**: question 4, "Yes, all four (Recommended)". The wall point at 5.5 m with the facade clashes left in is **Josh's (21 Nov 2026)**: question 5, "Leave the clashes" ("Accept about 24 clashes a city for now and fix them later."). The pairing of column and pole, the tie rule and `DROP_MAX_M` stay **Proposed**.
 - **K2 checks** that each drop's building fronts its pole's line, the drop is no longer than `DROP_MAX_M` (**7.5 m**, Proposed), and no drop crosses a carriageway.
 - **Fails:** a drop from a pole across the street, or one to a building that faces a park.
 
@@ -175,7 +222,7 @@ A `pavementFlush` cell (a build-out in front) is allowed: the pole stands on the
 - **What it is.** A street light carries no line. It is scenery: always the same, never a node, never a target.
 - **Numbers.** On seed 1: **113 lights**, 20 to 50 m apart along a side. The closest light to a pole is 6.50 m, and the closest to a stop-sign spot is 11.29 m. Its model is K3's and 071's question.
 - **Reads:** as CK2, on the non-pole pavement.
-- **Status:** **Ruling** for the far side and every second slot (059), and for no line on a light (Q12). The skip at end positions is **Proposed**.
+- **Status:** **Ruling** for the far side and every second slot (059), and for no line on a light (Q12). The skip at end positions is **Josh's (21 Nov 2026)**: question 6, "Yes, all four (Recommended)".
 - **K2 checks** that no light is in a pole's slot or within 3 m of a pole, and that none is on a forbidden cell.
 - **Fails:** a light on the crossing pole's spot.
 
@@ -203,7 +250,7 @@ A `pavementFlush` cell (a build-out in front) is allowed: the pole stands on the
 
 - **What is not a place:** a `pavementCorner`, a street light, and the carriageway. A pole on a corner would be stage 9's mast's place (Q45). A switch on a pole with only 2 attachments would have nowhere to send its second output.
 - **Reads:** the circuit layer, `CityBuildingsLayer.buildings`.
-- **Status:** **Proposed.** See question 9 for fuse boxes on walls.
+- **Status:** Fuse boxes, breakers and switches on poles only (none on walls) are **Josh's (21 Nov 2026)**: question 9, "Yes, all of it (Recommended)". So is the feed on a pole just outside the district (question 10). One node per pole, the attachment counts and the battery, junction and lamp rows stay **Proposed**.
 - **K2 checks** each node's place against the table, and one node per place.
 - **Fails:** a switch on an end slot with one along span and one corner span.
 
@@ -243,7 +290,7 @@ A **damaged cable is one span** of its run. The fault names the line, and the co
 - **The edge is the designer's choice.** The puzzle file lists the blocks, and K2 checks the rest.
 - **The worked map** takes one block, `block:6:6`: 70 m by 80 m, a 318 m ring.
 - **Reads:** `CityPlanBlock.sides[*].across`, the circuit layer.
-- **Status:** **Proposed.** See question 7.
+- **Status:** The extent (1 to 4 blocks, the first jobs at one) is **Josh's (21 Nov 2026)**: question 7, "Yes, all of it (Recommended)". So are one feed span entering per feed and the rest of the city dead scenery (question 10). That unnamed parts inside the district are scenery too stays **Proposed**.
 - **K2 checks:**
   - the district's blocks touch;
   - each line uses only the district's spans or its feed's span;
@@ -298,15 +345,15 @@ interface CityCircuitLayer { stage: "circuit"; poles; spans; drops; lights; keep
 
 | What stage 6 places | Stage 7, facades (as merged) | Stage 8, ground (I, as merged) | Stage 9, traffic (TR1 as cut; not merged on this branch) |
 | --- | --- | --- | --- |
-| **Poles and crossing poles**, 0.75 m behind the kerb, 4.25 m from the wall | **No rule leaves room.** T1 lets a front-face piece reach `CELL_M` past the wall, and an awning `CELL_M` − `AWNING_KERB_M` = 4.7 m, past the poles' 4.25 m. Measured: **0** poles inside a stage 7 footprint on seed 1 (the deepest straight awning, `Shop_Cover_03`, reaches 3.5 m). Room in practice, not by rule: a pre-check item, and a re-open of H1b only if it ever fails. | **NL**: stage 8 keeps `FURN_KEEP_M` from `keepPoints`, which it passes empty today. **I2 fills it** (already in K's plan, not a re-open). On seed 1, 26 of 615 props stand within 1.5 m of a pole (bollards 14, hydrants 9, trees 2, a meter 1) and would move. | **CL** keeps `FURN_KEEP_M` from every stage 6 point (a list passed empty, as I's NL). Masts stand on `pavementCorner`s, and CK3 puts no point there. Stop signs: the nearest pole to any stop-sign spot (ST's numbers, both pavements, both ends of every side) is **1.521 m**, which clears 1.5 m by only 0.021 m. Room is left, but thin (question 2). |
-| **Corner spans**, about 5.6 to 6.0 m up, 1.24 m from the building corner | **No rule.** On seed 1, **2** corner spans pass through a face novelty sign (H1c's F rule lets one rise to the roof). Needs H1c to re-open (face signs keep clear of a corner span), or it is accepted. | `FURN_MAX_H_M` (3.2 m): "an item taller than this keeps clear of wire spans (stage 6's, not read yet)". I2 reads the spans. | Masts are 5.08 m from the span in plan. The span never crosses the carriageway, so no arm meets it. |
+| **Poles and crossing poles**, 0.75 m behind the kerb, 4.25 m from the wall | **No rule leaves room.** T1 lets a front-face piece reach `CELL_M` past the wall, and an awning `CELL_M` − `AWNING_KERB_M` = 4.7 m, past the poles' 4.25 m. Measured: **0** poles inside a stage 7 footprint on seed 1 (the deepest straight awning, `Shop_Cover_03`, reaches 3.5 m). Room in practice, not by rule: a pre-check item, and a re-open of H1b only if it ever fails. | **NL**: stage 8 keeps `FURN_KEEP_M` from `keepPoints`, which it passes empty today. **I2 fills it** (already in K's plan, not a re-open). On seed 1, 26 of 615 props stand within 1.5 m of a pole (bollards 14, hydrants 9, trees 2, a meter 1) and would move. | **CL** keeps `FURN_KEEP_M` from every stage 6 point (a list passed empty, as I's NL). Masts stand on `pavementCorner`s, and CK3 puts no point there. Stop signs: the nearest pole to any stop-sign spot (ST's numbers, both pavements, both ends of every side) is **1.521 m**, which clears 1.5 m by only 0.021 m. Room is left, but thin (question 2). **Accepted (Josh, 21 Nov 2026, question 2: "Keep 2.5 m (Recommended)").** The pre-check reports the margin on every run. |
+| **Corner spans**, about 5.6 to 6.0 m up, 1.24 m from the building corner | **No rule.** On seed 1, **2** corner spans pass through a face novelty sign (H1c's F rule lets one rise to the roof). Needs H1c to re-open (face signs keep clear of a corner span), or it is accepted. **Left as it is (21 Nov 2026):** H1c does not re-open (question 5, "Leave the clashes"). The pre-check reports the count and does not fail on it. | `FURN_MAX_H_M` (3.2 m): "an item taller than this keeps clear of wire spans (stage 6's, not read yet)". I2 reads the spans. | Masts are 5.08 m from the span in plan. The span never crosses the carriageway, so no arm meets it. |
 | **Crossing spans**, over the carriageway, 2.5 m past the corner cell | Nothing of stage 7 is over the road. | Nothing over the road. The closest build-out tree to a crossing span is 5.00 m (stage 4 lays no tree beside a crossing). | Signal arms hang over the approach at the mast, 4.47 m back from the block's end on the corner cell. The crossing is 2.5 m into the block side, so the arm and the span are **6.97 m** apart. |
-| **Drops**, from the pole to the wall at 5.5 m | **No rule.** On seed 1, **24 of 250** drops meet a stage 7 box: escapes 18 (H2, mid columns of qualifying buildings), face novelty signs 6 (H1c). At 5.0 m fascia signs join them too, so 5.5 m is the height. Needs **H2 and H1c to re-open**: the escape host (EH) and the face sign (F) skip a column that takes a drop, read from a keep list. | Over the walk at 5.5 m or more. I2 reads them for its tall items. | Not met. |
+| **Drops**, from the pole to the wall at 5.5 m | **No rule.** On seed 1, **24 of 250** drops meet a stage 7 box: escapes 18 (H2, mid columns of qualifying buildings), face novelty signs 6 (H1c). At 5.0 m fascia signs join them too, so 5.5 m is the height. The note asked for **H2 and H1c to re-open**, so that the escape host (EH) and the face sign (F) skip a column that takes a drop, read from a keep list. **Accepted, to fix later (Josh, 21 Nov 2026, question 5: "Leave the clashes", "Accept about 24 clashes a city for now and fix them later.").** H2 and H1c are not re-opened. The pre-check reports the count on each run and does not fail on it. | Over the walk at 5.5 m or more. I2 reads them for its tall items. | Not met. |
 | **Street lights**, 0.75 m behind the kerb on the far pavement | As poles: **0** inside a stage 7 footprint on seed 1, and no rule. | NL (I2). | CL. The closest stop-sign spot is 11.29 m away. |
 | **Lamp posts** (puzzle-only, mid-span on the pole pavement) | As poles. | NL (I2). | CL. Mid-span is at least 3.75 m from either pole and far from every corner. |
 
 **The re-openings this note would cost** (each one Josh's call, never assumed; question 5):
-- **H2** (escapes) and **H1c** (face novelty signs), to keep off drop columns and corner spans.
+- **H2** (escapes) and **H1c** (face novelty signs), to keep off drop columns and corner spans. **Not re-opened** (Josh, 21 Nov 2026, question 5: "Leave the clashes"). The clashes stay, to fix later.
 - **I2**, which is already planned.
 - **TR1**, which already reads `circuit` and passes its keep list empty. It only fills it once the layer is typed, and its digest re-pins (TR's own note (a)).
 
@@ -316,12 +363,16 @@ interface CityCircuitLayer { stage: "circuit"; poles; spans; drops; lights; keep
 2. **Keep the old 2.5 m from the block end for the first and last pole: yes?** **Yes.** Every corner turn is then the same 9.55 m. *Note:* the stop signs you approved stand 1.0 m from the corner, so the nearest pole is 1.52 m from a sign, just over the 1.5 m keep-out. The alternative is 3.0 m: the margin grows to about 2 m, and corner turns become 10.25 m.
 3. **Lines cross a street 2.5 m past the corner, right after the crosswalk, rather than in the middle of the block: yes?** **Yes.** It is "between junctions, never over one", as you ruled, and it needs no extra poles. A true mid-block crossing would need a short second row of poles on the far pavement to reach it.
 4. **Service drops only to buildings on the pole side of the street, none across a street: yes?** **Yes.** A drop across the road would hang below the 5.5 m road clearance unless it met the wall at the second floor. About 6 in 10 street buildings get a drop (250 of 426 on seed 1); the rest read as fed from behind.
-5. **Drops meet the wall at the first floor, 5.5 m up, and the facade stage is re-opened so that fire escapes and the big face signs keep off a column with a drop (about 1 drop in 10 meets one today): yes?** **Yes.** It is the only way drops and escapes never cross, and the change to H2 and H1c is small: a skip list and a fixture each. The alternatives are to leave the 24 crossings in, or to have no drops until a later ticket.
+5. **Drops meet the wall at the first floor, 5.5 m up, and the facade stage is re-opened so that fire escapes and the big face signs keep off a column with a drop (about 1 drop in 10 meets one today): yes?** **Yes.** It is the only way drops and escapes never cross, and the change to H2 and H1c is small: a skip list and a fixture each. The alternatives are to leave the 24 crossings in, or to have no drops until a later ticket. **Answered (21 Nov 2026): "Leave the clashes"** ("Accept about 24 clashes a city for now and fix them later."). Drops stay at 5.5 m, and H2 and H1c are not re-opened.
 6. **Street lights on the far side, one every second slot (about 25 m), never within 3 m of a pole: yes?** **Yes.** It is your 059 default with the crossing poles kept clear. 113 lights on seed 1.
 7. **A job takes 1 to 4 neighbouring blocks, with the first city jobs at one block (about 320 m of line round it): yes?** **Yes.** One block already holds a ring, two targets and a choice. The rest of the city stays dark scenery while you play.
 8. **Crossing spans need their wires at 6.2 m or more on the poles (16.5 m over a 15 m road, at the sag you approved, keeping 5.5 m clear): leave the pole's height to 071's pick, and if the pick is shorter, flatten the sag on crossings only: yes?** **Yes.** The short apocalypse pole (6.3 m) cannot carry a crossing at today's sag. The palm and sci-fi poles (7.9 to 10.8 m) can.
 9. **Fuse boxes, breakers and switches only on poles for now, not on building walls: yes?** **Yes.** One kind of place keeps the 2D map and the overlay simple. Lamp Row's fuse box inside a shop is a street-layer idea, for later.
 10. **Each city job brings its own feed (a transformer on a pole just outside the district), with the rest of the city's wires dead: yes?** **Yes.** It is the brief's "failing source" per section, and no job depends on another.
+
+**Answered (21 Nov 2026).** Questions 1, 3, 4 and 6: "Yes, all four (Recommended)". Question 2: "Keep 2.5 m (Recommended)". Question 5: "Leave the clashes". Questions 7 to 10: "Yes, all of it (Recommended)". See the top of this note.
+
+11. **New (architect, 21 Nov 2026), unanswered. 071's Sci-Fi City poles (`Powerpoll_01/02`) attach at 5.02 m, below the 5.5 m road clearance before any sag. They cannot carry a crossing at any sag. Keep them off every pole that holds a crossing span (crossing poles and the end slots or landings a crossing lands on), so that 071's mix picks only from Palm and Apocalypse there: yes?** **Yes.** It keeps 059's 5.5 m and 071's five-pole mix, and it is one filter in the mix rule. Apocalypse there needs the crossings-only flattened sag you approved (0.36 m or less, a ratio of about 0.022 on 16.5 m). The alternatives are to scale the Sci-Fi City poles up on crossings, which breaks the true-size city, or to drop them from the city's mix.
 
 ### The list the pre-check must measure (the 20 named runs)
 
@@ -334,7 +385,7 @@ interface CityCircuitLayer { stage: "circuit"; poles; spans; drops; lights; keep
 7. CK9: drops per run, their lengths, and the buildings left without one.
 8. CK10: lights per run, their gaps, and their distance to poles.
 9. CK12: in a one-block district of every run, at least one place of every node kind. Report the blocks with no switch place.
-10. CK16 against the merged stages 4, 7 and 8 and TR1 as cut:
+10. CK16 against the merged stages 4, 7 and 8 and TR1 as cut. The stage 7 clashes and the stop-sign margin are **reported, never failed on** (Josh, 21 Nov 2026, questions 2 and 5):
     - poles and lights inside stage 7 footprints;
     - spans through stage 7 boxes;
     - drops meeting stage 7 boxes, at 5.0, 5.5 and 6.0 m;
