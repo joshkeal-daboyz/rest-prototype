@@ -8,7 +8,8 @@
  * - **The era layers** are held in `CityEraPlan`, beside the clean `CityPlan`, not in `CityLayers`. A clean run never builds one.
  * - **The circuit is not referenced yet.** Poles, spans, drops and street lights (K's ids), the era-added circuit pieces (the hold-out's makeshift poles and spans, the tech roof net) and the
  *   plant place `{ plant: <id> }` are section A2's, typed once K's `CityCircuitLayer` has merged. Until then a `{ id }` reference names an era add only.
- * - **The passes' kinds** (section A3): D1's tech kinds and E2's hold-out kinds, and the hold-out's steps, so E2's barricades have a digest of their own. The ruin's kinds stay `string` until F1 and F2.
+ * - **The passes' kinds** (section A3): D1's tech kinds and E2's hold-out kinds, and the hold-out's steps, so E2's barricades have a digest of their own.
+ * - **The ruin's kinds and steps** (section A4): F1's growth kinds, and the ruin's "growth" / "remnants" steps, so F1's digest does not move when F2 lands. F2 widens the kinds.
  */
 
 import type { CalibrationKey } from "./calibration";
@@ -146,7 +147,10 @@ export interface CityEraPiece<K extends string = string> {
   readonly kind: K;
   /** Its `CityDistrict.id`. */
   readonly district: string;
-  /** The cell its pivot stands in. */
+  /**
+   * The cell the piece belongs to (section A4's wording). For a piece on the ground or a roof, the cell its pivot stands in. For a piece on a wall (a bolt-on, a camera, a tall piece, an overhang,
+   * a sign, an added shopfront, a vine on a face or awning), its host: the built cell whose face it is on.
+   */
   readonly cell: CityCell;
   readonly placement: CityPlacement;
   /** Its extent in plan after the turn (world x and z) and its height, metres: the key's bounds, as `CityGroundProp.size`. */
@@ -178,11 +182,16 @@ export const CITY_TECH_PIECE_KINDS: readonly CityTechPieceKind[] = ["bolt-on", "
 export type CityHoldoutPieceKind = "camp" | "water-tower" | "farm" | "irrigator" | "stall" | "container" | "clutter" | "roof" | "barricade";
 export const CITY_HOLDOUT_PIECE_KINDS: readonly CityHoldoutPieceKind[] = ["camp", "water-tower", "farm", "irrigator", "stall", "container", "clutter", "roof", "barricade"];
 
-/** The ruin's kinds: F1 and F2's cuts name them. */
-export type CityRuinPieceKind = string;
+/**
+ * The ruin's kinds (section A4, for F1's growth; F2 widens it with its remnants: wrecks, rubble, logs, fallen signs, barricades):
+ * - "patch": ground cover on a grown carriageway, parking band, junction, crossing or open-ground cell; "clump": a fern, bush or overgrowth edge on a grown pavement cell's wall line;
+ * - "sapling": a ruin tree (birch or round) in a grown cell; "park-tree": `Tree_Generic_Giant_01` or `Tree_Large_01` in a park; "roof": growth on a roof deck;
+ * - "vine": an `Env_Vines_*` hung from a roof edge, an awning or canopy, or a post (its `cell` the host, as `CityEraPiece.cell` says); "tree-vine": a `Tree_Vines_*` hung from a tree's branches.
+ */
+export const CITY_RUIN_PIECE_KINDS = ["patch", "clump", "sapling", "park-tree", "roof", "vine", "tree-vine"] as const;
+export type CityRuinPieceKind = (typeof CITY_RUIN_PIECE_KINDS)[number];
 
 export type CityTechLayer = CityEraLayer<"tech", CityEraPiece<CityTechPieceKind>>;
-export type CityRuinLayer = CityEraLayer<"ruin", CityEraPiece<CityRuinPieceKind>>;
 
 // ---- the hold-out's steps (section A3, for E2's barricades) ----
 //
@@ -227,6 +236,48 @@ export interface CityHoldoutStepPart {
   readonly stage: "holdout";
   readonly step: CityHoldoutStep;
   readonly adds: CityHoldoutLayer["adds"];
+  readonly changes: readonly CityChange[];
+}
+
+// ---- the ruin's steps (section A4, for F1's growth and F2's remnants) ----
+//
+// The ruin runs in two steps, in this order: F1's growth ("growth"), then F2's remnants ("remnants"), each placed only where T-1 and T-2 still hold with everything before it (option G). Its layer
+// lists its adds and changes step by step, as the hold-out's does, so F1's part is digested on its own and its pin does not move when F2 lands (taken under the goal, 22 Nov 2026 night; Josh may reverse).
+
+export const CITY_RUIN_STEPS = ["growth", "remnants"] as const;
+export type CityRuinStep = (typeof CITY_RUIN_STEPS)[number];
+
+/** The step each ruin kind belongs to. Every F1 kind is "growth"; F2's kinds join "remnants". */
+export const CITY_RUIN_STEP_OF: Readonly<Record<CityRuinPieceKind, CityRuinStep>> = {
+  patch: "growth",
+  clump: "growth",
+  sapling: "growth",
+  "park-tree": "growth",
+  roof: "growth",
+  vine: "growth",
+  "tree-vine": "growth",
+};
+
+/** How many adds and changes one ruin step wrote. A step that wrote nothing is listed with 0 and 0. */
+export interface CityRuinStepCount {
+  readonly step: CityRuinStep;
+  readonly adds: number;
+  readonly changes: number;
+}
+
+/**
+ * Stage 13's layer. `steps` lists every step of `CITY_RUIN_STEPS`, in order; its counts sum to `adds.length` and `changes.length`, and step n's adds and changes are the ones after steps 0 to n-1's.
+ * The ruin pass always writes `steps`; it is optional only so a layer with no steps (a test double, C1's fixtures) is still a ruin layer. The resolver reads `adds` and `changes` only.
+ */
+export interface CityRuinLayer extends CityEraLayer<"ruin", CityEraPiece<CityRuinPieceKind>> {
+  readonly steps?: readonly CityRuinStepCount[];
+}
+
+/** One step's part of the ruin layer, cut out by its counts: the record a step's own digest is taken of (`digestOf`, as a layer's). */
+export interface CityRuinStepPart {
+  readonly stage: "ruin";
+  readonly step: CityRuinStep;
+  readonly adds: CityRuinLayer["adds"];
   readonly changes: readonly CityChange[];
 }
 
