@@ -1,7 +1,7 @@
 # 074 · Asset gallery: every piece of every pack, named, measured and flagged
 
 owner: renderer (sections A, B), ui (section C)
-status: A merged; B and C approved to build
+status: A, B and C merged on the goal branch (`goal/city-transformations`), awaiting Josh's review. Not done. A merged with this ticket and its core types at f46c481; B and C merged together at 5d31586.
 branch: `ticket/074-asset-gallery` (one branch per section: `ticket/074a-asset-catalogue`, `ticket/074b-asset-viewer`, `ticket/074c-asset-gallery-page`)
 
 ## Josh's words (22 Nov 2026, in chat, relayed by the Fable planning session)
@@ -36,7 +36,7 @@ The main session records them from his own message (CLAUDE.md: approval never co
   - `simple-town` (SIMPLE Town): https://syntystore.com/products/simple-town-cartoon-assets
 
   Section B adds them to the catalogue's `PACK_PAGES` table (see B).
-- **Q1, Q2, Q5, Q6** were not on a card. They are taken on the Fable session's reading, the recommended answers, and Josh may reverse any of them: `/?assets=<pack-id>` as its own address (Q1); Copy copies `pack:name` (Q2); three-quarter-front thumbnails (Q5); no all-packs-by-pass view in this ticket (Q6).
+- **Q1, Q2, Q5, Q6** were not on a card. They were answered by the Fable session on Josh's delegation (the recommended answers); none is Josh's ruling, and he may reverse any of them: `/?assets=<pack-id>` as its own address (Q1); Copy copies `pack:name` (Q2); three-quarter-front thumbnails (Q5); no all-packs-by-pass view in this ticket (Q6).
 
 ## Goal
 Josh opens `npm run dev`, goes to `/?assets=<pack-id>`, and sees one gallery per pack in the converted manifest: POLYGON City, Town, Palm City, Sci-Fi City, Sci-Fi Frontier, Nature, the two Apocalypse subsets (ruin, power), and SIMPLE Town. Each piece is shown as a small rendered card with its exact name (one click copies it), its size in metres, its triangle count and its manifest flags (untextured, missing textures, scale-suspect, never used). The card also lists which passes use the piece, and shows the intended-use note where the research note has one. He can search by name, filter by use (any pass, or "unused") and by flag, and page through. Clicking a card opens it large with orbit, a 5 m module square under it, a 1.8 m person marker beside it and its +z front marked. Every pack has a link to its store page. Every state of the page has its own address, so he can paste a link to a piece into an instruction. It runs only on his machine and only in a dev build. Nothing from the packs is committed or saved.
@@ -57,6 +57,8 @@ Josh opens `npm run dev`, goes to `/?assets=<pack-id>`, and sees one gallery per
 ## Acceptance criteria
 
 ### A. The catalogue (renderer; pure; Vitest). Goes first.
+**Status:** merged on the goal branch at f46c481, awaiting Josh's review.
+
 `src/render3d/assetcatalogue.ts`, no three, no DOM. It implements the pure half of `AssetGallery` (types in `src/core/assetgallery.ts`).
 - [ ] (Vitest) `assetGalleryPacks(manifest)` gives one `AssetGalleryPack` per manifest pack, in manifest order, with `pieceCount` and `failures` from the manifest. Its `title` and `storeUrl` come from a typed table `PACK_PAGES`. The store URLs are the five in `docs/design/073-pack-intended-use.md` (Sci-Fi City, Sci-Fi Frontier, Palm City, Nature, Apocalypse for both subsets) plus whatever Josh gives under Q4. A pack the table does not know keeps its id as title and has `storeUrl: null`.
 - [ ] (Vitest) `assetGalleryPieces(manifest, pack)` gives one `AssetGalleryPiece` per asset entry. It sets `key` `pack:name`, `name` exactly as in the manifest, `size_m` from the bounds' extents (as `sizeOf`), `triangles`, `textured` (`textures` non-empty), and `warnings` and `missingTextures` copied. `neverUsed` is `isNeverUsed(key)` (`CITY_NEVER_USED`) for `city-pack` keys only and false elsewhere. A fixture with a scale-100 pack and a `scale-suspect` entry shows the sizes are the bounds as given, never rescaled.
@@ -78,6 +80,8 @@ Josh opens `npm run dev`, goes to `/?assets=<pack-id>`, and sees one gallery per
 - [ ] (Vitest, lazy) When `assets/private/out/manifest.json` exists on the machine: every key `pieceUses()` names is in the manifest (any that is not is listed in the failure message), and every `PIECE_NOTES` pattern matches at least one piece of its pack. When the file is absent, the test is skipped with a line saying so.
 
 ### B. The viewer (renderer; three; Vitest for the pure parts, Josh in the browser). After A.
+**Status:** merged on the goal branch at 5d31586 (with C), awaiting Josh's review. Approved to build by Josh's Card 1, "Yes, all of them (Recommended)".
+
 First, three fixes to A's catalogue (`src/render3d/assetcatalogue.ts`), from A's review and Josh's Card 2. Josh will instruct from this page, so the notes must be whole and must name only what they say.
 - [ ] (Vitest) `PACK_PAGES` has the three store URLs Josh's Card 2 settled, as listed under "Josh's answers": `city-pack`, `town-pack` and `simple-town`. All nine manifest packs then have a `storeUrl`.
 - [ ] (Vitest) No `PIECE_NOTES` row is shortened. Every row carries its note in full from `docs/design/073-pack-intended-use.md`: the text, its limits, and any departure with Josh's words. Tests pin the two A's review found short: `palm-city-pack:SM_Env_Vines_06` has its limits, and the sapling row has Josh's words and T-2.
@@ -95,6 +99,8 @@ Then the viewer:
 - [ ] (Josh, browser) Thumbnails of one page appear one after another within a few seconds of the pack loading. The PC stays responsive while Palm City (1101 pieces, 103 MB) is open and paged through.
 
 ### C. The page (ui; Vitest for the pure parts, Josh in the browser). After A and B merge.
+**Status:** merged on the goal branch at 5d31586 (with B), awaiting Josh's review. Approved to build by Josh's Card 1, "Yes, all of them (Recommended)".
+
 `src/ui/assetgallery.ts` (the DOM page) and `src/ui/assetgallerylogic.ts` (pure), plus the dev-only branch in `src/main.ts`.
 - [ ] (Vitest) `assetGalleryRequested(search)` reads `assets=<pack-id>` and returns null without it. A bare `assets` (or an unknown id, once the packs are read) opens the first pack. It also reads `q`, `use`, `flag`, `page` and `piece=<name>`. Unknown values fall back to `"" / any / any / 1 / none`. `assetGalleryUrl(query, piece)` writes them back, so the two round-trip.
 - [ ] (Vitest) `src/main.ts` takes the gallery branch only behind `import.meta.env.DEV` and before any puzzle is opened. It is a static read of the source, as `streetcam.test.ts` does for `renderer.ts`. In that branch no puzzle, HUD or map renderer is made, and it lazy-imports `./render3d` and `./ui/assetgallery`.
@@ -127,11 +133,11 @@ Written into `src/core/assetgallery.ts` on this branch: `ASSET_GALLERY_USES`, `A
 - **The intended-use note is typed, not parsed.** A table keeps a test able to pin every row against the manifest. The markdown stays the source: a later change to the note is a one-row change to `PIECE_NOTES`.
 
 ## Open questions (recommended answer first)
-All six are settled; see "Josh's answers". Q3 and Q4 by his cards; Q1, Q2, Q5 and Q6 on the Fable session's reading, which Josh may reverse. Kept below as asked.
+All six are settled; see "Josh's answers". Q3 and Q4 are Josh's own (his cards, relayed by the Fable planning session); Q1, Q2, Q5 and Q6 were answered by the Fable session on Josh's delegation, and Josh may reverse them. Kept below as asked, each with its label.
 
-1. **Address.** `/?assets=<pack-id>` on its own, with no puzzle and no `view=3d` (recommended: it is not a map). Or `?view=3d&assets=<pack-id>`, beside the other 3D dev views.
-2. **What Copy copies.** The key `pack:name`, for example `sci-fi-city-pack:SM_Prop_Powerpoll_01` (recommended: it is what every kit table and ticket uses), with the bare name still selectable. Or the bare name only.
-3. **Which packs.** Every pack in the manifest, including SIMPLE Town (the 16 Nov test pack) and `apocalypse-power` (071's subset) (recommended: the manifest is the record, and a pack nobody uses shows as all "unused"). Or only the seven the Fable session named.
-4. **Store links for City, Town and SIMPLE Town.** The research note gives no URL for them. Recommended: Josh pastes the three URLs at G1, and until then those packs show no link. The builder does not look them up.
-5. **Thumbnail angle.** Three-quarters from the piece's +z front, 30° up (recommended: it shows the front the kits assume and one side). Or straight on the front.
-6. **A view by pass across packs** (for example every ruin piece from Apocalypse, Nature and Palm City on one page). Recommended: not in this ticket. The use filter within each pack covers "review each pass", and a cross-pack page would hold three GLBs (about 120 MB for the ruin). It can be a later ticket after Josh has used this one.
+1. **Address.** `/?assets=<pack-id>` on its own, with no puzzle and no `view=3d` (recommended: it is not a map). Or `?view=3d&assets=<pack-id>`, beside the other 3D dev views. (Answered by the Fable session on Josh's delegation: the recommended `/?assets=<pack-id>`.)
+2. **What Copy copies.** The key `pack:name`, for example `sci-fi-city-pack:SM_Prop_Powerpoll_01` (recommended: it is what every kit table and ticket uses), with the bare name still selectable. Or the bare name only. (Answered by the Fable session on Josh's delegation: the recommended `pack:name`.)
+3. **Which packs.** Every pack in the manifest, including SIMPLE Town (the 16 Nov test pack) and `apocalypse-power` (071's subset) (recommended: the manifest is the record, and a pack nobody uses shows as all "unused"). Or only the seven the Fable session named. (Josh's own, Card 1: "Yes, all of them (Recommended)": all nine packs.)
+4. **Store links for City, Town and SIMPLE Town.** The research note gives no URL for them. Recommended: Josh pastes the three URLs at G1, and until then those packs show no link. The builder does not look them up. (Josh's own, Card 2: "You find them (Recommended)". This replaces the recommendation above: the Fable session found the three URLs, listed under "Josh's answers".)
+5. **Thumbnail angle.** Three-quarters from the piece's +z front, 30° up (recommended: it shows the front the kits assume and one side). Or straight on the front. (Answered by the Fable session on Josh's delegation: the recommended three-quarters from +z.)
+6. **A view by pass across packs** (for example every ruin piece from Apocalypse, Nature and Palm City on one page). Recommended: not in this ticket. The use filter within each pack covers "review each pass", and a cross-pack page would hold three GLBs (about 120 MB for the ruin). It can be a later ticket after Josh has used this one. (Answered by the Fable session on Josh's delegation: the recommended "not in this ticket".)
