@@ -7,8 +7,8 @@
  * whole width, and the legend wraps under it.
  */
 
-import { CITY_STAGES, type CityPicture, type CityPlanRun, type CityPlanStage } from "../core";
-import { BUILT_STAGES, runCity } from "../city/pipeline";
+import { CITY_ERAS, CITY_STAGES, type CityEra, type CityEraPicture, type CityPicture, type CityPlanRun, type CityPlanStage } from "../core";
+import { BUILT_STAGES, ERA_STAGES, runCity, runCityEra } from "../city/pipeline";
 import { CITY_BLOCKS_MAX, PLAN_BLOCKS_DEFAULT, TILE_M } from "../city/streets";
 import type { MapRenderer3d } from "./renderer";
 
@@ -19,7 +19,9 @@ export interface PlanViewRequest {
   blocksZ: number;
   seed: number;
   /** The stage asked for, or null when `stage` is not a plan stage (the viewer then lists the built ones). */
-  stage: CityPlanStage | null;
+  stage: CityPlanStage | "history" | null;
+  /** `era=clean|tech|holdout|ruin` (ticket 073 C2); anything else, or absent, is "clean". The 3D view reads it; the flat pictures ignore it. */
+  era: CityEra;
   /** What `stage` said, as typed (empty when absent). */
   stageText: string;
 }
@@ -47,6 +49,12 @@ export function legendColumnWidth(names: readonly string[], font: number, measur
   return Math.max(120, Math.round(font * 9), Math.ceil(widest + font + 6 + 8));
 }
 
+/** The era a query asks for (ticket 073 C2): a name of `CITY_ERAS` in any case, else "clean". Pure. */
+export function eraRequested(search: string): CityEra {
+  const t = (new URLSearchParams(search).get("era") ?? "").trim().toLowerCase();
+  return CITY_ERAS.find((e) => e === t) ?? "clean";
+}
+
 /** The names of the stages that are built, in order. */
 export const builtStageNames = (): string[] => BUILT_STAGES.map((s) => s.name);
 
@@ -68,11 +76,12 @@ export function planViewRequested(search: string): PlanViewRequest | null {
   const seedText = (q.get("seed") ?? "").trim();
   const seed = /^-?\d+$/.test(seedText) ? Number.parseInt(seedText, 10) : 1;
   const stageText = (q.get("stage") ?? "").trim();
-  let stage: CityPlanStage | null;
+  let stage: CityPlanStage | "history" | null;
   if (stageText === "") stage = BUILT_STAGES[BUILT_STAGES.length - 1]!.name;
   else if (/^\d+$/.test(stageText)) stage = PLAN_STAGES[Number.parseInt(stageText, 10) - 1] ?? null;
+  else if (stageText.toLowerCase() === "history") stage = "history";
   else stage = PLAN_STAGES.find((s) => s === stageText.toLowerCase()) ?? null;
-  return { blocksX, blocksZ, seed: Number.isSafeInteger(seed) ? seed : 1, stage, stageText };
+  return { blocksX, blocksZ, seed: Number.isSafeInteger(seed) ? seed : 1, stage, stageText, era: eraRequested(search) };
 }
 
 // ---- the picture as pixels ----
@@ -88,7 +97,7 @@ export interface PictureRgba {
  * The picture as pixels: each lattice cell is a `scale` x `scale` square of its legend colour, and each point is a small square (a third of a cell, at least one pixel) of its legend colour
  * centred on its place (`x_m`, `z_m` over `TILE_M` cells). An index outside the legend is magenta so a broken picture is seen. Pure.
  */
-export function pictureToRgba(picture: CityPicture, scale: number): PictureRgba {
+export function pictureToRgba(picture: CityPicture | CityEraPicture, scale: number): PictureRgba {
   const s = Math.max(1, Math.floor(scale));
   const width = picture.w * s;
   const height = picture.h * s;
@@ -147,7 +156,7 @@ export function wrapLines(text: string, max: number): string[] {
 
 export interface PlanShown {
   /** The picture to draw, or null when there is none (an unknown stage, or the first stage failed). */
-  picture: CityPicture | null;
+  picture: CityPicture | CityEraPicture | null;
   /** The banner's text, or null when all is well. */
   banner: string | null;
   /** The header line over the picture. */
@@ -169,6 +178,7 @@ export function planShown(req: PlanViewRequest): PlanShown {
   const where = `${req.blocksX}x${req.blocksZ} seed ${req.seed}`;
   const unknown = (what: string): PlanShown => ({ picture: null, banner: `${what}. Built stages: ${built.join(", ")}.`, title: `city plan ${where}` });
   if (req.stage === null) return unknown(`Unknown stage "${req.stageText}"`);
+  if (req.stage === "history") return historyShown(req, where);
   if (!built.includes(req.stage)) return unknown(`Stage "${req.stage}" is not built yet`);
   let run: CityPlanRun;
   try {
@@ -183,6 +193,24 @@ export function planShown(req: PlanViewRequest): PlanShown {
     banner: `Stage ${f.stage} failed (seed ${f.seed}, ${f.blocksX}x${f.blocksZ}): ${f.reason}`,
     title: `${f.stage} failed - showing ${lastGoodPicture(run)?.stage ?? "nothing"}`,
   };
+}
+
+/**
+ * The history stage's flat district picture (ticket 073 B, criterion 7 moved to C2), by the same flat-picture path the clean stages use. It runs the era runner with the history stage alone, so a built
+ * pass never runs for this picture.
+ */
+function historyShown(req: PlanViewRequest, where: string): PlanShown {
+  const history = ERA_STAGES.filter((s) => s.name === "history");
+  try {
+    const run = runCityEra({ blocksX: req.blocksX, blocksZ: req.blocksZ, seed: req.seed }, "tech", history);
+    if (!run.ok) {
+      const f = run.failure;
+      return { picture: null, banner: `Stage ${f.stage} failed (seed ${f.seed}, ${f.blocksX}x${f.blocksZ}): ${f.reason}`, title: `${f.stage} failed` };
+    }
+    return { picture: history[0]!.picture(run.plan), banner: null, title: `history - ${where}` };
+  } catch (e) {
+    return { picture: null, banner: e instanceof Error ? e.message : String(e), title: `city plan ${where}` };
+  }
 }
 
 // ---- the canvas ----

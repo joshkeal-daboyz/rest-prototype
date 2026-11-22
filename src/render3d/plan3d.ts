@@ -35,8 +35,9 @@ import {
   type Texture,
   type WebGLRenderer,
 } from "three";
-import { type AssetEntry, type CalibrationKey, type CityBuildingsLayer, type CityCell, type CityFacadesLayer, type CityGroundPieceKind, type CityGroundCell, type CityGroundPlace, type CityGroundProp, type CityWallBox, type CityKerbPath, type CityMassLayer, type CityPieceRole, type CityPlacement, type CityPlan, type CityPlanRun, type CitySide, type CityStageFailure, type CityStreetsLayer, type CityTrafficPieceKind } from "../core";
-import { runCity } from "../city/pipeline";
+import { type AssetEntry, type CalibrationKey, type CityBuildingsLayer, type CityCell, type CityEra, type CityEraRun, type CityEraStageFailure, type CityFacadesLayer, type CityGroundPieceKind, type CityGroundCell, type CityGroundPlace, type CityGroundProp, type CityWallBox, type CityKerbPath, type CityMassLayer, type CityPieceRole, type CityPlacement, type CityPlan, type CityPlanRun, type CitySide, type CityStageFailure, type CityStreetsLayer, type CityTrafficPieceKind } from "../core";
+import { CITY_ERAS } from "../core";
+import { CityResolveError, resolvePlan, runCity, runCityEra } from "../city/pipeline";
 import type { Insets } from "../render/geometry";
 import { createDayToggle, pageDayToggleHost, type DayToggle, type DayToggleHost } from "./daytoggle";
 import { applyLightMode, addSurface, newLightOwners, setRendererMode, type LightOwners } from "./lightrig";
@@ -159,6 +160,8 @@ export interface PlanAssembleRequest {
   /** `at=i,j` (a cell) and `dir` (`+x`, `-x`, `+z`, `-z`), or null. Only the street camera reads them. */
   at: CityCell | null;
   dir: CitySide | null;
+  /** `era=clean|tech|holdout|ruin` (ticket 073 C2); "clean" when absent or unknown. */
+  era: CityEra;
 }
 
 /**
@@ -179,6 +182,7 @@ export function planAssembleRequested(search: string): PlanAssembleRequest | nul
     seed: base.seed,
     street: q.get("cam") === "street",
     at: m ? { i: Number.parseInt(m[1]!, 10), j: Number.parseInt(m[2]!, 10) } : null,
+    era: base.era,
     dir: dir === "+x" || dir === "-x" || dir === "+z" || dir === "-z" ? dir : null,
   };
 }
@@ -196,8 +200,34 @@ export function tilesPlanRequested(search: string): PlanAssembleRequest | null {
 }
 
 /** The line the failure is shown as: the stage, the seed and the size, and the reason (nothing is drawn). Pure. */
-export function planFailureText(f: CityStageFailure): string {
+export function planFailureText(f: CityStageFailure | CityEraStageFailure): string {
   return `City plan failed at stage "${f.stage}" (seed ${f.seed}, ${f.blocksX} x ${f.blocksZ}): ${f.reason}`;
+}
+
+// ---- the era (ticket 073 C2) ----
+
+/** The era the switch steps to from `era`: clean, tech, holdout, ruin, then round to clean. Pure. */
+export function nextEra(era: CityEra): CityEra {
+  return CITY_ERAS[(CITY_ERAS.indexOf(era) + 1) % CITY_ERAS.length]!;
+}
+
+/** What the draw reads at an era: the plan to draw, or the text that says why there is none. */
+export type PlanAtEra = { readonly plan: CityPlan; readonly text: null } | { readonly plan: null; readonly text: string };
+
+/**
+ * The plan the draw reads at `era`. "clean" is the clean plan itself, with no era stage run (X-7). An era above it reads `resolvePlan(eraRun.plan, era).plan`, never the raw layers (ticket 073 C2, criterion 2);
+ * with no pass built, that plan is the clean one. `eraRun` is the era run for that era (the caller runs it). A failed run or a failed resolve gives the text and no plan. Pure.
+ */
+export function planAtEra(clean: CityPlan, era: CityEra, eraRun: CityEraRun | null): PlanAtEra {
+  if (era === "clean") return { plan: clean, text: null };
+  if (eraRun === null) return { plan: null, text: `City plan at era "${era}" has no era run` };
+  if (!eraRun.ok) return { plan: null, text: planFailureText(eraRun.failure) };
+  try {
+    return { plan: resolvePlan(eraRun.plan, era).plan, text: null };
+  } catch (e) {
+    if (e instanceof CityResolveError) return { plan: null, text: `City plan cannot be resolved at era "${era}": ${e.message}` };
+    throw e;
+  }
 }
 
 // ---- the street pieces ----
@@ -1044,6 +1074,8 @@ export interface PlanRendererOptions {
   toggleHost?: DayToggleHost;
   /** The plan to draw (default: the one `req` asks for). */
   run?: CityPlanRun;
+  /** The era run for an era above clean (default: `runCityEra` for the era asked). A test passes its own. */
+  eraRun?: (era: CityEra) => CityEraRun;
 }
 
 /** The ground under the whole city reaches this far (metres) past its edge, and lies this far (metres) under the carriageway surface. */
@@ -1074,9 +1106,31 @@ export function createPlanAssembleRenderer3d(gl: WebGLRenderer, canvas: HTMLCanv
   let stopText: string | null = null;
   /** The console line the next frame prints, once the models have swapped in (it needs the frame's own draw-call count). */
   let report: ((calls: number) => string) | null = null;
-  const plan: CityPlan | null = run.ok ? run.plan : null;
-  const streetsLayer = plan?.layers.streets;
+  const cleanPlan: CityPlan | null = run.ok ? run.plan : null;
+  const streetsLayer = cleanPlan?.layers.streets;
   if (!run.ok) stopText = planFailureText(run.failure);
+  // The era (ticket 073 C2): what the draw reads is `resolvePlan`'s plan for an era above clean. A change of era swaps the drawn pieces; the camera, the light and the models stay.
+  let era: CityEra = req.era;
+  const eraRuns = new Map<CityEra, CityEraRun>();
+  const eraRunOf = (e: CityEra): CityEraRun => {
+    let r = eraRuns.get(e);
+    if (!r) {
+      r = (opts.eraRun ?? ((x: CityEra) => runCityEra({ blocksX: req.blocksX, blocksZ: req.blocksZ, seed: req.seed }, x)))(e);
+      eraRuns.set(e, r);
+    }
+    return r;
+  };
+  const atEra = (e: CityEra): PlanAtEra => (cleanPlan ? planAtEra(cleanPlan, e, e === "clean" ? null : eraRunOf(e)) : { plan: null, text: stopText ?? "" });
+  const cleanFailed = stopText !== null;
+  let eraText: string | null = null;
+  let plan: CityPlan | null = cleanPlan;
+  if (stopText === null && cleanPlan) {
+    const first = atEra(era);
+    plan = first.plan;
+    eraText = first.text;
+    if (eraText !== null) stopText = eraText;
+  }
+  let lastBuild: Parameters<typeof build> | null = null;
   if (stopText === null && streetsLayer) {
     frame = { minX: 0, minY: 0, maxX: streetsLayer.w * TILE_M * S, maxY: streetsLayer.h * TILE_M * S };
     ground = new Mesh(
@@ -1090,6 +1144,7 @@ export function createPlanAssembleRenderer3d(gl: WebGLRenderer, canvas: HTMLCanv
   }
   const build = (roots: ReadonlyMap<CalibrationKey, Object3D>, entries: ReadonlyMap<CalibrationKey, AssetEntry>, colourways?: ReadonlyMap<string, Texture>, stopAtlas?: Texture): void => {
     if (!plan || stopText !== null) return;
+    lastBuild = [roots, entries, colourways, stopAtlas];
     try {
       const next = plan3dGroups(plan, roots, entries, colourways, stopAtlas);
       if (draw) {
@@ -1143,6 +1198,55 @@ export function createPlanAssembleRenderer3d(gl: WebGLRenderer, canvas: HTMLCanv
       applyLightMode(scene, gl, mode, owners);
       toggle?.sync(mode);
     });
+  }
+
+  // The era switch: a small control on the page that steps clean, tech, holdout, ruin and back, and writes `era` into the address. It swaps the drawn pieces only: the rig, the street camera, the light and the
+  // loaded models stay as they are, so the camera does not move (ticket 073 C2, criterion 3).
+  let eraButton: { remove(): void } | null = null;
+  const setEra = (next: CityEra, label: (e: CityEra) => void): void => {
+    if (cleanFailed) return;
+    era = next;
+    label(era);
+    if (typeof history !== "undefined" && typeof location !== "undefined") {
+      try {
+        const u = new URL(location.href);
+        u.searchParams.set("era", era);
+        history.replaceState(history.state, "", u);
+      } catch {
+        // An address that cannot be rewritten still leaves the switch working.
+      }
+    }
+    const r = atEra(era);
+    if (r.plan === null) {
+      eraText = r.text;
+      stopText = r.text;
+      showText(r.text);
+      return;
+    }
+    eraText = null;
+    if (stopText !== null) {
+      stopText = null;
+      note?.remove();
+      note = null;
+    }
+    plan = r.plan;
+    if (lastBuild) build(...lastBuild);
+    else build(new Map(), new Map());
+  };
+  if (typeof document !== "undefined" && canvas.parentElement && !cleanFailed) {
+    const host = canvas.parentElement;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.style.cssText = "position:absolute;right:12px;bottom:12px;z-index:6;padding:10px 16px;min-height:44px;font:16px sans-serif;border-radius:6px;border:1px solid #888;background:rgba(20,22,26,0.88);color:#e6e3da;cursor:pointer;";
+    btn.setAttribute("data-era-switch", "");
+    const label = (e: CityEra): void => {
+      btn.textContent = `era: ${e} (tap for ${nextEra(e)})`;
+      btn.setAttribute("data-era", e);
+    };
+    label(era);
+    btn.addEventListener("click", () => setEra(nextEra(era), label));
+    host.appendChild(btn);
+    eraButton = { remove: () => btn.remove() };
   }
 
   function resize(): void {
@@ -1233,6 +1337,8 @@ export function createPlanAssembleRenderer3d(gl: WebGLRenderer, canvas: HTMLCanv
       canvas.style.touchAction = touchAction;
       toggle?.dispose();
       toggle = null;
+      eraButton?.remove();
+      eraButton = null;
       note?.remove();
       note = null;
       setRendererMode(gl, "night");

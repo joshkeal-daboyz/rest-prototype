@@ -313,7 +313,7 @@ describe("criterion 5: the era runner runs history", { timeout: 120_000 }, () =>
   it("runCityEra(options, \"tech\") on 6 x 6 seed 1 writes the history layer with the pinned digest, and its picture has the district legend", () => {
     const r = runCityEra({ blocksX: 6, blocksZ: 6, seed: 1 }, "tech");
     if (!r.ok) throw new Error(`era run failed at ${r.failure.stage}: ${r.failure.reason}`);
-    expect(Object.keys(r.plan.layers)).toEqual(["history"]);
+    expect(Object.keys(r.plan.layers)).toEqual(["history", "tech"]); // the tech pass (073 D1) is registered too
     expect(r.plan.digests.history).toBe("11f95e7f");
     const layer = r.plan.layers.history!;
     expect(Object.isFrozen(layer)).toBe(true);

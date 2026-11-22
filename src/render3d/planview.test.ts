@@ -12,7 +12,7 @@ describe("planViewRequested", () => {
   });
 
   it("defaults to 6 x 6, seed 1 and the last built stage", () => {
-    expect(planViewRequested("?city=plan")).toEqual({ blocksX: 6, blocksZ: 6, seed: 1, stage: BUILT_STAGES[BUILT_STAGES.length - 1]!.name, stageText: "" });
+    expect(planViewRequested("?city=plan")).toEqual({ blocksX: 6, blocksZ: 6, seed: 1, stage: BUILT_STAGES[BUILT_STAGES.length - 1]!.name, stageText: "", era: "clean" });
   });
 
   it("reads a stage by name or by number 1 to 8", () => {

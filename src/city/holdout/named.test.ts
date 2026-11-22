@@ -29,12 +29,12 @@ interface Run {
   readonly parks: number;
 }
 
-/** What the pin test pins: the digest of the "power" and "settle" parts on each pin city, one-way on (taken 22 Nov 2026 night, on the clean city and `history` alone, with no circuit; D1 and K2 re-take them). The power part is the same on every city: it is empty until E1. */
+/** What the pin test pins: the digest of the "power" and "settle" parts on each pin city, one-way on (taken 22 Nov 2026 night, on the clean city and `history` alone, with no circuit; re-taken 22 Nov 2026 once D1 merged, since the tech layer's removes now reach the plan; K2 re-takes them). The power part is the same on every city: it is empty until E1. */
 const PIN_PARTS: Readonly<Record<number, { readonly power: string; readonly settle: string }>> = {
-  1: { power: "5aa380c8", settle: "a037ea8a" },
-  2: { power: "5aa380c8", settle: "fb62da3d" },
-  3: { power: "5aa380c8", settle: "90bc0e46" },
-  8: { power: "5aa380c8", settle: "cb61a21c" },
+  1: { power: "5aa380c8", settle: "87b76815" },
+  2: { power: "5aa380c8", settle: "849c7c3f" },
+  3: { power: "5aa380c8", settle: "733a2555" },
+  8: { power: "5aa380c8", settle: "d0be899e" },
 };
 
 const CLEAN_STAGES = CITY_STAGES.filter((s): s is CityPlanStage => s !== "assemble");
