@@ -28,6 +28,7 @@ import * as stacks from "./stacks";
 import * as streetcam from "./streetcam";
 import * as terrace from "./terrace";
 import * as edgeConstants from "../city/edge/constants";
+import { CELL_M } from "../city/ground/constants";
 import * as massConstants from "../city/mass/constants";
 import * as tilecity from "./tilecity";
 import * as tileslots from "./tileslots";
@@ -1053,5 +1054,25 @@ describe("the guide and the grammar carry traffic control (ticket 070 TR2, crite
     for (const n of ["0.5 m", "1.0 m", "0.75 m", "4.6 m"]) expect(rule, n).toContain(n);
     expect(rule).toContain("Check. Stage 9's TC1 to TC5 and keys; R12's allowance in the drawing".replace("Check. ", "**Check.** "));
     expect(grammar).toContain("| traffic control | every junction's control by DS to C; every piece placed by MA, ST, PK and clear by CL | 13 | TR1, TR1b |");
+  });
+});
+
+// ---- ticket 070 L2c: the L1 review's leftovers in the guide ----
+// The drift checks above that read an old-path module (`tilecity`, `tileslots`, `frontage`, `parkmetrics`) are all kind (b): each one checks a Numbers row whose File cell is still `tilecity.ts`, `tileslots.ts`,
+// `frontage.ts` or `parkmetrics.ts`, or the old path's table text of 18.8 and 19.7, so each goes with its line in L2d. The rows the pipeline owns (PARK_PER_HOME, both PARK_SUPPLY_BANDs) are already read from the stage modules (L1).
+
+describe("the guide's L1 leftovers are marked (ticket 070 L2c)", () => {
+  const t18 = chapter(18).join("\n");
+  const t19 = chapter(19).join("\n");
+
+  it("18.2's homes bullet gives the lattice figure from the 5 m cell, and marks the old 62 m2 as the old path's", () => {
+    expect(CELL_M).toBe(5);
+    expect(t18).toContain(`a home is two column-floors of one ${CELL_M} m cell each (grammar rule 5: a column is a ${CELL_M}.0 m cell, so 2 x ${CELL_M}.0 m x ${CELL_M}.0 m = ${2 * CELL_M * CELL_M} m2)`);
+    expect(t18).toContain("The old path's figure was 2 x 5.2 m x 6 m, about 62 m2 (`city=tiles-old`, until L2d).");
+    expect(t18).not.toContain("a home is two column-floors (2 x 5.2 m x 6 m, about 62 m2)");
+  });
+
+  it("19.2's default marks a seam and a gated passage as the old path's only", () => {
+    expect(t19).toContain("a seam and a gated passage are the old path's only: the plan has no passage type, and its rows always close");
   });
 });

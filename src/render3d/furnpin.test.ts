@@ -17,7 +17,7 @@ import { NOVELTY_BOUNDS } from "../city/facades/noveltykit";
 import { CODE_ESCAPE, CODE_ESCAPE_KEY, WALL_BOUNDS } from "../city/facades/wallkit";
 import { isNeverUsed } from "./citymetrics";
 import * as OLD from "./furniture";
-import * as TILE from "./tilecity";
+import * as TILE from "./oldvalues.fixture";
 import { TILE_BENCH, TILE_BINS, TILE_TREES } from "./tileslots";
 
 /** The furniture's own sizes, as `furniture.test.ts` holds them: [name, width, height, depth] in metres. The paving panel is in the old table and not in the kit (PZ). */

@@ -47,7 +47,7 @@ import { runBlocks } from "./citymetrics";
 import { BUILDING_FRONTS } from "./models";
 import { STACK_STYLES, assembleStack, type Stack } from "./stacks";
 import { packTown, type PackedBlock } from "./terrace";
-import { TILE_CITY_R7_MIN, tileCity } from "./tilecity";
+import { TILE_CITY_R7_MIN } from "./oldvalues.fixture";
 import { LOT_TYPE_NAMES, WORLD_PER_METRE, townLayout, type TerraceRun } from "./town";
 
 const k = (name: string): CalibrationKey => `city-pack:${name}`;
@@ -699,6 +699,10 @@ function sitesOf(list: readonly { run: TerraceRun; block: PackedBlock }[]): Dres
   });
 }
 
+// Ticket 070 L2c: the old tile city (default, 3 x 3 seeds 1 to 20, 6 x 4 seeds 1 to 10) was the input of the cases below; the input is now these ladder maps' towns.
+const LADDER_TOWNS = ["56-whole-ward", "55-leave-it-blown", "63-keep-the-wire", "59-move-the-meeting", "49-two-cells", "35-cell-light", "50-the-whole-quarter", "33-take-the-feed-out", "15-meet-in-the-middle", "40-the-priests-list", "48-the-old-arrangement"];
+const ladderTown = (file: string): Town => townLayout(loadPuzzle(JSON.parse(readFileSync(join("puzzles", `${file}.json`), "utf8"))));
+
 interface Town {
   terraces: readonly TerraceRun[];
   lots: Parameters<typeof packTown>[0]["lots"];
@@ -725,16 +729,15 @@ function townReport(t: Town, label: string): { escapes: number; qualifying: numb
 }
 
 describe("every escape of the town passes the check (criteria 4 and 5)", () => {
-  it("passes on the default tile city and seeds 1 to 10 at 3 x 3, and the share of qualifying blocks with an escape holds the tile city's floor", { timeout: 300000 }, () => {
+  it("passes on eleven ladder maps' towns, and the share of qualifying blocks with an escape holds the tile city's floor", { timeout: 300000 }, () => {
     expect(TILE_CITY_R7_MIN).toBe(0.4);
     let escapes = 0;
-    for (const seed of [undefined, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
-      const c = seed === undefined ? tileCity() : tileCity({ blocksX: 3, blocksZ: 3, seed });
-      const r = townReport(c.town, `seed ${String(seed)}`);
-      expect(r.failures, `seed ${String(seed)}`).toEqual([]);
-      expect(r.codeDrawn, `seed ${String(seed)} has the pack's pieces`).toBe(0);
-      expect(r.qualifying, `seed ${String(seed)}`).toBeGreaterThan(30);
-      expect(r.escapes, `seed ${String(seed)}`).toBeGreaterThan(10);
+    for (const file of LADDER_TOWNS) {
+      const r = townReport(ladderTown(file), file);
+      expect(r.failures, file).toEqual([]);
+      expect(r.codeDrawn, `${file} has the pack's pieces`).toBe(0);
+      expect(r.qualifying, file).toBeGreaterThan(30);
+      expect(r.escapes, file).toBeGreaterThan(10);
       escapes += r.escapes;
     }
     expect(escapes).toBeGreaterThan(150);
@@ -910,11 +913,9 @@ describe("the guaranteed share on the tile city and the ladder maps (criteria 2,
     return r;
   }
 
-  it("holds the tile floor (0.4) on the default city, seeds 1 to 20 at 3 x 3 and seeds 1 to 10 at 6 x 4, with no tuned key behind it", { timeout: 300000 }, () => {
+  it("holds the tile floor (0.4) on eleven ladder maps' towns, with no tuned key behind it", { timeout: 300000 }, () => {
     expect(TILE_CITY_R7_MIN).toBe(0.4);
-    expectGuarantee(tileCity().town, TILE_CITY_R7_MIN, "default");
-    for (let seed = 1; seed <= 20; seed++) expectGuarantee(tileCity({ blocksX: 3, blocksZ: 3, seed }).town, TILE_CITY_R7_MIN, `3x3 seed ${seed}`);
-    for (let seed = 1; seed <= 10; seed++) expectGuarantee(tileCity({ blocksX: 6, blocksZ: 4, seed }).town, TILE_CITY_R7_MIN, `6x4 seed ${seed}`);
+    for (const file of LADDER_TOWNS) expectGuarantee(ladderTown(file), TILE_CITY_R7_MIN, file);
   });
 
   it("holds the ladder's 0.5 on the three protocol maps, as ceil(0.5 x qualifying), which is also what dressTown does with no option", { timeout: 300000 }, () => {
@@ -930,8 +931,9 @@ describe("the guaranteed share on the tile city and the ladder maps (criteria 2,
 
   it("gives the same blocks twice, and a changed hash key moves which blocks are chosen but never puts R7 under the floor", { timeout: 300000 }, () => {
     let moved = 0;
-    for (const seed of [1, 2, 3, 4, 5, 6]) {
-      const t = tileCity({ blocksX: 3, blocksZ: 3, seed }).town;
+    for (const [k, file] of LADDER_TOWNS.slice(0, 6).entries()) {
+      const seed = k + 1;
+      const t = ladderTown(file);
       const a = realised(t, TILE_CITY_R7_MIN);
       const again = realised(t, TILE_CITY_R7_MIN);
       expect([...again.choice.chosen].sort(), `seed ${seed}`).toEqual([...a.choice.chosen].sort());
