@@ -16,6 +16,7 @@ import { stageRand } from "../pipeline/seeds";
 import { BUILT_STAGES, ERA_STAGES, runCity, runCityEra } from "../stages";
 import { KIT_KEYS } from "./kit";
 import { buildRuin, ruinStage, stepPart } from "./stage";
+import { handCircuit } from "./fixtures";
 import { NAMED, PINNED, eraRun, label, type City } from "./testcities";
 
 interface Run {
@@ -33,15 +34,16 @@ interface Run {
 }
 
 /**
+^ * Re-taken in F1b3 (22 Nov 2026) for Josh's rulings: "Yes, from the trunk (Recommended)"; "Hold no, trees crowns can absolutely grow into buildings, but the trunks should not grow out of buildings"; "Yes trees don't care about structures outside of where they" / "Start their growth". A ruin tree is judged by its trunk only; its size is the trunk square.
  * Re-taken in F1b2 (22 Nov 2026) for Josh's two rulings: roof growth on ("Yes, switch it on") and ruin trees under spans ("Through any dead line", "Poles too"); the roof pieces move the growth digests. FLAG for K2 and F2g: a tree may now stand over a job's own pole, line or drop end; each cut should say whether that stays, is listed for the puzzle-designer, or goes back to Josh.
  * What the pin test pins: the digest of the layer's "growth" part on each pin city, one-way on (taken 22 Nov 2026 night, on the clean city, `history`, the tech and hold-out layers, and no circuit. Re-taken when D2,
  * E1 or E2's barricade step changes what stands before it, and when K2's circuit lands: the ruin-pass, in a one-line follow-up named in that merge).
  */
 const PIN_GROWTH: Readonly<Record<number, string>> = {
-  1: "e51a4fe7",
-  2: "ca840282",
-  3: "50153fce",
-  8: "47ee6639",
+  1: "f41ad53c",
+  2: "4230097d",
+  3: "db016721",
+  8: "780cecbd",
 };
 
 const CLEAN_STAGES = CITY_STAGES.filter((s): s is CityPlanStage => s !== "assemble");
@@ -199,6 +201,26 @@ describe("R-3, R-4, X-7: determinism, the pins, the clean run", { timeout: 900_0
   });
 });
 
+describe("F1b3: the reports on the hand-placed circuit of each pin city (stage 6 is empty until K2; on the named runs these rows read 0)", { timeout: 900_000 }, () => {
+  it("prints, per pin city, the trees placed, the crowns over each kind of circuit point and through a span, the crowns into a building, and the trees refused by the trunk rule", () => {
+    const lines: string[] = [];
+    for (const [seed, p] of pinned) {
+      const circuit = handCircuit(p.plan);
+      const on = buildRuin(p.plan, stageRand("ruin", seed), { circuit });
+      const off = buildRuin(p.plan, stageRand("ruin", seed), { circuit, treesUnderSpans: false });
+      const trees = (b: typeof on): number => b.layer.adds.filter((a) => a.kind === "sapling" || a.kind === "park-tree").length;
+      const s = on.stats;
+      const g = (k: string): number => s[k] ?? 0;
+      lines.push(
+        `seed ${seed}: circuit poles ${circuit.poles.length}, lights ${circuit.lights.length}, lamp places ${circuit.lampPlaces.length}, drops ${circuit.drops.length}, spans ${circuit.lines.length}; trees placed ${trees(on)} (off: ${trees(off)}); crowns over a pole ${g("crownOverPole")}, a light ${g("crownOverLight")}, a lamp-post place ${g("crownOverLampPlace")}, a drop end ${g("crownOverDropEnd")}, through a span ${g("crownOverSpan")} (listed ${on.underSpanSpots.length}); crowns into a building ${g("crownIntoBuilding")}; refused by the trunk: building ${g("refusedTrunk:building")}, standing piece ${g("refusedTrunk:standing")}, circuit point ${g("refusedTrunk:circuit")}, T-2 ${g("leftOutT2:sapling") + g("leftOutT2:park-tree")}`,
+      );
+      expect(on.underSpanSpots).toHaveLength(g("crownOverSpan"));
+    }
+    console.info(`F1b3 hand-placed circuit\n${lines.join("\n")}`);
+    expect(lines).toHaveLength(4);
+  });
+});
+
 describe("R-6, R-7: the folder's files", () => {
   const DIR = fileURLToPath(new URL("./", import.meta.url));
   const files = readdirSync(DIR).filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts") && f !== "testcities.ts" && f !== "fixtures.ts");
@@ -239,6 +261,8 @@ describe("criterion 13: the numbers (reported, not asserted)", { timeout: 900_00
     lines.push(`patches that are overgrowth / mounds: ${range(runs.map((r) => stat(r, "patch:overgrowth")))} / ${range(runs.map((r) => stat(r, "patch:mound")))}`);
     lines.push(`vines by slot: roof edge ${range(runs.map((r) => stat(r, "vine:edge")))}; beside a drop ${range(runs.map((r) => stat(r, "vine:drop")))}; awning ${range(runs.map((r) => stat(r, "vine:awning")))}; canopy ${range(runs.map((r) => stat(r, "vine:canopy")))}; post ${range(runs.map((r) => stat(r, "vine:post")))}; tree-vines ${range(runs.map((r) => stat(r, "vine:tree")))}`);
     lines.push(`vine candidates (face / host / post / tree): ${range(runs.map((r) => stat(r, "candidates:vine-face")))} / ${range(runs.map((r) => stat(r, "candidates:vine-host")))} / ${range(runs.map((r) => stat(r, "candidates:vine-post")))} / ${range(runs.map((r) => stat(r, "candidates:tree-vine")))}`);
+    lines.push(`crowns into a building a city (the trunk outside it; no circuit needed): ${range(runs.map((r) => stat(r, "crownIntoBuilding")))}; trees refused by the trunk: building ${range(runs.map((r) => stat(r, "refusedTrunk:building")))}, standing piece ${range(runs.map((r) => stat(r, "refusedTrunk:standing")))}`);
+    lines.push(`crowns over a pole, light, lamp-post place, drop end or span (no circuit on the named runs: 0): ${range(runs.map((r) => stat(r, "crownOverPole") + stat(r, "crownOverLight") + stat(r, "crownOverLampPlace") + stat(r, "crownOverDropEnd") + stat(r, "crownOverSpan")))}`);
     lines.push(`distinct keys: ${range(runs.map((r) => new Set(r.layer.adds.map((a) => a.placement.key)).size))}`);
     lines.push(`left out for no room (patch / clump / sapling): ${range(runs.map((r) => stat(r, "skippedFit:patch")))} / ${range(runs.map((r) => stat(r, "skippedFit:clump")))} / ${range(runs.map((r) => stat(r, "skippedFit:sapling")))}`);
     lines.push(`left out by option G (T-2), per run: patch ${range(runs.map((r) => stat(r, "leftOutT2:patch")))}, sapling ${range(runs.map((r) => stat(r, "leftOutT2:sapling")))}, clump ${range(runs.map((r) => stat(r, "leftOutT2:clump")))} (no circuit on the named runs until K2: so none)`);

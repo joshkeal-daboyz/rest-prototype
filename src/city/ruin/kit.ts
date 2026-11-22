@@ -24,8 +24,22 @@ export interface KitEntry {
   readonly d: number;
   /** X-5: nothing is emissive. A typed `false`, so a lit piece cannot be added without editing the type. */
   readonly emissive: false;
+  /** A sapling's or park tree's trunk (F1b3): the disc at its pivot that is judged, and where the crown begins. Only those keys have one. */
+  readonly trunk?: Trunk;
 }
-const e = (kinds: readonly CityRuinPieceKind[], w: number, h: number, d: number): KitEntry => ({ kinds, w, h, d, emissive: false });
+/**
+ * A tree's trunk, measured from the converted GLB by a one-off read outside the repo (22 Nov 2026; plain Node on `nature-pack.glb`, no Blender). The method: a key whose mesh has a separate trunk primitive (material "Trunk*") and
+ * leaf primitive (material "Leav*") gives `top_m` = the lowest leaf vertex's height and `r_m` = half the trunk primitive's widest plan extent below that height, rounded up to 0.01 m. A key whose mesh is one primitive
+ * (the five round trees and the large tree) cannot be read so: it gets a conservative value, `measured: false` (the half of the widest plan extent of every vertex under 30 % of its height, rounded up to 0.05 m, and a trunk
+ * height of 1.5 m, or 2.0 m for the large tree). A conservative trunk only makes a tree harder to place, never easier.
+ */
+export interface Trunk {
+  readonly r_m: number;
+  readonly top_m: number;
+  readonly measured: boolean;
+}
+const e = (kinds: readonly CityRuinPieceKind[], w: number, h: number, d: number, trunk?: Trunk): KitEntry => (trunk === undefined ? { kinds, w, h, d, emissive: false } : { kinds, w, h, d, emissive: false, trunk });
+const tr = (r_m: number, top_m: number, measured = true): Trunk => ({ r_m, top_m, measured });
 
 /** The pass's kit: every key it may add, with its kinds and bounds. */
 export const KIT: Readonly<Record<CalibrationKey, KitEntry>> = {
@@ -50,18 +64,18 @@ export const KIT: Readonly<Record<CalibrationKey, KitEntry>> = {
   [nat("Plant_Bush_01")]: e(["clump", "roof"], 1.615, 2.041, 1.415),
   [nat("Plant_Bush_02")]: e(["clump"], 2.092, 2.003, 1.789),
   // saplings
-  [nat("Tree_Birch_01")]: e(["sapling"], 2.454, 4.547, 2.289),
-  [nat("Tree_Birch_02")]: e(["sapling"], 2.498, 5.399, 2.789),
-  [nat("Tree_Birch_03")]: e(["sapling"], 2.14, 5.399, 2.106),
-  [nat("Tree_Birch_04")]: e(["sapling"], 2.522, 4.891, 2.461),
-  [nat("Tree_Round_01")]: e(["sapling"], 2.922, 3.759, 2.242),
-  [nat("Tree_Round_02")]: e(["sapling"], 3.86, 4.731, 2.456),
-  [nat("Tree_Round_03")]: e(["sapling"], 1.777, 3.601, 1.683),
-  [nat("Tree_Round_04")]: e(["sapling"], 2.329, 3.834, 1.814),
-  [nat("Tree_Round_05")]: e(["sapling"], 3.804, 4.853, 2.646),
+  [nat("Tree_Birch_01")]: e(["sapling"], 2.454, 4.547, 2.289, tr(0.11, 1.02)),
+  [nat("Tree_Birch_02")]: e(["sapling"], 2.498, 5.399, 2.789, tr(0.1, 0.22)),
+  [nat("Tree_Birch_03")]: e(["sapling"], 2.14, 5.399, 2.106, tr(0.09, 1.29)),
+  [nat("Tree_Birch_04")]: e(["sapling"], 2.522, 4.891, 2.461, tr(0.11, 1.43)),
+  [nat("Tree_Round_01")]: e(["sapling"], 2.922, 3.759, 2.242, tr(0.35, 1.5, false)),
+  [nat("Tree_Round_02")]: e(["sapling"], 3.86, 4.731, 2.456, tr(0.35, 1.5, false)),
+  [nat("Tree_Round_03")]: e(["sapling"], 1.777, 3.601, 1.683, tr(0.3, 1.5, false)),
+  [nat("Tree_Round_04")]: e(["sapling"], 2.329, 3.834, 1.814, tr(0.3, 1.5, false)),
+  [nat("Tree_Round_05")]: e(["sapling"], 3.804, 4.853, 2.646, tr(0.35, 1.5, false)),
   // park trees: the giant's crown is 13.12 m across in plan (w 12.604, d 13.12), radius 6.56 m
-  [nat("Tree_Generic_Giant_01")]: e(["park-tree"], 12.604, 11.192, 13.12),
-  [nat("Tree_Large_01")]: e(["park-tree"], 9.298, 8.833, 5.422),
+  [nat("Tree_Generic_Giant_01")]: e(["park-tree"], 12.604, 11.192, 13.12, tr(1.1, 1.7)),
+  [nat("Tree_Large_01")]: e(["park-tree"], 9.298, 8.833, 5.422, tr(1.65, 2.0, false)),
   // roof dead trees (only with `RUIN_ROOF_GROWTH`)
   [nat("Tree_Dead_01")]: e(["roof"], 1.246, 3.503, 1.423),
   [nat("Tree_Dead_02")]: e(["roof"], 1.189, 2.663, 1.07),
@@ -111,11 +125,28 @@ export const KIT_KEYS: ReadonlySet<CalibrationKey> = new Set(Object.keys(KIT) as
 export const TREE_KEYS: ReadonlySet<CalibrationKey> = new Set([...SAPLING_KEYS, GIANT_KEY, LARGE_KEY]);
 export const ruinIsTree = (k: CalibrationKey): boolean => TREE_KEYS.has(k);
 
-/** The kit's bounds in the readable checks' shape (width x, depth z, height), unturned; undefined for a key that is not the pass's. */
-export const ruinBounds: BoundsOf = (k: CalibrationKey): KitBounds | undefined => {
+/** The kit's full bounds (width x, depth z, height), unturned: a tree's whole crown. What the reports read a crown by. Undefined for a key that is not the pass's. */
+export const ruinCrownBounds: BoundsOf = (k: CalibrationKey): KitBounds | undefined => {
   const t = KIT[k];
   return t === undefined ? undefined : { x_m: t.w, z_m: t.d, h_m: t.h };
 };
+
+/**
+ * The bounds the readable checks read (F1b3): a sapling or park tree is its trunk square (side 2 x `r_m`, `top_m` high), so T-2 judges the trunk and not the crown; every other key is its full bounds. The ruin's trees carry
+ * this as their `size` too, since a piece with a size is read by it.
+ */
+export const ruinBounds: BoundsOf = (k: CalibrationKey): KitBounds | undefined => {
+  const t = KIT[k];
+  if (t === undefined) return undefined;
+  return t.trunk === undefined ? { x_m: t.w, z_m: t.d, h_m: t.h } : { x_m: 2 * t.trunk.r_m, z_m: 2 * t.trunk.r_m, h_m: t.trunk.top_m };
+};
+
+/** The trunk of a sapling or park tree key. Throws for any other key. */
+export function trunkOf(key: CalibrationKey): Trunk {
+  const t = KIT[key]?.trunk;
+  if (t === undefined) throw new Error(`${key} has no trunk in the ruin kit`);
+  return t;
+}
 
 // ---- the City Pack awnings and door canopies a vine hangs over (the facades kit's bounds, copied; pinned equal by `ruinpin.test.ts`) ----
 export interface HostBounds {

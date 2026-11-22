@@ -13,7 +13,8 @@ import { stageRand } from "../pipeline/seeds";
 import { ERA_STAGES } from "../stages";
 import { RUIN_ROOF_GROWTH } from "./constants";
 import { ruinBounds, ruinIsTree } from "./kit";
-import { buildRuin, makeRuinStage, ruinPicture, ruinStage, stepPart, stepParts } from "./stage";
+import { buildRuin, crownSized, makeRuinStage, ruinPicture, ruinStage, stepPart, stepParts } from "./stage";
+import { handCircuit } from "./fixtures";
 import { beforeRuin, PINNED, withWild } from "./testcities";
 
 const CITY = PINNED[0]!;
@@ -114,64 +115,40 @@ describe("criterion 2: density reads wild only (X-6)", { timeout: 300_000 }, () 
 });
 
 describe("T-1 and T-2 with a hand-placed circuit on the real city (stage 6 is empty until K2)", { timeout: 600_000 }, () => {
-  // a pole beside every 40th pavement cell's middle, and a span between consecutive poles that are near each other
-  const edge = BASE.plan.layers.edge!;
-  const pave = edge.cells.filter((c) => c.role === "pavement");
-  // (a pole an earlier pass's piece covers is left out: T-1 judges every era's adds, and this fixture is about the ruin's)
-  const before = resolveBefore(BASE, "ruin");
-  const earlier = [...(before.adds.tech ?? []), ...(before.adds.holdout ?? [])];
-  const covered = (x: number, z: number): boolean => earlier.some((a) => Math.abs(x - a.placement.x_m) <= a.size.x_m / 2 + 1 && Math.abs(z - a.placement.z_m) <= a.size.z_m / 2 + 1);
-  let poles = pave
-    .map((c) => ({ x_m: (c.i + 0.5) * 5 + 1, z_m: (c.j + 0.5) * 5 + 1 }))
-    .filter((p) => !covered(p.x_m, p.z_m))
-    .filter((_, n) => n % 40 === 0)
-    .map((p, n) => ({ id: `pole:${n}`, ...p }));
-  // and a pole an earlier pass's piece already cuts off on foot is left out too (the hold-out was built with no circuit)
-  for (let round = 0; round < 8; round++) {
-    const f = t2Failures(before, { bounds: ruinBounds, isTree: ruinIsTree, circuit: { poles, lights: [], lampPlaces: [], drops: [], lines: [], wires: [] } });
-    if (f.length === 0) break;
-    const bad = new Set(f.map((x) => x.pole));
-    poles = poles.filter((p) => !bad.has(p.id));
-  }
-  const lines = poles
-    .slice(1)
-    .map((p, n) => ({ p, q: poles[n]! }))
-    .filter(({ p, q }) => Math.hypot(p.x_m - q.x_m, p.z_m - q.z_m) < 60)
-    .map(({ p, q }, n) => ({ id: `span:${n}`, a: { x_m: q.x_m, z_m: q.z_m }, b: { x_m: p.x_m, z_m: p.z_m } }));
-  const circuit: CircuitPoints = { poles, lights: [], lampPlaces: [], drops: [], lines, wires: [] };
+  const circuit: CircuitPoints = handCircuit(BASE);
   const wildPlan = withWild(BASE, () => 0.9);
   const out = buildRuin(wildPlan, rand, { circuit });
+  const off = buildRuin(wildPlan, rand, { circuit, treesUnderSpans: false });
 
   it("the stage returns (T-1 and T-2 hold by the real checks, run on the whole layer inside it) and places a layer", () => {
-    expect(poles.length).toBeGreaterThan(20);
+    expect(circuit.poles.length).toBeGreaterThan(20);
+    expect(circuit.lights.length + circuit.lampPlaces.length + circuit.drops.length).toBeGreaterThan(10);
     expect(out.layer.adds.length).toBeGreaterThan(500);
   });
 
-  it("some tree spots are under a span (B8, Josh: \"Through any dead line\") and are placed now; the off switch keeps them out", () => {
+  it("an under-span spot is listed only once its tree is placed (a saplings or a park tree); the off switch (F1's crown-clear rule) lists none and places none through a line", () => {
     expect(out.underSpanSpots.length).toBeGreaterThan(0);
     const placed = new Set(out.layer.adds.filter((a) => a.kind === "sapling" || a.kind === "park-tree").map((a) => a.id));
     for (const s of out.underSpanSpots) expect(placed.has(s.id)).toBe(true);
-    const off = buildRuin(wildPlan, rand, { circuit, treesUnderSpans: false });
-    const offPlaced = new Set(off.layer.adds.map((a) => a.id));
-    for (const s of off.underSpanSpots) expect(offPlaced.has(s.id)).toBe(false);
-    expect(off.underSpanSpots.length).toBeGreaterThan(0);
+    expect(out.underSpanSpots).toHaveLength(out.stats["crownOverSpan"] ?? 0);
+    expect(off.underSpanSpots).toHaveLength(0);
+    expect(off.stats["crownOverSpan"] ?? 0).toBe(0);
   });
 
-  it("pieces were left out by option G or by the circuit, and are counted", () => {
-    const leftOut = Object.entries(out.stats).filter(([k]) => k.startsWith("leftOutT2:") || k.startsWith("skippedCircuit:"));
-    expect(leftOut.length).toBeGreaterThan(0);
+  it("trees are refused by the trunk rule, by what, and counted; pieces are left out by option G, and counted", () => {
+    const refused = Object.entries(out.stats).filter(([k]) => k.startsWith("refusedTrunk:") || k.startsWith("leftOutT2:"));
+    expect(refused.length).toBeGreaterThan(0);
   });
 
-  it("with the under-span constant off (a test double) the crown-clear rule stands and the stage still returns; with it on the crowns over the circuit are reported by t1RuinTreeCovers", () => {
-    expect(() => buildRuin(wildPlan, rand, { circuit, treesUnderSpans: false })).not.toThrow();
+  it("the crowns over the circuit are reported by t1RuinTreeCovers from each tree's full crown, and the stage does not throw on them", () => {
     const own: CityEraPlan = { plan: wildPlan.plan, layers: { ...wildPlan.layers, ruin: out.layer }, digests: wildPlan.digests };
     const resolved = resolveBefore(own, "ruin");
-    const withRuin = { ...resolved, adds: { ...resolved.adds, ruin: out.layer.adds } };
-    const covers = t1RuinTreeCovers(withRuin, { bounds: ruinBounds, isTree: ruinIsTree, circuit });
+    const crowned = { ...resolved, adds: { ...resolved.adds, ruin: crownSized(out.layer.adds) } };
+    const covers = t1RuinTreeCovers(crowned, { bounds: ruinBounds, isTree: ruinIsTree, circuit });
     const byWhat: Record<string, number> = {};
     for (const f of covers) byWhat[f.what] = (byWhat[f.what] ?? 0) + 1;
-    console.info(`F1b2 hand-placed circuit: poles ${poles.length}, spans ${lines.length}; under-span spots placed ${out.underSpanSpots.length}; crown over span (placed) ${out.stats["crownOverSpan"] ?? 0}, over a point (placed) ${out.stats["crownOverPoint"] ?? 0}; roof pieces ${out.layer.adds.filter((a) => a.kind === "roof").length}; t1RuinTreeCovers ${covers.length} ${JSON.stringify(byWhat)}`);
     expect(covers.length).toBeGreaterThan(0);
+    expect(byWhat["canopyOverLine"] ?? 0).toBe(out.stats["crownOverSpan"] ?? 0);
   });
 
   it("the independent checks, called by name on the resolved era, find nothing", () => {

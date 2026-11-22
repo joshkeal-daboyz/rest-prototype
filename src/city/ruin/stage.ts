@@ -26,7 +26,7 @@ import type { StageRand } from "../pipeline/seeds";
 import { RUIN_ROOF_DEAD_TREES, RUIN_ROOF_GROWTH, RUIN_TREES_UNDER_SPANS, RUIN_VINE_06 } from "./constants";
 import { cellsOver, rectAt } from "./geom";
 import { growRuin, type GrowResult, type UnderSpanSpot } from "./grow";
-import { ruinBounds, ruinIsTree } from "./kit";
+import { ruinBounds, ruinCrownBounds, ruinIsTree } from "./kit";
 import { buildWorld } from "./world";
 
 export interface RuinOptions {
@@ -132,3 +132,15 @@ export function makeRuinStage(options: RuinOptions = {}): CityEraStageDef<"ruin"
 }
 
 export const ruinStage: CityEraStageDef<"ruin"> = makeRuinStage();
+
+/**
+ * The layer's adds with each tree read by its whole crown (the key's full bounds, turned) instead of its trunk: what `t1RuinTreeCovers` and the reports are fed, so a crown is reported by what it covers (F1b3). Every other add is as it is.
+ */
+export function crownSized(adds: CityRuinLayer["adds"]): CityRuinLayer["adds"] {
+  return adds.map((a) => {
+    if (!ruinIsTree(a.placement.key)) return a;
+    const b = ruinCrownBounds(a.placement.key)!;
+    const quarter = Math.round(a.placement.yaw_deg / 90) % 2 !== 0;
+    return { ...a, size: { x_m: quarter ? b.z_m : b.x_m, z_m: quarter ? b.x_m : b.z_m, h_m: b.h_m } };
+  });
+}

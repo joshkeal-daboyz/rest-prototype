@@ -75,3 +75,37 @@ export function segmentMeetsRect(a: { readonly x_m: number; readonly z_m: number
   }
   return true;
 }
+
+/** The distance from a point to a rectangle (0 inside it). */
+export function distToRect(x: number, z: number, r: Rect): number {
+  const dx = Math.max(r.x0 - x, 0, x - r.x1);
+  const dz = Math.max(r.z0 - z, 0, z - r.z1);
+  return Math.hypot(dx, dz);
+}
+
+export interface CrownCovers {
+  readonly pole: boolean;
+  readonly light: boolean;
+  readonly lampPlace: boolean;
+  readonly dropEnd: boolean;
+  readonly span: boolean;
+}
+
+/** What a crown (T-1's disc: radius `radius`, a tree `top` high) covers of the circuit, by T-1's own reading (`COVER_M` past the radius; a drop end only for a tree over `DROP_HIGH_M`; a span when the crown meets it in plan). Reported, never refused. */
+export function crownCovers(c: CircuitPoints, x: number, z: number, radius: number, top: number): CrownCovers {
+  const r = radius + COVER_M;
+  const hit = (px: number, pz: number): boolean => Math.hypot(px - x, pz - z) <= r;
+  let dropEnd = false;
+  if (top > DROP_HIGH_M) {
+    for (const d of c.drops) {
+      for (let t = 0; t <= DROP_REACH_M + 1e-9 && !dropEnd; t += DROP_STEP_M) if (hit(d.wall.x_m + t * d.out.x_m, d.wall.z_m + t * d.out.z_m)) dropEnd = true;
+    }
+  }
+  return {
+    pole: c.poles.some((p) => hit(p.x_m, p.z_m)),
+    light: c.lights.some((p) => hit(p.x_m, p.z_m)),
+    lampPlace: c.lampPlaces.some((p) => hit(p.x_m, p.z_m)),
+    dropEnd,
+    span: c.lines.some((s) => segmentDistance(x, z, s.a, s.b) <= radius),
+  };
+}
