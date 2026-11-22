@@ -215,7 +215,7 @@ Each is one builder session at most. They run in this order:
 
 - **TR (21 Nov 2026; re-cut on Josh's answers the same day):** the TR pre-check, answered (Q32 to Q44) → TR1 → TR1b → TR2. TR1 branches from `goal/city-style`; it shares no file with K, L2 or 071 and may run alongside K1.
 
-H and I can run alongside each other once F2 has merged. Stage 6 (K) is outlined, not cut (Q4, 21 Nov 2026). **(21 Nov 2026, Q1)** L1 starts now; K1 → K2 → I2 → K3 → K4 → K5 follow, and L2 after K1. **Instancing the stack pieces** (G's ~7.7k building draw calls) is a later ticket, not cut here (Josh, 20 Nov 2026, Q20: "instancing later").
+H and I can run alongside each other once F2 has merged. Stage 6 (K) is outlined, not cut (Q4, 21 Nov 2026). **(21 Nov 2026, Q1)** L1 starts now; K1 → K2 → I2 → K3 → K4 → K5 follow, and L2 after K1. **(21 Nov 2026, "Start 071,K1&L2")** K1 is cut: K1 → the K1 pre-check → Josh's answers → the architect types `CityCircuitLayer` → K2. L2 is cut as L2a, L2b and L2c (start now, alongside K1 and TR1; L2a and L2b in parallel, L2c in parallel with both) → L2d (after all three merge, and after K1 unless Josh answers Q46 "don't wait"). See K1 and L2. **Instancing the stack pieces** (G's ~7.7k building draw calls) is a later ticket, not cut here (Josh, 20 Nov 2026, Q20: "instancing later").
 
 **Every section's must-not-touch** (in addition to its own list):
 - `src/core/`, `src/grid/`, `src/night/`, `src/render/`, `src/play/`, `src/ui/`, `src/main.ts`;
@@ -2273,13 +2273,13 @@ Both are in the converted manifest with a non-zero width and height and no warni
 
 Recommended: a small renderer section after J (legend columns as wide as the longest name, or names wrapped, with a `planview.test.ts` case), on Josh's word (Q30). Otherwise L takes it.
 
-### K · Stage 6, the circuit (first-cut outline only; not cut here)
+### K · Stage 6, the circuit (outline; K1 cut below, 21 Nov 2026)
 **Josh's words (21 Nov 2026, in chat; Q4).** "I think that's stage 6 should be the collaborative work between the puzzle designer and the electrical grid agent".
 
 **What the old tile city gives stage 6 today (read on 883cab7).** Nothing that plays. `tilecity.ts` reserves `poleSlots` (one every `Power_Cables_01` span, 12.45 m plus a pole, along each pavement, 0.09 m behind the kerb face, never on a corner, a crossing landing or a kerb cut; "reserved, nothing stands in them yet") and `tileKeepouts` keeps the furniture clear of them. No pole, wire, drop, pad, lamp, feed or puzzle node stands in the tile city, and `tilecity3d.ts`'s scene has empty wire, pole and hardware lists. Ticket 059 (poles, wires, street lights) was approved but never built. So K starts from 059's text and the old slot rule, not from working code.
 
 **The split (one owner per section, honouring Q4).** Recommended order; each section is cut with its own Files when the one before it merges:
-- **K1 · the circuit's design (puzzle-designer).** Where the circuit goes on the pipeline's cells, written as rules a stage can follow: pole slots (the old rule above, or Josh's change of it), spans and their longest run, service drops to which buildings, street lamps and their spacing, and the places a puzzle's feed, breakers, switches, fuse boxes, junctions and lamps may stand relative to stages 4 and 5 (kerb, buildings, lots). Plus one worked puzzle on a named city (6 x 6 seed 1) as a design note in `puzzles/`, saying what the priests want lit and the intended read. The `pipeline-designer`'s pre-check measures the rules on the 20 named runs before K2. Puzzle-designer first because the circuit's shape serves the puzzle (what must be lit, what the scarce parts are), and that is the designer's read; the simulator builds what the design says, as every other stage builds from the grammar.
+- **K1 · the circuit's design (puzzle-designer). Cut 21 Nov 2026: see K1 below.** Where the circuit goes on the pipeline's cells, written as rules a stage can follow: pole slots (the old rule above, or Josh's change of it), spans and their longest run, service drops to which buildings, street lamps and their spacing, and the places a puzzle's feed, breakers, switches, fuse boxes, junctions and lamps may stand relative to stages 4 and 5 (kerb, buildings, lots). Plus one worked puzzle on a named city (6 x 6 seed 1) as a design note in `puzzles/`, saying what the priests want lit and the intended read. The `pipeline-designer`'s pre-check measures the rules on the 20 named runs before K2. Puzzle-designer first because the circuit's shape serves the puzzle (what must be lit, what the scarce parts are), and that is the designer's read; the simulator builds what the design says, as every other stage builds from the grammar.
 - **(architect) `CityCircuitLayer` typed** from K1's rules, and the `Puzzle` fields a city puzzle needs (a puzzle that names its city, and nodes that name a circuit slot instead of a free `pos`), before K2.
 - **K2 · stage 6, pure (grid-simulator).** `src/city/circuit/`: the stage function, its picture and its checks (every lamp and node on a slot K1 allows; every span within reach; the network connected from each feed), and the conversion of a city puzzle onto the circuit into a plain `Puzzle` that `src/grid/` runs unchanged. The grid-simulator's agent file gains the folder (the main session, on Josh's word; it owns `src/grid/` and `tools/` today).
 - **I2 · ground clears the circuit (landscape).** Stage 8 keeps its furniture off K2's poles, as `tileKeepouts` did on the old path (R10).
@@ -2287,6 +2287,88 @@ Recommended: a small renderer section after J (legend columns as wide as the lon
 - **K4 · play on the plan (renderer; core types by the architect first).** `?puzzle=<city puzzle>&view=3d&city=tiles` draws the game's state on the plan city: lit and dark lamps, live and dead lines, hover, picking (`hitTest`, today `null`), the Relight; the same `MapRenderer3d` interface, so `src/play/` and `src/ui/` do not change. **(21 Nov 2026)** K4 also owns the **2D overlay** (Josh: "Seeing as how the camera hovers over the city, my thought is that the player will not be able to tell the difference between different components of the puzzles unless they zoom in up close. So the HUD will showcase the components as a 2D overlay on top of the 3D City" and "The 2D overlay will showcase the icons that represent each component type"): one icon per component type over each component's projected 3D position, drawn by the renderer, after the glyphs are moved out of `src/render/map-renderer.ts`'s closure into an exported module. The 3D component models are set dressing, and their pack keys stay open until Josh picks them. See ticket 071's "The overlay" and its Q7 to Q9.
 - **K5 · puzzles on the city (puzzle-designer).** New puzzle files on named cities; the ladder and `puzzles/locked/` are unchanged unless Josh says otherwise.
 - **The street layer** (Enoch walking: the lamp's reach, salvage, the stall, the night clock in `src/night/`) is the brief's "Later: the street" and is not part of K.
+
+### K1 · Stage 6's design: where the circuit and a puzzle's nodes stand (puzzle-designer; a design note and one worked map, no code). Branch `ticket/070k1-circuit-design`
+**Cut 21 Nov 2026** on Josh's words in chat: "Start 071,K1&L2". Q4: "I think that's stage 6 should be the collaborative work between the puzzle designer and the electrical grid agent".
+
+**Branch.** From `goal/city-style` at b42b65f or later. It shares no file with TR1, L2 or 071 and may run alongside them.
+
+**Goal.** Josh reads one note that says, as rules a stage can follow, where the pipeline city's power goes: pole slots, spans, service drops, street lights, and the places a puzzle's feed, breakers, switches, fuse boxes, junctions and lamps may stand. He plays one worked map laid by those rules on 6 x 6 seed 1 in the 2D view (`npm run dev`, pick it). K2 (grid-simulator) builds stage 6 from the note once the pre-check has measured it and Josh has answered its questions. Nothing in 3D changes.
+
+**What K1 starts from** (read, not re-derived):
+- **The old slot rule, written out here so L2 may delete its code** (`src/render3d/tilecity.ts` at b42b65f, lines 119 to 127 and 1741 to 1758):
+  - a slot every `POLE_SLOT_PITCH_M` 12.5 m ("one `Power_Cables_01` span (12.45 m) and a pole") along each side of every street;
+  - `POLE_SLOT_FROM_KERB_M` 0.75 m from the carriageway's edge onto the pavement, which is 0.09 m behind the pack's kerb face (`KERB_FACES_M`, 0.66 m inside the cell edge);
+  - along each block's extent, the first slot `POLE_SLOT_END_CLEAR_M` 2.5 m from the block's start and the last at least 2.5 m from its end;
+  - a slot is kept only where the cell under it has role `pavement`, so never on a `pavementCorner`, a crossing landing or a `kerbCut`;
+  - reserved, nothing stood in them; `tileKeepouts` kept the old city's furniture `FURN_KEEP_M` (1.5 m) from each.
+- **059's approved defaults** (Josh, 18 Nov 2026: "Approve 057, 058 and 059"; every default applied, the never-used list excepted), as written in `tickets/059-poles-wires-streetlights.md`: poles on one side of a street (the side without the parking band); three code-drawn conductors per span, scenery; corner poles on `pavementCorner` cells to cross junctions; a crossing span's lowest point at least `WIRE_CLEAR_ROAD_M` 5.5 m over the carriageway; street lights in slots that hold no pole, one every 2 slots, on the far side; the puzzle-lamp against street-light table.
+- **What has changed since 059:**
+  - no avenues (grammar rule 10); one-way sections 10 m and 5 m wide (A4b); kerb bays and build-outs on stage 4's band (D1b); crossing landings marked `CITY_GROUND_VARIANT.pavementDip` (D2);
+  - stage 9's signal masts stand on every `pavementCorner` of a signal junction, and stop signs at an approach's near corner (TR1's MA and ST; Josh, Q37 and Q40). 059's corner poles would stand where the masts do: Q45;
+  - the Town Pack, which 059's street light comes from, is not loaded for the city page (Q35's answer). The street light's model is K3's and 071's question, not K1's.
+- **Later stages already make room in one place.** Stage 8 keeps `FURN_KEEP_M` from a list of keep points that it passes empty today (I's NL); I2 fills it from the circuit layer. Stages 7 and 9 have no such list.
+- **Stage order.** Stage 6 reads stages 1 to 5 only (R-1). Stages 7, 8 and 9 run after it, so anything stage 6 places is either somewhere they already leave free, or one of them must re-open to keep clear of it.
+
+**The deliverable.**
+1. **The rules: `docs/design/070-K1-circuit.md`.** Each rule has an id (CK1, CK2, ...). It is written against the typed layers, naming their fields from `src/core/cityplan.ts` (`CityGroundCell` role and variant, `CityPlanStreet` and its sections, `CityJunction`, `CityBuilding`, ...). It says whether it is Proposed (the designer's) or quotes a ruling. It names the check K2 makes of it, and one case that fails that check. The note covers:
+   - (a) **Pole slots** on the pipeline's cells: the old rule carried over or changed. Which street sides carry a pole line, for each section kind (two-way 15 m, one-way 10 m and 5 m) and each band (bays, build-outs, plain). What a slot never stands on (at least `pavementCorner`, a `pavementDip` cell, a `kerbCut`).
+   - (b) **Spans**: along a pavement, round a block corner, and across a street (mid-block or at a junction), with each kind's longest span. The clearance over a carriageway (059's 5.5 m). The network: one connected network for the city or one per district, and where it is fed from.
+   - (c) **Service drops**: which buildings (stage 5) take one, from which pole, the longest drop, and where it meets the building.
+   - (d) **Street lights**: where they stand and how often, and how a puzzle's lamp differs from a street light in where it stands. Their look is K3's.
+   - (e) **Node places**: for each node type the schema has (feed, breaker, switch including relay and spring, battery, fusebox, junction, lamp), where it may stand (on a pole, on the ground at a slot, on a building's wall, in a lot, ...) and how many may share a place. And what a line is on the city: a run of spans between two nodes, where a damaged cable is one span of the run.
+   - (f) **The district**: what part of the city one puzzle takes (blocks, streets), how its edge is chosen, and what the rest of the city's poles and wires are while it is played.
+   - (g) **The conversion**: how a puzzle laid on the circuit becomes a plain `Puzzle` that `src/grid/` runs unchanged: ids, `pos` from the place's metres, lines from span runs, faults on nodes and spans. This must be enough for the architect to type `CityCircuitLayer` and the city-puzzle fields.
+   - (h) **Keep-clear**: for each thing stage 6 places, whether stages 7 (awnings, signs, fire escapes and their drop ladders, wall props, novelty signs), 8 (I's NL list) and 9 (TR1's CL) as merged already leave it room, quoting their rules, or which merged section would have to re-open. A re-opening is a cost for Josh and is never assumed.
+   - (i) **Questions for Josh**, each with the recommended answer first and a one-line reason, and **the list the pre-check must measure**.
+2. **The numbers on 6 x 6 seed 1, one-way on** (the default): slots, poles, spans of each kind with the longest, drops, street lights, and places per node kind, for the whole city and for the worked map's district. Also the span lengths 071 A item 12 asks for. They are read by a probe outside the repo (as the pipeline-designer's are) and labelled a sketch; the pre-check's numbers are the record.
+3. **One worked map: `puzzles/city-<slug>.json` and its note `puzzles/city-<slug>.md`.**
+   - **Off the ladder.** Its name has no `NN-` prefix, so `ladderIds`, the analyzer's README test and the playtest skip it, as they skip `lamp-row.grid.json`. The picker lists it (`main.ts` globs every map), so Josh can play it.
+   - **A plain draft-5 `Puzzle` with no new field.** `pos` is metres / `CELL_M` (5), measured from the district's least corner; the note gives the offset.
+   - **It tests one element of the brief's table**, named in the note. The note says what the priests want lit there and the intended read, and has **The trap**, the numbers, a check block, and an empty **What it taught us**, in the shape `.claude/agents/puzzle-designer.md` gives.
+   - **A place table**: every node id, its place (the rule id, plus the street id and metres along it, or the building id) and its metres on 6 x 6 seed 1. Every node stands on a place the rules allow, and every line is a span run the rules allow.
+
+**Acceptance criteria.**
+1. [ ] **It loads** (Vitest, the existing `src/core/load.test.ts`). The map validates as every `puzzles/*.json` does.
+2. [ ] **Its check block replays** (Vitest, the existing `src/core/check.test.ts`; and `npm run check puzzles/city-<slug>.json`). The solution wins. There is at least one trap, which is the obvious wrong first move, with its `expect` and its `recover`.
+3. [ ] **It is solvable** (`npm run analyze puzzles/city-<slug>.json`) from its `startingParts`. The note gives the analyzer's min clicks, winning configurations and any fuse blown on the shortest win.
+4. [ ] **The rules note is complete** (the reviewer reads it). It covers (a) to (i), and each rule has its id, the layer fields it uses, Proposed or a quoted ruling, K2's check and a failing case. A rule that needs a field the layers lack says "new field, for the architect". The old slot rule is restated with its numbers.
+5. [ ] **The map follows the rules** (the reviewer reads it). Every node and line is traced to a rule in the place table, and the coordinates agree with the probe's.
+6. [ ] **No ruling moves** (the reviewer reads it). No Decided GDD rule and no ruling of Josh's is changed; any change is a proposal under (i). No pack key is chosen: the pole, wire, lamp and component models are 071's, K3's and K4's.
+7. [ ] **R-8** (the playtester). `npm run playtest` shows no ladder change, and the map is not on the ladder.
+8. [ ] **Josh plays it and reads the note** (`npm run dev`, pick the city map). He judges it on what follows.
+
+**What Josh judges it on.**
+- Do the rules read like a town's power? Poles along one side, lines crossing between blocks, drops to the houses, street lights where people walk.
+- Is the district the right size for one job, and is what the priests want lit there worth lighting?
+- Does the trap hold at city scale? Does the map ask for a choice, not a walk along every pole?
+- His answers to the note's questions.
+
+**After K1: a pre-check, yes.** K1 adds rules and numbers, and has measured them by hand on one city only. So the pipeline-designer pre-checks it ("pre-check 070 K1") on the 20 named runs:
+- whether each rule holds on every run: slots on every side that needs one, spans within their limits, the network connected, every place kind present in a district;
+- the clearances against stage 4's cells and against stages 7, 8 and 9 as merged;
+- the map's places, re-measured on 6 x 6 seed 1.
+
+Then Josh answers K1's questions and the pre-check's. Then the architect types `CityCircuitLayer` and the city-puzzle fields, and cuts K2.
+
+**Files.**
+- new `docs/design/070-K1-circuit.md`. This is outside the designer's usual `puzzles/`, and this ticket grants it;
+- new `puzzles/city-<slug>.json` and `puzzles/city-<slug>.md`;
+- the probe lives outside the repo (the scratchpad) and is never committed.
+
+**Must not.** Touch any of:
+- `src/`, `tests/`, `tools/`, `tickets/`, `.claude/`;
+- `puzzles/locked/`, `puzzles/README.md`, any `puzzles/NN-*` file, `puzzles/SCHEMA.md` (a field the map needs is a request to the architect, made in the note);
+- `docs/city-grammar.md`, `docs/city-style-guide.md`.
+
+**Commands** (Josh's PC; Blender may be running):
+- `npm run analyze puzzles/city-<slug>.json`;
+- `npm run check puzzles/city-<slug>.json`;
+- `npx vitest run --maxWorkers=2 src/core/load.test.ts src/core/check.test.ts`.
+
+The probe builds one city at a time (6 x 6 seed 1, through `ground`, with `runCity` from `src/city/pipeline/`). It never runs a stage folder's tests, and never opens a browser.
+
+**What it adds.** Rules and numbers, all Proposed, hence the pre-check. No `src/core/` change before it starts, since it codes nothing. No new dependency. `tickets/rules-coverage.md` is unchanged: the map plays by the brief's rules as they are.
 
 ### L1 · The switch: `city=tiles` shows the pipeline's city; the guide and grammar catch up (renderer). Branch `ticket/070l1-switch`
 **Branch.** Cut from `goal/city-style` at the commit of this re-cut or later (883cab7: stages 1 to 5, 7, 8 and J merged).
@@ -2346,10 +2428,155 @@ So **L1** (this section) switches the view and brings the guide and grammar up t
 
 **Adds no rule or number** (so no pre-check). Every guide and grammar line in criterion 5 writes down a ruling Josh has already given (quoted with each); the switch, the alias and the legend change where things are shown, not what the city is. `tickets/rules-coverage.md` is unchanged: no brief rule moves.
 
-### L2 · Delete the old tile path (outline; cut after K1 merges)
-- **L2a (planner; streetscape; landscape, one section each where its folder has one):** each stage folder's tests stop importing `src/render3d/tilecity.ts`; an oracle comparison becomes a typed fixture of the values it compared (as `roofpin.test.ts` does), so no check loosens.
-- **L2b (renderer):** the old path's tile-only code in `tilecity.ts`, `tilecity3d.ts`, `tileslots.ts` and `kerbline.ts`, and its tile-only tests, are deleted; what `plan3d.ts`, `terrace.ts`, `frontage.ts` and `models3d.ts` still read moves to a module they own or stays; `city=tiles-old` goes; every check runs only in its stage (the table); the guide's named cities for its checks become the pipeline's (6 x 6 seeds 1 to 10) and the old-path tables in 18.8 and 19.7 go. R-8 holds.
-- **Why after K1:** the old pole-slot rule is K1's starting point, and K2 replaces `tileKeepouts`' pole keep-outs (I2). Deleting before K1 loses the only written version of it.
+### L2 · Delete the old tile path (cut 21 Nov 2026 on Josh's "Start 071,K1&L2"; four sections, L2a to L2d)
+**Josh's words.**
+- 21 Nov 2026, in chat: "Start 071,K1&L2".
+- Q31, asked "When `city=tiles` becomes the new city, shall the old one stay reachable at `city=tiles-old` so you can compare them, until it is deleted after the circuit's design (K1)?": "I approve both".
+
+**Must L2 wait for K1? Only its last section does, and only because of how Q31 was worded.** The outline gave two reasons to wait, and neither holds now:
+- **"The old pole-slot rule is K1's starting point ... deleting before K1 loses the only written version of it."** The rule is now written out in full in K1's "What K1 starts from", with its numbers and the code's lines at b42b65f. It is also in 059's measured section and in the guide's 063 F Info line, and git keeps the code. K1's designer reads the pipeline's layers through a probe. Nothing in K1 runs the old city.
+- **"K2 replaces `tileKeepouts`' pole keep-outs (I2)."** `tileKeepouts` serves only the old city's furniture. Stage 8 cannot import it (R-6) and keeps its own keep-point list (I's NL), which I2 fills. Deleting it loses nothing the pipeline uses.
+- **No shared file.**
+  - K1 writes only `puzzles/` and `docs/design/`, and L2 writes neither.
+  - TR1's Files are `src/city/traffic/` plus three test lines in `facades/` and `ground/`, and L2 touches none of them.
+  - 071 B adds `powerkit.ts`, and 071 C draws the ladder. L2 keeps off the ladder's files: `models3d.ts`, `scene.ts`, `layout.ts`, `relight3d.ts`, `pick.ts`, `town.ts`, `terrace.ts`.
+  - The guide is shared with 071 C and TR2, so the main session merges them one at a time and the later branch rebases.
+
+So **L2a, L2b and L2c start now**, alongside K1. **L2d** deletes the old city and `city=tiles-old`. Q31, as Josh approved it, keeps `tiles-old` "until it is deleted after the circuit's design (K1)", so L2d waits for K1 to merge unless he says otherwise (Q46; recommended: don't wait).
+
+**Why four sections.** One owner per section, and a day each at most. The old path is read by:
+- the planner's tests (5 files) and the streetscape's (1 file), as oracles;
+- the renderer's pin tests, and ladder-module tests that build `tileCity` as a test city;
+- `plan3d.ts`, which uses kit tables and draw helpers from `tilecity3d.ts`, `tileslots.ts`, `tilecity.ts` and `kerbline.ts`;
+- `terrace.ts`, which reads `END_OVERLAP_MAX_M` and `PASSAGE_W_M`. R-8 forbids editing it, so those two constants stay in `tilecity.ts`.
+
+**LR, the rule for every L2 section: no check loosens.**
+- A test of code that stays keeps its strength.
+- An oracle comparison against the old path becomes a typed fixture of the values it compared, as `roofpin.test.ts` does. For a whole-city comparison, a digest per city of the compared values is enough, taken at b42b65f while both paths exist.
+- A case that builds `tileCity` to test code that stays is re-pointed to a typed fixture or a pipeline city (6 x 6 seed 1, through the folder's module cache). Only a case that tests deleted code goes with that code.
+- Each section's report lists every `it` it deleted or re-pointed, and for each deleted one, the deleted function it tested.
+- No digest pin, threshold, Decided rule or approved number moves. R-8 holds.
+
+**"The old-path modules"** below means `src/render3d/tilecity.ts`, `tilecity3d.ts`, `tileslots.ts`, `kerbline.ts`, `frontage.ts` and `parkmetrics.ts`. Of these, `frontage.ts` is read only by `tilecity3d.ts`, and `parkmetrics.ts` only by tests.
+
+### L2a · The planner's tests stop reading the old path (planner, pure). Branch `ticket/070l2a-planner-oracles`
+**Goal.** No file in `src/city/streets/`, `land/`, `mass/` or `pipeline/` imports an old-path module, and every check those files made still holds, now against typed fixtures. Josh sees no change.
+
+**Acceptance criteria.**
+1. [ ] **The grep** (Vitest, a new `src/city/pipeline/oldpath.test.ts`). No file, tests included, under the four folders imports an old-path module. A fixture with such an import fails it. (`lots.test.ts`'s `TERRACE_BAYS` from `src/render3d/town.ts` is the ladder's, not the old path's. It stays, and the grep names only the old-path modules.)
+2. [ ] **`streets/equal.test.ts`** (Vitest). It compared the old lattice functions with `tileCity` on the old 16 cities. That becomes a typed fixture, one digest per city of the values it compared, taken at b42b65f. Its cities and its assertions are unchanged.
+3. [ ] **`streets/parkplaces.test.ts`, `land/reach.test.ts`, `mass/lots.test.ts`** (Vitest). Each constant read from `tilecity.ts` (`PARK_ONE_IN_BLOCKS`, `BAY_JUNCTION_CLEAR`, and `lots.test.ts`'s `OLD_*`) becomes a typed number in the test file, with its value and its source line at b42b65f, and each assertion is unchanged. P2's two recorded exceptions stay as written: `PARK_PER_HOME` is 0.075 against 0.15, and `PARK_SUPPLY_BAND`.
+4. [ ] **`land/stage.test.ts`** (Vitest). If `oldPlanBlocks` feeds only the criterion 4 report and no assertion, that report line goes and the report says so. If it feeds an assertion, the assertion keeps its strength through a fixture (LR).
+5. [ ] **Nothing else moves.** Every digest pin and every test in the four folders passes as merged.
+
+**Files.** The five test files named, any test-only fixture file next to them (for example `oldpath.fixture.ts`), and the new `src/city/pipeline/oldpath.test.ts`.
+**Must not.** Any non-test file; any other folder.
+**Commands.** `npx vitest run --maxWorkers=2 src/city/streets/ src/city/land/ src/city/mass/ src/city/pipeline/`, and one `npx tsc --noEmit`.
+
+### L2b · Edge's test stops reading the old path (streetscape, pure). Branch `ticket/070l2b-edge-oracles`
+**Goal.** As L2a, for `src/city/edge/`. It may run alongside L2a, since they share no file.
+
+**Acceptance criteria.**
+1. [ ] **`edge/constants.test.ts`** (Vitest). Each constant it reads from `tilecity.ts` becomes a typed number with its value and its source line at b42b65f. Every equality it asserts is unchanged, and so is P1's recorded exception (0.69 on the pipeline against the old 0.75).
+2. [ ] **The grep** (Vitest, a new `src/city/edge/oldpath.test.ts`). No file under `src/city/edge/`, tests included, imports an old-path module.
+3. [ ] **Every edge test passes as merged**, its digest pins included.
+
+**Files.** `src/city/edge/constants.test.ts`, a test-only fixture file next to it if wanted, and the new `src/city/edge/oldpath.test.ts`.
+**Commands.** `npx vitest run --maxWorkers=2 src/city/edge/`, and one `npx tsc --noEmit`.
+
+### L2c · The renderer's tests stop building the old city; the L1 review's leftovers (renderer). Branch `ticket/070l2c-render-tests`
+**Goal.** Outside the old-path modules' own tests, no `src/render3d/` test builds `tileCity` or reads an old-path constant for a check on code that stays. The guide and grammar lines the L1 review left (`reviews/070l1-switch.md`, "Could improve" 1 to 3) are fixed. Josh sees no change.
+
+**Acceptance criteria.**
+1. [ ] **The pins** (Vitest: `escapepin.test.ts`, `shopfrontpin.test.ts`, `furnpin.test.ts`). `TILE_CITY_R7_MIN` (0.4), `TILE_CITY_R6_MIN` (0.45) and the `tilecity.ts` furniture constants `furnpin.test.ts` reads (`TILE.*`) become typed fixtures of their values. The pins still compare `src/city/`'s copies with those values, and with the ladder's own modules (`dressing.ts`, `escapes.ts`, `furniture.ts`) as before. `furnpin.test.ts`'s `TILE_BENCH`, `TILE_BINS` and `TILE_TREES` come from `tileslots.ts`, which stays, and are read as now.
+2. [ ] **The ladder modules' tests** (Vitest: `sills.test.ts`, `stacks.test.ts`, `escapes.test.ts`). Each case that builds `tileCity` is sorted into one of two kinds:
+   - (a) It tests a module the ladder or `plan3d.ts` uses (`sills.ts`, `stacks.ts`, `escapes.ts`), with the old city only as test input. It is re-pointed to a typed fixture or to a ladder map's town, as those files' other cases do, so that it still exercises the same branch.
+   - (b) It tests the old city's own use (`cityApplyOptions`, `buildCityScene`). It stays in place for L2d to delete.
+
+   The report lists every case and its kind.
+3. [ ] **`daytoggle.test.ts` and `plan3d.test.ts`** (Vitest). Their uses of `createCityRenderer3d`, `tileCity`, `tileGroup` and `interiorGroup` are sorted as in criterion 2. Each kind (a) case is re-pointed to the plan renderer or the pipeline city (6 x 6 seed 1, cached), or to a typed fixture, with no assertion weakened.
+4. [ ] **`styleguide.test.ts`'s drift checks** (Vitest). Each check that reads an old-path module is sorted:
+   - (a) Its guide line describes the pipeline. It is re-pointed to the stage module's constant, as L1 did.
+   - (b) Its line is in an old-path table or old-path text (18.8, 19.7, and the `city=tiles-old` pointers). It stays for L2d, which deletes the line and its check together.
+
+   The report lists every check and its kind.
+5. [ ] **The leftovers** (the reviewer reads the diff; `styleguide.test.ts` only where a line names a constant):
+   - **Guide 18.2's homes bullet.** "2 x 5.2 m x 6 m, about 62 m2" becomes the lattice figure, two column-floors of one 5 m cell each, with the area worked out from grammar rule 5's cell and quoted. The old figure is marked as the old path's (`city=tiles-old`, until L2d).
+   - **Guide 19.2's "Default (057 B): nothing else is allowed".** "a seam, a gated passage" is marked as the old path's only: the plan has no passage type (C1's M5; the grammar's "Guide text that goes": "19.2's far-end order and its passages").
+   - **Grammar M1's "Fails today" sub-bullet.** Marked as the old path's history: the pipeline's columns are 5 m cells, and F2's M1 check holds them.
+   - **Grammar rule 8's pipe row, the Size cell.** `_03`'s own bounds only: 2.83 m wide and 4.24 m high, as `src/city/facades/partykit.ts` types them and `partywallpin.test.ts` pins them. The builder reads the bound order from `partykit.ts`.
+   - **Grammar rule 5's parking paragraph.** "hold P2 on all 13 named cities ... (`docs/070-c2-options.md`)" becomes a pointer to the merged check: P2 in `src/city/mass/` on the 6 x 6 named cities. The ruling's words and numbers (0.075, `LOTS_PER_BLOCK_MAX` 2) are unchanged.
+6. [ ] **R-8** (the playtester). `npm run playtest` shows no ladder change.
+
+**Files.**
+- `src/render3d/escapepin.test.ts`, `shopfrontpin.test.ts`, `furnpin.test.ts`, `sills.test.ts`, `stacks.test.ts`, `escapes.test.ts`, `daytoggle.test.ts`, `plan3d.test.ts` and `styleguide.test.ts`: test cases and imports only, plus any test-only fixture file;
+- `docs/city-style-guide.md` (18.2's homes bullet and 19.2's default only) and `docs/city-grammar.md` (M1's sub-bullet, rule 8's pipe row and rule 5's parking paragraph only).
+
+**Must not.**
+- Any non-test `.ts` file.
+- The old-path modules' own tests: `tilecity.test.ts`, `tilecity3d.test.ts`, `tileslots.test.ts`, `tileintegrate.test.ts`, `tileinterior.test.ts`, `kerbline.test.ts`, `frontage.test.ts`, `alleys.test.ts`, `parkmetrics.test.ts`. They are L2d's.
+- The ladder's files and pins (`packpin.test.ts`, `townpin.test.ts`), `src/city/`, `src/core/`.
+
+**Commands.** `npx vitest run --maxWorkers=2` on the nine named test files, and one `npx tsc --noEmit`.
+
+### L2d · Delete the old city (renderer). Branch `ticket/070l2d-delete-old-path`
+**When.** After L2a, L2b and L2c are merged. Also after K1 merges, unless Josh answers Q46 "don't wait".
+
+**Goal.** The old tile city is gone. `city=tiles` is the pipeline's city, as since L1. `city=tiles-old` opens nothing special: it falls through to the ladder's 3D view, as any unknown `city` does. `city=tiles&sheet=1` still opens the tile sheet (Q47). The guide and grammar describe only the pipeline.
+
+**Acceptance criteria.**
+1. [ ] **Deleted:**
+   - from `tilecity.ts`: the old city's generation and its tile-only helpers (`tileCity`, `planBlocks`, `withPassages`, `tileKeepouts`, `bayMeters`, the pole slots and the rest that only they use);
+   - from `tilecity3d.ts`: `buildCityScene`, the city branch of `createCityRenderer3d`, and every other export only the old city uses;
+   - `frontage.ts` and `parkmetrics.ts`;
+   - from `src/render3d/kerbline.ts`: `tileKerbPlan`, `kerbLine` and the rest that only they use;
+   - from `tileslots.ts`: `oldTilesRequested`, and the old-city part of `cityTilesRequested`;
+   - from `renderer.ts`: the `tiles-old` route, and the redundant `cityTilesRequested` call, together with `tilecity3d.test.ts`'s regex that forces it (L1 review, "Could improve" 5).
+2. [ ] **Kept in place, with no rename and no move:**
+   - what `plan3d.ts` reads: `TILE_M`, `SIDEWALK_WALK_M`, `TileCell`, `TileYaw`; `createCityRig`, `interiorGroupOf`, `propInput`, `tileGroupOf`, `tileKeyOf`, `CityRig`, `InteriorDraw`, `TileDraw`, `PropPlace`; `KerbFace`, `KerbPlan`, `Mp`; and the `tileslots.ts` kit tables it imports;
+   - what `terrace.ts` reads (`END_OVERLAP_MAX_M`, `PASSAGE_W_M`). `terrace.ts` is not edited (R-8);
+   - the tile sheet: `buildSheetScene`, the sheet branch of the renderer, and `cityTilesRequested`'s `sheet=1` (Q47);
+   - anything `models3d.ts`, `citymetrics.ts`, `furniture.ts` or the ladder reads.
+
+   A function that stays keeps its tests (LR).
+3. [ ] **The grep** (Vitest, a new case in `tileslots.test.ts`). No file under `src/` names `tileCity`, `planBlocks`, `withPassages`, `tileKeepouts`, `oldTilesRequested`, `frontage` or `parkmetrics` as an import or an export.
+4. [ ] **The routes** (Vitest, `tileslots.test.ts` and `plan3d.test.ts`; Josh in the browser):
+   - `city=tiles` gives exactly what it gave at L1, unchanged;
+   - `city=tiles-old` gives null from every city parser;
+   - `city=tiles&sheet=1` gives the sheet's request.
+5. [ ] **Tests go with their code**, each one listed in the report:
+   - `tilecity.test.ts`, `tileintegrate.test.ts`, `tileinterior.test.ts`, `alleys.test.ts`, `parkmetrics.test.ts`, `frontage.test.ts` and `kerbline.test.ts`;
+   - the old-city cases of `tilecity3d.test.ts` and `tileslots.test.ts`;
+   - L2c's kind (b) lists.
+
+   No test of kept code goes. **The test count falls.** The report gives the gate's count before and after and the list, so the main session's "the count grew" check does not apply to this section. The reviewer checks the list against LR.
+6. [ ] **The guide and the grammar** (the reviewer reads the diff; `styleguide.test.ts`):
+   - 18.8's and 19.7's old-path tables, ranges and Info lines go;
+   - every "(`city=tiles-old`, until L2)" pointer, and the chapter openings' old-path sentence, go;
+   - the old figures L2c marked go;
+   - text that names the old named cities for a check (3 x 3 seeds 1 to 10, 6 x 4 seeds 1 to 3) names the pipeline's (6 x 6 seeds 1 to 10, one-way off and on);
+   - the constants table rows for deleted constants go. The 063 F Info line's pole-slot sentence and the `POLE_SLOT_FROM_KERB_M` row point to K1's note (`docs/design/070-K1-circuit.md`) as the rule's record;
+   - each drift check of a deleted line goes with it (L2c's kind (b)). No other check changes.
+7. [ ] **R-8** (the playtester). `npm run playtest` shows no ladder change.
+8. [ ] **The browser** (the main session). Check `city=tiles` at 6 x 6 seeds 1 and 3, `cam=street`, `light=night`; `city=tiles-old`; `city=tiles&sheet=1`; and `?puzzle=09-shrine-circuit&view=3d`, which must read as on `goal/city-style`.
+
+**Files.**
+- `src/render3d/tilecity.ts`, `tilecity3d.ts`, `tileslots.ts`, `kerbline.ts` and `renderer.ts`, deletions only;
+- deletes `frontage.ts` and `parkmetrics.ts`;
+- the tests in criterion 5, plus `tilecity3d.test.ts`, `tileslots.test.ts`, `plan3d.test.ts` and `styleguide.test.ts` as criteria 3 to 6 say;
+- `docs/city-style-guide.md` and `docs/city-grammar.md` (criterion 6's lines only).
+
+**Must not.**
+- `plan3d.ts`'s code, beyond an import line whose source still exists;
+- `models3d.ts`, `scene.ts`, `layout.ts`, `relight3d.ts`, `pick.ts`, `town.ts`, `terrace.ts`, `furniture.ts`, `dressing.ts`, `escapes.ts`, `sills.ts`, `stacks.ts`, `citymetrics.ts`;
+- `packpin.test.ts`, `townpin.test.ts`;
+- `src/city/`, `src/core/`, `puzzles/`, `tests/`.
+
+If a deletion needs one of these, stop and report: that is a re-cut.
+
+**Commands.** `npx vitest run --maxWorkers=2 src/render3d/plan3d.test.ts src/render3d/planview.test.ts src/render3d/tileslots.test.ts src/render3d/tilecity3d.test.ts src/render3d/styleguide.test.ts src/render3d/daytoggle.test.ts`, and one `npx tsc --noEmit`. The main session runs the gate and the browser checks.
+
+**Adds no rule or number** (so there is no pre-check). `tickets/rules-coverage.md` is unchanged.
 
 ### TR · Stage 9, traffic control: signals and signs (cut 21 Nov 2026; re-cut the same day on the pre-check and Josh's answers)
 **Josh's words (21 Nov 2026, in chat; relayed by the main session from `docs/handoff-2026-11-21.md`, item 1).** "we are missing traffic lights and traffic signage. I want you to create a new stage. It ahould include all of this. I want you to create a fable session to update the pipeline."
@@ -2779,3 +3006,6 @@ These five do not exist. The main session writes each `.claude/agents/<name>.md`
 42. **TR2: the stop sign's face from the `01_A` atlas?** (Item 7.) **Answered, Josh, 21 Nov 2026, in chat: "I will take all of the recommendations"**: yes. On the base atlas the face is one grey; on `01_A` it is white STOP on red. TR2 fetches `01_A` for the stop sign only.
 43. **TR: the four numbers?** (Item 9.) **Answered, Josh, 21 Nov 2026, in chat: "I will take all of the recommendations"**: `SIGN_KERB_M` 0.5, `SIGN_CORNER_M` 1.0, `MAST_INSET_M` 0.75, `SIGNAL_HEAD_MIN_M` 4.6.
 44. **TR1b, PK: a parking sign at the start of each bay stretch, skipped where there is no room?** (Item 11.) **Answered, Josh, 21 Nov 2026, in chat: "I will take all of the recommendations"**: yes. TR1b's PK.
+45. **K1: drop 059's corner poles?** (K1, "What has changed since 059".) Open. Ask: "059's approved plan put a power pole on each street corner, where your traffic-light masts now stand (Q37). Drop the corner poles, so the power lines turn round the block corners and cross streets between junctions, never over a junction?" Recommended: yes. The corners belong to the masts (TR1's MA), and a crossing between junctions spans about 16.5 m (15 m of carriageway plus 0.75 m each side), against 25 to 45 m over a junction. K1 starts on the recommended answer, and its note designs the crossing. On "no", the note keeps 059's corner poles, TR1's CL fails at every signal junction, and TR re-opens before TR2.
+46. **L2d: keep `city=tiles-old` until K1 merges?** (L2, "Must L2 wait for K1?".) Open. Ask: "You approved keeping the old city at city=tiles-old until the circuit's design (K1) is done. Nothing in K1 uses the old city any more: its pole rule is now written into the ticket. Delete the old city as soon as L2's other three parts are in, without waiting for K1?" Recommended: yes, delete without waiting. K1 reads the written rule and the pipeline's layers, not the old city, and the designer has no browser to compare in. On "no", L2d waits for K1 to merge, as Q31 said.
+47. **L2d: keep the tile sheet?** (L2d criterion 2.) Open. Ask: "When the old city goes, keep the tile sheet (city=tiles&sheet=1, the page that lays out every road and pavement piece to check which way it faces)?" Recommended: yes. It is a calibration tool, not the old city, L1 kept it, and keeping it needs no new code. On "no", L2d also deletes `buildSheetScene`, the sheet branch and its tests, and the report lists them.
