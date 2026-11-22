@@ -384,3 +384,10 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 074 cut | lead-architect | opus | 127K total | - | 0 | asset gallery ticket and types (399c1ad) |
 | 074 A | renderer / gate / code-reviewer / playtester | sonnet / - / opus / sonnet | 157K / - / ~45K / 20K | - | 0 | 05b2168: 4773 passed, 1 failed (powerkit, on base); meets, must-fix 0; regressions 0 |
 | 073 E2g/F1g cut | lead-architect | opus | 119K total | - | 0 | 5a040b1 |
+| 074 log | lead-architect | opus | 27K | - | 0 | a9f9e3b |
+| 074 B | renderer (r1-r2) | sonnet | ~180K | - | 0 | viewer; lightrig fix (350be20) |
+| 074 C | ui | (agent default) | 146K | - | 0 | page and dev switch (bceacc4) |
+| 074 B+C r1 | gate / code-reviewer / playtester | - / opus / sonnet | - / ~70K / 26K | - | 0 | 7b4d979 gate: 2 lightrig failures (fixed); B partly (2 must-fix), C meets; regressions 0 |
+| 074 B r2-r3 | renderer / code-reviewer | sonnet / opus | ~40K / 64K | - | 0 | notes in full, exposure (19d0716); meets, must-fix 0 |
+| 074 gate | gate (main session) | - | - | - | 0 | 87a3e8c: gallery.test.ts main.ts word check tripped by the asset gallery (fixing) |
+| 074 B+C | gate (main session) | - | - | - | 0 | 3c35cd6: 4866 passed, 1 failed (powerkit, on base) |
