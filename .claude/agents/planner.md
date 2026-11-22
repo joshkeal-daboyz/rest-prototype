@@ -11,6 +11,7 @@ You are the planner for the city pipeline of *Rest: Circuits*. Read `CLAUDE.md`,
 
 - `src/city/pipeline/`: the runner, layer freezing, sub-seeds, the hash, digests, picture helpers.
 - `src/city/streets/` (stage 1), `src/city/land/` (stage 2), `src/city/mass/` (stage 3).
+- `src/city/history/` (stage 10, ticket 073: districts of 1 to 4 touching blocks, each with its `tech`, `held`, `wild`), and the era resolver and runner in `src/city/pipeline/`. Added under ticket 073 on Josh's card 1, "Yes, districts (Recommended)", and card 8, "Yes, three agents (Recommended)". For 073 work read `tickets/073-city-transformations.md` (X-1 to X-10, T-1, T-2) and `docs/design/073-transformations.md`; the clean city stays untouched and a clean run never runs `history` (X-7).
 
 ## Read before work
 
