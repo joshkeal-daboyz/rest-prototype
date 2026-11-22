@@ -2,7 +2,7 @@
  * Ticket 074 B: the asset gallery's viewer. No WebGL, no DOM, no asset file: the surface, the frame clock, the controls and both loaders are fakes, and the packs are small typed-in
  * manifests with hand-made scenes. Nothing here reads `assets/`.
  */
-import { BoxGeometry, Color, Group, MathUtils, Mesh, MeshStandardMaterial, NearestFilter, Object3D, PerspectiveCamera, Texture, Vector3, Scene, type Light } from "three";
+import { ACESFilmicToneMapping, NoToneMapping, BoxGeometry, Color, Group, MathUtils, Mesh, MeshStandardMaterial, NearestFilter, Object3D, PerspectiveCamera, Texture, Vector3, Scene, type Light } from "three";
 import { describe, expect, it, vi } from "vitest";
 import type { AssetEntry, AssetManifest, AssetPack } from "../core";
 import {
@@ -12,6 +12,7 @@ import {
   PERSON_RADIUS_M,
   THUMB_PX,
   buildAssetScene,
+  configureRenderer,
   createAssetGallery,
   inspectMarkers,
   thumbCamera,
@@ -19,6 +20,7 @@ import {
   type ViewerSurface,
 } from "./assetviewer";
 import { applyLightMode, sceneLightMode } from "./lightrig";
+import { LIGHT_MODES } from "./lighting";
 import { createAssetGallery as exported } from "./index";
 
 function entry(name: string, size: readonly [number, number, number], over: Partial<AssetEntry> = {}): AssetEntry {
@@ -478,6 +480,17 @@ describe("the scene", () => {
     const ref = new Scene();
     applyLightMode(ref, null, "day");
     expect((s.background as Color).getHex()).toBe((ref.background as Color).getHex());
+  });
+
+  it("exposes pieces as the city shows its day view: the rig's day tone mapping and exposure on the renderer", () => {
+    const gl = { toneMapping: ACESFilmicToneMapping, toneMappingExposure: 3, shadowMap: { enabled: true } };
+    configureRenderer(gl);
+    const day = LIGHT_MODES.day;
+    expect(gl.toneMappingExposure).toBe(day.exposure);
+    expect(gl.toneMapping).toBe(day.toneMapping === "aces" ? ACESFilmicToneMapping : NoToneMapping);
+    expect(gl.shadowMap.enabled).toBe(day.shadows);
+    const night = LIGHT_MODES.night;
+    expect([gl.toneMappingExposure, gl.toneMapping]).not.toEqual([night.exposure, night.toneMapping === "aces" ? ACESFilmicToneMapping : NoToneMapping]);
   });
 
   it("draws pieces in metres: the clone is unscaled, at the GLB's own orientation", async () => {
