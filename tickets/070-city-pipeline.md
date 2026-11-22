@@ -2472,7 +2472,8 @@ So **L1** (this section) switches the view and brings the guide and grammar up t
    - **The other folders' lines** (the only edits outside the folder):
      - `src/city/facades/stage.test.ts` and `src/city/ground/stage.test.ts`: their `BUILT_STAGES` names assertion gains `"traffic"` (those lines only);
      - `src/city/ground/testcities.ts`: `stagesOf` stops at ground (that function only), so every ground test runs exactly the stages it ran before TR1;
-     - `src/render3d/planview.test.ts`: the not-a-plan-stage example `"9"` becomes `"10"` (that literal only; stage 9 is now `traffic`. Re-cut 21 Nov 2026, after criterion 0).
+     - `src/render3d/planview.test.ts`: the not-a-plan-stage example `"9"` becomes `"10"` (that literal only; stage 9 is now `traffic`. Re-cut 21 Nov 2026, after criterion 0);
+     - `src/city/facades/stage.test.ts`, also: one `afterEach(() => new Promise<void>((r) => setTimeout(r, 0)))` and `afterEach` added to its vitest import (that line and that import only). The file's back-to-back synchronous tests ran about 60 s with no macrotask turn, so under TR1's added load the worker missed vitest's 60 s `onTaskUpdate` reply ("Timeout calling \"onTaskUpdate\"", an unhandled error at the gate with every test passing). The yield changes no check, timeout or config (re-cut 21 Nov 2026, after the gate).
    - Every edge, facades, ground and pipeline test passes as merged.
 8. [ ] **The numbers** (reported, not asserted; `report.test.ts`).
    - Per named run, junctions by control and kind, the pieces by kind, the approaches whose heads hang over their own inbound lane and those that do not (the pre-check: 442 and 442), and the closest clearance to stage 7 and to stage 8 with its run.
@@ -2484,10 +2485,10 @@ So **L1** (this section) switches the view and brings the guide and grammar up t
 - **Files:**
   - new `src/city/traffic/`: `constants.ts`, `kit.ts`, `facadebounds.ts`, `hash.ts`, `control.ts`, `signals.ts`, `signs.ts`, `clear.ts`, `trafficcheck.ts`, `stage.ts`, `index.ts`, `testcities.ts`, and the tests named above;
   - `src/city/stages.ts` (one line);
-  - the four test lines of criterion 7;
+  - the test lines of criterion 7, including `src/city/facades/stage.test.ts`' `afterEach` yield and its import;
   - new `src/render3d/trafficpin.test.ts`;
   - `src/render3d/planview.test.ts` (criterion 7's one literal).
-- **Must not:** `src/core/` (criterion 0 is the architect's); every other `src/city/` folder but the lines above; `src/render3d/` but the new pin test and `planview.test.ts`' one literal; `docs/`. Stage 9 reads earlier layers, never their code.
+- **Must not:** `src/core/` (criterion 0 is the architect's); every other `src/city/` folder but the lines above (in `src/city/facades/stage.test.ts`, the stage-list line, the `afterEach` yield and its import only); `src/render3d/` but the new pin test and `planview.test.ts`' one literal; `docs/`. Stage 9 reads earlier layers, never their code.
 - **Interfaces:** criterion 0, written. TR2 reads `traffic.pieces` (`placement`, `kind`, `grounded`). No new dependency.
 - **Rules and numbers:** DS, IN, SJ, AS, T, C, MA, ST and CL, and the four numbers, are Josh's (Q36 to Q43). The five never-used keys are his lift (Q33).
 - **Heavy:** the named-run tests build each named city once through `testcities.ts`' module cache (through ground, then traffic), with a 120 s timeout. The report has its own file.
