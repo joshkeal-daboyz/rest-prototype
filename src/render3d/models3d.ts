@@ -10,7 +10,7 @@ import { BoxGeometry, Box3, Color, DoubleSide, Group, InstancedMesh, Matrix4, Me
 import { calibrationKey, parseCalibrationKey, type AssetEntry, type AssetManifest, type CalibrationKey } from "../core";
 import { stableHash } from "../render/city";
 import { effectiveFronts, loadSavedCalibration } from "./calibration";
-import { COLOURWAY_POOL, assignColourways, isBaseAtlasName, type ColourwayBlock } from "./colourway";
+import { COLOURWAY_POOL, assignColourways, isBaseAtlasName, isColourwayId, type ColourwayBlock } from "./colourway";
 import { CODE_ESCAPE_KEY, type EscapePart } from "./escapes";
 import { DRESS_DRAW_CALLS_MAX, KERB_FROM_FRONT_M, SHOP_GLASS, dressKeys, dressTown, type DressBlockInput, type DressPiece, type DressSlotKind, type DressTownOptions } from "./dressing";
 import { FURN_DRAW_CALLS_MAX, alleyOf, furnitureKeys, furnitureLayout, openLotsOf, type Alley, type AvoidBox, type FurnitureInput, type FurniturePiece, type Rect } from "./furniture";
@@ -89,6 +89,11 @@ export type ModelSet = Record<ModelSlot, LoadedModel[] | null> & {
    * loaded or none was asked for (a fresh checkout, CI, no `colourways` in the manifest, no `loadTexture`): then every stack is drawn with the cached materials, exactly as before.
    */
   colourways?: ReadonlyMap<string, Texture>;
+  /**
+   * The colourway atlases asked for by `LoadDeps.signColourways` (070 TR2: the stop sign's `01_A`), by id, loaded the way `colourways` are but kept apart from them: no block and no building is ever painted from this
+   * map. Absent when none was asked for or none loaded.
+   */
+  signColourways?: ReadonlyMap<string, Texture>;
 };
 
 export const NO_MODELS: ModelSet = { pole: null, lamp: null, building: null };
@@ -112,6 +117,8 @@ export interface LoadDeps {
   tileKeys?: readonly CalibrationKey[];
   /** The door steps to load too (ticket 055 F), keyed `pack:name`, into `ModelSet.steps`. Default: none, so nothing extra is read from the GLB. */
   stepKeys?: readonly CalibrationKey[];
+  /** Colourway ids to fetch for single pieces, not blocks (070 TR2: `["01_A"]` for the stop sign), into `ModelSet.signColourways`, under the pool's own conditions. An id that is not a colourway id, or is in the pool, is refused with one line. Default: none. */
+  signColourways?: readonly string[];
   /** Resolves to the image at `url` as a texture (ticket 054 B: the City Pack's colourways), and rejects if it cannot be fetched. Default: none, so no colourway is fetched. */
   loadTexture?: (url: string) => Promise<Texture>;
   /** Folder of the manifest, ending in "/". Default: `${BASE_URL}assets/private/out/`. */
@@ -236,6 +243,16 @@ export async function loadModels(deps: LoadDeps): Promise<ModelSet> {
     if ((set.stack?.length ?? 0) > 0 && deps.loadTexture && stackPlan && stackPlan.length > 0) {
       const found = await loadColourways(manifest as AssetManifest, stackPlan[0]!.pack, dir, deps.loadTexture, info);
       if (found.size > 0) set.colourways = found;
+      // The sign colourways (070 TR2): the same path, only the ids the caller named, kept out of `colourways`.
+      if (deps.signColourways && deps.signColourways.length > 0) {
+        const refused = deps.signColourways.filter((id) => !isColourwayId(id) || COLOURWAY_POOL.includes(id));
+        for (const id of refused) info(`3D models: sign colourway ${id.slice(0, 24)} is not a colourway id outside the pool; it is not fetched.`);
+        const ids = [...new Set(deps.signColourways.filter((id) => !refused.includes(id)))];
+        if (ids.length > 0) {
+          const signs = await loadColourways(manifest as AssetManifest, stackPlan[0]!.pack, dir, deps.loadTexture, info, ids, "sign colourways");
+          if (signs.size > 0) set.signColourways = signs;
+        }
+      }
     }
     if (deps.dressKeys && deps.dressKeys.length > 0) {
       set.dress = null;
@@ -280,9 +297,9 @@ export async function loadModels(deps: LoadDeps): Promise<ModelSet> {
  * Load the pool's colourway atlases that `pack` lists (ticket 054 B), in parallel through `loadTexture`. Only ids in COLOURWAY_POOL (never the base, which needs no file, nor a B tone, an emissive map or a
  * billboard), each once. A texture that fails drops that id with one line; the others are kept. Says once how many of the pool's non-base ids are in. Never rejects.
  */
-async function loadColourways(manifest: AssetManifest, pack: string, dir: string, loadTexture: (url: string) => Promise<Texture>, info: (message: string) => void): Promise<Map<string, Texture>> {
+async function loadColourways(manifest: AssetManifest, pack: string, dir: string, loadTexture: (url: string) => Promise<Texture>, info: (message: string) => void, ids?: readonly string[], what = "colourways"): Promise<Map<string, Texture>> {
   const listed = manifest.packs.find((p) => p.pack === pack)?.colourways ?? [];
-  const wanted = COLOURWAY_POOL.filter((id) => id !== "base");
+  const wanted = ids ?? COLOURWAY_POOL.filter((id) => id !== "base");
   const out = new Map<string, Texture>();
   if (listed.length === 0) return out;
   const jobs = wanted.flatMap((id) => {
@@ -304,7 +321,7 @@ async function loadColourways(manifest: AssetManifest, pack: string, dir: string
     }),
   );
   for (const l of loaded) if (l) out.set(l[0], l[1]);
-  info(`3D models: ${pack} colourways: ${out.size} of ${wanted.length} loaded`);
+  info(`3D models: ${pack} ${what}: ${out.size} of ${wanted.length} loaded`);
   return out;
 }
 
@@ -341,7 +358,7 @@ let shared: Promise<ModelSet> | null = null;
 let sharedTile: Promise<ModelSet> | null = null;
 
 /** The real fetch and GLTFLoader, with Josh's saved fronts laid over the code's table first (dev only, ticket 045; a production build never fetches the file). */
-function loadPageModels(extra: Pick<LoadDeps, "table" | "tileKeys">): Promise<ModelSet> {
+function loadPageModels(extra: Pick<LoadDeps, "table" | "tileKeys" | "signColourways">): Promise<ModelSet> {
   const fetchJson = async (url: string, init?: { cache: "no-store" }): Promise<unknown> => {
     const r = await fetch(url, init);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -364,8 +381,8 @@ export function sharedModels(): Promise<ModelSet> {
  * The dev-only tile city's models (ticket 055 C): the City Pack's stack, dressing and furniture pieces as every map has, plus the ground tiles `tileKeys` names, and
  * nothing else (an empty table: no building, pole or lamp model, so the Town Pack's 110 MB is never fetched for a city that has no puzzle). Fetched once. Only the tile view calls it.
  */
-export function sharedTileModels(tileKeys: readonly CalibrationKey[]): Promise<ModelSet> {
-  sharedTile ??= loadPageModels({ table: [], tileKeys });
+export function sharedTileModels(tileKeys: readonly CalibrationKey[], signColourways?: readonly string[]): Promise<ModelSet> {
+  sharedTile ??= signColourways ? loadPageModels({ table: [], tileKeys, signColourways }) : loadPageModels({ table: [], tileKeys });
   return sharedTile;
 }
 

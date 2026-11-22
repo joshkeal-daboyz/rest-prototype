@@ -359,7 +359,7 @@ How to read it:
 | `SM_Veh_*` | vehicles |
 | `SM_Env_Skyline_*` | a skyline, about a hundred times too big at the pack's scale |
 | `SM_Env_PalmTree_*` | 13.7 m high: through the wires |
-| `SM_Prop_LightPole_*` | a lamp reads as a puzzle lamp |
+| `SM_Prop_LightPole_*` | `_Base_01`, `_Arm_01`, `_CrossLights_01`, `_CrossButton_01` and `_Box_01` stand at signal junctions only, dark; every other light pole stays never used (070 TR, Josh, Q33: "I will take all of the recommendations") |
 | `SM_Prop_TrafficLight_*` | red and green read as puzzle state |
 | `SM_Prop_PowerBox_*` | reads as a puzzle part |
 | `SM_Prop_Power_Cables_*` | conductors stay code-generated (042 Q9) |
@@ -386,7 +386,7 @@ How to read it:
 - **Open (waits for a pack that has them, or a ticket that draws them in code)**: no balconies, cornices or separate parapets; no roof railings or ladders; no roller shutters.
 - **Open (waits for a second model of each, or a ticket that varies them in code)**: one water tower, one satellite dish and one ATM model only, so variety there comes from placement, not models.
 - **Open (waits for a recolouring ticket, or a pack with more awnings)**: awnings come in five fixed shapes and colours of one texture atlas, and the roof props are one colour each. Variety of rooftops and awnings by colour is deliberately not built: it would mean new materials, and the pack's own atlas is what keeps the instancing cheap.
-- **Open (waits for a ticket that adds a sign pole)**: no sign pole for street-name signs, so `Sign_Street_*` and the traffic signs are not used.
+- **Default (070 TR)**: no street-name signs: the City Pack's plates lie flat and the Town Pack is never fetched for the city (Josh, Q35). The stop sign (drawn from the `01_A` atlas, Q42) and the parking sign stand at junctions and bay stretches (stage 9).
 - **Open (waits for Josh's word on lit places, ticket 049)**: dressing never lights and is never picked, so a lit shop window, a glowing sign or a lit billboard is not in this chapter.
 
 ### 16.7 Fallbacks
@@ -1174,6 +1174,7 @@ The drift test (`styleguide.test.ts`) reads this table. Each row names an export
 | `CITY_RUN_FRONTAGE` | 0.9 | citymetrics.ts |
 | `CITY_STOREYS` | 3 x 5 | citymetrics.ts |
 | `COLOURWAY_POOL.length` | 8 | colourway.ts |
+| `STOP_SIGN_COLOURWAY.length` | 4 | colourway.ts |
 | `LIGHT_MODES.night.background` | 0x0b0f17 | lighting.ts |
 | `LIGHT_MODES.night.ambient.color` | 0x4a5a7a | lighting.ts |
 | `LIGHT_MODES.night.ambient.intensity` | 1.1 | lighting.ts |

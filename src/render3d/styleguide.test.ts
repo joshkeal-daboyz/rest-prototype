@@ -133,7 +133,7 @@ describe("the city style guide exists and is shaped as the ticket says", () => {
         const tag = /^- \*\*(Decided|Default|Pending|Open|Info)\b/.exec(b);
         expect(tag, `chapter ${n}: untagged bullet: ${b.slice(0, 80)}`).not.toBeNull();
         if (tag![1] === "Decided" || tag![1] === "Default") {
-          expect(/^- \*\*(Decided|Default) \([^)]*\b(03[7-9]|04[0-9]|05[0-9]|06[0-9])\b/.test(b), `chapter ${n}: no ticket beside: ${b.slice(0, 80)}`).toBe(true);
+          expect(/^- \*\*(Decided|Default) \([^)]*\b(03[7-9]|04[0-9]|05[0-9]|06[0-9]|07[0-9])\b/.test(b), `chapter ${n}: no ticket beside: ${b.slice(0, 80)}`).toBe(true);
         }
         if (tag![1] === "Pending" || tag![1] === "Open") {
           expect(new RegExp(`^- \\*\\*${tag![1]} \\(`).test(b), `chapter ${n}: no "what it waits for": ${b.slice(0, 80)}`).toBe(true);
@@ -1020,6 +1020,40 @@ describe("the guide catches up with the pipeline (ticket 070 L1)", () => {
     expect(existsSync("src/city/edge/check.ts")).toBe(true);
     expect(existsSync("src/city/edge/kerbline.ts")).toBe(true);
     expect(existsSync("src/city/land/plan.ts")).toBe(true);
+  });
+});
+
+describe("the guide and the grammar carry traffic control (ticket 070 TR2, criterion 9)", () => {
+  const grammar = readFileSync("docs/city-grammar.md", "utf8");
+  const t16 = chapter(16).join("\n");
+
+  it("the SM_Prop_LightPole_* row names each of the five signal keys and Q33, and the stem is still on the never-used list", () => {
+    const row = chapter(16).find((l) => l.startsWith("| `SM_Prop_LightPole_*`"));
+    expect(row).toBeDefined();
+    for (const key of ["_Base_01", "_Arm_01", "_CrossLights_01", "_CrossButton_01", "_Box_01"]) expect(row, key).toContain(`\`${key}\``);
+    expect(row).toContain("Q33");
+    expect(row).toContain("signal junctions only, dark");
+    expect(citymetrics.CITY_NEVER_USED).toContain("SM_Prop_LightPole_");
+    expect(citymetrics.CITY_NEVER_USED).toContain("SM_Prop_TrafficLight_");
+    expect(chapter(16).find((l) => l.startsWith("| `SM_Prop_TrafficLight_*`"))).toContain("red and green read as puzzle state");
+  });
+
+  it("16.6 no longer waits for a sign pole and names Q35 and the stop sign's 01_A atlas", () => {
+    expect(t16).not.toContain("waits for a ticket that adds a sign pole");
+    expect(t16).toMatch(/Default \(070 TR\)\*\*: no street-name signs: the City Pack's plates lie flat and the Town Pack is never fetched for the city \(Josh, Q35\)/);
+    expect(t16).toContain("The stop sign (drawn from the `01_A` atlas, Q42) and the parking sign stand at junctions and bay stretches (stage 9).");
+  });
+
+  it("the grammar has a rule 13 naming DS, IN, SJ, AS, T, C, MA, ST, CL and PK, and a check-table row for it", () => {
+    const at = grammar.indexOf("### 13. Traffic control");
+    expect(at).toBeGreaterThan(grammar.indexOf("### 12. Variety"));
+    expect(at).toBeLessThan(grammar.indexOf("### Not in this grammar yet"));
+    const rule = grammar.slice(at, grammar.indexOf("### Not in this grammar yet"));
+    for (const id of ["DS", "IN", "SJ", "AS", "T", "C", "MA", "ST", "CL", "PK"]) expect(rule, id).toContain(`**${id}**`);
+    for (const q of ["Q33", "Q36", "Q37", "Q38", "Q39", "Q40", "Q42", "Q43", "Q44"]) expect(rule, q).toContain(q);
+    for (const n of ["0.5 m", "1.0 m", "0.75 m", "4.6 m"]) expect(rule, n).toContain(n);
+    expect(rule).toContain("Check. Stage 9's TC1 to TC5 and keys; R12's allowance in the drawing".replace("Check. ", "**Check.** "));
+    expect(grammar).toContain("| traffic control | every junction's control by DS to C; every piece placed by MA, ST, PK and clear by CL | 13 | TR1, TR1b |");
   });
 });
 
