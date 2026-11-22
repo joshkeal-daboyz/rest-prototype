@@ -1,7 +1,7 @@
 # 071 · Power lines and poles from the packs: one pole and wire kit for the ladder and the pipeline city
 
 owner: per section (pipeline-designer for A; renderer for B, C and E; grid-simulator for D)
-status: open. G1 given (Josh, 21 Nov 2026, in chat: "Start 071,K1&L2"). Re-cut the same day for the four packs of ticket 072. Sections D and E are proposed in this re-cut and start only on Josh's answers to Q13 and Q14.
+status: open. G1 given (Josh, 21 Nov 2026, in chat: "Start 071,K1&L2"). Re-cut the same day for the four packs of ticket 072. Sections D and E are proposed in this re-cut and start only on Josh's answers to Q13 and Q14. Q12 answered the same day ("Yes to all recommendations"); Q10, Q11, Q13 and Q14 are open.
 branch: `ticket/071a-power-kit-precheck` (A, a design note only), `ticket/071b-power-kit` (B), `ticket/071c-ladder-pack-lines` (C), `ticket/071d-power-glbs` (D), `ticket/071e-ladder-overlay` (E)
 
 ## Josh's words (21 Nov 2026, in chat)
@@ -121,7 +121,7 @@ The Town Pack has `SM_Prop_ElectricalCover_01` and `SM_Prop_PowerPlug_01`. Neith
 - **Default 042 Q9 (guide 9):** "conductors stay code-generated ... Pack line meshes (`*_Lines_*`, `*_Preset_*`) are never used." Josh's first words overtake this Default. C rewrites the line as Decided, quoting him and naming the pieces and the kit. `_Preset_*` (poles and lines in one mesh) stays unused, because the kit places poles and lines apart.
 - **16.6, the never-used list (Default 052), and `CITY_NEVER_USED`:**
   - `SM_Prop_Power_Cables_*` is lifted only if Josh picks a City Pack cable (Q11).
-  - `SM_Prop_LightPole_*` is lifted for circuit pieces only if Q12 is "street lights". That lift is separate from TR's traffic-only allowance and must not overlap it.
+  - `SM_Prop_LightPole_*` is not lifted for line supports: Q12 is answered "power poles" (Josh, 21 Nov 2026, "Yes to all recommendations"). TR's traffic-only allowance is untouched. A street light's own model is K3's question.
   - The new packs' power pieces match no stem on the list, so C adds nothing for them.
 - **Decided 037 and 042 (guides 9 and 12):** the cut and the Relight keep their looks, and a live wire differs from a dead one by more than colour. These stay code-drawn and unchanged.
 - **Decided 037, the 3:1 pole contrast**, was pinned on a code colour (`POLE_WOOD`). A measures each pack pole (Q15).
@@ -131,11 +131,12 @@ The Town Pack has `SM_Prop_ElectricalCover_01` and `SM_Prop_PowerPlug_01`. Neith
 ## How 071 lines up with 070 (070 is not edited here; its architect or the main session carries these)
 - **K1 (being cut now, puzzle-designer).**
   - (a) The pole slot pitch need not stay 12.5 m. The kit fits any span from 0.5x to `LINE_STRETCH_MAX` x a piece's length, and chains above that. K1 may choose its pitch on the circuit's own grounds. A's note gives the candidate pieces' lengths: Palm `Powerline_*` ~7.7 m, Sci-Fi Frontier `Cable_12..16` ~12 m, City Pack `Cables_03` 13.49 m.
-  - (b) Q12 decides whether a city line hangs from street lights, so that a pole slot is also a lamp, or from power poles with lamps apart. That changes K1's slot rules, so K1 should have Josh's answer before its rules are pre-checked.
+  - (b) Q12 is answered: a city line hangs from power poles, with street lights apart as lamps (Josh, 21 Nov 2026, "Yes to all recommendations"). K1's text carries it.
+  - (c) 070 Q45 is answered the same way: no corner poles; lines turn round block corners and cross streets between junctions, never over a junction. A city crossing is then about 16.5 m mid-block, not 25 to 45 m over a junction, so A's item 13 and the "Long city spans" default take K1's crossing spans when K1 gives them.
 - **The architect's `CityCircuitLayer` typing.** Each pole spot needs a stable id, because the mix rule hashes it. Its attachment height comes from the kit, not the layer: the layer gives spots and spans, and the kit gives poles and pieces.
 - **K3 (renderer).** It draws through B's kit at `WORLD_PER_METRE`. It needs B merged, and D too if Q13 is "yes" and a picked piece is from a large pack. If a City Pack cable or a street light is used, K3 also needs its own R12 allowance (Q11, Q12) as a typed table, as TR2's is.
 - **K4 (renderer).** With Q14 "yes", E builds the overlay on the ladder, and K4 reuses `overlay.ts` and `glyphs.ts` on the plan city. K4 then adds only the city's projected positions and its `hitTest`. With Q14 "no", the overlay stays wholly K4's, and C ships varied poles before any overlay exists.
-- **TR (stage 9).** Its `SM_Prop_LightPole_*` allowance covers `traffic` pieces only. A circuit allowance (Q12 "street lights") must name different kinds. TR's digest re-pins when K types the circuit (TR's own note (a)).
+- **TR (stage 9).** Its `SM_Prop_LightPole_*` allowance covers `traffic` pieces only. With Q12 answered "power poles", no circuit allowance for line supports is needed; if K3 later picks a City Pack street light, its allowance must name different kinds. TR's digest re-pins when K types the circuit (TR's own note (a)).
 - **L2b (renderer).** It edits `models3d.ts`, the guide's chapters 18 and 19, and `styleguide.test.ts`. C edits `models3d.ts`, chapter 9, 16.6 and `styleguide.test.ts`. They share files but not lines. L2b also removes the `city=tiles-old` route from `renderer.ts`, which E edits for the overlay canvas. Whichever of C (or E) and L2b merges second rebases onto the other, and its gate runs on the rebased branch.
 
 ## Sections, and the order
@@ -148,7 +149,7 @@ The Town Pack has `SM_Prop_ElectricalCover_01` and `SM_Prop_PowerPlug_01`. Neith
 ### A · The asset pre-check (pipeline-designer; a note, no code). Branch `ticket/071a-power-kit-precheck`
 A writes `docs/design/071-power-kit-precheck.md`. It measures from the GLBs, outside the repo, as its instructions say. It starts after 072's texture-alias re-runs end (the main session says when), and it loads one large GLB at a time.
 
-**Candidates.** Every pole and line piece in the inventory table, except `_Preset_*` and Sci-Fi City's `Cables_*`. The broken poles are measured only for whether they can carry wires. The City Pack's `SM_Prop_LightPole_Base_01/02` and `_Arm_01` are measured as street-light supports, for Q12.
+**Candidates.** Every pole and line piece in the inventory table, except `_Preset_*` and Sci-Fi City's `Cables_*`. The broken poles are measured only for whether they can carry wires. The City Pack's `SM_Prop_LightPole_Base_01/02` and `_Arm_01` are not measured as line supports: Q12 is answered "power poles".
 
 **The picture sheet (for Josh's picks).**
 - One picture per candidate pole, standing beside `apocalypse-power:SM_Prop_Powerpole_01` and a 1.8 m figure.
@@ -327,7 +328,7 @@ The first cut's Q1 to Q9 were never answered. These replace them.
 
 10. **Poles: a makeshift mix, or one pole?** This changes Decided 041 "of one style". **Recommended: a mix.** You pick a short list from A's picture sheet, and each pole spot gets one of them by a fixed hash. Every puzzle line still carries three wires on a cross-arm, so the armless Sci-Fi poles join only if A finds they can carry three. *Reason:* it suits the setting, and the three-wire live and cut looks you Decided stay as they are.
 11. **Wires: pack strands, or code wires?** **Recommended: pack single-strand pieces**, three per span and one kind of piece per line, from your picks on A's sheet. The live glow, the Relight and the cut stay drawn in code over them. If you pick a City Pack cable, it comes off the never-used list. *Reason:* the dead wires look like the packs' lines, and nothing you Decided about live and cut wires changes.
-12. **In the city, do the wires hang from street lights (the City Pack's own look) or from power poles?** **Recommended: power poles, with street lights standing apart as lamps.** *Reason:* a puzzle lamp and a line support stay two things that the overlay and a click can tell apart, and stage 9's traffic-only use of the City Pack light poles stays clean. The answer goes to K1 before its rules are checked.
+12. **In the city, do the wires hang from street lights (the City Pack's own look) or from power poles?** **Answered, Josh, 21 Nov 2026, in chat**, asked "Do you want the recommended answers to Q12 and Q45 to Q47, or would you rather choose each one?": **"Yes to all recommendations"**: power poles, with street lights standing apart as lamps. Carried into 070 K1's "What K1 starts from". As asked: **Recommended: power poles, with street lights standing apart as lamps.** *Reason:* a puzzle lamp and a line support stay two things that the overlay and a click can tell apart, and stage 9's traffic-only use of the City Pack light poles stays clean. The answer goes to K1 before its rules are checked.
 13. **Make small GLBs of just the power pieces (D)?** **Recommended: yes.** *Reason:* Palm City and Sci-Fi Frontier are 103 MB each, and a few poles should not load 200 MB on every page, phones included.
 14. **Build the overlay on the ladder's 3D view now, as 071 E, and let 070 K4 reuse it on the city?** **Recommended: yes.** *Reason:* once the poles vary, the overlay is what tells the parts apart. The ladder already has the game state to test it on, while K4 waits on K1 and K2.
 
