@@ -14,7 +14,7 @@ import { ASSET_MANIFEST_VERSION, loadPuzzle, type AssetEntry, type AssetManifest
 import { GLASS_SILL_M, dressKeys, type DressPiece } from "./dressing";
 import { ESCAPE_TABLES, escapeCheck, sillOf } from "./escapes";
 import { BUILDING_FRONTS, MODEL_TABLE, WORLD_PER_METRE, frontAxis, type ModelFront } from "./models";
-import { allStackKeys, applyModels, dressSites, liftDressing, loadModels, sameAboveGround, stackInput, zShift, stepsGroup, stepsPlacement, type AppliedModels, type ModelSet } from "./models3d";
+import { allStackKeys, applyModels, bandPacked, dressSites, liftDressing, loadModels, sameAboveGround, stackInput, zShift, stepsGroup, stepsPlacement, type AppliedModels, type ModelSet } from "./models3d";
 import { PAVEMENT_Y, YARD, buildScene } from "./scene";
 import {
   DOOR_MIN_AREA_M2,
@@ -57,7 +57,8 @@ import {
   type SillTable,
 } from "./sills";
 import { STACK_STYLES, assembleStack, type Stack } from "./stacks";
-import { TILE_APPLY } from "./oldvalues.fixture";
+import { OLD_CITY_TOWN, TILE_APPLY } from "./oldvalues.fixture";
+import { packTown } from "./terrace";
 import { stubTextSurface } from "./text";
 
 const CITY_PACK_GLB = join("assets", "private", "out", "city-pack.glb");
@@ -1611,5 +1612,30 @@ describe("the band is applied only where the lift would reach a window (ticket 0
     expect(bandedAll).toBe(needed);
     // On the maps (back-aligned) the floors and the roof of some banded blocks stand a little further back; the guide says so.
     expect(zMoved).toBeGreaterThan(0);
+  });
+});
+
+describe("the band leaves a genuinely wall-aligned town's z alone (ticket 062 B criterion 6; the old tile city, typed in by ticket 070 L2c)", () => {
+  it("on the old default city's runs (OLD_CITY_TOWN, wall-aligned), every block the band changes differs only in its ground row and keeps the z of everything above it exactly", () => {
+    const input = stackInput(CITY_SET)!;
+    const town = OLD_CITY_TOWN;
+    const packed = packTown(town, STACK_STYLES, input.entries, input.fronts, { align: "wall" });
+    const full = bandPacked(packed, town.terraces, input.entries, input.fronts, DOOR_SILLS, "wall", "body");
+    const empty = bandPacked(packed, town.terraces, input.entries, input.fronts, {}, "wall", "body");
+    let blocks = 0;
+    let changed = 0;
+    for (const [id, res] of full) {
+      const base = empty.get(id)!.blocks;
+      res.blocks.forEach((b, i) => {
+        blocks++;
+        const a = base[i]!.stack;
+        if (groundOf(b.stack).join() === groundOf(a).join()) return;
+        changed++;
+        expect(sameAboveGround(b.stack, a), `${id} block ${i} differs only in its ground row`).toBe(true);
+        expect(zShift(a, b.stack), `${id} block ${i} z`).toBeLessThan(1e-9);
+      });
+    }
+    expect(blocks).toBeGreaterThan(50);
+    expect(changed, "the band changes some of the old city's blocks").toBeGreaterThan(0);
   });
 });
