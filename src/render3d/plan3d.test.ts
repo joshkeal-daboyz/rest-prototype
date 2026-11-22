@@ -7,7 +7,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { Box3, Frustum, Matrix4, PerspectiveCamera, BoxGeometry, Group, InstancedMesh, Mesh, MeshBasicMaterial, MeshStandardMaterial, Quaternion, Scene, Texture, Vector3, type Object3D, type WebGLRenderer } from "three";
+import { Box3, Frustum, Matrix4, PerspectiveCamera, BoxGeometry, Group, InstancedMesh, Mesh, MeshBasicMaterial, MeshStandardMaterial, Quaternion, Scene, Texture, Vector3, type Material, type Object3D, type WebGLRenderer } from "three";
 import type { AssetEntry, CalibrationKey, CityBuildingsLayer, CityFacadesLayer, CityGroundLayer, CityGroundPiece, CityKerbPath, CityCell, CityMassLayer, CityPlan, CityPlacement, CityPlanRun, CitySide } from "../core";
 import { stableHash } from "../render/city";
 import { digestOf, runCity } from "../city/pipeline";
@@ -19,6 +19,8 @@ import { groundStage } from "../city/ground/stage";
 import { landStage } from "../city/land/stage";
 import { massStage } from "../city/mass/stage";
 import { streetsStageWith } from "../city/streets/stage";
+import { trafficStage } from "../city/traffic/stage";
+import { KEY_OF_KIND, TRAFFIC_ALLOWED, TRAFFIC_BOUNDS, MAST, boundsOf } from "../city/traffic/kit";
 import { KERB_GAP_MAX_M, KERB_HEIGHT_TOL_M, KERB_TOL_M, type KerbFace, type KerbPlan, type Mp } from "./kerbline";
 import {
   PLAN_ARROW,
@@ -27,7 +29,12 @@ import {
   PLAN_LINES,
   PLAN_PARTY_PIPE,
   PLAN_PARTY_WINDOW,
+  PLAN_TRAFFIC_ALLOWED,
+  PLAN_TRAFFIC_KEYS,
   PlanStopError,
+  furnitureStages,
+  planTrafficDraws,
+  type PlanTrafficDraw,
   dressStage,
   planAudit,
   planDressDraws,
@@ -59,6 +66,7 @@ import {
 } from "./plan3d";
 import { NO_MODELS, allStackKeys, dressMatrix, partMatrix, type LoadedModel, type ModelSet } from "./models3d";
 import { CODE_ESCAPE_KEY } from "./escapes";
+import { CITY_NEVER_USED } from "./citymetrics";
 import { DRESS_DRAW_CALLS_MAX, DRESS_MAX, dressKeys } from "./dressing";
 import { FURN_DRAW_CALLS_MAX, furnitureKeys } from "./furniture";
 import { tileCity, TILE_M, type TileCell } from "./tilecity";
@@ -80,13 +88,13 @@ interface City {
 const NAMED: City[] = [];
 for (const way of ["on", "off"] as const) for (let seed = 1; seed <= 10; seed++) NAMED.push({ seed, way });
 const label = (o: City): string => `6 x 6 seed ${o.seed} one-way ${o.way}`;
-const offStages = (): CityStageDef[] => [streetsStageWith(0) as unknown as CityStageDef, landStage as unknown as CityStageDef, massStage as unknown as CityStageDef, edgeStage as unknown as CityStageDef, buildingsStage as unknown as CityStageDef, facadesStage as unknown as CityStageDef, groundStage as unknown as CityStageDef];
+const offStages = (): CityStageDef[] => [streetsStageWith(0) as unknown as CityStageDef, landStage as unknown as CityStageDef, massStage as unknown as CityStageDef, edgeStage as unknown as CityStageDef, buildingsStage as unknown as CityStageDef, facadesStage as unknown as CityStageDef, groundStage as unknown as CityStageDef, trafficStage as unknown as CityStageDef];
 const cache = new Map<string, CityPlanRun>();
 function planOf(o: City): CityPlan {
   const k = `${o.seed}:${o.way}`;
   if (!cache.has(k)) {
     const opts = { blocksX: 6, blocksZ: 6, seed: o.seed };
-    cache.set(k, o.way === "on" ? runCity(opts, "ground") : runCity(opts, "ground", offStages()));
+    cache.set(k, o.way === "on" ? runCity(opts, "traffic") : runCity(opts, "traffic", offStages()));
   }
   const r = cache.get(k)!;
   if (!r.ok) throw new Error(`${label(o)} failed at ${r.failure.stage}: ${r.failure.reason}`);
@@ -1633,8 +1641,8 @@ describe("the facades and the ground, on the 20 named runs (J criteria 3, 4, 5 a
   });
 
   it("loads the party window and the party pipe by name: planKeys() names them and no other new key, and no dressing, furniture or stack list does; every key the plan places is loaded", () => {
-    expect(planKeys()).toEqual([...planTileKeys(), PLAN_PARTY_WINDOW, PLAN_PARTY_PIPE]);
-    expect(planKeys().slice(0, -2)).toEqual([...tileKeys(), PLAN_ARROW, ...PLAN_DOOR_CORNERS]);
+    expect(planKeys()).toEqual([...planTileKeys(), PLAN_PARTY_WINDOW, PLAN_PARTY_PIPE, ...Object.values(PLAN_TRAFFIC_KEYS)]);
+    expect(planKeys().slice(0, -9)).toEqual([...tileKeys(), PLAN_ARROW, ...PLAN_DOOR_CORNERS]);
     expect([PLAN_PARTY_WINDOW, PLAN_PARTY_PIPE]).toEqual(["city-pack:SM_Prop_Window_01", "city-pack:SM_Prop_Pipe_Present_03"]);
     for (const key of [PLAN_PARTY_WINDOW, PLAN_PARTY_PIPE]) {
       expect(dressKeys()).not.toContain(key);
@@ -1806,6 +1814,14 @@ describe("createPlanAssembleRenderer3d and the routing (criterion 7)", () => {
     expect(planFailureText(atGround)).toBe('City plan failed at stage "ground" (seed 7, 6 x 6): R10: a prop with no pavement');
     expect(info.mock.calls.some((c) => String(c[0]).includes('stage "ground"') && String(c[0]).includes("R10"))).toBe(true);
     groundStopped.dispose();
+    const atTraffic = { stage: "traffic" as const, seed: 7, blocksX: 6, blocksZ: 6, reason: "TC5: a stop sign under an awning", cells: [{ i: 5, j: 6 }] };
+    const trafficStopped = createPlanAssembleRenderer3d(gl, fakeCanvas, planAssembleRequested("?city=plan&stage=9&seed=7")!, { dpr: 1, search: "?city=plan&stage=9&seed=7", load: async () => ({ ...NO_MODELS }), run: { ok: false, plan: planOf(DEFAULT), failure: atTraffic } });
+    await new Promise<void>((done) => setTimeout(done, 0));
+    trafficStopped.draw(undefined as never, undefined as never, 0);
+    expect(scenes[scenes.length - 1]!.getObjectByName("plan3d")).toBeUndefined();
+    expect(planFailureText(atTraffic)).toBe('City plan failed at stage "traffic" (seed 7, 6 x 6): TC5: a stop sign under an awning');
+    expect(info.mock.calls.some((c) => String(c[0]).includes('stage "traffic"') && String(c[0]).includes("TC5"))).toBe(true);
+    trafficStopped.dispose();
     info.mockRestore();
   });
 
@@ -1893,8 +1909,8 @@ describe("createPlanAssembleRenderer3d and the routing (criterion 7)", () => {
 
   it("runs the pipeline to the ground stage when the page does not give a run (the flat picture at stage=ground stays planview.ts's)", () => {
     const source = readFileSync("src/render3d/plan3d.ts", "utf8");
-    expect(source).toMatch(/runCity\(\{ blocksX: req\.blocksX, blocksZ: req\.blocksZ, seed: req\.seed \}, "ground"\)/);
-    expect(source).not.toMatch(/seed: req\.seed \}, "facades"\)/);
+    expect(source).toMatch(/runCity\(\{ blocksX: req\.blocksX, blocksZ: req\.blocksZ, seed: req\.seed \}, "traffic"\)/);
+    expect(source).not.toMatch(/seed: req\.seed \}, "(facades|ground)"\)/);
     expect(planAssembleRequested("?city=plan&stage=ground")).toBeNull();
   });
 
@@ -1940,5 +1956,516 @@ describe("tilesPlanRequested (ticket 070 L1, criterion 1)", () => {
     expect(renderer).toMatch(/oldTilesRequested\(location\.search\)/);
     expect(renderer.indexOf("tilesPlanRequested(location.search)")).toBeLessThan(renderer.indexOf("oldTilesRequested(location.search)"));
     expect(renderer.indexOf("createPlanAssembleRenderer3d(renderer")).toBeLessThan(renderer.indexOf("createCityRenderer3d("));
+  });
+});
+
+// ---- stage 9: the traffic pieces drawn (ticket 070 TR2) ----
+
+const SEVEN = Object.values(PLAN_TRAFFIC_KEYS);
+const trafficWith = (plan: CityPlan, pieces: readonly { kind: string; cell: CityCell; placement: CityPlacement }[]): CityPlan => ({ ...plan, layers: { ...plan.layers, traffic: { ...plan.layers.traffic!, pieces: pieces as never } } });
+const trafficPieces = (plan: CityPlan): NonNullable<CityPlan["layers"]["traffic"]>["pieces"] => plan.layers.traffic!.pieces;
+/** Every piece of the traffic layer is in the draw list exactly once (by the identity of its placement), and nothing else is. */
+const trafficListedOnce = (pieces: readonly { placement: CityPlacement }[], draws: readonly PlanTrafficDraw[]): boolean => {
+  const seen = new Map<CityPlacement, number>();
+  for (const d of draws) seen.set(d.placement, (seen.get(d.placement) ?? 0) + 1);
+  return pieces.every((p) => seen.get(p.placement) === 1) && seen.size === pieces.length && draws.length === pieces.length;
+};
+const countByKey = (draws: readonly { placement: CityPlacement }[]): Map<CalibrationKey, number> => {
+  const c = new Map<CalibrationKey, number>();
+  for (const d of draws) c.set(d.placement.key, (c.get(d.placement.key) ?? 0) + 1);
+  return c;
+};
+const lightsIn = (o: Object3D): number => {
+  let n = 0;
+  o.traverse((c) => {
+    if ((c as unknown as { isLight?: boolean }).isLight === true) n++;
+  });
+  return n;
+};
+const turn = (yaw: number): number => ((Math.round(yaw) % 360) + 360) % 360;
+const isNeverUsedKey = (key: string): boolean => CITY_NEVER_USED.some((s) => key.slice(key.indexOf(":") + 1).startsWith(s));
+
+describe("stage 9: the traffic pieces, from placements only (TR2 criteria 2, 3, 6)", { timeout: 120_000 }, () => {
+  it("draws one piece of each of the seven kinds at its placement, at every turn the list has for it, a fixed piece's base at its y_m over 0", () => {
+    const turns = new Map<string, Set<number>>();
+    const m = new Matrix4();
+    const pos = new Vector3();
+    let fixed = 0;
+    for (const o of [DEFAULT, ...PINS]) {
+      const done = new Set<string>();
+      for (const d of planTrafficDraws(planOf(o))) {
+        const id = `${d.kind}|${d.placement.yaw_deg}`;
+        if (done.has(id)) continue;
+        done.add(id);
+        const stages = furnitureStages([], [d], jRoots());
+        const im = instancedBy(stages.traffic.group).get(`dress:${shortOf(d.placement.key)}`);
+        expect(im, `${label(o)} ${d.kind}`).toBeDefined();
+        expect(im!.count).toBe(1);
+        im!.getMatrixAt(0, m);
+        const want = dressMatrix(IDENT, { x: d.placement.x_m, y: d.placement.y_m, z: d.placement.z_m, yaw: d.placement.yaw_deg * RAD });
+        expect(maxDiff(m, want), `${label(o)} ${d.kind} at ${d.placement.yaw_deg}`).toBeLessThan(1e-4);
+        pos.setFromMatrixPosition(m);
+        expect(pos.y / 0.18, `${label(o)} ${d.kind}: its base is y_m over the walk (0)`).toBeCloseTo(d.placement.y_m, 6);
+        if (!d.grounded) {
+          fixed++;
+          expect(d.placement.y_m, `${d.kind} is fixed to another piece at a height`).toBeGreaterThan(0);
+        }
+        expect(d.placement.key).toBe(PLAN_TRAFFIC_KEYS[d.kind]);
+        (turns.get(d.kind) ?? turns.set(d.kind, new Set()).get(d.kind)!).add(turn(d.placement.yaw_deg));
+        stages.furniture.dispose();
+      }
+    }
+    expect([...turns.keys()].sort()).toEqual(Object.keys(PLAN_TRAFFIC_KEYS).sort());
+    const all = new Set([...turns.values()].flatMap((t) => [...t]));
+    expect([...all].sort((a, b) => a - b)).toEqual([0, 90, 180, 270]);
+    expect(fixed).toBeGreaterThan(0);
+    console.info(`TR2 turns by kind: ${[...turns].map(([k, t]) => `${k} ${[...t].sort((a, b) => a - b).join("/")}`).join("; ")}`);
+  });
+
+  it("draws a piece only when its key's root loaded: with one traffic key's root missing only that key's pieces are not drawn and stage 8's count is unchanged; with empty roots none is", () => {
+    const plan = planOf(DEFAULT);
+    const td = planTrafficDraws(plan);
+    const full = plan3dGroups(plan, jRoots(), none.entries);
+    expect(full.traffic.drawn).toBe(td.length);
+    const e = plan3dGroups(plan, none.roots, none.entries);
+    expect(e.traffic.placed).toBe(0);
+    expect(e.traffic.drawn).toBe(0);
+    expect(e.group.getObjectByName("plan:furniture")!.children).toHaveLength(0);
+    e.dispose();
+    for (const key of SEVEN) {
+      const n = countByKey(td).get(key) ?? 0;
+      const part = plan3dGroups(plan, jRoots([key]), none.entries);
+      expect(part.traffic.perKey.has(key), key).toBe(false);
+      expect(part.traffic.placed, key).toBe(td.length - n);
+      expect(part.traffic.listed, key).toBe(td.length);
+      expect(part.furniture.drawn, key).toBe(full.furniture.drawn);
+      expect(part.furniture.listed, key).toBe(full.furniture.listed);
+      for (const [other, c] of full.traffic.perKey) if (other !== key) expect(part.traffic.perKey.get(other), `${key} missing, ${other}`).toBe(c);
+      part.dispose();
+    }
+    full.dispose();
+  });
+
+  it("lists every traffic piece once, in order, with every key one the page loads; the traffic keys and stage 8's are disjoint; planKeys() gains the seven and nothing else; the seven are in no other list", () => {
+    const loaded = new Set<CalibrationKey>(planKeys());
+    for (const key of SEVEN) expect(loaded.has(key), key).toBe(true);
+    expect(planKeys().filter((key) => !planTileKeys().includes(key) && key !== PLAN_PARTY_WINDOW && key !== PLAN_PARTY_PIPE).sort()).toEqual([...SEVEN].sort());
+    for (const key of SEVEN) {
+      expect(dressKeys(), key).not.toContain(key);
+      expect(furnitureKeys(), key).not.toContain(key);
+      expect(allStackKeys(), key).not.toContain(key);
+      expect(planTileKeys(), key).not.toContain(key);
+    }
+    expect(planTileKeys()).toEqual([...tileKeys(), PLAN_ARROW, ...PLAN_DOOR_CORNERS]);
+    // The page's names are the traffic kit's, once each.
+    expect(PLAN_TRAFFIC_KEYS).toEqual(KEY_OF_KIND);
+    expect([...SEVEN].sort()).toEqual(Object.keys(TRAFFIC_BOUNDS).sort());
+    let pieces = 0;
+    for (const o of NAMED) {
+      const plan = planOf(o);
+      const td = planTrafficDraws(plan);
+      pieces += td.length;
+      expect(trafficListedOnce(trafficPieces(plan), td), label(o)).toBe(true);
+      expect(td.map((d) => d.placement), label(o)).toEqual(trafficPieces(plan).map((p) => p.placement));
+      for (const d of td) expect(loaded.has(d.placement.key), `${label(o)} ${d.placement.key}`).toBe(true);
+      const eight = new Set(planPropDraws(plan).map((p) => p.placement.key));
+      for (const d of td) expect(eight.has(d.placement.key), `${label(o)} ${d.placement.key} is also a stage 8 key`).toBe(false);
+    }
+    expect(pieces).toBeGreaterThan(5000);
+  });
+
+  it("fails the exactly-once check with one traffic piece dropped and with one listed twice; stops on a plan with no traffic layer and on a piece whose key the page does not load (the cell named)", () => {
+    const plan = planOf(DEFAULT);
+    const pieces = trafficPieces(plan);
+    const td = planTrafficDraws(plan);
+    expect(trafficListedOnce(pieces, td)).toBe(true);
+    expect(trafficListedOnce(pieces.slice(1), td)).toBe(false);
+    expect(trafficListedOnce(pieces, td.slice(1))).toBe(false);
+    expect(trafficListedOnce(pieces, [...td, td[3]!])).toBe(false);
+    const stop = (p: CityPlan): PlanStopError => {
+      let caught: unknown = null;
+      try {
+        plan3dGroups(p, jRoots(), none.entries);
+      } catch (e) {
+        caught = e;
+      }
+      expect(caught).toBeInstanceOf(PlanStopError);
+      return caught as PlanStopError;
+    };
+    const noTraffic = { ...plan.layers } as { -readonly [K in keyof CityPlan["layers"]]?: CityPlan["layers"][K] };
+    delete noTraffic.traffic;
+    expect(stop({ ...plan, layers: noTraffic }).message).toMatch(/no traffic layer/);
+    let thrown: unknown = null;
+    try {
+      planTrafficDraws({ ...plan, layers: noTraffic });
+    } catch (e) {
+      thrown = e;
+    }
+    expect(thrown).toBeInstanceOf(PlanStopError);
+    const give = "city-pack:SM_Prop_Sign_GiveWay_01";
+    const at = pieces.findIndex((p) => p.kind === "stopSign");
+    const e = stop(trafficWith(plan, pieces.map((p, n) => (n === at ? { ...p, placement: reKey(p.placement, give) } : p))));
+    expect(e.cells).toEqual([pieces[at]!.cell]);
+    expect(e.message).toMatch(/not one the page loads/);
+  });
+
+  it("on the 20 named runs: the shared group holds every listed piece of both stages with a full stub pack (no key left out, the cap held), and each traffic key's instances are its listed count", () => {
+    for (const o of NAMED) {
+      const plan = planOf(o);
+      const pd = planPropDraws(plan);
+      const td = planTrafficDraws(plan);
+      const roots = jRoots();
+      const s = furnitureStages(pd, td, roots);
+      const listed = countByKey(td);
+      expect(s.traffic.placed, label(o)).toBe(td.length);
+      expect(s.traffic.drawn, label(o)).toBe(td.length);
+      expect(s.furniture.drawn, label(o)).toBe(pd.length);
+      expect(s.traffic.leftOut, label(o)).toEqual([]);
+      expect(s.furniture.leftOut, label(o)).toEqual([]);
+      for (const [key, n] of listed) expect(s.traffic.perKey.get(key), `${label(o)} ${key}`).toBe(n);
+      expect(notDrawn(pd, s.furniture, roots), label(o)).toEqual([]);
+      expect(s.furniture.calls + s.traffic.calls, label(o)).toBe(s.furniture.group.children.length);
+      expect(s.furniture.group.children.length, label(o)).toBeLessThanOrEqual(FURN_DRAW_CALLS_MAX);
+      expect(s.traffic.calls, label(o)).toBeGreaterThanOrEqual(1);
+      // Stage 8's summary is what J reports of it alone.
+      const alone = propStage(pd, roots);
+      expect(alone.drawn, label(o)).toBe(s.furniture.drawn);
+      expect([...alone.perKey].sort()).toEqual([...s.furniture.perKey].sort());
+      alone.dispose();
+      s.furniture.dispose();
+    }
+  });
+
+  it("builds the full group (stub roots) on the default city and the four pin cities: every layer's digest, streets to traffic, is the same before and after, and every cap holds", () => {
+    for (const o of [DEFAULT, ...PINS]) {
+      const plan = planOf(o);
+      const layers = plan.layers;
+      const digests = (): Record<string, string> => ({ streets: digestOf(layers.streets), land: digestOf(layers.land), mass: digestOf(layers.mass), edge: digestOf(layers.edge), buildings: digestOf(layers.buildings), facades: digestOf(layers.facades), ground: digestOf(layers.ground), traffic: digestOf(layers.traffic) });
+      const before = digests();
+      expect(before, label(o)).toEqual({ streets: plan.digests.streets, land: plan.digests.land, mass: plan.digests.mass, edge: plan.digests.edge, buildings: plan.digests.buildings, facades: plan.digests.facades, ground: plan.digests.ground, traffic: plan.digests.traffic });
+      const d = plan3dGroups(plan, jRoots(), none.entries, LOADED_WAYS);
+      expect(digests(), `${label(o)}: no layer changed`).toEqual(before);
+      expect(d.trafficDraws, label(o)).toHaveLength(trafficPieces(plan).length);
+      expect(d.traffic.drawn, label(o)).toBe(d.trafficDraws.length);
+      expect(d.traffic.leftOut, label(o)).toEqual([]);
+      expect(d.furniture.drawn, label(o)).toBe(d.propDraws.length);
+      expect(d.tiles.calls, label(o)).toBeLessThanOrEqual(TILE_DRAW_CALLS_MAX);
+      expect(d.interior.calls, label(o)).toBeLessThanOrEqual(INTERIOR_DRAW_CALLS_MAX);
+      expect(d.dress.calls, label(o)).toBeLessThanOrEqual(DRESS_DRAW_CALLS_MAX);
+      expect(d.furniture.group.children.length, label(o)).toBeLessThanOrEqual(FURN_DRAW_CALLS_MAX);
+      expect(d.group.children.includes(d.furniture.group)).toBe(true);
+      expect(d.traffic.group, "one group for stages 8 and 9").toBe(d.furniture.group);
+      d.dispose();
+    }
+  });
+});
+
+describe("stage 9: dark, and R12's allowance (TR2 criteria 4 and 7)", { timeout: 120_000 }, () => {
+  const HAVE_GLB = existsSync(join("assets", "private", "out", "city-pack.glb"));
+  const glowRoots = (): { roots: Map<CalibrationKey, Object3D>; glow: MeshStandardMaterial } => {
+    const glow = new MeshStandardMaterial({ color: 0xffffff, emissive: 0xffeecc, emissiveIntensity: 2, emissiveMap: new Texture() });
+    const roots = jRoots();
+    for (const key of SEVEN) {
+      const g = new Group();
+      g.name = shortOf(key);
+      g.add(new Mesh(BOX, glow));
+      roots.set(key, g);
+    }
+    return { roots, glow };
+  };
+
+  it("draws every traffic mesh with no emissive and no emissive map, leaves the root's own material alone, and adds no Light", () => {
+    const plan = planOf(DEFAULT);
+    const { roots, glow } = glowRoots();
+    const d = plan3dGroups(plan, roots, none.entries);
+    const names = new Set(SEVEN.map((key) => `dress:${shortOf(key)}`));
+    let meshes = 0;
+    d.furniture.group.traverse((o) => {
+      if ((o as InstancedMesh).isInstancedMesh !== true || !names.has(o.name)) return;
+      meshes++;
+      const mat = (o as InstancedMesh).material as MeshStandardMaterial;
+      expect(mat.emissive?.getHex() ?? 0, o.name).toBe(0);
+      expect(mat.emissiveMap ?? null, o.name).toBeNull();
+    });
+    expect(meshes).toBe(SEVEN.length);
+    expect(glow.emissive.getHex(), "the root's material is never written").toBe(0xffeecc);
+    const lights = lightsIn(d.group);
+    const without = plan3dGroups(trafficWith(plan, []), jRoots(), none.entries);
+    expect(without.trafficDraws).toHaveLength(0);
+    expect(lightsIn(without.group)).toBe(lights);
+    expect(lights).toBe(0);
+    without.dispose();
+    d.dispose();
+  });
+
+  it.skipIf(!HAVE_GLB)("none of the seven keys has an emissive factor or map in city-pack.glb (skipped when the GLB is absent)", () => {
+    const glb = readFileSync(join("assets", "private", "out", "city-pack.glb"));
+    const gltf = JSON.parse(glb.subarray(20, 20 + glb.readUInt32LE(12)).toString("utf8")) as { nodes: { name?: string; mesh?: number; children?: number[] }[]; meshes: { primitives: { material?: number }[] }[]; materials: { emissiveFactor?: number[]; emissiveTexture?: unknown }[] };
+    for (const key of SEVEN) {
+      const root = gltf.nodes.find((n) => n.name === shortOf(key));
+      expect(root, key).toBeDefined();
+      let prims = 0;
+      const walk = (n: { mesh?: number; children?: number[] }): void => {
+        for (const p of n.mesh !== undefined ? gltf.meshes[n.mesh]!.primitives : []) {
+          prims++;
+          const mat = p.material !== undefined ? gltf.materials[p.material]! : {};
+          expect(((mat as { emissiveFactor?: number[] }).emissiveFactor ?? [0, 0, 0]).every((e) => e === 0), `${key} emissive factor`).toBe(true);
+          expect((mat as { emissiveTexture?: unknown }).emissiveTexture, `${key} emissive map`).toBeUndefined();
+        }
+        for (const c of n.children ?? []) walk(gltf.nodes[c]!);
+      };
+      walk(root!);
+      expect(prims, key).toBeGreaterThan(0);
+    }
+  });
+
+  it("allows Q33's five keys on their own kinds only: the table is the kit's TRAFFIC_ALLOWED and KEY_OF_KIND, and planAudit is empty on the 20 named runs", () => {
+    expect(new Set(Object.values(PLAN_TRAFFIC_ALLOWED))).toEqual(new Set(TRAFFIC_ALLOWED));
+    expect(Object.values(PLAN_TRAFFIC_ALLOWED)).toHaveLength(5);
+    for (const [kind, key] of Object.entries(PLAN_TRAFFIC_ALLOWED)) expect(KEY_OF_KIND[kind as keyof typeof KEY_OF_KIND], kind).toBe(key);
+    for (const key of Object.values(PLAN_TRAFFIC_ALLOWED)) expect(isNeverUsedKey(key), key).toBe(true);
+    expect(isNeverUsedKey(PLAN_TRAFFIC_KEYS.stopSign)).toBe(false);
+    expect(isNeverUsedKey(PLAN_TRAFFIC_KEYS.parkingSign)).toBe(false);
+    for (const o of NAMED) expect(planAudit(planOf(o)), label(o)).toEqual([]);
+  });
+
+  it("R12 fixtures: each makes planAudit name exactly that piece and plan3dGroups stop", () => {
+    const plan = planOf(DEFAULT);
+    const pieces = trafficPieces(plan);
+    const stops = (p: CityPlan): boolean => {
+      try {
+        plan3dGroups(p, jRoots(), none.entries);
+        return false;
+      } catch (e) {
+        return e instanceof PlanStopError && /R12/.test(e.message);
+      }
+    };
+    const first = (kind: string): number => pieces.findIndex((p) => p.kind === kind);
+    expect(planAudit(plan)).toEqual([]);
+    // A stage 8 prop re-keyed to the mast's key: it is not a traffic piece, so it is not allowed.
+    const props = groundOf(plan).props;
+    const a = groundWith(plan, props.map((p, n) => (n === 4 ? { ...p, placement: reKey(p.placement, PLAN_TRAFFIC_KEYS.signalMast) } : p)));
+    expect(planAudit(a)).toEqual([{ layer: "ground", list: "props", cell: props[4]!.cell, key: PLAN_TRAFFIC_KEYS.signalMast }]);
+    expect(stops(a)).toBe(true);
+    const named = (index: number, key: string): CityPlan => trafficWith(plan, pieces.map((p, n) => (n === index ? { ...p, placement: reKey(p.placement, key) } : p)));
+    const cases: [string, number, string][] = [
+      ["a stop sign re-keyed to SM_Prop_TrafficLight_01", first("stopSign"), "city-pack:SM_Prop_TrafficLight_01"],
+      ["SM_Prop_LightPole_Arm_01 on a signalMast", first("signalMast"), PLAN_TRAFFIC_KEYS.signalArm],
+      ["SM_Prop_LightPole_Lights_01 on a signalArm", first("signalArm"), "city-pack:SM_Prop_LightPole_Lights_01"],
+      ["the mast's key on a walkHead", first("walkHead"), PLAN_TRAFFIC_KEYS.signalMast],
+    ];
+    for (const [what, index, key] of cases) {
+      expect(index, what).toBeGreaterThanOrEqual(0);
+      const p = named(index, key);
+      expect(planAudit(p), what).toEqual([{ layer: "traffic", list: "pieces", cell: pieces[index]!.cell, key }]);
+      expect(stops(p), what).toBe(true);
+    }
+  });
+});
+
+describe("stage 9: the stop sign from 01_A (TR2 criterion 5)", { timeout: 120_000 }, () => {
+  const ATLAS = stubColourway("01_A");
+  const mapsOf = (group: Object3D, names: ReadonlySet<string>): Map<string, string[]> => {
+    const out = new Map<string, string[]>();
+    group.traverse((o) => {
+      if ((o as InstancedMesh).isInstancedMesh !== true || !names.has(o.name)) return;
+      const map = ((o as InstancedMesh).material as MeshBasicMaterial).map;
+      (out.get(o.name) ?? out.set(o.name, []).get(o.name)!).push(map?.name ?? "none");
+    });
+    return out;
+  };
+
+  it("paints the stop sign's meshes on 01_A and no other traffic, stage 7 or stage 8 mesh; the roots are never written; no building is painted differently", () => {
+    const plan = planOf(DEFAULT);
+    const roots = jRoots();
+    const stopKey = PLAN_TRAFFIC_KEYS.stopSign;
+    const stopRoot = roots.get(stopKey)!;
+    const mats = new Map<CalibrationKey, Material>();
+    for (const [key, r] of roots) mats.set(key, (r.children[0] as Mesh).material as Material);
+    const withAtlas = plan3dGroups(plan, roots, none.entries, LOADED_WAYS, ATLAS);
+    const without = plan3dGroups(plan, roots, none.entries, LOADED_WAYS);
+    expect(withAtlas.stopPainted).toBe(true);
+    expect(without.stopPainted).toBe(false);
+    const stopName = `dress:${shortOf(stopKey)}`;
+    const stopMaps = mapsOf(withAtlas.furniture.group, new Set([stopName]));
+    expect(stopMaps.get(stopName)).toEqual(["stub-01_A"]);
+    const others = new Set([...SEVEN.filter((key) => key !== stopKey).map((key) => `dress:${shortOf(key)}`)]);
+    for (const [name, maps] of mapsOf(withAtlas.furniture.group, others)) expect(maps, name).toEqual(["PolygonCity_Texture"]);
+    // Every stage 7 and stage 8 mesh keeps the stub's base map, with or without the atlas.
+    const rest = (d: PlanDraw): string[] => {
+      const out: string[] = [];
+      for (const grp of [d.dress.group, d.furniture.group]) {
+        grp.traverse((o) => {
+          if ((o as InstancedMesh).isInstancedMesh !== true || o.name === "dress:escape-code" || o.name === stopName || others.has(o.name)) return;
+          out.push(`${o.name}:${((o as InstancedMesh).material as MeshBasicMaterial).map?.name ?? "none"}`);
+        });
+      }
+      return out;
+    };
+    expect(rest(withAtlas)).toEqual(rest(without));
+    expect(rest(withAtlas).length).toBeGreaterThan(10);
+    expect(mapsOf(without.furniture.group, new Set([stopName])).get(stopName)).toEqual(["PolygonCity_Texture"]);
+    // The loaded root, its materials and its maps are as they were.
+    expect(roots.get(stopKey)).toBe(stopRoot);
+    for (const [key, r] of roots) {
+      expect((r.children[0] as Mesh).material, key).toBe(mats.get(key));
+      expect(((r.children[0] as Mesh).material as MeshBasicMaterial).map, key).toBe(STUB_SOURCE);
+    }
+    // No building is painted differently.
+    const names = (d: PlanDraw): string[] => d.buildings.groups.flatMap((g) => meshesOf(g).map((m) => `${g.name}:${(m.material as MeshBasicMaterial).map?.name ?? "none"}`));
+    expect(names(withAtlas)).toEqual(names(without));
+    withAtlas.dispose();
+    without.dispose();
+  });
+
+  it("leaves the stop sign on the base map with no atlas, and when its root did not load", () => {
+    const plan = planOf(DEFAULT);
+    const d = plan3dGroups(plan, jRoots(), none.entries, undefined, undefined);
+    expect(d.stopPainted).toBe(false);
+    const name = `dress:${shortOf(PLAN_TRAFFIC_KEYS.stopSign)}`;
+    expect(mapsOf(d.furniture.group, new Set([name])).get(name)).toEqual(["PolygonCity_Texture"]);
+    d.dispose();
+    const lacking = plan3dGroups(plan, jRoots([PLAN_TRAFFIC_KEYS.stopSign]), none.entries, undefined, ATLAS);
+    expect(lacking.stopPainted).toBe(false);
+    lacking.dispose();
+  });
+
+  it("planInput returns the loaded 01_A texture as stopAtlas, and nothing without it", () => {
+    expect(planInput({ ...NO_MODELS }).stopAtlas).toBeUndefined();
+    expect(planInput({ ...NO_MODELS, signColourways: new Map([["01_A", ATLAS]]) }).stopAtlas).toBe(ATLAS);
+    expect(planInput({ ...NO_MODELS, signColourways: new Map([["02_A", ATLAS]]) }).stopAtlas).toBeUndefined();
+    const source = readFileSync("src/render3d/plan3d.ts", "utf8");
+    expect(source).toMatch(/sharedTileModels\(planKeys\(\), \[STOP_SIGN_COLOURWAY\]\)/);
+  });
+});
+
+describe("stage 9: the pack's numbers, and where to look (TR2 criteria 8 and 11)", { timeout: 120_000 }, () => {
+  const HAVE_GLB = existsSync(join("assets", "private", "out", "city-pack.glb"));
+  interface Gltf {
+    nodes: { name?: string; mesh?: number; children?: number[]; matrix?: number[]; translation?: number[]; rotation?: number[]; scale?: number[] }[];
+    meshes: { primitives: { attributes: { POSITION: number } }[] }[];
+    accessors: { bufferView: number; byteOffset?: number; count: number }[];
+    bufferViews: { byteOffset?: number; byteStride?: number }[];
+  }
+  const readGlb = (): { gltf: Gltf; bin: Buffer } => {
+    const glb = readFileSync(join("assets", "private", "out", "city-pack.glb"));
+    const jsonLen = glb.readUInt32LE(12);
+    return { gltf: JSON.parse(glb.subarray(20, 20 + jsonLen).toString("utf8")) as Gltf, bin: glb.subarray(20 + jsonLen + 8) };
+  };
+  const localOf = (n: Gltf["nodes"][number]): Matrix4 => {
+    if (n.matrix) return new Matrix4().fromArray(n.matrix);
+    const t = n.translation ?? [0, 0, 0];
+    const r = n.rotation ?? [0, 0, 0, 1];
+    const sc = n.scale ?? [1, 1, 1];
+    return new Matrix4().compose(new Vector3(t[0], t[1], t[2]), new Quaternion(r[0], r[1], r[2], r[3]), new Vector3(sc[0], sc[1], sc[2]));
+  };
+  /** Every vertex under the node `name`, each carried by the node transforms from its mesh up to and including the root's own (as `meshParts` draws them), and the number of primitives. */
+  const verticesOf = (gltf: Gltf, bin: Buffer, name: string): { vs: Vector3[]; prims: number } => {
+    const root = gltf.nodes.find((n) => n.name === name);
+    expect(root, name).toBeDefined();
+    const vs: Vector3[] = [];
+    let prims = 0;
+    const walk = (n: Gltf["nodes"][number], acc: Matrix4): void => {
+      for (const prim of n.mesh !== undefined ? gltf.meshes[n.mesh]!.primitives : []) {
+        prims++;
+        const a = gltf.accessors[prim.attributes.POSITION]!;
+        const bv = gltf.bufferViews[a.bufferView]!;
+        const base = (bv.byteOffset ?? 0) + (a.byteOffset ?? 0);
+        for (let i = 0; i < a.count; i++) {
+          const at = base + i * (bv.byteStride ?? 12);
+          vs.push(new Vector3(bin.readFloatLE(at), bin.readFloatLE(at + 4), bin.readFloatLE(at + 8)).applyMatrix4(acc));
+        }
+      }
+      for (const c of n.children ?? []) {
+        const child = gltf.nodes[c]!;
+        walk(child, new Matrix4().multiplyMatrices(acc, localOf(child)));
+      }
+    };
+    walk(root!, localOf(root!));
+    return { vs, prims };
+  };
+  const span = (vs: readonly Vector3[], axis: "x" | "y" | "z"): [number, number] => [Math.min(...vs.map((v) => v[axis])), Math.max(...vs.map((v) => v[axis]))];
+
+  it.skipIf(!HAVE_GLB)("each of the seven keys' vertices, with the node transforms under its root applied, give the kit's bounds within 0.005 m, and the mast's foot is at MAST.axis within 0.01 m (skipped when the GLB is absent)", () => {
+    const { gltf, bin } = readGlb();
+    const bad: string[] = [];
+    for (const key of SEVEN) {
+      const { vs } = verticesOf(gltf, bin, shortOf(key));
+      const want = boundsOf(key);
+      for (const [n, v, axis] of [["w", want.w, "x"], ["h", want.h, "y"], ["d", want.d, "z"]] as const) {
+        const r = span(vs, axis);
+        if (Math.abs(v - (r[1] - r[0])) > 0.005) bad.push(`${key} ${n}: kit ${v}, GLB ${(r[1] - r[0]).toFixed(3)}`);
+      }
+    }
+    expect(bad).toEqual([]);
+    const mast = verticesOf(gltf, bin, shortOf(PLAN_TRAFFIC_KEYS.signalMast)).vs;
+    const foot = mast.filter((v) => v.y < 0.1);
+    const fx = span(foot, "x");
+    const fz = span(foot, "z");
+    expect(Math.abs((fx[0] + fx[1]) / 2 - MAST.axis.x)).toBeLessThan(0.01);
+    expect(Math.abs((fz[0] + fz[1]) / 2 - MAST.axis.z)).toBeLessThan(0.01);
+  });
+
+  it.skipIf(!HAVE_GLB)("reports J's draw calls and the calls and triangles stage 9 adds on 6 x 6 seeds 1 and 3, one-way on, and holds the shared cap (skipped when the GLB is absent)", () => {
+    const { gltf, bin } = readGlb();
+    const manifest = JSON.parse(readFileSync(join("assets", "private", "out", "manifest.json"), "utf8")) as { packs: { pack: string; assets: { name: string; triangles: number }[] }[] };
+    const triangles = new Map(manifest.packs.find((p) => p.pack === "city-pack")!.assets.map((a) => [a.name, a.triangles] as const));
+    const prims = (key: CalibrationKey): number => verticesOf(gltf, bin, shortOf(key)).prims;
+    for (const o of [DEFAULT, { seed: 3, way: "on" } as City]) {
+      const plan = planOf(o);
+      const dd = planDressDraws(plan);
+      const pd = planPropDraws(plan);
+      const td = planTrafficDraws(plan);
+      const calls = (draws: readonly { placement: CityPlacement }[]): { perKey: Map<CalibrationKey, number>; n: number; tris: number } => {
+        const per = new Map<CalibrationKey, number>();
+        let n = 0;
+        let tris = 0;
+        for (const [key, pieces] of countByKey(draws)) {
+          if (key === CODE_ESCAPE_KEY) continue;
+          const p = prims(key);
+          per.set(key, p);
+          n += p;
+          tris += (triangles.get(shortOf(key)) ?? 0) * pieces;
+        }
+        return { perKey: per, n, tris };
+      };
+      const s7 = calls(dd);
+      const s8 = calls(pd);
+      const s9 = calls(td);
+      const g = planPieceDraws(buildingsOf(plan));
+      const gd = planGroundDraws(facadesOf(plan), buildingsOf(plan));
+      const before = g.reduce((n, p) => n + prims(p.placement.key), 0) + gd.reduce((n, p) => n + prims(p.placement.key), 0) + 1;
+      const boxCall = dd.some((p) => (p.boxes?.length ?? 0) > 0) ? 1 : 0;
+      expect(s8.n + s9.n, `${label(o)} stages 8 and 9 share the cap`).toBeLessThanOrEqual(FURN_DRAW_CALLS_MAX);
+      expect(s7.n, label(o)).toBeLessThanOrEqual(DRESS_DRAW_CALLS_MAX);
+      const kinds: Record<string, number> = {};
+      for (const p of td) kinds[p.kind] = (kinds[p.kind] ?? 0) + 1;
+      console.info(
+        `TR2 draw calls, ${label(o)}: J's ${before + s7.n + boxCall + s8.n}; stage 9 adds ${s9.n} (${[...s9.perKey].map(([k, v]) => `${shortOf(k)} ${v}`).join(", ")}) -> ${before + s7.n + boxCall + s8.n + s9.n}; ` +
+          `stages 8 and 9 share ${s8.n + s9.n} of ${FURN_DRAW_CALLS_MAX}; stage 9 adds ${s9.tris} triangles; pieces by kind ${JSON.stringify(kinds)} (${td.length})`,
+      );
+      expect(s9.n).toBeGreaterThanOrEqual(7);
+    }
+  });
+
+  it("names, for 6 x 6 seeds 1 and 3 (one-way on), a street-camera address into one signal junction and one all-way stop from an approach, worked out from the layer", () => {
+    const out: string[] = [];
+    for (const seed of [1, 3]) {
+      const plan = planOf({ seed, way: "on" });
+      const streets = plan.layers.streets!;
+      for (const control of ["signals", "allStop"] as const) {
+        const j = plan.layers.traffic!.junctions.find((q) => q.control === control && streets.junctions.find((x) => x.id === q.junction)!.inner)!;
+        expect(j, `seed ${seed} ${control}`).toBeDefined();
+        const jun = streets.junctions.find((x) => x.id === j.junction)!;
+        const centre = { i: Math.round(jun.cells.reduce((s, c) => s + c.i, 0) / jun.cells.length), j: Math.round(jun.cells.reduce((s, c) => s + c.j, 0) / jun.cells.length) };
+        const inbound = j.approaches.find((a) => a.inbound && a.control !== "none")!;
+        const into = { "+x": "-x", "-x": "+x", "+z": "-z", "-z": "+z" }[inbound.arm];
+        const pieces = trafficPieces(plan).filter((p) => p.host === j.junction).length;
+        out.push(`seed ${seed} ${control === "signals" ? "signal junction" : "all-way stop"} ${j.junction} (${pieces} pieces): cam=street&at=${centre.i},${centre.j}&dir=${into}`);
+        expect(planStreetPose(streets, { at: centre, dir: into as CitySide })).not.toBeNull();
+      }
+    }
+    console.info(`TR2 street-camera addresses (?view=3d&city=plan&stage=assemble&seed=N):\n${out.join("\n")}`);
+    expect(out).toHaveLength(4);
   });
 });

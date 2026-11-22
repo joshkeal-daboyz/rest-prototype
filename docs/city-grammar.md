@@ -273,6 +273,23 @@ A strip, 2 cells deep, between a street and a lane (rule 4):
 - **Why.** Law (19.5): "90 degrees does not mean a grid of squares. You can have varying widths for blocks, alleyways, parks... etc"
 - **Check.** R2, R13 and V1 to V4, thresholds unchanged. V3 counts lanes as it does today.
 
+### 13. Traffic control
+
+- **Rule.** Stage 9 controls every junction, as Josh answered (21 Nov 2026: "I will take all of the recommendations", Q36 to Q44).
+  - **DS** (Q36): traffic keeps right; an approach's kerbside is the pavement on its right, its near-right corner the `pavementCorner` between its arm and the arm on its right.
+  - **IN**: a two-way arm is inbound; a one-way arm is inbound when its `flow` points at the junction. An arm with no inbound traffic gets no signal arm and no sign.
+  - **SJ** (Q38): signals stand at an inner crossroads of two two-way streets only.
+  - **AS** (Q39): every other inner crossroads is an all-way stop; neither street has priority.
+  - **T** (Q39): at a T only the street that ends stops, on an edge street too; a T whose ending street leaves one-way has no stop.
+  - **C**: a corner of the city (two edge streets ending) has no control and no piece.
+  - **MA** (Q37): a signal junction has one mast on each inbound approach's far-left corner, so four at a crossroads. Each has its arm over the approach's carriageway with the heads facing the traffic, a walk head for each crossing that lands at its corner, and a push button. The junction has one box, on the walk beside one mast. Every signal piece is drawn dark (Q33, Q34).
+  - **ST** (Q40): a stop sign on the approach's kerbside pavement cell next to its near-right corner, facing the traffic, drawn from the `01_A` atlas (Q42). No give-way, one-way or street-name signs (Q35, Q41).
+  - **CL**: every piece stands on the walk, clear of stage 8's props and stage 7's boxes and every build-out tree; a required piece that cannot stand clear fails the stage.
+  - **PK** (Q44): a parking sign at the low end of each unbroken stretch of kerb bays, where the pavement has room for one; a skip is counted, never a failure.
+  - The four numbers (Q43): `SIGN_KERB_M` 0.5 m, `SIGN_CORNER_M` 1.0 m, `MAST_INSET_M` 0.75 m, `SIGNAL_HEAD_MIN_M` 4.6 m.
+- **Why.** Josh, 21 Nov 2026: "we are missing traffic lights and traffic signage. I want you to create a new stage."
+- **Check.** Stage 9's TC1 to TC5 and keys; R12's allowance in the drawing (`planAudit`: Q33's five keys on their own piece kinds in the traffic layer only).
+
 ### Not in this grammar yet
 
 The pack's office sets are towers on whole cells with windows on all four faces: 10 m (2 by 2 cells), 15 m (3 by 3) and 20 m (4 by 4). A tower could stand anywhere in the mass with any number of open sides. No tile-city row uses one, and their bodies are not measured. A later ticket.
@@ -292,6 +309,7 @@ The pack's office sets are towers on whole cells with windows on all four faces:
 | M9 roofs | one roof per cell, kind and alignment | 11 | E2, G |
 | kerb line | F's criteria, plus the two additions | 10 | F |
 | street width | every carriageway 15 m | 10 | B |
+| traffic control | every junction's control by DS to C; every piece placed by MA, ST, PK and clear by CL | 13 | TR1, TR1b |
 
 Each runs on the default city, seeds 1 to 10 at 3 by 3 and seeds 1 to 3 at 6 by 4, as the guide's checks do, and each has the failing fixture named under its rule.
 

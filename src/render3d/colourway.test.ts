@@ -8,7 +8,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { BoxGeometry, ClampToEdgeWrapping, Group, Mesh, MeshStandardMaterial, NearestFilter, Raycaster, RepeatWrapping, SRGBColorSpace, Texture, Vector3, type Material, type Object3D } from "three";
 import { ASSET_MANIFEST_VERSION, loadPuzzle, type AssetColourway, type AssetEntry, type AssetManifest } from "../core";
-import { COLOURWAY_POOL, assignColourways, chooseColourway, colourwayStart, isBaseAtlasName, isColourwayId } from "./colourway";
+import { COLOURWAY_POOL, STOP_SIGN_COLOURWAY, assignColourways, chooseColourway, colourwayStart, isBaseAtlasName, isColourwayId } from "./colourway";
 import { buildGalleryScene, colourwayRequested, loadGalleryPack, stackGalleryLayout } from "./gallery";
 import { allStackKeys, applyModels, createColourwayCache, loadModels, paintStack, stackGroup, type ModelSet } from "./models3d";
 import { buildScene } from "./scene";
@@ -627,5 +627,76 @@ describe("the gallery's colourway= parameter", () => {
       });
     painted.dispose();
     plain.dispose();
+  });
+});
+
+// ---- the stop sign's own colourway (ticket 070 TR2, criterion 5) ----
+
+describe("loadModels and the sign colourways (070 TR2)", () => {
+  const signRun = async (signColourways: readonly string[], opts: { manifest?: AssetManifest; stackKeys?: boolean } = {}): Promise<Run> => {
+    const mats = fixtureMaterials();
+    const requested: string[] = [];
+    const lines: string[] = [];
+    const set = await loadModels({
+      fetchJson: async (): Promise<unknown> => opts.manifest ?? FULL,
+      loadGlb: async () => glbOf(mats),
+      loadTexture: async (url: string): Promise<Texture> => {
+        requested.push(url);
+        return new Texture();
+      },
+      ...(opts.stackKeys === false ? {} : { stackKeys: allStackKeys() }),
+      signColourways,
+      dir: "/out/",
+      info: (m) => lines.push(m),
+    });
+    return { set, mats, requested, lines };
+  };
+
+  it("exports the stop sign's colourway, which is not in the pool", () => {
+    expect(STOP_SIGN_COLOURWAY).toBe("01_A");
+    expect(COLOURWAY_POOL).not.toContain(STOP_SIGN_COLOURWAY);
+    expect(isColourwayId(STOP_SIGN_COLOURWAY)).toBe(true);
+  });
+
+  it("with [\"01_A\"] requests exactly one more texture, lands it in signColourways and not in colourways, and the pool's line still says 7 of 7", async () => {
+    const base = await setOf(FULL);
+    const r = await signRun(["01_A"]);
+    const extra = r.requested.filter((u) => !base.requested.includes(u));
+    expect(extra).toEqual([`/out/city-pack/colourways/${BASE_STEM}_01_A.png`]);
+    expect(r.requested).toHaveLength(base.requested.length + 1);
+    expect([...r.set.signColourways!.keys()]).toEqual(["01_A"]);
+    expect(r.set.signColourways!.get("01_A")!.userData["colourwayBase"]).toBe(BASE_STEM);
+    expect(r.set.colourways!.has("01_A")).toBe(false);
+    expect([...r.set.colourways!.keys()].sort()).toEqual(POOL_IDS.slice().sort());
+    expect(r.lines.filter((l) => l.includes("city-pack colourways:"))).toEqual(["3D models: city-pack colourways: 7 of 7 loaded"]);
+    expect(r.lines.filter((l) => l.includes("sign colourways"))).toEqual(["3D models: city-pack sign colourways: 1 of 1 loaded"]);
+  });
+
+  it("asks for nothing more without the option, and fetches no sign colourway when no stack piece was asked for", async () => {
+    const r = await setOf(FULL);
+    expect(r.requested.some((u) => u.endsWith("_01_A.png"))).toBe(false);
+    expect(r.set.signColourways).toBeUndefined();
+    expect("signColourways" in r.set).toBe(false);
+    const none = await signRun(["01_A"], { stackKeys: false });
+    expect(none.requested).toEqual([]);
+    expect(none.set.signColourways).toBeUndefined();
+  });
+
+  it("refuses a pool id and a path with one line each and fetches nothing more", async () => {
+    const base = await setOf(FULL);
+    for (const id of ["02_A", "../x"]) {
+      const r = await signRun([id]);
+      expect(r.requested.slice().sort(), id).toEqual(base.requested.slice().sort());
+      expect(r.set.signColourways, id).toBeUndefined();
+      expect(r.lines.filter((l) => l.includes("sign colourway")), id).toHaveLength(1);
+      expect(r.lines.filter((l) => l.includes("not a colourway id outside the pool")), id).toHaveLength(1);
+    }
+  });
+
+  it("drops a sign colourway the manifest does not list or that fails to load, with the pool untouched", async () => {
+    const unlisted = await signRun(["01_A"], { manifest: manifestOf(["02_A", "04_C"].map(cwOf)) });
+    expect(unlisted.set.signColourways).toBeUndefined();
+    expect(unlisted.lines.some((l) => l.includes("sign colourways: 0 of 1 loaded"))).toBe(true);
+    expect(unlisted.set.colourways!.size).toBe(2);
   });
 });

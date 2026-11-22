@@ -9,9 +9,12 @@ import { stableHash } from "../render/city";
 /** The id of the atlas the GLB embeds: today's look. It needs no file and no clone. */
 const BASE = "base";
 
+/** The colourway the stop sign is drawn in (070 TR2, Q42): on the base atlas its face is one grey, on `01_A` it is white STOP on red. Never a block's or a building's. */
+export const STOP_SIGN_COLOURWAY = "01_A";
+
 /**
  * The colourways the town may use, in order: red, orange-red, green, bright green, cream-tan, bright tan, teal, bright teal. `base` is today's red; the B tones are left out (darker, in a
- * night scene that is already dark) and so is `01_A` (the same as the base). Only these ids are ever fetched.
+ * night scene that is already dark) and so is `01_A`, which is too close to the base for a block (not the same: its sign faces differ, 070 TR, Q42, so the stop sign alone fetches it, `STOP_SIGN_COLOURWAY`). Only these ids are ever fetched for blocks.
  */
 export const COLOURWAY_POOL: readonly string[] = [BASE, "01_C", "02_A", "02_C", "03_A", "03_C", "04_A", "04_C"];
 

@@ -3,7 +3,7 @@
  * `src/city/` wrote (`streets`, `mass`, `edge`, `buildings`); nothing is chosen, moved or dropped that a layer placed. Where a layer does not say what to draw, `PlanStopError` names the cells (the ticket's stop rule) and the gap is a
  * re-cut of that layer's section.
  *
- * Four things are drawn, each from the plan's own records:
+ * Five things are drawn, each from the plan's own records:
  * - the street pieces: every `edge.ground` record, through `tileGroupOf` (the tile city's own instancing), with `planKeyOf` choosing the piece. It is `tileKeyOf` except: a `pavementDip` pavement cell is `Sidewalk_Dip_01`;
  *   a lane of a one-way street is `Road_Lines_01` (`Road_Bare_01` when that is absent), never a yellow-line piece; and a lane cell of `streets.arrows` is `SM_Env_Road_Arrow_01`, a whole 5 m road tile (measured: 25 m2 of
  *   asphalt, the arrow painted on it, 0 m high) turned so its arrow points with the traffic (`PLAN_FRONTS`);
@@ -14,6 +14,8 @@
  *   and one grey `InstancedMesh` of boxes (a ground slot whose piece is not drawn, or the whole column where a model above the ground is missing);
  * - the facades and the ground (J): every piece of `facades.dressing`, `walls`, `roofs` and `novelty` (stage 7) and every `ground.props` entry (stage 8), at its placement, through the tile city's own per-key instancer
  *   (`dressGroup`): no colourway, no grey fallback, nothing emissive. `planAudit` (R12) refuses a plan that places a never-used key (one allowance: the party-wall pipe).
+ * - the traffic pieces (TR2, stage 9): every `traffic.pieces` entry at its placement, in the same instancer call as stage 8's props (props first; one cap), dark, with the stop sign on the `01_A` atlas when it loaded. `planAudit` allows
+ *   Q33's five signal keys on their own piece kinds in the traffic layer and nowhere else.
  * No gates or passage floors are drawn.
  */
 
@@ -33,7 +35,7 @@ import {
   type Texture,
   type WebGLRenderer,
 } from "three";
-import { type AssetEntry, type CalibrationKey, type CityBuildingsLayer, type CityCell, type CityFacadesLayer, type CityGroundPieceKind, type CityGroundCell, type CityGroundPlace, type CityGroundProp, type CityWallBox, type CityKerbPath, type CityMassLayer, type CityPieceRole, type CityPlacement, type CityPlan, type CityPlanRun, type CitySide, type CityStageFailure, type CityStreetsLayer } from "../core";
+import { type AssetEntry, type CalibrationKey, type CityBuildingsLayer, type CityCell, type CityFacadesLayer, type CityGroundPieceKind, type CityGroundCell, type CityGroundPlace, type CityGroundProp, type CityWallBox, type CityKerbPath, type CityMassLayer, type CityPieceRole, type CityPlacement, type CityPlan, type CityPlanRun, type CitySide, type CityStageFailure, type CityStreetsLayer, type CityTrafficPieceKind } from "../core";
 import { runCity } from "../city/pipeline";
 import type { Insets } from "../render/geometry";
 import { createDayToggle, pageDayToggleHost, type DayToggle, type DayToggleHost } from "./daytoggle";
@@ -44,6 +46,7 @@ import { CODE_ESCAPE_KEY, type EscapePart } from "./escapes";
 import { isNeverUsed } from "./citymetrics";
 import { DRESS_DRAW_CALLS_MAX, dressKeys, type DressPiece } from "./dressing";
 import { FURN_DRAW_CALLS_MAX, furnitureKeys, type FurniturePiece } from "./furniture";
+import { STOP_SIGN_COLOURWAY } from "./colourway";
 import { allStackKeys, createColourwayCache, dressGroup, dressInput, furniturePlacement, paintStack, sharedTileModels, stackRoots, tileInput, type DressPlacement, type ModelSet } from "./models3d";
 import { planViewRequested } from "./planview";
 import type { MapRenderer3d } from "./renderer";
@@ -102,14 +105,37 @@ export const PLAN_DOOR_CORNERS: readonly CalibrationKey[] = [k("SM_Bld_Apartment
 export const PLAN_PARTY_WINDOW: CalibrationKey = k("SM_Prop_Window_01");
 export const PLAN_PARTY_PIPE: CalibrationKey = k("SM_Prop_Pipe_Present_03");
 
+/**
+ * The seven keys stage 9 places, one per piece kind (070 TR2; the traffic kit's `KEY_OF_KIND`, which `plan3d.test.ts` compares; this file imports nothing from `src/city/traffic/`): the five signal keys (Josh's Q33, narrowed) and the stop
+ * and parking signs.
+ */
+export const PLAN_TRAFFIC_KEYS: Readonly<Record<CityTrafficPieceKind, CalibrationKey>> = {
+  signalMast: k("SM_Prop_LightPole_Base_01"),
+  signalArm: k("SM_Prop_LightPole_Arm_01"),
+  walkHead: k("SM_Prop_LightPole_CrossLights_01"),
+  pushButton: k("SM_Prop_LightPole_CrossButton_01"),
+  signalBox: k("SM_Prop_LightPole_Box_01"),
+  stopSign: k("SM_Prop_Sign_Stop_01"),
+  parkingSign: k("SM_Prop_Sign_Parking_01"),
+};
+
+/** R12's allowance (Josh, Q33, narrowed; 070 TR2): the five signal keys the never-used stem `SM_Prop_LightPole_` would refuse, each on its own piece kind only and only on a `traffic` piece. */
+export const PLAN_TRAFFIC_ALLOWED: Readonly<Record<"signalMast" | "signalArm" | "walkHead" | "pushButton" | "signalBox", CalibrationKey>> = {
+  signalMast: PLAN_TRAFFIC_KEYS.signalMast,
+  signalArm: PLAN_TRAFFIC_KEYS.signalArm,
+  walkHead: PLAN_TRAFFIC_KEYS.walkHead,
+  pushButton: PLAN_TRAFFIC_KEYS.pushButton,
+  signalBox: PLAN_TRAFFIC_KEYS.signalBox,
+};
+
 /** The keys the street pieces and the corner doors are drawn from (`tileGroupOf`'s active keys, before the trees): the tile city's, the arrow and the two corner doors. */
 export function planTileKeys(): CalibrationKey[] {
   return [...tileKeys(), PLAN_ARROW, ...PLAN_DOOR_CORNERS];
 }
 
-/** The keys the plan's renderer loads by name: the tile keys, plus the party window and the party pipe (J). */
+/** The keys the plan's renderer loads by name: the tile keys, the party window and the party pipe (J), and the seven traffic keys (TR2). */
 export function planKeys(): CalibrationKey[] {
-  return [...planTileKeys(), PLAN_PARTY_WINDOW, PLAN_PARTY_PIPE];
+  return [...planTileKeys(), PLAN_PARTY_WINDOW, PLAN_PARTY_PIPE, ...Object.values(PLAN_TRAFFIC_KEYS)];
 }
 
 /** A plan the drawing cannot draw as given (the stop rule): what, and the cells. */
@@ -650,6 +676,32 @@ export function planPropDraws(plan: CityPlan): PlanPropDraw[] {
   });
 }
 
+/** One stage 9 piece, as `plan3dGroups` draws it. */
+export interface PlanTrafficDraw {
+  readonly index: number;
+  readonly kind: CityTrafficPieceKind;
+  readonly host: string;
+  readonly group: string;
+  readonly grounded: boolean;
+  readonly cell: CityCell;
+  readonly placement: CityPlacement;
+  readonly size: { readonly x_m: number; readonly z_m: number; readonly h_m: number };
+}
+
+/**
+ * Every `traffic.pieces` entry once each, in order: the list `plan3dGroups` draws exactly (TR2). No `traffic` layer, or a piece whose key the page does not load (`planKeys()`), is a gap in stage 9's layer: `PlanStopError`, the
+ * cells named. Pure.
+ */
+export function planTrafficDraws(plan: CityPlan): PlanTrafficDraw[] {
+  const traffic = plan.layers.traffic;
+  if (!traffic) throw new PlanStopError("the plan has no traffic layer to draw (stage 9 writes it from TR1)", []);
+  const known = new Set<CalibrationKey>(planKeys());
+  return traffic.pieces.map((p, index) => {
+    if (!known.has(p.placement.key)) throw new PlanStopError(`the traffic piece ${index} (${p.kind}) at ${colId(p.cell)} has a key (${p.placement.key}) that is not one the page loads`, [p.cell]);
+    return { index, kind: p.kind, host: p.host, group: p.group, grounded: p.grounded, cell: p.cell, placement: p.placement, size: p.size };
+  });
+}
+
 /** One never-used key the plan places: the layer and list it is in, its cell (null for a key the street pieces and interiors are drawn from), and the key. */
 export interface PlanAuditEntry {
   readonly layer: string;
@@ -666,11 +718,13 @@ export const PLAN_AUDIT_ALLOWED = { key: PLAN_PARTY_PIPE, kind: "partyPipe" } as
  * `roofs` and `novelty`, `ground.props`, and the keys the street pieces and interiors are drawn from. Empty when the plan is clean; never filtered. Pure.
  */
 export function planAudit(plan: CityPlan): PlanAuditEntry[] {
-  const { buildings, facades, ground } = plan.layers;
+  const { buildings, facades, ground, traffic } = plan.layers;
   const out: PlanAuditEntry[] = [];
   const check = (layer: string, list: string, cell: CityCell | null, key: CalibrationKey, kind?: string): void => {
     if (!isNeverUsed(key)) return;
     if (key === PLAN_AUDIT_ALLOWED.key && kind === PLAN_AUDIT_ALLOWED.kind) return;
+    // Q33, narrowed: a signal key on its own kind of piece, and only in the traffic layer.
+    if (layer === "traffic" && kind !== undefined && Object.prototype.hasOwnProperty.call(PLAN_TRAFFIC_ALLOWED, kind) && PLAN_TRAFFIC_ALLOWED[kind as keyof typeof PLAN_TRAFFIC_ALLOWED] === key) return;
     out.push({ layer, list, cell, key });
   };
   for (const key of [...tileKeys(), PLAN_ARROW, ...TILE_TREES, ...TILE_PROPS, ...Object.values(INTERIOR_KEYS).flat()]) check("edge", "street pieces and interiors", null, key);
@@ -681,6 +735,7 @@ export function planAudit(plan: CityPlan): PlanAuditEntry[] {
   for (const p of facades?.roofs ?? []) check("facades", "roofs", p.cell, p.placement.key, p.kind);
   for (const p of facades?.novelty ?? []) check("facades", "novelty", p.cell, p.placement.key, p.kind);
   for (const p of ground?.props ?? []) check("ground", "props", p.cell, p.placement.key, p.kind);
+  for (const p of traffic?.pieces ?? []) check("traffic", "pieces", p.cell, p.placement.key, p.kind);
   return out;
 }
 
@@ -768,10 +823,48 @@ export function dressStage(draws: readonly PlanDressDraw[], roots: ReadonlyMap<C
   return instancedOf("plan:dress", draws.length, placements, roots, DRESS_DRAW_CALLS_MAX);
 }
 
-/** Stage 8: each listed prop whose root loaded, in one `dressGroup` call under `FURN_DRAW_CALLS_MAX`. */
+/**
+ * A stage 9 piece as the instancer's placement, as a stage 8 prop on the walk: through `furniturePlacement` with both surfaces at 0, its `lift` the `y_m` stage 9 typed (a grounded piece's is the walk; a fixed piece hangs at its own
+ * height), never flat. Its size is the layer's. TR2 types no level, offset or turn.
+ */
+function trafficPlacementOf(d: PlanTrafficDraw): DressPlacement {
+  const pl = d.placement;
+  const piece: FurniturePiece = { key: pl.key, x: pl.x_m * S, z: pl.z_m * S, yaw: pl.yaw_deg * RAD, w: d.size.x_m, h: d.size.h_m, d: d.size.z_m, kind: "pavement", run: d.host, ground: "pavement", lift: pl.y_m, flat: false };
+  return furniturePlacement(piece, { pavement_m: 0, yard_m: 0 });
+}
+
+/** Stages 8 and 9 in the one `dressGroup` call: what each stage lists, places and draws, split from the shared group by key. */
+export interface PlanFurnitureStages {
+  /** Stage 8's props. `group` is the shared group (`plan:furniture`), which holds stage 9's pieces too. `dispose` frees the shared group. */
+  furniture: PlanInstanced;
+  /** Stage 9's pieces. Its `group` is the same shared group; its `dispose` does nothing. */
+  traffic: PlanInstanced;
+}
+
+/**
+ * Stages 8 and 9 (the props first, then the traffic pieces): each listed piece whose root loaded, in one `dressGroup` call under `FURN_DRAW_CALLS_MAX`. `roots` is what the instancer draws from (the caller may have painted the stop
+ * sign's). A piece not drawn gets no grey box. The two stages' keys are disjoint (a test checks it), so each summary is the shared group's, cut by key.
+ */
+export function furnitureStages(props: readonly PlanPropDraw[], traffic: readonly PlanTrafficDraw[], roots: ReadonlyMap<CalibrationKey, Object3D>): PlanFurnitureStages {
+  const pp = props.filter((d) => roots.has(d.placement.key)).map(propPlacementOf);
+  const tp = traffic.filter((d) => roots.has(d.placement.key)).map(trafficPlacementOf);
+  const all = instancedOf("plan:furniture", props.length + traffic.length, [...pp, ...tp], roots, FURN_DRAW_CALLS_MAX);
+  const part = (listed: number, ps: readonly DressPlacement[], dispose: () => void): PlanInstanced => {
+    const keys = new Set(ps.map((p) => p.piece.key));
+    const names = new Set([...keys].map((key) => `dress:${shortName(key)}`));
+    const perKey = new Map([...all.perKey].filter(([key]) => keys.has(key)));
+    const leftOut = all.leftOut.filter((key) => keys.has(key));
+    const lost = ps.filter((p) => leftOut.includes(p.piece.key)).length;
+    let calls = 0;
+    for (const c of all.group.children) if ((c as InstancedMesh).isInstancedMesh === true && names.has(c.name)) calls++;
+    return { group: all.group, calls, boxCalls: 0, listed, placed: ps.length, drawn: ps.length - lost, perKey, leftOut, dispose };
+  };
+  return { furniture: part(props.length, pp, () => all.dispose()), traffic: part(traffic.length, tp, () => {}) };
+}
+
+/** Stage 8: each listed prop whose root loaded, in one `dressGroup` call under `FURN_DRAW_CALLS_MAX` (the call `plan3dGroups` shares with stage 9's pieces; this one has none of them). */
 export function propStage(draws: readonly PlanPropDraw[], roots: ReadonlyMap<CalibrationKey, Object3D>): PlanInstanced {
-  const placements = draws.filter((d) => roots.has(d.placement.key)).map(propPlacementOf);
-  return instancedOf("plan:furniture", draws.length, placements, roots, FURN_DRAW_CALLS_MAX);
+  return furnitureStages(draws, [], roots).furniture;
 }
 
 // ---- plan to scene ----
@@ -786,8 +879,13 @@ export interface PlanDraw {
   /** J: stage 7's pieces (`dressDraws`) and stage 8's (`propDraws`), as listed and as drawn. */
   dress: PlanInstanced;
   furniture: PlanInstanced;
+  /** TR2: stage 9's pieces, as listed and as drawn. They are in `furniture.group`, the one group stages 8 and 9 share. */
+  traffic: PlanInstanced;
+  /** True when the stop sign was drawn on the `01_A` atlas (`plan3dGroups`' `stopAtlas` was given and a stop sign root loaded). */
+  stopPainted: boolean;
   dressDraws: readonly PlanDressDraw[];
   propDraws: readonly PlanPropDraw[];
+  trafficDraws: readonly PlanTrafficDraw[];
   /** The ground cells the street pieces were drawn from, and the interior items, as the drawing took them. */
   cells: readonly TileCell[];
   items: readonly InteriorItem[];
@@ -803,7 +901,7 @@ const NO_PROPS: readonly PropPlace[] = [];
  * `walls`, `roofs` and `novelty` lists (H1b to H1c), and the ground layer's `props` (I). Draws only: it reads the layers and writes none. Throws `PlanStopError` where a layer does not say how to draw something, and where
  * `planAudit` (R12) finds a never-used key.
  */
-export function plan3dGroups(plan: CityPlan, roots: ReadonlyMap<CalibrationKey, Object3D>, entries: ReadonlyMap<CalibrationKey, AssetEntry>, colourways?: ReadonlyMap<string, Texture>): PlanDraw {
+export function plan3dGroups(plan: CityPlan, roots: ReadonlyMap<CalibrationKey, Object3D>, entries: ReadonlyMap<CalibrationKey, AssetEntry>, colourways?: ReadonlyMap<string, Texture>, stopAtlas?: Texture): PlanDraw {
   const { streets, mass, edge, buildings, facades, ground: groundLayer } = plan.layers;
   if (!streets || !mass || !edge || !buildings || !facades || !groundLayer) throw new PlanStopError("the plan has no streets, mass, edge, buildings, facades and ground layers to draw", []);
   if (!edge.ground || !edge.kerb) throw new PlanStopError("the edge layer has no ground and kerb (stage 4 writes them from D2)", []);
@@ -835,7 +933,24 @@ export function plan3dGroups(plan: CityPlan, roots: ReadonlyMap<CalibrationKey, 
   const dressDraws = planDressDraws(plan);
   const propDraws = planPropDraws(plan);
   const dress = dressStage(dressDraws, roots, built.whole);
-  const furniture = propStage(propDraws, roots);
+  const trafficDraws = planTrafficDraws(plan);
+  // The stop sign's root is replaced, in the roots the instancer sees only, by a clone painted in `01_A` (Q42): shared geometry, cloned materials; the loaded root, its materials and its maps are never written.
+  const stopKey = PLAN_TRAFFIC_KEYS.stopSign;
+  const stopRoot = roots.get(stopKey);
+  const paint = createColourwayCache();
+  let stopPainted = false;
+  let sharedRoots = roots;
+  if (stopAtlas && stopRoot && trafficDraws.some((d) => d.placement.key === stopKey)) {
+    const clone = stopRoot.clone();
+    paintStack(clone, STOP_SIGN_COLOURWAY, { colourways: new Map([[STOP_SIGN_COLOURWAY, stopAtlas]]) }, paint);
+    const painted = new Map(roots);
+    painted.set(stopKey, clone);
+    sharedRoots = painted;
+    stopPainted = true;
+  }
+  const stages89 = furnitureStages(propDraws, trafficDraws, sharedRoots);
+  const furniture = stages89.furniture;
+  const traffic = stages89.traffic;
   const group = new Group();
   group.name = "plan3d";
   group.add(tiles.group, interior.group, ...built.buildings.groups, built.grey.mesh, dress.group, furniture.group);
@@ -843,8 +958,11 @@ export function plan3dGroups(plan: CityPlan, roots: ReadonlyMap<CalibrationKey, 
     group,
     dress,
     furniture,
+    traffic,
+    stopPainted,
     dressDraws,
     propDraws,
+    trafficDraws,
     tiles,
     interior,
     buildings: built.buildings,
@@ -859,6 +977,7 @@ export function plan3dGroups(plan: CityPlan, roots: ReadonlyMap<CalibrationKey, 
       built.grey.dispose();
       dress.dispose();
       furniture.dispose();
+      paint.dispose();
     },
   };
 }
@@ -867,12 +986,12 @@ export function plan3dGroups(plan: CityPlan, roots: ReadonlyMap<CalibrationKey, 
  * The pieces `planKeys` names that a loaded model set offers, with the trees and the stack pieces the buildings stand on: roots and entries by key (the way the tile city's renderer reads them), and the loaded colourway
  * atlases by id (none when the set has none).
  */
-export function planInput(set: ModelSet): { roots: Map<CalibrationKey, Object3D>; entries: Map<CalibrationKey, AssetEntry>; colourways: ReadonlyMap<string, Texture> | undefined } {
+export function planInput(set: ModelSet): { roots: Map<CalibrationKey, Object3D>; entries: Map<CalibrationKey, AssetEntry>; colourways: ReadonlyMap<string, Texture> | undefined; stopAtlas: Texture | undefined } {
   const input = tileInput(set);
   const props = propInput(set);
   // The dressing and furniture keys of stages 7 and 8 are `ModelSet.dress` (the page loads `dressKeys()` and `furnitureKeys()` there); `propInput` offers only the tile props among them.
   const dress = dressInput(set);
-  return { roots: new Map([...stackRoots(set), ...(input?.roots ?? []), ...props.roots, ...(dress?.roots ?? [])]), entries: new Map([...(input?.entries ?? []), ...props.entries, ...(dress?.entries ?? [])]), colourways: set.colourways };
+  return { roots: new Map([...stackRoots(set), ...(input?.roots ?? []), ...props.roots, ...(dress?.roots ?? [])]), entries: new Map([...(input?.entries ?? []), ...props.entries, ...(dress?.entries ?? [])]), colourways: set.colourways, stopAtlas: set.signColourways?.get(STOP_SIGN_COLOURWAY) };
 }
 
 // ---- the street camera ----
@@ -942,7 +1061,7 @@ export function createPlanAssembleRenderer3d(gl: WebGLRenderer, canvas: HTMLCanv
   // The plan page has no HUD to keep clear (the puzzle HUD is not the plan's), and the page's insets measure that HUD: a tall one leaves the rig no room to fit the city and it backs off past the far plane (blank sky). They are ignored.
   let insets: Insets = {};
   let disposed = false;
-  const run = opts.run ?? runCity({ blocksX: req.blocksX, blocksZ: req.blocksZ, seed: req.seed }, "ground");
+  const run = opts.run ?? runCity({ blocksX: req.blocksX, blocksZ: req.blocksZ, seed: req.seed }, "traffic");
   const lightId0: LightModeId = lightModeFor("tiles", opts.search, import.meta.env.DEV);
   const scene = new Scene();
   const owners: LightOwners = newLightOwners();
@@ -969,10 +1088,10 @@ export function createPlanAssembleRenderer3d(gl: WebGLRenderer, canvas: HTMLCanv
     addSurface(owners, "ground", ground.material as Material);
     scene.add(ground);
   }
-  const build = (roots: ReadonlyMap<CalibrationKey, Object3D>, entries: ReadonlyMap<CalibrationKey, AssetEntry>, colourways?: ReadonlyMap<string, Texture>): void => {
+  const build = (roots: ReadonlyMap<CalibrationKey, Object3D>, entries: ReadonlyMap<CalibrationKey, AssetEntry>, colourways?: ReadonlyMap<string, Texture>, stopAtlas?: Texture): void => {
     if (!plan || stopText !== null) return;
     try {
-      const next = plan3dGroups(plan, roots, entries, colourways);
+      const next = plan3dGroups(plan, roots, entries, colourways, stopAtlas);
       if (draw) {
         scene.remove(draw.group);
         draw.dispose();
@@ -1040,15 +1159,15 @@ export function createPlanAssembleRenderer3d(gl: WebGLRenderer, canvas: HTMLCanv
   resize();
 
   // The models: one load for the page, then the pieces swap in. A failure leaves every piece code-drawn and costs one line.
-  const load = opts.load ?? ((): Promise<ModelSet> => sharedTileModels(planKeys()));
+  const load = opts.load ?? ((): Promise<ModelSet> => sharedTileModels(planKeys(), [STOP_SIGN_COLOURWAY]));
   void load()
     .then((set) => {
       if (disposed || stopText !== null) return;
       const input = planInput(set);
-      build(input.roots, input.entries, input.colourways);
+      build(input.roots, input.entries, input.colourways, input.stopAtlas);
       if (draw) {
         const d = draw;
-        report = (calls) => `plan 3d: ${d.tiles.fromPack} street pieces from the pack, ${d.tiles.codeDrawn} code-drawn, ${d.tiles.calls} + ${d.interior.calls} draw calls (caps ${TILE_DRAW_CALLS_MAX} and ${INTERIOR_DRAW_CALLS_MAX}), ${d.buildings.groups.length} building groups, ${d.buildings.pieces} pieces cloned, ${d.buildings.groundPieces} of ${d.buildings.groundDraws.length} ground pieces cloned, ${d.grey.fallback} columns fell back to grey and ${d.grey.slots} ground slots are grey (${d.grey.count} grey boxes), stage 7: ${d.dress.drawn} of ${d.dress.listed} pieces drawn in ${d.dress.calls} calls (+${d.dress.boxCalls} box, cap ${DRESS_DRAW_CALLS_MAX}), stage 8: ${d.furniture.drawn} of ${d.furniture.listed} props drawn in ${d.furniture.calls} calls (cap ${FURN_DRAW_CALLS_MAX}), keys left out: ${[...d.dress.leftOut, ...d.furniture.leftOut].join(", ") || "none"}, ${calls} draw calls in the next frame`;
+        report = (calls) => `plan 3d: ${d.tiles.fromPack} street pieces from the pack, ${d.tiles.codeDrawn} code-drawn, ${d.tiles.calls} + ${d.interior.calls} draw calls (caps ${TILE_DRAW_CALLS_MAX} and ${INTERIOR_DRAW_CALLS_MAX}), ${d.buildings.groups.length} building groups, ${d.buildings.pieces} pieces cloned, ${d.buildings.groundPieces} of ${d.buildings.groundDraws.length} ground pieces cloned, ${d.grey.fallback} columns fell back to grey and ${d.grey.slots} ground slots are grey (${d.grey.count} grey boxes), stage 7: ${d.dress.drawn} of ${d.dress.listed} pieces drawn in ${d.dress.calls} calls (+${d.dress.boxCalls} box, cap ${DRESS_DRAW_CALLS_MAX}), stage 8: ${d.furniture.drawn} of ${d.furniture.listed} props drawn in ${d.furniture.calls} calls (cap ${FURN_DRAW_CALLS_MAX} shared with stage 9), stage 9: ${d.traffic.drawn} of ${d.traffic.listed} traffic pieces drawn in ${d.traffic.calls} calls, stop sign on 01_A: ${d.stopPainted ? "yes" : "no"}, keys left out: ${[...d.dress.leftOut, ...d.furniture.leftOut, ...d.traffic.leftOut].join(", ") || "none"}, ${calls} draw calls in the next frame`;
       }
     })
     .catch((e: unknown) => {
