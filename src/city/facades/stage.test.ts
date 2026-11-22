@@ -332,7 +332,7 @@ describe("the picture (criterion 5, R-5)", { timeout: 120_000 }, () => {
 
 describe("R-1 to R-7 for facades (criterion 6)", { timeout: 120_000 }, () => {
   it("the standard run is ok on the default city, ends with facades, its layer is frozen, and the stage list ends with it", () => {
-    expect(BUILT_STAGES.map((s) => s.name)).toEqual(["streets", "land", "mass", "edge", "buildings", "facades", "ground"]);
+    expect(BUILT_STAGES.map((s) => s.name)).toEqual(["streets", "land", "mass", "edge", "buildings", "facades", "ground", "traffic"]);
     const r = cityOf(DEFAULT);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
