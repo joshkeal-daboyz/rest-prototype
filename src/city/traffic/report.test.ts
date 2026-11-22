@@ -3,12 +3,12 @@
  * their own inbound lane and those that do not, the closest clearance to stage 7 and to stage 8 (each with its run), and the stage's time. Outside cities (best effort; Josh's ruling): 3 x 3 and 6 x 4, seeds 1 to 20, one-way off and on, each ok or
  * its failure named. Read the `TRAFFIC REPORT` and `OUTSIDE REPORT` lines of the run's output.
  */
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { stageRand } from "../pipeline/seeds";
 import { buildTraffic } from "./stage";
 import { clearOf, closestBox, closestProp, poleOf } from "./clear";
 import { ARM } from "./kit";
-import { NAMED, label, layersOf, stagesOf } from "./testcities";
+import { NAMED, label, layersOf, stagesOf, warm } from "./testcities";
 import { runCity } from "../stages";
 
 const add = (into: Record<string, number>, k: string, n = 1): void => {
@@ -16,6 +16,7 @@ const add = (into: Record<string, number>, k: string, n = 1): void => {
 };
 
 describe("the traffic numbers (criterion 8; reported, not asserted)", { timeout: 600_000 }, () => {
+  beforeAll(() => warm(NAMED), 120_000);
   it("the 20 named runs", () => {
     const rows: unknown[] = [];
     const total = { control: {} as Record<string, number>, kinds: {} as Record<string, number>, pieces: {} as Record<string, number>, over: 0, notOver: 0 };
@@ -97,10 +98,11 @@ describe("the traffic numbers (criterion 8; reported, not asserted)", { timeout:
   ];
   for (const [bx, bz] of SIZES) {
     for (const way of ["off", "on"] as const) {
-      it(`outside cities: ${bx} x ${bz}, seeds 1 to 20, one-way ${way} (best effort, report only)`, () => {
+      it(`outside cities: ${bx} x ${bz}, seeds 1 to 20, one-way ${way} (best effort, report only)`, async () => {
         let ok = 0;
         const fails: string[] = [];
         for (let seed = 1; seed <= 20; seed++) {
+          await new Promise<void>((resolve) => setTimeout(resolve, 0));
           const r = runCity({ blocksX: bx, blocksZ: bz, seed }, undefined, stagesOf(way));
           if (r.ok) ok++;
           else fails.push(`seed ${seed}: ${r.failure.stage}: ${r.failure.reason}`);

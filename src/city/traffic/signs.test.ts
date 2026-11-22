@@ -3,12 +3,12 @@
  * the fallback onto the corner cell; and a stop sign's pivot and yaw on each of the four sides, worked by hand.
  * HEAVY: each city is built once (stages 1 to 9), through a module-level cache.
  */
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import type { CityCell, CityEdgeLayer, CityJunction, CitySide } from "../../core";
 import { buildControl } from "./control";
 import { buildTraffic } from "./stage";
 import { stopPlace, stopSigns } from "./signs";
-import { NAMED, DEFAULT, label, layersOf } from "./testcities";
+import { NAMED, DEFAULT, label, layersOf, warm } from "./testcities";
 import { stageRand } from "../pipeline/seeds";
 
 /** Where an approach's near-right corner cell and its arm cell are, from a junction's inclusive cell bounds; its sign's yaw. Traffic keeps right: an arm on "-z" carries traffic heading +z, its right is -x. */
@@ -26,6 +26,7 @@ const bounds = (cells: readonly CityCell[]): { i0: number; i1: number; j0: numbe
 });
 
 describe("stop signs on the named runs (criterion 4)", { timeout: 120_000 }, () => {
+  beforeAll(() => warm(NAMED), 120_000);
   it("every stop approach has exactly one stop sign, on its kerbside at its near-right corner, facing its traffic; none elsewhere", () => {
     const bad: string[] = [];
     let signs = 0;

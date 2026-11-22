@@ -3,7 +3,7 @@
  */
 import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import type { CityPlanRun } from "../../core";
 import { digestOf } from "../pipeline/digest";
 import { pictureProblems } from "../pipeline/picture";
@@ -12,9 +12,10 @@ import type { CityStageDef } from "../pipeline/types";
 import { BUILT_STAGES, runCity } from "../stages";
 import { poleOf } from "./clear";
 import { TRAFFIC_LEGEND, legendOf, trafficStage } from "./stage";
-import { DEFAULT, PINNED, cityOf, layersOf, stagesOf } from "./testcities";
+import { DEFAULT, PINNED, cityOf, layersOf, stagesOf, warm } from "./testcities";
 
 describe("R-1 to R-7 for stage 9 (criterion 7)", { timeout: 120_000 }, () => {
+  beforeAll(() => warm([DEFAULT, ...PINNED.map((c) => ({ ...c }))]), 120_000);
   it("the stage list ends with traffic, and stage 6 (circuit) is still not built", () => {
     expect(BUILT_STAGES.map((s) => s.name)).toEqual(["streets", "land", "mass", "edge", "buildings", "facades", "ground", "traffic"]);
     expect(() => runCity({ blocksX: 6, blocksZ: 6, seed: 1 }, "circuit")).toThrow();

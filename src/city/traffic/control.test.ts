@@ -2,14 +2,15 @@
  * Ticket 070 TR1, criterion 2: the control of every junction on the 20 named runs (6 x 6 seeds 1 to 10, one-way off and on), derived here independently of `control.ts`, and three hand-worked fixtures.
  * HEAVY: each city is built once (stages 1 to 9), through a module-level cache.
  */
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import type { CityJunction, CityPlanStreet } from "../../core";
 import { buildControl } from "./control";
-import { NAMED, label, layersOf } from "./testcities";
+import { NAMED, label, layersOf, warm } from "./testcities";
 
 const SIDES = { "-x": "x", "+x": "x", "-z": "z", "+z": "z" } as const;
 
 describe("the control of every junction on the named runs (criterion 2)", { timeout: 120_000 }, () => {
+  beforeAll(() => warm(NAMED), 120_000);
   it("every junction appears once, in order, with its approaches in arms order; inbound follows IN", () => {
     const bad: string[] = [];
     for (const o of NAMED) {

@@ -54,3 +54,11 @@ export function layersOf(o: City): Layers {
 export function inputOf(l: Layers): TrafficInput {
   return { streets: l.streets, mass: l.mass, edge: l.edge, facades: l.facades, ground: l.ground };
 }
+
+/** Build the cities one at a time, yielding to the event loop between them, so a worker answers the runner's messages during a file's long setup (a 17 s synchronous block made vitest report a worker timeout). */
+export async function warm(list: readonly City[]): Promise<void> {
+  for (const o of list) {
+    cityOf(o);
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  }
+}

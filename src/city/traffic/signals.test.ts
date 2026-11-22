@@ -2,12 +2,12 @@
  * Ticket 070 TR1, criterion 3: the signals on the 20 named runs, derived here from the streets and edge layers and the kit's typed numbers, independently of `signals.ts`; and one hand-worked mast and arm.
  * HEAVY: each city is built once (stages 1 to 9), through a module-level cache.
  */
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import type { CityCell, CitySide, CityTrafficPiece } from "../../core";
 import { poleOf } from "./clear";
 import { MAST_INSET_M, SIGNAL_HEAD_MIN_M } from "./constants";
 import { ARM, ARM_BASE_Y, HEAD_LOW_Y, MAST } from "./kit";
-import { NAMED, label, layersOf, DEFAULT } from "./testcities";
+import { NAMED, label, layersOf, DEFAULT, warm } from "./testcities";
 
 /** The far-left corner of an approach by the side its arm leaves by: the sign of the corner's offset from the junction in x and z (traffic keeps right; an arm on "-z" carries traffic heading +z, its left is +x). */
 const FAR_LEFT: Readonly<Record<CitySide, readonly [1 | -1, 1 | -1]>> = { "-z": [1, 1], "+z": [-1, -1], "-x": [1, -1], "+x": [-1, 1] };
@@ -31,6 +31,7 @@ const turn = (yaw: number, x: number, z: number): [number, number] => {
 };
 
 describe("signals on the named runs (criterion 3)", { timeout: 120_000 }, () => {
+  beforeAll(() => warm(NAMED), 120_000);
   it("every signal junction has one mast group per pavementCorner, each on its approach's far-left corner, the arm crossing its approach over the carriageway with its heads facing it", () => {
     const bad: string[] = [];
     let groups = 0;
