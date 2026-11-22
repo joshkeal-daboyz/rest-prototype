@@ -359,7 +359,8 @@ describe("fitLine", () => {
     let lo = Infinity;
     let hi = 0;
     let spans = 0;
-    for (const f of readdirSync("puzzles").filter((n) => n.endsWith(".json"))) {
+    // The ladder maps only (NN-*.json, as the playtest harness reads them): puzzles/city-two-ways-round.json is an off-ladder city map (pos = metres / 5, not ladder units), so its spans are not the ladder's.
+    for (const f of readdirSync("puzzles").filter((n) => /^dd-.*.json$/.test(n))) {
       const puzzle = loadPuzzle(JSON.parse(readFileSync(join("puzzles", f), "utf8")));
       for (const run of wireLayout(puzzle)) {
         for (let i = 0; i + 1 < run.attach.length; i++) {
