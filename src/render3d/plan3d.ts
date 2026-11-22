@@ -35,9 +35,10 @@ import {
   type Texture,
   type WebGLRenderer,
 } from "three";
-import { type AssetEntry, type CalibrationKey, type CityBuildingsLayer, type CityCell, type CityEra, type CityEraRun, type CityEraStageFailure, type CityFacadesLayer, type CityGroundPieceKind, type CityGroundCell, type CityGroundPlace, type CityGroundProp, type CityWallBox, type CityKerbPath, type CityMassLayer, type CityPieceRole, type CityPlacement, type CityPlan, type CityPlanRun, type CitySide, type CityStageFailure, type CityStreetsLayer, type CityTrafficPieceKind } from "../core";
+import { type AssetEntry, type CalibrationKey, type CityBuildingsLayer, type CityCell, type CityEra, type CityEraPiece, type CityEraRun, type CityEraStageFailure, type CityFacadesLayer, type CityGroundPieceKind, type CityGroundCell, type CityGroundPlace, type CityGroundProp, type CityWallBox, type CityKerbPath, type CityMassLayer, type CityPieceRole, type CityPlacement, type CityPlan, type CityPlanRun, type CitySide, type CityStageFailure, type CityStreetsLayer, type CityTechPieceKind, type CityTrafficPieceKind } from "../core";
 import { CITY_ERAS } from "../core";
 import { CityResolveError, resolvePlan, runCity, runCityEra } from "../city/pipeline";
+import { TECH_BOUNDS } from "../city/tech/kit";
 import type { Insets } from "../render/geometry";
 import { createDayToggle, pageDayToggleHost, type DayToggle, type DayToggleHost } from "./daytoggle";
 import { applyLightMode, addSurface, newLightOwners, setRendererMode, type LightOwners } from "./lightrig";
@@ -211,21 +212,26 @@ export function nextEra(era: CityEra): CityEra {
   return CITY_ERAS[(CITY_ERAS.indexOf(era) + 1) % CITY_ERAS.length]!;
 }
 
+const NO_TECH: readonly CityEraPiece<CityTechPieceKind>[] = Object.freeze([]);
+
 /** What the draw reads at an era: the plan to draw, or the text that says why there is none. */
-export type PlanAtEra = { readonly plan: CityPlan; readonly text: null } | { readonly plan: null; readonly text: string };
+export type PlanAtEra =
+  | { readonly plan: CityPlan; readonly text: null; readonly techAdds: readonly CityEraPiece<CityTechPieceKind>[] }
+  | { readonly plan: null; readonly text: string; readonly techAdds: readonly CityEraPiece<CityTechPieceKind>[] };
 
 /**
  * The plan the draw reads at `era`. "clean" is the clean plan itself, with no era stage run (X-7). An era above it reads `resolvePlan(eraRun.plan, era).plan`, never the raw layers (ticket 073 C2, criterion 2);
- * with no pass built, that plan is the clean one. `eraRun` is the era run for that era (the caller runs it). A failed run or a failed resolve gives the text and no plan. Pure.
+ * with no pass built, that plan is the clean one. The tech pass's adds (D1g) come from the same `resolvePlan` and are drawn beside the plan; at "clean" there are none. `eraRun` is the era run for that era (the caller runs it). A failed run or a failed resolve gives the text and no plan. Pure.
  */
 export function planAtEra(clean: CityPlan, era: CityEra, eraRun: CityEraRun | null): PlanAtEra {
-  if (era === "clean") return { plan: clean, text: null };
-  if (eraRun === null) return { plan: null, text: `City plan at era "${era}" has no era run` };
-  if (!eraRun.ok) return { plan: null, text: planFailureText(eraRun.failure) };
+  if (era === "clean") return { plan: clean, text: null, techAdds: NO_TECH };
+  if (eraRun === null) return { plan: null, text: `City plan at era "${era}" has no era run`, techAdds: NO_TECH };
+  if (!eraRun.ok) return { plan: null, text: planFailureText(eraRun.failure), techAdds: NO_TECH };
   try {
-    return { plan: resolvePlan(eraRun.plan, era).plan, text: null };
+    const resolved = resolvePlan(eraRun.plan, era);
+    return { plan: resolved.plan, text: null, techAdds: resolved.adds.tech ?? NO_TECH };
   } catch (e) {
-    if (e instanceof CityResolveError) return { plan: null, text: `City plan cannot be resolved at era "${era}": ${e.message}` };
+    if (e instanceof CityResolveError) return { plan: null, text: `City plan cannot be resolved at era "${era}": ${e.message}`, techAdds: NO_TECH };
     throw e;
   }
 }
@@ -732,6 +738,27 @@ export function planTrafficDraws(plan: CityPlan): PlanTrafficDraw[] {
   });
 }
 
+/** The tech pass's adds and the era they are drawn at (what `plan3dGroups` and `planAudit` read beside the plan). */
+export interface PlanTech {
+  readonly era: CityEra;
+  readonly adds: readonly CityEraPiece<CityTechPieceKind>[];
+}
+
+/** One never-used key the tech pass may place, as dark scenery, and the one kind of its adds that may carry it (X-9; B2: dark lamps, signs, neon). */
+export interface PlanTechAllowance {
+  readonly key: CalibrationKey;
+  readonly kind: CityTechPieceKind;
+}
+
+/** B2's allowance, era-scoped (ticket 073 X-9): the eras it holds in. At "clean" the audit is exactly today's. */
+export const PLAN_AUDIT_TECH_ERAS: readonly CityEra[] = ["tech", "holdout", "ruin"];
+
+/**
+ * B2's allowance, as one typed table: the never-used keys the tech pass may use, each on its own kind of add. D1's kit (a Sci-Fi City set, none of whose names starts with a never-used stem) needs none, so the
+ * table is empty today; D2's lamps and holograms, if any is on the list, join it here (D3). A never-used key on any other kind, or at `clean`, is still a finding.
+ */
+export const PLAN_AUDIT_TECH_ALLOWED: readonly PlanTechAllowance[] = [];
+
 /** One never-used key the plan places: the layer and list it is in, its cell (null for a key the street pieces and interiors are drawn from), and the key. */
 export interface PlanAuditEntry {
   readonly layer: string;
@@ -747,7 +774,7 @@ export const PLAN_AUDIT_ALLOWED = { key: PLAN_PARTY_PIPE, kind: "partyPipe" } as
  * R12, the whole-plan audit (the checklist's own check at its own stage): every key the plan places that `isNeverUsed` names, with its layer, list and cell. It reads the buildings' pieces, `facades.ground`, `dressing`, `walls`,
  * `roofs` and `novelty`, `ground.props`, and the keys the street pieces and interiors are drawn from. Empty when the plan is clean; never filtered. Pure.
  */
-export function planAudit(plan: CityPlan): PlanAuditEntry[] {
+export function planAudit(plan: CityPlan, tech?: PlanTech, allowed: readonly PlanTechAllowance[] = PLAN_AUDIT_TECH_ALLOWED): PlanAuditEntry[] {
   const { buildings, facades, ground, traffic } = plan.layers;
   const out: PlanAuditEntry[] = [];
   const check = (layer: string, list: string, cell: CityCell | null, key: CalibrationKey, kind?: string): void => {
@@ -766,7 +793,33 @@ export function planAudit(plan: CityPlan): PlanAuditEntry[] {
   for (const p of facades?.novelty ?? []) check("facades", "novelty", p.cell, p.placement.key, p.kind);
   for (const p of ground?.props ?? []) check("ground", "props", p.cell, p.placement.key, p.kind);
   for (const p of traffic?.pieces ?? []) check("traffic", "pieces", p.cell, p.placement.key, p.kind);
+  // The tech pass's adds (D1g; X-9): a never-used key among them is a finding unless the era-scoped table allows it for that kind.
+  for (const p of tech?.adds ?? []) {
+    if (!isNeverUsed(p.placement.key)) continue;
+    if (PLAN_AUDIT_TECH_ERAS.includes(tech!.era) && allowed.some((a) => a.key === p.placement.key && a.kind === p.kind)) continue;
+    out.push({ layer: "tech", list: "adds", cell: p.cell, key: p.placement.key });
+  }
   return out;
+}
+
+/** One tech add as `plan3dGroups` draws it: the era piece itself (a kit key, at the placement D1 wrote). */
+export interface PlanTechDraw {
+  readonly id: string;
+  readonly kind: CityTechPieceKind;
+  readonly district: string;
+  readonly cell: CityCell;
+  readonly placement: CityPlacement;
+}
+
+/** The most InstancedMeshes the tech pass's pieces may take (its own group, so no other cap rises). The kit has 33 keys; a key is one call per sub-mesh. */
+export const TECH_DRAW_CALLS_MAX = 100;
+
+/** Every tech add once each, in order. A key that is not in the tech kit is a gap in D1's layer: `PlanStopError`, the cell named. Pure. */
+export function planTechDraws(adds: readonly CityEraPiece<CityTechPieceKind>[]): PlanTechDraw[] {
+  return adds.map((p) => {
+    if (TECH_BOUNDS[p.placement.key] === undefined) throw new PlanStopError(`the tech add ${p.id} has a key (${p.placement.key}) that is not in the tech kit`, [p.cell]);
+    return { id: p.id, kind: p.kind, district: p.district, cell: p.cell, placement: p.placement };
+  });
 }
 
 /** What the per-key instancer made of one stage's pieces. */
@@ -826,6 +879,12 @@ function propPlacementOf(d: PlanPropDraw): DressPlacement {
   const pl = d.placement;
   const piece: FurniturePiece = { key: pl.key, x: pl.x_m * S, z: pl.z_m * S, yaw: pl.yaw_deg * RAD, w: d.size.x_m, h: d.size.h_m, d: d.size.z_m, kind: FURN_KIND[d.on], run: d.host, ground: d.on === "pavement" ? "pavement" : "yard", lift: pl.y_m, flat: d.flat };
   return furniturePlacement(piece, { pavement_m: 0, yard_m: 0 });
+}
+
+/** A tech add as the instancer's placement: the identity frame, the piece at its placement in metres and its turn (a kit piece's front is its +z, so a turn by D1's `SIDE_YAW` puts it out from its wall). */
+function techPlacementOf(d: PlanTechDraw): DressPlacement {
+  const pl = d.placement;
+  return { frame: { x: 0, z: 0, yaw: 0 }, piece: { key: pl.key, slot: "wall", x: pl.x_m, y: pl.y_m, z: pl.z_m, yaw: pl.yaw_deg * RAD, column: 0, w: 0, h: 0, d: 0 } };
 }
 
 const shortName = (key: CalibrationKey): string => key.slice(key.indexOf(":") + 1);
@@ -892,6 +951,12 @@ export function furnitureStages(props: readonly PlanPropDraw[], traffic: readonl
   return { furniture: part(props.length, pp, () => all.dispose()), traffic: part(traffic.length, tp, () => {}) };
 }
 
+/** The tech pass's pieces (D1g): each add whose root loaded, in one `dressGroup` call under `TECH_DRAW_CALLS_MAX`, dark (the instancer swaps any emissive material for one with none). */
+export function techStage(draws: readonly PlanTechDraw[], roots: ReadonlyMap<CalibrationKey, Object3D>): PlanInstanced {
+  const placements = draws.filter((d) => roots.has(d.placement.key)).map(techPlacementOf);
+  return instancedOf("plan:tech", draws.length, placements, roots, TECH_DRAW_CALLS_MAX);
+}
+
 /** Stage 8: each listed prop whose root loaded, in one `dressGroup` call under `FURN_DRAW_CALLS_MAX` (the call `plan3dGroups` shares with stage 9's pieces; this one has none of them). */
 export function propStage(draws: readonly PlanPropDraw[], roots: ReadonlyMap<CalibrationKey, Object3D>): PlanInstanced {
   return furnitureStages(draws, [], roots).furniture;
@@ -913,6 +978,9 @@ export interface PlanDraw {
   traffic: PlanInstanced;
   /** True when the stop sign was drawn on the `01_A` atlas (`plan3dGroups`' `stopAtlas` was given and a stop sign root loaded). */
   stopPainted: boolean;
+  /** D1g: the tech pass's adds, as listed and as drawn, in `tech.group` (`plan:tech`, in `group` too). Null at "clean" and wherever the plan is drawn with no tech adds. */
+  tech: PlanInstanced | null;
+  techDraws: readonly PlanTechDraw[];
   dressDraws: readonly PlanDressDraw[];
   propDraws: readonly PlanPropDraw[];
   trafficDraws: readonly PlanTrafficDraw[];
@@ -931,12 +999,12 @@ const NO_PROPS: readonly PropPlace[] = [];
  * `walls`, `roofs` and `novelty` lists (H1b to H1c), and the ground layer's `props` (I). Draws only: it reads the layers and writes none. Throws `PlanStopError` where a layer does not say how to draw something, and where
  * `planAudit` (R12) finds a never-used key.
  */
-export function plan3dGroups(plan: CityPlan, roots: ReadonlyMap<CalibrationKey, Object3D>, entries: ReadonlyMap<CalibrationKey, AssetEntry>, colourways?: ReadonlyMap<string, Texture>, stopAtlas?: Texture): PlanDraw {
+export function plan3dGroups(plan: CityPlan, roots: ReadonlyMap<CalibrationKey, Object3D>, entries: ReadonlyMap<CalibrationKey, AssetEntry>, colourways?: ReadonlyMap<string, Texture>, stopAtlas?: Texture, tech?: PlanTech): PlanDraw {
   const { streets, mass, edge, buildings, facades, ground: groundLayer } = plan.layers;
   if (!streets || !mass || !edge || !buildings || !facades || !groundLayer) throw new PlanStopError("the plan has no streets, mass, edge, buildings, facades and ground layers to draw", []);
   if (!edge.ground || !edge.kerb) throw new PlanStopError("the edge layer has no ground and kerb (stage 4 writes them from D2)", []);
   // R12: a never-used key is a gap in the layer that placed it, and is never filtered out here.
-  const audit = planAudit(plan);
+  const audit = planAudit(plan, tech);
   if (audit.length > 0) {
     const first = audit[0]!;
     throw new PlanStopError(`R12: ${audit.length} never-used key(s) in the plan (first: ${first.key} in ${first.layer} ${first.list}${first.cell ? ` at ${colId(first.cell)}` : ""})`, audit.flatMap((a) => (a.cell ? [a.cell] : [])));
@@ -981,15 +1049,21 @@ export function plan3dGroups(plan: CityPlan, roots: ReadonlyMap<CalibrationKey, 
   const stages89 = furnitureStages(propDraws, trafficDraws, sharedRoots);
   const furniture = stages89.furniture;
   const traffic = stages89.traffic;
+  // D1g: the tech pass's adds, at an era above clean only. Nothing is added to the group at "clean".
+  const techDraws = tech !== undefined && tech.era !== "clean" ? planTechDraws(tech.adds) : [];
+  const techDrawn = techDraws.length > 0 ? techStage(techDraws, roots) : null;
   const group = new Group();
   group.name = "plan3d";
   group.add(tiles.group, interior.group, ...built.buildings.groups, built.grey.mesh, dress.group, furniture.group);
+  if (techDrawn) group.add(techDrawn.group);
   return {
     group,
     dress,
     furniture,
     traffic,
     stopPainted,
+    tech: techDrawn,
+    techDraws,
     dressDraws,
     propDraws,
     trafficDraws,
@@ -1007,6 +1081,7 @@ export function plan3dGroups(plan: CityPlan, roots: ReadonlyMap<CalibrationKey, 
       built.grey.dispose();
       dress.dispose();
       furniture.dispose();
+      techDrawn?.dispose();
       paint.dispose();
     },
   };
@@ -1120,13 +1195,15 @@ export function createPlanAssembleRenderer3d(gl: WebGLRenderer, canvas: HTMLCanv
     }
     return r;
   };
-  const atEra = (e: CityEra): PlanAtEra => (cleanPlan ? planAtEra(cleanPlan, e, e === "clean" ? null : eraRunOf(e)) : { plan: null, text: stopText ?? "" });
+  const atEra = (e: CityEra): PlanAtEra => (cleanPlan ? planAtEra(cleanPlan, e, e === "clean" ? null : eraRunOf(e)) : { plan: null, text: stopText ?? "", techAdds: NO_TECH });
   const cleanFailed = stopText !== null;
   let eraText: string | null = null;
   let plan: CityPlan | null = cleanPlan;
+  let techAdds: readonly CityEraPiece<CityTechPieceKind>[] = NO_TECH;
   if (stopText === null && cleanPlan) {
     const first = atEra(era);
     plan = first.plan;
+    techAdds = first.techAdds;
     eraText = first.text;
     if (eraText !== null) stopText = eraText;
   }
@@ -1146,7 +1223,7 @@ export function createPlanAssembleRenderer3d(gl: WebGLRenderer, canvas: HTMLCanv
     if (!plan || stopText !== null) return;
     lastBuild = [roots, entries, colourways, stopAtlas];
     try {
-      const next = plan3dGroups(plan, roots, entries, colourways, stopAtlas);
+      const next = plan3dGroups(plan, roots, entries, colourways, stopAtlas, { era, adds: techAdds });
       if (draw) {
         scene.remove(draw.group);
         draw.dispose();
@@ -1230,6 +1307,7 @@ export function createPlanAssembleRenderer3d(gl: WebGLRenderer, canvas: HTMLCanv
       note = null;
     }
     plan = r.plan;
+    techAdds = r.techAdds;
     if (lastBuild) build(...lastBuild);
     else build(new Map(), new Map());
   };
@@ -1271,7 +1349,7 @@ export function createPlanAssembleRenderer3d(gl: WebGLRenderer, canvas: HTMLCanv
       build(input.roots, input.entries, input.colourways, input.stopAtlas);
       if (draw) {
         const d = draw;
-        report = (calls) => `plan 3d: ${d.tiles.fromPack} street pieces from the pack, ${d.tiles.codeDrawn} code-drawn, ${d.tiles.calls} + ${d.interior.calls} draw calls (caps ${TILE_DRAW_CALLS_MAX} and ${INTERIOR_DRAW_CALLS_MAX}), ${d.buildings.groups.length} building groups, ${d.buildings.pieces} pieces cloned, ${d.buildings.groundPieces} of ${d.buildings.groundDraws.length} ground pieces cloned, ${d.grey.fallback} columns fell back to grey and ${d.grey.slots} ground slots are grey (${d.grey.count} grey boxes), stage 7: ${d.dress.drawn} of ${d.dress.listed} pieces drawn in ${d.dress.calls} calls (+${d.dress.boxCalls} box, cap ${DRESS_DRAW_CALLS_MAX}), stage 8: ${d.furniture.drawn} of ${d.furniture.listed} props drawn in ${d.furniture.calls} calls (cap ${FURN_DRAW_CALLS_MAX} shared with stage 9), stage 9: ${d.traffic.drawn} of ${d.traffic.listed} traffic pieces drawn in ${d.traffic.calls} calls, stop sign on 01_A: ${d.stopPainted ? "yes" : "no"}, keys left out: ${[...d.dress.leftOut, ...d.furniture.leftOut, ...d.traffic.leftOut].join(", ") || "none"}, ${calls} draw calls in the next frame`;
+        report = (calls) => `plan 3d: ${d.tiles.fromPack} street pieces from the pack, ${d.tiles.codeDrawn} code-drawn, ${d.tiles.calls} + ${d.interior.calls} draw calls (caps ${TILE_DRAW_CALLS_MAX} and ${INTERIOR_DRAW_CALLS_MAX}), ${d.buildings.groups.length} building groups, ${d.buildings.pieces} pieces cloned, ${d.buildings.groundPieces} of ${d.buildings.groundDraws.length} ground pieces cloned, ${d.grey.fallback} columns fell back to grey and ${d.grey.slots} ground slots are grey (${d.grey.count} grey boxes), stage 7: ${d.dress.drawn} of ${d.dress.listed} pieces drawn in ${d.dress.calls} calls (+${d.dress.boxCalls} box, cap ${DRESS_DRAW_CALLS_MAX}), stage 8: ${d.furniture.drawn} of ${d.furniture.listed} props drawn in ${d.furniture.calls} calls (cap ${FURN_DRAW_CALLS_MAX} shared with stage 9), stage 9: ${d.traffic.drawn} of ${d.traffic.listed} traffic pieces drawn in ${d.traffic.calls} calls, tech: ${d.tech ? d.tech.drawn : 0} of ${d.tech ? d.tech.listed : 0} added pieces drawn in ${d.tech ? d.tech.calls : 0} calls (cap ${TECH_DRAW_CALLS_MAX}), stop sign on 01_A: ${d.stopPainted ? "yes" : "no"}, keys left out: ${[...d.dress.leftOut, ...d.furniture.leftOut, ...d.traffic.leftOut].join(", ") || "none"}, ${calls} draw calls in the next frame`;
       }
     })
     .catch((e: unknown) => {
