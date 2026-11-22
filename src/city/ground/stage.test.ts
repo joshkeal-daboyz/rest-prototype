@@ -15,7 +15,7 @@ import { DEFAULT, PINNED, cityOf, layersOf, stagesOf } from "./testcities";
 
 describe("R-1 to R-7 for stage 8 (criterion 9)", { timeout: 120_000 }, () => {
   it("the stage list ends with ground, and stage 6 (circuit) is still not built", () => {
-    expect(BUILT_STAGES.map((s) => s.name)).toEqual(["streets", "land", "mass", "edge", "buildings", "facades", "ground"]);
+    expect(BUILT_STAGES.map((s) => s.name)).toEqual(["streets", "land", "mass", "edge", "buildings", "facades", "ground", "traffic"]);
     expect(() => runCity({ blocksX: 6, blocksZ: 6, seed: 1 }, "circuit")).toThrow();
   });
 

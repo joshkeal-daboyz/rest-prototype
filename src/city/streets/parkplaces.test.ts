@@ -3,11 +3,13 @@
  */
 import { describe, expect, it } from "vitest";
 import type { CityBlockType, CitySide, CityStreetBand } from "../../core";
-import { PARK_ONE_IN_BLOCKS as TILE_CITY_PARK_ONE_IN_BLOCKS } from "../../render3d/tilecity";
 import { farBand, parkPlaces, parksNeeded, s11Failures, splitFailures } from "./check";
 import { PARK_ONE_IN_BLOCKS } from "./constants";
 import { blockType } from "./layout";
 import { laySplit, type SplitLayout } from "./split";
+
+/** The old tile city's `PARK_ONE_IN_BLOCKS`: src/render3d/tilecity.ts line 227 at b42b65f. */
+const TILE_CITY_PARK_ONE_IN_BLOCKS = 6;
 
 const OWN: CityStreetBand[] = ["pavement", "parking", "lane", "lane", "pavement"]; // parking next to a "+z" or "-x" block
 const FAR: CityStreetBand[] = ["pavement", "lane", "lane", "parking", "pavement"]; // parking next to a "-z" or "+x" block

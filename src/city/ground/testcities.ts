@@ -20,9 +20,9 @@ export const DEFAULT: City = { blocksX: 6, blocksZ: 6, seed: 1, way: "on" };
 export const PINNED: readonly City[] = [1, 2, 3, 8].map((seed) => ({ blocksX: 6, blocksZ: 6, seed, way: "on" as const }));
 export const label = (o: City): string => `${o.blocksX} x ${o.blocksZ} seed ${o.seed} one-way ${o.way}`;
 
-/** The built stages (through ground), with stage 1 swapped for the one-way-off variant when `way` is "off", and a stage replaced by name when `swap` is given. */
+/** The built stages through ground (stage 9, traffic, is left out: every ground test runs the stages it ran before TR1), with stage 1 swapped for the one-way-off variant when `way` is "off", and a stage replaced by name when `swap` is given. */
 export const stagesOf = (way: "on" | "off", swap?: CityStageDef): CityStageDef[] => {
-  const all = way === "on" ? [...BUILT_STAGES] : [streetsStageWith(0) as unknown as CityStageDef, ...BUILT_STAGES.slice(1)];
+  const all = (way === "on" ? [...BUILT_STAGES] : [streetsStageWith(0) as unknown as CityStageDef, ...BUILT_STAGES.slice(1)]).filter((s) => s.name !== "traffic");
   return swap ? all.map((s) => (s.name === swap.name ? swap : s)) : all;
 };
 

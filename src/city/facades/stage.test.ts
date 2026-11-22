@@ -5,7 +5,7 @@
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import type { CityBuiltCell, CityCell, CityFacadesLayer, CityGroundPiece, CityPlanRun } from "../../core";
 import { digestOf } from "../pipeline/digest";
 import { pictureProblems } from "../pipeline/picture";
@@ -17,6 +17,8 @@ import { DEEP_KEYS, groundEntry } from "./kit";
 import { bodyBoxOf, cellsBox, keyOf, planeOf } from "./place";
 import { facadesStage, FACADES_LEGEND, legendOf } from "./stage";
 import { type City, cityOf, DEFAULT, label, layersOf, NAMED, stagesOf } from "./testcities";
+
+afterEach(() => new Promise<void>((r) => setTimeout(r, 0)));
 
 const SIDE_VEC = { "+x": [1, 0], "-x": [-1, 0], "+z": [0, 1], "-z": [0, -1] } as const;
 const OPP = { "+x": "-x", "-x": "+x", "+z": "-z", "-z": "+z" } as const;
@@ -332,7 +334,7 @@ describe("the picture (criterion 5, R-5)", { timeout: 120_000 }, () => {
 
 describe("R-1 to R-7 for facades (criterion 6)", { timeout: 120_000 }, () => {
   it("the standard run is ok on the default city, ends with facades, its layer is frozen, and the stage list ends with it", () => {
-    expect(BUILT_STAGES.map((s) => s.name)).toEqual(["streets", "land", "mass", "edge", "buildings", "facades", "ground"]);
+    expect(BUILT_STAGES.map((s) => s.name)).toEqual(["streets", "land", "mass", "edge", "buildings", "facades", "ground", "traffic"]);
     const r = cityOf(DEFAULT);
     expect(r.ok).toBe(true);
     if (!r.ok) return;

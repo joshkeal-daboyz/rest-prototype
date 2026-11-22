@@ -19,8 +19,8 @@ import type { CalibrationKey } from "./calibration";
 
 // ---- the stages ----
 
-/** The nine stages, in the order they run. "assemble" is the drawing (src/render3d/) and writes no layer. */
-export const CITY_STAGES = ["streets", "land", "mass", "edge", "buildings", "circuit", "facades", "ground", "assemble"] as const;
+/** The ten stages, in the order they run. "assemble" is the drawing (src/render3d/) and writes no layer. "traffic" joined as stage 9 in ticket 070 TR1 (Josh, Q32). */
+export const CITY_STAGES = ["streets", "land", "mass", "edge", "buildings", "circuit", "facades", "ground", "traffic", "assemble"] as const;
 export type CityStage = (typeof CITY_STAGES)[number];
 /** The stages that write a layer: pure TypeScript, no three, no DOM. */
 export type CityPlanStage = Exclude<CityStage, "assemble">;
@@ -1079,8 +1079,8 @@ export interface CityGroundLayer {
 
 // ---- stage 9: traffic control (ticket 070 TR1 and TR1b; Josh, 21 Nov 2026: "we are missing traffic lights and traffic signage. I want you to create a new stage.") ----
 //
-// Written standalone by the lead-architect before TR1 (21 Nov 2026), so `goal/city-style` keeps type-checking with no stage of this name built. TR1's criterion 0 (the architect,
-// on TR1's branch) adds "traffic" to `CITY_STAGES` between "ground" and "assemble", and `traffic: CityTrafficLayer` to `CityLayers`. Until then nothing reads these types.
+// Written standalone by the lead-architect before TR1 (21 Nov 2026). Wired by TR1's criterion 0 (the architect, on TR1's branch): "traffic" is in `CITY_STAGES` between
+// "ground" and "assemble", and `traffic: CityTrafficLayer` is in `CityLayers`. The stage itself is TR1's builder's (`src/city/traffic/`).
 // - **What stage 9 does.** It reads every layer before it and writes only its own: how each junction is controlled, and the pieces that say so: signal masts with their arms and
 //   heads at signal junctions, and stop signs (TR1); parking signs (TR1b). It decides no street, junction, flow, kerb, crossing, arrow or road marking: those are stages 1 and
 //   4's, and E draws them.
@@ -1169,6 +1169,7 @@ export interface CityLayers {
   readonly circuit: CityCircuitLayer;
   readonly facades: CityFacadesLayer;
   readonly ground: CityGroundLayer;
+  readonly traffic: CityTrafficLayer;
 }
 
 // ---- the plan, a run, a failure, a picture ----

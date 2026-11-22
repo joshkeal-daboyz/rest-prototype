@@ -24,7 +24,7 @@ describe("planViewRequested", () => {
   });
 
   it("gives null for a stage that is not a plan stage", () => {
-    for (const text of ["0", "9", "assemble", "roads", "-1", "1.5"]) {
+    for (const text of ["0", "10", "assemble", "roads", "-1", "1.5"]) {
       const r = planViewRequested(`?city=plan&stage=${text}`);
       expect(r?.stage).toBeNull();
       expect(r?.stageText).toBe(text);
@@ -108,7 +108,7 @@ describe("planShown", () => {
 
   it("lists the built stages for an unknown stage and for one not built", () => {
     const unbuilt = CITY_STAGES.find((name) => !builtStageNames().includes(name));
-    for (const text of unbuilt === undefined ? ["bogus", "9"] : ["bogus", "9", unbuilt]) {
+    for (const text of unbuilt === undefined ? ["bogus", "10"] : ["bogus", "10", unbuilt]) {
       const s = planShown(planViewRequested(`?city=plan&stage=${text}`)!);
       expect(s.picture).toBeNull();
       expect(s.banner).toContain(builtStageNames().join(", "));

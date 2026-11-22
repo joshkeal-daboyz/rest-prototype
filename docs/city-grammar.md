@@ -70,7 +70,7 @@ A strip, 2 cells deep, between a street and a lane (rule 4):
   - Law (chapter 2): no building model is ever shrunk or grown.
   - Measured: every apartment and shop piece is a 5.00 by 5.00 m body; the corner pieces are too, 0.10 m off the centre of their bounds (appendix A).
 - **Check M1, lattice fit** (pure, over the packed city). Every column's four body planes lie on its cell's edges within `WALL_JOINT_TOL_M` (0.02 m). On the ground storey the six deep shop keys stand front-aligned: their width, front and open sides lie on the cell's within 0.02 m, and their back stands up to `OVERLAP_MAX_M` (0.6 m) into the built cell behind (H1 D5; Josh, 20 Nov 2026, Q21: "Yez, all three").
-  - Fails today: a three-column `Apartment_02` building is laid 15.51 m wide by its bounds, so its side walls stand 0.17 m from its neighbours'. The tile city's rows are also cut in 5.2 m bays on a 6 m band (`TERRACE_BAY_M`, `TERRACE_DEPTH_M`).
+  - Fails today (the old path's history, `city=tiles-old`): a three-column `Apartment_02` building is laid 15.51 m wide by its bounds, so its side walls stand 0.17 m from its neighbours'. The old tile city's rows are also cut in 5.2 m bays on a 6 m band (`TERRACE_BAY_M`, `TERRACE_DEPTH_M`). The pipeline's columns are 5 m cells, and F2's M1 check holds them.
 - **Check M2, the kit holds** (`it.skipIf`, reads the GLB). Every piece of `STACK_STYLES` used by the tile city has a body of 5.00 by 5.00 m within 0.02 m (10.00 by 5.00 for `Shop_03`). A piece that fails is dropped from the tile city's styles; the lattice is not bent to fit it. The six deep shop keys are the one exception to the 5.00 m depth: on the ground storey they stand front-aligned, width, front and open sides within 0.02 m, their back up to `OVERLAP_MAX_M` (0.6 m) into the built cell behind (H1 D5; Josh, 20 Nov 2026, Q21: "Yez, all three").
 - **Open.** `Shop_04`'s back wall measures 0.27 m deeper than 5.00 behind the wall plane `WALL_FRONT_M` gives it (appendix A). Section E2 keeps "a base piece may stand deeper at the back, never shallower". The extra is then inside the column behind it and cannot be seen. E2's builder confirms.
 
@@ -136,7 +136,7 @@ A strip, 2 cells deep, between a street and a lane (rule 4):
   - Law (19.4): "Grass and pavement should fill the blank areas."
   - Law: "If you're going to have an inlet to areas between buildings it needs to be paved".
 - **Check.** G3 (no void) and G4 (courts reached) with their numbers unchanged. G3 now credits rings 1 and 2 as buildings. New in M5: every interior touches an opening.
-- **Parking.** The checks P1 to P6 and every threshold stay. Units are counted from cells: a column is a 5.0 m cell (18.2 now says so). Ring 2 and the lane rows add homes. `PARK_PER_HOME` is 0.075, not 0.15 (Josh, 19 Nov 2026, "Yes, all four"; C2). My estimate for the default city is about 860 homes against 379 today, so about 65 stalls wanted at 0.075 (129 at 0.15, which two courts a block could not meet). Two courts a block (`LOTS_PER_BLOCK_MAX`) hold P2 on all 13 named cities once the ratio is 0.075 and yard courts exist (`docs/070-c2-options.md`). It is never met by widening the band.
+- **Parking.** The checks P1 to P6 and every threshold stay. Units are counted from cells: a column is a 5.0 m cell (18.2 now says so). Ring 2 and the lane rows add homes. `PARK_PER_HOME` is 0.075, not 0.15 (Josh, 19 Nov 2026, "Yes, all four"; C2). My estimate for the default city is about 860 homes against 379 today, so about 65 stalls wanted at 0.075 (129 at 0.15, which two courts a block could not meet). Two courts a block (`LOTS_PER_BLOCK_MAX`) hold P2 once the ratio is 0.075 and yard courts exist (the merged check: P2 in `src/city/mass/`, on the 6 x 6 named cities). It is never met by widening the band.
 
 ### 6. Openings: the only gaps
 
@@ -184,7 +184,7 @@ A strip, 2 cells deep, between a street and a lane (rule 4):
 | Kit piece | Size | Fit |
 | --- | --- | --- |
 | `SM_Prop_Billboard_Sign_01` to `_07` (a painted board) | 4.19 by 2.03 m | one storey face, 0.4 m margins |
-| `SM_Prop_Pipe_Present_03` (a pipe run) | 2.8 to 4.5 m wide, 4.2 to 7.1 m high | over a two-storey step only; `_01` is never used and `_02` stands off the wall (H2b PW3, PW5; Josh, 21 Nov 2026, Q23: "Yes, 2.1m") |
+| `SM_Prop_Pipe_Present_03` (a pipe run) | 2.83 m wide and 4.24 m high (`_03`'s own bounds, `PARTY_BOUNDS` in `src/city/facades/partykit.ts`, pinned by `partywallpin.test.ts`) | over a two-storey step only; `_01` is never used and `_02` stands off the wall (H2b PW3, PW5; Josh, 21 Nov 2026, Q23: "Yes, 2.1m") |
 | `SM_Prop_Window_01` (a window) | 1.30 by 2.31 m | two to a storey face |
 
   - By hash, with no key twice running along a row. A fire escape never stands on a party wall: it has no window to step out of (16.11's Law).

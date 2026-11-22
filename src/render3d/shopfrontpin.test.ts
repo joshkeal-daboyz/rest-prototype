@@ -42,7 +42,7 @@ import * as OLD from "./dressing";
 import { BODY_M } from "./facade";
 import { CITY_ATM_BLOCKS_MIN, CITY_CHECK } from "./citymetrics";
 import { BUILDING_FRONTS } from "./models";
-import { TILE_CITY_R6_MIN } from "./tilecity";
+import { TILE_CITY_R6_MIN } from "./oldvalues.fixture";
 
 describe("the dressing table equals the old path's numbers (070 H1b, criterion 1)", () => {
   it("each key list equals dressing.ts' (awnings, the L awning, fascia signs, blade signs, the ATM, the shop glass)", () => {

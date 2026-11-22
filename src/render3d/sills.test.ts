@@ -14,7 +14,7 @@ import { ASSET_MANIFEST_VERSION, loadPuzzle, type AssetEntry, type AssetManifest
 import { GLASS_SILL_M, dressKeys, type DressPiece } from "./dressing";
 import { ESCAPE_TABLES, escapeCheck, sillOf } from "./escapes";
 import { BUILDING_FRONTS, MODEL_TABLE, WORLD_PER_METRE, frontAxis, type ModelFront } from "./models";
-import { allStackKeys, applyModels, dressSites, liftDressing, loadModels, sameAboveGround, stackInput, zShift, stepsGroup, stepsPlacement, type AppliedModels, type ModelSet } from "./models3d";
+import { allStackKeys, applyModels, bandPacked, dressSites, liftDressing, loadModels, sameAboveGround, stackInput, zShift, stepsGroup, stepsPlacement, type AppliedModels, type ModelSet } from "./models3d";
 import { PAVEMENT_Y, YARD, buildScene } from "./scene";
 import {
   DOOR_MIN_AREA_M2,
@@ -57,8 +57,8 @@ import {
   type SillTable,
 } from "./sills";
 import { STACK_STYLES, assembleStack, type Stack } from "./stacks";
-import { tileCity } from "./tilecity";
-import { buildCityScene, cityApplyOptions } from "./tilecity3d";
+import { OLD_CITY_TOWN, TILE_APPLY } from "./oldvalues.fixture";
+import { packTown } from "./terrace";
 import { stubTextSurface } from "./text";
 
 const CITY_PACK_GLB = join("assets", "private", "out", "city-pack.glb");
@@ -1038,12 +1038,12 @@ describe("applyModels sinks a stack by its measured sill and takes the dressing 
     });
   }
 
-  it("on the default tile city: every block sinks by stackSill (the walk is y 0), and with an empty table nothing moves and nothing else changes", () => {
-    const city = tileCity({});
-    const a = buildCityScene(city);
-    const full = applyModels(a, CITY_SET, cityApplyOptions(city));
-    const b = buildCityScene(city);
-    const empty = applyModels(b, CITY_SET, { ...cityApplyOptions(city), sills: {} });
+  // Ticket 070 L2c: the old tile city was only this case's input. The input is now each protocol map's town, drawn with the options the tile city passed (TILE_APPLY: wall alignment, body footprint, R7's share).
+  for (const file of MAPS) it(`on ${file} drawn wall-aligned: every block sinks by stackSill (the walk is y 0), and with an empty table nothing moves and nothing else changes`, () => {
+    const a = sceneOf(file);
+    const full = applyModels(a, CITY_SET, TILE_APPLY);
+    const b = sceneOf(file);
+    const empty = applyModels(b, CITY_SET, { ...TILE_APPLY, sills: {} });
     const groups = stackGroups(a.scene);
     const stacks = [...full.buildings.filter((p) => p.stack).map((p) => p.stack!), ...full.terrace.map((t) => t.stack)];
     expect(groups.length).toBeGreaterThan(20);
@@ -1418,21 +1418,21 @@ describe("sill bands and the sillBand option of assembleStack (ticket 062 B crit
   });
 });
 
-/** The scenes whose every stack criterion 5 is checked on: the default tile city, 3 x 3 at seeds 1 to 10, and the three maps of the protocol. */
+/** Ticket 070 L2c: the old tile city (default and 3 x 3 seeds 1 to 10) was these scenes' wall-aligned input; four ladder maps' towns, drawn with TILE_APPLY, are now. A ladder run is not a wall-aligned run of the tile city's own, so a banded block's z may move (0.26 m on 35, 50, 55, 56): these four are the maps where it does not, which the strict z check below needs. */
+const WALL_MAPS = ["49-two-cells", "33-take-the-feed-out", "63-keep-the-wire", "59-move-the-meeting"];
+/** The scenes whose every stack criterion 5 is checked on: those wall-aligned maps, and the three maps of the protocol as they are drawn. */
 function liftScenes(): { name: string; run: () => { applied: AppliedModels; groups: Object3D[]; bundle: ReturnType<typeof buildScene>; dispose: () => void } }[] {
   const out: { name: string; run: () => { applied: AppliedModels; groups: Object3D[]; bundle: ReturnType<typeof buildScene>; dispose: () => void } }[] = [];
-  const city = (name: string, c: ReturnType<typeof tileCity>): void => {
+  for (const file of WALL_MAPS) {
     out.push({
-      name,
+      name: `${file} wall-aligned`,
       run: () => {
-        const bundle = buildCityScene(c);
-        const applied = applyModels(bundle, CITY_SET, cityApplyOptions(c));
+        const bundle = sceneOf(file);
+        const applied = applyModels(bundle, CITY_SET, TILE_APPLY);
         return { applied, groups: stackGroups(bundle.scene), bundle, dispose: () => (applied.remove(), bundle.dispose()) };
       },
     });
-  };
-  city("the default tile city", tileCity({}));
-  for (let seed = 1; seed <= 10; seed++) city(`3 x 3 seed ${seed}`, tileCity({ blocksX: 3, blocksZ: 3, seed }));
+  }
   for (const file of MAPS) {
     out.push({
       name: file,
@@ -1558,7 +1558,7 @@ describe("the dressing follows its ground piece (ticket 062 B criterion 7)", () 
 
 describe("the band is applied only where the lift would reach a window (ticket 062 B criteria 6 and 9)", () => {
   const towns: { name: string; make: () => [ReturnType<typeof buildScene>, ReturnType<typeof buildScene>, "city" | "map"] }[] = [
-    { name: "the default tile city", make: () => [buildCityScene(tileCity({})), buildCityScene(tileCity({})), "city"] },
+    ...WALL_MAPS.map((file) => ({ name: `${file} wall-aligned`, make: (): [ReturnType<typeof buildScene>, ReturnType<typeof buildScene>, "city" | "map"] => [sceneOf(file), sceneOf(file), "city"] })),
     ...MAPS.map((file) => ({ name: file, make: (): [ReturnType<typeof buildScene>, ReturnType<typeof buildScene>, "city" | "map"] => [sceneOf(file), sceneOf(file), "map"] })),
   ];
   let bandedAll = 0;
@@ -1567,7 +1567,7 @@ describe("the band is applied only where the lift would reach a window (ticket 0
   for (const t of towns) {
     it(`${t.name}: a block keeps its ground pieces unless the pieces of the unbanded block break the window rule, and a banded block passes it`, () => {
       const [a, b, kind] = t.make();
-      const opts = kind === "city" ? cityApplyOptions(tileCity({})) : {};
+      const opts = kind === "city" ? TILE_APPLY : {};
       const full = applyModels(a, CITY_SET, opts);
       const empty = applyModels(b, CITY_SET, { ...opts, sills: {} });
       const x = stacksOf(full);
@@ -1612,5 +1612,30 @@ describe("the band is applied only where the lift would reach a window (ticket 0
     expect(bandedAll).toBe(needed);
     // On the maps (back-aligned) the floors and the roof of some banded blocks stand a little further back; the guide says so.
     expect(zMoved).toBeGreaterThan(0);
+  });
+});
+
+describe("the band leaves a genuinely wall-aligned town's z alone (ticket 062 B criterion 6; the old tile city, typed in by ticket 070 L2c)", () => {
+  it("on the old default city's runs (OLD_CITY_TOWN, wall-aligned), every block the band changes differs only in its ground row and keeps the z of everything above it exactly", () => {
+    const input = stackInput(CITY_SET)!;
+    const town = OLD_CITY_TOWN;
+    const packed = packTown(town, STACK_STYLES, input.entries, input.fronts, { align: "wall" });
+    const full = bandPacked(packed, town.terraces, input.entries, input.fronts, DOOR_SILLS, "wall", "body");
+    const empty = bandPacked(packed, town.terraces, input.entries, input.fronts, {}, "wall", "body");
+    let blocks = 0;
+    let changed = 0;
+    for (const [id, res] of full) {
+      const base = empty.get(id)!.blocks;
+      res.blocks.forEach((b, i) => {
+        blocks++;
+        const a = base[i]!.stack;
+        if (groundOf(b.stack).join() === groundOf(a).join()) return;
+        changed++;
+        expect(sameAboveGround(b.stack, a), `${id} block ${i} differs only in its ground row`).toBe(true);
+        expect(zShift(a, b.stack), `${id} block ${i} z`).toBeLessThan(1e-9);
+      });
+    }
+    expect(blocks).toBeGreaterThan(50);
+    expect(changed, "the band changes some of the old city's blocks").toBeGreaterThan(0);
   });
 });
