@@ -16,7 +16,7 @@ import { stageRand } from "../pipeline/seeds";
 import { BUILT_STAGES, ERA_STAGES, runCity, runCityEra } from "../stages";
 import { KIT_KEYS } from "./kit";
 import { buildHoldout, holdoutStage, stepPart } from "./stage";
-import { NAMED, PINNED, eraRun, label, type City } from "./testcities";
+import { NAMED, PINNED, acrossProblems, eraRun, label, type City } from "./testcities";
 
 interface Run {
   readonly city: City;
@@ -29,6 +29,7 @@ interface Run {
   readonly held: { readonly heldBuildings: number };
   readonly closed: { readonly settle: number; readonly barricade: number };
   readonly parks: number;
+  readonly across: ReturnType<typeof acrossProblems>;
   readonly facades: CityFacadesLayer;
 }
 
@@ -85,6 +86,7 @@ describe("the named runs (X-4, X-1, R-1)", { timeout: 900_000 }, () => {
         held: { heldBuildings },
         closed: { settle: closedBy(stepPart(layer, "settle").adds), barricade: closedBy(stepPart(layer, "barricade").adds) },
         facades: resolveBefore(before, "holdout").plan.layers.facades!,
+        across: acrossProblems(before, layer),
         parks: (L.mass?.openings ?? []).filter((o) => o.kind === "park").length,
       });
       const p = PINNED.find((x) => x.seed === c.seed && c.way === "on");
@@ -132,6 +134,16 @@ describe("the named runs (X-4, X-1, R-1)", { timeout: 900_000 }, () => {
       expect(bad, label(r.city)).toEqual([]);
     }
     expect(checked).toBeGreaterThan(6000);
+  });
+
+  it("every barricade line of the 20 named runs lies across its street and spans the carriageway", () => {
+    let lines = 0;
+    for (const r of runs) {
+      expect(r.across.problems, label(r.city)).toEqual([]);
+      lines += r.across.lines;
+    }
+    expect(lines).toBeGreaterThan(200);
+    expect(runs.some((r) => r.across.xStreets > 0) && runs.some((r) => r.across.zStreets > 0)).toBe(true);
   });
 
   it("nothing goes where a district was left at once (held 0)", () => {
