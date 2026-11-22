@@ -378,3 +378,4 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 073 Josh rulings re-cut | lead-architect | opus | ~90K | - | 0 | four rulings logged; F1b1, F1b2 cut (9052b0c) |
 | 073 F1b1 | planner / gate / code-reviewer / playtester | sonnet / - / opus / sonnet | 97K / - / ~45K / 19K | - | 0 | 3296013: 4717 passed, 1 failed (powerkit, on base); partly, must-fix 1 (era in assertEraReadable); regressions 0 |
 | 073 F1b1 r2, F1b2 | planner / ruin-pass / gate / code-reviewer / playtester | sonnet / sonnet / - / opus / sonnet | ~9K / ~46K / - / ~60K / 21K | - | 0 | 75f4171: 4720 passed, 1 failed (powerkit, on base); meets, must-fix 0 each; regressions 0 |
+| 073 F1b3 | lead-architect / ruin-pass / gate / code-reviewer / playtester | opus / sonnet / - / opus / sonnet | ~80K / ~125K / - / ~60K / 22K | - | 0 | 4964d8b: 4726 passed, 1 failed (powerkit, on base); meets, must-fix 0; regressions 0 |
