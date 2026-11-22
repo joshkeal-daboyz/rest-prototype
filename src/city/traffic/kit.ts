@@ -1,5 +1,5 @@
 /**
- * Stage 9: the traffic kit (R-6; ticket 070 TR1 criterion 1). The six City Pack keys TR1 places: the five `SM_Prop_LightPole_*` signal keys (Josh's Q33 lift, narrowed) and `SM_Prop_Sign_Stop_01`, each with its bounds (width, height,
+ * Stage 9: the traffic kit (R-6; ticket 070 TR1 criterion 1). The seven City Pack keys stage 9 places: the five `SM_Prop_LightPole_*` signal keys (Josh's Q33 lift, narrowed), `SM_Prop_Sign_Stop_01` (TR1) and `SM_Prop_Sign_Parking_01` (TR1b), each with its bounds (width, height,
  * depth; metres; read from `city-pack.glb`) and the typed fix points the placement uses. Every key's own front is +z, but the arm's heads: their lenses face the arm's own -x (read from the GLB: the lens discs are on the x = -0.2 side).
  * A piece's pivot is its bounds' centre in x and z with its base at y (the converter centres every pivot), so a fix point is a local (x, z) from the pivot. `src/render3d/trafficpin.test.ts` pins every number.
  */
@@ -14,6 +14,7 @@ export const WALK_HEAD_KEY = k("SM_Prop_LightPole_CrossLights_01");
 export const PUSH_BUTTON_KEY = k("SM_Prop_LightPole_CrossButton_01");
 export const SIGNAL_BOX_KEY = k("SM_Prop_LightPole_Box_01");
 export const STOP_SIGN_KEY = k("SM_Prop_Sign_Stop_01");
+export const PARKING_SIGN_KEY = k("SM_Prop_Sign_Parking_01");
 
 export interface TrafficBounds {
   readonly w: number;
@@ -22,7 +23,7 @@ export interface TrafficBounds {
 }
 const b = (w: number, h: number, d: number): TrafficBounds => ({ w, h, d });
 
-/** The bounds of the six keys (width, height, depth; metres). */
+/** The bounds of the seven keys (width, height, depth; metres). */
 export const TRAFFIC_BOUNDS: Readonly<Record<CalibrationKey, TrafficBounds>> = {
   [SIGNAL_MAST_KEY]: b(0.346, 6.483, 2.478),
   [SIGNAL_ARM_KEY]: b(0.404, 0.92, 6.278),
@@ -30,12 +31,14 @@ export const TRAFFIC_BOUNDS: Readonly<Record<CalibrationKey, TrafficBounds>> = {
   [PUSH_BUTTON_KEY]: b(0.162, 0.299, 0.17),
   [SIGNAL_BOX_KEY]: b(0.228, 0.527, 0.39),
   [STOP_SIGN_KEY]: b(0.77, 2.271, 0.124),
+  // the plate stands on a post, its own +z the face; the pivot is on the post's axis (read from the GLB: x -0.221 to 0.221, z -0.059 to 0.059)
+  [PARKING_SIGN_KEY]: b(0.443, 1.717, 0.119),
 };
 
 /** The traffic kit's keys, once each. */
 export const TRAFFIC_KEYS: readonly CalibrationKey[] = Object.keys(TRAFFIC_BOUNDS) as CalibrationKey[];
 
-/** The key of each piece kind TR1 places. TR1b adds "parkingSign". */
+/** The key of each piece kind stage 9 places. */
 export const KEY_OF_KIND: Readonly<Partial<Record<CityTrafficPieceKind, CalibrationKey>>> = {
   signalMast: SIGNAL_MAST_KEY,
   signalArm: SIGNAL_ARM_KEY,
@@ -43,6 +46,7 @@ export const KEY_OF_KIND: Readonly<Partial<Record<CityTrafficPieceKind, Calibrat
   pushButton: PUSH_BUTTON_KEY,
   signalBox: SIGNAL_BOX_KEY,
   stopSign: STOP_SIGN_KEY,
+  parkingSign: PARKING_SIGN_KEY,
 };
 
 /** Josh's lift (Q33, narrowed, 21 Nov 2026: "I will take all of the recommendations"): exactly the five `SM_Prop_LightPole_*` keys, each for its own kind only, always drawn dark. The stem `SM_Prop_LightPole_` stays on the never-used list for every other use. */

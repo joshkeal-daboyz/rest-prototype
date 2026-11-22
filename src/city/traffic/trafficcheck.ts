@@ -6,6 +6,7 @@
  * - **TC2 signals.** A signal junction has, for each inbound approach, one mast on its far-left corner and one arm fixed to the mast's clamp, over the approach's own carriageway, heads toward the traffic, none lower than `SIGNAL_HEAD_MIN_M`, its free end short of
  *   the far kerb; a walk head for each crossing at the mast's corner, one button a mast, one box a junction. No signal piece stands anywhere else.
  * - **TC3 signs.** Each "stop" approach has exactly one stop sign, on the cell the rules name (ST), facing its traffic; no other approach has one.
+ *   A parking sign (TR1b) is hosted by the stretch of `CityBayTile`s it marks: each stretch has at most one, at its low end where the walk lies (its pivot, cell and turn as `parkingPlace` says), and a stretch with none is one where CL would refuse the sign.
  * - **TC4 place.** A grounded piece's footprint lies inside the walk cell it stands on (a `pavement` or `pavementCorner` cell, never a kerb cut or the carriageway), and that cell is the one it records.
  * - **TC5 clear.** CL (`clear.ts`): stage 8's props, stage 7's boxes, stage 5's buildings, stage 6's points, the build-out trees.
  */
@@ -16,7 +17,7 @@ import { SIDE_VEC, SIDE_YAW, cellRect, clearOf, clearReasons, footOf, rotate, si
 import { HEADING, buildControl, edgeInfoOf, farLeftOf, rectOf, rightOf, type EdgeInfo } from "./control";
 import { ARM, ARM_BASE_Y, HEAD_LOW_Y, KEY_OF_KIND } from "./kit";
 import { crossingsAt } from "./signals";
-import { stopPlace } from "./signs";
+import { bayStretches, parkingPiece, parkingPlace, stopPlace } from "./signs";
 
 export interface TrafficFailure {
   readonly check: string;
@@ -27,7 +28,7 @@ export interface TrafficFailure {
 export interface TrafficInput {
   readonly streets: Pick<CityStreetsLayer, "streets" | "junctions">;
   readonly mass: Pick<CityMassLayer, "built">;
-  readonly edge: Pick<CityEdgeLayer, "cells" | "ground" | "buildoutTrees">;
+  readonly edge: Pick<CityEdgeLayer, "cells" | "ground" | "buildoutTrees" | "tiles">;
   readonly facades: Pick<CityFacadesLayer, "dressing" | "walls" | "novelty">;
   readonly ground: Pick<CityGroundLayer, "props">;
   /** What stage 6 will place (poles, lamp posts, nodes). Empty until K. */
@@ -180,6 +181,23 @@ export function trafficFailures(layer: CityTrafficLayer, input: TrafficInput): T
       if (p.placement.yaw_deg !== SIDE_YAW[a.arm]) fail("TC3 signs", `approach ${a.id}'s stop sign faces away from its traffic`, [p.cell], p);
     }
   }
+  // TC3, parking signs: one a stretch, at its low end; a stretch with none must be one CL refuses
+  const stretches = bayStretches(input.streets, input.edge);
+  const stretchOf = new Map(stretches.map((s) => [s.host, s] as const));
+  const ctxP = clearOf(input);
+  for (const s of stretches) {
+    const here = layer.pieces.filter((p) => p.kind === "parkingSign" && p.host === s.host);
+    const place = parkingPlace(s, info);
+    if (here.length > 1) fail("TC3 signs", `stretch ${s.host} has ${here.length} parking signs, not 1`, [...s.cells]);
+    if (here.length === 0) {
+      if (place && clearReasons(ctxP, parkingPiece(s, place)).length === 0) fail("TC3 signs", `stretch ${s.host} has no parking sign and nothing refuses one`, [...s.cells]);
+      continue;
+    }
+    const p = here[0]!;
+    if (!place) fail("TC3 signs", `stretch ${s.host} has a parking sign and no single walk cell across from it`, [p.cell], p);
+    else if (!same(p.cell, place.cell) || Math.abs(p.placement.x_m - place.x) > TOL || Math.abs(p.placement.z_m - place.z) > TOL || p.placement.yaw_deg !== place.yaw) fail("TC3 signs", `stretch ${s.host}'s parking sign is not at the stretch's low end, on its kerb line, facing the walk`, [p.cell], p);
+  }
+  for (const p of layer.pieces) if (p.kind === "parkingSign" && !stretchOf.has(p.host)) fail("TC3 signs", `a parking sign hosted by ${p.host}, which is no stretch of bay tiles`, [p.cell], p);
   for (const p of layer.pieces) if (!byJunction.has(p.host) && p.kind !== "parkingSign") fail("TC3 signs", `a ${p.kind} hosted by ${p.host}, which is not a junction`, [p.cell], p);
 
   // TC4 place

@@ -4,21 +4,21 @@
  * keep points stage 6 will place are an empty list today). Writes only `traffic`. `trafficFailures` judges the layer before it returns (R-2).
  */
 
-import type { CityEdgeLayer, CityPicture, CityPlan, CityStreetsLayer, CityTrafficLayer, CityTrafficPiece } from "../../core";
+import type { CityPicture, CityPlan, CityTrafficLayer, CityTrafficPiece } from "../../core";
 import { CityStageError } from "../pipeline/error";
 import { makePicture, type LegendEntry } from "../pipeline/picture";
 import type { StageRand } from "../pipeline/seeds";
 import type { CityStageDef } from "../pipeline/types";
-import { cellKey, poleOf, type KeepPoint } from "./clear";
+import { cellKey, clearOf, poleOf, type KeepPoint } from "./clear";
 import { buildControl, edgeInfoOf } from "./control";
 import { signalPieces } from "./signals";
-import { stopSigns } from "./signs";
-import { trafficFailures } from "./trafficcheck";
+import { parkingSigns, stopSigns } from "./signs";
+import { trafficFailures, type TrafficInput } from "./trafficcheck";
 
 export type Layers = Required<Pick<CityPlan["layers"], "streets" | "mass" | "edge" | "facades" | "ground">>;
 
-/** Place every piece. Pure; fails with `CityStageError` where the layers cannot be read (R-2). `keepPoints` is what stage 6 will place (empty today). */
-export function buildTraffic(layers: { readonly streets: Pick<CityStreetsLayer, "streets" | "junctions">; readonly edge: Pick<CityEdgeLayer, "cells" | "ground"> }, rand: StageRand): CityTrafficLayer {
+/** Place every piece: the junctions' signals and stop signs, then the parking signs, each skipped where CL refuses it (PK). Pure; fails with `CityStageError` where the layers cannot be read (R-2). `keepPoints` is what stage 6 will place (empty today). */
+export function buildTraffic(layers: TrafficInput, rand: StageRand): CityTrafficLayer {
   const { streets, edge } = layers;
   const junctions = buildControl(streets);
   const info = edgeInfoOf(edge);
@@ -29,20 +29,19 @@ export function buildTraffic(layers: { readonly streets: Pick<CityStreetsLayer, 
     if (t.control === "signals") pieces.push(...signalPieces(j, t, info, rand));
     else pieces.push(...stopSigns(j, t, info));
   }
+  pieces.push(...parkingSigns(layers, clearOf(layers), info).pieces);
   return { stage: "traffic", junctions, pieces };
 }
 
 function run(plan: CityPlan, rand: StageRand, keepPoints: readonly KeepPoint[] = []): CityTrafficLayer {
   const { streets, mass, edge, facades, ground } = plan.layers;
   if (!streets || !mass || !edge || !facades || !ground) throw new CityStageError("traffic: the plan is missing a layer stage 9 reads");
-  const layer = buildTraffic({ streets, edge }, rand);
-  const input = { streets, mass, edge, facades, ground, keepPoints } satisfies TrafficLayersInput;
+  const input = { streets, mass, edge, facades, ground, keepPoints } satisfies TrafficInput;
+  const layer = buildTraffic(input, rand);
   const failures = trafficFailures(layer, input);
   if (failures.length > 0) throw new CityStageError(`${failures[0]!.check}: ${failures[0]!.reason}`, failures[0]!.cells);
   return layer;
 }
-
-type TrafficLayersInput = Parameters<typeof trafficFailures>[1];
 
 // ---- the picture ----
 
@@ -55,11 +54,12 @@ export const TRAFFIC_LEGEND: readonly LegendEntry[] = [
   { name: "signal mast", rgb: 0xf0e060 },
   { name: "stop sign", rgb: 0xff7070 },
   { name: "signal box", rgb: 0x40b0d0 },
+  { name: "parking sign", rgb: 0x5090e0 },
 ];
 
 /** The legend index of a grounded piece's point. */
 export function legendOf(p: Pick<CityTrafficPiece, "kind">): number {
-  return p.kind === "signalMast" ? 5 : p.kind === "stopSign" ? 6 : 7;
+  return p.kind === "signalMast" ? 5 : p.kind === "stopSign" ? 6 : p.kind === "parkingSign" ? 8 : 7;
 }
 
 function picture(plan: CityPlan): CityPicture {

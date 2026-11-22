@@ -7,7 +7,9 @@ import { beforeAll, describe, expect, it } from "vitest";
 import type { CityCell, CityEdgeLayer, CityJunction, CitySide } from "../../core";
 import { buildControl } from "./control";
 import { buildTraffic } from "./stage";
-import { stopPlace, stopSigns } from "./signs";
+import { bayStretches, parkingPlace, parkingSigns, skipReasonOf, stopPlace, stopSigns } from "./signs";
+import { buildClear, clearOf, clearReasons, makePiece } from "./clear";
+import { edgeInfoOf } from "./control";
 import { NAMED, DEFAULT, label, layersOf, warm } from "./testcities";
 import { stageRand } from "../pipeline/seeds";
 
@@ -121,7 +123,7 @@ describe("the fallback onto the corner cell", { timeout: 120_000 }, () => {
     const base = buildTraffic(L, stageRand("traffic", 1));
     const sign = base.pieces.find((p) => p.kind === "stopSign")!;
     const cut: CityEdgeLayer = { ...L.edge, cells: L.edge.cells.map((c) => (c.i === sign.cell.i && c.j === sign.cell.j ? { ...c, role: "kerbCut" as const } : c)) };
-    const moved = buildTraffic({ streets: L.streets, edge: cut }, stageRand("traffic", 1));
+    const moved = buildTraffic({ ...L, edge: cut }, stageRand("traffic", 1));
     expect(moved.pieces).toHaveLength(base.pieces.length);
     const again = moved.pieces.find((p) => p.approach === sign.approach && p.kind === "stopSign")!;
     const a = base.junctions.flatMap((t) => t.approaches).find((q) => q.id === sign.approach)!;
@@ -143,7 +145,7 @@ describe("the fallback onto the corner cell", { timeout: 120_000 }, () => {
     const base = buildTraffic(L, stageRand("traffic", 1));
     const sign = base.pieces.find((p) => p.kind === "stopSign")!;
     const dipped: CityEdgeLayer = { ...L.edge, ground: L.edge.ground!.map((g) => (g.cells === 1 && g.i === sign.cell.i && g.j === sign.cell.j ? { ...g, variant: g.variant | 16 } : g)) };
-    const moved = buildTraffic({ streets: L.streets, edge: dipped }, stageRand("traffic", 1));
+    const moved = buildTraffic({ ...L, edge: dipped }, stageRand("traffic", 1));
     const again = moved.pieces.find((p) => p.approach === sign.approach && p.kind === "stopSign")!;
     expect(again.cell).not.toEqual(sign.cell);
     expect(again.street).toBeNull();
@@ -191,5 +193,139 @@ describe("a hand-worked stop sign on each of the four sides", () => {
     expect(p.size).toEqual({ x_m: 0.124, z_m: 0.77, h_m: 2.271 });
     expect(p.group).toBe("j|0");
     expect(p.street).toBe("x:1");
+  });
+});
+
+describe("parking signs on the named runs (TR1b, criterion 2)", { timeout: 120_000 }, () => {
+  it("every stretch of bay tiles has one sign at its low end (0.5 m in from the kerb edge, 1.0 m from the low end, facing the walk) or one counted skip that CL or the walk explains; none has two", () => {
+    const bad: string[] = [];
+    let stretches = 0;
+    let placed = 0;
+    let skipped = 0;
+    for (const o of NAMED) {
+      const l = layersOf(o);
+      const { edge, traffic } = l;
+      const role = new Map<string, string>(edge.cells.map((c) => [`${c.i},${c.j}`, c.role]));
+      const ctx = clearOf({ mass: l.mass, edge: l.edge, facades: l.facades, ground: l.ground });
+      const signs = traffic.pieces.filter((p) => p.kind === "parkingSign");
+      const byHost = new Map<string, number>();
+      for (const p of signs) byHost.set(p.host, (byHost.get(p.host) ?? 0) + 1);
+      // the stretches, derived here from the tiles alone: a tile starts a stretch unless another tile of its street, block and row ends just before it
+      const key = (t: { street: string; block: string }, c: CityCell): string => `${t.street}|${t.block}|${c.i},${c.j}`;
+      const ends = new Set(edge.tiles.map((t) => key(t, t.cells[1])));
+      const starts = edge.tiles.filter((t) => {
+        const c = t.cells[0];
+        const before = t.cells[1].i !== c.i ? { i: c.i - 1, j: c.j } : { i: c.i, j: c.j - 1 };
+        return !ends.has(key(t, before));
+      });
+      stretches += starts.length;
+      const own = bayStretches(l.streets, l.edge).length;
+      if (starts.length !== own) bad.push(`${label(o)}: ${starts.length} stretches by hand, ${own} by the stage's own`);
+      for (const t of starts) {
+        const c = t.cells[0];
+        const alongX = t.cells[1].i !== c.i;
+        const host = key(t, c);
+        const n = byHost.get(host) ?? 0;
+        if (n > 1) bad.push(`${label(o)}: ${host} has ${n} signs`);
+        // the walk cell across the band: exactly one of the two cross neighbours is a pavement cell
+        const sides = alongX ? [{ i: c.i, j: c.j - 1, s: -1 }, { i: c.i, j: c.j + 1, s: 1 }] : [{ i: c.i - 1, j: c.j, s: -1 }, { i: c.i + 1, j: c.j, s: 1 }];
+        const walks = sides.filter((q) => role.get(`${q.i},${q.j}`) === "pavement");
+        if (walks.length !== 1) {
+          if (n !== 0) bad.push(`${label(o)}: ${host} has a sign and no single walk cell`);
+          skipped++;
+          continue;
+        }
+        const w = walks[0]!;
+        const x = alongX ? c.i * 5 + 1 : w.s > 0 ? w.i * 5 + 0.5 : (w.i + 1) * 5 - 0.5;
+        const z = alongX ? (w.s > 0 ? w.j * 5 + 0.5 : (w.j + 1) * 5 - 0.5) : c.j * 5 + 1;
+        const yaw = alongX ? (w.s > 0 ? 0 : 180) : w.s > 0 ? 90 : 270;
+        if (n === 1) {
+          placed++;
+          const p = signs.find((q) => q.host === host)!;
+          if (p.cell.i !== w.i || p.cell.j !== w.j || Math.abs(p.placement.x_m - x) > 1e-9 || Math.abs(p.placement.z_m - z) > 1e-9 || p.placement.yaw_deg !== yaw) bad.push(`${label(o)}: ${host}'s sign is at (${p.placement.x_m}, ${p.placement.z_m}) turned ${p.placement.yaw_deg}, want (${x}, ${z}) turned ${yaw}`);
+          if (!p.grounded || p.approach !== null || p.street !== t.street || p.placement.y_m !== 0 || p.placement.key !== "city-pack:SM_Prop_Sign_Parking_01") bad.push(`${label(o)}: ${host}'s sign is not a grounded parking sign of its street`);
+        } else {
+          skipped++;
+          const why = clearReasons(ctx, makePiece({ kind: "parkingSign", host, approach: null, group: host, grounded: true, street: t.street, x, y: 0, z, yaw, cell: { i: w.i, j: w.j } }));
+          if (why.length === 0) bad.push(`${label(o)}: ${host} has no sign and nothing refuses one`);
+        }
+      }
+      for (const host of byHost.keys()) if (!starts.some((t) => key(t, t.cells[0]) === host)) bad.push(`${label(o)}: a sign hosted by ${host}, which starts no stretch`);
+    }
+    expect(bad).toEqual([]);
+    expect(placed + skipped).toBe(stretches);
+    expect(placed).toBeGreaterThan(0);
+    expect(skipped).toBeGreaterThan(0);
+  });
+
+  it("the stage's own count agrees: signs plus counted skips make the stretches, and every skip has a reason", () => {
+    for (const o of NAMED.slice(0, 4)) {
+      const l = layersOf(o);
+      const r = parkingSigns(l, clearOf({ mass: l.mass, edge: l.edge, facades: l.facades, ground: l.ground }), edgeInfoOf(l.edge));
+      expect(r.pieces.length + r.skipped.length, label(o)).toBe(r.stretches);
+      expect(r.pieces, label(o)).toEqual(l.traffic.pieces.filter((p) => p.kind === "parkingSign"));
+      for (const s of r.skipped) expect(s.reason.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("the parking signs come after every junction's pieces, in streets order", () => {
+    const { traffic, streets } = layersOf(DEFAULT);
+    const flags = traffic.pieces.map((p) => p.kind === "parkingSign");
+    expect(flags.indexOf(true)).toBe(flags.lastIndexOf(false) + 1);
+    const order = new Map(streets.streets.map((st, k) => [st.id, k] as const));
+    const signs = traffic.pieces.filter((p) => p.kind === "parkingSign");
+    for (let k = 1; k < signs.length; k++) expect(order.get(signs[k]!.street!)! >= order.get(signs[k - 1]!.street!)!).toBe(true);
+  });
+});
+
+describe("a hand-worked parking sign (TR1b)", () => {
+  const cell = (i: number, j: number, role: string): { i: number; j: number; role: string; street: string; band: number; faces: null } => ({ i, j, role, street: "s", band: 0, faces: null });
+  const none = buildClear({ mass: { built: [] }, edge: { cells: [], ground: [], buildoutTrees: [] }, facades: { dressing: [], walls: [], novelty: [] }, ground: { props: [] } });
+  const tile = (a: [number, number], b: [number, number], block = "block:0:0"): unknown => ({ cells: [{ i: a[0], j: a[1] }, { i: b[0], j: b[1] }], street: "s", block, serves: block });
+
+  it("an x street: tiles at cells (10, 5) to (13, 5), walk at (10, 4), a lane at (10, 6): one stretch, the sign at x 51, z 24.5 (0.5 m in from the walk's z 25 edge), turned 180 (+z faces -z, the walk)", () => {
+    const edge = {
+      cells: [cell(10, 4, "pavement"), cell(10, 5, "parking"), cell(11, 5, "parking"), cell(12, 5, "parking"), cell(13, 5, "parking"), cell(10, 6, "lane")],
+      ground: [],
+      buildoutTrees: [],
+      tiles: [tile([10, 5], [11, 5]), tile([12, 5], [13, 5])],
+    } as never;
+    const streets = { streets: [{ id: "s", axis: "x" }] } as never;
+    const r = parkingSigns({ streets, edge }, none, edgeInfoOf(edge));
+    expect(r.stretches).toBe(1);
+    expect(r.skipped).toEqual([]);
+    const p = r.pieces[0]!;
+    expect(p.host).toBe("s|block:0:0|10,5");
+    expect(p.placement).toEqual({ key: "city-pack:SM_Prop_Sign_Parking_01", x_m: 51, y_m: 0, z_m: 24.5, yaw_deg: 180 });
+    expect(p.cell).toEqual({ i: 10, j: 4 });
+    expect(p.size).toEqual({ x_m: 0.443, z_m: 0.119, h_m: 1.717 });
+  });
+
+  it("a z street: tiles at (3, 10), (3, 11), walk at (4, 10) on the +x side: the sign at x 20.5, z 51, turned 90", () => {
+    const edge = { cells: [cell(4, 10, "pavement"), cell(3, 10, "parking"), cell(3, 11, "parking"), cell(2, 10, "lane")], ground: [], buildoutTrees: [], tiles: [tile([3, 10], [3, 11])] } as never;
+    const streets = { streets: [{ id: "s", axis: "z" }] } as never;
+    expect(parkingPlace({ along: "z", cells: [{ i: 3, j: 10 }, { i: 3, j: 11 }] }, edgeInfoOf(edge))).toEqual({ cell: { i: 4, j: 10 }, side: "+x", x: 20.5, z: 51, yaw: 90 });
+    expect(parkingSigns({ streets, edge }, none, edgeInfoOf(edge)).pieces[0]!.placement).toMatchObject({ x_m: 20.5, z_m: 51, yaw_deg: 90 });
+  });
+
+  it("a gap of one cell splits a row into two stretches; a stretch with no walk across is a counted skip", () => {
+    const edge = {
+      cells: [cell(10, 4, "pavement"), cell(10, 5, "parking"), cell(11, 5, "parking"), cell(13, 5, "parking"), cell(14, 5, "parking"), cell(13, 4, "kerbCut"), cell(14, 4, "kerbCut")],
+      ground: [],
+      buildoutTrees: [],
+      tiles: [tile([10, 5], [11, 5]), tile([13, 5], [14, 5])],
+    } as never;
+    const streets = { streets: [{ id: "s", axis: "x" }] } as never;
+    const r = parkingSigns({ streets, edge }, none, edgeInfoOf(edge));
+    expect(r.stretches).toBe(2);
+    expect(r.pieces.map((p) => p.host)).toEqual(["s|block:0:0|10,5"]);
+    expect(r.skipped).toEqual([{ host: "s|block:0:0|13,5", reason: "noWalk" }]);
+  });
+
+  it("the skip reasons name what CL named", () => {
+    expect(skipReasonOf("parkingSign is within 0.3 m of a stage 8 meter")).toBe("meter");
+    expect(skipReasonOf("parkingSign is within 1.5 m of a build-out tree")).toBe("buildoutTree");
+    expect(skipReasonOf("parkingSign stands under or in a stage 7 piece (AV)")).toBe("stage7");
+    expect(skipReasonOf("parkingSign enters a stage 5 building")).toBe("building");
   });
 });

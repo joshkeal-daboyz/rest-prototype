@@ -24,12 +24,13 @@ const SIZES: readonly (readonly [string, number, number, number])[] = [
   ["SM_Prop_LightPole_CrossButton_01", 0.162, 0.299, 0.17],
   ["SM_Prop_LightPole_Box_01", 0.228, 0.527, 0.39],
   ["SM_Prop_Sign_Stop_01", 0.77, 2.271, 0.124],
+  ["SM_Prop_Sign_Parking_01", 0.443, 1.717, 0.119],
 ];
 const Q33_FIVE = ["SM_Prop_LightPole_Base_01", "SM_Prop_LightPole_Arm_01", "SM_Prop_LightPole_CrossLights_01", "SM_Prop_LightPole_CrossButton_01", "SM_Prop_LightPole_Box_01"].map((n) => `city-pack:${n}`);
 
 describe("the traffic kit (070 TR1, criterion 1)", () => {
-  it("the kit has the six keys and each bound equals the typed fixture", () => {
-    expect(KIT.TRAFFIC_KEYS).toHaveLength(6);
+  it("the kit has the seven keys and each bound equals the typed fixture", () => {
+    expect(KIT.TRAFFIC_KEYS).toHaveLength(7);
     for (const [n, w, h, d] of SIZES) expect(KIT.TRAFFIC_BOUNDS[`city-pack:${n}` as CalibrationKey], n).toEqual({ w, h, d });
     expect([...KIT.TRAFFIC_KEYS].sort()).toEqual(SIZES.map(([n]) => `city-pack:${n}`).sort());
   });
@@ -42,6 +43,7 @@ describe("the traffic kit (070 TR1, criterion 1)", () => {
       pushButton: "city-pack:SM_Prop_LightPole_CrossButton_01",
       signalBox: "city-pack:SM_Prop_LightPole_Box_01",
       stopSign: "city-pack:SM_Prop_Sign_Stop_01",
+      parkingSign: "city-pack:SM_Prop_Sign_Parking_01",
     });
     expect([...Object.values(KIT.KEY_OF_KIND)].sort()).toEqual([...KIT.TRAFFIC_KEYS].sort());
   });
@@ -59,6 +61,8 @@ describe("the traffic kit (070 TR1, criterion 1)", () => {
     expect([...KIT.TRAFFIC_ALLOWED].sort()).toEqual([...Q33_FIVE].sort());
     for (const k of KIT.TRAFFIC_KEYS) expect(isNeverUsed(k) ? KIT.TRAFFIC_ALLOWED.includes(k) : !KIT.TRAFFIC_ALLOWED.includes(k), k).toBe(true);
     expect(isNeverUsed(KIT.STOP_SIGN_KEY)).toBe(false);
+    expect(isNeverUsed(KIT.PARKING_SIGN_KEY)).toBe(false);
+    expect(KIT.TRAFFIC_ALLOWED).not.toContain(KIT.PARKING_SIGN_KEY);
     // the stem stays listed for every other use: a lights or traffic-light key, a second pole, is still never used
     for (const n of ["SM_Prop_LightPole_Lights_01", "SM_Prop_LightPole_Base_02", "SM_Prop_TrafficLight_01"]) expect(isNeverUsed(`city-pack:${n}`), n).toBe(true);
     expect(KIT.TRAFFIC_ALLOWED).not.toContain("city-pack:SM_Prop_LightPole_Lights_01");
@@ -190,5 +194,19 @@ describe("the traffic kit equals the converted GLB (070 TR1, criterion 1; skippe
     // the hook leans toward the piece's own +z: the lamp head's vertices are at z > the pole's
     const top = vs.filter((v) => v[1]! > 6.2);
     expect(mid(range(top, 2))).toBeGreaterThan(KIT.MAST.axis.z + 0.5);
+  });
+});
+
+describe("the parking sign equals the converted GLB (070 TR1b, criterion 1; skipped without the GLB)", () => {
+  it.skipIf(!HAVE_GLB)("its pivot is on the post's axis at its base, and its plate is on its own +z face", { timeout: 120000 }, () => {
+    const { gltf, bin } = readGlb();
+    const vs = verticesOf(gltf, bin, "SM_Prop_Sign_Parking_01");
+    expect(Math.abs(mid(range(vs, 0)))).toBeLessThan(0.005);
+    expect(Math.abs(mid(range(vs, 2)))).toBeLessThan(0.005);
+    expect(Math.abs(range(vs, 1)[0])).toBeLessThan(0.005);
+    // the plate (the top 0.5 m) is at the +z side, as it is for the stop sign
+    const plate = vs.filter((v) => v[1]! > 1.2);
+    expect(range(plate, 2)[1]).toBeGreaterThan(0.05);
+    expect(Math.abs(KIT.boundsOf(KIT.PARKING_SIGN_KEY).h - range(vs, 1)[1])).toBeLessThan(0.005);
   });
 });
