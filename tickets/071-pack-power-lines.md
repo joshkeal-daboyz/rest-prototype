@@ -1,7 +1,7 @@
 # 071 · Power lines and poles from the packs: one pole and wire kit for the ladder and the pipeline city
 
 owner: per section (pipeline-designer for A; renderer for B, C and E; grid-simulator for D)
-status: open. G1 given (Josh, 21 Nov 2026, in chat: "Start 071,K1&L2"). Re-cut the same day for the four packs of ticket 072. Sections D and E are proposed in this re-cut and start only on Josh's answers to Q13 and Q14. Q12 answered the same day ("Yes to all recommendations"); Q10, Q11, Q13 and Q14 are open.
+status: open. G1 given (Josh, 21 Nov 2026, in chat: "Start 071,K1&L2"). Re-cut the same day for the four packs of ticket 072. Q12 answered the same day ("Yes to all recommendations"). Q10, Q11, Q13 and Q14 answered the same day by question card: a makeshift mix of poles (Decided 041 "one pole style" changes on his word), pack wire pieces, small GLBs (D is live) and the overlay built now (E is live). Every section is live; Q15 and Q16 are asked only if A finds their problem.
 branch: `ticket/071a-power-kit-precheck` (A, a design note only), `ticket/071b-power-kit` (B), `ticket/071c-ladder-pack-lines` (C), `ticket/071d-power-glbs` (D), `ticket/071e-ladder-overlay` (E)
 
 ## Josh's words (21 Nov 2026, in chat)
@@ -18,7 +18,7 @@ He also said he will look over the models in the packs himself and pick the ones
 
 **Josh's direction since the first cut** (relayed in `docs/handoff-2026-11-21.md`, item 2):
 - The City Pack has no power poles. Its own look strings its `Power_Cables_*` from `SM_Prop_LightPole_*` street lights.
-- A "makeshift mix" of poles and lines from several packs suits the post-apocalyptic setting. That breaks Decided 041 "one pole style", so it is his call (Q10).
+- A "makeshift mix" of poles and lines from several packs suits the post-apocalyptic setting. That breaks Decided 041 "one pole style", so it was his call (Q10). He made it on 21 Nov 2026: "Makeshift mix (Recommended)".
 - The player reads the components from a 2D icon overlay (070 K4). He is choosing the component models himself.
 
 **How this ticket reads them.** Poles and wires are how the city looks. Telling the puzzle's components apart is the overlay's job: one icon per component type, drawn over each component's 3D position. With the overlay doing the reading, the poles may vary. The wires keep their Decided live, Relight and cut looks, because those show state.
@@ -27,10 +27,10 @@ He also said he will look over the models in the packs himself and pick the ones
 - **Four more packs are converted** (ticket 072). Palm City and Sci-Fi Frontier have real utility poles and line pieces. Sci-Fi City has two short poles. The inventory below lists them, and A measures them alongside the Apocalypse and City Pack pieces.
 - **The four new packs' textures may still change.** 072's texture-alias re-runs are in progress. Sizes are final. A's luminance and colour items, and its picture sheet, wait for those re-runs to end.
 - **L1 has merged** (78e66f9). C no longer waits on it.
-- **A load fact the first cut missed.** Pages load each GLB whole (`models3d.ts`, `GLTFLoader`). `palm-city-pack.glb` and `sci-fi-frontier-pack.glb` are 103 MB each. A pole from either would cost that file on every page load, phones included. That is why D is proposed (Q13).
-- **The mix (Q10).** B's kit now holds a list of poles and lines, and a pure rule for which stands where. It is no longer one pole key.
-- **The overlay on the ladder (Q14).** With varied poles, the ladder's reading should move to the overlay when the poles change. E is proposed as 071's own section. It would build the overlay module that 070 K4 reuses on the city.
-- **Questions.** The first cut's Q1 to Q9 were never answered. Q10 to Q14 below replace them. The rest became defaults (see "Defaults"), or are asked only if A finds a problem (Q15, Q16).
+- **A load fact the first cut missed.** Pages load each GLB whole (`models3d.ts`, `GLTFLoader`). `palm-city-pack.glb` and `sci-fi-frontier-pack.glb` are 103 MB each. A pole from either would cost that file on every page load, phones included. That is why D exists (Q13, answered yes).
+- **The mix (Q10, answered: a mix).** B's kit now holds a list of poles and lines, and a pure rule for which stands where. It is no longer one pole key.
+- **The overlay on the ladder (Q14, answered: build it now).** With varied poles, the ladder's reading moves to the overlay when the poles change. E is 071's own section. It builds the overlay module that 070 K4 reuses on the city.
+- **Questions.** The first cut's Q1 to Q9 were never answered. Q10 to Q14 below replaced them, and Josh has answered all five. The rest became defaults (see "Defaults"), or are asked only if A finds a problem (Q15, Q16).
 
 ## Where poles and wires are drawn today (read on `goal/city-style` at 12fc1f9; unchanged at cf7d78c)
 **The ladder's 3D view** (`?puzzle=<id>&view=3d`, tickets 037 and 041) is the only place that draws any:
@@ -89,11 +89,11 @@ The Town Pack has `SM_Prop_ElectricalCover_01` and `SM_Prop_PowerPlug_01`. Neith
   - The ladder (C) and the pipeline city (070 K3) both draw with it. Each view supplies only its scale, its spots and its spans:
     - the ladder: its `WireRun`s, each pole fitted to `POLE_HEIGHT` at its own attachment (041 Q3: poles are the scale exception);
     - the city: `CityCircuitLayer`'s spans, at `WORLD_PER_METRE`, each pole at its true size. Mixed pole heights then give spans with one end higher, which `fitLine` handles.
-- **Poles: a mix, if Josh says so (Q10).** The recommended answer is a short list of poles that carry a cross-arm. Josh picks them from A's sheet, and each spot gets one by `stableHash` of the spot's id. Every puzzle line still carries three conductors on a cross-arm (Decided 041). An armless pole joins the list only if A finds three attachment points on it. With Q10 "no", the list is one pole and the rule is trivial.
+- **Poles: a mix (Q10, answered "Makeshift mix (Recommended)").** A short list of poles that carry a cross-arm. Josh picks them from A's sheet, and each spot gets one by `stableHash` of the spot's id. Every puzzle line still carries three conductors on a cross-arm (Decided 041, unchanged in that part). An armless pole joins the list only if A finds three attachment points on it. If Josh picks only one pole, the list is one pole and the rule is trivial.
   - Each pole is placed so that its measured attachment tops meet the wires. This is 042 D's pending item: the scale is set from the attachment height, not the pole's top.
   - The code-drawn insulators are hidden on a pole whose model has its own (A measures each).
   - The code placeholder pole stays as the fallback when there is no pack (CI).
-- **Wires: pack single strands, three per span, one piece per line (Q11).** Each conductor of each span is one instance of a pack strand. It is stretched along its length to the span's chord and scaled vertically so that its lowest point meets `sagSpan`'s. All spans and conductors of one line use one piece, so a line reads as one line. Different lines may use different pieces if Josh picks more than one.
+- **Wires: pack single strands, three per span, one piece per line (Q11, answered "Pack wire pieces (Recommended)").** Each conductor of each span is one instance of a pack strand. It is stretched along its length to the span's chord and scaled vertically so that its lowest point meets `sagSpan`'s. All spans and conductors of one line use one piece, so a line reads as one line. Different lines may use different pieces if Josh picks more than one.
   - **What stays code-drawn**, because its behaviour is Decided:
     - the live overlay, which glows, breathes, and grows for the Relight;
     - the bead and the spark;
@@ -103,20 +103,20 @@ The Town Pack has `SM_Prop_ElectricalCover_01` and `SM_Prop_PowerPlug_01`. Neith
     - the drops and cans.
   - The dead look becomes the pack strand instead of the code `whole` tube. Pack strands cast no shadow, and nothing new raycasts.
   - With no pack, today's code tubes draw, so CI and the ladder's tests see today's scene.
-- **Load (Q13, D).** Say Josh picks pieces from Palm City or Sci-Fi Frontier. D then converts only the picked models of that pack into a small GLB, `out/<pack>-power.glb`. Its manifest entry is `<pack>-power`, with the names unchanged, just as `apocalypse-power` is already a subset pack. `MODEL_TABLE` and the kit name those keys, never the 103 MB packs.
-- **The overlay on the ladder (Q14, E).** One icon per component is drawn over each component's projected 3D position, on the ladder's 3D view, by the view itself. The glyphs come from `src/render/map-renderer.ts`, moved first into an exported module. 070 K4 reuses E's module on the city.
+- **Load (Q13 answered yes, D).** For each of Palm City and Sci-Fi Frontier that Josh picks pieces from, D converts only the picked models of that pack into a small GLB, `out/<pack>-power.glb`. Its manifest entry is `<pack>-power`, with the names unchanged, just as `apocalypse-power` is already a subset pack. `MODEL_TABLE` and the kit name those keys, never the 103 MB packs.
+- **The overlay on the ladder (Q14 answered yes, E).** One icon per component is drawn over each component's projected 3D position, on the ladder's 3D view, by the view itself. The glyphs come from `src/render/map-renderer.ts`, moved first into an exported module. 070 K4 reuses E's module on the city.
 
 ## Defaults (this cut takes them; Josh can overturn any)
 - **Broken poles are never on a puzzle line.** A damaged cable is a span, not a pole. A broken-looking pole on a puzzle line would read as a fault the player cannot repair. `Broken_03` and `_04` are also too short to carry wires. Using them as city dressing off the lines would be a K or I question, not this ticket's.
 - **The overlay's icons carry state as well as type**, by shape, as the 2D glyphs do: the breaker's lever, the switch's chevron, the fuse's bar, the lamp lit or dark, the target filled or hollow. That keeps Decided guide 12 ("state never reads by colour alone") true at overlay scale. It adds no new rule, so it is not a question.
 - **Sci-Fi City's 73 m `SM_Prop_Cables_*` are out**, because they are `scale-suspect`.
-- **Long city spans** (25 to 45 m across a junction) are chained from the fewest pieces that each fit within `LINE_STRETCH_MAX` (1.25 x the piece length). A shows a picture of chained and stretched spans, and Josh may choose otherwise on seeing it.
+- **Long city spans** are chained from the fewest pieces that each fit within `LINE_STRETCH_MAX` (1.25 x the piece length). With 070 Q45 answered (no corner poles), the city's longest span is a street crossing between junctions, about 16.5 m mid-block, not the 25 to 45 m over a junction that 059 measured; K1's crossing spans are the figures to use once K1 gives them. At about 16.5 m a 13.49 m piece stretches (1.22x) and a ~7.7 m Palm piece chains (three pieces). A shows a picture of chained and stretched crossing spans, and Josh may choose otherwise on seeing it.
 - **The pole contrast** (Decided 037, 3:1 against the street) is measured per pole by A. A pole under 3:1 goes to Josh (Q15). It is never a silent pass.
 
 ## Guide rules this touches (Josh's to change; nothing here changes them until he says)
 - **Decided 041 (guide 9):** "lines are wooden poles of one style on the pavement, each carrying three conductors on a cross-arm."
-  - With Q10 "yes", "of one style" becomes Josh's words of the mix, quoted.
-  - "Three conductors on a cross-arm" stays under the recommended answer.
+  - **Changed on Josh's word (Q10, 21 Nov 2026, in chat, question card: "Makeshift mix (Recommended)").** "Of one style" becomes the mix: a short list Josh picks from A's sheet, one per pole by a fixed hash. C rewrites the line in the guide, quoting his answer and naming his picks.
+  - "Three conductors on a cross-arm" stays: it was part of the answer he chose.
   - "Wooden": Sci-Fi Frontier's poles may be metal. If Josh picks one, C rewords "wooden", quoting his pick.
 - **Default 042 Q9 (guide 9):** "conductors stay code-generated ... Pack line meshes (`*_Lines_*`, `*_Preset_*`) are never used." Josh's first words overtake this Default. C rewrites the line as Decided, quoting him and naming the pieces and the kit. `_Preset_*` (poles and lines in one mesh) stays unused, because the kit places poles and lines apart.
 - **16.6, the never-used list (Default 052), and `CITY_NEVER_USED`:**
@@ -132,19 +132,19 @@ The Town Pack has `SM_Prop_ElectricalCover_01` and `SM_Prop_PowerPlug_01`. Neith
 - **K1 (being cut now, puzzle-designer).**
   - (a) The pole slot pitch need not stay 12.5 m. The kit fits any span from 0.5x to `LINE_STRETCH_MAX` x a piece's length, and chains above that. K1 may choose its pitch on the circuit's own grounds. A's note gives the candidate pieces' lengths: Palm `Powerline_*` ~7.7 m, Sci-Fi Frontier `Cable_12..16` ~12 m, City Pack `Cables_03` 13.49 m.
   - (b) Q12 is answered: a city line hangs from power poles, with street lights apart as lamps (Josh, 21 Nov 2026, "Yes to all recommendations"). K1's text carries it.
-  - (c) 070 Q45 is answered the same way: no corner poles; lines turn round block corners and cross streets between junctions, never over a junction. A city crossing is then about 16.5 m mid-block, not 25 to 45 m over a junction, so A's item 13 and the "Long city spans" default take K1's crossing spans when K1 gives them.
+  - (c) 070 Q45 is answered the same way: no corner poles; lines turn round block corners and cross streets between junctions, never over a junction. A city crossing is then about 16.5 m mid-block, not 25 to 45 m over a junction. A's item 13 and the "Long city spans" default now use K1's crossing spans (about 16.5 m until K1 gives them).
 - **The architect's `CityCircuitLayer` typing.** Each pole spot needs a stable id, because the mix rule hashes it. Its attachment height comes from the kit, not the layer: the layer gives spots and spans, and the kit gives poles and pieces.
-- **K3 (renderer).** It draws through B's kit at `WORLD_PER_METRE`. It needs B merged, and D too if Q13 is "yes" and a picked piece is from a large pack. If a City Pack cable or a street light is used, K3 also needs its own R12 allowance (Q11, Q12) as a typed table, as TR2's is.
-- **K4 (renderer).** With Q14 "yes", E builds the overlay on the ladder, and K4 reuses `overlay.ts` and `glyphs.ts` on the plan city. K4 then adds only the city's projected positions and its `hitTest`. With Q14 "no", the overlay stays wholly K4's, and C ships varied poles before any overlay exists.
+- **K3 (renderer).** It draws through B's kit at `WORLD_PER_METRE`. It needs B merged, and D too if a picked piece is from a large pack (Q13 is answered yes). If a City Pack cable or a street light is used, K3 also needs its own R12 allowance (Q11, Q12) as a typed table, as TR2's is.
+- **K4 (renderer).** Q14 is answered yes: E builds the overlay on the ladder, and K4 reuses `overlay.ts` and `glyphs.ts` on the plan city. K4 then adds only the city's projected positions and its `hitTest`.
 - **TR (stage 9).** Its `SM_Prop_LightPole_*` allowance covers `traffic` pieces only. With Q12 answered "power poles", no circuit allowance for line supports is needed; if K3 later picks a City Pack street light, its allowance must name different kinds. TR's digest re-pins when K types the circuit (TR's own note (a)).
 - **L2b (renderer).** It edits `models3d.ts`, the guide's chapters 18 and 19, and `styleguide.test.ts`. C edits `models3d.ts`, chapter 9, 16.6 and `styleguide.test.ts`. They share files but not lines. L2b also removes the `city=tiles-old` route from `renderer.ts`, which E edits for the overlay canvas. Whichever of C (or E) and L2b merges second rebases onto the other, and its gate runs on the rebased branch.
 
 ## Sections, and the order
-**Order: A, then Josh's picks and answers, then B and D side by side, then C, then 070 K3 and K4. E, if Q14 is "yes", may run at any time from now.**
+**Order: A, then Josh's picks, then B and D side by side, then C, then 070 K3 and K4. E may run at any time from now.**
 - **A is the pre-check.** It starts first, after 072's texture-alias re-runs end, so that its colours and pictures are final and nothing heavy runs beside Blender. A is itself the pre-check, so B and C need no separate one.
-- **D** runs only if Q13 is "yes" and a picked piece is in a large pack. It shares no file with B.
+- **D** is live (Q13 answered yes). It converts only the large packs Josh picks from; if none of his picks is in Palm City or Sci-Fi Frontier, D has no run to do and the main session closes it on his word. It shares no file with B.
 - **E** needs no pre-check, because it adds a view element, not a city rule or number. Josh checks the icons in the browser. It does not wait for A, and it shares no file with B, C or D.
-- **C** waits for B, for D if D runs, and for Josh's picks.
+- **C** waits for B, for D if a pick is in a large pack, and for Josh's picks.
 
 ### A · The asset pre-check (pipeline-designer; a note, no code). Branch `ticket/071a-power-kit-precheck`
 A writes `docs/design/071-power-kit-precheck.md`. It measures from the GLBs, outside the repo, as its instructions say. It starts after 072's texture-alias re-runs end (the main session says when), and it loads one large GLB at a time.
@@ -155,7 +155,7 @@ A writes `docs/design/071-power-kit-precheck.md`. It measures from the GLBs, out
 - One picture per candidate pole, standing beside `apocalypse-power:SM_Prop_Powerpole_01` and a 1.8 m figure.
 - One picture per candidate line piece.
 - One street view at `cam=street` scale of a short run strung with each candidate pole.
-- One street view of a mixed run: three poles of the recommended list (Q10).
+- One street view of a mixed run: three poles of the recommended list (Q10 is answered: a mix).
 
 Each picture is titled with its key. The pictures go in the scratchpad, the note names them, and the main session sends them to Josh.
 
@@ -178,8 +178,8 @@ Each picture is titled with its key. The pictures go in the scratchpad, the note
 **Spans and load:**
 
 12. The ladder's span lengths, from `wireLayout` over every ladder map, in units and in metres at pole scale. The stretch factor each candidate piece would need, with its smallest and largest.
-13. The pipeline city's spans: from K1 if it has given them, otherwise from 059's measure (12.5 m along a pavement, 25 to 45 m across a junction). A picture of a junction span chained and stretched, for each candidate piece.
-14. The load: for each pack, the estimated size of a GLB holding only the recommended picks (from their triangles and textures), against the whole pack's size (for Q13).
+13. The pipeline city's spans: K1's spans along a pavement and its street-crossing spans between junctions, if K1 has given them. Otherwise 12.5 m along a pavement (059) and about 16.5 m for a mid-block crossing (070 Q45: no corner poles, so no span crosses a junction). The stretch factor each candidate piece needs on a crossing, and a picture of a crossing span chained or stretched, for each candidate piece.
+14. The load: for each pack, the estimated size of a GLB holding only the recommended picks (from their triangles and textures), against the whole pack's size (for D's runs).
 
 **The note ends with** a recommended list of poles and lines, and the questions it raises: Q15 and Q16 only if their conditions hold, and any premise of this cut it found wrong.
 
@@ -196,7 +196,7 @@ Each picture is titled with its key. The pictures go in the scratchpad, the note
    - a span along each axis, and a diagonal.
 3. [ ] **Long spans.** A span longer than `LINE_STRETCH_MAX` (1.25 x the piece length, or Josh's number after A's picture) is fitted as the fewest pieces end to end that each fit. The joins are continuous within 0.01 m, and the whole follows one `sagSpan`.
 4. [ ] **The pole meets the wire.** `placePole(pole, spot, attachY, scale)` gives a transform. Its measured centre attachment is at `attachY` above the spot within 0.01 m, and its arm runs across the run within 0.5 degrees. Each outer attachment is at `±PHASE_OFFSET` within A's measured difference. If A finds an arm wider than `2 x PHASE_OFFSET`, this is reported, not asserted (Q16).
-5. [ ] **The mix (Q10).** `poleAt(list, spotId)` is a pure function of the list and the id, through `stableHash`: the same id always gives the same pole.
+5. [ ] **The mix (Q10, answered: a mix).** `poleAt(list, spotId)` is a pure function of the list and the id, through `stableHash`: the same id always gives the same pole.
    - Over 1,000 ids, each listed pole's share is within 0.05 of an even share.
    - Over the ladder's maps, no two neighbouring spots on one run share a pole when the list has two or more (or the rule Josh gives in Q10).
    - With a one-pole list it returns that pole everywhere.
@@ -207,8 +207,8 @@ Each picture is titled with its key. The pictures go in the scratchpad, the note
 **Files.** New `src/render3d/powerkit.ts` and `src/render3d/powerkit.test.ts`. Nothing else.
 **Tests the builder runs:** `npx vitest run --maxWorkers=2 src/render3d/powerkit.test.ts` and one `npx tsc --noEmit`.
 
-### C · The ladder drawn with the kit (renderer; after B, and D if it runs). Branch `ticket/071c-ladder-pack-lines`
-**Goal.** Josh opens any ladder map at `?puzzle=<id>&view=3d` with the packs present. The poles are his picks, mixed if he said so, and the dead wires are pack line pieces. Live wires, the Relight and a cut cable look and play exactly as today.
+### C · The ladder drawn with the kit (renderer; after B, and D if a pick is in a large pack). Branch `ticket/071c-ladder-pack-lines`
+**Goal.** Josh opens any ladder map at `?puzzle=<id>&view=3d` with the packs present. The poles are his picks, mixed (Q10), and the dead wires are pack line pieces. Live wires, the Relight and a cut cable look and play exactly as today.
 
 **Acceptance criteria.**
 1. [ ] **Pack wires when the pack is there (Vitest, `scene.test.ts` or a new `packlines.test.ts`).**
@@ -228,7 +228,7 @@ Each picture is titled with its key. The pictures go in the scratchpad, the note
 5. [ ] **The model table (Vitest, `models.test.ts`).** `MODEL_TABLE` names the picks by `pack:name`. If D ran, a pick from Palm City or Sci-Fi Frontier names `<pack>-power`, and no slot names `palm-city-pack` or `sci-fi-frontier-pack`.
 6. [ ] **The guide (Vitest `styleguide.test.ts`; the reviewer reads the diff).**
    - Guide chapter 9: the 042 Q9 Default line becomes Josh's words of 21 Nov 2026 as **Decided**, naming the pieces and the kit.
-   - Decided 041's "of one style" changes **only if Q10 is "yes"**, to his words. "Wooden" changes only if he picked a pole that is not wooden.
+   - Decided 041's "of one style" changes to the mix, quoting Josh's Q10 answer ("Makeshift mix (Recommended)", 21 Nov 2026, in chat, question card) and naming his picked poles. "Three conductors on a cross-arm" stays. "Wooden" changes only if he picked a pole that is not wooden.
    - 16.6 and `CITY_NEVER_USED` lose `SM_Prop_Power_Cables_*` **only if Josh picked a City Pack cable** (Q11).
    - The pack table gains a row for each pack now in use.
    - The Numbers rows cover `powerkit.ts`'s constants.
@@ -258,7 +258,7 @@ Each picture is titled with its key. The pictures go in the scratchpad, the note
 
 **Tests the builder runs:** `npx vitest run --maxWorkers=2 src/render3d/scene.test.ts src/render3d/live.test.ts src/render3d/relight3d.test.ts src/render3d/pick.test.ts src/render3d/models.test.ts src/render3d/styleguide.test.ts`, plus its new test file, and one `npx tsc --noEmit`.
 
-### D · Small power GLBs (grid-simulator; only on Q13 "yes"). Branch `ticket/071d-power-glbs`
+### D · Small power GLBs (grid-simulator; Q13 answered yes). Branch `ticket/071d-power-glbs`
 **Goal.** Each large pack Josh picked from has its own `out/<pack>-power.glb`, a few MB at most. It holds only the picked models, with the same names, metre scale and textures as the full pack. `manifest.json` lists it as pack `<pack>-power`. The full pack's GLB and every existing manifest entry are unchanged.
 
 **Acceptance criteria.**
@@ -278,7 +278,7 @@ Each picture is titled with its key. The pictures go in the scratchpad, the note
 
 Out of scope: `src/`, and every other pack's files.
 
-### E · The overlay on the ladder's 3D view (renderer; only on Q14 "yes"). Branch `ticket/071e-ladder-overlay`
+### E · The overlay on the ladder's 3D view (renderer; Q14 answered yes). Branch `ticket/071e-ladder-overlay`
 **Goal.** Josh opens any ladder map at `?puzzle=<id>&view=3d`. An icon of its type sits over each component: the feed, breakers, switches, fuse boxes, junctions, batteries, lamps and targets. The icon shows the component's state by shape, as the 2D map does, and follows it as the camera moves. A click on an icon acts on that component. `overlay=0` hides the icons, for comparison.
 
 **Acceptance criteria.**
@@ -324,13 +324,13 @@ Out of scope: `src/`, and every other pack's files.
 - **No new dependency** in any section.
 
 ## Open questions (for Josh; recommended answer first)
-The first cut's Q1 to Q9 were never answered. These replace them.
+The first cut's Q1 to Q9 were never answered. These replaced them. Q10 to Q14 are all answered; only Q15 and Q16 can still be asked.
 
-10. **Poles: a makeshift mix, or one pole?** This changes Decided 041 "of one style". **Recommended: a mix.** You pick a short list from A's picture sheet, and each pole spot gets one of them by a fixed hash. Every puzzle line still carries three wires on a cross-arm, so the armless Sci-Fi poles join only if A finds they can carry three. *Reason:* it suits the setting, and the three-wire live and cut looks you Decided stay as they are.
-11. **Wires: pack strands, or code wires?** **Recommended: pack single-strand pieces**, three per span and one kind of piece per line, from your picks on A's sheet. The live glow, the Relight and the cut stay drawn in code over them. If you pick a City Pack cable, it comes off the never-used list. *Reason:* the dead wires look like the packs' lines, and nothing you Decided about live and cut wires changes.
+10. **Poles: a makeshift mix, or one pole?** **Answered, Josh, 21 Nov 2026, in chat (question card): "Makeshift mix (Recommended)"**, option text: "A short list you pick from A's sheet, one per pole by a fixed hash. Suits the post-apocalyptic setting. Changes Decided 041." Decided 041's "one pole style" changes on his word (C rewrites guide chapter 9). He still picks the short list from A's picture sheet, and every puzzle line still carries three wires on a cross-arm. As asked: this changes Decided 041 "of one style". **Recommended: a mix.** You pick a short list from A's picture sheet, and each pole spot gets one of them by a fixed hash. Every puzzle line still carries three wires on a cross-arm, so the armless Sci-Fi poles join only if A finds they can carry three. *Reason:* it suits the setting, and the three-wire live and cut looks you Decided stay as they are.
+11. **Wires: pack strands, or code wires?** **Answered, Josh, 21 Nov 2026, in chat (question card): "Pack wire pieces (Recommended)"**, option text: "Three single-strand pack pieces per span, one kind per line. The live glow, Relight and cut wires are still drawn in code over them." Which pieces is his pick from A's sheet; a City Pack cable comes off the never-used list only if he picks one. As asked: **Recommended: pack single-strand pieces**, three per span and one kind of piece per line, from your picks on A's sheet. The live glow, the Relight and the cut stay drawn in code over them. If you pick a City Pack cable, it comes off the never-used list. *Reason:* the dead wires look like the packs' lines, and nothing you Decided about live and cut wires changes.
 12. **In the city, do the wires hang from street lights (the City Pack's own look) or from power poles?** **Answered, Josh, 21 Nov 2026, in chat**, asked "Do you want the recommended answers to Q12 and Q45 to Q47, or would you rather choose each one?": **"Yes to all recommendations"**: power poles, with street lights standing apart as lamps. Carried into 070 K1's "What K1 starts from". As asked: **Recommended: power poles, with street lights standing apart as lamps.** *Reason:* a puzzle lamp and a line support stay two things that the overlay and a click can tell apart, and stage 9's traffic-only use of the City Pack light poles stays clean. The answer goes to K1 before its rules are checked.
-13. **Make small GLBs of just the power pieces (D)?** **Recommended: yes.** *Reason:* Palm City and Sci-Fi Frontier are 103 MB each, and a few poles should not load 200 MB on every page, phones included.
-14. **Build the overlay on the ladder's 3D view now, as 071 E, and let 070 K4 reuse it on the city?** **Recommended: yes.** *Reason:* once the poles vary, the overlay is what tells the parts apart. The ladder already has the game state to test it on, while K4 waits on K1 and K2.
+13. **Make small GLBs of just the power pieces (D)?** **Answered, Josh, 21 Nov 2026, in chat (question card): "Yes, small GLBs (Recommended)".** Section D is live, not conditional; it runs for each large pack his picks come from. As asked: **Recommended: yes.** *Reason:* Palm City and Sci-Fi Frontier are 103 MB each, and a few poles should not load 200 MB on every page, phones included.
+14. **Build the overlay on the ladder's 3D view now, as 071 E, and let 070 K4 reuse it on the city?** **Answered, Josh, 21 Nov 2026, in chat (question card): "Yes, build it now (Recommended)".** Section E is live, not conditional, and 070 K4 reuses its `overlay.ts` and `glyphs.ts`. As asked: **Recommended: yes.** *Reason:* once the poles vary, the overlay is what tells the parts apart. The ladder already has the game state to test it on, while K4 waits on K1 and K2.
 
 Asked only if A's note finds the problem:
 
