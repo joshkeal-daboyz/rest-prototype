@@ -59,6 +59,9 @@ export function boundsOf(key: CalibrationKey): TrafficBounds {
   return e;
 }
 
+/** The corner's walk (ticket 070 TR1d; a measurement of `SM_Env_Sidewalk_Dip_Corner_01`, not a rule): on a `pavementCorner` cell the square at least this far in from both kerb edges is all walk (surface 0.19 to 0.26 m above the piece's base; the return's lip crosses the diagonal at 2.0 m and the walk starts at 1.92 m on it). `src/render3d/trafficpin.test.ts` pins it to the GLB. */
+export const CORNER_WALK_M = 2.1;
+
 // ---- the mast, `SM_Prop_LightPole_Base_01` ----
 // A 6.483 m pole whose top hooks 2.3 m sideways, toward its own +z, to a downward lamp head (drawn unlit). The pole stands at the -z end of the bounds. Collars at 3.126 to 3.201 m (the walk heads' mount) and 5.345 to 5.422 m (the arm's clamp).
 

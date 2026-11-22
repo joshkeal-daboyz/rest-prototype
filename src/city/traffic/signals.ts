@@ -1,11 +1,10 @@
 /**
  * Stage 9: the traffic signals of a signal junction (ticket 070 TR1; MA; Josh, 21 Nov 2026, Q33, Q34, Q37, Q43). Drawn dark: scenery, never powered, lit or picked.
- * - **The mast** (`signalMast`, grounded) stands on each `pavementCorner` cell of the junction, one for each inbound approach, on that approach's **far-left corner**. Its pole's axis is `MAST_INSET_M` in from each of the cell's two kerb edges
+ * - **The mast** (`signalMast`, grounded) stands on each `pavementCorner` cell of the junction, one for each inbound approach, on that approach's **far-left corner**. Its pole's axis is `MAST_INSET_M` (2.6 m, TR1d, Q50: on the corner's walk behind the ramps) in from each of the cell's two kerb edges
  *   (the cell's kerb corner is the corner point nearest the junction's carriageway). Its yaw is the one that puts the upper collar's clamp face (the side without the lamp) toward the arm, so the lamp hook leans away over the walk.
  * - **The arm** (`signalArm`) is fixed by its clamp to the mast's upper collar (the kit's fix point). It runs from the mast to the driver's right across the approach's own carriageway at the junction's far side, square to the traffic, its heads'
  *   lenses toward the approaching traffic. The pack piece is never mirrored.
- * - **Walk heads** (`walkHead`), one for each crossing that lands at the mast's corner, on the lower collar (the second 0.5 m above the first), facing along the crossing toward the far landing. A **push button** (`pushButton`) on each mast,
- *   facing as its first walk head. **One box** (`signalBox`) a junction, standing on the walk beside the mast of the corner `rand("traffic", "box", <junction id>) % 4` picks (corners in approach order), its back to the mast.
+ * - **Walk heads** (`walkHead`), one for each crossing that lands at the mast's corner, on the lower collar (the second 0.5 m above the first), facing along the crossing toward the far landing. A **push button** (`pushButton`) for each crossing, on the mast's face toward it and facing it (TR1d; TR1 had one a mast). **One box** (`signalBox`) a junction, standing on the walk beside the mast of the corner `rand("traffic", "box", <junction id>) % 4` picks (corners in approach order), its back to the mast.
  * Every group is "<junction>|<n>": the assemblies in approach order, then the box.
  */
 
@@ -52,9 +51,9 @@ export function signalPieces(j: CityJunction, t: CityJunctionTraffic, info: Edge
       const off = MAST.radius + walk.d / 2;
       out.push(makePiece({ kind: "walkHead", host: j.id, approach: null, group, grounded: false, street: null, x: pole.x + d[0] * off, y: MAST.walkHeadY[k]!, z: pole.z + d[1] * off, yaw: SIDE_YAW[sideOf(d[0], d[1])] }));
     });
-    const face = crossings[0] ?? ([-c.sx, 0] as const);
+    // one push button for each crossing at the corner, on the mast's face toward it, facing it (a walker reaches it from the walk between the mast and that crossing's ramp)
     const off = MAST.radius + button.d / 2;
-    out.push(makePiece({ kind: "pushButton", host: j.id, approach: null, group, grounded: false, street: null, x: pole.x + face[0] * off, y: MAST.buttonY, z: pole.z + face[1] * off, yaw: SIDE_YAW[sideOf(face[0], face[1])] }));
+    for (const face of crossings) out.push(makePiece({ kind: "pushButton", host: j.id, approach: null, group, grounded: false, street: null, x: pole.x + face[0] * off, y: MAST.buttonY, z: pole.z + face[1] * off, yaw: SIDE_YAW[sideOf(face[0], face[1])] }));
     if (n === boxAt) {
       const e = [c.sx, 0] as const;
       const bo = MAST.radius + box.d / 2;

@@ -67,10 +67,10 @@ describe("R-1 to R-7 for stage 9 (criterion 7)", { timeout: 120_000 }, () => {
 
   it("the digest pins (R-4): 6 x 6 seeds 1 (the default), 2, 3 and 8, one-way on; the layers before it are as their stages pin them", () => {
     const PINS: readonly (readonly [number, string])[] = [
-      [1, "1cce0a4c"],
-      [2, "11abcffd"],
-      [3, "1e045c0b"],
-      [8, "4488262f"],
+      [1, "784fd70b"],
+      [2, "79767c68"],
+      [3, "4528000c"],
+      [8, "0f11c5ab"],
     ];
     // stages 7 and 8's pins, unchanged by stage 9 (their own tests pin them as well)
     const GROUND_PINS: readonly (readonly [number, string])[] = [
@@ -86,10 +86,11 @@ describe("R-1 to R-7 for stage 9 (criterion 7)", { timeout: 120_000 }, () => {
       [8, "53f33a18"],
     ];
     expect(PINNED.map((c) => c.seed)).toEqual([1, 2, 3, 8]);
-    for (const [seed, pin] of PINS) {
+    const got = PINS.map(([seed]) => {
       const r = cityOf({ blocksX: 6, blocksZ: 6, seed, way: "on" });
-      expect(r.ok && r.plan.digests.traffic, `seed ${seed} traffic`).toBe(pin);
-    }
+      return [seed, r.ok && r.plan.digests.traffic] as const;
+    });
+    expect(got).toEqual(PINS);
     for (const [seed, pin] of GROUND_PINS) expect(cityOf({ blocksX: 6, blocksZ: 6, seed, way: "on" }).plan.digests.ground, `seed ${seed} ground`).toBe(pin);
     for (const [seed, pin] of FACADES_PINS) expect(cityOf({ blocksX: 6, blocksZ: 6, seed, way: "on" }).plan.digests.facades, `seed ${seed} facades`).toBe(pin);
   });

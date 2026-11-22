@@ -4,18 +4,19 @@
  * - **keys.** Every piece carries its kind's key (the kit's), so a key allowed for one kind is never on another and a key that is not allowed at all is never on a piece.
  * - **TC1 control.** Every junction's control and approaches are the rules' (SJ, AS, T, C, IN).
  * - **TC2 signals.** A signal junction has, for each inbound approach, one mast on its far-left corner and one arm fixed to the mast's clamp, over the approach's own carriageway, heads toward the traffic, none lower than `SIGNAL_HEAD_MIN_M`, its free end short of
- *   the far kerb; a walk head for each crossing at the mast's corner, one button a mast, one box a junction. No signal piece stands anywhere else.
+ *   the far kerb; a walk head for each crossing at the mast's corner, a push button for each crossing (on the mast's face toward it, facing it; TR1d), one box a junction. No signal piece stands anywhere else.
  * - **TC3 signs.** Each "stop" approach has exactly one stop sign, on the cell the rules name (ST), facing its traffic; no other approach has one.
  *   A parking sign (TR1b) is hosted by the stretch of `CityBayTile`s it marks: each stretch has at most one, at its low end where the walk lies (its pivot, cell and turn as `parkingPlace` says), and a stretch with none is one where CL would refuse the sign.
- * - **TC4 place.** A grounded piece's footprint lies inside the walk cell it stands on (a `pavement` or `pavementCorner` cell, never a kerb cut or the carriageway), and that cell is the one it records.
+ * - **TC4 place.** A grounded piece's footprint lies inside the walk cell it stands on (a `pavement` or `pavementCorner` cell, never a kerb cut or the carriageway), and that cell is the one it records. On a `pavementCorner` cell beside a junction's
+ *   carriageway the walk is the square at least `CORNER_WALK_M` in from both kerb edges (TR1d), not the whole cell.
  * - **TC5 clear.** CL (`clear.ts`): stage 8's props, stage 7's boxes, stage 5's buildings, stage 6's points, the build-out trees.
  */
 
 import type { CityCell, CityEdgeLayer, CityFacadesLayer, CityGroundLayer, CityMassLayer, CityPlanStreet, CityStreetsLayer, CityTrafficLayer, CityTrafficPiece } from "../../core";
-import { SIGNAL_HEAD_MIN_M, TOL } from "./constants";
-import { SIDE_VEC, SIDE_YAW, cellRect, clearOf, clearReasons, footOf, rotate, sideOf, standCell, within, poleOf, pieceRect, type KeepPoint } from "./clear";
-import { HEADING, buildControl, edgeInfoOf, farLeftOf, rectOf, rightOf, type EdgeInfo } from "./control";
-import { ARM, ARM_BASE_Y, HEAD_LOW_Y, KEY_OF_KIND } from "./kit";
+import { CELL_M, SIGNAL_HEAD_MIN_M, TOL } from "./constants";
+import { SIDE_VEC, SIDE_YAW, cellRect, clearOf, clearReasons, footOf, rotate, sideOf, standCell, within, poleOf, pieceRect, type KeepPoint, type Rect } from "./clear";
+import { HEADING, buildControl, cornerOf, edgeInfoOf, farLeftOf, rectOf, rightOf, type EdgeInfo } from "./control";
+import { ARM, ARM_BASE_Y, CORNER_WALK_M, HEAD_LOW_Y, KEY_OF_KIND, MAST, PUSH_BUTTON_KEY, boundsOf } from "./kit";
 import { crossingsAt } from "./signals";
 import { bayStretches, parkingPiece, parkingPlace, stopPlace } from "./signs";
 
@@ -47,6 +48,23 @@ const edgeInfo = (edge: TrafficInput["edge"]): EdgeInfo => {
   return i;
 };
 const same = (a: CityCell, b: CityCell): boolean => a.i === b.i && a.j === b.j;
+
+/** The walk of a `pavementCorner` cell that is a junction's corner: the square at least `CORNER_WALK_M` in from both kerb edges (the cell is 5 m, its kerb corner the point nearest the junction). Keyed by cell; a corner cell that is no junction's has none (its whole cell is walk). */
+function cornerWalks(junctions: TrafficInput["streets"]["junctions"]): Map<string, Rect> {
+  const out = new Map<string, Rect>();
+  for (const j of junctions) {
+    const r = rectOf(j);
+    for (const sx of [1, -1] as const) {
+      for (const sz of [1, -1] as const) {
+        const c = cornerOf(r, sx, sz);
+        const x = sx > 0 ? [c.kx + CORNER_WALK_M, c.kx + CELL_M] : [c.kx - CELL_M, c.kx - CORNER_WALK_M];
+        const z = sz > 0 ? [c.kz + CORNER_WALK_M, c.kz + CELL_M] : [c.kz - CELL_M, c.kz - CORNER_WALK_M];
+        out.set(`${c.cell.i},${c.cell.j}`, { x0: x[0]!, x1: x[1]!, z0: z[0]!, z1: z[1]! });
+      }
+    }
+  }
+  return out;
+}
 
 /** Every failure of every check, in check order. Empty when the layer is sound. */
 export function trafficFailures(layer: CityTrafficLayer, input: TrafficInput): TrafficFailure[] {
@@ -153,8 +171,22 @@ export function trafficFailures(layer: CityTrafficLayer, input: TrafficInput): T
             if (heads[k]!.placement.yaw_deg !== SIDE_YAW[sideOf(d[0], d[1])]) fail("TC2 signals", `a walk head does not face along its crossing`, [corner.cell], heads[k]);
           });
         }
+        // one push button for each crossing, on the mast's face toward it, facing it
         const buttons = group.filter((p) => p.kind === "pushButton");
-        if (buttons.length !== 1) fail("TC2 signals", `approach ${a.id}'s mast has ${buttons.length} push buttons, not 1`, [corner.cell]);
+        if (buttons.length !== crossings.length) fail("TC2 signals", `approach ${a.id}'s mast has ${buttons.length} push button${buttons.length === 1 ? "" : "s"} for ${crossings.length} crossing${crossings.length === 1 ? "" : "s"}`, [corner.cell]);
+        else {
+          const off = MAST.radius + boundsOf(PUSH_BUTTON_KEY).d / 2;
+          const used = new Set<CityTrafficPiece>();
+          for (const d of crossings) {
+            const b = buttons.find((q) => !used.has(q) && q.placement.yaw_deg === SIDE_YAW[sideOf(d[0], d[1])]);
+            if (!b) {
+              fail("TC2 signals", `a push button does not face its crossing (${d[0]}, ${d[1]})`, [corner.cell], buttons[0]);
+              continue;
+            }
+            used.add(b);
+            if (Math.abs(b.placement.x_m - (pole.x + d[0] * off)) > TOL || Math.abs(b.placement.z_m - (pole.z + d[1] * off)) > TOL || Math.abs(b.placement.y_m - MAST.buttonY) > TOL) fail("TC2 signals", `a push button is not on its mast's face toward its crossing (${d[0]}, ${d[1]})`, [corner.cell], b);
+          }
+        }
       }
       const boxes = mine.filter((p) => p.kind === "signalBox");
       if (boxes.length !== 1) fail("TC2 signals", `junction ${j.id} has ${boxes.length} signal boxes, not 1`, [...j.cells]);
@@ -201,6 +233,7 @@ export function trafficFailures(layer: CityTrafficLayer, input: TrafficInput): T
   for (const p of layer.pieces) if (!byJunction.has(p.host) && p.kind !== "parkingSign") fail("TC3 signs", `a ${p.kind} hosted by ${p.host}, which is not a junction`, [p.cell], p);
 
   // TC4 place
+  const walks = cornerWalks(input.streets.junctions);
   for (const p of layer.pieces) {
     if (!p.grounded) continue;
     const c = standCell(p);
@@ -208,6 +241,10 @@ export function trafficFailures(layer: CityTrafficLayer, input: TrafficInput): T
     const role = info.roleAt(c);
     if (role === undefined || !WALK_ROLES.has(role)) fail("TC4 place", `it stands on a ${role ?? "non-street"} cell, not a pavement or a pavement corner`, [c], p);
     else if (!within(footOf(p), cellRect(c))) fail("TC4 place", "its footprint is not inside the cell it stands on", [c], p);
+    else if (role === "pavementCorner") {
+      const w = walks.get(`${c.i},${c.j}`);
+      if (w && !within(footOf(p), w)) fail("TC4 place", `its footprint is not on the corner's walk (the square ${CORNER_WALK_M} m in from both kerb edges)`, [c], p);
+    }
   }
 
   // TC5 clear

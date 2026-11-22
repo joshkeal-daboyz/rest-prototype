@@ -68,10 +68,11 @@ describe("the traffic kit (070 TR1, criterion 1)", () => {
     expect(KIT.TRAFFIC_ALLOWED).not.toContain("city-pack:SM_Prop_LightPole_Lights_01");
   });
 
-  it("the four numbers equal Josh's (Q43), and the two copied from stage 8 equal ground's", () => {
+  it("the four numbers equal Josh's (Q43, with MAST_INSET_M at Q50's 2.6), the corner's walk is 2.1, and the two copied from stage 8 equal ground's", () => {
     expect(C.SIGN_KERB_M).toBe(0.5);
     expect(C.SIGN_CORNER_M).toBe(1.0);
-    expect(C.MAST_INSET_M).toBe(0.75);
+    expect(C.MAST_INSET_M).toBe(2.6);
+    expect(KIT.CORNER_WALK_M).toBe(2.1);
     expect(C.SIGNAL_HEAD_MIN_M).toBe(4.6);
     expect(C.SIGN_KERB_M).toBe(GROUND_C.FURN_KERB_M);
     expect(C.FURN_GAP_M).toBe(GROUND_C.FURN_GAP_M);
@@ -97,8 +98,8 @@ describe("the traffic kit (070 TR1, criterion 1)", () => {
 
 interface Gltf {
   nodes: { name?: string; mesh?: number; children?: number[] }[];
-  meshes: { primitives: { attributes: { POSITION: number } }[] }[];
-  accessors: { bufferView: number; byteOffset?: number; count: number }[];
+  meshes: { primitives: { attributes: { POSITION: number }; indices?: number }[] }[];
+  accessors: { bufferView: number; byteOffset?: number; count: number; componentType?: number }[];
   bufferViews: { byteOffset?: number; byteStride?: number }[];
 }
 
@@ -194,6 +195,98 @@ describe("the traffic kit equals the converted GLB (070 TR1, criterion 1; skippe
     // the hook leans toward the piece's own +z: the lamp head's vertices are at z > the pole's
     const top = vs.filter((v) => v[1]! > 6.2);
     expect(mid(range(top, 2))).toBeGreaterThan(KIT.MAST.axis.z + 0.5);
+  });
+});
+
+/** The highest surface of a piece at a point of its plan (x, z), metres above y = 0, or -Infinity where no triangle covers it. */
+function topAt(tris: readonly (readonly number[][])[], x: number, z: number): number {
+  let best = -Infinity;
+  for (const [A, B, C2] of tris) {
+    const d = (B![2]! - C2![2]!) * (A![0]! - C2![0]!) + (C2![0]! - B![0]!) * (A![2]! - C2![2]!);
+    if (Math.abs(d) < 1e-12) continue;
+    const l1 = ((B![2]! - C2![2]!) * (x - C2![0]!) + (C2![0]! - B![0]!) * (z - C2![2]!)) / d;
+    const l2 = ((C2![2]! - A![2]!) * (x - C2![0]!) + (A![0]! - C2![0]!) * (z - C2![2]!)) / d;
+    const l3 = 1 - l1 - l2;
+    if (l1 >= -1e-9 && l2 >= -1e-9 && l3 >= -1e-9) best = Math.max(best, l1 * A![1]! + l2 * B![1]! + l3 * C2![1]!);
+  }
+  return best;
+}
+
+describe("the corner's walk equals the converted GLB (070 TR1d, criterion 1; skipped without the GLB)", () => {
+  it.skipIf(!HAVE_GLB)("on SM_Env_Sidewalk_Dip_Corner_01 the square a, b in [CORNER_WALK_M, 4.9] is walk, and the mast's foot, the box and each button's press point lie on it with no lip between", { timeout: 120000 }, () => {
+    const { gltf, bin } = readGlb();
+    const root = gltf.nodes.find((q) => q.name === "SM_Env_Sidewalk_Dip_Corner_01");
+    expect(root).toBeDefined();
+    const vs = verticesOf(gltf, bin, "SM_Env_Sidewalk_Dip_Corner_01");
+    expect(vs.length).toBeGreaterThan(0);
+    // triangles: read each mesh primitive's index buffer under the node
+    const tris: number[][][] = [];
+    const walk = (q: { mesh?: number; children?: number[] }): void => {
+      for (const prim of q.mesh !== undefined ? gltf.meshes[q.mesh]!.primitives : []) {
+        const a = gltf.accessors[prim.attributes.POSITION]!;
+        const bv = gltf.bufferViews[a.bufferView]!;
+        const base = (bv.byteOffset ?? 0) + (a.byteOffset ?? 0);
+        const pts: number[][] = [];
+        for (let i = 0; i < a.count; i++) {
+          const at = base + i * (bv.byteStride ?? 12);
+          pts.push([bin.readFloatLE(at), bin.readFloatLE(at + 4), bin.readFloatLE(at + 8)]);
+        }
+        const ia = gltf.accessors[prim.indices!]!;
+        const ibv = gltf.bufferViews[ia.bufferView]!;
+        const ib = (ibv.byteOffset ?? 0) + (ia.byteOffset ?? 0);
+        const wide = ia.componentType === 5125;
+        const at = (n: number): number => (wide ? bin.readUInt32LE(ib + n * 4) : bin.readUInt16LE(ib + n * 2));
+        for (let i = 0; i + 2 < ia.count; i += 3) tris.push([pts[at(i)]!, pts[at(i + 1)]!, pts[at(i + 2)]!]);
+      }
+      for (const c of q.children ?? []) walk(gltf.nodes[c]!);
+    };
+    walk(root!);
+    const xr = range(vs, 0);
+    const zr = range(vs, 2);
+    const base = range(vs, 1)[0];
+    // the piece's kerb is on its +x and +z sides: a and b are metres in from them
+    const surface = (a: number, b: number): number => topAt(tris, xr[1] - a, zr[1] - b) - base;
+    const inWalk = (h: number): boolean => h >= 0.19 - 1e-3 && h <= 0.26 + 1e-3;
+    const bad: string[] = [];
+    for (let a = KIT.CORNER_WALK_M; a <= 4.9 + 1e-9; a += 0.05) for (let b = KIT.CORNER_WALK_M; b <= 4.9 + 1e-9; b += 0.05) if (!inWalk(surface(a, b))) bad.push(`(${a.toFixed(2)}, ${b.toFixed(2)}) is ${surface(a, b).toFixed(3)}`);
+    expect(bad).toEqual([]);
+    // the walk edge on the diagonal (reported): the first a = b, going in from the kerb corner, where the surface has risen to the walk's 0.19 m (the lip crossing it at about 2.0 m is just over 0.26 m)
+    let edge = NaN;
+    for (let a = 1.5; a <= 2.6; a += 0.01) {
+      if (surface(a, a) >= 0.19 - 1e-3) {
+        edge = a;
+        break;
+      }
+    }
+    // eslint-disable-next-line no-console
+    console.log(`CORNER WALK EDGE on the diagonal: ${edge.toFixed(2)} m (CORNER_WALK_M ${KIT.CORNER_WALK_M})`);
+    expect(edge).toBeLessThanOrEqual(KIT.CORNER_WALK_M);
+    // the mast's foot, the box's fix point and each button's press point (0.3 m in front of its face), in the corner's frame
+    const inset = C.MAST_INSET_M;
+    const r = KIT.MAST.radius;
+    const btn = KIT.TRAFFIC_BOUNDS[KIT.PUSH_BUTTON_KEY]!.d;
+    const box = KIT.TRAFFIC_BOUNDS[KIT.SIGNAL_BOX_KEY]!;
+    const press = inset - r - btn - 0.3;
+    const pts: readonly (readonly [string, number, number])[] = [
+      ["mast foot centre", inset, inset],
+      ["mast foot corner", inset - KIT.MAST.foot.w / 2, inset - KIT.MAST.foot.d / 2],
+      ["press point toward the x crossing", press, inset],
+      ["press point toward the z crossing", inset, press],
+      // the box stands beside the mast on the side away from the junction, its back to the mast: its depth along a, its width along b
+      ["box corner (near, low b)", inset + r, inset - box.w / 2],
+      ["box corner (near, high b)", inset + r, inset + box.w / 2],
+      ["box corner (far, low b)", inset + r + box.d, inset - box.w / 2],
+      ["box corner (far, high b)", inset + r + box.d, inset + box.w / 2],
+    ];
+    for (const [name, a, b] of pts) expect(inWalk(surface(a, b)), `${name} (${a.toFixed(2)}, ${b.toFixed(2)}) is ${surface(a, b).toFixed(3)}`).toBe(true);
+    // no lip (above 0.26 m) is crossed between a press point and the mast
+    for (const [from, to] of [[[press, inset], [inset, inset]], [[inset, press], [inset, inset]]] as const) {
+      for (let t = 0; t <= 1.0001; t += 0.02) {
+        const a = from[0] + (to[0] - from[0]) * t;
+        const b = from[1] + (to[1] - from[1]) * t;
+        expect(surface(a, b), `at (${a.toFixed(2)}, ${b.toFixed(2)})`).toBeLessThanOrEqual(0.26 + 1e-3);
+      }
+    }
   });
 });
 

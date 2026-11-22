@@ -1,10 +1,12 @@
 /**
- * Ticket 070 TR1, criterion 5: the failing fixtures. Each is the default city's layer (6 x 6 seed 1, one-way on) with one thing changed; it fails its own check and only it, unless it says otherwise. The positive control is the default layer, which
+ * Ticket 070 TR1, criterion 5, and TR1d criterion 3 (the masts, buttons and box on the corner's walk): the failing fixtures. Each is the default city's layer (6 x 6 seed 1, one-way on) with one thing changed; it fails its own check and only it, unless it says otherwise. The positive control is the default layer, which
  * passes. Where a fixture needs a place that passes every other check, the test looks for it among the city's own places (a junction, an approach, a sign, a kerb cut) and stops at the first that does.
  */
 import { describe, expect, it } from "vitest";
 import type { CalibrationKey, CityJunctionTraffic, CityTrafficPiece } from "../../core";
 import { poleOf } from "./clear";
+import { CELL_M, MAST_INSET_M } from "./constants";
+import { MAST, PUSH_BUTTON_KEY, boundsOf } from "./kit";
 import { bayStretches } from "./signs";
 import { trafficFailures, type TrafficInput } from "./trafficcheck";
 import { DEFAULT, inputOf, layersOf } from "./testcities";
@@ -83,8 +85,8 @@ describe("the failing fixtures (criterion 5)", { timeout: 120_000 }, () => {
     const FAR_LEFT: Record<string, readonly [number, number]> = { "-z": [1, 1], "+z": [-1, -1], "-x": [1, -1], "+x": [-1, 1] };
     const FAR_RIGHT: Record<string, readonly [number, number]> = { "-z": [-1, 1], "+z": [1, -1], "-x": [1, 1], "+x": [-1, -1] };
     const bounds = (j: { cells: readonly { i: number; j: number }[] }): { i0: number; i1: number; j0: number; j1: number } => ({ i0: Math.min(...j.cells.map((c) => c.i)), i1: Math.max(...j.cells.map((c) => c.i)), j0: Math.min(...j.cells.map((c) => c.j)), j1: Math.max(...j.cells.map((c) => c.j)) });
-    /** The pole of a corner: 0.75 m in from its two kerb edges. */
-    const poleAt = (r: { i0: number; i1: number; j0: number; j1: number }, sx: number, sz: number): { x: number; z: number } => ({ x: sx > 0 ? (r.i1 + 1) * 5 + 0.75 : r.i0 * 5 - 0.75, z: sz > 0 ? (r.j1 + 1) * 5 + 0.75 : r.j0 * 5 - 0.75 });
+    /** The pole of a corner: MAST_INSET_M in from its two kerb edges. */
+    const poleAt = (r: { i0: number; i1: number; j0: number; j1: number }, sx: number, sz: number): { x: number; z: number } => ({ x: sx > 0 ? (r.i1 + 1) * 5 + MAST_INSET_M : r.i0 * 5 - MAST_INSET_M, z: sz > 0 ? (r.j1 + 1) * 5 + MAST_INSET_M : r.j0 * 5 - MAST_INSET_M });
     const hit = first(
       cand,
       ({ m, arm, a, j }) => {
@@ -102,14 +104,14 @@ describe("the failing fixtures (criterion 5)", { timeout: 120_000 }, () => {
   });
 
   it("TC2: an arm moved so its free end lies over a pavement", () => {
-    // each arm runs along x or z; slide it 10 m further out along its own run (the mast stays: its clamp no longer holds the arm)
+    // each arm runs along x or z; slide it 20 m further out along its own run (TR1d: the mast stands 2.6 m further back, so 10 m no longer leaves the 15 m carriageway; the mast stays: its clamp no longer holds the arm)
     const run = (a: CityTrafficPiece): readonly [number, number] => {
       const y = a.placement.yaw_deg;
       return y === 0 ? [0, 1] : y === 90 ? [1, 0] : y === 180 ? [0, -1] : [-1, 0];
     };
-    const hit = first(arms, (a) => replace(a, shifted(a, run(a)[0] * 10, run(a)[1] * 10)), ["TC2 signals"]);
+    const hit = first(arms, (a) => replace(a, shifted(a, run(a)[0] * 20, run(a)[1] * 20)), ["TC2 signals"]);
     expect(hit).toBeDefined();
-    const f = failuresOf(replace(hit!.c, shifted(hit!.c, run(hit!.c)[0] * 10, run(hit!.c)[1] * 10)));
+    const f = failuresOf(replace(hit!.c, shifted(hit!.c, run(hit!.c)[0] * 20, run(hit!.c)[1] * 20)));
     expect(f.some((x) => /past its carriageway/.test(x.reason))).toBe(true);
   });
 
@@ -178,19 +180,92 @@ describe("the failing fixtures (criterion 5)", { timeout: 120_000 }, () => {
     expect(f.some((x) => /kerbCut/.test(x.reason))).toBe(true);
   });
 
-  it("TC4: a mast whose foot is moved over the kerb edge (its arm moves with it)", () => {
+  it("TC4: a mast whose foot is moved over the kerb edge (its whole group moves with it)", () => {
     const FAR_LEFT: Record<string, readonly [number, number]> = { "-z": [1, 1], "+z": [-1, -1], "-x": [1, -1], "+x": [-1, 1] };
-    const cand = masts.map((m) => ({ m, arm: arms.find((a) => a.group === m.group)!, a: base.junctions.flatMap((t) => t.approaches).find((q) => q.id === m.approach)! }));
-    // the pole is 0.75 m in from the cell's two kerb edges; 0.6 m toward the x kerb leaves 0.15 m, under the foot's half width
+    const cand = masts.map((m) => ({ m, a: base.junctions.flatMap((t) => t.approaches).find((q) => q.id === m.approach)! }));
+    // the pole is MAST_INSET_M in from the cell's two kerb edges; all but 0.1 m toward the x kerb leaves 0.1 m, under the foot's half width
     const hit = first(
       cand,
-      ({ m, arm, a }) => {
-        const dx = -FAR_LEFT[a.arm]![0] * 0.6;
-        return base.pieces.map((p) => (p === m || p === arm ? shifted(p, dx, 0) : p));
+      ({ m, a }) => {
+        const dx = -FAR_LEFT[a.arm]![0] * (MAST_INSET_M - 0.1);
+        return base.pieces.map((p) => (p.group === m.group && p.host === m.host ? shifted(p, dx, 0) : p));
       },
       ["TC4 place"],
     );
     expect(hit).toBeDefined();
+  });
+
+  // ---- TR1d (criterion 3): the corner's walk, and a button for each crossing ----
+  const FAR_LEFT_SIGN: Record<string, readonly [number, number]> = { "-z": [1, 1], "+z": [-1, -1], "-x": [1, -1], "+x": [-1, 1] };
+  const approachOf = (m: CityTrafficPiece) => base.junctions.flatMap((t) => t.approaches).find((q) => q.id === m.approach)!;
+  const groupOf = (m: CityTrafficPiece): CityTrafficPiece[] => base.pieces.filter((p) => p.group === m.group && p.host === m.host);
+  const buttonsOf = (m: CityTrafficPiece): CityTrafficPiece[] => groupOf(m).filter((p) => p.kind === "pushButton");
+  const crossroadsMasts = masts.filter((m) => buttonsOf(m).length === 2);
+
+  it("TC4 place: a mast moved back to TR1's place, 0.75 m in (its arm, heads and buttons with it), is not on the corner's walk", () => {
+    const hit = first(
+      masts,
+      (m) => {
+        const [sx, sz] = FAR_LEFT_SIGN[approachOf(m).arm]!;
+        const back = MAST_INSET_M - 0.75;
+        return base.pieces.map((p) => (p.group === m.group && p.host === m.host ? shifted(p, -sx * back, -sz * back) : p));
+      },
+      ["TC4 place"],
+    );
+    expect(hit).toBeDefined();
+    const m = hit!.c;
+    const [sx, sz] = FAR_LEFT_SIGN[approachOf(m).arm]!;
+    const f = failuresOf(base.pieces.map((p) => (p.group === m.group && p.host === m.host ? shifted(p, -sx * (MAST_INSET_M - 0.75), -sz * (MAST_INSET_M - 0.75)) : p)));
+    expect(f.some((x) => /not on the corner's walk/.test(x.reason))).toBe(true);
+  });
+
+  it("TC4 place: a signal box moved 1.5 m in toward the kerb is not on the corner's walk", () => {
+    const boxes = base.pieces.filter((p) => p.kind === "signalBox");
+    const hit = first(
+      boxes,
+      (b) => {
+        const m = masts.find((q) => q.host === b.host && q.cell.i === b.cell.i && q.cell.j === b.cell.j)!;
+        const dx = Math.sign(poleOf(m).x - b.placement.x_m) * 1.5;
+        return replace(b, shifted(b, dx, 0));
+      },
+      ["TC4 place"],
+    );
+    expect(hit).toBeDefined();
+    const b = hit!.c;
+    const m = masts.find((q) => q.host === b.host && q.cell.i === b.cell.i && q.cell.j === b.cell.j)!;
+    const f = failuresOf(replace(b, shifted(b, Math.sign(poleOf(m).x - b.placement.x_m) * 1.5, 0)));
+    expect(f.some((x) => /not on the corner's walk/.test(x.reason))).toBe(true);
+    expect(CELL_M).toBe(5);
+  });
+
+  it("TC2: one button removed from a crossroads mast fails \"has 1 push button for 2 crossings\"", () => {
+    expect(crossroadsMasts.length).toBeGreaterThan(20);
+    const m = crossroadsMasts[0]!;
+    const f = failuresOf(without(buttonsOf(m)[0]!));
+    expect(sorted(f.map((x) => x.check))).toEqual(["TC2 signals"]);
+    expect(f.some((x) => /has 1 push button for 2 crossings/.test(x.reason))).toBe(true);
+  });
+
+  it("TC2: a button turned away from its crossing fails", () => {
+    const m = crossroadsMasts[0]!;
+    const b = buttonsOf(m)[0]!;
+    const f = failuresOf(replace(b, turnedAround(b)));
+    expect(sorted(f.map((x) => x.check))).toEqual(["TC2 signals"]);
+    expect(f.some((x) => /does not face its crossing/.test(x.reason))).toBe(true);
+  });
+
+  it("TC2: a button moved to the face away from every crossing fails", () => {
+    const m = crossroadsMasts[0]!;
+    const b = buttonsOf(m)[0]!;
+    const pole = poleOf(m);
+    const off = MAST.radius + boundsOf(PUSH_BUTTON_KEY).d / 2;
+    // the button sits on the face toward its crossing, d from the pole; put it on the opposite face, turned to face outward
+    const dx = Math.sign(b.placement.x_m - pole.x) * off;
+    const dz = Math.sign(b.placement.z_m - pole.z) * off;
+    const away: CityTrafficPiece = { ...turnedAround(b), placement: { ...turnedAround(b).placement, x_m: pole.x - dx, z_m: pole.z - dz } };
+    const f = failuresOf(replace(b, away));
+    expect(sorted(f.map((x) => x.check))).toEqual(["TC2 signals"]);
+    expect(f.some((x) => /does not face its crossing/.test(x.reason))).toBe(true);
   });
 
   // ---- TC5 ----
