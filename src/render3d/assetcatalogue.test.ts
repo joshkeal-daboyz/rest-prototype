@@ -238,9 +238,8 @@ describe("PIECE_NOTES and notesFor", () => {
     expect(notesFor("nature-pack:SM_Terrain_Ground_Mound_Small_01")).toHaveLength(1);
     expect(dep("nature-pack:SM_Tree_Birch_01")[0]).toContain("Saplings");
     expect(dep("nature-pack:SM_Tree_Large_01")).toEqual([]);
-    // the sapling note carries Josh's words and T-2 in full
-    expect(dep("nature-pack:SM_Tree_Round_01")[0]).toContain("Poles too");
-    expect(dep("nature-pack:SM_Tree_Round_01")[0]).toContain("T-2");
+    // the sapling note, as the note now words it (crowns are a separate bullet there)
+    expect(dep("nature-pack:SM_Tree_Round_01")[0]).toContain("Never on a junction or crossing; never scaled.");
     // the street-mouth wall
     expect(dep("sci-fi-frontier-pack:SM_Bld_Wall_02")[0]).toContain("street mouth");
     expect(dep("sci-fi-frontier-pack:SM_Bld_Wall_01")).toEqual([]);
@@ -281,7 +280,7 @@ describe("PIECE_NOTES and notesFor", () => {
     const roof = notesFor("nature-pack:SM_Tree_Dead_01")[0]!.departure!;
     expect(roof).toContain("dead trees are dropped and bushes kept (the main session's call from the picture)");
     expect(roof).toContain("Pieces must fit the roof unscaled and never sit over a rooftop pole or line.");
-    expect(roof).toContain("RUIN_ROOF_GROWTH goes on in ticket 073 F1b2");
+    expect(roof).toContain("Ruin roof growth is on (RUIN_ROOF_GROWTH, ticket 073 F1b2)");
     expect(notesFor("nature-pack:SM_Plant_Bush_01")[0]!.departure).toBe(roof);
     expect(notesFor("nature-pack:SM_Terrain_Ground_Mound_Small_02")[0]!.departure).toContain("(road, parking band, open paving)");
     expect(notesFor("sci-fi-city-pack:SM_Prop_Powerpoll_01")[0]!.text).toContain("the base sits directly on the paving with a small square foot");
