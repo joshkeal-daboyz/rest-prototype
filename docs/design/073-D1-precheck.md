@@ -193,3 +193,33 @@ None of these needs a rule of Josh's changed. Item 1 changes D1's outline and A'
 - `probe.ts` measures the faces, side walls, shops and pavement places, writing `out.json`.
 - `sum.cjs` gives the totals and the DT picks, writing `sum.json`.
 - It uses a copy of the branch's `src/`, with `node_modules` linked from `D:\rest-prototype-main`, run with `tsx`, one process at a time.
+
+## Kit against the intended-use note
+
+21 Nov 2026, pipeline-designer. Each piece D1 would place, against `073-pack-intended-use.md` (its "Sure?" word in brackets), for X-11 (on `ticket/073a-era-types`, not merged). Doubts were checked in `sci-fi-city-pack.glb` by face direction and area (probe below). The Fable session's readings on cameras and shopfronts, on Josh's delegation, are taken as given.
+
+| Piece (D1 slot) | Images show | Verdict |
+| --- | --- | --- |
+| `Prop_AirConditioningUnit_01/02` (small bolt-on, upper walls) | wall clusters high up (seen clearly) | matches |
+| `Prop_WallAttach_Electronics_02/03/04/06`, `Prop_Pipes_03` (small bolt-on) | wall boxes and pipes on façades at and above the ground storey (inferred) | matches |
+| `Prop_Security_Camera_01/02` (storey 1 wall) | high on walls, about 4 m up (seen clearly) | matches, not provisional (Fable reading) |
+| `Prop_WallAttach_Electronics_01/05`, `_Vent_01..04` (tall, bare side wall) | on façades (inferred); side walls not singled out | matches |
+| `Prop_Pipes_01` (2.5 m horizontal, side wall) | only vertical pipes running down to the pavement | not shown: departure. Reason: a horizontal run on a bare side wall is the only place a 2.5 m pipe fits without covering windows |
+| `Prop_Overhang_01/02` (whole face) | not found in any image | not shown: departure. Reason: its shape (1.44 m deep, closed on all sides in the GLB) reads as a canopy; nothing contradicts it |
+| `Sign_01..09`, `Sign_011` (storey 1 street face) | shop signs on façades above doors (seen clearly) | matches. The GLB has a solid two-sided board (0.73 m² faced each side of 0.74) |
+| `Sign_Billboard_Border_01..04`, `_Tall_01..04` | billboards on upper walls, with pictures (seen clearly) | **contradicts.** The GLB is an empty frame: 0.26 to 0.34 m² faced of a 0.95 to 1.87 m² outline. The pictures the images show would be `Sign_Ad_*`, which are untextured (X-5) |
+| `Bld_Advanced_01/02` (added front) | shopfront strips form the ground storey itself (inferred) | departure: "an added front is what Josh's 'augmented' city needs" (Fable reading). Keep: see below |
+| `Prop_VendingMachine_01`, `Prop_Atm_01` (wall line) | against shopfronts, backs to the wall (inferred) | matches |
+| `Prop_Advertisement_Pillar_01` (kerb line) | free-standing on the pavement (seen clearly) | matches |
+| `Prop_ChargingStation_01` (kerb line) | not told apart from the other terminals | not shown: departure. Reason: a vehicle charger belongs at the kerb, by the road |
+
+**The shopfront's GLB.** Nothing makes the added front look wrong:
+- **No back face.** Every z-facing triangle faces the front. The panel's own backing (15 of 15 m² on `_01`, 30 of 30 on `_02`) is a plane at the rear facing forward. So it is seen only from the front, and against the old wall the open back is never visible. It also hides the old shop behind it.
+- **No floor lip.** The base is 0.35 m deep only (1.75 m² on `_01`), and there is no floor slab. The top is a 0.71 m deep lid at 3.0 m: a small ledge under the first floor, seen only from above.
+- **One doubt, for the builder's gallery look:** the end returns are only partly faced (about 1.5 of 2.1 m² each end of `_01`). In a row they are hidden; as an added front they show from along the pavement.
+
+**Verdict.** D1 may be built as pre-checked, with one change:
+1. **Drop `Sign_Billboard_Border_*` and `_Tall_*` from D1's sign slot** (recommended), leaving the plain `Sign_01..09`, `Sign_011`. Alone they are empty frames, and the images show billboards with pictures. The sign counts of section 3 stay as measured, since the slot picks from the plain signs too.
+2. List the three "not shown" uses above (`Prop_Pipes_01`, `Prop_Overhang_01/02`, `Prop_ChargingStation_01`) and the added shopfront as departures with these reasons in D1 (X-11). That is the architect's to cut.
+
+Probe: `C:\Users\Josh\AppData\Local\Temp\claude\1d0fef8a162d2b35\a299b8bb-7f57-4f1c-8232-566e8fc38f02\scratchpad\kitprobe\faces.cjs` (reads the GLB's own JSON and buffer, no loader; face area by direction and position).
