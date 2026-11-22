@@ -329,3 +329,4 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 070 L1 | renderer (general-purpose with renderer.md) | sonnet | 255K total | - | 0 | the switch, guide and grammar (6a8eb65) |
 | 070 L1 | gate (main session) | - | - | - | 0 | 6a8eb65: 183 files, 4190 passed, 35 skipped |
 | 070 L1 | code-reviewer / playtester | opus / sonnet | 79K / 20K | - | 0 | meets, must-fix 0; regressions 0 |
+| 073 cut | lead-architect | opus | 203K total | - | 0 | city transformations first cut, from docs/design/073-transformations.md |
