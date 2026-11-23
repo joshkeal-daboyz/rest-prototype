@@ -13,7 +13,7 @@ You are given a ticket id and a branch. Read, in this order:
 
 1. `tickets/NNN-slug.md`: the acceptance criteria are what you judge against.
 2. `CLAUDE.md` hard rules and the brief's "Rules carried over" (`docs/prototype-brief.md`).
-3. `git diff main...<branch>` and the files it touches. Run `npm test` and `npm run typecheck` on the branch and read the output.
+3. `git diff main...<branch>` and the files it touches. Run `npm run gate` on the branch (typecheck + the tests the change reaches, never the whole suite) and read the output.
 4. For a `src/grid/` or `src/night/` change, also `puzzles/SCHEMA.md`.
 
 Read nothing else about how the work was planned. Do not read earlier reviews of other tickets. Don't run the game in a browser; that is Josh's job.

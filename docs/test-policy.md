@@ -17,6 +17,7 @@ A test earns its place by catching a mistake someone is likely to make: a rule b
 4. **One digest pin per stage, on one city.** A digest breaks on every intended change and gets re-taken, so it is a tripwire, not coverage. Don't add more.
 5. **Time budget.** A new test file runs in under 2 s on Josh's PC (`npx vitest run --maxWorkers=2 <file>`) unless the ticket says why it needs more. The whole suite should stay under 3 minutes on CI. A ticket that would push it over removes, merges or slims tests in the same branch.
 6. **Removing is welcome.** A ticket may delete, merge or shrink tests that rule 1 or 2 makes redundant, including other folders' tests if the ticket lists them. The gate no longer checks that the test count grew.
+7. **Run only what the change reaches.** Josh, 23 Nov 2026: "I would only like tests to be performed against objects that the changes directly impact." He chose "Tests that use the code" and the whole suite "Only on a release". The gate (`npm run gate`), the reviewer and CI on a PR or a push to `main` run `vitest run --changed <base>`: only the test files whose imports reach a changed file. Vitest still runs everything when `package.json` or the vite config changed. The whole suite (`npm run gate:full`, or CI's manual "Run workflow") runs only on a release Josh calls or when he asks. Measured 23 Nov 2026: a change to `src/grid/grid.ts` reaches 25 of 224 test files; a change to a ruin kit file reaches 90, because the 3D view imports it.
 
 ## Who does what
 
