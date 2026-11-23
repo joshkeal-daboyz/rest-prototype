@@ -63,7 +63,11 @@ export const KIT: Readonly<Record<CalibrationKey, KitEntry>> = {
   [nat("Plant_Fern_02")]: e(["clump"], 1.15, 0.634, 1.053),
   [nat("Plant_Bush_01")]: e(["clump", "roof"], 1.615, 2.041, 1.415),
   [nat("Plant_Bush_02")]: e(["clump"], 2.092, 2.003, 1.789),
-  // saplings: the Round trees only (075 r0 S2, S8: Tree_Birch_* leaves are a flat pure-lime baseColorFactor, which reads lit at night; Round crowns are textured olive)
+  // saplings
+  [nat("Tree_Birch_01")]: e(["sapling"], 2.454, 4.547, 2.289, tr(0.11, 1.02)),
+  [nat("Tree_Birch_02")]: e(["sapling"], 2.498, 5.399, 2.789, tr(0.1, 0.22)),
+  [nat("Tree_Birch_03")]: e(["sapling"], 2.14, 5.399, 2.106, tr(0.09, 1.29)),
+  [nat("Tree_Birch_04")]: e(["sapling"], 2.522, 4.891, 2.461, tr(0.11, 1.43)),
   [nat("Tree_Round_01")]: e(["sapling"], 2.922, 3.759, 2.242, tr(0.35, 1.5, false)),
   [nat("Tree_Round_02")]: e(["sapling"], 3.86, 4.731, 2.456, tr(0.35, 1.5, false)),
   [nat("Tree_Round_03")]: e(["sapling"], 1.777, 3.601, 1.683, tr(0.3, 1.5, false)),
@@ -99,7 +103,13 @@ export const OVERGROWTH_KEYS: readonly CalibrationKey[] = keysOf("patch").filter
 export const MOUND_KEY: CalibrationKey = nat("Terrain_Ground_Mound_Small_02");
 export const EDGE_KEYS: readonly CalibrationKey[] = (Object.keys(KIT) as CalibrationKey[]).filter((k) => /Env_Overgrowth_Edge_/.test(k));
 export const FERN_BUSH_KEYS: readonly CalibrationKey[] = named(nat("Plant_Fern_01"), nat("Plant_Fern_02"), nat("Plant_Bush_01"), nat("Plant_Bush_02"));
-export const SAPLING_KEYS: readonly CalibrationKey[] = keysOf("sapling");
+/**
+ * Ticket 075 r0 (S2, S8): keys the pass keeps in its table but never picks. The `Tree_Birch_*` leaves are a flat pure-lime baseColorFactor, which reads lit at night; the Round crowns are textured olive.
+ * They stay in `KIT` (the pin tests read the whole table); no sapling pick ever lands on one.
+ */
+export const UNPICKED_KEYS: ReadonlySet<CalibrationKey> = new Set([1, 2, 3, 4].map((n) => nat(`Tree_Birch_0${n}`)));
+const ALL_SAPLING_KEYS: readonly CalibrationKey[] = keysOf("sapling");
+export const SAPLING_KEYS: readonly CalibrationKey[] = ALL_SAPLING_KEYS.filter((k) => !UNPICKED_KEYS.has(k));
 export const GIANT_KEY: CalibrationKey = nat("Tree_Generic_Giant_01");
 export const LARGE_KEY: CalibrationKey = nat("Tree_Large_01");
 export const ROOF_BUSH_KEY: CalibrationKey = nat("Plant_Bush_01");
@@ -118,7 +128,7 @@ export const KIT_KEYS: ReadonlySet<CalibrationKey> = new Set(Object.keys(KIT) as
  * The keys that are trees for T-1 (a canopy): only the ones F1 plants. C1's default (a `Tree` word in the key) would make `Tree_Vines_*` and `Tree_Dead_*` canopies, which they are not
  * (a dead tree is a snag; a vine is a strand).
  */
-export const TREE_KEYS: ReadonlySet<CalibrationKey> = new Set([...SAPLING_KEYS, GIANT_KEY, LARGE_KEY]);
+export const TREE_KEYS: ReadonlySet<CalibrationKey> = new Set([...ALL_SAPLING_KEYS, GIANT_KEY, LARGE_KEY]);
 export const ruinIsTree = (k: CalibrationKey): boolean => TREE_KEYS.has(k);
 
 /** The kit's full bounds (width x, depth z, height), unturned: a tree's whole crown. What the reports read a crown by. Undefined for a key that is not the pass's. */

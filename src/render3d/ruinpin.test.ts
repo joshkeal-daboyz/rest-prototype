@@ -16,8 +16,8 @@ import * as ROOFS from "../city/facades/roofkit";
 import { NOVELTY_BOUNDS } from "../city/facades/noveltykit";
 
 describe("the ruin kit table: what needs no asset", () => {
-  it("holds 38 keys from three packs, none emissive, the giant tree at 12.6 x 11.19 x 13.12", () => {
-    expect(KIT_KEYS.size).toBe(38);
+  it("holds 42 keys from three packs, none emissive, the giant tree at 12.6 x 11.19 x 13.12", () => {
+    expect(KIT_KEYS.size).toBe(42);
     for (const [k, e] of Object.entries(KIT)) {
       expect(["apocalypse-ruin:SM_", "nature-pack:SM_", "palm-city-pack:SM_"].some((p) => k.startsWith(p)), k).toBe(true);
       expect(e.emissive, k).toBe(false);
