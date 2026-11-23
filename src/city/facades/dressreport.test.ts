@@ -14,11 +14,12 @@ import { buildDressing } from "./dress";
 import { dressReport, type DressMetrics, type OverlapTally } from "./dresscheck";
 import { DRESS_MAX } from "./dresskit";
 import { type City, cityOf, label, NAMED, stagesOf } from "./testcities";
+import { yieldToWorker } from "../testing/yield";
 
 const f3 = (n: number): string => n.toFixed(3);
 
 describe("H1b report, criterion 7 (reported, not asserted, except that the named runs are ok)", { timeout: 120_000 }, () => {
-  it("prints the 20 named runs' numbers", () => {
+  it("prints the 20 named runs' numbers", async () => {
     const lines: string[] = [];
     const reach: Record<string, number> = {};
     const overlaps: Record<string, OverlapTally> = {};
@@ -30,6 +31,7 @@ describe("H1b report, criterion 7 (reported, not asserted, except that the named
     let maxOverlapHeight = 0;
     let maxPieces = 0;
     for (const o of NAMED) {
+      await yieldToWorker();
       const r = cityOf(o);
       expect(r.ok, label(o)).toBe(true);
       if (!r.ok) continue;
@@ -78,7 +80,7 @@ describe("H1b report, criterion 7 (reported, not asserted, except that the named
     );
   });
 
-  it("prints the outside cities, reported and not asserted", () => {
+  it("prints the outside cities, reported and not asserted", async () => {
     const lines: string[] = [];
     const tally: Record<string, { ok: number; fail: number; before: number }> = {};
     const outside: City[] = [];
@@ -96,6 +98,7 @@ describe("H1b report, criterion 7 (reported, not asserted, except that the named
         t.fail++;
         lines.push(`${o.blocksX}x${o.blocksZ} s${o.seed} ${o.way}: facades failed: ${r.failure.reason.slice(0, 160)}`);
       } else t.before++;
+      await yieldToWorker();
     }
     console.log(`H1b REPORT, outside\n${Object.entries(tally).map(([k, v]) => `${k}: stage 7 ok ${v.ok}, failed ${v.fail}, never reached ${v.before}`).join("\n")}\n${lines.join("\n")}`);
   });

@@ -19,6 +19,7 @@ import { roofReport } from "./roofcheck";
 import { buildRoofs, deckOf, footprintOf, lowestOfRuns, roofInsets, within, type RoofStats } from "./roofs";
 import { keyOf } from "./place";
 import { type City, cityOf, label, NAMED, stagesOf } from "./testcities";
+import { yieldToWorker } from "../testing/yield";
 
 const f3 = (n: number): string => n.toFixed(3);
 const add = (into: Record<string, number>, from: Readonly<Record<string, number>>): void => {
@@ -26,7 +27,7 @@ const add = (into: Record<string, number>, from: Readonly<Record<string, number>
 };
 
 describe("H3 report, criterion 8 (reported, not asserted, except as the ticket pins)", { timeout: 120_000 }, () => {
-  it("prints the 20 named runs' numbers", () => {
+  it("prints the 20 named runs' numbers", async () => {
     const lines: string[] = [];
     const kinds: Record<string, number> = {};
     const keys: Record<string, number> = {};
@@ -46,6 +47,7 @@ describe("H3 report, criterion 8 (reported, not asserted, except as the ticket p
     const over: string[] = [];
     let maxPerColumn = 0;
     for (const o of NAMED) {
+      await yieldToWorker();
       const r = cityOf(o);
       expect(r.ok, label(o)).toBe(true);
       if (!r.ok) continue;
@@ -125,7 +127,7 @@ NV the run's lowest building took ${JSON.stringify(lowestTook)}\nCAP turned away
     );
   });
 
-  it("prints H3b's numbers: the water-tower cap per street block against the uncapped layer, the freed roofs and R8 (criterion 7)", () => {
+  it("prints H3b's numbers: the water-tower cap per street block against the uncapped layer, the freed roofs and R8 (criterion 7)", async () => {
     const lines: string[] = [];
     const med = (xs: number[]): number => (xs.length === 0 ? 0 : [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]!);
     const tot = { buildings: 0, blocks: 0, towers: 0, towers1: 0, freed: 0, bare: 0, topped: 0, exitBlind: 0, exitMid: 0, none: 0, exits: 0, exits1: 0, pieces: 0, pieces1: 0, small: 0, small1: 0, b0: 0, b1: 0, b2: 0, b3: 0, under: 0, bigRuns: 0, bigRuns1: 0 };
@@ -142,6 +144,7 @@ NV the run's lowest building took ${JSON.stringify(lowestTook)}\nCAP turned away
     const medians: number[] = [];
     let secondEqual = 0;
     for (const o of NAMED) {
+      await yieldToWorker();
       const r = cityOf(o);
       expect(r.ok, label(o)).toBe(true);
       if (!r.ok) continue;
@@ -229,7 +232,7 @@ NV the run's lowest building took ${JSON.stringify(lowestTook)}\nCAP turned away
     );
   });
 
-  it("prints the outside cities, reported and not asserted", () => {
+  it("prints the outside cities, reported and not asserted", async () => {
     const lines: string[] = [];
     const tally: Record<string, { ok: number; fail: number; before: number }> = {};
     const outside: City[] = [];
@@ -247,6 +250,7 @@ NV the run's lowest building took ${JSON.stringify(lowestTook)}\nCAP turned away
         t.fail++;
         lines.push(`${o.blocksX}x${o.blocksZ} s${o.seed} ${o.way}: facades failed: ${r.failure.reason.slice(0, 160)}`);
       } else t.before++;
+      await yieldToWorker();
     }
     console.log(`H3 REPORT, outside\n${Object.entries(tally).map(([k, v]) => `${k}: stage 7 ok ${v.ok}, failed ${v.fail}, never reached ${v.before}`).join("\n")}\n${lines.join("\n")}`);
   });
