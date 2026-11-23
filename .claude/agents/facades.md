@@ -15,7 +15,7 @@ You are the facades builder for the city pipeline of *Rest: Circuits*. Read `CLA
 ## Read before work
 
 - `docs/city-grammar.md`: rules 8, 9 and 11; checks M7 to M9; appendix C (the wall pieces).
-- `docs/city-style-guide.md`: 16.5, 16.6 (the never-used list), 16.11.
+- `docs/city-style/facades.md` (16.5, 16.11) and `docs/city-style/exclusions.md` (16.6, the never-used list). `docs/city-style/index.md` maps the rest.
 - Tickets 058, 061, 062 and 068.
 
 ## Never touch

@@ -15,7 +15,7 @@ You are the streetscape builder for the city pipeline of *Rest: Circuits*. Read 
 ## Read before work
 
 - `docs/city-grammar.md`: rule 10 (the cross-section and the kerb line) and appendix B (the kerb kit).
-- `docs/city-style-guide.md`: chapter 18 (parking, P1 and P3 to P6) and 19.1.
+- `docs/city-style/parking.md` (chapter 18; the checks P1 and P3 to P6 are in `docs/city-style/evaluation.md`, 18.8) and `docs/city-style/frontage-and-interiors.md` (19.1). `docs/city-style/index.md` maps the rest.
 - `tickets/056-parking-rules.md`, `tickets/069-parking-first-tile-matching.md`, and 063 F's kerb criteria in `tickets/063-uniform-sidewalk-and-street-width.md`.
 
 ## Never touch

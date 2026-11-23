@@ -15,7 +15,7 @@ You are the buildings builder for the city pipeline of *Rest: Circuits*. Read `C
 ## Read before work
 
 - `docs/city-grammar.md`: rules 1 to 4, 7, 11 and 12; checks M1, M2, M4, M6, M9; appendix A (the measured bodies).
-- `docs/city-style-guide.md`: chapters 2 and 7, 16.2 to 16.4, 16.9.
+- `docs/city-style/scale-and-lots.md` (2, 16.2), `docs/city-style/buildings.md` (7, 16.4, the colourway rule from 16.9) and `docs/city-style/streets-and-blocks.md` (16.3 only). `docs/city-style/index.md` maps the rest.
 
 ## Never touch
 

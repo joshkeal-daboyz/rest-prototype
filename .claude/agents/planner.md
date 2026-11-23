@@ -16,7 +16,7 @@ You are the planner for the city pipeline of *Rest: Circuits*. Read `CLAUDE.md`,
 ## Read before work
 
 - `docs/city-grammar.md`: rules 3 to 6, 10 and 12; checks M3 to M5. Lines marked Decided or Law are Josh's rulings.
-- `docs/city-style-guide.md`: 18.2, 18.4, 18.6, 19.3 to 19.6.
+- `docs/city-style/parking.md` (18.2, 18.4, 18.6), `docs/city-style/frontage-and-interiors.md` (19.4, 19.6) and `docs/city-style/streets-and-blocks.md` (19.3, 19.5). `docs/city-style/index.md` maps the rest.
 
 ## Never touch
 

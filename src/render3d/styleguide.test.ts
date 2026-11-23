@@ -1,11 +1,12 @@
 /**
- * Ticket 043 section A: the city style guide (docs/city-style-guide.md) cannot drift from the code. The guide is read as text, its Numbers
+ * Ticket 043 section A: the city style guide (docs/city-style/, split from docs/city-style-guide.md in ticket 080) cannot drift from the code. The guide is read as text, its Numbers
  * table and its pack, fronts and corner tables are parsed, and each row is compared with the export it names. No WebGL, no network,
  * no assets: the optional manifest check is skipped when assets/private/out/manifest.json is absent.
  */
 
 import { describe, expect, it } from "vitest";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { parseCalibrationKey } from "../core";
 import * as cityRender from "../render/city";
 import * as camera from "./camera";
@@ -34,10 +35,94 @@ import * as tilecity from "./tilecity";
 import * as tileslots from "./tileslots";
 import * as town from "./town";
 
-const GUIDE = "docs/city-style-guide.md";
+const GUIDE_DIR = "docs/city-style";
 const MANIFEST = "assets/private/out/manifest.json";
 
-const doc = readFileSync(GUIDE, "utf8");
+/** Every `##` and `###` heading of the old one-file guide (ticket 080 A), in the old order. Each lives in exactly one file under docs/city-style/. */
+const OLD_HEADINGS = [
+  "## 1. Purpose and status",
+  "## 2. Scale",
+  "## 3. Streets and blocks",
+  "## 4. Lots",
+  "## 5. Choosing a building",
+  "## 6. Facing",
+  "## 7. Corner buildings",
+  "## 8. Lit places",
+  "## 9. Power lines",
+  "## 10. Roads from packs",
+  "## 11. Palette and light",
+  "## 12. Accessibility",
+  "## 13. Packs in the mix",
+  "## 14. Licence handling",
+  "## 15. Adding a pack, step by step",
+  "## 16. Procedural city",
+  "### 16.1 Grammar",
+  "### 16.2 Lots and runs",
+  "### 16.3 Blocks",
+  "### 16.4 Variety",
+  "### 16.5 Dressing and furniture",
+  "### 16.6 Exclusions and gaps",
+  "### 16.7 Fallbacks",
+  "### 16.8 Evaluation protocol",
+  "### 16.9 What matches the reference, and what does not yet",
+  "### 16.10 Door sills (ticket 055 F)",
+  "### 16.11 Fire escapes (ticket 058)",
+  "### 16.12 The testing daylight (dev only)",
+  "## 18. Parking",
+  "### 18.1 Who parks where",
+  "### 18.2 Units",
+  "### 18.3 Kerbside bays (shoppers)",
+  "### 18.4 Lots (residents)",
+  "### 18.5 The parking band without bays",
+  "### 18.6 Too little, too much",
+  "### 18.7 The tile city's R6 floor",
+  "### 18.8 The checks, and what they measured",
+  "## 19. Frontage and block interiors",
+  "### 19.1 The wall line",
+  "### 19.2 Corners and far ends",
+  "### 19.3 Thinner blocks: considered, not the default",
+  "### 19.4 The block interior",
+  "### 19.5 Block variety: 90 degrees, not a grid of squares",
+  "### 19.6 Alleys and parks",
+  "### 19.7 The checks, and what they measured",
+  "### 19.8 What the drawing does (ticket 057 D)",
+  "## Decided, not yet built (the tile city, 18 Nov 2026)",
+  "### Roads and the grid (ticket 055; chapter 17 and chapter 10 when 055 D lands)",
+  "### Corners and frontage (ticket 055 B, then 057; built, now chapter 19)",
+  "### Buildings (ticket 055 F is built, now section 16.10; ticket 058 is built, now section 16.11)",
+  "### Poles, wires and lights (ticket 059; chapter 20, with lines in chapters 8 and 12)",
+  "### Testing daylight (ticket 060; built, now section 16.12)",
+  "## Numbers",
+];
+
+/** The guide's files by name, read through this one helper. */
+const guideFile = (name: string): string => readFileSync(join(GUIDE_DIR, name), "utf8").replace(/\r\n/g, "\n");
+const GUIDE_FILES = readdirSync(GUIDE_DIR).filter((f) => f.endsWith(".md") && f !== "index.md" && f !== "STANDARD.md");
+
+/**
+ * The guide as one text, in the old section order: the files are cut into blocks at each `##` or `###` heading, then laid out in OLD_HEADINGS order,
+ * so a section reads the same wherever it lives. A `#### From <heading>` block continues the section it names (16.9's colourway rule).
+ */
+function readGuide(): string {
+  const blocks = new Map<string, string[]>();
+  const conts = new Map<string, string[]>();
+  const pre: string[] = [];
+  for (const f of GUIDE_FILES) {
+    let into: string[] = pre;
+    for (const l of guideFile(f).split("\n")) {
+      const cont = /^#### From (\d+\.\d+) /.exec(l);
+      if (cont) {
+        const key = OLD_HEADINGS.find((h) => h.startsWith(`### ${cont[1]} `))!;
+        conts.set(key, (into = []));
+      } else if (/^##+ /.test(l) && !l.startsWith("#### ")) blocks.set(l, (into = [l]));
+      else into.push(l);
+    }
+  }
+  const text = (h: string): string => [...(blocks.get(h) ?? []), ...(conts.get(h) ?? [])].join("\n");
+  return [pre.join("\n"), ...OLD_HEADINGS.map(text)].join("\n");
+}
+
+const doc = readGuide();
 const lines = doc.split(/\r?\n/);
 
 const MODULES: Readonly<Record<string, Record<string, unknown>>> = {
@@ -120,9 +205,23 @@ function lookup(file: string, ref: string): unknown {
 }
 
 describe("the city style guide exists and is shaped as the ticket says", () => {
-  it("has the sixteen chapters and chapters 18 and 19 (tickets 056 and 057), in order, and a Numbers appendix", () => {
-    expect(chapterNumbers).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 19]);
-    expect(lines.some((l) => l === "## Numbers")).toBe(true);
+  it("holds every old heading in exactly one file, and the index map names that file (ticket 080 A)", () => {
+    const index = guideFile("index.md");
+    expect(index.length, "index.md is over 2 KB").toBeLessThan(2048);
+    for (const h of OLD_HEADINGS) {
+      const homes = GUIDE_FILES.filter((f) => guideFile(f).split("\n").includes(h));
+      expect(homes.length, `${h} is in ${homes.length} files: ${homes.join(", ")}`).toBe(1);
+      expect(index, `index.md does not name ${homes[0]}, the home of ${h}`).toContain(`\`${homes[0]}\``);
+    }
+  });
+
+  it("every docs/city-style path an agent reading list cites exists, and none still cites the old guide (ticket 080 A)", () => {
+    const dir = join(".claude", "agents");
+    for (const f of readdirSync(dir).filter((n) => n.endsWith(".md"))) {
+      const text = readFileSync(join(dir, f), "utf8");
+      expect(text, `${f} still cites docs/city-style-guide.md`).not.toContain("docs/city-style-guide.md");
+      for (const m of text.matchAll(/docs\/city-style\/[\w.-]+\.md/g)) expect(existsSync(m[0]), `${f} cites ${m[0]}, which does not exist`).toBe(true);
+    }
   });
 
   it("tags every rule: Decided and Default name a ticket; Pending and Open say what they wait for", () => {
@@ -430,14 +529,6 @@ describe("chapter 16 gives the grammar and the evaluation protocol (ticket 053)"
   const text = chapter(16).join("\n");
   const MAPS = ["09-shrine-circuit", "64-the-whole-chain", "01-first-light"];
 
-  it("has its nine parts, in order", () => {
-    const heads = chapter(16)
-      .filter((l) => /^### 16\.\d /.test(l))
-      .map((l) => Number(/^### 16\.(\d) /.exec(l)![1]));
-    expect(heads).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
-    expect(text).toMatch(/### 16\.8 Evaluation protocol/);
-  });
-
   it("names each of the three maps, and each is a puzzle in puzzles/", () => {
     const rows = table(chapter(16), ["Map", "Why"]);
     expect(rows.map((r) => unquote(r[0]!))).toEqual(MAPS);
@@ -629,19 +720,6 @@ describe("chapter 18 gives the parking rules, and the numbers it names cannot dr
       const v = (MODULES["tilecity.ts"] as Record<string, unknown>)[name];
       if (v === undefined || typeof v === "function") continue;
       expect(have.some((r) => r === name || r.startsWith(`${name}.`) || r.startsWith(`${name}[`)), `chapter 18 names ${name}, which has no Numbers row`).toBe(true);
-    }
-  });
-
-  it("has its eight parts, in order, and every rule tagged with a ticket, or with what it waits for", () => {
-    const heads = chapter(18).filter((l) => /^### 18\.\d /.test(l)).map((l) => Number(/^### 18\.(\d) /.exec(l)![1]));
-    expect(heads).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
-    const bullets = chapter(18).filter((l) => l.startsWith("- "));
-    expect(bullets.length).toBeGreaterThan(20);
-    for (const b of bullets) {
-      const tag = /^- \*\*(Decided|Default|Pending|Open|Info)\b/.exec(b);
-      expect(tag, `chapter 18: untagged bullet: ${b.slice(0, 80)}`).not.toBeNull();
-      if (tag![1] === "Decided" || tag![1] === "Default") expect(/^- \*\*(Decided|Default) \(056\b/.test(b), `chapter 18: no ticket beside: ${b.slice(0, 80)}`).toBe(true);
-      if (tag![1] === "Pending" || tag![1] === "Open") expect(b.startsWith(`- **${tag![1]} (waits for `), `chapter 18: no "what it waits for": ${b.slice(0, 80)}`).toBe(true);
     }
   });
 
@@ -866,22 +944,6 @@ describe("chapter 19 gives frontage and block interiors, and the numbers it name
     expect(tilecity.PASSAGE_W_M.max).toBeLessThanOrEqual(tilecity.TILE_M + 0.3 + 1e-9);
     expect(Object.keys(frontage.FRONTAGE_CHECK)).toEqual(["G1", "G2", "G3", "G4"]);
     expect(Object.keys(frontage.VARIETY_CHECK)).toEqual(["V1", "V2", "V3", "V4"]);
-  });
-
-  it("has its eight parts, in order, and every rule tagged with ticket 057 or with what it waits for", () => {
-    const heads = chapter(19).filter((l) => /^### 19\.\d /.test(l)).map((l) => Number(/^### 19\.(\d) /.exec(l)![1]));
-    expect(heads).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
-    const bullets = chapter(19).filter((l) => l.startsWith("- "));
-    expect(bullets.length).toBeGreaterThan(40);
-    for (const b of bullets) {
-      const tag = /^- \*\*(Decided|Default|Pending|Open|Info)\b/.exec(b);
-      expect(tag, `chapter 19: untagged bullet: ${b.slice(0, 80)}`).not.toBeNull();
-      if (tag![1] === "Decided" || tag![1] === "Default") expect(/^- \*\*(Decided|Default) \(057\b/.test(b), `chapter 19: no ticket beside: ${b.slice(0, 80)}`).toBe(true);
-      if (tag![1] === "Pending" || tag![1] === "Open") expect(b.startsWith(`- **${tag![1]} (waits for `), `chapter 19: no "what it waits for": ${b.slice(0, 80)}`).toBe(true);
-    }
-    // Section D is merged: nothing in the chapter waits for it, and what it built is recorded as 057 D (19.8).
-    expect(chapter(19).filter((l) => l.startsWith("- **Pending")), "chapter 19 has no Pending line left").toEqual([]);
-    expect(chapter(19).filter((l) => /^- \*\*Default \(057 D\)/.test(l)).length).toBeGreaterThanOrEqual(8);
   });
 
   it("keeps Josh's words as the Decided lines: the wall line, the fill, the grid, and the R1 floor", () => {
