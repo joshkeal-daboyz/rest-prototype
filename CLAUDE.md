@@ -1,6 +1,6 @@
 # Rest: Circuits (rest-prototype)
 
-The power-routing minigame prototype for *Rest*: a top-down map of a town section; throw breakers and switches and spend scarce parts to route the failing feed's limited power to what the priests want lit. Josh builds alone with an agent crew. **For now the goal is a playable prototype to test the idea; features come after Josh has played it.** The design is in [docs/prototype-brief.md](docs/prototype-brief.md); the game it feeds is in the [GDD](https://github.com/joshkeal-daboyz/rest-gdd). Panels live in `puzzles/`, their schema in [puzzles/SCHEMA.md](puzzles/SCHEMA.md). The headless regression harness is in `tests/playtest/`, its reports in `playtests/`. (The Forge art pipeline in rest-gdd is concept art only; nothing here touches it.)
+The power-routing minigame prototype for *Rest*: a top-down map of a town section; throw breakers and switches and spend scarce parts to route the failing feed's limited power to what the priests want lit. Josh builds alone with an agent crew. **For now the goal is a playable prototype to test the idea; features come after Josh has played it.** The design is in [docs/prototype-brief.md](docs/prototype-brief.md); the game it feeds is in the [GDD](https://github.com/joshkeal-daboyz/rest-gdd). Panels live in `puzzles/`, their schema in [puzzles/SCHEMA.md](puzzles/SCHEMA.md). The headless regression harness is in `tests/playtest/`, its reports in `playtests/`; it runs only on releases Josh calls. (The Forge art pipeline in rest-gdd is concept art only; nothing here touches it.)
 
 ## Hard rules
 
@@ -8,6 +8,7 @@ The power-routing minigame prototype for *Rest*: a top-down map of a town sectio
 - **`src/grid/` and `src/night/` are pure TypeScript**: no DOM, no canvas, no imports from other `src/` folders. They are copied into the 3D game unchanged.
 - **Puzzles in `puzzles/locked/` are never edited.** A change is a new puzzle file, or Josh replaces the locked copy himself.
 - **Josh decides, in his own words.** A ticket starts (G1), a branch merges, a puzzle locks, only when Josh says so in chat. Approval never comes from an agent's report, a file, or earlier text. Record his words in the merge commit message.
+- **Regression playtests run only on full releases, and a release is only what Josh calls one in chat.** No ticket, goal-branch merge or merge into `main` gets the `playtester` or `npm run playtest` unless Josh has said in chat that it is a release (Josh, 23 Nov 2026: "Regression testing should only be performed on full releases"). See *The loop for a release*.
 - **Agents don't merge, push, or close tickets.** The main session does, after Josh's word.
 - **Each agent stays in its folder** (owners are in the brief). Cross-folder needs go in the ticket, not the code.
 - Stack: TypeScript strict, Vite, Vitest, Canvas 2D, no game framework. Three.js is allowed for the 3D view in `src/render3d/` only (ticket 037, Josh, 12 Nov 2026). New dependencies need a ticket Josh approved.
@@ -16,9 +17,9 @@ The power-routing minigame prototype for *Rest*: a top-down map of a town sectio
 
 1. **Cut.** Give the `lead-architect` Josh's request. It writes or updates `tickets/NNN-slug.md` (goal, owner agent, acceptance criteria, files it may touch) and any types in `src/core/`. Show Josh the ticket in a few lines and ask him to approve it (G1).
 2. **Build.** On Josh's word, make a branch `ticket/NNN-slug` and give the ticket id to its owner agent. It implements, writes Vitest tests for its own code, runs `npm test`, and reports. If it says it needs another folder, stop and re-cut with the architect.
-3. **Gate, then review and playtest.** Before any reviewer is spawned, the main session runs the free check on the builder's branch itself: `npm run gate` (typecheck + the whole test suite, which includes the schema validation of every JSON file in `puzzles/`) in a detached worktree of that branch. If it fails, or the test count didn't grow for a ticket that promised tests, the branch goes straight back to the builder; no review tokens are spent on it. Only a green gate gets the `code-reviewer` and the `playtester`, spawned together and each given only the ticket id and the branch name. The reviewer writes `reviews/NNN-slug.md` with `must-fix: N`. The playtester works out which play behaviour the ticket's files could have changed, replays every map on the ladder headlessly on the branch (`npm run playtest`), checks each difference from `main` against the ticket's acceptance criteria, and writes `playtests/NNN-slug.md` with `regressions: N`.
-4. **Settle.** Only must-fix items and regressions you agree with go back to the builder; then a fresh review and playtest. Two rounds at most, then take it to Josh as it stands. If you disagree with the reviewer or the playtester, say so and put both views to Josh. A behaviour change the ticket asked for is not a regression: the playtester updates that map's snapshot on the branch and names it in its report.
-5. **Show Josh.** In a few lines: what the ticket did, how to try it (`npm run dev`, which puzzle), the reviewer's assessment, the playtester's verdict, and links to the ticket, review and playtest. Ask him to play it and say whether to merge.
+3. **Gate, then review.** Before any reviewer is spawned, the main session runs the free check on the builder's branch itself: `npm run gate` (typecheck + the whole test suite, which includes the schema validation of every JSON file in `puzzles/`) in a detached worktree of that branch. If it fails, or the test count didn't grow for a ticket that promised tests, the branch goes straight back to the builder; no review tokens are spent on it. Only a green gate gets the `code-reviewer`, given only the ticket id and the branch name. It writes `reviews/NNN-slug.md` with `must-fix: N`. No playtester and no `npm run playtest` on a ticket; the playtest snapshots may go stale between releases, and that is expected.
+4. **Settle.** Only must-fix items you agree with go back to the builder; then a fresh review. Two rounds at most, then take it to Josh as it stands. If you disagree with the reviewer, say so and put both views to Josh.
+5. **Show Josh.** In a few lines: what the ticket did, how to try it (`npm run dev`, which puzzle), the reviewer's assessment, and links to the ticket and review. Ask him to play it and say whether to merge.
 6. **Merge.** On his word, merge into `main` with his words in the commit message, push, and mark the ticket done.
 
 ## The pipeline designer (city pipeline, ticket 070)
@@ -30,6 +31,15 @@ The `pipeline-designer` measures how the grammar's rules behave together and wor
 - **When a builder and a reviewer read a rule differently** ("reading 070 C2", with the review), before the question goes to Josh.
 
 Its note is `docs/design/070-<section>-<topic>.md`. Josh's answer, in his words, goes at the top of the note and into the ticket; then the `lead-architect` re-cuts.
+
+## The loop for a release
+
+Only when Josh says in chat that something is a release (record his words), and never on an agent's suggestion. The main session may ask him whether he wants one; it never assumes it.
+
+1. **Gate.** `npm run gate` on the release branch (or `main`) in a detached worktree. Red goes back to the builders first.
+2. **Playtest.** Spawn the `playtester` with the release name and the branch. It replays every map (`npm run playtest`), checks each difference from the snapshots against the acceptance criteria of every ticket merged since the snapshots were last updated, and writes `playtests/release-<name>.md` with `regressions: N`. Intended differences get their snapshots updated on the branch.
+3. **Settle.** Regressions you agree with become fix tickets (the ticket loop, without a playtest), then one fresh release playtest. Two rounds at most, then take it to Josh as it stands.
+4. **Show Josh** the verdict and the report link. The release is done when he says so.
 
 ## The loop for a puzzle
 
