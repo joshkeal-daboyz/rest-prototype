@@ -236,3 +236,11 @@ Text moved out of `docs/city-style/scale-and-lots.md`, `docs/city-style/parking.
 - **Info (060)**: the earlier dev-only daylight (055 E) added one hemisphere light to a night scene, owned twice (`tilecity3d.ts` and `streetcam.ts`), and left the sky and the surfaces near black. Its three constants (the street camera's daylight sky, ground and intensity) are retired with it; their rows are gone from the Numbers table.
 
 - **Info (060, 057 D)**: the grass colour (`surfaces.grass` of each light mode, a Numbers row) was held for a drawer. Since 057 D the greens of the block interiors are drawn (19.4): the City Pack's `SM_Env_Grass_01` tiles, sunk 0.11 m so the blades stand a hair over the walk, or, where the piece is absent, flat quads in the mode's grass colour. The tile view brings a material it swaps in later (the pack's tiles arriving) to the mode it is in.
+
+### Ticket references cut from the domains (ticket 080 B2)
+
+- From the introduction of chapter 18: (ticket 070; `docs/city-grammar.md` and `tickets/070-city-pipeline.md` give the stages)
+- From 18.4: stays on the tile grid with a kerb cut (055 B)
+- From 18.5: the one plain straight `Straight_02` the pavement uses, 063 A
+- From 9: (neither pack had them; drops are 041 C5)
+- From 16.2: The details of the pinwheel and the corner block are chapter 4 and chapter 7; this chapter does not repeat them.
