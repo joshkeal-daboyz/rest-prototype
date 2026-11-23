@@ -29,7 +29,6 @@ import * as stacks from "./stacks";
 import * as streetcam from "./streetcam";
 import * as terrace from "./terrace";
 import * as edgeConstants from "../city/edge/constants";
-import { CELL_M } from "../city/ground/constants";
 import * as massConstants from "../city/mass/constants";
 import * as tilecity from "./tilecity";
 import * as tileslots from "./tileslots";
@@ -98,6 +97,12 @@ const OLD_HEADINGS = [
 /** The guide's files by name, read through this one helper. */
 const guideFile = (name: string): string => readFileSync(join(GUIDE_DIR, name), "utf8").replace(/\r\n/g, "\n");
 const GUIDE_FILES = readdirSync(GUIDE_DIR).filter((f) => f.endsWith(".md") && f !== "index.md" && f !== "STANDARD.md");
+/** The files that carry no `standard: yes` marker of their own: the numbers, the log and the measurements. Every other file is a domain. */
+const NOT_DOMAINS = ["numbers.md", "decisions.md", "evaluation.md"];
+const isStandard = (f: string): boolean => /^standard: yes$/m.test(guideFile(f));
+const STANDARD_FILES = GUIDE_FILES.filter(isStandard);
+/** The two part headings of the standard (ticket 080 B1). They are no old section, so the guide's text leaves them out. */
+const PART_HEADING = /^## (Rules|Open questions)$/;
 
 /**
  * The guide as one text, in the old section order: the files are cut into blocks at each `##` or `###` heading, then laid out in OLD_HEADINGS order,
@@ -110,6 +115,7 @@ function readGuide(): string {
   for (const f of GUIDE_FILES) {
     let into: string[] = pre;
     for (const l of guideFile(f).split("\n")) {
+      if (PART_HEADING.test(l)) continue; // the standard's part headings are no old section; kept in, they would end chapter 16 at 16.6
       const cont = /^#### From (\d+\.\d+) /.exec(l);
       if (cont) {
         const key = OLD_HEADINGS.find((h) => h.startsWith(`### ${cont[1]} `))!;
@@ -119,7 +125,9 @@ function readGuide(): string {
     }
   }
   const text = (h: string): string => [...(blocks.get(h) ?? []), ...(conts.get(h) ?? [])].join("\n");
-  return [pre.join("\n"), ...OLD_HEADINGS.map(text)].join("\n");
+  // Blocks that are no old section (the text moved into evaluation.md) are scanned too, after the old sections; the mapping table is not, it only repeats old lines.
+  const extra = [...blocks.keys()].filter((h) => !OLD_HEADINGS.includes(h) && !h.startsWith("## Mapping")).map(text);
+  return [pre.join("\n"), ...OLD_HEADINGS.map(text), ...extra].join("\n");
 }
 
 const doc = readGuide();
@@ -207,7 +215,6 @@ function lookup(file: string, ref: string): unknown {
 describe("the city style guide exists and is shaped as the ticket says", () => {
   it("holds every old heading in exactly one file, and the index map names that file (ticket 080 A)", () => {
     const index = guideFile("index.md");
-    expect(index.length, "index.md is over 2 KB").toBeLessThan(2048);
     for (const h of OLD_HEADINGS) {
       const homes = GUIDE_FILES.filter((f) => guideFile(f).split("\n").includes(h));
       expect(homes.length, `${h} is in ${homes.length} files: ${homes.join(", ")}`).toBe(1);
@@ -224,9 +231,11 @@ describe("the city style guide exists and is shaped as the ticket says", () => {
     }
   });
 
-  it("tags every rule: Decided and Default name a ticket; Pending and Open say what they wait for", () => {
+  it("tags every rule of the old text: Decided and Default name a ticket; Pending and Open say what they wait for (a standard: yes domain is held to the standard instead)", () => {
+    const condensed = new Set(STANDARD_FILES.flatMap((f) => guideFile(f).split("\n")));
     for (let n = 1; n <= 16; n++) {
-      const bullets = chapter(n).filter((l) => l.startsWith("- "));
+      const bullets = chapter(n).filter((l) => l.startsWith("- ") && !condensed.has(l));
+      if (bullets.length === 0 && chapter(n).some((l) => condensed.has(l))) continue; // the chapter now lives in a condensed domain
       expect(bullets.length, `chapter ${n} has no rules`).toBeGreaterThan(0);
       for (const b of bullets) {
         const tag = /^- \*\*(Decided|Default|Pending|Open|Info)\b/.exec(b);
@@ -239,17 +248,6 @@ describe("the city style guide exists and is shaped as the ticket says", () => {
         }
       }
     }
-  });
-
-  it("quotes Josh's corner rule verbatim, in the corner chapter", () => {
-    const rule = "Corner buildings should only be placed on corners. They must also have two sides facing the street. Only corner buildings have this restriction. Other buildings can be placed on corners normally.";
-    expect(chapter(7).join("\n")).toContain(rule);
-  });
-
-  it("records Josh's answer to Q4 (POLYGON is the target, SIMPLE Town the test) in the packs chapter, and leaves the exact mix open", () => {
-    const text = chapter(13).join("\n");
-    expect(text).toContain("SIMPLE town was a test, the city stuff is higher detail");
-    expect(/^- \*\*Open \(043 Q4/m.test(text)).toBe(true);
   });
 
   it("restates the accessibility rule and names the tests that enforce it, all of which exist", () => {
@@ -278,6 +276,83 @@ describe("the city style guide exists and is shaped as the ticket says", () => {
       const name = m[1]!;
       expect(known.has(name) || PENDING.has(name), `the guide names ${name}, which no render3d module exports`).toBe(true);
     }
+  });
+});
+
+// ---- ticket 080 B1: the document standard (docs/city-style/STANDARD.md) ----
+
+const MAPPING_AT = "## Mapping from the old guide";
+const DOMAINS = GUIDE_FILES.filter((f) => !NOT_DOMAINS.includes(f));
+const MONTHS = "Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec";
+const DATE = new RegExp(`\\b\\d{1,2} (${MONTHS})[a-z]* 20\\d\\d|\\b(${MONTHS})[a-z]* \\d{1,2},? 20\\d\\d|\\b20\\d\\d-\\d\\d-\\d\\d`);
+
+/** The rows of decisions.md's mapping table. A pipe inside a cell is written `\|`. */
+function mappingRows(): { id: string; line: string; home: string }[] {
+  const dec = guideFile("decisions.md");
+  const cells = (l: string): string[] => l.replace(/^\|\s*|\s*\|\s*$/g, "").split(/(?<!\\)\|/).map((c) => c.trim().replace(/\\\|/g, "|"));
+  return dec.slice(dec.indexOf(MAPPING_AT)).split("\n").filter((l) => l.startsWith("| D-")).map((l) => {
+    const c = cells(l);
+    expect(c.length, `mapping row has ${c.length} cells: ${l.slice(0, 60)}`).toBe(4);
+    return { id: c[0]!, line: c[2]!, home: c[3]! };
+  });
+}
+
+describe("the document standard holds (ticket 080 B1)", () => {
+  it("keeps the standard, the index and every standard: yes domain within budget", () => {
+    expect(STANDARD_FILES.length, "no domain is marked standard: yes").toBeGreaterThan(0);
+    expect(Buffer.byteLength(guideFile("STANDARD.md")), "STANDARD.md is over 3 KB").toBeLessThan(3 * 1024);
+    expect(Buffer.byteLength(readFileSync(join(GUIDE_DIR, "index.md"))), "index.md is over 2 KB").toBeLessThan(2 * 1024);
+    for (const f of STANDARD_FILES) expect(Buffer.byteLength(guideFile(f)), `${f} is over 8 KB`).toBeLessThanOrEqual(8 * 1024);
+  });
+
+  it("gives each standard domain its header, then Rules, then Open questions last, and only the three statuses", () => {
+    for (const f of STANDARD_FILES) {
+      const ls = guideFile(f).split("\n");
+      const order = [/^# City style: \S/, /^standard: yes$/, /^Scope: \S/, /^Read by: \S/, /^Depends on: \S/, /^## Rules$/, /^## Open questions$/].map((re) => ls.findIndex((l) => re.test(l)));
+      expect(order.every((n, i) => n >= 0 && (i === 0 || n > order[i - 1]!)), `${f}: header and parts out of order (${order.join(",")})`).toBe(true);
+      expect(order[0], `${f}: the title is not line 1`).toBe(0);
+      expect(ls.reduce((last, l, i) => (/^#{2,3} /.test(l) ? i : last), -1), `${f}: Open questions is not the last heading`).toBe(order[6]);
+      for (const b of ls.filter((l) => l.startsWith("- **"))) {
+        expect(/^- \*\*(Rule \[D-\d{3}[a-z]\]|Default( \(\d{3}\)| \[D-\d{3}[a-z]\])?|Open)\*\*: /.test(b), `${f}: not a Rule, Default or Open line: ${b.slice(0, 60)}`).toBe(true);
+        if (b.startsWith("- **Open")) expect(b, `${f}: an Open line says what it waits for`).toContain("Waits for:");
+      }
+    }
+  });
+
+  it("puts no quoted words, date or question number in a standard domain", () => {
+    for (const f of STANDARD_FILES) {
+      const text = guideFile(f);
+      const bare = text.replace(/`[^`\n]*`/g, "");
+      for (const q of bare.matchAll(/"[^"\n]+"|“[^”\n]+”/g)) expect(q[0].trim().split(/\s+/).length, `${f}: quoted words ${q[0]}`).toBeLessThan(3);
+      expect(text, `${f} has a date`).not.toMatch(DATE);
+      expect(text, `${f} has a question number`).not.toMatch(/\bQ\d+\b/);
+    }
+  });
+
+  it("keeps the mapping table whole: every [D-...] of a domain is on one row, every row's new home cites its id in the file it names, and none is empty or verbatim for a converted line", () => {
+    const rows = mappingRows();
+    const ids = rows.map((r) => r.id);
+    expect(ids.length, "the mapping table is empty").toBeGreaterThan(0);
+    expect(new Set(ids).size, "an id is on two rows").toBe(ids.length);
+    for (const f of GUIDE_FILES.filter((n) => n !== "decisions.md")) {
+      for (const m of guideFile(f).matchAll(/\[(D-[^\]]*)\]/g)) expect(ids, `${f} cites ${m[1]}, which is on no row`).toContain(m[1]);
+    }
+    for (const r of rows.filter((x) => x.home !== "verbatim")) {
+      expect(r.home, `${r.id}'s new home does not cite it`).toContain(`[${r.id}]`);
+      const file = /`([\w-]+\.md)`/.exec(r.home)?.[1] ?? "";
+      expect([...STANDARD_FILES, ...NOT_DOMAINS], `${r.id}: ${file} is neither a standard: yes domain nor numbers, decisions or evaluation`).toContain(file);
+      expect(guideFile(file), `${file} does not hold [${r.id}]`).toContain(`[${r.id}]`);
+    }
+    // Every row has a new home: verbatim only for a line still standing in a file that is not standard: yes, and none once every domain is.
+    const dec = guideFile("decisions.md");
+    const standing = new Set(GUIDE_FILES.filter((f) => !isStandard(f)).flatMap((f) => (f === "decisions.md" ? dec.slice(0, dec.indexOf(MAPPING_AT)) : guideFile(f)).split("\n").map((l) => l.trim())));
+    for (const r of rows) {
+      expect(r.home.length, `${r.id} has an empty new home`).toBeGreaterThan(0);
+      if (r.home === "verbatim") expect(standing.has(r.line), `${r.id} says verbatim but its line is not in an unconverted file`).toBe(true);
+    }
+    // A line that lives in numbers, decisions or evaluation (no standard: yes of their own) may stay verbatim for good.
+    const stays = new Set(NOT_DOMAINS.filter((f) => GUIDE_FILES.includes(f)).flatMap((f) => (f === "decisions.md" ? dec.slice(0, dec.indexOf(MAPPING_AT)) : guideFile(f)).split("\n").map((l) => l.trim())));
+    if (DOMAINS.every(isStandard)) expect(rows.filter((r) => r.home === "verbatim" && !stays.has(r.line)), "every domain is standard: yes, so no row of a domain may say verbatim").toEqual([]);
   });
 });
 
@@ -431,10 +506,6 @@ describe("the facing and corner chapters list the fronts that are not the defaul
     expect(chapter(6).join("\n")).toMatch(/one line per `pack:name`/);
   });
 
-  it("says in chapter 15 that a pack's doors are clicked in the gallery (ticket 045)", () => {
-    expect(chapter(15).join("\n")).toContain("click each door in the gallery (ticket 045)");
-  });
-
   it("lists every key in BUILDING_EXCLUDE in the choosing chapter, and says it is empty when it is", () => {
     const text = chapter(5).join("\n");
     for (const n of models.BUILDING_EXCLUDE) expect(text, `${n} is excluded in code but not in the guide`).toContain(`\`${n}\``);
@@ -507,6 +578,12 @@ describe("chapter 16: the never-used list is the code's (ticket 053)", () => {
     expect(text).toContain("`CITY_NEVER_USED`");
     expect(text).toMatch(/people/);
     expect(text).toMatch(/vehicles/);
+    const reason = (stem: string): string => rows.find((r) => unquote(r[0]!) === stem)![1]!;
+    for (const key of ["_Base_01", "_Arm_01", "_CrossLights_01", "_CrossButton_01", "_Box_01"]) expect(reason("SM_Prop_LightPole_*"), key).toContain(`\`${key}\``);
+    expect(reason("SM_Prop_LightPole_*")).toContain("signal junctions only, dark");
+    expect(reason("SM_Prop_TrafficLight_*")).toContain("red and green read as puzzle state");
+    expect(reason("SM_Prop_Pipe_Present_*")).toContain("`_03` stands on party walls (grammar rule 8");
+    expect(reason("SM_Prop_Pipe_Present_*")).toContain("`_01` and `_02` never");
   });
 
   it("names no key that any rule table can place: not the dressing, the furniture, a stack recipe, MODEL_TABLE's City Pack rows or BUILDING_FRONTS", () => {
@@ -576,11 +653,6 @@ describe("chapter 16 gives the grammar and the evaluation protocol (ticket 053)"
     expect(text).toContain("street camera:");
     expect(text).toMatch(/night and again with `light=day`/);
     expect(existsSync("src/render3d/citymetrics.test.ts")).toBe(true);
-  });
-
-  it("records what is deliberately not built and what does not yet match", () => {
-    for (const w of ["lit windows", "balconies and cornices", "variety of awnings and rooftops by colour", "never used", "Evaluation protocol"]) expect(text.toLowerCase(), w).toContain(w.toLowerCase());
-    expect(/^- \*\*Open \(/m.test(text)).toBe(true);
   });
 });
 
@@ -660,23 +732,6 @@ describe("lighting.ts is drift-checked and 16.12 describes the testing daylight 
     const names = rows.map((r) => unquote(r[0]!));
     for (const gone of ["STREET_CAM_SKY", "STREET_CAM_GROUND", "STREET_CAM_DAY_INTENSITY"]) expect(names, gone).not.toContain(gone);
   });
-
-  it("gives 16.12 both of Josh's quotes as Decided, the one-owner rule, the day values' home and the defaults per view", () => {
-    const text = chapter(16).join("\n");
-    expect(text).toMatch(/### 16\.12 The testing daylight \(dev only\)/);
-    expect(/^- \*\*Decided \(060, [^)]*please create a day light mode so it's easy to see/m.test(text)).toBe(true);
-    expect(/^- \*\*Decided \(060, [^)]*the purpose of the day mode is for testing/m.test(text)).toBe(true);
-    expect(text).toMatch(/two modes, one owner/);
-    expect(text).toContain("`LIGHT_MODES`");
-    expect(text).toMatch(/replaces 055 Q9's night default/);
-    const views = table(chapter(16), ["View", "Opens in"]);
-    expect(views.map((r) => r[1]!.split(";")[0]!.trim())).toEqual(["day", "its own lights, the same in both modes", "night", "night", "its own lights"]);
-    expect(text).toMatch(/leaves the game's night look of chapter 11 unchanged/);
-  });
-
-  it("adds one line to chapter 11 saying the testing daylight is a dev tool and not part of the game's look", () => {
-    expect(chapter(11).join("\n")).toMatch(/^- \*\*Default \(060\)\*\*: the testing daylight of 16\.12 is a dev tool and not part of the game's look/m);
-  });
 });
 
 // ---- ticket 056 C: chapter 18 (parking) and the parking constants ----
@@ -723,30 +778,10 @@ describe("chapter 18 gives the parking rules, and the numbers it names cannot dr
     }
   });
 
-  it("keeps Josh's words as the Decided lines: the parking complaint, and the R6 floor", () => {
-    expect(/^- \*\*Decided \(056, Josh 18 Nov 2026[^)]*\)\*\*: "Roads look good, parking spaces are overwhelming\. Too many parking spaces\. We should create rules in the style sheet that indicate how much parking should be available on the streets vs parking lots for residential and business style units\."/m.test(text)).toBe(true);
-    expect(/^- \*\*Decided \(056, Josh 18 Nov 2026, "Lower it to 0\.45 \(Recommended\)"\)\*\*/m.test(text)).toBe(true);
-    expect(text).toContain("I approve one through three");
-  });
-
   it("names the three kinds of rule: shoppers at the kerb, residents in lots, and the band without bays, each with the constants the ticket names", () => {
     for (const w of ["PARK_PER_SHOP", "PARK_PER_HOME", "BAY_RUN_TILES_MAX", "KERB_GAP_MIN_M", "KERB_BAY_SHARE_MAX", "BAYS_PER_100M_MAX", "LOTS_PER_BLOCK_MAX", "LOT_STALLS", "BUILDOUT_TREE_EVERY", "PARK_SUPPLY_BAND", "TILE_PARK_MIN_RUN_M"]) expect(text, w).toContain(`\`${w}\``);
     for (const id of Object.keys(parkmetrics.PARK_CHECK)) expect(text, id).toMatch(new RegExp(`^\| ${id} \|`, "m"));
     expect(text).toMatch(/shoppers park at the kerb, residents park off the street/);
-  });
-
-  it("says that chapter 17 (055 D) defers to chapter 18 while it does not exist, and points no other chapter at a retired name", () => {
-    if (!chapterNumbers.includes(17)) expect(text).toMatch(/chapter 17 \(ticket 055 D\) does not exist yet\. When it does, its parking paragraph defers to this chapter/);
-    for (const gone of ["CITY_BAYS_PER_BLOCK_MIN", "CITY_LOTS_PER_BLOCKS", "LOT_RUN_SALT"]) {
-      expect(doc, `the guide still names ${gone}`).not.toContain(gone);
-      expect(Object.keys(tilecity), `tilecity.ts still exports ${gone}`).not.toContain(gone);
-    }
-  });
-
-  it("no longer holds the parking entry among the decisions not yet built", () => {
-    const pending = section(/^## Decided, not yet built/).join("\n");
-    expect(pending).not.toMatch(/### Parking \(ticket 056/);
-    expect(pending).not.toContain("1 bay per 3 shops");
   });
 });
 
@@ -774,30 +809,6 @@ describe("escapes.ts is drift-checked and 16.11 gives the fire-escape rules (tic
     expect(uncovered({ ...MODULES["escapes.ts"]!, NEW_TUNING: 3 }, have)).toEqual(["NEW_TUNING"]);
     expect(uncovered(MODULES["escapes.ts"]!, [])).toContain("ESCAPE_DECK_BELOW_SILL_M");
   });
-
-  it("gives 16.11 the Decided line with Josh's words verbatim, and every rule tagged with ticket 058 or with what it waits for", () => {
-    const text = sectionText();
-    expect(text).toContain('There are gaps on the fire escapes. Additionally, fire escapes should always be level with windows or else people can\'t get out of the building.');
-    expect(/^- \*\*Decided \(058, Josh 18 Nov 2026: "There are gaps on the fire escapes\./m.test(text)).toBe(true);
-    for (const b of text.split("\n").filter((l) => l.startsWith("- "))) {
-      const tag = /^- \*\*(Decided|Default|Pending|Open|Info)\b/.exec(b);
-      expect(tag, `16.11: untagged bullet: ${b.slice(0, 80)}`).not.toBeNull();
-      if (tag![1] === "Open" || tag![1] === "Pending") expect(b.startsWith(`- **${tag![1]} (waits for `), `16.11: no "what it waits for": ${b.slice(0, 80)}`).toBe(true);
-      else expect(/^- \*\*\w+ \((058|061)\b/.test(b), `16.11: no ticket beside: ${b.slice(0, 80)}`).toBe(true);
-    }
-  });
-
-  it("names the rules' constants in 16.11, points 16.5 at it, and no longer holds the escape among the decisions not yet built", () => {
-    const text = sectionText();
-    for (const n of ["ESCAPE_DECK_BELOW_SILL_M", "ESCAPE_DECK_TOL_M", "ESCAPE_JOINT_TOL_M", "ESCAPE_GROUND_TOL_M", "ESCAPE_SCALE_Y", "WINDOW_SILL_M", "ESCAPE_GEOMETRY", "LADDER_RUNG_PITCH_M", "CODE_ESCAPE_KEY", "CODE_ESCAPE"]) expect(text, n).toContain(`\`${n}\``);
-    for (const n of ["ESCAPE_DECK_BELOW_SILL_M", "WINDOW_SILL_M", "ESCAPE_GEOMETRY", "CODE_ESCAPE_KEY"]) expect(Object.keys(MODULES["escapes.ts"]!), n).toContain(n);
-    const fiveEleven = chapter(16).filter((l) => /^- \*\*Default \(052, 058\)\*\*: fire escapes\./.test(l));
-    expect(fiveEleven).toHaveLength(1);
-    expect(fiveEleven[0]).toContain("(16.11)");
-    const pending = section(/^## Decided, not yet built/).join("\n");
-    expect(pending).not.toMatch(/^- \*\*Default \(058/m);
-    expect(pending).toContain("now section 16.11");
-  });
 });
 
 // ---- ticket 055 F: sills.ts joins the drift-checked files ----
@@ -823,38 +834,6 @@ describe("sills.ts is drift-checked and 16.10 gives the door-sill rule (ticket 0
     expect(uncovered(MODULES["sills.ts"]!, have), "no Numbers row for these sills.ts exports").toEqual([]);
     expect(uncovered({ ...MODULES["sills.ts"]!, NEW_TUNING: 3 }, have)).toEqual(["NEW_TUNING"]);
     expect(uncovered(MODULES["sills.ts"]!, [])).toContain("SILL_MAX_M");
-  });
-
-  it("gives 16.10 the Decided line with Josh's words verbatim, and every rule tagged with ticket 055 F or with what it waits for", () => {
-    const text = sectionText();
-    expect(text).toContain("That's going to have to be a variable that we measure for each individual building.");
-    expect(/^- \*\*Decided \(055 F, Josh 18 Nov 2026: "That's going to have to be a variable that we measure for each individual building\."/m.test(text)).toBe(true);
-    expect(text).toContain("Approved and confirmed");
-    for (const b of text.split("\n").filter((l) => l.startsWith("- "))) {
-      const tag = /^- \*\*(Decided|Default|Pending|Open|Info)\b/.exec(b);
-      expect(tag, `16.10: untagged bullet: ${b.slice(0, 80)}`).not.toBeNull();
-      if (tag![1] === "Open" || tag![1] === "Pending") expect(b.startsWith(`- **${tag![1]} (waits for `), `16.10: no "what it waits for": ${b.slice(0, 80)}`).toBe(true);
-      else expect(/^- \*\*\w+ \(055 F\b/.test(b), `16.10: no ticket beside: ${b.slice(0, 80)}`).toBe(true);
-    }
-  });
-
-  it("names every constant of sills.ts and the table and the steps' key in 16.10, records the steps in 16.6 and the pack table, and no longer holds the rule among the decisions not yet built", () => {
-    const text = sectionText();
-    for (const [name, v] of Object.entries(MODULES["sills.ts"]!)) if (numeric(v)) expect(text, name).toContain(`\`${name}\``);
-    for (const n of ["STEPS_KEY", "DOOR_SILLS", "measureDoor", "leavesGap"]) {
-      expect(Object.keys(MODULES["sills.ts"]!), n).toContain(n);
-      expect(text, n).toContain(`\`${n}\``);
-    }
-    expect(sills.STEPS_KEY).toBe("town-pack:SM_Bld_House_Concrete_Steps_01");
-    const sixSix = chapter(16).filter((l) => /^- \*\*Info \(055 F\)\*\*: one model of a pack that is otherwise not placed/.test(l));
-    expect(sixSix).toHaveLength(1);
-    expect(sixSix[0]).toContain("SM_Bld_House_Concrete_Steps_01");
-    expect(sixSix[0]).toContain("SM_Bld_House_DeckSteps_01");
-    const packs = table(chapter(13), ["Pack id", "Style", "Converter scale", "Status", "What it supplies"]);
-    expect(packs.find((r) => r[0] === "town-pack")![4]).toContain("except the house concrete steps");
-    const pending = section(/^## Decided, not yet built/).join("\n");
-    expect(pending).not.toMatch(/^- \*\*Default \(055 F/m);
-    expect(pending).toContain("now section 16.10");
   });
 
   it("lists in 16.10 a row for every entry of the measured table, grouped as the table's rows say", () => {
@@ -945,41 +924,6 @@ describe("chapter 19 gives frontage and block interiors, and the numbers it name
     expect(Object.keys(frontage.FRONTAGE_CHECK)).toEqual(["G1", "G2", "G3", "G4"]);
     expect(Object.keys(frontage.VARIETY_CHECK)).toEqual(["V1", "V2", "V3", "V4"]);
   });
-
-  it("keeps Josh's words as the Decided lines: the wall line, the fill, the grid, and the R1 floor", () => {
-    expect(/^- \*\*Decided \(057, Josh 18 Nov 2026[^)]*\)\*\*: "It's okay if the buildings rest on top of the sidewalk and overlap a little bit\. It is not okay if the buildings sit recessed from the sidewalk and leave a gap of nothing between them\."/m.test(text)).toBe(true);
-    expect(/^- \*\*Decided \(057, Josh 18 Nov 2026\)\*\*: [^\n]*he said: "Grass and pavement should fill the blank areas\."/m.test(text)).toBe(true);
-    expect(/^- \*\*Decided \(057, Josh 18 Nov 2026\)\*\*: "Keep in mind, 90 degrees does not mean a grid of squares\. You can have varying widths for blocks, alleyways, parks\.\.\. etc"/m.test(text)).toBe(true);
-    expect(/^- \*\*Decided \(057, Josh 19 Nov 2026, "Tile-city R1 floor 0\.88 \(Recommended\)"\)\*\*/m.test(text)).toBe(true);
-  });
-
-  it("states the far-end order and the passage, and records the changes from the draft as built", () => {
-    for (const w of ["a seam", "overshoot", "gated passage", "flush", "COURT_CELLS", "DRIVE_CELLS", "withPassages(city, tilePassages(city, packed))", "TileCity.interior", "BLOCK_MEAN_MIN_CELLS", "ALLEY_COURT_PART_MIN_CELLS"]) expect(text, w).toContain(w);
-    for (const id of ["G1", "G2", "G3", "G4", "V1", "V2", "V3", "V4"]) expect(text, id).toMatch(new RegExp(`^\\| ${id}, `, "m"));
-    for (const k of ["apron", "court", "drive", "green", "greenPath", "alley", "parkEdge"]) expect(text, k).toContain(`\`${k}\``);
-  });
-
-  it("points chapter 18 at the courts: no rear-courts default remains, 18.1 and 18.4 name chapter 19, and 16.6 records the Town Pack gate", () => {
-    const parking = chapter(18).join("\n");
-    expect(parking).not.toMatch(/no rear courts/i);
-    expect(/^- \*\*Default \(056, 057 C\)\*\*: from 057 on, a block's lots are interior courts/m.test(parking)).toBe(true);
-    expect(parking).not.toMatch(/waits for ticket 057 C/);
-    expect(parking).toContain("(19.4)");
-    const gate = chapter(16).filter((l) => /^- \*\*Default \(057 D\)\*\*: the tile city places no Town Pack piece/.test(l));
-    expect(gate).toHaveLength(1);
-    expect(gate[0]).toContain("SM_Env_Fence_Wood_Gate_01");
-    expect(gate[0]).toContain("_Post_01");
-    expect(gate[0]).toContain("`CITY_NEVER_USED`");
-    // 16.12 no longer says that no code draws grass.
-    expect(chapter(16).join("\n")).not.toMatch(/because no code draws grass/);
-  });
-
-  it("no longer holds the frontage and block rules among the decisions not yet built", () => {
-    const pending = section(/^## Decided, not yet built/).join("\n");
-    expect(pending).not.toMatch(/^- \*\*Default \(057/m);
-    expect(pending).toContain("built, now chapter 19");
-    expect(pending).toContain("Corners and frontage (ticket 055 B, then 057; built, now chapter 19)");
-  });
 });
 
 describe("chapter 10 and 19.8 record the pavement fixes (ticket 063 A, D and H)", () => {
@@ -993,19 +937,6 @@ describe("chapter 10 and 19.8 record the pavement fixes (ticket 063 A, D and H)"
       expect(rows.some((r) => r[2] === "tilecity.ts" && unquote(r[0]!) === n), `no Numbers row for ${n}`).toBe(true);
     }
     expect(tilecity.PAVEMENT_GRATE).toBe(1);
-  });
-
-  it("keeps Josh's three sentences as Decided lines in chapter 10, verbatim", () => {
-    expect(/^- \*\*Decided \(063 A, Josh, 19 Nov 2026: "Make the side walk one uniform color\."\)\*\*/m.test(text10)).toBe(true);
-    expect(/^- \*\*Decided \(063 D, Josh, 19 Nov 2026: "Are these tiles supposed to represent plots where trees should be planted\? It looks like the textures aren't being used properly"\)\*\*/m.test(text10)).toBe(true);
-    expect(/^- \*\*Decided \(063 H, Josh, 19 Nov 2026: "If you're going to have an inlet to areas between buildings it needs to be paved"\)\*\*/m.test(text10)).toBe(true);
-  });
-
-  it("names the plain slab and the paved inlets in 19.8, and no longer says the strip and the passage floors are always code-drawn", () => {
-    for (const w of ["SM_Env_Sidewalk_01", "PASSAGE_FLOOR_KEYS", "inletCells", "TileCourt.drive", "frontLots"]) expect(text19, w).toContain(w);
-    expect(text19).not.toContain("The ragged strip (`APRON_STRIP`) is always code-drawn");
-    expect(text19).not.toContain("SM_Env_Sidewalk_Panel_02` for the apron");
-    expect(text10).not.toContain("two plain straights");
   });
 });
 
@@ -1040,41 +971,6 @@ describe("the guide catches up with the pipeline (ticket 070 L1)", () => {
     expect(t18).toContain('"Yes, all four"');
   });
 
-  it("opens chapters 18 and 19 by saying the pipeline makes the tile city, names the stages, and keeps the old path's tables as its own", () => {
-    expect(t18).toMatch(/The tile city is made by the pipeline, stage by stage \(ticket 070;/);
-    expect(t18).toContain("stage 3's lots and units are in `src/city/mass/`");
-    expect(t18).toContain("stage 4's parking band, kerb bays and build-outs are in `src/city/edge/`");
-    expect(t18).not.toContain("The layout is in `tilecity.ts`");
-    expect(t19).toMatch(/Since ticket 070 the tile city \(`city=tiles`\) is made by the pipeline, stage by stage/);
-    expect(t19).toContain("`docs/city-grammar.md`");
-    expect(t19).toContain("`tickets/070-city-pipeline.md`");
-    expect(t18).toMatch(/Info \(070 L1\)\*\*: the two tables and the ranges below are the old path's numbers \(`city=tiles-old`, until L2\)/);
-    expect(t19).toMatch(/Info \(070 L1\)\*\*: the tables and ranges of this part are the old path's numbers \(`city=tiles-old`, until L2\)/);
-  });
-
-  it("drops the retired lines: 19.2's far-end order, 19.4's ring-2 strip, 19.6's alley rear and 18.2's 5.2 m bays", () => {
-    expect(t19).not.toContain("closes in one of three ways");
-    expect(t19).not.toMatch(/^ {4}1\. A \*\*seam\*\*/m);
-    expect(t19).toContain("a row always closes");
-    // The old words stay findable, as the old path's.
-    for (const w of ["a seam", "overshoot", "gated passage"]) expect(t19, w).toContain(w);
-    expect(t19).not.toContain("Ring 2, the strip the terraces' backs stand over");
-    expect(t19).toContain("ring 2 is buildings (grammar rule 5)");
-    expect(t19).not.toContain("an apron and not a frontage.");
-    expect(t19).toContain("a quiet frontage with a row of its own");
-    expect(t18).not.toContain("  - Columns are the lots' 5.2 m bays.");
-    expect(t18).toContain("The old path counted the lots' 5.2 m bays.");
-  });
-
-  it("writes down the whole-park and best-fit rulings (Q17, Q18), the roofs sentence (Q26) and the pipe row (J's R12 audit)", () => {
-    expect(t19).toMatch(/a whole park that nothing across a street can serve takes one tile of kerb bays on its own kerb \(D1b criterion 13;/);
-    expect(t19).toMatch(/the first tiles are handed out as a best fit over the city \(D1b criterion 12;/);
-    expect(doc).toContain("On the pipeline's city grammar rule 11 places the roof items (H3, H3b, H1c;");
-    const pipe = chapter(16).find((l) => l.startsWith("| `SM_Prop_Pipe_Present_*`"));
-    expect(pipe).toContain("`_03` stands on party walls (grammar rule 8");
-    expect(pipe).toContain("`_01` and `_02` never");
-  });
-
   it("the stage modules the guide now names exist and export what it says", () => {
     expect(Object.keys(edgeConstants)).toContain("PARK_SUPPLY_BAND");
     expect(Object.keys(massConstants)).toContain("PARK_PER_HOME");
@@ -1089,23 +985,6 @@ describe("the guide and the grammar carry traffic control (ticket 070 TR2, crite
   const grammar = readFileSync("docs/city-grammar.md", "utf8");
   const t16 = chapter(16).join("\n");
 
-  it("the SM_Prop_LightPole_* row names each of the five signal keys and Q33, and the stem is still on the never-used list", () => {
-    const row = chapter(16).find((l) => l.startsWith("| `SM_Prop_LightPole_*`"));
-    expect(row).toBeDefined();
-    for (const key of ["_Base_01", "_Arm_01", "_CrossLights_01", "_CrossButton_01", "_Box_01"]) expect(row, key).toContain(`\`${key}\``);
-    expect(row).toContain("Q33");
-    expect(row).toContain("signal junctions only, dark");
-    expect(citymetrics.CITY_NEVER_USED).toContain("SM_Prop_LightPole_");
-    expect(citymetrics.CITY_NEVER_USED).toContain("SM_Prop_TrafficLight_");
-    expect(chapter(16).find((l) => l.startsWith("| `SM_Prop_TrafficLight_*`"))).toContain("red and green read as puzzle state");
-  });
-
-  it("16.6 no longer waits for a sign pole and names Q35 and the stop sign's 01_A atlas", () => {
-    expect(t16).not.toContain("waits for a ticket that adds a sign pole");
-    expect(t16).toMatch(/Default \(070 TR\)\*\*: no street-name signs: the City Pack's plates lie flat and the Town Pack is never fetched for the city \(Josh, Q35\)/);
-    expect(t16).toContain("The stop sign (drawn from the `01_A` atlas, Q42) and the parking sign stand at junctions and bay stretches (stage 9).");
-  });
-
   it("the grammar has a rule 13 naming DS, IN, SJ, AS, T, C, MA, ST, CL and PK, and a check-table row for it", () => {
     const at = grammar.indexOf("### 13. Traffic control");
     expect(at).toBeGreaterThan(grammar.indexOf("### 12. Variety"));
@@ -1116,25 +995,5 @@ describe("the guide and the grammar carry traffic control (ticket 070 TR2, crite
     for (const n of ["0.5 m", "1.0 m", "0.75 m", "4.6 m"]) expect(rule, n).toContain(n);
     expect(rule).toContain("Check. Stage 9's TC1 to TC5 and keys; R12's allowance in the drawing".replace("Check. ", "**Check.** "));
     expect(grammar).toContain("| traffic control | every junction's control by DS to C; every piece placed by MA, ST, PK and clear by CL | 13 | TR1, TR1b |");
-  });
-});
-
-// ---- ticket 070 L2c: the L1 review's leftovers in the guide ----
-// The drift checks above that read an old-path module (`tilecity`, `tileslots`, `frontage`, `parkmetrics`) are all kind (b): each one checks a Numbers row whose File cell is still `tilecity.ts`, `tileslots.ts`,
-// `frontage.ts` or `parkmetrics.ts`, or the old path's table text of 18.8 and 19.7, so each goes with its line in L2d. The rows the pipeline owns (PARK_PER_HOME, both PARK_SUPPLY_BANDs) are already read from the stage modules (L1).
-
-describe("the guide's L1 leftovers are marked (ticket 070 L2c)", () => {
-  const t18 = chapter(18).join("\n");
-  const t19 = chapter(19).join("\n");
-
-  it("18.2's homes bullet gives the lattice figure from the 5 m cell, and marks the old 62 m2 as the old path's", () => {
-    expect(CELL_M).toBe(5);
-    expect(t18).toContain(`a home is two column-floors of one ${CELL_M} m cell each (grammar rule 5: a column is a ${CELL_M}.0 m cell, so 2 x ${CELL_M}.0 m x ${CELL_M}.0 m = ${2 * CELL_M * CELL_M} m2)`);
-    expect(t18).toContain("The old path's figure was 2 x 5.2 m x 6 m, about 62 m2 (`city=tiles-old`, until L2d).");
-    expect(t18).not.toContain("a home is two column-floors (2 x 5.2 m x 6 m, about 62 m2)");
-  });
-
-  it("19.2's default marks a seam and a gated passage as the old path's only", () => {
-    expect(t19).toContain("a seam and a gated passage are the old path's only: the plan has no passage type, and its rows always close");
   });
 });

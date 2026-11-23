@@ -2,7 +2,7 @@
 
 Draft for Josh, 19 Nov 2026. Design only: no code, no puzzle, nothing under `src/grid/` or `src/night/` is touched by this file.
 
-- **Status.** Nothing here is Decided until Josh says so in chat. So far he has answered six questions on 19 Nov 2026: Q1 (rule 7), Q2 and Q6 (rule 4), Q3 (rule 8), Q4 (rule 6) and Q7 (rule 10). Q5 (parking) waits for a measurement. Lines marked **Law** quote a Decided line of `docs/city-style/index.md` or Josh's words in `docs/city-state-2026-11-19.md`; everything else is **Proposed**.
+- **Status.** Nothing here is Decided until Josh says so in chat. So far he has answered six questions on 19 Nov 2026: Q1 (rule 7), Q2 and Q6 (rule 4), Q3 (rule 8), Q4 (rule 6) and Q7 (rule 10). Q5 (parking) waits for a measurement. Lines marked **Law** quote a Decided line of a domain file under `docs/city-style/` or Josh's words in `docs/city-state-2026-11-19.md`; everything else is **Proposed**.
 - **Scope.** The tile city (`city=tiles`) on `goal/city-style`. The ladder maps keep chapters 4 and 16 as they are (`packpin.test.ts` and `townpin.test.ts` hold).
 - **Evidence.** The measurements are in the appendix. I took them today from `city-pack.glb` with a scratch script that is not committed. I have not seen a render, or Josh's reference image; where a rule leans on something only an eye can settle, it says so under **Not verified**.
 
