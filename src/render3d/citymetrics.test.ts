@@ -1,5 +1,5 @@
 /**
- * Ticket 053: the automatic half of the reference checklist (R1 to R12, chapter 16 of docs/city-style/index.md). `cityMetrics` counts what the town plan holds, and each item
+ * Ticket 053: the automatic half of the reference checklist (R1 to R12, 16.8 of docs/city-style/evaluation.md). `cityMetrics` counts what the town plan holds, and each item
  * is checked against `CITY_CHECK` on the three maps of the evaluation protocol; every threshold is also shown to fail on a plan made to break it. No WebGL: the GLBs are fake
  * groups, every size is typed in as a number copied from the converted City Pack manifest (18 Nov 2026), the maps are the repo's own puzzles. Nothing here reads assets/private/,
  * no timer, no wall-clock wait, no path but `puzzles/`.
