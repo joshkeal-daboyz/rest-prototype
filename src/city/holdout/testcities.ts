@@ -3,9 +3,7 @@
  */
 import type { CityEraPlan, CityEraRun, CityHistoryLayer } from "../../core";
 import { deepFreeze } from "../pipeline/run";
-import type { CityStageDef } from "../pipeline/types";
-import { ERA_STAGES, BUILT_STAGES, runCityEra } from "../stages";
-import { streetsStageWith } from "../streets/stage";
+import { sharedEra } from "../testing/namedcities";
 
 export interface City {
   readonly blocksX: number;
@@ -20,11 +18,9 @@ export const NAMED: readonly City[] = (["on", "off"] as const).flatMap((way) => 
 export const PINNED: readonly City[] = [1, 2, 3, 8].map((seed) => ({ blocksX: 6, blocksZ: 6, seed, way: "on" as const }));
 export const label = (o: City): string => `${o.blocksX} x ${o.blocksZ} seed ${o.seed} one-way ${o.way}`;
 
-const stagesOf = (way: "on" | "off"): readonly CityStageDef[] => (way === "on" ? BUILT_STAGES : BUILT_STAGES.map((s) => (s.name === "streets" ? (streetsStageWith(0) as unknown as CityStageDef) : s)));
-
 /** The city run through the clean stages and the eras up to and including `era`. Throws on a failed stage, naming it. */
 export function eraRun(o: City, era: "tech" | "holdout"): Extract<CityEraRun, { ok: true }> {
-  const r = runCityEra({ blocksX: o.blocksX, blocksZ: o.blocksZ, seed: o.seed }, era, ERA_STAGES, stagesOf(o.way));
+  const r = sharedEra(o, era);
   if (!r.ok) throw new Error(`${label(o)} failed at ${r.failure.stage}: ${r.failure.reason}`);
   return r;
 }
