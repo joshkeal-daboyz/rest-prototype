@@ -11,7 +11,7 @@ import { Box3, Frustum, Matrix4, PerspectiveCamera, BoxGeometry, Group, Instance
 import type { AssetEntry, CalibrationKey, CityBuildingsLayer, CityFacadesLayer, CityGroundLayer, CityGroundPiece, CityKerbPath, CityCell, CityMassLayer, CityPlan, CityPlacement, CitySide } from "../core";
 import { stableHash } from "../render/city";
 import { digestOf } from "../city/pipeline";
-import { sharedCity } from "../city/testing/namedcities";
+import { FULL_CITIES, NAMED, VARIED, sharedCity } from "../city/testing/namedcities";
 import { yieldToWorker } from "../city/testing/yield";
 import { KEY_OF_KIND, TRAFFIC_ALLOWED, TRAFFIC_BOUNDS, MAST, boundsOf } from "../city/traffic/kit";
 import { KERB_GAP_MAX_M, KERB_HEIGHT_TOL_M, KERB_TOL_M, type KerbFace, type KerbPlan, type Mp } from "./kerbline";
@@ -78,8 +78,6 @@ interface City {
   readonly seed: number;
   readonly way: "on" | "off";
 }
-const NAMED: City[] = [];
-for (const way of ["on", "off"] as const) for (let seed = 1; seed <= 10; seed++) NAMED.push({ seed, way });
 const label = (o: City): string => `6 x 6 seed ${o.seed} one-way ${o.way}`;
 function planOf(o: City): CityPlan {
   const r = sharedCity({ blocksX: 6, blocksZ: 6, seed: o.seed, way: o.way }, "clean");
@@ -956,7 +954,7 @@ describe("the buildings: pieces from placements only (criteria 2 and 3)", { time
 describe("the buildings, on the 20 named runs (criterion 3)", { timeout: 120_000 }, () => {
   it("draws only, lists every piece exactly once with its building's colourway, and gives every column one grey instance and every Ls' column its own pieces", async () => {
     let ls = 0;
-    for (const o of NAMED) {
+    for (const o of VARIED) {
       const plan = planOf(o);
       const layers = plan.layers;
       const digests = (): Record<string, string> => ({ streets: digestOf(layers.streets), land: digestOf(layers.land), mass: digestOf(layers.mass), edge: digestOf(layers.edge), buildings: digestOf(layers.buildings), facades: digestOf(layers.facades) });
@@ -2062,7 +2060,7 @@ describe("stage 9: the traffic pieces, from placements only (TR2 criteria 2, 3, 
       const eight = new Set(planPropDraws(plan).map((p) => p.placement.key));
       for (const d of td) expect(eight.has(d.placement.key), `${label(o)} ${d.placement.key} is also a stage 8 key`).toBe(false);
     }
-    expect(pieces).toBeGreaterThan(5000);
+    if (FULL_CITIES) expect(pieces).toBeGreaterThan(5000);
   });
 
   it("fails the exactly-once check with one traffic piece dropped and with one listed twice; stops on a plan with no traffic layer and on a piece whose key the page does not load (the cell named)", () => {

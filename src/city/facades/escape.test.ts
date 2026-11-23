@@ -14,7 +14,8 @@ import { facesStalls, makeCtx } from "./facts";
 import { finalise, indexOf } from "./hash";
 import { placeGround, keyOf, centreOf } from "./place";
 import { buildGround } from "./stage";
-import { cityOf, DEFAULT, label, layersOf, NAMED, stagesOf } from "./testcities";
+import { cityOf, DEFAULT, label, layersOf, stagesOf } from "./testcities";
+import { FULL_CITIES, NAMED } from "../testing/namedcities";
 import { PARTY_WALL_KINDS } from "./partykit";
 import { wallFailures } from "./wallcheck";
 import {
@@ -96,7 +97,7 @@ describe("the escapes on the named runs (criterion 2)", { timeout: 120_000 }, ()
         expect(keyOf(hosts[indexOf(stageRand("facades", o.seed)("escape", "col", id), hosts.length)]!), `${label(o)} ${id}`).toBe(keyOf(col));
       }
     }
-    expect(escapes).toBeGreaterThan(3000);
+    if (FULL_CITIES) expect(escapes).toBeGreaterThan(3000);
   });
 
   it("the street escapes are exactly escapeBlocks' choice over EQ's street sites at TILE_CITY_R7_MIN, the quiet ones its choice over EX's quiet sites; no two neighbours of a run both have one; the street target is met (escapeShort 0)", () => {
@@ -142,8 +143,8 @@ describe("the escapes on the named runs (criterion 2)", { timeout: 120_000 }, ()
       }
       expect(facades.walls, label(o)).toBeDefined();
     }
-    expect(street).toBeGreaterThan(1500);
-    expect(quiet).toBeGreaterThan(1000);
+    if (FULL_CITIES) expect(street).toBeGreaterThan(1500);
+    if (FULL_CITIES) expect(quiet).toBeGreaterThan(1000);
   });
 
   it("every choice is the stage's rand (R-3): the same city twice gives the same walls and digest, another seed other walls", () => {
@@ -188,8 +189,8 @@ describe("the meeting with H1b's dressing (EP, criterion 3)", { timeout: 120_000
         if ((have.get(b.id) ?? []).length !== (was.get(b.id) ?? []).length) changed++;
       }
     }
-    expect(escapeBuildings).toBeGreaterThan(3000);
-    expect(changed).toBeGreaterThan(500);
+    if (FULL_CITIES) expect(escapeBuildings).toBeGreaterThan(3000);
+    if (FULL_CITIES) expect(changed).toBeGreaterThan(500);
   });
 });
 
@@ -239,9 +240,9 @@ describe("canopies and wall props (WP1 to WP3, criterion 4)", { timeout: 120_000
       }
       for (const [k, n] of perCell) expect(n, `${label(o)} ${k}`).toBeLessThanOrEqual(DRESS_PER_BAY_MAX);
     }
-    expect(canopies).toBeGreaterThan(5000);
-    expect(bare).toBeGreaterThan(2000);
-    expect(props).toBeGreaterThan(15000);
+    if (FULL_CITIES) expect(canopies).toBeGreaterThan(5000);
+    if (FULL_CITIES) expect(bare).toBeGreaterThan(2000);
+    if (FULL_CITIES) expect(props).toBeGreaterThan(15000);
   });
 });
 

@@ -164,3 +164,7 @@ Files: `src/render3d/`.
 - **Q1:** "Yes, counts 0 (Recommended)". A test moved unchanged into a `*.report.test.ts` file counts as 0 against the 15 per PR (counted with `git diff -M`).
 - **Q2:** "Yes (Recommended)". `npm run gate:full` also runs the reports.
 - **Q3:** "Yes, planner does all (Recommended)". The folder rule is waived for this ticket: the planner builds every section, section M's config and CI included, with one branch per PR (079a, 079b, 079c). The main session reviews M's CI and config changes like any other.
+
+## Notes from the main session (23 Nov 2026)
+- **Totals guard, as built in PRs 1 to 3:** a test that also asserts a 20-city total keeps all its per-city assertions in `npm test` and wraps only the total in `if (FULL_CITIES)`, threshold unchanged. This follows Josh's card "Yes, split them (Recommended)" and replaces `it.runIf` on the whole test.
+- **PR 4 (`ticket/079d-facades-rest`):** PR 3 reached 14 of 15 cases when the facades switch made 23 tests fail on one city, so the builder stopped as section rules say. PR 4 finishes section D: the facades `testcities.ts` re-exports `NAMED` and `VARIED`; `roof`, `rooffixtures` and `stage` get the totals guard (about 11 cases); `dress`, `escape` and `novelty` may import from `./testcities` again.

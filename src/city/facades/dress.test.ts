@@ -11,7 +11,8 @@ import { buildDressing, runsOf } from "./dress";
 import { ATMS, ATM_PER_RUN, AWNINGS, AWNING_CORNER, DRESS_PER_BAY_MAX, SHOP_GLASS, SIGNS_BLADE, SIGNS_FASCIA } from "./dresskit";
 import { finalise } from "./hash";
 import { keyOf } from "./place";
-import { DEFAULT, layersOf, NAMED, label, stagesOf } from "./testcities";
+import { DEFAULT, layersOf, label, stagesOf } from "./testcities";
+import { FULL_CITIES, NAMED } from "../testing/namedcities";
 
 const K = (n: string): CalibrationKey => `city-pack:SM_${n}`;
 const SIDE_VEC = { "+x": [1, 0], "-x": [-1, 0], "+z": [0, 1], "-z": [0, -1] } as const;
@@ -40,7 +41,7 @@ describe("the dressing on the named runs (criterion 2)", { timeout: 120_000 }, (
       expect(dressing.filter((q) => q.kind === "glass"), label(o)).toHaveLength(expected);
     }
     expect(bad.slice(0, 5)).toEqual([]);
-    expect(glass).toBeGreaterThan(14000);
+    if (FULL_CITIES) expect(glass).toBeGreaterThan(14000);
   });
 
   it("every building's flat awnings are of one key of AWNINGS; the L awning stands only on a shop corner, as a wrap; a flat awning is never a wrap", () => {
@@ -66,9 +67,9 @@ describe("the dressing on the named runs (criterion 2)", { timeout: 120_000 }, (
       }
       for (const [b, s] of keys) expect(s.size, `${label(o)} ${b}`).toBe(1);
     }
-    expect(l).toBeGreaterThan(1000);
+    if (FULL_CITIES) expect(l).toBeGreaterThan(1000);
     // H2 (EP): the bays over an escape column take no awning, so H1b's 10000 is now 9000 (9103 on the named runs)
-    expect(flat).toBeGreaterThan(9000);
+    if (FULL_CITIES) expect(flat).toBeGreaterThan(9000);
   });
 
   it("LG: no L awning on a column beside one that carries one, in its own building or across a row neighbour; a corner bay LG turned away took a flat key where it fitted", () => {
@@ -83,7 +84,7 @@ describe("the dressing on the named runs (criterion 2)", { timeout: 120_000 }, (
       turned += stats.lgTurnedAway;
       expect(stats.lPlaced, label(o)).toBe(ls.size);
     }
-    expect(turned).toBeGreaterThan(50);
+    if (FULL_CITIES) expect(turned).toBeGreaterThan(50);
   });
 
   it("a building has at most one blade sign, never on a bay with an awning; no fascia key twice in a building; no bay has two signs", () => {
@@ -112,7 +113,7 @@ describe("the dressing on the named runs (criterion 2)", { timeout: 120_000 }, (
       for (const [k, n] of fascia) expect(n, `${label(o)} ${k}`).toBe(1);
       for (const [k, n] of bay) expect(n, `${label(o)} ${k}`).toBe(1);
     }
-    expect(blades).toBeGreaterThan(500);
+    if (FULL_CITIES) expect(blades).toBeGreaterThan(500);
   });
 
   it("an ATM stands only beside a residents' door on a street frontage: one at most per building, ATM_PER_RUN at most per run; no quiet building has one", () => {
@@ -136,7 +137,7 @@ describe("the dressing on the named runs (criterion 2)", { timeout: 120_000 }, (
       for (const [b, n] of perBuilding) expect(n, `${label(o)} ${b}`).toBe(1);
       for (const [r, n] of perRun) expect(n, `${label(o)} ${r}`).toBeLessThanOrEqual(ATM_PER_RUN);
     }
-    expect(atms).toBeGreaterThan(2000);
+    if (FULL_CITIES) expect(atms).toBeGreaterThan(2000);
   });
 
   it("no column carries more than DRESS_PER_BAY_MAX pieces, and the pieces come building by building, column by column, in dressBlock's order", () => {
@@ -177,8 +178,8 @@ describe("the dressing on the named runs (criterion 2)", { timeout: 120_000 }, (
         }
       }
     }
-    expect(quietFrontGlass).toBeGreaterThan(1000);
-    expect(quietFrontL).toBeGreaterThan(50);
+    if (FULL_CITIES) expect(quietFrontGlass).toBeGreaterThan(1000);
+    if (FULL_CITIES) expect(quietFrontL).toBeGreaterThan(50);
   });
 
   it("ground is exactly H1's: on the four pin cities, the digest of the ground layer alone equals the facades digest H1 pinned", () => {
