@@ -23,6 +23,37 @@ Each is the question as asked and the option he picked, quoted.
 9. **The picking process:** **"A card per component"**. The main session puts one question card per component, built from D1's shortlist with pictures, and records his pick in his words in `docs/design/081-component-picks.md`.
 10. **`src/city/circuit/` for the grid-simulator:** **"Yes, add it"**. The main session edits `.claude/agents/grid-simulator.md`. No agent does.
 
+## Josh's answers on B1 and its pre-check (23 Nov 2026, on question cards, relayed by the main session)
+Asked from `docs/design/081-B1-roof-spans.md` section 9 (B1-Q1 to Q5) and `docs/design/081-B1-precheck.md` section 5 (B1p-A). Each is the question and the option he picked, quoted.
+- **B1-Q1.** Besides breakers, switches and fuse boxes (6b), may a roof structure hold a junction, a battery, a lamp or the feed? **"Anything"**.
+  - This covers junctions, batteries, lamps and the feed.
+  - It **overrides, for roofs only,** the note's reason for keeping lamps off. That reason was that a roof lamp is a drop across the street in all but name, and K1 Q12 keeps drops on the pole side. Drops themselves stay on the pole side.
+  - The feed may stand on a roof structure. B1b words where, keeping K1 Q10's "just outside the district" as the feed's side of its one entering span.
+- **B1p-A.** Over an intersection, a roof wire may go only roof to roof, or also come down to a ground pole where that pole is a tall one? **"Tall poles too"**.
+  - Roof to pole over a junction is allowed where the ground pole's model clears `ROOF_JUNCTION_FLOOR_M` 7.5 m.
+  - Stage 6 must therefore know each pole's model. The pole choice and the poles' attachment heights move out of merged 071 B's `src/render3d/powerkit.ts` into `src/core/` (sections PK1 and PK2), before K2d.
+- **B1-Q3.** Roof structures only where the live job uses them, or on every corner roof? **"On every corner roof"**. Roof structures stand on every street corner roof as scenery, used or not.
+- **B1-Q4.** Corner roofs only, or mid-row too? **"Mid-row as well"**. Roof structures may also stand on mid-row roofs.
+  - Read with Q3, this is ambiguous: are mid-row structures always there, or only where a puzzle uses one? That is open question 1 below.
+  - Mid-row places are unmeasured, so K2d and H4 wait for a fresh pre-check (B1q).
+- **B1-Q2 (T-2).** For the street layer later, does a roof node count as reachable by a climb? **"On foot or by a climb (Recommended)"**.
+  - 073's T-2 reads "on foot along pavement or road, or by a climb at its building" for roof nodes.
+  - A street-scope line with a roof span is `overhead`.
+  - Nothing in this prototype changes, because roof nodes are played through the overlay. A pointer line is added to 073's T-2.
+- **B1-Q5.** May a job's lines use a roof structure on a block outside its district? **"Neighbouring blocks too"**. A job may use roof structures, as carriers or nodes, on the blocks one street beyond its district. This extends CK14's edge for roofs only. Pole lines and drops stay inside the district.
+
+**From the pre-check (no question).**
+- **Puzzle 15 fails CK14 however it is laid.** Each of its two feeds has 2 lines, and K1 Q10 gives a feed one entering span. It is a rework under answer 4.
+- **With roof nodes, 15 of the 16 pilot puzzles fit:**
+  - 01, 02, 05, 06, 08, 13 and 16 on poles, on 1 block;
+  - 03, 07, 09, 10 and 14 on 1 block, using roofs;
+  - 04, 11 and 12 on 2 blocks, using roofs.
+- **No pole on seed 1 has more than 3 spans** (finding 2). So the 4-wire and 5-wire junctions of 03, 04, 07, 11 and 12 need roof `down` spans to add ports.
+- **Finding 3's corrections go into B1b:**
+  - the keep square meets 26 small props on seed 1, not 14;
+  - "street cells within one cell of the junction" is read as carriageway and crossing cells only;
+  - the counts of `down` places.
+
 ## Goal
 Josh opens `npm run dev`, picks one of the ladder puzzles in its city form from the map picker, and plays it on the pipeline city (6 x 6 seed 1). Its feed, breakers, switches, fuse boxes, junctions, batteries and lamps stand on the poles, roof structures, buildings and lamp posts of one district. Its lines run along the streets as chains of straight spans from structure to structure. Any line that crosses a street on a diagonal hangs from a structure on a building's roof. Each component is drawn with the model Josh picked for it, one card at a time. A 2D overlay over the 3D city draws the puzzle's icons and lines at a size he can read and click. A click on the overlay throws, releases or repairs through the same `src/play/` calls as the 2D map. The old tile city and the ladder's 3D town are gone. The 2D game plays as before.
 
@@ -61,12 +92,12 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 - **`src/grid/` and `src/night/` are not touched.** `src/city/circuit/` is pure: no DOM, canvas or three, and it imports only `src/core/` and `src/city/`.
 - **Josh's K1 answers hold except as changed on 23 Nov:**
   - CK5's corner spans are never over a carriageway.
-  - CK6's pole crossings are square, mid-block and never over a junction (Q45). Roof spans are the one exception (6a).
+  - CK6's pole crossings are square and between junctions, never over one (Q45). They stand 2.5 m past the corner cell, just beyond the crosswalk (K1 answer 3), not in the middle of the block. Roof spans are the one exception (6a).
   - CK7's 4.2 m floor holds for every span over a street, roof spans included.
   - CK9's drops are on the pole side only (Q4, Q12).
-  - CK12: fuse boxes, breakers and switches stand on poles, **or on roof structures** (6b), and the feed on a pole just outside the district (Q10).
+  - CK12: fuse boxes, breakers and switches stand on poles, **or on roof structures** (6b). **Any node may stand on a roof structure** (B1-Q1, "Anything"), lamps, batteries and the feed included. Otherwise the feed stands on a pole just outside the district (Q10).
   - CK13 is **changed by answer 5**.
-  - CK14's district is 1 to 4 blocks (Q7).
+  - CK14's district is 1 to 4 blocks (Q7). A job may also use roof structures on the blocks one street beyond it (B1-Q5, "Neighbouring blocks too"). Its pole lines and drops stay inside the district.
 - **CK13 as changed (Josh, 23 Nov 2026).**
   - A puzzle line is a chain of one or more straight spans, each from one structure to the next, of any kind (along, corner, crossing, roof). It may end in a drop or a lamp post's lead.
   - The poles between are carriers: they hold no node of the job, and the job uses no other attachment there.
@@ -92,23 +123,27 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | A2b | Kept modules' tests stop building the ladder town (as L2c) | renderer | A2a | at most 15 rewritten; split A2b1, A2b2 if more |
 | A2d | `?view=3d` on a schematic puzzle opens the 2D map | ui | A2a | 2 |
 | A2c | Delete the ladder town | renderer | A2b, A2d | about 2 added; the ladder's tests removed |
-| B1 | CK17, the street rule and roof structures, designed | puzzle-designer | G1 | 0 (a note) |
-| B1p | "pre-check 081 B1" | pipeline-designer | B1 | 0 (a note) |
+| B1 | CK17, the street rule and roof structures, designed | puzzle-designer | G1 | **done** (on `ticket/081b1-roof-spans`) |
+| B1p | "pre-check 081 B1" | pipeline-designer | B1 | **done** (same branch) |
+| B1b | CK17 amended to Josh's B1 answers | puzzle-designer | now | 0 (a note) |
+| PK1 | The ground poles' mix and heights in `src/core/` (re-cut of merged 071 B) | lead-architect | now | 0 (typed data) |
+| PK2 | `powerkit.ts` reads the mix and heights from core | renderer | PK1 | 2 |
+| B1q | "pre-check 081 B1b": mid-row roofs, the real pole pick, neighbouring blocks | pipeline-designer | B1b, PK1 | 0 (a note) |
 | C1 | The city puzzle validator | lead-architect | G1 | 6 |
-| K2a | Stage 6: poles and spans (CK1 to CK8) | grid-simulator | C1 | 12 |
+| K2a | Stage 6: poles and spans (CK1 to CK6, CK8; CK7 moves to K2d) | grid-simulator | now | 11 |
 | K2b | Stage 6: drops, lights, lamp posts, node places (CK9 to CK12) | grid-simulator | K2a | 10 |
-| K2c | The conversion (CK13 as changed, CK14, CK15) | grid-simulator | K2b | 10 |
-| K2d | Stage 6: roof structures and roof spans (CK17) | grid-simulator | K2c, B1p, Josh's answers to it | at most 10 |
+| K2c | The conversion (CK13 as changed, CK14, CK15) | grid-simulator | K2b, C1 | 10 |
+| K2d | Stage 6: the pole pick, CK7, roof structures and roof spans (CK17) | grid-simulator | K2c, PK1, B1q, Josh's answer to open question 1 | at most 13 |
 | I2 | Stage 8 keeps clear of the circuit | landscape | K2b | 3 |
-| H4 | Stage 7's roof pieces keep clear of roof structures | facades | K2d | 3 |
+| H4 | Stage 7's roof pieces keep clear of roof structures | facades | K2d (B1q measures the mid-row part) | 4 |
 | P1 | The fit tool and the city check | grid-simulator | K2c | 9 |
-| P2a | Puzzles 01 to 16 on the city (the pilot) | puzzle-designer | P1 (K2d for any that needs a diagonal) | 0 |
+| P2a | Puzzles 01 to 16 on the city (the pilot) | puzzle-designer | P1, K2d (9 of the 16 need roofs) | 0 |
 | P2b to P2d | Puzzles 17 to 64, 16 a batch | puzzle-designer | P2a, and Josh's word after playing it | 0 each |
 | D1 | The component shortlist | pipeline-designer | G1 | 0 (a note) |
 | D2 | The gallery's component view | ui | D1 | 5 |
 | D3 | The picks table | renderer | Josh's first picks | 2 |
 | E1 | Glyphs out of the 2D renderer; the overlay's icons and lines, pure | renderer | G1 | 9 |
-| K3 | The circuit drawn on the city | renderer | K2b, A2c | 6 |
+| K3 | The circuit drawn on the city | renderer | K2d, PK2, A2c | 6 |
 | E2 | A city puzzle played on the city, through the overlay | renderer | E1, K3, K2c | 9 |
 | U1 | The picker opens city puzzles | ui | E2, P2a | 4 |
 
@@ -200,37 +235,70 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 
 **Files.** `src/render3d/` (deletions, `renderer.ts`, the kept files' ladder-only functions, the deleted files' tests); `docs/city-style/*.md` and `docs/city-grammar.md` (ladder-only lines). **Must not:** `src/city/`, `src/render/`, `src/play/`, `src/ui/`, `tests/playtest/`, `tools/`. If a deletion needs one of these, stop and report: that is a re-cut.
 
-### B1 · CK17, the street rule and roof structures, designed (puzzle-designer; a note, no code). Branch `ticket/081b1-roof-spans`
-**Goal.** Josh's rule, with his 23 Nov answers, written so a stage can follow it. The note's questions are only those his answers leave open.
+### B1 · CK17, the street rule and roof structures, designed (puzzle-designer; a note). **Done** on `ticket/081b1-roof-spans`
+`docs/design/081-B1-roof-spans.md`, with Josh's answers at the top. Its questions 1 to 5 are answered (see "Josh's answers on B1 and its pre-check").
 
-**Acceptance criteria.** All **no test**: this is a design note, and the pre-check measures it.
-1. [ ] **`docs/design/081-B1-roof-spans.md` states CK17 in K1's form** (rule, where, numbers on seed 1, reads, status, K2 checks, fails). It covers:
-   - **On the streets.** Every along, corner and crossing span already follows the streets (CK4 to CK6). Measured on seed 1: does anything break "within the street structure" today?
-   - **When a diagonal is used.** Which lines on a city puzzle want a diagonal, for example a lamp or node across a street from the pole line, a route that would otherwise take two crossings and a corner, or a link over an intersection (6a). Also how often P1's fit wants one on the pilot (01 to 16).
-   - **The roof structure.** Which buildings may carry one: height, roof kind, and keeping off stage 7's roof exit, water tower and roof props (H3, H3b). Its attachment height against CK7's 4.2 m floor over a street. Its id and place in CK15's style.
-   - **Its spans:** roof to roof, or roof to pole (6c); the longest span; over an intersection only for roof spans (6a). How a roof span clears the corner spans, the masts of stage 9 and other roof spans in plan and height.
-   - **Its nodes (6b).** Breakers, switches and fuse boxes may stand on a roof structure, and the note gives their attachment counts as CK12 does for poles. **Still open for Josh:** junctions, batteries, lamps and the feed (Q10 puts the feed on a pole outside the district) on a roof. The note asks, recommended answer first.
-   - **Reach and reading.** In this prototype a roof node is played by its overlay icon (E1, E2), so no reach rule binds it. The note records what it means for the street layer later:
-     - 073's **T-2** ("every node place stays reachable ... on foot along pavement or road"), which a roof node meets only by a building's roof exit (H3);
-     - the schema's `overhead` ("needs a climb to repair", street scope);
-     - the brief's "Later: the street" (the lamp's reach, the breaker walk).
+### B1p · "pre-check 081 B1" (pipeline-designer). **Done** on `ticket/081b1-roof-spans`
+`docs/design/081-B1-precheck.md`. The verdict was "mostly holds", with three findings. Josh answered question A ("Tall poles too"). Findings 2 and 3 are taken into B1b; finding 1 into PK1, PK2 and K2d.
 
-     The note says whether T-2 needs a roof clause, and asks Josh if so. No GDD Decided rule covers where a node stands; the note says so, or names any rule it finds.
-   - **Against each rule it touches**, one line each: CK5, CK6 and Q45 (lifted for roof spans only), CK7, CK9 and Q4/Q12 (still no drop across a street), CK12 and Q9 (lifted for roof structures only), CK13 as changed, CK14 (may a roof structure on a block next to the district carry the job?), CK16. Every clash with a Josh answer is a numbered question.
-2. [ ] **Ids and fields for the architect**: the roof structure's pole kind, span kind and `CityNodePlace` form, so they can be added to `src/core/citycircuit.ts` before K2d.
+### B1b · CK17 amended to Josh's B1 answers (puzzle-designer; a note). Branch `ticket/081b1-roof-spans`
+**Goal.** CK17 says what Josh answered, so that B1q can measure it and K2d can be cut from it.
 
-**Files.** `docs/design/081-B1-roof-spans.md`, and a probe the designer runs on demand (not committed under `src/`).
+**Acceptance criteria.** All **no test**.
+1. [ ] **CK17a, where roof structures stand:**
+   - on every street corner roof, as scenery, used or not (Q3);
+   - on mid-row roofs as well (Q4), worded as open question 1 is answered. Until Josh answers, both readings are written out, with the recommended one first;
+   - the keep square corrected to the pre-check's 26 props on seed 1.
+2. [ ] **CK17d:**
+   - over a junction, a roof span may go roof to roof, or roof to a pole whose **model** clears `ROOF_JUNCTION_FLOOR_M` 7.5 m at the junction's edge (B1p-A), read from the pick PK1 types;
+   - the fail line is rewritten on that basis, since storey count was the pre-check's finding 1 and is not the test;
+   - "street cells within one cell of the junction" is read as carriageway and crossing cells only (finding 3).
+3. [ ] **CK17e, nodes on a roof:** any node type (Q1, "Anything"), each with its attachment count.
+   - A roof lamp is lit through its roof span. It is not a drop, and Q12 still keeps drops on the pole side.
+   - A roof feed stands outside the district at the far end of the one span that enters it (Q10's side kept).
+4. [ ] **CK14 for roofs:** roofs on the blocks one street beyond the district may carry the job (Q5, "Neighbouring blocks too"). Say how far "one street beyond" reaches: the blocks across each district street, and the diagonal block across a junction. Say whether the feed's entering span may start from such a roof.
+5. [ ] **T-2 (Q2):** for the street layer, the note words the roof clause: "on foot along pavement or road, or by a climb at its building". **Puzzle 15** is listed as a rework (CK14's feeds).
+6. [ ] **Ids and fields** for the architect, updated: `CityRoofMast` (with a `row: "corner" | "mid"`), the roof span kind, `{ roof }` as a place, `roofKeep`, and the per-pole model field (PK1).
 
-### B1p · Pre-check "pre-check 081 B1" (pipeline-designer). Branch `ticket/081b1-roof-spans`
-**Still needed after Josh's answers.** Answers 5 and 6a to 6c settle the rule's shape, but none of its numbers has been measured. Still unmeasured:
-- how many roof structures the city can carry and where;
-- their heights against the 4.2 m floor;
-- roof span lengths, and their clearance from corner spans, masts and each other;
-- clashes with stage 7's roof pieces;
-- how many pilot puzzles need one;
-- whether carrier-only lines (answer 5) still give every puzzle a fit on seed 1.
+**Files.** `docs/design/081-B1-roof-spans.md`.
 
-It measures CK17 on the 20 named runs, by a script run on demand and never in `npm test`. If it does not report "holds", its note goes to Josh before K2d is cut. His answers go at the top of both notes in his words, and then the architect cuts K2d in full. **Files.** `docs/design/081-B1-precheck.md`.
+### PK1 · The ground poles' mix and heights in `src/core/` (lead-architect). Branch `ticket/081pk1-pole-table`
+**Why.** Josh, B1p-A: "Tall poles too". Stage 6 may import only `src/core/` and `src/city/`, but the pole choice (`poleAt`) and the attachment heights live in merged 071 B's `src/render3d/powerkit.ts`. This is a small re-cut of 071 B. The values don't change, and 071 B's pins are kept.
+
+**Goal.** `src/core/powerpoles.ts` holds, as typed data:
+- `GROUND_POLE_MIX`: the three keys, in `POWER_MIX`'s order;
+- `GROUND_POLE_ATTACH_UP_M`: each key's three attachment heights (`up`, m), copied from `POWER_POLES` at a2f819e with the source line.
+
+`CityCircuitLayer` gains `poleModels: Readonly<Record<string, string>>` (pole id to key), which K2d writes. The choosing rule stays logic, and logic doesn't belong in core: K2d implements it in `src/city/circuit/` as `poleAt` does (`stableHash` from `src/city/pipeline`, which is the same FNV-1a as `src/render/city.ts`'s), so stage 6 and the renderer give each spot the same pole.
+
+**Acceptance criteria.**
+1. [ ] The table and the layer field are typed. **no test**: they name values, and PK2's pin holds them equal to `powerkit.ts`.
+
+**Files.** New `src/core/powerpoles.ts`, `src/core/cityplan.ts` (`CityCircuitLayer`), `src/core/index.ts`.
+
+### PK2 · `powerkit.ts` reads the mix and heights from core (renderer). Branch `ticket/081pk2-powerkit-core`
+**Goal.** No change Josh can see.
+- `POWER_MIX` is `GROUND_POLE_MIX`.
+- `POWER_POLES`' `up` values equal `GROUND_POLE_ATTACH_UP_M`.
+- K3 draws the model `layers.circuit.poleModels` names at each pole, rather than calling `poleAt` itself.
+
+**Acceptance criteria.**
+1. [ ] **The pin.** For each mix key, `POWER_POLES[key].attach_m[i].up` equals `GROUND_POLE_ATTACH_UP_M[key][i]`, and `POWER_MIX` equals `GROUND_POLE_MIX`. **test**: 1 case.
+2. [ ] **The same pick.** On 20 fixture spot ids (including `<run>#<n>` forms), `poleAt(POWER_MIX, id)` equals `src/city/circuit/`'s pick. This case is added once K2d exists: PK2 adds it if K2d is in by then, and otherwise K2d's builder adds it in `src/city/circuit/`. **test**: 1 case.
+3. [ ] Every existing `powerkit.test.ts` case passes unedited. **test** (existing).
+
+**Files.** `src/render3d/powerkit.ts` (the two reads from core), `powerkit.test.ts`.
+
+### B1q · "pre-check 081 B1b" (pipeline-designer). Branch `ticket/081b1-roof-spans`
+**Why.** Mid-row roofs (Q4), the real pole pick (B1p-A), roof nodes of every kind (Q1) and neighbouring-block roofs (Q5) are all unmeasured.
+
+**What it measures**, on the 20 named runs by a script run on demand (never in `npm test`), under each reading of open question 1:
+- **Mid-row roof places:** how many there are, how many clash with stage 7's roof exit, water tower, billboard and roof props (H3, H3b), and H4's keep-square work on mid-row and corner roofs;
+- **Finding 1's table on the real pick** (PK1's data, `poleAt`'s rule): roof-to-pole places over junctions that clear 7.5 m;
+- **The pilot's fits** with any node on a roof and neighbouring-block roofs: whether 04, 11 and 12 come down to 1 block, and confirming 15 still fails CK14;
+- **Roof spans:** whether roofs one street beyond the district let any roof span cross another job's district edge in a way CK14's checks must catch.
+
+If it does not report "holds", its note goes to Josh before K2d and H4 are cut in full. **Files.** `docs/design/081-B1q-precheck.md`.
 
 ### C1 · The city puzzle validator (lead-architect). Branch `ticket/081c1-city-puzzle-loader`
 **Goal.** A city puzzle file (`puzzles/city/<id>.city.json`, type `CityPuzzle`) is checked for shape before any plan is built. The place checks against the city are K2c's.
@@ -253,13 +321,13 @@ It measures CK17 on the 20 named runs, by a script run on demand and never in `n
 
 ### K2a · Stage 6, poles and spans (grid-simulator, pure). Branch `ticket/081k2a-circuit-poles`
 **Before it starts:** the main session adds `src/city/circuit/` to `.claude/agents/grid-simulator.md` (answer 10).
-**Goal.** `src/city/circuit/` builds `CityCircuitLayer`'s poles, spans and `keep` as CK1 to CK8 say, and the circuit stage joins `BUILT_STAGES` between buildings and facades.
+**Goal.** `src/city/circuit/` builds `CityCircuitLayer`'s poles, spans and `keep` as CK1 to CK6 and CK8 say, and the circuit stage joins `BUILT_STAGES` between buildings and facades. **CK7 (the 4.2 m floor) moves to K2d.** It needs each pole's model, and the model is PK1's data plus K2d's pick. K2a needs neither PK1 nor C1, so it starts now.
 
 **Acceptance criteria.**
 1. [ ] The stage is a pure function of the layers before it, frozen by the runner, with a digest and a flat picture. **test**: 1 digest pin on seed 1. **browser**: `?city=plan&stage=6`.
 2. [ ] CK1, CK2 and CK3. **test**: 3 fixture cases, on CK2's and CK3's "Fails" lines.
 3. [ ] CK4, CK5 and CK6. **test**: 3 fixture cases.
-4. [ ] CK7 against 071's attachment table. **test**: 1 fixture case.
+4. [ ] (moved to K2d)
 5. [ ] CK8: one connected network. **test**: 1 case on 6 x 6 seed 1, one-way on.
 6. [ ] The builder prints seed 1's counts (562 poles, 126 corner spans, 74 crossings) once, in its reply. **no test**.
 7. [ ] `circuitPoints` (`src/city/pipeline/readable.ts`, its body only) reads the layer. **test**: 1 case.
@@ -297,13 +365,24 @@ It measures CK17 on the 20 named runs, by a script run on demand and never in `n
 
 **Files.** `src/city/circuit/`.
 
-### K2d · Stage 6, roof structures and roof spans (grid-simulator, pure). Branch `ticket/081k2d-roof-spans`
-Cut in full after B1, B1p and Josh's answers to them. The architect first adds B1's types to `src/core/citycircuit.ts`, then writes one criterion per line of CK17's "K2 checks" and "Fails", at most 10 cases. Known already:
-- roof structures and roof spans in the layer;
-- roof to roof and roof to pole (6c);
-- over an intersection for roof spans only (6a);
-- breakers, switches and fuse boxes allowed on a roof structure (6b) in `nodePlaceProblems`;
-- the 4.2 m floor over a street.
+### K2d · Stage 6: the pole pick, CK7, roof structures and roof spans (grid-simulator, pure). Branch `ticket/081k2d-roof-spans`
+**Cut in full after** PK1, B1b, B1q and Josh's answer to open question 1. The architect first adds B1b's types to `src/core/citycircuit.ts` (`CityRoofMast`, the roof span kind, `{ roof }` as a place, `roofKeep`), then writes one criterion per line of CK17's "K2 checks" and "Fails". Known already, with expected tests:
+- **The pole pick.** `poleModels` gives every pole its key by `poleAt`'s rule on PK1's mix. **test**: 1 case. PK2's same-pick case goes here if PK2 is merged first.
+- **CK7, moved from K2a.** Every crossing's low point is at least 4.2 m on its poles' real models; along and corner spans meet the same walk floor. **test**: 1 case.
+- **Roof structures** on every street corner roof (Q3), and on mid-row roofs as open question 1 is answered (Q4). **test**: 2 cases.
+- **Roof spans:**
+  - roof to roof, or roof to pole (6c);
+  - over an intersection for roof spans only (6a);
+  - roof to pole over a junction only where the pole's model clears 7.5 m (B1p-A);
+  - the 40 m cap, and street cells only.
+
+  **test**: 4 cases.
+- **`nodePlaceProblems`.** Any node type is allowed on a roof structure, with B1b's attachment counts (Q1). **test**: 1 case.
+- **CK14 for roofs.** A job's roofs are on its district or the blocks one street beyond (Q5), never further. **test**: 1 case.
+- **`roofKeep`** for H4. **test**: 1 case.
+- **The layer's digest pin**, re-taken. **test**: 1 rewritten.
+
+At most 13 cases. If B1b adds checks beyond these, the section splits into K2d1 (pick, CK7, structures) and K2d2 (spans, places, CK14).
 
 **Files** (expected): `src/city/circuit/`.
 
@@ -316,7 +395,10 @@ Cut in full after B1, B1p and Josh's answers to them. The architect first adds B
 **Files.** `src/city/ground/`.
 
 ### H4 · Stage 7's roof pieces keep clear of roof structures (facades, pure). Branch `ticket/081h4-roof-keep`
-Cut in full after K2d. Expected: the roof exit, the water tower and roof props (H3, H3b) keep clear of every roof structure; 1 fixture case, 1 seed-1 case and 1 digest re-take. **Files** (expected): `src/city/facades/`.
+Cut in full after K2d, with B1q's numbers on mid-row roofs.
+- **Expected:** the roof exit, the water tower, billboards and roof props (H3, H3b) keep clear of every roof structure's keep square (`roofKeep`), on corner roofs (about 26 props on seed 1) and on mid-row roofs where open question 1's answer puts structures. A big prop that can't keep clear moves, or leaves the roof, as B1q measures.
+- **Tests:** 1 fixture case for a corner roof, 1 for a mid-row roof, 1 seed-1 case and 1 digest re-take.
+- **Files** (expected): `src/city/facades/`.
 
 ### P1 · The fit tool and the city check (grid-simulator). Branch `ticket/081p1-fit-tool`
 **Goal.** `npm run fit puzzles/<NN-slug>.json -- --city 6x6:1:oneway [--blocks <ids>]` searches 6 x 6 seed 1 for a district of 1 to 4 blocks and an embedding of the schematic puzzle:
@@ -343,9 +425,17 @@ It writes a draft `puzzles/city/<NN-slug>.city.json` with `from` set. When there
 ### P2b to P2d · Puzzles 17 to 32, 33 to 48, 49 to 64. Branches `ticket/081p2b-...`, `p2c`, `p2d`
 P2b to P2d start only after Josh has played the pilot and said so in chat (answer 2).
 
+**The pilot, from B1p.**
+- 01, 02, 05, 06, 08, 13 and 16 fit on poles, on 1 block.
+- 03, 07, 09, 10 and 14 fit on 1 block, using roof structures.
+- 04, 11 and 12 fit on 2 blocks, using roof structures.
+- **15 is a rework** under answer 4: each of its feeds has 2 lines, and CK14 gives a feed one entering span.
+
+P1's own fits (criterion 8) are the record. P2a waits for K2d, because 9 of its 16 need roofs.
+
 **How a schematic puzzle goes onto the city (6 x 6 seed 1, one-way on; answer 3).**
 - **Nodes onto places** (CK12): the feed on a pole just outside the district; breakers, fuse boxes and batteries on poles with 2 or more attachments, or breakers and fuse boxes on roof structures (6b); switches on poles with 3 or more, or on a roof structure; junctions on any pole; lamps on a building with a drop (a "home", "shrine" or "infirmary" read goes to a building that fits, where one does) or a lamp post. One node per place.
-- **Lines onto chains of spans** (CK13 as changed). Lines run along the pole lines, round corners on carrier poles, square across streets mid-block, down a drop or a lead, or on a roof span where a line crosses a street on a diagonal (after K2d). The schematic's nodes stay exactly as they are: a corner never becomes a junction.
+- **Lines onto chains of spans** (CK13 as changed). Lines run along the pole lines, round corners on carrier poles, square across streets between junctions (2.5 m past the corner), down a drop or a lead, or on a roof span where a line crosses a street on a diagonal (after K2d). The schematic's nodes stay exactly as they are: a corner never becomes a junction.
 - **Faults** are copied. A `damaged-cable` names the span that is cut, chosen where the break reads from the default camera.
 - **`pos` is never authored.**
 - **Districts may overlap** between puzzles: only one job is live at a time, and the rest of the city is dead (CK8).
@@ -431,7 +521,7 @@ P2b to P2d start only after Josh has played the pilot and said so in chat (answe
 **Goal.** At `?view=3d&city=tiles`, stage 6's poles, spans, drops and street lights are drawn dead through `powerkit.ts`, with roof structures once K2d is in. Each picked component model (D3), and the damaged line's prop at its cut, stands where a city puzzle puts it. Unpicked components are placeholders.
 
 **Acceptance criteria.**
-1. [ ] Every pole is drawn with `placePole` from `POWER_MIX`, and every span with `fitLine`. **test**: 2 cases.
+1. [ ] Every pole is drawn with `placePole` using the model `poleModels` names (PK1, K2d), and every span with `fitLine`. Roof structures (every corner roof, and mid-row as open question 1 says) are drawn with Josh's `roofMast` pick, or a placeholder. Roof spans are drawn where a job uses them, and as scenery as open question 1 says. **test**: 2 cases.
 2. [ ] The wires are code-drawn with their Decided looks. **test**: 1 case.
 3. [ ] Component models stand at their places, unscaled (guide chapter 2, Decided), or as a placeholder when null. **test**: 2 cases.
 4. [ ] The R12 audit counts the new pieces. **test**: 1 rewritten.
@@ -473,15 +563,21 @@ Written into `src/core/` with this cut (typecheck passes):
   - D's types: `CIRCUIT_COMPONENTS`, `CircuitComponent`, `CircuitComponentPick`.
 - **`src/core/cityplan.ts`:** `CityCircuitLayer` is `{ stage, poles, spans, drops, lights, posts, keep }`. No stage writes it yet.
 - **Not typed yet:**
-  - the roof structure, the roof span and the roof place (after B1p, before K2d);
+  - the roof structure, the roof span, the roof place and `roofKeep` (after B1b and B1q, before K2d);
+  - `src/core/powerpoles.ts` and `CityCircuitLayer.poleModels` (PK1).
   - `validateCityPuzzle` and `loadCityPuzzle` (C1);
   - "ladder" leaving `ASSET_GALLERY_USES` (on A2c's branch).
 - **Events:** none new.
 - **No new dependency.** The overlay is Canvas 2D.
 
 ## Open questions (for Josh)
-All ten of the first cut's questions are answered (above). What is still open:
-1. **(in B1, asked there)** Besides breakers, switches and fuse boxes (6b), may a roof structure hold a junction, battery or lamp, or the feed (K1 Q10 puts the feed on a pole outside the district)?
-2. **(in B1, asked there)** Does 073's T-2 ("every node place stays reachable ... on foot") need a roof clause for the street layer later, or does a roof node count as reachable by its building's roof exit?
-3. **(B1p)** Anything the pre-check finds that does not hold.
-4. **Default this cut takes (he may overturn it):** after A2c, `?view=3d` on a schematic puzzle opens the 2D map with a console note, until that puzzle has a city form.
+All ten of the first cut's questions, and B1's and B1p's, are answered (above). Still open:
+1. **Mid-row roof structures: always there, or only where a puzzle uses one?** You answered "On every corner roof" (they stand as scenery, used or not) and "Mid-row as well". Read together, the two answers fit either of these:
+   - **(a) Recommended:** corner roofs always carry a structure, as scenery. A mid-row roof carries one only where a puzzle uses it, and only while that puzzle is played.
+     - Under (a), the roof spans between structures are drawn only where a job uses them, because the offered span places cross one another and a full net would tangle.
+     - Stage 7 clears every corner roof once, and a mid-row roof only for the jobs that use it.
+     - Mid-row roofs hold most of the water towers, roof exits and billboards (on seed 1: 277 exits, 48 towers and 52 billboards on mid columns), so B1q measures how many could ever take one.
+   - **(b)** Every mid-row roof that can take one carries a structure, as scenery, as the corners do. Stage 7 then has to keep its roof props clear of all of them. B1q measures how many props move.
+
+   Neither reading is assumed. B1b writes both and B1q measures both.
+2. **Default this cut takes (you may overturn it):** after A2c, `?view=3d` on a schematic puzzle opens the 2D map with a console note, until that puzzle has a city form.
