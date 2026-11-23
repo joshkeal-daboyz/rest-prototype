@@ -158,3 +158,9 @@ Files: `src/render3d/`.
 - **Q1.** Recommended: yes. A test moved unchanged into a `*.report.test.ts` file, out of `npm test`, counts as 0 against the 15 per PR, because it leaves the suite. If no, the 12 renamed reports alone (about 25 cases) would need two extra PRs.
 - **Q2.** Recommended: yes. `npm run gate:full` also runs the reports, so their few pins (party, roof, escape, dress thresholds) still run at every release. If no, they run only when someone types `npm run report`.
 - **Q3.** Recommended: yes. Waive "each agent stays in its folder" for this ticket, as in 076 and 078. The planner does sections A to I itself, one branch per PR, since all of it is mechanical list swaps and renames. That saves about eight agent spawns. If no, the owners above build their own sections.
+
+## Josh's answers (23 Nov 2026, on cards)
+- **G1:** "Approve (Recommended)".
+- **Q1:** "Yes, counts 0 (Recommended)". A test moved unchanged into a `*.report.test.ts` file counts as 0 against the 15 per PR (counted with `git diff -M`).
+- **Q2:** "Yes (Recommended)". `npm run gate:full` also runs the reports.
+- **Q3:** "Yes, planner does all (Recommended)". The folder rule is waived for this ticket: the planner builds every section, section M's config and CI included, with one branch per PR (079a, 079b, 079c). The main session reviews M's CI and config changes like any other.
