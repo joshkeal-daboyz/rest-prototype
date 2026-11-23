@@ -38,7 +38,7 @@ def check_shell(cmd, agent):
         deny("puzzles/locked/ is never written by agents or scripts. Josh replaces a locked puzzle himself.")
     if not agent:
         return
-    if re.search(r"\bgit\s+(merge|push|rebase)\b", c) or re.search(r"\bgh\s+pr\s+merge\b", c) \
+    if re.search(r"\bgit\s+(merge|push|rebase)(?![\w-])", c) or re.search(r"\bgh\s+pr\s+merge\b", c) \
             or re.search(r"\bgh\s+issue\s+close\b", c):
         deny("agents don't merge, push or close tickets. Report back; the main session does it on Josh's word.")
     if re.search(r"\bgit\s+branch\b[^|;&\n]*\s(-d|-D|--delete)\b", c) or re.search(r"\bgit\s+worktree\s+(remove|prune)\b", c) \
