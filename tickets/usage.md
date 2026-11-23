@@ -402,4 +402,4 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 080 cut | lead-architect | opus (agent default) | 42K total (one figure in the readout) | - | 0 | Cut the ticket; 8 tool uses, 2 min; not yet committed, waits for G1 |
 | 080 A | renderer | sonnet (agent default) | 76K total (one figure in the readout) | - | 1 | Verbatim split into docs/city-style/ (9d37242); 47 tool uses, 4.5 min |
 | 080 A | gate (main session) | - | - | - | 1 | 30bd09f: tsc clean; guide tests 139 passed, 1 skipped; changed-tests gate 593 passed, 26 skipped |
-| 080 A | code-reviewer / playtester (general-purpose with playtester.md) | opus / sonnet | not in the readout yet / 65K | - | 1 | meets, must-fix 0 (05d82fe); regressions 0, no replay (21051d3) |
+| 080 A | code-reviewer / playtester (general-purpose with playtester.md) | opus / sonnet | 39K / 65K | - | 1 | meets, must-fix 0 (05d82fe); regressions 0, no replay (21051d3) |
