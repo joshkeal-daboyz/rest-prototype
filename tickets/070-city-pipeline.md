@@ -2282,6 +2282,7 @@ Both are in the converted manifest with a non-zero width and height and no warni
 Recommended: a small renderer section after J (legend columns as wide as the longest name, or names wrapped, with a `planview.test.ts` case), on Josh's word (Q30). Otherwise L takes it.
 
 ### K · Stage 6, the circuit (outline; K1 cut below, 21 Nov 2026)
+**Continued in ticket 081 (23 Nov 2026).** K1 is merged; K2 to K5 are cut there as K2a to K2d, I2, K3, E1, E2, P1, P2 and U1, on Josh's request of 23 Nov 2026. This outline stays as the record.
 **Josh's words (21 Nov 2026, in chat; Q4).** "I think that's stage 6 should be the collaborative work between the puzzle designer and the electrical grid agent".
 
 **What the old tile city gives stage 6 today (read on 883cab7).** Nothing that plays. `tilecity.ts` reserves `poleSlots` (one every `Power_Cables_01` span, 12.45 m plus a pole, along each pavement, 0.09 m behind the kerb face, never on a corner, a crossing landing or a kerb cut; "reserved, nothing stands in them yet") and `tileKeepouts` keeps the furniture clear of them. No pole, wire, drop, pad, lamp, feed or puzzle node stands in the tile city, and `tilecity3d.ts`'s scene has empty wire, pole and hardware lists. Ticket 059 (poles, wires, street lights) was approved but never built. So K starts from 059's text and the old slot rule, not from working code.
@@ -2582,6 +2583,7 @@ So **L2a, L2b and L2c start now**, alongside K1. **L2d** deletes the old city an
 **Commands.** `npx vitest run --maxWorkers=2` on the nine named test files, and one `npx tsc --noEmit`.
 
 ### L2d · Delete the old city (renderer). Branch `ticket/070l2d-delete-old-path`
+**Continued in ticket 081 as A1 (23 Nov 2026),** with its guide edits moved to `docs/city-style/` (ticket 080). The text below stays as A1's criteria.
 **When.** After L2a, L2b and L2c are merged. It does not wait for K1 (Q46, answered: Josh, 21 Nov 2026, in chat, "Yes to all recommendations").
 
 **Goal.** The old tile city is gone. `city=tiles` is the pipeline's city, as since L1. `city=tiles-old` opens nothing special: it falls through to the ladder's 3D view, as any unknown `city` does. `city=tiles&sheet=1` still opens the tile sheet (Q47, answered: Josh, 21 Nov 2026, in chat, "Yes to all recommendations": keep it). The guide and grammar describe only the pipeline.

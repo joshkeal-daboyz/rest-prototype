@@ -2,8 +2,11 @@
  * Loader and validator for puzzle files (schema draft 5).
  * `validatePuzzle` never throws; it returns every problem it finds so the editor can show them.
  * `loadPuzzle` throws on the first invalid file, for code that wants a Puzzle or nothing.
+ * `validateCityPuzzle` / `loadCityPuzzle` do the same for a city puzzle (`puzzles/city/<id>.city.json`, ticket 081 C1), for its shape only.
+ * Whether its places, spans, drops and leads exist on the city, and whether its runs join up, is the conversion's (081 K2c, `src/city/circuit/`).
  */
 
+import type { CityPuzzle } from "./citycircuit";
 import { FAULT_RULES, type FaultKind, type GridNode, type NodeType, type Part, type Puzzle, type Vec2 } from "./schema";
 import { powersourceName } from "./words";
 
@@ -19,10 +22,46 @@ const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFin
 const isVec2 = (v: unknown): v is Vec2 => Array.isArray(v) && v.length === 2 && v.every(isNum);
 
 export function validatePuzzle(json: unknown): ValidationResult {
+  const errors = checkPuzzle(json, false);
+  if (errors.length) return { ok: false, errors };
+  return { ok: true, puzzle: json as Puzzle };
+}
+
+export function loadPuzzle(json: unknown): Puzzle {
+  const r = validatePuzzle(json);
+  if (!r.ok) throw new Error(`invalid puzzle:\n  ${r.errors.join("\n  ")}`);
+  return r.puzzle;
+}
+
+export type CityValidationResult = { ok: true; puzzle: CityPuzzle } | { ok: false; errors: readonly string[] };
+
+/**
+ * A city puzzle's shape (081 C1): everything `validatePuzzle` checks that needs no `pos`, plus `city`, `district`, each node's `place`, each line's `run`
+ * and each fault's `span`. Never throws; returns every problem, one message each.
+ */
+export function validateCityPuzzle(json: unknown): CityValidationResult {
+  const errors = checkPuzzle(json, true);
+  if (errors.length) return { ok: false, errors };
+  return { ok: true, puzzle: json as CityPuzzle };
+}
+
+export function loadCityPuzzle(json: unknown): CityPuzzle {
+  const r = validateCityPuzzle(json);
+  if (!r.ok) throw new Error(`invalid city puzzle:\n  ${r.errors.join("\n  ")}`);
+  return r.puzzle;
+}
+
+/** The fields a city puzzle leaves out (`CityPuzzle`): the street layer's, and `decor`, which is drawn by `pos`. */
+const NOT_CITY = ["start", "night", "satchel", "favor", "lampReach", "salvage", "stores", "decor"] as const;
+const PLACE_KINDS = ["pole", "building", "post"] as const;
+const isInt = (v: unknown, min: number): v is number => isNum(v) && Number.isInteger(v) && v >= min;
+
+/** Every problem with a schematic puzzle (`city` false) or a city puzzle (`city` true). */
+function checkPuzzle(json: unknown, city: boolean): string[] {
   const errors: string[] = [];
   const err = (m: string) => errors.push(m);
 
-  if (!isObj(json)) return { ok: false, errors: ["puzzle must be an object"] };
+  if (!isObj(json)) return ["puzzle must be an object"];
   const p = json;
 
   // ---- top level ----
@@ -30,8 +69,11 @@ export function validatePuzzle(json: unknown): ValidationResult {
   if (!isStr(p["name"])) err("name must be a non-empty string");
   if (p["version"] !== 3 && p["version"] !== 4 && p["version"] !== 5) err("version must be 3, 4 or 5");
   const v5 = p["version"] === 5;
-  const street = p["scope"] === "street";
-  if (p["scope"] !== "map" && !street) err('scope must be "map" or "street"');
+  const street = !city && p["scope"] === "street";
+  if (city) {
+    if (p["scope"] !== "map") err('scope must be "map" (a city puzzle is map scope only)');
+    for (const k of NOT_CITY) if (p[k] !== undefined) err(`${k} is not part of a city puzzle`);
+  } else if (p["scope"] !== "map" && !street) err('scope must be "map" or "street"');
   if (!(p["capacity"] === null || (isNum(p["capacity"]) && p["capacity"] > 0))) err("capacity must be null or a positive number");
   if (p["startingParts"] !== undefined) {
     if (!Array.isArray(p["startingParts"]) || !p["startingParts"].every((x) => PARTS.includes(x as Part)))
@@ -49,6 +91,19 @@ export function validatePuzzle(json: unknown): ValidationResult {
     if (!isObj(favor) || !["start", "draw", "offer", "reward"].every((k) => isNum(favor[k]) && (favor[k] as number) >= 0))
       err("street: favor needs numeric start, draw, offer, reward");
   }
+  if (city) {
+    const c = p["city"];
+    if (!isObj(c)) err("city must be { blocksX, blocksZ, seed, oneWay }");
+    else {
+      for (const k of ["blocksX", "blocksZ"]) if (!isInt(c[k], 1)) err(`city.${k} must be a positive integer`);
+      if (!isInt(c["seed"], 0)) err("city.seed must be a non-negative integer");
+      if (typeof c["oneWay"] !== "boolean") err("city.oneWay must be true or false");
+    }
+    const d = p["district"];
+    if (!Array.isArray(d) || d.length < 1 || d.length > 4 || !d.every(isStr)) err("district must be 1 to 4 block ids");
+    else if (new Set(d).size !== d.length) err("district: a block id is listed twice");
+    if (p["from"] !== undefined && !isStr(p["from"])) err("from must be a schematic puzzle id");
+  }
   if (p["lampReach"] !== undefined && (!isNum(p["lampReach"]) || p["lampReach"] < 0)) err("lampReach must be a non-negative number");
 
   // ---- nodes ----
@@ -60,7 +115,15 @@ export function validatePuzzle(json: unknown): ValidationResult {
     const id = raw["id"];
     if (nodeById.has(id)) err(`duplicate node id ${id}`);
     if (!NODE_TYPES.includes(raw["type"] as NodeType)) err(`node ${id}: unknown type ${String(raw["type"])}`);
-    if (!isVec2(raw["pos"])) err(`node ${id}: pos must be [x, y]`);
+    if (!city) {
+      if (!isVec2(raw["pos"])) err(`node ${id}: pos must be [x, y]`);
+    } else {
+      if (raw["pos"] !== undefined) err(`node ${id}: a city node has a place, not a pos`);
+      const place = raw["place"];
+      const kind = isObj(place) && Object.keys(place).length === 1 ? PLACE_KINDS.find((k) => k in place) : undefined;
+      if (!isObj(place) || kind === undefined || !isStr(place[kind]))
+        err(`node ${id}: place must be exactly one of { pole }, { building }, { post }, naming an id`);
+    }
     switch (raw["type"]) {
       case "feed":
         feedNodes.push(raw);
@@ -112,6 +175,7 @@ export function validatePuzzle(json: unknown): ValidationResult {
   const lineIds = new Set<string>();
   const degree = new Map<string, number>();
   const linesFrom = new Map<string, Set<string>>();
+  const runSpans = new Map<string, readonly unknown[]>();
   for (const [i, raw] of lines.entries()) {
     if (!isObj(raw) || !isStr(raw["id"])) { err(`lines[${i}] needs an id`); continue; }
     const id = raw["id"];
@@ -129,6 +193,17 @@ export function validatePuzzle(json: unknown): ValidationResult {
       s.add(id);
     }
     if (raw["overhead"] !== undefined && typeof raw["overhead"] !== "boolean") err(`line ${id}: overhead must be true or false`);
+    if (city) {
+      const run = raw["run"];
+      if (!isObj(run)) { err(`line ${id}: run must be { spans, drop?, lead? }`); continue; }
+      const spans = run["spans"];
+      if (!Array.isArray(spans) || !spans.every(isStr)) err(`line ${id}: run.spans must be a list of span ids`);
+      else runSpans.set(id, spans);
+      for (const k of ["drop", "lead"]) if (run[k] !== undefined && !isStr(run[k])) err(`line ${id}: run.${k} must be an id`);
+      const ends = (run["drop"] !== undefined ? 1 : 0) + (run["lead"] !== undefined ? 1 : 0);
+      if (ends > 1) err(`line ${id}: run has both a drop and a lead; it may have at most one`);
+      if (Array.isArray(spans) && spans.length === 0 && ends === 0) err(`line ${id}: run.spans is empty, so it needs a drop or a lead`);
+    }
   }
   for (const [id, n] of nodeById) {
     const d = degree.get(id) ?? 0;
@@ -163,6 +238,10 @@ export function validatePuzzle(json: unknown): ValidationResult {
     const at = raw["at"];
     if (!isStr(at)) { err(`fault ${id}: at must be a node or line id`); continue; }
     if (faultAt.has(at)) err(`fault ${id}: ${at} already has a fault`);
+    if (city && raw["span"] !== undefined) {
+      if (kind !== "damaged-cable") err(`fault ${id}: span is only for a damaged-cable`);
+      else if (!isStr(raw["span"]) || !(runSpans.get(at) ?? []).includes(raw["span"])) err(`fault ${id}: span "${String(raw["span"])}" is not in line ${at}'s run`);
+    }
     faultAt.add(at);
     if (rule.at === "line") {
       if (!lineIds.has(at)) err(`fault ${id}: ${kind} must sit on a line, not "${at}"`);
@@ -201,14 +280,7 @@ export function validatePuzzle(json: unknown): ValidationResult {
     }
   }
 
-  if (errors.length) return { ok: false, errors };
-  return { ok: true, puzzle: p as unknown as Puzzle };
-}
-
-export function loadPuzzle(json: unknown): Puzzle {
-  const r = validatePuzzle(json);
-  if (!r.ok) throw new Error(`invalid puzzle:\n  ${r.errors.join("\n  ")}`);
-  return r.puzzle;
+  return errors;
 }
 
 /** A feed as every part reads it: its id, its display name, and the limit it is judged against (ticket 015). */

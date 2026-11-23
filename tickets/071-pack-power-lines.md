@@ -4,6 +4,8 @@ owner: per section (pipeline-designer for A; renderer for B, C and E; grid-simul
 status: open. G1 given (Josh, 21 Nov 2026, in chat: "Start 071,K1&L2"). Re-cut the same day for the four packs of ticket 072. Q12 answered the same day ("Yes to all recommendations"). Q10, Q11, Q13 and Q14 answered the same day by question card: a makeshift mix of poles (Decided 041 "one pole style" changes on his word), pack wire pieces, small GLBs (D is live) and the overlay built now (E is live). Every section is live. A's pre-check is written (`docs/design/071-power-kit-precheck.md`, c1a3154 on `ticket/071a-power-kit-precheck`). Josh's picks and Q15, Q17 and Q18 answered the same day by question card; Q16 does not arise (see "Josh's picks and answers"). B and D may start; C waits for B and D. **Re-cut 21 Nov 2026 (the lead-architect) on Josh's ruling that the Sci-Fi City poles are roof and object poles, not ground poles** (see "The Sci-Fi City poles leave the ground mix"): the mix is three poles, D is one run, and B (built at 34880ed, not merged) drops the two Sci-Fi City poles before its review.
 branch: `ticket/071a-power-kit-precheck` (A, a design note only), `ticket/071b-power-kit` (B), `ticket/071c-ladder-pack-lines` (C), `ticket/071d-power-glbs` (D), `ticket/071e-ladder-overlay` (E)
 
+**Ticket 081 (23 Nov 2026):** Josh answered "Both now" to purging the ladder town, so section C (the ladder drawn with the kit) and E's ladder wiring (criteria 4 to 7) are dropped; E's pure parts are 081 E1. B (merged) and D stand.
+
 ## Josh's words (21 Nov 2026, in chat)
 > "I would like to replace all the power lines with the power lines from the city pack. Same with the power poles."
 
