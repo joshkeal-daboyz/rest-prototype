@@ -86,6 +86,7 @@ Each map tests one element. The analyzer must pass on each.
 | `tools/` | grid-simulator | The analyzer CLI |
 | `puzzles/` | puzzle-designer | Map files and their design notes |
 | `puzzles/locked/` | Josh | Maps Josh has approved; never edited by agents |
+| `cleanups/` | branch-cleaner | One report per cleanup: orphaned branches and worktrees for Josh to keep or delete |
 | `tickets/`, `reviews/` | lead-architect, code-reviewer | One file each per ticket |
 | `tests/playtest/` | playtester | The headless regression harness: every map replayed to the Relight, its trace snapshotted |
 | `playtests/` | playtester | One playtest report per release Josh calls (none per ticket) |
