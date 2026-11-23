@@ -16,6 +16,7 @@ import { pictureProblems } from "../pipeline/picture";
 import { stageRand } from "../pipeline/seeds";
 import type { CityStageDef } from "../pipeline/types";
 import { BUILT_STAGES, runCity } from "../stages";
+import { sharedCity } from "../testing/namedcities";
 import { streetsStage, streetsStageWith } from "../streets/stage";
 import { buildingFailures, neighbourShares } from "./check";
 import { CITY_STOREYS, COLOURWAY_POOL, COLOURWAY_SWATCH, TERRACE_BAYS } from "./constants";
@@ -41,11 +42,8 @@ const stagesOf = (way: "on" | "off", last: CityStageDef = buildingsStage as unkn
   massStage as unknown as CityStageDef,
   last,
 ];
-const cache = new Map<string, CityPlanRun>();
 function cityOf(o: City): CityPlanRun {
-  const k = `${o.blocksX}x${o.blocksZ}:${o.seed}:${o.way}`;
-  if (!cache.has(k)) cache.set(k, runCity(optionsOf(o), "buildings", stagesOf(o.way)));
-  return cache.get(k)!;
+  return sharedCity(o, "buildings");
 }
 interface Layers {
   readonly land: CityLandLayer;
