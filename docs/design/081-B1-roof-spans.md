@@ -1,5 +1,15 @@
 # 081 B1 · CK17, the street rule and roof structures
 
+## Josh's answers (23 Nov 2026, on question cards in chat)
+
+1. Which pieces may stand on a roof: **"Anything"**.
+2. Over an intersection, roof to roof only or down to a tall ground pole too: **"Tall poles too"**.
+3. Roof structures where the live puzzle uses them, or on every corner roof: **"On every corner roof"**.
+4. Corner roofs only, or mid-row too: **"Mid-row as well"**.
+5. T-2 for roof pieces: **"On foot or by a climb (Recommended)"**.
+6. Roofs outside the puzzle's district: **"Neighbouring blocks too"**.
+
+
 23 Nov 2026, puzzle-designer, branch `ticket/081b1-roof-spans` (from a2f819e). Ticket 081, section B1. A note, no code.
 
 **Status.** Everything marked **Proposed** is the designer's and is nothing until Josh answers section 9 in chat. Parts marked **Josh's (23 Nov 2026)** quote his answers 5 and 6a to 6c (ticket 081, "Josh's answers") and are not up for change here. The K1 rules (`docs/design/070-K1-circuit.md`, CK1 to CK16) hold as Josh answered them on 21 Nov, except where answers 5 and 6 change them.
