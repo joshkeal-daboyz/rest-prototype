@@ -29,13 +29,13 @@ export const REACH_FACTOR = 3;
 
 // ---- the chances: a share of `wild` ----
 /** A clump on a grown pavement cell. */
-export const P_CLUMP = 0.6;
+export const P_CLUMP = 0.9;
 /** A sapling on an eligible grown cell. */
 export const P_SAPLING = 0.3;
 /** A roof piece on a roof spot (only with `RUIN_ROOF_GROWTH`). */
 export const P_ROOF = 0.3;
 /** A vine on a free slot, and a tree-vine on a standing tree (the architect's starting values: the pre-check measured the slots, not a chance; reported). */
-export const P_VINE = 0.3;
+export const P_VINE = 0.5;
 export const P_TREE_VINE = 0.3;
 
 // ---- the bands ----

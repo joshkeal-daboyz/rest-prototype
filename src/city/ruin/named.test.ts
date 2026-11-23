@@ -34,16 +34,17 @@ interface Run {
 }
 
 /**
+ * Re-taken 22 Nov 2026 in ticket 075 r0 (S1, S2, S5, S8): no Birch sapling, no sapling against a frontage, clumps 0.9 and vines 0.5 of wild.
 ^ * Re-taken in F1b3 (22 Nov 2026) for Josh's rulings: "Yes, from the trunk (Recommended)"; "Hold no, trees crowns can absolutely grow into buildings, but the trunks should not grow out of buildings"; "Yes trees don't care about structures outside of where they" / "Start their growth". A ruin tree is judged by its trunk only; its size is the trunk square.
  * Re-taken in F1b2 (22 Nov 2026) for Josh's two rulings: roof growth on ("Yes, switch it on") and ruin trees under spans ("Through any dead line", "Poles too"); the roof pieces move the growth digests. FLAG for K2 and F2g: a tree may now stand over a job's own pole, line or drop end; each cut should say whether that stays, is listed for the puzzle-designer, or goes back to Josh.
  * What the pin test pins: the digest of the layer's "growth" part on each pin city, one-way on (taken 22 Nov 2026 night, on the clean city, `history`, the tech and hold-out layers, and no circuit. Re-taken when D2,
  * E1 or E2's barricade step changes what stands before it, and when K2's circuit lands: the ruin-pass, in a one-line follow-up named in that merge).
  */
 const PIN_GROWTH: Readonly<Record<number, string>> = {
-  1: "c004494f",
-  2: "3285b036",
-  3: "c877d240",
-  8: "b36e55b2",
+  1: "4565aa62",
+  2: "2f57d467",
+  3: "1c263dd3",
+  8: "11be717c",
 };
 
 const CLEAN_STAGES = CITY_STAGES.filter((s): s is CityPlanStage => s !== "assemble");

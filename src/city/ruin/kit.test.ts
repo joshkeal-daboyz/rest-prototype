@@ -35,19 +35,19 @@ import {
 const PACKS = ["apocalypse-ruin:SM_", "nature-pack:SM_", "palm-city-pack:SM_"];
 
 describe("the kit table (X-8, X-5)", () => {
-  it("holds the ticket's pieces: 8 overgrowth patches and the mound, 4 edge strips, 2 ferns and 2 bushes, 9 saplings, the giant and the large tree, 2 dead trees, 8 vines, 4 tree-vines", () => {
+  it("holds the ticket's pieces: 8 overgrowth patches and the mound, 4 edge strips, 2 ferns and 2 bushes, 5 saplings, the giant and the large tree, 2 dead trees, 8 vines, 4 tree-vines", () => {
     expect(OVERGROWTH_KEYS).toHaveLength(8);
     expect(KIT[MOUND_KEY]!.kinds).toEqual(["patch"]);
     expect(EDGE_KEYS).toHaveLength(4);
     expect(FERN_BUSH_KEYS).toHaveLength(4);
-    expect(SAPLING_KEYS).toHaveLength(9);
-    expect(SAPLING_KEYS.map((k) => k.split("SM_")[1])).toEqual(["Tree_Birch_01", "Tree_Birch_02", "Tree_Birch_03", "Tree_Birch_04", "Tree_Round_01", "Tree_Round_02", "Tree_Round_03", "Tree_Round_04", "Tree_Round_05"]);
+    expect(SAPLING_KEYS).toHaveLength(5);
+    expect(SAPLING_KEYS.map((k) => k.split("SM_")[1])).toEqual(["Tree_Round_01", "Tree_Round_02", "Tree_Round_03", "Tree_Round_04", "Tree_Round_05"]);
     expect(KIT[GIANT_KEY]!.kinds).toEqual(["park-tree"]);
     expect(KIT[LARGE_KEY]!.kinds).toEqual(["park-tree"]);
     expect(ROOF_DEAD_KEYS).toHaveLength(2);
     expect(VINE_KEYS).toHaveLength(8);
     expect(TREE_VINE_KEYS).toHaveLength(4);
-    expect(KIT_KEYS.size).toBe(42);
+    expect(KIT_KEYS.size).toBe(38);
   });
 
   it("every kind of CityRuinPieceKind has a key, and each key is a Nature, Apocalypse ruin or Palm City key", () => {
@@ -85,9 +85,9 @@ describe("the kit table (X-8, X-5)", () => {
     expect(Math.max(KIT[GIANT_KEY]!.w, KIT[GIANT_KEY]!.d) / 2).toBeCloseTo(6.56, 2);
   });
 
-  it("ruinIsTree is true only for the keys F1 plants as trees: the birches, the round trees, the large and the giant; never a vine, a dead tree or a bush", () => {
-    expect(TREE_KEYS.size).toBe(9 + 2);
-    for (const k of Object.keys(KIT) as CalibrationKey[]) expect(ruinIsTree(k), k).toBe(/Tree_(Birch|Round|Large|Generic_Giant)/.test(k));
+  it("ruinIsTree is true only for the keys F1 plants as trees: the round trees, the large and the giant; never a vine, a dead tree or a bush", () => {
+    expect(TREE_KEYS.size).toBe(5 + 2);
+    for (const k of Object.keys(KIT) as CalibrationKey[]) expect(ruinIsTree(k), k).toBe(/Tree_(Round|Large|Generic_Giant)/.test(k));
   });
 
   it("ruinBounds reads the table (width x, depth z, height) and knows no other key", () => {
@@ -115,10 +115,6 @@ describe("the trunks (F1b3, criterion 1)", () => {
 
   it("pins the values (read from the GLBs 22 Nov 2026: the trunk primitive's widest extent below the lowest leaf vertex; the five round trees and the large tree are conservative, measured false)", () => {
     const want: Record<string, [number, number, boolean]> = {
-      Tree_Birch_01: [0.11, 1.02, true],
-      Tree_Birch_02: [0.1, 0.22, true],
-      Tree_Birch_03: [0.09, 1.29, true],
-      Tree_Birch_04: [0.11, 1.43, true],
       Tree_Round_01: [0.35, 1.5, false],
       Tree_Round_02: [0.35, 1.5, false],
       Tree_Round_03: [0.3, 1.5, false],
@@ -133,9 +129,9 @@ describe("the trunks (F1b3, criterion 1)", () => {
 });
 
 describe("the named numbers", () => {
-  it("are the ticket's: the reach factor 3, clump 0.6, sapling 0.3, roof 0.3, vine 0.3, tree-vine 0.3 of wild, the park trees from 1/3", () => {
+  it("are the ticket's: the reach factor 3, clump 0.9, sapling 0.3, roof 0.3, vine 0.5, tree-vine 0.3 of wild, the park trees from 1/3", () => {
     expect(REACH_FACTOR).toBe(3);
-    expect([P_CLUMP, P_SAPLING, P_ROOF, P_VINE, P_TREE_VINE]).toEqual([0.6, 0.3, 0.3, 0.3, 0.3]);
+    expect([P_CLUMP, P_SAPLING, P_ROOF, P_VINE, P_TREE_VINE]).toEqual([0.9, 0.3, 0.3, 0.5, 0.3]);
     expect(BAND_PARK_TREES).toBeCloseTo(1 / 3, 12);
   });
 });

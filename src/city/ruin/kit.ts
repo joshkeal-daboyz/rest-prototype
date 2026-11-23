@@ -63,11 +63,7 @@ export const KIT: Readonly<Record<CalibrationKey, KitEntry>> = {
   [nat("Plant_Fern_02")]: e(["clump"], 1.15, 0.634, 1.053),
   [nat("Plant_Bush_01")]: e(["clump", "roof"], 1.615, 2.041, 1.415),
   [nat("Plant_Bush_02")]: e(["clump"], 2.092, 2.003, 1.789),
-  // saplings
-  [nat("Tree_Birch_01")]: e(["sapling"], 2.454, 4.547, 2.289, tr(0.11, 1.02)),
-  [nat("Tree_Birch_02")]: e(["sapling"], 2.498, 5.399, 2.789, tr(0.1, 0.22)),
-  [nat("Tree_Birch_03")]: e(["sapling"], 2.14, 5.399, 2.106, tr(0.09, 1.29)),
-  [nat("Tree_Birch_04")]: e(["sapling"], 2.522, 4.891, 2.461, tr(0.11, 1.43)),
+  // saplings: the Round trees only (075 r0 S2, S8: Tree_Birch_* leaves are a flat pure-lime baseColorFactor, which reads lit at night; Round crowns are textured olive)
   [nat("Tree_Round_01")]: e(["sapling"], 2.922, 3.759, 2.242, tr(0.35, 1.5, false)),
   [nat("Tree_Round_02")]: e(["sapling"], 3.86, 4.731, 2.456, tr(0.35, 1.5, false)),
   [nat("Tree_Round_03")]: e(["sapling"], 1.777, 3.601, 1.683, tr(0.3, 1.5, false)),

@@ -238,7 +238,9 @@ export function growRuin(world: World, rand: StageRand, o: GrowOptions): GrowRes
     }
     if (cls !== "junction" && cls !== "crossing") {
       const id = `ruin:sapling:${at}`;
-      if (u("roll", id) < P_SAPLING * wild) cands.push({ kind: "sapling", id, district: g.district, cell });
+      // 075 r0 S5: no sapling on a pavement cell that stands against a building (a shopfront's frontage); the walk takes clumps and vines there instead
+      const againstFrontage = cls === "pavement" && ([[1, 0], [-1, 0], [0, 1], [0, -1]] as const).some(([di, dj]) => world.built.has(cellKey(i + di, j + dj)));
+      if (!againstFrontage && u("roll", id) < P_SAPLING * wild) cands.push({ kind: "sapling", id, district: g.district, cell });
     }
   }
   for (const p of world.parks) {
