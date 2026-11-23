@@ -16,16 +16,16 @@ import { DEFAULT, PINNED, cityOf, layersOf, stagesOf, warm } from "./testcities"
 
 describe("R-1 to R-7 for stage 9 (criterion 7)", { timeout: 120_000 }, () => {
   beforeAll(() => warm([DEFAULT, ...PINNED.map((c) => ({ ...c }))]), 120_000);
-  it("the stage list ends with traffic, and stage 6 (circuit) is still not built", () => {
-    expect(BUILT_STAGES.map((s) => s.name)).toEqual(["streets", "land", "mass", "edge", "buildings", "facades", "ground", "traffic"]);
-    expect(() => runCity({ blocksX: 6, blocksZ: 6, seed: 1 }, "circuit")).toThrow();
+  it("the stage list ends with traffic, and stage 6 (circuit) sits after buildings", () => {
+    expect(BUILT_STAGES.map((s) => s.name)).toEqual(["streets", "land", "mass", "edge", "buildings", "circuit", "facades", "ground", "traffic"]);
+    expect(() => runCity({ blocksX: 6, blocksZ: 6, seed: 1 }, "assemble" as never)).toThrow();
   });
 
   it("R-7: 6 x 6 seed 1, the default named city, ends ok with traffic, its layer is frozen, and every digest is there", () => {
     const r = cityOf(DEFAULT);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(Object.keys(r.plan.digests)).toEqual(["streets", "land", "mass", "edge", "buildings", "facades", "ground", "traffic"]);
+    expect(Object.keys(r.plan.digests)).toEqual(["streets", "land", "mass", "edge", "buildings", "circuit", "facades", "ground", "traffic"]);
     const t = r.plan.layers.traffic!;
     expect(Object.isFrozen(t)).toBe(true);
     expect(Object.isFrozen(t.junctions)).toBe(true);
@@ -43,7 +43,7 @@ describe("R-1 to R-7 for stage 9 (criterion 7)", { timeout: 120_000 }, () => {
     if (!r.ok) throw new Error("default city failed");
     const double: CityStageDef = { name: "traffic", run: () => ({ stage: "traffic", junctions: [], pieces: [] }), picture: trafficStage.picture };
     const list = stagesOf("on", double);
-    expect(list.map((s) => s.name)).toEqual(["streets", "land", "mass", "edge", "buildings", "facades", "ground", "traffic"]);
+    expect(list.map((s) => s.name)).toEqual(["streets", "land", "mass", "edge", "buildings", "circuit", "facades", "ground", "traffic"]);
     expect(list[list.length - 1]).toBe(double);
     const d = runCity({ blocksX: 6, blocksZ: 6, seed: 1 }, undefined, list);
     expect(d.ok).toBe(true);
