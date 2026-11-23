@@ -8,33 +8,9 @@ import { describe, expect, it } from "vitest";
 import { closeSync, existsSync, openSync, readFileSync, readdirSync, readSync } from "node:fs";
 import { join } from "node:path";
 import { loadPuzzle } from "../core";
-import { PHASE_OFFSET, POLE_HEIGHT, SAG_RATIO, sagSpan, wireLayout, type Vec3 } from "./layout";
-import {
-  LADDER_LINE_SCALE,
-  LADDER_STRAND_RADIUS,
-  LINE_STRETCH_MAX,
-  LINE_STRETCH_MIN,
-  PALM_ACROSS_STRETCH,
-  POWER_LINE,
-  POWER_LINES,
-  POWER_MIX,
-  POWER_POLES,
-  PowerKitError,
-  anchorAcross,
-  fitLine,
-  ladderAcross,
-  lineOf,
-  lineOfKey,
-  placePole,
-  poleAt,
-  poleAttachModel,
-  poleOf,
-  poleScaleFor,
-  poleToWorld,
-  transformPoint,
-  type PowerLine,
-  type PowerPole,
-} from "./powerkit";
+import { PHASE_OFFSET, SAG_RATIO, sagSpan, wireLayout } from "./layout";
+import { POLE_HEIGHT, type Vec3 } from "./kitunits";
+import { LADDER_LINE_SCALE, LADDER_STRAND_RADIUS, LINE_STRETCH_MAX, LINE_STRETCH_MIN, PALM_ACROSS_STRETCH, POWER_LINE, POWER_LINES, POWER_MIX, POWER_POLES, PowerKitError, anchorAcross, fitLine, ladderAcross, lineOf, lineOfKey, placePole, poleAt, poleAttachModel, poleOf, poleScaleFor, poleToWorld, transformPoint, type PowerLine, type PowerPole, } from "./powerkit";
 
 const line = POWER_LINES[POWER_LINE]!;
 const V = (x: number, y: number, z: number): Vec3 => ({ x, y, z });

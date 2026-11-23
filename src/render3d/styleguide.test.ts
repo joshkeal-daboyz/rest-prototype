@@ -32,6 +32,7 @@ import * as massConstants from "../city/mass/constants";
 import * as tilecity from "./tilecity";
 import * as tileslots from "./tileslots";
 import * as town from "./town";
+import * as kit from "./kitunits";
 
 const GUIDE_DIR = "docs/city-style";
 const MANIFEST = "assets/private/out/manifest.json";
@@ -423,7 +424,7 @@ describe("the Numbers table matches the code", () => {
 
   it("covers every lot type and every place size", () => {
     const refs = new Set(rows.map((r) => unquote(r[0]!)));
-    for (const t of town.LOT_TYPE_NAMES) expect(refs.has(`LOT_TYPES.${t}`), `LOT_TYPES.${t}`).toBe(true);
+    for (const t of kit.LOT_TYPE_NAMES) expect(refs.has(`LOT_TYPES.${t}`), `LOT_TYPES.${t}`).toBe(true);
     for (const k of Object.keys(town.PLACE_SIZES)) expect(refs.has(`PLACE_SIZES.${k}`), `PLACE_SIZES.${k}`).toBe(true);
     placeholders.TINTS.forEach((_, i) => expect(refs.has(`TINTS[${i}]`), `TINTS[${i}]`).toBe(true));
   });
@@ -438,7 +439,7 @@ describe("the Numbers table matches the code", () => {
 
 describe("one scale", () => {
   it("town.ts and models.ts define the same WORLD_PER_METRE", () => {
-    expect(town.WORLD_PER_METRE).toBe(models.WORLD_PER_METRE);
+    expect(kit.WORLD_PER_METRE).toBe(models.WORLD_PER_METRE);
   });
 });
 
@@ -518,7 +519,7 @@ describe("accessibility, restated on the pinned colours", () => {
     return 0.2126 * ch((hex >> 16) & 255) + 0.7152 * ch((hex >> 8) & 255) + 0.0722 * ch(hex & 255);
   };
   it("keeps the pole wood at least 3:1 in luminance against the street (037; scene.test.ts checks the painted poles)", () => {
-    const c = (lum(scene.POLE_WOOD) + 0.05) / (lum(scene.STREET) + 0.05);
+    const c = (lum(scene.POLE_WOOD) + 0.05) / (lum(kit.STREET) + 0.05);
     expect(c).toBeGreaterThanOrEqual(3);
   });
 });

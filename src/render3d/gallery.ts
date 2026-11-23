@@ -11,80 +11,22 @@
  * playtest. Nothing here reads the page's address: renderer.ts passes the query string in.
  */
 
-import {
-  AmbientLight,
-  BufferAttribute,
-  BufferGeometry,
-  Color,
-  DirectionalLight,
-  DoubleSide,
-  Group,
-  Mesh,
-  MeshBasicMaterial,
-  MeshStandardMaterial,
-  PerspectiveCamera,
-  PlaneGeometry,
-  Scene,
-  TextureLoader,
-  Vector3,
-  type Material,
-  type Object3D,
-  type Texture,
-  type WebGLRenderer,
-} from "three";
+import { AmbientLight, BufferAttribute, BufferGeometry, Color, DirectionalLight, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, PerspectiveCamera, PlaneGeometry, Scene, TextureLoader, Vector3, type Material, type Object3D, type Texture, type WebGLRenderer, } from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import {
-  CALIBRATION_ENDPOINT,
-  applyCalibrationPatch,
-  calibrationKey,
-  parseCalibrationKey,
-  validateCalibration,
-  type AssetEntry,
-  type AssetManifest,
-  type CalibrationFile,
-  type CalibrationKey,
-  type CalibrationPatch,
-} from "../core";
+import { CALIBRATION_ENDPOINT, applyCalibrationPatch, calibrationKey, parseCalibrationKey, validateCalibration, type AssetEntry, type AssetManifest, type CalibrationFile, type CalibrationKey, type CalibrationPatch, } from "../core";
 import { ZOOM_STEP, type Insets, type Pan } from "../render/geometry";
 import { FOV_DEG } from "./camera";
 import { effectiveFronts, loadSavedCalibration } from "./calibration";
 import { scaleForPx } from "./captions";
 import { chooseColourway } from "./colourway";
-import {
-  BUILDING_EXCLUDE,
-  BUILDING_FRONTS,
-  MODEL_TABLE,
-  WORLD_PER_METRE,
-  frontIsQuarter,
-  frontYaw,
-  isManifest,
-  lotTypeOf,
-  meshFamily,
-  modelScale,
-  sizeOf,
-  type FrontTable,
-  type ModelChoice,
-  type ModelFront,
-} from "./models";
+import { BUILDING_EXCLUDE, BUILDING_FRONTS, MODEL_TABLE, WORLD_PER_METRE, frontIsQuarter, frontYaw, isManifest, lotTypeOf, meshFamily, modelScale, sizeOf, type FrontTable, type ModelChoice, type ModelFront, } from "./models";
 import { KERB_FROM_FRONT_M, dressKeys, dressStack, type DressPiece } from "./dressing";
 import { createColourwayCache, defaultDir, dressGroup, nearestTextures, paintStack, stackGroup } from "./models3d";
 import type { MapRenderer3d } from "./renderer";
-import {
-  STACK_PACK,
-  STACK_STYLE_IDS,
-  STACK_TYPE_IDS,
-  guessCount,
-  recipePieceKeys,
-  shownStacks,
-  stackCaption,
-  stackGalleryTitle,
-  stackPieceEntries,
-  type ShownStack,
-  type StackGalleryFilter,
-} from "./stackgallery";
+import { STACK_PACK, STACK_STYLE_IDS, STACK_TYPE_IDS, guessCount, recipePieceKeys, shownStacks, stackCaption, stackGalleryTitle, stackPieceEntries, type ShownStack, type StackGalleryFilter, } from "./stackgallery";
 import type { StackSide } from "./stacks";
 import { createCaptionSprite, defaultTextSurface, type CaptionSprite, type TextSurfaceFactory } from "./text";
-import { LOT_TYPES, type LotType } from "./town";
+import { LOT_TYPES, type LotType } from "./kitunits";
 
 // ---- the page's flags ----
 

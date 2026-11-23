@@ -5,51 +5,14 @@
  * a faulted cable sparks and flickers, a lit lamp has a light and a pool on the ground, a switch's lever points down its output.
  */
 
-import {
-  AdditiveBlending,
-  LineDashedMaterial,
-  LineLoop,
-  Shape,
-  ShapeGeometry,
-  Sprite,
-  SpriteMaterial,
-  Float32BufferAttribute,
-  BoxGeometry,
-  BufferAttribute,
-  BufferGeometry,
-  CircleGeometry,
-  Color,
-  CylinderGeometry,
-  DataTexture,
-  DoubleSide,
-  Group,
-  InstancedMesh,
-  Line,
-  LineBasicMaterial,
-  LinearFilter,
-  Matrix4,
-  Mesh,
-  MeshBasicMaterial,
-  MeshStandardMaterial,
-  Object3D,
-  PointLight,
-  Quaternion,
-  RGBAFormat,
-  RingGeometry,
-  Scene,
-  SphereGeometry,
-  TubeGeometry,
-  UnsignedByteType,
-  Vector3,
-  CatmullRomCurve3,
-  type Material,
-} from "three";
+import { AdditiveBlending, LineDashedMaterial, LineLoop, Shape, ShapeGeometry, Sprite, SpriteMaterial, Float32BufferAttribute, BoxGeometry, BufferAttribute, BufferGeometry, CircleGeometry, Color, CylinderGeometry, DataTexture, DoubleSide, Group, InstancedMesh, Line, LineBasicMaterial, LinearFilter, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, Object3D, PointLight, Quaternion, RGBAFormat, RingGeometry, Scene, SphereGeometry, TubeGeometry, UnsignedByteType, Vector3, CatmullRomCurve3, type Material, } from "three";
 import type { GridNode, Puzzle } from "../core";
 import type { GridState } from "../grid";
 import { hash01 } from "../render/motion";
 import { FLARE_SECONDS, type RelightPlan } from "../render/relight";
-import { BREAK_GAP, NODE_BODY_Y, PHASE_OFFSET, POLE_HEIGHT, SAG_SEGMENTS, WIRE_RADIUS, canLayout, cumulative, dropLayout, pointAlong, runPoints, shadowOf, wireLayout, type Can, type Drop, type Vec3, type WireRun } from "./layout";
-import { KERB_H, LOT_TYPE_NAMES, ROAD_W, STOREY_M, townLayout, type Lot, type LotType, type Pt, type Town, type TerraceRun } from "./town";
+import { BREAK_GAP, NODE_BODY_Y, PHASE_OFFSET, SAG_SEGMENTS, WIRE_RADIUS, canLayout, cumulative, dropLayout, pointAlong, runPoints, shadowOf, wireLayout, type Can, type Drop, type WireRun } from "./layout";
+import { POLE_HEIGHT, type Vec3, KERB_H, LOT_TYPE_NAMES, ROAD_W, STOREY_M, type Lot, type LotType, type Pt, type TerraceRun } from "./kitunits";
+import { townLayout, type Town } from "./town";
 import { WORLD_PER_METRE, atFront } from "./models";
 import { ROOF_SHADE, TINTS, pickPlaceholders } from "./placeholders";
 import { lampBrightness, nodeLookInto, type NodeLook } from "./look";
@@ -57,6 +20,7 @@ import { applyLightMode, addSurface, newLightOwners, nightLightsOn, type LightOw
 import { createRelightClock, lampIgnition, lineFraction, nodeArrived, placeGlowStep, type LampIgnition } from "./relight3d";
 import { CAPTION_FONT_PX, FEED_FONT_PX, captionsFor, scaleForPx, type NodeCaption } from "./captions";
 import { createBarSprite, createCaptionSprite, defaultTextSurface, type BarSprite, type CaptionSprite, type TextSurfaceFactory } from "./text";
+import { GROUND, YARD, STREET, PAVEMENT, KERB, YARD_H, PAVEMENT_Y } from "./kitunits";
 
 export interface SceneBundle {
   scene: Scene;
@@ -125,15 +89,6 @@ export interface ModelSlots {
   models: Object3D;
 }
 
-export const GROUND = 0x0e131d;
-/** Yard ground: the open ground inside a city block, a little lighter than the town's dark edge. */
-export const YARD = 0x141c29;
-/** Asphalt. */
-export const STREET = 0x1a2331;
-/** Pavement: mid-grey, lighter than the asphalt so a street reads as a road between two pavements. */
-export const PAVEMENT = 0x3d4658;
-/** The kerb lip: pale. */
-export const KERB = 0x9aa4b6;
 /** A road's dashed centre line. */
 export const CENTRE_LINE = 0x7a7863;
 export const PLACE = 0x3a4a68;
@@ -273,9 +228,6 @@ export const RIBBON = 0xff3df0;
 
 // ---- the town: streets and placeholder buildings (ticket 041 B) ----
 
-/** Heights (world units) of the ground layers, bottom to top. The wires' shadows (SHADOW_Y 0.025) and the pole feet (0.022) sit above all of them. */
-export const YARD_H = 0.004;
-export const PAVEMENT_Y = 0.008;
 export const ROAD_H = 0.014;
 export const PAD_Y = 0.0145;
 export const DASH_Y = 0.0155;

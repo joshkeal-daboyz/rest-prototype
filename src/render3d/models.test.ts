@@ -4,28 +4,11 @@ import { join } from "node:path";
 import { BoxGeometry, DataTexture, Group, LinearFilter, Mesh, MeshStandardMaterial, NearestFilter, Object3D, Texture, Vector3, type Material } from "three";
 import { ASSET_MANIFEST_VERSION, loadPuzzle, type AssetEntry, type AssetManifest, type AssetWarning, type Puzzle } from "../core";
 import { FOV_DEG, createCameraRig } from "./camera";
-import { POLE_HEIGHT, wireLayout } from "./layout";
-import {
-  BUILDING_EXCLUDE,
-  MODEL_TABLE,
-  frontIsQuarter,
-  frontYaw,
-  NEIGHBOUR_GAP,
-  atFront,
-  WORLD_PER_METRE,
-  buildingPlan,
-  isManifest,
-  lotGap,
-  lotTypeOf,
-  modelScale,
-  pickBuildings,
-  planModels,
-  poleYaw,
-  sizeOf,
-  type ModelChoice,
-} from "./models";
+import { wireLayout } from "./layout";
+import { POLE_HEIGHT, LOT_TYPES, LOT_TYPE_NAMES, type Lot } from "./kitunits";
+import { BUILDING_EXCLUDE, MODEL_TABLE, frontIsQuarter, frontYaw, NEIGHBOUR_GAP, atFront, WORLD_PER_METRE, buildingPlan, isManifest, lotGap, lotTypeOf, modelScale, pickBuildings, planModels, poleYaw, sizeOf, type ModelChoice, } from "./models";
 import { NO_MODELS, applyModels, buildingPlacements, loadModels, nearestTextures, type LoadDeps, type ModelSet } from "./models3d";
-import { LOT_TYPES, LOT_TYPE_NAMES, townLayout, type Lot } from "./town";
+import { townLayout } from "./town";
 import { createPicker } from "./pick";
 import { buildScene } from "./scene";
 import { stubTextSurface } from "./text";

@@ -11,8 +11,9 @@ import { NODE_SQUARE } from "../render/city";
 import { wireLayout } from "./layout";
 import { BUILDING_FRONTS } from "./models";
 import { STACK_STYLES, type Stack, type StackStyle } from "./stacks";
-import { ALLEY_MAX_M, ALLEY_MIN_M, TERRACE_SEAM_M, cornerBlock, cornerOptions, cornerStyle, farWall_m, nextTerraceRun, packTerrace, packTown, type PackResult } from "./terrace";
-import { TERRACE_BAYS, TERRACE_DEPTH_M, WIRE_CLEAR, WORLD_PER_METRE, townClears, townLayout, type Lot, type TerraceRun, type Town } from "./town";
+import { cornerBlock, cornerOptions, cornerStyle, farWall_m, nextTerraceRun, packTerrace, packTown, type PackResult } from "./terrace";
+import { ALLEY_MAX_M, ALLEY_MIN_M, TERRACE_SEAM_M, TERRACE_DEPTH_M, WIRE_CLEAR, WORLD_PER_METRE, type Lot, type TerraceRun } from "./kitunits";
+import { TERRACE_BAYS, townClears, townLayout, type Town } from "./town";
 
 void ASSET_MANIFEST_VERSION;
 

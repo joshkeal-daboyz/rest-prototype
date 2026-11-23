@@ -11,7 +11,7 @@
 import { calibrationKey, type AssetEntry, type AssetManifest, type CalibrationKey } from "../core";
 import { BUILDING_FRONTS, type FrontTable } from "./models";
 import { STACK_STYLES, assembleStack, stackKeys, type Stack, type StackSide, type StackStyle } from "./stacks";
-import { LOT_TYPES, LOT_TYPE_NAMES, type CornerSide, type LotType } from "./town";
+import { LOT_TYPES, LOT_TYPE_NAMES, type CornerSide, type LotType } from "./kitunits";
 
 /** The pack every stack recipe is made of. */
 export const STACK_PACK = "city-pack";

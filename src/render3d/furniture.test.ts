@@ -10,48 +10,15 @@ import { join } from "node:path";
 import { BoxGeometry, Group, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, Raycaster, Vector3, type Object3D } from "three";
 import { ASSET_MANIFEST_VERSION, loadPuzzle, type AssetEntry, type AssetManifest, type CalibrationKey, type Puzzle } from "../core";
 import { dressKeys } from "./dressing";
-import {
-  BILLBOARD_BOARD,
-  BILLBOARD_BOARD_LIFT_M,
-  BILLBOARD_POLE,
-  BOLLARD_PER_RUN,
-  BOLLARDS,
-  BUS_STOPS,
-  BUS_STOP_MIN_RUN_M,
-  FURN_CORNER_M,
-  FURN_DRAW_CALLS_MAX,
-  FURN_KEEP_M,
-  FURN_KERB_M,
-  FURN_MAX_H_M,
-  FURN_PITCH_M,
-  FURN_WALL_M,
-  HYDRANTS,
-  HYDRANT_PER_RUN,
-  KERB_M,
-  MAILBOXES,
-  MAILBOX_PER_RUN,
-  NEWSPAPERS,
-  NEWSPAPER_PER_RUN,
-  PARKING_LINES,
-  TREES,
-  TREE_PITCH_M,
-  WALL_EDGE_M,
-  alleyOf,
-  furnitureKeys,
-  furnitureLayout,
-  openLotsOf,
-  type Alley,
-  type FurnitureInput,
-  type FurniturePiece,
-  type Rect,
-} from "./furniture";
+import { BILLBOARD_BOARD, BILLBOARD_BOARD_LIFT_M, BILLBOARD_POLE, BOLLARD_PER_RUN, BOLLARDS, BUS_STOPS, BUS_STOP_MIN_RUN_M, FURN_CORNER_M, FURN_DRAW_CALLS_MAX, FURN_KEEP_M, FURN_KERB_M, FURN_MAX_H_M, FURN_PITCH_M, FURN_WALL_M, HYDRANTS, HYDRANT_PER_RUN, KERB_M, MAILBOXES, MAILBOX_PER_RUN, NEWSPAPERS, NEWSPAPER_PER_RUN, PARKING_LINES, TREES, TREE_PITCH_M, WALL_EDGE_M, alleyOf, furnitureKeys, furnitureLayout, openLotsOf, type Alley, type FurnitureInput, type FurniturePiece, type Rect, } from "./furniture";
 import { dropLayout, wireLayout } from "./layout";
 import { BUILDING_FRONTS, WORLD_PER_METRE } from "./models";
 import { NO_MODELS, allStackKeys, applyModels, dressMatrix, furniturePlacement, loadModels, stackInput, type ModelSet } from "./models3d";
 import { buildScene } from "./scene";
 import { STACK_STYLES } from "./stacks";
-import { ALLEY_MAX_M, ALLEY_MIN_M, packTown } from "./terrace";
-import { OCCLUDE_SLOPE, WIRE_CLEAR, townLayout, type OpenLot, type TerraceRun } from "./town";
+import { packTown } from "./terrace";
+import { ALLEY_MAX_M, ALLEY_MIN_M, WIRE_CLEAR, type OpenLot, type TerraceRun } from "./kitunits";
+import { OCCLUDE_SLOPE, townLayout } from "./town";
 import { stubTextSurface } from "./text";
 import { yieldToWorker } from "../city/testing/yield";
 

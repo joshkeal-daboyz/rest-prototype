@@ -6,7 +6,8 @@ import { FOV_DEG, createCameraRig } from "./camera";
 import { EventBus } from "../core";
 import { createGrid } from "../grid";
 import { stubTextSurface } from "./text";
-import { PHASE_OFFSET, SAG_SEGMENTS, WIRE_PICK_RADIUS, WIRE_RADIUS, wireLayout } from "./layout";
+import { PHASE_OFFSET, SAG_SEGMENTS, WIRE_RADIUS, wireLayout } from "./layout";
+import { WIRE_PICK_RADIUS } from "./kitunits";
 import { createPicker } from "./pick";
 import { buildScene } from "./scene";
 

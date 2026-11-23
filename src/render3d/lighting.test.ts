@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 import { LIGHT_MODES, SURFACE_KEYS, lightModeFor, sunPosition } from "./lighting";
-import { GROUND, KERB, PAVEMENT, STREET, YARD } from "./scene";
+import { GROUND, KERB, PAVEMENT, STREET, YARD } from "./kitunits";
 
 const close = (a: number, b: number): void => expect(Math.abs(a - b)).toBeLessThanOrEqual(1e-9);
 

@@ -5,7 +5,7 @@
 
 import { Raycaster, Vector2, type Camera, type Object3D } from "three";
 import type { Rect } from "../render/geometry";
-import { WIRE_PICK_RADIUS } from "./layout";
+import { WIRE_PICK_RADIUS } from "./kitunits";
 
 export interface PickSize {
   width: number;

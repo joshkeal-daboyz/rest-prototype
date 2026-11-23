@@ -25,7 +25,7 @@
 import type { AssetEntry, CalibrationKey } from "../core";
 import { KERB_FROM_FRONT_M, dressUnit } from "./dressing";
 import { frontYaw, sizeOf, type FrontTable, type ModelFront } from "./models";
-import { PARKING_D_M, PARKING_W_M, PLAZA_W_M, SETBACK, WIRE_CLEAR, WORLD_PER_METRE, type Lot, type OpenLot, type Pt, type TerraceRun } from "./town";
+import { PARKING_D_M, PARKING_W_M, PLAZA_W_M, SETBACK, WIRE_CLEAR, WORLD_PER_METRE, type Lot, type OpenLot, type Pt, type TerraceRun } from "./kitunits";
 
 // ---- constants (every one a one-line tuning change; 053 pins them in its Numbers table) ----
 

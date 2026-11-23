@@ -6,8 +6,7 @@
 
 import { ASSET_MANIFEST_VERSION, calibrationKey, parseCalibrationKey, type AssetEntry, type AssetManifest, type CalibrationKey } from "../core";
 import { stableHash } from "../render/city";
-import { POLE_HEIGHT } from "./layout";
-import { LOT_TYPES, LOT_TYPE_NAMES, type Lot, type LotType } from "./town";
+import { POLE_HEIGHT, LOT_TYPES, LOT_TYPE_NAMES, type Lot, type LotType } from "./kitunits";
 
 /** World units per metre of a converted building: a 1.6-unit pole is about 9 m. Every building is at this scale, always (ticket 041). */
 export const WORLD_PER_METRE = 0.18;

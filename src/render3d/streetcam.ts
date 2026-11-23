@@ -15,19 +15,14 @@
 
 import { Camera, PerspectiveCamera, type Scene } from "three";
 import type { MapRenderer3d } from "./renderer";
-import { WORLD_PER_METRE, type Town } from "./town";
+import { type Town } from "./town";
+import { WORLD_PER_METRE } from "./kitunits";
+import { STREET_CAM_BACK_M, STREET_CAM_EYE_M, STREET_CAM_LOOK_M, STREET_CAM_FOV_DEG } from "./kitunits";
 
 // ---- constants (metres; the pose turns them into world units) ----
 
-/** How far back from the row's front line the eye would stand at most, metres. A town road with its two pavements is about 12 m wide, so the eye ends on the far pavement. */
-export const STREET_CAM_BACK_M = 26;
-export const STREET_CAM_EYE_M = 9;
-/** The look point stands this high on the front line, metres. */
-export const STREET_CAM_LOOK_M = 6;
 /** The view runs this many degrees along the row from straight across it. */
 export const STREET_CAM_YAW_DEG = 35;
-/** The lens opens from this (vertical, degrees) up to `STREET_CAM_FOV_MAX_DEG` until three whole lots fit the frame. */
-export const STREET_CAM_FOV_DEG = 50;
 export const STREET_CAM_FOV_MAX_DEG = 85;
 
 /** The look point rises to this fraction of the row's median lot cap when that is above `STREET_CAM_LOOK_M`. */

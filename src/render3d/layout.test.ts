@@ -2,31 +2,9 @@ import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { loadPuzzle, type Puzzle } from "../core";
-import {
-  BREAK_GAP,
-  CAN_DROP,
-  CAN_OFFSET,
-  DROP_END_Y,
-  DROP_REACH,
-  HANG_DROP,
-  HANG_SEGMENTS,
-  PHASE_OFFSET,
-  SHADOW_Y,
-  WIRE_PICK_RADIUS,
-  WIRE_RADIUS,
-  canLayout,
-  dropLayout,
-  shadowOf,
-  POLE_HEIGHT,
-  POLE_SPACING,
-  SAG_RATIO,
-  SAG_SEGMENTS,
-  cumulative,
-  pointAlong,
-  runPoints,
-  wireLayout,
-} from "./layout";
-import { townLayout, type Lot } from "./town";
+import { BREAK_GAP, CAN_DROP, CAN_OFFSET, DROP_END_Y, DROP_REACH, HANG_DROP, HANG_SEGMENTS, PHASE_OFFSET, SHADOW_Y, WIRE_RADIUS, canLayout, dropLayout, shadowOf, POLE_SPACING, SAG_RATIO, SAG_SEGMENTS, cumulative, pointAlong, runPoints, wireLayout } from "./layout";
+import { WIRE_PICK_RADIUS, POLE_HEIGHT, type Lot } from "./kitunits";
+import { townLayout } from "./town";
 
 const puzzle: Puzzle = loadPuzzle(JSON.parse(readFileSync("puzzles/09-shrine-circuit.json", "utf8")));
 const runs = wireLayout(puzzle);

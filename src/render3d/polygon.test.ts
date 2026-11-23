@@ -9,27 +9,10 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { Group } from "three";
 import { ASSET_MANIFEST_VERSION, loadPuzzle, type AssetEntry, type AssetManifest, type CalibrationKey } from "../core";
-import {
-  BUILDING_EXCLUDE,
-  BUILDING_FRONTS,
-  FAMILY_SHARE_MAX,
-  MODEL_TABLE,
-  NEIGHBOUR_GAP,
-  POLYGON_MIN_FAMILIES,
-  STREET_REPEAT_GAP,
-  buildingPlan,
-  lotGap,
-  lotTypeOf,
-  pickBuildings,
-  planModels,
-  traitsOf,
-  type FrontTable,
-  type ModelChoice,
-  type ModelFront,
-  type PlannedModel,
-} from "./models";
+import { BUILDING_EXCLUDE, BUILDING_FRONTS, FAMILY_SHARE_MAX, MODEL_TABLE, NEIGHBOUR_GAP, POLYGON_MIN_FAMILIES, STREET_REPEAT_GAP, buildingPlan, lotGap, lotTypeOf, pickBuildings, planModels, traitsOf, type FrontTable, type ModelChoice, type ModelFront, type PlannedModel, } from "./models";
 import { loadModels } from "./models3d";
-import { LOT_TYPE_NAMES, townLayout, type LotType, type Town } from "./town";
+import { townLayout, type Town } from "./town";
+import { LOT_TYPE_NAMES, type LotType } from "./kitunits";
 
 // ---- fixtures: [name, width, height, depth (m), triangles] ----
 const TOWN_PACK: [string, number, number, number, number][] = [

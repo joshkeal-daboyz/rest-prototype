@@ -34,7 +34,7 @@ import { stableHash } from "../render/city";
 import { CODE_ESCAPE, CODE_ESCAPE_KEY, ESCAPE_FIRST, escapeBlocks, type EscapeSite, ESCAPE_GEOMETRY, ESCAPE_GROUND_TOL_M, codeEscape, ladderParts, planEscape, storeysOfColumn, ESCAPE_DECK_BELOW_SILL_M, type EscapePart } from "./escapes";
 import { frontYaw, sizeOf, type FrontTable, type ModelFront } from "./models";
 import type { Stack, StackPiece } from "./stacks";
-import { PAVE_W, SETBACK, WORLD_PER_METRE, type Lot } from "./town";
+import { PAVE_W, SETBACK, WORLD_PER_METRE, type Lot } from "./kitunits";
 
 export type DressSlotKind = "glass" | "awning" | "sign" | "wall" | "escape" | "wallUpper" | "roofSmall" | "roofLarge";
 /** 050's recipe roles, split the way the stack's pieces split: a shop, a residents' door, a shop corner; a mid floor or a corner floor; a mid roof or a corner roof. */

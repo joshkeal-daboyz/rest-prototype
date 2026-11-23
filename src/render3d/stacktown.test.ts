@@ -12,31 +12,13 @@ import { ASSET_MANIFEST_VERSION, loadPuzzle, type AssetEntry, type AssetManifest
 import { createCameraRig } from "./camera";
 import { declaredFrontDirection } from "./debug3d";
 import { NODE_BODY_Y, wireLayout } from "./layout";
-import {
-  BUILDING_FRONTS,
-  FAMILY_SHARE_MAX,
-  MODEL_TABLE,
-  NEIGHBOUR_GAP,
-  POLYGON_MIN_FAMILIES,
-  STACK_LOT_TYPES,
-  STREET_REPEAT_GAP,
-  WORLD_PER_METRE,
-  buildingPlan,
-  lotGap,
-  pickBuildings,
-  planModels,
-  planStackPieces,
-  stackName,
-  stackStyleOf,
-  traitsOf,
-  type ModelChoice,
-  type PlannedModel,
-} from "./models";
+import { BUILDING_FRONTS, FAMILY_SHARE_MAX, MODEL_TABLE, NEIGHBOUR_GAP, POLYGON_MIN_FAMILIES, STACK_LOT_TYPES, STREET_REPEAT_GAP, WORLD_PER_METRE, buildingPlan, lotGap, pickBuildings, planModels, planStackPieces, stackName, stackStyleOf, traitsOf, type ModelChoice, type PlannedModel, } from "./models";
 import { NO_MODELS, allStackKeys, applyModels, buildingPlacements, loadModels, stackEntries, stackInput, type BuildingPlacement, type ModelSet } from "./models3d";
 import { buildScene } from "./scene";
 import { STACK_STYLES, assembleStack, offeredStacks, stackKeys, type StackPiece } from "./stacks";
 import { stubTextSurface } from "./text";
-import { LOT_TYPE_NAMES, townLayout, type Lot, type LotType, type Town } from "./town";
+import { townLayout, type Town } from "./town";
+import { LOT_TYPE_NAMES, type Lot, type LotType } from "./kitunits";
 
 // ---- fixtures: [name, width, height, depth (m), triangles]; bounds are centred ----
 const TOWN_PACK: [string, number, number, number, number][] = [

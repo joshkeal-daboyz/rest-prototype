@@ -12,7 +12,7 @@
  * `across` is measured on the arm axis from the post's axis (`foot_m`), `up` is the height of the wire's seat.
  */
 
-import type { Vec3 } from "./layout";
+import type { Vec3 } from "./kitunits";
 import { stableHash } from "../render/city";
 
 /** A named failure of the kit's own checks. */
