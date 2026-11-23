@@ -14,6 +14,7 @@ The city style guide is split by domain so an agent reads only what its stage ne
 | 19, 19.1, 19.2, 19.4, 19.6, 19.8 | `frontage-and-interiors.md` | streetscape, planner, landscape |
 | 18, 18.1 to 18.7 | `parking.md` | streetscape, planner |
 | 16.6 | `exclusions.md` | facades, landscape, tech-pass |
-| 8, 9, 11, 12, 16.12 | `light-and-accessibility.md` | no list cites it yet (renderer) |
+| 8, 9, 11, 12 | `light-and-accessibility.md` | no list cites it yet (renderer) |
+| 16.12 | `testing-daylight.md` | no list cites it yet (renderer) |
 | 13, 14, 15 | `packs.md` | no list cites it yet (asset-scout, renderer) |
 | 16.8, 16.9 (measures), 18.8, 19.7 | `evaluation.md` | streetscape (18.8) |

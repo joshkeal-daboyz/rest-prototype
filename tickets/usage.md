@@ -95,60 +95,60 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 050 section A | gate (main session) | â€” | â€” | â€” | 0 | tsc clean, 90 files, 1728 passed on a checkout without pack files |
 | 050 section A | code-reviewer | agent default | 64K total (one figure in the readout) | â€” | 0 | meets, must-fix 0; raised the open-precedence risk for section B |
 | 050 section A | playtester | agent default | 15K total (one figure in the readout) | â€” | 0 | regressions 0; stopped early (harness never imports render3d) |
-| 051 section A | renderer | sonnet | 129K total (one figure in the readout) | — | 0 | Dev-only street camera, 26 tests (commit 4fb83c8); 42 tool uses, 8 min |
-| 051 section A | gate (main session) | — | — | — | 0 | tsc clean, 90 files, 1731 passed; production build: no street camera or gallery code in dist |
-| 051 section A | code-reviewer | agent default | see 050 A row style: figure not shown | — | 0 | meets, must-fix 0 |
-| 051 section A | playtester | agent default | 22K total (one figure in the readout) | — | 0 | regressions 0; stopped early (harness never imports render3d) |
-| 050 section B | renderer | sonnet | 197K total (one figure in the readout) | — | 0 | Stack gallery (stackgallery.ts, gallery wiring, loadModels stackKeys), 32 new tests (commit 88e8865); 87 tool uses, 10 min |
-| 050 section B | gate (main session) | — | — | — | 0 | tsc clean, 92 files, 1786 passed on a checkout without pack files |
-| 050 section B | playtester | agent default | 16K total (one figure in the readout) | — | 0 | regressions 0; stopped early (harness never imports render3d) |
-| 050 section B | code-reviewer | agent default | 80K total (one figure in the readout) | — | 0 | meets, must-fix 0; all section A follow-ups applied |
-| 050 section C | renderer | sonnet | 228K total (one figure in the readout) | — | 0 | Three-step chain, stacks placed in the town, 34 provisional fronts, guide updated, 35 new tests (commit 59a1044); 63 tool uses, 12 min |
-| 050 section C | gate (main session) | — | — | — | 0 | tsc clean, 93 files, 1821 passed on a checkout without pack files |
-| 050 section C | code-reviewer | agent default | 91K total (one figure in the readout) | — | 0 | meets, must-fix 0; tall street-repeat deviation (2 in 2203) left for Josh |
-| 050 section C | playtester | agent default | 17K total (one figure in the readout) | — | 0 | regressions 0; stopped early (harness never imports render3d) |
-| 051 section B | renderer | sonnet | 277K total (one figure in the readout; three passes: build 255K, then two gate-fix passes) | — | 0 | Terrace rows in town.ts, parking lots and plazas, 21 new tests (commit 7677aa0), then four stacktown tests, the terrace skip and the debug3d stand-in fixed after the gate (ac30ad5, ac9fd3e); 95 tool uses, 22 min |
-| 051 section B | gate (main session) | — | — | — | 0 | Three runs: 4 failures (stacktown, after merging 050 C), then 1 (debug3d), then green: tsc clean, 94 files, 1843 passed |
-| 051 section B | playtester | agent default | 17K total (one figure in the readout) | — | 0 | regressions 0; stopped early (harness never imports render3d) |
-| 051 section B | code-reviewer | agent default | 116K total (one figure in the readout) | — | 0 | meets, must-fix 0; re-hashed the old town.ts layout to prove terraces:false equals today's |
-| 052 section A | renderer | sonnet | 169K total (one figure in the readout; build 158K, then the must-fix pass) | — | 0 | Pure dressing slots, 20 tests (commits 8a7a7e1, 4fc0822); 35 tool uses, 12 min |
-| 052 section A | gate (main session) | — | — | — | 0 | Two runs, both green: 95 files, 1860 then 1863 passed |
-| 052 section A | code-reviewer | agent default | 103K total (two rounds: 70K, then 33K) | — | 0 | Round 1 must-fix 1 (billboard face past the roof inset); round 2 meets, must-fix 0 |
-| 052 section A | playtester | agent default | 17K total (one figure in the readout) | — | 0 | regressions 0; stopped early (nothing imports dressing.ts) |
-| 051 section C | renderer | sonnet | 164K total (one figure in the readout) | — | 0 | Terrace packer terrace.ts, 16 tests (commit 7b7501d); 55 tool uses, 12 min; 90% far-gap closure unreachable with the real piece widths |
-| 051 section C | gate (main session) | — | — | — | 0 | tsc clean, 95 files, 1859 passed |
-| 051 section C | playtester | agent default | 18K total (one figure in the readout) | — | 0 | regressions 0; stopped early |
-| 051 section C | renderer | sonnet | 269K total (build 164K, then the re-cut pass) | — | 0 | Packer with the seam-or-alley rule, 27 terracepack tests, townClears, Numbers rows (commits 7b7501d, 2ce5648) |
-| 051 section C re-cut | lead-architect | agent default | 38K total (one figure in the readout) | — | 0 | Re-cut criterion 12 (seam, or alley, never a slit) after the reviewer proved the 90% closure unreachable |
-| 051 section C | code-reviewer | agent default | 171K total (two rounds: 88K, then 83K) | — | 0 | Round 1 must-fix 1 (criterion lowered without a re-cut); round 2 must-fix 1 (far gap not measured to the real corner wall); taken to Josh as it stands |
-| 051 section C | gate (main session) | — | — | — | 0 | Two runs, both green: 95 files, 1859 then 1870 passed |
-| 051 section C | playtester | agent default | 34K total (two rounds: 18K, 16K) | — | 0 | regressions 0 both times |
-| 052 section B | renderer | sonnet | 185K total (one figure in the readout) | — | 0 | Dressing drawn with InstancedMesh in the town and the stack gallery, planDressPieces, 20 tests (commit aae3816); 86 tool uses, 9 min |
-| 052 section B | gate (main session) | — | — | — | 0 | tsc clean, 98 files, 1920 passed on a checkout without pack files; looked at in the browser via the street camera on map 64 |
-| 052 section B | code-reviewer | agent default | see note: figure not shown | — | 0 | meets, must-fix 0 |
-| 052 section B | playtester | agent default | 18K total (one figure in the readout) | — | 0 | regressions 0; stopped early |
-| 052 section B | code-reviewer | agent default | 79K total (one figure in the readout) | — | 0 | meets, must-fix 0 |
-| 052 section C | renderer | sonnet | 257K total (one figure in the readout) | — | 0 | furniture.ts (pavement furniture, parking lots, plazas, alleys), 16 tests (commit b260874); 61 tool uses, 17 min |
-| 052 section C | gate (main session) | — | — | — | 0 | tsc clean, 99 files, 1936 passed on a checkout without pack files; plaza looked at in the browser |
-| 052 section C | code-reviewer | agent default | see note: figure not shown | — | 0 | meets, must-fix 0 |
-| 052 section C | playtester | agent default | 19K total (one figure in the readout) | — | 0 | regressions 0; stopped early |
-| 052 section C | code-reviewer | agent default | 85K total (one figure in the readout) | — | 0 | meets, must-fix 0 |
-| 053 | renderer | sonnet | 310K total (one figure in the readout) | — | 0 | Chapter 16, evaluation protocol R1 to R12, citymetrics.ts and its tests (commit 9926319); 69 tool uses, 15 min |
-| 053 | gate (main session) | — | — | — | 0 | tsc clean, 100 files, 1967 passed on a checkout without pack files |
-| 053 | code-reviewer | agent default | 84K total (one figure in the readout) | — | 0 | meets, must-fix 0; three thresholds lowered and documented for Josh |
-| 053 | playtester | agent default | 20K total (one figure in the readout) | — | 0 | regressions 0; stopped early |
-| 054 cut | lead-architect | agent default (Opus) | 91K total (one figure in the readout) | — | 0 | Cut ticket 054 (colour variety) after finding the 12 colourway atlases; added AssetColourway to src/core |
-| 054 section A | grid-simulator | agent default | 95K total (one figure in the readout) | — | 0 | Converter exports the colourway atlases, 20 new tests (commit f566408); 41 tool uses, 4 min |
-| 054 section A | code-reviewer | agent default | 43K total (one figure in the readout) | — | 0 | meets, must-fix 0 |
-| 054 section A | playtester | agent default | 18K total (one figure in the readout) | — | 0 | regressions 0; stopped early |
-| 054 section B | renderer | sonnet | 134K total (one figure in the readout) | — | 0 | Per-block colourways, colourway.ts, 31 tests (commit f34db97); 35 tool uses, 7 min |
-| 054 section B | gate (main session) | — | — | — | 0 | tsc clean, 101 files, 1998 passed; checked in the browser with the real atlases |
-| 054 section B | code-reviewer | agent default | 60K total (one figure in the readout) | — | 0 | meets, must-fix 0 |
-| 054 section B | playtester | agent default | 18K total (one figure in the readout) | — | 0 | regressions 0; stopped early |
-| 054 section C | renderer | sonnet | 121K total (one figure in the readout) | — | 0 | Guide colourway block, R13, drift check (commit d56a5c1); 28 tool uses |
-| 054 section C | gate (main session) | — | — | — | 0 | tsc clean, 102 files, 2031 passed |
-| 054 section C | code-reviewer | agent default | see 054 B: figure not shown | — | 0 | meets, must-fix 0 |
-| 054 section C | playtester | agent default | 22K total (one figure in the readout) | — | 0 | regressions 0; stopped early |
+| 051 section A | renderer | sonnet | 129K total (one figure in the readout) | ï¿½ | 0 | Dev-only street camera, 26 tests (commit 4fb83c8); 42 tool uses, 8 min |
+| 051 section A | gate (main session) | ï¿½ | ï¿½ | ï¿½ | 0 | tsc clean, 90 files, 1731 passed; production build: no street camera or gallery code in dist |
+| 051 section A | code-reviewer | agent default | see 050 A row style: figure not shown | ï¿½ | 0 | meets, must-fix 0 |
+| 051 section A | playtester | agent default | 22K total (one figure in the readout) | ï¿½ | 0 | regressions 0; stopped early (harness never imports render3d) |
+| 050 section B | renderer | sonnet | 197K total (one figure in the readout) | ï¿½ | 0 | Stack gallery (stackgallery.ts, gallery wiring, loadModels stackKeys), 32 new tests (commit 88e8865); 87 tool uses, 10 min |
+| 050 section B | gate (main session) | ï¿½ | ï¿½ | ï¿½ | 0 | tsc clean, 92 files, 1786 passed on a checkout without pack files |
+| 050 section B | playtester | agent default | 16K total (one figure in the readout) | ï¿½ | 0 | regressions 0; stopped early (harness never imports render3d) |
+| 050 section B | code-reviewer | agent default | 80K total (one figure in the readout) | ï¿½ | 0 | meets, must-fix 0; all section A follow-ups applied |
+| 050 section C | renderer | sonnet | 228K total (one figure in the readout) | ï¿½ | 0 | Three-step chain, stacks placed in the town, 34 provisional fronts, guide updated, 35 new tests (commit 59a1044); 63 tool uses, 12 min |
+| 050 section C | gate (main session) | ï¿½ | ï¿½ | ï¿½ | 0 | tsc clean, 93 files, 1821 passed on a checkout without pack files |
+| 050 section C | code-reviewer | agent default | 91K total (one figure in the readout) | ï¿½ | 0 | meets, must-fix 0; tall street-repeat deviation (2 in 2203) left for Josh |
+| 050 section C | playtester | agent default | 17K total (one figure in the readout) | ï¿½ | 0 | regressions 0; stopped early (harness never imports render3d) |
+| 051 section B | renderer | sonnet | 277K total (one figure in the readout; three passes: build 255K, then two gate-fix passes) | ï¿½ | 0 | Terrace rows in town.ts, parking lots and plazas, 21 new tests (commit 7677aa0), then four stacktown tests, the terrace skip and the debug3d stand-in fixed after the gate (ac30ad5, ac9fd3e); 95 tool uses, 22 min |
+| 051 section B | gate (main session) | ï¿½ | ï¿½ | ï¿½ | 0 | Three runs: 4 failures (stacktown, after merging 050 C), then 1 (debug3d), then green: tsc clean, 94 files, 1843 passed |
+| 051 section B | playtester | agent default | 17K total (one figure in the readout) | ï¿½ | 0 | regressions 0; stopped early (harness never imports render3d) |
+| 051 section B | code-reviewer | agent default | 116K total (one figure in the readout) | ï¿½ | 0 | meets, must-fix 0; re-hashed the old town.ts layout to prove terraces:false equals today's |
+| 052 section A | renderer | sonnet | 169K total (one figure in the readout; build 158K, then the must-fix pass) | ï¿½ | 0 | Pure dressing slots, 20 tests (commits 8a7a7e1, 4fc0822); 35 tool uses, 12 min |
+| 052 section A | gate (main session) | ï¿½ | ï¿½ | ï¿½ | 0 | Two runs, both green: 95 files, 1860 then 1863 passed |
+| 052 section A | code-reviewer | agent default | 103K total (two rounds: 70K, then 33K) | ï¿½ | 0 | Round 1 must-fix 1 (billboard face past the roof inset); round 2 meets, must-fix 0 |
+| 052 section A | playtester | agent default | 17K total (one figure in the readout) | ï¿½ | 0 | regressions 0; stopped early (nothing imports dressing.ts) |
+| 051 section C | renderer | sonnet | 164K total (one figure in the readout) | ï¿½ | 0 | Terrace packer terrace.ts, 16 tests (commit 7b7501d); 55 tool uses, 12 min; 90% far-gap closure unreachable with the real piece widths |
+| 051 section C | gate (main session) | ï¿½ | ï¿½ | ï¿½ | 0 | tsc clean, 95 files, 1859 passed |
+| 051 section C | playtester | agent default | 18K total (one figure in the readout) | ï¿½ | 0 | regressions 0; stopped early |
+| 051 section C | renderer | sonnet | 269K total (build 164K, then the re-cut pass) | ï¿½ | 0 | Packer with the seam-or-alley rule, 27 terracepack tests, townClears, Numbers rows (commits 7b7501d, 2ce5648) |
+| 051 section C re-cut | lead-architect | agent default | 38K total (one figure in the readout) | ï¿½ | 0 | Re-cut criterion 12 (seam, or alley, never a slit) after the reviewer proved the 90% closure unreachable |
+| 051 section C | code-reviewer | agent default | 171K total (two rounds: 88K, then 83K) | ï¿½ | 0 | Round 1 must-fix 1 (criterion lowered without a re-cut); round 2 must-fix 1 (far gap not measured to the real corner wall); taken to Josh as it stands |
+| 051 section C | gate (main session) | ï¿½ | ï¿½ | ï¿½ | 0 | Two runs, both green: 95 files, 1859 then 1870 passed |
+| 051 section C | playtester | agent default | 34K total (two rounds: 18K, 16K) | ï¿½ | 0 | regressions 0 both times |
+| 052 section B | renderer | sonnet | 185K total (one figure in the readout) | ï¿½ | 0 | Dressing drawn with InstancedMesh in the town and the stack gallery, planDressPieces, 20 tests (commit aae3816); 86 tool uses, 9 min |
+| 052 section B | gate (main session) | ï¿½ | ï¿½ | ï¿½ | 0 | tsc clean, 98 files, 1920 passed on a checkout without pack files; looked at in the browser via the street camera on map 64 |
+| 052 section B | code-reviewer | agent default | see note: figure not shown | ï¿½ | 0 | meets, must-fix 0 |
+| 052 section B | playtester | agent default | 18K total (one figure in the readout) | ï¿½ | 0 | regressions 0; stopped early |
+| 052 section B | code-reviewer | agent default | 79K total (one figure in the readout) | ï¿½ | 0 | meets, must-fix 0 |
+| 052 section C | renderer | sonnet | 257K total (one figure in the readout) | ï¿½ | 0 | furniture.ts (pavement furniture, parking lots, plazas, alleys), 16 tests (commit b260874); 61 tool uses, 17 min |
+| 052 section C | gate (main session) | ï¿½ | ï¿½ | ï¿½ | 0 | tsc clean, 99 files, 1936 passed on a checkout without pack files; plaza looked at in the browser |
+| 052 section C | code-reviewer | agent default | see note: figure not shown | ï¿½ | 0 | meets, must-fix 0 |
+| 052 section C | playtester | agent default | 19K total (one figure in the readout) | ï¿½ | 0 | regressions 0; stopped early |
+| 052 section C | code-reviewer | agent default | 85K total (one figure in the readout) | ï¿½ | 0 | meets, must-fix 0 |
+| 053 | renderer | sonnet | 310K total (one figure in the readout) | ï¿½ | 0 | Chapter 16, evaluation protocol R1 to R12, citymetrics.ts and its tests (commit 9926319); 69 tool uses, 15 min |
+| 053 | gate (main session) | ï¿½ | ï¿½ | ï¿½ | 0 | tsc clean, 100 files, 1967 passed on a checkout without pack files |
+| 053 | code-reviewer | agent default | 84K total (one figure in the readout) | ï¿½ | 0 | meets, must-fix 0; three thresholds lowered and documented for Josh |
+| 053 | playtester | agent default | 20K total (one figure in the readout) | ï¿½ | 0 | regressions 0; stopped early |
+| 054 cut | lead-architect | agent default (Opus) | 91K total (one figure in the readout) | ï¿½ | 0 | Cut ticket 054 (colour variety) after finding the 12 colourway atlases; added AssetColourway to src/core |
+| 054 section A | grid-simulator | agent default | 95K total (one figure in the readout) | ï¿½ | 0 | Converter exports the colourway atlases, 20 new tests (commit f566408); 41 tool uses, 4 min |
+| 054 section A | code-reviewer | agent default | 43K total (one figure in the readout) | ï¿½ | 0 | meets, must-fix 0 |
+| 054 section A | playtester | agent default | 18K total (one figure in the readout) | ï¿½ | 0 | regressions 0; stopped early |
+| 054 section B | renderer | sonnet | 134K total (one figure in the readout) | ï¿½ | 0 | Per-block colourways, colourway.ts, 31 tests (commit f34db97); 35 tool uses, 7 min |
+| 054 section B | gate (main session) | ï¿½ | ï¿½ | ï¿½ | 0 | tsc clean, 101 files, 1998 passed; checked in the browser with the real atlases |
+| 054 section B | code-reviewer | agent default | 60K total (one figure in the readout) | ï¿½ | 0 | meets, must-fix 0 |
+| 054 section B | playtester | agent default | 18K total (one figure in the readout) | ï¿½ | 0 | regressions 0; stopped early |
+| 054 section C | renderer | sonnet | 121K total (one figure in the readout) | ï¿½ | 0 | Guide colourway block, R13, drift check (commit d56a5c1); 28 tool uses |
+| 054 section C | gate (main session) | ï¿½ | ï¿½ | ï¿½ | 0 | tsc clean, 102 files, 2031 passed |
+| 054 section C | code-reviewer | agent default | see 054 B: figure not shown | ï¿½ | 0 | meets, must-fix 0 |
+| 054 section C | playtester | agent default | 22K total (one figure in the readout) | ï¿½ | 0 | regressions 0; stopped early |
 | 070 cut | lead-architect | agent default | 173K total (one figure in the readout) | - | 0 | Ticket 070 and src/core/cityplan.ts types; 35 tool uses |
 | 070 approval pass | lead-architect | agent default | 51K total (one figure in the readout) | - | 0 | 070 status approved; 064 to 068 superseded; 059 and 063 pointers |
 | 070 correction (069 dropped) | lead-architect | agent default | 58K total (one figure in the readout) | - | 0 | D1 moves the 056 allocator as merged; P1 on named cities; Q6 added |
@@ -405,6 +405,7 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 080 A | code-reviewer / playtester (general-purpose with playtester.md) | opus / sonnet | 39K / 65K | - | 1 | meets, must-fix 0 (05d82fe); regressions 0, no replay (21051d3) |
 | 080 B1 | renderer | sonnet (agent default) | 141K + a short fix round (figure not in the readout) | - | 1 | STANDARD.md, checks, 112-row mapping table, exclusions and packs condensed (e2fe703, dd2576f); 74 tool uses, 10 min |
 | 080 B1 | gate (main session) / code-reviewer | - / opus | - / 117K | - | 1 | tsc clean, changed-tests gate 543 passed, 26 skipped; meets, must-fix 0 (b5ba7fe); playtester not run (docs and tests only) |
+| 080 B2a | renderer / code-reviewer | sonnet / opus | 175K / 69K | - | 1 | scale-and-lots, parking, light-and-accessibility condensed, testing-daylight split out (3d85dbd); meets, must-fix 0 (d32f6de) |
 | 079 | lead-architect | opus (agent default) | 112K total (one figure in the readout) | - | 0 | Cut the ticket in 3 PRs; 26 tool uses, 7 min |
 | 079 | planner (all sections, Q3 waiver) | sonnet (agent default) | 187K total over five resumes (PR 1, the split, PR 2, PR 3, PR 4) | - | 2 on PR 1 | 97 tool uses; PR 3 stopped at the 15-case cap and became PR 3 + PR 4 |
 | 079 | code-reviewer | opus (agent default) | 62K (PR 1, two rounds) / 50K / 45K / 33K | - | 2 / 1 / 1 / 1 | All meets, must-fix 0 |
