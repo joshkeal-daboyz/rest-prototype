@@ -16,6 +16,7 @@
  */
 
 import type { CalibrationKey } from "./calibration";
+import type { CityCircuitKeep, CityDrop, CityLampPostPlace, CityPole, CityStreetLight, CityWireSpan } from "./citycircuit";
 
 // ---- the stages ----
 
@@ -753,9 +754,20 @@ export interface CityBuildingsLayer {
   /** F2: one column per `mass.built` cell, in `mass.built` order. Optional, as `CityEdgeLayer.ground` was, so F1's layers type-check; from F2 always written. */
   readonly columns?: readonly CityColumn[];
 }
-/** Stage 6: the circuit. Typed when ticket 059 is re-cut onto the pipeline; until then the layer is empty. */
+/**
+ * Stage 6: the circuit (ticket 070 K1's CK1 to CK15, typed for 081 K2; the element types are in `citycircuit.ts`). No stage writes it yet: `BUILT_STAGES` has no circuit stage
+ * until 081 K2a, and `circuitPoints` (src/city/pipeline/readable.ts) reads none. Every pole, span, drop and light of the whole city; a puzzle names a district of it (CK14).
+ */
 export interface CityCircuitLayer {
   readonly stage: "circuit";
+  readonly poles: readonly CityPole[];
+  readonly spans: readonly CityWireSpan[];
+  readonly drops: readonly CityDrop[];
+  readonly lights: readonly CityStreetLight[];
+  /** CK11's lamp-post places, one per along span of 7.5 m or more. */
+  readonly posts: readonly CityLampPostPlace[];
+  /** Every pole and light, for stage 8 (I2) and stage 9 (TR1's CL). */
+  readonly keep: readonly CityCircuitKeep[];
 }
 
 // ---- stage 7, H1: the ground storeys (ticket 070 H1; grammar rules 1, 3, 7 and 9) ----

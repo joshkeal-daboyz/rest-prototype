@@ -14,5 +14,5 @@ Every rule in the brief's "Rules" section, and where it is tested.
 | Power flows from the feed outward (each feed, on multi-feed maps) | 015 A (one-feed maps unchanged, rule 8) |
 | Fuse rating: over it, blows on power | src/grid tests |
 | Scarce parts: repair consumes the part; refused without it | src/grid tests |
-| Win: every target lit, no brownout | src/grid tests; tests/playtest (036: every ladder map replayed to complete) |
-| The Relight can't be interrupted | src/play (input ignored during it); tests/playtest (036: the locked line, every control and undo after the win); 037 C (the 3D view draws the Relight from `relightT` only; Josh checks that clicks during it do nothing); Josh checks |
+| Win: every target lit, no brownout | src/grid tests; tests/playtest (036: every ladder map replayed to complete); 081 K2c and P1 (a city puzzle converts to a `Puzzle` whose check block replays as its schematic's, on `src/grid/` unchanged) |
+| The Relight can't be interrupted | src/play (input ignored during it); tests/playtest (036: the locked line, every control and undo after the win); 037 C (the 3D view draws the Relight from `relightT` only; Josh checks that clicks during it do nothing); 081 E2 (the city view: input during the Relight changes nothing); Josh checks |
