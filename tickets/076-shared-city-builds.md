@@ -1,8 +1,8 @@
 # 076 · Build each named city once per test run, and share it across the slow test files
 
-owner: planner (section A); section B per the table below (or the planner alone, if Josh says so: Q1)
-status: open (awaiting G1)
-branch: `ticket/076-shared-city-builds` (one branch per section: `ticket/076a-city-cache`, then `ticket/076b-<folder>` per row of B, or one `ticket/076b-switch-over` under Q1 option 2)
+owner: planner (sections A and B; Q1 option 2, Josh's G1 below)
+status: approved to build (G1, 23 Nov 2026)
+branch: `ticket/076-shared-city-builds` (one branch per section: `ticket/076a-city-cache`, then one `ticket/076b-switch-over`, Q1 option 2)
 
 ## Josh's words (23 Nov 2026, in chat)
 > "Why are we perform 4K+ tests this seems excessive"
@@ -10,7 +10,18 @@ branch: `ticket/076-shared-city-builds` (one branch per section: `ticket/076a-ci
 He was shown that the count is cheap but the full gate takes about 16 minutes on his PC, mostly because many test files each rebuild the 20 named cities (6 x 6, seeds 1 to 10, one-way on and off) and every earlier stage from scratch. He was offered: "Build each named city once per test run and share it across test files, instead of every slow file rebuilding all 20. Same tests, same checks." He answered:
 > "Yes"
 
-That is his word to cut this ticket. **It needs his G1 before any build.** Nothing here changes a city stage, a pass, a pin, a puzzle or a Decided rule.
+That is his word to cut this ticket. Nothing here changes a city stage, a pass, a pin, a puzzle or a Decided rule.
+
+## G1 (Josh, 23 Nov 2026, in chat; as relayed by the main session)
+He was shown the ticket's summary with its three open questions, each marked "Recommended: yes": Q1, the planner does all of section B on one branch, waiving the "Each agent stays in its folder" rule for this ticket only; Q2, the new `src/city/testing/` folder and the one `globalSetup` line in `vite.config.ts`; Q3, the target, the full gate at 765 s or less, at least 20% faster than 956 s. He answered:
+> "Yes to all recommendations"
+
+That is his G1 and his answer to each question:
+- **Q1:** "Yes to all recommendations". Option 2: the planner does all of section B on one branch, `ticket/076b-switch-over`, after A merges. The folder rule is waived for the files in B's table and this ticket only. Each row's acceptance criteria still apply; the reviewer checks them row by row in one review.
+- **Q2:** "Yes to all recommendations". `src/city/testing/` is a new folder owned by the planner; section A may add the one `globalSetup` line to `vite.config.ts`, and nothing else in it.
+- **Q3:** "Yes to all recommendations". The target is the full gate at `--maxWorkers=2` on Josh's PC at most 80% of the "before" wall time (at least 20% faster); `src/city/facades` summed time below 300 s.
+
+**The "before" number.** The 956 s figure came from an earlier head. The goal head is now c46827b, which includes `goal/city-style`'s merge. The main session is timing the "before" gate now, on c46827b, alone on the machine. **That run's wall time is the "before" for Q3** (so the target is 0.8 times it, which is 765 s only if it again comes to 956 s), and it replaces section C's first criterion's baseline at 0823a30.
 
 ## What the architect found (read 23 Nov 2026 on `goal/city-transformations` at 0823a30)
 
@@ -101,7 +112,7 @@ Acceptance criteria, every row:
 Files: the row's files only. `testcities.ts` keeps its exports (`NAMED`, `PINNED`, `DEFAULT`, `label`, `cityOf`, `layersOf`, `stagesOf`, `eraRun`, ...), re-exported or wrapped, so no test file that imports it changes.
 
 ### C · Measure (main session)
-- [ ] (Main session, before A starts) The baseline: on `goal/city-transformations` at 0823a30 in a detached worktree, `npx tsc --noEmit`, then `npx vitest run --maxWorkers=2 --reporter=default --reporter=json --outputFile=<scratchpad>/076-before.json`. The wall time, the test count, and the summed time per folder and per file.
+- [ ] (Main session, before A starts) The baseline: on `goal/city-transformations` at c46827b (was 0823a30; see G1) in a detached worktree, alone on the machine, `npx tsc --noEmit`, then `npx vitest run --maxWorkers=2 --reporter=default --reporter=json --outputFile=<scratchpad>/076-before.json`. The wall time, the test count, and the summed time per folder and per file.
 - [ ] (Main session, after the last B row merges into the goal branch) The same run on the result, with `REST_CITY_CACHE_LOG` set: the wall time, the per-folder sums, the test count, and the most builds of any one key (at most 2).
 - [ ] The full gate passes with **the same test count plus exactly the tests section A adds**, and every pin and digest test passes unchanged.
 - [ ] The wall time meets Q3's target. If it does not, the main session reports the per-file numbers to Josh; no check is loosened and no city is dropped to reach it.
