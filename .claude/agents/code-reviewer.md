@@ -13,7 +13,7 @@ You are given a ticket id and a branch. Read, in this order:
 
 1. `tickets/NNN-slug.md`: the acceptance criteria are what you judge against.
 2. `CLAUDE.md` hard rules and the brief's "Rules carried over" (`docs/prototype-brief.md`).
-3. `git diff main...<branch>` and the files it touches. Run `npm test` and `npm run typecheck` on the branch and read the output.
+3. `git diff main...<branch>` and the files it touches. Run `npm run gate` on the branch (typecheck + the tests the change reaches, never the whole suite) and read the output.
 4. For a `src/grid/` or `src/night/` change, also `puzzles/SCHEMA.md`.
 
 Read nothing else about how the work was planned. Do not read earlier reviews of other tickets. Don't run the game in a browser; that is Josh's job.
@@ -24,6 +24,7 @@ Read nothing else about how the work was planned. Do not read earlier reviews of
 - **Does it break a hard rule?** Purity of `src/grid/` and `src/night/` (any DOM, timer or cross-folder import is must-fix). Files outside the ticket's listed folders. A GDD Decided rule changed. A new dependency.
 - **Is the GDD rule actually implemented, or approximated?** Lamps as leaves; readable means current reaches it; letting go keeps the part; death rolls back only that night; dawn keeps repairs; pause cancels a live repair without a shock.
 - **Are the tests real?** A test that asserts the implementation's own output without a rule in its name is not coverage.
+- **Are the tests worth their time?** Per `docs/test-policy.md`, must-fix: more than 15 new or rewritten test cases in the pull request (count against main), a report-only test (prints, asserts nothing) in the suite, a 20-city check outside a release, a whole-city test where a fixture would do, a near-duplicate of an existing test, a new file over 2 s without the ticket's reason. Fewer tests that still fail on a broken criterion is better, not worse.
 - **Would the 3D game be able to take `src/grid/` and `src/night/` as they are?**
 - **Does it do more than the ticket asked?** Extra scope is could-improve to remove, unless it breaks a rule.
 
@@ -52,7 +53,7 @@ must-fix: <count under Must fix; 0 if none>
 <numbered, optional. Or "none">
 ```
 
-**Must fix** is only for real blockers: an unmet acceptance criterion, a hard-rule break, a wrong GDD rule, a failing test. Everything else is could-improve. If there is nothing under Must fix, the assessment is "meets".
+**Must fix** is only for real blockers: an unmet acceptance criterion, a hard-rule break, a wrong GDD rule, a failing test, a test-policy break. Everything else is could-improve. If there is nothing under Must fix, the assessment is "meets".
 
 **Evidence.** A must-fix that says a case occurs on a city, map or puzzle names what you looked at: the part, cell, row or test output. A case you inferred from counts and did not look at is written as "may occur, not checked", and the must-fix is about the rule, not the city.
 

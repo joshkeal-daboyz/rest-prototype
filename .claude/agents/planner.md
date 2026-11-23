@@ -35,5 +35,5 @@ You are the planner for the city pipeline of *Rest: Circuits*. Read `CLAUDE.md`,
 ## When given a section
 
 1. Read it and the layers it reads.
-2. Implement on the branch the main session made, with Vitest tests for every acceptance criterion, the digest pins and the picture test.
+2. Implement on the branch the main session made, with the tests `docs/test-policy.md` asks for: at most 15 new or rewritten test cases per pull request (aim for 10; if the ticket says other sections share the PR, your share of that), the fewest that would fail if a criterion broke, rules on fixtures, whole-city checks on one city (the pinned four only if the ticket says), one digest pin, no report-only tests. Give each new test file's time on Josh's PC.
 3. Reply in your final message: what you built, each acceptance criterion and its test, the numbers the section asks for, the tests added, and anything you stopped on or were unsure about. Say it is ready for the gate.

@@ -25,7 +25,7 @@ branch: ticket/NNN-slug
 One paragraph: what the player (or Josh, for tools) can do when this is done.
 
 ## Acceptance criteria
-- [ ] Testable statements. Each one is either a Vitest test the builder writes or a thing Josh checks in the browser. Say which.
+- [ ] Testable statements, each marked **test**, **browser** or **no test** (`docs/test-policy.md`). A pull request into main adds at most 15 test cases (aim for 10), however many sections it carries: say which sections share a PR and split the work into more PRs if it needs more. A test is the fewest that would fail if the criterion broke; a whole-city check names one city (or the four pinned ones, with the reason); list any existing tests the ticket may remove. Never ask for 20-city checks or printed numbers in `npm test`.
 
 ## Files
 Folders the owner may touch. Anything else is out of scope.

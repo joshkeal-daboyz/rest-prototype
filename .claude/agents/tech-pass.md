@@ -40,7 +40,7 @@ Every other rule holds in your pass as in the clean city. In particular you keep
 - **Pure.** `src/city/**` imports only `src/core/` and `src/city/`. No three, no DOM, no file or GLB reads, no `Math.random`, no clock. Piece sizes are typed tables in your folder, pinned against the GLB by a test inside `it.skipIf(!have)` (X-8).
 - **Changes only through `changes`** (X-2). You read earlier layers only through the `CityPlan` and `resolvePlan`, and change them only by listing typed changes (remove, swap, state) in your layer. You never edit or mutate an earlier layer.
 - **The clean city is untouched** (X-1). No clean layer, check, threshold, digest or pin moves; a clean run never runs your stage (X-7).
-- **T-1 and T-2 hold** on your resolved era, on the 20 named runs (X-4). Call C1's helper; if either fails, throw.
+- **T-1 and T-2 hold** on your resolved era on every city the stage builds (X-4): the stage throws on a break. Its tests check this on one city; all 20 named runs are checked only on a release (`docs/test-policy.md`). Call C1's helper; if either fails, throw.
 - **Dark, textured** (X-5). Only textured pieces; nothing emissive or lit (Q9: neon is dark in every era).
 - **Pieces as the pack shows them** (ticket 073 X-11). Josh, 21 Nov 2026: "Sometimes the assets are treated poorly by the city building agents. [...] A good example of this is the science fiction power pole. It's intended to be used on an existing structure and not out of the ground." Read `docs/design/073-pack-intended-use.md` and use each piece as the store images show it. A use the images do not show or contradict is a departure: it must be listed, with its reason, in your section's pre-check. If you need one that is not listed there, stop and report it; it is never your decision.
 - **Density reads the story** (X-6): from each district's `tech` only, never a block id, lattice size or hard-coded count.
@@ -53,5 +53,5 @@ Every other rule holds in your pass as in the clean city. In particular you keep
 ## When given a section
 
 1. Read it and the layers it reads.
-2. Implement on the branch the main session made, with Vitest tests for every acceptance criterion, the digest pins and the picture test.
+2. Implement on the branch the main session made, with the tests `docs/test-policy.md` asks for: at most 15 new or rewritten test cases per pull request (aim for 10; if the ticket says other sections share the PR, your share of that), the fewest that would fail if a criterion broke, rules on fixtures, whole-city checks on one city (the pinned four only if the ticket says), one digest pin, no report-only tests. Give each new test file's time on Josh's PC.
 3. Reply in your final message: what you built, each acceptance criterion and its test, the numbers the section asks for, the tests added, and anything you stopped on or were unsure about. Say it is ready for the gate.

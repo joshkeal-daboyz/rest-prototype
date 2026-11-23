@@ -24,4 +24,4 @@ You are the interaction builder for *Rest: Circuits*. Read `CLAUDE.md`, the tick
 
 1. Read it and the current `src/play/` or `src/editor/`.
 2. Implement on the branch the main session made. Put every piece of logic that doesn't need the DOM (the repair state machine, the satchel, the offering maths, the session log format) in pure modules with Vitest tests.
-3. Run `npm test` and `npm run typecheck`. Reply with what you built, each acceptance criterion and how Josh can try it, and anything you were unsure about. Say it is ready for the code-reviewer.
+3. Write only the tests `docs/test-policy.md` asks for (at most 15 new or rewritten test cases per pull request). Run your own folder's tests (`npx vitest run --maxWorkers=2 src/<your folder>/`) and `npm run typecheck`, not the whole suite. Reply with what you built, each acceptance criterion and how Josh can try it, and anything you were unsure about. Say it is ready for the code-reviewer.

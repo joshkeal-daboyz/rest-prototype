@@ -3,15 +3,30 @@ on:
   push:
     branches: [main]
   pull_request:
+  # The whole suite, on demand (Actions tab > CI > Run workflow): for a release or when Josh asks.
+  workflow_dispatch:
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
       - run: npm ci
       - run: npm run typecheck
-      - run: npm test
+      # Josh, 23 Nov 2026: tests only against what a change directly impacts (docs/test-policy.md).
+      # A PR runs the tests whose imports reach a file it changed; a push to main, those the push reached.
+      # Vitest runs everything when package.json or the vite config changed. A manual run is the whole suite.
+      - name: Tests the change reaches
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || (github.event_name == 'push' && github.event.before || '') }}
+        run: |
+          if [ -z "$BASE" ]; then
+            npm test
+          else
+            npx vitest run --changed "$BASE"
+          fi
