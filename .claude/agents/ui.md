@@ -32,4 +32,4 @@ You are the UI builder for *Rest: Circuits*. Read `CLAUDE.md`, the ticket, `src/
 
 1. Read it and the current `src/ui/`.
 2. Implement on the branch the main session made. Components take plain data and are testable with Vitest where there is logic (formatting, which prompt to show for a state).
-3. Run `npm test` and `npm run typecheck`. Reply with what you built, each acceptance criterion and how Josh can see it, and anything you were unsure about. Say it is ready for the code-reviewer.
+3. Write only the tests `docs/test-policy.md` asks for (at most 15 new or rewritten test cases per pull request). Run your own folder's tests (`npx vitest run --maxWorkers=2 src/<your folder>/`) and `npm run typecheck`, not the whole suite. Reply with what you built, each acceptance criterion and how Josh can see it, and anything you were unsure about. Say it is ready for the code-reviewer.
