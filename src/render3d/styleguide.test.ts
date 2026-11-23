@@ -125,7 +125,9 @@ function readGuide(): string {
     }
   }
   const text = (h: string): string => [...(blocks.get(h) ?? []), ...(conts.get(h) ?? [])].join("\n");
-  return [pre.join("\n"), ...OLD_HEADINGS.map(text)].join("\n");
+  // Blocks that are no old section (the text moved into evaluation.md) are scanned too, after the old sections; the mapping table is not, it only repeats old lines.
+  const extra = [...blocks.keys()].filter((h) => !OLD_HEADINGS.includes(h) && !h.startsWith("## Mapping")).map(text);
+  return [pre.join("\n"), ...OLD_HEADINGS.map(text), ...extra].join("\n");
 }
 
 const doc = readGuide();
@@ -338,7 +340,7 @@ describe("the document standard holds (ticket 080 B1)", () => {
     for (const r of rows.filter((x) => x.home !== "verbatim")) {
       expect(r.home, `${r.id}'s new home does not cite it`).toContain(`[${r.id}]`);
       const file = /`([\w-]+\.md)`/.exec(r.home)?.[1] ?? "";
-      expect(STANDARD_FILES, `${r.id}: ${file} is not a standard: yes domain`).toContain(file);
+      expect([...STANDARD_FILES, ...NOT_DOMAINS], `${r.id}: ${file} is neither a standard: yes domain nor numbers, decisions or evaluation`).toContain(file);
       expect(guideFile(file), `${file} does not hold [${r.id}]`).toContain(`[${r.id}]`);
     }
     // Every row has a new home: verbatim only for a line still standing in a file that is not standard: yes, and none once every domain is.
@@ -348,7 +350,9 @@ describe("the document standard holds (ticket 080 B1)", () => {
       expect(r.home.length, `${r.id} has an empty new home`).toBeGreaterThan(0);
       if (r.home === "verbatim") expect(standing.has(r.line), `${r.id} says verbatim but its line is not in an unconverted file`).toBe(true);
     }
-    if (DOMAINS.every(isStandard)) expect(rows.filter((r) => r.home === "verbatim"), "every domain is standard: yes, so no row may say verbatim").toEqual([]);
+    // A line that lives in numbers, decisions or evaluation (no standard: yes of their own) may stay verbatim for good.
+    const stays = new Set(NOT_DOMAINS.filter((f) => GUIDE_FILES.includes(f)).flatMap((f) => (f === "decisions.md" ? dec.slice(0, dec.indexOf(MAPPING_AT)) : guideFile(f)).split("\n").map((l) => l.trim())));
+    if (DOMAINS.every(isStandard)) expect(rows.filter((r) => r.home === "verbatim" && !stays.has(r.line)), "every domain is standard: yes, so no row of a domain may say verbatim").toEqual([]);
   });
 });
 

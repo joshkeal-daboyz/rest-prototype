@@ -10,7 +10,7 @@ Depends on: `docs/city-style/buildings.md` (the model table, fronts and corners)
 ## 13. Packs in the mix
 
 - **Rule [D-043b]**: the target style is the POLYGON City Pack and Town Pack. SIMPLE Town is the placeholder and fallback until POLYGON buildings are in, and stays the working set until a ticket adopts POLYGON buildings.
-- **Default [D-048n]**: the mix is City Pack stacks on `large` and `tall` lots, the Town Pack's twelve whole houses on the types they fill (chapter 5), and SIMPLE Town on the types neither fills and wherever the packs are absent. No whole City Pack building is placed, because no ruling names one. The Church and the City Hall are held back for the landmark places. Lots are not resized for either pack: a later ticket does that, and the terrace is the one exception.
+- **Default [D-048n]**: the mix is City Pack stacks on `large` and `tall` lots, the Town Pack's twelve whole houses on the types they fill (chapter 5), and SIMPLE Town on the types neither fills and wherever the packs are absent. No whole City Pack building is placed, because no ruling names one. The Church and the City Hall are held back for the landmark places. Lots are not resized for either pack: a later ticket does that; the terrace is ticket 051's.
 - The City Pack's stack pieces are in `BUILDING_FRONTS` and its stacks in `STACK_STYLES`. None of it is in `MODEL_TABLE`, so the pack table's "in use" for it comes from the recipes. Its roads, pavements and city hall are not used. The Town Pack's whole houses are in `MODEL_TABLE` with their doors in `BUILDING_FRONTS`; `polygon.test.ts` pins both. Which City Pack pieces are never used, and why, is in `docs/city-style/exclusions.md`.
 
 | Pack id | Style | Converter scale | Status | What it supplies |
