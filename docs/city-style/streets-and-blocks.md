@@ -29,7 +29,7 @@ Depends on: `docs/city-style/numbers.md` (the constants), `docs/city-style/block
 - **Rule [D-042k]**: the POLYGON City Pack (`city-pack`, converted at scale 100) is the first-choice road pack. SIMPLE Town's kit is the fallback.
 - **Default (042)**: straight tiles run along every road at its own angle, repeated at true length times `WORLD_PER_METRE` and scaled across to `ROAD_W`. Pack junction pieces stand only where the ring and grid cross at right angles. The circuit's odd-angled pads stay code-drawn, with the pack's road material. `Town`'s geometry is unchanged.
 - **Rule [D-063g]**: every plain pavement and build-out cell of the tile city is the same piece. `TILE_SLOTS` gives the pavement `SM_Env_Sidewalk_Straight_02` and the grate `SM_Env_Sidewalk_Grate_01` (one cell in `GRATE_ONE_IN`, variant `PAVEMENT_GRATE`), and the build-out `Straight_02` alone: one key, one geometry, one opaque material and one InstancedMesh, so every plain cell is the same texels under the same light.
-  - `SM_Env_Sidewalk_Straight_01` is in no role and is not loaded: it is the one piece whose material is BLEND.
+  - `SM_Env_Sidewalk_Straight_01` is in no role and is not loaded: it is the one piece among those the tile view used whose material is BLEND.
   - A test reads the GLB and fails on any piece the tiles or the interiors load whose material is BLEND.
   - The converter's handling of that atlas copy is a `tools/` matter (ticket 063's open item A1).
 - **Rule [D-063h]**: the interior paving is the plain slab `SM_Env_Sidewalk_01`, not `SM_Env_Sidewalk_Panel_02`. Where it is drawn is in 19.8.

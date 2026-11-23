@@ -331,3 +331,5 @@ Each is a question number or a ticket reference that stood in a tag or a sentenc
 - From chapter 6: the tag Info on the door-side bullets, Info (048), Info (050 C, provisional), Info (043 section B), Info (045 section C, dev builds only) and Default (042 Q2); the table notes "calibrated by Josh, 042 A", "calibrated by Josh, 048", "provisional, 050 C: a first-click guess, not confirmed".
 - From chapter 7: the tags Decided (042 A, implemented) (two bullets), Default (048 Q5), Info (063 E1), Info (053), Default (050 C, from the corner rule above); "(050 C)" after "The City Pack's eight corner pieces" and "(063 E1, below)" after "measured from the GLB".
 - From 16.4 and 16.7: the tags Default (050 C) (stacks on the circuit's own lots) and Info (054); in 16.9 the tags Default (054 Q3), Default (054 Q1), Info (054) and Open (waits for a generated-recolour ticket, if the eye check finds too few colours).
+
+- From the as-built bullet of 19.5 (the intro, now a plain sentence in `docs/city-style/block-grammar.md`): the block draw has three rules the draft did not have. They are tuning choices, and they narrow the effective spread of the 6 to 16 cell range.

@@ -9,7 +9,7 @@ Depends on: `docs/city-style/numbers.md` (the constants), `docs/city-style/block
 
 ## 16. Procedural city
 
-- **Rule [D-053c]**: chapter 16 is a grammar. Read from the top, it says how a City Pack city is generated from a map, which rule makes each part, and how to check the result against the reference.
+- **Rule [D-053c]**: chapter 16 is a grammar for a procedural city of similar quality to the reference, leaving out people, animals and vehicles. Read from the top, it says how a City Pack city is generated from a map, which rule makes each part, and how to check the result against the reference.
 
 The reference is a city street with these parts: continuous terraces of 3 to 5 storey blocks; shopfront ground floors with glass, awnings and signs; apartment floors in varied colours; fire escapes on street faces; props on every roof; a corner plaza; a parking lot; alleys between blocks; street furniture along the pavement. People, animals and vehicles are left out.
 
@@ -47,7 +47,7 @@ The pipeline, in order. Everything up to the last step is pure (no three, no DOM
 
 ### 19.5 Block variety: 90 degrees, not a grid of squares
 
-- **Rule [D-057r]**: streets are at 90 degrees, but the city is not a grid of equal squares: blocks vary in width, and alleys and parks (19.6) break them up.
+- **Rule [D-057r]**: streets are at 90 degrees, but that does not mean a grid of squares: blocks may vary in width, and alleys and parks (19.6) may break them up.
 - **Default (057)**: a wider range, from `BLOCK_TILES` (a block side is 6 to 16 cells, 30 to 80 m).
   - Neighbouring lines on one axis differ by at least `BLOCK_STEP_MIN_CELLS` cells, by hash, and no size is repeated on an axis while a free one exists (with 11 sizes and at most 6 blocks, one does), so every column and every row is its own width.
   - Every street keeps its profile along its whole length (055 design item 3), because the lines stay straight and continuous: a block's size changes the spacing between lines, never a street's cross-section. Streets that end at a T-junction are not built; a later ticket could let an interior line stop and merge two blocks into one long one.

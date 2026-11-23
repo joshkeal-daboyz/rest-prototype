@@ -15,7 +15,7 @@ Nothing in a converted pack records a door side, because the converter centres e
 
 - **Rule [D-042c]**: every SIMPLE Town building is "-z" except `store_small_mesh`, which is "+z". The exceptions are the table below. `memorial_mesh` (not placed yet) is still the "+z" guess.
 
-Any `pack:name` whose front is not "-z", and every corner model, is listed in this chapter or the next. The drift test compares these two tables with `BUILDING_FRONTS`.
+Any `pack:name` whose front is not "-z", and every corner model, is listed in this chapter or in `docs/city-style/corner-buildings.md` (chapter 7). The drift test compares these two tables with `BUILDING_FRONTS`.
 
 | Name | Front | Note |
 | --- | --- | --- |
