@@ -3,7 +3,7 @@
 standard: yes
 Scope: the City Pack pieces the town never uses, and what the packs cannot give.
 Read by: facades, landscape, tech-pass
-Depends on: `citymetrics.ts` (`CITY_NEVER_USED`), `docs/city-style/packs.md`, `docs/city-style/facades.md` (door steps, 16.10)
+Depends on: `citymetrics.ts` (`CITY_NEVER_USED`), `docs/city-style/packs.md`, `docs/city-style/door-sills.md` (door steps, 16.10)
 
 ## Rules
 

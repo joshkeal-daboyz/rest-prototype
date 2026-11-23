@@ -332,3 +332,176 @@ Each is a question number or a ticket reference that stood in a tag or a sentenc
 - From chapter 7: the tags Decided (042 A, implemented) (two bullets), Default (048 Q5), Info (063 E1), Info (053), Default (050 C, from the corner rule above); "(050 C)" after "The City Pack's eight corner pieces" and "(063 E1, below)" after "measured from the GLB".
 - From 16.4 and 16.7: the tags Default (050 C) (stacks on the circuit's own lots) and Info (054); in 16.9 the tags Default (054 Q3), Default (054 Q1), Info (054) and Open (waits for a generated-recolour ticket, if the eye check finds too few colours).
 - From the as-built bullet of 19.5 (the intro, now a plain sentence in `docs/city-style/block-grammar.md`): the block draw has three rules the draft did not have. They are tuning choices, and they narrow the effective spread of the 6 to 16 cell range.
+
+## Moved from facades.md and frontage-and-interiors.md, and the files split from them (ticket 080 B2, third batch): readings and history
+
+Text moved out of `docs/city-style/facades.md` and `docs/city-style/frontage-and-interiors.md`, and the files split from them (`docs/city-style/facades.md`, `docs/city-style/furniture.md`, `docs/city-style/door-sills.md`, `docs/city-style/sill-lift.md`, `docs/city-style/fire-escapes.md`, `docs/city-style/frontage-and-interiors.md`, `docs/city-style/block-interiors.md`, `docs/city-style/alleys-and-parks.md`, `docs/city-style/interior-drawing.md`), unchanged. It records measurements, run results, history and walkthroughs; it is not a rule. A line that starts "From" is the part of a bullet that left it.
+
+### From facades.md and furniture.md (16.5)
+
+- From the ATM bullet of 16.5: The ticket put it on a shop pier; a shop's glass leaves none.
+
+### From door-sills.md and sill-lift.md (16.10)
+
+How a sill is measured, and the readings of the table.
+
+- **Info (055 F)**: how a sill is measured (`measureDoor`, from the converted GLB's geometry). The front face is the model's furthest vertex along the front `BUILDING_FRONTS` names; `v` is the depth behind it. A door floor is a horizontal, upward-facing surface up to `SILL_CEIL_M` high that starts within `SILL_DEPTH_M` behind the front face. Surfaces within `SILL_LEVEL_GAP_M` in height are one level, and those on a level within `SILL_JOIN_GAP_M` along the front are one cluster; a cluster under `DOOR_MIN_AREA_M2` is a fitting (a door's kick plate, a stair nosing), not a floor. The door is at the front's centre when a floor cluster covers it, else at the centre of the nearest floor cluster (a house's threshold slab, an office's lobby). The sill is the highest floor cluster within `SILL_DOOR_HALF_M` either side of the door's centre. `window_m` is the lowest vertex of the glass triangles within `SILL_DEPTH_M` of the front face; a model with no glass material takes the window method of the 062 A rule below. A model the geometry cannot settle has an entry typed in or a reason in `NO_STREET_DOOR` (below).
+
+- From the steps bullet of 16.10: ; 1.19 x 0.513 x 0.871 in the GLB
+
+- From the every-building bullet of 16.10: That settles `SM_Bld_House_Preset_10` and `_11` (2.57 m back, 3 m search, 1.05 m), the SIMPLE Town shops, stores, `Building_House_05` to `_08`, the gym, the coffee shop (1.08 to 3.49 m back) and the stoop houses `Building_House_09`, `_010` and `_011` (their door floor, 0.64 m, is 1.24 m back behind two stoop steps).
+
+- From the typed-in bullet of 16.10: `SM_Bld_House_Preset_04` (its 1.15 m threshold, 5.05 m back in a deep porch) and the Town Pack's `SM_Bld_House_Preset_Garage_01` (1.052 m: it sinks like its houses, by the same sill, so no plinth is left beside them).; the SIMPLE Town garages (vehicle bays at ground level), `Building_PetrolStation` (a forecourt), `house_mesh` (its door is at the back) and the City Pack's `SM_Bld_Shop_06` (a flat front with no floor).
+
+- From the front-step bullet of 16.10: On the table this holds for `Building_House_01` to `_04` (a 0.60 m step before a 1.04 m floor), `Building_House_09` to `_011`, `Building_House_012` to `_015` and the three SIMPLE Town offices.
+
+- From the table bullet of 16.10: from the GLBs of 18 Nov 2026; 57 entries, 6 more keys with a reason in `NO_STREET_DOOR`
+
+- **Info (055 F, 062 A)**: what it does on the real table. The Town Pack houses (now eleven and the garage) stand 1.05 to 1.17 m over their base with their lowest window 0.70 m over their sill, so each sinks by its whole sill and none takes steps: `Preset_10` and the garage now sink like the rest, so the plinths of 16.8 are gone. The SIMPLE Town houses with a front step sink to that step and take the concrete steps for the rest; `Building_PoliceStation` (a reveal 0.53 m up, sill 0.40) is limited by its window and takes the smallest steps. No building leaves a rise out of reach (`leavesGap`). A stack still sinks by its largest ground sill (a block with a `Shop_05` sinks 0.361 m, the `OfficeOld` bases 0.915 m).
+
+- From the lift bullet of 16.10: (0.35 m at most with today's pieces, `Door_01` in a `Corner_02` block)
+
+- From the window-rule bullet of 16.10: (058's `WINDOW_SILL_M`, by `sillOf`; the lowest over the columns a piece covers)
+
+- From the dressing bullet of 16.10: (058's escapes stand on mid, non-door columns, and their joints and ladder foot still pass `escapeCheck`)
+
+- **Info (055 F, 062 B)**: what it does with today's pieces. `Door_01` in a `Corner_02` block is inside the window rule (a 0.347 m lift against apartment 02's window sill of 0.417 m, which allows 0.367 m), so it needs no band. The pieces that need one are the 3.17 to 3.30 m shops (`Shop_02`, `Shop_04`, and `Shop_03` on apartment 02) beside a high-sill piece: `Shop_02` may be lifted only 0.067 m under apartment 02's window sill, so beside a `Shop_05` its door would end 0.22 m under the walk. In the low band the same shop's door ends at most 0.021 m under the walk. On the default tile city 10 of 97 blocks are assembled again within a band; on `01-first-light` 30 of 111, `09-shrine-circuit` 27 of 122 and `64-the-whole-chain` 32 of 163. Layout, the lots, the furniture and the pieces above the ground row, in x and y, are as they were. In z they are as they were on the tile city (wall-aligned: the wall plane is on the lot's line whatever stands under it). On the ladder maps (back-aligned: every back face on one line and the frontmost face on the lot's front line) a ground piece of another depth moves the floors and the roof of the block back or forward by up to 0.4 m: 21 of the 30 banded blocks on `01-first-light`, 18 of 27 on `09-shrine-circuit` and 19 of 32 on `64-the-whole-chain`. The metrics now count the banded ground rows (`shopsGlassed` and `dressPieces`, before and after): default tile city 139 and 878 to 145 and 884, `01-first-light` 172 and 1046 to 179 and 1052, `09-shrine-circuit` 184 and 1117 to 189 and 1121, `64-the-whole-chain` 242 and 1467 to 247 and 1472; the verdicts of R1 to R13 are as they were.
+- **Info (055 F, 062 B)**: considered and not chosen: sinking each column by its own sill with the floors above following. That breaks the terrace's level window rows and roof line by up to 0.35 m from column to column.
+- **Info (055 F, 062 B)**: what 062 closed. The 22 keys with no sill each have one (a per-key depth, a typed value) or a reason in `NO_STREET_DOOR`; the stoop houses `Building_House_09` to `_011` read their door floor at 0.639 m, sink no further than their stoop's lowest step (0.213 m) and take the concrete steps for the rest; and a mixed-sill terrace block has every door at the walk. The plinths of 16.8 on `Preset_10` and the garage are gone.
+
+### From fire-escapes.md (16.11)
+
+- From the one-run bullet of 16.11: A piece's bound runs from its lowest leg to its highest rail, so stacking by bounds (3.802 and 3.609 m against a 3.0 m storey, ticket 052) left each platform higher than its floor by 0.80 m and then 1.41 m, left each flight short of the deck above, and left the top storey of a four-storey block with no platform.; the first landing 1.08 m to one side of them, 4.84 m across in all, centred on its 5 m column
+
+- From the drop-ladder bullet of 16.11: The first piece's ladder starts 0.099 m above the piece's base, which put its foot 3 m in the air.
+
+- From the pack's-piece bullet of 16.11: On today's City Pack no piece is scaled: the three apartment styles' storeys are all 3.0 m and each style's sill is the same on every storey, so every scale is 1.
+
+- From the eligibility bullet of 16.11: eligibility is 052's:; Which column is unchanged.
+
+- From the share bullet of 16.11: This replaces 052's escape chance (0.6, a coin toss per block), which left R7 at 0.43 to 0.50 on the tile city and 0.53 to 0.58 on the ladder, moving in ninths with nine blocks, and made 057 F try several hash keys in `blockLens` to keep every seed over the floor.
+
+- From the how-many bullet of 16.11: If Josh wants today's density back, the share is one constant each (for example 0.55 and 0.45).
+
+- From the which-blocks bullet of 16.11: (so no two neighbouring blocks of a run both have one, as before;
+
+- From the chosen-first bullet of 16.11: How an escape is built (058) is unchanged.
+
+- **Info (061)**: what changed on the ladder. Which blocks have an escape changes on the three maps, which is the intended change; R7 there is ceil(0.5 x qualifying) / qualifying (0.508 on 01-first-light) where chance gave 0.53 to 0.58. With and without its escape, a block differs only in its escape pieces and its escape column's pieces. The tile city's R7 is ceil(0.4 x qualifying) / qualifying (0.400 to 0.415 on the seeds checked), at its floor by construction, and `blockLens`' key (057 F) no longer matters to R7. Playtest snapshots are not affected: the harness replays the puzzle grid, not the 3D dressing.
+
+- From the column-cap bullet of 16.11: The ticket's criteria 3 (a platform, so a piece, on every storey) and 7 (every other piece of dressing unchanged on the three maps) cannot both hold under 052's cap of `DRESS_PER_BAY_MAX` pieces per column; one piece more than 052's stacking by bounds used; So against the cap an escape counts the pieces 052 used
+
+- **Info (058)**: what was measured, from `city-pack.glb` of 18 Nov 2026, in metres in the piece's own centred frame (y up, x along the road). The deck is the largest upward-facing horizontal surface; the flight is the run of tread faces (small, narrow and deep, above the deck), its foot the deck's surface and its top the highest vertex over the treads (the stringer's end, level with the deck above); the ladder is whatever stands past the deck's front edge; a hatch is the hole in the deck where a flight from below arrives. Every flight rises 3.000 m, the storey pitch of every apartment style.
+
+| Piece | Deck top | Flight foot to top | Flight x, foot to top | Hatch x | Ladder foot | Rail top |
+| --- | --- | --- | --- | --- | --- | --- |
+| `SM_Bld_FireEscape_01` (top) | 0.609 | none | none | -0.939 | none | 1.492 |
+| `SM_Bld_FireEscape_02` (middle) | 0.609 | 0.609 to 3.609 | 0.867 to -0.939 | -0.939 | none | 1.492 |
+| `SM_Bld_FireEscape_03` (first landing) | 0.609 | 0.609 to 3.609 | -0.215 to -2.02 | none | 0.099 | 1.492 |
+
+- **Info (058)**: the window sills, from the front-facing planes of each floor piece of at least `SILL_MIN_AREA_M2`, cut where they stop overlapping along x. A cut piece is window glass when no deeper piece stands over any of its x extent (a window's frame and reveal stand in front of its glass; the wall and a pilaster in front of both), so a shallower window beside a deeper one still counts. The sill of a storey is the lowest point of the glass in that 3 m band (`measureSills`), the lowest window opening of the front. Where each style's first piece then stands: a piece's deck is 0.609 m over its base, so the base is the floor's start plus the sill less 0.15 less 0.609.
+
+| Style | Sill over the floor | Deck over the floor | First piece's base against its floor |
+| --- | --- | --- | --- |
+| apartment 01 | 0.756 | 0.606 | 0.003 m under |
+| apartment 02 | 0.417 | 0.267 | 0.342 m under (its legs hang in front of the shop's top) |
+| apartment 03 | 0.517 | 0.367 | 0.242 m under |
+
+- From the check bullet of 16.11: It fails on the placement of ticket 052 (decks 0.80 and 1.41 m up, a storey missing), on a flight 0.1 m short, and on a ladder foot 0.5 m up.
+
+- From the what-changed bullet of 16.11: Only the escape pieces and how they are drawn: the pieces of every other kind of dressing, `packTown`, the furniture and `evaluateCity` are as they were on the three maps, and so is every block that has an escape, so R7 is as it was (0.404 to 0.500 on the tile city against its floor of 0.4, 0.529 to 0.580 on the three maps against 0.5).
+
+- **Default (058)**: Apartment_03 has a wide central window (1.72 m, sill 0.517) and two narrow side windows (0.49 m each, sill 0.854). The deck is under the lowest, the central window's sill, 0.15 m, which puts it 0.49 m under the side windows' sills: a person still climbs out of those, and the slab never crosses the bottom of the style's biggest window.
+
+### From frontage-and-interiors.md (19 and 19.1)
+
+- From the introduction of chapter 19: (ticket 057, sections A to G, in `facade.ts`, `frontage.ts`, `tilecity.ts` and `terrace.ts`, the old path's code); the drawing of the interiors is section D (`tilecity3d.ts`, `tileslots.ts` and `models3d.ts`), also built, and 19.8 records it.
+
+- **Info (057)**: the draft of this chapter was written before sections A to G were built. Where the code differs from the draft, the line says "as built", and the code is the record.
+
+- From the overlap bullet of 19.1: The first draft said 0.5 m, and it was raised after the 057 A review because the real City Pack shop pieces stand up to 0.557 m (`Shop_04`), 0.529 m (`Apartment_Door_01`) and 0.520 m (`Shop_06`) in front of their wall.
+
+- **Info (057 A, as built; measured by 057 E on 19 Nov 2026 on the default city)**: with "wall" alignment every street-level wall plane stands exactly on the pavement's back edge (within 1e-15 m), so the walls rest on the edge and never behind it, and what overlaps the pavement is the pieces' own sills and signs: the furthest bound stands 0.557 m onto it, inside `OVERLAP_MAX_M`.
+- **Info (057 A, as built)**: how `WALL_FRONT_M` was measured (`measureWallPlane`, run on the converted `city-pack.glb`).
+  - The wall of a **ground** piece (a base, shop, door or corner) is the frontmost front-facing plane that reaches the ground (its lowest vertex at most `WALL_GROUND_Y_M` up), within `WALL_REACH_M` of the piece's front bound.
+  - The wall of a **floor** piece is the largest front-facing plane within `WALL_FLOOR_REACH_M` of the bound, with no ground test: an office floor is set back on purpose.
+  - A plane counts only from triangles below `WALL_BAND_M`, within `WALL_FACE_COS` of the face's direction, grouped when their centroids are within `WALL_PLANE_TOL_M`, and with an area of at least `WALL_MIN_AREA_M2`.
+  - This replaced the draft's "largest front-facing planar area below 3.5 m", which picked the back wall of a shop's interior (1.0 to 2.8 m behind the front) or a sign band.
+
+- From the wall-side bullet of 19.1: (-x, `OPEN_SIDE_MEASURED`; 063 E1 re-measured it there, it had been measured on the +x party wall)
+
+- From the octagon bullet of 19.1: before any office style is aligned on "wall"; The rule of 19.1 finds two ground planes on its front, 0.174 m behind the bound (4.87 m2) and 0.595 m behind it (5.01 m2), and picks the bigger, which stands 0.42 m further back; the 057 A review took the 0.174 m plane for the building's face.
+
+- From the explicit-alignment bullet of 19.1: taken at the merge of 057 G
+
+### From frontage-and-interiors.md (19.2)
+
+- From the flush bullet of 19.2: 055 B's inset function and its 2.5 m cap are gone.
+
+- **Info (057 B, as built; measured by 057 E on 19 Nov 2026)**: passages are not the rare third choice the draft pictured, because most row lengths fall in the packer's dead band (N unscaled columns span only 5.0 N to about 5.28 N metres) and a seam needs a gap of 0.1 m or less. On the default city, 52 runs close as 50 passages and 2 overshoots (0.415 m at most), with no seam, no slit and no wide gap; seeds 1 to 5 at 3 x 3 close 44 to 52 runs as 44 to 50 passages and 2 to 4 overshoots; 6 x 4, seed 1 closes 138 runs as 130 passages and 8 overshoots. So nearly every row's end is a gate onto the interior.
+
+- From the far-gap bullet of 19.2: retires 056 A's temporary far-gap floors
+
+- From the gate bullet of 19.2: As built, not as drafted:
+
+### From block-interiors.md and alleys-and-parks.md (19.4 and 19.6)
+
+- From the interior bullet of 19.4: The draft said `TileRole` would gain these; as built they are kept apart, because
+
+- From the court bullet of 19.4: Measured: none on the default city and on four of the five seeds at 3 x 3; one block on seed 5.
+
+- From the fill bullet of 19.4: The draft named `Sidewalk_Panel_01` for the paving, but that piece has a kerb on one edge (a 0.23 m drop to the road level every 5 m), which would cross an apron; 057 D drew `Sidewalk_Panel_02`, the flat slab with two inset service plates, and 063 D replaced it with the plain `Sidewalk_01` (19.8).
+
+- **Info (057 C, as built)**: the drive is two cells, not the drafted one. 056's parking lot is a fixed 10 m opening laid by `terraceBlockRows` in `town.ts`, which 057 may not touch, so the drive takes the whole opening. One cell needs a `parkW_m` option in `town.ts` (a re-cut). So the frontage does not gain the drafted 45 m: the nine 10 m lots of 056 are nine 10 m drives, and the frontage cost of the parking lots stays about 90 m.
+- **Info (057 C and G, measured by 057 E on 19 Nov 2026)**: what the interiors are made of on the default city (3 x 3, seed 1), in m2 of block area (28,675 m2 in all). The remaining 8,225 m2 (28.7%) is the terrace band: buildings, plazas and frontage lots.
+
+| Interior role | m2 | Share of interior |
+| --- | --- | --- |
+| `apron` | 11,225 | 54.9% |
+| `court` | 1,650 | 8.1% |
+| `drive` | 550 | 2.7% |
+| `green` | 2,725 | 13.3% |
+| `greenPath` | 1,375 | 6.7% |
+| `parkEdge` | 1,800 | 8.8% |
+| `alley` | 1,125 | 5.5% |
+| All | 20,450 | 100% (71.3% of block area) |
+
+- **Info (057 C, measured by 057 E)**: over seeds 1 to 5 at 3 x 3 and 6 x 4 seed 1, the interior is 70.7% to 73.1% of block area, grass is 12.0% to 14.5% of the interior (8.5% to 10.5% of block area), and pavement in all its roles is the rest. At most 0.28% of any block is unfilled, in squares of 0.25 m at most.
+
+- From the alley bullet of 19.6: (056 counts them on the block the alley splits)
+
+- From the alley bullet of 19.6, rear doors: and fire escapes are 058's
+
+- **Info (057 G, measured by 057 E on 19 Nov 2026)**: the default city has five alleys and two parks, both half-block (it has no small block: its narrowest, 30 x 45 m, has a side over 40 m); seeds 1 to 5 at 3 x 3 have 4 to 7 alleys and 2 parks; 6 x 4, seed 1 has 13 alleys and 4 parks, with 32 bins in all.
+
+### From interior-drawing.md (19.8)
+
+The drawing walkthrough: what each kind of surface is drawn with.
+
+  - **Grass:** `SM_Env_Grass_01` cells, turned a quarter at a time by hash so a lawn is not one tile repeated, with the origin 0.11 m down so the blades stand 0.01 m over the walk; or flat quads in `lighting.ts`'s `surfaces.grass` colour.
+  - **Pavement** (the apron, the paths, the park edge, and since 063 D the ring-2 strip `APRON_STRIP`): `SM_Env_Sidewalk_01`, the plain flat slab, with its origin 0.01 m down so its top is the walk's; or flat quads in the slab's colour (`PAVING_SLAB_COLOUR`). **The passage floors** are the same slab, one whole 5 m cell at a time laid from the floor's low corner, and a part cell (under 5 m) is a code quad in the slab's own colour, `PAVING_SLAB_COLOUR` (`#8c8987`, sampled from the pack's atlas at the slab's walking faces by a test), so a floor drawn in code reads the same as one laid from the slab; nothing is scaled. A passage is 1.0 to 5.3 m wide, so nearly every real floor is a part cell. The code quad is not a light-rig surface key, so it takes the day and night light as the textured slab does.
+  - **The court:** `SM_Env_Road_Bare_01` (the bare road) under the cells, with `SM_Env_Road_ParkingLines_01` over each row of stalls, lifted by `STALL_LINES_LIFT_M` so the two do not fight for the pixel; the aisle is bare road. With no lines piece the dividers are drawn in code. **The drive:** the kerb cut and lot surface of 056, which the street layer already draws, so it is not drawn twice; the drive's two cells are paved (below).
+  - **The alley lane:** `SM_Env_Road_Bare_01`, or street-coloured quads, except its two mouth cells in ring 1, which are paved (below). **The gates** (19.2) are code-drawn.
+  - **Props** (optional dressing, pack pieces only): the trees and the bench of the greens and the bins of the alleys (`SM_Prop_Trashbin_01` and `_02`), each chosen by a hash of the city's seed and its point, so the same city gives the same props. A prop whose piece is missing, or lost to the draw-call cap, is not drawn.
+  - **Pad cells** beside an alley court's aisle are apron cells and are drawn as apron.
+
+- From the interior-paving bullet of 19.8: (5 x 0.034 x 5 m, opaque, only the walk's slab and joint colours); The strip and the floors were code-drawn flat quads in `PAVEMENT` colour, which read near-white in the sun, paler than the apron beyond; they are now the same tiles as the apron, with the code quad as their fallback only.
+
+- From the inlets bullet of 19.8: The kerb's return along each side of the opening (063 F) is not drawn yet.
+
+- From the kerb-line bullet of 19.8: (`Sidewalk_Dip_01`, as before)
+
+- From the returns bullet of 19.8: (measured: a ramp, see chapter 10); so it is a 0.07 m ridge on the pavement and the 0.30 m kerb where it meets the road
+
+- From the draw-calls bullet of 19.8: the main session reports 12 draw calls on the default city, which 057 E did not re-measure
+
+- From the sheet bullet of 19.8: The two new pieces made the wide sheet five columns at a 14 m pitch (it was four), and the tall sheet's row pitch went from 12 m to 14 m.
+
+### Ticket references cut from the domains (ticket 080 B2, third batch)
+
+Each is a question number or a ticket reference that stood in a tag or a sentence of the old text; the tag now names the ticket only, or the row in `docs/city-style/decisions.md`.
+
+- From 16.5: the tags Default (052, 058) (fire escapes), Info (054) (the base atlas, now a plain sentence), and, in the roofs bullet, the reference "(H3, H3b, H1c; Josh, 21 Nov 2026, Q26: "Yes, all four")" (its row is D-052a).
+- From 16.10: the tags Decided (055 F, ...) and Decided (055 F, 062, ...) (rows D-055h and D-055i), Default (055 F, Q10) to Default (055 F, Q13), Default (055 F, 062 A), Default (055 F, 062 B), Info (055 F) and Info (055 F, 062 A) (the plain sentences), and Open (waits for Josh's eye on ticket 062 criterion 11).
+- From 16.11: the tags Decided (058, ...) and Decided (061, ...) (rows D-058b and D-061a), Default (058, 061), Default (058, a change to a 052 default), Info (058), Info (061) and Open (waits for Josh's eye on the street views of ticket 058 criterion 9).
+- From chapter 19: the tags Info (057), Info (057 A), Info (057 A, as built), Info (057 B, as built), Info (057 B and C, as built), Info (057 C, as built), Info (057 C and G, measured by 057 E on 19 Nov 2026), Info (057 G, as built), Info (057 G, measured by 057 E on 19 Nov 2026), Info (070 L1), Info (057 D), Default (057 Q4), Default (057 Q3), Default (057 Q1), Default (057 Q6, as built by 057 D), Default (057 A), Default (057 B), Default (057 C), Default (057 D), Default (057 G), Default (057 D, changed by 063 D), Default (057 D, changed by 063 H) and Default (057 D, changed by 063 F); and, in the parks and whole-park lines, the references (D1b criterion 13; Josh, 20 Nov 2026, "yes, yes") and (D1b criterion 12; Josh, 20 Nov 2026, "yes") (the rows D-057p and D-057s hold the old lines).
