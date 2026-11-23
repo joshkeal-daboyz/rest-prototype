@@ -23,7 +23,7 @@ describe("the hold-out kit table: what needs no asset", () => {
       expect(k.startsWith("sci-fi-frontier-pack:SM_"), k).toBe(true);
       expect(e.emissive, k).toBe(false);
     }
-    expect(CLUTTER_KEYS).toHaveLength(13);
+    expect(CLUTTER_KEYS).toHaveLength(17);
   });
 
   it("the City Pack roof keys' bounds equal the facades kit's: H3's nine roof keys and seven billboard faces, and H1c's seventeen novelty keys", () => {

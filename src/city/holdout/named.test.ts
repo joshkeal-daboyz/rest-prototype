@@ -35,10 +35,10 @@ interface Run {
 
 /** What the pin test pins: the digest of the "power" and "settle" parts on each pin city, one-way on (taken 22 Nov 2026 night, on the clean city and `history` alone, with no circuit; re-taken 22 Nov 2026 once D1 merged, since the tech layer's removes now reach the plan; re-taken 22 Nov 2026 once the pass kept clear of stage 7's facade pieces; K2 re-takes them). The power part is the same on every city: it is empty until E1. */
 const PIN_PARTS: Readonly<Record<number, { readonly power: string; readonly settle: string }>> = {
-  1: { power: "5aa380c8", settle: "75b165bf" },
-  2: { power: "5aa380c8", settle: "15a1561f" },
-  3: { power: "5aa380c8", settle: "da2ce891" },
-  8: { power: "5aa380c8", settle: "52e6f148" },
+  1: { power: "5aa380c8", settle: "f4f14a15" },
+  2: { power: "5aa380c8", settle: "809bbca9" },
+  3: { power: "5aa380c8", settle: "a57d3580" },
+  8: { power: "5aa380c8", settle: "8ca8a974" },
 };
 
 const CLEAN_STAGES = CITY_STAGES.filter((s): s is CityPlanStage => s !== "assemble");

@@ -85,12 +85,6 @@ export const UNPICKED_KEYS: ReadonlySet<CalibrationKey> = new Set([
   key("SM_Prop_Greeble_26"),
   key("SM_Prop_Fabric_01"),
   key("SM_Prop_Fabric_02"),
-  // r1 (S3, S7): the orange pavement pieces the judge named, found by projecting the pass's adds onto its shots: Greeble_31 (the orange pods at the kerb, 97,59,44), Crate_05 (the orange barrel with a
-  // skull face on its lid, lid 122,74,53; a hazard drum hints at an event), Greeble_15 (the orange post) and Crate_02 (lid 136,75,47, the same orange).
-  key("SM_Prop_Greeble_31"),
-  key("SM_Prop_Crate_05"),
-  key("SM_Prop_Greeble_15"),
-  key("SM_Prop_Crate_02"),
 ]);
 const keysOf = (kind: CityHoldoutPieceKind): readonly CalibrationKey[] => (Object.keys(KIT) as CalibrationKey[]).filter((k) => KIT[k]!.kind === kind && !UNPICKED_KEYS.has(k));
 export const CAMP_KEYS = keysOf("camp");

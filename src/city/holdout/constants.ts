@@ -18,7 +18,7 @@ export const P_CLUTTER = 0.3;
 /** A container in a court stall or a kerb bay: chance `P_CONTAINER x held`. */
 export const P_CONTAINER = 0.5;
 /** A roof item in a free roof spot: chance `P_ROOF x held`. */
-export const P_ROOF = 0.085;
+export const P_ROOF = 0.1;
 /** A barricade on a street mouth (not the district's hashed-first): chance `P_BARRICADE x held`. */
 export const P_BARRICADE = 0.5;
 
