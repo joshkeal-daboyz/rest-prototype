@@ -10,8 +10,8 @@ export const CELL_M = 5;
 export const SIGN_KERB_M = 0.5;
 /** A stop sign's post stands this far from the cell's end that touches the corner (Q43). */
 export const SIGN_CORNER_M = 1.0;
-/** A signal mast's axis stands this far in from each of its corner cell's two kerb edges (Q43; the cell's kerb corner is the corner point nearest the junction's carriageway). */
-export const MAST_INSET_M = 0.75;
+/** A signal mast's axis stands this far in from each of its corner cell's two kerb edges (the cell's kerb corner is the corner point nearest the junction's carriageway). Q43 said 0.75; Q50 (21 Nov 2026, "Back on the corner (Recommended)", after Josh's report that the masts stood in the gutter where a walker could not reach a button) says 2.6: behind the ramps, on the corner's walk. */
+export const MAST_INSET_M = 2.6;
 /** No signal head's lowest point is lower than this above the carriageway (Q43: the US 15 ft clearance under a head). */
 export const SIGNAL_HEAD_MIN_M = 4.6;
 

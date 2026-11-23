@@ -9,7 +9,8 @@ import { buildTraffic } from "./stage";
 import { clearOf, closestBox, closestProp, poleOf } from "./clear";
 import { parkingSigns } from "./signs";
 import { edgeInfoOf } from "./control";
-import { ARM } from "./kit";
+import { ARM, CORNER_WALK_M, MAST, PUSH_BUTTON_KEY, boundsOf } from "./kit";
+import { cornerOf, rectOf } from "./control";
 import { NAMED, label, layersOf, stagesOf, warm } from "./testcities";
 import { runCity } from "../stages";
 
@@ -21,6 +22,7 @@ describe("the traffic numbers (criterion 8; reported, not asserted)", { timeout:
   beforeAll(() => warm(NAMED), 120_000);
   it("the 20 named runs", () => {
     const rows: unknown[] = [];
+    const totals = { mastsOff: 0, boxesOff: 0, buttonsOff: 0, buttonsPer: {} as Record<string, number>, margin: { min: Infinity, max: -Infinity }, pressMin: Infinity };
     const total = { control: {} as Record<string, number>, kinds: {} as Record<string, number>, pieces: {} as Record<string, number>, over: 0, notOver: 0 };
     let nearestProp = { d: Infinity, run: "" };
     let nearestBox = { d: Infinity, run: "" };
@@ -91,6 +93,53 @@ describe("the traffic numbers (criterion 8; reported, not asserted)", { timeout:
         park[name][1] = Math.max(park[name][1]!, n);
       }
       expect(pk.pieces.length + pk.skipped.length).toBe(pk.stretches);
+      // TR1d: the masts, buttons and boxes against the corner's walk square (the part at least CORNER_WALK_M in from both kerb edges), and each mast's margin to the walk's edge
+      const byJunction = new Map(streets.junctions.map((j) => [j.id, j] as const));
+      const inFrame = (host: string, cell: { i: number; j: number }, x: number, z: number): { a: number; b: number } => {
+        const r = rectOf(byJunction.get(host)!);
+        const c = cornerOf(r, cell.i > r.i1 ? 1 : -1, cell.j > r.j1 ? 1 : -1);
+        return { a: (x - c.kx) * c.sx, b: (z - c.kz) * c.sz };
+      };
+      let mastsOff = 0;
+      let boxesOff = 0;
+      let buttonsOff = 0;
+      const buttonsPer: Record<string, number> = {};
+      let margin = { min: Infinity, max: -Infinity };
+      let pressMin = Infinity;
+      const btnD = boundsOf(PUSH_BUTTON_KEY).d;
+      for (const p of traffic.pieces) {
+        if (p.kind === "signalMast") {
+          const pole = poleOf(p);
+          const f = inFrame(p.host, p.cell, pole.x, pole.z);
+          const m = Math.min(f.a, f.b) - MAST.foot.w / 2 - CORNER_WALK_M;
+          margin = { min: Math.min(margin.min, m), max: Math.max(margin.max, m) };
+          if (m < -1e-6 || Math.max(f.a, f.b) + MAST.foot.w / 2 > 5 + 1e-6) mastsOff++;
+          const n = traffic.pieces.filter((q) => q.kind === "pushButton" && q.group === p.group && q.host === p.host).length;
+          add(buttonsPer, String(n));
+        } else if (p.kind === "signalBox") {
+          const lo = inFrame(p.host, p.cell, p.placement.x_m - p.size.x_m / 2, p.placement.z_m - p.size.z_m / 2);
+          const hi = inFrame(p.host, p.cell, p.placement.x_m + p.size.x_m / 2, p.placement.z_m + p.size.z_m / 2);
+          if (Math.min(lo.a, hi.a, lo.b, hi.b) < CORNER_WALK_M - 1e-6) boxesOff++;
+        } else if (p.kind === "pushButton") {
+          const mast = traffic.pieces.find((q) => q.kind === "signalMast" && q.group === p.group && q.host === p.host)!;
+          const f = inFrame(p.host, mast.cell, p.placement.x_m, p.placement.z_m);
+          // the press point is 0.3 m in front of the button's face: on the face's own side, toward its crossing
+          const dir = [Math.round(Math.sin((p.placement.yaw_deg * Math.PI) / 180)), Math.round(Math.cos((p.placement.yaw_deg * Math.PI) / 180))];
+          const r = rectOf(byJunction.get(p.host)!);
+          const c = cornerOf(r, mast.cell.i > r.i1 ? 1 : -1, mast.cell.j > r.j1 ? 1 : -1);
+          const pa = f.a + dir[0]! * c.sx * (btnD / 2 + 0.3);
+          const pb = f.b + dir[1]! * c.sz * (btnD / 2 + 0.3);
+          // the button's centre must be over the walk square; its press point (0.3 m in front of the face) lies on the pack's walk, nearer the kerb than the square (reported as the smallest a or b of a press point)
+          if (Math.min(f.a, f.b) < CORNER_WALK_M - 1e-6) buttonsOff++;
+          pressMin = Math.min(pressMin, pa, pb);
+        }
+      }
+      totals.mastsOff += mastsOff;
+      totals.boxesOff += boxesOff;
+      totals.buttonsOff += buttonsOff;
+      for (const [k, v] of Object.entries(buttonsPer)) add(totals.buttonsPer, k, v);
+      totals.pressMin = Math.min(totals.pressMin, pressMin);
+      totals.margin = { min: Math.min(totals.margin.min, margin.min), max: Math.max(totals.margin.max, margin.max) };
       let dProp = Infinity;
       let dBox = Infinity;
       for (const p of traffic.pieces) {
@@ -103,11 +152,11 @@ describe("the traffic numbers (criterion 8; reported, not asserted)", { timeout:
       buildTraffic(l, stageRand("traffic", o.seed));
       const ms = Date.now() - t0;
       if (ms > slowest.ms) slowest = { ms, run: label(o) };
-      rows.push({ run: label(o), control, pieces, parking: { stretches: pk.stretches, signs: pk.pieces.length, skipped: pk.skipped.length, reasons }, headsOverOwnLane: over, headsNotOver: notOver, closestStage8Prop_m: Number(dProp.toFixed(2)), closestStage7Box_m: Number(dBox.toFixed(2)), placeMs: ms });
+      rows.push({ run: label(o), control, pieces, parking: { stretches: pk.stretches, signs: pk.pieces.length, skipped: pk.skipped.length, reasons }, headsOverOwnLane: over, headsNotOver: notOver, mastsOffWalk: mastsOff, boxesOffWalk: boxesOff, buttonsOffWalk: buttonsOff, buttonsPerMast: buttonsPer, closestStage8Prop_m: Number(dProp.toFixed(2)), closestStage7Box_m: Number(dBox.toFixed(2)), placeMs: ms });
       expect(Number.isFinite(over + notOver)).toBe(true);
     }
     // eslint-disable-next-line no-console
-    console.log(`TRAFFIC REPORT ${JSON.stringify({ rows, total, nearestProp, nearestBox, slowest, parkTotal, parkRange: park })}`);
+    console.log(`TRAFFIC REPORT ${JSON.stringify({ rows, total, mastWalk: totals, nearestProp, nearestBox, slowest, parkTotal, parkRange: park })}`);
     expect(rows).toHaveLength(20);
   });
 
