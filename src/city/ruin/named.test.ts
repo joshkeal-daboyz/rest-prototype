@@ -41,10 +41,10 @@ interface Run {
  * E1 or E2's barricade step changes what stands before it, and when K2's circuit lands: the ruin-pass, in a one-line follow-up named in that merge).
  */
 const PIN_GROWTH: Readonly<Record<number, string>> = {
-  1: "351c6b94",
-  2: "552d9162",
-  3: "e57f7fcb",
-  8: "2e78c999",
+  1: "578cd93e",
+  2: "faae544d",
+  3: "3fee29d9",
+  8: "03b240a2",
 };
 
 const CLEAN_STAGES = CITY_STAGES.filter((s): s is CityPlanStage => s !== "assemble");
