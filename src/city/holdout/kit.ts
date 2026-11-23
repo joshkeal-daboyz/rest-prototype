@@ -74,7 +74,19 @@ export const KIT: Readonly<Record<CalibrationKey, KitEntry>> = {
   [key("SM_Bld_Wall_02")]: e("barricade", 5, 1.667, 0.577),
 };
 
-const keysOf = (kind: CityHoldoutPieceKind): readonly CalibrationKey[] => (Object.keys(KIT) as CalibrationKey[]).filter((k) => KIT[k]!.kind === kind);
+/**
+ * Ticket 075 r0 (style judge S2, S3, S4): keys the pass keeps in its table but never picks. Measured 22 Nov 2026 from the converted GLB's atlas (mean base colour of the mesh's UVs): the orange ones
+ * (Tent_02 172,106,71; Container_04 169,87,49; Greeble_26 152,85,54; Prop_Fabric_01 and _02, about 197,121,78, the tarps) grab the eye in a dark street, where the one saturated colour is the prayer ribbon.
+ * The pass picks other keys, fewer pieces, other places; it never tints a piece (Q3).
+ */
+export const UNPICKED_KEYS: ReadonlySet<CalibrationKey> = new Set([
+  key("SM_Bld_Tent_02"),
+  key("SM_Prop_Container_04"),
+  key("SM_Prop_Greeble_26"),
+  key("SM_Prop_Fabric_01"),
+  key("SM_Prop_Fabric_02"),
+]);
+const keysOf = (kind: CityHoldoutPieceKind): readonly CalibrationKey[] => (Object.keys(KIT) as CalibrationKey[]).filter((k) => KIT[k]!.kind === kind && !UNPICKED_KEYS.has(k));
 export const CAMP_KEYS = keysOf("camp");
 export const WATER_TOWER_KEY: CalibrationKey = key("SM_Bld_WaterTower_01");
 export const FARM_KEYS = keysOf("farm");

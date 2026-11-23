@@ -201,8 +201,8 @@ function spotRand(vx: number, vz = vx): StageRand {
 }
 
 describe("trees: the crown is free, only the trunk is judged (F1b3; Josh, 22 Nov 2026)", () => {
-  // one grown lane cell (6, 5) beside soil at (5, 5), cell x 30 to 35, z 25 to 30. With every draw 0 the sapling is Tree_Birch_01 (trunk r 0.11, crown 2.454 x 2.289, 4.547 m high) with its trunk
-  // square at the cell's low corner: x 30.11, z 25.11, so its trunk's edge is at x 30.22 and its crown reaches x 31.3.
+  // one grown lane cell (6, 5) beside soil at (5, 5), cell x 30 to 35, z 25 to 30. With every draw 0 the sapling is Tree_Round_01 (trunk r 0.35, crown 2.922 x 2.242, 3.759 m high) with its trunk
+  // square at the cell's low corner: x 30 to 30.7, z 25 to 25.7, so its trunk's edge is at x 30.7 and its crown reaches x 31.8.
   const world = (extra: Parameters<typeof fxWorld>[0] = {}) => fxWorld({ d: district("d1", 0.2), classes: [[6, 5, "lane"]], soil: [[5, 5]], ...extra });
   const sapling = (r: ReturnType<typeof growRuin>): RuinPiece | undefined => ofKind(r.adds, "sapling")[0];
   const span = (zz: number) => emptyCircuit({ lines: [{ id: "span", a: { x_m: 0, z_m: zz }, b: { x_m: 80, z_m: zz } }] });
@@ -240,12 +240,12 @@ describe("trees: the crown is free, only the trunk is judged (F1b3; Josh, 22 Nov
     const rows = { poles: "crownOverPole", lights: "crownOverLight", lampPlaces: "crownOverLampPlace" } as const;
     for (const key of ["poles", "lights", "lampPlaces"] as const) {
       const at = (x: number) => growRuin(world(), zeroRand, { ...ON, circuit: emptyCircuit({ [key]: [{ id: "p", x_m: x, z_m: 25.11 }] }) });
-      const far = at(31); // 0.78 m from the trunk's edge (30.22), 0.89 m from its pivot: under the crown's 1.23 m
+      const far = at(31.5); // 0.8 m from the trunk's edge (30.7), 1.15 m from its pivot: under the crown's 1.46 m
       expect(sapling(far), key).toBeDefined();
       expect(far.stats[rows[key]], key).toBe(1);
-      expect(sapling(at(30.42)), key).toBeUndefined(); // 0.2 m from the trunk's edge
-      expect(sapling(at(30.62)), key).toBeDefined(); // 0.4 m
-      expect(at(30.42).stats["refusedTrunk:circuit"], key).toBe(1);
+      expect(sapling(at(30.9)), key).toBeUndefined(); // 0.2 m from the trunk's edge
+      expect(sapling(at(31.1)), key).toBeDefined(); // 0.4 m
+      expect(at(30.9).stats["refusedTrunk:circuit"], key).toBe(1);
     }
   });
 
@@ -271,22 +271,22 @@ describe("trees: the crown is free, only the trunk is judged (F1b3; Josh, 22 Nov
     const r = growRuin(w, spotRand(0.08, 0.5), ON);
     const s = sapling(r);
     expect(s).toBeDefined();
-    expect(s!.placement.x_m - 0.11).toBeGreaterThanOrEqual(30.3);
+    expect(s!.placement.x_m - 0.35).toBeGreaterThanOrEqual(30.3);
     expect(r.stats["crownIntoBuilding"]).toBe(1);
   });
 
   it("on: a crown over a fire escape's box or an awning (standing pieces) is placed; the trunk beside it is not clear of one", () => {
     const w = world();
-    obstacle(w.obstacles, 31.5, 25.5, 1, 1, 3); // trunk edge 30.22, box from 31.0: 0.78 m away; the crown reaches 31.3
+    obstacle(w.obstacles, 32.2, 25.5, 1, 1, 3); // trunk edge 30.7, box from 31.7: 1 m away; the crown reaches 31.8
     expect(sapling(growRuin(w, zeroRand, ON))).toBeDefined();
     const bench = world();
-    obstacle(bench.obstacles, 30.72, 25.11, 1, 1, 1); // box from 30.22: 0 m... a bench 0.2 m from the trunk's edge is its edge at 30.42
+    obstacle(bench.obstacles, 31.2, 25.11, 1, 1, 1); // box from 30.7: touching the trunk's edge
     expect(sapling(growRuin(bench, zeroRand, ON))).toBeUndefined();
     const ok = world();
-    obstacle(ok.obstacles, 30.92, 25.11, 1, 1, 1); // box from 30.42... edge 30.22 plus 0.2
+    obstacle(ok.obstacles, 31.4, 25.11, 1, 1, 1); // box from 30.9: 0.2 m from the trunk's edge
     expect(sapling(growRuin(ok, zeroRand, ON))).toBeUndefined();
     const far = world();
-    obstacle(far.obstacles, 31.12, 25.11, 1, 1, 1); // box from 30.62: 0.4 m from the trunk's edge
+    obstacle(far.obstacles, 31.6, 25.11, 1, 1, 1); // box from 31.1: 0.4 m from the trunk's edge
     expect(sapling(growRuin(far, zeroRand, ON))).toBeDefined();
   });
 

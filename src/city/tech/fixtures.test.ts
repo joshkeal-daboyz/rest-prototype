@@ -6,7 +6,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import type { CityEraPiece, CityEraPlan } from "../../core";
+import type { CalibrationKey, CityEraPiece, CityEraPlan } from "../../core";
 import { assertEraReadable, resolveBefore } from "../pipeline/eras";
 import { CityStageError } from "../pipeline/error";
 import { EMPTY_CIRCUIT, type CircuitPoints } from "../pipeline/readable";
@@ -15,7 +15,7 @@ import { circuitRefusal, rectSegmentDist } from "./circuit";
 import { CLEAR_WALK_M, CELL_M, FURN_CORNER_M, FURN_KEEP_M, FURN_MAX_H_M, FURN_PITCH_M, SHOPFRONT_FROM_TECH, SIGN_FROM_TECH } from "./constants";
 import { buildContext, type TechCtx } from "./context";
 import { Grid, rectDist, type Rect } from "./geom";
-import { TECH_KIT, WALL_LINE, KERB_LINE, techBoundsOf, techIsTree } from "./kit";
+import { TECH_KIT, techBoundsOf, techIsTree } from "./kit";
 import { PaveState, placeRefusal, specOf, clearWalk, type Line } from "./pavement";
 import { coveredDressing, panelOf } from "./shops";
 import { buildTech, type TechOptions } from "./stage";
@@ -165,10 +165,12 @@ describe("criterion 1 and 5, the shopfronts", { timeout: 300_000 }, () => {
 describe("criterion 4, the pavement's keeps, one fixture each", { timeout: 300_000 }, () => {
   const ctx: TechCtx = buildContext(resolveBefore(PLAN, "tech"), PLAN.layers.history, EMPTY_CIRCUIT);
   const boxes = ctx.boxesAll;
-  const atm = specOf(WALL_LINE[1]!);
-  const vend = specOf(WALL_LINE[0]!);
-  const pillar = specOf(KERB_LINE[0]!);
-  const charger = specOf(KERB_LINE[1]!);
+  // The fixtures exercise the keeps on all four pavement keys; three of them are no longer picked by the pass (075 r0), so they come from the kit table.
+  const paveAt = (slot: string, n: number): CalibrationKey => TECH_KIT.filter((e) => e.slot === slot)[n]!.key;
+  const atm = specOf(paveAt("wall-line", 1));
+  const vend = specOf(paveAt("wall-line", 0));
+  const pillar = specOf(paveAt("kerb-line", 0));
+  const charger = specOf(paveAt("kerb-line", 1));
   const all = [vend, atm, pillar, charger];
 
   /** A place that holds: the first (run, line, s, spec) with no refusal. */

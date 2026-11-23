@@ -115,8 +115,13 @@ describe("criterion 2: density reads wild only (X-6)", { timeout: 300_000 }, () 
 });
 
 describe("T-1 and T-2 with a hand-placed circuit on the real city (stage 6 is empty until K2)", { timeout: 600_000 }, () => {
-  const circuit: CircuitPoints = handCircuit(BASE);
   const wildPlan = withWild(BASE, () => 0.9);
+  // The saplings keep off the frontage pavements the hand-placed spans follow, so the fixture adds one more span: a short line straight through the first tree a first run placed, to prove the listing.
+  const plain: CircuitPoints = handCircuit(BASE);
+  const probe = buildRuin(wildPlan, rand, { circuit: plain }).layer.adds.find((a) => a.kind === "sapling" || a.kind === "park-tree");
+  const circuit: CircuitPoints = probe
+    ? { ...plain, lines: [...plain.lines, { id: "span:tree", a: { x_m: probe.placement.x_m - 4, z_m: probe.placement.z_m }, b: { x_m: probe.placement.x_m + 4, z_m: probe.placement.z_m } }] }
+    : plain;
   const out = buildRuin(wildPlan, rand, { circuit });
   const off = buildRuin(wildPlan, rand, { circuit, treesUnderSpans: false });
 

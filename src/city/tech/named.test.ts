@@ -380,10 +380,10 @@ describe("the tech pass on the 20 named runs", { timeout: 600_000 }, () => {
 
   it("criterion 9, the digest pins (R-4): 6 x 6 seeds 1, 2, 3 and 8, one-way on. Stage 6 is empty: these are re-pinned when K2 lands", () => {
     const PINS: readonly (readonly [number, string])[] = [
-      [1, "d87f8c75"],
-      [2, "3897727c"],
-      [3, "1d359c72"],
-      [8, "d133da28"],
+      [1, "365c9ce6"],
+      [2, "379e75ea"],
+      [3, "754fbe58"],
+      [8, "22aafb8b"],
     ];
     const got: [number, string][] = [];
     for (const c of PINNED) got.push([c.seed, digestOf(techOf(c).build.layer)]);

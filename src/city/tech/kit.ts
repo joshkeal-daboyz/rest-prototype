@@ -77,8 +77,36 @@ export const TECH_KIT: readonly TechKey[] = [
 
 export const TECH_BOUNDS: Readonly<Record<CalibrationKey, TechBounds>> = Object.fromEntries(TECH_KIT.map((e) => [e.key, { w: e.w, h: e.h, d: e.d }] as const));
 
-/** The keys a stage may place in a slot, in table order (a key with `placed: false` never). */
-export const keysOf = (slot: TechSlot): readonly CalibrationKey[] => TECH_KIT.filter((e) => e.slot === slot && e.placed).map((e) => e.key);
+/**
+ * Ticket 075 r0 (style judge S2, S4, S8): keys the pass keeps in its table (pins unchanged) but never picks. Measured 22 Nov 2026 from the converted GLB's atlas (mean base colour over the mesh's UVs; the
+ * brightest texel's channel spread in brackets), and judged against the shots:
+ * - `Advertisement_Pillar_01` (129,116,101 [128]; covered in bright posters: the "poster column") and `ChargingStation_01` (102,104,104 [255]; a cyan panel: the "cyan kiosk"): the whole kerb line, left empty;
+ * - `VendingMachine_01` (64,83,82 [255]; a teal front), `WallAttach_Electronics_04` (114,146,140 [255]; teal: the "cyan strips") and `AirConditioningUnit_01` (140,139,138; the palest bolt-on);
+ * - `WallAttach_Electronics_01` and `_05` (screens [255]; 1.9 m and 2.75 m, the tallest things the pass puts above a roofline);
+ * - `Sign_01` (brown [241]), `_02` (blue [196]), `_03` (pink [116]), `_04` (yellow [233]), `_05` (red [190]), `_06` (pink [120]), `_07` (blue [160]) and `_09` (cyan [217]): the signs that read lit.
+ *   `_08` (grey) and `_011` (grey) stay.
+ */
+const UNPICKED_NAMES: readonly string[] = [
+  "SM_Prop_Advertisement_Pillar_01",
+  "SM_Prop_ChargingStation_01",
+  "SM_Prop_VendingMachine_01",
+  "SM_Prop_WallAttach_Electronics_04",
+  "SM_Prop_AirConditioningUnit_01",
+  "SM_Prop_WallAttach_Electronics_01",
+  "SM_Prop_WallAttach_Electronics_05",
+  "SM_Sign_01",
+  "SM_Sign_02",
+  "SM_Sign_03",
+  "SM_Sign_04",
+  "SM_Sign_05",
+  "SM_Sign_06",
+  "SM_Sign_07",
+  "SM_Sign_09",
+];
+export const UNPICKED_KEYS: ReadonlySet<CalibrationKey> = new Set(UNPICKED_NAMES.map(k));
+
+/** The keys a stage may place in a slot, in table order (a key with `placed: false` never, nor one in `UNPICKED_KEYS`). */
+export const keysOf = (slot: TechSlot): readonly CalibrationKey[] => TECH_KIT.filter((e) => e.slot === slot && e.placed && !UNPICKED_KEYS.has(e.key)).map((e) => e.key);
 
 export const BOLT_ONS: readonly CalibrationKey[] = keysOf("bolt-on");
 export const CAMERAS: readonly CalibrationKey[] = keysOf("camera");
