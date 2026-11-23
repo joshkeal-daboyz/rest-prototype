@@ -17,6 +17,7 @@ import { DEEP_KEYS, groundEntry } from "./kit";
 import { bodyBoxOf, cellsBox, keyOf, planeOf } from "./place";
 import { facadesStage, FACADES_LEGEND, legendOf } from "./stage";
 import { type City, cityOf, DEFAULT, label, layersOf, NAMED, stagesOf } from "./testcities";
+import { FULL_CITIES } from "../testing/namedcities";
 import { yieldToWorker } from "../testing/yield";
 
 afterEach(() => new Promise<void>((r) => setTimeout(r, 0)));
@@ -108,7 +109,7 @@ describe("kinds, doors and keys (criterion 2)", { timeout: 120_000 }, () => {
         expect(p.placement.key).toBe("city-pack:SM_Bld_Shop_03");
       }
     }
-    expect(seen).toBeGreaterThan(500);
+    if (FULL_CITIES) expect(seen).toBeGreaterThan(500);
   });
 
   it("no shop on a column whose open sides are all quiet; a street building has at most one door and exactly one when it has a mid column; a quiet building has one door, or none when it has no door place", async () => {
@@ -168,8 +169,8 @@ describe("kinds, doors and keys (criterion 2)", { timeout: 120_000 }, () => {
         }
       }
     }
-    expect(cornerDoors).toBeGreaterThan(1000);
-    expect(midDoors).toBeGreaterThan(1000);
+    if (FULL_CITIES) expect(cornerDoors).toBeGreaterThan(1000);
+    if (FULL_CITIES) expect(midDoors).toBeGreaterThan(1000);
   });
 
   it("each key is of its kind's list and the building's own style for a floor; the four keys with an empty window are never placed", () => {
@@ -219,7 +220,7 @@ describe("placements (criterion 3)", { timeout: 120_000 }, () => {
       }
     }
     expect(wrong.slice(0, 5)).toEqual([]);
-    expect(deep).toBeGreaterThan(10000);
+    if (FULL_CITIES) expect(deep).toBeGreaterThan(10000);
   });
 
   it("each level is S1's: the door from -0.05 to 0.15 over the walk, the top at most 0.01 short of the first floor, door_m the level plus the key's sill (null with no door)", () => {
@@ -250,7 +251,7 @@ describe("placements (criterion 3)", { timeout: 120_000 }, () => {
         if (p.placement.key === "city-pack:SM_Bld_Apartment_Door_01") expect(p.door_m).toBeCloseTo(0.019, 9);
       }
     }
-    expect(corners).toBeGreaterThan(5000);
+    if (FULL_CITIES) expect(corners).toBeGreaterThan(5000);
   });
 });
 

@@ -16,7 +16,7 @@ import { pictureProblems } from "../pipeline/picture";
 import { stageRand } from "../pipeline/seeds";
 import type { CityStageDef } from "../pipeline/types";
 import { BUILT_STAGES, runCity } from "../stages";
-import { sharedCity } from "../testing/namedcities";
+import { NAMED, sharedCity } from "../testing/namedcities";
 import { streetsStage, streetsStageWith } from "../streets/stage";
 import { buildingFailures, neighbourShares } from "./check";
 import { CITY_STOREYS, COLOURWAY_POOL, COLOURWAY_SWATCH, TERRACE_BAYS } from "./constants";
@@ -30,8 +30,6 @@ interface City {
   readonly seed: number;
   readonly way: "on" | "off";
 }
-const NAMED: City[] = [];
-for (const way of ["on", "off"] as const) for (let seed = 1; seed <= 10; seed++) NAMED.push({ blocksX: 6, blocksZ: 6, seed, way });
 const DEFAULT: City = { blocksX: 6, blocksZ: 6, seed: 1, way: "on" };
 const label = (o: City): string => `${o.blocksX} x ${o.blocksZ} seed ${o.seed} one-way ${o.way}`;
 const optionsOf = (o: City): { blocksX: number; blocksZ: number; seed: number } => ({ blocksX: o.blocksX, blocksZ: o.blocksZ, seed: o.seed });

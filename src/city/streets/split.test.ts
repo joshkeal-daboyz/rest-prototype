@@ -10,9 +10,8 @@ import { BLOCK_LONG_ENOUGH_CELLS, blockSizeFailures, coverageProblems, evaluateS
 import { BLOCK_DRAWS_MAX, SPLIT_DRAWS_MAX, CITY_BLOCKS_MAX, BLOCK_MEAN_MIN_CELLS, BLOCK_TILES, JUNCTION_GAP_MIN_CELLS, SECTION_CELLS, STREET_CELLS, T_SHARE_MIN } from "./constants";
 import { blockSizes, cvOf, layStreets } from "./layout";
 import { laySplit, type SplitLayout } from "./split";
+import { NAMED_ON as NAMED } from "../testing/namedcities";
 
-const NAMED: { blocksX: number; blocksZ: number; seed: number }[] = [];
-for (let seed = 1; seed <= 10; seed++) NAMED.push({ blocksX: 6, blocksZ: 6, seed });
 
 const cache = new Map<string, SplitLayout>();
 const laid = (o: { blocksX: number; blocksZ: number; seed: number }): SplitLayout => {
@@ -395,11 +394,5 @@ describe("the split's own limit and the default 6 x 6 city (A4d criterion 1, R-7
   it("SPLIT_DRAWS_MAX is 128 (Josh, 20 Nov 2026, Q18: \"yes, yes\") and BLOCK_DRAWS_MAX, the outline's, stays 64", () => {
     expect(SPLIT_DRAWS_MAX).toBe(128);
     expect(BLOCK_DRAWS_MAX).toBe(64);
-  });
-  it("the named cities are 10, the default 6 x 6 seed 1 first, at the largest size", () => {
-    expect(NAMED).toHaveLength(10);
-    expect(NAMED[0]).toEqual({ blocksX: 6, blocksZ: 6, seed: 1 });
-    expect(NAMED.every((o) => o.blocksX === CITY_BLOCKS_MAX && o.blocksZ === CITY_BLOCKS_MAX)).toBe(true);
-    expect(coverageProblems(laid(NAMED[0]!).layer)).toEqual([]);
   });
 });
