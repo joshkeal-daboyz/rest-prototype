@@ -172,3 +172,39 @@ After every click or repair, `clickSeconds` seconds pass (default **1**, the con
   - `"cut"`: the link is open for this section.
 
 The validator returns every problem, one message each. The replay (D1) and the sectioned analysis (D3) read the block only after it validates.
+
+## City puzzles (ticket 081)
+
+A **city puzzle** is a map laid on the pipeline city (`npm run dev`, `?view=3d&city=tiles`): one JSON file `puzzles/city/<id>.city.json`, type `CityPuzzle` (`src/core/citycircuit.ts`). It is today's map with **places instead of positions**. Its shape is checked by `validateCityPuzzle` / `loadCityPuzzle` (`src/core/load.ts`, 081 C1); whether its places and spans exist on the city and its runs join up is checked when it is converted (081 K2c), and the conversion gives the plain map `src/grid/` plays unchanged. `loadPuzzle` refuses a city file (its nodes have no `pos`).
+
+```jsonc
+{
+  "id": "09-shrine-circuit-city", "name": "09 · The shrine circuit", "version": 3, "scope": "map", "capacity": 4,
+  "from": "09-shrine-circuit",           // the schematic it was laid from; absent for a map designed on the city
+  "city": { "blocksX": 6, "blocksZ": 6, "seed": 1, "oneWay": true },
+  "district": ["b_2_3", "b_2_4"],        // 1 to 4 distinct block ids that touch across a street (CK14)
+  "nodes": [
+    { "id": "feed",   "type": "feed",    "place": { "pole": "pole:s_h3:lo:4.00" } },
+    { "id": "br",     "type": "breaker", "place": { "pole": "pole:s_h3:lo:12.00" }, "closed": true },
+    { "id": "shrine", "type": "lamp",    "place": { "building": "bld_41" }, "load": 1 }
+  ],
+  "lines": [
+    { "id": "l_feed", "from": "feed", "to": "br", "run": { "spans": ["span:pole:s_h3:lo:12.00~pole:s_h3:lo:4.00"] } },
+    { "id": "l_shrine", "from": "br", "to": "shrine", "run": { "spans": ["span:…", "span:…"], "drop": "bld_41" } }
+  ],
+  "faults": [ { "id": "f2", "at": "l_shrine", "kind": "damaged-cable", "span": "span:…" } ]
+}
+```
+
+**Fields** (the rest are a map's, as above):
+- `scope` is `"map"`. `start`, `night`, `satchel`, `favor`, `lampReach`, `salvage`, `stores` and `decor` are not part of a city puzzle.
+- `city`: the pipeline run it is laid on, `blocksX` and `blocksZ` (positive integers), `seed` (a non-negative integer), `oneWay` (true or false). The pilot is 6 x 6 seed 1, one-way on.
+- `district`: 1 to 4 distinct block ids.
+- Each node has a `place` of exactly one kind, and no `pos`: `{ "pole": <pole id> }`, `{ "building": <building id> }` (on its drop's wall point) or `{ "post": <span id> }` (a lamp post at the midpoint of that along span). Which node types each place takes is CK12's (fuse boxes, breakers and switches on poles or roof structures; the feed on a pole just outside the district).
+- Each line has a `run`: `{ "spans": [...], "drop"?: <building id>, "lead"?: <span id> }`, at most one of `drop` and `lead`; `spans` is empty only when there is a drop or a lead.
+- A `damaged-cable` fault may name `span`, one of its line's run spans: where the cable is cut (absent: the first). No other fault kind has a `span`.
+- A design note's check block works as for any map. A city puzzle laid from a schematic unchanged copies the schematic's block; a reworked one (a new puzzle, 081 answer 4) has its own.
+
+**Ids** (stable): a pole `pole:<street id>:<lo|hi>:<along_m, 2 decimals>`; a span `span:<pole id a>~<pole id b>`, the two ids sorted; a drop `drop:<building id>`; a street light `light:<street id>:<lo|hi>:<along_m, 2 decimals>`. Roof structures and roof spans get theirs from 081 B1.
+
+**Lines are runs, not bends (CK13 as Josh changed it, 23 Nov 2026: "lines cannot bend, they are runs that go from one structure to another").** A line is a chain of one or more straight spans in order from `from` to `to`, each from one structure to the next, of any kind (along, corner, crossing, and roof spans once typed). It may end on a building's drop or a lamp post's lead. The poles between are **carriers**: they hold no node of the job and the job uses nothing else there, so a city puzzle keeps exactly its schematic's nodes; a corner never becomes a junction. No two lines share a span. A damaged cable is one span of its line.
