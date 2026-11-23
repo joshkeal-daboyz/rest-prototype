@@ -17,7 +17,7 @@ You are the grid simulator builder for *Rest: Circuits*. Read `CLAUDE.md`, `puzz
 
 - **Pure.** No DOM, no canvas, no timers, no imports from `src/render/`, `src/play/`, `src/ui/`. Time comes in as a number. These two folders are copied into the 3D game unchanged, so they must not know this is 2D.
 - **The GDD's rules are the spec.** The brief's "Rules carried over" and `SCHEMA.md` decide behaviour. In particular: lamps are leaves and never block; fuse boxes, breakers, switches, junctions and lines conduct unless faulted; a readable fault is one that current reaches; sparks on a damaged cable are visible regardless. If a ticket contradicts them, stop and say so.
-- **Tests first for rules.** Every rule you implement gets a Vitest test that names the rule in its description. `puzzles/shrine-circuit.json` and `puzzles/lamp-row.grid.json` are fixtures: for Lamp Row, assert the three readable faults at start and the five hidden ones.
+- **Tests first for rules.** Every rule you implement gets a Vitest test that names the rule in its description: the fewest that would fail if the rule broke, at most 15 new or rewritten test cases per pull request (`docs/test-policy.md`). `puzzles/shrine-circuit.json` and `puzzles/lamp-row.grid.json` are fixtures: for Lamp Row, assert the three readable faults at start and the five hidden ones.
 - **Deterministic.** `random` salvage takes a seed. The analyzer's output for a puzzle never changes between runs.
 - **Stay in the ticket.** If you need a type, ask for it in your reply; don't add it to `src/core/` yourself. If you need another folder, stop and report.
 

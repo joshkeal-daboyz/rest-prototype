@@ -123,7 +123,7 @@ Vitest runs in plain node here: no `window`, no `document`, no `AudioContext`. T
 
 1. Read it and the current `src/audio/`. Read `src/core/events.ts` and `src/core/audio.ts` again; payloads change (ticket 015 added `over`, 016 added `lamps`, 019 added `play:click` and `SoundView`).
 2. Implement on the branch the main session made. Core first, with its tests; then the shell against the fake; then `index.ts`.
-3. Run `npm test` and `npm run typecheck`.
+3. Write only the tests `docs/test-policy.md` asks for (at most 15 new or rewritten test cases per pull request). Run your own folder's tests (`npx vitest run --maxWorkers=2 src/<your folder>/`) and `npm run typecheck`, not the whole suite.
 4. Reply with: what you built; each acceptance criterion and the test that covers it; what the main session must wire outside your folder (ticket 019 part B: `createAudio()` once, `attach(bus)` per map, `update(grid.state(), dt)` per frame and `relight(igniteAt, duration)` at the Relight in `src/main.ts`; the mute button and slider in `src/ui/`); anything you were unsure about; your token use for the ticket if the session shows it. **Say plainly that you could not hear the result**: you ran tests, not speakers. Then say exactly how Josh can listen: `npm run dev`, click the map once to unlock audio, then the map and the action per sound (the ticket's "Josh listens" list has them; otherwise check `puzzles/*.md`: `19-why-it-blew` for the blow, `05-two-feeds` for the brownout, `21-wake-the-relay` for the battery, the refused click and the Relight, Undo and Reset on any map for the click). Say it is ready for the code-reviewer.
 
 ## When given reviewer must-fix items
