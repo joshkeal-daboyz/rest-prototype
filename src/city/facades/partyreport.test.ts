@@ -17,11 +17,12 @@ import { keyOf } from "./place";
 import { partyReport } from "./partycheck";
 import { BLANK_RUN_MAX_M } from "./partykit";
 import { type City, cityOf, label, NAMED, stagesOf } from "./testcities";
+import { yieldToWorker } from "../testing/yield";
 
 const f3 = (n: number): string => n.toFixed(3);
 
 describe("H2b report, criterion 7 (reported, not asserted, except as the ticket pins)", { timeout: 120_000 }, () => {
-  it("prints the 20 named runs' numbers", () => {
+  it("prints the 20 named runs' numbers", async () => {
     const lines: string[] = [];
     const keys: Record<string, number> = {};
     const kinds: Record<string, number> = {};
@@ -32,6 +33,7 @@ describe("H2b report, criterion 7 (reported, not asserted, except as the ticket 
     let minFaces = Infinity;
     let fullest = { n: 0, run: "" };
     for (const o of NAMED) {
+      await yieldToWorker();
       const r = cityOf(o);
       expect(r.ok, label(o)).toBe(true);
       if (!r.ok) continue;
@@ -85,7 +87,7 @@ running rule removed a kind on ${sum.removed} faces, a key on ${sum.keyRemoved};
     expect(maxTotal).toBeLessThanOrEqual(DRESS_MAX);
   });
 
-  it("prints the outside cities, reported and not asserted", () => {
+  it("prints the outside cities, reported and not asserted", async () => {
     const lines: string[] = [];
     const tally: Record<string, { ok: number; fail: number; before: number }> = {};
     const outside: City[] = [];
@@ -103,6 +105,7 @@ running rule removed a kind on ${sum.removed} faces, a key on ${sum.keyRemoved};
         t.fail++;
         lines.push(`${o.blocksX}x${o.blocksZ} s${o.seed} ${o.way}: facades failed: ${r.failure.reason.slice(0, 160)}`);
       } else t.before++;
+      await yieldToWorker();
     }
     console.log(`H2b REPORT, outside\n${Object.entries(tally).map(([k, v]) => `${k}: stage 7 ok ${v.ok}, failed ${v.fail}, never reached ${v.before}`).join("\n")}\n${lines.join("\n")}`);
   });

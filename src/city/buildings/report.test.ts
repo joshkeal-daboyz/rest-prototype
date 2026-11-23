@@ -16,6 +16,7 @@ import { streetsStage, streetsStageWith } from "../streets/stage";
 import { buildingFailures, neighbourShares } from "./check";
 import { CITY_STOREYS } from "./constants";
 import { buildingsStage } from "./stage";
+import { yieldToWorker } from "../testing/yield";
 
 interface City {
   readonly blocksX: number;
@@ -68,9 +69,10 @@ function measure(o: City): { text: string; ok: boolean } {
 }
 
 describe("criterion 6's report: stage 5 on the named runs and the outside cities", { timeout: 120_000 }, () => {
-  it("prints the table; the 20 named runs are ok", () => {
+  it("prints the table; the 20 named runs are ok", async () => {
     const lines: string[] = [];
     for (const o of NAMED) {
+      await yieldToWorker();
       const row = measure(o);
       lines.push(`${label(o).padEnd(14)} ${row.text}`);
       expect(row.ok, label(o)).toBe(true);
@@ -78,10 +80,11 @@ describe("criterion 6's report: stage 5 on the named runs and the outside cities
     console.log(`F1 REPORT, named\n${lines.join("\n")}`);
   });
 
-  it("prints the outside cities' counts, reported and not asserted", () => {
+  it("prints the outside cities' counts, reported and not asserted", async () => {
     const lines: string[] = [];
     const tally: Record<string, { ok: number; fail: number; noMass: number }> = {};
     for (const o of OUTSIDE) {
+      await yieldToWorker();
       const key = `${o.blocksX}x${o.blocksZ} ${o.way}`;
       const t = (tally[key] ??= { ok: 0, fail: 0, noMass: 0 });
       const r = runOf(o);

@@ -19,11 +19,12 @@ import { type City, cityOf, label, NAMED, stagesOf } from "./testcities";
 import { wallReport } from "./wallcheck";
 import { TILE_CITY_R7_MIN } from "./wallkit";
 import { buildWalls } from "./walls";
+import { yieldToWorker } from "../testing/yield";
 
 const f3 = (n: number): string => n.toFixed(3);
 
 describe("H2 report, criterion 9 (reported, not asserted, except that the named runs are ok)", { timeout: 120_000 }, () => {
-  it("prints the 20 named runs' numbers", () => {
+  it("prints the 20 named runs' numbers", async () => {
     const lines: string[] = [];
     const reach: Record<string, number> = {};
     const kinds: Record<string, number> = {};
@@ -47,6 +48,7 @@ describe("H2 report, criterion 9 (reported, not asserted, except that the named 
     const r5Before = { lo: Infinity, hi: -Infinity };
     const r6Before = { lo: Infinity, hi: -Infinity };
     for (const o of NAMED) {
+      await yieldToWorker();
       const r = cityOf(o);
       expect(r.ok, label(o)).toBe(true);
       if (!r.ok) continue;
@@ -109,7 +111,7 @@ describe("H2 report, criterion 9 (reported, not asserted, except that the named 
     expect(lowest.r6).toBeGreaterThanOrEqual(0.45);
   });
 
-  it("prints the outside cities, reported and not asserted", () => {
+  it("prints the outside cities, reported and not asserted", async () => {
     const lines: string[] = [];
     const tally: Record<string, { ok: number; fail: number; before: number }> = {};
     const outside: City[] = [];
@@ -127,6 +129,7 @@ describe("H2 report, criterion 9 (reported, not asserted, except that the named 
         t.fail++;
         lines.push(`${o.blocksX}x${o.blocksZ} s${o.seed} ${o.way}: facades failed: ${r.failure.reason.slice(0, 160)}`);
       } else t.before++;
+      await yieldToWorker();
     }
     console.log(`H2 REPORT, outside\n${Object.entries(tally).map(([k, v]) => `${k}: stage 7 ok ${v.ok}, failed ${v.fail}, never reached ${v.before}`).join("\n")}\n${lines.join("\n")}`);
   });

@@ -20,6 +20,7 @@ import { KIT } from "./kit";
 import { boundsBoxOf, bodyBoxOf, cellBox, planeOf } from "./place";
 import { keyOf, OPPOSITE } from "./rows";
 import { buildingsStage } from "./stage";
+import { yieldToWorker } from "../testing/yield";
 
 interface City {
   readonly blocksX: number;
@@ -131,7 +132,7 @@ function measure(o: City): Row {
 }
 
 describe("criterion 6's report: stage 5 columns on the named runs and the outside cities", { timeout: 120_000 }, () => {
-  it("prints the table; the 20 named runs are ok", () => {
+  it("prints the table; the 20 named runs are ok", async () => {
     const lines: string[] = [];
     const worst = { m1: 0, g1Recess: -Infinity, g1Over: -Infinity, m9a: 0 };
     const u1: [number, number, number] = [0, 0, 0];
@@ -139,6 +140,7 @@ describe("criterion 6's report: stage 5 columns on the named runs and the outsid
     const u3: [number, number] = [0, 0];
     const reach = new Map<string, { front: number; back: number; flank: number; cornice: number }>();
     for (const o of NAMED) {
+      await yieldToWorker();
       const row = measure(o);
       lines.push(`${label(o).padEnd(14)} ${row.text}`);
       expect(row.ok, label(o)).toBe(true);
@@ -161,10 +163,11 @@ describe("criterion 6's report: stage 5 columns on the named runs and the outsid
     );
   });
 
-  it("prints the outside cities' counts, reported and not asserted", () => {
+  it("prints the outside cities' counts, reported and not asserted", async () => {
     const lines: string[] = [];
     const tally: Record<string, { ok: number; fail: number; noMass: number }> = {};
     for (const o of OUTSIDE) {
+      await yieldToWorker();
       const key = `${o.blocksX}x${o.blocksZ} ${o.way}`;
       const t = (tally[key] ??= { ok: 0, fail: 0, noMass: 0 });
       const r = runOf(o);

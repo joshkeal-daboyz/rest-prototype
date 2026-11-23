@@ -12,6 +12,7 @@ import type { AssetEntry, CalibrationKey, CityBuildingsLayer, CityFacadesLayer, 
 import { stableHash } from "../render/city";
 import { digestOf } from "../city/pipeline";
 import { sharedCity } from "../city/testing/namedcities";
+import { yieldToWorker } from "../city/testing/yield";
 import { KEY_OF_KIND, TRAFFIC_ALLOWED, TRAFFIC_BOUNDS, MAST, boundsOf } from "../city/traffic/kit";
 import { KERB_GAP_MAX_M, KERB_HEIGHT_TOL_M, KERB_TOL_M, type KerbFace, type KerbPlan, type Mp } from "./kerbline";
 import {
@@ -488,7 +489,7 @@ function problems(paths: readonly CityKerbPath[], plan: KerbPlan): string[] {
 }
 
 describe("the kerb on the line, on the 20 named runs (criterion 3)", { timeout: 120_000 }, () => {
-  it("puts every face on its seg within KERB_TOL_M and leaves no chain or dip seg uncovered for over KERB_GAP_MAX_M, drawn in code and from the pack", () => {
+  it("puts every face on its seg within KERB_TOL_M and leaves no chain or dip seg uncovered for over KERB_GAP_MAX_M, drawn in code and from the pack", async () => {
     for (const o of NAMED) {
       const plan = planOf(o);
       const kerb = plan.layers.edge!.kerb!;
@@ -496,6 +497,7 @@ describe("the kerb on the line, on the 20 named runs (criterion 3)", { timeout: 
       expect(kerb.length, label(o)).toBeGreaterThan(0);
       expect(problems(kerb, planKerbPlan(kerb, set.cells, () => null)), `${label(o)}, in code`).toEqual([]);
       expect(problems(kerb, planKerbPlan(kerb, set.cells, (c) => planKeyOf(c, ACTIVE, set))), `${label(o)}, from the pack`).toEqual([]);
+      await yieldToWorker();
     }
   });
 
@@ -868,7 +870,7 @@ describe("the buildings: pieces from placements only (criteria 2 and 3)", { time
     part.dispose();
   });
 
-  it("draws every ground wrapper at its placement's position, turn and scale (all four turns), a shopDouble as one wrapper over two cells, in its own building's colourway", () => {
+  it("draws every ground wrapper at its placement's position, turn and scale (all four turns), a shopDouble as one wrapper over two cells, in its own building's colourway", async () => {
     const turns = new Set<number>();
     let doubles = 0;
     let corners = 0;
@@ -898,6 +900,7 @@ describe("the buildings: pieces from placements only (criteria 2 and 3)", { time
         }
       }
       d.dispose();
+      await yieldToWorker();
     }
     expect([...turns].sort((a, b) => a - b)).toEqual([0, 90, 180, 270]);
     expect(doubles).toBeGreaterThan(0);
@@ -951,7 +954,7 @@ describe("the buildings: pieces from placements only (criteria 2 and 3)", { time
 });
 
 describe("the buildings, on the 20 named runs (criterion 3)", { timeout: 120_000 }, () => {
-  it("draws only, lists every piece exactly once with its building's colourway, and gives every column one grey instance and every Ls' column its own pieces", () => {
+  it("draws only, lists every piece exactly once with its building's colourway, and gives every column one grey instance and every Ls' column its own pieces", async () => {
     let ls = 0;
     for (const o of NAMED) {
       const plan = planOf(o);
@@ -993,17 +996,19 @@ describe("the buildings, on the 20 named runs (criterion 3)", { timeout: 120_000
         }
       }
       d.dispose();
+      await yieldToWorker();
     }
     expect(ls).toBeGreaterThan(0);
   });
 
-  it("builds the full group with stub roots on the default city and the four pin cities: one wrapper per listed piece, each at its placement", () => {
+  it("builds the full group with stub roots on the default city and the four pin cities: one wrapper per listed piece, each at its placement", async () => {
     const roots = stackRoots();
     for (const o of [DEFAULT, ...PINS]) {
       const d = plan3dGroups(planOf(o), roots, none.entries, LOADED_WAYS);
       expect(d.buildings.pieces, label(o)).toBe(d.buildings.draws.length);
       expectPlaced(d, label(o));
       d.dispose();
+      await yieldToWorker();
     }
   });
 
@@ -1507,7 +1512,7 @@ describe("the facades and the ground: pieces from placements only (J criteria 2 
 });
 
 describe("the facades and the ground, on the 20 named runs (J criteria 3, 4, 5 and 6)", { timeout: 120_000 }, () => {
-  it("draws only, lists every stage 7 piece and every prop exactly once, draws every listed piece with a full stub pack (no key left out, both caps held), and leaves G, G2 and E's counts as they were", () => {
+  it("draws only, lists every stage 7 piece and every prop exactly once, draws every listed piece with a full stub pack (no key left out, both caps held), and leaves G, G2 and E's counts as they were", async () => {
     for (const o of NAMED) {
       const plan = planOf(o);
       const layers = plan.layers;
@@ -1551,6 +1556,7 @@ describe("the facades and the ground, on the 20 named runs (J criteria 3, 4, 5 a
       expect(d.tiles.calls, label(o)).toBeLessThanOrEqual(TILE_DRAW_CALLS_MAX);
       expect(d.interior.calls, label(o)).toBeLessThanOrEqual(INTERIOR_DRAW_CALLS_MAX);
       d.dispose();
+      await yieldToWorker();
     }
   });
 

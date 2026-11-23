@@ -13,6 +13,7 @@ import { FURN_WALL_M, TREE_PITCH_M } from "./constants";
 import { cellKey } from "./geom";
 import { buildGround } from "./stage";
 import { NAMED, label, layersOf, stagesOf, type City } from "./testcities";
+import { yieldToWorker } from "../testing/yield";
 
 /** The ground keys' bounds' front past the cell edge (`body.front`, stage 7's kit table; typed in here, this folder imports nothing from stage 7). */
 const REACH: Readonly<Record<string, number>> = {
@@ -52,12 +53,13 @@ const merge = (into: Record<string, number>, from: Record<string, number>): void
 };
 
 describe("the ground numbers (criterion 10; reported, not asserted)", { timeout: 600_000 }, () => {
-  it("the 20 named runs", () => {
+  it("the 20 named runs", async () => {
     const rows: Row[] = [];
     const total = { pavTries: {} as Record<string, number>, pavPlaces: {} as Record<string, number>, laneRefused: {} as Record<string, number>, plazaLost: {} as Record<string, number>, lotLost: {} as Record<string, number>, kinds: {} as Record<string, number> };
     let mt = 0;
     let lanePlaced = 0;
     for (const o of NAMED) {
+      await yieldToWorker();
       const l = layersOf(o);
       const t0 = performance.now();
       const { stats } = buildGround(l, stageRand("ground", o.seed));
@@ -143,7 +145,7 @@ describe("the ground numbers (criterion 10; reported, not asserted)", { timeout:
     expect(rows).toHaveLength(NAMED.length);
   });
 
-  it("outside cities, best effort: 3 x 3 and 6 x 4, seeds 1 to 20, one-way off and on", () => {
+  it("outside cities, best effort: 3 x 3 and 6 x 4, seeds 1 to 20, one-way off and on", async () => {
     const results: string[] = [];
     for (const [bx, bz] of [[3, 3], [6, 4]] as const) {
       for (const way of ["on", "off"] as const) {
@@ -155,6 +157,7 @@ describe("the ground numbers (criterion 10; reported, not asserted)", { timeout:
           if (r.ok) ok++;
           else failed.push(`seed ${seed}: ${r.failure.stage}: ${r.failure.reason.slice(0, 160)}`);
           void c;
+          await yieldToWorker();
         }
         results.push(`${bx} x ${bz} one-way ${way}: ${ok} of 20 ok${failed.length > 0 ? `; ${failed.join(" | ")}` : ""}`);
       }

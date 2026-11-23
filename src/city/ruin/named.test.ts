@@ -18,6 +18,7 @@ import { KIT_KEYS } from "./kit";
 import { buildRuin, ruinStage, stepPart } from "./stage";
 import { handCircuit } from "./fixtures";
 import { NAMED, PINNED, eraRun, label, type City } from "./testcities";
+import { yieldToWorker } from "../testing/yield";
 
 interface Run {
   readonly city: City;
@@ -52,7 +53,7 @@ const runs: Run[] = [];
 const pinned = new Map<number, { plan: CityEraPlan; layer: CityRuinLayer }>();
 
 describe("the named runs (X-4, X-1, R-1)", { timeout: 1_800_000 }, () => {
-  it("builds the 20 named cities through the era runner: the stage returns on every one, so T-1 and T-2 held", () => {
+  it("builds the 20 named cities through the era runner: the stage returns on every one, so T-1 and T-2 held", async () => {
     for (const c of NAMED) {
       const run = eraRun(c, "ruin");
       const layer = run.plan.layers.ruin;
@@ -61,6 +62,7 @@ describe("the named runs (X-4, X-1, R-1)", { timeout: 1_800_000 }, () => {
       const t = performance.now();
       const rebuilt = buildRuin(before, stageRand("ruin", c.seed));
       const ms = performance.now() - t;
+      await yieldToWorker();
       expect(JSON.stringify(rebuilt.layer), label(c)).toBe(JSON.stringify(layer));
       const roofsOn = buildRuin(before, stageRand("ruin", c.seed), { roofGrowth: true }).layer.adds.filter((a) => a.kind === "roof").length;
       // X-1: no clean layer moved while the eras ran (each digest is of the layer as its stage wrote it)
@@ -81,6 +83,7 @@ describe("the named runs (X-4, X-1, R-1)", { timeout: 1_800_000 }, () => {
         wild: new Map(run.plan.layers.history!.districts.map((d) => [d.id, d.wild] as const)),
       });
       if (PINNED.some((p) => p.seed === c.seed) && c.way === "on") pinned.set(c.seed, { plan: before, layer: layer! });
+      await yieldToWorker();
     }
     expect(runs).toHaveLength(20);
   });
@@ -203,12 +206,14 @@ describe("R-3, R-4, X-7: determinism, the pins, the clean run", { timeout: 900_0
 });
 
 describe("F1b3: the reports on the hand-placed circuit of each pin city (stage 6 is empty until K2; on the named runs these rows read 0)", { timeout: 900_000 }, () => {
-  it("prints, per pin city, the trees placed, the crowns over each kind of circuit point and through a span, the crowns into a building, and the trees refused by the trunk rule", () => {
+  it("prints, per pin city, the trees placed, the crowns over each kind of circuit point and through a span, the crowns into a building, and the trees refused by the trunk rule", async () => {
     const lines: string[] = [];
     for (const [seed, p] of pinned) {
       const circuit = handCircuit(p.plan);
       const on = buildRuin(p.plan, stageRand("ruin", seed), { circuit });
+      await yieldToWorker();
       const off = buildRuin(p.plan, stageRand("ruin", seed), { circuit, treesUnderSpans: false });
+      await yieldToWorker();
       const trees = (b: typeof on): number => b.layer.adds.filter((a) => a.kind === "sapling" || a.kind === "park-tree").length;
       const s = on.stats;
       const g = (k: string): number => s[k] ?? 0;
@@ -216,6 +221,7 @@ describe("F1b3: the reports on the hand-placed circuit of each pin city (stage 6
         `seed ${seed}: circuit poles ${circuit.poles.length}, lights ${circuit.lights.length}, lamp places ${circuit.lampPlaces.length}, drops ${circuit.drops.length}, spans ${circuit.lines.length}; trees placed ${trees(on)} (off: ${trees(off)}); crowns over a pole ${g("crownOverPole")}, a light ${g("crownOverLight")}, a lamp-post place ${g("crownOverLampPlace")}, a drop end ${g("crownOverDropEnd")}, through a span ${g("crownOverSpan")} (listed ${on.underSpanSpots.length}); crowns into a building ${g("crownIntoBuilding")}; refused by the trunk: building ${g("refusedTrunk:building")}, standing piece ${g("refusedTrunk:standing")}, circuit point ${g("refusedTrunk:circuit")}, T-2 ${g("leftOutT2:sapling") + g("leftOutT2:park-tree")}`,
       );
       expect(on.underSpanSpots).toHaveLength(g("crownOverSpan"));
+      await yieldToWorker();
     }
     console.info(`F1b3 hand-placed circuit\n${lines.join("\n")}`);
     expect(lines).toHaveLength(4);

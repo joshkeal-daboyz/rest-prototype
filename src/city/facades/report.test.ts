@@ -14,6 +14,7 @@ import { factsOf, facesStalls, makeCtx } from "./facts";
 import { DEEP_KEYS, GROUND_KIT, GROUND_STYLES } from "./kit";
 import { levelOf } from "./place";
 import { type City, cityOf, label, NAMED, stagesOf } from "./testcities";
+import { yieldToWorker } from "../testing/yield";
 
 const mm = (n: number): string => n.toFixed(4);
 const short = (k: string): string => k.slice("city-pack:SM_Bld_".length);
@@ -84,12 +85,13 @@ function measure(o: City): { text: string; ok: boolean; tally: Tally } {
 }
 
 describe("H1 report, criterion 7 (reported, not asserted, except that the named runs are ok)", { timeout: 120_000 }, () => {
-  it("prints the 20 named runs' numbers", () => {
+  it("prints the 20 named runs' numbers", async () => {
     const lines: string[] = [];
     const total = blank();
     let allOk = true;
     const placed = new Set<string>();
     for (const o of NAMED) {
+      await yieldToWorker();
       const m = measure(o);
       lines.push(m.text);
       allOk &&= m.ok;
@@ -127,7 +129,7 @@ describe("H1 report, criterion 7 (reported, not asserted, except that the named 
     expect(allOk).toBe(true);
   });
 
-  it("prints the outside cities, reported and not asserted", () => {
+  it("prints the outside cities, reported and not asserted", async () => {
     const lines: string[] = [];
     const tally: Record<string, { ok: number; fail: number; before: number }> = {};
     const outside: City[] = [];
@@ -145,6 +147,7 @@ describe("H1 report, criterion 7 (reported, not asserted, except that the named 
         t.fail++;
         lines.push(`${o.blocksX}x${o.blocksZ} s${o.seed} ${o.way}: facades failed: ${r.failure.reason.slice(0, 160)}`);
       } else t.before++;
+      await yieldToWorker();
     }
     console.log(`H1 REPORT, outside\n${Object.entries(tally).map(([k, v]) => `${k}: stage 7 ok ${v.ok}, failed ${v.fail}, never reached ${v.before}`).join("\n")}\n${lines.join("\n")}`);
   });
