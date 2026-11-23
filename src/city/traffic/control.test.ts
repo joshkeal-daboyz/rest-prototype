@@ -6,6 +6,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import type { CityJunction, CityPlanStreet } from "../../core";
 import { buildControl } from "./control";
 import { NAMED, label, layersOf, warm } from "./testcities";
+import { FULL_CITIES } from "../testing/namedcities";
 
 const SIDES = { "-x": "x", "+x": "x", "-z": "z", "+z": "z" } as const;
 
@@ -59,7 +60,7 @@ describe("the control of every junction on the named runs (criterion 2)", { time
     expect(bad).toEqual([]);
   });
 
-  it("the named runs have every control kind, and a one-way arm with no inbound traffic", () => {
+  it.runIf(FULL_CITIES)("the named runs have every control kind, and a one-way arm with no inbound traffic", () => {
     const junctionKinds = new Set<string>();
     const approachKinds = new Set<string>();
     let outbound = 0;

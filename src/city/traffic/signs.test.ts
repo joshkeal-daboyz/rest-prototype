@@ -11,6 +11,7 @@ import { bayStretches, parkingPlace, parkingSigns, skipReasonOf, stopPlace, stop
 import { buildClear, clearOf, clearReasons, makePiece } from "./clear";
 import { edgeInfoOf } from "./control";
 import { NAMED, DEFAULT, label, layersOf, warm } from "./testcities";
+import { FULL_CITIES } from "../testing/namedcities";
 import { stageRand } from "../pipeline/seeds";
 
 /** Where an approach's near-right corner cell and its arm cell are, from a junction's inclusive cell bounds; its sign's yaw. Traffic keeps right: an arm on "-z" carries traffic heading +z, its right is -x. */
@@ -29,7 +30,7 @@ const bounds = (cells: readonly CityCell[]): { i0: number; i1: number; j0: numbe
 
 describe("stop signs on the named runs (criterion 4)", { timeout: 120_000 }, () => {
   beforeAll(() => warm(NAMED), 120_000);
-  it("every stop approach has exactly one stop sign, on its kerbside at its near-right corner, facing its traffic; none elsewhere", () => {
+  it.runIf(FULL_CITIES)("every stop approach has exactly one stop sign, on its kerbside at its near-right corner, facing its traffic; none elsewhere", () => {
     const bad: string[] = [];
     let signs = 0;
     for (const o of NAMED) {

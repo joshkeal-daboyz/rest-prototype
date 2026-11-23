@@ -8,6 +8,7 @@ import { poleOf } from "./clear";
 import { MAST_INSET_M, SIGNAL_HEAD_MIN_M } from "./constants";
 import { ARM, ARM_BASE_Y, CORNER_WALK_M, HEAD_LOW_Y, MAST, PUSH_BUTTON_KEY, boundsOf } from "./kit";
 import { NAMED, label, layersOf, DEFAULT, warm } from "./testcities";
+import { FULL_CITIES } from "../testing/namedcities";
 
 /** The far-left corner of an approach by the side its arm leaves by: the sign of the corner's offset from the junction in x and z (traffic keeps right; an arm on "-z" carries traffic heading +z, its left is +x). */
 const FAR_LEFT: Readonly<Record<CitySide, readonly [1 | -1, 1 | -1]>> = { "-z": [1, 1], "+z": [-1, -1], "-x": [1, -1], "+x": [-1, 1] };
@@ -35,7 +36,7 @@ const turn = (yaw: number, x: number, z: number): [number, number] => {
 
 describe("signals on the named runs (criterion 3)", { timeout: 120_000 }, () => {
   beforeAll(() => warm(NAMED), 120_000);
-  it("TR1d: every mast's foot and every box's footprint lies inside its corner cell's walk square, and every crossing has one button on its mast's face toward it, its centre over the walk", () => {
+  it.runIf(FULL_CITIES)("TR1d: every mast's foot and every box's footprint lies inside its corner cell's walk square, and every crossing has one button on its mast's face toward it, its centre over the walk", () => {
     const bad: string[] = [];
     let masts = 0;
     let boxes = 0;
@@ -89,7 +90,7 @@ describe("signals on the named runs (criterion 3)", { timeout: 120_000 }, () => 
     expect(boxes).toBe(221);
   });
 
-  it("every signal junction has one mast group per pavementCorner, each on its approach's far-left corner, the arm crossing its approach over the carriageway with its heads facing it", () => {
+  it.runIf(FULL_CITIES)("every signal junction has one mast group per pavementCorner, each on its approach's far-left corner, the arm crossing its approach over the carriageway with its heads facing it", () => {
     const bad: string[] = [];
     let groups = 0;
     for (const o of NAMED) {
@@ -143,7 +144,7 @@ describe("signals on the named runs (criterion 3)", { timeout: 120_000 }, () => 
     expect(groups).toBe(884);
   });
 
-  it("each crossing has a walk head at both ends facing along it, each mast has two buttons (TR1d), each junction one box", () => {
+  it.runIf(FULL_CITIES)("each crossing has a walk head at both ends facing along it, each mast has two buttons (TR1d), each junction one box", () => {
     const bad: string[] = [];
     let heads = 0;
     let boxes = 0;

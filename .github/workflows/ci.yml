@@ -5,6 +5,12 @@ on:
   pull_request:
   # The whole suite, on demand (Actions tab > CI > Run workflow): for a release or when Josh asks.
   workflow_dispatch:
+    inputs:
+      cities:
+        description: "Whole-city checks run on: all (the 20 named cities) or one (6 x 6 seed 1)"
+        type: choice
+        default: all
+        options: [all, one]
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -26,7 +32,11 @@ jobs:
           BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || (github.event_name == 'push' && github.event.before || '') }}
         run: |
           if [ -z "$BASE" ]; then
-            npm test
+            if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.cities }}" != "one" ]; then
+              npx vitest run --mode full
+            else
+              npm test
+            fi
           else
             npx vitest run --changed "$BASE"
           fi

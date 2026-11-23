@@ -11,9 +11,8 @@ import { oneWayNeighbours, ownBand, s7Failures, s8Failures, s9Failures, s10Failu
 import { ONE_WAY_ARROW_EVERY, ONE_WAY_CARRIAGE_M, SECTION_CELLS, TILE_M } from "./constants";
 import { laySplit, type SplitLayout } from "./split";
 import { STREETS_LEGEND, streetsStage, streetsStageWith } from "./stage";
+import { NAMED_ON as NAMED, VARIED } from "../testing/namedcities";
 
-const NAMED: { blocksX: number; blocksZ: number; seed: number }[] = [];
-for (let seed = 1; seed <= 10; seed++) NAMED.push({ blocksX: 6, blocksZ: 6, seed });
 
 type Named = (typeof NAMED)[number];
 const cache = new Map<string, SplitLayout>();
@@ -110,10 +109,6 @@ describe("which streets are one-way: the stage's choice (criterion 2)", () => {
 
 describe("one-way off gives A4's plan (criterion 3), on the 6 x 6 named cities (A4d)", () => {
   // A4d: the old A4 cell digests of the 13 old cities are gone with that list (their cities are outside cities now, never pinned); the structure of A4's plan is what is asserted.
-  it("covers the 10 named cities, the default 6 x 6 seed 1 first", () => {
-    expect(NAMED).toHaveLength(10);
-    expect(NAMED[0]).toEqual({ blocksX: 6, blocksZ: 6, seed: 1 });
-  });
   for (const o of NAMED) {
     it(`6 x 6 seed ${o.seed}: with oneWayShare 0 every street is two-way with five bands, and there are no arrows`, () => {
       const l = laid(o, 0).layer;
@@ -181,11 +176,13 @@ describe("S8: the four edge streets are two-way (criterion 5)", () => {
 
 describe("S9: Josh's Q3 (criterion 6)", () => {
   it("holds on the named cities, and it is not vacuous: some city has one-way streets next to each other", () => {
+    // Not vacuous depends on how cities vary, so this runs on the pinned four (VARIED), not the one default city.
     let pairs = 0;
-    eachCity((layer, o) => {
+    for (const o of VARIED) {
+      const layer = laid(o).layer;
       expect(s9Failures(layer), tag(o)).toEqual([]);
       pairs += oneWayNeighbours(layer.streets, layer.junctions).length;
-    });
+    }
     expect(pairs).toBeGreaterThan(0);
   });
   it("reads the same as a walk down every lattice column and row of the cells: the one-way streets it finds next to each other are those, and each pair runs opposite ways", () => {

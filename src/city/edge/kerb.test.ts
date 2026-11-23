@@ -22,7 +22,7 @@ import type {
   CityStreetsLayer,
 } from "../../core";
 import { stageRand } from "../pipeline/seeds";
-import { sharedCity } from "../testing/namedcities";
+import { FULL_CITIES, NAMED, sharedCity } from "../testing/namedcities";
 import { g4Failures } from "./check";
 import { RETURN_WALL_TOL_M, TILE_M } from "./constants";
 import { dropCells, layGround, yawToward } from "./ground";
@@ -34,8 +34,6 @@ interface City {
   readonly seed: number;
   readonly way: "on" | "off";
 }
-const NAMED: City[] = [];
-for (const way of ["on", "off"] as const) for (let seed = 1; seed <= 10; seed++) NAMED.push({ seed, way });
 const label = (o: City): string => `6 x 6 seed ${o.seed} one-way ${o.way}`;
 function cityOf(o: City): CityPlanRun {
   return sharedCity({ blocksX: 6, blocksZ: 6, seed: o.seed, way: o.way }, "edge");
@@ -395,7 +393,7 @@ describe("stage 4, the ground and the kerb line (D2), on the named runs", { time
     });
   }
 
-  it("the report's numbers over the 20 named runs", () => {
+  it.runIf(FULL_CITIES)("the report's numbers over the 20 named runs", () => {
     // (the per-run tests above fill TOTALS)
     console.log(`D2 TOTALS ${JSON.stringify(TOTALS)}`);
     expect(TOTALS.sides).toBeGreaterThan(2000);

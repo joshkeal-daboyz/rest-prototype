@@ -15,7 +15,7 @@ import type { CityStageDef } from "../pipeline/types";
 import { landStage } from "../land/stage";
 import { massStage } from "../mass/stage";
 import { runCity } from "../stages";
-import { sharedCity } from "../testing/namedcities";
+import { NAMED, sharedCity } from "../testing/namedcities";
 import { PLAN_BLOCKS_DEFAULT } from "../streets/constants";
 import { streetsStage } from "../streets/stage";
 import { bestFit, buildEdge } from "./band";
@@ -31,8 +31,6 @@ interface City {
   /** One-way streets: on (the default) or off (`oneWayShare` 0). */
   readonly way: "on" | "off";
 }
-const NAMED: City[] = [];
-for (const way of ["on", "off"] as const) for (let seed = 1; seed <= 10; seed++) NAMED.push({ blocksX: 6, blocksZ: 6, seed, way });
 const label = (o: City): string => `${o.blocksX} x ${o.blocksZ} seed ${o.seed} one-way ${o.way}`;
 const DEFAULT: City = { blocksX: 6, blocksZ: 6, seed: 1, way: "on" };
 const optionsOf = (o: City): { blocksX: number; blocksZ: number; seed: number } => ({ blocksX: o.blocksX, blocksZ: o.blocksZ, seed: o.seed });
@@ -57,7 +55,6 @@ const SIDES = ["-z", "+x", "+z", "-x"] as const;
 
 describe("stage 4, edge, on the named cities", { timeout: 120_000 }, () => {
   it("the default city is the 6 x 6 seed 1 city, and the named runs are 20, the default first", () => {
-    expect(NAMED).toHaveLength(20);
     expect(NAMED[0]).toEqual(DEFAULT);
     const first = runCity({ blocksX: PLAN_BLOCKS_DEFAULT, blocksZ: PLAN_BLOCKS_DEFAULT }, "edge");
     expect(first.ok).toBe(true);

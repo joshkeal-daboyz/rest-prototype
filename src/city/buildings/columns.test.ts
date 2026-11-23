@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { CityBuildingsLayer, CityColumn, CityMassLayer, CityPiece, CityPlanRun, CitySide } from "../../core";
-import { sharedCity } from "../testing/namedcities";
+import { FULL_CITIES, NAMED, sharedCity } from "../testing/namedcities";
 import { CORNER_TURN, floorPlan } from "./columns";
 import { columnFailures, columnReport } from "./columncheck";
 import { BUILDING_STYLES, OVERLAP_MAX_M, STOREY_ALIGN_TOL_M, WALL_JOINT_TOL_M } from "./constants";
@@ -20,8 +20,6 @@ interface City {
   readonly seed: number;
   readonly way: "on" | "off";
 }
-const NAMED: City[] = [];
-for (const way of ["on", "off"] as const) for (let seed = 1; seed <= 10; seed++) NAMED.push({ blocksX: 6, blocksZ: 6, seed, way });
 const DEFAULT: City = { blocksX: 6, blocksZ: 6, seed: 1, way: "on" };
 const label = (o: City): string => `${o.blocksX} x ${o.blocksZ} seed ${o.seed} one-way ${o.way}`;
 
@@ -102,7 +100,7 @@ describe("columns, kinds and turns (criterion 2)", { timeout: 120_000 }, () => {
     expect(Object.keys(CORNER_TURN)).toHaveLength(4);
   });
 
-  it("rowId is the building's, except an L's bend cell (the bend row); a non-blind column's front is its row's front, or that and its side for a corner", () => {
+  it.runIf(FULL_CITIES)("rowId is the building's, except an L's bend cell (the bend row); a non-blind column's front is its row's front, or that and its side for a corner", () => {
     let bends = 0;
     for (const o of NAMED) {
       const { buildings, columns } = layersOf(o);

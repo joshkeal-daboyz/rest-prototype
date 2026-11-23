@@ -7,6 +7,7 @@ import { farBand, parkPlaces, parksNeeded, s11Failures, splitFailures } from "./
 import { PARK_ONE_IN_BLOCKS } from "./constants";
 import { blockType } from "./layout";
 import { laySplit, type SplitLayout } from "./split";
+import { NAMED_ON as NAMED } from "../testing/namedcities";
 
 /** The old tile city's `PARK_ONE_IN_BLOCKS`: src/render3d/tilecity.ts line 227 at b42b65f. */
 const TILE_CITY_PARK_ONE_IN_BLOCKS = 6;
@@ -83,8 +84,6 @@ describe("S11 (criterion 2)", () => {
   });
 });
 
-const NAMED: { blocksX: number; blocksZ: number; seed: number }[] = [];
-for (let seed = 1; seed <= 10; seed++) NAMED.push({ blocksX: 6, blocksZ: 6, seed }); // A4d: 6 x 6 seeds 1 to 10, the default seed 1 first
 const cache = new Map<string, SplitLayout>();
 const laid = (o: (typeof NAMED)[number], share?: number): SplitLayout => {
   const key = `${o.blocksX}x${o.blocksZ}:${o.seed}:${share ?? "default"}`;
