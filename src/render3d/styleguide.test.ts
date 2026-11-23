@@ -687,7 +687,7 @@ describe("colourway.ts is drift-checked and 16.9 names the colourways (ticket 05
     expect(ids).toEqual([...colourway.COLOURWAY_POOL]);
     for (const id of colourway.COLOURWAY_POOL) expect(text, id).toContain(id);
     for (const w of ["COLOURWAY_POOL", "assignColourways", "Colourways (ticket 054)", "dressing and furniture keep the base atlas", "light=day"]) expect(text.toLowerCase(), w).toContain(w.toLowerCase());
-    expect(/^- \*\*Open \(waits for [^)]*\)\*\*: not every wall changes/m.test(text), "risk 1 is an Open line").toBe(true);
+    expect(/^- \*\*Open\*\*: not every wall changes/m.test(text), "risk 1 is an Open line").toBe(true);
   });
 
   it("lists R13 in 16.8 as auto and eye, with the at-least-four-wall-colours eye half and the day street view", () => {

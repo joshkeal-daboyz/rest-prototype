@@ -3,7 +3,7 @@
 standard: yes
 Scope: the one scale of the town, and how lots, terrace rows and runs are laid and kept clear.
 Read by: buildings, planner
-Depends on: `docs/city-style/numbers.md` (the constants), `docs/city-style/streets-and-blocks.md` (the pinwheel), `docs/city-style/buildings.md` (stacks and corner blocks)
+Depends on: `docs/city-style/numbers.md` (the constants), `docs/city-style/streets-and-blocks.md` (the pinwheel), `docs/city-style/block-stacks.md` (stacks) and `docs/city-style/corner-buildings.md` (corner blocks)
 
 ## Rules
 

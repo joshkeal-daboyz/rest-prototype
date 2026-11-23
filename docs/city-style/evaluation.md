@@ -244,3 +244,91 @@ Text moved out of `docs/city-style/scale-and-lots.md`, `docs/city-style/parking.
 - From 18.5: the one plain straight `Straight_02` the pavement uses, 063 A
 - From 9: (neither pack had them; drops are 041 C5)
 - From 16.2: The details of the pinwheel and the corner block are chapter 4 and chapter 7; this chapter does not repeat them.
+
+## Moved from streets-and-blocks.md and buildings.md, and the files split from them (ticket 080 B2, second batch): readings and history
+
+Text moved out of the two domains `docs/city-style/streets-and-blocks.md` and `docs/city-style/buildings.md` (`docs/city-style/streets-and-blocks.md`, `docs/city-style/block-grammar.md`, `docs/city-style/block-stacks.md`, `docs/city-style/buildings.md`, `docs/city-style/fronts.md`, `docs/city-style/corner-buildings.md`, `docs/city-style/colourways.md`), unchanged. It records readings, history and walkthroughs; it is not a rule. A line that starts "From" is the part of a bullet that left it. A bracketed id in front of a line is its row in `docs/city-style/decisions.md`.
+
+### From streets-and-blocks.md (chapters 3 and 10)
+
+- From the avenue bullet of chapter 3 (the rule is now [D-063f]): (0 is none; before, one interior line in 3 by hash, and at least one on every axis, was a 6-cell avenue with a 4-cell carriageway and a parking band on both sides).
+
+- From the plain-pavement bullet of chapter 10 (the rule is now [D-063g]), the measurement that stands behind it, which was an Info line: **Info (063 A, measured 19 Nov 2026)**: the two straights were the same mesh and the same colour (the slab `#8c8987`, the lip and joints `#7b7b79`). The difference was the material: `Sidewalk_Straight_01` is the only piece the tile view used whose material is BLEND. The converter put it on the City Pack's second atlas copy, `PolygonCity_Texture_01_A`, whose alpha channel is mostly under 255 (102 and 44 of 255 at the slab), so it drew at 17 to 40% opacity and the sage ground or the asphalt showed through: the pale sage slabs and the dark build-outs. `Straight_01` is now in no role and is not loaded. A test reads the GLB and fails on any piece the tiles or the interiors load whose material is BLEND. The converter's handling of that atlas copy is a `tools/` matter (ticket 063's open item A1).
+
+- From the interior-paving bullet of chapter 10 (the rule is now [D-063h]): which has two inset plates 0.04 m below its slab (3.8 m2 of dark green-grey, with studs) that read as plots; they are service covers the pack drew, not tree plots, and the texture was used correctly.
+
+- From the grates bullet of chapter 10 (the rule is now [D-063j]): Josh did not answer these two in words; he said he does not want to approve each improvement ("I don't want to constantly approve all of these improvments."). If he objects on seeing them, each is one constant or one line.
+
+- From the kerb bullet of chapter 10 (the rule is now [D-063k]): Josh's drawing is the rule: at an inlet the kerb turns in on each side of the opening and runs along it to the building line, with the dropped kerb of the mouth between the two returns.
+
+- **Info (063 F, measured 19 Nov 2026)**: the pack's sidewalk pieces have the kerb face 0.66 m inside the cell's edge, not on it (`KERB_FACES_M`: `Straight_02` 0.66 m, `Grate_01` 0.65 m, `Dip_01` 0.66 m; the lip is 0.30 m above the road, 0.07 m above the walk, and 0.39 m wide), and the 0.65 m outside the face is the piece's own gutter and ramp at road level. A straight has no face on its two ends: the open, unkerbed edge of every build-out stretch. The layout's kerbs (`Town.kerbs`, `TileStreet.carriage`) stay on the cell edge, and a pole slot (`POLE_SLOT_FROM_KERB_M`, 0.75 m from the edge) stands 0.09 m behind the pack's face: 059 reads it and keeps it. `Sidewalk_Dip_Corner_01` is a pedestrian ramp, not a kerb return: each of its two legs has only about 1.1 m of full-height kerb, at the leg's far end, and the rest of the corner falls to the road on a diagonal ramp, so it cannot carry the kerb round an inlet. A test reads the GLB and re-measures every face within 0.02 m.
+
+### From buildings.md (chapters 5 and 6, and the colourways)
+
+- From the exclusions bullet of chapter 5 (the check is `styleguide.test.ts`): **Info**: the guide's check of this chapter: `BUILDING_EXCLUDE` lists `simple-town:store_small_mesh`, so the guide names that key.
+
+- [D-048b] **Info (048)**: with Josh's fronts the Town Pack fills `small` (`SM_Bld_House_Preset_01`, `_02`, `_09` and `SM_Bld_House_Preset_Garage_01`) and `house` (`_03` to `_07` and `_10`). `_08` and `_11` are `large` (two families, under 4), so `large` and `tall` stay SIMPLE Town. With no Town Pack in the manifest, or its GLB failed to load, every type is SIMPLE Town and the town is as it was before 048 (a fresh checkout and CI).
+
+- [D-048l] **Info (048)**: the Town Pack's other five lines are "-z", the default, so they are not in the table: `SM_Bld_House_Preset_02`, `_07`, `_10`, `_11` and `SM_Bld_House_Preset_Garage_01`. All fourteen were promoted by hand from Josh's saved file (`savedAt` 2026-11-18T03:10:05.703Z). The City Pack's stack pieces are the next bullet.
+
+- [D-050b] **Info (050 C, provisional)**: the 34 City Pack stack pieces in `STACK_STYLES` have a `BUILDING_FRONTS` line each: 26 here and the 8 corner pieces in chapter 7. Josh's saved file (`savedAt` 2026-11-18T03:50:16.193Z) has 25 of them, every one "+z". A gallery click on the first copy saves "+z", so these are not shown to be doors he saw. The other nine (`Apartment_Corner_01`, `_03`, `Apartment_Door_01` and the six roofs) were not in the file and take the same "+z" guess. All 34 are provisional until Josh confirms them in the stack gallery (chapter 15); a fix is one line in `BUILDING_FRONTS`, and a saved front still overrides it in a dev build.
+
+- **Info (045 section C, dev builds only)**: the gallery takes clicks. Click the copy whose door faces you: that side becomes the model's front and the choice is written at once to the saved file (`assets/private/calibration/fronts.json`) through the dev server; the copy's caption then reads `current, saved`. Clicking another copy changes your mind. Clicking the `current` copy when its front is only the code's table or the "+z" guess saves it as it stands; clicking one that is already `saved` does nothing. Shift+click sets that side and toggles `excluded` (a model you never want placed). Delete (or Backspace) clears the last-clicked model, so the code's table applies again. A press and release within 5 px is a click; further is a pan. If the dev server cannot write, the mark stays on screen with `not saved: <reason>` under the model's caption and in the title, and the next click retries. The line never reorders when you mark a model. A click does not reach the town, and none of this is in `npm run build`.
+
+- From the fixture bullet of chapter 5: with the fixture sizes, `large` offers six styles (the three apartment styles, `office-old-small`, `office-old-large`, `office-octagon`) and `tall` four (the three apartment styles and `office-old-small`). (kept in chapter 5, as a fact).
+
+- [D-063b] **Info (063 E1, measured 19 Nov 2026)**: the "+x" the eight City Pack corner pieces had was the 050 C recipe's guess ("no data says which end"). `measureOpenSide` (facade.ts) compares each side's profile with the front's: a street face is modelled like the front (the same window reveals, shop openings or cornice steps at the same depths), a party wall is a plain slab. On all eight pieces the street faces are **+z and -x** and the party walls **+x and -z**; the nearer side is 9 or more times nearer (`OPEN_MARGIN` is 4). The pack's `Shop_Corner_01_Glass`, `Shop_Corner_02_Glass` and the L awning `Shop_Cover_05` have their faces on +z and -x too, so they follow the corner's turn. `OPEN_SIDE_MEASURED` holds each piece's side and the reason; `facade.test.ts` re-measures it when the GLB is on the machine.
+
+- From chapter 7, the `WALL_SIDE_M` sentence (the rule is now in `docs/city-style/corner-buildings.md`): `WALL_SIDE_M`, the wall of the open face, was measured on +x (the blank party wall) and is re-measured on -x (chapter 19.1); `wallOffset` reads the open side whichever it is, and gives 0 for a side other than the measured one, as a recalibrated front does.
+
+- From 16.9 (the colourway rule): **Info (054)**: what changes on a block. 85.7% of the pack's building triangles sample the wall gradient block, where series 02 to 04 recolour the brick and the warm-brown trim columns; 6.5% sample blue panels that turn grey in 02 and 04 (likely door and window panels, accepted as more variety); none sample a sign. Cost: each atlas is 4 MiB decoded, 28 MiB for the 7 that load; materials grow by the distinct base-atlas materials on stack pieces times 7; draw calls and shader programs do not change.
+
+- From the Open bullet of 16.9: Judged by eye by the main session on 18 Nov 2026: neighbouring blocks render in red, dark green, cream-tan and teal, and shopfronts and the grey styles look the same in every colourway.
+
+- From the R13 bullet of 16.9: it passes at 1 because the rule steps off a repeat.
+
+### From block-grammar.md and block-stacks.md (chapter 16 and 19)
+
+- From the introduction of chapter 16 (the rule is now [D-053c]): Approvals for this goal were waived by Josh in the same chat.
+
+- From 16.3 (the rule is now [D-063m]): what he saw is pieces of different true sizes, each centred by its bounds, so a roof stood 0.7 m behind the walls it covers at the front and 0.8 m past them at the back, and a corner's flank stepped in and out from storey to storey.
+
+- From 16.3 (the body bullet, now [D-063n]), how a roof's body is measured: the outer face of its lowest cornice tier, the plane that runs furthest along the face, within `ROOF_BASE_BAND_M` of the foot, at least `ROOF_BASE_MIN_SPAN_M` long, the outermost on a tie within `ROOF_SPAN_TIE_M`
+
+- From 16.3, the back sub-bullet: (a roof's foot is then about 0.1 m past the wall line at the front, 0.108 m at most, and its cornice top up to 0.8 m: what the piece really carries). 
+
+- From 16.3, the `storeyAlignment` bullet: on the apartments `Apartment_Roof_02`'s foot (0.108 m past the wall at the front, over `apartment-02`), a turned `Apartment_Roof_Corner_03` (0.108 m wider than its floor, because its body is 5.108 m deep) and the two-bay `Shop_03` (0.142 m narrower on each side than the two floor bodies, which leave 0.28 m between them); and on the offices the small one's podium base (0.12 m beyond its floor's walls each side) and cornice (0.103 m each side, its foot 0.212 m past the front line), the large one's base (0.12 m) and its cornice's foot (0.135 m past the front), and the Octagon's base (0.205 m inside its floor's walls: a round roof has no body to report). The planes between `STOREY_ALIGN_TOL_M` and `BODY_REPORT_M` off the footprint (`slight`: a roof's foot 0.078 m past the front wall line, a corner roof's party-side flank 0.046 to 0.078 m, a turned `Shop_Corner_01`'s party-side flank 0.072 m) are reported the same way and not failed, so no difference over the tolerance goes unseen.
+
+- **Info (063 E2, measured 19 Nov 2026)**: the pack may cross-pair its corner roofs. `Apartment_Roof_Corner_02` has `Apartment_Roof_03`'s body (front 0.421, back 0.125, sides 0.143 m inside the bounds) and `Apartment_Roof_Corner_03` has `Apartment_Roof_02`'s (0.285, 0.095, 0.115), and their depths agree (5.624 and 5.488 m). `STACK_STYLES` pairs corner roof _02 with apartment-02 and _03 with apartment-03. Swapping them would put each style's corner roof on the cornice depth of its mid roof, but a style may not borrow another style's roof (Q-E2, default "no") and nothing is re-paired here: it is Josh's to decide.
+
+- **Info (063 E2, until section I)**: seating a shop corner's body on the corner floor's body leaves the shop corner's street-level flank 0.02 to 0.13 m back from the cross street (about 0.10 m on apartment-01 and -03, 0.02 m on apartment-02, up to 0.13 m when turned at the +x end), because the floor stays centred in its bounds-wide column and the shop's body is flush with its own bounds less 0.19 m. That is a recess against 19.1's law ("not okay if the buildings sit recessed from the sidewalk"), small enough that G2's flank cover tolerates it. Ticket 064 section I lays the columns on their bodies, which puts that flank on the cell edge; until it merges, this step-back is known. It does not re-pair roofs across styles: a style may not borrow another style's roof (the ticket's Q-E2, default "no"), though the pack's own `Roof_02` fits `Apartment_03` best.
+
+- **Info (057)**: blocks whose terraces butt back to back would be about 12 m deep, two stacks of 5.2 to 5.9 m. On the 5 m grid that is 15 m, with a 3 m service strip. With 25 to 30 m streets between them, roads would take about three quarters of the city along that axis. They already took about 65% of the area (about 105 m of street to 150 m of blocks per axis on the default city at `793bbf7`).
+
+- **Info (063 B, re-measured 19 Nov 2026)**: with no avenues the default city has 100 m of street on each axis (was 105 m and 110 m), and streets take 60.5% of its area (was 62.7%, over 53 x 58 cells). Over seeds 1 to 10 at 3 x 3 and seeds 1 to 3 at 6 x 4 the share is 55.2% to 62.6% (was 56.6% to 64.1%).
+
+- **Info (057 F)**: what `tilecity.ts` varied before: every street line ran the city's full length, each column of blocks took one width and each row one depth from 8 to 12 cells (40 to 60 m, nine footprints on the default city, one of them square), and one interior line in `AVENUE_ONE_IN` was an avenue. But every block in a column shared its width, the range was a 1.5 to 1 ratio at most, and no block was split, so it still read as a regular grid.
+
+- From the as-built bullet of 19.5, first rule: because the kerbside bays of 056 (P1) cannot be laid on a 6 x 6 block on streets.
+
+- From the as-built bullet of 19.5, second rule: because R1 was borderline (0.887 to 0.90) on cities of mostly short sides.
+
+- From the as-built bullet of 19.5, last rule: The hash key `"width"` in `blockLens` was chosen among a few tried, because R7 (the tile city's fire-escape floor) is noise on the dressing's own escape chance and moves in ninths with nine blocks. Ticket 061 (R7 by rank, 16.11) made it a guarantee: R7 no longer depends on that key.
+
+- **Info (057 F, measured by 057 E on 19 Nov 2026)**: on the default city the columns are 70, 55 and 30 m wide and the rows 65, 45 and 75 m deep: nine different footprints, none square, a coefficient of variation of 0.32 along x and 0.20 along z. On 6 x 4, seed 1, 24 blocks have 24 different footprints.
+
+### Ticket references cut from the domains (ticket 080 B2, second batch)
+
+Each is a question number or a ticket reference that stood in a tag or a sentence of the old text; the tag now names the ticket only, or the row in `docs/city-style/decisions.md`.
+
+- From chapter 3: the tags Default (041 Q1) (two bullets: the road beside a wire; the road's width and kerb), Default (041 Q2) (the 3D town builds its own streets), Default (042 Q7) (odd-angled pads), Default (041 Q8) (no street furniture) and Info (053) (terrace pavements); and the tag of the avenue bullet, Default (063 B).
+- From chapter 10: the tags Default (042 Q7) (the straight tiles), Default (063 F) (the pack's kerb is not changed), Info (063 A, measured 19 Nov 2026), Info (063 F, measured 19 Nov 2026), and Pending (042 C, gated on Josh's converted road pack), which is now the Open question of `docs/city-style/streets-and-blocks.md`; the superseded rule's number in the first bullet, 041 Q7 ("roads code-drawn everywhere").
+- From chapter 10, the tag of the grates bullet: Default (063 A, 063 H, the architect's recommendations adopted under Josh's goal waiver, 19 Nov 2026); of the return bullet: Default (063 F, the architect's recommendation adopted under Josh's goal waiver, 19 Nov 2026).
+- From chapter 16 and 16.1: the tag Info on the reference, the pipeline and the grammar table.
+- From 16.3: the tags Default (050 C) (doors), Default (063 E2, the architect's recommendation under Josh's goal waiver) (the body), Default (063 E2) (`storeyAlignment`), Info (063 E2, measured 19 Nov 2026), Info (063 E2, until section I); the question reference Q-E2 (default "no") in the roof-borrowing rule; the "measured, 063 E1: chapter 7" pointer stays in the domain.
+- From 19.3: the tags Info (057), Info (063 B, re-measured 19 Nov 2026) and Default (057 Q2). From 19.5: the tags Default (057 F), Info (057 F), Info (057 F, as built), Info (057 F, measured by 057 E on 19 Nov 2026); the question reference 057 Q8 (streets that end at a T-junction); the phrase "of 056 (P1)" after "kerbside bays" in the 7-cell rule, now written as 18.3; Ticket 061 (R7 by rank, 16.11) in the hash-key bullet.
+- From chapter 5: the tags Default (042 A, from 041), Default (041 B4, 042 A), Default (042 Q3, keys by 045 A), Default (041 Q4), Default (048 Q1; the reason is Josh's 18 Nov 2026 quote), Default (050 Q1, on Josh's 18 Nov 2026 quote), Info (050 C), Info (048), Info (053); "the 048 rule" in the 050 bullet, now "the Town Pack rule".
+- From chapter 6: the tag Info on the door-side bullets, Info (048), Info (050 C, provisional), Info (043 section B), Info (045 section C, dev builds only) and Default (042 Q2); the table notes "calibrated by Josh, 042 A", "calibrated by Josh, 048", "provisional, 050 C: a first-click guess, not confirmed".
+- From chapter 7: the tags Decided (042 A, implemented) (two bullets), Default (048 Q5), Info (063 E1), Info (053), Default (050 C, from the corner rule above); "(050 C)" after "The City Pack's eight corner pieces" and "(063 E1, below)" after "measured from the GLB".
+- From 16.4 and 16.7: the tags Default (050 C) (stacks on the circuit's own lots) and Info (054); in 16.9 the tags Default (054 Q3), Default (054 Q1), Info (054) and Open (waits for a generated-recolour ticket, if the eye check finds too few colours).
+- From the as-built bullet of 19.5 (the intro, now a plain sentence in `docs/city-style/block-grammar.md`): the block draw has three rules the draft did not have. They are tuning choices, and they narrow the effective spread of the 6 to 16 cell range.

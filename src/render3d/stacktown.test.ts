@@ -696,9 +696,9 @@ describe("the City Pack stack pieces in BUILDING_FRONTS (provisional, from the s
   it("gives the saved file's keys the front the file has (+z), and names the file's savedAt in the code comment and in the guide", () => {
     for (const n of SAVED) expect(BUILDING_FRONTS[keyOf(n)]!.front, n).toBe("+z");
     expect(readFileSync("src/render3d/models.ts", "utf8")).toContain(SAVED_AT);
-    const guide = readFileSync("docs/city-style/buildings.md", "utf8");
-    expect(guide).toContain(SAVED_AT);
-    expect(guide).toMatch(/provisional/i);
+    // The date is a reading, so it lives in evaluation.md (ticket 080 B2); the fronts domain says the fronts are provisional.
+    expect(readFileSync("docs/city-style/evaluation.md", "utf8")).toContain(SAVED_AT);
+    expect(readFileSync("docs/city-style/fronts.md", "utf8")).toMatch(/provisional/i);
   });
 
   it("is what the recipe pieces plan to: a corner piece's open side is the line's", () => {
@@ -709,8 +709,8 @@ describe("the City Pack stack pieces in BUILDING_FRONTS (provisional, from the s
 });
 
 describe("the guide tells the three-step chain and the stack gallery (criterion 14)", () => {
-  // Chapters 5 to 7 are in buildings.md and 13 to 15 in packs.md (ticket 080 A).
-  const guide = ["buildings.md", "packs.md"].map((f) => readFileSync(`docs/city-style/${f}`, "utf8").replace(/\r\n/g, "\n")).join("\n");
+  // Chapter 5 is in buildings.md, 6 in fronts.md, 7 in corner-buildings.md and 13 to 15 in packs.md (ticket 080 A and B2).
+  const guide = ["buildings.md", "fronts.md", "corner-buildings.md", "packs.md"].map((f) => readFileSync(`docs/city-style/${f}`, "utf8").replace(/\r\n/g, "\n")).join("\n");
   const chapter = (n: number): string => {
     const from = guide.indexOf(`\n## ${n}. `);
     const to = guide.indexOf("\n## ", from + 1);
