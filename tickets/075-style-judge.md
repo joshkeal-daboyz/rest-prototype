@@ -2,6 +2,7 @@
 
 owner: per section. **A**: the main session (it owns `.claude/`, `CLAUDE.md` and the loops). **B**: the run, driven by the main session; the judge is the new `style-judge` agent; the refiners are the existing pass agents (`ruin-pass`, `holdout-pass`, `tech-pass`), each in its own folder. A goes first; B starts when A is committed on the branch.
 status: approved (G1). Josh, 22 Nov 2026, in chat: "Approve, defaults". Q1 to Q7 take their defaults.
+status: done. Merged into main 23 Nov 2026 (effd7e3, PR 2) on Josh's word, in chat: "Merge it". Best round 1, 58/100 (from 39); review round 2 meets, must-fix 0; playtest regressions 0.
 branch: ticket/075-style-judge (off `goal/city-transformations`)
 
 Cut 22 Nov 2026 from Josh's card, in chat: "We have more work to do but we can still complete the assignment." Option chosen: **"Build a scored style judge (Recommended)"**: "Cut a small ticket: a style-judge agent scores each street screenshot 0 to 10 per GDD rule, with a reason, and the builder refines until every rule is at or above a bar, unattended. Then add a real run of it to the doc. You approve the ticket first."
