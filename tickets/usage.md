@@ -407,3 +407,8 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 080 B1 | gate (main session) / code-reviewer | - / opus | - / 117K | - | 1 | tsc clean, changed-tests gate 543 passed, 26 skipped; meets, must-fix 0 (b5ba7fe); playtester not run (docs and tests only) |
 | 080 B2a | renderer / code-reviewer | sonnet / opus | 175K / 69K | - | 1 | scale-and-lots, parking, light-and-accessibility condensed, testing-daylight split out (3d85dbd); meets, must-fix 0 (d32f6de) |
 | 080 B2b | renderer / code-reviewer | sonnet / opus | 192K (build and one fix round) / 85K + a short round 2 (figure not in the readout) | - | 2 | streets-and-blocks and buildings condensed into seven files (a639251, e6bbb01); round 1 partly, must-fix 1 (02c9c11); round 2 must-fix 0 (9dfd141) |
+| 079 | lead-architect | opus (agent default) | 112K total (one figure in the readout) | - | 0 | Cut the ticket in 3 PRs; 26 tool uses, 7 min |
+| 079 | planner (all sections, Q3 waiver) | sonnet (agent default) | 187K total over five resumes (PR 1, the split, PR 2, PR 3, PR 4) | - | 2 on PR 1 | 97 tool uses; PR 3 stopped at the 15-case cap and became PR 3 + PR 4 |
+| 079 | code-reviewer | opus (agent default) | 62K (PR 1, two rounds) / 50K / 45K / 33K | - | 2 / 1 / 1 / 1 | All meets, must-fix 0 |
+| 079 | gate (main session) | - | - | - | - | PR 1 whole suite 218 files, 4,181 passed (package.json changed); PRs 2-4 scoped: 82 s, 77 s, 45 s |
+| cleanup 23 Nov | branch-cleaner (general-purpose on haiku) | haiku | 74K total | - | - | First cleanup pass, 5 tool uses |

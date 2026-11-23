@@ -18,7 +18,8 @@ import { roofReport } from "./roofcheck";
 import { P_ROOF_LARGE, ROOF_BOUNDS } from "./roofkit";
 import { buildRoofs, roofInsets } from "./roofs";
 import { buildShops } from "./shops";
-import { cityOf, label, layersOf, NAMED, type City } from "./testcities";
+import { cityOf, label, layersOf, type City } from "./testcities";
+import { ALL_NAMED, FULL_CITIES, NAMED } from "../testing/namedcities";
 import { wallBounds } from "./wallkit";
 import { partyBounds, PARTY_WALL_KINDS } from "./partykit";
 
@@ -157,8 +158,8 @@ describe("NP, F and RS (criterion 3)", { timeout: 300_000 }, () => {
       for (const [s, n] of perShop) if (n > 1) wrong.push(`${label(o)} shop ${key(s.cells[0]!)}: ${n} signs`);
     }
     expect(wrong.slice(0, 5)).toEqual([]);
-    expect(face).toBeGreaterThan(100);
-    expect(roof).toBeGreaterThan(20);
+    if (FULL_CITIES) expect(face).toBeGreaterThan(100);
+    if (FULL_CITIES) expect(roof).toBeGreaterThan(20);
   });
 
   it("every face sign holds F's every part, worked by hand from the kit's bounds: its back on storey 1's wall plane, centred, broad side out, base on the shopfront's tallest piece (never under top_m), top under the roof, within the shop's width, front within CELL_M of the cell edge, street front, not an escape's column, clear of every dressing and wall piece nearby", () => {
@@ -293,7 +294,7 @@ describe("NP, F and RS (criterion 3)", { timeout: 300_000 }, () => {
   });
 
   it("the same city twice gives the same shops, novelty and roofs (R-3)", () => {
-    for (const o of [NAMED[0]!, NAMED[11]!]) {
+    for (const o of [NAMED[0]!, ALL_NAMED[11]!]) {
       const v = viewOf(o);
       const rand = stageRand("facades", o.seed);
       const { ground, dressing, walls } = v.layer;

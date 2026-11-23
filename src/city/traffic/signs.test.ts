@@ -11,6 +11,7 @@ import { bayStretches, parkingPlace, parkingSigns, skipReasonOf, stopPlace, stop
 import { buildClear, clearOf, clearReasons, makePiece } from "./clear";
 import { edgeInfoOf } from "./control";
 import { NAMED, DEFAULT, label, layersOf, warm } from "./testcities";
+import { FULL_CITIES } from "../testing/namedcities";
 import { stageRand } from "../pipeline/seeds";
 
 /** Where an approach's near-right corner cell and its arm cell are, from a junction's inclusive cell bounds; its sign's yaw. Traffic keeps right: an arm on "-z" carries traffic heading +z, its right is -x. */
@@ -63,7 +64,7 @@ describe("stop signs on the named runs (criterion 4)", { timeout: 120_000 }, () 
       for (const p of stops) if (signalJ.has(p.host)) bad.push(`${label(o)}: a stop sign at a signal junction ${p.host}`);
     }
     expect(bad).toEqual([]);
-    expect(signs).toBe(1054);
+    if (FULL_CITIES) expect(signs).toBe(1054);
   });
 
   it("every sign's post is 0.5 m from its cell's kerb-side edge and 1.0 m from the end that touches the corner", () => {

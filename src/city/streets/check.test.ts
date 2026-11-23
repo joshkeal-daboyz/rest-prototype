@@ -4,9 +4,8 @@ import type { CityStageDef } from "../pipeline/types";
 import { runCity } from "../stages";
 import { streetsStageWith } from "./stage";
 import { evaluateStreets, evaluateStreetsVariety, streetWidthFailures, streetsVariety } from "./check";
+import { NAMED_ON as NAMED } from "../testing/namedcities";
 
-const NAMED: { blocksX: number; blocksZ: number; seed: number }[] = [];
-for (let seed = 1; seed <= 10; seed++) NAMED.push({ blocksX: 6, blocksZ: 6, seed });
 
 describe("street width and V1, V2 on the layer", () => {
   it("hold on the named cities, one-way on and off (A4d: the 20 named runs)", () => {

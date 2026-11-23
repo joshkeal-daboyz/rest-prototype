@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { CityHistoryLayer, CityPlan, CityPlanBlock } from "../../core";
 import { digestOf } from "../pipeline/digest";
+import { ALL_NAMED } from "../testing/namedcities";
 import { pictureProblems } from "../pipeline/picture";
 import { runCity, runCityEra } from "../stages";
 import { historyHash, historyUnit, sizeOf } from "./districts";
@@ -183,7 +184,7 @@ describe("criterion 2: a hand-worked fixture city (3 x 3 blocks, one inner), see
 
 describe("criterion 3: the picture (R-5)", { timeout: 120_000 }, () => {
   it("has the lattice's size, one legend entry per district plus nothing, and each cell carries its district's index", () => {
-    for (const c of [NAMED[0]!, NAMED[10]!]) {
+    for (const c of [NAMED[0]!, ALL_NAMED[10]!]) {
       const plan = planOf(c);
       const streets = plan.layers.streets!;
       const layer = layerOf(c);
@@ -245,7 +246,7 @@ describe("criterion 4: R-1 to R-7, X-1, X-7", { timeout: 120_000 }, () => {
     const b = runHistory(planOf(NAMED[0]!));
     expect(b).toEqual(a);
     expect(digestOf(b)).toBe(digestOf(a));
-    expect(digestOf(layerOf(NAMED[1]!))).not.toBe(digestOf(a));
+    expect(digestOf(layerOf(ALL_NAMED[1]!))).not.toBe(digestOf(a));
   });
 
   it("R-7: the stage reads only the streets layer (and the seed), never its own layer or another stage's", () => {

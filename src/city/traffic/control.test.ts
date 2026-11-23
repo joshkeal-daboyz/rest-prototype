@@ -6,6 +6,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import type { CityJunction, CityPlanStreet } from "../../core";
 import { buildControl } from "./control";
 import { NAMED, label, layersOf, warm } from "./testcities";
+import { FULL_CITIES } from "../testing/namedcities";
 
 const SIDES = { "-x": "x", "+x": "x", "-z": "z", "+z": "z" } as const;
 
@@ -78,7 +79,7 @@ describe("the control of every junction on the named runs (criterion 2)", { time
     expect([...junctionKinds].sort()).toEqual(["allStop", "none", "signals", "stop"]);
     expect([...approachKinds].sort()).toEqual(["none", "signal", "stop"]);
     expect(outbound).toBeGreaterThan(0);
-    expect(signalJunctions).toBe(221);
+    if (FULL_CITIES) expect(signalJunctions).toBe(221);
   });
 });
 

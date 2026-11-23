@@ -9,7 +9,8 @@ import { ROOF_ACCESS, ROOF_SMALL, ROOF_WATER_TOWER, BILLBOARD_STRUCTURE, BILLBOA
 import { columnLoads, deckY, placeOnRoof, roofInsets, streetMid } from "./roofs";
 import { makeCtx } from "./facts";
 import { runsOf } from "./dress";
-import { DEFAULT, NAMED, label, layersOf, type Layers } from "./testcities";
+import { DEFAULT, VARIED, label, layersOf, type Layers } from "./testcities";
+import { ALL_NAMED } from "../testing/namedcities";
 
 const { mass, buildings, facades } = layersOf(DEFAULT);
 const ctx = makeCtx(mass, buildings);
@@ -263,7 +264,7 @@ describe("the failing fixtures (criterion 5)", () => {
     };
     let from = label(DEFAULT);
     if (!small(l)) {
-      const o = NAMED.find((q) => small(layersOf(q)));
+      const o = [...VARIED, ...ALL_NAMED].find((q) => small(layersOf(q)));
       expect(o, "a named run has a block under 16 buildings").toBeDefined();
       l = layersOf(o!);
       from = label(o!);

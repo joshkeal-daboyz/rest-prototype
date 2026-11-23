@@ -14,14 +14,13 @@ import { streetsStage, streetsStageWith } from "../streets/stage";
 import { evaluateLand, landVariety, laneCells, laneMouthsAtJunctions, parkCells, unservedWholeParks } from "./check";
 import { planLand } from "./plan";
 import { LAND_LEGEND, landStage } from "./stage";
+import { NAMED_ON as NAMED } from "../testing/namedcities";
 
 interface City {
   readonly blocksX: number;
   readonly blocksZ: number;
   readonly seed: number;
 }
-const NAMED: City[] = [];
-for (let seed = 1; seed <= 10; seed++) NAMED.push({ blocksX: 6, blocksZ: 6, seed });
 
 const cache = new Map<string, ReturnType<typeof runCity>>();
 function cityOf(o: City): ReturnType<typeof runCity> {
@@ -53,11 +52,6 @@ const layersWay = (o: City, way: Way): { streets: CityStreetsLayer; land: CityLa
 };
 
 describe("stage 2, land, on the named cities", { timeout: 120_000 }, () => {
-  it("the named cities are 10, the default 6 x 6 seed 1 first (A4d)", () => {
-    expect(NAMED).toHaveLength(10);
-    expect(NAMED[0]).toEqual({ blocksX: 6, blocksZ: 6, seed: 1 });
-  });
-
   for (const o of NAMED) {
     describe(label(o), () => {
       it("returns ok, and V3, V4 and M4a hold (criteria 2 and 4)", () => {

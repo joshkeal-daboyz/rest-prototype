@@ -5,11 +5,12 @@ import { streetsStageWith } from "../streets/stage";
 import { BUILT_STAGES } from "../stages";
 import type { CityStageDef } from "./types";
 import { eraPlan } from "./erafixtures";
-import { CELL_M, EMPTY_CIRCUIT, t1CleanClashes, t1Failures, t2Failures } from "./readable";
+import { CELL_M, EMPTY_CIRCUIT, t1Failures, t2Failures } from "./readable";
 import { resolvePlan } from "./resolve";
+import { NAMED } from "../testing/namedcities";
 
-/** The 20 named runs: 6 x 6 seeds 1 to 10, one-way off and on. Each built once for this file. */
-const RUNS = (["on", "off"] as const).flatMap((way) => Array.from({ length: 10 }, (_, n) => ({ way, seed: n + 1 })));
+/** The named runs (one city in npm test, the 20 in a full run). Each built once for this file. */
+const RUNS = NAMED.map(({ way, seed }) => ({ way, seed }));
 const plans = new Map<string, CityPlan>();
 const planOf = (way: "on" | "off", seed: number): CityPlan => {
   const id = `${way}:${seed}`;
@@ -22,8 +23,7 @@ const planOf = (way: "on" | "off", seed: number): CityPlan => {
   return plans.get(id)!;
 };
 
-const clashes: number[] = [];
-describe("the 20 named runs (C1, criteria 2 and 4)", () => {
+describe("the named runs (C1, criteria 2 and 4)", () => {
   for (const { way, seed } of RUNS) {
     it(`6 x 6 seed ${seed} one-way ${way}: clean resolves to the plan itself; T-1 and T-2 find nothing to fail`, () => {
       const plan = planOf(way, seed);
@@ -37,10 +37,9 @@ describe("the 20 named runs (C1, criteria 2 and 4)", () => {
       expect(clean.states).toEqual([]);
       // an era above clean, with no era layer written, is the same plan (the passes are unbuilt)
       expect(resolvePlan(ep, "ruin").plan).toBe(plan);
-      // Stage 6 is empty until K2, so there is no point to judge: both checks are empty. The clean report is reported, not asserted (it fills once K2 does).
+      // Stage 6 is empty until K2, so there is no point to judge: both checks are empty. The clean clash count is in named.report.test.ts.
       expect(t1Failures(clean)).toEqual([]);
       expect(t2Failures(clean)).toEqual([]);
-      clashes.push(t1CleanClashes(clean).length);
       // The cell convention T-2 reads: a prop's cell is where its position falls on the 5 m lattice.
       for (const p of plan.layers.ground!.props) {
         expect(Math.floor(p.placement.x_m / CELL_M)).toBe(p.cell.i);
@@ -67,12 +66,5 @@ describe("runCityEra on a named run", () => {
     expect(r.ok).toBe(true);
     expect(r.plan.plan.digests).toEqual(plain.digests);
     expect(r.plan.layers).toEqual({});
-  });
-});
-
-describe("the clean clash report", () => {
-  it("is reported per run (not asserted; empty until K2 gives stage 6 a layer)", () => {
-    console.log(`t1CleanClashes per named run: ${clashes.join(", ")}`);
-    expect(clashes.every((n) => n >= 0)).toBe(true);
   });
 });

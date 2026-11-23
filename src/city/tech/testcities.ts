@@ -15,8 +15,7 @@ export interface City {
   readonly way: "on" | "off";
 }
 
-/** The 20 named runs: 6 x 6 seeds 1 to 10, one-way off and on. */
-export const NAMED: readonly City[] = (["on", "off"] as const).flatMap((way) => Array.from({ length: 10 }, (_, n) => ({ blocksX: 6, blocksZ: 6, seed: n + 1, way })));
+export { NAMED } from "../testing/namedcities";
 export const DEFAULT: City = { blocksX: 6, blocksZ: 6, seed: 1, way: "on" };
 /** The four pin cities: 6 x 6 seeds 1, 2, 3 and 8, one-way on. */
 export const PINNED: readonly City[] = [1, 2, 3, 8].map((seed) => ({ blocksX: 6, blocksZ: 6, seed, way: "on" as const }));

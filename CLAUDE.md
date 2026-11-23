@@ -23,6 +23,7 @@ The power-routing minigame prototype for *Rest*: a top-down map of a town sectio
 5. **Show Josh.** In a few lines: what the ticket did, how to try it (`npm run dev`, which puzzle), the reviewer's assessment, and links to the ticket and review. Ask him to play it and say whether to merge.
 6. **Merge.** On his word, merge into `main` with his words in the commit message, push, and mark the ticket done.
 7. **Clean up.** Run *The cleanup step* below.
+8. **Measure, one PR in ten.** If the merged PR's number is a multiple of 10, run one manual CI on `main` (`gh workflow run CI --ref main -f cities=one`) and add its times to [docs/ci-times.md](docs/ci-times.md) (Josh, 23 Nov 2026: "perform a measurement on 1/10 pull requests"; test policy rule 5).
 
 ## The pipeline designer (city pipeline, ticket 070)
 

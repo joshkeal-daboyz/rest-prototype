@@ -14,8 +14,7 @@ export interface City {
   readonly way: "on" | "off";
 }
 
-/** The 20 named runs: 6 x 6 seeds 1 to 10, one-way off and on (Q17). */
-export const NAMED: readonly City[] = (["on", "off"] as const).flatMap((way) => Array.from({ length: 10 }, (_, n) => ({ blocksX: 6, blocksZ: 6, seed: n + 1, way })));
+export { NAMED, VARIED } from "../testing/namedcities";
 export const DEFAULT: City = { blocksX: 6, blocksZ: 6, seed: 1, way: "on" };
 export const label = (o: City): string => `${o.blocksX} x ${o.blocksZ} seed ${o.seed} one-way ${o.way}`;
 

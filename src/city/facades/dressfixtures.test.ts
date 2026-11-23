@@ -1,7 +1,7 @@
 /**
  * Stage 7, section H1b, criterion 4's failing fixtures. Each is built from the default city's layers (6 x 6 seed 1, one-way on), typed in from the run in the test (not pinned by hash), with one thing changed, and must
  * fail the named check. The unchanged layer must pass (the sanity test), so a fixture fails for its own change and nothing else that matters. The checks also hold on the 20 named runs through the stage itself
- * (`dressreport.test.ts` and `stage.test.ts` run them; the stage fails a run that breaks one).
+ * (`dress.report.test.ts` and `stage.test.ts` run them; the stage fails a run that breaks one).
  */
 import { describe, expect, it } from "vitest";
 import type { CalibrationKey, CityDressingPiece, CityFacadesLayer, CityGroundPiece } from "../../core";
