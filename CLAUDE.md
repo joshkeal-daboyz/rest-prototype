@@ -37,9 +37,13 @@ Its note is `docs/design/070-<section>-<topic>.md`. Josh's answer, in his words,
 2. Show Josh the design note and the analyzer's numbers. He plays it (`npm run dev`, pick the puzzle).
 3. His verdict, in his words, goes at the bottom of the design note under **What it taught us**. If he says lock, copy the file to `puzzles/locked/` and commit both.
 
+## The loop for a style run
+
+A city era is scored against the GDD by a fresh `style-judge` each round, and refined by its pass agents until every barred rule clears the bar, with nobody between rounds: [docs/style-loop.md](docs/style-loop.md), rubric in [docs/style-rubric.md](docs/style-rubric.md) (ticket 075).
+
 ## Hook
 
-`.claude/hooks/pipeline_guard.py` blocks agents from merging, pushing, writing reviews (unless `code-reviewer`), writing playtests (unless `playtester`), writing tickets (unless `lead-architect`), the `playtester` from touching `src/`, `puzzles/` or `tools/`, and everyone from touching `puzzles/locked/`. If it blocks you, follow its message.
+`.claude/hooks/pipeline_guard.py` blocks agents from merging, pushing, writing reviews (unless `code-reviewer`), writing playtests (unless `playtester`), writing judgements (unless `style-judge`, which writes nowhere else), writing tickets (unless `lead-architect`), the `playtester` from touching `src/`, `puzzles/` or `tools/`, and everyone from touching `puzzles/locked/`. If it blocks you, follow its message.
 
 ## Tokens
 
