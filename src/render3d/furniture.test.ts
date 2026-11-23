@@ -53,6 +53,7 @@ import { STACK_STYLES } from "./stacks";
 import { ALLEY_MAX_M, ALLEY_MIN_M, packTown } from "./terrace";
 import { OCCLUDE_SLOPE, WIRE_CLEAR, townLayout, type OpenLot, type TerraceRun } from "./town";
 import { stubTextSurface } from "./text";
+import { yieldToWorker } from "../city/testing/yield";
 
 // ---- fixture: [name, width, height, depth] in metres, centred bounds ----
 const SIZES: [string, number, number, number][] = [
@@ -334,7 +335,7 @@ describe("the furniture's keys", () => {
 });
 
 describe("pavement furniture on every map (criterion 9)", () => {
-  it("stands only on the pavements in front of terrace runs, on its two lines, with the pitch, the corner, keep-out and wire rules, the caps, and deterministically", () => {
+  it("stands only on the pavements in front of terrace runs, on its two lines, with the pitch, the corner, keep-out and wire rules, the caps, and deterministically", async () => {
     const stats = { pieces: 0, metres: 0, runsWithAny: 0, runs: 0 };
     const kinds = new Map<string, number>();
     for (const file of ladder()) {
@@ -394,6 +395,7 @@ describe("pavement furniture on every map (criterion 9)", () => {
       }
       stats.runs += w.runs.length;
       stats.metres += w.runs.reduce((s, r) => s + r.len / W, 0);
+      await yieldToWorker();
     }
     // Busy, not cluttered: a piece every 4 to 20 m of frontage on average, on most runs; every kind of item shows up on the ladder.
     const perMetre = stats.pieces / stats.metres;
