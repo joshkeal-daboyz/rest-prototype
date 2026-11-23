@@ -395,3 +395,7 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 073/074 cleanup | lead-architect | opus | 174K | - | 0 | statuses, answer labels, intended-use note (a043b1f) |
 | 074 notes sync | renderer (general-purpose with renderer.md) | sonnet | ~110K | - | 0 | PIECE_NOTES in step with the note; crowns row (d7ea58d, ba175be) |
 | 07x cleanup | gate / code-reviewer / playtester | - / opus / sonnet | - / ~45K / 16K | - | 0 | 9741c6f: 4869 passed, 1 failed (powerkit, on base); meets, must-fix 0; regressions 0 |
+| 076 cut + G1 log | lead-architect | opus | 101K + 24K | - | 0 | 6929473, b6f3de0 |
+| 076 A+B | planner (general-purpose with planner.md) | sonnet | 188K | - | 0 | shared city cache; 8 folders switched (597decc..fb8392a) |
+| 076 | gate (main session) | - | - | - | 0 | before c46827b 852.9 s / 4877; after fb8392a 665.5 s / 4908, all pass |
+| 076 | code-reviewer / playtester | opus / sonnet | ~70K / 18K | - | 0 | meets, must-fix 0; regressions 0 |

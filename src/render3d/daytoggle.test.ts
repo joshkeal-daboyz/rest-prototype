@@ -11,13 +11,14 @@ import { DAY_TOGGLE_LABEL, createDayToggle, isFlipKey, type ButtonLike, type Day
 import { NO_MODELS } from "./models3d";
 import { stubTextSurface } from "./text";
 import { runCity } from "../city/pipeline";
+import { sharedCity } from "../city/testing/namedcities";
 import { createPlanAssembleRenderer3d, tilesPlanRequested } from "./plan3d";
 import { createCityRenderer3d } from "./tilecity3d";
 import { cityTilesRequested } from "./tileslots";
 
 /** The pipeline's city (6 x 6 seed 1, what `city=tiles` asks), run once for the file. */
 let planRun: ReturnType<typeof runCity> | null = null;
-const cachedRun = (): ReturnType<typeof runCity> => (planRun ??= runCity({ blocksX: 6, blocksZ: 6, seed: 1 }, "traffic"));
+const cachedRun = (): ReturnType<typeof runCity> => (planRun ??= sharedCity({ blocksX: 6, blocksZ: 6, seed: 1, way: "on" }, "clean"));
 
 /** A host that records what was added and removed. */
 function fakeHost(): { host: DayToggleHost; press(e: KeyEventLike): void; click(): void; state: { listeners: number; button: boolean; states: LightModeId[] } } {

@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Scene, WebGLRenderer } from "three";
 import type { CityEra, CityEraRun, CityPlan, CityPlanRun } from "../core";
-import { ERA_STAGES, runCity, runCityEra } from "../city/pipeline";
+import { ERA_STAGES, runCityEra } from "../city/pipeline";
+import { sharedCity, sharedEra } from "../city/testing/namedcities";
 import { pictureProblems } from "../city/pipeline/picture";
 import { NO_MODELS } from "./models3d";
 import { createPlanAssembleRenderer3d, nextEra, planAssembleRequested, planAtEra } from "./plan3d";
@@ -11,11 +12,11 @@ import { eraRequested, planHidesHud, planShown, planViewRequested } from "./plan
 const OPTS = { blocksX: 6, blocksZ: 6, seed: 1 };
 let cleanRun: CityPlanRun | null = null;
 function clean(): CityPlan {
-  cleanRun ??= runCity(OPTS, "traffic");
+  cleanRun ??= sharedCity({ ...OPTS, way: "on" }, "clean");
   if (!cleanRun.ok) throw new Error(`clean run failed at ${cleanRun.failure.stage}`);
   return cleanRun.plan;
 }
-const eraRunOf = (era: "tech" | "holdout" | "ruin"): CityEraRun => runCityEra(OPTS, era);
+const eraRunOf = (era: "tech" | "holdout" | "ruin"): CityEraRun => sharedEra({ ...OPTS, way: "on" }, era);
 /** The era stages with no pass built: history only. */
 const HISTORY_ONLY = ERA_STAGES.filter((s) => s.name === "history");
 const noPassRunOf = (era: "tech" | "holdout" | "ruin"): CityEraRun => runCityEra(OPTS, era, HISTORY_ONLY);

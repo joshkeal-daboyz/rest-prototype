@@ -5,9 +5,7 @@ import type { CityEraPlan, CityPlan } from "../../core";
 import { historyStage } from "../history/stage";
 import { runEraStages } from "../pipeline/eras";
 import { stageRand } from "../pipeline/seeds";
-import type { CityStageDef } from "../pipeline/types";
-import { BUILT_STAGES, runCity } from "../stages";
-import { streetsStageWith } from "../streets/stage";
+import { sharedCity } from "../testing/namedcities";
 import { buildTech, type TechBuild, type TechOptions } from "./stage";
 
 export interface City {
@@ -24,18 +22,11 @@ export const DEFAULT: City = { blocksX: 6, blocksZ: 6, seed: 1, way: "on" };
 export const PINNED: readonly City[] = [1, 2, 3, 8].map((seed) => ({ blocksX: 6, blocksZ: 6, seed, way: "on" as const }));
 export const label = (o: City): string => `${o.blocksX} x ${o.blocksZ} seed ${o.seed} one-way ${o.way}`;
 
-const stagesOf = (way: "on" | "off"): CityStageDef[] => (way === "on" ? [...BUILT_STAGES] : [streetsStageWith(0) as unknown as CityStageDef, ...BUILT_STAGES.slice(1)]);
-
-const clean = new Map<string, CityPlan>();
-/** The city's clean plan (stages 1 to 9), once per test file. */
+/** The city's clean plan (stages 1 to 9): built at most once per worker per test run and shared across the test files (ticket 076; deep-frozen, as a direct build is). */
 export function cleanOf(o: City): CityPlan {
-  const k = `${o.blocksX}x${o.blocksZ}:${o.seed}:${o.way}`;
-  if (!clean.has(k)) {
-    const r = runCity({ blocksX: o.blocksX, blocksZ: o.blocksZ, seed: o.seed }, undefined, stagesOf(o.way));
-    if (!r.ok) throw new Error(`${label(o)} failed at ${r.failure.stage}: ${r.failure.reason}`);
-    clean.set(k, r.plan);
-  }
-  return clean.get(k)!;
+  const r = sharedCity(o, "clean");
+  if (!r.ok) throw new Error(`${label(o)} failed at ${r.failure.stage}: ${r.failure.reason}`);
+  return r.plan;
 }
 
 /** The era plan holding the clean plan and the history layer, which is all the tech pass reads. */

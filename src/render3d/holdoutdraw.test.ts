@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { BoxGeometry, Color, Group, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, Texture, Vector3, type Object3D } from "three";
 import type { CalibrationKey, CityEra, CityEraPiece, CityEraRun, CityHoldoutPieceKind, CityPlan, CityPlanRun } from "../core";
-import { resolvePlan, runCity, runCityEra } from "../city/pipeline";
+import { resolvePlan } from "../city/pipeline";
+import { sharedCity, sharedEra } from "../city/testing/namedcities";
 import { KIT } from "../city/holdout/kit";
 import { TECH_KIT } from "../city/tech/kit";
 import { isNeverUsed } from "./citymetrics";
@@ -12,7 +13,7 @@ import { HOLDOUT_DRAW_CALLS_MAX, PLAN_AUDIT_HOLDOUT_ALLOWED, PLAN_AUDIT_HOLDOUT_
 const OPTS = { blocksX: 6, blocksZ: 6, seed: 1 };
 let cleanRun: CityPlanRun | null = null;
 function clean(): CityPlan {
-  cleanRun ??= runCity(OPTS, "traffic");
+  cleanRun ??= sharedCity({ ...OPTS, way: "on" }, "clean");
   if (!cleanRun.ok) throw new Error("clean run failed");
   return cleanRun.plan;
 }
@@ -20,7 +21,7 @@ const eraRuns = new Map<CityEra, CityEraRun>();
 function eraRun(era: "tech" | "holdout" | "ruin"): CityEraRun {
   let r = eraRuns.get(era);
   if (!r) {
-    r = runCityEra(OPTS, era);
+    r = sharedEra({ ...OPTS, way: "on" }, era);
     eraRuns.set(era, r);
   }
   return r;
