@@ -34,7 +34,7 @@ describe("stage 6, poles and spans (081 K2a)", () => {
     expect(Object.isFrozen(layer.spans)).toBe(true);
     expect(pictureProblems(circuitStage.picture(plan), plan.layers.streets!.w, plan.layers.streets!.h)).toEqual([]);
     expect(plan.digests.circuit).toBe(digestOf(layer));
-    expect(plan.digests.circuit).toBe("18c6a048");
+    expect(plan.digests.circuit).toBe("973fef66");
     expect(circuitProblems(layer, input)).toEqual([]);
   });
 

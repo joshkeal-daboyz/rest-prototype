@@ -14,7 +14,7 @@ import { layPoles } from "./lay";
 /** Pure: poles and spans from the streets and the edge. */
 export function buildCircuit(input: CircuitInput): CityCircuitLayer {
   const { poles, spans } = layPoles(input);
-  return { stage: "circuit", poles, spans, drops: [], lights: [], posts: [], keep: poles.map((p) => ({ x_m: p.x_m, z_m: p.z_m })) };
+  return { stage: "circuit", poles, spans, drops: [], lights: [], posts: [], poleModels: {}, keep: poles.map((p) => ({ x_m: p.x_m, z_m: p.z_m })) };
 }
 
 function run(plan: CityPlan): CityCircuitLayer {
