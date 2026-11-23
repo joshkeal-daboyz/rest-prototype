@@ -1,14 +1,26 @@
 # 078 · No long uninterrupted city tests: the test worker answers vitest at least every 10 s
 
-owner: planner, with the folder rule waived for the files in the table below (Q1 option 1). Under Q1 option 2: the planner for section A, then each folder's owner for its rows in B.
-status: open
-branch: `ticket/078-test-yields` (Q1 option 1). Under option 2: `ticket/078a-yield-helper`, then one `ticket/078b-<folder>` per owner.
+owner: planner, for sections A and B, with the folder rule waived for the files in B's table for this ticket only (Josh's Q1 answer, option 1)
+status: approved to build
+branch: `ticket/078-test-yields`
 
 ## Josh's words (23 Nov 2026, in chat)
 Context: GitHub CI on `main` fails although all 223 test files pass, because vitest reports `[vitest-worker]: Timeout calling "onTaskUpdate"` (run 45197616087; the same error is in the local gate at fb8392a, `D:\rest-prototype-073gate\gate-fb8392a.txt`). He was shown option 2: "Split the longest test files into smaller ones, or give them short pauses between tests. That directly prevents the worker timeout and spreads the load across workers." He answered:
 > "Cut tickets for options one and two"
 
 Option 1 is ticket 077. He gives G1 before any build. Open PR #3 (one eraview test gets a 30 s timeout) is the other session's, and this ticket does not touch it.
+
+## G1 (Josh, 23 Nov 2026, in chat)
+He was shown both tickets' summaries, including 077's recommendation (build nothing; the old tile-city tests go with 070 L2d) and this ticket's four questions with their recommended answers, and asked "Should I build 078 with those answers and drop 077?". He answered:
+> "Yes"
+
+This is his G1 for 078, and his answers to Q1 to Q4, each the recommended one:
+- **Q1:** option 1. The planner does section A and every file in section B on one branch, `ticket/078-test-yields`. The CLAUDE.md rule "Each agent stays in its folder" is waived for the files in B's table, for this ticket only. The reviewer checks B row by row in one review.
+- **Q2:** option 1. The one `setupFiles: ["src/city/testing/yield.setup.ts"]` line under `test` in `vite.config.ts`. Nothing else in that file changes.
+- **Q3:** no. No loop is split into one test per city, so the test count stays (plus exactly section A's new tests).
+- **Q4:** leave it. The slow `buildRuin` call with a circuit is not changed here; a ruin-pass ticket can profile it when K2's real circuit lands.
+
+077 is dropped (closed, not built), so 078 goes ahead on its own.
 
 ## What the architect found (read 23 Nov 2026 on `design/077-078-test-speed` at 86ee932)
 
