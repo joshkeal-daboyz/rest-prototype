@@ -641,7 +641,7 @@ describe("closing the far gap: a seam, or an alley, never a slit", () => {
     const src = sourceOf("terrace.ts");
     expect(src).not.toMatch(/near-even/);
     expect(src).toContain("not what bounds the terrace");
-    expect(readFileSync(join("docs", "city-style-guide.md"), "utf8")).toContain("seam, or alley, never a slit");
+    expect(readFileSync(join("docs", "city-style", "scale-and-lots.md"), "utf8")).toContain("seam, or alley, never a slit");
   });
 });
 

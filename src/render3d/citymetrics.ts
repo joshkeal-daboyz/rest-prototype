@@ -1,5 +1,5 @@
 /**
- * Ticket 053: the numbers behind the reference checklist (R1 to R13 of chapter 16 of docs/city-style-guide.md). Pure: no three, no DOM, no fetch, no GLB. It reads what the town
+ * Ticket 053: the numbers behind the reference checklist (R1 to R13 of chapter 16 of docs/city-style/index.md). Pure: no three, no DOM, no fetch, no GLB. It reads what the town
  * plan already holds (the terrace runs and their packed blocks of 051, the dressing of 052 A, the street furniture of 052 C) and counts: frontage covered per run, the far-gap
  * histogram, the storey histogram, the neighbour-differ rate, slots per bay, props per roof, keep-out violations, excluded keys used, emissive materials. `evaluateCity` compares the
  * numbers with `CITY_CHECK`, so the measurable half of the evaluation protocol runs on every `npm test` (`citymetrics.test.ts`); the rest of the checklist is judged by eye.

@@ -696,7 +696,7 @@ describe("the City Pack stack pieces in BUILDING_FRONTS (provisional, from the s
   it("gives the saved file's keys the front the file has (+z), and names the file's savedAt in the code comment and in the guide", () => {
     for (const n of SAVED) expect(BUILDING_FRONTS[keyOf(n)]!.front, n).toBe("+z");
     expect(readFileSync("src/render3d/models.ts", "utf8")).toContain(SAVED_AT);
-    const guide = readFileSync("docs/city-style-guide.md", "utf8");
+    const guide = readFileSync("docs/city-style/buildings.md", "utf8");
     expect(guide).toContain(SAVED_AT);
     expect(guide).toMatch(/provisional/i);
   });
@@ -709,7 +709,8 @@ describe("the City Pack stack pieces in BUILDING_FRONTS (provisional, from the s
 });
 
 describe("the guide tells the three-step chain and the stack gallery (criterion 14)", () => {
-  const guide = readFileSync("docs/city-style-guide.md", "utf8").replace(/\r\n/g, "\n");
+  // Chapters 5 to 7 are in buildings.md and 13 to 15 in packs.md (ticket 080 A).
+  const guide = ["buildings.md", "packs.md"].map((f) => readFileSync(`docs/city-style/${f}`, "utf8").replace(/\r\n/g, "\n")).join("\n");
   const chapter = (n: number): string => {
     const from = guide.indexOf(`\n## ${n}. `);
     const to = guide.indexOf("\n## ", from + 1);
