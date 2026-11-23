@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { loadPuzzle, puzzleFeeds, validatePuzzle } from "./load";
+import { loadCityPuzzle, loadPuzzle, puzzleFeeds, validateCityPuzzle, validatePuzzle } from "./load";
 
 const PUZZLES = join(__dirname, "..", "..", "puzzles");
 const files = readdirSync(PUZZLES).filter((f) => f.endsWith(".json"));
@@ -240,5 +240,71 @@ describe("draft 5: more than one powersource (ticket 015)", () => {
     p["version"] = 5;
     (p["nodes"] as N[]).find((n) => n.type === "feed")!.capacity = null;
     expect(puzzleFeeds(loadPuzzle(p))[0]!.capacity).toBeNull();
+  });
+});
+
+describe("city puzzles (081 C1)", () => {
+  const P1 = "pole:s_a:lo:4.00", P2 = "pole:s_a:lo:12.00", P3 = "pole:s_b:hi:3.50";
+  const S1 = `span:${P1}~${P2}`, S2 = `span:${P2}~${P3}`;
+  /** Feed, breaker, lamp on a building: a two-span line round a carrier pole, then a drop; a damaged cable on its second span. */
+  const good = () => ({
+    id: "c-test", name: "City test", version: 3, scope: "map", capacity: 2, startingParts: ["wire"], target: ["house"],
+    from: "09-shrine-circuit",
+    city: { blocksX: 6, blocksZ: 6, seed: 1, oneWay: true },
+    district: ["b_1_1", "b_1_2"],
+    nodes: [
+      { id: "feed", type: "feed", place: { pole: P1 } },
+      { id: "br", type: "breaker", closed: false, place: { pole: P2 } },
+      { id: "house", type: "lamp", load: 1, place: { building: "bld_7" } },
+    ] as Record<string, unknown>[],
+    lines: [
+      { id: "l1", from: "feed", to: "br", run: { spans: [S1] } },
+      { id: "l2", from: "br", to: "house", run: { spans: [S2], drop: "bld_7" } },
+    ] as Record<string, unknown>[],
+    faults: [{ id: "f1", at: "l2", kind: "damaged-cable", span: S2 }] as Record<string, unknown>[],
+  });
+  const errorsOf = (p: unknown) => {
+    const r = validateCityPuzzle(p);
+    return r.ok ? [] : r.errors;
+  };
+
+  it("a well-formed city puzzle validates", () => {
+    expect(errorsOf(good())).toEqual([]);
+  });
+
+  it("city, district and scope: each problem has its own message", () => {
+    const p = { ...good(), scope: "street", city: { blocksX: 0, blocksZ: 6, seed: 1, oneWay: "yes" }, district: ["b_1_1", "b_1_1"] };
+    const e = errorsOf(p).join("\n");
+    for (const m of [/scope must be "map"/, /city.blocksX/, /city.oneWay/, /district: a block id is listed twice/]) expect(e).toMatch(m);
+    expect(errorsOf({ ...good(), district: ["a", "b", "c", "d", "e"] }).join("\n")).toMatch(/district must be 1 to 4/);
+  });
+
+  it("nodes: a place of exactly one kind and no pos; the schematic checks still run", () => {
+    const p = good();
+    p.nodes[0] = { id: "feed", type: "feed", pos: [0, 0], place: { pole: P1, building: "bld_7" } };
+    p.nodes[1] = { id: "br", type: "breaker", place: { pole: P2 } };
+    const e = errorsOf(p).join("\n");
+    for (const m of [/node feed: a city node has a place, not a pos/, /node feed: place must be exactly one/, /breaker br: closed/]) expect(e).toMatch(m);
+  });
+
+  it("runs and fault spans: a missing run, both ends, an empty run, a span off its line or off a cable", () => {
+    const p = good();
+    p.lines[0] = { id: "l1", from: "feed", to: "br" };
+    p.lines[1] = { id: "l2", from: "br", to: "house", run: { spans: [], drop: "bld_7", lead: S1 } };
+    p.lines.push({ id: "l3", from: "br", to: "house", run: { spans: [] } });
+    p.faults[0] = { id: "f1", at: "l2", kind: "damaged-cable", span: S1 };
+    p.faults.push({ id: "f2", at: "house", kind: "dead-lamp", span: S2 });
+    const e = errorsOf(p).join("\n");
+    for (const m of [/line l1: run must be/, /line l2: run has both a drop and a lead/, /line l3: run.spans is empty/, /fault f1: span ".*" is not in line l2's run/, /fault f2: span is only for a damaged-cable/])
+      expect(e).toMatch(m);
+  });
+
+  it("loadCityPuzzle throws with every message listed", () => {
+    expect(loadCityPuzzle(good()).district).toEqual(["b_1_1", "b_1_2"]);
+    expect(() => loadCityPuzzle({ ...good(), scope: "street", district: [] })).toThrow(/invalid city puzzle:[\s\S]*scope[\s\S]*district/);
+  });
+
+  it("loadPuzzle still refuses the city shape", () => {
+    expect(() => loadPuzzle(good())).toThrow(/node feed: pos must be \[x, y\]/);
   });
 });
