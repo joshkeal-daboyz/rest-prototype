@@ -16,18 +16,17 @@ import * as debug3d from "./debug3d";
 import * as dressing from "./dressing";
 import * as escapes from "./escapes";
 import * as facade from "./facade";
-import * as frontage from "./frontage";
 import * as furniture from "./furniture";
 import * as layout from "./layout";
 import * as lighting from "./lighting";
 import * as models from "./models";
-import * as parkmetrics from "./parkmetrics";
 import * as placeholders from "./placeholders";
 import * as scene from "./scene";
 import * as sills from "./sills";
 import * as stacks from "./stacks";
 import * as streetcam from "./streetcam";
 import * as terrace from "./terrace";
+import * as buildingsConstants from "../city/buildings/constants";
 import * as edgeConstants from "../city/edge/constants";
 import * as massConstants from "../city/mass/constants";
 import * as tilecity from "./tilecity";
@@ -145,7 +144,6 @@ const MODULES: Readonly<Record<string, Record<string, unknown>>> = {
   "dressing.ts": dressing as unknown as Record<string, unknown>,
   "escapes.ts": escapes as unknown as Record<string, unknown>,
   "facade.ts": facade as unknown as Record<string, unknown>,
-  "frontage.ts": frontage as unknown as Record<string, unknown>,
   "sills.ts": sills as unknown as Record<string, unknown>,
   "furniture.ts": furniture as unknown as Record<string, unknown>,
   "streetcam.ts": streetcam as unknown as Record<string, unknown>,
@@ -154,10 +152,11 @@ const MODULES: Readonly<Record<string, Record<string, unknown>>> = {
   "lighting.ts": lighting as unknown as Record<string, unknown>,
   "tilecity.ts": tilecity as unknown as Record<string, unknown>,
   "tileslots.ts": tileslots as unknown as Record<string, unknown>,
-  "parkmetrics.ts": parkmetrics as unknown as Record<string, unknown>,
   // The pipeline's stage modules (ticket 070 L1: a guide line that changed reads the pipeline's constant, not the old path's). The File cell of a Numbers row is the short name.
   "edge/constants.ts": edgeConstants as unknown as Record<string, unknown>,
   "mass/constants.ts": massConstants as unknown as Record<string, unknown>,
+  // Ticket 081 A1: the wall-reach numbers the guide's rules name (`OVERLAP_MAX_M`, `RECESS_MAX_M`, `FRONTAGE_TOL_M`) were the old frontage.ts's; stage 5's are the same values (kitpin.test.ts and groundpin.test.ts pin them).
+  "buildings/constants.ts": buildingsConstants as unknown as Record<string, unknown>,
 };
 
 // ---- reading the guide ----
@@ -755,19 +754,6 @@ describe("chapter 18 gives the parking rules, and the numbers it names cannot dr
     }
   });
 
-  it("has a Numbers row for every constant parkmetrics.ts exports, and the check finds one with no row", () => {
-    const uncovered = (mod: Record<string, unknown>, have: readonly string[]): string[] =>
-      Object.entries(mod)
-        .filter(([, v]) => typeof v !== "function")
-        .map(([name]) => name)
-        .filter((name) => !have.some((r) => r === name || r.startsWith(`${name}.`) || r.startsWith(`${name}[`)));
-    expect(Object.values(MODULES["parkmetrics.ts"]!).some((v) => typeof v !== "function"), "parkmetrics.ts exports a constant").toBe(true);
-    expect(uncovered(MODULES["parkmetrics.ts"]!, refs("parkmetrics.ts")), "no row for these parkmetrics.ts exports").toEqual([]);
-    expect(uncovered({ ...MODULES["parkmetrics.ts"]!, NEW_TUNING: 3 }, refs("parkmetrics.ts"))).toEqual(["NEW_TUNING"]);
-    expect(uncovered(MODULES["parkmetrics.ts"]!, [])).toContain("PARK_CHECK");
-    expect(parkmetrics.PARK_CHECK.P6).toBe(tilecity.BAYS_PER_100M_MAX);
-  });
-
   it("has a row for every tilecity.ts constant that chapter 18 names (the two the pipeline owns are read from its stage modules)", () => {
     const have = [...refs("tilecity.ts"), ...refs("mass/constants.ts"), ...refs("edge/constants.ts")];
     for (const m of text.matchAll(/`([A-Z][A-Z0-9_]{2,})`/g)) {
@@ -780,7 +766,7 @@ describe("chapter 18 gives the parking rules, and the numbers it names cannot dr
 
   it("names the three kinds of rule: shoppers at the kerb, residents in lots, and the band without bays, each with the constants the ticket names", () => {
     for (const w of ["PARK_PER_SHOP", "PARK_PER_HOME", "BAY_RUN_TILES_MAX", "KERB_GAP_MIN_M", "KERB_BAY_SHARE_MAX", "BAYS_PER_100M_MAX", "LOTS_PER_BLOCK_MAX", "LOT_STALLS", "BUILDOUT_TREE_EVERY", "PARK_SUPPLY_BAND", "TILE_PARK_MIN_RUN_M"]) expect(text, w).toContain(`\`${w}\``);
-    for (const id of Object.keys(parkmetrics.PARK_CHECK)) expect(text, id).toMatch(new RegExp(`^\| ${id} \|`, "m"));
+    for (const id of ["P1", "P2", "P3", "P4", "P5", "P6"]) expect(text, id).toMatch(new RegExp(`^\| ${id} \|`, "m"));
     expect(text).toMatch(/shoppers park at the kerb, residents park off the street/);
   });
 });
@@ -863,20 +849,15 @@ describe("chapter 19 gives frontage and block interiors, and the numbers it name
     Object.entries(mod)
       .filter(([name, v]) => numeric(v) && !skip.has(name) && !covered(have, name))
       .map(([name]) => name);
-  const reexported = new Set(Object.keys(frontage).filter((k) => k in tilecity && (frontage as unknown as Record<string, unknown>)[k] === (tilecity as unknown as Record<string, unknown>)[k]));
   const text = chapter(19).join("\n");
 
-  it("has a Numbers row for every number and record of numbers facade.ts and frontage.ts export (less the per-piece wall tables and what frontage.ts re-exports from tilecity.ts), and the check finds one with no row", () => {
+  it("has a Numbers row for every number and record of numbers facade.ts exports (less the per-piece wall tables), and the check finds one with no row", () => {
     const tables = new Set(["WALL_FRONT_M", "WALL_SIDE_M"]);
     expect(Object.values(MODULES["facade.ts"]!).filter(numeric).length, "facade.ts exports constants").toBeGreaterThan(6);
-    expect(Object.values(MODULES["frontage.ts"]!).filter(numeric).length, "frontage.ts exports constants").toBeGreaterThan(8);
     expect(uncovered(MODULES["facade.ts"]!, refs("facade.ts"), tables), "no Numbers row for these facade.ts exports").toEqual([]);
-    expect(uncovered(MODULES["frontage.ts"]!, refs("frontage.ts"), reexported), "no Numbers row for these frontage.ts exports").toEqual([]);
     // Not vacuous: a number added without a row is found, and a row left out is found.
-    expect(uncovered({ ...MODULES["frontage.ts"]!, NEW_TUNING: 3 }, refs("frontage.ts"), reexported)).toEqual(["NEW_TUNING"]);
+    expect(uncovered({ ...MODULES["facade.ts"]!, NEW_TUNING: 3 }, refs("facade.ts"), tables)).toEqual(["NEW_TUNING"]);
     expect(uncovered(MODULES["facade.ts"]!, [], tables)).toContain("WALL_REACH_M");
-    expect([...reexported].sort(), "what frontage.ts re-exports from tilecity.ts").toEqual(["ALLEY_ONE_IN_BLOCKS", "BLOCK_CV_MIN", "BLOCK_NONSQUARE_MIN", "END_OVERLAP_MAX_M", "PARK_ONE_IN_BLOCKS", "PASSAGE_W_M"]);
-    for (const name of reexported) expect(covered(refs("tilecity.ts"), name), `${name} is re-exported by frontage.ts and needs its tilecity.ts row`).toBe(true);
   });
 
   it("has a Numbers row in tilecity.ts for every constant 057 added, and the code still exports each", () => {
@@ -896,14 +877,14 @@ describe("chapter 19 gives frontage and block interiors, and the numbers it name
     expect(have.filter((r) => r.startsWith("BLOCK_FALLBACK_DEPTHS[")).length).toBe(tilecity.BLOCK_FALLBACK_DEPTHS.length);
   });
 
-  it("has a row for every constant that chapter 19 names from tilecity.ts, facade.ts, frontage.ts or tileslots.ts", () => {
+  it("has a row for every constant that chapter 19 names from tilecity.ts, facade.ts or tileslots.ts", () => {
     let checked = 0;
     for (const m of text.matchAll(/`([A-Z][A-Z0-9_]{2,})`/g)) {
       const name = m[1]!;
-      for (const file of ["tilecity.ts", "facade.ts", "frontage.ts", "tileslots.ts"]) {
+      for (const file of ["tilecity.ts", "facade.ts", "tileslots.ts"]) {
         const v = (MODULES[file] as Record<string, unknown>)[name];
         if (v === undefined || !numeric(v) || name === "WALL_FRONT_M" || name === "WALL_SIDE_M") continue;
-        const own = file === "frontage.ts" && reexported.has(name) ? refs("tilecity.ts") : file === "tilecity.ts" ? [...refs(file), ...refs("mass/constants.ts"), ...refs("edge/constants.ts")] : refs(file);
+        const own = file === "tilecity.ts" ? [...refs(file), ...refs("mass/constants.ts"), ...refs("edge/constants.ts")] : refs(file);
         checked++;
         expect(covered(own, name), `chapter 19 names ${name} of ${file}, which has no Numbers row`).toBe(true);
       }
@@ -911,8 +892,7 @@ describe("chapter 19 gives frontage and block interiors, and the numbers it name
     expect(checked, "the check found the constants").toBeGreaterThan(40);
   });
 
-  it("holds the values chapter 19 states in words: the overlap is the wall reach, the drive is two cells, a court is six stalls", () => {
-    expect(frontage.OVERLAP_MAX_M).toBe(facade.WALL_REACH_M);
+  it("holds the values chapter 19 states in words: the drive is two cells, a court is six stalls", () => {
     expect(tilecity.DRIVE_CELLS).toBe(2);
     expect(tilecity.COURT_CELLS.w * tilecity.COURT_CELLS.d).toBe(6);
     expect(tilecity.LOT_STALLS).toBe(6);
@@ -921,8 +901,6 @@ describe("chapter 19 gives frontage and block interiors, and the numbers it name
     expect(Object.keys(tilecity), "055 B's inset function is gone").not.toContain("tileRowInset_m");
     expect(tilecity.PASSAGE_W_M.min).toBe(1);
     expect(tilecity.PASSAGE_W_M.max).toBeLessThanOrEqual(tilecity.TILE_M + 0.3 + 1e-9);
-    expect(Object.keys(frontage.FRONTAGE_CHECK)).toEqual(["G1", "G2", "G3", "G4"]);
-    expect(Object.keys(frontage.VARIETY_CHECK)).toEqual(["V1", "V2", "V3", "V4"]);
   });
 });
 

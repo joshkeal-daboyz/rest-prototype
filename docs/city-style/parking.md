@@ -9,7 +9,7 @@ Depends on: `docs/city-style/numbers.md` (the constants), `docs/city-style/block
 
 ## 18. Parking
 
-The tile city (`city=tiles`) is made by the pipeline, stage by stage (`docs/city-grammar.md` and `tickets/070-city-pipeline.md` give the stages). Stage 3's lots and units are in `src/city/mass/`, stage 4's parking band, kerb bays and build-outs are in `src/city/edge/`, and `plan3d.ts` draws them. The checks P1 and P3 to P6 are stage 4's (`src/city/edge/check.ts`) and P2 is stage 3's (`src/city/mass/check.ts`). `tilecity.ts`, `parkmetrics.ts` and `tilecity3d.ts` are the old path's (`city=tiles-old`, until L2), and the measured tables of 18.8 are that path's numbers. The ladder's town (chapter 4) keeps its hash lots, and `town.ts` has only the option that switches them off for the tile city.
+The tile city (`city=tiles`) is made by the pipeline, stage by stage (`docs/city-grammar.md` and `tickets/070-city-pipeline.md` give the stages). Stage 3's lots and units are in `src/city/mass/`, stage 4's parking band, kerb bays and build-outs are in `src/city/edge/`, and `plan3d.ts` draws them. The checks P1 and P3 to P6 are stage 4's (`src/city/edge/check.ts`) and P2 is stage 3's (`src/city/mass/check.ts`). The old tile city (its generator in `tilecity.ts`, its parking checks and its drawing in `tilecity3d.ts`) went in ticket 081 A1; `tilecity.ts` keeps the cell types and constants the pipeline's drawing reads. The ladder's town (chapter 4) keeps its hash lots, and `town.ts` has only the option that switches them off for the tile city.
 
 
 ### 18.1 Who parks where
@@ -28,7 +28,7 @@ The tile city (`city=tiles`) is made by the pipeline, stage by stage (`docs/city
   - Homes are floor(columns x `UNIT_FLOORS_NOMINAL` / `HOME_COLUMN_FLOORS`), where a block's upper floors are nominally 3 over the base.
   - A shop is one ground bay that is a shop or a shop corner (the `groundRow` kinds of `citymetrics.ts`); the two-column shop counts once.
 - **Rule [D-056d]**: a home is two column-floors of one 5 m cell each (so 2 x 5.0 m x 5.0 m = 50 m2).
-- **Default (056)**: the layout's numbers stay within 10% of the packed plan's. A test compares them on the default city and seeds 1 to 10 at 3 x 3.
+- **Default (056)**: the layout's numbers stay within 10% of the packed plan's. A test compared them on the old path's default city and seeds 1 to 10 at 3 x 3 (deleted in ticket 081 A1); the pipeline's checks run on 6 x 6 seeds 1 to 10.
 
 
 ### 18.3 Kerbside bays (shoppers)

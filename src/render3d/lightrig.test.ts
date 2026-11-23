@@ -289,9 +289,8 @@ describe("one owner, by source", () => {
     expect([...src("lighting.ts").matchAll(/from\s+"([^"]+)"/g)]).toEqual([]);
   });
 
-  it("scene.ts and buildCityScene ask the rig for night and carry no light literal of their own", () => {
+  it("scene.ts asks the rig for night and carries no light literal of its own", () => {
     expect(src("scene.ts")).toMatch(/applyLightMode\(scene, null, "night", lightOwners\)/);
-    expect(src("tilecity3d.ts")).toMatch(/applyLightMode\(scene, null, "night", lightOwners\)/);
     for (const f of ["scene.ts", "streetcam.ts"]) expect(/0x0b0f17|0x4a5a7a|0x8fa6d0/.test(src(f)), f).toBe(false);
     expect(LIGHT_MODES.night.background).toBe(0x0b0f17);
   });

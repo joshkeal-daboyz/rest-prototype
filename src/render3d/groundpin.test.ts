@@ -23,11 +23,14 @@ import { ownBody } from "../city/facades/place";
 import { WALL_JOINT_TOL_M as BUILDINGS_WALL_JOINT_TOL_M } from "../city/buildings/constants";
 import { measureBodyPlane, measureOpenSide, BODY_M, OPEN_SIDE_MEASURED } from "./facade";
 import { WINDOW_SILL_M } from "./escapes";
-import { FRONTAGE_TOL_M as OLD_FRONTAGE_TOL_M, OVERLAP_MAX_M as OLD_OVERLAP_MAX_M, RECESS_MAX_M as OLD_RECESS_MAX_M } from "./frontage";
 import { DOOR_SILLS, LIFT_CLEAR_M as OLD_LIFT_CLEAR_M, measureDoor, SILL_MAX_M as OLD_SILL_MAX_M, SILL_UNDER_M as OLD_SILL_UNDER_M } from "./sills";
 import { STACK_STYLES } from "./stacks";
 
 const k = (name: string): CalibrationKey => `city-pack:${name}`;
+/** The old path's thresholds as typed values (src/render3d/frontage.ts at 3823f0d, deleted in ticket 081 A1): OVERLAP_MAX_M was WALL_REACH_M, RECESS_MAX_M 0 and FRONTAGE_TOL_M 0.01. */
+const OLD_OVERLAP_MAX_M = 0.6;
+const OLD_RECESS_MAX_M = 0;
+const OLD_FRONTAGE_TOL_M = 0.01;
 
 describe("the ground kit table equals the old path's numbers (070 H1, criterion 1)", () => {
   it("the table has 18 keys: the six shops, the two residents' doors, the two shop corners, the two corner doors, and each style's mid floor and corner floor", () => {

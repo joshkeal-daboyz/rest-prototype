@@ -65,7 +65,7 @@ The block draw has three rules beyond the ranges above. They narrow the effectiv
 
 - A block whose longer side is under 7 cells (35 m) is rejected, because the kerbside bays (18.3) cannot be laid on a 6 x 6 block on streets.
 - The mean block size on each axis is at least `BLOCK_MEAN_MIN_CELLS` (10 cells, 50 m).
-- A draw that misses the variety rules (V1 and V2 of 19.7) or cannot be laid is redrawn by hash, at most `BLOCK_DRAWS_MAX` times; if every draw misses, a known-good layout is used (`BLOCK_FALLBACK_WIDTHS` and `BLOCK_FALLBACK_DEPTHS`, cut to the city's size). `alleys.test.ts` forces the miss.
+- A draw that misses the variety rules (V1 and V2 of 19.7) or cannot be laid is redrawn by hash, at most `BLOCK_DRAWS_MAX` times; if every draw misses, a known-good layout is used (`BLOCK_FALLBACK_WIDTHS` and `BLOCK_FALLBACK_DEPTHS`, cut to the city's size). A test forced the miss on the old path (deleted with the old tile city, ticket 081 A1).
 
 ## Open questions
 
