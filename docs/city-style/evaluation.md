@@ -181,3 +181,58 @@ Text moved out of `docs/city-style/packs.md` unchanged. It records readings and 
 - **Info (050 B)**: the stack gallery is `/?puzzle=09-shrine-circuit&view=3d&gallery=city-pack&stacks=1` (dev only, never in `npm run build`, never a pick target, never part of a playtest; the code is `stackgallery.ts` and `stacks.ts`). It shows every recipe assembled on each lot type it serves, at its most floors, as a mid-row stack and as a corner stack at each end, seen from the street. Each stack is captioned with its style, lot type, floors, height against the cap and every piece's key and front, marked `guess` unless the code's table or the saved file has the key. Below it, the click line shows the recipe's pieces (roofs included) four ways, and a click saves a front exactly as in the pack gallery. A saved "+z" counts as saved even when it came from a first click, so an unmarked piece still needs a look.
 
 - **Info**: the converter has no include filter. It converts every FBX under the pack folder, so `town-pack` is a GLB of about 110 MB.
+
+
+## Moved from scale-and-lots.md, parking.md, light-and-accessibility.md and testing-daylight.md (ticket 080 B2, first batch): readings and history
+
+Text moved out of `docs/city-style/scale-and-lots.md`, `docs/city-style/parking.md`, `docs/city-style/light-and-accessibility.md` and `docs/city-style/testing-daylight.md` unchanged. It records readings and history; it is not a rule. A bullet that starts "From" names the line of the old guide it was cut from.
+
+### From scale-and-lots.md
+
+- **Info**: only the highest height tier ever occurs on the ladder, so every block's cap lets it have three to five storeys.
+
+- From the far-end bullet of chapter 4 (the rule is now in 16.2): Where the pieces cannot (N unscaled columns span only 5.0 N to about 5.28 N metres, so most row lengths fall in a dead band), it aims for a gap from `ALLEY_MIN_M` to `ALLEY_MAX_M`, which reads as an alley between blocks (dressed in 052 C), and never for a 0.3 to 0.5 m slit
+
+- From the far-end bullet of chapter 4: (that block's own stack depth, 5.62 to 5.92 m by the shops and roof corners it draws, not the style's deepest piece; `packTown` packs a block's runs together so each row closes to the corner block the next row really got; or a plaza's or parking lot's edge)
+
+- From the flush bullet of 16.2: Whole columns span only a little more than the nominal bay, so most runs cannot close to the wall exactly.
+
+- From the open-lots bullet of chapter 4: A later ticket (052 C) dresses them; until then they are bare yard.
+
+- **Info (053)**: the packer, the dressing of the open lots and the alleys, and the checklist a generated street is judged by are in chapter 16 (16.2 and 16.8); the "bare yard" above was true until 052 C.
+
+### From parking.md
+
+- From the introduction of chapter 18: (ticket 056 A, B and C wrote them); Nothing on the ladder maps changes: the ladder's town (chapter 4) keeps its hash lots, and `town.ts` gained only the option that switches them off for the tile city.
+
+- **Info (056)**: these are drawn spaces, about half of what a real dense terraced core provides. A real core has about 0.3 spaces per home, and about 1 per 40 m2 of shop, which here is about 0.7 per 31 m2 shop bay. The camera reads every drawn stall at full size, and Josh found the full count overwhelming. [D-056c]
+
+- From 18.2: The old path counted the lots' 5.2 m bays.
+
+- From 18.2: The old path's figure was 2 x 5.2 m x 6 m, about 62 m2 (`city=tiles-old`, until L2d).
+
+- From 18.2: The test packs the fixture stacks and compares the city-wide shop count and the homes (column-floors over `HOME_COLUMN_FLOORS`) with the layout's sums, on the default city and seeds 1 to 10 at 3 x 3.
+
+- **Info (056, measured 18 Nov 2026 on the merged layout; the test, not this line, is the record)**: the default city packs 95 stacks of 255 columns and 775 column-floors, 3.04 floors over the base on average. The layout counts 255 columns, 160 shops (the plan has 152, 5% under) and 379 homes (the plan has 387.5, 2% over). Per block that is 15 to 21 shops and 34 to 49 homes. Seeds 1 to 10 at 3 x 3 have 255 to 285 columns, 160 to 180 shops and 379 to 424 homes.
+
+- From 18.3: (and, before 063 B, both sides of an avenue: the tile city has no avenue now); Avenue sides fill first, then longer sides, with ties by id. With no avenue (063 B) that is the longer sides first.; Every street is a street since 063 B, so the first field is unused.
+
+- **Info (057 C)**: the court's drive is as wide as 056's lot, so the frontage that parking lots cost stays about 90 m of the 1,800 m; the saving of about 45 m that the 057 draft counted would need a one-cell drive (19.4).
+
+- **Info (056 B)**: R6 sits at 0.49 to 0.55 on the tile city whatever the layout, by the dressing's own sign chance. The floor lets a later layout change pass without a re-tune, so the lot-run salt that 056 A had tuned to hold R6 at 0.5 is gone.
+
+### From light-and-accessibility.md
+
+- From 9: This reversed the 12% sag of 037 C-Q2, because heavy sag on short spans made the wires read as lines.
+
+- **Info**: the code uses a `DROP_REACH` of 2.5, where 041 C5 wrote 2. At 2 almost no lot is reachable (the reason is in the `layout.ts` comment). The 041 C review raised the difference, and 041 merged with 2.5.
+
+### From testing-daylight.md
+
+- From 16.12, the one-owner bullet: a test reads the source to hold this.
+
+- From 16.12, the night bullet: A test holds the three protocol maps' lights, background and every material colour equal to a snapshot taken before the rig existed.
+
+- **Info (060)**: the earlier dev-only daylight (055 E) added one hemisphere light to a night scene, owned twice (`tilecity3d.ts` and `streetcam.ts`), and left the sky and the surfaces near black. Its three constants (the street camera's daylight sky, ground and intensity) are retired with it; their rows are gone from the Numbers table.
+
+- **Info (060, 057 D)**: the grass colour (`surfaces.grass` of each light mode, a Numbers row) was held for a drawer. Since 057 D the greens of the block interiors are drawn (19.4): the City Pack's `SM_Env_Grass_01` tiles, sunk 0.11 m so the blades stand a hair over the walk, or, where the piece is absent, flat quads in the mode's grass colour. The tile view brings a material it swaps in later (the pack's tiles arriving) to the mode it is in.

@@ -967,8 +967,11 @@ describe("the guide catches up with the pipeline (ticket 070 L1)", () => {
     expect(t18).toMatch(new RegExp(`^\\| P2 \\|.*\\(still ${massConstants.PARK_SUPPLY_BAND.lo} to ${massConstants.PARK_SUPPLY_BAND.hi}\\)`, "m"));
     expect(t18).toMatch(/^\| P3 \|.*counted over the whole block side/m);
     expect(t19).toContain(`\`PARK_PER_HOME\` is ${massConstants.PARK_PER_HOME} (18.1`);
-    expect(t18).toContain('Josh\'s ruling of 19 Nov 2026');
-    expect(t18).toContain('"Yes, all four"');
+    // The ruling's words and date live in the decision log, not in the domain (ticket 080 B2).
+    const ruling = mappingRows().find((r) => r.id === "D-056g")!.line;
+    expect(ruling).toContain("Josh's ruling of 19 Nov 2026");
+    expect(ruling).toContain('"Yes, all four"');
+    expect(t18).toContain("[D-056g]");
   });
 
   it("the stage modules the guide now names exist and export what it says", () => {
