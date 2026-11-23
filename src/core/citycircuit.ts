@@ -4,8 +4,9 @@
  * the city puzzle's validator is the lead-architect's (`src/core/load.ts`, 081 C1), the picks table is the renderer's (081 D3).
  *
  * Typed from CK15's sketch (21 Nov 2026), names kept where the sketch gave them; `CitySpan` is taken in `cityplan.ts` (a stretch along a street), hence `CityWireSpan`.
- * **Not typed yet:** the roof structures a diagonal street span hangs from (Josh, 23 Nov 2026; 081 B1). They join `CityPoleKind` and `CityWireSpanKind` when B1's rule is
- * answered by Josh and pre-checked, not before.
+ * **Not typed yet:** the roof structures a diagonal street span hangs from (Josh, 23 Nov 2026; 081 B1). Josh's answers on 23 Nov fix their shape (a roof structure may hold a
+ * node; a diagonal runs roof to roof or roof to pole; a roof span may cross over an intersection), but their ids, place and heights are B1's. They join `CityPoleKind`,
+ * `CityWireSpanKind` and `CityNodePlace` after B1's pre-check, before K2d.
  *
  * Ids (stable, for 071's hash and for puzzle files):
  * - a pole: `pole:<street id>:<lo|hi>:<along_m, 2 decimals>`;
@@ -103,10 +104,17 @@ export interface CityPuzzleCity {
 export type CityNodePlace = { readonly pole: string } | { readonly building: string } | { readonly post: string };
 
 /**
- * CK13: what a line is on the city. `spans`: its span ids in order from `from` to `to`; `drop`: the building's drop; `lead`: a lamp post's underground lead from the nearer pole of
- * that span. Whether a `spans` run may bend round a corner without a junction is 081's question 5; until Josh answers, CK13 holds (one kind per run).
+ * CK13 as Josh changed it (23 Nov 2026, 081 question 5: "lines cannot bend, they are runs that go from one structure to another"; card: "Just carriers (Recommended)").
+ * A line is a chain of straight spans, each from one structure to the next, of any kinds (along, corner, crossing, and roof spans once 081 B1 types them), in order from `from`
+ * to `to`. The poles between them, corner poles included, only carry the wire: they hold no node of the job, so a city puzzle keeps exactly its schematic's nodes.
+ * It may end at a building on that building's drop (`drop`, a building id), or at a lamp post on its underground lead (`lead`, the post's span id), never both.
+ * `spans` is empty only for a line that is nothing but a drop or a lead.
  */
-export type CityLineRun = { readonly spans: readonly string[] } | { readonly drop: string } | { readonly lead: string };
+export interface CityLineRun {
+  readonly spans: readonly string[];
+  readonly drop?: string;
+  readonly lead?: string;
+}
 
 type WithoutPos<N> = N extends unknown ? Omit<N, "pos"> : never;
 
@@ -154,7 +162,8 @@ export interface CityPuzzleConverted {
 
 /**
  * The puzzle's components, each of which gets one model Josh picks (081 D; Josh, 23 Nov 2026: "I want to work through a process where I am selecting individual assets to
- * represent puzzle components"). The ground poles are not here: 071's picks (`POWER_MIX`) already stand. `roofMast` waits on 081 B1; `damagedLine` on 081's question 8.
+ * represent puzzle components"). The ground poles are not here: 071's picks (`POWER_MIX`) already stand. `damagedLine` is a prop placed at the cut span (081 question 8: "Yes, a
+ * picked prop"); the wire itself stays code-drawn. `roofMast` is the roof structure (081 B1).
  */
 export const CIRCUIT_COMPONENTS = ["feed", "breaker", "switch", "relay", "spring", "fusebox", "junction", "battery", "lampBuilding", "lampPost", "damagedLine", "roofMast"] as const;
 export type CircuitComponent = (typeof CIRCUIT_COMPONENTS)[number];
