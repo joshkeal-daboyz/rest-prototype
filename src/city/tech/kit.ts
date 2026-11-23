@@ -84,7 +84,7 @@ export const TECH_BOUNDS: Readonly<Record<CalibrationKey, TechBounds>> = Object.
  * - `VendingMachine_01` (64,83,82 [255]; a teal front), `WallAttach_Electronics_04` (114,146,140 [255]; teal: the "cyan strips") and `AirConditioningUnit_01` (140,139,138; the palest bolt-on);
  * - `WallAttach_Electronics_01` and `_05` (screens [255]; 1.9 m and 2.75 m, the tallest things the pass puts above a roofline);
  * - `Sign_01` (brown [241]), `_02` (blue [196]), `_03` (pink [116]), `_04` (yellow [233]), `_05` (red [190]), `_06` (pink [120]), `_07` (blue [160]) and `_09` (cyan [217]): the signs that read lit.
- * - Round 1 (S2, S6, S8): `_011` too (1.6 x 0.46 m, aspect 3.5: the pale plates with red lettering over the shopfronts in the shots measure about 3.6; they read brighter than the walls at night). Only `_08` (aspect 5.4, grey) is picked, so signs still exist (the fixtures test needs some).
+ *   `_08` (grey) and `_011` (grey) stay.
  */
 const UNPICKED_NAMES: readonly string[] = [
   "SM_Prop_Advertisement_Pillar_01",
@@ -102,7 +102,6 @@ const UNPICKED_NAMES: readonly string[] = [
   "SM_Sign_06",
   "SM_Sign_07",
   "SM_Sign_09",
-  "SM_Sign_011",
 ];
 export const UNPICKED_KEYS: ReadonlySet<CalibrationKey> = new Set(UNPICKED_NAMES.map(k));
 
