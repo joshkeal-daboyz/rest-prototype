@@ -134,6 +134,7 @@ On top of them:
   - **What covers** (Josh, Q13, "Yes, all four"): only solid pieces and tree canopies. A thin wire (the roof net, a makeshift line) may cross over a pole line.
   - **The ruin's trees** (Josh, F1-Q1, 22 Nov 2026, on a question card: "Through any dead line"; "Trees may grow through every line in the ruin, including a job's. This drops the cover rule for trees in the ruin."): and (22 Nov 2026, the next card) **"Poles too"** ("In the ruin a tree crown may cover anything, poles and lights included."): **in the ruin era only**, T-1 does not judge a tree's crown at all: spans, poles, street lights, lamp-post places and drop ends. T-1 still holds for solid pieces in every era, the ruin's included, and for trees in the clean, tech and hold-out eras. T-2 is untouched: a trunk never blocks the way on foot to a pole. Built in C1's `readable.ts` by F1b1 (the planner's). It is an era check, not a clean-city check.
 - **T-2, every node place stays reachable.** From any pole a job could use, there is a way on foot along pavement or road to every other pole of its district. Barricades and growth never seal a pole in.
+  - **Ticket 081 (Josh, 23 Nov 2026, card: "On foot or by a climb (Recommended)"):** for the street layer later, a node on a roof structure (081 CK17) counts as reachable by a climb at its building; T-2 for roof nodes reads "on foot along pavement or road, or by a climb at its building". Nothing in the map-scope prototype changes.
 
 **The breaks (Josh's, 21 Nov 2026, cards 3 and 5). Each for its pass only.**
 
