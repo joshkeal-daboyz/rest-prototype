@@ -539,7 +539,7 @@ describe("build-outs and their street trees (056 B, criterion 9)", () => {
     code.dispose();
   });
 
-  it("turns every build-out's kerb edge (its piece's +z, turned by its yaw and the key's line) toward a carriageway cell, on the fixture and on 6 x 6 seed 3", () => {
+  it("turns every build-out's kerb edge (its piece's +z, turned by its yaw and the key's line) toward a carriageway cell, on the fixture", () => {
     const keys = new Set(tileKeys());
     for (const c of [city]) {
       const roles = roleMap(c);
