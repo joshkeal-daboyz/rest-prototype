@@ -399,3 +399,4 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 076 A+B | planner (general-purpose with planner.md) | sonnet | 188K | - | 0 | shared city cache; 8 folders switched (597decc..fb8392a) |
 | 076 | gate (main session) | - | - | - | 0 | before c46827b 852.9 s / 4877; after fb8392a 665.5 s / 4908, all pass |
 | 076 | code-reviewer / playtester | opus / sonnet | ~70K / 18K | - | 0 | meets, must-fix 0; regressions 0 |
+| 080 cut | lead-architect | opus (agent default) | 42K total (one figure in the readout) | - | 0 | Cut the ticket; 8 tool uses, 2 min; not yet committed, waits for G1 |
