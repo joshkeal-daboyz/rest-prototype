@@ -34,13 +34,18 @@ Asked from `docs/design/081-B1-roof-spans.md` section 9 (B1-Q1 to Q5) and `docs/
   - Stage 6 must therefore know each pole's model. The pole choice and the poles' attachment heights move out of merged 071 B's `src/render3d/powerkit.ts` into `src/core/` (sections PK1 and PK2), before K2d.
 - **B1-Q3.** Roof structures only where the live job uses them, or on every corner roof? **"On every corner roof"**. Roof structures stand on every street corner roof as scenery, used or not.
 - **B1-Q4.** Corner roofs only, or mid-row too? **"Mid-row as well"**. Roof structures may also stand on mid-row roofs.
-  - Read with Q3, this is ambiguous: are mid-row structures always there, or only where a puzzle uses one? That is open question 1 below.
+  - Read with Q3, this is ambiguous: are mid-row structures always there, or only where a puzzle uses one? Josh answered it: see the next bullet.
   - Mid-row places are unmeasured, so K2d and H4 wait for a fresh pre-check (B1q).
 - **B1-Q2 (T-2).** For the street layer later, does a roof node count as reachable by a climb? **"On foot or by a climb (Recommended)"**.
   - 073's T-2 reads "on foot along pavement or road, or by a climb at its building" for roof nodes.
   - A street-scope line with a roof span is `overhead`.
   - Nothing in this prototype changes, because roof nodes are played through the overlay. A pointer line is added to 073's T-2.
 - **B1-Q5.** May a job's lines use a roof structure on a block outside its district? **"Neighbouring blocks too"**. A job may use roof structures, as carriers or nodes, on the blocks one street beyond its district. This extends CK14's edge for roofs only. Pole lines and drops stay inside the district.
+
+- **Mid-row, always or only when used** (ticket 081's open question 1 of the B1 re-cut): **"Only when used (Recommended)"**.
+  - Corner roofs always carry a roof structure, as scenery.
+  - A mid-row roof carries one only while a puzzle that uses it is played.
+  - Roof spans are drawn only where a job uses them.
 
 **From the pre-check (no question).**
 - **Puzzle 15 fails CK14 however it is laid.** Each of its two feeds has 2 lines, and K1 Q10 gives a feed one entering span. It is a rework under answer 4.
@@ -130,10 +135,11 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | PK2 | `powerkit.ts` reads the mix and heights from core | renderer | PK1 | 2 |
 | B1q | "pre-check 081 B1b": mid-row roofs, the real pole pick, neighbouring blocks | pipeline-designer | B1b, PK1 | 0 (a note) |
 | C1 | The city puzzle validator | lead-architect | G1 | 6 |
-| K2a | Stage 6: poles and spans (CK1 to CK6, CK8; CK7 moves to K2d) | grid-simulator | now | 11 |
-| K2b | Stage 6: drops, lights, lamp posts, node places (CK9 to CK12) | grid-simulator | K2a | 10 |
+| K2a | Stage 6: poles and spans (CK1 to CK6, CK8; CK7 moves to K2d), not yet in `BUILT_STAGES` | grid-simulator | now | 9 |
+| K2a2 | Stage 6 switched on: `BUILT_STAGES`, the shared profiles, the tests that said circuit was not built | grid-simulator | K2a | at most 10 (about 7 rewritten) |
+| K2b | Stage 6: drops, lights, lamp posts, node places (CK9 to CK12) | grid-simulator | K2a2 | 10 |
 | K2c | The conversion (CK13 as changed, CK14, CK15) | grid-simulator | K2b, C1 | 10 |
-| K2d | Stage 6: the pole pick, CK7, roof structures and roof spans (CK17) | grid-simulator | K2c, PK1, B1q, Josh's answer to open question 1 | at most 13 |
+| K2d | Stage 6: the pole pick, CK7, roof structures and roof spans (CK17) | grid-simulator | K2c, PK1, B1q, Josh's mid-row answer (given) | at most 13 |
 | I2 | Stage 8 keeps clear of the circuit | landscape | K2b | 3 |
 | H4 | Stage 7's roof pieces keep clear of roof structures | facades | K2d (B1q measures the mid-row part) | 4 |
 | P1 | The fit tool and the city check | grid-simulator | K2c | 9 |
@@ -247,7 +253,7 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 **Acceptance criteria.** All **no test**.
 1. [ ] **CK17a, where roof structures stand:**
    - on every street corner roof, as scenery, used or not (Q3);
-   - on mid-row roofs as well (Q4), worded as open question 1 is answered. Until Josh answers, both readings are written out, with the recommended one first;
+   - on mid-row roofs as well (Q4), only while a puzzle that uses one is played ("Only when used (Recommended)"); roof spans only where a job uses them;
    - the keep square corrected to the pre-check's 26 props on seed 1.
 2. [ ] **CK17d:**
    - over a junction, a roof span may go roof to roof, or roof to a pole whose **model** clears `ROOF_JUNCTION_FLOOR_M` 7.5 m at the junction's edge (B1p-A), read from the pick PK1 types;
@@ -292,7 +298,7 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 ### B1q · "pre-check 081 B1b" (pipeline-designer). Branch `ticket/081b1-roof-spans`
 **Why.** Mid-row roofs (Q4), the real pole pick (B1p-A), roof nodes of every kind (Q1) and neighbouring-block roofs (Q5) are all unmeasured.
 
-**What it measures**, on the 20 named runs by a script run on demand (never in `npm test`), under each reading of open question 1:
+**What it measures**, on the 20 named runs by a script run on demand (never in `npm test`), with mid-row structures only where a job uses one ("Only when used"):
 - **Mid-row roof places:** how many there are, how many clash with stage 7's roof exit, water tower, billboard and roof props (H3, H3b), and H4's keep-square work on mid-row and corner roofs;
 - **Finding 1's table on the real pick** (PK1's data, `poleAt`'s rule): roof-to-pole places over junctions that clear 7.5 m;
 - **The pilot's fits** with any node on a roof and neighbouring-block roofs: whether 04, 11 and 12 come down to 1 block, and confirming 15 still fails CK14;
@@ -320,20 +326,42 @@ If it does not report "holds", its note goes to Josh before K2d and H4 are cut i
 **Files.** `src/core/load.ts`, `load.test.ts`, `citycircuit.ts`, `puzzles/SCHEMA.md` (the new section only).
 
 ### K2a · Stage 6, poles and spans (grid-simulator, pure). Branch `ticket/081k2a-circuit-poles`
-**Before it starts:** the main session adds `src/city/circuit/` to `.claude/agents/grid-simulator.md` (answer 10).
-**Goal.** `src/city/circuit/` builds `CityCircuitLayer`'s poles, spans and `keep` as CK1 to CK6 and CK8 say, and the circuit stage joins `BUILT_STAGES` between buildings and facades. **CK7 (the 4.2 m floor) moves to K2d.** It needs each pole's model, and the model is PK1's data plus K2d's pick. K2a needs neither PK1 nor C1, so it starts now.
+**Re-cut 23 Nov 2026.** The builder found that adding circuit to `BUILT_STAGES` breaks 13 tests outside `src/city/circuit/`. K2a's 9 cases plus those rewrites would come to 16, over the cap. So K2a lands without the `BUILT_STAGES` line, and K2a2 switches the stage on.
+
+**Goal.** `src/city/circuit/` builds `CityCircuitLayer`'s poles, spans and `keep` as CK1 to CK6 and CK8 say: a stage definition the runner can take, but not yet in `BUILT_STAGES`. **CK7 (the 4.2 m floor) moves to K2d.** It needs each pole's model (PK1's data plus K2d's pick).
 
 **Acceptance criteria.**
-1. [ ] The stage is a pure function of the layers before it, frozen by the runner, with a digest and a flat picture. **test**: 1 digest pin on seed 1. **browser**: `?city=plan&stage=6`.
+1. [ ] The stage is a pure function of the layers before it, with a digest and a flat picture. Its tests run it directly on stages 1 to 5 of 6 x 6 seed 1, one-way on, through the module cache. **test**: 1 digest pin.
 2. [ ] CK1, CK2 and CK3. **test**: 3 fixture cases, on CK2's and CK3's "Fails" lines.
 3. [ ] CK4, CK5 and CK6. **test**: 3 fixture cases.
 4. [ ] (moved to K2d)
 5. [ ] CK8: one connected network. **test**: 1 case on 6 x 6 seed 1, one-way on.
-6. [ ] The builder prints seed 1's counts (562 poles, 126 corner spans, 74 crossings) once, in its reply. **no test**.
-7. [ ] `circuitPoints` (`src/city/pipeline/readable.ts`, its body only) reads the layer. **test**: 1 case.
-8. [ ] Later stages' digest pins that move are re-taken once and listed. **test**: at most 2 rewritten.
+6. [ ] The builder prints seed 1's counts once, in its reply: 562 poles, 126 corner spans, 74 crossings and 49 nudged. **no test**.
+7. [ ] `circuitPoints` (`src/city/pipeline/readable.ts`, its body only) reads the layer when it is there, and gives `EMPTY_CIRCUIT` when it is not. Until K2a2, every plan is one without it. **test**: 1 case.
+8. [ ] **No test outside `src/city/circuit/` changes.** `src/city/stages.ts` is unchanged. **test** (existing; the gate).
 
-**Files.** New `src/city/circuit/`; `src/city/stages.ts` (one entry); `src/city/pipeline/readable.ts` (`circuitPoints` only).
+**Files.** New `src/city/circuit/`; `src/city/pipeline/readable.ts` (`circuitPoints` only). The `BUILT_STAGES` line on `ticket/081k2a-circuit-poles` (e2f4d4d) comes out of this PR and goes to K2a2.
+
+### K2a2 · Stage 6 switched on (grid-simulator). Branch `ticket/081k2a2-circuit-on`, from K2a's branch, opened as a PR after K2a merges
+**Goal.** The runner builds stage 6 between buildings and facades on every plan, and every existing test knows it. Josh sees stage 6's picture at `?city=plan&stage=6`.
+
+**Acceptance criteria.**
+1. [ ] `BUILT_STAGES` (`src/city/stages.ts`) holds the circuit stage after buildings. **no test**: its one line; criterion 3's cases hold it.
+2. [ ] `PROFILE_STAGES` (`src/city/testing/namedcities.ts`) adds "circuit" after "buildings" in the `facades`, `ground` and `clean` profiles. That restores the six shared-profile tests unedited: `namedcities.test` (the lists and `sharedEra`), `eraview.test`, and the tech, holdout and ruin `named.test`. **test** (existing, unedited).
+3. [ ] **The tests that said circuit is not built** are rewritten to say it is. Each keeps its other assertions, and nothing else in them changes. **test**: at most 8 rewritten:
+   - `src/city/facades/stage.test.ts`: 2 cases;
+   - `src/city/ground/stage.test.ts`: 2 cases and its test-double stage list;
+   - `src/city/traffic/stage.test.ts`: its stage list and its test-double stage list;
+   - `src/city/pipeline/run.test.ts`: 1 case.
+4. [ ] Any later stage's digest pin that moves because stage 6 now runs before it is re-taken once and listed. **test**: at most 2 rewritten. The PR stays at or under 15 in all, about 10.
+5. [ ] `?city=plan&stage=6` shows stage 6's picture. **browser**.
+
+**Files.**
+- `src/city/stages.ts` (one entry) and `src/city/testing/namedcities.ts` (`PROFILE_STAGES` only).
+- Test lines in four other owners' folders, listed here so they are in scope (test policy rule 6): `src/city/facades/stage.test.ts` (facades), `src/city/ground/stage.test.ts` (landscape), `src/city/traffic/stage.test.ts` (streetscape) and `src/city/pipeline/run.test.ts` (planner). Only the circuit-not-built lines change. Each folder's owner does not edit them in this PR, and the reviewer checks that nothing else moved.
+- Any digest pin file of criterion 4.
+
+**Must not:** any non-test file in those four folders.
 
 ### K2b · Stage 6, drops, lights, lamp posts and node places (grid-simulator, pure). Branch `ticket/081k2b-circuit-places`
 **Acceptance criteria.**
@@ -366,10 +394,10 @@ If it does not report "holds", its note goes to Josh before K2d and H4 are cut i
 **Files.** `src/city/circuit/`.
 
 ### K2d · Stage 6: the pole pick, CK7, roof structures and roof spans (grid-simulator, pure). Branch `ticket/081k2d-roof-spans`
-**Cut in full after** PK1, B1b, B1q and Josh's answer to open question 1. The architect first adds B1b's types to `src/core/citycircuit.ts` (`CityRoofMast`, the roof span kind, `{ roof }` as a place, `roofKeep`), then writes one criterion per line of CK17's "K2 checks" and "Fails". Known already, with expected tests:
+**Cut in full after** PK1, B1b and B1q. The architect first adds B1b's types to `src/core/citycircuit.ts` (`CityRoofMast`, the roof span kind, `{ roof }` as a place, `roofKeep`), then writes one criterion per line of CK17's "K2 checks" and "Fails". Known already, with expected tests:
 - **The pole pick.** `poleModels` gives every pole its key by `poleAt`'s rule on PK1's mix. **test**: 1 case. PK2's same-pick case goes here if PK2 is merged first.
 - **CK7, moved from K2a.** Every crossing's low point is at least 4.2 m on its poles' real models; along and corner spans meet the same walk floor. **test**: 1 case.
-- **Roof structures** on every street corner roof (Q3), and on mid-row roofs as open question 1 is answered (Q4). **test**: 2 cases.
+- **Roof structures** on every street corner roof (Q3), and on a mid-row roof only where a city puzzle uses one (Q4, "Only when used"). **test**: 2 cases.
 - **Roof spans:**
   - roof to roof, or roof to pole (6c);
   - over an intersection for roof spans only (6a);
@@ -396,7 +424,7 @@ At most 13 cases. If B1b adds checks beyond these, the section splits into K2d1 
 
 ### H4 · Stage 7's roof pieces keep clear of roof structures (facades, pure). Branch `ticket/081h4-roof-keep`
 Cut in full after K2d, with B1q's numbers on mid-row roofs.
-- **Expected:** the roof exit, the water tower, billboards and roof props (H3, H3b) keep clear of every roof structure's keep square (`roofKeep`), on corner roofs (about 26 props on seed 1) and on mid-row roofs where open question 1's answer puts structures. A big prop that can't keep clear moves, or leaves the roof, as B1q measures.
+- **Expected:** the roof exit, the water tower, billboards and roof props (H3, H3b) keep clear of every roof structure's keep square (`roofKeep`), on corner roofs (about 26 props on seed 1) and on a mid-row roof wherever a city puzzle could put a structure (B1q counts them). A big prop that can't keep clear moves, or leaves the roof, as B1q measures.
 - **Tests:** 1 fixture case for a corner roof, 1 for a mid-row roof, 1 seed-1 case and 1 digest re-take.
 - **Files** (expected): `src/city/facades/`.
 
@@ -486,7 +514,15 @@ P1's own fits (criterion 8) are the record. P2a waits for K2d, because 9 of its 
 **Files.** `src/ui/assetgallery.ts`, `assetgallerylogic.ts`, their tests, and a new `src/ui/componentshortlist.ts`.
 
 ### D3 · The picks table (renderer). Branch `ticket/081d3-component-picks`
-**Goal.** `COMPONENT_MODELS: Record<CircuitComponent, CircuitComponentPick>` in `src/render3d/componentmodels.ts`, transcribed from `docs/design/081-component-picks.md`. It is re-run each time Josh picks more.
+**Goal.** `COMPONENT_MODELS: Record<CircuitComponent, CircuitComponentPick>` in `src/render3d/componentmodels.ts`, transcribed from `docs/design/081-component-picks.md`.
+- Josh picked all twelve on cards on 23 Nov 2026. The file is on `ticket/081d1-component-shortlist` at 40ce6dc, and D3 branches after it merges.
+- `spring` and `junction` share one model (`SM_Prop_WallAttach_Electronics_03`). The table keeps both rows; the overlay icon tells them apart.
+- **Load:**
+  - the three `sci-fi-frontier-pack` picks (battery, damagedLine, roofMast) need a subset GLB run (071 D's kind) before K3 can draw them;
+  - the seven `sci-fi-city-pack` picks add a 35 MB pack the city does not load today;
+  - the Palm picks join 071 D's Palm subset.
+
+  D3's manifest case (criterion 2) skips a key whose pack is not converted, and names it.
 
 **Acceptance criteria.**
 1. [ ] The table equals the note row for row. **test**: 1 case.
@@ -521,11 +557,18 @@ P1's own fits (criterion 8) are the record. P2a waits for K2d, because 9 of its 
 **Goal.** At `?view=3d&city=tiles`, stage 6's poles, spans, drops and street lights are drawn dead through `powerkit.ts`, with roof structures once K2d is in. Each picked component model (D3), and the damaged line's prop at its cut, stands where a city puzzle puts it. Unpicked components are placeholders.
 
 **Acceptance criteria.**
-1. [ ] Every pole is drawn with `placePole` using the model `poleModels` names (PK1, K2d), and every span with `fitLine`. Roof structures (every corner roof, and mid-row as open question 1 says) are drawn with Josh's `roofMast` pick, or a placeholder. Roof spans are drawn where a job uses them, and as scenery as open question 1 says. **test**: 2 cases.
+1. [ ] Every pole is drawn with `placePole` using the model `poleModels` names (PK1, K2d), and every span with `fitLine`. Roof structures are drawn on every corner roof, and on a mid-row roof only while the open job uses it, with Josh's `roofMast` pick. Roof spans are drawn only where a job uses them. **test**: 2 cases.
 2. [ ] The wires are code-drawn with their Decided looks. **test**: 1 case.
 3. [ ] Component models stand at their places, unscaled (guide chapter 2, Decided), or as a placeholder when null. **test**: 2 cases.
 4. [ ] The R12 audit counts the new pieces. **test**: 1 rewritten.
 5. [ ] Josh views 6 x 6 seed 1 from the default camera and with `cam=street`, by day and by night. **browser**.
+
+**From Josh's picks** (`docs/design/081-component-picks.md`; notes for the builder, no rule change):
+- **The feed** (`palm-city-pack:SM_Prop_Powerpole_03`, an H-frame with a transformer, 10.83 m) **replaces** the feed's pole rather than standing on it. It needs its own `placePole` entry, and `poleModels` names it for the feed's pole while that job is played.
+- **The lamp post** (`sci-fi-city-pack:SM_Prop_Streetlight_01`) is 2.64 m deep with its arm. Its overhang of the carriageway from 0.75 m behind the kerb is not measured, so the builder reports it. Street lights (CK10, scenery) keep a different model, because Josh's pick is for the puzzle's lamp posts (CK11); which model they keep is 059's and K3's existing choice.
+- **The damaged-line prop** (`sci-fi-frontier-pack:SM_Prop_Cable_09`), hung from the lowest crossing (5.20 m), reaches 3.85 m, under CK7's 4.2 m walk floor. Whether CK7 binds a prop is **not decided here**. K3 hangs it as picked and reports its low point; a question goes to Josh only if he wants it raised.
+- **The roof mast** (`sci-fi-frontier-pack:SM_Prop_Power_Pole_03`) has no cross-arm (071 A: one-sided brackets). Decided 041's three conductors need a code-drawn arm on it, as 071 draws code insulators where a model has none.
+- **Loads:** the subset GLBs (Frontier, Sci-Fi City, Palm; see D3) are converted before K3 draws these. Until then each component draws as a placeholder.
 
 **Files.** `src/render3d/plan3d.ts`, `plan3d.test.ts`, a new `src/render3d/circuitdraw.ts` and its test.
 
@@ -571,13 +614,6 @@ Written into `src/core/` with this cut (typecheck passes):
 - **No new dependency.** The overlay is Canvas 2D.
 
 ## Open questions (for Josh)
-All ten of the first cut's questions, and B1's and B1p's, are answered (above). Still open:
-1. **Mid-row roof structures: always there, or only where a puzzle uses one?** You answered "On every corner roof" (they stand as scenery, used or not) and "Mid-row as well". Read together, the two answers fit either of these:
-   - **(a) Recommended:** corner roofs always carry a structure, as scenery. A mid-row roof carries one only where a puzzle uses it, and only while that puzzle is played.
-     - Under (a), the roof spans between structures are drawn only where a job uses them, because the offered span places cross one another and a full net would tangle.
-     - Stage 7 clears every corner roof once, and a mid-row roof only for the jobs that use it.
-     - Mid-row roofs hold most of the water towers, roof exits and billboards (on seed 1: 277 exits, 48 towers and 52 billboards on mid columns), so B1q measures how many could ever take one.
-   - **(b)** Every mid-row roof that can take one carries a structure, as scenery, as the corners do. Stage 7 then has to keep its roof props clear of all of them. B1q measures how many props move.
-
-   Neither reading is assumed. B1b writes both and B1q measures both.
-2. **Default this cut takes (you may overturn it):** after A2c, `?view=3d` on a schematic puzzle opens the 2D map with a console note, until that puzzle has a city form.
+All questions so far are answered (above), the mid-row one included ("Only when used (Recommended)"). Still open:
+1. **Default this cut takes (you may overturn it):** after A2c, `?view=3d` on a schematic puzzle opens the 2D map with a console note, until that puzzle has a city form.
+2. **(K3 reports, then only if you want it changed)** the damaged-line prop hangs below the 4.2 m walk floor from the lowest crossing.
