@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { CityBuildingsLayer, CityColumn, CityMassLayer, CityPiece, CityPlanRun, CitySide } from "../../core";
-import { FULL_CITIES, NAMED, sharedCity } from "../testing/namedcities";
+import { FULL_CITIES, NAMED, VARIED, sharedCity } from "../testing/namedcities";
 import { CORNER_TURN, floorPlan } from "./columns";
 import { columnFailures, columnReport } from "./columncheck";
 import { BUILDING_STYLES, OVERLAP_MAX_M, STOREY_ALIGN_TOL_M, WALL_JOINT_TOL_M } from "./constants";
@@ -100,9 +100,10 @@ describe("columns, kinds and turns (criterion 2)", { timeout: 120_000 }, () => {
     expect(Object.keys(CORNER_TURN)).toHaveLength(4);
   });
 
-  it.runIf(FULL_CITIES)("rowId is the building's, except an L's bend cell (the bend row); a non-blind column's front is its row's front, or that and its side for a corner", () => {
+  it("rowId is the building's, except an L's bend cell (the bend row); a non-blind column's front is its row's front, or that and its side for a corner", () => {
     let bends = 0;
-    for (const o of NAMED) {
+    // the Ls are rare, so this runs on VARIED (the pinned four, or the 20 in a full run)
+    for (const o of VARIED) {
       const { buildings, columns } = layersOf(o);
       const byId = new Map(buildings.buildings.map((b) => [b.id, b] as const));
       const rows = new Map(buildings.rows.map((r) => [r.id, r] as const));
@@ -126,7 +127,8 @@ describe("columns, kinds and turns (criterion 2)", { timeout: 120_000 }, () => {
         expect(bendCol.front === bendRow.front || bendCol.side === bendRow.front).toBe(true);
       }
     }
-    expect(bends, "the named runs have Ls").toBe(8);
+    if (FULL_CITIES) expect(bends, "the named runs have Ls").toBe(8);
+    else expect(bends, "the pinned runs have Ls").toBeGreaterThan(0);
   });
 
   it("the ground slot is the column's kind and yaw, y 0, its top the style's base pitch, and names no key", () => {

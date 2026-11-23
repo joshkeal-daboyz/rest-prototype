@@ -30,7 +30,7 @@ const bounds = (cells: readonly CityCell[]): { i0: number; i1: number; j0: numbe
 
 describe("stop signs on the named runs (criterion 4)", { timeout: 120_000 }, () => {
   beforeAll(() => warm(NAMED), 120_000);
-  it.runIf(FULL_CITIES)("every stop approach has exactly one stop sign, on its kerbside at its near-right corner, facing its traffic; none elsewhere", () => {
+  it("every stop approach has exactly one stop sign, on its kerbside at its near-right corner, facing its traffic; none elsewhere", () => {
     const bad: string[] = [];
     let signs = 0;
     for (const o of NAMED) {
@@ -64,7 +64,7 @@ describe("stop signs on the named runs (criterion 4)", { timeout: 120_000 }, () 
       for (const p of stops) if (signalJ.has(p.host)) bad.push(`${label(o)}: a stop sign at a signal junction ${p.host}`);
     }
     expect(bad).toEqual([]);
-    expect(signs).toBe(1054);
+    if (FULL_CITIES) expect(signs).toBe(1054);
   });
 
   it("every sign's post is 0.5 m from its cell's kerb-side edge and 1.0 m from the end that touches the corner", () => {

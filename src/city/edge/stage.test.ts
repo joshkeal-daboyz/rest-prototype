@@ -54,7 +54,7 @@ const key = (i: number, j: number): string => `${i},${j}`;
 const SIDES = ["-z", "+x", "+z", "-x"] as const;
 
 describe("stage 4, edge, on the named cities", { timeout: 120_000 }, () => {
-  it("the default city is the 6 x 6 seed 1 city, and the named runs are 20, the default first", () => {
+  it("the default city is the 6 x 6 seed 1 city, and the named runs start with the default", () => {
     expect(NAMED[0]).toEqual(DEFAULT);
     const first = runCity({ blocksX: PLAN_BLOCKS_DEFAULT, blocksZ: PLAN_BLOCKS_DEFAULT }, "edge");
     expect(first.ok).toBe(true);

@@ -36,7 +36,7 @@ const turn = (yaw: number, x: number, z: number): [number, number] => {
 
 describe("signals on the named runs (criterion 3)", { timeout: 120_000 }, () => {
   beforeAll(() => warm(NAMED), 120_000);
-  it.runIf(FULL_CITIES)("TR1d: every mast's foot and every box's footprint lies inside its corner cell's walk square, and every crossing has one button on its mast's face toward it, its centre over the walk", () => {
+  it("TR1d: every mast's foot and every box's footprint lies inside its corner cell's walk square, and every crossing has one button on its mast's face toward it, its centre over the walk", () => {
     const bad: string[] = [];
     let masts = 0;
     let boxes = 0;
@@ -85,12 +85,14 @@ describe("signals on the named runs (criterion 3)", { timeout: 120_000 }, () => 
       }
     }
     expect(bad).toEqual([]);
-    expect(masts).toBe(884);
-    expect(buttons).toBe(1768);
-    expect(boxes).toBe(221);
+    if (FULL_CITIES) {
+      expect(masts).toBe(884);
+      expect(buttons).toBe(1768);
+      expect(boxes).toBe(221);
+    }
   });
 
-  it.runIf(FULL_CITIES)("every signal junction has one mast group per pavementCorner, each on its approach's far-left corner, the arm crossing its approach over the carriageway with its heads facing it", () => {
+  it("every signal junction has one mast group per pavementCorner, each on its approach's far-left corner, the arm crossing its approach over the carriageway with its heads facing it", () => {
     const bad: string[] = [];
     let groups = 0;
     for (const o of NAMED) {
@@ -141,10 +143,10 @@ describe("signals on the named runs (criterion 3)", { timeout: 120_000 }, () => 
       }
     }
     expect(bad).toEqual([]);
-    expect(groups).toBe(884);
+    if (FULL_CITIES) expect(groups).toBe(884);
   });
 
-  it.runIf(FULL_CITIES)("each crossing has a walk head at both ends facing along it, each mast has two buttons (TR1d), each junction one box", () => {
+  it("each crossing has a walk head at both ends facing along it, each mast has two buttons (TR1d), each junction one box", () => {
     const bad: string[] = [];
     let heads = 0;
     let boxes = 0;
@@ -183,8 +185,10 @@ describe("signals on the named runs (criterion 3)", { timeout: 120_000 }, () => 
       }
     }
     expect(bad).toEqual([]);
-    expect(heads).toBe(884 * 2);
-    expect(boxes).toBe(221);
+    if (FULL_CITIES) {
+      expect(heads).toBe(884 * 2);
+      expect(boxes).toBe(221);
+    }
   });
 
   it("no head is below SIGNAL_HEAD_MIN_M and no arm's free end reaches past the far kerb", () => {

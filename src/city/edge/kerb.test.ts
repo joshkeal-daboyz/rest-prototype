@@ -393,13 +393,13 @@ describe("stage 4, the ground and the kerb line (D2), on the named runs", { time
     });
   }
 
-  it.runIf(FULL_CITIES)("the report's numbers over the 20 named runs", () => {
+  it("the report's numbers over the 20 named runs", () => {
     // (the per-run tests above fill TOTALS)
     console.log(`D2 TOTALS ${JSON.stringify(TOTALS)}`);
-    expect(TOTALS.sides).toBeGreaterThan(2000);
+    if (FULL_CITIES) expect(TOTALS.sides).toBeGreaterThan(2000);
     expect(TOTALS.sidesOnePath).toBe(TOTALS.sides);
     expect(TOTALS.dips).toBe(2 * TOTALS.ts);
-    expect(TOTALS.ts).toBeGreaterThan(300);
+    if (FULL_CITIES) expect(TOTALS.ts).toBeGreaterThan(300);
     expect(TOTALS.bareSides).toBeGreaterThan(0);
     expect(TOTALS.bareFlanks).toBe(0);
     expect(TOTALS.returnsOnWall).toBe(TOTALS.returns);

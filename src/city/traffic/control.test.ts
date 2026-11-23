@@ -60,7 +60,7 @@ describe("the control of every junction on the named runs (criterion 2)", { time
     expect(bad).toEqual([]);
   });
 
-  it.runIf(FULL_CITIES)("the named runs have every control kind, and a one-way arm with no inbound traffic", () => {
+  it("the named runs have every control kind, and a one-way arm with no inbound traffic", () => {
     const junctionKinds = new Set<string>();
     const approachKinds = new Set<string>();
     let outbound = 0;
@@ -79,7 +79,7 @@ describe("the control of every junction on the named runs (criterion 2)", { time
     expect([...junctionKinds].sort()).toEqual(["allStop", "none", "signals", "stop"]);
     expect([...approachKinds].sort()).toEqual(["none", "signal", "stop"]);
     expect(outbound).toBeGreaterThan(0);
-    expect(signalJunctions).toBe(221);
+    if (FULL_CITIES) expect(signalJunctions).toBe(221);
   });
 });
 
