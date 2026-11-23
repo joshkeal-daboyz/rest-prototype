@@ -82,7 +82,7 @@
 
 ### 18.8 The checks, and what they measured
 
-- **Info (070 L1, 081 A1)**: the pipeline's checks run in `src/city/mass/` and `src/city/edge/` on its own named cities (6 x 6 seeds 1 to 10). The old path's parking measuring code, its tables and its ranges went with the old tile city (ticket 081 A1).
+- **Info (070 L1)**: the pipeline's checks run in `src/city/mass/` and `src/city/edge/` on its own named cities (6 x 6 seeds 1 to 10). The old path's parking measuring code, its tables and its ranges went with the old tile city (ticket 081 A1).
 - **Default (056)**: each check gives one verdict, as `evaluateCity` does for the buildings, and allows 0 violations, and for P6 the most bays per 100 m of block kerb.
 
 | Check | What it holds |
@@ -97,10 +97,9 @@
 - **Info (063 B)**: P1 is less robust without avenues, so the layout has a weakness the named cities do not show. An avenue gave a block a second parking band and a cap of 0.4. A street gives one band to each side of its two blocks, and a side of up to 12 cells (60 m) holds one tile (the 0.3 cap). A block with no parking side of its own asks the bands across its streets, and its neighbours may take their only tile first. P1 then fails by one block ("no tile of bays serves it"). Over seeds 1 to 20 it fails on 6 x 4 seeds 5, 7, 11, 12, 15, 16 and 18, and on 3 x 3 seeds 12, 15, 17, 18 and 19; before B it failed on 6 x 4 seed 18 only, and on no 3 x 3 seed. The cities the ticket names pass. A first tile for every block by matching (a re-cut of 056's allocator) would mend it; B did not touch the allocator.
 
 
-
 ### 19.7 The checks, and what they measured
 
-- **Info (070 L1, 081 A1)**: the pipeline's checks run in their stages' folders on its own named cities (6 x 6 seeds 1 to 10). The old path's frontage measuring code, its tables and its ranges went with the old tile city (ticket 081 A1).
+- **Info (070 L1)**: the pipeline's checks run in their stages' folders on its own named cities (6 x 6 seeds 1 to 10). The old path's frontage measuring code, its tables and its ranges went with the old tile city (ticket 081 A1).
 - **Default (057)**: each check gives a verdict (G1 to G4 and V1 to V4), and every check allows 0.
 
 - **Decided (057, Josh 19 Nov 2026, "Tile-city R1 floor 0.88 (Recommended)")**: R1 (the frontage share, 16.8) has a floor of `TILE_CITY_R1_MIN` on the tile city, beside `TILE_CITY_R6_MIN` (0.45, 18.7) and `TILE_CITY_R7_MIN` (0.4). The alleys cut R1 to 0.897 to 0.903 on 3 x 3 cities against the ladder's 0.90, which stays in `CITY_CHECK` (`citymetrics.ts` is unchanged).
