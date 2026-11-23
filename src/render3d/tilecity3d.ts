@@ -1,25 +1,16 @@
 /**
- * The tile city, drawn (ticket 055, section C; dev only: `/?puzzle=<any>&view=3d&city=tiles-old` since ticket 070 L1; plain `city=tiles` is the pipeline's city). `tilecity.ts` lays the cells; this file turns them into a scene.
+ * The tile kit's drawing (ticket 055, section C): what `plan3d.ts` (the pipeline's city, `city=tiles`) and the tile sheet (`city=tiles&sheet=1`) draw tiles with. The old tile city that this file also drew
+ * went in ticket 081 A1 (070 L2d).
  *
- * - `tileGroup` draws every cell: one `InstancedMesh` per City Pack key (and per sub-mesh of it), each instance at its cell centre, turned by the cell's yaw plus the key's
+ * - `tileGroupOf` draws every cell: one `InstancedMesh` per City Pack key (and per sub-mesh of it), each instance at its cell centre, turned by the cell's yaw plus the key's
  *   `TILE_FRONTS` line, at `WORLD_PER_METRE` and never otherwise scaled. A cell whose role has no loaded piece is drawn in code at the same cell and level, in today's street,
  *   pavement and kerb colours (a flat quad for a road, a box from the carriageway to the pavement top for a pavement or a build-out, a pale strip for each kerb edge). No tile can be picked.
- *   Ticket 056 B: a `buildout` cell is drawn as a pavement from the plain straight (063 A: the one, `Straight_02`), and each of `city.buildoutTrees` is one of `SM_Env_Tree_01..03` (`buildoutTreePlan`) at y 0 through
- *   one InstancedMesh per tree key, in the same group and under the same draw-call cap.
- *   Ticket 063 F, the kerb (Josh, 19 Nov 2026: "the curb structures have to follow the crub"): the kerb runs as one line (`kerbline.ts`), and `tileGroup` draws what is on it. A pavement cell with a build-out in front (`PAVEMENT_FLUSH`) is the flat
- *   slab with no kerb and no gutter; the flank of every build-out stretch and the side of every inlet's opening (the return, `PAVEMENT_RETURN_NEAR`/`_FAR`, from the street kerb to the building line) are code-drawn strips at the pack's lip height and
- *   colour, in one InstancedMesh (`tile:kerb-strips`); a pavement or build-out cell drawn in code gets its strip on the same inset line.
- * - Ticket 057 D, the block interiors (Josh, 18 Nov 2026: "Grass and pavement should fill the blank areas."): `interiorGroup` draws everything `tilecity.ts` laid inside the blocks, from `interiorItems` (tileslots.ts): the ragged apron strip
- *   (the plain slab `Sidewalk_01` since 063 D, or a code quad), the aprons, paths and park edges (the same slab, or pavement quads), the greens (`Grass_01`, or grass quads), the bare road of a court, an alley lane (`Road_Bare_01`, or street quads) with
- *   `ParkingLines_01` over each row of a court's stalls (or code-drawn dividers), the passages' floors (the same slab a whole cell at a time, a part cell a code quad), the paved inlets (063 H), a gate and posts at each gated passage (always in code; the small one at an alley's mouth), and the trees,
- *   benches and bins (`propPlan`: pack pieces only, optional dressing). One InstancedMesh per key and sub-mesh at the interior's own draw-call cap, in a group of its own beside the tiles'. The ground is at 0, flush with the pavement's walk.
- * - `buildCityScene` is a puzzle-free `SceneBundle` (no wires, places, poles or captions) over the tile city's `Town`: the ground, the yards, the placeholder buildings on its lots,
- *   and the tiles. `applyModels` runs on it unchanged, so stacks, dressing, furniture and colourways stand as on a ladder map.
+ *   Ticket 056 B: a `buildout` cell is drawn as a pavement from the plain straight, and each build-out tree is one of `SM_Env_Tree_01..03` (`buildoutTreePlan`) at y 0.
+ *   Ticket 063 F, the kerb: the kerb runs as one line (`kerbline.ts`), and `tileGroupOf` draws what is on it: code-drawn strips at the pack's lip height and colour, in one InstancedMesh (`tile:kerb-strips`).
+ * - Ticket 057 D, the block interiors: `interiorGroupOf` draws the interiors' surfaces, props, passage floors and gates the caller hands it.
  * - `buildSheetScene` lays each tile piece once on a grid, labelled, with an arrow along the front the city expects, so each piece's orientation can be confirmed by eye. It is shown
  *   from above on the city rig, every piece inside the insets, in a grid shaped to the window (labels keep a pixel size; see `sheetLayout`).
- * - `createCityRenderer3d` is the renderer for both, switched on in renderer.ts behind `import.meta.env.DEV`. It reads no address: renderer.ts passes the query string in. The city and
- *   the street camera open in day (ticket 060: a testing daylight, `light=night` for the game's night; the light rig owns the lights) and a key and a button flip the mode; the sheet
- *   keeps its own lights. `cityApplyOptions` is what the models are applied with (keep-outs, bay meters, the walk's furniture level).
+ * - `createCityRenderer3d` is the sheet's renderer, switched on in renderer.ts behind `import.meta.env.DEV`. It reads no address: renderer.ts passes the query string in.
  */
 
 import {
@@ -51,22 +42,16 @@ import { stableHash } from "../render/city";
 import { ZOOM_STEP, type Insets } from "../render/geometry";
 import { ELEVATION, FOV_DEG } from "./camera";
 import { scaleForPx } from "./captions";
-import { WORLD_PER_METRE, atFront } from "./models";
-import type { FurniturePiece } from "./furniture";
-import { applyModels, meshParts, sharedTileModels, tileInput, type AppliedModels, type ApplyOptions, type FurnitureLevels, type ModelSet } from "./models3d";
-import { LOT_TYPE_NAMES, STOREY_M, type Lot, type LotType } from "./town";
-import { ROOF_SHADE, TINTS, pickPlaceholders } from "./placeholders";
-import { KERB, PAVEMENT, STREET, GROUND, YARD, type SceneBundle } from "./scene";
-import { createStreetView, streetCamRequested, streetMode, type StreetView } from "./streetcam";
-import { applyLightMode, addSurface, newLightOwners, sceneLightMode, setRendererMode } from "./lightrig";
-import { lightModeFor, type LightModeId } from "./lighting";
-import { createDayToggle, pageDayToggleHost, type DayToggle, type DayToggleHost } from "./daytoggle";
-import { LANE_PATCH, LANE_RIGHT, PAVEMENT_FLUSH, PAVEMENT_GRATE, SIDEWALK_WALK_M, TILE_CITY_R7_MIN, TILE_M, TILE_STACK_ALIGN, bayMeters, tileCity, tileKeepouts, withPassages, type BuildoutTree, type TileCell, type TileYaw, type TileCity, type TilePassage, type TileRole } from "./tilecity";
-import { tileKerbPlan, type KerbPlan } from "./kerbline";
+import { WORLD_PER_METRE } from "./models";
+import { meshParts, sharedTileModels, tileInput, type ModelSet } from "./models3d";
+import { KERB, PAVEMENT, STREET, YARD } from "./scene";
+import { addSurface, newLightOwners, setRendererMode } from "./lightrig";
+import { LANE_PATCH, LANE_RIGHT, PAVEMENT_FLUSH, PAVEMENT_GRATE, SIDEWALK_WALK_M, TILE_M, type BuildoutTree, type TileCell, type TileYaw, type TileRole } from "./tilecity";
+import { type KerbPlan } from "./kerbline";
 import {
   GATE_COLOUR,
-  INTERIOR_DRAW_CALLS_MAX,
   INTERIOR_KEYS,
+  INTERIOR_DRAW_CALLS_MAX,
   KERB_LIP_TOP_M,
   KERB_LIP_W_M,
   KERB_STRIP_COLOUR,
@@ -76,8 +61,6 @@ import {
   STALL_DIVIDER_L_M,
   STALL_DIVIDER_W_M,
   STALL_LINES_LIFT_M,
-  TILE_BENCH,
-  TILE_BINS,
   TILE_DRAW_CALLS_MAX,
   TILE_LEVELS,
   TILE_PATCH,
@@ -87,12 +70,8 @@ import {
   TILE_SLOTS,
   TILE_TREES,
   gateParts,
-  gatePlan,
   type GatePlan,
-  inletCells,
-  interiorItems,
   passageFloorCells,
-  passageFloors,
   sheetColumns,
   sheetLabel,
   sheetLayout,
@@ -106,7 +85,6 @@ import {
   type SheetLayout,
   type SlotRole,
 } from "./tileslots";
-import { tilePassages } from "./frontage";
 import { createCaptionSprite, defaultTextSurface, type CaptionSprite, type TextSurfaceFactory } from "./text";
 import type { MapRenderer3d } from "./renderer";
 
@@ -115,12 +93,8 @@ const UP = /* @__PURE__ */ new Vector3(0, 1, 0);
 
 /** A decal (the pothole patch) lies this far (metres) above its lane's surface, so it does not fight it. */
 export const PATCH_LIFT_M = 0.01;
-/** The ground under the whole city lies this far (metres) below the carriageway surface, and reaches this far (map units) past the city's edge. */
+/** The sheet's ground lies this far (metres) below the carriageway surface. */
 const GROUND_BELOW_M = 0.02;
-const GROUND_MARGIN = 14;
-/** The yard ground outside the edge streets' outer pavements, how far it reaches (metres), and how far under the pavement top the yards stand (metres, so a lot surface at 0 lies over them). */
-export const OUTER_YARD_M = 15;
-const YARD_BELOW_M = 0.02;
 
 const roadLike = (role: TileRole): boolean => TILE_LEVELS[role] !== "pavement";
 
@@ -201,17 +175,6 @@ export function treeInput(set: Pick<ModelSet, "dress">): { entries: Map<Calibrat
   return { entries, roots };
 }
 
-/** The id of a cell in `inletKeys`' set. */
-const cellId = (i: number, j: number): string => `${i},${j}`;
-
-/**
- * The cells of `city.cells` that are paved inlets (063 H): the cells of every street court's drive, `lotSurface` cells that are drawn as the plain paving slab when it is in the pack, in place of the bare road. Ids for
- * `tileKeyOf`'s `paved` flag. (An alley's mouth cell is an interior cell, drawn by `interiorGroup`.) Pure.
- */
-export function inletKeys(city: Pick<TileCity, "courts" | "blocks">): ReadonlySet<string> {
-  return new Set(inletCells(city).drives.map((c) => cellId(c.i, c.j)));
-}
-
 /**
  * The key that draws `cell` among the `active` ones: its variant's, else another of its role's, else null (drawn in code). A `paved` cell (an inlet's, `inletKeys`) is the plain paving slab (the interiors', `PASSAGE_FLOOR_KEYS`) when that
  * is active, and falls to its role's keys (the bare road) when it is not.
@@ -247,28 +210,6 @@ export interface TileDraw {
   surfaces: ReadonlyMap<string, readonly Material[]>;
   /** Frees the instance buffers and the code-drawn geometry and materials (never a pack piece's geometry or textures). */
   dispose(): void;
-}
-
-/**
- * Every cell of `city` as tiles. A key is usable when its entry and a root with at least one mesh are both given; a role with no usable key is drawn in code, cell by cell (and a
- * role with some usable keys uses them for every cell). If the usable keys would take more than `maxCalls` InstancedMeshes (with the code-drawn ones), the keys with the fewest cells
- * are dropped first and their cells fall to the role's other keys or to code. Nothing here reads the state or takes a ray.
- */
-export function tileGroup(city: TileCity, roots: ReadonlyMap<CalibrationKey, Object3D>, entries: ReadonlyMap<CalibrationKey, AssetEntry>, maxCalls: number = TILE_DRAW_CALLS_MAX): TileDraw {
-  const inlets = inletKeys(city);
-  return tileGroupOf(
-    {
-      cells: city.cells,
-      buildoutTrees: city.buildoutTrees,
-      seed: city.seed,
-      keys: [...tileKeys(), ...TILE_TREES],
-      keyOf: (c, active) => tileKeyOf(c, active, c.role === "lotSurface" && inlets.has(cellId(c.i, c.j))),
-      kerb: (keyOf) => tileKerbPlan(city, keyOf),
-    },
-    roots,
-    entries,
-    maxCalls,
-  );
 }
 
 /**
@@ -529,20 +470,6 @@ export interface PropPlace {
   yaw: TileYaw;
 }
 
-/**
- * The trees and benches of the greens (`city.greenProps`) and the bins of the alleys (`city.alleyBins`) as pieces: a tree is one of `TILE_TREES`, a bin one of `TILE_BINS`, each by a hash of the city's seed and its point (the same city
- * gives the same props every time, and two neighbours are not the same piece repeated); a bench is the park bench. Pure.
- */
-export function propPlan(city: Pick<TileCity, "greenProps" | "alleyBins" | "seed">): PropPlace[] {
-  const out: PropPlace[] = [];
-  for (const p of city.greenProps) {
-    const key = p.key === "tree" ? TILE_TREES[stableHash(`greentree:${city.seed}:${p.x_m}:${p.z_m}`) % TILE_TREES.length]! : TILE_BENCH;
-    out.push({ what: p.key, key, x_m: p.x_m, z_m: p.z_m, yaw: p.yaw });
-  }
-  for (const b of city.alleyBins) out.push({ what: "bin", key: TILE_BINS[stableHash(`alleybin:${city.seed}:${b.x_m}:${b.z_m}`) % TILE_BINS.length]!, x_m: b.x_m, z_m: b.z_m, yaw: b.yaw });
-  return out;
-}
-
 /** The pieces of `TILE_PROPS` (the trees, the bench, the bins) a loaded model set offers: the page loads them as furniture, so they are in `dress`. Roots and entries by key, empty when it has none. */
 export function propInput(set: Pick<ModelSet, "dress">): { entries: Map<CalibrationKey, AssetEntry>; roots: Map<CalibrationKey, Object3D> } {
   const entries = new Map<CalibrationKey, AssetEntry>();
@@ -572,15 +499,6 @@ export interface InteriorDraw {
   /** The code-drawn materials by surface key (`street`, `kerb`, `grass`), for the light rig. The code-drawn pavement is the slab's own colour (`PAVING_SLAB_COLOUR`) and is not a surface key. */
   surfaces: ReadonlyMap<string, readonly Material[]>;
   dispose(): void;
-}
-
-/**
- * Everything inside the blocks as one group (see the file's header): the surface items from the pack where their key is usable and in code where it is not, per kind (so a missing `Grass_01` leaves the apron's slabs
- * in the pack and draws only the greens in code), the passages' floors (whole cells from the pack's slab, part cells in code) and gates, and the props from the pack. If the usable keys would take more than `maxCalls` InstancedMeshes (with the code-drawn ones), the
- * keys with the fewest instances are dropped first. A key is usable when its entry and a root with a mesh are both given, as in `tileGroup`. Nothing here reads the state or takes a ray.
- */
-export function interiorGroup(city: TileCity, roots: ReadonlyMap<CalibrationKey, Object3D>, entries: ReadonlyMap<CalibrationKey, AssetEntry>, maxCalls: number = INTERIOR_DRAW_CALLS_MAX): InteriorDraw {
-  return interiorGroupOf(interiorItems(city), propPlan(city), gatePlan(city), passageFloors(city), city.seed, roots, entries, maxCalls);
 }
 
 /** The body of `interiorGroup` on the things it draws (ticket 070 E): the surface items, the props, the gates, the passage floors and the seed that turns the greens. See `interiorGroup`. */
@@ -786,271 +704,6 @@ export function interiorGroupOf(
       for (const o of owned) o.dispose();
       instanced.length = 0;
       owned.length = 0;
-    },
-  };
-}
-
-// ---- the puzzle-free scene ----
-
-export interface CityScene extends SceneBundle {
-  city: TileCity;
-  /** The tiles on screen now: all code-drawn until `useTiles` is given the pack's. */
-  tileDraw(): TileDraw;
-  /** The block interiors on screen now (057 D): in code, and with no gated passage known, until `useTiles` is given the pack's and the passages. */
-  interiorDraw(): InteriorDraw;
-  /**
-   * Replace the tiles and the block interiors with ones drawn from these pieces (the first call replaces the code-drawn ones). `passages` are the city's gated passages (`tilePassages(city, packed)`, known only once the
-   * runs are packed): their floors and gates are drawn with the interiors; default, the city's own (none from `tileCity`).
-   */
-  useTiles(roots: ReadonlyMap<CalibrationKey, Object3D>, entries: ReadonlyMap<CalibrationKey, AssetEntry>, passages?: readonly TilePassage[]): TileDraw;
-}
-
-/** The "tile city: ..." line the dev view logs once its models are applied. */
-export function tileCityLine(city: Pick<TileCity, "blocksX" | "blocksZ" | "seed" | "cells">, draw: Pick<TileDraw, "fromPack" | "codeDrawn">): string {
-  return `tile city: ${city.blocksX}x${city.blocksZ} blocks, seed ${city.seed}, ${city.cells.length} cells, ${draw.fromPack} from the pack, ${draw.codeDrawn} code-drawn`;
-}
-
-/** The "tile city interiors: ..." line the dev view logs once its models are applied (057 D): what stands inside the blocks, from the pack and in code. */
-export function interiorLine(draw: Pick<InteriorDraw, "fromPack" | "codeDrawn" | "props" | "floors" | "gates" | "calls">): string {
-  return `tile city interiors: ${draw.fromPack} surfaces from the pack, ${draw.codeDrawn} code-drawn, ${draw.props} props, ${draw.floors} passage floors, ${draw.gates} gates, ${draw.calls} draw calls`;
-}
-
-const unitBox = (): BoxGeometry => new BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
-
-/** A gable roof: base 1 x 1 on y = 0, ridge along x at y = 1 (the same shape `scene.ts` gives its placeholders; that one is private to it). */
-function pitchedRoof(): BufferGeometry {
-  type V = [number, number, number];
-  const A: V = [-0.5, 0, -0.5];
-  const B: V = [0.5, 0, -0.5];
-  const C: V = [0.5, 0, 0.5];
-  const D: V = [-0.5, 0, 0.5];
-  const R1: V = [-0.5, 1, 0];
-  const R2: V = [0.5, 1, 0];
-  const tris: V[] = [D, C, R2, D, R2, R1, B, A, R1, B, R1, R2, A, D, R1, C, B, R2];
-  const g = new BufferGeometry();
-  g.setAttribute("position", new Float32BufferAttribute(tris.flat(), 3));
-  g.computeVertexNormals();
-  return g;
-}
-
-/**
- * The placeholder buildings of the town's lots, laid out as `scene.ts` lays them (one group per lot type and one for the terrace lots, each of four InstancedMeshes: bodies, storey
- * bands, flat roofs, pitched roofs, in lot order), so `applyModels` finds and blanks them exactly as on a ladder map. Without a City Pack they are what stands on the blocks.
- */
-function placeholdersOf(lots: readonly Lot[]): { root: Object3D; byType: Record<LotType, Object3D> } {
-  const specs = pickPlaceholders(lots);
-  const root = new Object3D();
-  root.name = "placeholders";
-  const byType = {} as Record<LotType, Object3D>;
-  const pitched = pitchedRoof();
-  const wall = (): MeshStandardMaterial => new MeshStandardMaterial({ color: 0xffffff, roughness: 0.95 });
-  const colour = new Color();
-  const o = new Object3D();
-  const put = (im: InstancedMesh, i: number, x: number, y: number, z: number, yaw: number, sx: number, sy: number, sz: number, hex: number, k: number): void => {
-    o.position.set(x, y, z);
-    o.rotation.set(0, yaw, 0);
-    o.scale.set(sx, sy, sz);
-    o.updateMatrix();
-    im.setMatrixAt(i, o.matrix);
-    im.setColorAt(i, colour.setHex(hex).multiplyScalar(k));
-  };
-  const storeyH = STOREY_M * S;
-  const bandH = 0.5 * S;
-  for (const type of [...LOT_TYPE_NAMES, "terrace"] as const) {
-    const group = new Object3D();
-    group.name = `placeholders:${type}`;
-    const mine: number[] = [];
-    lots.forEach((l, i) => {
-      if (type === "terrace" ? l.terrace !== undefined : l.type === type && l.terrace === undefined) mine.push(i);
-    });
-    const bands = mine.reduce((n, i) => n + specs[i]!.storeys - 1, 0);
-    const flats = mine.filter((i) => specs[i]!.roof === "flat");
-    const slopes = mine.filter((i) => specs[i]!.roof === "pitched");
-    const bodies = new InstancedMesh(unitBox(), wall(), Math.max(mine.length, 1));
-    const bandMesh = new InstancedMesh(unitBox(), wall(), Math.max(bands, 1));
-    const flatRoofs = new InstancedMesh(unitBox(), wall(), Math.max(flats.length, 1));
-    const pitchedRoofs = new InstancedMesh(pitched, wall(), Math.max(slopes.length, 1));
-    let b = 0;
-    mine.forEach((li, k) => {
-      const l = lots[li]!;
-      const s = specs[li]!;
-      const hex = TINTS[s.tint]!;
-      const at = atFront(l, s.d);
-      put(bodies, k,at.x, 0, at.z, l.yaw, s.w, s.bodyH, s.d, hex, 1);
-      for (let j = 1; j < s.storeys; j++) put(bandMesh, b++, at.x, j * storeyH - bandH / 2, at.z, l.yaw, s.w * 1.03, bandH, s.d * 1.03, hex, 1.6);
-    });
-    flats.forEach((li, k) => {
-      const l = lots[li]!;
-      const s = specs[li]!;
-      const at = atFront(l, s.d);
-      put(flatRoofs, k,at.x, s.bodyH, at.z, l.yaw, s.w * 1.04, s.roofH, s.d * 1.04, TINTS[s.tint]!, ROOF_SHADE);
-    });
-    slopes.forEach((li, k) => {
-      const l = lots[li]!;
-      const s = specs[li]!;
-      const at = atFront(l, s.d);
-      put(pitchedRoofs, k,at.x, s.bodyH, at.z, l.yaw, s.w * 1.04, s.roofH, s.d * 1.04, TINTS[s.tint]!, ROOF_SHADE);
-    });
-    bodies.count = mine.length;
-    bandMesh.count = bands;
-    flatRoofs.count = flats.length;
-    pitchedRoofs.count = slopes.length;
-    for (const im of [bodies, bandMesh, flatRoofs, pitchedRoofs]) {
-      im.instanceMatrix.needsUpdate = true;
-      if (im.instanceColor) im.instanceColor.needsUpdate = true;
-      group.add(im);
-    }
-    if (type !== "terrace") byType[type] = group;
-    root.add(group);
-  }
-  return { root, byType };
-}
-
-/**
- * The tile city's scene as a `SceneBundle` with no puzzle in it: no wires, places, poles, hardware, captions or node parts (the fields are there, empty, for `applyModels` and the
- * furniture layout to read), the ground and yards, the placeholder buildings of the town's lots, and the tiles (code-drawn until `useTiles` gives it the pack's). Nothing in it can be
- * picked. `update` does nothing: a city has no state.
- */
-export function buildCityScene(city: TileCity): CityScene {
-  const town = city.town;
-  const scene = new Scene();
-  // The scene's global lights and background are the light rig's (ticket 060): night here, as the game is; the tile view puts the scene in its mode.
-  const lightOwners = newLightOwners();
-  applyLightMode(scene, null, "night", lightOwners);
-
-  const win = town.window;
-  const carriageY = -SIDEWALK_WALK_M * S;
-  // The ground lies just under the carriageway; the yards are the blocks' open ground and the ring of yard round the city, a hair under 0 so a lot surface at 0 lies over them.
-  const ground = new Mesh(new BoxGeometry(win.maxX - win.minX + 2 * GROUND_MARGIN, 0.1, win.maxY - win.minY + 2 * GROUND_MARGIN), new MeshStandardMaterial({ color: GROUND, roughness: 1 }));
-  ground.position.set((win.minX + win.maxX) / 2, carriageY - GROUND_BELOW_M * S - 0.05, (win.minY + win.maxY) / 2);
-  addSurface(lightOwners, "ground", ground.material as Material);
-  noRay(ground);
-  scene.add(ground);
-
-  const yardTop = -YARD_BELOW_M * S;
-  const yardBase = carriageY;
-  const outer = OUTER_YARD_M * S;
-  const yardRects: { x0: number; z0: number; x1: number; z1: number }[] = town.blocks.map((b) => ({ x0: b.minX, z0: b.minZ, x1: b.maxX, z1: b.maxZ }));
-  yardRects.push(
-    { x0: win.minX - outer, z0: win.minY - outer, x1: win.maxX + outer, z1: win.minY },
-    { x0: win.minX - outer, z0: win.maxY, x1: win.maxX + outer, z1: win.maxY + outer },
-    { x0: win.minX - outer, z0: win.minY, x1: win.minX, z1: win.maxY },
-    { x0: win.maxX, z0: win.minY, x1: win.maxX + outer, z1: win.maxY },
-  );
-  const yardMat = new MeshStandardMaterial({ color: YARD, roughness: 1 });
-  addSurface(lightOwners, "yard", yardMat);
-  const yards = new InstancedMesh(unitBox(), yardMat, yardRects.length);
-  const o = new Object3D();
-  yardRects.forEach((r, i) => {
-    o.position.set((r.x0 + r.x1) / 2, yardBase, (r.z0 + r.z1) / 2);
-    o.rotation.set(0, 0, 0);
-    o.scale.set(r.x1 - r.x0, yardTop - yardBase, r.z1 - r.z0);
-    o.updateMatrix();
-    yards.setMatrixAt(i, o.matrix);
-  });
-  yards.instanceMatrix.needsUpdate = true;
-  noRay(yards);
-  scene.add(yards);
-
-  // The junction boxes as hidden pad meshes (never in the scene): `furnitureInput` keeps furniture out of the boxes it reads here.
-  const padGeo: BufferGeometry[] = [];
-  const padMat = new MeshBasicMaterial({ color: STREET });
-  const pads = town.pads
-    .filter((p) => p.pts.length >= 3)
-    .map((p) => {
-      const g = new BufferGeometry();
-      const pos: number[] = [];
-      for (const v of [p.pts[0]!, p.pts[1]!, p.pts[2]!, p.pts[0]!, p.pts[2]!, p.pts[3] ?? p.pts[2]!]) pos.push(v.x, 0, v.z);
-      g.setAttribute("position", new Float32BufferAttribute(pos, 3));
-      padGeo.push(g);
-      const mesh = new Mesh(g, padMat);
-      mesh.userData["pad"] = p.id;
-      return mesh;
-    });
-
-  const placeholders = placeholdersOf(town.lots);
-  scene.add(placeholders.root);
-  const modelGroup = new Object3D();
-  modelGroup.name = "models";
-  scene.add(modelGroup);
-
-  let tiles = tileGroup(city, new Map(), new Map());
-  scene.add(tiles.group);
-  let interior = interiorGroup(city, new Map(), new Map());
-  scene.add(interior.group);
-  const syncTileSurfaces = (): void => {
-    // The tiles' and the interiors' code-drawn materials share the surface keys (an apron's quad is the pavement's colour): a key is the two draws' materials together, and is gone when neither has one.
-    for (const key of ["street", "pavement", "kerb", "grass"]) {
-      const mats = [...(tiles.surfaces.get(key) ?? []), ...(interior.surfaces.get(key) ?? [])];
-      if (mats.length > 0) lightOwners.materials.set(key, mats);
-      else lightOwners.materials.delete(key);
-    }
-    // The materials are new: bring them to the mode the scene is in.
-    applyLightMode(scene, null, sceneLightMode(scene) ?? "night", lightOwners);
-  };
-  syncTileSurfaces();
-
-  // The fields a puzzle scene has and a city has none of: empty, and never added to the scene.
-  const emptyGeo = new BufferGeometry();
-  const emptyMat = new MeshBasicMaterial();
-  const none = (): InstancedMesh => {
-    const im = new InstancedMesh(emptyGeo, emptyMat, 1);
-    im.count = 0;
-    return im;
-  };
-  const emptyMesh = new Mesh(emptyGeo, emptyMat);
-  // Nothing in a city can be picked, placeholders included (the models `applyModels` adds later take no ray either).
-  scene.traverse(noRay);
-
-  return {
-    city,
-    scene,
-    lightOwners,
-    captions: [],
-    parts: new Map(),
-    wires: new Map(),
-    places: new Map(),
-    poles: { poles: none(), arms: none() },
-    slots: { poles: { spots: [], placeholders: [] }, lamps: [], blocks: { list: town.lots, placeholder: placeholders.root, byType: placeholders.byType, terraces: town.terraces }, models: modelGroup },
-    streets: { yards, roads: none(), kerbs: none(), dashes: none(), pavements: emptyMesh, pads },
-    hardware: { insulators: none(), cans: none(), drops: none(), canList: [], dropList: [] },
-    setViewport() {},
-    update() {},
-    tileDraw: () => tiles,
-    interiorDraw: () => interior,
-    useTiles(roots, entries, passages) {
-      scene.remove(tiles.group);
-      tiles.dispose();
-      tiles = tileGroup(city, roots, entries);
-      scene.add(tiles.group);
-      scene.remove(interior.group);
-      interior.dispose();
-      interior = interiorGroup(passages ? withPassages(city, passages) : city, roots, entries);
-      scene.add(interior.group);
-      syncTileSurfaces();
-      return tiles;
-    },
-    dispose() {
-      tiles.dispose();
-      interior.dispose();
-      const mats = new Set<Material>();
-      // A model clone shares its geometry and textures with the page's cache, so its subtree is left alone.
-      const visit = (obj: Object3D): void => {
-        if (obj.userData["sharedModel"] === true) return;
-        const mesh = obj as Mesh;
-        mesh.geometry?.dispose();
-        const mm = mesh.material as Material | Material[] | undefined;
-        if (Array.isArray(mm)) mm.forEach((x) => mats.add(x));
-        else if (mm) mats.add(mm);
-        if ((obj as InstancedMesh).isInstancedMesh === true) (obj as InstancedMesh).dispose();
-        for (const c of obj.children) visit(c);
-      };
-      visit(scene);
-      mats.forEach((x) => x.dispose());
-      for (const g of padGeo) g.dispose();
-      padMat.dispose();
-      emptyGeo.dispose();
-      emptyMat.dispose();
     },
   };
 }
@@ -1372,47 +1025,15 @@ export function createCityRig(frame: CityRect, width = 1280, height = 720, start
 
 // ---- the renderer ----
 
-/**
- * The height the tile city's pavement furniture stands at, metres: its walk is at 0 (design item 7; the ladder's pavement is 4.4 cm up), so a bench stands on the walk and does not float.
- * The yard layer (a lot's pieces, an alley's) keeps the ladder's 2.2 cm over the lot surface at 0, so a flat piece (lot lines, a panel) is a hair above it (criterion 26).
- */
-export const TILE_FURNITURE_LEVELS: FurnitureLevels = { pavement_m: 0 };
-
-/**
- * What `applyModels` is given for a tile city (ticket 055 E): the keep-outs of `tileKeepouts` (pole slots, kerb cuts, the corner cells the crossings land on), the meters that stand beside
- * no bay taken out (`bayMeters`), and the furniture on the walk. The puzzle path passes nothing.
- */
-export function cityApplyOptions(city: TileCity): ApplyOptions {
-  const keep = tileKeepouts(city);
-  // 057 D: the wall alignment is passed to `packTown` explicitly (it would default to it, by the runs' pavement frame), so the tile city does not depend on that default.
-  // 063 E2: so is the body footprint (each piece's body on its column's floor piece's, `seatOnBody`), though `bandPacked` would choose it for a wall-aligned run anyway.
-  return { keepPoints: keep.keepPoints, keepRects: keep.keepRects, furnitureFilter: (pieces) => bayMeters(city, courtLotPieces(city, pieces)), furnitureLevels: TILE_FURNITURE_LEVELS, align: TILE_STACK_ALIGN, footprint: "body", escapeShare: TILE_CITY_R7_MIN };
-}
-
-/**
- * The furniture without what the layout stands on a lot that became a residents' court (057 D review): the town still holds each court's mouth as a 10 m parking lot, so `furnitureLayout` dresses it as a frontage lot
- * (parking-lines tiles, barriers, meters, a billboard), which would put a second lines tile 5 mm under the interiors' own, and barriers across the near stalls' opening. The drive is a kerb cut and a lot surface only
- * (criterion 10). A piece on a lot is `kind` "parking" and names the run it ends: the runs that have a court (`city.courts`, whose `run` is the run the court ends; an alley court's is "" and ends none) lose them,
- * and the runs of `city.frontLots` (the blocks that kept a frontage lot) keep them. Pure.
- */
-export function courtLotPieces(city: Pick<TileCity, "courts">, pieces: readonly FurniturePiece[]): FurniturePiece[] {
-  const courtRuns = new Set(city.courts.map((c) => c.run).filter((r) => r !== ""));
-  return pieces.filter((p) => !(p.kind === "parking" && courtRuns.has(p.run)));
-}
-
 export interface CityRendererOptions {
   insets?: Insets | undefined;
   dpr: number;
-  /** The page's query string (`cam=street`, `run`, `at`, `light=night`); renderer.ts reads the address and passes it in. */
+  /** The page's query string; renderer.ts reads the address and passes it in. */
   search: string;
   /** The models to load once the view is up (default: the page's shared tile load). A test passes its own so nothing is fetched. */
   load?: () => Promise<ModelSet>;
   /** The sheet's text surface (default: the browser's; a test passes the stub). */
   surface?: TextSurfaceFactory;
-  /** The window's keys and the button maker for the day and night switch (default: the page's). A test passes fakes. */
-  toggleHost?: DayToggleHost;
-  /** The city to show (default: the one `req` asks for). A test passes one with no terraces to reach the street camera's fallback. */
-  city?: TileCity;
 }
 
 /** The rig's insets for a sheet: the page's own, widened for the legend at the top and the labels at the bottom and sides. */
@@ -1425,26 +1046,18 @@ export function sheetRigInsets(base: Insets, sheet: Pick<SheetScene, "insetsPx">
 const SHEET_FIT_TOP = 0.3;
 
 /**
- * The 3D view's tile city mode (dev only): the same interface as the town's renderer, so play and ui are unchanged. The puzzle, the state, the hover and the Relight it is handed
- * are ignored; nothing in the scene can be picked (`hitTest` is null). `?sheet=1` shows the tile sheet, from above on the city rig; otherwise the city, on a tilted camera over the
- * whole city (or `cam=street` on the tile city's own Town). The city, the street camera and the fallback to the overhead view open in day (`lightModeFor`: `light=night` opens the game's night); the L key and a
- * "Day / Night" button flip the mode through the light rig (dev builds only). The sheet is lit by its own lights in either mode. The models load once the view is up; until they do (and if they never do) every tile
- * is code-drawn.
+ * The 3D view's tile sheet (dev only, `city=tiles&sheet=1`): the same interface as the town's renderer, so play and ui are unchanged. The puzzle, the state, the hover and the Relight it is handed
+ * are ignored; nothing in the scene can be picked (`hitTest` is null). The sheet is shown from above on the city rig, lit by its own lights. The models load once the view is up; until they do (and if they never do) every
+ * tile is code-drawn. (The old tile city that shared this renderer went in ticket 081 A1.)
  */
-export function createCityRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasElement, req: CityTilesRequest, opts: CityRendererOptions): MapRenderer3d {
+export function createCityRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasElement, _req: CityTilesRequest, opts: CityRendererOptions): MapRenderer3d {
   const w0 = Math.max(canvas.clientWidth, 1);
   const h0 = Math.max(canvas.clientHeight, 1);
   let insets: Insets = { ...(opts.insets ?? {}) };
   let disposed = false;
-  const city = opts.city ?? tileCity({ blocksX: req.blocksX, blocksZ: req.blocksZ, seed: req.seed });
-  const lightId0: LightModeId = lightModeFor("tiles", opts.search, import.meta.env.DEV);
 
   let rig: CityRig;
-  let cityScene: CityScene | null = null;
   let sheet: SheetScene | null = null;
-  let applied: AppliedModels | null = null;
-  let street: StreetView | null = null;
-  let toggle: DayToggle | null = null;
   let tileRoots: ReadonlyMap<CalibrationKey, Object3D> = new Map();
   let tileEntries: ReadonlyMap<CalibrationKey, AssetEntry> = new Map();
 
@@ -1456,31 +1069,9 @@ export function createCityRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasElemen
     rig = createCityRig(next.frame, w, h, sheetRigInsets(insets, next), { fitTop: SHEET_FIT_TOP });
   };
 
-  if (req.sheet) {
-    // The sheet has its own lights, in both modes: a renderer left in day's tone mapping goes back to none for it.
-    setRendererMode(gl, "night");
-    makeSheet(w0, h0);
-  } else {
-    cityScene = buildCityScene(city);
-    const win = city.town.window;
-    rig = createCityRig({ minX: win.minX, minY: win.minY, maxX: win.maxX, maxY: win.maxY }, w0, h0, insets);
-    const asked = streetCamRequested(opts.search);
-    // The light is the rig's, not the street view's: one set of lights whatever the camera, so the overhead view and the fallback to it are lit as the street camera is.
-    applyLightMode(cityScene.scene, gl, lightId0, cityScene.lightOwners);
-    if (asked) street = createStreetView(city.town, { ...asked, day: false }, cityScene.scene, w0, h0);
-    if (asked && !street) console.info("tile city: no row of buildings to look along yet, showing the city from above.");
-  }
-  const sceneNow = (): Scene => (sheet ? sheet.scene : cityScene!.scene);
-  // The key and the button that flip day and night (dev only; the sheet has nothing to flip).
-  if (import.meta.env.DEV && cityScene) {
-    const lit = cityScene;
-    let mode: LightModeId = lightId0;
-    toggle = createDayToggle(opts.toggleHost ?? pageDayToggleHost(), mode, () => {
-      mode = mode === "day" ? "night" : "day";
-      applyLightMode(lit.scene, gl, mode, lit.lightOwners);
-      toggle?.sync(mode);
-    });
-  }
+  // The sheet has its own lights: a renderer left in day's tone mapping goes back to none for it.
+  setRendererMode(gl, "night");
+  makeSheet(w0, h0);
 
   function sizeLabels(): void {
     sheet?.setViewport(Math.max(canvas.clientHeight, 1));
@@ -1492,7 +1083,6 @@ export function createCityRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasElemen
     gl.setSize(w, h, false);
     if (sheet && sheetColumns(w / h) !== sheet.layout.cols) makeSheet(w, h);
     else rig.resize(w, h, sheet ? sheetRigInsets(insets, sheet) : insets);
-    street?.resize(w, h);
     sizeLabels();
   }
   resize();
@@ -1503,28 +1093,15 @@ export function createCityRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasElemen
     .then((set) => {
       if (disposed) return;
       const input = tileInput(set);
-      // The build-out trees, the interiors' trees and bench, and the alleys' bins are the furniture set's (the page loads them for every map): their roots and entries join the tiles' so `tileGroup` and `interiorGroup` find them.
       const props = propInput(set);
       tileRoots = new Map<CalibrationKey, Object3D>([...(input?.roots ?? []), ...props.roots]);
       tileEntries = new Map<CalibrationKey, AssetEntry>([...(input?.entries ?? []), ...props.entries]);
-      if (sheet) {
-        makeSheet(Math.max(canvas.clientWidth, 1), Math.max(canvas.clientHeight, 1));
-        sizeLabels();
-        console.info(`tile sheet: ${sheet.present} of ${sheet.present + sheet.missing} pieces are in the pack`);
-        return;
-      }
-      const scene = cityScene!;
-      applied = applyModels(scene, set, cityApplyOptions(city));
-      // The gated passages are where the packed runs end with a gap (`tilePassages`): known only now, so their floors and gates are drawn with the interiors.
-      const draw = scene.useTiles(tileRoots, tileEntries, tilePassages(city, applied.packed));
-      console.info(tileCityLine(city, draw));
-      console.info(interiorLine(scene.interiorDraw()));
-      street?.markReady();
+      makeSheet(Math.max(canvas.clientWidth, 1), Math.max(canvas.clientHeight, 1));
+      sizeLabels();
+      console.info(`tile sheet: ${sheet!.present} of ${sheet!.present + sheet!.missing} pieces are in the pack`);
     })
     .catch((e: unknown) => {
       console.info(`3D models: not applied (${e instanceof Error ? e.message : String(e)}).`);
-      if (cityScene) console.info(tileCityLine(city, cityScene.tileDraw()));
-      street?.markReady();
     });
 
   // Left-drag pans (a touch drag too); the arrows, right-drag and wheel are play's.
@@ -1539,7 +1116,7 @@ export function createCityRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasElemen
     }
   };
   const onMove = (e: PointerEvent): void => {
-    if (!drag || e.pointerId !== drag.id || street) return;
+    if (!drag || e.pointerId !== drag.id) return;
     rig.setPan(drag.startPan.x + (e.clientX - drag.startX), drag.startPan.y + (e.clientY - drag.startY));
   };
   const onUp = (e: PointerEvent): void => {
@@ -1554,7 +1131,7 @@ export function createCityRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasElemen
 
   const play: MapRenderer3d = {
     draw() {
-      gl.render(sceneNow(), rig.camera);
+      gl.render(sheet!.scene, rig.camera);
     },
     hitTest: () => null,
     resize,
@@ -1586,19 +1163,9 @@ export function createCityRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasElemen
       canvas.removeEventListener("pointerup", onUp);
       canvas.removeEventListener("pointercancel", onUp);
       canvas.style.touchAction = touchAction;
-      applied?.remove();
-      applied = null;
-      toggle?.dispose();
-      toggle = null;
       setRendererMode(gl, "night");
-      cityScene?.dispose();
       sheet?.dispose();
     },
   };
-  const view = street;
-  if (view && cityScene) {
-    const scene = cityScene.scene;
-    return streetMode(play, view, () => view.draw(gl, scene));
-  }
   return play;
 }

@@ -10,7 +10,7 @@ Depends on: `docs/city-style/numbers.md` (the constants), `docs/city-style/front
 ### 19.4 The block interior
 
 - **Rule [D-057l]**: grass and pavement fill the blank areas.
-- **Default (057)**: nothing inside a block is left unfilled. `frontage.ts` rasterises each block at `VOID_RASTER_M` (0.25 m); at most `VOID_MAX_SHARE` of it may be unfilled, in no square over `VOID_PATCH_MAX_M` on a side (check G3).
+- **Default (057)**: nothing inside a block is left unfilled. On the pipeline check G3 (`src/city/mass/check.ts`) holds it: every block cell has exactly one use. (The old path rasterised each block at 0.25 m and let 1% of it stand unfilled, in no square over 1 m; that check went with the old tile city, ticket 081 A1.)
 
 The interior is laid on the 5 m grid (`TILE_M`). Ring 1, the outer band of cells, is the terraces' and is not an interior cell. The cells inside it are `TileCity.interior`, each with a role of `InteriorRole`: `apron`, `court`, `drive`, `green`, `greenPath`, and from 19.6 `alley` and `parkEdge`. The roles are kept apart from `TileRole`, because a court's drive and its first row of stalls are also the `lotSurface` cells of 056 and `tileslots.ts`'s table is exhaustive over `TileRole`.
 

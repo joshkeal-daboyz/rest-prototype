@@ -25,7 +25,7 @@ Depends on: `docs/city-style/numbers.md` (the constants), `docs/city-style/block
   - A park's green has a cross path as well wherever it is at least three cells each way, so its paths cross.
 - **Rule [D-057p]**: on the pipeline a whole park that nothing across a street can serve takes one tile of kerb bays on its own kerb, and the first tiles are handed out as a best fit over the city.
 
-A whole-block park carries no units, but it still asks its neighbours across a street for a tile of kerb bays and one lot, as 056 serves any block with no side of its own that has room (the old path's `parkmetrics.ts` expects every street block to have both). A neighbour that cannot host leaves it unserved, which P2 allows for ceil(blocks / 9) blocks.
+A whole-block park carries no units, but it still asks its neighbours across a street for a tile of kerb bays and one lot, as 056 serves any block with no side of its own that has room (the old path's parking checks expected every street block to have both). A neighbour that cannot host leaves it unserved, which P2 allows for ceil(blocks / 9) blocks.
 
 - **Default (057) [D-057o]**: the mix by type.
 
