@@ -290,12 +290,12 @@ describe("criterion 3: the places, one fixture a kind", { timeout: 300_000 }, ()
     expect(cells.size).toBeGreaterThan(50);
   });
 
-  it("roof items are Solar_Panel_02 and Fabric_01 or _02 only, at most 2 a column, on the deck, 0.1 m clear of H3's pieces", () => {
+  it("roof items are Solar_Panel_02 and Fabric_01 or _02 only, at most 1 a column (075), on the deck, 0.1 m clear of H3's pieces", () => {
     const roofs = adds("roof");
-    expect(roofs.length).toBeGreaterThan(100);
+    expect(roofs.length).toBeGreaterThan(40);
     const per = new Map<number, number>();
     for (const a of roofs) {
-      expect(["sci-fi-frontier-pack:SM_Prop_Solar_Panel_02", "sci-fi-frontier-pack:SM_Prop_Fabric_01", "sci-fi-frontier-pack:SM_Prop_Fabric_02"]).toContain(a.placement.key);
+      expect(["sci-fi-frontier-pack:SM_Prop_Solar_Panel_02"]).toContain(a.placement.key);
       const k = cellKey(a.cell.i, a.cell.j);
       per.set(k, (per.get(k) ?? 0) + 1);
       const deck = fullWorld.decks.find((d) => d.i === a.cell.i && d.j === a.cell.j)!;
@@ -303,7 +303,7 @@ describe("criterion 3: the places, one fixture a kind", { timeout: 300_000 }, ()
       expect(inside(rectOfAdd(a), deck.rect)).toBe(true);
       for (const t of deck.taken) expect(overlaps(grow(rectOfAdd(a), 0.1 - 1e-6), t), a.id).toBe(false);
     }
-    expect(Math.max(...per.values())).toBe(2);
+    expect(Math.max(...per.values())).toBe(1);
     expect(Object.keys(CLEAN_ROOF_BOUNDS).length).toBeGreaterThan(20);
   });
 

@@ -18,9 +18,9 @@ export const P_CLUTTER = 0.3;
 /** A container in a court stall or a kerb bay: chance `P_CONTAINER x held`. */
 export const P_CONTAINER = 0.5;
 /** A roof item in a free roof spot: chance `P_ROOF x held`. */
-export const P_ROOF = 0.3;
+export const P_ROOF = 0.1;
 /** A barricade on a street mouth (not the district's hashed-first): chance `P_BARRICADE x held`. */
-export const P_BARRICADE = 1;
+export const P_BARRICADE = 0.5;
 
 // ---- how many tries a place gets (fixed numbers, never scaled by `held`) ----
 /** A court or park is filled with at most this many camp attempts, each with `TRIES` hashed positions. */
@@ -37,7 +37,7 @@ export const CLUTTER_TRIES = 8;
 /** Positions tried for a roof item on a deck. */
 export const ROOF_TRIES = 12;
 /** Roof items on one column at most (B10). */
-export const ROOF_PER_COLUMN_MAX = 2;
+export const ROOF_PER_COLUMN_MAX = 1;
 
 // ---- the gaps, metres ----
 /** A camp stands this far off any building. */

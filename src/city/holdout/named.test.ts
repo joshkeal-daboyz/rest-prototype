@@ -35,10 +35,10 @@ interface Run {
 
 /** What the pin test pins: the digest of the "power" and "settle" parts on each pin city, one-way on (taken 22 Nov 2026 night, on the clean city and `history` alone, with no circuit; re-taken 22 Nov 2026 once D1 merged, since the tech layer's removes now reach the plan; re-taken 22 Nov 2026 once the pass kept clear of stage 7's facade pieces; K2 re-takes them). The power part is the same on every city: it is empty until E1. */
 const PIN_PARTS: Readonly<Record<number, { readonly power: string; readonly settle: string }>> = {
-  1: { power: "5aa380c8", settle: "c1826ed7" },
-  2: { power: "5aa380c8", settle: "64f7ab59" },
-  3: { power: "5aa380c8", settle: "040734d8" },
-  8: { power: "5aa380c8", settle: "9b365707" },
+  1: { power: "5aa380c8", settle: "7326ac46" },
+  2: { power: "5aa380c8", settle: "eba09cbe" },
+  3: { power: "5aa380c8", settle: "900e6291" },
+  8: { power: "5aa380c8", settle: "d4122858" },
 };
 
 const CLEAN_STAGES = CITY_STAGES.filter((s): s is CityPlanStage => s !== "assemble");
@@ -108,7 +108,7 @@ describe("the named runs (X-4, X-1, R-1)", { timeout: 900_000 }, () => {
       const l = r.layer;
       const ids = l.adds.map((a) => a.id);
       expect(new Set(ids).size, label(r.city)).toBe(ids.length);
-      expect(l.adds.length, label(r.city)).toBeGreaterThan(300);
+      expect(l.adds.length, label(r.city)).toBeGreaterThan(250);
       for (const s of CITY_HOLDOUT_STEPS) for (const a of stepPart(l, s).adds) expect(CITY_HOLDOUT_STEP_OF[a.kind]).toBe(s);
       for (const a of l.adds) expect(KIT_KEYS.has(a.placement.key), a.placement.key).toBe(true);
       expect(l.changes.every((c) => c.op === "remove")).toBe(true);
