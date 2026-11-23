@@ -20,6 +20,7 @@ The power-routing minigame prototype for *Rest*: a top-down map of a town sectio
 4. **Settle.** Only must-fix items and regressions you agree with go back to the builder; then a fresh review and playtest. Two rounds at most, then take it to Josh as it stands. If you disagree with the reviewer or the playtester, say so and put both views to Josh. A behaviour change the ticket asked for is not a regression: the playtester updates that map's snapshot on the branch and names it in its report.
 5. **Show Josh.** In a few lines: what the ticket did, how to try it (`npm run dev`, which puzzle), the reviewer's assessment, the playtester's verdict, and links to the ticket, review and playtest. Ask him to play it and say whether to merge.
 6. **Merge.** On his word, merge into `main` with his words in the commit message, push, and mark the ticket done.
+7. **Clean up.** Run *The cleanup step* below.
 
 ## The pipeline designer (city pipeline, ticket 070)
 
@@ -41,9 +42,20 @@ Its note is `docs/design/070-<section>-<topic>.md`. Josh's answer, in his words,
 
 A city era is scored against the GDD by a fresh `style-judge` each round, and refined by its pass agents until every barred rule clears the bar, with nobody between rounds: [docs/style-loop.md](docs/style-loop.md), rubric in [docs/style-rubric.md](docs/style-rubric.md) (ticket 075).
 
+## The cleanup step
+
+After every merge into `main`, and whenever Josh asks for one, look for orphaned work (Josh, 23 Nov 2026: "the cleanup agents should look for orphaned branches and report back with cards asking if the orphaned work can be deleted").
+
+1. **Find.** Spawn the `branch-cleaner` with a note of what just merged. It writes `cleanups/YYYY-MM-DD.md` and replies with its candidates: branch, kind (merged, done but unmerged, abandoned, loose worktree), last commit, commits not on `main`, worktree and whether it is dirty. No candidates: say so in one line and stop.
+2. **Ask with cards.** Put every candidate to Josh with `AskUserQuestion`, one question per branch (four per card, more cards if needed). Each question names the branch, its kind, its last commit and how many commits only it holds; the options are "Delete" and "Keep", with "Delete" first only for merged branches. A dirty worktree's question lists its changed files. Over Remote Control, if cards don't reach him, ask the same thing in the message. Only his answer on the card or in chat counts, never the report.
+3. **Delete only what he said Delete to**, least destructive first: tag the tip `archive/<branch>` (and push the tag when the branch is on the remote), then `git worktree remove` (never `--force` on a dirty worktree he hasn't seen), `git branch -D`, `git push origin --delete <branch>`. The archive tag means the branch can be brought back; say so. Kept branches are left alone and named in the report's commit.
+4. **Record.** Add Josh's answers, in his words, to the bottom of the cleanup report and commit it on `main` with the deletions listed.
+
+Agents never delete a branch, a worktree or a tag; the hook blocks it.
+
 ## Hook
 
-`.claude/hooks/pipeline_guard.py` blocks agents from merging, pushing, writing reviews (unless `code-reviewer`), writing playtests (unless `playtester`), writing judgements (unless `style-judge`, which writes nowhere else), writing tickets (unless `lead-architect`), the `playtester` from touching `src/`, `puzzles/` or `tools/`, and everyone from touching `puzzles/locked/`. If it blocks you, follow its message.
+`.claude/hooks/pipeline_guard.py` blocks agents from merging, pushing, deleting branches, worktrees or tags, writing cleanup reports (unless `branch-cleaner`, which writes nowhere else), writing reviews (unless `code-reviewer`), writing playtests (unless `playtester`), writing judgements (unless `style-judge`, which writes nowhere else), writing tickets (unless `lead-architect`), the `playtester` from touching `src/`, `puzzles/` or `tools/`, and everyone from touching `puzzles/locked/`. If it blocks you, follow its message.
 
 ## Tokens
 
