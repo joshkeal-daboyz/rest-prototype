@@ -21,14 +21,13 @@ import { mouthFacesJunction } from "./reach";
 import { LOTS_PER_BLOCK_MAX, LOT_STALLS } from "./constants";
 import { DELTA, SIDES, columnOfSides, keyOf, ringOf } from "./geometry";
 import { MASS_LEGEND, massStage } from "./stage";
+import { NAMED_ON as NAMED } from "../testing/namedcities";
 
 interface City {
   readonly blocksX: number;
   readonly blocksZ: number;
   readonly seed: number;
 }
-const NAMED: City[] = [];
-for (let seed = 1; seed <= 10; seed++) NAMED.push({ blocksX: 6, blocksZ: 6, seed });
 
 const cache = new Map<string, ReturnType<typeof runCity>>();
 function cityOf(o: City): ReturnType<typeof runCity> {
@@ -51,11 +50,6 @@ const layersOf = (o: City): { streets: CityStreetsLayer; land: CityLandLayer; ma
 const label = (o: City): string => `${o.blocksX} x ${o.blocksZ} seed ${o.seed}`;
 
 describe("stage 3, mass, on the named cities", { timeout: 120_000 }, () => {
-  it("the named cities are 10, the default 6 x 6 seed 1 first (A4d)", () => {
-    expect(NAMED).toHaveLength(10);
-    expect(NAMED[0]).toEqual({ blocksX: 6, blocksZ: 6, seed: 1 });
-  });
-
   for (const o of NAMED) {
     describe(label(o), () => {
       it("returns ok, and M3, M4b, M5 (strict), G2, G3, R1 and P2 all hold (criteria 2, 3 and C1's 5)", () => {

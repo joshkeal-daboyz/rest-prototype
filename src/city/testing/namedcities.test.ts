@@ -14,7 +14,7 @@ import type { CityStageDef } from "../pipeline/types";
 import { BUILT_STAGES, runCity, runCityEra } from "../stages";
 import { streetsStageWith } from "../streets/stage";
 import { createCityCache, fileOf } from "./cache";
-import { DEFAULT, label, NAMED, PINNED, PROFILE_STAGES, sharedCity, sharedEra, type CityProfile, type NamedCity } from "./namedcities";
+import { ALL_NAMED, DEFAULT, FULL_CITIES, label, NAMED, NAMED_ON, PINNED, PROFILE_STAGES, sharedCity, sharedEra, VARIED, type CityProfile, type NamedCity } from "./namedcities";
 
 // Direct builds of whole cities, several to a test: a longer limit than the default.
 vi.setConfig({ testTimeout: 120_000 });
@@ -56,11 +56,27 @@ function walk(root: unknown): { objects: number; unfrozen: string[]; odd: string
 }
 
 describe("the lists", () => {
-  it("NAMED is the 20 runs, 6 x 6 seeds 1 to 10, one-way on then off", () => {
-    expect(NAMED).toHaveLength(20);
-    expect(NAMED.slice(0, 10).map((o) => [o.seed, o.way])).toStrictEqual(Array.from({ length: 10 }, (_, n) => [n + 1, "on"]));
-    expect(NAMED.slice(10).map((o) => [o.seed, o.way])).toStrictEqual(Array.from({ length: 10 }, (_, n) => [n + 1, "off"]));
-    expect(NAMED.every((o) => o.blocksX === 6 && o.blocksZ === 6)).toBe(true);
+  it("ALL_NAMED is the 20 runs, 6 x 6 seeds 1 to 10, one-way on then off; NAMED, NAMED_ON and VARIED are the one-city lists here and the full lists with REST_CITIES=all", async () => {
+    expect(ALL_NAMED).toHaveLength(20);
+    expect(ALL_NAMED.slice(0, 10).map((o) => [o.seed, o.way])).toStrictEqual(Array.from({ length: 10 }, (_, n) => [n + 1, "on"]));
+    expect(ALL_NAMED.slice(10).map((o) => [o.seed, o.way])).toStrictEqual(Array.from({ length: 10 }, (_, n) => [n + 1, "off"]));
+    expect(ALL_NAMED.every((o) => o.blocksX === 6 && o.blocksZ === 6)).toBe(true);
+    // in this run (npm test, or the full run when REST_CITIES is all)
+    expect(NAMED).toStrictEqual(FULL_CITIES ? ALL_NAMED : [DEFAULT]);
+    expect(NAMED_ON).toStrictEqual(FULL_CITIES ? ALL_NAMED.slice(0, 10) : [DEFAULT]);
+    expect(VARIED).toStrictEqual(FULL_CITIES ? ALL_NAMED : PINNED);
+    // the other setting, in a fresh module
+    vi.stubEnv("REST_CITIES", FULL_CITIES ? "" : "all");
+    try {
+      vi.resetModules();
+      const other = await import("./namedcities");
+      expect(other.FULL_CITIES).toBe(!FULL_CITIES);
+      expect(other.NAMED).toStrictEqual(FULL_CITIES ? [DEFAULT] : ALL_NAMED);
+      expect(other.NAMED_ON).toStrictEqual(FULL_CITIES ? [DEFAULT] : ALL_NAMED.slice(0, 10));
+      expect(other.VARIED).toStrictEqual(FULL_CITIES ? PINNED : ALL_NAMED);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
   it("PINNED is seeds 1, 2, 3 and 8, one-way on; DEFAULT is seed 1 one-way on", () => {
     expect(PINNED).toStrictEqual([1, 2, 3, 8].map((seed) => ({ blocksX: 6, blocksZ: 6, seed, way: "on" })));
@@ -82,8 +98,9 @@ describe("the lists", () => {
 });
 
 describe("a plan read back from the cache is a direct build", () => {
+  // Ticket 079: every profile on the default city, and only the clean profile on seed 1 one-way off (the other profiles' off variant is the same stage swap).
   for (const o of [DEFAULT, SEED1_OFF]) {
-    for (const profile of PROFILES) {
+    for (const profile of o === DEFAULT ? PROFILES : (["clean"] as const)) {
       it(`${profile} on ${label(o)}: toStrictEqual a direct runCity, and every layer's digest is the recorded one`, () => {
         const want = direct(o, profile);
         expect(want.ok).toBe(true);
