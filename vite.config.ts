@@ -15,5 +15,7 @@ export default defineConfig({
     passWithNoTests: true,
     // Ticket 076: makes the run's shared city cache folder (and deletes it at the end).
     globalSetup: ["src/city/testing/globalsetup.ts"],
+    // Ticket 078: a short pause after every test so the worker answers vitest (no onTaskUpdate timeout).
+    setupFiles: ["src/city/testing/yield.setup.ts"],
   },
 });
