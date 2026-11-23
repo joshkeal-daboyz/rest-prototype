@@ -6,18 +6,13 @@
  */
 import { describe, expect, it } from "vitest";
 import type { CityBuildingsLayer, CityColumn, CityMassLayer, CityPiece, CityPlanRun, CitySide } from "../../core";
-import { landStage } from "../land/stage";
-import { massStage } from "../mass/stage";
-import type { CityStageDef } from "../pipeline/types";
-import { runCity } from "../stages";
-import { streetsStage, streetsStageWith } from "../streets/stage";
+import { sharedCity } from "../testing/namedcities";
 import { CORNER_TURN, floorPlan } from "./columns";
 import { columnFailures, columnReport } from "./columncheck";
 import { BUILDING_STYLES, OVERLAP_MAX_M, STOREY_ALIGN_TOL_M, WALL_JOINT_TOL_M } from "./constants";
 import { KIT, kitEntry } from "./kit";
 import { bodyBoxOf, cellBox, centreOf, ownBody, placeFloor, placeRoof, planeOf, SIDE_VEC } from "./place";
 import { keyOf, OPPOSITE } from "./rows";
-import { buildingsStage } from "./stage";
 
 interface City {
   readonly blocksX: number;
@@ -30,17 +25,8 @@ for (const way of ["on", "off"] as const) for (let seed = 1; seed <= 10; seed++)
 const DEFAULT: City = { blocksX: 6, blocksZ: 6, seed: 1, way: "on" };
 const label = (o: City): string => `${o.blocksX} x ${o.blocksZ} seed ${o.seed} one-way ${o.way}`;
 
-const stagesOf = (way: "on" | "off"): CityStageDef[] => [
-  (way === "on" ? streetsStage : streetsStageWith(0)) as unknown as CityStageDef,
-  landStage as unknown as CityStageDef,
-  massStage as unknown as CityStageDef,
-  buildingsStage as unknown as CityStageDef,
-];
-const cache = new Map<string, CityPlanRun>();
 function cityOf(o: City): CityPlanRun {
-  const k = `${o.blocksX}x${o.blocksZ}:${o.seed}:${o.way}`;
-  if (!cache.has(k)) cache.set(k, runCity({ blocksX: o.blocksX, blocksZ: o.blocksZ, seed: o.seed }, "buildings", stagesOf(o.way)));
-  return cache.get(k)!;
+  return sharedCity(o, "buildings");
 }
 interface Layers {
   readonly mass: CityMassLayer;

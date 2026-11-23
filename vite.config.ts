@@ -13,5 +13,7 @@ export default defineConfig({
   test: {
     include: ["src/**/*.test.ts", "tools/**/*.test.ts"],
     passWithNoTests: true,
+    // Ticket 076: makes the run's shared city cache folder (and deletes it at the end).
+    globalSetup: ["src/city/testing/globalsetup.ts"],
   },
 });

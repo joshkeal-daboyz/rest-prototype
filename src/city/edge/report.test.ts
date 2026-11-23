@@ -7,6 +7,7 @@ import { landStage } from "../land/stage";
 import { massStage } from "../mass/stage";
 import type { CityStageDef } from "../pipeline/types";
 import { runCity } from "../stages";
+import { sharedCity } from "../testing/namedcities";
 import { streetsStageWith } from "../streets/stage";
 import { edgeMetrics, edgeVerdicts, supplyOverDemand } from "./check";
 import { edgeStage } from "./stage";
@@ -37,7 +38,7 @@ interface Row {
 }
 function measure(o: City): Row {
   const options = { blocksX: o.blocksX, blocksZ: o.blocksZ, seed: o.seed };
-  const r = o.way === "on" ? runCity(options, "edge") : runCity(options, "edge", offStages());
+  const r = o.blocksX === 6 && o.blocksZ === 6 ? sharedCity(o, "edge") : o.way === "on" ? runCity(options, "edge") : runCity(options, "edge", offStages());
   if (!r.ok) return { text: `fail at ${r.failure.stage}: ${r.failure.reason.slice(0, 100)}`, pass: false, p1: null };
   const { streets, mass, edge } = r.plan.layers;
   const m = edgeMetrics(edge!, streets!, mass!, options);

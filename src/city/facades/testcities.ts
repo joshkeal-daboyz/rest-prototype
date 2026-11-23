@@ -2,8 +2,8 @@
  * Test support for the facades tests (ticket 070 H1): the named cities, each built once per test file through a module-level cache, with stages 1 to 7 (edge included). Imported by tests only, never by the stage.
  */
 import type { CityBuildingsLayer, CityFacadesLayer, CityMassLayer, CityPlanRun } from "../../core";
-import { runCity } from "../stages";
 import { BUILT_STAGES } from "../stages";
+import { sharedCity } from "../testing/namedcities";
 import { streetsStageWith } from "../streets/stage";
 import type { CityStageDef } from "../pipeline/types";
 
@@ -26,12 +26,9 @@ export const stagesOf = (way: "on" | "off", swap?: CityStageDef): CityStageDef[]
   return swap ? all.map((s) => (s.name === swap.name ? swap : s)) : all;
 };
 
-const cache = new Map<string, CityPlanRun>();
-/** The city, run through stage 7 once per test file. */
+/** The city, run through stage 7: built at most once per worker per test run and shared across the test files (ticket 076; deep-frozen, as a direct build is). */
 export function cityOf(o: City): CityPlanRun {
-  const k = `${o.blocksX}x${o.blocksZ}:${o.seed}:${o.way}`;
-  if (!cache.has(k)) cache.set(k, runCity({ blocksX: o.blocksX, blocksZ: o.blocksZ, seed: o.seed }, undefined, stagesOf(o.way)));
-  return cache.get(k)!;
+  return sharedCity(o, "facades");
 }
 
 export interface Layers {
