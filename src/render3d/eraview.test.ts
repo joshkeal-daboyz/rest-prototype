@@ -82,7 +82,7 @@ describe("the draw reads the resolved plan (criterion 2)", () => {
       expect(r.text).toBeNull();
       expect(r.plan).toEqual(p);
     }
-  });
+  }, 30_000); // builds the city for every era; runs past 5 s on the slower CI runner
 
   it("with the registered ERA_STAGES (tech built), the tech era differs from clean only through the resolver", () => {
     const p = clean();
