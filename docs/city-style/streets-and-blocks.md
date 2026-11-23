@@ -20,7 +20,7 @@ Depends on: `docs/city-style/numbers.md` (the constants), `docs/city-style/block
 - **Default (041)**: no street furniture (trees, bins, hydrants, traffic lights, parked cars) yet. A later ticket may add it.
 - Terrace pavements carry street furniture, and the outer blocks are terraces: the whole procedural city, from lot to prop, is chapter 16.
 - **Rule [D-063e]**: the tile city (`city=tiles`) has no avenues. Every street line is the 5-cell street profile (pavement, parking band, two lanes, pavement: 25 m across, a 3-cell carriageway of 15 m), and a junction is 3 x 3 cells.
-- **Default [D-063f]**: `AVENUE_ONE_IN` is 0, an off switch (0 is none). The avenue profile, the avenue-first bay order and `KERB_BAY_SHARE_MAX.avenue` stay in `tilecity.ts`, unused. `tilecity.test.ts` (`street width: no avenues`) pins every carriageway at 15 m and the largest junction at 3 x 3. The ladder's maps and `town.ts` are not touched.
+- **Default [D-063f]**: `AVENUE_ONE_IN` is 0, an off switch (0 is none). The avenue profile, the avenue-first bay order and `KERB_BAY_SHARE_MAX.avenue` stay in `tilecity.ts`, unused. The old path's test (`street width: no avenues`, deleted in ticket 081 A1) pinned every carriageway at 15 m and the largest junction at 3 x 3. The ladder's maps and `town.ts` are not touched.
 
 
 ## 10. Roads from packs

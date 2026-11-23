@@ -1,6 +1,6 @@
 /**
  * The tile city's keys and flags (ticket 055, section C). Pure: no three, no DOM, no assets. Which City Pack piece draws each tile role, which way each piece's own
- * front must be turned to sit on its cell, which level it stands at, how many draw calls the tiles may take, and the page's flags (`city=tiles-old` since ticket 070 L1, and `city=tiles&sheet=1`).
+ * front must be turned to sit on its cell, which level it stands at, how many draw calls the tiles may take, and the page's flag (`city=tiles&sheet=1`).
  *
  * Every key is the City Pack's (`city-pack`, 5 m squares, finding 2 of the ticket). Their orientation cannot be read from bounds: it is confirmed by eye on the tile sheet
  * (`&city=tiles&sheet=1`), and a wrong one is corrected here as one `TILE_FRONTS` line. Section E added the walking level, the yellow centre line, the sheet's grid and its labels.
@@ -8,15 +8,11 @@
 
 import type { CalibrationKey } from "../core";
 import {
-  ALLEY_CELLS,
-  APRON_STRIP,
   CITY_BLOCKS_DEFAULT,
   CITY_BLOCKS_MAX,
   SIDEWALK_WALK_M,
   TILE_M,
   type InteriorRole,
-  type TileCity,
-  type TilePassage,
   type TileRole,
   type TileYaw,
 } from "./tilecity";
@@ -459,84 +455,6 @@ export interface InteriorItem {
   cells: 1 | 2;
 }
 
-const keyOfCell = (i: number, j: number): string => `${i},${j}`;
-
-/** The paved inlets' cells (063 H): `drives` are the cells of every street court's drive (`TileCourt.drive`, ring 1: `lotSurface` cells of `TileCity.cells`), `mouths` the first and last cell of every alley's lane (ring 1: interior `alley` cells). */
-export interface InletCells {
-  drives: readonly { i: number; j: number }[];
-  mouths: readonly { i: number; j: number }[];
-}
-
-/**
- * The cells of the openings in the rows that the drawing paves (063 H; Josh, 19 Nov 2026: "If you're going to have an inlet to areas between buildings it needs to be paved"): a residents' court's drive (2 cells) and an alley's two mouth cells,
- * each in ring 1, from the kerb cut to where the opening meets the interior. The court's first row of stalls (ring 2) and the alley lane beyond ring 1 keep the bare road, and a frontage lot (a real lot of `TileCity.frontLots`, no court)
- * keeps its asphalt and stall lines: it is no inlet. An alley block's own court (its drive is beside the lane, not through a row) is no inlet either. Pure; it reads only `courts` and `blocks`.
- */
-export function inletCells(city: Pick<TileCity, "courts" | "blocks">): InletCells {
-  const drives: { i: number; j: number }[] = [];
-  for (const court of city.courts) {
-    if (court.street.startsWith("alley:")) continue;
-    for (const c of court.drive) drives.push({ i: c.i, j: c.j });
-  }
-  const mouths: { i: number; j: number }[] = [];
-  for (const b of city.blocks) {
-    const al = b.alley;
-    if (al === null) continue;
-    // The lane is `ALLEY_CELLS` wide, and its first and last cell along its axis are the mouth.
-    for (let t = 0; t < ALLEY_CELLS; t++) {
-      if (al.axis === "z") mouths.push({ i: al.at + t, j: b.j0 }, { i: al.at + t, j: b.j1 - 1 });
-      else mouths.push({ i: b.i0, j: al.at + t }, { i: b.i1 - 1, j: al.at + t });
-    }
-  }
-  return { drives, mouths };
-}
-
-/**
- * Everything a city draws on its blocks' ground, from `TileCity.interior` and `courts`, each cell once. A cell the street layer already drew is not drawn again: a court's drive and first row of stalls are
- * the `lotSurface` cells 056 laid (`city.cells`), so they are not `bare` items. An alley lane's two mouth cells (`inletCells`) are `inlet` items, paved. Then each row of every court's stalls (its near and far rows, not its aisle) adds one `stalls` item over its two cells, turned
- * as the court's cell is (toward the aisle, which is the way the stalls open). Pure; the order is the interior's, then the courts'.
- */
-export function interiorItems(city: Pick<TileCity, "cells" | "interior" | "courts" | "blocks">): InteriorItem[] {
-  const mouth = new Set(inletCells(city).mouths.map((c) => keyOfCell(c.i, c.j)));
-  const street = new Set<string>();
-  for (const c of city.cells) if (c.role === "lotSurface") street.add(keyOfCell(c.i, c.j));
-  const out: InteriorItem[] = [];
-  const at = new Map<string, TileYaw>();
-  for (const c of city.interior) at.set(keyOfCell(c.i, c.j), c.yaw);
-  for (const c of city.interior) {
-    let kind: InteriorKind;
-    switch (c.role) {
-      case "apron":
-        kind = c.variant === APRON_STRIP ? "strip" : "apron";
-        break;
-      case "greenPath":
-        kind = "path";
-        break;
-      case "parkEdge":
-        kind = "parkEdge";
-        break;
-      case "green":
-        kind = "green";
-        break;
-      case "court":
-      case "drive":
-      case "alley":
-        if (street.has(keyOfCell(c.i, c.j))) continue;
-        kind = c.role === "alley" && mouth.has(keyOfCell(c.i, c.j)) ? "inlet" : "bare";
-        break;
-    }
-    out.push({ kind, role: c.role, i: c.i, j: c.j, x_m: c.x_m, z_m: c.z_m, yaw: c.yaw, cells: 1 });
-  }
-  for (const court of city.courts) {
-    for (const pair of [court.stallsNear, court.stallsFar]) {
-      const a = pair[0];
-      const b = pair[1];
-      out.push({ kind: "stalls", role: "court", i: a.i, j: a.j, x_m: ((a.i + b.i + 1) / 2) * TILE_M, z_m: ((a.j + b.j + 1) / 2) * TILE_M, yaw: at.get(keyOfCell(a.i, a.j)) ?? court.yaw, cells: 2 });
-    }
-  }
-  return out;
-}
-
 /** The dividers of a row of stalls drawn in code: where each stands along the row's 10 m (metres from its middle), and its size (width along the row, length across it, metres). The pack's tile has its three bays' dividers at about these. */
 export const STALL_DIVIDERS_X_M: readonly number[] = [-5, -5 / 3, 5 / 3, 5];
 export const STALL_DIVIDER_W_M = 0.12;
@@ -565,28 +483,6 @@ export interface GatePlan {
   run: string;
 }
 
-/** The middle of each alley's two mouths on the blocks' edges, metres. */
-export function alleyMouths(city: Pick<TileCity, "blocks">): { x_m: number; z_m: number }[] {
-  const out: { x_m: number; z_m: number }[] = [];
-  for (const b of city.blocks) {
-    const al = b.alley;
-    if (al === null) continue;
-    const mid = (al.at + ALLEY_CELLS / 2) * TILE_M;
-    if (al.axis === "z") out.push({ x_m: mid, z_m: b.j0 * TILE_M }, { x_m: mid, z_m: b.j1 * TILE_M });
-    else out.push({ x_m: b.i0 * TILE_M, z_m: mid }, { x_m: b.i1 * TILE_M, z_m: mid });
-  }
-  return out;
-}
-
-/** A gate for each of the city's gated passages: the small one when the passage opens on an alley's mouth (`GATE_ALLEY_REACH_M`). Pure; the order is `city.passages`'. */
-export function gatePlan(city: Pick<TileCity, "passages" | "blocks">): GatePlan[] {
-  const mouths = alleyMouths(city);
-  return city.passages.map((p: TilePassage) => {
-    const reach = (ALLEY_CELLS * TILE_M) / 2 + p.w_m / 2 + GATE_ALLEY_REACH_M;
-    return { x_m: p.x_m, z_m: p.z_m, yaw: p.yaw, w_m: p.w_m, small: mouths.some((m) => Math.hypot(m.x_m - p.x_m, m.z_m - p.z_m) <= reach), run: p.run };
-  });
-}
-
 /** One box of a gate, in the gate's own frame (x along the passage, y up, z through the wall line): its middle along x, and its width, height and thickness, metres. */
 export interface GatePart {
   kind: "panel" | "post";
@@ -606,14 +502,6 @@ export function gateParts(g: Pick<GatePlan, "w_m" | "small">): GatePart[] {
     { kind: "post", x_m: side, w_m: GATE_POST_W_M, h_m: h + GATE_POST_EXTRA_H_M, d_m: GATE_POST_W_M },
     { kind: "panel", x_m: 0, w_m: g.w_m - 2 * GATE_POST_W_M, h_m: h, d_m: GATE_THICK_M },
   ];
-}
-
-/** The floor of each gated passage as a rectangle, metres (centre and size): apron pavement from the back edge inward (`TilePassage.floor`), drawn so the way from the street to the apron has a surface. */
-export function passageFloors(city: Pick<TileCity, "passages">): GroundRect[] {
-  return city.passages.map((p) => {
-    const f = p.floor;
-    return { x_m: (f.minX_m + f.maxX_m) / 2, z_m: (f.minZ_m + f.maxZ_m) / 2, w_m: f.maxX_m - f.minX_m, d_m: f.maxZ_m - f.minZ_m };
-  });
 }
 
 /** A rectangle on the ground, metres: its centre and its size along world x and z. */
@@ -661,12 +549,12 @@ export interface CityTilesRequest {
 }
 
 /**
- * What the page asks of the tile city, or null when it does not ask: `city=tiles`, `blocks=WxD` (each clamped to 1..CITY_BLOCKS_MAX; anything else is the default 3 x 3),
+ * What the page asks of the tile sheet, or null when it does not ask: `city=tiles&sheet=1` (plain `city=tiles` is the pipeline's city, `plan3d.ts`'s `tilesPlanRequested`; the old tile city went in ticket 081 A1), with `blocks=WxD` (each clamped to 1..CITY_BLOCKS_MAX; anything else is the default 3 x 3),
  * `seed=N` (an integer; anything else is 1) and `sheet=1`. Pure; renderer.ts passes the address in, behind `import.meta.env.DEV`.
  */
 export function cityTilesRequested(search: string): CityTilesRequest | null {
   const q = new URLSearchParams(search);
-  if (q.get("city") !== "tiles") return null;
+  if (q.get("city") !== "tiles" || q.get("sheet") !== "1") return null;
   let blocksX = CITY_BLOCKS_DEFAULT;
   let blocksZ = CITY_BLOCKS_DEFAULT;
   const m = /^(\d+)x(\d+)$/i.exec((q.get("blocks") ?? "").trim());
@@ -677,20 +565,5 @@ export function cityTilesRequested(search: string): CityTilesRequest | null {
   }
   const seedText = (q.get("seed") ?? "").trim();
   const seed = /^-?\d+$/.test(seedText) ? Number.parseInt(seedText, 10) : 1;
-  return { blocksX, blocksZ, seed: Number.isSafeInteger(seed) ? seed : 1, sheet: q.get("sheet") === "1" };
-}
-
-/**
- * The old tile city's address after ticket 070 L1 (Josh, Q31 open): `city=tiles-old` is read as `cityTilesRequested` reads `city=tiles` (default 3 x 3, `blocks`, `seed`, `sheet`), and `city=tiles&sheet=1` still opens the tile
- * sheet, a piece-orientation tool and not the old city. Everything else is null (plain `city=tiles` is the pipeline's city now: `plan3d.ts`'s `tilesPlanRequested`). Goes with the old path in L2. Pure.
- */
-export function oldTilesRequested(search: string): CityTilesRequest | null {
-  const q = new URLSearchParams(search);
-  const city = q.get("city");
-  if (city === "tiles-old") {
-    q.set("city", "tiles");
-    return cityTilesRequested(`?${q.toString()}`);
-  }
-  if (city === "tiles" && q.get("sheet") === "1") return cityTilesRequested(search);
-  return null;
+  return { blocksX, blocksZ, seed: Number.isSafeInteger(seed) ? seed : 1, sheet: true };
 }

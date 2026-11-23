@@ -10,8 +10,12 @@ import { BUILDING_STYLES, FRONTAGE_TOL_M, OVERLAP_MAX_M, RECESS_MAX_M, STOREY_AL
 import { KIT } from "../city/buildings/kit";
 import { ownBody } from "../city/buildings/place";
 import { BODY_M, OPEN_SIDE_MEASURED } from "./facade";
-import { FRONTAGE_TOL_M as OLD_FRONTAGE_TOL_M, OVERLAP_MAX_M as OLD_OVERLAP_MAX_M, RECESS_MAX_M as OLD_RECESS_MAX_M } from "./frontage";
 import { STACK_STYLES, STOREY_ALIGN_TOL_M as OLD_STOREY_ALIGN_TOL_M } from "./stacks";
+
+/** The old path's thresholds as typed values (src/render3d/frontage.ts at 3823f0d, deleted in ticket 081 A1): OVERLAP_MAX_M was WALL_REACH_M, RECESS_MAX_M 0 and FRONTAGE_TOL_M 0.01. */
+const OLD_OVERLAP_MAX_M = 0.6;
+const OLD_RECESS_MAX_M = 0;
+const OLD_FRONTAGE_TOL_M = 0.01;
 
 describe("the kit table equals the old path's numbers (070 F2, criterion 1)", () => {
   it("the table has 15 keys: for each of the three apartment styles, a mid floor, a corner floor, a three-storey piece, a mid roof and a corner roof", () => {

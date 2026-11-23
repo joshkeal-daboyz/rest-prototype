@@ -118,7 +118,7 @@ describe("the tile view's toggle (criterion 6)", () => {
     const plan = tilesPlanRequested(search);
     const r = plan
       ? createPlanAssembleRenderer3d(gl as unknown as WebGLRenderer, canvas(), plan, { dpr: 1, search, load: async () => NO_MODELS, toggleHost: host, run: cachedRun() })
-      : createCityRenderer3d(gl as unknown as WebGLRenderer, canvas(), cityTilesRequested(search)!, { dpr: 1, search, load: async () => NO_MODELS, surface: stubTextSurface, toggleHost: host });
+      : createCityRenderer3d(gl as unknown as WebGLRenderer, canvas(), cityTilesRequested(search)!, { dpr: 1, search, load: async () => NO_MODELS, surface: stubTextSurface });
     await new Promise<void>((done) => setTimeout(done, 0));
     return {
       gl,
@@ -214,7 +214,6 @@ describe("the tile view's toggle (criterion 6)", () => {
 });
 
 describe("dev only (criterion 7's source half)", () => {
-  const tile = readFileSync("src/render3d/tilecity3d.ts", "utf8");
   const plan3d = readFileSync("src/render3d/plan3d.ts", "utf8");
 
   it("the plan view (city=tiles) makes the toggle only behind import.meta.env.DEV, and reads the mode through lightModeFor", () => {
@@ -223,11 +222,6 @@ describe("dev only (criterion 7's source half)", () => {
   });
 
   const renderer = readFileSync("src/render3d/renderer.ts", "utf8");
-
-  it("the tile view makes the toggle only behind import.meta.env.DEV, and reads the mode through lightModeFor", () => {
-    expect(tile).toMatch(/if \(import\.meta\.env\.DEV && cityScene\) \{[\s\S]*?createDayToggle\(/);
-    expect(tile).toMatch(/lightModeFor\("tiles", opts\.search, import\.meta\.env\.DEV\)/);
-  });
 
   it("renderer.ts reads light= only in a dev build", () => {
     expect(renderer).toMatch(/import\.meta\.env\.DEV && typeof location !== "undefined" \? lightModeFor\("puzzle", location\.search, true\) : "night"/);

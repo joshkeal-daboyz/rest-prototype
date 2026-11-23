@@ -4,12 +4,12 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { inflateSync } from "node:zlib";
 import { join } from "node:path";
 import type { CalibrationKey } from "../core";
 import { CITY_BLOCKS_DEFAULT, CITY_BLOCKS_MAX, type InteriorRole, type TileRole } from "./tilecity";
-import { ALLEY_CELLS, SIDEWALK_WALK_M, TILE_M, tileCity } from "./tilecity";
+import { SIDEWALK_WALK_M, TILE_M } from "./tilecity";
 import { TREES } from "./furniture";
 import {
   SHEET_BUILDOUT_NOTE,
@@ -37,8 +37,6 @@ import {
   TILE_TREES,
   TILE_WALK_M,
   cityTilesRequested,
-  oldTilesRequested,
-  inletCells,
   passageFloorCells,
   sheetColumns,
   sheetLabel,
@@ -454,27 +452,46 @@ describe("the sheet's names, legend and grid (E, criterion 30)", () => {
   });
 });
 
-describe("cityTilesRequested", () => {
-  it("is null unless the page asks for city=tiles", () => {
-    for (const s of ["", "?puzzle=01-first-light&view=3d", "?city=", "?city=town", "?city=Tiles", "?blocks=2x2&seed=3&sheet=1", "?gallery=city-pack"]) expect(cityTilesRequested(s), s).toBeNull();
-  });
 
-  it("defaults to the 3 x 3 city, seed 1, no sheet", () => {
-    expect(cityTilesRequested("?puzzle=01-first-light&view=3d&city=tiles")).toEqual({ blocksX: CITY_BLOCKS_DEFAULT, blocksZ: CITY_BLOCKS_DEFAULT, seed: 1, sheet: false });
-    expect(CITY_BLOCKS_DEFAULT).toBe(3);
-  });
-
-  it("reads blocks=WxD clamped to 1..6, an integer seed (negative too) and sheet=1", () => {
-    expect(cityTilesRequested("?city=tiles&blocks=5x4&seed=2")).toEqual({ blocksX: 5, blocksZ: 4, seed: 2, sheet: false });
-    expect(cityTilesRequested("?city=tiles&blocks=0x99")).toEqual({ blocksX: 1, blocksZ: CITY_BLOCKS_MAX, seed: 1, sheet: false });
-    expect(cityTilesRequested("?city=tiles&blocks=2X6&seed=-7&sheet=1")).toEqual({ blocksX: 2, blocksZ: 6, seed: -7, sheet: true });
+describe("cityTilesRequested (ticket 081 A1: the routes)", () => {
+  it("answers only for city=tiles&sheet=1 (the sheet), reads blocks and seed as before, and is null for the pipeline's city, the old city's address, and everything else", () => {
+    // The sheet.
+    expect(cityTilesRequested("?city=tiles&sheet=1")).toEqual({ blocksX: CITY_BLOCKS_DEFAULT, blocksZ: CITY_BLOCKS_DEFAULT, seed: 1, sheet: true });
     expect(cityTilesRequested("&city=tiles&sheet=1")?.sheet).toBe(true);
+    expect(cityTilesRequested("?city=tiles&blocks=0x99&sheet=1")).toEqual({ blocksX: 1, blocksZ: CITY_BLOCKS_MAX, seed: 1, sheet: true });
+    expect(cityTilesRequested("?city=tiles&blocks=2X6&seed=-7&sheet=1")).toEqual({ blocksX: 2, blocksZ: 6, seed: -7, sheet: true });
+    for (const s of ["blocks=3", "blocks=axb", "blocks=2.5x2"]) expect(cityTilesRequested(`?city=tiles&sheet=1&${s}`), s).toEqual({ blocksX: 3, blocksZ: 3, seed: 1, sheet: true });
+    for (const s of ["seed=1.5", "seed=abc", "seed=99999999999999999999"]) expect(cityTilesRequested(`?city=tiles&sheet=1&${s}`)?.seed, s).toBe(1);
+    // The pipeline's city (plan3d.ts's tilesPlanRequested), the old city's address (deleted in 081 A1) and everything else are not the sheet's.
+    for (const s of ["", "?city=tiles", "?city=tiles&sheet=0", "?city=tiles-old", "?city=tiles-old&sheet=1", "?city=plan", "?city=Tiles&sheet=1", "?gallery=city-pack", "?puzzle=01-first-light&view=3d"]) expect(cityTilesRequested(s), s).toBeNull();
   });
+});
 
-  it("falls back to the defaults on anything malformed: a size that is not WxD, a seed that is not an integer, a sheet that is not 1", () => {
-    for (const s of ["blocks=3", "blocks=3x", "blocks=axb", "blocks=3x3x3", "blocks=-2x2", "blocks=2.5x2"]) expect(cityTilesRequested(`?city=tiles&${s}`), s).toEqual({ blocksX: 3, blocksZ: 3, seed: 1, sheet: false });
-    for (const s of ["seed=1.5", "seed=abc", "seed=", "seed=0x10", "seed=99999999999999999999"]) expect(cityTilesRequested(`?city=tiles&${s}`)?.seed, s).toBe(1);
-    for (const s of ["sheet=0", "sheet=true", "sheet="]) expect(cityTilesRequested(`?city=tiles&${s}`)?.sheet, s).toBe(false);
+/** The names and modules of the old tile city (ticket 081 A1, 070 L2d): none is imported or exported by any file under src/. The grep tests that carry such an import as a fixture string are left out. */
+describe("the old tile city is gone (ticket 081 A1)", () => {
+  const OLD_NAMES = ["tileCity", "planBlocks", "withPassages", "tileKeepouts", "oldTilesRequested"];
+  const OLD_MODULES = /\/(frontage|parkmetrics)$/;
+  /** The pipeline's own `planBlocks` (src/city/land/plan.ts) is another function: an old name counts only when it comes from an old-path module, or is exported by a src/render3d/ file. */
+  const OLD_HOMES = /(^|\/)(tilecity|tilecity3d|tileslots|kerbline)$/;
+  const files = (dir: string): string[] =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? files(join(dir, e.name)) : e.name.endsWith(".ts") && !/oldpath\.(test|fixture)\.ts$/.test(e.name) && e.name !== "tileslots.test.ts" ? [join(dir, e.name)] : []));
+  const strip = (text: string): string => text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  /** What a file imports or exports of the old city: a module `frontage` or `parkmetrics`, or one of the old names in an import list or an export. */
+  const found = (text: string, inRender3d = true): string[] => {
+    const code = strip(text);
+    const out: string[] = [];
+    for (const m of code.matchAll(/(?:import|export)\s+(?:type\s+)?(\{[^}]*\}|\*(?:\s+as\s+\w+)?)\s+from\s+"([^"]+)"/g)) {
+      if (OLD_MODULES.test(m[2]!)) out.push(`module ${m[2]}`);
+      if (OLD_HOMES.test(m[2]!)) for (const n of OLD_NAMES) if (new RegExp(`\\b${n}\\b`).test(m[1]!)) out.push(`import of ${n}`);
+    }
+    if (inRender3d) for (const n of OLD_NAMES) if (new RegExp(`export\\s+(?:async\\s+)?(?:function|const|let)\\s+${n}\\b`).test(code)) out.push(`export of ${n}`);
+    return out;
+  };
+
+  it("is imported and exported by no file under src/, and the check finds a fixture that does", () => {
+    const bad = files("src").flatMap((f) => found(readFileSync(f, "utf8"), f.includes("render3d")).map((what) => `${f}: ${what}`));
+    expect(bad).toEqual([]);
+    expect(found('import { tileCity } from "./tilecity";\nexport function withPassages() {}\nimport * as p from "./parkmetrics";')).toEqual(["import of tileCity", "module ./parkmetrics", "export of withPassages"]);
   });
 });
 
@@ -557,42 +574,6 @@ describe("plain interior paving (063 D)", () => {
     expect(passageFloorCells(cases[3]!).whole).toHaveLength(2);
     expect(passageFloorCells(cases[3]!).part).toHaveLength(1);
     expect(passageFloorCells(cases[5]!).whole, "a floor under a cell deep has no whole cell").toEqual([]);
-  });
-});
-
-describe("the paved inlets' cells (063 H)", () => {
-  const cities = [tileCity(), ...[1, 2, 3, 4, 5].map((seed) => tileCity({ blocksX: 3, blocksZ: 3, seed })), tileCity({ blocksX: 6, blocksZ: 4, seed: 1 })];
-
-  it("are the two cells of every street court's drive and the first and last cell of every alley's lane, nothing else", () => {
-    let drives = 0;
-    let mouths = 0;
-    for (const city of cities) {
-      const got = inletCells(city);
-      const want = city.courts.filter((c) => !c.street.startsWith("alley:")).flatMap((c) => c.drive.map((q) => `${q.i},${q.j}`));
-      expect(got.drives.map((q) => `${q.i},${q.j}`)).toEqual(want);
-      expect(want.length % 2).toBe(0);
-      drives += want.length;
-      const alleys = city.blocks.filter((b) => b.alley !== null);
-      expect(got.mouths).toHaveLength(2 * ALLEY_CELLS * alleys.length);
-      mouths += got.mouths.length;
-      // Every mouth cell is an alley lane cell of the interior, and every drive cell is a lot cell of the street layer.
-      const lane = new Set(city.interior.filter((c) => c.role === "alley").map((c) => `${c.i},${c.j}`));
-      for (const q of got.mouths) expect(lane.has(`${q.i},${q.j}`), `${q.i},${q.j}`).toBe(true);
-      const lot = new Set(city.cells.filter((c) => c.role === "lotSurface").map((c) => `${c.i},${c.j}`));
-      for (const q of got.drives) expect(lot.has(`${q.i},${q.j}`), `${q.i},${q.j}`).toBe(true);
-    }
-    expect(drives).toBeGreaterThan(20);
-    expect(mouths).toBeGreaterThan(4);
-  });
-
-  it("leave a court's stalls and aisle, and an alley block's own court, as they are: none is an inlet cell", () => {
-    for (const city of cities) {
-      const inlet = new Set([...inletCells(city).drives, ...inletCells(city).mouths].map((q) => `${q.i},${q.j}`));
-      for (const court of city.courts) {
-        for (const pair of [court.stallsNear, court.aisle, court.stallsFar]) for (const q of pair) expect(inlet.has(`${q.i},${q.j}`), `${court.run}`).toBe(false);
-        if (court.street.startsWith("alley:")) for (const q of court.drive) expect(inlet.has(`${q.i},${q.j}`), "an alley court's drive").toBe(false);
-      }
-    }
   });
 });
 
@@ -881,23 +862,5 @@ describe("the converted City Pack agrees with 063's pieces when this machine has
     expect(lengthOf("SM_Env_Sidewalk_Straight_02", "+z")).toBeGreaterThan(RETURN_LEG_M);
     // The dip piece's own kerb is the two ends only (about 1 m in all): the 3 m between them is dipped to 0.14 m above the road, so the mouth is a dip, not a kerb.
     expect(lengthOf("SM_Env_Sidewalk_Dip_01", "+z")).toBeLessThan(1.5);
-  });
-});
-
-describe("oldTilesRequested (ticket 070 L1, criterion 2; Q31)", () => {
-  it("reads city=tiles-old as cityTilesRequested reads city=tiles: 3 x 3 by default, blocks, seed", () => {
-    expect(oldTilesRequested("?puzzle=01-first-light&view=3d&city=tiles-old")).toEqual({ blocksX: CITY_BLOCKS_DEFAULT, blocksZ: CITY_BLOCKS_DEFAULT, seed: 1, sheet: false });
-    expect(oldTilesRequested("?city=tiles-old&blocks=5x4&seed=2")).toEqual(cityTilesRequested("?city=tiles&blocks=5x4&seed=2"));
-    expect(oldTilesRequested("?city=tiles-old&blocks=0x99")).toEqual({ blocksX: 1, blocksZ: CITY_BLOCKS_MAX, seed: 1, sheet: false });
-    expect(oldTilesRequested("?city=tiles-old&blocks=2X6&seed=-7&sheet=1")).toEqual(cityTilesRequested("?city=tiles&blocks=2X6&seed=-7&sheet=1"));
-  });
-
-  it("keeps city=tiles&sheet=1 opening the tile sheet", () => {
-    expect(oldTilesRequested("?city=tiles&sheet=1")).toEqual(cityTilesRequested("?city=tiles&sheet=1"));
-    expect(oldTilesRequested("?city=tiles&sheet=1")?.sheet).toBe(true);
-  });
-
-  it("is null for everything else, plain city=tiles included (that is the pipeline's city now)", () => {
-    for (const s of ["", "?city=tiles", "?city=tiles&sheet=0", "?city=plan", "?city=Tiles-old", "?city=tiles-older", "?gallery=city-pack", "?puzzle=01-first-light&view=3d"]) expect(oldTilesRequested(s), s).toBeNull();
   });
 });
