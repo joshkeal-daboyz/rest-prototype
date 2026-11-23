@@ -3,7 +3,7 @@
 standard: yes
 Scope: how a City Pack city is generated from a map (the grammar and the pipeline), and how block sizes vary.
 Read by: planner
-Depends on: `docs/city-style/numbers.md` (the constants), `docs/city-style/block-stacks.md` (16.3), `docs/city-style/streets-and-blocks.md` (the streets), `docs/city-style/frontage-and-interiors.md` (19.4 and 19.6), `docs/city-style/evaluation.md` (16.8, 19.7 and the readings of 19.3 and 19.5)
+Depends on: `docs/city-style/numbers.md` (the constants), `docs/city-style/block-stacks.md` (16.3), `docs/city-style/streets-and-blocks.md` (the streets), `docs/city-style/block-interiors.md` (19.4) and `docs/city-style/alleys-and-parks.md` (19.6), `docs/city-style/evaluation.md` (16.8, 19.7 and the readings of 19.3 and 19.5)
 
 ## Rules
 

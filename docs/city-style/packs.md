@@ -3,7 +3,7 @@
 standard: yes
 Scope: which Synty packs the 3D town draws from, how their models are licensed, and how a pack is added.
 Read by: asset-scout, renderer
-Depends on: `docs/city-style/buildings.md` (the model table), `docs/city-style/fronts.md` and `docs/city-style/corner-buildings.md` (fronts and corners), `docs/city-style/facades.md` (door steps), `docs/city-style/exclusions.md` (the never-used pieces)
+Depends on: `docs/city-style/buildings.md` (the model table), `docs/city-style/fronts.md` and `docs/city-style/corner-buildings.md` (fronts and corners), `docs/city-style/door-sills.md` (door steps), `docs/city-style/exclusions.md` (the never-used pieces)
 
 ## Rules
 

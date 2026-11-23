@@ -313,7 +313,7 @@ describe("the document standard holds (ticket 080 B1)", () => {
       expect(order[0], `${f}: the title is not line 1`).toBe(0);
       expect(ls.reduce((last, l, i) => (/^#{2,3} /.test(l) ? i : last), -1), `${f}: Open questions is not the last heading`).toBe(order[6]);
       for (const b of ls.filter((l) => l.startsWith("- **"))) {
-        expect(/^- \*\*(Rule \[D-\d{3}[a-z]\]|Default( \(\d{3}\)| \[D-\d{3}[a-z]\])?|Open)\*\*: /.test(b), `${f}: not a Rule, Default or Open line: ${b.slice(0, 60)}`).toBe(true);
+        expect(/^- \*\*(Rule \[D-\d{3}[a-z]\]|Default( \(\d{3}\))?( \[D-\d{3}[a-z]\])?|Open)\*\*: /.test(b), `${f}: not a Rule, Default or Open line: ${b.slice(0, 60)}`).toBe(true);
         if (b.startsWith("- **Open")) expect(b, `${f}: an Open line says what it waits for`).toContain("Waits for:");
       }
     }

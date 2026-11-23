@@ -3,7 +3,7 @@
 standard: yes
 Scope: how many parking spaces the tile city gives a home and a shop, which go on the street and which in lots, and the caps.
 Read by: streetscape, planner
-Depends on: `docs/city-style/numbers.md` (the constants), `docs/city-style/frontage-and-interiors.md` (courts, 19.4 and 19.6), `docs/city-style/evaluation.md` (the checks P1 to P6, 18.8)
+Depends on: `docs/city-style/numbers.md` (the constants), `docs/city-style/block-interiors.md` and `docs/city-style/alleys-and-parks.md` (courts, 19.4 and 19.6), `docs/city-style/evaluation.md` (the checks P1 to P6, 18.8)
 
 ## Rules
 

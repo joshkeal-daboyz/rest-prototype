@@ -3,7 +3,7 @@
 standard: yes
 Scope: where roads, kerbs and pavements go (beside the circuit's wires on the ladder maps, the tile city's one street profile) and how the road pack draws them.
 Read by: planner
-Depends on: `docs/city-style/numbers.md` (the constants), `docs/city-style/block-grammar.md` (the blocks between the streets), `docs/city-style/frontage-and-interiors.md` (19.8, what the drawing does), `docs/city-style/evaluation.md` (the pavement and kerb readings)
+Depends on: `docs/city-style/numbers.md` (the constants), `docs/city-style/block-grammar.md` (the blocks between the streets), `docs/city-style/interior-drawing.md` (19.8, what the drawing does), `docs/city-style/evaluation.md` (the pavement and kerb readings)
 
 ## Rules
 
