@@ -3,7 +3,7 @@
 standard: yes
 Scope: the City Pack pieces the town never uses, and what the packs cannot give.
 Read by: facades, landscape, tech-pass
-Depends on: `citymetrics.ts` (`CITY_NEVER_USED`), `docs/city-style/packs.md`, `docs/city-style/facades.md` (door steps, 16.10)
+Depends on: `citymetrics.ts` (`CITY_NEVER_USED`), `docs/city-style/packs.md`, `docs/city-style/door-sills.md` (door steps, 16.10)
 
 ## Rules
 
@@ -40,7 +40,7 @@ Depends on: `citymetrics.ts` (`CITY_NEVER_USED`), `docs/city-style/packs.md`, `d
 - The pack has no animal models, so nothing needs excluding for them.
 - One model of a pack that is otherwise not placed is in use: the Town Pack's `SM_Bld_House_Concrete_Steps_01` (`STEPS_KEY`), the door steps of 16.10. Its sibling `SM_Bld_House_DeckSteps_01` converts to zero size (`scale-suspect`), so it is broken and not used. The City Pack's only steps, `SM_Bld_Apartment_Stairs_*`, are in the table above: far too big for a door.
 - **Default (057)**: the tile city places no Town Pack piece. The gate and posts that close a gated passage (19.2) are code-drawn boxes, so the Town Pack's `SM_Env_Fence_Wood_Gate_01` and `_Post_01`, which the 057 draft named, are not placed. No piece of `CITY_NEVER_USED` is lifted, and the interiors of 19.4 use the City Pack and code only.
-- **Default [D-070b]**: no street-name signs: the City Pack's plates lie flat and the Town Pack is never fetched for the city. The stop sign (drawn from the `01_A` atlas) and the parking sign stand at junctions and bay stretches (stage 9).
+- **Rule [D-070b]**: no street-name signs: the City Pack's plates lie flat and the Town Pack is never fetched for the city. The stop sign (drawn from the `01_A` atlas) and the parking sign stand at junctions and bay stretches (stage 9).
 
 ## Open questions
 

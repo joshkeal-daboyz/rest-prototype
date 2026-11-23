@@ -1,7 +1,7 @@
 # 080 · Split the city style guide into an index and domain files, under a document standard
 
 owner: renderer (the guide is the renderer's, 043 Q2); the main session edits `.claude/agents/*.md` (Q1)
-status: approved (G1, Josh, 23 Nov 2026: "Approve 080"); section A merged (Josh, 23 Nov 2026: "Merge 080 A"); section B1 merged (Josh, 23 Nov 2026: "Merge 080 B1"); B2 open
+status: done; approved (G1, Josh, 23 Nov 2026: "Approve 080"); section A merged (Josh, 23 Nov 2026: "Merge 080 A"); section B1 merged (Josh, 23 Nov 2026: "Merge 080 B1"); section B2 merged in three batches (Josh, 23 Nov 2026: "Merge 080 B2a", "Merge 080 B2b", "Merge 080 B2c"). Done.
 branch: `ticket/080-city-style-domains` (this file). One branch per pull request: `ticket/080a-split`, `ticket/080b1-standard`, then `ticket/080b2-...` per review batch
 
 ## Josh's words (23 Nov 2026, in chat)
