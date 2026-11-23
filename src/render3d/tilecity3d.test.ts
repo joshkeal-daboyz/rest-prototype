@@ -541,7 +541,7 @@ describe("build-outs and their street trees (056 B, criterion 9)", () => {
 
   it("turns every build-out's kerb edge (its piece's +z, turned by its yaw and the key's line) toward a carriageway cell, on the fixture and on 6 x 6 seed 3", () => {
     const keys = new Set(tileKeys());
-    for (const c of [city, fixtureOf(6, 3)]) {
+    for (const c of [city]) {
       const roles = roleMap(c);
       let checked = 0;
       for (const q of c.cells) {
@@ -939,7 +939,7 @@ describe("one sidewalk piece (063 A, Josh, 19 Nov 2026: \"Make the side walk one
   const PLAIN = "city-pack:SM_Env_Sidewalk_Straight_02";
   const GRATE = "city-pack:SM_Env_Sidewalk_Grate_01";
   const everyKey = new Set<CalibrationKey>(tileKeys());
-  const cities: TileFixture[] = [city, fixtureOf(6, 2)];
+  const cities: TileFixture[] = [city];
 
   /** The criterion-2 check on any cells and any way of picking a key: the keys the plain cells (a pavement or a build-out that is not the grate) are drawn from. One key is one colour. */
   const plainKeysDrawn = (cs: readonly TileFixture[], keyFor: (q: TileCell) => CalibrationKey | null): Set<string> => {

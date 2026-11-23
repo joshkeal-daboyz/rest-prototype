@@ -28,7 +28,7 @@ The tile city (`city=tiles`) is made by the pipeline, stage by stage (`docs/city
   - Homes are floor(columns x `UNIT_FLOORS_NOMINAL` / `HOME_COLUMN_FLOORS`), where a block's upper floors are nominally 3 over the base.
   - A shop is one ground bay that is a shop or a shop corner (the `groundRow` kinds of `citymetrics.ts`); the two-column shop counts once.
 - **Rule [D-056d]**: a home is two column-floors of one 5 m cell each (so 2 x 5.0 m x 5.0 m = 50 m2).
-- **Default (056)**: the layout's numbers stay within 10% of the packed plan's. A test compares them on the default city and seeds 1 to 10 at 3 x 3.
+- **Default (056)**: the layout's numbers stay within 10% of the packed plan's. A test compared them on the old path's default city and seeds 1 to 10 at 3 x 3 (deleted in ticket 081 A1); the pipeline's checks run on 6 x 6 seeds 1 to 10.
 
 
 ### 18.3 Kerbside bays (shoppers)
