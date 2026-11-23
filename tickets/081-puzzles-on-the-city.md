@@ -135,8 +135,9 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | PK2 | `powerkit.ts` reads the mix and heights from core | renderer | PK1 | 2 |
 | B1q | "pre-check 081 B1b": mid-row roofs, the real pole pick, neighbouring blocks | pipeline-designer | B1b, PK1 | 0 (a note) |
 | C1 | The city puzzle validator | lead-architect | G1 | 6 |
-| K2a | Stage 6: poles and spans (CK1 to CK6, CK8; CK7 moves to K2d) | grid-simulator | now | 11 |
-| K2b | Stage 6: drops, lights, lamp posts, node places (CK9 to CK12) | grid-simulator | K2a | 10 |
+| K2a | Stage 6: poles and spans (CK1 to CK6, CK8; CK7 moves to K2d), not yet in `BUILT_STAGES` | grid-simulator | now | 9 |
+| K2a2 | Stage 6 switched on: `BUILT_STAGES`, the shared profiles, the tests that said circuit was not built | grid-simulator | K2a | at most 10 (about 7 rewritten) |
+| K2b | Stage 6: drops, lights, lamp posts, node places (CK9 to CK12) | grid-simulator | K2a2 | 10 |
 | K2c | The conversion (CK13 as changed, CK14, CK15) | grid-simulator | K2b, C1 | 10 |
 | K2d | Stage 6: the pole pick, CK7, roof structures and roof spans (CK17) | grid-simulator | K2c, PK1, B1q, Josh's mid-row answer (given) | at most 13 |
 | I2 | Stage 8 keeps clear of the circuit | landscape | K2b | 3 |
@@ -325,20 +326,42 @@ If it does not report "holds", its note goes to Josh before K2d and H4 are cut i
 **Files.** `src/core/load.ts`, `load.test.ts`, `citycircuit.ts`, `puzzles/SCHEMA.md` (the new section only).
 
 ### K2a · Stage 6, poles and spans (grid-simulator, pure). Branch `ticket/081k2a-circuit-poles`
-**Before it starts:** the main session adds `src/city/circuit/` to `.claude/agents/grid-simulator.md` (answer 10).
-**Goal.** `src/city/circuit/` builds `CityCircuitLayer`'s poles, spans and `keep` as CK1 to CK6 and CK8 say, and the circuit stage joins `BUILT_STAGES` between buildings and facades. **CK7 (the 4.2 m floor) moves to K2d.** It needs each pole's model, and the model is PK1's data plus K2d's pick. K2a needs neither PK1 nor C1, so it starts now.
+**Re-cut 23 Nov 2026.** The builder found that adding circuit to `BUILT_STAGES` breaks 13 tests outside `src/city/circuit/`. K2a's 9 cases plus those rewrites would come to 16, over the cap. So K2a lands without the `BUILT_STAGES` line, and K2a2 switches the stage on.
+
+**Goal.** `src/city/circuit/` builds `CityCircuitLayer`'s poles, spans and `keep` as CK1 to CK6 and CK8 say: a stage definition the runner can take, but not yet in `BUILT_STAGES`. **CK7 (the 4.2 m floor) moves to K2d.** It needs each pole's model (PK1's data plus K2d's pick).
 
 **Acceptance criteria.**
-1. [ ] The stage is a pure function of the layers before it, frozen by the runner, with a digest and a flat picture. **test**: 1 digest pin on seed 1. **browser**: `?city=plan&stage=6`.
+1. [ ] The stage is a pure function of the layers before it, with a digest and a flat picture. Its tests run it directly on stages 1 to 5 of 6 x 6 seed 1, one-way on, through the module cache. **test**: 1 digest pin.
 2. [ ] CK1, CK2 and CK3. **test**: 3 fixture cases, on CK2's and CK3's "Fails" lines.
 3. [ ] CK4, CK5 and CK6. **test**: 3 fixture cases.
 4. [ ] (moved to K2d)
 5. [ ] CK8: one connected network. **test**: 1 case on 6 x 6 seed 1, one-way on.
-6. [ ] The builder prints seed 1's counts (562 poles, 126 corner spans, 74 crossings) once, in its reply. **no test**.
-7. [ ] `circuitPoints` (`src/city/pipeline/readable.ts`, its body only) reads the layer. **test**: 1 case.
-8. [ ] Later stages' digest pins that move are re-taken once and listed. **test**: at most 2 rewritten.
+6. [ ] The builder prints seed 1's counts once, in its reply: 562 poles, 126 corner spans, 74 crossings and 49 nudged. **no test**.
+7. [ ] `circuitPoints` (`src/city/pipeline/readable.ts`, its body only) reads the layer when it is there, and gives `EMPTY_CIRCUIT` when it is not. Until K2a2, every plan is one without it. **test**: 1 case.
+8. [ ] **No test outside `src/city/circuit/` changes.** `src/city/stages.ts` is unchanged. **test** (existing; the gate).
 
-**Files.** New `src/city/circuit/`; `src/city/stages.ts` (one entry); `src/city/pipeline/readable.ts` (`circuitPoints` only).
+**Files.** New `src/city/circuit/`; `src/city/pipeline/readable.ts` (`circuitPoints` only). The `BUILT_STAGES` line on `ticket/081k2a-circuit-poles` (e2f4d4d) comes out of this PR and goes to K2a2.
+
+### K2a2 · Stage 6 switched on (grid-simulator). Branch `ticket/081k2a2-circuit-on`, from K2a's branch, opened as a PR after K2a merges
+**Goal.** The runner builds stage 6 between buildings and facades on every plan, and every existing test knows it. Josh sees stage 6's picture at `?city=plan&stage=6`.
+
+**Acceptance criteria.**
+1. [ ] `BUILT_STAGES` (`src/city/stages.ts`) holds the circuit stage after buildings. **no test**: its one line; criterion 3's cases hold it.
+2. [ ] `PROFILE_STAGES` (`src/city/testing/namedcities.ts`) adds "circuit" after "buildings" in the `facades`, `ground` and `clean` profiles. That restores the six shared-profile tests unedited: `namedcities.test` (the lists and `sharedEra`), `eraview.test`, and the tech, holdout and ruin `named.test`. **test** (existing, unedited).
+3. [ ] **The tests that said circuit is not built** are rewritten to say it is. Each keeps its other assertions, and nothing else in them changes. **test**: at most 8 rewritten:
+   - `src/city/facades/stage.test.ts`: 2 cases;
+   - `src/city/ground/stage.test.ts`: 2 cases and its test-double stage list;
+   - `src/city/traffic/stage.test.ts`: its stage list and its test-double stage list;
+   - `src/city/pipeline/run.test.ts`: 1 case.
+4. [ ] Any later stage's digest pin that moves because stage 6 now runs before it is re-taken once and listed. **test**: at most 2 rewritten. The PR stays at or under 15 in all, about 10.
+5. [ ] `?city=plan&stage=6` shows stage 6's picture. **browser**.
+
+**Files.**
+- `src/city/stages.ts` (one entry) and `src/city/testing/namedcities.ts` (`PROFILE_STAGES` only).
+- Test lines in four other owners' folders, listed here so they are in scope (test policy rule 6): `src/city/facades/stage.test.ts` (facades), `src/city/ground/stage.test.ts` (landscape), `src/city/traffic/stage.test.ts` (streetscape) and `src/city/pipeline/run.test.ts` (planner). Only the circuit-not-built lines change. Each folder's owner does not edit them in this PR, and the reviewer checks that nothing else moved.
+- Any digest pin file of criterion 4.
+
+**Must not:** any non-test file in those four folders.
 
 ### K2b · Stage 6, drops, lights, lamp posts and node places (grid-simulator, pure). Branch `ticket/081k2b-circuit-places`
 **Acceptance criteria.**

@@ -23,12 +23,16 @@ import type { Fault, GridNode, Line, Puzzle } from "./schema";
 /** CK2 and CK6: an end slot, an even-pitch slot, a landing where a crossing lands, or a crossing pole on the non-pole pavement. */
 export type CityPoleKind = "end" | "slot" | "landing" | "crossing";
 
-/** One pole (CK1 to CK3, CK6). Metres on the plan's lattice; `along_m` from the low end of its block side's `span`. */
+/** One pole (CK1 to CK3, CK6). Metres on the plan's lattice. */
 export interface CityPole {
   readonly id: string;
   readonly kind: CityPoleKind;
   readonly street: string;
   readonly pavement: "lo" | "hi";
+  /**
+   * Its position along its street's axis, in metres on the plan's lattice (x for an `x` street, z for a `z` street), not from the end of its block side. One street's
+   * pavement runs past several blocks, so only the street-axis position keeps `pole:<street>:<lo|hi>:<along_m>` unique (081 K2a).
+   */
   readonly along_m: number;
   readonly x_m: number;
   readonly z_m: number;
@@ -69,6 +73,7 @@ export interface CityStreetLight {
   readonly id: string;
   readonly street: string;
   readonly pavement: "lo" | "hi";
+  /** Along its street's axis, in metres on the plan's lattice, as `CityPole.along_m` (so `light:<street>:<lo|hi>:<along_m>` is unique). */
   readonly along_m: number;
   readonly x_m: number;
   readonly z_m: number;
