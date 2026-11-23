@@ -15,6 +15,7 @@ import { roofReport } from "./roofcheck";
 import { BILLBOARD_FACES, BILLBOARD_SIGN_Y_M, ROOF_ACCESS, ROOF_SMALL, ROOF_WATER_TOWER, WATER_TOWER_PER_BUILDINGS, roofBounds } from "./roofkit";
 import { buildRoofs, roofInsets } from "./roofs";
 import { cityOf, label, layersOf, NAMED, type City } from "./testcities";
+import { ALL_NAMED, FULL_CITIES } from "../testing/namedcities";
 
 const key = (c: CityCell): string => `${c.i},${c.j}`;
 const SIDE: Readonly<Record<CitySide, readonly [number, number]>> = { "+x": [1, 0], "-x": [-1, 0], "+z": [0, 1], "-z": [0, -1] };
@@ -157,9 +158,9 @@ describe("the choice (criterion 2)", { timeout: 120_000 }, () => {
         if (n === 2) two++;
       }
     }
-    expect(dishes).toBeGreaterThan(1000);
-    expect(flipped).toBeGreaterThan(1000);
-    expect(two).toBeGreaterThan(1000);
+    if (FULL_CITIES) expect(dishes).toBeGreaterThan(1000);
+    if (FULL_CITIES) expect(flipped).toBeGreaterThan(1000);
+    if (FULL_CITIES) expect(two).toBeGreaterThan(1000);
   });
 
   it("every choice is the stage's rand (R-3): the same city twice gives the same layer, and another seed another", () => {
@@ -167,7 +168,7 @@ describe("the choice (criterion 2)", { timeout: 120_000 }, () => {
     const v = viewOf(o);
     const again = buildRoofs(v.mass, v.buildings, v.layer, stageRand("facades", o.seed)).roofs;
     expect(again).toEqual(v.roofs);
-    const other = viewOf(NAMED[1]!);
+    const other = viewOf(ALL_NAMED[1]!);
     expect(other.roofs).not.toEqual(v.roofs);
   });
 });
@@ -198,7 +199,7 @@ describe("the roof exit (criterion 3)", { timeout: 120_000 }, () => {
         }
       }
     }
-    expect(seen).toBeGreaterThan(2000);
+    if (FULL_CITIES) expect(seen).toBeGreaterThan(2000);
   });
 
   it("every exit's clear deck (as wide as the housing, 1.2 m deep from the door face) is inside the deck and carries no other roof piece", () => {
@@ -239,8 +240,8 @@ describe("the roof exit (criterion 3)", { timeout: 120_000 }, () => {
         }
       }
     }
-    expect(blind).toBeGreaterThan(100);
-    expect(mid).toBeGreaterThan(1000);
+    if (FULL_CITIES) expect(blind).toBeGreaterThan(100);
+    if (FULL_CITIES) expect(mid).toBeGreaterThan(1000);
   });
 });
 
@@ -486,8 +487,8 @@ describe("H3b: the water-tower cap (criteria 2 to 4)", { timeout: 120_000 }, () 
       const openTower = new Map(open.filter((p) => p.kind === "waterTower").map((p) => [p.building, p] as const));
       for (const p of v.roofs) if (p.kind === "waterTower") expect(p, `${label(o)} ${p.building}`).toEqual(openTower.get(p.building));
     }
-    expect(exercised).toBeGreaterThan(500);
-    expect(under).toBeGreaterThanOrEqual(1);
+    if (FULL_CITIES) expect(exercised).toBeGreaterThan(500);
+    if (FULL_CITIES) expect(under).toBeGreaterThanOrEqual(1);
   });
 
   it("TF: a building that is not a freed roof has the same roof pieces as uncapped; a freed roof has an exit or no big prop; an exit is on the first freed roof, by the hashed rank, of a bare run and only there; every run keeps a big prop (R8's second number is H3's, run by run)", () => {
@@ -534,9 +535,9 @@ describe("H3b: the water-tower cap (criteria 2 to 4)", { timeout: 120_000 }, () 
       const has = new Set(v.roofs.filter(isBig).map((p) => runOf.get(p.building)!));
       for (const r of had) expect(has.has(r), `${label(o)} run ${r} kept a big roof prop`).toBe(true);
     }
-    expect(blind).toBeGreaterThan(100);
-    expect(mid).toBeGreaterThan(500);
-    expect(none).toBeGreaterThan(500);
+    if (FULL_CITIES) expect(blind).toBeGreaterThan(100);
+    if (FULL_CITIES) expect(mid).toBeGreaterThan(500);
+    if (FULL_CITIES) expect(none).toBeGreaterThan(500);
   });
 });
 
