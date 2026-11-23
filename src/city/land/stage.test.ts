@@ -1,0 +1,287 @@
+/**
+ * Stage 2 on the named cities (A4d: 6 x 6 seeds 1 to 10, the default seed 1 first): V3, V4, M4a, the parts and their edges, the picture, the digest pins, R-1 to R-7.
+ * HEAVY: each city is built once, through a module-level cache.
+ */
+import { readdirSync, readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
+import type { CityLandLayer, CityPlan, CityStreetsLayer } from "../../core";
+import { pictureProblems } from "../pipeline/picture";
+import type { CityStageDef } from "../pipeline/types";
+import { runCity } from "../stages";
+import { stageRand } from "../pipeline/seeds";
+import { streetsStage, streetsStageWith } from "../streets/stage";
+import { evaluateLand, landVariety, laneCells, laneMouthsAtJunctions, parkCells, unservedWholeParks } from "./check";
+import { planLand } from "./plan";
+import { LAND_LEGEND, landStage } from "./stage";
+
+interface City {
+  readonly blocksX: number;
+  readonly blocksZ: number;
+  readonly seed: number;
+}
+const NAMED: City[] = [];
+for (let seed = 1; seed <= 10; seed++) NAMED.push({ blocksX: 6, blocksZ: 6, seed });
+
+const cache = new Map<string, ReturnType<typeof runCity>>();
+function cityOf(o: City): ReturnType<typeof runCity> {
+  const k = `${o.blocksX}x${o.blocksZ}:${o.seed}`;
+  if (!cache.has(k)) cache.set(k, runCity(o, "land"));
+  return cache.get(k)!;
+}
+/** The same city with every street two-way (B3's criterion 4 reports both ways). */
+const cacheOff = new Map<string, ReturnType<typeof runCity>>();
+function cityOff(o: City): ReturnType<typeof runCity> {
+  const k = `${o.blocksX}x${o.blocksZ}:${o.seed}`;
+  if (!cacheOff.has(k)) cacheOff.set(k, runCity(o, "land", [streetsStageWith(0) as unknown as CityStageDef, landStage as unknown as CityStageDef]));
+  return cacheOff.get(k)!;
+}
+const layersOf = (o: City): { streets: CityStreetsLayer; land: CityLandLayer; plan: CityPlan } => {
+  const r = cityOf(o);
+  if (!r.ok) throw new Error(`${o.blocksX}x${o.blocksZ} seed ${o.seed} failed: ${r.failure.reason}`);
+  return { streets: r.plan.layers.streets!, land: r.plan.layers.land!, plan: r.plan };
+};
+const label = (o: City): string => `${o.blocksX} x ${o.blocksZ} seed ${o.seed}`;
+const key = (i: number, j: number): string => `${i},${j}`;
+
+type Way = "on" | "off";
+const runOf = (o: City, way: Way) => (way === "on" ? cityOf(o) : cityOff(o));
+const layersWay = (o: City, way: Way): { streets: CityStreetsLayer; land: CityLandLayer } => {
+  const r = runOf(o, way);
+  if (!r.ok) throw new Error(`${label(o)} one-way ${way} failed: ${r.failure.reason}`);
+  return { streets: r.plan.layers.streets!, land: r.plan.layers.land! };
+};
+
+describe("stage 2, land, on the named cities", { timeout: 120_000 }, () => {
+  it("the named cities are 10, the default 6 x 6 seed 1 first (A4d)", () => {
+    expect(NAMED).toHaveLength(10);
+    expect(NAMED[0]).toEqual({ blocksX: 6, blocksZ: 6, seed: 1 });
+  });
+
+  for (const o of NAMED) {
+    describe(label(o), () => {
+      it("returns ok, and V3, V4 and M4a hold (criteria 2 and 4)", () => {
+        const { streets, land } = layersOf(o);
+        const verdicts = evaluateLand(landVariety(land, streets.blocks));
+        expect(verdicts.map((v) => [v.id, v.value])).toEqual([["V3", 0], ["V4", 0], ["M4a", 0]]);
+      });
+
+      it("every block cell is in exactly one part, lane or park, and no part, lane or park is outside its block (criterion 3)", () => {
+        const { streets, land } = layersOf(o);
+        const owner = new Map<string, string>();
+        const put = (i: number, j: number, what: string): void => {
+          expect(owner.has(key(i, j)), `cell ${i},${j} is both ${owner.get(key(i, j))} and ${what}`).toBe(false);
+          owner.set(key(i, j), what);
+        };
+        for (const p of land.parts) for (let j = p.j0; j < p.j1; j++) for (let i = p.i0; i < p.i1; i++) put(i, j, `part ${p.id}`);
+        for (const c of laneCells(land, streets.blocks)) put(c.i, c.j, "lane");
+        for (const c of parkCells(land)) put(c.i, c.j, "park");
+        for (const b of streets.blocks) {
+          for (let j = b.j0; j < b.j1; j++) for (let i = b.i0; i < b.i1; i++) expect(owner.has(key(i, j)), `block cell ${i},${j} of ${b.id} has no use`).toBe(true);
+        }
+        const inBlock = new Set(streets.blocks.flatMap((b) => Array.from({ length: (b.i1 - b.i0) * (b.j1 - b.j0) }, (_, n) => key(b.i0 + (n % (b.i1 - b.i0)), b.j0 + Math.floor(n / (b.i1 - b.i0))))));
+        expect([...owner.keys()].filter((k) => !inBlock.has(k))).toEqual([]);
+      });
+
+      it("every part's four edges are right: what lies beyond each side is a street, a lane or a park, and a strip has a street and a lane edge on its long sides", () => {
+        const { streets, land } = layersOf(o);
+        const lanes = new Set(laneCells(land, streets.blocks).map((c) => key(c.i, c.j)));
+        const parks = new Set(parkCells(land).map((c) => key(c.i, c.j)));
+        const blockOf = new Map(streets.blocks.map((b) => [b.id, b] as const));
+        const beyond = (i: number, j: number, what: "street" | "lane" | "park"): boolean => {
+          if (what === "lane") return lanes.has(key(i, j));
+          if (what === "park") return parks.has(key(i, j));
+          return !lanes.has(key(i, j)) && !parks.has(key(i, j)) && !land.parts.some((p) => i >= p.i0 && i < p.i1 && j >= p.j0 && j < p.j1);
+        };
+        for (const p of land.parts) {
+          const b = blockOf.get(p.block)!;
+          for (const [side, edge] of Object.entries(p.edges)) {
+            // sample the cell just beyond the middle of the side
+            const mi = Math.floor((p.i0 + p.i1 - 1) / 2);
+            const mj = Math.floor((p.j0 + p.j1 - 1) / 2);
+            const [i, j] = side === "+x" ? [p.i1, mj] : side === "-x" ? [p.i0 - 1, mj] : side === "+z" ? [mi, p.j1] : [mi, p.j0 - 1];
+            expect(beyond(i, j, edge), `${p.id} ${side} is ${edge}`).toBe(true);
+            if (edge === "street") {
+              const onBoundary = side === "+x" ? p.i1 === b.i1 : side === "-x" ? p.i0 === b.i0 : side === "+z" ? p.j1 === b.j1 : p.j0 === b.j0;
+              expect(onBoundary, `${p.id} ${side} street edge is on the block's boundary`).toBe(true);
+            }
+          }
+          expect(p.shape).toBe(Math.min(p.i1 - p.i0, p.j1 - p.j0) === 2 ? "strip" : "court");
+          if (p.shape === "strip") {
+            const long = p.i1 - p.i0 === 2 ? (["-x", "+x"] as const) : (["-z", "+z"] as const);
+            expect(long.map((s) => p.edges[s]).sort()).toEqual(["lane", "street"]);
+          }
+        }
+      });
+
+      it("every block's biome is town, and its treatment agrees with its parts, lane and park (criteria 3 and 5)", () => {
+        const { streets, land } = layersOf(o);
+        expect(land.blocks.map((b) => b.block)).toEqual(streets.blocks.map((b) => b.id));
+        for (const b of land.blocks) {
+          expect(b.biome).toBe("town");
+          const parts = land.parts.filter((p) => p.block === b.block);
+          const lanes = land.lanes.filter((l) => l.block === b.block);
+          const parks = land.parks.filter((p) => p.block === b.block);
+          expect({ court: [1, 0, 0], alley: [2, 1, 0], parkWhole: [0, 0, 1], parkHalf: [1, 0, 1] }[b.treatment]).toEqual([parts.length, lanes.length, parks.length]);
+        }
+      });
+
+      it("the picture holds R-5: the lattice's size, every index in the legend, and each cell's legend matches the layer", () => {
+        const { streets, land, plan } = layersOf(o);
+        const pic = landStage.picture(plan);
+        expect(pictureProblems(pic, streets.w, streets.h)).toEqual([]);
+        expect(pic.legend).toBe(LAND_LEGEND);
+        const lanes = new Set(laneCells(land, streets.blocks).map((c) => key(c.i, c.j)));
+        const want = (i: number, j: number): string => {
+          if (lanes.has(key(i, j))) return "lane";
+          const park = land.parks.find((p) => i >= p.i0 && i < p.i1 && j >= p.j0 && j < p.j1);
+          if (park) return park.kind === "whole" ? "whole park" : "half park";
+          const part = land.parts.find((p) => i >= p.i0 && i < p.i1 && j >= p.j0 && j < p.j1);
+          return part ? `${part.shape} part` : "street";
+        };
+        for (let j = 0; j < streets.h; j++) for (let i = 0; i < streets.w; i++) expect(pic.legend[pic.cells[j * streets.w + i]!]!.name).toBe(want(i, j));
+      });
+    });
+  }
+
+  for (const way of ["on", "off"] as const) {
+    it(`B3: one-way ${way}: every named city returns ok; V3, V4 and M4a hold; no lane mouth lies in a widened junction-facing span; every whole park is served (criteria 1, 2, 4)`, () => {
+      for (const o of NAMED) {
+        const { streets, land } = layersWay(o, way);
+        const m = landVariety(land, streets.blocks);
+        expect(evaluateLand(m).map((v) => [v.id, v.value]), label(o)).toEqual([["V3", 0], ["V4", 0], ["M4a", 0]]);
+        // read here from the blocks' sides with its own arithmetic: a lane's mouth cell is its `at`, on the two sides it opens on
+        for (const l of land.lanes) {
+          const b = streets.blocks.find((x) => x.id === l.block)!;
+          for (const side of l.axis === "z" ? (["-z", "+z"] as const) : (["-x", "+x"] as const)) {
+            for (const f of b.sides[side].junctions) expect(l.at >= f.span.lo - 1 && l.at < f.span.hi + 1, `${label(o)} ${b.id} ${side} lane at ${l.at} vs ${f.span.lo}..${f.span.hi}`).toBe(false);
+          }
+        }
+        expect(laneMouthsAtJunctions(land, streets.blocks), label(o)).toEqual([]);
+        expect(unservedWholeParks(land, streets.blocks, streets.streets), label(o)).toEqual([]);
+      }
+    });
+  }
+
+  it("B3 criterion 3: Land reads no block's bi or bj and no street's line (grep over src/city/land/)", () => {
+    const dir = fileURLToPath(new URL(".", import.meta.url));
+    for (const f of readdirSync(dir).filter((n) => n.endsWith(".ts") && !n.endsWith(".test.ts"))) {
+      const text = readFileSync(dir + f, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+      expect(text, f).not.toMatch(/\.(bi|bj|line)\b|\b(bi|bj)\s*[:=]|\[\s*["'](bi|bj|line)["']\s*\]/);
+    }
+  });
+
+  it("B3 report (criteria 1, 2, 4): per named city, one-way on and off, have/need and what S6 and the served park moved", () => {
+    const rows: string[] = ["city | way | blocks | alleys have/need | strips | whole parks | half parks | parks have/need | lanes moved by S6 | whole parks moved by serving"];
+    for (const way of ["on", "off"] as const) {
+      for (const o of NAMED) {
+        const { streets, land } = layersWay(o, way);
+        const m = landVariety(land, streets.blocks);
+        // the same planner with no junction-facing stretch and every street parked on both sides: what B2 alone would have laid
+        const both = streets.streets.map((x) => ({ id: x.id, bands: ["pavement", "parking", "lane", "lane", "parking", "pavement"] as const }));
+        const bare = streets.blocks.map((b) => ({ ...b, sides: Object.fromEntries((["-x", "+x", "-z", "+z"] as const).map((k) => [k, { ...b.sides[k], junctions: [], across: b.sides[k].across.length ? b.sides[k].across : [{ block: "x", span: { lo: 0, hi: 1 } }] }])) as unknown as typeof b.sides }));
+        const before = planLand(bare, stageRand("land", o.seed), both);
+        const movedLanes = before.lanes.filter((l) => !land.lanes.some((x) => x.block === l.block && x.axis === l.axis && x.at === l.at)).length;
+        const movedParks = before.parks.filter((p) => p.kind === "whole" && !land.parks.some((x) => x.block === p.block)).length;
+        rows.push(
+          [label(o), way, streets.blocks.length, `${m.alleys}/${m.alleysNeeded}`, land.parts.filter((p) => p.shape === "strip").length, land.parks.filter((p) => p.kind === "whole").length, land.parks.filter((p) => p.kind === "half").length, `${m.parks}/${m.parksNeeded}`, movedLanes, movedParks].join(" | "),
+        );
+      }
+    }
+    console.log(rows.join("\n"));
+    expect(rows).toHaveLength(2 * NAMED.length + 1);
+  });
+
+  it("R-4: the layer's digest is pinned on 6 x 6 seeds 1, 2, 3 and 8, one-way on (all four pins MOVED BY A4d: the 6 x 6 named cities, the split limit 128; earlier by B3)", () => {
+    const got = Object.fromEntries(
+      [{ blocksX: 6, blocksZ: 6, seed: 1 }, { blocksX: 6, blocksZ: 6, seed: 2 }, { blocksX: 6, blocksZ: 6, seed: 3 }, { blocksX: 6, blocksZ: 6, seed: 8 }].map((o) => [label(o), cityOf(o).plan.digests.land] as const),
+    );
+    expect(got).toEqual({
+      "6 x 6 seed 1": "98c75479",
+      "6 x 6 seed 2": "f1fb1d91",
+      "6 x 6 seed 3": "e0458f9c",
+      "6 x 6 seed 8": "3b30b1e4",
+    });
+  });
+
+  it("R-4: a test double for the land stage leaves the streets digest equal to the standard run's", () => {
+    const o = { blocksX: 6, blocksZ: 6, seed: 2 };
+    const double: CityStageDef = { name: "land", run: () => ({ stage: "land", blocks: [], parts: [], lanes: [], parks: [] }), picture: landStage.picture } as unknown as CityStageDef;
+    const doubled = runCity(o, "land", [streetsStage as unknown as CityStageDef, double]);
+    expect(doubled.plan.digests.streets).toBe(cityOf(o).plan.digests.streets);
+    expect(doubled.plan.digests.land).not.toBe(cityOf(o).plan.digests.land);
+  });
+
+  it("R-3: the stage's randomness is its own: the same city twice is the same layer, and another seed is another layer", () => {
+    expect(runCity({ blocksX: 6, blocksZ: 6, seed: 2 }, "land").plan.digests.land).toBe(cityOf({ blocksX: 6, blocksZ: 6, seed: 2 }).plan.digests.land);
+    expect(cityOf({ blocksX: 6, blocksZ: 6, seed: 2 }).plan.digests.land).not.toBe(cityOf({ blocksX: 6, blocksZ: 6, seed: 3 }).plan.digests.land);
+  });
+
+  it("R-1: the layer is frozen when the stage returns", () => {
+    const { land } = layersOf(NAMED[0]!);
+    expect(Object.isFrozen(land)).toBe(true);
+    expect(Object.isFrozen(land.parts[0])).toBe(true);
+    expect(() => {
+      (land.parts as unknown as unknown[]).push(1);
+    }).toThrow();
+  });
+
+  it("R-7: a 6 x 6 city (seed 1) ends ok or with a failure naming a rule, never an uncaught error", () => {
+    const r = cityOf({ blocksX: 6, blocksZ: 6, seed: 1 });
+    if (!r.ok) {
+      expect(r.failure.stage).toBe("land");
+      expect(r.failure.reason).not.toMatch(/^bug:/);
+      expect(r.failure.reason).toMatch(/^(V3|V4|M4a|S6|served park):/);
+    } else expect(r.plan.layers.land!.blocks).toHaveLength(r.plan.layers.streets!.blocks.length); // block counts are not asserted from a city size on the split plan (Q10)
+  });
+
+  it("R-7: no block count, block id or lattice size is written into the stage's code", () => {
+    const dir = fileURLToPath(new URL(".", import.meta.url));
+    for (const f of readdirSync(dir).filter((n) => n.endsWith(".ts") && !n.endsWith(".test.ts"))) {
+      const text = readFileSync(dir + f, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+      expect(text, f).not.toMatch(/block:\d|blocksX|blocksZ|CITY_BLOCKS/);
+    }
+  });
+
+  it("criterion 5: no stage reads the biome field yet (grep over src/city/)", () => {
+    const root = fileURLToPath(new URL("..", import.meta.url));
+    const walk = (dir: string): string[] =>
+      readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(`${dir}${e.name}/`) : e.name.endsWith(".ts") && !e.name.endsWith(".test.ts") ? [`${dir}${e.name}`] : []));
+    const files = walk(root);
+    expect(files.length).toBeGreaterThan(10);
+    const readers = files.filter((f) => /\.biome\b|\bbiome\s*[=!]==|\[\s*["']biome["']\s*\]/.test(readFileSync(f, "utf8")));
+    expect(readers).toEqual([]);
+  });
+
+  it("R-6: the stage imports only src/core/ and src/city/, and no other stage's folder", () => {
+    const dir = fileURLToPath(new URL(".", import.meta.url));
+    for (const f of readdirSync(dir).filter((n) => n.endsWith(".ts") && !n.endsWith(".test.ts"))) {
+      for (const m of readFileSync(dir + f, "utf8").matchAll(/from "([^"]+)"/g)) {
+        const spec = m[1]!;
+        expect(spec.startsWith("./") || spec.startsWith("../../core") || spec.startsWith("../pipeline/"), `${f} imports ${spec}`).toBe(true);
+      }
+    }
+  });
+
+  it("criterion 4 report: alleys, strips and parks per named city", () => {
+    const rows: string[] = ["city | blocks | alleys | strips | court parts | whole parks | half parks | needed alleys/parks"];
+    for (const o of NAMED) {
+      const { streets, land } = layersOf(o);
+      const m = landVariety(land, streets.blocks);
+      rows.push(
+        [
+          label(o),
+          streets.blocks.length,
+          land.lanes.length,
+          land.parts.filter((p) => p.shape === "strip").length,
+          land.parts.filter((p) => p.shape === "court").length,
+          land.parks.filter((p) => p.kind === "whole").length,
+          land.parks.filter((p) => p.kind === "half").length,
+          `${m.alleysNeeded}/${m.parksNeeded}`,
+        ].join(" | "),
+      );
+    }
+    console.log(rows.join("\n"));
+    expect(rows).toHaveLength(NAMED.length + 1);
+  });
+});

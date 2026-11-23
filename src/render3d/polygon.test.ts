@@ -141,7 +141,12 @@ const POLYGON_TYPES: Record<string, LotType> = {
 };
 
 const mapFiles = [...readdirSync("puzzles").filter((f) => f.endsWith(".json")), "lamp-row.grid.json"].map((f) => join("puzzles", f)).filter((f, i, all) => existsSync(f) && all.indexOf(f) === i);
-const maps: { name: string; town: Town }[] = mapFiles.map((f) => ({ name: f, town: townLayout(loadPuzzle(JSON.parse(readFileSync(f, "utf8")))) }));
+// 051 D: the town the game draws (terraces on). A terrace lot is stood by its run's packed stacks and `buildingPlacements` never hands it to `pickBuildings`, so the rules below are held
+// on the other lots, which is the list the picker gets.
+const maps: { name: string; town: Town }[] = mapFiles.map((f) => {
+  const town = townLayout(loadPuzzle(JSON.parse(readFileSync(f, "utf8"))));
+  return { name: f, town: { ...town, lots: town.lots.filter((l) => l.terrace === undefined) } };
+});
 
 const buildingsOf = (m: AssetManifest, fronts: FrontTable = BUILDING_FRONTS, table: readonly ModelChoice[] = MODEL_TABLE): PlannedModel[] => planModels(m, table, fronts).building ?? [];
 const packOf = (models: readonly PlannedModel[], name: string): string => models.find((p) => p.entry.name === name)!.pack;
@@ -176,8 +181,8 @@ describe("MODEL_TABLE building rows (048)", () => {
 });
 
 describe("the promoted fronts (savedAt 2026-11-18T03:10:05.703Z)", () => {
-  it("has exactly Josh's 14 Town Pack lines, and none for the City Pack", () => {
-    const have = Object.fromEntries(Object.entries(BUILDING_FRONTS).filter(([k]) => !k.startsWith("simple-town:")));
+  it("has exactly Josh's 14 Town Pack lines (the City Pack's stack-piece lines are ticket 050 C's, pinned in stacktown.test.ts)", () => {
+    const have = Object.fromEntries(Object.entries(BUILDING_FRONTS).filter(([k]) => k.startsWith("town-pack:")));
     expect(have).toEqual(Object.fromEntries(Object.entries(JOSH_FRONTS).map(([k, f]) => [k, { front: f }])));
     for (const f of Object.values(have)) expect(f.corner, "no POLYGON corner model (048 Q5)").toBeUndefined();
   });
@@ -332,7 +337,7 @@ describe("variety on the POLYGON fixture (every map)", () => {
         }
       }
     }
-    expect(pairs).toBeGreaterThan(1000);
+    expect(pairs).toBeGreaterThan(500); // 051 D: the non-terrace lots only (683 on the ladder; was over 1000)
   });
 
   it("does not bring a family back within STREET_REPEAT_GAP lots on one road side (types with more families than that)", () => {

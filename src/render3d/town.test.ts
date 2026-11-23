@@ -39,6 +39,8 @@ const puzzles = files.map((f) => ({ file: f, puzzle: load(f) }));
 const t0 = performance.now();
 const maps = puzzles.map(({ file, puzzle }) => ({ file, puzzle, town: townLayout(puzzle) }));
 const layoutMs = performance.now() - t0;
+/** The towns as 041 laid them (no terrace rows, ticket 051 B): the lot tests that terraces contradict by design run on these. */
+const flatMaps = puzzles.map(({ file, puzzle }) => ({ file, puzzle, town: townLayout(puzzle, { terraces: false }) }));
 
 // ---- geometry, written again here and not shared with town.ts ----
 
@@ -405,7 +407,7 @@ describe("lots", { timeout: 20000 }, () => {
 
   it("has lots on every map, of the four types, with the type's exact size, key and height cap", () => {
     const types = new Set<string>();
-    for (const { file, town } of maps) {
+    for (const { file, town } of flatMaps) {
       expect(town.lots.length, file).toBeGreaterThan(30);
       const keys = new Set<string>();
       for (const l of town.lots) {
@@ -443,7 +445,7 @@ describe("lots", { timeout: 20000 }, () => {
   });
 
   it("overlaps no road, pad, pavement, node square, place or other lot, keeping LOT_GAP", () => {
-    for (const { file, puzzle, town } of maps) {
+    for (const { file, puzzle, town } of flatMaps) {
       const { solids } = stat(town, puzzle);
       const lotPolys = town.lots.map((l) => ({ l, poly: boxPoly(l), box: bbox(boxPoly(l)) }));
       const placePolys = town.places.flatMap((p) => p.boxes.map((b) => boxPoly(b)));
@@ -485,7 +487,7 @@ describe("lots", { timeout: 20000 }, () => {
 
   it("puts tall lots outside the ring", () => {
     let talls = 0;
-    for (const { file, town } of maps) {
+    for (const { file, town } of flatMaps) {
       const e = ROAD_W / 2 + PAVE_W;
       const ring: Poly = [
         { x: town.ring.minX - e, z: town.ring.minY - e },
@@ -546,7 +548,7 @@ describe("lots", { timeout: 20000 }, () => {
 
   it("puts a large lot in an outer block where it fits, and keeps all four types in play", () => {
     const outer = new Set<string>();
-    for (const { town } of maps) {
+    for (const { town } of flatMaps) {
       for (const b of town.blocks) {
         for (const l of town.lots) if (l.x >= b.minX - 1e-6 && l.x <= b.maxX + 1e-6 && l.z >= b.minZ - 1e-6 && l.z <= b.maxZ + 1e-6) outer.add(l.type);
       }
@@ -556,7 +558,7 @@ describe("lots", { timeout: 20000 }, () => {
 
   it("fills a block's rows pinwheel-fashion: a row ends LOT_GAP or more short of the next side's lots", () => {
     // Clockwise: the north row (facing south) starts at the west corner; the west row (facing east) is the last and stops under the north row.
-    const { town } = maps.find((m) => m.file === "56-whole-ward.json")!;
+    const { town } = flatMaps.find((m) => m.file === "56-whole-ward.json")!;
     const b = town.blocks.find((q) => q.id === "block:n:0")!;
     const inside = town.lots.filter((l) => l.x >= b.minX - 1e-6 && l.x <= b.maxX + 1e-6 && l.z >= b.minZ - 1e-6 && l.z <= b.maxZ + 1e-6);
     const north = inside.filter((l) => Math.round(Math.cos(l.yaw)) === -1);
@@ -572,7 +574,7 @@ describe("lots", { timeout: 20000 }, () => {
   it("steps by FILL_STEP when nothing fits: no two neighbours on one side leave a gap a smaller lot could use", () => {
     expect(FILL_STEP).toBe(0.25);
     // On a long ring side the rows are full: the gap between neighbouring lots is LOT_GAP or the cursor's step past it.
-    const { town } = maps.find((m) => m.file === "56-whole-ward.json")!;
+    const { town } = flatMaps.find((m) => m.file === "56-whole-ward.json")!;
     const row = town.lots.filter((l) => l.street === "grid:loop:n" && l.side === 1).sort((a, b) => a.x - b.x);
     expect(row.length).toBeGreaterThan(3);
     for (let i = 1; i < row.length; i++) {
@@ -584,7 +586,9 @@ describe("lots", { timeout: 20000 }, () => {
 
 describe("places", { timeout: 20000 }, () => {
   /** Pool places beyond 2D's: the ticket asks for none. These maps have a lamp frontage fill can not reach (see the report); each entry is the excess today. */
-  const KNOWN_POOL_EXCESS: Record<string, number> = {"07-past-the-fuse.json":1,"13-one-box-three-lamps.json":1,"15-meet-in-the-middle.json":1,"17-count-the-dark.json":1,"22-look-both-ways.json":1,"29-open-point.json":1,"40-the-priests-list.json":1,"41-room-to-charge.json":1,"42-two-windows.json":1,"44-set-in-the-light.json":1,"45-live-relays.json":1,"46-read-it-from-behind.json":1,"49-two-cells.json":3,"50-the-whole-quarter.json":2,"53-from-behind.json":2,"54-the-whole-circuit.json":2,"55-leave-it-blown.json":1,"56-whole-ward.json":2};
+  const KNOWN_POOL_EXCESS: Record<string, number> = {"07-past-the-fuse.json":1,"13-one-box-three-lamps.json":1,"15-meet-in-the-middle.json":1,"17-count-the-dark.json":1,"22-look-both-ways.json":1,"29-open-point.json":1,"40-the-priests-list.json":1,"41-room-to-charge.json":1,"42-two-windows.json":1,"44-set-in-the-light.json":1,"45-live-relays.json":1,"46-read-it-from-behind.json":1,"49-two-cells.json":3,"50-the-whole-quarter.json":2,"53-from-behind.json":2,"54-the-whole-circuit.json":2,"55-leave-it-blown.json":1,"56-whole-ward.json":2,
+    // K1a: the lamps "homes" (row3) and "shrine" (whole) get a pool in 3D and none in 2D: no frontage slot in reach of either clears, the same cause as the maps above.
+    "city-two-ways-round.json":2};
 
   it("has one place per lamp, in nodes order, with its lamp id, slotKind and today's label", () => {
     for (const { file, puzzle, town } of maps) {

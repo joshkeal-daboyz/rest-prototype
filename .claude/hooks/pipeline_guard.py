@@ -8,6 +8,7 @@ Blocks, for any agent (main session excepted):
   * git merge / push / rebase onto main, gh pr merge, gh issue close: the main session does these on Josh's word
   * writing reviews/ unless the agent is code-reviewer
   * writing playtests/ unless the agent is playtester
+  * writing judgements/ unless the agent is style-judge, and the style-judge writing anywhere else (ticket 075)
   * the playtester writing src/, puzzles/ or tools/: it reports regressions, builders fix them
   * writing tickets/ unless the agent is lead-architect
   * adding dependencies (npm install <pkg>, npm add): needs a ticket Josh approved
@@ -19,6 +20,7 @@ import json, re, sys
 REVIEWER = "code-reviewer"
 ARCHITECT = "lead-architect"
 PLAYTESTER = "playtester"
+JUDGE = "style-judge"
 
 
 def deny(reason):
@@ -50,6 +52,10 @@ def check_write(path, agent):
         return
     if re.search(r"(^|/)reviews/[^/]+\.md$", p) and agent != REVIEWER:
         deny("only the code-reviewer agent writes reviews, so every review stays independent.")
+    if re.search(r"(^|/)judgements/[^/]+\.md$", p) and agent != JUDGE:
+        deny("only the style-judge agent writes judgements, so every score stays independent.")
+    if agent == JUDGE and not re.search(r"(^|/)judgements/[^/]+\.md$", p):
+        deny("the style-judge writes only its judgement file under judgements/. It never edits the game.")
     if re.search(r"(^|/)playtests/[^/]+\.md$", p) and agent != PLAYTESTER:
         deny("only the playtester agent writes playtests, so every playtest stays independent.")
     if agent == PLAYTESTER and re.search(r"(^|/)(src|puzzles|tools)/", p):

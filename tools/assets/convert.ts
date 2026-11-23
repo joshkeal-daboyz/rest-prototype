@@ -11,11 +11,13 @@
  */
 
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { AssetPack, AssetWarning } from "../../src/core";
+import type { AssetColourway, AssetPack, AssetWarning } from "../../src/core";
 import { BLENDER_MISSING_TEXT, BlenderPathError, MIN_BLENDER, findBlender, formatVersion, parseBlenderVersion, versionAtLeast } from "./blender";
+import { COLOURWAY_SOURCES, colourwayEntry, planColourways, pngSize } from "./colourways";
+import type { ColourwayPlans } from "./colourways";
 import { buildManifest, compareNames, parsePackReport, readPriorPacks } from "./manifest";
 import type { PackInput, PackReport } from "./manifest";
 
@@ -37,6 +39,10 @@ export interface ConvertDeps {
   isDirectory: (path: string) => boolean;
   readText: (path: string) => string;
   writeText: (path: string, text: string) => void;
+  /** A file's bytes (a colourway PNG); throws when it can't be read. */
+  readBytes: (path: string) => Uint8Array;
+  /** Copy a file verbatim, replacing the target; the target's folder exists. */
+  copyFile: (from: string, to: string) => void;
   /** Create a folder and its parents. */
   mkdirp: (path: string) => void;
   /** Remove a file or folder tree; no error when it's already gone. */
@@ -49,7 +55,12 @@ export interface ConvertDeps {
 }
 
 export const USAGE = `Usage: npm run assets:convert [pack...]
+       npm run assets:convert -- --colourways [pack...]
        npm run assets:selftest
+
+--colourways copies a pack's colourway atlases (alternate colourings of its shared atlas; the file names are the table in
+tools/assets/colourways.ts) to assets/private/out/<pack>/colourways/ and lists them in that pack's manifest entry. It runs
+no Blender and rewrites no GLB. A full convert of a pack that has such a table runs the same step after its GLB.
 
 Lay a pack out like this (nothing under assets/private/ is ever committed):
   assets/private/in/<pack>/**/*.fbx     the pack's FBX files
@@ -61,7 +72,9 @@ Lay a pack out like this (nothing under assets/private/ is ever committed):
         "textureOverrides": { "town_hall_mesh": "Src/Textures/Town_Hall_b.png" },   pins a model's image
         "textureAliases": { "MasterTexture02.psd": "Src/Textures/Atlas.png",     a missing source file name (any extension, any case)
                             "material:Lambert1": "Src/Textures/Road.png" },      or a material name, mapped to an image
-        "scaleOverrides": { "Building_PetrolStation": 0.01 } }   one model's factor, multiplied on the pack's "scale"
+        "scaleOverrides": { "Building_PetrolStation": 0.01 },   one model's factor, multiplied on the pack's "scale"
+        "exclude": ["FBX/Collision", "FBX/Demo.fbx"] }    folders or single .fbx files (paths from the pack folder) never converted
+"exclude" affects only which FBX are converted. The texture and OBJ-copy search still covers the whole pack (or "textures").
 With no "atlas", each model's own image is found in the pack (per-model mode).
 With no pack names, every folder in assets/private/in/ is converted.
 `;
@@ -101,6 +114,8 @@ export interface BlenderArgsInput {
   aliases?: readonly { key: string; abs: string }[];
   /** Per-model scale factors, a model stem and a factor above 0. Passed in the order given, after the aliases (readPackSettings sorts them). */
   scaleOverrides?: readonly { stem: string; factor: number }[];
+  /** Absolute folders or .fbx files the script skips. Passed in the order given, after the scale overrides (readPackSettings sorts them). */
+  exclude?: readonly string[];
   selftest?: boolean;
 }
 
@@ -115,6 +130,7 @@ export function buildBlenderArgs(a: BlenderArgsInput): string[] {
   for (const o of a.overrides ?? []) args.push("--texture-override", `${o.stem}=${o.abs}`);
   for (const t of a.aliases ?? []) args.push("--texture-alias", `${t.key}=${t.abs}`);
   for (const o of a.scaleOverrides ?? []) args.push("--scale-override", `${o.stem}=${o.factor}`);
+  for (const e of a.exclude ?? []) args.push("--exclude", e);
   return args;
 }
 
@@ -158,13 +174,16 @@ interface PackSettings {
   aliases: { key: string; abs: string }[];
   /** Sorted by model stem. */
   scaleOverrides: { stem: string; factor: number }[];
+  /** Absolute paths (folders or .fbx files), sorted. */
+  exclude: string[];
 }
 
 /** The stems of every .fbx in a folder tree (the way the script lists them: any depth, the extension in any case, the stem up to the last dot). */
-function listFbxStems(deps: ConvertDeps, dir: string, into: Set<string> = new Set()): Set<string> {
+function listFbxStems(deps: ConvertDeps, dir: string, excluded: ReadonlySet<string> = new Set(), into: Set<string> = new Set()): Set<string> {
   for (const name of deps.listDir(dir)) {
     const path = join(dir, name);
-    if (deps.isDirectory(path)) listFbxStems(deps, path, into);
+    if (excluded.has(path)) continue;
+    if (deps.isDirectory(path)) listFbxStems(deps, path, excluded, into);
     else if (name.toLowerCase().endsWith(".fbx")) into.add(name.slice(0, name.lastIndexOf(".")));
   }
   return into;
@@ -173,7 +192,7 @@ function listFbxStems(deps: ConvertDeps, dir: string, into: Set<string> = new Se
 /** Read the optional pack.json. Throws an Error with a plain message when it is unusable. */
 function readPackSettings(deps: ConvertDeps, packDir: string): PackSettings {
   const file = join(packDir, "pack.json");
-  if (!deps.exists(file)) return { overrides: [], aliases: [], scaleOverrides: [] };
+  if (!deps.exists(file)) return { overrides: [], aliases: [], scaleOverrides: [], exclude: [] };
   let raw: unknown;
   try {
     raw = JSON.parse(deps.readText(file));
@@ -182,7 +201,7 @@ function readPackSettings(deps: ConvertDeps, packDir: string): PackSettings {
   }
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) throw new Error("pack.json must be a JSON object");
   const obj = raw as Record<string, unknown>;
-  const settings: PackSettings = { overrides: [], aliases: [], scaleOverrides: [] };
+  const settings: PackSettings = { overrides: [], aliases: [], scaleOverrides: [], exclude: [] };
   if (obj["atlas"] !== undefined) {
     if (typeof obj["atlas"] !== "string" || obj["atlas"] === "") throw new Error('pack.json "atlas" must be a path string');
     const abs = resolve(packDir, obj["atlas"]);
@@ -250,12 +269,31 @@ function readPackSettings(deps: ConvertDeps, packDir: string): PackSettings {
     }
     settings.aliases = entries.sort((a, b) => compareNames(a.key, b.key));
   }
+  const exclude = obj["exclude"];
+  if (exclude !== undefined) {
+    if (!Array.isArray(exclude) || exclude.some((e) => typeof e !== "string" || e === "")) {
+      throw new Error('pack.json "exclude" must be an array of non-empty path strings (folders or .fbx files, relative to the pack folder)');
+    }
+    const seen = new Map<string, string>(); // normalised absolute path -> the entry as written
+    for (const written of exclude as string[]) {
+      const where = `pack.json "exclude" entry "${written}"`;
+      const abs = resolve(packDir, written.split("\\").join("/"));
+      if (abs === packDir) throw new Error(`${where} is the pack folder itself`);
+      if (!isInside(packDir, abs)) throw new Error(`${where} points outside the pack folder`);
+      if (!deps.exists(abs)) throw new Error(`${where}: not found: ${abs}`);
+      if (!deps.isDirectory(abs) && !abs.toLowerCase().endsWith(".fbx")) throw new Error(`${where} is a file that is not an .fbx`);
+      const clash = seen.get(abs);
+      if (clash !== undefined) throw new Error(`pack.json "exclude" entries "${clash}" and "${written}" are the same path`);
+      seen.set(abs, written);
+    }
+    settings.exclude = [...seen.keys()].sort(compareNames);
+  }
   const factors = obj["scaleOverrides"];
   if (factors !== undefined) {
     if (typeof factors !== "object" || factors === null || Array.isArray(factors)) {
       throw new Error('pack.json "scaleOverrides" must be an object of { "<model stem>": <factor above 0> }');
     }
-    const stems = listFbxStems(deps, packDir);
+    const stems = listFbxStems(deps, packDir, new Set(settings.exclude));
     for (const stem of Object.keys(factors).sort(compareNames)) {
       const value = (factors as Record<string, unknown>)[stem];
       const where = `pack.json "scaleOverrides" key "${stem}"`;
@@ -354,6 +392,7 @@ async function convertPack(deps: ConvertDeps, blender: BlenderInfo, pack: string
     overrides: settings.overrides,
     aliases: settings.aliases,
     scaleOverrides: settings.scaleOverrides,
+    exclude: settings.exclude,
   });
   deps.stdout(`Converting ${pack} ...\n`);
   let result: RunResult;
@@ -442,8 +481,152 @@ async function runPacks(deps: ConvertDeps, blender: BlenderInfo, names: readonly
     deps.writeText(L.manifest, JSON.stringify(manifest, null, 2) + "\n");
     deps.stdout(`Wrote ${L.manifest}\n`);
     for (const input of inputs) deps.stdout(summary(input.pack, parsePackReport(input.pack, input.report)));
+    // A pack with a colourway table gets its colourway step after its GLB (a problem there is a warning, never a failed conversion).
+    const withTable = inputs.map((i) => i.pack).filter((p) => planColourways(p, COLOURWAY_SOURCES) !== null);
+    if (withTable.length > 0) applyColourways(deps, withTable, false);
   }
   return failed > 0 ? 1 : 0;
+}
+
+interface ColourwayResult {
+  entries: AssetColourway[];
+  warnings: string[];
+  /** Set when nothing can be exported for the pack (its base atlas is unusable). */
+  fatal?: string;
+}
+
+/** Copy one pack's colourway PNGs under out/<pack>/colourways/ and return the manifest entries for the ones that passed. */
+function exportColourways(deps: ConvertDeps, pack: string, plans: ColourwayPlans): ColourwayResult {
+  const L = layout(deps.root);
+  const packDir = join(L.inRoot, pack);
+  const at = (rel: string) => join(packDir, ...rel.split("/"));
+  const result: ColourwayResult = { entries: [], warnings: [] };
+
+  const baseAbs = at(plans.baseFile);
+  let baseSize: { width: number; height: number } | null = null;
+  if (deps.exists(baseAbs)) {
+    try {
+      baseSize = pngSize(deps.readBytes(baseAbs));
+    } catch {
+      baseSize = null;
+    }
+  }
+  if (baseSize === null) {
+    result.fatal = `${pack}: the base atlas ${plans.baseFile} is missing or not a PNG, so no colourway can be checked against it (looked in ${baseAbs})`;
+    return result;
+  }
+
+  for (const plan of plans.entries) {
+    const src = at(plan.file);
+    if (!deps.exists(src)) {
+      result.warnings.push(`${pack}: colourway ${plan.file} not found, left out`);
+      continue;
+    }
+    let size: { width: number; height: number } | null;
+    try {
+      size = pngSize(deps.readBytes(src));
+    } catch (e) {
+      result.warnings.push(`${pack}: colourway ${plan.file} could not be read (${(e as Error).message}), left out`);
+      continue;
+    }
+    if (size === null) {
+      result.warnings.push(`${pack}: colourway ${plan.file} is not a PNG, left out`);
+      continue;
+    }
+    if (size.width !== baseSize.width || size.height !== baseSize.height) {
+      result.warnings.push(
+        `${pack}: colourway ${plan.file} is ${size.width} x ${size.height} but the base atlas is ${baseSize.width} x ${baseSize.height}, left out`,
+      );
+      continue;
+    }
+    const dest = join(L.out, ...plan.out.split("/"));
+    if (!isInside(L.privateRoot, dest)) {
+      result.warnings.push(`${pack}: refusing to write outside assets/private/: ${dest}`);
+      continue;
+    }
+    deps.mkdirp(dirname(dest));
+    deps.copyFile(src, dest);
+    result.entries.push(colourwayEntry(plan, plans.base, size));
+  }
+  return result;
+}
+
+/**
+ * The colourway step for these packs (each has a table entry): copy the files, then rewrite only each pack's `colourways`
+ * field in manifest.json (the file is read as JSON and written back whole, so every other field is as it was).
+ * Returns the exit code: 1 for a missing or unreadable manifest, a pack not in it, or (when `strict`) an unusable base atlas.
+ * A missing file, a non-PNG or a size mismatch is one warning line and that file is left out.
+ */
+function applyColourways(deps: ConvertDeps, packs: readonly string[], strict: boolean): number {
+  const L = layout(deps.root);
+  if (!deps.exists(L.manifest)) {
+    deps.stderr(`No manifest at ${L.manifest}. Convert a pack first (npm run assets:convert), then export its colourways.\n`);
+    return 1;
+  }
+  let raw: unknown;
+  try {
+    raw = JSON.parse(deps.readText(L.manifest));
+  } catch (e) {
+    deps.stderr(`${L.manifest} is not valid JSON (${(e as Error).message}); nothing written.\n`);
+    return 1;
+  }
+  const list = typeof raw === "object" && raw !== null ? (raw as { packs?: unknown }).packs : undefined;
+  if (!Array.isArray(list)) {
+    deps.stderr(`${L.manifest} has no "packs" list; nothing written.\n`);
+    return 1;
+  }
+  let failed = 0;
+  let changed = false;
+  for (const pack of packs) {
+    const plans = planColourways(pack, COLOURWAY_SOURCES);
+    if (plans === null) continue;
+    const entry = (list as unknown[]).find((p) => typeof p === "object" && p !== null && (p as { pack?: unknown }).pack === pack) as Record<string, unknown> | undefined;
+    if (entry === undefined) {
+      deps.stderr(`Pack "${pack}" is not in the manifest; convert it first. Its colourways were not exported.\n`);
+      failed = 1;
+      continue;
+    }
+    const result = exportColourways(deps, pack, plans);
+    for (const w of result.warnings) deps.stderr(`warning: ${w}\n`);
+    if (result.fatal !== undefined) {
+      deps.stderr(`${strict ? "error" : "warning"}: ${result.fatal}\n`);
+      if (strict) failed = 1;
+      continue;
+    }
+    if (result.entries.length === 0) {
+      deps.stdout(`  ${pack}: no colourway could be exported; its manifest entry is unchanged\n`);
+      continue;
+    }
+    entry["colourways"] = result.entries;
+    changed = true;
+    deps.stdout(`  ${pack}: ${result.entries.length} of ${plans.entries.length} colourway(s) exported to ${join(L.out, pack, "colourways")}\n`);
+  }
+  if (changed) {
+    deps.writeText(L.manifest, JSON.stringify(raw, null, 2) + "\n");
+    deps.stdout(`Wrote ${L.manifest}\n`);
+  }
+  return failed;
+}
+
+/** `--colourways [pack...]`: only the colourway step. No Blender, no GLB. */
+function runColourways(deps: ConvertDeps, names: readonly string[]): number {
+  const L = layout(deps.root);
+  for (const n of names) {
+    if (!packNameIsSafe(L.inRoot, n)) {
+      deps.stderr(`Refusing pack name "${n}": a pack is a single folder name inside assets/private/in/.\n`);
+      return 1;
+    }
+    if (planColourways(n, COLOURWAY_SOURCES) === null) {
+      deps.stderr(`No colourway table for pack "${n}". Packs with one: ${Object.keys(COLOURWAY_SOURCES).join(", ")}\n`);
+      return 1;
+    }
+  }
+  const selected = names.length > 0 ? [...new Set(names)].sort(compareNames) : Object.keys(COLOURWAY_SOURCES).filter((p) => deps.isDirectory(join(L.inRoot, p))).sort(compareNames);
+  if (selected.length === 0) {
+    deps.stdout(`No pack with a colourway table found in ${L.inRoot}\n`);
+    return 0;
+  }
+  return applyColourways(deps, selected, true);
 }
 
 /** Names the self-test's boxes carry; convert_fbx.py --selftest builds them. */
@@ -460,6 +643,10 @@ export const SELFTEST_ALIAS_ORDER = "alias_order";
 export const SELFTEST_PARENTED = "SelfTest_ParentedPole";
 /** A 1 m box converted with `--scale-override scaled_box=10`: it must come out 10 m, with scale 10 in the report. */
 export const SELFTEST_SCALED = "scaled_box";
+/** Ticket 072: an FBX in the self-test's excluded folder (`Fbx/Excluded`, passed as --exclude); it must reach neither the report nor the GLB. */
+export const SELFTEST_EXCLUDED = "excluded_box";
+/** The self-test's excluded folder, relative to its pack folder. */
+export const SELFTEST_EXCLUDED_DIR = "Fbx/Excluded";
 /** The factor the self-test passes for SELFTEST_SCALED, as the wrapper would for a pack.json with "scaleOverrides": { "scaled_box": 10 }. */
 export const SELFTEST_SCALE_OVERRIDES: readonly { stem: string; factor: number }[] = [{ stem: SELFTEST_SCALED, factor: 10 }];
 
@@ -504,6 +691,8 @@ export function checkSelftest(report: PackReport): string[] {
     if (Math.abs(got - want) > tol) problems.push(`${what} is ${got}, expected ${want} (within ${tol})`);
   };
   if (report.failures.length > 0) problems.push(`failures: ${report.failures.map((f) => `${f.source} (${f.error})`).join("; ")}`);
+  if (report.assets.some((a) => a.name === SELFTEST_EXCLUDED)) problems.push(`${SELFTEST_EXCLUDED} is in the report, but its folder was excluded`);
+  if (report.failures.some((f) => f.source.includes(SELFTEST_EXCLUDED))) problems.push(`${SELFTEST_EXCLUDED} was tried (it is in the report's failures), but its folder was excluded`);
   if (report.scale !== 1) problems.push(`pack scale is ${report.scale}, expected 1`);
   // The scale each box was converted with: 1 (the self-test pack has no scale), except the box with an override.
   for (const a of report.assets) {
@@ -575,7 +764,7 @@ async function runSelftest(deps: ConvertDeps, blender: BlenderInfo): Promise<num
   try {
     result = await deps.run(
       blender.path,
-      buildBlenderArgs({ script: L.script, packDir, outGlb, report, selftest: true, aliases: selftestAliases(packDir), scaleOverrides: SELFTEST_SCALE_OVERRIDES }),
+      buildBlenderArgs({ script: L.script, packDir, outGlb, report, selftest: true, aliases: selftestAliases(packDir), scaleOverrides: SELFTEST_SCALE_OVERRIDES, exclude: [resolve(packDir, SELFTEST_EXCLUDED_DIR)] }),
     );
   } catch (e) {
     deps.stderr(`selftest failed: could not start Blender: ${(e as Error).message}\n`);
@@ -604,9 +793,11 @@ async function runSelftest(deps: ConvertDeps, blender: BlenderInfo): Promise<num
 /** The CLI. `argv` is the arguments after the script name. Returns the exit code. */
 export async function convert(argv: readonly string[], deps: ConvertDeps): Promise<number> {
   let selftest = false;
+  let colourways = false;
   const names: string[] = [];
   for (const arg of argv) {
     if (arg === "--selftest") selftest = true;
+    else if (arg === "--colourways") colourways = true;
     else if (arg === "--help" || arg === "-h") {
       deps.stdout(USAGE);
       return 0;
@@ -619,6 +810,11 @@ export async function convert(argv: readonly string[], deps: ConvertDeps): Promi
     deps.stderr(`--selftest takes no pack names\n`);
     return 1;
   }
+  if (colourways && selftest) {
+    deps.stderr(`--colourways and --selftest cannot be combined\n`);
+    return 1;
+  }
+  if (colourways) return runColourways(deps, names); // no Blender is looked for
 
   const blender = await resolveBlender(deps);
   if (blender === 2) return 2;
@@ -648,6 +844,8 @@ export function realDeps(root: string): ConvertDeps {
     },
     readText: (p) => readFileSync(p, "utf8"),
     writeText: (p, text) => writeFileSync(p, text),
+    readBytes: (p) => new Uint8Array(readFileSync(p)),
+    copyFile: (from, to) => copyFileSync(from, to),
     mkdirp: (p) => void mkdirSync(p, { recursive: true }),
     remove: (p) => rmSync(p, { recursive: true, force: true }),
     run: (command, args) =>

@@ -84,9 +84,15 @@ describe("pickPlaceholders on every map", () => {
       expect(specs, name).toHaveLength(lots.length);
       lots.forEach((l, i) => {
         const s = specs[i]!;
-        expect(s.w, `${name} ${l.key}`).toBeLessThanOrEqual(l.w * 0.9 + 1e-12);
-        expect(s.d).toBeLessThanOrEqual(l.d * 0.9 + 1e-12);
-        expect(s.w).toBeGreaterThanOrEqual(l.w * 0.8 - 1e-12);
+        if (l.terrace) {
+          // 051 B: a terrace lot's body fills its whole lot, so the boxes of a run abut (factor 1, not 0.8 to 0.9).
+          expect(s.w, `${name} ${l.key}`).toBeCloseTo(l.w, 12);
+          expect(s.d, `${name} ${l.key}`).toBeCloseTo(l.d, 12);
+        } else {
+          expect(s.w, `${name} ${l.key}`).toBeLessThanOrEqual(l.w * 0.9 + 1e-12);
+          expect(s.d).toBeLessThanOrEqual(l.d * 0.9 + 1e-12);
+          expect(s.w).toBeGreaterThanOrEqual(l.w * 0.8 - 1e-12);
+        }
         expect(s.bodyH).toBeCloseTo(s.storeys * STOREY_M * WORLD_PER_METRE, 12);
         expect(s.storeys).toBeGreaterThanOrEqual(STOREYS[l.type][0]);
         expect(s.storeys).toBeLessThanOrEqual(STOREYS[l.type][1]);
@@ -124,23 +130,26 @@ describe("the scene with no models", () => {
   const puzzle = maps.find((m) => m.name.includes("09-shrine-circuit"))!.puzzle;
   const b = buildScene(puzzle, { text: stubTextSurface });
   const lots = townLayout(puzzle).lots;
+  /** A lot type's own placeholders (a terrace lot has the group of its own, `placeholders:terrace`). */
+  const groupOf = (t: (typeof LOT_TYPE_NAMES)[number] | "terrace") => (t === "terrace" ? b.slots.blocks.placeholder.getObjectByName("placeholders:terrace")! : b.slots.blocks.byType[t]);
+  const inGroup = (l: (typeof lots)[number], t: (typeof LOT_TYPE_NAMES)[number] | "terrace"): boolean => (t === "terrace" ? l.terrace !== undefined : l.type === t && l.terrace === undefined);
 
   it("draws one placeholder body per lot, in the group of its lot type, and shows every group", () => {
     expect(b.slots.blocks.placeholder.visible).toBe(true);
-    for (const t of LOT_TYPE_NAMES) {
-      const group = b.slots.blocks.byType[t];
+    for (const t of [...LOT_TYPE_NAMES, "terrace"] as const) {
+      const group = groupOf(t);
       expect(group.visible, t).toBe(true);
       const bodies = group.children[0] as InstancedMesh;
-      expect(bodies.count, t).toBe(lots.filter((l) => l.type === t).length);
+      expect(bodies.count, t).toBe(lots.filter((l) => inGroup(l, t)).length);
     }
     expect(lots.length).toBeGreaterThan(50);
   });
 
   it("puts each body inside its lot: matrices carry the lot's yaw and the spec's footprint and height", () => {
     const specs = pickPlaceholders(lots);
-    for (const t of LOT_TYPE_NAMES) {
-      const bodies = b.slots.blocks.byType[t].children[0] as InstancedMesh;
-      const mine = lots.map((l, i) => [l, specs[i]!] as const).filter(([l]) => l.type === t);
+    for (const t of [...LOT_TYPE_NAMES, "terrace"] as const) {
+      const bodies = groupOf(t).children[0] as InstancedMesh;
+      const mine = lots.map((l, i) => [l, specs[i]!] as const).filter(([l]) => inGroup(l, t));
       const probe = new Matrix4();
       for (let k = 0; k < Math.min(mine.length, 25); k++) {
         bodies.getMatrixAt(k, probe);

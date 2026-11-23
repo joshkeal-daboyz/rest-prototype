@@ -12,7 +12,15 @@ import { createPicker } from "./pick";
 import { frontsOverlay, frontsRequested, type FrontsOverlay } from "./debug3d";
 import { createGalleryRenderer3d, galleryRequested } from "./gallery";
 import { applyModels, sharedModels, type AppliedModels } from "./models3d";
+import { applyLightMode } from "./lightrig";
+import { lightModeFor } from "./lighting";
 import { buildScene } from "./scene";
+import { createPlanAssembleRenderer3d, planAssembleRequested, tilesPlanRequested } from "./plan3d";
+import { createPlanRenderer3d, planViewRequested } from "./planview";
+import { createCityRenderer3d } from "./tilecity3d";
+import { cityTilesRequested, oldTilesRequested } from "./tileslots";
+import { createStreetView, streetCamRequested, streetMode, type StreetView } from "./streetcam";
+import { townLayout } from "./town";
 
 export interface MapRenderer3dOptions {
   insets?: Insets;
@@ -27,12 +35,22 @@ export type MapRenderer3d = MapRenderer & MapPanView & MapPlaces & MapCentre & M
 const glByCanvas = new WeakMap<HTMLCanvasElement, WebGLRenderer>();
 
 export function createMapRenderer3d(canvas: HTMLCanvasElement, puzzle: Puzzle, opts?: MapRenderer3dOptions): MapRenderer3d {
+  // `?city=plan` (debug, ticket 070 A2) draws a stage of the city plan as a flat picture on a 2D canvas; a canvas keeps one kind of context for good, so this is decided before any WebGL one is made. Dev builds only, like the gallery.
+  // `stage=assemble` (or 9, ticket 070 E) is the plan drawn in 3D: decided ahead of the flat picture, and routed below once the WebGL renderer is made.
+  // `?city=tiles` (without `sheet=1`, ticket 070 L1) is the same view: the pipeline's city. The old tile city is `city=tiles-old` below, until L2.
+  const assemble = import.meta.env.DEV && typeof location !== "undefined" ? planAssembleRequested(location.search) ?? tilesPlanRequested(location.search) : null;
+  const planView = assemble === null && import.meta.env.DEV && typeof location !== "undefined" ? planViewRequested(location.search) : null;
+  if (planView !== null) return createPlanRenderer3d(canvas, planView, { dpr: Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 2) });
   let gl = glByCanvas.get(canvas);
   if (!gl) {
     gl = new WebGLRenderer({ canvas, antialias: true });
     glByCanvas.set(canvas, gl);
   }
   const renderer = gl;
+  if (assemble !== null) {
+    const ratio = Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 2);
+    return createPlanAssembleRenderer3d(renderer, canvas, assemble, { insets: opts?.insets, dpr: ratio, search: location.search });
+  }
   // `?gallery=<pack-id>` (debug, ticket 043 B) shows every building of one pack instead of the town; this is the one place the address is read.
   // Dev builds only (ticket 045 C): `import.meta.env.DEV` is false in `npm run build`, so the gallery and its save code are dropped from the bundle.
   const galleryPack = import.meta.env.DEV && typeof location !== "undefined" ? galleryRequested(location.search) : null;
@@ -40,10 +58,24 @@ export function createMapRenderer3d(canvas: HTMLCanvasElement, puzzle: Puzzle, o
     const ratio = Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 2);
     return createGalleryRenderer3d(renderer, canvas, galleryPack, { insets: opts?.insets, dpr: ratio, search: location.search });
   }
+  // `?city=tiles-old` (debug, ticket 055 C) shows the old puzzle-free city of City Pack road tiles instead of the puzzle's map (the puzzle passed in is ignored); `?city=tiles&sheet=1` is the tile sheet. Dev builds only, like the gallery.
+  // Plain `city=tiles` never reaches here (the pipeline's city took it above), so `cityTilesRequested` only answers for the sheet.
+  const cityTiles = import.meta.env.DEV && typeof location !== "undefined" ? cityTilesRequested(location.search) ?? oldTilesRequested(location.search) : null;
+  if (cityTiles !== null) {
+    const ratio = Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 2);
+    return createCityRenderer3d(renderer, canvas, cityTiles, { insets: opts?.insets, dpr: ratio, search: location.search });
+  }
+  // `?cam=street` (debug, ticket 051 A) looks along one row of buildings from the road; this is the one place the address is read. Dev builds only, like the gallery.
+  const streetOpts = import.meta.env.DEV && typeof location !== "undefined" ? streetCamRequested(location.search) : null;
   let insets: Insets = { ...(opts?.insets ?? {}) };
   const rig = createCameraRig(puzzle, Math.max(canvas.clientWidth, 1), Math.max(canvas.clientHeight, 1), insets);
   const ratio = Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 2);
   const bundle = buildScene(puzzle, { dpr: ratio });
+  // The light rig owns the scene's global lights and the renderer's tone mapping. Night is the game's; a dev build's `light=day` is a testing daylight (ticket 060).
+  const lightMode = import.meta.env.DEV && typeof location !== "undefined" ? lightModeFor("puzzle", location.search, true) : "night";
+  applyLightMode(bundle.scene, renderer, lightMode, bundle.lightOwners);
+  let street: StreetView | null = null;
+  if (import.meta.env.DEV && streetOpts) street = createStreetView(townLayout(puzzle), streetOpts, bundle.scene, rig.size.width, rig.size.height);
   const picker = createPicker(bundle.scene, rig.camera, rig.size);
   const nodePos = new Map(puzzle.nodes.map((n) => [n.id, n.pos] as const));
 
@@ -53,8 +85,13 @@ export function createMapRenderer3d(canvas: HTMLCanvasElement, puzzle: Puzzle, o
     renderer.setPixelRatio(ratio);
     renderer.setSize(w, h, false);
     rig.resize(w, h, insets);
-    bundle.setViewport(w, h, FOV_DEG);
-    fronts?.setViewport(w, h, FOV_DEG);
+    let fov = FOV_DEG;
+    if (import.meta.env.DEV && street) {
+      street.resize(w, h);
+      fov = street.pose.fov;
+    }
+    bundle.setViewport(w, h, fov);
+    fronts?.setViewport(w, h, fov);
   }
   let fronts: FrontsOverlay | null = null;
   resize();
@@ -68,15 +105,19 @@ export function createMapRenderer3d(canvas: HTMLCanvasElement, puzzle: Puzzle, o
     .then((set) => {
       if (disposed) return;
       applied = applyModels(bundle, set);
+      if (import.meta.env.DEV) street?.markReady();
       if (wantFronts && applied.buildings.length > 0) {
         fronts = frontsOverlay(bundle, applied, { dpr: ratio });
         bundle.scene.add(fronts);
         fronts.setViewport(Math.max(canvas.clientWidth, 1), Math.max(canvas.clientHeight, 1), FOV_DEG);
       }
     })
-    .catch((e: unknown) => console.info(`3D models: not applied (${e instanceof Error ? e.message : String(e)}).`));
+    .catch((e: unknown) => {
+      console.info(`3D models: not applied (${e instanceof Error ? e.message : String(e)}).`);
+      if (import.meta.env.DEV) street?.markReady();
+    });
 
-  return {
+  const play: MapRenderer3d = {
     draw(state, overlay, timeSeconds) {
       bundle.update(state, overlay.hover ?? null, timeSeconds, overlay.relightT);
       renderer.render(bundle.scene, rig.camera);
@@ -112,4 +153,13 @@ export function createMapRenderer3d(canvas: HTMLCanvasElement, puzzle: Puzzle, o
       bundle.dispose();
     },
   };
+  // The street camera (dev only): the same renderer, drawn through its own camera, with nothing to pick and no pan or zoom.
+  if (import.meta.env.DEV && street) {
+    const view = street;
+    return streetMode(play, view, (state, overlay, timeSeconds) => {
+      bundle.update(state, overlay.hover ?? null, timeSeconds, overlay.relightT);
+      view.draw(renderer, bundle.scene);
+    });
+  }
+  return play;
 }

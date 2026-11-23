@@ -25,6 +25,7 @@ import {
   PerspectiveCamera,
   PlaneGeometry,
   Scene,
+  TextureLoader,
   Vector3,
   type Material,
   type Object3D,
@@ -48,6 +49,7 @@ import { ZOOM_STEP, type Insets, type Pan } from "../render/geometry";
 import { FOV_DEG } from "./camera";
 import { effectiveFronts, loadSavedCalibration } from "./calibration";
 import { scaleForPx } from "./captions";
+import { chooseColourway } from "./colourway";
 import {
   BUILDING_EXCLUDE,
   BUILDING_FRONTS,
@@ -64,8 +66,23 @@ import {
   type ModelChoice,
   type ModelFront,
 } from "./models";
-import { defaultDir, nearestTextures } from "./models3d";
+import { KERB_FROM_FRONT_M, dressKeys, dressStack, type DressPiece } from "./dressing";
+import { createColourwayCache, defaultDir, dressGroup, nearestTextures, paintStack, stackGroup } from "./models3d";
 import type { MapRenderer3d } from "./renderer";
+import {
+  STACK_PACK,
+  STACK_STYLE_IDS,
+  STACK_TYPE_IDS,
+  guessCount,
+  recipePieceKeys,
+  shownStacks,
+  stackCaption,
+  stackGalleryTitle,
+  stackPieceEntries,
+  type ShownStack,
+  type StackGalleryFilter,
+} from "./stackgallery";
+import type { StackSide } from "./stacks";
 import { createCaptionSprite, defaultTextSurface, type CaptionSprite, type TextSurfaceFactory } from "./text";
 import { LOT_TYPES, type LotType } from "./town";
 
@@ -157,9 +174,11 @@ export function galleryEntries(
   exclude: readonly CalibrationKey[] = BUILDING_EXCLUDE,
   table: readonly ModelChoice[] = MODEL_TABLE,
   saved: CalibrationFile | null = null,
+  only: readonly CalibrationKey[] | null = null,
 ): GalleryEntry[] {
   const pack = manifest?.packs.find((p) => p.pack === packId);
   if (!pack) return [];
+  const onlySet = only ? new Set<string>(only) : null;
   const listed = new Set<string>();
   for (const key of Object.keys(fronts)) {
     const parsed = parseCalibrationKey(key);
@@ -173,8 +192,9 @@ export function galleryEntries(
     if (![w, h, d].every((v) => Number.isFinite(v) && v >= 0)) continue;
     const lower = entry.name.toLowerCase();
     const sized = w >= BUILDING_MIN_FOOTPRINT_M && d >= BUILDING_MIN_FOOTPRINT_M && h >= BUILDING_MIN_HEIGHT_M && !NON_BUILDING_PREFIXES.some((p) => lower.startsWith(p));
-    if (!listed.has(entry.name) && !sized) continue;
     const key = calibrationKey(packId, entry.name);
+    // `only` (the stack gallery's click line: exactly the recipe pieces, roofs too) replaces the size and name test.
+    if (onlySet ? !onlySet.has(key) : !listed.has(entry.name) && !sized) continue;
     const bf = Object.prototype.hasOwnProperty.call(fronts, key) ? fronts[key as CalibrationKey] : undefined;
     const front: ModelFront = bf?.front ?? "+z";
     const mark = saved && Object.prototype.hasOwnProperty.call(saved.entries, key) ? saved.entries[key] : undefined;
@@ -371,6 +391,35 @@ export interface GalleryOptions {
   saved?: CalibrationFile | null;
   /** A change that could not be written (ticket 045 C): the title and that model's group caption say `not saved: <reason>`. */
   notSaved?: { key: CalibrationKey; reason: string } | null;
+  /** Show exactly these models (`pack:name`) instead of the size-filtered buildings (ticket 050 B's click line). Default: the usual filter. */
+  only?: readonly CalibrationKey[];
+  /** The x the line starts at (the stack gallery puts its click line after its stacks). Default 0. */
+  originX?: number;
+}
+
+/** One stack of the stack gallery (ticket 050 B): a lot outline with a stack standing in it, and its caption under it. */
+export interface StackSlot {
+  shown: ShownStack;
+  /** The lot's outline on the ground, front edge on z = 0, as in the town. */
+  outline: GalleryRect;
+  /** The ground it owns across the line: as wide as its outline or caption. */
+  cell: GalleryRect;
+  caption: string[];
+  captionW: number;
+  captionAt: GalleryAnchor;
+  /** The lot side a corner stack is for, or null (the outline gets a thick strip on that side). */
+  cornerSide: StackSide | null;
+  /** The stack's dressing (ticket 052 B), in the stack's frame; only with `&dress=1`. Absent otherwise. */
+  dress?: readonly DressPiece[];
+}
+
+/** What the stack gallery adds to a layout: its stacks, their keys, and the heading of the click line that follows them. */
+export interface StackPart {
+  cells: StackSlot[];
+  /** Every piece key the stacks use, for the scene's root lookups. */
+  keys: CalibrationKey[];
+  lineTitle: string[];
+  lineTitleAt: GalleryAnchor;
 }
 
 export interface GalleryLayout {
@@ -385,6 +434,8 @@ export interface GalleryLayout {
   page: number;
   pageCount: number;
   total: number;
+  /** Only in the stack gallery (ticket 050 B): the stacks drawn before the line. Absent in the pack gallery. */
+  stacks?: StackPart;
 }
 
 /** True when two rectangles share ground (touching edges do not count). */
@@ -451,7 +502,8 @@ export function galleryLayout(
   exclude: readonly CalibrationKey[] = BUILDING_EXCLUDE,
   opts: GalleryOptions = {},
 ): GalleryLayout {
-  const all = galleryEntries(manifest, packId, fronts, exclude, opts.table, opts.saved ?? null);
+  const all = galleryEntries(manifest, packId, fronts, exclude, opts.table, opts.saved ?? null, opts.only ?? null);
+  const originX = opts.originX ?? 0;
   const pageSize = Math.max(1, Math.floor(opts.pageSize ?? Math.max(1, all.length)));
   const pageCount = galleryPageCount(all.length, pageSize);
   const page = Math.min(Math.max(1, Math.floor(opts.page ?? 1)), pageCount);
@@ -460,7 +512,7 @@ export function galleryLayout(
 
   const groups: GalleryGroup[] = [];
   const slots: GallerySlot[] = [];
-  let x = 0;
+  let x = originX;
   let deepest = 0;
   let tallest = 0;
   let groupLines = 0;
@@ -542,7 +594,7 @@ export function galleryLayout(
   const title = message ?? galleryTitle(packId, page, pageCount, from + 1, from + groups.length, all.length, all.filter((g) => g.marked).length, opts.notSaved?.reason ?? null);
   const titleW = widest(title) * COPY_CHAR_UNITS + CAPTION_PAD;
   const titleH = (title.length + 0.2) * COPY_LINE_UNITS;
-  const lineEnd = groups.length === 0 ? 0 : x - GROUP_GAP;
+  const lineEnd = groups.length === 0 ? originX : x - GROUP_GAP;
 
   /** The box round groups `i0` to `i1` (exclusive), their captions and, when asked, the title above them. */
   const around = (i0: number, i1: number): GalleryBounds => {
@@ -561,8 +613,8 @@ export function galleryLayout(
   const titleY = Math.max(0, ...groups.slice(0, 3).map((g) => g.entry.size[1] * g.slots[0]!.scale)) + 0.6;
   const world: GalleryBounds = {
     ...around(0, groups.length),
-    minX: 0,
-    maxX: Math.max(lineEnd, titleW),
+    minX: originX,
+    maxX: Math.max(lineEnd, originX + titleW),
     minY: groups.length === 0 ? -0.5 : GROUP_CAPTION_DROP - (groupLines + 0.2) * GROUP_LINE_UNITS / COS_E,
     maxY: Math.max(tallest, titleY) + (groups.length === 0 ? titleH : titleH + 0.2),
     minZ: -Math.max(deepest, 1),
@@ -571,12 +623,144 @@ export function galleryLayout(
     groups,
     slots,
     title,
-    titleAt: { x: titleW / 2, y: groups.length === 0 ? 0.5 : titleY, z: 0 },
+    titleAt: { x: originX + titleW / 2, y: groups.length === 0 ? 0.5 : titleY, z: 0 },
     titleW,
     view: { world, screens: [around(0, 1), around(0, 2), around(0, 3)] },
     page,
     pageCount,
     total: all.length,
+  };
+}
+
+// ---- the stack gallery (ticket 050 B) ----
+
+/**
+ * `&stacks=1` asks for the stack gallery. It counts only alongside `gallery=` (a lone `stacks=1` is nothing), and only for the City Pack. `&style=<id>` and
+ * `&type=<small|house|large|tall>` narrow the row to one recipe or one lot type (a value that names nothing is ignored). Null when the page does not ask.
+ */
+export function stackGalleryRequested(search: string): StackGalleryFilter | null {
+  const pack = galleryRequested(search);
+  const q = new URLSearchParams(search);
+  if (pack === null || pack !== STACK_PACK || q.get("stacks") !== "1") return null;
+  const style = q.get("style")?.trim() ?? "";
+  const type = q.get("type")?.trim() ?? "";
+  return { style: STACK_STYLE_IDS.includes(style) ? style : null, type: STACK_TYPE_IDS.find((t) => t === type) ?? null };
+}
+
+/** `&dress=1` on the stack gallery (ticket 052 B) shows each stack with its dressing: awnings, glass, signs, fire escapes and roof props. False otherwise, and without the stack gallery. */
+export function dressRequested(search: string): boolean {
+  return stackGalleryRequested(search) !== null && new URLSearchParams(search).get("dress") === "1";
+}
+
+/**
+ * `&colourway=<id>` on the stack gallery (ticket 054 B) paints every stack in that one City Pack colourway, for the eye check (`colourway=02_A`). The raw value, or null when the page does not ask
+ * or is not the stack gallery. Whether it names a colourway the manifest lists is `chooseColourway`'s to say, once the manifest is read.
+ */
+export function colourwayRequested(search: string): string | null {
+  if (stackGalleryRequested(search) === null) return null;
+  const v = new URLSearchParams(search).get("colourway");
+  return v === null ? null : v.trim();
+}
+
+/** Ground between the last stack and the click line that follows it. */
+export const STACK_SECTION_GAP = 12;
+
+export interface StackGalleryOptions {
+  /** Dress every stack (`&dress=1`): the layout carries each stack's `dressStack` pieces and their keys. Default false, and then the layout is exactly what it was. */
+  dress?: boolean;
+  saved?: CalibrationFile | null;
+  notSaved?: { key: CalibrationKey; reason: string } | null;
+  filter?: StackGalleryFilter;
+  /** True for a piece whose root node the GLB has (once it is loaded): a style that needs one that is missing is left out. Default: every manifest entry counts. */
+  hasRoot?: (name: string) => boolean;
+}
+
+/**
+ * The stack gallery's layout (pure, deterministic): every stack `shownStacks` makes, in one line along x, each in its lot outline with its caption under it
+ * (a cell is as wide as its outline or caption, GROUP_GAP apart), then, after STACK_SECTION_GAP, the usual four-copy line of exactly the recipe pieces
+ * (`galleryLayout` with `only` and `originX`), so a click there saves a front as in the pack gallery. `slots` and `groups` are that line's; the stacks are in `stacks`.
+ * The camera starts on the first stacks. With no manifest, pack or stack to show, the title says why.
+ */
+export function stackGalleryLayout(manifest: AssetManifest | null, fronts: FrontTable = BUILDING_FRONTS, exclude: readonly CalibrationKey[] = BUILDING_EXCLUDE, opts: StackGalleryOptions = {}): GalleryLayout {
+  const filter = opts.filter ?? { style: null, type: null };
+  const entries = stackPieceEntries(manifest, opts.hasRoot);
+  const shown = shownStacks(entries, fronts, filter);
+  const recipe = recipePieceKeys().filter((k) => entries.has(k));
+
+  const cells: StackSlot[] = [];
+  let x = 0;
+  for (const s of shown) {
+    const caption = stackCaption(s, fronts);
+    const captionW = widest(caption) * COPY_CHAR_UNITS + CAPTION_PAD;
+    const spec = LOT_TYPES[s.type];
+    const lotW = spec.frontage * WORLD_PER_METRE;
+    const lotD = spec.depth * WORLD_PER_METRE;
+    const cellW = Math.max(lotW, captionW);
+    const cx = x + cellW / 2;
+    // Each stack is its own run and its own lowest block, so a billboard or a novelty sign may stand on any of them. The lot is the gallery's (its cap, as a lot of that type has it).
+    const dress = opts.dress
+      ? dressStack(s.stack, { key: `gallery:${s.style.id}:${s.type}:${s.variant.label}`, hMax: spec.cap * WORLD_PER_METRE }, { id: `gallery:${cells.length}`, index: 0, lowest: true }, entries, fronts, KERB_FROM_FRONT_M)
+      : null;
+    cells.push({
+      shown: s,
+      outline: { cx, cz: -lotD / 2, w: lotW, d: lotD },
+      cell: { cx, cz: -lotD / 2, w: cellW, d: lotD },
+      caption,
+      captionW,
+      captionAt: { x: cx, y: 0, z: CAPTION_Z },
+      cornerSide: s.stack.cornerSides[0] ?? null,
+      ...(dress ? { dress } : {}),
+    });
+    x += cellW + GROUP_GAP;
+  }
+  const lineStart = cells.length === 0 ? 0 : x - GROUP_GAP + STACK_SECTION_GAP;
+  const line = galleryLayout(manifest, STACK_PACK, fronts, exclude, {
+    saved: opts.saved ?? null,
+    notSaved: opts.notSaved ?? null,
+    only: recipe,
+    originX: lineStart,
+  });
+
+  const message = cells.length === 0 ? galleryMessage(manifest, STACK_PACK) ?? [filter.style || filter.type ? "no stack matches that style and lot type" : "no recipe can be assembled from this manifest"] : null;
+  const title = message ?? stackGalleryTitle(cells.length, guessCount(recipe, fronts), filter, GALLERY_HELP, opts.notSaved?.reason ?? null);
+  const titleW = widest(title) * COPY_CHAR_UNITS + CAPTION_PAD;
+  const titleH = (title.length + 0.2) * COPY_LINE_UNITS;
+  const topOf = (c: StackSlot): number => c.shown.stack.height_m * WORLD_PER_METRE;
+  const titleY = Math.max(0, ...cells.slice(0, 3).map(topOf)) + 0.6;
+  const capDrop = (lines: number): number => -((lines + 0.2) * COPY_LINE_UNITS) / COS_E;
+
+  const around = (i0: number, i1: number): GalleryBounds => {
+    const cs = cells.slice(i0, i1);
+    if (cs.length === 0) return { minX: 0, maxX: titleW, minY: -0.5, maxY: 0.5 + titleH, minZ: -1, maxZ: CAPTION_Z };
+    return {
+      minX: cs[0]!.cell.cx - cs[0]!.cell.w / 2,
+      maxX: cs[cs.length - 1]!.cell.cx + cs[cs.length - 1]!.cell.w / 2,
+      minY: capDrop(Math.max(...cs.map((c) => c.caption.length))),
+      maxY: Math.max(...cs.map(topOf)) + 0.6 + titleH,
+      minZ: -Math.max(...cs.map((c) => c.cell.d)),
+      maxZ: CAPTION_Z,
+    };
+  };
+  const lw = line.view.world;
+  const world: GalleryBounds =
+    cells.length === 0
+      ? { ...lw, minX: 0, maxX: Math.max(lw.maxX, titleW), maxY: Math.max(lw.maxY, 0.5 + titleH) }
+      : {
+          minX: 0,
+          maxX: Math.max(lw.maxX, titleW),
+          minY: Math.min(lw.minY, capDrop(Math.max(...cells.map((c) => c.caption.length)))),
+          maxY: Math.max(lw.maxY, Math.max(...cells.map(topOf), titleY) + titleH + 0.2),
+          minZ: Math.min(lw.minZ, -Math.max(...cells.map((c) => c.cell.d))),
+          maxZ: CAPTION_Z,
+        };
+  const keys = [...new Set([...shown.flatMap((s) => s.stack.pieces.map((p) => p.key)), ...(opts.dress ? dressKeys() : [])])];
+  return {
+    ...line,
+    title,
+    titleAt: { x: titleW / 2, y: cells.length === 0 ? 0.5 : titleY, z: 0 },
+    titleW,
+    view: { world, screens: [around(0, 1), around(0, 2), around(0, 3)] },
+    stacks: { cells, keys, lineTitle: cells.length === 0 ? [] : line.title, lineTitleAt: line.titleAt },
   };
 }
 
@@ -1015,6 +1199,8 @@ export interface GalleryScene {
   scene: Scene;
   /** One wrapper per slot, in slot order: the clone's group (empty when the model is not in the GLB). */
   models: Group[];
+  /** One `stack:<style>` group per stack of the stack gallery, in layout order (empty in the pack gallery). */
+  stacks: Group[];
   /** Size the captions to the page: call after every change of zoom or canvas, with the camera and the canvas height in css px. */
   setViewport(camera: PerspectiveCamera, heightPx: number): void;
   dispose(): void;
@@ -1049,7 +1235,7 @@ const flatGeometry = (rects: readonly (readonly [number, number, number, number]
  * clone from `lookup`, turned and scaled as the town does) and its caption, with each group's caption and the title once. Nothing in it can be raycast.
  * `lookup` may be null (the GLB is missing): outlines and captions still show, so the layout can be read.
  */
-export function buildGalleryScene(layout: GalleryLayout, lookup: ModelLookup | null, opts: { surface?: TextSurfaceFactory; dpr?: number } = {}): GalleryScene {
+export function buildGalleryScene(layout: GalleryLayout, lookup: ModelLookup | null, opts: { surface?: TextSurfaceFactory; dpr?: number; colourway?: { id: string; textures: ReadonlyMap<string, Texture> } } = {}): GalleryScene {
   const surface = opts.surface ?? defaultTextSurface;
   const dpr = opts.dpr ?? 1;
   const scene = new Scene();
@@ -1116,12 +1302,55 @@ export function buildGalleryScene(layout: GalleryLayout, lookup: ModelLookup | n
       captionOf(s.caption, s.captionAt, 1, COPY_LINE_UNITS);
     }
   }
+
+  // The stack gallery's stacks (ticket 050 B): each a lot outline, one `stack:<style>` group whose origin is the lot's front-centre, and a caption.
+  const stacks: Group[] = [];
+  const painted = createColourwayCache();
+  own(painted);
+  if (layout.stacks) {
+    const roots = new Map<CalibrationKey, Object3D>();
+    for (const key of layout.stacks.keys) {
+      const name = parseCalibrationKey(key)?.name;
+      const root = name !== undefined ? lookup?.(name) : undefined;
+      if (root) roots.set(key, root);
+    }
+    if (layout.stacks.lineTitle.length > 0) captionOf(layout.stacks.lineTitle, layout.stacks.lineTitleAt, 0, COPY_LINE_UNITS);
+    for (const cell of layout.stacks.cells) {
+      const { shown, outline } = cell;
+      const o = new Mesh(own(flatGeometry(outlineStrips(outline.w, outline.d, false, OUTLINE_STRIP), outline.cx, outline.cz, 0.02)), solid);
+      o.name = `outline:stack:${shown.style.id}:${shown.type}:${shown.variant.label}`;
+      scene.add(o);
+      if (cell.cornerSide) {
+        // The lot side that has the corner column: a thick strip down that edge, so it reads without colour (the caption says `corner -x` too).
+        const sx = cell.cornerSide === "-x" ? -outline.w / 2 : outline.w / 2;
+        const edge = new Mesh(own(flatGeometry([[sx - OUTLINE_STRIP_CURRENT / 2, -outline.d / 2, sx + OUTLINE_STRIP_CURRENT / 2, outline.d / 2]], outline.cx, outline.cz, 0.03)), current);
+        edge.name = `corner-side:${cell.cornerSide}`;
+        scene.add(edge);
+      }
+      const group = stackGroup(shown.stack, roots);
+      if (opts.colourway) paintStack(group, opts.colourway.id, { colourways: opts.colourway.textures }, painted);
+      group.position.set(outline.cx, 0, 0);
+      stacks.push(group);
+      scene.add(group);
+      captionOf(cell.caption, cell.captionAt, 1, COPY_LINE_UNITS);
+    }
+    // `&dress=1` (ticket 052 B): every stack's dressing in one instanced group, each piece in its stack's frame (the stack group's position; the gallery turns none).
+    const placements = layout.stacks.cells.flatMap((cell) => (cell.dress ?? []).map((piece) => ({ frame: { x: cell.outline.cx, z: 0, yaw: 0 }, piece })));
+    if (placements.length > 0) {
+      const drawn = dressGroup(placements, roots);
+      if (drawn.calls > 0) {
+        own(drawn);
+        scene.add(drawn.group);
+      } else drawn.dispose();
+    }
+  }
   noRay(scene);
 
   const lineH = Math.round(GALLERY_FONT_PX * 1.3);
   return {
     scene,
     models,
+    stacks,
     setViewport(camera, heightPx) {
       // A caption line is `line` world units tall on screen at its own depth (the same perspective as the ground it sits on), so the text grows and
       // shrinks with the zoom and never outgrows the group it names.
@@ -1146,6 +1375,8 @@ export interface GalleryLoadDeps {
   fetchJson(url: string): Promise<unknown>;
   /** Resolves to the GLB's scene, and rejects if it cannot be fetched or parsed. */
   loadGlb(url: string): Promise<Object3D>;
+  /** Resolves to the image at `url` as a texture (the `colourway=` parameter, ticket 054 B), and rejects if it cannot be fetched. Default: none, so no colourway is fetched. */
+  loadTexture?: (url: string) => Promise<Texture>;
   /** Folder of the manifest, ending in "/". Default: where the converter writes. */
   dir?: string;
   /** Where the one line saying why something is missing goes. Default: console.info. */
@@ -1157,6 +1388,8 @@ export interface GalleryPack {
   manifest: AssetManifest | null;
   /** Null when the pack, or its GLB, is not there. */
   root: Object3D | null;
+  /** The one colourway the page asked for and that loaded (ticket 054 B). Absent when none was asked for, it was refused (one line said so), or it failed to load: then the base is shown. */
+  colourway?: { id: string; textures: ReadonlyMap<string, Texture> };
 }
 
 const describe = (e: unknown): string => (e instanceof Error ? e.message : String(e));
@@ -1165,7 +1398,7 @@ const describe = (e: unknown): string => (e instanceof Error ? e.message : Strin
  * The manifest, and the GLB of `packId` alone (never another pack's: the town pack's is 110 MB). Anything missing costs one console.info line and
  * resolves to what there is; it never rejects and never logs an error.
  */
-export async function loadGalleryPack(packId: string, deps: GalleryLoadDeps): Promise<GalleryPack> {
+export async function loadGalleryPack(packId: string, deps: GalleryLoadDeps, colourway: string | null = null): Promise<GalleryPack> {
   const info = deps.info ?? ((m: string) => console.info(m));
   const dir = deps.dir ?? defaultDir();
   try {
@@ -1188,7 +1421,26 @@ export async function loadGalleryPack(packId: string, deps: GalleryLoadDeps): Pr
     try {
       const root = await deps.loadGlb(`${dir}${pack.glb}`);
       nearestTextures(root);
-      return { manifest, root };
+      // The one colourway the page asked for: refused with one line, or loaded alone (never the rest of the pool).
+      if (colourway === null) return { manifest, root };
+      const listed = pack.colourways ?? [];
+      const choice = chooseColourway(colourway, listed.map((c) => c.id));
+      if (choice.message) info(choice.message);
+      const cw = choice.id === null ? undefined : listed.find((c) => c.id === choice.id);
+      if (!cw || choice.id === null) return { manifest, root };
+      if (!deps.loadTexture || cw.image.includes("..")) {
+        info(`3D gallery: colourway ${cw.id} cannot be loaded here; showing the base.`);
+        return { manifest, root };
+      }
+      try {
+        const tex = await deps.loadTexture(`${dir}${cw.image}`);
+        tex.userData["colourwayBase"] = cw.base;
+        if (tex.name === "") tex.name = `${cw.base}_${cw.id}`;
+        return { manifest, root, colourway: { id: cw.id, textures: new Map([[cw.id, tex]]) } };
+      } catch (e) {
+        info(`3D gallery: colourway ${cw.id} could not be loaded (${describe(e)}); showing the base.`);
+        return { manifest, root };
+      }
     } catch (e) {
       info(`3D gallery: could not load ${pack.glb} (${describe(e)}); showing outlines and captions only.`);
       return { manifest, root: null };
@@ -1208,6 +1460,7 @@ export function defaultGalleryDeps(): GalleryLoadDeps {
       return (await r.json()) as unknown;
     },
     loadGlb: async (url) => (await new GLTFLoader().loadAsync(url)).scene,
+    loadTexture: (url) => new TextureLoader().loadAsync(url),
   };
 }
 
@@ -1268,6 +1521,8 @@ export function createGalleryRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEle
   const deps = opts.deps ?? defaultGalleryDeps();
   const dev = opts.dev ?? import.meta.env.DEV;
   const pageOpts = pageSize === null ? { page } : { page, pageSize };
+  /** Set when the page asked for `&stacks=1` on the City Pack: the layout is then the stack gallery's (dev only, like the whole gallery). */
+  const stackFilter = stackGalleryRequested(opts.search);
   /** The layout on screen, the saver and editor (dev only, once the pack has loaded). */
   let onScreen: GalleryLayout = empty;
   let saver: CalibrationSaver | null = null;
@@ -1279,9 +1534,17 @@ export function createGalleryRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEle
     const tables = effectiveFronts({ fronts: BUILDING_FRONTS, exclude: BUILDING_EXCLUDE }, file, info ?? (() => {}));
     const failure = saver?.failure() ?? null;
     shownFailure = failure?.reason ?? null;
-    const layout = galleryLayout(pack.manifest, packId, tables.fronts, tables.exclude, { ...pageOpts, saved: file, notSaved: failure });
     const root = pack.root;
-    const next = buildGalleryScene(layout, root ? (name) => root.getObjectByName(name) ?? undefined : null, { dpr: opts.dpr });
+    const layout = stackFilter
+      ? stackGalleryLayout(pack.manifest, tables.fronts, tables.exclude, {
+          saved: file,
+          notSaved: failure,
+          filter: stackFilter,
+          dress: dressRequested(opts.search),
+          ...(root ? { hasRoot: (name: string) => root.getObjectByName(name) !== undefined } : {}),
+        })
+      : galleryLayout(pack.manifest, packId, tables.fronts, tables.exclude, { ...pageOpts, saved: file, notSaved: failure });
+    const next = buildGalleryScene(layout, root ? (name) => root.getObjectByName(name) ?? undefined : null, { dpr: opts.dpr, ...(pack.colourway ? { colourway: pack.colourway } : {}) });
     current.dispose();
     current = next;
     onScreen = layout;
@@ -1290,10 +1553,11 @@ export function createGalleryRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEle
     sizeCaptions();
   }
 
-  void Promise.all([loadGalleryPack(packId, deps), loadSavedCalibration({ dev, fetchJson: deps.fetchJson, ...(deps.info ? { info: deps.info } : {}) })])
+  void Promise.all([loadGalleryPack(packId, deps, colourwayRequested(opts.search)), loadSavedCalibration({ dev, fetchJson: deps.fetchJson, ...(deps.info ? { info: deps.info } : {}) })])
     .then(([pack, saved]) => {
       if (disposed) {
         if (pack.root) freeModel(pack.root);
+        for (const t of pack.colourway?.textures.values() ?? []) t.dispose();
         return;
       }
       loaded = pack;
@@ -1404,6 +1668,7 @@ export function createGalleryRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEle
       canvas.style.touchAction = touchAction;
       current.dispose();
       if (loaded?.root) freeModel(loaded.root);
+      for (const t of loaded?.colourway?.textures.values() ?? []) t.dispose();
     },
   };
 }

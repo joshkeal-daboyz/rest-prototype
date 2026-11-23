@@ -96,9 +96,30 @@ export interface AssetPack {
   atlas: string | null;
   /** The pack's `pack.json` "scale" (default 1), before any per-model override (ticket 040). Absent in manifests written before ticket 040. */
   scale?: number;
+  /**
+   * Alternate colourings of the pack's shared atlas (ticket 054 A), in the order `pack.json` lists them. Absent in manifests written
+   * before 054 and for packs whose `pack.json` lists none; a reader treats absent as empty. Optional, so ASSET_MANIFEST_VERSION stays 1.
+   */
+  colourways?: readonly AssetColourway[];
   /** In the order the FBX files sort by path. */
   assets: readonly AssetEntry[];
   failures: readonly AssetFailure[];
+}
+
+/**
+ * One alternate atlas the converter copied next to the GLB (ticket 054 A). It shares the base atlas's UV layout (same size, same
+ * regions; only cell colours differ), so a renderer may swap a material's base-colour map for it without touching the geometry.
+ */
+export interface AssetColourway {
+  /** Short id, from the file stem after the base atlas's stem and an underscore (e.g. "02_A" for `PolygonCity_Texture_02_A.png`). Unique per pack. */
+  id: string;
+  /** The copied image, relative to the manifest, forward slashes (e.g. "city-pack/colourways/PolygonCity_Texture_02_A.png"). */
+  image: string;
+  /** The image it recolours: the base atlas's file stem as the GLB names that image (e.g. "PolygonCity_Texture"). */
+  base: string;
+  /** Pixel size, checked equal to the base atlas's by the converter. */
+  width: number;
+  height: number;
 }
 
 export interface AssetManifest {

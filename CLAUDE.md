@@ -21,15 +21,29 @@ The power-routing minigame prototype for *Rest*: a top-down map of a town sectio
 5. **Show Josh.** In a few lines: what the ticket did, how to try it (`npm run dev`, which puzzle), the reviewer's assessment, the playtester's verdict, and links to the ticket, review and playtest. Ask him to play it and say whether to merge.
 6. **Merge.** On his word, merge into `main` with his words in the commit message, push, and mark the ticket done.
 
+## The pipeline designer (city pipeline, ticket 070)
+
+The `pipeline-designer` measures how the grammar's rules behave together and words the question for Josh. It decides nothing and writes no code or tickets. Call it:
+
+- **Before Build**, for a section that adds or changes a rule or a number ("pre-check 070 D1"). If it does not report "holds", take its note to Josh before any builder is spawned. A section that only draws or wires existing rules skips it.
+- **When a builder stops on the stop rule** ("stop 070 C2", with the branch).
+- **When a builder and a reviewer read a rule differently** ("reading 070 C2", with the review), before the question goes to Josh.
+
+Its note is `docs/design/070-<section>-<topic>.md`. Josh's answer, in his words, goes at the top of the note and into the ticket; then the `lead-architect` re-cuts.
+
 ## The loop for a puzzle
 
 1. Give the `puzzle-designer` the element under test (from the brief's puzzle table) or Josh's idea. It writes `puzzles/<id>.grid.json` and `puzzles/<id>.md` (the intended read, the trap, expected numbers) and runs `npm run analyze puzzles/<id>.grid.json`.
 2. Show Josh the design note and the analyzer's numbers. He plays it (`npm run dev`, pick the puzzle).
 3. His verdict, in his words, goes at the bottom of the design note under **What it taught us**. If he says lock, copy the file to `puzzles/locked/` and commit both.
 
+## The loop for a style run
+
+A city era is scored against the GDD by a fresh `style-judge` each round, and refined by its pass agents until every barred rule clears the bar, with nobody between rounds: [docs/style-loop.md](docs/style-loop.md), rubric in [docs/style-rubric.md](docs/style-rubric.md) (ticket 075).
+
 ## Hook
 
-`.claude/hooks/pipeline_guard.py` blocks agents from merging, pushing, writing reviews (unless `code-reviewer`), writing playtests (unless `playtester`), writing tickets (unless `lead-architect`), the `playtester` from touching `src/`, `puzzles/` or `tools/`, and everyone from touching `puzzles/locked/`. If it blocks you, follow its message.
+`.claude/hooks/pipeline_guard.py` blocks agents from merging, pushing, writing reviews (unless `code-reviewer`), writing playtests (unless `playtester`), writing judgements (unless `style-judge`, which writes nowhere else), writing tickets (unless `lead-architect`), the `playtester` from touching `src/`, `puzzles/` or `tools/`, and everyone from touching `puzzles/locked/`. If it blocks you, follow its message.
 
 ## Tokens
 

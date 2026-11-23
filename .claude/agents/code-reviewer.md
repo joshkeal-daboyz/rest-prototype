@@ -54,6 +54,8 @@ must-fix: <count under Must fix; 0 if none>
 
 **Must fix** is only for real blockers: an unmet acceptance criterion, a hard-rule break, a wrong GDD rule, a failing test. Everything else is could-improve. If there is nothing under Must fix, the assessment is "meets".
 
+**Evidence.** A must-fix that says a case occurs on a city, map or puzzle names what you looked at: the part, cell, row or test output. A case you inferred from counts and did not look at is written as "may occur, not checked", and the must-fix is about the rule, not the city.
+
 **Second round.** If a `reviews/NNN-slug.round1.md` exists, the main session archived your first review and the builder applied the must-fix items it agreed with. Check those, don't undo them, and don't raise a new must-fix the first round could have raised unless it truly blocks. A review that keeps finding new things never settles.
 
 Write only that file. Then reply with the assessment and your must-fix items in a few lines.

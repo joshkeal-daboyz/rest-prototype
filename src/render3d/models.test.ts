@@ -373,7 +373,8 @@ describe("buildings stand at one scale and inside their lots (every map)", () =>
     for (const { name, puzzle: pz } of maps) {
       const lots = townLayout(pz).lots;
       const placements = buildingPlacements(lots, set.building);
-      expect(placements, name).toHaveLength(lots.length);
+      // 051 D: a terrace lot is stood by its run's packed stacks, never by a model: every other lot gets one.
+      expect(placements, name).toHaveLength(lots.filter((l) => l.terrace === undefined).length);
       for (const p of placements) {
         const lot = lots[p.lot]!;
         const m = planned.get(p.model.entry.name)!;
@@ -396,7 +397,7 @@ describe("buildings stand at one scale and inside their lots (every map)", () =>
         clones++;
       }
     }
-    expect(clones).toBeGreaterThan(5000);
+    expect(clones).toBeGreaterThan(1000); // 051 D: the non-terrace lots only (1438 on the ladder; was over 5000)
     expect(fronts.has("-x")).toBe(true);
   });
 });
@@ -455,15 +456,17 @@ describe("applyModels", () => {
     const b = buildScene(puzzle, { text: stubTextSurface });
     const spots = b.slots.poles.spots.length;
     const lots = townLayout(puzzle).lots;
+    const own = lots.filter((l) => l.terrace === undefined);
     expect(spots).toBeGreaterThan(2);
     expect(lots.length).toBeGreaterThan(50);
     expect(b.slots.blocks.list).toBe(lots);
     const applied = applyModels(b, await fullSet());
     const clones = b.slots.models.children;
-    expect(clones).toHaveLength(spots + lots.length);
+    // 051 D: the non-terrace lots only; the terrace lots' placeholders are the terrace group's business (no stack piece in this set, so they stay).
+    expect(clones).toHaveLength(spots + own.length);
     expect(clones.every((c) => c.name.startsWith("model:"))).toBe(true);
     expect(b.slots.poles.placeholders.every((o) => !o.visible)).toBe(true);
-    expect(LOT_TYPE_NAMES.every((t) => !b.slots.blocks.byType[t].visible)).toBe(true);
+    for (const t of LOT_TYPE_NAMES) if (own.some((l) => l.type === t)) expect(b.slots.blocks.byType[t].visible, t).toBe(false);
     // Every pole clone stands at its spot and is POLE_HEIGHT tall.
     b.scene.updateMatrixWorld(true);
     for (let i = 0; i < spots; i++) {
@@ -474,7 +477,7 @@ describe("applyModels", () => {
       expect(c.scale.y * (c.name === "model:Pole9" ? 9 : 4)).toBeCloseTo(POLE_HEIGHT, 6);
     }
     // Every building clone is at one scale on every axis, at its lot, turned lot.yaw + front.
-    lots.forEach((lot, i) => {
+    own.forEach((lot, i) => {
       const c = clones[spots + i]!;
       expect(c.scale.x).toBe(WORLD_PER_METRE);
       expect(c.scale.y).toBe(WORLD_PER_METRE);
@@ -495,15 +498,19 @@ describe("applyModels", () => {
   });
 
   it("keeps the placeholders of a lot type that has no model and hides those of the types that have one", async () => {
-    const b = buildScene(puzzle, { text: stubTextSurface });
+    // 051 D: no map has a tall lot outside the terraces any more, so the type left without a model is `house`, which every map still has (the first such map).
+    const withHouse = maps.find((m) => townLayout(m.puzzle).lots.some((l) => l.type === "house" && l.terrace === undefined));
+    expect(withHouse, "some map has a non-terrace house lot").toBeDefined();
+    const b = buildScene(withHouse!.puzzle, { text: stubTextSurface });
     const set = await fullSet();
-    const rest = { ...set, building: set.building!.filter((m) => lotTypeOf(m.entry, m.front) !== "tall") };
+    const rest = { ...set, building: set.building!.filter((m) => lotTypeOf(m.entry, m.front) !== "house") };
     const applied = applyModels(b, rest);
-    expect(b.slots.blocks.byType.tall.visible).toBe(true);
-    for (const t of ["small", "house", "large"] as const) expect(b.slots.blocks.byType[t].visible, t).toBe(false);
-    const talls = b.slots.blocks.list.filter((l) => l.type === "tall").length;
-    expect(talls).toBeGreaterThan(0);
-    expect(b.slots.models.children).toHaveLength(b.slots.poles.spots.length + b.slots.blocks.list.length - talls);
+    const own = b.slots.blocks.list.filter((l) => l.terrace === undefined);
+    expect(b.slots.blocks.byType.house.visible).toBe(true);
+    for (const t of ["small", "large", "tall"] as const) if (own.some((l) => l.type === t)) expect(b.slots.blocks.byType[t].visible, t).toBe(false);
+    const houses = own.filter((l) => l.type === "house").length;
+    expect(houses).toBeGreaterThan(0);
+    expect(b.slots.models.children).toHaveLength(b.slots.poles.spots.length + own.length - houses);
     applied.remove();
     b.dispose();
   });

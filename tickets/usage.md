@@ -89,3 +89,309 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 048 | gate (main session) | â€” | â€” | â€” | 0 | tsc clean, 89 files, 1705 passed on a checkout without pack files |
 | 048 | code-reviewer | agent default | 52K total (one figure in the readout) | â€” | 0 | meets, must-fix 0; checked the 14 fronts against the saved file |
 | 048 | playtester | agent default | 16K total (one figure in the readout) | â€” | 0 | regressions 0; stopped early (harness never imports render3d) |
+| 050 cut | lead-architect | agent default | 103K total (one figure in the readout) | â€” | 0 | Cut ticket 050 (City Pack assembly) for the overnight city-style goal; 16 tool uses, 5 min |
+| 051, 052, 053 cut | lead-architect | agent default | 142K total (one figure in the readout) | â€” | 0 | Cut the terrace rows, dressing and procedural-city-guide tickets; 27 tool uses, 11 min |
+| 050 section A | renderer | sonnet | 125K total (one figure in the readout) | â€” | 0 | stacks.ts recipes and pure assembly, 24 tests (commit 41e37ed); 33 tool uses, 9 min |
+| 050 section A | gate (main session) | â€” | â€” | â€” | 0 | tsc clean, 90 files, 1728 passed on a checkout without pack files |
+| 050 section A | code-reviewer | agent default | 64K total (one figure in the readout) | â€” | 0 | meets, must-fix 0; raised the open-precedence risk for section B |
+| 050 section A | playtester | agent default | 15K total (one figure in the readout) | â€” | 0 | regressions 0; stopped early (harness never imports render3d) |
+| 051 section A | renderer | sonnet | 129K total (one figure in the readout) | — | 0 | Dev-only street camera, 26 tests (commit 4fb83c8); 42 tool uses, 8 min |
+| 051 section A | gate (main session) | — | — | — | 0 | tsc clean, 90 files, 1731 passed; production build: no street camera or gallery code in dist |
+| 051 section A | code-reviewer | agent default | see 050 A row style: figure not shown | — | 0 | meets, must-fix 0 |
+| 051 section A | playtester | agent default | 22K total (one figure in the readout) | — | 0 | regressions 0; stopped early (harness never imports render3d) |
+| 050 section B | renderer | sonnet | 197K total (one figure in the readout) | — | 0 | Stack gallery (stackgallery.ts, gallery wiring, loadModels stackKeys), 32 new tests (commit 88e8865); 87 tool uses, 10 min |
+| 050 section B | gate (main session) | — | — | — | 0 | tsc clean, 92 files, 1786 passed on a checkout without pack files |
+| 050 section B | playtester | agent default | 16K total (one figure in the readout) | — | 0 | regressions 0; stopped early (harness never imports render3d) |
+| 050 section B | code-reviewer | agent default | 80K total (one figure in the readout) | — | 0 | meets, must-fix 0; all section A follow-ups applied |
+| 050 section C | renderer | sonnet | 228K total (one figure in the readout) | — | 0 | Three-step chain, stacks placed in the town, 34 provisional fronts, guide updated, 35 new tests (commit 59a1044); 63 tool uses, 12 min |
+| 050 section C | gate (main session) | — | — | — | 0 | tsc clean, 93 files, 1821 passed on a checkout without pack files |
+| 050 section C | code-reviewer | agent default | 91K total (one figure in the readout) | — | 0 | meets, must-fix 0; tall street-repeat deviation (2 in 2203) left for Josh |
+| 050 section C | playtester | agent default | 17K total (one figure in the readout) | — | 0 | regressions 0; stopped early (harness never imports render3d) |
+| 051 section B | renderer | sonnet | 277K total (one figure in the readout; three passes: build 255K, then two gate-fix passes) | — | 0 | Terrace rows in town.ts, parking lots and plazas, 21 new tests (commit 7677aa0), then four stacktown tests, the terrace skip and the debug3d stand-in fixed after the gate (ac30ad5, ac9fd3e); 95 tool uses, 22 min |
+| 051 section B | gate (main session) | — | — | — | 0 | Three runs: 4 failures (stacktown, after merging 050 C), then 1 (debug3d), then green: tsc clean, 94 files, 1843 passed |
+| 051 section B | playtester | agent default | 17K total (one figure in the readout) | — | 0 | regressions 0; stopped early (harness never imports render3d) |
+| 051 section B | code-reviewer | agent default | 116K total (one figure in the readout) | — | 0 | meets, must-fix 0; re-hashed the old town.ts layout to prove terraces:false equals today's |
+| 052 section A | renderer | sonnet | 169K total (one figure in the readout; build 158K, then the must-fix pass) | — | 0 | Pure dressing slots, 20 tests (commits 8a7a7e1, 4fc0822); 35 tool uses, 12 min |
+| 052 section A | gate (main session) | — | — | — | 0 | Two runs, both green: 95 files, 1860 then 1863 passed |
+| 052 section A | code-reviewer | agent default | 103K total (two rounds: 70K, then 33K) | — | 0 | Round 1 must-fix 1 (billboard face past the roof inset); round 2 meets, must-fix 0 |
+| 052 section A | playtester | agent default | 17K total (one figure in the readout) | — | 0 | regressions 0; stopped early (nothing imports dressing.ts) |
+| 051 section C | renderer | sonnet | 164K total (one figure in the readout) | — | 0 | Terrace packer terrace.ts, 16 tests (commit 7b7501d); 55 tool uses, 12 min; 90% far-gap closure unreachable with the real piece widths |
+| 051 section C | gate (main session) | — | — | — | 0 | tsc clean, 95 files, 1859 passed |
+| 051 section C | playtester | agent default | 18K total (one figure in the readout) | — | 0 | regressions 0; stopped early |
+| 051 section C | renderer | sonnet | 269K total (build 164K, then the re-cut pass) | — | 0 | Packer with the seam-or-alley rule, 27 terracepack tests, townClears, Numbers rows (commits 7b7501d, 2ce5648) |
+| 051 section C re-cut | lead-architect | agent default | 38K total (one figure in the readout) | — | 0 | Re-cut criterion 12 (seam, or alley, never a slit) after the reviewer proved the 90% closure unreachable |
+| 051 section C | code-reviewer | agent default | 171K total (two rounds: 88K, then 83K) | — | 0 | Round 1 must-fix 1 (criterion lowered without a re-cut); round 2 must-fix 1 (far gap not measured to the real corner wall); taken to Josh as it stands |
+| 051 section C | gate (main session) | — | — | — | 0 | Two runs, both green: 95 files, 1859 then 1870 passed |
+| 051 section C | playtester | agent default | 34K total (two rounds: 18K, 16K) | — | 0 | regressions 0 both times |
+| 052 section B | renderer | sonnet | 185K total (one figure in the readout) | — | 0 | Dressing drawn with InstancedMesh in the town and the stack gallery, planDressPieces, 20 tests (commit aae3816); 86 tool uses, 9 min |
+| 052 section B | gate (main session) | — | — | — | 0 | tsc clean, 98 files, 1920 passed on a checkout without pack files; looked at in the browser via the street camera on map 64 |
+| 052 section B | code-reviewer | agent default | see note: figure not shown | — | 0 | meets, must-fix 0 |
+| 052 section B | playtester | agent default | 18K total (one figure in the readout) | — | 0 | regressions 0; stopped early |
+| 052 section B | code-reviewer | agent default | 79K total (one figure in the readout) | — | 0 | meets, must-fix 0 |
+| 052 section C | renderer | sonnet | 257K total (one figure in the readout) | — | 0 | furniture.ts (pavement furniture, parking lots, plazas, alleys), 16 tests (commit b260874); 61 tool uses, 17 min |
+| 052 section C | gate (main session) | — | — | — | 0 | tsc clean, 99 files, 1936 passed on a checkout without pack files; plaza looked at in the browser |
+| 052 section C | code-reviewer | agent default | see note: figure not shown | — | 0 | meets, must-fix 0 |
+| 052 section C | playtester | agent default | 19K total (one figure in the readout) | — | 0 | regressions 0; stopped early |
+| 052 section C | code-reviewer | agent default | 85K total (one figure in the readout) | — | 0 | meets, must-fix 0 |
+| 053 | renderer | sonnet | 310K total (one figure in the readout) | — | 0 | Chapter 16, evaluation protocol R1 to R12, citymetrics.ts and its tests (commit 9926319); 69 tool uses, 15 min |
+| 053 | gate (main session) | — | — | — | 0 | tsc clean, 100 files, 1967 passed on a checkout without pack files |
+| 053 | code-reviewer | agent default | 84K total (one figure in the readout) | — | 0 | meets, must-fix 0; three thresholds lowered and documented for Josh |
+| 053 | playtester | agent default | 20K total (one figure in the readout) | — | 0 | regressions 0; stopped early |
+| 054 cut | lead-architect | agent default (Opus) | 91K total (one figure in the readout) | — | 0 | Cut ticket 054 (colour variety) after finding the 12 colourway atlases; added AssetColourway to src/core |
+| 054 section A | grid-simulator | agent default | 95K total (one figure in the readout) | — | 0 | Converter exports the colourway atlases, 20 new tests (commit f566408); 41 tool uses, 4 min |
+| 054 section A | code-reviewer | agent default | 43K total (one figure in the readout) | — | 0 | meets, must-fix 0 |
+| 054 section A | playtester | agent default | 18K total (one figure in the readout) | — | 0 | regressions 0; stopped early |
+| 054 section B | renderer | sonnet | 134K total (one figure in the readout) | — | 0 | Per-block colourways, colourway.ts, 31 tests (commit f34db97); 35 tool uses, 7 min |
+| 054 section B | gate (main session) | — | — | — | 0 | tsc clean, 101 files, 1998 passed; checked in the browser with the real atlases |
+| 054 section B | code-reviewer | agent default | 60K total (one figure in the readout) | — | 0 | meets, must-fix 0 |
+| 054 section B | playtester | agent default | 18K total (one figure in the readout) | — | 0 | regressions 0; stopped early |
+| 054 section C | renderer | sonnet | 121K total (one figure in the readout) | — | 0 | Guide colourway block, R13, drift check (commit d56a5c1); 28 tool uses |
+| 054 section C | gate (main session) | — | — | — | 0 | tsc clean, 102 files, 2031 passed |
+| 054 section C | code-reviewer | agent default | see 054 B: figure not shown | — | 0 | meets, must-fix 0 |
+| 054 section C | playtester | agent default | 22K total (one figure in the readout) | — | 0 | regressions 0; stopped early |
+| 070 cut | lead-architect | agent default | 173K total (one figure in the readout) | - | 0 | Ticket 070 and src/core/cityplan.ts types; 35 tool uses |
+| 070 approval pass | lead-architect | agent default | 51K total (one figure in the readout) | - | 0 | 070 status approved; 064 to 068 superseded; 059 and 063 pointers |
+| 070 correction (069 dropped) | lead-architect | agent default | 58K total (one figure in the readout) | - | 0 | D1 moves the 056 allocator as merged; P1 on named cities; Q6 added |
+| 070 A1 | planner (general-purpose with planner.md) | sonnet | 159K total (one figure in the readout) | - | 0 | Pipeline skeleton and stage 1 (commit df53211); 42 tool uses |
+| 070 A1 | gate (main session) | - | - | - | 0 | tsc clean, 126 files, 2732 passed, 20 skipped |
+| 070 A1 | code-reviewer | agent default (opus) | 92K total (one figure in the readout) | - | 0 | meets, must-fix 0 |
+| 070 A1 | playtester | agent default (sonnet) | 15K total (one figure in the readout) | - | 0 | regressions 0; stopped early |
+| 070 A2 (A1 review fix) | planner (general-purpose with planner.md) | sonnet | 69K total (one figure in the readout) | - | 0 | STREETS_LEGEND "none" dropped (d8e09d4) |
+| 070 A2 | renderer (general-purpose with renderer.md) | sonnet | 142K total (one figure in the readout) | - | 0 | tilecity reads stage 1; planview (60b7986); stopped on the purity whitelist |
+| 070 A2 ruling | lead-architect | agent default (opus) | 24K total (one figure in the readout) | - | 0 | Josh's "Yes, widen it" recorded in A2 |
+| 070 A2 ruling | renderer (general-purpose with renderer.md) | sonnet | 60K total (one figure in the readout) | - | 0 | purity whitelist widened (5ffcbca) |
+| 070 A2 | gate (main session) | - | - | - | 0 | tsc clean, 127 files, 2747 passed, 20 skipped |
+| 070 A2 | code-reviewer | agent default (opus) | 59K total (one figure in the readout) | - | 0 | meets, must-fix 0 |
+| 070 A2 | playtester | agent default (sonnet) | 15K total (one figure in the readout) | - | 0 | regressions 0; stopped early |
+| 070 A3 cut | lead-architect | agent default (opus) | 54K total (one figure in the readout) | - | 0 | section A3 (hide the HUD on the plan view); Josh: "Yes, hide it" |
+| 070 A3 | renderer (general-purpose with renderer.md) | sonnet | 75K total (one figure in the readout) | - | 0 | planHidesHud + one main.ts line (5e13b97) |
+| 070 A3 | gate (main session) | - | - | - | 0 | tsc clean, 127 files, 2757 passed, 20 skipped |
+| 070 A3 | code-reviewer | agent default (opus) | 26K total (one figure in the readout) | - | 0 | meets, must-fix 0 |
+| 070 A3 | playtester | agent default (sonnet) | 14K total (one figure in the readout) | - | 0 | regressions 0; stopped early |
+| 070 B | planner (general-purpose with planner.md) | sonnet | 174K total (one figure in the readout) | - | 0 | stage 2 land, stage-list move (ccc5562) |
+| 070 B | gate (main session) | - | - | - | 0 | tsc clean, 129 files, 2834 passed, 20 skipped |
+| 070 B | code-reviewer | agent default (opus) | 60K total (one figure in the readout) | - | 0 | partly, must-fix 1 (laneCells quadratic, R-7) |
+| 070 B | playtester | agent default (sonnet) | 19K total (one figure in the readout) | - | 0 | regressions 0; stopped early |
+| 070 B round 2 | planner (resumed) | sonnet | 180K total, cumulative with round 1 (one figure in the readout) | - | 0 | laneCells Map; silent court fallback throws (4eabf0e) |
+| 070 B round 2 | gate (main session) | - | - | - | 0 | with A3 merged in: tsc clean, 129 files, 2844 passed, 20 skipped |
+| 070 B round 2 | code-reviewer | agent default (opus) | 22K total (one figure in the readout) | - | 0 | meets, must-fix 0 |
+| 070 B round 2 | playtester | agent default (sonnet) | 14K total (one figure in the readout) | - | 0 | regressions 0; stopped early |
+| 070 C1 | planner (general-purpose with planner.md) | sonnet | 273K total (one figure in the readout) | - | 0 | stage 3 mass, no courts (aac424b) |
+| 070 C1 | gate (main session) | - | - | - | 0 | red: planview.test.ts used "mass" as its unbuilt stage (130/131 files) |
+| 070 C1 fix | lead-architect | agent default (opus) | 15K total (one figure in the readout) | - | 0 | C1 Files gains planview.test.ts's unbuilt-stage example |
+| 070 C1 fix | renderer (general-purpose with renderer.md) | sonnet | 64K total (one figure in the readout) | - | 0 | unbuilt-stage example follows CITY_STAGES (dc8793c) |
+| 070 C1 | gate (main session) | - | - | - | 0 | tsc clean, 131 files, 2957 passed, 20 skipped |
+| 070 C1 | code-reviewer | agent default (opus) | 89K total (one figure in the readout) | - | 0 | partly, must-fix 1 (R-7 linearity); five readings judged |
+| 070 C1 | playtester | agent default (sonnet) | 14K total (one figure in the readout) | - | 0 | regressions 0; stopped early |
+| 070 C1 round 2 | planner (resumed) | sonnet | 276K total, cumulative with round 1 (one figure in the readout) | - | 0 | partById and per-block grouping (c53a2a7) |
+| 070 C1 round 2 | gate (main session) | - | - | - | 0 | tsc clean, 131 files, 2957 passed, 20 skipped |
+| 070 C1 round 2 | code-reviewer | agent default (opus) | 34K total (one figure in the readout) | - | 0 | meets, must-fix 0 |
+| 070 C1 round 2 | playtester | agent default (sonnet) | 14K total (one figure in the readout) | - | 0 | regressions 0; stopped early |
+| 070 C2 (stopped) | planner (general-purpose with planner.md) | sonnet | 306K total (one figure in the readout) | - | 0 | stopped on the stop rule: P2 cannot hold (560193a) |
+| 070 re-cut | lead-architect | agent default (opus) | 80K total, two passes (one figure in the readout) | - | 0 | B2 added, C2 re-cut, H1 door rule, P2 exception; Josh "Yes, all four" |
+| 070 B2 | planner (general-purpose with planner.md) | sonnet | 119K total (one figure in the readout) | - | 0 | lanes only where court parts stay 8+ (ef992c7) |
+| 070 B2 | gate (main session) | - | - | - | 0 | tsc clean, 131 files, 2961 passed, 20 skipped |
+| 070 B2 | code-reviewer | agent default (opus) | 39K total (one figure in the readout) | - | 0 | meets, must-fix 0 |
+| 070 B2 | playtester | agent default (sonnet) | 14K total (one figure in the readout) | - | 0 | regressions 0; stopped early |
+| 070 C2 | lead-architect | agent default (opus) | 18K total (one figure in the readout) | - | 0 | CityOpening.mouth becomes a list (960ebf5) |
+| 070 C2 | planner (general-purpose with planner.md) | sonnet | 194K total (one figure in the readout) | - | 0 | C2 under the four rulings, ok on 13 cities (cdfb84f) |
+| 070 C2 | gate (main session) | - | - | - | 0 | tsc clean, 132 files, 3043 passed, 20 skipped |
+| 070 C2 | code-reviewer | agent default (opus) | 109K total (one figure in the readout) | - | 0 | partly, must-fix 1 (frontage lot as a way in) |
+| 070 C2 | playtester | agent default (sonnet) | 16K total (one figure in the readout) | - | 0 | regressions 0; stopped early |
+| 070 C2 round 2 | planner (general-purpose with planner.md) | sonnet | 107K total (one figure in the readout) | - | 0 | frontage lot is not a way in; Josh "Yes, agreed" (6520b44) |
+| 070 C2 round 2 | gate (main session) | - | - | - | 0 | tsc clean, 132 files, 3046 passed, 20 skipped |
+| 070 C2 round 2 | code-reviewer | agent default (opus) | 36K total (one figure in the readout) | - | 0 | meets, must-fix 0 |
+| 070 C2 round 2 | playtester | agent default (sonnet) | 14K total (one figure in the readout) | - | 0 | regressions 0; stopped early |
+| 070 D1 pre-check | pipeline-designer (general-purpose with pipeline-designer.md) | opus | 154K total (one figure in the readout) | - | 0 | P1 fails on 6x4 seeds 1 and 2 as written; first-tile pass recommended |
+| 070 D1 re-cut | lead-architect (general-purpose with lead-architect.md) | opus | 148K total (one figure in the readout) | - | 0 | edge-layer types; ticket write blocked by the guard (wrong agent type), edits handed on |
+| 070 D1 re-cut | lead-architect | opus | 39K total (one figure in the readout) | - | 0 | applied the D1 re-cut and Q6 (2556ef5) |
+| 070 D1 | streetscape (general-purpose with streetscape.md) | sonnet | 207K total (one figure in the readout) | - | 0 | D1 with the first pass, 13 named ok (2bdf6ef) |
+| 070 D1 | gate (main session) | - | - | - | 0 | tsc clean, 135 files, 3135 passed, 20 skipped |
+| 070 D1 | code-reviewer | opus | 65K total (one figure in the readout) | - | 0 | partly, must-fix 1 (stage threw on a short block) |
+| 070 D1 | playtester | sonnet | 18K total (one figure in the readout) | - | 0 | regressions 0; stopped early |
+| 070 D1 round 2 | streetscape (general-purpose with streetscape.md) | sonnet | 80K total (one figure in the readout) | - | 0 | a short block leaves the run ok (4b639de) |
+| 070 D1 round 2 | gate (main session) | - | - | - | 0 | tsc clean, 135 files, 3135 passed, 20 skipped |
+| 070 D1 round 2 | code-reviewer | opus | 29K total (one figure in the readout) | - | 0 | meets, must-fix 0 |
+| 070 D1 round 2 | playtester | sonnet | 15K total (one figure in the readout) | - | 0 | regressions 0; stopped early |
+| 070 T-junction design | Fable design session (separate session) | fable (first minutes opus) | not in this session's readout | - | 0 | docs/design/070-streets-t-junctions.md; Josh "C, split plan", "Yes, all four" |
+| 070 A4 cut | lead-architect | opus | 135K total (one figure in the readout) | - | 0 | A4 cut, street-layer types (f8c9fc5) |
+| 070 A4 cut | lead-architect | opus | 40K total (one figure in the readout) | - | 0 | criterion 0 + Q13 recorded (1d35551) |
+| 070 A4 | planner (general-purpose with planner.md) | sonnet | 222K total (one figure in the readout) | - | 0 | split plan, 13 named ok (ca4382f) |
+| 070 A4 | gate (main session, A4's own gate per Q13) | - | - | - | 0 | tsc clean; streets, pipeline, planview 111 passed |
+| 070 A4 | code-reviewer | opus | 80K total (one figure in the readout) | - | 0 | partly, must-fix 1 (R-7 pair scans) |
+| 070 A4 | playtester | sonnet | 19K total (one figure in the readout) | - | 0 | regressions 0; stopped early |
+| 070 A4 round 2 | planner (general-purpose with planner.md) | sonnet | 90K total (one figure in the readout) | - | 0 | indexed lookups, digests unchanged (76db703) |
+| 070 A4 round 2 | gate (main session) | - | - | - | 0 | tsc clean; 111 passed |
+| 070 A4 round 2 | code-reviewer | opus | review round 2 (figure not reported) | - | 0 | meets, must-fix 0 |
+| 070 A4 round 2 | playtester | sonnet | 15K total (one figure in the readout) | - | 0 | regressions 0; stopped early |
+| 070 one-way design | Opus design session (separate session) | opus | not in this session's readout | - | 0 | docs/design/070-streets-one-way.md; Josh's five answers + width + S10 |
+| 070 A4b | lead-architect | opus | 103K total (one figure in the readout) | - | 0 | A4b cut + criterion 0 (322b110, a331094) |
+| 070 A4b | planner (general-purpose with planner.md) | sonnet | 277K total (one figure in the readout) | - | 0 | one-way streets (dd5c25b) |
+| 070 A4b | code-reviewer / playtester | opus / sonnet | 95K / 14K | - | 0 | meets, must-fix 0; regressions 0 |
+| 070 A4 pre-check | pipeline-designer (general-purpose) | opus | 342K total (one figure in the readout) | - | 0 | does not hold; four questions (1acb528) |
+| 070 re-cut | lead-architect | opus | 129K total (one figure in the readout) | - | 0 | B3, C3, D1b re-cut; A4c added (d9314cf) |
+| 070 A4c | planner (general-purpose with planner.md) | sonnet | 119K + 95K | - | 0 | S11; stopped on R-2; T floor 0.30 (aa2aa72, 3ec20e7) |
+| 070 A4c stop | pipeline-designer (general-purpose) | opus | 161K total (one figure in the readout) | - | 0 | stop note + T floor measure (2013d85, c0c9042) |
+| 070 A4c | lead-architect | opus | 49K total (one figure in the readout) | - | 0 | T floor recorded (2edc38e) |
+| 070 A4c | code-reviewer / playtester | opus / sonnet | 46K / 14K | - | 0 | meets, must-fix 0; regressions 0 |
+| 070 A4 pre-check re-run | pipeline-designer (general-purpose) | opus | 194K total (one figure in the readout) | - | 0 | holds off; on 11/13 (ec891f7) |
+| 070 B3 | planner (general-purpose with planner.md) | sonnet | 141K total (one figure in the readout) | - | 0 | land on the split plan (a08d005) |
+| 070 B3 | code-reviewer / playtester | opus / sonnet | 53K / 15K | - | 0 | meets, must-fix 0; regressions 0 |
+| 070 C3 | planner (general-purpose with planner.md) | sonnet | 175K total (one figure in the readout) | - | 0 | mass on the split plan (1cddf1d) |
+| 070 C3 | code-reviewer / playtester | opus / sonnet | 50K / 14K | - | 0 | meets, must-fix 0; regressions 0 |
+| 070 6x6 pre-check | pipeline-designer (general-purpose) | opus | 178K total (one figure in the readout) | - | 0 | 16/20 with M; PB + 128 recommended (b44122f) |
+| 070 6x6 re-cut | lead-architect | opus | 138K total (one figure in the readout) | - | 0 | A4d, A2b; D1b gains M and PB (4c1bd2a) |
+| 070 A4d | planner (general-purpose with planner.md) | sonnet | 157K total (one figure in the readout) | - | 0 | 6x6 named list, split limit 128 (4d5cdb9, 03797ee) |
+| 070 A4d | code-reviewer / playtester | opus / sonnet | 76K / 14K | - | 0 | meets, must-fix 0; regressions 0 |
+| 070 D1b | streetscape (general-purpose with streetscape.md) | sonnet | 206K + 78K | - | 0 | edge on the split plan; round 2 cap test (60f6fc2, 7e0e82f) |
+| 070 D1b | code-reviewer | opus | 73K + 27K | - | 0 | round 1 must-fix 1; round 2 meets |
+| 070 D1b | playtester | sonnet | 14K + 15K | - | 0 | regressions 0 both rounds |
+| 070 A2b | renderer (general-purpose with renderer.md) | sonnet | 74K total (one figure in the readout) | - | 0 | plan view default 6x6 (13c3d16) |
+| 070 A2b | code-reviewer / playtester | opus / sonnet | 27K / 14K | - | 0 | meets, must-fix 0; regressions 0 |
+| 070 group | gate (main session) | - | - | - | 0 | full gate dd8bde1: tsc clean, 139 files, 3348 passed, 20 skipped; merged 41d6cbc |
+| 070 D2 re-cut | lead-architect | opus | 135K total (one figure in the readout) | - | 0 | D2 re-cut, kerb types (14d62a7) |
+| 070 D2 pre-check | pipeline-designer (general-purpose) | opus | 179K total (one figure in the readout) | - | 0 | holds (ac27ce5) |
+| 070 D2 | streetscape (general-purpose with streetscape.md) | sonnet | 309K + 93K | - | 0 | kerb line, ground pieces (26a6fe7); inlet checks (a42dc73) |
+| 070 D2 | gate (main session) | - | - | - | 0 | full gate a42dc73: tsc clean, 140 files, 3610 passed, 20 skipped |
+| 070 D2 | code-reviewer | opus | 103K + 24K | - | 0 | round 1 must-fix 1; round 2 meets |
+| 070 D2 | playtester | sonnet | 14K + 16K | - | 0 | regressions 0 both rounds; merged 86e9e5c |
+| 070 E re-cut | lead-architect | opus | 155K total (one figure in the readout) | - | 0 | E re-cut against D2 (de39c42) |
+| 070 E | renderer (general-purpose with renderer.md) | sonnet | 343K + 139K | - | 0 | plan 3D (3ec919b); review fixes + blank-view fix (2bc0d00, 682a0d3) |
+| 070 E | gate (main session) | - | - | - | 0 | full gate 682a0d3: tsc clean, 141 files, 3634 passed, 21 skipped |
+| 070 E | code-reviewer | opus | 94K + 27K | - | 0 | round 1 must-fix 1; round 2 meets |
+| 070 E | playtester | sonnet | 15K + 18K | - | 0 | regressions 0 both rounds |
+| 070 F1 re-cut | lead-architect | opus | 162K + 57K | - | 0 | F1 re-cut, buildings types; L1 (ca61068, fca1bbc) |
+| 070 F1 pre-check | pipeline-designer (general-purpose) | opus | 188K total (one figure in the readout) | - | 0 | 15/20 as cut; L1 fixes 20/20 (2ec3449) |
+| 070 F1 | buildings (general-purpose with buildings.md) | sonnet | 252K + 84K | - | 0 | buildings stage (eeda1e6); R-7 + R-4 fixes (c2cc5ca) |
+| 070 F1 | gate (main session) | - | - | - | 0 | full gate c2cc5ca: tsc clean, 145 files, 3678 passed, 21 skipped |
+| 070 F1 | code-reviewer | opus | 96K + review round 2 | - | 0 | round 1 must-fix 2; round 2 meets |
+| 070 F1 | playtester | sonnet | 14K + 15K | - | 0 | regressions 0 both rounds |
+| 070 F2 re-cut | lead-architect | opus | 167K total (one figure in the readout) | - | 0 | F2 re-cut, column/piece types (a4810d5) |
+| 070 F2 pre-check | pipeline-designer (general-purpose) | opus | 169K total (one figure in the readout) | - | 0 | holds; three questions (993ca7f) |
+| 070 F2 | buildings (general-purpose with buildings.md) | sonnet | 212K total (one figure in the readout) | - | 0 | columns, pieces, roofs (05643a6) |
+| 070 F2 | gate (main session) | - | - | - | 0 | full gate 05643a6: tsc clean, 148 files, 3707 passed, 22 skipped |
+| 070 F2 | code-reviewer / playtester | opus / sonnet | review / 14K | - | 0 | meets, must-fix 0; regressions 0 |
+| 070 G re-cut | lead-architect | opus | 132K total (one figure in the readout) | - | 0 | G re-cut against F1/F2 (445eb9c) |
+| 070 G | renderer | sonnet | 138K total (one figure in the readout) | - | 0 | buildings drawn piece by piece (d8fd481) |
+| 070 G | gate (main session) | - | - | - | 0 | full gate d8fd481: tsc clean, 148 files, 3715 passed, 23 skipped |
+| 070 G | code-reviewer / playtester | opus / sonnet | 59K / 18K | - | 0 | meets, must-fix 0; regressions 0 |
+| 070 G Q20 + H1 re-cut | lead-architect | opus | 181K total (one figure in the readout) | - | 0 | Q20 recorded; H1 split into H1/H1b/G2; F3 cut (9f711b6) |
+| 070 H1 pre-check | pipeline-designer (general-purpose) | opus | 209K total (one figure in the readout) | - | 0 | did not hold; three questions (ff2da41) |
+| 070 H1 re-cut | lead-architect | opus | 84K + 38K | - | 0 | Q21 recorded (4ef1779); F3 criterion 4 (962dccd) |
+| 070 H1 | facades (general-purpose with facades.md) | sonnet | 301K total (one figure in the readout) | - | 0 | stage 7 ground storeys (5318f5c) |
+| 070 F3 | buildings (general-purpose with buildings.md) | sonnet | 82K total (incl. round 2) | - | 0 | BACK_SAME_SHARE Decided; R-4 double by name (28c31a3) |
+| 070 H1 + F3 | gate (main session) | - | - | - | 0 | 5318f5c failed 1 (buildings R-4); ba8eac3 failed 1; 80bc0e9: 154 files, 3783 passed, 25 skipped |
+| 070 F3 / H1 | code-reviewer x2 / playtester | opus / sonnet | 28K, 89K / 25K | - | 0 | both meet, must-fix 0; regressions 0 |
+| 070 H1b re-cut | lead-architect | opus | 189K total | - | 0 | H1b re-cut, CityDressingPiece types (ae39d10); asks for a pre-check |
+| 070 G2 | renderer (general-purpose with renderer.md) | sonnet | 176K total | - | 0 | ground storeys drawn (a5d0730) |
+| 070 G2 | gate (main session) | - | - | - | 0 | a5d0730: 154 files, 3788 passed, 25 skipped |
+| 070 G2 | code-reviewer / playtester | opus / sonnet | 56K / 17K | - | 0 | meets, must-fix 0; regressions 0 |
+| 070 H1b pre-check | pipeline-designer (general-purpose with pipeline-designer.md) | opus | 222K total | - | 0 | T1, X1, W1+LG need Josh (387b9bf) |
+| 070 H1b re-cut 2 | lead-architect | opus | 65K total | - | 0 | Q22 recorded; T1, X1, W1+LG (bd6f438) |
+| 070 H1b | facades (general-purpose with facades.md) | sonnet | 307K total | - | 0 | shopfront dressing (3f1a260) |
+| 070 H1b | gate (main session) | - | - | - | 0 | 3f1a260: 158 files, 3828 passed, 27 skipped |
+| 070 H1b | code-reviewer / playtester | opus / sonnet | 114K / 23K | - | 0 | meets, must-fix 0; regressions 0 |
+| 070 H2 re-cut / pre-check | lead-architect / pipeline-designer (general-purpose) | opus / opus | 211K / 263K | - | 0 | H2 + H2b split (9d173c5); pre-check holds at 0.4, 7 questions |
+| 070 H2 re-cut 2 | lead-architect | opus | 88K total | - | 0 | Q23 recorded (1d3d4f7) |
+| 070 H2 | facades (general-purpose with facades.md) | sonnet | 344K total | - | 0 | fire escapes and wall props (6afc055) |
+| 070 H2 | gate (main session) | - | - | - | 0 | 6afc055: 162 files, 3863 passed, 28 skipped |
+| 070 H2 | code-reviewer / playtester | opus / sonnet | 100K / 25K | - | 0 | meets, must-fix 0; regressions 0 |
+| 070 H2b re-cut (PW7) | lead-architect | opus | 64K total | - | 0 | H2's checks read H2's kinds only (e93632d) |
+| 070 H2b | facades (general-purpose with facades.md) | sonnet | 278K total (2 rounds) | - | 0 | party-wall kit (150ab12 stopped; c5b67f0) |
+| 070 H2b | gate (main session) | - | - | - | 0 | c5b67f0: 166 files, 3898 passed, 29 skipped |
+| 070 H2b | code-reviewer / playtester | opus / sonnet | 75K / 21K | - | 0 | meets, must-fix 0; regressions 0 |
+| 070 H3 re-cut / pre-check | lead-architect / pipeline-designer (general-purpose) | opus / opus | 180K / 224K | - | 0 | H3 re-cut with roofs field (55aba63); pre-check: 5 questions |
+| 070 H3 re-cut 2 + H1c cut | lead-architect | opus | 138K total | - | 0 | Q24 recorded; H1c first cut (7d0fba1) |
+| 070 H3 | facades (general-purpose with facades.md) | sonnet | 310K total | - | 0 | roofs and the roof exit (12f8959) |
+| 070 H3 | gate (main session) | - | - | - | 0 | 12f8959: 170 files, 3941 passed, 31 skipped |
+| 070 H3 | code-reviewer / playtester | opus / sonnet | 101K / 27K | - | 0 | meets, must-fix 0; regressions 0 |
+| 070 H3b cut / pre-check | lead-architect / pipeline-designer (general-purpose) | opus / opus | 107K / 195K | - | 0 | H3b cut (b8ba0be); pre-check: per block, X 16, option (c) |
+| 070 H3b re-cut | lead-architect | opus | 130K total | - | 0 | Q25 recorded (65fa9d3) |
+| 070 H3b | facades (general-purpose with facades.md) | sonnet | 205K total | - | 0 | water-tower cap (4308d88) |
+| 070 H3b | gate (main session) | - | - | - | 0 | 4308d88: 170 files, 3948 passed, 31 skipped |
+| 070 H3b | code-reviewer / playtester | opus / sonnet | 48K / 21K | - | 0 | meets, must-fix 0; regressions 0 |
+| 070 H1c pre-check | pipeline-designer (general-purpose) | opus | 260K total | - | 0 | holds; 4 questions; sketches in scratchpad h1cprobe |
+| 070 H1c re-cuts | lead-architect | opus | 162K + 40K | - | 0 | Q26 (4df6a00); Q27 criterion 3 and rulings (79fef73) |
+| 070 H1c | facades (general-purpose with facades.md) | sonnet | 338K total (2 rounds) | - | 0 | shop kinds and novelty signs (322f205 stopped; 97fb0f8) |
+| 070 H1c | gate (main session) | - | - | - | 0 | 97fb0f8: 174 files, 3981 passed, 32 skipped |
+| 070 H1c | code-reviewer / playtester | opus / sonnet | 92K / 22K | - | 0 | meets, must-fix 0; regressions 0 |
+| 070 I re-cut / pre-check | lead-architect / pipeline-designer (general-purpose) | opus / opus | 269K / 291K | - | 0 | I re-cut (4f57528); pre-check: fails as cut, holds with Q5; 5 questions |
+| 070 I re-cut 2 | lead-architect | opus | 69K total | - | 0 | Q28 recorded (ff47cce) |
+| 070 I | landscape (general-purpose with landscape.md) | sonnet | 400K total | - | 0 | ground dressing (4ae2a41) |
+| 070 I | gate (main session) | - | - | - | 0 | 4ae2a41: 183 files, 4147 passed, 33 skipped |
+| 070 I | code-reviewer / playtester | opus / sonnet | 128K / 28K | - | 0 | meets, must-fix 0; regressions 0 |
+| 070 J re-cut | lead-architect | opus | 232K total | - | 0 | J re-cut, no pre-check (9ae060c) |
+| 070 J | renderer (general-purpose with renderer.md) | sonnet | 266K total | - | 0 | stages 7 and 8 drawn, R12 audit (f799495) |
+| 070 J | gate (main session) | - | - | - | 0 | f799495: 183 files, 4163 passed, 35 skipped |
+| 070 J | code-reviewer / playtester | opus / sonnet | 77K / 21K | - | 0 | meets, must-fix 0; regressions 0 |
+| 070 L re-cut (L1/L2, K outline) | lead-architect | opus | 97K total | - | 0 | 12fc1f9 |
+| 071 cut | lead-architect | opus | 118K total | - | 0 | pack power lines first cut (b816d97) |
+| 070 L1 | renderer (general-purpose with renderer.md) | sonnet | 255K total | - | 0 | the switch, guide and grammar (6a8eb65) |
+| 070 L1 | gate (main session) | - | - | - | 0 | 6a8eb65: 183 files, 4190 passed, 35 skipped |
+| 070 L1 | code-reviewer / playtester | opus / sonnet | 79K / 20K | - | 0 | meets, must-fix 0; regressions 0 |
+| 073 cut | lead-architect | opus | 203K total | - | 0 | city transformations first cut, from docs/design/073-transformations.md |
+| 073 F0 | grid-simulator | sonnet | 35K total | - | 0 | apocalypse-ruin converted: 89 models, 0 failures, scale 1, one run |
+| 073 A | lead-architect | opus | 101K total | - | 0 | era types in src/core/cityera.ts; re-cut A2, D1g, X-11 (252838b) |
+| 073 A | gate (main session) | - | - | - | 0 | 252838b: 193 files, 4391 passed, 1 failed (powerkit fitLine, also on base 45baf20) |
+| 073 A | code-reviewer / playtester | opus / sonnet | 66K / 15K | - | 0 | meets, must-fix 0; regressions 0 (merged 4a5077f) |
+| 073 D1 kit check | pipeline-designer (general-purpose with pipeline-designer.md) | opus | 95K total | - | 0 | D1 kit against the intended-use note (98762a2) |
+| 073 answers logged, B C1 D1 cut in full | lead-architect | opus | ~110K total | - | 0 | 82948fb |
+| 073 B | planner (general-purpose with planner.md) | sonnet | 164K total | - | 0 | history stage (0e8f4f5) |
+| 073 C1 | planner (general-purpose with planner.md) | sonnet | 207K total | - | 0 | resolver, era runner, T-1 and T-2 (0cefac1) |
+| 073 E2 pre-check | pipeline-designer (general-purpose with pipeline-designer.md) | opus | 304K total | - | 0 | barricades by option C hold 20/20 (6ddffae) |
+| 073 A3 | lead-architect | opus | 111K total | - | 0 | pass kinds, E2 cut (3b4a6d7) |
+| 073 B r1 | code-reviewer / playtester | opus / sonnet | 64K / 19K | - | 0 | partly, must-fix 1 (era stage shape); regressions 0 |
+| 073 C1 r1 | code-reviewer / playtester | opus / sonnet | 70K / 20K | - | 0 | partly, must-fix 1 (runner stop); regressions 0 |
+| 073 B, C1 | gate (main session) | - | - | - | 0 | 0e8f4f5: 4407 passed; 0cefac1: 4480 passed; 1 failed each (powerkit fitLine, on base) |
+| 073 C1 r2 | planner / code-reviewer / playtester | sonnet / opus / sonnet | ~7K / 31K / 17K | - | 0 | runner fix; meets, must-fix 0; regressions 0 (merged 5a0ad0f) |
+| 073 B r2 | planner / code-reviewer / playtester | sonnet / opus / sonnet | ~16K / 35K / 15K | - | 0 | era stage shape; meets, must-fix 0; regressions 0 (merged 62b7cd2) |
+| 073 A3 fix | planner (general-purpose with planner.md) | sonnet | 69K total | - | 0 | resolver keeps each pass kind (c91b148) |
+| 073 C2 | renderer (general-purpose with renderer.md) | sonnet | 137K total | - | 0 | era switch, stage=history (60e2370) |
+| 073 C2 | gate (main session) | - | - | - | 0 | 60e2370: 4510 passed, 1 failed (powerkit fitLine, on base) |
+| 073 C2 | code-reviewer / playtester | opus / sonnet | ~60K / 17K | - | 0 | meets, must-fix 0; regressions 0 |
+| 073 A3 | code-reviewer / playtester | opus / sonnet | 41K / 19K | - | 0 | meets, must-fix 0; regressions 0 (merged ba9cc62) |
+| 073 D1 | tech-pass (general-purpose with tech-pass.md) | sonnet | 370K total | - | 0 | tech walls and pavement (838d90d) |
+| 073 D1 eraview fix | renderer (general-purpose with renderer.md) | sonnet | 75K total | - | 0 | 3b92526 |
+| 073 E2 | holdout-pass (general-purpose with holdout-pass.md) | sonnet | ~400K total | - | 0 | camps, farms, markets, barricades (e4864d0) |
+| 073 F1 pre-check | pipeline-designer (general-purpose with pipeline-designer.md) | opus | 265K total | - | 0 | growth; option G for T-2 (63b3f36) |
+| 073 D1 r1 | code-reviewer / playtester | opus / sonnet | ~70K / 22K | - | 0 | partly, must-fix 1 (free-third test); regressions 0 |
+| 073 D1 | gate (main session) | - | - | - | 0 | e89a8a7: eraview premise failure (fixed 3b92526); 3b92526: 4547 passed, 1 failed (powerkit, on base) |
+| 073 F1 cut, A4 cut | lead-architect | opus | 129K total + amend | - | 0 | b377c1e, fc13df8 |
+| 073 D1 r2 | tech-pass / code-reviewer / playtester | sonnet / opus / sonnet | ~7K / ~40K / 17K | - | 0 | free-third test; meets, must-fix 0; regressions 0 |
+| 073 A4 | lead-architect / code-reviewer / playtester | opus / opus / sonnet | 34K / ~30K / 20K | - | 0 | ruin kinds; meets, must-fix 0; regressions 0 |
+| 073 E2 merge-in | holdout-pass | sonnet | ~8K | - | 0 | ERA_STAGES conflict; settle pins re-taken (bbaf67b) |
+| 073 E2 | gate (main session) | - | - | - | 0 | bbaf67b: 4604 passed, 1 failed (powerkit, on base) |
+| 073 D1g | renderer (general-purpose with renderer.md) | sonnet | ~250K total | - | 0 | tech drawn per key, 30 calls (f9d93b5) |
+| 073 E2 | code-reviewer / playtester | opus / sonnet | ~60K / 18K | - | 0 | meets, must-fix 0; regressions 0 |
+| 073 D1g r1 | code-reviewer / playtester | opus / sonnet | ~70K / 18K | - | 0 | partly, must-fix 1 (swap test); regressions 0 |
+| 073 D1g | gate (main session) | - | - | - | 0 | f9d93b5: 4558 passed, 1 failed (powerkit, on base) |
+| 073 D1g r2 | renderer | sonnet | ~7K | - | 0 | swap test, plan-view keys (d96304a); gate 4559 passed, 1 failed (powerkit, on base) |
+| 073 F1 | ruin-pass (general-purpose with ruin-pass.md) | sonnet | 401K total | - | 0 | ruin growth, option G (9284f14) |
+| 073 D1g r2 | code-reviewer / playtester | opus / sonnet | 30K / 18K | - | 0 | meets, must-fix 0; regressions 0 |
+| 073 F1 r1 | code-reviewer / playtester | opus / sonnet | ~80K / 21K | - | 0 | partly, must-fix 1 (facade obstacles); regressions 0 |
+| 073 F1 | gate (main session) | - | - | - | 0 | 9284f14: 4695 passed, 1 failed (powerkit, on base) |
+| 073 F1 r2 | ruin-pass / code-reviewer / playtester | sonnet / opus / sonnet | ~30K / ~50K / 17K | - | 0 | facade obstacles; gate 4698 passed; meets, must-fix 0; regressions 0 |
+| 073 goal head | gate (main session) | - | - | - | 0 | 9be274a: 4709 passed, 1 failed (powerkit, on base) |
+| 073 E2 facade probe | general-purpose | sonnet | 79K total | - | 0 | found 30 to 45 hold-out pieces through facade pieces a city |
+| 073 E2b | holdout-pass / ruin-pass re-pin | sonnet / sonnet | 166K / ~10K | - | 0 | hold-out keeps 0.3 m from facades (91da32c); F1 pins re-taken (e97b3f9) |
+| 073 E2b | code-reviewer / playtester | opus / sonnet | ~60K / 16K | - | 0 | gate e97b3f9 4712 passed; meets, must-fix 0; regressions 0 |
+| 073 Josh rulings re-cut | lead-architect | opus | ~90K | - | 0 | four rulings logged; F1b1, F1b2 cut (9052b0c) |
+| 073 F1b1 | planner / gate / code-reviewer / playtester | sonnet / - / opus / sonnet | 97K / - / ~45K / 19K | - | 0 | 3296013: 4717 passed, 1 failed (powerkit, on base); partly, must-fix 1 (era in assertEraReadable); regressions 0 |
+| 073 F1b1 r2, F1b2 | planner / ruin-pass / gate / code-reviewer / playtester | sonnet / sonnet / - / opus / sonnet | ~9K / ~46K / - / ~60K / 21K | - | 0 | 75f4171: 4720 passed, 1 failed (powerkit, on base); meets, must-fix 0 each; regressions 0 |
+| 073 F1b3 | lead-architect / ruin-pass / gate / code-reviewer / playtester | opus / sonnet / - / opus / sonnet | ~80K / ~125K / - / ~60K / 22K | - | 0 | 4964d8b: 4726 passed, 1 failed (powerkit, on base); meets, must-fix 0; regressions 0 |
+| 073 E2g | lead-architect / renderer / gate / code-reviewer / playtester | opus / sonnet / - / opus / sonnet | 119K / 212K / - / 50K / 17K | - | 0 | 1220431: 4743 passed, 1 failed (powerkit, on base); meets, must-fix 0; regressions 0 |
+| 073 F1g | renderer / gate / code-reviewer / playtester | sonnet / - / opus / sonnet | 187K / - / 47K / 17K | - | 0 | b4595bd: 4759 passed, 1 failed (powerkit, on base); meets, must-fix 0; regressions 0 |
+| 074 cut | lead-architect | opus | 127K total | - | 0 | asset gallery ticket and types (399c1ad) |
+| 074 A | renderer / gate / code-reviewer / playtester | sonnet / - / opus / sonnet | 157K / - / ~45K / 20K | - | 0 | 05b2168: 4773 passed, 1 failed (powerkit, on base); meets, must-fix 0; regressions 0 |
+| 073 E2g/F1g cut | lead-architect | opus | 119K total | - | 0 | 5a040b1 |
+| 074 log | lead-architect | opus | 27K | - | 0 | a9f9e3b |
+| 074 B | renderer (r1-r2) | sonnet | ~180K | - | 0 | viewer; lightrig fix (350be20) |
+| 074 C | ui | (agent default) | 146K | - | 0 | page and dev switch (bceacc4) |
+| 074 B+C r1 | gate / code-reviewer / playtester | - / opus / sonnet | - / ~70K / 26K | - | 0 | 7b4d979 gate: 2 lightrig failures (fixed); B partly (2 must-fix), C meets; regressions 0 |
+| 074 B r2-r3 | renderer / code-reviewer | sonnet / opus | ~40K / 64K | - | 0 | notes in full, exposure (19d0716); meets, must-fix 0 |
+| 074 gate | gate (main session) | - | - | - | 0 | 87a3e8c: gallery.test.ts main.ts word check tripped by the asset gallery (fixing) |
+| 074 B+C | gate (main session) | - | - | - | 0 | 3c35cd6: 4866 passed, 1 failed (powerkit, on base) |
+| 073 E2c | holdout-pass | sonnet | ~10K | - | 0 | barricade check: no bug; regression tests (917a67f) |
+| 073/074 cleanup | lead-architect | opus | 174K | - | 0 | statuses, answer labels, intended-use note (a043b1f) |
+| 074 notes sync | renderer (general-purpose with renderer.md) | sonnet | ~110K | - | 0 | PIECE_NOTES in step with the note; crowns row (d7ea58d, ba175be) |
+| 07x cleanup | gate / code-reviewer / playtester | - / opus / sonnet | - / ~45K / 16K | - | 0 | 9741c6f: 4869 passed, 1 failed (powerkit, on base); meets, must-fix 0; regressions 0 |

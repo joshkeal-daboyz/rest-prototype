@@ -58,7 +58,8 @@ function set(fronts: FrontTable): ModelSet {
   return { pole: null, lamp: null, building };
 }
 function standIn(): SceneBundle {
-  const lots = townLayout(puzzle).lots;
+  // 051 D: the lots a model stands on (a terrace lot is stood by its run's packed stacks).
+  const lots = townLayout(puzzle).lots.filter((l) => l.terrace === undefined);
   const byType = Object.fromEntries(LOT_TYPE_NAMES.map((t) => [t, new Group()])) as Record<LotType, Group>;
   return { slots: { poles: { spots: [], placeholders: [] }, lamps: [], blocks: { list: lots, placeholder: new Group(), byType }, models: new Group() } } as unknown as SceneBundle;
 }
@@ -92,7 +93,7 @@ describe("frontsOverlay", () => {
   it("has one red arrow and one caption per building clone, the caption naming the model", () => {
     const bundle = standIn();
     const applied = applyModels(bundle, set(BUILDING_FRONTS));
-    expect(applied.buildings.length).toBeGreaterThan(50);
+    expect(applied.buildings.length).toBeGreaterThan(10);
     const overlay = frontsOverlay(bundle, applied, { surface: stubTextSurface });
     const sprites: Sprite[] = [];
     overlay.traverse((o) => {

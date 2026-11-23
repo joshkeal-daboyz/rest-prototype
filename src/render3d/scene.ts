@@ -7,7 +7,6 @@
 
 import {
   AdditiveBlending,
-  AmbientLight,
   LineDashedMaterial,
   LineLoop,
   Shape,
@@ -22,7 +21,6 @@ import {
   Color,
   CylinderGeometry,
   DataTexture,
-  DirectionalLight,
   DoubleSide,
   Group,
   InstancedMesh,
@@ -51,16 +49,19 @@ import type { GridState } from "../grid";
 import { hash01 } from "../render/motion";
 import { FLARE_SECONDS, type RelightPlan } from "../render/relight";
 import { BREAK_GAP, NODE_BODY_Y, PHASE_OFFSET, POLE_HEIGHT, SAG_SEGMENTS, WIRE_RADIUS, canLayout, cumulative, dropLayout, pointAlong, runPoints, shadowOf, wireLayout, type Can, type Drop, type Vec3, type WireRun } from "./layout";
-import { KERB_H, LOT_TYPE_NAMES, ROAD_W, STOREY_M, townLayout, type Lot, type LotType, type Pt, type Town } from "./town";
+import { KERB_H, LOT_TYPE_NAMES, ROAD_W, STOREY_M, townLayout, type Lot, type LotType, type Pt, type Town, type TerraceRun } from "./town";
 import { WORLD_PER_METRE, atFront } from "./models";
 import { ROOF_SHADE, TINTS, pickPlaceholders } from "./placeholders";
 import { lampBrightness, nodeLookInto, type NodeLook } from "./look";
+import { applyLightMode, addSurface, newLightOwners, nightLightsOn, type LightOwners } from "./lightrig";
 import { createRelightClock, lampIgnition, lineFraction, nodeArrived, placeGlowStep, type LampIgnition } from "./relight3d";
 import { CAPTION_FONT_PX, FEED_FONT_PX, captionsFor, scaleForPx, type NodeCaption } from "./captions";
 import { createBarSprite, createCaptionSprite, defaultTextSurface, type BarSprite, type CaptionSprite, type TextSurfaceFactory } from "./text";
 
 export interface SceneBundle {
   scene: Scene;
+  /** The code-drawn materials and night-only parts the light rig puts in a mode (ticket 060). */
+  lightOwners: LightOwners;
   /**
    * Restyle everything from the state. `hover` is the node or line id under the pointer, or null.
    * `relightT` is the Relight clock (`overlay.relightT`): while it runs, power travels out from the feed and lamps ignite in order.
@@ -119,7 +120,7 @@ export interface ModelSlots {
    * The town's lots (never a lamp's place), and the placeholder buildings that stand on them (ticket 041 B): `placeholder` holds
    * one group per lot type (`byType`), so a type with models can hide its placeholders and a type without keeps them.
    */
-  blocks: { list: readonly Lot[]; placeholder: Object3D; byType: Readonly<Record<LotType, Object3D>> };
+  blocks: { list: readonly Lot[]; placeholder: Object3D; byType: Readonly<Record<LotType, Object3D>>; /** The terrace runs of the town's outer blocks (051 B; absent in a hand-made bundle): what 051 D packs into stacks. */ terraces?: readonly TerraceRun[] };
   /** Pole and building clones go here. Anything marked `userData.sharedModel` is not disposed with the scene. */
   models: Object3D;
 }
@@ -250,6 +251,8 @@ export interface SceneOptions {
   text?: TextSurfaceFactory;
   /** Device pixel ratio for caption textures (the renderer passes it, capped at 2). */
   dpr?: number;
+  /** Test only (ticket 051 B): lay the town out without terrace rows (`townLayout(puzzle, { terraces: false })`), to compare with the terrace town. Default true. */
+  terraces?: boolean;
 }
 
 const BREAKER_LEVER = 0.55;
@@ -482,12 +485,13 @@ function buildPlaceholders(lots: readonly Lot[]): { root: Object3D; byType: Reco
   };
   const storeyH = STOREY_M * WORLD_PER_METRE;
   const bandH = BAND_M * WORLD_PER_METRE;
-  for (const type of LOT_TYPE_NAMES) {
+  // Terrace lots (051 B) have a group of their own, never hidden by a type's models: no model or stack stands on a terrace lot until 051 D.
+  for (const type of [...LOT_TYPE_NAMES, "terrace"] as const) {
     const group = new Object3D();
     group.name = `placeholders:${type}`;
     const mine: number[] = [];
     lots.forEach((l, i) => {
-      if (l.type === type) mine.push(i);
+      if (type === "terrace" ? l.terrace !== undefined : l.type === type && l.terrace === undefined) mine.push(i);
     });
     const bands = mine.reduce((n, i) => n + specs[i]!.storeys - 1, 0);
     const flats = mine.filter((i) => specs[i]!.roof === "flat");
@@ -527,7 +531,7 @@ function buildPlaceholders(lots: readonly Lot[]): { root: Object3D; byType: Reco
       if (im.instanceColor) im.instanceColor.needsUpdate = true;
       group.add(im);
     }
-    byType[type] = group;
+    if (type !== "terrace") byType[type] = group;
     root.add(group);
   }
   return { root, byType };
@@ -613,13 +617,11 @@ export function shadowGeometry(lines: readonly (readonly Vec3[])[]): BufferGeome
 
 export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle {
   const scene = new Scene();
-  scene.background = new Color(0x0b0f17);
-  scene.add(new AmbientLight(0x4a5a7a, 1.1));
-  const moon = new DirectionalLight(0x8fa6d0, 0.7);
-  moon.position.set(-6, 12, 4);
-  scene.add(moon);
+  // The scene's global lights, background and tone mapping are the light rig's (ticket 060): night here, as the game is; a dev view may put the scene in day afterwards.
+  const lightOwners = newLightOwners();
+  applyLightMode(scene, null, "night", lightOwners);
 
-  const town = townLayout(puzzle);
+  const town = townLayout(puzzle, { terraces: opts.terraces !== false });
   const runs = wireLayout(puzzle);
   const win = town.window;
   const mat4 = new Matrix4();
@@ -629,6 +631,12 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
   ground.position.set((win.minX + win.maxX) / 2, -0.05, (win.minY + win.maxY) / 2);
   scene.add(ground);
   const streets = buildStreets(town, scene);
+  addSurface(lightOwners, "ground", ground.material as Material);
+  addSurface(lightOwners, "yard", streets.yards.material as Material);
+  addSurface(lightOwners, "street", streets.roads.material as Material);
+  addSurface(lightOwners, "kerb", streets.kerbs.material as Material);
+  addSurface(lightOwners, "pavement", streets.pavements.material as Material);
+  if (streets.pads[0]) addSurface(lightOwners, "street", streets.pads[0].material as Material);
 
   // Placeholder buildings on every lot, at one scale; a lamp's place is its own mesh so it can warm when lit.
   const placeholders = buildPlaceholders(town.lots);
@@ -1032,6 +1040,8 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
         flare.visible = false;
         parts.flare = flare;
         g.add(post, head, light, pool, halo, flare);
+        // Night-only: a testing daylight (ticket 060) hides these and puts the light at 0.
+        lightOwners.nightOnly.push(light, pool, halo, flare);
         lampSlots.push({ id: n.id, group: g, post });
         const nodeIdx = nodeIndexOf.get(n.id) ?? 0;
         let starFill: Mesh | null = null;
@@ -1065,14 +1075,17 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
           const f = flaring ? flareAge / FLARE_SECONDS : 1;
           headMat.emissiveIntensity = 2.2 * b;
           headMat.color.setHex(b > 0 ? 0xfff3c9 : 0x3a4152);
-          light.intensity = 5 * b;
-          poolMat.opacity = 0.9 * b;
-          haloMat.opacity = 0.8 * b;
-          halo.visible = b > 0;
+          // In a testing daylight (ticket 060) the lamp's light, pool, halo and flare are off; the head still warms.
+          const nb = nightLightsOn(scene) ? b : 0;
+          const nightFlaring = flaring && nb > 0;
+          light.intensity = 5 * nb;
+          poolMat.opacity = 0.9 * nb;
+          haloMat.opacity = 0.8 * nb;
+          halo.visible = nb > 0;
           const haloSize = 1.3 * (flaring ? 1 + (1 - f) : 1);
           halo.scale.set(haloSize, haloSize, 1);
-          flare.visible = flaring;
-          if (flaring) {
+          flare.visible = nightFlaring;
+          if (nightFlaring) {
             flare.scale.setScalar(0.3 + 1.2 * f);
             flareMat.opacity = 1 - f;
           }
@@ -1276,9 +1289,10 @@ export function buildScene(puzzle: Puzzle, opts: SceneOptions = {}): SceneBundle
 
   return {
     scene,
+    lightOwners,
     captions: captionSprites,
     parts: parts_,
-    slots: { poles: { spots: poleSpots, placeholders: [poles, arms] }, lamps: lampSlots, blocks: { list: town.lots, placeholder: placeholders.root, byType: placeholders.byType }, models: modelGroup },
+    slots: { poles: { spots: poleSpots, placeholders: [poles, arms] }, lamps: lampSlots, blocks: { list: town.lots, placeholder: placeholders.root, byType: placeholders.byType, terraces: town.terraces }, models: modelGroup },
     streets,
     hardware,
     setViewport(_width, height, fovDeg) {

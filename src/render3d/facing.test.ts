@@ -117,9 +117,12 @@ function standIn(lots: readonly Lot[]): SceneBundle {
 }
 
 const mapFiles = [...readdirSync("puzzles").filter((f) => f.endsWith(".json")), "lamp-row.grid.json"].map((f) => join("puzzles", f)).filter((f, i, all) => existsSync(f) && all.indexOf(f) === i);
+// 051 D: the town the game draws (terraces on). A terrace lot is stood by its run's packed stacks and `buildingPlacements` never hands it to `pickBuildings`, so the rules below are held
+// on the other lots, which is the list the picker gets.
 const maps: { name: string; puzzle: Puzzle; town: Town }[] = mapFiles.map((f) => {
   const puzzle = loadPuzzle(JSON.parse(readFileSync(f, "utf8")));
-  return { name: f, puzzle, town: townLayout(puzzle) };
+  const town = townLayout(puzzle);
+  return { name: f, puzzle, town: { ...town, lots: town.lots.filter((l) => l.terrace === undefined) } };
 });
 
 /** The nearest point of a road's centreline to (px, pz). */
@@ -221,7 +224,8 @@ describe("every placed building faces its road (every map)", () => {
       const applied = applyModels(bundle, set);
       const models = bundle.slots.models;
       models.updateMatrixWorld(true);
-      expect(models.children, name).toHaveLength(applied.buildings.length);
+      // The door steps (ticket 055 F, 062 A) are a group of their own in the stand-in, after the clones.
+      expect(models.children.filter((c) => c.name !== "door-steps"), name).toHaveLength(applied.buildings.length);
       const roads = new Map(town.roads.map((r) => [r.id, r] as const));
       applied.buildings.forEach((p, k) => {
         const lot = town.lots[p.lot]!;
@@ -245,7 +249,7 @@ describe("every placed building faces its road (every map)", () => {
         clones++;
       });
     }
-    expect(clones).toBeGreaterThan(5000);
+    expect(clones).toBeGreaterThan(1000); // 051 D: terrace lots are stood by packed stacks, not clones (1438 on the ladder; was over 5000)
     // The shipped table's only "+z" model placed on a map was the video rental store (047); memorial_mesh is not placed yet.
     expect(turned.size).toBe(_label === "the shipped table" ? 1 : 4);
   });
@@ -290,7 +294,7 @@ describe("corner lots and corner models", () => {
       for (const l of town.lots) sides.set(`${l.street}:${l.side}`, [...(sides.get(`${l.street}:${l.side}`) ?? []), l]);
       for (const row of sides.values()) for (const l of [row[0]!, row[row.length - 1]!]) if (!l.corner) bareRowEnds++;
     }
-    expect(meetings).toBeGreaterThan(500);
+    expect(meetings).toBeGreaterThan(150); // 051 D: the non-terrace lots only (234 on the ladder; was over 500)
     expect(bareRowEnds).toBeGreaterThan(50);
     // Far fewer than the 80 percent the first and last lot of every row made.
     expect(corners / lots).toBeGreaterThan(0.05);
@@ -448,7 +452,7 @@ describe("variety (every map)", () => {
         }
       }
     }
-    expect(pairs).toBeGreaterThan(1000);
+    expect(pairs).toBeGreaterThan(500); // 051 D: the non-terrace lots only (683 on the ladder; was over 1000)
   });
 
   it("does not bring a family back within STREET_REPEAT_GAP lots on one road side (types with four or more families)", () => {
@@ -518,7 +522,8 @@ describe("variety (every map)", () => {
     expect(Math.max(...ordinary) / Math.min(...ordinary)).toBeLessThanOrEqual(1.5);
     // It does appear on maps that have a valid lot (its open side, -x, meets a cross street) and on no other.
     expect(counts.get(cornerFamily) ?? 0).toBeGreaterThan(0);
-    expect(counts.get(cornerFamily) ?? 0).toBeLessThan(Math.min(...ordinary) / 4);
+    // 051 D: fewer small lots stand on the terraced town while its ring corners are the same, so the corner shop is a bit over a quarter of the least ordinary family (60 of 220), under a third.
+    expect(counts.get(cornerFamily) ?? 0).toBeLessThan(Math.min(...ordinary) / 3);
     expect(mapsWithCorner).toBeGreaterThan(0);
     expect(mapsWithCorner).toBeLessThan(maps.length);
   });
