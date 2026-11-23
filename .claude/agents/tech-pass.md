@@ -19,7 +19,7 @@ Read `CLAUDE.md`, your section of `tickets/073-city-transformations.md` with its
 ## Read before work
 
 - `docs/design/073-transformations.md`: sections 4, 7 and 8; `docs/design/073-D1-precheck.md` (and D2's pre-check for D2).
-- `docs/city-style-guide.md` 16.6 (the never-used list); `docs/city-grammar.md` rules 8 to 11.
+- `docs/city-style/exclusions.md` (16.6, the never-used list); `docs/city-grammar.md` rules 8 to 11.
 - 070's H1 to H3b sections in `tickets/070-city-pipeline.md` (the facades you build on).
 - The converter's Sci-Fi City report, `assets/private/out/reports/sci-fi-city-pack.json` (which keys are textured).
 

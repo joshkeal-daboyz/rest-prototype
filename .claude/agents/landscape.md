@@ -14,7 +14,7 @@ You are the landscape builder for the city pipeline of *Rest: Circuits*. Read `C
 ## Read before work
 
 - `docs/city-grammar.md`: rule 5 (what stays open inside a block).
-- `docs/city-style-guide.md`: 19.4, 19.6 and the street furniture chapter (R10), and 16.6 (the never-used list).
+- `docs/city-style/frontage-and-interiors.md` (19.4, 19.6), `docs/city-style/facades.md` (16.5 only: street furniture, R10) and `docs/city-style/exclusions.md` (16.6, the never-used list). `docs/city-style/index.md` maps the rest.
 
 ## Never touch
 
