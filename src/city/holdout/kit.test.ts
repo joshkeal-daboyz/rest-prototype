@@ -8,12 +8,12 @@ import { BARRICADE_KEY, CAMP_KEYS, CLUTTER_KEYS, CONTAINER_KEYS, EXCLUDED_KEYS, 
 import { cellsOver, inside, overlaps, rectAt, RectIndex, turned } from "./geom";
 
 describe("the kit table (X-8, X-5)", () => {
-  it("holds the ticket's pieces: 6 picked camps (075: no orange Tent_02), the tower, 4 fields, 2 irrigators, the one stall, 6 picked containers, 17 clutter pieces, 1 picked roof item, the wall", () => {
+  it("holds the ticket's pieces: 6 picked camps (075: no orange Tent_02), the tower, 4 fields, 2 irrigators, the one stall, 6 picked containers, 13 clutter pieces, 1 picked roof item, the wall", () => {
     expect(CAMP_KEYS).toHaveLength(6);
     expect(FARM_KEYS).toHaveLength(4);
     expect(IRRIGATOR_KEYS).toHaveLength(2);
     expect(CONTAINER_KEYS).toHaveLength(6);
-    expect(CLUTTER_KEYS).toHaveLength(5 + 2 + 10);
+    expect(CLUTTER_KEYS).toHaveLength(3 + 2 + 8);
     expect(ROOF_KEYS.map((k) => k.split(":")[1])).toEqual(["SM_Prop_Solar_Panel_02"]);
     expect(KIT[STALL_KEY]!.kind).toBe("stall");
     expect(KIT[WATER_TOWER_KEY]!.kind).toBe("water-tower");
@@ -31,7 +31,7 @@ describe("the kit table (X-8, X-5)", () => {
     for (const k of EXCLUDED_KEYS) expect(KIT_KEYS.has(k), k).toBe(false);
     for (const k of Object.keys(KIT)) expect(k).not.toMatch(/Insert|Alien|Sand|Cliff|Weapon|Character|Cantina|Barricade|Road_Barrier|Wall_Large_01|Wall_Tower_01|Stall_01|Stall_03|Panel_03|Panel_04|Fabric_03|Plant/);
     const greebles = CLUTTER_KEYS.filter((k) => /Greeble/.test(k));
-    expect(greebles.map((k) => k.slice(-2))).toEqual(["01", "05", "06", "07", "11", "15", "17", "19", "27", "31"]);
+    expect(greebles.map((k) => k.slice(-2))).toEqual(["01", "05", "06", "07", "11", "17", "19", "27"]);
     for (const k of greebles) {
       const e = KIT[k]!;
       expect(Math.min(e.w, e.d), k).toBeGreaterThanOrEqual(0.5);
