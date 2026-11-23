@@ -17,6 +17,7 @@ import { DEEP_KEYS, groundEntry } from "./kit";
 import { bodyBoxOf, cellsBox, keyOf, planeOf } from "./place";
 import { facadesStage, FACADES_LEGEND, legendOf } from "./stage";
 import { type City, cityOf, DEFAULT, label, layersOf, NAMED, stagesOf } from "./testcities";
+import { yieldToWorker } from "../testing/yield";
 
 afterEach(() => new Promise<void>((r) => setTimeout(r, 0)));
 
@@ -25,9 +26,10 @@ const OPP = { "+x": "-x", "-x": "+x", "+z": "-z", "-z": "+z" } as const;
 const NEVER = ["Shop_05", "Apartment_Door_02", "Apartment_Door_Corner_02", "Shop_Corner_02"].map((n) => `city-pack:SM_Bld_${n}`);
 
 describe("stage 7 on the named runs (R-2)", { timeout: 120_000 }, () => {
-  it("the stage returns ok on all 20 named runs, and every H1 check holds", () => {
+  it("the stage returns ok on all 20 named runs, and every H1 check holds", async () => {
     const bad: string[] = [];
     for (const o of NAMED) {
+      await yieldToWorker();
       const r = cityOf(o);
       if (!r.ok) {
         bad.push(`${label(o)}: ${r.failure.stage}: ${r.failure.reason}`);
@@ -109,10 +111,11 @@ describe("kinds, doors and keys (criterion 2)", { timeout: 120_000 }, () => {
     expect(seen).toBeGreaterThan(500);
   });
 
-  it("no shop on a column whose open sides are all quiet; a street building has at most one door and exactly one when it has a mid column; a quiet building has one door, or none when it has no door place", () => {
+  it("no shop on a column whose open sides are all quiet; a street building has at most one door and exactly one when it has a mid column; a quiet building has one door, or none when it has no door place", async () => {
     const wrong: string[] = [];
     let doorless = 0;
     for (const o of NAMED) {
+      await yieldToWorker();
       const v = viewOf(o);
       for (const p of v.layer.ground) {
         if (["shop", "shopDouble", "shopCorner"].includes(p.kind) && p.cells.some((c) => v.built.get(keyOf(c))!.open.every((s) => s.frontage === "quiet"))) wrong.push(`${label(o)} shop on a quiet front ${keyOf(p.cells[0]!)}`);
@@ -141,10 +144,11 @@ describe("kinds, doors and keys (criterion 2)", { timeout: 120_000 }, () => {
     expect(doorless).toBeGreaterThanOrEqual(1);
   });
 
-  it("a quiet building's door is the corner door on its first quiet corner with no stalls when it has one (D1), else a residents' door on a mid column with no stalls; its other quiet corners are corner floors", () => {
+  it("a quiet building's door is the corner door on its first quiet corner with no stalls when it has one (D1), else a residents' door on a mid column with no stalls; its other quiet corners are corner floors", async () => {
     let cornerDoors = 0;
     let midDoors = 0;
     for (const o of NAMED) {
+      await yieldToWorker();
       const v = viewOf(o);
       for (const b of v.buildings.buildings) {
         const cols = b.cells.map((c) => v.buildings.columns!.find((x) => keyOf(x) === keyOf(c))!);
@@ -192,10 +196,11 @@ describe("kinds, doors and keys (criterion 2)", { timeout: 120_000 }, () => {
 });
 
 describe("placements (criterion 3)", { timeout: 120_000 }, () => {
-  it("every body is front-aligned: its front and side planes on its cells' edges, its back plane on the back edge (a deep key's up to 0.6 m past it, into a built partner), its turn the column's", () => {
+  it("every body is front-aligned: its front and side planes on its cells' edges, its back plane on the back edge (a deep key's up to 0.6 m past it, into a built partner), its turn the column's", async () => {
     const wrong: string[] = [];
     let deep = 0;
     for (const o of NAMED) {
+      await yieldToWorker();
       const v = viewOf(o);
       for (const p of v.layer.ground) {
         const cols = p.cells.map((c) => v.buildings.columns!.find((x) => keyOf(x) === keyOf(c))!);
