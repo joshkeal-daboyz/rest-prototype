@@ -405,3 +405,4 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 080 A | code-reviewer / playtester (general-purpose with playtester.md) | opus / sonnet | 39K / 65K | - | 1 | meets, must-fix 0 (05d82fe); regressions 0, no replay (21051d3) |
 | 080 B1 | renderer | sonnet (agent default) | 141K + a short fix round (figure not in the readout) | - | 1 | STANDARD.md, checks, 112-row mapping table, exclusions and packs condensed (e2fe703, dd2576f); 74 tool uses, 10 min |
 | 080 B1 | gate (main session) / code-reviewer | - / opus | - / 117K | - | 1 | tsc clean, changed-tests gate 543 passed, 26 skipped; meets, must-fix 0 (b5ba7fe); playtester not run (docs and tests only) |
+| 080 B2a | renderer / code-reviewer | sonnet / opus | 175K / figure not in the readout yet | - | 1 | scale-and-lots, parking, light-and-accessibility condensed, testing-daylight split out (3d85dbd); meets, must-fix 0 (d32f6de) |
