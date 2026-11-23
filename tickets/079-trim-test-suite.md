@@ -1,7 +1,7 @@
 # 079 · Trim the test suite to the test policy: reports on demand, whole-city checks on one city
 
 owner: per section (main session, planner, streetscape, buildings, landscape, tech-pass, holdout-pass, ruin-pass, facades, renderer; see Sections)
-status: open
+status: done (merged into main as #10, #11, #12 and #14 on Josh's word, 23 Nov 2026)
 branch: `ticket/079-trim-test-suite` (this file). One branch per pull request: `ticket/079a-city-switch`, `ticket/079b-era-passes`, `ticket/079c-facades-render3d`
 
 ## Josh's words (23 Nov 2026, in chat)
