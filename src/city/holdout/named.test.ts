@@ -17,6 +17,7 @@ import { BUILT_STAGES, ERA_STAGES, runCity, runCityEra } from "../stages";
 import { KIT_KEYS } from "./kit";
 import { buildHoldout, holdoutStage, stepPart } from "./stage";
 import { NAMED, PINNED, acrossProblems, eraRun, label, type City } from "./testcities";
+import { yieldToWorker } from "../testing/yield";
 
 interface Run {
   readonly city: City;
@@ -48,7 +49,7 @@ const pinned = new Map<number, { plan: CityEraPlan; layer: CityHoldoutLayer }>()
 const eraHeld0 = new Map<string, string[]>();
 
 describe("the named runs (X-4, X-1, R-1)", { timeout: 900_000 }, () => {
-  it("builds the 20 named cities through the era runner: the stage returns on every one, so T-1 and T-2 held", () => {
+  it("builds the 20 named cities through the era runner: the stage returns on every one, so T-1 and T-2 held", async () => {
     for (const c of NAMED) {
       const run = eraRun(c, "holdout");
       const layer = run.plan.layers.holdout!;
@@ -91,6 +92,7 @@ describe("the named runs (X-4, X-1, R-1)", { timeout: 900_000 }, () => {
       });
       const p = PINNED.find((x) => x.seed === c.seed && c.way === "on");
       if (p !== undefined) pinned.set(c.seed, { plan: before, layer });
+      await yieldToWorker();
     }
     expect(runs).toHaveLength(20);
   });
