@@ -8,18 +8,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Box3, Frustum, Matrix4, PerspectiveCamera, BoxGeometry, Group, InstancedMesh, Mesh, MeshBasicMaterial, MeshStandardMaterial, Quaternion, Scene, Texture, Vector3, type Material, type Object3D, type WebGLRenderer } from "three";
-import type { AssetEntry, CalibrationKey, CityBuildingsLayer, CityFacadesLayer, CityGroundLayer, CityGroundPiece, CityKerbPath, CityCell, CityMassLayer, CityPlan, CityPlacement, CityPlanRun, CitySide } from "../core";
+import type { AssetEntry, CalibrationKey, CityBuildingsLayer, CityFacadesLayer, CityGroundLayer, CityGroundPiece, CityKerbPath, CityCell, CityMassLayer, CityPlan, CityPlacement, CitySide } from "../core";
 import { stableHash } from "../render/city";
-import { digestOf, runCity } from "../city/pipeline";
-import type { CityStageDef } from "../city/pipeline/types";
-import { buildingsStage } from "../city/buildings/stage";
-import { edgeStage } from "../city/edge/stage";
-import { facadesStage } from "../city/facades/stage";
-import { groundStage } from "../city/ground/stage";
-import { landStage } from "../city/land/stage";
-import { massStage } from "../city/mass/stage";
-import { streetsStageWith } from "../city/streets/stage";
-import { trafficStage } from "../city/traffic/stage";
+import { digestOf } from "../city/pipeline";
+import { sharedCity } from "../city/testing/namedcities";
 import { KEY_OF_KIND, TRAFFIC_ALLOWED, TRAFFIC_BOUNDS, MAST, boundsOf } from "../city/traffic/kit";
 import { KERB_GAP_MAX_M, KERB_HEIGHT_TOL_M, KERB_TOL_M, type KerbFace, type KerbPlan, type Mp } from "./kerbline";
 import {
@@ -88,15 +80,8 @@ interface City {
 const NAMED: City[] = [];
 for (const way of ["on", "off"] as const) for (let seed = 1; seed <= 10; seed++) NAMED.push({ seed, way });
 const label = (o: City): string => `6 x 6 seed ${o.seed} one-way ${o.way}`;
-const offStages = (): CityStageDef[] => [streetsStageWith(0) as unknown as CityStageDef, landStage as unknown as CityStageDef, massStage as unknown as CityStageDef, edgeStage as unknown as CityStageDef, buildingsStage as unknown as CityStageDef, facadesStage as unknown as CityStageDef, groundStage as unknown as CityStageDef, trafficStage as unknown as CityStageDef];
-const cache = new Map<string, CityPlanRun>();
 function planOf(o: City): CityPlan {
-  const k = `${o.seed}:${o.way}`;
-  if (!cache.has(k)) {
-    const opts = { blocksX: 6, blocksZ: 6, seed: o.seed };
-    cache.set(k, o.way === "on" ? runCity(opts, "traffic") : runCity(opts, "traffic", offStages()));
-  }
-  const r = cache.get(k)!;
+  const r = sharedCity({ blocksX: 6, blocksZ: 6, seed: o.seed, way: o.way }, "clean");
   if (!r.ok) throw new Error(`${label(o)} failed at ${r.failure.stage}: ${r.failure.reason}`);
   return r.plan;
 }
