@@ -1,14 +1,22 @@
 # 077 · The 3D view's tests on the shared cache, and the old tile-city tests
 
-owner: renderer (section A only, and only if Josh takes Q1 option 2; no planner work: no new profile is needed)
-status: open
-branch: `ticket/077-render3d-shared-cache` (only if a section is built)
+owner: none (dropped; section A would have been the renderer's)
+status: closed, not built
+branch: none (no section is built)
 
 ## Josh's words (23 Nov 2026, in chat)
 Context: GitHub CI on `main` fails although all 223 test files pass, because vitest reports `[vitest-worker]: Timeout calling "onTaskUpdate"` (run 45197616087). He asked "Would it be better if we made this more efficient?" and was shown two options. Option 1 was "Move the 3D view's remaining city builds onto 076's shared cache, and find out whether the older tile-city tests still test anything live, since the old tile city was retired." He answered:
 > "Cut tickets for options one and two"
 
 Option 2 is ticket 078. He gives G1 before any build.
+
+## Josh's decision (23 Nov 2026, in chat)
+He was shown both tickets' summaries, including this ticket's recommendation (build nothing; the old tile-city tests go with 070 L2d) and 078's four questions with their recommended answers, and asked "Should I build 078 with those answers and drop 077?". He answered:
+> "Yes"
+
+- **077 is dropped, not built.** Status: closed, not built.
+- **Q1:** answered with option 1 (recommended): no build under 077. 070 L2d removes the old-path tests together with their code. Sections A and B are not run under this ticket. When L2d runs is not scheduled by this answer and still needs his word.
+- **Q2:** answered as recommended: no ticket for `plan3d.test.ts`'s drawing time.
 
 ## What the architect found (read 23 Nov 2026 on `design/077-078-test-speed` at 86ee932)
 
