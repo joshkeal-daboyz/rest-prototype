@@ -131,7 +131,11 @@ export function layoutPavements(ctx: TechCtx, boxes: Grid<S7Box>, state: PaveSta
     if (district.tech < SIGN_FROM_TECH) continue;
     for (const line of ["wall", "kerb"] as const) {
       const keys = line === "wall" ? WALL_LINE : KERB_LINE;
-      if (keys.length === 0) throw new CityStageError(`tech: the ${line} line has no kit key`);
+      if (keys.length === 0) {
+        // Ticket 075 r0: the kerb line has no picked key (the poster column and the charger read lit); the wall line must have one.
+        if (line === "wall") throw new CityStageError("tech: the wall line has no kit key");
+        continue;
+      }
       const first = FURN_CORNER_M + 0.5 + unitOf(rand(run.id, line, "first")) * SLOT_PITCH_M;
       for (let n = 0; first + n * SLOT_PITCH_M <= run.len - FURN_CORNER_M; n++) {
         stats.slots++;
