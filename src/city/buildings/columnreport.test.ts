@@ -12,6 +12,7 @@ import { landStage } from "../land/stage";
 import { massStage } from "../mass/stage";
 import type { CityStageDef } from "../pipeline/types";
 import { runCity } from "../stages";
+import { sharedCity } from "../testing/namedcities";
 import { streetsStage, streetsStageWith } from "../streets/stage";
 import { columnReport } from "./columncheck";
 import { OVERLAP_MAX_M } from "./constants";
@@ -38,7 +39,7 @@ const label = (o: City): string => `${o.blocksX}x${o.blocksZ} s${o.seed} ${o.way
 const SIDES: readonly CitySide[] = ["+x", "-x", "+z", "-z"];
 
 const stagesOf = (way: "on" | "off"): CityStageDef[] => [(way === "on" ? streetsStage : streetsStageWith(0)) as unknown as CityStageDef, landStage as unknown as CityStageDef, massStage as unknown as CityStageDef, buildingsStage as unknown as CityStageDef];
-const runOf = (o: City): CityPlanRun => runCity({ blocksX: o.blocksX, blocksZ: o.blocksZ, seed: o.seed }, "buildings", stagesOf(o.way));
+const runOf = (o: City): CityPlanRun => (o.blocksX === 6 && o.blocksZ === 6 ? sharedCity(o, "buildings") : runCity({ blocksX: o.blocksX, blocksZ: o.blocksZ, seed: o.seed }, "buildings", stagesOf(o.way)));
 
 const mm = (n: number): string => n.toFixed(4);
 

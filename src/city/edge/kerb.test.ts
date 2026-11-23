@@ -21,12 +21,8 @@ import type {
   CityStreetBand,
   CityStreetsLayer,
 } from "../../core";
-import { landStage } from "../land/stage";
-import { massStage } from "../mass/stage";
 import { stageRand } from "../pipeline/seeds";
-import type { CityStageDef } from "../pipeline/types";
-import { runCity } from "../stages";
-import { streetsStageWith } from "../streets/stage";
+import { sharedCity } from "../testing/namedcities";
 import { g4Failures } from "./check";
 import { RETURN_WALL_TOL_M, TILE_M } from "./constants";
 import { dropCells, layGround, yawToward } from "./ground";
@@ -41,15 +37,8 @@ interface City {
 const NAMED: City[] = [];
 for (const way of ["on", "off"] as const) for (let seed = 1; seed <= 10; seed++) NAMED.push({ seed, way });
 const label = (o: City): string => `6 x 6 seed ${o.seed} one-way ${o.way}`;
-const offStages = (): CityStageDef[] => [streetsStageWith(0) as unknown as CityStageDef, landStage as unknown as CityStageDef, massStage as unknown as CityStageDef, edgeStage as unknown as CityStageDef];
-const cache = new Map<string, CityPlanRun>();
 function cityOf(o: City): CityPlanRun {
-  const k = `${o.seed}:${o.way}`;
-  if (!cache.has(k)) {
-    const opt = { blocksX: 6, blocksZ: 6, seed: o.seed };
-    cache.set(k, o.way === "on" ? runCity(opt, "edge") : runCity(opt, "edge", offStages()));
-  }
-  return cache.get(k)!;
+  return sharedCity({ blocksX: 6, blocksZ: 6, seed: o.seed, way: o.way }, "edge");
 }
 interface Layers {
   readonly streets: CityStreetsLayer;

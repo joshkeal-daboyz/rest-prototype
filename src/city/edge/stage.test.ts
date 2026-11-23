@@ -15,8 +15,9 @@ import type { CityStageDef } from "../pipeline/types";
 import { landStage } from "../land/stage";
 import { massStage } from "../mass/stage";
 import { runCity } from "../stages";
+import { sharedCity } from "../testing/namedcities";
 import { PLAN_BLOCKS_DEFAULT } from "../streets/constants";
-import { streetsStage, streetsStageWith } from "../streets/stage";
+import { streetsStage } from "../streets/stage";
 import { bestFit, buildEdge } from "./band";
 import { edgeFailures, edgeMetrics, edgeVerdicts, supplyOverDemand } from "./check";
 import { kerbFailures } from "./kerbcheck";
@@ -36,12 +37,8 @@ const label = (o: City): string => `${o.blocksX} x ${o.blocksZ} seed ${o.seed} o
 const DEFAULT: City = { blocksX: 6, blocksZ: 6, seed: 1, way: "on" };
 const optionsOf = (o: City): { blocksX: number; blocksZ: number; seed: number } => ({ blocksX: o.blocksX, blocksZ: o.blocksZ, seed: o.seed });
 
-const offStages = (): CityStageDef[] => [streetsStageWith(0) as unknown as CityStageDef, landStage as unknown as CityStageDef, massStage as unknown as CityStageDef, edgeStage as unknown as CityStageDef];
-const cache = new Map<string, CityPlanRun>();
 function cityOf(o: City): CityPlanRun {
-  const k = `${o.blocksX}x${o.blocksZ}:${o.seed}:${o.way}`;
-  if (!cache.has(k)) cache.set(k, o.way === "on" ? runCity(optionsOf(o), "edge") : runCity(optionsOf(o), "edge", offStages()));
-  return cache.get(k)!;
+  return sharedCity(o, "edge");
 }
 interface Layers {
   readonly streets: CityStreetsLayer;
