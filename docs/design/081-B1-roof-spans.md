@@ -8,9 +8,8 @@
 4. Corner roofs only, or mid-row too: **"Mid-row as well"**.
 5. T-2 for roof pieces: **"On foot or by a climb (Recommended)"**.
 6. Roofs outside the puzzle's district: **"Neighbouring blocks too"**.
-7. Mid-row roofs, always or only when used: **"Only when used (Recommended)"**.
-8. Mid-row roofs blocked by stage 7 props, use only clear ones or clear them all (after the B1q pre-check): **"Only where clear (Recommended)"**. Stage 7 never moves for a mid-row place; the city check rejects a job whose mid-row keep square meets a stage 7 piece.
 7. Mid-row roof structures, always there or only where a puzzle uses one (ticket 081, open question 1; asked after the re-cut): **"Only when used (Recommended)"**. Corner roofs always carry a structure, as scenery. A mid-row roof carries one only while a puzzle that uses it is played. Roof spans are drawn only where a job uses them.
+8. Mid-row roofs blocked by stage 7 props, use only clear ones or clear them all (asked after the B1q pre-check): **"Only where clear (Recommended)"**. Stage 7 never moves for a mid-row place; the city check rejects a job whose mid-row keep square meets a stage 7 piece.
 
 
 23 Nov 2026, puzzle-designer, branch `ticket/081b1-roof-spans`. Ticket 081, sections B1 and B1b (CK17 amended to answers 1 to 7 and to the pre-check, `docs/design/081-B1-precheck.md`). A note, no code.
