@@ -313,7 +313,7 @@ describe("the document standard holds (ticket 080 B1)", () => {
       expect(order[0], `${f}: the title is not line 1`).toBe(0);
       expect(ls.reduce((last, l, i) => (/^#{2,3} /.test(l) ? i : last), -1), `${f}: Open questions is not the last heading`).toBe(order[6]);
       for (const b of ls.filter((l) => l.startsWith("- **"))) {
-        expect(/^- \*\*(Rule \[D-\d{3}[a-z]\]|Default( \(\d{3}\)| \[D-\d{3}[a-z]\])?|Open)\*\*: /.test(b), `${f}: not a Rule, Default or Open line: ${b.slice(0, 60)}`).toBe(true);
+        expect(/^- \*\*(Rule \[D-\d{3}[a-z]\]|Default( \(\d{3}\))?( \[D-\d{3}[a-z]\])?|Open)\*\*: /.test(b), `${f}: not a Rule, Default or Open line: ${b.slice(0, 60)}`).toBe(true);
         if (b.startsWith("- **Open")) expect(b, `${f}: an Open line says what it waits for`).toContain("Waits for:");
       }
     }
@@ -687,7 +687,7 @@ describe("colourway.ts is drift-checked and 16.9 names the colourways (ticket 05
     expect(ids).toEqual([...colourway.COLOURWAY_POOL]);
     for (const id of colourway.COLOURWAY_POOL) expect(text, id).toContain(id);
     for (const w of ["COLOURWAY_POOL", "assignColourways", "Colourways (ticket 054)", "dressing and furniture keep the base atlas", "light=day"]) expect(text.toLowerCase(), w).toContain(w.toLowerCase());
-    expect(/^- \*\*Open \(waits for [^)]*\)\*\*: not every wall changes/m.test(text), "risk 1 is an Open line").toBe(true);
+    expect(/^- \*\*Open\*\*: not every wall changes/m.test(text), "risk 1 is an Open line").toBe(true);
   });
 
   it("lists R13 in 16.8 as auto and eye, with the at-least-four-wall-colours eye half and the day street view", () => {
@@ -967,8 +967,11 @@ describe("the guide catches up with the pipeline (ticket 070 L1)", () => {
     expect(t18).toMatch(new RegExp(`^\\| P2 \\|.*\\(still ${massConstants.PARK_SUPPLY_BAND.lo} to ${massConstants.PARK_SUPPLY_BAND.hi}\\)`, "m"));
     expect(t18).toMatch(/^\| P3 \|.*counted over the whole block side/m);
     expect(t19).toContain(`\`PARK_PER_HOME\` is ${massConstants.PARK_PER_HOME} (18.1`);
-    expect(t18).toContain('Josh\'s ruling of 19 Nov 2026');
-    expect(t18).toContain('"Yes, all four"');
+    // The ruling's words and date live in the decision log, not in the domain (ticket 080 B2).
+    const ruling = mappingRows().find((r) => r.id === "D-056g")!.line;
+    expect(ruling).toContain("Josh's ruling of 19 Nov 2026");
+    expect(ruling).toContain('"Yes, all four"');
+    expect(t18).toContain("[D-056g]");
   });
 
   it("the stage modules the guide now names exist and export what it says", () => {

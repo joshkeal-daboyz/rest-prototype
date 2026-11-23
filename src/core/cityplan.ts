@@ -768,6 +768,11 @@ export interface CityCircuitLayer {
   readonly posts: readonly CityLampPostPlace[];
   /** Every pole and light, for stage 8 (I2) and stage 9 (TR1's CL). */
   readonly keep: readonly CityCircuitKeep[];
+  /**
+   * Each pole's model key, by pole id (081 PK1; written by K2d): a `GROUND_POLE_MIX` key chosen by `poleAt`'s rule, which stage 6 implements, so its clearance checks and
+   * the renderer agree. A key outside the mix is allowed only for a pole a job's component replaces (the feed's pick, `docs/design/081-component-picks.md`).
+   */
+  readonly poleModels: Readonly<Record<string, string>>;
 }
 
 // ---- stage 7, H1: the ground storeys (ticket 070 H1; grammar rules 1, 3, 7 and 9) ----
