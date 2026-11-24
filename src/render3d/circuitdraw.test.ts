@@ -60,7 +60,7 @@ describe("the circuit drawn (081 K3)", () => {
     expect(drop.to).not.toEqual({ x: 12 * S, y: 5.5 * S, z: 16 * S });
   });
 
-  it("stands the City bracket at a drop's wall point, back on the wall and its arm tip the drop's end at 5.5 m, the building lamp under it, and the bracket on 'fittings' only", () => {
+  it("stands the City bracket at a drop's wall point, back on the wall and its arm tip the drop's end at 5.5 m, no wall lamp under it (081 L1: the pick is removed), and the bracket on 'fittings' only", () => {
     const withLamp = circuitDraws(layer, streets, job({ puzzle: { nodes: [{ id: "lamp", type: "lamp" }] } as unknown as CityPuzzleConverted["puzzle"], places: { lamp: { building: "bld" } } as unknown as CityPuzzleConverted["places"] }));
     const fit = withLamp.pieces.find((p) => p.role === "fitting")!;
     expect(fit.key).toBe(SCENERY_MODELS.wallFitting.key);
@@ -71,8 +71,11 @@ describe("the circuit drawn (081 K3)", () => {
     expect(drop.to.z / S).toBeCloseTo(16 - WALL_FITTING.out_m, 9);
     expect(drop.to.y / S).toBeCloseTo(5.5, 9);
     expect(drop.key).toBe(POWER_LINE);
-    const lamp = withLamp.pieces.find((p) => p.id === "lamp")!;
-    expect(lamp.position.y / S + COMPONENT_H_M.lampBuilding).toBeCloseTo(5.5 - ON_POLE_GAP_M, 9);
+    // The wall lamp is removed: no piece stands for it, no key is asked for, but its place is kept for the pick proxy, centreOn and the overlay.
+    expect(withLamp.pieces.find((p) => p.id === "lamp")).toBeUndefined();
+    expect(withLamp.removed.map((p) => p.id)).toEqual(["lamp"]);
+    expect(withLamp.pieces.filter((p) => p.component === "lampBuilding")).toEqual([]);
+    expect(circuitKeyUses().map((u) => u.key)).not.toContain(COMPONENT_MODELS.lampBuilding.key);
     expect(circuitKeyUses().filter((u) => u.key === SCENERY_MODELS.wallFitting.key).map((u) => u.list)).toEqual(["fittings"]);
     expect(circuitKeyUses().filter((u) => u.list === "drops")).toEqual([{ list: "drops", key: POWER_LINE }]);
   });
@@ -107,8 +110,10 @@ describe("the circuit drawn (081 K3)", () => {
     const feed = nodes.find((n) => n.type === "feed")!;
     const feedAt = (converted.places[feed.id] as { pole: string }).pole;
     const standing = d.pieces.filter((p) => p.role === "component" || p.role === "feed");
-    expect(standing).toHaveLength(nodes.length);
-    for (const n of nodes) {
+    // The building lamps are removed picks (081 L1): their places are kept in `removed`, not stood.
+    expect(d.removed.map((p) => p.id).sort()).toEqual(nodes.filter((n) => n.type === "lamp").map((n) => n.id).sort());
+    expect(standing).toHaveLength(nodes.length - d.removed.length);
+    for (const n of nodes.filter((x) => !d.removed.some((r) => r.id === x.id))) {
       const piece = standing.find((p) => p.id === (n.id === feed.id ? feedAt : n.id))!;
       expect(piece.key, n.id).toBe(COMPONENT_MODELS[componentOf(n, converted.places[n.id]!)].key);
     }
@@ -126,6 +131,7 @@ describe("the circuit drawn (081 K3)", () => {
   it("draws a placeholder for a null key and for a model that did not load, and never throws", () => {
     const at = { x: 1, y: 0, z: 1 };
     const draws: CircuitDraws = {
+      removed: [],
       pieces: [
         { id: "a", role: "component", key: null, component: "relay", position: at, yaw: 0, scale: S },
         { id: "b", role: "component", key: "pack:missing", component: "relay", position: at, yaw: 0, scale: S },

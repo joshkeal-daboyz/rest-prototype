@@ -29,6 +29,7 @@ import { GROUND } from "./kitunits";
 import { lightModeFor, type LightModeId } from "./lighting";
 import { addSurface, applyLightMode, newLightOwners, setRendererMode } from "./lightrig";
 import { lampFlicker } from "./look";
+import { buildingGlow, lampBuildings, litBuilding, litGlass, type BuildingGlow, type BuildingLamp, type LitBuilding, type LitGlass } from "./windows";
 import { WORLD_PER_METRE } from "./models";
 import { sharedTileModels, type ModelSet } from "./models3d";
 import { OVERLAY_HIT_PX, overlayHit, overlayIcons, overlayBreakHit, overlayBreaks, placePoint, type OverlayBreak, type OverlayIcon, type Project } from "./overlay";
@@ -572,10 +573,34 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     circuit = circuitGroup(circuitDraws(layer, streets, { converted, readable }), lastRoots as ReadonlyMap<string, Object3D>);
     city.group.add(circuit.group);
   };
+  // The lit buildings (081 L1): each job lamp's building takes its own window clones when the city builds (dark), and its shop glass one more instanced layer.
+  const lampsOf = lampBuildings(puzzle.nodes, converted.places, layer.roofs ?? [], plan.layers.buildings?.buildings ?? []);
+  let litBuildings: { id: string; lamps: readonly BuildingLamp[]; lit: LitBuilding }[] = [];
+  let litShop: LitGlass | null = null;
+  let modelsLoaded = false;
+  const freeWindows = (): void => {
+    for (const b of litBuildings) b.lit.dispose();
+    litBuildings = [];
+    if (litShop) {
+      if (litShop.mesh) city?.group.remove(litShop.mesh);
+      litShop.dispose();
+      litShop = null;
+    }
+  };
+  const standWindows = (next: NonNullable<typeof city>, roots: ReadonlyMap<CalibrationKey, Object3D>): void => {
+    for (const g of next.buildings.groups) {
+      const id = g.name.slice("building:".length);
+      const lamps = lampsOf.get(id);
+      if (lamps) litBuildings.push({ id, lamps, lit: litBuilding(g) });
+    }
+    litShop = litGlass(next.dressDraws, new Set(lampsOf.keys()), roots);
+    if (litShop.mesh) next.group.add(litShop.mesh);
+  };
   const build = (set: ModelSet | null): void => {
     const input = set ? planInput(set) : null;
     try {
       const next = plan3dGroups(plan, input?.roots ?? new Map(), input?.entries ?? new Map(), input?.colourways, input?.stopAtlas, undefined, job);
+      freeWindows();
       if (city) {
         scene.remove(city.group);
         city.dispose();
@@ -585,6 +610,8 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
       city = next;
       lastRoots = input?.roots ?? new Map();
       scene.add(city.group);
+      standWindows(next, lastRoots);
+      modelsLoaded = input !== null;
       for (const key of ["street", "pavement", "kerb", "grass"]) {
         const mats = [...(city.tiles.surfaces.get(key) ?? []), ...(city.interior.surfaces.get(key) ?? [])];
         if (mats.length > 0) owners.materials.set(key, mats);
@@ -666,12 +693,12 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   geoms.push(glowGeom, poolGeom);
   const lampIndex = new Map(puzzle.nodes.map((n, i) => [n.id, i] as const));
   for (const p of draws.pieces) {
-    if (p.role !== "component" || (p.component !== "lampBuilding" && p.component !== "lampPost")) continue;
+    if (p.role !== "component" || p.component !== "lampPost") continue;
     const gm = new MeshBasicMaterial({ color: POOL_COLOUR, blending: AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false, opacity: 0 });
     const pm = new MeshBasicMaterial({ color: POOL_COLOUR, blending: AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false, opacity: 0 });
     mats.push(gm, pm);
     const glow = new Mesh(glowGeom, gm);
-    const head = p.component === "lampPost" ? 5.0 : 0.45;
+    const head = 5.0;
     glow.position.set(p.position.x, p.position.y + head * S, p.position.z);
     const pool = new Mesh(poolGeom, pm);
     pool.position.set(p.position.x, 0.25 * S, p.position.z);
@@ -688,7 +715,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   const hidden = new MeshBasicMaterial({ visible: false });
   const hiddenLine = new LineBasicMaterial({ visible: false });
   mats.push(hidden, hiddenLine);
-  const nodePiece = new Map(draws.pieces.map((p) => [p.id, p] as const));
+  const nodePiece = new Map([...draws.pieces, ...draws.removed].map((p) => [p.id, p] as const));
   const lampPlaces = new Map<string, Vec3>();
   for (const n of puzzle.nodes) {
     const place = converted.places[n.id];
@@ -773,6 +800,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   const lit: WireLit = { forward: true, frac: 0 };
   const wp: WirePoint = { x: 0, y: 0, z: 0, seg: 0 };
   const ign: LampIgnition = { on: false, flareAge: -1 };
+  const bg: BuildingGlow = { level: 0, flare: 0 };
   const wiresOfLine = new Map<string, JobWire[]>();
   for (const w of wires) (wiresOfLine.get(w.line) ?? wiresOfLine.set(w.line, []).get(w.line)!).push(w);
   const lineOf = new Map(puzzle.lines.map((l, i) => [l.id, { line: l, index: i }] as const));
@@ -829,7 +857,14 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
       }
     }
     sparkMesh.instanceMatrix.needsUpdate = true;
-    // Lamps.
+    // Lit buildings: the windows and the shop glass.
+    for (const b of litBuildings) {
+      buildingGlow(plan_, state, b.lamps, relT, time, bg);
+      b.lit.set(bg);
+      litShop?.set(b.id, bg);
+    }
+    litShop?.commit();
+    // Lamp posts (a building lamp is its windows).
     for (const lamp of lamps) {
       lampState(plan_, state, lamp.id, lamp.index, relT, ign);
       const on = ign.on;
@@ -845,6 +880,13 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     }
   }
 
+  // perf=1 (dev only): a log after PERF_FRAMES frames of the loaded city (the grey-box city before the models load is not counted), "before power"; then again PERF_FRAMES frames after the Relight ends.
+  const perf = import.meta.env.DEV && /[?&]perf=1(&|$)/.test(opts.search ?? "");
+  const PERF_FRAMES = 300;
+  const perfMs = new Float64Array(PERF_FRAMES);
+  let perfFrames = 0;
+  let perfLabel = "before power";
+  let perfSawPlan = false;
   // The break icon's point: the middle sample of the cut span's wire (where E2's sparks fly), in metres.
   const cutPoint = new Map<string, { x: number; y: number; z: number }>();
   for (const w of wires) cutPoint.set(w.id, { x: w.pts[(SAMPLES / 2) * 3]! / S, y: w.pts[(SAMPLES / 2) * 3 + 1]! / S, z: w.pts[(SAMPLES / 2) * 3 + 2]! / S });
@@ -852,12 +894,28 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   const iconCtx = { width: 0, height: 0, time: 0, layer, pxPerMetre: 0 };
   return {
     draw(state: GridState, overlay: MapOverlay, timeSeconds: number) {
+      const t0 = perf ? performance.now() : 0;
       if (canvas.clientWidth !== drawnW || canvas.clientHeight !== drawnH) resize();
       const relT = overlay.relightT ?? 0;
       const plan_ = clock.update(state, overlay.relightT);
       if (readableNow(state)) standCircuit();
       drawLive(state, plan_, relT, timeSeconds);
       gl.render(scene, camera);
+      if (perf && plan_ !== null) {
+        perfSawPlan = true;
+        perfFrames = PERF_FRAMES;
+      } else if (perf && perfSawPlan && perfFrames === PERF_FRAMES) {
+        perfSawPlan = false;
+        perfLabel = "after the Relight";
+        perfFrames = 0;
+      }
+      if (perf && city && modelsLoaded && perfFrames < PERF_FRAMES) {
+        perfMs[perfFrames++] = performance.now() - t0;
+        if (perfFrames === PERF_FRAMES) {
+          const sorted = Float64Array.from(perfMs).sort();
+          console.info(`perf=1 (${perfLabel}): ${gl.info.render.calls} draw calls, ${gl.info.render.triangles} triangles, ${gl.info.programs?.length ?? 0} programs, median frame ${sorted[PERF_FRAMES >> 1]!.toFixed(2)} ms (CPU, draw call to render end), after ${PERF_FRAMES} frames`);
+        }
+      }
       if (overlayLayer?.ctx) {
         iconCtx.width = size.width;
         iconCtx.height = size.height;
@@ -918,6 +976,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
         city.dispose();
         city = null;
       }
+      freeWindows();
       circuit?.dispose();
       circuit = null;
       glowMesh.dispose();
