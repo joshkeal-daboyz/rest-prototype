@@ -14,16 +14,16 @@ import { GROUND_LEGEND, groundStage, legendOf } from "./stage";
 import { DEFAULT, PINNED, cityOf, layersOf, stagesOf } from "./testcities";
 
 describe("R-1 to R-7 for stage 8 (criterion 9)", { timeout: 120_000 }, () => {
-  it("the stage list ends with ground, and stage 6 (circuit) is still not built", () => {
-    expect(BUILT_STAGES.map((s) => s.name)).toEqual(["streets", "land", "mass", "edge", "buildings", "facades", "ground", "traffic"]);
-    expect(() => runCity({ blocksX: 6, blocksZ: 6, seed: 1 }, "circuit")).toThrow();
+  it("the stage list ends with ground, and stage 6 (circuit) sits after buildings", () => {
+    expect(BUILT_STAGES.map((s) => s.name)).toEqual(["streets", "land", "mass", "edge", "buildings", "circuit", "facades", "ground", "traffic"]);
+    expect(() => runCity({ blocksX: 6, blocksZ: 6, seed: 1 }, "assemble" as never)).toThrow();
   });
 
   it("R-7: 6 x 6 seed 1, the default named city, ends ok with ground, its layer is frozen, and every digest is there", () => {
     const r = cityOf(DEFAULT);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(Object.keys(r.plan.digests)).toEqual(["streets", "land", "mass", "edge", "buildings", "facades", "ground"]);
+    expect(Object.keys(r.plan.digests)).toEqual(["streets", "land", "mass", "edge", "buildings", "circuit", "facades", "ground"]);
     const g = r.plan.layers.ground!;
     expect(Object.isFrozen(g)).toBe(true);
     expect(Object.isFrozen(g.runs)).toBe(true);
@@ -40,7 +40,7 @@ describe("R-1 to R-7 for stage 8 (criterion 9)", { timeout: 120_000 }, () => {
     if (!r.ok) throw new Error("default city failed");
     const double: CityStageDef = { name: "ground", run: () => ({ stage: "ground", runs: [], props: [] }), picture: groundStage.picture };
     const list = stagesOf("on", double);
-    expect(list.map((s) => s.name)).toEqual(["streets", "land", "mass", "edge", "buildings", "facades", "ground"]);
+    expect(list.map((s) => s.name)).toEqual(["streets", "land", "mass", "edge", "buildings", "circuit", "facades", "ground"]);
     expect(list[list.length - 1]).toBe(double);
     const d = runCity({ blocksX: 6, blocksZ: 6, seed: 1 }, undefined, list);
     expect(d.ok).toBe(true);
