@@ -1,6 +1,6 @@
 /**
  * Ticket 081 E2: a city puzzle played on the city. `loadCityView` runs the pipeline once per city and converts the puzzle on it; `createCityPlayRenderer3d` draws that plan with K3's circuit, the job live (pulses
- * moving away from the feed, sparks at a cut, lit and dark lamps, brownout flicker, the Relight), and E1's icons and lines on a 2D canvas over it. It is the `MapRenderer3d` the page already holds, so `src/play/` plays it
+ * moving away from the feed, sparks at a cut, lit and dark lamps, brownout flicker, the Relight), and E1's icons and break icons on a 2D canvas over it. It is the `MapRenderer3d` the page already holds, so `src/play/` plays it
  * unchanged. Dev only, like the pipeline renderer (Synty licence, 16 Nov 2026). Everything outside the job is the dead circuit K3 draws: nothing in it ever glows.
  *
  * Pure parts (testable without a canvas): `loadCityView`, `renderRoute`, `jobWires`, `wireLit`, `pointOnWire`, `cityHit`, `overlayRequested`, `relightFrame`, `createOverlayLayer`.
@@ -19,8 +19,8 @@ import type { CityStageDef } from "../city/pipeline/types";
 import type { GridState } from "../grid";
 import type { MapOverlay } from "../render";
 import type { Insets, Rect } from "../render/geometry";
-import { drawNodeGlyph, drawX, ALARM, LINE_LIVE, NODE_DEAD, WARM, TARGET } from "../render/glyphs";
-import { PULSE_SPACING, hash01 } from "../render/motion";
+import { drawNodeGlyph, drawX, ALARM, WARM, TARGET } from "../render/glyphs";
+import { hash01 } from "../render/motion";
 import { FLARE_SECONDS } from "../render/relight";
 import { circuitDraws, circuitGroup, COMPONENT_H_M, type CircuitDraws, type CircuitDrawn, type CircuitJob } from "./circuitdraw";
 import { createDayToggle, pageDayToggleHost, type DayToggle, type DayToggleHost } from "./daytoggle";
@@ -31,7 +31,7 @@ import { addSurface, applyLightMode, newLightOwners, setRendererMode } from "./l
 import { lampFlicker } from "./look";
 import { WORLD_PER_METRE } from "./models";
 import { sharedTileModels, type ModelSet } from "./models3d";
-import { OVERLAY_HIT_PX, overlayHit, overlayIcons, overlayLineHit, overlayLines, placePoint, type OverlayIcon, type OverlayLine, type Project } from "./overlay";
+import { OVERLAY_HIT_PX, overlayHit, overlayIcons, overlayBreakHit, overlayBreaks, placePoint, type OverlayBreak, type OverlayIcon, type Project } from "./overlay";
 import { createPicker, type Picker } from "./pick";
 import { PlanStopError, plan3dGroups, planInput, planKeys, planFailureText } from "./plan3d";
 import { createRelightClock, lampIgnition, lineFraction, type LampIgnition } from "./relight3d";
@@ -158,7 +158,7 @@ export function renderRoute(r: { city: boolean; dev: boolean; assemble: boolean;
   return "none";
 }
 
-/** `overlay=0` in the address hides the overlay's icons and lines; the 3D pick still plays. Pure. */
+/** `overlay=0` in the address hides the overlay's icons and break icons; the 3D pick still plays. Pure. */
 export function overlayRequested(search: string): boolean {
   return new URLSearchParams(search).get("overlay") !== "0";
 }
@@ -376,16 +376,16 @@ export interface HitInputs {
   height: number;
   blockers: readonly Rect[];
   icons: readonly OverlayIcon[];
-  lines: readonly OverlayLine[];
+  breaks: readonly OverlayBreak[];
   /** The 3D pick (`pick.ts`): the job's models give node ids, its spans give line ids, scenery gives null. */
   pick: (x: number, y: number) => string | null;
 }
 
-/** The piece under a canvas point: the overlay first (an icon, then a line), then the 3D pick. A point off the canvas or under a panel is dead to both. */
+/** The piece under a canvas point: the overlay first (an icon, then a break), then the 3D pick. A point off the canvas or under a panel is dead to both. */
 export function cityHit(x: number, y: number, i: HitInputs): string | null {
   if (x < 0 || y < 0 || x > i.width || y > i.height) return null;
   for (const r of i.blockers) if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return null;
-  return overlayHit(i.icons, x, y) ?? overlayLineHit(i.lines, x, y) ?? i.pick(x, y);
+  return overlayHit(i.icons, x, y) ?? overlayBreakHit(i.breaks, x, y) ?? i.pick(x, y);
 }
 
 // ---- the overlay canvas ----
@@ -431,84 +431,24 @@ export function createOverlayLayer(source: HTMLCanvasElement, doc: Pick<Document
   return layer;
 }
 
-function strokeLine(c: CanvasRenderingContext2D, l: OverlayLine): void {
-  const x0 = l.points[0]!;
-  const y0 = l.points[1]!;
-  const x1 = l.points[2]!;
-  const y1 = l.points[3]!;
-  c.globalAlpha = l.live ? l.flicker : 0.75;
-  c.lineCap = "round";
-  if (!l.live) {
-    c.setLineDash([6, 7]);
-    c.strokeStyle = l.look === "faulted" ? ALARM : NODE_DEAD;
-    c.lineWidth = 2;
-    c.beginPath();
-    c.moveTo(x0, y0);
-    c.lineTo(x1, y1);
-    c.stroke();
-    c.setLineDash([]);
-    c.globalAlpha = 1;
-    return;
-  }
-  c.setLineDash([]);
-  c.strokeStyle = LINE_LIVE;
-  c.lineWidth = 3;
-  c.beginPath();
-  c.moveTo(x0, y0);
-  c.lineTo(x1, y1);
-  c.stroke();
-  // Chevrons move away from the source: the same phase the 2D map uses, so direction is shape and motion, never colour.
-  const len = Math.hypot(x1 - x0, y1 - y0);
-  if (len > 1) {
-    const ux = (x1 - x0) / len;
-    const uy = (y1 - y0) / len;
-    c.strokeStyle = "#e8fbff";
-    c.lineWidth = 2.5;
-    for (let d = l.phase * PULSE_SPACING; d < len; d += PULSE_SPACING) {
-      const cx = x0 + ux * d;
-      const cy = y0 + uy * d;
-      c.beginPath();
-      c.moveTo(cx - ux * 5 - uy * 5, cy - uy * 5 + ux * 5);
-      c.lineTo(cx + ux * 3, cy + uy * 3);
-      c.lineTo(cx - ux * 5 + uy * 5, cy - uy * 5 - ux * 5);
-      c.stroke();
-    }
-  }
-  c.globalAlpha = 1;
-}
-
-/** Draws the icons and lines on the overlay: lines first, then each cut's break (a red X, with sparks only while live), then the icons, the hovered and highlighted one ringed. */
-function paintOverlay(c: CanvasRenderingContext2D, ratio: number, w: number, h: number, icons: readonly OverlayIcon[], lines: readonly OverlayLine[], time: number, hover: string | null, highlight: string | null): void {
+/** Draws the overlay: each break (a red X, with sparks only while live), then the icons, the hovered and highlighted one ringed. */
+function paintOverlay(c: CanvasRenderingContext2D, ratio: number, w: number, h: number, icons: readonly OverlayIcon[], breaks: readonly OverlayBreak[], time: number, hover: string | null, highlight: string | null): void {
   c.setTransform(ratio, 0, 0, ratio, 0, 0);
   c.clearRect(0, 0, w, h);
-  for (const l of lines) {
-    if (!l.visible[0] || !l.visible[1]) continue;
-    strokeLine(c, l);
-    if (l.id === hover) {
-      c.strokeStyle = TARGET;
-      c.lineWidth = 6;
-      c.globalAlpha = 0.35;
-      c.beginPath();
-      c.moveTo(l.points[0]!, l.points[1]!);
-      c.lineTo(l.points[2]!, l.points[3]!);
-      c.stroke();
-      c.globalAlpha = 1;
-    }
-    if (l.cut) {
-      c.strokeStyle = ALARM;
-      c.lineWidth = 3;
-      drawX(c, l.cut.x, l.cut.y, 8);
-      if (l.cut.sparking) {
-        c.strokeStyle = "#fff3c9";
-        c.lineWidth = 2;
-        for (let k = 0; k < 4; k++) {
-          const a = hash01(Math.floor(time * 12) * 4 + k) * Math.PI * 2;
-          const r = 10 + hash01(k + Math.floor(time * 12)) * 8;
-          c.beginPath();
-          c.moveTo(l.cut.x + Math.cos(a) * 9, l.cut.y + Math.sin(a) * 9);
-          c.lineTo(l.cut.x + Math.cos(a) * r, l.cut.y + Math.sin(a) * r);
-          c.stroke();
-        }
+  for (const k of breaks) {
+    c.strokeStyle = ALARM;
+    c.lineWidth = 3;
+    drawX(c, k.x, k.y, 8);
+    if (k.sparking) {
+      c.strokeStyle = "#fff3c9";
+      c.lineWidth = 2;
+      for (let n = 0; n < 4; n++) {
+        const a = hash01(Math.floor(time * 12) * 4 + n) * Math.PI * 2;
+        const r = 10 + hash01(n + Math.floor(time * 12)) * 8;
+        c.beginPath();
+        c.moveTo(k.x + Math.cos(a) * 9, k.y + Math.sin(a) * 9);
+        c.lineTo(k.x + Math.cos(a) * r, k.y + Math.sin(a) * r);
+        c.stroke();
       }
     }
   }
@@ -791,7 +731,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   const overlayLayer = wantOverlay && typeof document !== "undefined" ? createOverlayLayer(canvas, document, opts.dpr) : null;
   const project = cameraProject(camera, size);
   let icons: readonly OverlayIcon[] = [];
-  let lines: readonly OverlayLine[] = [];
+  let breaks: readonly OverlayBreak[] = [];
   let drawnW = -1;
   let drawnH = -1;
 
@@ -905,6 +845,10 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     }
   }
 
+  // The break icon's point: the middle sample of the cut span's wire (where E2's sparks fly), in metres.
+  const cutPoint = new Map<string, { x: number; y: number; z: number }>();
+  for (const w of wires) cutPoint.set(w.id, { x: w.pts[(SAMPLES / 2) * 3]! / S, y: w.pts[(SAMPLES / 2) * 3 + 1]! / S, z: w.pts[(SAMPLES / 2) * 3 + 2]! / S });
+  const cutAt = (spanId: string): { x: number; y: number; z: number } | null => cutPoint.get(spanId) ?? null;
   const iconCtx = { width: 0, height: 0, time: 0, layer, pxPerMetre: 0 };
   return {
     draw(state: GridState, overlay: MapOverlay, timeSeconds: number) {
@@ -920,12 +864,12 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
         iconCtx.time = timeSeconds;
         iconCtx.pxPerMetre = rig.getScale() * S;
         icons = overlayIcons(converted, state, project, iconCtx);
-        lines = overlayLines(converted, state, project, iconCtx);
-        paintOverlay(overlayLayer.ctx, Math.min(Math.max(opts.dpr, 1), 2), size.width, size.height, icons, lines, timeSeconds, overlay.hover ?? null, overlay.highlight ?? null);
+        breaks = overlayBreaks(converted, state, cutAt, project, iconCtx);
+        paintOverlay(overlayLayer.ctx, Math.min(Math.max(opts.dpr, 1), 2), size.width, size.height, icons, breaks, timeSeconds, overlay.hover ?? null, overlay.highlight ?? null);
       }
     },
     hitTest(x, y) {
-      return cityHit(x, y, { width: size.width, height: size.height, blockers, icons, lines, pick: (px, py) => picker.hitTest(px, py) });
+      return cityHit(x, y, { width: size.width, height: size.height, blockers, icons, breaks, pick: (px, py) => picker.hitTest(px, py) });
     },
     resize,
     setInsets(next) {

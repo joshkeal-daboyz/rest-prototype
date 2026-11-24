@@ -13,7 +13,7 @@ import type { CityPuzzleConverted } from "../core/citycircuit";
 import { drawNodeGlyph, type GlyphContext } from "../render/glyphs";
 import { createGrid } from "../grid";
 import { nodeLook } from "./look";
-import { OVERLAY_HIT_PX, OVERLAY_NUDGE, overlayIcons, overlayLineHit, overlayLines, placePoint, type OverlayContext, type OverlayIcon, type OverlayLine, type Project } from "./overlay";
+import { OVERLAY_HIT_PX, OVERLAY_NUDGE, overlayBreakHit, overlayBreaks, overlayIcons, placePoint, type OverlayBreak, type OverlayContext, type OverlayIcon, type Project } from "./overlay";
 
 const puzzle = loadPuzzle(JSON.parse(readFileSync("puzzles/09-shrine-circuit.json", "utf8")));
 
@@ -123,39 +123,20 @@ describe("overlay icons (ticket 081 E1)", () => {
   });
 });
 
-describe("overlay lines (ticket 081 E1)", () => {
-  it("one straight segment per line, from piece to piece, away from the feed while live", () => {
-    const { converted, layer } = fixture();
-    const s = createGrid(puzzle, new EventBus()).state();
-    const lines = overlayLines(converted, s, projector(), ctxOf(layer));
-    const feed = lines.find((l) => l.id === "l_feed")!;
-    expect(feed.live).toBe(true);
-    expect(feed.look).toBe("live");
-    expect(feed.points).toHaveLength(4); // the carrier plays no part
-    expect(feed.points[0]).toBeLessThan(feed.points[2]!); // starts at the feed
-    expect(feed.phase).toBeGreaterThanOrEqual(0);
-    expect(feed.phase).toBeLessThan(1);
-    expect(feed.flicker).toBe(1);
-    expect(feed.visible.every(Boolean)).toBe(true);
-    const dead = lines.find((l) => !l.live)!;
-    expect(dead.look).not.toBe("live");
-  });
-
-  it("a damaged cable's break icon sits at the midpoint, only when readable, sparking only while live; a brownout flickers every line", () => {
+describe("overlay break icons (ticket 081 E4)", () => {
+  it("a damaged cable's break icon sits at the cut span's middle sample, only when readable, sparking only while live", () => {
     const { converted, layer } = fixture();
     const g = createGrid(puzzle, new EventBus());
-    const idle = overlayLines(converted, g.state(), projector(), ctxOf(layer));
-    expect(idle.find((l) => l.id === "l_b")!.cut).toBeNull();
+    const cutAt = (id: string) => (Object.values(converted.cuts).includes(id) ? { x: 33, y: 7, z: 2 } : null);
+    expect(overlayBreaks(converted, g.state(), cutAt, projector(), ctxOf(layer))).toEqual([]);
     g.throwSwitch("sw_1");
-    const live = overlayLines(converted, g.state(), projector(), ctxOf(layer));
-    const lb = live.find((l) => l.id === "l_b")!;
-    expect(lb.cut).toMatchObject({ sparking: true });
-    expect(lb.cut!.x).toBeCloseTo((lb.points[0]! + lb.points[2]!) / 2, 5);
-    expect(lb.cut!.y).toBeCloseTo((lb.points[1]! + lb.points[3]!) / 2, 5);
-    const brown = { ...g.state(), brownout: true };
-    const out = overlayLines(converted, brown, projector(), ctxOf(layer));
-    expect(out.every((l) => l.flicker >= 0.15 && l.flicker <= 1)).toBe(true);
-    expect(out.some((l) => l.flicker < 1)).toBe(true);
+    const live = overlayBreaks(converted, g.state(), cutAt, projector(), ctxOf(layer));
+    expect(live).toHaveLength(1);
+    expect(live[0]).toMatchObject({ lineId: "l_b", x: 330, y: 320, sparking: true });
+    expect(live[0]!.hit).toBeGreaterThanOrEqual(OVERLAY_HIT_PX);
+    expect(overlayBreaks(converted, g.state(), cutAt, projector(40), ctxOf(layer))).toEqual([]);
+    g.repairAt("l_b");
+    expect(overlayBreaks(converted, g.state(), cutAt, projector(), ctxOf(layer))).toEqual([]);
   });
 });
 
@@ -237,44 +218,48 @@ describe("a city puzzle played on the city (ticket 081 E2)", () => {
     }
   });
 
-  it("projects with the camera's own projection: a line's points are its pieces' projected places", () => {
+  it("projects with the camera's own projection: an icon's point is its piece's projected place, and a break's is cutAt's point projected", () => {
     const { converted, layer } = fixture();
     const camera = new PerspectiveCamera(50, 2, 0.1, 1000);
     camera.position.set(50 * S, 60 * S, 40 * S);
     camera.lookAt(50 * S, 0, 0);
     camera.updateMatrixWorld(true);
     const project = cameraProject(camera, { width: 800, height: 400 });
-    const state = createGrid(puzzle, new EventBus()).state();
-    const lines = overlayLines(converted, state, project, ctxOf(layer));
-    const l = lines.find((x) => x.id === "l_b")!;
-    const src = puzzle.lines.find((x) => x.id === "l_b")!;
+    const g = createGrid(puzzle, new EventBus());
+    g.throwSwitch("sw_1");
+    const state = g.state();
+    const icon = overlayIcons(converted, state, project, ctxOf(layer, { width: 800, height: 400 })).find((x) => x.id === "sw_1")!;
     const a = { x: 0, y: 0, z: 0 };
     const out = { x: 0, y: 0 };
-    expect(placePoint(converted.places[src.from]!, layer, a)).toBe(true);
+    expect(placePoint(converted.places["sw_1"]!, layer, a)).toBe(true);
     expect(project(a.x, a.y, a.z, out)).toBe(true);
-    const first = l.live && state.flowFrom.get("l_b") === src.to ? [l.points[2], l.points[3]] : [l.points[0], l.points[1]];
-    expect(first[0]).toBeCloseTo(out.x, 5);
-    expect(first[1]).toBeCloseTo(out.y, 5);
+    expect(icon.x).toBeCloseTo(out.x, 5);
+    expect(icon.y).toBeCloseTo(out.y, 5);
+    const at = { x: 45, y: 7, z: 2 };
+    const [brk] = overlayBreaks(converted, state, () => at, project, ctxOf(layer, { width: 800, height: 400 }));
+    expect(project(at.x, at.y, at.z, out)).toBe(true);
+    expect(brk!.x).toBeCloseTo(out.x, 5);
+    expect(brk!.y).toBeCloseTo(out.y, 5);
     expect(project(50, 0, 1e6, out)).toBe(false);
   });
 
-  it("a line is hit within half the hit size of its segment, nearest first, and never from behind the camera", () => {
-    const mk = (id: string, y: number, visible = true): OverlayLine => ({ id, look: "dead", live: false, points: [0, y, 100, y], visible: [visible, visible], phase: 0, flicker: 1, cut: null });
-    const lines = [mk("a", 0), mk("b", 30), mk("c", 5, false)];
-    expect(overlayLineHit(lines, 50, OVERLAY_HIT_PX / 2 - 12)).toBe("a");
-    expect(overlayLineHit(lines, 50, 18)).toBe("b");
-    expect(overlayLineHit(lines, 50, 70)).toBeNull();
-    expect(overlayLineHit(lines, 130, 0)).toBeNull();
-    expect(overlayLineHit(lines, 50, 4)).toBe("a");
+  it("a break is hit within half its hit size, nearest first, giving its line id, and never when it is off screen", () => {
+    const mk = (lineId: string, x: number): OverlayBreak => ({ faultId: "f" + lineId, lineId, x, y: 0, hit: OVERLAY_HIT_PX, sparking: false });
+    const breaks = [mk("a", 0), mk("b", 30)];
+    expect(overlayBreakHit(breaks, 5, 0)).toBe("a");
+    expect(overlayBreakHit(breaks, 20, 0)).toBe("b");
+    expect(overlayBreakHit(breaks, 60, 40)).toBeNull();
+    expect(overlayBreakHit(breaks, 100, 0)).toBeNull();
+    expect(overlayBreaks({ ...fixture().converted }, { ...createGrid(puzzle, new EventBus()).state(), faults: [{ id: "fx", at: "l_b", kind: "damaged-cable" }], readableFaults: new Set(["fx"]) }, () => ({ x: 5000, y: 0, z: 0 }), projector(), ctxOf(fixture().layer))).toEqual([]);
   });
 
-  it("hits the overlay first (an icon, then a line), then the 3D pick; scenery, panels and off-canvas points give null", () => {
+  it("hits the overlay first (an icon, then a break), then the 3D pick; scenery, panels and off-canvas points give null", () => {
     const icon = { id: "i", x: 50, y: 0, hit: 44 } as unknown as OverlayIcon;
-    const line: OverlayLine = { id: "a", look: "dead", live: false, points: [0, 0, 100, 0], visible: [true, true], phase: 0, flicker: 1, cut: null };
-    const base = { width: 200, height: 200, blockers: [], icons: [icon], lines: [line], pick: () => "p" as string | null };
+    const brk: OverlayBreak = { faultId: "f", lineId: "a", x: 120, y: 0, hit: 44, sparking: false };
+    const base = { width: 200, height: 200, blockers: [], icons: [icon], breaks: [brk], pick: () => "p" as string | null };
     expect(cityHit(52, 2, base)).toBe("i");
-    expect(cityHit(85, 0, base)).toBe("a");
-    expect(cityHit(50, 100, base)).toBe("p");
+    expect(cityHit(115, 0, base)).toBe("a");
+    expect(cityHit(85, 0, base)).toBe("p");
     expect(cityHit(50, 100, { ...base, pick: () => null })).toBeNull();
     expect(cityHit(52, 2, { ...base, blockers: [{ left: 40, top: -5, right: 60, bottom: 5 }] })).toBeNull();
     expect(cityHit(-1, 2, base)).toBeNull();
@@ -284,7 +269,7 @@ describe("a city puzzle played on the city (ticket 081 E2)", () => {
     expect(overlayRequested("?view=3d&overlay=0")).toBe(false);
     expect(overlayRequested("?view=3d")).toBe(true);
     expect(overlayRequested("?overlay=1")).toBe(true);
-    expect(cityHit(50, 2, { width: 200, height: 200, blockers: [], icons: [], lines: [], pick: () => "node" })).toBe("node");
+    expect(cityHit(50, 2, { width: 200, height: 200, blockers: [], icons: [], breaks: [], pick: () => "node" })).toBe("node");
   });
 
   it("the Relight runs from its own plan: nothing lit at first, lamps lit by the end, and the plan is fixed when it starts, so a changed state mid-way does not re-plan", () => {
