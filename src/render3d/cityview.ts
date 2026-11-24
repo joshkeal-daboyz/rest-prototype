@@ -29,7 +29,7 @@ import { GROUND } from "./kitunits";
 import { lightModeFor, type LightModeId } from "./lighting";
 import { addSurface, applyLightMode, newLightOwners, setRendererMode } from "./lightrig";
 import { lampFlicker } from "./look";
-import { buildingGlow, lampBuildings, litBuilding, litGlass, type BuildingGlow, type BuildingLamp, type LitBuilding, type LitGlass } from "./windows";
+import { buildingGlow, lampBuildings, litGlass, setBuildingGlow, type BuildingGlow, type BuildingLamp, type LitGlass } from "./windows";
 import { WORLD_PER_METRE } from "./models";
 import { sharedTileModels, type ModelSet } from "./models3d";
 import { OVERLAY_HIT_PX, overlayHit, overlayIcons, overlayBreakHit, overlayBreaks, placePoint, type OverlayBreak, type OverlayIcon, type Project } from "./overlay";
@@ -576,13 +576,12 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     circuit = circuitGroup(circuitDraws(layer, streets, { converted, readable }), lastRoots as ReadonlyMap<string, Object3D>);
     city.group.add(circuit.group);
   };
-  // The lit buildings (081 L1): each job lamp's building takes its own window clones when the city builds (dark), and its shop glass one more instanced layer.
+  // The lit buildings (081 L1, F1b): each job lamp's building lights through its instances' window level (set each frame), and its shop glass is one more instanced layer.
   const lampsOf = lampBuildings(puzzle.nodes, converted.places, layer.roofs ?? [], plan.layers.buildings?.buildings ?? []);
-  let litBuildings: { id: string; lamps: readonly BuildingLamp[]; lit: LitBuilding }[] = [];
+  let litBuildings: { id: string; lamps: readonly BuildingLamp[] }[] = [];
   let litShop: LitGlass | null = null;
   let modelsLoaded = false;
   const freeWindows = (): void => {
-    for (const b of litBuildings) b.lit.dispose();
     litBuildings = [];
     if (litShop) {
       if (litShop.mesh) city?.group.remove(litShop.mesh);
@@ -591,18 +590,14 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     }
   };
   const standWindows = (next: NonNullable<typeof city>, roots: ReadonlyMap<CalibrationKey, Object3D>): void => {
-    for (const g of next.buildings.groups) {
-      const id = g.name.slice("building:".length);
-      const lamps = lampsOf.get(id);
-      if (lamps) litBuildings.push({ id, lamps, lit: litBuilding(g) });
-    }
+    for (const [id, lamps] of lampsOf) litBuildings.push({ id, lamps });
     litShop = litGlass(next.dressDraws, new Set(lampsOf.keys()), roots);
     if (litShop.mesh) next.group.add(litShop.mesh);
   };
   const build = (set: ModelSet | null): void => {
     const input = set ? planInput(set) : null;
     try {
-      const next = plan3dGroups(plan, input?.roots ?? new Map(), input?.entries ?? new Map(), input?.colourways, input?.stopAtlas, undefined, job, new Set(lampsOf.keys()));
+      const next = plan3dGroups(plan, input?.roots ?? new Map(), input?.entries ?? new Map(), input?.colourways, input?.stopAtlas, undefined, job);
       freeWindows();
       if (city) {
         scene.remove(city.group);
@@ -863,7 +858,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     // Lit buildings: the windows and the shop glass.
     for (const b of litBuildings) {
       buildingGlow(plan_, state, b.lamps, relT, time, bg);
-      b.lit.set(bg);
+      if (city) setBuildingGlow(city.buildings, b.id, bg);
       litShop?.set(b.id, bg);
     }
     litShop?.commit();
@@ -895,7 +890,6 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     if (city) {
       roots.set(city.tiles.group, "street tiles");
       roots.set(city.interior.group, "interior");
-      for (const g of city.buildings.groups) roots.set(g, "building pieces");
       for (const m of city.buildings.instancers) roots.set(m, "building pieces");
       roots.set(city.grey.mesh, "grey boxes");
       roots.set(city.dress.group, "dressing");

@@ -1,8 +1,8 @@
 /**
- * Ticket 081 L1: the lit building's windows. The mask's texels, a building's level through the Relight (on P0's file, 6 x 6 seed 1, the module cache) and in a brownout, and the material swap on a fixture.
+ * Ticket 081 L1: the lit building's windows. The mask's texels, a building's level through the Relight (on P0's file, 6 x 6 seed 1, the module cache) and in a brownout, and the window level written per instance on a fixture.
  */
 import { readFileSync } from "node:fs";
-import { BoxGeometry, Group, Mesh, MeshStandardMaterial, Texture } from "three";
+import { BoxGeometry, InstancedBufferAttribute, InstancedMesh, MeshBasicMaterial, MeshStandardMaterial, Texture } from "three";
 import { describe, expect, it } from "vitest";
 import { EventBus, loadCityPuzzle } from "../core";
 import { convertCityPuzzle } from "../city/circuit";
@@ -10,7 +10,7 @@ import { DEFAULT, sharedCity } from "../city/testing/namedcities";
 import { createGrid } from "../grid";
 import type { GridState } from "../grid";
 import { createRelightClock } from "./relight3d";
-import { PANE_COLOURS, WINDOW_LIT, WINDOW_UV, buildingGlow, lampBuildings, litBuilding, windowMask, type BuildingGlow } from "./windows";
+import { PANE_COLOURS, WINDOW_FLARE_GAIN, WINDOW_LEVEL, WINDOW_LIT, WINDOW_UV, buildingGlow, lampBuildings, setBuildingGlow, windowLit, windowMask, type BuildingGlow } from "./windows";
 
 const texel = (x: number, y: number): number[] => {
   const d = windowMask().image.data as Uint8Array;
@@ -99,22 +99,33 @@ describe("the lit building's windows (081 L1)", () => {
     expect(both).toBeLessThan(1);
   });
 
-  it("the swap gives the lit building's pieces clones with the mask and its level, and leaves the other building's shared material untouched", () => {
-    const shared = new MeshStandardMaterial({ map: new Texture() });
-    const piece = (): Mesh => new Mesh(new BoxGeometry(1, 1, 1), shared);
-    const lit = new Group().add(piece(), piece());
-    const other = new Group().add(piece());
-    const l = litBuilding(lit);
-    const [p, q] = lit.children as Mesh[];
-    expect(p!.material).toBe(q!.material);
-    expect(p!.material).not.toBe(shared);
-    const m = p!.material as MeshStandardMaterial;
-    expect([m.emissiveMap, m.emissiveIntensity]).toEqual([windowMask(), 0]);
-    l.set({ level: 1, flare: 0 });
-    expect(m.emissiveIntensity).toBeCloseTo(WINDOW_LIT, 9);
-    l.set({ level: 0.5, flare: 1 });
-    expect(m.emissiveIntensity).toBeGreaterThan(WINDOW_LIT * 0.5);
-    expect((other.children[0] as Mesh).material).toBe(shared);
-    expect([shared.emissiveMap, shared.emissiveIntensity]).toEqual([null, 1]);
+  it("lighting a building writes only its instances' window level, through the same material, and the twin carries the mask, leaving the source untouched", () => {
+    const source = new MeshStandardMaterial({ map: new Texture() });
+    const twin = windowLit(source) as MeshStandardMaterial;
+    expect(twin).not.toBe(source);
+    expect(windowLit(new MeshBasicMaterial({ map: new Texture() }))).toBeInstanceOf(MeshBasicMaterial);
+    expect([twin.emissiveMap, twin.emissiveIntensity]).toEqual([windowMask(), WINDOW_LIT]);
+    expect([source.emissiveMap, source.emissiveIntensity]).toEqual([null, 1]);
+    // Buildings a and b share an instancer, c is alone in another; each instancer's geometry carries a level per instance.
+    const instancer = (n: number): InstancedMesh => {
+      const geo = new BoxGeometry(1, 1, 1);
+      geo.setAttribute(WINDOW_LEVEL, new InstancedBufferAttribute(new Float32Array(n), 1));
+      return new InstancedMesh(geo, twin, n);
+    };
+    const shared = instancer(3);
+    const alone = instancer(1);
+    const draw = { instances: new Map([["a", [{ mesh: shared, index: 0 }, { mesh: shared, index: 2 }]], ["b", [{ mesh: shared, index: 1 }]], ["c", [{ mesh: alone, index: 0 }]]]) };
+    const level = (m: InstancedMesh): number[] => [...(m.geometry.getAttribute(WINDOW_LEVEL).array as Float32Array)];
+    expect([...level(shared), ...level(alone)]).toEqual([0, 0, 0, 0]);
+    const before = (alone.geometry.getAttribute(WINDOW_LEVEL) as InstancedBufferAttribute).version;
+    setBuildingGlow(draw, "a", { level: 1, flare: 0 });
+    expect(level(shared)).toEqual([1, 0, 1]);
+    expect(level(alone)).toEqual([0]);
+    expect((alone.geometry.getAttribute(WINDOW_LEVEL) as InstancedBufferAttribute).version).toBe(before);
+    setBuildingGlow(draw, "a", { level: 0.5, flare: 1 });
+    expect(level(shared)[0]).toBeCloseTo(0.5 * (1 + WINDOW_FLARE_GAIN), 5);
+    setBuildingGlow(draw, "nobody", { level: 1, flare: 0 });
+    expect(shared.material).toBe(twin);
+    expect(alone.material).toBe(twin);
   });
 });
