@@ -169,3 +169,13 @@ export const STREET_CAM_EYE_M = 9;
 export const STREET_CAM_LOOK_M = 6;
 /** The lens opens from this (vertical, degrees) up to `STREET_CAM_FOV_MAX_DEG` until three whole lots fit the frame. */
 export const STREET_CAM_FOV_DEG = 50;
+
+// ---- from camera.ts and captions.ts (ticket 081 A2c: the tile sheet's rig and labels still use them) ----
+/** The city rig's lens (vertical, degrees) and its elevation above the ground plane (radians). */
+export const FOV_DEG = 40;
+export const ELEVATION = (45 * Math.PI) / 180;
+
+/** The sprite scale.y that makes a sprite `cssPx` tall on screen (sizeAttenuation off). */
+export function scaleForPx(cssPx: number, viewportHeight: number, fovDeg: number): number {
+  return (cssPx * 2 * Math.tan((fovDeg * Math.PI) / 360)) / viewportHeight;
+}

@@ -1875,14 +1875,13 @@ describe("createPlanAssembleRenderer3d and the routing (criterion 7)", () => {
     expect(planAssembleRequested("?city=plan&stage=ground")).toBeNull();
   });
 
-  it("is routed in renderer.ts ahead of the flat picture and the town's scene, and takes no other address", () => {
+  it("is routed in renderer.ts ahead of the flat picture, and takes no other address", () => {
     const renderer = readFileSync("src/render3d/renderer.ts", "utf8");
     expect(renderer).toMatch(/import\.meta\.env\.DEV && typeof location !== "undefined" \? planAssembleRequested\(location\.search\)/);
     expect(renderer).toMatch(/const planView = assemble === null && import\.meta\.env\.DEV/);
     expect(renderer).toMatch(/if \(assemble !== null\) \{[^}]*return createPlanAssembleRenderer3d\(/);
     expect(renderer.indexOf("planAssembleRequested(location.search)")).toBeLessThan(renderer.indexOf("planViewRequested(location.search)"));
-    expect(renderer.indexOf("createPlanAssembleRenderer3d(renderer")).toBeLessThan(renderer.indexOf("createGalleryRenderer3d("));
-    expect(renderer.indexOf("createPlanAssembleRenderer3d(renderer")).toBeLessThan(renderer.indexOf("buildScene(puzzle"));
+    expect(renderer.indexOf("createPlanAssembleRenderer3d(renderer")).toBeLessThan(renderer.indexOf("createCityRenderer3d("));
   });
 });
 

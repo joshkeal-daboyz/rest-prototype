@@ -4,17 +4,11 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
 import { BoxGeometry, ClampToEdgeWrapping, Group, Mesh, MeshStandardMaterial, NearestFilter, Raycaster, RepeatWrapping, SRGBColorSpace, Texture, Vector3, type Material, type Object3D } from "three";
-import { ASSET_MANIFEST_VERSION, loadPuzzle, type AssetColourway, type AssetEntry, type AssetManifest } from "../core";
-import { COLOURWAY_POOL, STOP_SIGN_COLOURWAY, assignColourways, chooseColourway, colourwayStart, isBaseAtlasName, isColourwayId } from "./colourway";
-import { buildGalleryScene, colourwayRequested, loadGalleryPack, stackGalleryLayout } from "./gallery";
-import { allStackKeys, applyModels, createColourwayCache, loadModels, paintStack, stackGroup, type ModelSet } from "./models3d";
-import { buildScene } from "./scene";
+import { ASSET_MANIFEST_VERSION, type AssetColourway, type AssetEntry, type AssetManifest } from "../core";
+import { COLOURWAY_POOL, STOP_SIGN_COLOURWAY, assignColourways, colourwayStart, isBaseAtlasName, isColourwayId } from "./colourway";
+import { allStackKeys, createColourwayCache, loadModels, paintStack, stackGroup, type ModelSet } from "./models3d";
 import type { Stack } from "./stacks";
-import { stubTextSurface } from "./text";
-import { townLayout } from "./town";
 
 // ---- fixtures ----
 const SIZES: [string, number, number, number][] = [
@@ -137,18 +131,6 @@ async function setOf(manifest: AssetManifest, opts: { fail?: readonly string[]; 
   return { set, mats, requested, lines };
 }
 
-const loadMap = (file: string) => loadPuzzle(JSON.parse(readFileSync(join("puzzles", file), "utf8")));
-const ladder = readdirSync("puzzles").filter((f) => f.endsWith(".json"));
-
-/** What the town's plan gives the assignment: each terrace run's lots in run order, then the large and tall lots that stand alone. */
-function ladderBlocks(file: string): { key: string; run?: string }[] {
-  const town = townLayout(loadMap(file));
-  const out: { key: string; run?: string }[] = [];
-  for (const r of town.terraces) for (const i of r.lots) out.push({ key: town.lots[i]!.key, run: r.id });
-  for (const l of town.lots) if (!l.terrace && (l.type === "large" || l.type === "tall")) out.push({ key: l.key });
-  return out;
-}
-
 // ---- the pure assignment (criterion 6) ----
 
 describe("COLOURWAY_POOL and the id rules", () => {
@@ -212,30 +194,6 @@ describe("assignColourways", () => {
     expect(apart[1]).toBe(apart[0]);
   });
 
-  it("never gives two neighbours in a run the same id, with two to eight ids available, in every terrace run of every map", () => {
-    expect(ladder.length).toBeGreaterThan(10);
-    for (const file of ladder) {
-      const bs = ladderBlocks(file);
-      for (let n = 2; n <= 8; n++) {
-        const ids = assignColourways(bs, COLOURWAY_POOL.slice(0, n));
-        bs.forEach((b, i) => {
-          if (i > 0 && b.run !== undefined && bs[i - 1]!.run === b.run) expect(ids[i], `${file} n=${n} block ${i}`).not.toBe(ids[i - 1]);
-        });
-      }
-    }
-  });
-
-  it("uses each pool id on at least 5% of the ladder's blocks", () => {
-    const count = new Map<string, number>();
-    let total = 0;
-    for (const file of ladder) {
-      const bs = ladderBlocks(file);
-      for (const id of assignColourways(bs, COLOURWAY_POOL)) count.set(id, (count.get(id) ?? 0) + 1);
-      total += bs.length;
-    }
-    expect(total).toBeGreaterThan(500);
-    for (const id of COLOURWAY_POOL) expect((count.get(id) ?? 0) / total, id).toBeGreaterThanOrEqual(0.05);
-  });
 });
 
 // ---- paintStack (criterion 7) ----
@@ -435,198 +393,6 @@ describe("loadModels and the colourways", () => {
     const r = await setOf(manifestOf(["02_A", "04_C", "03_B"].map(cwOf)));
     expect(r.requested.slice().sort()).toEqual([`/out/city-pack/colourways/${BASE_STEM}_02_A.png`, `/out/city-pack/colourways/${BASE_STEM}_04_C.png`]);
     expect(r.lines.some((l) => l.includes("2 of 7 loaded"))).toBe(true);
-  });
-});
-
-// ---- the town (criteria 7 and 8, in the scene) ----
-
-describe("applyModels paints each block, and only the blocks", () => {
-  const file = "09-shrine-circuit.json";
-  const wallName = (g: Object3D): string => {
-    let name = "";
-    g.traverse((o) => {
-      const m = o as Mesh;
-      if (name === "" && m.isMesh) name = ((m.material as MeshStandardMaterial).map?.name ?? "") || "none";
-    });
-    return name;
-  };
-  const stackGroups = (root: Object3D): Object3D[] => {
-    const out: Object3D[] = [];
-    root.traverse((o) => {
-      if (o.name.startsWith("stack:")) out.push(o);
-    });
-    return out;
-  };
-
-  it("with colourways: neighbours in a run differ, at least four wall colours show, glass stays one object, the cached roots are untouched, remove() undoes it", async () => {
-    const r = await setOf(FULL);
-    const bundle = buildScene(loadMap(file), { text: stubTextSurface });
-    const rootsBefore = r.set.stack!.map((m) => rootMaterialsOf(m.root));
-    const applied = applyModels(bundle, r.set);
-    const row = bundle.scene.getObjectByName("terrace-stacks")!;
-    expect(row.children.length).toBe(applied.terrace.length);
-    expect(applied.terrace.length).toBeGreaterThan(20);
-    const names = row.children.map(wallName);
-    applied.terrace.forEach((b, i) => {
-      if (i > 0 && b.lot.terrace?.run === applied.terrace[i - 1]!.lot.terrace?.run) expect(names[i], `block ${i}`).not.toBe(names[i - 1]);
-    });
-    const distinct = new Set([...names, ...stackGroups(bundle.slots.models).map(wallName)]);
-    expect(distinct.size).toBeGreaterThanOrEqual(4);
-    // Every pane of glass is the cached root's own material.
-    for (const g of stackGroups(bundle.scene)) g.traverse((o) => {
-      const m = o as Mesh;
-      if (m.isMesh && (m.material as Material).transparent) expect(m.material).toBe(r.mats.glass);
-    });
-    // Nothing can be picked, and the cached roots are as loaded.
-    const rc = new Raycaster(new Vector3(row.children[0]!.position.x, 50, row.children[0]!.position.z), new Vector3(0, -1, 0));
-    expect(rc.intersectObject(row, true)).toEqual([]);
-    r.set.stack!.forEach((m, k) => rootMaterialsOf(m.root).forEach((mat, j) => expect(mat).toBe(rootsBefore[k]![j])));
-    expect(r.mats.atlas.map).toBe(r.mats.atlasMap);
-    applied.remove();
-    expect(bundle.scene.getObjectByName("terrace-stacks")).toBeUndefined();
-    bundle.dispose();
-  });
-
-  it("with none loaded, every stack holds exactly the cached materials (identity), whatever was in the manifest", async () => {
-    for (const r of [await setOf(manifestOf()), await setOf(FULL, { noLoader: true }), await setOf(FULL, { fail: POOL_IDS })]) {
-      const bundle = buildScene(loadMap(file), { text: stubTextSurface });
-      const applied = applyModels(bundle, r.set);
-      const groups = stackGroups(bundle.scene);
-      expect(groups.length).toBeGreaterThan(20);
-      for (const g of groups) g.traverse((o) => {
-        const m = o as Mesh;
-        if (m.isMesh) expect([r.mats.atlas, r.mats.glass]).toContain(m.material);
-      });
-      applied.remove();
-      bundle.dispose();
-    }
-  });
-
-  it("an empty colourway map changes nothing either", async () => {
-    const r = await setOf(manifestOf());
-    const set: ModelSet = { ...r.set, colourways: new Map() };
-    const bundle = buildScene(loadMap(file), { text: stubTextSurface });
-    const applied = applyModels(bundle, set);
-    for (const g of stackGroups(bundle.scene)) expect(wallName(g)).toBe(BASE_STEM);
-    applied.remove();
-    bundle.dispose();
-  });
-
-  /** A root's materials in traversal order. */
-  function rootMaterialsOf(root: Object3D): Material[] {
-    const out: Material[] = [];
-    root.traverse((o) => {
-      if ((o as Mesh).isMesh) out.push((o as Mesh).material as Material);
-    });
-    return out;
-  }
-});
-
-// ---- the gallery's colourway= (criterion 10) ----
-
-describe("the gallery's colourway= parameter", () => {
-  it("is read only on the City Pack's stack gallery", () => {
-    expect(colourwayRequested("?gallery=city-pack&stacks=1&colourway=02_A")).toBe("02_A");
-    expect(colourwayRequested("?gallery=city-pack&stacks=1")).toBeNull();
-    expect(colourwayRequested("?gallery=city-pack&colourway=02_A")).toBeNull();
-    expect(colourwayRequested("?gallery=town-pack&stacks=1&colourway=02_A")).toBeNull();
-    expect(colourwayRequested("?colourway=02_A")).toBeNull();
-  });
-
-  it("accepts a listed id; sends `../x`, an unknown id and a listed-nowhere id to the base with one line; says nothing for the base", () => {
-    const listed = ALL_TWELVE;
-    expect(chooseColourway("02_A", listed)).toEqual({ id: "02_A", message: null });
-    expect(chooseColourway("02_B", listed)).toEqual({ id: "02_B", message: null });
-    expect(chooseColourway(null, listed)).toEqual({ id: null, message: null });
-    expect(chooseColourway("base", listed)).toEqual({ id: null, message: null });
-    for (const bad of ["../x", "05_Z", "<script>"]) {
-      const c = chooseColourway(bad, listed);
-      expect(c.id, bad).toBeNull();
-      expect(c.message, bad).toMatch(/not a colourway id/);
-    }
-    const unlisted = chooseColourway("03_C", ["02_A"]);
-    expect(unlisted.id).toBeNull();
-    expect(unlisted.message).toMatch(/03_C is not in the manifest/);
-  });
-
-  async function pack(colourway: string | null, opts: { noLoader?: boolean; manifest?: AssetManifest } = {}) {
-    const mats = fixtureMaterials();
-    const requested: string[] = [];
-    const lines: string[] = [];
-    const got = await loadGalleryPack(
-      "city-pack",
-      {
-        fetchJson: async (): Promise<unknown> => opts.manifest ?? FULL,
-        loadGlb: async () => glbOf(mats),
-        ...(opts.noLoader
-          ? {}
-          : {
-              loadTexture: async (url: string): Promise<Texture> => {
-                requested.push(url);
-                return new Texture();
-              },
-            }),
-        dir: "/out/",
-        info: (m) => lines.push(m),
-      },
-      colourway,
-    );
-    return { got, requested, lines, mats };
-  }
-
-  it("loads the one colourway asked for and nothing else", async () => {
-    const { got, requested, lines } = await pack("02_A");
-    expect(requested).toEqual([`/out/city-pack/colourways/${BASE_STEM}_02_A.png`]);
-    expect(got.colourway?.id).toBe("02_A");
-    expect(got.colourway?.textures.get("02_A")?.userData["colourwayBase"]).toBe(BASE_STEM);
-    expect(lines).toEqual([]);
-  });
-
-  it("fetches nothing and shows the base, with one line, for `../x`, an unknown id, a manifest with none, or no loader", async () => {
-    for (const [want, opts] of [["../x", {}], ["09_Z", {}], ["02_A", { manifest: manifestOf() }], ["02_A", { noLoader: true }]] as const) {
-      const { got, requested, lines } = await pack(want, opts);
-      expect(requested, want).toEqual([]);
-      expect(got.colourway, want).toBeUndefined();
-      expect(got.root, want).not.toBeNull();
-      expect(lines, want).toHaveLength(1);
-    }
-  });
-
-  it("asks for nothing without the parameter", async () => {
-    const { got, requested, lines } = await pack(null);
-    expect(requested).toEqual([]);
-    expect(got.colourway).toBeUndefined();
-    expect(lines).toEqual([]);
-  });
-
-  it("paints every stack of the scene in that colourway, and leaves the base alone without it", async () => {
-    const { got, mats } = await pack("02_A");
-    const layout = stackGalleryLayout(FULL, {}, []);
-    const lookup = (name: string): Object3D | undefined => got.root?.getObjectByName(name) ?? undefined;
-    const painted = buildGalleryScene(layout, lookup, { surface: stubTextSurface, colourway: got.colourway! });
-    expect(painted.stacks.length).toBeGreaterThan(10);
-    for (const g of painted.stacks) {
-      let walls = 0;
-      g.traverse((o) => {
-        const m = o as Mesh;
-        if (!m.isMesh) return;
-        const mat = m.material as MeshStandardMaterial;
-        if (mat.transparent) expect(mat).toBe(mats.glass);
-        else {
-          walls++;
-          expect(mat.map!.name).toBe(`${BASE_STEM}_02_A`);
-        }
-      });
-      expect(walls).toBeGreaterThan(0);
-    }
-    const plain = buildGalleryScene(layout, lookup, { surface: stubTextSurface });
-    for (const g of plain.stacks)
-      g.traverse((o) => {
-        const m = o as Mesh;
-        if (m.isMesh) expect([mats.atlas, mats.glass]).toContain(m.material);
-      });
-    painted.dispose();
-    plain.dispose();
   });
 });
 

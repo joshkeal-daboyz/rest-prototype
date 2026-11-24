@@ -9,7 +9,7 @@ Depends on: `docs/city-style/numbers.md` (the constants), `docs/city-style/block
 
 ## 18. Parking
 
-The tile city (`city=tiles`) is made by the pipeline, stage by stage (`docs/city-grammar.md` and `tickets/070-city-pipeline.md` give the stages). Stage 3's lots and units are in `src/city/mass/`, stage 4's parking band, kerb bays and build-outs are in `src/city/edge/`, and `plan3d.ts` draws them. The checks P1 and P3 to P6 are stage 4's (`src/city/edge/check.ts`) and P2 is stage 3's (`src/city/mass/check.ts`). The old tile city (its generator in `tilecity.ts`, its parking checks and its drawing in `tilecity3d.ts`) went in ticket 081 A1; `tilecity.ts` keeps the cell types and constants the pipeline's drawing reads. The ladder's town (chapter 4) keeps its hash lots, and `town.ts` has only the option that switches them off for the tile city.
+The tile city (`city=tiles`) is made by the pipeline, stage by stage (`docs/city-grammar.md` and `tickets/070-city-pipeline.md` give the stages). Stage 3's lots and units are in `src/city/mass/`, stage 4's parking band, kerb bays and build-outs are in `src/city/edge/`, and `plan3d.ts` draws them. The checks P1 and P3 to P6 are stage 4's (`src/city/edge/check.ts`) and P2 is stage 3's (`src/city/mass/check.ts`). The old tile city (its generator in `tilecity.ts`, its parking checks and its drawing in `tilecity3d.ts`) went in ticket 081 A1; `tilecity.ts` keeps the cell types and constants the pipeline's drawing reads. The ladder's town (chapter 4) keeps its hash lots, and town.ts has only the option that switches them off for the tile city.
 
 
 ### 18.1 Who parks where
@@ -52,7 +52,7 @@ The tile city (`city=tiles`) is made by the pipeline, stage by stage (`docs/city
 ### 18.4 Lots (residents)
 
 - **Default (056)**: a block wants `clamp(round(homes x PARK_PER_HOME / LOT_STALLS), 1, LOTS_PER_BLOCK_MAX)` parking lots. `LOT_STALLS` is twice `BAYS_PER_PARKING_TILE`: a lot is two `ParkingLines_01` tiles. Each lot is the mouth of a residents' court inside the block (19.4), and an alley block's own court answers one of its lots (19.6).
-- **Default (056)**: every lot is placed by demand, through the lot runs of 055 B. The terrace fill's hash lot (`PARKING_ONE_IN`, chapter 4) is switched off in the tile city (`parkByHash` false in the terrace options; the ladder's town keeps it).
+- **Default (056)**: every lot is placed by demand, through the lot runs of 055 B. The terrace fill's hash lot (PARKING_ONE_IN, chapter 4) is switched off in the tile city (`parkByHash` false in the terrace options; the ladder's town keeps it).
 - **Default (056)**: a lot's 10 m opening in the row stays on the tile grid with a kerb cut, and the cut's parking cells stay plain asphalt so cars can turn in. The opening is the court's drive, and the lot's stalls are in the court behind it (19.4); a lot whose court does not fit is a 10 x 10 m frontage lot. A run shorter than `TILE_PARK_MIN_RUN_M` cannot hold a lot.
 - **Rule [D-056d]**: every lot stall is a record, so a later cars ticket has every space: `TileCity.lotStalls` holds `LOT_STALLS` per lot (per court) in the same shape as a kerb bay.
 

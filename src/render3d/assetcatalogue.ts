@@ -32,12 +32,9 @@ import { KIT as RUIN_KIT } from "../city/ruin/kit";
 import { TECH_KIT } from "../city/tech/kit";
 import { TRAFFIC_KEYS } from "../city/traffic/kit";
 import { isNeverUsed } from "./citymetrics";
-import { dressKeys } from "./dressing";
-import { furnitureKeys } from "./furniture";
-import { MODEL_TABLE, sizeOf } from "./models";
-import { allStackKeys } from "./models3d";
+import { sizeOf } from "./models";
 import { planTileKeys } from "./plan3d";
-import { POWER_LINE, POWER_LINES, POWER_MIX, POWER_POLES } from "./powerkit";
+import { POWER_LINES, POWER_POLES } from "./powerkit";
 import { INTERIOR_KEYS, TILE_PROPS } from "./tileslots";
 
 // ---- the packs ----
@@ -83,12 +80,6 @@ export function pieceUses(): ReadonlyMap<CalibrationKey, readonly AssetGalleryPi
     }
   };
 
-  add("ladder", MODEL_TABLE.flatMap((c) => c.names.map((n) => `${c.pack}:${n}`)));
-  add("ladder", allStackKeys());
-  add("ladder", dressKeys());
-  add("ladder", furnitureKeys());
-  add("ladder", POWER_MIX);
-  add("ladder", [POWER_LINE]);
 
   add("edge", planTileKeys());
   add("edge", TILE_PROPS);

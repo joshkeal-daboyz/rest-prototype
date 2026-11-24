@@ -44,7 +44,7 @@
 | `01-first-light` | third row, day | `/?puzzle=01-first-light&view=3d&cam=street&run=2&at=0.5&light=day` |
 | `01-first-light` | corner block, day | `/?puzzle=01-first-light&view=3d&cam=street&run=0&at=0&light=day` |
 
-- **Default (053)**: the checklist. **auto** items are checked by `citymetrics.test.ts` on the plan the game stands for each of the three maps (the thresholds are `CITY_CHECK`, `CITY_ATM_BLOCKS_MIN`, `CITY_BIG_ROOF_RUNS_MIN` and `CITY_STOREYS`, in the Numbers table), and each threshold is also shown to fail on a plan made to break it. **eye** items are judged from the screenshots above.
+- **Default (053)**: the checklist. **auto** items are checked by citymetrics.test.ts on the plan the game stands for each of the three maps (the thresholds are `CITY_CHECK`, `CITY_ATM_BLOCKS_MIN`, `CITY_BIG_ROOF_RUNS_MIN` and `CITY_STOREYS`, in the Numbers table), and each threshold is also shown to fail on a plan made to break it. **eye** items are judged from the screenshots above.
 
 | Item | What the reference shows | How it is checked |
 | --- | --- | --- |
@@ -69,7 +69,7 @@
 
 ### 16.9 What matches the reference, and what does not yet
 
-- **Info**: measured by `citymetrics.test.ts` on 18 Nov 2026 over the three maps (the numbers move when a rule does; the test, not this line, is the record). All three maps have 44 to 58 runs and 111 to 161 blocks; every auto item passes on all three. Blocks abut exactly. 3, 4 and 5 storeys are about a third each. Every neighbour pair differs in style and in floor count. Every ground bay is a shop or the one door; every shop with glass has it. Of the shop bays about 0.6 have an awning, about 0.5 a sign and about a third of blocks an ATM. A little over half of the qualifying blocks have a fire escape. More than nine blocks in ten have a roof prop. Every corner block is on a true corner. Furniture runs about one item in eight metres of frontage, with no spacing or keep-out violation. The largest map has 10 parking lots and 4 plazas. Nothing never-used is placed and nothing drawn glows.
+- **Info**: measured by citymetrics.test.ts on 18 Nov 2026 over the three maps (the numbers move when a rule does; the test, not this line, is the record). All three maps have 44 to 58 runs and 111 to 161 blocks; every auto item passes on all three. Blocks abut exactly. 3, 4 and 5 storeys are about a third each. Every neighbour pair differs in style and in floor count. Every ground bay is a shop or the one door; every shop with glass has it. Of the shop bays about 0.6 have an awning, about 0.5 a sign and about a third of blocks an ATM. A little over half of the qualifying blocks have a fire escape. More than nine blocks in ten have a roof prop. Every corner block is on a true corner. Furniture runs about one item in eight metres of frontage, with no spacing or keep-out violation. The largest map has 10 parking lots and 4 plazas. Nothing never-used is placed and nothing drawn glows.
 - **Info**: the far gaps over the three maps: about one run in five closes to a seam, six to eight in ten to an alley, and none to a slit; the rest end in a wider gap of up to about 5 m.
 - **Open (waits for a re-cut of ticket 051 C's packer)**: short runs close badly. The ticket asked every run to cover at least `CITY_RUN_FRONTAGE` of its frontage outside open lots. On the three maps 3 to 8 runs fall under it: short rows, 11 to 23 m, where one block is all that fits and 1.3 to 5.2 m is left. R1 is therefore checked as the map's covered share, which holds.
 - **Open (waits for a re-cut of ticket 052 A's roof rules)**: roofs. The ticket asked every roof to be dressed and a big roof prop on every run. A few blocks in a hundred have no prop (the small prop is a probability per column), and only about three runs in five have a big one. R8 is checked at the lower thresholds in `CITY_CHECK` and `CITY_BIG_ROOF_RUNS_MIN`.
@@ -116,7 +116,7 @@ Text moved out of `docs/city-style/packs.md` unchanged. It records readings and 
 
 - **Info (043 section B)**: the gallery is `/?puzzle=09-shrine-circuit&view=3d&gallery=<pack-id>` (an empty value is `simple-town`). It loads only that pack's GLB and shows every building-sized entry in one straight line along x, seen from a low camera. Each model stands four times side by side, turned so its side `+z`, `+x`, `-z` and `-x` faces you in turn, each captioned `door: f`. The copy whose real door faces you is the model's true front: name it (for example "Preset_03: -x") and that becomes its `BUILDING_FRONTS` line (`pack:name`). The copy that matches the front in force now is captioned `current` (the code's table), `current, saved` (the saved file) or `current ?` (no line anywhere: the "+z" guess), and has a green outline. The title says how many models of the pack are marked ("N of M marked"). Each group has one caption with the name, size in metres, lot type and any `corner` or `excluded` mark. Whole-looking buildings come first, modular parts after. Drag, the arrow keys, Home and End move along the line and the wheel zooms. `&page=N&per=N` pages it, off by default. It is off unless the flag is there, never a pick target and never part of a playtest.
 
-- **Info (050 B)**: the stack gallery is `/?puzzle=09-shrine-circuit&view=3d&gallery=city-pack&stacks=1` (dev only, never in `npm run build`, never a pick target, never part of a playtest; the code is `stackgallery.ts` and `stacks.ts`). It shows every recipe assembled on each lot type it serves, at its most floors, as a mid-row stack and as a corner stack at each end, seen from the street. Each stack is captioned with its style, lot type, floors, height against the cap and every piece's key and front, marked `guess` unless the code's table or the saved file has the key. Below it, the click line shows the recipe's pieces (roofs included) four ways, and a click saves a front exactly as in the pack gallery. A saved "+z" counts as saved even when it came from a first click, so an unmarked piece still needs a look.
+- **Info (050 B)**: the stack gallery is `/?puzzle=09-shrine-circuit&view=3d&gallery=city-pack&stacks=1` (dev only, never in `npm run build`, never a pick target, never part of a playtest; the code is stackgallery.ts and `stacks.ts`). It shows every recipe assembled on each lot type it serves, at its most floors, as a mid-row stack and as a corner stack at each end, seen from the street. Each stack is captioned with its style, lot type, floors, height against the cap and every piece's key and front, marked `guess` unless the code's table or the saved file has the key. Below it, the click line shows the recipe's pieces (roofs included) four ways, and a click saves a front exactly as in the pack gallery. A saved "+z" counts as saved even when it came from a first click, so an unmarked piece still needs a look.
 
 - **Info**: the converter has no include filter. It converts every FBX under the pack folder, so `town-pack` is a GLB of about 110 MB.
 
@@ -141,7 +141,7 @@ Text moved out of `docs/city-style/scale-and-lots.md`, `docs/city-style/parking.
 
 ### From parking.md
 
-- From the introduction of chapter 18: (ticket 056 A, B and C wrote them); Nothing on the ladder maps changes: the ladder's town (chapter 4) keeps its hash lots, and `town.ts` gained only the option that switches them off for the tile city.
+- From the introduction of chapter 18: (ticket 056 A, B and C wrote them); Nothing on the ladder maps changes: the ladder's town (chapter 4) keeps its hash lots, and town.ts gained only the option that switches them off for the tile city.
 
 - **Info (056)**: these are drawn spaces, about half of what a real dense terraced core provides. A real core has about 0.3 spaces per home, and about 1 per 40 m2 of shop, which here is about 0.7 per 31 m2 shop bay. The camera reads every drawn stall at full size, and Josh found the full count overwhelming. [D-056c]
 
@@ -163,7 +163,7 @@ Text moved out of `docs/city-style/scale-and-lots.md`, `docs/city-style/parking.
 
 - From 9: This reversed the 12% sag of 037 C-Q2, because heavy sag on short spans made the wires read as lines.
 
-- **Info**: the code uses a `DROP_REACH` of 2.5, where 041 C5 wrote 2. At 2 almost no lot is reachable (the reason is in the `layout.ts` comment). The 041 C review raised the difference, and 041 merged with 2.5.
+- **Info**: the code uses a DROP_REACH of 2.5, where 041 C5 wrote 2. At 2 almost no lot is reachable (the reason is in the layout.ts comment). The 041 C review raised the difference, and 041 merged with 2.5.
 
 ### From testing-daylight.md
 
@@ -171,7 +171,7 @@ Text moved out of `docs/city-style/scale-and-lots.md`, `docs/city-style/parking.
 
 - From 16.12, the night bullet: A test holds the three protocol maps' lights, background and every material colour equal to a snapshot taken before the rig existed.
 
-- **Info (060)**: the earlier dev-only daylight (055 E) added one hemisphere light to a night scene, owned twice (`tilecity3d.ts` and `streetcam.ts`), and left the sky and the surfaces near black. Its three constants (the street camera's daylight sky, ground and intensity) are retired with it; their rows are gone from the Numbers table.
+- **Info (060)**: the earlier dev-only daylight (055 E) added one hemisphere light to a night scene, owned twice (`tilecity3d.ts` and streetcam.ts), and left the sky and the surfaces near black. Its three constants (the street camera's daylight sky, ground and intensity) are retired with it; their rows are gone from the Numbers table.
 
 - **Info (060, 057 D)**: the grass colour (`surfaces.grass` of each light mode, a Numbers row) was held for a drawer. Since 057 D the greens of the block interiors are drawn (19.4): the City Pack's `SM_Env_Grass_01` tiles, sunk 0.11 m so the blades stand a hair over the walk, or, where the piece is absent, flat quads in the mode's grass colour. The tile view brings a material it swaps in later (the pack's tiles arriving) to the mode it is in.
 
@@ -353,7 +353,7 @@ How a sill is measured, and the readings of the table.
 
 ### From frontage-and-interiors.md (19 and 19.1)
 
-- From the introduction of chapter 19: (ticket 057, sections A to G, in `facade.ts`, `tilecity.ts` and `terrace.ts`, and the old path's frontage measuring code (deleted in ticket 081 A1)); the drawing of the interiors is section D (`tilecity3d.ts`, `tileslots.ts` and `models3d.ts`), also built, and 19.8 records it.
+- From the introduction of chapter 19: (ticket 057, sections A to G, in `facade.ts`, `tilecity.ts` and terrace.ts, and the old path's frontage measuring code (deleted in ticket 081 A1)); the drawing of the interiors is section D (`tilecity3d.ts`, `tileslots.ts` and `models3d.ts`), also built, and 19.8 records it.
 
 - **Info (057)**: the draft of this chapter was written before sections A to G were built. Where the code differs from the draft, the line says "as built", and the code is the record.
 
@@ -390,7 +390,7 @@ How a sill is measured, and the readings of the table.
 
 - From the fill bullet of 19.4: The draft named `Sidewalk_Panel_01` for the paving, but that piece has a kerb on one edge (a 0.23 m drop to the road level every 5 m), which would cross an apron; 057 D drew `Sidewalk_Panel_02`, the flat slab with two inset service plates, and 063 D replaced it with the plain `Sidewalk_01` (19.8).
 
-- **Info (057 C, as built)**: the drive is two cells, not the drafted one. 056's parking lot is a fixed 10 m opening laid by `terraceBlockRows` in `town.ts`, which 057 may not touch, so the drive takes the whole opening. One cell needs a `parkW_m` option in `town.ts` (a re-cut). So the frontage does not gain the drafted 45 m: the nine 10 m lots of 056 are nine 10 m drives, and the frontage cost of the parking lots stays about 90 m.
+- **Info (057 C, as built)**: the drive is two cells, not the drafted one. 056's parking lot is a fixed 10 m opening laid by `terraceBlockRows` in town.ts, which 057 may not touch, so the drive takes the whole opening. One cell needs a `parkW_m` option in town.ts (a re-cut). So the frontage does not gain the drafted 45 m: the nine 10 m lots of 056 are nine 10 m drives, and the frontage cost of the parking lots stays about 90 m.
 - **Info (057 C and G, measured by 057 E on 19 Nov 2026)**: what the interiors are made of on the default city (3 x 3, seed 1), in m2 of block area (28,675 m2 in all). The remaining 8,225 m2 (28.7%) is the terrace band: buildings, plazas and frontage lots.
 
 | Interior role | m2 | Share of interior |

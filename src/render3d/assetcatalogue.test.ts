@@ -18,12 +18,8 @@ import { KIT as RUIN_KIT } from "../city/ruin/kit";
 import { TECH_KIT } from "../city/tech/kit";
 import { TRAFFIC_KEYS } from "../city/traffic/kit";
 import { PACK_PAGES, PIECE_NOTES, assetGalleryPacks, assetGalleryPage, assetGalleryPieces, notesFor, pieceUses } from "./assetcatalogue";
-import { dressKeys } from "./dressing";
-import { furnitureKeys } from "./furniture";
-import { MODEL_TABLE } from "./models";
-import { allStackKeys } from "./models3d";
 import { planTileKeys } from "./plan3d";
-import { POWER_LINE, POWER_LINES, POWER_MIX, POWER_POLES } from "./powerkit";
+import { POWER_LINES, POWER_POLES } from "./powerkit";
 import { INTERIOR_KEYS, TILE_PROPS } from "./tileslots";
 
 function entry(name: string, size: readonly [number, number, number], over: Partial<AssetEntry> = {}): AssetEntry {
@@ -151,12 +147,6 @@ describe("pieceUses", () => {
   };
 
   it("has every key of each table with that table's use", () => {
-    walk("ladder", MODEL_TABLE.flatMap((c) => c.names.map((n) => `${c.pack}:${n}`)));
-    walk("ladder", allStackKeys());
-    walk("ladder", dressKeys());
-    walk("ladder", furnitureKeys());
-    walk("ladder", POWER_MIX);
-    walk("ladder", [POWER_LINE]);
     walk("edge", planTileKeys());
     walk("edge", TILE_PROPS);
     walk("edge", Object.values(INTERIOR_KEYS).flat());
@@ -324,7 +314,7 @@ describe("assetGalleryPage", () => {
   });
   const pieces: AssetGalleryPiece[] = [
     mk("SM_Date_01", { uses: [{ use: "ruin", placed: true }] }),
-    mk("SM_Cherry_01", { textured: false, uses: [{ use: "ladder", placed: true }, { use: "tech", placed: false }] }),
+    mk("SM_Cherry_01", { textured: false, uses: [{ use: "holdout", placed: true }, { use: "tech", placed: false }] }),
     mk("SM_Banana_01", { warnings: ["no-uv"] }),
     mk("SM_Apple_01"),
     mk("SM_apple_Pie", { uses: [{ use: "ruin", placed: true }] }),
@@ -358,7 +348,7 @@ describe("assetGalleryPage", () => {
 
   it("combines the filters", () => {
     expect(namesOf(q({ text: "e", use: "ruin", flag: "any" }))).toEqual(["SM_Date_01", "SM_apple_Pie"]);
-    expect(namesOf(q({ use: "ladder", flag: "warnings" }))).toEqual([]);
+    expect(namesOf(q({ use: "holdout", flag: "warnings" }))).toEqual([]);
   });
 
   it("cuts pages of ASSET_GALLERY_PAGE_SIZE and clamps the page to 1..pageCount", () => {

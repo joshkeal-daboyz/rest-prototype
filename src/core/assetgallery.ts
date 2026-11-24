@@ -11,10 +11,10 @@ import type { AssetFailure, AssetWarning } from "./assets";
 import type { CalibrationKey } from "./calibration";
 
 /**
- * What can use a piece, in the order the page lists them. "ladder" is the puzzle maps' 3D town (`MODEL_TABLE`, the stack recipes, its dressing, furniture and power kit); the rest are the
- * city pipeline's stages that place pieces (`CITY_STAGES`' "edge" to "traffic") and the three era passes (`CITY_ERA_STAGES` less "history", which places none).
+ * What can use a piece, in the order the page lists them: the city pipeline's stages that place pieces (`CITY_STAGES`' "edge" to "traffic") and the three era passes
+ * (`CITY_ERA_STAGES` less "history", which places none). "ladder" (the puzzle maps' 3D town) left the list with the town itself (ticket 081 A2c; Josh, 23 Nov 2026: "Both now").
  */
-export const ASSET_GALLERY_USES = ["ladder", "edge", "buildings", "circuit", "facades", "ground", "traffic", "tech", "holdout", "ruin"] as const;
+export const ASSET_GALLERY_USES = ["edge", "buildings", "circuit", "facades", "ground", "traffic", "tech", "holdout", "ruin"] as const;
 export type AssetGalleryUse = (typeof ASSET_GALLERY_USES)[number];
 
 /** One use of a piece. `placed` is false when the table types the piece but its stage never places it (the tech kit's `placed: false`, for example `Prop_Pipes_01`). */

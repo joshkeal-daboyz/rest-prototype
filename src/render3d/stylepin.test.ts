@@ -9,7 +9,8 @@ import { stableHash } from "../render/city";
 import { CITY_CHECK, CITY_STOREYS } from "./citymetrics";
 import { COLOURWAY_POOL, colourwayStart } from "./colourway";
 import { STACK_STYLES } from "./stacks";
-import { TERRACE_BAYS } from "./town";
+/** The ladder town's `TERRACE_BAYS` (town.ts, deleted in ticket 081 A2c): grammar rule 1, a building is 2 to 4 columns. */
+const TERRACE_BAYS = { min: 2, max: 4 } as const;
 
 describe("the buildings stage's tables equal the old path's (070 F1, criterion 2)", () => {
   it("the styles are exactly the apartment (bay) styles of STACK_STYLES, with the same keys by role and the same pitches", () => {

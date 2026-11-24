@@ -67,8 +67,8 @@ describe("assetGalleryRequested", () => {
 
   it("reads every field", () => {
     expect(
-      assetGalleryRequested("?assets=sci-fi-city-pack&q=pole%20crossarm&use=ladder&flag=warnings&page=3&piece=SM_Prop_Powerpoll_01"),
-    ).toEqual({ pack: "sci-fi-city-pack", text: "pole crossarm", use: "ladder", flag: "warnings", page: 3, piece: "SM_Prop_Powerpoll_01" });
+      assetGalleryRequested("?assets=sci-fi-city-pack&q=pole%20crossarm&use=holdout&flag=warnings&page=3&piece=SM_Prop_Powerpoll_01"),
+    ).toEqual({ pack: "sci-fi-city-pack", text: "pole crossarm", use: "holdout", flag: "warnings", page: 3, piece: "SM_Prop_Powerpoll_01" });
   });
 
   it("falls back to the default for an unknown use, flag or page, and for an empty piece", () => {
@@ -92,7 +92,7 @@ describe("assetGalleryUrl", () => {
   });
 
   it("writes every non-default field, and the piece", () => {
-    const url = assetGalleryUrl({ pack: "sci-fi-city-pack", text: "pole crossarm", use: "ladder", flag: "warnings", page: 3 }, "SM_Prop_Powerpoll_01");
+    const url = assetGalleryUrl({ pack: "sci-fi-city-pack", text: "pole crossarm", use: "holdout", flag: "warnings", page: 3 }, "SM_Prop_Powerpoll_01");
     expect(url.startsWith("?")).toBe(true);
     expect(url).toContain("piece=SM_Prop_Powerpoll_01");
     expect(url).toContain("page=3");
@@ -140,7 +140,7 @@ describe("card text", () => {
 
   it("useLabels says unused for no uses, and marks a typed-only use", () => {
     expect(useLabels([])).toEqual(["unused"]);
-    expect(useLabels([{ use: "ladder", placed: true }, { use: "tech", placed: false }])).toEqual(["ladder", "tech (typed, not placed)"]);
+    expect(useLabels([{ use: "holdout", placed: true }, { use: "tech", placed: false }])).toEqual(["holdout", "tech (typed, not placed)"]);
   });
 
   it("cutText leaves a short text alone and cuts a long one to the limit, with an ellipsis", () => {

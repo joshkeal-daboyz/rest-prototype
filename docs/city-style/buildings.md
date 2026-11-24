@@ -26,7 +26,7 @@ With no Town Pack in the manifest, or its GLB failed to load, every type is SIMP
 - **Default (050)**: stacks on the circuit's own large and tall lots, outside the terraces, follow the neighbour, street-repeat and share rules of chapter 5 unchanged (`NEIGHBOUR_GAP`, `STREET_REPEAT_GAP`, `FAMILY_SHARE_MAX`).
 - **Default (052)**: the dressing varies by hash, not by order. One awning key per block (the awnings of a block match), no sign key twice in a block, at most one blade sign, one ATM, one fire-escape column and one big roof prop per block, at most `ATM_PER_RUN` ATMs, one billboard and one novelty sign per run, and no fire escape on two neighbouring blocks of a run.
 
-The street-repeat rule and the share cap of chapter 5 do not bound a terrace (three styles are fewer than the families they apply to). The terrace's own bound is that each apartment style is a fifth to a half of a ladder's terrace blocks (`terracepack.test.ts`). Colour variety comes from the three apartment styles and from the colourway each block is drawn in (16.9): neighbours in a run never share one (R13). The awnings are fixed shapes and colours of one texture atlas, and the roof props are one colour each (16.6).
+The street-repeat rule and the share cap of chapter 5 do not bound a terrace (three styles are fewer than the families they apply to). The terrace's own bound is that each apartment style is a fifth to a half of a ladder's terrace blocks (terracepack.test.ts). Colour variety comes from the three apartment styles and from the colourway each block is drawn in (16.9): neighbours in a run never share one (R13). The awnings are fixed shapes and colours of one texture atlas, and the roof props are one colour each (16.6).
 
 
 ### 16.7 Fallbacks

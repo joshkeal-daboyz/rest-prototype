@@ -24,7 +24,6 @@ export const FLAG_FILTERS: readonly AssetGalleryQuery["flag"][] = ["any", "untex
 /** The filter menus' labels. The use labels name the pass or stage that uses the piece. */
 export const USE_LABELS: Readonly<Record<AssetGalleryQuery["use"], string>> = {
   any: "Any pass",
-  ladder: "Ladder (puzzle 3D town)",
   edge: "Edge (tile city)",
   buildings: "Buildings",
   circuit: "Circuit (poles and lines)",
