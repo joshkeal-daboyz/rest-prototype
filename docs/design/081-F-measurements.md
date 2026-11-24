@@ -41,3 +41,16 @@ Taken by the main session in the browser pane, 24 Nov 2026, 6 x 6 seed 1, `?puzz
 Reading:
 - Criterion 3 holds. No new program, and the draw calls are the same after the Relight, where L1's clones made them rise from 216 to 906.
 - These were taken while this session was not open in a window, so the pane ran as a background page (pixel ratio 1, whole frame 66.70 ms). The CPU and whole-frame medians against the 16.7 ms bar still need a run with the pane in view.
+
+## M2 (F1b): timing in view
+
+Taken by the main session in the browser pane with it in view, 24 Nov 2026, F1b's branch (23a5792), before power.
+
+| Run | Canvas | Pixel ratio | Draw calls | Building pieces (calls) | Programs | CPU median | Whole frame |
+|---|---|---|---|---|---|---|---|
+| District, before power | 1930 x 1767 | 1.5 | 1,775 | 1,634 | 11 | 14.40 ms | 16.80 ms |
+
+- The bar is met before power: the CPU median is under 16.7 ms, and the whole frame sits at the 60 Hz vsync.
+- After the Relight, the only reading is the throttled one above (1,855 calls, 11 programs, the same as before power). Josh played the Relight ("Played it, merge"), but no in-view after-Relight line was logged.
+- Draw calls do not change after the Relight, so its cost should match before power. That is inferred, not measured.
+- F2 is not called for while the district view is under the bar.
