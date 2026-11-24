@@ -29,7 +29,7 @@ import { GROUND } from "./kitunits";
 import { lightModeFor, type LightModeId } from "./lighting";
 import { addSurface, applyLightMode, newLightOwners, setRendererMode } from "./lightrig";
 import { lampFlicker } from "./look";
-import { buildingGlow, lampBuildings, litBuilding, litGlass, type BuildingGlow, type BuildingLamp, type LitBuilding, type LitGlass } from "./windows";
+import { STREET_LIGHTS_MAX, buildingGlow, lampBuildings, lightPlaces, litBuilding, litGlass, setStreetLights, streetLights, type BuildingGlow, type BuildingLamp, type LitBuilding, type LitGlass, type StreetLights } from "./windows";
 import { WORLD_PER_METRE } from "./models";
 import { sharedTileModels, type ModelSet } from "./models3d";
 import { OVERLAY_HIT_PX, overlayHit, overlayIcons, overlayBreakHit, overlayBreaks, placePoint, type OverlayBreak, type OverlayIcon, type Project } from "./overlay";
@@ -577,10 +577,20 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   const lampsOf = lampBuildings(puzzle.nodes, converted.places, layer.roofs ?? [], plan.layers.buildings?.buildings ?? []);
   let litBuildings: { id: string; lamps: readonly BuildingLamp[]; lit: LitBuilding }[] = [];
   let litShop: LitGlass | null = null;
+  // The street lights (081 L2): one real light per lit building with a street face, made at build at intensity 0 and never added, removed or hidden in play (the count is fixed, so no program recompiles).
+  // `lights=N` (dev only) fills the pool to N lights, the spares on the first building.
+  const lightsWanted = import.meta.env.DEV ? Number(/[?&]lights=(d+)(&|$)/.exec(opts.search ?? "")?.[1] ?? NaN) : NaN;
+  const lightGlows = new Map<string, BuildingGlow>();
+  let pool: StreetLights | null = null;
   let modelsLoaded = false;
   const freeWindows = (): void => {
     for (const b of litBuildings) b.lit.dispose();
     litBuildings = [];
+    if (pool) {
+      for (const l of pool.lights) l.removeFromParent();
+      pool = null;
+    }
+    lightGlows.clear();
     if (litShop) {
       if (litShop.mesh) city?.group.remove(litShop.mesh);
       litShop.dispose();
@@ -595,6 +605,12 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     }
     litShop = litGlass(next.dressDraws, new Set(lampsOf.keys()), roots);
     if (litShop.mesh) next.group.add(litShop.mesh);
+    const max = Number.isFinite(lightsWanted) ? Math.min(lightsWanted, STREET_LIGHTS_MAX) : STREET_LIGHTS_MAX;
+    const places = lightPlaces(plan, lampsOf.keys(), max);
+    if (places.length >= max && lightPlaces(plan, lampsOf.keys(), Infinity).length > places.length) console.warn(`street lights: more lit-able buildings than the cap of ${max}; the first ${max} get a light`);
+    pool = streetLights(places, S, Number.isFinite(lightsWanted) ? Math.max(0, lightsWanted - places.length) : 0);
+    for (const l of pool.lights) next.group.add(l);
+    for (const id of lampsOf.keys()) lightGlows.set(id, { level: 0, flare: 0 });
   };
   const build = (set: ModelSet | null): void => {
     const input = set ? planInput(set) : null;
@@ -862,7 +878,10 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
       buildingGlow(plan_, state, b.lamps, relT, time, bg);
       b.lit.set(bg);
       litShop?.set(b.id, bg);
+      const lg = lightGlows.get(b.id);
+      if (lg) (lg.level = bg.level), (lg.flare = bg.flare);
     }
+    if (pool) setStreetLights(pool, lightGlows);
     litShop?.commit();
     // Lamp posts (a building lamp is its windows).
     for (const lamp of lamps) {
