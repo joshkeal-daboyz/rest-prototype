@@ -237,7 +237,7 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | `escapes.test.ts` | (b) delete | Stage 7's fire escapes and their guarantee (070 H2, `src/city/facades/`). |
 | `facing.test.ts` | (b) delete | Stage 5's fronts and turns (070 F1 and F2, `src/city/buildings/`). |
 | `colourway.test.ts` (the ladder cases) | (b) delete | Stage 5's colourway rule (070 F1, `src/city/buildings/`). |
-| `polygon.test.ts` (the `townLayout` lot cases) | (b) delete | Stage 5's styles on the pipeline's lots (070 F1). |
+| `polygon.test.ts` (the `townLayout` lot cases) | **(c) delete** (read again in A2c's review, `reviews/081a2c-delete-ladder.md`) | Its four cases test `pickBuildings`, which nothing calls once `applyModels` is gone, so they test deleted use, not a kept rule. The neighbour rule they touched is held by the pipeline's `src/city/buildings/stage.test.ts` row-neighbour case. |
 | `placeholders.test.ts` | (a) re-point | `pickPlaceholders` is kept: `models3d.ts` uses it for the pipeline city. At most 2 cases are re-pointed to a small typed lots fixture, and the rest of its ladder cases are deleted. |
 | `plan3d.test.ts`, `tilecity3d.test.ts` | stay | String checks only. |
 | `styleguide`, `stylepin`, `dressing`, `lighting`, `facade`, `calibration`, `relight3d`, `kitpin`, `daytoggle` | stay | They build no ladder town. If a deletion breaks one of them, A2c's builder sorts that case by the same rule and lists it. |
@@ -281,7 +281,7 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 
    **browser**.
 
-**Files.** `src/render3d/` (deletions, `renderer.ts`, the kept files' ladder-only functions, the deleted files' tests); `src/ui/assetgallerylogic.ts` and `assetgallerylogic.test.ts` (criterion 5's "ladder" lines only: the ui's folder, named here so it is in scope); `docs/city-style/*.md` and `docs/city-grammar.md` (ladder-only lines). **Must not:** `src/city/`, `src/render/`, `src/play/`, any other `src/ui/` line, `tests/playtest/`, `tools/`. If a deletion needs one of these, stop and report: that is a re-cut.
+**Files.** `src/render3d/` (deletions, `renderer.ts`, the kept files' ladder-only functions, the deleted files' tests); `src/ui/assetgallerylogic.ts` and `assetgallerylogic.test.ts` (criterion 5's "ladder" lines only: the ui's folder, named here so it is in scope); `docs/city-style/*.md` and `docs/city-grammar.md` (ladder-only lines). One `src/city/` line is in scope too: **`src/city/mass/lots.test.ts`, its `TERRACE_BAYS` import line only.** It now reads from `../buildings/constants`, because `town.ts`, where it lived, is deleted. The value is unchanged and no case changes. A2c's review found this needed and correct; L2a had already noted the test reads the ladder's `TERRACE_BAYS`. **Must not:** any other `src/city/` line, `src/render/`, `src/play/`, any other `src/ui/` line, `tests/playtest/`, `tools/`. If a deletion needs one of these, stop and report: that is a re-cut.
 
 ### B1 · CK17, the street rule and roof structures, designed (puzzle-designer; a note). **Done** on `ticket/081b1-roof-spans`
 `docs/design/081-B1-roof-spans.md`, with Josh's answers at the top. Its questions 1 to 5 are answered (see "Josh's answers on B1 and its pre-check").
