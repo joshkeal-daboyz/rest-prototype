@@ -1164,6 +1164,143 @@ It writes `docs/design/081-K2e-precheck.md`. If it does not report "holds", the 
 | E3 (build), K2ep (pre-check), D4 (note) | K2e after K2ep; K3b after Josh's D4 picks. K2e and K3b may run at once. | None. E3 has `cityview.ts`; K2e has `src/city/circuit/` and three era pin lines; K3b has `circuitdraw.ts` and `componentmodels.ts`. K2ep and D4 are notes. |
 | (24 Nov 2026: K2ep holds; D4's picks are in) | K2e and K3b now, at once. E4 once E3 merges, beside them. | E4 and E3 share `cityview.ts` (E3 first). E4 shares no file with K3b or K2e. |
 
+### L · Lit buildings: windows and light on the street (renderer). Cut 24 Nov 2026, in three PRs: L1, then L2 and L3
+**Josh, 24 Nov 2026, in chat:** "I would like to update the lighting too. Rather than lighting a lamp. I would like the connected building's windows to light up and impact the lighting on the street." He showed the POLYGON City Pack store image (a rainy night street: warm lit windows, light spilling onto pavement and road). On cards:
+- which buildings light: **"Puzzle buildings only (Recommended)"**: a puzzle lamp on a building (`{ building }` place) lights that building's windows while it is lit;
+- the wall lamp (`lampBuilding` pick): **"Remove it (Recommended)"**;
+- the unpowered city: **"A few dim windows"** (scattered faint candle-light). This amends E2's "the rest of the city is dead" for windows only;
+- the street: **"Yes, a light pool (Recommended)"** (warm light on the pavement and street in front).
+
+K3b merged with its lamp-height must-fix open ("Merge as is (Recommended)"), because L1 removes the lamp. L1 closes that must-fix, and K3b criterion 2's lamp bullet ("A building lamp stands under the fitting") is superseded.
+
+**How the windows are built (read 24 Nov 2026 from the converted City Pack GLB and its textures in `assets/private/`).**
+- Every plan building is City Pack stack pieces cloned per building (`plan3d.ts` `buildingBoxes`: one `building:<id>` group each, in `PlanDraw.buildings.groups`), painted with a colourway atlas. Each piece is **one mesh with one material** (`MeshStandardMaterial`, base map only). No material in the pack carries emission.
+- **The windows are a texture region, not meshes or material slots.** Window panes are faces UV-mapped onto three blue glass swatches at the atlas's bottom right: pixels about x 512 to 852 and y 910 to 1024 of 1024 (glTF v, top down), split at about x 626 and 739. Measured glass area per piece: `SM_Bld_Apartment_01` 2.79 m2 over the three swatches (0.92 / 0.93 / 0.94), `Apartment_Corner_01` 5.58, `Apartment_Stack_01` 8.38, `Apartment_Door_01` 1.80 (one swatch), roofs 0. The colourway atlases keep the layout.
+- **Shopfronts are the exception.** `SM_Bld_Shop_*` hold no glass. Their glass is the separate `SM_Bld_Shop_*_Glass` keys, drawn by stage 7's dressing as one instanced dark glass material for the whole city (`models3d.ts` `dressGroup`, `GLASS_KEYS`).
+- The pack's own night look is `Textures/Emissive_01.png` to `_05.png` (1024 x 1024, in the atlas's UV layout). Each is black except the same three swatches (in `_01`: warm amber, pale cream, near black) and some signs and signals. That is the lit window in the store image.
+
+**The choice (the architect's): an emissive window mask made in code, swapped per building.**
+- A window is dark, dim or lit through its piece's material. A lit or dim piece takes a clone of its material with `emissiveMap` set to **one shared window mask**: a `DataTexture` made in code from `WINDOW_UV` (the measured glass rectangle and its three panes), with each pane's colour from Josh's card L-Q1, `emissive` white and `emissiveIntensity` as its level. Dark pieces keep the shared material untouched.
+- **Not the pack's Emissive PNG.** It also lights signs and signals, and loading it would need converter, manifest and game pack changes (`tools/assets/`, the grid-simulator's) for three rectangles of colour. The builder reads the pane colours once from `Emissive_01.png` and types them in as numbers, as D4 measured the bracket. Nothing from the pack is committed.
+- **Not instanced attributes.** Buildings are clones, not instances, so a per-building material costs no draw call. The few lit buildings (a job's lamps) take their own clones, so each animates alone. Dim pieces share one clone per source material.
+- **Not real lights** (no `PointLight` or `SpotLight`, as 059 drew street lights): see L2 and card L-Q4.
+
+**Readings (the architect's; none is a Decided rule):**
+- **Lamp posts keep E2's glow and pool.** A post lamp has no building. Only `{ building }` lamps move onto windows.
+- **A lamp on a roof structure** (`{ roof }`, allowed by B1-Q1 "Anything") lights the mast's building (`CityRoofMast.building`). Card L-Q2 asks Josh to confirm this. L1 builds the recommended option unless he picks the other. No pilot fit is known to put a lamp on a roof.
+- **A building with two job lamps** takes the brighter of the two each frame.
+- **A job lamp's building never takes dim windows,** lit or not. A dark lamp must read dark (brief, Decided: "Signatures: current reaches a dark lamp").
+- **059's street lights are untouched.** On the city view they are scenery and stay dark (E2 criterion 3). The new pools are warm and lie only in front of lit job buildings. 059's cool street-light pools are not drawn on any city view, so the two never meet. No conflict found.
+
+**Pipeline-designer pre-check: not needed.** No grammar rule, stage or city number changes: all of L is drawing in `src/render3d/`. The dim share and the colours are looks Josh picks on cards (below), not city rules.
+
+**Cards for Josh (the main session asks them; recommended options first):**
+- **L-Q1, before L1: the lit window's colour.**
+  - "The pack's own night glow (Recommended)": as in the store image (Emissive_01), two of three panes warm amber and pale cream, the third near dark.
+  - "Every pane lit": as in Emissive_03, the third pane a dimmer brown.
+  - "One warm colour": every pane the same amber.
+- **L-Q2, before L1: a lamp on a roof structure.** "Light the mast's building (Recommended)" or "A glow on the mast, as a lamp post".
+- **L-Q3, before L3: how many dim windows, and how they burn.**
+  - Share of window pieces (one storey, or a three-storey stack, of one column): "About 1 in 25 (Recommended)", "About 1 in 10" or "About 1 in 50".
+  - Their light: "Steady, faint amber (Recommended)" (about 15 % of a lit window's level), or "A slow candle flicker".
+- **L-Q4, before L2: how the pool is made.**
+  - "A painted glow on the ground (Recommended)": one instanced decal, one draw call, which lights only the ground.
+  - "Real lights": also lights walls, cars and props, but adds per-pixel cost on every lit material, and the shaders rebuild whenever the number of lights changes. If he picks it, the architect re-cuts L2 and its budget is measured again before Josh plays.
+
+**Order.** L1 shares `cityview.ts` with **E4** (open PR #53: `cityHit`, `HitInputs`, `paintOverlay`, `cutAt`), so it branches from `main` after E4 merges. It shares no file with **K2e** (`src/city/circuit/`). L2 and L3 branch after L1 merges, and may be built at once: L3's only `cityview.ts` change is one call in the build step.
+
+#### L1 · The lit building's windows; the wall lamp goes (renderer). Branch `ticket/081l1-lit-windows`, after E4 merges and L-Q1 and L-Q2 are answered
+**Goal.** Playing `city-two-ways-round`, each lamp's building is dark until current lights it. Then its windows (and its shopfront glass) glow warm. They ignite in the Relight's order with E2's flare, and flicker in a brownout. No wall lamp stands on the building.
+
+**Before the build (the main session, not an agent):** record Josh's "Remove it (Recommended)" (24 Nov 2026) in `docs/design/081-component-picks.md`, in a new **Removed** list under the table. The `lampBuilding` row stays as the history of his first pick.
+
+**Acceptance criteria.**
+1. [ ] **The window mask.** A new `src/render3d/windows.ts` exports:
+   - `WINDOW_UV`: the glass rectangle and its two pane splits. The builder measures them from the atlas to the pixel and reports them against this cut's figures;
+   - the three pane colours: Josh's L-Q1 pick, read from the pack image once;
+   - `windowMask()`: one shared `DataTexture` (at most 1024 x 1024, `flipY` false, as glTF's are), black outside the rectangle and each pane's colour inside it.
+
+   **test**: 1 case: texels inside each pane are its colour, and texels just outside the rectangle are black.
+2. [ ] **A building's window level.** A pure `buildingGlow(plan, state, lamps, relT, time, out)` in `windows.ts` takes the building's job lamps (`{ id, index }`) and gives `{ level, flare }`. It is built from E2's `lampState`, `lampFlicker` and `FLARE_SECONDS`:
+   - the level is 0 while no lamp of the building is lit;
+   - in the Relight it is 0 until its lamp's arrival, then lit, with E2's flare pop for `FLARE_SECONDS`;
+   - in a brownout it dips as E2's lamps did;
+   - with two lamps, the brighter one counts.
+
+   **test**: 2 cases: (a) the Relight on P0's file, through `relightFrame`'s plan: each lamp building's level is 0 before its lamp's arrival and above 0 after it, in the order `relightFrame` lights the lamps; (b) a brownout dips a lit building below 1, and two lamps on one building give the brighter level.
+3. [ ] **The swap.** `litBuilding(group)` gives the building's pieces clones of their materials with the mask. The clones are made **when the city builds** (level 0 until lit), so no shader compiles during play. Setting a level writes `emissiveIntensity` on that building's clones only. Every other building keeps the shared materials, untouched. **test**: 1 case, on a fixture of two buildings whose pieces share one material: the lit building's pieces carry the mask and its level, and the other building is unchanged.
+4. [ ] **The shopfront glass.** A lit building's `SM_Bld_Shop_*_Glass` dressing (its `dressDraws` entries) glows at the building's level. It is one more instanced mesh, over the dark glass, for all the job's buildings; the dark glass instancer is not edited. **test**: folded into criterion 3's case if it can be built from a fixture; otherwise **browser**, and the builder says why.
+5. [ ] **E2's glow and pool go for building lamps.** `cityview.ts`'s `LampGlow` sphere and circle stand only for `{ post }` lamps. **test**: 0 added. E2's cases pass; one is rewritten only if it asserts a building lamp's sphere, and the builder lists it.
+6. [ ] **The wall lamp goes.**
+   - `COMPONENT_MODELS.lampBuilding` gets `removed: { words: "Remove it (Recommended)", date: "2026-11-24" }` (`CircuitComponentPick.removed`, committed with this cut).
+   - `circuitDraws` stands no model and no placeholder for a removed pick, and `circuitKeyUses()` no longer lists its key.
+   - The lamp's place (the drop's wall point) still holds its pick proxy, `centreOn`, `placeAt` and its overlay icon, as E2 and E4 hold them.
+
+   **test**: 2 rewritten:
+   - K3b's "stands the City bracket at a drop's wall point ... the building lamp under it ..." (`circuitdraw.test.ts`) drops the lamp's height line, and asserts there is no lamp model and no wall lamp key;
+   - D3's "equals docs/design/081-component-picks.md row for row" (`componentmodels.test.ts`) also reads the Removed list.
+7. [ ] **The game pack.** `SM_Prop_Light_Wall_01` leaves `gameModelKeys()` (082 A). After merge the game pack is stale, and the page falls back to the full packs until the main session runs `npm run assets:game` again (082 B). The mask is made in code, so no texture or manifest changes. **no test**.
+8. [ ] **The frame measure, dev only.** `perf=1` in the address logs once, after 300 frames: draw calls, triangles, `gl.info.programs.length` and the median frame time. The builder reports these numbers on 6 x 6 seed 1 with P0, both before any power and after the Relight. It must show **no new program** between the first frame after the models load and the end of the Relight (criterion 3), and at most 1 more draw call (criterion 4). **browser**.
+9. [ ] Josh plays `city-two-ways-round` from `npm run dev`: the three lamp buildings start dark, light in the Relight's order and flicker in a brownout, and there is no wall lamp. **browser**.
+
+**Count.** 4 added, 2 rewritten: 6 (5 if criterion 4 is browser).
+
+**Files.**
+- new `src/render3d/windows.ts` and `windows.test.ts`. Under 2 s, except criterion 2(a)'s P0 view through the module cache; the builder gives its time;
+- `src/render3d/cityview.ts`: the lamp part of the live layer, the build step and the `perf=1` log; not `cityHit`, `jobFrame` or `loadCityView`;
+- `src/render3d/circuitdraw.ts` and `circuitdraw.test.ts`: the removed pick only;
+- `src/render3d/componentmodels.ts` and its test.
+
+**Must not:** `overlay.ts`; `plan3d.ts` and `models3d.ts` (read only); `src/city/`, `src/core/`, `src/ui/`, `src/main.ts`, `src/play/`, `tools/`.
+
+#### L2 · The light pool on the street (renderer). Branch `ticket/081l2-light-pool`, after L1 merges and L-Q4 is answered
+**Goal.** In front of a lit building, warm light lies on its pavement and on the street, rising and falling with its windows.
+
+**Acceptance criteria** (for "A painted glow on the ground (Recommended)"; if Josh picks "Real lights", the architect re-cuts L2 before it is built):
+1. [ ] **Where the pools lie.** A pure `poolPlaces(plan, buildingId)` in `windows.ts` gives one pool per street face of the building: each column's `front`, and a corner column's `side`, where the cell beyond is street (never a yard or a park). Each pool is centred on its face and reaches from the wall across the pavement and `POOL_ROAD_M` into the carriageway (default 3 m; Josh tunes it by eye). It is `POOL_WIDTH_M` wide (default the face's 5 m plus 2 m). **test**: 1 case on a fixture: a mid building on one street gets one pool per front column, a corner column gets two, and a face onto a yard gets none.
+2. [ ] **One instancer.** Every job lamp building's pools are one `InstancedMesh`:
+   - a soft warm gradient (a `DataTexture` made in code), additive, with no depth write, laid just above the ground as E2's pools are;
+   - each pool's opacity follows its building's `buildingGlow` level and flare;
+   - a dark building's pools are scaled to 0.
+
+   **test**: 1 case: a lit building's pools show at its level, a dark one's are hidden, and the mesh is one draw call however many buildings there are.
+3. [ ] **The budget.** Measured with L1's `perf=1` on 6 x 6 seed 1 with P0, from the default camera in a desktop window, after the Relight against before any power:
+   - at most 1 draw call more than L1's;
+   - no new program during play;
+   - a median frame time no more than **1.0 ms** worse.
+
+   The builder reports the numbers and the fps on Josh's PC. Over budget, the builder stops and reports. **browser**.
+4. [ ] Josh plays `city-two-ways-round` from the default camera and `cam=street`: the pools light with their buildings in the Relight and flicker in a brownout. **browser**.
+
+**Count.** 2 added.
+
+**Files.** `src/render3d/windows.ts` and `windows.test.ts`; `src/render3d/cityview.ts` (the pools in the live layer only). **Must not:** as L1.
+
+#### L3 · A few dim windows in the dead city (renderer). Branch `ticket/081l3-dim-windows`, after L1 merges and L-Q3 is answered
+**Goal.** Across the unpowered city, a scattering of window pieces glow faintly, like candle-light, never on a job lamp's building.
+
+**Acceptance criteria.**
+1. [ ] **Which pieces.** A pure `dimPieces(buildings, share, seed, exclude)` in `windows.ts`:
+   - picks floor and `floor3` pieces, never the ground storey or a roof;
+   - picks by a hash of the building id and piece index, so the pick is the same every load;
+   - picks about `share` of them, where `share` is Josh's L-Q3 pick (`DIM_SHARE`);
+   - picks no piece of a building in `exclude` (every job lamp's building; see the reading above).
+
+   **test**: 1 case on a fixture of about 200 pieces: the same pick twice, about `share` of them (within a tolerance the builder states), and none on an excluded building.
+2. [ ] **One material per source.** A dim piece takes a clone of its material with L1's mask at `DIM_LEVEL` (default 0.15 of lit). Josh's L-Q3 answer says whether it is steady or slowly flickers.
+   - Dim pieces share one clone per source material, made when the city builds.
+   - A flicker writes one intensity per clone per frame, never one per piece.
+
+   **test**: 1 case: two dim pieces on one material share one clone, and a piece that is not dim keeps the shared material.
+3. [ ] **Budget.** With L1's `perf=1`, the dim windows add no draw call and no program. **browser**.
+4. [ ] Josh views the city from the default camera and `cam=street` before any power: a few faint windows, none on the three lamp buildings. **browser**.
+
+**Count.** 2 added.
+
+**Files.** `src/render3d/windows.ts` and `windows.test.ts`; `src/render3d/cityview.ts` (one call in the build step). **Must not:** as L1.
+
+**Rules coverage.** L1 adds the city view's windows to two rows of `tickets/rules-coverage.md`: "The Relight can't be interrupted" (the ignition order now shows on windows; E2's case still holds the rule) and "Capacity: over it, brownout" (a lit building flickers).
+
 ### X1 · Delete the 2D map view (renderer). **Stub, not cut; not to be built yet**
 Josh, 24 Nov 2026: "Hide now, delete later (Recommended)". Cut in full once P2a's 16 pilots are on the city and Josh has said so. Expected:
 - **Goes:** `src/render/map-renderer.ts` and the 2D map's drawing modules and tests (most of `src/render/`).
@@ -1207,6 +1344,7 @@ Written into `src/core/` with this cut (typecheck passes):
   - `CityPuzzleView.district?` (E3's `loadCityView` writes it);
   - `CIRCUIT_SCENERY` (`"wallFitting"`, `"dropWire"`), `CircuitSceneryPiece` and `CircuitSceneryPick`, for K3b's `SCENERY_MODELS`. They are kept apart from `CIRCUIT_COMPONENTS`, so the overlay, the gallery's component view and `COMPONENT_MODELS` do not change.
 - **E4 (24 Nov 2026):** `overlayBreaks`, `OverlayBreak` and `overlayBreakHit` are internal to `src/render3d/`, so no core change. `OverlayLine`, `overlayLines` and `overlayLineHit` go.
+- **L, lit buildings (24 Nov 2026, committed with this cut; typecheck passes):** `CircuitComponentPick.removed?` (`{ words, date }`) in `src/core/citycircuit.ts`: nothing stands for a removed pick, its key is not loaded, and its place still counts. L1 sets it on `lampBuilding`. `windows.ts`'s exports (`WINDOW_UV`, `windowMask`, `buildingGlow`, `litBuilding`, `poolPlaces`, `dimPieces`) are internal to `src/render3d/`, so no other core change.
 - **Events:** none new.
 - **No new dependency.** The overlay is Canvas 2D.
 
@@ -1229,3 +1367,4 @@ All questions so far are answered (above), the mid-row one included ("Only when 
 6. ~~**Default U1 takes:** a city entry is named "... · city".~~ **Settled** (Josh, 24 Nov 2026: "I don't want 2D puzzles anymore."): the picker lists only city puzzles, under their own names. Whether a rework shows "(reworked)" waits for P2a's reworks to carry a flag in their files.
 7. ~~**Default U2 takes:** picking reloads the page between the views.~~ **Settled** by the same answer: there is only the 3D view, so there is no switch and no reload.
 8. **Default U2 takes (you may overturn it):** the prototype is played in `npm run dev` only. The city view is dev only (the pipeline renderer, and the pack GLBs a web build may not hold: Synty licence, 16 Nov 2026), so a production build shows one line saying so instead of a puzzle. A playable web build would be its own ticket.
+9. **Lit buildings (section L), four cards:** L-Q1 the lit window colour and L-Q2 a lamp on a roof structure (before L1); L-Q3 how many dim windows and how they burn (before L3); L-Q4 how the light pool is made (before L2). The options are worded in section L.

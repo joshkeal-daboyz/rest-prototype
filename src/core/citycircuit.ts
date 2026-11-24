@@ -256,6 +256,12 @@ export interface CircuitComponentPick {
   readonly words: string;
   /** YYYY-MM-DD. */
   readonly date: string;
+  /**
+   * Josh took the model away (081 L1: `lampBuilding`, Josh, 24 Nov 2026, on a card: "Remove it (Recommended)"; the lit building's windows show the lamp instead). Absent: the pick
+   * stands as `key` says. Present: nothing stands for the component, not even a placeholder, and `key` (kept as the history of his first pick) is not loaded. The component's place
+   * still counts: its overlay icon, its pick proxy, `centreOn` and `placeAt` are where the model stood.
+   */
+  readonly removed?: { readonly words: string; readonly date: string };
 }
 
 // ---- the circuit's scenery pieces Josh picks a model for (081 D4) ----
