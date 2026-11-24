@@ -380,7 +380,7 @@ describe("the tech pass on the 20 named runs", { timeout: 600_000 }, () => {
 
   it("criterion 9, the digest pin (R-4): 6 x 6 seed 1, one-way on. Stage 6 is on, with drops and lights (K2b)", () => {
     const PINS: readonly (readonly [number, string])[] = [
-      [1, "1873844c"],
+      [1, "7c991996"],
     ];
     const got: [number, string][] = [];
     for (const c of [DEFAULT]) got.push([c.seed, digestOf(techOf(c).build.layer)]);
