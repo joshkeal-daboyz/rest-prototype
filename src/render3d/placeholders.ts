@@ -6,7 +6,7 @@
 
 import { stableHash } from "../render/city";
 import { WORLD_PER_METRE, pickDistinct } from "./models";
-import { STOREY_M, type Lot, type LotType } from "./town";
+import { STOREY_M, type Lot, type LotType } from "./kitunits";
 
 /** The body's footprint, as a fraction of the lot, in each direction (chosen by hash). A terrace lot's body fills its lot (fraction 1). */
 export const FOOTPRINT_FACTORS = [0.8, 0.9] as const;

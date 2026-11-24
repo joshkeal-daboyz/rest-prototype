@@ -4,19 +4,9 @@ import { PerspectiveCamera, Scene, Vector3, type Camera } from "three";
 import { loadPuzzle, type Puzzle } from "../core";
 import { createCameraRig } from "./camera";
 import type { MapRenderer3d } from "./renderer";
-import {
-  STREET_CAM_BACK_M,
-  STREET_CAM_EYE_M,
-  STREET_CAM_FOV_DEG,
-  STREET_CAM_FOV_MAX_DEG,
-  STREET_CAM_LOOK_M,
-  createStreetView,
-  streetCamRequested,
-  streetMode,
-  streetPose,
-  streetRows,
-} from "./streetcam";
-import { WORLD_PER_METRE, townLayout, type Town } from "./town";
+import { STREET_CAM_FOV_MAX_DEG, createStreetView, streetCamRequested, streetMode, streetPose, streetRows } from "./streetcam";
+import { STREET_CAM_BACK_M, STREET_CAM_EYE_M, STREET_CAM_FOV_DEG, STREET_CAM_LOOK_M, WORLD_PER_METRE } from "./kitunits";
+import { townLayout, type Town } from "./town";
 
 const load = (id: string): Puzzle => loadPuzzle(JSON.parse(readFileSync(`puzzles/${id}.json`, "utf8")));
 const MAPS = ["09-shrine-circuit", "64-the-whole-chain"];
@@ -366,6 +356,6 @@ describe("dev only, and off by default", () => {
     const src = readFileSync("src/render3d/streetcam.ts", "utf8");
     expect(/location\./.test(src)).toBe(false);
     const imports = [...src.matchAll(/from\s+"([^"]+)"/g)].map((m) => m[1]!);
-    for (const i of imports) expect(["three", "./renderer", "./town"], i).toContain(i);
+    for (const i of imports) expect(["three", "./renderer", "./town", "./kitunits"], i).toContain(i);
   });
 });

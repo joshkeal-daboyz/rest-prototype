@@ -19,9 +19,10 @@ import { WORLD_PER_METRE } from "./models";
 import { allStackKeys, applyModels, avoidBoxOf, bandPacked, dressInput, dressSites, loadModels, stackInput, type DressPlacement, type ModelSet } from "./models3d";
 import { buildScene } from "./scene";
 import { STACK_STYLES, stackKeys } from "./stacks";
-import { ALLEY_MAX_M, ALLEY_MIN_M, packTown, type PackResult } from "./terrace";
+import { packTown, type PackResult } from "./terrace";
+import { ALLEY_MAX_M, ALLEY_MIN_M, type TerraceRun } from "./kitunits";
 import { stubTextSurface } from "./text";
-import { townLayout, type TerraceRun } from "./town";
+import { townLayout } from "./town";
 
 // ---- fixture: [name, width, height, depth] in metres, centred bounds ----
 const SIZES: [string, number, number, number][] = [

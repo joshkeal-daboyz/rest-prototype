@@ -10,7 +10,7 @@ import { scaleForPx } from "./captions";
 import { frontAxis, sizeOf } from "./models";
 import type { AppliedModels } from "./models3d";
 import type { SceneBundle } from "./scene";
-import type { CornerSide } from "./town";
+import type { CornerSide } from "./kitunits";
 import { createCaptionSprite, defaultTextSurface, type TextSurfaceFactory } from "./text";
 
 /** The arrow's red, one saturated colour that reads on any roof. */

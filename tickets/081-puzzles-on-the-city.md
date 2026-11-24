@@ -35,7 +35,7 @@ Asked from `docs/design/081-B1-roof-spans.md` section 9 (B1-Q1 to Q5) and `docs/
 - **B1-Q3.** Roof structures only where the live job uses them, or on every corner roof? **"On every corner roof"**. Roof structures stand on every street corner roof as scenery, used or not.
 - **B1-Q4.** Corner roofs only, or mid-row too? **"Mid-row as well"**. Roof structures may also stand on mid-row roofs.
   - Read with Q3, this is ambiguous: are mid-row structures always there, or only where a puzzle uses one? Josh answered it: see the next bullet.
-  - Mid-row places are unmeasured, so K2d and H4 wait for a fresh pre-check (B1q).
+  - Mid-row places were unmeasured, so K2d and H4 waited for a fresh pre-check (B1q). It held; see B1q's answer below.
 - **B1-Q2 (T-2).** For the street layer later, does a roof node count as reachable by a climb? **"On foot or by a climb (Recommended)"**.
   - 073's T-2 reads "on foot along pavement or road, or by a climb at its building" for roof nodes.
   - A street-scope line with a roof span is `overhead`.
@@ -47,12 +47,17 @@ Asked from `docs/design/081-B1-roof-spans.md` section 9 (B1-Q1 to Q5) and `docs/
   - A mid-row roof carries one only while a puzzle that uses it is played.
   - Roof spans are drawn only where a job uses them.
 
+- **B1q's question, mid-row roofs and stage 7** (`docs/design/081-B1q-precheck.md`, section 4; asked 23 Nov 2026): **"Only where clear (Recommended)"**.
+  - A mid-row roof structure stands only on a roof that stage 7 has left clear, and **nothing on a roof ever moves** for one.
+  - On seed 1, 440 of 990 mid-row roofs are clear.
+  - B1q's verdict on CK17 as B1b amended it: **holds** on the 20 named runs.
+
 **From the pre-check (no question).**
 - **Puzzle 15 fails CK14 however it is laid.** Each of its two feeds has 2 lines, and K1 Q10 gives a feed one entering span. It is a rework under answer 4.
-- **With roof nodes, 15 of the 16 pilot puzzles fit:**
-  - 01, 02, 05, 06, 08, 13 and 16 on poles, on 1 block;
-  - 03, 07, 09, 10 and 14 on 1 block, using roofs;
-  - 04, 11 and 12 on 2 blocks, using roofs.
+- **With roof nodes, 15 of the 16 pilot puzzles fit** (B1p). After B1q, with any node on a roof, neighbouring-block roofs and clear mid-row places, **all 15 fit on 1 block**:
+  - 01, 02, 05, 06, 08, 13 and 16 on poles;
+  - the rest using roofs;
+  - 04 and 12 using roofs on neighbouring blocks, and 12 also 7 clear mid-row places.
 - **No pole on seed 1 has more than 3 spans** (finding 2). So the 4-wire and 5-wire junctions of 03, 04, 07, 11 and 12 need roof `down` spans to add ports.
 - **Finding 3's corrections go into B1b:**
   - the keep square meets 26 small props on seed 1, not 14;
@@ -124,7 +129,7 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | # | Section | Owner | After | Tests in its PR |
 | --- | --- | --- | --- | --- |
 | A1 | Delete the old tile city (070 L2d) | renderer | G1 | about 4 added; about 250 removed |
-| A2a | Move the shared kit's constants out of the ladder files | renderer | A1 | 0 added (typecheck; every kept test passes unedited) |
+| A2a | Move the shared kit's constants out of the ladder files | renderer | A1 | 0 added; 5 rewritten (pins on where a name lives); import lines only in about 30 more |
 | A2b | Kept modules' tests stop building the ladder town (as L2c) | renderer | A2a | at most 15 rewritten; split A2b1, A2b2 if more |
 | A2d | `?view=3d` on a schematic puzzle opens the 2D map | ui | A2a | 2 |
 | A2c | Delete the ladder town | renderer | A2b, A2d | about 2 added; the ladder's tests removed |
@@ -133,7 +138,7 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | B1b | CK17 amended to Josh's B1 answers | puzzle-designer | now | 0 (a note) |
 | PK1 | The ground poles' mix and heights in `src/core/` (re-cut of merged 071 B) | lead-architect | now | 0 (typed data) |
 | PK2 | `powerkit.ts` reads the mix and heights from core | renderer | PK1 | 2 |
-| B1q | "pre-check 081 B1b": mid-row roofs, the real pole pick, neighbouring blocks | pipeline-designer | B1b, PK1 | 0 (a note) |
+| B1q | "pre-check 081 B1b": mid-row roofs, the real pole pick, neighbouring blocks | pipeline-designer | B1b, PK1 | **done**: holds (`ticket/081b1-roof-spans`, 555cf0e) |
 | C1 | The city puzzle validator | lead-architect | G1 | 6 |
 | K2a | Stage 6: poles and spans (CK1 to CK6, CK8; CK7 moves to K2d), not yet in `BUILT_STAGES` | grid-simulator | now | 9 |
 | K2a2 | Stage 6 switched on: `BUILT_STAGES`, the shared profiles, the tests that said circuit was not built | grid-simulator | K2a | at most 10 (about 7 rewritten) |
@@ -141,8 +146,8 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | K2c | The conversion (CK13 as changed, CK14, CK15) | grid-simulator | K2b, C1 | 10 |
 | K2d | Stage 6: the pole pick, CK7, roof structures and roof spans (CK17) | grid-simulator | K2c, PK1, B1q, Josh's mid-row answer (given) | at most 13 |
 | I2 | Stage 8 keeps clear of the circuit | landscape | K2b | 3 |
-| H4 | Stage 7's roof pieces keep clear of roof structures | facades | K2d (B1q measures the mid-row part) | 4 |
-| P1 | The fit tool and the city check | grid-simulator | K2c | 9 |
+| H4 | Stage 7's roof pieces keep clear of the corner roof structures | facades | K2d | 3 |
+| P1 | The fit tool and the city check (with the mid-row clearance check) | grid-simulator | K2c, K2d | 10 |
 | P2a | Puzzles 01 to 16 on the city (the pilot) | puzzle-designer | P1, K2d (9 of the 16 need roofs) | 0 |
 | P2b to P2d | Puzzles 17 to 64, 16 a batch | puzzle-designer | P2a, and Josh's word after playing it | 0 each |
 | D1 | The component shortlist | pipeline-designer | G1 | 0 (a note) |
@@ -187,12 +192,29 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 ### A2a · Move the shared kit's constants out of the ladder files (renderer). Branch `ticket/081a2a-kit-units`
 **Goal.** Nothing Josh can see changes. Every kept file (see *What the purge deletes*) reads the names it needs from `kitunits.ts`, or from another kept file, and imports nothing from `town.ts`, `terrace.ts`, `scene.ts`, `layout.ts` or `streetcam.ts`. The ladder files import those names from `kitunits.ts` too, until A2c deletes them.
 
-**Acceptance criteria.**
-1. [ ] The names listed under *Moves first* are in `src/render3d/kitunits.ts`, with values unchanged, and each importer reads them from there. No name stays defined in two places, and nothing is re-exported from a ladder file. **no test**: typecheck, and every existing test passes unedited, digest pins included.
-2. [ ] The report lists every name moved, and every ladder-only function in a kept file with whether `plan3d.ts`, `planview.ts`, `assetcatalogue.ts` or `assetviewer.ts` reaches it at run time. **no test**.
-3. [ ] `kitunits.ts` imports no three and no DOM. **no test**: A2c's grep covers it.
+**Re-cut 23 Nov 2026 (the lead-architect, on the builder's report at a8596fe).** The move broke two things the first cut said would not break. About 30 test files import a moved name, so their import lines must change to compile. Five cases pin where a name lives. **Re-exports are not the fix.** They would leave a name reachable in two places, which criterion 1 forbids, and A2c would delete them in the next PR anyway. So A2a edits those tests, as follows.
 
-**Files.** New `src/render3d/kitunits.ts`, and import lines plus the moved definitions in the `src/render3d/` files named under *Moves first* and their importers. **Must not:** behaviour, `src/city/`, `src/core/`, any test.
+**How tests are counted here** (test policy rule 0, "adds or rewrites at most 15 test cases (`it(...)`)"):
+- A change to a file's `import` lines only, with no `it(` or `describe(` body touched, is **not** a rewritten case.
+- A case whose body or expected values change **is** one.
+- The gate's count of `it(` / `test(` in the diff's added lines should then show only criterion 4's five. The builder lists both kinds in its report.
+
+**Acceptance criteria.**
+1. [ ] The names listed under *Moves first*, plus any the typecheck asked for (listed in the report), are in `src/render3d/kitunits.ts`, with values unchanged, and each importer reads them from there. No name is defined in two places, and nothing is re-exported from a ladder file. **no test**: the typecheck, and criterion 3.
+2. [ ] **Import lines only** in the test files that import a moved name (about 30), with no case body changed. **no test**: the report lists the files.
+3. [ ] Every other existing test passes with its cases unedited, digest pins included. **test** (existing).
+4. [ ] **The five pins on where a name lives** follow the move. Each keeps its strength, so it still fails when a name moves without its pin:
+   - `models.test.ts`: the import allow-list gains `./kitunits`;
+   - `powerkit.test.ts`: its pinned import list reads `./kitunits` where it read `./layout` (the `Vec3` type);
+   - `styleguide.test.ts`: its 3 cases key each moved constant to `kitunits.ts` instead of `town.ts`, `scene.ts` or `layout.ts`. `POLE_HEIGHT` is found again. The Numbers rows match. The constants count is back to 80 or more, at the count before the move, not lowered.
+
+   **test**: 5 rewritten. The PR has 0 added and 5 rewritten.
+5. [ ] **The guide's Numbers table** (`docs/city-style/numbers.md`) names `kitunits.ts` as the source file of each moved constant. Only that column, only for the moved rows. **no test**: criterion 4's `styleguide.test.ts` cases read it.
+6. [ ] The report lists every name moved, and every ladder-only function in a kept file with whether `plan3d.ts`, `planview.ts`, `assetcatalogue.ts` or `assetviewer.ts` reaches it at run time. **no test**. *Done at a8596fe:* `dressTown`, `furnitureLayout`, `alleyOf`, `openLotsOf`, `dressSites`, `furnitureInput`, `packTown` and `applyModels` are unreached. `PackResult`, `PackedBlock` and `packTown` (`terrace.ts`) are imported by `citymetrics.ts` and `models3d.ts` only for those ladder functions, so A2c deletes them together with their importing code.
+7. [ ] `kitunits.ts` imports no three and no DOM. **no test**: A2c's grep covers it.
+
+**Files.** New `src/render3d/kitunits.ts`; import lines plus the moved definitions in the `src/render3d/` files named under *Moves first* and their importers; the import lines of `src/render3d/*.test.ts` (criterion 2); the five cases of criterion 4; `docs/city-style/numbers.md` (criterion 5's column only). **Must not:** behaviour, `src/city/`, `src/core/`, any other test case.
+**Clash.** 080 B2 may also be editing `docs/city-style/`. Whichever of the two merges second rebases onto the other.
 
 ### A2b · Kept modules' tests stop building the ladder town (renderer). Branch `ticket/081a2b-kept-tests` (A2b2 if needed)
 **Goal.** As 070 L2c, for the ladder. No test of a kept file builds `townLayout`, `packTown` or `buildScene`, or reads a ladder map's town, for a check on code that stays.
@@ -306,6 +328,12 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 
 If it does not report "holds", its note goes to Josh before K2d and H4 are cut in full. **Files.** `docs/design/081-B1q-precheck.md`.
 
+**Done (23 Nov 2026): holds.** Josh answered its question, "Only where clear (Recommended)". Its corrections are folded in:
+- H4 covers corner roofs only;
+- K2c's CK14 line gains the neighbouring-roof exception;
+- the mid-row clearance check is P1's;
+- the Apocalypse figure is "0 of 594", not "0 of 1,801". This ticket never quoted it, so the fix is B1b's CK17d line, the designer's.
+
 ### C1 · The city puzzle validator (lead-architect). Branch `ticket/081c1-city-puzzle-loader`
 **Goal.** A city puzzle file (`puzzles/city/<id>.city.json`, type `CityPuzzle`) is checked for shape before any plan is built. The place checks against the city are K2c's.
 
@@ -386,6 +414,10 @@ If it does not report "holds", its note goes to Josh before K2d and H4 are cut i
 
    A run that goes along, round a corner on a carrier and on is **valid**. **test**: 3 fixture cases: a valid bent chain, a broken chain, a shared span.
 2. [ ] CK14's district checks. **test**: 2 fixture cases.
+   - The blocks touch.
+   - Each line uses only the district's spans, its feed's one entering span, **or roof spans to and between roof structures on the blocks one street beyond the district** (Josh, B1-Q5: "Neighbouring blocks too"). The merged line read "only the district's spans or its feed's span", which would reject the 1-block fits of 04 and 12.
+   - Each feed stands outside, joined by one entering span.
+   - One of the two cases is a line on a neighbouring block's roof, which passes. Until K2d types roofs, that case waits in K2d, and K2c's second case is a pole line past the edge, which fails.
 3. [ ] CK15's steps 1 to 6. The output passes `validatePuzzle` and has **the same node and line ids as the file**, none added. Each `pos` equals its place's metres over `CELL_M` within 1e-4. **test**: 2 cases.
 4. [ ] **Plays the same.** `city-two-ways-round` is written as a `.city.json` test fixture from its note's place table, with its corner junctions turned into carriers where the note allows. It converts to a `Puzzle` whose check block replays as the schematic's does. **test**: 1 case on 6 x 6 seed 1, one-way on.
 5. [ ] A problem names the node, line or fault and the CK rule. **test**: 1 case.
@@ -394,10 +426,11 @@ If it does not report "holds", its note goes to Josh before K2d and H4 are cut i
 **Files.** `src/city/circuit/`.
 
 ### K2d · Stage 6: the pole pick, CK7, roof structures and roof spans (grid-simulator, pure). Branch `ticket/081k2d-roof-spans`
-**Cut in full after** PK1, B1b and B1q. The architect first adds B1b's types to `src/core/citycircuit.ts` (`CityRoofMast`, the roof span kind, `{ roof }` as a place, `roofKeep`), then writes one criterion per line of CK17's "K2 checks" and "Fails". Known already, with expected tests:
+**Cut in full after** PK1, B1b and B1q (all done), and once K2c merges. The architect first adds B1b's types to `src/core/citycircuit.ts` (`CityRoofMast`, the roof span kind, `{ roof }` as a place, `roofKeep`), then writes one criterion per line of CK17's "K2 checks" and "Fails". Known already, with expected tests:
 - **The pole pick.** `poleModels` gives every pole its key by `poleAt`'s rule on PK1's mix. **test**: 1 case. PK2's same-pick case goes here if PK2 is merged first.
 - **CK7, moved from K2a.** Every crossing's low point is at least 4.2 m on its poles' real models; along and corner spans meet the same walk floor. **test**: 1 case.
-- **Roof structures** on every street corner roof (Q3), and on a mid-row roof only where a city puzzle uses one (Q4, "Only when used"). **test**: 2 cases.
+- **Roof structures** on every street corner roof (Q3). Mid-row roof places are offered for a city puzzle to use (Q4, "Only when used"). Whether a mid-row place is clear of stage 7 is checked by P1 after stage 7 ("Only where clear"), not here. **test**: 2 cases.
+- **The neighbouring-roof case of K2c's CK14 line**, if K2c could not test it before roofs were typed. **test**: 1 case, counted in the cap.
 - **Roof spans:**
   - roof to roof, or roof to pole (6c);
   - over an intersection for roof spans only (6a);
@@ -423,9 +456,10 @@ At most 13 cases. If B1b adds checks beyond these, the section splits into K2d1 
 **Files.** `src/city/ground/`.
 
 ### H4 · Stage 7's roof pieces keep clear of roof structures (facades, pure). Branch `ticket/081h4-roof-keep`
-Cut in full after K2d, with B1q's numbers on mid-row roofs.
-- **Expected:** the roof exit, the water tower, billboards and roof props (H3, H3b) keep clear of every roof structure's keep square (`roofKeep`), on corner roofs (about 26 props on seed 1) and on a mid-row roof wherever a city puzzle could put a structure (B1q counts them). A big prop that can't keep clear moves, or leaves the roof, as B1q measures.
-- **Tests:** 1 fixture case for a corner roof, 1 for a mid-row roof, 1 seed-1 case and 1 digest re-take.
+Cut in full after K2d.
+- **Expected:** stage 7's small roof props keep clear of every **corner** roof structure's keep square (`roofKeep`): 26 props on seed 1, 697 on the 20 runs (B1q). Big props never stand on corner columns (H3's RX).
+- **Mid-row roofs are not cleared** (Josh, B1q: "Only where clear (Recommended)"). A mid-row structure stands only where stage 7 has left the roof clear, and nothing on a roof moves for one. P1 checks that.
+- **Tests:** 1 fixture case for a corner roof; 1 fixture case showing a mid-row place is never cleared (its props stay); 1 digest re-take.
 - **Files** (expected): `src/city/facades/`.
 
 ### P1 · The fit tool and the city check (grid-simulator). Branch `ticket/081p1-fit-tool`
@@ -446,6 +480,7 @@ It writes a draft `puzzles/city/<NN-slug>.city.json` with `from` set. When there
 6. [ ] `npm run check puzzles/city/<id>.city.json`, and `npm run check` with no argument, check the city puzzles too. **test**: 2 cases in `tools/check.test.ts`.
 7. [ ] **One sweep in the suite.** Every `puzzles/city/*.city.json` validates, converts on 6 x 6 seed 1 (built once through the module cache), and its note's check block replays. **test**: 1 case. It may pass 2 s once the puzzles are in. It is the one place city puzzles' play is held, and it replaces a test per puzzle. The builder gives its time.
 8. [ ] The builder prints, once in its reply, which of 01 to 16 fit unchanged and what blocks each one that does not. **no test**.
+9. [ ] **The mid-row clearance check** (B1b's K2 check 11; Josh, B1q: "Only where clear"). A city puzzle may use a mid-row roof structure only where stage 7 has left that roof clear by the keep square. It runs on the plan after stage 7, so it is P1's (the city check and the fit), not K2d's: stage 6 can't see stage 7. A fit offers only clear mid-row places. **test**: 1 fixture case, where a used mid-row place under a roof prop fails.
 
 **Files.** New `tools/fit.ts`, `tools/fitrun.ts`, `tools/fit.test.ts`; `tools/check.ts`, `checkrun.ts`, `check.test.ts`; `package.json` (the `fit` script only).
 
@@ -455,8 +490,7 @@ P2b to P2d start only after Josh has played the pilot and said so in chat (answe
 
 **The pilot, from B1p.**
 - 01, 02, 05, 06, 08, 13 and 16 fit on poles, on 1 block.
-- 03, 07, 09, 10 and 14 fit on 1 block, using roof structures.
-- 04, 11 and 12 fit on 2 blocks, using roof structures.
+- 03, 04, 07, 09, 10, 11, 12 and 14 fit on 1 block, using roof structures (B1q). 04 and 12 use roofs on neighbouring blocks (K2c's CK14 exception), and 12 also uses 7 clear mid-row places (P1's check).
 - **15 is a rework** under answer 4: each of its feeds has 2 lines, and CK14 gives a feed one entering span.
 
 P1's own fits (criterion 8) are the record. P2a waits for K2d, because 9 of its 16 need roofs.
@@ -610,6 +644,10 @@ Written into `src/core/` with this cut (typecheck passes):
   - `src/core/powerpoles.ts` and `CityCircuitLayer.poleModels` (PK1).
   - `validateCityPuzzle` and `loadCityPuzzle` (C1);
   - "ladder" leaving `ASSET_GALLERY_USES` (on A2c's branch).
+- **E1's overlay signatures, as built** (internal to `src/render3d/`, so no core change): `overlayIcons(converted, state, project, ctx)` and `overlayLines(converted, state, project, ctx)`.
+  - `ctx` is `{ layer, width, height, time, pxPerMetre? }`.
+  - `project` returns the screen point and a boolean for "behind the camera".
+  - **This stands.** E1's criteria name the inputs, not their exact shape. E2 codes against the built shape, and the criteria are not edited.
 - **Events:** none new.
 - **No new dependency.** The overlay is Canvas 2D.
 

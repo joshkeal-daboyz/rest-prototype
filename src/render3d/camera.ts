@@ -8,7 +8,7 @@ import { PerspectiveCamera, Vector3 } from "three";
 import type { Puzzle } from "../core";
 import { circuitStreets, type CityRect } from "../render/city";
 import { ZOOM_STEP, puzzleBounds, type Insets, type Pan } from "../render/geometry";
-import { POLE_HEIGHT } from "./layout";
+import { POLE_HEIGHT } from "./kitunits";
 import type { PickSize } from "./pick";
 
 export const FOV_DEG = 40;

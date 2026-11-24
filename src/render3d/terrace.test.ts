@@ -15,29 +15,8 @@ import { wireLayout } from "./layout";
 import { FOOTPRINT_FACTORS, pickPlaceholders } from "./placeholders";
 import { buildScene } from "./scene";
 import { stubTextSurface } from "./text";
-import {
-  LAMP_HEAD_Y,
-  LOT_GAP,
-  NODE_TOP_Y,
-  OCCLUDE_SLOPE,
-  PARKING_D_M,
-  PARKING_MIN_RUN_BAYS,
-  PARKING_ONE_IN,
-  PARKING_W_M,
-  PLAZA_ONE_IN,
-  PLAZA_W_M,
-  SETBACK,
-  TERRACE_BAYS,
-  TERRACE_BAY_M,
-  TERRACE_CAPS_M,
-  TERRACE_DEPTH_M,
-  WIRE_CLEAR,
-  WORLD_PER_METRE,
-  townLayout,
-  type Lot,
-  type Town,
-  type TerraceRun,
-} from "./town";
+import { LAMP_HEAD_Y, LOT_GAP, NODE_TOP_Y, OCCLUDE_SLOPE, PARKING_MIN_RUN_BAYS, PARKING_ONE_IN, PLAZA_ONE_IN, TERRACE_BAYS, TERRACE_BAY_M, TERRACE_CAPS_M, townLayout, type Town } from "./town";
+import { PARKING_D_M, PARKING_W_M, PLAZA_W_M, SETBACK, TERRACE_DEPTH_M, WIRE_CLEAR, WORLD_PER_METRE, type Lot, type TerraceRun } from "./kitunits";
 
 const files = [...readdirSync("puzzles").filter((f) => f.endsWith(".json")), "lamp-row.grid.json"].map((f) => join("puzzles", f)).filter((f, i, all) => existsSync(f) && all.indexOf(f) === i);
 const load = (f: string): Puzzle => loadPuzzle(JSON.parse(readFileSync(f, "utf8")));

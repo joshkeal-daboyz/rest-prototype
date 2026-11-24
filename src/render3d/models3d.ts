@@ -17,42 +17,13 @@ import { TECH_BOUNDS } from "../city/tech/kit";
 import { KIT_KEYS as HOLDOUT_KIT_KEYS } from "../city/holdout/kit";
 import { KIT_KEYS as RUIN_KIT_KEYS } from "../city/ruin/kit";
 import { FURN_DRAW_CALLS_MAX, alleyOf, furnitureKeys, furnitureLayout, openLotsOf, type Alley, type AvoidBox, type FurnitureInput, type FurniturePiece, type Rect } from "./furniture";
-import {
-  BUILDING_EXCLUDE,
-  BUILDING_FRONTS,
-  MODEL_SLOTS,
-  MODEL_TABLE,
-  WORLD_PER_METRE,
-  atFront,
-  buildingPlan,
-  frontIsQuarter,
-  frontYaw,
-  isManifest,
-  meshFamily,
-  modelScale,
-  pickBuildings,
-  pickIndex,
-  planDressPieces,
-  planModels,
-  planStackPieces,
-  sizeOf,
-  poleYaw,
-  stackFamily,
-  stackStyleOf,
-  traitsOf,
-  type BuildingFront,
-  type FrontTable,
-  type ModelChoice,
-  type ModelSlot,
-  type PlannedModel,
-} from "./models";
+import { BUILDING_EXCLUDE, BUILDING_FRONTS, MODEL_SLOTS, MODEL_TABLE, WORLD_PER_METRE, atFront, buildingPlan, frontIsQuarter, frontYaw, isManifest, meshFamily, modelScale, pickBuildings, pickIndex, planDressPieces, planModels, planStackPieces, sizeOf, poleYaw, stackFamily, stackStyleOf, traitsOf, type BuildingFront, type FrontTable, type ModelChoice, type ModelSlot, type PlannedModel, } from "./models";
 import { pickPlaceholders } from "./placeholders";
 import type { ModelSlots, SceneBundle } from "./scene";
 import { STACK_STYLES, assembleStack, offeredStacks, seatOnBody, stackKeys, type Stack, type StackAlign, type StackFootprint, type StackPiece, type StackStyle } from "./stacks";
-import { ALLEY_MAX_M, ALLEY_MIN_M, alignOf, packTown, type PackedBlock, type PackResult } from "./terrace";
-import { PAVEMENT_Y, YARD, YARD_H } from "./scene";
+import { packTown, type PackedBlock, type PackResult } from "./terrace";
+import { ALLEY_MAX_M, ALLEY_MIN_M, alignOf, PAVEMENT_Y, YARD, YARD_H, LOT_TYPE_NAMES, TERRACE_DEPTH_M, type Lot, type Pt, type TerraceRun } from "./kitunits";
 import { DOOR_SILLS, STEPS_D_M, STEPS_KEY, STEPS_RISE_M, STEPS_W_M, fitSillBand, houseSill, modelPoint, stackLift, stackSill, stepsYaw, type SillPlan, type SillTable } from "./sills";
-import { LOT_TYPE_NAMES, TERRACE_DEPTH_M, type Lot, type Pt, type TerraceRun } from "./town";
 
 /** The dressing that stands on a ground piece and rises with it (ticket 062 B): a shop's glass, an awning or door canopy, a sign and the ATM beside a door. */
 const GROUND_DRESS: ReadonlySet<DressSlotKind> = new Set<DressSlotKind>(["glass", "awning", "sign", "wall"]);

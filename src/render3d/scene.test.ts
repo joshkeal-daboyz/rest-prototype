@@ -6,7 +6,8 @@ import { createGrid } from "../grid";
 import { ELEVATION, FOV_DEG, createCameraRig } from "./camera";
 import { captionTextPx } from "./captions";
 import { stubTextSurface } from "./text";
-import { NODE_BODY_Y, PHASE_OFFSET, POLE_HEIGHT, SAG_RATIO, SAG_SEGMENTS, SHADOW_Y, WIRE_RADIUS, canLayout, dropLayout, runPoints, shadowOf, wireLayout } from "./layout";
+import { NODE_BODY_Y, PHASE_OFFSET, SAG_RATIO, SAG_SEGMENTS, SHADOW_Y, WIRE_RADIUS, canLayout, dropLayout, runPoints, shadowOf, wireLayout } from "./layout";
+import { POLE_HEIGHT } from "./kitunits";
 import { ARM_LEN, INSULATOR_H, buildScene } from "./scene";
 import { townLayout } from "./town";
 

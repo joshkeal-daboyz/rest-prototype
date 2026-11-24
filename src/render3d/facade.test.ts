@@ -7,33 +7,10 @@ import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { AssetEntry, CalibrationKey } from "../core";
-import {
-  BODY_M,
-  OPEN_MARGIN,
-  OPEN_SIDE_MEASURED,
-  ROOF_BASE_BAND_M,
-  ROOF_BASE_MIN_SPAN_M,
-  ROOF_SPAN_TIE_M,
-  WALL_BAND_M,
-  WALL_FLOOR_REACH_M,
-  WALL_FRONT_M,
-  WALL_GROUND_Y_M,
-  WALL_MIN_AREA_M2,
-  WALL_OCTAGON_BASE_M,
-  WALL_PINNED,
-  WALL_REACH_M,
-  WALL_SIDE_M,
-  bodyRuleOf,
-  measureBodyPlane,
-  measureOpenSide,
-  measureRoofBase,
-  measureWallPlane,
-  wallOffset,
-  type WallRule,
-} from "./facade";
+import { BODY_M, OPEN_MARGIN, OPEN_SIDE_MEASURED, ROOF_BASE_BAND_M, ROOF_BASE_MIN_SPAN_M, ROOF_SPAN_TIE_M, WALL_BAND_M, WALL_FLOOR_REACH_M, WALL_FRONT_M, WALL_GROUND_Y_M, WALL_MIN_AREA_M2, WALL_OCTAGON_BASE_M, WALL_PINNED, WALL_REACH_M, WALL_SIDE_M, bodyRuleOf, measureBodyPlane, measureOpenSide, measureRoofBase, measureWallPlane, wallOffset, type WallRule, } from "./facade";
 import { BUILDING_FRONTS, type FrontTable } from "./models";
 import { STACK_STYLES, assembleStack, stackKeys, type StackStyle } from "./stacks";
-import type { CornerSide } from "./town";
+import type { CornerSide } from "./kitunits";
 
 // ---- a fixture copied from the converted City Pack manifest: [name, width, height, depth] in metres; bounds are centred ----
 const SIZES: [string, number, number, number][] = [

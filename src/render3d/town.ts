@@ -16,27 +16,20 @@
 
 import { placeName, type Puzzle } from "../core";
 import { GATE_POST, NODE_SQUARE, feedLanes, slotKind, stableHash, type CityRect, type SlotKind } from "../render/city";
-import { POLE_HEIGHT, wireLayout } from "./layout";
+import { wireLayout } from "./layout";
+import { POLE_HEIGHT } from "./kitunits";
+import { WORLD_PER_METRE, ROAD_W, PAVE_W, SETBACK, WIRE_CLEAR, STOREY_M, TERRACE_DEPTH_M, PARKING_W_M, PARKING_D_M, PLAZA_W_M, type LotType, LOT_TYPES, LOT_TYPE_NAMES, type Pt, type Lot, type CornerSide, type TerraceRun, type OpenLot } from "./kitunits";
 
 // ---- constants (ticket 041) ----
 
-/** World units per metre of a building: a 1.6-unit pole is about 9 m. (models.ts holds the same number; a test keeps them equal.) */
-export const WORLD_PER_METRE = 0.18;
 /** A line this long or longer is a street; a shorter one is a service run (pavement only). */
 export const STREET_MIN_LEN = 2.5;
-export const ROAD_W = 1.1;
 /** The road's near kerb is this far from the line it runs beside. */
 export const KERB_OFFSET = 0.4;
-export const KERB_H = 0.03;
-export const PAVE_W = 0.45;
 export const RING_MARGIN = 4;
 export const BLOCK_PITCH = 12;
 export const OUTER_RINGS = 1;
-/** A lot's front edge stands this far outside its pavement's outer edge. */
-export const SETBACK = 0.15;
 export const LOT_GAP = 0.1;
-/** A lot keeps this far (horizontally) from every wire. */
-export const WIRE_CLEAR = 0.25;
 /** The cursor's step along a frontage when no lot fits. */
 export const FILL_STEP = 0.25;
 /** A place is tried at every step of this along each frontage (finer than a lot's, as 2D tries a place on a 0.1 grid). */
@@ -54,7 +47,6 @@ export const OCCLUDE_SLOPE = 1 / Math.tan(((45 - 20) * Math.PI) / 180);
 /** Heights (world units) the occlusion rule protects: a node's top meets the wire; a lamp's head sits just above. */
 export const NODE_TOP_Y = POLE_HEIGHT;
 export const LAMP_HEAD_Y = POLE_HEIGHT + 0.05;
-export const STOREY_M = 3.2;
 export const PLACE_STOREYS = 2;
 /** A place is two storeys high. */
 export const PLACE_H = PLACE_STOREYS * STOREY_M * WORLD_PER_METRE;
@@ -63,37 +55,14 @@ export const PLACE_H = PLACE_STOREYS * STOREY_M * WORLD_PER_METRE;
 
 /** One bay of a terrace block, metres (the City Pack's apartment columns are 5.0 to 5.5 m; the packer in 051 C uses the pieces' true widths). */
 export const TERRACE_BAY_M = 5.2;
-/** A terrace lot is one bay deep, metres, like 050's stacks. */
-export const TERRACE_DEPTH_M = 6;
 /** A nominal terrace lot is this many bays wide, by hash. */
 export const TERRACE_BAYS = { min: 2, max: 4 } as const;
 /** The height caps a terrace lot may take, metres, highest first: 5, 4 and 3 storeys. The highest that clears the occlusion rule wins. */
 export const TERRACE_CAPS_M: readonly number[] = [16, 13, 10];
-/** An open lot for parked cars: one per run of at least `PARKING_MIN_RUN_BAYS` bays, where `stableHash(run id) % PARKING_ONE_IN === 0`. Metres. */
-export const PARKING_W_M = 10;
-export const PARKING_D_M = 10;
 export const PARKING_MIN_RUN_BAYS = 8;
 export const PARKING_ONE_IN = 3;
-/** A corner plaza (metres square) takes one row's corner in one outer block in `PLAZA_ONE_IN`, by `stableHash(block id)`. */
-export const PLAZA_W_M = 10.4;
 export const PLAZA_ONE_IN = 4;
 
-export type LotType = "small" | "house" | "large" | "tall";
-export interface LotSpec {
-  /** Metres along the road. */
-  frontage: number;
-  /** Metres away from the road. */
-  depth: number;
-  /** Height cap, metres. */
-  cap: number;
-}
-export const LOT_TYPES: Readonly<Record<LotType, LotSpec>> = {
-  small: { frontage: 12, depth: 13, cap: 12 },
-  house: { frontage: 16, depth: 19, cap: 15 },
-  large: { frontage: 25, depth: 28, cap: 16 },
-  tall: { frontage: 14, depth: 16, cap: 28 },
-};
-export const LOT_TYPE_NAMES: readonly LotType[] = ["small", "house", "large", "tall"];
 
 /** What a place of each kind stands on, metres: a whole lot, a quarter, one of a row of three homes. */
 export const PLACE_SIZES = {
@@ -104,10 +73,6 @@ export const PLACE_SIZES = {
 
 // ---- output types ----
 
-export interface Pt {
-  x: number;
-  z: number;
-}
 
 export type RoadKind = "line" | "feed" | "decor" | "ring" | "grid";
 
@@ -168,44 +133,7 @@ export interface TownBlock {
   maxZ: number;
 }
 
-export interface Lot {
-  /** Centre. */
-  x: number;
-  z: number;
-  /** Frontage (along the road) and depth (away from it), world units. */
-  w: number;
-  d: number;
-  /** Turn about y that points the lot's local +z (its front) at the road. */
-  yaw: number;
-  type: LotType;
-  /** Height cap, world units. */
-  hMax: number;
-  /** Unique and stable: road id, side, slot. */
-  key: string;
-  /** The road it faces. */
-  street: string;
-  side: 1 | -1;
-  /**
-   * A corner lot (ticket 042 A, Josh's rule of 17 Nov 2026): a side edge of the lot meets another road, so `cornerSides` is not empty. A row end that
-   * meets no other road is not a corner. Always `cornerSides.length > 0`. A corner shop (a model with two frontages) only stands on one of these.
-   */
-  corner: boolean;
-  /**
-   * Each side of the lot (its own frame: "+x" is `(cos yaw, -sin yaw)` in the world) whose edge lies within `CORNER_GAP` of another road's (not its own
-   * road's) pavement, with that cross road's id. The road's centreline must also lie toward that side (within `CORNER_ANGLE_MAX` of its outward axis).
-   * A side with two cross roads has two entries.
-   */
-  cornerSides: readonly CornerSide[];
-  /** Set on a terrace lot (ticket 051 B): the run it stands in, its place in it, and how many bays wide it is. Its `type` is "large" and its `hMax` one of `TERRACE_CAPS_M`. */
-  terrace?: { run: string; index: number; bays: number };
-}
 
-/** One side of a lot that meets a cross road. */
-export interface CornerSide {
-  side: "+x" | "-x";
-  /** The id of the cross road. */
-  road: string;
-}
 
 export interface PlaceBox {
   x: number;
@@ -230,48 +158,7 @@ export interface PlaceLot {
   street: string | null;
 }
 
-/**
- * A run of abutting terrace lots along one row of an outer block (ticket 051 B). `(ax, az)` is where the run starts on the row's front line (the lots'
- * front edge) and `(ux, uz)` the unit direction along it; `len` is how far the run may go before its far end (the next row's corner block, a plaza,
- * a parking lot, or the last lot that cleared). The nominal lots fill `len` to within one bay: the far gap is left for the packer (051 C).
- */
-export interface TerraceRun {
-  id: string;
-  /** The outer block it stands in. */
-  block: string;
-  /** The road it faces, and which side of that road's line. */
-  road: string;
-  side: 1 | -1;
-  /** Indices into `lots`, in order along the run. */
-  lots: readonly number[];
-  ax: number;
-  az: number;
-  ux: number;
-  uz: number;
-  len: number;
-  /** The corner side of its first lot at the run's start (a corner block turns there), or null (a plaza, a clearance gap or no cross road at the start). */
-  startCorner: CornerSide | null;
-  /** What stops the run at its far end: the next row's corner block, a plaza, a parking lot, or "end" (the next slot cleared no height cap). */
-  endAbuts: "corner" | "plaza" | "parking" | "end";
-  /**
-   * The run's pavement frame, metres from its front line toward the road (ticket 055 B): where the pavement's wall edge is and where its kerb is. Absent on every ladder
-   * run, which means today's `SETBACK / WORLD_PER_METRE` and `(PAVE_W + SETBACK) / WORLD_PER_METRE` (`WALL_EDGE_M` and `KERB_M` in furniture.ts). The tile city's runs
-   * stand on a 5 m pavement with no setback: `{ wall_m: 0, kerb_m: 5 }`.
-   */
-  frame?: { readonly wall_m: number; readonly kerb_m: number };
-}
 
-/** Open ground in a terrace row, where no building stands (052 C dresses it). It is never in `Town.lots`. */
-export interface OpenLot {
-  kind: "parking" | "plaza";
-  /** The run it ends (parking) or the run that starts after it (plaza). */
-  run: string;
-  x: number;
-  z: number;
-  w: number;
-  d: number;
-  yaw: number;
-}
 
 /** What `build` makes. Callers get it as a `Town`, which is read-only. */
 interface TownData {

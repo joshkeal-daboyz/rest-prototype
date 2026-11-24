@@ -8,25 +8,13 @@ import { existsSync, readFileSync } from "node:fs";
 import { BoxGeometry, Euler, Group, Matrix4, Mesh, MeshBasicMaterial, Object3D, Quaternion, Raycaster, Sprite, Vector3 } from "three";
 import { ASSET_MANIFEST_VERSION, type AssetEntry, type AssetManifest, type CalibrationFile, type CalibrationKey } from "../core";
 import { effectiveFronts } from "./calibration";
-import {
-  GALLERY_FRONTS,
-  buildGalleryScene,
-  galleryAction,
-  galleryEntries,
-  galleryHitAt,
-  galleryLayout,
-  galleryRectsOverlap,
-  galleryRequested,
-  stackGalleryLayout,
-  stackGalleryRequested,
-  type GalleryLayout,
-} from "./gallery";
+import { GALLERY_FRONTS, buildGalleryScene, galleryAction, galleryEntries, galleryHitAt, galleryLayout, galleryRectsOverlap, galleryRequested, stackGalleryLayout, stackGalleryRequested, type GalleryLayout, } from "./gallery";
 import { NO_MODELS, loadModels, stackEntries, stackGroup, stackRoots, type ModelSet } from "./models3d";
 import { WORLD_PER_METRE, planStackPieces, type FrontTable } from "./models";
 import { STACK_STYLES, assembleStack, stackRange, type StackSide } from "./stacks";
 import { STACK_VARIANTS, frontIsGuess, openOf, pieceCaption, recipePieceKeys, shownStacks, stackCaption, stackPieceEntries } from "./stackgallery";
 import { stubTextSurface } from "./text";
-import { LOT_TYPE_NAMES, type CornerSide } from "./town";
+import { LOT_TYPE_NAMES, type CornerSide } from "./kitunits";
 
 // ---- the fixture: [name, width, height, depth] in metres, copied from the converted City Pack manifest ----
 const SIZES: [string, number, number, number][] = [

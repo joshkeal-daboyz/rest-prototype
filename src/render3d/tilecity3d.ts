@@ -13,29 +13,7 @@
  * - `createCityRenderer3d` is the sheet's renderer, switched on in renderer.ts behind `import.meta.env.DEV`. It reads no address: renderer.ts passes the query string in.
  */
 
-import {
-  AmbientLight,
-  BoxGeometry,
-  BufferGeometry,
-  Color,
-  DirectionalLight,
-  DoubleSide,
-  Float32BufferAttribute,
-  Group,
-  InstancedMesh,
-  Matrix4,
-  Mesh,
-  MeshBasicMaterial,
-  MeshStandardMaterial,
-  Object3D,
-  PerspectiveCamera,
-  PlaneGeometry,
-  Quaternion,
-  Scene,
-  Vector3,
-  type Material,
-  type WebGLRenderer,
-} from "three";
+import { AmbientLight, BoxGeometry, BufferGeometry, Color, DirectionalLight, DoubleSide, Float32BufferAttribute, Group, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, Object3D, PerspectiveCamera, PlaneGeometry, Quaternion, Scene, Vector3, type Material, type WebGLRenderer, } from "three";
 import { calibrationKey, type AssetEntry, type CalibrationKey } from "../core";
 import type { CityRect } from "../render/city";
 import { stableHash } from "../render/city";
@@ -44,47 +22,11 @@ import { ELEVATION, FOV_DEG } from "./camera";
 import { scaleForPx } from "./captions";
 import { WORLD_PER_METRE } from "./models";
 import { meshParts, sharedTileModels, tileInput, type ModelSet } from "./models3d";
-import { KERB, PAVEMENT, STREET, YARD } from "./scene";
+import { KERB, PAVEMENT, STREET, YARD } from "./kitunits";
 import { addSurface, newLightOwners, setRendererMode } from "./lightrig";
 import { LANE_PATCH, LANE_RIGHT, PAVEMENT_FLUSH, PAVEMENT_GRATE, SIDEWALK_WALK_M, TILE_M, type BuildoutTree, type TileCell, type TileYaw, type TileRole } from "./tilecity";
 import { type KerbPlan } from "./kerbline";
-import {
-  GATE_COLOUR,
-  INTERIOR_KEYS,
-  INTERIOR_DRAW_CALLS_MAX,
-  KERB_LIP_TOP_M,
-  KERB_LIP_W_M,
-  KERB_STRIP_COLOUR,
-  PASSAGE_FLOOR_KEYS,
-  PAVING_SLAB_COLOUR,
-  STALL_DIVIDERS_X_M,
-  STALL_DIVIDER_L_M,
-  STALL_DIVIDER_W_M,
-  STALL_LINES_LIFT_M,
-  TILE_DRAW_CALLS_MAX,
-  TILE_LEVELS,
-  TILE_PATCH,
-  TILE_PROPS,
-  TILE_PROP_TURN,
-  TILE_SHEET_EXTRA,
-  TILE_SLOTS,
-  TILE_TREES,
-  gateParts,
-  type GatePlan,
-  passageFloorCells,
-  sheetColumns,
-  sheetLabel,
-  sheetLayout,
-  sheetLegend,
-  tileFront,
-  tileKeys,
-  tileLevelY_m,
-  type CityTilesRequest,
-  type GroundRect,
-  type InteriorItem,
-  type SheetLayout,
-  type SlotRole,
-} from "./tileslots";
+import { GATE_COLOUR, INTERIOR_KEYS, INTERIOR_DRAW_CALLS_MAX, KERB_LIP_TOP_M, KERB_LIP_W_M, KERB_STRIP_COLOUR, PASSAGE_FLOOR_KEYS, PAVING_SLAB_COLOUR, STALL_DIVIDERS_X_M, STALL_DIVIDER_L_M, STALL_DIVIDER_W_M, STALL_LINES_LIFT_M, TILE_DRAW_CALLS_MAX, TILE_LEVELS, TILE_PATCH, TILE_PROPS, TILE_PROP_TURN, TILE_SHEET_EXTRA, TILE_SLOTS, TILE_TREES, gateParts, type GatePlan, passageFloorCells, sheetColumns, sheetLabel, sheetLayout, sheetLegend, tileFront, tileKeys, tileLevelY_m, type CityTilesRequest, type GroundRect, type InteriorItem, type SheetLayout, type SlotRole, } from "./tileslots";
 import { createCaptionSprite, defaultTextSurface, type CaptionSprite, type TextSurfaceFactory } from "./text";
 import type { MapRenderer3d } from "./renderer";
 

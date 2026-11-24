@@ -19,22 +19,7 @@
  * No gates or passage floors are drawn.
  */
 
-import {
-  BoxGeometry,
-  Group,
-  InstancedMesh,
-  Matrix4,
-  Mesh,
-  MeshStandardMaterial,
-  Object3D,
-  PerspectiveCamera,
-  Quaternion,
-  Scene,
-  Vector3,
-  type Material,
-  type Texture,
-  type WebGLRenderer,
-} from "three";
+import { BoxGeometry, Group, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, Object3D, PerspectiveCamera, Quaternion, Scene, Vector3, type Material, type Texture, type WebGLRenderer, } from "three";
 import { type AssetEntry, type CalibrationKey, type CityBuildingsLayer, type CityCell, type CityEra, type CityEraPiece, type CityEraRun, type CityEraStageFailure, type CityFacadesLayer, type CityGroundPieceKind, type CityGroundCell, type CityGroundPlace, type CityGroundProp, type CityHoldoutPieceKind, type CityWallBox, type CityKerbPath, type CityMassLayer, type CityPieceRole, type CityPlacement, type CityPlan, type CityPlanRun, type CityRuinPieceKind, type CitySide, type CityStageFailure, type CityStreetsLayer, type CityTechPieceKind, type CityTrafficPieceKind } from "../core";
 import { CITY_ERAS } from "../core";
 import { CityResolveError, resolvePlan, runCity, runCityEra, stableHash } from "../city/pipeline";
@@ -54,28 +39,12 @@ import { STOP_SIGN_COLOURWAY } from "./colourway";
 import { allStackKeys, createColourwayCache, dressGroup, dressInput, furniturePlacement, paintStack, sharedTileModels, stackRoots, tileInput, type DressPlacement, type ModelSet } from "./models3d";
 import { planViewRequested } from "./planview";
 import type { MapRenderer3d } from "./renderer";
-import { GROUND } from "./scene";
-import { STREET_CAM_BACK_M, STREET_CAM_EYE_M, STREET_CAM_FOV_DEG, STREET_CAM_LOOK_M } from "./streetcam";
+import { GROUND, STREET_CAM_BACK_M, STREET_CAM_EYE_M, STREET_CAM_FOV_DEG, STREET_CAM_LOOK_M } from "./kitunits";
 import { SIDEWALK_WALK_M, TILE_M, type TileCell, type TileYaw } from "./tilecity";
 import { createCityRig, interiorGroupOf, propInput, tileGroupOf, tileKeyOf, type CityRig, type InteriorDraw, type TileDraw } from "./tilecity3d";
 import { CITY_GROUND_VARIANT as V } from "../core";
 import type { KerbFace, KerbPlan, Mp } from "./kerbline";
-import {
-  INTERIOR_DRAW_CALLS_MAX,
-  KERB_FACES_M,
-  KERB_INSET_M,
-  KERB_LIP_TOP_M,
-  STALL_LINES_LIFT_M,
-  INTERIOR_KEYS,
-  TILE_DRAW_CALLS_MAX,
-  TILE_FRONTS,
-  TILE_PROPS,
-  TILE_SLOTS,
-  TILE_TREES,
-  tileKeys,
-  type InteriorItem,
-  type InteriorKind,
-} from "./tileslots";
+import { INTERIOR_DRAW_CALLS_MAX, KERB_FACES_M, KERB_INSET_M, KERB_LIP_TOP_M, STALL_LINES_LIFT_M, INTERIOR_KEYS, TILE_DRAW_CALLS_MAX, TILE_FRONTS, TILE_PROPS, TILE_SLOTS, TILE_TREES, tileKeys, type InteriorItem, type InteriorKind, } from "./tileslots";
 import type { PropPlace } from "./tilecity3d";
 
 const S = WORLD_PER_METRE;

@@ -10,45 +10,14 @@ import { join } from "node:path";
 import { stableHash } from "../render/city";
 import { loadPuzzle, type AssetEntry, type CalibrationKey } from "../core";
 import { DRESS_MAX, DRESS_PER_BAY_MAX, ESCAPES, ESCAPE_MIN_BAYS, ESCAPE_SHARE_LADDER, KERB_FROM_FRONT_M, dressBlock, dressStack, dressTown, dressUnit, escapeSitesOf, type DressBlockInput, type DressPiece } from "./dressing";
-import {
-  CODE_ESCAPE,
-  CODE_ESCAPE_KEY,
-  ESCAPE_DECK_BELOW_SILL_M,
-  ESCAPE_DECK_TOL_M,
-  ESCAPE_FIRST,
-  ESCAPE_GEOMETRY,
-  ESCAPE_GROUND_TOL_M,
-  ESCAPE_JOINT_TOL_M,
-  ESCAPE_MID,
-  ESCAPE_SCALE_Y,
-  ESCAPE_TABLES,
-  ESCAPE_TOP,
-  LADDER_RAIL_M,
-  LADDER_RUNG_PITCH_M,
-  WINDOW_SILL_M,
-  codeEscape,
-  deckCovers,
-  escapeBlocks,
-  escapeCheck,
-  escapeRank,
-  ladderParts,
-  measureEscape,
-  measureSills,
-  planEscape,
-  sillOf,
-  storeysOfColumn,
-  storeysOfPiece,
-  upLevels,
-  type EscapeGeometry,
-  type EscapeSite,
-  type EscapePart,
-} from "./escapes";
+import { CODE_ESCAPE, CODE_ESCAPE_KEY, ESCAPE_DECK_BELOW_SILL_M, ESCAPE_DECK_TOL_M, ESCAPE_FIRST, ESCAPE_GEOMETRY, ESCAPE_GROUND_TOL_M, ESCAPE_JOINT_TOL_M, ESCAPE_MID, ESCAPE_SCALE_Y, ESCAPE_TABLES, ESCAPE_TOP, LADDER_RAIL_M, LADDER_RUNG_PITCH_M, WINDOW_SILL_M, codeEscape, deckCovers, escapeBlocks, escapeCheck, escapeRank, ladderParts, measureEscape, measureSills, planEscape, sillOf, storeysOfColumn, storeysOfPiece, upLevels, type EscapeGeometry, type EscapeSite, type EscapePart, } from "./escapes";
 import { runBlocks } from "./citymetrics";
 import { BUILDING_FRONTS } from "./models";
 import { STACK_STYLES, assembleStack, type Stack } from "./stacks";
 import { packTown, type PackedBlock } from "./terrace";
 import { TILE_CITY_R7_MIN } from "./oldvalues.fixture";
-import { LOT_TYPE_NAMES, WORLD_PER_METRE, townLayout, type TerraceRun } from "./town";
+import { townLayout } from "./town";
+import { LOT_TYPE_NAMES, WORLD_PER_METRE, type TerraceRun } from "./kitunits";
 
 const k = (name: string): CalibrationKey => `city-pack:${name}`;
 const CITY_PACK_GLB = join("assets", "private", "out", "city-pack.glb");

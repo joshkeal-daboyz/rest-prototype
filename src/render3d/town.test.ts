@@ -4,32 +4,10 @@ import { loadPuzzle, type Puzzle } from "../core";
 import { DEFAULT_SCALE, GATE_POST, NODE_SQUARE, footprintLayout, mapOrigin, slotKind } from "../render/city";
 import { puzzleBounds } from "../render/geometry";
 import { ELEVATION, FOV_DEG } from "./camera";
-import { POLE_HEIGHT, wireLayout } from "./layout";
+import { wireLayout } from "./layout";
+import { POLE_HEIGHT, LOT_TYPES, PAVE_W, ROAD_W, SETBACK, WIRE_CLEAR, WORLD_PER_METRE, type Pt } from "./kitunits";
 import { WORLD_PER_METRE as MODELS_WORLD_PER_METRE } from "./models";
-import {
-  BLOCK_PITCH,
-  FILL_STEP,
-  KERB_OFFSET,
-  LAMP_HEAD_Y,
-  LOT_GAP,
-  LOT_TYPES,
-  NODE_TOP_Y,
-  OCCLUDE_SLOPE,
-  PAVE_W,
-  PLACE_H,
-  PLACE_REACH,
-  PLACE_SIZES,
-  RING_MARGIN,
-  ROAD_W,
-  SETBACK,
-  STREET_MIN_LEN,
-  WIRE_CLEAR,
-  WORLD_PER_METRE,
-  gridCount,
-  townLayout,
-  type Pt,
-  type Town,
-} from "./town";
+import { BLOCK_PITCH, FILL_STEP, KERB_OFFSET, LAMP_HEAD_Y, LOT_GAP, NODE_TOP_Y, OCCLUDE_SLOPE, PLACE_H, PLACE_REACH, PLACE_SIZES, RING_MARGIN, STREET_MIN_LEN, gridCount, townLayout, type Town } from "./town";
 
 // ---- every map, loaded and laid out once ----
 
@@ -218,7 +196,7 @@ describe("town.ts is pure", () => {
     for (const l of imports) {
       const from = /from\s+["']([^"']+)["']/.exec(l);
       expect(from, l).not.toBeNull();
-      expect(["../core", "../render/city", "./layout"], l).toContain(from![1]);
+      expect(["../core", "../render/city", "./layout", "./kitunits"], l).toContain(from![1]);
     }
     expect(src).not.toMatch(/["']three["']/);
     for (const bad of ["../grid", "../play", "../ui", "../render/index", "../night"]) expect(src.includes(`"${bad}`)).toBe(false);

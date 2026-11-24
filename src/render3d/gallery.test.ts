@@ -5,51 +5,11 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { Group, Mesh, Object3D, PlaneGeometry, Raycaster, Sprite, Vector3 } from "three";
 import { ASSET_MANIFEST_VERSION, applyCalibrationPatch, validateCalibration, type AssetEntry, type AssetManifest, type CalibrationFile, type CalibrationKey, type CalibrationPatch } from "../core";
 import { declaredFrontDirection } from "./debug3d";
-import {
-  CLICK_SLOP_PX,
-  COPY_GAP,
-  COPY_LINE_UNITS,
-  CAPTION_WRAP,
-  GALLERY_DEFAULT_PACK,
-  GALLERY_ELEVATION_DEG,
-  GALLERY_FRONTS,
-  GALLERY_HELP,
-  GROUP_CAPTION_DROP,
-  GROUP_GAP,
-  GROUP_LINE_UNITS,
-  MIN_PX_PER_UNIT,
-  NON_BUILDING_PREFIXES,
-  buildGalleryScene,
-  captionPx,
-  createCalibrationSaver,
-  createGalleryEditor,
-  createGalleryRig,
-  galleryCopyCaption,
-  galleryAction,
-  galleryEntries,
-  galleryGroupCaption,
-  galleryLayout,
-  galleryMessage,
-  galleryPageCount,
-  galleryHitAt,
-  galleryPageRequested,
-  galleryRectsOverlap,
-  galleryRayAt,
-  galleryRequested,
-  isGalleryClick,
-  isPartName,
-  loadGalleryPack,
-  outlineStrips,
-  saveCalibrationPatch,
-  wrapName,
-  type GalleryLayout,
-  type GalleryLoadDeps,
-  type GallerySlot,
-} from "./gallery";
+import { CLICK_SLOP_PX, COPY_GAP, COPY_LINE_UNITS, CAPTION_WRAP, GALLERY_DEFAULT_PACK, GALLERY_ELEVATION_DEG, GALLERY_FRONTS, GALLERY_HELP, GROUP_CAPTION_DROP, GROUP_GAP, GROUP_LINE_UNITS, MIN_PX_PER_UNIT, NON_BUILDING_PREFIXES, buildGalleryScene, captionPx, createCalibrationSaver, createGalleryEditor, createGalleryRig, galleryCopyCaption, galleryAction, galleryEntries, galleryGroupCaption, galleryLayout, galleryMessage, galleryPageCount, galleryHitAt, galleryPageRequested, galleryRectsOverlap, galleryRayAt, galleryRequested, isGalleryClick, isPartName, loadGalleryPack, outlineStrips, saveCalibrationPatch, wrapName, type GalleryLayout, type GalleryLoadDeps, type GallerySlot, } from "./gallery";
 import { effectiveFronts } from "./calibration";
 import { BUILDING_FRONTS, MODEL_TABLE, WORLD_PER_METRE, atFront, frontAxis, frontIsQuarter, frontYaw, isManifest, lotTypeOf, type FrontTable, type ModelFront } from "./models";
 import { stubTextSurface } from "./text";
-import { LOT_TYPES, type Lot } from "./town";
+import { LOT_TYPES, type Lot } from "./kitunits";
 
 function entry(name: string, w: number, h: number, d: number, triangles: number, warnings: AssetEntry["warnings"] = []): AssetEntry {
   return { name, source: `${name}.fbx`, bounds: { min: [-w / 2, 0, -d / 2], max: [w / 2, h, d / 2] }, triangles, textures: [], missingTextures: [], warnings };

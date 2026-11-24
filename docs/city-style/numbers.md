@@ -6,53 +6,53 @@ The drift test (`styleguide.test.ts`) reads this table. The rule behind `POLE_SL
 
 | Constant | Value | File |
 | --- | --- | --- |
-| `WORLD_PER_METRE` | 0.18 | town.ts |
+| `WORLD_PER_METRE` | 0.18 | kitunits.ts |
 | `WORLD_PER_METRE` | 0.18 | models.ts |
 | `STREET_MIN_LEN` | 2.5 | town.ts |
-| `ROAD_W` | 1.1 | town.ts |
+| `ROAD_W` | 1.1 | kitunits.ts |
 | `KERB_OFFSET` | 0.4 | town.ts |
-| `KERB_H` | 0.03 | town.ts |
-| `PAVE_W` | 0.45 | town.ts |
+| `KERB_H` | 0.03 | kitunits.ts |
+| `PAVE_W` | 0.45 | kitunits.ts |
 | `RING_MARGIN` | 4 | town.ts |
 | `BLOCK_PITCH` | 12 | town.ts |
 | `OUTER_RINGS` | 1 | town.ts |
-| `SETBACK` | 0.15 | town.ts |
+| `SETBACK` | 0.15 | kitunits.ts |
 | `LOT_GAP` | 0.1 | town.ts |
-| `WIRE_CLEAR` | 0.25 | town.ts |
+| `WIRE_CLEAR` | 0.25 | kitunits.ts |
 | `FILL_STEP` | 0.25 | town.ts |
 | `PLACE_STEP` | 0.1 | town.ts |
 | `CORNER_GAP` | 0.5 | town.ts |
 | `CORNER_ANGLE_MAX` | 45 | town.ts |
 | `ROW_MIN_SMALLS` | 2 | town.ts |
 | `PLACE_REACH` | 2.5 | town.ts |
-| `STOREY_M` | 3.2 | town.ts |
+| `STOREY_M` | 3.2 | kitunits.ts |
 | `PLACE_STOREYS` | 2 | town.ts |
 | `OCCLUDE_SLOPE` | 2.1445069205 | town.ts |
 | `NODE_TOP_Y` | 1.6 | town.ts |
 | `LAMP_HEAD_Y` | 1.65 | town.ts |
-| `LOT_TYPES.small` | 12 x 13 x 12 | town.ts |
-| `LOT_TYPES.house` | 16 x 19 x 15 | town.ts |
-| `LOT_TYPES.large` | 25 x 28 x 16 | town.ts |
-| `LOT_TYPES.tall` | 14 x 16 x 28 | town.ts |
+| `LOT_TYPES.small` | 12 x 13 x 12 | kitunits.ts |
+| `LOT_TYPES.house` | 16 x 19 x 15 | kitunits.ts |
+| `LOT_TYPES.large` | 25 x 28 x 16 | kitunits.ts |
+| `LOT_TYPES.tall` | 14 x 16 x 28 | kitunits.ts |
 | `PLACE_SIZES.whole` | 10 x 10 | town.ts |
 | `PLACE_SIZES.quarter` | 6 x 6 | town.ts |
 | `PLACE_SIZES.home` | 6 x 8 | town.ts |
 | `TERRACE_BAY_M` | 5.2 | town.ts |
-| `TERRACE_DEPTH_M` | 6 | town.ts |
+| `TERRACE_DEPTH_M` | 6 | kitunits.ts |
 | `TERRACE_BAYS` | 2 x 4 | town.ts |
 | `TERRACE_CAPS_M[0]` | 16 | town.ts |
 | `TERRACE_CAPS_M[1]` | 13 | town.ts |
 | `TERRACE_CAPS_M[2]` | 10 | town.ts |
-| `PARKING_W_M` | 10 | town.ts |
-| `PARKING_D_M` | 10 | town.ts |
+| `PARKING_W_M` | 10 | kitunits.ts |
+| `PARKING_D_M` | 10 | kitunits.ts |
 | `PARKING_MIN_RUN_BAYS` | 8 | town.ts |
 | `PARKING_ONE_IN` | 3 | town.ts |
-| `PLAZA_W_M` | 10.4 | town.ts |
+| `PLAZA_W_M` | 10.4 | kitunits.ts |
 | `PLAZA_ONE_IN` | 4 | town.ts |
-| `TERRACE_SEAM_M` | 0.1 | terrace.ts |
+| `TERRACE_SEAM_M` | 0.1 | kitunits.ts |
 | `TERRACE_SLACK_M` | 0.15 | terrace.ts |
-| `ALLEY_MIN_M` | 1 | terrace.ts |
-| `ALLEY_MAX_M` | 1.5 | terrace.ts |
+| `ALLEY_MIN_M` | 1 | kitunits.ts |
+| `ALLEY_MAX_M` | 1.5 | kitunits.ts |
 | `STACK_FLOORS.small` | 1 | stacks.ts |
 | `STACK_FLOORS.house` | 1 | stacks.ts |
 | `STACK_FLOORS.large` | 2 | stacks.ts |
@@ -72,14 +72,14 @@ The drift test (`styleguide.test.ts`) reads this table. The rule behind `POLE_SL
 | `POLYGON_MIN_FAMILIES.house` | 4 | models.ts |
 | `POLYGON_MIN_FAMILIES.large` | 4 | models.ts |
 | `POLYGON_MIN_FAMILIES.tall` | 3 | models.ts |
-| `POLE_HEIGHT` | 1.6 | layout.ts |
+| `POLE_HEIGHT` | 1.6 | kitunits.ts |
 | `POLE_SPACING` | 3 | layout.ts |
 | `SAG_RATIO` | 0.04 | layout.ts |
 | `WIRE_RADIUS` | 0.03 | layout.ts |
 | `PHASE_OFFSET` | 0.22 | layout.ts |
 | `BREAK_GAP` | 0.3 | layout.ts |
 | `HANG_DROP` | 0.6 | layout.ts |
-| `WIRE_PICK_RADIUS` | 0.3 | layout.ts |
+| `WIRE_PICK_RADIUS` | 0.3 | kitunits.ts |
 | `DROP_REACH` | 2.5 | layout.ts |
 | `DROP_DROP` | 0.2 | layout.ts |
 | `DROP_END_Y` | 0.5 | layout.ts |
@@ -87,11 +87,11 @@ The drift test (`styleguide.test.ts`) reads this table. The rule behind `POLE_SL
 | `CAN_DROP` | 0.3 | layout.ts |
 | `ELEVATION` | 0.7853981634 | camera.ts |
 | `FOV_DEG` | 40 | camera.ts |
-| `GROUND` | 0x0e131d | scene.ts |
-| `YARD` | 0x141c29 | scene.ts |
-| `STREET` | 0x1a2331 | scene.ts |
-| `PAVEMENT` | 0x3d4658 | scene.ts |
-| `KERB` | 0x9aa4b6 | scene.ts |
+| `GROUND` | 0x0e131d | kitunits.ts |
+| `YARD` | 0x141c29 | kitunits.ts |
+| `STREET` | 0x1a2331 | kitunits.ts |
+| `PAVEMENT` | 0x3d4658 | kitunits.ts |
+| `KERB` | 0x9aa4b6 | kitunits.ts |
 | `CENTRE_LINE` | 0x7a7863 | scene.ts |
 | `PLACE` | 0x3a4a68 | scene.ts |
 | `POLE_WOOD` | 0x8b6b4a | scene.ts |
@@ -176,11 +176,11 @@ The drift test (`styleguide.test.ts`) reads this table. The rule behind `POLE_SL
 | `FURN_DRAW_CALLS_MAX` | 80 | furniture.ts |
 | `WALL_EDGE_M` | 0.8333333333 | furniture.ts |
 | `KERB_M` | 3.3333333333 | furniture.ts |
-| `STREET_CAM_BACK_M` | 26 | streetcam.ts |
-| `STREET_CAM_EYE_M` | 9 | streetcam.ts |
-| `STREET_CAM_LOOK_M` | 6 | streetcam.ts |
+| `STREET_CAM_BACK_M` | 26 | kitunits.ts |
+| `STREET_CAM_EYE_M` | 9 | kitunits.ts |
+| `STREET_CAM_LOOK_M` | 6 | kitunits.ts |
 | `STREET_CAM_YAW_DEG` | 35 | streetcam.ts |
-| `STREET_CAM_FOV_DEG` | 50 | streetcam.ts |
+| `STREET_CAM_FOV_DEG` | 50 | kitunits.ts |
 | `STREET_CAM_FOV_MAX_DEG` | 85 | streetcam.ts |
 | `CITY_CHECK` | 0.9 x 1 x 1 x 1 x 0.55 x 0.5 x 0.5 x 0.9 x 0 x 0 x 1 x 0 x 1 | citymetrics.ts |
 | `CITY_ATM_BLOCKS_MIN` | 0.15 | citymetrics.ts |
