@@ -225,7 +225,25 @@ export interface CityPuzzleConverted {
   readonly cuts: Readonly<Record<string, string>>;
   /** The origin `pos` is measured from (CK15 step 2), in metres. */
   readonly origin_m: { readonly x_m: number; readonly z_m: number };
+  /**
+   * 081 S1 (Josh, 24 Nov 2026: "I would like all buildings to receive power if they are connected to the feed"; on cards "Drop on a live pole (Recommended)", "Yes, they add load",
+   * "Whole", "Dark"): each scenery building that the conversion hung on the job, by building id, to the hidden lamp that stands for it. Several buildings at one attachment share
+   * one lamp, whose `load` is their count x `SCENERY_BUILDING_LOAD`. The renderer lights the building's windows and glows its drop (`drop:<building id>`) from that lamp's state.
+   * Optional until S1's converter writes it; absent or empty means no scenery is powered.
+   */
+  readonly scenery?: Readonly<Record<string, string>>;
+  /**
+   * 081 S1: every node and line id the conversion added to `puzzle` (the split junctions and segments, the scenery lamps and their lines), none of them in the file. A hidden id
+   * has no entry in `places` or `runs`, is never in `target`, and gets no overlay icon, no pick, no HUD line and no Relight sound. Optional until S1 writes it.
+   */
+  readonly hidden?: readonly string[];
 }
+
+/**
+ * What one scenery building draws on the feed, in lamp-loads (081 S1; Josh, 24 Nov 2026, on a card: "Whole"). Capacity and fuse ratings are Draft (the brief, "New for the
+ * minigame"), and each city puzzle's are raised by the scenery its intended solution lights (Josh: "Raise (Recommended)"; P1 writes them).
+ */
+export const SCENERY_BUILDING_LOAD = 1;
 
 /**
  * A city puzzle opened for play (081 E2 and U2): the plan it was converted on, and its conversion. `src/render3d`'s `loadCityView` builds it, with one plan per city per

@@ -102,6 +102,7 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 - **The GDD's Decided rules (the brief's "Rules carried over") are law.** A city form is laid out differently and plays by the same rules on `src/grid/` unchanged.
   - **A city puzzle laid from a schematic unchanged** (its `from` set and no rework) keeps exactly the schematic's nodes, lines, faults, parts, loads, ratings, capacities and targets (answer 5). Its check block is the schematic's, copied, and gives the same outcomes.
   - **A reworked puzzle** (answer 4) is a new puzzle: its own check block, its own analyzer numbers, and a note that says what changed and why.
+  - **Amended 24 Nov 2026 (section S; Josh, on cards: "Yes, they add load", "Raise (Recommended)", "Whole").** Every city puzzle's scenery buildings on its live poles draw on its feed, so "unchanged" now means: the schematic's nodes, lines, faults, parts, loads and targets, with **only** its feed capacities and fuse ratings raised by the scenery load its check block's solution lights (P1 writes them). Such a puzzle is **raised, not reworked** (the architect's reading): its check block is the schematic's, copied, and gives the same outcomes; its analyzer's fewest clicks, winning configs and dead first moves equal the schematic's; its note has one **What changed** line giving the old and new numbers. A puzzle that does not play the same when raised (09 and 12 at "Whole", per `docs/design/081-all-connected-powered.md`) is a rework.
 - **`src/grid/` and `src/night/` are not touched.** `src/city/circuit/` is pure: no DOM, canvas or three, and it imports only `src/core/` and `src/city/`.
 - **Josh's K1 answers hold except as changed on 23 Nov:**
   - CK5's corner spans are never over a carriageway.
@@ -151,8 +152,8 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | K2d2 | Roof nodes, runs through roofs, CK14 for roofs, the conversion (CK17e to g) | grid-simulator | K2d1 | **done** (PR #42; Josh, 24 Nov 2026: "Merge K2d2 (Recommended)") |
 | I2 | Stage 8 keeps clear of the circuit | landscape | K2b | **done** (PR #39; Josh, 24 Nov 2026: "Merge I2") |
 | H4 | Stage 7's roof pieces keep clear of the corner roof structures | facades | K2d1 | 3 |
-| P1 | The fit tool and the city check (with the mid-row clearance check) | grid-simulator | K2c, K2d2 | 10 |
-| P2a | Puzzles 01 to 16 on the city (the pilot) | puzzle-designer | P1, K2d2 (9 of the 16 need roofs) | 0 |
+| P1 | The fit tool and the city check (with the mid-row clearance check), and the raised numbers (criteria 10 and 11, section S) | grid-simulator | K2c, K2d2, **S1** | 12 |
+| P2a | Puzzles 01 to 16 on the city (the pilot), raised; 09 and 12 hand-fixed (section S) | puzzle-designer | P1, K2d2 (9 of the 16 need roofs), S1 | 0 |
 | P2b to P2d | Puzzles 17 to 64, 16 a batch | puzzle-designer | P2a, and Josh's word after playing it | 0 each |
 | D1 | The component shortlist | pipeline-designer | G1 | 0 (a note) |
 | D2 | The gallery's component view | ui | D1 | 5 |
@@ -169,6 +170,13 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | D4 | The wall fitting shortlist, and the drop wire's gauge | pipeline-designer | now | 0 (a note) |
 | K3b | The drops drawn attached: a real insulator, the City bracket, `POWER_LINE` kept | renderer | now (Josh's D4 picks are in; K2e not needed) | 3 (1 added, 2 rewritten); 4 if the R12 case must change |
 | E4 | The overlay shows icons, not lines: the break icon at the real cut; clicks go icons, then 3D | renderer | E3 (shares `cityview.ts`) | 0 added, 4 rewritten, 1 removed |
+| L1 | The lit building's windows; the wall lamp goes | renderer | E4 | **done** (PR #55) |
+| L2 | Real lights on the street, the cap raised to 32 under a measured stop rule (re-cut 24 Nov 2026) | renderer | L1 (in) | 2 |
+| L3 | A few dim windows in the dead city (1 in 25, steady amber) | renderer | L1 (in) | 2 |
+| S1 | Scenery buildings on the job's live poles in the conversion: hidden lamps and junctions, `scenery`, `hidden`, P0's raised capacity line | grid-simulator | now (core types are in) | at most 9 (5 added, 2 rewritten, at most 2 more under its stop rule) |
+| P0r | P0's note re-opened with its raised numbers | puzzle-designer | S1 | 0 |
+| S4 | Scenery drawn live: live drops glow and pulse, scenery windows through L1's path, their street lights | renderer | S1, L2 (shares `cityview.ts`) | 3 |
+| U3 | Hidden lamps make no Relight sound | ui | S1 | 1 |
 | X1 | **Stub, not cut:** delete the 2D map view (`src/render/`) | renderer | P2a, and Josh's word | removals; about 2 added |
 | X2 | **Stub, not cut:** delete the 2D side of `src/ui/` and `main.ts` | ui | X1 | removals; 0 added |
 | R1 | **Stub, not cut:** retarget the release playtest harness to city puzzles | (at cut) | before the next release | at cut |
@@ -470,6 +478,8 @@ If it does not report "holds", its note goes to Josh before K2d and H4 are cut i
 ### K2c · The conversion (grid-simulator, pure). Branch `ticket/081k2c-circuit-convert`. **Done**
 **Merged into `main`** (PR #38). Josh, 24 Nov 2026, on a card: **"Merge K2c"**. Review: `reviews/081-K2c-circuit-convert.md` (round 2: meets, must-fix 0). Criterion 2's neighbouring-roof case waits in K2d2, as written there. The review's round-2 note (two lines whose spans each end at one pole with a drop there are refused, "also carries") stands as built: it is CK13 as written. K2d2 says what it means for roofs.
 
+**Re-opened by section S (24 Nov 2026).** S1 changes the conversion: criterion 3's "none added" flips (the file's ids stay; hidden ids are added and listed in `hidden`), and criterion 4's "plays the same" case moves with P0's raised capacity. Both cases are rewritten by S1, not here.
+
 **Goal.** `convertCityPuzzle(cityPuzzle, plan): CityPuzzleConverted` turns a city puzzle into a plain `Puzzle` that `src/grid/` runs unchanged (CK15), with the places, runs and cut spans the 3D view needs. Carrier poles (answer 5) never become nodes.
 
 **Acceptance criteria.**
@@ -678,13 +688,24 @@ It writes a draft `puzzles/city/<NN-slug>.city.json` with `from` set. When there
 **Acceptance criteria.**
 1. [ ] A 5-node chain fits on a fixture city. The draft validates and converts. **test**: 1 case.
 2. [ ] A miss names the shortfall. For example, a schematic with more switches than the district has 3-attachment poles reports "no fit: switch, needs 4, district has 3", and nothing is written. **test**: 1 case.
-3. [ ] A fitted draft converts to a `Puzzle` with the schematic's node, line and fault ids, types, loads, ratings, capacities, parts, targets and line endpoints. **test**: 2 cases.
+3. [ ] A fitted draft converts to a `Puzzle` with the schematic's node, line and fault ids, types, loads, ratings, capacities, parts, targets and line endpoints. **test**: 2 cases. **Amended by section S:** the file's ids, types, loads, parts, targets and endpoints are the schematic's, plus S1's hidden ids (`converted.hidden`); its capacities and ratings are the raised ones of criterion 10. The fixture city's district may hold no scenery building, so one of the two cases keeps the schematic's numbers exactly.
 4. [ ] The same inputs give the same draft. **test**: 1 case.
 5. [ ] The search stops at `FIT_BUDGET` steps and reports "gave up". **test**: 1 case.
 6. [ ] `npm run check puzzles/city/<id>.city.json`, and `npm run check` with no argument, check the city puzzles too. **test**: 2 cases in `tools/check.test.ts`.
 7. [ ] **One sweep in the suite.** Every `puzzles/city/*.city.json` validates, converts on 6 x 6 seed 1 (built once through the module cache), and its note's check block replays. **test**: 1 case. It may pass 2 s once the puzzles are in. It is the one place city puzzles' play is held, and it replaces a test per puzzle. The builder gives its time.
 8. [ ] The builder prints, once in its reply, which of 01 to 16 fit unchanged and what blocks each one that does not. **no test**.
 9. [ ] **The mid-row clearance check** (B1b's K2 check 11; Josh, B1q: "Only where clear"). A city puzzle may use a mid-row roof structure only where stage 7 has left that roof clear by the keep square. It runs on the plan after stage 7, so it is P1's (the city check and the fit), not K2d's: stage 6 can't see stage 7. A fit offers only clear mid-row places. **test**: 1 fixture case, where a used mid-row place under a roof prop fails.
+
+10. [ ] **The raised numbers (section S; Josh, 24 Nov 2026: "Raise (Recommended)", "Whole").** `raiseForScenery(cityPuzzle, plan, solution)` in `tools/fit.ts` converts the puzzle (S1), replays `solution` on `src/grid/` with every capacity and rating unlimited, once with the scenery lamps' load and once without, and returns the file with:
+    - each feed's `capacity` (or the top-level `capacity`) raised by the extra load that feed carries at the end of the solution;
+    - each rated fusebox's `rating` raised by the extra load through it at the end of the solution.
+
+    The schematic's numbers are integers and `SCENERY_BUILDING_LOAD` is 1, so the raised numbers are integers (no rounding; the pre-check's 0.1 failures do not arise). `solution` is the schematic note's check block's. The fit writes the raised numbers into every draft; `npm run fit -- --raise puzzles/city/<id>.city.json` rewrites an existing city file's numbers in place (for P0 and hand reworks). **test**: 1 fixture case: a feed and a rated fusebox with scenery on a carrier past the fuse, raised by exactly that scenery.
+11. [ ] **P0 agrees.** `raiseForScenery` on P0's file as S1 left it (`capacity` already raised) gives it back unchanged, from its note's solution. **test**: 1 case, on 6 x 6 seed 1 through the module cache; it may share criterion 7's plan.
+
+**Stop rule (section S).** The builder stops and reports ("stop 081 P1", with the branch) if a pilot it fits does not play the same when raised (start, the check block, the analyzer's fewest clicks, winning configs and dead first moves) and is not 09 or 12, which the pre-check already found fail at "Whole". It lists each with what differs; P2a's designer reworks it under answer 4.
+
+**Count.** 12 added: criteria 1 to 7 and 9 as first cut (10), and 10 and 11 (2). Criterion 3's amendment changes what its two cases assert, not how many.
 
 **Files.** New `tools/fit.ts`, `tools/fitrun.ts`, `tools/fit.test.ts`; `tools/check.ts`, `checkrun.ts`, `check.test.ts`; `package.json` (the `fit` script only).
 
@@ -698,6 +719,12 @@ P2b to P2d start only after Josh has played the pilot and said so in chat (answe
 - **15 is a rework** under answer 4: each of its feeds has 2 lines, and CK14 gives a feed one entering span.
 
 P1's own fits (criterion 8) are the record. P2a waits for K2d, because 9 of its 16 need roofs.
+
+**Raised, and 09 and 12 (section S; Josh, 24 Nov 2026: "Raise (Recommended)", "Whole").** P2a also waits for S1 and P1's criteria 10 and 11. Every pilot's draft comes from the fit with its capacities and ratings raised. A pilot that plays the same raised is **raised, not reworked** (see "Rules this ticket holds"): the schematic's check block copied, the analyzer's numbers equal, one **What changed** line with the old and new numbers. The pre-check (`docs/design/081-all-connected-powered.md`, section 2) found two that do not, at "Whole":
+- **09 · `fb_A` blows at once.** Its start lights more scenery under `fb_A` (rating 3) than its win does, so raising by the win's scenery leaves the start over the rating. **The fix, in this order:** (a) a re-lay that keeps `fb_A`'s branch off poles with scenery drops (another district or route than the fit's first, through `--blocks` and the designer's own runs), so the start and the win carry the same scenery under it; then (b), only if no re-lay exists on 6 x 6 seed 1, `fb_A`'s rating raised to the larger of its start's and its win's load. (b) may lose the fuse's trap, so it is a rework: its own check block and analyzer numbers, and the note says plainly whether the fuse can still blow, and how.
+- **12 · `fb_2` blows at the start** (at a half and at a whole bulb). The same two fixes, in the same order, for `fb_2`.
+
+A fix that keeps the element under test is the designer's. One that loses it (no re-lay, and (b) takes the trap away) goes to Josh as a question before that pilot is shown to him, worded with what each choice costs. The other 14 are not held back for it.
 
 **How a schematic puzzle goes onto the city (6 x 6 seed 1, one-way on; answer 3).**
 - **Nodes onto places** (CK12): the feed on a pole just outside the district; breakers, fuse boxes and batteries on poles with 2 or more attachments, or breakers and fuse boxes on roof structures (6b); switches on poles with 3 or more, or on a roof structure; junctions on any pole; lamps on a building with a drop (a "home", "shrine" or "infirmary" read goes to a building that fits, where one does) or a lamp post. One node per place.
@@ -1166,12 +1193,17 @@ It writes `docs/design/081-K2e-precheck.md`. If it does not report "holds", the 
 
 ### L · Lit buildings: windows and light on the street (renderer). Cut 24 Nov 2026, in three PRs: L1, then L2 and L3
 **Josh, 24 Nov 2026, in chat:** "I would like to update the lighting too. Rather than lighting a lamp. I would like the connected building's windows to light up and impact the lighting on the street." He showed the POLYGON City Pack store image (a rainy night street: warm lit windows, light spilling onto pavement and road). On cards:
-- which buildings light: **"Puzzle buildings only (Recommended)"**: a puzzle lamp on a building (`{ building }` place) lights that building's windows while it is lit;
+- which buildings light: **"Puzzle buildings only (Recommended)"**: a puzzle lamp on a building (`{ building }` place) lights that building's windows while it is lit. **Overtaken 24 Nov 2026** by Josh's later words, in chat: "I would like all buildings to receive power if they are connected to the feed. I would also like the feed to show as being connected to each building", and on cards "Drop on a live pole (Recommended)" (`docs/design/081-all-connected-powered.md`). L1 was built and merged to the first answer and stands as built; scenery buildings on the job's live poles light their windows too, through L1's path, from section S (S1, S4);
 - the wall lamp (`lampBuilding` pick): **"Remove it (Recommended)"**;
 - the unpowered city: **"A few dim windows"** (scattered faint candle-light). This amends E2's "the rest of the city is dead" for windows only;
 - the street: **"Yes, a light pool (Recommended)"** (warm light on the pavement and street in front).
 
 **Josh's answers, 24 Nov 2026, on cards:** "Approve L1-L3 (Recommended)"; L-Q1 "Pack's night glow (Recommended)"; L-Q2 "Mast's building (Recommended)"; L-Q4 "Real lights" (not the painted decal; L2 is re-cut for it, below). L-Q3 is still to be asked, before L3; L-Q5 (added with the L2 re-cut) before L2.
+
+**Josh's answers, 24 Nov 2026, on cards (later):**
+- **L-Q3:** **"1 in 25, steady amber (Recommended)"**: `DIM_SHARE` 1/25 of window pieces, steady (no flicker), at `DIM_LEVEL` 0.15 of a lit window. L3 is built to it.
+- **L-Q5:** **"Up to 10, no shadows (Recommended)"**: one light per lit building, no shadows. **Overtaken** by the next card.
+- **L2's cap, given 26 lit buildings in P0's win** (asked with the all-connected pre-check, `docs/design/081-all-connected-powered.md`): **"Raise the cap"** (measured first). L2 is re-cut below: no shadows stands; the cap is 32, made at build at intensity 0, and ships only under a measured frame-time stop rule. With Josh's later "Dark" (the feed's own pole's building stays dark), P0's win lights 25 buildings by the pre-check's count (22 scenery and 3 lamp buildings), not 26, before any L1 lights as backed onto them.
 
 K3b merged with its lamp-height must-fix open ("Merge as is (Recommended)"), because L1 removes the lamp. L1 closes that must-fix, and K3b criterion 2's lamp bullet ("A building lamp stands under the fitting") is superseded.
 
@@ -1216,7 +1248,7 @@ K3b merged with its lamp-height must-fix open ("Merge as is (Recommended)"), bec
 
 **Order.** L1 shares `cityview.ts` with **E4** (open PR #53: `cityHit`, `HitInputs`, `paintOverlay`, `cutAt`), so it branches from `main` after E4 merges. It shares no file with **K2e** (`src/city/circuit/`). L2 and L3 branch after L1 merges (L2 after L-Q5, L3 after L-Q3), and may be built at once: L3's only `cityview.ts` change is one call in the build step.
 
-#### L1 · The lit building's windows; the wall lamp goes (renderer). Branch `ticket/081l1-lit-windows`, after E4 merges and L-Q1 and L-Q2 are answered
+#### L1 · The lit building's windows; the wall lamp goes (renderer). Branch `ticket/081l1-lit-windows`, after E4 merges and L-Q1 and L-Q2 are answered **Done** (PR #55; review round 2: meets)
 **Goal.** Playing `city-two-ways-round`, each lamp's building is dark until current lights it. Then its windows (and its shopfront glass) glow warm. They ignite in the Relight's order with E2's flare, and flicker in a brownout. No wall lamp stands on the building.
 
 **Before the build (the main session, not an agent):** record Josh's "Remove it (Recommended)" (24 Nov 2026) in `docs/design/081-component-picks.md`, in a new **Removed** list under the table. The `lampBuilding` row stays as the history of his first pick.
@@ -1260,48 +1292,58 @@ K3b merged with its lamp-height must-fix open ("Merge as is (Recommended)"), bec
 
 **Must not:** `overlay.ts`; `plan3d.ts` and `models3d.ts` (read only); `src/city/`, `src/core/`, `src/ui/`, `src/main.ts`, `src/play/`, `tools/`.
 
-#### L2 · Real lights on the street (renderer). Branch `ticket/081l2-street-lights`, after L1 merges and L-Q5 is answered. Re-cut 24 Nov 2026 for Josh's L-Q4 "Real lights"
+#### L2 · Real lights on the street (renderer). Branch `ticket/081l2-street-lights`, now (L1 is in; L-Q5 and the cap are answered). Re-cut 24 Nov 2026 for Josh's L-Q4 "Real lights", and again for "Raise the cap"
 **Goal.** In front of a lit building, a real warm light falls on its pavement, the street, the walls either side and any car or prop in reach, rising and falling with its windows: dark until the Relight reaches its lamp, then up with the flare, flickering in a brownout.
 
-**How (the architect's choice, under L-Q5's recommended option).**
-- **Type.** One `PointLight` per job lamp building, **no shadows** (`castShadow` false; night keeps `shadows: false`, `lighting.ts`). A point light needs no target, and one shadowed point light renders the city six more times a frame. A spot light would cut a sharper cone than the store image shows.
-- **How many.** One per job lamp building, never one per face or per window. P0 has 3; the ladder's largest jobs (`50-the-whole-quarter`, `56-whole-ward`) have 10 lamps, so `STREET_LIGHTS_MAX` is **10**. A job with more lamp buildings than that lights the first 10 (in lamp order) and logs one dev warning; none does today.
-- **The pool, so no shader rebuilds in play.** Three compiles a material's program for the number of visible lights in the scene. So the lights are made **when the city builds**, one per lamp building, added to the scene at intensity 0, and never added, removed or hidden during play: dark is intensity 0, never `visible = false`. Their count is fixed from the first frame, so every program is compiled before play. The one exception is the dev day toggle: the rig hides night-only parts (`lightrig.ts`), so the first switch to day and back compiles once; that is dev only and accepted. A new job builds a new city, so its count is set again at load.
+**How (the architect's choice, under L-Q5's "no shadows" and Josh's "Raise the cap").**
+- **Type.** One `PointLight` per lit-able building, **no shadows** (`castShadow` false; night keeps `shadows: false`, `lighting.ts`). A point light needs no target, and one shadowed point light renders the city six more times a frame. A spot light would cut a sharper cone than the store image shows.
+- **Which buildings.** Every building in cityview's `lampsOf` (L1's `lampBuildings`: the job lamps' buildings and those L1 lights as backed onto them) that has a street face, never one per face or per window. Before S4 that is P0's 3 lamp buildings; S4 adds the scenery buildings to `lampsOf`, so they get their lights through this section with no L2 change. Order: the job lamps' buildings first, in lamp order, then the rest in `lampsOf`'s order.
+- **How many: `STREET_LIGHTS_MAX` 32, under the stop rule (criterion 3).** P0's win lights 25 buildings by the pre-check's count (22 scenery and 3 lamp buildings, with "Dark"); the pre-check's fits 09 and 10 carry 19 and 20 scenery buildings beside 6 and 4 lamps; P2a's fits, laid for the camera, are expected nearer P0's count (the note's estimate). 32 holds those with room. A point light costs about 3 uniform vectors in the fragment shader, about 96 at 32, inside WebGL2's guaranteed 224. A job with more lit-able buildings than the cap lights the first 32 in the order above and logs one dev warning.
+- **The pool, so no shader rebuilds in play.** Three compiles a material's program for the number of lights in the scene. So the lights are made **when the city builds**, one per lit-able building of the job (at most the cap), added to the scene at intensity 0, and never added, removed or hidden during play: dark is intensity 0, never `visible = false`. Their count is fixed from the first frame, so every program is compiled before play. The pool is the job's own count, not the cap: a job that can light 3 buildings makes 3 lights. The one exception is the dev day toggle: the rig hides night-only parts (`lightrig.ts`), so the first switch to day and back compiles once; that is dev only and accepted. A new job builds a new city, so its count is set again at load.
 - **What they light.** Every lit (`MeshStandard`) material in reach: the ground, street and pavement surfaces, the building pieces' walls, the dressing's cars and props. `MeshBasic` parts (glows, overlay) are unchanged. The light stands 2 m out from the middle of the building's street face at 3 m up (the first floor's windows), or for a corner building over its corner pavement. Its reach (`distance`) is `STREET_LIGHT_REACH_M` (default 12 m, `decay` 2) and its colour the lit pane's amber from L1. Both are numbers Josh tunes by eye.
 - **No painted pool.** The decal from the earlier cut is not drawn. E2's post-lamp pools are unchanged.
 - **The hooks from L1.** Each frame a light's intensity is `STREET_LIGHT_INTENSITY x level`, with the flare pop, from its building's `buildingGlow` (L1 criterion 2). So the Relight's order and the brownout flicker come from L1 with no new timing.
 
 **Acceptance criteria.**
-1. [ ] **Where each light stands.** A pure `lightPlaces(plan, buildingIds)` in `windows.ts` gives one place per building, at most `STREET_LIGHTS_MAX`: in front of the middle of its street face (a column's `front` onto a street cell, never a yard or a park), or over the corner pavement for a corner building, at the height and offset above. **test**: 1 case on a fixture: a mid building's light stands in front of its street face, a corner building's over its corner, and 11 buildings give 10 places.
+1. [ ] **Which buildings, and where each light stands.** A pure `lightPlaces(plan, buildingIds, max)` in `windows.ts` gives one place per building with a street face, in the order given, at most `max`: in front of the middle of its street face (a column's `front` onto a street cell, never a yard or a park), or over the corner pavement for a corner building, at the height and offset above. A building with no street face gets none and does not count. **test**: 1 case on a fixture: a mid building's light stands in front of its street face, a corner building's over its corner, a backed-on building with no street face gets none, and 33 buildings with faces at `max` 32 give the first 32.
 2. [ ] **The pool.** `streetLights(places)` makes the `PointLight`s once. `setStreetLights(lights, glows)` writes only intensities. **test**: 1 case: after setting one building lit and one dark, the scene holds the same number of lights, all visible, none casting a shadow; the dark one is at 0 and the lit one at `STREET_LIGHT_INTENSITY x` its level.
-3. [ ] **The budget.** Measured with L1's `perf=1` on 6 x 6 seed 1 with P0, from the default camera in a desktop window on Josh's PC, against L1's numbers from the same view:
-   - no new draw call;
-   - no new program between the first frame after the models load and the end of the Relight;
-   - a median frame time no more than **1.0 ms** worse than L1's after the Relight.
+3. [ ] **The budget, and the stop rule for the cap.** `STREET_LIGHTS_MAX` is **10** in the code until this criterion's measures pass; only then is it set to 32. Measured with L1's `perf=1` on 6 x 6 seed 1 with P0, from the default camera in a desktop window on Josh's PC, against L1's numbers from the same view after the Relight. The dev switch `lights=N` fills the pool to N lights (the spares on the first building, at its level, so they cost as lit lights do):
 
-   Also once with the dev switch `lights=10`, which fills the pool to `STREET_LIGHTS_MAX` (the spare lights at intensity 0 on the first building), as the worst case a ladder job can bring: at most **2.5 ms** worse than L1's. The builder reports draw calls, programs, the median frame time and the fps for both. Over either budget, the builder stops and reports; the architect re-cuts with Josh's answer. **browser**.
+   | Run | Median frame time, worse than L1's by at most |
+   | --- | --- |
+   | P0 as it is (3 lights) | 1.0 ms |
+   | `lights=10` | 2.5 ms |
+   | `lights=25` (P0's win with scenery) | 4.0 ms |
+   | `lights=32` (the cap) | 5.0 ms, and the median itself at most 16.7 ms (60 fps) |
+
+   Each run also shows no new draw call, and no new program between the first frame after the models load and the end of the Relight. The builder reports draw calls, programs, the median frame time and the fps for all four.
+   - **All four within budget:** `STREET_LIGHTS_MAX` is set to 32.
+   - **`lights=25` or `lights=32` over:** the builder stops and reports ("stop 081 L2", with the branch and the four rows). `STREET_LIGHTS_MAX` stays 10 and nothing above 10 ships. It does not pick a cap between, or tune the reach or the shader, to pass. The main session puts the numbers to Josh (for example: the largest cap that passed; up to 10, given to the lit buildings nearest the camera, L-Q5's second option; or a looser budget), and the architect re-cuts with his answer.
+   - **P0 or `lights=10` over:** as the first cut said, the builder stops and reports.
+
+   The budgets are the architect's, starting points for Josh, not GDD numbers. **browser**.
 4. [ ] Josh plays `city-two-ways-round` from the default camera and `cam=street`: light falls on the pavement, street and walls in front of each lamp building as it lights in the Relight, and flickers in a brownout. **browser**.
 
 **Count.** 2 added.
 
-**Files.** `src/render3d/windows.ts` and `windows.test.ts`; `src/render3d/cityview.ts` (the lights in the build step and live layer, and the `lights=10` dev switch). **Must not:** as L1, and `lightrig.ts` and `lighting.ts` (read only).
+**Files.** `src/render3d/windows.ts` and `windows.test.ts`; `src/render3d/cityview.ts` (the lights in the build step and live layer, and the `lights=N` dev switch). **Must not:** as L1, and `lightrig.ts` and `lighting.ts` (read only).
 
 **Interfaces.** No new dependency, no `src/core/` type: `PointLight` is Three's.
 
-#### L3 · A few dim windows in the dead city (renderer). Branch `ticket/081l3-dim-windows`, after L1 merges and L-Q3 is answered
+#### L3 · A few dim windows in the dead city (renderer). Branch `ticket/081l3-dim-windows`, now (L1 is in; L-Q3 answered: "1 in 25, steady amber (Recommended)")
 **Goal.** Across the unpowered city, a scattering of window pieces glow faintly, like candle-light, never on a job lamp's building.
 
 **Acceptance criteria.**
 1. [ ] **Which pieces.** A pure `dimPieces(buildings, share, seed, exclude)` in `windows.ts`:
    - picks floor and `floor3` pieces, never the ground storey or a roof;
    - picks by a hash of the building id and piece index, so the pick is the same every load;
-   - picks about `share` of them, where `share` is Josh's L-Q3 pick (`DIM_SHARE`);
-   - picks no piece of a building in `exclude` (every job lamp's building; see the reading above).
+   - picks about `share` of them: `DIM_SHARE` is **1/25** (Josh, L-Q3: "1 in 25, steady amber (Recommended)");
+   - picks no piece of a building in `exclude`: every building in cityview's `lampsOf` (the job lamps' buildings, those L1 lights as backed onto them, and from S4 the scenery buildings; see the reading above). **The architect's reading (Proposed):** a scenery building on a live pole that is dark (past a cut, or on the switch's other side) reads dark, as a job lamp does, so a faint window never makes it look half powered.
 
    **test**: 1 case on a fixture of about 200 pieces: the same pick twice, about `share` of them (within a tolerance the builder states), and none on an excluded building.
-2. [ ] **One material per source.** A dim piece takes a clone of its material with L1's mask at `DIM_LEVEL` (default 0.15 of lit). Josh's L-Q3 answer says whether it is steady or slowly flickers.
+2. [ ] **One material per source.** A dim piece takes a clone of its material with L1's mask at `DIM_LEVEL` 0.15 of lit, **steady** (Josh: "steady amber"): it never flickers, so nothing writes a dim clone during play.
    - Dim pieces share one clone per source material, made when the city builds.
-   - A flicker writes one intensity per clone per frame, never one per piece.
+   - No per-frame write: the level is set once at build.
 
    **test**: 1 case: two dim pieces on one material share one clone, and a piece that is not dim keeps the shared material.
 3. [ ] **Budget.** With L1's `perf=1`, the dim windows add no draw call and no program. **browser**.
@@ -1312,6 +1354,145 @@ K3b merged with its lamp-height must-fix open ("Merge as is (Recommended)"), bec
 **Files.** `src/render3d/windows.ts` and `windows.test.ts`; `src/render3d/cityview.ts` (one call in the build step). **Must not:** as L1.
 
 **Rules coverage.** L1 adds the city view's windows to two rows of `tickets/rules-coverage.md`: "The Relight can't be interrupted" (the ignition order now shows on windows; E2's case still holds the rule) and "Capacity: over it, brownout" (a lit building flickers).
+
+### S · Every building on a live pole is powered, and adds load. Cut 24 Nov 2026, in four PRs: S1, P0r, S4, U3 (and P1's criteria 10 and 11)
+**Josh, 24 Nov 2026, in chat:** "I would like all buildings to receive power if they are connected to the feed. I would also like the feed to show as being connected to each building."
+
+**On cards** (all recorded at the top of `docs/design/081-all-connected-powered.md`, with the pipeline-designer's measurements):
+- which buildings: **"Drop on a live pole (Recommended)"**;
+- do they draw on the feed: **"Yes, they add load"**;
+- how to show it: **"Live drops glow (Recommended)"**;
+- the puzzles' numbers: **"Raise (Recommended)"**: each puzzle's capacity and fuse ratings are raised by the scenery its intended win lights;
+- what one building draws: **"Whole"** (1 lamp-load; `SCENERY_BUILDING_LOAD` in `src/core/citycircuit.ts`). The note measured 14 of 16 jobs playing the same at 1; 09 and 12 fail, and get the hand fixes in P2a;
+- the building on the feed's own pole, outside the district: **"Dark"**.
+
+**What it overtakes.**
+- **CK14's dark-building line goes.** "A building the job does not name stays dark: it is not on the job" (Proposed) is struck in `docs/design/070-K1-circuit.md` with this cut, and CK14 says what lights instead. A building on a pole no job line uses still stays dark, so K2e's reading stands: a district building fed across the street from a neighbouring block's pole is dark to that job.
+- **K2c's criterion 3** ("the same node and line ids as the file, none added") flips: the file's ids all stay, and the conversion adds hidden ones (S1).
+- **L1's "Puzzle buildings only (Recommended)"** is overtaken by Josh's later words (recorded in section L). L1 stands as built and merged; S4 feeds the scenery buildings into its path.
+- **L2's cap of 10** meets about 25 lit buildings in P0's win: Josh's "Raise the cap" (section L, L2 re-cut).
+- **"Unchanged" city puzzles** are now **raised** ("Rules this ticket holds").
+
+**No Decided GDD rule is touched.** Capacity and fuse rating are Draft ("New for the minigame (Draft, Josh's to tune)" in the brief; GDD 05, "Capacity and restraint"), and raising them is Josh's call. The Decided "Lamps are leaves" holds: a scenery load is a leaf and never blocks. The Decided signature "current up to a sparking break" holds: a building past a cut stays dark. **One Draft line differs:** the GDD's "Live cables don't glow" (08, "Cables in the dark") against Josh's "Live drops glow (Recommended)". His card stands for the prototype, since the line is Draft. The GDD's wording is a proposal in open question 10, not something this ticket changes.
+
+**Pre-checks.** No fresh pre-check is needed before S1, S4, U3 or P1's criteria 10 and 11:
+- S1's rule is the probe's, as section 3 of the note sketched it and section 6 built it (the line split, where each building hangs), at Josh's "Whole" (measured: 14 of 16) and "Dark". "Dark" only drops one building per job that is live whenever its feed is, a constant that "Raise" absorbs;
+- P1's raise is the note's option B, as measured;
+- S4, U3 and L2 are drawing and sound, not grammar rules.
+
+A pipeline-designer call comes only from a stop: "stop 081 S1" (P0 does not play the same, or its count is not 22) or "stop 081 P1" (a pilot other than 09 and 12 fails raised). 09's and 12's fixes are P2a's designer's under answer 4, with the analyzer. If neither fix keeps the element under test, that goes to Josh (P2a).
+
+**Order and parallel work.**
+| Wave | Sections | Shared files | Why |
+| --- | --- | --- | --- |
+| Now, at once | S1, U3, L2, L3 | None between S1 (`src/city/circuit/`, P0's `capacity` line) and U3 (`src/main.ts`, `src/ui/logic.ts`). L2 and L3 share `cityview.ts` (L3 one call), as section L says. | The core types are in, so U3 codes against `hidden` before S1 writes it. |
+| After S1 | P0r; P1 (criteria 10 and 11 need S1) | None | P0r writes P0's note; P1 is `tools/`. |
+| After S1, L2 and L3 | S4 | `cityview.ts` | It feeds `scenery` into L1's and L2's paths. |
+| After P1 | P2a (raised; 09 and 12 hand-fixed) | None | As before. |
+
+#### S1 · Scenery buildings on the job's live poles, in the conversion (grid-simulator, pure). Branch `ticket/081s1-scenery-loads`, now
+**Goal.** `convertCityPuzzle` hangs every scenery building whose drop is on one of the job's poles onto the job as hidden 1 lamp-load lamps. So `src/grid/` (unchanged) lights them while current reaches them and counts their load against the feed and its fuses. It returns `scenery` (building to hidden lamp) and `hidden` (every added id). P0's file takes its raised capacity.
+
+**The rule (the pre-check probe's, worded for the build; Proposed where it says how):**
+1. **Which buildings.** Each `layer.drops` entry whose `pole` is one of the job's poles: an interior (carrier) pole of a line's run, or a node's `{ pole }` place. **Not:** the feed's own pole (Josh: "Dark"); a building that is a `{ building }` lamp's place; a drop on any other pole. Roof structures carry no drops (CK17e). Each building counts once.
+2. **The split.** Every line `L` of the file becomes three, scenery or not, so the grid's "nearer feeder" ties hold (the probe split every line; a partial split was not measured):
+   - `L~a`, from `from` to the hidden junction `L~h1`;
+   - `L`, from `L~h1` to `L~h2`. It keeps the id, so its faults, the check block's `repair:L` moves and `runs[L]` hold;
+   - `L~b`, from `L~h2` to `to`.
+
+   Each keeps the line's other fields. A switch's `outputs` and a battery's `input` name the segment next to the node (`L~a` where the node is `from`, `L~b` where it is `to`). `L~h1` and `L~h2` stand at 1/3 and 2/3 of the straight from `from`'s `pos` to `to`'s, so every path length the Relight's timing reads (`planRelight`) is unchanged.
+3. **Where each building hangs.**
+   - **On a carrier of `L`:** `L~h1`, or `L~h2` when the pole is past `L`'s cut span, counted from `from` along the run.
+   - **On a node's pole:** on the node itself for a `junction` or a `fusebox` (so its load is under the fuse's rating). For a `switch`, on its input line (the one not in `outputs`) at the switch's end. For a `battery`, on its `input` line at its end. For a `breaker`, on the first line in the file's order that touches it, at the breaker's end. "At the node's end" is `L~h1` when the node is `from`, and `L~h2` when it is `to`. The feed's pole is skipped ("Dark").
+   - A node of a type not listed here, on a pole with a scenery drop: stop (below).
+4. **The lamps.** One hidden lamp for each attachment point, `<attach>~s` (for example `l_s~h1~s`, `j_h~s`), on a line `<attach>~s~l` from it. Its `load` is its buildings' count x `SCENERY_BUILDING_LOAD`. Its `pos` is its first building's drop wall point, over `CELL_M` as for a building lamp. `scenery` maps every building to its lamp.
+5. **What stays the file's.** `target`: when the file has none, the output's `target` is the file's lamps, so a hidden lamp is never a target. `priority`, the parts, the faults and every file id are unchanged. `places` and `runs` hold no hidden id, so the overlay, the picks and the HUD never see one. A file id that contains `~` is a CK15 problem (it could collide with a hidden id). `decor` is unchanged.
+
+**Acceptance criteria.**
+1. [ ] **The split.** On a fixture job of a switch and two lines:
+   - the output's lines and junctions are exactly as rule 2 says, and the switch's outputs name `~a` segments;
+   - `L~h1` and `L~h2` are collinear, at 1/3 and 2/3;
+   - `places` and `runs` are keyed by the file's ids only;
+   - `hidden` lists exactly the added ids.
+
+   **test**: 1 case.
+2. [ ] **Carriers and the cut** (the Decided "current up to a sparking break"). On a fixture line with three carriers, each with a scenery drop, cut on its second span: the first carrier's building hangs on `~h1`, the later two on `~h2`. Run on `src/grid/` (allowed in tests): the first building's lamp is lit, and the two past the cut are dark. **test**: 1 case.
+3. [ ] **Node poles.** On a fixture: a junction's building hangs on the junction; a switch's on its input line at its end; a fusebox's on the fusebox. On `src/grid/` the fusebox's counts toward the rating: one scenery building over the rating blows it on power (the Decided "Fuse rating: over it, blows on power"). **test**: 1 case.
+4. [ ] **Who stays dark.** On a fixture, none of these is in `scenery`: the building on the feed's pole, a building that is a job lamp's place, and a building whose drop hangs from a pole no line uses. **test**: 1 case.
+5. [ ] **Load, leaves and the win.** On a fixture with `capacity` equal to the file lamps' load and no `target`:
+   - one live scenery building takes the feed over capacity, a brownout (the Decided "Capacity: over it, brownout");
+   - `validatePuzzle` passes (hidden lamps are leaves);
+   - the output's `target` is the file's lamps;
+   - with the capacity raised by 1, the win completes with the scenery lit.
+
+   **test**: 1 case.
+6. [ ] **P0 plays the same, raised** (K2c's "plays the same" case, rewritten). `puzzles/city/city-two-ways-round.city.json` converts on 6 x 6 seed 1, one-way on, with 22 scenery buildings (the pre-check's 23, less the feed's pole's), and its note's check block replays as the schematic's does. **test**: 1 rewritten.
+7. [ ] **K2c's "none added" case, rewritten.** Every node and line id of the file is in the output with its type, load, rating and capacity unchanged, and the ids that are not the file's are exactly `hidden`. **test**: 1 rewritten.
+8. [ ] **P0's raised capacity.** The file's `capacity` line becomes 3 + the scenery load P0's check block's solution lights. The builder replays it once with the capacity unlimited: 3 + 22 = 25 if all 22 light, as the pre-check found. It reports the start's and the win's loads ("using X of 25"), and, once, outside the suite, the analyzer's fewest clicks, winning configs and dead first moves on the converted puzzle against the schematic's. **no test**: criterion 6 holds it, and P1's criterion 11 checks the number.
+9. [ ] No import of `src/grid/` from `src/city/circuit/`, except in tests. **test** (K2c's existing case, unedited).
+
+**The stop rule.** The builder stops and reports ("stop 081 S1", with the branch) if:
+- P0 does not play the same raised: its start's lit file lamps, readable faults and blown fuses, its check block, or the analyzer's three numbers differ from the schematic's;
+- P0's scenery count on seed 1 is not 22;
+- a node type the rule does not list stands on a pole with a scenery drop in P0;
+- more than 2 cases outside `src/city/circuit/` (E2's, E4's and L1's in `src/render3d/` that count P0's nodes or lines) need rewriting. They are listed, and the architect re-cuts.
+
+It does not change the rule or a number to make P0 pass.
+
+**Count.** 5 added, 2 rewritten, and at most 2 more under the stop rule: at most 9.
+
+**Files.** `src/city/circuit/` (`convert.ts`, a new `scenery.ts`, `convert.test.ts`). Also, under test policy rule 6, as P0 did: the **`capacity` line only** of `puzzles/city/city-two-ways-round.city.json` (the puzzle-designer's; P0r writes the note), and at most 2 rewritten cases in `src/render3d/` under the stop rule, listed. `src/core/` is the architect's (`scenery`, `hidden` and `SCENERY_BUILDING_LOAD` are committed). **Must not:** `src/grid/`, or any other line of `puzzles/`.
+
+#### P0r · P0's note re-opened with its raised numbers (puzzle-designer). Branch `ticket/081p0r-two-ways-round-raised`, after S1
+**Goal.** `puzzles/city/city-two-ways-round.md` says what the scenery changed, so Josh knows why the HUD now reads "using 24 of 25" (S1's numbers) and not "using 2 of 3".
+
+**Acceptance criteria.**
+1. [ ] A **What changed from the schematic, and why** section, one item:
+   - capacity 3 to S1's number, with Josh's words ("Yes, they add load", "Raise (Recommended)", "Whole", "Dark");
+   - the 22 scenery buildings by where they hang (carriers, node poles), and how many stand on another block across a district street;
+   - the start's and the win's loads.
+
+   **no test**.
+2. [ ] The check block stays the schematic's, copied (P0 is raised, not reworked). The analyzer's numbers are S1's report, stated equal to the schematic's. **no test**: S1's criterion 6 replays the block.
+3. [ ] **What it taught us** keeps Josh's words so far; the designer adds none. **no test**.
+
+**Files.** `puzzles/city/city-two-ways-round.md` only. **Count.** 0.
+
+#### S4 · Scenery drawn live: the drops glow, the windows light (renderer). Branch `ticket/081s4-scenery-live`, after S1, L2 and L3 merge
+**Goal.** Playing `city-two-ways-round`, as the Relight's current reaches each scenery building on the job's poles, its drop glows and pulses like a job span, and its windows light through L1's path, with its street light from L2. Past a cut, or on the switch's other side, the drop and the building stay dark. They flicker in a brownout.
+
+**Acceptance criteria.**
+1. [ ] **The windows.** cityview's `lampsOf` gains every `converted.scenery` building with its hidden lamp (`{ id, index }` in `puzzle.nodes`), and the buildings backed onto it as L1 reads them. A pure `sceneryLamps(converted, buildings)` in `windows.ts` gives the entries. The scenery buildings then take, with no change to them: L1's clones at build; `buildingGlow`'s level, flare and flicker; the shop glass; L2's lights (after the job lamps' buildings, in L2's order); and L3's exclusion. **test**: 1 case on a fixture conversion: a scenery building maps to its hidden lamp, and `buildingGlow` gives 0 while that lamp is dark and above 0 when it is lit.
+2. [ ] **The live drops** (Josh: "Live drops glow (Recommended)"). Each scenery building's drop (`drop:<building id>`, as K3b draws it, from its pole's insulator to the bracket) joins the live layer as a wire of its own, lit from its hidden lamp:
+   - dark while the lamp is dark;
+   - in the Relight, lit from the pole end at the lamp's arrival;
+   - then E2's glow and pulses, pole to building, and E2's brownout wobble.
+
+   It uses E2's instanced glow and pulse meshes, sized at build. No other scenery drop or span glows (CK14: the rest is dead). **test**: 1 case: the live layer's wires hold one per scenery drop, with its lamp, and none for a drop whose building is not in `scenery`.
+3. [ ] **Hidden nodes stay hidden.** On P0's conversion with scenery, `overlayIcons` gives the icons of the file's nodes only, and no pick proxy stands for a hidden node. **test**: 1 case (in `overlay.test.ts` or `windows.test.ts`, the builder's choice; `overlay.ts` is not edited).
+4. [ ] **The budget.** With L1's `perf=1` on 6 x 6 seed 1 with P0, after the Relight:
+   - no new draw call against L2's P0 run;
+   - no new program between the first frame after the models load and the end of the Relight;
+   - a median frame time within L2's `lights=25` budget.
+
+   Over it, the builder stops and reports. **browser**.
+5. [ ] Josh plays `city-two-ways-round` from the default camera and `cam=street`: the scenery buildings round the ring light with their drops as the Relight passes, those past the spark stay dark until the repair, and the building on the feed's pole stays dark. **browser**.
+
+**Count.** 3 added.
+
+**Files.** `src/render3d/cityview.ts` (the live layer and `lampsOf`), `src/render3d/windows.ts` and `windows.test.ts`; `overlay.test.ts` (one case, if criterion 3 goes there). **Must not:** `overlay.ts`, `circuitdraw.ts` (read only), `plan3d.ts`, `models3d.ts`, `src/city/`, `src/core/`, `src/ui/`, `src/main.ts`, `src/play/`, `tools/`.
+
+#### U3 · Hidden lamps make no Relight sound (ui). Branch `ticket/081u3-quiet-scenery`, now
+**Goal.** The Relight still chimes once per lamp the puzzle names, not 22 more times for the scenery (the default; open question 11).
+
+**Acceptance criteria.**
+1. [ ] **The cues.** `relightCues` moves from `src/main.ts` to `src/ui/logic.ts` (or a new `src/ui/relightcues.ts`, if `logic.ts` should not import `src/render/`'s `planRelight`), unchanged but for a `hidden` argument (`converted.hidden ?? []`): a hidden lamp gets no ignition time, and the duration is unchanged. **test**: 1 case: on a fixture with one hidden lamp, `igniteAt` holds the file lamps' times only.
+2. [ ] `main.ts`'s `lampIds` (the list-to-map highlight) leaves out hidden ids. **no test**: a hidden lamp has no place, so no hit can name it; this keeps the set honest.
+3. [ ] Josh hears the Relight on `city-two-ways-round` after S1: three ignitions, as before. **browser**.
+
+**Count.** 1 added.
+
+**Files.** `src/main.ts`, `src/ui/logic.ts` and `logic.test.ts` (or the new `relightcues.ts` and its test). **Must not:** `src/render/`, `src/render3d/`, `src/play/`, `src/core/`.
 
 ### X1 · Delete the 2D map view (renderer). **Stub, not cut; not to be built yet**
 Josh, 24 Nov 2026: "Hide now, delete later (Recommended)". Cut in full once P2a's 16 pilots are on the city and Josh has said so. Expected:
@@ -1328,7 +1509,7 @@ Josh, 24 Nov 2026: "Hide now, delete later (Recommended)". Cut in full once P2a'
 Josh, 24 Nov 2026: "Retarget later (Recommended)". `tests/playtest/` replays the schematics and is left alone until then. Re-cut it for city puzzles before the next release Josh calls; until then its snapshots may go stale, as the release loop allows.
 
 ## Files
-Per section, above. This branch (the cut): `tickets/081-puzzles-on-the-city.md`, `docs/design/070-K1-circuit.md` (CK9 as changed, 24 Nov 2026), `tickets/070-city-pipeline.md` (pointer lines), `tickets/071-pack-power-lines.md` (a pointer line: C and E's ladder wiring are dropped), `tickets/rules-coverage.md`, `src/core/citycircuit.ts` (new; `CityPuzzleView` added 24 Nov 2026 for the playable path), `src/core/cityplan.ts` (`CityCircuitLayer`), `src/core/index.ts`.
+Per section, above. This branch (the cut): `tickets/081-puzzles-on-the-city.md`, `docs/design/070-K1-circuit.md` (CK9 as changed, 24 Nov 2026; CK14's dark-building line struck for section S, 24 Nov 2026), `tickets/070-city-pipeline.md` (pointer lines), `tickets/071-pack-power-lines.md` (a pointer line: C and E's ladder wiring are dropped), `tickets/rules-coverage.md`, `src/core/citycircuit.ts` (new; `CityPuzzleView` added 24 Nov 2026 for the playable path), `src/core/cityplan.ts` (`CityCircuitLayer`), `src/core/index.ts`.
 
 ## Interfaces
 Written into `src/core/` with this cut (typecheck passes):
@@ -1358,6 +1539,7 @@ Written into `src/core/` with this cut (typecheck passes):
 - **E4 (24 Nov 2026):** `overlayBreaks`, `OverlayBreak` and `overlayBreakHit` are internal to `src/render3d/`, so no core change. `OverlayLine`, `overlayLines` and `overlayLineHit` go.
 - **L, lit buildings (24 Nov 2026, committed with this cut; typecheck passes):** `CircuitComponentPick.removed?` (`{ words, date }`) in `src/core/citycircuit.ts`: nothing stands for a removed pick, its key is not loaded, and its place still counts. L1 sets it on `lampBuilding`. `windows.ts`'s exports (`WINDOW_UV`, `windowMask`, `buildingGlow`, `litBuilding`, `poolPlaces`, `dimPieces`) are internal to `src/render3d/`, so no other core change.
 - **Events:** none new.
+- **S, every building on a live pole (24 Nov 2026, committed with this cut; typecheck passes):** in `src/core/citycircuit.ts`, `CityPuzzleConverted.scenery?` (building id to hidden lamp id) and `CityPuzzleConverted.hidden?` (every id the conversion added), both optional until S1 writes them, and `SCENERY_BUILDING_LOAD` = 1 (Josh: "Whole"). `sceneryLamps` (S4) and `relightCues` (U3) are internal to their folders. No new dependency.
 - **No new dependency.** The overlay is Canvas 2D.
 
 ## Open questions (for Josh)
@@ -1379,4 +1561,7 @@ All questions so far are answered (above), the mid-row one included ("Only when 
 6. ~~**Default U1 takes:** a city entry is named "... · city".~~ **Settled** (Josh, 24 Nov 2026: "I don't want 2D puzzles anymore."): the picker lists only city puzzles, under their own names. Whether a rework shows "(reworked)" waits for P2a's reworks to carry a flag in their files.
 7. ~~**Default U2 takes:** picking reloads the page between the views.~~ **Settled** by the same answer: there is only the 3D view, so there is no switch and no reload.
 8. **Default U2 takes (you may overturn it):** the prototype is played in `npm run dev` only. The city view is dev only (the pipeline renderer, and the pack GLBs a web build may not hold: Synty licence, 16 Nov 2026), so a production build shows one line saying so instead of a puzzle. A playable web build would be its own ticket.
-9. **Lit buildings (section L), four cards:** L-Q1 the lit window colour and L-Q2 a lamp on a roof structure (before L1); L-Q3 how many dim windows and how they burn (before L3); L-Q4 how the light pool is made (before L2). The options are worded in section L.
+9. ~~**Lit buildings (section L), four cards:** L-Q1 the lit window colour and L-Q2 a lamp on a roof structure (before L1); L-Q3 how many dim windows and how they burn (before L3); L-Q4 how the light pool is made (before L2). The options are worded in section L.~~ **All answered** (section L: L-Q1, L-Q2, L-Q3 "1 in 25, steady amber (Recommended)", L-Q4 "Real lights", L-Q5 "Up to 10, no shadows (Recommended)", then "Raise the cap").
+10. **A proposal for the GDD, not for this ticket (section S).** The GDD's Draft line "Live cables don't glow" (08, "Cables in the dark") differs from your "Live drops glow (Recommended)", and from E2's glowing job spans before it. Your card stands for the prototype, since the line is Draft. Should the GDD's line be reworded for the minigame (for example, "In the circuits minigame, live job lines and the drops they feed glow; in the walking game, live cables don't"), or left as it is? Nothing in `rest-gdd` is changed by this ticket.
+11. **Default U3 takes (you may overturn it):** the scenery buildings light silently in the Relight; only the puzzle's own lamps chime, as before. The other choice is a soft, shared chime as each run's buildings light.
+12. **L2's frame budgets (yours to loosen or tighten):** at most 1.0 ms worse than L1's for P0's 3 lights, 2.5 ms at 10, 4.0 ms at 25 and 5.0 ms at 32 (and 60 fps at 32), on your PC from the default camera. They are the architect's starting points. Over 25 or 32, L2 ships at 10 and the numbers come to you.
