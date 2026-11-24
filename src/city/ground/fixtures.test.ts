@@ -4,7 +4,8 @@
  */
 import { describe, expect, it } from "vitest";
 import type { CalibrationKey, CityGroundProp } from "../../core";
-import { FURN_WALL_M } from "./constants";
+import { stageRand } from "../pipeline/seeds";
+import { FURN_KEEP_M, FURN_WALL_M } from "./constants";
 import { rectDist, rotate } from "./geom";
 import { groundFailures, type GroundInput } from "./groundcheck";
 import { BENCHES, BINS, HYDRANTS, METERS, TREES, boundsOf } from "./kit";
@@ -12,6 +13,7 @@ import { makeProp, propRect } from "./props";
 import { frameOf, geoOf, worldOf, type RunGeo } from "./runs";
 import { DEFAULT, layersOf } from "./testcities";
 import { buildKeepouts } from "./keepout";
+import { buildGround, keepPointsOf } from "./stage";
 
 const L = layersOf(DEFAULT);
 const input: GroundInput = { mass: L.mass, edge: L.edge, facades: L.facades };
@@ -178,6 +180,16 @@ describe("the failing fixtures (criterion 7)", { timeout: 120_000 }, () => {
     const p = pavementProps[10]!.p;
     expect(checksOf(base.props, { ...input, keepPoints: [] })).toEqual([]);
     expect(checksOf(base.props, { ...input, keepPoints: [{ x_m: p.placement.x_m, z_m: p.placement.z_m }] })).toEqual(["R10 keep-outs"]);
+  });
+
+  it("I2: stage 8 reads circuit.keep into its keep-point list, and a pavement prop's own spot, as a keep point, is left empty", () => {
+    const p = pavementProps[10]!.p;
+    const pts = keepPointsOf([{ x_m: p.placement.x_m, z_m: p.placement.z_m }]);
+    expect(pts).toEqual([{ x_m: p.placement.x_m, z_m: p.placement.z_m }]);
+    expect(keepPointsOf(undefined)).toEqual([]);
+    const { layer } = buildGround(L, stageRand("ground", DEFAULT.seed), pts);
+    const near = layer.props.filter((q) => rectDist(propRect(q), { x0: pts[0]!.x_m, x1: pts[0]!.x_m, z0: pts[0]!.z_m, z1: pts[0]!.z_m }) < FURN_KEEP_M - 1e-6);
+    expect(near).toEqual([]);
   });
 
   it("a second hydrant on a run fails R10 caps", () => {
