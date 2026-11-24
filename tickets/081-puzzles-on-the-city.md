@@ -107,7 +107,7 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
   - CK5's corner spans are never over a carriageway.
   - CK6's pole crossings are square and between junctions, never over one (Q45). They stand 2.5 m past the corner cell, just beyond the crosswalk (K1 answer 3), not in the middle of the block. Roof spans are the one exception (6a).
   - CK7's 4.2 m floor holds for every span over a street, roof spans included.
-  - CK9's drops are on the pole side only (Q4, Q12).
+  - ~~CK9's drops are on the pole side only (Q4, Q12).~~ **Changed 24 Nov 2026** (Josh, on cards: "Every building wired", "Yes, a fitting (Recommended)", and on the CK9 note's questions "Same height (Recommended)", "Leave (Recommended)", "Allow (Recommended)", "Shortlist (Recommended)"): every street-facing building takes a drop, by option C of `docs/design/081-CK9-every-building-wired.md`, with a wall fitting. 059's 5.5 m road clearance no longer binds drops; CK7's 4.2 m floor does. See K2e.
   - CK12: fuse boxes, breakers and switches stand on poles, **or on roof structures** (6b). **Any node may stand on a roof structure** (B1-Q1, "Anything"), lamps, batteries and the feed included. Otherwise the feed stands on a pole just outside the district (Q10).
   - CK13 is **changed by answer 5**.
   - CK14's district is 1 to 4 blocks (Q7). A job may also use roof structures on the blocks one street beyond it (B1-Q5, "Neighbouring blocks too"). Its pole lines and drops stay inside the district.
@@ -163,6 +163,11 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | U1 | The picker lists only city puzzles (pure) | ui | now (C1 is in) | 3 |
 | E2 | A city puzzle played on the city, through the overlay | renderer | K3 (shares `plan3d.ts`) | 10 |
 | U2 | The page opens straight into the 3D city (`main.ts`) | ui | E2, U1 | 1 |
+| E3 | The opening camera frames the district, not the city | renderer | now (U2 is in) | 2 |
+| K2ep | "pre-check 081 K2e": option C as worded below, with drops added to CK17d | pipeline-designer | now | 0 (a note) |
+| K2e | Stage 6: every street-facing building wired (CK9 as changed, CK7 on drops, CK17d keeps roof spans from drops), and the pins it moves | grid-simulator | K2ep "holds" (or Josh's answer) | at most 10 (3 added, 5 rewritten, at most 2 more under its stop rule) |
+| D4 | The wall fitting shortlist, and the drop wire's gauge | pipeline-designer | now | 0 (a note) |
+| K3b | The drops drawn attached: a real insulator, the wall fitting, Josh's wire pick | renderer | Josh's D4 picks (K2e not needed) | at most 4 (1 added, up to 3 rewritten) |
 | X1 | **Stub, not cut:** delete the 2D map view (`src/render/`) | renderer | P2a, and Josh's word | removals; about 2 added |
 | X2 | **Stub, not cut:** delete the 2D side of `src/ui/` and `main.ts` | ui | X1 | removals; 0 added |
 | R1 | **Stub, not cut:** retarget the release playtest harness to city puzzles | (at cut) | before the next release | at cut |
@@ -992,6 +997,122 @@ A click on an icon or a line is that piece's `hitTest` answer, so `src/play/` pl
 
 **Files.** `src/main.ts` (the page and open branches), `src/ui/view3d.ts` and `view3d.test.ts` (the helper; `wants3d`'s two cases stay unedited). **Must not:** `src/render/`, `src/render3d/`, `src/play/`, `src/core/`, `tests/playtest/`.
 
+### E3 · The opening camera frames the district, not the city (renderer). Branch `ticket/081e3-district-frame`
+**Why.** Josh, 24 Nov 2026, on a card: **"Fix it (Recommended)"**. U2 opens the city and calls `resetView()`, but E2's frame (`src/render3d/cityview.ts`, the block after "The frame: the job's wires and pieces", about lines 524 to 537 at 5d8d6e7) grows over every entry of `draws.wires` and `draws.pieces`. `circuitDraws` holds every pole, span and drop in the city, so `resetView` and `fitWhole` both frame the whole 6 x 6 city. That fails E2's criterion 9.
+
+**Goal.** Opening a city puzzle, `resetView` and `fitWhole` frame the district, its four streets and the feed, as E2's criterion 9 says.
+
+**Acceptance criteria.**
+1. [ ] **The frame is the job's.** A pure, exported `jobFrame(view, layer, streets)` in `cityview.ts` grows the frame over:
+   - each node's place in `converted.places` (pole, roof, building's drop wall point, post);
+   - both ends of every span in `converted.runs[*].spans` (pole spans and roof spans), and the run's drop or lead;
+   - each district block's cells, out to the far side of the street on each of its four sides (`sides[*].street`);
+   - `converted.origin_m`, as today, and `FRAME_MARGIN_M` round it all.
+
+   Nothing else in `draws` counts: no scenery pole, span, drop or light. With no district and no place, it falls back to the whole city, as today. **test**: 1 case, on P0's `city-two-ways-round` converted on 6 x 6 seed 1 through the module cache: the frame holds every place and run end and the district's streets, and holds no pole more than one street past the district.
+2. [ ] **`loadCityView` writes `district`** (`CityPuzzleView.district`, added to `src/core/citycircuit.ts` with this cut, optional), copied from the puzzle's `district`. **test**: folded into criterion 1's case (it builds the view with `loadCityView`).
+3. [ ] **`resetView` and `fitWhole` use it.** **test**: 1 case, if the rig can be built without a canvas; otherwise **browser** and the builder says why.
+4. [ ] Josh runs `npm run dev` and the city opens on the district, on a desktop window and a phone-sized one. **browser**.
+
+**Count.** At most 2 added.
+
+**Files.** `src/render3d/cityview.ts` (the frame and `loadCityView` only) and a new `src/render3d/cityframe.test.ts` (under 2 s apart from the one seed 1 build; the builder gives its time). **Must not:** `circuitdraw.ts`, `componentmodels.ts` (K3b's), `src/city/`, `src/core/`, `src/ui/`, `src/main.ts`.
+
+**Shares no file with K2e, D4 or K3b,** so it is built now, beside them.
+
+### K2ep · "pre-check 081 K2e" (pipeline-designer). Branch `ticket/081-puzzles-on-the-city` (a note)
+The re-cut below is option C as section 3 of `docs/design/081-CK9-every-building-wired.md` sketched it, with one addition: **drops join CK17d's 1 m clearance** (see K2e criterion 4). The note's section 5 asks for a fresh pre-check in that case. The pipeline-designer measures, on the four pin cities (the rule depends on how cities vary):
+- how many roof span places stage 6 stops offering, by `over`, and whether any of the pilot fits B1q found (03, 04, 07, 09, 10, 11, 12, 14) loses a span it needs;
+- whether judging the drop's pole end on the pole's axis (stage 6's reading) and on the insulator K3b draws it to (criterion 1 there) ever give different answers at 1 m;
+- that K2e's criteria 1 to 3 reproduce the note's numbers (176 to 199 new drops; 0 left over; lowest drop point 4.82 m).
+
+It writes `docs/design/081-K2e-precheck.md`. If it does not report "holds", the main session takes its question to Josh before K2e's builder starts.
+
+### K2e · Stage 6: every street-facing building wired (grid-simulator, pure). Branch `ticket/081k2e-every-building-wired`, after K2ep
+**From.** Josh, 24 Nov 2026 (top of `docs/design/081-CK9-every-building-wired.md`): "The buildings are not attached to the Power lines"; on cards "Every building wired", "Yes, a fitting (Recommended)", "Same height (Recommended)", "Leave (Recommended)", "Allow (Recommended)". Option C is taken. CK9 is re-worded in `docs/design/070-K1-circuit.md` with this cut.
+
+**Goal.** At `?city=plan&stage=6`, every building with a front column on a street has one drop: from its own pole line, or from a crossing pole on its own pavement, or across the street. The era passes keep clear of the new drops, and their pins are re-taken.
+
+**Acceptance criteria.**
+1. [ ] **CK9 as changed (`layDrops`).** For a building with a front column on a street:
+   - **On the pole pavement:** as today (own line, never a crossing pole, `DROP_MAX_M` 7.5 m; pairing and ties unchanged).
+   - **On the non-pole pavement, own pole first:** when a crossing pole on its own block side (`kind: "crossing"`, same `block` and `side` as the building's front) is within `DROP_MAX_M` of a front column's wall point, the drop runs from the closest such pair (ties as today).
+   - **Otherwise, across the street:** from the closest pair of a front column and a pole on that street's pole pavement (any block, never a crossing pole), up to the new `DROP_CROSS_MAX_M` **23.5 m** in plan (the note's longest is 23.03 m). It sets `street` (`CityDrop.street`, added to `src/core/` with this cut). A drop over a junction's or a zebra crossing's cells is allowed (Josh: "Allow (Recommended)").
+   - Every drop meets the wall at `DROP_WALL_Y_M` 5.5 m (Josh: "Same height (Recommended)").
+
+   **test**: 1 fixture case: a far-side building within 7.5 m of its own crossing pole takes it, and one with none takes a drop across, with `street` set.
+2. [ ] **CK9's check (`placeProblems`), flipped.** Fails: a building with a front column on a street and no drop (on either pavement); a far-side drop across the street when an own crossing pole was within reach; a drop longer than its reach (7.5 m own pavement, 23.5 m across); a drop to a building facing a park. The "never crosses a street" and "never a crossing pole" failures go. **test**: 1 rewritten, the existing "CK9: a drop from a pole across the street fails ..." case (`circuit.test.ts`), re-titled.
+3. [ ] **CK7 binds drops; 059's 5.5 m does not** (Josh: "Same height (Recommended)", lifting 059's road clearance for drops, as card 5 did for crossings). Every drop's lowest point is at least `WALK_FLOOR_M` 4.2 m, with its pole end at the lowest attachment of its `poleModels` key, the wall end at 5.5 m and the sag at `SAG_RATIO` on its length, as K2d1 reads spans. `circuitProblems` reports a failure as "CK7". A drop at 4.8 m over a carriageway passes. **test**: 1 fixture case.
+4. [ ] **CK17d keeps roof spans 1 m from drops (the architect's call, see the reading below).** `layRoofSpans` does not offer a roof span whose curve comes within `ROOF_CLEAR_M` 1.0 m of any drop's curve, both hung as criterion 3 and K2d1 criterion 8 read them. CK17d's layer check says so too. **test**: 1 fixture case.
+5. [ ] **The pins it moves**, re-taken once each and listed with old and new values. **test**: at most 4 rewritten:
+   - stage 6's own, `9ff1b134`, in the R-1 to R-7 case of `src/city/circuit/circuit.test.ts` (it also asserts nothing on seed 1 fails CK1 to CK17d);
+   - `src/city/tech/named.test.ts`, "criterion 9, the digest pin (R-4)" (`7c991996`);
+   - `src/city/holdout/named.test.ts`, "pins, on the four pin cities ... power and settle parts";
+   - `src/city/ruin/named.test.ts`, "pins, on the four pin cities ... growth part".
+
+   The eras read drops through `circuitPoints` (`tech/circuit.ts`, `holdout/guard.ts`, `ruin/grow.ts`, `ruin/guard.ts`), so these move. Their code is not edited.
+6. [ ] **The pins it must not move.** Stages 7, 8 and 9 keep only poles and lights (`keep`), and H4 reads `roofKeep`, so these pass unedited: stage 7's in `src/city/facades/stage.test.ts`, stage 8's in `src/city/ground/stage.test.ts`, `GROUND_PINS` and the stage 9 `PINS` in `src/city/traffic/stage.test.ts`. K2c's "plays the same" case, K3's seed 1 case (`circuitdraw.test.ts`) and E2's seed 1 cases pass unedited. **test** (existing).
+7. [ ] **Seed 1's counts, printed once in the reply, never tuned to:** drops by kind (own line, own crossing pole, across), buildings with a front column and no drop (0 expected), the longest across, the lowest drop point (4.82 m expected on the four), drops over junction cells, roof span places no longer offered, and stage 7 clashes (escapes, face signs; Josh: "Leave (Recommended)"). **no test**.
+
+**The stop rule.** The builder stops and reports ("stop 081 K2e", with the branch) if:
+- a pin in criterion 6 moves;
+- a T-1 or T-2 assertion in an era's tests fails against the new drops (an era piece now covers or seals one). That is a question for Josh about T-1 or T-2, as K2a2 said, not a fix here;
+- more than 2 further cases outside `src/city/circuit/` need rewriting. They are listed, and the architect re-cuts.
+
+**Count.** 3 added, 5 rewritten (criteria 2 and 5), and at most 2 more under the stop rule: at most 10.
+
+**Files.** `src/city/circuit/` (`places.ts`, `checkplaces.ts`, `roofplaces.ts`, `checkroofs.ts`, `constants.ts` for `DROP_CROSS_MAX_M`, `stage.ts` to hand drops to `layRoofSpans`, and their tests). Also, as I2 did (test policy rule 6), the **digest pin lines only** of the three era cases named in criterion 5: `src/city/tech/named.test.ts`, `src/city/holdout/named.test.ts`, `src/city/ruin/named.test.ts`. No other line in those folders changes. `src/core/` is the architect's (`CityDrop.street` is committed).
+
+**Readings this cut makes (the architect's; none is a new number or a Decided rule):**
+- **CK14, a drop that hangs from another block's pole.** A drop belongs to the block of its **pole** (`CityPole.block`; a crossing pole's is the block it stands beside), not of its building. That is the check as built (`districtProblems`: "hangs from a pole outside the district"), unchanged. So:
+  - a job may light a building across a district street from a district pole, though the building's block is outside the district: the wire runs over a district street, which is inside the district "kerb to far pavement";
+  - a district building fed across the street from a neighbouring block's pole is scenery to that job (it stays dark). It joins a job whose district holds the pole's block;
+  - Josh's B1-Q5 ("Neighbouring blocks too") is for roof spans only and does not reach drops.
+
+  **no test**: K2c's existing CK14 case holds the pole check, and no code changes. *(Proposed, as CK14's scenery clause is.)*
+- **CK17d and drops: yes, kept 1 m, at the layer.** Drops are drawn on every plan, so a used roof span that touches one always shows. Refusing it where it is offered keeps P1, the fit and every job unaware of drops. The note measured 3 to 10 such near-touches a city. K2ep measures what that costs before the builder starts.
+- **059's 5.5 m** no longer binds drops (Josh's words above). It still binds along and corner spans, which no rule lets over a carriageway.
+
+### D4 · The wall fitting shortlist, and the drop wire's gauge (pipeline-designer; a note, no code). Branch `ticket/081-puzzles-on-the-city` (a note)
+**Goal.** As D1 did (`docs/design/081-D1-component-shortlist.md`), so the main session can put two cards to Josh (Josh: "Shortlist (Recommended)").
+
+**Acceptance criteria.** All **no test**.
+1. [ ] `docs/design/081-D4-wall-fitting-shortlist.md`. **The wall fitting:** up to six candidates from the converted packs (a wall insulator, bracket, service head or wall box), in manifest order, not ranked. For each: its `pack:name`; size in metres; triangles; what `docs/design/073-pack-intended-use.md` and the pack's store images say of it; **where a wire meets it** (height over its base, offset from its back), measured from the model; whether it reads at 5.5 m on a storey 1 facade from the default camera and from `cam=street`; its gallery link.
+2. [ ] **The drop wire.** `POWER_LINE`'s drawn thickness today (about 6 cm), and every pack wire or cable piece `fitLine` could hang (a length along one axis, as 071 Q11's), with its thickness and gallery link. "Keep `POWER_LINE`" is listed first. A scaled-up wire is not listed: the kit draws pack pieces at true size. If Josh wants one anyway, that is his to say.
+3. [ ] **Pictures for the cards** go to `assets/private/` (git-ignored), as D1's did. Nothing from a pack is committed.
+
+**The picks (the main session, not an agent).** Two cards: `wallFitting` (D4's candidates) and `dropWire` ("Keep `POWER_LINE`" and D4's candidates). His words and the date go into a new **Scenery** table at the bottom of `docs/design/081-component-picks.md`, one row per piece of `CIRCUIT_SCENERY` (`src/core/citycircuit.ts`, committed with this cut).
+
+**Files.** `docs/design/081-D4-wall-fitting-shortlist.md`.
+
+### K3b · The drops drawn attached (renderer). Branch `ticket/081k3b-drops-attached`, after Josh's D4 picks
+**Why.** The drop investigation (24 Nov 2026) found the drops look unattached at both ends: no fitting at the wall; a wire of about 6 cm; the pole end hanging between the outer insulators at `lowestAttach` (`circuitdraw.ts`), on no insulator. K2e fixes the fourth reason (one drop a building, none on the far side). K3b does not need K2e: it draws whatever drops the layer has.
+
+**Goal.** At `?view=3d&city=tiles`, every drop leaves a real insulator on its pole and meets a wall fitting on the building, with the wire Josh picked.
+
+**Acceptance criteria.**
+1. [ ] **The pole end on a real insulator.** A drop's pole end is the attachment of its pole's drawn model (the ground mix, or the feed pick) with `ownInsulator: true` that is nearest the drop's wall point in plan, at that attachment's place on the placed pole (`poleAttachModel` and `poleToWorld`, `powerkit.ts`, read only). It is never lower than `lowestAttach`, so stage 6's heights hold. Spans and roof spans end as today. **test**: 1 rewritten, "draws every pole on its poleModels model and every span and drop as wire ..." (`circuitdraw.test.ts`): a drop ends on an insulator, spans as before.
+2. [ ] **The wall fitting.** A new `SCENERY_MODELS: Record<CircuitSceneryPiece, CircuitSceneryPick>` in `componentmodels.ts`, transcribed from the picks note's Scenery table. At every drop's wall point, the `wallFitting` model stands unscaled (guide chapter 2), its back on the wall, facing out along the building's front side, placed so that D4's wire point is at the drop's `y_m`. The drop's wall end is that point.
+   - A null key draws nothing, and the drop ends at the wall point as today.
+   - A picked model that did not load draws K3's placeholder, never a throw.
+   - A building lamp (`lampBuilding`) stands under the fitting, `ON_POLE_GAP_M` below it, not inside it.
+   - Drops hang with the `dropWire` key when it is set; spans keep `POWER_LINE`.
+
+   **test**: 1 added.
+3. [ ] **The tables equal the note.** D3's "the table equals the note row for row" case also covers the Scenery table. **test**: 1 rewritten.
+4. [ ] **Keys.** `circuitKeyUses()` lists the fitting (a new `"fittings"` list) and the drop wire's key on `"drops"`. So `planKeys()` and 082 A's `gameModelKeys()` include them with no other change, and R12 allows them only there. If the R12 case in `plan3d.test.ts` must change for a new drop wire key, it is rewritten. **test**: at most 1 rewritten. After merge, the game pack is stale until `npm run assets:game` is run again (082 B). 082 A never uses a stale pack in part, so the page falls back to the full packs.
+5. [ ] **Reported, not tuned:** how many fittings meet a stage 7 escape or face sign on seed 1, and the fitting's top against storey 2. **no test**.
+6. [ ] Josh views 6 x 6 seed 1 at `?view=3d&city=tiles`, from the default camera and `cam=street`. With K2e merged, the far-side buildings too. **browser**.
+
+**Count.** 1 added, 2 or 3 rewritten: at most 4.
+
+**Files.** `src/render3d/circuitdraw.ts`, `circuitdraw.test.ts`, `componentmodels.ts` and its test; `plan3d.test.ts` (the R12 case only, if criterion 4 needs it). **Must not:** `cityview.ts` (E3's), `powerkit.ts` (read only), `src/city/`, `src/core/`, `src/ui/`.
+
+### The CK9 path: order and parallel work (cut 24 Nov 2026)
+| Now, at once | Then | Shared files |
+| --- | --- | --- |
+| E3 (build), K2ep (pre-check), D4 (note) | K2e after K2ep; K3b after Josh's D4 picks. K2e and K3b may run at once. | None. E3 has `cityview.ts`; K2e has `src/city/circuit/` and three era pin lines; K3b has `circuitdraw.ts` and `componentmodels.ts`. K2ep and D4 are notes. |
+
 ### X1 · Delete the 2D map view (renderer). **Stub, not cut; not to be built yet**
 Josh, 24 Nov 2026: "Hide now, delete later (Recommended)". Cut in full once P2a's 16 pilots are on the city and Josh has said so. Expected:
 - **Goes:** `src/render/map-renderer.ts` and the 2D map's drawing modules and tests (most of `src/render/`).
@@ -1007,7 +1128,7 @@ Josh, 24 Nov 2026: "Hide now, delete later (Recommended)". Cut in full once P2a'
 Josh, 24 Nov 2026: "Retarget later (Recommended)". `tests/playtest/` replays the schematics and is left alone until then. Re-cut it for city puzzles before the next release Josh calls; until then its snapshots may go stale, as the release loop allows.
 
 ## Files
-Per section, above. This branch (the cut): `tickets/081-puzzles-on-the-city.md`, `tickets/070-city-pipeline.md` (pointer lines), `tickets/071-pack-power-lines.md` (a pointer line: C and E's ladder wiring are dropped), `tickets/rules-coverage.md`, `src/core/citycircuit.ts` (new; `CityPuzzleView` added 24 Nov 2026 for the playable path), `src/core/cityplan.ts` (`CityCircuitLayer`), `src/core/index.ts`.
+Per section, above. This branch (the cut): `tickets/081-puzzles-on-the-city.md`, `docs/design/070-K1-circuit.md` (CK9 as changed, 24 Nov 2026), `tickets/070-city-pipeline.md` (pointer lines), `tickets/071-pack-power-lines.md` (a pointer line: C and E's ladder wiring are dropped), `tickets/rules-coverage.md`, `src/core/citycircuit.ts` (new; `CityPuzzleView` added 24 Nov 2026 for the playable path), `src/core/cityplan.ts` (`CityCircuitLayer`), `src/core/index.ts`.
 
 ## Interfaces
 Written into `src/core/` with this cut (typecheck passes):
@@ -1030,6 +1151,10 @@ Written into `src/core/` with this cut (typecheck passes):
   - `project` returns the screen point and a boolean for "behind the camera".
   - **This stands.** E1's criteria name the inputs, not their exact shape. E2 codes against the built shape, and the criteria are not edited.
 - **The playable path's contract (24 Nov 2026, committed with this re-cut):** `CityPuzzleView` (`{ plan, converted }`) in `src/core/citycircuit.ts`. E2 adds `loadCityView(city): CityPuzzleView` (`src/render3d/index.ts`) and `MapRenderer3dOptions.city?: CityPuzzleView` (`renderer.ts`). U2 calls both. U1's `CityMapEntry` stays inside `src/ui/` (re-cut 24 Nov 2026: no `MapEntry` union, since the picker lists only city puzzles).
+- **The CK9 path (24 Nov 2026, committed with this re-cut; typecheck passes):**
+  - `CityDrop.street?` (K2e writes it for a drop across a street);
+  - `CityPuzzleView.district?` (E3's `loadCityView` writes it);
+  - `CIRCUIT_SCENERY` (`"wallFitting"`, `"dropWire"`), `CircuitSceneryPiece` and `CircuitSceneryPick`, for K3b's `SCENERY_MODELS`. They are kept apart from `CIRCUIT_COMPONENTS`, so the overlay, the gallery's component view and `COMPONENT_MODELS` do not change.
 - **Events:** none new.
 - **No new dependency.** The overlay is Canvas 2D.
 
