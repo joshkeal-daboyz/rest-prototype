@@ -144,7 +144,7 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | B1q | "pre-check 081 B1b": mid-row roofs, the real pole pick, neighbouring blocks | pipeline-designer | B1b, PK1 | **done**: holds (`ticket/081b1-roof-spans`, 555cf0e) |
 | C1 | The city puzzle validator | lead-architect | G1 | 6 |
 | K2a | Stage 6: poles and spans (CK1 to CK6, CK8; CK7 moves to K2d), not yet in `BUILT_STAGES` | grid-simulator | now | 9 |
-| K2a2 | Stage 6 switched on: `BUILT_STAGES`, the shared profiles, the tests that said circuit was not built | grid-simulator | K2a | at most 10 (about 7 rewritten) |
+| K2a2 | Stage 6 switched on: `BUILT_STAGES`, the shared profiles, the tests that said circuit was not built (era passes included) | grid-simulator | K2a | at most 15 (about 12 rewritten) |
 | K2b | Stage 6: drops, lights, lamp posts, node places (CK9 to CK12) | grid-simulator | K2a2 | 10 |
 | K2c | The conversion (CK13 as changed, CK14, CK15) | grid-simulator | K2b, C1 | 10 |
 | K2d | Stage 6: the pole pick, CK7, roof structures and roof spans (CK17) | grid-simulator | K2c, PK1, B1q, Josh's mid-row answer (given) | at most 13 |
@@ -384,15 +384,25 @@ If it does not report "holds", its note goes to Josh before K2d and H4 are cut i
    - `src/city/ground/stage.test.ts`: 2 cases and its test-double stage list;
    - `src/city/traffic/stage.test.ts`: its stage list and its test-double stage list;
    - `src/city/pipeline/run.test.ts`: 1 case.
-4. [ ] Any later stage's digest pin that moves because stage 6 now runs before it is re-taken once and listed. **test**: at most 2 rewritten. The PR stays at or under 15 in all, about 10.
-5. [ ] `?city=plan&stage=6` shows stage 6's picture. **browser**.
+4. [ ] Any later stage's digest pin that moves because stage 6 now runs before it is re-taken once and listed. **test**: at most 2 rewritten.
+5. [ ] **The era passes see the circuit** (re-cut 23 Nov 2026, after PR #30's CI). With stage 6 built, `circuitPoints` is no longer empty, so the hold-out and ruin passes keep clear of real poles. This is the change K2 was meant to bring (`stage.ts` in both passes: "empty until K2"). Five cases were written for "no circuit until K2":
+   - **Digest pins re-taken**, once each, listed with the old and new values. **test**: 2 rewritten.
+     - `src/city/holdout/named.test.ts`: the power-and-settle pin on the four pin cities;
+     - `src/city/ruin/named.test.ts`: the growth pin, '578cd93e' to the new value.
+   - **`src/city/ruin/named.test.ts`, "no circuit on the named runs until K2 ... the under-span set is empty".** This is a stale assumption. It is rewritten to state the real circuit on 6 x 6 seed 1: the under-span set is the one the run now finds (19, given as the expected value). T-1 and T-2 hold on the run, which the file already asserts. Nothing is loosened. **test**: 1 rewritten.
+   - **`src/city/holdout/stage.test.ts`, the two T-2 fixture cases** ("a mouth whose wall would seal a pole in is skipped", and "two touching held districts keep both districts' poles joined"). They compare a run with fixture poles against a "free" run with no `circuit` option. Until K2 that free run had no poles; now it takes the real circuit, so it is no longer free: its barricade set is smaller (33) than the fixture run's (38). That is a stale baseline, not a fault. Each free run passes `{ circuit: EMPTY_CIRCUIT }` explicitly, so the case compares what it was written to compare. Every assertion keeps its value and strength. **test**: 2 rewritten.
+   - **Not a rule clash, as far as CI shows.** No T-1 or T-2 assertion against the real poles failed. If the builder finds one that does (a real pole sealed in, or covered), it **stops and reports**. That would be a question for Josh about T-1 or T-2 against real poles, not a fix in this PR.
+6. [ ] `?city=plan&stage=6` shows stage 6's picture. **browser**.
+
+**The count.** Criterion 3 rewrites at most 8, criterion 4 at most 2, criterion 5 exactly 5, and none are added. That is at most 15, and about 12 as built: the branch at 3c50677 has 3 `it(` lines in its added diff, and the rest are list or assertion edits inside cases. **Import-line-only** edits do not count (A2a's rule). If the builder's total passes 15, criterion 5's two hold-out fixture cases move to a K2a3 PR in the same branch order, and the hold-out `stage.test.ts` stays red only on its branch, never on `main`.
 
 **Files.**
 - `src/city/stages.ts` (one entry) and `src/city/testing/namedcities.ts` (`PROFILE_STAGES` only).
 - Test lines in four other owners' folders, listed here so they are in scope (test policy rule 6): `src/city/facades/stage.test.ts` (facades), `src/city/ground/stage.test.ts` (landscape), `src/city/traffic/stage.test.ts` (streetscape) and `src/city/pipeline/run.test.ts` (planner). Only the circuit-not-built lines change. Each folder's owner does not edit them in this PR, and the reviewer checks that nothing else moved.
 - Any digest pin file of criterion 4.
+- **Criterion 5's test lines** in two more owners' folders (test policy rule 6), only the cases named there: `src/city/holdout/named.test.ts` and `stage.test.ts` (holdout-pass), and `src/city/ruin/named.test.ts` (ruin-pass). The K2a2 builder re-takes the pins, because the stage switch moves them and they must be green in the same PR. The pass agents do not edit them here; the reviewer checks that nothing else moved.
 
-**Must not:** any non-test file in those four folders.
+**Must not:** any non-test file in those six folders. `src/city/holdout/stage.ts`, `ruin/stage.ts` and `ruin/walk.ts` are not edited: they already read `circuitPoints`.
 
 ### K2b · Stage 6, drops, lights, lamp posts and node places (grid-simulator, pure). Branch `ticket/081k2b-circuit-places`
 **Acceptance criteria.**
