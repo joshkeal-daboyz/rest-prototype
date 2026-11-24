@@ -21,6 +21,8 @@ export const CORNER_SPAN_M = 9.55;
 export const DROP_WALL_Y_M = 5.5;
 /** CK9 (proposed): no drop is longer than this in plan. */
 export const DROP_MAX_M = 7.5;
+/** CK9 as changed (081 K2e; Josh, 24 Nov 2026, "Every building wired"): a drop across a street from the facing pole line is no longer than this in plan (the note's longest is 23.03 m). */
+export const DROP_CROSS_MAX_M = 23.5;
 /** CK10 (059's number): no street light stands within this of any pole. */
 export const LIGHT_POLE_MIN_M = 3;
 /** CK11 (proposed): an along span offers a lamp post at its midpoint only when it is at least this long. */

@@ -1,14 +1,15 @@
 /**
  * Stage 6, drops, street lights and lamp-post places (ticket 081 K2b; CK9 to CK11 of `docs/design/070-K1-circuit.md`). Pure: reads the poles and spans laid by `layPoles`, the streets, the edge, the mass and the buildings.
  *
- * - **CK9** A building whose front open side faces a street takes one drop when its block side is a pole line: the pair of one front column and one pole of that line that is closest in plan; the wall point is the centre of that column's front edge at 5.5 m.
+ * - **CK9** (081 K2e) A building with a front column on a street takes one drop, the closest pair of a front column and a pole in plan: from its own pole line; else from a crossing pole on its own block side within 7.5 m; else across the street from
+ *   that street's pole pavement, up to 23.5 m (the drop sets `street`). The wall point is the centre of that column's front edge at 5.5 m.
  * - **CK10** Street lights stand on the non-pole pavement of each block side, on every second slot of CK2's layout (1, 3, 5 ...), never the end positions, a forbidden cell, or within 3 m of a pole.
  * - **CK11** A lamp-post place is the midpoint of every along span of 7.5 m or more.
  */
 
 import type { CityDrop, CityLampPostPlace, CityPole, CitySide, CityStreetLight, CityWireSpan } from "../../core";
 import type { CircuitInput } from "./check";
-import { CELL_M, DROP_WALL_Y_M, LIGHT_POLE_MIN_M, POLE_END_CLEAR_M, POLE_PITCH_M, POST_MIN_SPAN_M } from "./constants";
+import { CELL_M, DROP_CROSS_MAX_M, DROP_MAX_M, DROP_WALL_Y_M, LIGHT_POLE_MIN_M, POLE_END_CLEAR_M, POLE_PITCH_M, POST_MIN_SPAN_M, TOL } from "./constants";
 import { allowedCell, cellAt, indexCells, pointOf, polePavement, sidePavement, spanM, streetsById } from "./geometry";
 
 const round4 = (n: number): number => Math.round(n * 10000) / 10000;
@@ -30,6 +31,31 @@ export function frontColumns(input: CircuitInput, building: { readonly front: Ci
   return building.cells.filter((c) => built.get(`${c.i},${c.j}`)?.open.some((o) => o.side === building.front && o.faces === "street") === true);
 }
 
+type Col = { readonly i: number; readonly j: number };
+type Pair = { d: number; pole: CityPole; col: Col; at: { x_m: number; z_m: number } };
+
+/** The closest pair of a front column's wall point and a pole within `max` in plan (ties go to the first column, then the first pole). */
+function closestPair(cols: readonly Col[], front: CitySide, poles: readonly CityPole[], max: number): Pair | undefined {
+  let best: Pair | undefined;
+  for (const col of cols) {
+    const at = edgeCentre(col.i, col.j, front);
+    for (const pole of poles) {
+      const d = Math.hypot(pole.x_m - at.x_m, pole.z_m - at.z_m);
+      if (d > max + TOL) continue;
+      if (best === undefined || d < best.d - 1e-9) best = { d, pole, col, at };
+    }
+  }
+  return best;
+}
+
+const byAlong = (x: CityPole, y: CityPole): number => x.along_m - y.along_m || (x.id < y.id ? -1 : x.id > y.id ? 1 : 0);
+
+/** CK9 (081 K2e): the crossing poles on a building's own block side, in order. */
+const ownCrossingPoles = (poles: readonly CityPole[], b: { readonly block: string; readonly front: CitySide }): CityPole[] => poles.filter((p) => p.kind === "crossing" && p.block === b.block && p.side === b.front).sort(byAlong);
+
+/** CK9 (081 K2e): whether an own crossing pole is within `DROP_MAX_M` of one of a building's front columns. */
+export const crossingInReach = (poles: readonly CityPole[], b: { readonly block: string; readonly front: CitySide }, cols: readonly Col[]): boolean => closestPair(cols, b.front, ownCrossingPoles(poles, b), DROP_MAX_M) !== undefined;
+
 export function layDrops(input: CircuitInput, poles: readonly CityPole[]): CityDrop[] {
   const byStreet = streetsById(input.streets);
   const ix = indexCells(input.edge);
@@ -39,18 +65,24 @@ export function layDrops(input: CircuitInput, poles: readonly CityPole[]): CityD
     const block = blocks.get(b.block);
     if (block === undefined) continue;
     const street = byStreet.get(block.sides[b.front].street);
-    if (street === undefined || polePavement(street, ix) !== sidePavement(b.front)) continue;
-    const line = poles.filter((p) => p.block === b.block && p.side === b.front && p.kind !== "crossing").sort((x, y) => x.along_m - y.along_m);
-    let best: { d: number; pole: CityPole; col: { i: number; j: number }; at: { x_m: number; z_m: number } } | undefined;
-    for (const col of frontColumns(input, b)) {
-      const at = edgeCentre(col.i, col.j, b.front);
-      for (const pole of line) {
-        const d = Math.hypot(pole.x_m - at.x_m, pole.z_m - at.z_m);
-        if (best === undefined || d < best.d - 1e-9) best = { d, pole, col, at };
+    if (street === undefined) continue;
+    const cols = frontColumns(input, b);
+    if (cols.length === 0) continue;
+    const polePave = polePavement(street, ix);
+    let best: Pair | undefined;
+    let across = false;
+    if (polePave === sidePavement(b.front)) {
+      best = closestPair(cols, b.front, poles.filter((p) => p.block === b.block && p.side === b.front && p.kind !== "crossing").sort(byAlong), Infinity);
+    } else {
+      best = closestPair(cols, b.front, ownCrossingPoles(poles, b), DROP_MAX_M);
+      if (best === undefined) {
+        best = closestPair(cols, b.front, poles.filter((p) => p.street === street.id && p.pavement === polePave && p.kind !== "crossing").sort(byAlong), DROP_CROSS_MAX_M);
+        across = true;
       }
     }
     if (best === undefined) continue;
-    out.push({ id: dropId(b.id), pole: best.pole.id, building: b.id, cell: { i: best.col.i, j: best.col.j }, x_m: best.at.x_m, z_m: best.at.z_m, y_m: DROP_WALL_Y_M });
+    const drop: CityDrop = { id: dropId(b.id), pole: best.pole.id, building: b.id, cell: { i: best.col.i, j: best.col.j }, x_m: best.at.x_m, z_m: best.at.z_m, y_m: DROP_WALL_Y_M };
+    out.push(across ? { ...drop, street: street.id } : drop);
   }
   return out;
 }
