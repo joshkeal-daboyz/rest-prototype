@@ -1,5 +1,5 @@
 /**
- * Stage 6: the circuit (ticket 081 K2a; the rules are ticket 070 K1's, `docs/design/070-K1-circuit.md`). Lays every pole, span, drop, light and post place of the city: CK1 to CK6 and CK9 to CK11. Reads `streets` and `edge`, writes only `circuit`. CK9 to CK11 (K2b) add the drops, street lights
+ * Stage 6: the circuit (ticket 081 K2a; the rules are ticket 070 K1's, `docs/design/070-K1-circuit.md`). Lays every pole, span, drop, light and post place of the city: CK1 to CK6 and CK9 to CK11. Reads `streets`, `edge`, `mass` and `buildings`, writes only `circuit`. CK9 to CK11 (K2b) add the drops, street lights
  * and lamp-post places; `keep` holds every pole and light. `circuitProblems` judges the layer before it returns (R-2).
  */
 

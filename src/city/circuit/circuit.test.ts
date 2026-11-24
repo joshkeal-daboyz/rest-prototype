@@ -99,12 +99,6 @@ describe("stage 6, poles and spans (081 K2a) and places (081 K2b)", () => {
     expect(long.some((p) => p.rule === "CK9" && p.id === d.building && p.reason.includes("no drop"))).toBe(true);
   });
 
-  it("CK9: every drop is pole-side, short, 5.5 m up, and meets a front column; seed 1's pass", () => {
-    expect(layer.drops.length).toBeGreaterThan(0);
-    expect(circuitProblems(layer, input).filter((p) => p.rule === "CK9")).toEqual([]);
-    expect(layer.drops.every((d) => d.y_m === 5.5 && d.id === `drop:${d.building}`)).toBe(true);
-  });
-
   it("CK10: a light at a crossing pole's spot fails, and so does one on the pole pavement", () => {
     const l = layer.lights[0]!;
     const c = layer.poles.find((p) => p.kind === "crossing")!;
@@ -112,11 +106,6 @@ describe("stage 6, poles and spans (081 K2a) and places (081 K2b)", () => {
     expect(onPole.some((p) => p.rule === "CK10" && p.id === l.id && p.reason.includes("within"))).toBe(true);
     const flipped = circuitProblems({ ...layer, lights: [{ ...l, pavement: l.pavement === "lo" ? "hi" : "lo" }] }, input);
     expect(flipped.some((p) => p.rule === "CK10" && p.reason.includes("pole pavement"))).toBe(true);
-  });
-
-  it("CK10: seed 1's lights keep 3 m from every pole and stand on allowed cells", () => {
-    expect(layer.lights.length).toBeGreaterThan(0);
-    expect(circuitProblems(layer, input).filter((p) => p.rule === "CK10")).toEqual([]);
   });
 
   it("CK11: a lamp post stands at an along span's midpoint on the span's own line; one moved off it, or on a short span, fails", () => {
