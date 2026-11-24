@@ -19,6 +19,9 @@ Each is the question as asked and the option he picked, quoted.
    - (b) Roof structures and nodes: **"Roofs may hold nodes"**. A roof structure may hold a breaker, a switch or a fuse box. This lifts K1 Q9 ("on poles only") for roof structures.
    - (c) Where a diagonal ends: **"Roof or pole"**. A diagonal runs roof to roof, or roof to pole.
 7. **The overlay's style:** **"Icons plus lines (Recommended)"**.
+   - **How the overlay draws a line and a break** (Josh, 23 Nov 2026, in chat, asked what the overlay and the 3D break prop do with a damaged cable that current does not reach): "The 2D overlay should just draw a line from junction to junction with an icon indicating a break at the center of the cable."
+   - Follow-up card, the line's path: **"Straight, piece to piece"**. One straight line between the two puzzle pieces a line connects, as on the 2D map. The line does not follow the carrier poles' spans. The break icon sits at that line's midpoint.
+   - Follow-up card, whether the break icon is always shown: **"Only when readable"**. It appears only once current reaches the break, as on the 2D map (Josh, 27 Oct 2026: "Unreadable faults show nothing").
 8. **The damaged line:** **"Yes, a picked prop"**. Josh picks a model for the break, placed at the cut span. The wire itself stays code-drawn (071).
 9. **The picking process:** **"A card per component"**. The main session puts one question card per component, built from D1's shortlist with pictures, and records his pick in his words in `docs/design/081-component-picks.md`.
 10. **`src/city/circuit/` for the grid-simulator:** **"Yes, add it"**. The main session edits `.claude/agents/grid-simulator.md`. No agent does.
@@ -565,7 +568,7 @@ P1's own fits (criterion 8) are the record. P2a waits for K2d, because 9 of its 
 **Files.** New `src/render3d/componentmodels.ts` and its test.
 
 ### E1 · Glyphs out of the 2D renderer; the overlay's icons and lines, pure (renderer). Branch `ticket/081e1-overlay-pure`
-**Goal.** 071 E's pure parts, for the city, with lines as well as icons (answer 7: "Icons plus lines"). The glyph drawing moves from `map-renderer.ts` to `src/render/glyphs.ts`, and the 2D view does not change. `src/render3d/overlay.ts` lays out each component's icon and each line's projected chain, live or dead, from a converted puzzle, its state and a projection passed in. It uses no three and no DOM.
+**Goal.** 071 E's pure parts, for the city, with lines as well as icons (answer 7: "Icons plus lines"). The glyph drawing moves from `map-renderer.ts` to `src/render/glyphs.ts`, and the 2D view does not change. `src/render3d/overlay.ts` lays out each component's icon, and each puzzle line as one straight projected segment from piece to piece (Josh: "Straight, piece to piece"), live or dead, from a converted puzzle, its state and a projection passed in. It uses no three and no DOM.
 
 **Acceptance criteria.**
 1. [ ] 071 E criterion 1: the glyphs move, the existing `src/render/` tests pass unedited, and the call list is the same. **test**: 2 cases.
@@ -578,12 +581,14 @@ P1's own fits (criterion 8) are the record. P2a waits for K2d, because 9 of its 
 3. [ ] State is shown by shape, not by colour alone (guide 12). **test**: 1 case.
 4. [ ] An icon's hit circle is at least `OVERLAY_HIT_PX` (44 CSS px) across, at every zoom. **test**: 1 case.
 5. [ ] `overlayLines(converted, state, project)`:
-   - each line's polyline through its chain's projected span ends, carriers included;
+   - **one straight segment per puzzle line**, from its `from` node's projected place to its `to` node's. The carrier poles and the run's spans play no part in the overlay. Josh: "The 2D overlay should just draw a line from junction to junction ...", and on the card: "Straight, piece to piece";
    - live or dead, with the 2D map's pulse phase;
-   - a damaged span's cut point, sparking only while live;
+   - a damaged cable's **break icon at the segment's midpoint**, shown **only when the fault is readable** (current reaches it; "Only when readable"; 27 Oct 2026: "Unreadable faults show nothing"). It sparks only while live;
    - brownout flicker for every line.
 
-   **test**: 2 cases.
+   **test**: 2 cases. The existing case that pins a cut on every damaged cable is **rewritten** to a cut at the midpoint, present when readable and absent when not. That keeps the count at 2, and E1's PR total is unchanged.
+
+   **Re-cut 23 Nov 2026 on Josh's words above**, after #29's first review (must-fix 1, fixed in b3ccf13). The first wording had the line follow its chain's span ends, carriers included, and a cut at the damaged span.
 
 **Files.** New `src/render/glyphs.ts` and `glyphs.test.ts`; `src/render/map-renderer.ts` (the move only); new `src/render3d/overlay.ts` and `overlay.test.ts`. **Must not:** `src/core/`, `src/grid/`, `src/play/`, `src/ui/`, `src/city/`.
 
@@ -600,7 +605,7 @@ P1's own fits (criterion 8) are the record. P2a waits for K2d, because 9 of its 
 **From Josh's picks** (`docs/design/081-component-picks.md`; notes for the builder, no rule change):
 - **The feed** (`palm-city-pack:SM_Prop_Powerpole_03`, an H-frame with a transformer, 10.83 m) **replaces** the feed's pole rather than standing on it. It needs its own `placePole` entry, and `poleModels` names it for the feed's pole while that job is played.
 - **The lamp post** (`sci-fi-city-pack:SM_Prop_Streetlight_01`) is 2.64 m deep with its arm. Its overhang of the carriageway from 0.75 m behind the kerb is not measured, so the builder reports it. Street lights (CK10, scenery) keep a different model, because Josh's pick is for the puzzle's lamp posts (CK11); which model they keep is 059's and K3's existing choice.
-- **The damaged-line prop** (`sci-fi-frontier-pack:SM_Prop_Cable_09`), hung from the lowest crossing (5.20 m), reaches 3.85 m, under CK7's 4.2 m walk floor. Whether CK7 binds a prop is **not decided here**. K3 hangs it as picked and reports its low point; a question goes to Josh only if he wants it raised.
+- **The damaged-line prop, open for Josh** (see Open questions). He was asked what the 3D break prop does with a damaged cable that current does not reach, and his answer covered the overlay only. So whether `SM_Prop_Cable_09` stands at the cut span always, or only once the fault is readable, is **not decided here**. K3 asks before it draws the prop. The prop (`sci-fi-frontier-pack:SM_Prop_Cable_09`), hung from the lowest crossing (5.20 m), reaches 3.85 m, under CK7's 4.2 m walk floor. Whether CK7 binds a prop is **not decided here**. K3 hangs it as picked and reports its low point; a question goes to Josh only if he wants it raised.
 - **The roof mast** (`sci-fi-frontier-pack:SM_Prop_Power_Pole_03`) has no cross-arm (071 A: one-sided brackets). Decided 041's three conductors need a code-drawn arm on it, as 071 draws code insulators where a model has none.
 - **Loads:** the subset GLBs (Frontier, Sci-Fi City, Palm; see D3) are converted before K3 draws these. Until then each component draws as a placeholder.
 
@@ -611,7 +616,7 @@ P1's own fits (criterion 8) are the record. P2a waits for K2d, because 9 of its 
 
 **Acceptance criteria.**
 1. [ ] The renderer takes a `CityPuzzleConverted`, and `MapRenderer3d` is unchanged. **test**: 1 case.
-2. [ ] Live and dead by run, in 3D and on the overlay alike; a damaged span is cut and sparks only while live; scenery never glows. **test**: 3 cases.
+2. [ ] Live and dead, in 3D by run (the spans glow; a damaged span is cut and sparks only while live) and on the overlay by E1's straight piece-to-piece segment, with its break icon at the midpoint when readable. Scenery never glows. **test**: 3 cases.
 3. [ ] `hitTest`: an icon's id comes before any 3D object, the 3D pick handles the rest, and scenery gives null. **test**: 2 cases.
 4. [ ] `overlay=0` hides the overlay. **test**: 1 case.
 5. [ ] The Relight can't be interrupted (brief, Decided). **test**: 1 case (rules-coverage).
@@ -655,3 +660,4 @@ Written into `src/core/` with this cut (typecheck passes):
 All questions so far are answered (above), the mid-row one included ("Only when used (Recommended)"). Still open:
 1. **Default this cut takes (you may overturn it):** after A2c, `?view=3d` on a schematic puzzle opens the 2D map with a console note, until that puzzle has a city form.
 2. **(K3 reports, then only if you want it changed)** the damaged-line prop hangs below the 4.2 m walk floor from the lowest crossing.
+3. **The 3D break prop and readability (K3).** The overlay shows a break only when readable ("Only when readable"). Should the 3D prop (`SM_Prop_Cable_09` at the cut span) also stand only once current reaches the break, or always, as a physical break in the street? Not answered yet; K3 does not draw it until you say.
