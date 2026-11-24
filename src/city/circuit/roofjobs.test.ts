@@ -30,7 +30,7 @@ const roof = (id: string): CityRoofMast | undefined => layer.roofs!.find((r) => 
 const spansOf = (id: string): CityRoofSpan[] => layer.roofSpans!.filter((s) => s.a === id || s.b === id);
 const other = (s: CityRoofSpan, id: string): string => (s.a === id ? s.b : s.a);
 const nodeAt = (id: string, type: CityPuzzleNode["type"], place: CityPuzzleNode["place"]): CityPuzzleNode => ({ id, type, place }) as CityPuzzleNode;
-const base = (nodes: CityPuzzleNode[], lines: CityPuzzle["lines"], faults: CityPuzzle["faults"] = [], district: readonly string[] = [D]): CityPuzzle => ({
+const base = (nodes: readonly CityPuzzleNode[], lines: CityPuzzle["lines"], faults: CityPuzzle["faults"] = [], district: readonly string[] = [D]): CityPuzzle => ({
   id: "roof-job",
   name: "Roof job",
   version: 5,
