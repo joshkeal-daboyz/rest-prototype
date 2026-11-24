@@ -10,7 +10,7 @@
  * - **T-2, every node place stays reachable.** The walk graph is every `streets.cells` cell joined to its four neighbours; a cell is closed when a piece standing on the ground (base under `GROUND_BASE_M`)
  *   covers its centre. From a district's first pole (by id) every other pole of the district must be reachable on foot. With no `history` layer the whole city is one group.
  *
- * Where the points come from. The circuit layer is empty until K2 (`CityCircuitLayer` is `{ stage }`), so `circuitPoints` returns none and both checks find nothing to judge on the named runs; K2 fills that one reader.
+ * Where the points come from. `circuitPoints` reads stage 6's layer (081 K2a); a plan without one (the shared profiles skip stage 6) reads as empty.
  * Fixtures pass their own `CircuitPoints`. Where the footprints come from. A piece with a `size` (ground props, traffic pieces, every era add) uses it; a piece without one (facade and building pieces) and a swapped
  * piece use `options.bounds`, the key's kit bounds, which the caller owns (this folder imports no stage's kit).
  */
@@ -74,9 +74,24 @@ export interface CircuitPoints {
 }
 export const EMPTY_CIRCUIT: CircuitPoints = Object.freeze({ poles: [], lights: [], lampPlaces: [], drops: [], lines: [], wires: [] });
 
-/** The circuit of a resolved plan. Empty until K2 gives stage 6 its layer. */
-export function circuitPoints(_resolved: CityResolvedPlan): CircuitPoints {
-  return EMPTY_CIRCUIT;
+/** The circuit of a resolved plan: stage 6's poles, lights, lamp-post places, drops and spans (081 K2). Empty when the plan has no circuit layer. */
+export function circuitPoints(resolved: CityResolvedPlan): CircuitPoints {
+  const layer = resolved.plan.layers.circuit;
+  if (layer === undefined) return EMPTY_CIRCUIT;
+  const at = new Map(layer.poles.map((p) => [p.id, { x_m: p.x_m, z_m: p.z_m }] as const));
+  const point = (id: string): PlanPoint => at.get(id) ?? { x_m: 0, z_m: 0 };
+  return {
+    poles: layer.poles.map((p) => ({ id: p.id, x_m: p.x_m, z_m: p.z_m, block: p.block })),
+    lights: layer.lights.map((l) => ({ id: l.id, x_m: l.x_m, z_m: l.z_m })),
+    lampPlaces: layer.posts.map((p) => ({ id: p.span, x_m: p.x_m, z_m: p.z_m })),
+    drops: layer.drops.map((d) => {
+      const pole = point(d.pole);
+      const len = Math.hypot(pole.x_m - d.x_m, pole.z_m - d.z_m) || 1;
+      return { id: d.id, wall: { x_m: d.x_m, z_m: d.z_m }, out: { x_m: (pole.x_m - d.x_m) / len, z_m: (pole.z_m - d.z_m) / len } };
+    }),
+    lines: layer.spans.map((s) => ({ id: s.id, a: point(s.a), b: point(s.b) })),
+    wires: [],
+  };
 }
 
 export interface ReadableOptions {

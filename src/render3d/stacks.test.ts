@@ -10,8 +10,6 @@ import { join } from "node:path";
 import { ASSET_MANIFEST_VERSION, loadPuzzle, type AssetEntry, type CalibrationKey } from "../core";
 import { BODY_M, OPEN_SIDE_MEASURED } from "./facade";
 import { bandPacked } from "./models3d";
-import { tileCity } from "./tilecity";
-import { cityApplyOptions } from "./tilecity3d";
 import { packTown } from "./terrace";
 import { BUILDING_FRONTS, frontAxis, frontYaw, type BuildingFront, type FrontTable } from "./models";
 import { BODY_REPORT_M, STACK_FLOORS, STACK_STYLES, STOREY_ALIGN_TOL_M, assembleStack, bodyBox, seatOnBody, stackKeys, stackRange, storeyAlignment, type Stack, type StackPiece, type StackSide, type StackStyle } from "./stacks";
@@ -753,12 +751,6 @@ describe("one footprint per column (063 E2)", () => {
       "apartment-03 Apartment_Roof_Corner_03 roof right 0.062",
       "apartment-03 Shop_Corner_01 base left 0.072",
     ]);
-  });
-
-  it("is passed outright by the tile city (cityApplyOptions), as the wall alignment is, and not left to the alignment's default", () => {
-    const o = cityApplyOptions(tileCity());
-    expect(o.align).toBe("wall");
-    expect(o.footprint).toBe("body");
   });
 
   it("seats an office too: its roof's back on its floor's, its fronts on the line, and reports the roof 0.2 m wider than the floor and the Octagon base narrower than its floor", () => {

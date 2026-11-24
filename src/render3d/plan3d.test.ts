@@ -9,7 +9,6 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Box3, Frustum, Matrix4, PerspectiveCamera, BoxGeometry, Group, InstancedMesh, Mesh, MeshBasicMaterial, MeshStandardMaterial, Quaternion, Scene, Texture, Vector3, type Material, type Object3D, type WebGLRenderer } from "three";
 import type { AssetEntry, CalibrationKey, CityBuildingsLayer, CityFacadesLayer, CityGroundLayer, CityGroundPiece, CityKerbPath, CityCell, CityMassLayer, CityPlan, CityPlacement, CitySide } from "../core";
-import { stableHash } from "../render/city";
 import { digestOf } from "../city/pipeline";
 import { FULL_CITIES, NAMED, VARIED, sharedCity } from "../city/testing/namedcities";
 import { yieldToWorker } from "../city/testing/yield";
@@ -62,8 +61,7 @@ import { CODE_ESCAPE_KEY } from "./escapes";
 import { CITY_NEVER_USED } from "./citymetrics";
 import { DRESS_DRAW_CALLS_MAX, DRESS_MAX, dressKeys } from "./dressing";
 import { FURN_DRAW_CALLS_MAX, furnitureKeys } from "./furniture";
-import { tileCity, TILE_M, type TileCell } from "./tilecity";
-import { interiorGroup, tileGroup } from "./tilecity3d";
+import { TILE_M, type TileCell } from "./tilecity";
 import { INTERIOR_DRAW_CALLS_MAX, INTERIOR_KEYS, KERB_INSET_M, KERB_LIP_TOP_M, PASSAGE_FLOOR_KEYS, TILE_DRAW_CALLS_MAX, TILE_FRONTS, TILE_PROPS, TILE_SLOTS, TILE_TREES, tileKeys } from "./tileslots";
 import { CITY_GROUND_VARIANT } from "../core";
 
@@ -154,32 +152,6 @@ describe("planAssembleRequested", () => {
     expect(planAssembleRequested("?city=plan&stage=9&blocks=2x4&seed=x")).toMatchObject({ blocksX: 2, blocksZ: 4, seed: 1 });
     expect(planAssembleRequested("?city=plan&stage=9&cam=street&at=12,30&dir=-z")).toMatchObject({ street: true, at: { i: 12, j: 30 }, dir: "-z" });
     expect(planAssembleRequested("?city=plan&stage=9&cam=street&at=nope&dir=up")).toMatchObject({ street: true, at: null, dir: null });
-  });
-});
-
-// ---- criterion 1: the two entries change nothing for city=tiles ----
-
-describe("tileGroupOf and interiorGroupOf (criterion 1)", () => {
-  // The hash of what `tileGroup` and `interiorGroup` gave on the default `city=tiles` city before they were split (`git show HEAD:src/render3d/tilecity3d.ts` at de39c42, run once and typed in): the counts, the instances
-  // per key and every instance matrix, to 1e-5.
-  function hashDraw(d: { group: Group; calls: number; fromPack: number; codeDrawn: number; perKey: ReadonlyMap<CalibrationKey, number> }): number {
-    const parts: string[] = [`calls ${d.calls}`, `pack ${d.fromPack}`, `code ${d.codeDrawn}`, ...[...d.perKey].sort().map(([k, n]) => `${k}=${n}`)];
-    for (const im of d.group.children as InstancedMesh[]) {
-      parts.push(`${im.name}:${im.count}`);
-      const a = im.instanceMatrix.array;
-      for (let i = 0; i < im.count * 16; i++) parts.push(String(Math.round(a[i]! * 1e5) / 1e5));
-    }
-    return stableHash(parts.join("|"));
-  }
-  const city = tileCity({ blocksX: 3, blocksZ: 3, seed: 1 });
-  const full = pack([...tileKeys(), ...TILE_PROPS]);
-  const PINS = { codeTiles: 2604615310, codeInterior: 4165869471, packTiles: 563102844, packInterior: 2759357387 } as const;
-
-  it("give the same counts, instances per key and matrices as before on the default tile city, in code and from a pack", () => {
-    expect(hashDraw(tileGroup(city, none.roots, none.entries))).toBe(PINS.codeTiles);
-    expect(hashDraw(interiorGroup(city, none.roots, none.entries))).toBe(PINS.codeInterior);
-    expect(hashDraw(tileGroup(city, full.roots, full.entries))).toBe(PINS.packTiles);
-    expect(hashDraw(interiorGroup(city, full.roots, full.entries))).toBe(PINS.packInterior);
   });
 });
 
@@ -1939,11 +1911,11 @@ describe("tilesPlanRequested (ticket 070 L1, criterion 1)", () => {
     for (const s of ["?city=tiles&sheet=1", "?city=plan", "?city=plan&stage=assemble", "?city=tiles-old", "?city=tiles-old&sheet=1", "", "?stage=assemble"]) expect(tilesPlanRequested(s), s).toBeNull();
   });
 
-  it("is routed in renderer.ts with the assembled plan, ahead of the old city branch", () => {
+  it("is routed in renderer.ts with the assembled plan, ahead of the sheet's branch, and renderer.ts has no tiles-old route (081 A1)", () => {
     const renderer = readFileSync("src/render3d/renderer.ts", "utf8");
     expect(renderer).toMatch(/planAssembleRequested\(location\.search\) \?\? tilesPlanRequested\(location\.search\)/);
-    expect(renderer).toMatch(/oldTilesRequested\(location\.search\)/);
-    expect(renderer.indexOf("tilesPlanRequested(location.search)")).toBeLessThan(renderer.indexOf("oldTilesRequested(location.search)"));
+    expect(renderer).not.toMatch(/oldTilesRequested/);
+    expect(renderer.indexOf("tilesPlanRequested(location.search)")).toBeLessThan(renderer.indexOf("cityTilesRequested(location.search)"));
     expect(renderer.indexOf("createPlanAssembleRenderer3d(renderer")).toBeLessThan(renderer.indexOf("createCityRenderer3d("));
   });
 });
