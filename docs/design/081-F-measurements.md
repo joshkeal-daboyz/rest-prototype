@@ -54,3 +54,19 @@ Taken by the main session in the browser pane with it in view, 24 Nov 2026, F1b'
 - After the Relight, the only reading is the throttled one above (1,855 calls, 11 programs, the same as before power). Josh played the Relight ("Played it, merge"), but no in-view after-Relight line was logged.
 - Draw calls do not change after the Relight, so its cost should match before power. That is inferred, not measured.
 - F2 is not called for while the district view is under the bar.
+
+## L2 criterion 3: the street-light budget (PR #60, 71649e0)
+
+Taken by the main session in the browser pane, in view at 60 fps, 24 Nov 2026. 6 x 6 seed 1, `?puzzle=city-two-ways-round&perf=1`, the default camera, canvas 1930 x 1767 at pixel ratio 1.5, a fresh load per run. The Relight was played each time (throw `sw`, repair `l_e2`).
+
+| Run | Draw calls | Programs | CPU median, before power | CPU median, after the Relight | Whole frame, after the Relight |
+|---|---|---|---|---|---|
+| P0 as it is (3 lights) | 1,775 | 11 | 8.50 ms | 8.20 ms | 16.60 ms |
+| `lights=10` | 1,775 | 11 | 8.10 ms | 8.30 ms | 16.70 ms |
+| `lights=25` | 1,775 | 11 | 7.90 ms | 8.10 ms | 16.70 ms |
+| `lights=32` | 1,775 | 11 | 8.30 ms | 8.30 ms | 16.70 ms |
+
+- The shaders were read from the GL context. They carry `pointLights[ 25 ]` and `pointLights[ 32 ]` in those runs, so the lights are real.
+- No run adds a draw call or a program. The worst after-Relight median is 0.1 ms over P0's, inside every row's budget, and the 60 fps vsync holds.
+- On the comparison baseline: F1b's in-view before-power median was 14.40 ms on the same canvas, but these runs are 7.9 to 8.5 ms, which is the spread between sessions on this PC. P0's own row is used as the baseline.
+- By the stop rule, `STREET_LIGHTS_MAX` goes to 32.
