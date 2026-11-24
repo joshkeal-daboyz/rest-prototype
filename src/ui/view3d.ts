@@ -20,3 +20,12 @@ export function wants3d(search: string, puzzleKind: PuzzleKind): boolean {
   if (puzzleKind === "city") return true;
   return CITY_ROUTES.includes(q.get("city") ?? "");
 }
+
+/** What the page builds for a city puzzle (ticket 081 U2): `play` is the puzzle on the city view; `route` is a `city=tiles` or `city=plan` debug route, drawn with no city option. */
+export type PageView = "play" | "route";
+
+/** The page's view for the address. Every puzzle is a city puzzle now (full 3D), so only a city route changes what is built. Pure. */
+export function pageView(search: string): PageView {
+  const city = new URLSearchParams(search).get("city") ?? "";
+  return CITY_ROUTES.includes(city) ? "route" : "play";
+}
