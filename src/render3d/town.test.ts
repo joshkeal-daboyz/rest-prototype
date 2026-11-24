@@ -196,7 +196,7 @@ describe("town.ts is pure", () => {
     for (const l of imports) {
       const from = /from\s+["']([^"']+)["']/.exec(l);
       expect(from, l).not.toBeNull();
-      expect(["../core", "../render/city", "./layout"], l).toContain(from![1]);
+      expect(["../core", "../render/city", "./layout", "./kitunits"], l).toContain(from![1]);
     }
     expect(src).not.toMatch(/["']three["']/);
     for (const bad of ["../grid", "../play", "../ui", "../render/index", "../night"]) expect(src.includes(`"${bad}`)).toBe(false);

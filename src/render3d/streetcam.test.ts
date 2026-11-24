@@ -356,6 +356,6 @@ describe("dev only, and off by default", () => {
     const src = readFileSync("src/render3d/streetcam.ts", "utf8");
     expect(/location\./.test(src)).toBe(false);
     const imports = [...src.matchAll(/from\s+"([^"]+)"/g)].map((m) => m[1]!);
-    for (const i of imports) expect(["three", "./renderer", "./town"], i).toContain(i);
+    for (const i of imports) expect(["three", "./renderer", "./town", "./kitunits"], i).toContain(i);
   });
 });
