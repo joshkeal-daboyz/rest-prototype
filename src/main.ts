@@ -10,6 +10,7 @@ import { brownoutNotices, nextMap, noticeFor, placeHighlight, splashDue } from "
 import { measureBlockers } from "./ui/blockers";
 import { collectMaps, type MapEntry } from "./ui/maps";
 import { assetGalleryRequested } from "./ui/assetgallerylogic";
+import { NO_CITY_FORM_NOTICE, wants3d } from "./ui/view3d";
 
 // The puzzle page. It is a function so the dev-only asset gallery (at the end of this file) can take the page instead, with no puzzle, HUD or map renderer made.
 function startPuzzle(): void {
@@ -90,7 +91,9 @@ if (entries.length === 0) {
   let session: Session | null = null;
 
   // The 3D view (ticket 037) is chosen once, from the URL: a canvas keeps one kind of context. Its code loads only then.
-  const view3d = new URLSearchParams(location.search).get("view") === "3d";
+  // Every puzzle here is schematic (city puzzles come from U1), so only a city route asks for the 3D renderer (ticket 081 A2d).
+  const view3d = wants3d(location.search, "schematic");
+  if (!view3d && new URLSearchParams(location.search).get("view") === "3d") console.info(NO_CITY_FORM_NOTICE);
   let make3d: typeof import("./render3d").createMapRenderer3d | null = null;
 
   const urlFor = (id: string): string => {
