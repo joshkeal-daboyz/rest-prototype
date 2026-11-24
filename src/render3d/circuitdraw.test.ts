@@ -106,7 +106,7 @@ describe("the circuit drawn (081 K3)", () => {
     const converted = convertCityPuzzle(puzzle, run.plan);
     const circuit = run.plan.layers.circuit!;
     const d = circuitDraws(circuit, run.plan.layers.streets, { converted });
-    const nodes = converted.puzzle.nodes;
+    const nodes = converted.puzzle.nodes.filter((n) => !converted.hidden!.includes(n.id));
     const feed = nodes.find((n) => n.type === "feed")!;
     const feedAt = (converted.places[feed.id] as { pole: string }).pole;
     const standing = d.pieces.filter((p) => p.role === "component" || p.role === "feed");
