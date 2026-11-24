@@ -34,3 +34,9 @@ Josh, 24 Nov 2026, on cards, from the D4 shortlist (`docs/design/081-D4-wall-fit
 | --- | --- | --- |
 | `wallFitting` | C: `city-pack:SM_Prop_Sign_Attachment_02` (a 0.67 m wall bracket; the drop ties to its upper arm, 0.34 m out, at 5.5 m) | "C: City bracket" |
 | `dropWire` | `POWER_LINE` (today's City wire, 6.4 cm) | "Keep POWER_LINE" |
+
+## Removed (081 L)
+
+| Role | Was | Josh's words |
+| --- | --- | --- |
+| `lampBuilding` | Palm `Light_Wall_01` | 24 Nov 2026, on a card, when lit windows replace the wall lamp: "Remove it (Recommended)" |
