@@ -257,8 +257,8 @@ export function litGlass(draws: readonly PlanDressDraw[], buildings: ReadonlySet
 
 // ---- 081 L2: real lights on the street ----
 
-/** The most street lights a city makes. 10 until the frame-time budgets of ticket 081 L2 criterion 3 pass at 25 and 32, then 32. */
-export const STREET_LIGHTS_MAX = 10;
+/** The most street lights a city makes: 32, set when the frame-time budgets of ticket 081 L2 criterion 3 passed at 25 and 32. */
+export const STREET_LIGHTS_MAX = 32;
 /** Where a light stands, metres: out from its street face, and up (the first floor's windows). */
 export const STREET_LIGHT_OUT_M = 2;
 export const STREET_LIGHT_UP_M = 3;

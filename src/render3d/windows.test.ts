@@ -149,7 +149,7 @@ describe("the lit building's windows (081 L1)", () => {
     expect(none).toEqual([]);
     const ids = ["yard", "backed", "mid", ...Array.from({ length: 33 }, (_, k) => "b" + k)];
     expect(lightPlaces(fixture(33), ids, 32).map((p) => p.building)).toEqual(["mid", ...Array.from({ length: 31 }, (_, k) => "b" + k)]);
-    expect(STREET_LIGHTS_MAX).toBe(10);
+    expect(STREET_LIGHTS_MAX).toBe(32);
   });
 
   it("the pool is made once and only intensities change: a lit and a dark building leave the scene the same lights, all visible, none shadowed", () => {
