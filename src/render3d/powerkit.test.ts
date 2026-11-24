@@ -607,12 +607,12 @@ describe("failing fixtures", () => {
 
 // ---------------------------------------------------------------------------------------------------------------------------------------------------
 describe("purity", () => {
-  it("powerkit.ts imports only ./layout and stableHash from ../render/city", () => {
+  it("powerkit.ts imports only ./kitunits and stableHash from ../render/city", () => {
     const src = readFileSync(join("src", "render3d", "powerkit.ts"), "utf8");
     const imports = [...src.matchAll(/^import\s+(?:type\s+)?(.*?)\s+from\s+"([^"]+)";/gm)].map((m) => ({ what: m[1]!, from: m[2]! }));
-    expect(imports.map((i) => i.from).sort()).toEqual(["../render/city", "./layout"]);
+    expect(imports.map((i) => i.from).sort()).toEqual(["../render/city", "./kitunits"]);
     expect(imports.find((i) => i.from === "../render/city")!.what).toBe("{ stableHash }");
-    expect(imports.find((i) => i.from === "./layout")!.what).toBe("{ Vec3 }");
+    expect(imports.find((i) => i.from === "./kitunits")!.what).toBe("{ Vec3 }");
     const code = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
     expect(/\bthree\b|\bTHREE\b|\bdocument\b|\bwindow\b|\brequire\(/.test(code)).toBe(false);
   });

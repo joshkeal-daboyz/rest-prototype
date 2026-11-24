@@ -679,10 +679,10 @@ describe("nothing private is bundled", () => {
     expect(bad("public")).toEqual([]);
   });
 
-  it("the sources of the models import only core, layout, the 2D city helpers (for the position hash) and three", () => {
+  it("the sources of the models import only core, kitunits, the 2D city helpers (for the position hash) and three", () => {
     for (const f of ["src/render3d/models.ts"]) {
       const imports = [...readFileSync(f, "utf8").matchAll(/from\s+"([^"]+)"/g)].map((m) => m[1]!);
-      for (const i of imports) expect(["../core", "../render/city", "./layout", "./town"], `${f}: ${i}`).toContain(i);
+      for (const i of imports) expect(["../core", "../render/city", "./kitunits", "./layout", "./town"], `${f}: ${i}`).toContain(i);
     }
     const imports3d = [...readFileSync("src/render3d/models3d.ts", "utf8").matchAll(/from\s+"([^"]+)"/g)].map((m) => m[1]!);
     for (const i of imports3d) expect(i, i).not.toMatch(/\.\.\/(grid|night|play|ui)\b/);
