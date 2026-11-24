@@ -66,7 +66,7 @@ export interface OverlayLine {
   readonly look: WireLook;
   /** Current is on it. */
   readonly live: boolean;
-  /** Screen points x0, y0, x1, y1, ... through the chain's span ends, carriers included, ordered away from the source when live. */
+  /** Screen points x0, y0, x1, y1: one straight segment, ordered away from the source when live. */
   readonly points: readonly number[];
   /** Per point: it projected in front of the camera. A segment is drawn only between two visible points. */
   readonly visible: readonly boolean[];
@@ -74,7 +74,7 @@ export interface OverlayLine {
   readonly phase: number;
   /** 1 outside a brownout; in one, the 2D flicker 0.15..1, per line. */
   readonly flicker: number;
-  /** A damaged span's cut point, or null. */
+  /** The break icon at the segment's midpoint of a damaged cable whose fault is readable, or null. */
   readonly cut: OverlayCut | null;
 }
 
@@ -101,10 +101,6 @@ function placePoint(place: CityNodePlace, layer: CityCircuitLayer, out: World): 
   }
   for (const p of layer.posts) if (p.span === place.post) return (out.x = p.x_m), (out.y = OVERLAY_POST_Y_M), (out.z = p.z_m), true;
   return false;
-}
-
-function polePoint(id: string, layer: CityCircuitLayer, out: World): boolean {
-  return placePoint({ pole: id }, layer, out);
 }
 
 function specOf(n: GridNode, state: GridState, look: NodeLook, targets: ReadonlySet<string>): GlyphSpec {
@@ -173,48 +169,10 @@ export function overlayHit(icons: readonly OverlayIcon[], x: number, y: number):
   return best;
 }
 
-/** Orders a chain of span ends starting at `start`: each span contributes the end farther from the point reached so far. */
-function chainPoints(converted: CityPuzzleConverted, layer: CityCircuitLayer, lineId: string, from: string, to: string): World[] {
-  const run = converted.runs[lineId];
-  const pts: World[] = [];
-  const w: World = { x: 0, y: 0, z: 0 };
-  const push = (p: World): void => {
-    const last = pts[pts.length - 1];
-    if (last && Math.hypot(last.x - p.x, last.y - p.y, last.z - p.z) < 0.01) return;
-    pts.push({ x: p.x, y: p.y, z: p.z });
-  };
-  const fromPlace = converted.places[from];
-  if (fromPlace && placePoint(fromPlace, layer, w)) push(w);
-  if (run) {
-    for (const sid of run.spans) {
-      const span = layer.spans.find((q) => q.id === sid);
-      if (!span) continue;
-      const a: World = { x: 0, y: 0, z: 0 };
-      const b: World = { x: 0, y: 0, z: 0 };
-      if (!polePoint(span.a, layer, a) || !polePoint(span.b, layer, b)) continue;
-      const last = pts[pts.length - 1];
-      const da = last ? Math.hypot(last.x - a.x, last.z - a.z) : 0;
-      const db = last ? Math.hypot(last.x - b.x, last.z - b.z) : 1;
-      if (da <= db) {
-        push(a);
-        push(b);
-      } else {
-        push(b);
-        push(a);
-      }
-    }
-    if (run.drop !== undefined && placePoint({ building: run.drop }, layer, w)) push(w);
-    if (run.lead !== undefined && placePoint({ post: run.lead }, layer, w)) push(w);
-  }
-  const toPlace = converted.places[to];
-  if (toPlace && placePoint(toPlace, layer, w)) push(w);
-  return pts;
-}
-
 /**
- * One polyline per line, from the chain of its run's spans (carriers included) with the line's look. Ordered away from the source when the line is live (so pulses
- * move away from the feed); `phase` is the 2D map's pulse phase as a fraction of the chevron spacing; `flicker` dips in a brownout for every line; a damaged span's
- * `cut` is the span's midpoint and sparks only while current reaches it.
+ * One straight segment per puzzle line, from its from-node's place to its to-node's (Josh, 23 Nov 2026: "Straight, piece to piece"); carriers and spans play no part.
+ * Ordered away from the source when live (so pulses move away from the feed); `phase` is the 2D map's pulse phase as a fraction of the chevron spacing; `flicker`
+ * dips in a brownout for every line. A damaged cable's `cut` is the segment's midpoint and shows only when the fault is readable ("Only when readable"); it sparks only while live.
  */
 export function overlayLines(converted: CityPuzzleConverted, state: GridState, project: Project, ctx: OverlayContext): OverlayLine[] {
   const puzzle = converted.puzzle;
@@ -224,38 +182,31 @@ export function overlayLines(converted: CityPuzzleConverted, state: GridState, p
   let index = 0;
   for (const line of puzzle.lines) {
     const i = index++;
-    const world = chainPoints(converted, ctx.layer, line.id, line.from, line.to);
-    if (world.length < 2) continue;
+    const pa = converted.places[line.from];
+    const pb = converted.places[line.to];
+    const a: World = { x: 0, y: 0, z: 0 };
+    const b: World = { x: 0, y: 0, z: 0 };
+    if (!pa || !pb || !placePoint(pa, ctx.layer, a) || !placePoint(pb, ctx.layer, b)) continue;
     const live = state.powered.has(line.id);
-    if (live && state.flowFrom.get(line.id) === line.to) world.reverse();
+    if (live && state.flowFrom.get(line.id) === line.to) {
+      const t = { ...a };
+      Object.assign(a, b);
+      Object.assign(b, t);
+    }
     const points: number[] = [];
     const visible: boolean[] = [];
-    for (const p of world) {
+    for (const p of [a, b]) {
       const ok = project(p.x, p.y, p.z, s);
       points.push(ok ? s.x : 0, ok ? s.y : 0);
       visible.push(ok);
     }
     let cut: OverlayCut | null = null;
     for (const f of state.faults) {
-      if (f.kind !== "damaged-cable" || f.at !== line.id) continue;
-      const spanId = converted.cuts[f.id] ?? converted.runs[line.id]?.spans[0];
-      const span = ctx.layer.spans.find((q) => q.id === spanId);
-      const a: World = { x: 0, y: 0, z: 0 };
-      const b: World = { x: 0, y: 0, z: 0 };
-      if (!span || !polePoint(span.a, ctx.layer, a) || !polePoint(span.b, ctx.layer, b)) continue;
+      if (f.kind !== "damaged-cable" || f.at !== line.id || !state.readableFaults.has(f.id)) continue;
       if (project((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2, s)) cut = { x: s.x, y: s.y, sparking: live && state.sparking.has(line.id) };
       break;
     }
-    out.push({
-      id: line.id,
-      look: wireLook(state, line.id),
-      live,
-      points,
-      visible,
-      phase,
-      flicker: state.brownout ? flicker(ctx.time, i) : 1,
-      cut,
-    });
+    out.push({ id: line.id, look: wireLook(state, line.id), live, points, visible, phase, flicker: state.brownout ? flicker(ctx.time, i) : 1, cut });
   }
   return out;
 }

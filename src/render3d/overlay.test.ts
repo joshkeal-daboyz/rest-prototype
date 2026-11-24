@@ -117,15 +117,15 @@ describe("overlay icons (ticket 081 E1)", () => {
 });
 
 describe("overlay lines (ticket 081 E1)", () => {
-  it("a polyline runs through its span ends, carriers included, away from the feed while live", () => {
+  it("one straight segment per line, from piece to piece, away from the feed while live", () => {
     const { converted, layer } = fixture();
     const s = createGrid(puzzle, new EventBus()).state();
     const lines = overlayLines(converted, s, projector(), ctxOf(layer));
     const feed = lines.find((l) => l.id === "l_feed")!;
     expect(feed.live).toBe(true);
     expect(feed.look).toBe("live");
-    expect(feed.points).toHaveLength(6); // feed pole, carrier, far pole
-    expect(feed.points[0]).toBeLessThan(feed.points[4]!); // starts at the feed
+    expect(feed.points).toHaveLength(4); // the carrier plays no part
+    expect(feed.points[0]).toBeLessThan(feed.points[2]!); // starts at the feed
     expect(feed.phase).toBeGreaterThanOrEqual(0);
     expect(feed.phase).toBeLessThan(1);
     expect(feed.flicker).toBe(1);
@@ -134,14 +134,17 @@ describe("overlay lines (ticket 081 E1)", () => {
     expect(dead.look).not.toBe("live");
   });
 
-  it("a damaged span's cut sparks only while live; a brownout flickers every line", () => {
+  it("a damaged cable's break icon sits at the midpoint, only when readable, sparking only while live; a brownout flickers every line", () => {
     const { converted, layer } = fixture();
     const g = createGrid(puzzle, new EventBus());
     const idle = overlayLines(converted, g.state(), projector(), ctxOf(layer));
-    expect(idle.find((l) => l.id === "l_b")!.cut).toMatchObject({ sparking: false });
+    expect(idle.find((l) => l.id === "l_b")!.cut).toBeNull();
     g.throwSwitch("sw_1");
     const live = overlayLines(converted, g.state(), projector(), ctxOf(layer));
-    expect(live.find((l) => l.id === "l_b")!.cut).toMatchObject({ sparking: true });
+    const lb = live.find((l) => l.id === "l_b")!;
+    expect(lb.cut).toMatchObject({ sparking: true });
+    expect(lb.cut!.x).toBeCloseTo((lb.points[0]! + lb.points[2]!) / 2, 5);
+    expect(lb.cut!.y).toBeCloseTo((lb.points[1]! + lb.points[3]!) / 2, 5);
     const brown = { ...g.state(), brownout: true };
     const out = overlayLines(converted, brown, projector(), ctxOf(layer));
     expect(out.every((l) => l.flicker >= 0.15 && l.flicker <= 1)).toBe(true);
