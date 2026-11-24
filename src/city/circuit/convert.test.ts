@@ -21,7 +21,7 @@ beforeAll(() => {
   const r = runCity({ blocksX: 6, blocksZ: 6, seed: 1 }, "circuit", upto.slice(0, upto.findIndex((d) => d.name === "circuit") + 1));
   if (!r.ok) throw new Error(r.failure.reason);
   plan = r.plan;
-  puzzle = loadCityPuzzle(JSON.parse(readFileSync(join(__dirname, "fixtures", "city-two-ways-round.city.json"), "utf8")));
+  puzzle = loadCityPuzzle(JSON.parse(readFileSync(join(ROOT, "puzzles", "city", "city-two-ways-round.city.json"), "utf8")));
 }, 60_000);
 
 const layer = () => plan.layers.circuit!;
