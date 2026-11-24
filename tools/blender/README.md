@@ -90,6 +90,23 @@ An FBX that fails to import goes in the pack's `failures` and the run carries on
 refuses these) says so, and names the pack's OBJ copy if there is one: a `.obj` with the same name, or the same name followed
 by digits (`road_crossing_mesh.fbx` finds `road_crossing_mesh1.obj`). OBJ files are not converted.
 
+## Game pack (ticket 082)
+
+    npm run assets:game     cut assets/private/out/game/ from the FBX (Blender; minutes)
+
+The game pack is what the city view loads instead of the full packs: one GLB per source pack that has a model the game uses, holding only
+those models (same root names, bounds, scale and textures as the full pack), its own `manifest.json` (with `game: { keys, from }`) and the
+used colourway images under `game/<pack>/colourways/`. The list of models is `gameModelKeys()` in `src/render3d/gamemodels.ts`.
+
+Run it after any conversion (`npm run assets:convert`), and whenever the page says the game pack lacks models ("run npm run assets:game"). It
+re-converts each used pack from its FBX with that pack's own `pack.json` and an include file (`--include-file` in `convert_fbx.py`: one FBX
+path per line), then checks each model against the full manifest (name, scale, textures, bounds within 1 mm). If any key is missing from the
+full manifest, is `scale-suspect`, or differs after the cut, the run exits 1 and the earlier game pack is left as it was. It never writes the
+full GLBs or the full manifest.
+
+The game pack is gitignored (`assets/private/`) and is never committed, bundled or copied into `dist/` or `public/`: the Synty licence
+allows the packs "as long as the assets aren't available to the end user and I place the site behind a password" (Josh, 16 Nov 2026).
+
 ## What the script does (`convert_fbx.py`)
 
 Per FBX: import with the file's own units, drop animations, cameras, lights and armatures, bake transforms,

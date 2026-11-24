@@ -116,6 +116,8 @@ export interface BlenderArgsInput {
   scaleOverrides?: readonly { stem: string; factor: number }[];
   /** Absolute folders or .fbx files the script skips. Passed in the order given, after the scale overrides (readPackSettings sorts them). */
   exclude?: readonly string[];
+  /** Absolute path of a text file listing the only FBX to convert, one pack-relative path per line (ticket 082 B; never one argument per FBX). */
+  include?: string;
   selftest?: boolean;
 }
 
@@ -131,6 +133,7 @@ export function buildBlenderArgs(a: BlenderArgsInput): string[] {
   for (const t of a.aliases ?? []) args.push("--texture-alias", `${t.key}=${t.abs}`);
   for (const o of a.scaleOverrides ?? []) args.push("--scale-override", `${o.stem}=${o.factor}`);
   for (const e of a.exclude ?? []) args.push("--exclude", e);
+  if (a.include !== undefined) args.push("--include-file", a.include);
   return args;
 }
 
@@ -162,7 +165,7 @@ export function hasImageExtension(path: string): boolean {
   return IMAGE_EXTENSIONS.some((e) => low.endsWith(e));
 }
 
-interface PackSettings {
+export interface PackSettings {
   /** Absolute atlas path, and the same relative to the pack folder with forward slashes. */
   atlas?: { abs: string; rel: string };
   scale?: number;
@@ -190,7 +193,7 @@ function listFbxStems(deps: ConvertDeps, dir: string, excluded: ReadonlySet<stri
 }
 
 /** Read the optional pack.json. Throws an Error with a plain message when it is unusable. */
-function readPackSettings(deps: ConvertDeps, packDir: string): PackSettings {
+export function readPackSettings(deps: ConvertDeps, packDir: string): PackSettings {
   const file = join(packDir, "pack.json");
   if (!deps.exists(file)) return { overrides: [], aliases: [], scaleOverrides: [], exclude: [] };
   let raw: unknown;
@@ -306,18 +309,18 @@ function readPackSettings(deps: ConvertDeps, packDir: string): PackSettings {
   return settings;
 }
 
-function tail(text: string, lines = 12): string {
+export function tail(text: string, lines = 12): string {
   const all = text.trim().split(/\r?\n/);
   return all.slice(-lines).join("\n");
 }
 
-interface BlenderInfo {
+export interface BlenderInfo {
   path: string;
   versionText: string;
 }
 
 /** Find Blender and check its version. Returns the exit code to stop with (2) or the Blender to use. */
-async function resolveBlender(deps: ConvertDeps): Promise<BlenderInfo | 2> {
+export async function resolveBlender(deps: ConvertDeps): Promise<BlenderInfo | 2> {
   let found: string | null;
   try {
     found = findBlender({ env: deps.env, platform: deps.platform, exists: deps.exists, listDir: deps.listDir });
@@ -352,7 +355,7 @@ async function resolveBlender(deps: ConvertDeps): Promise<BlenderInfo | 2> {
 }
 
 /** Does this pack name stay inside assets/private/in/ as a single folder name? */
-function packNameIsSafe(inRoot: string, name: string): boolean {
+export function packNameIsSafe(inRoot: string, name: string): boolean {
   if (name === "" || name === "." || name === ".." || /[\\/]/.test(name)) return false;
   const dir = resolve(inRoot, name);
   return isInside(inRoot, dir) && dirname(dir) === inRoot;
@@ -645,6 +648,8 @@ export const SELFTEST_PARENTED = "SelfTest_ParentedPole";
 export const SELFTEST_SCALED = "scaled_box";
 /** Ticket 072: an FBX in the self-test's excluded folder (`Fbx/Excluded`, passed as --exclude); it must reach neither the report nor the GLB. */
 export const SELFTEST_EXCLUDED = "excluded_box";
+/** An FBX the self-test's include file leaves out (ticket 082 B); it must not reach the report. */
+export const SELFTEST_UNLISTED = "unlisted_box";
 /** The self-test's excluded folder, relative to its pack folder. */
 export const SELFTEST_EXCLUDED_DIR = "Fbx/Excluded";
 /** The factor the self-test passes for SELFTEST_SCALED, as the wrapper would for a pack.json with "scaleOverrides": { "scaled_box": 10 }. */
@@ -693,6 +698,7 @@ export function checkSelftest(report: PackReport): string[] {
   if (report.failures.length > 0) problems.push(`failures: ${report.failures.map((f) => `${f.source} (${f.error})`).join("; ")}`);
   if (report.assets.some((a) => a.name === SELFTEST_EXCLUDED)) problems.push(`${SELFTEST_EXCLUDED} is in the report, but its folder was excluded`);
   if (report.failures.some((f) => f.source.includes(SELFTEST_EXCLUDED))) problems.push(`${SELFTEST_EXCLUDED} was tried (it is in the report's failures), but its folder was excluded`);
+  if (report.assets.some((a) => a.name === SELFTEST_UNLISTED)) problems.push(`${SELFTEST_UNLISTED} is in the report, but the include file left it out`);
   if (report.scale !== 1) problems.push(`pack scale is ${report.scale}, expected 1`);
   // The scale each box was converted with: 1 (the self-test pack has no scale), except the box with an override.
   for (const a of report.assets) {

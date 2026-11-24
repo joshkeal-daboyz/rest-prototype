@@ -4,7 +4,7 @@ import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ASSET_SANE_SIZE_MAX, ASSET_SANE_SIZE_MIN } from "../../src/core";
 import type { AssetManifest } from "../../src/core";
-import { SELFTEST_ALIASES, USAGE, checkSelftest, convert, hasImageExtension, isInside, layout, normaliseAliasKey, selftestAliases } from "./convert";
+import { SELFTEST_ALIASES, USAGE, buildBlenderArgs, checkSelftest, convert, hasImageExtension, isInside, layout, normaliseAliasKey, selftestAliases } from "./convert";
 import type { ConvertDeps, RunResult } from "./convert";
 import { parsePackReport } from "./manifest";
 import type { PackReport } from "./manifest";
@@ -983,6 +983,22 @@ describe("Ticket 072: pack.json exclude", () => {
     const box = { ...(good ? (JSON.parse(good) as Loose).assets[0] : {}), name: "excluded_box", source: "Fbx/Excluded/excluded_box.fbx" };
     expect(run((r) => r.assets.push(box))).toContain("excluded_box is in the report");
     expect(run((r) => r.failures.push({ source: "Fbx/Excluded/excluded_box.fbx", error: "x" }))).toContain("excluded_box was tried");
+  });
+
+  it("082 B: an included pack's Blender arguments carry its own settings plus one include file, never one argument per FBX; without an include they are as before", () => {
+    const base = { script: "s.py", packDir: "/p", outGlb: "/o.glb", report: "/r.json", atlas: "/p/a.png", scale: 2, exclude: ["/p/x"] };
+    const plain = buildBlenderArgs(base);
+    const included = buildBlenderArgs({ ...base, include: "/tmp/town.include.txt" });
+    expect(plain).not.toContain("--include-file");
+    expect(included.slice(0, plain.length)).toEqual(plain);
+    expect(included.slice(plain.length)).toEqual(["--include-file", "/tmp/town.include.txt"]);
+  });
+
+  it("082 B: checkSelftest fails when a model the include file left out reaches the report", () => {
+    const report = JSON.parse(fixtureText("report-selftest.json")) as PackReport;
+    expect(checkSelftest(report)).toEqual([]);
+    const leaked = { ...report, assets: [...report.assets, { ...(report.assets[0] as object), name: "unlisted_box" }] } as unknown as PackReport;
+    expect(checkSelftest(leaked).join(" ")).toContain("unlisted_box is in the report");
   });
 });
 
