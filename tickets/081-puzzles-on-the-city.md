@@ -1,7 +1,7 @@
 # 081 · Purge the old city; the 64 puzzles on the pipeline city, on its streets, picked models, and a 2D overlay to play them
 
 owner: per section (renderer, puzzle-designer, pipeline-designer, lead-architect, grid-simulator, landscape, facades, ui; see Sections)
-status: approved (G1, Josh, 23 Nov 2026, in chat: "Approve 081"). Cut 23 Nov 2026 on Josh's request (below); re-cut the same day on his answers to questions 1 to 10 (below).
+status: approved (G1, Josh, 23 Nov 2026, in chat: "Approve 081"). Cut 23 Nov 2026 on Josh's request (below); re-cut the same day on his answers to questions 1 to 10 (below). **K2 is done** (K2a, K2a2, K2b, K2c, K2d1, K2d2 all merged; K2d2 by PR #42, Josh, 24 Nov 2026, on a card: "Merge K2d2 (Recommended)"). **Next: the playable path** (Josh, 24 Nov 2026, on a card: "Playable path first (Recommended)"): P0, K3, U1, then E2, then U2, before H4, P1 and P2a. See *The playable path*.
 branch: `ticket/081-puzzles-on-the-city` (this file and the `src/core/` types). One branch per pull request: `ticket/081<section>-<slug>`, from this branch until it is on `main`.
 
 ## Josh's words (23 Nov 2026, in chat)
@@ -147,8 +147,8 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | K2a2 | Stage 6 switched on: `BUILT_STAGES`, the shared profiles, the tests that said circuit was not built (era passes included) | grid-simulator | K2a | at most 15 (about 12 rewritten) |
 | K2b | Stage 6: drops, lights, lamp posts, node places (CK9 to CK12) | grid-simulator | K2a2 | 10 |
 | K2c | The conversion (CK13 as changed, CK14, CK15) | grid-simulator | K2b, C1 | **done** (PR #38; Josh, 24 Nov 2026: "Merge K2c") |
-| K2d1 | Stage 6: the pole pick, CK7, roof structures and roof span places (CK17a to d) | grid-simulator | K2c, PK1, PK2, B1q (all in) | 10 (9 added, 1 rewritten) |
-| K2d2 | Roof nodes, runs through roofs, CK14 for roofs, the conversion (CK17e to g) | grid-simulator | K2d1 | 5 added |
+| K2d1 | Stage 6: the pole pick, CK7, roof structures and roof span places (CK17a to d) | grid-simulator | K2c, PK1, PK2, B1q (all in) | **done** (PR #41) |
+| K2d2 | Roof nodes, runs through roofs, CK14 for roofs, the conversion (CK17e to g) | grid-simulator | K2d1 | **done** (PR #42; Josh, 24 Nov 2026: "Merge K2d2 (Recommended)") |
 | I2 | Stage 8 keeps clear of the circuit | landscape | K2b | **done** (PR #39; Josh, 24 Nov 2026: "Merge I2") |
 | H4 | Stage 7's roof pieces keep clear of the corner roof structures | facades | K2d1 | 3 |
 | P1 | The fit tool and the city check (with the mid-row clearance check) | grid-simulator | K2c, K2d2 | 10 |
@@ -158,13 +158,32 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | D2 | The gallery's component view | ui | D1 | 5 |
 | D3 | The picks table | renderer | Josh's first picks | 2 |
 | E1 | Glyphs out of the 2D renderer; the overlay's icons and lines, pure | renderer | G1 | 9 |
-| K3 | The circuit drawn on the city | renderer | K2d1, PK2, A2c | 6 |
-| E2 | A city puzzle played on the city, through the overlay | renderer | E1, K3, K2c | 9 |
-| U1 | The picker opens city puzzles | ui | E2, P2a | 4 |
+| P0 | `city-two-ways-round` as a city puzzle file in `puzzles/city/` | puzzle-designer | now (K2c is in) | 0 (1 path line) |
+| K3 | The circuit drawn on the city | renderer | now (K2d1, K2d2, PK2, A2c, D3 are in) | 7 (6 added, 1 rewritten) |
+| U1 | The picker lists city puzzles (pure) | ui | now (C1 is in) | 4 |
+| E2 | A city puzzle played on the city, through the overlay | renderer | K3 (shares `plan3d.ts`) | 10 |
+| U2 | Opening a city puzzle opens the city view (`main.ts`) | ui | E2, U1 | 2 |
 
 `src/play/` (interaction) has no section. E2 keeps the `MapRenderer3d` interface, so play and its `hitTest` calls do not change. If E2's builder finds that `src/play/` must change, it stops, and the architect re-cuts with an interaction section.
 
 **Between A2c and E2 the 64 puzzles have no 3D view.** Josh accepted this with answer 1. The 2D game plays throughout.
+
+### The playable path (re-cut 24 Nov 2026, the lead-architect, on Josh's card "Playable path first (Recommended)")
+Josh's aim: open `npm run dev`, pick `city-two-ways-round` in the picker, and play it on the 3D city (6 x 6 seed 1). K3, E2 and U1 as first cut do not get there alone. Three gaps, read at ede9e64:
+- **No city puzzle file exists.** `puzzles/city/` does not exist. The one city form is K2c's test fixture, `src/city/circuit/fixtures/city-two-ways-round.city.json`. U1 was cut to wait for P2a's 16 pilot puzzles, which wait for P1. **P0** moves the fixture to `puzzles/city/`.
+- **U1 as first cut also held the `main.ts` wiring,** which needs E2's renderer option. It is split: **U1** is the pure picker list (no dependency, built now), and **U2** is the `main.ts` wiring (after E2 and U1).
+- **A canvas keeps one kind of context** (`main.ts`: "chosen once, from the URL"). A city puzzle picked on a 2D page, or a schematic picked on a city page, cannot switch in place. U2 reloads the page at the right address.
+
+**Order and parallel work.**
+| Wave | Sections | Shared files | Why this order |
+| --- | --- | --- | --- |
+| 1 (at once) | P0, K3, U1 | none: P0 has `puzzles/city/` and one path line in `src/city/circuit/convert.test.ts`; K3 has `src/render3d/`; U1 has `src/ui/maps.ts` and a type-only narrowing in `main.ts` | No section reads another's output. |
+| 2 | E2 | `plan3d.ts` with K3 | It draws K3's circuit live. |
+| 3 | U2 | `src/main.ts`, `src/ui/view3d.ts` | It calls E2's `loadCityView` and `city` option, and lists U1's entries. |
+
+**No rule or number changes on this path, so no pipeline-designer pre-check.** Every rule is already Decided or answered: CK1 to CK17 as built; "Straight, piece to piece" and "Only when readable" (E1, K3); 059's street light model (Josh, 18 Nov 2026: "Approve 057, 058 and 059"); 071 Q11's pack wire piece ("Pack wire pieces (Recommended)"). Two things are **measured and reported, not tuned**: the feed pick's span heights (K3) and the damaged-line prop's low point (open question 2).
+
+**After P0, K3, U1, E2 and U2,** Josh can open `npm run dev`, pick "City · Two ways round · city", and play it on the 3D city. H4, P1 and P2a come after.
 
 ---
 
@@ -461,7 +480,8 @@ If it does not report "holds", its note goes to Josh before K2d and H4 are cut i
 
 **Files.** `src/city/circuit/`.
 
-### K2d · Stage 6: the pole pick, CK7, roof structures and roof spans (grid-simulator, pure). Cut in full 24 Nov 2026, as two PRs: K2d1, then K2d2
+### K2d · Stage 6: the pole pick, CK7, roof structures and roof spans (grid-simulator, pure). Cut in full 24 Nov 2026, as two PRs: K2d1, then K2d2. **Done**
+**Both merged into `main`:** K2d1 by PR #41 (review `reviews/081-K2d1-roof-places.md`, meets, must-fix 0) and K2d2 by PR #42 (Josh, 24 Nov 2026, on a card: **"Merge K2d2 (Recommended)"**; review `reviews/081-K2d2-roof-jobs.md`, meets, must-fix 0). With them, **K2 is done**. K2d1's review left one reading open, not a blocker: a mid-row place's two `pavement` poles are the two nearest, which may both fall on one side. It is P1's to see if a fit needs it.
 **From.**
 - CK17 as B1b amended it (`docs/design/081-B1-roof-spans.md`, with Josh's 8 roof answers at its top): its "K2 checks" 1 to 10 and its "Fails". Check 11 is P1's.
 - B1q's verdict, "holds" (`docs/design/081-B1q-precheck.md`).
@@ -761,50 +781,226 @@ P1's own fits (criterion 8) are the record. P2a waits for K2d, because 9 of its 
 
 **Files.** New `src/render/glyphs.ts` and `glyphs.test.ts`; `src/render/map-renderer.ts` (the move only); new `src/render3d/overlay.ts` and `overlay.test.ts`. **Must not:** `src/core/`, `src/grid/`, `src/play/`, `src/ui/`, `src/city/`.
 
+### P0 · `city-two-ways-round` as a city puzzle file (puzzle-designer). Branch `ticket/081p0-two-ways-round-city`
+**Why** (the playable path). Josh wants to play `city-two-ways-round` on the 3D city. Its city form exists only as K2c's test fixture. U1 lists `puzzles/city/*.city.json`, and that folder does not exist.
+
+**Goal.** `puzzles/city/city-two-ways-round.city.json` is the city form of K1's worked map, with a note. The picker can list it from U1 on.
+
+**Acceptance criteria.**
+1. [ ] **The move.** `git mv src/city/circuit/fixtures/city-two-ways-round.city.json puzzles/city/city-two-ways-round.city.json`, unchanged in content. `src/city/circuit/convert.test.ts` reads it from the new path: its one path line (line 24 at ede9e64, outside any `it(` body). The file now has one copy, and K2c's "plays the same" case holds it. **test** (existing, unedited cases). Empty `fixtures/` goes.
+2. [ ] **The note**, `puzzles/city/city-two-ways-round.md`. It is short and points to `puzzles/city-two-ways-round.md` for the read and the trap. It holds:
+   - `from`, the district (`block:6:6`), and the place table (node to place, line to its span chain), read from the file;
+   - which schematic junctions became carriers (answer 5), as K2c's fixture did;
+   - the intended read from the default camera;
+   - the check block, copied from the schematic;
+   - an empty **What it taught us**.
+
+   **no test**: K2c's case replays the schematic's check block through the conversion.
+3. [ ] The schematic `puzzles/city-two-ways-round.json` and its note are not edited. **no test**.
+
+**Files.** `puzzles/city/` (new: the two files); the one path line of `src/city/circuit/convert.test.ts` (the grid-simulator's folder, named here under test policy rule 6); deleting `src/city/circuit/fixtures/`. **Must not:** any other line in `src/`.
+**Tests.** 0 added, 0 rewritten (a path line is not a case, A2a's rule).
+**Until U1 is in,** `main.ts`'s glob reads the new file and logs "[puzzles] skipped puzzles/city/..." once. This is harmless and expected.
+
 ### K3 · The circuit drawn on the city (renderer). Branch `ticket/081k3-circuit-drawn`
-**Goal.** At `?view=3d&city=tiles`, stage 6's poles, spans, drops and street lights are drawn dead through `powerkit.ts`, with roof structures once K2d is in. Each picked component model (D3), and the damaged line's prop at its cut, stands where a city puzzle puts it. Unpicked components are placeholders.
+**Re-cut 24 Nov 2026** against what K2a to K2d2 and D3 built (read at ede9e64). It is built now, at the same time as P0 and U1.
+
+**What it reads, as built.**
+- `plan.layers.circuit` (`src/core/cityplan.ts`, `CityCircuitLayer`):
+  - `poles`, `spans`, `drops`, `lights` and `posts`;
+  - `poleModels`, pole id to a `GROUND_POLE_MIX` key;
+  - `roofs` (`CityRoofMast`, with `row`, `x_m`, `deck_y_m`, `z_m`) and `roofSpans` (`CityRoofSpan`). Both are optional in the type and always written by stage 6 since K2d1.
+- A job, optionally: `CityPuzzleConverted` (`places`, `runs`, `cuts`), from `convertCityPuzzle` (`src/city/circuit`, merged with K2c and K2d2).
+- The kit: `placePole`, `fitLine`, `POWER_POLES`, `POWER_LINE` (`powerkit.ts`); `COMPONENT_MODELS` (`componentmodels.ts`, D3).
+- The pack models: every pick is in the converted manifest (read 24 Nov 2026). Palm City (103 MB), Sci-Fi City (35 MB) and Sci-Fi Frontier (103 MB) are whole packs, because 071 D's subset GLBs were never built.
+
+**Goal.** At `?view=3d&city=tiles`, stage 6 is drawn, dead:
+- every pole, on its `poleModels` model;
+- every span, with the 071 wire piece;
+- the drops and the street lights;
+- a roof structure on every corner roof.
+
+A new pure-ish module, `circuitdraw.ts`, also takes an optional job. Given one, it stands:
+- each node's picked model at its place;
+- the mid-row roof structures and roof spans the job uses;
+- the feed's pick in place of the feed's pole;
+- the damaged-line prop at a cut while it is readable.
+
+K3 draws nothing live. E2 does.
 
 **Acceptance criteria.**
-1. [ ] Every pole is drawn with `placePole` using the model `poleModels` names (PK1, K2d), and every span with `fitLine`. Roof structures are drawn on every corner roof, and on a mid-row roof only while the open job uses it, with Josh's `roofMast` pick. Roof spans are drawn only where a job uses them. **test**: 2 cases.
-2. [ ] The wires are code-drawn with their Decided looks. **test**: 1 case.
-3. [ ] Component models stand at their places, unscaled (guide chapter 2, Decided), or as a placeholder when null. **test**: 2 cases.
-4. [ ] The R12 audit counts the new pieces. **test**: 1 rewritten.
-5. [ ] Josh views 6 x 6 seed 1 from the default camera and with `cam=street`, by day and by night. **browser**.
+1. [ ] **Poles and spans.**
+   - Every `poles` entry is drawn with `placePole` on the model `poleModels` names.
+   - Every `spans` entry, and every drop, is drawn with `fitLine` and `POWER_LINE` (071 Q11: "Pack wire pieces (Recommended)"), at `SAG_RATIO`.
+   - Each pole end is at the attachment `GROUND_POLE_ATTACH_UP_M` gives, as stage 6 judged it.
 
-**From Josh's picks** (`docs/design/081-component-picks.md`; notes for the builder, no rule change):
-- **The feed** (`palm-city-pack:SM_Prop_Powerpole_03`, an H-frame with a transformer, 10.83 m) **replaces** the feed's pole rather than standing on it. It needs its own `placePole` entry, and `poleModels` names it for the feed's pole while that job is played.
-- **The lamp post** (`sci-fi-city-pack:SM_Prop_Streetlight_01`) is 2.64 m deep with its arm. Its overhang of the carriageway from 0.75 m behind the kerb is not measured, so the builder reports it. Street lights (CK10, scenery) keep a different model, because Josh's pick is for the puzzle's lamp posts (CK11); which model they keep is 059's and K3's existing choice.
-- **The damaged-line prop: only when readable.** Josh, 24 Nov 2026, on a card, asked whether the 3D damaged-cable prop (Frontier `Cable_09` at the break) shows always or only once current reaches the break: **"Only when readable (Recommended)"**. `SM_Prop_Cable_09` stands at the cut span only while the fault is readable, as the overlay's break icon and the 2D map do (27 Oct 2026: "Unreadable faults show nothing"). An unreadable damaged span is drawn as an ordinary dead span. **test**: K3's criterion 3 cases include it (readable shows the prop; unreadable does not), within K3's count. The prop (`sci-fi-frontier-pack:SM_Prop_Cable_09`), hung from the lowest crossing (5.20 m), reaches 3.85 m, under CK7's 4.2 m walk floor. Whether CK7 binds a prop is **not decided here**. K3 hangs it as picked and reports its low point; a question goes to Josh only if he wants it raised.
-- **The roof mast** (`sci-fi-frontier-pack:SM_Prop_Power_Pole_03`) has no cross-arm (071 A: one-sided brackets). Decided 041's three conductors need a code-drawn arm on it, as 071 draws code insulators where a model has none. Stage 6 judges every roof span at the deck plus `ROOF_MAST_ATTACH_MIN_M` 2.0 m (K2d), so the arm stands 2.0 m or more above the deck, never lower.
-- **Loads:** the subset GLBs (Frontier, Sci-Fi City, Palm; see D3) are converted before K3 draws these. Until then each component draws as a placeholder.
+   **test**: 1 case, on a small typed layer fixture.
+2. [ ] **Roof structures and roof spans** (Josh: corner roofs "On every corner roof"; mid-row "Only when used (Recommended)").
+   - Every `row: "corner"` roof gets the `roofMast` pick (`sci-fi-frontier-pack:SM_Prop_Power_Pole_03`).
+   - Its arm is code-drawn at `deck_y_m` + `ROOF_MAST_ATTACH_MIN_M` (2.0 m) or higher, never lower. The model has no cross-arm (071 A), and stage 6 judged roof spans at 2.0 m (K2d1).
+   - A `row: "mid"` roof structure and a `roofSpans` entry are drawn **only** when the job given uses them: a roof place in `places`, or a span id in a `runs[*].spans`.
+   - With no job, none is drawn.
 
-**Files.** `src/render3d/plan3d.ts`, `plan3d.test.ts`, a new `src/render3d/circuitdraw.ts` and its test.
+   **test**: 1 case. No job: corner structures only, no mid or roof span. A job using one mid roof and one roof span: exactly those are added.
+3. [ ] **Component models at their places,** unscaled (guide chapter 2, Decided), from `COMPONENT_MODELS`. A null key, or a model missing from the loaded set, draws a placeholder.
+   - **On a pole:** the node's model on its pole, below the pole's lowest attachment, facing the pole's street.
+   - **On a roof:** at the structure, below its arm.
+   - **A building lamp** (`lampBuilding`): at its drop's wall point.
+   - **A lamp post** (`lampPost`): at its `posts` place.
+   - **The feed** (`palm-city-pack:SM_Prop_Powerpole_03`, 10.83 m) **replaces** the feed's pole model when the feed stands on a pole. `poleModels` is not changed (stage 6 owns it); the swap is drawn here. It gets its own `POWER_POLES` entry, measured from the model as 071 B measured the mix.
+   - **A feed on a roof** stands as the roof structure only, and the builder reports it. `city-two-ways-round`'s feed is on a pole.
 
-### E2 · A city puzzle played on the city, through the overlay (renderer). Branch `ticket/081e2-city-play`
-**Goal.** A city puzzle at `view=3d` draws 6 x 6 seed 1 with K3's circuit. The district's job is live: pulses, sparks, lit and dark lamps, brownout, and the Relight from `relightT`. The rest of the city is dead. E1's icons and lines are drawn over it. A click on an icon is that component's `hitTest` answer, so `src/play/` plays it unchanged.
+   **test**: 2 cases. (a) On the P0 file or K2c's fixture, converted on 6 x 6 seed 1 through the module cache: one model per node, of its component's key, and the feed's pole drawn as the feed pick. (b) A null key and a missing model each give a placeholder.
+4. [ ] **The damaged-line prop, only when readable** (Josh, 24 Nov 2026, on a card: "Only when readable (Recommended)").
+   - `circuitdraw` takes the set of readable cut fault ids.
+   - `SM_Prop_Cable_09` stands at the midpoint of that fault's cut span (`cuts[faultId]`) only while its id is in the set.
+   - An unreadable damaged span is drawn as an ordinary dead span.
+   - E2 passes the set from `GridState`; K3 tests it on fixtures.
+
+   **test**: 1 case: in the set, the prop; out of it, none and an ordinary span.
+5. [ ] **Street lights** (CK10, scenery) use 059's approved default, Town Pack `SM_Prop_Streetlamp_01` (Josh, 18 Nov 2026: "Approve 057, 058 and 059"). It is never the puzzle's `lampPost` pick (CK11; 059: "Puzzle lamps and street lights never share a model"). **no test**: a typed constant, held by criterion 6's audit.
+6. [ ] **R12 knows the circuit.**
+   - `planAudit` also reads the circuit draw's keys.
+   - `SM_Prop_Power_Cables_03` is allowed on circuit spans and drops only (071 Q11). Anywhere else it is still refused, as `CITY_NEVER_USED` says.
+   - No other never-used key is allowed.
+
+   **test**: 1 rewritten (the existing R12 allowance case in `plan3d.test.ts`), plus 1 added: the wire key on a non-circuit list is refused.
+7. [ ] **Loads.**
+   - `planKeys()` gains the circuit's keys: the ground mix, the feed pick, `POWER_LINE`, every non-null `COMPONENT_MODELS` key, and the street light.
+   - A pack is loaded only when a key in it is asked for. Missing assets (CI, a fresh checkout) give placeholders, never a throw.
+   - The builder gives the page's load time at `?view=3d&city=tiles` before and after, on Josh's PC, in its reply.
+   - Subset GLBs (071 D's kind) are **not** in this section; see open question 5.
+
+   **no test**: criterion 3(b) holds the missing-model path.
+8. [ ] **Reported, not tuned** (the builder's reply; no rule changes here):
+   - the feed pick's lowest attachment against the pole it replaces, and the feed span's low point. If that span drops under CK7's 4.2 m, the builder **stops and reports** ("stop 081 K3"). That is a question for Josh, not a fix;
+   - the damaged-line prop's low point (3.85 m expected; open question 2);
+   - the lamp post's overhang of the carriageway.
+
+   **no test**.
+9. [ ] Josh views 6 x 6 seed 1 at `?view=3d&city=tiles`, from the default camera and with `cam=street`, by day and by night. **browser**.
+
+**Count.** 6 added, 1 rewritten: 7. The cases go in a new `src/render3d/circuitdraw.test.ts` (under 2 s, except case 3(a), which builds seed 1 once through the module cache; the builder gives its time) and `plan3d.test.ts`.
+
+**Files.**
+- new `src/render3d/circuitdraw.ts` and `circuitdraw.test.ts`;
+- `src/render3d/plan3d.ts` (drawing the circuit, `planKeys`, `planAudit`) and `plan3d.test.ts`;
+- `src/render3d/powerkit.ts`: the feed pick's `POWER_POLES` entry only. PK2's pin is over the mix keys and stays unedited;
+- `src/render3d/models3d.ts`, the load list only, if `planKeys` alone does not reach it.
+
+**Must not:** `src/city/`, `src/core/`, `src/ui/`, `src/main.ts`, `overlay.ts`, `renderer.ts` (E2's).
+
+### U1 · The picker lists city puzzles (ui, pure). Branch `ticket/081u1-picker-city`
+**Re-cut 24 Nov 2026.** U1 as first cut also held the `main.ts` wiring, which needs E2. That moves to U2, and U1 is built now. U1 no longer waits for P2a. P0's file is the first city puzzle.
+
+**Goal.** `collectMaps` lists city puzzles beside the schematics, so the picker can show them. Nothing opens them yet (U2).
 
 **Acceptance criteria.**
-1. [ ] The renderer takes a `CityPuzzleConverted`, and `MapRenderer3d` is unchanged. **test**: 1 case.
-2. [ ] Live and dead, in 3D by run (the spans glow; a damaged span is cut and sparks only while live) and on the overlay by E1's straight piece-to-piece segment, with its break icon at the midpoint when readable. Scenery never glows. **test**: 3 cases.
-3. [ ] `hitTest`: an icon's id comes before any 3D object, the 3D pick handles the rest, and scenery gives null. **test**: 2 cases.
-4. [ ] `overlay=0` hides the overlay. **test**: 1 case.
-5. [ ] The Relight can't be interrupted (brief, Decided). **test**: 1 case (rules-coverage).
-6. [ ] The overlay canvas sits over the WebGL canvas at the device pixel ratio. **test**: 1 case.
-7. [ ] Josh plays `city-two-ways-round`'s city form and pilot puzzles, on a desktop window and a phone-sized one. **browser**.
+1. [ ] **Read and keyed.**
+   - `collectMaps(files, { city: true })` reads every `puzzles/city/*.city.json` with `validateCityPuzzle` (C1) and lists it as a `MapEntry` with `kind: "city"` and the `CityPuzzle`.
+   - Its key is `city/<id>`. `city-two-ways-round`'s city form and its schematic share an id, so this keeps both, with no "duplicate map key".
+   - A schematic entry has `kind: "schematic"`, and its fields are as today. The existing five cases pass unedited.
 
-**Files.** `src/render3d/renderer.ts`, `plan3d.ts`, `pick.ts`, `overlay.ts`, `relight3d.ts` (only if it cannot be reused unchanged), and their tests.
+   **test**: 1 case: both files listed, two keys.
+2. [ ] **A bad city file** is one `problems` line, with C1's messages, and is never passed to `validatePuzzle` (so it is never "skipped" for the wrong shape). **test**: 1 case.
+3. [ ] **Order and name.**
+   - A city entry is listed right after its `from` puzzle, or at the end of the open maps when `from` is absent or not found.
+   - It is named "<its `name`> · city". The "(reworked)" suffix waits for P2a's reworks to carry a flag in their own files (open question 6).
 
-### U1 · The picker opens city puzzles (ui). Branch `ticket/081u1-picker-city`
+   **test**: 1 case.
+4. [ ] **Off in a production build.** With `{ city: false }` (the default), city files are left out silently, with no problem line. U2 passes `import.meta.env.DEV`. City puzzles need the dev-only pipeline renderer and the pack GLBs, which a web build may not hold (Synty licence, 16 Nov 2026). **test**: 1 case.
+
+**Count.** 4 added.
+
+**The type.** `MapEntry` becomes a union on `kind`: `{ kind: "schematic", puzzle: Puzzle, ... }` or `{ kind: "city", city: CityPuzzle, from?: string, ... }`, with `key`, `id`, `name`, `locked` and `path` on both.
+
+**Files.** `src/ui/maps.ts`, `maps.test.ts`; in `src/main.ts`, only what keeps the typecheck green with the union (for example, narrowing to `kind === "schematic"`), and no behaviour change, since `main.ts` still calls `collectMaps(files)` with city off until U2. **Must not:** any other `main.ts` line (U2), `src/render3d/`.
+
+### E2 · A city puzzle played on the city, through the overlay (renderer). Branch `ticket/081e2-city-play`, after K3 merges
+**Re-cut 24 Nov 2026** against what E1, K2c to K2d2 and K3 build. The interface with the ui is fixed here, so U2 codes against it:
+- `loadCityView(city: CityPuzzle): CityPuzzleView`, exported from `src/render3d/index.ts`;
+- `MapRenderer3dOptions.city?: CityPuzzleView`, with `CityPuzzleView` in `src/core/citycircuit.ts`, committed with this re-cut.
+
+**Goal.** `createMapRenderer3d(canvas, view.converted.puzzle, { insets, city: view })` draws the city on the view's plan, with K3's circuit and the job:
+- the district's job is live: pulses, sparks, lit and dark lamps, brownout, and the Relight;
+- the rest of the city is dead;
+- E1's icons and lines are drawn over it on a 2D canvas.
+
+A click on an icon or a line is that piece's `hitTest` answer, so `src/play/` plays it unchanged.
+
 **Acceptance criteria.**
-1. [ ] `collectMaps` reads `puzzles/city/*.city.json` with `validateCityPuzzle`, and never lists one as skipped. **test**: 2 cases.
-2. [ ] A city entry is listed after its `from` puzzle, named "… · city", or "… · city (reworked)" for a rework. **test**: 1 case.
-3. [ ] Opening one builds the city once per session, converts the puzzle and opens the city view (A2d's helper says 3D). **test**: 1 case.
-4. [ ] Josh opens three in a row. **browser**.
+1. [ ] **`loadCityView`** runs the pipeline once per city (`blocksX`, `blocksZ`, `seed`, `oneWay`) per page and converts the puzzle with `convertCityPuzzle`. A `CityPuzzleError` is thrown on with its messages. Two puzzles on one city share one plan object. **test**: 1 case, on P0's file.
+2. [ ] **The route.**
+   - With `city` given, `createMapRenderer3d` needs no `city=` address. It draws `city.plan`, not a fresh one.
+   - Without `city`, routes are as today, and `NO_CITY_ROUTE` still throws.
+   - It is dev only, as the pipeline renderer is.
+   - `MapRenderer3d` is unchanged.
 
-**Files.** `src/ui/maps.ts`, `maps.test.ts`, `src/main.ts` (the city branch), and A2d's helper.
+   **test**: 1 case (the pure route choice).
+3. [ ] **Live and dead, in 3D,** by run.
+   - Every span of a live line's `runs` glows. A drop or lead glows with it.
+   - A damaged span is cut, and sparks only while live.
+   - K3's prop stands at the cut only while the fault is readable.
+   - Lamps light from `look.ts`. Brownout flickers every job lamp.
+   - Scenery (poles, spans and lights not in the job) never glows.
+
+   **test**: 2 cases.
+4. [ ] **The overlay** draws `overlayIcons` and `overlayLines` (E1, as built: `(converted, state, project, ctx)`). Each is one straight segment, piece to piece, with the break icon at its midpoint when readable. **test**: 1 case: the projection passed to E1 is the camera's, and a line's points equal its pieces' projected places.
+5. [ ] **`hitTest`.**
+   - The overlay comes first: an icon (E1's `overlayHit`), then a line, a new `overlayLineHit` within `OVERLAY_HIT_PX / 2` of its segment, giving the line id.
+   - Then the 3D pick (`pick.ts`): the job's models give node ids and its spans give line ids.
+   - Scenery gives null.
+   - The panels' blockers apply to both.
+
+   **test**: 2 cases.
+6. [ ] **`overlay=0`** in the address hides the overlay, and the 3D pick still plays. **test**: 1 case.
+7. [ ] **The Relight can't be interrupted** (brief, Decided). It runs from `relight3d.ts`'s clock on `converted.puzzle`. Input during it changes nothing, as `src/play/` already holds. **test**: 1 case (rules-coverage row "The Relight can't be interrupted").
+8. [ ] **The overlay canvas** sits over the WebGL canvas, the same CSS size, at the device pixel ratio (capped at 2, as the WebGL one is). It resizes with it and is removed on `dispose`. **test**: 1 case.
+9. [ ] **The camera.** `resetView` and `fitWhole` frame the district, its four streets and the feed. `centreOn(lampId)` centres on that lamp's place. `placeAt` returns the lamp under a building, or null. **browser**.
+10. [ ] Josh plays `city-two-ways-round` (from U2 on, picked; before that, by the main session's dev hook if needed) on a desktop window and a phone-sized one. **browser**.
+
+**Count.** 10 added. The cases go in `overlay.test.ts`, `pick`'s and `renderer`'s own new tests, or a new `src/render3d/cityplay.test.ts` (under 2 s, except criterion 1's, which builds seed 1 once; the builder gives its time).
+
+**If `src/play/` must change,** the builder stops; the architect re-cuts with an interaction section.
+
+**Files.**
+- `src/render3d/renderer.ts`, `plan3d.ts`, `pick.ts`, `overlay.ts` (adding `overlayLineHit`; E1's functions keep their signatures) and `circuitdraw.ts` (K3's, the live looks only);
+- `relight3d.ts`, only if it cannot be reused unchanged;
+- `src/render3d/index.ts` (the `loadCityView` export);
+- new `src/render3d/cityview.ts`;
+- their tests.
+
+**Must not:** `src/core/` (the architect's), `src/ui/`, `src/main.ts`, `src/play/`, `src/city/`.
+
+### U2 · Opening a city puzzle opens the city view (ui). Branch `ticket/081u2-open-city`, after E2 and U1 merge
+**Why** (the playable path). This is U1's former criterion 3. It needs E2's `loadCityView` and `city` option.
+
+**Goal.** In `npm run dev`, Josh picks "City · Two ways round · city" and plays it on the 3D city. Picking a schematic puzzle afterwards goes back to the 2D map.
+
+**Acceptance criteria.**
+1. [ ] **The address, pure.** `addressFor(kind, search, key)` in `src/ui/view3d.ts` gives the address a picked entry opens at, or null when the page can open it in place:
+   - a city entry sets `puzzle=city/<id>` and `view=3d`;
+   - a schematic entry drops `view=3d`, unless the address carries a `city=` route (A2d, unchanged);
+   - other parameters (`light`, `cam`, `overlay`) are kept.
+
+   `wants3d` is unchanged, and its two cases pass unedited. **test**: 1 case.
+2. [ ] **`main.ts`'s city branch.**
+   - `collectMaps(files, { city: import.meta.env.DEV })`.
+   - The page kind comes from the requested entry, once, as today: `wants3d(location.search, entry.kind)`.
+   - Opening a city entry calls `loadCityView` (lazily, with the rest of `src/render3d`). It plays `view.converted.puzzle` on `createGrid` and `createMapPlay`, and passes `{ insets, city: view }` to the 3D renderer.
+   - Picking an entry whose kind needs the other canvas (`addressFor` not null) loads that address (`location.assign`) instead of opening in place. The win splash's Next does the same.
+   - A `CityPuzzleError` shows its messages in the HUD's place and in the console, and the page does not go blank.
+
+   **test**: 1 case: the open path, through a pure helper that takes the entry and returns what to build.
+3. [ ] **The HUD shows** on a city puzzle: parts, targets, the picker. `planHidesHud` stays for `city=` routes only. **browser**.
+4. [ ] Josh opens `city-two-ways-round`'s city form from the picker, plays it to the Relight, then picks a schematic puzzle and is back on the 2D map. **browser**.
+
+**Count.** 2 added.
+
+**Files.** `src/main.ts` (the view and open branches), `src/ui/view3d.ts` and `view3d.test.ts`, `src/ui/maps.ts` (only if the helper of criterion 2 lives there). **Must not:** `src/render3d/`, `src/play/`, `src/core/`.
 
 ## Files
-Per section, above. This branch (the cut): `tickets/081-puzzles-on-the-city.md`, `tickets/070-city-pipeline.md` (pointer lines), `tickets/071-pack-power-lines.md` (a pointer line: C and E's ladder wiring are dropped), `tickets/rules-coverage.md`, `src/core/citycircuit.ts` (new), `src/core/cityplan.ts` (`CityCircuitLayer`), `src/core/index.ts`.
+Per section, above. This branch (the cut): `tickets/081-puzzles-on-the-city.md`, `tickets/070-city-pipeline.md` (pointer lines), `tickets/071-pack-power-lines.md` (a pointer line: C and E's ladder wiring are dropped), `tickets/rules-coverage.md`, `src/core/citycircuit.ts` (new; `CityPuzzleView` added 24 Nov 2026 for the playable path), `src/core/cityplan.ts` (`CityCircuitLayer`), `src/core/index.ts`.
 
 ## Interfaces
 Written into `src/core/` with this cut (typecheck passes):
@@ -826,6 +1022,7 @@ Written into `src/core/` with this cut (typecheck passes):
   - `ctx` is `{ layer, width, height, time, pxPerMetre? }`.
   - `project` returns the screen point and a boolean for "behind the camera".
   - **This stands.** E1's criteria name the inputs, not their exact shape. E2 codes against the built shape, and the criteria are not edited.
+- **The playable path's contract (24 Nov 2026, committed with this re-cut):** `CityPuzzleView` (`{ plan, converted }`) in `src/core/citycircuit.ts`. E2 adds `loadCityView(city): CityPuzzleView` (`src/render3d/index.ts`) and `MapRenderer3dOptions.city?: CityPuzzleView` (`renderer.ts`). U2 calls both. U1's `MapEntry` union stays inside `src/ui/`.
 - **Events:** none new.
 - **No new dependency.** The overlay is Canvas 2D.
 
@@ -837,3 +1034,6 @@ All questions so far are answered (above), the mid-row one included ("Only when 
 4. **Default K2d2 takes (you may overturn it):** the 2D map's scenery (`decor`) shows no roof structures.
    - B1b proposed showing the unused corner structures on and next to the district as scenery dots. `decor` holds paths only, so dots would need a new shape.
    - A roof line that the job uses is drawn as a line, like any other line.
+5. **(K3 measures, then yours to decide) The pack loads.** 071 D's subset GLBs were never built, so the city view loads the whole Palm City (103 MB), Sci-Fi City (35 MB) and Sci-Fi Frontier (103 MB) packs for a handful of models. This happens in dev only. K3 reports the load time. If it is too slow, a small section runs 071 D's tool for the picks (`tools/assets/`, grid-simulator). It shares no file with this path and can run beside it.
+6. **Default U1 takes (you may overturn it):** a city entry is named "... · city". "(reworked)" waits for P2a's reworks, which will say in the file that they are one.
+7. **Default U2 takes (you may overturn it):** picking a city puzzle reloads the page in the 3D view, and picking a schematic one from there reloads the 2D map. A canvas keeps one kind of context, so the switch cannot happen in place.
