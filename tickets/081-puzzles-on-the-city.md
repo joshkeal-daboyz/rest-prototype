@@ -264,7 +264,13 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
    - `createMapRenderer3d` with no `city=` route throws a named error that A2d's branch never reaches. **test**: 1 case.
 4. [ ] **Tests go with their code**: the ladder's tests named under *Deleted files*, and A2b's (b) and (c) cases (the sort above, which also drops 2190cc5's fixture), each listed in the report. For each (b) file, the report names the pipeline test that holds its rule. The test count falls. **no test**.
 4b. [ ] **A2b's one re-point:** at most 2 `placeholders.test.ts` cases on a typed lots fixture. **test**: at most 2 rewritten. With criteria 2, 3 and 5, the PR adds about 2 and rewrites at most 4.
-5. [ ] **`ASSET_GALLERY_USES` loses "ladder".** The architect commits that `src/core/assetgallery.ts` line on this branch before the builder starts. `assetcatalogue.ts` stops computing that use, and 074's pinned rows change only in that column. **test**: existing (rewritten cases count).
+5. [ ] **`ASSET_GALLERY_USES` loses "ladder".** The architect committed that `src/core/assetgallery.ts` line on this branch (acfdbb7) before the builder starts, and the typecheck is red until this criterion is done. The builder fixes, with no other change:
+   - `assetcatalogue.ts`: its `add("ladder", ...)` lines (86 to 91) go;
+   - `assetcatalogue.test.ts`: lines 154 to 159, 327 and 361. The ladder walk goes, and each case that used "ladder" as a sample use takes another use with the same shape, for example "tech";
+   - `src/ui/assetgallerylogic.ts`: the `ladder` row of `USE_LABELS` only;
+   - `src/ui/assetgallerylogic.test.ts`: lines 95 and 143, the sample use only ("ladder" becomes "tech" or another real use, with the same assertions).
+
+   074's pinned rows change only in the use column. **test**: at most 4 rewritten (the assetcatalogue and assetgallerylogic cases whose sample use changes), counted with criterion 4b's 2. The PR stays at or under 15.
 6. [ ] **The guide and grammar.** Lines that describe only the ladder's town are deleted or marked as history. `docs/city-style/decisions.md` keeps every entry, and drift checks of deleted lines go with them. **no test**: the reviewer reads the diff.
 7. [ ] **`tickets/rules-coverage.md`:** the "037 C" entry on the Relight row points to E2. This is the architect's edit, committed with this section. **no test**.
 8. [ ] **The browser** (the main session):
@@ -275,7 +281,7 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 
    **browser**.
 
-**Files.** `src/render3d/` (deletions, `renderer.ts`, the kept files' ladder-only functions, the deleted files' tests); `docs/city-style/*.md` and `docs/city-grammar.md` (ladder-only lines). **Must not:** `src/city/`, `src/render/`, `src/play/`, `src/ui/`, `tests/playtest/`, `tools/`. If a deletion needs one of these, stop and report: that is a re-cut.
+**Files.** `src/render3d/` (deletions, `renderer.ts`, the kept files' ladder-only functions, the deleted files' tests); `src/ui/assetgallerylogic.ts` and `assetgallerylogic.test.ts` (criterion 5's "ladder" lines only: the ui's folder, named here so it is in scope); `docs/city-style/*.md` and `docs/city-grammar.md` (ladder-only lines). **Must not:** `src/city/`, `src/render/`, `src/play/`, any other `src/ui/` line, `tests/playtest/`, `tools/`. If a deletion needs one of these, stop and report: that is a re-cut.
 
 ### B1 · CK17, the street rule and roof structures, designed (puzzle-designer; a note). **Done** on `ticket/081b1-roof-spans`
 `docs/design/081-B1-roof-spans.md`, with Josh's answers at the top. Its questions 1 to 5 are answered (see "Josh's answers on B1 and its pre-check").
