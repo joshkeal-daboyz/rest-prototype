@@ -1171,6 +1171,8 @@ It writes `docs/design/081-K2e-precheck.md`. If it does not report "holds", the 
 - the unpowered city: **"A few dim windows"** (scattered faint candle-light). This amends E2's "the rest of the city is dead" for windows only;
 - the street: **"Yes, a light pool (Recommended)"** (warm light on the pavement and street in front).
 
+**Josh's answers, 24 Nov 2026, on cards:** "Approve L1-L3 (Recommended)"; L-Q1 "Pack's night glow (Recommended)"; L-Q2 "Mast's building (Recommended)"; L-Q4 "Real lights" (not the painted decal; L2 is re-cut for it, below). L-Q3 is still to be asked, before L3; L-Q5 (added with the L2 re-cut) before L2.
+
 K3b merged with its lamp-height must-fix open ("Merge as is (Recommended)"), because L1 removes the lamp. L1 closes that must-fix, and K3b criterion 2's lamp bullet ("A building lamp stands under the fitting") is superseded.
 
 **How the windows are built (read 24 Nov 2026 from the converted City Pack GLB and its textures in `assets/private/`).**
@@ -1183,7 +1185,7 @@ K3b merged with its lamp-height must-fix open ("Merge as is (Recommended)"), bec
 - A window is dark, dim or lit through its piece's material. A lit or dim piece takes a clone of its material with `emissiveMap` set to **one shared window mask**: a `DataTexture` made in code from `WINDOW_UV` (the measured glass rectangle and its three panes), with each pane's colour from Josh's card L-Q1, `emissive` white and `emissiveIntensity` as its level. Dark pieces keep the shared material untouched.
 - **Not the pack's Emissive PNG.** It also lights signs and signals, and loading it would need converter, manifest and game pack changes (`tools/assets/`, the grid-simulator's) for three rectangles of colour. The builder reads the pane colours once from `Emissive_01.png` and types them in as numbers, as D4 measured the bracket. Nothing from the pack is committed.
 - **Not instanced attributes.** Buildings are clones, not instances, so a per-building material costs no draw call. The few lit buildings (a job's lamps) take their own clones, so each animates alone. Dim pieces share one clone per source material.
-- **Not real lights** (no `PointLight` or `SpotLight`, as 059 drew street lights): see L2 and card L-Q4.
+- **Not real lights for the windows.** The windows glow by emission only. The light on the street is real lights, in L2 (Josh, L-Q4: "Real lights").
 
 **Readings (the architect's; none is a Decided rule):**
 - **Lamp posts keep E2's glow and pool.** A post lamp has no building. Only `{ building }` lamps move onto windows.
@@ -1206,8 +1208,13 @@ K3b merged with its lamp-height must-fix open ("Merge as is (Recommended)"), bec
 - **L-Q4, before L2: how the pool is made.**
   - "A painted glow on the ground (Recommended)": one instanced decal, one draw call, which lights only the ground.
   - "Real lights": also lights walls, cars and props, but adds per-pixel cost on every lit material, and the shaders rebuild whenever the number of lights changes. If he picks it, the architect re-cuts L2 and its budget is measured again before Josh plays.
+  - **Answered: "Real lights"** (Josh, 24 Nov 2026).
+- **L-Q5, before L2: how many street lights, and shadows.**
+  - "One per lamp building, up to 10, no shadows (Recommended)": every lit building lights its own street; a per-pixel cost on every lit material, held by L2 criterion 3's budget.
+  - "Up to 4, given to the lit buildings nearest the camera": cheaper on a big job, but a far lit building's street stays dark, and a light can jump between buildings as the camera moves.
+  - "One per lamp building, and the brightest casts shadows": walls and cars throw shadows on the street from one light; a shadowed point light draws the city six more times a frame, so the architect re-cuts L2's budget first.
 
-**Order.** L1 shares `cityview.ts` with **E4** (open PR #53: `cityHit`, `HitInputs`, `paintOverlay`, `cutAt`), so it branches from `main` after E4 merges. It shares no file with **K2e** (`src/city/circuit/`). L2 and L3 branch after L1 merges, and may be built at once: L3's only `cityview.ts` change is one call in the build step.
+**Order.** L1 shares `cityview.ts` with **E4** (open PR #53: `cityHit`, `HitInputs`, `paintOverlay`, `cutAt`), so it branches from `main` after E4 merges. It shares no file with **K2e** (`src/city/circuit/`). L2 and L3 branch after L1 merges (L2 after L-Q5, L3 after L-Q3), and may be built at once: L3's only `cityview.ts` change is one call in the build step.
 
 #### L1 · The lit building's windows; the wall lamp goes (renderer). Branch `ticket/081l1-lit-windows`, after E4 merges and L-Q1 and L-Q2 are answered
 **Goal.** Playing `city-two-ways-round`, each lamp's building is dark until current lights it. Then its windows (and its shopfront glass) glow warm. They ignite in the Relight's order with E2's flare, and flicker in a brownout. No wall lamp stands on the building.
@@ -1253,28 +1260,33 @@ K3b merged with its lamp-height must-fix open ("Merge as is (Recommended)"), bec
 
 **Must not:** `overlay.ts`; `plan3d.ts` and `models3d.ts` (read only); `src/city/`, `src/core/`, `src/ui/`, `src/main.ts`, `src/play/`, `tools/`.
 
-#### L2 · The light pool on the street (renderer). Branch `ticket/081l2-light-pool`, after L1 merges and L-Q4 is answered
-**Goal.** In front of a lit building, warm light lies on its pavement and on the street, rising and falling with its windows.
+#### L2 · Real lights on the street (renderer). Branch `ticket/081l2-street-lights`, after L1 merges and L-Q5 is answered. Re-cut 24 Nov 2026 for Josh's L-Q4 "Real lights"
+**Goal.** In front of a lit building, a real warm light falls on its pavement, the street, the walls either side and any car or prop in reach, rising and falling with its windows: dark until the Relight reaches its lamp, then up with the flare, flickering in a brownout.
 
-**Acceptance criteria** (for "A painted glow on the ground (Recommended)"; if Josh picks "Real lights", the architect re-cuts L2 before it is built):
-1. [ ] **Where the pools lie.** A pure `poolPlaces(plan, buildingId)` in `windows.ts` gives one pool per street face of the building: each column's `front`, and a corner column's `side`, where the cell beyond is street (never a yard or a park). Each pool is centred on its face and reaches from the wall across the pavement and `POOL_ROAD_M` into the carriageway (default 3 m; Josh tunes it by eye). It is `POOL_WIDTH_M` wide (default the face's 5 m plus 2 m). **test**: 1 case on a fixture: a mid building on one street gets one pool per front column, a corner column gets two, and a face onto a yard gets none.
-2. [ ] **One instancer.** Every job lamp building's pools are one `InstancedMesh`:
-   - a soft warm gradient (a `DataTexture` made in code), additive, with no depth write, laid just above the ground as E2's pools are;
-   - each pool's opacity follows its building's `buildingGlow` level and flare;
-   - a dark building's pools are scaled to 0.
+**How (the architect's choice, under L-Q5's recommended option).**
+- **Type.** One `PointLight` per job lamp building, **no shadows** (`castShadow` false; night keeps `shadows: false`, `lighting.ts`). A point light needs no target, and one shadowed point light renders the city six more times a frame. A spot light would cut a sharper cone than the store image shows.
+- **How many.** One per job lamp building, never one per face or per window. P0 has 3; the ladder's largest jobs (`50-the-whole-quarter`, `56-whole-ward`) have 10 lamps, so `STREET_LIGHTS_MAX` is **10**. A job with more lamp buildings than that lights the first 10 (in lamp order) and logs one dev warning; none does today.
+- **The pool, so no shader rebuilds in play.** Three compiles a material's program for the number of visible lights in the scene. So the lights are made **when the city builds**, one per lamp building, added to the scene at intensity 0, and never added, removed or hidden during play: dark is intensity 0, never `visible = false`. Their count is fixed from the first frame, so every program is compiled before play. The one exception is the dev day toggle: the rig hides night-only parts (`lightrig.ts`), so the first switch to day and back compiles once; that is dev only and accepted. A new job builds a new city, so its count is set again at load.
+- **What they light.** Every lit (`MeshStandard`) material in reach: the ground, street and pavement surfaces, the building pieces' walls, the dressing's cars and props. `MeshBasic` parts (glows, overlay) are unchanged. The light stands 2 m out from the middle of the building's street face at 3 m up (the first floor's windows), or for a corner building over its corner pavement. Its reach (`distance`) is `STREET_LIGHT_REACH_M` (default 12 m, `decay` 2) and its colour the lit pane's amber from L1. Both are numbers Josh tunes by eye.
+- **No painted pool.** The decal from the earlier cut is not drawn. E2's post-lamp pools are unchanged.
+- **The hooks from L1.** Each frame a light's intensity is `STREET_LIGHT_INTENSITY x level`, with the flare pop, from its building's `buildingGlow` (L1 criterion 2). So the Relight's order and the brownout flicker come from L1 with no new timing.
 
-   **test**: 1 case: a lit building's pools show at its level, a dark one's are hidden, and the mesh is one draw call however many buildings there are.
-3. [ ] **The budget.** Measured with L1's `perf=1` on 6 x 6 seed 1 with P0, from the default camera in a desktop window, after the Relight against before any power:
-   - at most 1 draw call more than L1's;
-   - no new program during play;
-   - a median frame time no more than **1.0 ms** worse.
+**Acceptance criteria.**
+1. [ ] **Where each light stands.** A pure `lightPlaces(plan, buildingIds)` in `windows.ts` gives one place per building, at most `STREET_LIGHTS_MAX`: in front of the middle of its street face (a column's `front` onto a street cell, never a yard or a park), or over the corner pavement for a corner building, at the height and offset above. **test**: 1 case on a fixture: a mid building's light stands in front of its street face, a corner building's over its corner, and 11 buildings give 10 places.
+2. [ ] **The pool.** `streetLights(places)` makes the `PointLight`s once. `setStreetLights(lights, glows)` writes only intensities. **test**: 1 case: after setting one building lit and one dark, the scene holds the same number of lights, all visible, none casting a shadow; the dark one is at 0 and the lit one at `STREET_LIGHT_INTENSITY x` its level.
+3. [ ] **The budget.** Measured with L1's `perf=1` on 6 x 6 seed 1 with P0, from the default camera in a desktop window on Josh's PC, against L1's numbers from the same view:
+   - no new draw call;
+   - no new program between the first frame after the models load and the end of the Relight;
+   - a median frame time no more than **1.0 ms** worse than L1's after the Relight.
 
-   The builder reports the numbers and the fps on Josh's PC. Over budget, the builder stops and reports. **browser**.
-4. [ ] Josh plays `city-two-ways-round` from the default camera and `cam=street`: the pools light with their buildings in the Relight and flicker in a brownout. **browser**.
+   Also once with the dev switch `lights=10`, which fills the pool to `STREET_LIGHTS_MAX` (the spare lights at intensity 0 on the first building), as the worst case a ladder job can bring: at most **2.5 ms** worse than L1's. The builder reports draw calls, programs, the median frame time and the fps for both. Over either budget, the builder stops and reports; the architect re-cuts with Josh's answer. **browser**.
+4. [ ] Josh plays `city-two-ways-round` from the default camera and `cam=street`: light falls on the pavement, street and walls in front of each lamp building as it lights in the Relight, and flickers in a brownout. **browser**.
 
 **Count.** 2 added.
 
-**Files.** `src/render3d/windows.ts` and `windows.test.ts`; `src/render3d/cityview.ts` (the pools in the live layer only). **Must not:** as L1.
+**Files.** `src/render3d/windows.ts` and `windows.test.ts`; `src/render3d/cityview.ts` (the lights in the build step and live layer, and the `lights=10` dev switch). **Must not:** as L1, and `lightrig.ts` and `lighting.ts` (read only).
+
+**Interfaces.** No new dependency, no `src/core/` type: `PointLight` is Three's.
 
 #### L3 · A few dim windows in the dead city (renderer). Branch `ticket/081l3-dim-windows`, after L1 merges and L-Q3 is answered
 **Goal.** Across the unpowered city, a scattering of window pieces glow faintly, like candle-light, never on a job lamp's building.
