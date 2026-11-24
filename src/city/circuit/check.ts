@@ -3,15 +3,20 @@
  * floor is K2d's.
  */
 
-import type { CityCircuitLayer, CityEdgeLayer, CityPlanStreet, CityPole, CitySide, CityStreetsLayer } from "../../core";
+import type { CityBuildingsLayer, CityCircuitLayer, CityEdgeLayer, CityMassLayer, CityPlanStreet, CityPole, CitySide, CityStreetsLayer } from "../../core";
 import { CELL_M, CORNER_SPAN_M, POLE_END_CLEAR_M, SPAN_ALONG_MAX_M, TOL } from "./constants";
 import { allowedCell, cellAt, indexCells, polePavement, sidePavement, spanM, streetsById, type Pavement } from "./geometry";
+import { placeProblems } from "./checkplaces";
 import { poleId, spanId } from "./lay";
 
 /** What stage 6 reads of the layers before it. */
 export interface CircuitInput {
   readonly streets: CityStreetsLayer;
   readonly edge: CityEdgeLayer;
+  /** K2b: the built cells and their open sides (CK9). */
+  readonly mass: CityMassLayer;
+  /** K2b: the buildings and their fronts (CK9). */
+  readonly buildings: CityBuildingsLayer;
 }
 
 export interface CircuitProblem {
@@ -31,8 +36,8 @@ const CORNERS: readonly (readonly [CitySide, CitySide])[] = [
 ];
 const other = (p: Pavement): Pavement => (p === "lo" ? "hi" : "lo");
 
-/** The problems with a layer's poles and spans, empty when CK1 to CK6 and CK8 hold. */
-export function circuitProblems(layer: Pick<CityCircuitLayer, "poles" | "spans">, input: CircuitInput): CircuitProblem[] {
+/** The problems with a layer, empty when CK1 to CK6, CK8 and CK9 to CK11 hold. CK9 to CK11 are judged when the layer has them. */
+export function circuitProblems(layer: Pick<CityCircuitLayer, "poles" | "spans"> & Partial<Pick<CityCircuitLayer, "drops" | "lights" | "posts">>, input: CircuitInput): CircuitProblem[] {
   const out: CircuitProblem[] = [];
   const add = (rule: string, id: string, reason: string): number => out.push({ rule, id, reason });
   const ix = indexCells(input.edge);
@@ -136,6 +141,7 @@ export function circuitProblems(layer: Pick<CityCircuitLayer, "poles" | "spans">
   }
   const roots = new Set(layer.poles.map((p) => root(p.id)));
   if (roots.size > 1) add("CK8", "city", `${roots.size} separate networks of poles, not one`);
+  if (layer.drops !== undefined && layer.lights !== undefined && layer.posts !== undefined) out.push(...placeProblems({ ...layer, drops: layer.drops, lights: layer.lights, posts: layer.posts }, input));
   return out;
 }
 
