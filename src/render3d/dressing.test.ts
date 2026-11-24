@@ -11,43 +11,8 @@ import type { AssetEntry, CalibrationKey } from "../core";
 import { escapeCheck } from "./escapes";
 import type { FrontTable } from "./models";
 import { STACK_STYLES, assembleStack, type Stack, type StackSide, type StackStyle } from "./stacks";
-import { LOT_TYPES, LOT_TYPE_NAMES, WORLD_PER_METRE, type CornerSide, type LotType } from "./town";
-import {
-  AWNINGS,
-  AWNING_CORNER,
-  ATM_PER_RUN,
-  BILLBOARD_FACES,
-  BILLBOARD_STRUCTURE,
-  DOOR_CANOPIES,
-  DRESS_MAX,
-  DRESS_PER_BAY_MAX,
-  DRESS_SLOTS,
-  ESCAPES,
-  GLASS_INSET_M,
-  KERB_FROM_FRONT_M,
-  AWNING_KERB_M,
-  NOVELTY_SIGNS,
-  P_ATM,
-  P_AWNING,
-  P_CANOPY,
-  P_PLANTER,
-  P_ROOF_LARGE,
-  P_ROOF_SMALL,
-  P_SIGN,
-  P_WALL_AC,
-  ROOF_EDGE_M,
-  SHOP_GLASS,
-  SIGNS_BLADE,
-  WALL_PROPS_PER_BLOCK,
-  dressBlock,
-  dressKeys,
-  dressRoleOf,
-  dressStack,
-  dressTown,
-  dressUnit,
-  type DressPiece,
-  type DressSlotKind,
-} from "./dressing";
+import { LOT_TYPES, LOT_TYPE_NAMES, WORLD_PER_METRE, type CornerSide, type LotType } from "./kitunits";
+import { AWNINGS, AWNING_CORNER, ATM_PER_RUN, BILLBOARD_FACES, BILLBOARD_STRUCTURE, DOOR_CANOPIES, DRESS_MAX, DRESS_PER_BAY_MAX, DRESS_SLOTS, ESCAPES, GLASS_INSET_M, KERB_FROM_FRONT_M, AWNING_KERB_M, NOVELTY_SIGNS, P_ATM, P_AWNING, P_CANOPY, P_PLANTER, P_ROOF_LARGE, P_ROOF_SMALL, P_SIGN, P_WALL_AC, ROOF_EDGE_M, SHOP_GLASS, SIGNS_BLADE, WALL_PROPS_PER_BLOCK, dressBlock, dressKeys, dressRoleOf, dressStack, dressTown, dressUnit, type DressPiece, type DressSlotKind, } from "./dressing";
 
 // ---- fixture: [name, width, height, depth] in metres, centred bounds. Buildings are 050 A's; dressing is from the manifest (18 Nov 2026). ----
 const SIZES: [string, number, number, number][] = [

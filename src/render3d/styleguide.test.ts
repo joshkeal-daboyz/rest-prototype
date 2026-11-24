@@ -32,6 +32,7 @@ import * as massConstants from "../city/mass/constants";
 import * as tilecity from "./tilecity";
 import * as tileslots from "./tileslots";
 import * as town from "./town";
+import * as kit from "./kitunits";
 
 const GUIDE_DIR = "docs/city-style";
 const MANIFEST = "assets/private/out/manifest.json";
@@ -134,6 +135,7 @@ const lines = doc.split(/\r?\n/);
 
 const MODULES: Readonly<Record<string, Record<string, unknown>>> = {
   "town.ts": town as unknown as Record<string, unknown>,
+  "kitunits.ts": kit as unknown as Record<string, unknown>,
   "models.ts": models as unknown as Record<string, unknown>,
   "layout.ts": layout as unknown as Record<string, unknown>,
   "scene.ts": scene as unknown as Record<string, unknown>,
@@ -359,7 +361,7 @@ describe("the Numbers table matches the code", () => {
   const rows = table(section(/^## Numbers$/), ["Constant", "Value", "File"]);
 
   // The names the guide must pin, as "Constant@file". A deleted row fails here; a new row is welcome without being listed.
-  const REQUIRED: readonly string[] = [
+  const REQUIRED_BY_OLD_FILE: readonly string[] = [
     ...["WORLD_PER_METRE"].map((n) => `${n}@town.ts`),
     ...["WORLD_PER_METRE", "NEIGHBOUR_GAP", "STREET_REPEAT_GAP", "FAMILY_SHARE_MAX", "POLYGON_MIN_FAMILIES.small", "POLYGON_MIN_FAMILIES.house", "POLYGON_MIN_FAMILIES.large", "POLYGON_MIN_FAMILIES.tall"].map((n) => `${n}@models.ts`),
     ...[
@@ -382,6 +384,13 @@ describe("the Numbers table matches the code", () => {
     ].map((n) => `${n}@scene.ts`),
     ...["TINTS[0]", "TINTS[1]", "TINTS[2]", "TINTS[3]", "ROOF_SHADE", "CAP_M", "PITCH_M"].map((n) => `${n}@placeholders.ts`),
   ];
+
+  // 081 A2a: the shared kit's constants moved to kitunits.ts, so their rows name that file. The list above still names them by the old file.
+  const IN_KIT = new Set(["WORLD_PER_METRE", "ROAD_W", "KERB_H", "PAVE_W", "SETBACK", "WIRE_CLEAR", "STOREY_M", "LOT_TYPES", "TERRACE_DEPTH_M", "PARKING_W_M", "PARKING_D_M", "PLAZA_W_M", "TERRACE_SEAM_M", "ALLEY_MIN_M", "ALLEY_MAX_M", "POLE_HEIGHT", "WIRE_PICK_RADIUS", "GROUND", "YARD", "STREET", "PAVEMENT", "KERB"]);
+  const REQUIRED: readonly string[] = REQUIRED_BY_OLD_FILE.map((k) => {
+    const [n, file] = k.split("@") as [string, string];
+    return IN_KIT.has(n.split(".")[0]!) && ["town.ts", "layout.ts", "terrace.ts", "scene.ts"].includes(file) ? `${n}@kitunits.ts` : k;
+  });
 
   it("is not empty and has no row twice", () => {
     expect(rows.length).toBeGreaterThan(60);
@@ -423,7 +432,7 @@ describe("the Numbers table matches the code", () => {
 
   it("covers every lot type and every place size", () => {
     const refs = new Set(rows.map((r) => unquote(r[0]!)));
-    for (const t of town.LOT_TYPE_NAMES) expect(refs.has(`LOT_TYPES.${t}`), `LOT_TYPES.${t}`).toBe(true);
+    for (const t of kit.LOT_TYPE_NAMES) expect(refs.has(`LOT_TYPES.${t}`), `LOT_TYPES.${t}`).toBe(true);
     for (const k of Object.keys(town.PLACE_SIZES)) expect(refs.has(`PLACE_SIZES.${k}`), `PLACE_SIZES.${k}`).toBe(true);
     placeholders.TINTS.forEach((_, i) => expect(refs.has(`TINTS[${i}]`), `TINTS[${i}]`).toBe(true));
   });
@@ -438,7 +447,7 @@ describe("the Numbers table matches the code", () => {
 
 describe("one scale", () => {
   it("town.ts and models.ts define the same WORLD_PER_METRE", () => {
-    expect(town.WORLD_PER_METRE).toBe(models.WORLD_PER_METRE);
+    expect(kit.WORLD_PER_METRE).toBe(models.WORLD_PER_METRE);
   });
 });
 
@@ -518,7 +527,7 @@ describe("accessibility, restated on the pinned colours", () => {
     return 0.2126 * ch((hex >> 16) & 255) + 0.7152 * ch((hex >> 8) & 255) + 0.0722 * ch(hex & 255);
   };
   it("keeps the pole wood at least 3:1 in luminance against the street (037; scene.test.ts checks the painted poles)", () => {
-    const c = (lum(scene.POLE_WOOD) + 0.05) / (lum(scene.STREET) + 0.05);
+    const c = (lum(scene.POLE_WOOD) + 0.05) / (lum(kit.STREET) + 0.05);
     expect(c).toBeGreaterThanOrEqual(3);
   });
 });
@@ -544,9 +553,9 @@ describe("every numeric export of the city files has a Numbers row (ticket 053)"
   it("has a row for every numeric constant of stacks, terrace, dressing, furniture, streetcam and citymetrics, and the TERRACE_, PARKING_ and PLAZA_ ones of town.ts", () => {
     const missing: string[] = [];
     let checked = 0;
-    for (const file of ["stacks.ts", "terrace.ts", "dressing.ts", "furniture.ts", "streetcam.ts", "citymetrics.ts", "town.ts"]) {
+    for (const file of ["stacks.ts", "terrace.ts", "dressing.ts", "furniture.ts", "streetcam.ts", "citymetrics.ts", "town.ts", "kitunits.ts"]) {
       for (const [name, v] of Object.entries(MODULES[file]!)) {
-        if (file === "town.ts" && !/^(TERRACE_|PARKING_|PLAZA_)/.test(name)) continue;
+        if ((file === "town.ts" || file === "kitunits.ts") && !/^(TERRACE_|PARKING_|PLAZA_|ALLEY_|STREET_CAM_)/.test(name)) continue;
         if (!numeric(v)) continue;
         checked++;
         if (!covered(file, name, v)) missing.push(`${name} in ${file}`);
@@ -559,7 +568,8 @@ describe("every numeric export of the city files has a Numbers row (ticket 053)"
   it("pins CITY_CHECK as a record row and the 051 B constants of town.ts", () => {
     expect(has("citymetrics.ts", "CITY_CHECK")).toBe(true);
     expect(covered("dressing.ts", "NO_SUCH_CONSTANT", 1), "a constant with no row is found missing").toBe(false);
-    for (const n of ["TERRACE_BAY_M", "TERRACE_DEPTH_M", "TERRACE_BAYS", "PARKING_W_M", "PARKING_D_M", "PARKING_MIN_RUN_BAYS", "PARKING_ONE_IN", "PLAZA_W_M", "PLAZA_ONE_IN"]) expect(has("town.ts", n), n).toBe(true);
+    for (const n of ["TERRACE_BAY_M", "TERRACE_BAYS", "PARKING_MIN_RUN_BAYS", "PARKING_ONE_IN", "PLAZA_ONE_IN"]) expect(has("town.ts", n), n).toBe(true);
+    for (const n of ["TERRACE_DEPTH_M", "PARKING_W_M", "PARKING_D_M", "PLAZA_W_M"]) expect(has("kitunits.ts", n), n).toBe(true);
     for (const i of [0, 1, 2]) expect(has("town.ts", `TERRACE_CAPS_M[${i}]`), `TERRACE_CAPS_M[${i}]`).toBe(true);
   });
 });

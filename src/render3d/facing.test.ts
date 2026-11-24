@@ -9,28 +9,11 @@ import { join } from "node:path";
 import { Group, Object3D, Vector3 } from "three";
 import { ASSET_MANIFEST_VERSION, applyCalibrationPatch, loadPuzzle, type AssetEntry, type AssetManifest, type CalibrationFile, type Puzzle } from "../core";
 import { effectiveFronts } from "./calibration";
-import {
-  BUILDING_EXCLUDE,
-  BUILDING_FRONTS,
-  FAMILY_SHARE_MAX,
-  MODEL_TABLE,
-  NEIGHBOUR_GAP,
-  STREET_REPEAT_GAP,
-  buildingPlan,
-  frontAxis,
-  frontYaw,
-  lotGap,
-  meshFamily,
-  pickBuildings,
-  planModels,
-  traitsOf,
-  type BuildingFront,
-  type FrontTable,
-  type ModelFront,
-} from "./models";
+import { BUILDING_EXCLUDE, BUILDING_FRONTS, FAMILY_SHARE_MAX, MODEL_TABLE, NEIGHBOUR_GAP, STREET_REPEAT_GAP, buildingPlan, frontAxis, frontYaw, lotGap, meshFamily, pickBuildings, planModels, traitsOf, type BuildingFront, type FrontTable, type ModelFront, } from "./models";
 import { applyModels, buildingPlacements, loadModels, type LoadedModel, type ModelSet } from "./models3d";
 import type { SceneBundle } from "./scene";
-import { CORNER_GAP, LOT_TYPE_NAMES, townLayout, type Lot, type LotType, type Town } from "./town";
+import { CORNER_GAP, townLayout, type Town } from "./town";
+import { LOT_TYPE_NAMES, type Lot, type LotType } from "./kitunits";
 
 // ---- a fixture copied from the converted SIMPLE Town manifest (17 Nov 2026): size in metres (w, h, d) and triangles; bounds are centred ----
 const SIZES: [string, number, number, number, number][] = [

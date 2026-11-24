@@ -4,28 +4,11 @@ import { join } from "node:path";
 import { BoxGeometry, DataTexture, Group, LinearFilter, Mesh, MeshStandardMaterial, NearestFilter, Object3D, Texture, Vector3, type Material } from "three";
 import { ASSET_MANIFEST_VERSION, loadPuzzle, type AssetEntry, type AssetManifest, type AssetWarning, type Puzzle } from "../core";
 import { FOV_DEG, createCameraRig } from "./camera";
-import { POLE_HEIGHT, wireLayout } from "./layout";
-import {
-  BUILDING_EXCLUDE,
-  MODEL_TABLE,
-  frontIsQuarter,
-  frontYaw,
-  NEIGHBOUR_GAP,
-  atFront,
-  WORLD_PER_METRE,
-  buildingPlan,
-  isManifest,
-  lotGap,
-  lotTypeOf,
-  modelScale,
-  pickBuildings,
-  planModels,
-  poleYaw,
-  sizeOf,
-  type ModelChoice,
-} from "./models";
+import { wireLayout } from "./layout";
+import { POLE_HEIGHT, LOT_TYPES, LOT_TYPE_NAMES, type Lot } from "./kitunits";
+import { BUILDING_EXCLUDE, MODEL_TABLE, frontIsQuarter, frontYaw, NEIGHBOUR_GAP, atFront, WORLD_PER_METRE, buildingPlan, isManifest, lotGap, lotTypeOf, modelScale, pickBuildings, planModels, poleYaw, sizeOf, type ModelChoice, } from "./models";
 import { NO_MODELS, applyModels, buildingPlacements, loadModels, nearestTextures, type LoadDeps, type ModelSet } from "./models3d";
-import { LOT_TYPES, LOT_TYPE_NAMES, townLayout, type Lot } from "./town";
+import { townLayout } from "./town";
 import { createPicker } from "./pick";
 import { buildScene } from "./scene";
 import { stubTextSurface } from "./text";
@@ -696,10 +679,10 @@ describe("nothing private is bundled", () => {
     expect(bad("public")).toEqual([]);
   });
 
-  it("the sources of the models import only core, layout, the 2D city helpers (for the position hash) and three", () => {
+  it("the sources of the models import only core, kitunits, the 2D city helpers (for the position hash) and three", () => {
     for (const f of ["src/render3d/models.ts"]) {
       const imports = [...readFileSync(f, "utf8").matchAll(/from\s+"([^"]+)"/g)].map((m) => m[1]!);
-      for (const i of imports) expect(["../core", "../render/city", "./layout", "./town"], `${f}: ${i}`).toContain(i);
+      for (const i of imports) expect(["../core", "../render/city", "./kitunits", "./layout", "./town"], `${f}: ${i}`).toContain(i);
     }
     const imports3d = [...readFileSync("src/render3d/models3d.ts", "utf8").matchAll(/from\s+"([^"]+)"/g)].map((m) => m[1]!);
     for (const i of imports3d) expect(i, i).not.toMatch(/\.\.\/(grid|night|play|ui)\b/);

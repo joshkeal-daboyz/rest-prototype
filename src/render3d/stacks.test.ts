@@ -13,7 +13,8 @@ import { bandPacked } from "./models3d";
 import { packTown } from "./terrace";
 import { BUILDING_FRONTS, frontAxis, frontYaw, type BuildingFront, type FrontTable } from "./models";
 import { BODY_REPORT_M, STACK_FLOORS, STACK_STYLES, STOREY_ALIGN_TOL_M, assembleStack, bodyBox, seatOnBody, stackKeys, stackRange, storeyAlignment, type Stack, type StackPiece, type StackSide, type StackStyle } from "./stacks";
-import { LOT_TYPES, LOT_TYPE_NAMES, townLayout, type CornerSide, type LotType } from "./town";
+import { townLayout } from "./town";
+import { LOT_TYPES, LOT_TYPE_NAMES, type CornerSide, type LotType } from "./kitunits";
 
 // Ticket 070 L2c: the old tile city was these cases' input town (the default city, 3 x 3 seeds 1 to 10, 6 x 4 seeds 1 to 3). The input is now the ladder maps' towns, packed wall-aligned where the case says so.
 const LADDER_TOWNS = ["56-whole-ward", "55-leave-it-blown", "63-keep-the-wire", "59-move-the-meeting", "64-the-whole-chain", "49-two-cells", "35-cell-light", "50-the-whole-quarter", "33-take-the-feed-out", "15-meet-in-the-middle", "09-shrine-circuit"];

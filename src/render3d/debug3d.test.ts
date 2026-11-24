@@ -9,7 +9,8 @@ import { FRONT_ARROW_LENGTH, declaredFrontDirection, frontCaption, frontsOverlay
 import { BUILDING_FRONTS, MODEL_TABLE, frontAxis, planModels, type FrontTable } from "./models";
 import { applyModels, type LoadedModel, type ModelSet } from "./models3d";
 import type { SceneBundle } from "./scene";
-import { LOT_TYPE_NAMES, townLayout, type LotType } from "./town";
+import { townLayout } from "./town";
+import { LOT_TYPE_NAMES, type LotType } from "./kitunits";
 import { stubTextSurface } from "./text";
 
 const puzzle = loadPuzzle(JSON.parse(readFileSync("puzzles/09-shrine-circuit.json", "utf8")));

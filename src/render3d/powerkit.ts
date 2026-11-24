@@ -12,7 +12,7 @@
  * `across` is measured on the arm axis from the post's axis (`foot_m`), `up` is the height of the wire's seat.
  */
 
-import type { Vec3 } from "./layout";
+import type { Vec3 } from "./kitunits";
 import { stableHash } from "../render/city";
 import { GROUND_POLE_ATTACH_UP_M, GROUND_POLE_MIX } from "../core/powerpoles";
 

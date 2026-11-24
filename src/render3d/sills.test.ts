@@ -15,47 +15,9 @@ import { GLASS_SILL_M, dressKeys, type DressPiece } from "./dressing";
 import { ESCAPE_TABLES, escapeCheck, sillOf } from "./escapes";
 import { BUILDING_FRONTS, MODEL_TABLE, WORLD_PER_METRE, frontAxis, type ModelFront } from "./models";
 import { allStackKeys, applyModels, bandPacked, dressSites, liftDressing, loadModels, sameAboveGround, stackInput, zShift, stepsGroup, stepsPlacement, type AppliedModels, type ModelSet } from "./models3d";
-import { PAVEMENT_Y, YARD, buildScene } from "./scene";
-import {
-  DOOR_MIN_AREA_M2,
-  DOOR_SILLS,
-  LIFT_CLEAR_M,
-  NO_FRONT_WINDOW,
-  NO_STREET_DOOR,
-  RECESS_DOOR_HALF_M,
-  SILL_CEIL_M,
-  SILL_BAND_M,
-  SILL_DEPTH_BY_KEY,
-  SILL_DEPTH_MAX_M,
-  SILL_DEPTH_M,
-  SILL_DOOR_HALF_M,
-  SILL_MAX_M,
-  SILL_UNDER_M,
-  SILL_WINDOW_CLEAR_M,
-  STEPS_D_M,
-  STEPS_FIT_M,
-  STEPS_KEY,
-  STEPS_RISE_M,
-  STEPS_SCALE_Y,
-  STEPS_TUCK_M,
-  STEPS_W_M,
-  STEP_MIN_M,
-  WINDOW_DEPTH_M,
-  fitSillBand,
-  houseSill,
-  leavesGap,
-  measureDoor,
-  modelPoint,
-  planHouse,
-  sillBands,
-  sillDepth,
-  stackLift,
-  stackSill,
-  stepsYaw,
-  type DoorSill,
-  type SillMesh,
-  type SillTable,
-} from "./sills";
+import { buildScene } from "./scene";
+import { PAVEMENT_Y, YARD } from "./kitunits";
+import { DOOR_MIN_AREA_M2, DOOR_SILLS, LIFT_CLEAR_M, NO_FRONT_WINDOW, NO_STREET_DOOR, RECESS_DOOR_HALF_M, SILL_CEIL_M, SILL_BAND_M, SILL_DEPTH_BY_KEY, SILL_DEPTH_MAX_M, SILL_DEPTH_M, SILL_DOOR_HALF_M, SILL_MAX_M, SILL_UNDER_M, SILL_WINDOW_CLEAR_M, STEPS_D_M, STEPS_FIT_M, STEPS_KEY, STEPS_RISE_M, STEPS_SCALE_Y, STEPS_TUCK_M, STEPS_W_M, STEP_MIN_M, WINDOW_DEPTH_M, fitSillBand, houseSill, leavesGap, measureDoor, modelPoint, planHouse, sillBands, sillDepth, stackLift, stackSill, stepsYaw, type DoorSill, type SillMesh, type SillTable, } from "./sills";
 import { STACK_STYLES, assembleStack, type Stack } from "./stacks";
 import { OLD_CITY_TOWN, TILE_APPLY } from "./oldvalues.fixture";
 import { packTown } from "./terrace";

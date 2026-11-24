@@ -7,8 +7,8 @@
 
 import type { Puzzle } from "../core";
 import type { Town } from "./town";
+import { POLE_HEIGHT, type Vec3 } from "./kitunits";
 
-export const POLE_HEIGHT = 1.6;
 /** The centre of a breaker, fuse box or battery box: its top meets the wire at POLE_HEIGHT. */
 export const NODE_BODY_Y = POLE_HEIGHT - 0.3;
 /** Each conductor's tube radius, world units (three of them to a run on a run with a pole; ticket 041 C). */
@@ -28,11 +28,6 @@ export const SAG_RATIO = 0.04;
 /** A span's polyline has SAG_SEGMENTS + 1 points. */
 export const SAG_SEGMENTS = 8;
 /**
- * A line's pick target (along its centre conductor) reaches this far (world units). At least PHASE_OFFSET + WIRE_RADIUS + 0.03,
- * so a click on any of the three conductors picks the line.
- */
-export const WIRE_PICK_RADIUS = 0.3;
-/**
  * A service drop runs to a building whose front is within this (across the ground) of an intermediate pole on the run beside its street.
  * The ticket said 2, but a lot across a circuit road from its wire has its front at least KERB_OFFSET + ROAD_W + PAVE_W + SETBACK = 2.1 from
  * the line, so at 2 only 13 lots on the whole ladder (none facing their own run) can ever be reached. At 2.5 it is 108 (97 on their own run).
@@ -45,11 +40,6 @@ export const DROP_END_Y = 0.5;
 export const CAN_OFFSET = 0.1;
 export const CAN_DROP = 0.3;
 
-export interface Vec3 {
-  x: number;
-  y: number;
-  z: number;
-}
 
 /** One conductor's cut: two ends hang from the poles either side of a gap. */
 export interface ConductorCut {

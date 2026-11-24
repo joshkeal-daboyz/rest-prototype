@@ -33,18 +33,15 @@ import type { AssetEntry, CalibrationKey } from "../core";
 import { stableHash } from "../render/city";
 import { BUILDING_FRONTS, type FrontTable } from "./models";
 import { assembleStack, stackRange, type Stack, type StackAlign, type StackSide, type StackStyle } from "./stacks";
-import { TERRACE_BAYS, TERRACE_DEPTH_M, WORLD_PER_METRE, type Lot, type LotSpec, type TerraceRun } from "./town";
+import { TERRACE_BAYS } from "./town";
+import { TERRACE_DEPTH_M, WORLD_PER_METRE, type Lot, type LotSpec, type TerraceRun } from "./kitunits";
 import { END_OVERLAP_MAX_M, PASSAGE_W_M } from "./tilecity";
+import { TERRACE_SEAM_M, ALLEY_MIN_M, ALLEY_MAX_M, alignOf } from "./kitunits";
 
-/** The most a run's far end may be left short of its far wall, metres, to count as closed. */
-export const TERRACE_SEAM_M = 0.1;
 
 /** When no sequence closes a run to the seam or an alley, how much more than the least possible may be left, metres, to keep the styles varied. */
 export const TERRACE_SLACK_M = 0.15;
 
-/** The alley a far gap aims for when the pieces cannot close it to the seam, metres: wide enough to read as a way between blocks, never a slit. */
-export const ALLEY_MIN_M = 1.0;
-export const ALLEY_MAX_M = 1.5;
 
 /** The search stops after this many states in a pass: a run longer than the ladder's gives what it has found. Deterministic (a count, not a clock). */
 const SEARCH_NODES = 60000;
@@ -100,11 +97,6 @@ export interface PackOptions {
   farOverlap_m?: number | undefined;
 }
 
-/**
- * The alignment a run's stacks take when the caller does not say (ticket 057 A): "wall" for a run with a pavement `frame` (the tile city's; its front line is the pavement's back
- * edge, and its buildings stand on the pavement or just over it), "back" for the ladder's runs, which have none, so every ladder stack is as it was.
- */
-export const alignOf = (run: Pick<TerraceRun, "frame">): StackAlign => (run.frame ? "wall" : "back");
 
 /** The far overlap a run takes when the caller does not say (ticket 057 B): `END_OVERLAP_MAX_M` for a run with a pavement frame (the tile city's), 0 for every ladder run. */
 export const farOverlapOf = (run: Pick<TerraceRun, "frame">): number => (run.frame ? END_OVERLAP_MAX_M : 0);

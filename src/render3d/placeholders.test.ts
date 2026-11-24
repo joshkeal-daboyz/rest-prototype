@@ -6,7 +6,8 @@ import { loadPuzzle, type Puzzle } from "../core";
 import { NEIGHBOUR_GAP, WORLD_PER_METRE, atFront, lotGap } from "./models";
 import { FOOTPRINT_FACTORS, STOREYS, TINTS, pickPlaceholders, placeholderBuilding, variantCount } from "./placeholders";
 import { buildScene } from "./scene";
-import { LOT_TYPE_NAMES, STOREY_M, townLayout, type Lot, type LotType } from "./town";
+import { townLayout } from "./town";
+import { LOT_TYPE_NAMES, STOREY_M, type Lot, type LotType } from "./kitunits";
 import { stubTextSurface } from "./text";
 
 const files = [...readdirSync("puzzles").filter((f) => f.endsWith(".json")), "lamp-row.grid.json"].map((f) => join("puzzles", f)).filter((f, i, all) => existsSync(f) && all.indexOf(f) === i);

@@ -12,8 +12,8 @@ import { assignColourways } from "./colourway";
 import { ATMS, AWNINGS, AWNING_CORNER, ESCAPE_MIN_BAYS, SHOP_GLASS, dressRoleOf, type DressPiece } from "./dressing";
 import { FURN_CORNER_M, FURN_KEEP_M, FURN_KERB_M, FURN_MAX_H_M, FURN_PITCH_M, FURN_WALL_M, KERB_M, TREES, TREE_PITCH_M, WALL_EDGE_M, type FurniturePiece, type Rect } from "./furniture";
 import type { Stack, StackPiece } from "./stacks";
-import { ALLEY_MAX_M, ALLEY_MIN_M, TERRACE_SEAM_M, type PackResult, type PackedBlock } from "./terrace";
-import { WIRE_CLEAR, WORLD_PER_METRE, type Lot, type OpenLot, type Pt, type TerraceRun } from "./town";
+import { type PackResult, type PackedBlock } from "./terrace";
+import { ALLEY_MAX_M, ALLEY_MIN_M, TERRACE_SEAM_M, WIRE_CLEAR, WORLD_PER_METRE, type Lot, type OpenLot, type Pt, type TerraceRun } from "./kitunits";
 
 export type CityCheckId = "R1" | "R2" | "R3" | "R4" | "R5" | "R6" | "R7" | "R8" | "R9" | "R10" | "R11" | "R12" | "R13";
 

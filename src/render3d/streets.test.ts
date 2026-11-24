@@ -3,8 +3,9 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { Matrix4, Vector3, type BufferGeometry, type InstancedMesh } from "three";
 import { loadPuzzle, type Puzzle } from "../core";
-import { DASH_GAP, DASH_LEN, DASH_W, KERB_W, PAD_Y, PAVEMENT_Y, ROAD_H, YARD_H, buildScene, dashLayout } from "./scene";
-import { KERB_H, ROAD_W, townLayout } from "./town";
+import { DASH_GAP, DASH_LEN, DASH_W, KERB_W, PAD_Y, ROAD_H, buildScene, dashLayout } from "./scene";
+import { PAVEMENT_Y, YARD_H, KERB_H, ROAD_W } from "./kitunits";
+import { townLayout } from "./town";
 import { stubTextSurface } from "./text";
 
 const load = (f: string): Puzzle => loadPuzzle(JSON.parse(readFileSync(f, "utf8")));

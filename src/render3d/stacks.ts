@@ -15,7 +15,7 @@ import type { AssetEntry, CalibrationKey } from "../core";
 import { stableHash } from "../render/city";
 import { BODY_M, OPEN_SIDE_MEASURED, wallOffset, type Body } from "./facade";
 import { BUILDING_FRONTS, STACK_LOT_TYPES, frontIsQuarter, frontYaw, sizeOf, type FrontTable, type ModelFront, type StackOffer } from "./models";
-import { LOT_TYPES, type Lot, type LotSpec, type LotType } from "./town";
+import { LOT_TYPES, type Lot, type LotSpec, type LotType } from "./kitunits";
 
 export type StackRole = "base" | "floor" | "roof";
 /**
