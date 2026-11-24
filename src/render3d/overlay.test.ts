@@ -159,7 +159,7 @@ describe("a city puzzle played on the city (ticket 081 E2)", () => {
     const b = loadCityView({ ...city, id: "another" }, build);
     expect(builds).toBe(1);
     expect(a.plan).toBe(b.plan);
-    expect(a.converted.puzzle.nodes.map((n) => n.id)).toEqual(city.nodes.map((n) => n.id));
+    expect(a.converted.puzzle.nodes.map((n) => n.id).filter((id) => !a.converted.hidden!.includes(id))).toEqual(city.nodes.map((n) => n.id));
     expect(() => loadCityView({ ...city, district: ["block:99:99"] }, build)).toThrow(CityPuzzleError);
   });
 

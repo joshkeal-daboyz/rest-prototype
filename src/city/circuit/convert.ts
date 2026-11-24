@@ -1,5 +1,5 @@
 /**
- * CK15: a city puzzle laid on the circuit becomes a plain `Puzzle` that `src/grid/` runs unchanged (ticket 081 K2c). Pure, and it never imports `src/grid/`. The node, line and fault ids are the file's, none added; each `pos` is its
+ * CK15: a city puzzle laid on the circuit becomes a plain `Puzzle` that `src/grid/` runs unchanged (ticket 081 K2c). Pure, and it never imports `src/grid/`. The file's node, line and fault ids all stay, and 081 S1 adds hidden ones (the line split and the scenery lamps, `scenery.ts`); each `pos` is its
  * place's metres less the district's least corner, over `CELL_M`; the runs, places and cut spans go back beside the puzzle for the 3D view. A roof node's place is its structure's point; a roof span may be a fault's cut; the scenery adds nothing for roofs (K2d2).
  */
 
@@ -9,6 +9,7 @@ import { circuitOf, cityPuzzleProblems } from "./checkpuzzle";
 import { CELL_M } from "./constants";
 import { spanM, streetsById } from "./geometry";
 import { dropId } from "./places";
+import { splitAndHang } from "./scenery";
 
 /** Thrown when a city puzzle does not hold on its city: every problem, each naming its node, line or fault and its CK rule. */
 export class CityPuzzleError extends Error {
@@ -89,8 +90,12 @@ export function convertCityPuzzle(puzzle: CityPuzzle, plan: CityPlan): CityPuzzl
   }
 
   const { city: _city, district: _district, from: _from, nodes: _n, lines: _l, faults: _f, ...rest } = puzzle;
-  const out: Puzzle = { ...rest, nodes, lines, faults, decor };
+  const tilde = [...puzzle.nodes.map((n) => n.id), ...puzzle.lines.map((l) => l.id)].filter((id) => id.includes("~"));
+  if (tilde.length > 0) throw new CityPuzzleError(tilde.map((id) => ({ rule: "CK15", id, reason: "an id with ~ could collide with an id the conversion adds" })));
+  const hung = splitAndHang(puzzle, layer, nodes, lines, cuts, toPos);
+  const target = puzzle.target ?? nodes.filter((n) => n.type === "lamp").map((n) => n.id);
+  const out: Puzzle = { ...rest, target, nodes: hung.nodes, lines: hung.lines, faults, decor };
   const valid = validatePuzzle(out);
   if (!valid.ok) throw new CityPuzzleError(valid.errors.map((reason) => ({ rule: "CK15", id: puzzle.id, reason })));
-  return { puzzle: out, places, runs, cuts, origin_m: { x_m: x0, z_m: z0 } };
+  return { puzzle: out, places, runs, cuts, origin_m: { x_m: x0, z_m: z0 }, scenery: hung.scenery, hidden: hung.hidden };
 }

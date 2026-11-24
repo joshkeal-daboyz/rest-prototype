@@ -311,11 +311,11 @@ A **damaged cable is one span** of its run. The fault names the line, and the co
 - **The edge.** Every other span that leaves the district is **open**: it is drawn, and dead.
 - **While the job is played:**
   - the rest of the city's poles, spans, drops and street lights are scenery: drawn as built, dead (no pulse, no live glow, no cut look) and never picked;
-  - inside the district, every pole, span and drop the job does not name is scenery too. A building the job does not name stays dark: it is not on the job.
+  - inside the district, every pole, span and drop the job does not name is scenery too. ~~A building the job does not name stays dark: it is not on the job.~~ **Changed 24 Nov 2026** (Josh, in chat: "I would like all buildings to receive power if they are connected to the feed. I would also like the feed to show as being connected to each building"; on cards "Drop on a live pole (Recommended)", "Yes, they add load", "Whole", "Dark", "Live drops glow (Recommended)"; `docs/design/081-all-connected-powered.md`): a scenery building whose drop hangs from a pole of one of the job's lines (a carrier or a node's pole) is a load of 1 lamp-load on that line, on its side of a cut, and lights, with its drop glowing, while current reaches it. The building on the feed's own pole stays dark. A building whose drop hangs from a pole no job line uses stays dark. Built by 081 S1 (the conversion) and S4 (the drawing).
 - **The edge is the designer's choice.** The puzzle file lists the blocks, and K2 checks the rest.
 - **The worked map** takes one block, `block:6:6`: 70 m by 80 m, a 318 m ring.
 - **Reads:** `CityPlanBlock.sides[*].across`, the circuit layer.
-- **Status:** The extent (1 to 4 blocks, the first jobs at one) is **Josh's (21 Nov 2026)**: question 7, "Yes, all of it (Recommended)". So are one feed span entering per feed and the rest of the city dead scenery (question 10). That unnamed parts inside the district are scenery too stays **Proposed**.
+- **Status:** The extent (1 to 4 blocks, the first jobs at one) is **Josh's (21 Nov 2026)**: question 7, "Yes, all of it (Recommended)". So are one feed span entering per feed and the rest of the city dead scenery (question 10). That unnamed parts inside the district are scenery too stays **Proposed**. That scenery buildings on the job's poles are powered, add load, and that the feed's pole's building stays dark, are **Josh's (24 Nov 2026)**; where each one hangs in the converted puzzle is S1's (Proposed, as the pre-check measured it).
 - **K2 checks:**
   - the district's blocks touch;
   - each line uses only the district's spans or its feed's span;
