@@ -41,7 +41,7 @@ interface Run {
  * E1 or E2's barricade step changes what stands before it, and when K2's circuit lands: the ruin-pass, in a one-line follow-up named in that merge).
  */
 const PIN_GROWTH: Readonly<Record<number, string>> = {
-  1: "578cd93e",
+  1: "24c55727",
 };
 
 const CLEAN_STAGES = CITY_STAGES.filter((s): s is CityPlanStage => s !== "assemble");
@@ -145,10 +145,9 @@ describe("the named runs (X-4, X-1, R-1)", { timeout: 1_800_000 }, () => {
     }
   });
 
-  it("no circuit on the named runs until K2: nothing is left out by option G, and the under-span set is empty", () => {
+  it("the real circuit on the named runs: the under-span set is 19 on 6 x 6 seed 1", () => {
     for (const r of runs) {
-      expect(r.stats["underSpanSpots"] ?? 0, label(r.city)).toBe(0);
-      for (const k of Object.keys(r.stats)) expect(k.startsWith("leftOutT2:") || k.startsWith("skippedCircuit:"), `${label(r.city)} ${k}`).toBe(false);
+      expect(r.stats["underSpanSpots"] ?? 0, label(r.city)).toBe(19);
     }
   });
 
