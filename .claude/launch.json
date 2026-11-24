@@ -49,7 +49,7 @@
       "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
       "runtimeArgs": [
         "--prefix",
-        "D:\\rest-081a2d",
+        "D:\\rest-081d2",
         "run",
         "dev",
         "--",
