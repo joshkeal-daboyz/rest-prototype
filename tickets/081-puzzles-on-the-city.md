@@ -129,7 +129,7 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | # | Section | Owner | After | Tests in its PR |
 | --- | --- | --- | --- | --- |
 | A1 | Delete the old tile city (070 L2d) | renderer | G1 | about 4 added; about 250 removed |
-| A2a | Move the shared kit's constants out of the ladder files | renderer | A1 | 0 added (typecheck; every kept test passes unedited) |
+| A2a | Move the shared kit's constants out of the ladder files | renderer | A1 | 0 added; 5 rewritten (pins on where a name lives); import lines only in about 30 more |
 | A2b | Kept modules' tests stop building the ladder town (as L2c) | renderer | A2a | at most 15 rewritten; split A2b1, A2b2 if more |
 | A2d | `?view=3d` on a schematic puzzle opens the 2D map | ui | A2a | 2 |
 | A2c | Delete the ladder town | renderer | A2b, A2d | about 2 added; the ladder's tests removed |
@@ -192,12 +192,29 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 ### A2a · Move the shared kit's constants out of the ladder files (renderer). Branch `ticket/081a2a-kit-units`
 **Goal.** Nothing Josh can see changes. Every kept file (see *What the purge deletes*) reads the names it needs from `kitunits.ts`, or from another kept file, and imports nothing from `town.ts`, `terrace.ts`, `scene.ts`, `layout.ts` or `streetcam.ts`. The ladder files import those names from `kitunits.ts` too, until A2c deletes them.
 
-**Acceptance criteria.**
-1. [ ] The names listed under *Moves first* are in `src/render3d/kitunits.ts`, with values unchanged, and each importer reads them from there. No name stays defined in two places, and nothing is re-exported from a ladder file. **no test**: typecheck, and every existing test passes unedited, digest pins included.
-2. [ ] The report lists every name moved, and every ladder-only function in a kept file with whether `plan3d.ts`, `planview.ts`, `assetcatalogue.ts` or `assetviewer.ts` reaches it at run time. **no test**.
-3. [ ] `kitunits.ts` imports no three and no DOM. **no test**: A2c's grep covers it.
+**Re-cut 23 Nov 2026 (the lead-architect, on the builder's report at a8596fe).** The move broke two things the first cut said would not break. About 30 test files import a moved name, so their import lines must change to compile. Five cases pin where a name lives. **Re-exports are not the fix.** They would leave a name reachable in two places, which criterion 1 forbids, and A2c would delete them in the next PR anyway. So A2a edits those tests, as follows.
 
-**Files.** New `src/render3d/kitunits.ts`, and import lines plus the moved definitions in the `src/render3d/` files named under *Moves first* and their importers. **Must not:** behaviour, `src/city/`, `src/core/`, any test.
+**How tests are counted here** (test policy rule 0, "adds or rewrites at most 15 test cases (`it(...)`)"):
+- A change to a file's `import` lines only, with no `it(` or `describe(` body touched, is **not** a rewritten case.
+- A case whose body or expected values change **is** one.
+- The gate's count of `it(` / `test(` in the diff's added lines should then show only criterion 4's five. The builder lists both kinds in its report.
+
+**Acceptance criteria.**
+1. [ ] The names listed under *Moves first*, plus any the typecheck asked for (listed in the report), are in `src/render3d/kitunits.ts`, with values unchanged, and each importer reads them from there. No name is defined in two places, and nothing is re-exported from a ladder file. **no test**: the typecheck, and criterion 3.
+2. [ ] **Import lines only** in the test files that import a moved name (about 30), with no case body changed. **no test**: the report lists the files.
+3. [ ] Every other existing test passes with its cases unedited, digest pins included. **test** (existing).
+4. [ ] **The five pins on where a name lives** follow the move. Each keeps its strength, so it still fails when a name moves without its pin:
+   - `models.test.ts`: the import allow-list gains `./kitunits`;
+   - `powerkit.test.ts`: its pinned import list reads `./kitunits` where it read `./layout` (the `Vec3` type);
+   - `styleguide.test.ts`: its 3 cases key each moved constant to `kitunits.ts` instead of `town.ts`, `scene.ts` or `layout.ts`. `POLE_HEIGHT` is found again. The Numbers rows match. The constants count is back to 80 or more, at the count before the move, not lowered.
+
+   **test**: 5 rewritten. The PR has 0 added and 5 rewritten.
+5. [ ] **The guide's Numbers table** (`docs/city-style/numbers.md`) names `kitunits.ts` as the source file of each moved constant. Only that column, only for the moved rows. **no test**: criterion 4's `styleguide.test.ts` cases read it.
+6. [ ] The report lists every name moved, and every ladder-only function in a kept file with whether `plan3d.ts`, `planview.ts`, `assetcatalogue.ts` or `assetviewer.ts` reaches it at run time. **no test**. *Done at a8596fe:* `dressTown`, `furnitureLayout`, `alleyOf`, `openLotsOf`, `dressSites`, `furnitureInput`, `packTown` and `applyModels` are unreached. `PackResult`, `PackedBlock` and `packTown` (`terrace.ts`) are imported by `citymetrics.ts` and `models3d.ts` only for those ladder functions, so A2c deletes them together with their importing code.
+7. [ ] `kitunits.ts` imports no three and no DOM. **no test**: A2c's grep covers it.
+
+**Files.** New `src/render3d/kitunits.ts`; import lines plus the moved definitions in the `src/render3d/` files named under *Moves first* and their importers; the import lines of `src/render3d/*.test.ts` (criterion 2); the five cases of criterion 4; `docs/city-style/numbers.md` (criterion 5's column only). **Must not:** behaviour, `src/city/`, `src/core/`, any other test case.
+**Clash.** 080 B2 may also be editing `docs/city-style/`. Whichever of the two merges second rebases onto the other.
 
 ### A2b · Kept modules' tests stop building the ladder town (renderer). Branch `ticket/081a2b-kept-tests` (A2b2 if needed)
 **Goal.** As 070 L2c, for the ladder. No test of a kept file builds `townLayout`, `packTown` or `buildScene`, or reads a ladder map's town, for a check on code that stays.
@@ -627,6 +644,10 @@ Written into `src/core/` with this cut (typecheck passes):
   - `src/core/powerpoles.ts` and `CityCircuitLayer.poleModels` (PK1).
   - `validateCityPuzzle` and `loadCityPuzzle` (C1);
   - "ladder" leaving `ASSET_GALLERY_USES` (on A2c's branch).
+- **E1's overlay signatures, as built** (internal to `src/render3d/`, so no core change): `overlayIcons(converted, state, project, ctx)` and `overlayLines(converted, state, project, ctx)`.
+  - `ctx` is `{ layer, width, height, time, pxPerMetre? }`.
+  - `project` returns the screen point and a boolean for "behind the camera".
+  - **This stands.** E1's criteria name the inputs, not their exact shape. E2 codes against the built shape, and the criteria are not edited.
 - **Events:** none new.
 - **No new dependency.** The overlay is Canvas 2D.
 
