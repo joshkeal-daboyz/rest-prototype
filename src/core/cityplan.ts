@@ -16,7 +16,7 @@
  */
 
 import type { CalibrationKey } from "./calibration";
-import type { CityCircuitKeep, CityDrop, CityLampPostPlace, CityPole, CityStreetLight, CityWireSpan } from "./citycircuit";
+import type { CityCircuitKeep, CityDrop, CityLampPostPlace, CityPole, CityRoofKeep, CityRoofMast, CityRoofSpan, CityStreetLight, CityWireSpan } from "./citycircuit";
 
 // ---- the stages ----
 
@@ -773,6 +773,15 @@ export interface CityCircuitLayer {
    * the renderer agree. A key outside the mix is allowed only for a pole a job's component replaces (the feed's pick, `docs/design/081-component-picks.md`).
    */
   readonly poleModels: Readonly<Record<string, string>>;
+  /**
+   * CK17a (081 K2d1): every roof structure place, corner and mid-row. Optional so the layers K2a to K2c write type-check, as `CityBuildingsLayer.columns` was; from K2d1
+   * always written. Corner places always stand (B1-Q3); mid-row places stand only while a job uses one (answer 7).
+   */
+  readonly roofs?: readonly CityRoofMast[];
+  /** CK17c (081 K2d1): every offered roof span place. Places only, drawn only where a job uses one; never in `spans`. Optional until K2d1, as `roofs`. */
+  readonly roofSpans?: readonly CityRoofSpan[];
+  /** CK17a (081 K2d1): the corner places' keep squares, for H4. Optional until K2d1, as `roofs`. */
+  readonly roofKeep?: readonly CityRoofKeep[];
 }
 
 // ---- stage 7, H1: the ground storeys (ticket 070 H1; grammar rules 1, 3, 7 and 9) ----
