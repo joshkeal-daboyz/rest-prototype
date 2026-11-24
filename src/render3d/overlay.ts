@@ -90,7 +90,7 @@ function iconSize(ctx: OverlayContext): number {
 }
 
 /** The world point of a node's place, or null if the layer does not hold it. */
-function placePoint(place: CityNodePlace, layer: CityCircuitLayer, out: World): boolean {
+export function placePoint(place: CityNodePlace, layer: CityCircuitLayer, out: World): boolean {
   if ("pole" in place) {
     for (const p of layer.poles) if (p.id === place.pole) return (out.x = p.x_m), (out.y = OVERLAY_POLE_Y_M), (out.z = p.z_m), true;
     return false;
@@ -167,6 +167,30 @@ export function overlayHit(icons: readonly OverlayIcon[], x: number, y: number):
     const d = Math.hypot(x - o.x, y - o.y);
     if (d <= o.hit / 2 && d < bestD) {
       best = o.id;
+      bestD = d;
+    }
+  }
+  return best;
+}
+
+/**
+ * The line whose drawn segment passes within `OVERLAY_HIT_PX / 2` of (x, y), nearest first, or null (ticket 081 E2). Only a segment with both ends in front of the camera can be hit.
+ * The caller tests icons first (`overlayHit`), so a line under an icon never takes its click.
+ */
+export function overlayLineHit(lines: readonly OverlayLine[], x: number, y: number): string | null {
+  let best: string | null = null;
+  let bestD = OVERLAY_HIT_PX / 2;
+  for (const l of lines) {
+    if (!l.visible[0] || !l.visible[1]) continue;
+    const x0 = l.points[0]!;
+    const y0 = l.points[1]!;
+    const dx = l.points[2]! - x0;
+    const dy = l.points[3]! - y0;
+    const len2 = dx * dx + dy * dy;
+    const t = len2 === 0 ? 0 : Math.min(1, Math.max(0, ((x - x0) * dx + (y - y0) * dy) / len2));
+    const d = Math.hypot(x - (x0 + dx * t), y - (y0 + dy * t));
+    if (d <= bestD) {
+      best = l.id;
       bestD = d;
     }
   }

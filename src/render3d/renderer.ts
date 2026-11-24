@@ -4,9 +4,10 @@
  */
 
 import { WebGLRenderer } from "three";
-import type { Puzzle } from "../core";
+import type { CityPuzzleView, Puzzle } from "../core";
 import type { MapBlockers, MapCentre, MapPanView, MapPlaces, MapRenderer } from "../render";
 import type { Insets } from "../render/geometry";
+import { createCityPlayRenderer3d, overlayRequested, renderRoute } from "./cityview";
 import { createPlanAssembleRenderer3d, planAssembleRequested, tilesPlanRequested } from "./plan3d";
 import { createPlanRenderer3d, planViewRequested } from "./planview";
 import { createCityRenderer3d } from "./tilecity3d";
@@ -14,6 +15,8 @@ import { cityTilesRequested } from "./tileslots";
 
 export interface MapRenderer3dOptions {
   insets?: Insets;
+  /** A city puzzle opened for play (ticket 081 E2): the view draws its plan with the circuit and the job, with no `city=` address. Dev builds only. */
+  city?: CityPuzzleView;
 }
 
 export type MapRenderer3d = MapRenderer & MapPanView & MapPlaces & MapCentre & MapBlockers & { dispose(): void };
@@ -33,6 +36,16 @@ export function createMapRenderer3d(canvas: HTMLCanvasElement, _puzzle: Puzzle, 
   // `?city=tiles` (without `sheet=1`, ticket 070 L1) is the same view: the pipeline's city.
   const assemble = import.meta.env.DEV && typeof location !== "undefined" ? planAssembleRequested(location.search) ?? tilesPlanRequested(location.search) : null;
   const planView = assemble === null && import.meta.env.DEV && typeof location !== "undefined" ? planViewRequested(location.search) : null;
+  const route = renderRoute({ city: opts?.city !== undefined, dev: import.meta.env.DEV, assemble: assemble !== null, plan: planView !== null, sheet: import.meta.env.DEV && typeof location !== "undefined" && cityTilesRequested(location.search) !== null });
+  if (route === "play") {
+    let glPlay = glByCanvas.get(canvas);
+    if (!glPlay) {
+      glPlay = new WebGLRenderer({ canvas, antialias: true });
+      glByCanvas.set(canvas, glPlay);
+    }
+    const search = typeof location !== "undefined" ? location.search : "";
+    return createCityPlayRenderer3d(glPlay, canvas, opts!.city!, { insets: opts?.insets, dpr: Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 2), search, overlay: overlayRequested(search) });
+  }
   if (planView !== null) return createPlanRenderer3d(canvas, planView, { dpr: Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 2) });
   // `?city=tiles&sheet=1` (debug, ticket 055 E) is the tile sheet, instead of the puzzle's map (the puzzle passed in is ignored). Dev builds only. Plain `city=tiles` never reaches here (the pipeline's city took it above).
   const cityTiles = import.meta.env.DEV && typeof location !== "undefined" ? cityTilesRequested(location.search) : null;
