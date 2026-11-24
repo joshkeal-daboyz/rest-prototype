@@ -41,6 +41,8 @@ import { planViewRequested } from "./planview";
 import type { MapRenderer3d } from "./renderer";
 import { GROUND, STREET_CAM_BACK_M, STREET_CAM_EYE_M, STREET_CAM_FOV_DEG, STREET_CAM_LOOK_M } from "./kitunits";
 import { SIDEWALK_WALK_M, TILE_M, type TileCell, type TileYaw } from "./tilecity";
+import { circuitDraws, circuitGroup, circuitKeys, circuitKeyUses, type CircuitDrawn, type CircuitJob } from "./circuitdraw";
+import { POWER_LINE } from "./powerkit";
 import { createCityRig, interiorGroupOf, propInput, tileGroupOf, tileKeyOf, type CityRig, type InteriorDraw, type TileDraw } from "./tilecity3d";
 import { CITY_GROUND_VARIANT as V } from "../core";
 import type { KerbFace, KerbPlan, Mp } from "./kerbline";
@@ -106,9 +108,9 @@ export function planTileKeys(): CalibrationKey[] {
   return [...tileKeys(), PLAN_ARROW, ...PLAN_DOOR_CORNERS];
 }
 
-/** The keys the plan's renderer loads by name: the tile keys, the party window and the party pipe (J), and the seven traffic keys (TR2). */
+/** The keys the plan's renderer loads by name: the tile keys, the party window and the party pipe (J), and the seven traffic keys (TR2), then the circuit's (081 K3: the ground mix, the feed pick, the wire piece, the roof structure, the component picks and the street light). */
 export function planKeys(): CalibrationKey[] {
-  return [...planTileKeys(), PLAN_PARTY_WINDOW, PLAN_PARTY_PIPE, ...Object.values(PLAN_TRAFFIC_KEYS)];
+  return [...planTileKeys(), PLAN_PARTY_WINDOW, PLAN_PARTY_PIPE, ...Object.values(PLAN_TRAFFIC_KEYS), ...(circuitKeys() as CalibrationKey[])];
 }
 
 /** A plan the drawing cannot draw as given (the stop rule): what, and the cells. */
@@ -768,6 +770,9 @@ export interface PlanAuditEntry {
   readonly key: CalibrationKey;
 }
 
+/** 081 Q11 ("Pack wire pieces (Recommended)"): the wire piece is a never-used key, allowed on the circuit's spans and drops only. */
+export const PLAN_AUDIT_CIRCUIT_WIRE = { key: POWER_LINE, lists: ["spans", "drops"] } as const;
+
 /** The audit's one allowance: the party-wall pipe the kit places on a party wall (grammar rule 8; Josh, 19 Nov 2026: "Yes, dress it"; Q23's PW3). `_01` and `_02` are never allowed, on a party pipe too. */
 export const PLAN_AUDIT_ALLOWED = { key: PLAN_PARTY_PIPE, kind: "partyPipe" } as const;
 
@@ -781,6 +786,7 @@ export function planAudit(plan: CityPlan, tech?: PlanTech, allowed: readonly Pla
   const check = (layer: string, list: string, cell: CityCell | null, key: CalibrationKey, kind?: string): void => {
     if (!isNeverUsed(key)) return;
     if (key === PLAN_AUDIT_ALLOWED.key && kind === PLAN_AUDIT_ALLOWED.kind) return;
+    if (layer === "circuit" && key === PLAN_AUDIT_CIRCUIT_WIRE.key && (PLAN_AUDIT_CIRCUIT_WIRE.lists as readonly string[]).includes(list)) return;
     // Q33, narrowed: a signal key on its own kind of piece, and only in the traffic layer.
     if (layer === "traffic" && kind !== undefined && Object.prototype.hasOwnProperty.call(PLAN_TRAFFIC_ALLOWED, kind) && PLAN_TRAFFIC_ALLOWED[kind as keyof typeof PLAN_TRAFFIC_ALLOWED] === key) return;
     out.push({ layer, list, cell, key });
@@ -794,6 +800,8 @@ export function planAudit(plan: CityPlan, tech?: PlanTech, allowed: readonly Pla
   for (const p of facades?.novelty ?? []) check("facades", "novelty", p.cell, p.placement.key, p.kind);
   for (const p of ground?.props ?? []) check("ground", "props", p.cell, p.placement.key, p.kind);
   for (const p of traffic?.pieces ?? []) check("traffic", "pieces", p.cell, p.placement.key, p.kind);
+  // The circuit's draw keys (081 K3): read whenever the plan has a circuit, so a never-used key it draws is a finding.
+  if (plan.layers.circuit) for (const u of circuitKeyUses()) check("circuit", u.list, null, u.key as CalibrationKey);
   // The tech pass's adds (D1g; X-9): a never-used key among them is a finding unless the era-scoped table allows it for that kind.
   for (const p of tech?.adds ?? []) {
     if (!isNeverUsed(p.placement.key)) continue;
@@ -1081,6 +1089,8 @@ export interface PlanDraw {
   cells: readonly TileCell[];
   items: readonly InteriorItem[];
   kerb: KerbPlan;
+  /** 081 K3: stage 6 drawn dark (poles, spans, drops, street lights, corner roofs, and a job's pieces). Null where the plan has no circuit layer. */
+  circuit: CircuitDrawn | null;
   dispose(): void;
 }
 
@@ -1092,7 +1102,7 @@ const NO_PROPS: readonly PropPlace[] = [];
  * `walls`, `roofs` and `novelty` lists (H1b to H1c), and the ground layer's `props` (I). Draws only: it reads the layers and writes none. Throws `PlanStopError` where a layer does not say how to draw something, and where
  * `planAudit` (R12) finds a never-used key.
  */
-export function plan3dGroups(plan: CityPlan, roots: ReadonlyMap<CalibrationKey, Object3D>, entries: ReadonlyMap<CalibrationKey, AssetEntry>, colourways?: ReadonlyMap<string, Texture>, stopAtlas?: Texture, tech?: PlanTech): PlanDraw {
+export function plan3dGroups(plan: CityPlan, roots: ReadonlyMap<CalibrationKey, Object3D>, entries: ReadonlyMap<CalibrationKey, AssetEntry>, colourways?: ReadonlyMap<string, Texture>, stopAtlas?: Texture, tech?: PlanTech, job?: CircuitJob): PlanDraw {
   const { streets, mass, edge, buildings, facades, ground: groundLayer } = plan.layers;
   if (!streets || !mass || !edge || !buildings || !facades || !groundLayer) throw new PlanStopError("the plan has no streets, mass, edge, buildings, facades and ground layers to draw", []);
   if (!edge.ground || !edge.kerb) throw new PlanStopError("the edge layer has no ground and kerb (stage 4 writes them from D2)", []);
@@ -1151,9 +1161,12 @@ export function plan3dGroups(plan: CityPlan, roots: ReadonlyMap<CalibrationKey, 
   // F1g: the ruin pass's adds, at "ruin" only.
   const ruinDraws = tech !== undefined && PLAN_AUDIT_RUIN_ERAS.includes(tech.era) ? planRuinDraws(tech.ruinAdds ?? []) : [];
   const ruinDrawn = ruinDraws.length > 0 ? ruinStage(ruinDraws, roots) : null;
+  // 081 K3: the circuit, dead; a job adds its pieces.
+  const circuit = plan.layers.circuit ? circuitGroup(circuitDraws(plan.layers.circuit, streets, job), roots) : null;
   const group = new Group();
   group.name = "plan3d";
   group.add(tiles.group, interior.group, ...built.buildings.groups, built.grey.mesh, dress.group, furniture.group);
+  if (circuit) group.add(circuit.group);
   if (techDrawn) group.add(techDrawn.group);
   if (holdoutDrawn) group.add(holdoutDrawn.group);
   if (ruinDrawn) group.add(ruinDrawn.group);
@@ -1179,7 +1192,9 @@ export function plan3dGroups(plan: CityPlan, roots: ReadonlyMap<CalibrationKey, 
     cells: set.cells,
     items,
     kerb: tiles.kerb,
+    circuit,
     dispose() {
+      circuit?.dispose();
       tiles.dispose();
       interior.dispose();
       built.buildings.dispose();
