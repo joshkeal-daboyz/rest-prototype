@@ -427,10 +427,13 @@ If it does not report "holds", its note goes to Josh before K2d and H4 are cut i
 2. [ ] CK10. **test**: 2 fixture cases.
 3. [ ] CK11. **test**: 1 fixture case.
 4. [ ] CK12's table as `nodePlaceProblems(layer, places)`: a switch on a 2-attachment pole fails, a breaker on a building fails, and two nodes on one place fail. Roof places join in K2d. **test**: 3 fixture cases.
-5. [ ] The digest pin re-taken. **test**: 1 rewritten.
+5. [ ] **Digest pins re-taken**, once each, listed with old and new values. **test**: 4 rewritten.
+   - stage 6's own pin;
+   - three era-pass pins that move because drops and lights now reach the passes (as in K2a2's criterion 5): `src/city/holdout/named.test.ts` (the settle pin), `src/city/ruin/named.test.ts` (the growth pin), `src/city/tech/named.test.ts` (criterion 9's pin and its title).
 6. [ ] `keep` holds every pole and light. **test**: 1 case.
+7. [ ] Two CK9 and CK10 cases that duplicate others are deleted, and the report names each one and the case that covers it. Removing is welcome (rule 6), and deletions don't count. **no test**.
 
-**Files.** `src/city/circuit/`.
+**Files.** `src/city/circuit/`. Also the **pin lines only** (the expected digest and, for tech, the case title) of `src/city/holdout/named.test.ts`, `src/city/ruin/named.test.ts` and `src/city/tech/named.test.ts` (the holdout, ruin and tech passes' folders, listed under test policy rule 6; added 23 Nov 2026 after K2b's review). No other line in those folders changes.
 
 ### K2c · The conversion (grid-simulator, pure). Branch `ticket/081k2c-circuit-convert`
 **Goal.** `convertCityPuzzle(cityPuzzle, plan): CityPuzzleConverted` turns a city puzzle into a plain `Puzzle` that `src/grid/` runs unchanged (CK15), with the places, runs and cut spans the 3D view needs. Carrier poles (answer 5) never become nodes.
@@ -632,7 +635,7 @@ P1's own fits (criterion 8) are the record. P2a waits for K2d, because 9 of its 
 **From Josh's picks** (`docs/design/081-component-picks.md`; notes for the builder, no rule change):
 - **The feed** (`palm-city-pack:SM_Prop_Powerpole_03`, an H-frame with a transformer, 10.83 m) **replaces** the feed's pole rather than standing on it. It needs its own `placePole` entry, and `poleModels` names it for the feed's pole while that job is played.
 - **The lamp post** (`sci-fi-city-pack:SM_Prop_Streetlight_01`) is 2.64 m deep with its arm. Its overhang of the carriageway from 0.75 m behind the kerb is not measured, so the builder reports it. Street lights (CK10, scenery) keep a different model, because Josh's pick is for the puzzle's lamp posts (CK11); which model they keep is 059's and K3's existing choice.
-- **The damaged-line prop, open for Josh** (see Open questions). He was asked what the 3D break prop does with a damaged cable that current does not reach, and his answer covered the overlay only. So whether `SM_Prop_Cable_09` stands at the cut span always, or only once the fault is readable, is **not decided here**. K3 asks before it draws the prop. The prop (`sci-fi-frontier-pack:SM_Prop_Cable_09`), hung from the lowest crossing (5.20 m), reaches 3.85 m, under CK7's 4.2 m walk floor. Whether CK7 binds a prop is **not decided here**. K3 hangs it as picked and reports its low point; a question goes to Josh only if he wants it raised.
+- **The damaged-line prop: only when readable.** Josh, 24 Nov 2026, on a card, asked whether the 3D damaged-cable prop (Frontier `Cable_09` at the break) shows always or only once current reaches the break: **"Only when readable (Recommended)"**. `SM_Prop_Cable_09` stands at the cut span only while the fault is readable, as the overlay's break icon and the 2D map do (27 Oct 2026: "Unreadable faults show nothing"). An unreadable damaged span is drawn as an ordinary dead span. **test**: K3's criterion 3 cases include it (readable shows the prop; unreadable does not), within K3's count. The prop (`sci-fi-frontier-pack:SM_Prop_Cable_09`), hung from the lowest crossing (5.20 m), reaches 3.85 m, under CK7's 4.2 m walk floor. Whether CK7 binds a prop is **not decided here**. K3 hangs it as picked and reports its low point; a question goes to Josh only if he wants it raised.
 - **The roof mast** (`sci-fi-frontier-pack:SM_Prop_Power_Pole_03`) has no cross-arm (071 A: one-sided brackets). Decided 041's three conductors need a code-drawn arm on it, as 071 draws code insulators where a model has none.
 - **Loads:** the subset GLBs (Frontier, Sci-Fi City, Palm; see D3) are converted before K3 draws these. Until then each component draws as a placeholder.
 
@@ -687,4 +690,4 @@ Written into `src/core/` with this cut (typecheck passes):
 All questions so far are answered (above), the mid-row one included ("Only when used (Recommended)"). Still open:
 1. **Default this cut takes (you may overturn it):** after A2c, `?view=3d` on a schematic puzzle opens the 2D map with a console note, until that puzzle has a city form.
 2. **(K3 reports, then only if you want it changed)** the damaged-line prop hangs below the 4.2 m walk floor from the lowest crossing.
-3. **The 3D break prop and readability (K3).** The overlay shows a break only when readable ("Only when readable"). Should the 3D prop (`SM_Prop_Cable_09` at the cut span) also stand only once current reaches the break, or always, as a physical break in the street? Not answered yet; K3 does not draw it until you say.
+3. ~~**The 3D break prop and readability (K3).**~~ Answered 24 Nov 2026: "Only when readable (Recommended)" (see K3).

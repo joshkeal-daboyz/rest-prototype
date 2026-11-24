@@ -378,9 +378,9 @@ describe("the tech pass on the 20 named runs", { timeout: 600_000 }, () => {
     // (the source scan is in fixtures.test.ts)
   });
 
-  it("criterion 9, the digest pin (R-4): 6 x 6 seed 1, one-way on. Stage 6 is empty: these are re-pinned when K2 lands", () => {
+  it("criterion 9, the digest pin (R-4): 6 x 6 seed 1, one-way on. Stage 6 is on, with drops and lights (K2b)", () => {
     const PINS: readonly (readonly [number, string])[] = [
-      [1, "365c9ce6"],
+      [1, "1873844c"],
     ];
     const got: [number, string][] = [];
     for (const c of [DEFAULT]) got.push([c.seed, digestOf(techOf(c).build.layer)]);
