@@ -32,7 +32,7 @@ describe("the lit building's windows (081 L1)", () => {
     for (const [x, yy] of [[WINDOW_UV.x0 - 1, y], [WINDOW_UV.x1, y], [WINDOW_UV.x0 + 5, WINDOW_UV.y0 - 1], [0, 0]] as const) expect(texel(x, yy)).toEqual([0, 0, 0]);
   });
 
-  it("on P0's file each lamp building is dark before its lamp's arrival and lit after it, in the order the Relight lights the lamps", { timeout: 60_000 }, () => {
+  it("a lamp lights its building and the building backed onto it; on P0's file each is dark before its lamp's arrival and lit after it, in the order the Relight lights the lamps", { timeout: 60_000 }, () => {
     const run = sharedCity(DEFAULT, "facades");
     if (!run.ok) throw new Error(run.failure.reason);
     const city = loadCityPuzzle(JSON.parse(readFileSync("puzzles/city/city-two-ways-round.city.json", "utf8")));
@@ -42,8 +42,17 @@ describe("the lit building's windows (081 L1)", () => {
     g.throwSwitch("sw");
     g.repairAt("l_e2");
     const won = g.state();
-    const byBuilding = lampBuildings(puzzle.nodes, converted.places, run.plan.layers.circuit!.roofs ?? []);
-    expect([...byBuilding.values()].flat().map((l) => l.id).sort()).toEqual(["homes", "infirmary", "shrine"]);
+    const byBuilding = lampBuildings(puzzle.nodes, converted.places, run.plan.layers.circuit!.roofs ?? [], run.plan.layers.buildings!.buildings);
+    expect([...new Set([...byBuilding.values()].flat().map((l) => l.id))].sort()).toEqual(["homes", "infirmary", "shrine"]);
+    // Grammar rule 4: the follower backed onto each leader lights with it, whichever way the lamp's own building is named.
+    const homes = (id: string): string[] => (byBuilding.get(id) ?? []).map((l) => l.id);
+    expect(homes("block:6:6/a|outer|-x|54,52")).toEqual(["homes"]);
+    expect(homes("block:6:6/a|inner|+x|55,52")).toEqual(["homes"]);
+    expect(homes("block:6:6/a|outer|-x|54,48")).toEqual([]);
+    expect(homes("block:6:6/a|inner|-x|66,54")).toEqual(["shrine"]);
+    expect(homes("block:6:6/b|outer|-z|58,61")).toEqual(["infirmary"]);
+    const lead = (id: string): string => run.plan.layers.buildings!.buildings.find((b) => b.id === id)!.partner ?? id;
+    for (const id of byBuilding.keys()) expect(byBuilding.has(lead(id)), id).toBe(true);
     const clock = createRelightClock(puzzle);
     const out: BuildingGlow = { level: 0, flare: 0 };
     let planned: ReturnType<typeof clock.update> = null;

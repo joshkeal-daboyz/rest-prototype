@@ -7,16 +7,17 @@
  * - `litBuilding(group)` gives a building's pieces their own clones of their materials with the mask, made when the city builds (level 0), so no shader compiles in play. Other buildings keep the shared materials.
  * - `litGlass` is one more InstancedMesh per shop glass key over the dark glass, for the lit buildings' shopfronts only.
  */
-import { AdditiveBlending, Color, DataTexture, MeshBasicMaterial, NearestFilter, RGBAFormat, SRGBColorSpace, UnsignedByteType, type Group, type InstancedMesh, type Material, type Mesh, type Object3D, type Texture } from "three";
-import type { CalibrationKey, CityNodePlace, CityRoofMast } from "../core";
+import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, DataTexture, Matrix4, Mesh as ThreeMesh, MeshBasicMaterial, NearestFilter, RGBAFormat, SRGBColorSpace, UnsignedByteType, type Material, type Mesh, type Object3D, type Texture } from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import type { CalibrationKey, CityBuilding, CityNodePlace, CityRoofMast } from "../core";
 import type { GridState } from "../grid";
 import { FLARE_SECONDS } from "../render/relight";
-import { lampState } from "./cityview";
 import { SHOP_GLASS } from "./dressing";
 import { lampFlicker } from "./look";
-import { dressGroup, type DressDraw, type DressPlacement } from "./models3d";
+import { dressMatrix, meshParts } from "./models3d";
 import type { PlanDressDraw } from "./plan3d";
-import type { LampIgnition } from "./relight3d";
+import { lampIgnition, type LampIgnition } from "./relight3d";
+import type { RelightPlan } from "../render/relight";
 
 /**
  * The glass rectangle of the City Pack atlas, in pixels of its 1024 square (glTF's v runs top down): x from `x0` to `x1`, y from `y0` to `y1` (both end-exclusive), in three panes split at `splits`.
@@ -64,20 +65,32 @@ export interface BuildingLamp {
 }
 
 /**
- * The job lamps of each building: a `{ building }` lamp lights its own building, a `{ roof }` lamp the building its mast stands on (card L-Q2 "Mast's building"); a `{ pole }` or `{ post }` lamp has no building
- * (a lamp post keeps E2's glow and pool). Pure.
+ * The job lamps of each building. A `{ building }` lamp lights what reads as one building: its plan building, every building backed onto it (grammar rule 4: its followers, whose `partner` it is), and, when it is
+ * itself a follower, its partner and the partner's other followers. A `{ roof }` lamp does the same from its mast's building (card L-Q2 "Mast's building"). A `{ pole }` or `{ post }` lamp has no building (a lamp post
+ * keeps E2's glow and pool). Pure.
  */
-export function lampBuildings(nodes: readonly { id: string; type: string }[], places: Readonly<Record<string, CityNodePlace>>, roofs: readonly Pick<CityRoofMast, "id" | "building">[]): Map<string, BuildingLamp[]> {
+export function lampBuildings(
+  nodes: readonly { id: string; type: string }[],
+  places: Readonly<Record<string, CityNodePlace>>,
+  roofs: readonly Pick<CityRoofMast, "id" | "building">[],
+  buildings: readonly Pick<CityBuilding, "id" | "partner">[] = [],
+): Map<string, BuildingLamp[]> {
+  const partnerOf = new Map(buildings.map((x) => [x.id, x.partner] as const));
   const out = new Map<string, BuildingLamp[]>();
   nodes.forEach((n, index) => {
     if (n.type !== "lamp") return;
     const place = places[n.id];
     if (!place) return;
-    const building = "building" in place ? place.building : "roof" in place ? roofs.find((r) => r.id === place.roof)?.building : undefined;
-    if (building === undefined) return;
-    const list = out.get(building);
-    if (list) list.push({ id: n.id, index });
-    else out.set(building, [{ id: n.id, index }]);
+    const base = "building" in place ? place.building : "roof" in place ? roofs.find((r) => r.id === place.roof)?.building : undefined;
+    if (base === undefined) return;
+    const lead = partnerOf.get(base) ?? base;
+    const set = new Set<string>([base, lead]);
+    for (const [id, p] of partnerOf) if (p === lead) set.add(id);
+    for (const id of set) {
+      const list = out.get(id);
+      if (list) list.push({ id: n.id, index });
+      else out.set(id, [{ id: n.id, index }]);
+    }
   });
   return out;
 }
@@ -91,11 +104,15 @@ export interface BuildingGlow {
 const ign: LampIgnition = { on: false, flareAge: -1 };
 
 /** The building's level and flare this frame, the brighter of its lamps. Dark while no lamp is lit; in the Relight, dark until its lamp's arrival. Writes into `out`. */
-export function buildingGlow(plan: Parameters<typeof lampState>[0], state: GridState, lamps: readonly BuildingLamp[], relT: number, time: number, out: BuildingGlow): BuildingGlow {
+export function buildingGlow(plan: RelightPlan | null, state: GridState, lamps: readonly BuildingLamp[], relT: number, time: number, out: BuildingGlow): BuildingGlow {
   let level = 0;
   let flare = 0;
   for (const lamp of lamps) {
-    lampState(plan, state, lamp.id, lamp.index, relT, ign);
+    if (plan) lampIgnition(plan, state, lamp.id, lamp.index, relT, ign);
+    else {
+      ign.on = state.lit.has(lamp.id);
+      ign.flareAge = -1;
+    }
     if (!ign.on) continue;
     level = Math.max(level, 1 - lampFlicker(state, lamp.index, time));
     if (ign.flareAge >= 0 && ign.flareAge < FLARE_SECONDS) flare = Math.max(flare, 1 - ign.flareAge / FLARE_SECONDS);
@@ -160,62 +177,84 @@ export function litBuilding(group: Object3D): LitBuilding {
 
 const GLASS: ReadonlySet<CalibrationKey> = new Set(SHOP_GLASS);
 
-/** What `litGlass` made: its group (one InstancedMesh per glass key and sub-mesh), its draw calls, and the setters. */
+/** What `litGlass` made: its mesh (one draw call, or none when no lit building has shop glass), and the setters. */
 export interface LitGlass {
-  readonly group: Group;
+  /** The one merged mesh; null when there is no glass to light. Hidden while every level is 0. */
+  readonly mesh: ThreeMesh | null;
   readonly calls: number;
   /** Set one building's glass level for this frame (a building with no shop glass is a no-op). */
   set(building: string, g: BuildingGlow): void;
-  /** Upload the levels set this frame. */
+  /** Upload the levels set this frame and hide the mesh while all are 0. */
   commit(): void;
   dispose(): void;
 }
 
-const tint = new Color();
 const AMBER = new Color(PANE_COLOURS[0]);
+const place = new Matrix4();
 
 /**
- * The shop glass of `buildings` (the job's lamp buildings), drawn once more over the dark glass in warm light at the building's level. The dark glass instancer is not edited: this is a second `dressGroup`
- * call over those placements only, its glass material swapped for an additive one whose per-instance colour is the level. Dark at level 0.
+ * The shop glass of `buildings` (the lit buildings), drawn once more over the dark glass in warm light at the building's level. The dark glass instancer is not edited: the lit placements' glass geometries are
+ * merged (three's `mergeGeometries`) into one mesh, one draw call whatever the count, with a per-vertex colour written each frame (additive, so black is invisible). Hidden while every level is 0.
  */
 export function litGlass(draws: readonly PlanDressDraw[], buildings: ReadonlySet<string>, roots: ReadonlyMap<CalibrationKey, Object3D>): LitGlass {
-  const mine = draws.filter((d) => buildings.has(d.building) && GLASS.has(d.placement.key) && roots.has(d.placement.key));
-  const placements: DressPlacement[] = mine.map((d) => ({
-    frame: { x: 0, z: 0, yaw: 0 },
-    piece: { key: d.placement.key, slot: "wall", x: d.placement.x_m, y: d.placement.y_m, z: d.placement.z_m, yaw: (d.placement.yaw_deg * Math.PI) / 180, column: 0, w: 0, h: 0, d: 0 },
-  }));
-  const drawn: DressDraw = dressGroup(placements, roots);
-  drawn.group.name = "plan:lit-glass";
-  const material = new MeshBasicMaterial({ color: 0xffffff, blending: AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
-  const byName = new Map<string, string[]>();
-  for (const d of mine) {
-    const name = `dress:${d.placement.key.slice(d.placement.key.indexOf(":") + 1)}`;
-    const list = byName.get(name);
-    if (list) list.push(d.building);
-    else byName.set(name, [d.building]);
+  const geoms: BufferGeometry[] = [];
+  const ranges = new Map<string, { start: number; count: number }[]>();
+  let verts = 0;
+  for (const d of draws) {
+    if (!buildings.has(d.building) || !GLASS.has(d.placement.key)) continue;
+    const root = roots.get(d.placement.key);
+    if (!root) continue;
+    const pl = d.placement;
+    const piece = { x: pl.x_m, y: pl.y_m, z: pl.z_m, yaw: (pl.yaw_deg * Math.PI) / 180 };
+    for (const part of meshParts(root)) {
+      const src = part.mesh.geometry;
+      const g = new BufferGeometry();
+      g.setAttribute("position", src.getAttribute("position"));
+      if (src.index) g.setIndex(src.index);
+      const flat = g.index ? g.toNonIndexed() : g;
+      flat.applyMatrix4(place.multiplyMatrices(dressMatrix({ x: 0, z: 0, yaw: 0 }, piece), part.local));
+      const n = flat.getAttribute("position").count;
+      flat.setAttribute("color", new BufferAttribute(new Float32Array(n * 3), 3));
+      const list = ranges.get(d.building);
+      if (list) list.push({ start: verts, count: n });
+      else ranges.set(d.building, [{ start: verts, count: n }]);
+      verts += n;
+      geoms.push(flat);
+    }
   }
-  const meshes: { im: InstancedMesh; by: readonly string[] }[] = [];
-  for (const c of drawn.group.children) {
-    const im = c as InstancedMesh;
-    const by = byName.get(c.name);
-    if (im.isInstancedMesh !== true || !by) continue;
-    im.material = material;
-    for (let i = 0; i < by.length; i++) im.setColorAt(i, tint.setRGB(0, 0, 0));
-    meshes.push({ im, by });
-  }
+  if (geoms.length === 0) return { mesh: null, calls: 0, set() {}, commit() {}, dispose() {} };
+  const merged = mergeGeometries(geoms, false)!;
+  for (const g of geoms) g.dispose();
+  const material = new MeshBasicMaterial({ color: 0xffffff, vertexColors: true, blending: AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  const mesh = new ThreeMesh(merged, material);
+  mesh.name = "plan:lit-glass";
+  mesh.raycast = () => {};
+  mesh.frustumCulled = false;
+  mesh.visible = false;
+  const colours = merged.getAttribute("color") as BufferAttribute;
+  const arr = colours.array as Float32Array;
+  let any = false;
   return {
-    group: drawn.group,
-    calls: drawn.calls,
+    mesh,
+    calls: 1,
     set(building, g) {
-      tint.copy(AMBER).multiplyScalar(Math.min(g.level * (1 + 0.5 * g.flare), 1.5) * 0.9);
-      for (const { im, by } of meshes) for (let i = 0; i < by.length; i++) if (by[i] === building) im.setColorAt(i, tint);
+      const list = ranges.get(building);
+      if (!list) return;
+      const v = Math.min(g.level * (1 + 0.5 * g.flare), 1.5) * 0.9;
+      const r = AMBER.r * v;
+      const gr = AMBER.g * v;
+      const b = AMBER.b * v;
+      if (v > 0) any = true;
+      for (const { start, count } of list) for (let i = start; i < start + count; i++) (arr[i * 3] = r), (arr[i * 3 + 1] = gr), (arr[i * 3 + 2] = b);
     },
     commit() {
-      for (const { im } of meshes) if (im.instanceColor) im.instanceColor.needsUpdate = true;
+      colours.needsUpdate = true;
+      mesh.visible = any;
+      any = false;
     },
     dispose() {
+      merged.dispose();
       material.dispose();
-      drawn.dispose();
     },
   };
 }
