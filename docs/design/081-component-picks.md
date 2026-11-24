@@ -25,3 +25,12 @@ Josh's picks of the model for each puzzle component, in his words. He chose each
 - **damagedLine**: hung from the lowest crossing (5.20 m) it reaches 3.85 m, under the walk's 4.2 m floor. Whether CK7's floor binds a prop is open.
 - **roofMast**: it has no cross-arm (071 A: one-sided brackets), so three conductors (Decided 041) need a code-drawn arm.
 - **Load**: picks from `sci-fi-frontier-pack` (battery, damagedLine, roofMast) need a subset GLB run (071 D's kind) before K3 draws them; `sci-fi-city-pack` (breaker, switch, relay, spring, fusebox, junction, lampPost) adds a 35 MB pack the city does not load today; the Palm picks join 071 D's Palm subset.
+
+## Scenery (081 D4)
+
+Josh, 24 Nov 2026, on cards, from the D4 shortlist (`docs/design/081-D4-wall-fitting-shortlist.md`):
+
+| Role | Pick | Josh's words |
+| --- | --- | --- |
+| `wallFitting` | C: `city-pack:SM_Prop_Sign_Attachment_02` (a 0.67 m wall bracket; the drop ties to its upper arm, 0.34 m out, at 5.5 m) | "C: City bracket" |
+| `dropWire` | `POWER_LINE` (today's City wire, 6.4 cm) | "Keep POWER_LINE" |
