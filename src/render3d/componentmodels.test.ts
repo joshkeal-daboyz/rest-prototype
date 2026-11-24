@@ -26,7 +26,7 @@ describe("COMPONENT_MODELS", () => {
     const skipped: string[] = [];
     for (const p of Object.values(COMPONENT_MODELS)) {
       if (p.key === null) continue;
-      const [pack, name] = p.key.split(":");
+      const [pack = "", name = ""] = p.key.split(":");
       const names = packs.get(pack);
       if (!names) skipped.push(p.key);
       else if (!names.has(name)) missing.push(p.key);
