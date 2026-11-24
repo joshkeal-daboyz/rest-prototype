@@ -176,6 +176,7 @@ function deps(over: Partial<LoadDeps> = {}): LoadDeps & { said: string[] } {
     loadGlb: async (url) => fakeGlb(url.endsWith("p.glb") ? ["Pole9", "Pole4", "Lamp"] : ["Big", "Wide", "Odd"]),
     table: TABLE,
     dir: "/assets/private/out/",
+    gamePack: false,
     info: (m) => said.push(m),
     said,
     ...over,
