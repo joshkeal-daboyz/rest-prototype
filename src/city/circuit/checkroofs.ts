@@ -20,6 +20,12 @@ export function roofProblems(layer: Judged, input: CircuitInput): CircuitProblem
   const out: CircuitProblem[] = [];
   const add = (rule: string, id: string, reason: string): number => out.push({ rule, id, reason });
   const ctx = roofContext(layer, input);
+  const cands = new Map<string, ReturnType<typeof candidatesOf>>();
+  const candOf = (r: CityRoofMast): ReturnType<typeof candidatesOf> => {
+    let c = cands.get(r.id);
+    if (c === undefined) cands.set(r.id, (c = candidatesOf(input, layer.poles, r)));
+    return c;
+  };
 
   // PK1 and CK7: every pole has its pick's model, and every pole span's lowest point is at least the walk's 4.2 m.
   for (const p of layer.poles) {
@@ -84,11 +90,11 @@ export function roofProblems(layer: Judged, input: CircuitInput): CircuitProblem
     for (const p of j.problems) add(p.rule, s.id, p.reason);
     if (j.over !== s.over || j.street !== s.street || j.junction !== s.junction || !same(j.len_m, s.len_m)) add("CK17b", s.id, `declared over ${s.over} (${s.street ?? s.junction ?? "-"}, ${s.len_m} m); it passes over ${j.over} (${j.street ?? j.junction ?? "-"}, ${j.len_m} m)`);
     if (s.over === "junction" && (ra?.row === "mid" || rb?.row === "mid")) add("CK17b", s.id, "a mid-row place has no junction span");
-    if (!offeredTo(input, layer, [ra, rb], poles.get(ra === undefined ? s.a : s.b), s.over)) add("CK17c", s.id, `not a ${s.over} place the CK17c offers`);
+    if (!offeredTo(candOf, [ra, rb], poles.get(ra === undefined ? s.a : s.b), s.over)) add("CK17c", s.id, `not a ${s.over} place the CK17c offers`);
   }
   // CK17c: every nearest pole that passes is offered.
   for (const r of layer.roofs) {
-    for (const p of candidatesOf(input, layer.poles, r).pavement) {
+    for (const p of candOf(r).pavement) {
       const e = ctx.poleEnd.get(p.id);
       if (e === undefined || offered.has(roofSpanId(r.id, p.id))) continue;
       const j = judgeSpan(ctx, roofEnd(r), e);
@@ -99,10 +105,10 @@ export function roofProblems(layer: Judged, input: CircuitInput): CircuitProblem
 }
 
 /** CK17c: whether a roof span place of this kind is one a roof end is offered. */
-function offeredTo(input: CircuitInput, layer: Judged, ends: readonly [CityRoofMast | undefined, CityRoofMast | undefined], pole: { readonly id: string; readonly block: string; readonly side: string; readonly kind: string } | undefined, over: string): boolean {
+function offeredTo(candOf: (r: CityRoofMast) => ReturnType<typeof candidatesOf>, ends: readonly [CityRoofMast | undefined, CityRoofMast | undefined], pole: { readonly id: string; readonly block: string; readonly side: string; readonly kind: string } | undefined, over: string): boolean {
   const roofs = ends.filter((r): r is CityRoofMast => r !== undefined);
   for (const r of roofs) {
-    const c = candidatesOf(input, layer.poles, r);
+    const c = candOf(r);
     if (over === "pavement") {
       if (pole !== undefined && c.pavement.some((p) => p.id === pole.id)) return true;
       continue;

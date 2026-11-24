@@ -53,7 +53,7 @@ export function loadCityPuzzle(json: unknown): CityPuzzle {
 
 /** The fields a city puzzle leaves out (`CityPuzzle`): the street layer's, and `decor`, which is drawn by `pos`. */
 const NOT_CITY = ["start", "night", "satchel", "favor", "lampReach", "salvage", "stores", "decor"] as const;
-const PLACE_KINDS = ["pole", "building", "post"] as const;
+const PLACE_KINDS = ["pole", "building", "post", "roof"] as const;
 const isInt = (v: unknown, min: number): v is number => isNum(v) && Number.isInteger(v) && v >= min;
 
 /** Every problem with a schematic puzzle (`city` false) or a city puzzle (`city` true). */
@@ -122,7 +122,7 @@ function checkPuzzle(json: unknown, city: boolean): string[] {
       const place = raw["place"];
       const kind = isObj(place) && Object.keys(place).length === 1 ? PLACE_KINDS.find((k) => k in place) : undefined;
       if (!isObj(place) || kind === undefined || !isStr(place[kind]))
-        err(`node ${id}: place must be exactly one of { pole }, { building }, { post }, naming an id`);
+        err(`node ${id}: place must be exactly one of { pole }, { building }, { post }, { roof }, naming an id`);
     }
     switch (raw["type"]) {
       case "feed":

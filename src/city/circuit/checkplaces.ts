@@ -3,11 +3,12 @@
  * layer and see the rule fail (R-2). Roof places join in K2d.
  */
 
-import type { CityCircuitLayer, CityNodePlace, GridNode } from "../../core";
+import type { CityCircuitLayer, CityNodePlace, CityPlanBlock, GridNode } from "../../core";
 import type { CircuitInput, CircuitProblem } from "./check";
 import { DROP_MAX_M, DROP_WALL_Y_M, LIGHT_POLE_MIN_M, POST_MIN_SPAN_M, TOL } from "./constants";
 import { allowedCell, cellAt, indexCells, polePavement, sidePavement, streetsById } from "./geometry";
 import { dropId, frontColumns, edgeCentre } from "./places";
+import { reachOf, roofSpanFault } from "./roofjobs";
 
 type Placed = Pick<CityCircuitLayer, "poles" | "spans" | "drops" | "lights" | "posts">;
 
@@ -76,18 +77,41 @@ export function placeProblems(layer: Placed, input: CircuitInput): CircuitProble
   return out;
 }
 
-/** One node a puzzle puts on a place, as CK12 reads it. */
+/** One node a puzzle puts on a place, as CK12 reads it. `degree` is how many lines end at it (a roof junction needs a span for each). */
 export interface PlacedNode {
   readonly id: string;
   readonly type: GridNode["type"];
   readonly place: CityNodePlace;
+  readonly degree?: number;
 }
 
 /** The attachments each node type needs on its pole (CK12's table). */
 const POLE_NEEDS: Readonly<Partial<Record<GridNode["type"], number>>> = { breaker: 2, battery: 2, fusebox: 2, switch: 3, junction: 0, feed: 0 };
 
-/** CK12's table: where each node type may stand, and one node per place. Roof places join in K2d. */
-export function nodePlaceProblems(layer: Pick<CityCircuitLayer, "spans" | "poles" | "drops" | "posts">, places: readonly PlacedNode[]): CircuitProblem[] {
+/** CK17e: the roof span places each node type needs on its roof (Josh, B1-Q1: "Anything"). A junction needs as many as its lines, at least 3. */
+const roofNeed = (type: GridNode["type"], degree: number): number => {
+  switch (type) {
+    case "breaker":
+    case "battery":
+    case "fusebox":
+      return 2;
+    case "switch":
+      return 3;
+    case "junction":
+      return Math.max(3, degree);
+    default:
+      return 1;
+  }
+};
+
+/**
+ * CK12's table and CK17e: where each node type may stand, and one node per place. With `district` and `blocks`, a roof counts only the roof spans the job may use (CK14), and a feed on a roof stands outside the district.
+ */
+export function nodePlaceProblems(
+  layer: Pick<CityCircuitLayer, "spans" | "poles" | "drops" | "posts"> & Partial<Pick<CityCircuitLayer, "roofs" | "roofSpans">>,
+  places: readonly PlacedNode[],
+  job?: { readonly district: readonly string[]; readonly blocks: readonly CityPlanBlock[] },
+): CircuitProblem[] {
   const out: CircuitProblem[] = [];
   const add = (id: string, reason: string): number => out.push({ rule: "CK12", id, reason });
   const attach = new Map<string, number>();
@@ -97,9 +121,16 @@ export function nodePlaceProblems(layer: Pick<CityCircuitLayer, "spans" | "poles
   const poles = new Set(layer.poles.map((p) => p.id));
   const dropped = new Set(layer.drops.map((d) => d.building));
   const posts = new Set(layer.posts.map((q) => q.span));
+  const roofs = new Map((layer.roofs ?? []).map((r) => [r.id, r] as const));
+  const reach = job === undefined ? undefined : reachOf(job.district, job.blocks, layer);
+  const usable = new Map<string, number>();
+  for (const s of layer.roofSpans ?? []) {
+    if (reach !== undefined && roofSpanFault(reach, s) !== null) continue;
+    for (const e of [s.a, s.b]) if (roofs.has(e)) usable.set(e, (usable.get(e) ?? 0) + 1);
+  }
   const seen = new Map<string, string>();
   for (const n of places) {
-    const key = "pole" in n.place ? `pole ${n.place.pole}` : "building" in n.place ? `building ${n.place.building}` : `post ${n.place.post}`;
+    const key = "pole" in n.place ? `pole ${n.place.pole}` : "building" in n.place ? `building ${n.place.building}` : "roof" in n.place ? `roof ${n.place.roof}` : `post ${n.place.post}`;
     const other = seen.get(key);
     if (other !== undefined) add(n.id, `shares ${key} with ${other} (one node per place)`);
     else seen.set(key, n.id);
@@ -111,6 +142,14 @@ export function nodePlaceProblems(layer: Pick<CityCircuitLayer, "spans" | "poles
     } else if ("building" in n.place) {
       if (n.type !== "lamp") add(n.id, `a ${n.type} cannot stand on a building`);
       else if (!dropped.has(n.place.building)) add(n.id, `${n.place.building} has no drop`);
+    } else if ("roof" in n.place) {
+      const r = roofs.get(n.place.roof);
+      const need = roofNeed(n.type, n.degree ?? 0);
+      if (r === undefined) add(n.id, `${n.place.roof} is not a roof structure place`);
+      else {
+        if ((usable.get(r.id) ?? 0) < need) add(n.id, `a ${n.type} on a roof needs ${need} or more roof span places the job may use; ${r.id} has ${usable.get(r.id) ?? 0}`);
+        if (n.type === "feed" && reach !== undefined && reach.inside.has(r.block)) add(n.id, `a feed stands outside the district; ${r.id} is on ${r.block}`);
+      }
     } else if (n.type !== "lamp") add(n.id, `a ${n.type} cannot stand on a lamp post`);
     else if (!posts.has(n.place.post)) add(n.id, `${n.place.post} is not a lamp-post place`);
   }
