@@ -1,13 +1,15 @@
 # Rest: Circuits — the power-routing minigame
 
-*Rest*'s core loop, as the GDD review found, is mostly walking between simple repairs. Josh's call (27 Oct 2026): keep the game **high level**. The minigame is a top-down map of a section of the town. The priests name what must be lit (a shrine, a street, a lift). The player throws breakers and switches, orders repairs with the parts on hand, and routes the failing source's limited power to light the target, choosing what stays dark. No avatar, no walking, no probing. It is a puzzle about **topology, capacity and scarce parts**.
+*Rest*'s core loop, as the GDD review found, is mostly walking between simple repairs. Josh's call (27 Oct 2026): keep the game **high level**. The minigame is played on a district of the 3D city, with a 2D overlay of icons and lines on top (ticket 081; Josh, 24 Nov 2026: "I don't want 2D puzzles anymore. I want this game to be full 3D. The 2D puzzles were really just a prototype to see if the puzzles would be functional."). It began as a top-down schematic map of a section of the town. The priests name what must be lit (a shrine, a street, a lift). The player throws breakers and switches, orders repairs with the parts on hand, and routes the failing source's limited power to light the target, choosing what stays dark. No avatar, no walking, no probing. It is a puzzle about **topology, capacity and scarce parts**.
 
 Two things leave this prototype and go into the 3D game:
 
-1. **The map files** (`puzzles/*.json`): each district job in the city is one of these; the GDD's `levels/*.grid.json`.
+1. **The puzzle files** (`puzzles/city/*.city.json`, converted to the schematic form the simulator runs): each district job in the city is one of these; the GDD's `levels/*.grid.json`.
 2. **The grid simulator** (`src/grid/`): pure TypeScript, no rendering, copied unchanged. In the 3D game it drives the same lamps with Enoch walking between the controls.
 
 ## What the player sees
+
+*Now:* the district on the 3D city at night, its circuit drawn with the components Josh picked, and over it the overlay: an icon per piece, a straight line from piece to piece, and a break icon where a cut is readable. The schematic below is what the overlay carries over. *First prototype, being retired:*
 
 A dark town section drawn as a schematic: the feed at one edge with its **capacity** shown, cables as lines, junctions, fuse boxes, breakers and switches marked with the tribe's paint and ribbon, lamps as circles with their **load**. One or more lamps carry a **target** mark: the priests' request. On the side, the parts Enoch has: bulbs, fuses, wire.
 
@@ -66,8 +68,8 @@ Each map tests one element. The analyzer must pass on each.
 
 ## Stack
 
-- TypeScript (strict), Vite, Vitest. Canvas 2D for the map, HTML/CSS for the UI, no game framework.
-- Three.js for the 3D view of the map (`src/render3d/`, behind `?view=3d`), from ticket 037 (Josh, 12 Nov 2026: "I would like to use 3js").
+- TypeScript (strict), Vite, Vitest. HTML/CSS for the UI, no game framework.
+- Three.js for the game view (`src/render3d/`), from ticket 037 (Josh, 12 Nov 2026: "I would like to use 3js"). The city view is dev-only under the Synty licence decision, so the game is played with `npm run dev` (Josh, 24 Nov 2026: "Keep it (Recommended)"). Canvas 2D draws the overlay, and the old 2D map until ticket 081's X1 removes it.
 - Node 24 LTS (installed 27 Oct 2026).
 - Hosting: GitHub Pages from `main`.
 
@@ -78,8 +80,8 @@ Each map tests one element. The analyzer must pass on each.
 | `src/core/` | lead-architect | Types for the schema, events, the loader and validator |
 | `src/grid/` | grid-simulator | Power flow, readability, capacity, fuse load, repairs. Pure. |
 | `src/night/` | grid-simulator | Deferred: the night clock returns with the street layer |
-| `src/render/` | renderer | The map on canvas: pulses, sparks, brownout flicker, the Relight |
-| `src/render3d/` | renderer | The map in 3D (Three.js): streets, blocks, poles and wires. A spike from ticket 037 |
+| `src/render/` | renderer | The old 2D map on canvas, being retired (081 X1); its glyphs move to the overlay first |
+| `src/render3d/` | renderer | The game view (Three.js): the city, its circuit and components, and the 2D overlay on top |
 | `src/play/` | interaction | Click to throw or repair, parts, undo, the session log |
 | `src/editor/` | interaction | The map editor |
 | `src/ui/` | ui | Prompts, parts, targets, picker, win screen |
