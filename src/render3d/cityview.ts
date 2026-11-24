@@ -10,7 +10,7 @@ import {
   AdditiveBlending, BoxGeometry, BufferGeometry, CircleGeometry, Color, DynamicDrawUsage, Float32BufferAttribute, Group, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial,
   PerspectiveCamera, Quaternion, Scene, SphereGeometry, Vector3, type Material, type Object3D, type WebGLRenderer,
 } from "three";
-import { type CalibrationKey, type CityCircuitLayer, type CityPlan, type CityPlanRun, type CityPuzzle, type CityPuzzleCity, type CityPuzzleConverted, type CityPuzzleView } from "../core";
+import { type CalibrationKey, type CityCircuitLayer, type CityPlan, type CityPlanRun, type CityPuzzle, type CityStreetsLayer, type CityPuzzleCity, type CityPuzzleConverted, type CityPuzzleView } from "../core";
 import { CityPuzzleError, convertCityPuzzle } from "../city/circuit";
 import { SAG_RATIO } from "../city/circuit/constants";
 import { BUILT_STAGES, runCity } from "../city/pipeline";
@@ -67,7 +67,80 @@ export function loadCityView(city: CityPuzzle, build: (c: CityPuzzleCity) => Cit
     plan = run.plan;
     plans.set(key, plan);
   }
-  return { plan, converted: convertCityPuzzle(city, plan) };
+  return { plan, converted: convertCityPuzzle(city, plan), district: city.district };
+}
+
+/** The opening frame, in world units: x and z (as minY and maxY) bounds. */
+export interface JobFrame {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
+/**
+ * The opening camera's frame (081 E3): the job's places, both ends of every span of its runs and its drop or lead, each district block out to the far side of the street on its four sides, and the
+ * feed's origin, with `FRAME_MARGIN_M` round it all. Nothing else in the circuit counts. With none of those it is the whole city. Pure.
+ */
+export function jobFrame(view: CityPuzzleView, layer: CityCircuitLayer, streets: CityStreetsLayer): JobFrame {
+  const { converted } = view;
+  const frame: JobFrame = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+  const grow = (xm: number, zm: number): void => {
+    frame.minX = Math.min(frame.minX, xm - FRAME_MARGIN_M);
+    frame.maxX = Math.max(frame.maxX, xm + FRAME_MARGIN_M);
+    frame.minY = Math.min(frame.minY, zm - FRAME_MARGIN_M);
+    frame.maxY = Math.max(frame.maxY, zm + FRAME_MARGIN_M);
+  };
+  const xz = new Map<string, { x: number; z: number }>();
+  for (const p of layer.poles) xz.set(p.id, { x: p.x_m, z: p.z_m });
+  for (const r of layer.roofs ?? []) xz.set(r.id, { x: r.x_m, z: r.z_m });
+  const growId = (id: string): void => {
+    const p = xz.get(id);
+    if (p) grow(p.x, p.z);
+  };
+  const spans = new Map<string, { a: string; b: string }>();
+  for (const s of [...layer.spans, ...(layer.roofSpans ?? [])]) spans.set(s.id, s);
+  const at = { x: 0, y: 0, z: 0 };
+  for (const place of Object.values(converted.places)) if (placePoint(place, layer, at)) grow(at.x, at.z);
+  for (const run of Object.values(converted.runs)) {
+    for (const id of run.spans) {
+      const s = spans.get(id);
+      if (s) (growId(s.a), growId(s.b));
+    }
+    if (run.drop !== undefined) {
+      const d = layer.drops.find((x) => x.building === run.drop);
+      if (d) (growId(d.pole), grow(d.x_m, d.z_m));
+    }
+    if (run.lead !== undefined) {
+      const p = layer.posts.find((x) => x.span === run.lead);
+      if (p) grow(p.x_m, p.z_m);
+    }
+  }
+  // The district's blocks, out to the far side of the street on each of their four sides.
+  const streetById = new Map(streets.streets.map((s) => [s.id, s] as const));
+  const inDistrict = new Set(view.district ?? []);
+  for (const b of streets.blocks) {
+    if (!inDistrict.has(b.id)) continue;
+    let x0 = b.i0 * TILE_M;
+    let x1 = b.i1 * TILE_M;
+    let z0 = b.j0 * TILE_M;
+    let z1 = b.j1 * TILE_M;
+    for (const side of Object.values(b.sides)) {
+      const st = streetById.get(side.street);
+      if (!st) continue;
+      const lo = st.across0 * TILE_M;
+      const hi = (st.across0 + st.bands.length) * TILE_M;
+      if (st.axis === "x") (z0 = Math.min(z0, lo), z1 = Math.max(z1, hi));
+      else (x0 = Math.min(x0, lo), x1 = Math.max(x1, hi));
+    }
+    grow(x0, z0);
+    grow(x1, z1);
+  }
+  if (Number.isFinite(frame.minX)) {
+    grow(converted.origin_m.x_m, converted.origin_m.z_m);
+    return { minX: frame.minX * S, minY: frame.minY * S, maxX: frame.maxX * S, maxY: frame.maxY * S };
+  }
+  return { minX: 0, minY: 0, maxX: streets.w * TILE_M * S, maxY: streets.h * TILE_M * S };
 }
 
 export { CityPuzzleError };
@@ -521,21 +594,8 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   const lightId0: LightModeId = lightModeFor("puzzle", opts.search, import.meta.env.DEV);
   applyLightMode(scene, gl, lightId0, owners);
 
-  // The frame: the job's wires and pieces, a margin round them, and the district's least corner.
-  const frame = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
-  const grow = (x: number, z: number): void => {
-    frame.minX = Math.min(frame.minX, x - FRAME_MARGIN_M * S);
-    frame.maxX = Math.max(frame.maxX, x + FRAME_MARGIN_M * S);
-    frame.minY = Math.min(frame.minY, z - FRAME_MARGIN_M * S);
-    frame.maxY = Math.max(frame.maxY, z + FRAME_MARGIN_M * S);
-  };
-  for (const w of draws.wires) {
-    grow(w.from.x, w.from.z);
-    grow(w.to.x, w.to.z);
-  }
-  for (const p of draws.pieces) if (p.role !== "light") grow(p.position.x, p.position.z);
-  grow(converted.origin_m.x_m * S, converted.origin_m.z_m * S);
-  if (!Number.isFinite(frame.minX)) Object.assign(frame, { minX: 0, minY: 0, maxX: streets.w * TILE_M * S, maxY: streets.h * TILE_M * S });
+  // The frame: the district, its four streets and the job's places and wires (081 E3), not every pole in the city.
+  const frame = jobFrame(view, layer, streets);
 
   const cityW = streets.w * TILE_M * S;
   const cityH = streets.h * TILE_M * S;
