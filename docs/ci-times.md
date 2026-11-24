@@ -9,6 +9,7 @@ One row per measurement: the whole everyday suite (`npm test`, one city) on CI, 
 | 2026-11-23 | #20 | b5f4ad3 (main, after #20 and #21) | 212 | 4,090 (64 skipped) | 441 s | 204 s | 3.7 min | After all of ticket 079, and 081 C1 and PK1; manual run `cities=one` |
 | 2026-11-24 | #30 | 6443518 (main, after #30) | 209 | 3,836 (63 skipped) | 395 s | 213 s | 3.8 min | After 081 A1, K2a, K2a2 (stage 6 on), A2a, A2d, E1; before A2c deletes the ladder's tests |
 | 2026-11-24 | #40 | 66beba9 (main, after #40) | 189 | 3,220 (56 skipped) | 588 s | 302 s | 5.4 min | After 081 K2b, D2, D3, K2c (convert), I2; up 89 s on the step since #30 |
+| 2026-11-24 | #50 | 479c0fe (main, after #49 and #50) | 194 | 3,264 (56 skipped) | 627 s | 322 s | 5.8 min | After 081 K2d1, K2d2, P0, K3, U1, E2, U2 and 082 A, B; up 20 s on the step since #40 |
 
 ## Failure log
 
