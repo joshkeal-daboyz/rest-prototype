@@ -28,36 +28,6 @@
         "--strictPort"
       ],
       "port": 5199
-    },
-    {
-      "name": "081-k2a2",
-      "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
-      "runtimeArgs": [
-        "--prefix",
-        "D:\\rest-081k2a2",
-        "run",
-        "dev",
-        "--",
-        "--port",
-        "5200",
-        "--strictPort"
-      ],
-      "port": 5200
-    },
-    {
-      "name": "081-a2d",
-      "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
-      "runtimeArgs": [
-        "--prefix",
-        "D:\\rest-081d2",
-        "run",
-        "dev",
-        "--",
-        "--port",
-        "5201",
-        "--strictPort"
-      ],
-      "port": 5201
     }
   ]
 }
