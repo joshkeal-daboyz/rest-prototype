@@ -57,7 +57,13 @@ describe("assetGalleryRequested", () => {
   });
 
   it("reads the pack and the defaults", () => {
-    expect(assetGalleryRequested("?assets=city-pack")).toEqual({ pack: "city-pack", text: "", use: "any", flag: "any", page: 1, piece: null });
+    expect(assetGalleryRequested("?assets=city-pack")).toEqual({ pack: "city-pack", text: "", use: "any", flag: "any", page: 1, piece: null, component: null });
+  });
+
+  it("reads the components view, and an unknown component id falls back to the list", () => {
+    expect(assetGalleryRequested("?assets=components&component=lampPost")).toEqual({ pack: "components", text: "", use: "any", flag: "any", page: 1, piece: null, component: "lampPost" });
+    expect(assetGalleryRequested("?assets=components&component=nope")?.component).toBeNull();
+    expect(assetGalleryRequested("?assets=components")?.component).toBeNull();
   });
 
   it("gives an empty pack for a bare assets (the page then opens the first pack)", () => {
@@ -68,11 +74,11 @@ describe("assetGalleryRequested", () => {
   it("reads every field", () => {
     expect(
       assetGalleryRequested("?assets=sci-fi-city-pack&q=pole%20crossarm&use=holdout&flag=warnings&page=3&piece=SM_Prop_Powerpoll_01"),
-    ).toEqual({ pack: "sci-fi-city-pack", text: "pole crossarm", use: "holdout", flag: "warnings", page: 3, piece: "SM_Prop_Powerpoll_01" });
+    ).toEqual({ pack: "sci-fi-city-pack", text: "pole crossarm", use: "holdout", flag: "warnings", page: 3, piece: "SM_Prop_Powerpoll_01", component: null });
   });
 
   it("falls back to the default for an unknown use, flag or page, and for an empty piece", () => {
-    expect(assetGalleryRequested("?assets=x&use=bogus&flag=nope&page=abc&piece=")).toEqual({ pack: "x", text: "", use: "any", flag: "any", page: 1, piece: null });
+    expect(assetGalleryRequested("?assets=x&use=bogus&flag=nope&page=abc&piece=")).toEqual({ pack: "x", text: "", use: "any", flag: "any", page: 1, piece: null, component: null });
     expect(assetGalleryRequested("?assets=x&page=0")?.page).toBe(1);
     expect(assetGalleryRequested("?assets=x&page=-2")?.page).toBe(1);
     expect(assetGalleryRequested("?assets=x&page=2.5")?.page).toBe(1);
@@ -98,7 +104,7 @@ describe("assetGalleryUrl", () => {
     expect(url).toContain("page=3");
   });
 
-  it("round-trips through assetGalleryRequested", () => {
+  it("round-trips through assetGalleryRequested, the piece and the component", () => {
     const states: [AssetGalleryQuery, string | null][] = [
       [base, null],
       [{ ...base, text: "pole crossarm" }, "SM_Prop_Powerpoll_01"],
@@ -106,8 +112,10 @@ describe("assetGalleryUrl", () => {
       [{ pack: "palm-city-pack", text: "", use: "ruin", flag: "warnings", page: 2 }, "SM_Env_Vines_06"],
     ];
     for (const [q, p] of states) {
-      expect(assetGalleryRequested(assetGalleryUrl(q, p))).toEqual({ ...q, piece: p });
+      expect(assetGalleryRequested(assetGalleryUrl(q, p))).toEqual({ ...q, piece: p, component: null });
     }
+    const components = { pack: "components", text: "", use: "any", flag: "any", page: 1 } as const;
+    expect(assetGalleryRequested(assetGalleryUrl(components, null, "damagedLine"))).toEqual({ ...components, piece: null, component: "damagedLine" });
   });
 });
 

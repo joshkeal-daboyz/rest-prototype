@@ -148,7 +148,7 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | K2b | Stage 6: drops, lights, lamp posts, node places (CK9 to CK12) | grid-simulator | K2a2 | 10 |
 | K2c | The conversion (CK13 as changed, CK14, CK15) | grid-simulator | K2b, C1 | 10 |
 | K2d | Stage 6: the pole pick, CK7, roof structures and roof spans (CK17) | grid-simulator | K2c, PK1, B1q, Josh's mid-row answer (given) | at most 13 |
-| I2 | Stage 8 keeps clear of the circuit | landscape | K2b | 3 |
+| I2 | Stage 8 keeps clear of the circuit | landscape | K2b | 2 added, 4 or 5 rewritten |
 | H4 | Stage 7's roof pieces keep clear of the corner roof structures | facades | K2d | 3 |
 | P1 | The fit tool and the city check (with the mid-row clearance check) | grid-simulator | K2c, K2d | 10 |
 | P2a | Puzzles 01 to 16 on the city (the pilot) | puzzle-designer | P1, K2d (9 of the 16 need roofs) | 0 |
@@ -485,9 +485,13 @@ At most 13 cases. If B1b adds checks beyond these, the section splits into K2d1 
 **Acceptance criteria.**
 1. [ ] Stage 8 reads `layers.circuit.keep` into its keep-point list. **test**: 1 fixture case.
 2. [ ] On seed 1, no stage 8 piece stands within `FURN_KEEP_M` of a pole or light. **test**: 1 case, 6 x 6 seed 1, one-way on.
-3. [ ] The digest re-taken once. **test**: 1 rewritten.
+3. [ ] **Digests re-taken once**, listed with old and new values. **test**: 4 or 5 rewritten in all:
+   - stage 8's own pins (3, as built);
+   - in `src/city/traffic/stage.test.ts`: the case at lines 77 to 80, which pins the same ground digests on seeds 1, 2, 3 and 8 that I2 moves, and the four stage 9 `PINS` (784fd70b, 79767c68, 4528000c, 0f11c5ab), which move with them because traffic places its pieces around ground props. That is 1 or 2 cases; the builder reports which.
 
-**Files.** `src/city/ground/`.
+   With criteria 1 and 2 (2 added), the PR has 2 added and 4 or 5 rewritten.
+
+**Files.** `src/city/ground/`. Also the **digest values only (ground and stage 9 pins)** of `src/city/traffic/stage.test.ts`: lines 77 to 80, and its four stage 9 `PINS` (the streetscape's folder, under test policy rule 6; added 23 Nov 2026, as K2a2 and K2b did). No other line there changes.
 
 ### H4 · Stage 7's roof pieces keep clear of roof structures (facades, pure). Branch `ticket/081h4-roof-keep`
 Cut in full after K2d.
