@@ -332,6 +332,7 @@ Each picture is titled with its key. The pictures go in the scratchpad, the note
 **Tests the builder runs:** `npx vitest run --maxWorkers=2 src/render3d/scene.test.ts src/render3d/live.test.ts src/render3d/relight3d.test.ts src/render3d/pick.test.ts src/render3d/models.test.ts src/render3d/styleguide.test.ts`, plus its new test file, and one `npx tsc --noEmit`.
 
 ### D · Small power GLBs (grid-simulator; Q13 answered yes). Branch `ticket/071d-power-glbs`
+**Replaced by ticket 082 (24 Nov 2026, Josh in chat: "Because the model packs run so slowly, I think we should work on consolidated packs for the game.").** D was never built. 082 B cuts one game GLB per used pack from the list of every model the game loads, the power poles included. D is not to be built.
 **Goal.** Each large pack the ground mix draws from has its own `out/<pack>-power.glb`, a few MB at most. That is one run (Josh's picks, 21 Nov 2026, less the Sci-Fi City poles by his ruling the same day):
 - `palm-city-pack-power`: `SM_Prop_Powerpole_01`, `SM_Prop_Powerpole_02` (A estimates about 2.5 MB, against 103 MB).
 
