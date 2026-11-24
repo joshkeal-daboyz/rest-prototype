@@ -357,3 +357,28 @@ export function fitLine(piece: PowerLine, a: Vec3, b: Vec3, sagRatio: number, sc
     n++;
   }
 }
+
+// ---------------------------------------------------------------------------------------------------------------------------------------------------
+// The feed's pick (ticket 081 K3)
+
+/** The feed's pole: Josh's pick for the `feed` component (`COMPONENT_MODELS.feed`, 23 Nov 2026). It is not in the ground mix, so it is not in `POWER_POLES` (PK2's pin holds that table to the mix); circuit drawing stands it in place of the feed's pole. */
+export const FEED_POLE_KEY = "palm-city-pack:SM_Prop_Powerpole_03";
+
+/**
+ * `palm-city-pack:SM_Prop_Powerpole_03` measured from the converted GLB (24 Nov 2026, the way B measured the mix): 10.833 m to the top, the post at the origin (the footprint is 2.62 x 3.06 m, centred), an H-frame
+ * whose three insulator pairs have their tops at 8.38 m, 0.45 m apart across the frame (z), at the post's own plane (no offset along the run). Every insulator is the model's own. The wires' line is the middle pair.
+ */
+export const FEED_POLES: Readonly<Record<string, PowerPole>> = {
+  [FEED_POLE_KEY]: {
+    key: FEED_POLE_KEY,
+    height_m: 10.833,
+    armAxis: "z",
+    foot_m: { x: 0, z: 0 },
+    along_m: 0,
+    attach_m: [
+      { across: 0, up: 8.38, ownInsulator: true, surface_m: 8.38 },
+      { across: -0.45, up: 8.38, ownInsulator: true, surface_m: 8.38 },
+      { across: 0.44, up: 8.38, ownInsulator: true, surface_m: 8.38 },
+    ],
+  },
+};

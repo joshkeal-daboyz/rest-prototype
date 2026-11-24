@@ -59,6 +59,8 @@ import {
 import { NO_MODELS, allStackKeys, dressMatrix, partMatrix, type LoadedModel, type ModelSet } from "./models3d";
 import { CODE_ESCAPE_KEY } from "./escapes";
 import { CITY_NEVER_USED } from "./citymetrics";
+import { STREET_LIGHT_KEY, circuitKeys } from "./circuitdraw";
+import { POWER_LINE } from "./powerkit";
 import { DRESS_DRAW_CALLS_MAX, DRESS_MAX, dressKeys } from "./dressing";
 import { FURN_DRAW_CALLS_MAX, furnitureKeys } from "./furniture";
 import { TILE_M, type TileCell } from "./tilecity";
@@ -1562,6 +1564,15 @@ describe("the facades and the ground, on the 20 named runs (J criteria 3, 4, 5 a
     expect(pipes).toBeGreaterThan(0);
   });
 
+  it("R12 knows the circuit: the wire piece is allowed on circuit spans and drops, and refused on any other list", () => {
+    const plan = planOf(DEFAULT);
+    expect(isNeverUsedKey(POWER_LINE)).toBe(true);
+    expect(planAudit(plan)).toEqual([]);
+    const f = facadesOf(plan);
+    const wired = facadesWith(plan, { dressing: f.dressing!.map((p, n) => (n === 2 ? { ...p, placement: reKey(p.placement, POWER_LINE) } : p)) });
+    expect(planAudit(wired)).toEqual([{ layer: "facades", list: "dressing", cell: f.dressing![2]!.cell, key: POWER_LINE }]);
+  });
+
   it("R12 fixtures: each makes planAudit name exactly that piece, and plan3dGroups stop", () => {
     const plan = planOf(DEFAULT);
     const f = facadesOf(plan);
@@ -1601,9 +1612,11 @@ describe("the facades and the ground, on the 20 named runs (J criteria 3, 4, 5 a
     expect(stops(d)).toBe(true);
   });
 
-  it("loads the party window and the party pipe by name: planKeys() names them and no other new key, and no dressing, furniture or stack list does; every key the plan places is loaded", () => {
-    expect(planKeys()).toEqual([...planTileKeys(), PLAN_PARTY_WINDOW, PLAN_PARTY_PIPE, ...Object.values(PLAN_TRAFFIC_KEYS)]);
-    expect(planKeys().slice(0, -9)).toEqual([...tileKeys(), PLAN_ARROW, ...PLAN_DOOR_CORNERS]);
+  it("loads the party window and the party pipe by name: planKeys() names them and the circuit's keys and no other new key, and no dressing, furniture or stack list does; every key the plan places is loaded", () => {
+    expect(planKeys()).toEqual([...planTileKeys(), PLAN_PARTY_WINDOW, PLAN_PARTY_PIPE, ...Object.values(PLAN_TRAFFIC_KEYS), ...circuitKeys()]);
+    expect(planKeys().slice(0, -circuitKeys().length - 9)).toEqual([...tileKeys(), PLAN_ARROW, ...PLAN_DOOR_CORNERS]);
+    expect(circuitKeys()).toContain(POWER_LINE);
+    expect(circuitKeys()).toContain(STREET_LIGHT_KEY);
     expect([PLAN_PARTY_WINDOW, PLAN_PARTY_PIPE]).toEqual(["city-pack:SM_Prop_Window_01", "city-pack:SM_Prop_Pipe_Present_03"]);
     for (const key of [PLAN_PARTY_WINDOW, PLAN_PARTY_PIPE]) {
       expect(dressKeys()).not.toContain(key);
@@ -2006,10 +2019,10 @@ describe("stage 9: the traffic pieces, from placements only (TR2 criteria 2, 3, 
     full.dispose();
   });
 
-  it("lists every traffic piece once, in order, with every key one the page loads; the traffic keys and stage 8's are disjoint; planKeys() gains the seven and nothing else; the seven are in no other list", () => {
+  it("lists every traffic piece once, in order, with every key one the page loads; the traffic keys and stage 8's are disjoint; planKeys() gains the seven (and, from 081 K3, the circuit's keys) and nothing else; the seven are in no other list", () => {
     const loaded = new Set<CalibrationKey>(planKeys());
     for (const key of SEVEN) expect(loaded.has(key), key).toBe(true);
-    expect(planKeys().filter((key) => !planTileKeys().includes(key) && key !== PLAN_PARTY_WINDOW && key !== PLAN_PARTY_PIPE).sort()).toEqual([...SEVEN].sort());
+    expect(planKeys().filter((key) => !planTileKeys().includes(key) && key !== PLAN_PARTY_WINDOW && key !== PLAN_PARTY_PIPE && !circuitKeys().includes(key)).sort()).toEqual([...SEVEN].sort());
     for (const key of SEVEN) {
       expect(dressKeys(), key).not.toContain(key);
       expect(furnitureKeys(), key).not.toContain(key);
