@@ -91,6 +91,7 @@ describe("the circuit drawn (081 K3)", () => {
       expect(piece.key, n.id).toBe(COMPONENT_MODELS[componentOf(n, converted.places[n.id]!)].key);
     }
     expect(d.pieces.find((p) => p.id === feedAt)!.key).toBe(FEED_POLE_KEY);
+    expect(FEED_POLE_KEY).toBe(COMPONENT_MODELS.feed.key);
     expect(d.pieces.filter((p) => p.role === "pole" && p.id === feedAt)).toEqual([]);
     for (const s of circuit.spans.filter((x) => x.a === feedAt || x.b === feedAt)) expect(lowOf(d.wires.find((w) => w.id === s.id)!)).toBeGreaterThan(4.2 * S);
   });

@@ -12,7 +12,6 @@
  * `across` is measured on the arm axis from the post's axis (`foot_m`), `up` is the height of the wire's seat.
  */
 
-import { COMPONENT_MODELS } from "./componentmodels";
 import type { Vec3 } from "./kitunits";
 import { stableHash } from "../render/city";
 import { GROUND_POLE_ATTACH_UP_M, GROUND_POLE_MIX } from "../core/powerpoles";
@@ -363,7 +362,7 @@ export function fitLine(piece: PowerLine, a: Vec3, b: Vec3, sagRatio: number, sc
 // The feed's pick (ticket 081 K3)
 
 /** The feed's pole: Josh's pick for the `feed` component (`COMPONENT_MODELS.feed`, 23 Nov 2026). It is not in the ground mix, so it is not in `POWER_POLES` (PK2's pin holds that table to the mix); circuit drawing stands it in place of the feed's pole. */
-export const FEED_POLE_KEY: string = COMPONENT_MODELS.feed.key!;
+export const FEED_POLE_KEY = "palm-city-pack:SM_Prop_Powerpole_03";
 
 /**
  * `palm-city-pack:SM_Prop_Powerpole_03` measured from the converted GLB (24 Nov 2026, the way B measured the mix): 10.833 m to the top, the post at the origin (the footprint is 2.62 x 3.06 m, centred), an H-frame
