@@ -12,7 +12,8 @@ import { stagesOfProfile } from "../testing/namedcities";
 import { circuitProblems, type CircuitInput, type CircuitProblem } from "./check";
 import { nodePlaceProblems } from "./checkplaces";
 import { poleModelFor } from "./polemodel";
-import { judgeSpan, roofContext, type End } from "./roofgeom";
+import { DROP_CROSS_MAX_M, DROP_MAX_M, WALK_FLOOR_M } from "./constants";
+import { hangAt, judgeSpan, len3, lowestOver, roofContext, type End } from "./roofgeom";
 import { roofEnd } from "./roofplaces";
 import { circuitStage } from "./stage";
 
@@ -40,7 +41,7 @@ describe("stage 6, poles and spans (081 K2a) and places (081 K2b)", () => {
     expect(Object.isFrozen(layer.spans)).toBe(true);
     expect(pictureProblems(circuitStage.picture(plan), plan.layers.streets!.w, plan.layers.streets!.h)).toEqual([]);
     expect(plan.digests.circuit).toBe(digestOf(layer));
-    expect(plan.digests.circuit).toBe("9ff1b134");
+    expect(plan.digests.circuit).toBe("b5cf46ef");
     expect(Object.keys(layer.poleModels).sort()).toEqual(layer.poles.map((p) => p.id).sort());
     expect(circuitProblems(layer, input)).toEqual([]);
   });
@@ -94,15 +95,45 @@ describe("stage 6, poles and spans (081 K2a) and places (081 K2b)", () => {
     expect(cut.some((p) => p.id === "city")).toBe(true);
   });
 
-  it("CK9: a drop from a pole across the street fails, and so does a drop too long or a building on a pole line with none", () => {
-    const d = layer.drops[0]!;
-    const across = layer.poles.find((p) => p.kind === "crossing")!;
-    const from = circuitProblems({ ...layer, drops: [{ ...d, pole: across.id }, ...layer.drops.slice(1)] }, input);
-    expect(from.some((p) => p.rule === "CK9" && p.id === d.id)).toBe(true);
-    const long = circuitProblems({ ...layer, drops: [{ ...layer.drops[1]!, x_m: layer.drops[1]!.x_m + 20 }, ...layer.drops.slice(2)] }, input);
-    expect(long.some((p) => p.rule === "CK9" && p.id === layer.drops[1]!.id && p.reason.includes("longer"))).toBe(true);
-    expect(long.some((p) => p.rule === "CK9" && p.id === d.building && p.reason.includes("no drop"))).toBe(true);
+  it("CK9 as changed: a far-side building takes an own crossing pole within 7.5 m, else a drop across its street that sets street, and every building with a street front has one", () => {
+    const pole = new Map(layer.poles.map((p) => [p.id, p] as const));
+    const plan = (d: (typeof layer.drops)[number]): number => Math.hypot(pole.get(d.pole)!.x_m - d.x_m, pole.get(d.pole)!.z_m - d.z_m);
+    const viaCrossing = layer.drops.filter((d) => pole.get(d.pole)!.kind === "crossing");
+    const across = layer.drops.filter((d) => d.street !== undefined);
+    expect(viaCrossing.length).toBeGreaterThan(0);
+    expect(across.length).toBeGreaterThan(0);
+    for (const d of viaCrossing) expect(plan(d) <= DROP_MAX_M + 0.01 && d.street === undefined).toBe(true);
+    for (const d of across) expect(pole.get(d.pole)!.kind !== "crossing" && pole.get(d.pole)!.street === d.street && plan(d) > DROP_MAX_M && plan(d) <= DROP_CROSS_MAX_M).toBe(true);
+    const walled = input.buildings.buildings.filter((b) => input.mass.built.some((c) => b.cells.some((q) => q.i === c.i && q.j === c.j) && c.open.some((o) => o.side === b.front && o.faces === "street")));
+    expect(walled.every((b) => layer.drops.some((d) => d.building === b.id))).toBe(true);
   });
+
+  it("CK9's check: a building with a street front and no drop fails, as does a far-side drop across when an own crossing pole was in reach, and a drop longer than its reach", () => {
+    const pole = new Map(layer.poles.map((p) => [p.id, p] as const));
+    const own = layer.drops.find((d) => d.street === undefined && pole.get(d.pole)!.kind !== "crossing")!;
+    const crossing = layer.drops.find((d) => pole.get(d.pole)!.kind === "crossing")!;
+    const far = layer.poles.find((p) => p.kind !== "crossing" && p.street === layer.drops.find((d) => d.street !== undefined)!.street)!;
+    const missing = circuitProblems({ ...layer, drops: layer.drops.filter((d) => d !== own) }, input);
+    expect(missing.some((p) => p.rule === "CK9" && p.id === own.building && p.reason.includes("no drop"))).toBe(true);
+    const across = circuitProblems({ ...layer, drops: layer.drops.map((d) => (d === crossing ? { ...d, pole: far.id, street: far.street } : d)) }, input);
+    expect(across.some((p) => p.rule === "CK9" && p.id === crossing.id)).toBe(true);
+    const long = circuitProblems({ ...layer, drops: layer.drops.map((d) => (d === own ? { ...d, x_m: d.x_m + 20 } : d)) }, input);
+    expect(long.some((p) => p.rule === "CK9" && p.id === own.id && p.reason.includes("longer"))).toBe(true);
+  }, 20_000);
+
+  it("CK7 on drops: every drop's lowest point is 4.2 m or more, one over a carriageway may be under 5.5 m, and a drop hung from 2 m fails as CK7", () => {
+    const z = roofContext(layer, input);
+    const low = (d: (typeof layer.drops)[number], y = d.y_m): number => {
+      const a = z.poleEnd.get(d.pole)!;
+      const b: End = { id: d.id, x: d.x_m, z: d.z_m, y };
+      return lowestOver(a.y, b.y, len3(a, b), 0, 1);
+    };
+    const lows = layer.drops.map((d) => low(d));
+    expect(Math.min(...lows)).toBeGreaterThanOrEqual(WALK_FLOOR_M);
+    expect(Math.min(...lows)).toBeLessThan(5.5);
+    const d = layer.drops.find((x) => x.street !== undefined)!;
+    expect(circuitProblems({ ...layer, drops: layer.drops.map((x) => (x === d ? { ...x, y_m: 2 } : x)) }, input).some((p) => p.rule === "CK7" && p.id === d.id)).toBe(true);
+  }, 20_000);
 
   it("CK10: a light at a crossing pole's spot fails, and so does one on the pole pavement", () => {
     const l = layer.lights[0]!;
@@ -280,5 +311,18 @@ describe("stage 6, poles and spans (081 K2a) and places (081 K2b)", () => {
       const light = { ...layer.lights[0]!, x_m: m.x + 0.4, z_m: m.z };
       expect(circuitProblems({ ...layer, lights: [...layer.lights, light] }, input).some((p) => p.rule === "CK17d" && p.id === s.id && p.reason.includes(light.id))).toBe(true);
     });
+
+    it("CK17d keeps a roof span 1 m from a drop's curve, except a drop from one of the span's own end poles", () => {
+      const s = layer.roofSpans!.find((x) => x.over === "pavement")!;
+      const [a, b] = [endOf(s.a), endOf(s.b)];
+      const pole = a.id.startsWith("roof:") ? b : a;
+      const midY = hangAt(a.y, b.y, len3(a, b), 0.5);
+      const drop = (from: string): CityCircuitLayer["drops"][number] => ({ id: "drop:fixture", pole: from, building: "fixture", cell: { i: 0, j: 0 }, x_m: (a.x + b.x) / 2, z_m: (a.z + b.z) / 2, y_m: midY });
+      const stranger = layer.poles.find((p) => p.id !== pole.id)!;
+      const hit = judgeSpan(roofContext({ ...layer, drops: [drop(stranger.id)] }, input), a, b).problems;
+      expect(hit.some((p) => p.rule === "CK17d" && p.reason.includes("drop:fixture"))).toBe(true);
+      expect(circuitProblems({ ...layer, drops: [...layer.drops, drop(stranger.id)] }, input).some((p) => p.rule === "CK17d" && p.id === s.id)).toBe(true);
+      expect(judgeSpan(roofContext({ ...layer, drops: [drop(pole.id)] }, input), a, b).problems).toEqual([]);
+    }, 20_000);
   });
 });
