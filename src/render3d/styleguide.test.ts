@@ -9,29 +9,22 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseCalibrationKey } from "../core";
 import * as cityRender from "../render/city";
-import * as camera from "./camera";
 import * as colourway from "./colourway";
 import * as citymetrics from "./citymetrics";
-import * as debug3d from "./debug3d";
 import * as dressing from "./dressing";
 import * as escapes from "./escapes";
 import * as facade from "./facade";
 import * as furniture from "./furniture";
-import * as layout from "./layout";
 import * as lighting from "./lighting";
 import * as models from "./models";
 import * as placeholders from "./placeholders";
-import * as scene from "./scene";
 import * as sills from "./sills";
 import * as stacks from "./stacks";
-import * as streetcam from "./streetcam";
-import * as terrace from "./terrace";
 import * as buildingsConstants from "../city/buildings/constants";
 import * as edgeConstants from "../city/edge/constants";
 import * as massConstants from "../city/mass/constants";
 import * as tilecity from "./tilecity";
 import * as tileslots from "./tileslots";
-import * as town from "./town";
 import * as kit from "./kitunits";
 
 const GUIDE_DIR = "docs/city-style";
@@ -134,21 +127,15 @@ const doc = readGuide();
 const lines = doc.split(/\r?\n/);
 
 const MODULES: Readonly<Record<string, Record<string, unknown>>> = {
-  "town.ts": town as unknown as Record<string, unknown>,
   "kitunits.ts": kit as unknown as Record<string, unknown>,
   "models.ts": models as unknown as Record<string, unknown>,
-  "layout.ts": layout as unknown as Record<string, unknown>,
-  "scene.ts": scene as unknown as Record<string, unknown>,
   "placeholders.ts": placeholders as unknown as Record<string, unknown>,
-  "camera.ts": camera as unknown as Record<string, unknown>,
   "stacks.ts": stacks as unknown as Record<string, unknown>,
-  "terrace.ts": terrace as unknown as Record<string, unknown>,
   "dressing.ts": dressing as unknown as Record<string, unknown>,
   "escapes.ts": escapes as unknown as Record<string, unknown>,
   "facade.ts": facade as unknown as Record<string, unknown>,
   "sills.ts": sills as unknown as Record<string, unknown>,
   "furniture.ts": furniture as unknown as Record<string, unknown>,
-  "streetcam.ts": streetcam as unknown as Record<string, unknown>,
   "citymetrics.ts": citymetrics as unknown as Record<string, unknown>,
   "colourway.ts": colourway as unknown as Record<string, unknown>,
   "lighting.ts": lighting as unknown as Record<string, unknown>,
@@ -253,7 +240,7 @@ describe("the city style guide exists and is shaped as the ticket says", () => {
 
   it("restates the accessibility rule and names the tests that enforce it, all of which exist", () => {
     const text = chapter(12).join("\n");
-    for (const f of ["scene.test.ts", "live.test.ts", "look.test.ts"]) {
+    for (const f of ["look.test.ts"]) {
       expect(text, `chapter 12 names ${f}`).toContain(`\`${f}\``);
       expect(existsSync(`src/render3d/${f}`)).toBe(true);
     }
@@ -271,7 +258,7 @@ describe("the city style guide exists and is shaped as the ticket says", () => {
   it("names only constants that exist (or are Pending ones the guide says so about)", () => {
     // Names from work that is approved and not built (042 B). They leave this list when the work lands and the guide is updated (043 C).
     const PENDING = new Set(["PLACE_MODELS", "PLACE_MIN_SCALE", "PLACE_GLOW_MAX"]);
-    const known = new Set<string>([...Object.keys(MODULES["town.ts"]!), ...Object.keys(cityRender), ...Object.keys(debug3d)]);
+    const known = new Set<string>([...Object.keys(cityRender)]);
     for (const mod of Object.values(MODULES)) for (const k of Object.keys(mod)) known.add(k);
     for (const m of doc.matchAll(/`([A-Z][A-Z0-9_]{2,})`/g)) {
       const name = m[1]!;
@@ -390,7 +377,7 @@ describe("the Numbers table matches the code", () => {
   const REQUIRED: readonly string[] = REQUIRED_BY_OLD_FILE.map((k) => {
     const [n, file] = k.split("@") as [string, string];
     return IN_KIT.has(n.split(".")[0]!) && ["town.ts", "layout.ts", "terrace.ts", "scene.ts"].includes(file) ? `${n}@kitunits.ts` : k;
-  });
+  }).filter((k) => !/@(town|layout|terrace|scene|camera|streetcam).ts$/.test(k)); // 081 A2c: the rows of the deleted ladder files went with them
 
   it("is not empty and has no row twice", () => {
     expect(rows.length).toBeGreaterThan(60);
@@ -433,7 +420,6 @@ describe("the Numbers table matches the code", () => {
   it("covers every lot type and every place size", () => {
     const refs = new Set(rows.map((r) => unquote(r[0]!)));
     for (const t of kit.LOT_TYPE_NAMES) expect(refs.has(`LOT_TYPES.${t}`), `LOT_TYPES.${t}`).toBe(true);
-    for (const k of Object.keys(town.PLACE_SIZES)) expect(refs.has(`PLACE_SIZES.${k}`), `PLACE_SIZES.${k}`).toBe(true);
     placeholders.TINTS.forEach((_, i) => expect(refs.has(`TINTS[${i}]`), `TINTS[${i}]`).toBe(true));
   });
 
@@ -448,13 +434,6 @@ describe("the Numbers table matches the code", () => {
 describe("one scale", () => {
   it("town.ts and models.ts define the same WORLD_PER_METRE", () => {
     expect(kit.WORLD_PER_METRE).toBe(models.WORLD_PER_METRE);
-  });
-});
-
-describe("the camera's facts behind OCCLUDE_SLOPE", () => {
-  it("OCCLUDE_SLOPE is 1 / tan(ELEVATION - FOV_DEG / 2) for the camera's own constants", () => {
-    const expected = 1 / Math.tan(camera.ELEVATION - ((camera.FOV_DEG / 2) * Math.PI) / 180);
-    expect(Math.abs(town.OCCLUDE_SLOPE - expected)).toBeLessThanOrEqual(1e-9);
   });
 });
 
@@ -521,17 +500,6 @@ describe("the facing and corner chapters list the fronts that are not the defaul
   });
 });
 
-describe("accessibility, restated on the pinned colours", () => {
-  const lum = (hex: number): number => {
-    const ch = (c: number): number => (c / 255 <= 0.03928 ? c / 255 / 12.92 : Math.pow((c / 255 + 0.055) / 1.055, 2.4));
-    return 0.2126 * ch((hex >> 16) & 255) + 0.7152 * ch((hex >> 8) & 255) + 0.0722 * ch(hex & 255);
-  };
-  it("keeps the pole wood at least 3:1 in luminance against the street (037; scene.test.ts checks the painted poles)", () => {
-    const c = (lum(scene.POLE_WOOD) + 0.05) / (lum(kit.STREET) + 0.05);
-    expect(c).toBeGreaterThanOrEqual(3);
-  });
-});
-
 // ---- ticket 053: chapter 16 and the numbers it pins ----
 
 describe("every numeric export of the city files has a Numbers row (ticket 053)", () => {
@@ -550,27 +518,25 @@ describe("every numeric export of the city files has a Numbers row (ticket 053)"
     return false;
   };
 
-  it("has a row for every numeric constant of stacks, terrace, dressing, furniture, streetcam and citymetrics, and the TERRACE_, PARKING_ and PLAZA_ ones of town.ts", () => {
+  it("has a row for every numeric constant of stacks, dressing, furniture and citymetrics, and the TERRACE_, PARKING_, PLAZA_, ALLEY_ and STREET_CAM_ ones of kitunits.ts", () => {
     const missing: string[] = [];
     let checked = 0;
-    for (const file of ["stacks.ts", "terrace.ts", "dressing.ts", "furniture.ts", "streetcam.ts", "citymetrics.ts", "town.ts", "kitunits.ts"]) {
+    for (const file of ["stacks.ts", "dressing.ts", "furniture.ts", "citymetrics.ts", "kitunits.ts"]) {
       for (const [name, v] of Object.entries(MODULES[file]!)) {
-        if ((file === "town.ts" || file === "kitunits.ts") && !/^(TERRACE_|PARKING_|PLAZA_|ALLEY_|STREET_CAM_)/.test(name)) continue;
+        if (file === "kitunits.ts" && !/^(TERRACE_|PARKING_|PLAZA_|ALLEY_|STREET_CAM_)/.test(name)) continue;
         if (!numeric(v)) continue;
         checked++;
         if (!covered(file, name, v)) missing.push(`${name} in ${file}`);
       }
     }
-    expect(checked, "the check found the constants").toBeGreaterThan(80);
+    expect(checked, "the check found the constants").toBeGreaterThan(60);
     expect(missing, `the Numbers table has no row for: ${missing.join(", ")}`).toEqual([]);
   });
 
-  it("pins CITY_CHECK as a record row and the 051 B constants of town.ts", () => {
+  it("pins CITY_CHECK as a record row and the 051 B constants of kitunits.ts", () => {
     expect(has("citymetrics.ts", "CITY_CHECK")).toBe(true);
     expect(covered("dressing.ts", "NO_SUCH_CONSTANT", 1), "a constant with no row is found missing").toBe(false);
-    for (const n of ["TERRACE_BAY_M", "TERRACE_BAYS", "PARKING_MIN_RUN_BAYS", "PARKING_ONE_IN", "PLAZA_ONE_IN"]) expect(has("town.ts", n), n).toBe(true);
     for (const n of ["TERRACE_DEPTH_M", "PARKING_W_M", "PARKING_D_M", "PLAZA_W_M"]) expect(has("kitunits.ts", n), n).toBe(true);
-    for (const i of [0, 1, 2]) expect(has("town.ts", `TERRACE_CAPS_M[${i}]`), `TERRACE_CAPS_M[${i}]`).toBe(true);
   });
 });
 
@@ -628,41 +594,6 @@ describe("chapter 16 gives the grammar and the evaluation protocol (ticket 053)"
     for (const id of Object.keys(citymetrics.CITY_CHECK)) expect(text, id).toMatch(new RegExp(`\\b${id}\\b`));
   });
 
-  it("gives every view as a URL that parses: the street views with streetCamRequested, the play view and the gallery without a street camera, on a map in puzzles/", () => {
-    const rows = table(chapter(16), ["Map", "View", "URL"]);
-    expect(rows.length).toBe(MAPS.length * 9 + 1);
-    const seen = new Set<string>();
-    for (const r of rows) {
-      const map = unquote(r[0]!);
-      const view = r[1]!;
-      const url = new URL(unquote(r[2]!), "http://localhost");
-      expect(url.pathname, view).toBe("/");
-      const puzzle = url.searchParams.get("puzzle");
-      expect(MAPS, `${map} ${view}`).toContain(puzzle);
-      expect(puzzle, "the row's map is the URL's").toBe(map);
-      expect(existsSync(`puzzles/${puzzle}.json`), String(puzzle)).toBe(true);
-      expect(url.searchParams.get("view"), view).toBe("3d");
-      const cam = streetcam.streetCamRequested(url.search);
-      if (/^(play view|stack gallery)/.test(view)) {
-        expect(cam, `${view} is not a street view`).toBeNull();
-        if (/gallery/.test(view)) for (const [k, v] of [["gallery", "city-pack"], ["stacks", "1"], ["dress", "1"]] as const) expect(url.searchParams.get(k), `${view} ${k}`).toBe(v);
-      } else {
-        expect(cam, `${view}: the street camera reads this URL`).not.toBeNull();
-        expect(cam!.day, view).toBe(/day$/.test(view));
-        const want = /longest/.test(view) ? { run: 0, at: 0.5 } : /second/.test(view) ? { run: 1, at: 0.5 } : /third/.test(view) ? { run: 2, at: 0.5 } : { run: 0, at: 0 };
-        expect({ run: cam!.run, at: cam!.at }, view).toEqual(want);
-        seen.add(`${map}|${view}`);
-      }
-    }
-    // every map has all eight street views (four rows, night and day)
-    expect(seen.size).toBe(MAPS.length * 8);
-  });
-
-  it("says to wait for the street camera's console line, and that each street view is judged at night and by day", () => {
-    expect(text).toContain("street camera:");
-    expect(text).toMatch(/night and again with `light=day`/);
-    expect(existsSync("src/render3d/citymetrics.test.ts")).toBe(true);
-  });
 });
 
 // ---- ticket 054 C: colourway.ts joins the drift-checked files ----

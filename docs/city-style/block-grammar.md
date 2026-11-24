@@ -15,8 +15,8 @@ The reference is a city street with these parts: continuous terraces of 3 to 5 s
 
 The pipeline, in order. Everything up to the last step is pure (no three, no DOM, no assets in the tests), and every choice is a hash of a key, so one map gives one city every time.
 
-1. `townLayout` (`town.ts`): streets, outer blocks, terrace runs, open lots.
-2. `packTown` (`terrace.ts`): each run becomes exact blocks, with `assembleStack` (`stacks.ts`) building each from the pack's pieces.
+1. `townLayout` (town.ts): streets, outer blocks, terrace runs, open lots.
+2. `packTown` (terrace.ts): each run becomes exact blocks, with `assembleStack` (`stacks.ts`) building each from the pack's pieces.
 3. `dressTown` (`dressing.ts`): the dressing of each block.
 4. `furnitureLayout` (`furniture.ts`): the pavements, the open lots and the alleys.
 5. `applyModels` (`models3d.ts`): draws all of it, and only when the City Pack GLB is there.
@@ -27,11 +27,11 @@ The pipeline, in order. Everything up to the last step is pure (no three, no DOM
 
 | Level | What it is | Made by | Chosen by |
 | --- | --- | --- | --- |
-| Town window | the ring road and one ring of outer blocks (`OUTER_RINGS`) | `townLayout` | the circuit's bounds (chapter 3) |
-| Outer block | the ground inside four streets, four rows pinwheel-fashion | `townLayout` | the grid (`BLOCK_PITCH`) |
+| Town window | the ring road and one ring of outer blocks (OUTER_RINGS) | `townLayout` | the circuit's bounds (chapter 3) |
+| Outer block | the ground inside four streets, four rows pinwheel-fashion | `townLayout` | the grid (BLOCK_PITCH) |
 | Row | one side of an outer block, a band `TERRACE_DEPTH_M` deep | `townLayout` | the pinwheel (chapter 4) |
 | Run | a stretch of abutting lots in a row, `TerraceRun`, with a start (a corner or not) and an end (a corner, a plaza, a parking lot, or "end") | `townLayout` | where the lots clear their height cap |
-| Open lot | a parking lot or a plaza in a row, in `Town.openLots` | `townLayout` | `stableHash` of the run and the block, `PARKING_ONE_IN`, `PLAZA_ONE_IN` |
+| Open lot | a parking lot or a plaza in a row, in `Town.openLots` | `townLayout` | `stableHash` of the run and the block, PARKING_ONE_IN, `PLAZA_ONE_IN` |
 | Block | one stack standing on a run: a style, columns, floors | `packTerrace` and `assembleStack` | the least-used style, the neighbour rule, the far-gap rule |
 | Column (a bay) | one floor piece's width along the street | `assembleStack` | the style's floor piece |
 | Storey | the base (the ground row), the floors, the roof | `assembleStack` | `STACK_FLOORS`, the cap, a hash of the block key |

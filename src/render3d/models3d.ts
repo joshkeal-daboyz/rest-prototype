@@ -6,24 +6,21 @@
  */
 
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { BoxGeometry, Box3, Color, DoubleSide, Group, InstancedMesh, Matrix4, MeshStandardMaterial, NearestFilter, Quaternion, Texture, TextureLoader, Vector3, type Material, type Mesh, type Object3D } from "three";
+import { BoxGeometry, Color, DoubleSide, Group, InstancedMesh, Matrix4, MeshStandardMaterial, NearestFilter, Quaternion, Texture, TextureLoader, Vector3, type Material, type Mesh, type Object3D } from "three";
 import { calibrationKey, parseCalibrationKey, type AssetEntry, type AssetManifest, type CalibrationKey } from "../core";
-import { stableHash } from "../render/city";
 import { effectiveFronts, loadSavedCalibration } from "./calibration";
-import { COLOURWAY_POOL, assignColourways, isBaseAtlasName, isColourwayId, type ColourwayBlock } from "./colourway";
+import { COLOURWAY_POOL, isBaseAtlasName, isColourwayId } from "./colourway";
 import { CODE_ESCAPE_KEY, type EscapePart } from "./escapes";
-import { DRESS_DRAW_CALLS_MAX, KERB_FROM_FRONT_M, SHOP_GLASS, dressKeys, dressTown, type DressBlockInput, type DressPiece, type DressSlotKind, type DressTownOptions } from "./dressing";
+import { DRESS_DRAW_CALLS_MAX, SHOP_GLASS, dressKeys, type DressPiece, type DressSlotKind } from "./dressing";
 import { TECH_BOUNDS } from "../city/tech/kit";
 import { KIT_KEYS as HOLDOUT_KIT_KEYS } from "../city/holdout/kit";
 import { KIT_KEYS as RUIN_KIT_KEYS } from "../city/ruin/kit";
-import { FURN_DRAW_CALLS_MAX, alleyOf, furnitureKeys, furnitureLayout, openLotsOf, type Alley, type AvoidBox, type FurnitureInput, type FurniturePiece, type Rect } from "./furniture";
-import { BUILDING_EXCLUDE, BUILDING_FRONTS, MODEL_SLOTS, MODEL_TABLE, WORLD_PER_METRE, atFront, buildingPlan, frontIsQuarter, frontYaw, isManifest, meshFamily, modelScale, pickBuildings, pickIndex, planDressPieces, planModels, planStackPieces, sizeOf, poleYaw, stackFamily, stackStyleOf, traitsOf, type BuildingFront, type FrontTable, type ModelChoice, type ModelSlot, type PlannedModel, } from "./models";
-import { pickPlaceholders } from "./placeholders";
-import type { ModelSlots, SceneBundle } from "./scene";
-import { STACK_STYLES, assembleStack, offeredStacks, seatOnBody, stackKeys, type Stack, type StackAlign, type StackFootprint, type StackPiece, type StackStyle } from "./stacks";
-import { packTown, type PackedBlock, type PackResult } from "./terrace";
-import { ALLEY_MAX_M, ALLEY_MIN_M, alignOf, PAVEMENT_Y, YARD, YARD_H, LOT_TYPE_NAMES, TERRACE_DEPTH_M, type Lot, type Pt, type TerraceRun } from "./kitunits";
-import { DOOR_SILLS, STEPS_D_M, STEPS_KEY, STEPS_RISE_M, STEPS_W_M, fitSillBand, houseSill, modelPoint, stackLift, stackSill, stepsYaw, type SillPlan, type SillTable } from "./sills";
+import { furnitureKeys, type FurniturePiece } from "./furniture";
+import { BUILDING_EXCLUDE, BUILDING_FRONTS, MODEL_SLOTS, MODEL_TABLE, WORLD_PER_METRE, atFront, buildingPlan, frontIsQuarter, frontYaw, isManifest, meshFamily, modelScale, pickBuildings, planDressPieces, planModels, planStackPieces, sizeOf, stackFamily, stackStyleOf, traitsOf, type BuildingFront, type FrontTable, type ModelChoice, type ModelSlot, type PlannedModel } from "./models";
+
+import { STACK_STYLES, assembleStack, offeredStacks, stackKeys, type Stack, type StackPiece, type StackStyle } from "./stacks";
+import { PAVEMENT_Y, YARD, YARD_H, type Lot } from "./kitunits";
+import { STEPS_D_M, STEPS_KEY, STEPS_RISE_M, STEPS_W_M, fitSillBand, modelPoint, stepsYaw, type SillPlan, type SillTable } from "./sills";
 
 /** The dressing that stands on a ground piece and rises with it (ticket 062 B): a shop's glass, an awning or door canopy, a sign and the ATM beside a door. */
 const GROUND_DRESS: ReadonlySet<DressSlotKind> = new Set<DressSlotKind>(["glass", "awning", "sign", "wall"]);
@@ -393,57 +390,6 @@ export function tileInput(set: ModelSet): TileInput | null {
   return { entries, roots };
 }
 
-export interface AppliedModels {
-  /** Put the placeholders back and drop the clones. */
-  remove(): void;
-  /** The building clones that were placed (empty when no building model applied): what the `fronts=1` overlay reads. Terrace blocks are not among them (see `terrace`). */
-  buildings: readonly BuildingPlacement[];
-  /** The terrace blocks that were stood (ticket 051 D), run by run, block by block: empty when there is no City Pack stack (the terrace placeholders stay). */
-  terrace: readonly PackedBlock[];
-  /** The dressing placed on the stacks (ticket 052 B), in `dressSites` order; empty when there is no dressing or no stack. */
-  dress: readonly DressPlacement[];
-  /**
-   * `packTown`'s result for the terrace runs of the scene, by run id (ticket 057 D: the tile view reads it for `tilePassages`, the gated passages the runs leave); empty when nothing was packed
-   * (no City Pack stack, a map with no terrace). A puzzle map ignores it.
-   */
-  packed: ReadonlyMap<string, PackResult>;
-  /** The InstancedMeshes the dressing added (its draw calls); 0 when none. */
-  dressCalls: number;
-  /** The street furniture and open-lot dressing placed (ticket 052 C), in `furnitureLayout` order; empty when there is none. */
-  furniture: readonly FurniturePiece[];
-  /** The InstancedMeshes the furniture added (its draw calls); 0 when none. */
-  furnitureCalls: number;
-  /** The buildings that were sunk or given steps (ticket 055 F), in the order they were stood: whole models and lone stacks first, then the terrace blocks. Empty when nothing was changed. */
-  doors: readonly DoorWork[];
-  /** The door steps drawn (ticket 055 F), one placement per house that has them; empty when none. */
-  steps: readonly DressPlacement[];
-}
-
-/** One building sunk to meet the walk, or stood on a rise that its steps make up (ticket 055 F). */
-export interface DoorWork {
-  key: CalibrationKey;
-  kind: "house" | "stack";
-  sink_m: number;
-  steps: boolean;
-  leftOver_m: number;
-}
-
-/** A clone of `m` in a wrapper that scales, turns and places it. The clone shares the cache's geometry and materials; nothing can pick it. */
-function place(m: LoadedModel, scale: number, x: number, z: number, yaw: number): Group {
-  const wrap = new Group();
-  wrap.name = `model:${m.entry.name}`;
-  wrap.userData["sharedModel"] = true;
-  wrap.position.set(x, 0, z);
-  wrap.rotation.y = yaw;
-  wrap.scale.setScalar(scale);
-  const clone = m.root.clone(true);
-  clone.traverse((o) => {
-    o.raycast = () => {};
-  });
-  nearestTextures(clone);
-  wrap.add(clone);
-  return wrap;
-}
 
 /** The loaded stack pieces' manifest entries by key: what `assembleStack` reads, so a piece whose root did not load drops the styles that need it. */
 export function stackEntries(set: ModelSet): Map<CalibrationKey, AssetEntry> {
@@ -633,48 +579,6 @@ export function partMatrix(part: Pick<EscapePart, "x" | "y" | "z" | "w" | "h" | 
 /** The colour of the code-drawn fire escapes' boxes: the pack escape's dark steel. */
 const ESCAPE_STEEL = 0x30343b;
 
-/** One site to dress: a stack, its lot's key and height cap, the run it counts in, where it stands, and how far its front is from the road's edge. */
-export interface DressSite extends DressBlockInput {
-  frame: DressFrame;
-}
-
-/**
- * The stacks of a town as dressing sites, in the order `dressTown` threads its caps: each terrace run's packed blocks in run order, then each stack standing on a
- * lot. Terrace blocks count in their terrace run; stacks on lots in the street side they face. A run's lowest block (its shortest stack, the first of equals) is
- * the one a novelty sign may stand on. Every ordinary lot and terrace block faces a road at the pavement and setback, so the kerb is `KERB_FROM_FRONT_M` for all
- * (a service run's frontage, 2.08 m, is only ever a place's, and a place is not stacked).
- *
- * `frames` (ticket 055 E): a run's pavement frame (`TerraceRun.frame`) by run id. A terrace block of a run that has one carries it in its site's `run.frame`, where `dressBlock` reads it (it
- * wins over `kerbM`), so a kerb-side piece stands on the tile city's 5 m pavement and not 3.33 m from the front. With none (the ladder maps), every site is exactly as it was.
- */
-export function dressSites(terrace: readonly PackedBlock[], placements: readonly BuildingPlacement[], lots: readonly Lot[], frames: ReadonlyMap<string, TerraceRun["frame"]> = new Map()): DressSite[] {
-  const raw: { stack: Stack; lot: Pick<Lot, "key" | "hMax">; run: string; frame: DressFrame }[] = [];
-  for (const b of terrace) {
-    const half = b.lot.d / 2;
-    raw.push({ stack: b.stack, lot: { key: b.lot.key, hMax: b.lot.hMax }, run: b.lot.terrace?.run ?? `terrace:${b.lot.street}:${b.lot.side}`, frame: { x: b.lot.x + Math.sin(b.lot.yaw) * half, z: b.lot.z + Math.cos(b.lot.yaw) * half, yaw: b.lot.yaw } });
-  }
-  for (const p of placements) {
-    const lot = lots[p.lot];
-    if (!p.stack || !lot) continue;
-    const half = (p.stack.depth_m * WORLD_PER_METRE) / 2;
-    raw.push({ stack: p.stack, lot: { key: lot.key, hMax: lot.hMax }, run: `lots:${lot.street}:${lot.side}`, frame: { x: p.x + Math.sin(p.yaw) * half, z: p.z + Math.cos(p.yaw) * half, yaw: p.yaw } });
-  }
-  const count = new Map<string, number>();
-  const lowest = new Map<string, number>();
-  const index: number[] = [];
-  raw.forEach((r, k) => {
-    const i = count.get(r.run) ?? 0;
-    index.push(i);
-    count.set(r.run, i + 1);
-    const low = lowest.get(r.run);
-    if (low === undefined || r.stack.height_m < raw[low]!.stack.height_m) lowest.set(r.run, k);
-  });
-  return raw.map((r, k) => {
-    const pave = frames.get(r.run);
-    return { stack: r.stack, lot: r.lot, run: { id: r.run, index: index[k]!, lowest: lowest.get(r.run) === k, ...(pave ? { frame: pave } : {}) }, kerbM: KERB_FROM_FRONT_M, frame: r.frame };
-  });
-}
-
 /**
  * Take the dressing of lifted ground pieces up with them (ticket 062 B; pure): a placement whose slot is on a ground piece (a shop's glass, an awning or door canopy, a sign, the ATM beside a door) rises by the
  * lift of its column on its site (`lifts`, by the site's frame object); every other placement, a floor's, a roof's and the fire escapes, is returned as it is.
@@ -684,16 +588,6 @@ export function liftDressing(placements: readonly DressPlacement[], lifts: Reado
     const lift = GROUND_DRESS.has(p.piece.slot) ? (lifts.get(p.frame)?.get(p.piece.column) ?? 0) : 0;
     return lift > 0 ? { ...p, piece: { ...p.piece, y: p.piece.y + lift } } : p;
   });
-}
-
-/** The placements of a set of sites, flattened in site order (pure: `dressTown`'s caps along each run). A piece whose key is not in `entries` is simply not placed. */
-export function dressPlacements(sites: readonly DressSite[], entries: ReadonlyMap<CalibrationKey, AssetEntry>, fronts: FrontTable = {}, opts: DressTownOptions = {}): DressPlacement[] {
-  const dressed = dressTown(sites, entries, fronts, opts);
-  const out: DressPlacement[] = [];
-  sites.forEach((s, i) => {
-    for (const piece of dressed[i] ?? []) out.push({ frame: s.frame, piece });
-  });
-  return out;
 }
 
 // ---- street furniture and open lots (ticket 052 C) ----
@@ -715,69 +609,6 @@ export function furniturePlacement(p: FurniturePiece, levels: FurnitureLevels = 
   const ground = p.ground === "pavement" ? (levels.pavement_m ?? PAVEMENT_Y / WORLD_PER_METRE) : (levels.yard_m ?? YARD_H / WORLD_PER_METRE);
   const base = ground + (p.flat ? GROUND_LIFT_M : 0) + p.lift;
   return { frame: NO_FRAME, piece: { key: p.key, slot: "wall", x: p.x / WORLD_PER_METRE, y: base, z: p.z / WORLD_PER_METRE, yaw: p.yaw, column: 0, w: p.w, h: p.h, d: p.d } };
-}
-
-/** The footprint of a piece of building dressing on the ground, world units, and the height of its base, metres: what a tall item of furniture keeps out from under. */
-export function avoidBoxOf(pl: DressPlacement): AvoidBox {
-  const s = WORLD_PER_METRE;
-  const c = Math.cos(pl.frame.yaw);
-  const n = Math.sin(pl.frame.yaw);
-  const x = pl.frame.x + (pl.piece.x * c + pl.piece.z * n) * s;
-  const z = pl.frame.z + (-pl.piece.x * n + pl.piece.z * c) * s;
-  const hx = ((Math.abs(c) * pl.piece.w + Math.abs(n) * pl.piece.d) / 2) * s;
-  const hz = ((Math.abs(n) * pl.piece.w + Math.abs(c) * pl.piece.d) / 2) * s;
-  return { minX: x - hx, minZ: z - hz, maxX: x + hx, maxZ: z + hz, y: pl.piece.y };
-}
-
-function boxRect(o: Object3D): Rect | null {
-  o.updateWorldMatrix(true, false);
-  const b = new Box3().setFromObject(o);
-  return b.isEmpty() ? null : { minX: b.min.x, minZ: b.min.z, maxX: b.max.x, maxZ: b.max.z };
-}
-
-/**
- * What the furniture layout reads of a scene (the town is not on the bundle, and 052 may not edit the scene): the terrace runs that were packed, the lots, the parking lots and plazas
- * found from the runs (`openLotsOf`), each run's alley (`alleyOf`, from the packer's far gap), the circuit's poles, lamps, nodes, drops, pads and wire spans (to keep out of), and the building
- * dressing's footprints. A run that packed no block (its placeholders stay) gets no furniture.
- */
-export function furnitureInput(bundle: SceneBundle, packed: ReadonlyMap<string, PackResult>, dress: readonly DressPlacement[]): FurnitureInput {
-  const { slots } = bundle;
-  const lots = slots.blocks.list;
-  const all = slots.blocks.terraces ?? [];
-  const runs = all.filter((r) => (packed.get(r.id)?.blocks.length ?? 0) > 0);
-  const alleys = new Map<string, Alley>();
-  for (const r of runs) {
-    const res = packed.get(r.id)!;
-    const a = alleyOf(r, res.blocks[res.blocks.length - 1]?.lot ?? null, res.farGap_m, res.farOverhang_m, ALLEY_MIN_M, ALLEY_MAX_M);
-    if (a) alleys.set(r.id, a);
-  }
-  const keepPoints = [
-    ...slots.poles.spots.map((p) => ({ x: p.x, z: p.z })),
-    ...slots.lamps.map((l) => ({ x: l.group.position.x, z: l.group.position.z })),
-    // The nodes' groups are the scene's own children (the models, terrace and dressing groups are marked shared).
-    ...bundle.scene.children.filter((o) => o.type === "Group" && o.userData["sharedModel"] !== true).map((o) => ({ x: o.position.x, z: o.position.z })),
-  ];
-  const keepRects: Rect[] = [];
-  for (const m of bundle.streets.pads) {
-    const r = boxRect(m);
-    if (r) keepRects.push(r);
-  }
-  const wireRects: Rect[] = [];
-  for (const w of bundle.wires.values()) {
-    const r = boxRect(w.whole);
-    if (r) wireRects.push(r);
-  }
-  return {
-    runs,
-    lots,
-    openLots: openLotsOf(all, lots),
-    alleys,
-    keepPoints,
-    keepSegments: bundle.hardware.dropList.map((d) => [{ x: d.from.x, z: d.from.z }, { x: d.to.x, z: d.to.z }] as const),
-    keepRects,
-    wireRects,
-    avoid: dress.filter((p) => p.piece.slot !== "glass").map(avoidBoxOf),
-  };
 }
 
 /** The mesh nodes of a model's root, each with the matrix that takes its own frame to the root's parent (the root's own local matrix included, as a clone in a wrapper has it). */
@@ -920,8 +751,6 @@ export function dressGroup(placements: readonly DressPlacement[], roots: Readonl
   };
 }
 
-const at = (list: readonly LoadedModel[], key: string): LoadedModel => list[pickIndex(stableHash(key), list.length)]!;
-
 /**
  * One building clone: which lot, which model, and where it stands. Its scale is WORLD_PER_METRE on every axis. (x, z) is the model's base
  * centre, moved off the lot's centre toward its front so the model's front face is against the lot's front edge (`atFront`).
@@ -1023,46 +852,6 @@ export function bandedStack(stack: Stack, style: StackStyle, table: SillTable, s
  * each of its `cornerSides` (a corner building, two street faces) or, if that cannot be assembled, a mid-row stack of the same style (an ordinary building, as any model may
  * stand on a corner). Without it (or with no stack piece loaded) the result is exactly what it was.
  */
-/**
- * The packer's result with every block whose lifted ground pieces would reach their first floor's window sill assembled again within one sill band (ticket 062 B; pure). `terrace.ts` assembles with no band and is not
- * given one, so this pass runs on what `packTown` gave: the same lot, floors and columns, a ground row picked from one band, taken only where everything above the ground row is the same (`sameAboveGround`). `applyModels`
- * draws these blocks and hands them back as `applied.packed`, and the pure plan (metrics, frontage, the passage floors) is made from them, so what is checked is what is drawn. `align` is the packer's (default: each run's own).
- *
- * Ticket 063 E2: on a wall-aligned run (the tile city's) every block is then seated on its footprint (`seatOnBody`: each piece's body on its column's floor piece's, so the roof stands on the walls it covers and a corner's
- * flank is one plane from the shop to the cornice). `footprint` says it outright ("bounds": not); the default is "body" exactly where the run is wall-aligned, so a ladder map's blocks (back-aligned) are untouched.
- */
-export function bandPacked(
-  packed: ReadonlyMap<string, PackResult>,
-  runs: readonly TerraceRun[],
-  entries: ReadonlyMap<CalibrationKey, AssetEntry>,
-  fronts: FrontTable,
-  table: SillTable = DOOR_SILLS,
-  align?: StackAlign,
-  footprint?: StackFootprint,
-): Map<string, PackResult> {
-  const out = new Map<string, PackResult>();
-  for (const [id, res] of packed) {
-    const run = runs.find((r) => r.id === id);
-    let changed = false;
-    const blocks = res.blocks.map((b): PackedBlock => {
-      const style = STACK_STYLES.find((st) => st.id === b.style);
-      if (!style || !run) return b;
-      const cap = Math.round((b.lot.hMax / WORLD_PER_METRE) * 1e6) / 1e6;
-      const lot = { type: b.lot.type, key: b.lot.key, cornerSides: b.lot.cornerSides };
-      const lined = align ?? alignOf(run);
-      const again = (sillBand: ReadonlySet<CalibrationKey>): Stack | null => assembleStack(style, lot, entries, fronts, { spec: { frontage: 40, depth: TERRACE_DEPTH_M, cap }, bays: b.bays, floors: b.floors, align: lined, sillBand });
-      const fitted = bandedStack(b.stack, style, table, `${b.lot.key}${style.id}`, again);
-      // The band pass compares stacks as the packer made them (same x and y above the ground row); the body seating is the last thing done to the block.
-      const seated = (footprint ?? (lined === "wall" ? "body" : "bounds")) === "body" && lined === "wall" ? seatOnBody(fitted, fronts) : fitted;
-      if (seated === b.stack) return b;
-      changed = true;
-      return { ...b, stack: seated };
-    });
-    out.set(id, changed ? { ...res, blocks } : res);
-  }
-  return out;
-}
-
 export function buildingPlacements(lots: readonly Lot[], buildings: readonly LoadedModel[] | null, stack: StackInput | null = null, sills?: SillTable): BuildingPlacement[] {
   const models = buildings ?? [];
   const offers = stack ? offeredStacks(stack.entries, stack.fronts) : [];
@@ -1105,10 +894,6 @@ export function buildingPlacements(lots: readonly Lot[], buildings: readonly Loa
   return out;
 }
 
-/** The height a building of scale `scale` stands at when it is sunk `sink_m` metres: below the walk by that much, and exactly 0 (never -0) when it is not sunk. */
-function lowered(sink_m: number, scale: number): number {
-  return sink_m > 0 ? -sink_m * scale : 0;
-}
 
 /**
  * Where the door steps of a house stand (ticket 055 F): in the placement's frame (the model's own, in metres), `steps` is in the front frame (along the front, out from the front face), which
@@ -1163,299 +948,6 @@ export function stepsGroup(placements: readonly DressPlacement[], root: Object3D
       im.dispose();
       geometry.dispose();
       material.dispose();
-    },
-  };
-}
-
-const ZERO = new Matrix4().makeScale(0, 0, 0);
-
-/**
- * Take the placeholder boxes of the terrace lots in `covered` out of sight (ticket 051 D). `scene.ts` draws all terrace placeholders in one group of four instanced meshes
- * (bodies, bands, flat roofs, pitched roofs), in the order of the terrace lots; a lot's instances are found from `pickPlaceholders`, which made them. When every terrace lot is
- * covered the group is hidden whole. Pushes what undoes it to `undo`.
- */
-function blankTerracePlaceholders(slots: ModelSlots, covered: ReadonlySet<number>, undo: (() => void)[]): void {
-  const group = slots.blocks.placeholder.getObjectByName("placeholders:terrace");
-  if (!group) return;
-  const lots = slots.blocks.list;
-  const mine: number[] = [];
-  lots.forEach((l, i) => {
-    if (l.terrace) mine.push(i);
-  });
-  if (mine.length === 0 || !mine.some((i) => covered.has(i))) return;
-  if (mine.every((i) => covered.has(i))) {
-    const was = group.visible;
-    group.visible = false;
-    undo.push(() => {
-      group.visible = was;
-    });
-    return;
-  }
-  const meshes = group.children.filter((c): c is InstancedMesh => c instanceof InstancedMesh);
-  if (meshes.length !== 4) return;
-  const [bodies, bands, flats, slopes] = meshes as [InstancedMesh, InstancedMesh, InstancedMesh, InstancedMesh];
-  const specs = pickPlaceholders(lots);
-  const blank = (mesh: InstancedMesh, i: number): void => {
-    const was = new Matrix4();
-    mesh.getMatrixAt(i, was);
-    mesh.setMatrixAt(i, ZERO);
-    mesh.instanceMatrix.needsUpdate = true;
-    undo.push(() => {
-      mesh.setMatrixAt(i, was);
-      mesh.instanceMatrix.needsUpdate = true;
-    });
-  };
-  let band = 0;
-  let flat = 0;
-  let slope = 0;
-  mine.forEach((li, k) => {
-    const s = specs[li]!;
-    const gone = covered.has(li);
-    if (gone) blank(bodies, k);
-    for (let j = 1; j < s.storeys; j++) {
-      if (gone) blank(bands, band);
-      band++;
-    }
-    if (s.roof === "flat") {
-      if (gone) blank(flats, flat);
-      flat++;
-    } else if (s.roof === "pitched") {
-      if (gone) blank(slopes, slope);
-      slope++;
-    }
-  });
-}
-
-/**
- * What `applyModels` is given beyond the bundle and the models (ticket 055 E). All optional; with none the call is exactly what it was, so a puzzle map's furniture is deep-equal to today's.
- * - `keepPoints` and `keepRects` (world units) are added to the furniture layout's keep-outs: the tile city's pole slots, kerb cuts and corner cells (`tileKeepouts`).
- * - `furnitureFilter` takes the layout's pieces and returns the ones to place: the tile city drops the meters that stand beside no bay (`bayMeters`).
- * - `furnitureLevels` sets the height the furniture stands at (see `FurnitureLevels`).
- */
-export interface ApplyOptions {
-  keepPoints?: readonly Pt[];
-  keepRects?: readonly Rect[];
-  furnitureFilter?: (pieces: readonly FurniturePiece[]) => FurniturePiece[];
-  furnitureLevels?: FurnitureLevels;
-  /** The measured door sills (ticket 055 F). Default: DOOR_SILLS. An empty table sinks nothing and stands no steps, so the scene is exactly what 055 E drew. */
-  sills?: SillTable;
-  /**
-   * How the terrace stacks line up in z (ticket 057 D): the tile city passes `TILE_STACK_ALIGN` ("wall") explicitly, so it does not lean on `packTown`'s default (`alignOf`, which reads the runs' pavement frame).
-   * Default: none, so `packTown` decides as it always did and a puzzle map is exactly what it was.
-   */
-  align?: StackAlign;
-  /**
-   * How the pieces of a terrace column line up (ticket 063 E2): "body" puts each piece's body on its column's floor piece's (`seatOnBody`). Default: "body" when the stacks are wall-aligned (the tile city), "bounds"
-   * otherwise, so a puzzle map's stacks are exactly what they were. Only a wall-aligned stack can be seated.
-   */
-  footprint?: StackFootprint;
-  /** The share of qualifying blocks that get a fire escape (ticket 061): the tile city passes its R7 floor (`TILE_CITY_R7_MIN`). Default: the ladder's (`ESCAPE_SHARE_LADDER`), so a puzzle map is unchanged by it. */
-  escapeShare?: number;
-}
-
-/**
- * Swap the placeholders for model clones where the set has usable models: a clone at every intermediate pole (turned so a
- * cross-arm runs across the wire), on every lamp's post, and on every lot (a model of the lot's type, at one scale, its front to the road).
- * A lot type with no usable model keeps its placeholder buildings. Lamp heads, lights, pools, halos, flares, places and node objects
- * are untouched. Slots with no models stay as they are.
- */
-export function applyModels(bundle: SceneBundle, set: ModelSet, opts: ApplyOptions = {}): AppliedModels {
-  const { slots } = bundle;
-  const undo: (() => void)[] = [];
-  const hide = (o: Object3D): void => {
-    const was = o.visible;
-    o.visible = false;
-    undo.push(() => {
-      o.visible = was;
-    });
-  };
-  const add = (parent: Object3D, child: Object3D): void => {
-    parent.add(child);
-    undo.push(() => {
-      parent.remove(child);
-    });
-  };
-
-  const poles = set.pole;
-  if (poles && poles.length > 0 && slots.poles.spots.length > 0) {
-    for (const o of slots.poles.placeholders) hide(o);
-    for (const s of slots.poles.spots) {
-      const m = at(poles, `pole${s.x.toFixed(2)},${s.z.toFixed(2)}`);
-      add(slots.models, place(m, modelScale(m.entry, "pole"), s.x, s.z, poleYaw(m.entry, s.yaw)));
-    }
-  }
-  const lamps = set.lamp;
-  if (lamps && lamps.length > 0) {
-    for (const l of slots.lamps) {
-      const m = at(lamps, `lamp${l.id}`);
-      hide(l.post);
-      add(l.group, place(m, modelScale(m.entry, "lamp"), 0, 0, 0));
-    }
-  }
-  const buildings = set.building;
-  const sills = opts.sills ?? DOOR_SILLS;
-  const doors: DoorWork[] = [];
-  const stepPlacements: DressPlacement[] = [];
-  const stacks = stackInput(set);
-  const stackRootsOf = stackRoots(set);
-  // Each stack's ground-piece lift by column (ticket 062 B), to take the glass, awning, sign and door canopy up with their piece.
-  const liftOf = new Map<Stack, ReadonlyMap<number, number>>();
-  let placed: readonly BuildingPlacement[] = [];
-  // The groups to paint (ticket 054 B): each terrace block's, then each stack's on a lone lot, with the lot's key and the run.
-  const paintTerrace: { group: Group; at: ColourwayBlock }[] = [];
-  const paintLone: { group: Group; at: ColourwayBlock }[] = [];
-  const terrace: PackedBlock[] = [];
-  const packedRuns = new Map<string, PackResult>();
-  if (((buildings && buildings.length > 0) || stacks) && slots.blocks.list.length > 0) {
-    const placements = buildingPlacements(slots.blocks.list, buildings, stacks, sills);
-    placed = placements;
-    // A type's placeholders go only if some lot of that type got a model; the others stay.
-    const covered = new Set(placements.map((p) => slots.blocks.list[p.lot]!.type));
-    for (const t of LOT_TYPE_NAMES) if (covered.has(t)) hide(slots.blocks.byType[t]);
-    for (const p of placements) {
-      if (p.stack) {
-        // The group's origin is the stack frame's: the lot's front-centre, which is the footprint centre moved toward the road by half its depth.
-        const half = (p.stack.depth_m * WORLD_PER_METRE) / 2;
-        const lifted = stackLift(p.stack, sills);
-        const g = stackGroup(p.stack, stackRootsOf, lifted.lift_m);
-        liftOf.set(p.stack, lifted.lift_m);
-        // A stack sinks as one by its measured sill (ticket 055 F): its door meets the walk; each ground piece is lifted by the block's sink less its own sill (ticket 062 B).
-        const plan = stackSill(p.stack, sills);
-        g.position.set(p.x + Math.sin(p.yaw) * half, lowered(plan.sink_m, WORLD_PER_METRE), p.z + Math.cos(p.yaw) * half);
-        g.rotation.y = p.yaw;
-        add(slots.models, g);
-        paintLone.push({ group: g, at: { key: slots.blocks.list[p.lot]!.key } });
-        if (plan.sink_m > 0) doors.push({ key: `city-pack:${g.name}`, kind: "stack", sink_m: plan.sink_m, steps: false, leftOver_m: plan.leftOver_m });
-      } else {
-        // A whole model sinks by its measured sill, no further than keeps its lowest window clear of the walk, and stands steps for what is left (ticket 055 F).
-        const key = calibrationKey(p.model.pack, p.model.entry.name);
-        const plan = houseSill(key, sills);
-        const g = place(p.model, p.scale, p.x, p.z, p.yaw);
-        g.position.y = lowered(plan.sink_m, p.scale);
-        add(slots.models, g);
-        if (plan.steps) stepPlacements.push(stepsPlacement(p.model, p, plan.steps));
-        if (plan.sink_m > 0 || plan.steps) doors.push({ key, kind: "house", sink_m: plan.sink_m, steps: plan.steps !== null, leftOver_m: plan.leftOver_m });
-      }
-    }
-  }
-  // The terrace rows (ticket 051 D): each run's nominal placeholders give way to its packed stacks, one `stack:<style>` group per block, in a group of their own that is a sibling of `slots.models` (so the lots' clones there are exactly as before). With no City Pack stack
-  // (a fresh checkout, CI) nothing is packed and the abutting placeholder boxes stay, exactly as 051 B made them. A run that packs no block keeps its placeholders.
-  const runs = slots.blocks.terraces ?? [];
-  if (stacks && runs.length > 0) {
-    const lots = slots.blocks.list;
-    // The packer assembles with no sill band; a block whose lifted ground pieces would reach its first floor's window sill is assembled again within one band (ticket 062 B, `bandPacked`). What is drawn, what the
-    // furniture is laid by and what `applied.packed` hands back are those blocks.
-    const packed = bandPacked(packTown({ terraces: runs, lots }, STACK_STYLES, stacks.entries, stacks.fronts, opts.align ? { align: opts.align } : {}), runs, stacks.entries, stacks.fronts, sills, opts.align, opts.footprint);
-    for (const [id, res] of packed) packedRuns.set(id, res);
-    const row = new Group();
-    row.name = "terrace-stacks";
-    row.userData["sharedModel"] = true;
-    row.raycast = () => {};
-    const covered = new Set<number>();
-    for (const run of runs) {
-      const blocks = packed.get(run.id)?.blocks ?? [];
-      if (blocks.length === 0) continue;
-      for (const i of run.lots) covered.add(i);
-      for (const b of blocks) {
-        // The stack frame's origin is the block's front-centre: its lot centre moved toward the road by half the lot's depth.
-        const lifted = stackLift(b.stack, sills);
-        const g = stackGroup(b.stack, stackRootsOf, lifted.lift_m);
-        liftOf.set(b.stack, lifted.lift_m);
-        // A terrace block always sinks, never takes steps: its front is the walk (ticket 055 F). Its ground pieces are lifted (ticket 062 B).
-        const plan = stackSill(b.stack, sills);
-        g.position.set(b.lot.x + Math.sin(b.lot.yaw) * (b.lot.d / 2), lowered(plan.sink_m, WORLD_PER_METRE), b.lot.z + Math.cos(b.lot.yaw) * (b.lot.d / 2));
-        g.rotation.y = b.lot.yaw;
-        row.add(g);
-        if (plan.sink_m > 0) doors.push({ key: `city-pack:${g.name}`, kind: "stack", sink_m: plan.sink_m, steps: false, leftOver_m: plan.leftOver_m });
-        paintTerrace.push({ group: g, at: { key: b.lot.key, run: run.id } });
-        terrace.push(b);
-      }
-    }
-    if (terrace.length > 0) {
-      add(slots.models.parent ?? slots.models, row);
-      blankTerracePlaceholders(slots, covered, undo);
-    }
-  }
-  // The colourways (ticket 054 B): with none loaded (a fresh checkout, CI) nothing is touched and every stack holds the cached materials. Otherwise each block takes the id its lot's key hashes to, never its
-  // run-mate's before it; the dressing below keeps the base atlas (one InstancedMesh per key is shared by every block).
-  if (set.colourways && set.colourways.size > 0) {
-    const available = COLOURWAY_POOL.filter((id) => id === "base" || set.colourways!.has(id));
-    const all = [...paintTerrace, ...paintLone];
-    const ids = assignColourways(all.map((p) => p.at), available);
-    const cache = createColourwayCache();
-    all.forEach((p, i) => paintStack(p.group, ids[i]!, set, cache));
-    undo.push(() => cache.dispose());
-  }
-  // The dressing (ticket 052 B): awnings, glass, signs, fire escapes and roof props on every stack just stood, from the pure `dressTown`. A sibling group of its own, so the stacks
-  // and the lots' clones are exactly as before; with no City Pack dressing (a fresh checkout, CI) or no stack there is no group at all.
-  let dress: readonly DressPlacement[] = [];
-  let dressCalls = 0;
-  const dressing = stacks ? dressInput(set) : null;
-  if (dressing) {
-    // A run's pavement frame (the tile city's) goes to the dressing of its blocks, by run id; a ladder run has none.
-    const frames = new Map<string, TerraceRun["frame"]>();
-    for (const r of slots.blocks.terraces ?? []) if (r.frame) frames.set(r.id, r.frame);
-    // A block's dressing sinks with it (ticket 055 F): the site's frame is lowered by the block's sink, so glass, awnings, signs, fire escapes and roof props stay where they were on the block.
-    const liftByFrame = new Map<DressFrame, ReadonlyMap<number, number>>();
-    const sites = dressSites(terrace, placed, slots.blocks.list, frames).map((s) => {
-      const sink = stackSill(s.stack, sills).sink_m;
-      const site = sink > 0 ? { ...s, frame: { ...s.frame, y: lowered(sink, WORLD_PER_METRE) } } : s;
-      const lift = liftOf.get(s.stack);
-      if (lift && lift.size > 0) liftByFrame.set(site.frame, lift);
-      return site;
-    });
-    // A lifted ground piece takes its glass, awning, sign and door canopy up with it (ticket 062 B); nothing else on the block moves.
-    const placements = liftDressing(dressPlacements(sites, dressing.entries, dressing.fronts, opts.escapeShare !== undefined ? { escapeShare: opts.escapeShare } : {}), liftByFrame);
-    if (placements.length > 0) {
-      const drawn = dressGroup(placements, dressing.roots);
-      if (drawn.calls > 0) {
-        add(slots.models.parent ?? slots.models, drawn.group);
-        undo.push(() => drawn.dispose());
-        dress = placements;
-        dressCalls = drawn.calls;
-      } else drawn.dispose();
-    }
-  }
-  // The street furniture (ticket 052 C): on the pavements in front of the packed terrace runs, in the open lots and in the alleys, drawn through the same instancer into a group of
-  // its own. Nothing without the dressing (a fresh checkout, CI): no group at all.
-  let furniture: readonly FurniturePiece[] = [];
-  let furnitureCalls = 0;
-  if (dressing && terrace.length > 0) {
-    const base = furnitureInput(bundle, packedRuns, dress);
-    const input: FurnitureInput = opts.keepPoints || opts.keepRects ? { ...base, keepPoints: [...(base.keepPoints ?? []), ...(opts.keepPoints ?? [])], keepRects: [...(base.keepRects ?? []), ...(opts.keepRects ?? [])] } : base;
-    const laid = furnitureLayout(input, dressing.entries, dressing.fronts);
-    const pieces = opts.furnitureFilter ? opts.furnitureFilter(laid) : laid;
-    if (pieces.length > 0) {
-      const drawn = dressGroup(pieces.map((p) => furniturePlacement(p, opts.furnitureLevels)), dressing.roots, FURN_DRAW_CALLS_MAX);
-      if (drawn.calls > 0) {
-        drawn.group.name = "city-furniture";
-        add(slots.models.parent ?? slots.models, drawn.group);
-        undo.push(() => drawn.dispose());
-        furniture = pieces;
-        furnitureCalls = drawn.calls;
-      } else drawn.dispose();
-    }
-  }
-  // The door steps (ticket 055 F): one group, drawn last so a missing model (CI) costs nothing else.
-  if (stepPlacements.length > 0) {
-    const root = set.steps?.find((m) => calibrationKey(m.pack, m.entry.name) === STEPS_KEY)?.root;
-    const drawn = stepsGroup(stepPlacements, root);
-    add(slots.models.parent ?? slots.models, drawn.group);
-    undo.push(() => drawn.dispose());
-  }
-  return {
-    buildings: placed,
-    terrace,
-    dress,
-    packed: packedRuns,
-    dressCalls,
-    furniture,
-    furnitureCalls,
-    doors,
-    steps: stepPlacements,
-    remove() {
-      for (let i = undo.length - 1; i >= 0; i--) undo[i]!();
-      undo.length = 0;
     },
   };
 }

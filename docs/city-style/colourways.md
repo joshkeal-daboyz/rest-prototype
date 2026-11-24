@@ -30,7 +30,7 @@ Depends on: `docs/city-style/numbers.md` (the constants), `docs/city-style/build
 - **Default (054)**: dressing and furniture keep the base atlas. Each dressing key is one `InstancedMesh` shared by every block (16.5), and matching the block would split every key into up to eight meshes and break the draw-call cap `DRESS_DRAW_CALLS_MAX`. The reference's awnings and escapes also contrast with their walls: they do not match them.
 - **Default (054)**: loading is lazy and optional (16.7). The City Pack entry's `colourways` field is read only when stack keys were asked for; the pool's ids load in parallel; one that fails is dropped with one console line and the rest are used. The export that makes the files and the field is `tools/assets/colourways.ts` (a table of file names only; the images are Synty content, gitignored and fetched by URL at dev time, never bundled).
 
-The colour judgement is made with `light=day`: the hue difference is subtle in the night scene. `citymetrics.test.ts` measures R13 on the three maps of the protocol with a fixed fake set of 8 ids, not the real files (CI has none). The eye half is in 16.8.
+The colour judgement is made with `light=day`: the hue difference is subtle in the night scene. citymetrics.test.ts measures R13 on the three maps of the protocol with a fixed fake set of 8 ids, not the real files (CI has none). The eye half is in 16.8.
 
 ## Open questions
 

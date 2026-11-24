@@ -6,7 +6,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { ASSET_MANIFEST_VERSION, CALIBRATION_FILE, applyCalibrationPatch, calibrationKey, type AssetEntry, type AssetManifest, type CalibrationFile, type CalibrationKey } from "../core";
 import { effectiveFronts, loadSavedCalibration, type FrontTables } from "./calibration";
-import { galleryEntries } from "./gallery";
 import { BUILDING_EXCLUDE, BUILDING_FRONTS, buildingPlan, planModels, type BuildingFront, type FrontTable, type ModelChoice } from "./models";
 
 const NOW = new Date("2026-11-18T10:00:00.000Z");
@@ -104,28 +103,10 @@ describe("two packs, one name", () => {
     ]);
   });
 
-  it("galleryEntries gives each pack's entry its own front, and marks only the pack with a line as not guessed", () => {
-    const city = galleryEntries(TWO_PACKS, "city-pack", fronts, [], TWO_TABLE);
-    const town = galleryEntries(TWO_PACKS, "town-pack", fronts, [], TWO_TABLE);
-    expect(city.find((g) => g.entry.name === "SM_Bld_Shop_01")!.front).toBe("+x");
-    expect(town.find((g) => g.entry.name === "SM_Bld_Shop_01")!.front).toBe("-z");
-    expect(city.find((g) => g.entry.name === "SM_Bld_Shop_01")!.guessed).toBe(false);
-    expect(city.find((g) => g.entry.name === "SM_Bld_Only_City")!.guessed).toBe(true);
-  });
-
-  it("a line for one pack's name does not list or turn the other pack's", () => {
-    const only: FrontTable = { "city-pack:SM_Bld_Shop_01": { front: "+x" } };
-    const town = galleryEntries(TWO_PACKS, "town-pack", only, [], []);
-    expect(town.every((g) => g.entry.name !== "SM_Bld_Shop_01" || g.guessed)).toBe(true);
-    expect(planModels(TWO_PACKS, TWO_TABLE, only).building!.map((p) => p.front)).toEqual(["+x", "+z"]);
-  });
-
   it("excludes by pack:name, so the other pack's model of that name stays", () => {
     const plan = planModels(TWO_PACKS, TWO_TABLE, fronts).building!;
     const left = buildingPlan(plan, ["city-pack:SM_Bld_Shop_01"]);
     expect(Object.values(left).flat()).toHaveLength(1);
-    expect(galleryEntries(TWO_PACKS, "town-pack", fronts, ["city-pack:SM_Bld_Shop_01"], TWO_TABLE)[0]!.excluded).toBe(false);
-    expect(galleryEntries(TWO_PACKS, "city-pack", fronts, ["city-pack:SM_Bld_Shop_01"], TWO_TABLE).find((g) => g.entry.name === "SM_Bld_Shop_01")!.excluded).toBe(true);
   });
 });
 

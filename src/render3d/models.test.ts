@@ -1,19 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { BoxGeometry, DataTexture, Group, LinearFilter, Mesh, MeshStandardMaterial, NearestFilter, Object3D, Texture, Vector3, type Material } from "three";
-import { ASSET_MANIFEST_VERSION, loadPuzzle, type AssetEntry, type AssetManifest, type AssetWarning, type Puzzle } from "../core";
-import { FOV_DEG, createCameraRig } from "./camera";
-import { wireLayout } from "./layout";
+import { BoxGeometry, DataTexture, Group, LinearFilter, Mesh, MeshStandardMaterial, NearestFilter, Object3D, Texture, type Material } from "three";
+import { ASSET_MANIFEST_VERSION, type AssetEntry, type AssetManifest, type AssetWarning } from "../core";
 import { POLE_HEIGHT, LOT_TYPES, LOT_TYPE_NAMES, type Lot } from "./kitunits";
-import { BUILDING_EXCLUDE, MODEL_TABLE, frontIsQuarter, frontYaw, NEIGHBOUR_GAP, atFront, WORLD_PER_METRE, buildingPlan, isManifest, lotGap, lotTypeOf, modelScale, pickBuildings, planModels, poleYaw, sizeOf, type ModelChoice, } from "./models";
-import { NO_MODELS, applyModels, buildingPlacements, loadModels, nearestTextures, type LoadDeps, type ModelSet } from "./models3d";
-import { townLayout } from "./town";
-import { createPicker } from "./pick";
-import { buildScene } from "./scene";
-import { stubTextSurface } from "./text";
-
-const puzzle: Puzzle = loadPuzzle(JSON.parse(readFileSync("puzzles/09-shrine-circuit.json", "utf8")));
+import { BUILDING_EXCLUDE, MODEL_TABLE, atFront, WORLD_PER_METRE, buildingPlan, isManifest, lotGap, lotTypeOf, modelScale, planModels, poleYaw, sizeOf, type ModelChoice } from "./models";
+import { NO_MODELS, loadModels, nearestTextures, type LoadDeps } from "./models3d";
 
 // Hand-written manifests: no real asset, no real name's data, only sizes in metres.
 function entry(name: string, size: readonly [number, number, number], warnings: AssetWarning[] = []): AssetEntry {
@@ -70,21 +62,13 @@ describe("planModels", () => {
     expect(planModels(manifest({}), TABLE)).toEqual({ pole: null, lamp: null, building: null });
   });
 
-  it("the shipped table has one pole style, SM_Prop_Powerpole_01 only, and every intermediate pole is that model (041 C)", async () => {
+  it("the shipped table has one pole style, SM_Prop_Powerpole_01 only, and the loaded set has only that pole (041 C)", async () => {
     expect(MODEL_TABLE.filter((r) => r.slot === "pole").map((r) => r.names)).toEqual([["SM_Prop_Powerpole_01"]]);
     // With both pole models in a (fake) pack, every pole is still the one.
     const sizes = { SM_Prop_Powerpole_01: [0.8, 6.3, 2.6], SM_Prop_Powerpole_Single_01: [0.4, 6.3, 0.4] } as const;
     const m = manifest({ "apocalypse-power": Object.entries(sizes).map(([n, z]) => entry(n, z)) });
     const set = await loadModels({ fetchJson: async (): Promise<unknown> => m, loadGlb: async () => fakeGlb(Object.keys(sizes), sizes), info: () => {} });
     expect(set.pole!.map((p) => p.entry.name)).toEqual(["SM_Prop_Powerpole_01"]);
-    const b = buildScene(puzzle, { text: stubTextSurface });
-    const applied = applyModels(b, set);
-    const poles = b.slots.models.children.filter((c) => c.name.startsWith("model:SM_Prop_Powerpole"));
-    expect(poles).toHaveLength(b.slots.poles.spots.length);
-    expect(poles.length).toBeGreaterThan(0);
-    expect(poles.every((c) => c.name === "model:SM_Prop_Powerpole_01")).toBe(true);
-    applied.remove();
-    b.dispose();
   });
 
   it("the shipped table names only models of three packs, none with a baked-in wire", () => {
@@ -282,147 +266,7 @@ function expectNearest(root: Object3D): void {
   }
 }
 
-// A model set as loadModels would make it for the shrine map, from the fake GLB.
-async function fakeSet(): Promise<ModelSet> {
-  const sizes = { Pole9: [0.5, 9, 1], Pole4: [0.3, 4, 0.3], Lamp: [0.3, 6, 0.3], Big: [10, 8, 10], Wide: [20, 6, 5] } as const;
-  return loadModels(deps({ loadGlb: async (url) => fakeGlb(url.endsWith("p.glb") ? ["Pole9", "Pole4", "Lamp"] : ["Big", "Wide"], sizes) }));
-}
-
-function visibleMeshCount(root: Object3D, test: (o: Object3D) => boolean): number {
-  let n = 0;
-  root.traverse((o) => {
-    if (test(o)) n++;
-  });
-  return n;
-}
-
-// A model set that covers every lot type with three or more models each, from the fake GLB: sizes in metres.
-const FULL_SIZES: Record<string, readonly [number, number, number]> = {
-  Pole9: [0.5, 9, 1],
-  Pole4: [0.3, 4, 0.3],
-  Lamp: [0.3, 6, 0.3],
-  S1: [10, 8, 10],
-  S2: [11, 10, 12],
-  S3: [9, 6, 11],
-  H1: [14, 10, 16],
-  H2: [15, 12, 18],
-  H3: [12, 9, 17],
-  L1: [22, 10, 25],
-  L2: [24, 12, 27],
-  L3: [20, 9, 24],
-  T1: [12, 20, 14],
-  T2: [13, 24, 15],
-  T3: [11, 27, 13],
-  // 18 m wide but 11 m deep: with a quarter-turn front it is 11 m across the road, so it fits a house lot.
-  Q1: [18, 8, 11],
-};
-const BUILDING_NAMES = Object.keys(FULL_SIZES).filter((n) => !["Pole9", "Pole4", "Lamp"].includes(n));
-const FULL_TABLE: readonly ModelChoice[] = [
-  { slot: "pole", pack: "p", names: ["Pole9", "Pole4"] },
-  { slot: "lamp", pack: "p", names: ["Lamp"] },
-  { slot: "building", pack: "b", names: ["S1", "S2", "S3", "H1", "H2", "H3", "L1", "L2", "L3", "T1", "T2", "T3"] },
-  { slot: "building", pack: "b", names: ["Q1"] },
-];
-// Q1 is 18 m wide and 11 m deep with its door on its -x face (yaw +pi/2); every other fake model has no entry, so its door is +z.
-const FULL_FRONTS = { "b:Q1": { front: "-x" as const } };
-const FULL = manifest({
-  p: ["Pole9", "Pole4", "Lamp"].map((n) => entry(n, FULL_SIZES[n]!)),
-  b: BUILDING_NAMES.map((n) => entry(n, FULL_SIZES[n]!)),
-});
-async function fullSet(): Promise<ModelSet> {
-  return loadModels(
-    deps({
-      table: FULL_TABLE,
-      fronts: FULL_FRONTS,
-      fetchJson: async (): Promise<unknown> => FULL,
-      loadGlb: async (url) => fakeGlb(url.endsWith("p.glb") ? ["Pole9", "Pole4", "Lamp"] : BUILDING_NAMES, FULL_SIZES),
-    }),
-  );
-}
-
-const mapFiles = [...readdirSync("puzzles").filter((f) => f.endsWith(".json")), "lamp-row.grid.json"].map((f) => join("puzzles", f)).filter((f, i, all) => existsSync(f) && all.indexOf(f) === i);
-const maps: { name: string; puzzle: Puzzle }[] = mapFiles.map((f) => ({ name: f, puzzle: loadPuzzle(JSON.parse(readFileSync(f, "utf8"))) }));
-
-describe("buildings stand at one scale and inside their lots (every map)", () => {
-  it("has maps", () => {
-    expect(maps.length).toBeGreaterThan(60);
-  });
-
-  it("gives every building clone WORLD_PER_METRE on all axes and yaw lot.yaw + front, its scaled, turned bounds inside the lot", async () => {
-    const set = await fullSet();
-    const planned = new Map(set.building!.map((m) => [m.entry.name, m] as const));
-    let clones = 0;
-    const fronts = new Set<string>();
-    for (const { name, puzzle: pz } of maps) {
-      const lots = townLayout(pz).lots;
-      const placements = buildingPlacements(lots, set.building);
-      // 051 D: a terrace lot is stood by its run's packed stacks, never by a model: every other lot gets one.
-      expect(placements, name).toHaveLength(lots.filter((l) => l.terrace === undefined).length);
-      for (const p of placements) {
-        const lot = lots[p.lot]!;
-        const m = planned.get(p.model.entry.name)!;
-        expect(p.scale).toBe(WORLD_PER_METRE);
-        expect(p.yaw).toBeCloseTo(lot.yaw + frontYaw(m.front), 9);
-        expect(lotTypeOf(m.entry, m.front)).toBe(lot.type);
-        fronts.add(m.front);
-        // Turned by `front`, the model's frontage and depth are across and away from the road, in the lot's own frame.
-        const [w, h, d] = sizeOf(m.entry);
-        const quarter = frontIsQuarter(m.front);
-        // Setback (041 C): the clone's front face is against its lot's front edge, not centred, so every building shares the lot's setback.
-        const along = (p.x - lot.x) * Math.sin(lot.yaw) + (p.z - lot.z) * Math.cos(lot.yaw);
-        const sideways = (p.x - lot.x) * Math.cos(lot.yaw) - (p.z - lot.z) * Math.sin(lot.yaw);
-        expect(along + ((quarter ? w : d) * p.scale) / 2, `${name} ${lot.key} front face`).toBeCloseTo(lot.d / 2, 9);
-        expect(along).toBeGreaterThanOrEqual(-1e-9);
-        expect(Math.abs(sideways), `${name} ${lot.key} not sideways`).toBeLessThan(1e-9);
-        expect((quarter ? d : w) * p.scale, `${name} ${lot.key}`).toBeLessThanOrEqual(lot.w + 1e-9);
-        expect((quarter ? w : d) * p.scale, `${name} ${lot.key}`).toBeLessThanOrEqual(lot.d + 1e-9);
-        expect(h * p.scale).toBeLessThanOrEqual(lot.hMax + 1e-9);
-        clones++;
-      }
-    }
-    expect(clones).toBeGreaterThan(1000); // 051 D: the non-terrace lots only (1438 on the ladder; was over 5000)
-    expect(fronts.has("-x")).toBe(true);
-  });
-});
-
 describe("pickBuildings: no copy beside itself", () => {
-  it("is deterministic and picks a model of the lot's own type", async () => {
-    const set = await fullSet();
-    const plan = buildingPlan(set.building);
-    for (const t of LOT_TYPE_NAMES) expect(plan[t].length, t).toBeGreaterThanOrEqual(3);
-    for (const { name, puzzle: pz } of maps.filter((m) => /09-|56-/.test(m.name))) {
-      const lots = townLayout(pz).lots;
-      const a = pickBuildings(lots, plan);
-      expect(pickBuildings(lots, plan), name).toEqual(a);
-      lots.forEach((l, i) => expect(plan[l.type], name).toContain(a[i]));
-    }
-  });
-
-  // Ticket 042 A: the picker is greedy, in lot order. A lot never takes a model one of its earlier neighbours has while a free one exists; with three
-  // models and three earlier neighbours (one each) none is free and that lot repeats one. facing.test.ts holds the strict check on a set shaped like the real one.
-  it("gives a lot a model none of its earlier neighbours has whenever one is free, on every map", async () => {
-    const set = await fullSet();
-    const plan = buildingPlan(set.building);
-    let pairs = 0;
-    for (const { name, puzzle: pz } of maps) {
-      const lots = townLayout(pz).lots;
-      const names = pickBuildings(lots, plan);
-      for (let j = 0; j < lots.length; j++) {
-        const o = lots[j]!;
-        const earlier: number[] = [];
-        for (let i = 0; i < j; i++) {
-          const l = lots[i]!;
-          if (o.type === l.type && Math.hypot(o.x - l.x, o.z - l.z) <= 9 && lotGap(l, o) <= NEIGHBOUR_GAP) earlier.push(i);
-        }
-        const taken = new Set(earlier.map((i) => names[i]));
-        if (taken.size >= plan[o.type].length) continue;
-        pairs += earlier.length;
-        expect(taken.has(names[j]!), `${name} ${o.key} beside ${earlier.map((i) => lots[i]!.key).join(", ")}`).toBe(false);
-      }
-    }
-    expect(pairs).toBeGreaterThan(1000);
-  });
-
   it("lotGap is the distance between two footprints: 0 when they touch, the clear gap when they do not", () => {
     const lot = (x: number, z: number, yaw = 0): Lot => ({ x, z, w: 2, d: 2, yaw, type: "small", hMax: 2, key: `${x},${z}`, street: "r" } as Lot);
     expect(lotGap(lot(0, 0), lot(2, 0))).toBeCloseTo(0, 9);
@@ -434,194 +278,7 @@ describe("pickBuildings: no copy beside itself", () => {
   });
 });
 
-describe("applyModels", () => {
-  it("puts a clone at every intermediate pole and on every lot, and hides the placeholders", async () => {
-    const b = buildScene(puzzle, { text: stubTextSurface });
-    const spots = b.slots.poles.spots.length;
-    const lots = townLayout(puzzle).lots;
-    const own = lots.filter((l) => l.terrace === undefined);
-    expect(spots).toBeGreaterThan(2);
-    expect(lots.length).toBeGreaterThan(50);
-    expect(b.slots.blocks.list).toBe(lots);
-    const applied = applyModels(b, await fullSet());
-    const clones = b.slots.models.children;
-    // 051 D: the non-terrace lots only; the terrace lots' placeholders are the terrace group's business (no stack piece in this set, so they stay).
-    expect(clones).toHaveLength(spots + own.length);
-    expect(clones.every((c) => c.name.startsWith("model:"))).toBe(true);
-    expect(b.slots.poles.placeholders.every((o) => !o.visible)).toBe(true);
-    for (const t of LOT_TYPE_NAMES) if (own.some((l) => l.type === t)) expect(b.slots.blocks.byType[t].visible, t).toBe(false);
-    // Every pole clone stands at its spot and is POLE_HEIGHT tall.
-    b.scene.updateMatrixWorld(true);
-    for (let i = 0; i < spots; i++) {
-      const s = b.slots.poles.spots[i]!;
-      const c = clones[i]!;
-      expect(c.position.x).toBeCloseTo(s.x, 9);
-      expect(c.position.z).toBeCloseTo(s.z, 9);
-      expect(c.scale.y * (c.name === "model:Pole9" ? 9 : 4)).toBeCloseTo(POLE_HEIGHT, 6);
-    }
-    // Every building clone is at one scale on every axis, at its lot, turned lot.yaw + front.
-    own.forEach((lot, i) => {
-      const c = clones[spots + i]!;
-      expect(c.scale.x).toBe(WORLD_PER_METRE);
-      expect(c.scale.y).toBe(WORLD_PER_METRE);
-      expect(c.scale.z).toBe(WORLD_PER_METRE);
-      const front = c.name === "model:Q1" ? Math.PI / 2 : 0;
-      // Against the lot's front edge: the model's footprint depth across the road, from the fake model's size.
-      const [mw, , md] = FULL_SIZES[c.name.slice(6)]!;
-      const depth = (front ? mw : md) * WORLD_PER_METRE;
-      expect(c.position.x).toBeCloseTo(atFront(lot, depth).x, 9);
-      expect(c.position.z).toBeCloseTo(atFront(lot, depth).z, 9);
-      expect(c.rotation.y).toBeCloseTo(lot.yaw + front, 9);
-    });
-    applied.remove();
-    expect(b.slots.models.children).toHaveLength(0);
-    expect(b.slots.poles.placeholders.every((o) => o.visible)).toBe(true);
-    expect(LOT_TYPE_NAMES.every((t) => b.slots.blocks.byType[t].visible)).toBe(true);
-    b.dispose();
-  });
-
-  it("keeps the placeholders of a lot type that has no model and hides those of the types that have one", async () => {
-    // 051 D: no map has a tall lot outside the terraces any more, so the type left without a model is `house`, which every map still has (the first such map).
-    const withHouse = maps.find((m) => townLayout(m.puzzle).lots.some((l) => l.type === "house" && l.terrace === undefined));
-    expect(withHouse, "some map has a non-terrace house lot").toBeDefined();
-    const b = buildScene(withHouse!.puzzle, { text: stubTextSurface });
-    const set = await fullSet();
-    const rest = { ...set, building: set.building!.filter((m) => lotTypeOf(m.entry, m.front) !== "house") };
-    const applied = applyModels(b, rest);
-    const own = b.slots.blocks.list.filter((l) => l.terrace === undefined);
-    expect(b.slots.blocks.byType.house.visible).toBe(true);
-    for (const t of ["small", "large", "tall"] as const) if (own.some((l) => l.type === t)) expect(b.slots.blocks.byType[t].visible, t).toBe(false);
-    const houses = own.filter((l) => l.type === "house").length;
-    expect(houses).toBeGreaterThan(0);
-    expect(b.slots.models.children).toHaveLength(b.slots.poles.spots.length + own.length - houses);
-    applied.remove();
-    b.dispose();
-  });
-
-  it("puts a clone on every lamp's post and keeps its head, light, pool, halo, flare and star", async () => {
-    const b = buildScene(puzzle, { text: stubTextSurface });
-    const lamps = puzzle.nodes.filter((n) => n.type === "lamp");
-    const kinds = (g: Object3D): Record<string, number> => {
-      const out: Record<string, number> = {};
-      for (const c of g.children) out[c.type] = (out[c.type] ?? 0) + 1;
-      return out;
-    };
-    const before = b.slots.lamps.map((l) => kinds(l.group));
-    const applied = applyModels(b, await fakeSet());
-    expect(b.slots.lamps).toHaveLength(lamps.length);
-    b.slots.lamps.forEach((l, i) => {
-      expect(l.post.visible).toBe(false);
-      const after = kinds(l.group);
-      // The same children as before plus one group (the clone); nothing the lamp lights with was removed.
-      expect(after["Group"]).toBe((before[i]!["Group"] ?? 0) + 1);
-      for (const k of ["Mesh", "PointLight", "Sprite"]) expect(after[k]).toBe(before[i]![k]);
-      const clone = l.group.children.find((c) => c.name.startsWith("model:"))!;
-      expect(clone.name).toBe("model:Lamp");
-      expect(6 * clone.scale.y).toBeCloseTo(POLE_HEIGHT, 6);
-    });
-    applied.remove();
-    expect(b.slots.lamps.every((l) => l.post.visible)).toBe(true);
-    b.dispose();
-  });
-
-  it("sets every map texture on the scene's clones to NearestFilter, even for a set that skipped loadModels", async () => {
-    const b = buildScene(puzzle, { text: stubTextSurface });
-    const scene = fakeGlb(["Pole9", "Lamp", "Big"], { Pole9: [0.5, 9, 1], Lamp: [0.3, 6, 0.3], Big: [10, 8, 10] });
-    const m = (name: string, entryOf: AssetEntry): ModelSet["pole"] => [{ pack: "p", glb: "p.glb", entry: entryOf, front: "+z", corner: false, family: name, root: scene.getObjectByName(name)! }];
-    const set: ModelSet = {
-      pole: m("Pole9", entry("Pole9", [0.5, 9, 1])),
-      lamp: m("Lamp", entry("Lamp", [0.3, 6, 0.3])),
-      building: m("Big", entry("Big", [10, 8, 10])),
-    };
-    for (const g of ["Pole9", "Lamp", "Big"]) expect(textures(scene.getObjectByName(g)!)[0]!.magFilter).toBe(LinearFilter);
-    applyModels(b, set);
-    expect(b.slots.models.children.length).toBeGreaterThan(0);
-    for (const c of b.slots.models.children) expectNearest(c);
-    for (const l of b.slots.lamps) expectNearest(l.group.children.find((c) => c.name.startsWith("model:"))!);
-    b.dispose();
-  });
-
-  it("leaves a slot with no models as the placeholders, and an empty set changes nothing", async () => {
-    const b = buildScene(puzzle, { text: stubTextSurface });
-    const set = await fakeSet();
-    applyModels(b, { ...set, pole: null, building: null });
-    expect(b.slots.poles.placeholders.every((o) => o.visible)).toBe(true);
-    expect(b.slots.blocks.placeholder.visible).toBe(true);
-    expect(b.slots.models.children).toHaveLength(0);
-    expect(b.slots.lamps.every((l) => !l.post.visible)).toBe(true);
-    const c = buildScene(puzzle, { text: stubTextSurface });
-    applyModels(c, NO_MODELS);
-    expect(c.slots.models.children).toHaveLength(0);
-    expect(c.slots.lamps.every((l) => l.post.visible)).toBe(true);
-    expect(visibleMeshCount(c.scene, (o) => !o.visible)).toBe(visibleMeshCount(buildScene(puzzle, { text: stubTextSurface }).scene, (o) => !o.visible));
-    b.dispose();
-    c.dispose();
-  });
-
-  it("a session's dispose does not dispose the cached geometry or textures, and a second map reuses them", async () => {
-    const set = await fakeSet();
-    let disposed = 0;
-    const mark = (o: Object3D): void => {
-      o.traverse((x) => {
-        const mesh = x as Mesh;
-        if (!mesh.geometry) return;
-        mesh.geometry.addEventListener("dispose", () => disposed++);
-        (mesh.material as MeshStandardMaterial).addEventListener("dispose", () => disposed++);
-        (mesh.material as MeshStandardMaterial).map?.addEventListener("dispose", () => disposed++);
-      });
-    };
-    for (const slot of ["pole", "lamp", "building"] as const) for (const m of set[slot]!) mark(m.root);
-    const a = buildScene(puzzle, { text: stubTextSurface });
-    applyModels(a, set);
-    a.dispose();
-    expect(disposed).toBe(0);
-    // The cache still works for the next session (another map).
-    const next = loadPuzzle(JSON.parse(readFileSync("puzzles/01-first-light.json", "utf8")));
-    const b = buildScene(next, { text: stubTextSurface });
-    applyModels(b, set);
-    expect(b.slots.models.children.length).toBeGreaterThan(0);
-    b.dispose();
-    expect(disposed).toBe(0);
-  });
-
-  it("leaves picking as it was: models are never hit, and every node and wire is still found", async () => {
-    const W = 1280;
-    const H = 720;
-    const rig = createCameraRig(puzzle, W, H, { top: 120, bottom: 90 });
-    const b = buildScene(puzzle, { text: stubTextSurface });
-    b.setViewport(W, H, FOV_DEG);
-    const picker = createPicker(b.scene, rig.camera, rig.size);
-    applyModels(b, await fakeSet());
-    b.scene.updateMatrixWorld(true);
-    const px = (p: Vector3): { x: number; y: number } => {
-      const v = p.clone().project(rig.camera);
-      return { x: ((v.x + 1) / 2) * W, y: ((1 - v.y) / 2) * H };
-    };
-    const nodes: Object3D[] = [];
-    b.scene.traverse((o) => {
-      if (o.userData["pickKind"] === "node") nodes.push(o);
-    });
-    expect(nodes).toHaveLength(puzzle.nodes.length);
-    for (const o of nodes) {
-      const p = px(o.getWorldPosition(new Vector3()));
-      expect(picker.hitTest(p.x, p.y)).toBe(o.userData["pickId"]);
-    }
-    for (const r of wireLayout(puzzle)) {
-      const p = px(new Vector3(r.mid.x, r.mid.y, r.mid.z));
-      expect(picker.hitTest(p.x, p.y), r.id).toBe(r.id);
-    }
-    // A fresh picker built on the model scene finds the same things, and no clone carries a pick tag or answers a ray.
-    b.slots.models.traverse((o) => expect(o.userData["pickKind"]).toBeUndefined());
-    const g = px(new Vector3(2, 0, 3.5));
-    expect(picker.hitTest(g.x, g.y)).toBeNull();
-    for (const o of [...b.slots.models.children, ...b.slots.lamps.flatMap((l) => l.group.children.filter((c) => c.name.startsWith("model:")))]) {
-      o.traverse((x) => {
-        if ((x as Mesh).isMesh) expect(x.raycast.length).toBe(0);
-      });
-    }
-    b.dispose();
-  });
-
+describe("nearestTextures", () => {
   it("nearestTextures is idempotent and handles a mesh with a material array", () => {
     const g = fakeGlb(["A"]);
     const mesh = g.children[0]!.children[0] as Mesh;
@@ -690,13 +347,6 @@ describe("nothing private is bundled", () => {
 });
 
 describe("atFront: every building stands against the front edge of its lot (041 B review, setback)", () => {
-  const distToRoad = (r: { ax: number; az: number; bx: number; bz: number }, x: number, z: number): number => {
-    const vx = r.bx - r.ax;
-    const vz = r.bz - r.az;
-    const t = Math.max(0, Math.min(1, ((x - r.ax) * vx + (z - r.az) * vz) / (vx * vx + vz * vz)));
-    return Math.hypot(x - (r.ax + vx * t), z - (r.az + vz * t));
-  };
-
   it("moves a shallow body toward its road by (lot depth - body depth) / 2, and leaves one as deep as the lot where it is", () => {
     const lot = { x: 5, z: 7, w: 2, d: 4, yaw: Math.PI / 2, type: "small", hMax: 2, key: "k", street: "r", side: 1 } as unknown as Lot;
     // yaw PI/2 turns the lot's front to +x.
@@ -706,26 +356,5 @@ describe("atFront: every building stands against the front edge of its lot (041 
     expect(a.z).toBeCloseTo(7, 12);
     // The front face of a body of depth 2.5 is then at the lot's front edge.
     expect(a.x + 2.5 / 2).toBeCloseTo(5 + 4 / 2, 12);
-  });
-
-  it("puts the front face of every body, whatever its depth, the same distance from the road: the lot's own setback, on 09 and 56", () => {
-    for (const f of ["09-shrine-circuit", "56-whole-ward"]) {
-      const pz = loadPuzzle(JSON.parse(readFileSync(`puzzles/${f}.json`, "utf8")));
-      const town = townLayout(pz);
-      const roads = new Map(town.roads.map((r) => [r.id, r] as const));
-      for (const lot of town.lots) {
-        const road = roads.get(lot.street)!;
-        const frontEdge = { x: lot.x + Math.sin(lot.yaw) * (lot.d / 2), z: lot.z + Math.cos(lot.yaw) * (lot.d / 2) };
-        // The lot's front faces its road: the front edge is nearer the road's centreline than the lot's centre.
-        expect(distToRoad(road, frontEdge.x, frontEdge.z), `${f} ${lot.key} faces its road`).toBeLessThan(distToRoad(road, lot.x, lot.z));
-        for (const depth of [0.8 * lot.d, 0.9 * lot.d, lot.d]) {
-          const at = atFront(lot, depth);
-          const faceX = at.x + Math.sin(lot.yaw) * (depth / 2);
-          const faceZ = at.z + Math.cos(lot.yaw) * (depth / 2);
-          expect(faceX).toBeCloseTo(frontEdge.x, 9);
-          expect(faceZ).toBeCloseTo(frontEdge.z, 9);
-        }
-      }
-    }
   });
 });

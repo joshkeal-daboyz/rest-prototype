@@ -221,12 +221,6 @@ describe("dev only (criterion 7's source half)", () => {
     expect(plan3d).toMatch(/lightModeFor\("tiles", opts\.search, import\.meta\.env\.DEV\)/);
   });
 
-  const renderer = readFileSync("src/render3d/renderer.ts", "utf8");
-
-  it("renderer.ts reads light= only in a dev build", () => {
-    expect(renderer).toMatch(/import\.meta\.env\.DEV && typeof location !== "undefined" \? lightModeFor\("puzzle", location\.search, true\) : "night"/);
-  });
-
   it("the toggle module reads no address and the key is the only one it names", () => {
     const src = readFileSync("src/render3d/daytoggle.ts", "utf8");
     expect(/location\./.test(src)).toBe(false);

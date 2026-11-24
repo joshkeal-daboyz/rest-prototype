@@ -5,13 +5,10 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
 import { Group } from "three";
-import { ASSET_MANIFEST_VERSION, loadPuzzle, type AssetEntry, type AssetManifest, type CalibrationKey } from "../core";
-import { BUILDING_EXCLUDE, BUILDING_FRONTS, FAMILY_SHARE_MAX, MODEL_TABLE, NEIGHBOUR_GAP, POLYGON_MIN_FAMILIES, STREET_REPEAT_GAP, buildingPlan, lotGap, lotTypeOf, pickBuildings, planModels, traitsOf, type FrontTable, type ModelChoice, type ModelFront, type PlannedModel, } from "./models";
+import { ASSET_MANIFEST_VERSION, type AssetEntry, type AssetManifest } from "../core";
+import { BUILDING_EXCLUDE, BUILDING_FRONTS, MODEL_TABLE, POLYGON_MIN_FAMILIES, buildingPlan, lotTypeOf, planModels, traitsOf, type FrontTable, type ModelChoice, type ModelFront, type PlannedModel } from "./models";
 import { loadModels } from "./models3d";
-import { townLayout, type Town } from "./town";
 import { LOT_TYPE_NAMES, type LotType } from "./kitunits";
 
 // ---- fixtures: [name, width, height, depth (m), triangles] ----
@@ -122,14 +119,6 @@ const POLYGON_TYPES: Record<string, LotType> = {
   SM_Bld_House_Preset_11: "large",
   SM_Bld_House_Preset_Garage_01: "small",
 };
-
-const mapFiles = [...readdirSync("puzzles").filter((f) => f.endsWith(".json")), "lamp-row.grid.json"].map((f) => join("puzzles", f)).filter((f, i, all) => existsSync(f) && all.indexOf(f) === i);
-// 051 D: the town the game draws (terraces on). A terrace lot is stood by its run's packed stacks and `buildingPlacements` never hands it to `pickBuildings`, so the rules below are held
-// on the other lots, which is the list the picker gets.
-const maps: { name: string; town: Town }[] = mapFiles.map((f) => {
-  const town = townLayout(loadPuzzle(JSON.parse(readFileSync(f, "utf8"))));
-  return { name: f, town: { ...town, lots: town.lots.filter((l) => l.terrace === undefined) } };
-});
 
 const buildingsOf = (m: AssetManifest, fronts: FrontTable = BUILDING_FRONTS, table: readonly ModelChoice[] = MODEL_TABLE): PlannedModel[] => planModels(m, table, fronts).building ?? [];
 const packOf = (models: readonly PlannedModel[], name: string): string => models.find((p) => p.entry.name === name)!.pack;
@@ -245,12 +234,10 @@ describe("with no POLYGON pack the town is exactly today's SIMPLE Town town (the
   });
   const oldModels = buildingsOf(SIMPLE_ONLY, BUILDING_FRONTS, OLD_TABLE);
   const oldPlan = buildingPlan(oldModels);
-  const oldPicks = maps.map((m) => pickBuildings(m.town.lots, oldPlan, traitsOf(oldModels)));
 
   const same = (models: readonly PlannedModel[]): void => {
     const plan = buildingPlan(models);
     expect(plan).toEqual(oldPlan);
-    maps.forEach((m, i) => expect(pickBuildings(m.town.lots, plan, traitsOf(models)), m.name).toEqual(oldPicks[i]));
   };
 
   it("pins today's plan: small has nine names (the rental store out), house sixteen, large nine, tall three", () => {
@@ -258,11 +245,11 @@ describe("with no POLYGON pack the town is exactly today's SIMPLE Town town (the
     expect(oldPlan.small).not.toContain("store_small_mesh");
   });
 
-  it("gives the same plan and the same picks on every map when the manifest has no town-pack or city-pack", () => {
+  it("gives the same plan when the manifest has no town-pack or city-pack", () => {
     same(buildingsOf(SIMPLE_ONLY));
   });
 
-  it("gives the same plan and picks when the Town Pack is in the manifest and its GLB fails to load", async () => {
+  it("gives the same plan when the Town Pack is in the manifest and its GLB fails to load", async () => {
     const info: string[] = [];
     const set = await loadModels({
       fetchJson: async (): Promise<unknown> => BOTH,
@@ -284,7 +271,7 @@ describe("with no POLYGON pack the town is exactly today's SIMPLE Town town (the
   });
 });
 
-describe("variety on the POLYGON fixture (every map)", () => {
+describe("variety on the POLYGON fixture", () => {
   const models = buildingsOf(BOTH);
   const plan = buildingPlan(models);
   const traits = traitsOf(models);
@@ -296,65 +283,6 @@ describe("variety on the POLYGON fixture (every map)", () => {
     for (const t of ["small", "house", "large"] as const) expect(familiesIn(t), t).toBeGreaterThanOrEqual(4);
   });
 
-  it("is deterministic and leaves no lot bare", () => {
-    for (const { name, town } of maps.filter((m) => /09-|56-/.test(m.name))) {
-      const a = pickBuildings(town.lots, plan, traits);
-      expect(pickBuildings(town.lots, plan, traits), name).toEqual(a);
-      town.lots.forEach((l, i) => expect(a[i] === null || plan[l.type].includes(a[i]!), `${name} ${l.key}`).toBe(true));
-      expect(a.filter((x) => x === null).length, name).toBe(0);
-    }
-  });
-
-  it("gives no two neighbours the same family", () => {
-    let pairs = 0;
-    for (const { name, town } of maps) {
-      const names = pickBuildings(town.lots, plan, traits);
-      const lots = town.lots;
-      for (let i = 0; i < lots.length; i++) {
-        for (let j = i + 1; j < lots.length; j++) {
-          const a = lots[i]!;
-          const b = lots[j]!;
-          if (a.type !== b.type || Math.hypot(a.x - b.x, a.z - b.z) > 9 || lotGap(a, b) > NEIGHBOUR_GAP) continue;
-          pairs++;
-          expect(familyOf(names[i]!), `${name} ${a.key} beside ${b.key}`).not.toBe(familyOf(names[j]!));
-        }
-      }
-    }
-    expect(pairs).toBeGreaterThan(500); // 051 D: the non-terrace lots only (683 on the ladder; was over 1000)
-  });
-
-  it("does not bring a family back within STREET_REPEAT_GAP lots on one road side (types with more families than that)", () => {
-    let checked = 0;
-    for (const { name, town } of maps) {
-      const names = pickBuildings(town.lots, plan, traits);
-      const rows = new Map<string, number[]>();
-      town.lots.forEach((l, i) => rows.set(`${l.street}:${l.side}`, [...(rows.get(`${l.street}:${l.side}`) ?? []), i]));
-      for (const [k, row] of rows) {
-        row.forEach((i, p) => {
-          if (familiesIn(town.lots[i]!.type) <= STREET_REPEAT_GAP) return;
-          for (let q = Math.max(0, p - STREET_REPEAT_GAP); q < p; q++) {
-            checked++;
-            expect(familyOf(names[i]!), `${name} ${k} lots ${q} and ${p}`).not.toBe(familyOf(names[row[q]!]!));
-          }
-        });
-      }
-    }
-    expect(checked).toBeGreaterThan(1000);
-  });
-
-  it("keeps every family within FAMILY_SHARE_MAX of its type's lots (types with four or more families)", () => {
-    for (const { name, town } of maps) {
-      const names = pickBuildings(town.lots, plan, traits);
-      for (const t of LOT_TYPE_NAMES) {
-        if (familiesIn(t) < 4) continue;
-        const idx = town.lots.map((l, i) => (l.type === t ? i : -1)).filter((i) => i >= 0);
-        const counts = new Map<string, number>();
-        for (const i of idx) counts.set(familyOf(names[i]!), (counts.get(familyOf(names[i]!)) ?? 0) + 1);
-        const most = Math.max(Math.floor(FAMILY_SHARE_MAX * idx.length), Math.ceil(idx.length / familiesIn(t)));
-        for (const [f, c] of counts) expect(c, `${name} ${t} ${f} of ${idx.length}`).toBeLessThanOrEqual(most);
-      }
-    }
-  });
 });
 
 describe("families never span packs, and no POLYGON model is a corner model unless named", () => {
@@ -374,27 +302,5 @@ describe("families never span packs, and no POLYGON model is a corner model unle
 
   it("plans no Town Pack model as a corner model", () => {
     for (const p of buildingsOf(BOTH).filter((m) => m.pack === "town-pack")) expect(p.corner, p.entry.name).toBe(false);
-  });
-
-  it("puts a POLYGON model flagged corner (open -x) only on a lot whose cornerSides has -x, never mid-row", () => {
-    const key: CalibrationKey = "town-pack:SM_Bld_House_Preset_03";
-    const fronts: FrontTable = { ...BUILDING_FRONTS, [key]: { front: "-x", corner: true, open: "-x" } };
-    const models = buildingsOf(BOTH, fronts);
-    expect(models.find((m) => m.entry.name === "SM_Bld_House_Preset_03")!.corner).toBe("-x");
-    const plan = buildingPlan(models);
-    expect(plan.house).toContain("SM_Bld_House_Preset_03");
-    let placed = 0;
-    for (const { name, town } of maps) {
-      const picks = pickBuildings(town.lots, plan, traitsOf(models));
-      town.lots.forEach((l, i) => {
-        if (picks[i] !== "SM_Bld_House_Preset_03") return;
-        placed++;
-        expect(
-          l.cornerSides.some((s) => s.side === "-x"),
-          `${name} ${l.key}`,
-        ).toBe(true);
-      });
-    }
-    expect(placed).toBeGreaterThan(0);
   });
 });
