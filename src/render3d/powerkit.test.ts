@@ -5,10 +5,11 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { closeSync, existsSync, openSync, readFileSync, readdirSync, readSync } from "node:fs";
+import { closeSync, existsSync, openSync, readFileSync, readSync } from "node:fs";
 import { join } from "node:path";
-import { GROUND_POLE_ATTACH_UP_M, GROUND_POLE_MIX, loadPuzzle } from "../core";
-import { PHASE_OFFSET, SAG_RATIO, sagSpan, wireLayout } from "./layout";
+import { GROUND_POLE_ATTACH_UP_M, GROUND_POLE_MIX } from "../core";
+import { PHASE_OFFSET, SAG_RATIO, sagSpan } from "./layout";
+import { LADDER_RUNS, LADDER_SPANS } from "./ladderspans.fixture";
 import { POLE_HEIGHT, type Vec3 } from "./kitunits";
 import {
   LADDER_LINE_SCALE,
@@ -360,18 +361,13 @@ describe("fitLine", () => {
     let lo = Infinity;
     let hi = 0;
     let spans = 0;
-    // The ladder maps only (NN-*.json, as the playtest harness reads them): puzzles/city-two-ways-round.json is an off-ladder city map (pos = metres / 5, not ladder units), so its spans are not the ladder's.
-    for (const f of readdirSync("puzzles").filter((n) => /^\d\d-.*\.json$/.test(n))) {
-      const puzzle = loadPuzzle(JSON.parse(readFileSync(join("puzzles", f), "utf8")));
-      for (const run of wireLayout(puzzle)) {
-        for (let i = 0; i + 1 < run.attach.length; i++) {
-          const out = fitLine(line, run.attach[i]!, run.attach[i + 1]!, SAG_RATIO, LADDER_LINE_SCALE, LADDER_STRAND_RADIUS);
-          expect(out).toHaveLength(1);
-          lo = Math.min(lo, out[0]!.stretch);
-          hi = Math.max(hi, out[0]!.stretch);
-          spans++;
-        }
-      }
+    // The ladder spans, from the fixture (dumped from wireLayout over puzzles/NN-*.json).
+    for (const [ax, ay, az, bx, by, bz] of LADDER_SPANS) {
+      const out = fitLine(line, V(ax!, ay!, az!), V(bx!, by!, bz!), SAG_RATIO, LADDER_LINE_SCALE, LADDER_STRAND_RADIUS);
+      expect(out).toHaveLength(1);
+      lo = Math.min(lo, out[0]!.stretch);
+      hi = Math.max(hi, out[0]!.stretch);
+      spans++;
     }
     expect(spans).toBeGreaterThan(1000);
     expect(lo).toBeGreaterThanOrEqual(LINE_STRETCH_MIN);
@@ -546,13 +542,10 @@ describe("the mix", () => {
   });
   it("gives neighbouring spots on a run different poles, over every ladder map", () => {
     let pairs = 0;
-    for (const f of readdirSync("puzzles").filter((n) => n.endsWith(".json"))) {
-      const puzzle = loadPuzzle(JSON.parse(readFileSync(join("puzzles", f), "utf8")));
-      for (const run of wireLayout(puzzle)) {
-        for (let i = 1; i + 1 < run.attach.length - 1; i++) {
-          expect(poleAt(POWER_MIX, `${run.id}#${i}`), `${f} ${run.id} ${i}`).not.toBe(poleAt(POWER_MIX, `${run.id}#${i + 1}`));
-          pairs++;
-        }
+    for (const [f, id, count] of LADDER_RUNS) {
+      for (let i = 1; i + 1 < count - 1; i++) {
+        expect(poleAt(POWER_MIX, `${id}#${i}`), `${f} ${id} ${i}`).not.toBe(poleAt(POWER_MIX, `${id}#${i + 1}`));
+        pairs++;
       }
     }
     expect(pairs).toBeGreaterThan(100);
