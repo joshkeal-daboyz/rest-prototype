@@ -104,9 +104,24 @@ export interface RoofContext {
   readonly spanEnds: ReadonlyMap<string, readonly [End, End]>;
   readonly spansAt: ReadonlyMap<string, readonly CityWireSpan[]>;
   readonly marksAt: ReadonlyMap<string, readonly Mark[]>;
+  /** K2e: every drop's curve (its pole's axis at the lowest attachment, to the wall at its height), indexed by the cells it passes through. */
+  readonly dropsAt: ReadonlyMap<string, readonly DropCurve[]>;
 }
 
-type Judged = Pick<CityCircuitLayer, "poles" | "spans" | "lights" | "posts" | "poleModels">;
+/** One drop as a curve in space (CK17d's 1 m is judged to it). */
+export interface DropCurve {
+  readonly pole: string;
+  readonly a: End;
+  readonly b: End;
+  readonly len3: number;
+  /** The drop's plan bounds. */
+  readonly lo: Pt;
+  readonly hi: Pt;
+  /** The curve as points about `DROP_STEP_M` apart, made when first wanted. */
+  poly?: { x: number; y: number; z: number }[];
+}
+
+type Judged = Pick<CityCircuitLayer, "poles" | "spans" | "lights" | "posts" | "poleModels"> & Partial<Pick<CityCircuitLayer, "drops">>;
 
 export function roofContext(layer: Judged, input: CircuitInput): RoofContext {
   const ix = indexCells(input.edge);
@@ -151,7 +166,20 @@ export function roofContext(layer: Judged, input: CircuitInput): RoofContext {
   for (const p of layer.poles) mark({ id: p.id, x: p.x_m, z: p.z_m });
   for (const l of layer.lights) mark({ id: l.id, x: l.x_m, z: l.z_m });
   for (const q of layer.posts) mark({ id: `post:${q.span}`, x: q.x_m, z: q.z_m });
-  return { ix, streetOf, junctionAt, junctionStreets, zone, poleEnd, spanEnds, spansAt, marksAt };
+  const dropsAt = new Map<string, DropCurve[]>();
+  for (const d of layer.drops ?? []) {
+    const a = poleEnd.get(d.pole);
+    if (a === undefined) continue;
+    const b: End = { id: d.id, x: d.x_m, z: d.z_m, y: d.y_m };
+    const curve: DropCurve = { pole: d.pole, a, b, len3: len3(a, b), lo: { x: Math.min(a.x, b.x), z: Math.min(a.z, b.z) }, hi: { x: Math.max(a.x, b.x), z: Math.max(a.z, b.z) } };
+    for (const r of traverse({ x: a.x, z: a.z }, { x: b.x, z: b.z })) {
+      const k = cellKey(r.i, r.j);
+      const list = dropsAt.get(k);
+      if (list === undefined) dropsAt.set(k, [curve]);
+      else if (!list.includes(curve)) list.push(curve);
+    }
+  }
+  return { ix, streetOf, junctionAt, junctionStreets, zone, poleEnd, spanEnds, spansAt, marksAt, dropsAt };
 }
 
 export interface Judgement {
@@ -246,7 +274,58 @@ export function judgeSpan(ctx: RoofContext, a: End, b: End): Judgement {
       if (d < ROOF_CLEAR_M - 1e-9) problems.push({ rule: "CK17d", reason: `passes ${round4(d)} m from ${m.id}, under ${ROOF_CLEAR_M} m` });
     }
   }
+  const seenDrop = new Set<DropCurve>();
+  const [x0, x1, z0, z1] = [Math.min(a.x, b.x) - ROOF_CLEAR_M, Math.max(a.x, b.x) + ROOF_CLEAR_M, Math.min(a.z, b.z) - ROOF_CLEAR_M, Math.max(a.z, b.z) + ROOF_CLEAR_M];
+  for (const k of near) {
+    for (const c of ctx.dropsAt.get(k) ?? []) {
+      if (seenDrop.has(c)) continue;
+      seenDrop.add(c);
+      if (ownPoles.has(c.pole) || c.hi.x < x0 || c.lo.x > x1 || c.hi.z < z0 || c.lo.z > z1) continue;
+      const d = curveGap(a, b, l3, c);
+      if (d < ROOF_CLEAR_M - 1e-9) problems.push({ rule: "CK17d", reason: `passes ${round4(d)} m from the drop ${c.b.id}, under ${ROOF_CLEAR_M} m` });
+    }
+  }
   return { len_m: round4(len), over, street, junction, problems };
+}
+
+/** The sample step along the span's curve for the gap to a drop, metres. */
+const GAP_STEP_M = 0.1;
+/** The drop's curve is measured as segments of about this length, metres. */
+const DROP_STEP_M = 0.25;
+
+/** The closest the span's curve (a to b, 3-D length `l3`) comes to a drop's curve, in space; Infinity when no point of it is within the clearance in plan. */
+function curveGap(a: End, b: End, l3: number, c: DropCurve): number {
+  const da = { x: c.a.x, z: c.a.z };
+  const db = { x: c.b.x, z: c.b.z };
+  const pa = { x: a.x, z: a.z };
+  const pb = { x: b.x, z: b.z };
+  if (cross(pa, pb, da, db) === null && Math.min(distToSegment(pa, da, db), distToSegment(pb, da, db), distToSegment(da, pa, pb), distToSegment(db, pa, pb)) >= ROOF_CLEAR_M) return Infinity;
+  const n = Math.max(2, Math.ceil(l3 / GAP_STEP_M));
+  const m = Math.max(2, Math.ceil(c.len3 / DROP_STEP_M));
+  let best = Infinity;
+  const stepM = Math.hypot(b.x - a.x, b.z - a.z) / n;
+  for (let k = 0; k <= n; k++) {
+    const p = { x: a.x + ((b.x - a.x) * k) / n, z: a.z + ((b.z - a.z) * k) / n };
+    const dp = distToSegment(p, da, db);
+    if (dp >= ROOF_CLEAR_M) {
+      // The plan distance changes by at most the distance moved, so no sample within the next (dp - 1) m can be inside the clearance.
+      if (stepM > 0) k += Math.max(0, Math.floor((dp - ROOF_CLEAR_M) / stepM) - 1);
+      continue;
+    }
+    const py = hangAt(a.y, b.y, l3, k / n);
+    const drop = (c.poly ??= Array.from({ length: m + 1 }, (_, q) => ({ x: c.a.x + ((c.b.x - c.a.x) * q) / m, z: c.a.z + ((c.b.z - c.a.z) * q) / m, y: hangAt(c.a.y, c.b.y, c.len3, q / m) })));
+    for (let q = 0; q < m; q++) best = Math.min(best, distToSegment3(p.x, py, p.z, drop[q]!, drop[q + 1]!));
+  }
+  return best;
+}
+
+function distToSegment3(x: number, y: number, z: number, a: { x: number; y: number; z: number }, b: { x: number; y: number; z: number }): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const dz = b.z - a.z;
+  const l2 = dx * dx + dy * dy + dz * dz;
+  const t = l2 === 0 ? 0 : Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy + (z - a.z) * dz) / l2));
+  return Math.hypot(x - (a.x + dx * t), y - (a.y + dy * t), z - (a.z + dz * t));
 }
 
 /** True when two plan segments cross properly (not at a shared end). */

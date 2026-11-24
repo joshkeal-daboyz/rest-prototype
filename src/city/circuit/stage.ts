@@ -23,7 +23,7 @@ export function buildCircuit(input: CircuitInput): CityCircuitLayer {
   const poleModels = Object.fromEntries(poles.map((p) => [p.id, poleModelFor(p.id)] as const));
   const keep = [...poles, ...lights].map((p) => ({ x_m: p.x_m, z_m: p.z_m }));
   const { roofs, roofKeep } = layRoofs(input);
-  const roofSpans = layRoofSpans(input, { poles, spans, lights, posts, poleModels, roofs });
+  const roofSpans = layRoofSpans(input, { poles, spans, lights, posts, poleModels, roofs, drops });
   return { stage: "circuit", poles, spans, drops, lights, posts, poleModels, keep, roofs, roofSpans, roofKeep };
 }
 

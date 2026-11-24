@@ -11,7 +11,7 @@ import { judgeSpan, len3, lowestOver, roofContext, type End } from "./roofgeom";
 import { candidatesOf, layRoofs, roofEnd, roofSpanId } from "./roofplaces";
 import { oppositeSide } from "./geometry";
 
-type Judged = Pick<CityCircuitLayer, "poles" | "spans" | "lights" | "posts" | "poleModels"> & Partial<Pick<CityCircuitLayer, "roofs" | "roofSpans" | "roofKeep">>;
+type Judged = Pick<CityCircuitLayer, "poles" | "spans" | "lights" | "posts" | "poleModels"> & Partial<Pick<CityCircuitLayer, "drops" | "roofs" | "roofSpans" | "roofKeep">>;
 
 const same = (a: number, b: number): boolean => Math.abs(a - b) < 1e-3;
 
@@ -38,6 +38,14 @@ export function roofProblems(layer: Judged, input: CircuitInput): CircuitProblem
     if (e === undefined) continue;
     const low = lowestOver(e[0].y, e[1].y, len3(e[0], e[1]), 0, 1);
     if (low < WALK_FLOOR_M - 1e-9) add("CK7", s.id, `its lowest point is ${Math.round(low * 1000) / 1000} m, under ${WALK_FLOOR_M} m`);
+  }
+  // CK7 on drops (081 K2e): from the pole's axis at its lowest attachment to the wall at its height, sagging by `SAG_RATIO`. 059's 5.5 m does not bind a drop.
+  for (const d of layer.drops ?? []) {
+    const a = ctx.poleEnd.get(d.pole);
+    if (a === undefined) continue;
+    const b: End = { id: d.id, x: d.x_m, z: d.z_m, y: d.y_m };
+    const low = lowestOver(a.y, b.y, len3(a, b), 0, 1);
+    if (low < WALK_FLOOR_M - 1e-9) add("CK7", d.id, `its lowest point is ${Math.round(low * 1000) / 1000} m, under ${WALK_FLOOR_M} m`);
   }
   if (layer.roofs === undefined || layer.roofSpans === undefined || layer.roofKeep === undefined) return out;
 

@@ -104,7 +104,7 @@ export function candidatesOf(input: CircuitInput, poles: readonly CityPole[], r:
 const fixedPoles = (poles: readonly CityPole[], block: string, sides: readonly CitySide[]): CityPole[] => poles.filter((p) => p.block === block && sides.includes(p.side) && p.kind !== "slot");
 
 /** CK17c: every roof span place, judged by CK17b and CK17d. Sorted by id. */
-export function layRoofSpans(input: CircuitInput, layer: Pick<CityCircuitLayer, "poles" | "spans" | "lights" | "posts" | "poleModels" | "roofs">): CityRoofSpan[] {
+export function layRoofSpans(input: CircuitInput, layer: Pick<CityCircuitLayer, "poles" | "spans" | "lights" | "posts" | "poleModels" | "roofs" | "drops">): CityRoofSpan[] {
   const roofs = layer.roofs ?? [];
   const ctx: RoofContext = roofContext(layer, input);
   const byBlock = new Map<string, CityRoofMast[]>();
