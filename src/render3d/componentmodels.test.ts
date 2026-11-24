@@ -16,6 +16,11 @@ describe("COMPONENT_MODELS", () => {
       expect({ component: p.component, key: p.key, words: p.words }).toEqual({ component: c, key, words });
     }
     expect(COMPONENT_MODELS.spring.key).toBe(COMPONENT_MODELS.junction.key);
+    // The Removed list: each row is a pick Josh took away, and the table marks it (the row above stays as the history of his first pick).
+    const removed = text.slice(text.indexOf("## Removed"));
+    const gone = [...removed.matchAll(/^[|] `([a-zA-Z]+)` [|].*"([^"]+)" [|]/gm)].map((m) => [m[1], m[2]]);
+    expect(gone).toEqual([["lampBuilding", "Remove it (Recommended)"]]);
+    for (const c of CIRCUIT_COMPONENTS) expect(COMPONENT_MODELS[c].removed?.words, c).toBe(gone.find((g) => g[0] === c)?.[1]);
     // The Scenery table: one row per piece; the pick's backticked key is the model, and `POWER_LINE` means null ("Keep POWER_LINE").
     const scenery = [...text.matchAll(/^\| `(\w+)` \| ([^|]+) \| "([^"]+)" \|/gm)].map((m) => ({ piece: m[1]!, pick: /`([^`]+)`/.exec(m[2]!)![1]!, words: m[3]! }));
     expect(scenery.map((r) => r.piece)).toEqual([...CIRCUIT_SCENERY]);

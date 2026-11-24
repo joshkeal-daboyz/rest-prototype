@@ -25,7 +25,7 @@ export function cityLoadLists(): ReturnType<typeof pageLoadLists> {
 
 /** Sorted, unique `pack:name` of every model the game loads. */
 export function gameModelKeys(): CalibrationKey[] {
-  const circuit = [...GROUND_POLE_MIX, POWER_LINE, ...Object.values(COMPONENT_MODELS).flatMap((c) => (c.key === null ? [] : [c.key])), STREET_LIGHT_KEY] as CalibrationKey[];
+  const circuit = [...GROUND_POLE_MIX, POWER_LINE, ...Object.values(COMPONENT_MODELS).flatMap((c) => (c.key === null || c.removed ? [] : [c.key])), STREET_LIGHT_KEY] as CalibrationKey[];
   return [...new Set([...listedKeys(schematicLoadLists()), ...listedKeys(cityLoadLists()), ...tileKeys(), ...circuit])].sort();
 }
 
