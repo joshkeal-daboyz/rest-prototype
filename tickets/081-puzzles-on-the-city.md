@@ -427,10 +427,13 @@ If it does not report "holds", its note goes to Josh before K2d and H4 are cut i
 2. [ ] CK10. **test**: 2 fixture cases.
 3. [ ] CK11. **test**: 1 fixture case.
 4. [ ] CK12's table as `nodePlaceProblems(layer, places)`: a switch on a 2-attachment pole fails, a breaker on a building fails, and two nodes on one place fail. Roof places join in K2d. **test**: 3 fixture cases.
-5. [ ] The digest pin re-taken. **test**: 1 rewritten.
+5. [ ] **Digest pins re-taken**, once each, listed with old and new values. **test**: 4 rewritten.
+   - stage 6's own pin;
+   - three era-pass pins that move because drops and lights now reach the passes (as in K2a2's criterion 5): `src/city/holdout/named.test.ts` (the settle pin), `src/city/ruin/named.test.ts` (the growth pin), `src/city/tech/named.test.ts` (criterion 9's pin and its title).
 6. [ ] `keep` holds every pole and light. **test**: 1 case.
+7. [ ] Two CK9 and CK10 cases that duplicate others are deleted, and the report names each one and the case that covers it. Removing is welcome (rule 6), and deletions don't count. **no test**.
 
-**Files.** `src/city/circuit/`.
+**Files.** `src/city/circuit/`. Also the **pin lines only** (the expected digest and, for tech, the case title) of `src/city/holdout/named.test.ts`, `src/city/ruin/named.test.ts` and `src/city/tech/named.test.ts` (the holdout, ruin and tech passes' folders, listed under test policy rule 6; added 23 Nov 2026 after K2b's review). No other line in those folders changes.
 
 ### K2c · The conversion (grid-simulator, pure). Branch `ticket/081k2c-circuit-convert`
 **Goal.** `convertCityPuzzle(cityPuzzle, plan): CityPuzzleConverted` turns a city puzzle into a plain `Puzzle` that `src/grid/` runs unchanged (CK15), with the places, runs and cut spans the 3D view needs. Carrier poles (answer 5) never become nodes.
