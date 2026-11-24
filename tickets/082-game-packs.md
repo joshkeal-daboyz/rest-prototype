@@ -1,7 +1,7 @@
 # 082 · The game packs: one small GLB per source pack, holding only the models the game loads
 
 owner: per section (renderer for A; grid-simulator for B, as owner of `tools/`; Python in `tools/blender/` only)
-status: open. Cut 24 Nov 2026 on Josh's request (below). Waiting for G1.
+status: approved (G1, Josh, 24 Nov 2026, on a card: "Approve 082 (Recommended)"; on the dependency: "Stay with Blender (Recommended)"). Cut 24 Nov 2026 on Josh's request (below). A starts after 081 K3 merges, then B.
 branch: `ticket/081-puzzles-on-the-city` holds this cut (this file and the `src/core/assets.ts` types). One branch per pull request: `ticket/082a-game-pack-load`, `ticket/082b-game-pack-tool`.
 
 ## Josh's words (24 Nov 2026, in chat)
