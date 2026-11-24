@@ -7,18 +7,16 @@
 
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { BoxGeometry, Color, DoubleSide, Group, InstancedMesh, Matrix4, MeshStandardMaterial, NearestFilter, Quaternion, Texture, TextureLoader, Vector3, type Material, type Mesh, type Object3D } from "three";
-import { calibrationKey, parseCalibrationKey, type AssetEntry, type AssetManifest, type CalibrationKey } from "../core";
+import { GAME_PACK_DIR, calibrationKey, parseCalibrationKey, type AssetEntry, type AssetManifest, type CalibrationKey } from "../core";
 import { effectiveFronts, loadSavedCalibration } from "./calibration";
 import { COLOURWAY_POOL, isBaseAtlasName, isColourwayId } from "./colourway";
 import { CODE_ESCAPE_KEY, type EscapePart } from "./escapes";
-import { DRESS_DRAW_CALLS_MAX, SHOP_GLASS, dressKeys, type DressPiece, type DressSlotKind } from "./dressing";
-import { TECH_BOUNDS } from "../city/tech/kit";
-import { KIT_KEYS as HOLDOUT_KIT_KEYS } from "../city/holdout/kit";
-import { KIT_KEYS as RUIN_KIT_KEYS } from "../city/ruin/kit";
-import { furnitureKeys, type FurniturePiece } from "./furniture";
+import { DRESS_DRAW_CALLS_MAX, SHOP_GLASS, type DressPiece, type DressSlotKind } from "./dressing";
+import { type FurniturePiece } from "./furniture";
 import { BUILDING_EXCLUDE, BUILDING_FRONTS, MODEL_SLOTS, MODEL_TABLE, WORLD_PER_METRE, atFront, buildingPlan, frontIsQuarter, frontYaw, isManifest, meshFamily, modelScale, pickBuildings, planDressPieces, planModels, planStackPieces, sizeOf, stackFamily, stackStyleOf, traitsOf, type BuildingFront, type FrontTable, type ModelChoice, type ModelSlot, type PlannedModel } from "./models";
 
-import { STACK_STYLES, assembleStack, offeredStacks, stackKeys, type Stack, type StackPiece, type StackStyle } from "./stacks";
+import { STACK_STYLES, assembleStack, offeredStacks, type Stack, type StackPiece, type StackStyle } from "./stacks";
+import { allStackPieceKeys, listedKeys, pageLoadLists, type PageLoadLists } from "./pageloads";
 import { PAVEMENT_Y, YARD, YARD_H, type Lot } from "./kitunits";
 import { STEPS_D_M, STEPS_KEY, STEPS_RISE_M, STEPS_W_M, fitSillBand, modelPoint, stepsYaw, type SillPlan, type SillTable } from "./sills";
 
@@ -94,13 +92,15 @@ export interface LoadDeps {
   loadTexture?: (url: string) => Promise<Texture>;
   /** Folder of the manifest, ending in "/". Default: `${BASE_URL}assets/private/out/`. */
   dir?: string;
+  /** Prefer the game pack in `${dir}game/` when it is there and holds every key asked for (ticket 082 A). Default true; false (`?packs=full`) never looks for it. */
+  gamePack?: boolean;
   /** Where the one line saying why a fallback happened goes. Default: console.info. */
   info?: (message: string) => void;
 }
 
 /** Every piece key any stack recipe names, once each: what the town asks the loader for (ticket 050 C). */
 export function allStackKeys(): CalibrationKey[] {
-  return [...new Set(STACK_STYLES.flatMap((s) => stackKeys(s)))];
+  return allStackPieceKeys();
 }
 
 /** The folder the converter writes to, relative to the site's base. It is a plain string so no bundler sees it. */
@@ -133,14 +133,18 @@ export function nearestTextures(root: Object3D): void {
  */
 export async function loadModels(deps: LoadDeps): Promise<ModelSet> {
   const info = deps.info ?? ((m: string) => console.info(m));
-  const dir = deps.dir ?? defaultDir();
+  const fullDir = deps.dir ?? defaultDir();
   try {
-    let manifest: unknown;
-    try {
-      manifest = await deps.fetchJson(`${dir}manifest.json`);
-    } catch (e) {
-      info(`3D models: no manifest at ${dir}manifest.json (${describe(e)}); using the placeholder shapes.`);
-      return NO_MODELS;
+    let dir = fullDir;
+    let manifest: unknown = deps.gamePack === false ? null : await readGamePack(deps, fullDir, info);
+    if (manifest) dir = `${fullDir}${GAME_PACK_DIR}`;
+    else {
+      try {
+        manifest = await deps.fetchJson(`${fullDir}manifest.json`);
+      } catch (e) {
+        info(`3D models: no manifest at ${fullDir}manifest.json (${describe(e)}); using the placeholder shapes.`);
+        return NO_MODELS;
+      }
     }
     if (!isManifest(manifest)) {
       info("3D models: the asset manifest is not the version this build reads; using the placeholder shapes.");
@@ -265,6 +269,32 @@ export async function loadModels(deps: LoadDeps): Promise<ModelSet> {
 }
 
 /**
+ * The game pack's manifest (ticket 082 A), or null with one line saying why the full packs are loaded instead. Used only when it is a manifest this build reads, carries `game`, and holds every key `deps` asks for
+ * (a stale one is never used in part). Never rejects.
+ */
+async function readGamePack(deps: LoadDeps, dir: string, info: (message: string) => void): Promise<AssetManifest | null> {
+  let found: unknown;
+  try {
+    found = await deps.fetchJson(`${dir}${GAME_PACK_DIR}manifest.json`);
+  } catch {
+    found = null;
+  }
+  if (!isManifest(found) || !(found as AssetManifest).game) {
+    info("3D models: no game pack; loading the full packs (npm run assets:game makes it).");
+    return null;
+  }
+  const game = found as AssetManifest;
+  const have = new Set(game.packs.flatMap((p) => p.assets.map((a) => calibrationKey(p.pack, a.name))));
+  const asked: PageLoadLists = { table: deps.table ?? MODEL_TABLE, stackKeys: deps.stackKeys ?? [], dressKeys: deps.dressKeys ?? [], tileKeys: deps.tileKeys ?? [], stepKeys: deps.stepKeys ?? [] };
+  const lacking = listedKeys(asked).filter((k) => !have.has(k));
+  if (lacking.length > 0) {
+    info(`3D models: the game pack lacks ${lacking.length} model(s) (${lacking.slice(0, 3).join(", ")}${lacking.length > 3 ? ", ..." : ""}); loading the full packs. Run npm run assets:game.`);
+    return null;
+  }
+  return game;
+}
+
+/**
  * Load the pool's colourway atlases that `pack` lists (ticket 054 B), in parallel through `loadTexture`. Only ids in COLOURWAY_POOL (never the base, which needs no file, nor a B tone, an emissive map or a
  * billboard), each once. A texture that fails drops that id with one line; the others are kept. Says once how many of the pool's non-base ids are in. Never rejects.
  */
@@ -328,27 +358,36 @@ function describe(e: unknown): string {
 let shared: Promise<ModelSet> | null = null;
 let sharedTile: Promise<ModelSet> | null = null;
 
-/** The tech pass Sci-Fi City pieces (ticket 073 D1g): loaded as dressing by the plan view only (it asks for tile keys and sign colourways), drawn only at an era above clean. */
-const TECH_KEYS = Object.keys(TECH_BOUNDS) as CalibrationKey[];
-
-/** The hold-out pass Sci-Fi Frontier pieces (ticket 073 E2g): loaded as dressing by the plan view only, as `TECH_KEYS`, drawn only at the hold-out and ruin eras. */
-const HOLDOUT_KEYS = [...HOLDOUT_KIT_KEYS] as CalibrationKey[];
-
-/** The ruin pass Apocalypse, Nature and Palm City pieces (ticket 073 F1g): loaded as dressing by the plan view only, drawn only at the ruin era. */
-const RUIN_KEYS = [...RUIN_KIT_KEYS] as CalibrationKey[];
-
 /** The real fetch and GLTFLoader, with Josh's saved fronts laid over the code's table first (dev only, ticket 045; a production build never fetches the file). */
 function loadPageModels(extra: Pick<LoadDeps, "table" | "tileKeys" | "signColourways">): Promise<ModelSet> {
+  let started: number | null = null;
+  // Dev's many module requests fill the default 250-entry resource timing buffer before the GLBs are fetched, so the load line would count none.
+  if (import.meta.env.DEV && typeof performance !== "undefined") performance.setResourceTimingBufferSize(5000);
   const fetchJson = async (url: string, init?: { cache: "no-store" }): Promise<unknown> => {
+    started ??= performance.now();
     const r = await fetch(url, init);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     return (await r.json()) as unknown;
   };
+  // `?packs=full` (dev only) skips the game pack, for the before-and-after measurement.
+  const full = import.meta.env.DEV && typeof location !== "undefined" && new URLSearchParams(location.search).get("packs") === "full";
   return loadSavedCalibration({ dev: import.meta.env.DEV, fetchJson }).then((saved) => {
     const tables = effectiveFronts({ fronts: BUILDING_FRONTS, exclude: BUILDING_EXCLUDE }, saved);
     // The City Pack's stack pieces load too (ticket 050 C); with no City Pack in the manifest nothing extra is fetched and the set has no stack slot.
-    return loadModels({ fetchJson, loadGlb: async (url) => (await new GLTFLoader().loadAsync(url)).scene, loadTexture: (url) => new TextureLoader().loadAsync(url), fronts: tables.fronts, exclude: tables.exclude, stackKeys: allStackKeys(), dressKeys: [...dressKeys(), ...furnitureKeys(), ...(extra.signColourways ? [...TECH_KEYS, ...HOLDOUT_KEYS, ...RUIN_KEYS] : [])], stepKeys: extra.tileKeys ? [] : [STEPS_KEY], ...extra });
+    return loadModels({ fetchJson, loadGlb: async (url) => (await new GLTFLoader().loadAsync(url)).scene, loadTexture: (url) => new TextureLoader().loadAsync(url), fronts: tables.fronts, exclude: tables.exclude, gamePack: !full, ...pageLoadLists(extra) }).then((set) => {
+      if (import.meta.env.DEV) loadLine(started);
+      return set;
+    });
   });
+}
+
+/** Dev only (ticket 082 A criterion 5): one console line with the manifest used, the GLBs fetched, their MB and the time since the first manifest fetch. */
+function loadLine(started: number | null): void {
+  if (typeof performance === "undefined" || started === null) return;
+  const glbs = performance.getEntriesByType("resource").filter((e) => /\.glb(\?|$)/.test(e.name)) as PerformanceResourceTiming[];
+  const bytes = glbs.reduce((n, e) => n + (e.encodedBodySize || e.transferSize || 0), 0);
+  const kind = glbs.length === 0 ? "none" : glbs.every((e) => e.name.includes(`/${GAME_PACK_DIR}`)) ? "game" : "full";
+  console.info(`3D models: ${kind} manifest, ${glbs.length} GLB(s), ${(bytes / 1048576).toFixed(1)} MB, ${((performance.now() - started) / 1000).toFixed(1)} s from the first manifest fetch.`);
 }
 
 /** The page's models: fetched once with the real fetch and GLTFLoader, then reused by every map. */
