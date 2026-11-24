@@ -72,7 +72,7 @@ export function runProblems(puzzle: CityPuzzle, layer: Layer): CircuitProblem[] 
         return;
       }
       cur = cur === s.a ? s.b : s.a;
-      if (k < run.spans.length - 1) {
+      if (k < run.spans.length - 1 || run.drop !== undefined || run.lead !== undefined) {
         const holder = nodePoles.get(cur);
         if (holder !== undefined) add(l.id, `carrier ${cur} holds node ${holder} (a carrier holds no node of the job)`);
         const other = carried.get(cur);
