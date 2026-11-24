@@ -6,7 +6,7 @@
  * Typed from CK15's sketch (21 Nov 2026), names kept where the sketch gave them; `CitySpan` is taken in `cityplan.ts` (a stretch along a street), hence `CityWireSpan`.
  * **Roof structures and roof spans** (CK17, `docs/design/081-B1-roof-spans.md` as B1b amended it; B1q: holds) are typed below for 081 K2d (24 Nov 2026). They are their own
  * types, not a `CityPoleKind` or a `CityWireSpanKind`: a roof has no street, pavement or nudge, and roof spans are places in their own list, never in `spans` (CK17b).
- * `{ roof }` (`CityRoofPlace`) joins `CityNodePlace` on K2d2's branch, not here, because the union change must land in one PR with the code it reaches (ticket 081, K2d2).
+ * `{ roof }` (`CityRoofPlace`) is a member of `CityNodePlace` (ticket 081 K2d2, 24 Nov 2026), landed in one PR with the code it reaches.
  *
  * Ids (stable, for 071's hash and for puzzle files):
  * - a pole: `pole:<street id>:<lo|hi>:<along_m, 2 decimals>`;
@@ -151,7 +151,7 @@ export interface CityRoofKeep {
   readonly half_m: number;
 }
 
-/** CK17e: a node on a roof structure (Josh, 6b and B1-Q1: "Anything"). Joins `CityNodePlace` on K2d2's branch (see the file's head). */
+/** CK17e: a node on a roof structure (Josh, 6b and B1-Q1: "Anything"), naming a `CityRoofMast.id`. A member of `CityNodePlace` (081 K2d2). */
 export type CityRoofPlace = { readonly roof: string };
 
 // ---- the city puzzle (CK15) ----
@@ -164,8 +164,8 @@ export interface CityPuzzleCity {
   readonly oneWay: boolean;
 }
 
-/** CK12: where a node stands. A pole id, a building id (its drop's wall point), or a lamp post at the midpoint of a span. */
-export type CityNodePlace = { readonly pole: string } | { readonly building: string } | { readonly post: string };
+/** CK12 and CK17e: where a node stands. A pole id, a building id (its drop's wall point), a lamp post at the midpoint of a span, or a roof structure (`CityRoofMast.id`). */
+export type CityNodePlace = { readonly pole: string } | { readonly building: string } | { readonly post: string } | CityRoofPlace;
 
 /**
  * CK13 as Josh changed it (23 Nov 2026, 081 question 5: "lines cannot bend, they are runs that go from one structure to another"; card: "Just carriers (Recommended)").
