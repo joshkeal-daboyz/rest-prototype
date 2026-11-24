@@ -101,6 +101,30 @@ import { createLabelCache } from "./labelcache";
 import { chargeFraction, popProgress, wentFlat } from "./battery";
 import { clamp01, flicker, hash01, pulsePhase, pulseCount, PULSE_SPACING } from "./motion";
 import { FLARE_SECONDS, planRelight, type RelightPlan } from "./relight";
+import {
+  ALARM,
+  BG,
+  DASH_NONE,
+  DASH_TARGET,
+  FONT,
+  LINE_LIVE,
+  NODE_DEAD,
+  NODE_FILL,
+  NODE_LIVE,
+  RIBBON,
+  SCORCH,
+  TARGET,
+  TEXT,
+  TEXT_DIM,
+  WARM,
+  WARM_HOT,
+  drawBreakerGlyph,
+  drawFeedGlyph,
+  drawFuseBoxGlyph,
+  drawJunctionGlyph,
+  drawSwitchGlyph,
+  drawX,
+} from "./glyphs";
 import { sprangBack, twangOffset } from "./spring";
 
 export interface MapOverlay {
@@ -180,28 +204,15 @@ const MARKER_VISIBLE_PAD = 24;
 const PLACE_CULL_PX = 16;
 const SHOCK_CORE = "#f2fbff";
 const SHOCK_GLOW = "#5aa8ff";
-const SCORCH = "#05070b";
 const LAMP_FAULT_RED = "#a8322b";
 const SLOTS = 4;
 
-const BG = "#0b0f17";
 const DECOR = "#161d2a";
 const LINE_DEAD = "#2a3445";
 const LINE_REPAIRED = "#5a6f92";
 const LINE_LIVE_GLOW = "#2aa9d8";
-const LINE_LIVE = "#4fd1ff";
 const PULSE = "#e6fbff";
-const NODE_FILL = "#121826";
-const NODE_DEAD = "#4a586f";
 const NODE_REPAIRED = "#a9bde0";
-const NODE_LIVE = "#7fdcff";
-const TEXT = "#d3dae6";
-const TEXT_DIM = "#7b879a";
-const WARM = "#ffd37a";
-const WARM_HOT = "#fff3c9";
-const ALARM = "#ff5a4d";
-const TARGET = "#ffe9a8";
-const RIBBON = "#ff3df0";
 const HOVER = "#ffffff";
 /** The UI's --focus colour (index.html). */
 const FOCUS = "#8fd3ff";
@@ -212,15 +223,12 @@ const BATT_GLOW = "#ffa21f";
 const BATT_LINE = "#ffc457";
 const BATT_FILL = "#3ddc97";
 const BATT_FILL_RELEASED = "#ffb02e";
-const FONT = "12px system-ui, sans-serif";
 const FONT_BIG = "bold 13px system-ui, sans-serif";
 const FONT_LAMP = "10px system-ui, sans-serif";
 const FONT_STAR = "bold 11px system-ui, sans-serif";
 const DASH_LAMP_TARGET: number[] = [3, 3];
 const FONT_FEED = "bold 15px system-ui, sans-serif";
 
-const DASH_TARGET: number[] = [4, 4];
-const DASH_NONE: number[] = [];
 const DASH_PLACE: number[] = [5, 4];
 
 const K_NONE = 0;
@@ -928,31 +936,6 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
 
   // ---- drawing helpers ----
 
-  function drawX(x: number, y: number, r: number): void {
-    c.lineCap = "round";
-    c.strokeStyle = BG;
-    c.lineWidth = 6;
-    c.beginPath();
-    c.moveTo(x - r, y - r);
-    c.lineTo(x + r, y + r);
-    c.moveTo(x + r, y - r);
-    c.lineTo(x - r, y + r);
-    c.stroke();
-    c.strokeStyle = ALARM;
-    c.lineWidth = 3;
-    c.stroke();
-  }
-
-  function drawRibbon(x: number, y: number): void {
-    c.fillStyle = RIBBON;
-    c.fillRect(x, y, 5, 11);
-    c.beginPath();
-    c.moveTo(x, y + 11);
-    c.lineTo(x + 2.5, y + 8);
-    c.lineTo(x + 5, y + 11);
-    c.fill();
-  }
-
   function drawLine(i: number, state: GridState, t: number, relT: number, rp: RelightPlan | null, hover: string | null): void {
     const id = geo.lineIds[i]!;
     const ax = geo.ax[i]!;
@@ -1223,7 +1206,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
       c.fillText("★", x, y - cr - 13);
     }
     if (readableNode[i] === 1 && faultNode[i] === K_LAMP) {
-      drawX(x, y, 5);
+      drawX(c, x, y, 5);
       // A dead lamp that current reaches flickers a dull red at the socket.
       const fl = flicker(t * 1.3, i + 50);
       c.fillStyle = LAMP_FAULT_RED;
@@ -1287,62 +1270,17 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
 
     switch (n.type) {
       case "feed": {
-        c.fillRect(x - 15, y - 15, 30, 30);
-        c.strokeRect(x - 15, y - 15, 30, 30);
-        c.fillStyle = live ? WARM : TEXT_DIM;
-        c.beginPath();
-        c.moveTo(x + 3, y - 11);
-        c.lineTo(x - 6, y + 2);
-        c.lineTo(x - 1, y + 2);
-        c.lineTo(x - 3, y + 11);
-        c.lineTo(x + 6, y - 3);
-        c.lineTo(x + 1, y - 3);
-        c.closePath();
-        c.fill();
+        drawFeedGlyph(c, x, y, live);
         break;
       }
       case "breaker": {
-        c.fillRect(x - 13, y - 10, 26, 20);
-        c.strokeRect(x - 13, y - 10, 26, 20);
-        const closed = state.breakers.get(id) ?? n.closed;
-        c.strokeStyle = closed ? (live ? LINE_LIVE : TEXT) : TEXT_DIM;
-        c.lineWidth = 3;
-        c.lineCap = "round";
-        c.beginPath();
-        if (closed) {
-          c.moveTo(x - 8, y);
-          c.lineTo(x + 8, y);
-        } else {
-          c.moveTo(x - 8, y + 4);
-          c.lineTo(x + 6, y - 6);
-        }
-        c.stroke();
-        c.fillStyle = closed ? TEXT : TEXT_DIM;
-        c.font = FONT;
-        c.fillText(closed ? "ON" : "OFF", x, y + 22);
-        drawRibbon(x + 9, y - 19);
+        drawBreakerGlyph(c, x, y, state.breakers.get(id) ?? n.closed, live);
         break;
       }
       case "switch": {
         const stuck = n.relay === true && !live;
-        if (stuck) {
-          c.globalAlpha = 0.5;
-          c.setLineDash(DASH_TARGET);
-        }
-        c.beginPath();
-        c.arc(x, y, 12, 0, Math.PI * 2);
-        c.fill();
-        c.stroke();
-        if (stuck) c.setLineDash(DASH_NONE);
         const sel = state.switches.get(id) ?? n.selected;
         const other = sel === 0 ? 1 : 0;
-        c.lineCap = "round";
-        c.strokeStyle = TEXT_DIM;
-        c.lineWidth = 2;
-        c.beginPath();
-        c.moveTo(x + swDx[i * 2 + other]! * 4, y + swDy[i * 2 + other]! * 4);
-        c.lineTo(x + swDx[i * 2 + other]! * 13, y + swDy[i * 2 + other]! * 13);
-        c.stroke();
         // Lever tip: at rest, or mid-twang (from the old position, through rest, overshooting).
         let lx = swDx[i * 2 + sel]!;
         let ly = swDy[i * 2 + sel]!;
@@ -1356,43 +1294,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
             ly /= ll;
           }
         }
-        c.strokeStyle = live ? LINE_LIVE : TEXT;
-        c.lineWidth = 4;
-        c.beginPath();
-        c.moveTo(x, y);
-        c.lineTo(x + lx * 20, y + ly * 20);
-        c.stroke();
-        c.fillStyle = c.strokeStyle;
-        c.beginPath();
-        c.arc(x, y, 3, 0, Math.PI * 2);
-        c.fill();
-        drawRibbon(x + 9, y - 21);
-        if (isSpring[i] === 1) {
-          // Coiled ribbon under the switch: a zigzag coil, a shape so it reads without colour.
-          c.strokeStyle = RIBBON;
-          c.lineWidth = 2;
-          c.lineJoin = "round";
-          c.beginPath();
-          c.moveTo(x - 10, y + 19);
-          for (let k = 0; k < 6; k++) {
-            c.lineTo(x - 8 + k * 3.2, y + (k % 2 === 0 ? 14 : 24));
-          }
-          c.lineTo(x + 10, y + 19);
-          c.stroke();
-        }
-        if (n.relay === true) {
-          // Second tribe mark; a stuck relay also shows a bar across it (shape, not just dimness).
-          drawRibbon(x - 14, y - 21);
-          if (stuck) {
-            c.strokeStyle = TEXT_DIM;
-            c.lineWidth = 3;
-            c.beginPath();
-            c.moveTo(x - 14, y + 14);
-            c.lineTo(x + 14, y - 14);
-            c.stroke();
-          }
-        }
-        c.globalAlpha = 1;
+        drawSwitchGlyph(c, x, y, live, stuck, n.relay === true, isSpring[i] === 1, swDx[i * 2 + other]!, swDy[i * 2 + other]!, lx, ly);
         break;
       }
       case "battery": {
@@ -1471,27 +1373,8 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
       }
       case "fusebox": {
         const broken = readableNode[i] === 1 && faultNode[i] === K_FUSE && holdIntact[i] === 0;
-        c.fillRect(x - 14, y - 11, 28, 22);
-        c.strokeRect(x - 14, y - 11, 28, 22);
+        drawFuseBoxGlyph(c, x, y, broken, nodeOutline(i, live));
         if (broken) {
-          // Scorch mark, then the bar snapped in two with a gap and curled ends.
-          c.fillStyle = SCORCH;
-          c.globalAlpha = 0.75;
-          c.beginPath();
-          c.arc(x, y + 1, 10, 0, Math.PI * 2);
-          c.fill();
-          c.globalAlpha = 1;
-          c.strokeStyle = ALARM;
-          c.lineWidth = 2.5;
-          c.lineCap = "round";
-          c.beginPath();
-          c.moveTo(x - 11, y);
-          c.lineTo(x - 4, y);
-          c.lineTo(x - 2, y - 5);
-          c.moveTo(x + 11, y + 1);
-          c.lineTo(x + 4, y + 1);
-          c.lineTo(x + 2, y + 6);
-          c.stroke();
           if (live) {
             // Buzz: a faint, irregular flicker at the snapped ends.
             const step = Math.floor(t * 14);
@@ -1513,12 +1396,6 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
             c.fillText(ratingLabel[i]!, x, y + 25);
           }
         } else {
-          c.beginPath();
-          c.moveTo(x - 8, y);
-          c.lineTo(x + 8, y);
-          c.strokeStyle = nodeOutline(i, live);
-          c.lineWidth = 2;
-          c.stroke();
           if (capsOn) {
             c.fillStyle = TEXT;
             c.font = FONT;
@@ -1607,10 +1484,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, puzzle: Puzzle, opt
             }
           }
         } else {
-          c.beginPath();
-          c.arc(x, y, 5, 0, Math.PI * 2);
-          c.fill();
-          c.stroke();
+          drawJunctionGlyph(c, x, y);
         }
         break;
       }

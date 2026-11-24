@@ -105,7 +105,7 @@ describe("blown fuse versus at the limit", () => {
 
 describe("ON/OFF", () => {
   it("matches the literal 2D draws (drift guard)", () => {
-    const src = readFileSync("src/render/map-renderer.ts", "utf8");
+    const src = readFileSync("src/render/glyphs.ts", "utf8");
     expect(src).toContain('closed ? "ON" : "OFF"');
     expect(BREAKER_ON).toBe("ON");
     expect(BREAKER_OFF).toBe("OFF");
