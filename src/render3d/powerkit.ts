@@ -14,6 +14,7 @@
 
 import type { Vec3 } from "./layout";
 import { stableHash } from "../render/city";
+import { GROUND_POLE_ATTACH_UP_M, GROUND_POLE_MIX } from "../core/powerpoles";
 
 /** A named failure of the kit's own checks. */
 export class PowerKitError extends Error {
@@ -82,9 +83,9 @@ export const POWER_POLES: Readonly<Record<string, PowerPole>> = {
     along_m: 0.169,
     attach_m: [
       // The upper arm's centre has no insulator of its own: a code insulator goes here, at the outer pair's height.
-      { across: -0.025, up: 5.862, ownInsulator: false, surface_m: 5.7 },
-      { across: -0.882, up: 5.862, ownInsulator: true, surface_m: 5.862 },
-      { across: 0.833, up: 5.862, ownInsulator: true, surface_m: 5.862 },
+      { across: -0.025, up: GROUND_POLE_ATTACH_UP_M[GROUND_POLE_MIX[0]][0], ownInsulator: false, surface_m: 5.7 },
+      { across: -0.882, up: GROUND_POLE_ATTACH_UP_M[GROUND_POLE_MIX[0]][1], ownInsulator: true, surface_m: 5.862 },
+      { across: 0.833, up: GROUND_POLE_ATTACH_UP_M[GROUND_POLE_MIX[0]][2], ownInsulator: true, surface_m: 5.862 },
     ],
   },
   "palm-city-pack:SM_Prop_Powerpole_01": {
@@ -95,9 +96,9 @@ export const POWER_POLES: Readonly<Record<string, PowerPole>> = {
     along_m: 0.17,
     attach_m: [
       // The centre insulator is off the arm's middle (0.2 m): the wire's line is the outer pair's midpoint, and the centre insulator is that far off it.
-      { across: 0.225, up: 8.53, ownInsulator: true, surface_m: 8.53 },
-      { across: -0.833, up: 8.548, ownInsulator: true, surface_m: 8.548 },
-      { across: 0.882, up: 8.548, ownInsulator: true, surface_m: 8.548 },
+      { across: 0.225, up: GROUND_POLE_ATTACH_UP_M[GROUND_POLE_MIX[1]][0], ownInsulator: true, surface_m: 8.53 },
+      { across: -0.833, up: GROUND_POLE_ATTACH_UP_M[GROUND_POLE_MIX[1]][1], ownInsulator: true, surface_m: 8.548 },
+      { across: 0.882, up: GROUND_POLE_ATTACH_UP_M[GROUND_POLE_MIX[1]][2], ownInsulator: true, surface_m: 8.548 },
     ],
   },
   "palm-city-pack:SM_Prop_Powerpole_02": {
@@ -109,9 +110,9 @@ export const POWER_POLES: Readonly<Record<string, PowerPole>> = {
     along_m: 0.011,
     attach_m: [
       // The makeshift pole: a crooked arm. The outer ends are 0.32 m apart in height, and the centre insulator is 0.4 m off the wires' line.
-      { across: -0.454, up: 8.47, ownInsulator: true, surface_m: 8.47 },
-      { across: -0.894, up: 8.407, ownInsulator: true, surface_m: 8.407 },
-      { across: 0.79, up: 8.731, ownInsulator: true, surface_m: 8.731 },
+      { across: -0.454, up: GROUND_POLE_ATTACH_UP_M[GROUND_POLE_MIX[2]][0], ownInsulator: true, surface_m: 8.47 },
+      { across: -0.894, up: GROUND_POLE_ATTACH_UP_M[GROUND_POLE_MIX[2]][1], ownInsulator: true, surface_m: 8.407 },
+      { across: 0.79, up: GROUND_POLE_ATTACH_UP_M[GROUND_POLE_MIX[2]][2], ownInsulator: true, surface_m: 8.731 },
     ],
   },
 };
@@ -133,11 +134,7 @@ export const POWER_LINES: Readonly<Record<string, PowerLine>> = {
 };
 
 /** The three picked poles, in the order Josh named them. */
-export const POWER_MIX: readonly string[] = [
-  "apocalypse-power:SM_Prop_Powerpole_01",
-  "palm-city-pack:SM_Prop_Powerpole_01",
-  "palm-city-pack:SM_Prop_Powerpole_02",
-];
+export const POWER_MIX: readonly string[] = GROUND_POLE_MIX;
 /** The one wire piece for every line (Josh, 21 Nov 2026). */
 export const POWER_LINE = "city-pack:SM_Prop_Power_Cables_03";
 
