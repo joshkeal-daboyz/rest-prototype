@@ -1,6 +1,6 @@
 ticket: 081-K3-circuit-drawn
-assessment: partly
-must-fix: 1
+assessment: meets
+must-fix: 0
 
 ## What the ticket asked for, as I understood it
 Draw stage 6 on the city, dead: every pole on its `poleModels` model, every span and drop as the 071 wire piece at `SAG_RATIO`, the street lights, and a structure with a code arm on every corner roof. Given an optional job, the new `circuitdraw.ts` also stands each node's picked model at its place, swaps the feed's pole for the feed pick, adds only the mid roofs and roof spans the job uses, and hangs the damaged-line prop at a cut only while it is readable. R12 allows the wire piece on circuit spans and drops only, and `planKeys()` gains the circuit's keys.
@@ -54,3 +54,29 @@ Reviewed `git diff origin/main...ticket/081k3-circuit-drawn`. The builder's comm
 3. **The +z front assumption.** Name it as one constant, for example `PACK_FRONT_YAW = 0`, used by `yawToward`'s callers. If Josh finds the wall-attach electronics facing the post on `cam=street`, the fix is then one number.
 4. **Unused export.** `wireLow` is not used anywhere: `circuitDraws` repeats the formula inline, and the test has its own `lowOf` with 0.04 hard-coded. Use `wireLow` in both places, or delete it.
 5. **Odd heights in the lamp-post branch.** It stands any component that is not a lamp post at a fixed 1.0 m. Only lamps reach that branch, so this never happens today. A `continue` would say so more plainly.
+
+## Round 2
+
+ticket: 081-K3-circuit-drawn
+assessment: meets
+must-fix: 0
+
+Reviewed fix commits 4b6a598 and d1a93dd on `ticket/081k3-circuit-drawn`, and `git diff origin/main...HEAD`, which touches only `src/render3d/` (`circuitdraw.ts`, `circuitdraw.test.ts`, `plan3d.ts`, `plan3d.test.ts`, `powerkit.ts`). I ran `circuitdraw.test.ts` and `plan3d.test.ts` in the foreground: 2 files, 84 passed. Nothing was left running.
+
+**Round 1 must-fix 1 (a roof component stands below its arm): fixed.**
+- In `circuitDraws`, a first pass over the nodes works out `armUp` for each roof that holds a node: `max(ROOF_MAST_ATTACH_MIN_M, ON_POLE_GAP_M + COMPONENT_H_M[c] + slot * 1.0)`.
+- That roof's arm and wire seat (`seatY_m`) are raised to it, which criterion 2's "2.0 m or higher" allows. A roof with no node keeps 2.0 m.
+- The roof branch sets the base at `deck + armUp - ON_POLE_GAP_M - h - slot`, clamped at the deck. Each node's top is then `armUp - gap - slot` above the deck, so at most the arm's underside less 0.6 m, and its base is never under the deck.
+- The slot order is the same in both passes, since both iterate `nodes` and count every roof node, including a feed.
+- The test is an assertion added to case 2, not a new case. A switch and a breaker go on `roof:0:0`, and the case checks that each top is under the arm and each base is on or above the deck at 12.5 m. The switch needs 0.6 + 2.752 = 3.35 m, so the old code (base 0.3 m, arm at 2.0 m) would fail it. The expected value comes from the rule (under the arm), not from the code's output.
+
+**The other changes since round 1:**
+- **The fixture path (could-improve 1).** Case 3(a) now reads `puzzles/city/city-two-ways-round.city.json`, P0's location, and the branch has merged `origin/main` with P0 in it. The case passes.
+- **`FEED_POLE_KEY` (could-improve 2).** It is a literal again in `powerkit.ts`. 4b6a598 had it importing `componentmodels`, and d1a93dd reverted that for the purity pin. Case 3(a) gains `expect(FEED_POLE_KEY).toBe(COMPONENT_MODELS.feed.key)`, so a re-picked feed now fails loudly. That is what the could-improve asked for.
+- **`PACK_FRONT` (could-improve 3).** It is one named constant, used by `yawToward` and by the building fallback direction. Its value is +z as before, so nothing turns.
+
+**Test count against main.** Still 8 `it(` lines added or rewritten, under 15. Round 2 added no new case. `src/grid/` and `src/night/` are untouched, and there is no new dependency.
+
+**Could improve (round 2, optional)**
+1. **Stacked models on one roof overlap.** Stacked nodes on one roof sit at the same x/z, 1.0 m apart in height. A switch is 2.752 m tall, so the second node's top sits about 1.75 m inside the first model. This was the same before round 1 (bases 0.3 and 1.3 m), so it is not new. A step of `max(h)` + a small gap, or an offset along the arm, would separate them. No current city puzzle puts two nodes on one roof (not checked beyond `city-two-ways-round`, which has no roof node).
+2. **Raised arms move the wire seat above the checked height.** Raising an arm moves the drawn wire seat above the 2.0 m that `src/city/circuit` checks clearance against. It is higher, so clearance only improves, but the drawn and checked geometry differ on those roofs. One line in the ticket's report would say so.
