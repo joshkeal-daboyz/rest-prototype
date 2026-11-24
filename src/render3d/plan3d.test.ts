@@ -688,14 +688,6 @@ const listedOnce = (layer: CityBuildingsLayer, draws: readonly PlanPieceDraw[]):
   }
   return seen.size === n && draws.length === n;
 };
-const wrappersOf = (group: Object3D): Object3D[] => group.children.filter((c) => c.name.startsWith("piece:"));
-const meshesOf = (o: Object3D): Mesh[] => {
-  const out: Mesh[] = [];
-  o.traverse((m) => {
-    if ((m as Mesh).isMesh === true) out.push(m as Mesh);
-  });
-  return out;
-};
 /** The instance's matrix is exactly its placement's position, turn about y, and WORLD_PER_METRE scale (the stub roots' one mesh sits at the root's origin). */
 function expectInstance(inst: BuildingInstance, pl: CityPlacement, what: string): void {
   const have = new Matrix4();
@@ -705,13 +697,12 @@ function expectInstance(inst: BuildingInstance, pl: CityPlacement, what: string)
 }
 /** The materials of a building's instances, in `instances` order. */
 const materialsOfBuilding = (d: PlanDraw, id: string): MeshBasicMaterial[] => (d.buildings.instances.get(id) ?? []).map((i) => i.mesh.material as MeshBasicMaterial);
-/** With every root loaded and no building excluded: each building's floor instances (in the list's order) and then its ground instances (in the facades' order) are the listed placements, and nothing is cloned. */
+/** With every root loaded: each building's floor instances (in the list's order) and then its ground instances (in the facades' order) are the listed placements, and nothing is cloned. */
 function expectPlaced(d: PlanDraw, label: string): void {
   const byBuilding = new Map<string, PlanPieceDraw[]>();
   for (const p of d.buildings.draws) byBuilding.set(p.building, [...(byBuilding.get(p.building) ?? []), p]);
   const groundBy = new Map<string, PlanGroundDraw[]>();
   for (const p of d.buildings.groundDraws) groundBy.set(p.building, [...(groundBy.get(p.building) ?? []), p]);
-  expect(d.buildings.groups, label).toHaveLength(0);
   let placed = 0;
   for (const [id, list] of d.buildings.instances) {
     const pieces = byBuilding.get(id) ?? [];
@@ -810,22 +801,7 @@ describe("the buildings: pieces from placements only (criteria 2 and 3)", { time
     d.dispose();
   });
 
-  it("keeps an excluded building as clones in its own group, painted in its colourway, and out of every instancer", () => {
-    const plan = planOf(DEFAULT);
-    const layer = buildingsOf(plan);
-    const b = layer.buildings.find((x) => LOADED_WAYS.has(x.colourway))!;
-    const d = plan3dGroups(plan, stackRoots(), none.entries, LOADED_WAYS, undefined, undefined, undefined, new Set([b.id]));
-    const own = d.buildings.draws.filter((p) => p.building === b.id).length + d.buildings.groundDraws.filter((p) => p.building === b.id).length;
-    expect(own).toBeGreaterThan(0);
-    expect(d.buildings.groups.map((g) => g.name)).toEqual([`building:${b.id}`]);
-    expect(wrappersOf(d.buildings.groups[0]!)).toHaveLength(own);
-    for (const m of meshesOf(d.buildings.groups[0]!)) expect((m.material as MeshBasicMaterial).map!.name).toBe(`stub-${b.colourway}`);
-    expect(d.buildings.instances.has(b.id)).toBe(false);
-    expect(d.buildings.instancers.reduce((n, m) => n + m.count, 0)).toBe(d.buildings.draws.length + d.buildings.groundDraws.length - own);
-    d.dispose();
-  });
-
-  it("with empty roots clones no piece and draws one grey box per column at its full height; with every root loaded no column is grey; with one above-ground key missing only the columns that use it fall back (their ground piece is not cloned)", () => {
+  it("with empty roots instances no piece and draws one grey box per column at its full height; with every root loaded no column is grey; with one above-ground key missing only the columns that use it fall back (their ground piece is not instanced)", () => {
     const plan = planOf(DEFAULT);
     const layer = buildingsOf(plan);
     const columns = layer.columns!;
@@ -833,7 +809,8 @@ describe("the buildings: pieces from placements only (criteria 2 and 3)", { time
     const e = plan3dGroups(plan, none.roots, none.entries);
     expect(e.buildings.pieces).toBe(0);
     expect(e.buildings.groundPieces).toBe(0);
-    expect(e.buildings.groups.every((g) => g.children.length === 0)).toBe(true);
+    expect(e.buildings.instancers).toHaveLength(0);
+    expect(e.buildings.instances.size).toBe(0);
     expect(e.grey.count).toBe(columns.length);
     expect(e.grey.mesh.count).toBe(columns.length);
     expect(e.grey.fallback).toBe(columns.length);
@@ -870,7 +847,7 @@ describe("the buildings: pieces from placements only (criteria 2 and 3)", { time
       expect({ i: pg[n]!.i, j: pg[n]!.j }).toEqual({ i: c.i, j: c.j });
       expect(pg[n]!.h, `${c.i},${c.j}`).toBeCloseTo(roofY(c), 5);
     });
-    // A fallback column's ground piece is not cloned.
+    // A fallback column's ground piece is not instanced.
     const fell = new Set(uses.map((c) => `${c.i},${c.j}`));
     const want = part.buildings.groundDraws.filter((g) => g.cells.every((c) => !fell.has(`${c.i},${c.j}`))).length;
     expect(part.buildings.groundPieces).toBe(want);

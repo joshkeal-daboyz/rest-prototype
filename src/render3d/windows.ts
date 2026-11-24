@@ -4,7 +4,7 @@
  * - `windowMask()` is one shared emissive texture made in code, in the City Pack atlas's UV layout: black everywhere but the glass rectangle, and each of its three panes in the colour the pack's own night
  *   image (`Textures/Emissive_01.png`, Josh's card L-Q1 "Pack's night glow") lights it. The rectangle and pane colours were read from that image once and are typed in; nothing from the pack is committed.
  * - `buildingGlow` is the pure level of one building this frame, from E2's `lampState` and `lampFlicker`, so the Relight's order, the flare and the brownout dip are the lamps' own.
- * - `litBuilding(group)` gives a building's pieces their own clones of their materials with the mask, made when the city builds (level 0), so no shader compiles in play. Other buildings keep the shared materials.
+ * - `windowLit` is the building materials' window-lit twin, and `setBuildingGlow` writes a building's level into its instances' `windowLevel` slots (081 F1b), so every building stays in the shared instancers.
  * - `litGlass` is one more InstancedMesh per shop glass key over the dark glass, for the lit buildings' shopfronts only.
  */
 import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, DataTexture, Matrix4, Mesh as ThreeMesh, MeshBasicMaterial, NearestFilter, RGBAFormat, SRGBColorSpace, UnsignedByteType, type Material, type Mesh, type Object3D, type Texture } from "three";
@@ -15,7 +15,7 @@ import { FLARE_SECONDS } from "../render/relight";
 import { SHOP_GLASS } from "./dressing";
 import { lampFlicker } from "./look";
 import { dressMatrix, meshParts } from "./models3d";
-import type { PlanDressDraw } from "./plan3d";
+import type { BuildingsDraw, PlanDressDraw } from "./plan3d";
 import { lampIgnition, type LampIgnition } from "./relight3d";
 import type { RelightPlan } from "../render/relight";
 
@@ -127,52 +127,48 @@ export const WINDOW_LIT = 1.6;
 export const WINDOW_FLARE_GAIN = 1.2;
 export const windowIntensity = (g: BuildingGlow): number => g.level * WINDOW_LIT * (1 + WINDOW_FLARE_GAIN * g.flare);
 
-/** What `litBuilding` made: set the building's window level, and free the clones. */
-export interface LitBuilding {
-  /** The clones made (one per source material with an atlas map). */
-  readonly materials: readonly Material[];
-  set(g: BuildingGlow): void;
-  dispose(): void;
-}
+/** The name of the per-instance window level on a building instancer's geometry: one float per instance, 0 dark, 1 at full level (more in the flare). */
+export const WINDOW_LEVEL = "windowLevel";
 
 type Emissive = Material & { map?: Texture | null; emissive?: Color; emissiveMap?: Texture | null; emissiveIntensity?: number };
 
 /**
- * Give a building's pieces their own clones of their materials with the window mask, at level 0. Only a material with a `map` (the atlas) is cloned; one clone per source material, shared by this building's
- * pieces. Every other building keeps the shared materials, untouched.
+ * The window-lit twin of a building material (081 F1b): a clone (made once, when the city builds) whose emissive map is the window mask and whose shader multiplies the emissive by the instance's `windowLevel`,
+ * so the emissive is mask x level x `WINDOW_LIT`. Only a material with an atlas `map` and an `emissive` colour has a twin; any other is returned as it is. The source is never written.
  */
-export function litBuilding(group: Object3D): LitBuilding {
-  const clones = new Map<Material, Material>();
-  const swap = (m: Material): Material => {
-    const src = m as Emissive;
-    if (!src.map || !src.emissive) return m;
-    let c = clones.get(m);
-    if (!c) {
-      c = m.clone();
-      const lit = c as Emissive;
-      lit.emissive = new Color(0xffffff);
-      lit.emissiveMap = windowMask();
-      lit.emissiveIntensity = 0;
-      clones.set(m, c);
-    }
-    return c;
+export function windowLit(source: Material): Material {
+  const src = source as Emissive;
+  if (!src.map || !src.emissive) return source;
+  const twin = source.clone() as Emissive;
+  twin.emissive = new Color(0xffffff);
+  twin.emissiveMap = windowMask();
+  twin.emissiveIntensity = WINDOW_LIT;
+  twin.onBeforeCompile = (shader) => {
+    shader.vertexShader = shader.vertexShader
+      .replace("#include <common>", "#include <common>\nattribute float windowLevel;\nvarying float vWindowLevel;")
+      .replace("#include <begin_vertex>", "#include <begin_vertex>\nvWindowLevel = windowLevel;");
+    shader.fragmentShader = shader.fragmentShader
+      .replace("#include <common>", "#include <common>\nvarying float vWindowLevel;")
+      .replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\ntotalEmissiveRadiance *= vWindowLevel;");
   };
-  group.traverse((o) => {
-    const mesh = o as Mesh;
-    if (mesh.isMesh !== true) return;
-    mesh.material = Array.isArray(mesh.material) ? mesh.material.map(swap) : swap(mesh.material);
-  });
-  const materials = [...clones.values()];
-  return {
-    materials,
-    set(g) {
-      const v = windowIntensity(g);
-      for (const m of materials) (m as Emissive).emissiveIntensity = v;
-    },
-    dispose() {
-      for (const m of materials) m.dispose();
-    },
-  };
+  twin.customProgramCacheKey = () => "window-lit";
+  return twin;
+}
+
+/**
+ * Set one building's windows for this frame: every one of its instances' `windowLevel` becomes the level with the ignition flare (`windowIntensity` without `WINDOW_LIT`, which the material holds). Only that
+ * building's slots are written, and an attribute is marked for upload only when a slot changed. A building with no instances (a lamp's building drawn grey, or none) is a no-op.
+ */
+export function setBuildingGlow(draw: Pick<BuildingsDraw, "instances">, building: string, g: BuildingGlow): void {
+  const list = draw.instances.get(building);
+  if (!list) return;
+  const v = windowIntensity(g) / WINDOW_LIT;
+  for (const { mesh, index } of list) {
+    const attr = mesh.geometry.getAttribute(WINDOW_LEVEL) as BufferAttribute | undefined;
+    if (!attr || attr.array[index] === Math.fround(v)) continue;
+    attr.array[index] = v;
+    attr.needsUpdate = true;
+  }
 }
 
 const GLASS: ReadonlySet<CalibrationKey> = new Set(SHOP_GLASS);
