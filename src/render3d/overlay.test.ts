@@ -166,8 +166,8 @@ describe("a city puzzle played on the city (ticket 081 E2)", () => {
     const draws = circuitDraws(layer, undefined, { converted });
     return { converted, layer, wires: jobWires(layer, draws, converted) };
   };
-  const flowOf = (state: ReturnType<ReturnType<typeof createGrid>["state"]>, id: string, to: string, index: number): LineFlow => lineFlow(state, { id, to }, index, null, 0, { fraction: 0, reversed: false });
-  const litOf = (w: Parameters<typeof wireLit>[0], reversed: boolean, fraction: number, cut = false): WireLit => wireLit(w, reversed, fraction, cut, { forward: true, frac: 0 });
+  const flowOf = (state: ReturnType<ReturnType<typeof createGrid>["state"]>, id: string, to: string, index: number): LineFlow => lineFlow(state, { id, to }, index, [], null, 0, { fraction: 0, reversed: false });
+  const litOf = (w: Parameters<typeof wireLit>[0], reversed: boolean, fraction: number): WireLit => wireLit(w, reversed, fraction, { forward: true, frac: 0 });
 
   it("loadCityView runs one pipeline per city, shares the plan between puzzles on it, and throws on a puzzle that does not hold", () => {
     const city = loadCityPuzzle(JSON.parse(readFileSync("puzzles/city/city-two-ways-round.city.json", "utf8")));
@@ -213,16 +213,28 @@ describe("a city puzzle played on the city (ticket 081 E2)", () => {
     for (const w of wires.filter((x) => x.line === dead.id)) expect(litOf(w, false, 0).frac).toBe(0);
   });
 
-  it("a cut span lights only up to its break, and sparks only while current reaches it", () => {
-    const { wires } = wiresOf();
-    const cut = wires.find((w) => w.cutFault !== null)!;
-    expect(cut.line).toBe("l_b");
-    expect(litOf(cut, false, 1, true).frac).toBe(0.5);
-    expect(litOf(cut, false, 1, false).frac).toBe(1);
-    const g = createGrid(puzzle, new EventBus());
-    expect(g.state().sparking.has("l_b")).toBe(false);
-    g.throwSwitch("sw_1");
-    expect(g.state().sparking.has("l_b")).toBe(true);
+  it("current stops at a cut that is still there: the span past the break stays dark with current from either end", () => {
+    const { converted, layer } = fixture();
+    const base = createGrid(puzzle, new EventBus()).state();
+    const feedLine = puzzle.lines.find((l) => l.id === "l_feed")!;
+    const li = puzzle.lines.findIndex((l) => l.id === "l_feed");
+    for (const cutIdx of [0, 1]) {
+      const spanId = converted.runs["l_feed"]!.spans[cutIdx]!;
+      const cutConverted = { ...converted, cuts: { fx: spanId } };
+      const feed = jobWires(layer, circuitDraws(layer, undefined, { converted: cutConverted }), cutConverted).filter((w) => w.line === "l_feed");
+      expect(feed.map((w) => w.cutFault)).toEqual(cutIdx === 0 ? ["fx", null] : [null, "fx"]);
+      for (const reversed of [false, true]) {
+        const standing = { ...base, faults: [{ id: "fx", at: "l_feed", kind: "damaged-cable" as const }], flowFrom: new Map([["l_feed", reversed ? feedLine.to : feedLine.from]]) };
+        const fl = lineFlow(standing, feedLine, li, feed, null, 0, { fraction: 0, reversed: false });
+        expect(fl.reversed).toBe(reversed);
+        const order = reversed ? [1, 0] : [0, 1];
+        const k = order.indexOf(cutIdx);
+        order.forEach((wi, pos) => expect(litOf(feed[wi]!, fl.reversed, fl.fraction).frac).toBeCloseTo(pos < k ? 1 : pos === k ? 0.5 : 0, 5));
+        // Repaired: the fault is gone and the whole line carries current.
+        const repaired = lineFlow({ ...standing, faults: [] }, feedLine, li, feed, null, 0, { fraction: 0, reversed: false });
+        expect(repaired.fraction).toBe(1);
+      }
+    }
   });
 
   it("projects with the camera's own projection: a line's points are its pieces' projected places", () => {
@@ -284,7 +296,9 @@ describe("a city puzzle played on the city (ticket 081 E2)", () => {
     const fresh = createGrid(puzzle, new EventBus()).state();
     const f = relightFrame(puzzle, [won, won, won, won], [0.05, 1.5, 1.5, 10]);
     const clock = createRelightClock(puzzle);
-    expect(clock.update(fresh, 1.5)).toBe(clock.update(won, 1.6));
+    const started = clock.update(won, 0.05);
+    expect(started).not.toBeNull();
+    expect(clock.update(fresh, 1.5)).toBe(started);
     expect(f[0]!.lit).toEqual([]);
     expect(f[0]!.fractions.every((x) => x === 0)).toBe(true);
     expect(f[2]).toEqual(f[1]);

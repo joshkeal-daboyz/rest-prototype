@@ -208,15 +208,14 @@ export interface WireLit {
 const clamp01 = (v: number): number => (v < 0 ? 0 : v > 1 ? 1 : v);
 
 /**
- * One wire's lit share. `fraction` is how much of its line is lit (0 dead, 1 live; the Relight's `lineFraction` between), `reversed` that current enters the line at its to end, `cut` that this span is cut and unrepaired:
- * a cut wire lights only up to its break (its middle). Writes into `out`.
+ * One wire's lit share. `fraction` is how much of its line is lit (0 dead, 1 live; the Relight's `lineFraction` between), `reversed` that current enters the line at its to end, Writes into `out`. A cut is not handled here: `lineFlow` caps the line's fraction at the break.
  */
-export function wireLit(w: JobWire, reversed: boolean, fraction: number, cut: boolean, out: WireLit): WireLit {
+export function wireLit(w: JobWire, reversed: boolean, fraction: number, out: WireLit): WireLit {
   const t0 = reversed ? 1 - w.a1 : w.a0;
   const t1 = reversed ? 1 - w.a0 : w.a1;
   const f = t1 > t0 ? clamp01((fraction - t0) / (t1 - t0)) : fraction >= t1 && fraction > 0 ? 1 : 0;
   out.forward = w.flip === reversed;
-  out.frac = cut ? Math.min(f, 0.5) : f;
+  out.frac = f;
   return out;
 }
 
@@ -255,9 +254,27 @@ export interface LineFlow {
 /**
  * One frame's flow on a line: from the state in play, from the Relight's own plan while one runs (`plan` and `relT`, from `relight3d.ts`'s clock). A line that is not powered stays 0 either way.
  */
-export function lineFlow(state: GridState, line: { id: string; to: string }, lineIndex: number, plan: Parameters<typeof lineFraction>[0] | null, relT: number, out: LineFlow): LineFlow {
-  out.fraction = state.powered.has(line.id) ? (plan ? lineFraction(plan, lineIndex, relT) : 1) : 0;
+export function lineFlow(state: GridState, line: { id: string; to: string }, lineIndex: number, lineWires: readonly JobWire[], plan: Parameters<typeof lineFraction>[0] | null, relT: number, out: LineFlow): LineFlow {
+  let f = state.powered.has(line.id) ? (plan ? lineFraction(plan, lineIndex, relT) : 1) : 0;
   out.reversed = state.flowFrom.get(line.id) === line.to;
+  // The grid keeps a damaged line powered up to its break; current does not cross a cut that is still there. Cap at the cut span's middle, counted from the end current enters.
+  for (const w of lineWires) {
+    if (w.cutFault === null) continue;
+    let standing = false;
+    for (const x of state.faults) if (x.id === w.cutFault) standing = true;
+    if (!standing) continue;
+    const mid = (w.a0 + w.a1) / 2;
+    f = Math.min(f, out.reversed ? 1 - mid : mid);
+  }
+  out.fraction = f;
+  return out;
+}
+
+/** A lamp's state this frame: lit from the state in play, from the Relight's plan (ignition and flare age) while one runs. The one function the renderer and the Relight case share. Writes into `out`. */
+export function lampState(plan: Parameters<typeof lineFraction>[0] | null, state: GridState, lampId: string, index: number, relT: number, out: LampIgnition): LampIgnition {
+  if (plan) return lampIgnition(plan, state, lampId, index, relT, out);
+  out.on = state.lit.has(lampId);
+  out.flareAge = -1;
   return out;
 }
 
@@ -265,15 +282,16 @@ export function lineFlow(state: GridState, line: { id: string; to: string }, lin
 export function relightFrame(puzzle: CityPuzzleConverted["puzzle"], states: readonly GridState[], times: readonly number[]): { lit: string[]; fractions: number[] }[] {
   const clock = createRelightClock(puzzle);
   const ign: LampIgnition = { on: false, flareAge: -1 };
+  const fl: LineFlow = { fraction: 0, reversed: false };
   const frames: { lit: string[]; fractions: number[] }[] = [];
   times.forEach((t, k) => {
     const state = states[Math.min(k, states.length - 1)]!;
     const plan = clock.update(state, t);
     const lit: string[] = [];
     puzzle.nodes.forEach((n, i) => {
-      if (n.type === "lamp" && (plan ? lampIgnition(plan, state, n.id, i, t, ign).on : state.lit.has(n.id))) lit.push(n.id);
+      if (n.type === "lamp" && lampState(plan, state, n.id, i, t, ign).on) lit.push(n.id);
     });
-    frames.push({ lit, fractions: puzzle.lines.map((l, i) => (plan && state.powered.has(l.id) ? lineFraction(plan, i, t) : state.powered.has(l.id) ? 1 : 0)) });
+    frames.push({ lit, fractions: puzzle.lines.map((l, i) => lineFlow(state, l, i, [], plan, t, fl).fraction) });
   });
   return frames;
 }
@@ -755,6 +773,8 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   const lit: WireLit = { forward: true, frac: 0 };
   const wp: WirePoint = { x: 0, y: 0, z: 0, seg: 0 };
   const ign: LampIgnition = { on: false, flareAge: -1 };
+  const wiresOfLine = new Map<string, JobWire[]>();
+  for (const w of wires) (wiresOfLine.get(w.line) ?? wiresOfLine.set(w.line, []).get(w.line)!).push(w);
   const lineOf = new Map(puzzle.lines.map((l, i) => [l.id, { line: l, index: i }] as const));
 
   function drawLive(state: GridState, plan_: ReturnType<typeof clock.update>, relT: number, time: number): void {
@@ -763,10 +783,8 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     const phase = (time * PULSE_SPEED_M) % PULSE_SPACING_M;
     wires.forEach((w, wi) => {
       const entry = lineOf.get(w.line)!;
-      lineFlow(state, entry.line, entry.index, plan_, relT, flow);
-      let cut = false;
-      if (w.cutFault !== null) for (const f of state.faults) if (f.id === w.cutFault) cut = true;
-      wireLit(w, flow.reversed, flow.fraction, cut, lit);
+      lineFlow(state, entry.line, entry.index, wiresOfLine.get(w.line)!, plan_, relT, flow);
+      wireLit(w, flow.reversed, flow.fraction, lit);
       const wob = state.brownout ? 1 - lampFlicker(state, entry.index, time) * 0.85 : 1;
       const litFrom = lit.forward ? 0 : w.len_m * (1 - lit.frac);
       const litTo = lit.forward ? w.len_m * lit.frac : w.len_m;
@@ -797,7 +815,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
       const entry = lineOf.get(w.line)!;
       let cutNow = false;
       for (const f of state.faults) if (f.id === w.cutFault) cutNow = true;
-      const sparking = cutNow && state.sparking.has(entry.line.id) && (plan_ === null || flow.fraction > 0);
+      const sparking = cutNow && state.sparking.has(entry.line.id) && (plan_ === null || lineFlow(state, entry.line, entry.index, wiresOfLine.get(w.line)!, plan_, relT, flow).fraction > 0);
       const mid = segMid[wi * SAMPLES + SAMPLES / 2]!;
       for (let k = 0; k < SPARKS_PER_CUT; k++) {
         const seed = Math.floor(time * 14) * SPARKS_PER_CUT + k + si;
@@ -813,13 +831,9 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     sparkMesh.instanceMatrix.needsUpdate = true;
     // Lamps.
     for (const lamp of lamps) {
-      let on: boolean;
-      let flare = -1;
-      if (plan_) {
-        lampIgnition(plan_, state, lamp.id, lamp.index, relT, ign);
-        on = ign.on;
-        flare = ign.flareAge;
-      } else on = state.lit.has(lamp.id);
+      lampState(plan_, state, lamp.id, lamp.index, relT, ign);
+      const on = ign.on;
+      const flare = ign.flareAge;
       const b = on ? 1 - lampFlicker(state, lamp.index, time) : 0;
       const pop = flare >= 0 && flare < FLARE_SECONDS ? 1 + 1.6 * (1 - flare / FLARE_SECONDS) : 1;
       lamp.glow.visible = b > 0.01;
