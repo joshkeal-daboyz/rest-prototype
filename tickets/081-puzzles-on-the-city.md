@@ -18,7 +18,7 @@ Each is the question as asked and the option he picked, quoted.
    - (a) A diagonal roof span over a street intersection: **"Yes, roofs may cross one"**. This lifts Q45 ("never over a junction") for roof spans only. Pole crossings stay mid-block and square (CK6).
    - (b) Roof structures and nodes: **"Roofs may hold nodes"**. A roof structure may hold a breaker, a switch or a fuse box. This lifts K1 Q9 ("on poles only") for roof structures.
    - (c) Where a diagonal ends: **"Roof or pole"**. A diagonal runs roof to roof, or roof to pole.
-7. **The overlay's style:** **"Icons plus lines (Recommended)"**.
+7. **The overlay's style:** **"Icons plus lines (Recommended)"**. **Reversed 24 Nov 2026** (Josh, in chat): "I don't think we need the "wire overlay, the 3d wires are apparent enough, however the icons are important." The overlay shows icons only; see section E4. The line and break bullets below stand as history: E4 drops the straight lines, and the break icon moves from the line's midpoint to the real cut ("At the real cut (Recommended)").
    - **How the overlay draws a line and a break** (Josh, 23 Nov 2026, in chat, asked what the overlay and the 3D break prop do with a damaged cable that current does not reach): "The 2D overlay should just draw a line from junction to junction with an icon indicating a break at the center of the cable."
    - Follow-up card, the line's path: **"Straight, piece to piece"**. One straight line between the two puzzle pieces a line connects, as on the 2D map. The line does not follow the carrier poles' spans. The break icon sits at that line's midpoint.
    - Follow-up card, whether the break icon is always shown: **"Only when readable"**. It appears only once current reaches the break, as on the 2D map (Josh, 27 Oct 2026: "Unreadable faults show nothing").
@@ -167,7 +167,8 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | K2ep | "pre-check 081 K2e": option C as worded below, with drops added to CK17d | pipeline-designer | now | 0 (a note) |
 | K2e | Stage 6: every street-facing building wired (CK9 as changed, CK7 on drops, CK17d keeps roof spans from drops), and the pins it moves | grid-simulator | K2ep "holds" (or Josh's answer) | at most 10 (3 added, 5 rewritten, at most 2 more under its stop rule) |
 | D4 | The wall fitting shortlist, and the drop wire's gauge | pipeline-designer | now | 0 (a note) |
-| K3b | The drops drawn attached: a real insulator, the wall fitting, Josh's wire pick | renderer | Josh's D4 picks (K2e not needed) | at most 4 (1 added, up to 3 rewritten) |
+| K3b | The drops drawn attached: a real insulator, the City bracket, `POWER_LINE` kept | renderer | now (Josh's D4 picks are in; K2e not needed) | 3 (1 added, 2 rewritten); 4 if the R12 case must change |
+| E4 | The overlay shows icons, not lines: the break icon at the real cut; clicks go icons, then 3D | renderer | E3 (shares `cityview.ts`) | 0 added, 4 rewritten, 1 removed |
 | X1 | **Stub, not cut:** delete the 2D map view (`src/render/`) | renderer | P2a, and Josh's word | removals; about 2 added |
 | X2 | **Stub, not cut:** delete the 2D side of `src/ui/` and `main.ts` | ui | X1 | removals; 0 added |
 | R1 | **Stub, not cut:** retarget the release playtest harness to city puzzles | (at cut) | before the next release | at cut |
@@ -176,7 +177,7 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 
 **Between A2c and E2 the 64 puzzles have no 3D view.** Josh accepted this with answer 1. The 2D game plays until U2 merges.
 
-**Full 3D (Josh, 24 Nov 2026, on cards).** "I don't want 2D puzzles anymore. I want this game to be full 3D. The 2D puzzles were really just a prototype to see if the puzzles would be functional." On what happens to the 2D side: "Hide now, delete later (Recommended)". On the release harness: "Retarget later (Recommended)". So, from U2 on, the picker and the page show only city puzzles, on the 3D city, with E1's overlay of icons and lines on top. The schematic files in `puzzles/` stay, as the source P1 and P2a fit onto the city. The 2D map code is deleted by X1 and X2 once the 16 pilots are on the city. `tests/playtest/` is left alone until R1.
+**Full 3D (Josh, 24 Nov 2026, on cards).** "I don't want 2D puzzles anymore. I want this game to be full 3D. The 2D puzzles were really just a prototype to see if the puzzles would be functional." On what happens to the 2D side: "Hide now, delete later (Recommended)". On the release harness: "Retarget later (Recommended)". So, from U2 on, the picker and the page show only city puzzles, on the 3D city, with E1's overlay of icons on top (its lines are dropped by E4; Josh, 24 Nov 2026: "I don't think we need the "wire overlay, the 3d wires are apparent enough, however the icons are important."). The schematic files in `puzzles/` stay, as the source P1 and P2a fit onto the city. The 2D map code is deleted by X1 and X2 once the 16 pilots are on the city. `tests/playtest/` is left alone until R1.
 
 ### The playable path (re-cut 24 Nov 2026, the lead-architect, on Josh's card "Playable path first (Recommended)")
 Josh's aim: open `npm run dev`, pick `city-two-ways-round` in the picker, and play it on the 3D city (6 x 6 seed 1). K3, E2 and U1 as first cut do not get there alone. Three gaps, read at ede9e64:
@@ -768,6 +769,8 @@ P1's own fits (criterion 8) are the record. P2a waits for K2d, because 9 of its 
 **Files.** New `src/render3d/componentmodels.ts` and its test.
 
 ### E1 · Glyphs out of the 2D renderer; the overlay's icons and lines, pure (renderer). Branch `ticket/081e1-overlay-pure`
+**Done. Criterion 5 is superseded by E4** (Josh, 24 Nov 2026: "I don't think we need the "wire overlay, the 3d wires are apparent enough, however the icons are important."): `overlayLines` goes, and the break icon moves to the real cut.
+
 **Goal.** 071 E's pure parts, for the city, with lines as well as icons (answer 7: "Icons plus lines"). The glyph drawing moves from `map-renderer.ts` to `src/render/glyphs.ts`, and the 2D view does not change. `src/render3d/overlay.ts` lays out each component's icon, and each puzzle line as one straight projected segment from piece to piece (Josh: "Straight, piece to piece"), live or dead, from a converted puzzle, its state and a projection passed in. It uses no three and no DOM.
 
 **Acceptance criteria.**
@@ -921,6 +924,8 @@ K3 draws nothing live. E2 does.
 **Files.** `src/ui/maps.ts` (adding `collectCityMaps` and `CityMapEntry`; `collectMaps` and `MapEntry` untouched), `src/ui/maps.test.ts` (new cases only). **Must not:** `src/main.ts` (U2), `src/render3d/`, `src/core/`.
 
 ### E2 · A city puzzle played on the city, through the overlay (renderer). Branch `ticket/081e2-city-play`, after K3 merges
+**Done (PR #47). Criteria 4 and 5 are superseded by E4:** no overlay lines and no `overlayLineHit`; clicks go icons (components, then breaks), then the 3D pick.
+
 **Re-cut 24 Nov 2026** against what E1, K2c to K2d2 and K3 build. The interface with the ui is fixed here, so U2 codes against it:
 - `loadCityView(city: CityPuzzle): CityPuzzleView`, exported from `src/render3d/index.ts`;
 - `MapRenderer3dOptions.city?: CityPuzzleView`, with `CityPuzzleView` in `src/core/citycircuit.ts`, committed with this re-cut.
@@ -1020,6 +1025,35 @@ A click on an icon or a line is that piece's `hitTest` answer, so `src/play/` pl
 
 **Shares no file with K2e, D4 or K3b,** so it is built now, beside them.
 
+### E4 · The overlay shows icons, not lines (renderer). Branch `ticket/081e4-overlay-icons`, after E3 merges
+**From.** Josh, 24 Nov 2026, in chat: "I don't think we need the "wire overlay, the 3d wires are apparent enough, however the icons are important." On cards: where the break icon goes, **"At the real cut (Recommended)"** (over the broken span in 3D, clicked to repair); clicks, **"Icons, then 3D (Recommended)"** (the overlay's line hits go). This reverses answer 7's "Icons plus lines (Recommended)" and E1 criterion 5's "Straight, piece to piece". "Only when readable" (Josh, 23 Nov 2026; 27 Oct 2026: "Unreadable faults show nothing") is unchanged.
+
+**Goal.** Playing a city puzzle, the overlay draws each component's icon and, at a damaged cable whose fault is readable, a break icon over the cut span where it really is in 3D (where K3's prop hangs and E2's sparks fly). No straight lines are drawn. A click takes an icon (a component's, then a break's, which gives its line id, so the repair prompt opens as today), then the 3D pick (a job model gives a node id, a job span a line id).
+
+**Acceptance criteria.**
+1. [ ] **No lines.** `overlayLines`, `OverlayLine` and `overlayLineHit` are deleted from `overlay.ts`; `paintOverlay` draws no segment, pulse or flicker on the overlay. Live and dead stay shown in 3D (E2 criterion 3, unchanged). `overlayIcons`, `overlayHit`, `placePoint` and their signatures are unchanged. **test**: 1 removed, "one straight segment per line, from piece to piece, away from the feed while live" (`overlay.test.ts`). Its liveness is already held by E2's "a live line's spans glow in order" case.
+2. [ ] **The break icon at the real cut.** A new pure `overlayBreaks(converted, state, cutAt, project, ctx)` in `overlay.ts`. `cutAt(spanId)` gives the cut span's world point in metres, or null. `cityview.ts` builds it from `jobWires`: the middle sample (`SAMPLES / 2`) of the span's `pts`, the point E2's sparks use. For each damaged-cable fault in `state.faults` whose id is in `state.readableFaults`, there is one `OverlayBreak { faultId, lineId, x, y, hit, sparking }` at the projection of `cutAt(converted.cuts[faultId])`:
+   - none while the fault is unreadable, or once it is repaired;
+   - omitted behind the camera or off screen, as icons are;
+   - `sparking` only while the line is live and in `state.sparking`;
+   - `hit` at least `OVERLAY_HIT_PX` across.
+
+   `paintOverlay` draws each as today's red X with sparks. **test**: 1 rewritten. "a damaged cable's break icon sits at the midpoint, only when readable ..." becomes: absent before the switch; present after it, at the projection of the cut span's middle sample, sparking while live; absent once repaired.
+3. [ ] **The camera's projection.** **test**: 1 rewritten. "projects with the camera's own projection: a line's points are its pieces' projected places" becomes: an icon's point is its piece's projected place, and a break's point is `cutAt`'s point projected, under the same `cameraProject`.
+4. [ ] **Clicks: icons, then 3D.** `cityHit` is `overlayHit(icons)`, then a new `overlayBreakHit(breaks, x, y)` (within `hit / 2`, nearest first, giving the break's `lineId`), then `pick`. `HitInputs.lines` becomes `breaks`. A point on the old straight segment, away from every icon, goes to the 3D pick. **test**: 2 rewritten:
+   - "a line is hit within half the hit size of its segment ..." becomes the break hit (within, nearest first, never off screen);
+   - "hits the overlay first (an icon, then a line), then the 3D pick ..." becomes icon, then break, then pick, with panels and off-canvas points still null.
+
+   The overlay=0 case's `lines: []` becomes `breaks: []` in its body; that is not a rewritten case.
+5. [ ] **The 2D map is not touched.** `src/render/` (`glyphs.ts` included) and E1 criterion 1's cases pass unedited. **test** (existing).
+6. [ ] Josh plays `city-two-ways-round` from `npm run dev`: icons only; the break icon over the cut span once the fault is readable; a click on it repairs; a click on a 3D span or model still plays. **browser**.
+
+**Count.** 0 added, 4 rewritten, 1 removed, all in `overlay.test.ts`.
+
+**Files.** `src/render3d/overlay.ts`; `src/render3d/cityview.ts` (`cityHit`, `HitInputs`, `paintOverlay` and the `cutAt` it passes; not `jobFrame` or `loadCityView`); `src/render3d/overlay.test.ts`. **Must not:** `circuitdraw.ts` and `componentmodels.ts` (K3b's), `src/render/`, `src/play/`, `src/core/`, `src/ui/`, `src/main.ts`. If `src/play/` must change for the break's click, the builder stops and the architect re-cuts.
+
+**Order.** It shares `cityview.ts` with **E3** (open PR #51: `jobFrame` and `loadCityView`), so it branches from `main` after E3 merges. It shares **no file with K3b**: the break point comes from `jobWires` in `cityview.ts`, not from `circuitdraw.ts`, and K3b changes drops only, never a span's curve. So E4 and K3b may be built at once once E3 is in.
+
 ### K2ep · "pre-check 081 K2e" (pipeline-designer). Branch `ticket/081-puzzles-on-the-city` (a note)
 The re-cut below is option C as section 3 of `docs/design/081-CK9-every-building-wired.md` sketched it, with one addition: **drops join CK17d's 1 m clearance** (see K2e criterion 4). The note's section 5 asks for a fresh pre-check in that case. The pipeline-designer measures, on the four pin cities (the rule depends on how cities vary):
 - how many roof span places stage 6 stops offering, by `over`, and whether any of the pilot fits B1q found (03, 04, 07, 09, 10, 11, 12, 14) loses a span it needs;
@@ -1043,7 +1077,9 @@ It writes `docs/design/081-K2e-precheck.md`. If it does not report "holds", the 
    **test**: 1 fixture case: a far-side building within 7.5 m of its own crossing pole takes it, and one with none takes a drop across, with `street` set.
 2. [ ] **CK9's check (`placeProblems`), flipped.** Fails: a building with a front column on a street and no drop (on either pavement); a far-side drop across the street when an own crossing pole was within reach; a drop longer than its reach (7.5 m own pavement, 23.5 m across); a drop to a building facing a park. The "never crosses a street" and "never a crossing pole" failures go. **test**: 1 rewritten, the existing "CK9: a drop from a pole across the street fails ..." case (`circuit.test.ts`), re-titled.
 3. [ ] **CK7 binds drops; 059's 5.5 m does not** (Josh: "Same height (Recommended)", lifting 059's road clearance for drops, as card 5 did for crossings). Every drop's lowest point is at least `WALK_FLOOR_M` 4.2 m, with its pole end at the lowest attachment of its `poleModels` key, the wall end at 5.5 m and the sag at `SAG_RATIO` on its length, as K2d1 reads spans. `circuitProblems` reports a failure as "CK7". A drop at 4.8 m over a carriageway passes. **test**: 1 fixture case.
-4. [ ] **CK17d keeps roof spans 1 m from drops (the architect's call, see the reading below).** `layRoofSpans` does not offer a roof span whose curve comes within `ROOF_CLEAR_M` 1.0 m of any drop's curve, both hung as criterion 3 and K2d1 criterion 8 read them. CK17d's layer check says so too. **test**: 1 fixture case.
+4. [ ] **CK17d keeps roof spans 1 m from drops (the architect's call, see the reading below).** `layRoofSpans` does not offer a roof span whose curve comes within `ROOF_CLEAR_M` 1.0 m of any drop's curve, **except a drop from one of the span's own end poles** (the two wires meet at that pole; `judgeSpan` already exempts its own poles' spans and marks), both hung as criterion 3 and K2d1 criterion 8 read them: the drop's pole end **on the pole's axis**, at its lowest attachment (see the reading below). CK17d's layer check says so too. **test**: 1 fixture case, which also holds the exemption (a drop from the span's own end pole does not refuse it).
+
+   **Re-worded 24 Nov 2026 on K2ep** (`docs/design/081-K2e-precheck.md`, section 1): read literally, "any drop" refused 1,556 to 1,760 places a city (about 40%), because every roof span ending on a pole with a drop meets it there. With the exemption, 4 to 18 a city, all `street`, and no pilot fit loses a span it needs. The criterion 7 report should show about 6 on seed 1 (sketch figure, not tuned to).
 5. [ ] **The pins it moves**, re-taken once each and listed with old and new values. **test**: at most 4 rewritten:
    - stage 6's own, `9ff1b134`, in the R-1 to R-7 case of `src/city/circuit/circuit.test.ts` (it also asserts nothing on seed 1 fails CK1 to CK17d);
    - `src/city/tech/named.test.ts`, "criterion 9, the digest pin (R-4)" (`7c991996`);
@@ -1072,6 +1108,12 @@ It writes `docs/design/081-K2e-precheck.md`. If it does not report "holds", the 
   **no test**: K2c's existing CK14 case holds the pole check, and no code changes. *(Proposed, as CK14's scenery clause is.)*
 - **CK17d and drops: yes, kept 1 m, at the layer.** Drops are drawn on every plan, so a used roof span that touches one always shows. Refusing it where it is offered keeps P1, the fit and every job unaware of drops. The note measured 3 to 10 such near-touches a city. K2ep measures what that costs before the builder starts.
 - **059's 5.5 m** no longer binds drops (Josh's words above). It still binds along and corner spans, which no rule lets over a carriageway.
+- **The drop's pole end for CK17d: the axis, not K3b's insulator** (settled 24 Nov 2026 on K2ep section 2, the architect's reading; *Proposed*, not a Decided rule). Stage 6 judges a drop from the pole's axis at its lowest attachment, as it judges spans (K2d1). K3b draws it from the nearest `ownInsulator` attachment, up to 0.9 m off the axis, and K2ep found the two readings differ on 1 to 5 places a city (only the insulator refuses them). The axis is kept because:
+  - the insulator offsets live in `powerkit.ts` (`src/render3d/`), and stage 6 may not import them. Judging on them means moving every model's attachment table into `src/core/` (a PK-sized section) for 1 to 5 places a city;
+  - the feed's pole is swapped for the feed pick at draw time only (K3), so stage 6 cannot know that pole's insulators at all;
+  - such a place shows only in a job that uses that roof span (roof spans are drawn only when used), and no pilot fit uses one.
+
+  **The catch:** K3b's criterion 5 reports, by id, the roof span places on seed 1 whose curve comes within 1.0 m of a drop as K3b draws it (K2ep: 1 on seed 1). P2a's puzzle-designer lays round those ids, and its notes say if a pilot uses one. If a pilot ever needs one, the architect re-cuts this reading.
 
 ### D4 · The wall fitting shortlist, and the drop wire's gauge (pipeline-designer; a note, no code). Branch `ticket/081-puzzles-on-the-city` (a note)
 **Goal.** As D1 did (`docs/design/081-D1-component-shortlist.md`), so the main session can put two cards to Josh (Josh: "Shortlist (Recommended)").
@@ -1086,25 +1128,33 @@ It writes `docs/design/081-K2e-precheck.md`. If it does not report "holds", the 
 **Files.** `docs/design/081-D4-wall-fitting-shortlist.md`.
 
 ### K3b · The drops drawn attached (renderer). Branch `ticket/081k3b-drops-attached`, after Josh's D4 picks
+**Josh's D4 picks are in** (24 Nov 2026, on cards; recorded in the Scenery table of `docs/design/081-component-picks.md`):
+- `wallFitting`: **"C: City bracket"**, `city-pack:SM_Prop_Sign_Attachment_02` (0.21 x 0.67 x 0.34 m, 44 triangles). D4's wire point: the upper arm's tip, **0.53 m over its base, 0.34 m out from its back**. City Pack is already loaded, and no `CITY_NEVER_USED` stem covers it.
+- `dropWire`: **"Keep POWER_LINE"**. Drops hang with `POWER_LINE`, as spans do. `SCENERY_MODELS.dropWire` has `key: null` (null keeps `POWER_LINE`, as `CircuitSceneryPick` says) with Josh's words and the date. No new wire key enters `circuitKeyUses()`.
+
 **Why.** The drop investigation (24 Nov 2026) found the drops look unattached at both ends: no fitting at the wall; a wire of about 6 cm; the pole end hanging between the outer insulators at `lowestAttach` (`circuitdraw.ts`), on no insulator. K2e fixes the fourth reason (one drop a building, none on the far side). K3b does not need K2e: it draws whatever drops the layer has.
 
-**Goal.** At `?view=3d&city=tiles`, every drop leaves a real insulator on its pole and meets a wall fitting on the building, with the wire Josh picked.
+**Goal.** At `?view=3d&city=tiles`, every drop leaves a real insulator on its pole and meets the City bracket (`SM_Prop_Sign_Attachment_02`) on the building at its upper arm's tip, hung with `POWER_LINE` (Josh: "Keep POWER_LINE").
 
 **Acceptance criteria.**
 1. [ ] **The pole end on a real insulator.** A drop's pole end is the attachment of its pole's drawn model (the ground mix, or the feed pick) with `ownInsulator: true` that is nearest the drop's wall point in plan, at that attachment's place on the placed pole (`poleAttachModel` and `poleToWorld`, `powerkit.ts`, read only). It is never lower than `lowestAttach`, so stage 6's heights hold. Spans and roof spans end as today. **test**: 1 rewritten, "draws every pole on its poleModels model and every span and drop as wire ..." (`circuitdraw.test.ts`): a drop ends on an insulator, spans as before.
-2. [ ] **The wall fitting.** A new `SCENERY_MODELS: Record<CircuitSceneryPiece, CircuitSceneryPick>` in `componentmodels.ts`, transcribed from the picks note's Scenery table. At every drop's wall point, the `wallFitting` model stands unscaled (guide chapter 2), its back on the wall, facing out along the building's front side, placed so that D4's wire point is at the drop's `y_m`. The drop's wall end is that point.
+2. [ ] **The wall fitting.** A new `SCENERY_MODELS: Record<CircuitSceneryPiece, CircuitSceneryPick>` in `componentmodels.ts`, transcribed from the picks note's Scenery table. At every drop's wall point, the `wallFitting` model (`city-pack:SM_Prop_Sign_Attachment_02`) stands unscaled (guide chapter 2), its back on the wall, facing out along the building's front side, its base 0.53 m under the drop's `y_m` (5.5 m), so the upper arm's tip, 0.34 m out from the wall, is at the drop's height. The drop's wall end is that tip. The builder reads both offsets from the model and reports them if either differs from D4's by more than 2 cm.
    - A null key draws nothing, and the drop ends at the wall point as today.
    - A picked model that did not load draws K3's placeholder, never a throw.
    - A building lamp (`lampBuilding`) stands under the fitting, `ON_POLE_GAP_M` below it, not inside it.
-   - Drops hang with the `dropWire` key when it is set; spans keep `POWER_LINE`.
+   - Drops hang with the `dropWire` key when it is set; spans keep `POWER_LINE`. Josh's pick leaves it null, so drops keep `POWER_LINE` too.
 
    **test**: 1 added.
 3. [ ] **The tables equal the note.** D3's "the table equals the note row for row" case also covers the Scenery table. **test**: 1 rewritten.
-4. [ ] **Keys.** `circuitKeyUses()` lists the fitting (a new `"fittings"` list) and the drop wire's key on `"drops"`. So `planKeys()` and 082 A's `gameModelKeys()` include them with no other change, and R12 allows them only there. If the R12 case in `plan3d.test.ts` must change for a new drop wire key, it is rewritten. **test**: at most 1 rewritten. After merge, the game pack is stale until `npm run assets:game` is run again (082 B). 082 A never uses a stale pack in part, so the page falls back to the full packs.
-5. [ ] **Reported, not tuned:** how many fittings meet a stage 7 escape or face sign on seed 1, and the fitting's top against storey 2. **no test**.
+4. [ ] **Keys.** `circuitKeyUses()` lists the bracket on a new `"fittings"` list. The drop wire's key goes on `"drops"` only when `dropWire` is set; with "Keep POWER_LINE" it is not, and `POWER_LINE` is there already. So `planKeys()` and 082 A's `gameModelKeys()` include the bracket with no other change, and R12 allows it only on `"fittings"`. **test**: 0 rewritten expected; the R12 case in `plan3d.test.ts` is rewritten only if the new list makes it fail. After merge, the game pack is stale until `npm run assets:game` is run again (082 B). 082 A never uses a stale pack in part, so the page falls back to the full packs.
+5. [ ] **Reported, not tuned:**
+   - how many fittings meet a stage 7 escape or face sign on seed 1, and the fitting's top against storey 2;
+   - by id, the roof span places on seed 1 (`layer.roofSpans`, used or not) whose curve comes within `ROOF_CLEAR_M` 1.0 m of a drop drawn from its insulator (criterion 1) to the bracket's wire point (criterion 2), skipping drops from the span's own end poles. K2ep found 1 on seed 1 that stage 6's axis reading keeps offering (K2e, "The drop's pole end for CK17d"). The list goes to P2a.
+
+   **no test**.
 6. [ ] Josh views 6 x 6 seed 1 at `?view=3d&city=tiles`, from the default camera and `cam=street`. With K2e merged, the far-side buildings too. **browser**.
 
-**Count.** 1 added, 2 or 3 rewritten: at most 4.
+**Count.** 1 added, 2 rewritten: 3 (4 if criterion 4's R12 case must change).
 
 **Files.** `src/render3d/circuitdraw.ts`, `circuitdraw.test.ts`, `componentmodels.ts` and its test; `plan3d.test.ts` (the R12 case only, if criterion 4 needs it). **Must not:** `cityview.ts` (E3's), `powerkit.ts` (read only), `src/city/`, `src/core/`, `src/ui/`.
 
@@ -1112,6 +1162,7 @@ It writes `docs/design/081-K2e-precheck.md`. If it does not report "holds", the 
 | Now, at once | Then | Shared files |
 | --- | --- | --- |
 | E3 (build), K2ep (pre-check), D4 (note) | K2e after K2ep; K3b after Josh's D4 picks. K2e and K3b may run at once. | None. E3 has `cityview.ts`; K2e has `src/city/circuit/` and three era pin lines; K3b has `circuitdraw.ts` and `componentmodels.ts`. K2ep and D4 are notes. |
+| (24 Nov 2026: K2ep holds; D4's picks are in) | K2e and K3b now, at once. E4 once E3 merges, beside them. | E4 and E3 share `cityview.ts` (E3 first). E4 shares no file with K3b or K2e. |
 
 ### X1 · Delete the 2D map view (renderer). **Stub, not cut; not to be built yet**
 Josh, 24 Nov 2026: "Hide now, delete later (Recommended)". Cut in full once P2a's 16 pilots are on the city and Josh has said so. Expected:
@@ -1155,6 +1206,7 @@ Written into `src/core/` with this cut (typecheck passes):
   - `CityDrop.street?` (K2e writes it for a drop across a street);
   - `CityPuzzleView.district?` (E3's `loadCityView` writes it);
   - `CIRCUIT_SCENERY` (`"wallFitting"`, `"dropWire"`), `CircuitSceneryPiece` and `CircuitSceneryPick`, for K3b's `SCENERY_MODELS`. They are kept apart from `CIRCUIT_COMPONENTS`, so the overlay, the gallery's component view and `COMPONENT_MODELS` do not change.
+- **E4 (24 Nov 2026):** `overlayBreaks`, `OverlayBreak` and `overlayBreakHit` are internal to `src/render3d/`, so no core change. `OverlayLine`, `overlayLines` and `overlayLineHit` go.
 - **Events:** none new.
 - **No new dependency.** The overlay is Canvas 2D.
 

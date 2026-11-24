@@ -2,8 +2,8 @@
 import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { CIRCUIT_COMPONENTS, type AssetManifest } from "../core";
-import { COMPONENT_MODELS } from "./componentmodels";
+import { CIRCUIT_COMPONENTS, CIRCUIT_SCENERY, type AssetManifest } from "../core";
+import { COMPONENT_MODELS, SCENERY_MODELS } from "./componentmodels";
 
 describe("COMPONENT_MODELS", () => {
   it("equals docs/design/081-component-picks.md row for row", () => {
@@ -16,6 +16,14 @@ describe("COMPONENT_MODELS", () => {
       expect({ component: p.component, key: p.key, words: p.words }).toEqual({ component: c, key, words });
     }
     expect(COMPONENT_MODELS.spring.key).toBe(COMPONENT_MODELS.junction.key);
+    // The Scenery table: one row per piece; the pick's backticked key is the model, and `POWER_LINE` means null ("Keep POWER_LINE").
+    const scenery = [...text.matchAll(/^\| `(\w+)` \| ([^|]+) \| "([^"]+)" \|/gm)].map((m) => ({ piece: m[1]!, pick: /`([^`]+)`/.exec(m[2]!)![1]!, words: m[3]! }));
+    expect(scenery.map((r) => r.piece)).toEqual([...CIRCUIT_SCENERY]);
+    expect(Object.keys(SCENERY_MODELS)).toEqual([...CIRCUIT_SCENERY]);
+    for (const r of scenery) {
+      const p = SCENERY_MODELS[r.piece as keyof typeof SCENERY_MODELS];
+      expect({ key: p.key, words: p.words }).toEqual({ key: r.pick === "POWER_LINE" ? null : r.pick, words: r.words });
+    }
   });
 
   const PATH = join(process.cwd(), "assets", "private", "out", "manifest.json");
@@ -24,7 +32,7 @@ describe("COMPONENT_MODELS", () => {
     const packs = new Map(m.packs.map((p) => [p.pack, new Set(p.assets.map((a) => a.name))]));
     const missing: string[] = [];
     const skipped: string[] = [];
-    for (const p of Object.values(COMPONENT_MODELS)) {
+    for (const p of [...Object.values(COMPONENT_MODELS), ...Object.values(SCENERY_MODELS)]) {
       if (p.key === null) continue;
       const [pack = "", name = ""] = p.key.split(":");
       const names = packs.get(pack);

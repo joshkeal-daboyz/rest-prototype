@@ -10,11 +10,11 @@
 import { BoxGeometry, BufferGeometry, Float32BufferAttribute, Group, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, MeshStandardMaterial, Quaternion, Vector3, type Material, type Object3D } from "three";
 import { GROUND_POLE_MIX, type CircuitComponent, type CityCircuitLayer, type CityNodePlace, type CityPlanStreet, type CityPuzzleConverted, type CityRoofMast, type CityStreetsLayer, type GridNode } from "../core";
 import { ROOF_MAST_ATTACH_MIN_M, SAG_RATIO } from "../city/circuit/constants";
-import { COMPONENT_MODELS } from "./componentmodels";
+import { COMPONENT_MODELS, SCENERY_MODELS } from "./componentmodels";
 import type { Vec3 } from "./kitunits";
 import { WORLD_PER_METRE } from "./models";
 import { meshParts } from "./models3d";
-import { FEED_POLES, FEED_POLE_KEY, POWER_LINE, POWER_LINES, POWER_POLES, placePole, fitLine, type LinePlacement, type PowerPole } from "./powerkit";
+import { FEED_POLES, FEED_POLE_KEY, POWER_LINE, POWER_LINES, POWER_POLES, placePole, fitLine, poleAttachModel, poleToWorld, type LinePlacement, type PoleTransform, type PowerPole } from "./powerkit";
 
 const S = WORLD_PER_METRE;
 
@@ -32,6 +32,12 @@ export const ON_ROOF_OFFSET_M = 0.45;
 export const PACK_FRONT = { x: 0, z: 1 } as const;
 /** A damaged-line prop hangs from the wire's low point: its height (SM_Prop_Cable_09, 1.352 m) is below it. */
 export const CUT_PROP_H_M = 1.352;
+
+/**
+ * The wall fitting (K3b, Josh: "C: City bracket", `city-pack:SM_Prop_Sign_Attachment_02`), read from the GLB (24 Nov 2026): the plate's back is `back_m` behind the model's origin (model -z), the upper arm's wire seat is
+ * `up_m` over its base and `out_m` from the back. D4 measured 0.53 and 0.34. The fitting stands with its back on the wall, so its origin is `back_m` out from the wall point.
+ */
+export const WALL_FITTING = { back_m: 0.171, up_m: 0.533, out_m: 0.342 } as const;
 
 /** Each component model's height (m), from the converted manifest (23 Nov 2026), so a pole-mounted one can stand below the pole's lowest attachment. */
 export const COMPONENT_H_M: Readonly<Record<CircuitComponent, number>> = {
@@ -55,7 +61,7 @@ export interface CircuitJob {
   readonly readable?: ReadonlySet<string>;
 }
 
-export type CircuitRole = "pole" | "feed" | "roofMast" | "component" | "light" | "cutProp";
+export type CircuitRole = "pole" | "feed" | "roofMast" | "component" | "light" | "cutProp" | "fitting";
 
 /** One model standing somewhere: `key` null draws a placeholder. `position` is the model's origin in world units, `yaw` its turn about y, `scale` units per metre. */
 export interface CircuitPiece {
@@ -81,6 +87,8 @@ export type CircuitWireKind = "span" | "roofSpan" | "drop";
 export interface CircuitWire {
   readonly id: string;
   readonly kind: CircuitWireKind;
+  /** The wire piece key it is hung with (`POWER_LINE`, or Josh's `dropWire` pick on drops). */
+  readonly key: string;
   readonly from: Vec3;
   readonly to: Vec3;
   readonly pieces: readonly LinePlacement[];
@@ -95,6 +103,13 @@ export interface CircuitDraws {
 const poleOfKey = (key: string): PowerPole | undefined => FEED_POLES[key] ?? POWER_POLES[key];
 /** Stage 6's reading of a pole's end: the lowest of its three attachments (`poleEndHeight`), metres. */
 export const lowestAttach = (pole: PowerPole): number => Math.min(...pole.attach_m.map((a) => a.up));
+
+/** The way a drop's wall faces: toward its pole, snapped to the dominant plan axis (a front side is axis-aligned), so the fitting stands square to the wall. */
+export function wallFacing(from: { x: number; z: number }, to: { x: number; z: number }): { x: number; z: number } {
+  const dx = to.x - from.x;
+  const dz = to.z - from.z;
+  return Math.abs(dx) >= Math.abs(dz) ? { x: Math.sign(dx) || 1, z: 0 } : { x: 0, z: Math.sign(dz) };
+}
 
 /** The unit vector from a pavement toward its carriageway (the pole stands `POLE_FROM_KERB_M` in from the kerb): `lo` is on the low side of the street's across axis, `hi` on the high side. */
 export function toCarriageway(street: Pick<CityPlanStreet, "axis"> | undefined, pavement: "lo" | "hi"): { x: number; z: number } {
@@ -160,11 +175,13 @@ export function circuitDraws(layer: CityCircuitLayer, streets: CityStreetsLayer 
 
   // Poles.
   const endOf = new Map<string, Vec3>();
+  const placed = new Map<string, PoleTransform>();
   for (const p of layer.poles) {
     const street = streetOf.get(p.street);
     const pole = poleFor(p.id);
     const run = street?.axis === "z" ? { x: 0, z: 1 } : { x: 1, z: 0 };
     const t = placePole(pole, { x: p.x_m * S, y: 0, z: p.z_m * S }, run, pole.attach_m[0].up * S, S);
+    placed.set(p.id, t);
     const isFeed = feedPole.has(p.id);
     pieces.push({ id: p.id, role: isFeed ? "feed" : "pole", key: modelOf(p.id), ...(isFeed ? { component: "feed" as const } : {}), position: t.position, yaw: t.yaw, scale: S });
     endOf.set(p.id, { x: p.x_m * S, y: lowestAttach(pole) * S, z: p.z_m * S });
@@ -203,14 +220,47 @@ export function circuitDraws(layer: CityCircuitLayer, streets: CityStreetsLayer 
   }
 
   // Wires.
-  const wire = POWER_LINES[POWER_LINE]!;
+  const dropKey = SCENERY_MODELS.dropWire.key !== null && POWER_LINES[SCENERY_MODELS.dropWire.key] ? SCENERY_MODELS.dropWire.key : POWER_LINE;
   const hang = (id: string, kind: CircuitWireKind, a: Vec3 | undefined, b: Vec3 | undefined): void => {
     if (!a || !b || Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z) < 1e-9) return;
-    wires.push({ id, kind, from: a, to: b, pieces: fitLine(wire, a, b, SAG_RATIO, S) });
+    const key = kind === "drop" ? dropKey : POWER_LINE;
+    wires.push({ id, kind, key, from: a, to: b, pieces: fitLine(POWER_LINES[key]!, a, b, SAG_RATIO, S) });
+  };
+  // The nearest attachment with its own insulator, in plan, to a point; never lower than the pole's lowest attachment (stage 6's reading).
+  const insulatorEnd = (poleId: string, to: Vec3): Vec3 | undefined => {
+    const t = placed.get(poleId);
+    if (!t) return undefined;
+    const pole = poleFor(poleId);
+    let best: Vec3 | undefined;
+    let bestD = Infinity;
+    pole.attach_m.forEach((a, i) => {
+      if (!a.ownInsulator) return;
+      const w = poleToWorld(t, poleAttachModel(pole, i));
+      const d = Math.hypot(w.x - to.x, w.z - to.z);
+      if (d < bestD) {
+        bestD = d;
+        best = { x: w.x, y: Math.max(w.y, lowestAttach(pole) * S), z: w.z };
+      }
+    });
+    return best;
   };
   for (const s of layer.spans) hang(s.id, "span", endOf.get(s.a), endOf.get(s.b));
   for (const s of layer.roofSpans ?? []) if (usedSpans.has(s.id)) hang(s.id, "roofSpan", endOf.get(s.a), endOf.get(s.b));
-  for (const d of layer.drops) hang(d.id, "drop", endOf.get(d.pole), { x: d.x_m * S, y: d.y_m * S, z: d.z_m * S });
+  // A drop starts on the nearest own-insulator attachment of its pole's model (K3b), and ends at the wall fitting's wire seat (or the wall point when there is no fitting).
+  const fitKey = SCENERY_MODELS.wallFitting.key;
+  const faceOf = new Map<string, { x: number; z: number }>();
+  for (const d of layer.drops) {
+    const p = poleById.get(d.pole);
+    const n = p ? wallFacing({ x: d.x_m, z: d.z_m }, { x: p.x_m, z: p.z_m }) : { x: 0, z: 1 };
+    faceOf.set(d.id, n);
+    const wall = { x: d.x_m * S, y: d.y_m * S, z: d.z_m * S };
+    let seat = wall;
+    if (fitKey !== null) {
+      pieces.push({ id: d.id, role: "fitting", key: fitKey, position: { x: (d.x_m + n.x * WALL_FITTING.back_m) * S, y: (d.y_m - WALL_FITTING.up_m) * S, z: (d.z_m + n.z * WALL_FITTING.back_m) * S }, yaw: yawToward(n), scale: S });
+      seat = { x: (d.x_m + n.x * WALL_FITTING.out_m) * S, y: wall.y, z: (d.z_m + n.z * WALL_FITTING.out_m) * S };
+    }
+    hang(d.id, "drop", insulatorEnd(d.pole, wall) ?? endOf.get(d.pole), seat);
+  }
 
   // Street lights (CK10): scenery, on the pavement with no pole line.
   for (const l of layer.lights) {
@@ -253,10 +303,10 @@ export function circuitDraws(layer: CityCircuitLayer, streets: CityStreetsLayer 
         const d = dropOf.get(place.building);
         if (!d) continue;
         const p = poleById.get(d.pole);
-        const out = p ? { x: p.x_m - d.x_m, z: p.z_m - d.z_m } : PACK_FRONT;
-        const len = Math.hypot(out.x, out.z) || 1;
-        const n = { x: out.x / len, z: out.z / len };
-        pieces.push({ id: node.id, role: "component", key, component, position: { x: (d.x_m + n.x * 0.1) * S, y: d.y_m * S, z: (d.z_m + n.z * 0.1) * S }, yaw: yawToward(n), scale: S });
+        const n = faceOf.get(d.id) ?? (p ? wallFacing({ x: d.x_m, z: d.z_m }, { x: p.x_m, z: p.z_m }) : PACK_FRONT);
+        // Under the fitting, its top `ON_POLE_GAP_M` below the drop's height, never inside the bracket; with no fitting, at the wall point as before.
+        const base = fitKey === null ? d.y_m : Math.max(d.y_m - ON_POLE_GAP_M - h, 0);
+        pieces.push({ id: node.id, role: "component", key, component, position: { x: (d.x_m + n.x * 0.1) * S, y: base * S, z: (d.z_m + n.z * 0.1) * S }, yaw: yawToward(n), scale: S });
       } else {
         const post = postById.get(place.post);
         const span = spanById.get(place.post);
@@ -293,7 +343,7 @@ export function wireLow(from: Vec3, to: Vec3): number {
 
 /** One list of the circuit's keys, for R12 (`planAudit`) and for the loader. */
 export interface CircuitKeyUse {
-  readonly list: "poles" | "feed" | "spans" | "drops" | "roofs" | "components" | "lights";
+  readonly list: "poles" | "feed" | "spans" | "drops" | "roofs" | "components" | "lights" | "fittings";
   readonly key: string;
 }
 
@@ -302,7 +352,8 @@ export function circuitKeyUses(): CircuitKeyUse[] {
   const out: CircuitKeyUse[] = [];
   for (const key of GROUND_POLE_MIX) out.push({ list: "poles", key });
   out.push({ list: "feed", key: COMPONENT_MODELS.feed.key ?? FEED_POLE_KEY });
-  out.push({ list: "spans", key: POWER_LINE }, { list: "drops", key: POWER_LINE });
+  out.push({ list: "spans", key: POWER_LINE }, { list: "drops", key: SCENERY_MODELS.dropWire.key ?? POWER_LINE });
+  if (SCENERY_MODELS.wallFitting.key) out.push({ list: "fittings", key: SCENERY_MODELS.wallFitting.key });
   if (COMPONENT_MODELS.roofMast.key) out.push({ list: "roofs", key: COMPONENT_MODELS.roofMast.key });
   for (const [c, p] of Object.entries(COMPONENT_MODELS)) if (p.key && c !== "feed" && c !== "roofMast") out.push({ list: "components", key: p.key });
   out.push({ list: "lights", key: STREET_LIGHT_KEY });
@@ -402,12 +453,14 @@ export function circuitGroup(draws: CircuitDraws, roots: ReadonlyMap<string, Obj
   }
 
   // The wires.
-  const wirePieces = draws.wires.flatMap((w) => w.pieces);
-  const wireRoot = roots.get(POWER_LINE);
-  const wireParts = wireRoot ? meshParts(wireRoot) : [];
-  if (wirePieces.length > 0 && wireParts.length > 0) {
-    perKey.set(POWER_LINE, wirePieces.length);
-    for (const part of wireParts) {
+  const loadedWire = (k: string): boolean => roots.has(k) && meshParts(roots.get(k)!).length > 0;
+  const unloaded = draws.wires.filter((w) => !loadedWire(w.key));
+  for (const wk of new Set(draws.wires.map((w) => w.key))) {
+    if (!loadedWire(wk)) continue;
+    const wirePieces = draws.wires.filter((w) => w.key === wk).flatMap((w) => w.pieces);
+    if (wirePieces.length === 0) continue;
+    perKey.set(wk, wirePieces.length);
+    for (const part of meshParts(roots.get(wk)!)) {
       const src = part.mesh.material as Material | Material[];
       const material = Array.isArray(src) ? src.map((s) => darkOf(s, owned, swapped)) : darkOf(src, owned, swapped);
       const im = new InstancedMesh(part.mesh.geometry, material, wirePieces.length);
@@ -417,11 +470,12 @@ export function circuitGroup(draws: CircuitDraws, roots: ReadonlyMap<string, Obj
       im.computeBoundingSphere();
       add(im);
     }
-  } else if (draws.wires.length > 0) {
+  }
+  if (unloaded.length > 0) {
     // No wire model: each wire is a sagged polyline of eight segments.
     const SEG = 8;
     const pos: number[] = [];
-    for (const w of draws.wires) {
+    for (const w of unloaded) {
       const len = Math.hypot(w.to.x - w.from.x, w.to.y - w.from.y, w.to.z - w.from.z);
       let prev = w.from;
       for (let j = 1; j <= SEG; j++) {
