@@ -94,7 +94,7 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
   This list is from the import lines. A2a's builder extends it with any name its typecheck asks for, and lists every name in its report.
 - **Kept files** (the pipeline city, the asset gallery, and the pieces E1 and E2 reuse): `plan3d.ts`, `planview.ts`, `models3d.ts`, `models.ts`, `stacks.ts`, `dressing.ts`, `furniture.ts`, `escapes.ts`, `sills.ts`, `facade.ts`, `colourway.ts`, `calibration.ts` (the fronts reader `models3d.ts` uses), `citymetrics.ts`, `placeholders.ts`, `lighting.ts`, `lightrig.ts`, `daytoggle.ts`, `powerkit.ts`, `assetcatalogue.ts`, `assetviewer.ts`, `tileslots.ts` and A1's kept half of `tilecity.ts`, `tilecity3d.ts` and `kerbline.ts`. Also kept for E1 and E2: `look.ts` (state looks), `relight3d.ts` (Relight timing) and `pick.ts`. `renderer.ts` is kept as the router.
 - **Ladder-only functions inside kept files** go in A2c: `dressTown` and the run-threading only it uses (`dressing.ts`), `furnitureLayout`, `alleyOf` and `openLotsOf` (`furniture.ts`), and `applyModels` with its ladder dressing and packing (`models3d.ts`). They go only if no kept path calls them at run time. A2a's report says, for each one, whether `plan3d.ts` reaches it. If one is reached, A2c keeps it and the report says why.
-- **Deleted files (A2c):** `town.ts`, `terrace.ts`, `scene.ts`, `layout.ts`, `camera.ts`, `captions.ts`, `text.ts`, `streetcam.ts`, `gallery.ts` (the 043 building gallery, `?gallery=`), `stackgallery.ts` and `debug3d.ts` (`?fronts=1`, ladder only). Their tests go with them: `town`, `townpin`, `packpin`, `terrace`, `terracepack`, `terracetown`, `stacktown`, `scene`, `layout`, `captions`, `streetcam`, `gallery`, `stackgallery`, `debug3d`, `live`, `streets`, and any other file whose every case builds the ladder town. A2b sorts the mixed files first.
+- **Deleted files (A2c):** `town.ts`, `terrace.ts`, `scene.ts`, `layout.ts`, `camera.ts`, `captions.ts`, `text.ts`, `streetcam.ts`, `gallery.ts` (the 043 building gallery, `?gallery=`), `stackgallery.ts` and `debug3d.ts` (`?fronts=1`, ladder only). Their tests go with them: `town`, `townpin`, `packpin`, `terrace`, `terracepack`, `terracetown`, `stacktown`, `scene`, `layout`, `captions`, `streetcam`, `gallery`, `stackgallery`, `debug3d`, `live`, `streets`, and any other file whose every case builds the ladder town. The mixed files are sorted under A2b (folded into A2c).
 - **Kept outside `src/render3d/`:** the 2D map and its background town (`src/render/`, including `src/render/city.ts`, which `models3d.ts` and the kit read for `stableHash`), the tile sheet (070 Q47), the 074 asset gallery (`?assets=`), `tests/playtest/` (it replays the grid only), and the fronts save plugin (`tools/calibration/`). The plugin is still read through `calibration.ts`. Whether to delete it is a later ticket.
 - **What `?view=3d` does after A2c:** on a schematic puzzle, the 2D map opens and the console says "3D view: this puzzle has no city form yet" (A2d, ui). `?view=3d&city=tiles` is the pipeline city, as now. A city puzzle opens in the city view from E2 and U1 on.
 
@@ -133,9 +133,9 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | --- | --- | --- | --- | --- |
 | A1 | Delete the old tile city (070 L2d) | renderer | G1 | about 4 added; about 250 removed |
 | A2a | Move the shared kit's constants out of the ladder files | renderer | A1 | 0 added; 5 rewritten (pins on where a name lives); import lines only in about 30 more |
-| A2b | Kept modules' tests stop building the ladder town (as L2c) | renderer | A2a | at most 15 rewritten; split A2b1, A2b2 if more |
+| A2b | **Folded into A2c** (re-cut 23 Nov 2026): the sort is decided below, and the deletions ride with A2c | renderer | n/a | n/a |
 | A2d | `?view=3d` on a schematic puzzle opens the 2D map | ui | A2a | 2 |
-| A2c | Delete the ladder town | renderer | A2b, A2d | about 2 added; the ladder's tests removed |
+| A2c | Delete the ladder town, with A2b's sort | renderer | A2a, A2d | about 2 added, at most 4 rewritten; the ladder's tests removed |
 | B1 | CK17, the street rule and roof structures, designed | puzzle-designer | G1 | **done** (on `ticket/081b1-roof-spans`) |
 | B1p | "pre-check 081 B1" | pipeline-designer | B1 | **done** (same branch) |
 | B1b | CK17 amended to Josh's B1 answers | puzzle-designer | now | 0 (a note) |
@@ -219,20 +219,30 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 **Files.** New `src/render3d/kitunits.ts`; import lines plus the moved definitions in the `src/render3d/` files named under *Moves first* and their importers; the import lines of `src/render3d/*.test.ts` (criterion 2); the five cases of criterion 4; `docs/city-style/numbers.md` (criterion 5's column only). **Must not:** behaviour, `src/city/`, `src/core/`, any other test case.
 **Clash.** 080 B2 may also be editing `docs/city-style/`. Whichever of the two merges second rebases onto the other.
 
-### A2b · Kept modules' tests stop building the ladder town (renderer). Branch `ticket/081a2b-kept-tests` (A2b2 if needed)
-**Goal.** As 070 L2c, for the ladder. No test of a kept file builds `townLayout`, `packTown` or `buildScene`, or reads a ladder map's town, for a check on code that stays.
+### A2b · Kept modules' tests stop building the ladder town: **folded into A2c** (re-cut 23 Nov 2026)
+**Why.** The renderer's first step on `ticket/081a2b-kept-tests` (2190cc5) froze the ladder's 1,267 wire spans into a 70 KB fixture to keep two `powerkit.test.ts` cases. Once the ladder is gone, its spans no longer matter. Freezing them is the "low return, high effort" kind of test Josh named on 23 Nov 2026, and test policy rule 6 welcomes removing it. So 2190cc5 is **not merged**. The fixture is dropped, and the two cases are deleted with A2c. What is left of A2b is one small re-point (placeholders), so the sort is decided here and carried out in A2c's pull request. Deletions don't count against the cap.
 
-**Acceptance criteria.**
-1. [ ] Each such case in a kept file's tests (`dressing`, `dressdraw`, `furniture`, `stacks`, `sills`, `escapes`, `models`, `placeholders`, `colourway`, `lightrig`, `lighting`, `facade`, `facing`, `polygon`, `calibration`, `citymetrics`, `powerkit`, `pick`, `relight3d`, `styleguide`, `stylepin`, `kitpin`, `plan3d`, `daytoggle` and the pin files that stay) is sorted into one of three kinds:
-   - (a) **re-pointed** to a typed fixture or the pipeline city (6 x 6 seed 1, cached), with no assertion weakened;
-   - (b) **deleted**, because the pipeline's own stage checks hold the same rule (named in the report);
-   - (c) **left** for A2c, because it tests ladder-only code.
+**The sort, per file** (cases that build `townLayout`, `packTown`, `buildScene`, the ladder camera, `wireLayout` or read `puzzles/NN-*.json`; every other case in the file stays as it is):
+| File | Kind | Why |
+| --- | --- | --- |
+| `powerkit.test.ts` (the 2 ladder-span cases) | (c) delete | The ladder's spans go with it. `fitLine` and `placePole` keep 071 B's fixture cases, and PK2's pin stays. |
+| `lightrig.test.ts` (the `buildScene` registration and the 3-map night snapshot) | (c) delete | Ladder scene only. The rig's own cases, and `plan3d.test.ts`'s light-mode cases, stay. |
+| `pick.test.ts` | (c) delete | Picks the ladder scene. `pick.ts` stays for E2, and E2's criterion 3 writes the city's `hitTest` cases. |
+| `dressdraw.test.ts` | (c) delete | Draws `dressTown`'s output, and `dressTown` is deleted (A2a's report). |
+| `furniture.test.ts` | (c) delete | `furnitureLayout`, `alleyOf` and `openLotsOf` are deleted. The furniture keys the pipeline reads are typed constants. |
+| `citymetrics.test.ts` | (c) delete | Measures `packTown` and `dressSites` output, which is deleted. |
+| `models.test.ts` (the ladder-lot cases) | (c) delete | `MODEL_TABLE`'s ladder lots. The manifest and `sizeOf` fixture cases stay. |
+| `sills.test.ts` | (b) delete | The pipeline's ground storeys hold the sill rule (070 H1, 062's numbers, `src/city/facades/`). |
+| `stacks.test.ts` | (b) delete | Stage 5's pieces, turns and placements (070 F2, `src/city/buildings/`). |
+| `escapes.test.ts` | (b) delete | Stage 7's fire escapes and their guarantee (070 H2, `src/city/facades/`). |
+| `facing.test.ts` | (b) delete | Stage 5's fronts and turns (070 F1 and F2, `src/city/buildings/`). |
+| `colourway.test.ts` (the ladder cases) | (b) delete | Stage 5's colourway rule (070 F1, `src/city/buildings/`). |
+| `polygon.test.ts` (the `townLayout` lot cases) | (b) delete | Stage 5's styles on the pipeline's lots (070 F1). |
+| `placeholders.test.ts` | (a) re-point | `pickPlaceholders` is kept: `models3d.ts` uses it for the pipeline city. At most 2 cases are re-pointed to a small typed lots fixture, and the rest of its ladder cases are deleted. |
+| `plan3d.test.ts`, `tilecity3d.test.ts` | stay | String checks only. |
+| `styleguide`, `stylepin`, `dressing`, `lighting`, `facade`, `calibration`, `relight3d`, `kitpin`, `daytoggle` | stay | They build no ladder town. If a deletion breaks one of them, A2c's builder sorts that case by the same rule and lists it. |
 
-   **test**: kind (a) cases, at most 15 per PR. If more, the work splits into A2b1 and A2b2 by file, and the report says which PR holds which files.
-2. [ ] `powerkit.test.ts`'s ladder-span case (071 B2) becomes a fixture of the ladder spans it read, or goes as kind (b) if 071 B's fixture cases hold the same rule. **test**, counted in criterion 1.
-3. [ ] The report lists every case and its kind. **no test**.
-
-**Files.** The kept files' `*.test.ts` and any test-only fixture next to them. **Must not:** any non-test `.ts` file.
+**The rule for (b).** A (b) case goes only if a pipeline test holds the same rule. A2c's report names that test for each (b) file. If none holds it, the builder **stops and reports**, and the case becomes (a), counted in the cap. If the code a (c) case tests is still reached by the pipeline after all (A2a's reach report says otherwise), the builder stops and reports too.
 
 ### A2d · `?view=3d` on a schematic puzzle opens the 2D map (ui). Branch `ticket/081a2d-view3d-fallback`
 **Goal.** Once the ladder town is gone, `?puzzle=<id>&view=3d` on a schematic puzzle still plays, on the 2D map, and says why in the console. A `city=` route still opens the 3D renderer.
@@ -252,7 +262,8 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 3. [ ] **The routes.**
    - `?view=3d&city=tiles` builds the pipeline city as before. **test** (existing `plan3d.test.ts` digest).
    - `createMapRenderer3d` with no `city=` route throws a named error that A2d's branch never reaches. **test**: 1 case.
-4. [ ] **Tests go with their code**: the ladder's tests named under *Deleted files*, and A2b's kind (c) cases, each listed in the report. The test count falls. **no test**.
+4. [ ] **Tests go with their code**: the ladder's tests named under *Deleted files*, and A2b's (b) and (c) cases (the sort above, which also drops 2190cc5's fixture), each listed in the report. For each (b) file, the report names the pipeline test that holds its rule. The test count falls. **no test**.
+4b. [ ] **A2b's one re-point:** at most 2 `placeholders.test.ts` cases on a typed lots fixture. **test**: at most 2 rewritten. With criteria 2, 3 and 5, the PR adds about 2 and rewrites at most 4.
 5. [ ] **`ASSET_GALLERY_USES` loses "ladder".** The architect commits that `src/core/assetgallery.ts` line on this branch before the builder starts. `assetcatalogue.ts` stops computing that use, and 074's pinned rows change only in that column. **test**: existing (rewritten cases count).
 6. [ ] **The guide and grammar.** Lines that describe only the ladder's town are deleted or marked as history. `docs/city-style/decisions.md` keeps every entry, and drift checks of deleted lines go with them. **no test**: the reviewer reads the diff.
 7. [ ] **`tickets/rules-coverage.md`:** the "037 C" entry on the Relight row points to E2. This is the architect's edit, committed with this section. **no test**.
