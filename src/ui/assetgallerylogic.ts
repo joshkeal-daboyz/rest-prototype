@@ -5,6 +5,8 @@
 
 import {
   ASSET_GALLERY_USES,
+  CIRCUIT_COMPONENTS,
+  type CircuitComponent,
   type AssetGalleryNote,
   type AssetGalleryNoteSureness,
   type AssetGalleryPack,
@@ -13,10 +15,14 @@ import {
   type AssetGalleryQuery,
 } from "../core";
 
-/** The page's whole state: the query, and the piece open in the inspect panel (its name), or null. */
+/** The page's whole state: the query, the piece open in the inspect panel (its name), or null, and the component open in the components view, or null (081 D2). */
 export interface AssetGalleryRequest extends AssetGalleryQuery {
   piece: string | null;
+  component: CircuitComponent | null;
 }
+
+/** The pack id that means the components view (`?assets=components`, 081 D2). It is not a converted pack. */
+export const COMPONENTS_PACK = "components";
 
 export const USE_FILTERS: readonly AssetGalleryQuery["use"][] = ["any", ...ASSET_GALLERY_USES, "unused"];
 export const FLAG_FILTERS: readonly AssetGalleryQuery["flag"][] = ["any", "untextured", "warnings"];
@@ -64,6 +70,10 @@ function flagOf(raw: string | null): AssetGalleryQuery["flag"] {
   return (FLAG_FILTERS as readonly string[]).includes(raw ?? "") ? (raw as AssetGalleryQuery["flag"]) : "any";
 }
 
+function componentOf(raw: string | null): CircuitComponent | null {
+  return (CIRCUIT_COMPONENTS as readonly string[]).includes(raw ?? "") ? (raw as CircuitComponent) : null;
+}
+
 function pageOf(raw: string | null): number {
   const n = Number(raw);
   return raw !== null && Number.isInteger(n) && n >= 1 ? n : 1;
@@ -71,7 +81,7 @@ function pageOf(raw: string | null): number {
 
 /**
  * Reads the page's address. Null unless `assets` is present (the gallery is not asked for). A bare `assets` gives pack "" (the page opens the first pack);
- * an unknown value for `use`, `flag` or `page` falls back to its default: "" / any / any / 1 / no piece.
+ * an unknown value for `use`, `flag`, `page` or `component` falls back to its default: "" / any / any / 1 / no piece / no component.
  */
 export function assetGalleryRequested(search: string): AssetGalleryRequest | null {
   const p = new URLSearchParams(search);
@@ -84,11 +94,12 @@ export function assetGalleryRequested(search: string): AssetGalleryRequest | nul
     flag: flagOf(p.get("flag")),
     page: pageOf(p.get("page")),
     piece: nonEmpty(p.get("piece")),
+    component: componentOf(p.get("component")),
   };
 }
 
 /** The address for a page state. Defaults are left out, so the address stays short. Round-trips through `assetGalleryRequested`. */
-export function assetGalleryUrl(q: AssetGalleryQuery, piece: string | null): string {
+export function assetGalleryUrl(q: AssetGalleryQuery, piece: string | null, component: CircuitComponent | null = null): string {
   const p = new URLSearchParams();
   p.set("assets", q.pack);
   if (q.text !== "") p.set("q", q.text);
@@ -96,6 +107,7 @@ export function assetGalleryUrl(q: AssetGalleryQuery, piece: string | null): str
   if (q.flag !== "any") p.set("flag", q.flag);
   if (q.page !== 1) p.set("page", String(q.page));
   if (nonEmpty(piece) !== null) p.set("piece", piece as string);
+  if (component !== null) p.set("component", component);
   return `?${p.toString()}`;
 }
 
