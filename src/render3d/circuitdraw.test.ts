@@ -9,9 +9,9 @@ import { GROUND_POLE_ATTACH_UP_M, GROUND_POLE_MIX, loadCityPuzzle, type CityCirc
 import { convertCityPuzzle } from "../city/circuit";
 import { ROOF_MAST_ATTACH_MIN_M } from "../city/circuit/constants";
 import { DEFAULT, sharedCity } from "../city/testing/namedcities";
-import { COMPONENT_MODELS } from "./componentmodels";
-import { COMPONENT_H_M, ROOF_ARM, circuitDraws, circuitGroup, componentOf, type CircuitDraws, type CircuitJob } from "./circuitdraw";
-import { FEED_POLE_KEY } from "./powerkit";
+import { COMPONENT_MODELS, SCENERY_MODELS } from "./componentmodels";
+import { COMPONENT_H_M, ON_POLE_GAP_M, ROOF_ARM, WALL_FITTING, circuitDraws, circuitKeyUses, circuitGroup, componentOf, type CircuitDraws, type CircuitJob } from "./circuitdraw";
+import { FEED_POLE_KEY, POWER_LINE, POWER_POLES, placePole, poleAttachModel, poleToWorld } from "./powerkit";
 import { WORLD_PER_METRE as S } from "./models";
 
 const APOC = GROUND_POLE_MIX[0];
@@ -51,8 +51,30 @@ describe("the circuit drawn (081 K3)", () => {
     expect(span.pieces.at(-1)!.to).toEqual(span.to);
     const drop = d.wires.find((w) => w.id === "drop:bld")!;
     expect(drop.kind).toBe("drop");
-    expect(drop.from).toEqual(span.to);
-    expect(drop.to).toEqual({ x: 12 * S, y: 5.5 * S, z: 16 * S });
+    // The drop leaves one of its pole's own insulators, no lower than stage 6's lowest attachment, and ends at the bracket's seat, not the wall point; spans end as before.
+    const pm = POWER_POLES[PALM]!;
+    const t = placePole(pm, { x: 12 * S, y: 0, z: 10 * S }, { x: 1, z: 0 }, pm.attach_m[0].up * S, S);
+    const seats = pm.attach_m.map((a, i) => ({ own: a.ownInsulator, w: poleToWorld(t, poleAttachModel(pm, i)) }));
+    expect(seats.filter((s) => s.own && Math.hypot(s.w.x - drop.from.x, s.w.y - drop.from.y, s.w.z - drop.from.z) < 1e-9)).toHaveLength(1);
+    expect(drop.from.y).toBeGreaterThanOrEqual(span.to.y - 1e-9);
+    expect(drop.to).not.toEqual({ x: 12 * S, y: 5.5 * S, z: 16 * S });
+  });
+
+  it("stands the City bracket at a drop's wall point, back on the wall and its arm tip the drop's end at 5.5 m, the building lamp under it, and the bracket on 'fittings' only", () => {
+    const withLamp = circuitDraws(layer, streets, job({ puzzle: { nodes: [{ id: "lamp", type: "lamp" }] } as unknown as CityPuzzleConverted["puzzle"], places: { lamp: { building: "bld" } } as unknown as CityPuzzleConverted["places"] }));
+    const fit = withLamp.pieces.find((p) => p.role === "fitting")!;
+    expect(fit.key).toBe(SCENERY_MODELS.wallFitting.key);
+    // The pole is on the -z side of the wall point, so the bracket faces -z: origin 0.171 m out, arm tip 0.342 m out, base 0.533 m under the drop.
+    expect(fit.position.z / S).toBeCloseTo(16 - WALL_FITTING.back_m, 9);
+    expect(fit.position.y / S).toBeCloseTo(5.5 - WALL_FITTING.up_m, 9);
+    const drop = withLamp.wires.find((w) => w.id === "drop:bld")!;
+    expect(drop.to.z / S).toBeCloseTo(16 - WALL_FITTING.out_m, 9);
+    expect(drop.to.y / S).toBeCloseTo(5.5, 9);
+    expect(drop.key).toBe(POWER_LINE);
+    const lamp = withLamp.pieces.find((p) => p.id === "lamp")!;
+    expect(lamp.position.y / S + COMPONENT_H_M.lampBuilding).toBeCloseTo(5.5 - ON_POLE_GAP_M, 9);
+    expect(circuitKeyUses().filter((u) => u.key === SCENERY_MODELS.wallFitting.key).map((u) => u.list)).toEqual(["fittings"]);
+    expect(circuitKeyUses().filter((u) => u.list === "drops")).toEqual([{ list: "drops", key: POWER_LINE }]);
   });
 
   it("stands a structure on every corner roof with its arm no lower than 2.0 m over the deck, and a mid roof and a roof span only where the job uses them", () => {
