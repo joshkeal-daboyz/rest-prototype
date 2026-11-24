@@ -312,8 +312,8 @@ if (entries.length === 0) {
 if (import.meta.env.DEV && assetGalleryRequested(location.search) !== null) {
   const app = document.getElementById("app");
   if (app) app.hidden = true;
-  void Promise.all([import("./render3d"), import("./ui/assetgallery")]).then(([r, page]) => {
-    page.mountAssetGallery(document.body, (c) => r.createAssetGallery(c), location.search);
+  void Promise.all([import("./render3d"), import("./ui/assetgallery"), import("./render3d/componentmodels")]).then(([r, page, models]) => {
+    page.mountAssetGallery(document.body, (c) => r.createAssetGallery(c), location.search, models.COMPONENT_MODELS);
   });
 } else {
   startPuzzle();
