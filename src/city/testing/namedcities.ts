@@ -41,9 +41,9 @@ export type CityProfile = "buildings" | "edge" | "facades" | "ground" | "clean";
 export const PROFILE_STAGES: Readonly<Record<CityProfile, readonly CityPlanStage[]>> = {
   buildings: ["streets", "land", "mass", "buildings"],
   edge: ["streets", "land", "mass", "edge"],
-  facades: ["streets", "land", "mass", "edge", "buildings", "facades"],
-  ground: ["streets", "land", "mass", "edge", "buildings", "facades", "ground"],
-  clean: ["streets", "land", "mass", "edge", "buildings", "facades", "ground", "traffic"],
+  facades: ["streets", "land", "mass", "edge", "buildings", "circuit", "facades"],
+  ground: ["streets", "land", "mass", "edge", "buildings", "circuit", "facades", "ground"],
+  clean: ["streets", "land", "mass", "edge", "buildings", "circuit", "facades", "ground", "traffic"],
 };
 
 /** The stage definitions a profile runs, with stage 1 the one-way-off variant when `way` is "off". */

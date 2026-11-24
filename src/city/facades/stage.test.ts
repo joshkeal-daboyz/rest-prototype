@@ -340,11 +340,11 @@ describe("the picture (criterion 5, R-5)", { timeout: 120_000 }, () => {
 
 describe("R-1 to R-7 for facades (criterion 6)", { timeout: 120_000 }, () => {
   it("the standard run is ok on the default city, ends with facades, its layer is frozen, and the stage list ends with it", () => {
-    expect(BUILT_STAGES.map((s) => s.name)).toEqual(["streets", "land", "mass", "edge", "buildings", "facades", "ground", "traffic"]);
+    expect(BUILT_STAGES.map((s) => s.name)).toEqual(["streets", "land", "mass", "edge", "buildings", "circuit", "facades", "ground", "traffic"]);
     const r = cityOf(DEFAULT);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(Object.keys(r.plan.digests)).toEqual(["streets", "land", "mass", "edge", "buildings", "facades"]);
+    expect(Object.keys(r.plan.digests)).toEqual(["streets", "land", "mass", "edge", "buildings", "circuit", "facades"]);
     expect(Object.isFrozen(r.plan.layers.facades)).toBe(true);
     expect(Object.isFrozen(r.plan.layers.facades!.ground)).toBe(true);
     expect(Object.isFrozen(r.plan.layers.facades!.ground[0])).toBe(true);
@@ -355,8 +355,8 @@ describe("R-1 to R-7 for facades (criterion 6)", { timeout: 120_000 }, () => {
     expect(Object.isFrozen(r.plan.layers.facades!.walls![0]!.placement)).toBe(true);
   });
 
-  it("stage 6 (circuit) is still not built: asking for it throws, as run.test.ts's example says", () => {
-    expect(() => runCity({ blocksX: 6, blocksZ: 6, seed: 1 }, "circuit")).toThrow();
+  it("stage 10 (assemble) is not built: asking for it throws, as run.test.ts's example says", () => {
+    expect(() => runCity({ blocksX: 6, blocksZ: 6, seed: 1 }, "assemble" as never)).toThrow();
   });
 
   it("a test double for facades leaves the digests of streets, land, mass, edge and buildings equal to the standard run's (R-4)", () => {

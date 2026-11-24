@@ -474,7 +474,7 @@ describe("criterion 4: barricades (option C)", { timeout: 300_000 }, () => {
     const target = key(wall.id);
     const [junctionId, arm] = target.split("|") as [string, string];
     const { plan, poles } = corridor(arm, junctionId);
-    const free = buildHoldout(plan, rand);
+    const free = buildHoldout(plan, rand, { circuit: EMPTY_CIRCUIT });
     expect(barricadeKeys(free.layer).has(target)).toBe(true);
     const sealed = buildHoldout(plan, rand, { circuit: poles });
     expect(barricadeKeys(sealed.layer).has(target)).toBe(false);
@@ -500,7 +500,7 @@ describe("criterion 4: barricades (option C)", { timeout: 300_000 }, () => {
     expect(r.barricade.placed).toBeGreaterThan(0);
     // a pole at every junction cannot all be sealed in: mouths the free run closes stay open here, skipped for T-2
     expect(r.barricade.skippedT2).toBeGreaterThan(0);
-    const free = barricadeKeys(full.layer);
+    const free = barricadeKeys(buildHoldout(FULL, rand, { circuit: EMPTY_CIRCUIT }).layer);
     const held = barricadeKeys(r.layer);
     expect(held.size).toBeLessThan(free.size);
     for (const k of held) expect(free.has(k), k).toBe(true);
