@@ -26,9 +26,10 @@ export const ROOF_ARM = { w_m: 1.6, h_m: 0.1, d_m: 0.1 } as const;
 /** A component on a pole stands this far out from the post's axis, toward the street, and its top this far under the pole's lowest attachment (metres). */
 export const ON_POLE_OFFSET_M = 0.35;
 export const ON_POLE_GAP_M = 0.6;
-/** A component on a roof structure stands this far along the structure's street side, with its base this far above the deck (metres). */
+/** A component on a roof structure stands this far along the structure's street side, its top `ON_POLE_GAP_M` under the arm and never below the deck (metres). */
 export const ON_ROOF_OFFSET_M = 0.45;
-export const ON_ROOF_BASE_M = 0.3;
+/** The way a pack model's own front faces before it is turned (+z). */
+export const PACK_FRONT = { x: 0, z: 1 } as const;
 /** A damaged-line prop hangs from the wire's low point: its height (SM_Prop_Cable_09, 1.352 m) is below it. */
 export const CUT_PROP_H_M = 1.352;
 
@@ -101,7 +102,7 @@ export function toCarriageway(street: Pick<CityPlanStreet, "axis"> | undefined, 
   return street?.axis === "z" ? { x: sign, z: 0 } : { x: 0, z: sign };
 }
 
-const yawToward = (d: { x: number; z: number }): number => Math.atan2(d.x, d.z);
+const yawToward = (d: { x: number; z: number }): number => Math.atan2(d.x, d.z) - Math.atan2(PACK_FRONT.x, PACK_FRONT.z);
 
 /** The component a node stands as: a switch is a spring or a relay where it says so. */
 export function componentOf(node: GridNode, place: CityNodePlace): CircuitComponent {
@@ -179,12 +180,25 @@ export function circuitDraws(layer: CityCircuitLayer, streets: CityStreetsLayer 
     midUsed.add(s.b);
   }
   const roofKey = COMPONENT_MODELS.roofMast.key;
-  const seatY_m = (r: CityRoofMast): number => r.deck_y_m + ROOF_MAST_ATTACH_MIN_M + ROOF_ARM.h_m;
+  // A model on a roof stands under the arm: where one cannot fit under the default arm, that roof's arm and wire seat are raised to clear it.
+  const armUp = new Map<string, number>();
+  const seen = new Map<string, number>();
+  for (const node of nodes) {
+    const place = places[node.id];
+    if (!place || !("roof" in place)) continue;
+    const component = componentOf(node, place);
+    const slot = seen.get(place.roof) ?? 0;
+    seen.set(place.roof, slot + 1);
+    if (component === "feed") continue;
+    armUp.set(place.roof, Math.max(armUp.get(place.roof) ?? ROOF_MAST_ATTACH_MIN_M, ON_POLE_GAP_M + COMPONENT_H_M[component] + slot * 1.0));
+  }
+  const armUp_m = (r: CityRoofMast): number => armUp.get(r.id) ?? ROOF_MAST_ATTACH_MIN_M;
+  const seatY_m = (r: CityRoofMast): number => r.deck_y_m + armUp_m(r) + ROOF_ARM.h_m;
   for (const r of roofs) {
     if (r.row === "mid" && !midUsed.has(r.id)) continue;
     pieces.push({ id: r.id, role: "roofMast", key: roofKey, component: "roofMast", position: { x: r.x_m * S, y: r.deck_y_m * S, z: r.z_m * S }, yaw: 0, scale: S });
     const along = r.sides[0] === "+x" || r.sides[0] === "-x" ? Math.PI / 2 : 0;
-    arms.push({ id: r.id, position: { x: r.x_m * S, y: (r.deck_y_m + ROOF_MAST_ATTACH_MIN_M + ROOF_ARM.h_m / 2) * S, z: r.z_m * S }, yaw: along });
+    arms.push({ id: r.id, position: { x: r.x_m * S, y: (r.deck_y_m + armUp_m(r) + ROOF_ARM.h_m / 2) * S, z: r.z_m * S }, yaw: along });
     endOf.set(r.id, { x: r.x_m * S, y: seatY_m(r) * S, z: r.z_m * S });
   }
 
@@ -233,12 +247,13 @@ export function circuitDraws(layer: CityCircuitLayer, streets: CityStreetsLayer 
         if (!r) continue;
         const side = r.sides[0] ?? "+z";
         const d = side === "+x" ? { x: 1, z: 0 } : side === "-x" ? { x: -1, z: 0 } : side === "+z" ? { x: 0, z: 1 } : { x: 0, z: -1 };
-        pieces.push({ id: node.id, role: "component", key, component, position: { x: (r.x_m + d.x * ON_ROOF_OFFSET_M) * S, y: (r.deck_y_m + ON_ROOF_BASE_M + slot(place.roof) * 1.0) * S, z: (r.z_m + d.z * ON_ROOF_OFFSET_M) * S }, yaw: yawToward(d), scale: S });
+        const roofBase = Math.max(r.deck_y_m + armUp_m(r) - ON_POLE_GAP_M - h - slot(place.roof) * 1.0, r.deck_y_m);
+        pieces.push({ id: node.id, role: "component", key, component, position: { x: (r.x_m + d.x * ON_ROOF_OFFSET_M) * S, y: roofBase * S, z: (r.z_m + d.z * ON_ROOF_OFFSET_M) * S }, yaw: yawToward(d), scale: S });
       } else if ("building" in place) {
         const d = dropOf.get(place.building);
         if (!d) continue;
         const p = poleById.get(d.pole);
-        const out = p ? { x: p.x_m - d.x_m, z: p.z_m - d.z_m } : { x: 0, z: 1 };
+        const out = p ? { x: p.x_m - d.x_m, z: p.z_m - d.z_m } : PACK_FRONT;
         const len = Math.hypot(out.x, out.z) || 1;
         const n = { x: out.x / len, z: out.z / len };
         pieces.push({ id: node.id, role: "component", key, component, position: { x: (d.x_m + n.x * 0.1) * S, y: d.y_m * S, z: (d.z_m + n.z * 0.1) * S }, yaw: yawToward(n), scale: S });

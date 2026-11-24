@@ -10,7 +10,7 @@ import { convertCityPuzzle } from "../city/circuit";
 import { ROOF_MAST_ATTACH_MIN_M } from "../city/circuit/constants";
 import { DEFAULT, sharedCity } from "../city/testing/namedcities";
 import { COMPONENT_MODELS } from "./componentmodels";
-import { ROOF_ARM, circuitDraws, circuitGroup, componentOf, type CircuitDraws, type CircuitJob } from "./circuitdraw";
+import { COMPONENT_H_M, ROOF_ARM, circuitDraws, circuitGroup, componentOf, type CircuitDraws, type CircuitJob } from "./circuitdraw";
 import { FEED_POLE_KEY } from "./powerkit";
 import { WORLD_PER_METRE as S } from "./models";
 
@@ -65,12 +65,19 @@ describe("the circuit drawn (081 K3)", () => {
     expect(used.arms).toHaveLength(2);
     for (const a of used.arms) expect(a.position.y - (ROOF_ARM.h_m / 2) * S).toBeGreaterThanOrEqual((12.5 + ROOF_MAST_ATTACH_MIN_M) * S - 1e-9);
     expect(used.wires.find((w) => w.kind === "roofSpan")!.to.y).toBeGreaterThanOrEqual((12.5 + ROOF_MAST_ATTACH_MIN_M) * S);
+    const stacked = circuitDraws(layer, streets, job({ puzzle: { nodes: [{ id: "sw", type: "switch" }, { id: "br", type: "breaker" }] } as unknown as CityPuzzleConverted["puzzle"], places: { sw: { roof: "roof:0:0" }, br: { roof: "roof:0:0" } } as unknown as CityPuzzleConverted["places"] }));
+    const armY = stacked.arms[0]!.position.y - (ROOF_ARM.h_m / 2) * S;
+    for (const id of ["sw", "br"]) {
+      const m = stacked.pieces.find((p) => p.id === id)!;
+      expect(m.position.y + COMPONENT_H_M[id === "sw" ? "switch" : "breaker"] * S).toBeLessThanOrEqual(armY + 1e-9);
+      expect(m.position.y).toBeGreaterThanOrEqual(12.5 * S - 1e-9);
+    }
   });
 
   it("stands one model per node of the converted puzzle on 6 x 6 seed 1, and the feed's pole is the feed pick, with its spans over 4.2 m", { timeout: 60_000 }, () => {
     const run = sharedCity(DEFAULT, "facades");
     if (!run.ok) throw new Error(run.failure.reason);
-    const puzzle = loadCityPuzzle(JSON.parse(readFileSync(join(__dirname, "..", "city", "circuit", "fixtures", "city-two-ways-round.city.json"), "utf8")));
+    const puzzle = loadCityPuzzle(JSON.parse(readFileSync(join(__dirname, "..", "..", "puzzles", "city", "city-two-ways-round.city.json"), "utf8")));
     const converted = convertCityPuzzle(puzzle, run.plan);
     const circuit = run.plan.layers.circuit!;
     const d = circuitDraws(circuit, run.plan.layers.streets, { converted });
