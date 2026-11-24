@@ -160,30 +160,36 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | E1 | Glyphs out of the 2D renderer; the overlay's icons and lines, pure | renderer | G1 | 9 |
 | P0 | `city-two-ways-round` as a city puzzle file in `puzzles/city/` | puzzle-designer | now (K2c is in) | 0 (1 path line) |
 | K3 | The circuit drawn on the city | renderer | now (K2d1, K2d2, PK2, A2c, D3 are in) | 7 (6 added, 1 rewritten) |
-| U1 | The picker lists city puzzles (pure) | ui | now (C1 is in) | 4 |
+| U1 | The picker lists only city puzzles (pure) | ui | now (C1 is in) | 3 |
 | E2 | A city puzzle played on the city, through the overlay | renderer | K3 (shares `plan3d.ts`) | 10 |
-| U2 | Opening a city puzzle opens the city view (`main.ts`) | ui | E2, U1 | 2 |
+| U2 | The page opens straight into the 3D city (`main.ts`) | ui | E2, U1 | 1 |
+| X1 | **Stub, not cut:** delete the 2D map view (`src/render/`) | renderer | P2a, and Josh's word | removals; about 2 added |
+| X2 | **Stub, not cut:** delete the 2D side of `src/ui/` and `main.ts` | ui | X1 | removals; 0 added |
+| R1 | **Stub, not cut:** retarget the release playtest harness to city puzzles | (at cut) | before the next release | at cut |
 
 `src/play/` (interaction) has no section. E2 keeps the `MapRenderer3d` interface, so play and its `hitTest` calls do not change. If E2's builder finds that `src/play/` must change, it stops, and the architect re-cuts with an interaction section.
 
-**Between A2c and E2 the 64 puzzles have no 3D view.** Josh accepted this with answer 1. The 2D game plays throughout.
+**Between A2c and E2 the 64 puzzles have no 3D view.** Josh accepted this with answer 1. The 2D game plays until U2 merges.
+
+**Full 3D (Josh, 24 Nov 2026, on cards).** "I don't want 2D puzzles anymore. I want this game to be full 3D. The 2D puzzles were really just a prototype to see if the puzzles would be functional." On what happens to the 2D side: "Hide now, delete later (Recommended)". On the release harness: "Retarget later (Recommended)". So, from U2 on, the picker and the page show only city puzzles, on the 3D city, with E1's overlay of icons and lines on top. The schematic files in `puzzles/` stay, as the source P1 and P2a fit onto the city. The 2D map code is deleted by X1 and X2 once the 16 pilots are on the city. `tests/playtest/` is left alone until R1.
 
 ### The playable path (re-cut 24 Nov 2026, the lead-architect, on Josh's card "Playable path first (Recommended)")
 Josh's aim: open `npm run dev`, pick `city-two-ways-round` in the picker, and play it on the 3D city (6 x 6 seed 1). K3, E2 and U1 as first cut do not get there alone. Three gaps, read at ede9e64:
 - **No city puzzle file exists.** `puzzles/city/` does not exist. The one city form is K2c's test fixture, `src/city/circuit/fixtures/city-two-ways-round.city.json`. U1 was cut to wait for P2a's 16 pilot puzzles, which wait for P1. **P0** moves the fixture to `puzzles/city/`.
 - **U1 as first cut also held the `main.ts` wiring,** which needs E2's renderer option. It is split: **U1** is the pure picker list (no dependency, built now), and **U2** is the `main.ts` wiring (after E2 and U1).
-- **A canvas keeps one kind of context** (`main.ts`: "chosen once, from the URL"). A city puzzle picked on a 2D page, or a schematic picked on a city page, cannot switch in place. U2 reloads the page at the right address.
+- ~~**A canvas keeps one kind of context**: U2 reloads the page at the right address.~~ Gone with full 3D (Josh, 24 Nov 2026: "I don't want 2D puzzles anymore. I want this game to be full 3D. The 2D puzzles were really just a prototype to see if the puzzles would be functional."): every puzzle on the page is a city puzzle on the 3D canvas, so there is no switch and no reload.
 
 **Order and parallel work.**
 | Wave | Sections | Shared files | Why this order |
 | --- | --- | --- | --- |
-| 1 (at once) | P0, K3, U1 | none: P0 has `puzzles/city/` and one path line in `src/city/circuit/convert.test.ts`; K3 has `src/render3d/`; U1 has `src/ui/maps.ts` and a type-only narrowing in `main.ts` | No section reads another's output. |
+| 1 (at once) | P0, K3, U1 | none: P0 has `puzzles/city/` and one path line in `src/city/circuit/convert.test.ts`; K3 has `src/render3d/`; U1 has `src/ui/maps.ts` only | No section reads another's output. |
 | 2 | E2 | `plan3d.ts` with K3 | It draws K3's circuit live. |
 | 3 | U2 | `src/main.ts`, `src/ui/view3d.ts` | It calls E2's `loadCityView` and `city` option, and lists U1's entries. |
+| later | X1, X2 | `src/render/`; `src/ui/`, `main.ts` | After P2a's 16 pilots are on the city and Josh has said so. |
 
 **No rule or number changes on this path, so no pipeline-designer pre-check.** Every rule is already Decided or answered: CK1 to CK17 as built; "Straight, piece to piece" and "Only when readable" (E1, K3); 059's street light model (Josh, 18 Nov 2026: "Approve 057, 058 and 059"); 071 Q11's pack wire piece ("Pack wire pieces (Recommended)"). Two things are **measured and reported, not tuned**: the feed pick's span heights (K3) and the damaged-line prop's low point (open question 2).
 
-**After P0, K3, U1, E2 and U2,** Josh can open `npm run dev`, pick "City · Two ways round · city", and play it on the 3D city. H4, P1 and P2a come after.
+**After P0, K3, U1, E2 and U2,** Josh can open `npm run dev` and land on the 3D city, on "City · Two ways round" (the picker lists only city puzzles), and play it. H4, P1 and P2a come after.
 
 ---
 
@@ -706,7 +712,7 @@ P1's own fits (criterion 8) are the record. P2a waits for K2d, because 9 of its 
 
    **no test**.
 3. [ ] `npm run check puzzles/city/` passes. `npm run analyze` numbers are in each note: equal to the schematic's for an unchanged puzzle, and stated as new for a rework. **test** (P1's sweep).
-4. [ ] **Josh plays** the pilot's puzzles (before E2 and U1, in the 2D view, where the converted `pos` lays out the district; after them, on the city). His verdict goes under **What it taught us**. **browser**.
+4. [ ] **Josh plays** the pilot's puzzles on the 3D city, from U2 on (re-cut 24 Nov 2026: the 2D view no longer opens a city puzzle; Josh: "I don't want 2D puzzles anymore. I want this game to be full 3D. The 2D puzzles were really just a prototype to see if the puzzles would be functional."). If a batch is ready before U2 merges, its play waits for U2. His verdict goes under **What it taught us**. **browser**.
 
 **Files.** `puzzles/city/` only.
 
@@ -890,31 +896,24 @@ K3 draws nothing live. E2 does.
 
 **Must not:** `src/city/`, `src/core/`, `src/ui/`, `src/main.ts`, `overlay.ts`, `renderer.ts` (E2's).
 
-### U1 · The picker lists city puzzles (ui, pure). Branch `ticket/081u1-picker-city`
-**Re-cut 24 Nov 2026.** U1 as first cut also held the `main.ts` wiring, which needs E2. That moves to U2, and U1 is built now. U1 no longer waits for P2a. P0's file is the first city puzzle.
+### U1 · The picker lists only city puzzles (ui, pure). Branch `ticket/081u1-picker-city`
+**Re-cut 24 Nov 2026 (twice).** First, the `main.ts` wiring moved to U2 and U1 stopped waiting for P2a; P0's file is the first city puzzle. Then Josh, on cards: "I don't want 2D puzzles anymore. I want this game to be full 3D. The 2D puzzles were really just a prototype to see if the puzzles would be functional." On the 2D side: "Hide now, delete later (Recommended)". So the list holds city puzzles only, with no "· city" suffix, no `MapEntry` union and no dev flag.
 
-**Goal.** `collectMaps` lists city puzzles beside the schematics, so the picker can show them. Nothing opens them yet (U2).
+**Goal.** A new pure `collectCityMaps(files)` in `src/ui/maps.ts` lists the city puzzles for the picker. `collectMaps` and its five cases are left exactly as they are (X2 deletes them). Nothing opens a city entry yet (U2).
 
 **Acceptance criteria.**
-1. [ ] **Read and keyed.**
-   - `collectMaps(files, { city: true })` reads every `puzzles/city/*.city.json` with `validateCityPuzzle` (C1) and lists it as a `MapEntry` with `kind: "city"` and the `CityPuzzle`.
-   - Its key is `city/<id>`. `city-two-ways-round`'s city form and its schematic share an id, so this keeps both, with no "duplicate map key".
-   - A schematic entry has `kind: "schematic"`, and its fields are as today. The existing five cases pass unedited.
+1. [ ] **City files only.**
+   - `collectCityMaps(files)` reads every `puzzles/city/**/*.city.json` with `validateCityPuzzle` (C1). Each is a `CityMapEntry`: `{ key, id, name, locked, path, city: CityPuzzle, from?: string }`.
+   - Its key is its id, or `locked/<id>` under `puzzles/city/locked/`, as `collectMaps` keys locked copies.
+   - Every other file (the schematics, street files) is left out silently, with no problem line. The schematics stay on disk as P1's and P2a's source.
 
-   **test**: 1 case: both files listed, two keys.
-2. [ ] **A bad city file** is one `problems` line, with C1's messages, and is never passed to `validatePuzzle` (so it is never "skipped" for the wrong shape). **test**: 1 case.
-3. [ ] **Order and name.**
-   - A city entry is listed right after its `from` puzzle, or at the end of the open maps when `from` is absent or not found.
-   - It is named "<its `name`> · city". The "(reworked)" suffix waits for P2a's reworks to carry a flag in their own files (open question 6).
+   **test**: 1 case: a schematic and a city file sharing an id give one entry, keyed by the id, and no problem.
+2. [ ] **A bad city file, or a repeated key,** is one `problems` line (C1's messages for a bad file), and the valid entries are kept. **test**: 1 case.
+3. [ ] **Order and name.** Open entries before locked ones, each in path order (P2a's files are `NN-slug`, so they follow the schematics' order). The name is the file's `name`, unchanged: no "· city" suffix, since the picker lists nothing else. **test**: 1 case.
 
-   **test**: 1 case.
-4. [ ] **Off in a production build.** With `{ city: false }` (the default), city files are left out silently, with no problem line. U2 passes `import.meta.env.DEV`. City puzzles need the dev-only pipeline renderer and the pack GLBs, which a web build may not hold (Synty licence, 16 Nov 2026). **test**: 1 case.
+**Count.** 3 added, 0 rewritten.
 
-**Count.** 4 added.
-
-**The type.** `MapEntry` becomes a union on `kind`: `{ kind: "schematic", puzzle: Puzzle, ... }` or `{ kind: "city", city: CityPuzzle, from?: string, ... }`, with `key`, `id`, `name`, `locked` and `path` on both.
-
-**Files.** `src/ui/maps.ts`, `maps.test.ts`; in `src/main.ts`, only what keeps the typecheck green with the union (for example, narrowing to `kind === "schematic"`), and no behaviour change, since `main.ts` still calls `collectMaps(files)` with city off until U2. **Must not:** any other `main.ts` line (U2), `src/render3d/`.
+**Files.** `src/ui/maps.ts` (adding `collectCityMaps` and `CityMapEntry`; `collectMaps` and `MapEntry` untouched), `src/ui/maps.test.ts` (new cases only). **Must not:** `src/main.ts` (U2), `src/render3d/`, `src/core/`.
 
 ### E2 · A city puzzle played on the city, through the overlay (renderer). Branch `ticket/081e2-city-play`, after K3 merges
 **Re-cut 24 Nov 2026** against what E1, K2c to K2d2 and K3 build. The interface with the ui is fixed here, so U2 codes against it:
@@ -972,32 +971,40 @@ A click on an icon or a line is that piece's `hitTest` answer, so `src/play/` pl
 
 **Must not:** `src/core/` (the architect's), `src/ui/`, `src/main.ts`, `src/play/`, `src/city/`.
 
-### U2 · Opening a city puzzle opens the city view (ui). Branch `ticket/081u2-open-city`, after E2 and U1 merge
-**Why** (the playable path). This is U1's former criterion 3. It needs E2's `loadCityView` and `city` option.
+### U2 · The page opens straight into the 3D city (ui). Branch `ticket/081u2-open-city`, after E2 and U1 merge
+**Re-cut 24 Nov 2026** on Josh's cards: "I don't want 2D puzzles anymore. I want this game to be full 3D. The 2D puzzles were really just a prototype to see if the puzzles would be functional." and "Hide now, delete later (Recommended)". Every puzzle on the page is a city puzzle on one WebGL canvas, so there is no `?view=3d` to ask for, no switch to a schematic and no reload. The first cut's `addressFor` and its reload case are dropped.
 
-**Goal.** In `npm run dev`, Josh picks "City · Two ways round · city" and plays it on the 3D city. Picking a schematic puzzle afterwards goes back to the 2D map.
+**Goal.** `npm run dev` opens straight into the 3D city on the first city puzzle (or the `?puzzle=` one), with E1's overlay on top. The picker lists only city puzzles (U1), and picking one, or the win splash's Next, opens it in place.
 
 **Acceptance criteria.**
-1. [ ] **The address, pure.** `addressFor(kind, search, key)` in `src/ui/view3d.ts` gives the address a picked entry opens at, or null when the page can open it in place:
-   - a city entry sets `puzzle=city/<id>` and `view=3d`;
-   - a schematic entry drops `view=3d`, unless the address carries a `city=` route (A2d, unchanged);
-   - other parameters (`light`, `cam`, `overlay`) are kept.
+1. [ ] **`main.ts` builds the city page.**
+   - It calls `collectCityMaps(files)` (U1), not `collectMaps`. The picker, `?puzzle=` and Next address entries by U1's key.
+   - Every open builds the 3D renderer (`src/render3d`, loaded lazily as today). Opening an entry calls `loadCityView(entry.city)` (E2), plays `view.converted.puzzle` on `createGrid` and `createMapPlay`, and passes `{ insets, city: view }` to the renderer. Two puzzles on one city share E2's one plan.
+   - The 2D `createMapRenderer` is no longer called, and `wants3d` and `NO_CITY_FORM_NOTICE` are no longer used by `main.ts`. Their code and tests stay until X1 and X2.
+   - The `city=tiles` and `city=plan` dev routes open as today (no `city` option, HUD hidden by `planHidesHud`), given the open entry's converted puzzle.
 
-   `wants3d` is unchanged, and its two cases pass unedited. **test**: 1 case.
-2. [ ] **`main.ts`'s city branch.**
-   - `collectMaps(files, { city: import.meta.env.DEV })`.
-   - The page kind comes from the requested entry, once, as today: `wants3d(location.search, entry.kind)`.
-   - Opening a city entry calls `loadCityView` (lazily, with the rest of `src/render3d`). It plays `view.converted.puzzle` on `createGrid` and `createMapPlay`, and passes `{ insets, city: view }` to the 3D renderer.
-   - Picking an entry whose kind needs the other canvas (`addressFor` not null) loads that address (`location.assign`) instead of opening in place. The win splash's Next does the same.
-   - A `CityPuzzleError` shows its messages in the HUD's place and in the console, and the page does not go blank.
+   **test**: 1 case, on a pure helper in `src/ui/view3d.ts` that takes the address and says what to build: a puzzle play with the `city` view, or a `city=` route without it.
+2. [ ] **Never a blank page.** A `CityPuzzleError` shows its messages in the HUD's place and in the console. No city files shows one line naming `puzzles/city/`. In a production build, where the pipeline renderer is not built (E2: dev only; Synty licence, 16 Nov 2026), the page says the prototype plays in `npm run dev` (open question 8). **no test**: one-line branches in `main.ts`; criterion 4 sees the first.
+3. [ ] **The HUD shows** on a city puzzle: parts, targets, the picker. **browser**.
+4. [ ] Josh runs `npm run dev`, lands on the 3D city on `city-two-ways-round`, plays it to the Relight, and picks it again from the picker (in place, no reload). **browser**.
 
-   **test**: 1 case: the open path, through a pure helper that takes the entry and returns what to build.
-3. [ ] **The HUD shows** on a city puzzle: parts, targets, the picker. `planHidesHud` stays for `city=` routes only. **browser**.
-4. [ ] Josh opens `city-two-ways-round`'s city form from the picker, plays it to the Relight, then picks a schematic puzzle and is back on the 2D map. **browser**.
+**Count.** 1 added.
 
-**Count.** 2 added.
+**Files.** `src/main.ts` (the page and open branches), `src/ui/view3d.ts` and `view3d.test.ts` (the helper; `wants3d`'s two cases stay unedited). **Must not:** `src/render/`, `src/render3d/`, `src/play/`, `src/core/`, `tests/playtest/`.
 
-**Files.** `src/main.ts` (the view and open branches), `src/ui/view3d.ts` and `view3d.test.ts`, `src/ui/maps.ts` (only if the helper of criterion 2 lives there). **Must not:** `src/render3d/`, `src/play/`, `src/core/`.
+### X1 · Delete the 2D map view (renderer). **Stub, not cut; not to be built yet**
+Josh, 24 Nov 2026: "Hide now, delete later (Recommended)". Cut in full once P2a's 16 pilots are on the city and Josh has said so. Expected:
+- **Goes:** `src/render/map-renderer.ts` and the 2D map's drawing modules and tests (most of `src/render/`).
+- **Moves first, does not go:** what the city view still uses from `src/render/`: `glyphs.ts` (E1's overlay draws with it), the `MapRenderer`, `MapPanView`, `MapPlaces`, `MapCentre` and `MapBlockers` interfaces (`renderer.ts` imports them), and `planRelight` (`main.ts`'s Relight sound cues). They move to `src/render3d/` (or the interfaces to `src/core/`, the architect's call at cut).
+- **To check at cut:** every `tickets/rules-coverage.md` row held only by a `src/render/` test gets a city-view test, or the row is re-pointed, before the test goes. That is where its "about 2 added" comes from.
+- **Not in it:** the schematic puzzle files (P2b to P2d still fit from them), `tests/playtest/` (R1), the conversion's `pos` and `decor` in `src/city/circuit/` (grid-simulator's; a separate small section if they are then unused).
+
+### X2 · Delete the 2D side of `src/ui/` and `main.ts` (ui). **Stub, not cut; after X1**
+- **Goes:** `collectMaps` and `MapEntry` and their five cases, `wants3d`, `NO_CITY_FORM_NOTICE`, `PuzzleKind` and their two cases (A2d), and `main.ts`'s dead 2D branches.
+- **To decide at cut:** whether the schematics' `puzzles/*.json` glob stays in the build at all.
+
+### R1 · Retarget the release playtest harness (owner at cut). **Stub, not cut**
+Josh, 24 Nov 2026: "Retarget later (Recommended)". `tests/playtest/` replays the schematics and is left alone until then. Re-cut it for city puzzles before the next release Josh calls; until then its snapshots may go stale, as the release loop allows.
 
 ## Files
 Per section, above. This branch (the cut): `tickets/081-puzzles-on-the-city.md`, `tickets/070-city-pipeline.md` (pointer lines), `tickets/071-pack-power-lines.md` (a pointer line: C and E's ladder wiring are dropped), `tickets/rules-coverage.md`, `src/core/citycircuit.ts` (new; `CityPuzzleView` added 24 Nov 2026 for the playable path), `src/core/cityplan.ts` (`CityCircuitLayer`), `src/core/index.ts`.
@@ -1022,18 +1029,26 @@ Written into `src/core/` with this cut (typecheck passes):
   - `ctx` is `{ layer, width, height, time, pxPerMetre? }`.
   - `project` returns the screen point and a boolean for "behind the camera".
   - **This stands.** E1's criteria name the inputs, not their exact shape. E2 codes against the built shape, and the criteria are not edited.
-- **The playable path's contract (24 Nov 2026, committed with this re-cut):** `CityPuzzleView` (`{ plan, converted }`) in `src/core/citycircuit.ts`. E2 adds `loadCityView(city): CityPuzzleView` (`src/render3d/index.ts`) and `MapRenderer3dOptions.city?: CityPuzzleView` (`renderer.ts`). U2 calls both. U1's `MapEntry` union stays inside `src/ui/`.
+- **The playable path's contract (24 Nov 2026, committed with this re-cut):** `CityPuzzleView` (`{ plan, converted }`) in `src/core/citycircuit.ts`. E2 adds `loadCityView(city): CityPuzzleView` (`src/render3d/index.ts`) and `MapRenderer3dOptions.city?: CityPuzzleView` (`renderer.ts`). U2 calls both. U1's `CityMapEntry` stays inside `src/ui/` (re-cut 24 Nov 2026: no `MapEntry` union, since the picker lists only city puzzles).
 - **Events:** none new.
 - **No new dependency.** The overlay is Canvas 2D.
 
 ## Open questions (for Josh)
+**Josh, 24 Nov 2026, on cards (relayed by the main session):**
+- On the picker defaults (reload on switch, the "· city" name): "I don't want 2D puzzles anymore. I want this game to be full 3D. The 2D puzzles were really just a prototype to see if the puzzles would be functional."
+- What happens to the 2D side: "Hide now, delete later (Recommended)". The picker and page show only city puzzles on the 3D city, with E1's overlay on top; the schematic files stay as P2a's source; the 2D map code goes in X1 and X2 once the 16 pilots are on the city.
+- The release playtest harness: "Retarget later (Recommended)". Left alone; R1 re-cuts it for city puzzles before the next release.
+
+This re-cut U1 and U2 and added the X1, X2 and R1 stubs. Questions 1, 4, 6 and 7 below are settled or moot by it. Note for the main session: `CLAUDE.md` and `docs/prototype-brief.md` still describe a 2D puzzle prototype; they are Josh's to reword, not this ticket's.
+
 All questions so far are answered (above), the mid-row one included ("Only when used (Recommended)"). Still open:
-1. **Default this cut takes (you may overturn it):** after A2c, `?view=3d` on a schematic puzzle opens the 2D map with a console note, until that puzzle has a city form.
+1. ~~**Default this cut takes:**~~ **Moot from U2 on** (Josh, 24 Nov 2026: "I want this game to be full 3D"): the page never opens a schematic. Until then: after A2c, `?view=3d` on a schematic puzzle opens the 2D map with a console note, until that puzzle has a city form.
 2. **(K3 reports, then only if you want it changed)** the damaged-line prop hangs below the 4.2 m walk floor from the lowest crossing.
 3. ~~**The 3D break prop and readability (K3).**~~ Answered 24 Nov 2026: "Only when readable (Recommended)" (see K3).
-4. **Default K2d2 takes (you may overturn it):** the 2D map's scenery (`decor`) shows no roof structures.
+4. ~~**Default K2d2 takes:**~~ **Moot from U2 on**: the 2D map no longer shows city puzzles ("Hide now, delete later (Recommended)"). As built: the 2D map's scenery (`decor`) shows no roof structures.
    - B1b proposed showing the unused corner structures on and next to the district as scenery dots. `decor` holds paths only, so dots would need a new shape.
    - A roof line that the job uses is drawn as a line, like any other line.
 5. **(K3 measures, then yours to decide) The pack loads.** 071 D's subset GLBs were never built, so the city view loads the whole Palm City (103 MB), Sci-Fi City (35 MB) and Sci-Fi Frontier (103 MB) packs for a handful of models. This happens in dev only. K3 reports the load time. If it is too slow, a small section runs 071 D's tool for the picks (`tools/assets/`, grid-simulator). It shares no file with this path and can run beside it.
-6. **Default U1 takes (you may overturn it):** a city entry is named "... · city". "(reworked)" waits for P2a's reworks, which will say in the file that they are one.
-7. **Default U2 takes (you may overturn it):** picking a city puzzle reloads the page in the 3D view, and picking a schematic one from there reloads the 2D map. A canvas keeps one kind of context, so the switch cannot happen in place.
+6. ~~**Default U1 takes:** a city entry is named "... · city".~~ **Settled** (Josh, 24 Nov 2026: "I don't want 2D puzzles anymore."): the picker lists only city puzzles, under their own names. Whether a rework shows "(reworked)" waits for P2a's reworks to carry a flag in their files.
+7. ~~**Default U2 takes:** picking reloads the page between the views.~~ **Settled** by the same answer: there is only the 3D view, so there is no switch and no reload.
+8. **Default U2 takes (you may overturn it):** the prototype is played in `npm run dev` only. The city view is dev only (the pipeline renderer, and the pack GLBs a web build may not hold: Synty licence, 16 Nov 2026), so a production build shows one line saying so instead of a puzzle. A playable web build would be its own ticket.
