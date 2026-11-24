@@ -96,6 +96,8 @@ export interface CircuitWire {
 
 export interface CircuitDraws {
   readonly pieces: readonly CircuitPiece[];
+  /** Where a removed pick (081 L1: `lampBuilding`) would have stood: kept for the node's pick proxy, `centreOn`, `placeAt` and the overlay icon, never drawn (no model, no placeholder). */
+  readonly removed: readonly CircuitPiece[];
   readonly arms: readonly CircuitArm[];
   readonly wires: readonly CircuitWire[];
 }
@@ -156,6 +158,7 @@ export function circuitDraws(layer: CityCircuitLayer, streets: CityStreetsLayer 
   const pieces: CircuitPiece[] = [];
   const arms: CircuitArm[] = [];
   const wires: CircuitWire[] = [];
+  const removed: CircuitPiece[] = [];
   const streetOf = new Map<string, CityPlanStreet>((streets?.streets ?? []).map((s) => [s.id, s] as const));
   const poleById = new Map(layer.poles.map((p) => [p.id, p] as const));
   const roofs = layer.roofs ?? [];
@@ -279,6 +282,8 @@ export function circuitDraws(layer: CityCircuitLayer, streets: CityStreetsLayer 
       const component = componentOf(node, place);
       if (component === "feed" && "pole" in place) continue; // the feed's pole is its pick
       const key = COMPONENT_MODELS[component].key;
+      // A removed pick (081 L1) stands nothing, but its place still holds the node for picking, centring and the overlay.
+      const stand = COMPONENT_MODELS[component].removed ? removed : pieces;
       const h = COMPONENT_H_M[component];
       const slot = (id: string): number => {
         const n = onPlace.get(id) ?? 0;
@@ -291,14 +296,14 @@ export function circuitDraws(layer: CityCircuitLayer, streets: CityStreetsLayer 
         const street = streetOf.get(p.street);
         const n = toCarriageway(street, p.pavement);
         const base = lowestAttach(poleFor(p.id)) - ON_POLE_GAP_M - h - slot(place.pole) * 1.0;
-        pieces.push({ id: node.id, role: "component", key, component, position: { x: (p.x_m + n.x * ON_POLE_OFFSET_M) * S, y: Math.max(base, 0) * S, z: (p.z_m + n.z * ON_POLE_OFFSET_M) * S }, yaw: yawToward(n), scale: S });
+        stand.push({ id: node.id, role: "component", key, component, position: { x: (p.x_m + n.x * ON_POLE_OFFSET_M) * S, y: Math.max(base, 0) * S, z: (p.z_m + n.z * ON_POLE_OFFSET_M) * S }, yaw: yawToward(n), scale: S });
       } else if ("roof" in place) {
         const r = roofById.get(place.roof);
         if (!r) continue;
         const side = r.sides[0] ?? "+z";
         const d = side === "+x" ? { x: 1, z: 0 } : side === "-x" ? { x: -1, z: 0 } : side === "+z" ? { x: 0, z: 1 } : { x: 0, z: -1 };
         const roofBase = Math.max(r.deck_y_m + armUp_m(r) - ON_POLE_GAP_M - h - slot(place.roof) * 1.0, r.deck_y_m);
-        pieces.push({ id: node.id, role: "component", key, component, position: { x: (r.x_m + d.x * ON_ROOF_OFFSET_M) * S, y: roofBase * S, z: (r.z_m + d.z * ON_ROOF_OFFSET_M) * S }, yaw: yawToward(d), scale: S });
+        stand.push({ id: node.id, role: "component", key, component, position: { x: (r.x_m + d.x * ON_ROOF_OFFSET_M) * S, y: roofBase * S, z: (r.z_m + d.z * ON_ROOF_OFFSET_M) * S }, yaw: yawToward(d), scale: S });
       } else if ("building" in place) {
         const d = dropOf.get(place.building);
         if (!d) continue;
@@ -306,14 +311,14 @@ export function circuitDraws(layer: CityCircuitLayer, streets: CityStreetsLayer 
         const n = faceOf.get(d.id) ?? (p ? wallFacing({ x: d.x_m, z: d.z_m }, { x: p.x_m, z: p.z_m }) : PACK_FRONT);
         // Under the fitting, its top `ON_POLE_GAP_M` below the drop's height, never inside the bracket; with no fitting, at the wall point as before.
         const base = fitKey === null ? d.y_m : Math.max(d.y_m - ON_POLE_GAP_M - h, 0);
-        pieces.push({ id: node.id, role: "component", key, component, position: { x: (d.x_m + n.x * 0.1) * S, y: base * S, z: (d.z_m + n.z * 0.1) * S }, yaw: yawToward(n), scale: S });
+        stand.push({ id: node.id, role: "component", key, component, position: { x: (d.x_m + n.x * 0.1) * S, y: base * S, z: (d.z_m + n.z * 0.1) * S }, yaw: yawToward(n), scale: S });
       } else {
         const post = postById.get(place.post);
         const span = spanById.get(place.post);
         const pole = span ? poleById.get(span.a) : undefined;
         if (!post) continue;
         const n = toCarriageway(pole ? streetOf.get(pole.street) : undefined, pole?.pavement ?? "lo");
-        pieces.push({ id: node.id, role: "component", key, component, position: { x: post.x_m * S, y: component === "lampPost" ? 0 : 1.0 * S, z: post.z_m * S }, yaw: yawToward(n), scale: S });
+        stand.push({ id: node.id, role: "component", key, component, position: { x: post.x_m * S, y: component === "lampPost" ? 0 : 1.0 * S, z: post.z_m * S }, yaw: yawToward(n), scale: S });
       }
     }
 
@@ -331,7 +336,7 @@ export function circuitDraws(layer: CityCircuitLayer, streets: CityStreetsLayer 
       pieces.push({ id: faultId, role: "cutProp", key: cutKey, component: "damagedLine", position: { x: (a.x + b.x) / 2, y: low - CUT_PROP_H_M * S, z: (a.z + b.z) / 2 }, yaw: Math.atan2(b.x - a.x, b.z - a.z), scale: S });
     }
   }
-  return { pieces, arms, wires };
+  return { pieces, removed, arms, wires };
 }
 
 /** The lowest point of a wire between two attachment points, as `fitLine` hangs it (world units). */
@@ -355,7 +360,7 @@ export function circuitKeyUses(): CircuitKeyUse[] {
   out.push({ list: "spans", key: POWER_LINE }, { list: "drops", key: SCENERY_MODELS.dropWire.key ?? POWER_LINE });
   if (SCENERY_MODELS.wallFitting.key) out.push({ list: "fittings", key: SCENERY_MODELS.wallFitting.key });
   if (COMPONENT_MODELS.roofMast.key) out.push({ list: "roofs", key: COMPONENT_MODELS.roofMast.key });
-  for (const [c, p] of Object.entries(COMPONENT_MODELS)) if (p.key && c !== "feed" && c !== "roofMast") out.push({ list: "components", key: p.key });
+  for (const [c, p] of Object.entries(COMPONENT_MODELS)) if (p.key && !p.removed && c !== "feed" && c !== "roofMast") out.push({ list: "components", key: p.key });
   out.push({ list: "lights", key: STREET_LIGHT_KEY });
   return out;
 }
