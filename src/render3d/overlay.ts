@@ -99,6 +99,10 @@ function placePoint(place: CityNodePlace, layer: CityCircuitLayer, out: World): 
     for (const d of layer.drops) if (d.building === place.building) return (out.x = d.x_m), (out.y = d.y_m), (out.z = d.z_m), true;
     return false;
   }
+  if ("roof" in place) {
+    for (const r of layer.roofs ?? []) if (r.id === place.roof) return (out.x = r.x_m), (out.y = r.deck_y_m), (out.z = r.z_m), true;
+    return false;
+  }
   for (const p of layer.posts) if (p.span === place.post) return (out.x = p.x_m), (out.y = OVERLAY_POST_Y_M), (out.z = p.z_m), true;
   return false;
 }

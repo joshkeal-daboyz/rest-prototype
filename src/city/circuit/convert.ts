@@ -1,6 +1,6 @@
 /**
  * CK15: a city puzzle laid on the circuit becomes a plain `Puzzle` that `src/grid/` runs unchanged (ticket 081 K2c). Pure, and it never imports `src/grid/`. The node, line and fault ids are the file's, none added; each `pos` is its
- * place's metres less the district's least corner, over `CELL_M`; the runs, places and cut spans go back beside the puzzle for the 3D view.
+ * place's metres less the district's least corner, over `CELL_M`; the runs, places and cut spans go back beside the puzzle for the 3D view. A roof node's place is its structure's point; a roof span may be a fault's cut; the scenery adds nothing for roofs (K2d2).
  */
 
 import { validatePuzzle, type CityNodePlace, type CityPlan, type CityPuzzle, type CityPuzzleConverted, type Decor, type GridNode, type Puzzle, type Vec2 } from "../../core";
@@ -45,8 +45,9 @@ export function convertCityPuzzle(puzzle: CityPuzzle, plan: CityPlan): CityPuzzl
   const poles = new Map(layer.poles.map((p) => [p.id, p] as const));
   const drops = new Map(layer.drops.map((d) => [d.id, d] as const));
   const posts = new Map(layer.posts.map((q) => [q.span, q] as const));
+  const roofs = new Map((layer.roofs ?? []).map((r) => [r.id, r] as const));
   const metres = (place: CityNodePlace): { readonly x_m: number; readonly z_m: number } =>
-    "pole" in place ? poles.get(place.pole)! : "building" in place ? drops.get(dropId(place.building))! : posts.get(place.post)!;
+    "pole" in place ? poles.get(place.pole)! : "building" in place ? drops.get(dropId(place.building))! : "roof" in place ? roofs.get(place.roof)! : posts.get(place.post)!;
   const toPos = (m: { readonly x_m: number; readonly z_m: number }): Vec2 => [round4((m.x_m - x0) / CELL_M), round4((m.z_m - z0) / CELL_M)];
 
   // Steps 3 to 5: positions, lines and faults, ids unchanged.

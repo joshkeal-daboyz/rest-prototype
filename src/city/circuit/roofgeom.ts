@@ -76,7 +76,7 @@ function cross(a: Pt, b: Pt, c: Pt, d: Pt): { readonly t: number; readonly u: nu
   return t > 1e-6 && t < 1 - 1e-6 && u > 1e-6 && u < 1 - 1e-6 ? { t, u } : null;
 }
 
-const distToSegment = (p: Pt, a: Pt, b: Pt): number => {
+export const distToSegment = (p: Pt, a: Pt, b: Pt): number => {
   const dx = b.x - a.x;
   const dz = b.z - a.z;
   const l2 = dx * dx + dz * dz;
@@ -248,3 +248,6 @@ export function judgeSpan(ctx: RoofContext, a: End, b: End): Judgement {
   }
   return { len_m: round4(len), over, street, junction, problems };
 }
+
+/** True when two plan segments cross properly (not at a shared end). */
+export const crossesInPlan = (a: Pt, b: Pt, c: Pt, d: Pt): boolean => cross(a, b, c, d) !== null;
