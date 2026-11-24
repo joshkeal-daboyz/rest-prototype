@@ -55,7 +55,10 @@ export interface CityWireSpan {
   readonly street: string | null;
 }
 
-/** CK9: one service drop from a pole to a building's wall point, on the pole side only. */
+/**
+ * CK9: one service drop from a pole to a building's wall point. Every street-facing building takes one (Josh, 24 Nov 2026: "Every building wired"; option C of
+ * `docs/design/081-CK9-every-building-wired.md`): from its own pole line; else from a crossing pole on its own pavement within `DROP_MAX_M`; else across the street.
+ */
 export interface CityDrop {
   readonly id: string;
   readonly pole: string;
@@ -66,6 +69,8 @@ export interface CityDrop {
   readonly z_m: number;
   /** `DROP_WALL_Y_M` 5.5 m (CK9). */
   readonly y_m: number;
+  /** The street the drop crosses, when it runs across one to the facing pole line (081 K2e); absent for a drop on its building's own pavement. Optional until K2e writes it. */
+  readonly street?: string;
 }
 
 /** CK10: a street light on the non-pole pavement. Scenery: never a node, never a target, carries no line. */
@@ -229,6 +234,8 @@ export interface CityPuzzleConverted {
 export interface CityPuzzleView {
   readonly plan: CityPlan;
   readonly converted: CityPuzzleConverted;
+  /** The puzzle's district blocks (`CityPuzzle.district`), for the opening frame (081 E3). Optional until E3's `loadCityView` writes it. */
+  readonly district?: readonly string[];
 }
 
 // ---- the components Josh picks a model for (081 D) ----
@@ -249,4 +256,20 @@ export interface CircuitComponentPick {
   readonly words: string;
   /** YYYY-MM-DD. */
   readonly date: string;
+}
+
+// ---- the circuit's scenery pieces Josh picks a model for (081 D4) ----
+
+/** Scenery the circuit draws on every plan, not puzzle components: the fitting where a drop meets a wall, and (if Josh picks one) the wire piece drops hang with. */
+export const CIRCUIT_SCENERY = ["wallFitting", "dropWire"] as const;
+export type CircuitSceneryPiece = (typeof CIRCUIT_SCENERY)[number];
+
+/** One of Josh's scenery picks, as the scenery table of `docs/design/081-component-picks.md` records it. `key` is null while unpicked: a null `wallFitting` draws nothing, and a null `dropWire` keeps `POWER_LINE`. */
+export interface CircuitSceneryPick {
+  readonly piece: CircuitSceneryPiece;
+  readonly key: string | null;
+  /** Josh's words, as he said them on a card; null while unpicked. */
+  readonly words: string | null;
+  /** YYYY-MM-DD, or null while unpicked. */
+  readonly date: string | null;
 }
