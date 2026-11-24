@@ -7,3 +7,12 @@ One row per measurement: the whole everyday suite (`npm test`, one city) on CI, 
 | 2026-11-23 | #3 | bd00876 | 224 | 4,709 | 1,029 s | 390 s | 7 min | Baseline before ticket 079: all 20 named cities in `npm test` |
 | 2026-11-23 | #10 | 29f1256 (PR head) | 218 | 4,186 (64 skipped) | 959 s | 372 s | 6.6 min | Ticket 079 PR 1 only; 140 s of city builds moved to untouched files through the shared cache |
 | 2026-11-23 | #20 | b5f4ad3 (main, after #20 and #21) | 212 | 4,090 (64 skipped) | 441 s | 204 s | 3.7 min | After all of ticket 079, and 081 C1 and PK1; manual run `cities=one` |
+
+## Failure log
+
+Every real failure of CI's `test` check, or of a test run that stood in for it ([test-policy.md](test-policy.md), rule 8). A timeout that passes on a re-run is load, not a failure, and is not logged. After 10 more PRs (from #28) the main session reports which test files never appear here.
+
+| Date | PR / branch | Where | Test file and case | Cause | Typecheck alone? |
+|---|---|---|---|---|---|
+| 2026-11-23 | #23, 081 K2a | CI | `npm run typecheck`, `src/city/circuit/stage.ts` | PK1 (#21) merged first and made `CityCircuitLayer.poleModels` required | Yes |
+| 2026-11-23 | 081 E1 | local gate (before this log) | `src/render3d/captions.test.ts`, "ON/OFF > matches the literal 2D draws (drift guard)" | The guard read `map-renderer.ts` as text; E1 moved the draw to `glyphs.ts` | No |
