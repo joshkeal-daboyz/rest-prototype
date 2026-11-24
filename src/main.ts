@@ -1,26 +1,32 @@
 // Entry point: loads the map files, builds grid -> renderer -> play -> ui for one map, and runs the frame loop.
 // No game rules here: each layer owns its own. Picking another map rebuilds the stack.
-import { EventBus, puzzleFeeds, type Puzzle } from "./core";
+import { EventBus, puzzleFeeds, type CityPuzzleView, type Puzzle } from "./core";
 import { createGrid, type Grid, type GridState } from "./grid";
-import { createMapRenderer, planRelight, type MapBlockers, type MapCentre, type MapPanView, type MapPlaces, type MapRenderer } from "./render";
+import { planRelight, type MapBlockers, type MapCentre, type MapPanView, type MapPlaces, type MapRenderer } from "./render";
 import { attachPan, createMapPlay, type MapPlay } from "./play";
 import { createAudio } from "./audio";
 import { mountUI, restoreAudio, type UI } from "./ui";
 import { brownoutNotices, nextMap, noticeFor, placeHighlight, splashDue } from "./ui/logic";
 import { measureBlockers } from "./ui/blockers";
-import { collectMaps, type MapEntry } from "./ui/maps";
+import { collectCityMaps, type CityMapEntry } from "./ui/maps";
 import { assetGalleryRequested } from "./ui/assetgallerylogic";
-import { NO_CITY_FORM_NOTICE, wants3d } from "./ui/view3d";
+import { pageView } from "./ui/view3d";
 
 // The puzzle page. It is a function so the dev-only asset gallery (at the end of this file) can take the page instead, with no puzzle, HUD or map renderer made.
 function startPuzzle(): void {
 const files = import.meta.glob("../puzzles/**/*.json", { eager: true, import: "default" }) as Record<string, unknown>;
-const { entries, problems } = collectMaps(files);
+const { entries, problems } = collectCityMaps(files);
 for (const problem of problems) console.warn(`[puzzles] skipped ${problem}`);
 
 const canvas = document.getElementById("panel");
 const uiRoot = document.getElementById("ui");
 if (!(canvas instanceof HTMLCanvasElement) || !uiRoot) throw new Error("index.html must have #panel and #ui");
+
+// The city view (ticket 081 E2, U2) is built by `src/render3d`, which only the dev server builds (Synty licence, 16 Nov 2026). A production build says so and stops here.
+if (!import.meta.env.DEV) {
+  uiRoot.textContent = "This prototype plays in `npm run dev`. The city view is not in this build.";
+  return;
+}
 
 // One sound engine for the whole session (ticket 019). It starts silent until the first click; each map's
 // open() attaches it to that map's bus, and the map's detach silences it again.
@@ -62,9 +68,9 @@ function bottomInset(): number {
 }
 
 if (entries.length === 0) {
-  uiRoot.textContent = "No maps found in puzzles/.";
+  uiRoot.textContent = "No city puzzles found in puzzles/city/.";
 } else {
-  const byKey = new Map<string, MapEntry>(entries.map((m) => [m.key, m]));
+  const byKey = new Map<string, CityMapEntry>(entries.map((m) => [m.key, m]));
   const puzzles = entries.map((m) => ({ id: m.key, name: m.name, locked: m.locked }));
 
   interface Session {
@@ -90,11 +96,10 @@ if (entries.length === 0) {
   }
   let session: Session | null = null;
 
-  // The 3D view (ticket 037) is chosen once, from the URL: a canvas keeps one kind of context. Its code loads only then.
-  // Every puzzle here is schematic (city puzzles come from U1), so only a city route asks for the 3D renderer (ticket 081 A2d).
-  const view3d = wants3d(location.search, "schematic");
-  if (!view3d && new URLSearchParams(location.search).get("view") === "3d") console.info(NO_CITY_FORM_NOTICE);
-  let make3d: typeof import("./render3d").createMapRenderer3d | null = null;
+  // Every puzzle is a city puzzle on the 3D city (ticket 081 U2, full 3D). A `city=tiles` or `city=plan` route is drawn with no city option.
+  const shown = pageView(location.search);
+  // The 3D module (ticket 037) loads once, at start. Nothing is mounted before it is here.
+  let r3d: typeof import("./render3d") | null = null;
 
   const urlFor = (id: string): string => {
     const url = new URL(location.href);
@@ -102,24 +107,43 @@ if (entries.length === 0) {
     return url.pathname + url.search;
   };
 
+  /** A message that stands in for the page (a city puzzle that does not open, or no city files): in the HUD's place and in the console. */
+  function showProblem(message: string): void {
+    console.error(`[puzzles] ${message}`);
+    (uiRoot as HTMLElement).textContent = message;
+  }
+
   function open(id: string): void {
     session?.detach();
+    session = null;
     const entry = byKey.get(id);
-    if (!entry) return;
+    if (!entry || !r3d) return;
+
+    // The city view (ticket 081 E2): the plan is built once per city, and the puzzle plays on its converted form.
+    let view: CityPuzzleView;
+    try {
+      view = r3d.loadCityView(entry.city);
+    } catch (err) {
+      showProblem(err instanceof Error ? err.message : String(err));
+      return;
+    }
+    const puzzle = view.converted.puzzle;
 
     const bus = new EventBus();
-    const grid = createGrid(entry.puzzle, bus);
+    const grid = createGrid(puzzle, bus);
     const detachAudio = audio.attach(bus);
     const rendererOpts = { insets: { top: hudTopInset(), bottom: bottomInset() } };
-    const renderer: MapRenderer & MapPanView & MapPlaces & MapCentre & MapBlockers & { dispose?(): void } = make3d
-      ? make3d(canvas as HTMLCanvasElement, entry.puzzle, rendererOpts)
-      : createMapRenderer(canvas as HTMLCanvasElement, entry.puzzle, rendererOpts);
-    const play = createMapPlay(entry.puzzle, grid, renderer, bus);
+    const renderer: MapRenderer & MapPanView & MapPlaces & MapCentre & MapBlockers & { dispose?(): void } = r3d.createMapRenderer3d(
+      canvas as HTMLCanvasElement,
+      puzzle,
+      shown === "play" ? { ...rendererOpts, city: view } : rendererOpts,
+    );
+    const play = createMapPlay(puzzle, grid, renderer, bus);
     const detachPlay = play.attach(canvas as HTMLCanvasElement);
     const detachPan = attachPan(canvas as HTMLCanvasElement, renderer);
-    const feeds = puzzleFeeds(entry.puzzle);
+    const feeds = puzzleFeeds(puzzle);
     // The open map's lamp node ids (ticket 026 B): a hit on one of these highlights that lamp, street lights included.
-    const lampIds = new Set(entry.puzzle.nodes.filter((n) => n.type === "lamp").map((n) => n.id));
+    const lampIds = new Set(puzzle.nodes.filter((n) => n.type === "lamp").map((n) => n.id));
 
     // The list-to-map link (ticket 024 B, 026 B). A "Priests want lit" entry (hover or focus) and the pointer over a
     // lamp or its place both pick out one lamp; the last one to happen wins. Any other circuit element picks out none.
@@ -161,7 +185,7 @@ if (entries.length === 0) {
 
     // Event notices: the bus says what broke; a refused relay throw has no event, so it is read from the
     // play log after each click (the play layer's own click listener, attached above, runs first).
-    const relays = new Set(entry.puzzle.nodes.filter((n) => n.type === "switch" && n.relay).map((n) => n.id));
+    const relays = new Set(puzzle.nodes.filter((n) => n.type === "switch" && n.relay).map((n) => n.id));
     const offs = [
       // Reset re-measures the HUD and re-centres the view (ticket 022). Undo does not.
       bus.on("play:click", (e) => {
@@ -213,7 +237,7 @@ if (entries.length === 0) {
       renderer,
       play,
       ui,
-      puzzle: entry.puzzle,
+      puzzle,
       highlight: () => highlighted,
       key: id,
       name: entry.name,
@@ -243,16 +267,12 @@ if (entries.length === 0) {
   }
 
   const requested = new URLSearchParams(location.search).get("puzzle");
-  const first = requested !== null && byKey.has(requested) ? requested : (entries[0] as MapEntry).key;
-  if (view3d) {
-    void import("./render3d").then((m) => {
-      make3d = m.createMapRenderer3d;
-      if (m.planHidesHud(location.search, import.meta.env.DEV)) uiRoot.hidden = true;
-      open(first);
-    });
-  } else {
+  const first = requested !== null && byKey.has(requested) ? requested : (entries[0] as CityMapEntry).key;
+  void import("./render3d").then((m) => {
+    r3d = m;
+    if (m.planHidesHud(location.search, import.meta.env.DEV)) uiRoot.hidden = true;
     open(first);
-  }
+  });
 
   window.addEventListener("resize", () => {
     if (!session) return;

@@ -1,6 +1,6 @@
 ticket: 081-E2-city-play
-assessment: partly
-must-fix: 1
+assessment: meets
+must-fix: 0
 
 ## What the ticket asked for, as I understood it
 E2 plays a city puzzle on the 3D city through the existing `MapRenderer3d`. `loadCityView` builds one plan per city and converts the puzzle on it. `createMapRenderer3d(..., { city })` draws that plan with K3's circuit and the job live: glow and pulses along the runs, a cut that sparks, lamps, brownout and the Relight. E1's icons and lines go on a 2D canvas over it, and `hitTest` asks the overlay first, then the 3D pick, so `src/play/` stays unchanged.
@@ -52,3 +52,31 @@ I reviewed the builder's commit 6908917 (`cityview.ts` is new; `index.ts`, `over
 3. Use the cut line's own flow for the spark test in `drawLive`, not the shared `flow` scratch left by the wire loop.
 4. The cut case's second half (`g.state().sparking`) tests the grid, not the view. Once must-fix 1 is in, it could be dropped from that case.
 5. Criterion 3's "a lead glows with it" has nothing to glow, because K3 draws no lead geometry and `jobWires` skips `run.lead`. Say so in the ticket, or let a lead's lamp-post piece take the glow, when a puzzle first uses one.
+
+## Round 2
+must-fix: 0
+
+I reviewed commit a028f38 on `ticket/081e2-city-play`. The later merge ce1ba27 brings in only `.claude/launch.json` (one stray entry removed) and two review files, with no code. `npx vitest run --maxWorkers=2 src/render3d/overlay.test.ts`: 17 passed in 5.6 s. The slow case is still criterion 1's, at 2.4 s. Against `origin/main` the pull request still adds 10 cases. The cut case was rewritten in place, as asked.
+
+**Must-fix 1 (current must stop at an unrepaired cut): fixed.**
+- **The code.** `lineFlow` (`cityview.ts:257`) now takes the line's wires. For each wire whose `cutFault` is still in `state.faults`, it caps the line's fraction at `(a0 + a1) / 2`, or at `1 - (a0 + a1) / 2` when reversed. `wireLit` lost its own `cut` cap. `a0` and `a1` are cumulative shares from the line's start node (`cityview.ts:194`), so the cap behaves as follows:
+  - Every span past the break in travel order has `t0` above the cap, so it gets frac 0 and no pulses.
+  - The cut span gets exactly 0.5 from its entering end.
+  - Spans before the cut stay at 1.
+  - With a Relight plan, the fraction is `min(lineFraction, cap)`.
+- **Expected on P0.** By that reasoning, the six spans of `l_x` and the seven of `l_e2` named in round 1 now go dark. I did not re-run the P0 script this round; it follows from the code.
+- **The renderer.** `drawLive` passes `wiresOfLine.get(w.line)` (`cityview.ts:786`).
+- **The test.** "current stops at a cut that is still there..." puts the cut on each of `l_feed`'s two spans in turn, with current from each end. It asserts that the span before the break is 1, the cut is 0.5 and the span past it is 0, and that a repaired line goes back to 1. It would fail on the round-1 code, where `lineFlow` gave 1 and the span past the break lit fully.
+
+**Could-improve from round 1:**
+- **2: partly taken.** The renderer and `relightFrame` now share `lampState` and `lineFlow`. The test asserts that the clock's plan is non-null before the identity check. `relightFrame` is still a separate loop, and it passes `[]` as the line's wires, so it skips the cut cap. That is harmless: a Relight runs on a won state, which has no standing faults.
+- **3: taken.** The spark test calls `lineFlow` for the cut's own line (`cityview.ts:818`).
+- **4: taken.** The grid-only `sparking` assertions are gone.
+
+**Nothing new broken.**
+- `src/grid/`, `src/night/` and `src/core/` are not touched by a028f38.
+- There is no new dependency, and nothing outside `src/render3d/`.
+
+**Could improve (round 2):**
+1. The `wireLit` doc comment reads "...at its to end, Writes into `out`". A full stop is missing.
+2. `relightFrame` could pass each line's wires, as `drawLive` does. The two would then agree even if a Relight ever ran with a fault standing.

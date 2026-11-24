@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { assetGalleryRequested } from "./assetgallerylogic";
-import { wants3d } from "./view3d";
+import { pageView, wants3d } from "./view3d";
 
 describe("wants3d (ticket 081 A2d)", () => {
   it("asks for 3D only with view=3d and a city route (tiles or plan, sheet or not) or a city puzzle; a schematic puzzle with no city route opens 2D", () => {
@@ -17,5 +17,16 @@ describe("wants3d (ticket 081 A2d)", () => {
     expect(assetGalleryRequested("?assets=city-pack&view=3d")?.pack).toBe("city-pack");
     expect(assetGalleryRequested("?view=3d&assets=city-pack&city=tiles")?.pack).toBe("city-pack");
     expect(wants3d("?assets=city-pack&view=3d", "schematic")).toBe(false);
+  });
+});
+
+describe("pageView (ticket 081 U2)", () => {
+  it("plays the city puzzle on the city view, except on a city= route (tiles or plan), which is drawn with no city option", () => {
+    expect(pageView("")).toBe("play");
+    expect(pageView("?puzzle=city-two-ways-round")).toBe("play");
+    expect(pageView("?city=tiles-old&view=3d")).toBe("play");
+    expect(pageView("?view=3d&city=tiles")).toBe("route");
+    expect(pageView("?view=3d&city=plan&stage=assemble")).toBe("route");
+    expect(pageView("?city=tiles&sheet=1")).toBe("route");
   });
 });
