@@ -661,6 +661,9 @@ function buildingBoxes(layer: CityBuildingsLayer, facades: CityFacadesLayer, mas
       dispose() {
         for (const m of instancers) {
           m.dispose();
+          // The geometry's position, normal, uv and index belong to the cached root: let go of them, and free only the window level the city made.
+          for (const name of Object.keys(m.geometry.attributes)) if (name !== WINDOW_LEVEL) m.geometry.deleteAttribute(name);
+          m.geometry.setIndex(null);
           m.geometry.dispose();
         }
         for (const [source, twin] of twins) if (twin !== source) twin.dispose();

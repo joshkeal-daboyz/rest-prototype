@@ -7,6 +7,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { setBuildingGlow, WINDOW_LEVEL } from "./windows";
 import { Box3, Frustum, Matrix4, PerspectiveCamera, BoxGeometry, Group, InstancedMesh, Mesh, MeshBasicMaterial, MeshStandardMaterial, Quaternion, Scene, Texture, Vector3, type Material, type Object3D, type WebGLRenderer } from "three";
 import type { AssetEntry, CalibrationKey, CityBuildingsLayer, CityFacadesLayer, CityGroundLayer, CityGroundPiece, CityKerbPath, CityCell, CityMassLayer, CityPlan, CityPlacement, CitySide } from "../core";
 import { digestOf } from "../city/pipeline";
@@ -794,6 +795,19 @@ describe("the buildings: pieces from placements only (criteria 2 and 3)", { time
       const pieces = [...d.buildings.draws.filter((p) => p.building === id), ...d.buildings.groundDraws.filter((p) => p.building === id)];
       list.forEach((inst, n) => expect(inst.mesh.name, id).toBe(`buildings:${idOf(pieces[n]!)}:0`));
     }
+    // Every instancer carries a zeroed window level, one float per instance; lighting one building writes only its slots and swaps no material.
+    const level = (m: InstancedMesh): Float32Array => m.geometry.getAttribute(WINDOW_LEVEL).array as Float32Array;
+    for (const m of d.buildings.instancers) {
+      expect(level(m).length, m.name).toBe(m.count);
+      expect(level(m).every((v) => v === 0), m.name).toBe(true);
+    }
+    const lit = [...d.buildings.instances.keys()][0]!;
+    const materials = d.buildings.instancers.map((m) => m.material);
+    setBuildingGlow(d.buildings, lit, { level: 1, flare: 0 });
+    const mine = new Set(d.buildings.instances.get(lit)!.map((i) => `${i.mesh.name}#${i.index}`));
+    expect(mine.size).toBeGreaterThan(0);
+    for (const m of d.buildings.instancers) level(m).forEach((v, k) => expect(v, `${m.name}#${k}`).toBe(mine.has(`${m.name}#${k}`) ? 1 : 0));
+    d.buildings.instancers.forEach((m, n) => expect(m.material, m.name).toBe(materials[n]));
     // A chunk is a split: some key in some colourway is drawn by more than one instancer.
     const perKind = new Map<string, number>();
     for (const id of want.keys()) perKind.set(id.slice(0, id.lastIndexOf("|")), (perKind.get(id.slice(0, id.lastIndexOf("|"))) ?? 0) + 1);
