@@ -17,5 +17,13 @@ export const POLE_NUDGE_M = 0.5;
 export const SPAN_ALONG_MAX_M = 20;
 /** CK5: every corner span, (2.5 + 4.25) x sqrt 2. */
 export const CORNER_SPAN_M = 9.55;
+/** CK9: a drop meets the wall at this height, metres (Josh, 21 Nov 2026, question 5: the clashes are left in). */
+export const DROP_WALL_Y_M = 5.5;
+/** CK9 (proposed): no drop is longer than this in plan. */
+export const DROP_MAX_M = 7.5;
+/** CK10 (059's number): no street light stands within this of any pole. */
+export const LIGHT_POLE_MIN_M = 3;
+/** CK11 (proposed): an along span offers a lamp post at its midpoint only when it is at least this long. */
+export const POST_MIN_SPAN_M = 7.5;
 /** The tolerance every length is compared with. */
 export const TOL = 0.01;

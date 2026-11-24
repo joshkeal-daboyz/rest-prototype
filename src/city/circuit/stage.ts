@@ -1,6 +1,6 @@
 /**
- * Stage 6: the circuit (ticket 081 K2a; the rules are ticket 070 K1's, `docs/design/070-K1-circuit.md`). Lays every pole and span of the city: CK1 to CK6. Reads `streets` and `edge`, writes only `circuit`. Drops, street lights and
- * lamp-post places are K2b's, so those lists are empty here; `keep` holds every pole. `circuitProblems` judges the layer before it returns (R-2).
+ * Stage 6: the circuit (ticket 081 K2a; the rules are ticket 070 K1's, `docs/design/070-K1-circuit.md`). Lays every pole, span, drop, light and post place of the city: CK1 to CK6 and CK9 to CK11. Reads `streets` and `edge`, writes only `circuit`. CK9 to CK11 (K2b) add the drops, street lights
+ * and lamp-post places; `keep` holds every pole and light. `circuitProblems` judges the layer before it returns (R-2).
  */
 
 import type { CityCircuitLayer, CityPicture, CityPlan } from "../../core";
@@ -10,17 +10,21 @@ import type { CityStageDef } from "../pipeline/types";
 import { circuitProblems, type CircuitInput } from "./check";
 import { CELL_M } from "./constants";
 import { layPoles } from "./lay";
+import { layDrops, layLights, layPosts } from "./places";
 
 /** Pure: poles and spans from the streets and the edge. */
 export function buildCircuit(input: CircuitInput): CityCircuitLayer {
   const { poles, spans } = layPoles(input);
-  return { stage: "circuit", poles, spans, drops: [], lights: [], posts: [], poleModels: {}, keep: poles.map((p) => ({ x_m: p.x_m, z_m: p.z_m })) };
+  const drops = layDrops(input, poles);
+  const lights = layLights(input, poles);
+  const posts = layPosts(poles, spans);
+  return { stage: "circuit", poles, spans, drops, lights, posts, poleModels: {}, keep: [...poles, ...lights].map((p) => ({ x_m: p.x_m, z_m: p.z_m })) };
 }
 
 function run(plan: CityPlan): CityCircuitLayer {
-  const { streets, edge } = plan.layers;
-  if (!streets || !edge) throw new CityStageError("circuit: the plan is missing a layer stage 6 reads");
-  const input = { streets, edge } satisfies CircuitInput;
+  const { streets, edge, mass, buildings } = plan.layers;
+  if (!streets || !edge || !mass || !buildings) throw new CityStageError("circuit: the plan is missing a layer stage 6 reads");
+  const input = { streets, edge, mass, buildings } satisfies CircuitInput;
   const layer = buildCircuit(input);
   const problems = circuitProblems(layer, input);
   if (problems.length > 0) throw new CityStageError(`${problems[0]!.rule}: ${problems[0]!.reason} (${problems[0]!.id}; ${problems.length} problems)`);
