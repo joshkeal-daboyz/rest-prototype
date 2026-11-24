@@ -28,3 +28,16 @@ Reading:
 - Building pieces are still about 92% of calls. Grouping by colourway and sub-mesh keeps the instancer count in the thousands, not the hundreds the goal named.
 - A run taken while the pane was hidden read 33.30 ms whole frame, which was background throttling. It is not counted.
 - After the Relight is F1b's row (M2): the lamp buildings are still clones here.
+
+## M2 (F1b, PR #59, c069a64): counts
+
+Taken by the main session in the browser pane, 24 Nov 2026, 6 x 6 seed 1, `?puzzle=city-two-ways-round&perf=1`. The Relight was played in the pane: throw `sw`, then repair `l_e2`.
+
+| Run | Canvas | Pixel ratio | Draw calls | Building pieces (calls) | Programs | CPU median | Whole frame |
+|---|---|---|---|---|---|---|---|
+| District, before power | 1176 x 1076 | 1 | 1,855 | 1,714 | 11 | 8.70 ms | (throttled) |
+| District, after the Relight | 1176 x 1076 | 1 | 1,855 | 1,714 | 11 | 8.70 ms | (throttled) |
+
+Reading:
+- Criterion 3 holds. No new program, and the draw calls are the same after the Relight, where L1's clones made them rise from 216 to 906.
+- These were taken while this session was not open in a window, so the pane ran as a background page (pixel ratio 1, whole frame 66.70 ms). The CPU and whole-frame medians against the 16.7 ms bar still need a run with the pane in view.
