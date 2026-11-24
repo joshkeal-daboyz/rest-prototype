@@ -4,11 +4,11 @@ import { join } from "node:path";
 import { EventBus, loadPuzzle } from "../core";
 import { createGrid } from "../grid";
 import { PADDING, buildGeometry } from "./geometry";
-import { drawBreakerGlyph, drawFeedGlyph, drawFuseBoxGlyph, drawJunctionGlyph, drawNodeGlyph, drawSwitchGlyph, type GlyphContext } from "./glyphs";
+import { NODE_DEAD, NODE_LIVE, drawBreakerGlyph, drawFeedGlyph, drawFuseBoxGlyph, drawJunctionGlyph, drawNodeGlyph, drawSwitchGlyph, type GlyphContext } from "./glyphs";
 import { createMapRenderer } from "./map-renderer";
 
-const W = 1100;
-const H = 650;
+const W = 1800;
+const H = 1300;
 const puzzle = loadPuzzle(JSON.parse(readFileSync(join(__dirname, "..", "..", "puzzles", "64-the-whole-chain.json"), "utf8")));
 
 /** A context that records every call and every property set as a string, in order. */
@@ -55,7 +55,8 @@ describe("glyphs (ticket 081 E1)", () => {
       if (n.type === "feed") drawFeedGlyph(one.ctx, x, y, state.powered.has(n.id));
       else if (n.type === "breaker") drawBreakerGlyph(one.ctx, x, y, state.breakers.get(n.id) ?? n.closed, state.powered.has(n.id));
       else if (n.type === "junction" && !state.readableFaults.size) drawJunctionGlyph(one.ctx, x, y);
-      else if (n.type === "switch" && n.relay !== true && !n.spring) {
+      else if (n.type === "fusebox") drawFuseBoxGlyph(one.ctx, x, y, false, state.powered.has(n.id) ? NODE_LIVE : NODE_DEAD);
+      else if (n.type === "switch") {
         const sel = state.switches.get(n.id) ?? n.selected;
         const dir = (s: number) => {
           const li = g.lineIndex.get(n.outputs[s]!)!;
@@ -65,16 +66,15 @@ describe("glyphs (ticket 081 E1)", () => {
         };
         const [lx, ly] = dir(sel);
         const [ox, oy] = dir(sel === 0 ? 1 : 0);
-        drawSwitchGlyph(one.ctx, x, y, state.powered.has(n.id), false, false, false, ox, oy, lx, ly);
+        const live = state.powered.has(n.id);
+        drawSwitchGlyph(one.ctx, x, y, live, n.relay === true && !live, n.relay === true, n.spring === true, ox, oy, lx, ly);
+        if (n.relay === true) seen.add("relay");
+        if (n.spring === true) seen.add("spring");
       } else continue;
       expect(contains(log, one.log), `${n.type} ${n.id}`).toBe(true);
       seen.add(n.type);
     }
-    expect(seen.has("breaker") && seen.has("feed")).toBe(true);
-    // The fuse box body too.
-    const one = recorder();
-    drawFuseBoxGlyph(one.ctx, 10, 20, false, "#123456");
-    expect(one.log.length).toBeGreaterThan(5);
+    for (const t of ["feed", "breaker", "switch", "relay", "spring", "fusebox", "junction"]) expect(seen.has(t), t).toBe(true);
   });
 
   it("an icon draw is balanced (save and restore) and scales with its size", () => {
