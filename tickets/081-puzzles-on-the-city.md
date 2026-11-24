@@ -19,6 +19,9 @@ Each is the question as asked and the option he picked, quoted.
    - (b) Roof structures and nodes: **"Roofs may hold nodes"**. A roof structure may hold a breaker, a switch or a fuse box. This lifts K1 Q9 ("on poles only") for roof structures.
    - (c) Where a diagonal ends: **"Roof or pole"**. A diagonal runs roof to roof, or roof to pole.
 7. **The overlay's style:** **"Icons plus lines (Recommended)"**.
+   - **How the overlay draws a line and a break** (Josh, 23 Nov 2026, in chat, asked what the overlay and the 3D break prop do with a damaged cable that current does not reach): "The 2D overlay should just draw a line from junction to junction with an icon indicating a break at the center of the cable."
+   - Follow-up card, the line's path: **"Straight, piece to piece"**. One straight line between the two puzzle pieces a line connects, as on the 2D map. The line does not follow the carrier poles' spans. The break icon sits at that line's midpoint.
+   - Follow-up card, whether the break icon is always shown: **"Only when readable"**. It appears only once current reaches the break, as on the 2D map (Josh, 27 Oct 2026: "Unreadable faults show nothing").
 8. **The damaged line:** **"Yes, a picked prop"**. Josh picks a model for the break, placed at the cut span. The wire itself stays code-drawn (071).
 9. **The picking process:** **"A card per component"**. The main session puts one question card per component, built from D1's shortlist with pictures, and records his pick in his words in `docs/design/081-component-picks.md`.
 10. **`src/city/circuit/` for the grid-simulator:** **"Yes, add it"**. The main session edits `.claude/agents/grid-simulator.md`. No agent does.
@@ -129,7 +132,7 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | # | Section | Owner | After | Tests in its PR |
 | --- | --- | --- | --- | --- |
 | A1 | Delete the old tile city (070 L2d) | renderer | G1 | about 4 added; about 250 removed |
-| A2a | Move the shared kit's constants out of the ladder files | renderer | A1 | 0 added (typecheck; every kept test passes unedited) |
+| A2a | Move the shared kit's constants out of the ladder files | renderer | A1 | 0 added; 5 rewritten (pins on where a name lives); import lines only in about 30 more |
 | A2b | Kept modules' tests stop building the ladder town (as L2c) | renderer | A2a | at most 15 rewritten; split A2b1, A2b2 if more |
 | A2d | `?view=3d` on a schematic puzzle opens the 2D map | ui | A2a | 2 |
 | A2c | Delete the ladder town | renderer | A2b, A2d | about 2 added; the ladder's tests removed |
@@ -141,7 +144,7 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | B1q | "pre-check 081 B1b": mid-row roofs, the real pole pick, neighbouring blocks | pipeline-designer | B1b, PK1 | **done**: holds (`ticket/081b1-roof-spans`, 555cf0e) |
 | C1 | The city puzzle validator | lead-architect | G1 | 6 |
 | K2a | Stage 6: poles and spans (CK1 to CK6, CK8; CK7 moves to K2d), not yet in `BUILT_STAGES` | grid-simulator | now | 9 |
-| K2a2 | Stage 6 switched on: `BUILT_STAGES`, the shared profiles, the tests that said circuit was not built | grid-simulator | K2a | at most 10 (about 7 rewritten) |
+| K2a2 | Stage 6 switched on: `BUILT_STAGES`, the shared profiles, the tests that said circuit was not built (era passes included) | grid-simulator | K2a | at most 15 (about 12 rewritten) |
 | K2b | Stage 6: drops, lights, lamp posts, node places (CK9 to CK12) | grid-simulator | K2a2 | 10 |
 | K2c | The conversion (CK13 as changed, CK14, CK15) | grid-simulator | K2b, C1 | 10 |
 | K2d | Stage 6: the pole pick, CK7, roof structures and roof spans (CK17) | grid-simulator | K2c, PK1, B1q, Josh's mid-row answer (given) | at most 13 |
@@ -192,12 +195,29 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 ### A2a · Move the shared kit's constants out of the ladder files (renderer). Branch `ticket/081a2a-kit-units`
 **Goal.** Nothing Josh can see changes. Every kept file (see *What the purge deletes*) reads the names it needs from `kitunits.ts`, or from another kept file, and imports nothing from `town.ts`, `terrace.ts`, `scene.ts`, `layout.ts` or `streetcam.ts`. The ladder files import those names from `kitunits.ts` too, until A2c deletes them.
 
-**Acceptance criteria.**
-1. [ ] The names listed under *Moves first* are in `src/render3d/kitunits.ts`, with values unchanged, and each importer reads them from there. No name stays defined in two places, and nothing is re-exported from a ladder file. **no test**: typecheck, and every existing test passes unedited, digest pins included.
-2. [ ] The report lists every name moved, and every ladder-only function in a kept file with whether `plan3d.ts`, `planview.ts`, `assetcatalogue.ts` or `assetviewer.ts` reaches it at run time. **no test**.
-3. [ ] `kitunits.ts` imports no three and no DOM. **no test**: A2c's grep covers it.
+**Re-cut 23 Nov 2026 (the lead-architect, on the builder's report at a8596fe).** The move broke two things the first cut said would not break. About 30 test files import a moved name, so their import lines must change to compile. Five cases pin where a name lives. **Re-exports are not the fix.** They would leave a name reachable in two places, which criterion 1 forbids, and A2c would delete them in the next PR anyway. So A2a edits those tests, as follows.
 
-**Files.** New `src/render3d/kitunits.ts`, and import lines plus the moved definitions in the `src/render3d/` files named under *Moves first* and their importers. **Must not:** behaviour, `src/city/`, `src/core/`, any test.
+**How tests are counted here** (test policy rule 0, "adds or rewrites at most 15 test cases (`it(...)`)"):
+- A change to a file's `import` lines only, with no `it(` or `describe(` body touched, is **not** a rewritten case.
+- A case whose body or expected values change **is** one.
+- The gate's count of `it(` / `test(` in the diff's added lines should then show only criterion 4's five. The builder lists both kinds in its report.
+
+**Acceptance criteria.**
+1. [ ] The names listed under *Moves first*, plus any the typecheck asked for (listed in the report), are in `src/render3d/kitunits.ts`, with values unchanged, and each importer reads them from there. No name is defined in two places, and nothing is re-exported from a ladder file. **no test**: the typecheck, and criterion 3.
+2. [ ] **Import lines only** in the test files that import a moved name (about 30), with no case body changed. **no test**: the report lists the files.
+3. [ ] Every other existing test passes with its cases unedited, digest pins included. **test** (existing).
+4. [ ] **The five pins on where a name lives** follow the move. Each keeps its strength, so it still fails when a name moves without its pin:
+   - `models.test.ts`: the import allow-list gains `./kitunits`;
+   - `powerkit.test.ts`: its pinned import list reads `./kitunits` where it read `./layout` (the `Vec3` type);
+   - `styleguide.test.ts`: its 3 cases key each moved constant to `kitunits.ts` instead of `town.ts`, `scene.ts` or `layout.ts`. `POLE_HEIGHT` is found again. The Numbers rows match. The constants count is back to 80 or more, at the count before the move, not lowered.
+
+   **test**: 5 rewritten. The PR has 0 added and 5 rewritten.
+5. [ ] **The guide's Numbers table** (`docs/city-style/numbers.md`) names `kitunits.ts` as the source file of each moved constant. Only that column, only for the moved rows. **no test**: criterion 4's `styleguide.test.ts` cases read it.
+6. [ ] The report lists every name moved, and every ladder-only function in a kept file with whether `plan3d.ts`, `planview.ts`, `assetcatalogue.ts` or `assetviewer.ts` reaches it at run time. **no test**. *Done at a8596fe:* `dressTown`, `furnitureLayout`, `alleyOf`, `openLotsOf`, `dressSites`, `furnitureInput`, `packTown` and `applyModels` are unreached. `PackResult`, `PackedBlock` and `packTown` (`terrace.ts`) are imported by `citymetrics.ts` and `models3d.ts` only for those ladder functions, so A2c deletes them together with their importing code.
+7. [ ] `kitunits.ts` imports no three and no DOM. **no test**: A2c's grep covers it.
+
+**Files.** New `src/render3d/kitunits.ts`; import lines plus the moved definitions in the `src/render3d/` files named under *Moves first* and their importers; the import lines of `src/render3d/*.test.ts` (criterion 2); the five cases of criterion 4; `docs/city-style/numbers.md` (criterion 5's column only). **Must not:** behaviour, `src/city/`, `src/core/`, any other test case.
+**Clash.** 080 B2 may also be editing `docs/city-style/`. Whichever of the two merges second rebases onto the other.
 
 ### A2b · Kept modules' tests stop building the ladder town (renderer). Branch `ticket/081a2b-kept-tests` (A2b2 if needed)
 **Goal.** As 070 L2c, for the ladder. No test of a kept file builds `townLayout`, `packTown` or `buildScene`, or reads a ladder map's town, for a check on code that stays.
@@ -364,15 +384,25 @@ If it does not report "holds", its note goes to Josh before K2d and H4 are cut i
    - `src/city/ground/stage.test.ts`: 2 cases and its test-double stage list;
    - `src/city/traffic/stage.test.ts`: its stage list and its test-double stage list;
    - `src/city/pipeline/run.test.ts`: 1 case.
-4. [ ] Any later stage's digest pin that moves because stage 6 now runs before it is re-taken once and listed. **test**: at most 2 rewritten. The PR stays at or under 15 in all, about 10.
-5. [ ] `?city=plan&stage=6` shows stage 6's picture. **browser**.
+4. [ ] Any later stage's digest pin that moves because stage 6 now runs before it is re-taken once and listed. **test**: at most 2 rewritten.
+5. [ ] **The era passes see the circuit** (re-cut 23 Nov 2026, after PR #30's CI). With stage 6 built, `circuitPoints` is no longer empty, so the hold-out and ruin passes keep clear of real poles. This is the change K2 was meant to bring (`stage.ts` in both passes: "empty until K2"). Five cases were written for "no circuit until K2":
+   - **Digest pins re-taken**, once each, listed with the old and new values. **test**: 2 rewritten.
+     - `src/city/holdout/named.test.ts`: the power-and-settle pin on the four pin cities;
+     - `src/city/ruin/named.test.ts`: the growth pin, '578cd93e' to the new value.
+   - **`src/city/ruin/named.test.ts`, "no circuit on the named runs until K2 ... the under-span set is empty".** This is a stale assumption. It is rewritten to state the real circuit on 6 x 6 seed 1: the under-span set is the one the run now finds (19, given as the expected value). T-1 and T-2 hold on the run, which the file already asserts. Nothing is loosened. **test**: 1 rewritten.
+   - **`src/city/holdout/stage.test.ts`, the two T-2 fixture cases** ("a mouth whose wall would seal a pole in is skipped", and "two touching held districts keep both districts' poles joined"). They compare a run with fixture poles against a "free" run with no `circuit` option. Until K2 that free run had no poles; now it takes the real circuit, so it is no longer free: its barricade set is smaller (33) than the fixture run's (38). That is a stale baseline, not a fault. Each free run passes `{ circuit: EMPTY_CIRCUIT }` explicitly, so the case compares what it was written to compare. Every assertion keeps its value and strength. **test**: 2 rewritten.
+   - **Not a rule clash, as far as CI shows.** No T-1 or T-2 assertion against the real poles failed. If the builder finds one that does (a real pole sealed in, or covered), it **stops and reports**. That would be a question for Josh about T-1 or T-2 against real poles, not a fix in this PR.
+6. [ ] `?city=plan&stage=6` shows stage 6's picture. **browser**.
+
+**The count.** Criterion 3 rewrites at most 8, criterion 4 at most 2, criterion 5 exactly 5, and none are added. That is at most 15, and about 12 as built: the branch at 3c50677 has 3 `it(` lines in its added diff, and the rest are list or assertion edits inside cases. **Import-line-only** edits do not count (A2a's rule). If the builder's total passes 15, criterion 5's two hold-out fixture cases move to a K2a3 PR in the same branch order, and the hold-out `stage.test.ts` stays red only on its branch, never on `main`.
 
 **Files.**
 - `src/city/stages.ts` (one entry) and `src/city/testing/namedcities.ts` (`PROFILE_STAGES` only).
 - Test lines in four other owners' folders, listed here so they are in scope (test policy rule 6): `src/city/facades/stage.test.ts` (facades), `src/city/ground/stage.test.ts` (landscape), `src/city/traffic/stage.test.ts` (streetscape) and `src/city/pipeline/run.test.ts` (planner). Only the circuit-not-built lines change. Each folder's owner does not edit them in this PR, and the reviewer checks that nothing else moved.
 - Any digest pin file of criterion 4.
+- **Criterion 5's test lines** in two more owners' folders (test policy rule 6), only the cases named there: `src/city/holdout/named.test.ts` and `stage.test.ts` (holdout-pass), and `src/city/ruin/named.test.ts` (ruin-pass). The K2a2 builder re-takes the pins, because the stage switch moves them and they must be green in the same PR. The pass agents do not edit them here; the reviewer checks that nothing else moved.
 
-**Must not:** any non-test file in those four folders.
+**Must not:** any non-test file in those six folders. `src/city/holdout/stage.ts`, `ruin/stage.ts` and `ruin/walk.ts` are not edited: they already read `circuitPoints`.
 
 ### K2b · Stage 6, drops, lights, lamp posts and node places (grid-simulator, pure). Branch `ticket/081k2b-circuit-places`
 **Acceptance criteria.**
@@ -548,7 +578,7 @@ P1's own fits (criterion 8) are the record. P2a waits for K2d, because 9 of its 
 **Files.** New `src/render3d/componentmodels.ts` and its test.
 
 ### E1 · Glyphs out of the 2D renderer; the overlay's icons and lines, pure (renderer). Branch `ticket/081e1-overlay-pure`
-**Goal.** 071 E's pure parts, for the city, with lines as well as icons (answer 7: "Icons plus lines"). The glyph drawing moves from `map-renderer.ts` to `src/render/glyphs.ts`, and the 2D view does not change. `src/render3d/overlay.ts` lays out each component's icon and each line's projected chain, live or dead, from a converted puzzle, its state and a projection passed in. It uses no three and no DOM.
+**Goal.** 071 E's pure parts, for the city, with lines as well as icons (answer 7: "Icons plus lines"). The glyph drawing moves from `map-renderer.ts` to `src/render/glyphs.ts`, and the 2D view does not change. `src/render3d/overlay.ts` lays out each component's icon, and each puzzle line as one straight projected segment from piece to piece (Josh: "Straight, piece to piece"), live or dead, from a converted puzzle, its state and a projection passed in. It uses no three and no DOM.
 
 **Acceptance criteria.**
 1. [ ] 071 E criterion 1: the glyphs move, the existing `src/render/` tests pass unedited, and the call list is the same. **test**: 2 cases.
@@ -561,12 +591,14 @@ P1's own fits (criterion 8) are the record. P2a waits for K2d, because 9 of its 
 3. [ ] State is shown by shape, not by colour alone (guide 12). **test**: 1 case.
 4. [ ] An icon's hit circle is at least `OVERLAY_HIT_PX` (44 CSS px) across, at every zoom. **test**: 1 case.
 5. [ ] `overlayLines(converted, state, project)`:
-   - each line's polyline through its chain's projected span ends, carriers included;
+   - **one straight segment per puzzle line**, from its `from` node's projected place to its `to` node's. The carrier poles and the run's spans play no part in the overlay. Josh: "The 2D overlay should just draw a line from junction to junction ...", and on the card: "Straight, piece to piece";
    - live or dead, with the 2D map's pulse phase;
-   - a damaged span's cut point, sparking only while live;
+   - a damaged cable's **break icon at the segment's midpoint**, shown **only when the fault is readable** (current reaches it; "Only when readable"; 27 Oct 2026: "Unreadable faults show nothing"). It sparks only while live;
    - brownout flicker for every line.
 
-   **test**: 2 cases.
+   **test**: 2 cases. The existing case that pins a cut on every damaged cable is **rewritten** to a cut at the midpoint, present when readable and absent when not. That keeps the count at 2, and E1's PR total is unchanged.
+
+   **Re-cut 23 Nov 2026 on Josh's words above**, after #29's first review (must-fix 1, fixed in b3ccf13). The first wording had the line follow its chain's span ends, carriers included, and a cut at the damaged span.
 
 **Files.** New `src/render/glyphs.ts` and `glyphs.test.ts`; `src/render/map-renderer.ts` (the move only); new `src/render3d/overlay.ts` and `overlay.test.ts`. **Must not:** `src/core/`, `src/grid/`, `src/play/`, `src/ui/`, `src/city/`.
 
@@ -583,7 +615,7 @@ P1's own fits (criterion 8) are the record. P2a waits for K2d, because 9 of its 
 **From Josh's picks** (`docs/design/081-component-picks.md`; notes for the builder, no rule change):
 - **The feed** (`palm-city-pack:SM_Prop_Powerpole_03`, an H-frame with a transformer, 10.83 m) **replaces** the feed's pole rather than standing on it. It needs its own `placePole` entry, and `poleModels` names it for the feed's pole while that job is played.
 - **The lamp post** (`sci-fi-city-pack:SM_Prop_Streetlight_01`) is 2.64 m deep with its arm. Its overhang of the carriageway from 0.75 m behind the kerb is not measured, so the builder reports it. Street lights (CK10, scenery) keep a different model, because Josh's pick is for the puzzle's lamp posts (CK11); which model they keep is 059's and K3's existing choice.
-- **The damaged-line prop** (`sci-fi-frontier-pack:SM_Prop_Cable_09`), hung from the lowest crossing (5.20 m), reaches 3.85 m, under CK7's 4.2 m walk floor. Whether CK7 binds a prop is **not decided here**. K3 hangs it as picked and reports its low point; a question goes to Josh only if he wants it raised.
+- **The damaged-line prop, open for Josh** (see Open questions). He was asked what the 3D break prop does with a damaged cable that current does not reach, and his answer covered the overlay only. So whether `SM_Prop_Cable_09` stands at the cut span always, or only once the fault is readable, is **not decided here**. K3 asks before it draws the prop. The prop (`sci-fi-frontier-pack:SM_Prop_Cable_09`), hung from the lowest crossing (5.20 m), reaches 3.85 m, under CK7's 4.2 m walk floor. Whether CK7 binds a prop is **not decided here**. K3 hangs it as picked and reports its low point; a question goes to Josh only if he wants it raised.
 - **The roof mast** (`sci-fi-frontier-pack:SM_Prop_Power_Pole_03`) has no cross-arm (071 A: one-sided brackets). Decided 041's three conductors need a code-drawn arm on it, as 071 draws code insulators where a model has none.
 - **Loads:** the subset GLBs (Frontier, Sci-Fi City, Palm; see D3) are converted before K3 draws these. Until then each component draws as a placeholder.
 
@@ -594,7 +626,7 @@ P1's own fits (criterion 8) are the record. P2a waits for K2d, because 9 of its 
 
 **Acceptance criteria.**
 1. [ ] The renderer takes a `CityPuzzleConverted`, and `MapRenderer3d` is unchanged. **test**: 1 case.
-2. [ ] Live and dead by run, in 3D and on the overlay alike; a damaged span is cut and sparks only while live; scenery never glows. **test**: 3 cases.
+2. [ ] Live and dead, in 3D by run (the spans glow; a damaged span is cut and sparks only while live) and on the overlay by E1's straight piece-to-piece segment, with its break icon at the midpoint when readable. Scenery never glows. **test**: 3 cases.
 3. [ ] `hitTest`: an icon's id comes before any 3D object, the 3D pick handles the rest, and scenery gives null. **test**: 2 cases.
 4. [ ] `overlay=0` hides the overlay. **test**: 1 case.
 5. [ ] The Relight can't be interrupted (brief, Decided). **test**: 1 case (rules-coverage).
@@ -627,6 +659,10 @@ Written into `src/core/` with this cut (typecheck passes):
   - `src/core/powerpoles.ts` and `CityCircuitLayer.poleModels` (PK1).
   - `validateCityPuzzle` and `loadCityPuzzle` (C1);
   - "ladder" leaving `ASSET_GALLERY_USES` (on A2c's branch).
+- **E1's overlay signatures, as built** (internal to `src/render3d/`, so no core change): `overlayIcons(converted, state, project, ctx)` and `overlayLines(converted, state, project, ctx)`.
+  - `ctx` is `{ layer, width, height, time, pxPerMetre? }`.
+  - `project` returns the screen point and a boolean for "behind the camera".
+  - **This stands.** E1's criteria name the inputs, not their exact shape. E2 codes against the built shape, and the criteria are not edited.
 - **Events:** none new.
 - **No new dependency.** The overlay is Canvas 2D.
 
@@ -634,3 +670,4 @@ Written into `src/core/` with this cut (typecheck passes):
 All questions so far are answered (above), the mid-row one included ("Only when used (Recommended)"). Still open:
 1. **Default this cut takes (you may overturn it):** after A2c, `?view=3d` on a schematic puzzle opens the 2D map with a console note, until that puzzle has a city form.
 2. **(K3 reports, then only if you want it changed)** the damaged-line prop hangs below the 4.2 m walk floor from the lowest crossing.
+3. **The 3D break prop and readability (K3).** The overlay shows a break only when readable ("Only when readable"). Should the 3D prop (`SM_Prop_Cable_09` at the cut span) also stand only once current reaches the break, or always, as a physical break in the street? Not answered yet; K3 does not draw it until you say.
