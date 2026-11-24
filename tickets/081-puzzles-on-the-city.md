@@ -481,6 +481,7 @@ At most 13 cases. If B1b adds checks beyond these, the section splits into K2d1 
 **Files** (expected): `src/city/circuit/`.
 
 ### I2 · Stage 8 keeps clear of the circuit (landscape, pure). Branch `ticket/081i2-ground-clears-circuit`
+**Owner stays `landscape`** (23 Nov 2026): `src/city/ground/` is its folder alone (`.claude/agents/landscape.md`), so no other agent takes it over. If this session cannot spawn the `landscape` type, the main session spawns a general agent whose prompt is `.claude/agents/landscape.md` in full, with its model (sonnet) and tools, as it already does for agents missing from the list. It stays in `src/city/ground/` and reports as landscape. If even that is not possible, the section waits, and the question of who owns stage 8 goes to Josh. It is not reassigned by the architect.
 **Acceptance criteria.**
 1. [ ] Stage 8 reads `layers.circuit.keep` into its keep-point list. **test**: 1 fixture case.
 2. [ ] On seed 1, no stage 8 piece stands within `FURN_KEEP_M` of a pole or light. **test**: 1 case, 6 x 6 seed 1, one-way on.
