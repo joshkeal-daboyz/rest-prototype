@@ -2,7 +2,8 @@
  * Ticket 081 K2a: stage 6's poles and spans (CK1 to CK6, CK8). The rules fail on a real 6 x 6 seed 1 layer (one-way on) with one thing changed, so a fixture is the layer plus its tamper (test policy rule 2).
  */
 import { beforeAll, describe, expect, it } from "vitest";
-import type { CityCircuitLayer, CityPlan, CityPole, CityResolvedPlan, CityWireSpan } from "../../core";
+import type { CityCircuitLayer, CityPlan, CityPole, CityResolvedPlan, CityRoofMast, CityRoofSpan, CityWireSpan } from "../../core";
+import { poleAt, POWER_MIX } from "../../render3d/powerkit";
 import { digestOf } from "../pipeline/digest";
 import { pictureProblems } from "../pipeline/picture";
 import { circuitPoints } from "../pipeline/readable";
@@ -10,6 +11,9 @@ import { runCity } from "../stages";
 import { stagesOfProfile } from "../testing/namedcities";
 import { circuitProblems, type CircuitInput, type CircuitProblem } from "./check";
 import { nodePlaceProblems } from "./checkplaces";
+import { poleModelFor } from "./polemodel";
+import { judgeSpan, roofContext, type End } from "./roofgeom";
+import { roofEnd } from "./roofplaces";
 import { circuitStage } from "./stage";
 
 let plan: CityPlan;
@@ -31,12 +35,13 @@ const withSpans = (spans: readonly CityWireSpan[]): CityCircuitLayer => ({ ...la
 const span = (kind: CityWireSpan["kind"], a: CityPole, b: CityPole): CityWireSpan => ({ id: `span:${a.id}~${b.id}`, kind, a: a.id, b: b.id, len_m: 5, street: a.street });
 
 describe("stage 6, poles and spans (081 K2a) and places (081 K2b)", () => {
-  it("R-1 to R-7: the stage's layer is frozen, its picture is the lattice's, its digest is pinned, and nothing on seed 1 fails CK1 to CK8", () => {
+  it("R-1 to R-7: the stage's layer is frozen, its picture is the lattice's, its digest is pinned, every pole is named, and nothing on seed 1 fails CK1 to CK8, CK7 or CK17a to d", () => {
     expect(Object.isFrozen(layer.poles[0])).toBe(true);
     expect(Object.isFrozen(layer.spans)).toBe(true);
     expect(pictureProblems(circuitStage.picture(plan), plan.layers.streets!.w, plan.layers.streets!.h)).toEqual([]);
     expect(plan.digests.circuit).toBe(digestOf(layer));
-    expect(plan.digests.circuit).toBe("a6b0af56");
+    expect(plan.digests.circuit).toBe("9ff1b134");
+    expect(Object.keys(layer.poleModels).sort()).toEqual(layer.poles.map((p) => p.id).sort());
     expect(circuitProblems(layer, input)).toEqual([]);
   });
 
@@ -152,5 +157,128 @@ describe("stage 6, poles and spans (081 K2a) and places (081 K2b)", () => {
     const first = layer.spans[0]!;
     const a = layer.poles.find((p) => p.id === first.a)!;
     expect(c.lines[0]).toEqual({ id: first.id, a: { x_m: a.x_m, z_m: a.z_m }, b: expect.any(Object) });
+  });
+
+  describe("K2d1: the pole pick, CK7 and the roof places (081)", () => {
+    const roofs = (): readonly CityRoofMast[] => layer.roofs!;
+    const ctx = (): ReturnType<typeof roofContext> => roofContext(layer, input);
+    const endOf = (id: string): End => {
+      const r = roofs().find((x) => x.id === id);
+      return r !== undefined ? roofEnd(r) : ctx().poleEnd.get(id)!;
+    };
+    /** A roof span place for two ends, its fields as they pass, so that only the rule under test can fail it. */
+    const placeOf = (a: End, b: End): CityRoofSpan => {
+      const j = judgeSpan(ctx(), a, b);
+      const [x, y] = a.id < b.id ? [a, b] : [b, a];
+      return { id: `span:${x.id}~${y.id}`, kind: "roof", over: j.over, a: x.id, b: y.id, len_m: j.len_m, street: j.street, junction: j.junction };
+    };
+    const withSpan = (s: CityRoofSpan): CircuitProblem[] => circuitProblems({ ...layer, roofSpans: [...layer.roofSpans!, s] }, input).filter((p) => p.id === s.id);
+    const swap = (r: CityRoofMast, patch: Partial<CityRoofMast>): CityCircuitLayer => ({ ...layer, roofs: layer.roofs!.map((x) => (x.id === r.id ? { ...x, ...patch } : x)) });
+
+    it("PK2 criterion 2: the circuit's pole pick is poleAt's, on pole ids and on run#n ids", () => {
+      const ids = [...layer.poles.slice(0, 10).map((p) => p.id), ...Array.from({ length: 10 }, (_, n) => `x:${n % 3}#${n}`)];
+      expect(ids).toHaveLength(20);
+      for (const id of ids) expect(poleModelFor(id)).toBe(poleAt(POWER_MIX, id));
+    });
+
+    it("CK7: every pole span on seed 1 hangs at 4.2 m or more, and a crossing stretched to 50 m on Apocalypse poles hangs under it", () => {
+      const low = layer.spans.filter((s) => s.kind === "cross").map((s) => [s, ctx().spanEnds.get(s.id)!] as const).sort((x, y) => x[1][0].y + x[1][1].y - y[1][0].y - y[1][1].y)[0]!;
+      expect(circuitProblems(layer, input).filter((p) => p.rule === "CK7")).toEqual([]);
+      const stretched = layer.poles.map((p) => (p.id === low[0].b ? { ...p, x_m: p.x_m + 50 } : p));
+      expect(circuitProblems(withPoles(stretched), input).some((p) => p.rule === "CK7" && p.id === low[0].id)).toBe(true);
+    });
+
+    it("CK17a corner places: one on every street corner roof, 0.6 m in from both walls, with its keep square; a corner with a lane or park side has none", () => {
+      const corners = roofs().filter((r) => r.row === "corner");
+      const streetCorners = input.mass.built.filter((c) => c.column === "corner" && c.open.length === 2 && c.open.every((o) => o.faces === "street"));
+      expect(corners.map((r) => r.id).sort()).toEqual(streetCorners.map((c) => `roof:${c.i}:${c.j}`).sort());
+      expect(layer.roofKeep!.map((k) => k.roof).sort()).toEqual(corners.map((r) => r.id).sort());
+      expect(roofs().find((r) => r.id === "roof:54:47")).toMatchObject({ x_m: 270.6, z_m: 235.6, deck_y_m: 12.5, sides: ["-x", "-z"], keep_half_m: 1.2 });
+      const gone = corners[0]!;
+      expect(circuitProblems({ ...layer, roofs: roofs().filter((r) => r !== gone), roofKeep: layer.roofKeep!.filter((k) => k.roof !== gone.id) }, input).some((p) => p.rule === "CK17a" && p.id === gone.id)).toBe(true);
+      const off = circuitProblems(swap(corners[1]!, { x_m: corners[1]!.x_m + 0.3 }), input);
+      expect(off.some((p) => p.rule === "CK17a" && p.id === corners[1]!.id)).toBe(true);
+      const quiet = input.mass.built.find((c) => c.column === "corner" && !c.open.every((o) => o.faces === "street"))!;
+      const bogus: CityRoofMast = { ...corners[0]!, id: `roof:${quiet.i}:${quiet.j}`, cell: { i: quiet.i, j: quiet.j } };
+      expect(circuitProblems({ ...layer, roofs: [...roofs(), bogus] }, input).some((p) => p.rule === "CK17a" && p.id === bogus.id)).toBe(true);
+    });
+
+    it("CK17a mid-row places: one on every mid column whose front is on a street, 0.6 m in, mid-front; none on a mid column facing a lane or park", () => {
+      const mids = roofs().filter((r) => r.row === "mid");
+      const onStreet = input.mass.built.filter((c) => c.column === "mid" && c.open.length === 1 && c.open[0]!.faces === "street");
+      expect(mids.map((r) => r.id).sort()).toEqual(onStreet.map((c) => `roof:${c.i}:${c.j}`).sort());
+      const m = mids.find((r) => r.sides[0] === "+z")!;
+      expect(m.x_m).toBeCloseTo(m.cell.i * 5 + 2.5, 6);
+      expect(m.z_m).toBeCloseTo(m.cell.j * 5 + 4.4, 6);
+      expect(layer.roofKeep!.some((k) => k.roof === m.id)).toBe(false);
+      const quiet = input.mass.built.find((c) => c.column === "mid" && c.open[0]?.faces !== "street")!;
+      const bogus: CityRoofMast = { ...m, id: `roof:${quiet.i}:${quiet.j}`, cell: { i: quiet.i, j: quiet.j } };
+      expect(circuitProblems({ ...layer, roofs: [...roofs(), bogus] }, input).some((p) => p.rule === "CK17a" && p.id === bogus.id)).toBe(true);
+    });
+
+    it("CK17b ends and kind: a roof span has a roof end, sorted ids, an over that matches what it passes; two pole ends or a listing in spans fail", () => {
+      for (const s of layer.roofSpans!) {
+        expect(s.id).toBe(`span:${s.a}~${s.b}`);
+        expect(s.a < s.b && (s.a.startsWith("roof:") || s.b.startsWith("roof:"))).toBe(true);
+        expect(s.over === "street" ? s.street !== null : s.over === "junction" ? s.junction !== null : s.street === null && s.junction === null).toBe(true);
+      }
+      const [pa, pb] = [layer.poles[0]!, layer.poles[1]!];
+      const diagonal: CityRoofSpan = { id: `span:${pa.id}~${pb.id}`, kind: "roof", over: "street", a: pa.id, b: pb.id, len_m: 10, street: pa.street, junction: null };
+      expect(withSpan(diagonal).some((p) => p.rule === "CK17b")).toBe(true);
+      const listed = layer.roofSpans![0]! as unknown as CityWireSpan;
+      expect(circuitProblems(withSpans([...layer.spans, listed]), input).some((p) => p.rule === "CK17b" && p.id === listed.id)).toBe(true);
+    });
+
+    it("CK17b where it passes: a 45 m span, a span over two streets and a span over a block each fail", () => {
+      const corners = roofs().filter((r) => r.row === "corner");
+      const pairs: [CityRoofMast, CityRoofMast][] = [];
+      for (const a of corners) for (const b of roofs()) if (a.id < b.id && Math.hypot(a.x_m - b.x_m, a.z_m - b.z_m) < 60) pairs.push([a, b]);
+      const reasons = (a: CityRoofMast, b: CityRoofMast): string => judgeSpan(ctx(), roofEnd(a), roofEnd(b)).problems.map((p) => p.reason).join("; ");
+      const long = pairs.find(([a, b]) => Math.hypot(a.x_m - b.x_m, a.z_m - b.z_m) > 45)!;
+      expect(reasons(...long)).toContain("longer than 40 m");
+      const twoStreets = pairs.find(([a, b]) => reasons(a, b).includes("crosses 2 streets"))!;
+      expect(withSpan(placeOf(roofEnd(twoStreets[0]), roofEnd(twoStreets[1]))).some((p) => p.rule === "CK17b" && p.reason.includes("2 streets"))).toBe(true);
+      const overBlock = pairs.find(([a, b]) => reasons(a, b).includes("over a block"))!;
+      expect(reasons(...overBlock)).toContain("over a block");
+    });
+
+    it("CK17c offered places: a corner place's pavement set is exactly its 4 nearest poles, and a mid-row place has no junction place", () => {
+      const r = roofs().find((x) => x.id === "roof:54:47")!;
+      const mine = layer.roofSpans!.filter((s) => (s.a === r.id || s.b === r.id) && s.over === "pavement");
+      const nearest = r.sides.flatMap((side) => layer.poles.filter((p) => p.block === r.block && p.side === side && p.kind !== "crossing").sort((x, y) => Math.hypot(x.x_m - r.x_m, x.z_m - r.z_m) - Math.hypot(y.x_m - r.x_m, y.z_m - r.z_m)).slice(0, 2));
+      expect(mine.map((s) => (s.a === r.id ? s.b : s.a)).sort()).toEqual(nearest.map((p) => p.id).sort());
+      expect(mine).toHaveLength(4);
+      const mid = new Set(roofs().filter((x) => x.row === "mid").map((x) => x.id));
+      expect(layer.roofSpans!.filter((s) => s.over === "junction").length).toBeGreaterThan(0);
+      expect(layer.roofSpans!.some((s) => s.over === "junction" && (mid.has(s.a) || mid.has(s.b)))).toBe(false);
+      expect(circuitProblems({ ...layer, roofSpans: layer.roofSpans!.filter((s) => s.id !== mine[0]!.id) }, input).some((p) => p.rule === "CK17c" && p.id === mine[0]!.id)).toBe(true);
+    });
+
+    it("CK17d heights: over a junction a roof-to-pole span on an Apocalypse pole (5.86 m) fails and on its Palm pole passes; the zone holds no pavement cell", () => {
+      const z = ctx();
+      for (const k of z.zone) expect(["junction", "lane", "parking", "parkingPlain", "buildout", "crossing"]).toContain(z.ix.role.get(k));
+      const s = layer.roofSpans!.find((x) => x.over === "junction" && (x.a.startsWith("pole:") || x.b.startsWith("pole:")))!;
+      const pole = s.a.startsWith("pole:") ? s.a : s.b;
+      expect(circuitProblems(layer, input).filter((p) => p.id === s.id)).toEqual([]);
+      const apoc = circuitProblems({ ...layer, poleModels: { ...layer.poleModels, [pole]: "apocalypse-power:SM_Prop_Powerpole_01" } }, input);
+      expect(apoc.some((p) => p.rule === "CK17d" && p.id === s.id && p.reason.includes("junction zone"))).toBe(true);
+    });
+
+    it("CK17d in plan: a roof span passing over a pole span at 8.5 m, or within 1 m of a street light, fails", () => {
+      const s = layer.roofSpans!.find((x) => x.over === "pavement")!;
+      const [a, b] = [endOf(s.a), endOf(s.b)];
+      const at = (t: number): { x: number; z: number } => ({ x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t });
+      const c = at(a.y < b.y ? 0.1 : 0.9);
+      const len = Math.hypot(b.x - a.x, b.z - a.z);
+      const n = { x: -(b.z - a.z) / len, z: (b.x - a.x) / len };
+      const palm = "palm-city-pack:SM_Prop_Powerpole_01";
+      const q1: CityPole = { ...layer.poles[0]!, id: "pole:q1", x_m: c.x + 5 * n.x, z_m: c.z + 5 * n.z };
+      const q2: CityPole = { ...layer.poles[0]!, id: "pole:q2", x_m: c.x - 5 * n.x, z_m: c.z - 5 * n.z };
+      const crossed: CityCircuitLayer = { ...layer, poles: [...layer.poles, q1, q2], spans: [...layer.spans, span("along", q1, q2)], poleModels: { ...layer.poleModels, [q1.id]: palm, [q2.id]: palm } };
+      expect(circuitProblems(crossed, input).some((p) => p.rule === "CK17d" && p.id === s.id && p.reason.includes("passes over"))).toBe(true);
+      const m = at(0.5);
+      const light = { ...layer.lights[0]!, x_m: m.x + 0.4, z_m: m.z };
+      expect(circuitProblems({ ...layer, lights: [...layer.lights, light] }, input).some((p) => p.rule === "CK17d" && p.id === s.id && p.reason.includes(light.id))).toBe(true);
+    });
   });
 });

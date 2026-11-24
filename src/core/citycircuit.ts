@@ -4,9 +4,9 @@
  * the city puzzle's validator is the lead-architect's (`src/core/load.ts`, 081 C1), the picks table is the renderer's (081 D3).
  *
  * Typed from CK15's sketch (21 Nov 2026), names kept where the sketch gave them; `CitySpan` is taken in `cityplan.ts` (a stretch along a street), hence `CityWireSpan`.
- * **Not typed yet:** the roof structures a diagonal street span hangs from (Josh, 23 Nov 2026; 081 B1). Josh's answers on 23 Nov fix their shape (a roof structure may hold a
- * node; a diagonal runs roof to roof or roof to pole; a roof span may cross over an intersection), but their ids, place and heights are B1's. They join `CityPoleKind`,
- * `CityWireSpanKind` and `CityNodePlace` after B1's pre-check, before K2d.
+ * **Roof structures and roof spans** (CK17, `docs/design/081-B1-roof-spans.md` as B1b amended it; B1q: holds) are typed below for 081 K2d (24 Nov 2026). They are their own
+ * types, not a `CityPoleKind` or a `CityWireSpanKind`: a roof has no street, pavement or nudge, and roof spans are places in their own list, never in `spans` (CK17b).
+ * `{ roof }` (`CityRoofPlace`) is a member of `CityNodePlace` (ticket 081 K2d2, 24 Nov 2026), landed in one PR with the code it reaches.
  *
  * Ids (stable, for 071's hash and for puzzle files):
  * - a pole: `pole:<street id>:<lo|hi>:<along_m, 2 decimals>`;
@@ -15,7 +15,7 @@
  * - a street light: `light:<street id>:<lo|hi>:<along_m, 2 decimals>`.
  */
 
-import type { CityCell, CitySide } from "./cityplan";
+import type { CityCell, CityPlan, CitySide } from "./cityplan";
 import type { Fault, GridNode, Line, Puzzle } from "./schema";
 
 // ---- the layer (stage 6) ----
@@ -95,6 +95,65 @@ export interface CityCircuitKeep {
   readonly z_m: number;
 }
 
+// ---- roof structures and roof spans (CK17; 081 K2d) ----
+
+/**
+ * CK17a: a roof structure place, id `roof:<i>:<j>` (its column's cell).
+ * - `row: "corner"`: a `corner` column whose two open sides both face a street. A structure stands on every one, as scenery, used or not (Josh, 23 Nov 2026, B1-Q3: "On every corner roof").
+ * - `row: "mid"`: a `mid` column whose open front faces a street. A structure stands there only while a puzzle that uses it is played (Josh, answer 7: "Only when used
+ *   (Recommended)"), and only where stage 7 has left its keep square clear (Josh, B1q: "Only where clear (Recommended)"; that check is 081 P1's, after stage 7).
+ * Its point is on the deck, `ROOF_MAST_INSET_M` in from each street wall it has (at the corner the two share; or at the middle of a mid column's street front).
+ */
+export interface CityRoofMast {
+  readonly id: string;
+  readonly row: "corner" | "mid";
+  /** `CityBuilding.id`. */
+  readonly building: string;
+  readonly block: string;
+  readonly cell: CityCell;
+  /** Its street sides, in `CitySide` order: 2 for a corner place, 1 for a mid-row place. */
+  readonly sides: readonly CitySide[];
+  readonly x_m: number;
+  readonly z_m: number;
+  /** The roof piece's base plus `ROOF_DECK_M` 0.5 m (H3's RT). A wire meets the structure at `deck_y_m` plus the attachment height (CK17a: at least `ROOF_MAST_ATTACH_MIN_M` 2.0 m). */
+  readonly deck_y_m: number;
+  /** `ROOF_MAST_KEEP_M` 1.2 m: the half-width of its keep square (H4 clears it on corner places; the city check reads it on mid-row places). */
+  readonly keep_half_m: number;
+}
+
+/** CK17b's three kinds, by what a roof span passes over: `pavement` (B1b's `down`, to its own block's pole line), `street` (across one street), `junction` (over the junction a corner place faces). */
+export type CityRoofSpanOver = "pavement" | "street" | "junction";
+
+/**
+ * CK17b and CK17c: one roof span place. At least one end is a roof structure (6c); the other is a roof structure or a pole. Ids keep CK15's form, `span:<a>~<b>` with the two ids
+ * sorted, so a roof-to-pole id is `span:pole:...~roof:...`. Offered places, never built scenery: a roof span stands only where a job uses it (Josh, answer 7). Never in `CityCircuitLayer.spans`.
+ */
+export interface CityRoofSpan {
+  readonly id: string;
+  readonly kind: "roof";
+  readonly over: CityRoofSpanOver;
+  /** Sorted pole or roof ids, as `CityWireSpan`'s. */
+  readonly a: string;
+  readonly b: string;
+  readonly len_m: number;
+  /** The street it crosses (`over` "street"); null otherwise. */
+  readonly street: string | null;
+  /** The junction it passes over (`over` "junction"); null otherwise. */
+  readonly junction: string | null;
+}
+
+/** CK17a: one corner place's keep square, for H4 (stage 7's roof pieces stay outside it). Corner places only: mid-row roofs are never cleared (B1q: "Only where clear"). */
+export interface CityRoofKeep {
+  /** The `CityRoofMast.id`. */
+  readonly roof: string;
+  readonly x_m: number;
+  readonly z_m: number;
+  readonly half_m: number;
+}
+
+/** CK17e: a node on a roof structure (Josh, 6b and B1-Q1: "Anything"), naming a `CityRoofMast.id`. A member of `CityNodePlace` (081 K2d2). */
+export type CityRoofPlace = { readonly roof: string };
+
 // ---- the city puzzle (CK15) ----
 
 /** The named city a puzzle is laid on: one of the pipeline's runs. */
@@ -105,8 +164,8 @@ export interface CityPuzzleCity {
   readonly oneWay: boolean;
 }
 
-/** CK12: where a node stands. A pole id, a building id (its drop's wall point), or a lamp post at the midpoint of a span. */
-export type CityNodePlace = { readonly pole: string } | { readonly building: string } | { readonly post: string };
+/** CK12 and CK17e: where a node stands. A pole id, a building id (its drop's wall point), a lamp post at the midpoint of a span, or a roof structure (`CityRoofMast.id`). */
+export type CityNodePlace = { readonly pole: string } | { readonly building: string } | { readonly post: string } | CityRoofPlace;
 
 /**
  * CK13 as Josh changed it (23 Nov 2026, 081 question 5: "lines cannot bend, they are runs that go from one structure to another"; card: "Just carriers (Recommended)").
@@ -161,6 +220,15 @@ export interface CityPuzzleConverted {
   readonly cuts: Readonly<Record<string, string>>;
   /** The origin `pos` is measured from (CK15 step 2), in metres. */
   readonly origin_m: { readonly x_m: number; readonly z_m: number };
+}
+
+/**
+ * A city puzzle opened for play (081 E2 and U2): the plan it was converted on, and its conversion. `src/render3d`'s `loadCityView` builds it, with one plan per city per
+ * session. The ui plays `converted.puzzle` on `src/grid/` and `src/play/`, and hands the whole view back to `createMapRenderer3d` (its `city` option), so the plan is built once.
+ */
+export interface CityPuzzleView {
+  readonly plan: CityPlan;
+  readonly converted: CityPuzzleConverted;
 }
 
 // ---- the components Josh picks a model for (081 D) ----
