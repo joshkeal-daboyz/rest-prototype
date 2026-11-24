@@ -47,10 +47,17 @@ describe("a city puzzle on the circuit (081 K2c)", () => {
     expect(runProblems(twice, layer()).some((p) => p.id === "l_dup" && p.reason.includes("shares"))).toBe(true);
     const onCarrier: CityPuzzle = { ...puzzle, nodes: [...puzzle.nodes, { id: "j_extra", type: "junction", place: { pole: "pole:z:6:hi:254.17" } }] };
     expect(runProblems(onCarrier, layer()).some((p) => p.id === "l_s" && p.reason.includes("holds node j_extra"))).toBe(true);
-    const ends = puzzle.lines.find((l) => l.run.drop !== undefined)!;
-    const lastPole = layer().drops.find((d) => d.id === `drop:${ends.run.drop}`)!.pole;
-    const atDrop: CityPuzzle = { ...puzzle, nodes: [...puzzle.nodes, { id: "j_end", type: "junction", place: { pole: lastPole } }] };
-    expect(runProblems(atDrop, layer()).some((p) => p.id === ends.id && p.reason.includes("holds node j_end"))).toBe(true);
+    const home = line("l_homes");
+    const start = "pole:z:6:hi:264.33";
+    const step = layer().spans.find((s) => (s.a === start || s.b === start))!;
+    const lastPole = step.a === start ? step.b : step.a;
+    const moved = { ...layer(), drops: layer().drops.map((d) => (d.id === `drop:${home.run.drop}` ? { ...d, pole: lastPole } : d)) };
+    const atDrop: CityPuzzle = {
+      ...puzzle,
+      nodes: [...puzzle.nodes, { id: "j_end", type: "junction", place: { pole: lastPole } }],
+      lines: puzzle.lines.map((l) => (l.id === home.id ? { ...l, run: { ...l.run, spans: [step.id] } } : l)),
+    };
+    expect(runProblems(atDrop, moved).some((p) => p.id === home.id && p.reason.includes("holds node j_end"))).toBe(true);
   });
 
   it("CK14: a district of blocks that do not touch fails", () => {
