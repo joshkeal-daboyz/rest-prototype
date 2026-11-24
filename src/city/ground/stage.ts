@@ -1,10 +1,10 @@
 /**
  * Stage 8: ground dressing (ticket 070 I; style guide 16.5's furniture, 19.4's greens, 19.6's lanes; grammar rules 5, 9 and 10; the checklist's R10). The tile city's ground dressing moved onto the pipeline's cells: the tile city's street
  * furniture on the pavements in front of its terrace runs (`pavement.ts`), the bins against the walls of the lanes (`lanes.ts`), trees and benches on every green (`greens.ts`), and the plazas and frontage lots dressed (`lots.ts`).
- * Reads `streets` (the blocks of the lanes), `land`, `mass`, `edge`, `buildings` and `facades` (nothing of `circuit`: it places no lamp, NL). Writes only `ground`. `groundFailures` judges the layer before it returns (R-2).
+ * Reads `streets` (the blocks of the lanes), `land`, `mass`, `edge`, `buildings` and `facades` (of `circuit` only `keep`, the poles and lights it stays `FURN_KEEP_M` clear of: it places no lamp, NL, I2). Writes only `ground`. `groundFailures` judges the layer before it returns (R-2).
  */
 
-import type { CityGroundLayer, CityGroundProp, CityGroundPropKind, CityPicture, CityPlan } from "../../core";
+import type { CityCircuitKeep, CityGroundLayer, CityGroundProp, CityGroundPropKind, CityPicture, CityPlan } from "../../core";
 import { CityStageError } from "../pipeline/error";
 import { makePicture, type LegendEntry } from "../pipeline/picture";
 import type { StageRand } from "../pipeline/seeds";
@@ -29,7 +29,7 @@ export interface GroundBuild {
   readonly keepPoints: readonly KeepPoint[];
 }
 
-/** Place every prop. Pure; fails with `CityStageError` where the layers cannot be read (R-2). `keepPoints` is what stage 6 will place (empty today, NL). */
+/** Place every prop. Pure; fails with `CityStageError` where the layers cannot be read (R-2). `keepPoints` is stage 6's `circuit.keep` (I2); empty when the plan has no circuit layer. */
 export function buildGround(layers: Layers, rand: StageRand, keepPoints: readonly KeepPoint[] = []): GroundBuild {
   const { streets, land, mass, edge, buildings, facades } = layers;
   const stats = newStats();
@@ -45,11 +45,17 @@ export function buildGround(layers: Layers, rand: StageRand, keepPoints: readonl
   return { layer: { stage: "ground", runs: runs.map(plainRun), props }, stats, keepPoints };
 }
 
+/** I2: the keep-point list from stage 6's `circuit.keep` (the shared profiles skip stage 6: none then). */
+export function keepPointsOf(keep: readonly CityCircuitKeep[] | undefined): readonly KeepPoint[] {
+  return (keep ?? []).map((k) => ({ x_m: k.x_m, z_m: k.z_m }));
+}
+
 function run(plan: CityPlan, rand: StageRand): CityGroundLayer {
   const { streets, land, mass, edge, buildings, facades } = plan.layers;
   if (!streets || !land || !mass || !edge || !buildings || !facades) throw new CityStageError("ground: the plan is missing a layer stage 8 reads");
-  const { layer } = buildGround({ streets, land, mass, edge, buildings, facades }, rand);
-  const failures = groundFailures(layer, { mass, edge, facades });
+  const keepPoints = keepPointsOf(plan.layers.circuit?.keep);
+  const { layer } = buildGround({ streets, land, mass, edge, buildings, facades }, rand, keepPoints);
+  const failures = groundFailures(layer, { mass, edge, facades, keepPoints });
   if (failures.length > 0) throw new CityStageError(`${failures[0]!.check}: ${failures[0]!.reason}`, failures[0]!.cells);
   return layer;
 }

@@ -41,7 +41,7 @@ interface Run {
  * E1 or E2's barricade step changes what stands before it, and re-taken in 081 K2a2 (23 Nov 2026) when stage 6 was switched on: '578cd93e' to '24c55727'; and in K2b: '24c55727' to 'f75f2d1b').
  */
 const PIN_GROWTH: Readonly<Record<number, string>> = {
-  1: "f75f2d1b",
+  1: "080ddf44",
 };
 
 const CLEAN_STAGES = CITY_STAGES.filter((s): s is CityPlanStage => s !== "assemble");
