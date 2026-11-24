@@ -31,7 +31,7 @@ export interface GroundInput {
   readonly mass: Pick<CityMassLayer, "cells" | "built" | "openings">;
   readonly edge: Pick<CityEdgeLayer, "cells" | "ground" | "bays">;
   readonly facades: Pick<CityFacadesLayer, "ground" | "dressing" | "walls" | "novelty">;
-  /** What stage 6 will place (poles, lamp posts, nodes). Empty until K. */
+  /** Stage 6's `circuit.keep` (I2): every pole and street light. */
   readonly keepPoints?: readonly KeepPoint[];
 }
 

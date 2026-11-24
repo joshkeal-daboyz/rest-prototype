@@ -10,6 +10,9 @@ import { pictureProblems } from "../pipeline/picture";
 import { stageRand } from "../pipeline/seeds";
 import type { CityStageDef } from "../pipeline/types";
 import { BUILT_STAGES, runCity } from "../stages";
+import { FURN_KEEP_M } from "./constants";
+import { rectDist } from "./geom";
+import { propRect } from "./props";
 import { GROUND_LEGEND, groundStage, legendOf } from "./stage";
 import { DEFAULT, PINNED, cityOf, layersOf, stagesOf } from "./testcities";
 
@@ -64,10 +67,10 @@ describe("R-1 to R-7 for stage 8 (criterion 9)", { timeout: 120_000 }, () => {
 
   it("the digest pins (R-4): 6 x 6 seeds 1 (the default), 2, 3 and 8, one-way on; the layers before it are as their stages pin them", () => {
     const PINS: readonly (readonly [number, string])[] = [
-      [1, "d416b18f"],
-      [2, "ded91113"],
-      [3, "946265fd"],
-      [8, "e4bb5275"],
+      [1, "7f01ba46"],
+      [2, "8e10c8e7"],
+      [3, "f2fe9c97"],
+      [8, "3d7f06f1"],
     ];
     // the facades pins are stage 7's, unchanged by stage 8 (facades' own tests pin them as well)
     const FACADES_PINS: readonly (readonly [number, string])[] = [
@@ -87,6 +90,17 @@ describe("R-1 to R-7 for stage 8 (criterion 9)", { timeout: 120_000 }, () => {
     }
   });
 
+  it("I2: on seed 1 (6 x 6, one-way on) no stage 8 piece stands within FURN_KEEP_M of a pole or light", () => {
+    const r = cityOf(DEFAULT);
+    if (!r.ok) throw new Error("default city failed");
+    const keep = r.plan.layers.circuit!.keep;
+    expect(keep.length).toBeGreaterThan(0);
+    for (const p of r.plan.layers.ground!.props) {
+      const q = propRect(p);
+      for (const k of keep) expect(rectDist(q, { x0: k.x_m, x1: k.x_m, z0: k.z_m, z1: k.z_m }), `${p.kind} at ${p.placement.x_m}, ${p.placement.z_m}`).toBeGreaterThanOrEqual(FURN_KEEP_M - 1e-6);
+    }
+  });
+
   it("the same city twice gives the same digest, and another seed another (R-3)", () => {
     const a = cityOf(DEFAULT);
     const b = runCity({ blocksX: 6, blocksZ: 6, seed: 1 }, undefined, stagesOf("on"));
@@ -96,7 +110,7 @@ describe("R-1 to R-7 for stage 8 (criterion 9)", { timeout: 120_000 }, () => {
     if (a.ok) expect(digestOf(a.plan.layers.ground!)).toBe(a.plan.digests.ground);
   });
 
-  it("R-7: the stage reads only streets, land, mass, edge, buildings and facades (nothing of circuit, not its own layer)", () => {
+  it("R-7: the stage reads only streets, land, mass, edge, buildings, facades and circuit (I2: only its keep list; not its own layer)", () => {
     const r = cityOf(DEFAULT);
     if (!r.ok) throw new Error("default city failed");
     const read = new Set<string>();
@@ -107,7 +121,7 @@ describe("R-1 to R-7 for stage 8 (criterion 9)", { timeout: 120_000 }, () => {
       },
     });
     const layer = groundStage.run({ ...r.plan, layers }, stageRand("ground", 1));
-    expect([...read].sort()).toEqual(["buildings", "edge", "facades", "land", "mass", "streets"]);
+    expect([...read].sort()).toEqual(["buildings", "circuit", "edge", "facades", "land", "mass", "streets"]);
     expect(digestOf(layer)).toBe(r.plan.digests.ground);
   });
 
@@ -130,11 +144,11 @@ describe("R-1 to R-7 for stage 8 (criterion 9)", { timeout: 120_000 }, () => {
     }
   });
 
-  it("no file reads a block's rank (bi, bj) or a street's line, the circuit layer, or stage 7's code", () => {
+  it("no file reads a block's rank (bi, bj) or a street's line, any of the circuit layer but its keep list (I2), or stage 7's code", () => {
     for (const f of FILES) {
       const code = codeOf(f);
       expect(code, f).not.toMatch(/\.(bi|bj)\b|\bstreets?\.line\b|\bstreets\.streets\b/);
-      expect(code, f).not.toMatch(/layers\.circuit|facades\//);
+      expect(code, f).not.toMatch(/layers\.circuit(?!\?\.keep\b)|facades\//);
     }
   });
 
