@@ -7,10 +7,35 @@
 import { describe, expect, it } from "vitest";
 import { closeSync, existsSync, openSync, readFileSync, readdirSync, readSync } from "node:fs";
 import { join } from "node:path";
-import { loadPuzzle } from "../core";
+import { GROUND_POLE_ATTACH_UP_M, GROUND_POLE_MIX, loadPuzzle } from "../core";
 import { PHASE_OFFSET, SAG_RATIO, sagSpan, wireLayout } from "./layout";
 import { POLE_HEIGHT, type Vec3 } from "./kitunits";
-import { LADDER_LINE_SCALE, LADDER_STRAND_RADIUS, LINE_STRETCH_MAX, LINE_STRETCH_MIN, PALM_ACROSS_STRETCH, POWER_LINE, POWER_LINES, POWER_MIX, POWER_POLES, PowerKitError, anchorAcross, fitLine, ladderAcross, lineOf, lineOfKey, placePole, poleAt, poleAttachModel, poleOf, poleScaleFor, poleToWorld, transformPoint, type PowerLine, type PowerPole, } from "./powerkit";
+import {
+  LADDER_LINE_SCALE,
+  LADDER_STRAND_RADIUS,
+  LINE_STRETCH_MAX,
+  LINE_STRETCH_MIN,
+  PALM_ACROSS_STRETCH,
+  POWER_LINE,
+  POWER_LINES,
+  POWER_MIX,
+  POWER_POLES,
+  PowerKitError,
+  anchorAcross,
+  fitLine,
+  ladderAcross,
+  lineOf,
+  lineOfKey,
+  placePole,
+  poleAt,
+  poleAttachModel,
+  poleOf,
+  poleScaleFor,
+  poleToWorld,
+  transformPoint,
+  type PowerLine,
+  type PowerPole,
+} from "./powerkit";
 
 const line = POWER_LINES[POWER_LINE]!;
 const V = (x: number, y: number, z: number): Vec3 => ({ x, y, z });
@@ -610,10 +635,19 @@ describe("purity", () => {
   it("powerkit.ts imports only ./kitunits and stableHash from ../render/city", () => {
     const src = readFileSync(join("src", "render3d", "powerkit.ts"), "utf8");
     const imports = [...src.matchAll(/^import\s+(?:type\s+)?(.*?)\s+from\s+"([^"]+)";/gm)].map((m) => ({ what: m[1]!, from: m[2]! }));
-    expect(imports.map((i) => i.from).sort()).toEqual(["../render/city", "./kitunits"]);
+    expect(imports.map((i) => i.from).sort()).toEqual(["../core/powerpoles", "../render/city", "./kitunits"]);
     expect(imports.find((i) => i.from === "../render/city")!.what).toBe("{ stableHash }");
     expect(imports.find((i) => i.from === "./kitunits")!.what).toBe("{ Vec3 }");
     const code = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
     expect(/\bthree\b|\bTHREE\b|\bdocument\b|\bwindow\b|\brequire\(/.test(code)).toBe(false);
+  });
+});
+
+describe("the kit reads the ground poles from core (081 PK2)", () => {
+  it("POWER_MIX is GROUND_POLE_MIX and every attachment height equals core's", () => {
+    expect([...POWER_MIX]).toEqual([...GROUND_POLE_MIX]);
+    for (const key of GROUND_POLE_MIX) {
+      expect(POWER_POLES[key]!.attach_m.map((a) => a.up)).toEqual([...GROUND_POLE_ATTACH_UP_M[key]]);
+    }
   });
 });
