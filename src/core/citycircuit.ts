@@ -15,7 +15,7 @@
  * - a street light: `light:<street id>:<lo|hi>:<along_m, 2 decimals>`.
  */
 
-import type { CityCell, CitySide } from "./cityplan";
+import type { CityCell, CityPlan, CitySide } from "./cityplan";
 import type { Fault, GridNode, Line, Puzzle } from "./schema";
 
 // ---- the layer (stage 6) ----
@@ -220,6 +220,15 @@ export interface CityPuzzleConverted {
   readonly cuts: Readonly<Record<string, string>>;
   /** The origin `pos` is measured from (CK15 step 2), in metres. */
   readonly origin_m: { readonly x_m: number; readonly z_m: number };
+}
+
+/**
+ * A city puzzle opened for play (081 E2 and U2): the plan it was converted on, and its conversion. `src/render3d`'s `loadCityView` builds it, with one plan per city per
+ * session. The ui plays `converted.puzzle` on `src/grid/` and `src/play/`, and hands the whole view back to `createMapRenderer3d` (its `city` option), so the plan is built once.
+ */
+export interface CityPuzzleView {
+  readonly plan: CityPlan;
+  readonly converted: CityPuzzleConverted;
 }
 
 // ---- the components Josh picks a model for (081 D) ----
