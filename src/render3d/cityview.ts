@@ -534,7 +534,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   const owners = newLightOwners();
   const lightId0: LightModeId = lightModeFor("puzzle", opts.search, import.meta.env.DEV);
   // dpr=N (dev only, F0): the pixel ratio the view renders at, in place of opts.dpr.
-  const devDpr = import.meta.env.DEV ? /[?&]dpr=(d+(?:.d+)?)(&|$)/.exec(opts.search ?? "") : null;
+  const devDpr = import.meta.env.DEV ? /[?&]dpr=(\d+(?:\.\d+)?)(&|$)/.exec(opts.search ?? "") : null;
   const dpr = devDpr && Number(devDpr[1]) > 0 ? Number(devDpr[1]) : opts.dpr;
   applyLightMode(scene, gl, lightId0, owners);
 
