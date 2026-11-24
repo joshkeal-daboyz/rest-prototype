@@ -38,7 +38,7 @@ interface Run {
 ^ * Re-taken in F1b3 (22 Nov 2026) for Josh's rulings: "Yes, from the trunk (Recommended)"; "Hold no, trees crowns can absolutely grow into buildings, but the trunks should not grow out of buildings"; "Yes trees don't care about structures outside of where they" / "Start their growth". A ruin tree is judged by its trunk only; its size is the trunk square.
  * Re-taken in F1b2 (22 Nov 2026) for Josh's two rulings: roof growth on ("Yes, switch it on") and ruin trees under spans ("Through any dead line", "Poles too"); the roof pieces move the growth digests. FLAG for K2 and F2g: a tree may now stand over a job's own pole, line or drop end; each cut should say whether that stays, is listed for the puzzle-designer, or goes back to Josh.
  * What the pin test pins: the digest of the layer's "growth" part on each pin city, one-way on (taken 22 Nov 2026 night, on the clean city, `history`, the tech and hold-out layers, and no circuit. Re-taken when D2,
- * E1 or E2's barricade step changes what stands before it, and when K2's circuit lands: the ruin-pass, in a one-line follow-up named in that merge).
+ * E1 or E2's barricade step changes what stands before it, and re-taken in 081 K2a2 (23 Nov 2026) when stage 6 was switched on: '578cd93e' to '24c55727').
  */
 const PIN_GROWTH: Readonly<Record<number, string>> = {
   1: "24c55727",
@@ -146,9 +146,8 @@ describe("the named runs (X-4, X-1, R-1)", { timeout: 1_800_000 }, () => {
   });
 
   it("the real circuit on the named runs: the under-span set is 19 on 6 x 6 seed 1", () => {
-    for (const r of runs) {
-      expect(r.stats["underSpanSpots"] ?? 0, label(r.city)).toBe(19);
-    }
+    const r = runs.find((x) => x.city.seed === DEFAULT.seed && x.city.way === DEFAULT.way)!;
+    expect(r.stats["underSpanSpots"] ?? 0, label(r.city)).toBe(19);
   });
 
   it("a district that held to the end (wild under 1/6) takes no spread growth: every patch, clump and sapling is in a district of wild 1/6 or more", () => {
