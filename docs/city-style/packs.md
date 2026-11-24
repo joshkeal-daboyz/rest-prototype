@@ -44,7 +44,7 @@ Steps 1 to 4 are Josh's. Steps 5 to 9 are a renderer ticket.
 9. Update the pack table above in the same branch; the drift test fails if `MODEL_TABLE` and the table disagree.
 10. A modular pack (Base, Floor, Roof, Corner pieces) is assembled instead of listed whole: write a recipe in `stacks.ts` (a `StackStyle` per look, by role, with its `pitch_m`), check its floor ranges against `STACK_LOT_TYPES` and `STACK_FLOORS`, look at it in the stack gallery and fix any door or `open` side by clicking, then promote the pack's fronts (step 5). A type uses the stacks when enough styles reach `POLYGON_MIN_FAMILIES` (chapter 5).
 
-The pack gallery is `/?puzzle=09-shrine-circuit&view=3d&gallery=<pack-id>` (an empty value is `simple-town`); the stack gallery adds `&stacks=1` and `gallery=city-pack` (code in `stackgallery.ts` and `stacks.ts`). Both are dev only, never a pick target and never part of a playtest. A click on a door copy saves its front. How the galleries read is in `docs/city-style/evaluation.md`.
+The pack gallery is `/?puzzle=09-shrine-circuit&view=3d&gallery=<pack-id>` (an empty value is `simple-town`); the stack gallery adds `&stacks=1` and `gallery=city-pack` (code in stackgallery.ts and `stacks.ts`). Both are dev only, never a pick target and never part of a playtest. A click on a door copy saves its front. How the galleries read is in `docs/city-style/evaluation.md`.
 
 Gotchas converting the POLYGON packs:
 

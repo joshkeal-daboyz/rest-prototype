@@ -9,7 +9,7 @@ Depends on: `docs/city-style/numbers.md` (the constants), `docs/city-style/sill-
 
 ### 16.10 Door sills (ticket 055 F)
 
-How high a building's door stands over the walk in front of it, and what is done about it. `sills.ts` holds the measured table, the plan and the measuring function (`measureDoor`), `models3d.ts` draws the result (the sink, the dressing's offset, the steps), and `sills.test.ts` pins every value and re-measures them from the converted GLBs where they are on the machine.
+How high a building's door stands over the walk in front of it, and what is done about it. `sills.ts` holds the measured table, the plan and the measuring function (`measureDoor`), `models3d.ts` draws the result (the sink, the dressing's offset, the steps), and sills.test.ts pins every value and re-measures them from the converted GLBs where they are on the machine.
 
 - **Rule [D-055h]**: a building's door sill is measured, one number for each model, and a building whose sill is out of reach of the walk is sunk until its door meets it.
 - **Rule [D-055h]**: the rule applies everywhere, on the tile city and on the ladder maps alike: they are the same buildings, and a door nobody can reach is wrong on both. On the ladder maps only building and stack heights, the dressing's heights on the blocks that sink, and the added steps change; the layout, the packer, the furniture, the open lots, the tiles, picking, the Relight and the playtest snapshots are as they were. The sink is applied when drawing (`applyModels`), never in the plans.

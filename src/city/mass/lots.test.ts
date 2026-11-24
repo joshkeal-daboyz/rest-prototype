@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { CityPlanBlock, CityCourt, CityLandLayer, CityMassLayer, CityOpening, CityPart, CityStreetCell, CityStreetsLayer, CityBlockUnits } from "../../core";
-import { TERRACE_BAYS } from "../../render3d/town";
+import { TERRACE_BAYS } from "../buildings/constants";
 import { massFailures, p2Value, parkingNumbers, type ParkingNumbers } from "./check";
 import { BAY_JUNCTION_CLEAR, CITY_FRONT_LOT_BLOCKS_MAX, COURT_CELLS, DRIVE_CELLS, HOME_COLUMN_FLOORS, LOTS_PER_BLOCK_MAX, LOT_STALLS, PARK_PER_HOME, PARK_SUPPLY_BAND, TERRACE_BAYS_MAX, UNIT_FLOORS_NOMINAL } from "./constants";
 import { buildMass, lotQuota, unitsOf } from "./lots";

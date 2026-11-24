@@ -29,7 +29,7 @@ The interior is laid on the 5 m grid (`TILE_M`). Ring 1, the outer band of cells
 - **Default (057) [D-057m]**: the old tile city (deleted in ticket 081 A1) kept 0.15 stalls per home. On the pipeline `PARK_PER_HOME` is 0.075 (18.1; `docs/city-style/parking.md`, [D-056g]), with six stalls per court and one or two courts per block.
 - **Default (057) [D-057n]**: the apron is `APRON_CELLS` 1 deep, so the interiors are mostly pavement. 0 would drop the apron to the strip alone and give about half the interior to grass: one constant.
 - **Default (057)**: the fill uses the City Pack and code only, each with a code-drawn fallback: `SM_Env_Grass_01` for the greens, `SM_Env_Sidewalk_01` for the apron, paths and park edges, `SM_Env_Tree_01` to `_03` and `SM_Prop_ParkBench_01` for the dressing. No Town Pack piece is used: the passage gate is code-drawn (19.2).
-- **Default (057)**: the drive is two cells (`DRIVE_CELLS`), the whole of the fixed 10 m parking-lot opening that `terraceBlockRows` in `town.ts` lays; one cell would need a `parkW_m` option there (a re-cut). So the frontage cost of the parking lots stays about 90 m.
+- **Default (057)**: the drive is two cells (`DRIVE_CELLS`), the whole of the fixed 10 m parking-lot opening that `terraceBlockRows` in town.ts lays; one cell would need a `parkW_m` option there (a re-cut). So the frontage cost of the parking lots stays about 90 m.
 - **Default (057)**: every interior role is drawn (19.8).
 
 ## Open questions

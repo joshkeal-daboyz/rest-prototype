@@ -2,55 +2,29 @@
 
 ## Numbers
 
-The drift test (`styleguide.test.ts`) reads this table. The rule behind `POLE_SLOT_FROM_KERB_M` is recorded in `docs/design/070-K1-circuit.md`. Each row names an export of the file in its last column. A value is a number (within 1e-9), a colour as `0x` hex (exactly), or `a x b x c` for a record, in the record's field order. `LOT_TYPES` is frontage x depth x cap in metres and `PLACE_SIZES` is width x depth in metres. `STACK_STYLES[i].pitch_m` is base x floor x roof in metres (the storey heights a recipe counts floors by; the roof is the height reserved under the cap), in the order `apartment-01`, `-02`, `-03`, `office-old-small`, `office-old-large`, `office-octagon`. `STACK_FLOORS` is the fewest floors over the base. `TINTS[i]` is the i-th wall tint. `CITY_CHECK` is the threshold of R1 to R13 in that order (a share to reach, or a count not to pass, chapter 16.8) and `CITY_STOREYS` is the fewest and most storeys. Changing a constant in code or a value here fails the test. Since ticket 053 the test also fails when `stacks.ts`, `terrace.ts`, `dressing.ts`, `furniture.ts`, `streetcam.ts` or `citymetrics.ts` exports a number that has no row here, and when `town.ts` does for a `TERRACE_*`, `PARKING_*` or `PLAZA_*` name. Since ticket 054 the test also fails when `colourway.ts` exports a constant (not a function) that has no row here; `COLOURWAY_POOL` is pinned by its length, and its ids are the table in 16.9. Since ticket 060 the same holds for `lighting.ts`: every number in `LIGHT_MODES` and every numeric export has a row (the mode's words, `toneMapping`, `shadows` and `nightLights`, are in 16.12). Since ticket 056 the test also fails when a constant of chapter 18 (the rows for `tilecity.ts` at the end of the table) is missing or changed; `KERB_BAY_SHARE_MAX` is avenue x street and `PARK_SUPPLY_BAND` is floor x ceiling. (The rows for the old path's parking and frontage measuring code went with it, ticket 081 A1.) Since ticket 058 the test also fails when `escapes.ts` exports a number or a record of numbers that has no row here; `ESCAPE_SCALE_Y` is min x max, and `CODE_ESCAPE` is `w`, `d`, `deck`, `rail`, `bar`, `tread`, `riser`, `hatch0`, `hatch1`, `stair0`, `stair1`, `ladderX0`, `ladderX1`, `ladderZ`, in metres (16.11). Since ticket 055 F the test also fails when `sills.ts` exports a number or a record of numbers that has no row here; `STEPS_SCALE_Y` is min x max (16.10; the constants of ticket 062 A and B, from `SILL_DEPTH_MAX_M` to `RECESS_DOOR_HALF_M` and `SILL_BAND_M`, `SILL_UNDER_M` and `LIFT_CLEAR_M`, are rows too). Colours are `0x` hex. Since ticket 057 D the rows for `tileslots.ts` (the draw-call caps and the gate's size and colour) are checked as well. Since ticket 057 the test also fails when `facade.ts` exports a number or a record of numbers that has no row here, and when a constant that chapter 19 names from `tilecity.ts` has none. `WALL_FRONT_M` and `WALL_SIDE_M` are the exceptions: they hold a distance per piece, which `facade.test.ts` pins as a fixture, so only their constants are rows. `BLOCK_TILES` is min x max, `PASSAGE_W_M` is min x max, and `COURT_CELLS` is w x d. The `tilecity.ts` rows from `TILE_M` to `PARK_HALF_SIDE_MIN_CELLS` are the constants of chapter 19. Since ticket 070 L1 the rows `PARK_PER_HOME` (0.075) and `PARK_SUPPLY_BAND` (the kerb floor 0.69, and stage 3's lot band 0.75) name the pipeline's stage modules in their File cell (mass/constants.ts and edge/constants.ts, the constants files of the folders `src/city/mass/` and `src/city/edge/`), and the old `tilecity.ts` rows for them are gone: the old path's 0.15 and 0.75 are not pinned here.
+History (ticket 081 A2c): the ladder town was deleted, with its files (town.ts, terrace.ts, scene.ts, layout.ts, camera.ts, streetcam.ts) and their rows here. Where the guide still names one of those files, a test of theirs or a constant of theirs, it is written as plain text and describes the ladder as it was; the pipeline city (src/city/) is what the game draws.
+
+The drift test (`styleguide.test.ts`) reads this table. The rule behind `POLE_SLOT_FROM_KERB_M` is recorded in `docs/design/070-K1-circuit.md`. Each row names an export of the file in its last column. A value is a number (within 1e-9), a colour as `0x` hex (exactly), or `a x b x c` for a record, in the record's field order. `LOT_TYPES` is frontage x depth x cap in metres and PLACE_SIZES is width x depth in metres. `STACK_STYLES[i].pitch_m` is base x floor x roof in metres (the storey heights a recipe counts floors by; the roof is the height reserved under the cap), in the order `apartment-01`, `-02`, `-03`, `office-old-small`, `office-old-large`, `office-octagon`. `STACK_FLOORS` is the fewest floors over the base. `TINTS[i]` is the i-th wall tint. `CITY_CHECK` is the threshold of R1 to R13 in that order (a share to reach, or a count not to pass, chapter 16.8) and `CITY_STOREYS` is the fewest and most storeys. Changing a constant in code or a value here fails the test. Since ticket 053 the test also fails when `stacks.ts`, terrace.ts, `dressing.ts`, `furniture.ts`, streetcam.ts or `citymetrics.ts` exports a number that has no row here, and when town.ts does for a `TERRACE_*`, `PARKING_*` or `PLAZA_*` name. Since ticket 054 the test also fails when `colourway.ts` exports a constant (not a function) that has no row here; `COLOURWAY_POOL` is pinned by its length, and its ids are the table in 16.9. Since ticket 060 the same holds for `lighting.ts`: every number in `LIGHT_MODES` and every numeric export has a row (the mode's words, `toneMapping`, `shadows` and `nightLights`, are in 16.12). Since ticket 056 the test also fails when a constant of chapter 18 (the rows for `tilecity.ts` at the end of the table) is missing or changed; `KERB_BAY_SHARE_MAX` is avenue x street and `PARK_SUPPLY_BAND` is floor x ceiling. (The rows for the old path's parking and frontage measuring code went with it, ticket 081 A1.) Since ticket 058 the test also fails when `escapes.ts` exports a number or a record of numbers that has no row here; `ESCAPE_SCALE_Y` is min x max, and `CODE_ESCAPE` is `w`, `d`, `deck`, `rail`, `bar`, `tread`, `riser`, `hatch0`, `hatch1`, `stair0`, `stair1`, `ladderX0`, `ladderX1`, `ladderZ`, in metres (16.11). Since ticket 055 F the test also fails when `sills.ts` exports a number or a record of numbers that has no row here; `STEPS_SCALE_Y` is min x max (16.10; the constants of ticket 062 A and B, from `SILL_DEPTH_MAX_M` to `RECESS_DOOR_HALF_M` and `SILL_BAND_M`, `SILL_UNDER_M` and `LIFT_CLEAR_M`, are rows too). Colours are `0x` hex. Since ticket 057 D the rows for `tileslots.ts` (the draw-call caps and the gate's size and colour) are checked as well. Since ticket 057 the test also fails when `facade.ts` exports a number or a record of numbers that has no row here, and when a constant that chapter 19 names from `tilecity.ts` has none. `WALL_FRONT_M` and `WALL_SIDE_M` are the exceptions: they hold a distance per piece, which `facade.test.ts` pins as a fixture, so only their constants are rows. `BLOCK_TILES` is min x max, `PASSAGE_W_M` is min x max, and `COURT_CELLS` is w x d. The `tilecity.ts` rows from `TILE_M` to `PARK_HALF_SIDE_MIN_CELLS` are the constants of chapter 19. Since ticket 070 L1 the rows `PARK_PER_HOME` (0.075) and `PARK_SUPPLY_BAND` (the kerb floor 0.69, and stage 3's lot band 0.75) name the pipeline's stage modules in their File cell (mass/constants.ts and edge/constants.ts, the constants files of the folders `src/city/mass/` and `src/city/edge/`), and the old `tilecity.ts` rows for them are gone: the old path's 0.15 and 0.75 are not pinned here.
 
 | Constant | Value | File |
 | --- | --- | --- |
 | `WORLD_PER_METRE` | 0.18 | kitunits.ts |
 | `WORLD_PER_METRE` | 0.18 | models.ts |
-| `STREET_MIN_LEN` | 2.5 | town.ts |
 | `ROAD_W` | 1.1 | kitunits.ts |
-| `KERB_OFFSET` | 0.4 | town.ts |
 | `KERB_H` | 0.03 | kitunits.ts |
 | `PAVE_W` | 0.45 | kitunits.ts |
-| `RING_MARGIN` | 4 | town.ts |
-| `BLOCK_PITCH` | 12 | town.ts |
-| `OUTER_RINGS` | 1 | town.ts |
 | `SETBACK` | 0.15 | kitunits.ts |
-| `LOT_GAP` | 0.1 | town.ts |
 | `WIRE_CLEAR` | 0.25 | kitunits.ts |
-| `FILL_STEP` | 0.25 | town.ts |
-| `PLACE_STEP` | 0.1 | town.ts |
-| `CORNER_GAP` | 0.5 | town.ts |
-| `CORNER_ANGLE_MAX` | 45 | town.ts |
-| `ROW_MIN_SMALLS` | 2 | town.ts |
-| `PLACE_REACH` | 2.5 | town.ts |
 | `STOREY_M` | 3.2 | kitunits.ts |
-| `PLACE_STOREYS` | 2 | town.ts |
-| `OCCLUDE_SLOPE` | 2.1445069205 | town.ts |
-| `NODE_TOP_Y` | 1.6 | town.ts |
-| `LAMP_HEAD_Y` | 1.65 | town.ts |
 | `LOT_TYPES.small` | 12 x 13 x 12 | kitunits.ts |
 | `LOT_TYPES.house` | 16 x 19 x 15 | kitunits.ts |
 | `LOT_TYPES.large` | 25 x 28 x 16 | kitunits.ts |
 | `LOT_TYPES.tall` | 14 x 16 x 28 | kitunits.ts |
-| `PLACE_SIZES.whole` | 10 x 10 | town.ts |
-| `PLACE_SIZES.quarter` | 6 x 6 | town.ts |
-| `PLACE_SIZES.home` | 6 x 8 | town.ts |
-| `TERRACE_BAY_M` | 5.2 | town.ts |
 | `TERRACE_DEPTH_M` | 6 | kitunits.ts |
-| `TERRACE_BAYS` | 2 x 4 | town.ts |
-| `TERRACE_CAPS_M[0]` | 16 | town.ts |
-| `TERRACE_CAPS_M[1]` | 13 | town.ts |
-| `TERRACE_CAPS_M[2]` | 10 | town.ts |
 | `PARKING_W_M` | 10 | kitunits.ts |
 | `PARKING_D_M` | 10 | kitunits.ts |
-| `PARKING_MIN_RUN_BAYS` | 8 | town.ts |
-| `PARKING_ONE_IN` | 3 | town.ts |
 | `PLAZA_W_M` | 10.4 | kitunits.ts |
-| `PLAZA_ONE_IN` | 4 | town.ts |
 | `TERRACE_SEAM_M` | 0.1 | kitunits.ts |
-| `TERRACE_SLACK_M` | 0.15 | terrace.ts |
 | `ALLEY_MIN_M` | 1 | kitunits.ts |
 | `ALLEY_MAX_M` | 1.5 | kitunits.ts |
 | `STACK_FLOORS.small` | 1 | stacks.ts |
@@ -73,41 +47,12 @@ The drift test (`styleguide.test.ts`) reads this table. The rule behind `POLE_SL
 | `POLYGON_MIN_FAMILIES.large` | 4 | models.ts |
 | `POLYGON_MIN_FAMILIES.tall` | 3 | models.ts |
 | `POLE_HEIGHT` | 1.6 | kitunits.ts |
-| `POLE_SPACING` | 3 | layout.ts |
-| `SAG_RATIO` | 0.04 | layout.ts |
-| `WIRE_RADIUS` | 0.03 | layout.ts |
-| `PHASE_OFFSET` | 0.22 | layout.ts |
-| `BREAK_GAP` | 0.3 | layout.ts |
-| `HANG_DROP` | 0.6 | layout.ts |
 | `WIRE_PICK_RADIUS` | 0.3 | kitunits.ts |
-| `DROP_REACH` | 2.5 | layout.ts |
-| `DROP_DROP` | 0.2 | layout.ts |
-| `DROP_END_Y` | 0.5 | layout.ts |
-| `CAN_OFFSET` | 0.1 | layout.ts |
-| `CAN_DROP` | 0.3 | layout.ts |
-| `ELEVATION` | 0.7853981634 | camera.ts |
-| `FOV_DEG` | 40 | camera.ts |
 | `GROUND` | 0x0e131d | kitunits.ts |
 | `YARD` | 0x141c29 | kitunits.ts |
 | `STREET` | 0x1a2331 | kitunits.ts |
 | `PAVEMENT` | 0x3d4658 | kitunits.ts |
 | `KERB` | 0x9aa4b6 | kitunits.ts |
-| `CENTRE_LINE` | 0x7a7863 | scene.ts |
-| `PLACE` | 0x3a4a68 | scene.ts |
-| `POLE_WOOD` | 0x8b6b4a | scene.ts |
-| `FOOT` | 0x080b11 | scene.ts |
-| `METAL` | 0x5d6b84 | scene.ts |
-| `DEAD_WIRE` | 0x2a3445 | scene.ts |
-| `LIVE_WIRE` | 0x4fd1ff | scene.ts |
-| `LIVE_GLOW` | 0x2aa9d8 | scene.ts |
-| `REPAIRED_WIRE` | 0x5a6f92 | scene.ts |
-| `WARM` | 0xffd37a | scene.ts |
-| `TARGET` | 0xffe9a8 | scene.ts |
-| `SCORCH` | 0x1a0f0c | scene.ts |
-| `RIBBON` | 0xff3df0 | scene.ts |
-| `INSULATOR` | 0x8fa99a | scene.ts |
-| `CAN` | 0x7d8794 | scene.ts |
-| `DROP_COLOR` | 0x39414f | scene.ts |
 | `TINTS[0]` | 0x4a566e | placeholders.ts |
 | `TINTS[1]` | 0x5a5472 | placeholders.ts |
 | `TINTS[2]` | 0x4a6478 | placeholders.ts |
@@ -179,9 +124,7 @@ The drift test (`styleguide.test.ts`) reads this table. The rule behind `POLE_SL
 | `STREET_CAM_BACK_M` | 26 | kitunits.ts |
 | `STREET_CAM_EYE_M` | 9 | kitunits.ts |
 | `STREET_CAM_LOOK_M` | 6 | kitunits.ts |
-| `STREET_CAM_YAW_DEG` | 35 | streetcam.ts |
 | `STREET_CAM_FOV_DEG` | 50 | kitunits.ts |
-| `STREET_CAM_FOV_MAX_DEG` | 85 | streetcam.ts |
 | `CITY_CHECK` | 0.9 x 1 x 1 x 1 x 0.55 x 0.5 x 0.5 x 0.9 x 0 x 0 x 1 x 0 x 1 | citymetrics.ts |
 | `CITY_ATM_BLOCKS_MIN` | 0.15 | citymetrics.ts |
 | `CITY_BIG_ROOF_RUNS_MIN` | 0.5 | citymetrics.ts |
@@ -365,7 +308,7 @@ The drift test (`styleguide.test.ts`) reads this table. The rule behind `POLE_SL
 | `KERB_HEIGHT_TOL_M` | 0.02 | tileslots.ts |
 | `KERB_GAP_MAX_M` | 0.05 | tileslots.ts |
 
-Night's global lighting as written in the table of `lighting.ts` (the rig reads it; since ticket 060 `scene.ts` holds no light literal of its own), pinned by the exact source text as well:
+Night's global lighting as written in the table of `lighting.ts` (the rig reads it; since ticket 060 scene.ts holds no light literal of its own), pinned by the exact source text as well:
 
 | Part | Source text |
 | --- | --- |

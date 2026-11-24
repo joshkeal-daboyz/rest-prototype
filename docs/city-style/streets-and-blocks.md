@@ -9,18 +9,18 @@ Depends on: `docs/city-style/numbers.md` (the constants), `docs/city-style/block
 
 ## 3. Streets and blocks
 
-- **Default (041)**: a road runs beside a wire, on the camera side (the side of the line's normal that points toward +z; a line parallel to z puts its road on +x). If that road would cover another node's square it takes the other side; if both sides are blocked the line has no road. The road's near kerb is `KERB_OFFSET` from the line, so the wire, its poles and its nodes stand on the pavement.
+- **Default (041)**: a road runs beside a wire, on the camera side (the side of the line's normal that points toward +z; a line parallel to z puts its road on +x). If that road would cover another node's square it takes the other side; if both sides are blocked the line has no road. The road's near kerb is KERB_OFFSET from the line, so the wire, its poles and its nodes stand on the pavement.
 - **Default (041)**: a road is `ROAD_W` wide, with a kerb of height `KERB_H` along both edges and a pavement band `PAVE_W` wide outside each kerb. Kerbs and pavements are clipped where another road or a pad lies over them. Where roads end at one node, or meet the ring or the grid, a junction pad covers their ends (the convex hull of the end edges).
-- **Default (041)**: a line shorter than `STREET_MIN_LEN` is a service run: pavement only, no road. Decor segments and feed lanes become streets by the same rules.
-- **Default (041)**: a ring road runs at `RING_MARGIN` outside the circuit's bounds. One ring of city blocks (`OUTER_RINGS`) surrounds it, on a grid of streets at about `BLOCK_PITCH` (each block side between 11 and 15, nearest `BLOCK_PITCH`; `gridCount`). The town's window is the ring plus that one ring of blocks.
-- **Rule [D-041d]**: outer blocks are filled pinwheel-fashion. Each side's row starts at its own corner, clockwise, and stops `LOT_GAP` short of the next side's band. Each side reserves its band first, sized to the deepest lot type allowed there. A side takes `large` lots only where a row beside its band still holds `ROW_MIN_SMALLS` small lots.
+- **Default (041)**: a line shorter than STREET_MIN_LEN is a service run: pavement only, no road. Decor segments and feed lanes become streets by the same rules.
+- **Default (041)**: a ring road runs at RING_MARGIN outside the circuit's bounds. One ring of city blocks (OUTER_RINGS) surrounds it, on a grid of streets at about BLOCK_PITCH (each block side between 11 and 15, nearest BLOCK_PITCH; `gridCount`). The town's window is the ring plus that one ring of blocks.
+- **Rule [D-041d]**: outer blocks are filled pinwheel-fashion. Each side's row starts at its own corner, clockwise, and stops `LOT_GAP` short of the next side's band. Each side reserves its band first, sized to the deepest lot type allowed there. A side takes `large` lots only where a row beside its band still holds ROW_MIN_SMALLS small lots.
 - **Default (041)**: the 3D town builds its own streets and lots. It does not follow the 2D backdrop, so places may sit a little apart from where 2D draws them.
 - **Default (041)**: a dashed centre line is drawn on ring and grid roads only (roads wider than 1). Yards (what frontage fill cannot use) are dark ground.
 - **Default (042)**: odd-angled junction pads stay code-drawn, even when roads come from a pack (the Open question below, chapter 10).
 - **Default (041)**: no street furniture (trees, bins, hydrants, traffic lights, parked cars) yet. A later ticket may add it.
 - Terrace pavements carry street furniture, and the outer blocks are terraces: the whole procedural city, from lot to prop, is chapter 16.
 - **Rule [D-063e]**: the tile city (`city=tiles`) has no avenues. Every street line is the 5-cell street profile (pavement, parking band, two lanes, pavement: 25 m across, a 3-cell carriageway of 15 m), and a junction is 3 x 3 cells.
-- **Default [D-063f]**: `AVENUE_ONE_IN` is 0, an off switch (0 is none). The avenue profile, the avenue-first bay order and `KERB_BAY_SHARE_MAX.avenue` stay in `tilecity.ts`, unused. The old path's test (`street width: no avenues`, deleted in ticket 081 A1) pinned every carriageway at 15 m and the largest junction at 3 x 3. The ladder's maps and `town.ts` are not touched.
+- **Default [D-063f]**: `AVENUE_ONE_IN` is 0, an off switch (0 is none). The avenue profile, the avenue-first bay order and `KERB_BAY_SHARE_MAX.avenue` stay in `tilecity.ts`, unused. The old path's test (`street width: no avenues`, deleted in ticket 081 A1) pinned every carriageway at 15 m and the largest junction at 3 x 3. The ladder's maps and town.ts are not touched.
 
 
 ## 10. Roads from packs

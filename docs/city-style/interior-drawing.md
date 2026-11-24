@@ -22,7 +22,7 @@ This part describes the old path's drawing (`tilecity3d.ts`, `tileslots.ts` and 
 - **Default (057)**: furniture. A lot that became a court is no longer dressed as a frontage lot (`courtLotPieces` in `tilecity3d.ts`): the town still holds each court's mouth as a 10 m parking lot, so `furnitureLayout` would put a second lines tile 5 mm under the interiors' own and barriers across the near stalls' opening. The drive is a kerb cut and a lot surface only. A block in `TileCity.frontLots` keeps its frontage lot's furniture.
 - **Default (057)**: `&sheet=1` shows each new piece once, labelled with the interior roles it serves.
 
-`puzzle=09-shrine-circuit&view=3d` is unaffected: the interiors, passages and the explicit alignment are the tile view's, and a puzzle map's `packTown` call is as it was (`packpin.test.ts`).
+`puzzle=09-shrine-circuit&view=3d` is unaffected: the interiors, passages and the explicit alignment are the tile view's, and a puzzle map's `packTown` call is as it was (packpin.test.ts).
 
 ## Open questions
 

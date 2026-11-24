@@ -5,10 +5,9 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { closeSync, existsSync, openSync, readFileSync, readdirSync, readSync } from "node:fs";
+import { closeSync, existsSync, openSync, readFileSync, readSync } from "node:fs";
 import { join } from "node:path";
-import { GROUND_POLE_ATTACH_UP_M, GROUND_POLE_MIX, loadPuzzle } from "../core";
-import { PHASE_OFFSET, SAG_RATIO, sagSpan, wireLayout } from "./layout";
+import { GROUND_POLE_ATTACH_UP_M, GROUND_POLE_MIX } from "../core";
 import { POLE_HEIGHT, type Vec3 } from "./kitunits";
 import {
   LADDER_LINE_SCALE,
@@ -56,6 +55,21 @@ const RINGS: [number, number][] = [
 ];
 
 // ---------------------------------------------------------------------------------------------------------------------------------------------------
+/** The ladder's wire constants, kept here as plain numbers after the ladder town was deleted (ticket 081 A2c): the kit is still pinned against them. */
+const PHASE_OFFSET = 0.22;
+const SAG_RATIO = 0.04;
+/** The parabola the wire hangs on: 9 points, the middle one lowest. */
+function sagSpan(a: Vec3, b: Vec3): Vec3[] {
+  const len = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
+  const pts: Vec3[] = [];
+  for (let j = 0; j <= 8; j++) {
+    const t = j / 8;
+    const sag = j === 0 || j === 8 ? 0 : SAG_RATIO * len * 4 * t * (1 - t);
+    pts.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t - sag, z: a.z + (b.z - a.z) * t });
+  }
+  return pts;
+}
+
 describe("measured tables", () => {
   it("holds exactly the three picked poles and the one wire piece, keyed pack:name", () => {
     expect(Object.keys(POWER_POLES).sort()).toEqual([...POWER_MIX].sort());
@@ -356,29 +370,6 @@ describe("fitLine", () => {
     }
   });
 
-  it("every ladder span, at LADDER_LINE_SCALE, is one piece stretched 0.29x to 0.88x and never chains", () => {
-    let lo = Infinity;
-    let hi = 0;
-    let spans = 0;
-    // The ladder maps only (NN-*.json, as the playtest harness reads them): puzzles/city-two-ways-round.json is an off-ladder city map (pos = metres / 5, not ladder units), so its spans are not the ladder's.
-    for (const f of readdirSync("puzzles").filter((n) => /^\d\d-.*\.json$/.test(n))) {
-      const puzzle = loadPuzzle(JSON.parse(readFileSync(join("puzzles", f), "utf8")));
-      for (const run of wireLayout(puzzle)) {
-        for (let i = 0; i + 1 < run.attach.length; i++) {
-          const out = fitLine(line, run.attach[i]!, run.attach[i + 1]!, SAG_RATIO, LADDER_LINE_SCALE, LADDER_STRAND_RADIUS);
-          expect(out).toHaveLength(1);
-          lo = Math.min(lo, out[0]!.stretch);
-          hi = Math.max(hi, out[0]!.stretch);
-          spans++;
-        }
-      }
-    }
-    expect(spans).toBeGreaterThan(1000);
-    expect(lo).toBeGreaterThanOrEqual(LINE_STRETCH_MIN);
-    expect(lo).toBeGreaterThan(0.28);
-    expect(hi).toBeLessThan(0.9);
-    expect(LADDER_LINE_SCALE).toBe(0.254);
-  });
 });
 
 describe("long and short spans", () => {
@@ -543,19 +534,6 @@ describe("the mix", () => {
     const plain = Array.from({ length: 1000 }, (_, i) => `spot-${i}`);
     const runs = Array.from({ length: 1000 }, (_, i) => `run-${Math.floor(i / 5)}#${(i % 5) + 1}`);
     for (const ids of [plain, runs]) for (const s of share(ids)) expect(Math.abs(s - 1 / POWER_MIX.length)).toBeLessThan(0.05);
-  });
-  it("gives neighbouring spots on a run different poles, over every ladder map", () => {
-    let pairs = 0;
-    for (const f of readdirSync("puzzles").filter((n) => n.endsWith(".json"))) {
-      const puzzle = loadPuzzle(JSON.parse(readFileSync(join("puzzles", f), "utf8")));
-      for (const run of wireLayout(puzzle)) {
-        for (let i = 1; i + 1 < run.attach.length - 1; i++) {
-          expect(poleAt(POWER_MIX, `${run.id}#${i}`), `${f} ${run.id} ${i}`).not.toBe(poleAt(POWER_MIX, `${run.id}#${i + 1}`));
-          pairs++;
-        }
-      }
-    }
-    expect(pairs).toBeGreaterThan(100);
   });
   it("with two or more poles, neighbours differ for any list length", () => {
     for (const n of [2, 3, 4, 5, 6, 8, 9]) {

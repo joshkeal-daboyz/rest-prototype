@@ -12,11 +12,11 @@ import { ASSET_MANIFEST_VERSION, type AssetEntry, type AssetManifest, type Calib
 import { WORLD_PER_METRE } from "./models";
 import { loadModels, tileInput, type ModelSet } from "./models3d";
 import { LANE_PATCH, LANE_RIGHT, PAVEMENT_FLUSH, PAVEMENT_GRATE, SIDEWALK_TOP_M, SIDEWALK_WALK_M, TILE_M, type BuildoutTree, type TileCell, type TileRole } from "./tilecity";
-import { buildSheetScene, buildoutTreePlan, cellFootprint, createCityRenderer3d, createCityRig, kerbStrips, sheetRigInsets, tileGroupOf, tileKeyOf, tileMatrix, tileOriginY_m, treeInput } from "./tilecity3d";
+import { buildSheetScene, buildoutTreePlan, cellFootprint, createCityRig, kerbStrips, sheetRigInsets, tileGroupOf, tileKeyOf, tileMatrix, tileOriginY_m, treeInput } from "./tilecity3d";
 import type { KerbPlan } from "./kerbline";
 import { planCells, planKerbPlan } from "./plan3d";
 import { sharedCity } from "../city/testing/namedcities";
-import { KERB_INSET_M, KERB_LIP_W_M, KERB_STRIP_COLOUR, SHEET_BUILDOUT_NOTE, TILE_DRAW_CALLS_MAX, TILE_FRONTS, TILE_BASE_M, TILE_PATCH, TILE_SHEET_EXTRA, TILE_SLOTS, TILE_TREES, sheetLabel, sheetPieces, sheetShortName, tileKeys, cityTilesRequested } from "./tileslots";
+import { KERB_INSET_M, KERB_LIP_W_M, KERB_STRIP_COLOUR, SHEET_BUILDOUT_NOTE, TILE_DRAW_CALLS_MAX, TILE_FRONTS, TILE_BASE_M, TILE_PATCH, TILE_SHEET_EXTRA, TILE_SLOTS, TILE_TREES, sheetLabel, sheetPieces, sheetShortName, tileKeys } from "./tileslots";
 import { stubTextSurface } from "./text";
 
 const S = WORLD_PER_METRE;
@@ -738,28 +738,10 @@ describe("loadModels and the tile keys", () => {
 describe("the dev switch", () => {
   const renderer = readFileSync("src/render3d/renderer.ts", "utf8");
 
-  it("renderer.ts reads the flag only in a dev build, and takes the tile branch before the town's scene is built", () => {
+  it("renderer.ts reads the flag only in a dev build, and takes the tile branch after the plan's", () => {
     expect(renderer).toMatch(/import\.meta\.env\.DEV && typeof location !== "undefined" \? cityTilesRequested\(location\.search\)/);
     expect(renderer).toMatch(/if \(cityTiles !== null\) \{[^}]*return createCityRenderer3d\(/);
-    expect(renderer.indexOf("createCityRenderer3d(")).toBeGreaterThan(renderer.indexOf("createGalleryRenderer3d("));
-    expect(renderer.indexOf("createCityRenderer3d(")).toBeLessThan(renderer.indexOf("buildScene(puzzle"));
-    expect(renderer.indexOf("createCityRenderer3d(")).toBeLessThan(renderer.indexOf("createCameraRig(puzzle"));
-  });
-
-  it("takes no other branch: with no city= the flag is null and the path after it is the town's own, untouched", () => {
-    const lines = renderer.split(/\r?\n/).filter((l) => /cityTiles|createCityRenderer3d|cityTilesRequested/.test(l) && !/^\s*(\/\/|import )/.test(l));
-    expect(lines.length).toBeGreaterThan(0);
-    for (const l of lines) expect(/import\.meta\.env\.DEV|cityTiles !== null|return createCityRenderer3d\(/.test(l), l).toBe(true);
-    // Everything after the branch is the town's, as before: the camera rig and the scene are made from the puzzle.
-    const after = renderer.slice(renderer.indexOf("return createCityRenderer3d("));
-    expect(after).toContain("createCameraRig(puzzle");
-    expect(after).toContain("buildScene(puzzle, { dpr: ratio })");
-  });
-
-  it("only renderer.ts imports the tile view, and neither the scene, the town, the models nor the picker names it", () => {
-    for (const f of ["scene.ts", "town.ts", "models.ts", "models3d.ts", "pick.ts", "layout.ts", "camera.ts", "gallery.ts", "streetcam.ts"]) {
-      expect(/from "\.\/tile(city3d|slots)"/.test(readFileSync(`src/render3d/${f}`, "utf8")), f).toBe(false);
-    }
+    expect(renderer.indexOf("createCityRenderer3d(")).toBeGreaterThan(renderer.indexOf("createPlanAssembleRenderer3d("));
   });
 
   it("neither new module reads the address, and tileslots imports no three", () => {
