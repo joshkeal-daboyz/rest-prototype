@@ -5,3 +5,4 @@ export { nodePlaceProblems, placeProblems } from "./checkplaces";
 export type { PlacedNode } from "./checkplaces";
 export { cityPuzzleProblems, districtProblems, runProblems } from "./checkpuzzle";
 export { CityPuzzleError, convertCityPuzzle } from "./convert";
+export { poleModelFor } from "./polemodel";

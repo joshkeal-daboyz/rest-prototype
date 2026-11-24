@@ -1,5 +1,5 @@
 /**
- * Stage 6: the circuit (ticket 081 K2a; the rules are ticket 070 K1's, `docs/design/070-K1-circuit.md`). Lays every pole, span, drop, light and post place of the city: CK1 to CK6 and CK9 to CK11. Reads `streets`, `edge`, `mass` and `buildings`, writes only `circuit`. CK9 to CK11 (K2b) add the drops, street lights
+ * Stage 6: the circuit (ticket 081 K2a, K2d1 adds the pole pick, CK7 and the roof places; the rules are ticket 070 K1's, `docs/design/070-K1-circuit.md`). Lays every pole, span, drop, light and post place of the city: CK1 to CK6 and CK9 to CK11. Reads `streets`, `edge`, `mass` and `buildings`, writes only `circuit`. CK9 to CK11 (K2b) add the drops, street lights
  * and lamp-post places; `keep` holds every pole and light. `circuitProblems` judges the layer before it returns (R-2).
  */
 
@@ -10,7 +10,9 @@ import type { CityStageDef } from "../pipeline/types";
 import { circuitProblems, type CircuitInput } from "./check";
 import { CELL_M } from "./constants";
 import { layPoles } from "./lay";
+import { poleModelFor } from "./polemodel";
 import { layDrops, layLights, layPosts } from "./places";
+import { layRoofSpans, layRoofs } from "./roofplaces";
 
 /** Pure: poles and spans from the streets and the edge. */
 export function buildCircuit(input: CircuitInput): CityCircuitLayer {
@@ -18,7 +20,11 @@ export function buildCircuit(input: CircuitInput): CityCircuitLayer {
   const drops = layDrops(input, poles);
   const lights = layLights(input, poles);
   const posts = layPosts(poles, spans);
-  return { stage: "circuit", poles, spans, drops, lights, posts, poleModels: {}, keep: [...poles, ...lights].map((p) => ({ x_m: p.x_m, z_m: p.z_m })) };
+  const poleModels = Object.fromEntries(poles.map((p) => [p.id, poleModelFor(p.id)] as const));
+  const keep = [...poles, ...lights].map((p) => ({ x_m: p.x_m, z_m: p.z_m }));
+  const { roofs, roofKeep } = layRoofs(input);
+  const roofSpans = layRoofSpans(input, { poles, spans, lights, posts, poleModels, roofs });
+  return { stage: "circuit", poles, spans, drops, lights, posts, poleModels, keep, roofs, roofSpans, roofKeep };
 }
 
 function run(plan: CityPlan): CityCircuitLayer {
@@ -37,6 +43,7 @@ export const CIRCUIT_LEGEND: readonly LegendEntry[] = [
   { name: "street a crossing spans", rgb: 0x4a78d0 },
   { name: "pole", rgb: 0xf0e060 },
   { name: "crossing pole", rgb: 0xff7070 },
+  { name: "corner roof structure", rgb: 0x60e0e0 },
 ];
 
 function picture(plan: CityPlan): CityPicture {
@@ -53,7 +60,8 @@ function picture(plan: CityPlan): CityPicture {
     for (let n = 0; n < st.bands.length; n++) at.set(st.axis === "x" ? `${k},${st.across0 + n}` : `${st.across0 + n},${k}`, 2);
   }
   for (const p of layer.poles) at.set(`${Math.floor(p.x_m / CELL_M)},${Math.floor(p.z_m / CELL_M)}`, 1);
-  const points = layer.poles.map((p) => ({ x_m: p.x_m, z_m: p.z_m, legend: p.kind === "crossing" ? 4 : 3 }));
+  const points: { x_m: number; z_m: number; legend: number }[] = layer.poles.map((p) => ({ x_m: p.x_m, z_m: p.z_m, legend: p.kind === "crossing" ? 4 : 3 }));
+  for (const r of layer.roofs ?? []) if (r.row === "corner") points.push({ x_m: r.x_m, z_m: r.z_m, legend: 5 });
   return makePicture("circuit", streets.w, streets.h, CIRCUIT_LEGEND, (i, j) => at.get(`${i},${j}`) ?? 0, points);
 }
 
