@@ -7,9 +7,9 @@
  * - `windowLit` is the building materials' window-lit twin, and `setBuildingGlow` writes a building's level into its instances' `windowLevel` slots (081 F1b), so every building stays in the shared instancers.
  * - `litGlass` is one more InstancedMesh per shop glass key over the dark glass, for the lit buildings' shopfronts only.
  */
-import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, DataTexture, Matrix4, Mesh as ThreeMesh, MeshBasicMaterial, NearestFilter, RGBAFormat, SRGBColorSpace, UnsignedByteType, type Material, type Mesh, type Object3D, type Texture } from "three";
+import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, DataTexture, Matrix4, Mesh as ThreeMesh, MeshBasicMaterial, NearestFilter, PointLight, RGBAFormat, SRGBColorSpace, UnsignedByteType, type Material, type Mesh, type Object3D, type Texture } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import type { CalibrationKey, CityBuilding, CityNodePlace, CityRoofMast } from "../core";
+import type { CalibrationKey, CityBuilding, CityNodePlace, CityPlan, CityRoofMast, CitySide } from "../core";
 import type { GridState } from "../grid";
 import { FLARE_SECONDS } from "../render/relight";
 import { SHOP_GLASS } from "./dressing";
@@ -253,4 +253,104 @@ export function litGlass(draws: readonly PlanDressDraw[], buildings: ReadonlySet
       material.dispose();
     },
   };
+}
+
+// ---- 081 L2: real lights on the street ----
+
+/** The most street lights a city makes: 32, set when the frame-time budgets of ticket 081 L2 criterion 3 passed at 25 and 32. */
+export const STREET_LIGHTS_MAX = 32;
+/** Where a light stands, metres: out from its street face, and up (the first floor's windows). */
+export const STREET_LIGHT_OUT_M = 2;
+export const STREET_LIGHT_UP_M = 3;
+/** How far a light reaches, metres (`PointLight.distance`, drawn in world units), and its decay. Numbers Josh tunes by eye. */
+export const STREET_LIGHT_REACH_M = 12;
+export const STREET_LIGHT_DECAY = 2;
+/** A light's intensity at full level: about 30 candela at metre scale, written for the city's 0.18 world units to a metre (candela fall with the square of the distance). */
+export const STREET_LIGHT_INTENSITY = 1;
+/** How much the ignition flare adds at its peak (a fraction of the intensity). */
+export const STREET_LIGHT_FLARE_GAIN = 0.5;
+
+/** One street light's place, in metres of the plan: the building it lights, and its point. */
+export interface LightPlace {
+  readonly building: string;
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+}
+
+const SIDE_DIR: Readonly<Record<CitySide, readonly [number, number]>> = { "+x": [1, 0], "-x": [-1, 0], "+z": [0, 1], "-z": [0, -1] };
+const CELL = 5;
+
+/**
+ * The street lights of `buildingIds`, in that order, at most `max`. A building's street face is its columns' open sides that face a street (`mass.built`'s `faces: "street"`, never a yard, lane or park). A building
+ * with a corner column that has two street sides gets its light over that corner's pavement (out from both sides); any other gets it in front of the middle of its street face (the mean of its street columns'
+ * face points). A building with no street face gets none and does not count against `max`. Pure.
+ */
+export function lightPlaces(plan: Pick<CityPlan, "layers">, buildingIds: Iterable<string>, max: number): LightPlace[] {
+  const buildings = plan.layers.buildings?.buildings;
+  const built = plan.layers.mass?.built;
+  if (!buildings || !built) return [];
+  const byId = new Map(buildings.map((b) => [b.id, b] as const));
+  const open = new Map(built.map((c) => [`${c.i},${c.j}`, c.open] as const));
+  const out: LightPlace[] = [];
+  for (const id of buildingIds) {
+    if (out.length >= max) break;
+    const b = byId.get(id);
+    if (!b) continue;
+    let corner: LightPlace | null = null;
+    let sx = 0;
+    let sz = 0;
+    let n = 0;
+    for (const c of b.cells) {
+      const sides = (open.get(`${c.i},${c.j}`) ?? []).filter((o) => o.faces === "street").map((o) => SIDE_DIR[o.side]);
+      if (sides.length === 0) continue;
+      let x = (c.i + 0.5) * CELL;
+      let z = (c.j + 0.5) * CELL;
+      for (const [dx, dz] of sides) {
+        x += dx * (CELL / 2 + STREET_LIGHT_OUT_M);
+        z += dz * (CELL / 2 + STREET_LIGHT_OUT_M);
+      }
+      if (sides.length >= 2 && !corner) corner = { building: id, x, y: STREET_LIGHT_UP_M, z };
+      sx += x;
+      sz += z;
+      n++;
+    }
+    if (n === 0) continue;
+    out.push(corner ?? { building: id, x: sx / n, y: STREET_LIGHT_UP_M, z: sz / n });
+  }
+  return out;
+}
+
+/** The lights of a city, made once: `lights[i]` lights `buildings[i]`. */
+export interface StreetLights {
+  readonly lights: readonly PointLight[];
+  readonly buildings: readonly string[];
+}
+
+/**
+ * The `PointLight`s of `places`, at intensity 0, never switched off and never shadowed (the count must not change in play, or every program recompiles). `scale` turns metres into world units. `extra` more
+ * lights stand on the first place (the dev `lights=N` switch), each lighting the first building at its level.
+ */
+export function streetLights(places: readonly LightPlace[], scale: number, extra = 0): StreetLights {
+  const lights: PointLight[] = [];
+  const buildings: string[] = [];
+  const total = places.length === 0 ? 0 : places.length + Math.max(0, extra);
+  for (let i = 0; i < total; i++) {
+    const p = i < places.length ? places[i]! : places[0]!;
+    const light = new PointLight(PANE_COLOURS[0], 0, STREET_LIGHT_REACH_M * scale, STREET_LIGHT_DECAY);
+    light.name = "street-light";
+    light.castShadow = false;
+    light.position.set(p.x * scale, p.y * scale, p.z * scale);
+    lights.push(light);
+    buildings.push(p.building);
+  }
+  return { lights, buildings };
+}
+
+/** Write this frame's intensities, and nothing else: `STREET_LIGHT_INTENSITY x level`, with the flare's pop. A building with no entry in `glows` is dark. */
+export function setStreetLights(pool: StreetLights, glows: ReadonlyMap<string, BuildingGlow>): void {
+  for (let i = 0; i < pool.lights.length; i++) {
+    const g = glows.get(pool.buildings[i]!);
+    pool.lights[i]!.intensity = g ? STREET_LIGHT_INTENSITY * g.level * (1 + STREET_LIGHT_FLARE_GAIN * g.flare) : 0;
+  }
 }

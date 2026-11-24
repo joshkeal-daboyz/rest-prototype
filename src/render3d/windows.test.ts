@@ -10,7 +10,8 @@ import { DEFAULT, sharedCity } from "../city/testing/namedcities";
 import { createGrid } from "../grid";
 import type { GridState } from "../grid";
 import { createRelightClock } from "./relight3d";
-import { PANE_COLOURS, WINDOW_FLARE_GAIN, WINDOW_LEVEL, WINDOW_LIT, WINDOW_UV, buildingGlow, lampBuildings, setBuildingGlow, windowLit, windowMask, type BuildingGlow } from "./windows";
+import { Scene } from "three";
+import { PANE_COLOURS, STREET_LIGHTS_MAX, STREET_LIGHT_INTENSITY, WINDOW_FLARE_GAIN, WINDOW_LEVEL, WINDOW_LIT, WINDOW_UV, buildingGlow, lampBuildings, lightPlaces, setBuildingGlow, setStreetLights, streetLights, windowLit, windowMask, type BuildingGlow } from "./windows";
 
 const texel = (x: number, y: number): number[] => {
   const d = windowMask().image.data as Uint8Array;
@@ -127,5 +128,39 @@ describe("the lit building's windows (081 L1)", () => {
     setBuildingGlow(draw, "nobody", { level: 1, flare: 0 });
     expect(shared.material).toBe(twin);
     expect(alone.material).toBe(twin);
+  });
+
+  const open = (i: number, j: number, ...sides: [string, string][]) => ({ i, j, open: sides.map(([side, faces]) => ({ side, faces, frontage: "street" })) });
+  const fixture = (n: number) => {
+    const built = [open(0, 0, ["+z", "street"]), open(1, 0, ["+z", "street"]), open(0, 5, ["+z", "street"], ["+x", "street"]), open(0, 9, ["+z", "park"]), open(0, 12)];
+    const buildings = [{ id: "mid", cells: [built[0], built[1]] }, { id: "corner", cells: [built[2]] }, { id: "yard", cells: [built[3]] }, { id: "backed", cells: [built[4]] }];
+    for (let k = 0; k < n; k++) {
+      const c = open(20 + k, 0, ["+z", "street"]);
+      built.push(c);
+      buildings.push({ id: "b" + k, cells: [c] });
+    }
+    return { layers: { mass: { built }, buildings: { buildings } } } as never;
+  };
+
+  it("a light stands in front of the middle of its street face or over its corner; a building with no street face gets none and does not count; 33 buildings at max 32 give the first 32", () => {
+    const [mid, corner, none] = [lightPlaces(fixture(0), ["mid"], 5)[0]!, lightPlaces(fixture(0), ["corner"], 5)[0]!, lightPlaces(fixture(0), ["yard", "backed"], 5)];
+    expect([mid.x, mid.y, mid.z]).toEqual([5, 3, 7]);
+    expect([corner.x, corner.z]).toEqual([7, 32]);
+    expect(none).toEqual([]);
+    const ids = ["yard", "backed", "mid", ...Array.from({ length: 33 }, (_, k) => "b" + k)];
+    expect(lightPlaces(fixture(33), ids, 32).map((p) => p.building)).toEqual(["mid", ...Array.from({ length: 31 }, (_, k) => "b" + k)]);
+    expect(STREET_LIGHTS_MAX).toBe(32);
+  });
+
+  it("the pool is made once and only intensities change: a lit and a dark building leave the scene the same lights, all visible, none shadowed", () => {
+    const places = lightPlaces(fixture(0), ["mid", "corner"], 5);
+    const pool = streetLights(places, 0.18);
+    const scene = new Scene();
+    scene.add(...pool.lights);
+    setStreetLights(pool, new Map([["mid", { level: 0.6, flare: 0 }], ["corner", { level: 0, flare: 0 }]]));
+    expect(scene.children.length).toBe(2);
+    expect(pool.lights.every((l) => l.visible && !l.castShadow)).toBe(true);
+    expect(pool.lights.map((l) => l.intensity)).toEqual([STREET_LIGHT_INTENSITY * 0.6, 0]);
+    expect(streetLights(places, 0.18, 3).lights.length).toBe(5);
   });
 });
