@@ -36,7 +36,7 @@ import { isNeverUsed } from "./citymetrics";
 import { DRESS_DRAW_CALLS_MAX, dressKeys, type DressPiece } from "./dressing";
 import { FURN_DRAW_CALLS_MAX, furnitureKeys, type FurniturePiece } from "./furniture";
 import { STOP_SIGN_COLOURWAY } from "./colourway";
-import { allStackKeys, createColourwayCache, dressGroup, dressInput, furniturePlacement, paintStack, sharedTileModels, stackRoots, tileInput, type DressPlacement, type ModelSet } from "./models3d";
+import { allStackKeys, createColourwayCache, dressGroup, dressInput, furniturePlacement, meshParts, paintStack, sharedTileModels, stackRoots, tileInput, type DressPlacement, type ModelSet } from "./models3d";
 import { planViewRequested } from "./planview";
 import type { MapRenderer3d } from "./renderer";
 import { GROUND, STREET_CAM_BACK_M, STREET_CAM_EYE_M, STREET_CAM_FOV_DEG, STREET_CAM_LOOK_M } from "./kitunits";
@@ -487,9 +487,22 @@ export interface GreyDraw {
   dispose(): void;
 }
 
+/** The side of a chunk of building pieces on the ground, in metres: about one block with its streets (081 F1a). A chunk is the unit one instancer is culled by. */
+export const BUILDING_CHUNK_M = 60;
+
+/** One instance of a building's piece: the instancer it is in, and its slot there. */
+export interface BuildingInstance {
+  readonly mesh: InstancedMesh;
+  readonly index: number;
+}
+
 export interface BuildingsDraw {
-  /** One group per building (`building:<id>`), in the layer's order. */
+  /** One group per building named in `exclude` (`building:<id>`), in the layer's order, holding one wrapper per piece. Every other building is in `instancers`. */
   groups: readonly Group[];
+  /** One instancer per (key, colourway, sub-mesh, chunk), each culled on its own bounding sphere (081 F1a). */
+  instancers: readonly InstancedMesh[];
+  /** Where each instanced building's pieces are: floors first, in the list's order, then its ground pieces. */
+  instances: ReadonlyMap<string, readonly BuildingInstance[]>;
   /** Every piece of every column, as listed; `pieces` of them are cloned (the rest are in columns that fell back to grey). */
   draws: readonly PlanPieceDraw[];
   pieces: number;
@@ -524,12 +537,15 @@ function placedClone(placement: CityPlacement, root: Object3D): Group {
   return wrap;
 }
 
+const NO_EXCLUDE: ReadonlySet<string> = new Set();
+
 /**
- * The buildings: one `Group` per building holding one wrapper per piece (at the placement's position, turn and `WORLD_PER_METRE` scale, a clone of the key's root), painted in the building's colourway; and the grey
+ * The buildings: the pieces are instanced, one `InstancedMesh` per (key, colourway, sub-mesh, chunk of `BUILDING_CHUNK_M`), at the placement's position, turn and `WORLD_PER_METRE` scale and in the building's
+ * colourway (081 F1a). A building in `exclude` is drawn as before instead: one `Group` holding one wrapper per piece (a clone of the key's root), painted in the colourway; and the grey
  * instances. A column whose pieces above the ground are not all loaded is one grey box from 0 to its roof piece's height, and none of its pieces is cloned, its ground piece included. Otherwise its ground piece is
  * cloned (once, for a `shopDouble`) when its root loaded and every column it fills is whole; when it is not drawn, the column has its ground slot as a grey box. The floors' wrappers come first in a group, then the ground pieces'.
  */
-function buildingBoxes(layer: CityBuildingsLayer, facades: CityFacadesLayer, mass: CityMassLayer, roots: ReadonlyMap<CalibrationKey, Object3D>, colourways: ReadonlyMap<string, Texture> | undefined): BuildingsBuilt {
+function buildingBoxes(layer: CityBuildingsLayer, facades: CityFacadesLayer, mass: CityMassLayer, roots: ReadonlyMap<CalibrationKey, Object3D>, colourways: ReadonlyMap<string, Texture> | undefined, exclude: ReadonlySet<string> = NO_EXCLUDE): BuildingsBuilt {
   const draws = planPieceDraws(layer);
   const groundDraws = planGroundDraws(facades, layer);
   const columns = layer.columns!;
@@ -538,6 +554,7 @@ function buildingBoxes(layer: CityBuildingsLayer, facades: CityFacadesLayer, mas
   const cache = createColourwayCache();
   const groups = new Map<string, Group>();
   for (const b of layer.buildings) {
+    if (!exclude.has(b.id)) continue;
     const g = new Group();
     g.name = `building:${b.id}`;
     g.raycast = () => {};
@@ -556,6 +573,27 @@ function buildingBoxes(layer: CityBuildingsLayer, facades: CityFacadesLayer, mas
   const drawn = groundDraws.map((g) => roots.has(g.placement.key) && g.cells.every((c) => whole.get(colId(c)) === true));
   const drawnAt = new Map<string, boolean>();
   groundDraws.forEach((g, n) => g.cells.forEach((c) => drawnAt.set(colId(c), drawn[n]!)));
+  // The instanced pieces, by (key, colourway, chunk).
+  const colourwayOf = new Map(layer.buildings.map((b) => [b.id, b.colourway] as const));
+  interface Batch {
+    key: CalibrationKey;
+    colourway: string;
+    placements: { building: string; placement: CityPlacement; order: number }[];
+  }
+  const batches = new Map<string, Batch>();
+  const taken = new Map<string, number>();
+  const instanced = (building: string, placement: CityPlacement): void => {
+    const colourway = colourwayOf.get(building)!;
+    const id = `${placement.key}|${colourway}|${Math.floor(placement.x_m / BUILDING_CHUNK_M)},${Math.floor(placement.z_m / BUILDING_CHUNK_M)}`;
+    let batch = batches.get(id);
+    if (!batch) {
+      batch = { key: placement.key, colourway, placements: [] };
+      batches.set(id, batch);
+    }
+    const order = taken.get(building) ?? 0;
+    taken.set(building, order + 1);
+    batch.placements.push({ building, placement, order });
+  };
   let pieces = 0;
   let groundPieces = 0;
   let fallback = 0;
@@ -570,9 +608,10 @@ function buildingBoxes(layer: CityBuildingsLayer, facades: CityFacadesLayer, mas
       grey(c, 0, c.pieces.find((pc) => pc.role === "roof")!.placement.y_m);
       continue;
     }
-    const group = groups.get(c.building)!;
+    const group = groups.get(c.building);
     for (const pc of c.pieces) {
-      group.add(placedClone(pc.placement, roots.get(pc.placement.key)!));
+      if (group) group.add(placedClone(pc.placement, roots.get(pc.placement.key)!));
+      else instanced(c.building, pc.placement);
       pieces++;
     }
     if (drawnAt.get(colId(c)) !== true) {
@@ -582,23 +621,65 @@ function buildingBoxes(layer: CityBuildingsLayer, facades: CityFacadesLayer, mas
   }
   groundDraws.forEach((g, n) => {
     if (!drawn[n]) return;
-    groups.get(g.building)!.add(placedClone(g.placement, roots.get(g.placement.key)!));
+    const group = groups.get(g.building);
+    if (group) group.add(placedClone(g.placement, roots.get(g.placement.key)!));
+    else instanced(g.building, g.placement);
     groundPieces++;
   });
   mesh.count = used;
   mesh.instanceMatrix.needsUpdate = true;
   mesh.computeBoundingSphere();
   mesh.raycast = () => {};
-  for (const b of layer.buildings) paintStack(groups.get(b.id)!, b.colourway, colourways ? { colourways } : {}, cache);
+  for (const b of layer.buildings) {
+    const g = groups.get(b.id);
+    if (g) paintStack(g, b.colourway, colourways ? { colourways } : {}, cache);
+  }
+  // One instancer per sub-mesh of each batch. A sub-mesh's material is painted through a scratch mesh, so the cache gives the same clone the clones had.
+  const instancers: InstancedMesh[] = [];
+  const instanceSlots = new Map<string, { order: number; part: number; at: BuildingInstance }[]>();
+  const scratch = new Mesh();
+  const scratchGroup = new Group();
+  scratchGroup.add(scratch);
+  const paintOf = (source: Material | Material[], colourway: string): Material | Material[] => {
+    scratch.material = source;
+    paintStack(scratchGroup, colourway, colourways ? { colourways } : {}, cache);
+    return scratch.material;
+  };
+  const yAxis = new Vector3(0, 1, 0);
+  const at4 = new Matrix4();
+  for (const [id, batch] of batches) {
+    const placed = batch.placements.map(({ placement: pl }) => new Matrix4().compose(new Vector3(pl.x_m * S, pl.y_m * S, pl.z_m * S), new Quaternion().setFromAxisAngle(yAxis, (pl.yaw_deg * Math.PI) / 180), new Vector3(S, S, S)));
+    meshParts(roots.get(batch.key)!).forEach((part, n) => {
+      const inst = new InstancedMesh(part.mesh.geometry, paintOf(part.mesh.material, batch.colourway), placed.length);
+      inst.name = `buildings:${id}:${n}`;
+      inst.raycast = () => {};
+      placed.forEach((w, k) => {
+        inst.setMatrixAt(k, at4.multiplyMatrices(w, part.local));
+        const { building: who, order } = batch.placements[k]!;
+        const list = instanceSlots.get(who) ?? [];
+        list.push({ order, part: n, at: { mesh: inst, index: k } });
+        instanceSlots.set(who, list);
+      });
+      inst.instanceMatrix.needsUpdate = true;
+      inst.computeBoundingSphere();
+      instancers.push(inst);
+    });
+  }
+  // A building's instances in the order its pieces were listed (floors, then ground), each piece's sub-meshes in turn.
+  const instances = new Map<string, BuildingInstance[]>();
+  for (const [who, list] of instanceSlots) instances.set(who, list.sort((a, b) => a.order - b.order || a.part - b.part).map((x) => x.at));
   return {
     whole,
     buildings: {
       groups: [...groups.values()],
+      instancers,
+      instances,
       draws,
       pieces,
       groundDraws,
       groundPieces,
       dispose() {
+        for (const m of instancers) m.dispose();
         cache.dispose();
       },
     },
@@ -1102,7 +1183,7 @@ const NO_PROPS: readonly PropPlace[] = [];
  * `walls`, `roofs` and `novelty` lists (H1b to H1c), and the ground layer's `props` (I). Draws only: it reads the layers and writes none. Throws `PlanStopError` where a layer does not say how to draw something, and where
  * `planAudit` (R12) finds a never-used key.
  */
-export function plan3dGroups(plan: CityPlan, roots: ReadonlyMap<CalibrationKey, Object3D>, entries: ReadonlyMap<CalibrationKey, AssetEntry>, colourways?: ReadonlyMap<string, Texture>, stopAtlas?: Texture, tech?: PlanTech, job?: CircuitJob): PlanDraw {
+export function plan3dGroups(plan: CityPlan, roots: ReadonlyMap<CalibrationKey, Object3D>, entries: ReadonlyMap<CalibrationKey, AssetEntry>, colourways?: ReadonlyMap<string, Texture>, stopAtlas?: Texture, tech?: PlanTech, job?: CircuitJob, exclude?: ReadonlySet<string>): PlanDraw {
   const { streets, mass, edge, buildings, facades, ground: groundLayer } = plan.layers;
   if (!streets || !mass || !edge || !buildings || !facades || !groundLayer) throw new PlanStopError("the plan has no streets, mass, edge, buildings, facades and ground layers to draw", []);
   if (!edge.ground || !edge.kerb) throw new PlanStopError("the edge layer has no ground and kerb (stage 4 writes them from D2)", []);
@@ -1130,7 +1211,7 @@ export function plan3dGroups(plan: CityPlan, roots: ReadonlyMap<CalibrationKey, 
   );
   const items = massInteriorItems(mass);
   const interior = interiorGroupOf(items, NO_PROPS, [], [], plan.options.seed, roots, entries, INTERIOR_DRAW_CALLS_MAX);
-  const built = buildingBoxes(buildings, facades, mass, roots, colourways);
+  const built = buildingBoxes(buildings, facades, mass, roots, colourways, exclude);
   const dressDraws = planDressDraws(plan);
   const propDraws = planPropDraws(plan);
   const dress = dressStage(dressDraws, roots, built.whole);
@@ -1165,7 +1246,7 @@ export function plan3dGroups(plan: CityPlan, roots: ReadonlyMap<CalibrationKey, 
   const circuit = plan.layers.circuit ? circuitGroup(circuitDraws(plan.layers.circuit, streets, job), roots) : null;
   const group = new Group();
   group.name = "plan3d";
-  group.add(tiles.group, interior.group, ...built.buildings.groups, built.grey.mesh, dress.group, furniture.group);
+  group.add(tiles.group, interior.group, ...built.buildings.groups, ...built.buildings.instancers, built.grey.mesh, dress.group, furniture.group);
   if (circuit) group.add(circuit.group);
   if (techDrawn) group.add(techDrawn.group);
   if (holdoutDrawn) group.add(holdoutDrawn.group);

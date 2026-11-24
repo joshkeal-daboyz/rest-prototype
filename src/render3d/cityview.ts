@@ -602,7 +602,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   const build = (set: ModelSet | null): void => {
     const input = set ? planInput(set) : null;
     try {
-      const next = plan3dGroups(plan, input?.roots ?? new Map(), input?.entries ?? new Map(), input?.colourways, input?.stopAtlas, undefined, job);
+      const next = plan3dGroups(plan, input?.roots ?? new Map(), input?.entries ?? new Map(), input?.colourways, input?.stopAtlas, undefined, job, new Set(lampsOf.keys()));
       freeWindows();
       if (city) {
         scene.remove(city.group);
@@ -896,6 +896,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
       roots.set(city.tiles.group, "street tiles");
       roots.set(city.interior.group, "interior");
       for (const g of city.buildings.groups) roots.set(g, "building pieces");
+      for (const m of city.buildings.instancers) roots.set(m, "building pieces");
       roots.set(city.grey.mesh, "grey boxes");
       roots.set(city.dress.group, "dressing");
       roots.set(city.furniture.group, "furniture+traffic");
