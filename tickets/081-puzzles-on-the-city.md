@@ -1292,6 +1292,8 @@ K3b merged with its lamp-height must-fix open ("Merge as is (Recommended)"), bec
 
 **Must not:** `overlay.ts`; `plan3d.ts` and `models3d.ts` (read only); `src/city/`, `src/core/`, `src/ui/`, `src/main.ts`, `src/play/`, `tools/`.
 
+**On hold for section F (24 Nov 2026).** Josh was told the city is already below 60 fps before any street light (L2's branch, 6 x 6 seed 1, P0, `perf=1`: 20.90 ms before power, 25.40 ms after the Relight). He answered on a card: **"Speed up first"**. L2 (branch `ticket/081l2-street-lights`, pushed, no PR) waits until F1b merges. Then its criterion 3 is measured again, against F's closing numbers instead of L1's. L3 also waits for F1b, and its criterion 2 is re-cut to F1b's per-instance level (below). S4 waits for F1b too, because it feeds about 25 buildings into the windows path.
+
 #### L2 · Real lights on the street (renderer). Branch `ticket/081l2-street-lights`, now (L1 is in; L-Q5 and the cap are answered). Re-cut 24 Nov 2026 for Josh's L-Q4 "Real lights", and again for "Raise the cap"
 **Goal.** In front of a lit building, a real warm light falls on its pavement, the street, the walls either side and any car or prop in reach, rising and falling with its windows: dark until the Relight reaches its lamp, then up with the flare, flickering in a brownout.
 
@@ -1341,7 +1343,7 @@ K3b merged with its lamp-height must-fix open ("Merge as is (Recommended)"), bec
    - picks no piece of a building in `exclude`: every building in cityview's `lampsOf` (the job lamps' buildings, those L1 lights as backed onto them, and from S4 the scenery buildings; see the reading above). **The architect's reading (Proposed):** a scenery building on a live pole that is dark (past a cut, or on the switch's other side) reads dark, as a job lamp does, so a faint window never makes it look half powered.
 
    **test**: 1 case on a fixture of about 200 pieces: the same pick twice, about `share` of them (within a tolerance the builder states), and none on an excluded building.
-2. [ ] **One material per source.** A dim piece takes a clone of its material with L1's mask at `DIM_LEVEL` 0.15 of lit, **steady** (Josh: "steady amber"): it never flickers, so nothing writes a dim clone during play.
+2. [ ] **Re-cut 24 Nov 2026 for section F; this replaces the wording that follows.** A dim piece's window level is F1b's per-instance level, set once at build to `DIM_LEVEL`. No material is cloned and no program is added. **test**: 1 case: the dim pieces' instances carry `DIM_LEVEL`, every other instance carries 0, and the building instancers' materials are unchanged. *The first cut's wording, kept as history:* **One material per source.** A dim piece takes a clone of its material with L1's mask at `DIM_LEVEL` 0.15 of lit, **steady** (Josh: "steady amber"): it never flickers, so nothing writes a dim clone during play.
    - Dim pieces share one clone per source material, made when the city builds.
    - No per-frame write: the level is set once at build.
 
@@ -1494,6 +1496,122 @@ It does not change the rule or a number to make P0 pass.
 
 **Files.** `src/main.ts`, `src/ui/logic.ts` and `logic.test.ts` (or the new `relightcues.ts` and its test). **Must not:** `src/render/`, `src/render3d/`, `src/play/`, `src/core/`.
 
+### F · A faster city view (renderer). Cut 24 Nov 2026, in up to four PRs: F0, F1a, F1b, then F2 only if F0's numbers call for it
+**Josh, 24 Nov 2026, on a card**, when told the city is already below 60 fps before any street light: **"Speed up first"**. L2 is on hold until F1b merges (section L).
+
+**Measured by the main session** in the browser pane on Josh's PC: L2's branch, 6 x 6 seed 1, `?puzzle=city-two-ways-round&perf=1`, CPU time from the draw call to the end of the render, median over 300 frames.
+
+| View | Draw calls | Triangles | Programs | Median |
+| --- | --- | --- | --- | --- |
+| District, before power | 216 | 3,805,028 | 12 | 20.90 ms |
+| District, after the Relight | 906 | 4,361,444 | | 25.40 ms |
+| 1280 x 800, more of the city, before power | 7,535 | 9,501,571 | | 48.10 ms |
+
+**What the code does (read 24 Nov 2026 on this branch; the architect's reading):**
+- **Building pieces are not instanced.** `plan3d.ts` `buildingBoxes` gives every piece its own `root.clone(true)` (`placedClone`). Each piece is one mesh per sub-mesh, so each is one draw call, culled one piece at a time. That is the 7,535 calls on the wide view. L1's per-building material clones (`windows.ts` `litBuilding`) add no calls of their own, because each piece was already its own call. **The jump from 216 to 906 calls after the Relight is not explained by the clones.** It needs F0's breakdown to say which family grew.
+- **The instanced families are never culled.** Three's `InstancedMesh` culls on one bounding sphere around all its instances, and `tileGroupOf`, `dressGroup`, the furniture, the interior and `circuitGroup` each hold one instancer per key for the whole city. So the district view draws the whole 6 x 6 city's streets, dressing and props: that is about 3.8 M triangles at 216 calls. The view frames the district, but the instancers still draw everything.
+- **Shadows:** off (`LIGHT_MODES.night.shadows` false). Nothing to cut.
+- **Pixel ratio:** `min(devicePixelRatio, 2)` with `antialias: true` (`renderer.ts`). The cost depends on Josh's screen, so F0 measures it.
+- **Per frame in `cityview.ts`:** `drawLive` (wire samples, pulses, sparks, the lit buildings' levels) and the overlay's Canvas 2D repaint. Both are small beside the render. `standCircuit` rebuilds only when a cut's readability changes. The overlay is outside the `perf=1` window, so F0 adds a whole-frame figure.
+- **Lit windows by a per-instance attribute: yes, and it is needed.** Once building pieces are instanced, a material clone per lit building would split its pieces out of the instancers again. So the window level becomes one float per instance, an `InstancedBufferAttribute`. The colourway materials read it, together with L1's window mask, through one `onBeforeCompile` hook, compiled when the city builds. Setting a building's level writes only its instances' slots. L3's dim windows are the same attribute, set once. This adds no program and no draw call whatever the number of lit buildings, and S4's 25 lit buildings cost nothing extra.
+
+**The architect's plan, the smallest that should reach the bar:** instance the building pieces in chunks (F1a), move the windows onto the instances (F1b), and chunk the other instancers (F2) only if F0 shows they carry the time. A draw-distance limit, fewer far props or a lower pixel ratio change how the city looks, so they are Josh's (cards F-Q1 and F-Q2). Nothing in F changes a grammar rule, a stage or a city number, so no pipeline-designer pre-check.
+
+**The bar (the architect's starting point; Josh may move it).** Measured with `perf=1` on 6 x 6 seed 1, P0, the default camera, in the browser pane on Josh's PC, as above:
+- the district view's median CPU frame is at most **16.7 ms**, both before power and after the Relight;
+- F0's whole-frame (rAF) median is at most 16.7 ms on the same view;
+- there is no new program between the first frame after the models load and the end of the Relight.
+
+The 1280 x 800 view's numbers are reported, but they are not a pass bar. They go to Josh with F-Q1.
+
+**Stop rule.** If the district view is still over 16.7 ms after F1b (and after F2, if F2 is built), the builder stops and reports ("stop 081 F", with the branch and the rows). It does not tune pieces, the camera, the reach or the shaders to pass. The main session takes the rows to Josh with F-Q1 and F-Q2.
+
+**Order and measurements.**
+| Step | Who | After | Shares |
+| --- | --- | --- | --- |
+| F0, the breakdown | renderer | now | `cityview.ts` (the `perf=1` log only) |
+| Measure M1: district and 1280 x 800, before power and after the Relight, at the native pixel ratio and at `dpr=1` | main session | F0 merges | |
+| F1a, building pieces instanced in chunks | renderer | F0 | `plan3d.ts`, `models3d.ts` |
+| F1b, windows by instance | renderer | F1a | `windows.ts`, `cityview.ts` |
+| Measure M2: as M1 | main session | F1b merges | |
+| F2, other instancers chunked | renderer | M2, only if the district view is still over the bar and M1 showed the instanced families carry most triangles | `tilecity3d.ts`, `models3d.ts`, `circuitdraw.ts` |
+| F-Q1 and F-Q2 to Josh | main session | M1 for F-Q2; M2 (or F2's measure) for F-Q1 | |
+
+S1 and U3 (outside `src/render3d/`) go on unaffected. L2, L3 and S4 wait for F1b. F0 and F1a can be built at once only if F1a's builder leaves the `perf=1` log alone. One renderer builder at a time is simpler.
+
+#### F0 · `perf=1` says where the frame goes (renderer). Branch `ticket/081f0-perf-breakdown`, now
+**Goal.** The main session can read, from one `perf=1` log line, which family of pieces costs the draw calls and triangles in view, the whole frame's time, and the cost of the pixel ratio.
+
+**Acceptance criteria.**
+1. [ ] **Per family.** The `perf=1` log adds draw calls and triangles in view for each family:
+   - the street tiles, the interior, the building pieces, the grey boxes, the dressing (stage 7), the furniture and traffic, and the circuit;
+   - the live layer, and the lit shop glass.
+
+   It counts as three culls: an object counts when its bounding sphere meets the camera frustum, an instancer counts all its instances, and a mesh counts its index (or position) count / 3. The sum is printed beside `gl.info.render`, so a gap shows. **browser**.
+2. [ ] **The whole frame.** The log also gives the median interval between `draw` calls over the same 300 frames (it includes GPU waits and the overlay), the canvas's pixel size and the pixel ratio in use. **browser**.
+3. [ ] **`dpr=N`** (dev only) sets the pixel ratio the view renders at, in place of `opts.dpr`. **browser**.
+4. [ ] The builder reports both logs (before power, after the Relight) on the district view, in a desktop window. **browser**.
+
+**Count.** 0 tests: a dev log.
+
+**Files.** `src/render3d/cityview.ts` (the `perf=1` block and the `dpr` switch only). **Must not:** everything else in `src/`.
+
+#### F1a · Building pieces instanced, in chunks (renderer). Branch `ticket/081f1a-instanced-buildings`, after F0 merges
+**Goal.** The city's building pieces draw as one instanced mesh per (key, colourway, sub-mesh, chunk), not one clone per piece, so the wide view's thousands of calls drop to a few hundred and the pieces out of view are still culled.
+
+**How (the architect's choice).** `buildingBoxes` keeps its order and its grey fallback. In place of `placedClone` it groups the pieces by key, colourway and chunk (`BUILDING_CHUNK_M`, a square on the ground, default 60 m, about one block with its streets). Each group is one `InstancedMesh` per sub-mesh, with its own bounding sphere. `BuildingsDraw` keeps, for each building, where its instances are (`instances: Map<buildingId, { mesh, index }[]>`), which replaces `groups`. **Buildings in `exclude`** (a new argument) are still drawn as clones in their `building:<id>` groups, as today. Until F1b, cityview passes `lampsOf`'s buildings there, so L1's windows keep working unchanged.
+
+**Acceptance criteria.**
+1. [ ] **One instancer per key, colourway and chunk.** **test**: 1 case, on a fixture of three buildings: two in one chunk share a key and a colourway, and one is in another chunk. The fixture draws one instancer per sub-mesh for the shared pair, holding both buildings' pieces at their placements' matrices, and a separate one for the far building. `instances` finds each building's pieces.
+2. [ ] **Excluded buildings stay clones.** **test**: 1 case: an excluded building's pieces are wrappers in its `building:<id>` group, painted in its colourway, and appear in no instancer.
+3. [ ] **The existing building tests read the instances.** **test**: rewritten, at most 6, and the builder lists them. Candidates in `plan3d.test.ts`: "draws one wrapper per piece ...", "paints a building in its loaded colourway ...", "with empty roots clones no piece ...", "draws every ground wrapper ...", "keeps the base atlas on every stage 7 and 8 piece ..." and "paints the stop sign's meshes on 01_A ...". A small test helper that lists a building's piece matrices from `instances` keeps each rewrite to a few lines.
+4. [ ] **Measure.** On the district view and 1280 x 800, before power, the building pieces' calls (F0's family) and the median are reported. **browser**.
+
+**Count.** 2 added, at most 6 rewritten: at most 8.
+
+**Files.** `src/render3d/plan3d.ts` (`buildingBoxes`, `BuildingsDraw`, `plan3dGroups`'s `exclude` pass-through) and `plan3d.test.ts`; `src/render3d/models3d.ts` (`paintStack` only, if it needs a material-level form); `src/render3d/cityview.ts` (the one `exclude` argument in `build`). **Must not:** `windows.ts`, `tilecity3d.ts`, `circuitdraw.ts`, everything outside `src/render3d/`.
+
+#### F1b · Lit windows by instance, not by clone (renderer). Branch `ticket/081f1b-instance-windows`, after F1a merges
+**Goal.** A lit building's windows glow through its instances, so every building (all of S4's, too) stays in the shared instancers, and lighting more buildings adds no draw call and no program.
+
+**Acceptance criteria.**
+1. [ ] **The level attribute.** Every building instancer carries a `windowLevel` `InstancedBufferAttribute` (one float per instance, 0 at build). The colourway materials take L1's `windowMask()` as their emissive map, through one `onBeforeCompile` hook (emissive = mask x the instance's level x `WINDOW_LIT`), compiled when the city builds. `setBuildingGlow(draw, buildingId, glow)` writes only that building's slots, with `windowIntensity`'s flare, and marks the touched attributes for upload. **test**: 1 case, on F1a's fixture: lighting one building sets its slots to its level and leaves the other building's slots at 0, the material is the same object before and after, and no material was cloned.
+2. [ ] **L1's clones go.** `litBuilding`, `LitBuilding` and F1a's `exclude` argument go. F1a's criterion 2 case is removed with it, and a removal is not counted. `drawLive` calls `setBuildingGlow` for each of `lampsOf`'s buildings. `litGlass` (the shop glass, already one mesh) is unchanged. **test**: 1 rewritten: `windows.test.ts`'s "the swap gives the lit building's pieces clones ..." becomes criterion 1's case, so the net change is 1.
+3. [ ] **No program in play.** With `perf=1`, there is no new program between the first frame after the models load and the end of the Relight, and the after-the-Relight draw calls are no more than before power's + 1 (the lit glass). **browser**.
+4. [ ] **The bar.** The builder reports M2's rows (district and 1280 x 800, before power and after the Relight). If the district view is over 16.7 ms, the stop rule applies. **browser**.
+5. [ ] Josh plays `city-two-ways-round`: the three lamp buildings light in the Relight's order and flicker in a brownout, as after L1. **browser**.
+
+**Count.** 1 rewritten (net; criterion 1's case is the rewrite): 1.
+
+**Files.** `src/render3d/windows.ts` and `windows.test.ts`; `src/render3d/plan3d.ts` (the attribute on the building instancers and the material hook only); `src/render3d/cityview.ts` (the build step and `drawLive`'s lit-building loop). **Must not:** as F1a.
+
+#### F2 · The other instancers culled in chunks (renderer). **Only if M2 calls for it**; branch `ticket/081f2-chunked-instancers`
+**Goal.** The street tiles, dressing, furniture and circuit draw only the chunks in view, so the district view stops drawing the whole city's triangles.
+
+**How.** `tileGroupOf`, `dressGroup` and `circuitGroup` take an optional `chunk_m`. When it is given, each key's instancer is split by the same square grid as F1a, each part with its own bounding sphere. The draw-call caps (`DRESS_DRAW_CALLS_MAX` and the rest) still count keys, not chunks, so no key drops out because of chunking. The tile sheet and `city=tiles` routes pass no `chunk_m` and are unchanged.
+
+**Acceptance criteria.**
+1. [ ] **Split, and the cap counts keys.** **test**: 1 case, on a fixture of one key placed in two chunks at a cap of 1: the result is two instancers with disjoint bounding spheres, holding all the instances between them, and the key is drawn.
+2. [ ] **Unchanged without `chunk_m`.** **test**: 0 added. The existing `tilecity3d.test.ts` and dressing cases pass unchanged.
+3. [ ] **The bar.** M3 as M2; the stop rule applies. **browser**.
+
+**Count.** 1 added. The builder lists any existing case it rewrites, at most 4.
+
+**Files.** `src/render3d/tilecity3d.ts`, `models3d.ts` (`dressGroup`), `circuitdraw.ts` (`circuitGroup`), `plan3d.ts` and `cityview.ts` (passing `chunk_m`), and their tests. **Must not:** everything outside `src/render3d/`.
+
+**Cards for Josh (the main session asks them, with the measured rows; recommended options first):**
+- **F-Q1, after M2 (or M3): the far city.** Asked only if the district view, or the 1280 x 800 view, is still slow.
+  - "Keep the whole city drawn (Recommended while the district view is under the bar)".
+  - "Stop drawing past N m from the camera": the camera's far plane, with a dark-blue fade so the edge does not show. It is cheaper on wide views, but the far blocks go dark.
+  - "Drop small props past N m": benches, bins and signs. Buildings and streets stay.
+- **F-Q2, after M1, only if `dpr=1` saves more than 2 ms: the pixel ratio.**
+  - "Render at your screen's full sharpness (Recommended if the bar is met without it)".
+  - "Render at 1x and let the browser scale it up": cheaper, but softer edges and text-like detail on a high-DPI screen.
+
+**Rules coverage.** No rule changes: F is drawing only. No `tickets/rules-coverage.md` row moves.
+
+**Interfaces.** None in `src/core/`: `BuildingsDraw.instances`, `setBuildingGlow` and `chunk_m` are internal to `src/render3d/`. No new dependency: `InstancedBufferAttribute` and `onBeforeCompile` are Three's.
+
 ### X1 · Delete the 2D map view (renderer). **Stub, not cut; not to be built yet**
 Josh, 24 Nov 2026: "Hide now, delete later (Recommended)". Cut in full once P2a's 16 pilots are on the city and Josh has said so. Expected:
 - **Goes:** `src/render/map-renderer.ts` and the 2D map's drawing modules and tests (most of `src/render/`).
@@ -1565,3 +1683,6 @@ All questions so far are answered (above), the mid-row one included ("Only when 
 10. **A proposal for the GDD, not for this ticket (section S).** The GDD's Draft line "Live cables don't glow" (08, "Cables in the dark") differs from your "Live drops glow (Recommended)", and from E2's glowing job spans before it. Your card stands for the prototype, since the line is Draft. Should the GDD's line be reworded for the minigame (for example, "In the circuits minigame, live job lines and the drops they feed glow; in the walking game, live cables don't"), or left as it is? Nothing in `rest-gdd` is changed by this ticket.
 11. **Default U3 takes (you may overturn it):** the scenery buildings light silently in the Relight; only the puzzle's own lamps chime, as before. The other choice is a soft, shared chime as each run's buildings light.
 12. **L2's frame budgets (yours to loosen or tighten):** at most 1.0 ms worse than L1's for P0's 3 lights, 2.5 ms at 10, 4.0 ms at 25 and 5.0 ms at 32 (and 60 fps at 32), on your PC from the default camera. They are the architect's starting points. Over 25 or 32, L2 ships at 10 and the numbers come to you.
+13. **Section F's bar (yours to move):** the district view at 16.7 ms (60 fps) or under, before power and after the Relight, on your PC from the default camera. The wide 1280 x 800 view is reported, but it is not a pass bar.
+14. **F-Q1, the far city** (after F's measurement, only if a view is still slow): keep the whole city drawn, stop drawing past a distance, or drop small props past a distance. Worded in section F.
+15. **F-Q2, the pixel ratio** (after F0's measurement, only if rendering at 1x saves more than 2 ms): full sharpness, or 1x scaled up. Worded in section F.
