@@ -1157,7 +1157,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
       if (blowBurstDue(b.routes.length > 0, b.prevT, t)) fx.blowAt(b.x, b.y, b.z, b.ground);
       b.prevT = t;
       const k = blowBolts(b.routes, t, bolts);
-      for (let j = 0; j < k; j++) fx.bolt(b.routes[bolts[j]!.route]!, bolts[j]!.head, bolts[j]!.tail);
+      for (let j = 0; j < k; j++) fx.bolt(b.routes[bolts[j]!.route]!, bolts[j]!.head, bolts[j]!.tail, time);
       if (k === 0 && t > 0) blows.splice(i, 1);
     }
     fx.update(dt, camera.quaternion);

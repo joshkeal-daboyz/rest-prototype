@@ -676,7 +676,7 @@ export function relightBursts(plan: Pick<RelightPlan, "nodeArrive">, lit: (index
 // ---- the draw layer ----
 
 /** The most quads the bolts and brownout arcs may queue in one frame. */
-const DIRECT_MAX = 256;
+const DIRECT_MAX = 384;
 
 interface Layer {
   readonly pool: ParticlePool;
@@ -752,7 +752,7 @@ export interface FxLayer {
   /** Queues one lightning quad between two points for this frame (world units, `width` too; `r g b` before the layer's gain). Dropped past the frame's room. */
   arcAt(ax: number, ay: number, az: number, bx: number, by: number, bz: number, width: number, r: number, g: number, b: number): void;
   /** Queues a jagged bolt along `route` from `tail` to `head` metres from the fuse, for this frame. */
-  bolt(route: FxRoute, head: number, tail: number): void;
+  bolt(route: FxRoute, head: number, tail: number, time: number): void;
   /** Moves the particles and writes the draw arrays. `camera` is the view's rotation (sprites face it). */
   update(dt: number, camera: Quaternion): void;
   clear(): void;
@@ -1122,7 +1122,7 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
       queue[o + 8] = g;
       queue[o + 9] = b;
     },
-    bolt(route, head, tail) {
+    bolt(route, head, tail, time) {
       const K = 10;
       const jag = 0.25 * S;
       for (let k = 0; k <= K; k++) {
@@ -1138,6 +1138,27 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
         this.arcAt(boltPts[k * 3]!, boltPts[k * 3 + 1]!, boltPts[k * 3 + 2]!, boltPts[k * 3 + 3]!, boltPts[k * 3 + 4]!, boltPts[k * 3 + 5]!, (0.5 + 0.8 * f) * S, 0.5 + 1.4 * f, 0.7 + 1.6 * f, 1.2 + 1.6 * f);
       }
       flash(boltPts[0]!, boltPts[1]!, boltPts[2]!, 4, 1, 0.05, 1.4, 1.7, 2.4, 0.7, 0.9, 1.4);
+      // Forked streaks reach out from the head and two points down the trail, a few at a time: each holds its direction for a 1/20 s slot and flickers.
+      const slot = Math.floor(time * 20);
+      for (let f = 0; f < 3; f++) {
+        const kk = f * 3;
+        const h = hash(slot * 7.1 + f * 3.3 + head * 0.37);
+        if (h > 0.75 || rnd() > 0.85) continue;
+        const a = hash(h * 91.7 + f) * Math.PI * 2;
+        const el = (hash(h * 13.9 + f * 2.1) - 0.65) * 1.3;
+        const L = (1.5 + 2.5 * hash(h * 5.3 + f)) * S;
+        const dx = Math.cos(a) * Math.cos(el);
+        const dy = Math.sin(el);
+        const dz = Math.sin(a) * Math.cos(el);
+        const ox = boltPts[kk]!;
+        const oy = boltPts[kk + 1]!;
+        const oz = boltPts[kk + 2]!;
+        const mx = ox + dx * L * 0.5 + (rnd() - 0.5) * 0.8 * S;
+        const my = oy + dy * L * 0.5 + (rnd() - 0.5) * 0.8 * S;
+        const mz = oz + dz * L * 0.5 + (rnd() - 0.5) * 0.8 * S;
+        this.arcAt(ox, oy, oz, mx, my, mz, 0.3 * S, 0.9, 1.2, 1.9);
+        this.arcAt(mx, my, mz, ox + dx * L, oy + dy * L, oz + dz * L, 0.18 * S, 0.7, 1.0, 1.7);
+      }
     },
     update(dt, camera) {
       // The cuts fed this frame spawn their arcs' flashes first; an emitter not fed has its timers reset.
