@@ -184,6 +184,12 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | X1 | **Stub, not cut:** delete the 2D map view (`src/render/`) | renderer | P2a, and Josh's word | removals; about 2 added |
 | X2 | **Stub, not cut:** delete the 2D side of `src/ui/` and `main.ts` | ui | X1 | removals; 0 added |
 | R1 | **Stub, not cut:** retarget the release playtest harness to city puzzles | (at cut) | before the next release | at cut |
+| V0 | "pre-check 081 V2": what the load numbers give away, pilot by pilot (cut 25 Nov 2026; G1: "Approve V (Recommended)") | pipeline-designer | now | 0 (a note) |
+| V1 | Every puzzle wire highlighted, dead runs included | renderer | W4, V-Q1 | 1 |
+| V2 | The load preview, pure (`loadPreview`): visible load, known faults counted, "+3" before any blow, red if over | grid-simulator | now (V0 and Josh's answers in) | 5 |
+| V3 | The numbers by the icons: the preview by controls and breaks; every fuse and feed's load against its limit | renderer | V1 (the core type is in) | 2 |
+| V4 | The page computes the preview with the read faults, and a key hides it | ui | V2, V3 | 1 |
+| FX4 | The fuse blows: a bolt down its wires to the box, a burst twice a live break's; FX3 folded in (G1: "Approve FX4 (Recommended)") | renderer | W4 | 3 |
 | W0 | "pre-check 081 W1": building-only lamps, read-outward, feed clearance, crossings, the roof options, spread (cut 25 Nov 2026; G1: "Approve W (Recommended)") | pipeline-designer | G1 | 0 (a note) |
 | W1 | The fit and the city check: lamps on buildings, routes that read outward (ring lines from where they take power), feed clearance 6 m, no crossings, own-block roofs, `--avoid` | grid-simulator | now (W0 and Josh's answers are in) | at most 9 (5 added, at most 4 rewritten) |
 | W2 | A lit building reads as lit: every storey, glow cards, the light raised; no lamp post or disc | renderer | S4 (PR #70), W-Q1 | 3 |
@@ -1801,7 +1807,7 @@ S1 and U3 (outside `src/render3d/`) go on unaffected. L2, L3 and S4 wait for F1b
 
 **Files.** New `src/render3d/fx.ts` and `fx.test.ts`; `src/render3d/cityview.ts`: the live layer's sparks, the build step (the effect meshes and the texture load), the frame loop's calls into `fx.ts`, `fx=` and its `perf=1` label, and (24 Nov 2026) each cut's ground height and span ends passed to the layer and `fx=all`'s notice; `docs/design/081-F-measurements.md` (criterion 7's block). **Must not:** `overlay.ts`, `circuitdraw.ts`, `windows.ts`, `plan3d.ts`, `models3d.ts`, `relight3d.ts` (read only); `src/render/`, `src/core/`, `src/city/`, `src/grid/`, `src/play/`, `src/ui/`, `src/main.ts`, `tools/`, `public/`, `vite.config.ts`.
 
-#### FX3 · Relight bursts and brownout arcing (renderer). Branch `ticket/081fx3-relight-and-arcs`, after FX2 merges and FX-Q3 and FX-Q4 are answered
+#### FX3 · Relight bursts and brownout arcing (renderer). **Folded into FX4** (Josh, 25 Nov 2026: "Fold it in (Recommended)"; FX-Q3 "arcs show on overloaded lines", FX-Q4 "the Relight bursts at each lit target"). Built on FX4's branch, with bursts at target lamps only
 **Goal.** In the Relight, each puzzle lamp throws a burst of sparkle and a soft flash as it lights, in the Relight's order. In a brownout, short cold blue-white arcs flick at the insulators of the overloaded feed's live poles, a few at a time, until the load is shed. Written to the recommended answers; the architect re-cuts if Josh picks others.
 
 **Acceptance criteria.**
@@ -2005,6 +2011,190 @@ S1 and U3 (outside `src/render3d/`) go on unaffected. L2, L3 and S4 wait for F1b
 
 **Interfaces.** None in `src/core/`. No new dependency.
 
+### V · Every puzzle wire highlighted; the load a throw or a repair would bring, as a number. Cut 25 Nov 2026 for G1, in five PRs: V0 (a note), V1, V2, V3, V4. **Approved (G1) 25 Nov 2026**
+
+**Josh's answers, 25 Nov 2026, on cards (relayed by the main session):**
+- **G1:** "Approve V (Recommended)".
+- **V-Q1, how a dead puzzle wire is highlighted:** "Ribbon tint (Recommended)". V1 is built as written; its criterion 3 (faded through buildings) is dropped.
+- **V-Q2, what the number counts:** "Visible load (Recommended)", the option cut as "Drawn load": unreadable faults are treated as sound, so the Decided "Faults hide faults" holds. V2 criterion 3 is built as written.
+- **V-Q3, which controls:** "Breakers and switches (Recommended)".
+- **V-Q4 (the number's form) and V-Q5 (when it is shown)** were left open until V0's note (`docs/design/081-V0-load-preview.md`, Josh's answers at its top). **Answered after it, 25 Nov 2026, on cards:** V-Q5 "On, a key hides it (Recommended)"; V-Q4 "+3, load added (Recommended)"; V-Q6 "Keep counting it (Recommended)" (a fault the player has read stays in the numbers). He saw on the card that the numbers give away the trap on 10 of 17 pilots (V0 section 1: 04, 05, 07, 09 to 15; on 03 they do the sum). V2, V3 and V4 are re-cut to these answers and V0's readings R1 to R3.
+- **Then, in chat, the same day:** "Fuses and power sources do not showcase their load. Fuses should burse with sparks when they blow, additionally the wires that they service no longer have an animation when they blow. I think we should add a bolt of electricity that flows through the wires followed by a big spark at the fuse." The first sentence is V3's criterion 4. The rest is section FX4.
+**Josh, 25 Nov 2026, in chat:** "Another issue. I want all wires associated with the puzzle to be highlighted. The game is too confusing. Further more each breaker should showcase the load that would be applied as a number if flipped. Each broken wire should show the load that would be added if repaired."
+
+**What the architect read (at `origin/main` e9f8502, with W4 building on `ticket/081w4-pulses-outward`).**
+- **The job's wires today.** E2's live layer glows and pulses a job wire only while it is powered. W4 adds a faded see-through pass for live runs. A dead job span is drawn with the same dark wire as every scenery span, so a dead run cannot be told from the city's own wires. S4's scenery drops glow when live; the city's other spans and drops never glow.
+- **The HUD's number** is per feed, "using X of Y" (`src/ui/`, from `GridState.feeds`). Fuse boxes carry `fuseLoad` against their `rating`.
+- **The renderer does not run the grid.** It reads `GridState` (a type import) each frame. The page (`src/main.ts`, the ui's) holds the grid. So the what-if is computed in `src/grid/`, called by the page, and handed to the renderer to draw.
+
+**1. "Highlighted" (the architect's reading; Proposed).** Every span and drop of every file line's run is drawn in the job's own colour, live or dead, so the puzzle's circuit stands apart from the city's wires at a glance.
+- Scenery wires (the city's other spans, scenery drops that are dark) keep today's dark wire.
+- A dead job wire gets a steady, dim **ribbon-colour tint** (V-Q1). It has no glow and no pulses, so it never reads as live: the Decided signatures need live and dead to differ.
+- A live job wire keeps E2's glow and W4's outward pulses on top.
+- A cut span is tinted like the rest of its line. The break prop and the break icon still show only when readable (Josh, 23 Nov 2026: "Only when readable"). So the highlight shows the route and nothing about faults.
+- A live scenery drop (S4) keeps its glow, untinted.
+- Whether the dead tint also shows faded through buildings, as W4 does for live runs, is V-Q1.
+
+**2. The load preview (the architect's reading; Proposed; V-Q2 to V-Q4 are Josh's).**
+- **For a breaker,** the number is the change in its feed's load if it were thrown now. **For a switch** (V-Q3), it is the same, for the switch thrown to its other line. **For a readable break** (its icon is shown), it is the change if it were repaired now, whether or not Enoch holds the wire.
+- **The units are the HUD's:** lamp-loads, per feed. It is shown as a signed change by the icon, "+3" or "−2" (V-Q4).
+- **Red when over:** if the throw or repair would take a feed over its capacity (a brownout) or a fuse over its rating (a blow), the number is red.
+- **"Faults hide faults" (Decided)** binds what the number may count. A **true what-if** (run the grid with the throw, read the load) counts what lies past a break or an open breaker. A hidden dead lamp or blown fuse there makes the number smaller than the drawn loads, so it tells the player about a fault they cannot yet read. That **breaks the Decided rule** ("nothing past an unrepaired blocking fault can be read"). So the recommended number is the **drawn load**: the what-if run with every unreadable fault treated as repaired, counting only faults the player can already read. It may turn out higher than the real change once a hidden fault shows, as the drawing does. The true what-if is offered to Josh as a proposal to change the rule (V-Q2), never built without his word.
+- **Does it remove the puzzle?** The numbers do the brief's capacity sum for the player. The brief's question 2 ("Does capacity produce a real choice") and the ladder's elements are Draft design, Josh's to trade.
+  - **Capacity or fuse choice, answered by the numbers:** 03 (not enough for all), 04 (the tired feed), 07 (its second half), 09 (shrine circuit, the capacity half), 10 (the long way brings the mill), 11 (the small fuse: red shows the blow before it happens, so its trap of a fuse that costs a part is gone), 12 (which fuse), 13 (one box, three lamps), 14 (ring from the east, which end can carry it), 15 (meet in the middle: the per-feed number shows which feed carries a junction, the element under test).
+  - **Untouched:** 01, 02, 06 and 08 (no capacity pressure), and 05 (separate pools; the number only states what the HUD already does).
+  - **With the true what-if (V-Q2's second option), the hidden-fault pilots leak too:** 07 (the dead bulb behind the fuse) and 16 (the second fault behind the first), and any other pilot with a fault behind a fault.
+  - V0 measures this, pilot by pilot.
+- **No other Decided rule is touched.** The rules on parts, the Relight and flow are untouched, and the highlight shows nothing about faults (point 1). Without V-Q2's second option, "Faults hide faults" holds.
+
+**Pre-check.** V adds a number the player is told, so **V0 is a pipeline-designer pre-check** ("pre-check 081 V2") before V2 is built. V1, V3 and V4 draw or wire it, so none.
+
+**Order and parallel work.**
+| Wave | Sections | Shared files | Why |
+| --- | --- | --- | --- |
+| Now | W4 (building) | `cityview.ts` | V1 and V3 wait for it. |
+| 1, after G1 | V0 (a note); V2 after V0 holds (or Josh's answer) | none (`src/grid/`) | V2 shares no file with W4. |
+| 2, after W4 merges | V1 (highlight) | `cityview.ts`, `circuitdraw.ts` (W4 may touch `circuitdraw.ts` if its cause is there) | Its live layer is W4's. |
+| 3, after V1 and V2 | V3 (renderer: the numbers by the icons) | `overlay.ts` (W4 must not touch it), `cityview.ts` (`paintOverlay`), `renderer.ts` | Codes against the core type. |
+| 4, after V2 and V3 | V4 (ui: the page computes the preview and hands it over) | `src/main.ts` | Calls both. |
+
+#### V0 · "pre-check 081 V2" (pipeline-designer; a note). Branch `ticket/081-puzzles-on-the-city`
+**Goal.** Before V2, say pilot by pilot what the numbers give away, under each V-Q2 option, so Josh answers V-Q2 and V-Q5 with the cost in front of him.
+
+**Acceptance criteria.**
+1. [ ] For P0 and the 16 pilots (P2a2's files), at the start and at each step of the check block's solution and each trap, the preview for every control and readable break under (a) the drawn load and (b) the true what-if. **no test** (a script run on demand, in `tools/` or the scratchpad, not `npm test`).
+2. [ ] For each pilot, whether the numbers mark every trap's wrong move red before it is made (the trap given away), and, under (b), whether any number differs from (a) while a fault is hidden (a leak). It names each. **no test**.
+3. [ ] A verdict: which pilots keep their element with the numbers on, and the question for Josh if the drawn load leaks anything (it should not). **no test**.
+
+**Files.** `docs/design/081-V0-load-preview.md` only. **Count.** 0.
+
+#### V1 · Every puzzle wire highlighted (renderer). Branch `ticket/081v1-job-wires`, after W4 merges and V-Q1
+**Goal.** From the default camera, the player sees the whole puzzle circuit in its own colour, dead runs included, apart from the city's wires; live runs glow and pulse on top, as W4 left them.
+
+**Acceptance criteria.**
+1. [ ] **The tint.** Every wire of `jobWires` (every span and the drop of every file line's run) is drawn in `JOB_WIRE_TINT` at `JOB_WIRE_DIM` (the ribbon colour; Josh tunes by eye), as one more instanced layer made at build and never changed in play. No scenery span, no scenery drop and no hidden line is in it. **test**: 1 case on a fixture conversion: the tinted layer holds exactly the file lines' spans and drops, and none of the scenery's.
+2. [ ] **Dead reads dead.** The tint has no pulses and no glow. A live wire's glow and pulses draw over it, unchanged. A cut span is tinted as its line, with no mark of the cut. **test**: folded into criterion 1's case (a cut span is in the layer, with the same tint as its neighbours).
+3. [ ] **Through buildings** (only if V-Q1 is "Tint, and faded through buildings"): the tint layer takes W4's see-through pass, sharing its geometry. **browser**.
+4. [ ] **The budget.** `perf=1` on 6 x 6 seed 1 with P0, against W4's numbers: at most 1 more draw call (2 with criterion 3), no new program in play, median within 0.5 ms. Over it, the builder stops ("stop 081 V1"). **browser**.
+5. [ ] Josh plays 03 and 04: every run of the puzzle shows before power, apart from the city's wires. **browser**.
+
+**Count.** 1 added.
+
+**Files.** `src/render3d/cityview.ts` (the build step and the live layer), `src/render3d/circuitdraw.ts` (read only, unless the wires' geometry must be exported), and one cityview test file. **Must not:** `overlay.ts`, `windows.ts`, `src/city/`, `src/grid/`, `src/core/`, `src/ui/`, `src/main.ts`.
+
+#### V2 · The load preview, pure (grid-simulator). Branch `ticket/081v2-load-preview`, now. Re-cut 25 Nov 2026 to V0's note and Josh's V-Q4 "+3, load added (Recommended)" and V-Q6 "Keep counting it (Recommended)"
+**Goal.** A pure `loadPreview(puzzle, state, known)` in `src/grid/` gives, for every breaker and switch (V-Q3 "Breakers and switches (Recommended)") and every readable fault, the load the move would put on, "+3", and whether it would end with a feed over or a fuse blown. It counts only what the player can see or has seen.
+
+**What it counts** (`src/core/preview.ts`, committed with this re-cut):
+- **The visible load** (V-Q2 "Visible load (Recommended)"). The what-if runs on the grid's own rules. Every fault the player cannot read now and has never read is treated as sound, so the Decided "Faults hide faults" holds: V0 found 0 leaks in 117 states.
+- **Known faults stay counted** (V-Q6 "Keep counting it (Recommended)"; V0 R3). A fault in `known` (the ids that have been in `readableFaults` at any state of this play; the page keeps them, V4), or readable now, counts as it is, even after current is routed away. Without this, V0 found 17 false numbers on 09, 10, 14 and P0.
+- **`delta`** (V-Q4 "+3, load added (Recommended)"; V0 R2) is the load the move puts on, before any fuse blows: the visible load the move would newly light, less what it would darken, over every feed. So 11's `br_s` reads +2, not the −4 it would read after the blow.
+- **`over`** (V0 R1): after the move and its blows, some feed ends over its capacity (even if it was over already), or a fuse blows. `blows` names the fuse boxes. Each feed is judged on its own (015 A).
+- V0's one expected false red stands: 10's solution step `br_long` reads +5 red with known faults, because `l_long2`'s break is hidden. That is the drawn rule itself, and the note says so.
+
+**Acceptance criteria.**
+1. [ ] **Breakers and switches.** On a fixture of a feed, a breaker with two lamps past it, and a switch: the breaker's entry is +2 when open and −2 when closed, and the switch's is its other line's visible load less its present line's. The call changes no state (the grid's state before and after are equal). **test**: 1 case.
+2. [ ] **A readable fault.** On a fixture, a damaged cable that current reaches has an entry for the load past it, whether or not the parts hold a wire. A fault that current does not reach has no entry ("Only when readable"). **test**: 1 case.
+3. [ ] **Unread faults stay hidden** (the Decided "Faults hide faults"). On a fixture where a blown fuse hides a dead lamp, the fuse box's repair entry counts the dead lamp's load, and equals the entry on the same fixture with the lamp sound. **test**: 1 case.
+4. [ ] **Known faults stay counted** (V-Q6). On a fixture like 10 (a switch to a line with a break the player has seen, current since routed away), the switch's entry with the break's id in `known` counts the break: +0 past it. Without the id, it counts the break as sound. **test**: 1 case.
+5. [ ] **Before the blow, and red** (V0 R1, R2). On a two-feed fixture: a move that adds 2 past a fuse rated under it reads +2, `over` true, `blows` naming the fuse. A move that leaves an already-over feed over is `over`. A move on the other feed is judged on its own. **test**: 1 case.
+6. [ ] **V0's figures, once.** The builder runs `loadPreview` over P0 and the 16 pilots' check blocks and prints, in its reply, the red-before-made count per pilot against V0's table (10 of 17), and any entry that differs from V0's "known" column. **no test**.
+7. [ ] `src/grid/` stays pure (its existing purity case, unedited). **test** (existing).
+
+**Count.** 5 added.
+
+**Files.** `src/grid/` (a new `preview.ts` and `preview.test.ts`, and the export in `index.ts`). **Must not:** any other folder. `createGrid`'s behaviour does not change.
+
+**Interfaces.** `LoadPreview`, `LoadPreviewEntry` (`{ kind, delta, over, blows }`) and `LoadPreviewKind` are in `src/core/preview.ts` (committed with this re-cut; typecheck passes). The function is `loadPreview(puzzle: Puzzle, state: GridState, known: ReadonlySet<string>): LoadPreview`. No event, no new dependency.
+
+#### V3 · The numbers by the icons (renderer). Branch `ticket/081v3-preview-numbers`, after V1 merges (shares `cityview.ts`); it codes against the core type, so it need not wait for V2
+**Goal.** By each breaker and switch icon and each readable break icon, the player reads the load the move would put on, "+3" or "−2", red if it would end with a feed over or a fuse blown. By each fuse box and each feed icon, the player reads its load now against its limit, "2 of 3".
+
+**Acceptance criteria.**
+1. [ ] **The preview's numbers.**
+   - `MapRenderer3d.setLoadPreview(p: LoadPreview | null)` (`renderer.ts`) stores the page's preview.
+   - The overlay draws each entry's `delta` signed ("+3", "−2"; V-Q4 "+3, load added (Recommended)") beside its icon (the break's at the real cut, as E4 places it), in the HUD's font, red when `over`. A zero is drawn only when `over` ("0" in red: 13's fuse, which would blow again); otherwise nothing.
+   - `null` draws none.
+
+   **test**: 1 case: `overlayLabels(icons, breaks, preview, state)` (pure, in `overlay.ts`) gives one label per entry whose icon is on screen, at the icon's side, red for `over`, none for a hidden break or a plain zero, and a red "0" for an `over` zero.
+2. [ ] During the Relight no preview numbers are drawn (it can't be interrupted, and nothing is left to choose). **test**: folded into criterion 1's case.
+3. [ ] **Fuses and feeds show their load** (Josh: "Fuses and power sources do not showcase their load"). By every fuse box icon with a `rating`, "<`fuseLoad`> of <rating>". By every feed icon with a `capacity`, "<its `feeds` load> of <capacity>", in the HUD's units, scenery included.
+   - Both read the `GridState` the renderer already has: the load lit now, which is visible load, so nothing leaks (V0 section 1).
+   - Red when the feed is over. A blown fuse box reads "0 of <rating>" beside its blown icon.
+   - Drawn during the Relight too, and **not hidden by V4's key**: they state what is lit, not what a move would do (the architect's reading of V-Q5, which was asked about the preview).
+
+   **test**: 1 case: `overlayLabels` gives "2 of 3" by a fuse box and "13 of 25" by a feed from a fixture state, red for an over feed, and none for an unrated fuse or an unlimited feed.
+4. [ ] Josh plays 04, 06 and 11: each breaker and switch shows the load it would put on, the break shows its load once current reaches it, 11's breaker reads +2 in red before the fuse blows, and every fuse and feed shows "x of y". **browser**.
+
+**Count.** 2 added.
+
+**Files.** `src/render3d/overlay.ts` and `overlay.test.ts`; `src/render3d/cityview.ts` (`paintOverlay` only); `src/render3d/renderer.ts` (the one method). **Must not:** `src/grid/` (the renderer gets the preview from the page), `src/ui/`, `src/main.ts`, `windows.ts`, `fx.ts` (FX4's).
+
+#### V4 · The page computes the preview; a key hides it (ui). Branch `ticket/081v4-preview-wired`, after V2 and V3 merge
+**Goal.** After every throw, repair, undo or reset, the page asks the grid for the preview, with the faults read so far, and hands it to the renderer. The numbers are on when a puzzle opens, and a key the HUD names hides and shows them (V-Q5 "On, a key hides it (Recommended)").
+
+**Acceptance criteria.**
+1. [ ] **The read faults** (V-Q6). A pure helper in `src/ui/`, `previewFor(puzzle, state, known, relighting)`, adds `state.readableFaults` to `known` and returns the new `known` and the preview (`null` while relighting or after the win). `known` is kept for the play. Reset clears it. An undo keeps it: the player has seen what they have seen (the architect's reading). **test**: 1 case: a fault read at one state stays in `known` after current is routed away, reset clears it, and relighting gives `null`.
+2. [ ] `src/main.ts` calls `previewFor` on each state change (not each frame) and `setLoadPreview` with the result. **no test** (criterion 1 holds the logic).
+3. [ ] **The key** (V-Q5 "On, a key hides it (Recommended)"). `V` hides and shows the preview numbers. They are on when a puzzle opens. The HUD names the key in one short line ("V: load numbers"). The choice holds for the session and is not saved. The fuse and feed labels (V3 criterion 3) are not hidden. **browser**.
+4. [ ] Josh plays 10: he throws `sw_1`, sees the break, throws back, and the number still counts the break. Then he hides the numbers with the key. **browser**.
+
+**Count.** 1 added.
+
+**Files.** `src/main.ts`; `src/ui/` (the helper, its test, and the HUD's key line). **Must not:** `src/grid/`, `src/render3d/`, `src/play/`. If the key must go through `src/play/`'s key handling, the builder stops ("stop 081 V4") and the architect re-cuts with an interaction section.
+
+**Order (re-cut 25 Nov 2026).** V2 now (`src/grid/` only). V3 after V1 merges, beside V2 (it codes against `src/core/preview.ts`). V4 after both. FX4 shares `cityview.ts` with V1 and V3, in other parts.
+
+### FX4 · The fuse blows: a bolt down its wires, a burst at the box (renderer). Branch `ticket/081fx4-fuse-blow`, after W4 merges. Cut 25 Nov 2026; **approved (G1) the same day, with FX3 folded in**
+
+**Josh's answers, 25 Nov 2026, on cards (relayed by the main session):**
+- **G1:** "Approve FX4 (Recommended)".
+- **FX4-Q1:** "Towards the fuse (Recommended)". Criterion 1 is built as written.
+- **FX4-Q2:** "Fold it in (Recommended)". FX3 rides in this PR. On the same card:
+  - **FX-Q3** was stated as "arcs show on overloaded lines". That is FX3 criterion 2 as written: arcs on the live poles of a feed that is over.
+  - **FX-Q4** was stated as "the Relight bursts at each lit target". So FX3 criterion 1 bursts at each **target** lamp as it lights, not at every job lamp (the architect's reading of the card's words). A non-target puzzle lamp lights with L1's flare only.
+- **FX4-Q3:** "Twice a live break's (Recommended)". `BLOW_SPARKS` is twice FX2's cut burst (criterion 2).
+**Josh, 25 Nov 2026, in chat:** "Fuses should burse with sparks when they blow, additionally the wires that they service no longer have an animation when they blow. I think we should add a bolt of electricity that flows through the wires followed by a big spark at the fuse."
+
+**What happens today (read at `origin/main` e9f8502).**
+- **The grid reports a blow** with `fuse:blown` (`src/core/events.ts`): `nodeId`, `faultId`, `load`, `rating`, `culprit`, `path` (the line ids from the fuse to the culprit) and `lamps` (every lamp whose load counted, each with its path).
+- **The page** (`src/main.ts`) passes it to the renderer's `notify` and shows a notice.
+- **The city renderer's `notify` is a no-op** (`cityview.ts`: `notify() {}`). So on the 3D city a blow shows nothing: the served wires just go dark at once, because the grid's state is already blown. That is "no longer have an animation".
+- **The 2D map** (ticket 016) ran a shock along each path, timed by `BLOW_TIMING` (`src/core/timing.ts`: streaks run 0.4 s fuse to lamps, glow 0.3 s, lamp sparks at 0.5 s, the fuse pops at 0.7 s for 0.6 s).
+- **The sound** (`src/audio/cues.ts` `blowCues`) already plays on `fuse:blown` to the same `BLOW_TIMING`. So the picture can join it with no sound section, as long as it keeps those times.
+- **FX2** gives the particle pool, the lightning layer (colour per instance) and the soft-spot flash, under its budget: at most 1.5 ms CPU over `fx=0` and never over 16.7 ms.
+- **FX3** (Relight bursts and brownout arcs) is cut, not built, and waits on FX-Q3 and FX-Q4. It uses the same pool and layer and shares `fx.ts` and the frame loop. So it can ride in this PR if Josh answers its two cards (FX4-Q2).
+
+**No Decided rule is touched.** "Fuse rating: over it, blows on power" and the signature "current into a fuse box and none out" hold: the effect plays over the state the grid has already set, and the fuse box then reads blown, with current in and none out. The Relight is not involved, and input is not blocked during the effect.
+
+**Goal.** When a fuse blows on the city, a bolt of electricity runs along every wire the fuse was serving, the drops to the lamps that counted included, and ends in a big spark burst at the fuse box, timed with the blow's sound. Then those wires are dark, and the box reads blown.
+
+**Acceptance criteria.**
+1. [ ] **The bolt.** `notify` keeps each `fuse:blown` with its start time.
+   - A pure `blowBolts(blow, wiresOfLine, t)` in `fx.ts` gives, for each lamp path in `lamps` (`path` when `lamps` is absent), the bolt's head and tail along its wires at time `t` after the blow.
+   - The bolt runs **towards the fuse** (FX4-Q1, written to the recommended answer), from the lamp's drop to the fuse box, over `BLOW_TIMING.run + glow`. It reaches the fuse at `popAt`, so it lands on the sound's pop.
+   - With no path, there is no bolt, and the burst is at 0, as `BLOW_TIMING` says.
+   - The bolt draws in FX2's lightning layer, bright cold white, so no draw call is added.
+
+   **test**: 1 case on a fixture blow with two lamp paths: at 0 each bolt is at its lamp's end; at `popAt` both are at the fuse; after `popAt + pop` nothing is given.
+2. [ ] **The burst at the fuse.** At `popAt`, once, at the fuse box's place: a spark burst of `BLOW_SPARKS` particles, at least twice FX2's cut burst and faster, and a soft-spot flash for `BLOW_TIMING.pop`. The burst comes from FX2's pool. **test**: folded into criterion 1's case (the burst is issued once, at the fuse's point, at `popAt`).
+3. [ ] **The served wires go dead.** Under the bolt the served wires show no pulses. They are dark from the blow on, as the grid's state already has them, and the bolt is the only thing on them. After it, they stay dark until the fuse is repaired. **browser** (`lineFlow` is unchanged; its cases hold the state).
+4. [ ] **Undo, reset and a new blow.** An undo or reset during the effect stops it at once, as FX2's repaired cut stops. Two blows in one action each play their own. **test**: folded into criterion 1's case (`blowBolts` gives nothing once the blow is cleared).
+5. [ ] **`fx=all`** gains a blow on the job's first rated fuse box every 2 s. **no test**.
+6. [ ] **The budget, as FX2's.** Against `fx=0` in the same session, `fx=all` adds at most 1.5 ms to the CPU median (2.0 ms with FX3 folded in) and stays at most 16.7 ms. No draw call is added beyond FX2's, and no new program appears in play. It has FX2's stop rule ("stop 081 FX4"), and the builder does not shrink the burst to pass. **browser**.
+7. [ ] **The sound lines up.** On the city, the pop's sound lands with the burst and the bolt's crackle with the bolt. If they don't, and the picture keeps `BLOW_TIMING`, the builder reports it, and a sound section (`src/audio/`, the sound agent's) is cut. **browser**.
+8. [ ] Josh plays 11 (the small fuse) and 13 (one box, three lamps) and springs each blow: a bolt runs down the wires to the box, the box bursts, and the wires stay dark. **browser**.
+
+**FX3 folded in** (Josh: "Fold it in (Recommended)"). FX3's criteria 1 to 5 ride in this PR, with FX-Q4's targets-only reading in criterion 1 and the bursts' "a post lamp at its glow" struck (section W). That adds 2 cases. Criterion 6's budget is the whole section's: 2.0 ms.
+
+**Count.** 3 added: 1 for FX4 (criteria 1, 2 and 4 in one case) and FX3's 2.
+
+**Files.** `src/render3d/fx.ts` and `fx.test.ts`; `src/render3d/cityview.ts` (`notify` and the frame loop's FX calls only).
+- **Order.** It shares `cityview.ts` with W4 (building), so it branches after W4 merges. V1 and V3 also touch `cityview.ts`, in other parts (the live layer and `paintOverlay`). FX4 may be built beside V1, and whichever merges second merges `main` in.
+- **Must not:** `overlay.ts`, `windows.ts`, `src/grid/`, `src/core/` (`BLOW_TIMING` is read, not changed), `src/audio/`, `src/ui/`, `src/main.ts` (it already calls `notify`).
+
+**Interfaces.** None new: `fuse:blown` and `BLOW_TIMING` exist. No new dependency. No pipeline-designer pre-check: this is drawing.
+
 ### X1 · Delete the 2D map view (renderer). **Stub, not cut; not to be built yet**
 Josh, 24 Nov 2026: "Hide now, delete later (Recommended)". Cut in full once P2a's 16 pilots are on the city and Josh has said so. Expected:
 - **Goes:** `src/render/map-renderer.ts` and the 2D map's drawing modules and tests (most of `src/render/`).
@@ -2053,6 +2243,7 @@ Written into `src/core/` with this cut (typecheck passes):
 - **Events:** none new.
 - **S, every building on a live pole (24 Nov 2026, committed with this cut; typecheck passes):** in `src/core/citycircuit.ts`, `CityPuzzleConverted.scenery?` (building id to hidden lamp id) and `CityPuzzleConverted.hidden?` (every id the conversion added), both optional until S1 writes them, and `SCENERY_BUILDING_LOAD` = 1 (Josh: "Whole"). `sceneryLamps` (S4) and `relightCues` (U3) are internal to their folders. No new dependency.
 - **FX, particle effects (24 Nov 2026, committed with this cut; typecheck passes):** new `src/core/fx.ts` (`FX_SOURCE_PACK`, `FX_SOURCE_DIR`, `FX_GAME_DIR`, `FX_TEXTURES`, `FxTextureId`, `FX_MESHES`, `FxMeshId`, `AssetFxTexture`) and `AssetManifest.fx?` in `src/core/assets.ts`, shared by FX1 (`tools/assets/game.ts`) and FX2 (`src/render3d/fx.ts`). No event, no new dependency (no particle library).
+- **V, the load preview (25 Nov 2026, committed with the V2 to V4 re-cut; typecheck passes):** new `src/core/preview.ts` (`LoadPreview`, `LoadPreviewEntry` `{ kind, delta, over, blows }`, `LoadPreviewKind`), exported from `src/core/index.ts`. V2 implements `loadPreview(puzzle, state, known)` in `src/grid/`; V3 adds `MapRenderer3d.setLoadPreview`; V4 keeps `known`. No event, no new dependency.
 - **No new dependency.** The overlay is Canvas 2D.
 
 ## Open questions (for Josh)
@@ -2081,7 +2272,7 @@ All questions so far are answered (above), the mid-row one included ("Only when 
 13. **Section F's bar (yours to move):** the district view at 16.7 ms (60 fps) or under, before power and after the Relight, on your PC from the default camera. The wide 1280 x 800 view is reported, but it is not a pass bar.
 14. **F-Q1, the far city** (after F's measurement, only if a view is still slow): keep the whole city drawn, stop drawing past a distance, or drop small props past a distance. Worded in section F.
 15. **F-Q2, the pixel ratio** (after F0's measurement, only if rendering at 1x saves more than 2 ms): full sharpness, or 1x scaled up. Worded in section F.
-16. **Section FX** (Josh, 24 Nov 2026, on cards): G1 "Approve, FX2 first (Recommended)"; FX-Q1 "Sparks first (Recommended)"; FX-Q2 "Meshes too" (folded into FX1). 24 Nov 2026, after playing FX2: "Merge FX1, fix FX2 (Recommended)", with "extreme" as "More of them", "Bigger, brighter", "Fly further", "Crackle arcs" (FX2 amended; no question left from it). **Still open, before FX3:** FX-Q3 where brownout arcs show ("A few at a time on the overloaded feed's live poles (Recommended)"); FX-Q4 the Relight ("A sparkle burst at each puzzle lamp as it lights (Recommended)"). **Not blocking, after FX1's conversion:** FX-Q5 which shard mesh ("Keep `FX_Shard_Rock_Small_01` (Recommended)").
+16. **Section FX** (Josh, 24 Nov 2026, on cards): G1 "Approve, FX2 first (Recommended)"; FX-Q1 "Sparks first (Recommended)"; FX-Q2 "Meshes too" (folded into FX1). 24 Nov 2026, after playing FX2: "Merge FX1, fix FX2 (Recommended)", with "extreme" as "More of them", "Bigger, brighter", "Fly further", "Crackle arcs" (FX2 amended; no question left from it). **Answered 25 Nov 2026 on FX4's card:** FX-Q3 "arcs show on overloaded lines", FX-Q4 "the Relight bursts at each lit target" (FX3 folded into FX4). *As first asked:* FX-Q3 where brownout arcs show ("A few at a time on the overloaded feed's live poles (Recommended)"); FX-Q4 the Relight ("A sparkle burst at each puzzle lamp as it lights (Recommended)"). **Not blocking, after FX1's conversion:** FX-Q5 which shard mesh ("Keep `FX_Shard_Rock_Small_01` (Recommended)").
 17. **FX's frame budgets:** answered, "1.5 ms / 2.0 ms (Recommended)" (Josh, 24 Nov 2026, on a card): with every effect running (`fx=all`), at most 1.5 ms CPU over `fx=0` for FX2 and 2.0 ms for the whole section, in the same session, and never over 16.7 ms. Over them, the builder stops and the numbers come to him.
 18. **Section E5, the camera** (Josh, 24 Nov 2026, in chat: "We should restrict the end users visibility to the puzzle"; on a card: "Cut it (Recommended)"). **Answered** 24 Nov 2026, on cards: G1 and E5-Q1 "Approve, 1.5x (Recommended)"; E5-Q2 "Yes, dev only (Recommended)"; E5-Q3 "Hold at the limit (Recommended)". As asked on its G1 card: E5-Q1 how far out ("1.5x (Recommended)", "1.25x", "2x"), E5-Q2 the dev switch ("Yes, `cam=free` in dev only (Recommended)", "No switch"), E5-Q3 a pane too small for the panels and the district ("Hold the camera at the limit; the panels may cover the district's edge (Recommended)", "Also fold the panels on small panes"). Worded in section E5.
 19. **Section W. Answered 25 Nov 2026, on cards** (see section W): G1 "Approve W (Recommended)"; W-Q1 "Glow cards (Recommended)"; W-Q2 "Gold windows + icon (Recommended)"; W-Q4 "One fixed view (Recommended)"; W-Q5 "Close, re-lay (Recommended)". **Then, on W0's cards: W-Q3 "Own block roofs (Recommended)"; ring lines from where each line takes its power: "Yes (Recommended)".** Nothing in section W is open. As asked (cut 25 Nov 2026 from Josh's play of P2a, `docs/design/081-P2a-josh-play.md`): approve W0, W1, W2, W3 and P2a2 as cut, with the architect's readings in section W (every city lamp a building by its drop; `{ post }` and `lead` kept as types but unused; no lamp post stands; "within blocks" read as the drops into the block's buildings).
@@ -2095,3 +2286,13 @@ All questions so far are answered (above), the mid-row one included ("Only when 
     - "Fault tracing (Draft)", the fault table's **Dead lamp** row: "Pulses reach the lamp post, but the lamp stays dark" becomes "Pulses reach the lamp post, or run down a building's drop, but the lamp or the building's windows stay dark". The part stays **Bulb**.
     - "Capacity and restraint", the endpoints bullet: unchanged (it already names shrines and homes).
     The brief's Draft line "Targets. `target` lists the lamps the priests want lit" would read "... the lamps, on the city the buildings, the priests want lit"; the brief is Josh's to reword, as noted under the Full 3D re-cut.
+21. **Section V. Answered 25 Nov 2026, on cards:** G1 "Approve V (Recommended)"; V-Q1 "Ribbon tint (Recommended)"; V-Q2 "Visible load (Recommended)"; V-Q3 "Breakers and switches (Recommended)". **Then, after V0's note:** V-Q5 "On, a key hides it (Recommended)"; V-Q4 "+3, load added (Recommended)"; V-Q6 "Keep counting it (Recommended)". Nothing in section V is open. As first asked:
+    - **V-Q1, how a dead puzzle wire is highlighted:** "Ribbon tint (Recommended)"; "Tint, and faded through buildings"; "Overlay lines back" (E4's lines, which you dropped on 24 Nov).
+    - **V-Q2, what the number counts:** "Drawn load (Recommended)" (unreadable faults treated as sound, so 'Faults hide faults', Decided, holds); "True what-if" (a proposal to change that Decided rule: the number would reveal hidden faults on 07 and 16).
+    - **V-Q3, which controls:** "Breakers and switches (Recommended)"; "Breakers only" (as you worded it).
+    - **V-Q4, the number's form:** "The change, +3 (Recommended)"; "The feed after, 13 of 25"; "Both".
+    - **V-Q5, the puzzle it removes** (03, 04, 07, 09 to 15 become a sum, by the architect's reading; V0 measures it): "Always on"; "On by default, a key hides it (Recommended)"; "Only while hovering an icon"; "Off on capacity pilots".
+22. **Section FX4. Answered 25 Nov 2026, on cards:** G1 "Approve FX4 (Recommended)"; FX4-Q1 "Towards the fuse (Recommended)"; FX4-Q2 "Fold it in (Recommended)" (FX-Q3 "arcs show on overloaded lines", FX-Q4 "the Relight bursts at each lit target"); FX4-Q3 "Twice a live break's (Recommended)". As asked:
+    - **FX4-Q1, which way the bolt runs:** "Towards the fuse (Recommended)" (as worded: the bolt runs through the wires, then the big spark at the fuse); "Out from the fuse" (as the 2D map's streaks ran).
+    - **FX4-Q2, FX3 with it:** "Fold FX3 in (Recommended)", and answer FX-Q3 (brownout arcs: "A few at a time on the overloaded feed's live poles (Recommended)") and FX-Q4 (the Relight: "A sparkle burst at each puzzle lamp as it lights (Recommended)") on the same card; or "Fuse blow only, FX3 later".
+    - **FX4-Q3, how big the burst is:** "Twice a live break's (Recommended)"; "A shower, four times"; "The same as a live break".
