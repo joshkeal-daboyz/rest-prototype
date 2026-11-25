@@ -12,7 +12,7 @@ import { cityPuzzleProblems } from "../src/city/circuit/checkpuzzle";
 import { DEFAULT, sharedCity } from "../src/city/testing/namedcities";
 import { PUZZLES_DIR, checkFile } from "./check";
 import { replayMoves } from "./checkrun";
-import { crossesInPlan } from "../src/city/circuit/roofgeom";
+import { crossesInPlan, distToSegment } from "../src/city/circuit/roofgeom";
 import { FEED_CLEAR_M, FIT_BUDGET, READ_BACK_M, buildingTargetProblems, cityCheckProblems, fitPuzzle, midRowClashes, midRowProblems, raiseForScenery } from "./fit";
 
 const CITY: CityPuzzleCity = { blocksX: 6, blocksZ: 6, seed: 1, oneWay: true };
@@ -150,7 +150,7 @@ describe("buildings are the targets (081 W1)", () => {
     expect(buildingTargetProblems(open, plan, p0Win(on)).filter((p) => p.rule === "reads-outward").map((p) => p.id)).toEqual(["l_e2", "l_x"]);
   });
 
-  it("criterion 3: a roof span within the feed's clearance fails, one sharing its pole and ending beyond it passes, and two crossing job spans fail", () => {
+  it("criterion 3: a roof span over the feed's entering span (sharing no pole) fails, one sharing its pole and ending beyond it passes, and two crossing job spans fail", () => {
     const layer = plan.layers.circuit!;
     const at = new Map<string, { x: number; z: number }>();
     for (const p of layer.poles) at.set(p.id, { x: p.x_m, z: p.z_m });
@@ -160,9 +160,11 @@ describe("buildings are the targets (081 W1)", () => {
     const job = (E: { id: string; a: string; b: string }, R: { id: string; a: string; b: string }, withFeed: boolean): CityPuzzle => ({ nodes: [{ id: "f", type: "feed", place: placeOf(E.a) }, { id: "j", type: "junction", place: placeOf(E.b) }, { id: "k", type: "junction", place: placeOf(R.a) }, { id: "m", type: "junction", place: placeOf(R.b) }], lines: [{ id: "l1", from: withFeed ? "f" : "j", to: withFeed ? "j" : "f", run: { spans: [E.id] } }, { id: "l2", from: "k", to: "m", run: { spans: [R.id] } }] }) as unknown as CityPuzzle;
     const sharing = (layer.roofSpans ?? []).slice(0, 400).flatMap((R) => layer.spans.filter((E) => [E.a, E.b].some((x) => x === R.a || x === R.b)).map((E) => [E, R] as const));
     const outcome = ([E, R]: (typeof sharing)[number]) => buildingTargetProblems(job(E, R, true), plan, undefined).filter((p) => p.rule === "feed-clear").length;
-    const near = sharing.find((x) => outcome(x) > 0);
+    // P2a's 03: a roof span that passes over the entering span without sharing a pole with it.
+    const apart = (layer.roofSpans ?? []).flatMap((R) => layer.spans.filter((E) => ![E.a, E.b].some((x) => x === R.a || x === R.b) && distToSegment(at.get(E.a)!, at.get(R.a)!, at.get(R.b)!) < FEED_CLEAR_M).map((E) => [E, R] as const));
+    const near = apart.find((x) => outcome(x) > 0);
     const clear = sharing.find((x) => outcome(x) === 0);
-    expect(near, "a roof span ending within the clearance").toBeDefined();
+    expect(near, "a roof span over the entering span, sharing no pole with it").toBeDefined();
     expect(clear, "a roof span sharing the entering span's pole and ending beyond the clearance").toBeDefined();
     expect(FEED_CLEAR_M).toBe(6);
     const roofs = (layer.roofSpans ?? []).slice(0, 600);
