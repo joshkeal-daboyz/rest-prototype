@@ -318,5 +318,7 @@ describe("a city puzzle played on the city (ticket 081 E2)", () => {
     expect(placePoint(converted.places[first]!, layer, at) && at.y).toBe(Math.max(...GROUND_POLE_ATTACH_UP_M["palm-city-pack:SM_Prop_Powerpole_02"]));
     (layer.poleModels as Record<string, string>)[pole] = "feed:unknown";
     expect(placePoint(converted.places[first]!, layer, at) && at.y).toBe(OVERLAY_POLE_Y_M);
+    const roofLayer = { ...layer, roofs: [{ id: "r1", x_m: 4, z_m: 5, deck_y_m: 12.5 }] } as unknown as CityCircuitLayer;
+    expect(placePoint({ roof: "r1" }, roofLayer, at) && [at.x, at.y, at.z]).toEqual([4, 12.5, 5]);
   });
 });
