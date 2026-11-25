@@ -177,6 +177,9 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | P0r | P0's note re-opened with its raised numbers | puzzle-designer | S1 | 0 |
 | S4 | Scenery drawn live: live drops glow and pulse, scenery windows through L1's path, their street lights | renderer | S1, L2 (shares `cityview.ts`) | 3 |
 | U3 | Hidden lamps make no Relight sound | ui | S1 | 1 |
+| FX1 | The particle pack converted; `npm run assets:game` adds its textures and its spark and shard meshes (FX-Q2 "Meshes too") | grid-simulator | now (G1: "Approve, FX2 first (Recommended)"); no other section | at most 4 (3 added, at most 1 rewritten) |
+| FX2 | The particle pool, the textures, live-break sparks and repair flashes; the pack meshes when loaded, sprites otherwise | renderer | now, beside FX1; not after FX1, L3 or S4 (they rebase on it) | 5 (6 at most) |
+| FX3 | Relight bursts and brownout arcing | renderer | FX2, and FX-Q3 and FX-Q4 answered | 2 |
 | X1 | **Stub, not cut:** delete the 2D map view (`src/render/`) | renderer | P2a, and Josh's word | removals; about 2 added |
 | X2 | **Stub, not cut:** delete the 2D side of `src/ui/` and `main.ts` | ui | X1 | removals; 0 added |
 | R1 | **Stub, not cut:** retarget the release playtest harness to city puzzles | (at cut) | before the next release | at cut |
@@ -1332,7 +1335,7 @@ K3b merged with its lamp-height must-fix open ("Merge as is (Recommended)"), bec
 
 **Interfaces.** No new dependency, no `src/core/` type: `PointLight` is Three's.
 
-#### L3 · A few dim windows in the dead city (renderer). Branch `ticket/081l3-dim-windows`, now (L1 is in; L-Q3 answered: "1 in 25, steady amber (Recommended)")
+#### L3 · A few dim windows in the dead city (renderer). Branch `ticket/081l3-dim-windows`, now (L1 is in; L-Q3 answered: "1 in 25, steady amber (Recommended)"); after FX2, or merging `main` in once FX2 is in ("Approve, FX2 first (Recommended)")
 **Goal.** Across the unpowered city, a scattering of window pieces glow faintly, like candle-light, never on a job lamp's building.
 
 **Acceptance criteria.**
@@ -1460,7 +1463,7 @@ It does not change the rule or a number to make P0 pass.
 
 **Files.** `puzzles/city/city-two-ways-round.md` only. **Count.** 0.
 
-#### S4 · Scenery drawn live: the drops glow, the windows light (renderer). Branch `ticket/081s4-scenery-live`, after S1, L2 and L3 merge
+#### S4 · Scenery drawn live: the drops glow, the windows light (renderer). Branch `ticket/081s4-scenery-live`, after S1, L2 and L3 merge (and after FX2, or merging `main` in once FX2 is in: Josh, 24 Nov 2026, "Approve, FX2 first (Recommended)")
 **Goal.** Playing `city-two-ways-round`, as the Relight's current reaches each scenery building on the job's poles, its drop glows and pulses like a job span, and its windows light through L1's path, with its street light from L2. Past a cut, or on the switch's other side, the drop and the building stay dark. They flicker in a brownout.
 
 **Acceptance criteria.**
@@ -1612,6 +1615,127 @@ S1 and U3 (outside `src/render3d/`) go on unaffected. L2, L3 and S4 wait for F1b
 
 **Interfaces.** None in `src/core/`: `BuildingsDraw.instances`, `setBuildingGlow` and `chunk_m` are internal to `src/render3d/`. No new dependency: `InstancedBufferAttribute` and `onBeforeCompile` are Three's.
 
+### FX · Particle effects on the city (renderer; FX1 grid-simulator). Cut 24 Nov 2026, in three PRs: FX1 and FX2 (now, side by side), then FX3. Re-cut the same day on Josh's G1 and cards
+**Josh, 24 Nov 2026, on a card:** "Particle FX cut". From earlier sessions (handoff 24 Nov 2026): he owns a particle pack, wants it rebuilt in Three.js (its effects are Unity prefabs), and wants it for **live-break sparks, the Relight, brownout arcing and repair flashes**, after the lighting.
+
+**Josh's answers, 24 Nov 2026, on cards (relayed by the main session):**
+- **G1:** **"Approve, FX2 first (Recommended)"**. FX2 no longer waits for L3 and S4; they merge `main` in and rebase on FX later. FX1 and FX2 may run now, side by side.
+- **FX-Q1, the order:** **"Sparks first (Recommended)"**: FX2 (sparks and repair flashes), then FX3 (the Relight and arcing).
+- **FX-Q2, the pack's meshes:** **"Meshes too"**. The pack's spark and shard meshes (`FX_MESHES`, `src/core/fx.ts`) are converted for the game pack, in **FX1** (folded in: the same owner, `tools/assets/`, and the same file, `game.ts`; its PR stays at 4 cases). FX2 does not wait for them: it draws sprites, and uses a mesh only when the loaded models hold it.
+- **The budgets:** **"1.5 ms / 2.0 ms (Recommended)"**, as written in FX2 criterion 7 and FX3 criterion 4.
+- **FX-Q3 and FX-Q4** stay open until before FX3.
+
+**What the pack holds (read 24 Nov 2026, `D:\rest-prototype-main\assets\private\in\particle-fx-pack\Source Files\`).** 58 FBX meshes (and the same as OBJ), 27 PNG textures and `MaterialList_PolygonParticleFX.txt`, which lists the Unity prefabs and their material slots. There are no prefab files: every prefab's slots say "Uses custom shader". The prefabs nearest Josh's four: `FX_Sparks_01` (round cut-out sparks and a glow), `FX_Electricity_01`/`_02`, `FX_LightningStrike_01`, `FX_GlowSpot_01` to `_03` and `FX_Sparkles_Small_01`. Their textures are the four this section takes (`FX_TEXTURES`, `src/core/fx.ts`): `Sparkle` (512 x 512, a four-point star), `Soft_Spot` (512 x 512, a soft round glow), `Lightning_02` (172 x 1024, a vertical bolt strip) and `Smoke_01` (200 x 200, a puff).
+
+**How (the architect's choices; none is a Decided rule).**
+- **Sprites first, meshes where loaded, and no prefab import.** Each effect is camera-facing sprites with one of the four textures, moved by a small CPU particle pool in `src/render3d/fx.ts`: spawn, velocity, gravity, drag, age and fade. This is what the Unity prefabs do with their particle systems. ~~The pack's FBX meshes would need the Blender converter and a manifest change for little gain, so they are not used.~~ **Changed by FX-Q2 ("Meshes too"):** the pool also drives two instanced meshes from the pack, a spark streak (`FX_Spark_01`, stretched along each spark's flight) and a small shard (`FX_Shard_Rock_Small_01`, hot chips thrown by a break burst and a repair). They are geometry only, under the renderer's own additive material, since the pack's materials are Unity custom shaders. FX1 converts them; when the loaded models lack one (no particle pack, CI), that particle is drawn as a sprite.
+- **No new dependency.** A particle library (three.quarks, three-nebula) would be one, and is not taken. A pool of a few hundred sprites is small code.
+- **Drawn from grid state and the Relight clock only.** The renderer stays bus-free (`MapRenderer.notify` is unchanged, and `src/main.ts` forwards nothing new):
+  - live-break sparks from `state.sparking` and E2's live-cut rule (the cut span is still there and current reaches it, or the Relight's fraction is past it);
+  - repair flashes from the change between the last frame's state and this one: a fault id that has left `state.faults` while `state.parts` got shorter. An undo or reset that removes a fault gives back parts, and a fuse that blows adds a fault, so neither flashes;
+  - Relight bursts from the Relight clock's lamp arrivals (`relight3d.ts`, as L1's `buildingGlow` reads them);
+  - brownout arcs from `state.brownout`, `state.feeds` (`over`) and `state.feedOf`.
+- **The same sparks mean a break, and only a break** (the brief, Decided: "current up to a sparking break"; "faults hide faults"). Break sparks are warm (orange to white) and fly from the middle of the cut span only. Brownout arcs must not read as a break. They are cold blue-white bolts, at a pole's insulators (never mid-span, never at a cut), and come only while the section is browned out. A repair flash and a Relight burst last under 1 s and never repeat. No effect shows at an unreadable fault.
+- **Job only.** Effects stand only on the job's own places: its cuts, its fault places, its lamps and its live poles. Hidden scenery lamps (S1) get no Relight burst, as U3 keeps them silent. The rest of the city is dead (CK14).
+- **No shader compiles in play** (as L1 and L2). Every effect mesh (at most one per texture and one per pack mesh, so at most 6 draw calls for the section) is made when the city builds, at its full pool size, with additive blending and `depthWrite` off. It is compiled before the first frame of play, with `count` 0 or an invisible particle, never added or removed later.
+- **The other fault signals are not in this section.** The schema's derived signals (a dead junction fizzes, a blown fuse buzzes, a dead lamp flickers red) have no 3D look yet. FX2's pool would carry them later as a small section of their own, if Josh asks.
+
+**How the textures and meshes reach the game, under the licence (Josh, 16 Nov 2026: "as long as the assets aren't available to the end user and I place the site behind a password").**
+- The pack stays in git-ignored `assets/private/in/particle-fx-pack/`. Nothing from it is committed, `import`ed into the bundle, or copied into `public/` or `dist/`. Its `pack.json` and its converted GLB live under `assets/private/` too.
+- **FX1, the textures:** `npm run assets:game` (082 B, `tools/assets/game.ts`) also copies the four PNGs into `assets/private/out/game/fx/`, and lists them in the game manifest's `fx` (`AssetManifest.fx?`, `AssetFxTexture`, typed with this cut).
+- **FX1, the meshes:** the pack is converted once like any other (`npm run assets:convert particle-fx-pack`, so the full manifest gains `particle-fx-pack`). `npm run assets:game` then cuts the `FX_MESHES` keys the full manifest holds into `out/game/particle-fx-pack.glb`, beside the models. A key the full manifest lacks is listed in one line and skipped, never a failed run, so a machine without the particle pack still gets its models.
+- The main session re-runs both from `D:\rest-main-play` after FX1 merges, as after any model key change.
+- **FX2:** the renderer fetches `${dir}game/manifest.json` and loads each listed texture by URL at run time, as `models3d.ts` loads GLBs. It loads the `FX_MESHES` keys in a `loadModels` call of their own, after the city's, so a game pack without them never sends the city's own models to the full packs.
+- **No pack, no problem.** With no game pack, an older one without `fx`, or a failed image, each effect uses a texture drawn in code (a `DataTexture`, as L1's window mask is), with one console line. A missing mesh is drawn as a sprite. So Linux CI, which has no assets, and a fresh clone both run. No test reads a real PNG, GLB or the real manifest; tests use fake fetches and typed fixtures.
+
+**The frame budget.** The bar is 16.7 ms (60 fps) on Josh's PC. The district view is about 8.5 ms CPU before power (L2's in-view rows, `docs/design/081-F-measurements.md`). Sessions on this PC differ by several ms (7.9 to 14.4 ms on the same view), so each section's budget is measured against an `fx=0` run **in the same session**, not against the note's number.
+
+**Pipeline-designer pre-check: not needed.** No grammar rule, stage or city number changes. FX is drawing in `src/render3d/` and a copy step in `tools/`. The particle counts and colours are looks Josh judges by eye.
+
+**Rules coverage.** FX2 criterion 4 adds a city-view case to the "Signatures" and "Faults hide faults" rows of `tickets/rules-coverage.md`: sparks only at a live cut, none at an unreadable one.
+
+**Cards for Josh (recommended options first):**
+- ~~**FX-Q1, the order.**~~ Answered: "Sparks first (Recommended)".
+- ~~**FX-Q2, the pack's meshes.**~~ Answered: "Meshes too" (folded into FX1, above).
+- **FX-Q5, not blocking: the shard.** After FX1's conversion, the main session shows Josh the pack's five shard meshes in the gallery (`FX_Shard_Rock_01` to `_04`, `FX_Shard_Rock_Small_01`) and `FX_CrystalShard_01`. "Keep `FX_Shard_Rock_Small_01` (Recommended)" or the one he picks; a swap is one line in `FX_MESHES` (the architect's), plus a re-run of `npm run assets:game`.
+- **FX-Q3, before FX3: where brownout arcs show.** "A few at a time on the overloaded feed's live poles (Recommended)": at most 3 at once, cold blue-white, at insulators. Or "Only at the feed's own pole". Or "None: the flicker is enough", in which case FX3 is the Relight only.
+- **FX-Q4, before FX3: the Relight.** "A sparkle burst at each puzzle lamp as it lights (Recommended)": the scenery buildings light with no burst. Or "At every building that lights, scenery too": about 25 bursts on P0, inside FX3's budget or not shipped. Or "One burst at the last target".
+
+**Order (re-cut for "Approve, FX2 first (Recommended)").** FX1 and FX2 start now, from `main`, side by side (the two agents Josh allows at a time).
+- FX1 is in `tools/assets/` only and shares no file with any open section.
+- FX2 does not wait for FX1: its code-made textures and sprites stand in, and it codes against the `src/core/fx.ts` types committed with this cut. Josh sees the pack's own textures and meshes once FX1 has merged and the main session has run the conversion and `npm run assets:game`.
+- FX2 shares `cityview.ts`'s live layer and build step with **S4** and L3's build step. FX2 goes first; L3 and S4 branch after it merges, or merge `main` in and resolve `cityview.ts` if already started. S4's criteria are unchanged by FX: it adds wires to the live layer, and FX2 only replaces the box sparks in it.
+- FX3 branches after FX2 merges, once FX-Q3 and FX-Q4 are answered.
+
+#### FX1 · The particle pack converted, and the game pack holds its textures and meshes (grid-simulator). Branch `ticket/081fx1-fx-textures`, now
+**Goal.** Josh runs `npm run assets:game` and the game pack also holds the four particle textures and the two particle meshes the city view uses, listed in its manifest. On a machine without the particle pack, the command still cuts the models and says what is missing.
+
+**Acceptance criteria.**
+1. [ ] **The copy.** `runGame` copies each `FX_TEXTURES` file from `assets/private/in/${FX_SOURCE_PACK}/${FX_SOURCE_DIR}` to `out/game/${FX_GAME_DIR}`. It writes through the same temp-then-move step as the GLBs, so a failed run leaves the earlier game pack whole. The game manifest gains `fx`: one `AssetFxTexture` per copied file, in `FX_TEXTURES` order, `image` relative to the game manifest (`"fx/PolygonParticles_Sparkle.png"`). **test**: 1 case, with fake file-system deps: the four files are copied under `out/game/fx/`, and `fx` lists them in order.
+2. [ ] **Missing textures do not stop the models.** If the pack folder or any file is missing, the run still writes the game pack: `fx` lists only the files found (absent if none), with one line naming the missing files and the folder looked in. Exit 0. **test**: 1 case: two of four files present give an `fx` of two and one line naming the other two.
+3. [ ] **Nothing else changes.** The full manifest, the full GLBs and the model part of the game pack are as before. An existing `game.test.ts` case that compares the whole game manifest may be rewritten for `fx` (at most 1, named in the reply). **test**: 0 added.
+4. [ ] **README.** `tools/blender/README.md`'s *Game pack* section gains one line: the `fx/` folder, where it is copied from, and the licence line (git-ignored, never committed or shipped). **no test**.
+5. [ ] **The particle meshes in the game pack** (FX-Q2, "Meshes too"). `runGame` cuts the `FX_MESHES` keys with the models, through 082 B's include filter, so `particle-fx-pack.glb` holds only those two. They are optional, unlike the page's keys:
+   - a key the full manifest holds joins the plan, and `game.keys`;
+   - a key it lacks (the pack not converted, or a root name that differs) is left out, with one line naming it and saying to run `npm run assets:convert particle-fx-pack`;
+   - exit 0, and the models are cut as before.
+
+   `deps.keys()` (the page's keys, from `gameModelKeys()`) is not edited, so a missing FX mesh never fails the cut. **test**: 1 case, with a fixture manifest holding `spark` but not `shard`: the plan includes the spark's pack and entry, and one line names the shard.
+6. [ ] **The pack's conversion** (the builder, on Josh's machine; nothing committed). Write `assets/private/in/particle-fx-pack/pack.json` (the scale and any `exclude` the meshes need; the OBJ folder is not FBX and is skipped anyway), and run `npm run assets:convert particle-fx-pack`. The reply gives the `pack.json` text, each `FX_MESHES` key's root name and metre bounds from the full manifest, and any `scale-suspect` flag or failure. A spark streak should be tens of centimetres, not metres. If a root name differs from `FX_MESHES`, the builder stops and reports, and the architect re-cuts the table; it does not edit `src/core/`. The pack's custom-shader materials may fail their texture search; that is reported, not fixed, since only the geometry is used. **no test**.
+7. [ ] **The run** (the main session, after merge, from `D:\rest-main-play`, whose `assets/private/in` junction reaches the pack): the conversion of criterion 6 if `out/` there lacks the pack, then `npm run assets:game`. Afterwards `out/game/fx/` holds the four PNGs, `out/game/particle-fx-pack.glb` the two meshes, and the manifest lists both. **no test**.
+
+**Count.** 3 added, at most 1 rewritten: at most 4.
+
+**Files.** `tools/assets/game.ts` and `game.test.ts`, `tools/assets/fixtures/` (if a fixture is needed), `tools/blender/README.md` (criterion 4's line also names the particle pack's conversion). Not in git: `assets/private/in/particle-fx-pack/pack.json`, `assets/private/out/`. **Must not:** `src/` (it imports `src/core/fx.ts` and edits nothing), `tools/assets/convert.ts` and `convert_fbx.py` (the conversion runs as it is; if the pack will not convert without a code change, the builder stops and reports), `package.json`, `.gitignore` (`assets/private/` already covers all of it).
+
+#### FX2 · The particle pool, live-break sparks and repair flashes (renderer). Branch `ticket/081fx2-sparks-and-repairs`, now (G1: "Approve, FX2 first (Recommended)"; before L3 and S4)
+**Goal.** Playing `city-two-ways-round`, a live break throws warm sparks that spray and fall from the middle of the cut span, with a soft flash and now and then a wisp of smoke. A break that current does not reach shows nothing. Clicking a break or a fault to repair it gives a short bright flash at its place. The frame still holds 60 fps.
+
+**Acceptance criteria.**
+1. [ ] **The textures.** A new `src/render3d/fx.ts` exports `fxTextures(deps)`. It fetches `${dir}game/manifest.json` (dev only, as the models are) and loads each `FX_TEXTURES` id listed in its `fx` by URL (`${dir}game/<image>`). Any id not listed, or whose image fails to load, takes `fxFallback(id)`: a `DataTexture` drawn in code (a four-point star, a soft dot, a jagged vertical bolt, a soft blob). One line names the fallback ids ("3D effects: drawn textures for sparkle, smoke; run npm run assets:game."). It never throws, and textures are never `import`ed. **test**: 1 case, with a fake fetch and loader: a manifest listing two ids gives two URLs under `game/fx/` and two fallbacks with one line; no manifest gives four fallbacks.
+2. [ ] **The pool (pure).** `createParticlePool(max)` holds position, velocity, age, life, size and colour in preallocated typed arrays. It has `spawn(...)`, and `step(dt, gravity, drag)`, which moves, ages and frees the dead. When full, `spawn` reuses the oldest particle. Neither allocates per call. **test**: 1 case: particles fall under gravity, die at their life, and a spawn on a full pool replaces the oldest.
+3. [ ] **The draw meshes.** One sprite mesh per texture used (`Points` with a size attribute, or an instanced camera-facing quad: the builder's choice, said in the reply), and one `InstancedMesh` per pack mesh loaded (criterion 3b). Each is made at build at its full pool size, additive, `depthWrite` off, and compiled before the first frame of play. Per frame, only the pool's arrays, the instance matrices and `count` are written. At most 5 draw calls are added by FX2 (sparkle, soft spot, smoke, spark mesh, shard mesh). **no test**: criterion 7 measures it.
+3b. [ ] **The pack meshes, when loaded** (FX-Q2, "Meshes too"). `fxMeshes(deps)` in `fx.ts` loads the `FX_MESHES` keys in a `loadModels` call of their own (`models3d.ts`, used as it is), after the city's models. It gives each id's geometry, or null for an id the set lacks, with one line naming the missing ids. A spark with a loaded `spark` mesh is drawn as that streak, oriented and stretched along its velocity; otherwise as a sparkle sprite. A `shard` chip is drawn with the shard mesh, tumbling; otherwise as a small sprite. The meshes take the effect's own additive material, not the pack's. If the meshes cannot be loaded without editing `models3d.ts`, the builder stops and reports ("stop 081 FX2"); the architect re-cuts. **test**: 1 case, with a fake load giving `spark` but not `shard`: the spark's geometry is returned, the shard is null, and one line names it.
+4. [ ] **Live-break sparks.** E2's box sparks (`sparkMesh`, `SPARKS_PER_CUT`) go. A pure `sparkingCuts(...)` in `fx.ts` gives the cut spans that spark this frame, by E2's rule moved out of the loop unchanged: the cut is still there, `state.sparking` has its line, and while the Relight runs, its line's fraction is past 0. Each sparking cut emits, from the middle sample of its cut span (where E4's break icon sits):
+   - a burst of sparks (the spark mesh, else sparkle sprites; criterion 3b) every 0.1 to 0.3 s (seeded random), with two or three shard chips, spraying out and falling under gravity, orange to white, each living about 0.4 to 0.8 s;
+   - a soft-spot flash with each burst;
+   - about one smoke wisp a second.
+
+   Brownout does not change them. **test**: 1 case on a fixture: a live cut sparks; an unreadable cut, and a cut whose fault is repaired, do not.
+5. [ ] **Repair flashes.** A pure `repairedFaults(prev, now)` gives the fault ids that left `faults` while `parts` got shorter. Each flashes once at its place: a line fault at its cut span's middle sample, a node fault at its node's place (the pick place E2 centres on). The flash is a soft-spot bloom over about 0.4 s and a ring of sparkle sprites with a few shard chips, white to warm. **test**: 1 case: a repair gives its id; an undo that restores the fault and parts, a reset, and a fuse that blows (a new fault, parts unchanged) give none.
+6. [ ] **Dev switches** (behind `import.meta.env.DEV`, read from the address in `cityview.ts`): `fx=0` draws no effect, and `fx=all` runs every FX2 effect at once, without stopping, at every cut and fault place of the job, whatever its state. This is for the measure only. **no test**.
+7. [ ] **The budget.** With the browser pane in view on Josh's PC: 6 x 6 seed 1, `?puzzle=city-two-ways-round&perf=1`, the default camera, a fresh load per run, all in one session. Three runs: `fx=0`, as played (the Relight played: throw `sw`, repair `l_e2`), and `fx=all`. The builder reports draw calls, programs, the CPU median before power and after the Relight, and the whole frame, for each run.
+   - **Pass:** against `fx=0`, `fx=all` adds at most 1.5 ms to the CPU median before power and after the Relight, and the median is at most 16.7 ms. The whole frame holds the 60 Hz vsync (about 16.7 ms). At most 5 more draw calls (3 with no pack meshes). No new program between the first frame after the models load and the end of the Relight.
+   - **Stop rule:** if any of these fails, the builder stops and reports ("stop 081 FX2", with the branch and the rows). It does not cut particle counts or tune the effect to pass. The main session puts the numbers to Josh, and the architect re-cuts with his answer.
+   
+   The budget is the architect's starting point, not a GDD number. **browser**.
+8. [ ] Josh plays `city-two-ways-round` from `npm run dev`, from the default camera and `cam=street`: the cut sparks once current reaches it, and not before; the repair flashes; the effects read as sparks and a flash, not as squares. **browser**.
+
+**Count.** 5 added, in new `src/render3d/fx.test.ts` (under 2 s: fixtures only, no city build). No existing case asserts E2's box sparks (`overlay.test.ts`'s `sparking` flag is the overlay's and stays); if one does, it is rewritten and named in the reply (at most 1, so 6 at most).
+
+**Files.** New `src/render3d/fx.ts` and `fx.test.ts`; `src/render3d/cityview.ts`: the live layer's sparks, the build step (the effect meshes and the texture load), the frame loop's calls into `fx.ts`, `fx=` and its `perf=1` label. **Must not:** `overlay.ts`, `circuitdraw.ts`, `windows.ts`, `plan3d.ts`, `models3d.ts`, `relight3d.ts` (read only); `src/render/`, `src/core/`, `src/city/`, `src/grid/`, `src/play/`, `src/ui/`, `src/main.ts`, `tools/`, `public/`, `vite.config.ts`.
+
+#### FX3 · Relight bursts and brownout arcing (renderer). Branch `ticket/081fx3-relight-and-arcs`, after FX2 merges and FX-Q3 and FX-Q4 are answered
+**Goal.** In the Relight, each puzzle lamp throws a burst of sparkle and a soft flash as it lights, in the Relight's order. In a brownout, short cold blue-white arcs flick at the insulators of the overloaded feed's live poles, a few at a time, until the load is shed. Written to the recommended answers; the architect re-cuts if Josh picks others.
+
+**Acceptance criteria.**
+1. [ ] **Relight bursts.** A pure `relightBursts(plan, lamps, prevT, t)` in `fx.ts` gives the job lamps (never a `converted.hidden` lamp) whose arrival on the Relight clock falls in `(prevT, t]`, in ignition order. Each bursts once, for about `FLARE_SECONDS`, at the lamp's place: a building lamp in front of its street face (L2's `lightPlaces` point), a post lamp at its glow. The burst is a soft-spot flash and a fountain of sparkle sprites in the lit pane's amber (L1). A click during the Relight changes nothing: the bursts come from the clock, as E2's case holds. **test**: 1 case, on P0's file through `relightFrame`'s plan (the module cache): every target lamp bursts exactly once, in the order `relightFrame` lights them, and no hidden lamp bursts.
+2. [ ] **Brownout arcs.** A pure `arcSpots(state, poles, time, max)` in `fx.ts` gives at most `max` (`ARCS_AT_ONCE`, 3) arcs this frame:
+   - only while `state.brownout`;
+   - only on job poles whose line is powered and carried (`feedOf`) by a feed whose `feeds` entry is `over`;
+   - each lasting 0.08 to 0.15 s, chosen by a hash of the pole and the time slot, so a frame's answer depends on its inputs alone.
+
+   An arc is one lightning-textured quad, stretched between two of the pole's insulators, or from an insulator 0.6 m along its wire where the pole has one. It has a small soft-spot flash and is tinted blue-white. It never stands at a cut or mid-span (see *The same sparks mean a break*). At most 1 draw call is added. **test**: 1 case on a fixture: arcs only while browned out, never more than `max`, never on a dead pole or on a pole of a feed that is not over (two feeds, one over).
+3. [ ] **`fx=all`** gains the bursts (one lamp every 0.5 s, round the job's lamps) and `max` arcs on every job pole. **no test**.
+4. [ ] **The budget,** as FX2 criterion 7, for the whole section: against `fx=0` in the same session, `fx=all` adds at most 2.0 ms to the CPU median and stays at most 16.7 ms, the vsync holds, at most 6 draw calls more than `fx=0` (FX2's 5 and this 1), and no new program in play. It has the same stop rule ("stop 081 FX3"). **browser**.
+5. [ ] Josh plays `city-two-ways-round`: overload it (P0's trap), and the arcs flick until he sheds load; then play to the Relight, and each lamp bursts as it lights. The arcs do not read as a broken cable. **browser**.
+
+**Count.** 2 added, in `fx.test.ts`. Criterion 1's P0 case builds the city through the module cache; the builder gives its time.
+
+**Files.** `src/render3d/fx.ts` and `fx.test.ts`; `src/render3d/cityview.ts`: the frame loop's calls and `fx=all`. `src/render3d/circuitdraw.ts` only to export the job poles' insulator points, if no export gives them yet (read it first; name the export in the reply). **Must not:** as FX2.
+
+**Interfaces (the section).** Written into `src/core/` with this cut (typecheck passes): `src/core/fx.ts` (`FX_SOURCE_PACK`, `FX_SOURCE_DIR`, `FX_GAME_DIR`, `FX_TEXTURES`, `FxTextureId`, `FX_MESHES`, `FxMeshId`, `AssetFxTexture`), and `AssetManifest.fx?` in `src/core/assets.ts`. It is optional, so `ASSET_MANIFEST_VERSION` stays 1, and the full manifest and the gallery read as before. `fx.ts`'s exports in `src/render3d/` are internal. **Events:** none new; the renderer stays bus-free. **No new dependency.**
+
 ### X1 · Delete the 2D map view (renderer). **Stub, not cut; not to be built yet**
 Josh, 24 Nov 2026: "Hide now, delete later (Recommended)". Cut in full once P2a's 16 pilots are on the city and Josh has said so. Expected:
 - **Goes:** `src/render/map-renderer.ts` and the 2D map's drawing modules and tests (most of `src/render/`).
@@ -1627,7 +1751,7 @@ Josh, 24 Nov 2026: "Hide now, delete later (Recommended)". Cut in full once P2a'
 Josh, 24 Nov 2026: "Retarget later (Recommended)". `tests/playtest/` replays the schematics and is left alone until then. Re-cut it for city puzzles before the next release Josh calls; until then its snapshots may go stale, as the release loop allows.
 
 ## Files
-Per section, above. This branch (the cut): `tickets/081-puzzles-on-the-city.md`, `docs/design/070-K1-circuit.md` (CK9 as changed, 24 Nov 2026; CK14's dark-building line struck for section S, 24 Nov 2026), `tickets/070-city-pipeline.md` (pointer lines), `tickets/071-pack-power-lines.md` (a pointer line: C and E's ladder wiring are dropped), `tickets/rules-coverage.md`, `src/core/citycircuit.ts` (new; `CityPuzzleView` added 24 Nov 2026 for the playable path), `src/core/cityplan.ts` (`CityCircuitLayer`), `src/core/index.ts`.
+Per section, above. This branch (the cut): `tickets/081-puzzles-on-the-city.md`, `docs/design/070-K1-circuit.md` (CK9 as changed, 24 Nov 2026; CK14's dark-building line struck for section S, 24 Nov 2026), `tickets/070-city-pipeline.md` (pointer lines), `tickets/071-pack-power-lines.md` (a pointer line: C and E's ladder wiring are dropped), `tickets/rules-coverage.md`, `src/core/citycircuit.ts` (new; `CityPuzzleView` added 24 Nov 2026 for the playable path), `src/core/cityplan.ts` (`CityCircuitLayer`), `src/core/index.ts`. Section FX's cut (24 Nov 2026): new `src/core/fx.ts`, `src/core/assets.ts` (`AssetManifest.fx?`), `src/core/index.ts`, `tickets/rules-coverage.md`.
 
 ## Interfaces
 Written into `src/core/` with this cut (typecheck passes):
@@ -1658,6 +1782,7 @@ Written into `src/core/` with this cut (typecheck passes):
 - **L, lit buildings (24 Nov 2026, committed with this cut; typecheck passes):** `CircuitComponentPick.removed?` (`{ words, date }`) in `src/core/citycircuit.ts`: nothing stands for a removed pick, its key is not loaded, and its place still counts. L1 sets it on `lampBuilding`. `windows.ts`'s exports (`WINDOW_UV`, `windowMask`, `buildingGlow`, `litBuilding`, `poolPlaces`, `dimPieces`) are internal to `src/render3d/`, so no other core change.
 - **Events:** none new.
 - **S, every building on a live pole (24 Nov 2026, committed with this cut; typecheck passes):** in `src/core/citycircuit.ts`, `CityPuzzleConverted.scenery?` (building id to hidden lamp id) and `CityPuzzleConverted.hidden?` (every id the conversion added), both optional until S1 writes them, and `SCENERY_BUILDING_LOAD` = 1 (Josh: "Whole"). `sceneryLamps` (S4) and `relightCues` (U3) are internal to their folders. No new dependency.
+- **FX, particle effects (24 Nov 2026, committed with this cut; typecheck passes):** new `src/core/fx.ts` (`FX_SOURCE_PACK`, `FX_SOURCE_DIR`, `FX_GAME_DIR`, `FX_TEXTURES`, `FxTextureId`, `FX_MESHES`, `FxMeshId`, `AssetFxTexture`) and `AssetManifest.fx?` in `src/core/assets.ts`, shared by FX1 (`tools/assets/game.ts`) and FX2 (`src/render3d/fx.ts`). No event, no new dependency (no particle library).
 - **No new dependency.** The overlay is Canvas 2D.
 
 ## Open questions (for Josh)
@@ -1686,3 +1811,5 @@ All questions so far are answered (above), the mid-row one included ("Only when 
 13. **Section F's bar (yours to move):** the district view at 16.7 ms (60 fps) or under, before power and after the Relight, on your PC from the default camera. The wide 1280 x 800 view is reported, but it is not a pass bar.
 14. **F-Q1, the far city** (after F's measurement, only if a view is still slow): keep the whole city drawn, stop drawing past a distance, or drop small props past a distance. Worded in section F.
 15. **F-Q2, the pixel ratio** (after F0's measurement, only if rendering at 1x saves more than 2 ms): full sharpness, or 1x scaled up. Worded in section F.
+16. **Section FX** (Josh, 24 Nov 2026, on cards): G1 "Approve, FX2 first (Recommended)"; FX-Q1 "Sparks first (Recommended)"; FX-Q2 "Meshes too" (folded into FX1). **Still open, before FX3:** FX-Q3 where brownout arcs show ("A few at a time on the overloaded feed's live poles (Recommended)"); FX-Q4 the Relight ("A sparkle burst at each puzzle lamp as it lights (Recommended)"). **Not blocking, after FX1's conversion:** FX-Q5 which shard mesh ("Keep `FX_Shard_Rock_Small_01` (Recommended)").
+17. **FX's frame budgets:** answered, "1.5 ms / 2.0 ms (Recommended)" (Josh, 24 Nov 2026, on a card): with every effect running (`fx=all`), at most 1.5 ms CPU over `fx=0` for FX2 and 2.0 ms for the whole section, in the same session, and never over 16.7 ms. Over them, the builder stops and the numbers come to him.

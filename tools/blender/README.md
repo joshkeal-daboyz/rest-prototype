@@ -104,6 +104,8 @@ path per line), then checks each model against the full manifest (name, scale, t
 full manifest, is `scale-suspect`, or differs after the cut, the run exits 1 and the earlier game pack is left as it was. It never writes the
 full GLBs or the full manifest.
 
+It also copies the four particle textures the city view uses (`FX_TEXTURES`, `src/core/fx.ts`) from `assets/private/in/particle-fx-pack/Source Files/Textures/` to `game/fx/`, lists them in the manifest's `fx`, and cuts the two particle meshes (`FX_MESHES`: a spark streak and a shard chip) into `game/particle-fx-pack.glb` once `npm run assets:convert particle-fx-pack` has converted that pack. A missing texture or mesh is named in one line and skipped (exit 0). The pack is git-ignored under `assets/private/`, never committed, bundled or copied into `dist/` or `public/` (081 FX1).
+
 The game pack is gitignored (`assets/private/`) and is never committed, bundled or copied into `dist/` or `public/`: the Synty licence
 allows the packs "as long as the assets aren't available to the end user and I place the site behind a password" (Josh, 16 Nov 2026).
 
