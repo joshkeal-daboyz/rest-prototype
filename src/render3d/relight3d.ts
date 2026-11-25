@@ -1,7 +1,6 @@
 /**
  * The Relight in 3D, as pure data (ticket 037 C3): the same schedule as the 2D view, from the same planner. No three, no DOM.
- * The 2D renderer keeps the line fraction and the lamp ignition test inline; they are mirrored here, and a test reads
- * src/render/map-renderer.ts so the two cannot drift apart silently.
+ * The line fraction and the lamp ignition test live here (the 2D renderer they once mirrored is gone, ticket 081 X1c).
  */
 
 import type { Puzzle } from "../core";

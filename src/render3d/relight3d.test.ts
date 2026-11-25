@@ -111,15 +111,3 @@ describe("lineFraction", () => {
     for (const id of ["l_st1", "l_s2", "l_a"]) for (const t of [0, 1, 3, 99]) expect(lineFraction(plan, li(id), t), id).toBe(0);
   });
 });
-
-describe("drift guard", () => {
-  it("2D still has the lines this mirrors", () => {
-    const src = readFileSync("src/render/map-renderer.ts", "utf8");
-    for (const line of [
-      "frac = e > s ? clamp01((relT - s) / (e - s)) : relT >= e ? 1 : 0;",
-      "if (state.lit.has(id) && relT >= arrive) {",
-      "if (relT < plan.duration) rp = plan;",
-      "if (!plan) plan = planRelight(puzzle, state);",
-    ]) expect(src, line).toContain(line);
-  });
-});
