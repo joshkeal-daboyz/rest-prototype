@@ -30,9 +30,9 @@ import { lightModeFor, type LightModeId } from "./lighting";
 import { addSurface, applyLightMode, newLightOwners, setRendererMode } from "./lightrig";
 import { createFxLayer, fxSwitch, repairedFaults, sharedFx, sparkingCuts, type FxCut, type FxEmitter } from "./fx";
 import { lampFlicker } from "./look";
-import { STREET_LIGHTS_MAX, buildingGlow, lampBuildings, lightPlaces, litGlass, setBuildingGlow, setStreetLights, streetLights, type BuildingGlow, type BuildingLamp, type LitGlass, type StreetLights } from "./windows";
+import { DIM_SHARE, STREET_LIGHTS_MAX, buildingGlow, dimBuildings, dimPieces, setDimWindows, lampBuildings, lightPlaces, litGlass, setBuildingGlow, setStreetLights, streetLights, type BuildingGlow, type BuildingLamp, type LitGlass, type StreetLights } from "./windows";
 import { WORLD_PER_METRE } from "./models";
-import { sharedTileModels, type ModelSet } from "./models3d";
+import { meshParts, sharedTileModels, type ModelSet } from "./models3d";
 import { OVERLAY_HIT_PX, overlayHit, overlayIcons, overlayBreakHit, overlayBreaks, placePoint, type OverlayBreak, type OverlayIcon, type Project } from "./overlay";
 import { createPicker, type Picker } from "./pick";
 import { PlanStopError, plan3dGroups, planInput, planKeys, planFailureText } from "./plan3d";
@@ -612,6 +612,8 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     for (const [id, lamps] of lampsOf) litBuildings.push({ id, lamps });
     litShop = litGlass(next.dressDraws, new Set(lampsOf.keys()), roots);
     if (litShop.mesh) next.group.add(litShop.mesh);
+    // 081 L3: a few dim windows in the dead city, set once at build, never on a job lamp's building.
+    setDimWindows(next.buildings, dimPieces(dimBuildings(next.buildings.draws, (k) => (roots.get(k) ? meshParts(roots.get(k)!).length : 0)), DIM_SHARE, plan.options.seed, new Set(lampsOf.keys())));
     const max = Number.isFinite(lightsWanted) ? Math.min(lightsWanted, STREET_LIGHTS_MAX) : STREET_LIGHTS_MAX;
     const places = lightPlaces(plan, lampsOf.keys(), max);
     if (places.length >= max && lightPlaces(plan, lampsOf.keys(), Infinity).length > places.length) console.warn(`street lights: more lit-able buildings than the cap of ${max}; the first ${max} get a light`);
