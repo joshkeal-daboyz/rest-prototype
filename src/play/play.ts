@@ -1,7 +1,7 @@
 /** Turns pointer input on a map into grid calls. Never draws, never computes power. */
 import type { EventBus, Puzzle } from "../core";
 import type { Grid } from "../grid";
-import type { MapRenderer } from "../render";
+import type { MapRenderer } from "../render3d/maprender";
 import { createSessionLog, type LogEntry } from "./log";
 import { intentFor, needsText, promptFor } from "./prompt";
 
