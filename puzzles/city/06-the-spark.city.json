@@ -1,0 +1,118 @@
+{
+  "id": "06-the-spark",
+  "name": "06 · The spark",
+  "version": 4,
+  "scope": "map",
+  "capacity": 4,
+  "startingParts": [
+    "wire"
+  ],
+  "target": [
+    "shrine"
+  ],
+  "from": "06-the-spark",
+  "city": {
+    "blocksX": 6,
+    "blocksZ": 6,
+    "seed": 1,
+    "oneWay": true
+  },
+  "district": [
+    "block:5:0"
+  ],
+  "nodes": [
+    {
+      "id": "feed",
+      "type": "feed",
+      "place": {
+        "pole": "pole:z:5:lo:27.50"
+      }
+    },
+    {
+      "id": "br_main",
+      "type": "breaker",
+      "closed": false,
+      "place": {
+        "pole": "pole:z:5:hi:27.50"
+      }
+    },
+    {
+      "id": "sw_1",
+      "type": "switch",
+      "outputs": [
+        "l_home",
+        "l_lane"
+      ],
+      "selected": 0,
+      "place": {
+        "pole": "pole:x:0:hi:205.00"
+      }
+    },
+    {
+      "id": "home",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:5:0|outer|-z|39,5"
+      }
+    },
+    {
+      "id": "shrine",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:5:0|outer|-z|44,5"
+      }
+    }
+  ],
+  "lines": [
+    {
+      "id": "l_feed",
+      "from": "feed",
+      "to": "br_main",
+      "run": {
+        "spans": [
+          "span:pole:z:5:hi:27.50~pole:z:5:lo:27.50"
+        ]
+      }
+    },
+    {
+      "id": "l_sw",
+      "from": "br_main",
+      "to": "sw_1",
+      "run": {
+        "spans": [
+          "span:pole:x:0:hi:192.50~pole:z:5:hi:27.50",
+          "span:pole:x:0:hi:192.50~pole:x:0:hi:205.00"
+        ]
+      }
+    },
+    {
+      "id": "l_home",
+      "from": "sw_1",
+      "to": "home",
+      "run": {
+        "spans": [],
+        "drop": "block:5:0|outer|-z|39,5"
+      }
+    },
+    {
+      "id": "l_lane",
+      "from": "sw_1",
+      "to": "shrine",
+      "run": {
+        "spans": [
+          "span:pole:x:0:hi:205.00~pole:x:0:hi:220.50"
+        ],
+        "drop": "block:5:0|outer|-z|44,5"
+      }
+    }
+  ],
+  "faults": [
+    {
+      "id": "f1",
+      "at": "l_lane",
+      "kind": "damaged-cable"
+    }
+  ]
+}
