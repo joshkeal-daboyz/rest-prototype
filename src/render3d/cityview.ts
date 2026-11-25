@@ -1058,6 +1058,13 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     }
     return Float32Array.from(out);
   };
+  // The street (or roof deck) height under a fuse box: its pole's foot, its roof's deck, else the street surface at 0 (never the box's own height up the pole).
+  const blowGround = (nodeId: string, own: number): number => {
+    const place = converted.places[nodeId];
+    if (place && "roof" in place) return own;
+    if (place && "pole" in place) return poleFoot.get(place.pole) ?? 0;
+    return 0;
+  };
   const blowOf = (faultId: string, nodeId: string, paths: readonly (readonly string[])[], synthetic: boolean): Blow => {
     const routes: FxRoute[] = [];
     for (const path of paths) {
@@ -1070,7 +1077,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     }
     const at = nodeCentre.get(nodeId) ?? { x: 0, y: 0, z: 0 };
     const piece = nodePiece.get(nodeId);
-    return { faultId, synthetic, routes, x: at.x, y: at.y, z: at.z, ground: piece ? piece.position.y : ground.position.y + 0.05, start: -1, prevT: -1, near: nearWalls(at.x, at.z) };
+    return { faultId, synthetic, routes, x: at.x, y: at.y, z: at.z, ground: blowGround(nodeId, piece ? piece.position.y : 0), start: -1, prevT: -1, near: nearWalls(at.x, at.z) };
   };
   // The pole ends of the job's live wires (a cut span's are left out): an insulator and the point 0.6 m along the wire.
   const arcPorts: FxPort[] = [];
@@ -1106,6 +1113,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   let fxAllBloom = 0;
   const fxAllArcs = Math.min(arcPorts.length, 24);
   let fxLast = -1;
+  const fxView = { x: 0, y: 0, z: 0, near: 0.1, tanHalf: 0.5, aspect: 1 };
   let fxPrev: GridState | null = null;
   let fxState: GridState | null = null;
   let fxPlan: ReturnType<typeof clock.update> = null;
@@ -1188,7 +1196,13 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
       for (let j = 0; j < k; j++) fx.bolt(b.routes[bolts[j]!.route]!, bolts[j]!.head, bolts[j]!.tail, time);
       if (k === 0 && t > 0) blows.splice(i, 1);
     }
-    fx.update(dt, camera.quaternion);
+    fxView.x = camera.position.x;
+    fxView.y = camera.position.y;
+    fxView.z = camera.position.z;
+    fxView.near = camera.near;
+    fxView.tanHalf = Math.tan((camera.fov * Math.PI) / 360);
+    fxView.aspect = camera.aspect;
+    fx.update(dt, camera.quaternion, fxView);
   }
 
   function drawLive(state: GridState, plan_: ReturnType<typeof clock.update>, relT: number, time: number): void {

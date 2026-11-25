@@ -564,7 +564,7 @@ export function cutArcs(cut: { readonly id: number; readonly span: FxSpan }, tim
 // ---- the blown fuse's bolt, brownout arcs and Relight bursts (pure; 081 FX4, FX3) ----
 
 /** The sparks a blown fuse bursts: twice FX2's biggest single burst (a live break's pop, up to 70). */
-export const BLOW_SPARKS = 140;
+export const BLOW_SPARKS = 240;
 /** The bolt's length along the wire, in metres. */
 export const BOLT_LEN_M = 8;
 
@@ -822,6 +822,19 @@ function hotColour(u: number, out: Color): void {
   out.multiplyScalar(HOT);
 }
 
+/** The blown fuse's sparks: orange-gold by age (yellow-gold, then orange, then deep red), as the reference footage's shower. */
+function goldColour(u: number, out: Color): void {
+  if (u < 0.3) out.setRGB(1.0, 0.82, 0.42);
+  else if (u < 0.65) {
+    const t = (u - 0.3) / 0.35;
+    out.setRGB(1.0, 0.82 + (0.52 - 0.82) * t, 0.42 + (0.12 - 0.42) * t);
+  } else {
+    const t = (u - 0.65) / 0.35;
+    out.setRGB(1.0 + (0.85 - 1.0) * t, 0.52 + (0.2 - 0.52) * t, 0.12 + (0.04 - 0.12) * t);
+  }
+  out.multiplyScalar(HOT);
+}
+
 /** One break emitter: where it sits (the cut span's middle sample), the ground height under it, and its span (for the arcs). World units. */
 export interface FxEmitter {
   readonly id: number;
@@ -841,6 +854,19 @@ export interface FxCounts {
   spark: number;
   shard: number;
 }
+
+/** The camera as the white-out needs it: its place, near plane, the tangent of half its vertical field and its aspect. */
+export interface FxView {
+  x: number;
+  y: number;
+  z: number;
+  near: number;
+  tanHalf: number;
+  aspect: number;
+}
+
+const WHITE_HOLD_S = 0.08;
+const WHITE_FADE_S = 0.4;
 
 /** What `createFxLayer` hands back. All positions are world units (metres x `WORLD_PER_METRE`). */
 export interface FxLayer {
@@ -867,7 +893,7 @@ export interface FxLayer {
   /** Queues a jagged bolt along `route` from `tail` to `head` metres from the fuse, for this frame. */
   bolt(route: FxRoute, head: number, tail: number, time: number): void;
   /** Moves the particles and writes the draw arrays. `camera` is the view's rotation (sprites face it). */
-  update(dt: number, camera: Quaternion): void;
+  update(dt: number, camera: Quaternion, view?: FxView): void;
   clear(): void;
   /** Particles alive, for the measure's label. */
   alive(): number;
@@ -917,14 +943,14 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
   lightMat.depthTest = false;
   mats.push(sparkleMat, softMat, smokeMat, lightMat);
   const sparkle = makeLayer(640 * n + 800, quad, sparkleMat, "sprite", 6, 1.4, fadeLinear);
-  const soft = makeLayer(48 * n + 64, quad, softMat, "sprite", 0, 2.5, fadeSoft, n);
-  const smoke = makeLayer(24 * n + 1, quad, smokeMat, "sprite", -0.6, 1.6, fadeWisp);
+  const soft = makeLayer(48 * n + 64, quad, softMat, "sprite", 0, 2.5, fadeSoft, n + 1);
+  const smoke = makeLayer(24 * n + 16, quad, smokeMat, "sprite", -0.6, 1.6, fadeWisp);
   const spark = makeLayer(640 * n + 600, unit, meshMat, "streak", 9.8, 0.6, fadeHot);
   const shard = makeLayer(128 * n + 32, unit, meshMat, "chip", 12, 0.6, fadeHot);
   const lightning = makeLayer(1, quad, lightMat, "sprite", 0, 0, fadeLinear, 8 * n + DIRECT_MAX);
   const lightCap = 1 + 8 * n + DIRECT_MAX;
   // Four white point lights, made now at intensity 0 and never added or removed: 0 the fuse burst, 1 and 2 the live breaks' sparks, 3 the bolt's head. The light count in play never changes.
-  const burstLight = new PointLight(0xffffff, 0, 60 * S, 1);
+  const burstLight = new PointLight(0xd6e4ff, 0, 60 * S, 1);
   const sparkLights = [new PointLight(0xffffff, 0, 30 * S, 1), new PointLight(0xffffff, 0, 30 * S, 1)];
   const boltLight = new PointLight(0xffffff, 0, 35 * S, 1);
   const fxLights = [burstLight, ...sparkLights, boltLight];
@@ -934,6 +960,8 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
     group.add(l);
   }
   let burstAge = -1;
+  // The white-out: age since the burst (-1 idle). One more instance of the soft-spot layer, a screen-sized sprite in front of the camera, so it adds no draw call and no program.
+  let whiteAge = -1;
   let boltOn = false;
   // Sparks skitter: four touches of the street or a wall before they die.
   spark.pool.maxBounces = 4;
@@ -968,7 +996,7 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
   const bp = { x: 0, y: 0, z: 0 };
   const blowAtE = { x: 0, y: 0, z: 0, ground: 0 };
 
-  const sparkOut = (e: FxEmitter, mul: number, lifeMul = 1): void => {
+  const sparkOut = (e: FxEmitter, mul: number, lifeMul = 1, gold = false): void => {
     const a = rnd() * Math.PI * 2;
     // Inside a cone about straight down, 60 degrees across (within 30 degrees of down): none go up.
     const sp = (4 + rnd() * 5) * mul * S;
@@ -981,10 +1009,10 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
     p.vz = Math.sin(a) * h;
     p.vy = -Math.cos(th) * sp;
     p.life = (0.7 + rnd() * 0.7) * lifeMul;
-    p.size = (haveSpark ? 0.15 : 0.9) * S;
+    p.size = (haveSpark ? (gold ? 0.1 : 0.15) : gold ? 0.6 : 0.9) * S;
     p.grow = haveSpark ? 1 : 0.5;
     p.spin = 0;
-    p.ramp = 1;
+    p.ramp = gold ? 2 : 1;
     p.floor = e.ground;
     (haveSpark ? spark : sparkle).pool.spawn(p);
   };
@@ -1067,7 +1095,8 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
       }
       m4.compose(pv, q, sv).toArray(arr, i * 16);
       if (isHot) {
-        hotColour(u, hot);
+        if (pool.ramp[i]! > 1.5) goldColour(u, hot);
+        else hotColour(u, hot);
         col[i * 3] = hot.r * f;
         col[i * 3 + 1] = hot.g * f;
         col[i * 3 + 2] = hot.b * f;
@@ -1207,12 +1236,35 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
       blowAtE.y = y;
       blowAtE.z = z;
       blowAtE.ground = ground;
-      for (let i = 0; i < BLOW_SPARKS; i++) sparkOut(e, 2.2, 2);
+      for (let i = 0; i < BLOW_SPARKS; i++) sparkOut(e, 2.2, 2, true);
       for (let i = 0; i < 12; i++) chipOut(e);
       burstLight.position.set(x, y + 1 * S, z);
       burstAge = 0;
-      flash(x, y, z, 9, 1.5, BLOW_TIMING.pop, 2.2, 2.0, 1.6, 1.2, 0.5, 0.1);
-      flash(x, y, z, 3, 1.2, 0.2, 2.4, 2.4, 2.4, 1.6, 1.2, 0.8);
+      // A blue-white ball of light at the fuse, a blue-lit haze round it, and the whole view blown out for a moment.
+      flash(x, y, z, 9, 1.5, BLOW_TIMING.pop, 1.6, 2.0, 2.6, 0.5, 0.7, 1.3);
+      flash(x, y, z, 3, 1.2, 0.2, 2.4, 2.6, 3.0, 1.2, 1.5, 2.2);
+      whiteAge = 0;
+      for (let i = 0; i < 4; i++) {
+        p.x = x + (rnd() - 0.5) * 0.6 * S;
+        p.y = y + (rnd() - 0.2) * 0.6 * S;
+        p.z = z + (rnd() - 0.5) * 0.6 * S;
+        p.vx = (rnd() - 0.5) * 1.2 * S;
+        p.vy = (0.3 + rnd() * 0.6) * S;
+        p.vz = (rnd() - 0.5) * 1.2 * S;
+        p.life = 1.0 + rnd() * 0.4;
+        p.size = 2.5 * S;
+        p.grow = 2.5;
+        p.spin = 0;
+        p.r0 = 0.5;
+        p.g0 = 0.65;
+        p.b0 = 1.0;
+        p.r1 = 0.2;
+        p.g1 = 0.25;
+        p.b1 = 0.45;
+        p.ramp = 0;
+        p.floor = NO_FLOOR;
+        smoke.pool.spawn(p);
+      }
     },
     arcFlashAt(x, y, z) {
       flash(x, y, z, 1, 1, 0.05, 0.8, 1.0, 1.5, 0.4, 0.5, 0.8);
@@ -1307,7 +1359,7 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
         this.arcAt(mx, my, mz, ex, ey, ez, 0.18 * S, 1.2, 1.25, 1.4);
       }
     },
-    update(dt, camera) {
+    update(dt, camera, view) {
       // The cuts fed this frame spawn their arcs' flashes first; an emitter not fed has its timers reset.
       for (let s = 0; s < n; s++) {
         if (fed[s] === 0) {
@@ -1402,6 +1454,22 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
       }
       queued = 0;
       for (let i = sparkLit; i < 2; i++) sparkLights[i]!.intensity = 0;
+      // The white-out: held a moment at the burst, then back over about 0.4 s, white-yellow.
+      if (whiteAge >= 0) {
+        whiteAge += dt;
+        const k = whiteAge < WHITE_HOLD_S ? 1 : Math.max(0, 1 - (whiteAge - WHITE_HOLD_S) / WHITE_FADE_S) ** 2;
+        if (k <= 0) whiteAge = -1;
+        else if (view) {
+          const d = view.near * 3;
+          const size = 2 * d * view.tanHalf * Math.max(1, view.aspect) * 2.6;
+          zv.set(0, 0, -1).applyQuaternion(camera);
+          const gi = soft.pool.count + glows++;
+          m4.compose(pv.set(view.x + zv.x * d, view.y + zv.y * d, view.z + zv.z * d), q.copy(camera), sv.setScalar(size)).toArray(sarr, gi * 16);
+          scol[gi * 3] = 2.6 * k;
+          scol[gi * 3 + 1] = 2.4 * k;
+          scol[gi * 3 + 2] = 1.5 * k;
+        }
+      }
       soft.direct = glows;
       lightning.direct = drawn;
       for (const l of layers) {
@@ -1421,6 +1489,7 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
       glows = 0;
       queued = 0;
       burstAge = -1;
+      whiteAge = -1;
       boltOn = false;
       for (const l of fxLights) l.intensity = 0;
     },
