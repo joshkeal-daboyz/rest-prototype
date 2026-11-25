@@ -120,3 +120,14 @@ The `fx=0` run was taken while an architect agent was working, so its CPU median
 At 1287 x 1178 the branch opens exactly where main does (main 1,774 with effects off, plus FX2's 5). Its furthest zoom-out there looks the same as main's by eye (1.5 x D0 against main's 1.6 x the opening); perf=1 logs only the first 300 frames after load, so no number is taken at that zoom. At 800 x 570 the small-pane opening falls from main's 3,465 to 2,530 draw calls. That is still above the desktop's 1,779, because the wider aspect shows more city side to side at the limit distance. No branch number is higher than main's at the same size.
 
 E5 review round 1, must-fix 2 (furthest zoom-out timings on both builds): waived by Josh, 24 Nov 2026, on a card: "Waive it (Recommended)". The opening rows above and the by-eye check at the furthest zoom-out stand.
+
+## L3, criterion 3 (24 Nov 2026, Josh's PC, in view)
+
+`?puzzle=city-two-ways-round&perf=1`, 6x6 seed 1, before power, pane emulated at 1287 x 1178 (canvas 1930 x 1767, pixel ratio 1.5), two fresh loads each, alternating. `main` at d9b3740 (D:\rest-main-play), the branch at 2a8e7a0.
+
+| Build | Draw calls | Programs | CPU median (two loads) | Whole frame |
+| --- | --- | --- | --- | --- |
+| main | 1,778 | 12 | 9.3, 9.8 ms | 16.70 ms |
+| L3 | 1,778 | 12 | 10.3, 8.4 ms | 16.70 ms |
+
+Pass: no draw call and no program added; the CPU medians overlap within the run-to-run noise (about 1 to 2 ms).

@@ -11,7 +11,7 @@ import { createGrid } from "../grid";
 import type { GridState } from "../grid";
 import { createRelightClock } from "./relight3d";
 import { Scene } from "three";
-import { PANE_COLOURS, STREET_LIGHTS_MAX, STREET_LIGHT_INTENSITY, WINDOW_FLARE_GAIN, WINDOW_LEVEL, WINDOW_LIT, WINDOW_UV, buildingGlow, lampBuildings, lightPlaces, setBuildingGlow, setStreetLights, streetLights, windowLit, windowMask, type BuildingGlow } from "./windows";
+import { DIM_LEVEL, DIM_SHARE, PANE_COLOURS, STREET_LIGHTS_MAX, STREET_LIGHT_INTENSITY, WINDOW_FLARE_GAIN, WINDOW_LEVEL, WINDOW_LIT, WINDOW_UV, buildingGlow, dimPieces, lampBuildings, lightPlaces, setBuildingGlow, setDimWindows, setStreetLights, streetLights, windowLit, windowMask, type BuildingGlow } from "./windows";
 
 const texel = (x: number, y: number): number[] => {
   const d = windowMask().image.data as Uint8Array;
@@ -162,5 +162,33 @@ describe("the lit building's windows (081 L1)", () => {
     expect(pool.lights.every((l) => l.visible && !l.castShadow)).toBe(true);
     expect(pool.lights.map((l) => l.intensity)).toEqual([STREET_LIGHT_INTENSITY * 0.6, 0]);
     expect(streetLights(places, 0.18, 3).lights.length).toBe(5);
+  });
+
+  const city = (n: number) => Array.from({ length: n }, (_, b) => ({ id: `b${b}`, pieces: [{ role: "floor", parts: 1 }, { role: "floor", parts: 2 }, { role: "floor3", parts: 1 }, { role: "roof", parts: 1 }] }));
+
+  it("dim pieces (081 L3): the same pick every load, about DIM_SHARE of floors, never a roof or an excluded building", () => {
+    const buildings = city(50); // 150 floor pieces, 50 roofs
+    const exclude = new Set(["b0", "b1", "b2"]);
+    const pick = dimPieces(buildings, DIM_SHARE, 7, exclude);
+    expect([...dimPieces(buildings, DIM_SHARE, 7, exclude)]).toEqual([...pick]);
+    expect([...pick.keys()].some((id) => exclude.has(id))).toBe(false);
+    // Offsets 0..3 are the floors (parts 1, 2, 1) and 4 is the roof; a roof is never picked.
+    expect([...pick.values()].flat().every((o) => o < 4)).toBe(true);
+    // 1/25 of 141 floor pieces is about 6; across 3 seeds' worth the share stays within a factor of 3 either way.
+    const many = dimPieces(city(1000), DIM_SHARE, 3, new Set()); // 3000 floor pieces
+    const pieces = [...many.values()].reduce((a, l) => a + l.filter((o) => o !== 2).length, 0); // the middle piece's 2nd part is not a piece
+    expect(pieces / 3000).toBeGreaterThan(DIM_SHARE * 0.7);
+    expect(pieces / 3000).toBeLessThan(DIM_SHARE * 1.3);
+  });
+
+  it("dim windows (081 L3): the picked instances carry DIM_LEVEL, every other carries 0, and no material changes", () => {
+    const twin = windowLit(new MeshStandardMaterial({ map: new Texture() }));
+    const geo = new BoxGeometry(1, 1, 1);
+    geo.setAttribute(WINDOW_LEVEL, new InstancedBufferAttribute(new Float32Array(4), 1));
+    const mesh = new InstancedMesh(geo, twin, 4);
+    const draw = { instances: new Map([["a", [0, 1, 2].map((index) => ({ mesh, index }))], ["lamp", [{ mesh, index: 3 }]]]) };
+    setDimWindows(draw, new Map([["a", [1]]]));
+    expect([...(geo.getAttribute(WINDOW_LEVEL).array as Float32Array)]).toEqual([0, Math.fround(DIM_LEVEL), 0, 0]);
+    expect(mesh.material).toBe(twin);
   });
 });

@@ -15,7 +15,7 @@ import { FLARE_SECONDS } from "../render/relight";
 import { SHOP_GLASS } from "./dressing";
 import { lampFlicker } from "./look";
 import { dressMatrix, meshParts } from "./models3d";
-import type { BuildingsDraw, PlanDressDraw } from "./plan3d";
+import type { BuildingsDraw, PlanDressDraw, PlanPieceDraw } from "./plan3d";
 import { lampIgnition, type LampIgnition } from "./relight3d";
 import type { RelightPlan } from "../render/relight";
 
@@ -352,5 +352,92 @@ export function setStreetLights(pool: StreetLights, glows: ReadonlyMap<string, B
   for (let i = 0; i < pool.lights.length; i++) {
     const g = glows.get(pool.buildings[i]!);
     pool.lights[i]!.intensity = g ? STREET_LIGHT_INTENSITY * g.level * (1 + STREET_LIGHT_FLARE_GAIN * g.flare) : 0;
+  }
+}
+
+// ---- 081 L3: a few dim windows in the dead city ----
+
+/** The share of window pieces (floor and `floor3`) that glow faintly before any power: 1 in 25 (Josh, L-Q3, "1 in 25, steady amber (Recommended)"). */
+export const DIM_SHARE = 1 / 25;
+/** A dim window's level, a fraction of a lit window's. Steady: nothing writes it after the build. */
+export const DIM_LEVEL = 0.15;
+
+/** A building's pieces, bottom up, as its instancers hold them: each piece's role and how many sub-mesh instances it has. Only the buildings' pieces that are instanced (a grey column has none) are listed. */
+export interface DimBuilding {
+  readonly id: string;
+  readonly pieces: readonly { readonly role: string; readonly parts: number }[];
+}
+
+/** A stable hash of (seed, building id, piece index) into [0, 1): FNV-1a over the id's characters, then the numbers, finished with an integer mix. */
+function hash01(seed: number, id: string, index: number): number {
+  let h = 2166136261 ^ seed;
+  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619);
+  h = Math.imul(h ^ index, 16777619);
+  h ^= h >>> 15;
+  h = Math.imul(h, 2246822519);
+  h ^= h >>> 13;
+  h = Math.imul(h, 3266489917);
+  h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+}
+
+/**
+ * The dim windows: for each building not in `exclude`, the offsets in its instance list (`BuildingsDraw.instances`) of the sub-meshes of the pieces picked. Only `floor` and `floor3` pieces can be picked (never the
+ * ground storey, which is not in `pieces`, and never the roof); a piece is picked when a hash of `seed`, the building id and the piece index falls under `share`, so the pick is the same every load. Pure.
+ */
+export function dimPieces(buildings: readonly DimBuilding[], share: number, seed: number, exclude: ReadonlySet<string>): Map<string, number[]> {
+  const out = new Map<string, number[]>();
+  for (const b of buildings) {
+    if (exclude.has(b.id)) continue;
+    let at = 0;
+    b.pieces.forEach((p, n) => {
+      const first = at;
+      at += p.parts;
+      if (p.role !== "floor" && p.role !== "floor3") return;
+      if (hash01(seed, b.id, n) >= share) return;
+      const list = out.get(b.id) ?? [];
+      for (let k = 0; k < p.parts; k++) list.push(first + k);
+      out.set(b.id, list);
+    });
+  }
+  return out;
+}
+
+/**
+ * The buildings' instanced pieces as `dimPieces` reads them, from the plan's piece list (columns in order, each bottom up): a column counts only when every one of its pieces has a loaded model
+ * (`partsOf(key)` above 0), as `plan3dGroups` instances it; its floors come first in the building's instance list, as there. Pure.
+ */
+export function dimBuildings(draws: readonly Pick<PlanPieceDraw, "building" | "column" | "role" | "placement">[], partsOf: (key: CalibrationKey) => number): DimBuilding[] {
+  const byColumn = new Map<string, typeof draws[number][]>();
+  for (const d of draws) {
+    const id = `${d.column.i},${d.column.j}`;
+    const list = byColumn.get(id);
+    if (list) list.push(d);
+    else byColumn.set(id, [d]);
+  }
+  const out = new Map<string, { role: string; parts: number }[]>();
+  for (const column of byColumn.values()) {
+    if (!column.every((d) => partsOf(d.placement.key) > 0)) continue;
+    for (const d of column) {
+      const list = out.get(d.building) ?? [];
+      list.push({ role: d.role, parts: partsOf(d.placement.key) });
+      out.set(d.building, list);
+    }
+  }
+  return [...out].map(([id, pieces]) => ({ id, pieces }));
+}
+
+/** Write `DIM_LEVEL` into the picked instances' `windowLevel` slots, once, when the city builds. Nothing else is touched: no material, no other slot. */
+export function setDimWindows(draw: Pick<BuildingsDraw, "instances">, picks: ReadonlyMap<string, readonly number[]>): void {
+  for (const [id, offsets] of picks) {
+    const list = draw.instances.get(id);
+    if (!list) continue;
+    for (const o of offsets) {
+      const inst = list[o];
+      const attr = inst?.mesh.geometry.getAttribute(WINDOW_LEVEL) as BufferAttribute | undefined;
+      if (!inst || !attr) continue;
+      attr.array[inst.index] = DIM_LEVEL;
+      attr.needsUpdate = true;
+    }
   }
 }
