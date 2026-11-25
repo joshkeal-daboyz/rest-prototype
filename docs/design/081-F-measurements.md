@@ -163,3 +163,13 @@ Browser pane emulated at 1287 x 1178, `?puzzle=city-two-ways-round&perf=1`, befo
 | SK | 1,845 | 16 | 9.40 ms | 16.70 ms |
 
 Pass: 2 draw calls and 3 programs added, against a limit of 3 and 3. The dome and the moon are 2 calls, and the stars came out inside "other" (19 against 17). The CPU median is within the noise and under main's +1.0 ms. The frame holds at 60 fps. One load each, not two: Josh was using the pane, so the second pair was left. Criterion 9's contrast screenshots after the Relight were not taken. Josh chose on a card "Fix dispose, then merge (Recommended)" after seeing these numbers and the reviewer's note on the look.
+
+## T1, criterion 5 (25 Nov 2026, Josh's PC, in view)
+
+Browser pane emulated at 1287 x 1178, `?title=title&perf=1` (stage 01's building), branch `ticket/081t1-title-backdrop` at 48d21b6 (PR #94). Canvas 1930 x 1767, pixel ratio 1.5.
+
+| Run | Draw calls | Triangles | Programs | Compiled after first frame | CPU median | Whole frame |
+|---|---|---|---|---|---|---|
+| title | 120 | 403,929 | 13 | 0 | 1.50 ms | 16.70 ms |
+
+Pass: the frame holds at 60 fps and no program compiles after the first frame. The 3 x 3 window (2 x 2 at the city's edge) draws 120 calls against the play view's 1,845.

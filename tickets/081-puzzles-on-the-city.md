@@ -201,7 +201,7 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | SK | The night sky and the moon: a sky drawn in code, stars, a moon disc north and low, the moonlight from it, a turn for the title; no look-up in play (cut 25 Nov 2026; **approved (G1) the same day**: "Approve") | renderer | G1 (in) | at most 7 (3 added, at most 4 rewritten) |
 | T1 | The title backdrop: the splash's turning sky, the title's moon over the city and one lit building on the right (cut 25 Nov 2026; **approved (G1) the same day**: "Approve") | renderer | SK | 2 |
 | T2 | Progress and the stage list, pure: best moves and time per stage in `localStorage`, completed stages plus the next | ui | G1 | at most 5 |
-| T3 | The screens: the "Uronacid" splash, the title with start and exit, the stage select dropdown, the win recorded; dev routes skip them | ui | T1, T2, T-Q7 | at most 3 |
+| T3 | The screens: the "Uronacid" splash, the title with start and exit, the stage select dropdown, the win recorded; dev routes skip them | ui | T1, T2 | at most 3 |
 
 `src/play/` (interaction) has no section. E2 keeps the `MapRenderer3d` interface, so play and its `hitTest` calls do not change. If E2's builder finds that `src/play/` must change, it stops, and the architect re-cuts with an interaction section.
 
@@ -2423,7 +2423,8 @@ Nothing in SK is open.
 - **T-Q4:** "Browser + Clear button (Recommended)". Progress is kept in this browser's `localStorage`, with a Clear progress button on the stage select (T2 criterion 2, T3 criterion 4).
 - **T-Q5:** "Every load (Recommended)". The splash and the title play on every load; a key or click skips the splash; dev addresses skip both (T3 criteria 1 and 6).
 - **T-Q6:** "Stage 01's, gold (Recommended)". The title's building is stage 01's target building, lit gold (T1 criterion 3).
-- **T-Q7** (replaying a stage), asked with SK-Q4 on one card, is **still open**: Josh answered SK-Q4 only. It is needed by T3 alone, so T1 and T2 start now and T3 waits for it.
+- **T-Q7** (replaying a stage), asked first with SK-Q4 (he answered SK-Q4 only), then again on its own card: "Replay any (Recommended)". Any listed stage can be played again; only a better run changes its best (T3 criterion 4).
+- **T1 is built** (PR #94, review pending). Josh, on a card, of the title's look: "Fine for now (Recommended)". The look (`TITLE_VIEW`, `NIGHT_SKY`) is tuned once T3 puts the words on.
 
 **Josh, 25 Nov 2026, in chat** (in answer to the SK cards):
 > "After we create the sky box I want to create a title screen.
@@ -2460,7 +2461,7 @@ Nothing in SK is open.
 | 1 | SK | renderer | G1 (in) | | at most 7 |
 | 2 | T1, the backdrop | renderer | SK merges | `cityview.ts`, `lightrig.ts` (read) | 2 |
 | 2, beside T1 | T2, progress and the stage list, pure | ui | G1 | none | at most 5 |
-| 3 | T3, the screens | ui | T1 and T2 merge, and T-Q7 answered | `src/main.ts`, `src/ui/index.ts`, `index.html` | at most 3 |
+| 3 | T3, the screens | ui | T1 and T2 merge | `src/main.ts`, `src/ui/index.ts`, `index.html` | at most 3 |
 
 #### T1 · The title backdrop: the night sky, the moon and one lit building (renderer). Branch `ticket/081t1-title-backdrop`, after SK merges
 **Goal.** The page can show, behind its own words, a turning night sky alone (the splash) or the sky with the moon over the city and a lit building on the right of the screen (the title).
@@ -2493,14 +2494,14 @@ Nothing in SK is open.
 
 **Files.** New `src/ui/progress.ts` and `progress.test.ts`; `src/ui/logic.ts` (`menuStep` and the line, if they sit better there). **Must not:** `src/main.ts`, `src/ui/index.ts` (T3's), and every other folder.
 
-#### T3 · The screens: splash, title, stage select, exit (ui). Branch `ticket/081t3-title-screens`, after T1 and T2 merge and T-Q7 is answered
+#### T3 · The screens: splash, title, stage select, exit (ui). Branch `ticket/081t3-title-screens`, after T1 and T2 merge
 **Goal.** `npm run dev` opens on "Uronacid" over a turning night sky, fades to the title, and from "start" the player picks a stage from a dropdown of the stages lit so far and the next one, and plays it.
 
 **Acceptance criteria.**
 1. [ ] **The splash.** With no `puzzle=` or dev route, the page opens on "Uronacid" in white, centred, over T1's splash. After `SPLASH.hold_s` (2.5) and once `ready()`, the word and the sky fade out over `SPLASH.fade_s` (1.0) and the title fades in. This plays on every load (T-Q5, "Every load (Recommended)"). A key or a click skips to the title. **browser**.
 2. [ ] **The title.** The game's title, "Rest: Circuits" (T-Q1, "Rest: Circuits (Recommended)"), large at the top left; "start" and "exit" at the bottom left; all white over T1's title view. The arrow keys move the choice and Enter takes it (T2's `menuStep`), the mouse hovers and clicks; the chosen item is marked. The HUD is hidden. **browser**.
 3. [ ] **Exit** (T-Q2, "Goodbye line (Recommended)") shows "Rest: Circuits is closed. You can close this tab." over the sky; any key or click goes back to the title. The page does not call `window.close()`, which browsers refuse for a tab the player opened. **browser**.
-4. [ ] **The stage select.** "start" shows one dropdown (a `<select>`, keyboard and mouse as the browser gives) with T2's `stageList` lines, the next stage chosen, and a "Play" button. Play (or Enter on the dropdown) disposes the title view and opens that stage as the Map menu does (`open(id)`), with the HUD back. Whether a completed stage can be played again waits on T-Q7 (recommended: any listed stage can be played again; otherwise completed lines are shown but not playable). A small "Clear progress" button, with the browser's confirm, empties it (T-Q4, "Browser + Clear button (Recommended)"). Escape goes back to the title. **browser**.
+4. [ ] **The stage select.** "start" shows one dropdown (a `<select>`, keyboard and mouse as the browser gives) with T2's `stageList` lines, the next stage chosen, and a "Play" button. Play (or Enter on the dropdown) disposes the title view and opens that stage as the Map menu does (`open(id)`), with the HUD back. Any listed stage, completed or next, can be played again (T-Q7, "Replay any (Recommended)"); a replay records through T2's `recordWin`, so only a better run changes a stage's best. A small "Clear progress" button, with the browser's confirm, empties it (T-Q4, "Browser + Clear button (Recommended)"). Escape goes back to the title. **browser**.
 5. [ ] **The win is recorded** with `recordWin` and saved, on the frame the job completes (the Relight's first frame), with `state.actions` and `view.elapsed`, for numbered stages only. The win splash and its Next are unchanged. **test**: 1 case, if the builder pulls the "record on the first Relight frame" choice into a pure helper in `logic.ts`; otherwise **browser**.
 6. [ ] **The dev routes skip it all.** `?puzzle=<id>`, `city=`, `assets=` and `title=` open as today, with no splash, title or select (T-Q5); the HUD's Map menu still switches puzzles in play. **test**: 1 case on a pure `startScreen(search, dev)` ("splash" or "play").
 7. [ ] **Back from play** is not in this PR: a stage's win splash keeps its Next; reaching the select again is a reload. (A "Menu" button in the HUD is a later card if Josh wants it.) **no test**.
@@ -2512,9 +2513,7 @@ Nothing in SK is open.
 
 **Interfaces.** None in `src/core/`: `TitleView` is in `src/render3d/titleview.ts` (types only, the `maprender.ts` precedent), and the progress shape is the page's (`src/ui/progress.ts`). No event. No new dependency: the dropdown is the browser's `<select>`, the store is `localStorage`.
 
-**Still open (for T3 only): T-Q7, replaying a stage** (asked with SK-Q4; Josh answered SK-Q4 only):
-- "Any listed stage can be played again (Recommended)".
-- "Only the next stage; completed ones are shown, not played".
+Nothing in T is open. T-Q7: "Replay any (Recommended)".
 
 ## Files
 Per section, above. This branch (the cut): `tickets/081-puzzles-on-the-city.md`, `docs/design/070-K1-circuit.md` (CK9 as changed, 24 Nov 2026; CK14's dark-building line struck for section S, 24 Nov 2026), `tickets/070-city-pipeline.md` (pointer lines), `tickets/071-pack-power-lines.md` (a pointer line: C and E's ladder wiring are dropped), `tickets/rules-coverage.md`, `src/core/citycircuit.ts` (new; `CityPuzzleView` added 24 Nov 2026 for the playable path), `src/core/cityplan.ts` (`CityCircuitLayer`), `src/core/index.ts`. Section FX's cut (24 Nov 2026): new `src/core/fx.ts`, `src/core/assets.ts` (`AssetManifest.fx?`), `src/core/index.ts`, `tickets/rules-coverage.md`. Section W's cut (25 Nov 2026): this file and `tickets/rules-coverage.md` only; no `src/core/` change (W1's numbers live in `tools/`, and `{ post }` and `lead` stay typed). Sections SK and T (cut and re-cut 25 Nov 2026): this file only (with open question 20 closed); no `src/core/` change and no rules-coverage row.
@@ -2610,5 +2609,4 @@ All questions so far are answered (above), the mid-row one included ("Only when 
     - **X-Q2, running the harness on R1's branch:** "Wait for the next release (Recommended)" (your rule: playtests only on releases; the first city snapshots are taken then); "Run it once on R1" (this counts as your word for one run, not a release).
     - **X-Q3, the docs naming the 2D map** (`CLAUDE.md`, the brief, four agent files): "Main session rewords them after X1c (Recommended)"; "I'll reword them myself"; "Leave them for now".
 24. **Section SK. Answered 25 Nov 2026, on a card:** G1 "Approve"; SK-Q1 "Title screen (Recommended)" (in play the moonlight only; the sky, moon and stars on the splash and the title; the look-up dropped); SK-Q2 "Ahead, low (Recommended)"; SK-Q3 "No shadows (Recommended)". Josh, in chat: "we need a sky box, it should just be a night sky, and put a moon in the sky as a light source". SK-Q4 (the dev Day / Night key), answered in his own words on the SK-Q4 and T-Q7 card: "day is not an option in the final game, day should only be used for development purposes." Nothing in SK is open.
-25. **Section T. Answered 25 Nov 2026, on cards:** G1 "Approve"; T-Q1 "Rest: Circuits (Recommended)"; T-Q2 "Goodbye line (Recommended)"; T-Q3 "Best (Recommended)"; T-Q4 "Browser + Clear button (Recommended)"; T-Q5 "Every load (Recommended)"; T-Q6 "Stage 01's, gold (Recommended)". Josh, in chat: "After we create the sky box I want to create a title screen." (in full under section T). **Still open (T3 waits for it):**
-    - **T-Q7, replaying a stage** (asked with SK-Q4 on one card; Josh answered SK-Q4 only): "Any listed stage can be played again (Recommended)"; "Only the next stage".
+25. **Section T. Answered 25 Nov 2026, on cards:** G1 "Approve"; T-Q1 "Rest: Circuits (Recommended)"; T-Q2 "Goodbye line (Recommended)"; T-Q3 "Best (Recommended)"; T-Q4 "Browser + Clear button (Recommended)"; T-Q5 "Every load (Recommended)"; T-Q6 "Stage 01's, gold (Recommended)". Josh, in chat: "After we create the sky box I want to create a title screen." (in full under section T). Then T-Q7, replaying a stage (asked first with SK-Q4, then on its own card): "Replay any (Recommended)". Nothing in section T is open.

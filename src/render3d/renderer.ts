@@ -4,7 +4,6 @@
  */
 
 import type { LoadPreview } from "../core/preview";
-import { WebGLRenderer } from "three";
 import type { CityPuzzleView, Puzzle } from "../core";
 import type { MapBlockers, MapCentre, MapPanView, MapPlaces, MapRenderer } from "./maprender";
 import type { Insets } from "./maprender";
@@ -13,6 +12,7 @@ import { createPlanAssembleRenderer3d, planAssembleRequested, tilesPlanRequested
 import { createPlanRenderer3d, planViewRequested } from "./planview";
 import { createCityRenderer3d } from "./tilecity3d";
 import { cityTilesRequested } from "./tileslots";
+import { createTitleRenderer3d, glForCanvas, titleRequested } from "./title3d";
 
 export interface MapRenderer3dOptions {
   insets?: Insets;
@@ -29,13 +29,12 @@ export type MapRenderer3d = MapRenderer & MapPanView & MapPlaces & MapCentre & M
 /** The message `createMapRenderer3d` throws when the address carries no `city=` route. The ui (ticket 081 A2d) never reaches it. */
 export const NO_CITY_ROUTE = "createMapRenderer3d: no city= route (the ladder town is gone, ticket 081 A2c)";
 
-/**
- * One WebGLRenderer per canvas, kept for the page's life. A canvas has one context for good: a second session on it
- * reuses this renderer (the old session's scene is freed by its dispose), so contexts never stack and none is force-lost.
- */
-const glByCanvas = new WeakMap<HTMLCanvasElement, WebGLRenderer>();
-
 export function createMapRenderer3d(canvas: HTMLCanvasElement, _puzzle: Puzzle, opts?: MapRenderer3dOptions): MapRenderer3d {
+  // `?title=splash` or `?title=title` (dev, ticket 081 T1): the title backdrop alone, ahead of every other route; `planHidesHud` hides the HUD for it.
+  const titleMode = import.meta.env.DEV && typeof location !== "undefined" ? titleRequested(location.search, true) : null;
+  if (titleMode !== null) {
+    return createTitleRenderer3d(canvas, titleMode, opts?.city, { dpr: Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 2), search: location.search, gl: glForCanvas(canvas) });
+  }
   // `?city=plan` (debug, ticket 070 A2) draws a stage of the city plan as a flat picture on a 2D canvas; a canvas keeps one kind of context for good, so this is decided before any WebGL one is made. Dev builds only.
   // `stage=assemble` (or 9, ticket 070 E) is the plan drawn in 3D: decided ahead of the flat picture, and routed below once the WebGL renderer is made.
   // `?city=tiles` (without `sheet=1`, ticket 070 L1) is the same view: the pipeline's city.
@@ -43,11 +42,7 @@ export function createMapRenderer3d(canvas: HTMLCanvasElement, _puzzle: Puzzle, 
   const planView = assemble === null && import.meta.env.DEV && typeof location !== "undefined" ? planViewRequested(location.search) : null;
   const route = renderRoute({ city: opts?.city !== undefined, dev: import.meta.env.DEV, assemble: assemble !== null, plan: planView !== null, sheet: import.meta.env.DEV && typeof location !== "undefined" && cityTilesRequested(location.search) !== null });
   if (route === "play") {
-    let glPlay = glByCanvas.get(canvas);
-    if (!glPlay) {
-      glPlay = new WebGLRenderer({ canvas, antialias: true });
-      glByCanvas.set(canvas, glPlay);
-    }
+    const glPlay = glForCanvas(canvas);
     const search = typeof location !== "undefined" ? location.search : "";
     return createCityPlayRenderer3d(glPlay, canvas, opts!.city!, { insets: opts?.insets, dpr: Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 2), search, overlay: overlayRequested(search) });
   }
@@ -56,12 +51,7 @@ export function createMapRenderer3d(canvas: HTMLCanvasElement, _puzzle: Puzzle, 
   const cityTiles = import.meta.env.DEV && typeof location !== "undefined" ? cityTilesRequested(location.search) : null;
   // The ladder town was deleted (ticket 081 A2c): with no `city=` route there is nothing to draw in 3D. The ui asks for this view only with a `city=` route (A2d). This is decided before any WebGL context is made.
   if (assemble === null && cityTiles === null) throw new Error(NO_CITY_ROUTE);
-  let gl = glByCanvas.get(canvas);
-  if (!gl) {
-    gl = new WebGLRenderer({ canvas, antialias: true });
-    glByCanvas.set(canvas, gl);
-  }
-  const renderer = gl;
+  const renderer = glForCanvas(canvas);
   const ratio = Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 2);
   if (assemble !== null) {
     return createPlanAssembleRenderer3d(renderer, canvas, assemble, { insets: opts?.insets, dpr: ratio, search: location.search });
