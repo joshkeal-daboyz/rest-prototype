@@ -9,7 +9,7 @@ Two things leave this prototype and go into the 3D game:
 
 ## What the player sees
 
-*Now:* the district on the 3D city at night, its circuit drawn with the components Josh picked, and over it the overlay: an icon per piece, a straight line from piece to piece, and a break icon where a cut is readable. The schematic below is what the overlay carries over. *First prototype, being retired:*
+*Now:* the district on the 3D city at night, its circuit drawn with the components Josh picked, and over it the overlay: an icon per piece, a straight line from piece to piece, and a break icon where a cut is readable. The schematic below is what the overlay carries over. *First prototype, removed in 081 X:*
 
 A dark town section drawn as a schematic: the feed at one edge with its **capacity** shown, cables as lines, junctions, fuse boxes, breakers and switches marked with the tribe's paint and ribbon, lamps as circles with their **load**. One or more lamps carry a **target** mark: the priests' request. On the side, the parts Enoch has: bulbs, fuses, wire.
 
@@ -69,7 +69,7 @@ Each map tests one element. The analyzer must pass on each.
 ## Stack
 
 - TypeScript (strict), Vite, Vitest. HTML/CSS for the UI, no game framework.
-- Three.js for the game view (`src/render3d/`), from ticket 037 (Josh, 12 Nov 2026: "I would like to use 3js"). The city view is dev-only under the Synty licence decision, so the game is played with `npm run dev` (Josh, 24 Nov 2026: "Keep it (Recommended)"). Canvas 2D draws the overlay, and the old 2D map until ticket 081's X1 removes it.
+- Three.js for the game view (`src/render3d/`), from ticket 037 (Josh, 12 Nov 2026: "I would like to use 3js"). The city view is dev-only under the Synty licence decision, so the game is played with `npm run dev` (Josh, 24 Nov 2026: "Keep it (Recommended)"). Canvas 2D draws the overlay.
 - Node 24 LTS (installed 27 Oct 2026).
 - Hosting: GitHub Pages from `main`.
 
@@ -80,7 +80,6 @@ Each map tests one element. The analyzer must pass on each.
 | `src/core/` | lead-architect | Types for the schema, events, the loader and validator |
 | `src/grid/` | grid-simulator | Power flow, readability, capacity, fuse load, repairs. Pure. |
 | `src/night/` | grid-simulator | Deferred: the night clock returns with the street layer |
-| `src/render/` | renderer | The old 2D map on canvas, being retired (081 X1); its glyphs move to the overlay first |
 | `src/render3d/` | renderer | The game view (Three.js): the city, its circuit and components, and the 2D overlay on top |
 | `src/play/` | interaction | Click to throw or repair, parts, undo, the session log |
 | `src/editor/` | interaction | The map editor |
@@ -90,7 +89,7 @@ Each map tests one element. The analyzer must pass on each.
 | `puzzles/locked/` | Josh | Maps Josh has approved; never edited by agents |
 | `cleanups/` | branch-cleaner | One report per cleanup: orphaned branches and worktrees for Josh to keep or delete |
 | `tickets/`, `reviews/` | lead-architect, code-reviewer | One file each per ticket |
-| `tests/playtest/` | playtester | The headless regression harness: every map replayed to the Relight, its trace snapshotted |
+| `tests/playtest/` | playtester | The headless regression harness: every city puzzle replayed to the Relight, its trace snapshotted |
 | `playtests/` | playtester | One playtest report per release Josh calls (none per ticket) |
 
 ## Later: the street
