@@ -16,12 +16,12 @@ import {
 } from "./index";
 
 describe("BLOW_TIMING (ticket 019: one clock for the blow)", () => {
-  it("holds the 016 numbers", () => {
-    expect(BLOW_TIMING.run).toBe(0.4);
-    expect(BLOW_TIMING.glow).toBe(0.3);
+  it("holds the 016 numbers, with the bolt slowed to 1.5 s (081 FX4)", () => {
+    expect(BLOW_TIMING.run).toBe(1.1);
+    expect(BLOW_TIMING.glow).toBe(0.4);
     expect(BLOW_TIMING.sparkAt).toBe(0.5);
     expect(BLOW_TIMING.spark).toBe(0.3);
-    expect(BLOW_TIMING.popAt).toBe(0.7);
+    expect(BLOW_TIMING.popAt).toBe(1.5);
     expect(BLOW_TIMING.pop).toBe(0.6);
   });
 
