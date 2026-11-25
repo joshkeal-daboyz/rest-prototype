@@ -76,6 +76,10 @@ export interface ParticlePool {
   /** Start and end colour, r g b each. */
   readonly c0: Float32Array;
   readonly c1: Float32Array;
+  /** Building boxes (flat minx maxx maxy minz maxz, world units) the bounce step ricochets off, or null. */
+  walls: Float32Array | null;
+  /** How many floor or wall touches a particle survives (1: it dies at its second, the default). */
+  maxBounces: number;
   /** Adds a particle; when full, it takes the place of the oldest. Returns its index. */
   spawn(p: Readonly<ParticleInit>): number;
   /**
@@ -136,6 +140,8 @@ export function createParticlePool(max: number): ParticlePool {
     ramp,
     c0,
     c1,
+    walls: null,
+    maxBounces: 1,
     spawn(p) {
       let i = pool.count;
       if (i >= n) {
@@ -177,10 +183,39 @@ export function createParticlePool(max: number): ParticlePool {
             vel[i * 3 + j] = vel[i * 3 + j]! * k;
             pos[i * 3 + j] = pos[i * 3 + j]! + vel[i * 3 + j]! * dt;
           }
-          if (bounces && pos[i * 3 + 1]! < floor[i]! && vel[i * 3 + 1]! < 0) {
-            if (touched[i]! >= 1) dead = true;
+          const wl = bounces ? pool.walls : null;
+          if (wl) {
+            const px = pos[i * 3]!;
+            const py = pos[i * 3 + 1]!;
+            const pz = pos[i * 3 + 2]!;
+            for (let w = 0; w + 4 < wl.length; w += 5) {
+              if (px <= wl[w]! || px >= wl[w + 1]! || pz <= wl[w + 3]! || pz >= wl[w + 4]! || py >= wl[w + 2]!) continue;
+              // Inside a wall box: out through the nearest side, that way's speed turned back (half), the rest slowed.
+              const dxa = px - wl[w]!;
+              const dxb = wl[w + 1]! - px;
+              const dza = pz - wl[w + 3]!;
+              const dzb = wl[w + 4]! - pz;
+              const m = Math.min(dxa, dxb, dza, dzb);
+              if (touched[i]! >= pool.maxBounces) {
+                dead = true;
+                break;
+              }
+              touched[i] = touched[i]! + 1;
+              if (m === dxa || m === dxb) {
+                pos[i * 3] = m === dxa ? wl[w]! : wl[w + 1]!;
+                vel[i * 3] = -vel[i * 3]! * 0.5;
+              } else {
+                pos[i * 3 + 2] = m === dza ? wl[w + 3]! : wl[w + 4]!;
+                vel[i * 3 + 2] = -vel[i * 3 + 2]! * 0.5;
+              }
+              vel[i * 3 + 1] = vel[i * 3 + 1]! * 0.8;
+              break;
+            }
+          }
+          if (!dead && bounces && pos[i * 3 + 1]! < floor[i]! && vel[i * 3 + 1]! < 0) {
+            if (touched[i]! >= pool.maxBounces) dead = true;
             else {
-              touched[i] = 1;
+              touched[i] = touched[i]! + 1;
               pos[i * 3 + 1] = floor[i]!;
               vel[i * 3 + 1] = -vel[i * 3 + 1]! * 0.35;
               vel[i * 3] = vel[i * 3]! * 0.6;
@@ -822,7 +857,7 @@ export interface FxLayer {
   /** A repair's flash, once: a soft bloom and a ring of sparkle with a few chips. */
   repairAt(x: number, y: number, z: number): void;
   /** A blown fuse's burst, once, at the box: `BLOW_SPARKS` sparks, chips and a soft-spot flash. `ground` is the height the sparks bounce off. */
-  blowAt(x: number, y: number, z: number, ground: number): void;
+  blowAt(x: number, y: number, z: number, ground: number, walls?: Float32Array | null): void;
   /** A small cold flash for a brownout arc, for a few frames (call it each frame the arc is on). */
   arcFlashAt(x: number, y: number, z: number): void;
   /** A lit lamp's burst, once: a soft flash and a fountain of sparkle in the lit pane's amber. */
@@ -881,10 +916,10 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
   // Lightning is drawn through buildings (x-ray) so a bolt along a hidden run still reads; the same material, so no new draw call.
   lightMat.depthTest = false;
   mats.push(sparkleMat, softMat, smokeMat, lightMat);
-  const sparkle = makeLayer(512 * n + 768, quad, sparkleMat, "sprite", 6, 1.4, fadeLinear);
+  const sparkle = makeLayer(640 * n + 800, quad, sparkleMat, "sprite", 6, 1.4, fadeLinear);
   const soft = makeLayer(48 * n + 64, quad, softMat, "sprite", 0, 2.5, fadeSoft, n);
   const smoke = makeLayer(24 * n + 1, quad, smokeMat, "sprite", -0.6, 1.6, fadeWisp);
-  const spark = makeLayer(512 * n + 400, unit, meshMat, "streak", 9.8, 0.6, fadeHot);
+  const spark = makeLayer(640 * n + 600, unit, meshMat, "streak", 9.8, 0.6, fadeHot);
   const shard = makeLayer(128 * n + 32, unit, meshMat, "chip", 12, 0.6, fadeHot);
   const lightning = makeLayer(1, quad, lightMat, "sprite", 0, 0, fadeLinear, 8 * n + DIRECT_MAX);
   const lightCap = 1 + 8 * n + DIRECT_MAX;
@@ -900,6 +935,9 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
   }
   let burstAge = -1;
   let boltOn = false;
+  // Sparks skitter: four touches of the street or a wall before they die.
+  spark.pool.maxBounces = 4;
+  sparkle.pool.maxBounces = 4;
   const layers = [sparkle, soft, smoke, spark, shard, lightning];
   let haveSpark = false;
   let haveShard = false;
@@ -930,7 +968,7 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
   const bp = { x: 0, y: 0, z: 0 };
   const blowAtE = { x: 0, y: 0, z: 0, ground: 0 };
 
-  const sparkOut = (e: FxEmitter, mul: number): void => {
+  const sparkOut = (e: FxEmitter, mul: number, lifeMul = 1): void => {
     const a = rnd() * Math.PI * 2;
     const h = (3 + rnd() * 5) * mul * S;
     p.x = e.x;
@@ -938,8 +976,8 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
     p.z = e.z;
     p.vx = Math.cos(a) * h;
     p.vz = Math.sin(a) * h;
-    p.vy = (rnd() < 0.2 ? -rnd() * 3 : 2 + rnd() * 5) * mul * S;
-    p.life = 0.7 + rnd() * 0.7;
+    p.vy = (rnd() < 0.3 ? -(1 + rnd() * 4) : 1.5 + rnd() * 3.75) * mul * S;
+    p.life = (0.7 + rnd() * 0.7) * lifeMul;
     p.size = (haveSpark ? 0.15 : 0.9) * S;
     p.grow = haveSpark ? 1 : 0.5;
     p.spin = 0;
@@ -1074,7 +1112,7 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
       if (time >= nextBurst[slot]!) {
         nextBurst[slot] = time + 0.05 + rnd() * 0.07;
         const k = 18 + Math.floor(rnd() * 9);
-        for (let i = 0; i < k; i++) sparkOut(e, 1);
+        for (let i = 0; i < k; i++) sparkOut(e, 1, 1.5);
         const c = 4 + Math.floor(rnd() * 3);
         for (let i = 0; i < c; i++) chipOut(e);
         flash(e.x, e.y, e.z, 2.5, 1.2, 0.12, 1.6, 1.4, 1.1, 1.0, 0.5, 0.15);
@@ -1082,7 +1120,7 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
       if (time >= nextPop[slot]!) {
         nextPop[slot] = time + 0.6 + rnd() * 0.6;
         const k = 50 + Math.floor(rnd() * 21);
-        for (let i = 0; i < k; i++) sparkOut(e, 1.5);
+        for (let i = 0; i < k; i++) sparkOut(e, 1.5, 1.5);
         flash(e.x, e.y, e.z, 5, 1.3, 0.25, 2.0, 1.9, 1.5, 1.2, 0.6, 0.15);
       }
       if (time >= nextSmoke[slot]!) {
@@ -1158,13 +1196,15 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
         (haveShard ? shard : sparkle).pool.spawn(p);
       }
     },
-    blowAt(x, y, z, ground) {
+    blowAt(x, y, z, ground, walls = null) {
+      spark.pool.walls = walls;
+      sparkle.pool.walls = walls;
       const e = blowAtE as unknown as FxEmitter;
       blowAtE.x = x;
       blowAtE.y = y;
       blowAtE.z = z;
       blowAtE.ground = ground;
-      for (let i = 0; i < BLOW_SPARKS; i++) sparkOut(e, 2.2);
+      for (let i = 0; i < BLOW_SPARKS; i++) sparkOut(e, 2.2, 2);
       for (let i = 0; i < 12; i++) chipOut(e);
       burstLight.position.set(x, y + 1 * S, z);
       burstAge = 0;
@@ -1293,8 +1333,8 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
         burstAge += dt;
         if (burstAge >= BLOW_TIMING.pop) burstAge = -1;
       }
-      burstLight.intensity = burstAge < 0 ? 0 : 20 * (1 - burstAge / BLOW_TIMING.pop) ** 2;
-      boltLight.intensity = boltOn ? 6 * (0.6 + 0.4 * rnd()) : 0;
+      burstLight.intensity = burstAge < 0 ? 0 : 35 * (1 - burstAge / BLOW_TIMING.pop) ** 2;
+      boltLight.intensity = boltOn ? 10.5 * (0.6 + 0.4 * rnd()) : 0;
       boltOn = false;
       for (let s = 0; s < n; s++) {
         if (fed[s] === 0) continue;
@@ -1306,7 +1346,7 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
         if (sparkLit < 2) {
           const l = sparkLights[sparkLit++]!;
           l.position.set(e.x, e.y + 0.5 * S, e.z);
-          l.intensity = 5 * flick;
+          l.intensity = 9 * flick;
         }
         m4.compose(pv.set(e.x, e.y, e.z), q.copy(camera), sv.setScalar(1.5 * S)).toArray(sarr, gi * 16);
         scol[gi * 3] = flick;

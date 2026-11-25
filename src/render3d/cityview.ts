@@ -1013,6 +1013,8 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     /** The page time of the first frame after the event (negative until then), and the blow clock of the frame before. */
     start: number;
     prevT: number;
+    /** The building boxes within 25 m of the fuse, which its sparks ricochet off. */
+    readonly near: Float32Array;
   }
   const blows: Blow[] = [];
   const bolts = newFxBolts(16);
@@ -1046,6 +1048,16 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     }
     return (wallBoxes = Float32Array.from(list));
   };
+  const nearWalls = (x: number, z: number): Float32Array => {
+    const all = walls();
+    const reach = 25 * S;
+    const out: number[] = [];
+    for (let i = 0; i + 4 < all.length; i += 5) {
+      if (all[i + 1]! < x - reach || all[i]! > x + reach || all[i + 4]! < z - reach || all[i + 3]! > z + reach) continue;
+      out.push(all[i]!, all[i + 1]!, all[i + 2]!, all[i + 3]!, all[i + 4]!);
+    }
+    return Float32Array.from(out);
+  };
   const blowOf = (faultId: string, nodeId: string, paths: readonly (readonly string[])[], synthetic: boolean): Blow => {
     const routes: FxRoute[] = [];
     for (const path of paths) {
@@ -1058,7 +1070,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     }
     const at = nodeCentre.get(nodeId) ?? { x: 0, y: 0, z: 0 };
     const piece = nodePiece.get(nodeId);
-    return { faultId, synthetic, routes, x: at.x, y: at.y, z: at.z, ground: piece ? piece.position.y : ground.position.y + 0.05, start: -1, prevT: -1 };
+    return { faultId, synthetic, routes, x: at.x, y: at.y, z: at.z, ground: piece ? piece.position.y : ground.position.y + 0.05, start: -1, prevT: -1, near: nearWalls(at.x, at.z) };
   };
   // The pole ends of the job's live wires (a cut span's are left out): an insulator and the point 0.6 m along the wire.
   const arcPorts: FxPort[] = [];
@@ -1170,7 +1182,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
         continue;
       }
       const t = time - b.start;
-      if (blowBurstDue(b.routes.length > 0, b.prevT, t)) fx.blowAt(b.x, b.y, b.z, b.ground);
+      if (blowBurstDue(b.routes.length > 0, b.prevT, t)) fx.blowAt(b.x, b.y, b.z, b.ground, b.near);
       b.prevT = t;
       const k = blowBolts(b.routes, t, bolts);
       for (let j = 0; j < k; j++) fx.bolt(b.routes[bolts[j]!.route]!, bolts[j]!.head, bolts[j]!.tail, time);

@@ -146,7 +146,7 @@ describe("081 FX2: the effects' pure parts", () => {
     expect(cutArcs({ id: 3, span }, 1.234, out)).toBe(cutArcs({ id: 3, span }, 1.234, again));
   });
 
-  it("createFxLayer: a cut that stops being fed shows no glow or arc on the next frame, spawns nothing more, and is empty within 1.5 s", () => {
+  it("createFxLayer: a cut that stops being fed shows no glow or arc on the next frame, spawns nothing more, and is empty within 3 s", () => {
     const layer = createFxLayer([{ id: 1, x: 5 * S, y: 7 * S, z: 0, ground: 0, span }]);
     const cam = new Quaternion();
     const dt = 1 / 60;
@@ -163,7 +163,7 @@ describe("081 FX2: the effects' pure parts", () => {
     expect(layer.glowing()).toBe(0);
     expect(layer.counts().lightning).toBe(0);
     let prev = layer.counts();
-    for (let f = 0; f < 90; f++) {
+    for (let f = 0; f < 180; f++) {
       layer.update(dt, cam);
       const c = layer.counts();
       // Flashes and smoke only ever thin out (a bounced spark may split in two, so the spray layers may not).
