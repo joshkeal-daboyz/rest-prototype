@@ -389,41 +389,6 @@ export function lightPlaces(plan: Pick<CityPlan, "layers">, buildingIds: Iterabl
   return out;
 }
 
-/**
- * 081 W2: the courtyard lights of `buildingIds`, at most `max`: for each building with columns open on a `court` face (the yard inside the block), one light in front of the middle of those faces, `STREET_LIGHT_OUT_M`
- * out, at half the building's height as the street light is, so the warm light falls on the yard paving and lawn. A building with no court face gets none. Pure.
- */
-export function courtLightPlaces(plan: Pick<CityPlan, "layers">, buildingIds: Iterable<string>, max: number): LightPlace[] {
-  const buildings = plan.layers.buildings?.buildings;
-  const built = plan.layers.mass?.built;
-  if (!buildings || !built) return [];
-  const byId = new Map(buildings.map((b) => [b.id, b] as const));
-  const open = new Map(built.map((c) => [`${c.i},${c.j}`, c.open] as const));
-  const heights = buildingHeights(plan);
-  const out: LightPlace[] = [];
-  for (const id of buildingIds) {
-    if (out.length >= max) break;
-    const b = byId.get(id);
-    if (!b) continue;
-    let sx = 0;
-    let sz = 0;
-    let n = 0;
-    for (const c of b.cells) {
-      for (const o of open.get(`${c.i},${c.j}`) ?? []) {
-        if (o.faces !== "court") continue;
-        const [dx, dz] = SIDE_DIR[o.side];
-        sx += (c.i + 0.5) * CELL + dx * (CELL / 2 + STREET_LIGHT_OUT_M);
-        sz += (c.j + 0.5) * CELL + dz * (CELL / 2 + STREET_LIGHT_OUT_M);
-        n++;
-      }
-    }
-    if (n === 0) continue;
-    const h = heights.get(id);
-    out.push({ building: id, x: sx / n, y: h ? h.height_m / 2 : STREET_LIGHT_UP_M, z: sz / n, ...(h ? { storeys: h.storeys } : {}) });
-  }
-  return out;
-}
-
 /** The lights of a city, made once: `lights[i]` lights `buildings[i]`. */
 export interface StreetLights {
   readonly lights: readonly PointLight[];
@@ -551,6 +516,10 @@ export function setDimWindows(draw: Pick<BuildingsDraw, "instances">, picks: Rea
 export const GLOW_CARD_OUT_M = 0.25;
 export const GLOW_CARD_SPILL = 1.0;
 export const GLOW_CARD_GAIN = 0.06;
+/** 081 W2: the ground pool in front of a lit building's non-street faces (the yards, lanes and plazas the street lights do not reach): its depth and brightness (a multiple of `GLOW_CARD_GAIN`), and its height above the ground, metres. */
+export const GROUND_POOL_DEPTH_M = 7;
+export const GROUND_POOL_GAIN = 4;
+export const GROUND_POOL_UP_M = 0.25;
 
 /** One glow card: its building, its centre (metres), the way it faces (a unit step in plan) and its size (metres). */
 export interface GlowCard {
@@ -562,6 +531,10 @@ export interface GlowCard {
   readonly nz: number;
   readonly w: number;
   readonly h: number;
+  /** A card lying on the ground in front of its face (a ground pool), `h` its depth away from the wall; absent: a card standing in front of a window. */
+  readonly flat?: boolean;
+  /** Its brightness against `GLOW_CARD_GAIN`; absent: 1. */
+  readonly gain?: number;
 }
 
 /**
@@ -575,10 +548,18 @@ export function glowCards(plan: Pick<CityPlan, "layers">, buildingIds: Iterable<
   const want = new Set(buildingIds);
   const open = new Map(built.map((c) => [`${c.i},${c.j}`, c.open] as const));
   const out: GlowCard[] = [];
+  const pools: GlowCard[] = [];
   for (const c of columns) {
     if (!want.has(c.building)) continue;
-    const sides = (open.get(`${c.i},${c.j}`) ?? []).map((o) => SIDE_DIR[o.side]);
+    const faces = open.get(`${c.i},${c.j}`) ?? [];
+    const sides = faces.map((o) => SIDE_DIR[o.side]);
     if (sides.length === 0) continue;
+    for (const o of faces) {
+      if (o.faces === "street") continue;
+      const [dx, dz] = SIDE_DIR[o.side];
+      const out = CELL / 2 + GROUND_POOL_DEPTH_M / 2;
+      pools.push({ building: c.building, x: (c.i + 0.5) * CELL + dx * out, y: GROUND_POOL_UP_M, z: (c.j + 0.5) * CELL + dz * out, nx: dx, nz: dz, w: CELL, h: GROUND_POOL_DEPTH_M, flat: true, gain: GROUND_POOL_GAIN });
+    }
     const bands: [number, number][] = [[c.ground.y_m, c.ground.top_m]];
     for (const p of c.pieces) if (p.role !== "roof") bands.push([p.placement.y_m, p.placement.y_m + 3 * p.span]);
     for (const [dx, dz] of sides) {
@@ -587,7 +568,7 @@ export function glowCards(plan: Pick<CityPlan, "layers">, buildingIds: Iterable<
       }
     }
   }
-  return out;
+  return [...out, ...pools];
 }
 
 /** What `glowCardMesh` made: its one mesh (null with no cards), and the setters, as `LitGlass`'s. */
@@ -628,6 +609,7 @@ const cardP = new Vector3();
 const cardS = new Vector3();
 const cardM = new Matrix4();
 const UP = new Vector3(0, 1, 0);
+const FLAT = new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), -Math.PI / 2);
 
 /**
  * The one InstancedMesh of `cards`, additive, at `scale` world units to the metre, each card's colour (its brightness, the material being additive) written from its building's level and flare each frame. Hidden
@@ -644,8 +626,10 @@ export function glowCardMesh(cards: readonly GlowCard[], scale: number): GlowCar
   // Always visible, so its program compiles with the first frame of the loaded city and not on first light (a hidden mesh is skipped by three's compile); no cards lit is `count` 0, which draws nothing.
   mesh.count = 0;
   const ranges = new Map<string, number[]>();
+  const gains = cards.map((c) => c.gain ?? 1);
   cards.forEach((c, k) => {
     cardQ.setFromAxisAngle(UP, Math.atan2(c.nx, c.nz));
+    if (c.flat) cardQ.multiply(FLAT);
     mesh.setMatrixAt(k, cardM.compose(cardP.set(c.x * scale, c.y * scale, c.z * scale), cardQ, cardS.set(c.w * scale, c.h * scale, 1)));
     const list = ranges.get(c.building);
     if (list) list.push(k);
@@ -663,10 +647,10 @@ export function glowCardMesh(cards: readonly GlowCard[], scale: number): GlowCar
       if (!list) return;
       const v = Math.min(g.level * (1 + 0.5 * g.flare), 1.5) * GLOW_CARD_GAIN;
       if (v > 0) any = true;
-      const r = AMBER.r * v;
-      const gr = AMBER.g * v;
-      const b = AMBER.b * v;
-      for (const k of list) (arr[k * 3] = r), (arr[k * 3 + 1] = gr), (arr[k * 3 + 2] = b);
+      for (const k of list) {
+        const m = v * gains[k]!;
+        (arr[k * 3] = AMBER.r * m), (arr[k * 3 + 1] = AMBER.g * m), (arr[k * 3 + 2] = AMBER.b * m);
+      }
     },
     commit() {
       mesh.instanceColor!.needsUpdate = true;

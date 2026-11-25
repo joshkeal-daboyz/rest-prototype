@@ -29,7 +29,7 @@ import { lightModeFor, type LightModeId } from "./lighting";
 import { addSurface, applyLightMode, newLightOwners, setRendererMode } from "./lightrig";
 import { createFxLayer, fxSwitch, repairedFaults, sharedFx, sparkingCuts, type FxCut, type FxEmitter } from "./fx";
 import { lampFlicker } from "./look";
-import { DIM_SHARE, STREET_LIGHTS_MAX, buildingGlow, dimBuildings, dimPieces, courtLightPlaces, glowCardMesh, glowCards, roofOffsets, setDimWindows, lampBuildings, lightPlaces, litGlass, sceneryLamps, setBuildingGlow, setStreetLights, streetLights, type BuildingGlow, type BuildingLamp, type GlowCards, type LitGlass, type StreetLights } from "./windows";
+import { DIM_SHARE, STREET_LIGHTS_MAX, buildingGlow, dimBuildings, dimPieces, glowCardMesh, glowCards, roofOffsets, setDimWindows, lampBuildings, lightPlaces, litGlass, sceneryLamps, setBuildingGlow, setStreetLights, streetLights, type BuildingGlow, type BuildingLamp, type GlowCards, type LitGlass, type StreetLights } from "./windows";
 import { WORLD_PER_METRE } from "./models";
 import { meshParts, sharedTileModels, type ModelSet } from "./models3d";
 import { OVERLAY_HIT_PX, overlayHit, overlayIcons, overlayBreakHit, overlayBreaks, placePoint, type OverlayBreak, type OverlayIcon, type Project } from "./overlay";
@@ -703,12 +703,8 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     // 081 L3: a few dim windows in the dead city, set once at build, never on a job lamp's building.
     setDimWindows(next.buildings, dimPieces(dimBuildings(next.buildings.draws, (k) => (roots.get(k) ? meshParts(roots.get(k)!).length : 0)), DIM_SHARE, plan.options.seed, new Set(lampsOf.keys())));
     const max = Number.isFinite(lightsWanted) ? Math.min(lightsWanted, STREET_LIGHTS_MAX) : STREET_LIGHTS_MAX;
-    // The cap is shared: the courtyard lights (081 W2) take up to half of it when there are that many, the street lights the rest.
-    const court = courtLightPlaces(plan, lampsOf.keys(), max);
-    const streetMax = max - Math.min(court.length, max >> 1);
-    const places = lightPlaces(plan, lampsOf.keys(), streetMax);
-    places.push(...court.slice(0, max - places.length));
-    if (places.length >= max && lightPlaces(plan, lampsOf.keys(), Infinity).length + court.length > places.length) console.warn(`street lights: more lit-able buildings than the cap of ${max}; the first ${max} get a light`);
+    const places = lightPlaces(plan, lampsOf.keys(), max);
+    if (places.length >= max && lightPlaces(plan, lampsOf.keys(), Infinity).length > places.length) console.warn(`street lights: more lit-able buildings than the cap of ${max}; the first ${max} get a light`);
     pool = streetLights(places, S, Number.isFinite(lightsWanted) ? Math.max(0, lightsWanted - places.length) : 0);
     for (const l of pool.lights) next.group.add(l);
     for (const id of lampsOf.keys()) lightGlows.set(id, { level: 0, flare: 0 });
