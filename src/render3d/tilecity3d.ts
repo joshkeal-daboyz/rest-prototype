@@ -860,7 +860,7 @@ export interface CityRig {
  * pans over it and dollies in and out. The gallery's rig looks along a line from 15 degrees up and pans along x only, which cannot judge a street grid from above. The sheet is framed by it too
  * (`rigOpts.fitTop` 0: nothing on the sheet stands tall).
  */
-export function createCityRig(frame: CityRect, width = 1280, height = 720, startInsets?: Insets, rigOpts: { fitTop?: number } = {}): CityRig {
+export function createCityRig(frame: CityRect, width = 1280, height = 720, startInsets?: Insets, rigOpts: { fitTop?: number; limit?: { zoomOut: number } } = {}): CityRig {
   const fitTop = rigOpts.fitTop ?? CITY_FIT_TOP;
   const camera = new PerspectiveCamera(FOV_DEG, width / height, 0.1, 2000);
   const size = { width, height };
@@ -871,6 +871,11 @@ export function createCityRig(frame: CityRect, width = 1280, height = 720, start
   let tz = baseZ;
   let dist = 20;
   let fitDist = 20;
+  /** With `rigOpts.limit`: the furthest the camera goes, `zoomOut` times the distance at which the frame fills the whole canvas (never under it). */
+  let maxDist = Infinity;
+  /** The insets the camera and the fit see: the real ones, or none while the district's own fill distance is worked out. */
+  let viewInsets: Insets = insets;
+  const limit = rigOpts.limit;
   const target = new Vector3();
   const probe = new Vector3();
   const tanHalf = Math.tan((FOV_DEG * Math.PI) / 360);
@@ -882,19 +887,20 @@ export function createCityRig(frame: CityRect, width = 1280, height = 720, start
     camera.lookAt(target);
     camera.near = Math.max(0.1, dist * CITY_NEAR_FRACTION);
     camera.aspect = size.width / size.height;
-    const shift = ((insets.top ?? 0) - (insets.bottom ?? 0)) / 2;
-    const side = ((insets.left ?? 0) - (insets.right ?? 0)) / 2;
+    const shift = ((viewInsets.top ?? 0) - (viewInsets.bottom ?? 0)) / 2;
+    const side = ((viewInsets.left ?? 0) - (viewInsets.right ?? 0)) / 2;
     camera.setViewOffset(size.width, size.height, -side, -shift, size.width, size.height);
     camera.updateProjectionMatrix();
     camera.updateMatrixWorld(true);
   }
   function fits(): boolean {
-    const freeW = size.width - (insets.left ?? 0) - (insets.right ?? 0);
-    const freeH = size.height - (insets.top ?? 0) - (insets.bottom ?? 0);
-    const left = (insets.left ?? 0) + freeW * CITY_FIT_PAD;
-    const right = size.width - (insets.right ?? 0) - freeW * CITY_FIT_PAD;
-    const top = (insets.top ?? 0) + freeH * CITY_FIT_PAD;
-    const bottom = size.height - (insets.bottom ?? 0) - freeH * CITY_FIT_PAD;
+    const ins = viewInsets;
+    const freeW = size.width - (ins.left ?? 0) - (ins.right ?? 0);
+    const freeH = size.height - (ins.top ?? 0) - (ins.bottom ?? 0);
+    const left = (ins.left ?? 0) + freeW * CITY_FIT_PAD;
+    const right = size.width - (ins.right ?? 0) - freeW * CITY_FIT_PAD;
+    const top = (ins.top ?? 0) + freeH * CITY_FIT_PAD;
+    const bottom = size.height - (ins.bottom ?? 0) - freeH * CITY_FIT_PAD;
     for (const x of [frame.minX, frame.maxX]) {
       for (const z of [frame.minY, frame.maxY]) {
         for (const y of [0, fitTop]) {
@@ -907,7 +913,8 @@ export function createCityRig(frame: CityRect, width = 1280, height = 720, start
     }
     return true;
   }
-  function fit(): void {
+  /** The nearest distance at which the frame fits the area `viewInsets` leave free, centred on the frame. */
+  function search(): number {
     tx = baseX;
     tz = baseZ;
     let lo = 3;
@@ -918,8 +925,28 @@ export function createCityRig(frame: CityRect, width = 1280, height = 720, start
       if (fits()) hi = dist;
       else lo = dist;
     }
-    dist = hi;
-    fitDist = hi;
+    return hi;
+  }
+  function fit(): void {
+    if (limit) {
+      // D0: the district fills the whole canvas, panels ignored. Dmax is never under D0. The opening is the fit in the free area, held at Dmax (no free area: Dmax).
+      viewInsets = {};
+      const d0 = search();
+      maxDist = Math.max(d0, d0 * limit.zoomOut);
+      viewInsets = insets;
+      const freeW = size.width - (insets.left ?? 0) - (insets.right ?? 0);
+      const freeH = size.height - (insets.top ?? 0) - (insets.bottom ?? 0);
+      const dFit = freeW > 0 && freeH > 0 ? search() : Infinity;
+      dist = fitDist = Math.min(dFit, maxDist);
+      tx = baseX;
+      tz = baseZ;
+      apply();
+      return;
+    }
+    viewInsets = insets;
+    const d = search();
+    dist = d;
+    fitDist = d;
     apply();
   }
   const clampT = (): void => {
@@ -949,7 +976,7 @@ export function createCityRig(frame: CityRect, width = 1280, height = 720, start
     getScale: scale,
     zoomStep(dir) {
       const next = dir === 1 ? dist / ZOOM_STEP : dist * ZOOM_STEP;
-      dist = Math.min(Math.max(next, fitDist * CITY_ZOOM_IN), fitDist * CITY_ZOOM_OUT);
+      dist = Math.min(Math.max(next, fitDist * CITY_ZOOM_IN), limit ? maxDist : fitDist * CITY_ZOOM_OUT);
       apply();
       return scale();
     },

@@ -165,6 +165,15 @@ export function overlayRequested(search: string): boolean {
   return new URLSearchParams(search).get("overlay") !== "0";
 }
 
+/** How far out the player may zoom, as a multiple of the distance at which the district fills the window (Josh, 25 Nov 2026: "1.5x"). */
+export const CITY_PLAY_ZOOM_OUT = 1.5;
+
+/** The play camera's limits: `{ limit }` always, except `cam=free` in a dev build, which gives today's unlimited rig for measuring wider views. `cam=street` is the plan route's and is ignored here. Pure. */
+export function playRigOptions(search: string, dev: boolean): { limit?: { zoomOut: number } } {
+  if (dev && new URLSearchParams(search).get("cam") === "free") return {};
+  return { limit: { zoomOut: CITY_PLAY_ZOOM_OUT } };
+}
+
 // ---- the job's wires ----
 
 const SAMPLES = 8;
@@ -758,7 +767,9 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     pickGroup.add(ls);
   }
 
-  const rig: CityRig = createCityRig(frame, w0, h0, insets);
+  const rigOpts = playRigOptions(opts.search ?? "", import.meta.env.DEV);
+  if (!rigOpts.limit) console.info("cam=free: the camera limits are off (dev only)");
+  const rig: CityRig = createCityRig(frame, w0, h0, insets, rigOpts);
   const camera = rig.camera;
   scene.add(pickGroup);
   const picker: Picker = createPicker(pickGroup, camera, size);
