@@ -93,3 +93,15 @@ Same setup as above. The game pack now holds the four FX textures and both pack 
 | `fx=all` (845 alive; peaks sparkle 474, spark 731, shard 126, soft spot 13, smoke 8) | 1,780 | 12 | 8.10 ms | 16.60 ms |
 
 Pass: no measurable time added (limit 1.5 ms), under 16.7 ms, 6 more draw calls (cap 6), and the one extra program is the effects material.
+
+### FX2 amended, criterion 7 completed (review round 2's must-fix), 25 Nov 2026
+
+At the puzzle's framing (pane emulated at 1287 x 1178 so the opening camera matches the runs above: canvas 1930 x 1767, pixel ratio 1.5, 1,774 draw calls with effects off). Josh played every run (throw `sw`, repair the break, camera not moved). Josh, on a card: "Measure at puzzle view"; in chat: "The end user shouldn't be zooming out this much" (the whole-city view on a small pane is not measured).
+
+| Run | Draw calls | Programs | CPU before power | CPU after the Relight | Whole frame | Particles (peak spark) |
+| --- | --- | --- | --- | --- | --- | --- |
+| `fx=0` | 1,774 | 11 | 10.50 ms | 10.30 ms | 16.70 ms | 0 |
+| normal play (effects on) | 1,778 | 12 | 8.80 ms | 8.30 ms | 16.70 ms (est.) | 352 (429) |
+| `fx=all` (measure only) | 1,779 | 12 | 8.70 ms | 8.90 ms | 16.70 ms (est.) | 784 (752) |
+
+The `fx=0` run was taken while an architect agent was working, so its CPU median sits about 2 ms high; the effect runs are under it, not over. The program count holds at 12 from the first frame after the models load to the end of the Relight in both effect runs (no new program). Pass: no time added beyond noise (limit 1.5 ms), under 16.7 ms, at most 5 more draw calls (cap 6).
