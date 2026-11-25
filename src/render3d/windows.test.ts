@@ -9,9 +9,12 @@ import { convertCityPuzzle } from "../city/circuit";
 import { DEFAULT, sharedCity } from "../city/testing/namedcities";
 import { createGrid } from "../grid";
 import type { GridState } from "../grid";
+import { circuitDraws } from "./circuitdraw";
+import { jobWires, linesAround, sceneryDropWires, wholeFraction } from "./cityview";
+import { overlayIcons, type Project } from "./overlay";
 import { createRelightClock } from "./relight3d";
 import { Scene } from "three";
-import { DIM_LEVEL, DIM_SHARE, PANE_COLOURS, STREET_LIGHTS_MAX, STREET_LIGHT_INTENSITY, WINDOW_FLARE_GAIN, WINDOW_LEVEL, WINDOW_LIT, WINDOW_UV, buildingGlow, dimPieces, lampBuildings, lightPlaces, setBuildingGlow, setDimWindows, setStreetLights, streetLights, windowLit, windowMask, type BuildingGlow } from "./windows";
+import { DIM_LEVEL, DIM_SHARE, PANE_COLOURS, STREET_LIGHTS_MAX, STREET_LIGHT_INTENSITY, WINDOW_FLARE_GAIN, WINDOW_LEVEL, WINDOW_LIT, WINDOW_UV, buildingGlow, dimPieces, lampBuildings, lightPlaces, sceneryLamps, setBuildingGlow, setDimWindows, setStreetLights, streetLights, windowLit, windowMask, type BuildingGlow } from "./windows";
 
 const texel = (x: number, y: number): number[] => {
   const d = windowMask().image.data as Uint8Array;
@@ -190,5 +193,82 @@ describe("the lit building's windows (081 L1)", () => {
     setDimWindows(draw, new Map([["a", [1]]]));
     expect([...(geo.getAttribute(WINDOW_LEVEL).array as Float32Array)]).toEqual([0, Math.fround(DIM_LEVEL), 0, 0]);
     expect(mesh.material).toBe(twin);
+  });
+});
+
+describe("scenery drawn live (081 S4)", () => {
+  const p0 = () => {
+    const run = sharedCity(DEFAULT, "facades");
+    if (!run.ok) throw new Error(run.failure.reason);
+    const city = loadCityPuzzle(JSON.parse(readFileSync("puzzles/city/city-two-ways-round.city.json", "utf8")));
+    const converted = convertCityPuzzle(city, run.plan);
+    const layer = run.plan.layers.circuit!;
+    return { converted, layer, buildings: run.plan.layers.buildings!.buildings, draws: circuitDraws(layer, undefined, { converted }) };
+  };
+
+  it("a scenery building maps to its hidden lamp, dark while that lamp is dark and lit once current reaches it", { timeout: 60_000 }, () => {
+    const { converted, buildings } = p0();
+    const map = sceneryLamps(converted, buildings);
+    const scenery = converted.scenery!;
+    for (const [b, id] of Object.entries(scenery)) expect(map.get(b)).toContainEqual({ id, index: converted.puzzle.nodes.findIndex((n) => n.id === id) });
+    const g = createGrid(converted.puzzle, new EventBus());
+    const out: BuildingGlow = { level: 0, flare: 0 };
+    const levels = (state: GridState): { dark: number; lit: number } => {
+      let dark = 0;
+      let lit = 0;
+      for (const [b, id] of Object.entries(scenery)) {
+        buildingGlow(null, state, map.get(b)!, 0, 0.3, out);
+        if (state.lit.has(id)) expect(out.level, b).toBeGreaterThan(0), lit++;
+        else expect(out.level, b).toBe(0), dark++;
+      }
+      return { dark, lit };
+    };
+    const start = levels(g.state());
+    g.throwSwitch("sw");
+    g.repairAt("l_e2");
+    const won = levels(g.state());
+    expect(start.dark).toBeGreaterThan(0);
+    expect(won.lit).toBeGreaterThan(start.lit);
+  });
+
+  it("the live layer holds one drop wire per scenery building, lit by its hidden lamp's line, and the Relight's run is paced over the whole of a split line", { timeout: 60_000 }, () => {
+    const { converted, layer, draws } = p0();
+    const wires = sceneryDropWires(layer, draws, converted);
+    const scenery = converted.scenery!;
+    expect(wires.map((w) => w.id).sort()).toEqual(Object.keys(scenery).map((b) => `drop:${b}`).sort());
+    expect(layer.drops.length).toBeGreaterThan(wires.length);
+    for (const w of wires) {
+      const b = w.id.slice("drop:".length);
+      const line = converted.puzzle.lines[w.lineIndex]!;
+      expect([line.id, line.to]).toEqual([`${scenery[b]}~l`, scenery[b]]);
+      expect(converted.runs[line.id]).toBeUndefined();
+    }
+    // A split line's drawn run lights from the start of `L~a` to the end of `L~b`, not over `L`'s middle third.
+    const g = createGrid(converted.puzzle, new EventBus());
+    g.throwSwitch("sw");
+    g.repairAt("l_e2");
+    const won = g.state();
+    const plan = createRelightClock(converted.puzzle).update(won, 0.01)!;
+    const around = linesAround(converted.puzzle.lines).get("l_n")!;
+    const index = converted.puzzle.lines.findIndex((l) => l.id === "l_n");
+    const reversed = won.flowFrom.get("l_n") === converted.puzzle.lines[index]!.to;
+    const first = reversed ? around.b : around.a;
+    const last = reversed ? around.a : around.b;
+    expect(wholeFraction(plan, index, around, reversed, plan.lineStart[first]! - 0.001)).toBe(0);
+    expect(wholeFraction(plan, index, around, reversed, plan.lineEnd[last]!)).toBe(1);
+    const mid = (plan.lineStart[first]! + plan.lineEnd[last]!) / 2;
+    expect(wholeFraction(plan, index, around, reversed, mid)).toBeCloseTo(0.5, 6);
+  });
+
+  it("hidden nodes stay hidden: the overlay's icons and the job's wires (what picks are built from) name the file's nodes and lines only", { timeout: 60_000 }, () => {
+    const { converted, layer, draws } = p0();
+    const hidden = new Set(converted.hidden ?? []);
+    expect(hidden.size).toBeGreaterThan(0);
+    const g = createGrid(converted.puzzle, new EventBus());
+    const project: Project = (x, _y, z, out) => ((out.x = x), (out.y = z), true);
+    const icons = overlayIcons(converted, g.state(), project, { layer, width: 1e6, height: 1e6, time: 0.4 });
+    expect(icons.length).toBeGreaterThan(0);
+    for (const i of icons) expect(hidden.has(i.id), i.id).toBe(false);
+    for (const w of jobWires(layer, draws, converted)) expect(hidden.has(w.line), w.line).toBe(false);
   });
 });
