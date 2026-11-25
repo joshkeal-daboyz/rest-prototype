@@ -71,7 +71,7 @@ Taken by the main session in the browser pane, in view at 60 fps, 24 Nov 2026. 6
 - On the comparison baseline: F1b's in-view before-power median was 14.40 ms on the same canvas, but these runs are 7.9 to 8.5 ms, which is the spread between sessions on this PC. P0's own row is used as the baseline.
 - By the stop rule, `STREET_LIGHTS_MAX` goes to 32.
 
-## FX2, criterion 7 (25 Nov 2026, Josh's PC, in view)
+## FX2, criterion 7 (24 Nov 2026, Josh's PC, in view)
 
 Browser pane, `?puzzle=city-two-ways-round&perf=1`, 6x6 seed 1, default camera, fresh load per run, one session. Canvas 1930 x 1767, pixel ratio 1.5. Josh played each run (throw, repair, Relight), so the "after the Relight" lines are the as-played comparison. Textures were the drawn fallbacks (the game pack has no `fx/` until FX1 merges and `assets:game` is re-run); the pack meshes came from the full packs.
 
@@ -83,7 +83,7 @@ Browser pane, `?puzzle=city-two-ways-round&perf=1`, 6x6 seed 1, default camera, 
 
 Pass: under 1.5 ms added (none measurable), under 16.7 ms, 4 more draw calls (cap 5), and the one extra program is the effects material, compiled on the first frame.
 
-## FX2 amended (extreme sparks), criterion 7 (25 Nov 2026, Josh's PC, in view)
+## FX2 amended (extreme sparks), criterion 7 (24 Nov 2026, Josh's PC, in view)
 
 Same setup as above. The game pack now holds the four FX textures and both pack meshes (`assets:game` re-run on e32bc63); no fallback line was logged. Before power, default camera, nobody touching the page.
 
@@ -94,7 +94,7 @@ Same setup as above. The game pack now holds the four FX textures and both pack 
 
 Pass: no measurable time added (limit 1.5 ms), under 16.7 ms, 6 more draw calls (cap 6), and the one extra program is the effects material.
 
-### FX2 amended, criterion 7 completed (review round 2's must-fix), 25 Nov 2026
+### FX2 amended, criterion 7 completed (review round 2's must-fix), 24 Nov 2026
 
 At the puzzle's framing (pane emulated at 1287 x 1178 so the opening camera matches the runs above: canvas 1930 x 1767, pixel ratio 1.5, 1,774 draw calls with effects off). Josh played every run (throw `sw`, repair the break, camera not moved). Josh, on a card: "Measure at puzzle view"; in chat: "The end user shouldn't be zooming out this much" (the whole-city view on a small pane is not measured).
 
@@ -106,7 +106,7 @@ At the puzzle's framing (pane emulated at 1287 x 1178 so the opening camera matc
 
 The `fx=0` run was taken while an architect agent was working, so its CPU median sits about 2 ms high; the effect runs are under it, not over. The program count holds at 12 from the first frame after the models load to the end of the Relight in both effect runs (no new program). Pass: no time added beyond noise (limit 1.5 ms), under 16.7 ms, at most 5 more draw calls (cap 6).
 
-## E5, criterion 5 (25 Nov 2026, Josh's PC, in view)
+## E5, criterion 5 (24 Nov 2026, Josh's PC, in view)
 
 `?puzzle=city-two-ways-round&perf=1`, 6x6 seed 1, before power, effects on (normal play), fresh load per run. `main` at ca712dc (D:\rest-main-play, port 5210), the branch at its head (D:\rest-081e5, port 5185). Pane sizes emulated.
 
@@ -119,4 +119,4 @@ The `fx=0` run was taken while an architect agent was working, so its CPU median
 
 At 1287 x 1178 the branch opens exactly where main does (main 1,774 with effects off, plus FX2's 5). Its furthest zoom-out there looks the same as main's by eye (1.5 x D0 against main's 1.6 x the opening); perf=1 logs only the first 300 frames after load, so no number is taken at that zoom. At 800 x 570 the small-pane opening falls from main's 3,465 to 2,530 draw calls. That is still above the desktop's 1,779, because the wider aspect shows more city side to side at the limit distance. No branch number is higher than main's at the same size.
 
-E5 review round 1, must-fix 2 (furthest zoom-out timings on both builds): waived by Josh, 25 Nov 2026, on a card: "Waive it (Recommended)". The opening rows above and the by-eye check at the furthest zoom-out stand.
+E5 review round 1, must-fix 2 (furthest zoom-out timings on both builds): waived by Josh, 24 Nov 2026, on a card: "Waive it (Recommended)". The opening rows above and the by-eye check at the furthest zoom-out stand.
