@@ -889,9 +889,9 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
   const lightning = makeLayer(1, quad, lightMat, "sprite", 0, 0, fadeLinear, 8 * n + DIRECT_MAX);
   const lightCap = 1 + 8 * n + DIRECT_MAX;
   // Four white point lights, made now at intensity 0 and never added or removed: 0 the fuse burst, 1 and 2 the live breaks' sparks, 3 the bolt's head. The light count in play never changes.
-  const burstLight = new PointLight(0xffffff, 0, 10 * S, 2);
-  const sparkLights = [new PointLight(0xffffff, 0, 7 * S, 2), new PointLight(0xffffff, 0, 7 * S, 2)];
-  const boltLight = new PointLight(0xffffff, 0, 8 * S, 2);
+  const burstLight = new PointLight(0xffffff, 0, 22 * S, 2);
+  const sparkLights = [new PointLight(0xffffff, 0, 14 * S, 2), new PointLight(0xffffff, 0, 14 * S, 2)];
+  const boltLight = new PointLight(0xffffff, 0, 16 * S, 2);
   const fxLights = [burstLight, ...sparkLights, boltLight];
   for (const l of fxLights) {
     l.name = "fx-light";
@@ -1293,8 +1293,8 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
         burstAge += dt;
         if (burstAge >= BLOW_TIMING.pop) burstAge = -1;
       }
-      burstLight.intensity = burstAge < 0 ? 0 : 6 * (1 - burstAge / BLOW_TIMING.pop) ** 2;
-      boltLight.intensity = boltOn ? 2 * (0.6 + 0.4 * rnd()) : 0;
+      burstLight.intensity = burstAge < 0 ? 0 : 20 * (1 - burstAge / BLOW_TIMING.pop) ** 2;
+      boltLight.intensity = boltOn ? 6 * (0.6 + 0.4 * rnd()) : 0;
       boltOn = false;
       for (let s = 0; s < n; s++) {
         if (fed[s] === 0) continue;
@@ -1306,7 +1306,7 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
         if (sparkLit < 2) {
           const l = sparkLights[sparkLit++]!;
           l.position.set(e.x, e.y + 0.5 * S, e.z);
-          l.intensity = 1.6 * flick;
+          l.intensity = 5 * flick;
         }
         m4.compose(pv.set(e.x, e.y, e.z), q.copy(camera), sv.setScalar(1.5 * S)).toArray(sarr, gi * 16);
         scol[gi * 3] = flick;
