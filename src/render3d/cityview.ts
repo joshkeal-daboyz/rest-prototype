@@ -1108,6 +1108,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
       for (let k = 0; k < spots.length; k++) {
         const a = arcPorts[spots[k]!]!;
         fx.arcAt(a.ax, a.ay, a.az, a.bx, a.by, a.bz, 0.3 * S, 0.8, 1.0, 1.4);
+        fx.arcFlashAt((a.ax + a.bx) / 2, (a.ay + a.by) / 2, (a.az + a.bz) / 2);
       }
       for (let k = 0; k < faultPlaces.length; k++) {
         if (time < fxAllNext[k]!) continue;
@@ -1141,6 +1142,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
       for (let k = 0; k < spots.length; k++) {
         const a = arcPorts[spots[k]!]!;
         fx.arcAt(a.ax, a.ay, a.az, a.bx, a.by, a.bz, 0.3 * S, 0.8, 1.0, 1.4);
+        fx.arcFlashAt((a.ax + a.bx) / 2, (a.ay + a.by) / 2, (a.az + a.bz) / 2);
       }
     }
     // The blows: a bolt towards the fuse, the burst at its pop. A repair, an undo or a reset takes the fault away and stops it at once (never on the frame it was stamped).

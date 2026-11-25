@@ -745,6 +745,8 @@ export interface FxLayer {
   repairAt(x: number, y: number, z: number): void;
   /** A blown fuse's burst, once, at the box: `BLOW_SPARKS` sparks, chips and a soft-spot flash. `ground` is the height the sparks bounce off. */
   blowAt(x: number, y: number, z: number, ground: number): void;
+  /** A small cold flash for a brownout arc, for a few frames (call it each frame the arc is on). */
+  arcFlashAt(x: number, y: number, z: number): void;
   /** A lit lamp's burst, once: a soft flash and a fountain of sparkle in the lit pane's amber. */
   bloomAt(x: number, y: number, z: number): void;
   /** Queues one lightning quad between two points for this frame (world units, `width` too; `r g b` before the layer's gain). Dropped past the frame's room. */
@@ -1074,6 +1076,9 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
       for (let i = 0; i < 12; i++) chipOut(e);
       flash(x, y, z, 9, 1.5, BLOW_TIMING.pop, 2.2, 2.0, 1.6, 1.2, 0.5, 0.1);
       flash(x, y, z, 3, 1.2, 0.2, 2.4, 2.4, 2.4, 1.6, 1.2, 0.8);
+    },
+    arcFlashAt(x, y, z) {
+      flash(x, y, z, 1, 1, 0.05, 0.8, 1.0, 1.5, 0.4, 0.5, 0.8);
     },
     bloomAt(x, y, z) {
       flash(x, y, z, 3.5, 1.6, 0.5, 1.8, 1.4, 0.8, 1.2, 0.6, 0.15);
