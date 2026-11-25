@@ -217,6 +217,9 @@ export function settleBlend(elapsed: number): number {
   return w * w * (3 - 2 * w);
 }
 
+/** `from` (degrees) turned by whole turns to lie within 180 of `to`: easing from the splash's accumulated turn takes the shortest way, however long the splash ran. */
+export const nearTurn = (from: number, to: number): number => to + ((((from - to) % 360) + 540) % 360) - 180;
+
 /** The direction of the moon (unit, from the camera) at a turn. */
 export const moonAt = (turn_deg: number): { x: number; y: number; z: number } => {
   const d = moonDirection(turn_deg);
@@ -393,7 +396,7 @@ export function createTitleView(canvas: HTMLCanvasElement, view: CityPuzzleView,
       lastT = t;
       if (canvas.clientWidth !== drawnW || canvas.clientHeight !== drawnH) resize();
       const w = mode === "title" ? settleBlend(t - modeAt) : 0;
-      setSkyTurn(scene, mode === "title" ? lerp(fromTurn, titleTurn(t), w) : splashTurn(t));
+      setSkyTurn(scene, mode === "title" ? lerp(nearTurn(fromTurn, titleTurn(t)), titleTurn(t), w) : splashTurn(t));
       const p = poses.title;
       camera.position.set(p.x_m * S, p.y_m * S, p.z_m * S);
       camera.rotation.set(lerp(poses.splash.pitch_deg, poses.title.pitch_deg, w) * D, -p.yaw_deg * D, 0, "YXZ");

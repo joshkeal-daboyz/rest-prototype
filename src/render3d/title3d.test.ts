@@ -6,7 +6,7 @@ import { loadCityView } from "./cityview";
 import { plan3dGroups } from "./plan3d";
 import { TILE_M } from "./tilecity";
 import { buildingHeights } from "./windows";
-import { TITLE_VIEW, moonAt, projectPoint, skyOnly, titlePoses, titleTarget, titleTurn, titleWindow, windowedPlan } from "./title3d";
+import { TITLE_VIEW, moonAt, nearTurn, projectPoint, skyOnly, splashTurn, titlePoses, titleTarget, titleTurn, titleWindow, windowedPlan } from "./title3d";
 
 // Stage 01 on the default city (6 x 6 seed 1, one-way on): the one whole-city fixture of this file.
 const view = loadCityView(loadCityPuzzle(JSON.parse(readFileSync("puzzles/city/01-first-light.city.json", "utf8"))), () => sharedCity(DEFAULT, "clean"));
@@ -43,6 +43,8 @@ describe("the title backdrop (081 T1)", () => {
         }
       }
     }
+    // A long splash's accumulated turn eases the short way into the title's, never through more than half a turn.
+    for (const t of [0, 3, 100, 250, 1000]) expect(Math.abs(nearTurn(splashTurn(t), titleTurn(0)) - titleTurn(0))).toBeLessThanOrEqual(180);
     expect(skyOnly(poses.splash)).toBe(true);
     expect(skyOnly(poses.title)).toBe(false);
   });
