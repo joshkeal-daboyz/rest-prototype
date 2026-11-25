@@ -309,4 +309,4 @@ Night's global lighting as written in the table of `lighting.ts` (the rig reads 
 | --- | --- |
 | background | `background: 0x0b0f17,` |
 | ambient light | `ambient: { color: 0x4a5a7a, intensity: 1.1 },` |
-| night has the sky and the moon | `    sky: true,` |
+| night has the sky and the moon | `sky: true,` |

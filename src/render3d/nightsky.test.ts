@@ -33,7 +33,11 @@ describe("the night sky (081 SK)", () => {
     const agree = (): number => discDir(skyOf(scene)).distanceTo(moonLight(scene).position.clone().normalize());
     expect(agree()).toBeLessThan(1e-6);
     const el = (NIGHT_SKY.moon.elevation_deg * Math.PI) / 180;
-    expect(discDir(sky).y).toBeCloseTo(Math.sin(el), 6);
+    // The direction itself: north is -z, so azimuth 0 at elevation 18 is (0, sin 18, -cos 18).
+    const d0 = discDir(sky);
+    expect([d0.x, d0.y, d0.z].map((v) => Math.round(v * 1e6) / 1e6)).toEqual([0, Math.round(Math.sin(el) * 1e6) / 1e6, Math.round(-Math.cos(el) * 1e6) / 1e6].map((v) => v + 0));
+    expect(NIGHT_SKY.moon.azimuth_deg).toBe(0);
+    expect(NIGHT_SKY.moon.elevation_deg).toBe(18);
 
     const first = new Vector3(stars[0], stars[1], stars[2]);
     setSkyTurn(scene, 90);

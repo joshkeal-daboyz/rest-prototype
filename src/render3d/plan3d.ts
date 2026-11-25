@@ -28,7 +28,7 @@ import { KIT_KEYS as HOLDOUT_KIT_KEYS } from "../city/holdout/kit";
 import { KIT_KEYS as RUIN_KIT_KEYS, ruinCrownBounds } from "../city/ruin/kit";
 import type { Insets } from "./maprender";
 import { createDayToggle, pageDayToggleHost, type DayToggle, type DayToggleHost } from "./daytoggle";
-import { applyLightMode, addSurface, newLightOwners, setRendererMode, type LightOwners } from "./lightrig";
+import { applyLightMode, addSurface, newLightOwners, releaseSky, setRendererMode, type LightOwners } from "./lightrig";
 import { lightModeFor, type LightModeId } from "./lighting";
 import { WORLD_PER_METRE } from "./models";
 import { CODE_ESCAPE_KEY, type EscapePart } from "./escapes";
@@ -1604,6 +1604,7 @@ export function createPlanAssembleRenderer3d(gl: WebGLRenderer, canvas: HTMLCanv
     centreOn: () => rig.getPan(),
     dispose() {
       disposed = true;
+      releaseSky(scene);
       canvas.removeEventListener("pointerdown", onDown);
       canvas.removeEventListener("pointermove", onMove);
       canvas.removeEventListener("pointerup", onUp);

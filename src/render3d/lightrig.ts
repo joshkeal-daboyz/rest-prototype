@@ -108,6 +108,11 @@ function ensureSky(scene: Scene, wanted: boolean): void {
   scene.add(sky);
 }
 
+/** Release the sky: remove the sky group and free its geometries, materials and textures. A view's dispose calls it (the light rig owns the sky, so the view does not free it itself). Safe with no sky. */
+export function releaseSky(scene: Scene): void {
+  ensureSky(scene, false);
+}
+
 /**
  * Turn the stars, the moon disc and the moon light together about the vertical (section T's splash and title; play never calls it, so its turn is 0). The light still comes from the disc.
  * A later `applyLightMode` keeps the turn.

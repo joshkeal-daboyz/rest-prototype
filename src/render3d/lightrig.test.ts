@@ -5,9 +5,9 @@
 
 import { describe, expect, it } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
-import { ACESFilmicToneMapping, AmbientLight, Color, DirectionalLight, HemisphereLight, MeshStandardMaterial, NoToneMapping, PointLight, Scene, type Light } from "three";
+import { ACESFilmicToneMapping, AmbientLight, Color, DirectionalLight, HemisphereLight, Mesh, MeshStandardMaterial, NoToneMapping, PointLight, Scene, type Light } from "three";
 import { sunPosition } from "./lighting";
-import { addSurface, applyLightMode, newLightOwners, sceneLightMode, setRendererMode, type RigRenderer } from "./lightrig";
+import { addSurface, applyLightMode, newLightOwners, releaseSky, sceneLightMode, setRendererMode, type RigRenderer } from "./lightrig";
 import { NIGHT_SKY, moonDirection } from "./nightsky";
 import { SUN_DISTANCE } from "./lighting";
 
@@ -49,6 +49,11 @@ describe("applyLightMode: one owner of the global lights", () => {
     expect([sky(scene), kinds(scene)]).toEqual([0, ["hemi", "key"]]);
     applyLightMode(scene, null, "night");
     expect([sky(scene), kinds(scene)]).toEqual([1, ["ambient", "moon"]]);
+    // A view's dispose releases the sky: removed, and its geometries freed.
+    let freed = 0;
+    scene.children.find((c) => c.userData["lightRig"] === "sky")!.traverse((o) => (o as Mesh).geometry?.addEventListener("dispose", () => freed++));
+    releaseSky(scene);
+    expect([sky(scene), freed]).toEqual([0, 3]);
   });
 
   it("day leaves exactly one sun and one HemisphereLight, no ambient, all tagged", () => {

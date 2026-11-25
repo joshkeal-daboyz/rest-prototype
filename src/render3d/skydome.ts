@@ -148,6 +148,8 @@ export function disposeSky(group: Group): void {
   group.traverse((o) => {
     const m = o as Mesh;
     if (m.geometry) m.geometry.dispose();
-    if (m.material) (m.material as { dispose(): void }).dispose();
+    const mat = m.material as { dispose(): void; map?: { dispose(): void } | null } | undefined;
+    mat?.map?.dispose();
+    mat?.dispose();
   });
 }

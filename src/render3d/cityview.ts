@@ -26,7 +26,7 @@ import { createDayToggle, pageDayToggleHost, type DayToggle, type DayToggleHost 
 import type { Vec3 } from "./kitunits";
 import { GROUND } from "./kitunits";
 import { lightModeFor, type LightModeId } from "./lighting";
-import { addSurface, applyLightMode, newLightOwners, setRendererMode } from "./lightrig";
+import { addSurface, applyLightMode, newLightOwners, releaseSky, setRendererMode } from "./lightrig";
 import { ARCS_AT_ONCE, arcSpots, blowBolts, blowBurstDue, createFxLayer, fxSwitch, gatherTargets, newFxBolts, relightBursts, repairedFaults, sharedFx, sparkingCuts, type FxCut, type FxEmitter, type FxLamp, type FxPiece, type FxPort, type FxRoute } from "./fx";
 import { lampFlicker } from "./look";
 import { DIM_SHARE, STREET_LIGHTS_MAX, buildingHeights, buildingGlow, dimBuildings, dimPieces, glowCardMesh, glowCards, roofOffsets, setDimWindows, lampBuildings, lightPlaces, litGlass, sceneryLamps, setBuildingGlow, setStreetLights, streetLights, targetBuildings, type BuildingGlow, type BuildingLamp, type GlowCards, type LitGlass, type StreetLights } from "./windows";
@@ -1440,6 +1440,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     },
     dispose() {
       disposed = true;
+      releaseSky(scene);
       toggle?.dispose();
       toggle = null;
       overlayLayer?.remove();
