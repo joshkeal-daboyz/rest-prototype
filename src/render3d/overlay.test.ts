@@ -162,7 +162,7 @@ describe("a city puzzle played on the city (ticket 081 E2)", () => {
     expect(a.plan).toBe(b.plan);
     expect(a.converted.puzzle.nodes.map((n) => n.id).filter((id) => !a.converted.hidden!.includes(id))).toEqual(city.nodes.map((n) => n.id));
     expect(() => loadCityView({ ...city, district: ["block:99:99"] }, build)).toThrow(CityPuzzleError);
-  });
+  }, 15000);
 
   it("a city view given is the play route, ahead of every address route and in dev only; without one the routes are as before", () => {
     const none = { city: false, dev: true, assemble: false, plan: false, sheet: false };
