@@ -10,7 +10,7 @@ import { DEFAULT, sharedCity } from "../city/testing/namedcities";
 import { createGrid } from "../grid";
 import type { GridState } from "../grid";
 import { circuitDraws } from "./circuitdraw";
-import { JOB_WIRE_TINT_ORDER, jobWires, lineFlow, linesAround, sceneryDropWires, wholeFraction } from "./cityview";
+import { tintLayer, jobWires, lineFlow, linesAround, sceneryDropWires, wholeFraction } from "./cityview";
 import { overlayIcons, type Project } from "./overlay";
 import { createRelightClock } from "./relight3d";
 import { Scene } from "three";
@@ -266,7 +266,7 @@ describe("scenery drawn live (081 S4)", () => {
     const cut = { ...converted, cuts: { fx: cutSpan } };
     const wires = jobWires(layer, circuitDraws(layer, undefined, { converted: cut }), cut);
     const want = new Set(converted.puzzle.lines.flatMap((l) => [...(converted.runs[l.id]?.spans ?? []), ...layer.drops.filter((d) => d.building === converted.runs[l.id]?.drop).map((d) => d.id)]));
-    expect(JOB_WIRE_TINT_ORDER).toBeLessThan(0);
+    expect(tintLayer(new BoxGeometry(1, 1, 1), 1).renderOrder).toBeLessThan(0);
     expect(wires.length).toBeGreaterThan(0);
     for (const w of wires) expect(want.has(w.id), w.id).toBe(true);
     expect(wires.some((w) => w.id === cutSpan)).toBe(true);
