@@ -198,6 +198,10 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | W3 | The target reads as the target (W-Q2); each icon on its piece | renderer | W2 (shares `windows.ts`, `cityview.ts`), W-Q2 | 2 |
 | P2a2 | The 16 pilots re-laid on building targets, spread | puzzle-designer | W1; Josh plays after W2 and W3 | 0 |
 | W4 | Pulses run outward from the feed (find the cause, fix, pin direction for P0 and the 16 pilots); live runs show through buildings, faded (cut 25 Nov 2026, **not approved**) | renderer | PR #74 (P2a2) | 2 (3 at most) |
+| SK | The night sky and the moon: a sky drawn in code, stars, a moon disc north and low, the moonlight from it, a turn for the title; no look-up in play (cut 25 Nov 2026; **approved (G1) the same day**: "Approve") | renderer | G1 (in) | at most 7 (3 added, at most 4 rewritten) |
+| T1 | The title backdrop: the splash's turning sky, the title's moon over the city and one lit building on the right (cut 25 Nov 2026; **approved (G1) the same day**: "Approve") | renderer | SK | 2 |
+| T2 | Progress and the stage list, pure: best moves and time per stage in `localStorage`, completed stages plus the next | ui | G1 | at most 5 |
+| T3 | The screens: the "Uronacid" splash, the title with start and exit, the stage select dropdown, the win recorded; dev routes skip them | ui | T1, T2, T-Q7 | at most 3 |
 
 `src/play/` (interaction) has no section. E2 keeps the `MapRenderer3d` interface, so play and its `hitTest` calls do not change. If E2's builder finds that `src/play/` must change, it stops, and the architect re-cuts with an interaction section.
 
@@ -2343,8 +2347,177 @@ S1 and U3 (outside `src/render3d/`) go on unaffected. L2, L3 and S4 wait for F1b
 #### The docs (the main session, on Josh's word; not an agent's)
 `CLAUDE.md` (the stack line's "Canvas 2D", the hard rules naming folders), `docs/prototype-brief.md` (the folders table's `src/render/` row, "What the player sees"' first-prototype paragraph, the stack's "the old 2D map until ticket 081's X1 removes it") and `.claude/agents/renderer.md`, `interaction.md`, `grid-simulator.md` and `sound.md` still name `src/render/`. After X1c merges, the main session drafts the new wording and Josh approves it on a card (X-Q3: "Main session (Recommended)"). The architect fixes the `src/core/` comments at the same time.
 
+### SK · The night sky and the moon (renderer). Branch `ticket/081sk-night-sky`. Cut 25 Nov 2026, one PR; re-cut the same day for the title screen (section T); **approved (G1) 25 Nov 2026**
+**Josh, 25 Nov 2026, in chat:** "we need a sky box, it should just be a night sky, and put a moon in the sky as a light source". Then, in answer to the first SK cards: "After we create the sky box I want to create a title screen." (the whole message is under section T).
+
+**Josh's answers, 25 Nov 2026, on a card (relayed by the main session):**
+- **G1:** "Approve".
+- **SK-Q1:** "Title screen (Recommended)". In play only the moonlight shows; the sky, the moon and the stars show on the Uronacid splash and the title screen (section T). The look-up at each puzzle's start, its files and its test are dropped.
+- **SK-Q2:** "Ahead, low (Recommended)". The moon stands north, low over the city (`azimuth_deg` 0, `elevation_deg` 18 to start).
+- **SK-Q3:** "No shadows (Recommended)". Shadows stay off.
+- **SK-Q4** (the dev Day / Night key), asked with T-Q7 on one card; Josh answered in his own words: "day is not an option in the final game, day should only be used for development purposes." So the night sky shows only at night, and day stays the dev-only key it is (criterion 4, as built).
+
+**What the scene has today (read at `main` bf6940d).**
+- **The light rig** (`lightrig.ts`, ticket 060) is the one owner of the scene's background, fog, global lights and tone mapping. It reads `LIGHT_MODES` (`lighting.ts`, pure). The city view (`cityview.ts`) and the plan view (`plan3d.ts`) both ask it for a mode.
+- **Night** (the game's only mode in a production build): a flat background `0x0b0f17`, no fog, an ambient light `0x4a5a7a` at 1.1, and **a moon light already**: one `DirectionalLight` tagged `moon`, `0x8fa6d0` at 0.7, from `[-6, 12, 4]` (high, from the west-south-west). There is no moon in the sky and no stars. No tone mapping; shadows off.
+- **Day** (dev only, `light=day` or the "Day / Night" button and the L key, `daytoggle.ts`): a flat sky blue `0xa9c7e6`, a sun and a hemisphere light, ACES, and the night-only parts (lamp lights, glows, pools) hidden.
+- **The lit buildings' glow** (L1, W2, W3) is emissive windows through the instance attribute (F1b), glow cards, and real street lights (cap 32, made at build). The gold target is the same path in gold. **FX4's** white point lights are made at build too. None of them is lit by the moon: emissive and point lights add on top of it. So what the moon can wash out is the **contrast**: the brighter the unlit walls and roofs, the less a lit building stands out.
+- **The play camera never sees the sky.** It looks 45 degrees down (`ELEVATION`) with a 40 degree vertical view (`FOV_DEG`), so the top of the screen is 25 degrees below the horizon. It has no tilt or orbit (Josh, W-Q4: "One fixed view"). What shows past the city's edge, at the top of a zoomed-out view, is the flat background. **So in play the player sees the moonlight, not the sky.** Josh's title screen is where the sky is seen (section T): the splash and the title look up at it (SK-Q1, "Title screen (Recommended)"). The look-up at each puzzle's start, first cut here, is dropped.
+- `LIGHT_MODES`' numbers are drift-checked: `styleguide.test.ts` wants a row in `docs/city-style/numbers.md` for every number `lighting.ts` exports, and pins the moon line by its source text. Every tuning round on the moon there would mean a doc row and two test pins.
+
+**The architect's calls (approved with G1).**
+- **A sky drawn in code, not a pack skybox.** Josh asked for "just a night sky". The packs hold no night sky: `sci-fi-city-pack`'s `SkyDome.fbx` comes with `SimpleSky.png`, a blue day gradient; `nature-pack`'s `MountainSkybox` is a ring of snowy mountains on a grey sky; `city-pack`'s `SM_Env_Skyline_*` are building silhouettes, not sky. Each would also need the pack-intended-use check (`docs/design/073-pack-intended-use.md`), a model key in `gamemodels.ts` and `npm run assets:game`, and, by the Synty licence decision (16 Nov 2026), could ship only in a password-gated build. A sky drawn in code is a gradient dome, generated star points and a moon disc, has no file and no new dependency, and every number Josh tunes is in one block.
+- **The moon is the night's existing moon light, moved, not a light added.** The `moon` `DirectionalLight` stays the one directional light at night. It takes its direction from the moon disc and its colour and strength from the block. No light is added, so the lights' count (and every lit material's program) is unchanged.
+- **The tunable numbers leave `LIGHT_MODES` for a new `NIGHT_SKY` block** (`src/render3d/nightsky.ts`, pure: no three, no DOM), outside the drift check, because Josh tunes them by playing (W2 took 6 rounds, FX4 9). `LIGHT_MODES.night` keeps its background, ambient, surfaces and switches. It holds no moon numbers; it says night has the sky and the moon (for example `sky: true`), and the rig reads the numbers from `NIGHT_SKY`. The ambient stays pinned where it is: it is not part of the sky, and the fill cap below reads it.
+- **The sky is one reusable piece.** Section T's title view gets the same sky, moon, stars and moonlight from the same rig and the same block; it adds nothing of its own to the sky but a turn (criterion 5).
+- **In play the sky stands still.** No moon path and no star twinkle by the clock: the brief's scope has "No night clock", and a moving moon would read as one. Only the splash and the title turn the sky (`drift`), and they are not play.
+
+**`NIGHT_SKY`, the one block Josh tunes (starting values; the builder adjusts them round by round on his word, and each round is one edit to this block):**
+| Part | Numbers (starting values) |
+| --- | --- |
+| `sky` | `zenith` `0x03050b`, `horizon` `0x101828`, `band_deg` 12 (the horizon's glow, in degrees above it), `below` `0x0b0f17` (today's background, under the horizon) |
+| `stars` | `count` 1200, `seed` 1, `minElevation_deg` 8, `size_px` 1.5, `brightness` [0.35, 1], `colour` `0xdfe6ff` |
+| `moon` | `azimuth_deg` 0 (north: ahead of the play camera, which looks to -z), `elevation_deg` 18, `disc_deg` 4, `disc` `0xe8ecf2`, `halo_deg` 14, `halo` 0.25, `light` `0x8fa6d0`, `intensity` 0.7 (today's colour and strength) |
+| `drift_deg_s` | 1.5 (how fast the splash and the title turn the stars and the moon about the vertical; 0 in play) |
+
+**No Decided rule is touched.** The sky and the moon are drawing: they read no grid state and change none. "Faults hide faults" holds: light reveals no fault, and the overlay is unchanged. "The Relight can't be interrupted" is not reached: nothing here acts in play. The brief's "No night clock" holds (in play the moon stands still). No `tickets/rules-coverage.md` row moves. No pipeline-designer pre-check: no grammar rule or city number changes.
+
+**Goal.** At night the city sits under a dark sky with stars and a moon, and the moon is where the cool light on the roofs and walls comes from. The lit buildings and the gold target read at least as clearly as before. The sky is built so section T's splash and title can show it and turn it.
+
+**Acceptance criteria.**
+1. [ ] **The sky.** At night the rig adds one sky object, tagged `userData.lightRig = "sky"`, built from `NIGHT_SKY`:
+   - a dome round the camera (drawn from inside, inside the far plane, following the camera's position each frame, for example through its own `onBeforeRender`), with a gradient from `horizon` to `zenith` above the horizon and `below` under it, so the play view past the city's edge looks as it does today;
+   - `stars.count` stars in one points object, all above `minElevation_deg`, their places from `seed` (the same on every build);
+   - the moon: a disc of `disc_deg` with a soft halo, centred on the moon's direction (`azimuth_deg`, `elevation_deg`);
+   - no fog, no depth write, drawn behind everything.
+
+   The scene's `background` stays night's colour (the dome covers it), so the existing background cases hold. **test**: 1 case, on a bare scene: the sky object is there once, with the star count, every star above the minimum, the same places on a second build, and the disc's centre on the moon's direction.
+2. [ ] **The moonlight comes from the moon.** The rig's `moon` light takes `NIGHT_SKY.moon`'s `light` and `intensity`, and its position is the moon's direction times `SUN_DISTANCE`, so the light and the disc agree. No light is added: night's lights stay `["ambient", "moon"]`. Shadows stay off (SK-Q3, "No shadows (Recommended)"). **test**: folded into criterion 1's case (the light's direction equals the disc's).
+3. [ ] **The moon can't wash out the glow (the fill cap).** A pure `nightFill(normal)` in `nightsky.ts` gives the light an unlit face gets at night: the ambient's colour luminance times its intensity, plus the moon's colour luminance times `intensity` times `max(0, normal · moon direction)`. For the camera-facing wall (+z) and the roof (+y), it is no more than today's (the ambient as pinned, and today's moon, `0x8fa6d0` at 0.7 from `[-6, 12, 4]`, typed into the test as the reference). A tuning round that would break it stops; the main session asks Josh on a card whether the cap moves. **test**: 1 case.
+4. [ ] **Day and night** (SK-Q4, Josh: "day is not an option in the final game, day should only be used for development purposes."). Day removes the sky and the moon light, as it removes the moon today; night brings back one sky and one moon. Two calls with the same mode change nothing. The plan view (`city=tiles`) gets the sky at night through the same rig, with no change of its own. **test**: 1 case in `lightrig.test.ts`.
+5. [ ] **The turn, for section T.** `setSkyTurn(scene, degrees)` (exported from `lightrig.ts` or the sky's module) turns the stars, the moon disc and the moon light together about the vertical, so the light still comes from the disc. The city view never calls it, so in play the turn is 0. **test**: folded into criterion 1's case (after a turn of 90 degrees, the disc and the light still agree, and the stars have turned with them).
+6. [ ] **`cam=sky`** (dev only, the city view) poses the camera at the play camera's place, pitched up to show the sky and the moon, so Josh and the builder can tune the sky before section T exists. **no test** (a dev switch, as `cam=free`).
+7. [ ] **The drift check lets go of the moon.** `docs/city-style/numbers.md` loses the five `LIGHT_MODES.night.moon` rows and the "moon light" source-text row. `light-and-accessibility.md` and `testing-daylight.md` say the sky and the moon are in `NIGHT_SKY` (`nightsky.ts`), tuned by eye (section SK), not pinned. **test**: rewritten, at most 4, each listed by the builder. Candidates: `lighting.test.ts`'s "night is today's ..." (the moon literals go; it checks night names the sky); `lightrig.test.ts`'s "night leaves exactly one ambient and one moon ..." (the moon's values read `NIGHT_SKY`); `styleguide.test.ts`'s "pins the scene's inline colours and light by their source text" (3 rows become 2); `daytoggle.test.ts` only if it reads the moon's numbers.
+8. [ ] **The cost.** Measured with `perf=1` at the pane emulated to 1287 x 1178, `city-two-ways-round`, before power, `main` and the branch in the same session, two loads each, alternating (as L3's rows in `docs/design/081-F-measurements.md`):
+   - at most 3 draw calls and 3 programs added, all at build, so no new program appears in play;
+   - the branch's CPU median at most 1.0 ms over `main`'s (the run-to-run noise is about 1 to 2 ms, so the mean of the two loads is compared), and the whole frame still at most 16.7 ms.
+
+   Over it, the builder stops ("stop 081 SK", with the branch and the rows); it does not thin the stars or shrink the dome to pass, because they are Josh's numbers. The rows go into `081-F-measurements.md`. **browser**.
+9. [ ] **The contrast holds.** The main session takes two pane screenshots after the Relight of `city-two-ways-round`, default view, `main` and the branch. It reads the luminance at three spots: the gold target's lit windows, a lit scenery building's wall and an unlit building's camera-facing wall. On the branch, lit over unlit is at least `main`'s for both lit spots. If it is lower, that round's moon numbers go back. **browser**.
+10. [ ] Josh plays `city-two-ways-round` and one pilot, and opens `cam=sky`: he sees the night sky and the moon, the moonlight reads as coming from the moon, and the lit buildings and the gold target read as clearly as before. Looks are tuned round by round in `NIGHT_SKY` until he says they are right. **browser**.
+
+**Count.** 3 added (criteria 1, 2 and 5 in one; 3; 4) and at most 4 rewritten: at most 7.
+
+**Files.** New `src/render3d/nightsky.ts` and `nightsky.test.ts`; the three side of the sky in `lightrig.ts` or a new `src/render3d/skydome.ts`; `lightrig.ts` and `lightrig.test.ts`; `lighting.ts` (night's moon numbers out, the sky flag in) and `lighting.test.ts`; `styleguide.test.ts` (the one source-text case); `docs/city-style/numbers.md`, `light-and-accessibility.md` and `testing-daylight.md` (the moon lines only); `cityview.ts` and `tilecity3d.ts` (`cam=sky` only). **Must not:** `windows.ts`, `fx.ts`, `circuitdraw.ts`, `plan3d.ts` (it already asks the rig), `daytoggle.ts`, `gamemodels.ts`, `src/core/`, `src/play/`, `src/ui/`, `tools/`, `assets/`.
+- **Order.** First: section T's backdrop (T1) builds on it. It shares no file with an open section. P2b to P2d (puzzle files) and T2 run beside it.
+- **Interfaces.** None in `src/core/`. No new dependency.
+
+Nothing in SK is open.
+
+### T · The splash, the title screen and the stage select (renderer, then ui). Cut 25 Nov 2026 for G1, in three PRs: T1 (renderer, after SK merges) and T2 (ui, pure, after G1) side by side; then T3 (ui); **approved (G1) 25 Nov 2026**
+**Josh's answers, 25 Nov 2026, on cards (relayed by the main session):**
+- **G1:** "Approve".
+- **T-Q1:** "Rest: Circuits (Recommended)". The title reads "Rest: Circuits" (T3 criterion 2).
+- **T-Q2:** "Goodbye line (Recommended)". Exit shows a goodbye line over the sky; any key or click goes back to the title (T3 criterion 3).
+- **T-Q3:** "Best (Recommended)". The select shows the fewest moves and the fastest time, each its own best (T2 criterion 1).
+- **T-Q4:** "Browser + Clear button (Recommended)". Progress is kept in this browser's `localStorage`, with a Clear progress button on the stage select (T2 criterion 2, T3 criterion 4).
+- **T-Q5:** "Every load (Recommended)". The splash and the title play on every load; a key or click skips the splash; dev addresses skip both (T3 criteria 1 and 6).
+- **T-Q6:** "Stage 01's, gold (Recommended)". The title's building is stage 01's target building, lit gold (T1 criterion 3).
+- **T-Q7** (replaying a stage), asked with SK-Q4 on one card, is **still open**: Josh answered SK-Q4 only. It is needed by T3 alone, so T1 and T2 start now and T3 waits for it.
+
+**Josh, 25 Nov 2026, in chat** (in answer to the SK cards):
+> "After we create the sky box I want to create a title screen.
+>
+> The game should load with "Uronacid" in white text across a scrolling night sky. It should. Fade out to the title screen
+>
+> The game title screen should say the title of the game, "Rest : Circuts" in large text in top left corner.
+>
+> "start" and "exit" in the bottom left corner. It should be selectable with arrow keys or a mouse. The text should be white against a night sky with the moon in the sky and a lit building from the game map on the right side of the screen.
+>
+> Clicking "start" should bring you to the stage select menu. For now it should be a simple dropdown box that displays all stages completed and the next stage to complete. It should display stage number, stage name, total moves and time to complete within the dropdown."
+
+**What exists today (read at `main` bf6940d).**
+- **The page** (`src/main.ts`, ui's) loads the city puzzles (`collectCityMaps`, `src/ui/maps.ts`), imports `src/render3d` once, then opens `?puzzle=<id>` or the first entry straight away. There is no screen before play. A production build shows one line ("This prototype plays in `npm run dev`"), so every screen here is dev-build only, as play is (open question 8).
+- **The stages.** `puzzles/city/` holds the 16 pilots, `01-first-light` ("01 · First light") to `16-behind-the-first`, all on the 6 x 6 seed 1 city, and `city-two-ways-round` (P0, "City · Two ways round"), the test map. `collectCityMaps` lists them in path order, open before locked. The HUD's "Map" `<select>` (`src/ui/index.ts`) lists them all. P2b to P2d will add 17 to 64.
+- **Moves and time already exist, and already reach the page at the win.** `GridState.actions` (`src/grid/`) counts accepted throws and repairs; an undo takes one back (it restores the state before) and a reset sets it to 0. `MapPlay.view().elapsed` (`src/play/`) is play time from the map's opening or last reset, stopped when the job completes. The win splash (ticket 020 B) already shows both: "Lit in 0:42.3 · 7 moves" (`winLine`, `src/ui/logic.ts`), after the Relight. So **no `src/play/` or `src/grid/` change is needed**, and interaction has no section.
+- **"Completed"** is the job completing: every target lit with nothing browned out (`GridState.complete`, `job:completed`), which starts the Relight.
+- **No saved progress.** The only `localStorage` use is the sound settings (`rest.audio`, through `src/ui/index.ts`'s guarded store and `logic.ts`'s parser, which reads junk as defaults). T2 follows that pattern under its own key.
+- **The sky** comes from SK (approved): `NIGHT_SKY`, the rig's sky and moon (north, low: SK-Q2), and `setSkyTurn` for the scroll.
+
+**The architect's calls (approved with G1).**
+- **The screens are DOM over one 3D backdrop.** The words ("Uronacid", the title, "start", "exit", the dropdown) are DOM in `#ui`, ui's, white. The night sky, the moon and the lit building behind them are one renderer view, `createTitleView` (T1), on the same canvas the game uses, disposed when a puzzle opens.
+- **The backdrop shows the game's own city, only round the building.** All the stages are on the 6 x 6 seed 1 city. The title view builds that city's plan (cached, as `loadCityView` does) but draws only the lit building's block and the blocks next to it (a 3 x 3 window of blocks), with no circuit, no overlay and no particles. Past them is the sky's `below`. That keeps the backdrop far cheaper than a low view across the whole city, which F measured at 48 ms before F1.
+- **The splash covers the loading.** The splash needs only the sky (no models), so it shows at once while the city's models load. It fades to the title when its time is up and the backdrop's models are in, whichever is later.
+- **The stages are the numbered city puzzles, in file order.** Stage number is the number the id starts with (01 to 16 now). `city-two-ways-round` has none, so it is not a stage: it stays in the HUD's Map menu (dev) and on `?puzzle=`.
+- **Progress lives in the page, not the game.** A win is recorded in this browser's `localStorage` (T-Q4) when the job completes, so leaving during the Relight loses nothing. The record is by puzzle id. `src/grid/` and `src/night/` are untouched and stay pure; `src/play/` is untouched.
+- **The dev routes go straight to play.** `?puzzle=<id>`, any `city=` route, `assets=`, and the HUD's Map menu skip the splash, the title and the select, as today. So tuning, `perf=1` measuring and the release harness (which drives the grid and play, not the page) are unaffected.
+
+**No Decided rule is touched.** The screens come before play and after it; they read no grid state but the win's moves and time, which already exist. "The Relight can't be interrupted" holds: a win is recorded when the job completes, and nothing here acts during the Relight (the win splash and its Next are unchanged). The brief's Draft "No night clock" is a play rule; the splash's turning sky is not play. Nothing in the brief's rules covers progression, death or the night, so no rule is near. No `tickets/rules-coverage.md` row moves. No pipeline-designer pre-check.
+
+**Order.**
+| PR | Section | Owner | After | Shares | Tests |
+| --- | --- | --- | --- | --- | --- |
+| 1 | SK | renderer | G1 (in) | | at most 7 |
+| 2 | T1, the backdrop | renderer | SK merges | `cityview.ts`, `lightrig.ts` (read) | 2 |
+| 2, beside T1 | T2, progress and the stage list, pure | ui | G1 | none | at most 5 |
+| 3 | T3, the screens | ui | T1 and T2 merge, and T-Q7 answered | `src/main.ts`, `src/ui/index.ts`, `index.html` | at most 3 |
+
+#### T1 · The title backdrop: the night sky, the moon and one lit building (renderer). Branch `ticket/081t1-title-backdrop`, after SK merges
+**Goal.** The page can show, behind its own words, a turning night sky alone (the splash) or the sky with the moon over the city and a lit building on the right of the screen (the title).
+
+**Acceptance criteria.**
+1. [ ] **The view.** `createTitleView(canvas, city, opts)` in `src/render3d/` (exported from `index.ts`), with `setMode("splash" | "title")`, `draw(timeSeconds)`, `ready()` (true once the backdrop's models are in), `resize()` and `dispose()`. Its types live in `src/render3d/titleview.ts`, types only, as `maprender.ts` does, so `src/ui/` and `main.ts` code against them. It uses the rig at night, so the sky, moon and moonlight are SK's.
+2. [ ] **The splash.** The camera looks up at the sky alone: no ground, no building in view. `draw` turns the sky by `NIGHT_SKY.drift_deg_s` times the time (`setSkyTurn`), which is the scroll. It draws before any model is loaded.
+3. [ ] **The title.** The camera stands low in the street, looking north at the moon above the skyline. The lit building (T-Q6, "Stage 01's, gold (Recommended)": stage 01's target building, lit gold) stands on the right of the screen: its centre in the right third, the moon in the upper half, and the left half kept clear for the words (the title top left, "start" and "exit" bottom left). The building lights through W2 and W3's path (`setBuildingGlow`, gold), its street lights included. Only its 3 x 3 window of blocks is drawn. The sky turns slowly, as on the splash. Splash to title eases the camera down over `TITLE_SETTLE_S` (1.5 s, in a `TITLE_VIEW` block with the pose's numbers, for Josh to tune).
+
+   **test**: 1 case on the pose function, on stage 01's city: in the title pose the building's centre projects into the right third, the moon's direction into the upper half, and no part of the drawn blocks into the left third's top and bottom fifths; in the splash pose nothing below the horizon is in view.
+4. [ ] **Only the window is built.** The title view's building and street groups hold only the 3 x 3 blocks round the building. **test**: 1 case on a small fixture plan: pieces outside the window are not in any group.
+5. [ ] **The cost.** `perf=1` on the title (a log as the city view's, 300 frames after the backdrop is ready) at the pane emulated to 1287 x 1178: the whole frame at most 16.7 ms, no program compiled after `ready()`. Over it, the builder stops ("stop 081 T1"); the window may shrink to the building's own block only on Josh's word. **browser**.
+6. [ ] A dev address, `?title=splash` or `?title=title`, shows the view alone (no ui), for tuning before T3. **browser**.
+
+**Count.** 2 added.
+
+**Files.** New `src/render3d/titleview.ts` (types), `src/render3d/title3d.ts` (the view) and `title3d.test.ts`; `src/render3d/index.ts` (the export); `src/render3d/plan3d.ts` (a block filter on `plan3dGroups`, if the builder needs one, with no change when it is not given); `src/render3d/renderer.ts` (the `title=` dev route only). **Must not:** `cityview.ts` (the play view is unchanged), `lightrig.ts` and `nightsky.ts` (read; a change to the sky is SK's), `src/ui/`, `src/main.ts`, `src/core/`.
+
+#### T2 · Progress and the stage list, pure (ui). Branch `ticket/081t2-stage-progress`, after G1
+**Goal.** The page can record a win, keep it in the browser, and say which stages the select lists and what each line reads.
+
+**Acceptance criteria.**
+1. [ ] **The record.** `recordWin(progress, id, moves, seconds)` in a new `src/ui/progress.ts` keeps, per puzzle id, the fewest moves and the shortest time, each its own best (T-Q3, "Best (Recommended)"), and the date of the first win. **test**: 1 case: a worse run keeps both bests; a run with fewer moves but a longer time updates only the moves.
+2. [ ] **The store.** `loadProgress(storage)` and `saveProgress(storage, progress)` read and write one key, `rest-circuits.progress.v1`, through a `Storage`-shaped argument (the page passes `localStorage`; a test passes a map). Missing, unreadable or wrongly shaped data reads as no progress and is never thrown on. `clearProgress(storage)` empties it, for T3's Clear progress button (T-Q4, "Browser + Clear button (Recommended)"). **test**: 1 case: a round trip, and garbage reads as empty.
+3. [ ] **The list.** `stageList(entries, progress)` gives the numbered city puzzles (the id's leading number), in number order: every completed one, then the first one not completed (the next), and no others. With none completed it is stage 01 alone; with all completed there is no next. A stage completed out of order (through `?puzzle=`) is listed, and the next is still the lowest not completed. **test**: 1 case, on a fixture of four entries and P0.
+4. [ ] **The line.** Each entry reads `01 · First light · 7 moves · 0:42.3` (`winLine`'s clock form), and the next reads `02 · This way or that · not yet lit`. The number and name come from the puzzle's `name` ("01 · First light"), not written twice. **test**: folded into criterion 3's case.
+5. [ ] **The menu keys.** `menuStep(index, count, key)` for the title's two items: up and down move and wrap, Enter chooses. **test**: 1 case.
+
+**Count.** At most 5 (4 cases, 1 spare if a builder splits criterion 2).
+
+**Files.** New `src/ui/progress.ts` and `progress.test.ts`; `src/ui/logic.ts` (`menuStep` and the line, if they sit better there). **Must not:** `src/main.ts`, `src/ui/index.ts` (T3's), and every other folder.
+
+#### T3 · The screens: splash, title, stage select, exit (ui). Branch `ticket/081t3-title-screens`, after T1 and T2 merge and T-Q7 is answered
+**Goal.** `npm run dev` opens on "Uronacid" over a turning night sky, fades to the title, and from "start" the player picks a stage from a dropdown of the stages lit so far and the next one, and plays it.
+
+**Acceptance criteria.**
+1. [ ] **The splash.** With no `puzzle=` or dev route, the page opens on "Uronacid" in white, centred, over T1's splash. After `SPLASH.hold_s` (2.5) and once `ready()`, the word and the sky fade out over `SPLASH.fade_s` (1.0) and the title fades in. This plays on every load (T-Q5, "Every load (Recommended)"). A key or a click skips to the title. **browser**.
+2. [ ] **The title.** The game's title, "Rest: Circuits" (T-Q1, "Rest: Circuits (Recommended)"), large at the top left; "start" and "exit" at the bottom left; all white over T1's title view. The arrow keys move the choice and Enter takes it (T2's `menuStep`), the mouse hovers and clicks; the chosen item is marked. The HUD is hidden. **browser**.
+3. [ ] **Exit** (T-Q2, "Goodbye line (Recommended)") shows "Rest: Circuits is closed. You can close this tab." over the sky; any key or click goes back to the title. The page does not call `window.close()`, which browsers refuse for a tab the player opened. **browser**.
+4. [ ] **The stage select.** "start" shows one dropdown (a `<select>`, keyboard and mouse as the browser gives) with T2's `stageList` lines, the next stage chosen, and a "Play" button. Play (or Enter on the dropdown) disposes the title view and opens that stage as the Map menu does (`open(id)`), with the HUD back. Whether a completed stage can be played again waits on T-Q7 (recommended: any listed stage can be played again; otherwise completed lines are shown but not playable). A small "Clear progress" button, with the browser's confirm, empties it (T-Q4, "Browser + Clear button (Recommended)"). Escape goes back to the title. **browser**.
+5. [ ] **The win is recorded** with `recordWin` and saved, on the frame the job completes (the Relight's first frame), with `state.actions` and `view.elapsed`, for numbered stages only. The win splash and its Next are unchanged. **test**: 1 case, if the builder pulls the "record on the first Relight frame" choice into a pure helper in `logic.ts`; otherwise **browser**.
+6. [ ] **The dev routes skip it all.** `?puzzle=<id>`, `city=`, `assets=` and `title=` open as today, with no splash, title or select (T-Q5); the HUD's Map menu still switches puzzles in play. **test**: 1 case on a pure `startScreen(search, dev)` ("splash" or "play").
+7. [ ] **Back from play** is not in this PR: a stage's win splash keeps its Next; reaching the select again is a reload. (A "Menu" button in the HUD is a later card if Josh wants it.) **no test**.
+8. [ ] Josh opens `npm run dev`: the splash, the fade, the title, the keys and the mouse, the select, a stage played and then listed with its moves and time after a reload. **browser**.
+
+**Count.** At most 3 (criteria 5 and 6, and 1 rewritten if `main.ts`'s first-map case reads the old start).
+
+**Files.** `src/main.ts`; `src/ui/` (a new `screens.ts` for the splash, title, exit and select DOM, `index.ts` to hide and show the HUD, `logic.ts`); `index.html` (the screens' styles and the white text only). **Must not:** `src/render3d/`, `src/play/`, `src/grid/`, `src/core/`, `puzzles/`.
+
+**Interfaces.** None in `src/core/`: `TitleView` is in `src/render3d/titleview.ts` (types only, the `maprender.ts` precedent), and the progress shape is the page's (`src/ui/progress.ts`). No event. No new dependency: the dropdown is the browser's `<select>`, the store is `localStorage`.
+
+**Still open (for T3 only): T-Q7, replaying a stage** (asked with SK-Q4; Josh answered SK-Q4 only):
+- "Any listed stage can be played again (Recommended)".
+- "Only the next stage; completed ones are shown, not played".
+
 ## Files
-Per section, above. This branch (the cut): `tickets/081-puzzles-on-the-city.md`, `docs/design/070-K1-circuit.md` (CK9 as changed, 24 Nov 2026; CK14's dark-building line struck for section S, 24 Nov 2026), `tickets/070-city-pipeline.md` (pointer lines), `tickets/071-pack-power-lines.md` (a pointer line: C and E's ladder wiring are dropped), `tickets/rules-coverage.md`, `src/core/citycircuit.ts` (new; `CityPuzzleView` added 24 Nov 2026 for the playable path), `src/core/cityplan.ts` (`CityCircuitLayer`), `src/core/index.ts`. Section FX's cut (24 Nov 2026): new `src/core/fx.ts`, `src/core/assets.ts` (`AssetManifest.fx?`), `src/core/index.ts`, `tickets/rules-coverage.md`. Section W's cut (25 Nov 2026): this file and `tickets/rules-coverage.md` only; no `src/core/` change (W1's numbers live in `tools/`, and `{ post }` and `lead` stay typed).
+Per section, above. This branch (the cut): `tickets/081-puzzles-on-the-city.md`, `docs/design/070-K1-circuit.md` (CK9 as changed, 24 Nov 2026; CK14's dark-building line struck for section S, 24 Nov 2026), `tickets/070-city-pipeline.md` (pointer lines), `tickets/071-pack-power-lines.md` (a pointer line: C and E's ladder wiring are dropped), `tickets/rules-coverage.md`, `src/core/citycircuit.ts` (new; `CityPuzzleView` added 24 Nov 2026 for the playable path), `src/core/cityplan.ts` (`CityCircuitLayer`), `src/core/index.ts`. Section FX's cut (24 Nov 2026): new `src/core/fx.ts`, `src/core/assets.ts` (`AssetManifest.fx?`), `src/core/index.ts`, `tickets/rules-coverage.md`. Section W's cut (25 Nov 2026): this file and `tickets/rules-coverage.md` only; no `src/core/` change (W1's numbers live in `tools/`, and `{ post }` and `lead` stay typed). Sections SK and T (cut and re-cut 25 Nov 2026): this file only (with open question 20 closed); no `src/core/` change and no rules-coverage row.
 
 ## Interfaces
 Written into `src/core/` with this cut (typecheck passes):
@@ -2379,6 +2552,8 @@ Written into `src/core/` with this cut (typecheck passes):
 - **FX, particle effects (24 Nov 2026, committed with this cut; typecheck passes):** new `src/core/fx.ts` (`FX_SOURCE_PACK`, `FX_SOURCE_DIR`, `FX_GAME_DIR`, `FX_TEXTURES`, `FxTextureId`, `FX_MESHES`, `FxMeshId`, `AssetFxTexture`) and `AssetManifest.fx?` in `src/core/assets.ts`, shared by FX1 (`tools/assets/game.ts`) and FX2 (`src/render3d/fx.ts`). No event, no new dependency (no particle library).
 - **V, the load preview (25 Nov 2026, committed with the V2 to V4 re-cut; typecheck passes):** new `src/core/preview.ts` (`LoadPreview`, `LoadPreviewEntry` `{ kind, delta, over, blows }`, `LoadPreviewKind`), exported from `src/core/index.ts`. V2 implements `loadPreview(puzzle, state, known)` in `src/grid/`; V3 adds `MapRenderer3d.setLoadPreview`; V4 keeps `known`. No event, no new dependency.
 - **No new dependency.** The overlay is Canvas 2D.
+- **SK, the night sky (25 Nov 2026):** none in `src/core/`. `NIGHT_SKY`, the sky object and `setSkyTurn` are internal to `src/render3d/`. No event, no new dependency (the sky is drawn in code with Three's own geometry and materials; no pack file, no texture loader).
+- **T, the title screen (25 Nov 2026):** none in `src/core/`. `TitleView` is types only in `src/render3d/titleview.ts` (the `maprender.ts` precedent: `src/ui/` and `main.ts` import it as a type). The progress record is the page's, in `src/ui/progress.ts`. No event. No new dependency (the browser's `<select>` and `localStorage`).
 
 ## Open questions (for Josh)
 **Josh, 24 Nov 2026, on cards (relayed by the main session):**
@@ -2415,7 +2590,7 @@ All questions so far are answered (above), the mid-row one included ("Only when 
     - **W-Q3, what a run may use** (asked with W0's numbers): "Street poles and drops; roofs only to cross a street on a diagonal (Recommended)"; "Street poles and drops only, no roofs"; "Roofs over its own block too".
     - **W-Q4, the camera**: "One fixed view; routes must read from it (Recommended)" (W1's rules); "Four fixed turns, 90 degrees" (a renderer and an interaction section, cut later); "Free orbit" (the same, and E5's limits re-cut).
     - **W-Q5, PR #69**: "Close it, re-lay after W1 (Recommended)"; "Merge it now, re-lay later"; "Keep it open and amend it".
-20. **The GDD rewording (section W). Josh, 25 Nov 2026, on a card: "Reword it (Recommended)".** A proposal for `rest-gdd`, to be made there by whoever Josh gives it to; this ticket changes nothing in `rest-gdd`. Every line it touches is Draft; no Decided rule changes. Proposed wording, `docs/05-gameplay.md`:
+20. ~~**The GDD rewording (section W).**~~ **Closed 25 Nov 2026, no `rest-gdd` change.** Josh, in chat: "The gdd is for a much larger scoped game. This is just one small mini game in the grand scope of a larger series." The minigame's drift from the GDD's Draft lines stays in this prototype's own files; the GDD is not reworded for it. *As it stood before:* Josh, 25 Nov 2026, on a card: "Reword it (Recommended)". A proposal for `rest-gdd`, to be made there by whoever Josh gives it to; this ticket changes nothing in `rest-gdd`. Every line it touches is Draft; no Decided rule changes. Proposed wording, `docs/05-gameplay.md`:
     - "The power grid (Draft)", **Nodes**: add after the endpoints list: "In the circuits minigame, the endpoints the priests name are buildings: a building is lit when current reaches it down its drop, and its windows show it."
     - "Fault tracing (Draft)", the fault table's **Dead lamp** row: "Pulses reach the lamp post, but the lamp stays dark" becomes "Pulses reach the lamp post, or run down a building's drop, but the lamp or the building's windows stay dark". The part stays **Bulb**.
     - "Capacity and restraint", the endpoints bullet: unchanged (it already names shrines and homes).
@@ -2434,3 +2609,6 @@ All questions so far are answered (above), the mid-row one included ("Only when 
     - **X-Q1, what the harness replays:** "City puzzles only (Recommended)"; "City puzzles and the schematics 17 to 64, until they are on the city".
     - **X-Q2, running the harness on R1's branch:** "Wait for the next release (Recommended)" (your rule: playtests only on releases; the first city snapshots are taken then); "Run it once on R1" (this counts as your word for one run, not a release).
     - **X-Q3, the docs naming the 2D map** (`CLAUDE.md`, the brief, four agent files): "Main session rewords them after X1c (Recommended)"; "I'll reword them myself"; "Leave them for now".
+24. **Section SK. Answered 25 Nov 2026, on a card:** G1 "Approve"; SK-Q1 "Title screen (Recommended)" (in play the moonlight only; the sky, moon and stars on the splash and the title; the look-up dropped); SK-Q2 "Ahead, low (Recommended)"; SK-Q3 "No shadows (Recommended)". Josh, in chat: "we need a sky box, it should just be a night sky, and put a moon in the sky as a light source". SK-Q4 (the dev Day / Night key), answered in his own words on the SK-Q4 and T-Q7 card: "day is not an option in the final game, day should only be used for development purposes." Nothing in SK is open.
+25. **Section T. Answered 25 Nov 2026, on cards:** G1 "Approve"; T-Q1 "Rest: Circuits (Recommended)"; T-Q2 "Goodbye line (Recommended)"; T-Q3 "Best (Recommended)"; T-Q4 "Browser + Clear button (Recommended)"; T-Q5 "Every load (Recommended)"; T-Q6 "Stage 01's, gold (Recommended)". Josh, in chat: "After we create the sky box I want to create a title screen." (in full under section T). **Still open (T3 waits for it):**
+    - **T-Q7, replaying a stage** (asked with SK-Q4 on one card; Josh answered SK-Q4 only): "Any listed stage can be played again (Recommended)"; "Only the next stage".

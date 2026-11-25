@@ -135,11 +135,6 @@ The drift test (`styleguide.test.ts`) reads this table. The rule behind `POLE_SL
 | `LIGHT_MODES.night.background` | 0x0b0f17 | lighting.ts |
 | `LIGHT_MODES.night.ambient.color` | 0x4a5a7a | lighting.ts |
 | `LIGHT_MODES.night.ambient.intensity` | 1.1 | lighting.ts |
-| `LIGHT_MODES.night.moon.color` | 0x8fa6d0 | lighting.ts |
-| `LIGHT_MODES.night.moon.intensity` | 0.7 | lighting.ts |
-| `LIGHT_MODES.night.moon.position[0]` | -6 | lighting.ts |
-| `LIGHT_MODES.night.moon.position[1]` | 12 | lighting.ts |
-| `LIGHT_MODES.night.moon.position[2]` | 4 | lighting.ts |
 | `LIGHT_MODES.night.exposure` | 1 | lighting.ts |
 | `LIGHT_MODES.night.surfaces.ground` | 0x0e131d | lighting.ts |
 | `LIGHT_MODES.night.surfaces.yard` | 0x141c29 | lighting.ts |
@@ -314,4 +309,4 @@ Night's global lighting as written in the table of `lighting.ts` (the rig reads 
 | --- | --- |
 | background | `background: 0x0b0f17,` |
 | ambient light | `ambient: { color: 0x4a5a7a, intensity: 1.1 },` |
-| moon light | `moon: { color: 0x8fa6d0, intensity: 0.7, position: [-6, 12, 4] },` |
+| night has the sky and the moon | `sky: true,` |

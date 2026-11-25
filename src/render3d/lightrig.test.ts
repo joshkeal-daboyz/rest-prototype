@@ -5,9 +5,11 @@
 
 import { describe, expect, it } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
-import { ACESFilmicToneMapping, AmbientLight, Color, DirectionalLight, HemisphereLight, MeshStandardMaterial, NoToneMapping, PointLight, Scene, type Light } from "three";
+import { ACESFilmicToneMapping, AmbientLight, Color, DirectionalLight, HemisphereLight, Mesh, MeshStandardMaterial, NoToneMapping, PointLight, Scene, type Light } from "three";
 import { sunPosition } from "./lighting";
-import { addSurface, applyLightMode, newLightOwners, sceneLightMode, setRendererMode, type RigRenderer } from "./lightrig";
+import { addSurface, applyLightMode, newLightOwners, releaseSky, sceneLightMode, setRendererMode, type RigRenderer } from "./lightrig";
+import { NIGHT_SKY, moonDirection } from "./nightsky";
+import { SUN_DISTANCE } from "./lighting";
 
 const gl = (): RigRenderer => ({ toneMapping: ACESFilmicToneMapping, toneMappingExposure: 3, shadowMap: { enabled: true } });
 const lightsOf = (scene: Scene): Light[] => {
@@ -20,17 +22,38 @@ const lightsOf = (scene: Scene): Light[] => {
 const kinds = (scene: Scene): string[] => lightsOf(scene).map((l) => String(l.userData["lightRig"] ?? "own")).sort();
 
 describe("applyLightMode: one owner of the global lights", () => {
-  it("night leaves exactly one ambient and one moon, both tagged as the rig's, with today's values", () => {
+  it("night leaves exactly one ambient and one moon, both tagged as the rig's, with the ambient as pinned and the moon from NIGHT_SKY", () => {
     const scene = new Scene();
     applyLightMode(scene, null, "night");
     expect(kinds(scene)).toEqual(["ambient", "moon"]);
     const amb = lightsOf(scene).find((l) => l instanceof AmbientLight)!;
     const moon = lightsOf(scene).find((l) => l instanceof DirectionalLight)! as DirectionalLight;
     expect([amb.color.getHex(), amb.intensity]).toEqual([0x4a5a7a, 1.1]);
-    expect([moon.color.getHex(), moon.intensity, ...moon.position.toArray()]).toEqual([0x8fa6d0, 0.7, -6, 12, 4]);
+    const d = moonDirection();
+    expect([moon.color.getHex(), moon.intensity]).toEqual([NIGHT_SKY.moon.light, NIGHT_SKY.moon.intensity]);
+    expect(moon.position.toArray().map((v, i) => Math.abs(v - d[i]! * SUN_DISTANCE) < 1e-9)).toEqual([true, true, true]);
+    expect(moon.castShadow).toBe(false);
     expect((scene.background as Color).getHex()).toBe(0x0b0f17);
     expect(scene.fog).toBeNull();
     expect(sceneLightMode(scene)).toBe("night");
+  });
+
+  it("day removes the sky and the moon light, night brings back one of each, and a repeat changes nothing", () => {
+    const sky = (scene: Scene): number => scene.children.filter((c) => c.userData["lightRig"] === "sky").length;
+    const scene = new Scene();
+    applyLightMode(scene, null, "night");
+    expect([sky(scene), kinds(scene)]).toEqual([1, ["ambient", "moon"]]);
+    applyLightMode(scene, null, "night");
+    expect(sky(scene)).toBe(1);
+    applyLightMode(scene, null, "day");
+    expect([sky(scene), kinds(scene)]).toEqual([0, ["hemi", "key"]]);
+    applyLightMode(scene, null, "night");
+    expect([sky(scene), kinds(scene)]).toEqual([1, ["ambient", "moon"]]);
+    // A view's dispose releases the sky: removed, and its geometries freed.
+    let freed = 0;
+    scene.children.find((c) => c.userData["lightRig"] === "sky")!.traverse((o) => (o as Mesh).geometry?.addEventListener("dispose", () => freed++));
+    releaseSky(scene);
+    expect([sky(scene), freed]).toEqual([0, 3]);
   });
 
   it("day leaves exactly one sun and one HemisphereLight, no ambient, all tagged", () => {

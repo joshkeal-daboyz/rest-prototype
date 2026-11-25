@@ -17,7 +17,8 @@ export interface LightMode {
   ambient: { color: number; intensity: number } | null;
   /** The sun: a directional light at a fixed elevation above the horizon and azimuth clockwise from north (-z), so 135 is from the south-east (+x, +z). */
   key: { color: number; intensity: number; elevation_deg: number; azimuth_deg: number } | null;
-  moon: { color: number; intensity: number; position: readonly [number, number, number] } | null;
+  /** Night has the sky and the moon (ticket 081 SK): the dome, the stars, the moon disc and the moon light. Their numbers are in `NIGHT_SKY` (`nightsky.ts`), tuned by eye and not pinned. */
+  sky: boolean;
   hemi: { sky: number; ground: number; intensity: number } | null;
   toneMapping: "none" | "aces";
   exposure: number;
@@ -33,7 +34,7 @@ export const LIGHT_MODES: Readonly<Record<LightModeId, LightMode>> = {
     background: 0x0b0f17,
     ambient: { color: 0x4a5a7a, intensity: 1.1 },
     key: null,
-    moon: { color: 0x8fa6d0, intensity: 0.7, position: [-6, 12, 4] },
+    sky: true,
     hemi: null,
     toneMapping: "none",
     exposure: 1,
@@ -46,7 +47,7 @@ export const LIGHT_MODES: Readonly<Record<LightModeId, LightMode>> = {
     background: 0xa9c7e6,
     ambient: null,
     key: { color: 0xfff6ea, intensity: 1.4, elevation_deg: 55, azimuth_deg: 135 },
-    moon: null,
+    sky: false,
     hemi: { sky: 0xe6efff, ground: 0x9a8c78, intensity: 1.8 },
     toneMapping: "aces",
     exposure: 1,

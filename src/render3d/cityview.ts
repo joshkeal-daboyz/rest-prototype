@@ -26,7 +26,7 @@ import { createDayToggle, pageDayToggleHost, type DayToggle, type DayToggleHost 
 import type { Vec3 } from "./kitunits";
 import { GROUND } from "./kitunits";
 import { lightModeFor, type LightModeId } from "./lighting";
-import { addSurface, applyLightMode, newLightOwners, setRendererMode } from "./lightrig";
+import { addSurface, applyLightMode, newLightOwners, releaseSky, setRendererMode } from "./lightrig";
 import { ARCS_AT_ONCE, arcSpots, blowBolts, blowBurstDue, createFxLayer, fxSwitch, gatherTargets, newFxBolts, relightBursts, repairedFaults, sharedFx, sparkingCuts, type FxCut, type FxEmitter, type FxLamp, type FxPiece, type FxPort, type FxRoute } from "./fx";
 import { lampFlicker } from "./look";
 import { DIM_SHARE, STREET_LIGHTS_MAX, buildingHeights, buildingGlow, dimBuildings, dimPieces, glowCardMesh, glowCards, roofOffsets, setDimWindows, lampBuildings, lightPlaces, litGlass, sceneryLamps, setBuildingGlow, setStreetLights, streetLights, targetBuildings, type BuildingGlow, type BuildingLamp, type GlowCards, type LitGlass, type StreetLights } from "./windows";
@@ -173,6 +173,14 @@ export function playRigOptions(search: string, dev: boolean): { limit?: { zoomOu
   if (dev && new URLSearchParams(search).get("cam") === "free") return {};
   return { limit: { zoomOut: CITY_PLAY_ZOOM_OUT } };
 }
+
+/** `cam=sky` in a dev build (081 SK): the play camera's place, pitched up to show the sky and the moon, for tuning `NIGHT_SKY` before the title screen exists. Pure. */
+export function skyCamRequested(search: string, dev: boolean): boolean {
+  return dev && new URLSearchParams(search).get("cam") === "sky";
+}
+
+/** How far `cam=sky` pitches the camera up from level (degrees): the 40 degree view then spans 0 to 40 above the horizon, with the moon (18) in the middle. */
+export const SKY_CAM_PITCH_DEG = 20;
 
 // ---- the job's wires ----
 
@@ -902,6 +910,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   }
 
   const rigOpts = playRigOptions(opts.search ?? "", import.meta.env.DEV);
+  const skyCam = skyCamRequested(opts.search ?? "", import.meta.env.DEV);
   if (!rigOpts.limit) console.info("cam=free: the camera limits are off (dev only)");
   const rig: CityRig = createCityRig(frame, w0, h0, insets, rigOpts);
   const camera = rig.camera;
@@ -1340,6 +1349,11 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
       if (readableNow(state)) standCircuit();
       drawLive(state, plan_, relT, timeSeconds);
       drawFx(state, plan_, relT, timeSeconds);
+      if (skyCam) {
+        // 081 SK, dev only: the rig's place, level and pitched up (the picking and the overlay are not meant to be used in this view).
+        camera.rotation.set((SKY_CAM_PITCH_DEG * Math.PI) / 180, 0, 0, "YXZ");
+        camera.updateMatrixWorld(true);
+      }
       gl.render(scene, camera);
       if (perf && plan_ !== null) {
         perfSawPlan = true;
@@ -1426,6 +1440,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     },
     dispose() {
       disposed = true;
+      releaseSky(scene);
       toggle?.dispose();
       toggle = null;
       overlayLayer?.remove();

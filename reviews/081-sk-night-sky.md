@@ -1,0 +1,34 @@
+ticket: 081-sk-night-sky
+assessment: meets
+must-fix: 0
+
+## What the ticket asked for, as I understood it
+A night sky drawn in code (gradient dome, seeded stars, a moon disc north and low) added by the light rig at night, with the existing `moon` light moved to come from the disc, its numbers in one untested-by-drift `NIGHT_SKY` block. Also a fill cap so the moon can't wash out the glow, day/night toggling, a `setSkyTurn` for section T, a dev `cam=sky`, and the drift check letting go of the moon rows. Play never turns the sky.
+
+## Does the branch do it?
+1. **The sky.** Met. `buildSky` (`src/render3d/skydome.ts`) makes one group tagged `lightRig = "sky"` with three children: the dome (a `BackSide` sphere of radius 900 inside the 2000 far plane, `depthWrite`/`depthTest` off, `renderOrder` -1000, `fog: false`, a gradient from `horizon` to `zenith` with `below` under the horizon), the stars (one `Points`, `starField` from a seeded mulberry32, uniform above `minElevation_deg`), and the moon (a plane with a disc of `disc_deg` and a halo of `halo_deg`, placed on `moonDirection()` and facing the camera). All three follow the camera through `onBeforeRender` with `frustumCulled = false`. Stars and moon test depth without writing it, so the city covers them. `ensureSky` in `lightrig.ts` adds it at night. The scene background stays `0x0b0f17` (still asserted in `lightrig.test.ts`). Test: `nightsky.test.ts` "is one sky with the star count ...". It checks one sky, `count` stars, every star at or above the minimum, identical places on a second build, and the disc's elevation equal to `sin(elevation_deg)`.
+2. **The moonlight comes from the moon.** Met. In `applyLightMode` the `moon` light takes `NIGHT_SKY.moon.light`/`intensity`, and `placeMoonLight` puts it at `moonDirection(turn) * SUN_DISTANCE`. The rewritten `lightrig.test.ts` night case checks that colour, intensity and position, `castShadow` false, and lights `["ambient", "moon"]`. The agreement between disc and light is in the criterion 1 case.
+3. **The fill cap.** Met. `nightFill(normal)` in `nightsky.ts` is the formula the ticket gives. The "fill cap" test types today's moon in as the reference (`0x8fa6d0`, 0.7, `[-6, 12, 4]/14`) and checks +z and +y. It is a real rule test: it fails if a tuning round brightens the camera-facing wall or the roof past today's.
+4. **Day and night.** Met. New `lightrig.test.ts` case "day removes the sky and the moon light, night brings back one of each, and a repeat changes nothing". `ensureSky` frees the group (`disposeSky`) when day removes it. `plan3d.ts` is untouched and reaches the sky through the same `applyLightMode`.
+5. **The turn.** Met. `setSkyTurn` (exported from `lightrig.ts`) sets `scene.userData.skyTurn`, turns the group's `rotation.y` and re-places the light with `turnAboutY`. That is the same matrix as three's `rotation.y`, so they agree. A later `applyLightMode` keeps the turn. The criterion 1 case checks that disc and light agree after 90 degrees and again after a re-apply, and that a star moved. The city view never calls it.
+6. **`cam=sky`.** Met (no test, as the ticket says). `skyCamRequested` is dev-gated in `cityview.ts`. Each frame before render, the rig's camera is set level at the rig's place and pitched up `SKY_CAM_PITCH_DEG` 20 (a +x rotation turns the -z view up toward the north moon).
+7. **The drift check lets go.** Met. `numbers.md` loses the five moon rows. The moon's source-text row becomes a `sky: true,` pin. The ticket expected 3 rows to become 2; the builder kept 3 with a new pin, which is harmless. `light-and-accessibility.md` and `testing-daylight.md` point at `NIGHT_SKY`. Rewritten cases: `lighting.test.ts` night and day (`moon` became `sky`), the `lightrig.test.ts` night case, and the `styleguide.test.ts` non-vacuity bound (30 to 20; 26 `lighting.ts` rows remain). That is 4 rewritten and 3 added: 7, within the ticket's 7 and the policy's 15.
+8. **The cost**, 9. **the contrast**, 10. **Josh plays.** Browser criteria, not judged here. Nothing about the cost is on the branch: no rows in `docs/design/081-F-measurements.md`. From the code, the sky is 3 draw calls and 3 programs (two `ShaderMaterial`s and one `PointsMaterial`), all created at build. That is exactly at criterion 8's limit.
+
+The four changed test files pass locally (85 tests, 3.0 s; `nightsky.test.ts` 61 ms).
+
+## Rule conflicts and risks
+- No hard-rule break. `src/grid/` and `src/night/` are untouched. Every file the branch changes is in the ticket's Files list: none of `plan3d.ts`, `daytoggle.ts`, `windows.ts`, `fx.ts`, `gamemodels.ts` or `src/core/`. No new dependency. No Decided rule is touched: the sky reads and changes no grid state, and play never turns it.
+- `nightsky.ts` imports only `lighting.ts`, which is pure, so it stays free of three and the DOM as the ticket says.
+- Picking is not affected by the 900-unit dome: `pick.ts` raycasts only its own `nodes` and `wires` lists.
+- **A look risk for criterion 10, not a defect.** With the moon north at 18 degrees, `nightFill` gives the camera-facing (+z) wall no moonlight at all. The roof gets `sin 18° ≈ 0.31` of the moon's strength, against `12/14 ≈ 0.86` before, so about 36% of today's. The cap holds by a wide margin, but in play the moon is behind the view and the faces the player sees are mostly unlit by it. "The moonlight reads as coming from the moon" may be hard to see. That is Josh's call when he tunes `NIGHT_SKY`.
+- **The sky is not freed when a view is disposed.** `cityview.ts`'s `dispose()` removes its own groups but not the rig's sky group, so the dome, star and moon geometry and materials stay on the scene. `ensureSky` frees it only on a switch to day. This is small (3 materials and 3 geometries per view), but T1's title view is disposed every time a puzzle opens.
+
+## Must fix
+none
+
+## Could improve
+1. Add a rig-level release, for example `disposeLightRig(scene)` or `removeSky(scene)` in `lightrig.ts`, and call it from the city view's `dispose()`. T1's `createTitleView.dispose()` will need it too. Otherwise each view leaves its sky's GPU buffers behind.
+2. In the criterion 1 case, also assert the disc's azimuth: x about 0 and z < 0 for `azimuth_deg` 0. Right now the case checks elevation and the light agreeing with the disc, and both come from `moonDirection`, so a wrong azimuth convention in `moonDirection` would pass. This adds one line, not a new case.
+3. The main session should add criterion 8's `perf=1` rows to `docs/design/081-F-measurements.md` (and criterion 9's luminance readings) before Josh is asked to merge. At 3 draw calls and 3 programs the sky sits exactly at the limit.
+4. The `numbers.md` source-text pin is `    sky: true,` with four leading spaces. It depends on `lighting.ts`'s indentation. Pinning `sky: true,` alone would be less brittle.

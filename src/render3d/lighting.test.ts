@@ -9,14 +9,12 @@ import { GROUND, KERB, PAVEMENT, STREET, YARD } from "./kitunits";
 const close = (a: number, b: number): void => expect(Math.abs(a - b)).toBeLessThanOrEqual(1e-9);
 
 describe("LIGHT_MODES, pinned value for value", () => {
-  it("night is today's: background, ambient, moon, no tone mapping, no fog or shadows", () => {
+  it("night is today's: background, ambient, the sky and the moon (numbers in NIGHT_SKY), no tone mapping, no fog or shadows", () => {
     const n = LIGHT_MODES.night;
     expect(n.background).toBe(0x0b0f17);
     expect(n.ambient!.color).toBe(0x4a5a7a);
     close(n.ambient!.intensity, 1.1);
-    expect(n.moon!.color).toBe(0x8fa6d0);
-    close(n.moon!.intensity, 0.7);
-    expect([...n.moon!.position]).toEqual([-6, 12, 4]);
+    expect(n.sky).toBe(true);
     expect(n.key).toBeNull();
     expect(n.hemi).toBeNull();
     expect(n.toneMapping).toBe("none");
@@ -39,7 +37,7 @@ describe("LIGHT_MODES, pinned value for value", () => {
     const d = LIGHT_MODES.day;
     expect(d.background).toBe(0xa9c7e6);
     expect(d.ambient).toBeNull();
-    expect(d.moon).toBeNull();
+    expect(d.sky).toBe(false);
     expect(d.key!.color).toBe(0xfff6ea);
     close(d.key!.intensity, 1.4);
     close(d.key!.elevation_deg, 55);

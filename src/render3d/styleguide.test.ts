@@ -658,7 +658,7 @@ describe("lighting.ts is drift-checked and 16.12 describes the testing daylight 
 
   it("has a Numbers row for every number lighting.ts exports, and the check finds a number with no row", () => {
     const all = every(MODULES["lighting.ts"]!);
-    expect(all.length, "the check found the numbers").toBeGreaterThan(30);
+    expect(all.length, "the check found the numbers").toBeGreaterThan(20);
     expect(all.filter((p) => !refs.includes(p)), "no row for these lighting.ts numbers").toEqual([]);
     // Not vacuous: a number added without a row is found, and so is a row left out.
     expect(every({ ...MODULES["lighting.ts"]!, NEW_TUNING: 3 }).filter((p) => !refs.includes(p))).toEqual(["NEW_TUNING"]);
