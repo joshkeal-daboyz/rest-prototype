@@ -11,6 +11,8 @@
  * files, and the repo is public).
  */
 
+import type { AssetFxTexture } from "./fx";
+
 /** Bumped when the manifest's shape changes; readers refuse other versions. */
 export const ASSET_MANIFEST_VERSION = 1 as const;
 
@@ -141,6 +143,11 @@ export interface AssetManifest {
   version: typeof ASSET_MANIFEST_VERSION;
   /** Only on the game manifest (ticket 082). Optional, so ASSET_MANIFEST_VERSION stays 1. */
   game?: AssetGameBuild;
+  /**
+   * Only on the game manifest, from 081 FX1: the particle textures `npm run assets:game` copied into `out/game/fx/` (`FX_TEXTURES`, `src/core/fx.ts`), in
+   * `FX_TEXTURES` order. Optional, so ASSET_MANIFEST_VERSION stays 1; absent means the renderer uses its code-made textures.
+   */
+  fx?: readonly AssetFxTexture[];
   /** ISO 8601, when the conversion ran. */
   generatedAt: string;
   /** `bpy.app.version_string` of the Blender that ran it. */

@@ -8,6 +8,7 @@ export * from "./audio";
 export * from "./check";
 export * from "./beat";
 export * from "./assets";
+export * from "./fx";
 export * from "./calibration";
 export * from "./cityplan";
 export * from "./citycircuit";

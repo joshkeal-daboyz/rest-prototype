@@ -8,8 +8,8 @@ Every rule in the brief's "Rules" section, and where it is tested.
 | Lamps are leaves; a dead lamp never blocks | src/core validator; src/grid tests; 081 S1 (the hidden scenery lamps the conversion adds are leaves: the converted puzzle validates) |
 | Breaker cuts downstream; switch picks one of two lines | src/grid tests |
 | Parts bulb / fuse / wire; fault → part and count | src/core `FAULT_RULES`; src/grid tests |
-| Signatures derivable from state (into a fuse, none out, etc.) | src/grid tests; 081 S1 (current up to a sparking break: a scenery building past a cut stays dark) |
-| Faults hide faults (readable = current reaches it) | src/grid tests |
+| Signatures derivable from state (into a fuse, none out, etc.) | src/grid tests; 081 S1 (current up to a sparking break: a scenery building past a cut stays dark); 081 FX2 (the city view: sparks fly only at a live cut) |
+| Faults hide faults (readable = current reaches it) | src/grid tests; 081 FX2 (the city view: an unreadable cut throws no sparks) |
 | Capacity: over it, brownout; nothing counts as lit | src/grid tests; per feed on multi-feed maps: 015 A; at 4 feeds: 027 G; 081 L1 (the city view: a lit building's windows dip in a brownout); 081 S1 (a live scenery building's load counts toward its feed's capacity) |
 | Power flows from the feed outward (each feed, on multi-feed maps) | 015 A (one-feed maps unchanged, rule 8) |
 | Fuse rating: over it, blows on power | src/grid tests; 081 S1 (scenery hung under a fuse counts toward its rating) |
