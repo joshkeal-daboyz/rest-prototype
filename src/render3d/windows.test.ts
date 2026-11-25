@@ -10,7 +10,7 @@ import { DEFAULT, sharedCity } from "../city/testing/namedcities";
 import { createGrid } from "../grid";
 import type { GridState } from "../grid";
 import { circuitDraws } from "./circuitdraw";
-import { jobWires, lineFlow, linesAround, sceneryDropWires, wholeFraction } from "./cityview";
+import { tintLayer, jobWires, lineFlow, linesAround, sceneryDropWires, wholeFraction } from "./cityview";
 import { overlayIcons, type Project } from "./overlay";
 import { createRelightClock } from "./relight3d";
 import { Scene } from "three";
@@ -258,6 +258,21 @@ describe("scenery drawn live (081 S4)", () => {
     expect(wholeFraction(plan, index, around, reversed, plan.lineEnd[last]!)).toBe(1);
     const mid = (plan.lineStart[first]! + plan.lineEnd[last]!) / 2;
     expect(wholeFraction(plan, index, around, reversed, mid)).toBeCloseTo(0.5, 6);
+  });
+
+  it("the tinted wires are the file lines' spans and drops, a cut span among them, and no scenery drop (081 V1)", { timeout: 60_000 }, () => {
+    const { converted, layer } = p0();
+    const cutSpan = converted.runs[converted.puzzle.lines.find((l) => converted.runs[l.id]?.spans.length)!.id]!.spans[0]!;
+    const cut = { ...converted, cuts: { fx: cutSpan } };
+    const wires = jobWires(layer, circuitDraws(layer, undefined, { converted: cut }), cut);
+    const want = new Set(converted.puzzle.lines.flatMap((l) => [...(converted.runs[l.id]?.spans ?? []), ...layer.drops.filter((d) => d.building === converted.runs[l.id]?.drop).map((d) => d.id)]));
+    expect(tintLayer(new BoxGeometry(1, 1, 1), 1).renderOrder).toBeLessThan(0);
+    expect(wires.length).toBeGreaterThan(0);
+    for (const w of wires) expect(want.has(w.id), w.id).toBe(true);
+    expect(wires.some((w) => w.id === cutSpan)).toBe(true);
+    const scenery = sceneryDropWires(layer, circuitDraws(layer, undefined, { converted }), converted);
+    expect(scenery.length).toBeGreaterThan(0);
+    for (const d of scenery) expect(wires.some((w) => w.id === d.id), d.id).toBe(false);
   });
 
   it("hidden nodes stay hidden: the overlay's icons and the job's wires (what picks are built from) name the file's nodes and lines only", { timeout: 60_000 }, () => {
