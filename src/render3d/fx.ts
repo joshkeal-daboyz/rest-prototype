@@ -962,6 +962,9 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
   let burstAge = -1;
   // The white-out: age since the burst (-1 idle). One more instance of the soft-spot layer, a screen-sized sprite in front of the camera, so it adds no draw call and no program.
   let whiteAge = -1;
+  let whiteX = 0;
+  let whiteY = 0;
+  let whiteZ = 0;
   let boltOn = false;
   // Sparks skitter: four touches of the street or a wall before they die.
   spark.pool.maxBounces = 4;
@@ -1244,6 +1247,9 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
       flash(x, y, z, 9, 1.5, BLOW_TIMING.pop, 1.6, 2.0, 2.6, 0.5, 0.7, 1.3);
       flash(x, y, z, 3, 1.2, 0.2, 2.4, 2.6, 3.0, 1.2, 1.5, 2.2);
       whiteAge = 0;
+      whiteX = x;
+      whiteY = y;
+      whiteZ = z;
       for (let i = 0; i < 4; i++) {
         p.x = x + (rnd() - 0.5) * 0.6 * S;
         p.y = y + (rnd() - 0.2) * 0.6 * S;
@@ -1460,11 +1466,17 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
         const k = whiteAge < WHITE_HOLD_S ? 1 : Math.max(0, 1 - (whiteAge - WHITE_HOLD_S) / WHITE_FADE_S) ** 2;
         if (k <= 0) whiteAge = -1;
         else if (view) {
+          // Centred on the fuse's place on screen: a sprite on the eye-to-fuse ray just in front of the camera, growing fast from the fuse until it covers the view, even from an edge.
           const d = view.near * 3;
-          const size = 2 * d * view.tanHalf * Math.max(1, view.aspect) * 2.6;
           zv.set(0, 0, -1).applyQuaternion(camera);
+          dv.set(whiteX - view.x, whiteY - view.y, whiteZ - view.z);
+          const dl = dv.length();
+          if (dl < 1e-6 || dv.dot(zv) <= 0) dv.copy(zv);
+          else dv.divideScalar(dl);
+          const grow = Math.min(1, 0.15 + (whiteAge / WHITE_HOLD_S) * 0.85);
+          const size = 2 * d * view.tanHalf * Math.max(1, view.aspect) * 5.5 * grow;
           const gi = soft.pool.count + glows++;
-          m4.compose(pv.set(view.x + zv.x * d, view.y + zv.y * d, view.z + zv.z * d), q.copy(camera), sv.setScalar(size)).toArray(sarr, gi * 16);
+          m4.compose(pv.set(view.x + dv.x * d, view.y + dv.y * d, view.z + dv.z * d), q.copy(camera), sv.setScalar(size)).toArray(sarr, gi * 16);
           scol[gi * 3] = 2.6 * k;
           scol[gi * 3 + 1] = 2.4 * k;
           scol[gi * 3 + 2] = 1.5 * k;
