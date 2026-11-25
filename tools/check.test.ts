@@ -5,7 +5,8 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { parseCheckBlock, validateCheck, validatePuzzle } from "../src/core";
 import type { Puzzle, PuzzleCheck } from "../src/core";
-import { checkFile, noteFor, puzzlesWithBlocks, PUZZLES_DIR } from "./check";
+import { checkFile, cityPuzzlesWithBlocks, noteFor, puzzlesWithBlocks, PUZZLES_DIR } from "./check";
+import { DEFAULT, sharedCity } from "../src/city/testing/namedcities";
 import { firstDifference, runCheck } from "./checkrun";
 
 const load = (name: string): Puzzle => {
@@ -227,4 +228,33 @@ describe("D1 in the gate: every design note in puzzles/ that has a check block r
       if (r.status === "checked") expect(r.report.ok, r.lines.join("\n")).toBe(true);
     });
   }
+});
+
+describe("081 P1: city puzzles in the check", () => {
+  const p0 = join(PUZZLES_DIR, "city", "city-two-ways-round.city.json");
+  const plan = () => {
+    const r = sharedCity(DEFAULT, "facades");
+    if (!r.ok) throw new Error(r.failure.reason);
+    return r.plan;
+  };
+  const block = (b: unknown) => ["# note", "", "```check", JSON.stringify(b), "```", ""].join("\n");
+
+  it("criterion 6: a city file is checked on its city, then its note's block is replayed through the conversion; a block that does not win fails", () => {
+    const good = checkFile(p0, { planFor: plan });
+    expect(good.status).toBe("checked");
+    if (good.status === "checked") expect(good.report.ok, good.lines.join("\n")).toBe(true);
+    const dir = mkdtempSync(join(tmpdir(), "rest-check-city-"));
+    writeFileSync(join(dir, "w.city.json"), readFileSync(p0, "utf8"));
+    writeFileSync(join(dir, "w.md"), block({ solution: ["repair:l_e2"] }));
+    const bad = checkFile(join(dir, "w.city.json"), { planFor: plan });
+    expect(bad.status).toBe("checked");
+    if (bad.status === "checked") expect(bad.report.ok).toBe(false);
+  });
+
+  it("criterion 6: npm run check names a city file, and with no argument it lists the city puzzles too", () => {
+    expect(cityPuzzlesWithBlocks()).toContain(p0);
+    const run = spawnSync(process.execPath, [join(PUZZLES_DIR, "..", "node_modules", "tsx", "dist", "cli.mjs"), join(PUZZLES_DIR, "..", "tools", "check.ts"), p0], { encoding: "utf8" });
+    expect(run.status).toBe(0);
+    expect(run.stdout).toMatch(/PASS city-two-ways-round/);
+  }, { timeout: 120000 });
 });
