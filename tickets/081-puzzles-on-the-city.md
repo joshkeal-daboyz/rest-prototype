@@ -184,6 +184,11 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | X1 | **Stub, not cut:** delete the 2D map view (`src/render/`) | renderer | P2a, and Josh's word | removals; about 2 added |
 | X2 | **Stub, not cut:** delete the 2D side of `src/ui/` and `main.ts` | ui | X1 | removals; 0 added |
 | R1 | **Stub, not cut:** retarget the release playtest harness to city puzzles | (at cut) | before the next release | at cut |
+| V0 | "pre-check 081 V2": what the load numbers give away, pilot by pilot (cut 25 Nov 2026, **not approved**) | pipeline-designer | G1 | 0 (a note) |
+| V1 | Every puzzle wire highlighted, dead runs included | renderer | W4, V-Q1 | 1 |
+| V2 | The load preview, pure (`loadPreview`), faults kept hidden | grid-simulator | V0, V-Q2, V-Q3 | 4 |
+| V3 | The numbers by the icons | renderer | V1, the `LoadPreview` type | 1 |
+| V4 | The page computes the preview and hands it to the renderer | ui | V2, V3 | 1 |
 | W0 | "pre-check 081 W1": building-only lamps, read-outward, feed clearance, crossings, the roof options, spread (cut 25 Nov 2026; G1: "Approve W (Recommended)") | pipeline-designer | G1 | 0 (a note) |
 | W1 | The fit and the city check: lamps on buildings, routes that read outward (ring lines from where they take power), feed clearance 6 m, no crossings, own-block roofs, `--avoid` | grid-simulator | now (W0 and Josh's answers are in) | at most 9 (5 added, at most 4 rewritten) |
 | W2 | A lit building reads as lit: every storey, glow cards, the light raised; no lamp post or disc | renderer | S4 (PR #70), W-Q1 | 3 |
@@ -1998,6 +2003,108 @@ S1 and U3 (outside `src/render3d/`) go on unaffected. L2, L3 and S4 wait for F1b
 
 **Interfaces.** None in `src/core/`. No new dependency.
 
+### V · Every puzzle wire highlighted; the load a throw or a repair would bring, as a number. Cut 25 Nov 2026 for G1, in five PRs: V0 (a note), V1, V2, V3, V4. **Not approved**
+**Josh, 25 Nov 2026, in chat:** "Another issue. I want all wires associated with the puzzle to be highlighted. The game is too confusing. Further more each breaker should showcase the load that would be applied as a number if flipped. Each broken wire should show the load that would be added if repaired."
+
+**What the architect read (at `origin/main` e9f8502, with W4 building on `ticket/081w4-pulses-outward`).**
+- **The job's wires today.** E2's live layer glows and pulses a job wire only while it is powered. W4 adds a faded see-through pass for live runs. A dead job span is drawn with the same dark wire as every scenery span, so a dead run cannot be told from the city's own wires. S4's scenery drops glow when live; the city's other spans and drops never glow.
+- **The HUD's number** is per feed, "using X of Y" (`src/ui/`, from `GridState.feeds`). Fuse boxes carry `fuseLoad` against their `rating`.
+- **The renderer does not run the grid.** It reads `GridState` (a type import) each frame. The page (`src/main.ts`, the ui's) holds the grid. So the what-if is computed in `src/grid/`, called by the page, and handed to the renderer to draw.
+
+**1. "Highlighted" (the architect's reading; Proposed).** Every span and drop of every file line's run is drawn in the job's own colour, live or dead, so the puzzle's circuit stands apart from the city's wires at a glance.
+- Scenery wires (the city's other spans, scenery drops that are dark) keep today's dark wire.
+- A dead job wire gets a steady, dim **ribbon-colour tint** (V-Q1). It has no glow and no pulses, so it never reads as live: the Decided signatures need live and dead to differ.
+- A live job wire keeps E2's glow and W4's outward pulses on top.
+- A cut span is tinted like the rest of its line. The break prop and the break icon still show only when readable (Josh, 23 Nov 2026: "Only when readable"). So the highlight shows the route and nothing about faults.
+- A live scenery drop (S4) keeps its glow, untinted.
+- Whether the dead tint also shows faded through buildings, as W4 does for live runs, is V-Q1.
+
+**2. The load preview (the architect's reading; Proposed; V-Q2 to V-Q4 are Josh's).**
+- **For a breaker,** the number is the change in its feed's load if it were thrown now. **For a switch** (V-Q3), it is the same, for the switch thrown to its other line. **For a readable break** (its icon is shown), it is the change if it were repaired now, whether or not Enoch holds the wire.
+- **The units are the HUD's:** lamp-loads, per feed. It is shown as a signed change by the icon, "+3" or "−2" (V-Q4).
+- **Red when over:** if the throw or repair would take a feed over its capacity (a brownout) or a fuse over its rating (a blow), the number is red.
+- **"Faults hide faults" (Decided)** binds what the number may count. A **true what-if** (run the grid with the throw, read the load) counts what lies past a break or an open breaker. A hidden dead lamp or blown fuse there makes the number smaller than the drawn loads, so it tells the player about a fault they cannot yet read. That **breaks the Decided rule** ("nothing past an unrepaired blocking fault can be read"). So the recommended number is the **drawn load**: the what-if run with every unreadable fault treated as repaired, counting only faults the player can already read. It may turn out higher than the real change once a hidden fault shows, as the drawing does. The true what-if is offered to Josh as a proposal to change the rule (V-Q2), never built without his word.
+- **Does it remove the puzzle?** The numbers do the brief's capacity sum for the player. The brief's question 2 ("Does capacity produce a real choice") and the ladder's elements are Draft design, Josh's to trade.
+  - **Capacity or fuse choice, answered by the numbers:** 03 (not enough for all), 04 (the tired feed), 07 (its second half), 09 (shrine circuit, the capacity half), 10 (the long way brings the mill), 11 (the small fuse: red shows the blow before it happens, so its trap of a fuse that costs a part is gone), 12 (which fuse), 13 (one box, three lamps), 14 (ring from the east, which end can carry it), 15 (meet in the middle: the per-feed number shows which feed carries a junction, the element under test).
+  - **Untouched:** 01, 02, 06 and 08 (no capacity pressure), and 05 (separate pools; the number only states what the HUD already does).
+  - **With the true what-if (V-Q2's second option), the hidden-fault pilots leak too:** 07 (the dead bulb behind the fuse) and 16 (the second fault behind the first), and any other pilot with a fault behind a fault.
+  - V0 measures this, pilot by pilot.
+- **No other Decided rule is touched.** The rules on parts, the Relight and flow are untouched, and the highlight shows nothing about faults (point 1). Without V-Q2's second option, "Faults hide faults" holds.
+
+**Pre-check.** V adds a number the player is told, so **V0 is a pipeline-designer pre-check** ("pre-check 081 V2") before V2 is built. V1, V3 and V4 draw or wire it, so none.
+
+**Order and parallel work.**
+| Wave | Sections | Shared files | Why |
+| --- | --- | --- | --- |
+| Now | W4 (building) | `cityview.ts` | V1 and V3 wait for it. |
+| 1, after G1 | V0 (a note); V2 after V0 holds (or Josh's answer) | none (`src/grid/`) | V2 shares no file with W4. |
+| 2, after W4 merges | V1 (highlight) | `cityview.ts`, `circuitdraw.ts` (W4 may touch `circuitdraw.ts` if its cause is there) | Its live layer is W4's. |
+| 3, after V1 and V2 | V3 (renderer: the numbers by the icons) | `overlay.ts` (W4 must not touch it), `cityview.ts` (`paintOverlay`), `renderer.ts` | Codes against the core type. |
+| 4, after V2 and V3 | V4 (ui: the page computes the preview and hands it over) | `src/main.ts` | Calls both. |
+
+#### V0 · "pre-check 081 V2" (pipeline-designer; a note). Branch `ticket/081-puzzles-on-the-city`
+**Goal.** Before V2, say pilot by pilot what the numbers give away, under each V-Q2 option, so Josh answers V-Q2 and V-Q5 with the cost in front of him.
+
+**Acceptance criteria.**
+1. [ ] For P0 and the 16 pilots (P2a2's files), at the start and at each step of the check block's solution and each trap, the preview for every control and readable break under (a) the drawn load and (b) the true what-if. **no test** (a script run on demand, in `tools/` or the scratchpad, not `npm test`).
+2. [ ] For each pilot, whether the numbers mark every trap's wrong move red before it is made (the trap given away), and, under (b), whether any number differs from (a) while a fault is hidden (a leak). It names each. **no test**.
+3. [ ] A verdict: which pilots keep their element with the numbers on, and the question for Josh if the drawn load leaks anything (it should not). **no test**.
+
+**Files.** `docs/design/081-V0-load-preview.md` only. **Count.** 0.
+
+#### V1 · Every puzzle wire highlighted (renderer). Branch `ticket/081v1-job-wires`, after W4 merges and V-Q1
+**Goal.** From the default camera, the player sees the whole puzzle circuit in its own colour, dead runs included, apart from the city's wires; live runs glow and pulse on top, as W4 left them.
+
+**Acceptance criteria.**
+1. [ ] **The tint.** Every wire of `jobWires` (every span and the drop of every file line's run) is drawn in `JOB_WIRE_TINT` at `JOB_WIRE_DIM` (the ribbon colour; Josh tunes by eye), as one more instanced layer made at build and never changed in play. No scenery span, no scenery drop and no hidden line is in it. **test**: 1 case on a fixture conversion: the tinted layer holds exactly the file lines' spans and drops, and none of the scenery's.
+2. [ ] **Dead reads dead.** The tint has no pulses and no glow. A live wire's glow and pulses draw over it, unchanged. A cut span is tinted as its line, with no mark of the cut. **test**: folded into criterion 1's case (a cut span is in the layer, with the same tint as its neighbours).
+3. [ ] **Through buildings** (only if V-Q1 is "Tint, and faded through buildings"): the tint layer takes W4's see-through pass, sharing its geometry. **browser**.
+4. [ ] **The budget.** `perf=1` on 6 x 6 seed 1 with P0, against W4's numbers: at most 1 more draw call (2 with criterion 3), no new program in play, median within 0.5 ms. Over it, the builder stops ("stop 081 V1"). **browser**.
+5. [ ] Josh plays 03 and 04: every run of the puzzle shows before power, apart from the city's wires. **browser**.
+
+**Count.** 1 added.
+
+**Files.** `src/render3d/cityview.ts` (the build step and the live layer), `src/render3d/circuitdraw.ts` (read only, unless the wires' geometry must be exported), and one cityview test file. **Must not:** `overlay.ts`, `windows.ts`, `src/city/`, `src/grid/`, `src/core/`, `src/ui/`, `src/main.ts`.
+
+#### V2 · The load preview, pure (grid-simulator). Branch `ticket/081v2-load-preview`, after V0 holds (or Josh's answer) and V-Q2 and V-Q3
+**Goal.** A pure `loadPreview(puzzle, state)` in `src/grid/` says, for every breaker (and switch, by V-Q3) and every readable break, how each feed's load would change if it were thrown or repaired now, and whether that would brown a feed out or blow a fuse.
+
+**Acceptance criteria.**
+1. [ ] **Breakers and switches.** On a fixture of a feed, a breaker and two lamps past it, and a switch: the breaker's entry is +2 when open and −2 when closed, and the switch's is its other line's load less its present line's. The state is not changed by the call (the grid's state before and after are equal). **test**: 1 case.
+2. [ ] **A readable break.** On a fixture, a damaged cable that current reaches: its entry is the load past it, whether or not the parts hold a wire. A break current does not reach has no entry ("Only when readable"). **test**: 1 case.
+3. [ ] **Faults stay hidden** (the Decided "Faults hide faults"; V-Q2 "Drawn load"): on a fixture with a blown fuse hiding a dead lamp, the fuse box's repair entry counts the dead lamp's load as drawn. It equals the entry on the same fixture with the lamp sound. **test**: 1 case. (Under V-Q2's other answer, this case is rewritten to the true load, and the rules-coverage row records Josh's words.)
+4. [ ] **Red.** An entry is marked `over` when the change takes its feed over capacity or a fuse box over its rating. Each feed is judged on its own (015 A, "separate pools"). **test**: 1 case on a two-feed fixture.
+5. [ ] `src/grid/` stays pure: no import from another `src/` folder but `src/core/` (its existing purity case, unedited). **test** (existing).
+
+**Count.** 4 added.
+
+**Files.** `src/grid/` (a new `preview.ts` and `preview.test.ts`, and the export in `index.ts`). **Must not:** any other folder. `createGrid`'s behaviour does not change.
+
+**Interfaces.** `LoadPreview` in `src/core/`, written by the architect on G1, after V-Q2 to V-Q4: per node or fault id, `{ delta, feed, over }` (the signed change in its feed's load, which feed, and whether a feed or fuse goes over). No event, no new dependency.
+
+#### V3 · The numbers by the icons (renderer). Branch `ticket/081v3-preview-numbers`, after V1 merges (shares `cityview.ts`) and the `LoadPreview` type is in
+**Goal.** By each breaker and switch icon and each readable break icon, the player reads "+3" or "−2", red if it would brown the feed out or blow a fuse.
+
+**Acceptance criteria.**
+1. [ ] `MapRenderer3d.setLoadPreview(p: LoadPreview | null)` (`renderer.ts`) stores the page's preview. The overlay draws each entry as a signed number beside its icon (the break's at the real cut, as E4 places it), in the HUD's font, red when `over`. `null` draws none. A zero change draws nothing (V-Q4). **test**: 1 case: `overlayLabels(icons, breaks, preview)` (pure, in `overlay.ts`) gives one label per entry with an icon on screen, at the icon's side, red for `over`, and none for a hidden break or a zero change.
+2. [ ] During the Relight no numbers are drawn (it can't be interrupted, and nothing is left to choose). **test**: folded into criterion 1's case.
+3. [ ] Josh plays 04 and 06: each breaker shows the load it would add or shed, and the break shows its load once current reaches it. **browser**.
+
+**Count.** 1 added.
+
+**Files.** `src/render3d/overlay.ts` and `overlay.test.ts`; `src/render3d/cityview.ts` (`paintOverlay` only); `src/render3d/renderer.ts` (the one method). **Must not:** `src/grid/` (the renderer gets the preview from the page), `src/ui/`, `src/main.ts`, `windows.ts`.
+
+#### V4 · The page computes the preview (ui). Branch `ticket/081v4-preview-wired`, after V2 and V3 merge
+**Goal.** After every throw, repair, undo or reset, the page asks the grid for `loadPreview` and hands it to the renderer, so the numbers always match the state shown.
+
+**Acceptance criteria.**
+1. [ ] `src/main.ts` calls `loadPreview` on each state change (not each frame) and `setLoadPreview`; `null` during the Relight and after the win. **test**: 1 case, on a pure helper in `src/ui/` (`previewFor(puzzle, state, relighting)`), if `main.ts` can't be tested directly.
+2. [ ] By V-Q5, the preview is always on, or on behind a key the HUD names. **browser**.
+
+**Count.** 1 added.
+
+**Files.** `src/main.ts`, `src/ui/` (the helper and its test; the HUD's key hint if V-Q5 asks for one). **Must not:** `src/grid/`, `src/render3d/`, `src/play/`.
+
 ### X1 · Delete the 2D map view (renderer). **Stub, not cut; not to be built yet**
 Josh, 24 Nov 2026: "Hide now, delete later (Recommended)". Cut in full once P2a's 16 pilots are on the city and Josh has said so. Expected:
 - **Goes:** `src/render/map-renderer.ts` and the 2D map's drawing modules and tests (most of `src/render/`).
@@ -2088,3 +2195,9 @@ All questions so far are answered (above), the mid-row one included ("Only when 
     - "Fault tracing (Draft)", the fault table's **Dead lamp** row: "Pulses reach the lamp post, but the lamp stays dark" becomes "Pulses reach the lamp post, or run down a building's drop, but the lamp or the building's windows stay dark". The part stays **Bulb**.
     - "Capacity and restraint", the endpoints bullet: unchanged (it already names shrines and homes).
     The brief's Draft line "Targets. `target` lists the lamps the priests want lit" would read "... the lamps, on the city the buildings, the priests want lit"; the brief is Josh's to reword, as noted under the Full 3D re-cut.
+21. **Section V, G1** (cut 25 Nov 2026 from Josh's words in chat; see section V): approve V0 to V4 as cut, with the architect's readings.
+    - **V-Q1, how a dead puzzle wire is highlighted:** "Ribbon tint (Recommended)"; "Tint, and faded through buildings"; "Overlay lines back" (E4's lines, which you dropped on 24 Nov).
+    - **V-Q2, what the number counts:** "Drawn load (Recommended)" (unreadable faults treated as sound, so 'Faults hide faults', Decided, holds); "True what-if" (a proposal to change that Decided rule: the number would reveal hidden faults on 07 and 16).
+    - **V-Q3, which controls:** "Breakers and switches (Recommended)"; "Breakers only" (as you worded it).
+    - **V-Q4, the number's form:** "The change, +3 (Recommended)"; "The feed after, 13 of 25"; "Both".
+    - **V-Q5, the puzzle it removes** (03, 04, 07, 09 to 15 become a sum, by the architect's reading; V0 measures it): "Always on"; "On by default, a key hides it (Recommended)"; "Only while hovering an icon"; "Off on capacity pilots".
