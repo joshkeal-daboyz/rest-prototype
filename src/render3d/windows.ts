@@ -95,6 +95,34 @@ export function lampBuildings(
   return out;
 }
 
+/**
+ * The hidden lamp of each scenery building (081 S1's `converted.scenery`), grouped as `lampBuildings` groups a job lamp's: the building, its lead and every building backed onto it light together. Entries in the
+ * order of `scenery`, so L2 gives them their lights after the job lamps' buildings. Pure.
+ */
+export function sceneryLamps(
+  converted: { readonly scenery?: Readonly<Record<string, string>>; readonly puzzle: { readonly nodes: readonly { id: string }[] } },
+  buildings: readonly Pick<CityBuilding, "id" | "partner">[] = [],
+): Map<string, BuildingLamp[]> {
+  const out = new Map<string, BuildingLamp[]>();
+  const scenery = converted.scenery;
+  if (!scenery) return out;
+  const indexOf = new Map(converted.puzzle.nodes.map((n, i) => [n.id, i] as const));
+  const partnerOf = new Map(buildings.map((x) => [x.id, x.partner] as const));
+  for (const [base, id] of Object.entries(scenery)) {
+    const index = indexOf.get(id);
+    if (index === undefined) continue;
+    const lead = partnerOf.get(base) ?? base;
+    const set = new Set<string>([base, lead]);
+    for (const [bid, p] of partnerOf) if (p === lead) set.add(bid);
+    for (const bid of set) {
+      const list = out.get(bid);
+      if (!list) out.set(bid, [{ id, index }]);
+      else if (!list.some((l) => l.id === id)) list.push({ id, index });
+    }
+  }
+  return out;
+}
+
 /** A building's window state this frame: `level` 0..1 (0 dark, dipping in a brownout), `flare` 1 at ignition falling to 0 over `FLARE_SECONDS`. */
 export interface BuildingGlow {
   level: number;
