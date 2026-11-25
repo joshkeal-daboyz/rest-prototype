@@ -9,7 +9,7 @@ import type { GridState } from "./types";
 
 /**
  * The load each breaker, switch and readable fault would put on if the player made that move. Every fault the player cannot read now and has not read (`known`) is treated as sound, so
- * hidden faults never show in a number. `delta` is counted before any fuse blows; `over` and `blows` after.
+ * hidden faults never show in a number. `delta` is counted before any fuse blows; `over` (a feed newly over, or a fuse blown; a feed already over stays as it is) and `blows` after.
  */
 export function loadPreview(puzzle: Puzzle, state: GridState, known: ReadonlySet<string>): LoadPreview {
   const seen = (f: Fault): boolean => state.readableFaults.has(f.id) || known.has(f.id);
@@ -41,7 +41,8 @@ export function loadPreview(puzzle: Puzzle, state: GridState, known: ReadonlySet
     const after = run(flt, breakers, switches);
     // A repaired fuse that blows again carries the same id, so it counts as new.
     const blows = after.real.faults.filter((f) => f.kind === "blown-fuse" && (f.id === repaired || !baseBlown.has(f.id))).map((f) => f.at);
-    return { kind, delta: after.load - base.load, over: after.real.brownout || blows.length > 0, blows };
+    const newlyOver = [...after.real.feeds].some(([id, f]) => f.over && !base.real.feeds.get(id)?.over);
+    return { kind, delta: after.load - base.load, over: newlyOver || blows.length > 0, blows };
   };
 
   const out = new Map<string, LoadPreviewEntry>();

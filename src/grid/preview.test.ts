@@ -77,7 +77,7 @@ describe("load preview (ticket 081 V2)", () => {
     expect(preview(p).get("s")?.delta).toBe(2);
   });
 
-  it("over and blows rule: counted before the blow, red when a fuse would blow or a feed ends over, each feed on its own", () => {
+  it("over and blows rule: counted before the blow, red when a fuse would blow or a feed ends over, a feed already over is not red again", () => {
     const p = mini(
       [
         { id: "fA", type: "feed", capacity: 9 }, { id: "brA", type: "breaker", closed: false }, { id: "fbA", type: "fusebox", rating: 1 },
@@ -98,6 +98,6 @@ describe("load preview (ticket 081 V2)", () => {
     expect(pv.get("brC")).toMatchObject({ delta: 1, over: false, blows: [] });
     const g = createGrid(p);
     g.throwBreaker("brB");
-    expect(loadPreview(p, g.state(), new Set()).get("brB3")).toMatchObject({ delta: 1, over: true });
+    expect(loadPreview(p, g.state(), new Set()).get("brB3")).toMatchObject({ delta: 1, over: false });
   });
 });
