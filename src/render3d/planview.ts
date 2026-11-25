@@ -39,6 +39,8 @@ const PLAN_STAGES: readonly CityPlanStage[] = CITY_STAGES.filter((s): s is CityP
  */
 export function planHidesHud(search: string, dev: boolean): boolean {
   const q = new URLSearchParams(search);
+  // `?title=splash` and `?title=title` (ticket 081 T1, dev): the title backdrop alone, with no puzzle HUD over it.
+  if (dev && (q.get("title") === "splash" || q.get("title") === "title")) return true;
   if (!dev || q.get("view") !== "3d") return false;
   return planViewRequested(search) !== null || (q.get("city") === "tiles" && q.get("sheet") !== "1");
 }
