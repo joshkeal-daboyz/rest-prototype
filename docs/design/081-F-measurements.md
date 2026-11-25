@@ -105,3 +105,16 @@ At the puzzle's framing (pane emulated at 1287 x 1178 so the opening camera matc
 | `fx=all` (measure only) | 1,779 | 12 | 8.70 ms | 8.90 ms | 16.70 ms | 784 (752) |
 
 The `fx=0` run was taken while an architect agent was working, so its CPU median sits about 2 ms high; the effect runs are under it, not over. The program count holds at 12 from the first frame after the models load to the end of the Relight in both effect runs (no new program). Pass: no time added beyond noise (limit 1.5 ms), under 16.7 ms, at most 5 more draw calls (cap 6).
+
+## E5, criterion 5 (25 Nov 2026, Josh's PC, in view)
+
+`?puzzle=city-two-ways-round&perf=1`, 6x6 seed 1, before power, effects on (normal play), fresh load per run. `main` at ca712dc (D:\rest-main-play, port 5210), the branch at its head (D:\rest-081e5, port 5185). Pane sizes emulated.
+
+| Pane | Build | View | Draw calls | Triangles | CPU median | Canvas |
+| --- | --- | --- | --- | --- | --- | --- |
+| 800 x 570 | main | opening | 3,465 | 11.07 M | 14.0 ms | 1200 x 855 |
+| 800 x 570 | branch | opening = furthest (wheel and `-` do not move it: held at the limit) | 2,530 | 9.08 M | 13.2 / 11.4 / 11.3 ms (three loads) | 1200 x 855 |
+| 708 x 505 (the pane's own size) | branch | opening | 2,525 | 9.06 M | 12.5 ms | 1062 x 757 |
+| 1287 x 1178 | branch | opening | 1,779 | 7.49 M | 8.2 ms | 1930 x 1767 |
+
+At 1287 x 1178 the branch opens exactly where main does (main 1,774 with effects off, plus FX2's 5). Its furthest zoom-out there looks the same as main's by eye (1.5 x D0 against main's 1.6 x the opening); perf=1 logs only the first 300 frames after load, so no number is taken at that zoom. At 800 x 570 the small-pane opening falls from main's 3,465 to 2,530 draw calls. That is still above the desktop's 1,779, because the wider aspect shows more city side to side at the limit distance. No branch number is higher than main's at the same size.
