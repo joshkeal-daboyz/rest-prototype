@@ -5,9 +5,10 @@
  *   image (`Textures/Emissive_01.png`, Josh's card L-Q1 "Pack's night glow") lights it. The rectangle and pane colours were read from that image once and are typed in; nothing from the pack is committed.
  * - `buildingGlow` is the pure level of one building this frame, from E2's `lampState` and `lampFlicker`, so the Relight's order, the flare and the brownout dip are the lamps' own.
  * - `windowLit` is the building materials' window-lit twin, and `setBuildingGlow` writes a building's level into its instances' `windowLevel` slots (081 F1b), so every building stays in the shared instancers.
+ * - `glowCards` (081 W2) are the soft glow in front of every storey's glass on a lit building's street faces: one InstancedMesh for the job, its opacity from the building's level.
  * - `litGlass` is one more InstancedMesh per shop glass key over the dark glass, for the lit buildings' shopfronts only.
  */
-import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, DataTexture, Matrix4, Mesh as ThreeMesh, MeshBasicMaterial, NearestFilter, PointLight, RGBAFormat, SRGBColorSpace, UnsignedByteType, type Material, type Mesh, type Object3D, type Texture } from "three";
+import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, DataTexture, InstancedBufferAttribute, InstancedMesh, Matrix4, Mesh as ThreeMesh, PlaneGeometry, Quaternion, Vector3, MeshBasicMaterial, NearestFilter, PointLight, RGBAFormat, SRGBColorSpace, UnsignedByteType, type Material, type Mesh, type Object3D, type Texture } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { CalibrationKey, CityBuilding, CityNodePlace, CityPlan, CityRoofMast, CitySide } from "../core";
 import type { GridState } from "../grid";
@@ -290,6 +291,8 @@ export const STREET_LIGHTS_MAX = 32;
 /** Where a light stands, metres: out from its street face, and up (the first floor's windows). */
 export const STREET_LIGHT_OUT_M = 2;
 export const STREET_LIGHT_UP_M = 3;
+/** 081 W2: a light stands at half its building's height, and reaches `STREET_LIGHT_REACH_M x (1 + storeys / STOREY_REACH_DIV)`, so the pool lies under every storey. A starting point Josh tunes by eye. */
+export const STOREY_REACH_DIV = 4;
 /** How far a light reaches, metres (`PointLight.distance`, drawn in world units), and its decay. Numbers Josh tunes by eye. */
 export const STREET_LIGHT_REACH_M = 12;
 export const STREET_LIGHT_DECAY = 2;
@@ -304,6 +307,20 @@ export interface LightPlace {
   readonly x: number;
   readonly y: number;
   readonly z: number;
+  /** The building's storeys, when the plan holds columns for it (the light then stands at half its height and reaches further); absent: it stands at `STREET_LIGHT_UP_M` with the base reach. */
+  readonly storeys?: number;
+}
+
+/** A building's height in metres (its tallest roof's base) and storeys, from the buildings layer's columns. Pure. */
+export function buildingHeights(plan: Pick<CityPlan, "layers">): Map<string, { height_m: number; storeys: number }> {
+  const out = new Map<string, { height_m: number; storeys: number }>();
+  for (const c of plan.layers.buildings?.columns ?? []) {
+    const roof = c.pieces.find((p) => p.role === "roof");
+    if (!roof) continue;
+    const have = out.get(c.building);
+    if (!have || roof.placement.y_m > have.height_m) out.set(c.building, { height_m: roof.placement.y_m, storeys: roof.storey });
+  }
+  return out;
 }
 
 const SIDE_DIR: Readonly<Record<CitySide, readonly [number, number]>> = { "+x": [1, 0], "-x": [-1, 0], "+z": [0, 1], "-z": [0, -1] };
@@ -320,12 +337,15 @@ export function lightPlaces(plan: Pick<CityPlan, "layers">, buildingIds: Iterabl
   if (!buildings || !built) return [];
   const byId = new Map(buildings.map((b) => [b.id, b] as const));
   const open = new Map(built.map((c) => [`${c.i},${c.j}`, c.open] as const));
+  const heights = buildingHeights(plan);
   const out: LightPlace[] = [];
   for (const id of buildingIds) {
     if (out.length >= max) break;
     const b = byId.get(id);
     if (!b) continue;
     let corner: LightPlace | null = null;
+    const h = heights.get(id);
+    const y = h ? h.height_m / 2 : STREET_LIGHT_UP_M;
     let sx = 0;
     let sz = 0;
     let n = 0;
@@ -338,13 +358,13 @@ export function lightPlaces(plan: Pick<CityPlan, "layers">, buildingIds: Iterabl
         x += dx * (CELL / 2 + STREET_LIGHT_OUT_M);
         z += dz * (CELL / 2 + STREET_LIGHT_OUT_M);
       }
-      if (sides.length >= 2 && !corner) corner = { building: id, x, y: STREET_LIGHT_UP_M, z };
+      if (sides.length >= 2 && !corner) corner = { building: id, x, y, z, ...(h ? { storeys: h.storeys } : {}) };
       sx += x;
       sz += z;
       n++;
     }
     if (n === 0) continue;
-    out.push(corner ?? { building: id, x: sx / n, y: STREET_LIGHT_UP_M, z: sz / n });
+    out.push(corner ?? { building: id, x: sx / n, y, z: sz / n, ...(h ? { storeys: h.storeys } : {}) });
   }
   return out;
 }
@@ -365,7 +385,7 @@ export function streetLights(places: readonly LightPlace[], scale: number, extra
   const total = places.length === 0 ? 0 : places.length + Math.max(0, extra);
   for (let i = 0; i < total; i++) {
     const p = i < places.length ? places[i]! : places[0]!;
-    const light = new PointLight(PANE_COLOURS[0], 0, STREET_LIGHT_REACH_M * scale, STREET_LIGHT_DECAY);
+    const light = new PointLight(PANE_COLOURS[0], 0, STREET_LIGHT_REACH_M * (1 + (p.storeys ?? 0) / STOREY_REACH_DIV) * scale, STREET_LIGHT_DECAY);
     light.name = "street-light";
     light.castShadow = false;
     light.position.set(p.x * scale, p.y * scale, p.z * scale);
@@ -468,4 +488,139 @@ export function setDimWindows(draw: Pick<BuildingsDraw, "instances">, picks: Rea
       attr.needsUpdate = true;
     }
   }
+}
+
+// ---- 081 W2: glow cards ----
+
+/** How far a card stands out from its wall, metres; how much wider and taller than its glass it is (the spill); and its opacity at full level. Numbers Josh tunes by eye. */
+export const GLOW_CARD_OUT_M = 0.25;
+export const GLOW_CARD_SPILL = 1.3;
+export const GLOW_CARD_GAIN = 0.32;
+
+/** One glow card: its building, its centre (metres), the way it faces (a unit step in plan) and its size (metres). */
+export interface GlowCard {
+  readonly building: string;
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+  readonly nx: number;
+  readonly nz: number;
+  readonly w: number;
+  readonly h: number;
+}
+
+/**
+ * The glow cards of `buildingIds`: for every column of each, one card per street face (`mass.built`'s `faces: "street"`, never a yard, lane or park) in front of each of its storeys that can have glass: the
+ * ground storey and every floor piece, never the roof. A `floor3` is one card as tall as its three storeys. Pure.
+ */
+export function glowCards(plan: Pick<CityPlan, "layers">, buildingIds: Iterable<string>): GlowCard[] {
+  const columns = plan.layers.buildings?.columns;
+  const built = plan.layers.mass?.built;
+  if (!columns || !built) return [];
+  const want = new Set(buildingIds);
+  const open = new Map(built.map((c) => [`${c.i},${c.j}`, c.open] as const));
+  const out: GlowCard[] = [];
+  for (const c of columns) {
+    if (!want.has(c.building)) continue;
+    const sides = (open.get(`${c.i},${c.j}`) ?? []).filter((o) => o.faces === "street").map((o) => SIDE_DIR[o.side]);
+    if (sides.length === 0) continue;
+    const bands: [number, number][] = [[c.ground.y_m, c.ground.top_m]];
+    for (const p of c.pieces) if (p.role !== "roof") bands.push([p.placement.y_m, p.placement.y_m + 3 * p.span]);
+    for (const [dx, dz] of sides) {
+      for (const [lo, hi] of bands) {
+        out.push({ building: c.building, x: (c.i + 0.5) * CELL + dx * (CELL / 2 + GLOW_CARD_OUT_M), y: (lo + hi) / 2, z: (c.j + 0.5) * CELL + dz * (CELL / 2 + GLOW_CARD_OUT_M), nx: dx, nz: dz, w: CELL * GLOW_CARD_SPILL, h: (hi - lo) * GLOW_CARD_SPILL });
+      }
+    }
+  }
+  return out;
+}
+
+/** What `glowCardMesh` made: its one mesh (null with no cards), and the setters, as `LitGlass`'s. */
+export interface GlowCards {
+  readonly mesh: InstancedMesh | null;
+  readonly calls: number;
+  set(building: string, g: BuildingGlow): void;
+  commit(): void;
+  dispose(): void;
+}
+
+let cardTexture: DataTexture | null = null;
+/** One soft falloff, white in the middle to black at the edge, made in code (no asset): the card's `map`. */
+function cardMap(): DataTexture {
+  if (cardTexture) return cardTexture;
+  const n = 32;
+  const data = new Uint8Array(n * n * 4);
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) {
+      const u = ((x + 0.5) / n) * 2 - 1;
+      const v = ((y + 0.5) / n) * 2 - 1;
+      const d = Math.max(0, 1 - Math.hypot(u, v));
+      const a = Math.round(255 * d * d * (3 - 2 * Math.min(1, d)));
+      const o = (y * n + x) * 4;
+      data[o] = data[o + 1] = data[o + 2] = a;
+      data[o + 3] = 255;
+    }
+  }
+  const t = new DataTexture(data, n, n, RGBAFormat, UnsignedByteType);
+  t.name = "glow-card";
+  t.needsUpdate = true;
+  cardTexture = t;
+  return t;
+}
+
+const cardQ = new Quaternion();
+const cardP = new Vector3();
+const cardS = new Vector3();
+const cardM = new Matrix4();
+const UP = new Vector3(0, 1, 0);
+
+/**
+ * The one InstancedMesh of `cards`, additive, at `scale` world units to the metre, each card's colour (its brightness, the material being additive) written from its building's level and flare each frame. Hidden
+ * while every level is 0, so the dark city costs no call. A card faces along `(nx, nz)` and cannot be picked.
+ */
+export function glowCardMesh(cards: readonly GlowCard[], scale: number): GlowCards {
+  if (cards.length === 0) return { mesh: null, calls: 0, set() {}, commit() {}, dispose() {} };
+  const geometry = new PlaneGeometry(1, 1);
+  const material = new MeshBasicMaterial({ color: 0xffffff, map: cardMap(), blending: AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false });
+  const mesh = new InstancedMesh(geometry, material, cards.length);
+  mesh.name = "plan:glow-cards";
+  mesh.raycast = () => {};
+  mesh.frustumCulled = false;
+  mesh.visible = false;
+  const ranges = new Map<string, number[]>();
+  cards.forEach((c, k) => {
+    cardQ.setFromAxisAngle(UP, Math.atan2(c.nx, c.nz));
+    mesh.setMatrixAt(k, cardM.compose(cardP.set(c.x * scale, c.y * scale, c.z * scale), cardQ, cardS.set(c.w * scale, c.h * scale, 1)));
+    const list = ranges.get(c.building);
+    if (list) list.push(k);
+    else ranges.set(c.building, [k]);
+  });
+  mesh.instanceMatrix.needsUpdate = true;
+  mesh.instanceColor = new InstancedBufferAttribute(new Float32Array(cards.length * 3), 3);
+  const arr = mesh.instanceColor.array as Float32Array;
+  let any = false;
+  return {
+    mesh,
+    calls: 1,
+    set(building, g) {
+      const list = ranges.get(building);
+      if (!list) return;
+      const v = Math.min(g.level * (1 + 0.5 * g.flare), 1.5) * GLOW_CARD_GAIN;
+      if (v > 0) any = true;
+      const r = AMBER.r * v;
+      const gr = AMBER.g * v;
+      const b = AMBER.b * v;
+      for (const k of list) (arr[k * 3] = r), (arr[k * 3 + 1] = gr), (arr[k * 3 + 2] = b);
+    },
+    commit() {
+      mesh.instanceColor!.needsUpdate = true;
+      mesh.visible = any;
+      any = false;
+    },
+    dispose() {
+      geometry.dispose();
+      material.dispose();
+      mesh.dispose();
+    },
+  };
 }

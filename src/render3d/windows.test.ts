@@ -10,11 +10,11 @@ import { DEFAULT, sharedCity } from "../city/testing/namedcities";
 import { createGrid } from "../grid";
 import type { GridState } from "../grid";
 import { circuitDraws } from "./circuitdraw";
-import { jobWires, linesAround, sceneryDropWires, wholeFraction } from "./cityview";
+import { jobWires, lineFlow, linesAround, sceneryDropWires, wholeFraction } from "./cityview";
 import { overlayIcons, type Project } from "./overlay";
 import { createRelightClock } from "./relight3d";
 import { Scene } from "three";
-import { DIM_LEVEL, DIM_SHARE, PANE_COLOURS, STREET_LIGHTS_MAX, STREET_LIGHT_INTENSITY, WINDOW_FLARE_GAIN, WINDOW_LEVEL, WINDOW_LIT, WINDOW_UV, buildingGlow, dimPieces, lampBuildings, lightPlaces, sceneryLamps, setBuildingGlow, setDimWindows, setStreetLights, streetLights, windowLit, windowMask, type BuildingGlow } from "./windows";
+import { DIM_LEVEL, DIM_SHARE, PANE_COLOURS, STREET_LIGHTS_MAX, STREET_LIGHT_INTENSITY, STREET_LIGHT_REACH_M, STOREY_REACH_DIV, WINDOW_FLARE_GAIN, WINDOW_LEVEL, WINDOW_LIT, WINDOW_UV, buildingGlow, dimPieces, glowCardMesh, glowCards, lampBuildings, lightPlaces, sceneryLamps, setBuildingGlow, setDimWindows, setStreetLights, streetLights, windowLit, windowMask, type BuildingGlow } from "./windows";
 
 const texel = (x: number, y: number): number[] => {
   const d = windowMask().image.data as Uint8Array;
@@ -270,5 +270,48 @@ describe("scenery drawn live (081 S4)", () => {
     expect(icons.length).toBeGreaterThan(0);
     for (const i of icons) expect(hidden.has(i.id), i.id).toBe(false);
     for (const w of jobWires(layer, draws, converted)) expect(hidden.has(w.line), w.line).toBe(false);
+  });
+});
+
+describe("a lit building reads as lit (081 W2)", () => {
+  const door = (side: string, faces: string) => ({ side, faces, frontage: "street" });
+  // One building of one column: a ground storey (0 to 3), floor pieces at 3 and 6 and a roof at 9 (three storeys up), its +z face on a street and its -z face on a yard.
+  const column = { i: 0, j: 0, building: "tower", ground: { y_m: 0, top_m: 3 }, pieces: [{ role: "floor", storey: 1, span: 1, placement: { y_m: 3 } }, { role: "floor", storey: 2, span: 1, placement: { y_m: 6 } }, { role: "roof", storey: 3, span: 0, placement: { y_m: 9 } }] };
+  const plan = { layers: { mass: { built: [{ i: 0, j: 0, open: [door("+z", "street"), door("-z", "yard")] }] }, buildings: { buildings: [{ id: "tower", cells: [{ i: 0, j: 0 }] }], columns: [column] } } } as never;
+
+  it("every glass-bearing storey of a lit building has a glow card on each street face, the roof and a yard face have none, and its light stands at half its height", () => {
+    const cards = glowCards(plan, ["tower"]);
+    expect(cards.map((c) => [c.y, c.nz])).toEqual([[1.5, 1], [4.5, 1], [7.5, 1]]);
+    expect(glowCards(plan, ["other"])).toEqual([]);
+    const light = lightPlaces(plan, ["tower"], 5)[0]!;
+    expect(light.y).toBe(4.5);
+    expect(streetLights([light], 1).lights[0]!.distance).toBeCloseTo(STREET_LIGHT_REACH_M * (1 + 3 / STOREY_REACH_DIV), 9);
+  });
+
+  it("a building whose lamp is dead, its line powered, has its drop lit and its windows, glow cards and light at 0", { timeout: 60_000 }, () => {
+    const run = sharedCity(DEFAULT, "facades");
+    if (!run.ok) throw new Error(run.failure.reason);
+    const file = JSON.parse(readFileSync("puzzles/city/city-two-ways-round.city.json", "utf8"));
+    file.faults = [{ id: "bulb", at: "homes", kind: "dead-lamp" }];
+    const converted = convertCityPuzzle(loadCityPuzzle(file), run.plan);
+    const g = createGrid(converted.puzzle, new EventBus());
+    g.throwSwitch("sw");
+    const state = g.state();
+    const index = converted.puzzle.lines.findIndex((l) => l.to === "homes");
+    const line = converted.puzzle.lines[index]!;
+    const wires = jobWires(run.plan.layers.circuit!, circuitDraws(run.plan.layers.circuit!, undefined, { converted }), converted).filter((w) => w.line === line.id);
+    const flow = { fraction: 0, reversed: false };
+    expect(lineFlow(state, line, index, wires, null, 0, flow).fraction).toBe(1);
+    const lamps = lampBuildings(converted.puzzle.nodes, converted.places, run.plan.layers.circuit!.roofs ?? [], run.plan.layers.buildings!.buildings);
+    const [building, list] = [...lamps].find(([, l]) => l.some((x) => x.id === "homes"))!;
+    const glow = buildingGlow(null, state, list, 0, 0.3, { level: 1, flare: 0 });
+    expect(glow.level).toBe(0);
+    const cards = glowCardMesh(glowCards(run.plan, [building]), 0.18);
+    cards.set(building, glow);
+    cards.commit();
+    expect(cards.mesh!.visible).toBe(false);
+    const pool = streetLights(lightPlaces(run.plan, [building], 5), 0.18);
+    setStreetLights(pool, new Map([[building, glow]]));
+    expect(pool.lights.map((l) => l.intensity)).toEqual([0]);
   });
 });
