@@ -1071,7 +1071,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   }
   const burstIdx: number[] = [];
   let fxRelPrev = -1;
-  // fx=all: a blow on the job's first rated fuse box every 2 s.
+  // fx=all: a blow on the job's first rated fuse box every 3 s.
   const allFuse = puzzle.nodes.find((n) => n.type === "fusebox" && n.rating !== undefined);
   const allFuseLine = allFuse ? puzzle.lines.find((l) => l.from === allFuse.id || l.to === allFuse.id) : undefined;
   let fxAllBlow = 0;
@@ -1096,7 +1096,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     if (fxMode === "all") {
       for (let i = 0; i < fxCuts.length; i++) fx.breakAt(i, time);
       if (allFuse && allFuseLine && time >= fxAllBlow) {
-        fxAllBlow = time + 2;
+        fxAllBlow = time + 3;
         blows.push(blowOf("", allFuse.id, [[allFuseLine.id]], true));
       }
       if (burstLamps.length > 0 && time >= fxAllBloom) {
