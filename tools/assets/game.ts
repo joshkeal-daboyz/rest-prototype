@@ -14,7 +14,8 @@
 import { renameSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { AssetColourway, AssetEntry, AssetManifest, AssetPack } from "../../src/core";
+import { FX_GAME_DIR, FX_MESHES, FX_SOURCE_DIR, FX_SOURCE_PACK, FX_TEXTURES } from "../../src/core";
+import type { AssetColourway, AssetEntry, AssetFxTexture, AssetManifest, AssetPack, FxTextureId } from "../../src/core";
 import { buildBlenderArgs, isInside, layout, packNameIsSafe, readPackSettings, realDeps, resolveBlender, tail } from "./convert";
 import type { ConvertDeps, RunResult } from "./convert";
 import { compareNames, parsePackReport } from "./manifest";
@@ -95,6 +96,8 @@ export interface GameManifestInput {
   colourwayIds: readonly string[];
   generatedAt: string;
   blenderVersion: string;
+  /** The particle textures copied (081 FX1), in `FX_TEXTURES` order; none leaves `fx` out. */
+  fx?: readonly AssetFxTexture[];
 }
 
 /** The game manifest: each used pack's full entry cut to the included models and colourways, `glb` beside the manifest. Pure. */
@@ -117,6 +120,7 @@ export function buildGameManifest(a: GameManifestInput): AssetManifest {
     generatedAt: a.generatedAt,
     blenderVersion: a.blenderVersion,
     packs,
+    ...(a.fx !== undefined && a.fx.length > 0 ? { fx: a.fx } : {}),
   };
 }
 
@@ -153,7 +157,15 @@ export async function runGame(deps: GameDeps): Promise<number> {
     deps.stderr(`${L.manifest} is unreadable (${(e as Error).message}); nothing written.\n`);
     return 1;
   }
-  const keys = deps.keys();
+  const pageKeys = deps.keys();
+  // The particle meshes are optional (081 FX1): a key the manifest cannot give is skipped with a line, never a failed cut.
+  const fxKeys: string[] = [];
+  const fxSkipped: string[] = [];
+  for (const key of Object.values(FX_MESHES)) {
+    if (pageKeys.includes(key) || planGame(full, [key]).problems.length === 0) fxKeys.push(key);
+    else fxSkipped.push(key);
+  }
+  const keys = [...pageKeys, ...fxKeys.filter((k) => !pageKeys.includes(k))];
   const plan = planGame(full, keys);
   if (plan.problems.length > 0) {
     deps.stderr(`The game pack cannot be cut; nothing written:\n${plan.problems.map((p) => `  - ${p}`).join("\n")}\n`);
@@ -247,11 +259,36 @@ export async function runGame(deps: GameDeps): Promise<number> {
     }
   }
 
+  if (fxSkipped.length > 0) {
+    lines.push(`  particle meshes left out: ${fxSkipped.join(", ")} (not in the full manifest, or scale-suspect; run npm run assets:convert ${FX_SOURCE_PACK})\n`);
+  }
+
+  // The particle textures: copied if present, never a reason to stop.
+  const fxFrom = join(L.inRoot, FX_SOURCE_PACK, ...FX_SOURCE_DIR.split("/").filter((x) => x !== ""));
+  const fx: AssetFxTexture[] = [];
+  const fxMissing: string[] = [];
+  for (const id of Object.keys(FX_TEXTURES) as FxTextureId[]) {
+    const file = FX_TEXTURES[id];
+    const from = join(fxFrom, file);
+    if (!deps.exists(from)) {
+      fxMissing.push(file);
+      continue;
+    }
+    const rel = `${FX_GAME_DIR}${file}`;
+    const to = join(tmp, ...rel.split("/"));
+    deps.mkdirp(dirname(to));
+    deps.copyFile(from, to);
+    moves.push(rel);
+    fx.push({ id, image: rel });
+  }
+  if (fxMissing.length > 0) lines.push(`  particle textures missing: ${fxMissing.join(", ")} (looked in ${fxFrom})\n`);
+
   const manifest = buildGameManifest({
     full,
     plan,
     keys,
     colourwayIds: ids,
+    fx,
     generatedAt: deps.now().toISOString(),
     blenderVersion: blender.versionText,
   });
@@ -267,7 +304,7 @@ export async function runGame(deps: GameDeps): Promise<number> {
   }
   deps.remove(tmp);
   const seconds = ((deps.now().getTime() - started) / 1000).toFixed(0);
-  deps.stdout(`Wrote ${join(game, "manifest.json")}\n${lines.join("")}${plan.packs.length} pack(s), ${keys.length} key(s), ${seconds} s\n`);
+  deps.stdout(`Wrote ${join(game, "manifest.json")}\n${lines.join("")}${plan.packs.length} pack(s), ${keys.length} key(s), ${fx.length} texture(s), ${seconds} s\n`);
   return 0;
 }
 
