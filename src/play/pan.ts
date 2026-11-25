@@ -1,7 +1,7 @@
 // Pointer and key input for the map view (tickets 022, 027 B): right-drag pans, the context menu is suppressed on the
 // canvas, arrows pan, the wheel / touchpad pinch / + - zoom, F shows the whole map, Home and a double right-click
 // return to the opening view. View-only: no grid call, no log, no bus event.
-import type { MapPanView } from "../render";
+import type { MapPanView } from "../render3d/maprender";
 
 /** Two still right presses within this many ms re-centre the view. */
 export const RIGHT_DOUBLE_MS = 400;
