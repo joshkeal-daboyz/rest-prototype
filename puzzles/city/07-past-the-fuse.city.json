@@ -1,0 +1,246 @@
+{
+  "id": "07-past-the-fuse",
+  "name": "07 · Past the fuse",
+  "version": 4,
+  "scope": "map",
+  "capacity": 5,
+  "startingParts": [
+    "fuse",
+    "bulb"
+  ],
+  "target": [
+    "shrine"
+  ],
+  "priority": [
+    "home_1",
+    "home_2"
+  ],
+  "from": "07-past-the-fuse",
+  "city": {
+    "blocksX": 6,
+    "blocksZ": 6,
+    "seed": 1,
+    "oneWay": true
+  },
+  "district": [
+    "block:8:1"
+  ],
+  "nodes": [
+    {
+      "id": "feed",
+      "type": "feed",
+      "place": {
+        "pole": "pole:x:1:lo:482.50"
+      }
+    },
+    {
+      "id": "j0",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:1:hi:482.50"
+      }
+    },
+    {
+      "id": "fb_A",
+      "type": "fusebox",
+      "rating": 4,
+      "place": {
+        "pole": "pole:x:1:hi:471.50"
+      }
+    },
+    {
+      "id": "j1",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:1:hi:449.50"
+      }
+    },
+    {
+      "id": "lane",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:8:0/b|outer|+z|89,12"
+      }
+    },
+    {
+      "id": "shrine",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:8:1/a|outer|-z|88,18"
+      }
+    },
+    {
+      "id": "br_mk",
+      "type": "breaker",
+      "closed": true,
+      "place": {
+        "pole": "pole:z:9:lo:92.50"
+      }
+    },
+    {
+      "id": "market",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:8:1/a|outer|+x|96,20"
+      }
+    },
+    {
+      "id": "br_hm",
+      "type": "breaker",
+      "closed": true,
+      "place": {
+        "roof": "roof:91:12"
+      }
+    },
+    {
+      "id": "j2",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:1:hi:427.50"
+      }
+    },
+    {
+      "id": "home_1",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:8:1/a|outer|-z|85,18"
+      }
+    },
+    {
+      "id": "home_2",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:8:1/a|outer|-x|85,19"
+      }
+    }
+  ],
+  "lines": [
+    {
+      "id": "l_feed",
+      "from": "feed",
+      "to": "j0",
+      "run": {
+        "spans": [
+          "span:pole:x:1:hi:482.50~pole:x:1:lo:482.50"
+        ]
+      }
+    },
+    {
+      "id": "l_a",
+      "from": "j0",
+      "to": "fb_A",
+      "run": {
+        "spans": [
+          "span:pole:x:1:hi:471.50~pole:x:1:hi:482.50"
+        ]
+      }
+    },
+    {
+      "id": "l_a2",
+      "from": "fb_A",
+      "to": "j1",
+      "run": {
+        "spans": [
+          "span:pole:x:1:hi:460.50~pole:x:1:hi:471.50",
+          "span:pole:x:1:hi:449.50~pole:x:1:hi:460.50"
+        ]
+      }
+    },
+    {
+      "id": "l_lane",
+      "from": "j1",
+      "to": "lane",
+      "run": {
+        "spans": [],
+        "drop": "block:8:0/b|outer|+z|89,12"
+      }
+    },
+    {
+      "id": "l_shrine",
+      "from": "j1",
+      "to": "shrine",
+      "run": {
+        "spans": [],
+        "drop": "block:8:1/a|outer|-z|88,18"
+      }
+    },
+    {
+      "id": "l_mk",
+      "from": "j0",
+      "to": "br_mk",
+      "run": {
+        "spans": [
+          "span:pole:x:1:hi:482.50~pole:z:9:lo:92.50"
+        ]
+      }
+    },
+    {
+      "id": "l_mk2",
+      "from": "br_mk",
+      "to": "market",
+      "run": {
+        "spans": [
+          "span:pole:z:9:lo:105.00~pole:z:9:lo:92.50"
+        ],
+        "drop": "block:8:1/a|outer|+x|96,20"
+      }
+    },
+    {
+      "id": "l_hm",
+      "from": "j0",
+      "to": "br_hm",
+      "run": {
+        "spans": [
+          "span:pole:x:1:hi:482.50~roof:91:12"
+        ]
+      }
+    },
+    {
+      "id": "l_hm2",
+      "from": "br_hm",
+      "to": "j2",
+      "run": {
+        "spans": [
+          "span:pole:x:1:hi:427.50~roof:91:12"
+        ]
+      }
+    },
+    {
+      "id": "l_h1",
+      "from": "j2",
+      "to": "home_1",
+      "run": {
+        "spans": [],
+        "drop": "block:8:1/a|outer|-z|85,18"
+      }
+    },
+    {
+      "id": "l_h2",
+      "from": "j2",
+      "to": "home_2",
+      "run": {
+        "spans": [
+          "span:pole:x:1:hi:427.50~pole:z:8:hi:92.50"
+        ],
+        "drop": "block:8:1/a|outer|-x|85,19"
+      }
+    }
+  ],
+  "faults": [
+    {
+      "id": "f1",
+      "at": "fb_A",
+      "kind": "blown-fuse"
+    },
+    {
+      "id": "f2",
+      "at": "shrine",
+      "kind": "dead-lamp"
+    }
+  ]
+}

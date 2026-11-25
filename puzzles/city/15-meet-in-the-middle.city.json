@@ -1,0 +1,394 @@
+{
+  "id": "15-meet-in-the-middle",
+  "name": "15 · Meet in the middle",
+  "version": 5,
+  "scope": "map",
+  "capacity": null,
+  "startingParts": [],
+  "target": [
+    "forge",
+    "shrine",
+    "well",
+    "inn",
+    "mill"
+  ],
+  "priority": [
+    "gate"
+  ],
+  "from": "15-meet-in-the-middle",
+  "city": {
+    "blocksX": 6,
+    "blocksZ": 6,
+    "seed": 1,
+    "oneWay": true
+  },
+  "district": [
+    "block:5:10",
+    "block:6:11"
+  ],
+  "nodes": [
+    {
+      "id": "west",
+      "type": "feed",
+      "capacity": 7,
+      "name": "West",
+      "place": {
+        "pole": "pole:x:13:lo:272.50"
+      }
+    },
+    {
+      "id": "east",
+      "type": "feed",
+      "capacity": 7,
+      "name": "East",
+      "place": {
+        "pole": "pole:x:13:lo:337.50"
+      }
+    },
+    {
+      "id": "inn",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:6:9/a|outer|+z|56,89"
+      }
+    },
+    {
+      "id": "sw_w",
+      "type": "switch",
+      "outputs": [
+        "l_w_short",
+        "l_w_long"
+      ],
+      "selected": 0,
+      "place": {
+        "pole": "pole:z:6:hi:472.50"
+      }
+    },
+    {
+      "id": "d1",
+      "type": "junction",
+      "place": {
+        "roof": "roof:48:99"
+      }
+    },
+    {
+      "id": "d2",
+      "type": "junction",
+      "place": {
+        "pole": "pole:z:6:hi:507.50"
+      }
+    },
+    {
+      "id": "jA",
+      "type": "junction",
+      "place": {
+        "pole": "pole:z:6:hi:495.83"
+      }
+    },
+    {
+      "id": "forge",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:6:11/a|outer|-x|54,97"
+      }
+    },
+    {
+      "id": "jB",
+      "type": "junction",
+      "place": {
+        "roof": "roof:54:101"
+      }
+    },
+    {
+      "id": "br_sh",
+      "type": "breaker",
+      "closed": false,
+      "place": {
+        "pole": "pole:z:6:lo:507.50"
+      }
+    },
+    {
+      "id": "shrine",
+      "type": "lamp",
+      "load": 2,
+      "place": {
+        "building": "block:5:10/b|outer|+x|48,100"
+      }
+    },
+    {
+      "id": "jC",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:14:lo:294.17"
+      }
+    },
+    {
+      "id": "well",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:6:11/b|outer|+z|58,101"
+      }
+    },
+    {
+      "id": "jD",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:14:lo:326.67"
+      }
+    },
+    {
+      "id": "br_g",
+      "type": "breaker",
+      "closed": true,
+      "place": {
+        "pole": "pole:x:14:lo:337.50"
+      }
+    },
+    {
+      "id": "gate",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:6:11/b|outer|+z|64,101"
+      }
+    },
+    {
+      "id": "mill",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:6:11/b|outer|+x|67,98"
+      }
+    },
+    {
+      "id": "j_w",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:13:hi:272.50"
+      }
+    },
+    {
+      "id": "j_e",
+      "type": "junction",
+      "place": {
+        "pole": "pole:z:7:lo:495.83"
+      }
+    },
+    {
+      "id": "jE",
+      "type": "junction",
+      "place": {
+        "roof": "roof:67:101"
+      }
+    }
+  ],
+  "lines": [
+    {
+      "id": "l_w0",
+      "from": "west",
+      "to": "j_w",
+      "run": {
+        "spans": [
+          "span:pole:x:13:hi:272.50~pole:x:13:lo:272.50"
+        ]
+      }
+    },
+    {
+      "id": "l_e0",
+      "from": "east",
+      "to": "j_e",
+      "run": {
+        "spans": [
+          "span:pole:x:13:hi:337.50~pole:x:13:lo:337.50",
+          "span:pole:x:13:hi:337.50~pole:z:7:lo:472.50",
+          "span:pole:z:7:lo:472.50~pole:z:7:lo:484.17",
+          "span:pole:z:7:lo:484.17~pole:z:7:lo:495.83"
+        ]
+      }
+    },
+    {
+      "id": "l_inn",
+      "from": "j_w",
+      "to": "inn",
+      "run": {
+        "spans": [
+          "span:pole:x:13:hi:272.50~pole:x:13:hi:285.83"
+        ],
+        "drop": "block:6:9/a|outer|+z|56,89"
+      }
+    },
+    {
+      "id": "l_w",
+      "from": "j_w",
+      "to": "sw_w",
+      "run": {
+        "spans": [
+          "span:pole:x:13:hi:272.50~pole:z:6:hi:472.50"
+        ]
+      }
+    },
+    {
+      "id": "l_w_short",
+      "from": "sw_w",
+      "to": "jA",
+      "run": {
+        "spans": [
+          "span:pole:z:6:hi:472.50~pole:z:6:hi:484.17",
+          "span:pole:z:6:hi:484.17~pole:z:6:hi:495.83"
+        ]
+      }
+    },
+    {
+      "id": "l_w_long",
+      "from": "sw_w",
+      "to": "d1",
+      "run": {
+        "spans": [
+          "span:pole:z:6:hi:472.50~roof:48:99"
+        ]
+      }
+    },
+    {
+      "id": "l_d",
+      "from": "d1",
+      "to": "d2",
+      "run": {
+        "spans": [
+          "span:pole:z:6:hi:507.50~roof:48:99"
+        ]
+      }
+    },
+    {
+      "id": "l_d_a",
+      "from": "d2",
+      "to": "jA",
+      "run": {
+        "spans": [
+          "span:pole:z:6:hi:495.83~pole:z:6:hi:507.50"
+        ]
+      }
+    },
+    {
+      "id": "l_forge",
+      "from": "jA",
+      "to": "forge",
+      "run": {
+        "spans": [],
+        "drop": "block:6:11/a|outer|-x|54,97"
+      }
+    },
+    {
+      "id": "l_ab",
+      "from": "jA",
+      "to": "jB",
+      "run": {
+        "spans": [
+          "span:pole:z:6:hi:495.83~roof:54:101"
+        ]
+      }
+    },
+    {
+      "id": "l_b_br",
+      "from": "jB",
+      "to": "br_sh",
+      "run": {
+        "spans": [
+          "span:pole:z:6:lo:507.50~roof:54:101"
+        ]
+      }
+    },
+    {
+      "id": "l_shrine",
+      "from": "br_sh",
+      "to": "shrine",
+      "run": {
+        "spans": [],
+        "drop": "block:5:10/b|outer|+x|48,100"
+      }
+    },
+    {
+      "id": "l_bc",
+      "from": "jB",
+      "to": "jC",
+      "run": {
+        "spans": [
+          "span:pole:x:14:lo:285.83~roof:54:101",
+          "span:pole:x:14:lo:285.83~pole:x:14:lo:294.17"
+        ]
+      }
+    },
+    {
+      "id": "l_well",
+      "from": "jC",
+      "to": "well",
+      "run": {
+        "spans": [],
+        "drop": "block:6:11/b|outer|+z|58,101"
+      }
+    },
+    {
+      "id": "l_cd",
+      "from": "jC",
+      "to": "jD",
+      "run": {
+        "spans": [
+          "span:pole:x:14:lo:294.17~pole:x:14:lo:305.00",
+          "span:pole:x:14:lo:305.00~pole:x:14:lo:315.83",
+          "span:pole:x:14:lo:315.83~pole:x:14:lo:326.67"
+        ]
+      }
+    },
+    {
+      "id": "l_d_br",
+      "from": "jD",
+      "to": "br_g",
+      "run": {
+        "spans": [
+          "span:pole:x:14:lo:326.67~pole:x:14:lo:337.50"
+        ]
+      }
+    },
+    {
+      "id": "l_gate",
+      "from": "br_g",
+      "to": "gate",
+      "run": {
+        "spans": [],
+        "drop": "block:6:11/b|outer|+z|64,101"
+      }
+    },
+    {
+      "id": "l_mill",
+      "from": "j_e",
+      "to": "mill",
+      "run": {
+        "spans": [],
+        "drop": "block:6:11/b|outer|+x|67,98"
+      }
+    },
+    {
+      "id": "l_e",
+      "from": "j_e",
+      "to": "jE",
+      "run": {
+        "spans": [
+          "span:pole:z:7:lo:495.83~roof:67:101"
+        ]
+      }
+    },
+    {
+      "id": "l_e2",
+      "from": "jE",
+      "to": "jD",
+      "run": {
+        "spans": [
+          "span:pole:x:14:lo:326.67~roof:67:101"
+        ]
+      }
+    }
+  ],
+  "faults": []
+}
