@@ -42,9 +42,20 @@ describe("the limited city rig (081 E5)", () => {
         expect(rig.getScale()).toBeGreaterThanOrEqual(d0Scale / 1.5 - 1e-6);
       }
       // Panels that leave the district room: the opening is the fit in the free area, closer than Dmax.
-      const roomy = createCityRig(FRAME, w, h, { bottom: h * 0.1 }, LIMIT);
-      expect(roomy.getScale()).toBeLessThanOrEqual(d0Scale + 1e-6);
+      // Every corner (ground and roofline) must land inside the free area, clear of the panels; a rig that ignored the insets would open at D0 and put the corners under them.
+      const ins = { top: h * 0.05, bottom: h * 0.1, left: w * 0.05, right: w * 0.05 };
+      const roomy = createCityRig(FRAME, w, h, ins, LIMIT);
+      expect(roomy.getScale()).toBeLessThan(d0Scale);
       expect(roomy.getScale()).toBeGreaterThanOrEqual(d0Scale / 1.5 - 1e-6);
+      for (const x of [FRAME.minX, FRAME.maxX]) for (const z of [FRAME.minY, FRAME.maxY]) for (const y of [0, 6]) {
+        p.set(x, y, z).project(roomy.camera);
+        const px = ((p.x + 1) / 2) * w;
+        const py = ((1 - p.y) / 2) * h;
+        expect(px).toBeGreaterThanOrEqual(ins.left - 1e-6);
+        expect(px).toBeLessThanOrEqual(w - ins.right + 1e-6);
+        expect(py).toBeGreaterThanOrEqual(ins.top - 1e-6);
+        expect(py).toBeLessThanOrEqual(h - ins.bottom + 1e-6);
+      }
     }
   });
 
