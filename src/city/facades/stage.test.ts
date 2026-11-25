@@ -387,10 +387,11 @@ describe("R-1 to R-7 for facades (criterion 6)", { timeout: 120_000 }, () => {
     const PINS: readonly (readonly [number, string])[] = [
       // H1c re-pin: `shops` and `novelty` are new and the roof signs change `roofs`; `ground`, `dressing` and `walls` keep their pins. H3b's pins, replaced, were 88cc62e0, d424e8df, ea9ad368, a6511846 (before them H3's 85f425f5, 40ff1675, e1ee93b5, 06de80d5)
       // H3b re-pin: the water-tower cap (TX, TS) and the bare-run top-up (TF) change `roofs`; H3's pins, replaced, were 85f425f5, 40ff1675, e1ee93b5, 06de80d5 (before them H2b's 40e4d207, 06116698, 60227c74, 3610b49d; H2's ce662196, e5d43765, 9f4fa9c4, d0d30400; H1b's 7a95c899, 2281779d, f965837b, 9a3c4f10)
-      [1, "e96db65b"],
-      [2, "25f96f25"],
-      [3, "68430a02"],
-      [8, "53f33a18"],
+      // H4 re-pin: small roof props keep clear of the corner roof structures' keep squares; `roofs` changes, `ground`, `dressing` and `walls` keep their pins. The pins before it were e96db65b, 25f96f25, 68430a02, 53f33a18
+      [1, "c264e65d"],
+      [2, "b0402815"],
+      [3, "00744cfe"],
+      [8, "5f077cb3"],
     ];
     // H3: `walls` is H2b's, unchanged (its digests on the four pin cities, taken from H2b's run at 4ddae06 before any H3 code)
     const WALLS_PINS: readonly (readonly [number, string])[] = [
@@ -467,7 +468,9 @@ describe("R-1 to R-7 for facades (criterion 6)", { timeout: 120_000 }, () => {
     for (const f of FILES) {
       const code = codeOf(f);
       expect(code, f).not.toMatch(/\.(bi|bj|line)\b/);
-      expect(code, f).not.toMatch(/layers\.(edge|land|circuit|ground)|\.kerb\b|\.bays\b/);
+      expect(code, f).not.toMatch(/layers\.(edge|land|ground)|\.kerb\b|\.bays\b/);
+      // H4: stage 6's corner keep squares (roofKeep) are the one thing it reads of the circuit layer
+      for (const m of code.matchAll(/layers\.circuit(\?\.\w+)?/g)) expect(m[1], `${f}: ${m[0]}`).toBe("?.roofKeep");
       for (const m of code.matchAll(/layers\.streets|streets\.(\w+)/g)) if (m[1] !== undefined) expect(["w", "h"], `${f}: ${m[0]}`).toContain(m[1]);
     }
   });

@@ -62,8 +62,10 @@ function viewOf(o: City): View {
   }
   return views.get(k)!;
 }
-/** H3b's roofs: `buildRoofs` with no plan. */
-const noPlanOf = (v: View): CityRoofPiece[] => buildRoofs(v.mass, v.buildings, { dressing: v.layer.dressing!, walls: v.layer.walls! }, stageRand("facades", v.o.seed)).roofs;
+/** The corner keep squares stage 7 reads (H4). */
+const keepOf = (o: City) => cityOf(o).plan.layers.circuit?.roofKeep ?? [];
+/** H3b's roofs with H4's keep squares: `buildRoofs` with no plan. */
+const noPlanOf = (v: View, withKeep = true): CityRoofPiece[] => buildRoofs(v.mass, v.buildings, { dressing: v.layer.dressing!, walls: v.layer.walls! }, stageRand("facades", v.o.seed), undefined, undefined, withKeep ? keepOf(v.o) : []).roofs;
 
 /** What H1b's nine sign keys say about a trade, by hand. */
 const tradeOf = (k: string): string | null => {
@@ -262,7 +264,7 @@ describe("NP, F and RS (criterion 3)", { timeout: 300_000 }, () => {
     ];
     for (const [seed, pin] of H3B) {
       const v = viewOf({ blocksX: 6, blocksZ: 6, seed, way: "on" });
-      const layer: CityFacadesLayer = { stage: "facades", ground: v.layer.ground, dressing: v.layer.dressing!, walls: v.layer.walls!, roofs: noPlanOf(v) };
+      const layer: CityFacadesLayer = { stage: "facades", ground: v.layer.ground, dressing: v.layer.dressing!, walls: v.layer.walls!, roofs: noPlanOf(v, false) };
       expect(digestOf(layer), `seed ${seed}`).toBe(pin);
     }
   });
@@ -300,7 +302,7 @@ describe("NP, F and RS (criterion 3)", { timeout: 300_000 }, () => {
       const { ground, dressing, walls } = v.layer;
       const shops = buildShops(v.buildings, ground, dressing!, rand);
       const plan = planNovelty(v.mass, v.buildings, { ground, dressing: dressing!, walls: walls!, shops }, rand);
-      const roofs = buildRoofs(v.mass, v.buildings, { dressing: dressing!, walls: walls! }, rand, undefined, plan.roofs).roofs;
+      const roofs = buildRoofs(v.mass, v.buildings, { dressing: dressing!, walls: walls! }, rand, undefined, plan.roofs, keepOf(o)).roofs;
       const novelty = placeFaceSigns(plan, roofs, { dressing: dressing!, walls: walls! }, v.buildings).novelty;
       expect(shops).toEqual(v.layer.shops);
       expect(roofs).toEqual(v.layer.roofs);
