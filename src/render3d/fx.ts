@@ -1156,8 +1156,8 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
         const mx = ox + dx * L * 0.5 + (rnd() - 0.5) * 0.8 * S;
         const my = oy + dy * L * 0.5 + (rnd() - 0.5) * 0.8 * S;
         const mz = oz + dz * L * 0.5 + (rnd() - 0.5) * 0.8 * S;
-        this.arcAt(ox, oy, oz, mx, my, mz, 0.3 * S, 0.9, 1.2, 1.9);
-        this.arcAt(mx, my, mz, ox + dx * L, oy + dy * L, oz + dz * L, 0.18 * S, 0.7, 1.0, 1.7);
+        this.arcAt(ox, oy, oz, mx, my, mz, 0.3 * S, 1.3, 1.35, 1.5);
+        this.arcAt(mx, my, mz, ox + dx * L, oy + dy * L, oz + dz * L, 0.18 * S, 1.2, 1.25, 1.4);
       }
     },
     update(dt, camera) {
