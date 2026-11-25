@@ -924,9 +924,9 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
   const lightning = makeLayer(1, quad, lightMat, "sprite", 0, 0, fadeLinear, 8 * n + DIRECT_MAX);
   const lightCap = 1 + 8 * n + DIRECT_MAX;
   // Four white point lights, made now at intensity 0 and never added or removed: 0 the fuse burst, 1 and 2 the live breaks' sparks, 3 the bolt's head. The light count in play never changes.
-  const burstLight = new PointLight(0xffffff, 0, 55 * S, 2);
-  const sparkLights = [new PointLight(0xffffff, 0, 30 * S, 2), new PointLight(0xffffff, 0, 30 * S, 2)];
-  const boltLight = new PointLight(0xffffff, 0, 35 * S, 2);
+  const burstLight = new PointLight(0xffffff, 0, 60 * S, 1);
+  const sparkLights = [new PointLight(0xffffff, 0, 30 * S, 1), new PointLight(0xffffff, 0, 30 * S, 1)];
+  const boltLight = new PointLight(0xffffff, 0, 35 * S, 1);
   const fxLights = [burstLight, ...sparkLights, boltLight];
   for (const l of fxLights) {
     l.name = "fx-light";
@@ -970,13 +970,16 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
 
   const sparkOut = (e: FxEmitter, mul: number, lifeMul = 1): void => {
     const a = rnd() * Math.PI * 2;
-    const h = (3 + rnd() * 5) * mul * S;
+    // Inside a cone about straight down, 60 degrees across (within 30 degrees of down): none go up.
+    const sp = (4 + rnd() * 5) * mul * S;
+    const th = rnd() * (Math.PI / 6);
+    const h = Math.sin(th) * sp;
     p.x = e.x;
     p.y = e.y;
     p.z = e.z;
     p.vx = Math.cos(a) * h;
     p.vz = Math.sin(a) * h;
-    p.vy = (rnd() < 0.65 ? -(1.5 + rnd() * 4) : 0.5 + rnd() * 1.5) * mul * S;
+    p.vy = -Math.cos(th) * sp;
     p.life = (0.7 + rnd() * 0.7) * lifeMul;
     p.size = (haveSpark ? 0.15 : 0.9) * S;
     p.grow = haveSpark ? 1 : 0.5;
@@ -1333,8 +1336,8 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
         burstAge += dt;
         if (burstAge >= BLOW_TIMING.pop) burstAge = -1;
       }
-      burstLight.intensity = burstAge < 0 ? 0 : 150 * (1 - burstAge / BLOW_TIMING.pop) ** 2;
-      boltLight.intensity = boltOn ? 25 * (0.6 + 0.4 * rnd()) : 0;
+      burstLight.intensity = burstAge < 0 ? 0 : 60 * (1 - burstAge / BLOW_TIMING.pop) ** 2;
+      boltLight.intensity = boltOn ? 10 * (0.6 + 0.4 * rnd()) : 0;
       boltOn = false;
       for (let s = 0; s < n; s++) {
         if (fed[s] === 0) continue;
@@ -1346,7 +1349,7 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
         if (sparkLit < 2) {
           const l = sparkLights[sparkLit++]!;
           l.position.set(e.x, e.y + 0.5 * S, e.z);
-          l.intensity = 20 * flick;
+          l.intensity = 8 * flick;
         }
         m4.compose(pv.set(e.x, e.y, e.z), q.copy(camera), sv.setScalar(1.5 * S)).toArray(sarr, gi * 16);
         scol[gi * 3] = flick;
