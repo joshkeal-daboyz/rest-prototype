@@ -131,3 +131,13 @@ E5 review round 1, must-fix 2 (furthest zoom-out timings on both builds): waived
 | L3 | 1,778 | 12 | 10.3, 8.4 ms | 16.70 ms |
 
 Pass: no draw call and no program added; the CPU medians overlap within the run-to-run noise (about 1 to 2 ms).
+
+## S4, criterion 4 (25 Nov 2026, Josh's PC, in view)
+
+Browser pane emulated at 1287 x 1178, `?puzzle=city-two-ways-round&perf=1`, branch `ticket/081s4-scenery-live` (PR #70). Canvas 1930 x 1767, pixel ratio 1.5, fx on.
+
+| Run | Draw calls | Programs | CPU median, before power | Whole frame, before power |
+|---|---|---|---|---|
+| S4, before power | 1,779 | 12 | 8.50 ms | 16.60 ms |
+
+The draw calls and programs match main's (1,779 and 12 with FX2), so S4 adds no draw call or program before power. Josh played the run and judged the look ("Played it, looks right"), but the perf=1 tab closed before the after-Relight line was read. Josh, on a card: "Skip it". The after-Relight budget is taken from these numbers and the reviewer's structural read (the instancers are only sized larger at build; the street lights stay at `STREET_LIGHTS_MAX` = 32); it was not measured.
