@@ -29,7 +29,7 @@ Depends on: `docs/city-style/numbers.md` (the constants and colours), `docs/city
 
 ## 11. Palette and light
 
-- It is a night scene. The values are in the Numbers table (colours as `0x` hex, pinned exactly). The scene's background, ambient light and moon light are in `LIGHT_MODES.night` (`lighting.ts`, section 16.12), and the table's last section pins their source text there too.
+- It is a night scene. The values are in the Numbers table (colours as `0x` hex, pinned exactly). The scene's background and ambient light are in `LIGHT_MODES.night` (`lighting.ts`, section 16.12), and the table's last section pins their source text there too. The night sky, the stars and the moon (with the moon light's colour, strength and direction) are in the NIGHT_SKY block (`nightsky.ts`, ticket 081 section SK), tuned by eye and not pinned.
 - **Default (060)**: the testing daylight of 16.12 is a dev tool and not part of the game's look: the game is night, and no player toggle ships.
 - Ground colours: `GROUND` (the town's dark edge), `YARD` (open ground inside a block, a little lighter), `STREET` (asphalt), `PAVEMENT` (mid-grey, lighter than the asphalt), `KERB` (the pale lip) and CENTRE_LINE.
 - Pole and hardware colours: POLE_WOOD, FOOT, METAL, INSULATOR, CAN and DROP_COLOR.

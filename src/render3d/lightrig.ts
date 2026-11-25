@@ -13,12 +13,15 @@ import {
   DirectionalLight,
   HemisphereLight,
   NoToneMapping,
+  type Group,
   type Light,
   type Material,
   type Object3D,
   type Scene,
 } from "three";
-import { LIGHT_MODES, sunPosition, type LightModeId } from "./lighting";
+import { LIGHT_MODES, SUN_DISTANCE, sunPosition, type LightModeId } from "./lighting";
+import { NIGHT_SKY, moonDirection } from "./nightsky";
+import { buildSky, disposeSky } from "./skydome";
 
 /** What a scene hands the rig besides itself: the materials whose colour follows the mode (by surface key), and the parts that exist only at night. */
 export interface LightOwners {
@@ -79,6 +82,44 @@ function ensure<T extends Light>(scene: Scene, kind: RigKind, wanted: boolean, m
   set(light);
 }
 
+/** The sky's turn about the vertical now (degrees; 0 in play). */
+function skyTurn(scene: Scene): number {
+  return (scene.userData["skyTurn"] as number | undefined) ?? 0;
+}
+
+function placeMoonLight(l: Light, turn_deg: number): void {
+  const d = moonDirection(turn_deg);
+  l.position.set(d[0] * SUN_DISTANCE, d[1] * SUN_DISTANCE, d[2] * SUN_DISTANCE);
+}
+
+/** Add the one sky group when night wants it and the scene has none; remove and free it when the mode has none. */
+function ensureSky(scene: Scene, wanted: boolean): void {
+  const have = scene.children.find((c) => c.userData["lightRig"] === "sky") as Group | undefined;
+  if (!wanted) {
+    if (have) {
+      scene.remove(have);
+      disposeSky(have);
+    }
+    return;
+  }
+  if (have) return;
+  const sky = buildSky();
+  sky.rotation.y = (skyTurn(scene) * Math.PI) / 180;
+  scene.add(sky);
+}
+
+/**
+ * Turn the stars, the moon disc and the moon light together about the vertical (section T's splash and title; play never calls it, so its turn is 0). The light still comes from the disc.
+ * A later `applyLightMode` keeps the turn.
+ */
+export function setSkyTurn(scene: Scene, degrees: number): void {
+  scene.userData["skyTurn"] = degrees;
+  const sky = scene.children.find((c) => c.userData["lightRig"] === "sky");
+  if (sky) sky.rotation.y = (degrees * Math.PI) / 180;
+  const moon = rigLight(scene, "moon");
+  if (moon) placeMoonLight(moon, degrees);
+}
+
 /** Set a renderer's tone mapping, exposure and shadow switch for a mode (a view that has lights of its own, like the tile sheet, calls just this). */
 export function setRendererMode(gl: RigRenderer, id: LightModeId): void {
   const mode = LIGHT_MODES[id];
@@ -111,14 +152,15 @@ export function applyLightMode(scene: Scene, gl: RigRenderer | null, id: LightMo
   ensure(
     scene,
     "moon",
-    mode.moon !== null,
+    mode.sky,
     () => new DirectionalLight(0xffffff, 1),
     (l) => {
-      l.color.setHex(mode.moon!.color);
-      l.intensity = mode.moon!.intensity;
-      l.position.set(mode.moon!.position[0], mode.moon!.position[1], mode.moon!.position[2]);
+      l.color.setHex(NIGHT_SKY.moon.light);
+      l.intensity = NIGHT_SKY.moon.intensity;
+      placeMoonLight(l, skyTurn(scene));
     },
   );
+  ensureSky(scene, mode.sky);
   ensure(
     scene,
     "key",

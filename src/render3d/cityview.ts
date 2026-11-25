@@ -174,6 +174,14 @@ export function playRigOptions(search: string, dev: boolean): { limit?: { zoomOu
   return { limit: { zoomOut: CITY_PLAY_ZOOM_OUT } };
 }
 
+/** `cam=sky` in a dev build (081 SK): the play camera's place, pitched up to show the sky and the moon, for tuning `NIGHT_SKY` before the title screen exists. Pure. */
+export function skyCamRequested(search: string, dev: boolean): boolean {
+  return dev && new URLSearchParams(search).get("cam") === "sky";
+}
+
+/** How far `cam=sky` pitches the camera up from level (degrees): the 40 degree view then spans 0 to 40 above the horizon, with the moon (18) in the middle. */
+export const SKY_CAM_PITCH_DEG = 20;
+
 // ---- the job's wires ----
 
 const SAMPLES = 8;
@@ -902,6 +910,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   }
 
   const rigOpts = playRigOptions(opts.search ?? "", import.meta.env.DEV);
+  const skyCam = skyCamRequested(opts.search ?? "", import.meta.env.DEV);
   if (!rigOpts.limit) console.info("cam=free: the camera limits are off (dev only)");
   const rig: CityRig = createCityRig(frame, w0, h0, insets, rigOpts);
   const camera = rig.camera;
@@ -1340,6 +1349,11 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
       if (readableNow(state)) standCircuit();
       drawLive(state, plan_, relT, timeSeconds);
       drawFx(state, plan_, relT, timeSeconds);
+      if (skyCam) {
+        // 081 SK, dev only: the rig's place, level and pitched up (the picking and the overlay are not meant to be used in this view).
+        camera.rotation.set((SKY_CAM_PITCH_DEG * Math.PI) / 180, 0, 0, "YXZ");
+        camera.updateMatrixWorld(true);
+      }
       gl.render(scene, camera);
       if (perf && plan_ !== null) {
         perfSawPlan = true;
