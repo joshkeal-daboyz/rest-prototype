@@ -1,7 +1,7 @@
 // Entry point: loads the map files, builds grid -> renderer -> play -> ui for one map, and runs the frame loop.
 // No game rules here: each layer owns its own. Picking another map rebuilds the stack.
 import { EventBus, puzzleFeeds, type CityPuzzleView, type Puzzle } from "./core";
-import { createGrid, type Grid, type GridState } from "./grid";
+import { createGrid, type Grid } from "./grid";
 import { planRelight, type MapBlockers, type MapCentre, type MapPanView, type MapPlaces, type MapRenderer } from "./render";
 import { attachPan, createMapPlay, type MapPlay } from "./play";
 import { createAudio } from "./audio";
@@ -11,6 +11,7 @@ import { measureBlockers } from "./ui/blockers";
 import { collectCityMaps, type CityMapEntry } from "./ui/maps";
 import { assetGalleryRequested } from "./ui/assetgallerylogic";
 import { pageView } from "./ui/view3d";
+import { relightCues } from "./ui/relightcues";
 
 // The puzzle page. It is a function so the dev-only asset gallery (at the end of this file) can take the page instead, with no puzzle, HUD or map renderer made.
 function startPuzzle(): void {
@@ -32,14 +33,6 @@ if (!import.meta.env.DEV) {
 // open() attaches it to that map's bus, and the map's detach silences it again.
 const audio = createAudio();
 restoreAudio(audio);
-
-/** The Relight's sound timing, from the same plan the renderer draws: each lit lamp's ignition time and the cascade's length. */
-function relightCues(puzzle: Puzzle, state: GridState): { igniteAt: number[]; duration: number } {
-  const plan = planRelight(puzzle, state);
-  const nodeIndex = new Map(puzzle.nodes.map((n, i) => [n.id, i] as const));
-  const igniteAt = plan.lampOrder.map((id) => plan.nodeArrive[nodeIndex.get(id) ?? 0] ?? 0);
-  return { igniteAt, duration: plan.duration };
-}
 
 /** Top inset for the map fit: the lower edge of the tallest HUD column (both sit at the top), plus a margin. 0 before any HUD exists. */
 function hudTopInset(): number {
@@ -79,6 +72,8 @@ if (entries.length === 0) {
     play: MapPlay;
     ui: UI;
     puzzle: Puzzle;
+    /** 081 U3: the converted puzzle's hidden ids (scenery lamps), which make no Relight sound. */
+    hidden: readonly string[];
     /** The lamp whose place and list entry are picked out (ticket 024 B), or null. */
     highlight: () => string | null;
     /** The picker key (the id, or `locked/<id>`) and the display name, for the win splash. */
@@ -128,6 +123,8 @@ if (entries.length === 0) {
       return;
     }
     const puzzle = view.converted.puzzle;
+    const hidden = view.converted.hidden ?? [];
+    const hiddenIds = new Set(hidden);
 
     const bus = new EventBus();
     const grid = createGrid(puzzle, bus);
@@ -143,7 +140,7 @@ if (entries.length === 0) {
     const detachPan = attachPan(canvas as HTMLCanvasElement, renderer);
     const feeds = puzzleFeeds(puzzle);
     // The open map's lamp node ids (ticket 026 B): a hit on one of these highlights that lamp, street lights included.
-    const lampIds = new Set(puzzle.nodes.filter((n) => n.type === "lamp").map((n) => n.id));
+    const lampIds = new Set(puzzle.nodes.filter((n) => n.type === "lamp" && !hiddenIds.has(n.id)).map((n) => n.id));
 
     // The list-to-map link (ticket 024 B, 026 B). A "Priests want lit" entry (hover or focus) and the pointer over a
     // lamp or its place both pick out one lamp; the last one to happen wins. Any other circuit element picks out none.
@@ -238,6 +235,7 @@ if (entries.length === 0) {
       play,
       ui,
       puzzle,
+      hidden,
       highlight: () => highlighted,
       key: id,
       name: entry.name,
@@ -295,7 +293,7 @@ if (entries.length === 0) {
         s.winShown = false;
       } else if (!s.relightStarted) {
         s.relightStarted = true;
-        const cues = relightCues(s.puzzle, state);
+        const cues = relightCues(planRelight(s.puzzle, state), s.puzzle.nodes.map((n) => n.id), s.hidden);
         s.relightDuration = cues.duration;
         audio.relight(cues.igniteAt, cues.duration);
       }
