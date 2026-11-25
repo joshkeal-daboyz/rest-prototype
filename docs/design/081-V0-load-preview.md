@@ -1,3 +1,5 @@
+**Josh's answers, 25 Nov 2026, on cards:** V-Q5: "On, a key hides it (Recommended)". V-Q4: "+3, load added (Recommended)". V-Q6: "Keep counting it (Recommended)" (a fault the player has read stays in the numbers).
+
 **Josh's answer:** *(open: V-Q4, V-Q5, V-Q6)*
 
 # 081 V0 · Pre-check of V2: what the load numbers give away, pilot by pilot
