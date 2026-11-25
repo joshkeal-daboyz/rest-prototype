@@ -473,3 +473,18 @@ export function winLine(seconds: number, moves: number): string {
 export function splashDue(relightT: number | null, duration: number): boolean {
   return relightT !== null && relightT >= duration + WIN_SPLASH_DELAY;
 }
+
+// ---- title menu keys (ticket 081 T2) ----
+
+/**
+ * The title's menu step: Up and Down move the index and wrap at either end, Enter chooses the item at the index.
+ * Any other key leaves the index alone and chooses nothing. With no items (`count` 0) the index stays at 0.
+ */
+export function menuStep(index: number, count: number, key: string): { index: number; choose: boolean } {
+  if (count <= 0) return { index: 0, choose: false };
+  const at = Math.min(Math.max(0, index), count - 1);
+  if (key === "ArrowDown") return { index: (at + 1) % count, choose: false };
+  if (key === "ArrowUp") return { index: (at + count - 1) % count, choose: false };
+  if (key === "Enter") return { index: at, choose: true };
+  return { index: at, choose: false };
+}

@@ -4,6 +4,7 @@ import {
   bannerText,
   capacityReadout,
   liveNotices,
+  menuStep,
   mapLabel,
   noticeFor,
   noticeOpacity,
@@ -278,5 +279,15 @@ describe("targetRows keeps its text for the centring list", () => {
     const rows = targetRows(["home_1", "shrine"], new Set(["shrine"]), false);
     expect(rows.map((r) => r.id)).toEqual(["home_1", "shrine"]);
     expect(rows.map((r) => r.text)).toEqual(["home 1: dark", "shrine: lit"]);
+  });
+});
+
+describe("menuStep", () => {
+  it("moves up and down with wrap, and Enter chooses the index", () => {
+    expect(menuStep(0, 2, "ArrowDown")).toEqual({ index: 1, choose: false });
+    expect(menuStep(1, 2, "ArrowDown")).toEqual({ index: 0, choose: false });
+    expect(menuStep(0, 2, "ArrowUp")).toEqual({ index: 1, choose: false });
+    expect(menuStep(1, 2, "Enter")).toEqual({ index: 1, choose: true });
+    expect(menuStep(1, 2, "a")).toEqual({ index: 1, choose: false });
   });
 });
