@@ -7,13 +7,30 @@ import { planRelight } from "./render3d/relightplan";
 import { attachPan, createMapPlay, type MapPlay } from "./play";
 import { createAudio } from "./audio";
 import { mountUI, restoreAudio, type UI } from "./ui";
-import { brownoutNotices, nextMap, noticeFor, placeHighlight, splashDue } from "./ui/logic";
+import { brownoutNotices, nextMap, noticeFor, placeHighlight, splashDue, startScreen, type StorageLike } from "./ui/logic";
+import { clearProgress, loadProgress, recordWin, saveProgress, stageList, stageNumber, type Progress } from "./ui/progress";
+import { mountScreens, type Screens } from "./ui/screens";
 import { measureBlockers } from "./ui/blockers";
 import { collectCityMaps, type CityMapEntry } from "./ui/maps";
 import { assetGalleryRequested } from "./ui/assetgallerylogic";
 import { pageView } from "./ui/view3d";
 import { relightCues } from "./ui/relightcues";
 import { isLoadKey, previewFor } from "./ui/preview";
+
+/** This browser's localStorage, or null where the browser refuses it (ticket 081 T3). */
+function browserStorage(): StorageLike | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+/** The local calendar date as `YYYY-MM-DD`, for the first win's date (ticket 081 T2). */
+function todayIso(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 // The puzzle page. It is a function so the dev-only asset gallery (at the end of this file) can take the page instead, with no puzzle, HUD or map renderer made.
 function startPuzzle(): void {
@@ -23,7 +40,8 @@ for (const problem of problems) console.warn(`[puzzles] skipped ${problem}`);
 
 const canvas = document.getElementById("panel");
 const uiRoot = document.getElementById("ui");
-if (!(canvas instanceof HTMLCanvasElement) || !uiRoot) throw new Error("index.html must have #panel and #ui");
+const screensRoot = document.getElementById("screens");
+if (!(canvas instanceof HTMLCanvasElement) || !uiRoot || !(screensRoot instanceof HTMLElement)) throw new Error("index.html must have #panel, #ui and #screens");
 
 // The city view (ticket 081 E2, U2) is built by `src/render3d`, which only the dev server builds (Synty licence, 16 Nov 2026). A production build says so and stops here.
 if (!import.meta.env.DEV) {
@@ -67,6 +85,12 @@ if (entries.length === 0) {
 } else {
   const byKey = new Map<string, CityMapEntry>(entries.map((m) => [m.key, m]));
   const puzzles = entries.map((m) => ({ id: m.key, name: m.name, locked: m.locked }));
+
+  // Progress (ticket 081 T2, T-Q4): one record per puzzle id in this browser, read at load. Storage that is missing or refused reads as none.
+  const storage = browserStorage();
+  let progress: Progress = loadProgress(storage);
+  // The splash, title and stage select (ticket 081 T3), up until a stage opens. Null once play has started.
+  let screens: Screens | null = null;
 
   interface Session {
     grid: Grid;
@@ -288,7 +312,44 @@ if (entries.length === 0) {
       refreshPreview,
       detach,
     };
-    history.replaceState(null, "", urlFor(id));
+  }
+
+  /**
+   * The splash, the title and the stage select (ticket 081 T3), on the title backdrop of stage 01 (T1). Returns false when stage 01 is
+   * not there or its view will not load, so the page opens its first puzzle as it did before.
+   */
+  function startScreens(m: typeof import("./render3d")): boolean {
+    const stageOne = entries.find((e) => !e.locked && stageNumber(e.key) === 1);
+    if (!stageOne) return false;
+    let view: CityPuzzleView;
+    try {
+      view = m.loadCityView(stageOne.city);
+    } catch (err) {
+      console.error(`[puzzles] the title needs stage 01: ${err instanceof Error ? err.message : String(err)}`);
+      return false;
+    }
+    const backdrop = m.createTitleView(canvas as HTMLCanvasElement, view, { dpr: window.devicePixelRatio || 1, search: location.search });
+    (uiRoot as HTMLElement).hidden = true;
+    screens = mountScreens({
+      root: screensRoot as HTMLElement,
+      canvas: canvas as HTMLCanvasElement,
+      backdrop,
+      stages: () => stageList(puzzles, progress),
+      onPlay: (id) => playStage(id),
+      onClear: () => {
+        clearProgress(storage);
+        progress = new Map();
+      },
+    });
+    return true;
+  }
+
+  /** Play a stage from the select (ticket 081 T3). The URL stays as it is, so a reload shows the splash again. */
+  function playStage(id: string): void {
+    screens?.close();
+    screens = null;
+    (uiRoot as HTMLElement).hidden = false;
+    open(id);
   }
 
   /** The win splash for the session's map: its clock and moves, and Next on the picker's order (the same path as picking). */
@@ -312,6 +373,9 @@ if (entries.length === 0) {
   void import("./render3d").then((m) => {
     r3d = m;
     if (m.planHidesHud(location.search, import.meta.env.DEV)) uiRoot.hidden = true;
+    // A plain address opens on the splash (ticket 081 T3); a dev address (`puzzle=`, `city=`, `title=`, `assets=`) plays straight away, as before.
+    if (startScreen(location.search, import.meta.env.DEV) === "splash" && startScreens(m)) return;
+    history.replaceState(null, "", urlFor(first));
     open(first);
   });
 
@@ -324,6 +388,7 @@ if (entries.length === 0) {
 
   let last = performance.now();
   function frame(now: number): void {
+    screens?.frame(now);
     const s = session;
     if (s) {
       const dt = Math.min(0.1, (now - last) / 1000);
@@ -337,6 +402,11 @@ if (entries.length === 0) {
         s.winShown = false;
       } else if (!s.relightStarted) {
         s.relightStarted = true;
+        // A numbered stage's win is kept when the job completes (ticket 081 T3), so leaving during the Relight loses nothing. Only a better run changes a best (T2).
+        if (stageNumber(s.key) !== null) {
+          progress = recordWin(progress, s.key, state.actions, view.elapsed, todayIso());
+          saveProgress(storage, progress);
+        }
         const cues = relightCues(planRelight(s.puzzle, state), s.puzzle.nodes.map((n) => n.id), s.hidden);
         s.relightDuration = cues.duration;
         audio.relight(cues.igniteAt, cues.duration);

@@ -488,3 +488,29 @@ export function menuStep(index: number, count: number, key: string): { index: nu
   if (key === "Enter") return { index: at, choose: true };
   return { index: at, choose: false };
 }
+
+// ---- the screens (ticket 081 T3) ----
+
+/** The splash's word (T3 criterion 1). */
+export const SPLASH_WORD = "Uronacid";
+/** The title's name (T-Q1). */
+export const TITLE_NAME = "Rest: Circuits";
+/** The title's items, in order. Their keys are `menuStep`'s. */
+export const TITLE_ITEMS = ["start", "exit"] as const;
+/** The exit screen's line (T-Q2). */
+export const EXIT_LINE = "Rest: Circuits is closed. You can close this tab.";
+/** The splash holds `hold_s`, then fades out over `fade_s` once the backdrop's models are in (T3 criterion 1). */
+export const SPLASH = { hold_s: 2.5, fade_s: 1.0 } as const;
+
+/** `splash` shows the screens; `play` opens the page as today (T3 criterion 6). */
+export type StartScreen = "splash" | "play";
+
+/** The dev addresses (`puzzle`, `city`, `title`, `assets`). Any of them skips the screens in a dev build (T-Q5). */
+const DEV_ROUTE_PARAMS = ["puzzle", "city", "title", "assets"] as const;
+
+/** The screen a page address opens on. A plain address is the splash; a dev address, in a dev build, plays straight away. Pure. */
+export function startScreen(search: string, dev: boolean): StartScreen {
+  if (!dev) return "splash";
+  const params = new URLSearchParams(search);
+  return DEV_ROUTE_PARAMS.some((key) => params.has(key)) ? "play" : "splash";
+}

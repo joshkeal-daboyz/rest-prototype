@@ -15,6 +15,7 @@ import {
   isShowKey,
   MANY_TARGETS,
   placeHighlight,
+  startScreen,
   targetRows,
   targetsAreMany,
   WIN_TEXT,
@@ -289,5 +290,15 @@ describe("menuStep", () => {
     expect(menuStep(0, 2, "ArrowUp")).toEqual({ index: 1, choose: false });
     expect(menuStep(1, 2, "Enter")).toEqual({ index: 1, choose: true });
     expect(menuStep(1, 2, "a")).toEqual({ index: 1, choose: false });
+  });
+});
+
+describe("startScreen (ticket 081 T3)", () => {
+  it("opens on the splash for a plain address, and plays straight away for a dev address", () => {
+    expect(startScreen("", true)).toBe("splash");
+    expect(startScreen("?perf=1", true)).toBe("splash");
+    for (const search of ["?puzzle=01-first-light", "?city=tiles", "?title=splash", "?assets=props"]) {
+      expect(startScreen(search, true)).toBe("play");
+    }
   });
 });
