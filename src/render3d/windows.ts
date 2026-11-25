@@ -14,6 +14,7 @@ import type { CalibrationKey, CityBuilding, CityNodePlace, CityPlan, CityRoofMas
 import type { GridState } from "../grid";
 import { FLARE_SECONDS } from "../render/relight";
 import { SHOP_GLASS } from "./dressing";
+import { WORLD_PER_METRE } from "./models";
 import { lampFlicker } from "./look";
 import { dressMatrix, meshParts } from "./models3d";
 import type { BuildingsDraw, PlanDressDraw, PlanPieceDraw } from "./plan3d";
@@ -517,10 +518,12 @@ export const GLOW_CARD_OUT_M = 0.25;
 export const GLOW_CARD_SPILL = 1.0;
 export const GLOW_CARD_GAIN = 0.06;
 /** 081 W2: the ground pool in front of a lit building's non-street faces (the yards, lanes and plazas the street lights do not reach): its radius (a share of its building's height, between the two limits) and brightness (a multiple of `GLOW_CARD_GAIN`), and its height above the ground, metres. */
-export const GROUND_POOL_MIN_M = 5;
-export const GROUND_POOL_MAX_M = 12;
-export const GROUND_POOL_PER_HEIGHT = 0.75;
-export const GROUND_POOL_GAIN = 4;
+export const GROUND_POOL_MIN_M = 6;
+export const GROUND_POOL_MAX_M = 18;
+/** The pool's radius is 3 light heights (a light at half the building's height), 1.5 x the building's height, as far as the curve below has fallen to nothing. */
+export const GROUND_POOL_PER_HEIGHT = 1.5;
+/** The pavement's albedo (linear, a guess for the pack's grey concrete): the pool adds what the street light adds, `PANE_COLOURS[0] x albedo / pi x intensity / distance^2`, and at the light's own height that is `GROUND_POOL_ALBEDO / pi / (height / 2 x WORLD_PER_METRE)^2` of the amber at the pool's centre. */
+export const GROUND_POOL_ALBEDO = 0.45;
 export const GROUND_POOL_UP_M = 0.25;
 
 /** One glow card: its building, its centre (metres), the way it faces (a unit step in plan) and its size (metres). */
@@ -578,7 +581,9 @@ export function glowCards(plan: Pick<CityPlan, "layers">, buildingIds: Iterable<
   // One ground glow per building for its non-street faces, placed as the street light is (the mean of the face points, out from the wall) and as wide as that light's pool: about its height.
   for (const [building, p] of back) {
     const r = Math.min(GROUND_POOL_MAX_M, Math.max(GROUND_POOL_MIN_M, (heights.get(building)?.height_m ?? 9) * GROUND_POOL_PER_HEIGHT));
-    pools.push({ building, x: p.x / p.n, y: GROUND_POOL_UP_M, z: p.z / p.n, nx: 0, nz: 1, w: 2 * r, h: 2 * r, flat: true, gain: GROUND_POOL_GAIN });
+    const lightH = Math.max(1, (heights.get(building)?.height_m ?? 9) / 2) * WORLD_PER_METRE;
+    const centre = Math.min(0.6, (STREET_LIGHT_INTENSITY * GROUND_POOL_ALBEDO) / Math.PI / (lightH * lightH));
+    pools.push({ building, x: p.x / p.n, y: GROUND_POOL_UP_M, z: p.z / p.n, nx: 0, nz: 1, w: 2 * r, h: 2 * r, flat: true, gain: centre / GLOW_CARD_GAIN });
   }
   return [...out, ...pools];
 }
@@ -596,20 +601,22 @@ let cardTexture: DataTexture | null = null;
 /** One soft falloff, white in the middle to black at the edge, made in code (no asset): the card's `map`. */
 function cardMap(): DataTexture {
   if (cardTexture) return cardTexture;
+  // Two profiles one above the other, n rows each: the window card's soft cubic falloff (rows 0 to n - 1) and the ground pool's, the street light's own curve on a floor, (1 + (3r)^2)^-1.5 windowed to nothing at r = 1 (rows n to 2n - 1).
   const n = 64;
-  const data = new Uint8Array(n * n * 4);
-  for (let y = 0; y < n; y++) {
+  const data = new Uint8Array(n * 2 * n * 4);
+  for (let y = 0; y < 2 * n; y++) {
     for (let x = 0; x < n; x++) {
       const u = ((x + 0.5) / n) * 2 - 1;
-      const v = ((y + 0.5) / n) * 2 - 1;
-      const d = Math.max(0, 1 - Math.hypot(u, v));
-      const a = Math.round(255 * d * d * d);
+      const v = (((y % n) + 0.5) / n) * 2 - 1;
+      const r = Math.min(1, Math.hypot(u, v));
+      const d = Math.max(0, 1 - r);
+      const a = Math.round(255 * (y < n ? d * d * d : Math.pow(1 + 9 * r * r, -1.5) * (1 - r * r) * (1 - r * r)));
       const o = (y * n + x) * 4;
       data[o] = data[o + 1] = data[o + 2] = a;
       data[o + 3] = 255;
     }
   }
-  const t = new DataTexture(data, n, n, RGBAFormat, UnsignedByteType);
+  const t = new DataTexture(data, n, n * 2, RGBAFormat, UnsignedByteType);
   t.name = "glow-card";
   t.magFilter = LinearFilter;
   t.minFilter = LinearFilter;
@@ -635,6 +642,12 @@ export function glowCardMesh(cards: readonly GlowCard[], scale: number): GlowCar
   if (cards.length === 0) return { mesh: null, calls: 0, set() {}, commit() {}, dispose() {} };
   const geometry = new PlaneGeometry(1, 1);
   const material = new MeshBasicMaterial({ color: 0xffffff, map: cardMap(), blending: AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false });
+  // One program for both: each instance's `cardV` (0 a window card, 0.5 a ground pool) picks which half of the map its uv reads.
+  material.onBeforeCompile = (shader) => {
+    shader.vertexShader = shader.vertexShader.replace("#include <common>", "#include <common>\nattribute float cardV;").replace("#include <uv_vertex>", "#include <uv_vertex>\nvMapUv.y = vMapUv.y * 0.5 + cardV;");
+  };
+  material.customProgramCacheKey = () => "glow-card";
+  geometry.setAttribute("cardV", new InstancedBufferAttribute(Float32Array.from(cards, (c) => (c.flat ? 0.5 : 0)), 1));
   const mesh = new InstancedMesh(geometry, material, cards.length);
   mesh.name = "plan:glow-cards";
   mesh.raycast = () => {};
