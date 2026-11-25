@@ -279,9 +279,9 @@ describe("a lit building reads as lit (081 W2)", () => {
   const column = { i: 0, j: 0, building: "tower", ground: { y_m: 0, top_m: 3 }, pieces: [{ role: "floor", storey: 1, span: 1, placement: { y_m: 3 } }, { role: "floor", storey: 2, span: 1, placement: { y_m: 6 } }, { role: "roof", storey: 3, span: 0, placement: { y_m: 9 } }] };
   const plan = { layers: { mass: { built: [{ i: 0, j: 0, open: [door("+z", "street"), door("-z", "yard")] }] }, buildings: { buildings: [{ id: "tower", cells: [{ i: 0, j: 0 }] }], columns: [column] } } } as never;
 
-  it("every glass-bearing storey of a lit building has a glow card on each street face, the roof and a yard face have none, and its light stands at half its height", () => {
+  it("every glass-bearing storey of a lit building has a glow card on each open face (street and inner), the roof has none, and its light stands at half its height", () => {
     const cards = glowCards(plan, ["tower"]);
-    expect(cards.map((c) => [c.y, c.nz])).toEqual([[1.5, 1], [4.5, 1], [7.5, 1]]);
+    expect(cards.map((c) => [c.y, c.nz])).toEqual([[1.5, 1], [4.5, 1], [7.5, 1], [1.5, -1], [4.5, -1], [7.5, -1]]);
     expect(glowCards(plan, ["other"])).toEqual([]);
     const light = lightPlaces(plan, ["tower"], 5)[0]!;
     expect(light.y).toBe(4.5);

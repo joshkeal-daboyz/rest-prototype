@@ -5,7 +5,7 @@
  *   image (`Textures/Emissive_01.png`, Josh's card L-Q1 "Pack's night glow") lights it. The rectangle and pane colours were read from that image once and are typed in; nothing from the pack is committed.
  * - `buildingGlow` is the pure level of one building this frame, from E2's `lampState` and `lampFlicker`, so the Relight's order, the flare and the brownout dip are the lamps' own.
  * - `windowLit` is the building materials' window-lit twin, and `setBuildingGlow` writes a building's level into its instances' `windowLevel` slots (081 F1b), so every building stays in the shared instancers.
- * - `glowCards` (081 W2) are the soft glow in front of every storey's glass on a lit building's street faces: one InstancedMesh for the job, its opacity from the building's level.
+ * - `glowCards` (081 W2) are the soft glow in front of every storey's glass on a lit building's open faces, street and inner: one InstancedMesh for the job, its opacity from the building's level.
  * - `litGlass` is one more InstancedMesh per shop glass key over the dark glass, for the lit buildings' shopfronts only.
  */
 import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, DataTexture, InstancedBufferAttribute, InstancedMesh, Matrix4, Mesh as ThreeMesh, PlaneGeometry, Quaternion, Vector3, MeshBasicMaterial, NearestFilter, PointLight, RGBAFormat, SRGBColorSpace, UnsignedByteType, type Material, type Mesh, type Object3D, type Texture } from "three";
@@ -530,7 +530,7 @@ export interface GlowCard {
 }
 
 /**
- * The glow cards of `buildingIds`: for every column of each, one card per street face (`mass.built`'s `faces: "street"`, never a yard, lane or park) in front of each of its storeys that can have glass: the
+ * The glow cards of `buildingIds`: for every column of each, one card per open face, street or inner (a yard, lane or park too: Josh, 25 Nov 2026, the windows inside the block) in front of each of its storeys that can have glass: the
  * ground storey and every floor piece, never the roof. A `floor3` is one card as tall as its three storeys. Pure.
  */
 export function glowCards(plan: Pick<CityPlan, "layers">, buildingIds: Iterable<string>): GlowCard[] {
@@ -542,7 +542,7 @@ export function glowCards(plan: Pick<CityPlan, "layers">, buildingIds: Iterable<
   const out: GlowCard[] = [];
   for (const c of columns) {
     if (!want.has(c.building)) continue;
-    const sides = (open.get(`${c.i},${c.j}`) ?? []).filter((o) => o.faces === "street").map((o) => SIDE_DIR[o.side]);
+    const sides = (open.get(`${c.i},${c.j}`) ?? []).map((o) => SIDE_DIR[o.side]);
     if (sides.length === 0) continue;
     const bands: [number, number][] = [[c.ground.y_m, c.ground.top_m]];
     for (const p of c.pieces) if (p.role !== "roof") bands.push([p.placement.y_m, p.placement.y_m + 3 * p.span]);
