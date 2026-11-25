@@ -10,7 +10,7 @@ import { WORLD_PER_METRE } from "./models";
 import { createRelightClock } from "./relight3d";
 import type { CityCircuitLayer } from "../core/cityplan";
 import type { CityPuzzleConverted } from "../core/citycircuit";
-import { drawNodeGlyph, type GlyphContext } from "../render/glyphs";
+import { drawNodeGlyph, type GlyphContext } from "./glyphs";
 import { createGrid } from "../grid";
 import type { LoadPreview } from "../core/preview";
 import { nodeLook } from "./look";

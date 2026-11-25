@@ -4,7 +4,7 @@
  * town built from boxes still reads as buildings. No three, no DOM. Nothing here is lit: only places warm.
  */
 
-import { stableHash } from "../render/city";
+import { stableHash } from "../city/pipeline/hash";
 import { WORLD_PER_METRE, pickDistinct } from "./models";
 import { STOREY_M, type Lot, type LotType } from "./kitunits";
 

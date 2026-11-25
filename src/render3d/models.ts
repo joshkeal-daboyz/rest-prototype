@@ -5,7 +5,7 @@
  */
 
 import { ASSET_MANIFEST_VERSION, calibrationKey, parseCalibrationKey, type AssetEntry, type AssetManifest, type CalibrationKey } from "../core";
-import { stableHash } from "../render/city";
+import { stableHash } from "../city/pipeline/hash";
 import { POLE_HEIGHT, LOT_TYPES, LOT_TYPE_NAMES, type Lot, type LotType } from "./kitunits";
 
 /** World units per metre of a converted building: a 1.6-unit pole is about 9 m. Every building is at this scale, always (ticket 041). */

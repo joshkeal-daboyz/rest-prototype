@@ -13,6 +13,9 @@
 import { placeBase, placeKind, placeName, type GridNode, type PlaceKind, type Puzzle } from "../core";
 import type { GridState } from "../grid";
 import { clusterRadius } from "./load";
+import type { CityRect } from "../render3d/tilecity3d";
+
+export type { CityRect };
 import { NODE_HIT_RADIUS, puzzleBounds, type Bounds } from "./geometry";
 import { LABEL_GAP_PX, lampMarks, type PxRect } from "./places";
 
@@ -24,7 +27,6 @@ export const SPOKES = 8;
 export const SLOTS_PER_SPOKE = 8;
 export const R0 = 64;
 export const CITY_AVENUE = 1.2;
-export const GLOW_EASE_SECONDS = 0.25;
 /** Ticket 024 A1: inside a map's footprint the streets are the circuit itself. */
 export const FOOTPRINT_MARGIN = 2;
 export const LANE_W = 0.5;
@@ -84,12 +86,6 @@ export interface Place extends Building {
   pool: boolean;
   /** The separate boxes of a place made of several (a gate's two posts, a row of homes); x,y,w,h is their bounding box. */
   parts?: Building[];
-}
-export interface CityRect {
-  minX: number;
-  minY: number;
-  maxX: number;
-  maxY: number;
 }
 export interface Vec {
   x: number;
@@ -975,24 +971,8 @@ export function avenuePieces(spoke: number, aFar: number, hole: CityRect | null)
   return out;
 }
 
-// ---- glow ----
-
-/**
- * 1 if the lamp is lit; 0 if not, and 0 for every lamp in a brownout. During a Relight, 0 until the
- * cascade reaches the lamp (`arriveAt`, seconds), then 1.
- */
-export function glowTarget(lampId: string, state: GridState, relight: { t: number; arriveAt: number } | null): 0 | 1 {
-  if (state.brownout || !state.lit.has(lampId)) return 0;
-  if (relight && relight.t < relight.arriveAt) return 0;
-  return 1;
-}
-
-/** Ease toward the target, reaching it in GLOW_EASE_SECONDS from the far end; never overshoots. */
-export function easeGlow(current: number, target: number, dt: number): number {
-  const step = Math.max(dt, 0) / GLOW_EASE_SECONDS;
-  if (current < target) return Math.min(target, current + step);
-  return Math.max(target, current - step);
-}
+// ---- glow ---- (easeGlow and glowTarget live in render3d/relightplan.ts since ticket 081 X1a)
+export { easeGlow, glowTarget, GLOW_EASE_SECONDS } from "../render3d/relightplan";
 
 /** Side of the pre-rendered glow sprite, px. */
 export const GLOW_SPRITE_PX = 128;

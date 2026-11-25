@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { EventBus, loadPuzzle, type Puzzle } from "../core";
 import { createGrid } from "../grid";
-import { FLARE_SECONDS, RELIGHT_LEAD_SECONDS, RELIGHT_TRAVEL_SECONDS, planRelight } from "../render/relight";
+import { FLARE_SECONDS, RELIGHT_LEAD_SECONDS, RELIGHT_TRAVEL_SECONDS, planRelight } from "./relightplan";
 import { createRelightClock, lampIgnition, lineFraction, nodeArrived } from "./relight3d";
 
 const shrine: Puzzle = loadPuzzle(JSON.parse(readFileSync("puzzles/09-shrine-circuit.json", "utf8")));

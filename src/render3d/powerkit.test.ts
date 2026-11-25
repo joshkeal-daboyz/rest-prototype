@@ -610,11 +610,11 @@ describe("failing fixtures", () => {
 
 // ---------------------------------------------------------------------------------------------------------------------------------------------------
 describe("purity", () => {
-  it("powerkit.ts imports only ./kitunits and stableHash from ../render/city", () => {
+  it("powerkit.ts imports only ./kitunits and stableHash from ../city/pipeline/hash", () => {
     const src = readFileSync(join("src", "render3d", "powerkit.ts"), "utf8");
     const imports = [...src.matchAll(/^import\s+(?:type\s+)?(.*?)\s+from\s+"([^"]+)";/gm)].map((m) => ({ what: m[1]!, from: m[2]! }));
-    expect(imports.map((i) => i.from).sort()).toEqual(["../core/powerpoles", "../render/city", "./kitunits"]);
-    expect(imports.find((i) => i.from === "../render/city")!.what).toBe("{ stableHash }");
+    expect(imports.map((i) => i.from).sort()).toEqual(["../city/pipeline/hash", "../core/powerpoles", "./kitunits"]);
+    expect(imports.find((i) => i.from === "../city/pipeline/hash")!.what).toBe("{ stableHash }");
     expect(imports.find((i) => i.from === "./kitunits")!.what).toBe("{ Vec3 }");
     const code = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
     expect(/\bthree\b|\bTHREE\b|\bdocument\b|\bwindow\b|\brequire\(/.test(code)).toBe(false);

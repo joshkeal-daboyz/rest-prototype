@@ -6,7 +6,7 @@ import type { GridState } from "../grid";
 import { LEGACY_FLOOR, MIN_SCALE, buildGeometry, fitScale, computeFit, hitTestGeometry, puzzleBounds } from "./geometry";
 import { chargeFraction, popProgress, wentFlat, FLAT_POP_SECONDS } from "./battery";
 import { flicker, pulseCount, pulsePhase, PULSE_SPACING } from "./motion";
-import { planRelight, RELIGHT_TRAVEL_SECONDS } from "./relight";
+import { planRelight, RELIGHT_TRAVEL_SECONDS } from "../render3d/relightplan";
 
 const puzzle = loadPuzzle(JSON.parse(readFileSync(join(__dirname, "..", "..", "puzzles", "09-shrine-circuit.json"), "utf8")));
 
@@ -189,7 +189,7 @@ describe("render folder imports", () => {
       const re = /^\s*(import|export)\s+(type\s+)?[^;]*?from\s+["']([^"']+)["']/gms;
       for (const m of src.matchAll(re)) {
         const spec = m[3]!;
-        if (spec.startsWith("./")) continue;
+        if (spec.startsWith("./") || spec.startsWith("../render3d/")) continue; // the moved pieces (081 X1a)
         expect(["../core", "../grid"], `${f} imports ${spec}`).toContain(spec);
         if (spec === "../grid") expect(m[2], `${f}: ../grid must be a type import`).toBeTruthy();
       }

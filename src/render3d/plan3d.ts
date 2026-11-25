@@ -26,7 +26,7 @@ import { CityResolveError, resolvePlan, runCity, runCityEra, stableHash } from "
 import { TECH_BOUNDS } from "../city/tech/kit";
 import { KIT_KEYS as HOLDOUT_KIT_KEYS } from "../city/holdout/kit";
 import { KIT_KEYS as RUIN_KIT_KEYS, ruinCrownBounds } from "../city/ruin/kit";
-import type { Insets } from "../render/geometry";
+import type { Insets } from "./maprender";
 import { createDayToggle, pageDayToggleHost, type DayToggle, type DayToggleHost } from "./daytoggle";
 import { applyLightMode, addSurface, newLightOwners, setRendererMode, type LightOwners } from "./lightrig";
 import { lightModeFor, type LightModeId } from "./lighting";

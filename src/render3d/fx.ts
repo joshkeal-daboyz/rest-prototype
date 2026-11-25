@@ -11,7 +11,7 @@ import {
   AdditiveBlending, BoxGeometry, BufferGeometry, Color, DataTexture, DynamicDrawUsage, Euler, Group, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, PointLight, Quaternion, RGBAFormat, TextureLoader, Vector3, type Object3D, type Texture,
 } from "three";
 import { BLOW_TIMING, FX_MESHES, FX_TEXTURES, GAME_PACK_DIR, type FxMeshId, type FxTextureId } from "../core";
-import type { RelightPlan } from "../render/relight";
+import type { RelightPlan } from "./relightplan";
 import type { GridState } from "../grid";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { WORLD_PER_METRE } from "./models";
