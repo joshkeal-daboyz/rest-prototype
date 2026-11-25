@@ -151,6 +151,24 @@ export function buildingGlow(plan: RelightPlan | null, state: GridState, lamps: 
   return out;
 }
 
+/**
+ * 081 W2: the offsets in each building's instance list (`BuildingsDraw.instances`) that are roof pieces, which have no glass and stay dark (`setBuildingGlow`'s `skip`). Ground pieces come after the floors and the roofs
+ * in that list and are never listed here, so they take the level. From `dimBuildings`' order, pure.
+ */
+export function roofOffsets(buildings: readonly DimBuilding[]): Map<string, Set<number>> {
+  const out = new Map<string, Set<number>>();
+  for (const b of buildings) {
+    let at = 0;
+    const roofs = new Set<number>();
+    for (const p of b.pieces) {
+      if (p.role === "roof") for (let k = 0; k < p.parts; k++) roofs.add(at + k);
+      at += p.parts;
+    }
+    out.set(b.id, roofs);
+  }
+  return out;
+}
+
 /** The emissive intensity of a window at full level, and how much the ignition flare adds at its peak (a fraction of it). */
 export const WINDOW_LIT = 1.6;
 export const WINDOW_FLARE_GAIN = 1.2;
@@ -188,11 +206,13 @@ export function windowLit(source: Material): Material {
  * Set one building's windows for this frame: every one of its instances' `windowLevel` becomes the level with the ignition flare (`windowIntensity` without `WINDOW_LIT`, which the material holds). Only that
  * building's slots are written, and an attribute is marked for upload only when a slot changed. A building with no instances (a lamp's building drawn grey, or none) is a no-op.
  */
-export function setBuildingGlow(draw: Pick<BuildingsDraw, "instances">, building: string, g: BuildingGlow): void {
+export function setBuildingGlow(draw: Pick<BuildingsDraw, "instances">, building: string, g: BuildingGlow, skip?: ReadonlySet<number>): void {
   const list = draw.instances.get(building);
   if (!list) return;
   const v = windowIntensity(g) / WINDOW_LIT;
-  for (const { mesh, index } of list) {
+  for (let at = 0; at < list.length; at++) {
+    const { mesh, index } = list[at]!;
+    if (skip?.has(at)) continue;
     const attr = mesh.geometry.getAttribute(WINDOW_LEVEL) as BufferAttribute | undefined;
     if (!attr || attr.array[index] === Math.fround(v)) continue;
     attr.array[index] = v;
@@ -586,7 +606,8 @@ export function glowCardMesh(cards: readonly GlowCard[], scale: number): GlowCar
   mesh.name = "plan:glow-cards";
   mesh.raycast = () => {};
   mesh.frustumCulled = false;
-  mesh.visible = false;
+  // Always visible, so its program compiles with the first frame of the loaded city and not on first light (a hidden mesh is skipped by three's compile); no cards lit is `count` 0, which draws nothing.
+  mesh.count = 0;
   const ranges = new Map<string, number[]>();
   cards.forEach((c, k) => {
     cardQ.setFromAxisAngle(UP, Math.atan2(c.nx, c.nz));
@@ -614,7 +635,7 @@ export function glowCardMesh(cards: readonly GlowCard[], scale: number): GlowCar
     },
     commit() {
       mesh.instanceColor!.needsUpdate = true;
-      mesh.visible = any;
+      mesh.count = any ? cards.length : 0;
       any = false;
     },
     dispose() {

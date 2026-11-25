@@ -14,7 +14,7 @@ import { jobWires, lineFlow, linesAround, sceneryDropWires, wholeFraction } from
 import { overlayIcons, type Project } from "./overlay";
 import { createRelightClock } from "./relight3d";
 import { Scene } from "three";
-import { DIM_LEVEL, DIM_SHARE, PANE_COLOURS, STREET_LIGHTS_MAX, STREET_LIGHT_INTENSITY, STREET_LIGHT_REACH_M, STOREY_REACH_DIV, WINDOW_FLARE_GAIN, WINDOW_LEVEL, WINDOW_LIT, WINDOW_UV, buildingGlow, dimPieces, glowCardMesh, glowCards, lampBuildings, lightPlaces, sceneryLamps, setBuildingGlow, setDimWindows, setStreetLights, streetLights, windowLit, windowMask, type BuildingGlow } from "./windows";
+import { DIM_LEVEL, DIM_SHARE, PANE_COLOURS, STREET_LIGHTS_MAX, STREET_LIGHT_INTENSITY, STREET_LIGHT_REACH_M, STOREY_REACH_DIV, WINDOW_FLARE_GAIN, WINDOW_LEVEL, WINDOW_LIT, WINDOW_UV, buildingGlow, dimPieces, roofOffsets, glowCardMesh, glowCards, lampBuildings, lightPlaces, sceneryLamps, setBuildingGlow, setDimWindows, setStreetLights, streetLights, windowLit, windowMask, type BuildingGlow } from "./windows";
 
 const texel = (x: number, y: number): number[] => {
   const d = windowMask().image.data as Uint8Array;
@@ -309,9 +309,20 @@ describe("a lit building reads as lit (081 W2)", () => {
     const cards = glowCardMesh(glowCards(run.plan, [building]), 0.18);
     cards.set(building, glow);
     cards.commit();
-    expect(cards.mesh!.visible).toBe(false);
+    expect(cards.mesh!.count).toBe(0);
     const pool = streetLights(lightPlaces(run.plan, [building], 5), 0.18);
     setStreetLights(pool, new Map([[building, glow]]));
     expect(pool.lights.map((l) => l.intensity)).toEqual([0]);
+  });
+
+  it("a lit building's ground storey, shopfront and every floor carry its window level and its roof none", () => {
+    // Instances in the order plan3d lists them: floor, floor (two parts), roof, then the ground piece.
+    const pieces = [{ role: "floor", parts: 1 }, { role: "floor", parts: 2 }, { role: "roof", parts: 1 }];
+    const geo = new BoxGeometry(1, 1, 1);
+    geo.setAttribute(WINDOW_LEVEL, new InstancedBufferAttribute(new Float32Array(5), 1));
+    const mesh = new InstancedMesh(geo, windowLit(new MeshStandardMaterial({ map: new Texture() })), 5);
+    const draw = { instances: new Map([["tower", [0, 1, 2, 3, 4].map((index) => ({ mesh, index }))]]) };
+    setBuildingGlow(draw, "tower", { level: 1, flare: 0 }, roofOffsets([{ id: "tower", pieces }]).get("tower"));
+    expect([...(geo.getAttribute(WINDOW_LEVEL).array as Float32Array)]).toEqual([1, 1, 1, 0, 1]);
   });
 });
