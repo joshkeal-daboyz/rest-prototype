@@ -75,9 +75,18 @@ function raiseFile(path: string): number {
     console.log(`${basename(path)}: no check block beside it and no schematic named by "from"; there is no solution to raise by`);
     return 1;
   }
-  const raised = raiseForScenery(city, plan, moves, schematic ?? city);
+  // The schematic's numbers are the base only when the file is the schematic raised, not reworked: it has the same numbered nodes (the feeds and rated fuse boxes), and their numbers are either the
+  // schematic's own (an unraised draft) or exactly what raising from the schematic gives (already raised). Any other numbers are a hand rework's, and are raised from the file's own.
+  const key = (x: Parameters<typeof numbersOf>[0]): string => numbersOf(x).join(",");
+  const fromSchematic = schematic !== undefined && (key(city) === key(schematic) || key(raiseForScenery(city, plan, moves, schematic)) === key(city));
+  const base = fromSchematic ? schematic : city;
+  const raised = raiseForScenery(city, plan, moves, base);
   writeFileSync(path, json(raised));
-  console.log([`${basename(path)}: raised from ${schematic !== undefined ? `${schematic.id}'s numbers` : "its own numbers"}`, `  before: ${numbersOf(city).join(", ")}`, `  after:  ${numbersOf(raised).join(", ")}`].join("\n"));
+  console.log([
+    `${basename(path)}: raised from ${fromSchematic ? `${schematic!.id}'s numbers (the file is the schematic raised, so running this again changes nothing)` : "its own numbers (a rework: its numbered nodes or numbers differ from the schematic's; running this again raises them again)"}`,
+    `  before: ${numbersOf(city).join(", ")}`,
+    `  after:  ${numbersOf(raised).join(", ")}`,
+  ].join("\n"));
   return 0;
 }
 
