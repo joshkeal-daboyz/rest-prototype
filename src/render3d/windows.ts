@@ -27,6 +27,9 @@ import type { RelightPlan } from "../render/relight";
  */
 export const WINDOW_UV = { size: 1024, x0: 512, x1: 852, y0: 910, y1: 1024, splits: [626, 738] as readonly [number, number] } as const;
 
+/** 081 W3 (Josh, W-Q2, "Gold windows + icon"): a target building's windows, glow cards and light burn in this pale gold (the priests' "robes in light and gold", GDD 08), not the scenery amber `PANE_COLOURS[0]`. */
+export const TARGET_PANE = 0xfff0a0;
+
 /** The three panes' colours (sRGB), read from `Emissive_01.png`: warm amber, pale cream, near dark. */
 export const PANE_COLOURS: readonly [number, number, number] = [0xe8b461, 0xeec78d, 0x231600];
 
@@ -129,6 +132,8 @@ export function sceneryLamps(
 export interface BuildingGlow {
   level: number;
   flare: number;
+  /** 081 W3: true for a building a target lamp lights; it glows `TARGET_PANE`, not scenery amber. Absent is false. */
+  target?: boolean;
 }
 
 const ign: LampIgnition = { on: false, flareAge: -1 };
@@ -178,6 +183,10 @@ export const windowIntensity = (g: BuildingGlow): number => g.level * WINDOW_LIT
 /** The name of the per-instance window level on a building instancer's geometry: one float per instance, 0 dark, 1 at full level (more in the flare). */
 export const WINDOW_LEVEL = "windowLevel";
 
+// The gold the shader writes for a target building's panes: the pane's brightness (its largest channel, against amber's) in `TARGET_PANE`'s linear colour.
+const AMBER_PEAK = Math.max(...new Color(PANE_COLOURS[0]).toArray()).toFixed(4);
+const GOLD_LINEAR = new Color(TARGET_PANE).toArray().map((c) => c.toFixed(4)).join(", ");
+
 type Emissive = Material & { map?: Texture | null; emissive?: Color; emissiveMap?: Texture | null; emissiveIntensity?: number };
 
 /**
@@ -197,7 +206,10 @@ export function windowLit(source: Material): Material {
       .replace("#include <begin_vertex>", "#include <begin_vertex>\nvWindowLevel = windowLevel;");
     shader.fragmentShader = shader.fragmentShader
       .replace("#include <common>", "#include <common>\nvarying float vWindowLevel;")
-      .replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\ntotalEmissiveRadiance *= vWindowLevel;");
+      .replace(
+        "#include <emissivemap_fragment>",
+        `#include <emissivemap_fragment>\nif (vWindowLevel < 0.0) totalEmissiveRadiance = vec3(${GOLD_LINEAR}) * (max(totalEmissiveRadiance.r, max(totalEmissiveRadiance.g, totalEmissiveRadiance.b)) / ${AMBER_PEAK});\ntotalEmissiveRadiance *= abs(vWindowLevel);`,
+      );
   };
   twin.customProgramCacheKey = () => "window-lit";
   return twin;
@@ -210,7 +222,7 @@ export function windowLit(source: Material): Material {
 export function setBuildingGlow(draw: Pick<BuildingsDraw, "instances">, building: string, g: BuildingGlow, skip?: ReadonlySet<number>): void {
   const list = draw.instances.get(building);
   if (!list) return;
-  const v = windowIntensity(g) / WINDOW_LIT;
+  const v = (windowIntensity(g) / WINDOW_LIT) * (g.target === true ? -1 : 1); // a target building's level is written negative: the shader reads the sign as "gold"
   for (let at = 0; at < list.length; at++) {
     const { mesh, index } = list[at]!;
     if (skip?.has(at)) continue;
@@ -236,6 +248,18 @@ export interface LitGlass {
 }
 
 const AMBER = new Color(PANE_COLOURS[0]);
+const GOLD = new Color(TARGET_PANE);
+
+/** The colour a building's light is this frame: `TARGET_PANE` for a target building, the scenery amber otherwise (read-only, shared). */
+export const paneColour = (g: Pick<BuildingGlow, "target">): Color => (g.target === true ? GOLD : AMBER);
+
+/** The buildings a target lamp lights: every building whose lamp list holds a lamp in `targets`. Pure. */
+export function targetBuildings(lampsOf: ReadonlyMap<string, readonly BuildingLamp[]>, targets: Iterable<string>): Set<string> {
+  const want = new Set(targets);
+  const out = new Set<string>();
+  for (const [building, lamps] of lampsOf) if (lamps.some((l) => want.has(l.id))) out.add(building);
+  return out;
+}
 const place = new Matrix4();
 
 /**
@@ -287,9 +311,10 @@ export function litGlass(draws: readonly PlanDressDraw[], buildings: ReadonlySet
       const list = ranges.get(building);
       if (!list) return;
       const v = Math.min(g.level * (1 + 0.5 * g.flare), 1.5) * 0.9;
-      const r = AMBER.r * v;
-      const gr = AMBER.g * v;
-      const b = AMBER.b * v;
+      const c = paneColour(g);
+      const r = c.r * v;
+      const gr = c.g * v;
+      const b = c.b * v;
       if (v > 0) any = true;
       for (const { start, count } of list) for (let i = start; i < start + count; i++) (arr[i * 3] = r), (arr[i * 3 + 1] = gr), (arr[i * 3 + 2] = b);
     },
@@ -421,6 +446,7 @@ export function setStreetLights(pool: StreetLights, glows: ReadonlyMap<string, B
   for (let i = 0; i < pool.lights.length; i++) {
     const g = glows.get(pool.buildings[i]!);
     pool.lights[i]!.intensity = g ? STREET_LIGHT_INTENSITY * g.level * (1 + STREET_LIGHT_FLARE_GAIN * g.flare) : 0;
+    if (g) pool.lights[i]!.color.copy(paneColour(g));
   }
 }
 
@@ -676,9 +702,10 @@ export function glowCardMesh(cards: readonly GlowCard[], scale: number): GlowCar
       if (!list) return;
       const v = Math.min(g.level * (1 + 0.5 * g.flare), 1.5) * GLOW_CARD_GAIN;
       if (v > 0) any = true;
+      const c = paneColour(g);
       for (const k of list) {
         const m = v * gains[k]!;
-        (arr[k * 3] = AMBER.r * m), (arr[k * 3 + 1] = AMBER.g * m), (arr[k * 3 + 2] = AMBER.b * m);
+        (arr[k * 3] = c.r * m), (arr[k * 3 + 1] = c.g * m), (arr[k * 3 + 2] = c.b * m);
       }
     },
     commit() {

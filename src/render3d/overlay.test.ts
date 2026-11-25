@@ -13,7 +13,8 @@ import type { CityPuzzleConverted } from "../core/citycircuit";
 import { drawNodeGlyph, type GlyphContext } from "../render/glyphs";
 import { createGrid } from "../grid";
 import { nodeLook } from "./look";
-import { OVERLAY_HIT_PX, OVERLAY_NUDGE, overlayBreakHit, overlayBreaks, overlayIcons, placePoint, type OverlayBreak, type OverlayContext, type OverlayIcon, type Project } from "./overlay";
+import { GROUND_POLE_ATTACH_UP_M } from "../core/powerpoles";
+import { OVERLAY_HIT_PX, OVERLAY_POLE_Y_M, OVERLAY_NUDGE, overlayBreakHit, overlayBreaks, overlayIcons, placePoint, type OverlayBreak, type OverlayContext, type OverlayIcon, type Project } from "./overlay";
 
 const puzzle = loadPuzzle(JSON.parse(readFileSync("puzzles/09-shrine-circuit.json", "utf8")));
 
@@ -306,5 +307,16 @@ describe("a city puzzle played on the city (ticket 081 E2)", () => {
     layer.remove();
     expect(el.remove).toHaveBeenCalled();
     expect(createOverlayLayer({ parentElement: null } as never, { createElement: () => el } as never, 1)).toBeNull();
+  });
+
+  it("a pole node's icon is at its pole model's top attachment height, and any other model at the default (081 W3)", () => {
+    const { converted, layer } = fixture();
+    const first = puzzle.nodes[0]!.id;
+    const pole = `p_${first}`;
+    const at = { x: 0, y: 0, z: 0 };
+    (layer.poleModels as Record<string, string>)[pole] = "palm-city-pack:SM_Prop_Powerpole_02";
+    expect(placePoint(converted.places[first]!, layer, at) && at.y).toBe(Math.max(...GROUND_POLE_ATTACH_UP_M["palm-city-pack:SM_Prop_Powerpole_02"]));
+    (layer.poleModels as Record<string, string>)[pole] = "feed:unknown";
+    expect(placePoint(converted.places[first]!, layer, at) && at.y).toBe(OVERLAY_POLE_Y_M);
   });
 });

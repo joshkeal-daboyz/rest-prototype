@@ -2,7 +2,7 @@
  * Ticket 081 L1: the lit building's windows. The mask's texels, a building's level through the Relight (on P0's file, 6 x 6 seed 1, the module cache) and in a brownout, and the window level written per instance on a fixture.
  */
 import { readFileSync } from "node:fs";
-import { BoxGeometry, InstancedBufferAttribute, InstancedMesh, MeshBasicMaterial, MeshStandardMaterial, Texture } from "three";
+import { BoxGeometry, Color, InstancedBufferAttribute, InstancedMesh, MeshBasicMaterial, MeshStandardMaterial, Texture } from "three";
 import { describe, expect, it } from "vitest";
 import { EventBus, loadCityPuzzle } from "../core";
 import { convertCityPuzzle } from "../city/circuit";
@@ -14,7 +14,7 @@ import { jobWires, lineFlow, linesAround, sceneryDropWires, wholeFraction } from
 import { overlayIcons, type Project } from "./overlay";
 import { createRelightClock } from "./relight3d";
 import { Scene } from "three";
-import { DIM_LEVEL, DIM_SHARE, PANE_COLOURS, STREET_LIGHTS_MAX, STREET_LIGHT_INTENSITY, STREET_LIGHT_REACH_M, STOREY_REACH_DIV, WINDOW_FLARE_GAIN, WINDOW_LEVEL, WINDOW_LIT, WINDOW_UV, buildingGlow, dimPieces, roofOffsets, glowCardMesh, glowCards, lampBuildings, lightPlaces, sceneryLamps, setBuildingGlow, setDimWindows, setStreetLights, streetLights, windowLit, windowMask, type BuildingGlow } from "./windows";
+import { DIM_LEVEL, DIM_SHARE, PANE_COLOURS, STREET_LIGHTS_MAX, STREET_LIGHT_INTENSITY, STREET_LIGHT_REACH_M, STOREY_REACH_DIV, WINDOW_FLARE_GAIN, WINDOW_LEVEL, WINDOW_LIT, WINDOW_UV, TARGET_PANE, buildingGlow, dimPieces, roofOffsets, glowCardMesh, glowCards, lampBuildings, lightPlaces, paneColour, sceneryLamps, setBuildingGlow, setDimWindows, setStreetLights, streetLights, targetBuildings, windowLit, windowMask, type BuildingGlow } from "./windows";
 
 const texel = (x: number, y: number): number[] => {
   const d = windowMask().image.data as Uint8Array;
@@ -326,5 +326,24 @@ describe("a lit building reads as lit (081 W2)", () => {
     const draw = { instances: new Map([["tower", [0, 1, 2, 3, 4].map((index) => ({ mesh, index }))]]) };
     setBuildingGlow(draw, "tower", { level: 1, flare: 0 }, roofOffsets([{ id: "tower", pieces }]).get("tower"));
     expect([...(geo.getAttribute(WINDOW_LEVEL).array as Float32Array)]).toEqual([1, 1, 1, 0, 1]);
+  });
+
+  it("a target building's window, light and glow card are TARGET_PANE gold and a scenery building's the amber (081 W3)", () => {
+    const amber = new Color(PANE_COLOURS[0]);
+    const gold = new Color(TARGET_PANE);
+    expect(paneColour({ target: true }).getHex()).toBe(gold.getHex());
+    expect(paneColour({}).getHex()).toBe(amber.getHex());
+    const geo = new BoxGeometry(1, 1, 1);
+    geo.setAttribute(WINDOW_LEVEL, new InstancedBufferAttribute(new Float32Array(2), 1));
+    const mesh = new InstancedMesh(geo, new MeshBasicMaterial(), 2);
+    const draw = { instances: new Map([["t", [{ mesh, index: 0 }]], ["s", [{ mesh, index: 1 }]]]) };
+    setBuildingGlow(draw, "t", { level: 1, flare: 0, target: true });
+    setBuildingGlow(draw, "s", { level: 1, flare: 0 });
+    expect([...(geo.getAttribute(WINDOW_LEVEL).array as Float32Array)]).toEqual([-1, 1]);
+    const pool = streetLights([{ building: "mid", x: 0, y: 3, z: 0 }, { building: "corner", x: 5, y: 3, z: 0 }], 0.18);
+    setStreetLights(pool, new Map([["mid", { level: 1, flare: 0, target: true }], ["corner", { level: 1, flare: 0 }]]));
+    expect(pool.lights.map((l) => l.color.getHex())).toEqual([gold.getHex(), amber.getHex()]);
+    const lamps = new Map([["a", [{ id: "l1", index: 0 }]], ["b", [{ id: "l2", index: 1 }]]]);
+    expect([...targetBuildings(lamps, ["l2"])]).toEqual(["b"]);
   });
 });

@@ -29,7 +29,7 @@ import { lightModeFor, type LightModeId } from "./lighting";
 import { addSurface, applyLightMode, newLightOwners, setRendererMode } from "./lightrig";
 import { createFxLayer, fxSwitch, repairedFaults, sharedFx, sparkingCuts, type FxCut, type FxEmitter } from "./fx";
 import { lampFlicker } from "./look";
-import { DIM_SHARE, STREET_LIGHTS_MAX, buildingGlow, dimBuildings, dimPieces, glowCardMesh, glowCards, roofOffsets, setDimWindows, lampBuildings, lightPlaces, litGlass, sceneryLamps, setBuildingGlow, setStreetLights, streetLights, type BuildingGlow, type BuildingLamp, type GlowCards, type LitGlass, type StreetLights } from "./windows";
+import { DIM_SHARE, STREET_LIGHTS_MAX, buildingGlow, dimBuildings, dimPieces, glowCardMesh, glowCards, roofOffsets, setDimWindows, lampBuildings, lightPlaces, litGlass, sceneryLamps, setBuildingGlow, setStreetLights, streetLights, targetBuildings, type BuildingGlow, type BuildingLamp, type GlowCards, type LitGlass, type StreetLights } from "./windows";
 import { WORLD_PER_METRE } from "./models";
 import { meshParts, sharedTileModels, type ModelSet } from "./models3d";
 import { OVERLAY_HIT_PX, overlayHit, overlayIcons, overlayBreakHit, overlayBreaks, placePoint, type OverlayBreak, type OverlayIcon, type Project } from "./overlay";
@@ -664,6 +664,8 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     if (!have) lampsOf.set(id, list);
     else for (const l of list) if (!have.some((x) => x.id === l.id)) have.push(l);
   }
+  // 081 W3: the buildings a target lamp lights read gold (W-Q2).
+  const targetOf = targetBuildings(lampsOf, puzzle.target ?? []);
   let litBuildings: { id: string; lamps: readonly BuildingLamp[] }[] = [];
   let litShop: LitGlass | null = null;
   // 081 W2: the glow cards, one instanced mesh for the job, in front of every storey's glass on the lit buildings' street faces.
@@ -1009,11 +1011,12 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     // Lit buildings: the windows and the shop glass.
     for (const b of litBuildings) {
       buildingGlow(plan_, state, b.lamps, relT, time, bg);
+      bg.target = targetOf.has(b.id);
       if (city) setBuildingGlow(city.buildings, b.id, bg, roofSkip.get(b.id));
       litShop?.set(b.id, bg);
       litCards?.set(b.id, bg);
       const lg = lightGlows.get(b.id);
-      if (lg) (lg.level = bg.level), (lg.flare = bg.flare);
+      if (lg) (lg.level = bg.level), (lg.flare = bg.flare), (lg.target = bg.target);
     }
     if (pool) setStreetLights(pool, lightGlows);
     litShop?.commit();
