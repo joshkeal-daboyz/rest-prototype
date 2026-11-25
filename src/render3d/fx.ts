@@ -531,7 +531,7 @@ export function cutArcs(cut: { readonly id: number; readonly span: FxSpan }, tim
 /** The sparks a blown fuse bursts: twice FX2's biggest single burst (a live break's pop, up to 70). */
 export const BLOW_SPARKS = 140;
 /** The bolt's length along the wire, in metres. */
-export const BOLT_LEN_M = 5;
+export const BOLT_LEN_M = 8;
 
 /** One wire of a route, as `FxSpan`, and whether the route runs it from its far end. */
 export interface FxPiece extends FxSpan {
@@ -676,7 +676,7 @@ export function relightBursts(plan: Pick<RelightPlan, "nodeArrive">, lit: (index
 // ---- the draw layer ----
 
 /** The most quads the bolts and brownout arcs may queue in one frame. */
-const DIRECT_MAX = 128;
+const DIRECT_MAX = 256;
 
 interface Layer {
   readonly pool: ParticlePool;
@@ -800,6 +800,8 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
   const softMat = spriteMat("softSpot");
   const smokeMat = spriteMat("smoke");
   const lightMat = spriteMat("lightning");
+  // Lightning is drawn through buildings (x-ray) so a bolt along a hidden run still reads; the same material, so no new draw call.
+  lightMat.depthTest = false;
   mats.push(sparkleMat, softMat, smokeMat, lightMat);
   const sparkle = makeLayer(512 * n + 768, quad, sparkleMat, "sprite", 6, 1.4, fadeLinear);
   const soft = makeLayer(48 * n + 64, quad, softMat, "sprite", 0, 2.5, fadeSoft, n);
@@ -1121,8 +1123,8 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
       queue[o + 9] = b;
     },
     bolt(route, head, tail) {
-      const K = 6;
-      const jag = 0.35 * S;
+      const K = 10;
+      const jag = 0.25 * S;
       for (let k = 0; k <= K; k++) {
         routePoint(route, head + ((tail - head) * k) / K, bp);
         const j = k === 0 || k === K ? 0 : jag;
@@ -1130,7 +1132,12 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
         boltPts[k * 3 + 1] = bp.y + (rnd() - 0.5) * 2 * j;
         boltPts[k * 3 + 2] = bp.z + (rnd() - 0.5) * 2 * j;
       }
-      for (let k = 0; k < K; k++) this.arcAt(boltPts[k * 3]!, boltPts[k * 3 + 1]!, boltPts[k * 3 + 2]!, boltPts[k * 3 + 3]!, boltPts[k * 3 + 4]!, boltPts[k * 3 + 5]!, 0.45 * S, 0.9, 1.1, 1.6);
+      // A bright thick head with a trail that thins and dims towards the tail, and a soft flash at the head.
+      for (let k = 0; k < K; k++) {
+        const f = 1 - k / K;
+        this.arcAt(boltPts[k * 3]!, boltPts[k * 3 + 1]!, boltPts[k * 3 + 2]!, boltPts[k * 3 + 3]!, boltPts[k * 3 + 4]!, boltPts[k * 3 + 5]!, (0.5 + 0.8 * f) * S, 0.5 + 1.4 * f, 0.7 + 1.6 * f, 1.2 + 1.6 * f);
+      }
+      flash(boltPts[0]!, boltPts[1]!, boltPts[2]!, 4, 1, 0.05, 1.4, 1.7, 2.4, 0.7, 0.9, 1.4);
     },
     update(dt, camera) {
       // The cuts fed this frame spawn their arcs' flashes first; an emitter not fed has its timers reset.
