@@ -141,3 +141,14 @@ Browser pane emulated at 1287 x 1178, `?puzzle=city-two-ways-round&perf=1`, bran
 | S4, before power | 1,779 | 12 | 8.50 ms | 16.60 ms |
 
 The draw calls and programs match main's (1,779 and 12 with FX2), so S4 adds no draw call or program before power. Josh played the run and judged the look ("Played it, looks right"), but the perf=1 tab closed before the after-Relight line was read. Josh, on a card: "Skip it". The after-Relight budget is taken from these numbers and the reviewer's structural read (the instancers are only sized larger at build; the street lights stay at `STREET_LIGHTS_MAX` = 32); it was not measured.
+
+## FX4 with FX3 (25 Nov 2026, Josh's PC, in view)
+
+Browser pane emulated at 1287 x 1178, `?puzzle=city-two-ways-round&perf=1`, before power, branch `ticket/081fx4-fuse-blow` at aa62b59 (PR #81). Canvas 1930 x 1767, pixel ratio 1.5.
+
+| Run | Draw calls | Programs | CPU median | Whole frame | Particles (peak) |
+|---|---|---|---|---|---|
+| `fx=0` | 1,838 | 12 | 9.70 ms | 16.60 ms | 0 |
+| `fx=all` (a blow every 2 s, bursts, 24 arcs) | 1,844 | 13 | 11.20 ms | 16.70 ms | 1,289 (spark 1,225, sparkle 543) |
+
+Pass: 1.5 ms added against the 2.0 ms budget; the frame holds at 60 fps; the 6 extra draw calls and 1 program are the effects pools and material, as in FX2. The 4 white point lights are made at build (31 of the 32 lights with the street lights), so no program compiles in play.
