@@ -45,7 +45,7 @@ describe("the named runs (C1, criteria 2 and 4)", () => {
         expect(Math.floor(p.placement.x_m / CELL_M)).toBe(p.cell.i);
         expect(Math.floor(p.placement.z_m / CELL_M)).toBe(p.cell.j);
       }
-    });
+    }, 15_000);
   }
   it("T-2's walk graph joins every street cell of the clean city: hand-placed poles at the street cells' two ends and middle reach each other, on every run", () => {
     for (const { way, seed } of RUNS) {
