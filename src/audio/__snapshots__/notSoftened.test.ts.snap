@@ -261,7 +261,7 @@ exports[`not softened (ticket 032) > glowSound is exactly what 031 left 1`] = `
     "at": 0,
     "attack": 0.06,
     "decay": 0,
-    "duration": 0.3,
+    "duration": 0.4,
     "filter": {
       "freq": 800,
       "q": 0.7,
@@ -278,7 +278,7 @@ exports[`not softened (ticket 032) > glowSound is exactly what 031 left 1`] = `
     "at": 0,
     "attack": 0.06,
     "decay": 0,
-    "duration": 0.3,
+    "duration": 0.4,
     "filter": {
       "freq": 800,
       "q": 0.7,
@@ -571,11 +571,11 @@ exports[`not softened (ticket 032) > runSound is exactly what 031 left 1`] = `
     "at": 0,
     "attack": 0.02,
     "decay": 0,
-    "duration": 0.4,
+    "duration": 1.1,
     "filter": {
       "freq": 300,
       "freqTo": 2500,
-      "glideTime": 0.4,
+      "glideTime": 1.1,
       "q": 2,
       "type": "bandpass",
     },
