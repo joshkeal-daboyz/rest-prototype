@@ -7,7 +7,7 @@
  */
 
 import {
-  AdditiveBlending, BoxGeometry, BufferGeometry, Color, DynamicDrawUsage, Float32BufferAttribute, Frustum, Group, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial,
+  AdditiveBlending, BoxGeometry, BufferGeometry, Color, DynamicDrawUsage, Float32BufferAttribute, Frustum, GreaterDepth, Group, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial,
   PerspectiveCamera, Quaternion, Scene, Sphere, Vector3, type Material, type Object3D, type WebGLRenderer,
 } from "three";
 import { type CalibrationKey, type CityCircuitLayer, type CityPlan, type CityPlanRun, type CityPuzzle, type CityStreetsLayer, type CityPuzzleCity, type CityPuzzleConverted, type CityPuzzleView } from "../core";
@@ -179,6 +179,23 @@ const SAMPLES = 8;
 /** A pulse moves this fast (m/s) and a new one follows every `PULSE_SPACING_M`. */
 export const PULSE_SPEED_M = 7;
 export const PULSE_SPACING_M = 3;
+/** How strong the live runs show through what hides them (081 W4; the architect's start, Josh tunes it by eye). */
+export const XRAY_OPACITY = 0.25;
+
+/**
+ * The faded second pass of an instanced live mesh (081 W4): the same geometry and the same instance attributes (so the first pass's per-frame writes are the only writes), a material that draws only where something is in front
+ * (`GreaterDepth`, no depth write) at `XRAY_OPACITY`. The caller adds it to the scene and disposes the returned material. `base` must already hold its `instanceColor` if it uses one.
+ */
+export function xrayOf(base: InstancedMesh): { mesh: InstancedMesh; material: MeshBasicMaterial } {
+  const src = base.material as MeshBasicMaterial;
+  const material = new MeshBasicMaterial({ color: src.color, blending: src.blending, transparent: true, opacity: XRAY_OPACITY, depthWrite: false, depthFunc: GreaterDepth, toneMapped: false });
+  const mesh = new InstancedMesh(base.geometry, material, base.count);
+  mesh.instanceMatrix = base.instanceMatrix;
+  mesh.instanceColor = base.instanceColor;
+  mesh.raycast = () => {};
+  mesh.frustumCulled = false;
+  return { mesh, material };
+}
 
 /** One wire of a line's run (a span, a roof span or a drop) as the 3D view animates it. World units in `pts`, metres in `len_m` and `cum_m`. */
 export interface JobWire {
@@ -261,6 +278,8 @@ export function jobWires(layer: CityCircuitLayer, draws: CircuitDraws, converted
   const cutOf = new Map(Object.entries(converted.cuts).map(([fault, span]) => [span, fault] as const));
   const out: JobWire[] = [];
   const w0 = { x: 0, y: 0, z: 0 };
+  // The conversion (081 S1) turns each file line L into `L~a` (from to h1), `L` (h1 to h2: hidden nodes, no place) and `L~b`; the file's own from node is the `~a` segment's.
+  const fileFrom = new Map(converted.puzzle.lines.map((l) => [l.id, l.from] as const));
   converted.puzzle.lines.forEach((line, lineIndex) => {
     const run = converted.runs[line.id];
     if (!run) return;
@@ -273,7 +292,7 @@ export function jobWires(layer: CityCircuitLayer, draws: CircuitDraws, converted
       const shared = second ? [first.a, first.b].filter((e) => e === second.a || e === second.b) : [];
       if (second && shared.length === 1) start = shared[0] === first.a ? first.b : first.a;
       else {
-        const place = converted.places[line.from];
+        const place = converted.places[fileFrom.get(`${line.id}~a`) ?? line.from];
         const here = place && placePoint(place, layer, w0) ? { x: w0.x, z: w0.z } : null;
         const da = here && xz.get(first.a) ? Math.hypot(xz.get(first.a)!.x - here.x, xz.get(first.a)!.z - here.z) : 0;
         const db = here && xz.get(first.b) ? Math.hypot(xz.get(first.b)!.x - here.x, xz.get(first.b)!.z - here.z) : 0;
@@ -781,6 +800,9 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     }
   });
   live.add(glowMesh);
+  const glowX = xrayOf(glowMesh);
+  mats.push(glowX.material);
+  live.add(glowX.mesh);
 
   const pulsesPer = liveWires.map((w) => Math.max(1, Math.ceil(w.len_m / PULSE_SPACING_M)));
   const pulseTotal = pulsesPer.reduce((a, b) => a + b, 0);
@@ -791,6 +813,9 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   pulseMesh.raycast = () => {};
   pulseMesh.frustumCulled = false;
   live.add(pulseMesh);
+  const pulseX = xrayOf(pulseMesh);
+  mats.push(pulseX.material);
+  live.add(pulseX.mesh);
 
   // The spans a break cuts (the particle effects stand at the middle of each: 081 FX2).
   const cutWires = wires.map((w, wi) => ({ w, wi })).filter((c) => c.w.cutFault !== null);
