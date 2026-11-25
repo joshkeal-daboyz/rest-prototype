@@ -6,8 +6,8 @@
 import type { LoadPreview } from "../core/preview";
 import { WebGLRenderer } from "three";
 import type { CityPuzzleView, Puzzle } from "../core";
-import type { MapBlockers, MapCentre, MapPanView, MapPlaces, MapRenderer } from "../render";
-import type { Insets } from "../render/geometry";
+import type { MapBlockers, MapCentre, MapPanView, MapPlaces, MapRenderer } from "./maprender";
+import type { Insets } from "./maprender";
 import { createCityPlayRenderer3d, overlayRequested, renderRoute } from "./cityview";
 import { createPlanAssembleRenderer3d, planAssembleRequested, tilesPlanRequested } from "./plan3d";
 import { createPlanRenderer3d, planViewRequested } from "./planview";

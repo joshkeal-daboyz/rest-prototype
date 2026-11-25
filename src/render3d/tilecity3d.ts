@@ -15,9 +15,8 @@
 
 import { AmbientLight, BoxGeometry, BufferGeometry, Color, DirectionalLight, DoubleSide, Float32BufferAttribute, Group, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, Object3D, PerspectiveCamera, PlaneGeometry, Quaternion, Scene, Vector3, type Material, type WebGLRenderer, } from "three";
 import { calibrationKey, type AssetEntry, type CalibrationKey } from "../core";
-import type { CityRect } from "../render/city";
-import { stableHash } from "../render/city";
-import { ZOOM_STEP, type Insets } from "../render/geometry";
+import { stableHash } from "../city/pipeline/hash";
+import { ZOOM_STEP, type Insets } from "./maprender";
 import { WORLD_PER_METRE } from "./models";
 import { meshParts, sharedTileModels, tileInput, type ModelSet } from "./models3d";
 import { ELEVATION, FOV_DEG, KERB, PAVEMENT, STREET, YARD, scaleForPx } from "./kitunits";
@@ -32,6 +31,12 @@ const S = WORLD_PER_METRE;
 const UP = /* @__PURE__ */ new Vector3(0, 1, 0);
 
 /** A decal (the pothole patch) lies this far (metres) above its lane's surface, so it does not fight it. */
+export interface CityRect {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
 export const PATCH_LIFT_M = 0.01;
 /** The sheet's ground lies this far (metres) below the carriageway surface. */
 const GROUND_BELOW_M = 0.02;

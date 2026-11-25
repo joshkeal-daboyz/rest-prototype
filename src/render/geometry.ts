@@ -6,6 +6,10 @@ import { clusterRadius } from "./load";
  */
 
 import type { Puzzle } from "../core";
+import { ZOOM_STEP, type Insets, type Pan, type Rect } from "../render3d/maprender";
+
+export { ZOOM_STEP };
+export type { Insets, Pan, Rect };
 
 export interface Bounds {
   minX: number;
@@ -49,27 +53,8 @@ export function puzzleBounds(puzzle: Puzzle): Bounds {
   return { minX, maxX, minY, maxY };
 }
 
-export interface Pan {
-  x: number;
-  y: number;
-}
-
-export interface Rect {
-  left: number;
-  top: number;
-  right: number;
-  bottom: number;
-}
-
 /** Pixels of the map's box that must stay inside the free area on each axis. */
 export const PAN_KEEP = 96;
-
-export interface Insets {
-  top?: number;
-  right?: number;
-  bottom?: number;
-  left?: number;
-}
 
 /**
  * The scale at which `bounds` plus `padding` exactly fits the free area: no floor, capped at MAX_SCALE
@@ -94,8 +79,6 @@ export function openScale(fit: number): number {
 
 /** The most the player can zoom in, in px per unit (a little past MAX_SCALE). */
 export const MAX_ZOOM_SCALE = 96;
-/** One zoom level is this ratio from the next: four steps to double. */
-export const ZOOM_STEP = Math.SQRT2 ** 0.5;
 /** Lv captions and place labels are hidden below this scale (three quarters of MIN_SCALE). */
 export const CAPTION_MIN_SCALE = 27;
 

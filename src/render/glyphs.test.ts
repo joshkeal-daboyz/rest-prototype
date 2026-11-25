@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { EventBus, loadPuzzle } from "../core";
 import { createGrid } from "../grid";
 import { PADDING, buildGeometry } from "./geometry";
-import { NODE_DEAD, NODE_LIVE, drawBreakerGlyph, drawFeedGlyph, drawFuseBoxGlyph, drawJunctionGlyph, drawNodeGlyph, drawSwitchGlyph, type GlyphContext } from "./glyphs";
+import { NODE_DEAD, NODE_LIVE, drawBreakerGlyph, drawFeedGlyph, drawFuseBoxGlyph, drawJunctionGlyph, drawNodeGlyph, drawSwitchGlyph, type GlyphContext } from "../render3d/glyphs";
 import { createMapRenderer } from "./map-renderer";
 
 const W = 1800;

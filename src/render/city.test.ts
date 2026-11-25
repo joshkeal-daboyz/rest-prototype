@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { loadPuzzle, type Puzzle } from "../core";
 import type { GridState } from "../grid";
 import { puzzleBounds } from "./geometry";
-import { planRelight } from "./relight";
+import { planRelight } from "../render3d/relightplan";
 import {
   CITY_AVENUE,
   CITY_AVENUE_COLOUR,

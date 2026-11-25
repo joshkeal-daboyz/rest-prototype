@@ -4,7 +4,7 @@
  * block before it in its run; `models3d.ts` does the drawing (`paintStack`).
  */
 
-import { stableHash } from "../render/city";
+import { stableHash } from "../city/pipeline/hash";
 
 /** The id of the atlas the GLB embeds: today's look. It needs no file and no clone. */
 const BASE = "base";

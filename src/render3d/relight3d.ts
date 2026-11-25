@@ -6,9 +6,9 @@
 
 import type { Puzzle } from "../core";
 import type { GridState } from "../grid";
-import { easeGlow, glowTarget } from "../render/city";
-import { clamp01 } from "../render/motion";
-import { planRelight, type RelightPlan } from "../render/relight";
+import { easeGlow, glowTarget } from "./relightplan";
+import { clamp01 } from "./motion";
+import { planRelight, type RelightPlan } from "./relightplan";
 
 export interface RelightClock {
   /**

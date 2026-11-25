@@ -9,7 +9,7 @@ import type { CityNodePlace, CityPuzzleConverted } from "../core/citycircuit";
 import type { GridNode } from "../core";
 import type { GridState } from "../grid";
 import type { LoadPreview } from "../core/preview";
-import type { GlyphSpec, GlyphType } from "../render/glyphs";
+import type { GlyphSpec, GlyphType } from "./glyphs";
 import { GROUND_POLE_ATTACH_UP_M, type GroundPoleKey } from "../core/powerpoles";
 import { nodeLook, type NodeLook } from "./look";
 

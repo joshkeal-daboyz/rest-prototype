@@ -7,6 +7,9 @@
 import type { Puzzle } from "../core";
 import type { GridState } from "../grid";
 
+/** Seconds a lamp's glow takes to ease fully on or off. */
+export const GLOW_EASE_SECONDS = 0.25;
+
 /** Seconds for power to reach the farthest lamp. */
 export const RELIGHT_TRAVEL_SECONDS = 2.4;
 /** Seconds a lamp's flare lasts after ignition. */
@@ -108,3 +111,23 @@ export function planRelight(puzzle: Puzzle, state: GridState): RelightPlan {
     duration: last + FLARE_SECONDS,
   };
 }
+
+// ---- glow ----
+
+/**
+ * 1 if the lamp is lit; 0 if not, and 0 for every lamp in a brownout. During a Relight, 0 until the
+ * cascade reaches the lamp (`arriveAt`, seconds), then 1.
+ */
+export function glowTarget(lampId: string, state: GridState, relight: { t: number; arriveAt: number } | null): 0 | 1 {
+  if (state.brownout || !state.lit.has(lampId)) return 0;
+  if (relight && relight.t < relight.arriveAt) return 0;
+  return 1;
+}
+
+/** Ease toward the target, reaching it in GLOW_EASE_SECONDS from the far end; never overshoots. */
+export function easeGlow(current: number, target: number, dt: number): number {
+  const step = Math.max(dt, 0) / GLOW_EASE_SECONDS;
+  if (current < target) return Math.min(target, current + step);
+  return Math.max(target, current - step);
+}
+

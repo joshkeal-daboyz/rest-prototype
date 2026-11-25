@@ -12,14 +12,14 @@ import { AdditiveBlending, LinearFilter, NoColorSpace, BufferAttribute, BufferGe
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { CalibrationKey, CityBuilding, CityNodePlace, CityPlan, CityRoofMast, CitySide } from "../core";
 import type { GridState } from "../grid";
-import { FLARE_SECONDS } from "../render/relight";
+import { FLARE_SECONDS } from "./relightplan";
 import { SHOP_GLASS } from "./dressing";
 import { WORLD_PER_METRE } from "./models";
 import { lampFlicker } from "./look";
 import { dressMatrix, meshParts } from "./models3d";
 import type { BuildingsDraw, PlanDressDraw, PlanPieceDraw } from "./plan3d";
 import { lampIgnition, type LampIgnition } from "./relight3d";
-import type { RelightPlan } from "../render/relight";
+import type { RelightPlan } from "./relightplan";
 
 /**
  * The glass rectangle of the City Pack atlas, in pixels of its 1024 square (glTF's v runs top down): x from `x0` to `x1`, y from `y0` to `y1` (both end-exclusive), in three panes split at `splits`.

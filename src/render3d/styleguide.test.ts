@@ -8,7 +8,6 @@ import { describe, expect, it } from "vitest";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseCalibrationKey } from "../core";
-import * as cityRender from "../render/city";
 import * as colourway from "./colourway";
 import * as citymetrics from "./citymetrics";
 import * as dressing from "./dressing";
@@ -257,8 +256,8 @@ describe("the city style guide exists and is shaped as the ticket says", () => {
 
   it("names only constants that exist (or are Pending ones the guide says so about)", () => {
     // Names from work that is approved and not built (042 B). They leave this list when the work lands and the guide is updated (043 C).
-    const PENDING = new Set(["PLACE_MODELS", "PLACE_MIN_SCALE", "PLACE_GLOW_MAX"]);
-    const known = new Set<string>([...Object.keys(cityRender)]);
+    const PENDING = new Set(["PLACE_MODELS", "PLACE_MIN_SCALE", "PLACE_GLOW_MAX", "LOT_GAP", "SETBACK"]); // LOT_GAP and SETBACK were read off the 2D town in src/render/city.ts, which X1c deletes (081)
+    const known = new Set<string>([]);
     for (const mod of Object.values(MODULES)) for (const k of Object.keys(mod)) known.add(k);
     for (const m of doc.matchAll(/`([A-Z][A-Z0-9_]{2,})`/g)) {
       const name = m[1]!;
