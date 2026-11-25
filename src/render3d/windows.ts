@@ -317,7 +317,7 @@ export const STOREY_REACH_DIV = 4;
 export const STREET_LIGHT_REACH_M = 12;
 export const STREET_LIGHT_DECAY = 2;
 /** A light's intensity at full level: about 30 candela at metre scale, written for the city's 0.18 world units to a metre (candela fall with the square of the distance). */
-export const STREET_LIGHT_INTENSITY = 0.7;
+export const STREET_LIGHT_INTENSITY = 1;
 /** How much the ignition flare adds at its peak (a fraction of the intensity). */
 export const STREET_LIGHT_FLARE_GAIN = 0.5;
 
@@ -514,8 +514,8 @@ export function setDimWindows(draw: Pick<BuildingsDraw, "instances">, picks: Rea
 
 /** How far a card stands out from its wall, metres; how much wider and taller than its glass it is (the spill); and its opacity at full level. Numbers Josh tunes by eye. */
 export const GLOW_CARD_OUT_M = 0.25;
-export const GLOW_CARD_SPILL = 1.15;
-export const GLOW_CARD_GAIN = 0.16;
+export const GLOW_CARD_SPILL = 1.0;
+export const GLOW_CARD_GAIN = 0.06;
 
 /** One glow card: its building, its centre (metres), the way it faces (a unit step in plan) and its size (metres). */
 export interface GlowCard {
@@ -575,7 +575,7 @@ function cardMap(): DataTexture {
       const u = ((x + 0.5) / n) * 2 - 1;
       const v = ((y + 0.5) / n) * 2 - 1;
       const d = Math.max(0, 1 - Math.hypot(u, v));
-      const a = Math.round(255 * d * d * (3 - 2 * Math.min(1, d)));
+      const a = Math.round(255 * d * d * d);
       const o = (y * n + x) * 4;
       data[o] = data[o + 1] = data[o + 2] = a;
       data[o + 3] = 255;
