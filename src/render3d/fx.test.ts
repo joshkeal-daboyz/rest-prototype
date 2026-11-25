@@ -2,7 +2,7 @@ import { BoxGeometry, Group, Mesh, Quaternion, Texture, Vector3, type Object3D }
 import { describe, expect, it } from "vitest";
 import type { Fault } from "../core";
 import { BLOW_TIMING } from "../core";
-import { ARC_REACH_M, BLOW_SPARKS, arcSpots, blowBolts, blowBurstDue, createFxLayer, newFxBolts, relightBursts, routePoint, createParticlePool, cutArcs, fxMeshes, fxTextures, newFxArcs, newParticleInit, repairedFaults, sparkingCuts, type FxCut, type FxPort, type FxRoute, type FxSpan } from "./fx";
+import { ARC_REACH_M, BLOW_SPARKS, arcSpots, blowBolts, gatherTargets, pickTarget, blowBurstDue, createFxLayer, newFxBolts, relightBursts, routePoint, createParticlePool, cutArcs, fxMeshes, fxTextures, newFxArcs, newParticleInit, repairedFaults, sparkingCuts, type FxCut, type FxPort, type FxRoute, type FxSpan } from "./fx";
 import { WORLD_PER_METRE as S } from "./models";
 
 const fault = (id: string, at = "l1"): Fault => ({ id, at, kind: "damaged-cable" });
@@ -252,5 +252,20 @@ describe("081 FX4 and FX3: the blown fuse, brownout arcs and Relight bursts", ()
     }
     expect(order).toEqual([0, 2, 1]);
     expect(relightBursts(plan, lit, lamps, -1, 3, out).map((k) => lamps[k]!.index)).toEqual([0, 2, 1]);
+  });
+
+  it("fork targets: a wall and a wire within 4 m are found, ones beyond are not, and a spot with nothing in reach picks nothing", () => {
+    const base: FxRoute = { pieces: [piece(0, 10, false)], len_m: 10 };
+    // A wire 2 m beside the run's middle, a wall 3 m off its start, a wire 30 m away.
+    const wires = [[5, 0, 2, 6, 0, 2], [5, 0, 30, 6, 0, 30]];
+    const boxes = Float32Array.from([-3, -2, 8, -4, 4]);
+    const t = gatherTargets(base, wires, boxes, -100, 1);
+    const route = { ...base, targets: t };
+    const at = { x: 0, y: 0, z: 0 };
+    expect(pickTarget(route, 0, 0, at)).toBe(true);
+    expect(at.x).toBeCloseTo(-2, 5);
+    expect(pickTarget(route, 5, 0.99, at)).toBe(true);
+    expect(Math.abs(at.z)).toBeLessThanOrEqual(4);
+    expect(pickTarget({ ...base, targets: gatherTargets(base, [wires[1]!], new Float32Array(0), -100, 1) }, 5, 0.5, at)).toBe(false);
   });
 });

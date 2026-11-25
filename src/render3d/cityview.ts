@@ -27,9 +27,9 @@ import type { Vec3 } from "./kitunits";
 import { GROUND } from "./kitunits";
 import { lightModeFor, type LightModeId } from "./lighting";
 import { addSurface, applyLightMode, newLightOwners, setRendererMode } from "./lightrig";
-import { ARCS_AT_ONCE, arcSpots, blowBolts, blowBurstDue, createFxLayer, fxSwitch, newFxBolts, relightBursts, repairedFaults, sharedFx, sparkingCuts, type FxCut, type FxEmitter, type FxLamp, type FxPiece, type FxPort, type FxRoute } from "./fx";
+import { ARCS_AT_ONCE, arcSpots, blowBolts, blowBurstDue, createFxLayer, fxSwitch, gatherTargets, newFxBolts, relightBursts, repairedFaults, sharedFx, sparkingCuts, type FxCut, type FxEmitter, type FxLamp, type FxPiece, type FxPort, type FxRoute } from "./fx";
 import { lampFlicker } from "./look";
-import { DIM_SHARE, STREET_LIGHTS_MAX, buildingGlow, dimBuildings, dimPieces, glowCardMesh, glowCards, roofOffsets, setDimWindows, lampBuildings, lightPlaces, litGlass, sceneryLamps, setBuildingGlow, setStreetLights, streetLights, targetBuildings, type BuildingGlow, type BuildingLamp, type GlowCards, type LitGlass, type StreetLights } from "./windows";
+import { DIM_SHARE, STREET_LIGHTS_MAX, buildingHeights, buildingGlow, dimBuildings, dimPieces, glowCardMesh, glowCards, roofOffsets, setDimWindows, lampBuildings, lightPlaces, litGlass, sceneryLamps, setBuildingGlow, setStreetLights, streetLights, targetBuildings, type BuildingGlow, type BuildingLamp, type GlowCards, type LitGlass, type StreetLights } from "./windows";
 import { WORLD_PER_METRE } from "./models";
 import { meshParts, sharedTileModels, type ModelSet } from "./models3d";
 import { OVERLAY_HIT_PX, overlayLabels, overlayHit, overlayIcons, overlayBreakHit, overlayBreaks, placePoint, type OverlayBreak, type OverlayIcon, type OverlayLabel, type Project } from "./overlay";
@@ -1034,11 +1034,27 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     }
     return pieces.length > 0 ? { pieces, len_m: len } : null;
   };
+  // The building walls the forks may reach for (flat minx maxx maxy minz maxz, world units), made at the first blow.
+  let wallBoxes: Float32Array | null = null;
+  const walls = (): Float32Array => {
+    if (wallBoxes) return wallBoxes;
+    const heights = buildingHeights(plan);
+    const list: number[] = [];
+    for (const b of plan.layers.buildings?.buildings ?? []) {
+      const h = heights.get(b.id)?.height_m ?? 6;
+      for (const c of b.cells) list.push(c.i * 5 * S, (c.i + 1) * 5 * S, h * S, c.j * 5 * S, (c.j + 1) * 5 * S);
+    }
+    return (wallBoxes = Float32Array.from(list));
+  };
   const blowOf = (faultId: string, nodeId: string, paths: readonly (readonly string[])[], synthetic: boolean): Blow => {
     const routes: FxRoute[] = [];
     for (const path of paths) {
       const r = routeOf(nodeId, path);
-      if (r && routes.length < bolts.length) routes.push(r);
+      if (!r || routes.length >= bolts.length) continue;
+      // Everything near the run, found once now: the other wires' points and the building walls.
+      const own = new Set(r.pieces.map((q) => q.pts));
+      const others = liveWires.filter((w) => !own.has(w.pts)).map((w) => w.pts);
+      routes.push({ ...r, targets: gatherTargets(r, others, walls(), ground.position.y + 0.05, S) });
     }
     const at = nodeCentre.get(nodeId) ?? { x: 0, y: 0, z: 0 };
     const piece = nodePiece.get(nodeId);

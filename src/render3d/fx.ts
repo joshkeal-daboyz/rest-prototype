@@ -542,6 +542,84 @@ export interface FxPiece extends FxSpan {
 export interface FxRoute {
   readonly pieces: readonly FxPiece[];
   readonly len_m: number;
+  /** Things within reach of the route, found once at blow time: flat `s x y z` (metres from the fuse, then world units), ascending in `s`. The bolt's forks reach for these. */
+  readonly targets?: Float32Array;
+}
+
+/** How far a fork may reach for a thing, in metres. */
+export const FORK_REACH_M = 4;
+
+/**
+ * The things near a route a fork may reach for, by sampling the route every 2.5 m: the ground under it, the nearest point of another wire (`wires`: each a flat list of x y z points, so a pole's insulators are among
+ * them) and the nearest point on a building's walls (`boxes`: flat minx maxx maxy minz maxz, ground at `groundY`), each within `FORK_REACH_M` (world units: `scale`). Flat `s x y z`, ascending in `s`.
+ */
+export function gatherTargets(route: FxRoute, wires: readonly (readonly number[])[], boxes: Float32Array, groundY: number, scale: number): Float32Array {
+  const reach = FORK_REACH_M * scale;
+  const out: number[] = [];
+  const at = { x: 0, y: 0, z: 0 };
+  const steps = Math.max(1, Math.ceil(route.len_m / 2.5));
+  for (let k = 0; k <= steps; k++) {
+    const s = Math.min(route.len_m, k * 2.5);
+    routePoint(route, s, at);
+    if (at.y - groundY > 0.3 * scale && at.y - groundY <= reach) out.push(s, at.x, groundY, at.z);
+    let best = reach * reach;
+    let bx = 0;
+    let by = 0;
+    let bz = 0;
+    let found = false;
+    for (const w of wires) {
+      for (let i = 0; i + 2 < w.length; i += 3) {
+        const d = (w[i]! - at.x) ** 2 + (w[i + 1]! - at.y) ** 2 + (w[i + 2]! - at.z) ** 2;
+        if (d < best && d > (0.6 * scale) ** 2) {
+          best = d;
+          bx = w[i]!;
+          by = w[i + 1]!;
+          bz = w[i + 2]!;
+          found = true;
+        }
+      }
+    }
+    if (found) out.push(s, bx, by, bz);
+    best = reach * reach;
+    found = false;
+    for (let i = 0; i + 4 < boxes.length; i += 5) {
+      const x = Math.min(Math.max(at.x, boxes[i]!), boxes[i + 1]!);
+      const y = Math.min(Math.max(at.y, groundY), boxes[i + 2]!);
+      const z = Math.min(Math.max(at.z, boxes[i + 3]!), boxes[i + 4]!);
+      const d = (x - at.x) ** 2 + (y - at.y) ** 2 + (z - at.z) ** 2;
+      if (d < best && d > 1e-6) {
+        best = d;
+        bx = x;
+        by = y;
+        bz = z;
+        found = true;
+      }
+    }
+    if (found) out.push(s, bx, by, bz);
+  }
+  return Float32Array.from(out);
+}
+
+/** A target within 3 m (along the route) of `s`, picked by `h` (0..1), into `out`; false when nothing is in reach. */
+export function pickTarget(route: FxRoute, s: number, h: number, out: { x: number; y: number; z: number }): boolean {
+  const t = route.targets;
+  if (!t || t.length === 0) return false;
+  const n = t.length / 4;
+  let lo = 0;
+  let hi = n;
+  while (lo < hi) {
+    const m = (lo + hi) >> 1;
+    if (t[m * 4]! < s - 3) lo = m + 1;
+    else hi = m;
+  }
+  let end = lo;
+  while (end < n && t[end * 4]! <= s + 3) end++;
+  if (end <= lo) return false;
+  const i = lo + Math.min(end - lo - 1, Math.floor(h * (end - lo)));
+  out.x = t[i * 4 + 1]!;
+  out.y = t[i * 4 + 2]!;
+  out.z = t[i * 4 + 3]!;
+  return true;
 }
 
 /** One bolt this frame: metres from the fuse, head nearest it. */
@@ -1144,20 +1222,30 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
         const kk = f * 3;
         const h = hash(slot * 7.1 + f * 3.3 + head * 0.37);
         if (h > 0.75 || rnd() > 0.85) continue;
-        const a = hash(h * 91.7 + f) * Math.PI * 2;
-        const el = (hash(h * 13.9 + f * 2.1) - 0.65) * 1.3;
-        const L = (1.5 + 2.5 * hash(h * 5.3 + f)) * S;
-        const dx = Math.cos(a) * Math.cos(el);
-        const dy = Math.sin(el);
-        const dz = Math.sin(a) * Math.cos(el);
         const ox = boltPts[kk]!;
         const oy = boltPts[kk + 1]!;
         const oz = boltPts[kk + 2]!;
-        const mx = ox + dx * L * 0.5 + (rnd() - 0.5) * 0.8 * S;
-        const my = oy + dy * L * 0.5 + (rnd() - 0.5) * 0.8 * S;
-        const mz = oz + dz * L * 0.5 + (rnd() - 0.5) * 0.8 * S;
+        let ex: number;
+        let ey: number;
+        let ez: number;
+        // Reach for a real thing near this point of the bolt; only where nothing is in reach, a random direction.
+        if (pickTarget(route, head + ((tail - head) * f) / K, hash(h * 29.3 + f * 4.1), bp)) {
+          ex = bp.x;
+          ey = bp.y;
+          ez = bp.z;
+        } else {
+          const a = hash(h * 91.7 + f) * Math.PI * 2;
+          const el = (hash(h * 13.9 + f * 2.1) - 0.65) * 1.3;
+          const L = (1.5 + 2.5 * hash(h * 5.3 + f)) * S;
+          ex = ox + Math.cos(a) * Math.cos(el) * L;
+          ey = oy + Math.sin(el) * L;
+          ez = oz + Math.sin(a) * Math.cos(el) * L;
+        }
+        const mx = (ox + ex) / 2 + (rnd() - 0.5) * 0.8 * S;
+        const my = (oy + ey) / 2 + (rnd() - 0.5) * 0.8 * S;
+        const mz = (oz + ez) / 2 + (rnd() - 0.5) * 0.8 * S;
         this.arcAt(ox, oy, oz, mx, my, mz, 0.3 * S, 1.3, 1.35, 1.5);
-        this.arcAt(mx, my, mz, ox + dx * L, oy + dy * L, oz + dz * L, 0.18 * S, 1.2, 1.25, 1.4);
+        this.arcAt(mx, my, mz, ex, ey, ez, 0.18 * S, 1.2, 1.25, 1.4);
       }
     },
     update(dt, camera) {
