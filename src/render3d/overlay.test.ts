@@ -12,9 +12,10 @@ import type { CityCircuitLayer } from "../core/cityplan";
 import type { CityPuzzleConverted } from "../core/citycircuit";
 import { drawNodeGlyph, type GlyphContext } from "../render/glyphs";
 import { createGrid } from "../grid";
+import type { LoadPreview } from "../core/preview";
 import { nodeLook } from "./look";
 import { GROUND_POLE_ATTACH_UP_M } from "../core/powerpoles";
-import { OVERLAY_HIT_PX, OVERLAY_POLE_Y_M, OVERLAY_NUDGE, overlayBreakHit, overlayBreaks, overlayIcons, placePoint, type OverlayBreak, type OverlayContext, type OverlayIcon, type Project } from "./overlay";
+import { OVERLAY_HIT_PX, OVERLAY_POLE_Y_M, OVERLAY_NUDGE, overlayBreakHit, overlayBreaks, overlayIcons, overlayLabels, placePoint, type OverlayBreak, type OverlayContext, type OverlayIcon, type Project } from "./overlay";
 
 const puzzle = loadPuzzle(JSON.parse(readFileSync("puzzles/09-shrine-circuit.json", "utf8")));
 
@@ -320,5 +321,19 @@ describe("a city puzzle played on the city (ticket 081 E2)", () => {
     expect(placePoint(converted.places[first]!, layer, at) && at.y).toBe(OVERLAY_POLE_Y_M);
     const roofLayer = { ...layer, roofs: [{ id: "r1", x_m: 4, z_m: 5, deck_y_m: 12.5 }] } as unknown as CityCircuitLayer;
     expect(placePoint({ roof: "r1" }, roofLayer, at) && [at.x, at.y, at.z]).toEqual([4, 12.5, 5]);
+  });
+
+  it('the preview reads signed by controls and breaks, red when over, none in the Relight; fuses and feeds read "x of y" always (081 V3)', () => {
+    const icon = (id: string, type: string) => ({ id, type, x: 100, y: 50, size: 30 }) as unknown as OverlayIcon;
+    const icons = [icon('br_main', 'breaker'), icon('sw_1', 'switch'), icon('br_street', 'breaker'), icon('fb_A', 'fusebox'), icon('feed', 'feed'), icon('j1', 'junction')];
+    const brk = (faultId: string) => ({ faultId, lineId: 'l_b', x: 200, y: 80, hit: 44, sparking: false }) as OverlayBreak;
+    const e = (delta: number, over: boolean) => ({ kind: 'breaker' as const, delta, over, blows: [] });
+    const preview: LoadPreview = new Map([['br_main', e(3, false)], ['sw_1', e(-2, false)], ['br_street', e(0, false)], ['f2', e(0, true)], ['f9', e(4, false)]]);
+    const state = { ...createGrid(puzzle, new EventBus()).state(), fuseLoad: new Map([['fb_A', 4]]), feeds: new Map([['feed', { load: 2, capacity: 4, over: false }]]) };
+    const texts = (l: ReturnType<typeof overlayLabels>) => l.map((x) => [x.text, x.red]);
+    expect(texts(overlayLabels(icons, [brk('f2')], preview, state, new Map([['fb_A', 3]])))).toEqual([['+3', false], ['−2', false], ['4 of 3', true], ['2 of 4', false], ['0', true]]);
+    expect(texts(overlayLabels(icons, [brk('f2')], null, state, new Map([['fb_A', 3]]), true))).toEqual([['4 of 3', true], ['2 of 4', false]]);
+    expect(texts(overlayLabels(icons, [], preview, { ...state, feeds: new Map([['feed', { load: 5, capacity: 4, over: true }]]) }, new Map(), true))).toEqual([['5 of 4', true]]);
+    expect(texts(overlayLabels(icons, [], null, { ...state, feeds: new Map([['feed', { load: 5, capacity: null, over: false }]]) }, new Map()))).toEqual([]);
   });
 });
