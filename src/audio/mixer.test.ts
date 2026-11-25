@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { BLOW_TIMING } from "../core";
 import type { Events } from "../core";
 import { blowCues, cuesFor, relightCues } from "./cues";
 import { DUCK_DB, Mixer } from "./mixer";
@@ -38,7 +37,7 @@ describe("blow merging", () => {
     m.take(blowCues(blown(1)), 0);
     const second = m.take(blowCues(blown(2)), 0.3);
     expect(names(second.play)).toEqual(["blow:pop"]);
-    expect(second.play[0]?.at).toBe(BLOW_TIMING.popAt);
+    expect(second.play[0]?.at).toBe(0.7);
   });
 
   it("its lamps add to the one burst before it starts: one burst, louder", () => {
@@ -73,7 +72,7 @@ describe("blow merging", () => {
     const m = new Mixer();
     m.take(blowCues(blown(1)), 0);
     m.take([], 0.49);
-    const second = m.take(blowCues(blown(1)), BLOW_TIMING.popAt + 0.1);
+    const second = m.take(blowCues(blown(1)), 0.8);
     expect(names(second.play)).toEqual(["blow:run", "blow:glow", "blow:pop"]);
   });
 
@@ -161,9 +160,9 @@ describe("ducking", () => {
     const res = m.take(blowCues(blown(1)), 0);
     expect(res.duck).toBe(0);
     expect(m.duckAt(0.5)).toBe(0);
-    expect(m.duckAt(BLOW_TIMING.popAt + 0.1)).toBe(DUCK_DB);
+    expect(m.duckAt(0.8)).toBe(DUCK_DB);
     expect(DUCK_DB).toBe(-12);
-    expect(m.duckAt(BLOW_TIMING.popAt + 1)).toBe(0);
+    expect(m.duckAt(1.5)).toBe(0);
   });
 
   it("a pathless pop ducks at once and take reports it", () => {

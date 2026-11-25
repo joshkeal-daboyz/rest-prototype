@@ -134,13 +134,13 @@ describe("the blow sequence", () => {
 
   it("the clock is the literal 0, 0.4, 0.5, 0.7 (a change to BLOW_TIMING is noticed here)", () => {
     const cues = blowCues(withPath);
-    expect(cues.map((c) => c.at)).toEqual([0, 1.1, 0.5, 1.5]);
-    expect(part(cues, "run")?.voices[0]?.duration).toBe(1.1);
-    expect(part(cues, "glow")?.voices[0]?.duration).toBe(0.4);
+    expect(cues.map((c) => c.at)).toEqual([0, 0.4, 0.5, 0.7]);
+    expect(part(cues, "run")?.voices[0]?.duration).toBe(0.4);
+    expect(part(cues, "glow")?.voices[0]?.duration).toBe(0.3);
   });
 
-  it("the pop lands at popAt when there is a path and at 0 without", () => {
-    expect(part(blowCues(withPath), "pop")?.at).toBe(BLOW_TIMING.popAt);
+  it("the pop lands at 0.7 s when there is a path and at 0 without", () => {
+    expect(part(blowCues(withPath), "pop")?.at).toBe(0.7);
     const none = blowCues(blown([], { culprit: null, path: [], lamps: [] }));
     expect(none.map((c) => [c.part, c.at])).toEqual([["pop", 0]]);
   });

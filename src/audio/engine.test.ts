@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { BLOW_TIMING, EventBus } from "../core";
+import { EventBus } from "../core";
 import type { BatteryReadout, FeedReadout, SoundView } from "../core";
 import { FakeContext, asContext } from "./fakeContext";
 import type { FakeNode } from "./fakeContext";
@@ -123,15 +123,14 @@ describe("sound reaches the graph", () => {
     expect(master(s.fake).gain.value).toBe(0.5);
   });
 
-  it("the pop's oscillator starts at currentTime + popAt, the run's noise at currentTime", async () => {
+  it("the pop's oscillator starts at currentTime + 0.7, the run's noise at currentTime", async () => {
     const s = setup();
     await s.unlock();
     s.bus.emit("fuse:blown", blowEvent());
-    const popAt = 10 + BLOW_TIMING.popAt;
-    const pop = oscStartsAt(s.fake, popAt).find((n) => n.type === "sine");
+    const pop = oscStartsAt(s.fake, 10.7).find((n) => n.type === "sine");
     expect(pop).toBeDefined();
-    expect(pop?.frequency.calls[0]).toEqual({ op: "setValueAtTime", args: [noteHz("F#3"), popAt] });
-    expect(pop?.frequency.calls[1]).toEqual({ op: "expRamp", args: [noteHz("E1"), popAt + 0.08] });
+    expect(pop?.frequency.calls[0]).toEqual({ op: "setValueAtTime", args: [noteHz("F#3"), 10.7] });
+    expect(pop?.frequency.calls[1]).toEqual({ op: "expRamp", args: [noteHz("E1"), 10.7 + 0.08] });
     expect(s.fake.all("buffersource").some((n) => n.starts[0]?.when === 10)).toBe(true);
   });
 
