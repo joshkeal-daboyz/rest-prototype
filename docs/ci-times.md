@@ -8,6 +8,7 @@ One row per measurement: the whole everyday suite (`npm test`, one city) on CI, 
 | 2026-11-23 | #10 | 29f1256 (PR head) | 218 | 4,186 (64 skipped) | 959 s | 372 s | 6.6 min | Ticket 079 PR 1 only; 140 s of city builds moved to untouched files through the shared cache |
 | 2026-11-23 | #20 | b5f4ad3 (main, after #20 and #21) | 212 | 4,090 (64 skipped) | 441 s | 204 s | 3.7 min | After all of ticket 079, and 081 C1 and PK1; manual run `cities=one` |
 | 2026-11-24 | #30 | 6443518 (main, after #30) | 209 | 3,836 (63 skipped) | 395 s | 213 s | 3.8 min | After 081 A1, K2a, K2a2 (stage 6 on), A2a, A2d, E1; before A2c deletes the ladder's tests |
+| 2026-11-24 | #60 | 4dacc93 (main, after #60) | 196 | 3,280 (56 skipped) | 752 s | 339 s | 6.0 min | After 081 K2c to L2 (city puzzle, circuit, play on the city, lights, section F); collect alone is 185 s. The push run on 4dacc93 hit the 5 s timeout in `overlay.test.ts` (`loadCityView`, 6.1 s) and passed on re-run: noise, not logged |
 
 ## Failure log
 
