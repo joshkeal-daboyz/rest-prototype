@@ -27,7 +27,7 @@ import type { Vec3 } from "./kitunits";
 import { GROUND } from "./kitunits";
 import { lightModeFor, type LightModeId } from "./lighting";
 import { addSurface, applyLightMode, newLightOwners, setRendererMode } from "./lightrig";
-import { createFxLayer, fxSwitch, repairedFaults, sharedFx, sparkingCuts, type FxCut, type FxEmitter } from "./fx";
+import { ARCS_AT_ONCE, arcSpots, blowBolts, blowBurstDue, createFxLayer, fxSwitch, newFxBolts, relightBursts, repairedFaults, sharedFx, sparkingCuts, type FxCut, type FxEmitter, type FxLamp, type FxPiece, type FxPort, type FxRoute } from "./fx";
 import { lampFlicker } from "./look";
 import { DIM_SHARE, STREET_LIGHTS_MAX, buildingGlow, dimBuildings, dimPieces, glowCardMesh, glowCards, roofOffsets, setDimWindows, lampBuildings, lightPlaces, litGlass, sceneryLamps, setBuildingGlow, setStreetLights, streetLights, targetBuildings, type BuildingGlow, type BuildingLamp, type GlowCards, type LitGlass, type StreetLights } from "./windows";
 import { WORLD_PER_METRE } from "./models";
@@ -1001,6 +1001,82 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
         console.info(`3D effects: not applied (${e instanceof Error ? e.message : String(e)}).`);
       });
   }
+  // ---- 081 FX4: a blown fuse (a bolt down the wires it served, then a burst at the box), FX3: brownout arcs at the poles and a burst at each target lamp as it lights ----
+  interface Blow {
+    readonly faultId: string;
+    readonly synthetic: boolean;
+    readonly routes: readonly FxRoute[];
+    readonly x: number;
+    readonly y: number;
+    readonly z: number;
+    readonly ground: number;
+    /** The page time of the first frame after the event (negative until then), and the blow clock of the frame before. */
+    start: number;
+    prevT: number;
+  }
+  const blows: Blow[] = [];
+  const bolts = newFxBolts(16);
+  /** The wires from `nodeId` along `path` (line ids, in order), each from the end nearer the fuse. */
+  const routeOf = (nodeId: string, path: readonly string[]): FxRoute | null => {
+    let cur = nodeId;
+    const pieces: FxPiece[] = [];
+    let len = 0;
+    for (const lid of path) {
+      const e = lineOf.get(lid);
+      if (!e) continue;
+      const fwd = e.line.from === cur;
+      cur = fwd ? e.line.to : e.line.from;
+      const ws = [...(wiresOfLine.get(lid) ?? [])].sort((a, b) => (fwd ? a.a0 - b.a0 : b.a0 - a.a0));
+      for (const w of ws) {
+        pieces.push({ pts: w.pts, cum_m: w.cum_m, len_m: w.len_m, rev: fwd ? w.flip : !w.flip });
+        len += w.len_m;
+      }
+    }
+    return pieces.length > 0 ? { pieces, len_m: len } : null;
+  };
+  const blowOf = (faultId: string, nodeId: string, paths: readonly (readonly string[])[], synthetic: boolean): Blow => {
+    const routes: FxRoute[] = [];
+    for (const path of paths) {
+      const r = routeOf(nodeId, path);
+      if (r && routes.length < bolts.length) routes.push(r);
+    }
+    const at = nodeCentre.get(nodeId) ?? { x: 0, y: 0, z: 0 };
+    const piece = nodePiece.get(nodeId);
+    return { faultId, synthetic, routes, x: at.x, y: at.y, z: at.z, ground: piece ? piece.position.y : ground.position.y + 0.05, start: -1, prevT: -1 };
+  };
+  // The pole ends of the job's live wires (a cut span's are left out): an insulator and the point 0.6 m along the wire.
+  const arcPorts: FxPort[] = [];
+  for (const w of wires) {
+    if (w.cutFault !== null || w.len_m < 1.4) continue;
+    const last = SAMPLES * 3;
+    pointOnWire(w, 0.6, wp);
+    arcPorts.push({ line: w.line, ax: w.pts[0]!, ay: w.pts[1]!, az: w.pts[2]!, bx: wp.x, by: wp.y, bz: wp.z });
+    pointOnWire(w, w.len_m - 0.6, wp);
+    arcPorts.push({ line: w.line, ax: w.pts[last]!, ay: w.pts[last + 1]!, az: w.pts[last + 2]!, bx: wp.x, by: wp.y, bz: wp.z });
+  }
+  const arcIdx: number[] = [];
+  // The target lamps' bursts stand where the building's street light does (L2), else at the lamp.
+  const burstLamps: FxLamp[] = [];
+  for (const id of puzzle.target ?? []) {
+    const index = puzzle.nodes.findIndex((n) => n.id === id);
+    if (index < 0) continue;
+    let at: Vec3 | undefined = lampPlaces.get(id);
+    for (const [bid, list] of lampsOf) {
+      if (!list.some((l) => l.id === id)) continue;
+      const lp = lightPlaces(plan, [bid], 1)[0];
+      if (lp) at = { x: lp.x * S, y: lp.y * S, z: lp.z * S };
+      break;
+    }
+    if (at) burstLamps.push({ index, x: at.x, y: at.y, z: at.z });
+  }
+  const burstIdx: number[] = [];
+  let fxRelPrev = -1;
+  // fx=all: a blow on the job's first rated fuse box every 2 s.
+  const allFuse = puzzle.nodes.find((n) => n.type === "fusebox" && n.rating !== undefined);
+  const allFuseLine = allFuse ? puzzle.lines.find((l) => l.from === allFuse.id || l.to === allFuse.id) : undefined;
+  let fxAllBlow = 0;
+  let fxAllBloom = 0;
+  const fxAllArcs = Math.min(arcPorts.length, 24);
   let fxLast = -1;
   let fxPrev: GridState | null = null;
   let fxState: GridState | null = null;
@@ -1019,6 +1095,20 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     fxLast = time;
     if (fxMode === "all") {
       for (let i = 0; i < fxCuts.length; i++) fx.breakAt(i, time);
+      if (allFuse && allFuseLine && time >= fxAllBlow) {
+        fxAllBlow = time + 2;
+        blows.push(blowOf("", allFuse.id, [[allFuseLine.id]], true));
+      }
+      if (burstLamps.length > 0 && time >= fxAllBloom) {
+        const l = burstLamps[Math.floor(time * 2) % burstLamps.length]!;
+        fxAllBloom = time + 0.5;
+        fx.bloomAt(l.x, l.y, l.z);
+      }
+      const spots = arcSpots(state, arcPorts, time, fxAllArcs, arcIdx, true);
+      for (let k = 0; k < spots.length; k++) {
+        const a = arcPorts[spots[k]!]!;
+        fx.arcAt(a.ax, a.ay, a.az, a.bx, a.by, a.bz, 0.3 * S, 0.8, 1.0, 1.4);
+      }
       for (let k = 0; k < faultPlaces.length; k++) {
         if (time < fxAllNext[k]!) continue;
         fx.repairAt(faultPlaces[k]!.x, faultPlaces[k]!.y, faultPlaces[k]!.z);
@@ -1039,6 +1129,34 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
         if (at) fx.repairAt(at.x, at.y, at.z);
       }
       fxPrev = state;
+      if (plan_ !== null) {
+        const due = relightBursts(plan_, (i) => state.lit.has(puzzle.nodes[i]!.id), burstLamps, fxRelPrev, relT, burstIdx);
+        for (let k = 0; k < due.length; k++) {
+          const l = burstLamps[due[k]!]!;
+          fx.bloomAt(l.x, l.y, l.z);
+        }
+        fxRelPrev = relT;
+      } else fxRelPrev = -1;
+      const spots = arcSpots(state, arcPorts, time, ARCS_AT_ONCE, arcIdx);
+      for (let k = 0; k < spots.length; k++) {
+        const a = arcPorts[spots[k]!]!;
+        fx.arcAt(a.ax, a.ay, a.az, a.bx, a.by, a.bz, 0.3 * S, 0.8, 1.0, 1.4);
+      }
+    }
+    // The blows: a bolt towards the fuse, the burst at its pop. A repair, an undo or a reset takes the fault away and stops it at once (never on the frame it was stamped).
+    for (let i = blows.length - 1; i >= 0; i--) {
+      const b = blows[i]!;
+      if (b.start < 0) b.start = time;
+      else if (!b.synthetic && !state.faults.some((f) => f.id === b.faultId)) {
+        blows.splice(i, 1);
+        continue;
+      }
+      const t = time - b.start;
+      if (blowBurstDue(b.routes.length > 0, b.prevT, t)) fx.blowAt(b.x, b.y, b.z, b.ground);
+      b.prevT = t;
+      const k = blowBolts(b.routes, t, bolts);
+      for (let j = 0; j < k; j++) fx.bolt(b.routes[bolts[j]!.route]!, bolts[j]!.head, bolts[j]!.tail);
+      if (k === 0 && t > 0) blows.splice(i, 1);
     }
     fx.update(dt, camera.quaternion);
   }
@@ -1226,7 +1344,12 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
       insets = { ...next };
       rig.resize(Math.max(canvas.clientWidth, 1), Math.max(canvas.clientHeight, 1), insets);
     },
-    notify() {},
+    notify(event) {
+      if (!fx || event.type !== "fuse:blown") return;
+      const e = event.payload;
+      const paths = e.lamps ? e.lamps.map((l) => l.path) : e.path.length > 0 ? [e.path] : [];
+      if (blows.length < 8) blows.push(blowOf(e.faultId, e.nodeId, paths, false));
+    },
     setBlockers(rects) {
       blockers = rects.map((r) => ({ ...r }));
       picker.setBlockers(rects);
