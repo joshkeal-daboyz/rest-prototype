@@ -7,8 +7,8 @@
  */
 
 import {
-  AdditiveBlending, BoxGeometry, BufferGeometry, CircleGeometry, Color, DynamicDrawUsage, Float32BufferAttribute, Group, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial,
-  PerspectiveCamera, Quaternion, Scene, SphereGeometry, Vector3, type Material, type Object3D, type WebGLRenderer,
+  AdditiveBlending, BoxGeometry, BufferGeometry, CircleGeometry, Color, DynamicDrawUsage, Float32BufferAttribute, Frustum, Group, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial,
+  PerspectiveCamera, Quaternion, Scene, Sphere, SphereGeometry, Vector3, type Material, type Object3D, type WebGLRenderer,
 } from "three";
 import { type CalibrationKey, type CityCircuitLayer, type CityPlan, type CityPlanRun, type CityPuzzle, type CityStreetsLayer, type CityPuzzleCity, type CityPuzzleConverted, type CityPuzzleView } from "../core";
 import { CityPuzzleError, convertCityPuzzle } from "../city/circuit";
@@ -29,7 +29,7 @@ import { GROUND } from "./kitunits";
 import { lightModeFor, type LightModeId } from "./lighting";
 import { addSurface, applyLightMode, newLightOwners, setRendererMode } from "./lightrig";
 import { lampFlicker } from "./look";
-import { buildingGlow, lampBuildings, litBuilding, litGlass, type BuildingGlow, type BuildingLamp, type LitBuilding, type LitGlass } from "./windows";
+import { STREET_LIGHTS_MAX, buildingGlow, lampBuildings, lightPlaces, litGlass, setBuildingGlow, setStreetLights, streetLights, type BuildingGlow, type BuildingLamp, type LitGlass, type StreetLights } from "./windows";
 import { WORLD_PER_METRE } from "./models";
 import { sharedTileModels, type ModelSet } from "./models3d";
 import { OVERLAY_HIT_PX, overlayHit, overlayIcons, overlayBreakHit, overlayBreaks, placePoint, type OverlayBreak, type OverlayIcon, type Project } from "./overlay";
@@ -533,6 +533,9 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   const scene = new Scene();
   const owners = newLightOwners();
   const lightId0: LightModeId = lightModeFor("puzzle", opts.search, import.meta.env.DEV);
+  // dpr=N (dev only, F0): the pixel ratio the view renders at, in place of opts.dpr.
+  const devDpr = import.meta.env.DEV ? /[?&]dpr=(\d+(?:\.\d+)?)(&|$)/.exec(opts.search ?? "") : null;
+  const dpr = devDpr && Number(devDpr[1]) > 0 ? Number(devDpr[1]) : opts.dpr;
   applyLightMode(scene, gl, lightId0, owners);
 
   // The frame: the district, its four streets and the job's places and wires (081 E3), not every pole in the city.
@@ -573,14 +576,23 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     circuit = circuitGroup(circuitDraws(layer, streets, { converted, readable }), lastRoots as ReadonlyMap<string, Object3D>);
     city.group.add(circuit.group);
   };
-  // The lit buildings (081 L1): each job lamp's building takes its own window clones when the city builds (dark), and its shop glass one more instanced layer.
+  // The lit buildings (081 L1, F1b): each job lamp's building lights through its instances' window level (set each frame), and its shop glass is one more instanced layer.
   const lampsOf = lampBuildings(puzzle.nodes, converted.places, layer.roofs ?? [], plan.layers.buildings?.buildings ?? []);
-  let litBuildings: { id: string; lamps: readonly BuildingLamp[]; lit: LitBuilding }[] = [];
+  let litBuildings: { id: string; lamps: readonly BuildingLamp[] }[] = [];
   let litShop: LitGlass | null = null;
+  // The street lights (081 L2): one real light per lit building with a street face, made at build at intensity 0 and never added, removed or hidden in play (the count is fixed, so no program recompiles).
+  // `lights=N` (dev only) fills the pool to N lights, the spares on the first building.
+  const lightsWanted = import.meta.env.DEV ? Number(/[?&]lights=(\d+)(&|$)/.exec(opts.search ?? "")?.[1] ?? NaN) : NaN;
+  const lightGlows = new Map<string, BuildingGlow>();
+  let pool: StreetLights | null = null;
   let modelsLoaded = false;
   const freeWindows = (): void => {
-    for (const b of litBuildings) b.lit.dispose();
     litBuildings = [];
+    if (pool) {
+      for (const l of pool.lights) l.removeFromParent();
+      pool = null;
+    }
+    lightGlows.clear();
     if (litShop) {
       if (litShop.mesh) city?.group.remove(litShop.mesh);
       litShop.dispose();
@@ -588,13 +600,15 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     }
   };
   const standWindows = (next: NonNullable<typeof city>, roots: ReadonlyMap<CalibrationKey, Object3D>): void => {
-    for (const g of next.buildings.groups) {
-      const id = g.name.slice("building:".length);
-      const lamps = lampsOf.get(id);
-      if (lamps) litBuildings.push({ id, lamps, lit: litBuilding(g) });
-    }
+    for (const [id, lamps] of lampsOf) litBuildings.push({ id, lamps });
     litShop = litGlass(next.dressDraws, new Set(lampsOf.keys()), roots);
     if (litShop.mesh) next.group.add(litShop.mesh);
+    const max = Number.isFinite(lightsWanted) ? Math.min(lightsWanted, STREET_LIGHTS_MAX) : STREET_LIGHTS_MAX;
+    const places = lightPlaces(plan, lampsOf.keys(), max);
+    if (places.length >= max && lightPlaces(plan, lampsOf.keys(), Infinity).length > places.length) console.warn(`street lights: more lit-able buildings than the cap of ${max}; the first ${max} get a light`);
+    pool = streetLights(places, S, Number.isFinite(lightsWanted) ? Math.max(0, lightsWanted - places.length) : 0);
+    for (const l of pool.lights) next.group.add(l);
+    for (const id of lampsOf.keys()) lightGlows.set(id, { level: 0, flare: 0 });
   };
   const build = (set: ModelSet | null): void => {
     const input = set ? planInput(set) : null;
@@ -755,7 +769,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
 
   // ---- the overlay ----
   const wantOverlay = opts.overlay ?? overlayRequested(opts.search);
-  const overlayLayer = wantOverlay && typeof document !== "undefined" ? createOverlayLayer(canvas, document, opts.dpr) : null;
+  const overlayLayer = wantOverlay && typeof document !== "undefined" ? createOverlayLayer(canvas, document, dpr) : null;
   const project = cameraProject(camera, size);
   let icons: readonly OverlayIcon[] = [];
   let breaks: readonly OverlayBreak[] = [];
@@ -777,7 +791,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     const h = Math.max(canvas.clientHeight, 1);
     size.width = w;
     size.height = h;
-    gl.setPixelRatio(opts.dpr);
+    gl.setPixelRatio(dpr);
     gl.setSize(w, h, false);
     rig.resize(w, h, insets);
     overlayLayer?.resize();
@@ -860,9 +874,12 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     // Lit buildings: the windows and the shop glass.
     for (const b of litBuildings) {
       buildingGlow(plan_, state, b.lamps, relT, time, bg);
-      b.lit.set(bg);
+      if (city) setBuildingGlow(city.buildings, b.id, bg);
       litShop?.set(b.id, bg);
+      const lg = lightGlows.get(b.id);
+      if (lg) (lg.level = bg.level), (lg.flare = bg.flare);
     }
+    if (pool) setStreetLights(pool, lightGlows);
     litShop?.commit();
     // Lamp posts (a building lamp is its windows).
     for (const lamp of lamps) {
@@ -884,6 +901,67 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   const perf = import.meta.env.DEV && /[?&]perf=1(&|$)/.test(opts.search ?? "");
   const PERF_FRAMES = 300;
   const perfMs = new Float64Array(PERF_FRAMES);
+  const perfGap = new Float64Array(PERF_FRAMES);
+  let perfLastStart = 0;
+  // F0: draw calls and triangles in view, per family, counted as three culls (a bounding sphere meets the frustum; an instancer counts all its instances; a mesh counts index or position / 3). Runs once per log.
+  const perfFamilies = (): string => {
+    const roots = new Map<Object3D, string>();
+    if (city) {
+      roots.set(city.tiles.group, "street tiles");
+      roots.set(city.interior.group, "interior");
+      for (const m of city.buildings.instancers) roots.set(m, "building pieces");
+      roots.set(city.grey.mesh, "grey boxes");
+      roots.set(city.dress.group, "dressing");
+      roots.set(city.furniture.group, "furniture+traffic");
+      for (const e of [city.tech, city.holdout, city.ruin]) if (e) roots.set(e.group, "era adds");
+    }
+    if (city?.circuit) roots.set(city.circuit.group, "circuit");
+    if (circuit) roots.set(circuit.group, "circuit");
+    if (litShop?.mesh) roots.set(litShop.mesh, "lit shop glass");
+    roots.set(live, "live layer");
+    const total = new Map<string, { calls: number; tris: number }>();
+    const frustum = new Frustum();
+    frustum.setFromProjectionMatrix(new Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
+    const sphere = new Sphere();
+    const walk = (o: Object3D, parent: string): void => {
+      if (!o.visible) return;
+      const fam = roots.get(o) ?? parent;
+      const m = o as Mesh;
+      if (m.isMesh === true || (o as LineSegments).isLineSegments === true) {
+        const geo = m.geometry as BufferGeometry;
+        const inst = (o as InstancedMesh).isInstancedMesh === true ? (o as InstancedMesh) : null;
+        let seen = true;
+        if (o.frustumCulled) {
+          if (inst) {
+            if (inst.boundingSphere === null) inst.computeBoundingSphere();
+            sphere.copy(inst.boundingSphere!).applyMatrix4(o.matrixWorld);
+          } else {
+            if (geo.boundingSphere === null) geo.computeBoundingSphere();
+            sphere.copy(geo.boundingSphere!).applyMatrix4(o.matrixWorld);
+          }
+          seen = frustum.intersectsSphere(sphere);
+        }
+        if (seen) {
+          const per = (geo.index ? geo.index.count : (geo.attributes["position"]?.count ?? 0)) / 3;
+          const e = total.get(fam) ?? { calls: 0, tris: 0 };
+          e.calls += Array.isArray(m.material) ? Math.max(geo.groups.length, 1) : 1;
+          e.tris += per * (inst ? inst.count : 1);
+          total.set(fam, e);
+        }
+      }
+      for (const c of o.children) walk(c, fam);
+    };
+    walk(scene, "other");
+    let calls = 0;
+    let tris = 0;
+    const parts: string[] = [];
+    for (const [f, e] of total) {
+      calls += e.calls;
+      tris += e.tris;
+      parts.push(`${f} ${e.calls}/${Math.round(e.tris)}`);
+    }
+    return `families (calls/triangles): ${parts.join(", ")}; sum ${calls}/${Math.round(tris)}`;
+  };
   let perfFrames = 0;
   let perfLabel = "before power";
   let perfSawPlan = false;
@@ -895,6 +973,8 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   return {
     draw(state: GridState, overlay: MapOverlay, timeSeconds: number) {
       const t0 = perf ? performance.now() : 0;
+      const gap = t0 - perfLastStart;
+      perfLastStart = t0;
       if (canvas.clientWidth !== drawnW || canvas.clientHeight !== drawnH) resize();
       const relT = overlay.relightT ?? 0;
       const plan_ = clock.update(state, overlay.relightT);
@@ -910,10 +990,14 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
         perfFrames = 0;
       }
       if (perf && city && modelsLoaded && perfFrames < PERF_FRAMES) {
+        perfGap[perfFrames] = gap;
         perfMs[perfFrames++] = performance.now() - t0;
         if (perfFrames === PERF_FRAMES) {
           const sorted = Float64Array.from(perfMs).sort();
           console.info(`perf=1 (${perfLabel}): ${gl.info.render.calls} draw calls, ${gl.info.render.triangles} triangles, ${gl.info.programs?.length ?? 0} programs, median frame ${sorted[PERF_FRAMES >> 1]!.toFixed(2)} ms (CPU, draw call to render end), after ${PERF_FRAMES} frames`);
+          const gaps = Float64Array.from(perfGap).sort();
+          console.info(`perf=1 (${perfLabel}) whole frame: median interval between draw calls ${gaps[PERF_FRAMES >> 1]!.toFixed(2)} ms (includes GPU waits and the overlay), canvas ${canvas.width} x ${canvas.height} px, pixel ratio ${gl.getPixelRatio()}`);
+          console.info(`perf=1 (${perfLabel}) ${perfFamilies()}`);
         }
       }
       if (overlayLayer?.ctx) {
@@ -923,7 +1007,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
         iconCtx.pxPerMetre = rig.getScale() * S;
         icons = overlayIcons(converted, state, project, iconCtx);
         breaks = overlayBreaks(converted, state, cutAt, project, iconCtx);
-        paintOverlay(overlayLayer.ctx, Math.min(Math.max(opts.dpr, 1), 2), size.width, size.height, icons, breaks, timeSeconds, overlay.hover ?? null, overlay.highlight ?? null);
+        paintOverlay(overlayLayer.ctx, Math.min(Math.max(dpr, 1), 2), size.width, size.height, icons, breaks, timeSeconds, overlay.hover ?? null, overlay.highlight ?? null);
       }
     },
     hitTest(x, y) {
