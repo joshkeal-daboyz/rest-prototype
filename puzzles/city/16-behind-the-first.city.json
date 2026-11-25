@@ -1,0 +1,211 @@
+{
+  "id": "16-behind-the-first",
+  "name": "16 · Behind the first",
+  "version": 3,
+  "scope": "map",
+  "capacity": 8,
+  "startingParts": [
+    "fuse",
+    "wire",
+    "wire"
+  ],
+  "target": [
+    "shrine"
+  ],
+  "priority": [
+    "yard"
+  ],
+  "from": "16-behind-the-first",
+  "city": {
+    "blocksX": 6,
+    "blocksZ": 6,
+    "seed": 1,
+    "oneWay": true
+  },
+  "district": [
+    "block:5:4"
+  ],
+  "nodes": [
+    {
+      "id": "feed",
+      "type": "feed",
+      "place": {
+        "pole": "pole:z:5:lo:242.50"
+      }
+    },
+    {
+      "id": "br_main",
+      "type": "breaker",
+      "closed": true,
+      "place": {
+        "pole": "pole:z:5:hi:242.50"
+      }
+    },
+    {
+      "id": "j1",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:7:lo:192.50"
+      }
+    },
+    {
+      "id": "yard",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:5:4/built|outer|+z|38,48"
+      }
+    },
+    {
+      "id": "fb_A",
+      "type": "fusebox",
+      "rating": 5,
+      "place": {
+        "pole": "pole:x:7:lo:205.00"
+      }
+    },
+    {
+      "id": "j2",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:7:lo:217.50"
+      }
+    },
+    {
+      "id": "gate",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:5:4/built|outer|+z|42,48"
+      }
+    },
+    {
+      "id": "j3",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:7:lo:230.50"
+      }
+    },
+    {
+      "id": "stair",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:5:4/built|outer|+z|46,48"
+      }
+    },
+    {
+      "id": "shrine",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:5:7|outer|-z|45,54"
+      }
+    }
+  ],
+  "lines": [
+    {
+      "id": "l_feed",
+      "from": "feed",
+      "to": "br_main",
+      "run": {
+        "spans": [
+          "span:pole:z:5:hi:242.50~pole:z:5:lo:242.50"
+        ]
+      }
+    },
+    {
+      "id": "l_main",
+      "from": "br_main",
+      "to": "j1",
+      "run": {
+        "spans": [
+          "span:pole:x:7:lo:192.50~pole:z:5:hi:242.50"
+        ]
+      }
+    },
+    {
+      "id": "l_yard",
+      "from": "j1",
+      "to": "yard",
+      "run": {
+        "spans": [],
+        "drop": "block:5:4/built|outer|+z|38,48"
+      }
+    },
+    {
+      "id": "l_fb",
+      "from": "j1",
+      "to": "fb_A",
+      "run": {
+        "spans": [
+          "span:pole:x:7:lo:192.50~pole:x:7:lo:205.00"
+        ]
+      }
+    },
+    {
+      "id": "l_out",
+      "from": "fb_A",
+      "to": "j2",
+      "run": {
+        "spans": [
+          "span:pole:x:7:lo:205.00~pole:x:7:lo:217.50"
+        ]
+      }
+    },
+    {
+      "id": "l_gate",
+      "from": "j2",
+      "to": "gate",
+      "run": {
+        "spans": [],
+        "drop": "block:5:4/built|outer|+z|42,48"
+      }
+    },
+    {
+      "id": "l_run",
+      "from": "j2",
+      "to": "j3",
+      "run": {
+        "spans": [
+          "span:pole:x:7:lo:217.50~pole:x:7:lo:230.50"
+        ]
+      }
+    },
+    {
+      "id": "l_stair",
+      "from": "j3",
+      "to": "stair",
+      "run": {
+        "spans": [],
+        "drop": "block:5:4/built|outer|+z|46,48"
+      }
+    },
+    {
+      "id": "l_shrine",
+      "from": "j3",
+      "to": "shrine",
+      "run": {
+        "spans": [],
+        "drop": "block:5:7|outer|-z|45,54"
+      }
+    }
+  ],
+  "faults": [
+    {
+      "id": "f1",
+      "at": "fb_A",
+      "kind": "blown-fuse"
+    },
+    {
+      "id": "f2",
+      "at": "l_yard",
+      "kind": "damaged-cable"
+    },
+    {
+      "id": "f3",
+      "at": "j3",
+      "kind": "dead-junction"
+    }
+  ]
+}

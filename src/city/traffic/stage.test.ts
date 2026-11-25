@@ -80,10 +80,10 @@ describe("R-1 to R-7 for stage 9 (criterion 7)", { timeout: 120_000 }, () => {
       [8, "3d7f06f1"],
     ];
     const FACADES_PINS: readonly (readonly [number, string])[] = [
-      [1, "e96db65b"],
-      [2, "25f96f25"],
-      [3, "68430a02"],
-      [8, "53f33a18"],
+      [1, "c264e65d"],
+      [2, "b0402815"],
+      [3, "00744cfe"],
+      [8, "5f077cb3"],
     ];
     expect(PINNED.map((c) => c.seed)).toEqual([1, 2, 3, 8]);
     const got = PINS.map(([seed]) => {

@@ -7,8 +7,8 @@
  */
 
 import {
-  AdditiveBlending, BoxGeometry, BufferGeometry, CircleGeometry, Color, DynamicDrawUsage, Float32BufferAttribute, Frustum, Group, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial,
-  PerspectiveCamera, Quaternion, Scene, Sphere, SphereGeometry, Vector3, type Material, type Object3D, type WebGLRenderer,
+  AdditiveBlending, BoxGeometry, BufferGeometry, Color, DynamicDrawUsage, Float32BufferAttribute, Frustum, GreaterDepth, Group, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial,
+  PerspectiveCamera, Quaternion, Scene, Sphere, Vector3, type Material, type Object3D, type WebGLRenderer,
 } from "three";
 import { type CalibrationKey, type CityCircuitLayer, type CityPlan, type CityPlanRun, type CityPuzzle, type CityStreetsLayer, type CityPuzzleCity, type CityPuzzleConverted, type CityPuzzleView } from "../core";
 import { CityPuzzleError, convertCityPuzzle } from "../city/circuit";
@@ -17,23 +17,23 @@ import { BUILT_STAGES, runCity } from "../city/pipeline";
 import { streetsStageWith } from "../city/streets/stage";
 import type { CityStageDef } from "../city/pipeline/types";
 import type { GridState } from "../grid";
-import type { MapOverlay } from "../render";
-import type { Insets, Rect } from "../render/geometry";
-import { drawNodeGlyph, drawX, ALARM, WARM, TARGET } from "../render/glyphs";
-import { hash01 } from "../render/motion";
-import { FLARE_SECONDS } from "../render/relight";
+import type { MapOverlay } from "./maprender";
+import type { Insets, Rect } from "./maprender";
+import { drawNodeGlyph, drawX, FONT, ALARM, WARM, TARGET } from "./glyphs";
+import { hash01 } from "./motion";
 import { circuitDraws, circuitGroup, COMPONENT_H_M, type CircuitDraws, type CircuitDrawn, type CircuitJob } from "./circuitdraw";
 import { createDayToggle, pageDayToggleHost, type DayToggle, type DayToggleHost } from "./daytoggle";
 import type { Vec3 } from "./kitunits";
 import { GROUND } from "./kitunits";
 import { lightModeFor, type LightModeId } from "./lighting";
 import { addSurface, applyLightMode, newLightOwners, setRendererMode } from "./lightrig";
-import { createFxLayer, fxSwitch, repairedFaults, sharedFx, sparkingCuts, type FxCut, type FxEmitter } from "./fx";
+import { ARCS_AT_ONCE, arcSpots, blowBolts, blowBurstDue, createFxLayer, fxSwitch, gatherTargets, newFxBolts, relightBursts, repairedFaults, sharedFx, sparkingCuts, type FxCut, type FxEmitter, type FxLamp, type FxPiece, type FxPort, type FxRoute } from "./fx";
 import { lampFlicker } from "./look";
-import { STREET_LIGHTS_MAX, buildingGlow, lampBuildings, lightPlaces, litGlass, setBuildingGlow, setStreetLights, streetLights, type BuildingGlow, type BuildingLamp, type LitGlass, type StreetLights } from "./windows";
+import { DIM_SHARE, STREET_LIGHTS_MAX, buildingHeights, buildingGlow, dimBuildings, dimPieces, glowCardMesh, glowCards, roofOffsets, setDimWindows, lampBuildings, lightPlaces, litGlass, sceneryLamps, setBuildingGlow, setStreetLights, streetLights, targetBuildings, type BuildingGlow, type BuildingLamp, type GlowCards, type LitGlass, type StreetLights } from "./windows";
 import { WORLD_PER_METRE } from "./models";
-import { sharedTileModels, type ModelSet } from "./models3d";
-import { OVERLAY_HIT_PX, overlayHit, overlayIcons, overlayBreakHit, overlayBreaks, placePoint, type OverlayBreak, type OverlayIcon, type Project } from "./overlay";
+import { meshParts, sharedTileModels, type ModelSet } from "./models3d";
+import { OVERLAY_HIT_PX, overlayLabels, overlayHit, overlayIcons, overlayBreakHit, overlayBreaks, placePoint, type OverlayBreak, type OverlayIcon, type OverlayLabel, type Project } from "./overlay";
+import type { LoadPreview } from "../core/preview";
 import { createPicker, type Picker } from "./pick";
 import { PlanStopError, plan3dGroups, planInput, planKeys, planFailureText } from "./plan3d";
 import { createRelightClock, lampIgnition, lineFraction, type LampIgnition } from "./relight3d";
@@ -180,6 +180,34 @@ const SAMPLES = 8;
 /** A pulse moves this fast (m/s) and a new one follows every `PULSE_SPACING_M`. */
 export const PULSE_SPEED_M = 7;
 export const PULSE_SPACING_M = 3;
+/** How strong the live runs show through what hides them (081 W4; the architect's start, Josh tunes it by eye). */
+export const XRAY_OPACITY = 0.25;
+/** 081 V1: every job wire (live or dead) wears the dim cyan (the live glow's hue, darker; Josh, 25 Nov 2026) at this strength, steady: no glow, no pulses. Josh tunes both by eye. */
+export const JOB_WIRE_TINT = 0x2a7f99;
+export const JOB_WIRE_DIM = 0.4;
+/** The tint draws before the live layer (render order 0), so the glow and pulses add over it unchanged. */
+export const JOB_WIRE_TINT_ORDER = -1;
+/** The tint layer: an instanced mesh of `count` boxes, drawn before the live layer. */
+export function tintLayer(geometry: BufferGeometry, count: number): InstancedMesh {
+  const mesh = new InstancedMesh(geometry, new MeshBasicMaterial({ color: JOB_WIRE_TINT, transparent: true, opacity: JOB_WIRE_DIM, depthWrite: false, toneMapped: false }), Math.max(count, 1));
+  mesh.renderOrder = JOB_WIRE_TINT_ORDER;
+  return mesh;
+}
+
+/**
+ * The faded second pass of an instanced live mesh (081 W4): the same geometry and the same instance attributes (so the first pass's per-frame writes are the only writes), a material that draws only where something is in front
+ * (`GreaterDepth`, no depth write) at `XRAY_OPACITY`. The caller adds it to the scene and disposes the returned material. `base` must already hold its `instanceColor` if it uses one.
+ */
+export function xrayOf(base: InstancedMesh): { mesh: InstancedMesh; material: MeshBasicMaterial } {
+  const src = base.material as MeshBasicMaterial;
+  const material = new MeshBasicMaterial({ color: src.color, blending: src.blending, transparent: true, opacity: XRAY_OPACITY, depthWrite: false, depthFunc: GreaterDepth, toneMapped: false });
+  const mesh = new InstancedMesh(base.geometry, material, base.count);
+  mesh.instanceMatrix = base.instanceMatrix;
+  mesh.instanceColor = base.instanceColor;
+  mesh.raycast = () => {};
+  mesh.frustumCulled = false;
+  return { mesh, material };
+}
 
 /** One wire of a line's run (a span, a roof span or a drop) as the 3D view animates it. World units in `pts`, metres in `len_m` and `cum_m`. */
 export interface JobWire {
@@ -204,6 +232,51 @@ interface Ends {
   readonly b: string;
 }
 
+/** A wire's SAMPLES + 1 sagged points (x y z flat, world units) and the running length in metres at each. Pure. */
+function sagged(w: { readonly from: { x: number; y: number; z: number }; readonly to: { x: number; y: number; z: number } }): { pts: number[]; cum: number[] } {
+  const len3 = Math.hypot(w.to.x - w.from.x, w.to.y - w.from.y, w.to.z - w.from.z);
+  const pts: number[] = [];
+  const cum: number[] = [];
+  let px = w.from.x;
+  let py = w.from.y;
+  let pz = w.from.z;
+  let c = 0;
+  for (let j = 0; j <= SAMPLES; j++) {
+    const t = j / SAMPLES;
+    const x = w.from.x + (w.to.x - w.from.x) * t;
+    const y = w.from.y + (w.to.y - w.from.y) * t - SAG_RATIO * len3 * 4 * t * (1 - t);
+    const z = w.from.z + (w.to.z - w.from.z) * t;
+    if (j > 0) c += Math.hypot(x - px, y - py, z - pz) / S;
+    pts.push(x, y, z);
+    cum.push(c);
+    px = x;
+    py = y;
+    pz = z;
+  }
+  return { pts, cum };
+}
+
+/**
+ * The live drop of each scenery building (081 S4): its wire, pole to building, lit by the hidden line that feeds the building's hidden lamp. So it is dark while that lamp is dark, lights from the pole end as the Relight's current
+ * arrives, then glows and pulses like a job span. `line` is the hidden line's id (never a file line, and never picked). Only a building in `converted.scenery` has one. Pure.
+ */
+export function sceneryDropWires(layer: CityCircuitLayer, draws: CircuitDraws, converted: CityPuzzleConverted): JobWire[] {
+  const scenery = converted.scenery;
+  if (!scenery) return [];
+  const wireOf = new Map(draws.wires.map((w) => [w.id, w] as const));
+  const lineTo = new Map(converted.puzzle.lines.map((l, i) => [l.to, { id: l.id, i }] as const));
+  const out: JobWire[] = [];
+  for (const d of layer.drops) {
+    const lamp = scenery[d.building];
+    const w = lamp === undefined ? undefined : wireOf.get(d.id);
+    const hl = lamp === undefined ? undefined : lineTo.get(lamp);
+    if (!w || !hl) continue;
+    const { pts, cum } = sagged(w);
+    out.push({ id: d.id, line: hl.id, lineIndex: hl.i, flip: false, a0: 0, a1: 1, len_m: cum[SAMPLES]!, pts, cum_m: cum, cutFault: null });
+  }
+  return out;
+}
+
 /**
  * The wires of every line's run, ordered and turned for travel: each span's `flip` follows from walking the run from the node the line starts at, and `a0` to `a1` is its share of the run's length (the drop last).
  * Wires the circuit did not draw (a zero-length span, a roof span no job uses) are left out. Pure.
@@ -217,6 +290,8 @@ export function jobWires(layer: CityCircuitLayer, draws: CircuitDraws, converted
   const cutOf = new Map(Object.entries(converted.cuts).map(([fault, span]) => [span, fault] as const));
   const out: JobWire[] = [];
   const w0 = { x: 0, y: 0, z: 0 };
+  // The conversion (081 S1) turns each file line L into `L~a` (from to h1), `L` (h1 to h2: hidden nodes, no place) and `L~b`; the file's own from node is the `~a` segment's.
+  const fileFrom = new Map(converted.puzzle.lines.map((l) => [l.id, l.from] as const));
   converted.puzzle.lines.forEach((line, lineIndex) => {
     const run = converted.runs[line.id];
     if (!run) return;
@@ -229,7 +304,7 @@ export function jobWires(layer: CityCircuitLayer, draws: CircuitDraws, converted
       const shared = second ? [first.a, first.b].filter((e) => e === second.a || e === second.b) : [];
       if (second && shared.length === 1) start = shared[0] === first.a ? first.b : first.a;
       else {
-        const place = converted.places[line.from];
+        const place = converted.places[fileFrom.get(`${line.id}~a`) ?? line.from];
         const here = place && placePoint(place, layer, w0) ? { x: w0.x, z: w0.z } : null;
         const da = here && xz.get(first.a) ? Math.hypot(xz.get(first.a)!.x - here.x, xz.get(first.a)!.z - here.z) : 0;
         const db = here && xz.get(first.b) ? Math.hypot(xz.get(first.b)!.x - here.x, xz.get(first.b)!.z - here.z) : 0;
@@ -335,12 +410,46 @@ export interface LineFlow {
   reversed: boolean;
 }
 
+/** The indices of the two hidden segments S1's conversion cuts a file line into: `L~a` (at its from end) and `L~b` (at its to end). The drawn run spans all three. */
+export interface LineAround {
+  readonly a: number;
+  readonly b: number;
+}
+
+/**
+ * The segments around each file line that has them (081 S1's `L~a`, `L`, `L~b`), by the line's id. A line the conversion did not split is not in it. Pure; built once.
+ */
+export function linesAround(lines: readonly { id: string }[]): Map<string, LineAround> {
+  const at = new Map(lines.map((l, i) => [l.id, i] as const));
+  const out = new Map<string, LineAround>();
+  for (const [id] of at) {
+    const a = at.get(`${id}~a`);
+    const b = at.get(`${id}~b`);
+    if (a !== undefined && b !== undefined) out.set(id, { a, b });
+  }
+  return out;
+}
+
+/**
+ * How much of a drawn run is lit during the Relight, the run being `L~a`, `L`, `L~b` end to end (S1's split keeps `L` as the middle third, but its wires draw the whole run). Lit from the end current enters
+ * until the far end of the segment past: the run's start is the entering segment's start, its end the leaving segment's end. A segment the Relight never reaches is skipped, so the line's own time is the fallback.
+ */
+export function wholeFraction(plan: Parameters<typeof lineFraction>[0], lineIndex: number, around: LineAround, reversed: boolean, relT: number): number {
+  const first = reversed ? around.b : around.a;
+  const last = reversed ? around.a : around.b;
+  const s = plan.lineStart[first]!;
+  const e = plan.lineEnd[last]!;
+  if (!Number.isFinite(s) || !Number.isFinite(e)) return lineFraction(plan, lineIndex, relT);
+  return e > s ? clamp01((relT - s) / (e - s)) : relT >= e ? 1 : 0;
+}
+
 /**
  * One frame's flow on a line: from the state in play, from the Relight's own plan while one runs (`plan` and `relT`, from `relight3d.ts`'s clock). A line that is not powered stays 0 either way.
  */
-export function lineFlow(state: GridState, line: { id: string; to: string }, lineIndex: number, lineWires: readonly JobWire[], plan: Parameters<typeof lineFraction>[0] | null, relT: number, out: LineFlow): LineFlow {
-  let f = state.powered.has(line.id) ? (plan ? lineFraction(plan, lineIndex, relT) : 1) : 0;
+export function lineFlow(state: GridState, line: { id: string; to: string }, lineIndex: number, lineWires: readonly JobWire[], plan: Parameters<typeof lineFraction>[0] | null, relT: number, out: LineFlow, around?: LineAround): LineFlow {
   out.reversed = state.flowFrom.get(line.id) === line.to;
+  let f = 0;
+  if (state.powered.has(line.id)) f = !plan ? 1 : around ? wholeFraction(plan, lineIndex, around, out.reversed, relT) : lineFraction(plan, lineIndex, relT);
   // The grid keeps a damaged line powered up to its break; current does not cross a cut that is still there. Cap at the cut span's middle, counted from the end current enters.
   for (const w of lineWires) {
     if (w.cutFault === null) continue;
@@ -443,7 +552,7 @@ export function createOverlayLayer(source: HTMLCanvasElement, doc: Pick<Document
 }
 
 /** Draws the overlay: each break (a red X, with sparks only while live), then the icons, the hovered and highlighted one ringed. */
-function paintOverlay(c: CanvasRenderingContext2D, ratio: number, w: number, h: number, icons: readonly OverlayIcon[], breaks: readonly OverlayBreak[], time: number, hover: string | null, highlight: string | null): void {
+function paintOverlay(c: CanvasRenderingContext2D, ratio: number, w: number, h: number, icons: readonly OverlayIcon[], breaks: readonly OverlayBreak[], labels: readonly OverlayLabel[], time: number, hover: string | null, highlight: string | null): void {
   c.setTransform(ratio, 0, 0, ratio, 0, 0);
   c.clearRect(0, 0, w, h);
   for (const k of breaks) {
@@ -472,6 +581,18 @@ function paintOverlay(c: CanvasRenderingContext2D, ratio: number, w: number, h: 
       c.arc(o.x, o.y, o.size * 0.7, 0, Math.PI * 2);
       c.stroke();
     }
+  }
+  // The numbers (081 V3): a dark halo under each so they read on any ground; red is never the only cue, the sign and the "of" carry the sense.
+  c.font = FONT;
+  c.textAlign = "left";
+  c.textBaseline = "middle";
+  c.lineJoin = "round";
+  c.lineWidth = 3;
+  c.strokeStyle = "rgba(10,12,18,0.85)";
+  for (const l of labels) {
+    c.strokeText(l.text, l.x, l.y);
+    c.fillStyle = l.red ? ALARM : "#f2ead7";
+    c.fillText(l.text, l.x, l.y);
   }
 }
 
@@ -505,20 +626,10 @@ export interface CityPlayOptions {
 const GROUND_MARGIN_M = 60;
 const FRAME_MARGIN_M = 16;
 const GLOW_COLOUR = new Color(0x4fd1ff);
-const POOL_COLOUR = 0xffd37a;
-const LAMP_GLOW_M = 0.7;
-const POOL_RADIUS_M = 3.4;
 const WIRE_THICK_M = 0.16;
 
 const Z_AXIS = new Vector3(0, 0, 1);
 const UP_AXIS = new Vector3(0, 1, 0);
-
-interface LampGlow {
-  id: string;
-  index: number;
-  glow: Mesh;
-  pool: Mesh;
-}
 
 /**
  * The play view of a city puzzle: the plan with K3's circuit and the job, live, through the same `MapRenderer3d` the page already holds. A circuit with no plan layers it needs throws before anything is made.
@@ -538,6 +649,9 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   const job: CircuitJob = { converted };
   const draws = circuitDraws(layer, streets, job);
   const wires = jobWires(layer, draws, converted);
+  // The live layer animates the job's wires and, after them, each scenery building's drop (081 S4); picking and the cuts read `wires` only.
+  const liveWires = [...wires, ...sceneryDropWires(layer, draws, converted)];
+  const around = linesAround(puzzle.lines);
 
   const scene = new Scene();
   const owners = newLightOwners();
@@ -587,8 +701,19 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   };
   // The lit buildings (081 L1, F1b): each job lamp's building lights through its instances' window level (set each frame), and its shop glass is one more instanced layer.
   const lampsOf = lampBuildings(puzzle.nodes, converted.places, layer.roofs ?? [], plan.layers.buildings?.buildings ?? []);
+  // The scenery buildings on the job's live poles join their hidden lamps in (081 S4), after the job lamps' buildings, so L1's windows, the shop glass, L2's lights and L3's exclusion all take them.
+  for (const [id, list] of sceneryLamps(converted, plan.layers.buildings?.buildings ?? [])) {
+    const have = lampsOf.get(id);
+    if (!have) lampsOf.set(id, list);
+    else for (const l of list) if (!have.some((x) => x.id === l.id)) have.push(l);
+  }
+  // 081 W3: the buildings a target lamp lights read gold (W-Q2).
+  const targetOf = targetBuildings(lampsOf, puzzle.target ?? []);
   let litBuildings: { id: string; lamps: readonly BuildingLamp[] }[] = [];
   let litShop: LitGlass | null = null;
+  // 081 W2: the glow cards, one instanced mesh for the job, in front of every storey's glass on the lit buildings' street faces.
+  let litCards: GlowCards | null = null;
+  let roofSkip: ReadonlyMap<string, ReadonlySet<number>> = new Map();
   // The street lights (081 L2): one real light per lit building with a street face, made at build at intensity 0 and never added, removed or hidden in play (the count is fixed, so no program recompiles).
   // `lights=N` (dev only) fills the pool to N lights, the spares on the first building.
   const lightsWanted = import.meta.env.DEV ? Number(/[?&]lights=(\d+)(&|$)/.exec(opts.search ?? "")?.[1] ?? NaN) : NaN;
@@ -602,6 +727,11 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
       pool = null;
     }
     lightGlows.clear();
+    if (litCards) {
+      if (litCards.mesh) city?.group.remove(litCards.mesh);
+      litCards.dispose();
+      litCards = null;
+    }
     if (litShop) {
       if (litShop.mesh) city?.group.remove(litShop.mesh);
       litShop.dispose();
@@ -612,6 +742,11 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     for (const [id, lamps] of lampsOf) litBuildings.push({ id, lamps });
     litShop = litGlass(next.dressDraws, new Set(lampsOf.keys()), roots);
     if (litShop.mesh) next.group.add(litShop.mesh);
+    roofSkip = roofOffsets(dimBuildings(next.buildings.draws, (k) => (roots.get(k) ? meshParts(roots.get(k)!).length : 0)));
+    litCards = glowCardMesh(glowCards(plan, lampsOf.keys()), S);
+    if (litCards.mesh) next.group.add(litCards.mesh);
+    // 081 L3: a few dim windows in the dead city, set once at build, never on a job lamp's building.
+    setDimWindows(next.buildings, dimPieces(dimBuildings(next.buildings.draws, (k) => (roots.get(k) ? meshParts(roots.get(k)!).length : 0)), DIM_SHARE, plan.options.seed, new Set(lampsOf.keys())));
     const max = Number.isFinite(lightsWanted) ? Math.min(lightsWanted, STREET_LIGHTS_MAX) : STREET_LIGHTS_MAX;
     const places = lightPlaces(plan, lampsOf.keys(), max);
     if (places.length >= max && lightPlaces(plan, lampsOf.keys(), Infinity).length > places.length) console.warn(`street lights: more lit-able buildings than the cap of ${max}; the first ${max} get a light`);
@@ -659,7 +794,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   const unitBox = new BoxGeometry(1, 1, 1);
   geoms.push(unitBox);
   mats.push(glowMat);
-  const segTotal = wires.length * SAMPLES;
+  const segTotal = liveWires.length * SAMPLES;
   const segQ: Quaternion[] = [];
   const segMid: Vector3[] = [];
   const segLen: number[] = [];
@@ -673,7 +808,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   const sScratch = new Vector3();
   const colour = new Color();
   const dir = new Vector3();
-  wires.forEach((w, wi) => {
+  liveWires.forEach((w, wi) => {
     for (let j = 0; j < SAMPLES; j++) {
       const a = new Vector3(w.pts[j * 3]!, w.pts[j * 3 + 1]!, w.pts[j * 3 + 2]!);
       const b = new Vector3(w.pts[j * 3 + 3]!, w.pts[j * 3 + 4]!, w.pts[j * 3 + 5]!);
@@ -689,8 +824,26 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     }
   });
   live.add(glowMesh);
+  const glowX = xrayOf(glowMesh);
+  mats.push(glowX.material);
+  live.add(glowX.mesh);
 
-  const pulsesPer = wires.map((w) => Math.max(1, Math.ceil(w.len_m / PULSE_SPACING_M)));
+  // 081 V1: one static tint layer over the job's wires (not the scenery drops), made now and never written in play. Slightly thicker than the wire so it shows on the dark cable; the live glow draws over it.
+  const tintMesh = tintLayer(unitBox, wires.length * SAMPLES);
+  mats.push(tintMesh.material as Material);
+  wires.forEach((_w, wi) => {
+    for (let j = 0; j < SAMPLES; j++) {
+      const k = wi * SAMPLES + j;
+      tintMesh.setMatrixAt(k, m4.compose(segMid[k]!, segQ[k]!, sScratch.set(WIRE_THICK_M * 1.5 * S, WIRE_THICK_M * 1.5 * S, segLen[k]! * 1.05)));
+    }
+  });
+  tintMesh.instanceMatrix.needsUpdate = true;
+  tintMesh.raycast = () => {};
+  tintMesh.frustumCulled = false;
+  tintMesh.name = "city-play:wire-tint";
+  live.add(tintMesh);
+
+  const pulsesPer = liveWires.map((w) => Math.max(1, Math.ceil(w.len_m / PULSE_SPACING_M)));
   const pulseTotal = pulsesPer.reduce((a, b) => a + b, 0);
   const pulseMat = new MeshBasicMaterial({ color: 0xe8fbff, blending: AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false });
   mats.push(pulseMat);
@@ -699,33 +852,14 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   pulseMesh.raycast = () => {};
   pulseMesh.frustumCulled = false;
   live.add(pulseMesh);
+  const pulseX = xrayOf(pulseMesh);
+  mats.push(pulseX.material);
+  live.add(pulseX.mesh);
 
   // The spans a break cuts (the particle effects stand at the middle of each: 081 FX2).
   const cutWires = wires.map((w, wi) => ({ w, wi })).filter((c) => c.w.cutFault !== null);
 
-  // Lamps: a warm glow and a light pool each, from the pieces K3 stood.
-  const lamps: LampGlow[] = [];
-  const glowGeom = new SphereGeometry(1, 12, 8);
-  const poolGeom = new CircleGeometry(1, 28).rotateX(-Math.PI / 2);
-  geoms.push(glowGeom, poolGeom);
-  const lampIndex = new Map(puzzle.nodes.map((n, i) => [n.id, i] as const));
-  for (const p of draws.pieces) {
-    if (p.role !== "component" || p.component !== "lampPost") continue;
-    const gm = new MeshBasicMaterial({ color: POOL_COLOUR, blending: AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false, opacity: 0 });
-    const pm = new MeshBasicMaterial({ color: POOL_COLOUR, blending: AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false, opacity: 0 });
-    mats.push(gm, pm);
-    const glow = new Mesh(glowGeom, gm);
-    const head = 5.0;
-    glow.position.set(p.position.x, p.position.y + head * S, p.position.z);
-    const pool = new Mesh(poolGeom, pm);
-    pool.position.set(p.position.x, 0.25 * S, p.position.z);
-    glow.raycast = () => {};
-    pool.raycast = () => {};
-    glow.visible = false;
-    pool.visible = false;
-    live.add(glow, pool);
-    lamps.push({ id: p.id, index: lampIndex.get(p.id) ?? 0, glow, pool });
-  }
+  // A lamp is a building's windows, glow cards and light (081 W2); no lamp post or disc stands, and a `{ post }` lamp draws its overlay icon only.
 
   // ---- picking: invisible proxies for the job's models and spans ----
   const pickGroup = new Group();
@@ -780,6 +914,9 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   const project = cameraProject(camera, size);
   let icons: readonly OverlayIcon[] = [];
   let breaks: readonly OverlayBreak[] = [];
+  let preview: LoadPreview | null = null;
+  const ratings = new Map<string, number>();
+  for (const n of puzzle.nodes) if (n.type === "fusebox" && n.rating !== undefined) ratings.set(n.id, n.rating);
   let drawnW = -1;
   let drawnH = -1;
 
@@ -820,10 +957,9 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   const flow: LineFlow = { fraction: 0, reversed: false };
   const lit: WireLit = { forward: true, frac: 0 };
   const wp: WirePoint = { x: 0, y: 0, z: 0, seg: 0 };
-  const ign: LampIgnition = { on: false, flareAge: -1 };
   const bg: BuildingGlow = { level: 0, flare: 0 };
   const wiresOfLine = new Map<string, JobWire[]>();
-  for (const w of wires) (wiresOfLine.get(w.line) ?? wiresOfLine.set(w.line, []).get(w.line)!).push(w);
+  for (const w of liveWires) (wiresOfLine.get(w.line) ?? wiresOfLine.set(w.line, []).get(w.line)!).push(w);
   const lineOf = new Map(puzzle.lines.map((l, i) => [l.id, { line: l, index: i }] as const));
 
   // ---- particle effects (081 FX2): live-break sparks and repair flashes, from the state alone ----
@@ -865,7 +1001,119 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
         console.info(`3D effects: not applied (${e instanceof Error ? e.message : String(e)}).`);
       });
   }
+  // ---- 081 FX4: a blown fuse (a bolt down the wires it served, then a burst at the box), FX3: brownout arcs at the poles and a burst at each target lamp as it lights ----
+  interface Blow {
+    readonly faultId: string;
+    readonly synthetic: boolean;
+    readonly routes: readonly FxRoute[];
+    readonly x: number;
+    readonly y: number;
+    readonly z: number;
+    readonly ground: number;
+    /** The page time of the first frame after the event (negative until then), and the blow clock of the frame before. */
+    start: number;
+    prevT: number;
+    /** The building boxes within 25 m of the fuse, which its sparks ricochet off. */
+    readonly near: Float32Array;
+  }
+  const blows: Blow[] = [];
+  const bolts = newFxBolts(16);
+  /** The wires from `nodeId` along `path` (line ids, in order), each from the end nearer the fuse. */
+  const routeOf = (nodeId: string, path: readonly string[]): FxRoute | null => {
+    let cur = nodeId;
+    const pieces: FxPiece[] = [];
+    let len = 0;
+    for (const lid of path) {
+      const e = lineOf.get(lid);
+      if (!e) continue;
+      const fwd = e.line.from === cur;
+      cur = fwd ? e.line.to : e.line.from;
+      const ws = [...(wiresOfLine.get(lid) ?? [])].sort((a, b) => (fwd ? a.a0 - b.a0 : b.a0 - a.a0));
+      for (const w of ws) {
+        pieces.push({ pts: w.pts, cum_m: w.cum_m, len_m: w.len_m, rev: fwd ? w.flip : !w.flip });
+        len += w.len_m;
+      }
+    }
+    return pieces.length > 0 ? { pieces, len_m: len } : null;
+  };
+  // The building walls the forks may reach for (flat minx maxx maxy minz maxz, world units), made at the first blow.
+  let wallBoxes: Float32Array | null = null;
+  const walls = (): Float32Array => {
+    if (wallBoxes) return wallBoxes;
+    const heights = buildingHeights(plan);
+    const list: number[] = [];
+    for (const b of plan.layers.buildings?.buildings ?? []) {
+      const h = heights.get(b.id)?.height_m ?? 6;
+      for (const c of b.cells) list.push(c.i * 5 * S, (c.i + 1) * 5 * S, h * S, c.j * 5 * S, (c.j + 1) * 5 * S);
+    }
+    return (wallBoxes = Float32Array.from(list));
+  };
+  const nearWalls = (x: number, z: number): Float32Array => {
+    const all = walls();
+    const reach = 25 * S;
+    const out: number[] = [];
+    for (let i = 0; i + 4 < all.length; i += 5) {
+      if (all[i + 1]! < x - reach || all[i]! > x + reach || all[i + 4]! < z - reach || all[i + 3]! > z + reach) continue;
+      out.push(all[i]!, all[i + 1]!, all[i + 2]!, all[i + 3]!, all[i + 4]!);
+    }
+    return Float32Array.from(out);
+  };
+  // The street (or roof deck) height under a fuse box: its pole's foot, its roof's deck, else the street surface at 0 (never the box's own height up the pole).
+  const blowGround = (nodeId: string, own: number): number => {
+    const place = converted.places[nodeId];
+    if (place && "roof" in place) return own;
+    if (place && "pole" in place) return poleFoot.get(place.pole) ?? 0;
+    return 0;
+  };
+  const blowOf = (faultId: string, nodeId: string, paths: readonly (readonly string[])[], synthetic: boolean): Blow => {
+    const routes: FxRoute[] = [];
+    for (const path of paths) {
+      const r = routeOf(nodeId, path);
+      if (!r || routes.length >= bolts.length) continue;
+      // Everything near the run, found once now: the other wires' points and the building walls.
+      const own = new Set(r.pieces.map((q) => q.pts));
+      const others = liveWires.filter((w) => !own.has(w.pts)).map((w) => w.pts);
+      routes.push({ ...r, targets: gatherTargets(r, others, walls(), ground.position.y + 0.05, S) });
+    }
+    const at = nodeCentre.get(nodeId) ?? { x: 0, y: 0, z: 0 };
+    const piece = nodePiece.get(nodeId);
+    return { faultId, synthetic, routes, x: at.x, y: at.y, z: at.z, ground: blowGround(nodeId, piece ? piece.position.y : 0), start: -1, prevT: -1, near: nearWalls(at.x, at.z) };
+  };
+  // The pole ends of the job's live wires (a cut span's are left out): an insulator and the point 0.6 m along the wire.
+  const arcPorts: FxPort[] = [];
+  for (const w of wires) {
+    if (w.cutFault !== null || w.len_m < 1.4) continue;
+    const last = SAMPLES * 3;
+    pointOnWire(w, 0.6, wp);
+    arcPorts.push({ line: w.line, ax: w.pts[0]!, ay: w.pts[1]!, az: w.pts[2]!, bx: wp.x, by: wp.y, bz: wp.z });
+    pointOnWire(w, w.len_m - 0.6, wp);
+    arcPorts.push({ line: w.line, ax: w.pts[last]!, ay: w.pts[last + 1]!, az: w.pts[last + 2]!, bx: wp.x, by: wp.y, bz: wp.z });
+  }
+  const arcIdx: number[] = [];
+  // The target lamps' bursts stand where the building's street light does (L2), else at the lamp.
+  const burstLamps: FxLamp[] = [];
+  for (const id of puzzle.target ?? []) {
+    const index = puzzle.nodes.findIndex((n) => n.id === id);
+    if (index < 0) continue;
+    let at: Vec3 | undefined = lampPlaces.get(id);
+    for (const [bid, list] of lampsOf) {
+      if (!list.some((l) => l.id === id)) continue;
+      const lp = lightPlaces(plan, [bid], 1)[0];
+      if (lp) at = { x: lp.x * S, y: lp.y * S, z: lp.z * S };
+      break;
+    }
+    if (at) burstLamps.push({ index, x: at.x, y: at.y, z: at.z });
+  }
+  const burstIdx: number[] = [];
+  let fxRelPrev = -1;
+  // fx=all: a blow on the job's first rated fuse box every 2 s.
+  const allFuse = puzzle.nodes.find((n) => n.type === "fusebox" && n.rating !== undefined);
+  const allFuseLine = allFuse ? puzzle.lines.find((l) => l.from === allFuse.id || l.to === allFuse.id) : undefined;
+  let fxAllBlow = 0;
+  let fxAllBloom = 0;
+  const fxAllArcs = Math.min(arcPorts.length, 24);
   let fxLast = -1;
+  const fxView = { x: 0, y: 0, z: 0, near: 0.1, tanHalf: 0.5, aspect: 1 };
   let fxPrev: GridState | null = null;
   let fxState: GridState | null = null;
   let fxPlan: ReturnType<typeof clock.update> = null;
@@ -875,7 +1123,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   const fxReached = (cut: FxCut): boolean => {
     if (fxPlan === null || fxState === null) return true;
     const e = lineOf.get(cut.line)!;
-    return lineFlow(fxState, e.line, e.index, wiresOfLine.get(cut.line)!, fxPlan, fxRelT, flow).fraction > 0;
+    return lineFlow(fxState, e.line, e.index, wiresOfLine.get(cut.line)!, fxPlan, fxRelT, flow, around.get(cut.line)).fraction > 0;
   };
   function drawFx(state: GridState, plan_: ReturnType<typeof clock.update>, relT: number, time: number): void {
     if (!fx) return;
@@ -883,6 +1131,21 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     fxLast = time;
     if (fxMode === "all") {
       for (let i = 0; i < fxCuts.length; i++) fx.breakAt(i, time);
+      if (allFuse && allFuseLine && time >= fxAllBlow) {
+        fxAllBlow = time + 2;
+        blows.push(blowOf("", allFuse.id, [[allFuseLine.id]], true));
+      }
+      if (burstLamps.length > 0 && time >= fxAllBloom) {
+        const l = burstLamps[Math.floor(time * 2) % burstLamps.length]!;
+        fxAllBloom = time + 0.5;
+        fx.bloomAt(l.x, l.y, l.z);
+      }
+      const spots = arcSpots(state, arcPorts, time, fxAllArcs, arcIdx, true);
+      for (let k = 0; k < spots.length; k++) {
+        const a = arcPorts[spots[k]!]!;
+        fx.arcAt(a.ax, a.ay, a.az, a.bx, a.by, a.bz, 0.3 * S, 0.8, 1.0, 1.4);
+        fx.arcFlashAt((a.ax + a.bx) / 2, (a.ay + a.by) / 2, (a.az + a.bz) / 2);
+      }
       for (let k = 0; k < faultPlaces.length; k++) {
         if (time < fxAllNext[k]!) continue;
         fx.repairAt(faultPlaces[k]!.x, faultPlaces[k]!.y, faultPlaces[k]!.z);
@@ -903,17 +1166,52 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
         if (at) fx.repairAt(at.x, at.y, at.z);
       }
       fxPrev = state;
+      if (plan_ !== null) {
+        const due = relightBursts(plan_, (i) => state.lit.has(puzzle.nodes[i]!.id), burstLamps, fxRelPrev, relT, burstIdx);
+        for (let k = 0; k < due.length; k++) {
+          const l = burstLamps[due[k]!]!;
+          fx.bloomAt(l.x, l.y, l.z);
+        }
+        fxRelPrev = relT;
+      } else fxRelPrev = -1;
+      const spots = arcSpots(state, arcPorts, time, ARCS_AT_ONCE, arcIdx);
+      for (let k = 0; k < spots.length; k++) {
+        const a = arcPorts[spots[k]!]!;
+        fx.arcAt(a.ax, a.ay, a.az, a.bx, a.by, a.bz, 0.3 * S, 0.8, 1.0, 1.4);
+        fx.arcFlashAt((a.ax + a.bx) / 2, (a.ay + a.by) / 2, (a.az + a.bz) / 2);
+      }
     }
-    fx.update(dt, camera.quaternion);
+    // The blows: a bolt towards the fuse, the burst at its pop. A repair, an undo or a reset takes the fault away and stops it at once (never on the frame it was stamped).
+    for (let i = blows.length - 1; i >= 0; i--) {
+      const b = blows[i]!;
+      if (b.start < 0) b.start = time;
+      else if (!b.synthetic && !state.faults.some((f) => f.id === b.faultId)) {
+        blows.splice(i, 1);
+        continue;
+      }
+      const t = time - b.start;
+      if (blowBurstDue(b.routes.length > 0, b.prevT, t)) fx.blowAt(b.x, b.y, b.z, b.ground, b.near);
+      b.prevT = t;
+      const k = blowBolts(b.routes, t, bolts);
+      for (let j = 0; j < k; j++) fx.bolt(b.routes[bolts[j]!.route]!, bolts[j]!.head, bolts[j]!.tail, time);
+      if (k === 0 && t > 0) blows.splice(i, 1);
+    }
+    fxView.x = camera.position.x;
+    fxView.y = camera.position.y;
+    fxView.z = camera.position.z;
+    fxView.near = camera.near;
+    fxView.tanHalf = Math.tan((camera.fov * Math.PI) / 360);
+    fxView.aspect = camera.aspect;
+    fx.update(dt, camera.quaternion, fxView);
   }
 
   function drawLive(state: GridState, plan_: ReturnType<typeof clock.update>, relT: number, time: number): void {
     // Wires: the glow and the pulses.
     let pi = 0;
     const phase = (time * PULSE_SPEED_M) % PULSE_SPACING_M;
-    wires.forEach((w, wi) => {
+    liveWires.forEach((w, wi) => {
       const entry = lineOf.get(w.line)!;
-      lineFlow(state, entry.line, entry.index, wiresOfLine.get(w.line)!, plan_, relT, flow);
+      lineFlow(state, entry.line, entry.index, wiresOfLine.get(w.line)!, plan_, relT, flow, around.get(w.line));
       wireLit(w, flow.reversed, flow.fraction, lit);
       const wob = state.brownout ? 1 - lampFlicker(state, entry.index, time) * 0.85 : 1;
       const litFrom = lit.forward ? 0 : w.len_m * (1 - lit.frac);
@@ -942,27 +1240,16 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     // Lit buildings: the windows and the shop glass.
     for (const b of litBuildings) {
       buildingGlow(plan_, state, b.lamps, relT, time, bg);
-      if (city) setBuildingGlow(city.buildings, b.id, bg);
+      bg.target = targetOf.has(b.id);
+      if (city) setBuildingGlow(city.buildings, b.id, bg, roofSkip.get(b.id));
       litShop?.set(b.id, bg);
+      litCards?.set(b.id, bg);
       const lg = lightGlows.get(b.id);
-      if (lg) (lg.level = bg.level), (lg.flare = bg.flare);
+      if (lg) (lg.level = bg.level), (lg.flare = bg.flare), (lg.target = bg.target);
     }
     if (pool) setStreetLights(pool, lightGlows);
     litShop?.commit();
-    // Lamp posts (a building lamp is its windows).
-    for (const lamp of lamps) {
-      lampState(plan_, state, lamp.id, lamp.index, relT, ign);
-      const on = ign.on;
-      const flare = ign.flareAge;
-      const b = on ? 1 - lampFlicker(state, lamp.index, time) : 0;
-      const pop = flare >= 0 && flare < FLARE_SECONDS ? 1 + 1.6 * (1 - flare / FLARE_SECONDS) : 1;
-      lamp.glow.visible = b > 0.01;
-      lamp.pool.visible = b > 0.01;
-      (lamp.glow.material as MeshBasicMaterial).opacity = Math.min(1, b * (flare >= 0 && flare < FLARE_SECONDS ? 1 : 0.8));
-      (lamp.pool.material as MeshBasicMaterial).opacity = 0.34 * b * (flare >= 0 && flare < FLARE_SECONDS ? 1.4 : 1);
-      lamp.glow.scale.setScalar(LAMP_GLOW_M * S * pop);
-      lamp.pool.scale.setScalar(POOL_RADIUS_M * S * (flare >= 0 && flare < FLARE_SECONDS ? 1 + 0.3 * (1 - flare / FLARE_SECONDS) : 1));
-    }
+    litCards?.commit();
   }
 
   // perf=1 (dev only): a log after PERF_FRAMES frames of the loaded city (the grey-box city before the models load is not counted), "before power"; then again PERF_FRAMES frames after the Relight ends.
@@ -986,6 +1273,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     if (city?.circuit) roots.set(city.circuit.group, "circuit");
     if (circuit) roots.set(circuit.group, "circuit");
     if (litShop?.mesh) roots.set(litShop.mesh, "lit shop glass");
+    if (litCards?.mesh) roots.set(litCards.mesh, "glow cards");
     roots.set(live, "live layer");
     const total = new Map<string, { calls: number; tris: number }>();
     const frustum = new Frustum();
@@ -1039,6 +1327,9 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   const cutAt = (spanId: string): { x: number; y: number; z: number } | null => cutPoint.get(spanId) ?? null;
   const iconCtx = { width: 0, height: 0, time: 0, layer, pxPerMetre: 0 };
   return {
+    setLoadPreview(p: LoadPreview | null) {
+      preview = p;
+    },
     draw(state: GridState, overlay: MapOverlay, timeSeconds: number) {
       const t0 = perf ? performance.now() : 0;
       const gap = t0 - perfLastStart;
@@ -1076,7 +1367,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
         iconCtx.pxPerMetre = rig.getScale() * S;
         icons = overlayIcons(converted, state, project, iconCtx);
         breaks = overlayBreaks(converted, state, cutAt, project, iconCtx);
-        paintOverlay(overlayLayer.ctx, Math.min(Math.max(dpr, 1), 2), size.width, size.height, icons, breaks, timeSeconds, overlay.hover ?? null, overlay.highlight ?? null);
+        paintOverlay(overlayLayer.ctx, Math.min(Math.max(dpr, 1), 2), size.width, size.height, icons, breaks, overlayLabels(icons, breaks, preview, state, ratings, overlay.relightT !== undefined), timeSeconds, overlay.hover ?? null, overlay.highlight ?? null);
         if (fxMode === "all") {
           // The measure-only notice, in the corner of the overlay canvas (the overlay is scaled by the same ratio as above).
           const c = overlayLayer.ctx;
@@ -1097,7 +1388,12 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
       insets = { ...next };
       rig.resize(Math.max(canvas.clientWidth, 1), Math.max(canvas.clientHeight, 1), insets);
     },
-    notify() {},
+    notify(event) {
+      if (!fx || event.type !== "fuse:blown") return;
+      const e = event.payload;
+      const paths = e.lamps ? e.lamps.map((l) => l.path) : e.path.length > 0 ? [e.path] : [];
+      if (blows.length < 8) blows.push(blowOf(e.faultId, e.nodeId, paths, false));
+    },
     setBlockers(rects) {
       blockers = rects.map((r) => ({ ...r }));
       picker.setBlockers(rects);

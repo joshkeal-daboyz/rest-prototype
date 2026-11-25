@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { EventBus, type Puzzle } from "../core";
 import { createGrid } from "../grid";
-import type { MapRenderer } from "../render";
+import type { MapRenderer } from "../render3d/maprender";
 import { createMapPlay } from "./index";
 
 /** Ticket 009 B: battery and relay prompts, tick -> advance, and the log. feed -> bat -> relay sw -> A / B. */

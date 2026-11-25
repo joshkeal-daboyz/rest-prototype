@@ -13,7 +13,7 @@
  */
 
 import type { Vec3 } from "./kitunits";
-import { stableHash } from "../render/city";
+import { stableHash } from "../city/pipeline/hash";
 import { GROUND_POLE_ATTACH_UP_M, GROUND_POLE_MIX } from "../core/powerpoles";
 
 /** A named failure of the kit's own checks. */

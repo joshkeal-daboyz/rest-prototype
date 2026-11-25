@@ -8,7 +8,9 @@ import type { CityCircuitLayer } from "../core/cityplan";
 import type { CityNodePlace, CityPuzzleConverted } from "../core/citycircuit";
 import type { GridNode } from "../core";
 import type { GridState } from "../grid";
-import type { GlyphSpec, GlyphType } from "../render/glyphs";
+import type { LoadPreview } from "../core/preview";
+import type { GlyphSpec, GlyphType } from "./glyphs";
+import { GROUND_POLE_ATTACH_UP_M, type GroundPoleKey } from "../core/powerpoles";
 import { nodeLook, type NodeLook } from "./look";
 
 /** An icon's nudge, in CSS px, when it sits closer than its own size to an earlier one. */
@@ -18,6 +20,15 @@ export const OVERLAY_HIT_PX = 44;
 /** An icon's size range in CSS px; it grows with the zoom between them. */
 export const OVERLAY_ICON_MIN_PX = 24;
 export const OVERLAY_ICON_MAX_PX = 40;
+/**
+ * 081 W3: where a node on a ground pole stands, in metres: the top of its pole model's wire attachments (`GROUND_POLE_ATTACH_UP_M`), where the wire meets the pole. A pole whose model is not a ground pole (the feed's
+ * pick) or not in the layer's `poleModels` has no such height here and gets `OVERLAY_POLE_Y_M`.
+ */
+export function poleTopM(layer: Pick<CityCircuitLayer, "poleModels">, poleId: string): number {
+  const up = GROUND_POLE_ATTACH_UP_M[layer.poleModels[poleId] as GroundPoleKey];
+  return up ? Math.max(up[0], up[1], up[2]) : OVERLAY_POLE_Y_M;
+}
+
 /** Where a node on a pole, a lamp post or a roof stands above the ground, in metres, when its place has no height of its own. */
 export const OVERLAY_POLE_Y_M = 7;
 export const OVERLAY_POST_Y_M = 3;
@@ -78,7 +89,7 @@ function iconSize(ctx: OverlayContext): number {
 /** The world point of a node's place, or null if the layer does not hold it. */
 export function placePoint(place: CityNodePlace, layer: CityCircuitLayer, out: World): boolean {
   if ("pole" in place) {
-    for (const p of layer.poles) if (p.id === place.pole) return (out.x = p.x_m), (out.y = OVERLAY_POLE_Y_M), (out.z = p.z_m), true;
+    for (const p of layer.poles) if (p.id === place.pole) return (out.x = p.x_m), (out.y = poleTopM(layer, p.id)), (out.z = p.z_m), true;
     return false;
   }
   if ("building" in place) {
@@ -190,4 +201,54 @@ export function overlayBreaks(converted: CityPuzzleConverted, state: GridState, 
     out.push({ faultId: f.id, lineId: f.at, x: s.x, y: s.y, hit, sparking: state.powered.has(f.at) && state.sparking.has(f.at) });
   }
   return out;
+}
+
+// ---- the numbers by the icons (ticket 081 V3) ----
+
+/** One number drawn beside an icon: `x`, `y` is its left-middle point, CSS px. */
+export interface OverlayLabel {
+  readonly text: string;
+  readonly x: number;
+  readonly y: number;
+  readonly red: boolean;
+}
+
+/** The gap between an icon's edge and its number, CSS px. */
+export const OVERLAY_LABEL_GAP = 4;
+
+/** A signed change: "+3", "−2" (a true minus), "0". */
+export function signedDelta(n: number): string {
+  return n > 0 ? `+${n}` : n < 0 ? `−${-n}` : "0";
+}
+
+/**
+ * The numbers by the icons. Fuse boxes with a rating (`ratings`: node id -> rating) read "<fuseLoad> of <rating>" and feeds with a capacity "<load> of <capacity>", red when over; both are drawn always (during the
+ * Relight too), as they state what is lit. The preview's `delta` is drawn by each breaker, switch and readable break, red when `over`; a plain zero is not drawn. No preview, or `relighting`, draws no preview numbers.
+ */
+export function overlayLabels(icons: readonly OverlayIcon[], breaks: readonly OverlayBreak[], preview: LoadPreview | null, state: GridState, ratings: ReadonlyMap<string, number>, relighting = false): OverlayLabel[] {
+  const out: OverlayLabel[] = [];
+  for (const o of icons) {
+    const x = o.x + o.size / 2 + OVERLAY_LABEL_GAP;
+    if (o.type === "fusebox") {
+      const rating = ratings.get(o.id);
+      if (rating !== undefined) {
+        const load = state.fuseLoad.get(o.id) ?? 0;
+        out.push({ text: `${load} of ${rating}`, x, y: o.y, red: load > rating });
+      }
+    } else if (o.type === "feed") {
+      const f = state.feeds.get(o.id);
+      if (f && f.capacity !== null) out.push({ text: `${f.load} of ${f.capacity}`, x, y: o.y, red: f.over });
+    } else if (o.type === "breaker" || o.type === "switch") {
+      pushPreview(out, preview, relighting, o.id, x, o.y);
+    }
+  }
+  for (const k of breaks) pushPreview(out, preview, relighting, k.faultId, k.x + 8 + OVERLAY_LABEL_GAP, k.y);
+  return out;
+}
+
+function pushPreview(out: OverlayLabel[], preview: LoadPreview | null, relighting: boolean, id: string, x: number, y: number): void {
+  if (!preview || relighting) return;
+  const e = preview.get(id);
+  if (!e || (e.delta === 0 && !e.over)) return;
+  out.push({ text: signedDelta(e.delta), x, y, red: e.over });
 }

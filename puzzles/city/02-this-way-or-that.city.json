@@ -1,0 +1,130 @@
+{
+  "id": "02-this-way-or-that",
+  "name": "02 · This way or that",
+  "version": 4,
+  "scope": "map",
+  "capacity": 3,
+  "startingParts": [],
+  "target": [
+    "shrine"
+  ],
+  "from": "02-this-way-or-that",
+  "city": {
+    "blocksX": 6,
+    "blocksZ": 6,
+    "seed": 1,
+    "oneWay": true
+  },
+  "district": [
+    "block:3:0"
+  ],
+  "nodes": [
+    {
+      "id": "feed",
+      "type": "feed",
+      "place": {
+        "pole": "pole:x:2:hi:162.50"
+      }
+    },
+    {
+      "id": "sw_1",
+      "type": "switch",
+      "outputs": [
+        "l_home",
+        "l_on"
+      ],
+      "selected": 0,
+      "place": {
+        "pole": "pole:x:2:lo:162.50"
+      }
+    },
+    {
+      "id": "home",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:3:0/b|outer|+z|30,20"
+      }
+    },
+    {
+      "id": "sw_2",
+      "type": "switch",
+      "outputs": [
+        "l_well",
+        "l_shrine"
+      ],
+      "selected": 0,
+      "place": {
+        "pole": "pole:x:2:lo:150.83"
+      }
+    },
+    {
+      "id": "well",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:3:2|outer|-z|28,24"
+      }
+    },
+    {
+      "id": "shrine",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:3:0/b|outer|+z|26,20"
+      }
+    }
+  ],
+  "lines": [
+    {
+      "id": "l_feed",
+      "from": "feed",
+      "to": "sw_1",
+      "run": {
+        "spans": [
+          "span:pole:x:2:hi:162.50~pole:x:2:lo:162.50"
+        ]
+      }
+    },
+    {
+      "id": "l_home",
+      "from": "sw_1",
+      "to": "home",
+      "run": {
+        "spans": [],
+        "drop": "block:3:0/b|outer|+z|30,20"
+      }
+    },
+    {
+      "id": "l_on",
+      "from": "sw_1",
+      "to": "sw_2",
+      "run": {
+        "spans": [
+          "span:pole:x:2:lo:150.83~pole:x:2:lo:162.50"
+        ]
+      }
+    },
+    {
+      "id": "l_well",
+      "from": "sw_2",
+      "to": "well",
+      "run": {
+        "spans": [],
+        "drop": "block:3:2|outer|-z|28,24"
+      }
+    },
+    {
+      "id": "l_shrine",
+      "from": "sw_2",
+      "to": "shrine",
+      "run": {
+        "spans": [
+          "span:pole:x:2:lo:139.17~pole:x:2:lo:150.83"
+        ],
+        "drop": "block:3:0/b|outer|+z|26,20"
+      }
+    }
+  ],
+  "faults": []
+}

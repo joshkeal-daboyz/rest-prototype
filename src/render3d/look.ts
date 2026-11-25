@@ -1,7 +1,7 @@
 /** What the 3D view draws, from GridState only (ticket 037). Pure: no three, no DOM. */
 
 import type { GridState } from "../grid";
-import { flicker } from "../render/motion";
+import { flicker } from "./motion";
 
 export type WireLook = "live" | "dead" | "faulted";
 

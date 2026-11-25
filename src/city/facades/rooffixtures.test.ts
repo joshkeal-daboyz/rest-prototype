@@ -3,10 +3,11 @@
  * thing changed, and must fail the check the ticket names. The unchanged layer is the positive control: it has no failure.
  */
 import { describe, expect, it } from "vitest";
-import type { CityCell, CityColumn, CityRoofPiece, CityWallPiece } from "../../core";
+import type { CityCell, CityColumn, CityPlacement, CityRoofPiece, CityWallPiece } from "../../core";
 import { roofReport, type RoofFailure } from "./roofcheck";
 import { ROOF_ACCESS, ROOF_SMALL, ROOF_WATER_TOWER, BILLBOARD_STRUCTURE, BILLBOARD_FACES, BILLBOARD_SIGN_Y_M, WATER_TOWER_PER_BUILDINGS, roofBounds } from "./roofkit";
-import { columnLoads, deckY, placeOnRoof, roofInsets, streetMid } from "./roofs";
+import { columnLoads, deckY, meetsKeep, placeOnRoof, roofInsets, streetMid } from "./roofs";
+import { cityOf } from "./testcities";
 import { makeCtx } from "./facts";
 import { runsOf } from "./dress";
 import { DEFAULT, VARIED, label, layersOf, type Layers } from "./testcities";
@@ -280,5 +281,27 @@ describe("the failing fixtures (criterion 5)", () => {
     expect(has(none, "R8", "buildings with a roof piece")).toBe(true);
     const smallOnly = roofsOf().filter((p) => p.kind === "small");
     expect(has(checkWith(smallOnly), "R8", "runs with a big roof prop")).toBe(true);
+  });
+
+  it("H4, a corner roof: a small prop whose footprint meets the corner's keep square is turned away, and none stands in any corner keep square of the default city", () => {
+    const keep = { roof: "roof:0:0", x_m: 10, z_m: 10, half_m: 1.2 };
+    const key = ROOF_SMALL[0]!;
+    const at = (x_m: number, z_m: number): CityPlacement => ({ key, x_m, y_m: 0, z_m, yaw_deg: 0 });
+    expect(meetsKeep(keep, at(10, 10))).toBe(true);
+    expect(meetsKeep(keep, at(10 + 1.2 + roofBounds(key).w / 2 + 0.01, 10))).toBe(false);
+    const circuit = cityOf(DEFAULT).plan.layers.circuit!;
+    const keeps = new Map(circuit.roofKeep!.map((k) => [k.roof, k]));
+    expect(keeps.size).toBeGreaterThan(0);
+    const small = facades.roofs!.filter((p) => p.kind === "small");
+    expect(small.filter((p) => meetsKeep(keeps.get(`roof:${p.cell.i}:${p.cell.j}`), p.placement))).toEqual([]);
+  });
+
+  it("H4, a mid-row place is never cleared: no keep square is written for it, and small props still stand within its structure's reach", () => {
+    const circuit = cityOf(DEFAULT).plan.layers.circuit!;
+    const mids = circuit.roofs!.filter((r) => r.row === "mid");
+    expect(mids.length).toBeGreaterThan(0);
+    expect(circuit.roofKeep!.some((k) => mids.some((m) => m.id === k.roof))).toBe(false);
+    const stood = mids.filter((m) => facades.roofs!.some((p) => p.kind === "small" && meetsKeep({ roof: m.id, x_m: m.x_m, z_m: m.z_m, half_m: m.keep_half_m }, p.placement)));
+    expect(stood.length).toBeGreaterThan(0);
   });
 });

@@ -1,7 +1,8 @@
 import { BoxGeometry, Group, Mesh, Quaternion, Texture, Vector3, type Object3D } from "three";
 import { describe, expect, it } from "vitest";
 import type { Fault } from "../core";
-import { ARC_REACH_M, createFxLayer, createParticlePool, cutArcs, fxMeshes, fxTextures, newFxArcs, newParticleInit, repairedFaults, sparkingCuts, type FxCut, type FxSpan } from "./fx";
+import { BLOW_TIMING } from "../core";
+import { ARC_REACH_M, BLOW_SPARKS, arcSpots, blowBolts, gatherTargets, pickTarget, blowBurstDue, createFxLayer, newFxBolts, relightBursts, routePoint, createParticlePool, cutArcs, fxMeshes, fxTextures, newFxArcs, newParticleInit, repairedFaults, sparkingCuts, type FxCut, type FxPort, type FxRoute, type FxSpan } from "./fx";
 import { WORLD_PER_METRE as S } from "./models";
 
 const fault = (id: string, at = "l1"): Fault => ({ id, at, kind: "damaged-cable" });
@@ -145,7 +146,7 @@ describe("081 FX2: the effects' pure parts", () => {
     expect(cutArcs({ id: 3, span }, 1.234, out)).toBe(cutArcs({ id: 3, span }, 1.234, again));
   });
 
-  it("createFxLayer: a cut that stops being fed shows no glow or arc on the next frame, spawns nothing more, and is empty within 1.5 s", () => {
+  it("createFxLayer: a cut that stops being fed shows no glow or arc on the next frame, spawns nothing more, and is empty within 3 s", () => {
     const layer = createFxLayer([{ id: 1, x: 5 * S, y: 7 * S, z: 0, ground: 0, span }]);
     const cam = new Quaternion();
     const dt = 1 / 60;
@@ -162,7 +163,7 @@ describe("081 FX2: the effects' pure parts", () => {
     expect(layer.glowing()).toBe(0);
     expect(layer.counts().lightning).toBe(0);
     let prev = layer.counts();
-    for (let f = 0; f < 90; f++) {
+    for (let f = 0; f < 180; f++) {
       layer.update(dt, cam);
       const c = layer.counts();
       // Flashes and smoke only ever thin out (a bounced spark may split in two, so the spray layers may not).
@@ -173,5 +174,104 @@ describe("081 FX2: the effects' pure parts", () => {
     }
     expect(layer.counts()).toEqual({ sparkle: 0, softSpot: 0, smoke: 0, lightning: 0, spark: 0, shard: 0 });
     layer.dispose();
+  });
+});
+
+describe("081 FX4 and FX3: the blown fuse, brownout arcs and Relight bursts", () => {
+  const piece = (x0: number, x1: number, rev: boolean) => ({ pts: [x0, 0, 0, x1, 0, 0], cum_m: [0, Math.abs(x1 - x0)], len_m: Math.abs(x1 - x0), rev });
+  const routes: FxRoute[] = [
+    { pieces: [piece(0, 10, false)], len_m: 10 },
+    // The second wire's own from end is the lamp's: it runs against the route.
+    { pieces: [piece(0, 4, false), piece(14, 4, true)], len_m: 14 },
+  ];
+
+  it("a blow: each bolt runs from its lamp's end to the fuse by popAt and is gone after the pop; the burst is due once, at popAt (at 0 with no path); undo clears it", () => {
+    const out = newFxBolts(4);
+    expect(blowBolts(routes, 0, out)).toBe(2);
+    expect([out[0]!.head, out[1]!.head]).toEqual([10, 14]);
+    expect(blowBolts(routes, BLOW_TIMING.popAt, out)).toBe(2);
+    expect([out[0]!.head, out[1]!.head]).toEqual([0, 0]);
+    expect(blowBolts(routes, BLOW_TIMING.popAt + BLOW_TIMING.pop, out)).toBe(0);
+    expect(blowBolts([], 0.3, out)).toBe(0);
+    const at = { x: 0, y: 0, z: 0 };
+    routePoint(routes[1]!, 0, at);
+    expect(at.x).toBeCloseTo(0, 6);
+    routePoint(routes[1]!, 14, at);
+    expect(at.x).toBeCloseTo(14, 6);
+    let bursts = 0;
+    let bare = 0;
+    let prev = -1;
+    for (let t = 0; t < 2; t += 1 / 60) {
+      if (blowBurstDue(true, prev, t)) bursts++;
+      if (blowBurstDue(false, prev, t)) bare++;
+      prev = t;
+    }
+    expect([bursts, bare]).toEqual([1, 1]);
+    const layer = createFxLayer([]);
+    layer.arcFlashAt(0, 0, 0);
+    expect(layer.alive()).toBe(1);
+    layer.blowAt(0, 0, 0, 0);
+    expect(layer.alive()).toBeGreaterThanOrEqual(BLOW_SPARKS);
+    expect(BLOW_SPARKS).toBeGreaterThanOrEqual(140);
+    layer.update(0.016, new Quaternion());
+    const lights = layer.group.children.filter((c) => c.name === "fx-light") as unknown as { intensity: number }[];
+    expect(lights).toHaveLength(4);
+    expect(lights[0]!.intensity).toBeGreaterThan(0);
+    layer.update(1, new Quaternion());
+    expect(lights.every((l) => l.intensity === 0)).toBe(true);
+    layer.clear();
+    expect(layer.alive()).toBe(0);
+    layer.dispose();
+  });
+
+  it("brownout arcs: only while browned out, at most max, only on powered lines of a feed that is over", () => {
+    const port = (line: string): FxPort => ({ line, ax: 0, ay: 0, az: 0, bx: 1, by: 0, bz: 0 });
+    const ports = [port("a"), port("a"), port("b"), port("c")];
+    const feeds = new Map([["F1", { load: 5, capacity: 3, over: true }], ["F2", { load: 1, capacity: 3, over: false }]]);
+    const base = { powered: new Set(["a", "b"]), feedOf: new Map([["a", "F1"], ["b", "F2"], ["c", "F1"]]), feeds };
+    const out: number[] = [];
+    let seen = 0;
+    for (let t = 0; t < 30; t += 0.05) {
+      arcSpots({ ...base, brownout: false }, ports, t, 3, out);
+      expect(out).toHaveLength(0);
+      arcSpots({ ...base, brownout: true }, ports, t, 3, out);
+      expect(out.length).toBeLessThanOrEqual(3);
+      for (const i of out) expect(i).toBeLessThanOrEqual(1);
+      seen += out.length;
+      arcSpots({ ...base, brownout: true }, ports, t, 1, out);
+      expect(out.length).toBeLessThanOrEqual(1);
+    }
+    expect(seen).toBeGreaterThan(0);
+  });
+
+  it("Relight bursts: each lit lamp bursts once, in the order the plan lights them, and a dark lamp never", () => {
+    const plan = { nodeArrive: new Float64Array([0.5, 1.4, 0.9, 2.0]) };
+    const lamps = [1, 2, 3, 0].map((index) => ({ index, x: 0, y: 0, z: 0 }));
+    const lit = (i: number): boolean => i !== 3;
+    const order: number[] = [];
+    const out: number[] = [];
+    let prev = -1;
+    for (let t = 0; t <= 3; t += 0.1) {
+      relightBursts(plan, lit, lamps, prev, t, out);
+      for (const k of out) order.push(lamps[k]!.index);
+      prev = t;
+    }
+    expect(order).toEqual([0, 2, 1]);
+    expect(relightBursts(plan, lit, lamps, -1, 3, out).map((k) => lamps[k]!.index)).toEqual([0, 2, 1]);
+  });
+
+  it("fork targets: a wall and a wire within 4 m are found, ones beyond are not, and a spot with nothing in reach picks nothing", () => {
+    const base: FxRoute = { pieces: [piece(0, 10, false)], len_m: 10 };
+    // A wire 2 m beside the run's middle, a wall 3 m off its start, a wire 30 m away.
+    const wires = [[5, 0, 2, 6, 0, 2], [5, 0, 30, 6, 0, 30]];
+    const boxes = Float32Array.from([-3, -2, 8, -4, 4]);
+    const t = gatherTargets(base, wires, boxes, -100, 1);
+    const route = { ...base, targets: t };
+    const at = { x: 0, y: 0, z: 0 };
+    expect(pickTarget(route, 0, 0, at)).toBe(true);
+    expect(at.x).toBeCloseTo(-2, 5);
+    expect(pickTarget(route, 5, 0.99, at)).toBe(true);
+    expect(Math.abs(at.z)).toBeLessThanOrEqual(4);
+    expect(pickTarget({ ...base, targets: gatherTargets(base, [wires[1]!], new Float32Array(0), -100, 1) }, 5, 0.5, at)).toBe(false);
   });
 });

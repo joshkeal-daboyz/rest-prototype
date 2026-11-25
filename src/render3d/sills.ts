@@ -14,7 +14,7 @@
 
 import type { CalibrationKey } from "../core";
 import { frontAxis, frontYaw, type ModelFront } from "./models";
-import { stableHash } from "../render/city";
+import { stableHash } from "../city/pipeline/hash";
 import { ESCAPE_TABLES, sillOf, type EscapeTables } from "./escapes";
 import type { Stack, StackPiece } from "./stacks";
 

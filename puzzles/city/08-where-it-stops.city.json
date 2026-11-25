@@ -1,0 +1,186 @@
+{
+  "id": "08-where-it-stops",
+  "name": "08 · Where it stops",
+  "version": 3,
+  "scope": "map",
+  "capacity": 5,
+  "startingParts": [
+    "wire",
+    "wire"
+  ],
+  "target": [
+    "well"
+  ],
+  "from": "08-where-it-stops",
+  "city": {
+    "blocksX": 6,
+    "blocksZ": 6,
+    "seed": 1,
+    "oneWay": true
+  },
+  "district": [
+    "block:3:2"
+  ],
+  "nodes": [
+    {
+      "id": "feed",
+      "type": "feed",
+      "place": {
+        "pole": "pole:x:2:lo:162.50"
+      }
+    },
+    {
+      "id": "br_main",
+      "type": "breaker",
+      "closed": true,
+      "place": {
+        "pole": "pole:x:2:hi:162.50"
+      }
+    },
+    {
+      "id": "j1",
+      "type": "junction",
+      "place": {
+        "pole": "pole:z:5:lo:122.50"
+      }
+    },
+    {
+      "id": "gate",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:5:1/built|outer|-x|38,23"
+      }
+    },
+    {
+      "id": "j2",
+      "type": "junction",
+      "place": {
+        "pole": "pole:z:5:lo:132.50"
+      }
+    },
+    {
+      "id": "porch",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:3:2|outer|+x|32,26"
+      }
+    },
+    {
+      "id": "j3",
+      "type": "junction",
+      "place": {
+        "pole": "pole:z:5:lo:139.50"
+      }
+    },
+    {
+      "id": "steps",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:5:1/built|outer|-x|38,27"
+      }
+    },
+    {
+      "id": "well",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:5:1/built|outer|-x|38,29"
+      }
+    }
+  ],
+  "lines": [
+    {
+      "id": "l_feed",
+      "from": "feed",
+      "to": "br_main",
+      "run": {
+        "spans": [
+          "span:pole:x:2:hi:162.50~pole:x:2:lo:162.50"
+        ]
+      }
+    },
+    {
+      "id": "l_main",
+      "from": "br_main",
+      "to": "j1",
+      "run": {
+        "spans": [
+          "span:pole:x:2:hi:162.50~pole:z:5:lo:122.50"
+        ]
+      }
+    },
+    {
+      "id": "l_gate",
+      "from": "j1",
+      "to": "gate",
+      "run": {
+        "spans": [],
+        "drop": "block:5:1/built|outer|-x|38,23"
+      }
+    },
+    {
+      "id": "l_run",
+      "from": "j1",
+      "to": "j2",
+      "run": {
+        "spans": [
+          "span:pole:z:5:lo:122.50~pole:z:5:lo:132.50"
+        ]
+      }
+    },
+    {
+      "id": "l_porch",
+      "from": "j2",
+      "to": "porch",
+      "run": {
+        "spans": [],
+        "drop": "block:3:2|outer|+x|32,26"
+      }
+    },
+    {
+      "id": "l_up",
+      "from": "j2",
+      "to": "j3",
+      "run": {
+        "spans": [
+          "span:pole:z:5:lo:132.50~pole:z:5:lo:139.50"
+        ]
+      }
+    },
+    {
+      "id": "l_steps",
+      "from": "j3",
+      "to": "steps",
+      "run": {
+        "spans": [],
+        "drop": "block:5:1/built|outer|-x|38,27"
+      }
+    },
+    {
+      "id": "l_well",
+      "from": "j3",
+      "to": "well",
+      "run": {
+        "spans": [
+          "span:pole:z:5:lo:139.50~pole:z:5:lo:152.50"
+        ],
+        "drop": "block:5:1/built|outer|-x|38,29"
+      }
+    }
+  ],
+  "faults": [
+    {
+      "id": "f1",
+      "at": "j3",
+      "kind": "dead-junction"
+    },
+    {
+      "id": "f2",
+      "at": "l_porch",
+      "kind": "damaged-cable"
+    }
+  ]
+}

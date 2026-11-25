@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { EventBus, loadPuzzle, type Puzzle } from "../core";
 import { createGrid } from "../grid";
-import { FLARE_SECONDS, RELIGHT_LEAD_SECONDS, RELIGHT_TRAVEL_SECONDS, planRelight } from "../render/relight";
+import { FLARE_SECONDS, RELIGHT_LEAD_SECONDS, RELIGHT_TRAVEL_SECONDS, planRelight } from "./relightplan";
 import { createRelightClock, lampIgnition, lineFraction, nodeArrived } from "./relight3d";
 
 const shrine: Puzzle = loadPuzzle(JSON.parse(readFileSync("puzzles/09-shrine-circuit.json", "utf8")));
@@ -109,17 +109,5 @@ describe("lineFraction", () => {
 
   it("a line that is not powered stays 0", () => {
     for (const id of ["l_st1", "l_s2", "l_a"]) for (const t of [0, 1, 3, 99]) expect(lineFraction(plan, li(id), t), id).toBe(0);
-  });
-});
-
-describe("drift guard", () => {
-  it("2D still has the lines this mirrors", () => {
-    const src = readFileSync("src/render/map-renderer.ts", "utf8");
-    for (const line of [
-      "frac = e > s ? clamp01((relT - s) / (e - s)) : relT >= e ? 1 : 0;",
-      "if (state.lit.has(id) && relT >= arrive) {",
-      "if (relT < plan.duration) rp = plan;",
-      "if (!plan) plan = planRelight(puzzle, state);",
-    ]) expect(src, line).toContain(line);
   });
 });

@@ -3,10 +3,11 @@
  * Needs WebGL. Only the pipeline city (`city=tiles`, `city=plan`) and the tile sheet remain: the ladder town was deleted in ticket 081 A2c.
  */
 
+import type { LoadPreview } from "../core/preview";
 import { WebGLRenderer } from "three";
 import type { CityPuzzleView, Puzzle } from "../core";
-import type { MapBlockers, MapCentre, MapPanView, MapPlaces, MapRenderer } from "../render";
-import type { Insets } from "../render/geometry";
+import type { MapBlockers, MapCentre, MapPanView, MapPlaces, MapRenderer } from "./maprender";
+import type { Insets } from "./maprender";
 import { createCityPlayRenderer3d, overlayRequested, renderRoute } from "./cityview";
 import { createPlanAssembleRenderer3d, planAssembleRequested, tilesPlanRequested } from "./plan3d";
 import { createPlanRenderer3d, planViewRequested } from "./planview";
@@ -19,7 +20,11 @@ export interface MapRenderer3dOptions {
   city?: CityPuzzleView;
 }
 
-export type MapRenderer3d = MapRenderer & MapPanView & MapPlaces & MapCentre & MapBlockers & { dispose(): void };
+export type MapRenderer3d = MapRenderer & MapPanView & MapPlaces & MapCentre & MapBlockers & {
+  dispose(): void;
+  /** The page's load preview (ticket 081 V3): drawn by each breaker, switch and readable break icon; null draws none. Only the city play view draws it. */
+  setLoadPreview?(preview: LoadPreview | null): void;
+};
 
 /** The message `createMapRenderer3d` throws when the address carries no `city=` route. The ui (ticket 081 A2d) never reaches it. */
 export const NO_CITY_ROUTE = "createMapRenderer3d: no city= route (the ladder town is gone, ticket 081 A2c)";

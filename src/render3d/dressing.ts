@@ -30,7 +30,7 @@
  */
 
 import type { AssetEntry, CalibrationKey } from "../core";
-import { stableHash } from "../render/city";
+import { stableHash } from "../city/pipeline/hash";
 import { CODE_ESCAPE, CODE_ESCAPE_KEY, ESCAPE_FIRST, escapeBlocks, type EscapeSite, ESCAPE_GEOMETRY, ESCAPE_GROUND_TOL_M, codeEscape, ladderParts, planEscape, storeysOfColumn, ESCAPE_DECK_BELOW_SILL_M, type EscapePart } from "./escapes";
 import { frontYaw, sizeOf, type FrontTable, type ModelFront } from "./models";
 import type { Stack, StackPiece } from "./stacks";

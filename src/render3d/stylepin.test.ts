@@ -5,7 +5,7 @@
 import { describe, expect, it } from "vitest";
 import { BUILDING_STYLES, CITY_CHECK as STAGE_CHECK, CITY_STOREYS as STAGE_STOREYS, COLOURWAY_POOL as STAGE_POOL, TERRACE_BAYS as STAGE_BAYS } from "../city/buildings/constants";
 import { finalise } from "../city/buildings/hash";
-import { stableHash } from "../render/city";
+import { stableHash } from "../city/pipeline/hash";
 import { CITY_CHECK, CITY_STOREYS } from "./citymetrics";
 import { COLOURWAY_POOL, colourwayStart } from "./colourway";
 import { STACK_STYLES } from "./stacks";
