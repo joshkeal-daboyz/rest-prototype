@@ -34,3 +34,10 @@ Josh played the P2a pilots (PR #69, branch `ticket/081p2a-pilots`, dev server on
 2. **02 This way or that.** Josh drew green arrows on the two runs that leave the feed. On one side the flow dashes run away from the feed and then come back, so the current reads as running in the wrong direction. The target lamp sits beside a pole with no clear link to either run.
 3. **03 Not enough for all, after the win.** The lines climb to a pole on a corner building's roof and double back over the feed. Breakers and switches are drawn far from the poles they sit on. The lit building on the right glows; the targets at the bottom corners are icons over dark roofs.
 4. **04 The tired feed, after the win.** Four runs fan out from one point over a building's front and end at switch icons on the roofline. The target lamp stands on the pavement below with a flat disc of light and no wire to it.
+
+## P2a2: Josh plays the re-laid pilots (25 Nov 2026, PR #74 on main with W2 and W3)
+
+- 01: "Issue with level 1 and the flow of electricity"; on a card: "Pulses run backward"; "that's exactly what I meant". The pulses on `l_br` (junction j0 up to the breaker) move from the breaker down into the junction.
+- 02: "Same thing with lv2". Feed at the right; the pulses along the whole run to the target at the left move toward the feed.
+- 03: "Lv3 looks good, but is it possible to make the animations visible through the buildings? Maybe faded?" Added to W4 (approved: "Approve W4 (Recommended)").
+- 04: "lv4 has two reverse flows". His arrows: on the run from the OFF switch at bottom left up to the hub junction, and on the run from the ON breaker at the top down to the OFF switch at the right. Both runs end at a switch that is OFF.
