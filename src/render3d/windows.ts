@@ -4,18 +4,18 @@
  * - `windowMask()` is one shared emissive texture made in code, in the City Pack atlas's UV layout: black everywhere but the glass rectangle, and each of its three panes in the colour the pack's own night
  *   image (`Textures/Emissive_01.png`, Josh's card L-Q1 "Pack's night glow") lights it. The rectangle and pane colours were read from that image once and are typed in; nothing from the pack is committed.
  * - `buildingGlow` is the pure level of one building this frame, from E2's `lampState` and `lampFlicker`, so the Relight's order, the flare and the brownout dip are the lamps' own.
- * - `litBuilding(group)` gives a building's pieces their own clones of their materials with the mask, made when the city builds (level 0), so no shader compiles in play. Other buildings keep the shared materials.
+ * - `windowLit` is the building materials' window-lit twin, and `setBuildingGlow` writes a building's level into its instances' `windowLevel` slots (081 F1b), so every building stays in the shared instancers.
  * - `litGlass` is one more InstancedMesh per shop glass key over the dark glass, for the lit buildings' shopfronts only.
  */
-import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, DataTexture, Matrix4, Mesh as ThreeMesh, MeshBasicMaterial, NearestFilter, RGBAFormat, SRGBColorSpace, UnsignedByteType, type Material, type Mesh, type Object3D, type Texture } from "three";
+import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, DataTexture, Matrix4, Mesh as ThreeMesh, MeshBasicMaterial, NearestFilter, PointLight, RGBAFormat, SRGBColorSpace, UnsignedByteType, type Material, type Mesh, type Object3D, type Texture } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import type { CalibrationKey, CityBuilding, CityNodePlace, CityRoofMast } from "../core";
+import type { CalibrationKey, CityBuilding, CityNodePlace, CityPlan, CityRoofMast, CitySide } from "../core";
 import type { GridState } from "../grid";
 import { FLARE_SECONDS } from "../render/relight";
 import { SHOP_GLASS } from "./dressing";
 import { lampFlicker } from "./look";
 import { dressMatrix, meshParts } from "./models3d";
-import type { PlanDressDraw } from "./plan3d";
+import type { BuildingsDraw, PlanDressDraw } from "./plan3d";
 import { lampIgnition, type LampIgnition } from "./relight3d";
 import type { RelightPlan } from "../render/relight";
 
@@ -127,52 +127,48 @@ export const WINDOW_LIT = 1.6;
 export const WINDOW_FLARE_GAIN = 1.2;
 export const windowIntensity = (g: BuildingGlow): number => g.level * WINDOW_LIT * (1 + WINDOW_FLARE_GAIN * g.flare);
 
-/** What `litBuilding` made: set the building's window level, and free the clones. */
-export interface LitBuilding {
-  /** The clones made (one per source material with an atlas map). */
-  readonly materials: readonly Material[];
-  set(g: BuildingGlow): void;
-  dispose(): void;
-}
+/** The name of the per-instance window level on a building instancer's geometry: one float per instance, 0 dark, 1 at full level (more in the flare). */
+export const WINDOW_LEVEL = "windowLevel";
 
 type Emissive = Material & { map?: Texture | null; emissive?: Color; emissiveMap?: Texture | null; emissiveIntensity?: number };
 
 /**
- * Give a building's pieces their own clones of their materials with the window mask, at level 0. Only a material with a `map` (the atlas) is cloned; one clone per source material, shared by this building's
- * pieces. Every other building keeps the shared materials, untouched.
+ * The window-lit twin of a building material (081 F1b): a clone (made once, when the city builds) whose emissive map is the window mask and whose shader multiplies the emissive by the instance's `windowLevel`,
+ * so the emissive is mask x level x `WINDOW_LIT`. Only a material with an atlas `map` and an `emissive` colour has a twin; any other is returned as it is. The source is never written.
  */
-export function litBuilding(group: Object3D): LitBuilding {
-  const clones = new Map<Material, Material>();
-  const swap = (m: Material): Material => {
-    const src = m as Emissive;
-    if (!src.map || !src.emissive) return m;
-    let c = clones.get(m);
-    if (!c) {
-      c = m.clone();
-      const lit = c as Emissive;
-      lit.emissive = new Color(0xffffff);
-      lit.emissiveMap = windowMask();
-      lit.emissiveIntensity = 0;
-      clones.set(m, c);
-    }
-    return c;
+export function windowLit(source: Material): Material {
+  const src = source as Emissive;
+  if (!src.map || !src.emissive) return source;
+  const twin = source.clone() as Emissive;
+  twin.emissive = new Color(0xffffff);
+  twin.emissiveMap = windowMask();
+  twin.emissiveIntensity = WINDOW_LIT;
+  twin.onBeforeCompile = (shader) => {
+    shader.vertexShader = shader.vertexShader
+      .replace("#include <common>", "#include <common>\nattribute float windowLevel;\nvarying float vWindowLevel;")
+      .replace("#include <begin_vertex>", "#include <begin_vertex>\nvWindowLevel = windowLevel;");
+    shader.fragmentShader = shader.fragmentShader
+      .replace("#include <common>", "#include <common>\nvarying float vWindowLevel;")
+      .replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\ntotalEmissiveRadiance *= vWindowLevel;");
   };
-  group.traverse((o) => {
-    const mesh = o as Mesh;
-    if (mesh.isMesh !== true) return;
-    mesh.material = Array.isArray(mesh.material) ? mesh.material.map(swap) : swap(mesh.material);
-  });
-  const materials = [...clones.values()];
-  return {
-    materials,
-    set(g) {
-      const v = windowIntensity(g);
-      for (const m of materials) (m as Emissive).emissiveIntensity = v;
-    },
-    dispose() {
-      for (const m of materials) m.dispose();
-    },
-  };
+  twin.customProgramCacheKey = () => "window-lit";
+  return twin;
+}
+
+/**
+ * Set one building's windows for this frame: every one of its instances' `windowLevel` becomes the level with the ignition flare (`windowIntensity` without `WINDOW_LIT`, which the material holds). Only that
+ * building's slots are written, and an attribute is marked for upload only when a slot changed. A building with no instances (a lamp's building drawn grey, or none) is a no-op.
+ */
+export function setBuildingGlow(draw: Pick<BuildingsDraw, "instances">, building: string, g: BuildingGlow): void {
+  const list = draw.instances.get(building);
+  if (!list) return;
+  const v = windowIntensity(g) / WINDOW_LIT;
+  for (const { mesh, index } of list) {
+    const attr = mesh.geometry.getAttribute(WINDOW_LEVEL) as BufferAttribute | undefined;
+    if (!attr || attr.array[index] === Math.fround(v)) continue;
+    attr.array[index] = v;
+    attr.needsUpdate = true;
+  }
 }
 
 const GLASS: ReadonlySet<CalibrationKey> = new Set(SHOP_GLASS);
@@ -257,4 +253,104 @@ export function litGlass(draws: readonly PlanDressDraw[], buildings: ReadonlySet
       material.dispose();
     },
   };
+}
+
+// ---- 081 L2: real lights on the street ----
+
+/** The most street lights a city makes: 32, set when the frame-time budgets of ticket 081 L2 criterion 3 passed at 25 and 32. */
+export const STREET_LIGHTS_MAX = 32;
+/** Where a light stands, metres: out from its street face, and up (the first floor's windows). */
+export const STREET_LIGHT_OUT_M = 2;
+export const STREET_LIGHT_UP_M = 3;
+/** How far a light reaches, metres (`PointLight.distance`, drawn in world units), and its decay. Numbers Josh tunes by eye. */
+export const STREET_LIGHT_REACH_M = 12;
+export const STREET_LIGHT_DECAY = 2;
+/** A light's intensity at full level: about 30 candela at metre scale, written for the city's 0.18 world units to a metre (candela fall with the square of the distance). */
+export const STREET_LIGHT_INTENSITY = 1;
+/** How much the ignition flare adds at its peak (a fraction of the intensity). */
+export const STREET_LIGHT_FLARE_GAIN = 0.5;
+
+/** One street light's place, in metres of the plan: the building it lights, and its point. */
+export interface LightPlace {
+  readonly building: string;
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+}
+
+const SIDE_DIR: Readonly<Record<CitySide, readonly [number, number]>> = { "+x": [1, 0], "-x": [-1, 0], "+z": [0, 1], "-z": [0, -1] };
+const CELL = 5;
+
+/**
+ * The street lights of `buildingIds`, in that order, at most `max`. A building's street face is its columns' open sides that face a street (`mass.built`'s `faces: "street"`, never a yard, lane or park). A building
+ * with a corner column that has two street sides gets its light over that corner's pavement (out from both sides); any other gets it in front of the middle of its street face (the mean of its street columns'
+ * face points). A building with no street face gets none and does not count against `max`. Pure.
+ */
+export function lightPlaces(plan: Pick<CityPlan, "layers">, buildingIds: Iterable<string>, max: number): LightPlace[] {
+  const buildings = plan.layers.buildings?.buildings;
+  const built = plan.layers.mass?.built;
+  if (!buildings || !built) return [];
+  const byId = new Map(buildings.map((b) => [b.id, b] as const));
+  const open = new Map(built.map((c) => [`${c.i},${c.j}`, c.open] as const));
+  const out: LightPlace[] = [];
+  for (const id of buildingIds) {
+    if (out.length >= max) break;
+    const b = byId.get(id);
+    if (!b) continue;
+    let corner: LightPlace | null = null;
+    let sx = 0;
+    let sz = 0;
+    let n = 0;
+    for (const c of b.cells) {
+      const sides = (open.get(`${c.i},${c.j}`) ?? []).filter((o) => o.faces === "street").map((o) => SIDE_DIR[o.side]);
+      if (sides.length === 0) continue;
+      let x = (c.i + 0.5) * CELL;
+      let z = (c.j + 0.5) * CELL;
+      for (const [dx, dz] of sides) {
+        x += dx * (CELL / 2 + STREET_LIGHT_OUT_M);
+        z += dz * (CELL / 2 + STREET_LIGHT_OUT_M);
+      }
+      if (sides.length >= 2 && !corner) corner = { building: id, x, y: STREET_LIGHT_UP_M, z };
+      sx += x;
+      sz += z;
+      n++;
+    }
+    if (n === 0) continue;
+    out.push(corner ?? { building: id, x: sx / n, y: STREET_LIGHT_UP_M, z: sz / n });
+  }
+  return out;
+}
+
+/** The lights of a city, made once: `lights[i]` lights `buildings[i]`. */
+export interface StreetLights {
+  readonly lights: readonly PointLight[];
+  readonly buildings: readonly string[];
+}
+
+/**
+ * The `PointLight`s of `places`, at intensity 0, never switched off and never shadowed (the count must not change in play, or every program recompiles). `scale` turns metres into world units. `extra` more
+ * lights stand on the first place (the dev `lights=N` switch), each lighting the first building at its level.
+ */
+export function streetLights(places: readonly LightPlace[], scale: number, extra = 0): StreetLights {
+  const lights: PointLight[] = [];
+  const buildings: string[] = [];
+  const total = places.length === 0 ? 0 : places.length + Math.max(0, extra);
+  for (let i = 0; i < total; i++) {
+    const p = i < places.length ? places[i]! : places[0]!;
+    const light = new PointLight(PANE_COLOURS[0], 0, STREET_LIGHT_REACH_M * scale, STREET_LIGHT_DECAY);
+    light.name = "street-light";
+    light.castShadow = false;
+    light.position.set(p.x * scale, p.y * scale, p.z * scale);
+    lights.push(light);
+    buildings.push(p.building);
+  }
+  return { lights, buildings };
+}
+
+/** Write this frame's intensities, and nothing else: `STREET_LIGHT_INTENSITY x level`, with the flare's pop. A building with no entry in `glows` is dark. */
+export function setStreetLights(pool: StreetLights, glows: ReadonlyMap<string, BuildingGlow>): void {
+  for (let i = 0; i < pool.lights.length; i++) {
+    const g = glows.get(pool.buildings[i]!);
+    pool.lights[i]!.intensity = g ? STREET_LIGHT_INTENSITY * g.level * (1 + STREET_LIGHT_FLARE_GAIN * g.flare) : 0;
+  }
 }

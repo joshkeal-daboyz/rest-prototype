@@ -5,7 +5,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
-import { loadCityPuzzle, loadPuzzle, parseCheckBlock, validateCheck, type CityPlan, type CityPuzzle } from "../../core";
+import { EventBus, loadCityPuzzle, loadPuzzle, parseCheckBlock, validateCheck, type CityPlan, type CityPuzzle, type GridNode } from "../../core";
+import { createGrid } from "../../grid";
 import { runCheck } from "../../../tools/checkrun";
 import { runCity } from "../stages";
 import { stagesOfProfile } from "../testing/namedcities";
@@ -79,11 +80,16 @@ describe("a city puzzle on the circuit (081 K2c)", () => {
     expect(found.some((p) => p.rule === "CK14" && p.id === "l_feed" && p.reason.includes("wholly past"))).toBe(true);
   });
 
-  it("CK15 steps 1 to 6: the output passes validatePuzzle with the file's ids, none added, and each pos is its place's metres over CELL_M", () => {
+  it("CK15 steps 1 to 6, 081 S1: the output passes validatePuzzle, every file id stays with its type, load and rating, the ids that are not the file's are exactly hidden, and each pos is its place's metres over CELL_M", () => {
     const c = convertCityPuzzle(puzzle, plan);
     expect(loadPuzzle(c.puzzle).id).toBe("city-two-ways-round");
-    expect(c.puzzle.nodes.map((n) => n.id)).toEqual(puzzle.nodes.map((n) => n.id));
-    expect(c.puzzle.lines.map((l) => l.id)).toEqual(puzzle.lines.map((l) => l.id));
+    type Loose = { type: string; load?: number; rating?: number; capacity?: number };
+    const traits = (n: Loose) => [n.type, n.load, n.rating, n.capacity];
+    for (const n of puzzle.nodes) expect(traits(c.puzzle.nodes.find((o) => o.id === n.id) as Loose)).toEqual(traits(n as Loose));
+    for (const l of puzzle.lines) expect(c.puzzle.lines.some((o) => o.id === l.id)).toBe(true);
+    const file = new Set([...puzzle.nodes.map((n) => n.id), ...puzzle.lines.map((l) => l.id)]);
+    const added = [...c.puzzle.nodes.map((n) => n.id), ...c.puzzle.lines.map((l) => l.id)].filter((id) => !file.has(id));
+    expect([...c.hidden!].sort()).toEqual(added.sort());
     expect(c.puzzle.faults.map((f) => f.id)).toEqual(["x", "y"]);
     expect(c.origin_m).toEqual({ x_m: 245, z_m: 210 });
     const pos = (id: string) => c.puzzle.nodes.find((n) => n.id === id)!.pos;
@@ -107,7 +113,7 @@ describe("a city puzzle on the circuit (081 K2c)", () => {
     expect(c.puzzle.decor!.every((d) => d.path.length === 2)).toBe(true);
   });
 
-  it("plays the same: the converted puzzle's check block replays as the schematic's does", () => {
+  it("plays the same, raised (081 S1): P0 hangs 22 scenery buildings, and its check block replays as the schematic's does but for the feed's load, 2 + 22 of 25", () => {
     const md = readFileSync(join(ROOT, "puzzles", "city-two-ways-round.md"), "utf8");
     const parsed = parseCheckBlock(md);
     expect(parsed?.ok).toBe(true);
@@ -119,7 +125,104 @@ describe("a city puzzle on the circuit (081 K2c)", () => {
       return runCheck(p, v.check);
     });
     expect(reports[0]!.ok).toBe(true);
-    expect(reports[1]).toEqual(reports[0]);
+    expect(Object.keys(convertCityPuzzle(puzzle, plan).scenery!).length).toBe(22);
+    const strip = (r: (typeof reports)[number]) => ({ ...r!, solution: { ...r!.solution, feeds: [] } });
+    expect(strip(reports[1]!)).toEqual(strip(reports[0]!));
+    expect(reports[1]!.solution.feeds).toEqual([{ id: "feed", load: 24, capacity: 25 }]);
+  });
+
+  it("081 S1 rule 2: every line splits into L~a, L and L~b with the hidden junctions at 1/3 and 2/3, the switch's outputs name the ~a segments, and places and runs keep the file's ids", () => {
+    const c = convertCityPuzzle(puzzle, plan);
+    const ln = (id: string) => c.puzzle.lines.find((l) => l.id === id)!;
+    const nd = (id: string) => c.puzzle.nodes.find((n) => n.id === id)!;
+    expect([ln("l_s~a"), ln("l_s"), ln("l_s~b")].map((l) => [l.from, l.to])).toEqual([["sw", "l_s~h1"], ["l_s~h1", "l_s~h2"], ["l_s~h2", "j_h"]]);
+    expect((nd("sw") as unknown as { outputs: string[] }).outputs).toEqual(["l_s~a", "l_n~a"]);
+    const [a, b, h1, h2] = [nd("sw").pos, nd("j_h").pos, nd("l_s~h1").pos, nd("l_s~h2").pos];
+    for (const [h, t] of [[h1, 1 / 3], [h2, 2 / 3]] as const) {
+      expect(Math.abs(h[0] - (a[0] + (b[0] - a[0]) * t))).toBeLessThan(1e-3);
+      expect(Math.abs(h[1] - (a[1] + (b[1] - a[1]) * t))).toBeLessThan(1e-3);
+    }
+    expect(Object.keys(c.places).sort()).toEqual(puzzle.nodes.map((n) => n.id).sort());
+    expect(Object.keys(c.runs).sort()).toEqual(puzzle.lines.map((l) => l.id).sort());
+    expect(c.hidden!.length).toBe(4 * puzzle.lines.length + 2 * new Set(Object.values(c.scenery!)).size);
+  });
+
+  it("081 S1 rule 3 and the Decided \"current up to a sparking break\": carriers before a cut hang on ~h1 and are lit; those past it hang on ~h2 and stay dark", () => {
+    const l = line("l_n");
+    const lampBuildings = new Set(puzzle.nodes.flatMap((n) => ("building" in n.place ? [n.place.building] : [])));
+    let cur = "pole:z:6:hi:242.50";
+    const carriers = l.run.spans
+      .slice(0, -1)
+      .map((sid, m) => {
+        const s = layer().spans.find((x) => x.id === sid)!;
+        cur = cur === s.a ? s.b : s.a;
+        const pole = cur;
+        return { m, building: layer().drops.find((d) => d.pole === pole && !lampBuildings.has(d.building))?.building };
+      })
+      .filter((c) => c.building !== undefined);
+    expect(carriers.length).toBeGreaterThanOrEqual(3);
+    const cutFault = { id: "z", at: "l_n", kind: "damaged-cable" as const, span: l.run.spans[carriers[1]!.m]! };
+    const c = convertCityPuzzle({ ...puzzle, faults: [...puzzle.faults, cutFault] }, plan);
+    expect(carriers.slice(0, 3).map((x) => c.scenery![x.building!])).toEqual(["l_n~h1~s", "l_n~h2~s", "l_n~h2~s"]);
+    const grid = createGrid(c.puzzle, new EventBus());
+    grid.throwSwitch("sw");
+    grid.advance(2);
+    expect(grid.state().lit.has("l_n~h1~s")).toBe(true);
+    expect(grid.state().lit.has("l_n~h2~s")).toBe(false);
+  });
+
+  it("081 S1 rule 3 and the Decided \"Fuse rating: over it, blows on power\": a building hangs on a junction, on a switch's input line, and on a fusebox, where it counts toward the rating", () => {
+    const lampBuildings = new Set(puzzle.nodes.flatMap((n) => ("building" in n.place ? [n.place.building] : [])));
+    const at = (pole: string) => layer().drops.filter((d) => d.pole === pole && !lampBuildings.has(d.building)).map((d) => d.building);
+    const polePlace = (id: string) => (puzzle.nodes.find((n) => n.id === id)!.place as { pole: string }).pole;
+    const fuse: CityPuzzle = { ...puzzle, nodes: puzzle.nodes.map((n) => (n.id === "j_sh" ? ({ id: "j_sh", type: "fusebox", rating: 1, place: n.place } as CityPuzzle["nodes"][number]) : n)) };
+    const c = convertCityPuzzle(fuse, plan);
+    expect(at(polePlace("j_inf")).map((b) => c.scenery![b])).toEqual(["j_inf~s"]);
+    expect(at(polePlace("sw")).map((b) => c.scenery![b])).toEqual(["l_feed~h2~s"]);
+    expect(at(polePlace("j_sh")).map((b) => c.scenery![b])).toEqual(["j_sh~s"]);
+    const grid = createGrid(c.puzzle, new EventBus());
+    grid.throwSwitch("sw");
+    grid.advance(2);
+    expect(grid.state().faults.some((f) => f.kind === "blown-fuse" && f.at === "j_sh")).toBe(true);
+  });
+
+  it("081 S1 rule 1: the feed's pole (Dark), a job lamp's building and a drop on a pole no line uses stay out of scenery", () => {
+    const jobPoles = new Set<string>(puzzle.nodes.flatMap((n) => ("pole" in n.place ? [n.place.pole] : [])));
+    for (const l of puzzle.lines) for (const sid of l.run.spans) for (const p of sid.slice(5).split("~")) jobPoles.add(p);
+    const stray = layer().drops.find((d) => !jobPoles.has(d.pole))!;
+    const feedDrop = { ...stray, id: "drop:feed-neighbour", building: "feed-neighbour", pole: "pole:z:6:lo:242.50" };
+    const plan2 = { ...plan, layers: { ...plan.layers, circuit: { ...layer(), drops: [...layer().drops, feedDrop] } } } as CityPlan;
+    const got = convertCityPuzzle(puzzle, plan2).scenery!;
+    expect(Object.keys(got).length).toBe(22);
+    expect(got[feedDrop.building]).toBeUndefined();
+    expect(got[stray.building]).toBeUndefined();
+    expect(got["block:6:6/a|outer|+x|67,54"]).toBeUndefined();
+  });
+
+  it("081 S1 rules 4 and 5: a hidden lamp is a leaf and never a target, one live scenery building browns the feed out at the file lamps' capacity, and raised by 1 the win completes", () => {
+    const only = {
+      ...puzzle,
+      capacity: 1,
+      target: undefined,
+      nodes: puzzle.nodes.filter((n) => ["feed", "sw", "j_h", "homes"].includes(n.id)).map((n) => (n.id === "sw" ? { id: "sw", type: "junction", place: n.place } : n)),
+      lines: puzzle.lines.filter((l) => ["l_feed", "l_s", "l_homes"].includes(l.id)),
+      faults: [],
+    } as unknown as CityPuzzle;
+    const play = (p: CityPuzzle) => {
+      const c = convertCityPuzzle(p, plan);
+      const grid = createGrid(c.puzzle, new EventBus());
+      grid.advance(2);
+      return { c, state: grid.state() };
+    };
+    const tight = play(only);
+    expect(tight.c.puzzle.target).toEqual(["homes"]);
+    expect(Object.values(tight.c.scenery!)).toEqual(["sw~s"]);
+    expect(tight.c.puzzle.nodes.find((n: GridNode) => n.id === "sw~s")!.type).toBe("lamp");
+    expect(tight.state.brownout).toBe(true);
+    const raised = play({ ...only, capacity: 2 });
+    expect(raised.state.brownout).toBe(false);
+    expect(raised.state.complete).toBe(true);
+    expect(raised.state.lit.has("sw~s")).toBe(true);
   });
 
   it("a problem names the line and the CK rule, and the conversion refuses a puzzle that has one", () => {
