@@ -144,7 +144,7 @@ function run(plan: CityPlan, rand: StageRand): CityFacadesLayer {
   const shops = buildShops(buildings, ground, dressing, rand);
   const signs = planNovelty(mass, buildings, { ground, dressing, walls, shops } satisfies NoveltyInput, rand);
   // H3: the roofs, last, over what H1b, H2 and H2b placed (RC: a roof piece takes only the room a column has left)
-  const roofs = buildRoofs(mass, buildings, { dressing, walls }, rand, undefined, signs.roofs).roofs;
+  const roofs = buildRoofs(mass, buildings, { dressing, walls }, rand, undefined, signs.roofs, plan.layers.circuit?.roofKeep ?? []).roofs;
   // H1c: the face signs, after the roofs, only where their column still has room (RC)
   const novelty = placeFaceSigns(signs, roofs, { dressing, walls }, buildings).novelty;
   const layer: CityFacadesLayer = { stage: "facades", ground, dressing, walls, roofs, shops, novelty };

@@ -15,7 +15,7 @@
  * - **RC** a piece is placed only where the column has room left after H1b's dressing, the escape's weight, H2's canopies and upper-wall props and the roof pieces already placed (a billboard counts as two; no party-wall piece counts, PW7).
  */
 
-import type { CalibrationKey, CityBuilding, CityBuildingsLayer, CityCell, CityColumn, CityFacadesLayer, CityMassLayer, CityPlacement, CityRoofPiece, CitySide, CityWallPiece, CityWallPieceKind } from "../../core";
+import type { CalibrationKey, CityBuilding, CityBuildingsLayer, CityCell, CityColumn, CityFacadesLayer, CityMassLayer, CityPlacement, CityRoofKeep, CityRoofPiece, CitySide, CityWallPiece, CityWallPieceKind } from "../../core";
 import { CityStageError } from "../pipeline/error";
 import type { StageRand } from "../pipeline/seeds";
 import { CELL_M } from "./constants";
@@ -204,6 +204,8 @@ export interface RoofStats {
   capTurned: Record<"waterTower" | "exit" | "billboard" | "small", number>;
   /** Roof columns that drew a small prop, with one or with two. */
   smallColumns: { one: number; two: number };
+  /** H4: small-prop tries turned away because their footprint met a corner roof structure's keep square. */
+  keepTurned: number;
   /** H3b: water towers placed before the cap (TS's candidates), and the freed roofs (candidates the cap gave up). */
   towerCandidates: number;
   freed: number;
@@ -227,6 +229,7 @@ const emptyStats = (): RoofStats => ({
   rkTurned: { waterTower: 0, exit: 0, billboard: 0, small: 0 },
   capTurned: { waterTower: 0, exit: 0, billboard: 0, small: 0 },
   smallColumns: { one: 0, two: 0 },
+  keepTurned: 0,
   towerCandidates: 0,
   freed: 0,
   bareRuns: 0,
@@ -235,6 +238,16 @@ const emptyStats = (): RoofStats => ({
   novelty: 0,
   noveltyFailed: 0,
 });
+
+/** H4: whether a placed roof piece's footprint (its bounds about its pivot, on world axes) overlaps a keep square. */
+export function meetsKeep(k: CityRoofKeep | undefined, p: CityPlacement): boolean {
+  if (!k) return false;
+  const e = roofBounds(p.key);
+  const quarter = (Math.round(p.yaw_deg / 90) & 1) === 1;
+  const hw = (quarter ? e.d : e.w) / 2;
+  const hd = (quarter ? e.w : e.d) / 2;
+  return p.x_m + hw > k.x_m - k.half_m && p.x_m - hw < k.x_m + k.half_m && p.z_m + hd > k.z_m - k.half_m && p.z_m - hd < k.z_m + k.half_m;
+}
 
 type Big = "tower" | "exit" | "billboard";
 const NAME: Readonly<Record<Big, "waterTower" | "exit" | "billboard">> = { tower: "waterTower", exit: "exit", billboard: "billboard" };
@@ -283,8 +296,11 @@ export function buildRoofs(
   towerPer: number = WATER_TOWER_PER_BUILDINGS,
   /** H1c, RS: the roof signs by building id (default none: H3b's layer exactly). */
   signs: ReadonlyMap<string, RoofSignPlan> = new Map(),
+  /** 081 H4: the corner roof structures' keep squares (stage 6's `roofKeep`); a small prop whose footprint meets one is not placed there (default none: the layer unchanged). */
+  keep: readonly CityRoofKeep[] = [],
 ): { roofs: CityRoofPiece[]; stats: RoofStats } {
   const ctx = makeCtx(mass, buildings);
+  const keepAt = new Map(keep.map((k) => [k.roof, k] as const));
   const insets = roofInsets(layer.walls ?? []);
   const load = columnLoads(layer, buildings);
   const runOf = runsOf(buildings);
@@ -484,8 +500,13 @@ export function buildRoofs(
           const fx = c.left + e.w / 2 + unitOf(rand("roof", "x", b.id, n, m)) * (c.right - c.left - e.w);
           const fz = c.back + e.d / 2 + unitOf(rand("roof", "z", b.id, n, m)) * (c.front - c.back - e.d);
           const own = planSide(col.yaw + (flip ? 180 : 0), 0, 1);
+          const placed = placeOnRoof(col, key, fx, fz, y, flip ? 180 : 0);
+          if (meetsKeep(keepAt.get(`roof:${col.i}:${col.j}`), placed)) {
+            stats.keepTurned++;
+            continue;
+          }
           addLoad(col, 1);
-          mine.push(piece(h, "small", col, own, placeOnRoof(col, key, fx, fz, y, flip ? 180 : 0)));
+          mine.push(piece(h, "small", col, own, placed));
           break;
         }
       });

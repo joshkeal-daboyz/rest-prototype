@@ -74,10 +74,10 @@ describe("R-1 to R-7 for stage 8 (criterion 9)", { timeout: 120_000 }, () => {
     ];
     // the facades pins are stage 7's, unchanged by stage 8 (facades' own tests pin them as well)
     const FACADES_PINS: readonly (readonly [number, string])[] = [
-      [1, "e96db65b"],
-      [2, "25f96f25"],
-      [3, "68430a02"],
-      [8, "53f33a18"],
+      [1, "c264e65d"],
+      [2, "b0402815"],
+      [3, "00744cfe"],
+      [8, "5f077cb3"],
     ];
     expect(PINNED.map((c) => c.seed)).toEqual([1, 2, 3, 8]);
     for (const [seed, pin] of PINS) {

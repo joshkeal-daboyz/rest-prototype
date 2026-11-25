@@ -151,7 +151,7 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | K2d1 | Stage 6: the pole pick, CK7, roof structures and roof span places (CK17a to d) | grid-simulator | K2c, PK1, PK2, B1q (all in) | **done** (PR #41) |
 | K2d2 | Roof nodes, runs through roofs, CK14 for roofs, the conversion (CK17e to g) | grid-simulator | K2d1 | **done** (PR #42; Josh, 24 Nov 2026: "Merge K2d2 (Recommended)") |
 | I2 | Stage 8 keeps clear of the circuit | landscape | K2b | **done** (PR #39; Josh, 24 Nov 2026: "Merge I2") |
-| H4 | Stage 7's roof pieces keep clear of the corner roof structures | facades | K2d1 | 3 |
+| H4 | Stage 7's roof pieces keep clear of the corner roof structures | facades | K2d1 | 2 added, 4 rewritten |
 | P1 | The fit tool and the city check (with the mid-row clearance check), and the raised numbers (criteria 10 and 11, section S) | grid-simulator | K2c, K2d2, **S1** | 12 |
 | P2a | Puzzles 01 to 16 on the city (the pilot), raised; 09 and 12 hand-fixed (section S) | puzzle-designer | P1, K2d2 (9 of the 16 need roofs), S1 | 0 |
 | P2b to P2d | Puzzles 17 to 64, 16 a batch | puzzle-designer | P2a, and Josh's word after playing it | 0 each |
@@ -678,7 +678,14 @@ Cut in full after K2d1 (it reads `roofKeep`, which K2d1 writes).
 - **Expected:** stage 7's small roof props keep clear of every **corner** roof structure's keep square (`roofKeep`): 26 props on seed 1, 697 on the 20 runs (B1q). Big props never stand on corner columns (H3's RX).
 - **Mid-row roofs are not cleared** (Josh, B1q: "Only where clear (Recommended)"). A mid-row structure stands only where stage 7 has left the roof clear, and nothing on a roof moves for one. P1 checks that.
 - **Tests:** 1 fixture case for a corner roof; 1 fixture case showing a mid-row place is never cleared (its props stay); 1 digest re-take.
-- **Files** (expected): `src/city/facades/`.
+- **Downstream pin re-takes** (added 24 Nov 2026 after CI on draft PR #64, as K2b and I2 were amended). As built, the props move as expected (26 to 0 on seed 1, 697 to 0 on the 20 runs), and stage 7's own `PINS` in `src/city/facades/stage.test.ts` were re-taken: seed 1 e96db65b to c264e65d, seed 2 25f96f25 to b0402815, seed 3 68430a02 to 00744cfe, seed 8 53f33a18 to 5f077cb3. CI then failed only on three downstream pins that hold the old digests. They are intended, since the props moved, and the builder re-takes each once, listed with old and new values. **test**: 3 rewritten:
+  - `src/city/ground/stage.test.ts`, "the digest pins (R-4)": the facades lines of its pins only;
+  - `src/city/traffic/stage.test.ts`, "the digest pins (R-4)": the facades lines (`FACADES_PINS`) only;
+  - `src/city/ruin/named.test.ts`, "pins, on the four pin cities, the digest of the layer's growth part": the ruin era's growth covers roofs, so it moves with the props.
+
+  **Values only, from a run.** No logic, no other line and no other case in those files changes. Each new value is checked as coming from the moved props and no other change: the builder reports, for each re-taken pin, that with H4's keep squares left out (an empty keep list) the run gives back the old value. A pin that fails for any other reason is not re-taken; the builder stops and reports it.
+- **Count.** 2 added (the two fixture cases) and 4 rewritten (stage 7's digest pins, and the three downstream pins).
+- **Files** (expected): `src/city/facades/`. Also, as I2 did (test policy rule 6), the **digest pin values only** in the three cases named above: the facades lines of `src/city/ground/stage.test.ts` (the landscape's folder) and of `src/city/traffic/stage.test.ts` (the streetscape's folder), and the growth pin of `src/city/ruin/named.test.ts` (the ruin pass's folder). No other line in those folders changes.
 
 ### P1 · The fit tool and the city check (grid-simulator). Branch `ticket/081p1-fit-tool`
 **Goal.** `npm run fit puzzles/<NN-slug>.json -- --city 6x6:1:oneway [--blocks <ids>]` searches 6 x 6 seed 1 for a district of 1 to 4 blocks and an embedding of the schematic puzzle:
