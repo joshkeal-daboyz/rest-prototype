@@ -181,6 +181,9 @@ export const PULSE_SPEED_M = 7;
 export const PULSE_SPACING_M = 3;
 /** How strong the live runs show through what hides them (081 W4; the architect's start, Josh tunes it by eye). */
 export const XRAY_OPACITY = 0.25;
+/** 081 V1: every job wire (live or dead) wears the ribbon colour at this strength, steady: no glow, no pulses. Josh tunes both by eye. */
+export const JOB_WIRE_TINT = 0xff3df0;
+export const JOB_WIRE_DIM = 0.55;
 
 /**
  * The faded second pass of an instanced live mesh (081 W4): the same geometry and the same instance attributes (so the first pass's per-frame writes are the only writes), a material that draws only where something is in front
@@ -803,6 +806,22 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   const glowX = xrayOf(glowMesh);
   mats.push(glowX.material);
   live.add(glowX.mesh);
+
+  // 081 V1: one static tint layer over the job's wires (not the scenery drops), made now and never written in play. Slightly thicker than the wire so it shows on the dark cable; the live glow draws over it.
+  const tintMat = new MeshBasicMaterial({ color: JOB_WIRE_TINT, transparent: true, opacity: JOB_WIRE_DIM, depthWrite: false, toneMapped: false });
+  mats.push(tintMat);
+  const tintMesh = new InstancedMesh(unitBox, tintMat, Math.max(wires.length * SAMPLES, 1));
+  wires.forEach((_w, wi) => {
+    for (let j = 0; j < SAMPLES; j++) {
+      const k = wi * SAMPLES + j;
+      tintMesh.setMatrixAt(k, m4.compose(segMid[k]!, segQ[k]!, sScratch.set(WIRE_THICK_M * 1.5 * S, WIRE_THICK_M * 1.5 * S, segLen[k]! * 1.05)));
+    }
+  });
+  tintMesh.instanceMatrix.needsUpdate = true;
+  tintMesh.raycast = () => {};
+  tintMesh.frustumCulled = false;
+  tintMesh.name = "city-play:wire-tint";
+  live.add(tintMesh);
 
   const pulsesPer = liveWires.map((w) => Math.max(1, Math.ceil(w.len_m / PULSE_SPACING_M)));
   const pulseTotal = pulsesPer.reduce((a, b) => a + b, 0);
