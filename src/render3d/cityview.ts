@@ -28,6 +28,7 @@ import type { Vec3 } from "./kitunits";
 import { GROUND } from "./kitunits";
 import { lightModeFor, type LightModeId } from "./lighting";
 import { addSurface, applyLightMode, newLightOwners, setRendererMode } from "./lightrig";
+import { createFxLayer, fxSwitch, repairedFaults, sharedFx, sparkingCuts, type FxCut } from "./fx";
 import { lampFlicker } from "./look";
 import { buildingGlow, lampBuildings, litBuilding, litGlass, type BuildingGlow, type BuildingLamp, type LitBuilding, type LitGlass } from "./windows";
 import { WORLD_PER_METRE } from "./models";
@@ -499,7 +500,6 @@ const POOL_COLOUR = 0xffd37a;
 const LAMP_GLOW_M = 0.7;
 const POOL_RADIUS_M = 3.4;
 const WIRE_THICK_M = 0.16;
-const SPARKS_PER_CUT = 5;
 
 const Z_AXIS = new Vector3(0, 0, 1);
 const UP_AXIS = new Vector3(0, 1, 0);
@@ -677,14 +677,8 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   pulseMesh.frustumCulled = false;
   live.add(pulseMesh);
 
-  // Sparks: a few small flickering bits at the middle of each cut span.
+  // The spans a break cuts (the particle effects stand at the middle of each: 081 FX2).
   const cutWires = wires.map((w, wi) => ({ w, wi })).filter((c) => c.w.cutFault !== null);
-  const sparkMesh = new InstancedMesh(unitBox, pulseMat, Math.max(cutWires.length * SPARKS_PER_CUT, 1));
-  sparkMesh.instanceMatrix.setUsage(DynamicDrawUsage);
-  sparkMesh.raycast = () => {};
-  sparkMesh.frustumCulled = false;
-  sparkMesh.count = cutWires.length * SPARKS_PER_CUT;
-  live.add(sparkMesh);
 
   // Lamps: a warm glow and a light pool each, from the pieces K3 stood.
   const lamps: LampGlow[] = [];
@@ -717,6 +711,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   mats.push(hidden, hiddenLine);
   const nodePiece = new Map([...draws.pieces, ...draws.removed].map((p) => [p.id, p] as const));
   const lampPlaces = new Map<string, Vec3>();
+  const nodeCentre = new Map<string, Vec3>();
   for (const n of puzzle.nodes) {
     const place = converted.places[n.id];
     const piece = n.type === "feed" && place && "pole" in place ? nodePiece.get(place.pole) : place && "roof" in place && n.type === "feed" ? nodePiece.get(place.roof) : nodePiece.get(n.id);
@@ -731,6 +726,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     m.userData["pickId"] = n.id;
     pickGroup.add(m);
     if (n.type === "lamp") lampPlaces.set(n.id, { x: piece.position.x, y: piece.position.y + (h / 2) * S, z: piece.position.z });
+    nodeCentre.set(n.id, { x: piece.position.x, y: piece.position.y + (h / 2) * S, z: piece.position.z });
   }
   const linePos = new Map<string, number[]>();
   for (const w of wires) {
@@ -805,6 +801,79 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   for (const w of wires) (wiresOfLine.get(w.line) ?? wiresOfLine.set(w.line, []).get(w.line)!).push(w);
   const lineOf = new Map(puzzle.lines.map((l, i) => [l.id, { line: l, index: i }] as const));
 
+  // ---- particle effects (081 FX2): live-break sparks and repair flashes, from the state alone ----
+  const fxMode = fxSwitch(opts.search ?? "", import.meta.env.DEV);
+  const fx = fxMode === "off" ? null : createFxLayer(cutWires.length);
+  const fxCuts: FxCut[] = cutWires.map(({ w }) => ({ fault: w.cutFault!, line: w.line }));
+  // Each cut's point (the cut span's middle sample, where the break icon sits) and each fault's place (a cut's point, or its node's pick place), in world units.
+  const fxCutAt = new Float32Array(cutWires.length * 3);
+  cutWires.forEach(({ w }, i) => {
+    fxCutAt[i * 3] = w.pts[(SAMPLES / 2) * 3]!;
+    fxCutAt[i * 3 + 1] = w.pts[(SAMPLES / 2) * 3 + 1]!;
+    fxCutAt[i * 3 + 2] = w.pts[(SAMPLES / 2) * 3 + 2]!;
+  });
+  const faultAt = new Map<string, Vec3>();
+  for (const f of puzzle.faults) {
+    const ci = fxCuts.findIndex((c) => c.fault === f.id);
+    const at = ci >= 0 ? { x: fxCutAt[ci * 3]!, y: fxCutAt[ci * 3 + 1]!, z: fxCutAt[ci * 3 + 2]! } : nodeCentre.get(f.at);
+    if (at) faultAt.set(f.id, at);
+  }
+  const faultPlaces = [...faultAt.values()];
+  const fxAllNext = new Float64Array(faultPlaces.length);
+  if (fx) {
+    live.add(fx.group);
+    void sharedFx()
+      .then((loaded) => {
+        if (disposed) return;
+        fx.setTextures(loaded.textures);
+        fx.setMeshes(loaded.meshes);
+      })
+      .catch((e: unknown) => {
+        console.info(`3D effects: not applied (${e instanceof Error ? e.message : String(e)}).`);
+      });
+  }
+  let fxLast = -1;
+  let fxPrev: GridState | null = null;
+  let fxState: GridState | null = null;
+  let fxPlan: ReturnType<typeof clock.update> = null;
+  let fxRelT = 0;
+  const sparkIdx: number[] = [];
+  const repairedIds: string[] = [];
+  const fxReached = (cut: FxCut): boolean => {
+    if (fxPlan === null || fxState === null) return true;
+    const e = lineOf.get(cut.line)!;
+    return lineFlow(fxState, e.line, e.index, wiresOfLine.get(cut.line)!, fxPlan, fxRelT, flow).fraction > 0;
+  };
+  function drawFx(state: GridState, plan_: ReturnType<typeof clock.update>, relT: number, time: number): void {
+    if (!fx) return;
+    const dt = fxLast < 0 ? 0 : Math.min(Math.max(time - fxLast, 0), 0.1);
+    fxLast = time;
+    if (fxMode === "all") {
+      for (let i = 0; i < fxCuts.length; i++) fx.breakAt(i, fxCutAt[i * 3]!, fxCutAt[i * 3 + 1]!, fxCutAt[i * 3 + 2]!, time);
+      for (let k = 0; k < faultPlaces.length; k++) {
+        if (time < fxAllNext[k]!) continue;
+        fx.repairAt(faultPlaces[k]!.x, faultPlaces[k]!.y, faultPlaces[k]!.z);
+        fxAllNext[k] = time + 0.9 + (k % 4) * 0.1;
+      }
+    } else {
+      fxState = state;
+      fxPlan = plan_;
+      fxRelT = relT;
+      const cuts = sparkingCuts(state, fxCuts, fxReached, sparkIdx);
+      for (let k = 0; k < cuts.length; k++) {
+        const i = cuts[k]!;
+        fx.breakAt(i, fxCutAt[i * 3]!, fxCutAt[i * 3 + 1]!, fxCutAt[i * 3 + 2]!, time);
+      }
+      const done = repairedFaults(fxPrev, state, repairedIds);
+      for (let k = 0; k < done.length; k++) {
+        const at = faultAt.get(done[k]!);
+        if (at) fx.repairAt(at.x, at.y, at.z);
+      }
+      fxPrev = state;
+    }
+    fx.update(dt, camera.quaternion);
+  }
+
   function drawLive(state: GridState, plan_: ReturnType<typeof clock.update>, relT: number, time: number): void {
     // Wires: the glow and the pulses.
     let pi = 0;
@@ -837,26 +906,6 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     });
     glowMesh.instanceColor!.needsUpdate = true;
     pulseMesh.instanceMatrix.needsUpdate = true;
-    // Sparks flicker only while current reaches a cut that is still there.
-    let si = 0;
-    for (const { w, wi } of cutWires) {
-      const entry = lineOf.get(w.line)!;
-      let cutNow = false;
-      for (const f of state.faults) if (f.id === w.cutFault) cutNow = true;
-      const sparking = cutNow && state.sparking.has(entry.line.id) && (plan_ === null || lineFlow(state, entry.line, entry.index, wiresOfLine.get(w.line)!, plan_, relT, flow).fraction > 0);
-      const mid = segMid[wi * SAMPLES + SAMPLES / 2]!;
-      for (let k = 0; k < SPARKS_PER_CUT; k++) {
-        const seed = Math.floor(time * 14) * SPARKS_PER_CUT + k + si;
-        if (!sparking || hash01(seed) < 0.3) {
-          sparkMesh.setMatrixAt(si++, m4.makeScale(0, 0, 0));
-          continue;
-        }
-        const a = hash01(seed + 0.5) * Math.PI * 2;
-        const r = (0.3 + hash01(seed + 1.5) * 0.9) * S;
-        sparkMesh.setMatrixAt(si++, m4.compose(vScratch.set(mid.x + Math.cos(a) * r, mid.y + (hash01(seed + 2.5) - 0.3) * 1.2 * S, mid.z + Math.sin(a) * r), qScratch.identity(), sScratch.setScalar(0.22 * S)));
-      }
-    }
-    sparkMesh.instanceMatrix.needsUpdate = true;
     // Lit buildings: the windows and the shop glass.
     for (const b of litBuildings) {
       buildingGlow(plan_, state, b.lamps, relT, time, bg);
@@ -900,6 +949,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
       const plan_ = clock.update(state, overlay.relightT);
       if (readableNow(state)) standCircuit();
       drawLive(state, plan_, relT, timeSeconds);
+      drawFx(state, plan_, relT, timeSeconds);
       gl.render(scene, camera);
       if (perf && plan_ !== null) {
         perfSawPlan = true;
@@ -913,7 +963,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
         perfMs[perfFrames++] = performance.now() - t0;
         if (perfFrames === PERF_FRAMES) {
           const sorted = Float64Array.from(perfMs).sort();
-          console.info(`perf=1 (${perfLabel}): ${gl.info.render.calls} draw calls, ${gl.info.render.triangles} triangles, ${gl.info.programs?.length ?? 0} programs, median frame ${sorted[PERF_FRAMES >> 1]!.toFixed(2)} ms (CPU, draw call to render end), after ${PERF_FRAMES} frames`);
+          console.info(`perf=1 (${perfLabel}): ${gl.info.render.calls} draw calls, ${gl.info.render.triangles} triangles, ${gl.info.programs?.length ?? 0} programs, median frame ${sorted[PERF_FRAMES >> 1]!.toFixed(2)} ms (CPU, draw call to render end), after ${PERF_FRAMES} frames, fx=${fxMode} (${fx?.alive() ?? 0} particles)`);
         }
       }
       if (overlayLayer?.ctx) {
@@ -981,7 +1031,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
       circuit = null;
       glowMesh.dispose();
       pulseMesh.dispose();
-      sparkMesh.dispose();
+      fx?.dispose();
       for (const g of geoms) g.dispose();
       for (const m of mats) m.dispose();
       ground.geometry.dispose();
