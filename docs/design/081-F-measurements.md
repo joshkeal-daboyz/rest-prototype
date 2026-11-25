@@ -70,3 +70,15 @@ Taken by the main session in the browser pane, in view at 60 fps, 24 Nov 2026. 6
 - No run adds a draw call or a program. The worst after-Relight median is 0.1 ms over P0's, inside every row's budget, and the 60 fps vsync holds.
 - On the comparison baseline: F1b's in-view before-power median was 14.40 ms on the same canvas, but these runs are 7.9 to 8.5 ms, which is the spread between sessions on this PC. P0's own row is used as the baseline.
 - By the stop rule, `STREET_LIGHTS_MAX` goes to 32.
+
+## FX2, criterion 7 (25 Nov 2026, Josh's PC, in view)
+
+Browser pane, `?puzzle=city-two-ways-round&perf=1`, 6x6 seed 1, default camera, fresh load per run, one session. Canvas 1930 x 1767, pixel ratio 1.5. Josh played each run (throw, repair, Relight), so the "after the Relight" lines are the as-played comparison. Textures were the drawn fallbacks (the game pack has no `fx/` until FX1 merges and `assets:game` is re-run); the pack meshes came from the full packs.
+
+| Run | Draw calls | Programs | CPU median | Whole frame |
+| --- | --- | --- | --- | --- |
+| `fx=0`, after the Relight | 1,774 | 11 | 8.00 ms | 16.70 ms |
+| `fx=all` (69 particles), after the Relight | 1,778 | 12 | 7.90 ms | 16.70 ms |
+| `fx=0`, before power (earlier load) | 1,773 | 11 | 8.30 ms | 16.70 ms |
+
+Pass: under 1.5 ms added (none measurable), under 16.7 ms, 4 more draw calls (cap 5), and the one extra program is the effects material, compiled on the first frame.
