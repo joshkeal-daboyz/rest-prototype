@@ -1,0 +1,34 @@
+ticket: 081-W1-building-targets
+assessment: partly
+must-fix: 1
+
+## What the ticket asked for, as I understood it
+The fit and the city check (`tools/`) gain W0's rules as Josh answered them: every city lamp on a building fed by its drop, every line reads outward (`READ_BACK_M` 3 m, ring lines measured from where they take power), no job roof span within `FEED_CLEAR_M` 6 m of the feed's pole or entering span (far-end reading), no two job spans crossing. The fit applies them inside the search and gains `--avoid`.
+
+## Does the branch do it?
+Diff read against `origin/main` 2fa0d1a (the local `main` ref is stale). It touches only `tools/fit.ts`, `tools/fitrun.ts`, `tools/fit.test.ts` and `tools/check.ts`, all in the ticket's list. `npx vitest run --maxWorkers=2 tools/fit.test.ts`: 15 passed, 3.1 s (the file already existed; the sweep reports 1 puzzle in 17 ms).
+
+1. **Lamps on buildings: met.** `buildingTargetProblems` flags any lamp whose place is not `building` and any line with a `run.lead`, with the ticket's exact message (`LAMP_REASON`). `offerOf` no longer offers `p:` post terminals, and `placeLamp` no longer ends a lamp on a roof, so the fit offers only `b:` drop terminals. Test: "criterion 1: a lamp on a post fails with the city's message and the same lamp on a building passes" (P0 with `shrine` moved to a post).
+2. **Reads outward: met.** `readBack` is W0's wording (the farthest point so far minus the current one, against `READ_BACK_M`). `backOfLine` reads a powered line from the end current enters by (`flowFrom`, with S1's `L~h2` handled for converted lines), from its feed, or from its own first structure on a ring line. Dead lines, or no state, pass if either end reads outward. The drop's wall point is not in the sequence. `ringLinesOf` treats a line as on a cycle if its ends stay connected without it, with all feeds as one node, as the ticket words it. `check.ts` now replays the note's solution and runs the rules on that winning state. Tests: 2a reverses `l3`'s entry on the fitted chain and it fails naming `l3`; 2b has P0 pass with its winning state and fail on `l_e2` and `l_x` once `l_s` is removed and the ring opened. Both would fail if the rule broke. 2a is a reversed straight run, not 02's out-and-back shape, but the same rule is exercised.
+3. **Feed clearance and no crossings: code met, test partly.** `feedClearance` measures a non-sharing roof span by plan distance to the feed pole and the entering span (`segDist`, 0 when they cross). It measures a span sharing a pole by its far ends, and crossing job spans are caught in both the check and `blocked()`. The test does not do the first thing the criterion names, though. I ran the test's own search (scratch script, 6 x 6 seed 1). Its "fails" case is `span:pole:x:0:hi:127.50~roof:25:5` against entering span `span:pole:x:0:hi:127.50~pole:x:0:hi:139.17`, a roof span leaving from the feed's own pole. It fails at 0.0 m only because `distToSegment(F, R)` is zero. All 516 sharing pairs at the feed's pole fail that way, and none passes. No case puts a roof span *over* the entering span without sharing a pole. That is P2a's 03, the case Josh raised, and the `segDist` branch could be removed with the test still green. Such a pair exists on the city: `span:pole:x:10:hi:272.50~roof:54:73` over `span:pole:x:10:lo:272.50~pole:z:6:hi:367.50`. It fails correctly at 0.0 m when I run it. The crossing half and the "sharing and ending beyond" half are real.
+4. **The roof answer: met.** No roof filter was added and the fit still offers roof spans and roof nodes. Roofs as lamp ends are gone, which is criterion 1.
+5. **Inside the search: met.** `blocked()` prunes crossings (whenever either span is a roof span) and feed-clearance breaks as spans are walked, and `entering` is recorded when the feed's line is routed. `routeReads` prunes on every routed line and lamp, as early as the feed is placed. Finished lays still go through `cityCheckProblems(d, plan, win)`. `FIT_BUDGET` is unchanged. Test: "criteria 5 and 6", where a two-lamp chain fits with both lamps on buildings, no `lead`, and no problems.
+6. **`--avoid`: met.** `FitOptions.avoid` filters districts, and `fitrun.ts` parses the flag. It is folded into the criterion 5 case (`maxBlocks: 1, avoid: ["block:0:0"]`).
+7. **The sweep: met.** It is unedited and now runs W1's rules through `checkFile`. P0 passes.
+8. **P1 cases rewritten: met.** None were needed; 0 rewritten.
+9. **The pilots' fits, printed once:** this is the builder's reply, which I have not seen. The stop rule (09 and 14 must fit within `FIT_BUDGET`) is not shown by the branch. The main session should check the reply. I did not run the 16 fits.
+
+Count: 5 `it(` added, 0 rewritten, within the ticket's 9 and the policy's 15.
+
+## Rule conflicts and risks
+- No change to `src/grid/` or `src/night/`, no dependency, and nothing outside the listed files. `tools/fit.ts` imports a `GridState` type from `src/grid`, which is allowed in `tools/`.
+- A roof span sharing the feed's **own** pole always fails at 0 m (`dist = distToSegment(F, R)`), rather than being judged by its far end. W0's far-end reading names "a pole" of the entering span without saying which. A second line out of the feed would need such a span. That may occur, not checked; it is Josh's or the architect's call if a pilot hits it.
+- `buildingTargetProblems` runs its geometry rules only when CK12 to CK17 pass (`base.length === 0`). So a file with a circuit problem reports that first and W1's geometry next time. That is reasonable, but the check never lists both at once.
+
+## Must fix
+1. `tools/fit.test.ts`, the "criterion 3" case: make its failing half a roof span that passes over the feed's entering span without sharing a pole. For example, the feed on the entering span `span:pole:x:10:lo:272.50~pole:z:6:hi:367.50` and `span:pole:x:10:hi:272.50~roof:54:73` as the job's roof span, or one found by `crossesInPlan` with no shared pole, as the crossing half already does. Keep the sharing-pole pass. Expected effect: the test fails if `feedClearance`'s `segDist` (over-the-span) branch breaks, which is criterion 3's first named case. Same case count.
+
+## Could improve
+1. The criterion 3 "passes" half could assert that the found span's far end is at least `FEED_CLEAR_M` from the entering span, so the 6 m threshold is tested directly as well as through the `toBe(6)` check on the constant.
+2. Criterion 2a could use an out-past-the-lamp-and-back run, as the ticket describes (02's `l_well`), rather than a flipped `flowFrom` on a straight run. It is not needed: the rule is tested either way.
+3. `check.ts` runs `cityCheckProblems` twice, once without and once with the winning state. One comment saying why the first, lenient pass is there (to give CK errors before `validateCheck`) would save the next reader a look.
