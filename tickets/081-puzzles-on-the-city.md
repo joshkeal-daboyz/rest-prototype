@@ -1,7 +1,7 @@
 # 081 · Purge the old city; the 64 puzzles on the pipeline city, on its streets, picked models, and a 2D overlay to play them
 
 owner: per section (renderer, puzzle-designer, pipeline-designer, lead-architect, grid-simulator, landscape, facades, ui; see Sections)
-status: approved (G1, Josh, 23 Nov 2026, in chat: "Approve 081"). Cut 23 Nov 2026 on Josh's request (below); re-cut the same day on his answers to questions 1 to 10 (below). **K2 is done** (K2a, K2a2, K2b, K2c, K2d1, K2d2 all merged; K2d2 by PR #42, Josh, 24 Nov 2026, on a card: "Merge K2d2 (Recommended)"). **Next: the playable path** (Josh, 24 Nov 2026, on a card: "Playable path first (Recommended)"): P0, K3, U1, then E2, then U2, before H4, P1 and P2a. See *The playable path*.
+status: approved (G1, Josh, 23 Nov 2026, in chat: "Approve 081"). **Section W cut 25 Nov 2026 from Josh's play of P2a; approved (G1) the same day, on a card: "Approve W (Recommended)".** W-Q3 waits for W0's numbers. Cut 23 Nov 2026 on Josh's request (below); re-cut the same day on his answers to questions 1 to 10 (below). **K2 is done** (K2a, K2a2, K2b, K2c, K2d1, K2d2 all merged; K2d2 by PR #42, Josh, 24 Nov 2026, on a card: "Merge K2d2 (Recommended)"). **Next: the playable path** (Josh, 24 Nov 2026, on a card: "Playable path first (Recommended)"): P0, K3, U1, then E2, then U2, before H4, P1 and P2a. See *The playable path*.
 branch: `ticket/081-puzzles-on-the-city` (this file and the `src/core/` types). One branch per pull request: `ticket/081<section>-<slug>`, from this branch until it is on `main`.
 
 ## Josh's words (23 Nov 2026, in chat)
@@ -184,6 +184,11 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | X1 | **Stub, not cut:** delete the 2D map view (`src/render/`) | renderer | P2a, and Josh's word | removals; about 2 added |
 | X2 | **Stub, not cut:** delete the 2D side of `src/ui/` and `main.ts` | ui | X1 | removals; 0 added |
 | R1 | **Stub, not cut:** retarget the release playtest harness to city puzzles | (at cut) | before the next release | at cut |
+| W0 | "pre-check 081 W1": building-only lamps, read-outward, feed clearance, crossings, the roof options, spread (cut 25 Nov 2026; G1: "Approve W (Recommended)") | pipeline-designer | G1 | 0 (a note) |
+| W1 | The fit and the city check: lamps on buildings, routes that read outward, `--avoid` | grid-simulator | W0 holds (or Josh's answer), W-Q3 | at most 9 (5 added, at most 4 rewritten) |
+| W2 | A lit building reads as lit: every storey, glow cards, the light raised; no lamp post or disc | renderer | S4 (PR #70), W-Q1 | 3 |
+| W3 | The target reads as the target (W-Q2); each icon on its piece | renderer | W2 (shares `windows.ts`, `cityview.ts`), W-Q2 | 2 |
+| P2a2 | The 16 pilots re-laid on building targets, spread | puzzle-designer | W1; Josh plays after W2 and W3 | 0 |
 
 `src/play/` (interaction) has no section. E2 keeps the `MapRenderer3d` interface, so play and its `hitTest` calls do not change. If E2's builder finds that `src/play/` must change, it stops, and the architect re-cuts with an interaction section.
 
@@ -714,6 +719,7 @@ It writes a draft `puzzles/city/<NN-slug>.city.json` with `from` set. When there
 **Files.** New `tools/fit.ts`, `tools/fitrun.ts`, `tools/fit.test.ts`; `tools/check.ts`, `checkrun.ts`, `check.test.ts`; `package.json` (the `fit` script only).
 
 ### P2a · Puzzles 01 to 16 on the city, the pilot (puzzle-designer). Branch `ticket/081p2a-city-puzzles-01-16`
+**Built (PR #69, review: meets); Josh played it 25 Nov 2026: "Some need work". Superseded by section W's P2a2 (Josh, 25 Nov 2026, on a card, W-Q5: "Close, re-lay (Recommended)"); the main session closed PR #69 unmerged.**
 ### P2b to P2d · Puzzles 17 to 32, 33 to 48, 49 to 64. Branches `ticket/081p2b-...`, `p2c`, `p2d`
 P2b to P2d start only after Josh has played the pilot and said so in chat (answer 2).
 
@@ -1791,7 +1797,7 @@ S1 and U3 (outside `src/render3d/`) go on unaffected. L2, L3 and S4 wait for F1b
 **Goal.** In the Relight, each puzzle lamp throws a burst of sparkle and a soft flash as it lights, in the Relight's order. In a brownout, short cold blue-white arcs flick at the insulators of the overloaded feed's live poles, a few at a time, until the load is shed. Written to the recommended answers; the architect re-cuts if Josh picks others.
 
 **Acceptance criteria.**
-1. [ ] **Relight bursts.** A pure `relightBursts(plan, lamps, prevT, t)` in `fx.ts` gives the job lamps (never a `converted.hidden` lamp) whose arrival on the Relight clock falls in `(prevT, t]`, in ignition order. Each bursts once, for about `FLARE_SECONDS`, at the lamp's place: a building lamp in front of its street face (L2's `lightPlaces` point), a post lamp at its glow. The burst is a soft-spot flash and a fountain of sparkle sprites in the lit pane's amber (L1). A click during the Relight changes nothing: the bursts come from the clock, as E2's case holds. **test**: 1 case, on P0's file through `relightFrame`'s plan (the module cache): every target lamp bursts exactly once, in the order `relightFrame` lights them, and no hidden lamp bursts.
+1. [ ] **Relight bursts.** A pure `relightBursts(plan, lamps, prevT, t)` in `fx.ts` gives the job lamps (never a `converted.hidden` lamp) whose arrival on the Relight clock falls in `(prevT, t]`, in ignition order. Each bursts once, for about `FLARE_SECONDS`, at the lamp's place: a building lamp in front of its street face (L2's `lightPlaces` point), ~~a post lamp at its glow~~ (struck 25 Nov 2026 by section W: no city lamp stands on a post). The burst is a soft-spot flash and a fountain of sparkle sprites in the lit pane's amber (L1). A click during the Relight changes nothing: the bursts come from the clock, as E2's case holds. **test**: 1 case, on P0's file through `relightFrame`'s plan (the module cache): every target lamp bursts exactly once, in the order `relightFrame` lights them, and no hidden lamp bursts.
 2. [ ] **Brownout arcs.** A pure `arcSpots(state, poles, time, max)` in `fx.ts` gives at most `max` (`ARCS_AT_ONCE`, 3) arcs this frame:
    - only while `state.brownout`;
    - only on job poles whose line is powered and carried (`feedOf`) by a feed whose `feeds` entry is `over`;
@@ -1808,6 +1814,135 @@ S1 and U3 (outside `src/render3d/`) go on unaffected. L2, L3 and S4 wait for F1b
 
 **Interfaces (the section).** Written into `src/core/` with this cut (typecheck passes): `src/core/fx.ts` (`FX_SOURCE_PACK`, `FX_SOURCE_DIR`, `FX_GAME_DIR`, `FX_TEXTURES`, `FxTextureId`, `FX_MESHES`, `FxMeshId`, `AssetFxTexture`), and `AssetManifest.fx?` in `src/core/assets.ts`. It is optional, so `ASSET_MANIFEST_VERSION` stays 1, and the full manifest and the gallery read as before. `fx.ts`'s exports in `src/render3d/` are internal. **Events:** none new; the renderer stays bus-free. **No new dependency.**
 
+### W · The priests want buildings lit, not lamp posts; readability first. Cut 25 Nov 2026 for G1, in five PRs: W0 (a note), W1, W2, W3, P2a2. **Approved (G1) 25 Nov 2026**
+
+**Josh's answers, 25 Nov 2026, on cards (relayed by the main session):**
+- **G1:** "Approve W (Recommended)". The architect's readings below stand as written.
+- **W-Q1, how a lit window glows:** "Glow cards (Recommended)". W2 criterion 3 is built as written (glow cards and the light raised to half the building's height); the bloom branch of it is dropped.
+- **W-Q2, how the target reads among lit scenery:** "Gold windows + icon (Recommended)". W3 criterion 1 is built as written.
+- **W-Q3, what a run may use:** **still open**, asked with W0's numbers. W1 waits for it.
+- **W-Q4, the camera:** "One fixed view (Recommended)". No rotation section is cut; routes must read from the one view, held by W1's rules.
+- **W-Q5, PR #69:** "Close, re-lay (Recommended)". The main session closed PR #69 unmerged; P2a2 re-lays from `main` after W1.
+- **The GDD wording:** "Reword it (Recommended)". The proposal is open question 20; nothing in `rest-gdd` is changed by this ticket.
+**Josh, 25 Nov 2026, after playing the P2a pilots** (PR #69; recorded in full in `docs/design/081-P2a-josh-play.md`). On the cards: all four groups need work; hard to read, plays wrong, looks wrong, too samey; worst for reading: targets unclear, wires untraceable, framing; looks: wires bad, lights wrong, scenery clash; **fix first: hard to read**. In his words:
+> Lv1: "It's not clear what needs to be done to win because the lamp is prior to the breaker in the line. The light on the lamp isn't 3D. Also, the light from the windows in the buildings needs to be ambient, and it's not on every level."
+> Lv2: "Similar problem, it's not clear that the circuit reaches the lamp that needs lighting. Also the flow of electricity is moving away from the power source on one side."
+> Lv3: "The pole Atop the corner building and the reversal over the power source is confusing in 3D, especially when you can't rotate your camera."
+> Lv4: "Similar problems to 1&2, the lamp is confusing because it's not connected to the power source. It's just kind of in the middle of the street on the sidewalk without any wires attached."
+> All levels: "Only the light coming from the doorways seems to glow into the street. I think that instead of lamps, the game should focus on lighting the buildings. It would be a lot less confusing, and the runs would just be around blocks and within blocks."
+
+**What the architect found (read 25 Nov 2026 at `origin/main` 17df2e5, the P2a branch 1622579 and the S4 branch 3782d78).**
+- **The lamp posts are the cause of 01, 02 and 04's "not wired".** A `{ post }` lamp is fed by its `lead`, which is underground and drawn by nothing, and the post stands at the **midpoint of a span the run's last pole ends** (`checkpuzzle.ts`: the run ends at either end of the post's span). In 01 the shrine's post stands on `j0`–`br_1`'s span, so on screen it is between the junction and the breaker, before the breaker. 14 of the 16 pilots have a post lamp, 9 of them a target (01, 02, 04, 05, 06, 08, 11, 14, 15). Only 12 and 16 have none.
+- **A `{ building }` lamp is always visibly wired.** Its line ends on its drop, and the check already holds that the drop hangs from the pole the run ends at (`the run ends at X, but drop hangs from Y`). The drop is drawn (K3b), glows live (E2's job wires, the drop last) and is the building's own. So a building lamp is never before the node that feeds it, and never unwired.
+- **02's backward flow is the circuit's route, not the renderer.** `l_well` runs from `sw_2` on the corner roof (25.6, 104.4) back out to `pole:x:2:lo:39.17`, then down the post's lead to the well at 33.33, back towards the feed's street, and `l_on` before it climbs from `sw_1` to the roof. The pulses truly follow current: `lineFlow` takes the direction from the grid's `flowFrom` on the converted line (`state.flowFrom.get(L) === L.to`), the same on `main` and on S4. **S4's fix (PR #70) is the Relight's pacing**, how much of a run is lit while the Relight runs over S1's `L~a`, `L`, `L~b`, and does not change which way pulses move. So 02 is fixed by the route (W1's read-outward rule and P2a2's re-lay), not by S4; W3 criterion 3 checks it by eye.
+- **03's roof run over the feed** is allowed by today's fit: nothing stops a roof span passing over the feed or doubling back. W1 adds the rule.
+- **The flat disc** is E2's post lamp glow (a sphere and a ground circle, `MeshBasic`), kept for `{ post }` lamps by L1. **The flat yellow windows** are L1's emission with no halo, and L2's one street light per building stands at 3 m (the first floor), which is why only the doorways seem to light the street. Why some storeys do not glow at all is not known from the code: `dimPieces` notes the ground storey is not in a building's instanced `pieces`, and a column counts only when all its pieces' models loaded; W2's builder finds it first.
+- **With S4, every building on the job's live poles lights.** So once targets are buildings, a lit target is one lit building among many. That is a new reading problem; W3 marks the target (W-Q2).
+- **Too samey:** 12 of the 16 pilots are on `block:0:0` (the P2a review's count).
+
+**What lamp targets become (the architect's reading; Proposed, Josh's to overturn at G1).**
+- **Every lamp of a city puzzle stands on a building, fed by its drop** (`{ building }`, `run.drop`). Not on a lamp post (`{ post }`, `run.lead`), not on a roof structure (`{ roof }`; L-Q2's "Mast's building" read stays in the code, unused), not on a pole. The grid's node type stays `lamp`: on the city, a "lamp" is a building's light. Targets are buildings.
+- **The schema keeps `{ post }` and `lead` as types.** The conversion, CK11's post places, K2c's fixtures and E2 know them, and the street layer may want them later. No file in `puzzles/city/` may use them: W1's city check rejects them and the fit never offers them. `puzzles/SCHEMA.md` says so (P2a2). Deleting the types is a later cleanup, not cut.
+- **Lamp posts as scenery: none stand.** A CK11 post is a place, not a model, and stands only when a puzzle puts a lamp there, so with no post lamps no lamp post stands, and E2's sphere and disc go (W2 criterion 4). 059's street lights stay dark scenery on the city view, as E2 criterion 3 has them.
+- **Runs go round blocks and within them** (Josh's words). The architect reads "within" as down the drops into the block's buildings. Whether runs may also use roofs, and how, is W-Q3, asked with W0's numbers.
+
+**No Decided GDD rule is touched** (checked 25 Nov 2026 against `rest-gdd` `docs/05-gameplay.md`). The brief's Decided rules hold on a building: lamps are leaves (a building lamp is a leaf); dead lamp → bulb; "current reaches a dark lamp" reads as a live drop into dark windows (W2 criterion 5). The brief's "Targets. `target` lists the lamps the priests want lit" is Draft; the GDD's endpoints already include "lamps, beacons, shrines, machinery" and "shrines, homes" (05, Draft), and its fault table's "Pulses reach the lamp post" sits in "Fault tracing (Draft)". A rewording for the GDD is open question 20, a proposal only.
+
+**Pre-check.** W1 adds rules and numbers to how a city puzzle may be laid (lamps on buildings only, `READ_BACK_M`, `FEED_CLEAR_M`, no crossing spans, the roof answer), so **W0 is a pipeline-designer pre-check** before W1 is built. W2 and W3 are drawing (looks Josh picks on cards), so no pre-check. P2a2 is the designer's, under W1's check.
+
+**Order and parallel work.**
+| Wave | Sections | Shared files | Why |
+| --- | --- | --- | --- |
+| 1 | W0 ("pre-check 081 W1"); S4 (PR #70) finishes its own loop | none | W0 is a note. S4 is already built and touches `cityview.ts`, `windows.ts`. |
+| 2 | W1 (after W0 "holds", or Josh's answer, and W-Q3); W2 (after S4 merges) | none between them: W1 is `tools/`, W2 `src/render3d/` | W1 needs W0's numbers; W2 rebases on S4's `lampsOf`. |
+| 3 | P2a2 (after W1); W3 (after W2) | none | P2a2 needs the fit; W3 shares `windows.ts` and `cityview.ts` with W2. |
+| 4 | Josh plays P2a2 | | After W2 and W3 merge, so he plays the pilots with the new look. |
+
+#### W0 · "pre-check 081 W1" (pipeline-designer; a note). Branch `ticket/081-puzzles-on-the-city`
+**Goal.** Before W1 is built, measure W1's rules together on 6 x 6 seed 1, one-way on, over the 16 pilots' schematics, so Josh picks W-Q3 with numbers and W1's two distances are set.
+
+**Acceptance criteria.**
+1. [ ] For each of 01 to 16, whether the fit finds a lay with **every lamp on a building by its drop**, under each of W-Q3's three options (roofs only to cross a street on a diagonal; no roofs; roofs over the district's own block too), with B1's other answers as they stand. A miss says what is short (for example, "junction, needs 5 ports, district has 3 with drops"; drops count as attachments, CK12). **no test**.
+2. [ ] **The read-outward rule** worded and measured: along each line's run, from the node current enters by in the check block's winning state, no structure is nearer the line's feed in plan than the farthest one before it by more than `READ_BACK_M`. Propose a value (the architect's start: 3 m) and say how many lays it loses; say how ring lines (current may enter at either end, 14 and 15) are read. **no test**.
+3. [ ] **The feed's clearance and crossings**: no job roof span passes within `FEED_CLEAR_M` (plan) of the feed's pole or its entering span (the architect's start: 6 m, 03's case), and no two job spans cross in plan. How many lays each loses. **no test**.
+4. [ ] **Spread**: for each option, how many distinct blocks the 16 fits can be spread over, with no block holding more than 3 pilots. **no test**.
+5. [ ] A verdict: "holds" (every pilot but a known rework fits under the recommended option) or the note's question for Josh. **no test**.
+
+**Files.** `docs/design/081-W0-building-targets.md` only. **Count.** 0.
+
+#### W1 · The fit and the city check: lamps on buildings, routes that read outward (grid-simulator). Branch `ticket/081w1-building-targets`, after W0 holds (or Josh's answer) and W-Q3
+**Goal.** `npm run fit` lays every lamp on a building fed by its drop, never doubles a run back, never runs a roof span over the feed, and never crosses two job spans; `npm run check puzzles/city/` fails a file that does any of these and says which line or lamp and why.
+
+**Acceptance criteria.**
+1. [ ] **Lamps on buildings.** The city check fails a `puzzles/city/` file whose lamp stands on a `{ post }`, `{ roof }` or `{ pole }`, or whose line ends on a `lead`: "lamp <id>: a city lamp stands on a building, fed by its drop (Josh, 25 Nov 2026)". The fit offers only drop terminals (`b:`) to lamps. **test**: 1 case (a fixture file with a post lamp fails with that message; the same with the lamp on a building passes).
+2. [ ] **Reads outward** (W0's wording and `READ_BACK_M`). **test**: 1 case: a fixture like 02's `l_well` (out past the lamp, back to it) fails, naming the line; its re-lay passes.
+3. [ ] **The feed's clearance and no crossings** (W0's wording and `FEED_CLEAR_M`). **test**: 1 case: a roof span over the feed's entering span fails; two job spans crossing in plan fail.
+4. [ ] **The roof answer** (W-Q3), as Josh words it, in the fit and the check. **test**: 1 case, or folded into criterion 3's fixture if it is a span-kind filter.
+5. [ ] **The fit obeys them.** On a fixture city, a 5-node chain with two lamps fits with both lamps on buildings and passes criteria 1 to 4. **test**: 1 case (P1 criterion 1's case may be rewritten to it instead of added).
+6. [ ] **`--avoid <blocks>`** on `npm run fit`: the search skips the named blocks, so P2a2 can spread districts (Josh: "too samey"). **test**: folded into criterion 5's case.
+7. [ ] P1's sweep (criterion 7) runs W1's rules over every `puzzles/city/*.city.json`. P0 (`city-two-ways-round`, all building lamps) passes unchanged. The pilots are not on `main` (PR #69), so nothing else in `puzzles/city/` changes. **test** (the existing sweep, unedited, or 1 rewritten if its message list must grow).
+8. [ ] P1's cases that fit or check a post lamp are rewritten to building lamps; the builder lists each. At most 3. **test** (rewritten).
+
+**Stop rule.** If P0 fails a rule, or a rule needs a number other than W0's to let P0 pass, the builder stops ("stop 081 W1", with the branch). It does not move a number to pass.
+
+**Count.** At most 9: 5 added (criteria 1 to 5), at most 1 rewritten (7), at most 3 rewritten (8).
+
+**Files.** `tools/fit.ts`, `tools/fitrun.ts`, `tools/fit.test.ts`, `tools/check.ts`, `tools/checkrun.ts`, `tools/check.test.ts`. **Must not:** `src/city/circuit/` (the conversion's CK checks stay as they are: these are rules for authored puzzles, not grammar), `src/grid/`, `src/core/`, `puzzles/`.
+
+**Interfaces.** None in `src/core/`: `READ_BACK_M` and `FEED_CLEAR_M` live in `tools/fit.ts`. No new dependency.
+
+#### W2 · A lit building reads as lit: every storey, a glow that spills, light on the street (renderer). Branch `ticket/081w2-lit-buildings`, after S4 (PR #70) merges and W-Q1 is answered
+**Goal.** When current lights a building, every storey's windows glow warm, the light haloes off the glass and falls onto the pavement, the road and the walls across from it, not only round the door. A dark building with a live drop reads as a dead lamp. No lamp post or flat disc stands anywhere.
+
+**Acceptance criteria.**
+1. [ ] **Why storeys stay dark, first.** Before any change, the builder reports, on `city-two-ways-round` and on one building of each kind in its district (mid, corner, shopfront), which pieces of a lit building do not glow and why (ground storey not in `pieces`, glass outside `WINDOW_UV`, a column whose models did not all load, or another cause). **no test** (in the reply).
+2. [ ] **Every storey.** Every piece of a lit building that has glass, ground storey and shopfront included, takes the building's window level. **test**: 1 case on a fixture building of ground storey, two floors and a roof: every glass-bearing piece carries the level and the roof none.
+3. [ ] **The glow that spills** (W-Q1; written to the recommended "Glow cards and a higher light"):
+   - a soft additive glow card in front of each glass-bearing piece of a lit building, on its street faces only, one `InstancedMesh` for the job sized at build, its opacity from the building's level (so the Relight's order, the flare and the brownout flicker come from L1's `buildingGlow` with no new timing);
+   - L2's light for the building stands at **half the building's height** (not 3 m) and its reach grows with the height, `STREET_LIGHT_REACH_M` x (1 + storeys / 4) (a starting point Josh tunes by eye), so the pool lies under every storey.
+
+   If Josh picks "Bloom": Three's own `UnrealBloomPass` (in the `three` package, `three/examples/jsm`; **no new dependency**) on the play view only, and this criterion is re-cut by the architect with its budget. **test**: 1 case: `glowCards(...)` gives one card per glass-bearing street-face piece of the lit buildings, none on a yard face, and a light's height is half its building's.
+4. [ ] **No lamp posts, no flat disc.** E2's `LampGlow` sphere and ground circle for `{ post }` lamps go from `cityview.ts`; a `{ post }` lamp (no city file has one after W1) draws its overlay icon only. FX3's "a post lamp at its glow" line is struck by this cut. **test**: 0 added; any E2 or L1 case that asserts a post glow is removed, and the builder lists it.
+5. [ ] **The dead-lamp signature on a building** (the Decided "current reaches a dark lamp"). A building whose lamp has a `dead-lamp` fault, with its line powered, has its drop lit with pulses to the wall and its windows, glow cards and light at 0. **test**: 1 case on a fixture conversion (`lineFlow` gives 1 on the drop's line, `buildingGlow` and the glow cards 0).
+6. [ ] **The budget.** `perf=1` on 6 x 6 seed 1 with P0 after the Relight, against S4's numbers: at most 1 more draw call, no new program between the first frame after the models load and the end of the Relight, median frame within 1.5 ms of S4's. Over it, the builder stops ("stop 081 W2") and does not shrink the cards or the reach to pass. **browser**.
+7. [ ] Josh plays `city-two-ways-round` from the default camera and `cam=street`: every storey of each lit building glows, light falls on the street in front and across it, and no lamp post or disc stands. **browser**.
+
+**Count.** 3 added (criteria 2, 3, 5), the removals in criterion 4 listed.
+
+**Files.** `src/render3d/windows.ts` and `windows.test.ts`; `src/render3d/cityview.ts` (the build step, the live layer, the post glow's removal; not `cityHit`, `jobFrame`, `playRigOptions` or the FX calls). **Must not:** `overlay.ts`, `plan3d.ts`, `models3d.ts`, `lightrig.ts`, `lighting.ts` (read only), `src/city/`, `src/core/`, `src/ui/`, `src/main.ts`, `src/play/`, `tools/`. If criterion 1 finds the cause is in `plan3d.ts`'s instancing (a piece never instanced), the builder stops and the architect re-cuts.
+
+**Interfaces.** None in `src/core/`. No new dependency (bloom, if picked, is in `three`).
+
+#### W3 · The target reads as the target; each icon on its piece (renderer). Branch `ticket/081w3-target-reads`, after W2 merges and W-Q2 is answered
+**Goal.** Among the lit scenery, the player can tell at a glance which building the priests want lit, dark or lit, and every breaker, switch and fuse box icon sits on the pole or roof it stands on.
+
+**Acceptance criteria.**
+1. [ ] **The target's mark** (W-Q2; written to the recommended "Gold windows and the icon"): a target building's windows, glow cards and light burn in `TARGET_PANE`, a pale gold (the priests' "robes in light and gold", GDD 08), not the scenery amber; while it is dark its overlay icon carries the target mark, as E4 draws it. **test**: 1 case: a target building's level writes the gold colour and a scenery building's the amber.
+2. [ ] **Icons on their pieces.** The builder first reports, on P2a's 03 (branch `ticket/081p2a-pilots`, read only) and on P0, the screen distance at the default camera between each node's icon and its model's attachment point, and why it is large where it is (for example the fixed `OVERLAY_POLE_Y_M` against a pole model's real height, PK1). Then each icon's anchor is its model's attachment point. **test**: 1 case: a pole node's icon point is at its pole model's top attachment height from `src/core/powerpoles.ts`, and a roof node's at its mast's deck.
+3. [ ] **Pulses run outward.** On P0 and on any W1-laid pilot, every live run's pulses move away from its feed, the drops included. **browser**.
+4. [ ] Josh plays P0 and says whether the target reads among the lit scenery. **browser**.
+
+**Count.** 2 added.
+
+**Files.** `src/render3d/overlay.ts` and `overlay.test.ts` (the anchor only); `src/render3d/windows.ts` and `windows.test.ts`; `src/render3d/cityview.ts` (the target colour in the live layer). **Must not:** as W2.
+
+**Interfaces.** None in `src/core/`; `TARGET_PANE` is internal. No new dependency.
+
+#### P2a2 · The pilots re-laid on building targets (puzzle-designer). Branch `ticket/081p2a2-building-targets`, from `main` after W1 merges
+**Goal.** Puzzles 01 to 16 on the city again, every lamp a building fed by its drop, routes that read outward from one fixed view, spread over the city, so Josh can play the pilot again.
+
+**Acceptance criteria.**
+1. [ ] Each of 01 to 16 has a city file and a note in `puzzles/city/`, laid with W1's fit and passing `npm run check puzzles/city/`. The P2a branch's files are a source the designer may copy from where they pass (12 and 16 have no post lamp), not a base: the branch starts from `main`. **test** (P1's sweep).
+2. [ ] Each note, as P2a's criterion 2, plus: which lamps moved from a post or roof to a building (a **What changed** line each; a move of place alone is "raised, not reworked" when the analyzer's numbers stay equal), and where the target building is in the intended read from the default camera. **no test**.
+3. [ ] **Spread** (Josh: "too samey"): no block holds more than 3 of the 16, using `--avoid` (W1). A designer's aim measured by W0, not a city rule. **no test**.
+4. [ ] `puzzles/SCHEMA.md`'s city section says a city lamp stands on a building by its drop, that `{ post }` and `lead` are not used in `puzzles/city/`, and (the P2a review's could-improve 2) that a city note whose schematic has no check block carries one that replays the same on both. **no test**.
+5. [ ] P2a's review's could-improve 3 and 4 (15's trap name; the scratch-run clause) are carried into 15's new note. **no test**.
+6. [ ] **Josh plays** the 16 after W2 and W3 merge. His verdict goes under **What it taught us**. **browser**.
+
+**Files.** `puzzles/city/`, `puzzles/SCHEMA.md` (the city section). **Count.** 0.
+
+**PR #69 (P2a).** Closed unmerged (Josh, W-Q5: "Close, re-lay (Recommended)"). Its branch stays until the cleanup step puts it to Josh.
+
 ### X1 · Delete the 2D map view (renderer). **Stub, not cut; not to be built yet**
 Josh, 24 Nov 2026: "Hide now, delete later (Recommended)". Cut in full once P2a's 16 pilots are on the city and Josh has said so. Expected:
 - **Goes:** `src/render/map-renderer.ts` and the 2D map's drawing modules and tests (most of `src/render/`).
@@ -1823,7 +1958,7 @@ Josh, 24 Nov 2026: "Hide now, delete later (Recommended)". Cut in full once P2a'
 Josh, 24 Nov 2026: "Retarget later (Recommended)". `tests/playtest/` replays the schematics and is left alone until then. Re-cut it for city puzzles before the next release Josh calls; until then its snapshots may go stale, as the release loop allows.
 
 ## Files
-Per section, above. This branch (the cut): `tickets/081-puzzles-on-the-city.md`, `docs/design/070-K1-circuit.md` (CK9 as changed, 24 Nov 2026; CK14's dark-building line struck for section S, 24 Nov 2026), `tickets/070-city-pipeline.md` (pointer lines), `tickets/071-pack-power-lines.md` (a pointer line: C and E's ladder wiring are dropped), `tickets/rules-coverage.md`, `src/core/citycircuit.ts` (new; `CityPuzzleView` added 24 Nov 2026 for the playable path), `src/core/cityplan.ts` (`CityCircuitLayer`), `src/core/index.ts`. Section FX's cut (24 Nov 2026): new `src/core/fx.ts`, `src/core/assets.ts` (`AssetManifest.fx?`), `src/core/index.ts`, `tickets/rules-coverage.md`.
+Per section, above. This branch (the cut): `tickets/081-puzzles-on-the-city.md`, `docs/design/070-K1-circuit.md` (CK9 as changed, 24 Nov 2026; CK14's dark-building line struck for section S, 24 Nov 2026), `tickets/070-city-pipeline.md` (pointer lines), `tickets/071-pack-power-lines.md` (a pointer line: C and E's ladder wiring are dropped), `tickets/rules-coverage.md`, `src/core/citycircuit.ts` (new; `CityPuzzleView` added 24 Nov 2026 for the playable path), `src/core/cityplan.ts` (`CityCircuitLayer`), `src/core/index.ts`. Section FX's cut (24 Nov 2026): new `src/core/fx.ts`, `src/core/assets.ts` (`AssetManifest.fx?`), `src/core/index.ts`, `tickets/rules-coverage.md`. Section W's cut (25 Nov 2026): this file and `tickets/rules-coverage.md` only; no `src/core/` change (W1's numbers live in `tools/`, and `{ post }` and `lead` stay typed).
 
 ## Interfaces
 Written into `src/core/` with this cut (typecheck passes):
@@ -1887,3 +2022,14 @@ All questions so far are answered (above), the mid-row one included ("Only when 
 16. **Section FX** (Josh, 24 Nov 2026, on cards): G1 "Approve, FX2 first (Recommended)"; FX-Q1 "Sparks first (Recommended)"; FX-Q2 "Meshes too" (folded into FX1). 24 Nov 2026, after playing FX2: "Merge FX1, fix FX2 (Recommended)", with "extreme" as "More of them", "Bigger, brighter", "Fly further", "Crackle arcs" (FX2 amended; no question left from it). **Still open, before FX3:** FX-Q3 where brownout arcs show ("A few at a time on the overloaded feed's live poles (Recommended)"); FX-Q4 the Relight ("A sparkle burst at each puzzle lamp as it lights (Recommended)"). **Not blocking, after FX1's conversion:** FX-Q5 which shard mesh ("Keep `FX_Shard_Rock_Small_01` (Recommended)").
 17. **FX's frame budgets:** answered, "1.5 ms / 2.0 ms (Recommended)" (Josh, 24 Nov 2026, on a card): with every effect running (`fx=all`), at most 1.5 ms CPU over `fx=0` for FX2 and 2.0 ms for the whole section, in the same session, and never over 16.7 ms. Over them, the builder stops and the numbers come to him.
 18. **Section E5, the camera** (Josh, 24 Nov 2026, in chat: "We should restrict the end users visibility to the puzzle"; on a card: "Cut it (Recommended)"). **Answered** 24 Nov 2026, on cards: G1 and E5-Q1 "Approve, 1.5x (Recommended)"; E5-Q2 "Yes, dev only (Recommended)"; E5-Q3 "Hold at the limit (Recommended)". As asked on its G1 card: E5-Q1 how far out ("1.5x (Recommended)", "1.25x", "2x"), E5-Q2 the dev switch ("Yes, `cam=free` in dev only (Recommended)", "No switch"), E5-Q3 a pane too small for the panels and the district ("Hold the camera at the limit; the panels may cover the district's edge (Recommended)", "Also fold the panels on small panes"). Worded in section E5.
+19. **Section W. Answered 25 Nov 2026, on cards** (see section W): G1 "Approve W (Recommended)"; W-Q1 "Glow cards (Recommended)"; W-Q2 "Gold windows + icon (Recommended)"; W-Q4 "One fixed view (Recommended)"; W-Q5 "Close, re-lay (Recommended)". **Still open: W-Q3**, asked with W0's numbers. As asked (cut 25 Nov 2026 from Josh's play of P2a, `docs/design/081-P2a-josh-play.md`): approve W0, W1, W2, W3 and P2a2 as cut, with the architect's readings in section W (every city lamp a building by its drop; `{ post }` and `lead` kept as types but unused; no lamp post stands; "within blocks" read as the drops into the block's buildings).
+    - **W-Q1, how a lit window glows** (before W2): "Glow cards and a higher light (Recommended)" (a soft halo in front of each lit window, and the street light raised to half the building's height); "Bloom" (Three's own post-processing glow on everything emissive; a frame cost, budget re-cut); "Both".
+    - **W-Q2, how the target building reads among lit scenery** (before W3): "Gold windows and the icon (Recommended)"; "The icon only"; "Scenery stays dark" (S4's lit scenery dropped for the targets' sake, overturning "Drop on a live pole").
+    - **W-Q3, what a run may use** (asked with W0's numbers): "Street poles and drops; roofs only to cross a street on a diagonal (Recommended)"; "Street poles and drops only, no roofs"; "Roofs over its own block too".
+    - **W-Q4, the camera**: "One fixed view; routes must read from it (Recommended)" (W1's rules); "Four fixed turns, 90 degrees" (a renderer and an interaction section, cut later); "Free orbit" (the same, and E5's limits re-cut).
+    - **W-Q5, PR #69**: "Close it, re-lay after W1 (Recommended)"; "Merge it now, re-lay later"; "Keep it open and amend it".
+20. **The GDD rewording (section W). Josh, 25 Nov 2026, on a card: "Reword it (Recommended)".** A proposal for `rest-gdd`, to be made there by whoever Josh gives it to; this ticket changes nothing in `rest-gdd`. Every line it touches is Draft; no Decided rule changes. Proposed wording, `docs/05-gameplay.md`:
+    - "The power grid (Draft)", **Nodes**: add after the endpoints list: "In the circuits minigame, the endpoints the priests name are buildings: a building is lit when current reaches it down its drop, and its windows show it."
+    - "Fault tracing (Draft)", the fault table's **Dead lamp** row: "Pulses reach the lamp post, but the lamp stays dark" becomes "Pulses reach the lamp post, or run down a building's drop, but the lamp or the building's windows stay dark". The part stays **Bulb**.
+    - "Capacity and restraint", the endpoints bullet: unchanged (it already names shrines and homes).
+    The brief's Draft line "Targets. `target` lists the lamps the priests want lit" would read "... the lamps, on the city the buildings, the priests want lit"; the brief is Josh's to reword, as noted under the Full 3D re-cut.
