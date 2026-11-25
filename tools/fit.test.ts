@@ -160,8 +160,8 @@ describe("buildings are the targets (081 W1)", () => {
     const job = (E: { id: string; a: string; b: string }, R: { id: string; a: string; b: string }, withFeed: boolean): CityPuzzle => ({ nodes: [{ id: "f", type: "feed", place: placeOf(E.a) }, { id: "j", type: "junction", place: placeOf(E.b) }, { id: "k", type: "junction", place: placeOf(R.a) }, { id: "m", type: "junction", place: placeOf(R.b) }], lines: [{ id: "l1", from: withFeed ? "f" : "j", to: withFeed ? "j" : "f", run: { spans: [E.id] } }, { id: "l2", from: "k", to: "m", run: { spans: [R.id] } }] }) as unknown as CityPuzzle;
     const sharing = (layer.roofSpans ?? []).slice(0, 400).flatMap((R) => layer.spans.filter((E) => [E.a, E.b].some((x) => x === R.a || x === R.b)).map((E) => [E, R] as const));
     const outcome = ([E, R]: (typeof sharing)[number]) => buildingTargetProblems(job(E, R, true), plan, undefined).filter((p) => p.rule === "feed-clear").length;
-    // P2a's 03: a roof span that passes over the entering span without sharing a pole with it.
-    const apart = (layer.roofSpans ?? []).flatMap((R) => layer.spans.filter((E) => ![E.a, E.b].some((x) => x === R.a || x === R.b) && distToSegment(at.get(E.a)!, at.get(R.a)!, at.get(R.b)!) < FEED_CLEAR_M).map((E) => [E, R] as const));
+    // P2a's 03: a roof span at least 6 m from the feed's pole that crosses or nears the entering span, sharing no pole with it.
+    const apart = (layer.roofSpans ?? []).flatMap((R) => layer.spans.filter((E) => ![E.a, E.b].some((x) => x === R.a || x === R.b) && distToSegment(at.get(E.a)!, at.get(R.a)!, at.get(R.b)!) >= FEED_CLEAR_M && (crossesInPlan(at.get(E.a)!, at.get(E.b)!, at.get(R.a)!, at.get(R.b)!) || distToSegment(at.get(E.b)!, at.get(R.a)!, at.get(R.b)!) < FEED_CLEAR_M)).map((E) => [E, R] as const));
     const near = apart.find((x) => outcome(x) > 0);
     const clear = sharing.find((x) => outcome(x) === 0);
     expect(near, "a roof span over the entering span, sharing no pole with it").toBeDefined();
