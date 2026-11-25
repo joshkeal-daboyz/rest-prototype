@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { EventBus, loadPuzzle } from "../core";
 import { createGrid } from "../grid";
-import type { MapPanView, MapRenderer } from "../render";
+import type { MapPanView, MapRenderer } from "../render3d/maprender";
 import { attachPan, DRAG_SLOP, PINCH_STEP, RIGHT_DOUBLE_MS, WHEEL_IDLE_MS, WHEEL_MAX_STEPS } from "./pan";
 import { createMapPlay } from "./play";
 

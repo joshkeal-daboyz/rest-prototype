@@ -1,5 +1,5 @@
 /**
- * The Relight's sound cues (ticket 019), pure. The timing comes from the renderer's plan (`planRelight`, passed in so this file imports nothing from `src/render/`).
+ * The Relight's sound cues (ticket 019), pure. The timing comes from the renderer's plan (`planRelight`, passed in so this file imports nothing from the 2D map).
  * Hidden ids (ticket 081 S1: the scenery lamps the conversion adds) get no ignition time, so the Relight chimes once per lamp the puzzle names (081 U3, open question 11).
  * The duration is the plan's, unchanged.
  */

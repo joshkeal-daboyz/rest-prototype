@@ -2,7 +2,8 @@
 // No game rules here: each layer owns its own. Picking another map rebuilds the stack.
 import { EventBus, puzzleFeeds, type CityPuzzleView, type LoadPreview, type Puzzle } from "./core";
 import { createGrid, type Grid, type GridState } from "./grid";
-import { planRelight, type MapBlockers, type MapCentre, type MapPanView, type MapPlaces, type MapRenderer } from "./render";
+import type { MapBlockers, MapCentre, MapPanView, MapPlaces, MapRenderer } from "./render3d/maprender";
+import { planRelight } from "./render3d/relightplan";
 import { attachPan, createMapPlay, type MapPlay } from "./play";
 import { createAudio } from "./audio";
 import { mountUI, restoreAudio, type UI } from "./ui";
@@ -16,7 +17,7 @@ import { isLoadKey, previewFor } from "./ui/preview";
 
 // The puzzle page. It is a function so the dev-only asset gallery (at the end of this file) can take the page instead, with no puzzle, HUD or map renderer made.
 function startPuzzle(): void {
-const files = import.meta.glob("../puzzles/**/*.json", { eager: true, import: "default" }) as Record<string, unknown>;
+const files = import.meta.glob("../puzzles/city/**/*.city.json", { eager: true, import: "default" }) as Record<string, unknown>;
 const { entries, problems } = collectCityMaps(files);
 for (const problem of problems) console.warn(`[puzzles] skipped ${problem}`);
 
