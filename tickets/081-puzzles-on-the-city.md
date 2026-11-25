@@ -189,6 +189,7 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | W2 | A lit building reads as lit: every storey, glow cards, the light raised; no lamp post or disc | renderer | S4 (PR #70), W-Q1 | 3 |
 | W3 | The target reads as the target (W-Q2); each icon on its piece | renderer | W2 (shares `windows.ts`, `cityview.ts`), W-Q2 | 2 |
 | P2a2 | The 16 pilots re-laid on building targets, spread | puzzle-designer | W1; Josh plays after W2 and W3 | 0 |
+| W4 | Pulses run outward from the feed: find the cause, fix, pin direction for P0 and the 16 pilots (cut 25 Nov 2026, **not approved**) | renderer | PR #74 (P2a2) | 1 (2 at most) |
 
 `src/play/` (interaction) has no section. E2 keeps the `MapRenderer3d` interface, so play and its `hitTest` calls do not change. If E2's builder finds that `src/play/` must change, it stops, and the architect re-cuts with an interaction section.
 
@@ -1953,6 +1954,35 @@ S1 and U3 (outside `src/render3d/`) go on unaffected. L2, L3 and S4 wait for F1b
 **Files.** `puzzles/city/`, `puzzles/SCHEMA.md` (the city section). **Count.** 0.
 
 **PR #69 (P2a).** Closed unmerged (Josh, W-Q5: "Close, re-lay (Recommended)"). Its branch stays until the cleanup step puts it to Josh.
+
+#### W4 · Pulses run outward from the feed (renderer). Branch `ticket/081w4-pulse-direction`, from `main` after PR #74 (P2a2) merges. Cut 25 Nov 2026; **not approved** (for Josh's G1)
+**Josh, 25 Nov 2026**, playing the re-laid pilot 01 (PR #74's branch: `main` with W2 and W3). In chat: "Issue with level 1 and the flow of electricity". On a card: "Pulses run backward". Told what the main session saw on 01, he said: "that's exactly what I meant". Then on 02: "Same thing with lv2", with a screenshot.
+
+**The evidence.**
+- **01, `l_br`** (`j0` to `br_1`, one span). After the win, the pulses move from the breaker down into the junction pole, against the current.
+- **02, after the win.** The feed is at the right. The run goes left from the feed, through `sw_1` and `sw_2`, to the target building's drop at the left. Josh's arrows show the pulses moving right, towards the feed, along the whole run. They run backward on every span, multi-span lines included, not only on a one-span line.
+- **The renderer's reading of 01 (code only, nothing run):** `jobWires` gives `flip` true, the grid gives `reversed` false, so `wireLit` gives `forward` false (`out.forward = w.flip === reversed`), and the frame loop should then draw the pulses outward (`pointOnWire(w, lit.forward ? d : w.len_m - d)`). The reading says right; the screen says wrong.
+- **Suspects (the architect's, from reading `main`):**
+  - (a) **One-span lines:** `jobWires` guesses a one-span run's start by which end is nearer `line.from`'s `placePoint`, while its multi-span path uses the shared pole.
+  - (b) **A global inversion,** which 02 points to. The drawn wire's points (`w.pts`, from `circuitDraws`' `from` to `to`) may run in the opposite order to the span's `a` to `b`, against which `flip` is measured (`flip = e.a !== cur`). Either the span id's sorted order or the drawn wire's ends could differ from `a`/`b`. A sign error between `flip`, `forward` and `pointOnWire` would also do it.
+  - The W3 criterion 3 browser check missed it, and no test pins pulse direction.
+
+**Goal.** On every city puzzle, every live wire's pulses move away from the feed, on every span and drop, in play and in the Relight.
+
+**Acceptance criteria.**
+1. [ ] **The cause, first.** The builder finds the real cause before fixing it, by a pure probe or the dev server (the browser pane, not a headless browser). It reports, in its reply, which suspect it was, or what else it was, with the lines of code. **no test** (in the reply).
+2. [ ] **The fix**, at the cause, in `src/render3d/`. **test**: criterion 3.
+3. [ ] **Direction pinned, in one pure test.** For P0 and the 16 pilots (`puzzles/city/*.city.json`, converted on 6 x 6 seed 1 through the module cache), in each check block's winning state: for every powered wire of every file line, and for the drops, the point a pulse reaches is farther along the current than the point it started from. That is, a pulse moves from the end where current enters the wire, as the grid's `flowFrom` gives it, towards the other end, in world coordinates, using the same functions the frame loop calls (`jobWires`, `lineFlow`, `wireLit`, and the pulse position the loop computes, exported if it is inline today). **test**: 1 case (2 at most, if the Relight's pacing needs its own), and one city build. The builder gives its time.
+4. [ ] **Which were affected.** The builder lists, in its reply, every pilot and line whose pulses ran backward on `main` before the fix: the test run against `main`'s code. **no test**.
+5. [ ] Josh plays 01 and 02: the pulses run from the feed outward on every span. **browser**.
+
+**Count.** 1 added (2 at most).
+
+**Files.** `src/render3d/cityview.ts` (`jobWires`, `wireLit`, the pulse position in the frame loop; the export only, if one is needed for the test); `src/render3d/circuitdraw.ts`, only if the cause is the drawn wire's end order; a new `src/render3d/pulsedir.test.ts`, or one case in an existing cityview test file. **Must not:** `src/city/`, `src/grid/`, `src/core/`, `puzzles/`, `tools/`, `overlay.ts`, `windows.ts`. If the cause is outside `src/render3d/` (for example the conversion's run order), the builder stops ("stop 081 W4") and the architect re-cuts.
+
+**Order.** The test reads the 16 pilots, so the branch is cut from `main` after PR #74 merges. If Josh wants it before then, it branches from PR #74's branch and merges `main` in once #74 is in. No pipeline-designer pre-check: this is drawing, not a rule or a number.
+
+**Interfaces.** None in `src/core/`. No new dependency.
 
 ### X1 · Delete the 2D map view (renderer). **Stub, not cut; not to be built yet**
 Josh, 24 Nov 2026: "Hide now, delete later (Recommended)". Cut in full once P2a's 16 pilots are on the city and Josh has said so. Expected:
