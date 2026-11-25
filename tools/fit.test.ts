@@ -12,7 +12,8 @@ import { cityPuzzleProblems } from "../src/city/circuit/checkpuzzle";
 import { DEFAULT, sharedCity } from "../src/city/testing/namedcities";
 import { PUZZLES_DIR, checkFile } from "./check";
 import { replayMoves } from "./checkrun";
-import { FIT_BUDGET, fitPuzzle, midRowClashes, midRowProblems, raiseForScenery } from "./fit";
+import { crossesInPlan, distToSegment } from "../src/city/circuit/roofgeom";
+import { FEED_CLEAR_M, FIT_BUDGET, READ_BACK_M, buildingTargetProblems, cityCheckProblems, fitPuzzle, midRowClashes, midRowProblems, raiseForScenery } from "./fit";
 
 const CITY: CityPuzzleCity = { blocksX: 6, blocksZ: 6, seed: 1, oneWay: true };
 const ONE_BLOCK = ["block:0:0"];
@@ -116,6 +117,77 @@ describe("the fit tool (081 P1)", () => {
       expect(r.message).toMatch(/^gave up after \d+ steps \(FIT_BUDGET 1\)/);
     }
     expect(FIT_BUDGET).toBeGreaterThan(1);
+  });
+});
+
+describe("buildings are the targets (081 W1)", () => {
+  const p0 = (): CityPuzzle => loaded(P0_FILE);
+  const p0Win = (p: CityPuzzle) => replayMoves(convertCityPuzzle(p, plan).puzzle, P0_WIN).state;
+
+  it("criterion 1: a lamp on a post fails with the city's message and the same lamp on a building passes", () => {
+    const on = p0();
+    const post: CityPuzzle = { ...on, nodes: on.nodes.map((n) => (n.id === "shrine" ? { ...n, place: { post: "span:x" } } : n)) } as CityPuzzle;
+    expect(buildingTargetProblems(post, plan, undefined, false).map((p) => `${p.rule} ${p.id}: ${p.reason}`)).toEqual(["lamp shrine: a city lamp stands on a building, fed by its drop (Josh, 25 Nov 2026)"]);
+    expect(buildingTargetProblems(on, plan, undefined, false)).toEqual([]);
+  });
+
+  it("criterion 2a: a run that enters at the far end and comes back towards its feed fails naming the line; read outward it passes", () => {
+    const r = fit(CHAIN, { solution: CHAIN_WIN });
+    if (!r.ok) throw new Error(r.message);
+    const win = replayMoves(CHAIN, CHAIN_WIN).state;
+    expect(cityCheckProblems(r.draft, plan, win)).toEqual([]);
+    const line = r.draft.lines.find((l) => l.id === "l3")!;
+    const backwards = { ...win, flowFrom: new Map([...win.flowFrom, [line.id, line.to]]) };
+    const found = buildingTargetProblems(r.draft, plan, backwards).filter((p) => p.rule === "reads-outward");
+    expect(found.map((p) => p.id)).toEqual(["l3"]);
+    expect(found[0]!.reason).toContain(`at most ${READ_BACK_M} m`);
+  });
+
+  it("criterion 2b: a ring line is read from where it takes its power, and the same current on a line not on a cycle fails", () => {
+    const on = p0();
+    expect(buildingTargetProblems(on, plan, p0Win(on))).toEqual([]);
+    const open: CityPuzzle = { ...on, lines: on.lines.filter((l) => l.id !== "l_s") };
+    expect(buildingTargetProblems(open, plan, p0Win(on)).filter((p) => p.rule === "reads-outward").map((p) => p.id)).toEqual(["l_e2", "l_x"]);
+  });
+
+  it("criterion 3: a roof span over the feed's entering span (sharing no pole) fails, one sharing its pole and ending beyond it passes, and two crossing job spans fail", () => {
+    const layer = plan.layers.circuit!;
+    const at = new Map<string, { x: number; z: number }>();
+    for (const p of layer.poles) at.set(p.id, { x: p.x_m, z: p.z_m });
+    for (const r of layer.roofs ?? []) at.set(r.id, { x: r.x_m, z: r.z_m });
+    const placeOf = (v: string) => (v.startsWith("roof:") ? { roof: v } : { pole: v });
+    // A feed on E.a, its line over the street span E to a junction, and a roof span R as a second line.
+    const job = (E: { id: string; a: string; b: string }, R: { id: string; a: string; b: string }, withFeed: boolean): CityPuzzle => ({ nodes: [{ id: "f", type: "feed", place: placeOf(E.a) }, { id: "j", type: "junction", place: placeOf(E.b) }, { id: "k", type: "junction", place: placeOf(R.a) }, { id: "m", type: "junction", place: placeOf(R.b) }], lines: [{ id: "l1", from: withFeed ? "f" : "j", to: withFeed ? "j" : "f", run: { spans: [E.id] } }, { id: "l2", from: "k", to: "m", run: { spans: [R.id] } }] }) as unknown as CityPuzzle;
+    const sharing = (layer.roofSpans ?? []).slice(0, 400).flatMap((R) => layer.spans.filter((E) => [E.a, E.b].some((x) => x === R.a || x === R.b)).map((E) => [E, R] as const));
+    const outcome = ([E, R]: (typeof sharing)[number]) => buildingTargetProblems(job(E, R, true), plan, undefined).filter((p) => p.rule === "feed-clear").length;
+    // P2a's 03: a roof span at least 6 m from the feed's pole that crosses or nears the entering span, sharing no pole with it.
+    const apart = (layer.roofSpans ?? []).flatMap((R) => layer.spans.filter((E) => ![E.a, E.b].some((x) => x === R.a || x === R.b) && distToSegment(at.get(E.a)!, at.get(R.a)!, at.get(R.b)!) >= FEED_CLEAR_M && (crossesInPlan(at.get(E.a)!, at.get(E.b)!, at.get(R.a)!, at.get(R.b)!) || distToSegment(at.get(E.b)!, at.get(R.a)!, at.get(R.b)!) < FEED_CLEAR_M)).map((E) => [E, R] as const));
+    const near = apart.find((x) => outcome(x) > 0);
+    const clear = sharing.find((x) => outcome(x) === 0);
+    expect(near, "a roof span over the entering span, sharing no pole with it").toBeDefined();
+    expect(clear, "a roof span sharing the entering span's pole and ending beyond the clearance").toBeDefined();
+    expect(FEED_CLEAR_M).toBe(6);
+    const roofs = (layer.roofSpans ?? []).slice(0, 600);
+    let crossing: [(typeof roofs)[number], (typeof roofs)[number]] | undefined;
+    for (let i = 0; i < roofs.length && !crossing; i++) for (let j = i + 1; j < roofs.length && !crossing; j++) {
+      const a = roofs[i]!;
+      const b = roofs[j]!;
+      if (![a.a, a.b].some((x) => x === b.a || x === b.b) && crossesInPlan(at.get(a.a)!, at.get(a.b)!, at.get(b.a)!, at.get(b.b)!)) crossing = [a, b];
+    }
+    expect(crossing, "two roof spans of the city cross in plan").toBeDefined();
+    expect(buildingTargetProblems(job(crossing![0], crossing![1], false), plan, undefined).filter((p) => p.rule === "crossing")).toHaveLength(1);
+  });
+
+  it("criteria 5 and 6: a fit puts every lamp on a building, its draft passes the rules, and --avoid keeps the district off a named block", () => {
+    const two: Puzzle = { ...CHAIN, id: "chain-2", nodes: [...CHAIN.nodes, { id: "lamp2", type: "lamp", pos: [2, 1], load: 1 }], lines: [...CHAIN.lines, { id: "l5", from: "j", to: "lamp2" }] };
+    const r = fit(two, { solution: CHAIN_WIN });
+    if (!r.ok) throw new Error(r.message);
+    expect(r.draft.nodes.filter((n) => n.type === "lamp").map((n) => Object.keys(n.place))).toEqual([["building"], ["building"]]);
+    expect(r.draft.lines.every((l) => l.run.lead === undefined)).toBe(true);
+    expect(cityCheckProblems(r.draft, plan, replayMoves(two, CHAIN_WIN).state)).toEqual([]);
+    const away = fitPuzzle(CHAIN, plan, CITY, { maxBlocks: 1, avoid: ONE_BLOCK });
+    if (!away.ok) throw new Error(away.message);
+    expect(away.district).not.toContain(ONE_BLOCK[0]);
   });
 });
 

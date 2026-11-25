@@ -12,7 +12,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseCheckBlock, validateCheck, validateCityPuzzle, validatePuzzle } from "../src/core";
 import type { CityPlan, CityPuzzle, CityPuzzleCity, Puzzle } from "../src/core";
 import { convertCityPuzzle } from "../src/city/circuit/convert";
-import { formatReport, runCheck } from "./checkrun";
+import { formatReport, replayMoves, runCheck } from "./checkrun";
 import type { CheckReport } from "./checkrun";
 import { cityCheckProblems, cityPlanFor } from "./fit";
 
@@ -45,11 +45,14 @@ function checkCityFile(jsonPath: string, options: CheckOptions): FileResult {
   if (!shape.ok) return { status: "invalid", id, errors: shape.errors.map((e) => `puzzle: ${e}`) };
   const city: CityPuzzle = shape.puzzle;
   const plan = (options.planFor ?? cityPlanFor)(city.city);
-  const problems = cityCheckProblems(city, plan);
-  if (problems.length > 0) return { status: "invalid", id, errors: problems.map((p) => `${p.rule} ${p.id}: ${p.reason}`) };
+  const first = cityCheckProblems(city, plan);
+  if (first.length > 0) return { status: "invalid", id, errors: first.map((p) => `${p.rule} ${p.id}: ${p.reason}`) };
   const converted = convertCityPuzzle(city, plan).puzzle;
   const cv = validateCheck(parsed.json, converted);
   if (!cv.ok) return { status: "invalid", id, errors: cv.errors };
+  // W1: the read-outward rule reads the winning state of the note's solution (which end current enters each line by).
+  const problems = cityCheckProblems(city, plan, replayMoves(converted, cv.check.solution).state);
+  if (problems.length > 0) return { status: "invalid", id, errors: problems.map((p) => `${p.rule} ${p.id}: ${p.reason}`) };
   const report = runCheck(converted, cv.check);
   return { status: "checked", id, report, lines: formatReport(id, report, converted.startingParts) };
 }
