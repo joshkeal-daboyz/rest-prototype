@@ -184,6 +184,8 @@ export const XRAY_OPACITY = 0.25;
 /** 081 V1: every job wire (live or dead) wears the ribbon colour at this strength, steady: no glow, no pulses. Josh tunes both by eye. */
 export const JOB_WIRE_TINT = 0xff3df0;
 export const JOB_WIRE_DIM = 0.55;
+/** The tint draws before the live layer (render order 0), so the glow and pulses add over it unchanged. */
+export const JOB_WIRE_TINT_ORDER = -1;
 
 /**
  * The faded second pass of an instanced live mesh (081 W4): the same geometry and the same instance attributes (so the first pass's per-frame writes are the only writes), a material that draws only where something is in front
@@ -821,6 +823,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   tintMesh.raycast = () => {};
   tintMesh.frustumCulled = false;
   tintMesh.name = "city-play:wire-tint";
+  tintMesh.renderOrder = JOB_WIRE_TINT_ORDER;
   live.add(tintMesh);
 
   const pulsesPer = liveWires.map((w) => Math.max(1, Math.ceil(w.len_m / PULSE_SPACING_M)));
