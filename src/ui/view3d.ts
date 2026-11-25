@@ -1,25 +1,10 @@
 /**
- * Which renderer the page asks for (ticket 081 A2d). Pure: the address and the kind of puzzle arrive as values, nothing is read here.
- * A schematic puzzle has no city form yet, so `?view=3d` on it opens the 2D map (the default Josh may overturn later). A city route
- * (`city=tiles` or `city=plan`, with or without `sheet=1`) still asks for the 3D renderer, and so does a city puzzle (from U1 on).
+ * What the page builds for the address (ticket 081 A2d, U2). Pure: the address arrives as a value, nothing is read here.
+ * Every puzzle is a city puzzle on the 3D city; only a `city=tiles` or `city=plan` debug route changes what is built.
  */
 
-/** A schematic puzzle (`puzzles/NN-*.json`) or a city puzzle (`puzzles/city/`, from U1 on). */
-export type PuzzleKind = "schematic" | "city";
-
-/** The `city=` routes that open the 3D renderer. Any other value does not. */
+/** The `city=` debug routes, drawn with no city option. Any other value plays the puzzle. */
 const CITY_ROUTES: readonly string[] = ["tiles", "plan"];
-
-/** The console line for `?view=3d` on a puzzle that opens on the 2D map. */
-export const NO_CITY_FORM_NOTICE = "3D view: this puzzle has no city form yet";
-
-/** True when the page should build the 3D renderer: `view=3d` is in the address, and either a city route is named or the puzzle is a city puzzle. */
-export function wants3d(search: string, puzzleKind: PuzzleKind): boolean {
-  const q = new URLSearchParams(search);
-  if (q.get("view") !== "3d") return false;
-  if (puzzleKind === "city") return true;
-  return CITY_ROUTES.includes(q.get("city") ?? "");
-}
 
 /** What the page builds for a city puzzle (ticket 081 U2): `play` is the puzzle on the city view; `route` is a `city=tiles` or `city=plan` debug route, drawn with no city option. */
 export type PageView = "play" | "route";
