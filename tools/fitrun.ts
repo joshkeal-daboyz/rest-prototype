@@ -1,5 +1,5 @@
 /**
- * `npm run fit puzzles/<NN-slug>.json -- --city 6x6:1:oneway [--blocks <ids>] [--max-blocks N] [--out <dir>] [--unraised]` (ticket 081 P1): search the city for a district of 1 to 4 blocks and an embedding of a schematic puzzle,
+ * `npm run fit puzzles/<NN-slug>.json -- --city 6x6:1:oneway [--blocks <ids>] [--avoid <ids>] [--max-blocks N] [--out <dir>] [--unraised]` (ticket 081 P1): search the city for a district of 1 to 4 blocks and an embedding of a schematic puzzle,
  * and write a draft `puzzles/city/<NN-slug>.city.json` (its `from` set, its capacities and ratings raised by the scenery its solution lights, section S). With no fit it says why and writes nothing.
  * `npm run fit -- --raise puzzles/city/<id>.city.json`: rewrite an existing city file's capacities and ratings in place, from its schematic's numbers.
  * `--unraised` fits without the solution: the schematic's own numbers, and any embedding the city check passes (the way to see whether a puzzle fits at all).
@@ -97,7 +97,7 @@ function main(argv: readonly string[]): number {
   const file = argv.find((a, i) => !a.startsWith("-") && !(i > 0 && argv[i - 1]!.startsWith("--")));
   const cityText = flag(argv, "--city");
   if (file === undefined || cityText === undefined) {
-    console.log("usage: npm run fit puzzles/<NN-slug>.json -- --city 6x6:1:oneway [--blocks <ids>] [--max-blocks N] [--out <dir>]\n       npm run fit -- --raise puzzles/city/<id>.city.json");
+    console.log("usage: npm run fit puzzles/<NN-slug>.json -- --city 6x6:1:oneway [--blocks <ids>] [--avoid <ids>] [--max-blocks N] [--out <dir>]\n       npm run fit -- --raise puzzles/city/<id>.city.json");
     return 2;
   }
   const schematicPath = resolve(file);
@@ -108,7 +108,8 @@ function main(argv: readonly string[]): number {
   const sol = solutionOf(schematicPath, schematic);
   const blocks = flag(argv, "--blocks")?.split(",").map((b) => b.trim()).filter((b) => b !== "");
   const maxBlocks = flag(argv, "--max-blocks");
-  const r = fitPuzzle(schematic, plan, city, { ...(blocks !== undefined ? { blocks } : {}), ...(maxBlocks !== undefined ? { maxBlocks: Number(maxBlocks) } : {}), ...(unraised ? {} : { solution: sol.moves }) });
+  const avoid = flag(argv, "--avoid")?.split(",").map((b) => b.trim()).filter((b) => b !== "");
+  const r = fitPuzzle(schematic, plan, city, { ...(blocks !== undefined ? { blocks } : {}), ...(maxBlocks !== undefined ? { maxBlocks: Number(maxBlocks) } : {}), ...(avoid !== undefined ? { avoid } : {}), ...(unraised ? {} : { solution: sol.moves }) });
   if (!r.ok) {
     console.log(`${schematic.id}: ${r.message}`);
     return 1;

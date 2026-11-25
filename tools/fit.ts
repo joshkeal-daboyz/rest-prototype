@@ -11,6 +11,7 @@
 import { EventBus, SCENERY_BUILDING_LOAD, validateCityPuzzle } from "../src/core";
 import type { CityCircuitLayer, CityNodePlace, CityPlan, CityPlanBlock, CityPuzzle, CityPuzzleCity, CityPuzzleFault, CityPuzzleLine, CityPuzzleNode, CityRoofMast, CityRoofSpan, CityWireSpan, GridNode, Puzzle } from "../src/core";
 import { convertCityPuzzle } from "../src/city/circuit/convert";
+import type { GridState } from "../src/grid";
 import type { CircuitProblem } from "../src/city/circuit/check";
 import { cityPuzzleProblems } from "../src/city/circuit/checkpuzzle";
 import { reachOf, roofSpanFault } from "../src/city/circuit/roofjobs";
@@ -30,6 +31,11 @@ export const FIT_BUDGET = 300_000;
 export const FIT_DISTRICT_STEPS = 4_000;
 /** The most blocks a district may have (answer 4: 1 to 4 blocks, no other fallback). */
 export const FIT_MAX_BLOCKS = 4;
+
+/** W1 (Josh, 25 Nov 2026): a run may come back towards its reference point by no more than this, in plan (W0's number). */
+export const READ_BACK_M = 3;
+/** W1: no job roof span comes nearer than this, in plan, to the feed's pole or its entering span (W0's number). */
+export const FEED_CLEAR_M = 6;
 
 const EPS = 1e-9;
 
@@ -116,9 +122,174 @@ export function midRowProblems(puzzle: CityPuzzle, plan: CityPlan): CircuitProbl
   return out;
 }
 
-/** Every problem the city check finds: CK12 to CK14 and CK17d (the circuit's own), then CK17a's mid-row clearance. Empty when the puzzle converts and its roofs are clear. */
-export function cityCheckProblems(puzzle: CityPuzzle, plan: CityPlan): CircuitProblem[] {
-  return [...cityPuzzleProblems(puzzle, plan), ...midRowProblems(puzzle, plan)];
+// ---- the building-target rules (ticket 081 W1) ----
+
+interface Pt2 {
+  readonly x: number;
+  readonly z: number;
+}
+
+/** The part of a winning state the read-outward rule reads: which lines carry power, from which feed, entered at which node. */
+export type WinningState = Pick<GridState, "powered" | "flowFrom" | "feedOf">;
+
+const segDist = (a: Pt2, b: Pt2, c: Pt2, d: Pt2): number => (crossesInPlan(a, b, c, d) ? 0 : Math.min(distToSegment(a, c, d), distToSegment(b, c, d), distToSegment(c, a, b), distToSegment(d, a, b)));
+
+/** How far a walk comes back towards `ref`: the most any point falls short of the farthest one before it. */
+function readBack(seq: readonly Pt2[], ref: Pt2): number {
+  let far = -Infinity;
+  let worst = 0;
+  for (const p of seq) {
+    const d = Math.hypot(p.x - ref.x, p.z - ref.z);
+    worst = Math.max(worst, far - d);
+    far = Math.max(far, d);
+  }
+  return worst;
+}
+
+/** Lines on a cycle of the graph, all feeds counted as one node (W0; Josh: ring lines read outward from where they take power). */
+export function ringLinesOf(lines: readonly { readonly id: string; readonly from: string; readonly to: string }[], feeds: ReadonlySet<string>): Set<string> {
+  const key = (id: string): string => (feeds.has(id) ? "~feeds" : id);
+  const out = new Set<string>();
+  for (const l of lines) {
+    const a = key(l.from);
+    const b = key(l.to);
+    if (a === b) {
+      out.add(l.id);
+      continue;
+    }
+    const adj = new Map<string, string[]>();
+    for (const x of lines) {
+      if (x.id === l.id) continue;
+      const u = key(x.from);
+      const w = key(x.to);
+      adj.set(u, [...(adj.get(u) ?? []), w]);
+      adj.set(w, [...(adj.get(w) ?? []), u]);
+    }
+    const seen = new Set([a]);
+    const q = [a];
+    while (q.length > 0) {
+      const u = q.shift()!;
+      for (const w of adj.get(u) ?? []) if (!seen.has(w)) (seen.add(w), q.push(w));
+    }
+    if (seen.has(b)) out.add(l.id);
+  }
+  return out;
+}
+
+/**
+ * How far a line's run (in the order from its `from` node) comes back. With a winning state the line is read from the end current enters by (a powered non-ring line from its feed, a ring line from its own
+ * first structure); a line dead in it, or no state, passes if it reads outward from either end. Null when a feed the reading needs is not placed yet (the search asks early).
+ */
+function backOfLine(seq: readonly Pt2[], line: { readonly id: string; readonly to: string }, ring: boolean, win: WinningState | undefined, feedPt: (feedId: string) => Pt2 | undefined, allFeeds: readonly string[]): number | null {
+  if (seq.length === 0) return 0;
+  const rev = [...seq].reverse();
+  if (win !== undefined && win.powered.has(line.id)) {
+    // Current enters the converted line (split by S1 into `L~a`, `L`, `L~b`) at `L~h2` when it runs backwards; on a plain schematic line, at its `to` node.
+    const entered = win.flowFrom.get(line.id);
+    const s = entered === line.to || entered === `${line.id}~h2` ? rev : seq;
+    if (ring) return readBack(s, s[0]!);
+    const f = feedPt(win.feedOf.get(line.id) ?? "");
+    return f === undefined ? null : readBack(s, f);
+  }
+  if (ring) return Math.min(readBack(seq, seq[0]!), readBack(rev, rev[0]!));
+  const pts = allFeeds.map(feedPt);
+  if (pts.some((p) => p === undefined)) return null;
+  return Math.min(...pts.flatMap((f) => [readBack(seq, f!), readBack(rev, f!)]));
+}
+
+/** A roof span's plan distance from the feed's pole and its entering span; one sharing a pole with the entering span is judged by its far end (W0). */
+function feedClearance(F: Pt2, E: { a: string; b: string }, R: { a: string; b: string }, at: ReadonlyMap<string, Pt2>): number {
+  const ea = at.get(E.a)!;
+  const eb = at.get(E.b)!;
+  const ra = at.get(R.a)!;
+  const rb = at.get(R.b)!;
+  const dist = distToSegment(F, ra, rb);
+  const shared = [R.a, R.b].find((x) => x === E.a || x === E.b);
+  if (shared === undefined) return Math.min(dist, segDist(ra, rb, ea, eb));
+  const rFar = at.get(R.a === shared ? R.b : R.a)!;
+  const eFar = at.get(E.a === shared ? E.b : E.a)!;
+  return Math.min(dist, distToSegment(rFar, ea, eb), distToSegment(eFar, ra, rb));
+}
+
+const LAMP_REASON = "a city lamp stands on a building, fed by its drop (Josh, 25 Nov 2026)";
+
+/** W1's rules for an authored city puzzle: lamps on buildings; every line reads outward; no roof span near the feed; no two job spans cross. `geometry` false skips all but the lamp rule. */
+export function buildingTargetProblems(puzzle: CityPuzzle, plan: CityPlan, win?: WinningState, geometry = true): CircuitProblem[] {
+  const out: CircuitProblem[] = [];
+  const bad = new Set<string>();
+  for (const n of puzzle.nodes) if (n.type === "lamp" && !("building" in n.place)) bad.add(n.id);
+  for (const l of puzzle.lines) if (l.run.lead !== undefined) bad.add(l.to);
+  for (const id of [...bad].sort()) out.push({ rule: "lamp", id, reason: LAMP_REASON });
+  const layer = plan.layers.circuit;
+  if (!geometry || layer === undefined) return out;
+
+  const at = new Map<string, Pt2>();
+  for (const p of layer.poles) at.set(p.id, { x: p.x_m, z: p.z_m });
+  for (const r of layer.roofs ?? []) at.set(r.id, { x: r.x_m, z: r.z_m });
+  const ends = new Map<string, { a: string; b: string; roof: boolean }>();
+  for (const s of layer.spans) ends.set(s.id, { a: s.a, b: s.b, roof: false });
+  for (const s of layer.roofSpans ?? []) ends.set(s.id, { a: s.a, b: s.b, roof: true });
+  const vertexOf = new Map<string, string | undefined>();
+  for (const n of puzzle.nodes) vertexOf.set(n.id, "pole" in n.place ? n.place.pole : "roof" in n.place ? n.place.roof : undefined);
+  const feeds = puzzle.nodes.filter((n) => n.type === "feed").map((n) => n.id);
+  const feedPt = (id: string): Pt2 | undefined => {
+    const v = vertexOf.get(id);
+    return v === undefined ? undefined : at.get(v);
+  };
+  const ring = ringLinesOf(puzzle.lines, new Set(feeds));
+
+  for (const l of puzzle.lines) {
+    const seq: Pt2[] = [];
+    let v = vertexOf.get(l.from);
+    if (v !== undefined && at.has(v)) seq.push(at.get(v)!);
+    let broken = false;
+    for (const sid of l.run.spans) {
+      const e = ends.get(sid);
+      if (e === undefined || v === undefined || (e.a !== v && e.b !== v)) {
+        broken = true;
+        break;
+      }
+      v = e.a === v ? e.b : e.a;
+      seq.push(at.get(v)!);
+    }
+    if (broken) continue;
+    const back = backOfLine(seq, l, ring.has(l.id), win, feedPt, feeds);
+    if (back !== null && back > READ_BACK_M + 1e-9) out.push({ rule: "reads-outward", id: l.id, reason: `line ${l.id} comes back ${back.toFixed(1)} m towards ${ring.has(l.id) ? "where it takes its power" : "its feed"} (at most ${READ_BACK_M} m; Josh, 25 Nov 2026: a route reads outward)` });
+  }
+
+  const jobSpans = [...new Set(puzzle.lines.flatMap((l) => l.run.spans))].filter((s) => ends.has(s));
+  for (const fid of feeds) {
+    const F = feedPt(fid);
+    const fl = puzzle.lines.find((l) => l.from === fid || l.to === fid);
+    if (F === undefined || fl === undefined || fl.run.spans.length === 0) continue;
+    const eid = fl.from === fid ? fl.run.spans[0]! : fl.run.spans[fl.run.spans.length - 1]!;
+    const E = ends.get(eid);
+    if (E === undefined) continue;
+    for (const sid of jobSpans) {
+      const R = ends.get(sid)!;
+      if (!R.roof || sid === eid) continue;
+      const d = feedClearance(F, E, R, at);
+      if (d < FEED_CLEAR_M - 1e-9) out.push({ rule: "feed-clear", id: sid, reason: `roof span ${sid} comes within ${d.toFixed(1)} m of feed ${fid}'s pole or entering span (at least ${FEED_CLEAR_M} m)` });
+    }
+  }
+  for (let i = 0; i < jobSpans.length; i++) {
+    for (let j = i + 1; j < jobSpans.length; j++) {
+      const A = ends.get(jobSpans[i]!)!;
+      const B = ends.get(jobSpans[j]!)!;
+      if (A.a === B.a || A.a === B.b || A.b === B.a || A.b === B.b) continue;
+      if (crossesInPlan(at.get(A.a)!, at.get(A.b)!, at.get(B.a)!, at.get(B.b)!)) out.push({ rule: "crossing", id: jobSpans[i]!, reason: `spans ${jobSpans[i]} and ${jobSpans[j]} cross in plan` });
+    }
+  }
+  return out;
+}
+
+/**
+ * Every problem the city check finds: CK12 to CK14 and CK17d (the circuit's own), CK17a's mid-row clearance, then W1's building-target rules. Empty when the puzzle converts and its roofs are clear.
+ * `win` is the winning state of the note's solution: with it the read-outward rule is exact; without it each line passes if it reads outward from either end.
+ */
+export function cityCheckProblems(puzzle: CityPuzzle, plan: CityPlan, win?: WinningState): CircuitProblem[] {
+  const base = [...cityPuzzleProblems(puzzle, plan), ...midRowProblems(puzzle, plan)];
+  return [...base, ...buildingTargetProblems(puzzle, plan, win, base.length === 0)];
 }
 
 // ---- the raised numbers (section S) ----
@@ -222,6 +393,8 @@ export interface FitOptions {
   readonly budget?: number;
   /** The intended solution (the check block's moves). Given, the draft's numbers are raised by it (section S). */
   readonly solution?: readonly string[];
+  /** Blocks the search keeps out of (`--avoid`, W1): no district holds any of them. */
+  readonly avoid?: readonly string[];
 }
 
 export type FitResult =
@@ -330,12 +503,7 @@ function offerOf(plan: CityPlan, district: readonly string[], clash: ReadonlyMap
   const terms = new Map<string, string[]>();
   const poleBlock = new Map(layer.poles.map((p) => [p.id, p.block] as const));
   for (const d of layer.drops) if (reach.inside.has(poleBlock.get(d.pole) ?? "")) terms.set(d.pole, [...(terms.get(d.pole) ?? []), `b:${d.building}`]);
-  const spanById = new Map(layer.spans.map((s) => [s.id, s] as const));
-  for (const q of layer.posts) {
-    const s = spanById.get(q.span);
-    if (s === undefined || !inD(s.a) || !inD(s.b)) continue;
-    for (const v of [s.a, s.b]) terms.set(v, [...(terms.get(v) ?? []), `p:${q.span}`]);
-  }
+  // W1: a lamp stands on a building by its drop; a lamp post is never offered.
   const vertices = [...layer.poles.filter((p) => inD(p.id)).map((p) => p.id), ...[...masts.keys()].filter(inJ)];
   const feedPlaces: { q: string; e: Edge }[] = [];
   for (const e of edges) {
@@ -403,7 +571,7 @@ interface Route {
 type Searched = { readonly ok: true; readonly draft: CityPuzzle; readonly steps: number } | { readonly ok: false; readonly why: "exhausted" | "budget"; readonly steps: number };
 
 /** One district's search: nodes placed breadth-first from the feeds, each line a shortest free walk over spans that are carriers. Every full embedding is judged by the city check before it is taken. */
-function searchDistrict(p: Puzzle, plan: CityPlan, city: CityPuzzleCity, district: readonly string[], o: Offer, steps0: number, limit: number, accept: (d: CityPuzzle) => boolean): Searched {
+function searchDistrict(p: Puzzle, plan: CityPlan, city: CityPuzzleCity, district: readonly string[], o: Offer, steps0: number, limit: number, accept: (d: CityPuzzle) => boolean, win?: WinningState): Searched {
   const type = new Map(p.nodes.map((n) => [n.id, n.type] as const));
   const deg = new Map<string, number>();
   const nbrs = new Map<string, { l: string; o: string }[]>();
@@ -434,11 +602,44 @@ function searchDistrict(p: Puzzle, plan: CityPlan, city: CityPuzzleCity, distric
   const routes = new Map<string, Route>();
   /** The roof spans the job uses so far, for CK17d: no two cross in plan, one junction span a junction. */
   const usedRoof: Edge[] = [];
+  /** Every span the job uses so far (W1: no two cross in plan), and each placed feed's entering span (W1: no roof span near it). */
+  const usedAll: Edge[] = [];
+  const entering = new Map<string, Edge>();
+  const feedIds = p.nodes.filter((n) => n.type === "feed").map((n) => n.id);
+  const ringSet = ringLinesOf(p.lines, new Set(feedIds));
+  const lineById = new Map(p.lines.map((l) => [l.id, l] as const));
   const blocked = (e: Edge): boolean => {
-    if (e.roof === undefined) return false;
     const a = o.at.get(e.a)!;
     const b = o.at.get(e.b)!;
-    return usedRoof.some((u) => (e.roof!.junction !== null && u.roof!.junction === e.roof!.junction) || (u.a !== e.a && u.a !== e.b && u.b !== e.a && u.b !== e.b && crossesInPlan(a, b, o.at.get(u.a)!, o.at.get(u.b)!)));
+    const shares = (u: Edge): boolean => u.a === e.a || u.a === e.b || u.b === e.a || u.b === e.b;
+    if (usedAll.some((u) => !shares(u) && (e.roof !== undefined || u.roof !== undefined) && crossesInPlan(a, b, o.at.get(u.a)!, o.at.get(u.b)!))) return true;
+    if (e.roof === undefined) return false;
+    if (usedRoof.some((u) => e.roof!.junction !== null && u.roof!.junction === e.roof!.junction)) return true;
+    for (const [fid, E] of entering) {
+      const fv = place.get(fid);
+      const F = fv === undefined ? undefined : o.at.get(fv);
+      if (F !== undefined && e.id !== E.id && feedClearance(F, E, e, o.at) < FEED_CLEAR_M - 1e-9) return true;
+    }
+    return false;
+  };
+  /** W1's read-outward rule on one routed line, as early as its feed is placed: the walk `edges` from vertex `from` is a line of the schematic. */
+  const routeReads = (lineId: string, from: string, edges: readonly Edge[]): boolean => {
+    const l = lineById.get(lineId)!;
+    const seq: Pt2[] = [];
+    let v = from;
+    if (o.at.has(v)) seq.push(o.at.get(v)!);
+    for (const e of edges) {
+      v = e.a === v ? e.b : e.a;
+      seq.push(o.at.get(v)!);
+    }
+    // The walk runs from the placed end of the line; give it in the line's own order (from -> to).
+    const lineSeq = place.get(l.from) === from ? seq : [...seq].reverse();
+    const feedPt = (id: string): Pt2 | undefined => {
+      const fv = place.get(id);
+      return fv === undefined ? undefined : o.at.get(fv);
+    };
+    const back = backOfLine(lineSeq, l, ringSet.has(lineId), win, feedPt, feedIds);
+    return back === null || back <= READ_BACK_M + 1e-9;
   };
   let steps = 0;
   const freeTerm = (v: string): string | undefined => (o.terms.get(v) ?? []).find((t) => !tTaken.has(t) && !tUsed.has(t.slice(2)));
@@ -481,19 +682,19 @@ function searchDistrict(p: Puzzle, plan: CityPlan, city: CityPuzzleCity, distric
     return null;
   };
   const commit = (path: readonly Edge[], ends: readonly string[]): string[] => {
-    for (const e of path) (eUsed.add(e.id), e.roof !== undefined && usedRoof.push(e));
+    for (const e of path) (eUsed.add(e.id), usedAll.push(e), e.roof !== undefined && usedRoof.push(e));
     const inner: string[] = [];
     for (const e of path) for (const v of [e.a, e.b]) if (!ends.includes(v) && !vOwner.has(v)) (vOwner.set(v, "carrier"), inner.push(v));
     return inner;
   };
   const undo = (path: readonly Edge[], inner: readonly string[]): void => {
-    for (const e of path) (eUsed.delete(e.id), e.roof !== undefined && usedRoof.splice(usedRoof.lastIndexOf(e), 1));
+    for (const e of path) (eUsed.delete(e.id), usedAll.splice(usedAll.lastIndexOf(e), 1), e.roof !== undefined && usedRoof.splice(usedRoof.lastIndexOf(e), 1));
     for (const v of inner) vOwner.delete(v);
   };
   function placeLamp(w: string, lamp: string, line: string): (() => void) | null {
     const pw = place.get(w)!;
     const here = freeTerm(pw);
-    if (here !== undefined && !o.isRoof(pw) && type.get(w) !== "feed") {
+    if (here !== undefined && !o.isRoof(pw) && type.get(w) !== "feed" && routeReads(line, pw, [])) {
       tTaken.add(here);
       tUsed.add(here.slice(2));
       place.set(lamp, here);
@@ -501,15 +702,8 @@ function searchDistrict(p: Puzzle, plan: CityPlan, city: CityPuzzleCity, distric
       return () => (tTaken.delete(here), tUsed.delete(here.slice(2)), place.delete(lamp), routes.delete(line), undefined);
     }
     const fp = type.get(w) === "feed" ? o.feedPlaces.find((f) => f.q === pw)?.e : undefined;
-    const res = bfs(pw, (v) => !vOwner.has(v) && ((!o.isRoof(v) && o.inD(v) && freeTerm(v) !== undefined) || (o.isRoof(v) && o.usable(v).length > 0)), fp);
-    if (res === null) return null;
-    if (o.isRoof(res.end)) {
-      const inner = commit(res.path, [pw, res.end]);
-      vOwner.set(res.end, lamp);
-      place.set(lamp, res.end);
-      routes.set(line, { from: pw, edges: res.path });
-      return () => (undo(res.path, inner), vOwner.delete(res.end), place.delete(lamp), routes.delete(line), undefined);
-    }
+    const res = bfs(pw, (v) => !vOwner.has(v) && !o.isRoof(v) && o.inD(v) && freeTerm(v) !== undefined, fp);
+    if (res === null || !routeReads(line, pw, res.path)) return null;
     const t = freeTerm(res.end)!;
     const inner = commit(res.path, [pw]);
     if (!vOwner.has(res.end)) (vOwner.set(res.end, "carrier"), inner.push(res.end));
@@ -549,7 +743,7 @@ function searchDistrict(p: Puzzle, plan: CityPlan, city: CityPuzzleCity, distric
     if (k === order.length) {
       steps++;
       const d = draftOf();
-      return cityCheckProblems(d, plan).length === 0 && accept(d);
+      return cityCheckProblems(d, plan, win).length === 0 && accept(d);
     }
     const u = order[k]!;
     if (place.has(u)) return rec(k + 1);
@@ -619,14 +813,17 @@ function searchDistrict(p: Puzzle, plan: CityPlan, city: CityPuzzleCity, distric
             if (res) break;
           }
         }
-        if (res === null) {
+        if (res === null || !routeReads(l, po, res.path)) {
           good = false;
           break;
         }
         const found = res;
         const inner = commit(found.path, [po, v]);
         routes.set(l, { from: po, edges: found.path });
-        undos.push(() => (undo(found.path, inner), routes.delete(l), undefined));
+        // The feed's entering span is its line's span at the feed's end.
+        const feedEnd = t === "feed" ? u : type.get(w) === "feed" ? w : undefined;
+        if (feedEnd !== undefined) entering.set(feedEnd, t === "feed" ? found.path[found.path.length - 1]! : found.path[0]!);
+        undos.push(() => (undo(found.path, inner), routes.delete(l), feedEnd !== undefined && entering.delete(feedEnd), undefined));
       }
       if (good) {
         for (const [x, pv] of place) {
@@ -661,7 +858,9 @@ export function fitPuzzle(schematic: Puzzle, plan: CityPlan, city: CityPuzzleCit
   if (layer === undefined || streets === undefined) return { ok: false, kind: "no-fit", message: "no fit: the plan has no circuit layer", steps: 0 };
   const budget = options.budget ?? FIT_BUDGET;
   const clash = midRowClashes(plan);
-  const wanted = options.blocks !== undefined ? [[...options.blocks].sort()] : districtsOf(streets.blocks, options.maxBlocks ?? FIT_MAX_BLOCKS);
+  const avoid = new Set(options.avoid ?? []);
+  const wanted = (options.blocks !== undefined ? [[...options.blocks].sort()] : districtsOf(streets.blocks, options.maxBlocks ?? FIT_MAX_BLOCKS)).filter((d) => !d.some((b) => avoid.has(b)));
+  const win: WinningState | undefined = options.solution === undefined ? undefined : replayMoves(schematic, options.solution).state;
   const lampFrom = schematic.lines.find((l) => schematic.nodes.find((n) => n.id === l.from)?.type === "lamp");
   if (lampFrom !== undefined) return { ok: false, kind: "no-fit", message: `no fit: ${lampFrom.id} runs from a lamp; a city line runs from a pole or roof, so the line is written the other way`, steps: 0 };
   const solution = options.solution;
@@ -686,7 +885,7 @@ export function fitPuzzle(schematic: Puzzle, plan: CityPlan, city: CityPuzzleCit
     }
     tried++;
     searched++;
-    const r = searchDistrict(schematic, plan, city, district, o, steps, budget, accept);
+    const r = searchDistrict(schematic, plan, city, district, o, steps, budget, accept, win);
     steps += r.steps;
     if (r.ok) {
       const unraised: CityPuzzle = r.draft;
