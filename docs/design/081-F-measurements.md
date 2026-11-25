@@ -101,7 +101,7 @@ At the puzzle's framing (pane emulated at 1287 x 1178 so the opening camera matc
 | Run | Draw calls | Programs | CPU before power | CPU after the Relight | Whole frame | Particles (peak spark) |
 | --- | --- | --- | --- | --- | --- | --- |
 | `fx=0` | 1,774 | 11 | 10.50 ms | 10.30 ms | 16.70 ms | 0 |
-| normal play (effects on) | 1,778 | 12 | 8.80 ms | 8.30 ms | 16.70 ms (est.) | 352 (429) |
-| `fx=all` (measure only) | 1,779 | 12 | 8.70 ms | 8.90 ms | 16.70 ms (est.) | 784 (752) |
+| normal play (effects on) | 1,778 | 12 | 8.80 ms | 8.30 ms | 16.70 ms | 352 (429) |
+| `fx=all` (measure only) | 1,779 | 12 | 8.70 ms | 8.90 ms | 16.70 ms | 784 (752) |
 
 The `fx=0` run was taken while an architect agent was working, so its CPU median sits about 2 ms high; the effect runs are under it, not over. The program count holds at 12 from the first frame after the models load to the end of the Relight in both effect runs (no new program). Pass: no time added beyond noise (limit 1.5 ms), under 16.7 ms, at most 5 more draw calls (cap 6).
