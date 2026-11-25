@@ -8,7 +8,7 @@
  */
 
 import {
-  AdditiveBlending, BoxGeometry, BufferGeometry, Color, DataTexture, DynamicDrawUsage, Euler, Group, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, Quaternion, RGBAFormat, TextureLoader, Vector3, type Object3D, type Texture,
+  AdditiveBlending, BoxGeometry, BufferGeometry, Color, DataTexture, DynamicDrawUsage, Euler, Group, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, PointLight, Quaternion, RGBAFormat, TextureLoader, Vector3, type Object3D, type Texture,
 } from "three";
 import { BLOW_TIMING, FX_MESHES, FX_TEXTURES, GAME_PACK_DIR, type FxMeshId, type FxTextureId } from "../core";
 import type { RelightPlan } from "../render/relight";
@@ -888,6 +888,18 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
   const shard = makeLayer(128 * n + 32, unit, meshMat, "chip", 12, 0.6, fadeHot);
   const lightning = makeLayer(1, quad, lightMat, "sprite", 0, 0, fadeLinear, 8 * n + DIRECT_MAX);
   const lightCap = 1 + 8 * n + DIRECT_MAX;
+  // Four white point lights, made now at intensity 0 and never added or removed: 0 the fuse burst, 1 and 2 the live breaks' sparks, 3 the bolt's head. The light count in play never changes.
+  const burstLight = new PointLight(0xffffff, 0, 10 * S, 2);
+  const sparkLights = [new PointLight(0xffffff, 0, 7 * S, 2), new PointLight(0xffffff, 0, 7 * S, 2)];
+  const boltLight = new PointLight(0xffffff, 0, 8 * S, 2);
+  const fxLights = [burstLight, ...sparkLights, boltLight];
+  for (const l of fxLights) {
+    l.name = "fx-light";
+    l.castShadow = false;
+    group.add(l);
+  }
+  let burstAge = -1;
+  let boltOn = false;
   const layers = [sparkle, soft, smoke, spark, shard, lightning];
   let haveSpark = false;
   let haveShard = false;
@@ -1154,6 +1166,8 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
       blowAtE.ground = ground;
       for (let i = 0; i < BLOW_SPARKS; i++) sparkOut(e, 2.2);
       for (let i = 0; i < 12; i++) chipOut(e);
+      burstLight.position.set(x, y + 1 * S, z);
+      burstAge = 0;
       flash(x, y, z, 9, 1.5, BLOW_TIMING.pop, 2.2, 2.0, 1.6, 1.2, 0.5, 0.1);
       flash(x, y, z, 3, 1.2, 0.2, 2.4, 2.4, 2.4, 1.6, 1.2, 0.8);
     },
@@ -1215,6 +1229,8 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
         const f = 1 - k / K;
         this.arcAt(boltPts[k * 3]!, boltPts[k * 3 + 1]!, boltPts[k * 3 + 2]!, boltPts[k * 3 + 3]!, boltPts[k * 3 + 4]!, boltPts[k * 3 + 5]!, (0.5 + 0.8 * f) * S, 0.5 + 1.4 * f, 0.7 + 1.6 * f, 1.2 + 1.6 * f);
       }
+      boltLight.position.set(boltPts[0]!, boltPts[1]!, boltPts[2]!);
+      boltOn = true;
       flash(boltPts[0]!, boltPts[1]!, boltPts[2]!, 4, 1, 0.05, 1.4, 1.7, 2.4, 0.7, 0.9, 1.4);
       // Forked streaks reach out from the head and two points down the trail, a few at a time: each holds its direction for a 1/20 s slot and flickers.
       const slot = Math.floor(time * 20);
@@ -1271,6 +1287,15 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
       zv.set(0, 0, 1).applyQuaternion(camera);
       glows = 0;
       let drawn = 0;
+      let sparkLit = 0;
+      // The white lights: the burst's is bright and brief, the sparks' flicker with them.
+      if (burstAge >= 0) {
+        burstAge += dt;
+        if (burstAge >= BLOW_TIMING.pop) burstAge = -1;
+      }
+      burstLight.intensity = burstAge < 0 ? 0 : 6 * (1 - burstAge / BLOW_TIMING.pop) ** 2;
+      boltLight.intensity = boltOn ? 2 * (0.6 + 0.4 * rnd()) : 0;
+      boltOn = false;
       for (let s = 0; s < n; s++) {
         if (fed[s] === 0) continue;
         fed[s] = 0;
@@ -1278,6 +1303,11 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
         // The steady glow, flickering between 0.6 and 1.0 each frame.
         const gi = soft.pool.count + glows++;
         const flick = (0.6 + 0.4 * rnd()) * 0.9;
+        if (sparkLit < 2) {
+          const l = sparkLights[sparkLit++]!;
+          l.position.set(e.x, e.y + 0.5 * S, e.z);
+          l.intensity = 1.6 * flick;
+        }
         m4.compose(pv.set(e.x, e.y, e.z), q.copy(camera), sv.setScalar(1.5 * S)).toArray(sarr, gi * 16);
         scol[gi * 3] = flick;
         scol[gi * 3 + 1] = 0.6 * flick;
@@ -1328,6 +1358,7 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
         drawn++;
       }
       queued = 0;
+      for (let i = sparkLit; i < 2; i++) sparkLights[i]!.intensity = 0;
       soft.direct = glows;
       lightning.direct = drawn;
       for (const l of layers) {
@@ -1346,6 +1377,9 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
       }
       glows = 0;
       queued = 0;
+      burstAge = -1;
+      boltOn = false;
+      for (const l of fxLights) l.intensity = 0;
     },
     alive() {
       let k = 0;

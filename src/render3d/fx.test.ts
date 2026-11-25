@@ -213,6 +213,12 @@ describe("081 FX4 and FX3: the blown fuse, brownout arcs and Relight bursts", ()
     layer.blowAt(0, 0, 0, 0);
     expect(layer.alive()).toBeGreaterThanOrEqual(BLOW_SPARKS);
     expect(BLOW_SPARKS).toBeGreaterThanOrEqual(140);
+    layer.update(0.016, new Quaternion());
+    const lights = layer.group.children.filter((c) => c.name === "fx-light") as unknown as { intensity: number }[];
+    expect(lights).toHaveLength(4);
+    expect(lights[0]!.intensity).toBeGreaterThan(0);
+    layer.update(1, new Quaternion());
+    expect(lights.every((l) => l.intensity === 0)).toBe(true);
     layer.clear();
     expect(layer.alive()).toBe(0);
     layer.dispose();
