@@ -47,6 +47,7 @@ import {
   type StorageLike,
 } from "./logic";
 import { capacityRowsKey, setAttr, setClass, setProp, setText, targetRowsKey } from "./frame";
+import { loadKeyText } from "./preview";
 
 export interface UIDeps {
   grid: Grid;
@@ -93,6 +94,22 @@ export interface UI {
   hideWin(): void;
   /** Picks out the list entry for this lamp id (ticket 024 B), or none for null. The map's place is main.ts's job. */
   highlight(lampId: string | null): void;
+  /** Names the load-numbers key in the HUD and says whether the numbers are shown (ticket 081 V4). The numbers are main.ts's, handed to the renderer. */
+  showLoadNumbers(on: boolean): void;
+}
+
+/** Styles for the HUD's line that names the load-numbers key (ticket 081 V4). */
+const LOAD_KEY_STYLE_ID = "ui-loadkey-style";
+const LOAD_KEY_CSS = `
+#ui .load-key { margin: 0; font-size: 13px; color: var(--ink-dim); pointer-events: none; }
+`;
+
+function ensureLoadKeyStyle(): void {
+  if (document.getElementById(LOAD_KEY_STYLE_ID)) return;
+  const style = el("style");
+  style.id = LOAD_KEY_STYLE_ID;
+  style.textContent = LOAD_KEY_CSS;
+  document.head.append(style);
 }
 
 /** Styles for the "Priests want lit" entries (ticket 024 B): focusable, and picked out with the focus colour. */
@@ -447,7 +464,11 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
   let highlighted: string | null = null;
   let targetItems: { id: string; node: HTMLLIElement }[] = [];
 
-  hudLeft.append(pickerLabel, capacityEl, batteryEl, targetsHeading, targetsEl);
+  // The load-numbers key's line (ticket 081 V4): the numbers are on when the map opens, and the line says when they are off.
+  const loadKeyEl = el("p", "load-key", loadKeyText(true));
+  ensureLoadKeyStyle();
+
+  hudLeft.append(pickerLabel, loadKeyEl, capacityEl, batteryEl, targetsHeading, targetsEl);
 
   // ---- top right: Undo, Reset and Download log, three separate buttons (ticket 030) ----
   const hudRight = el("div", "hud hud-right");
@@ -778,5 +799,9 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
     applyHighlight();
   }
 
-  return { update, notify, showWin, hideWin, highlight };
+  function showLoadNumbers(on: boolean): void {
+    setText(loadKeyEl, loadKeyText(on));
+  }
+
+  return { update, notify, showWin, hideWin, highlight, showLoadNumbers };
 }
