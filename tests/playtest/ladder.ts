@@ -1,46 +1,44 @@
-/** The ladder on disk (puzzles/NN-*.json) and the README's Min clicks column, read at run time. */
-import { readFileSync, readdirSync } from "node:fs";
+/** The city puzzles on disk (puzzles/city/*.city.json), each with the check block of its note (the script), read at run time. */
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadPuzzle } from "../../src/core";
-import type { Puzzle } from "../../src/core";
+import { loadCityPuzzle, parseCheckBlock, validateCheck } from "../../src/core";
+import type { CityPuzzle, Puzzle, PuzzleCheck } from "../../src/core";
+import { convertCityPuzzle } from "../../src/city/circuit/convert";
+import { cityPlanFor } from "../../tools/fit";
 
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-export const PUZZLES = join(ROOT, "puzzles");
+export const CITY_DIR = join(ROOT, "puzzles", "city");
 
-/** Every ladder map id, in order. `lamp-row.grid.json` is a street, not a map, and is skipped by name (it has no NN- prefix). */
-export function ladderIds(): string[] {
-  return readdirSync(PUZZLES)
-    .filter((f) => /^\d\d-.*\.json$/.test(f))
-    .map((f) => f.replace(/\.json$/, ""))
+/** Every city puzzle id, in order. Locked copies (puzzles/city/locked/) are not read: they are the same files once Josh locks them. */
+export function cityIds(): string[] {
+  return readdirSync(CITY_DIR)
+    .filter((f) => f.endsWith(".city.json"))
+    .map((f) => f.replace(/\.city\.json$/, ""))
     .sort();
 }
 
-export function loadMap(id: string): Puzzle {
-  return loadPuzzle(JSON.parse(readFileSync(join(PUZZLES, `${id}.json`), "utf8")) as unknown);
+export interface CityMap {
+  city: CityPuzzle;
+  /** The plain map the grid plays, through the conversion on the puzzle's own city (6 x 6 seed 1 through the module cache). */
+  puzzle: Puzzle;
+  /** Ids the conversion added (scenery lamps, split junctions); the trace leaves them out. */
+  hidden: ReadonlySet<string>;
+  /** The note's check block, or null when the note has none or it does not parse. */
+  check: PuzzleCheck | null;
+  problem: string | null;
 }
 
-export interface ReadmeMin {
-  /** Map number ("09") -> the Min clicks column. */
-  min: Map<string, number>;
-  /** Map numbers whose min the README takes from their notes, not from the search. */
-  fromNote: Set<string>;
-}
-
-/** Read the table in puzzles/README.md and the sentence naming the maps whose min comes from their notes. */
-export function readmeMins(): ReadmeMin {
-  const text = readFileSync(join(PUZZLES, "README.md"), "utf8");
-  const min = new Map<string, number>();
-  for (const line of text.split(/\r?\n/)) {
-    const cells = line.split("|").map((c) => c.trim());
-    // "| 09 | The shrine circuit | what it teaches | 3 |" splits to ["", "09", name, teaches, "3", ""]
-    if (cells.length < 6) continue;
-    const num = cells[1] ?? "";
-    const last = cells[cells.length - 2] ?? "";
-    if (/^\d\d$/.test(num) && /^\d+$/.test(last)) min.set(num, Number(last));
-  }
-  const fromNote = new Set<string>();
-  const m = /Min clicks for ([\d, and]+?) are from their notes/.exec(text);
-  for (const n of m?.[1]?.match(/\d+/g) ?? []) fromNote.add(n.padStart(2, "0"));
-  return { min, fromNote };
+export function loadCityMap(id: string): CityMap {
+  const city = loadCityPuzzle(JSON.parse(readFileSync(join(CITY_DIR, `${id}.city.json`), "utf8")) as unknown);
+  const converted = convertCityPuzzle(city, cityPlanFor(city.city));
+  const hidden = new Set(converted.hidden ?? []);
+  const note = join(CITY_DIR, `${id}.md`);
+  const base = { city, puzzle: converted.puzzle, hidden };
+  if (!existsSync(note)) return { ...base, check: null, problem: `no note ${id}.md` };
+  const parsed = parseCheckBlock(readFileSync(note, "utf8"));
+  if (parsed === null) return { ...base, check: null, problem: "its note has no check block" };
+  if (!parsed.ok) return { ...base, check: null, problem: parsed.error };
+  const valid = validateCheck(parsed.json, converted.puzzle);
+  return valid.ok ? { ...base, check: valid.check, problem: null } : { ...base, check: null, problem: valid.errors.join("; ") };
 }

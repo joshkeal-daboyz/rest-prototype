@@ -5,7 +5,7 @@
  */
 import type { EventName, Puzzle } from "../../src/core";
 import type { GridState } from "../../src/grid";
-import { planRelight, type RelightPlan } from "../../src/render";
+import { planRelight, type RelightPlan } from "../../src/render3d/relightplan";
 import { CueTracker, relightCues } from "../../src/audio/cues";
 
 /** Copy of SUBSCRIBED in src/audio/engine.ts: the events the sound engine listens to. */

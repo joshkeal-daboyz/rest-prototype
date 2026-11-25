@@ -1,101 +1,63 @@
-# The playtest harness (ticket 036)
+# The playtest harness (ticket 036, retargeted by 081 R1)
 
-`npm run playtest` plays every ladder map (`puzzles/NN-*.json`, 01 to 64) to the Relight, headlessly, through the real
-`loadPuzzle -> createGrid -> createMapPlay` chain, and compares each map's **trace** with the one committed from `main`
-in `__snapshots__/<id>.trace.txt`. It also draws every frame of the replay with the real `createMapRenderer` on a fake
-canvas. It runs apart from `npm test` and `npm run gate` (own config and tsconfig, nothing here is collected by them) and
-takes a few seconds. Only the playtester updates snapshots, deliberately.
+`npm run playtest` plays every city puzzle (`puzzles/city/*.city.json`) to the Relight, headlessly, through the real
+`loadCityPuzzle -> convertCityPuzzle (on its own city, 6 x 6 seed 1) -> createGrid -> createMapPlay` chain, with a no-op renderer
+(nothing is drawn), and compares each puzzle's **trace** with the one committed at the last release in
+`__snapshots__/<id>.trace.txt`. It runs apart from `npm test` and `npm run gate` (own config and tsconfig) and only on a release Josh
+calls. Only the playtester updates snapshots, deliberately.
 
-Files: `solutions.ts` (one winning script per map), `replay.ts` (the replay and the trace), `fakes.ts` (a recording bus, a
-no-op renderer, a fake canvas), `cues.ts` (the audio path), `ladder.ts` (the maps on disk and the README's Min clicks),
-`playtest.test.ts` (the tests).
+**The old snapshots are gone.** The 64 schematic traces were deleted in 081 R1 (Josh, 24 Nov 2026: "I don't want 2D puzzles anymore.
+I want this game to be full 3D."; X-Q1 "City puzzles only"). `__snapshots__/` is empty until the first release (X-Q2 "Next release"): the
+first run there writes the city traces, and the playtester reads them before committing.
+
+Files: `ladder.ts` (the city puzzles, their conversion and the note's check block), `replay.ts` (the replay and the trace), `fakes.ts`
+(a recording bus and a no-op renderer), `cues.ts` (the audio path), `playtest.test.ts` (the tests).
+
+## The script is the note's check block
+
+There is no script file. Each city note's `check` block gives the replay: its `solution`, then each `trap`'s moves followed by its
+`recover`, as separate traces in one snapshot (`<id> solution`, `<id> trap: <name>`). Moves are the check-block syntax of
+`puzzles/SCHEMA.md` (`undo` included). A new `puzzles/city/<id>.city.json` with a note and a block is picked up on its own.
 
 ## What the tests check
 
-- Every ladder map has a script and every script names a map (`lamp-row.grid.json` has no `NN-` prefix, so it is not on the ladder).
-- Each script wins: every move is valid and clickable, and `grid.state().complete` is true on the last move or before. Soft
-  checks, so the trace diff still prints when a script stops short.
-- Each script's click count (moves that aren't `wait:`; a release counts) is at most the `Min clicks` column of `puzzles/README.md`,
-  read at run time. Maps 49 and 54 take their min from their notes (the README says so); their trace header says `(note)`.
-- The trace matches the committed one. Two runs in one process give the same trace.
-- The Relight can't be interrupted: after the win, a click on every breaker, switch, battery and fault, and an undo, emit no
-  event and change nothing. The trace's `locked:` line says how many clicks were ignored.
-- Every frame (the start, one after every move, three in the Relight) draws without throwing, and passes no non-finite number to the canvas.
-  `KNOWN_NONFINITE` in `playtest.test.ts` pins a count for a map that has one on the base; it is empty, and a count that grows fails.
+- Every city puzzle's note has a check block that parses and holds on the converted puzzle.
+- The solution wins, and each trap's moves then recovery win (soft checks, so the trace diff still prints when one stops short).
+- The Relight can't be interrupted: after the win, a click on every file breaker, switch, battery and fault, and an undo, emit no event and
+  change nothing.
+- The trace matches the committed one, and two runs in one process give the same trace.
 
-## Adding a map's script
+## Hidden ids
 
-A new `puzzles/NN-*.json` with no entry in `solutions.ts` fails the run, naming the id (so does an entry that names no map).
+The conversion adds scenery lamps and split junctions (`hidden`, 081 S1). They carry load (the feeds' numbers include them) but are left
+out of `lit`, `blown`, `faults`, the Relight lamps and the Relight cues, so scenery does not churn a trace.
 
-1. `npm run analyze puzzles/NN-slug.json` and copy the `one shortest win:` line into `solutions.ts` as a list of strings
-   (`"wait:0.5"` stays `"wait:0.5"`; a battery id is a click that releases it; `repair:<id>` mends the fault at `<id>`).
-2. If the search runs out of time (49 and 54 did), follow the design note's intended read. Moves are the check-block syntax of
-   `puzzles/SCHEMA.md`, without `undo`. Time is one second after every click (`CHECK_CLICK_SECONDS`) and `wait:N` is N seconds,
-   so put in the waits that make the cells fill at a click a second.
-3. Add the map's row to `puzzles/README.md` (the harness reads its Min clicks); the script must not take more clicks than that.
-4. `npm run playtest -- -u -t "NN-slug"` writes the new trace. Read it before you commit it.
-
-## Running one map, updating one snapshot
+## Running one puzzle, updating one snapshot
 
 ```
-npm run playtest -- -t "09-shrine-circuit"        # one map: its replay and its draw
-npm run playtest -- -u -t "09-shrine-circuit"     # rewrite only that map's trace
+npm run playtest -- -t "09-shrine-circuit"
+npm run playtest -- -u -t "09-shrine-circuit"     # rewrite only that puzzle's trace
 ```
 
-Check `git status` afterwards: only `__snapshots__/09-shrine-circuit.trace.txt` should change. Never run `-u` without `-t` on a
-branch under test: it would bless every difference, including the regressions.
+Never run `-u` without `-t` on a branch under test: it would bless every difference, including the regressions.
 
 ## Reading a trace
 
-```
-# 09-shrine-circuit | script 3 clicks | README min 3
-start | lit: street_1, street_2, street_3 | feeds: feed 3/4 | blown: - | faults: f1 | parts: wire | prompt: - | cues: -
-1 br_street | lit: - | feeds: feed 0/4 | ... | prompt: Throw breaker | cues: breaker:thrown@0.000
-...
-complete: true
-actions: 3, elapsed: 2.000 s
-relight lamps: flood@2.090, shrine@2.513
-relight duration: 3.113
-relight cues: relight:bed@0.000, relight:chime:0@2.090, relight:chime:1@2.513, relight:close@2.513
-locked: ignored 5 clicks and undo; no events; lit, breakers, switches, parts and faults unchanged
-```
-
-A step line is the step number, the move, then the state after the click and its second of time:
-
-| Field | Meaning |
-| --- | --- |
-| `lit` | lit lamps, sorted (street lights included) |
-| `feeds` | per feed: id, load / capacity (`-` = no limit), `over` when that feed is over its limit (a brownout) |
-| `blown` | fuseboxes with a blown-fuse fault |
-| `faults` | readable fault ids (current reaches them), sorted |
-| `parts` | parts left, sorted |
-| `batteries` | battery maps only: id, charge / capacity (2 dp), `released`, `charging` or `idle` |
-| `prompt` | what the hover prompt says with the pointer on the move's element (a wait keeps the last hover; `-` = none) |
-| `cues` | the sound cues that step's events produced, `name@seconds-into-the-cue` (`-` = none) |
-
-Then `complete`, the win's `actions` and play time, the Relight plan (each lit lamp with its ignition time, the duration), the
-Relight cues (`relight:bed`, one `relight:chime:N` per chime, `relight:close`), and the `locked` line. A move that can't be played
-ends the replay with a line `N move | STOPPED: why`, and `complete: false`.
+A step line is the step number, the move, then the state after the click and its second of time: `lit` (file lamps, sorted), `feeds`
+(id, load / capacity, `over` when browned out), `blown` (fuseboxes), `faults` (readable ids), `parts`, `batteries` (battery puzzles
+only), `prompt` (the hover prompt) and `cues` (the sound cues that step's events produced). Then `complete`, the win's `actions` and
+play time, the Relight plan (each lit file lamp with its ignition time, the duration), the Relight cues and the `locked` line. A move that
+can't be played ends the replay with `N move | STOPPED: why`.
 
 ## Intended difference or regression?
 
-Read the diff for the ticket under test. A difference is **intended** only if an acceptance criterion of that ticket asks for it:
-then update that map's snapshot (`-u -t`) and list it in the playtest report with the criterion. Otherwise it is a **regression**:
-report the map, the step, and the before and after, and leave the snapshot alone. A difference you can't place is a regression
-until the builder or the main session explains it.
+A difference is **intended** only if an acceptance criterion of a ticket merged since the last release asks for it: update that
+puzzle's snapshot (`-u -t`) and list it in the report with the criterion. Otherwise it is a **regression**: report the puzzle, the step,
+and the before and after, and leave the snapshot alone.
 
 ## Known limits
 
-- **One tick per click or wait.** Each click is followed by one `play.tick(1)` and a `wait:N` is one `play.tick(N)`: the convention
-  of the analyzer and the README's min clicks. The browser steps time once per frame (at most 0.1 s); the harness doesn't model that.
-- **Cue voices aren't recorded**, only names and times. Voices (pitch, envelope) are pinned by `src/audio`'s own tests.
-- **Two things are copied from the game** because it doesn't export them (ticket 036, open question 2): `main.ts`'s three-line
-  `relightCues` mapping from the Relight plan to ignition times, and the audio engine's `SUBSCRIBED` event list (both in `cues.ts`).
-  A change to either in the game won't show in the trace until the copy is changed too. Only the event-driven cues are traced; the
-  level-driven sounds (battery full tick, crackle, layers) come from the state each frame and aren't.
-- **No hit-testing, undo or `src/ui/logic` checks yet.** Clicks go by id through `play.click`; `hitTest` is a fake in the trace
-  replay (the draw smoke uses the real renderer but doesn't hit-test); scripts have no `undo`; the UI logic isn't run.
-- **The scripts are clean wins.** No script blows a fuse or browns out on purpose, so those paths show in a trace only where a
-  winning route passes through one, and the fuse-blow drawing isn't exercised by the draw smoke.
-- **The draw smoke uses a Proxy canvas** in a Node environment: it proves nothing throws and no number is `NaN` or infinite, not
-  that anything looks right. It has no `OffscreenCanvas`, so the renderer's cached layers take their draw-directly path.
+- **One tick per click or wait** (`CHECK_CLICK_SECONDS`), as the analyzer and the check block do; the browser steps time per frame.
+- **Cue voices aren't recorded**, only names and times. Two things are copied from the game because it doesn't export them: `main.ts`'s
+  `relightCues` mapping and the audio engine's `SUBSCRIBED` event list (both in `cues.ts`).
+- **No drawing and no hit-testing.** Clicks go by id through `play.click`; the city view can't be drawn headless.
