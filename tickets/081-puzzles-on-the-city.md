@@ -184,11 +184,12 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | X1 | **Stub, not cut:** delete the 2D map view (`src/render/`) | renderer | P2a, and Josh's word | removals; about 2 added |
 | X2 | **Stub, not cut:** delete the 2D side of `src/ui/` and `main.ts` | ui | X1 | removals; 0 added |
 | R1 | **Stub, not cut:** retarget the release playtest harness to city puzzles | (at cut) | before the next release | at cut |
-| V0 | "pre-check 081 V2": what the load numbers give away, pilot by pilot (cut 25 Nov 2026, **not approved**) | pipeline-designer | G1 | 0 (a note) |
+| V0 | "pre-check 081 V2": what the load numbers give away, pilot by pilot (cut 25 Nov 2026; G1: "Approve V (Recommended)") | pipeline-designer | now | 0 (a note) |
 | V1 | Every puzzle wire highlighted, dead runs included | renderer | W4, V-Q1 | 1 |
 | V2 | The load preview, pure (`loadPreview`), faults kept hidden | grid-simulator | V0, V-Q2, V-Q3 | 4 |
-| V3 | The numbers by the icons | renderer | V1, the `LoadPreview` type | 1 |
+| V3 | The numbers by the icons: the preview by controls and breaks; every fuse and feed's load against its limit | renderer | V1, the `LoadPreview` type | 2 |
 | V4 | The page computes the preview and hands it to the renderer | ui | V2, V3 | 1 |
+| FX4 | The fuse blows: a bolt down its wires to the box, a big burst; FX3 folded in if FX4-Q2 says so (cut 25 Nov 2026, **not approved**) | renderer | W4 | 1 (3 with FX3) |
 | W0 | "pre-check 081 W1": building-only lamps, read-outward, feed clearance, crossings, the roof options, spread (cut 25 Nov 2026; G1: "Approve W (Recommended)") | pipeline-designer | G1 | 0 (a note) |
 | W1 | The fit and the city check: lamps on buildings, routes that read outward (ring lines from where they take power), feed clearance 6 m, no crossings, own-block roofs, `--avoid` | grid-simulator | now (W0 and Josh's answers are in) | at most 9 (5 added, at most 4 rewritten) |
 | W2 | A lit building reads as lit: every storey, glow cards, the light raised; no lamp post or disc | renderer | S4 (PR #70), W-Q1 | 3 |
@@ -2003,7 +2004,15 @@ S1 and U3 (outside `src/render3d/`) go on unaffected. L2, L3 and S4 wait for F1b
 
 **Interfaces.** None in `src/core/`. No new dependency.
 
-### V · Every puzzle wire highlighted; the load a throw or a repair would bring, as a number. Cut 25 Nov 2026 for G1, in five PRs: V0 (a note), V1, V2, V3, V4. **Not approved**
+### V · Every puzzle wire highlighted; the load a throw or a repair would bring, as a number. Cut 25 Nov 2026 for G1, in five PRs: V0 (a note), V1, V2, V3, V4. **Approved (G1) 25 Nov 2026**
+
+**Josh's answers, 25 Nov 2026, on cards (relayed by the main session):**
+- **G1:** "Approve V (Recommended)".
+- **V-Q1, how a dead puzzle wire is highlighted:** "Ribbon tint (Recommended)". V1 is built as written; its criterion 3 (faded through buildings) is dropped.
+- **V-Q2, what the number counts:** "Visible load (Recommended)", the option cut as "Drawn load": unreadable faults are treated as sound, so the Decided "Faults hide faults" holds. V2 criterion 3 is built as written.
+- **V-Q3, which controls:** "Breakers and switches (Recommended)".
+- **V-Q4 (the number's form) and V-Q5 (when it is shown): not answered.** They stay open until after V0's note. V3 is built to V-Q4's recommended "+3" form unless Josh answers otherwise first, and V4 criterion 2 waits for V-Q5.
+- **Then, in chat, the same day:** "Fuses and power sources do not showcase their load. Fuses should burse with sparks when they blow, additionally the wires that they service no longer have an animation when they blow. I think we should add a bolt of electricity that flows through the wires followed by a big spark at the fuse." The first sentence is V3's criterion 4. The rest is section FX4.
 **Josh, 25 Nov 2026, in chat:** "Another issue. I want all wires associated with the puzzle to be highlighted. The game is too confusing. Further more each breaker should showcase the load that would be applied as a number if flipped. Each broken wire should show the load that would be added if repaired."
 
 **What the architect read (at `origin/main` e9f8502, with W4 building on `ticket/081w4-pulses-outward`).**
@@ -2083,14 +2092,22 @@ S1 and U3 (outside `src/render3d/`) go on unaffected. L2, L3 and S4 wait for F1b
 **Interfaces.** `LoadPreview` in `src/core/`, written by the architect on G1, after V-Q2 to V-Q4: per node or fault id, `{ delta, feed, over }` (the signed change in its feed's load, which feed, and whether a feed or fuse goes over). No event, no new dependency.
 
 #### V3 · The numbers by the icons (renderer). Branch `ticket/081v3-preview-numbers`, after V1 merges (shares `cityview.ts`) and the `LoadPreview` type is in
-**Goal.** By each breaker and switch icon and each readable break icon, the player reads "+3" or "−2", red if it would brown the feed out or blow a fuse.
+**Goal.** By each breaker and switch icon and each readable break icon, the player reads "+3" or "−2", red if it would brown the feed out or blow a fuse. By each fuse box and each feed icon, the player reads its load now against its limit, "2 of 3".
 
 **Acceptance criteria.**
 1. [ ] `MapRenderer3d.setLoadPreview(p: LoadPreview | null)` (`renderer.ts`) stores the page's preview. The overlay draws each entry as a signed number beside its icon (the break's at the real cut, as E4 places it), in the HUD's font, red when `over`. `null` draws none. A zero change draws nothing (V-Q4). **test**: 1 case: `overlayLabels(icons, breaks, preview)` (pure, in `overlay.ts`) gives one label per entry with an icon on screen, at the icon's side, red for `over`, and none for a hidden break or a zero change.
 2. [ ] During the Relight no numbers are drawn (it can't be interrupted, and nothing is left to choose). **test**: folded into criterion 1's case.
 3. [ ] Josh plays 04 and 06: each breaker shows the load it would add or shed, and the break shows its load once current reaches it. **browser**.
+4. [ ] **Fuses and feeds show their load** (Josh: "Fuses and power sources do not showcase their load").
+   - By every fuse box icon with a `rating`, "<`fuseLoad`> of <rating>". By every feed icon with a `capacity`, "<its `feeds` load> of <capacity>", in the HUD's units.
+   - Both come from the `GridState` the renderer already reads each frame: the load lit now, which is visible load by V-Q2 (nothing past a hidden fault is lit, so nothing leaks). No preview and no `src/grid/` call are needed, so this part does not wait for V2.
+   - Red when over (a browned-out feed), and a blown fuse box reads "0 of <rating>" beside its blown icon.
+   - Scenery load counts, as the HUD's does, and the hidden lamps get no label.
+   - Drawn during the Relight too, since it only states what is lit.
 
-**Count.** 1 added.
+   **test**: 1 case: `overlayLabels` gives "2 of 3" by a fuse box and "13 of 25" by a feed from a fixture state, red for an over feed, and none for an unrated fuse or an unlimited feed.
+
+**Count.** 2 added.
 
 **Files.** `src/render3d/overlay.ts` and `overlay.test.ts`; `src/render3d/cityview.ts` (`paintOverlay` only); `src/render3d/renderer.ts` (the one method). **Must not:** `src/grid/` (the renderer gets the preview from the page), `src/ui/`, `src/main.ts`, `windows.ts`.
 
@@ -2104,6 +2121,48 @@ S1 and U3 (outside `src/render3d/`) go on unaffected. L2, L3 and S4 wait for F1b
 **Count.** 1 added.
 
 **Files.** `src/main.ts`, `src/ui/` (the helper and its test; the HUD's key hint if V-Q5 asks for one). **Must not:** `src/grid/`, `src/render3d/`, `src/play/`.
+
+### FX4 · The fuse blows: a bolt down its wires, a burst at the box (renderer). Branch `ticket/081fx4-fuse-blow`, after W4 merges. Cut 25 Nov 2026 for G1; **not approved**
+**Josh, 25 Nov 2026, in chat:** "Fuses should burse with sparks when they blow, additionally the wires that they service no longer have an animation when they blow. I think we should add a bolt of electricity that flows through the wires followed by a big spark at the fuse."
+
+**What happens today (read at `origin/main` e9f8502).**
+- **The grid reports a blow** with `fuse:blown` (`src/core/events.ts`): `nodeId`, `faultId`, `load`, `rating`, `culprit`, `path` (the line ids from the fuse to the culprit) and `lamps` (every lamp whose load counted, each with its path).
+- **The page** (`src/main.ts`) passes it to the renderer's `notify` and shows a notice.
+- **The city renderer's `notify` is a no-op** (`cityview.ts`: `notify() {}`). So on the 3D city a blow shows nothing: the served wires just go dark at once, because the grid's state is already blown. That is "no longer have an animation".
+- **The 2D map** (ticket 016) ran a shock along each path, timed by `BLOW_TIMING` (`src/core/timing.ts`: streaks run 0.4 s fuse to lamps, glow 0.3 s, lamp sparks at 0.5 s, the fuse pops at 0.7 s for 0.6 s).
+- **The sound** (`src/audio/cues.ts` `blowCues`) already plays on `fuse:blown` to the same `BLOW_TIMING`. So the picture can join it with no sound section, as long as it keeps those times.
+- **FX2** gives the particle pool, the lightning layer (colour per instance) and the soft-spot flash, under its budget: at most 1.5 ms CPU over `fx=0` and never over 16.7 ms.
+- **FX3** (Relight bursts and brownout arcs) is cut, not built, and waits on FX-Q3 and FX-Q4. It uses the same pool and layer and shares `fx.ts` and the frame loop. So it can ride in this PR if Josh answers its two cards (FX4-Q2).
+
+**No Decided rule is touched.** "Fuse rating: over it, blows on power" and the signature "current into a fuse box and none out" hold: the effect plays over the state the grid has already set, and the fuse box then reads blown, with current in and none out. The Relight is not involved, and input is not blocked during the effect.
+
+**Goal.** When a fuse blows on the city, a bolt of electricity runs along every wire the fuse was serving, the drops to the lamps that counted included, and ends in a big spark burst at the fuse box, timed with the blow's sound. Then those wires are dark, and the box reads blown.
+
+**Acceptance criteria.**
+1. [ ] **The bolt.** `notify` keeps each `fuse:blown` with its start time.
+   - A pure `blowBolts(blow, wiresOfLine, t)` in `fx.ts` gives, for each lamp path in `lamps` (`path` when `lamps` is absent), the bolt's head and tail along its wires at time `t` after the blow.
+   - The bolt runs **towards the fuse** (FX4-Q1, written to the recommended answer), from the lamp's drop to the fuse box, over `BLOW_TIMING.run + glow`. It reaches the fuse at `popAt`, so it lands on the sound's pop.
+   - With no path, there is no bolt, and the burst is at 0, as `BLOW_TIMING` says.
+   - The bolt draws in FX2's lightning layer, bright cold white, so no draw call is added.
+
+   **test**: 1 case on a fixture blow with two lamp paths: at 0 each bolt is at its lamp's end; at `popAt` both are at the fuse; after `popAt + pop` nothing is given.
+2. [ ] **The burst at the fuse.** At `popAt`, once, at the fuse box's place: a spark burst of `BLOW_SPARKS` particles, at least twice FX2's cut burst and faster, and a soft-spot flash for `BLOW_TIMING.pop`. The burst comes from FX2's pool. **test**: folded into criterion 1's case (the burst is issued once, at the fuse's point, at `popAt`).
+3. [ ] **The served wires go dead.** Under the bolt the served wires show no pulses. They are dark from the blow on, as the grid's state already has them, and the bolt is the only thing on them. After it, they stay dark until the fuse is repaired. **browser** (`lineFlow` is unchanged; its cases hold the state).
+4. [ ] **Undo, reset and a new blow.** An undo or reset during the effect stops it at once, as FX2's repaired cut stops. Two blows in one action each play their own. **test**: folded into criterion 1's case (`blowBolts` gives nothing once the blow is cleared).
+5. [ ] **`fx=all`** gains a blow on the job's first rated fuse box every 2 s. **no test**.
+6. [ ] **The budget, as FX2's.** Against `fx=0` in the same session, `fx=all` adds at most 1.5 ms to the CPU median (2.0 ms with FX3 folded in) and stays at most 16.7 ms. No draw call is added beyond FX2's, and no new program appears in play. It has FX2's stop rule ("stop 081 FX4"), and the builder does not shrink the burst to pass. **browser**.
+7. [ ] **The sound lines up.** On the city, the pop's sound lands with the burst and the bolt's crackle with the bolt. If they don't, and the picture keeps `BLOW_TIMING`, the builder reports it, and a sound section (`src/audio/`, the sound agent's) is cut. **browser**.
+8. [ ] Josh plays 11 (the small fuse) and 13 (one box, three lamps) and springs each blow: a bolt runs down the wires to the box, the box bursts, and the wires stay dark. **browser**.
+
+**FX3 folded in (only if FX4-Q2 is "Fold FX3 in").** FX3's criteria 1 to 5 ride in this PR as written, with the bursts' "a post lamp at its glow" struck (section W). That adds 2 cases.
+
+**Count.** 1 added (criteria 1, 2 and 4 in one case); 3 with FX3 folded in.
+
+**Files.** `src/render3d/fx.ts` and `fx.test.ts`; `src/render3d/cityview.ts` (`notify` and the frame loop's FX calls only).
+- **Order.** It shares `cityview.ts` with W4 (building), so it branches after W4 merges. V1 and V3 also touch `cityview.ts`, in other parts (the live layer and `paintOverlay`). FX4 may be built beside V1, and whichever merges second merges `main` in.
+- **Must not:** `overlay.ts`, `windows.ts`, `src/grid/`, `src/core/` (`BLOW_TIMING` is read, not changed), `src/audio/`, `src/ui/`, `src/main.ts` (it already calls `notify`).
+
+**Interfaces.** None new: `fuse:blown` and `BLOW_TIMING` exist. No new dependency. No pipeline-designer pre-check: this is drawing.
 
 ### X1 · Delete the 2D map view (renderer). **Stub, not cut; not to be built yet**
 Josh, 24 Nov 2026: "Hide now, delete later (Recommended)". Cut in full once P2a's 16 pilots are on the city and Josh has said so. Expected:
@@ -2195,9 +2254,13 @@ All questions so far are answered (above), the mid-row one included ("Only when 
     - "Fault tracing (Draft)", the fault table's **Dead lamp** row: "Pulses reach the lamp post, but the lamp stays dark" becomes "Pulses reach the lamp post, or run down a building's drop, but the lamp or the building's windows stay dark". The part stays **Bulb**.
     - "Capacity and restraint", the endpoints bullet: unchanged (it already names shrines and homes).
     The brief's Draft line "Targets. `target` lists the lamps the priests want lit" would read "... the lamps, on the city the buildings, the priests want lit"; the brief is Josh's to reword, as noted under the Full 3D re-cut.
-21. **Section V, G1** (cut 25 Nov 2026 from Josh's words in chat; see section V): approve V0 to V4 as cut, with the architect's readings.
+21. **Section V. Answered 25 Nov 2026, on cards:** G1 "Approve V (Recommended)"; V-Q1 "Ribbon tint (Recommended)"; V-Q2 "Visible load (Recommended)"; V-Q3 "Breakers and switches (Recommended)". **Still open, after V0:** V-Q4 and V-Q5. As asked:
     - **V-Q1, how a dead puzzle wire is highlighted:** "Ribbon tint (Recommended)"; "Tint, and faded through buildings"; "Overlay lines back" (E4's lines, which you dropped on 24 Nov).
     - **V-Q2, what the number counts:** "Drawn load (Recommended)" (unreadable faults treated as sound, so 'Faults hide faults', Decided, holds); "True what-if" (a proposal to change that Decided rule: the number would reveal hidden faults on 07 and 16).
     - **V-Q3, which controls:** "Breakers and switches (Recommended)"; "Breakers only" (as you worded it).
     - **V-Q4, the number's form:** "The change, +3 (Recommended)"; "The feed after, 13 of 25"; "Both".
     - **V-Q5, the puzzle it removes** (03, 04, 07, 09 to 15 become a sum, by the architect's reading; V0 measures it): "Always on"; "On by default, a key hides it (Recommended)"; "Only while hovering an icon"; "Off on capacity pilots".
+22. **Section FX4, G1** (cut 25 Nov 2026 from Josh's words in chat): approve FX4 as cut.
+    - **FX4-Q1, which way the bolt runs:** "Towards the fuse (Recommended)" (as worded: the bolt runs through the wires, then the big spark at the fuse); "Out from the fuse" (as the 2D map's streaks ran).
+    - **FX4-Q2, FX3 with it:** "Fold FX3 in (Recommended)", and answer FX-Q3 (brownout arcs: "A few at a time on the overloaded feed's live poles (Recommended)") and FX-Q4 (the Relight: "A sparkle burst at each puzzle lamp as it lights (Recommended)") on the same card; or "Fuse blow only, FX3 later".
+    - **FX4-Q3, how big the burst is:** "Twice a live break's (Recommended)"; "A shower, four times"; "The same as a live break".
