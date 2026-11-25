@@ -9,6 +9,7 @@ import type { CityNodePlace, CityPuzzleConverted } from "../core/citycircuit";
 import type { GridNode } from "../core";
 import type { GridState } from "../grid";
 import type { GlyphSpec, GlyphType } from "../render/glyphs";
+import { GROUND_POLE_ATTACH_UP_M, type GroundPoleKey } from "../core/powerpoles";
 import { nodeLook, type NodeLook } from "./look";
 
 /** An icon's nudge, in CSS px, when it sits closer than its own size to an earlier one. */
@@ -18,6 +19,15 @@ export const OVERLAY_HIT_PX = 44;
 /** An icon's size range in CSS px; it grows with the zoom between them. */
 export const OVERLAY_ICON_MIN_PX = 24;
 export const OVERLAY_ICON_MAX_PX = 40;
+/**
+ * 081 W3: where a node on a ground pole stands, in metres: the top of its pole model's wire attachments (`GROUND_POLE_ATTACH_UP_M`), where the wire meets the pole. A pole whose model is not a ground pole (the feed's
+ * pick) or not in the layer's `poleModels` has no such height here and gets `OVERLAY_POLE_Y_M`.
+ */
+export function poleTopM(layer: Pick<CityCircuitLayer, "poleModels">, poleId: string): number {
+  const up = GROUND_POLE_ATTACH_UP_M[layer.poleModels[poleId] as GroundPoleKey];
+  return up ? Math.max(up[0], up[1], up[2]) : OVERLAY_POLE_Y_M;
+}
+
 /** Where a node on a pole, a lamp post or a roof stands above the ground, in metres, when its place has no height of its own. */
 export const OVERLAY_POLE_Y_M = 7;
 export const OVERLAY_POST_Y_M = 3;
@@ -78,7 +88,7 @@ function iconSize(ctx: OverlayContext): number {
 /** The world point of a node's place, or null if the layer does not hold it. */
 export function placePoint(place: CityNodePlace, layer: CityCircuitLayer, out: World): boolean {
   if ("pole" in place) {
-    for (const p of layer.poles) if (p.id === place.pole) return (out.x = p.x_m), (out.y = OVERLAY_POLE_Y_M), (out.z = p.z_m), true;
+    for (const p of layer.poles) if (p.id === place.pole) return (out.x = p.x_m), (out.y = poleTopM(layer, p.id)), (out.z = p.z_m), true;
     return false;
   }
   if ("building" in place) {
