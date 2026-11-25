@@ -181,9 +181,11 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | FX1 | The particle pack converted; `npm run assets:game` adds its textures and its spark and shard meshes (FX-Q2 "Meshes too") | grid-simulator | now (G1: "Approve, FX2 first (Recommended)"); no other section | at most 4 (3 added, at most 1 rewritten) |
 | FX2 | The particle pool, the textures, live-break sparks and repair flashes; the pack meshes when loaded, sprites otherwise | renderer | now, beside FX1; not after FX1, L3 or S4 (they rebase on it). Amended 24 Nov 2026 on its branch: extreme sparks, warm crackle arcs at the cut, a repaired cut stops at once | 7 (8 at most) |
 | FX3 | Relight bursts and brownout arcing | renderer | FX2, and FX-Q3 and FX-Q4 answered | 2 |
-| X1 | **Stub, not cut:** delete the 2D map view (`src/render/`) | renderer | P2a, and Josh's word | removals; about 2 added |
-| X2 | **Stub, not cut:** delete the 2D side of `src/ui/` and `main.ts` | ui | X1 | removals; 0 added |
-| R1 | **Stub, not cut:** retarget the release playtest harness to city puzzles | (at cut) | before the next release | at cut |
+| X1a | The city view's pieces move out of `src/render/` (interfaces to `src/render3d/maprender.ts`; `stableHash` from `src/city/`) (cut 25 Nov 2026, **not approved**) | renderer | G1 | 1 added, at most 2 rewritten |
+| X1b | `src/play/` imports the map's interfaces from `src/render3d/maprender.ts` | interaction | X1a | 0 |
+| X2 | The 2D side of `src/ui/` and `main.ts` goes; the build loads only city puzzles | ui | X1a | 0 added, at most 2 rewritten, about 7 removed |
+| R1 | The release harness replays the city puzzles through the conversion; old snapshots deleted; not run until a release | playtester | X1a | at most 8 rewritten |
+| X1c | Delete `src/render/` | renderer | X1b, X2, R1 | 0 added, at most 2 rewritten, about 358 removed |
 | V0 | "pre-check 081 V2": what the load numbers give away, pilot by pilot (cut 25 Nov 2026; G1: "Approve V (Recommended)") | pipeline-designer | now | 0 (a note) |
 | V1 | Every puzzle wire highlighted, dead runs included | renderer | W4, V-Q1 | 1 |
 | V2 | The load preview, pure (`loadPreview`): visible load, known faults counted, "+3" before any blow, red if over | grid-simulator | now (V0 and Josh's answers in) | 5 |
@@ -2209,19 +2211,124 @@ S1 and U3 (outside `src/render3d/`) go on unaffected. L2, L3 and S4 wait for F1b
 - **Count.** FX4's 3 added, plus 2 rewritten (the core values case, the audio literal-clock case), and 1 more only if `fx.test.ts` pins a literal: at most 6 for PR #81.
 - Josh plays 11 and 13 again: the bolt runs visibly down the wires to the fuse in about 1.5 s, and the burst and the pop land together (FX4 criteria 7 and 8). **browser**.
 
-### X1 · Delete the 2D map view (renderer). **Stub, not cut; not to be built yet**
-Josh, 24 Nov 2026: "Hide now, delete later (Recommended)". Cut in full once P2a's 16 pilots are on the city and Josh has said so. Expected:
-- **Goes:** `src/render/map-renderer.ts` and the 2D map's drawing modules and tests (most of `src/render/`).
-- **Moves first, does not go:** what the city view still uses from `src/render/`: `glyphs.ts` (E1's overlay draws with it), the `MapRenderer`, `MapPanView`, `MapPlaces`, `MapCentre` and `MapBlockers` interfaces (`renderer.ts` imports them), and `planRelight` (`main.ts`'s Relight sound cues). They move to `src/render3d/` (or the interfaces to `src/core/`, the architect's call at cut).
-- **To check at cut:** every `tickets/rules-coverage.md` row held only by a `src/render/` test gets a city-view test, or the row is re-pointed, before the test goes. That is where its "about 2 added" comes from.
-- **Not in it:** the schematic puzzle files (P2b to P2d still fit from them), `tests/playtest/` (R1), the conversion's `pos` and `decor` in `src/city/circuit/` (grid-simulator's; a separate small section if they are then unused).
+### X · The 2D map goes: X1a, X1b, X2, R1, X1c (cut 25 Nov 2026 for G1; **not approved**)
+**Josh, 25 Nov 2026, in chat:** "Cut X1, X2, R1". Behind it: "I don't want 2D puzzles anymore. I want this game to be full 3D. The 2D puzzles were really just a prototype to see if the puzzles would be functional." (24 Nov 2026). On cards, the same day: "Hide now, delete later (Recommended)" and "Retarget later (Recommended)". The handoff (`docs/handoff-2026-11-24.md`): "Cut X1 and X2 (delete the 2D map and its UI) after P2a and Josh's word. Cut R1 (playtest harness on city puzzles) before the next release." P2a2's pilots, W1 to W4, V1 to V4 and FX4 are on `main` (465885d), so the condition is met.
 
-### X2 · Delete the 2D side of `src/ui/` and `main.ts` (ui). **Stub, not cut; after X1**
-- **Goes:** `collectMaps` and `MapEntry` and their five cases, `wants3d`, `NO_CITY_FORM_NOTICE`, `PuzzleKind` and their two cases (A2d), and `main.ts`'s dead 2D branches.
-- **To decide at cut:** whether the schematics' `puzzles/*.json` glob stays in the build at all.
+**What still reaches `src/render/` (read at `origin/main` 465885d).** `src/render/` is 40 files, 357 test cases.
+- **`src/render3d/` uses five of its modules:**
+  - `glyphs.ts` (the overlay's icons: `drawNodeGlyph`, `drawX`, the colours, `GlyphSpec`);
+  - `geometry.ts` (`Insets`, `Rect`, `ZOOM_STEP`);
+  - `motion.ts` (`hash01`, `flicker`, `clamp01`);
+  - `relight.ts` (`planRelight`, `RelightPlan`, `FLARE_SECONDS`);
+  - `city.ts` (`stableHash` in 9 files, `easeGlow`, `glowTarget`, `CityRect`).
+- **It also uses the map's interfaces** from `src/render/index.ts`: `MapRenderer`, `MapOverlay`, `MapPanView`, `MapPlaces`, `MapCentre` and `MapBlockers`. `src/render3d/renderer.ts` and `cityview.ts` use them, and so do:
+  - `src/play/` (`play.ts`, `pan.ts` and 6 test files, type imports only);
+  - `src/main.ts` (those types and `planRelight`);
+  - `tests/playtest/` (`replay.ts` draws every frame with the 2D `createMapRenderer` on a fake canvas; `cues.ts` and `fakes.ts`).
+- `tools/`, `src/grid/`, `src/night/`, `src/city/` (one comment aside) and `src/audio/` import nothing from it.
+- **`src/ui/`'s 2D side:** `collectMaps`, `MapEntry` and `MapCollection` (`maps.ts`); `wants3d`, `NO_CITY_FORM_NOTICE` and `PuzzleKind` (`view3d.ts`). `main.ts` already plays only city puzzles on `createMapRenderer3d`, but its glob still loads every schematic (`../puzzles/**/*.json`, eager).
+- **The harness** replays the 64 schematics against 64 snapshots in `tests/playtest/__snapshots__/`. `playtests/` holds past release reports.
 
-### R1 · Retarget the release playtest harness (owner at cut). **Stub, not cut**
-Josh, 24 Nov 2026: "Retarget later (Recommended)". `tests/playtest/` replays the schematics and is left alone until then. Re-cut it for city puzzles before the next release Josh calls; until then its snapshots may go stale, as the release loop allows.
+**The architect's calls (Proposed; Josh may overturn them at G1).**
+- **The map's interfaces move to `src/render3d/maprender.ts`, not to `src/core/`.** `MapRenderer.draw` takes `GridState`, which lives in `src/grid/`, and `src/core/` can't import `src/grid/` (`src/grid/` imports it). The file is types only, with no three, so `src/play/` can import it as it imports `src/render/` today.
+- **`stableHash`** comes from `src/city/pipeline/hash.ts`, which is already a copy pinned equal to `src/render/city.ts`'s (`hash.test.ts`, and `escapes.test.ts` pins it too), so no hash changes and no digest moves. The other small pieces (`easeGlow`, `glowTarget`, `CityRect`, `motion.ts`'s three) move into `src/render3d/` unchanged.
+- **The build loads only the city puzzles.** `main.ts`'s glob becomes `../puzzles/city/*.city.json`. The schematics stay on disk as the fit's source (`npm run fit`, `npm run analyze`) and are not edited.
+- **The harness never draws.** The city view can't be drawn headless (Josh, 24 Nov 2026: no headless browsers), so R1 replays the grid and the play layer with the no-op renderer. That is what the snapshots record anyway.
+
+**What must keep working, in every section:**
+- every city puzzle plays on `npm run dev`;
+- `npm run fit`, `check` and `analyze` run on the schematics and the city files;
+- `src/grid/` and `src/night/` are untouched and pure;
+- the schematic panels in `puzzles/` are not edited (P2b to P2d fit from them);
+- `puzzles/locked/` is never touched;
+- `npm run typecheck` passes at every step.
+
+**No Decided rule is touched, and no rules-coverage row moves:** no row of `tickets/rules-coverage.md` points at a `src/render/` test (checked). No pipeline-designer pre-check: nothing here is a rule or a number.
+
+**Order.** The renderer's two sections, X1a and X1c, both edit `src/render/`.
+| Wave | Sections | Shared files | Why |
+| --- | --- | --- | --- |
+| 1 | X1a | `src/render/`, `src/render3d/` | It gives the other three somewhere to import from. `src/render/index.ts` re-exports the moved names, so nothing else breaks yet. |
+| 2, at once | X1b, X2, R1 | none: `src/play/`; `src/ui/` and `src/main.ts`; `tests/playtest/` | Each re-points its own imports off `src/render/`. |
+| 3 | X1c | `src/render/` | It deletes the folder once nothing imports it. |
+| 4 | The docs, on Josh's word (X-Q3) | `CLAUDE.md`, `docs/prototype-brief.md`, `.claude/agents/` | Josh's and the main session's files, not an agent's. |
+
+#### X1a · The city view's pieces move out of the 2D map (renderer). Branch `ticket/081x1a-move-kept`, after G1
+**Goal.** Everything the city view and the play layer still use from `src/render/` lives in `src/render3d/`, unchanged in value, so `src/render/` can go.
+
+**Acceptance criteria.**
+1. [ ] **The moves.**
+   - New `src/render3d/maprender.ts` holds the six map interfaces and `Insets`, `Pan`, `Rect` and `ZOOM_STEP`.
+   - `glyphs.ts` moves to `src/render3d/glyphs.ts` with `glyphs.test.ts` (`git mv`; its 2 cases unedited, so they are moved, not added).
+   - `planRelight`, `RelightPlan`, `FLARE_SECONDS`, `RELIGHT_TRAVEL_SECONDS`, `RELIGHT_LEAD_SECONDS`, `easeGlow`, `glowTarget` and `motion.ts`'s `hash01`, `flicker`, `clamp01` (and `pulsePhase` if needed) move to `src/render3d/relightplan.ts` and `src/render3d/motion.ts`.
+   - `CityRect` moves to `tilecity3d.ts`.
+   - The builder adds any other name its typecheck asks for, and lists every name in its reply.
+
+   **no test** (moved code; the typecheck holds it).
+2. [ ] **`src/render3d/` imports nothing from `src/render/`.** `stableHash` comes from `src/city/pipeline/hash.ts`. **test**: 1 case: no file in `src/render3d/` (tests included) has an import from `../render/` or `../render"`. The existing `stableHash` pins (`hash.test.ts`, `escapes.test.ts`, `stylepin.test.ts`) pass, at most 2 rewritten to import from `src/city/`.
+3. [ ] **`src/render/` still builds** and re-exports the moved names from `src/render3d/` (`index.ts`), and its own modules import them from there. So `src/play/`, `main.ts` and the harness compile unchanged. **no test** (the typecheck).
+4. [ ] No digest pin and no city test moves: the moves are values unchanged. CI's `test` check is the gate. **no test**.
+
+**Count.** 1 added, at most 2 rewritten. Moved cases are not counted, since their bodies are unedited; the builder says so in the PR.
+
+**Files.** `src/render3d/` (new `maprender.ts`, `relightplan.ts`, `motion.ts`, the moved `glyphs.ts` and its test, and import lines everywhere); `src/render/` (the moved files leave; `index.ts` and the 2D modules re-point their imports). **Must not:** `src/play/`, `src/ui/`, `src/main.ts`, `tests/playtest/`, `src/city/` (it is read only, for `stableHash`), `src/core/`, `src/grid/`.
+
+#### X1b · The play layer imports the map's interfaces from the city view (interaction). Branch `ticket/081x1b-play-imports`, after X1a merges
+**Goal.** `src/play/` no longer imports `src/render/`.
+
+**Acceptance criteria.**
+1. [ ] `play.ts`, `pan.ts` and the 6 test files (`battery`, `click-event`, `elapsed`, `lastentry`, `pan`, `play`) import their types from `../render3d/maprender`. These are import lines only, and no case is edited. `src/play/` imports no value from `src/render3d/` (types only, so it never loads three). **no test** (the typecheck; existing cases unedited).
+
+**Count.** 0.
+
+**Files.** `src/play/` (import lines only). **Must not:** any other folder.
+
+#### X2 · The 2D side of the page goes (ui). Branch `ticket/081x2-ui-2d-out`, after X1a merges
+**Goal.** `src/ui/` and `src/main.ts` hold nothing for the 2D map, import nothing from `src/render/`, and the build loads only the city puzzles.
+
+**Acceptance criteria.**
+1. [ ] **Removed:** `collectMaps`, `MapEntry`, `MapCollection` and their five cases (`maps.test.ts`); `wants3d`, `NO_CITY_FORM_NOTICE`, `PuzzleKind` and their two cases (`view3d.test.ts`); and any branch of `main.ts` that only a schematic puzzle reaches. `collectCityMaps`, `pageView` and the U1 picker stay. **test**: about 7 removed, 0 added.
+2. [ ] **`main.ts`'s imports:** its types come from `./render3d/maprender` and `planRelight` from `./render3d/relightplan`. No file in `src/ui/` or `src/main.ts` imports `src/render/`. **no test** (X1c's case covers the whole of `src/`).
+3. [ ] **The build's glob** is `../puzzles/city/*.city.json`. The picker lists the same city puzzles as before. **test**: U1's existing picker case passes, unedited, or 1 rewritten if it reads the glob's keys.
+4. [ ] `assetgallery.test.ts`'s word list loses `createMapRenderer` if it asserts that name exists. **test**: at most 1 rewritten.
+5. [ ] Josh opens `npm run dev`: the picker and every city puzzle play as before. **browser**.
+
+**Count.** 0 added, at most 2 rewritten, about 7 removed.
+
+**Files.** `src/ui/`, `src/main.ts`. **Must not:** `src/render/`, `src/render3d/`, `src/play/`, `puzzles/`.
+
+#### R1 · The release playtest harness replays the city puzzles (playtester). Branch `ticket/081r1-harness-city`, after X1a merges
+**Goal.** At the next release Josh calls, `npm run playtest` replays the city puzzles to the Relight, through the conversion, and compares each trace with its snapshot. It never imports `src/render/`.
+
+**Acceptance criteria.**
+1. [ ] **What it replays** (X-Q1; written to the recommended "City puzzles only"): every `puzzles/city/*.city.json` (P0 and the 16 pilots today, and P2b to P2d as they land).
+   - Each goes through `loadCityPuzzle`, then `convertCityPuzzle` on its own city (6 x 6 seed 1, through the module cache), then `createGrid`, then `createMapPlay`, with the no-op renderer (its type from `src/render3d/maprender.ts`).
+   - The script is the city note's check block: its solution, then each trap with its recovery. There is no second script file, so `solutions.ts` goes.
+   - **test**: the harness's own cases, rewritten (at most 8); not in `npm test`.
+2. [ ] **What a trace holds:** as today (each move, lit file lamps, readable faults, feeds' loads, blown fuses, the win), with hidden ids (S1) left out, so scenery does not churn the trace. **test**: in criterion 1's cases.
+3. [ ] **No drawing.** `replay.ts` no longer calls `createMapRenderer`. The fake canvas goes. `cues.ts` takes `planRelight` from `src/render3d/relightplan.ts`. **no test**.
+4. [ ] **The old snapshots.** The 64 schematic traces in `__snapshots__/` are deleted, and the README says so and why (Josh: "I don't want 2D puzzles anymore"). **No new snapshot is written on this branch.** The playtester takes them at the next release, under the release loop. `playtests/` is not edited: its reports are history. **no test**.
+5. [ ] **Not run on this branch** (Josh, 23 Nov 2026: "Regression testing should only be performed on full releases"; X-Q2 is written to the recommended answer). The builder runs only `tsc --noEmit -p tests/playtest/tsconfig.json` and says so. If Josh answers X-Q2 "Run it once on R1", it runs `npm run playtest` once, reports, and writes the first city snapshots. **no test**.
+
+**Count.** At most 8 rewritten, in `tests/playtest/`. It counts against R1's PR cap like any case.
+
+**Files.** `tests/playtest/` only. **Must not:** `src/`, `puzzles/`, `tools/`, `playtests/`. The hook keeps the playtester off `src/`. If the harness needs an export `src/` lacks, the playtester stops and the architect cuts it to the owner.
+
+#### X1c · Delete the 2D map (renderer). Branch `ticket/081x1c-delete-2d`, after X1b, X2 and R1 merge
+**Goal.** `src/render/` is gone, with its 357 test cases.
+
+**Acceptance criteria.**
+1. [ ] **Deleted:** every file in `src/render/`. Also `relight3d.test.ts`'s case that reads `src/render/map-renderer.ts`'s source to check for drift (removed, as there is no second copy left), and `styleguide.test.ts`'s `../render/city` import (at most 1 case rewritten, or removed if it only compared the 2D town). The builder lists every removed file and case. **test**: about 358 removed.
+2. [ ] **Nothing imports `src/render/`.** X1a's case is widened to every file under `src/` and `tests/playtest/`. **test**: 1 rewritten.
+3. [ ] The 2D-only dev routes and switches in `src/render3d/renderer.ts` (`renderRoute`, if a branch of it only fed the 2D map) go, and the builder lists each. The city routes (`city=tiles`, `stage=`, the plan view, the tile sheet) stay. **no test** (existing route cases pass, or are removed with the branch they held, listed).
+4. [ ] `npm run typecheck`, `npm run fit`, `check` and `analyze` run. Josh plays a city puzzle. **browser**.
+
+**Count.** 0 added, at most 2 rewritten, about 358 removed.
+
+**Files.** `src/render/` (deleted); `src/render3d/` (the drift case, the style guide import, the routes). **Must not:** any other folder. Comments elsewhere that name `src/render/` are listed in the reply for the docs step and their owners, and are not edited. These are `src/core/timing.ts`, `src/core/words.ts`, `src/city/pipeline/hash.ts`, `src/render3d/escapes.ts` (the renderer's own, so it may fix it) and `src/ui/relightcues.ts`.
+
+#### The docs (the main session, on Josh's word; not an agent's)
+`CLAUDE.md` (the stack line's "Canvas 2D", the hard rules naming folders), `docs/prototype-brief.md` (the folders table's `src/render/` row, "What the player sees"' first-prototype paragraph, the stack's "the old 2D map until ticket 081's X1 removes it") and `.claude/agents/renderer.md`, `interaction.md`, `grid-simulator.md` and `sound.md` still name `src/render/`. After X1c merges, the main session rewords them to what is left, if Josh says so (X-Q3). The architect fixes the `src/core/` comments at the same time.
 
 ## Files
 Per section, above. This branch (the cut): `tickets/081-puzzles-on-the-city.md`, `docs/design/070-K1-circuit.md` (CK9 as changed, 24 Nov 2026; CK14's dark-building line struck for section S, 24 Nov 2026), `tickets/070-city-pipeline.md` (pointer lines), `tickets/071-pack-power-lines.md` (a pointer line: C and E's ladder wiring are dropped), `tickets/rules-coverage.md`, `src/core/citycircuit.ts` (new; `CityPuzzleView` added 24 Nov 2026 for the playable path), `src/core/cityplan.ts` (`CityCircuitLayer`), `src/core/index.ts`. Section FX's cut (24 Nov 2026): new `src/core/fx.ts`, `src/core/assets.ts` (`AssetManifest.fx?`), `src/core/index.ts`, `tickets/rules-coverage.md`. Section W's cut (25 Nov 2026): this file and `tickets/rules-coverage.md` only; no `src/core/` change (W1's numbers live in `tools/`, and `{ post }` and `lead` stay typed).
@@ -2310,3 +2417,7 @@ All questions so far are answered (above), the mid-row one included ("Only when 
     - **FX4-Q1, which way the bolt runs:** "Towards the fuse (Recommended)" (as worded: the bolt runs through the wires, then the big spark at the fuse); "Out from the fuse" (as the 2D map's streaks ran).
     - **FX4-Q2, FX3 with it:** "Fold FX3 in (Recommended)", and answer FX-Q3 (brownout arcs: "A few at a time on the overloaded feed's live poles (Recommended)") and FX-Q4 (the Relight: "A sparkle burst at each puzzle lamp as it lights (Recommended)") on the same card; or "Fuse blow only, FX3 later".
     - **FX4-Q3, how big the burst is:** "Twice a live break's (Recommended)"; "A shower, four times"; "The same as a live break".
+23. **Section X, G1** (Josh, 25 Nov 2026: "Cut X1, X2, R1"): approve X1a, X1b, X2, R1 and X1c as cut, with the architect's calls in section X (the interfaces to `src/render3d/`, `stableHash` from `src/city/`, the build loading only city puzzles, a harness that doesn't draw).
+    - **X-Q1, what the harness replays:** "City puzzles only (Recommended)"; "City puzzles and the schematics 17 to 64, until they are on the city".
+    - **X-Q2, running the harness on R1's branch:** "Wait for the next release (Recommended)" (your rule: playtests only on releases; the first city snapshots are taken then); "Run it once on R1" (this counts as your word for one run, not a release).
+    - **X-Q3, the docs naming the 2D map** (`CLAUDE.md`, the brief, four agent files): "Main session rewords them after X1c (Recommended)"; "I'll reword them myself"; "Leave them for now".
