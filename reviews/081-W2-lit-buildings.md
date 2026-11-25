@@ -1,34 +1,32 @@
 ticket: 081-W2-lit-buildings
-assessment: partly
-must-fix: 1
+assessment: meets
+must-fix: 0
 
 ## What the ticket asked for, as I understood it
-When current lights a building, every storey glows: glass-bearing pieces (ground storey and shopfront included) take the window level, additive glow cards stand on street faces, and the street light moves to half the building's height with a longer reach. E2's lamp post sphere and disc go. A dead lamp on a building reads as a live drop into dark windows, within S4's frame budget.
+When current lights a building, every storey glows: glass-bearing pieces, the ground storey and shopfront included, take the window level, and the roof takes none. Additive glow cards stand on street faces, and the street light moves to half the building's height with a longer reach. E2's lamp post sphere and disc go. A dead lamp on a building reads as a live drop into dark windows, within S4's frame budget.
 
 ## Does the branch do it?
-I reviewed W2's own commit (23668ba: `src/render3d/windows.ts`, `windows.test.ts`, `cityview.ts`). The merge 4d786f4 only brings in the goal branch's docs.
+Round 2. Round 1 is archived as this file's earlier version on the branch (690aa4f). I checked the builder's fix commit 1857d2b (`windows.ts`, `windows.test.ts`, `cityview.ts`) against round 1's one must-fix.
 
-1. **Why storeys stay dark (reply, no test).** This goes in the builder's reply, which I don't have, so I can't judge it. From the code: `plan3d.ts` `buildingBoxes` already puts a building's ground pieces in its `instances` (floors first, then ground), so `setBuildingGlow` already reaches the ground storey when it is drawn. A column whose models above the ground did not all load is a grey box, and nothing on it glows. The main session should confirm the reply named the cause. The branch changes nothing in the window mask or in `setBuildingGlow`, so whatever was dark is now covered by the cards, not fixed in the windows.
-2. **Every storey takes the window level (test asked: 1 case).** The behaviour mostly comes from F1b, not from this branch: every instanced piece of the building, the roof included, gets the level. The test asked for is missing. The first W2 case ("every glass-bearing storey ... has a glow card ...") checks `glowCards` bands, not `windowLevel` slots. If a later change dropped the ground pieces from `instances`, which is exactly what this criterion guards, no test on this branch would fail. The "roof none" half is also not true of the window level today: `setBuildingGlow` writes the roof's instances too. This may be invisible behind `WINDOW_UV`; I did not check.
-3. **Glow cards and a higher light.** Met. `glowCards` gives one card per column, per `faces: "street"` side, per ground or floor band, and none for roofs or yard faces. `glowCardMesh` makes one `InstancedMesh` sized at build, additive, with brightness taken from `buildingGlow`'s level and flare through `instanceColor`, so there is no new timing. `lightPlaces` puts the light at half the tallest roof's base when the plan has columns. `streetLights` reach is `STREET_LIGHT_REACH_M x (1 + storeys / STOREY_REACH_DIV)` with the divisor 4. Test: case 1 asserts the bands `[1.5, 4.5, 7.5]` all on +z, no card for another building, light y 4.5, and the reach formula.
-4. **No lamp posts, no disc.** Met in `cityview.ts`. The `LampGlow` sphere and pool, their constants, the per-frame loop and the `FLARE_SECONDS` import are gone. No existing render3d test asserted a post glow (I grepped for `lampPost` and `LampGlow` in `src/render3d/*.test.ts` and found none), so nothing was to be removed.
-5. **Dead-lamp signature.** Met. Case 2 adds a `dead-lamp` on `homes` in P0 on the shared default city. It asserts `lineFlow` 1 on the drop's line, `buildingGlow` level 0, the card mesh hidden, and the street light at intensity 0.
-6. **Budget (browser).** Not checked here; see risks. +1 draw call is within the limit. A new program at first light is the risk.
+1. **Why storeys stay dark (reply, no test).** This is in the builder's reply, which I don't have, so I can't judge it. The main session should confirm the reply named the cause. Nothing on the branch touches `plan3d.ts`, so the builder did not hit the stop rule.
+2. **Every storey takes the window level and the roof none (test: 1 case).** Met; this was round 1's must-fix. `roofOffsets` (in `windows.ts`, pure) lists each building's roof offsets from `dimBuildings`' piece order. `setBuildingGlow` takes an optional `skip` set and leaves those slots alone. `cityview.ts` builds `roofSkip` once at build and passes it on every lit frame. The new case, "a lit building's ground storey, shopfront and every floor carry its window level and its roof none", uses floor, floor (2 parts), roof, then the ground slot. It runs through `roofOffsets` and `setBuildingGlow` and asserts `[1, 1, 1, 0, 1]`. If the roof skip is lost or the ground slot stops being written, this test fails. The rule is in the test's name.
+3. **Glow cards and a higher light.** Met, as in round 1 (case "every glass-bearing storey ... glow card ...": bands `[1.5, 4.5, 7.5]` on +z, light y 4.5, reach formula with `STOREY_REACH_DIV` 4).
+4. **No lamp posts, no disc.** Met, as in round 1. No existing test asserted a post glow.
+5. **Dead-lamp signature.** Met. The case now asserts `cards.mesh.count` is 0 instead of `visible` false, which follows the fix in item 6.
+6. **Budget (browser).** Round 1 flagged a possible new program on first light. The card mesh now stays visible with `count` 0 and is never hidden. In the installed three, `renderBufferDirect` calls `setProgram` before it looks at the draw range, so the program compiles on the first frame after the city loads, not inside the Relight. The cost may be one empty instanced draw per frame, which is within the "+1 draw call" allowance. The `perf=1` numbers are still the browser's to confirm.
 7. **Josh plays (browser).** Josh's to judge.
 
-Tests: 2 cases added (the ticket allowed 3). `windows.test.ts` passed 13 of 13 at `--maxWorkers=2`, in 7.5 s total, mostly the existing L1 case's 3.8 s city build. The W2 cases reuse the cached `sharedCity` and add little. Both test names state the rule.
+Tests: 3 cases added by W2 (criteria 2, 3 and 5), which is the ticket's count. `npx vitest run --maxWorkers=2 src/render3d/windows.test.ts` passed 14 of 14 in 5.7 s. Nearly all of that is L1's existing 2.8 s case; the W2 cases are fixtures or reuse the cached city.
 
 ## Rule conflicts and risks
-- No hard-rule break. Only the three allowed files changed; `src/grid/`, `src/night/` and `src/core/` are untouched; there is no new dependency. The `cityview.ts` edits stay in the build step, the live layer, the post glow's removal and the perf roots map.
-- **Criterion 6, new program during the Relight: may occur, not checked.** The card material is a `MeshBasicMaterial` with a `map` on an `InstancedMesh` with `instanceColor`. It is hidden until a building lights, and nothing calls `gl.compile`, so Three would compile its program on the first lit frame, inside the Relight. The `perf=1` "programs" count before power and after the Relight will show it. If it rises, keeping the mesh visible at black (additive, one call) or precompiling at build would fix it without shrinking the cards.
-- Cards are `CELL x GLOW_CARD_SPILL` wide per column, so on a multi-column face neighbouring cards overlap by 30% and add up. That can show as brighter seams.
-- Cards come from the plan's columns, not from loaded models, so a grey-box column still gets cards.
-- `glowCards` treats every non-roof piece as glass-bearing and assumes 3 m per storey of `span`.
+- No hard-rule break. Only the three allowed files changed; `src/grid/`, `src/night/`, `src/core/` and `plan3d.ts` are untouched; there is no new dependency.
+- `roofOffsets` assumes `dimBuildings`' piece order matches `plan3d`'s instance order, with the ground slots after them. L3's `setDimWindows` already depends on the same assumption. If a multi-column building lists its columns in a different order from its instances, the wrong slot would stay dark. This may occur, not checked; a browser look at a two-column lit building's roof and top floor would show it.
+- The round 1 notes on cards still stand: neighbouring cards overlap by 30% on multi-column faces, and grey-box columns still get cards.
 
 ## Must fix
-1. `src/render3d/windows.test.ts`: add criterion 2's case (the ticket's third budgeted case). Use a fixture building with a ground storey, two floors and a roof. After `setBuildingGlow`, every glass-bearing piece's `windowLevel` slot, ground and shopfront included, carries the level, and the roof carries none (`plan3d.ts` is read-only here, but its draw output may be used). If the roof must carry none, `setBuildingGlow` or the instance list must skip roof pieces. Effect: dropping the ground storey from the window level fails a test, which nothing on the branch does now.
+none
 
 ## Could improve
-1. Have the reply's criterion 1 finding written into the ticket or a code comment, so W3 (which shares `windows.ts`) knows why storeys were dark.
-2. Narrow card width at shared column edges (or one card per face run) to avoid additive seams.
+1. Write criterion 1's finding into the ticket or a code comment, so W3 (which shares `windows.ts`) knows why storeys were dark.
+2. Narrow card width at shared column edges (or use one card per face run) to avoid additive seams.
 3. Skip cards on columns drawn as grey boxes, if Josh finds them odd.
