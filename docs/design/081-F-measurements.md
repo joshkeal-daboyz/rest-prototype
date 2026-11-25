@@ -82,3 +82,14 @@ Browser pane, `?puzzle=city-two-ways-round&perf=1`, 6x6 seed 1, default camera, 
 | `fx=0`, before power (earlier load) | 1,773 | 11 | 8.30 ms | 16.70 ms |
 
 Pass: under 1.5 ms added (none measurable), under 16.7 ms, 4 more draw calls (cap 5), and the one extra program is the effects material, compiled on the first frame.
+
+## FX2 amended (extreme sparks), criterion 7 (25 Nov 2026, Josh's PC, in view)
+
+Same setup as above. The game pack now holds the four FX textures and both pack meshes (`assets:game` re-run on e32bc63); no fallback line was logged. Before power, default camera, nobody touching the page.
+
+| Run | Draw calls | Programs | CPU median | Whole frame |
+| --- | --- | --- | --- | --- |
+| `fx=0` | 1,774 | 11 | 8.20 ms | 16.70 ms |
+| `fx=all` (845 alive; peaks sparkle 474, spark 731, shard 126, soft spot 13, smoke 8) | 1,780 | 12 | 8.10 ms | 16.60 ms |
+
+Pass: no measurable time added (limit 1.5 ms), under 16.7 ms, 6 more draw calls (cap 6), and the one extra program is the effects material.
