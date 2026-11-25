@@ -1,0 +1,120 @@
+{
+  "id": "06-the-spark",
+  "name": "06 · The spark",
+  "version": 4,
+  "scope": "map",
+  "capacity": 4,
+  "startingParts": [
+    "wire"
+  ],
+  "target": [
+    "shrine"
+  ],
+  "from": "06-the-spark",
+  "city": {
+    "blocksX": 6,
+    "blocksZ": 6,
+    "seed": 1,
+    "oneWay": true
+  },
+  "district": [
+    "block:0:0"
+  ],
+  "nodes": [
+    {
+      "id": "feed",
+      "type": "feed",
+      "place": {
+        "pole": "pole:x:2:hi:27.50"
+      }
+    },
+    {
+      "id": "br_main",
+      "type": "breaker",
+      "closed": false,
+      "place": {
+        "pole": "pole:x:2:lo:27.50"
+      }
+    },
+    {
+      "id": "sw_1",
+      "type": "switch",
+      "outputs": [
+        "l_home",
+        "l_lane"
+      ],
+      "selected": 0,
+      "place": {
+        "roof": "roof:5:20"
+      }
+    },
+    {
+      "id": "home",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "post": "span:pole:x:2:lo:27.50~pole:x:2:lo:39.17"
+      }
+    },
+    {
+      "id": "shrine",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "post": "span:pole:z:0:hi:102.50~pole:z:0:hi:90.00"
+      }
+    }
+  ],
+  "lines": [
+    {
+      "id": "l_feed",
+      "from": "feed",
+      "to": "br_main",
+      "run": {
+        "spans": [
+          "span:pole:x:2:hi:27.50~pole:x:2:lo:27.50"
+        ]
+      }
+    },
+    {
+      "id": "l_sw",
+      "from": "br_main",
+      "to": "sw_1",
+      "run": {
+        "spans": [
+          "span:pole:x:2:lo:27.50~roof:5:20"
+        ]
+      }
+    },
+    {
+      "id": "l_home",
+      "from": "sw_1",
+      "to": "home",
+      "run": {
+        "spans": [
+          "span:pole:x:2:lo:39.17~roof:5:20"
+        ],
+        "lead": "span:pole:x:2:lo:27.50~pole:x:2:lo:39.17"
+      }
+    },
+    {
+      "id": "l_lane",
+      "from": "sw_1",
+      "to": "shrine",
+      "run": {
+        "spans": [
+          "span:pole:z:0:hi:102.50~roof:5:20"
+        ],
+        "lead": "span:pole:z:0:hi:102.50~pole:z:0:hi:90.00"
+      }
+    }
+  ],
+  "faults": [
+    {
+      "id": "f1",
+      "at": "l_lane",
+      "kind": "damaged-cable",
+      "span": "span:pole:z:0:hi:102.50~roof:5:20"
+    }
+  ]
+}

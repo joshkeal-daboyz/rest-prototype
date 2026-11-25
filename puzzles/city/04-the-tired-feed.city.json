@@ -1,0 +1,229 @@
+{
+  "id": "04-the-tired-feed",
+  "name": "04 · The tired feed",
+  "version": 4,
+  "scope": "map",
+  "capacity": 4,
+  "startingParts": [],
+  "target": [
+    "shrine"
+  ],
+  "priority": [
+    "home"
+  ],
+  "from": "04-the-tired-feed",
+  "city": {
+    "blocksX": 6,
+    "blocksZ": 6,
+    "seed": 1,
+    "oneWay": true
+  },
+  "district": [
+    "block:0:0"
+  ],
+  "nodes": [
+    {
+      "id": "feed",
+      "type": "feed",
+      "place": {
+        "pole": "pole:x:2:hi:27.50"
+      }
+    },
+    {
+      "id": "j0",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:2:lo:27.50"
+      }
+    },
+    {
+      "id": "br_A",
+      "type": "breaker",
+      "closed": false,
+      "place": {
+        "pole": "pole:x:2:lo:39.17"
+      }
+    },
+    {
+      "id": "shrine",
+      "type": "lamp",
+      "load": 2,
+      "place": {
+        "post": "span:pole:x:2:lo:27.50~pole:x:2:lo:39.17"
+      }
+    },
+    {
+      "id": "br_B",
+      "type": "breaker",
+      "closed": true,
+      "place": {
+        "pole": "pole:z:0:hi:102.50"
+      }
+    },
+    {
+      "id": "jB",
+      "type": "junction",
+      "place": {
+        "pole": "pole:z:0:hi:90.00"
+      }
+    },
+    {
+      "id": "home",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:0:0/b|outer|-x|5,17"
+      }
+    },
+    {
+      "id": "well",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "post": "span:pole:z:0:hi:102.50~pole:z:0:hi:90.00"
+      }
+    },
+    {
+      "id": "br_C",
+      "type": "breaker",
+      "closed": true,
+      "place": {
+        "roof": "roof:5:20"
+      }
+    },
+    {
+      "id": "market",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "roof": "roof:5:24"
+      }
+    },
+    {
+      "id": "br_D",
+      "type": "breaker",
+      "closed": true,
+      "place": {
+        "roof": "roof:6:20"
+      }
+    },
+    {
+      "id": "lantern",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "roof": "roof:9:24"
+      }
+    }
+  ],
+  "lines": [
+    {
+      "id": "l_feed",
+      "from": "feed",
+      "to": "j0",
+      "run": {
+        "spans": [
+          "span:pole:x:2:hi:27.50~pole:x:2:lo:27.50"
+        ]
+      }
+    },
+    {
+      "id": "l_a0",
+      "from": "j0",
+      "to": "br_A",
+      "run": {
+        "spans": [
+          "span:pole:x:2:lo:27.50~pole:x:2:lo:39.17"
+        ]
+      }
+    },
+    {
+      "id": "l_shrine",
+      "from": "br_A",
+      "to": "shrine",
+      "run": {
+        "spans": [],
+        "lead": "span:pole:x:2:lo:27.50~pole:x:2:lo:39.17"
+      }
+    },
+    {
+      "id": "l_b0",
+      "from": "j0",
+      "to": "br_B",
+      "run": {
+        "spans": [
+          "span:pole:x:2:lo:27.50~pole:z:0:hi:102.50"
+        ]
+      }
+    },
+    {
+      "id": "l_b1",
+      "from": "br_B",
+      "to": "jB",
+      "run": {
+        "spans": [
+          "span:pole:z:0:hi:102.50~pole:z:0:hi:90.00"
+        ]
+      }
+    },
+    {
+      "id": "l_home",
+      "from": "jB",
+      "to": "home",
+      "run": {
+        "spans": [],
+        "drop": "block:0:0/b|outer|-x|5,17"
+      }
+    },
+    {
+      "id": "l_well",
+      "from": "jB",
+      "to": "well",
+      "run": {
+        "spans": [],
+        "lead": "span:pole:z:0:hi:102.50~pole:z:0:hi:90.00"
+      }
+    },
+    {
+      "id": "l_c0",
+      "from": "j0",
+      "to": "br_C",
+      "run": {
+        "spans": [
+          "span:pole:x:2:lo:27.50~roof:5:20"
+        ]
+      }
+    },
+    {
+      "id": "l_market",
+      "from": "br_C",
+      "to": "market",
+      "run": {
+        "spans": [
+          "span:roof:5:20~roof:5:24"
+        ]
+      }
+    },
+    {
+      "id": "l_d0",
+      "from": "j0",
+      "to": "br_D",
+      "run": {
+        "spans": [
+          "span:pole:x:2:lo:27.50~roof:6:20"
+        ]
+      }
+    },
+    {
+      "id": "l_lantern",
+      "from": "br_D",
+      "to": "lantern",
+      "run": {
+        "spans": [
+          "span:roof:6:20~roof:9:24"
+        ]
+      }
+    }
+  ],
+  "faults": []
+}

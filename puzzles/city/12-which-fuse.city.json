@@ -1,0 +1,332 @@
+{
+  "id": "12-which-fuse",
+  "name": "12 · Which fuse",
+  "version": 4,
+  "scope": "map",
+  "capacity": 14,
+  "startingParts": [
+    "fuse",
+    "fuse"
+  ],
+  "target": [
+    "shrine",
+    "well",
+    "gate"
+  ],
+  "from": "12-which-fuse",
+  "city": {
+    "blocksX": 6,
+    "blocksZ": 6,
+    "seed": 1,
+    "oneWay": true
+  },
+  "district": [
+    "block:6:11"
+  ],
+  "nodes": [
+    {
+      "id": "feed",
+      "type": "feed",
+      "place": {
+        "pole": "pole:x:13:lo:272.50"
+      }
+    },
+    {
+      "id": "j0",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:13:hi:272.50"
+      }
+    },
+    {
+      "id": "fb_1",
+      "type": "fusebox",
+      "rating": 3,
+      "place": {
+        "pole": "pole:x:13:hi:285.83"
+      }
+    },
+    {
+      "id": "sw_1",
+      "type": "switch",
+      "outputs": [
+        "l_1w",
+        "l_1s"
+      ],
+      "selected": 0,
+      "spring": true,
+      "place": {
+        "pole": "pole:x:13:hi:294.17"
+      }
+    },
+    {
+      "id": "well",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:6:9/a|outer|+z|58,89"
+      }
+    },
+    {
+      "id": "fb_2",
+      "type": "fusebox",
+      "rating": 10,
+      "place": {
+        "pole": "pole:z:6:hi:472.50"
+      }
+    },
+    {
+      "id": "sw_2",
+      "type": "switch",
+      "outputs": [
+        "l_2g",
+        "l_2s"
+      ],
+      "selected": 0,
+      "spring": true,
+      "place": {
+        "roof": "roof:48:99"
+      }
+    },
+    {
+      "id": "j_shrine",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:13:hi:305.00"
+      }
+    },
+    {
+      "id": "shrine",
+      "type": "lamp",
+      "load": 2,
+      "place": {
+        "building": "block:6:11/b|outer|-z|59,94"
+      }
+    },
+    {
+      "id": "br_3",
+      "type": "breaker",
+      "closed": false,
+      "place": {
+        "roof": "roof:54:89"
+      }
+    },
+    {
+      "id": "fb_3",
+      "type": "fusebox",
+      "rating": 3,
+      "place": {
+        "roof": "roof:54:94"
+      }
+    },
+    {
+      "id": "sw_3",
+      "type": "switch",
+      "outputs": [
+        "l_3m",
+        "l_3g"
+      ],
+      "selected": 0,
+      "place": {
+        "pole": "pole:z:6:hi:484.17"
+      }
+    },
+    {
+      "id": "j_gate",
+      "type": "junction",
+      "place": {
+        "roof": "roof:54:98"
+      }
+    },
+    {
+      "id": "gate",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:6:11/a|outer|-x|54,97"
+      }
+    },
+    {
+      "id": "mill",
+      "type": "lamp",
+      "load": 3,
+      "place": {
+        "building": "block:5:10/b|outer|+x|48,96"
+      }
+    }
+  ],
+  "lines": [
+    {
+      "id": "l_feed",
+      "from": "feed",
+      "to": "j0",
+      "run": {
+        "spans": [
+          "span:pole:x:13:hi:272.50~pole:x:13:lo:272.50"
+        ]
+      }
+    },
+    {
+      "id": "l_1a",
+      "from": "j0",
+      "to": "fb_1",
+      "run": {
+        "spans": [
+          "span:pole:x:13:hi:272.50~pole:x:13:hi:285.83"
+        ]
+      }
+    },
+    {
+      "id": "l_1b",
+      "from": "fb_1",
+      "to": "sw_1",
+      "run": {
+        "spans": [
+          "span:pole:x:13:hi:285.83~pole:x:13:hi:294.17"
+        ]
+      }
+    },
+    {
+      "id": "l_1w",
+      "from": "sw_1",
+      "to": "well",
+      "run": {
+        "spans": [],
+        "drop": "block:6:9/a|outer|+z|58,89"
+      }
+    },
+    {
+      "id": "l_1s",
+      "from": "sw_1",
+      "to": "j_shrine",
+      "run": {
+        "spans": [
+          "span:pole:x:13:hi:294.17~pole:x:13:hi:305.00"
+        ]
+      }
+    },
+    {
+      "id": "l_2a",
+      "from": "j0",
+      "to": "fb_2",
+      "run": {
+        "spans": [
+          "span:pole:x:13:hi:272.50~pole:z:6:hi:472.50"
+        ]
+      }
+    },
+    {
+      "id": "l_2b",
+      "from": "fb_2",
+      "to": "sw_2",
+      "run": {
+        "spans": [
+          "span:pole:z:6:hi:472.50~roof:48:99"
+        ]
+      }
+    },
+    {
+      "id": "l_2g",
+      "from": "sw_2",
+      "to": "j_gate",
+      "run": {
+        "spans": [
+          "span:roof:48:99~roof:54:98"
+        ]
+      }
+    },
+    {
+      "id": "l_2s",
+      "from": "sw_2",
+      "to": "j_shrine",
+      "run": {
+        "spans": [
+          "span:pole:z:6:hi:507.50~roof:48:99",
+          "span:pole:x:14:lo:272.50~pole:z:6:hi:507.50",
+          "span:pole:x:14:lo:272.50~pole:x:14:lo:285.83",
+          "span:pole:x:14:lo:285.83~pole:x:14:lo:294.17",
+          "span:pole:x:14:lo:294.17~pole:x:14:lo:305.00",
+          "span:pole:x:14:lo:305.00~pole:x:14:lo:315.83",
+          "span:pole:x:14:lo:315.83~pole:x:14:lo:326.67",
+          "span:pole:x:14:lo:326.67~roof:67:101",
+          "span:pole:z:7:lo:495.83~roof:67:101",
+          "span:pole:z:7:lo:484.17~pole:z:7:lo:495.83",
+          "span:pole:z:7:lo:484.17~roof:67:94",
+          "span:pole:x:13:hi:326.67~roof:67:94",
+          "span:pole:x:13:hi:320.83~pole:x:13:hi:326.67",
+          "span:pole:x:13:hi:305.00~pole:x:13:hi:320.83"
+        ]
+      }
+    },
+    {
+      "id": "l_shrine",
+      "from": "j_shrine",
+      "to": "shrine",
+      "run": {
+        "spans": [],
+        "drop": "block:6:11/b|outer|-z|59,94"
+      }
+    },
+    {
+      "id": "l_3a",
+      "from": "j0",
+      "to": "br_3",
+      "run": {
+        "spans": [
+          "span:pole:x:13:hi:272.50~roof:54:89"
+        ]
+      }
+    },
+    {
+      "id": "l_3b",
+      "from": "br_3",
+      "to": "fb_3",
+      "run": {
+        "spans": [
+          "span:roof:54:89~roof:54:94"
+        ]
+      }
+    },
+    {
+      "id": "l_3c",
+      "from": "fb_3",
+      "to": "sw_3",
+      "run": {
+        "spans": [
+          "span:pole:z:6:hi:484.17~roof:54:94"
+        ]
+      }
+    },
+    {
+      "id": "l_3m",
+      "from": "sw_3",
+      "to": "mill",
+      "run": {
+        "spans": [],
+        "drop": "block:5:10/b|outer|+x|48,96"
+      }
+    },
+    {
+      "id": "l_3g",
+      "from": "sw_3",
+      "to": "j_gate",
+      "run": {
+        "spans": [
+          "span:pole:z:6:hi:484.17~roof:54:98"
+        ]
+      }
+    },
+    {
+      "id": "l_gate",
+      "from": "j_gate",
+      "to": "gate",
+      "run": {
+        "spans": [
+          "span:pole:z:6:hi:495.83~roof:54:98"
+        ],
+        "drop": "block:6:11/a|outer|-x|54,97"
+      }
+    }
+  ],
+  "faults": []
+}

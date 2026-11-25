@@ -1,0 +1,311 @@
+{
+  "id": "09-shrine-circuit",
+  "name": "09 · The shrine circuit",
+  "version": 3,
+  "scope": "map",
+  "capacity": 7,
+  "startingParts": [
+    "wire"
+  ],
+  "target": [
+    "shrine"
+  ],
+  "priority": [
+    "street_1",
+    "street_2",
+    "street_3"
+  ],
+  "from": "09-shrine-circuit",
+  "city": {
+    "blocksX": 6,
+    "blocksZ": 6,
+    "seed": 1,
+    "oneWay": true
+  },
+  "district": [
+    "block:3:0"
+  ],
+  "nodes": [
+    {
+      "id": "feed",
+      "type": "feed",
+      "place": {
+        "pole": "pole:x:2:hi:162.50"
+      }
+    },
+    {
+      "id": "br_main",
+      "type": "breaker",
+      "closed": true,
+      "place": {
+        "pole": "pole:x:2:lo:162.50"
+      }
+    },
+    {
+      "id": "j1",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:2:lo:150.83"
+      }
+    },
+    {
+      "id": "br_street",
+      "type": "breaker",
+      "closed": true,
+      "place": {
+        "pole": "pole:x:2:lo:139.17"
+      }
+    },
+    {
+      "id": "fb_A",
+      "type": "fusebox",
+      "rating": 3,
+      "place": {
+        "roof": "roof:25:20"
+      }
+    },
+    {
+      "id": "j2",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:2:lo:127.50"
+      }
+    },
+    {
+      "id": "street_1",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:3:2|outer|-z|25,24"
+      }
+    },
+    {
+      "id": "street_2",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "post": "span:pole:x:2:lo:127.50~pole:x:2:lo:139.17"
+      }
+    },
+    {
+      "id": "street_3",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:3:0/b|outer|-x|25,17"
+      }
+    },
+    {
+      "id": "sw_1",
+      "type": "switch",
+      "outputs": [
+        "l_a",
+        "l_b"
+      ],
+      "selected": 0,
+      "place": {
+        "roof": "roof:32:20"
+      }
+    },
+    {
+      "id": "j_dead",
+      "type": "junction",
+      "place": {
+        "pole": "pole:z:5:lo:102.50"
+      }
+    },
+    {
+      "id": "j4",
+      "type": "junction",
+      "place": {
+        "roof": "roof:38:20"
+      }
+    },
+    {
+      "id": "flood",
+      "type": "lamp",
+      "load": 2,
+      "place": {
+        "roof": "roof:32:18"
+      }
+    },
+    {
+      "id": "j5",
+      "type": "junction",
+      "place": {
+        "pole": "pole:z:5:lo:92.50"
+      }
+    },
+    {
+      "id": "shrine",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:3:0/b|outer|+x|32,16"
+      }
+    }
+  ],
+  "lines": [
+    {
+      "id": "l_feed",
+      "from": "feed",
+      "to": "br_main",
+      "run": {
+        "spans": [
+          "span:pole:x:2:hi:162.50~pole:x:2:lo:162.50"
+        ]
+      }
+    },
+    {
+      "id": "l_main",
+      "from": "br_main",
+      "to": "j1",
+      "run": {
+        "spans": [
+          "span:pole:x:2:lo:150.83~pole:x:2:lo:162.50"
+        ]
+      }
+    },
+    {
+      "id": "l_s0",
+      "from": "j1",
+      "to": "br_street",
+      "run": {
+        "spans": [
+          "span:pole:x:2:lo:139.17~pole:x:2:lo:150.83"
+        ]
+      }
+    },
+    {
+      "id": "l_s1",
+      "from": "br_street",
+      "to": "fb_A",
+      "run": {
+        "spans": [
+          "span:pole:x:2:lo:139.17~roof:25:20"
+        ]
+      }
+    },
+    {
+      "id": "l_s2",
+      "from": "fb_A",
+      "to": "j2",
+      "run": {
+        "spans": [
+          "span:pole:x:2:lo:127.50~roof:25:20"
+        ]
+      }
+    },
+    {
+      "id": "l_st1",
+      "from": "j2",
+      "to": "street_1",
+      "run": {
+        "spans": [],
+        "drop": "block:3:2|outer|-z|25,24"
+      }
+    },
+    {
+      "id": "l_st2",
+      "from": "j2",
+      "to": "street_2",
+      "run": {
+        "spans": [],
+        "lead": "span:pole:x:2:lo:127.50~pole:x:2:lo:139.17"
+      }
+    },
+    {
+      "id": "l_st3",
+      "from": "j2",
+      "to": "street_3",
+      "run": {
+        "spans": [
+          "span:pole:x:2:lo:127.50~pole:z:3:hi:102.50"
+        ],
+        "drop": "block:3:0/b|outer|-x|25,17"
+      }
+    },
+    {
+      "id": "l_sw",
+      "from": "j1",
+      "to": "sw_1",
+      "run": {
+        "spans": [
+          "span:pole:x:2:lo:150.83~roof:32:20"
+        ]
+      }
+    },
+    {
+      "id": "l_a",
+      "from": "sw_1",
+      "to": "j_dead",
+      "run": {
+        "spans": [
+          "span:pole:z:5:lo:102.50~roof:32:20"
+        ]
+      }
+    },
+    {
+      "id": "l_a2",
+      "from": "j_dead",
+      "to": "j5",
+      "run": {
+        "spans": [
+          "span:pole:z:5:lo:102.50~pole:z:5:lo:92.50"
+        ]
+      }
+    },
+    {
+      "id": "l_b",
+      "from": "sw_1",
+      "to": "j4",
+      "run": {
+        "spans": [
+          "span:roof:32:20~roof:38:20"
+        ]
+      }
+    },
+    {
+      "id": "l_b2",
+      "from": "j4",
+      "to": "j5",
+      "run": {
+        "spans": [
+          "span:pole:z:5:lo:92.50~roof:38:20"
+        ]
+      }
+    },
+    {
+      "id": "l_flood",
+      "from": "j4",
+      "to": "flood",
+      "run": {
+        "spans": [
+          "span:roof:32:18~roof:38:20"
+        ]
+      }
+    },
+    {
+      "id": "l_shrine",
+      "from": "j5",
+      "to": "shrine",
+      "run": {
+        "spans": [],
+        "drop": "block:3:0/b|outer|+x|32,16"
+      }
+    }
+  ],
+  "faults": [
+    {
+      "id": "f1",
+      "at": "j_dead",
+      "kind": "dead-junction"
+    },
+    {
+      "id": "f2",
+      "at": "l_b",
+      "kind": "damaged-cable",
+      "span": "span:roof:32:20~roof:38:20"
+    }
+  ]
+}

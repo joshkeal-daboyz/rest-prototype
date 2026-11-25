@@ -1,0 +1,235 @@
+{
+  "id": "11-the-small-fuse",
+  "name": "11 · The small fuse",
+  "version": 4,
+  "scope": "map",
+  "capacity": 7,
+  "startingParts": [
+    "fuse",
+    "fuse"
+  ],
+  "target": [
+    "shrine",
+    "home"
+  ],
+  "from": "11-the-small-fuse",
+  "city": {
+    "blocksX": 6,
+    "blocksZ": 6,
+    "seed": 1,
+    "oneWay": true
+  },
+  "district": [
+    "block:0:0"
+  ],
+  "nodes": [
+    {
+      "id": "feed",
+      "type": "feed",
+      "place": {
+        "pole": "pole:x:2:hi:27.50"
+      }
+    },
+    {
+      "id": "j0",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:2:lo:27.50"
+      }
+    },
+    {
+      "id": "br_h",
+      "type": "breaker",
+      "closed": true,
+      "place": {
+        "pole": "pole:x:2:lo:39.17"
+      }
+    },
+    {
+      "id": "home",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "post": "span:pole:x:2:lo:27.50~pole:x:2:lo:39.17"
+      }
+    },
+    {
+      "id": "fb_1",
+      "type": "fusebox",
+      "rating": 2,
+      "place": {
+        "pole": "pole:z:0:hi:102.50"
+      }
+    },
+    {
+      "id": "j1",
+      "type": "junction",
+      "place": {
+        "roof": "roof:14:20"
+      }
+    },
+    {
+      "id": "br_s",
+      "type": "breaker",
+      "closed": false,
+      "place": {
+        "pole": "pole:x:2:lo:62.50"
+      }
+    },
+    {
+      "id": "shrine",
+      "type": "lamp",
+      "load": 2,
+      "place": {
+        "building": "block:0:0/b|outer|+z|12,20"
+      }
+    },
+    {
+      "id": "br_m",
+      "type": "breaker",
+      "closed": true,
+      "place": {
+        "pole": "pole:x:2:lo:74.17"
+      }
+    },
+    {
+      "id": "market",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:0:2/b|outer|-z|14,24"
+      }
+    },
+    {
+      "id": "br_l",
+      "type": "breaker",
+      "closed": true,
+      "place": {
+        "roof": "roof:14:24"
+      }
+    },
+    {
+      "id": "lantern",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:0:0/b|outer|+z|18,20"
+      }
+    }
+  ],
+  "lines": [
+    {
+      "id": "l_feed",
+      "from": "feed",
+      "to": "j0",
+      "run": {
+        "spans": [
+          "span:pole:x:2:hi:27.50~pole:x:2:lo:27.50"
+        ]
+      }
+    },
+    {
+      "id": "l_h0",
+      "from": "j0",
+      "to": "br_h",
+      "run": {
+        "spans": [
+          "span:pole:x:2:lo:27.50~pole:x:2:lo:39.17"
+        ]
+      }
+    },
+    {
+      "id": "l_home",
+      "from": "br_h",
+      "to": "home",
+      "run": {
+        "spans": [],
+        "lead": "span:pole:x:2:lo:27.50~pole:x:2:lo:39.17"
+      }
+    },
+    {
+      "id": "l_fb0",
+      "from": "j0",
+      "to": "fb_1",
+      "run": {
+        "spans": [
+          "span:pole:x:2:lo:27.50~pole:z:0:hi:102.50"
+        ]
+      }
+    },
+    {
+      "id": "l_fb1",
+      "from": "fb_1",
+      "to": "j1",
+      "run": {
+        "spans": [
+          "span:pole:z:0:hi:102.50~roof:5:20",
+          "span:roof:5:20~roof:5:24",
+          "span:roof:5:24~roof:9:20",
+          "span:roof:9:20~roof:9:24",
+          "span:roof:14:20~roof:9:24"
+        ]
+      }
+    },
+    {
+      "id": "l_s0",
+      "from": "j1",
+      "to": "br_s",
+      "run": {
+        "spans": [
+          "span:pole:x:2:lo:62.50~roof:14:20"
+        ]
+      }
+    },
+    {
+      "id": "l_shrine",
+      "from": "br_s",
+      "to": "shrine",
+      "run": {
+        "spans": [],
+        "drop": "block:0:0/b|outer|+z|12,20"
+      }
+    },
+    {
+      "id": "l_m0",
+      "from": "j1",
+      "to": "br_m",
+      "run": {
+        "spans": [
+          "span:pole:x:2:lo:74.17~roof:14:20"
+        ]
+      }
+    },
+    {
+      "id": "l_market",
+      "from": "br_m",
+      "to": "market",
+      "run": {
+        "spans": [],
+        "drop": "block:0:2/b|outer|-z|14,24"
+      }
+    },
+    {
+      "id": "l_l0",
+      "from": "j1",
+      "to": "br_l",
+      "run": {
+        "spans": [
+          "span:roof:14:20~roof:14:24"
+        ]
+      }
+    },
+    {
+      "id": "l_lantern",
+      "from": "br_l",
+      "to": "lantern",
+      "run": {
+        "spans": [
+          "span:pole:x:2:lo:97.50~roof:14:24"
+        ],
+        "drop": "block:0:0/b|outer|+z|18,20"
+      }
+    }
+  ],
+  "faults": []
+}

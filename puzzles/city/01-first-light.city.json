@@ -1,0 +1,102 @@
+{
+  "id": "01-first-light",
+  "name": "01 · First light",
+  "version": 4,
+  "scope": "map",
+  "capacity": 3,
+  "startingParts": [],
+  "target": [
+    "shrine"
+  ],
+  "from": "01-first-light",
+  "city": {
+    "blocksX": 6,
+    "blocksZ": 6,
+    "seed": 1,
+    "oneWay": true
+  },
+  "district": [
+    "block:0:0"
+  ],
+  "nodes": [
+    {
+      "id": "feed",
+      "type": "feed",
+      "place": {
+        "pole": "pole:x:2:hi:27.50"
+      }
+    },
+    {
+      "id": "j0",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:2:lo:27.50"
+      }
+    },
+    {
+      "id": "home",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:0:0/b|outer|+z|5,20"
+      }
+    },
+    {
+      "id": "br_1",
+      "type": "breaker",
+      "closed": false,
+      "place": {
+        "pole": "pole:x:2:lo:39.17"
+      }
+    },
+    {
+      "id": "shrine",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "post": "span:pole:x:2:lo:27.50~pole:x:2:lo:39.17"
+      }
+    }
+  ],
+  "lines": [
+    {
+      "id": "l_feed",
+      "from": "feed",
+      "to": "j0",
+      "run": {
+        "spans": [
+          "span:pole:x:2:hi:27.50~pole:x:2:lo:27.50"
+        ]
+      }
+    },
+    {
+      "id": "l_home",
+      "from": "j0",
+      "to": "home",
+      "run": {
+        "spans": [],
+        "drop": "block:0:0/b|outer|+z|5,20"
+      }
+    },
+    {
+      "id": "l_br",
+      "from": "j0",
+      "to": "br_1",
+      "run": {
+        "spans": [
+          "span:pole:x:2:lo:27.50~pole:x:2:lo:39.17"
+        ]
+      }
+    },
+    {
+      "id": "l_shrine",
+      "from": "br_1",
+      "to": "shrine",
+      "run": {
+        "spans": [],
+        "lead": "span:pole:x:2:lo:27.50~pole:x:2:lo:39.17"
+      }
+    }
+  ],
+  "faults": []
+}
