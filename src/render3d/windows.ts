@@ -8,7 +8,7 @@
  * - `glowCards` (081 W2) are the soft glow in front of every storey's glass on a lit building's open faces, street and inner: one InstancedMesh for the job, its opacity from the building's level.
  * - `litGlass` is one more InstancedMesh per shop glass key over the dark glass, for the lit buildings' shopfronts only.
  */
-import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, DataTexture, InstancedBufferAttribute, InstancedMesh, Matrix4, Mesh as ThreeMesh, PlaneGeometry, Quaternion, Vector3, MeshBasicMaterial, NearestFilter, PointLight, RGBAFormat, SRGBColorSpace, UnsignedByteType, type Material, type Mesh, type Object3D, type Texture } from "three";
+import { AdditiveBlending, LinearFilter, NoColorSpace, BufferAttribute, BufferGeometry, Color, DataTexture, InstancedBufferAttribute, InstancedMesh, Matrix4, Mesh as ThreeMesh, PlaneGeometry, Quaternion, Vector3, MeshBasicMaterial, NearestFilter, PointLight, RGBAFormat, SRGBColorSpace, UnsignedByteType, type Material, type Mesh, type Object3D, type Texture } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { CalibrationKey, CityBuilding, CityNodePlace, CityPlan, CityRoofMast, CitySide } from "../core";
 import type { GridState } from "../grid";
@@ -596,7 +596,7 @@ let cardTexture: DataTexture | null = null;
 /** One soft falloff, white in the middle to black at the edge, made in code (no asset): the card's `map`. */
 function cardMap(): DataTexture {
   if (cardTexture) return cardTexture;
-  const n = 32;
+  const n = 64;
   const data = new Uint8Array(n * n * 4);
   for (let y = 0; y < n; y++) {
     for (let x = 0; x < n; x++) {
@@ -611,6 +611,10 @@ function cardMap(): DataTexture {
   }
   const t = new DataTexture(data, n, n, RGBAFormat, UnsignedByteType);
   t.name = "glow-card";
+  t.magFilter = LinearFilter;
+  t.minFilter = LinearFilter;
+  t.generateMipmaps = false;
+  t.colorSpace = NoColorSpace;
   t.needsUpdate = true;
   cardTexture = t;
   return t;
