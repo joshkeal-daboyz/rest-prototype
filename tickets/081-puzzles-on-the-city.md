@@ -189,7 +189,7 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | V2 | The load preview, pure (`loadPreview`), faults kept hidden | grid-simulator | V0, V-Q2, V-Q3 | 4 |
 | V3 | The numbers by the icons: the preview by controls and breaks; every fuse and feed's load against its limit | renderer | V1, the `LoadPreview` type | 2 |
 | V4 | The page computes the preview and hands it to the renderer | ui | V2, V3 | 1 |
-| FX4 | The fuse blows: a bolt down its wires to the box, a big burst; FX3 folded in if FX4-Q2 says so (cut 25 Nov 2026, **not approved**) | renderer | W4 | 1 (3 with FX3) |
+| FX4 | The fuse blows: a bolt down its wires to the box, a burst twice a live break's; FX3 folded in (G1: "Approve FX4 (Recommended)") | renderer | W4 | 3 |
 | W0 | "pre-check 081 W1": building-only lamps, read-outward, feed clearance, crossings, the roof options, spread (cut 25 Nov 2026; G1: "Approve W (Recommended)") | pipeline-designer | G1 | 0 (a note) |
 | W1 | The fit and the city check: lamps on buildings, routes that read outward (ring lines from where they take power), feed clearance 6 m, no crossings, own-block roofs, `--avoid` | grid-simulator | now (W0 and Josh's answers are in) | at most 9 (5 added, at most 4 rewritten) |
 | W2 | A lit building reads as lit: every storey, glow cards, the light raised; no lamp post or disc | renderer | S4 (PR #70), W-Q1 | 3 |
@@ -1800,7 +1800,7 @@ S1 and U3 (outside `src/render3d/`) go on unaffected. L2, L3 and S4 wait for F1b
 
 **Files.** New `src/render3d/fx.ts` and `fx.test.ts`; `src/render3d/cityview.ts`: the live layer's sparks, the build step (the effect meshes and the texture load), the frame loop's calls into `fx.ts`, `fx=` and its `perf=1` label, and (24 Nov 2026) each cut's ground height and span ends passed to the layer and `fx=all`'s notice; `docs/design/081-F-measurements.md` (criterion 7's block). **Must not:** `overlay.ts`, `circuitdraw.ts`, `windows.ts`, `plan3d.ts`, `models3d.ts`, `relight3d.ts` (read only); `src/render/`, `src/core/`, `src/city/`, `src/grid/`, `src/play/`, `src/ui/`, `src/main.ts`, `tools/`, `public/`, `vite.config.ts`.
 
-#### FX3 · Relight bursts and brownout arcing (renderer). Branch `ticket/081fx3-relight-and-arcs`, after FX2 merges and FX-Q3 and FX-Q4 are answered
+#### FX3 · Relight bursts and brownout arcing (renderer). **Folded into FX4** (Josh, 25 Nov 2026: "Fold it in (Recommended)"; FX-Q3 "arcs show on overloaded lines", FX-Q4 "the Relight bursts at each lit target"). Built on FX4's branch, with bursts at target lamps only
 **Goal.** In the Relight, each puzzle lamp throws a burst of sparkle and a soft flash as it lights, in the Relight's order. In a brownout, short cold blue-white arcs flick at the insulators of the overloaded feed's live poles, a few at a time, until the load is shed. Written to the recommended answers; the architect re-cuts if Josh picks others.
 
 **Acceptance criteria.**
@@ -2122,7 +2122,15 @@ S1 and U3 (outside `src/render3d/`) go on unaffected. L2, L3 and S4 wait for F1b
 
 **Files.** `src/main.ts`, `src/ui/` (the helper and its test; the HUD's key hint if V-Q5 asks for one). **Must not:** `src/grid/`, `src/render3d/`, `src/play/`.
 
-### FX4 · The fuse blows: a bolt down its wires, a burst at the box (renderer). Branch `ticket/081fx4-fuse-blow`, after W4 merges. Cut 25 Nov 2026 for G1; **not approved**
+### FX4 · The fuse blows: a bolt down its wires, a burst at the box (renderer). Branch `ticket/081fx4-fuse-blow`, after W4 merges. Cut 25 Nov 2026; **approved (G1) the same day, with FX3 folded in**
+
+**Josh's answers, 25 Nov 2026, on cards (relayed by the main session):**
+- **G1:** "Approve FX4 (Recommended)".
+- **FX4-Q1:** "Towards the fuse (Recommended)". Criterion 1 is built as written.
+- **FX4-Q2:** "Fold it in (Recommended)". FX3 rides in this PR. On the same card:
+  - **FX-Q3** was stated as "arcs show on overloaded lines". That is FX3 criterion 2 as written: arcs on the live poles of a feed that is over.
+  - **FX-Q4** was stated as "the Relight bursts at each lit target". So FX3 criterion 1 bursts at each **target** lamp as it lights, not at every job lamp (the architect's reading of the card's words). A non-target puzzle lamp lights with L1's flare only.
+- **FX4-Q3:** "Twice a live break's (Recommended)". `BLOW_SPARKS` is twice FX2's cut burst (criterion 2).
 **Josh, 25 Nov 2026, in chat:** "Fuses should burse with sparks when they blow, additionally the wires that they service no longer have an animation when they blow. I think we should add a bolt of electricity that flows through the wires followed by a big spark at the fuse."
 
 **What happens today (read at `origin/main` e9f8502).**
@@ -2154,9 +2162,9 @@ S1 and U3 (outside `src/render3d/`) go on unaffected. L2, L3 and S4 wait for F1b
 7. [ ] **The sound lines up.** On the city, the pop's sound lands with the burst and the bolt's crackle with the bolt. If they don't, and the picture keeps `BLOW_TIMING`, the builder reports it, and a sound section (`src/audio/`, the sound agent's) is cut. **browser**.
 8. [ ] Josh plays 11 (the small fuse) and 13 (one box, three lamps) and springs each blow: a bolt runs down the wires to the box, the box bursts, and the wires stay dark. **browser**.
 
-**FX3 folded in (only if FX4-Q2 is "Fold FX3 in").** FX3's criteria 1 to 5 ride in this PR as written, with the bursts' "a post lamp at its glow" struck (section W). That adds 2 cases.
+**FX3 folded in** (Josh: "Fold it in (Recommended)"). FX3's criteria 1 to 5 ride in this PR, with FX-Q4's targets-only reading in criterion 1 and the bursts' "a post lamp at its glow" struck (section W). That adds 2 cases. Criterion 6's budget is the whole section's: 2.0 ms.
 
-**Count.** 1 added (criteria 1, 2 and 4 in one case); 3 with FX3 folded in.
+**Count.** 3 added: 1 for FX4 (criteria 1, 2 and 4 in one case) and FX3's 2.
 
 **Files.** `src/render3d/fx.ts` and `fx.test.ts`; `src/render3d/cityview.ts` (`notify` and the frame loop's FX calls only).
 - **Order.** It shares `cityview.ts` with W4 (building), so it branches after W4 merges. V1 and V3 also touch `cityview.ts`, in other parts (the live layer and `paintOverlay`). FX4 may be built beside V1, and whichever merges second merges `main` in.
@@ -2240,7 +2248,7 @@ All questions so far are answered (above), the mid-row one included ("Only when 
 13. **Section F's bar (yours to move):** the district view at 16.7 ms (60 fps) or under, before power and after the Relight, on your PC from the default camera. The wide 1280 x 800 view is reported, but it is not a pass bar.
 14. **F-Q1, the far city** (after F's measurement, only if a view is still slow): keep the whole city drawn, stop drawing past a distance, or drop small props past a distance. Worded in section F.
 15. **F-Q2, the pixel ratio** (after F0's measurement, only if rendering at 1x saves more than 2 ms): full sharpness, or 1x scaled up. Worded in section F.
-16. **Section FX** (Josh, 24 Nov 2026, on cards): G1 "Approve, FX2 first (Recommended)"; FX-Q1 "Sparks first (Recommended)"; FX-Q2 "Meshes too" (folded into FX1). 24 Nov 2026, after playing FX2: "Merge FX1, fix FX2 (Recommended)", with "extreme" as "More of them", "Bigger, brighter", "Fly further", "Crackle arcs" (FX2 amended; no question left from it). **Still open, before FX3:** FX-Q3 where brownout arcs show ("A few at a time on the overloaded feed's live poles (Recommended)"); FX-Q4 the Relight ("A sparkle burst at each puzzle lamp as it lights (Recommended)"). **Not blocking, after FX1's conversion:** FX-Q5 which shard mesh ("Keep `FX_Shard_Rock_Small_01` (Recommended)").
+16. **Section FX** (Josh, 24 Nov 2026, on cards): G1 "Approve, FX2 first (Recommended)"; FX-Q1 "Sparks first (Recommended)"; FX-Q2 "Meshes too" (folded into FX1). 24 Nov 2026, after playing FX2: "Merge FX1, fix FX2 (Recommended)", with "extreme" as "More of them", "Bigger, brighter", "Fly further", "Crackle arcs" (FX2 amended; no question left from it). **Answered 25 Nov 2026 on FX4's card:** FX-Q3 "arcs show on overloaded lines", FX-Q4 "the Relight bursts at each lit target" (FX3 folded into FX4). *As first asked:* FX-Q3 where brownout arcs show ("A few at a time on the overloaded feed's live poles (Recommended)"); FX-Q4 the Relight ("A sparkle burst at each puzzle lamp as it lights (Recommended)"). **Not blocking, after FX1's conversion:** FX-Q5 which shard mesh ("Keep `FX_Shard_Rock_Small_01` (Recommended)").
 17. **FX's frame budgets:** answered, "1.5 ms / 2.0 ms (Recommended)" (Josh, 24 Nov 2026, on a card): with every effect running (`fx=all`), at most 1.5 ms CPU over `fx=0` for FX2 and 2.0 ms for the whole section, in the same session, and never over 16.7 ms. Over them, the builder stops and the numbers come to him.
 18. **Section E5, the camera** (Josh, 24 Nov 2026, in chat: "We should restrict the end users visibility to the puzzle"; on a card: "Cut it (Recommended)"). **Answered** 24 Nov 2026, on cards: G1 and E5-Q1 "Approve, 1.5x (Recommended)"; E5-Q2 "Yes, dev only (Recommended)"; E5-Q3 "Hold at the limit (Recommended)". As asked on its G1 card: E5-Q1 how far out ("1.5x (Recommended)", "1.25x", "2x"), E5-Q2 the dev switch ("Yes, `cam=free` in dev only (Recommended)", "No switch"), E5-Q3 a pane too small for the panels and the district ("Hold the camera at the limit; the panels may cover the district's edge (Recommended)", "Also fold the panels on small panes"). Worded in section E5.
 19. **Section W. Answered 25 Nov 2026, on cards** (see section W): G1 "Approve W (Recommended)"; W-Q1 "Glow cards (Recommended)"; W-Q2 "Gold windows + icon (Recommended)"; W-Q4 "One fixed view (Recommended)"; W-Q5 "Close, re-lay (Recommended)". **Then, on W0's cards: W-Q3 "Own block roofs (Recommended)"; ring lines from where each line takes its power: "Yes (Recommended)".** Nothing in section W is open. As asked (cut 25 Nov 2026 from Josh's play of P2a, `docs/design/081-P2a-josh-play.md`): approve W0, W1, W2, W3 and P2a2 as cut, with the architect's readings in section W (every city lamp a building by its drop; `{ post }` and `lead` kept as types but unused; no lamp post stands; "within blocks" read as the drops into the block's buildings).
@@ -2260,7 +2268,7 @@ All questions so far are answered (above), the mid-row one included ("Only when 
     - **V-Q3, which controls:** "Breakers and switches (Recommended)"; "Breakers only" (as you worded it).
     - **V-Q4, the number's form:** "The change, +3 (Recommended)"; "The feed after, 13 of 25"; "Both".
     - **V-Q5, the puzzle it removes** (03, 04, 07, 09 to 15 become a sum, by the architect's reading; V0 measures it): "Always on"; "On by default, a key hides it (Recommended)"; "Only while hovering an icon"; "Off on capacity pilots".
-22. **Section FX4, G1** (cut 25 Nov 2026 from Josh's words in chat): approve FX4 as cut.
+22. **Section FX4. Answered 25 Nov 2026, on cards:** G1 "Approve FX4 (Recommended)"; FX4-Q1 "Towards the fuse (Recommended)"; FX4-Q2 "Fold it in (Recommended)" (FX-Q3 "arcs show on overloaded lines", FX-Q4 "the Relight bursts at each lit target"); FX4-Q3 "Twice a live break's (Recommended)". As asked:
     - **FX4-Q1, which way the bolt runs:** "Towards the fuse (Recommended)" (as worded: the bolt runs through the wires, then the big spark at the fuse); "Out from the fuse" (as the 2D map's streaks ran).
     - **FX4-Q2, FX3 with it:** "Fold FX3 in (Recommended)", and answer FX-Q3 (brownout arcs: "A few at a time on the overloaded feed's live poles (Recommended)") and FX-Q4 (the Relight: "A sparkle burst at each puzzle lamp as it lights (Recommended)") on the same card; or "Fuse blow only, FX3 later".
     - **FX4-Q3, how big the burst is:** "Twice a live break's (Recommended)"; "A shower, four times"; "The same as a live break".
