@@ -170,6 +170,7 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | D4 | The wall fitting shortlist, and the drop wire's gauge | pipeline-designer | now | 0 (a note) |
 | K3b | The drops drawn attached: a real insulator, the City bracket, `POWER_LINE` kept | renderer | now (Josh's D4 picks are in; K2e not needed) | 3 (1 added, 2 rewritten); 4 if the R12 case must change |
 | E4 | The overlay shows icons, not lines: the break icon at the real cut; clicks go icons, then 3D | renderer | E3 (shares `cityview.ts`) | 0 added, 4 rewritten, 1 removed |
+| E5 | The camera stays on the puzzle: zoom-out and pan limits from the district, any window shape; `cam=free` (dev) lifts them | renderer | G1 in ("Approve, 1.5x (Recommended)"); after FX2 merges | 3 |
 | L1 | The lit building's windows; the wall lamp goes | renderer | E4 | **done** (PR #55) |
 | L2 | Real lights on the street, the cap raised to 32 under a measured stop rule (re-cut 24 Nov 2026) | renderer | L1 (in) | 2 |
 | L3 | A few dim windows in the dead city (1 in 25, steady amber) | renderer | L1 (in) | 2 |
@@ -1084,6 +1085,61 @@ A click on an icon or a line is that piece's `hitTest` answer, so `src/play/` pl
 
 **Order.** It shares `cityview.ts` with **E3** (open PR #51: `jobFrame` and `loadCityView`), so it branches from `main` after E3 merges. It shares **no file with K3b**: the break point comes from `jobWires` in `cityview.ts`, not from `circuitdraw.ts`, and K3b changes drops only, never a span's curve. So E4 and K3b may be built at once once E3 is in.
 
+### E5 · The camera stays on the puzzle (renderer). Branch `ticket/081e5-camera-limits`. Cut 25 Nov 2026; approved (G1) the same day
+**Josh's answers, 25 Nov 2026, on cards (relayed by the main session):**
+- **G1 and E5-Q1:** **"Approve, 1.5x (Recommended)"**. `CITY_PLAY_ZOOM_OUT` is 1.5.
+- **E5-Q2:** **"Yes, dev only (Recommended)"**. `cam=free` lifts the limits in a dev build only (criterion 4).
+- **E5-Q3:** **"Hold at the limit (Recommended)"**. On a pane too small for the panels and the district, the opening is held at `Dmax` and the panels may cover the district's edge. No ui section is cut.
+- **Order:** FX2 (PR #62) is merging, so E5's branch is cut from `main` after it merges. This replaces the "beside FX2" line under **Order** below.
+
+**From.** Josh, 25 Nov 2026, in chat: "The end user shouldn't be zooming out this much. They won't be able to see anything at that height. We should restrict the end users visibility to the puzzle." On a card: **"Cut it (Recommended)"** for "zoom-out and pan limits around the puzzle's district, then G1 on a card".
+
+**What the code does (read 25 Nov 2026 at `origin/main` e32bc63; the architect's reading).**
+- The play view's camera is `createCityRig` (`src/render3d/tilecity3d.ts`), given E3's `jobFrame`. The page's wheel, pinch, keys and drag (`src/play/pan.ts`) all go through the view's `zoomStep`, `setPan`, `resetView` and `fitWhole`, so the rig is the one place a limit belongs. `src/play/` does not change.
+- **There is already a zoom-out limit, but it is relative to the opening:** `zoomStep(-1)` stops at `CITY_ZOOM_OUT` (1.6) times `fitDist`, the distance at which the frame fits the *free area*, the canvas less the HUD and bottom-panel insets. The pan already holds the camera's target inside the frame (`clampT`).
+- **So the limit grows with the panels.** The insets are pixels. On a small pane (800 x 570) they take a large share of the height, the free area shrinks, and the fit backs the camera far off to squeeze the district into it. If the panels leave no free area, the fit's search never succeeds and ends at its 3,000-unit ceiling. Then 1.6 times that is allowed on top. That is the high view of the whole 6 x 6 city (3,851 draw calls against about 1,774 at a larger pane). The builder confirms this reading by printing, once in its reply, the insets, the free area and `fitDist` at 800 x 570 on `main`.
+- `cam=street` is read only by the plan route (`plan3d.ts`, dev, `planStreetPose`). The play view never reads `cam`.
+
+**No Decided rule touches the camera.** The brief's "Rules carried over" are about flow, breakers, switches, parts, signatures, faults hiding faults and the Relight. The brief's question 4 ("a map the player can see whole") is held by criterion 2's floor: the limit never stops the player seeing the whole district. Nothing here changes a grammar rule or a city number, so there is no pipeline-designer pre-check.
+
+**Goal.** Playing a city puzzle on any window, a phone-sized one included, the camera opens on the puzzle's district and can never zoom out past a height set by that district, or pan away from it. A dev switch lifts both limits for measuring.
+
+**The limit, in the rig's terms.** All of these come from the frame the rig is given (in the play view, E3's `jobFrame`: the district, its four streets, the job's places and runs, the feed's origin, with `FRAME_MARGIN_M`), so they are not fixed numbers:
+- **`D0`, the district's fill distance:** the rig's own fit (the frame's ground and roofline corners, `CITY_FIT_PAD`), in the **whole canvas**, with the insets ignored. It depends on the frame and the window's shape, never on the panels.
+- **`Dmax`, the limit:** `CITY_PLAY_ZOOM_OUT` x `D0`. The factor is Josh's (E5-Q1; the recommended **1.5** is the architect's).
+- **`Dfit`:** today's fit in the free area (with the insets). A free area of zero or less gives `Dfit` = infinity, not the 3,000 ceiling.
+- **The opening:** `min(Dfit, Dmax)`. The zoom-in floor stays `CITY_ZOOM_IN` x the opening, as today.
+
+**Acceptance criteria.**
+1. [ ] **A limited rig, by option.** `createCityRig` takes a new option, `rigOpts.limit?: { zoomOut: number }`. Without it the rig is exactly today's, so the plan route (`plan3d.ts`) and the tile sheet do not change: the three existing "the city rig" cases in `tilecity3d.test.ts` pass **unedited**. With it, the rig keeps `D0`, `Dmax` and the opening as above, and works them out again on every `resize` (a new window size or new insets), then reframes, as today. **test** (existing, unedited).
+2. [ ] **The zoom-out and pan limits.** With `limit`, from the opening, `zoomStep(-1)` never puts the camera further from its target than `Dmax`, and it stops there. `Dmax` is never under `D0`, so at the furthest zoom-out the whole frame fits the canvas. `setPan` and `centreOn` keep the target inside the frame at every distance, the furthest included (today's `clampT`). `resetView` (and `fitWhole`, which is it: the F key frames the district, not the city) returns to the opening. **test**: 1 case, on a fixture frame (two blocks' worth of rectangle, no city built): 40 steps out stop at `Dmax` (the scale is the no-inset opening's divided by `zoomOut`, within 1e-6); a pan of 1e6 px and a centre far outside both leave the target on the frame's edge at that distance; `resetView` restores the opening's scale and pan.
+3. [ ] **The opening fits the district at any reasonable shape and never starts above the limit.** With `limit`, for 1280 x 720, 800 x 570, 600 x 900 and 390 x 844 (a phone):
+   - with no insets, every corner of the frame, on the ground and at the roofline, projects inside the canvas, and the opening is `D0`;
+   - with insets that leave 30 % of the height free, and with insets taller than the canvas, the opening is finite and no further than `Dmax`;
+   - with insets that leave the district room (Josh's desktop window), the opening is `Dfit`: the district sits in the free area, clear of the panels, as E3 made it.
+
+   **test**: 1 case, the same fixture frame, all four sizes in a loop.
+4. [ ] **The play view uses it; the dev switch lifts it.** A pure, exported `playRigOptions(search, dev)` in `cityview.ts` gives `{ limit: { zoomOut: CITY_PLAY_ZOOM_OUT } }`, except that in a dev build `cam=free` in the address gives `{}`, today's unlimited rig, for measuring the wider views (section F's "1280 x 800, more of the city" row). In a production build `cam=free` is ignored. `cam=street` is ignored by the play view, as today: the street camera stays on the plan route, which this section does not touch. `createCityPlayRenderer3d` passes `playRigOptions(opts.search, import.meta.env.DEV)` to `createCityRig`; while `cam=free` is on, it says so in one console line. **test**: 1 case: the limit by default, with `cam=street`, and with `cam=free` in a build; `{}` with `cam=free` in dev. The call itself is checked in criterion 6.
+5. [ ] **Frame time and draw calls, measured, not tuned.** The per-frame work is unchanged (a smaller view only draws less), so the expectation is no cost, and fewer draw calls on a small pane. In the browser pane on Josh's PC (not a headless browser), `?puzzle=city-two-ways-round&perf=1`, 6 x 6 seed 1, before power, on `main` and on the branch, the builder reports the draw calls, triangles and median frame:
+   - at the opening, at 800 x 570 and at the desktop pane. Expected: at 800 x 570 the branch's draw calls are near the desktop pane's opening (about 1,774), not `main`'s 3,851;
+   - at the furthest zoom-out, at both sizes. Expected: the branch's numbers are no higher than `main`'s at the same size.
+
+   The builder says how it held the view for `perf=1`'s 300 frames (for example, zoomed out before the models finished loading). **Stop rule:** if at the desktop pane `Dfit` is over `Dmax` (the panels would cover the district's edge on a desktop window), or a branch number is higher than `main`'s at the same view, the builder stops and reports the rows ("stop 081 E5"). It does not move the factor or the panels to pass. **browser**.
+6. [ ] Josh runs `npm run dev` on a desktop window and a phone-sized one: the city opens on the district; the wheel, pinch and `-` stop at a height where the job's pieces still read; a drag cannot take the district off screen; F comes back to the opening. With `cam=free` (dev) he can zoom out as before. **browser**.
+
+**Count.** 3 added (criteria 2, 3 and 4), 0 rewritten, in a new `src/render3d/cityrig.test.ts`: fixture frames only, no city build, under 2 s (the builder gives its time). No test to remove.
+
+**Files.** `src/render3d/tilecity3d.ts` (`createCityRig`, its options and its constants only); `src/render3d/cityview.ts` (`playRigOptions`, `CITY_PLAY_ZOOM_OUT` and the one `createCityRig` call with its console line; not `jobFrame`, `loadCityView`, the live layer, the FX calls or `perf=1`); new `src/render3d/cityrig.test.ts`. **Must not:** `plan3d.ts`, `tilecity3d.test.ts`, `src/play/` (`pan.ts` included), `src/ui/`, `src/main.ts`, `src/core/`. If the panels must change on small panes (E5-Q3's other option), that is a ui section, and the builder stops.
+
+**Interfaces.** None in `src/core/`: `rigOpts.limit`, `playRigOptions` and `CITY_PLAY_ZOOM_OUT` are internal to `src/render3d/`. No event. No new dependency.
+
+**Order.** It shares `cityview.ts` with **FX2** (open PR #62) and, later, FX3, L2, L3 and S4, but only at the one `createCityRig` call and one new function, away from the live layer and the build step. It may be built now, from `main`, beside FX2; whichever merges second merges `main` in. It shares `tilecity3d.ts` with **F2**, which is built only if F's measurements call for it; if F2 is open, E5 goes first.
+
+**Questions for Josh (G1 card).**
+- **E5-Q1, how far out the player may zoom**, as a multiple of `D0`, the distance at which the district with its four streets fills the whole window: **"1.5x (Recommended)"** (at the furthest, the district fills about two thirds of the window's width or height; criterion 5's stop rule catches it if a desktop opening needs more), "1.25x" (tighter; on a desktop window the panels may then cover the district's edge at the opening), or "2x" (looser). Today's limit is 1.6x the opening, which grows with the panels.
+- **E5-Q2, a dev switch that lifts the limits:** **"Yes, `cam=free` in dev only (Recommended)"** (section F's wide-view measurements can be repeated), or "No switch".
+- **E5-Q3, a pane too small for the panels and the district** (the 800 x 570 case): **"Hold the camera at the limit; the panels may cover the district's edge (Recommended)"**, or "Also fold the panels on small panes" (a separate ui section, cut after this one).
+
 ### K2ep · "pre-check 081 K2e" (pipeline-designer). Branch `ticket/081-puzzles-on-the-city` (a note)
 The re-cut below is option C as section 3 of `docs/design/081-CK9-every-building-wired.md` sketched it, with one addition: **drops join CK17d's 1 m clearance** (see K2e criterion 4). The note's section 5 asks for a fresh pre-check in that case. The pipeline-designer measures, on the four pin cities (the rule depends on how cities vary):
 - how many roof span places stage 6 stops offering, by `over`, and whether any of the pilot fits B1q found (03, 04, 07, 09, 10, 11, 12, 14) loses a span it needs;
@@ -1794,6 +1850,7 @@ Written into `src/core/` with this cut (typecheck passes):
   - `CityDrop.street?` (K2e writes it for a drop across a street);
   - `CityPuzzleView.district?` (E3's `loadCityView` writes it);
   - `CIRCUIT_SCENERY` (`"wallFitting"`, `"dropWire"`), `CircuitSceneryPiece` and `CircuitSceneryPick`, for K3b's `SCENERY_MODELS`. They are kept apart from `CIRCUIT_COMPONENTS`, so the overlay, the gallery's component view and `COMPONENT_MODELS` do not change.
+- **E5 (25 Nov 2026):** `createCityRig`'s `rigOpts.limit`, `playRigOptions` and `CITY_PLAY_ZOOM_OUT` are internal to `src/render3d/`, so no core change. No event, no new dependency.
 - **E4 (24 Nov 2026):** `overlayBreaks`, `OverlayBreak` and `overlayBreakHit` are internal to `src/render3d/`, so no core change. `OverlayLine`, `overlayLines` and `overlayLineHit` go.
 - **L, lit buildings (24 Nov 2026, committed with this cut; typecheck passes):** `CircuitComponentPick.removed?` (`{ words, date }`) in `src/core/citycircuit.ts`: nothing stands for a removed pick, its key is not loaded, and its place still counts. L1 sets it on `lampBuilding`. `windows.ts`'s exports (`WINDOW_UV`, `windowMask`, `buildingGlow`, `litBuilding`, `poolPlaces`, `dimPieces`) are internal to `src/render3d/`, so no other core change.
 - **Events:** none new.
@@ -1829,3 +1886,4 @@ All questions so far are answered (above), the mid-row one included ("Only when 
 15. **F-Q2, the pixel ratio** (after F0's measurement, only if rendering at 1x saves more than 2 ms): full sharpness, or 1x scaled up. Worded in section F.
 16. **Section FX** (Josh, 24 Nov 2026, on cards): G1 "Approve, FX2 first (Recommended)"; FX-Q1 "Sparks first (Recommended)"; FX-Q2 "Meshes too" (folded into FX1). 25 Nov 2026, after playing FX2: "Merge FX1, fix FX2 (Recommended)", with "extreme" as "More of them", "Bigger, brighter", "Fly further", "Crackle arcs" (FX2 amended; no question left from it). **Still open, before FX3:** FX-Q3 where brownout arcs show ("A few at a time on the overloaded feed's live poles (Recommended)"); FX-Q4 the Relight ("A sparkle burst at each puzzle lamp as it lights (Recommended)"). **Not blocking, after FX1's conversion:** FX-Q5 which shard mesh ("Keep `FX_Shard_Rock_Small_01` (Recommended)").
 17. **FX's frame budgets:** answered, "1.5 ms / 2.0 ms (Recommended)" (Josh, 24 Nov 2026, on a card): with every effect running (`fx=all`), at most 1.5 ms CPU over `fx=0` for FX2 and 2.0 ms for the whole section, in the same session, and never over 16.7 ms. Over them, the builder stops and the numbers come to him.
+18. **Section E5, the camera** (Josh, 25 Nov 2026, in chat: "We should restrict the end users visibility to the puzzle"; on a card: "Cut it (Recommended)"). **Answered** 25 Nov 2026, on cards: G1 and E5-Q1 "Approve, 1.5x (Recommended)"; E5-Q2 "Yes, dev only (Recommended)"; E5-Q3 "Hold at the limit (Recommended)". As asked on its G1 card: E5-Q1 how far out ("1.5x (Recommended)", "1.25x", "2x"), E5-Q2 the dev switch ("Yes, `cam=free` in dev only (Recommended)", "No switch"), E5-Q3 a pane too small for the panels and the district ("Hold the camera at the limit; the panels may cover the district's edge (Recommended)", "Also fold the panels on small panes"). Worded in section E5.
