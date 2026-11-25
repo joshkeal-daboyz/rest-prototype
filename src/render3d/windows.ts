@@ -389,6 +389,41 @@ export function lightPlaces(plan: Pick<CityPlan, "layers">, buildingIds: Iterabl
   return out;
 }
 
+/**
+ * 081 W2: the courtyard lights of `buildingIds`, at most `max`: for each building with columns open on a `court` face (the yard inside the block), one light in front of the middle of those faces, `STREET_LIGHT_OUT_M`
+ * out, at half the building's height as the street light is, so the warm light falls on the yard paving and lawn. A building with no court face gets none. Pure.
+ */
+export function courtLightPlaces(plan: Pick<CityPlan, "layers">, buildingIds: Iterable<string>, max: number): LightPlace[] {
+  const buildings = plan.layers.buildings?.buildings;
+  const built = plan.layers.mass?.built;
+  if (!buildings || !built) return [];
+  const byId = new Map(buildings.map((b) => [b.id, b] as const));
+  const open = new Map(built.map((c) => [`${c.i},${c.j}`, c.open] as const));
+  const heights = buildingHeights(plan);
+  const out: LightPlace[] = [];
+  for (const id of buildingIds) {
+    if (out.length >= max) break;
+    const b = byId.get(id);
+    if (!b) continue;
+    let sx = 0;
+    let sz = 0;
+    let n = 0;
+    for (const c of b.cells) {
+      for (const o of open.get(`${c.i},${c.j}`) ?? []) {
+        if (o.faces !== "court") continue;
+        const [dx, dz] = SIDE_DIR[o.side];
+        sx += (c.i + 0.5) * CELL + dx * (CELL / 2 + STREET_LIGHT_OUT_M);
+        sz += (c.j + 0.5) * CELL + dz * (CELL / 2 + STREET_LIGHT_OUT_M);
+        n++;
+      }
+    }
+    if (n === 0) continue;
+    const h = heights.get(id);
+    out.push({ building: id, x: sx / n, y: h ? h.height_m / 2 : STREET_LIGHT_UP_M, z: sz / n, ...(h ? { storeys: h.storeys } : {}) });
+  }
+  return out;
+}
+
 /** The lights of a city, made once: `lights[i]` lights `buildings[i]`. */
 export interface StreetLights {
   readonly lights: readonly PointLight[];
