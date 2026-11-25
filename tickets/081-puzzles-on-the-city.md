@@ -181,7 +181,7 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | FX1 | The particle pack converted; `npm run assets:game` adds its textures and its spark and shard meshes (FX-Q2 "Meshes too") | grid-simulator | now (G1: "Approve, FX2 first (Recommended)"); no other section | at most 4 (3 added, at most 1 rewritten) |
 | FX2 | The particle pool, the textures, live-break sparks and repair flashes; the pack meshes when loaded, sprites otherwise | renderer | now, beside FX1; not after FX1, L3 or S4 (they rebase on it). Amended 24 Nov 2026 on its branch: extreme sparks, warm crackle arcs at the cut, a repaired cut stops at once | 7 (8 at most) |
 | FX3 | Relight bursts and brownout arcing | renderer | FX2, and FX-Q3 and FX-Q4 answered | 2 |
-| X1a | The city view's pieces move out of `src/render/` (interfaces to `src/render3d/maprender.ts`; `stableHash` from `src/city/`) (cut 25 Nov 2026, **not approved**) | renderer | G1 | 1 added, at most 2 rewritten |
+| X1a | The city view's pieces move out of `src/render/` (interfaces to `src/render3d/maprender.ts`; `stableHash` from `src/city/`) (cut 25 Nov 2026; G1: "Approve X (Recommended)") | renderer | now | 1 added, at most 2 rewritten |
 | X1b | `src/play/` imports the map's interfaces from `src/render3d/maprender.ts` | interaction | X1a | 0 |
 | X2 | The 2D side of `src/ui/` and `main.ts` goes; the build loads only city puzzles | ui | X1a | 0 added, at most 2 rewritten, about 7 removed |
 | R1 | The release harness replays the city puzzles through the conversion; old snapshots deleted; not run until a release | playtester | X1a | at most 8 rewritten |
@@ -2218,7 +2218,13 @@ S1 and U3 (outside `src/render3d/`) go on unaffected. L2, L3 and S4 wait for F1b
 - **Count.** FX4's 3 added, plus 2 rewritten (the core values case, the audio literal-clock case), and 1 more only if `fx.test.ts` pins a literal: at most 6 for PR #81.
 - Josh plays 11 and 13 again: the bolt runs visibly down the wires to the fuse in about 1.5 s, and the burst and the pop land together (FX4 criteria 7 and 8). **browser**.
 
-### X · The 2D map goes: X1a, X1b, X2, R1, X1c (cut 25 Nov 2026 for G1; **not approved**)
+### X · The 2D map goes: X1a, X1b, X2, R1, X1c (cut 25 Nov 2026; **approved (G1) the same day**)
+
+**Josh's answers, 25 Nov 2026, on cards (relayed by the main session):**
+- **G1:** "Approve X (Recommended)". The architect's calls below stand.
+- **X-Q1, what the harness replays:** "City puzzles only (Recommended)". R1 criterion 1 is built as written.
+- **X-Q2, running the harness on R1's branch:** "Next release (Recommended)". R1 runs only the harness's typecheck; the first city snapshots are taken at the next release Josh calls.
+- **X-Q3, the docs naming the 2D map:** "Main session (Recommended)". After X1c merges, the main session drafts the new wording for `CLAUDE.md` and the brief (and the four agent files), and Josh approves it on a card.
 **Josh, 25 Nov 2026, in chat:** "Cut X1, X2, R1". Behind it: "I don't want 2D puzzles anymore. I want this game to be full 3D. The 2D puzzles were really just a prototype to see if the puzzles would be functional." (24 Nov 2026). On cards, the same day: "Hide now, delete later (Recommended)" and "Retarget later (Recommended)". The handoff (`docs/handoff-2026-11-24.md`): "Cut X1 and X2 (delete the 2D map and its UI) after P2a and Josh's word. Cut R1 (playtest harness on city puzzles) before the next release." P2a2's pilots, W1 to W4, V1 to V4 and FX4 are on `main` (465885d), so the condition is met.
 
 **What still reaches `src/render/` (read at `origin/main` 465885d).** `src/render/` is 40 files, 357 test cases.
@@ -2335,7 +2341,7 @@ S1 and U3 (outside `src/render3d/`) go on unaffected. L2, L3 and S4 wait for F1b
 **Files.** `src/render/` (deleted); `src/render3d/` (the drift case, the style guide import, the routes). **Must not:** any other folder. Comments elsewhere that name `src/render/` are listed in the reply for the docs step and their owners, and are not edited. These are `src/core/timing.ts`, `src/core/words.ts`, `src/city/pipeline/hash.ts`, `src/render3d/escapes.ts` (the renderer's own, so it may fix it) and `src/ui/relightcues.ts`.
 
 #### The docs (the main session, on Josh's word; not an agent's)
-`CLAUDE.md` (the stack line's "Canvas 2D", the hard rules naming folders), `docs/prototype-brief.md` (the folders table's `src/render/` row, "What the player sees"' first-prototype paragraph, the stack's "the old 2D map until ticket 081's X1 removes it") and `.claude/agents/renderer.md`, `interaction.md`, `grid-simulator.md` and `sound.md` still name `src/render/`. After X1c merges, the main session rewords them to what is left, if Josh says so (X-Q3). The architect fixes the `src/core/` comments at the same time.
+`CLAUDE.md` (the stack line's "Canvas 2D", the hard rules naming folders), `docs/prototype-brief.md` (the folders table's `src/render/` row, "What the player sees"' first-prototype paragraph, the stack's "the old 2D map until ticket 081's X1 removes it") and `.claude/agents/renderer.md`, `interaction.md`, `grid-simulator.md` and `sound.md` still name `src/render/`. After X1c merges, the main session drafts the new wording and Josh approves it on a card (X-Q3: "Main session (Recommended)"). The architect fixes the `src/core/` comments at the same time.
 
 ## Files
 Per section, above. This branch (the cut): `tickets/081-puzzles-on-the-city.md`, `docs/design/070-K1-circuit.md` (CK9 as changed, 24 Nov 2026; CK14's dark-building line struck for section S, 24 Nov 2026), `tickets/070-city-pipeline.md` (pointer lines), `tickets/071-pack-power-lines.md` (a pointer line: C and E's ladder wiring are dropped), `tickets/rules-coverage.md`, `src/core/citycircuit.ts` (new; `CityPuzzleView` added 24 Nov 2026 for the playable path), `src/core/cityplan.ts` (`CityCircuitLayer`), `src/core/index.ts`. Section FX's cut (24 Nov 2026): new `src/core/fx.ts`, `src/core/assets.ts` (`AssetManifest.fx?`), `src/core/index.ts`, `tickets/rules-coverage.md`. Section W's cut (25 Nov 2026): this file and `tickets/rules-coverage.md` only; no `src/core/` change (W1's numbers live in `tools/`, and `{ post }` and `lead` stay typed).
@@ -2424,7 +2430,7 @@ All questions so far are answered (above), the mid-row one included ("Only when 
     - **FX4-Q1, which way the bolt runs:** "Towards the fuse (Recommended)" (as worded: the bolt runs through the wires, then the big spark at the fuse); "Out from the fuse" (as the 2D map's streaks ran).
     - **FX4-Q2, FX3 with it:** "Fold FX3 in (Recommended)", and answer FX-Q3 (brownout arcs: "A few at a time on the overloaded feed's live poles (Recommended)") and FX-Q4 (the Relight: "A sparkle burst at each puzzle lamp as it lights (Recommended)") on the same card; or "Fuse blow only, FX3 later".
     - **FX4-Q3, how big the burst is:** "Twice a live break's (Recommended)"; "A shower, four times"; "The same as a live break".
-23. **Section X, G1** (Josh, 25 Nov 2026: "Cut X1, X2, R1"): approve X1a, X1b, X2, R1 and X1c as cut, with the architect's calls in section X (the interfaces to `src/render3d/`, `stableHash` from `src/city/`, the build loading only city puzzles, a harness that doesn't draw).
+23. **Section X. Answered 25 Nov 2026, on cards:** G1 "Approve X (Recommended)"; X-Q1 "City puzzles only (Recommended)"; X-Q2 "Next release (Recommended)"; X-Q3 "Main session (Recommended)". As asked (Josh: "Cut X1, X2, R1"): approve X1a, X1b, X2, R1 and X1c as cut, with the architect's calls in section X (the interfaces to `src/render3d/`, `stableHash` from `src/city/`, the build loading only city puzzles, a harness that doesn't draw).
     - **X-Q1, what the harness replays:** "City puzzles only (Recommended)"; "City puzzles and the schematics 17 to 64, until they are on the city".
     - **X-Q2, running the harness on R1's branch:** "Wait for the next release (Recommended)" (your rule: playtests only on releases; the first city snapshots are taken then); "Run it once on R1" (this counts as your word for one run, not a release).
     - **X-Q3, the docs naming the 2D map** (`CLAUDE.md`, the brief, four agent files): "Main session rewords them after X1c (Recommended)"; "I'll reword them myself"; "Leave them for now".
