@@ -120,3 +120,13 @@ The `fx=0` run was taken while an architect agent was working, so its CPU median
 At 1287 x 1178 the branch opens exactly where main does (main 1,774 with effects off, plus FX2's 5). Its furthest zoom-out there looks the same as main's by eye (1.5 x D0 against main's 1.6 x the opening); perf=1 logs only the first 300 frames after load, so no number is taken at that zoom. At 800 x 570 the small-pane opening falls from main's 3,465 to 2,530 draw calls. That is still above the desktop's 1,779, because the wider aspect shows more city side to side at the limit distance. No branch number is higher than main's at the same size.
 
 E5 review round 1, must-fix 2 (furthest zoom-out timings on both builds): waived by Josh, 24 Nov 2026, on a card: "Waive it (Recommended)". The opening rows above and the by-eye check at the furthest zoom-out stand.
+
+## S4, criterion 4 (25 Nov 2026, Josh's PC, in view)
+
+Browser pane emulated at 1287 x 1178, `?puzzle=city-two-ways-round&perf=1`, branch `ticket/081s4-scenery-live` (PR #70). Canvas 1930 x 1767, pixel ratio 1.5, fx on.
+
+| Run | Draw calls | Programs | CPU median, before power | Whole frame, before power |
+|---|---|---|---|---|
+| S4, before power | 1,779 | 12 | 8.50 ms | 16.60 ms |
+
+The draw calls and programs match main's (1,779 and 12 with FX2), so S4 adds no draw call or program before power. Josh played the run and judged the look ("Played it, looks right"), but the perf=1 tab closed before the after-Relight line was read. Josh, on a card: "Skip it". The after-Relight budget is taken from these numbers and the reviewer's structural read (the instancers are only sized larger at build; the street lights stay at `STREET_LIGHTS_MAX` = 32); it was not measured.
