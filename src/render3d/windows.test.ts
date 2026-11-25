@@ -282,7 +282,7 @@ describe("a lit building reads as lit (081 W2)", () => {
   it("every glass-bearing storey of a lit building has a glow card on each open face (street and inner), the roof has none, and its light stands at half its height", () => {
     const all = glowCards(plan, ["tower"]);
     const cards = all.filter((c) => !c.flat);
-    expect(all.filter((c) => c.flat).map((c) => c.nz)).toEqual([-1]); // one ground pool, on the yard face only
+    expect(all.filter((c) => c.flat).length).toBe(1); // one ground glow for the building, from its yard face only
     expect(cards.map((c) => [c.y, c.nz])).toEqual([[1.5, 1], [4.5, 1], [7.5, 1], [1.5, -1], [4.5, -1], [7.5, -1]]);
     expect(glowCards(plan, ["other"])).toEqual([]);
     const light = lightPlaces(plan, ["tower"], 5)[0]!;

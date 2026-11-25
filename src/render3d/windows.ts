@@ -516,8 +516,10 @@ export function setDimWindows(draw: Pick<BuildingsDraw, "instances">, picks: Rea
 export const GLOW_CARD_OUT_M = 0.25;
 export const GLOW_CARD_SPILL = 1.0;
 export const GLOW_CARD_GAIN = 0.06;
-/** 081 W2: the ground pool in front of a lit building's non-street faces (the yards, lanes and plazas the street lights do not reach): its depth and brightness (a multiple of `GLOW_CARD_GAIN`), and its height above the ground, metres. */
-export const GROUND_POOL_DEPTH_M = 7;
+/** 081 W2: the ground pool in front of a lit building's non-street faces (the yards, lanes and plazas the street lights do not reach): its radius (a share of its building's height, between the two limits) and brightness (a multiple of `GLOW_CARD_GAIN`), and its height above the ground, metres. */
+export const GROUND_POOL_MIN_M = 5;
+export const GROUND_POOL_MAX_M = 12;
+export const GROUND_POOL_PER_HEIGHT = 0.75;
 export const GROUND_POOL_GAIN = 4;
 export const GROUND_POOL_UP_M = 0.25;
 
@@ -549,6 +551,8 @@ export function glowCards(plan: Pick<CityPlan, "layers">, buildingIds: Iterable<
   const open = new Map(built.map((c) => [`${c.i},${c.j}`, c.open] as const));
   const out: GlowCard[] = [];
   const pools: GlowCard[] = [];
+  const back = new Map<string, { x: number; z: number; n: number }>();
+  const heights = buildingHeights(plan);
   for (const c of columns) {
     if (!want.has(c.building)) continue;
     const faces = open.get(`${c.i},${c.j}`) ?? [];
@@ -557,8 +561,11 @@ export function glowCards(plan: Pick<CityPlan, "layers">, buildingIds: Iterable<
     for (const o of faces) {
       if (o.faces === "street") continue;
       const [dx, dz] = SIDE_DIR[o.side];
-      const out = CELL / 2 + GROUND_POOL_DEPTH_M / 2;
-      pools.push({ building: c.building, x: (c.i + 0.5) * CELL + dx * out, y: GROUND_POOL_UP_M, z: (c.j + 0.5) * CELL + dz * out, nx: dx, nz: dz, w: CELL, h: GROUND_POOL_DEPTH_M, flat: true, gain: GROUND_POOL_GAIN });
+      const p = back.get(c.building) ?? { x: 0, z: 0, n: 0 };
+      p.x += (c.i + 0.5) * CELL + dx * (CELL / 2 + STREET_LIGHT_OUT_M);
+      p.z += (c.j + 0.5) * CELL + dz * (CELL / 2 + STREET_LIGHT_OUT_M);
+      p.n++;
+      back.set(c.building, p);
     }
     const bands: [number, number][] = [[c.ground.y_m, c.ground.top_m]];
     for (const p of c.pieces) if (p.role !== "roof") bands.push([p.placement.y_m, p.placement.y_m + 3 * p.span]);
@@ -567,6 +574,11 @@ export function glowCards(plan: Pick<CityPlan, "layers">, buildingIds: Iterable<
         out.push({ building: c.building, x: (c.i + 0.5) * CELL + dx * (CELL / 2 + GLOW_CARD_OUT_M), y: (lo + hi) / 2, z: (c.j + 0.5) * CELL + dz * (CELL / 2 + GLOW_CARD_OUT_M), nx: dx, nz: dz, w: CELL * GLOW_CARD_SPILL, h: (hi - lo) * GLOW_CARD_SPILL });
       }
     }
+  }
+  // One ground glow per building for its non-street faces, placed as the street light is (the mean of the face points, out from the wall) and as wide as that light's pool: about its height.
+  for (const [building, p] of back) {
+    const r = Math.min(GROUND_POOL_MAX_M, Math.max(GROUND_POOL_MIN_M, (heights.get(building)?.height_m ?? 9) * GROUND_POOL_PER_HEIGHT));
+    pools.push({ building, x: p.x / p.n, y: GROUND_POOL_UP_M, z: p.z / p.n, nx: 0, nz: 1, w: 2 * r, h: 2 * r, flat: true, gain: GROUND_POOL_GAIN });
   }
   return [...out, ...pools];
 }
