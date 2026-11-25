@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { stableHash } from "./hash";
 
-describe("stableHash (R-4: a copy of the deleted 2D map's city.ts's FNV-1a)", () => {
+describe("stableHash (R-4: a copy of src/render/city.ts's FNV-1a)", () => {
   const PAIRS: readonly (readonly [string, number])[] = [
     ["", 2166136261],
     ["a", 3826002220],
