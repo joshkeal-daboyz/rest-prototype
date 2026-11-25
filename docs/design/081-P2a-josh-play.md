@@ -41,3 +41,4 @@ Josh played the P2a pilots (PR #69, branch `ticket/081p2a-pilots`, dev server on
 - 02: "Same thing with lv2". Feed at the right; the pulses along the whole run to the target at the left move toward the feed.
 - 03: "Lv3 looks good, but is it possible to make the animations visible through the buildings? Maybe faded?" Added to W4 (approved: "Approve W4 (Recommended)").
 - 04: "lv4 has two reverse flows". His arrows: on the run from the OFF switch at bottom left up to the hub junction, and on the run from the ON breaker at the top down to the OFF switch at the right. Both runs end at a switch that is OFF.
+- 04 layout: "Yes, but we need to work on the wires showing through the buildings, it's hard to read." (W4 criterion 5.)
