@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { dirname, join, resolve } from "node:path";
+import { FX_SOURCE_DIR, FX_SOURCE_PACK } from "../../src/core";
 import type { AssetEntry, AssetManifest } from "../../src/core";
 import { buildGameManifest, planGame, runGame } from "./game";
 import type { GameDeps } from "./game";
@@ -53,22 +54,25 @@ const FULL: AssetManifest = {
 const KEYS = ["town:Pole", "city:Lamp", "town:Hut"];
 
 /** The report a faithful Blender gives for an include file: the full manifest's entries for the listed sources. */
-function faithful(pack: string, include: string, tweak: (e: AssetEntry) => AssetEntry = (e) => e): string {
+function faithful(pack: string, include: string, tweak: (e: AssetEntry) => AssetEntry = (e) => e, full: AssetManifest = FULL): string {
   const wanted = new Set(include.split("\n").filter((l) => l !== ""));
-  const assets = (FULL.packs.find((p) => p.pack === pack)?.assets ?? []).filter((e) => wanted.has(e.source)).map(tweak);
+  const assets = (full.packs.find((p) => p.pack === pack)?.assets ?? []).filter((e) => wanted.has(e.source)).map(tweak);
   return JSON.stringify({ blenderVersion: "4.2.3", scale: 1, assets, failures: [] });
 }
 
-function setup(tweak?: (e: AssetEntry) => AssetEntry, keys: string[] = KEYS) {
+const FX_DIR = join(L.inRoot, FX_SOURCE_PACK, ...FX_SOURCE_DIR.split("/").filter((x) => x !== ""));
+
+function setup(tweak?: (e: AssetEntry) => AssetEntry, keys: string[] = KEYS, full: AssetManifest = FULL, fxFiles: string[] = []) {
   const files = new Map<string, string>([
     [BLENDER, ""],
-    [L.manifest, JSON.stringify(FULL)],
+    [L.manifest, JSON.stringify(full)],
+    ...fxFiles.map((f): [string, string] => [join(FX_DIR, f), `png ${f}`]),
     [join(L.out, "town", "colourways", "A.png"), "png-a"],
     [join(L.out, "game", "old.glb"), "earlier game pack"],
   ]);
   const writes: string[] = [];
   const calls: string[][] = [];
-  const dirs = new Set<string>([L.inRoot, join(L.inRoot, "town"), join(L.inRoot, "city"), GAME]);
+  const dirs = new Set<string>([L.inRoot, join(L.inRoot, "town"), join(L.inRoot, "city"), join(L.inRoot, FX_SOURCE_PACK), GAME]);
   const under = (q: string, p: string) => q === p || q.startsWith(p + "\\") || q.startsWith(p + "/");
   const deps: GameDeps = {
     env: { BLENDER_PATH: BLENDER },
@@ -110,15 +114,16 @@ function setup(tweak?: (e: AssetEntry) => AssetEntry, keys: string[] = KEYS) {
       const at = (flag: string) => args[args.indexOf(flag) + 1] as string;
       const pack = at("--in").split(/[\\/]/).pop() as string;
       files.set(at("--out"), "glb");
-      files.set(at("--report"), faithful(pack, files.get(at("--include-file")) ?? "", tweak));
+      files.set(at("--report"), faithful(pack, files.get(at("--include-file")) ?? "", tweak, full));
       return Promise.resolve({ code: 0, stdout: "", stderr: "" });
     },
-    stdout: () => undefined,
+    stdout: (t) => void (out += t),
     stderr: (t) => void (err += t),
     now: () => new Date("2026-11-24T10:00:00.000Z"),
   };
   let err = "";
-  return { deps, files, writes, calls, err: () => err };
+  let out = "";
+  return { deps, files, writes, calls, err: () => err, out: () => out };
 }
 
 describe("the game pack's plan (ticket 082 B)", () => {
@@ -181,5 +186,58 @@ describe("the full pack is untouched (ticket 082 B)", () => {
     expect(s.files.get(L.manifest)).toBe(before);
     const outGlbs = s.calls.filter((a) => a.includes("--out")).map((a) => a[a.indexOf("--out") + 1] as string);
     for (const o of outGlbs) expect(o.startsWith(GAME)).toBe(true);
+  });
+});
+
+describe("the particle textures and meshes in the game pack (ticket 081 FX1)", () => {
+  const PNGS = ["PolygonParticles_Sparkle.png", "PolygonParticles_Soft_Spot.png", "PolygonParticles_Lightning_02.png", "PolygonParticles_Smoke_01.png"];
+  const ids = ["sparkle", "softSpot", "lightning", "smoke"];
+  const manifestOf = (s: ReturnType<typeof setup>) => JSON.parse(s.files.get(join(GAME, "manifest.json")) ?? "null") as AssetManifest;
+  /** FULL plus a particle pack holding the spark and (optionally) the shard. */
+  const withParticles = (shard: boolean): AssetManifest => ({
+    ...FULL,
+    packs: [
+      ...FULL.packs,
+      {
+        pack: "particle-fx-pack",
+        glb: "particle-fx-pack.glb",
+        atlas: null,
+        assets: [entry("FX_Spark_01", "Source Files/FBX/FX_Spark_01.fbx"), ...(shard ? [entry("FX_Shard_Rock_Small_01", "Source Files/FBX/FX_Shard_Rock_Small_01.fbx")] : [])],
+        failures: [],
+      },
+    ],
+  });
+
+  it("copies the four particle PNGs under out/game/fx/ and lists them in the manifest's fx, in FX_TEXTURES order", async () => {
+    const s = setup(undefined, KEYS, FULL, [...PNGS].reverse());
+    expect(await runGame(s.deps)).toBe(0);
+    for (const f of PNGS) expect(s.files.get(join(GAME, "fx", f))).toBe("png " + f);
+    expect(manifestOf(s).fx).toEqual(ids.map((id, i) => ({ id, image: "fx/" + PNGS[i] })));
+  });
+
+  it("still writes the game pack when textures are missing: fx lists only the files found and one line names the others and the folder", async () => {
+    const s = setup(undefined, KEYS, FULL, PNGS.slice(0, 2));
+    expect(await runGame(s.deps)).toBe(0);
+    expect(manifestOf(s).fx?.map((x) => x.id)).toEqual(["sparkle", "softSpot"]);
+    const line = s.out().split("\n").filter((l) => l.includes("textures missing"));
+    expect(line).toHaveLength(1);
+    expect(line[0]).toContain(PNGS[2]);
+    expect(line[0]).toContain(PNGS[3]);
+    expect(line[0]).toContain(FX_DIR);
+    expect(s.files.has(join(GAME, "town.glb"))).toBe(true);
+  });
+
+  it("cuts a particle mesh the full manifest holds into the plan and game.keys, and names one it lacks in one line, without failing", async () => {
+    const s = setup(undefined, KEYS, withParticles(false));
+    expect(await runGame(s.deps)).toBe(0);
+    const m = manifestOf(s);
+    expect(m.game?.keys).toContain("particle-fx-pack:FX_Spark_01");
+    expect(m.game?.keys).not.toContain("particle-fx-pack:FX_Shard_Rock_Small_01");
+    const fxPack = m.packs.find((p) => p.pack === "particle-fx-pack");
+    expect(fxPack?.assets.map((a) => a.name)).toEqual(["FX_Spark_01"]);
+    const line = s.out().split("\n").filter((l) => l.includes("particle meshes left out"));
+    expect(line).toHaveLength(1);
+    expect(line[0]).toContain("FX_Shard_Rock_Small_01");
+    expect(line[0]).toContain("assets:convert particle-fx-pack");
   });
 });
