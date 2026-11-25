@@ -8,6 +8,7 @@ import type { CityCircuitLayer } from "../core/cityplan";
 import type { CityNodePlace, CityPuzzleConverted } from "../core/citycircuit";
 import type { GridNode } from "../core";
 import type { GridState } from "../grid";
+import type { LoadPreview } from "../core/preview";
 import type { GlyphSpec, GlyphType } from "../render/glyphs";
 import { GROUND_POLE_ATTACH_UP_M, type GroundPoleKey } from "../core/powerpoles";
 import { nodeLook, type NodeLook } from "./look";
@@ -200,4 +201,54 @@ export function overlayBreaks(converted: CityPuzzleConverted, state: GridState, 
     out.push({ faultId: f.id, lineId: f.at, x: s.x, y: s.y, hit, sparking: state.powered.has(f.at) && state.sparking.has(f.at) });
   }
   return out;
+}
+
+// ---- the numbers by the icons (ticket 081 V3) ----
+
+/** One number drawn beside an icon: `x`, `y` is its left-middle point, CSS px. */
+export interface OverlayLabel {
+  readonly text: string;
+  readonly x: number;
+  readonly y: number;
+  readonly red: boolean;
+}
+
+/** The gap between an icon's edge and its number, CSS px. */
+export const OVERLAY_LABEL_GAP = 4;
+
+/** A signed change: "+3", "−2" (a true minus), "0". */
+export function signedDelta(n: number): string {
+  return n > 0 ? `+${n}` : n < 0 ? `−${-n}` : "0";
+}
+
+/**
+ * The numbers by the icons. Fuse boxes with a rating (`ratings`: node id -> rating) read "<fuseLoad> of <rating>" and feeds with a capacity "<load> of <capacity>", red when over; both are drawn always (during the
+ * Relight too), as they state what is lit. The preview's `delta` is drawn by each breaker, switch and readable break, red when `over`; a plain zero is not drawn. No preview, or `relighting`, draws no preview numbers.
+ */
+export function overlayLabels(icons: readonly OverlayIcon[], breaks: readonly OverlayBreak[], preview: LoadPreview | null, state: GridState, ratings: ReadonlyMap<string, number>, relighting = false): OverlayLabel[] {
+  const out: OverlayLabel[] = [];
+  for (const o of icons) {
+    const x = o.x + o.size / 2 + OVERLAY_LABEL_GAP;
+    if (o.type === "fusebox") {
+      const rating = ratings.get(o.id);
+      if (rating !== undefined) {
+        const load = state.fuseLoad.get(o.id) ?? 0;
+        out.push({ text: `${load} of ${rating}`, x, y: o.y, red: load > rating });
+      }
+    } else if (o.type === "feed") {
+      const f = state.feeds.get(o.id);
+      if (f && f.capacity !== null) out.push({ text: `${f.load} of ${f.capacity}`, x, y: o.y, red: f.over });
+    } else if (o.type === "breaker" || o.type === "switch") {
+      pushPreview(out, preview, relighting, o.id, x, o.y);
+    }
+  }
+  for (const k of breaks) pushPreview(out, preview, relighting, k.faultId, k.x + 8 + OVERLAY_LABEL_GAP, k.y);
+  return out;
+}
+
+function pushPreview(out: OverlayLabel[], preview: LoadPreview | null, relighting: boolean, id: string, x: number, y: number): void {
+  if (!preview || relighting) return;
+  const e = preview.get(id);
+  if (!e || (e.delta === 0 && !e.over)) return;
+  out.push({ text: signedDelta(e.delta), x, y, red: e.over });
 }

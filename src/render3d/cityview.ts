@@ -19,7 +19,7 @@ import type { CityStageDef } from "../city/pipeline/types";
 import type { GridState } from "../grid";
 import type { MapOverlay } from "../render";
 import type { Insets, Rect } from "../render/geometry";
-import { drawNodeGlyph, drawX, ALARM, WARM, TARGET } from "../render/glyphs";
+import { drawNodeGlyph, drawX, FONT, ALARM, WARM, TARGET } from "../render/glyphs";
 import { hash01 } from "../render/motion";
 import { circuitDraws, circuitGroup, COMPONENT_H_M, type CircuitDraws, type CircuitDrawn, type CircuitJob } from "./circuitdraw";
 import { createDayToggle, pageDayToggleHost, type DayToggle, type DayToggleHost } from "./daytoggle";
@@ -32,7 +32,8 @@ import { lampFlicker } from "./look";
 import { DIM_SHARE, STREET_LIGHTS_MAX, buildingGlow, dimBuildings, dimPieces, glowCardMesh, glowCards, roofOffsets, setDimWindows, lampBuildings, lightPlaces, litGlass, sceneryLamps, setBuildingGlow, setStreetLights, streetLights, targetBuildings, type BuildingGlow, type BuildingLamp, type GlowCards, type LitGlass, type StreetLights } from "./windows";
 import { WORLD_PER_METRE } from "./models";
 import { meshParts, sharedTileModels, type ModelSet } from "./models3d";
-import { OVERLAY_HIT_PX, overlayHit, overlayIcons, overlayBreakHit, overlayBreaks, placePoint, type OverlayBreak, type OverlayIcon, type Project } from "./overlay";
+import { OVERLAY_HIT_PX, overlayLabels, overlayHit, overlayIcons, overlayBreakHit, overlayBreaks, placePoint, type OverlayBreak, type OverlayIcon, type OverlayLabel, type Project } from "./overlay";
+import type { LoadPreview } from "../core/preview";
 import { createPicker, type Picker } from "./pick";
 import { PlanStopError, plan3dGroups, planInput, planKeys, planFailureText } from "./plan3d";
 import { createRelightClock, lampIgnition, lineFraction, type LampIgnition } from "./relight3d";
@@ -551,7 +552,7 @@ export function createOverlayLayer(source: HTMLCanvasElement, doc: Pick<Document
 }
 
 /** Draws the overlay: each break (a red X, with sparks only while live), then the icons, the hovered and highlighted one ringed. */
-function paintOverlay(c: CanvasRenderingContext2D, ratio: number, w: number, h: number, icons: readonly OverlayIcon[], breaks: readonly OverlayBreak[], time: number, hover: string | null, highlight: string | null): void {
+function paintOverlay(c: CanvasRenderingContext2D, ratio: number, w: number, h: number, icons: readonly OverlayIcon[], breaks: readonly OverlayBreak[], labels: readonly OverlayLabel[], time: number, hover: string | null, highlight: string | null): void {
   c.setTransform(ratio, 0, 0, ratio, 0, 0);
   c.clearRect(0, 0, w, h);
   for (const k of breaks) {
@@ -580,6 +581,18 @@ function paintOverlay(c: CanvasRenderingContext2D, ratio: number, w: number, h: 
       c.arc(o.x, o.y, o.size * 0.7, 0, Math.PI * 2);
       c.stroke();
     }
+  }
+  // The numbers (081 V3): a dark halo under each so they read on any ground; red is never the only cue, the sign and the "of" carry the sense.
+  c.font = FONT;
+  c.textAlign = "left";
+  c.textBaseline = "middle";
+  c.lineJoin = "round";
+  c.lineWidth = 3;
+  c.strokeStyle = "rgba(10,12,18,0.85)";
+  for (const l of labels) {
+    c.strokeText(l.text, l.x, l.y);
+    c.fillStyle = l.red ? ALARM : "#f2ead7";
+    c.fillText(l.text, l.x, l.y);
   }
 }
 
@@ -901,6 +914,9 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   const project = cameraProject(camera, size);
   let icons: readonly OverlayIcon[] = [];
   let breaks: readonly OverlayBreak[] = [];
+  let preview: LoadPreview | null = null;
+  const ratings = new Map<string, number>();
+  for (const n of puzzle.nodes) if (n.type === "fusebox" && n.rating !== undefined) ratings.set(n.id, n.rating);
   let drawnW = -1;
   let drawnH = -1;
 
@@ -1149,6 +1165,9 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   const cutAt = (spanId: string): { x: number; y: number; z: number } | null => cutPoint.get(spanId) ?? null;
   const iconCtx = { width: 0, height: 0, time: 0, layer, pxPerMetre: 0 };
   return {
+    setLoadPreview(p: LoadPreview | null) {
+      preview = p;
+    },
     draw(state: GridState, overlay: MapOverlay, timeSeconds: number) {
       const t0 = perf ? performance.now() : 0;
       const gap = t0 - perfLastStart;
@@ -1186,7 +1205,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
         iconCtx.pxPerMetre = rig.getScale() * S;
         icons = overlayIcons(converted, state, project, iconCtx);
         breaks = overlayBreaks(converted, state, cutAt, project, iconCtx);
-        paintOverlay(overlayLayer.ctx, Math.min(Math.max(dpr, 1), 2), size.width, size.height, icons, breaks, timeSeconds, overlay.hover ?? null, overlay.highlight ?? null);
+        paintOverlay(overlayLayer.ctx, Math.min(Math.max(dpr, 1), 2), size.width, size.height, icons, breaks, overlayLabels(icons, breaks, preview, state, ratings, overlay.relightT !== undefined), timeSeconds, overlay.hover ?? null, overlay.highlight ?? null);
         if (fxMode === "all") {
           // The measure-only notice, in the corner of the overlay canvas (the overlay is scaled by the same ratio as above).
           const c = overlayLayer.ctx;
