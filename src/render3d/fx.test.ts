@@ -1,7 +1,8 @@
-import { BoxGeometry, Group, Mesh, Texture, Vector3, type Object3D } from "three";
+import { BoxGeometry, Group, Mesh, Quaternion, Texture, Vector3, type Object3D } from "three";
 import { describe, expect, it } from "vitest";
 import type { Fault } from "../core";
-import { createParticlePool, fxMeshes, fxTextures, newParticleInit, repairedFaults, sparkingCuts, type FxCut } from "./fx";
+import { ARC_REACH_M, createFxLayer, createParticlePool, cutArcs, fxMeshes, fxTextures, newFxArcs, newParticleInit, repairedFaults, sparkingCuts, type FxCut, type FxSpan } from "./fx";
+import { WORLD_PER_METRE as S } from "./models";
 
 const fault = (id: string, at = "l1"): Fault => ({ id, at, kind: "damaged-cable" });
 
@@ -114,5 +115,63 @@ describe("081 FX2: the effects' pure parts", () => {
     expect(repairedFaults(after, before, [])).toEqual([]);
     expect(repairedFaults(null, before, [])).toEqual([]);
     expect(repairedFaults(before, { faults: [f1, f2], parts: before.parts }, [])).toEqual([]);
+  });
+
+  // A straight 10 m span along x, 9 points, world units (metres x S).
+  const span: FxSpan = { pts: Array.from({ length: 9 }, (_, i) => [i * 1.25 * S, 7 * S, 0]).flat(), cum_m: Array.from({ length: 9 }, (_, i) => i * 1.25), len_m: 10 };
+
+  it("cutArcs: over 2 s every arc lies on the span within 1.5 m of its middle, never more than two at once, and never reads as a cold arc", () => {
+    const out = newFxArcs();
+    let seen = 0;
+    for (let t = 0; t < 2; t += 0.004) {
+      const k = cutArcs({ id: 3, span }, t, out);
+      expect(k).toBeLessThanOrEqual(2);
+      seen += k;
+      for (let a = 0; a < k; a++) {
+        const arc = out[a]!;
+        for (const [x, y, z] of [[arc.ax, arc.ay, arc.az], [arc.bx, arc.by, arc.bz]] as const) {
+          expect(y).toBeCloseTo(7 * S, 5);
+          expect(z).toBeCloseTo(0, 5);
+          expect(Math.abs(x - 5 * S)).toBeLessThanOrEqual(ARC_REACH_M * S + 1e-6);
+        }
+        expect(arc.b).toBeLessThanOrEqual(0.8 * arc.r + 1e-9);
+        expect(arc.width).toBeGreaterThanOrEqual(0.25 * S - 1e-9);
+        expect(arc.width).toBeLessThanOrEqual(0.4 * S + 1e-9);
+      }
+    }
+    expect(seen).toBeGreaterThan(20);
+    // The same inputs give the same arcs.
+    const again = newFxArcs();
+    expect(cutArcs({ id: 3, span }, 1.234, out)).toBe(cutArcs({ id: 3, span }, 1.234, again));
+  });
+
+  it("createFxLayer: a cut that stops being fed shows no glow or arc on the next frame, spawns nothing more, and is empty within 1.5 s", () => {
+    const layer = createFxLayer([{ id: 1, x: 5 * S, y: 7 * S, z: 0, ground: 0, span }]);
+    const cam = new Quaternion();
+    const dt = 1 / 60;
+    let arcFrames = 0;
+    for (let f = 0; f < 60; f++) {
+      layer.breakAt(0, f * dt);
+      layer.update(dt, cam);
+      expect(layer.glowing()).toBe(1);
+      arcFrames += layer.counts().lightning > 0 ? 1 : 0;
+    }
+    expect(arcFrames).toBeGreaterThan(0);
+    expect(layer.alive()).toBeGreaterThan(300);
+    layer.update(dt, cam);
+    expect(layer.glowing()).toBe(0);
+    expect(layer.counts().lightning).toBe(0);
+    let prev = layer.counts();
+    for (let f = 0; f < 90; f++) {
+      layer.update(dt, cam);
+      const c = layer.counts();
+      // Flashes and smoke only ever thin out (a bounced spark may split in two, so the spray layers may not).
+      expect(c.softSpot).toBeLessThanOrEqual(prev.softSpot);
+      expect(c.smoke).toBeLessThanOrEqual(prev.smoke);
+      expect(c.lightning).toBe(0);
+      prev = c;
+    }
+    expect(layer.counts()).toEqual({ sparkle: 0, softSpot: 0, smoke: 0, lightning: 0, spark: 0, shard: 0 });
+    layer.dispose();
   });
 });

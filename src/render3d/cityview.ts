@@ -28,7 +28,7 @@ import type { Vec3 } from "./kitunits";
 import { GROUND } from "./kitunits";
 import { lightModeFor, type LightModeId } from "./lighting";
 import { addSurface, applyLightMode, newLightOwners, setRendererMode } from "./lightrig";
-import { createFxLayer, fxSwitch, repairedFaults, sharedFx, sparkingCuts, type FxCut } from "./fx";
+import { createFxLayer, fxSwitch, repairedFaults, sharedFx, sparkingCuts, type FxCut, type FxEmitter } from "./fx";
 import { lampFlicker } from "./look";
 import { STREET_LIGHTS_MAX, buildingGlow, lampBuildings, lightPlaces, litGlass, setBuildingGlow, setStreetLights, streetLights, type BuildingGlow, type BuildingLamp, type LitGlass, type StreetLights } from "./windows";
 import { WORLD_PER_METRE } from "./models";
@@ -817,7 +817,6 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
 
   // ---- particle effects (081 FX2): live-break sparks and repair flashes, from the state alone ----
   const fxMode = fxSwitch(opts.search ?? "", import.meta.env.DEV);
-  const fx = fxMode === "off" ? null : createFxLayer(cutWires.length);
   const fxCuts: FxCut[] = cutWires.map(({ w }) => ({ fault: w.cutFault!, line: w.line }));
   // Each cut's point (the cut span's middle sample, where the break icon sits) and each fault's place (a cut's point, or its node's pick place), in world units.
   const fxCutAt = new Float32Array(cutWires.length * 3);
@@ -827,6 +826,15 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     fxCutAt[i * 3 + 2] = w.pts[(SAMPLES / 2) * 3 + 2]!;
   });
   const faultAt = new Map<string, Vec3>();
+  // The ground under each cut: the street height at its span's poles' feet (the lower of the two), else the ground plane.
+  const poleFoot = new Map(draws.pieces.filter((p) => p.role === "pole" || p.role === "feed").map((p) => [p.id, p.position.y] as const));
+  const fxEmitters: FxEmitter[] = cutWires.map(({ w }, i) => {
+    const span = layer.spans.find((s) => s.id === w.id);
+    const feet = span ? [poleFoot.get(span.a), poleFoot.get(span.b)].filter((y): y is number => y !== undefined) : [];
+    return { id: i + 1, x: fxCutAt[i * 3]!, y: fxCutAt[i * 3 + 1]!, z: fxCutAt[i * 3 + 2]!, ground: feet.length > 0 ? Math.min(...feet) : ground.position.y + 0.05, span: { pts: w.pts, cum_m: w.cum_m, len_m: w.len_m } };
+  });
+  const fx = fxMode === "off" ? null : createFxLayer(fxEmitters);
+  if (fxMode === "all") console.info("3D effects: fx=all: every cut sparks whatever its state (measure only).");
   for (const f of puzzle.faults) {
     const ci = fxCuts.findIndex((c) => c.fault === f.id);
     const at = ci >= 0 ? { x: fxCutAt[ci * 3]!, y: fxCutAt[ci * 3 + 1]!, z: fxCutAt[ci * 3 + 2]! } : nodeCentre.get(f.at);
@@ -863,7 +871,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     const dt = fxLast < 0 ? 0 : Math.min(Math.max(time - fxLast, 0), 0.1);
     fxLast = time;
     if (fxMode === "all") {
-      for (let i = 0; i < fxCuts.length; i++) fx.breakAt(i, fxCutAt[i * 3]!, fxCutAt[i * 3 + 1]!, fxCutAt[i * 3 + 2]!, time);
+      for (let i = 0; i < fxCuts.length; i++) fx.breakAt(i, time);
       for (let k = 0; k < faultPlaces.length; k++) {
         if (time < fxAllNext[k]!) continue;
         fx.repairAt(faultPlaces[k]!.x, faultPlaces[k]!.y, faultPlaces[k]!.z);
@@ -876,7 +884,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
       const cuts = sparkingCuts(state, fxCuts, fxReached, sparkIdx);
       for (let k = 0; k < cuts.length; k++) {
         const i = cuts[k]!;
-        fx.breakAt(i, fxCutAt[i * 3]!, fxCutAt[i * 3 + 1]!, fxCutAt[i * 3 + 2]!, time);
+        fx.breakAt(i, time);
       }
       const done = repairedFaults(fxPrev, state, repairedIds);
       for (let k = 0; k < done.length; k++) {
@@ -1044,7 +1052,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
         perfMs[perfFrames++] = performance.now() - t0;
         if (perfFrames === PERF_FRAMES) {
           const sorted = Float64Array.from(perfMs).sort();
-          console.info(`perf=1 (${perfLabel}): ${gl.info.render.calls} draw calls, ${gl.info.render.triangles} triangles, ${gl.info.programs?.length ?? 0} programs, median frame ${sorted[PERF_FRAMES >> 1]!.toFixed(2)} ms (CPU, draw call to render end), after ${PERF_FRAMES} frames, fx=${fxMode} (${fx?.alive() ?? 0} particles)`);
+          console.info(`perf=1 (${perfLabel}): ${gl.info.render.calls} draw calls, ${gl.info.render.triangles} triangles, ${gl.info.programs?.length ?? 0} programs, median frame ${sorted[PERF_FRAMES >> 1]!.toFixed(2)} ms (CPU, draw call to render end), after ${PERF_FRAMES} frames, fx=${fxMode === "all" ? "all: every cut sparks whatever its state (measure only)" : fxMode} (${fx?.alive() ?? 0} particles; ${fx?.peaks() ?? "none"})`);
           const gaps = Float64Array.from(perfGap).sort();
           console.info(`perf=1 (${perfLabel}) whole frame: median interval between draw calls ${gaps[PERF_FRAMES >> 1]!.toFixed(2)} ms (includes GPU waits and the overlay), canvas ${canvas.width} x ${canvas.height} px, pixel ratio ${gl.getPixelRatio()}`);
           console.info(`perf=1 (${perfLabel}) ${perfFamilies()}`);
@@ -1058,6 +1066,16 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
         icons = overlayIcons(converted, state, project, iconCtx);
         breaks = overlayBreaks(converted, state, cutAt, project, iconCtx);
         paintOverlay(overlayLayer.ctx, Math.min(Math.max(dpr, 1), 2), size.width, size.height, icons, breaks, timeSeconds, overlay.hover ?? null, overlay.highlight ?? null);
+        if (fxMode === "all") {
+          // The measure-only notice, in the corner of the overlay canvas (the overlay is scaled by the same ratio as above).
+          const c = overlayLayer.ctx;
+          c.save();
+          c.setTransform(Math.min(Math.max(dpr, 1), 2), 0, 0, Math.min(Math.max(dpr, 1), 2), 0, 0);
+          c.font = "12px sans-serif";
+          c.fillStyle = "#ffb347";
+          c.fillText("fx=all: every cut sparks whatever its state (measure only)", 10, size.height - 10);
+          c.restore();
+        }
       }
     },
     hitTest(x, y) {

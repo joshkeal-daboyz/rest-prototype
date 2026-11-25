@@ -31,7 +31,7 @@ export function fxSwitch(search: string, dev: boolean): FxSwitch {
 
 // ---- the pool ----
 
-/** What a spawn is given (one object a caller reuses, so a spawn allocates nothing): position, velocity (world units, per second), life (s), size (world units), `grow` (the size at the end of life, as a multiple), `spin`, and the colour from the start of life to its end. */
+/** What a spawn is given (one object a caller reuses, so a spawn allocates nothing): position, velocity (world units, per second), life (s), size (world units), `grow` (the size at the end of life, as a multiple), `spin`, the colour from the start of life to its end, `ramp` (1: the hot-spark colour ramp by age instead of that colour pair) and `floor` (the height it bounces off when the pool steps with bounces). */
 export interface ParticleInit {
   x: number;
   y: number;
@@ -49,10 +49,15 @@ export interface ParticleInit {
   r1: number;
   g1: number;
   b1: number;
+  ramp: number;
+  floor: number;
 }
 
+/** A floor nothing reaches. */
+export const NO_FLOOR = -1e9;
+
 export function newParticleInit(): ParticleInit {
-  return { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, life: 1, size: 1, grow: 1, spin: 0, r0: 1, g0: 1, b0: 1, r1: 1, g1: 1, b1: 1 };
+  return { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, life: 1, size: 1, grow: 1, spin: 0, r0: 1, g0: 1, b0: 1, r1: 1, g1: 1, b1: 1, ramp: 0, floor: NO_FLOOR };
 }
 
 /** A fixed-size particle store in typed arrays, dense in `[0, count)`. Neither `spawn` nor `step` allocates. */
@@ -66,13 +71,17 @@ export interface ParticlePool {
   readonly size: Float32Array;
   readonly grow: Float32Array;
   readonly spin: Float32Array;
+  readonly ramp: Float32Array;
   /** Start and end colour, r g b each. */
   readonly c0: Float32Array;
   readonly c1: Float32Array;
   /** Adds a particle; when full, it takes the place of the oldest. Returns its index. */
   spawn(p: Readonly<ParticleInit>): number;
-  /** Moves, ages and frees: `gravity` pulls y down (units per second squared), `drag` slows (per second). */
-  step(dt: number, gravity: number, drag: number): void;
+  /**
+   * Moves, ages and frees: `gravity` pulls y down (units per second squared), `drag` slows (per second). With `bounces`, a particle that falls through its own floor bounces once (its fall reversed at 0.35 of its speed,
+   * its sideways speed at 0.6; one in three splits into two at half size with the rest of its life) and dies at its second touch.
+   */
+  step(dt: number, gravity: number, drag: number, bounces?: boolean): void;
   clear(): void;
 }
 
@@ -85,8 +94,18 @@ export function createParticlePool(max: number): ParticlePool {
   const size = new Float32Array(n);
   const grow = new Float32Array(n);
   const spin = new Float32Array(n);
+  const ramp = new Float32Array(n);
+  const floor = new Float32Array(n);
+  const touched = new Uint8Array(n);
   const c0 = new Float32Array(n * 3);
   const c1 = new Float32Array(n * 3);
+  let rs = 0x9e3779b9;
+  const rnd = (): number => {
+    rs ^= rs << 13;
+    rs ^= rs >>> 17;
+    rs ^= rs << 5;
+    return (rs >>> 0) / 4294967296;
+  };
   const copy = (from: number, to: number): void => {
     for (let k = 0; k < 3; k++) {
       pos[to * 3 + k] = pos[from * 3 + k]!;
@@ -99,6 +118,9 @@ export function createParticlePool(max: number): ParticlePool {
     size[to] = size[from]!;
     grow[to] = grow[from]!;
     spin[to] = spin[from]!;
+    ramp[to] = ramp[from]!;
+    floor[to] = floor[from]!;
+    touched[to] = touched[from]!;
   };
   const pool: ParticlePool = {
     max: n,
@@ -110,6 +132,7 @@ export function createParticlePool(max: number): ParticlePool {
     size,
     grow,
     spin,
+    ramp,
     c0,
     c1,
     spawn(p) {
@@ -129,6 +152,9 @@ export function createParticlePool(max: number): ParticlePool {
       size[i] = p.size;
       grow[i] = p.grow;
       spin[i] = p.spin;
+      ramp[i] = p.ramp;
+      floor[i] = p.floor;
+      touched[i] = 0;
       c0[i * 3] = p.r0;
       c0[i * 3 + 1] = p.g0;
       c0[i * 3 + 2] = p.b0;
@@ -137,21 +163,42 @@ export function createParticlePool(max: number): ParticlePool {
       c1[i * 3 + 2] = p.b1;
       return i;
     },
-    step(dt, gravity, drag) {
+    step(dt, gravity, drag, bounces = false) {
       const k = Math.max(0, 1 - drag * dt);
       let i = 0;
       while (i < pool.count) {
         const a = age[i]! + dt;
-        if (a >= life[i]!) {
+        let dead = a >= life[i]!;
+        if (!dead) {
+          age[i] = a;
+          vel[i * 3 + 1] = vel[i * 3 + 1]! - gravity * dt;
+          for (let j = 0; j < 3; j++) {
+            vel[i * 3 + j] = vel[i * 3 + j]! * k;
+            pos[i * 3 + j] = pos[i * 3 + j]! + vel[i * 3 + j]! * dt;
+          }
+          if (bounces && pos[i * 3 + 1]! < floor[i]! && vel[i * 3 + 1]! < 0) {
+            if (touched[i]! >= 1) dead = true;
+            else {
+              touched[i] = 1;
+              pos[i * 3 + 1] = floor[i]!;
+              vel[i * 3 + 1] = -vel[i * 3 + 1]! * 0.35;
+              vel[i * 3] = vel[i * 3]! * 0.6;
+              vel[i * 3 + 2] = vel[i * 3 + 2]! * 0.6;
+              if (pool.count < n && rnd() < 1 / 3) {
+                size[i] = size[i]! * 0.5;
+                const j = pool.count++;
+                copy(i, j);
+                vel[j * 3] = vel[j * 3]! * (0.6 + rnd() * 0.8) + (rnd() - 0.5) * 0.2;
+                vel[j * 3 + 2] = vel[j * 3 + 2]! * (0.6 + rnd() * 0.8) + (rnd() - 0.5) * 0.2;
+                vel[j * 3 + 1] = vel[j * 3 + 1]! * (0.7 + rnd() * 0.6);
+              }
+            }
+          }
+        }
+        if (dead) {
           pool.count--;
           if (i !== pool.count) copy(pool.count, i);
           continue;
-        }
-        age[i] = a;
-        vel[i * 3 + 1] = vel[i * 3 + 1]! - gravity * dt;
-        for (let j = 0; j < 3; j++) {
-          vel[i * 3 + j] = vel[i * 3 + j]! * k;
-          pos[i * 3 + j] = pos[i * 3 + j]! + vel[i * 3 + j]! * dt;
         }
         i++;
       }
@@ -389,6 +436,95 @@ export function resetSharedFx(): void {
   sharedFxLoad = null;
 }
 
+// ---- crackle arcs at a cut (pure) ----
+
+/** A cut span's sagged wire: `pts` is x y z flat (world units), `cum_m` the metres along it at each point, `len_m` its length. */
+export interface FxSpan {
+  readonly pts: readonly number[];
+  readonly cum_m: readonly number[];
+  readonly len_m: number;
+}
+
+/** One crackle arc this frame: two ends on the cut span (world units), its width (world units), its colour, and the time slot it started in (a new slot is a new arc). */
+export interface FxArc {
+  slot: number;
+  ax: number;
+  ay: number;
+  az: number;
+  bx: number;
+  by: number;
+  bz: number;
+  width: number;
+  r: number;
+  g: number;
+  b: number;
+}
+
+export function newFxArcs(): FxArc[] {
+  return [0, 1].map(() => ({ slot: 0, ax: 0, ay: 0, az: 0, bx: 0, by: 0, bz: 0, width: 0, r: 1, g: 1, b: 1 }));
+}
+
+const pt = new Float64Array(3);
+
+/** The point `s` metres along the span (clamped), into `pt`. */
+function spanPoint(span: FxSpan, s: number): void {
+  const c = span.cum_m;
+  const n = c.length - 1;
+  const at = s < 0 ? 0 : s > span.len_m ? span.len_m : s;
+  let j = 0;
+  while (j < n - 1 && c[j + 1]! < at) j++;
+  const d = c[j + 1]! - c[j]!;
+  const t = d > 0 ? (at - c[j]!) / d : 0;
+  for (let k = 0; k < 3; k++) pt[k] = span.pts[j * 3 + k]! + (span.pts[j * 3 + 3 + k]! - span.pts[j * 3 + k]!) * t;
+}
+
+/** The farthest from the middle an arc's end may be, in metres. */
+export const ARC_REACH_M = 1.5;
+
+/**
+ * A sparking cut's crackle arcs at `time`, from the span and the time alone (a hash of the cut and the time slot, so it repeats for the same inputs and allocates nothing). One or two flick at once, each for 0.05 to
+ * 0.12 s, a new one every 0.08 to 0.25 s; each runs between two points on the span within `ARC_REACH_M` either side of its middle (never past its ends), 0.25 to 0.4 m wide, white-hot to amber (blue at most 0.8 of red,
+ * so it never reads as a cold brownout arc). Writes into `out` (two `FxArc`s from `newFxArcs`) and returns how many are on.
+ */
+export function cutArcs(cut: { readonly id: number; readonly span: FxSpan }, time: number, out: FxArc[]): number {
+  let n = 0;
+  const id = cut.id;
+  const mid = cut.span.len_m / 2;
+  for (let c = 0; c < 2; c++) {
+    const period = 0.08 + 0.17 * hash(id * 3.1 + c * 7.7 + 0.5);
+    const x = time / period + c * 0.37;
+    const slot = Math.floor(x);
+    const phase = (x - slot) * period;
+    const h = hash(id * 11.3 + c * 2.9 + slot * 1.71);
+    if (c === 1 && h < 0.5) continue;
+    if (phase >= 0.05 + 0.07 * hash(h * 91.7 + slot * 0.37)) continue;
+    const a = out[n]!;
+    n++;
+    a.slot = slot + c * 1e6;
+    let s0 = mid - (0.3 + (ARC_REACH_M - 0.3) * hash(h * 13.1 + 1));
+    let s1 = mid + (0.3 + (ARC_REACH_M - 0.3) * hash(h * 17.3 + 2));
+    if (hash(h * 5.9 + 3) < 0.5) {
+      const t = s0;
+      s0 = s1;
+      s1 = t;
+    }
+    spanPoint(cut.span, s0);
+    a.ax = pt[0]!;
+    a.ay = pt[1]!;
+    a.az = pt[2]!;
+    spanPoint(cut.span, s1);
+    a.bx = pt[0]!;
+    a.by = pt[1]!;
+    a.bz = pt[2]!;
+    a.width = (0.25 + 0.15 * hash(h * 7.7 + 4)) * S;
+    const w = hash(h * 3.3 + 5);
+    a.r = 1;
+    a.g = 0.95 - 0.25 * w;
+    a.b = 0.8 - 0.5 * w;
+  }
+  return n;
+}
+
 // ---- the draw layer ----
 
 interface Layer {
@@ -398,13 +534,49 @@ interface Layer {
   readonly drag: number;
   readonly kind: "sprite" | "streak" | "chip";
   readonly fade: (u: number) => number;
+  /** Instances written straight each frame after the pool's (a glow per fed cut, the arcs). */
+  direct: number;
+  peak: number;
 }
 
 const fadeLinear = (u: number): number => 1 - u;
 const fadeSoft = (u: number): number => (1 - u) * (1 - u);
 const fadeWisp = (u: number): number => Math.sin(Math.PI * u) * 0.5;
+const fadeHot = (u: number): number => (u < 0.6 ? 1 : (1 - u) / 0.4);
 
-const POOL_SIZES = { sparkle: 384, softSpot: 64, smoke: 48, spark: 256, shard: 96 } as const;
+/** A hot spark's colour by age (the share of its life): white-hot to 30 %, then yellow-orange, then deep orange-red as it fades. Brightened, since the material adds. */
+const HOT = 1.5;
+function hotColour(u: number, out: Color): void {
+  if (u < 0.3) out.setRGB(1.0, 0.97, 0.85);
+  else if (u < 0.65) {
+    const t = (u - 0.3) / 0.35;
+    out.setRGB(1.0, 0.97 + (0.65 - 0.97) * t, 0.85 + (0.2 - 0.85) * t);
+  } else {
+    const t = (u - 0.65) / 0.35;
+    out.setRGB(1.0 + (0.9 - 1.0) * t, 0.65 + (0.25 - 0.65) * t, 0.2 + (0.05 - 0.2) * t);
+  }
+  out.multiplyScalar(HOT);
+}
+
+/** One break emitter: where it sits (the cut span's middle sample), the ground height under it, and its span (for the arcs). World units. */
+export interface FxEmitter {
+  readonly id: number;
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+  readonly ground: number;
+  readonly span: FxSpan;
+}
+
+/** Each layer's mesh `count` this frame. */
+export interface FxCounts {
+  sparkle: number;
+  softSpot: number;
+  smoke: number;
+  lightning: number;
+  spark: number;
+  shard: number;
+}
 
 /** What `createFxLayer` hands back. All positions are world units (metres x `WORLD_PER_METRE`). */
 export interface FxLayer {
@@ -413,8 +585,11 @@ export interface FxLayer {
   setTextures(t: Partial<Record<FxTextureId, Texture>>): void;
   /** Swap in the pack meshes; an id left null keeps being drawn as sprites. */
   setMeshes(m: Partial<Record<FxMeshId, BufferGeometry | null>>): void;
-  /** One live break's sparks, soft flash and smoke, at emitter `slot` (each slot has its own timers): a burst every 0.1 to 0.3 s, a wisp a second. Call each frame the cut sparks. */
-  breakAt(slot: number, x: number, y: number, z: number, time: number): void;
+  /**
+   * Feeds emitter `slot` for this frame: a burst every 0.05 to 0.12 s, a pop every 0.6 to 1.2 s, two smoke wisps a second, a steady flickering glow and crackle arcs. Call it each frame the cut sparks and
+   * not on a frame it does not: an emitter not fed in a frame spawns nothing, shows no glow or arc that frame, and has its timers reset (sparks in flight finish their fall).
+   */
+  breakAt(slot: number, time: number): void;
   /** A repair's flash, once: a soft bloom and a ring of sparkle with a few chips. */
   repairAt(x: number, y: number, z: number): void;
   /** Moves the particles and writes the draw arrays. `camera` is the view's rotation (sprites face it). */
@@ -422,14 +597,21 @@ export interface FxLayer {
   clear(): void;
   /** Particles alive, for the measure's label. */
   alive(): number;
+  /** The mesh counts as last written, and how many cut glows were drawn. */
+  counts(): FxCounts;
+  glowing(): number;
+  /** The most particles each pool held at once, as a line for the measure. */
+  peaks(): string;
   dispose(): void;
 }
 
 /**
- * Makes the effect meshes: one sprite mesh per texture (sparkle, soft spot, smoke) and one instanced mesh per pack mesh (spark, shard), each at its full pool size, additive, `depthWrite` off. They are in the group from
- * the start with `count` 0 (a mesh with no geometry yet holds a unit box), so the view's first frame compiles every program and nothing is added or removed later. `emitters` is how many break emitters there can be.
+ * Makes the effect meshes: one sprite mesh per texture (sparkle, soft spot, smoke, lightning) and one instanced mesh per pack mesh (spark, shard), each at its full size, additive, `depthWrite` off. The pools are sized from the
+ * emitter count `n` (per cut: spark 512, sparkle 512, shard 128, soft spot 48, smoke 24, lightning 8; once: sparkle 256, shard 32, soft spot 16, for repair flashes). They are in the group from the start with `count` 0 (a mesh
+ * with no geometry yet holds a unit box), so the view's first frame compiles every program and nothing is added or removed later.
  */
-export function createFxLayer(emitters: number, seed = 1): FxLayer {
+export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer {
+  const n = emitters.length;
   const group = new Group();
   group.name = "city-play:fx";
   const placeholder: Record<FxTextureId, DataTexture> = { sparkle: fxFallback("sparkle"), softSpot: fxFallback("softSpot"), lightning: fxFallback("lightning"), smoke: fxFallback("smoke") };
@@ -441,8 +623,8 @@ export function createFxLayer(emitters: number, seed = 1): FxLayer {
   const mats: MeshBasicMaterial[] = [meshMat];
   const ownTextures = new Set<Texture>(Object.values(placeholder));
 
-  const makeLayer = (max: number, geometry: BufferGeometry, material: MeshBasicMaterial, kind: Layer["kind"], gravity: number, drag: number, fade: (u: number) => number): Layer => {
-    const mesh = new InstancedMesh(geometry, material, max);
+  const makeLayer = (max: number, geometry: BufferGeometry, material: MeshBasicMaterial, kind: Layer["kind"], gravity: number, drag: number, fade: (u: number) => number, extra = 0): Layer => {
+    const mesh = new InstancedMesh(geometry, material, max + extra);
     mesh.instanceMatrix.setUsage(DynamicDrawUsage);
     // The colour attribute exists from the start, so the program never changes shape later.
     mesh.setColorAt(0, new Color(0, 0, 0));
@@ -451,21 +633,23 @@ export function createFxLayer(emitters: number, seed = 1): FxLayer {
     mesh.frustumCulled = false;
     mesh.raycast = () => {};
     group.add(mesh);
-    return { pool: createParticlePool(max), mesh, gravity: gravity * S, drag, kind, fade };
+    return { pool: createParticlePool(max), mesh, gravity: gravity * S, drag, kind, fade, direct: 0, peak: 0 };
   };
   const sparkleMat = spriteMat("sparkle");
   const softMat = spriteMat("softSpot");
   const smokeMat = spriteMat("smoke");
-  mats.push(sparkleMat, softMat, smokeMat);
-  const sparkle = makeLayer(POOL_SIZES.sparkle, quad, sparkleMat, "sprite", 6, 1.4, fadeLinear);
-  const soft = makeLayer(POOL_SIZES.softSpot, quad, softMat, "sprite", 0, 2.5, fadeSoft);
-  const smoke = makeLayer(POOL_SIZES.smoke, quad, smokeMat, "sprite", -0.6, 1.6, fadeWisp);
-  const spark = makeLayer(POOL_SIZES.spark, unit, meshMat, "streak", 9.8, 1.0, fadeLinear);
-  const shard = makeLayer(POOL_SIZES.shard, unit, meshMat, "chip", 12, 0.6, fadeLinear);
-  const layers = [sparkle, soft, smoke, spark, shard];
+  const lightMat = spriteMat("lightning");
+  mats.push(sparkleMat, softMat, smokeMat, lightMat);
+  const sparkle = makeLayer(512 * n + 256, quad, sparkleMat, "sprite", 6, 1.4, fadeLinear);
+  const soft = makeLayer(48 * n + 16, quad, softMat, "sprite", 0, 2.5, fadeSoft, n);
+  const smoke = makeLayer(24 * n + 1, quad, smokeMat, "sprite", -0.6, 1.6, fadeWisp);
+  const spark = makeLayer(512 * n + 1, unit, meshMat, "streak", 9.8, 0.6, fadeHot);
+  const shard = makeLayer(128 * n + 32, unit, meshMat, "chip", 12, 0.6, fadeHot);
+  const lightning = makeLayer(1, quad, lightMat, "sprite", 0, 0, fadeLinear, 8 * n);
+  const layers = [sparkle, soft, smoke, spark, shard, lightning];
   let haveSpark = false;
   let haveShard = false;
-  const matByTexture: Record<FxTextureId, MeshBasicMaterial | null> = { sparkle: sparkleMat, softSpot: softMat, lightning: null, smoke: smokeMat };
+  const matByTexture: Record<FxTextureId, MeshBasicMaterial> = { sparkle: sparkleMat, softSpot: softMat, lightning: lightMat, smoke: smokeMat };
 
   // A small seeded generator, so a given run looks the same.
   let rs = (seed >>> 0) || 1;
@@ -476,52 +660,49 @@ export function createFxLayer(emitters: number, seed = 1): FxLayer {
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-  const nextBurst = new Float64Array(Math.max(emitters, 1));
-  const nextSmoke = new Float64Array(Math.max(emitters, 1));
+  const slots = Math.max(n, 1);
+  const nextBurst = new Float64Array(slots);
+  const nextPop = new Float64Array(slots);
+  const nextSmoke = new Float64Array(slots);
+  const fed = new Uint8Array(slots);
+  const fedAt = new Float64Array(slots);
+  const lastArc = new Float64Array(slots * 2).fill(Number.NaN);
+  const arcs = newFxArcs();
   const p = newParticleInit();
+  let glows = 0;
 
-  const sparkOut = (x: number, y: number, z: number, hot: number): void => {
-    // Orange to white, by chance; flies out and up, then falls.
+  const sparkOut = (e: FxEmitter, mul: number): void => {
     const a = rnd() * Math.PI * 2;
-    const h = (1.2 + rnd() * 3) * S;
-    p.x = x;
-    p.y = y;
-    p.z = z;
+    const h = (3 + rnd() * 5) * mul * S;
+    p.x = e.x;
+    p.y = e.y;
+    p.z = e.z;
     p.vx = Math.cos(a) * h;
     p.vz = Math.sin(a) * h;
-    p.vy = (1.5 + rnd() * 3.5) * S;
-    p.life = 0.4 + rnd() * 0.4;
-    p.size = 0.5 * S;
-    p.grow = 0.6;
+    p.vy = (rnd() < 0.2 ? -rnd() * 3 : 2 + rnd() * 5) * mul * S;
+    p.life = 0.7 + rnd() * 0.7;
+    p.size = (haveSpark ? 0.15 : 0.9) * S;
+    p.grow = haveSpark ? 1 : 0.5;
     p.spin = 0;
-    const w = rnd() * hot;
-    p.r0 = 1.4;
-    p.g0 = 0.75 + 0.7 * w;
-    p.b0 = 0.25 + 1.1 * w;
-    p.r1 = 1.2;
-    p.g1 = 0.35;
-    p.b1 = 0.1;
+    p.ramp = 1;
+    p.floor = e.ground;
     (haveSpark ? spark : sparkle).pool.spawn(p);
   };
-  const chipOut = (x: number, y: number, z: number, speed: number, cool: number): void => {
+  const chipOut = (e: FxEmitter): void => {
     const a = rnd() * Math.PI * 2;
-    const h = (speed * (0.5 + rnd() * 0.7)) * S;
-    p.x = x;
-    p.y = y;
-    p.z = z;
+    const h = (2 + rnd() * 4) * S;
+    p.x = e.x;
+    p.y = e.y;
+    p.z = e.z;
     p.vx = Math.cos(a) * h;
     p.vz = Math.sin(a) * h;
-    p.vy = (1.5 + rnd() * 2.5) * S;
-    p.life = 0.5 + rnd() * 0.4;
-    p.size = (haveShard ? 0.13 : 0.3) * S;
+    p.vy = (1.5 + rnd() * 4) * S;
+    p.life = 0.7 + rnd() * 0.6;
+    p.size = (haveShard ? 0.16 : 0.4) * S;
     p.grow = 1;
     p.spin = (rnd() - 0.5) * 18;
-    p.r0 = 1.3;
-    p.g0 = 0.65 + cool * 0.5;
-    p.b0 = 0.2 + cool * 0.9;
-    p.r1 = 1.1;
-    p.g1 = 0.3;
-    p.b1 = 0.08;
+    p.ramp = 1;
+    p.floor = e.ground;
     (haveShard ? shard : sparkle).pool.spawn(p);
   };
   const flash = (x: number, y: number, z: number, size: number, grow: number, life: number, r: number, g: number, b: number, r1: number, g1: number, b1: number): void => {
@@ -541,6 +722,8 @@ export function createFxLayer(emitters: number, seed = 1): FxLayer {
     p.r1 = r1;
     p.g1 = g1;
     p.b1 = b1;
+    p.ramp = 0;
+    p.floor = NO_FLOOR;
     soft.pool.spawn(p);
   };
 
@@ -549,8 +732,12 @@ export function createFxLayer(emitters: number, seed = 1): FxLayer {
   const pv = new Vector3();
   const sv = new Vector3();
   const dv = new Vector3();
+  const xv = new Vector3();
+  const yv = new Vector3();
+  const zv = new Vector3();
   const eu = new Euler();
   const one = new Quaternion();
+  const hot = new Color();
 
   const paint = (l: Layer, camera: Quaternion): void => {
     const pool = l.pool;
@@ -558,7 +745,8 @@ export function createFxLayer(emitters: number, seed = 1): FxLayer {
     const col = l.mesh.instanceColor!.array as Float32Array;
     for (let i = 0; i < pool.count; i++) {
       const u = pool.age[i]! / pool.life[i]!;
-      const f = l.fade(u);
+      const isHot = pool.ramp[i]! > 0.5;
+      const f = isHot ? fadeHot(u) : l.fade(u);
       const size = pool.size[i]! * (1 + (pool.grow[i]! - 1) * u);
       pv.set(pool.pos[i * 3]!, pool.pos[i * 3 + 1]!, pool.pos[i * 3 + 2]!);
       if (l.kind === "sprite") {
@@ -569,24 +757,27 @@ export function createFxLayer(emitters: number, seed = 1): FxLayer {
         const speed = dv.length();
         if (speed > 1e-6) q.setFromUnitVectors(AXIS_Z, dv.divideScalar(speed));
         else q.copy(one);
-        const stretch = 0.6 + Math.min(speed / (4 * S), 1.4);
-        sv.set(size * 0.5, size * 0.5, size * 2.2 * stretch);
+        // 0.5 to 1.5 m long by its speed; the unit streak's cross-section is about 0.14 of its length, so x and y give `size` of thickness.
+        const len = (0.5 + Math.min(speed / S / 8, 1)) * S;
+        sv.set(size * 7.3, size * 7.3, len);
       } else {
         const t = pool.age[i]! * pool.spin[i]!;
         q.setFromEuler(eu.set(t, t * 0.7, t * 0.4));
         sv.set(size, size, size);
       }
       m4.compose(pv, q, sv).toArray(arr, i * 16);
-      const k = f;
-      col[i * 3] = (pool.c0[i * 3]! + (pool.c1[i * 3]! - pool.c0[i * 3]!) * u) * k;
-      col[i * 3 + 1] = (pool.c0[i * 3 + 1]! + (pool.c1[i * 3 + 1]! - pool.c0[i * 3 + 1]!) * u) * k;
-      col[i * 3 + 2] = (pool.c0[i * 3 + 2]! + (pool.c1[i * 3 + 2]! - pool.c0[i * 3 + 2]!) * u) * k;
+      if (isHot) {
+        hotColour(u, hot);
+        col[i * 3] = hot.r * f;
+        col[i * 3 + 1] = hot.g * f;
+        col[i * 3 + 2] = hot.b * f;
+      } else {
+        col[i * 3] = (pool.c0[i * 3]! + (pool.c1[i * 3]! - pool.c0[i * 3]!) * u) * f;
+        col[i * 3 + 1] = (pool.c0[i * 3 + 1]! + (pool.c1[i * 3 + 1]! - pool.c0[i * 3 + 1]!) * u) * f;
+        col[i * 3 + 2] = (pool.c0[i * 3 + 2]! + (pool.c1[i * 3 + 2]! - pool.c0[i * 3 + 2]!) * u) * f;
+      }
     }
-    l.mesh.count = pool.count;
-    if (pool.count > 0) {
-      l.mesh.instanceMatrix.needsUpdate = true;
-      l.mesh.instanceColor!.needsUpdate = true;
-    }
+    if (pool.count > l.peak) l.peak = pool.count;
   };
 
   return {
@@ -594,11 +785,10 @@ export function createFxLayer(emitters: number, seed = 1): FxLayer {
     setTextures(t) {
       for (const id of FX_TEXTURE_IDS) {
         const tex = t[id];
+        if (!tex) continue;
         const mat = matByTexture[id];
-        if (!tex || !mat) continue;
         const old = mat.map;
         mat.map = tex;
-        mat.needsUpdate = false;
         if (old && ownTextures.has(old) && old !== tex) {
           old.dispose();
           ownTextures.delete(old);
@@ -617,26 +807,36 @@ export function createFxLayer(emitters: number, seed = 1): FxLayer {
         haveShard = true;
       }
     },
-    breakAt(slot, x, y, z, time) {
+    breakAt(slot, time) {
+      const e = emitters[slot];
+      if (!e) return;
+      fed[slot] = 1;
+      fedAt[slot] = time;
       if (time >= nextBurst[slot]!) {
-        nextBurst[slot] = time + 0.1 + rnd() * 0.2;
-        const n = 6 + Math.floor(rnd() * 4);
-        for (let i = 0; i < n; i++) sparkOut(x, y, z, 1);
-        const c = 2 + Math.floor(rnd() * 2);
-        for (let i = 0; i < c; i++) chipOut(x, y, z, 3.5, 0);
-        flash(x, y, z, 1.5, 1.5, 0.2, 1.1, 0.55, 0.2, 0.5, 0.15, 0.05);
+        nextBurst[slot] = time + 0.05 + rnd() * 0.07;
+        const k = 18 + Math.floor(rnd() * 9);
+        for (let i = 0; i < k; i++) sparkOut(e, 1);
+        const c = 4 + Math.floor(rnd() * 3);
+        for (let i = 0; i < c; i++) chipOut(e);
+        flash(e.x, e.y, e.z, 2.5, 1.2, 0.12, 1.6, 1.4, 1.1, 1.0, 0.5, 0.15);
+      }
+      if (time >= nextPop[slot]!) {
+        nextPop[slot] = time + 0.6 + rnd() * 0.6;
+        const k = 50 + Math.floor(rnd() * 21);
+        for (let i = 0; i < k; i++) sparkOut(e, 1.5);
+        flash(e.x, e.y, e.z, 5, 1.3, 0.25, 2.0, 1.9, 1.5, 1.2, 0.6, 0.15);
       }
       if (time >= nextSmoke[slot]!) {
-        nextSmoke[slot] = time + 0.7 + rnd() * 0.6;
-        p.x = x;
-        p.y = y + 0.2 * S;
-        p.z = z;
+        nextSmoke[slot] = time + 0.35 + rnd() * 0.3;
+        p.x = e.x;
+        p.y = e.y + 0.2 * S;
+        p.z = e.z;
         p.vx = (rnd() - 0.5) * 0.6 * S;
-        p.vy = (0.8 + rnd() * 0.5) * S;
+        p.vy = 1.0 * S;
         p.vz = (rnd() - 0.5) * 0.6 * S;
-        p.life = 1.1 + rnd() * 0.5;
-        p.size = 0.5 * S;
-        p.grow = 3;
+        p.life = 0.9 + rnd() * 0.4;
+        p.size = 1.5 * S;
+        p.grow = 2;
         p.spin = 0;
         p.r0 = 0.45;
         p.g0 = 0.4;
@@ -644,15 +844,17 @@ export function createFxLayer(emitters: number, seed = 1): FxLayer {
         p.r1 = 0.3;
         p.g1 = 0.28;
         p.b1 = 0.26;
+        p.ramp = 0;
+        p.floor = NO_FLOOR;
         smoke.pool.spawn(p);
       }
     },
     repairAt(x, y, z) {
       flash(x, y, z, 1.4, 2.2, 0.4, 1.6, 1.6, 1.5, 1.2, 0.7, 0.3);
-      const n = 10;
+      const k = 10;
       const phase = rnd() * Math.PI * 2;
-      for (let i = 0; i < n; i++) {
-        const a = phase + (i / n) * Math.PI * 2;
+      for (let i = 0; i < k; i++) {
+        const a = phase + (i / k) * Math.PI * 2;
         p.x = x;
         p.y = y;
         p.z = z;
@@ -669,28 +871,119 @@ export function createFxLayer(emitters: number, seed = 1): FxLayer {
         p.r1 = 1.3;
         p.g1 = 0.75;
         p.b1 = 0.3;
+        p.ramp = 0;
+        p.floor = NO_FLOOR;
         sparkle.pool.spawn(p);
       }
       const c = 3 + Math.floor(rnd() * 2);
-      for (let i = 0; i < c; i++) chipOut(x, y, z, 2.2, 1);
+      for (let i = 0; i < c; i++) {
+        const a = rnd() * Math.PI * 2;
+        p.x = x;
+        p.y = y;
+        p.z = z;
+        p.vx = Math.cos(a) * 2.2 * S;
+        p.vz = Math.sin(a) * 2.2 * S;
+        p.vy = (1.5 + rnd() * 2) * S;
+        p.life = 0.5 + rnd() * 0.3;
+        p.size = (haveShard ? 0.13 : 0.3) * S;
+        p.grow = 1;
+        p.spin = (rnd() - 0.5) * 18;
+        p.r0 = 1.5;
+        p.g0 = 1.4;
+        p.b0 = 1.2;
+        p.r1 = 1.1;
+        p.g1 = 0.5;
+        p.b1 = 0.15;
+        p.ramp = 0;
+        p.floor = NO_FLOOR;
+        (haveShard ? shard : sparkle).pool.spawn(p);
+      }
     },
     update(dt, camera) {
+      // The cuts fed this frame spawn their arcs' flashes first; an emitter not fed has its timers reset.
+      for (let s = 0; s < n; s++) {
+        if (fed[s] === 0) {
+          nextBurst[s] = 0;
+          nextPop[s] = 0;
+          nextSmoke[s] = 0;
+          lastArc[s * 2] = Number.NaN;
+          lastArc[s * 2 + 1] = Number.NaN;
+        }
+      }
       for (const l of layers) {
-        l.pool.step(dt, l.gravity, l.drag);
+        l.direct = 0;
+        l.pool.step(dt, l.gravity, l.drag, l !== soft && l !== smoke && l !== lightning);
         paint(l, camera);
+      }
+      const sarr = soft.mesh.instanceMatrix.array as Float32Array;
+      const scol = soft.mesh.instanceColor!.array as Float32Array;
+      const larr = lightning.mesh.instanceMatrix.array as Float32Array;
+      const lcol = lightning.mesh.instanceColor!.array as Float32Array;
+      zv.set(0, 0, 1).applyQuaternion(camera);
+      glows = 0;
+      let drawn = 0;
+      for (let s = 0; s < n; s++) {
+        if (fed[s] === 0) continue;
+        fed[s] = 0;
+        const e = emitters[s]!;
+        // The steady glow, flickering between 0.6 and 1.0 each frame.
+        const gi = soft.pool.count + glows++;
+        const flick = (0.6 + 0.4 * rnd()) * 0.9;
+        m4.compose(pv.set(e.x, e.y, e.z), q.copy(camera), sv.setScalar(1.5 * S)).toArray(sarr, gi * 16);
+        scol[gi * 3] = flick;
+        scol[gi * 3 + 1] = 0.6 * flick;
+        scol[gi * 3 + 2] = 0.25 * flick;
+        // The crackle arcs.
+        const k = cutArcs(e, fedAt[s]!, arcs);
+        for (let a = 0; a < k; a++) {
+          const arc = arcs[a]!;
+          if (lastArc[s * 2 + a] !== arc.slot) {
+            lastArc[s * 2 + a] = arc.slot;
+            if (soft.pool.count < soft.pool.max) flash((arc.ax + arc.bx) / 2, (arc.ay + arc.by) / 2, (arc.az + arc.bz) / 2, 1, 1, 0.1, 1.5, 1.1, 0.5, 1.0, 0.6, 0.2);
+          }
+          yv.set(arc.bx - arc.ax, arc.by - arc.ay, arc.bz - arc.az);
+          const len = yv.length();
+          if (len < 1e-6) continue;
+          yv.divideScalar(len);
+          xv.crossVectors(yv, zv);
+          if (xv.lengthSq() < 1e-8) xv.set(1, 0, 0);
+          xv.normalize();
+          dv.crossVectors(xv, yv);
+          m4.makeBasis(xv.multiplyScalar(arc.width), yv.multiplyScalar(len), dv).setPosition((arc.ax + arc.bx) / 2, (arc.ay + arc.by) / 2, (arc.az + arc.bz) / 2).toArray(larr, drawn * 16);
+          lcol[drawn * 3] = arc.r * 1.6;
+          lcol[drawn * 3 + 1] = arc.g * 1.6;
+          lcol[drawn * 3 + 2] = arc.b * 1.6;
+          drawn++;
+        }
+      }
+      soft.direct = glows;
+      lightning.direct = drawn;
+      for (const l of layers) {
+        l.mesh.count = l.pool.count + l.direct;
+        if (l.mesh.count > 0) {
+          l.mesh.instanceMatrix.needsUpdate = true;
+          l.mesh.instanceColor!.needsUpdate = true;
+        }
       }
     },
     clear() {
       for (const l of layers) {
         l.pool.clear();
+        l.direct = 0;
         l.mesh.count = 0;
       }
+      glows = 0;
     },
     alive() {
-      let n = 0;
-      for (const l of layers) n += l.pool.count;
-      return n;
+      let k = 0;
+      for (const l of layers) k += l.pool.count;
+      return k;
     },
+    counts() {
+      return { sparkle: sparkle.mesh.count, softSpot: soft.mesh.count, smoke: smoke.mesh.count, lightning: lightning.mesh.count, spark: spark.mesh.count, shard: shard.mesh.count };
+    },
+    glowing: () => glows,
+    peaks: () => `peak alive sparkle ${sparkle.peak}, spark ${spark.peak}, shard ${shard.peak}, soft spot ${soft.peak}, smoke ${smoke.peak}`,
     dispose() {
       for (const l of layers) {
         group.remove(l.mesh);
