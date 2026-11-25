@@ -1,37 +1,82 @@
 ticket: 081-FX2-sparks
-assessment: meets
-must-fix: 0
+assessment: partly
+must-fix: 1
+
+Round 2: this review is of FX2 as Josh amended it on 25 Nov 2026 (criteria 3, 4, 4b, 4c, 6, 7, 8 and the count). It replaces the round-1 review (meets, must-fix 0), which judged the first build, commit 106764f. The amended work is commits 60b2bc9 (code) and 716bb3a (the measure). Judged against `origin/main`. Local `main` is stale, so `main...` shows the whole goal branch.
 
 ## What the ticket asked for, as I understood it
-Section FX2 of ticket 081: replace E2's box sparks in the city view with a small CPU particle pool. It draws live-break sparks (bursts, a soft flash, a smoke wisp) at the middle of each live cut span, and a one-off flash at each repaired fault. It uses the pack's textures and its spark and shard meshes when the game pack has them, and code-drawn textures and sprites when it doesn't. It adds `fx=0` and `fx=all` dev switches for the budget measure. The branch's own work is commit 106764f: `src/render3d/fx.ts`, `fx.test.ts` and `cityview.ts`.
+Make a live break look violent in normal play: dense, big, white-hot sparks that fly metres and bounce, with pops, a flickering glow and warm crackle arcs across the cut. A repaired cut, or one current no longer reaches, must stop on that frame, with only the sparks already in flight left to fall. `fx=all` stays the worst case, labelled "measure only". The budget is measured again with the pack's own textures and meshes.
 
 ## Does the branch do it?
-1. **Textures.** Met. `fxTextures` (fx.ts:264) fetches `${dir}game/manifest.json` and loads each listed `fx` id from `${dir}game/<image>`. An id that isn't listed, or fails to load, takes `fxFallback(id)`, a code-drawn `DataTexture` (star, soft dot, jagged bolt, blob). It prints one line naming the fallbacks and never throws, and no texture is imported. In production, `sharedFx` uses only the fallbacks. Test: "fxTextures: a manifest listing two ids ...", which checks both the two-URL case and the no-manifest case.
-2. **Pool.** Met. `createParticlePool` (fx.ts:79) keeps everything in preallocated typed arrays. `spawn` takes the oldest particle's slot when the pool is full, and `step` swap-removes the dead. Neither allocates. Test: "the pool: particles fall under gravity, die at their life, and a spawn on a full pool replaces the oldest". It checks the fall (7.5), the replacement of the oldest and the death at life.
-3. **Draw meshes.** Met in code (the builder chose instanced quads). `createFxLayer` (fx.ts:432) makes five `InstancedMesh`es at build at their full pool size: sparkle, soft spot, smoke, spark and shard. All are additive with `depthWrite` off, have their colour attribute from the start, sit in `live` (in the scene from build) and start at `count` 0. In three 0.187, a count-0 instanced mesh still runs `setProgram` and then returns from `renderInstances` without a draw call (`WebGLBufferRenderer.js:21`). So the programs compile on the first frame, and with no pack meshes only 3 layers ever draw. Per frame, only the pool arrays, the instance matrix and colour arrays, and `count` are written. Swapping in a pack geometry or a loaded map does not change the `MeshBasicMaterial` program key.
-3b. **Pack meshes.** Met. `fxMeshes` (fx.ts:307) makes its own `loadModels` call with `table: []` and the `FX_MESHES` keys as `tileKeys`; `models3d.ts` is not edited. Each mesh's geometry is baked to a unit, and a spark streak is turned to +z. A missing mesh gives null and one line. Sparks without a spark mesh fall back to sparkle sprites, and chips without a shard mesh do the same (`sparkOut`/`chipOut`). The streak is turned toward the particle's velocity and stretched along it, and the chip tumbles (`paint`). Both use the layer's own additive material. Test: "fxMeshes: with the spark loaded and the shard missing ...".
-4. **Live-break sparks.** Met. `sparkMesh` and `SPARKS_PER_CUT` are gone from cityview.ts, and nothing else in `src/` names them. `sparkingCuts` (fx.ts:178) applies E2's three-part rule unchanged: the fault is still in `faults`, `sparking` has the line, and `reached` holds. In cityview, `fxReached` is true when there is no plan, and otherwise requires `lineFlow(...).fraction > 0`, the same as the removed code. `grid.ts:403-407` fills `sparking` only for readable damaged cables, so "readable means current reaches it" holds. The emitter point is `w.pts[SAMPLES/2]`, the middle sample of the 9-sample span. `breakAt` gives a burst every 0.1 to 0.3 s with 6 to 9 sparks, 2 or 3 chips and one soft flash. Spark life is 0.4 to 0.8 s, and the colour runs from orange toward white. A smoke wisp comes every 0.7 to 1.3 s. Brownout is not read. Test: "sparkingCuts: a live cut sparks; an unreadable cut, and a cut whose fault is repaired, do not". It also checks that a cut the Relight hasn't reached yet stays quiet.
-5. **Repair flashes.** Met. `repairedFaults` (fx.ts:193) returns faults that left `faults` while `parts` got shorter. This depends on `state()` returning fresh copies of `faults` and `parts`, which it does (`grid.ts:440-445`), so comparing `fxPrev` with the current state works. A line fault flashes at its cut point and a node fault at `nodeCentre`, the pick proxy's centre. `repairAt` gives a soft bloom over 0.4 s, a ring of 10 sparkle sprites and 3 or 4 chips, white to warm. Test: "repairedFaults: a repair gives its id; an undo, a reset and a fuse that blows give none".
-6. **Dev switches.** Met. `fxSwitch(opts.search, import.meta.env.DEV)` returns "on" in every production build. With `fx=0`, no layer is made. With `fx=all`, every cut bursts every frame and every fault place flashes about once a second, whatever the state. The `perf=1` line now ends with `fx=<mode> (<n> particles)`.
-7. **Budget.** Browser work, and I can't verify it from the branch. Nothing in the diff records the three runs. The code is built to fit the budget: at most 5 draw calls, 3 without pack meshes, and programs compiled on the first frame. The main session should check that the builder's reply gives the rows for `fx=0`, as played and `fx=all`, and that each is inside the pass line.
+1. **Textures.** Met, unchanged from round 1 (`fxTextures`, `fxFallback`). The fallback line now also names `lightning`. Test: "fxTextures: a manifest listing two ids ...".
+2. **Pool.** Met. `step` gains an optional `bounces` argument, and the round-1 pool case still stands without a rewrite (`fx.ts` `createParticlePool`). Test: "the pool: particles fall under gravity ...".
+3. **Draw meshes and pool sizes.** Met. `createFxLayer(emitters)` sizes each layer from `n = emitters.length`:
+   - sparkle 512n+256, soft spot 48n+16 (+n glow slots), smoke 24n, spark 512n, shard 128n+32, lightning 8n. These match the ticket's numbers.
+   - There are 6 instanced meshes: sparkle, soft spot, smoke, lightning, spark and shard. All are additive with `depthWrite` off, start at count 0, and have their colour attribute from build. The lightning layer has a colour per instance, so FX3's arcs can share its call.
+   - Per frame, only the pool arrays, the matrices, the colours and `count` are written.
+3b. **Pack meshes.** Met, unchanged (`fxMeshes`, `unitGeometry`). Test: "fxMeshes: with the spark loaded and the shard missing ...".
+4. **Live-break sparks, extreme.** Met in `breakAt`:
+   - A burst every 0.05 to 0.12 s gives 18 to 26 sparks, 4 to 6 chips and a 2.5 m flash over 0.12 s.
+   - A pop every 0.6 to 1.2 s gives 50 to 70 sparks at 1.5 times the speed and a 5 m flash over 0.25 s, white to amber.
+   - Sparks leave at 3 to 8 m/s sideways and 2 to 7 m/s up, a fifth of them 0 to -3. They live 0.7 to 1.4 s. The spark layer has gravity 9.8 and drag 0.6.
+   - Sparkle sprites are 0.9 m. A streak is 0.15 m thick and 0.5 to 1.5 m long, set by speed (`paint`).
+   - `hotColour` gives white-hot to 30 % of life, then yellow-orange, then orange-red. Blue never goes above half of red.
+   - A steady flickering glow is 1.5 m across. Smoke comes about twice a second, 1.5 m across, rising at 1 m/s.
+   - Bounce: in `step`, a fall below the floor is reversed at 0.35 and the sideways speed cut to 0.6. One in three splits into two at half size. The second touch kills it.
+   - The floor is the lower pole foot of the cut span (`poleFoot` from `draws.pieces`), or else the top of the ground plane (`cityview.ts`).
+   - `sparkingCuts` is unchanged, and brownout is not read. Test: "sparkingCuts: a live cut sparks; an unreadable cut, and a cut whose fault is repaired, do not".
+4b. **Crackle arcs.** Met. `cutArcs` is pure and allocation-free. It works from a hash of the cut id and time slot, using two channels, with the second on only half its slots, so at most 2 arcs.
+   - Arcs flick for 0.05 to 0.12 s, with a period of 0.08 to 0.25 s.
+   - Each end is 0.3 to 1.5 m either side of the span's arc-length middle, clamped to the span. The arc is 0.25 to 0.4 m wide and flipped at random.
+   - Colour is r 1, g 0.95 to 0.7, b 0.8 to 0.3, so blue is at most 0.8 of red.
+   - `update` draws arcs only for an emitter fed this frame, with a 1 m flash on each new slot.
+   - Test: "cutArcs: over 2 s every arc lies on the span within 1.5 m ...". It checks the ends, the count of at most 2, blue at most 0.8 of red, the width, and that it repeats.
+4c. **A repaired cut stops at once.** Met in code:
+   - `cityview.ts` calls `breakAt` only for cuts `sparkingCuts` returns. A cut that has been repaired, or that current no longer reaches (a switch thrown back), is not fed.
+   - In `update`, an emitter that was not fed has its burst, pop, smoke and arc timers reset, and is skipped for the glow and the arcs that frame. Sparks in flight finish.
+   - Test: "createFxLayer: a cut that stops being fed shows no glow or arc on the next frame, spawns nothing more, and is empty within 1.5 s". The ticket's "no layer's count rises" is checked on soft spot and smoke only, because the ticket's own split rule lets the spray layers grow by a split. The final all-zero check after 1.5 s still fails if emission went on.
+   - The in-pane part ("repair `l_e2`'s cut in normal play") is browser work and is not recorded on the branch.
+5. **Repair flashes.** Met, unchanged (`repairedFaults`, `repairAt`). Test: "repairedFaults: ...".
+6. **Dev switches.** Met:
+   - With `fx=all`, every cut is fed every frame and every fault place flashes about once a second.
+   - One console line at load: "3D effects: fx=all: every cut sparks whatever its state (measure only)."
+   - The `perf=1` line carries the same words and the peaks.
+   - The overlay canvas corner draws the notice.
+   - In production, `fxSwitch` returns "on".
+7. **Budget.** Partly. The amended block in `docs/design/081-F-measurements.md` has 2 rows, both before power:
+   - `fx=0`: 8.20 ms, 1,774 calls.
+   - `fx=all`: 8.10 ms, 1,780 calls (+6, cap 6), 12 programs, whole frame 16.60 ms.
+   - The real textures and meshes were in, with no fallback line.
+   - It gives the peak alive count per layer: sparkle 474 of 1,280, spark 731 of 1,024, shard 126, soft spot 13, smoke 8. Lightning is not in `peaks()`.
+
+   What is there passes with a wide margin. But criterion 7 asks for three runs (`fx=0`, as played and `fx=all`), each with the CPU median before power **and after the Relight**, and for "no new program ... to the end of the Relight". The as-played run and both after-Relight medians are missing from the amended block. So the after-Relight pass line and the program check through the Relight are not shown for the amended effect.
 8. **Josh plays it.** For Josh.
 
-**Tests.** Run with `npx vitest run --maxWorkers=2 src/render3d/fx.test.ts`: 5 passed in about 1 s (52 ms of tests). The pull request adds 5 cases against `origin/main` and rewrites none, which is inside the ticket's count of 5 and the cap of 15. Each case is named for a rule and would fail if that criterion broke. All use fixtures; there is no city build and no report-only test.
+**Tests.** `npx vitest run --maxWorkers=2 src/render3d/fx.test.ts`: 7 passed, 144 ms of tests, 1.15 s in all. That is 7 cases added against `origin/main` and none rewritten, inside the ticket's 8 and the cap of 15. Each is named for a rule, runs on fixtures only and has no city build. There is no report-only test and no near-duplicate.
 
-**Files.** The builder's commit touches only `src/render3d/fx.ts`, `fx.test.ts` and `cityview.ts`. `models3d.ts` and `src/core/fx.ts` are only imported. No dependency is added (`GLTFLoader` and `TextureLoader` already come with three). `src/grid/` and `src/night/` are not touched, and `fx.ts` imports only a type from `../grid`.
+**Files.** The builder's commits touch only `src/render3d/fx.ts`, `fx.test.ts`, `cityview.ts` and `docs/design/081-F-measurements.md`. All four are listed. No dependency is added. `src/grid/` and `src/night/` are untouched, and `fx.ts` imports only a type from `../grid`.
 
 ## Rule conflicts and risks
-- None against the hard rules or the GDD.
-- Criterion 3b asks for the mesh load "after the city's models". `sharedFx()` is started at build, while the city's `load()` is still running (cityview.ts, just after `live.add(fx.group)`). It is a separate `loadModels` call, so the city's models are never sent to the full packs. But the two run at the same time rather than one after the other, and the FX manifest and GLB fetches compete with the city's first load.
-- `sharedFx` caches the mesh geometries for the whole page, while `fx.dispose()` disposes them through `geoms`. Reopening a city re-uploads the same geometry objects. That works in three, but the ownership is muddled.
-- The loaded PNGs keep `TextureLoader`'s default colour space (none). With additive white-on-alpha textures this probably doesn't matter; Josh will judge it by eye.
+- None against the hard rules or the GDD. Sparks still mean a live, readable break and only that: `sparkingCuts` uses E2's rule, and `state.sparking` holds only readable damaged cables. The arcs are warm and stay on the cut span.
+- When the `spark` mesh is missing (CI, a fresh clone), sparks fall back to the sparkle layer. That layer steps with gravity 6 and drag 1.4, not the 9.8 and 0.6 of criterion 4, so the fallback spray flies shorter. Josh now has the meshes, so this matters only without the pack.
+- The arcs' ends are clamped to the span. On a span under about 3 m, an end could sit at the span's end, which is a pole's insulator, and criterion 4b says never. I did not check whether `city-two-ways-round` has a cut span that short.
+- The steady glow's flicker is `(0.6 + 0.4 r) * 0.9`, so 0.54 to 0.9 rather than 0.6 to 1.0. This is a look, for Josh's eye.
 
 ## Must fix
-none
+1. `docs/design/081-F-measurements.md`, the "FX2 amended" block: add the rest of criterion 7's runs for the amended effect, in the same session:
+   - `fx=0` and `fx=all` after the Relight;
+   - the as-played run (throw `sw`, repair `l_e2`), before power and after the Relight;
+   - draw calls, programs, CPU median and whole frame for each.
+
+   Then say whether the program count stayed at 12 from the first frame to the end of the Relight. This shows the after-Relight pass line and the no-new-program rule hold with the extreme sparks. No code change is expected. If a row fails, the stop rule applies.
 
 ## Could improve
-1. `src/render3d/cityview.ts`: start `sharedFx()` from the city `load()`'s `.then`, or chain the mesh half after it, so the pack meshes load after the city's models, as criterion 3b says.
-2. `src/render3d/fx.test.ts`: the "a reset" check is `repairedFaults(null, before)`, which is the first frame, not a reset. A real reset goes from fewer faults and parts back to the start state, which is the undo case again. Either rename the check or drop it; no new case is needed.
-3. `src/render3d/fx.ts`: `resetSharedFx` says it is for tests but no test uses it, and `FxLayer.clear()` has no caller. Remove them, or leave them for FX3 to use.
-4. `src/render3d/fx.ts`: either don't push the shared pack geometries into `geoms` (the page cache owns them), or reset `sharedFxLoad` on dispose, so one owner disposes them.
-5. The branch is `ticket/081fx2-sparks`, but the ticket names `ticket/081fx2-sparks-and-repairs`. This is only a naming note for the merge commit.
+1. `src/render3d/fx.ts` `sparkOut`: when the spark mesh is missing, the sparkle layer's gravity and drag (6 and 1.4) apply to the break sparks. Spawning them into a layer stepped at 9.8 and 0.6, or giving them their own fallback layer, would keep criterion 4's flight without the pack. It may cost a draw call, so check it against the cap first.
+2. `src/render3d/fx.ts` `cutArcs`: on a span shorter than about 3.2 m, shrink the reach to stay 0.1 m or so inside the span's ends, so an arc never ends at an insulator.
+3. `src/render3d/fx.ts` `peaks()`: add the lightning count (it is direct instances, so the most drawn at once), so the reply's "peak alive count per layer" covers all six.
+4. Carried from round 1, still open:
+   - `sharedFx()` starts while the city's `load()` is still running, not after it (criterion 3b's "after the city's models").
+   - `resetSharedFx` and `FxLayer.clear()` have no caller.
+   - The page-cached pack geometries are pushed into the layer's `geoms` and disposed with it.
+   - The "a reset" check in the `repairedFaults` test is really the first frame.
+5. The ticket's 4c browser check (repair `l_e2` in the pane in normal play, and nothing of the cut left within 1.5 s) is not recorded anywhere. A line beside the measure block would close it.
