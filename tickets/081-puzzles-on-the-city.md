@@ -18,7 +18,7 @@ Each is the question as asked and the option he picked, quoted.
    - (a) A diagonal roof span over a street intersection: **"Yes, roofs may cross one"**. This lifts Q45 ("never over a junction") for roof spans only. Pole crossings stay mid-block and square (CK6).
    - (b) Roof structures and nodes: **"Roofs may hold nodes"**. A roof structure may hold a breaker, a switch or a fuse box. This lifts K1 Q9 ("on poles only") for roof structures.
    - (c) Where a diagonal ends: **"Roof or pole"**. A diagonal runs roof to roof, or roof to pole.
-7. **The overlay's style:** **"Icons plus lines (Recommended)"**.
+7. **The overlay's style:** **"Icons plus lines (Recommended)"**. **Reversed 24 Nov 2026** (Josh, in chat): "I don't think we need the "wire overlay, the 3d wires are apparent enough, however the icons are important." The overlay shows icons only; see section E4. The line and break bullets below stand as history: E4 drops the straight lines, and the break icon moves from the line's midpoint to the real cut ("At the real cut (Recommended)").
    - **How the overlay draws a line and a break** (Josh, 23 Nov 2026, in chat, asked what the overlay and the 3D break prop do with a damaged cable that current does not reach): "The 2D overlay should just draw a line from junction to junction with an icon indicating a break at the center of the cable."
    - Follow-up card, the line's path: **"Straight, piece to piece"**. One straight line between the two puzzle pieces a line connects, as on the 2D map. The line does not follow the carrier poles' spans. The break icon sits at that line's midpoint.
    - Follow-up card, whether the break icon is always shown: **"Only when readable"**. It appears only once current reaches the break, as on the 2D map (Josh, 27 Oct 2026: "Unreadable faults show nothing").
@@ -102,12 +102,13 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 - **The GDD's Decided rules (the brief's "Rules carried over") are law.** A city form is laid out differently and plays by the same rules on `src/grid/` unchanged.
   - **A city puzzle laid from a schematic unchanged** (its `from` set and no rework) keeps exactly the schematic's nodes, lines, faults, parts, loads, ratings, capacities and targets (answer 5). Its check block is the schematic's, copied, and gives the same outcomes.
   - **A reworked puzzle** (answer 4) is a new puzzle: its own check block, its own analyzer numbers, and a note that says what changed and why.
+  - **Amended 24 Nov 2026 (section S; Josh, on cards: "Yes, they add load", "Raise (Recommended)", "Whole").** Every city puzzle's scenery buildings on its live poles draw on its feed, so "unchanged" now means: the schematic's nodes, lines, faults, parts, loads and targets, with **only** its feed capacities and fuse ratings raised by the scenery load its check block's solution lights (P1 writes them). Such a puzzle is **raised, not reworked** (the architect's reading): its check block is the schematic's, copied, and gives the same outcomes; its analyzer's fewest clicks, winning configs and dead first moves equal the schematic's; its note has one **What changed** line giving the old and new numbers. A puzzle that does not play the same when raised (09 and 12 at "Whole", per `docs/design/081-all-connected-powered.md`) is a rework.
 - **`src/grid/` and `src/night/` are not touched.** `src/city/circuit/` is pure: no DOM, canvas or three, and it imports only `src/core/` and `src/city/`.
 - **Josh's K1 answers hold except as changed on 23 Nov:**
   - CK5's corner spans are never over a carriageway.
   - CK6's pole crossings are square and between junctions, never over one (Q45). They stand 2.5 m past the corner cell, just beyond the crosswalk (K1 answer 3), not in the middle of the block. Roof spans are the one exception (6a).
   - CK7's 4.2 m floor holds for every span over a street, roof spans included.
-  - CK9's drops are on the pole side only (Q4, Q12).
+  - ~~CK9's drops are on the pole side only (Q4, Q12).~~ **Changed 24 Nov 2026** (Josh, on cards: "Every building wired", "Yes, a fitting (Recommended)", and on the CK9 note's questions "Same height (Recommended)", "Leave (Recommended)", "Allow (Recommended)", "Shortlist (Recommended)"): every street-facing building takes a drop, by option C of `docs/design/081-CK9-every-building-wired.md`, with a wall fitting. 059's 5.5 m road clearance no longer binds drops; CK7's 4.2 m floor does. See K2e.
   - CK12: fuse boxes, breakers and switches stand on poles, **or on roof structures** (6b). **Any node may stand on a roof structure** (B1-Q1, "Anything"), lamps, batteries and the feed included. Otherwise the feed stands on a pole just outside the district (Q10).
   - CK13 is **changed by answer 5**.
   - CK14's district is 1 to 4 blocks (Q7). A job may also use roof structures on the blocks one street beyond it (B1-Q5, "Neighbouring blocks too"). Its pole lines and drops stay inside the district.
@@ -151,8 +152,8 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | K2d2 | Roof nodes, runs through roofs, CK14 for roofs, the conversion (CK17e to g) | grid-simulator | K2d1 | **done** (PR #42; Josh, 24 Nov 2026: "Merge K2d2 (Recommended)") |
 | I2 | Stage 8 keeps clear of the circuit | landscape | K2b | **done** (PR #39; Josh, 24 Nov 2026: "Merge I2") |
 | H4 | Stage 7's roof pieces keep clear of the corner roof structures | facades | K2d1 | 3 |
-| P1 | The fit tool and the city check (with the mid-row clearance check) | grid-simulator | K2c, K2d2 | 10 |
-| P2a | Puzzles 01 to 16 on the city (the pilot) | puzzle-designer | P1, K2d2 (9 of the 16 need roofs) | 0 |
+| P1 | The fit tool and the city check (with the mid-row clearance check), and the raised numbers (criteria 10 and 11, section S) | grid-simulator | K2c, K2d2, **S1** | 12 |
+| P2a | Puzzles 01 to 16 on the city (the pilot), raised; 09 and 12 hand-fixed (section S) | puzzle-designer | P1, K2d2 (9 of the 16 need roofs), S1 | 0 |
 | P2b to P2d | Puzzles 17 to 64, 16 a batch | puzzle-designer | P2a, and Josh's word after playing it | 0 each |
 | D1 | The component shortlist | pipeline-designer | G1 | 0 (a note) |
 | D2 | The gallery's component view | ui | D1 | 5 |
@@ -160,30 +161,53 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | E1 | Glyphs out of the 2D renderer; the overlay's icons and lines, pure | renderer | G1 | 9 |
 | P0 | `city-two-ways-round` as a city puzzle file in `puzzles/city/` | puzzle-designer | now (K2c is in) | 0 (1 path line) |
 | K3 | The circuit drawn on the city | renderer | now (K2d1, K2d2, PK2, A2c, D3 are in) | 7 (6 added, 1 rewritten) |
-| U1 | The picker lists city puzzles (pure) | ui | now (C1 is in) | 4 |
+| U1 | The picker lists only city puzzles (pure) | ui | now (C1 is in) | 3 |
 | E2 | A city puzzle played on the city, through the overlay | renderer | K3 (shares `plan3d.ts`) | 10 |
-| U2 | Opening a city puzzle opens the city view (`main.ts`) | ui | E2, U1 | 2 |
+| U2 | The page opens straight into the 3D city (`main.ts`) | ui | E2, U1 | 1 |
+| E3 | The opening camera frames the district, not the city | renderer | now (U2 is in) | 2 |
+| K2ep | "pre-check 081 K2e": option C as worded below, with drops added to CK17d | pipeline-designer | now | 0 (a note) |
+| K2e | Stage 6: every street-facing building wired (CK9 as changed, CK7 on drops, CK17d keeps roof spans from drops), and the pins it moves | grid-simulator | K2ep "holds" (or Josh's answer) | at most 10 (3 added, 5 rewritten, at most 2 more under its stop rule) |
+| D4 | The wall fitting shortlist, and the drop wire's gauge | pipeline-designer | now | 0 (a note) |
+| K3b | The drops drawn attached: a real insulator, the City bracket, `POWER_LINE` kept | renderer | now (Josh's D4 picks are in; K2e not needed) | 3 (1 added, 2 rewritten); 4 if the R12 case must change |
+| E4 | The overlay shows icons, not lines: the break icon at the real cut; clicks go icons, then 3D | renderer | E3 (shares `cityview.ts`) | 0 added, 4 rewritten, 1 removed |
+| E5 | The camera stays on the puzzle: zoom-out and pan limits from the district, any window shape; `cam=free` (dev) lifts them | renderer | G1 in ("Approve, 1.5x (Recommended)"); after FX2 merges | 3 |
+| L1 | The lit building's windows; the wall lamp goes | renderer | E4 | **done** (PR #55) |
+| L2 | Real lights on the street, the cap raised to 32 under a measured stop rule (re-cut 24 Nov 2026) | renderer | L1 (in) | 2 |
+| L3 | A few dim windows in the dead city (1 in 25, steady amber) | renderer | L1 (in) | 2 |
+| S1 | Scenery buildings on the job's live poles in the conversion: hidden lamps and junctions, `scenery`, `hidden`, P0's raised capacity line | grid-simulator | now (core types are in) | at most 9 (5 added, 2 rewritten, at most 2 more under its stop rule) |
+| P0r | P0's note re-opened with its raised numbers | puzzle-designer | S1 | 0 |
+| S4 | Scenery drawn live: live drops glow and pulse, scenery windows through L1's path, their street lights | renderer | S1, L2 (shares `cityview.ts`) | 3 |
+| U3 | Hidden lamps make no Relight sound | ui | S1 | 1 |
+| FX1 | The particle pack converted; `npm run assets:game` adds its textures and its spark and shard meshes (FX-Q2 "Meshes too") | grid-simulator | now (G1: "Approve, FX2 first (Recommended)"); no other section | at most 4 (3 added, at most 1 rewritten) |
+| FX2 | The particle pool, the textures, live-break sparks and repair flashes; the pack meshes when loaded, sprites otherwise | renderer | now, beside FX1; not after FX1, L3 or S4 (they rebase on it). Amended 24 Nov 2026 on its branch: extreme sparks, warm crackle arcs at the cut, a repaired cut stops at once | 7 (8 at most) |
+| FX3 | Relight bursts and brownout arcing | renderer | FX2, and FX-Q3 and FX-Q4 answered | 2 |
+| X1 | **Stub, not cut:** delete the 2D map view (`src/render/`) | renderer | P2a, and Josh's word | removals; about 2 added |
+| X2 | **Stub, not cut:** delete the 2D side of `src/ui/` and `main.ts` | ui | X1 | removals; 0 added |
+| R1 | **Stub, not cut:** retarget the release playtest harness to city puzzles | (at cut) | before the next release | at cut |
 
 `src/play/` (interaction) has no section. E2 keeps the `MapRenderer3d` interface, so play and its `hitTest` calls do not change. If E2's builder finds that `src/play/` must change, it stops, and the architect re-cuts with an interaction section.
 
-**Between A2c and E2 the 64 puzzles have no 3D view.** Josh accepted this with answer 1. The 2D game plays throughout.
+**Between A2c and E2 the 64 puzzles have no 3D view.** Josh accepted this with answer 1. The 2D game plays until U2 merges.
+
+**Full 3D (Josh, 24 Nov 2026, on cards).** "I don't want 2D puzzles anymore. I want this game to be full 3D. The 2D puzzles were really just a prototype to see if the puzzles would be functional." On what happens to the 2D side: "Hide now, delete later (Recommended)". On the release harness: "Retarget later (Recommended)". So, from U2 on, the picker and the page show only city puzzles, on the 3D city, with E1's overlay of icons on top (its lines are dropped by E4; Josh, 24 Nov 2026: "I don't think we need the "wire overlay, the 3d wires are apparent enough, however the icons are important."). The schematic files in `puzzles/` stay, as the source P1 and P2a fit onto the city. The 2D map code is deleted by X1 and X2 once the 16 pilots are on the city. `tests/playtest/` is left alone until R1.
 
 ### The playable path (re-cut 24 Nov 2026, the lead-architect, on Josh's card "Playable path first (Recommended)")
 Josh's aim: open `npm run dev`, pick `city-two-ways-round` in the picker, and play it on the 3D city (6 x 6 seed 1). K3, E2 and U1 as first cut do not get there alone. Three gaps, read at ede9e64:
 - **No city puzzle file exists.** `puzzles/city/` does not exist. The one city form is K2c's test fixture, `src/city/circuit/fixtures/city-two-ways-round.city.json`. U1 was cut to wait for P2a's 16 pilot puzzles, which wait for P1. **P0** moves the fixture to `puzzles/city/`.
 - **U1 as first cut also held the `main.ts` wiring,** which needs E2's renderer option. It is split: **U1** is the pure picker list (no dependency, built now), and **U2** is the `main.ts` wiring (after E2 and U1).
-- **A canvas keeps one kind of context** (`main.ts`: "chosen once, from the URL"). A city puzzle picked on a 2D page, or a schematic picked on a city page, cannot switch in place. U2 reloads the page at the right address.
+- ~~**A canvas keeps one kind of context**: U2 reloads the page at the right address.~~ Gone with full 3D (Josh, 24 Nov 2026: "I don't want 2D puzzles anymore. I want this game to be full 3D. The 2D puzzles were really just a prototype to see if the puzzles would be functional."): every puzzle on the page is a city puzzle on the 3D canvas, so there is no switch and no reload.
 
 **Order and parallel work.**
 | Wave | Sections | Shared files | Why this order |
 | --- | --- | --- | --- |
-| 1 (at once) | P0, K3, U1 | none: P0 has `puzzles/city/` and one path line in `src/city/circuit/convert.test.ts`; K3 has `src/render3d/`; U1 has `src/ui/maps.ts` and a type-only narrowing in `main.ts` | No section reads another's output. |
+| 1 (at once) | P0, K3, U1 | none: P0 has `puzzles/city/` and one path line in `src/city/circuit/convert.test.ts`; K3 has `src/render3d/`; U1 has `src/ui/maps.ts` only | No section reads another's output. |
 | 2 | E2 | `plan3d.ts` with K3 | It draws K3's circuit live. |
 | 3 | U2 | `src/main.ts`, `src/ui/view3d.ts` | It calls E2's `loadCityView` and `city` option, and lists U1's entries. |
+| later | X1, X2 | `src/render/`; `src/ui/`, `main.ts` | After P2a's 16 pilots are on the city and Josh has said so. |
 
 **No rule or number changes on this path, so no pipeline-designer pre-check.** Every rule is already Decided or answered: CK1 to CK17 as built; "Straight, piece to piece" and "Only when readable" (E1, K3); 059's street light model (Josh, 18 Nov 2026: "Approve 057, 058 and 059"); 071 Q11's pack wire piece ("Pack wire pieces (Recommended)"). Two things are **measured and reported, not tuned**: the feed pick's span heights (K3) and the damaged-line prop's low point (open question 2).
 
-**After P0, K3, U1, E2 and U2,** Josh can open `npm run dev`, pick "City · Two ways round · city", and play it on the 3D city. H4, P1 and P2a come after.
+**After P0, K3, U1, E2 and U2,** Josh can open `npm run dev` and land on the 3D city, on "City · Two ways round" (the picker lists only city puzzles), and play it. H4, P1 and P2a come after.
 
 ---
 
@@ -458,6 +482,8 @@ If it does not report "holds", its note goes to Josh before K2d and H4 are cut i
 ### K2c · The conversion (grid-simulator, pure). Branch `ticket/081k2c-circuit-convert`. **Done**
 **Merged into `main`** (PR #38). Josh, 24 Nov 2026, on a card: **"Merge K2c"**. Review: `reviews/081-K2c-circuit-convert.md` (round 2: meets, must-fix 0). Criterion 2's neighbouring-roof case waits in K2d2, as written there. The review's round-2 note (two lines whose spans each end at one pole with a drop there are refused, "also carries") stands as built: it is CK13 as written. K2d2 says what it means for roofs.
 
+**Re-opened by section S (24 Nov 2026).** S1 changes the conversion: criterion 3's "none added" flips (the file's ids stay; hidden ids are added and listed in `hidden`), and criterion 4's "plays the same" case moves with P0's raised capacity. Both cases are rewritten by S1, not here.
+
 **Goal.** `convertCityPuzzle(cityPuzzle, plan): CityPuzzleConverted` turns a city puzzle into a plain `Puzzle` that `src/grid/` runs unchanged (CK15), with the places, runs and cut spans the 3D view needs. Carrier poles (answer 5) never become nodes.
 
 **Acceptance criteria.**
@@ -666,13 +692,24 @@ It writes a draft `puzzles/city/<NN-slug>.city.json` with `from` set. When there
 **Acceptance criteria.**
 1. [ ] A 5-node chain fits on a fixture city. The draft validates and converts. **test**: 1 case.
 2. [ ] A miss names the shortfall. For example, a schematic with more switches than the district has 3-attachment poles reports "no fit: switch, needs 4, district has 3", and nothing is written. **test**: 1 case.
-3. [ ] A fitted draft converts to a `Puzzle` with the schematic's node, line and fault ids, types, loads, ratings, capacities, parts, targets and line endpoints. **test**: 2 cases.
+3. [ ] A fitted draft converts to a `Puzzle` with the schematic's node, line and fault ids, types, loads, ratings, capacities, parts, targets and line endpoints. **test**: 2 cases. **Amended by section S:** the file's ids, types, loads, parts, targets and endpoints are the schematic's, plus S1's hidden ids (`converted.hidden`); its capacities and ratings are the raised ones of criterion 10. The fixture city's district may hold no scenery building, so one of the two cases keeps the schematic's numbers exactly.
 4. [ ] The same inputs give the same draft. **test**: 1 case.
 5. [ ] The search stops at `FIT_BUDGET` steps and reports "gave up". **test**: 1 case.
 6. [ ] `npm run check puzzles/city/<id>.city.json`, and `npm run check` with no argument, check the city puzzles too. **test**: 2 cases in `tools/check.test.ts`.
 7. [ ] **One sweep in the suite.** Every `puzzles/city/*.city.json` validates, converts on 6 x 6 seed 1 (built once through the module cache), and its note's check block replays. **test**: 1 case. It may pass 2 s once the puzzles are in. It is the one place city puzzles' play is held, and it replaces a test per puzzle. The builder gives its time.
 8. [ ] The builder prints, once in its reply, which of 01 to 16 fit unchanged and what blocks each one that does not. **no test**.
 9. [ ] **The mid-row clearance check** (B1b's K2 check 11; Josh, B1q: "Only where clear"). A city puzzle may use a mid-row roof structure only where stage 7 has left that roof clear by the keep square. It runs on the plan after stage 7, so it is P1's (the city check and the fit), not K2d's: stage 6 can't see stage 7. A fit offers only clear mid-row places. **test**: 1 fixture case, where a used mid-row place under a roof prop fails.
+
+10. [ ] **The raised numbers (section S; Josh, 24 Nov 2026: "Raise (Recommended)", "Whole").** `raiseForScenery(cityPuzzle, plan, solution)` in `tools/fit.ts` converts the puzzle (S1), replays `solution` on `src/grid/` with every capacity and rating unlimited, once with the scenery lamps' load and once without, and returns the file with:
+    - each feed's `capacity` (or the top-level `capacity`) raised by the extra load that feed carries at the end of the solution;
+    - each rated fusebox's `rating` raised by the extra load through it at the end of the solution.
+
+    The schematic's numbers are integers and `SCENERY_BUILDING_LOAD` is 1, so the raised numbers are integers (no rounding; the pre-check's 0.1 failures do not arise). `solution` is the schematic note's check block's. The fit writes the raised numbers into every draft; `npm run fit -- --raise puzzles/city/<id>.city.json` rewrites an existing city file's numbers in place (for P0 and hand reworks). **test**: 1 fixture case: a feed and a rated fusebox with scenery on a carrier past the fuse, raised by exactly that scenery.
+11. [ ] **P0 agrees.** `raiseForScenery` on P0's file as S1 left it (`capacity` already raised) gives it back unchanged, from its note's solution. **test**: 1 case, on 6 x 6 seed 1 through the module cache; it may share criterion 7's plan.
+
+**Stop rule (section S).** The builder stops and reports ("stop 081 P1", with the branch) if a pilot it fits does not play the same when raised (start, the check block, the analyzer's fewest clicks, winning configs and dead first moves) and is not 09 or 12, which the pre-check already found fail at "Whole". It lists each with what differs; P2a's designer reworks it under answer 4.
+
+**Count.** 12 added: criteria 1 to 7 and 9 as first cut (10), and 10 and 11 (2). Criterion 3's amendment changes what its two cases assert, not how many.
 
 **Files.** New `tools/fit.ts`, `tools/fitrun.ts`, `tools/fit.test.ts`; `tools/check.ts`, `checkrun.ts`, `check.test.ts`; `package.json` (the `fit` script only).
 
@@ -686,6 +723,12 @@ P2b to P2d start only after Josh has played the pilot and said so in chat (answe
 - **15 is a rework** under answer 4: each of its feeds has 2 lines, and CK14 gives a feed one entering span.
 
 P1's own fits (criterion 8) are the record. P2a waits for K2d, because 9 of its 16 need roofs.
+
+**Raised, and 09 and 12 (section S; Josh, 24 Nov 2026: "Raise (Recommended)", "Whole").** P2a also waits for S1 and P1's criteria 10 and 11. Every pilot's draft comes from the fit with its capacities and ratings raised. A pilot that plays the same raised is **raised, not reworked** (see "Rules this ticket holds"): the schematic's check block copied, the analyzer's numbers equal, one **What changed** line with the old and new numbers. The pre-check (`docs/design/081-all-connected-powered.md`, section 2) found two that do not, at "Whole":
+- **09 · `fb_A` blows at once.** Its start lights more scenery under `fb_A` (rating 3) than its win does, so raising by the win's scenery leaves the start over the rating. **The fix, in this order:** (a) a re-lay that keeps `fb_A`'s branch off poles with scenery drops (another district or route than the fit's first, through `--blocks` and the designer's own runs), so the start and the win carry the same scenery under it; then (b), only if no re-lay exists on 6 x 6 seed 1, `fb_A`'s rating raised to the larger of its start's and its win's load. (b) may lose the fuse's trap, so it is a rework: its own check block and analyzer numbers, and the note says plainly whether the fuse can still blow, and how.
+- **12 · `fb_2` blows at the start** (at a half and at a whole bulb). The same two fixes, in the same order, for `fb_2`.
+
+A fix that keeps the element under test is the designer's. One that loses it (no re-lay, and (b) takes the trap away) goes to Josh as a question before that pilot is shown to him, worded with what each choice costs. The other 14 are not held back for it.
 
 **How a schematic puzzle goes onto the city (6 x 6 seed 1, one-way on; answer 3).**
 - **Nodes onto places** (CK12): the feed on a pole just outside the district; breakers, fuse boxes and batteries on poles with 2 or more attachments, or breakers and fuse boxes on roof structures (6b); switches on poles with 3 or more, or on a roof structure; junctions on any pole; lamps on a building with a drop (a "home", "shrine" or "infirmary" read goes to a building that fits, where one does) or a lamp post. One node per place.
@@ -706,7 +749,7 @@ P1's own fits (criterion 8) are the record. P2a waits for K2d, because 9 of its 
 
    **no test**.
 3. [ ] `npm run check puzzles/city/` passes. `npm run analyze` numbers are in each note: equal to the schematic's for an unchanged puzzle, and stated as new for a rework. **test** (P1's sweep).
-4. [ ] **Josh plays** the pilot's puzzles (before E2 and U1, in the 2D view, where the converted `pos` lays out the district; after them, on the city). His verdict goes under **What it taught us**. **browser**.
+4. [ ] **Josh plays** the pilot's puzzles on the 3D city, from U2 on (re-cut 24 Nov 2026: the 2D view no longer opens a city puzzle; Josh: "I don't want 2D puzzles anymore. I want this game to be full 3D. The 2D puzzles were really just a prototype to see if the puzzles would be functional."). If a batch is ready before U2 merges, its play waits for U2. His verdict goes under **What it taught us**. **browser**.
 
 **Files.** `puzzles/city/` only.
 
@@ -757,6 +800,8 @@ P1's own fits (criterion 8) are the record. P2a waits for K2d, because 9 of its 
 **Files.** New `src/render3d/componentmodels.ts` and its test.
 
 ### E1 · Glyphs out of the 2D renderer; the overlay's icons and lines, pure (renderer). Branch `ticket/081e1-overlay-pure`
+**Done. Criterion 5 is superseded by E4** (Josh, 24 Nov 2026: "I don't think we need the "wire overlay, the 3d wires are apparent enough, however the icons are important."): `overlayLines` goes, and the break icon moves to the real cut.
+
 **Goal.** 071 E's pure parts, for the city, with lines as well as icons (answer 7: "Icons plus lines"). The glyph drawing moves from `map-renderer.ts` to `src/render/glyphs.ts`, and the 2D view does not change. `src/render3d/overlay.ts` lays out each component's icon, and each puzzle line as one straight projected segment from piece to piece (Josh: "Straight, piece to piece"), live or dead, from a converted puzzle, its state and a projection passed in. It uses no three and no DOM.
 
 **Acceptance criteria.**
@@ -890,33 +935,28 @@ K3 draws nothing live. E2 does.
 
 **Must not:** `src/city/`, `src/core/`, `src/ui/`, `src/main.ts`, `overlay.ts`, `renderer.ts` (E2's).
 
-### U1 · The picker lists city puzzles (ui, pure). Branch `ticket/081u1-picker-city`
-**Re-cut 24 Nov 2026.** U1 as first cut also held the `main.ts` wiring, which needs E2. That moves to U2, and U1 is built now. U1 no longer waits for P2a. P0's file is the first city puzzle.
+### U1 · The picker lists only city puzzles (ui, pure). Branch `ticket/081u1-picker-city`
+**Re-cut 24 Nov 2026 (twice).** First, the `main.ts` wiring moved to U2 and U1 stopped waiting for P2a; P0's file is the first city puzzle. Then Josh, on cards: "I don't want 2D puzzles anymore. I want this game to be full 3D. The 2D puzzles were really just a prototype to see if the puzzles would be functional." On the 2D side: "Hide now, delete later (Recommended)". So the list holds city puzzles only, with no "· city" suffix, no `MapEntry` union and no dev flag.
 
-**Goal.** `collectMaps` lists city puzzles beside the schematics, so the picker can show them. Nothing opens them yet (U2).
+**Goal.** A new pure `collectCityMaps(files)` in `src/ui/maps.ts` lists the city puzzles for the picker. `collectMaps` and its five cases are left exactly as they are (X2 deletes them). Nothing opens a city entry yet (U2).
 
 **Acceptance criteria.**
-1. [ ] **Read and keyed.**
-   - `collectMaps(files, { city: true })` reads every `puzzles/city/*.city.json` with `validateCityPuzzle` (C1) and lists it as a `MapEntry` with `kind: "city"` and the `CityPuzzle`.
-   - Its key is `city/<id>`. `city-two-ways-round`'s city form and its schematic share an id, so this keeps both, with no "duplicate map key".
-   - A schematic entry has `kind: "schematic"`, and its fields are as today. The existing five cases pass unedited.
+1. [ ] **City files only.**
+   - `collectCityMaps(files)` reads every `puzzles/city/**/*.city.json` with `validateCityPuzzle` (C1). Each is a `CityMapEntry`: `{ key, id, name, locked, path, city: CityPuzzle, from?: string }`.
+   - Its key is its id, or `locked/<id>` under `puzzles/city/locked/`, as `collectMaps` keys locked copies.
+   - Every other file (the schematics, street files) is left out silently, with no problem line. The schematics stay on disk as P1's and P2a's source.
 
-   **test**: 1 case: both files listed, two keys.
-2. [ ] **A bad city file** is one `problems` line, with C1's messages, and is never passed to `validatePuzzle` (so it is never "skipped" for the wrong shape). **test**: 1 case.
-3. [ ] **Order and name.**
-   - A city entry is listed right after its `from` puzzle, or at the end of the open maps when `from` is absent or not found.
-   - It is named "<its `name`> · city". The "(reworked)" suffix waits for P2a's reworks to carry a flag in their own files (open question 6).
+   **test**: 1 case: a schematic and a city file sharing an id give one entry, keyed by the id, and no problem.
+2. [ ] **A bad city file, or a repeated key,** is one `problems` line (C1's messages for a bad file), and the valid entries are kept. **test**: 1 case.
+3. [ ] **Order and name.** Open entries before locked ones, each in path order (P2a's files are `NN-slug`, so they follow the schematics' order). The name is the file's `name`, unchanged: no "· city" suffix, since the picker lists nothing else. **test**: 1 case.
 
-   **test**: 1 case.
-4. [ ] **Off in a production build.** With `{ city: false }` (the default), city files are left out silently, with no problem line. U2 passes `import.meta.env.DEV`. City puzzles need the dev-only pipeline renderer and the pack GLBs, which a web build may not hold (Synty licence, 16 Nov 2026). **test**: 1 case.
+**Count.** 3 added, 0 rewritten.
 
-**Count.** 4 added.
-
-**The type.** `MapEntry` becomes a union on `kind`: `{ kind: "schematic", puzzle: Puzzle, ... }` or `{ kind: "city", city: CityPuzzle, from?: string, ... }`, with `key`, `id`, `name`, `locked` and `path` on both.
-
-**Files.** `src/ui/maps.ts`, `maps.test.ts`; in `src/main.ts`, only what keeps the typecheck green with the union (for example, narrowing to `kind === "schematic"`), and no behaviour change, since `main.ts` still calls `collectMaps(files)` with city off until U2. **Must not:** any other `main.ts` line (U2), `src/render3d/`.
+**Files.** `src/ui/maps.ts` (adding `collectCityMaps` and `CityMapEntry`; `collectMaps` and `MapEntry` untouched), `src/ui/maps.test.ts` (new cases only). **Must not:** `src/main.ts` (U2), `src/render3d/`, `src/core/`.
 
 ### E2 · A city puzzle played on the city, through the overlay (renderer). Branch `ticket/081e2-city-play`, after K3 merges
+**Done (PR #47). Criteria 4 and 5 are superseded by E4:** no overlay lines and no `overlayLineHit`; clicks go icons (components, then breaks), then the 3D pick.
+
 **Re-cut 24 Nov 2026** against what E1, K2c to K2d2 and K3 build. The interface with the ui is fixed here, so U2 codes against it:
 - `loadCityView(city: CityPuzzle): CityPuzzleView`, exported from `src/render3d/index.ts`;
 - `MapRenderer3dOptions.city?: CityPuzzleView`, with `CityPuzzleView` in `src/core/citycircuit.ts`, committed with this re-cut.
@@ -972,35 +1012,818 @@ A click on an icon or a line is that piece's `hitTest` answer, so `src/play/` pl
 
 **Must not:** `src/core/` (the architect's), `src/ui/`, `src/main.ts`, `src/play/`, `src/city/`.
 
-### U2 · Opening a city puzzle opens the city view (ui). Branch `ticket/081u2-open-city`, after E2 and U1 merge
-**Why** (the playable path). This is U1's former criterion 3. It needs E2's `loadCityView` and `city` option.
+### U2 · The page opens straight into the 3D city (ui). Branch `ticket/081u2-open-city`, after E2 and U1 merge
+**Re-cut 24 Nov 2026** on Josh's cards: "I don't want 2D puzzles anymore. I want this game to be full 3D. The 2D puzzles were really just a prototype to see if the puzzles would be functional." and "Hide now, delete later (Recommended)". Every puzzle on the page is a city puzzle on one WebGL canvas, so there is no `?view=3d` to ask for, no switch to a schematic and no reload. The first cut's `addressFor` and its reload case are dropped.
 
-**Goal.** In `npm run dev`, Josh picks "City · Two ways round · city" and plays it on the 3D city. Picking a schematic puzzle afterwards goes back to the 2D map.
+**Goal.** `npm run dev` opens straight into the 3D city on the first city puzzle (or the `?puzzle=` one), with E1's overlay on top. The picker lists only city puzzles (U1), and picking one, or the win splash's Next, opens it in place.
 
 **Acceptance criteria.**
-1. [ ] **The address, pure.** `addressFor(kind, search, key)` in `src/ui/view3d.ts` gives the address a picked entry opens at, or null when the page can open it in place:
-   - a city entry sets `puzzle=city/<id>` and `view=3d`;
-   - a schematic entry drops `view=3d`, unless the address carries a `city=` route (A2d, unchanged);
-   - other parameters (`light`, `cam`, `overlay`) are kept.
+1. [ ] **`main.ts` builds the city page.**
+   - It calls `collectCityMaps(files)` (U1), not `collectMaps`. The picker, `?puzzle=` and Next address entries by U1's key.
+   - Every open builds the 3D renderer (`src/render3d`, loaded lazily as today). Opening an entry calls `loadCityView(entry.city)` (E2), plays `view.converted.puzzle` on `createGrid` and `createMapPlay`, and passes `{ insets, city: view }` to the renderer. Two puzzles on one city share E2's one plan.
+   - The 2D `createMapRenderer` is no longer called, and `wants3d` and `NO_CITY_FORM_NOTICE` are no longer used by `main.ts`. Their code and tests stay until X1 and X2.
+   - The `city=tiles` and `city=plan` dev routes open as today (no `city` option, HUD hidden by `planHidesHud`), given the open entry's converted puzzle.
 
-   `wants3d` is unchanged, and its two cases pass unedited. **test**: 1 case.
-2. [ ] **`main.ts`'s city branch.**
-   - `collectMaps(files, { city: import.meta.env.DEV })`.
-   - The page kind comes from the requested entry, once, as today: `wants3d(location.search, entry.kind)`.
-   - Opening a city entry calls `loadCityView` (lazily, with the rest of `src/render3d`). It plays `view.converted.puzzle` on `createGrid` and `createMapPlay`, and passes `{ insets, city: view }` to the 3D renderer.
-   - Picking an entry whose kind needs the other canvas (`addressFor` not null) loads that address (`location.assign`) instead of opening in place. The win splash's Next does the same.
-   - A `CityPuzzleError` shows its messages in the HUD's place and in the console, and the page does not go blank.
+   **test**: 1 case, on a pure helper in `src/ui/view3d.ts` that takes the address and says what to build: a puzzle play with the `city` view, or a `city=` route without it.
+2. [ ] **Never a blank page.** A `CityPuzzleError` shows its messages in the HUD's place and in the console. No city files shows one line naming `puzzles/city/`. In a production build, where the pipeline renderer is not built (E2: dev only; Synty licence, 16 Nov 2026), the page says the prototype plays in `npm run dev` (open question 8). **no test**: one-line branches in `main.ts`; criterion 4 sees the first.
+3. [ ] **The HUD shows** on a city puzzle: parts, targets, the picker. **browser**.
+4. [ ] Josh runs `npm run dev`, lands on the 3D city on `city-two-ways-round`, plays it to the Relight, and picks it again from the picker (in place, no reload). **browser**.
 
-   **test**: 1 case: the open path, through a pure helper that takes the entry and returns what to build.
-3. [ ] **The HUD shows** on a city puzzle: parts, targets, the picker. `planHidesHud` stays for `city=` routes only. **browser**.
-4. [ ] Josh opens `city-two-ways-round`'s city form from the picker, plays it to the Relight, then picks a schematic puzzle and is back on the 2D map. **browser**.
+**Count.** 1 added.
+
+**Files.** `src/main.ts` (the page and open branches), `src/ui/view3d.ts` and `view3d.test.ts` (the helper; `wants3d`'s two cases stay unedited). **Must not:** `src/render/`, `src/render3d/`, `src/play/`, `src/core/`, `tests/playtest/`.
+
+### E3 · The opening camera frames the district, not the city (renderer). Branch `ticket/081e3-district-frame`
+**Why.** Josh, 24 Nov 2026, on a card: **"Fix it (Recommended)"**. U2 opens the city and calls `resetView()`, but E2's frame (`src/render3d/cityview.ts`, the block after "The frame: the job's wires and pieces", about lines 524 to 537 at 5d8d6e7) grows over every entry of `draws.wires` and `draws.pieces`. `circuitDraws` holds every pole, span and drop in the city, so `resetView` and `fitWhole` both frame the whole 6 x 6 city. That fails E2's criterion 9.
+
+**Goal.** Opening a city puzzle, `resetView` and `fitWhole` frame the district, its four streets and the feed, as E2's criterion 9 says.
+
+**Acceptance criteria.**
+1. [ ] **The frame is the job's.** A pure, exported `jobFrame(view, layer, streets)` in `cityview.ts` grows the frame over:
+   - each node's place in `converted.places` (pole, roof, building's drop wall point, post);
+   - both ends of every span in `converted.runs[*].spans` (pole spans and roof spans), and the run's drop or lead;
+   - each district block's cells, out to the far side of the street on each of its four sides (`sides[*].street`);
+   - `converted.origin_m`, as today, and `FRAME_MARGIN_M` round it all.
+
+   Nothing else in `draws` counts: no scenery pole, span, drop or light. With no district and no place, it falls back to the whole city, as today. **test**: 1 case, on P0's `city-two-ways-round` converted on 6 x 6 seed 1 through the module cache: the frame holds every place and run end and the district's streets, and holds no pole more than one street past the district.
+2. [ ] **`loadCityView` writes `district`** (`CityPuzzleView.district`, added to `src/core/citycircuit.ts` with this cut, optional), copied from the puzzle's `district`. **test**: folded into criterion 1's case (it builds the view with `loadCityView`).
+3. [ ] **`resetView` and `fitWhole` use it.** **test**: 1 case, if the rig can be built without a canvas; otherwise **browser** and the builder says why.
+4. [ ] Josh runs `npm run dev` and the city opens on the district, on a desktop window and a phone-sized one. **browser**.
+
+**Count.** At most 2 added.
+
+**Files.** `src/render3d/cityview.ts` (the frame and `loadCityView` only) and a new `src/render3d/cityframe.test.ts` (under 2 s apart from the one seed 1 build; the builder gives its time). **Must not:** `circuitdraw.ts`, `componentmodels.ts` (K3b's), `src/city/`, `src/core/`, `src/ui/`, `src/main.ts`.
+
+**Shares no file with K2e, D4 or K3b,** so it is built now, beside them.
+
+### E4 · The overlay shows icons, not lines (renderer). Branch `ticket/081e4-overlay-icons`, after E3 merges
+**From.** Josh, 24 Nov 2026, in chat: "I don't think we need the "wire overlay, the 3d wires are apparent enough, however the icons are important." On cards: where the break icon goes, **"At the real cut (Recommended)"** (over the broken span in 3D, clicked to repair); clicks, **"Icons, then 3D (Recommended)"** (the overlay's line hits go). This reverses answer 7's "Icons plus lines (Recommended)" and E1 criterion 5's "Straight, piece to piece". "Only when readable" (Josh, 23 Nov 2026; 27 Oct 2026: "Unreadable faults show nothing") is unchanged.
+
+**Goal.** Playing a city puzzle, the overlay draws each component's icon and, at a damaged cable whose fault is readable, a break icon over the cut span where it really is in 3D (where K3's prop hangs and E2's sparks fly). No straight lines are drawn. A click takes an icon (a component's, then a break's, which gives its line id, so the repair prompt opens as today), then the 3D pick (a job model gives a node id, a job span a line id).
+
+**Acceptance criteria.**
+1. [ ] **No lines.** `overlayLines`, `OverlayLine` and `overlayLineHit` are deleted from `overlay.ts`; `paintOverlay` draws no segment, pulse or flicker on the overlay. Live and dead stay shown in 3D (E2 criterion 3, unchanged). `overlayIcons`, `overlayHit`, `placePoint` and their signatures are unchanged. **test**: 1 removed, "one straight segment per line, from piece to piece, away from the feed while live" (`overlay.test.ts`). Its liveness is already held by E2's "a live line's spans glow in order" case.
+2. [ ] **The break icon at the real cut.** A new pure `overlayBreaks(converted, state, cutAt, project, ctx)` in `overlay.ts`. `cutAt(spanId)` gives the cut span's world point in metres, or null. `cityview.ts` builds it from `jobWires`: the middle sample (`SAMPLES / 2`) of the span's `pts`, the point E2's sparks use. For each damaged-cable fault in `state.faults` whose id is in `state.readableFaults`, there is one `OverlayBreak { faultId, lineId, x, y, hit, sparking }` at the projection of `cutAt(converted.cuts[faultId])`:
+   - none while the fault is unreadable, or once it is repaired;
+   - omitted behind the camera or off screen, as icons are;
+   - `sparking` only while the line is live and in `state.sparking`;
+   - `hit` at least `OVERLAY_HIT_PX` across.
+
+   `paintOverlay` draws each as today's red X with sparks. **test**: 1 rewritten. "a damaged cable's break icon sits at the midpoint, only when readable ..." becomes: absent before the switch; present after it, at the projection of the cut span's middle sample, sparking while live; absent once repaired.
+3. [ ] **The camera's projection.** **test**: 1 rewritten. "projects with the camera's own projection: a line's points are its pieces' projected places" becomes: an icon's point is its piece's projected place, and a break's point is `cutAt`'s point projected, under the same `cameraProject`.
+4. [ ] **Clicks: icons, then 3D.** `cityHit` is `overlayHit(icons)`, then a new `overlayBreakHit(breaks, x, y)` (within `hit / 2`, nearest first, giving the break's `lineId`), then `pick`. `HitInputs.lines` becomes `breaks`. A point on the old straight segment, away from every icon, goes to the 3D pick. **test**: 2 rewritten:
+   - "a line is hit within half the hit size of its segment ..." becomes the break hit (within, nearest first, never off screen);
+   - "hits the overlay first (an icon, then a line), then the 3D pick ..." becomes icon, then break, then pick, with panels and off-canvas points still null.
+
+   The overlay=0 case's `lines: []` becomes `breaks: []` in its body; that is not a rewritten case.
+5. [ ] **The 2D map is not touched.** `src/render/` (`glyphs.ts` included) and E1 criterion 1's cases pass unedited. **test** (existing).
+6. [ ] Josh plays `city-two-ways-round` from `npm run dev`: icons only; the break icon over the cut span once the fault is readable; a click on it repairs; a click on a 3D span or model still plays. **browser**.
+
+**Count.** 0 added, 4 rewritten, 1 removed, all in `overlay.test.ts`.
+
+**Files.** `src/render3d/overlay.ts`; `src/render3d/cityview.ts` (`cityHit`, `HitInputs`, `paintOverlay` and the `cutAt` it passes; not `jobFrame` or `loadCityView`); `src/render3d/overlay.test.ts`. **Must not:** `circuitdraw.ts` and `componentmodels.ts` (K3b's), `src/render/`, `src/play/`, `src/core/`, `src/ui/`, `src/main.ts`. If `src/play/` must change for the break's click, the builder stops and the architect re-cuts.
+
+**Order.** It shares `cityview.ts` with **E3** (open PR #51: `jobFrame` and `loadCityView`), so it branches from `main` after E3 merges. It shares **no file with K3b**: the break point comes from `jobWires` in `cityview.ts`, not from `circuitdraw.ts`, and K3b changes drops only, never a span's curve. So E4 and K3b may be built at once once E3 is in.
+
+### E5 · The camera stays on the puzzle (renderer). Branch `ticket/081e5-camera-limits`. Cut 24 Nov 2026; approved (G1) the same day
+**Josh's answers, 24 Nov 2026, on cards (relayed by the main session):**
+- **G1 and E5-Q1:** **"Approve, 1.5x (Recommended)"**. `CITY_PLAY_ZOOM_OUT` is 1.5.
+- **E5-Q2:** **"Yes, dev only (Recommended)"**. `cam=free` lifts the limits in a dev build only (criterion 4).
+- **E5-Q3:** **"Hold at the limit (Recommended)"**. On a pane too small for the panels and the district, the opening is held at `Dmax` and the panels may cover the district's edge. No ui section is cut.
+- **Order:** FX2 (PR #62) is merging, so E5's branch is cut from `main` after it merges. This replaces the "beside FX2" line under **Order** below.
+
+**From.** Josh, 24 Nov 2026, in chat: "The end user shouldn't be zooming out this much. They won't be able to see anything at that height. We should restrict the end users visibility to the puzzle." On a card: **"Cut it (Recommended)"** for "zoom-out and pan limits around the puzzle's district, then G1 on a card".
+
+**What the code does (read 24 Nov 2026 at `origin/main` e32bc63; the architect's reading).**
+- The play view's camera is `createCityRig` (`src/render3d/tilecity3d.ts`), given E3's `jobFrame`. The page's wheel, pinch, keys and drag (`src/play/pan.ts`) all go through the view's `zoomStep`, `setPan`, `resetView` and `fitWhole`, so the rig is the one place a limit belongs. `src/play/` does not change.
+- **There is already a zoom-out limit, but it is relative to the opening:** `zoomStep(-1)` stops at `CITY_ZOOM_OUT` (1.6) times `fitDist`, the distance at which the frame fits the *free area*, the canvas less the HUD and bottom-panel insets. The pan already holds the camera's target inside the frame (`clampT`).
+- **So the limit grows with the panels.** The insets are pixels. On a small pane (800 x 570) they take a large share of the height, the free area shrinks, and the fit backs the camera far off to squeeze the district into it. If the panels leave no free area, the fit's search never succeeds and ends at its 3,000-unit ceiling. Then 1.6 times that is allowed on top. That is the high view of the whole 6 x 6 city (3,851 draw calls against about 1,774 at a larger pane). The builder confirms this reading by printing, once in its reply, the insets, the free area and `fitDist` at 800 x 570 on `main`.
+- `cam=street` is read only by the plan route (`plan3d.ts`, dev, `planStreetPose`). The play view never reads `cam`.
+
+**No Decided rule touches the camera.** The brief's "Rules carried over" are about flow, breakers, switches, parts, signatures, faults hiding faults and the Relight. The brief's question 4 ("a map the player can see whole") is held by criterion 2's floor: the limit never stops the player seeing the whole district. Nothing here changes a grammar rule or a city number, so there is no pipeline-designer pre-check.
+
+**Goal.** Playing a city puzzle on any window, a phone-sized one included, the camera opens on the puzzle's district and can never zoom out past a height set by that district, or pan away from it. A dev switch lifts both limits for measuring.
+
+**The limit, in the rig's terms.** All of these come from the frame the rig is given (in the play view, E3's `jobFrame`: the district, its four streets, the job's places and runs, the feed's origin, with `FRAME_MARGIN_M`), so they are not fixed numbers:
+- **`D0`, the district's fill distance:** the rig's own fit (the frame's ground and roofline corners, `CITY_FIT_PAD`), in the **whole canvas**, with the insets ignored. It depends on the frame and the window's shape, never on the panels.
+- **`Dmax`, the limit:** `CITY_PLAY_ZOOM_OUT` x `D0`. The factor is Josh's (E5-Q1; the recommended **1.5** is the architect's).
+- **`Dfit`:** today's fit in the free area (with the insets). A free area of zero or less gives `Dfit` = infinity, not the 3,000 ceiling.
+- **The opening:** `min(Dfit, Dmax)`. The zoom-in floor stays `CITY_ZOOM_IN` x the opening, as today.
+
+**Acceptance criteria.**
+1. [ ] **A limited rig, by option.** `createCityRig` takes a new option, `rigOpts.limit?: { zoomOut: number }`. Without it the rig is exactly today's, so the plan route (`plan3d.ts`) and the tile sheet do not change: the three existing "the city rig" cases in `tilecity3d.test.ts` pass **unedited**. With it, the rig keeps `D0`, `Dmax` and the opening as above, and works them out again on every `resize` (a new window size or new insets), then reframes, as today. **test** (existing, unedited).
+2. [ ] **The zoom-out and pan limits.** With `limit`, from the opening, `zoomStep(-1)` never puts the camera further from its target than `Dmax`, and it stops there. `Dmax` is never under `D0`, so at the furthest zoom-out the whole frame fits the canvas. `setPan` and `centreOn` keep the target inside the frame at every distance, the furthest included (today's `clampT`). `resetView` (and `fitWhole`, which is it: the F key frames the district, not the city) returns to the opening. **test**: 1 case, on a fixture frame (two blocks' worth of rectangle, no city built): 40 steps out stop at `Dmax` (the scale is the no-inset opening's divided by `zoomOut`, within 1e-6); a pan of 1e6 px and a centre far outside both leave the target on the frame's edge at that distance; `resetView` restores the opening's scale and pan.
+3. [ ] **The opening fits the district at any reasonable shape and never starts above the limit.** With `limit`, for 1280 x 720, 800 x 570, 600 x 900 and 390 x 844 (a phone):
+   - with no insets, every corner of the frame, on the ground and at the roofline, projects inside the canvas, and the opening is `D0`;
+   - with insets that leave 30 % of the height free, and with insets taller than the canvas, the opening is finite and no further than `Dmax`;
+   - with insets that leave the district room (Josh's desktop window), the opening is `Dfit`: the district sits in the free area, clear of the panels, as E3 made it.
+
+   **test**: 1 case, the same fixture frame, all four sizes in a loop.
+4. [ ] **The play view uses it; the dev switch lifts it.** A pure, exported `playRigOptions(search, dev)` in `cityview.ts` gives `{ limit: { zoomOut: CITY_PLAY_ZOOM_OUT } }`, except that in a dev build `cam=free` in the address gives `{}`, today's unlimited rig, for measuring the wider views (section F's "1280 x 800, more of the city" row). In a production build `cam=free` is ignored. `cam=street` is ignored by the play view, as today: the street camera stays on the plan route, which this section does not touch. `createCityPlayRenderer3d` passes `playRigOptions(opts.search, import.meta.env.DEV)` to `createCityRig`; while `cam=free` is on, it says so in one console line. **test**: 1 case: the limit by default, with `cam=street`, and with `cam=free` in a build; `{}` with `cam=free` in dev. The call itself is checked in criterion 6.
+5. [ ] **Frame time and draw calls, measured, not tuned.** The per-frame work is unchanged (a smaller view only draws less), so the expectation is no cost, and fewer draw calls on a small pane. In the browser pane on Josh's PC (not a headless browser), `?puzzle=city-two-ways-round&perf=1`, 6 x 6 seed 1, before power, on `main` and on the branch, the builder reports the draw calls, triangles and median frame:
+   - at the opening, at 800 x 570 and at the desktop pane. Expected: at 800 x 570 the branch's draw calls are near the desktop pane's opening (about 1,774), not `main`'s 3,851;
+   - at the furthest zoom-out, at both sizes. Expected: the branch's numbers are no higher than `main`'s at the same size.
+
+   The builder says how it held the view for `perf=1`'s 300 frames (for example, zoomed out before the models finished loading). **Stop rule:** if at the desktop pane `Dfit` is over `Dmax` (the panels would cover the district's edge on a desktop window), or a branch number is higher than `main`'s at the same view, the builder stops and reports the rows ("stop 081 E5"). It does not move the factor or the panels to pass. **browser**.
+6. [ ] Josh runs `npm run dev` on a desktop window and a phone-sized one: the city opens on the district; the wheel, pinch and `-` stop at a height where the job's pieces still read; a drag cannot take the district off screen; F comes back to the opening. With `cam=free` (dev) he can zoom out as before. **browser**.
+
+**Count.** 3 added (criteria 2, 3 and 4), 0 rewritten, in a new `src/render3d/cityrig.test.ts`: fixture frames only, no city build, under 2 s (the builder gives its time). No test to remove.
+
+**Files.** `src/render3d/tilecity3d.ts` (`createCityRig`, its options and its constants only); `src/render3d/cityview.ts` (`playRigOptions`, `CITY_PLAY_ZOOM_OUT` and the one `createCityRig` call with its console line; not `jobFrame`, `loadCityView`, the live layer, the FX calls or `perf=1`); new `src/render3d/cityrig.test.ts`. **Must not:** `plan3d.ts`, `tilecity3d.test.ts`, `src/play/` (`pan.ts` included), `src/ui/`, `src/main.ts`, `src/core/`. If the panels must change on small panes (E5-Q3's other option), that is a ui section, and the builder stops.
+
+**Interfaces.** None in `src/core/`: `rigOpts.limit`, `playRigOptions` and `CITY_PLAY_ZOOM_OUT` are internal to `src/render3d/`. No event. No new dependency.
+
+**Order.** It shares `cityview.ts` with **FX2** (open PR #62) and, later, FX3, L2, L3 and S4, but only at the one `createCityRig` call and one new function, away from the live layer and the build step. It may be built now, from `main`, beside FX2; whichever merges second merges `main` in. It shares `tilecity3d.ts` with **F2**, which is built only if F's measurements call for it; if F2 is open, E5 goes first.
+
+**Questions for Josh (G1 card).**
+- **E5-Q1, how far out the player may zoom**, as a multiple of `D0`, the distance at which the district with its four streets fills the whole window: **"1.5x (Recommended)"** (at the furthest, the district fills about two thirds of the window's width or height; criterion 5's stop rule catches it if a desktop opening needs more), "1.25x" (tighter; on a desktop window the panels may then cover the district's edge at the opening), or "2x" (looser). Today's limit is 1.6x the opening, which grows with the panels.
+- **E5-Q2, a dev switch that lifts the limits:** **"Yes, `cam=free` in dev only (Recommended)"** (section F's wide-view measurements can be repeated), or "No switch".
+- **E5-Q3, a pane too small for the panels and the district** (the 800 x 570 case): **"Hold the camera at the limit; the panels may cover the district's edge (Recommended)"**, or "Also fold the panels on small panes" (a separate ui section, cut after this one).
+
+### K2ep · "pre-check 081 K2e" (pipeline-designer). Branch `ticket/081-puzzles-on-the-city` (a note)
+The re-cut below is option C as section 3 of `docs/design/081-CK9-every-building-wired.md` sketched it, with one addition: **drops join CK17d's 1 m clearance** (see K2e criterion 4). The note's section 5 asks for a fresh pre-check in that case. The pipeline-designer measures, on the four pin cities (the rule depends on how cities vary):
+- how many roof span places stage 6 stops offering, by `over`, and whether any of the pilot fits B1q found (03, 04, 07, 09, 10, 11, 12, 14) loses a span it needs;
+- whether judging the drop's pole end on the pole's axis (stage 6's reading) and on the insulator K3b draws it to (criterion 1 there) ever give different answers at 1 m;
+- that K2e's criteria 1 to 3 reproduce the note's numbers (176 to 199 new drops; 0 left over; lowest drop point 4.82 m).
+
+It writes `docs/design/081-K2e-precheck.md`. If it does not report "holds", the main session takes its question to Josh before K2e's builder starts.
+
+### K2e · Stage 6: every street-facing building wired (grid-simulator, pure). Branch `ticket/081k2e-every-building-wired`, after K2ep
+**From.** Josh, 24 Nov 2026 (top of `docs/design/081-CK9-every-building-wired.md`): "The buildings are not attached to the Power lines"; on cards "Every building wired", "Yes, a fitting (Recommended)", "Same height (Recommended)", "Leave (Recommended)", "Allow (Recommended)". Option C is taken. CK9 is re-worded in `docs/design/070-K1-circuit.md` with this cut.
+
+**Goal.** At `?city=plan&stage=6`, every building with a front column on a street has one drop: from its own pole line, or from a crossing pole on its own pavement, or across the street. The era passes keep clear of the new drops, and their pins are re-taken.
+
+**Acceptance criteria.**
+1. [ ] **CK9 as changed (`layDrops`).** For a building with a front column on a street:
+   - **On the pole pavement:** as today (own line, never a crossing pole, `DROP_MAX_M` 7.5 m; pairing and ties unchanged).
+   - **On the non-pole pavement, own pole first:** when a crossing pole on its own block side (`kind: "crossing"`, same `block` and `side` as the building's front) is within `DROP_MAX_M` of a front column's wall point, the drop runs from the closest such pair (ties as today).
+   - **Otherwise, across the street:** from the closest pair of a front column and a pole on that street's pole pavement (any block, never a crossing pole), up to the new `DROP_CROSS_MAX_M` **23.5 m** in plan (the note's longest is 23.03 m). It sets `street` (`CityDrop.street`, added to `src/core/` with this cut). A drop over a junction's or a zebra crossing's cells is allowed (Josh: "Allow (Recommended)").
+   - Every drop meets the wall at `DROP_WALL_Y_M` 5.5 m (Josh: "Same height (Recommended)").
+
+   **test**: 1 fixture case: a far-side building within 7.5 m of its own crossing pole takes it, and one with none takes a drop across, with `street` set.
+2. [ ] **CK9's check (`placeProblems`), flipped.** Fails: a building with a front column on a street and no drop (on either pavement); a far-side drop across the street when an own crossing pole was within reach; a drop longer than its reach (7.5 m own pavement, 23.5 m across); a drop to a building facing a park. The "never crosses a street" and "never a crossing pole" failures go. **test**: 1 rewritten, the existing "CK9: a drop from a pole across the street fails ..." case (`circuit.test.ts`), re-titled.
+3. [ ] **CK7 binds drops; 059's 5.5 m does not** (Josh: "Same height (Recommended)", lifting 059's road clearance for drops, as card 5 did for crossings). Every drop's lowest point is at least `WALK_FLOOR_M` 4.2 m, with its pole end at the lowest attachment of its `poleModels` key, the wall end at 5.5 m and the sag at `SAG_RATIO` on its length, as K2d1 reads spans. `circuitProblems` reports a failure as "CK7". A drop at 4.8 m over a carriageway passes. **test**: 1 fixture case.
+4. [ ] **CK17d keeps roof spans 1 m from drops (the architect's call, see the reading below).** `layRoofSpans` does not offer a roof span whose curve comes within `ROOF_CLEAR_M` 1.0 m of any drop's curve, **except a drop from one of the span's own end poles** (the two wires meet at that pole; `judgeSpan` already exempts its own poles' spans and marks), both hung as criterion 3 and K2d1 criterion 8 read them: the drop's pole end **on the pole's axis**, at its lowest attachment (see the reading below). CK17d's layer check says so too. **test**: 1 fixture case, which also holds the exemption (a drop from the span's own end pole does not refuse it).
+
+   **Re-worded 24 Nov 2026 on K2ep** (`docs/design/081-K2e-precheck.md`, section 1): read literally, "any drop" refused 1,556 to 1,760 places a city (about 40%), because every roof span ending on a pole with a drop meets it there. With the exemption, 4 to 18 a city, all `street`, and no pilot fit loses a span it needs. The criterion 7 report should show about 6 on seed 1 (sketch figure, not tuned to).
+5. [ ] **The pins it moves**, re-taken once each and listed with old and new values. **test**: at most 4 rewritten:
+   - stage 6's own, `9ff1b134`, in the R-1 to R-7 case of `src/city/circuit/circuit.test.ts` (it also asserts nothing on seed 1 fails CK1 to CK17d);
+   - `src/city/tech/named.test.ts`, "criterion 9, the digest pin (R-4)" (`7c991996`);
+   - `src/city/holdout/named.test.ts`, "pins, on the four pin cities ... power and settle parts";
+   - `src/city/ruin/named.test.ts`, "pins, on the four pin cities ... growth part".
+
+   The eras read drops through `circuitPoints` (`tech/circuit.ts`, `holdout/guard.ts`, `ruin/grow.ts`, `ruin/guard.ts`), so these move. Their code is not edited.
+6. [ ] **The pins it must not move.** Stages 7, 8 and 9 keep only poles and lights (`keep`), and H4 reads `roofKeep`, so these pass unedited: stage 7's in `src/city/facades/stage.test.ts`, stage 8's in `src/city/ground/stage.test.ts`, `GROUND_PINS` and the stage 9 `PINS` in `src/city/traffic/stage.test.ts`. K2c's "plays the same" case, K3's seed 1 case (`circuitdraw.test.ts`) and E2's seed 1 cases pass unedited. **test** (existing).
+7. [ ] **Seed 1's counts, printed once in the reply, never tuned to:** drops by kind (own line, own crossing pole, across), buildings with a front column and no drop (0 expected), the longest across, the lowest drop point (4.82 m expected on the four), drops over junction cells, roof span places no longer offered, and stage 7 clashes (escapes, face signs; Josh: "Leave (Recommended)"). **no test**.
+
+**The stop rule.** The builder stops and reports ("stop 081 K2e", with the branch) if:
+- a pin in criterion 6 moves;
+- a T-1 or T-2 assertion in an era's tests fails against the new drops (an era piece now covers or seals one). That is a question for Josh about T-1 or T-2, as K2a2 said, not a fix here;
+- more than 2 further cases outside `src/city/circuit/` need rewriting. They are listed, and the architect re-cuts.
+
+**Count.** 3 added, 5 rewritten (criteria 2 and 5), and at most 2 more under the stop rule: at most 10.
+
+**Files.** `src/city/circuit/` (`places.ts`, `checkplaces.ts`, `roofplaces.ts`, `checkroofs.ts`, `constants.ts` for `DROP_CROSS_MAX_M`, `stage.ts` to hand drops to `layRoofSpans`, and their tests). Also, as I2 did (test policy rule 6), the **digest pin lines only** of the three era cases named in criterion 5: `src/city/tech/named.test.ts`, `src/city/holdout/named.test.ts`, `src/city/ruin/named.test.ts`. No other line in those folders changes. `src/core/` is the architect's (`CityDrop.street` is committed).
+
+**Readings this cut makes (the architect's; none is a new number or a Decided rule):**
+- **CK14, a drop that hangs from another block's pole.** A drop belongs to the block of its **pole** (`CityPole.block`; a crossing pole's is the block it stands beside), not of its building. That is the check as built (`districtProblems`: "hangs from a pole outside the district"), unchanged. So:
+  - a job may light a building across a district street from a district pole, though the building's block is outside the district: the wire runs over a district street, which is inside the district "kerb to far pavement";
+  - a district building fed across the street from a neighbouring block's pole is scenery to that job (it stays dark). It joins a job whose district holds the pole's block;
+  - Josh's B1-Q5 ("Neighbouring blocks too") is for roof spans only and does not reach drops.
+
+  **no test**: K2c's existing CK14 case holds the pole check, and no code changes. *(Proposed, as CK14's scenery clause is.)*
+- **CK17d and drops: yes, kept 1 m, at the layer.** Drops are drawn on every plan, so a used roof span that touches one always shows. Refusing it where it is offered keeps P1, the fit and every job unaware of drops. The note measured 3 to 10 such near-touches a city. K2ep measures what that costs before the builder starts.
+- **059's 5.5 m** no longer binds drops (Josh's words above). It still binds along and corner spans, which no rule lets over a carriageway.
+- **The drop's pole end for CK17d: the axis, not K3b's insulator** (settled 24 Nov 2026 on K2ep section 2, the architect's reading; *Proposed*, not a Decided rule). Stage 6 judges a drop from the pole's axis at its lowest attachment, as it judges spans (K2d1). K3b draws it from the nearest `ownInsulator` attachment, up to 0.9 m off the axis, and K2ep found the two readings differ on 1 to 5 places a city (only the insulator refuses them). The axis is kept because:
+  - the insulator offsets live in `powerkit.ts` (`src/render3d/`), and stage 6 may not import them. Judging on them means moving every model's attachment table into `src/core/` (a PK-sized section) for 1 to 5 places a city;
+  - the feed's pole is swapped for the feed pick at draw time only (K3), so stage 6 cannot know that pole's insulators at all;
+  - such a place shows only in a job that uses that roof span (roof spans are drawn only when used), and no pilot fit uses one.
+
+  **The catch:** K3b's criterion 5 reports, by id, the roof span places on seed 1 whose curve comes within 1.0 m of a drop as K3b draws it (K2ep: 1 on seed 1). P2a's puzzle-designer lays round those ids, and its notes say if a pilot uses one. If a pilot ever needs one, the architect re-cuts this reading.
+
+### D4 · The wall fitting shortlist, and the drop wire's gauge (pipeline-designer; a note, no code). Branch `ticket/081-puzzles-on-the-city` (a note)
+**Goal.** As D1 did (`docs/design/081-D1-component-shortlist.md`), so the main session can put two cards to Josh (Josh: "Shortlist (Recommended)").
+
+**Acceptance criteria.** All **no test**.
+1. [ ] `docs/design/081-D4-wall-fitting-shortlist.md`. **The wall fitting:** up to six candidates from the converted packs (a wall insulator, bracket, service head or wall box), in manifest order, not ranked. For each: its `pack:name`; size in metres; triangles; what `docs/design/073-pack-intended-use.md` and the pack's store images say of it; **where a wire meets it** (height over its base, offset from its back), measured from the model; whether it reads at 5.5 m on a storey 1 facade from the default camera and from `cam=street`; its gallery link.
+2. [ ] **The drop wire.** `POWER_LINE`'s drawn thickness today (about 6 cm), and every pack wire or cable piece `fitLine` could hang (a length along one axis, as 071 Q11's), with its thickness and gallery link. "Keep `POWER_LINE`" is listed first. A scaled-up wire is not listed: the kit draws pack pieces at true size. If Josh wants one anyway, that is his to say.
+3. [ ] **Pictures for the cards** go to `assets/private/` (git-ignored), as D1's did. Nothing from a pack is committed.
+
+**The picks (the main session, not an agent).** Two cards: `wallFitting` (D4's candidates) and `dropWire` ("Keep `POWER_LINE`" and D4's candidates). His words and the date go into a new **Scenery** table at the bottom of `docs/design/081-component-picks.md`, one row per piece of `CIRCUIT_SCENERY` (`src/core/citycircuit.ts`, committed with this cut).
+
+**Files.** `docs/design/081-D4-wall-fitting-shortlist.md`.
+
+### K3b · The drops drawn attached (renderer). Branch `ticket/081k3b-drops-attached`, after Josh's D4 picks
+**Josh's D4 picks are in** (24 Nov 2026, on cards; recorded in the Scenery table of `docs/design/081-component-picks.md`):
+- `wallFitting`: **"C: City bracket"**, `city-pack:SM_Prop_Sign_Attachment_02` (0.21 x 0.67 x 0.34 m, 44 triangles). D4's wire point: the upper arm's tip, **0.53 m over its base, 0.34 m out from its back**. City Pack is already loaded, and no `CITY_NEVER_USED` stem covers it.
+- `dropWire`: **"Keep POWER_LINE"**. Drops hang with `POWER_LINE`, as spans do. `SCENERY_MODELS.dropWire` has `key: null` (null keeps `POWER_LINE`, as `CircuitSceneryPick` says) with Josh's words and the date. No new wire key enters `circuitKeyUses()`.
+
+**Why.** The drop investigation (24 Nov 2026) found the drops look unattached at both ends: no fitting at the wall; a wire of about 6 cm; the pole end hanging between the outer insulators at `lowestAttach` (`circuitdraw.ts`), on no insulator. K2e fixes the fourth reason (one drop a building, none on the far side). K3b does not need K2e: it draws whatever drops the layer has.
+
+**Goal.** At `?view=3d&city=tiles`, every drop leaves a real insulator on its pole and meets the City bracket (`SM_Prop_Sign_Attachment_02`) on the building at its upper arm's tip, hung with `POWER_LINE` (Josh: "Keep POWER_LINE").
+
+**Acceptance criteria.**
+1. [ ] **The pole end on a real insulator.** A drop's pole end is the attachment of its pole's drawn model (the ground mix, or the feed pick) with `ownInsulator: true` that is nearest the drop's wall point in plan, at that attachment's place on the placed pole (`poleAttachModel` and `poleToWorld`, `powerkit.ts`, read only). It is never lower than `lowestAttach`, so stage 6's heights hold. Spans and roof spans end as today. **test**: 1 rewritten, "draws every pole on its poleModels model and every span and drop as wire ..." (`circuitdraw.test.ts`): a drop ends on an insulator, spans as before.
+2. [ ] **The wall fitting.** A new `SCENERY_MODELS: Record<CircuitSceneryPiece, CircuitSceneryPick>` in `componentmodels.ts`, transcribed from the picks note's Scenery table. At every drop's wall point, the `wallFitting` model (`city-pack:SM_Prop_Sign_Attachment_02`) stands unscaled (guide chapter 2), its back on the wall, facing out along the building's front side, its base 0.53 m under the drop's `y_m` (5.5 m), so the upper arm's tip, 0.34 m out from the wall, is at the drop's height. The drop's wall end is that tip. The builder reads both offsets from the model and reports them if either differs from D4's by more than 2 cm.
+   - A null key draws nothing, and the drop ends at the wall point as today.
+   - A picked model that did not load draws K3's placeholder, never a throw.
+   - A building lamp (`lampBuilding`) stands under the fitting, `ON_POLE_GAP_M` below it, not inside it.
+   - Drops hang with the `dropWire` key when it is set; spans keep `POWER_LINE`. Josh's pick leaves it null, so drops keep `POWER_LINE` too.
+
+   **test**: 1 added.
+3. [ ] **The tables equal the note.** D3's "the table equals the note row for row" case also covers the Scenery table. **test**: 1 rewritten.
+4. [ ] **Keys.** `circuitKeyUses()` lists the bracket on a new `"fittings"` list. The drop wire's key goes on `"drops"` only when `dropWire` is set; with "Keep POWER_LINE" it is not, and `POWER_LINE` is there already. So `planKeys()` and 082 A's `gameModelKeys()` include the bracket with no other change, and R12 allows it only on `"fittings"`. **test**: 0 rewritten expected; the R12 case in `plan3d.test.ts` is rewritten only if the new list makes it fail. After merge, the game pack is stale until `npm run assets:game` is run again (082 B). 082 A never uses a stale pack in part, so the page falls back to the full packs.
+5. [ ] **Reported, not tuned:**
+   - how many fittings meet a stage 7 escape or face sign on seed 1, and the fitting's top against storey 2;
+   - by id, the roof span places on seed 1 (`layer.roofSpans`, used or not) whose curve comes within `ROOF_CLEAR_M` 1.0 m of a drop drawn from its insulator (criterion 1) to the bracket's wire point (criterion 2), skipping drops from the span's own end poles. K2ep found 1 on seed 1 that stage 6's axis reading keeps offering (K2e, "The drop's pole end for CK17d"). The list goes to P2a.
+
+   **no test**.
+6. [ ] Josh views 6 x 6 seed 1 at `?view=3d&city=tiles`, from the default camera and `cam=street`. With K2e merged, the far-side buildings too. **browser**.
+
+**Count.** 1 added, 2 rewritten: 3 (4 if criterion 4's R12 case must change).
+
+**Files.** `src/render3d/circuitdraw.ts`, `circuitdraw.test.ts`, `componentmodels.ts` and its test; `plan3d.test.ts` (the R12 case only, if criterion 4 needs it). **Must not:** `cityview.ts` (E3's), `powerkit.ts` (read only), `src/city/`, `src/core/`, `src/ui/`.
+
+### The CK9 path: order and parallel work (cut 24 Nov 2026)
+| Now, at once | Then | Shared files |
+| --- | --- | --- |
+| E3 (build), K2ep (pre-check), D4 (note) | K2e after K2ep; K3b after Josh's D4 picks. K2e and K3b may run at once. | None. E3 has `cityview.ts`; K2e has `src/city/circuit/` and three era pin lines; K3b has `circuitdraw.ts` and `componentmodels.ts`. K2ep and D4 are notes. |
+| (24 Nov 2026: K2ep holds; D4's picks are in) | K2e and K3b now, at once. E4 once E3 merges, beside them. | E4 and E3 share `cityview.ts` (E3 first). E4 shares no file with K3b or K2e. |
+
+### L · Lit buildings: windows and light on the street (renderer). Cut 24 Nov 2026, in three PRs: L1, then L2 and L3
+**Josh, 24 Nov 2026, in chat:** "I would like to update the lighting too. Rather than lighting a lamp. I would like the connected building's windows to light up and impact the lighting on the street." He showed the POLYGON City Pack store image (a rainy night street: warm lit windows, light spilling onto pavement and road). On cards:
+- which buildings light: **"Puzzle buildings only (Recommended)"**: a puzzle lamp on a building (`{ building }` place) lights that building's windows while it is lit. **Overtaken 24 Nov 2026** by Josh's later words, in chat: "I would like all buildings to receive power if they are connected to the feed. I would also like the feed to show as being connected to each building", and on cards "Drop on a live pole (Recommended)" (`docs/design/081-all-connected-powered.md`). L1 was built and merged to the first answer and stands as built; scenery buildings on the job's live poles light their windows too, through L1's path, from section S (S1, S4);
+- the wall lamp (`lampBuilding` pick): **"Remove it (Recommended)"**;
+- the unpowered city: **"A few dim windows"** (scattered faint candle-light). This amends E2's "the rest of the city is dead" for windows only;
+- the street: **"Yes, a light pool (Recommended)"** (warm light on the pavement and street in front).
+
+**Josh's answers, 24 Nov 2026, on cards:** "Approve L1-L3 (Recommended)"; L-Q1 "Pack's night glow (Recommended)"; L-Q2 "Mast's building (Recommended)"; L-Q4 "Real lights" (not the painted decal; L2 is re-cut for it, below). L-Q3 is still to be asked, before L3; L-Q5 (added with the L2 re-cut) before L2.
+
+**Josh's answers, 24 Nov 2026, on cards (later):**
+- **L-Q3:** **"1 in 25, steady amber (Recommended)"**: `DIM_SHARE` 1/25 of window pieces, steady (no flicker), at `DIM_LEVEL` 0.15 of a lit window. L3 is built to it.
+- **L-Q5:** **"Up to 10, no shadows (Recommended)"**: one light per lit building, no shadows. **Overtaken** by the next card.
+- **L2's cap, given 26 lit buildings in P0's win** (asked with the all-connected pre-check, `docs/design/081-all-connected-powered.md`): **"Raise the cap"** (measured first). L2 is re-cut below: no shadows stands; the cap is 32, made at build at intensity 0, and ships only under a measured frame-time stop rule. With Josh's later "Dark" (the feed's own pole's building stays dark), P0's win lights 25 buildings by the pre-check's count (22 scenery and 3 lamp buildings), not 26, before any L1 lights as backed onto them.
+
+K3b merged with its lamp-height must-fix open ("Merge as is (Recommended)"), because L1 removes the lamp. L1 closes that must-fix, and K3b criterion 2's lamp bullet ("A building lamp stands under the fitting") is superseded.
+
+**How the windows are built (read 24 Nov 2026 from the converted City Pack GLB and its textures in `assets/private/`).**
+- Every plan building is City Pack stack pieces cloned per building (`plan3d.ts` `buildingBoxes`: one `building:<id>` group each, in `PlanDraw.buildings.groups`), painted with a colourway atlas. Each piece is **one mesh with one material** (`MeshStandardMaterial`, base map only). No material in the pack carries emission.
+- **The windows are a texture region, not meshes or material slots.** Window panes are faces UV-mapped onto three blue glass swatches at the atlas's bottom right: pixels about x 512 to 852 and y 910 to 1024 of 1024 (glTF v, top down), split at about x 626 and 739. Measured glass area per piece: `SM_Bld_Apartment_01` 2.79 m2 over the three swatches (0.92 / 0.93 / 0.94), `Apartment_Corner_01` 5.58, `Apartment_Stack_01` 8.38, `Apartment_Door_01` 1.80 (one swatch), roofs 0. The colourway atlases keep the layout.
+- **Shopfronts are the exception.** `SM_Bld_Shop_*` hold no glass. Their glass is the separate `SM_Bld_Shop_*_Glass` keys, drawn by stage 7's dressing as one instanced dark glass material for the whole city (`models3d.ts` `dressGroup`, `GLASS_KEYS`).
+- The pack's own night look is `Textures/Emissive_01.png` to `_05.png` (1024 x 1024, in the atlas's UV layout). Each is black except the same three swatches (in `_01`: warm amber, pale cream, near black) and some signs and signals. That is the lit window in the store image.
+
+**The choice (the architect's): an emissive window mask made in code, swapped per building.**
+- A window is dark, dim or lit through its piece's material. A lit or dim piece takes a clone of its material with `emissiveMap` set to **one shared window mask**: a `DataTexture` made in code from `WINDOW_UV` (the measured glass rectangle and its three panes), with each pane's colour from Josh's card L-Q1, `emissive` white and `emissiveIntensity` as its level. Dark pieces keep the shared material untouched.
+- **Not the pack's Emissive PNG.** It also lights signs and signals, and loading it would need converter, manifest and game pack changes (`tools/assets/`, the grid-simulator's) for three rectangles of colour. The builder reads the pane colours once from `Emissive_01.png` and types them in as numbers, as D4 measured the bracket. Nothing from the pack is committed.
+- **Not instanced attributes.** Buildings are clones, not instances, so a per-building material costs no draw call. The few lit buildings (a job's lamps) take their own clones, so each animates alone. Dim pieces share one clone per source material.
+- **Not real lights for the windows.** The windows glow by emission only. The light on the street is real lights, in L2 (Josh, L-Q4: "Real lights").
+
+**Readings (the architect's; none is a Decided rule):**
+- **Lamp posts keep E2's glow and pool.** A post lamp has no building. Only `{ building }` lamps move onto windows.
+- **A lamp on a roof structure** (`{ roof }`, allowed by B1-Q1 "Anything") lights the mast's building (`CityRoofMast.building`). Card L-Q2 asks Josh to confirm this. L1 builds the recommended option unless he picks the other. No pilot fit is known to put a lamp on a roof.
+- **A building with two job lamps** takes the brighter of the two each frame.
+- **A job lamp's building never takes dim windows,** lit or not. A dark lamp must read dark (brief, Decided: "Signatures: current reaches a dark lamp").
+- **059's street lights are untouched.** On the city view they are scenery and stay dark (E2 criterion 3). The new pools are warm and lie only in front of lit job buildings. 059's cool street-light pools are not drawn on any city view, so the two never meet. No conflict found.
+
+**Pipeline-designer pre-check: not needed.** No grammar rule, stage or city number changes: all of L is drawing in `src/render3d/`. The dim share and the colours are looks Josh picks on cards (below), not city rules.
+
+**Cards for Josh (the main session asks them; recommended options first):**
+- **L-Q1, before L1: the lit window's colour.**
+  - "The pack's own night glow (Recommended)": as in the store image (Emissive_01), two of three panes warm amber and pale cream, the third near dark.
+  - "Every pane lit": as in Emissive_03, the third pane a dimmer brown.
+  - "One warm colour": every pane the same amber.
+- **L-Q2, before L1: a lamp on a roof structure.** "Light the mast's building (Recommended)" or "A glow on the mast, as a lamp post".
+- **L-Q3, before L3: how many dim windows, and how they burn.**
+  - Share of window pieces (one storey, or a three-storey stack, of one column): "About 1 in 25 (Recommended)", "About 1 in 10" or "About 1 in 50".
+  - Their light: "Steady, faint amber (Recommended)" (about 15 % of a lit window's level), or "A slow candle flicker".
+- **L-Q4, before L2: how the pool is made.**
+  - "A painted glow on the ground (Recommended)": one instanced decal, one draw call, which lights only the ground.
+  - "Real lights": also lights walls, cars and props, but adds per-pixel cost on every lit material, and the shaders rebuild whenever the number of lights changes. If he picks it, the architect re-cuts L2 and its budget is measured again before Josh plays.
+  - **Answered: "Real lights"** (Josh, 24 Nov 2026).
+- **L-Q5, before L2: how many street lights, and shadows.**
+  - "One per lamp building, up to 10, no shadows (Recommended)": every lit building lights its own street; a per-pixel cost on every lit material, held by L2 criterion 3's budget.
+  - "Up to 4, given to the lit buildings nearest the camera": cheaper on a big job, but a far lit building's street stays dark, and a light can jump between buildings as the camera moves.
+  - "One per lamp building, and the brightest casts shadows": walls and cars throw shadows on the street from one light; a shadowed point light draws the city six more times a frame, so the architect re-cuts L2's budget first.
+
+**Order.** L1 shares `cityview.ts` with **E4** (open PR #53: `cityHit`, `HitInputs`, `paintOverlay`, `cutAt`), so it branches from `main` after E4 merges. It shares no file with **K2e** (`src/city/circuit/`). L2 and L3 branch after L1 merges (L2 after L-Q5, L3 after L-Q3), and may be built at once: L3's only `cityview.ts` change is one call in the build step.
+
+#### L1 · The lit building's windows; the wall lamp goes (renderer). Branch `ticket/081l1-lit-windows`, after E4 merges and L-Q1 and L-Q2 are answered **Done** (PR #55; review round 2: meets)
+**Goal.** Playing `city-two-ways-round`, each lamp's building is dark until current lights it. Then its windows (and its shopfront glass) glow warm. They ignite in the Relight's order with E2's flare, and flicker in a brownout. No wall lamp stands on the building.
+
+**Before the build (the main session, not an agent):** record Josh's "Remove it (Recommended)" (24 Nov 2026) in `docs/design/081-component-picks.md`, in a new **Removed** list under the table. The `lampBuilding` row stays as the history of his first pick.
+
+**Acceptance criteria.**
+1. [ ] **The window mask.** A new `src/render3d/windows.ts` exports:
+   - `WINDOW_UV`: the glass rectangle and its two pane splits. The builder measures them from the atlas to the pixel and reports them against this cut's figures;
+   - the three pane colours: Josh's L-Q1 pick, read from the pack image once;
+   - `windowMask()`: one shared `DataTexture` (at most 1024 x 1024, `flipY` false, as glTF's are), black outside the rectangle and each pane's colour inside it.
+
+   **test**: 1 case: texels inside each pane are its colour, and texels just outside the rectangle are black.
+2. [ ] **A building's window level.** A pure `buildingGlow(plan, state, lamps, relT, time, out)` in `windows.ts` takes the building's job lamps (`{ id, index }`) and gives `{ level, flare }`. It is built from E2's `lampState`, `lampFlicker` and `FLARE_SECONDS`:
+   - the level is 0 while no lamp of the building is lit;
+   - in the Relight it is 0 until its lamp's arrival, then lit, with E2's flare pop for `FLARE_SECONDS`;
+   - in a brownout it dips as E2's lamps did;
+   - with two lamps, the brighter one counts.
+
+   **test**: 2 cases: (a) the Relight on P0's file, through `relightFrame`'s plan: each lamp building's level is 0 before its lamp's arrival and above 0 after it, in the order `relightFrame` lights the lamps; (b) a brownout dips a lit building below 1, and two lamps on one building give the brighter level.
+3. [ ] **The swap.** `litBuilding(group)` gives the building's pieces clones of their materials with the mask. The clones are made **when the city builds** (level 0 until lit), so no shader compiles during play. Setting a level writes `emissiveIntensity` on that building's clones only. Every other building keeps the shared materials, untouched. **test**: 1 case, on a fixture of two buildings whose pieces share one material: the lit building's pieces carry the mask and its level, and the other building is unchanged.
+4. [ ] **The shopfront glass.** A lit building's `SM_Bld_Shop_*_Glass` dressing (its `dressDraws` entries) glows at the building's level. It is one more instanced mesh, over the dark glass, for all the job's buildings; the dark glass instancer is not edited. **test**: folded into criterion 3's case if it can be built from a fixture; otherwise **browser**, and the builder says why.
+5. [ ] **E2's glow and pool go for building lamps.** `cityview.ts`'s `LampGlow` sphere and circle stand only for `{ post }` lamps. **test**: 0 added. E2's cases pass; one is rewritten only if it asserts a building lamp's sphere, and the builder lists it.
+6. [ ] **The wall lamp goes.**
+   - `COMPONENT_MODELS.lampBuilding` gets `removed: { words: "Remove it (Recommended)", date: "2026-11-24" }` (`CircuitComponentPick.removed`, committed with this cut).
+   - `circuitDraws` stands no model and no placeholder for a removed pick, and `circuitKeyUses()` no longer lists its key.
+   - The lamp's place (the drop's wall point) still holds its pick proxy, `centreOn`, `placeAt` and its overlay icon, as E2 and E4 hold them.
+
+   **test**: 2 rewritten:
+   - K3b's "stands the City bracket at a drop's wall point ... the building lamp under it ..." (`circuitdraw.test.ts`) drops the lamp's height line, and asserts there is no lamp model and no wall lamp key;
+   - D3's "equals docs/design/081-component-picks.md row for row" (`componentmodels.test.ts`) also reads the Removed list.
+7. [ ] **The game pack.** `SM_Prop_Light_Wall_01` leaves `gameModelKeys()` (082 A). After merge the game pack is stale, and the page falls back to the full packs until the main session runs `npm run assets:game` again (082 B). The mask is made in code, so no texture or manifest changes. **no test**.
+8. [ ] **The frame measure, dev only.** `perf=1` in the address logs once, after 300 frames: draw calls, triangles, `gl.info.programs.length` and the median frame time. The builder reports these numbers on 6 x 6 seed 1 with P0, both before any power and after the Relight. It must show **no new program** between the first frame after the models load and the end of the Relight (criterion 3), and at most 1 more draw call (criterion 4). **browser**.
+9. [ ] Josh plays `city-two-ways-round` from `npm run dev`: the three lamp buildings start dark, light in the Relight's order and flicker in a brownout, and there is no wall lamp. **browser**.
+
+**Count.** 4 added, 2 rewritten: 6 (5 if criterion 4 is browser).
+
+**Files.**
+- new `src/render3d/windows.ts` and `windows.test.ts`. Under 2 s, except criterion 2(a)'s P0 view through the module cache; the builder gives its time;
+- `src/render3d/cityview.ts`: the lamp part of the live layer, the build step and the `perf=1` log; not `cityHit`, `jobFrame` or `loadCityView`;
+- `src/render3d/circuitdraw.ts` and `circuitdraw.test.ts`: the removed pick only;
+- `src/render3d/componentmodels.ts` and its test.
+
+**Must not:** `overlay.ts`; `plan3d.ts` and `models3d.ts` (read only); `src/city/`, `src/core/`, `src/ui/`, `src/main.ts`, `src/play/`, `tools/`.
+
+**On hold for section F (24 Nov 2026).** Josh was told the city is already below 60 fps before any street light (L2's branch, 6 x 6 seed 1, P0, `perf=1`: 20.90 ms before power, 25.40 ms after the Relight). He answered on a card: **"Speed up first"**. L2 (branch `ticket/081l2-street-lights`, pushed, no PR) waits until F1b merges. Then its criterion 3 is measured again, against F's closing numbers instead of L1's. L3 also waits for F1b, and its criterion 2 is re-cut to F1b's per-instance level (below). S4 waits for F1b too, because it feeds about 25 buildings into the windows path.
+
+#### L2 · Real lights on the street (renderer). Branch `ticket/081l2-street-lights`, now (L1 is in; L-Q5 and the cap are answered). Re-cut 24 Nov 2026 for Josh's L-Q4 "Real lights", and again for "Raise the cap"
+**Goal.** In front of a lit building, a real warm light falls on its pavement, the street, the walls either side and any car or prop in reach, rising and falling with its windows: dark until the Relight reaches its lamp, then up with the flare, flickering in a brownout.
+
+**How (the architect's choice, under L-Q5's "no shadows" and Josh's "Raise the cap").**
+- **Type.** One `PointLight` per lit-able building, **no shadows** (`castShadow` false; night keeps `shadows: false`, `lighting.ts`). A point light needs no target, and one shadowed point light renders the city six more times a frame. A spot light would cut a sharper cone than the store image shows.
+- **Which buildings.** Every building in cityview's `lampsOf` (L1's `lampBuildings`: the job lamps' buildings and those L1 lights as backed onto them) that has a street face, never one per face or per window. Before S4 that is P0's 3 lamp buildings; S4 adds the scenery buildings to `lampsOf`, so they get their lights through this section with no L2 change. Order: the job lamps' buildings first, in lamp order, then the rest in `lampsOf`'s order.
+- **How many: `STREET_LIGHTS_MAX` 32, under the stop rule (criterion 3).** P0's win lights 25 buildings by the pre-check's count (22 scenery and 3 lamp buildings, with "Dark"); the pre-check's fits 09 and 10 carry 19 and 20 scenery buildings beside 6 and 4 lamps; P2a's fits, laid for the camera, are expected nearer P0's count (the note's estimate). 32 holds those with room. A point light costs about 3 uniform vectors in the fragment shader, about 96 at 32, inside WebGL2's guaranteed 224. A job with more lit-able buildings than the cap lights the first 32 in the order above and logs one dev warning.
+- **The pool, so no shader rebuilds in play.** Three compiles a material's program for the number of lights in the scene. So the lights are made **when the city builds**, one per lit-able building of the job (at most the cap), added to the scene at intensity 0, and never added, removed or hidden during play: dark is intensity 0, never `visible = false`. Their count is fixed from the first frame, so every program is compiled before play. The pool is the job's own count, not the cap: a job that can light 3 buildings makes 3 lights. The one exception is the dev day toggle: the rig hides night-only parts (`lightrig.ts`), so the first switch to day and back compiles once; that is dev only and accepted. A new job builds a new city, so its count is set again at load.
+- **What they light.** Every lit (`MeshStandard`) material in reach: the ground, street and pavement surfaces, the building pieces' walls, the dressing's cars and props. `MeshBasic` parts (glows, overlay) are unchanged. The light stands 2 m out from the middle of the building's street face at 3 m up (the first floor's windows), or for a corner building over its corner pavement. Its reach (`distance`) is `STREET_LIGHT_REACH_M` (default 12 m, `decay` 2) and its colour the lit pane's amber from L1. Both are numbers Josh tunes by eye.
+- **No painted pool.** The decal from the earlier cut is not drawn. E2's post-lamp pools are unchanged.
+- **The hooks from L1.** Each frame a light's intensity is `STREET_LIGHT_INTENSITY x level`, with the flare pop, from its building's `buildingGlow` (L1 criterion 2). So the Relight's order and the brownout flicker come from L1 with no new timing.
+
+**Acceptance criteria.**
+1. [ ] **Which buildings, and where each light stands.** A pure `lightPlaces(plan, buildingIds, max)` in `windows.ts` gives one place per building with a street face, in the order given, at most `max`: in front of the middle of its street face (a column's `front` onto a street cell, never a yard or a park), or over the corner pavement for a corner building, at the height and offset above. A building with no street face gets none and does not count. **test**: 1 case on a fixture: a mid building's light stands in front of its street face, a corner building's over its corner, a backed-on building with no street face gets none, and 33 buildings with faces at `max` 32 give the first 32.
+2. [ ] **The pool.** `streetLights(places)` makes the `PointLight`s once. `setStreetLights(lights, glows)` writes only intensities. **test**: 1 case: after setting one building lit and one dark, the scene holds the same number of lights, all visible, none casting a shadow; the dark one is at 0 and the lit one at `STREET_LIGHT_INTENSITY x` its level.
+3. [ ] **The budget, and the stop rule for the cap.** `STREET_LIGHTS_MAX` is **10** in the code until this criterion's measures pass; only then is it set to 32. Measured with L1's `perf=1` on 6 x 6 seed 1 with P0, from the default camera in a desktop window on Josh's PC, against L1's numbers from the same view after the Relight. The dev switch `lights=N` fills the pool to N lights (the spares on the first building, at its level, so they cost as lit lights do):
+
+   | Run | Median frame time, worse than L1's by at most |
+   | --- | --- |
+   | P0 as it is (3 lights) | 1.0 ms |
+   | `lights=10` | 2.5 ms |
+   | `lights=25` (P0's win with scenery) | 4.0 ms |
+   | `lights=32` (the cap) | 5.0 ms, and the median itself at most 16.7 ms (60 fps) |
+
+   Each run also shows no new draw call, and no new program between the first frame after the models load and the end of the Relight. The builder reports draw calls, programs, the median frame time and the fps for all four.
+   - **All four within budget:** `STREET_LIGHTS_MAX` is set to 32.
+   - **`lights=25` or `lights=32` over:** the builder stops and reports ("stop 081 L2", with the branch and the four rows). `STREET_LIGHTS_MAX` stays 10 and nothing above 10 ships. It does not pick a cap between, or tune the reach or the shader, to pass. The main session puts the numbers to Josh (for example: the largest cap that passed; up to 10, given to the lit buildings nearest the camera, L-Q5's second option; or a looser budget), and the architect re-cuts with his answer.
+   - **P0 or `lights=10` over:** as the first cut said, the builder stops and reports.
+
+   The budgets are the architect's, starting points for Josh, not GDD numbers. **browser**.
+4. [ ] Josh plays `city-two-ways-round` from the default camera and `cam=street`: light falls on the pavement, street and walls in front of each lamp building as it lights in the Relight, and flickers in a brownout. **browser**.
 
 **Count.** 2 added.
 
-**Files.** `src/main.ts` (the view and open branches), `src/ui/view3d.ts` and `view3d.test.ts`, `src/ui/maps.ts` (only if the helper of criterion 2 lives there). **Must not:** `src/render3d/`, `src/play/`, `src/core/`.
+**Files.** `src/render3d/windows.ts` and `windows.test.ts`; `src/render3d/cityview.ts` (the lights in the build step and live layer, and the `lights=N` dev switch). **Must not:** as L1, and `lightrig.ts` and `lighting.ts` (read only).
+
+**Interfaces.** No new dependency, no `src/core/` type: `PointLight` is Three's.
+
+#### L3 · A few dim windows in the dead city (renderer). Branch `ticket/081l3-dim-windows`, now (L1 is in; L-Q3 answered: "1 in 25, steady amber (Recommended)"); after FX2, or merging `main` in once FX2 is in ("Approve, FX2 first (Recommended)")
+**Goal.** Across the unpowered city, a scattering of window pieces glow faintly, like candle-light, never on a job lamp's building.
+
+**Acceptance criteria.**
+1. [ ] **Which pieces.** A pure `dimPieces(buildings, share, seed, exclude)` in `windows.ts`:
+   - picks floor and `floor3` pieces, never the ground storey or a roof;
+   - picks by a hash of the building id and piece index, so the pick is the same every load;
+   - picks about `share` of them: `DIM_SHARE` is **1/25** (Josh, L-Q3: "1 in 25, steady amber (Recommended)");
+   - picks no piece of a building in `exclude`: every building in cityview's `lampsOf` (the job lamps' buildings, those L1 lights as backed onto them, and from S4 the scenery buildings; see the reading above). **The architect's reading (Proposed):** a scenery building on a live pole that is dark (past a cut, or on the switch's other side) reads dark, as a job lamp does, so a faint window never makes it look half powered.
+
+   **test**: 1 case on a fixture of about 200 pieces: the same pick twice, about `share` of them (within a tolerance the builder states), and none on an excluded building.
+2. [ ] **Re-cut 24 Nov 2026 for section F; this replaces the wording that follows.** A dim piece's window level is F1b's per-instance level, set once at build to `DIM_LEVEL`. No material is cloned and no program is added. **test**: 1 case: the dim pieces' instances carry `DIM_LEVEL`, every other instance carries 0, and the building instancers' materials are unchanged. *The first cut's wording, kept as history:* **One material per source.** A dim piece takes a clone of its material with L1's mask at `DIM_LEVEL` 0.15 of lit, **steady** (Josh: "steady amber"): it never flickers, so nothing writes a dim clone during play.
+   - Dim pieces share one clone per source material, made when the city builds.
+   - No per-frame write: the level is set once at build.
+
+   **test**: 1 case: two dim pieces on one material share one clone, and a piece that is not dim keeps the shared material.
+3. [ ] **Budget.** With L1's `perf=1`, the dim windows add no draw call and no program. **browser**.
+4. [ ] Josh views the city from the default camera and `cam=street` before any power: a few faint windows, none on the three lamp buildings. **browser**.
+
+**Count.** 2 added.
+
+**Files.** `src/render3d/windows.ts` and `windows.test.ts`; `src/render3d/cityview.ts` (one call in the build step). **Must not:** as L1.
+
+**Rules coverage.** L1 adds the city view's windows to two rows of `tickets/rules-coverage.md`: "The Relight can't be interrupted" (the ignition order now shows on windows; E2's case still holds the rule) and "Capacity: over it, brownout" (a lit building flickers).
+
+### S · Every building on a live pole is powered, and adds load. Cut 24 Nov 2026, in four PRs: S1, P0r, S4, U3 (and P1's criteria 10 and 11)
+**Josh, 24 Nov 2026, in chat:** "I would like all buildings to receive power if they are connected to the feed. I would also like the feed to show as being connected to each building."
+
+**On cards** (all recorded at the top of `docs/design/081-all-connected-powered.md`, with the pipeline-designer's measurements):
+- which buildings: **"Drop on a live pole (Recommended)"**;
+- do they draw on the feed: **"Yes, they add load"**;
+- how to show it: **"Live drops glow (Recommended)"**;
+- the puzzles' numbers: **"Raise (Recommended)"**: each puzzle's capacity and fuse ratings are raised by the scenery its intended win lights;
+- what one building draws: **"Whole"** (1 lamp-load; `SCENERY_BUILDING_LOAD` in `src/core/citycircuit.ts`). The note measured 14 of 16 jobs playing the same at 1; 09 and 12 fail, and get the hand fixes in P2a;
+- the building on the feed's own pole, outside the district: **"Dark"**.
+
+**What it overtakes.**
+- **CK14's dark-building line goes.** "A building the job does not name stays dark: it is not on the job" (Proposed) is struck in `docs/design/070-K1-circuit.md` with this cut, and CK14 says what lights instead. A building on a pole no job line uses still stays dark, so K2e's reading stands: a district building fed across the street from a neighbouring block's pole is dark to that job.
+- **K2c's criterion 3** ("the same node and line ids as the file, none added") flips: the file's ids all stay, and the conversion adds hidden ones (S1).
+- **L1's "Puzzle buildings only (Recommended)"** is overtaken by Josh's later words (recorded in section L). L1 stands as built and merged; S4 feeds the scenery buildings into its path.
+- **L2's cap of 10** meets about 25 lit buildings in P0's win: Josh's "Raise the cap" (section L, L2 re-cut).
+- **"Unchanged" city puzzles** are now **raised** ("Rules this ticket holds").
+
+**No Decided GDD rule is touched.** Capacity and fuse rating are Draft ("New for the minigame (Draft, Josh's to tune)" in the brief; GDD 05, "Capacity and restraint"), and raising them is Josh's call. The Decided "Lamps are leaves" holds: a scenery load is a leaf and never blocks. The Decided signature "current up to a sparking break" holds: a building past a cut stays dark. **One Draft line differs:** the GDD's "Live cables don't glow" (08, "Cables in the dark") against Josh's "Live drops glow (Recommended)". His card stands for the prototype, since the line is Draft. The GDD's wording is a proposal in open question 10, not something this ticket changes.
+
+**Pre-checks.** No fresh pre-check is needed before S1, S4, U3 or P1's criteria 10 and 11:
+- S1's rule is the probe's, as section 3 of the note sketched it and section 6 built it (the line split, where each building hangs), at Josh's "Whole" (measured: 14 of 16) and "Dark". "Dark" only drops one building per job that is live whenever its feed is, a constant that "Raise" absorbs;
+- P1's raise is the note's option B, as measured;
+- S4, U3 and L2 are drawing and sound, not grammar rules.
+
+A pipeline-designer call comes only from a stop: "stop 081 S1" (P0 does not play the same, or its count is not 22) or "stop 081 P1" (a pilot other than 09 and 12 fails raised). 09's and 12's fixes are P2a's designer's under answer 4, with the analyzer. If neither fix keeps the element under test, that goes to Josh (P2a).
+
+**Order and parallel work.**
+| Wave | Sections | Shared files | Why |
+| --- | --- | --- | --- |
+| Now, at once | S1, U3, L2, L3 | None between S1 (`src/city/circuit/`, P0's `capacity` line) and U3 (`src/main.ts`, `src/ui/logic.ts`). L2 and L3 share `cityview.ts` (L3 one call), as section L says. | The core types are in, so U3 codes against `hidden` before S1 writes it. |
+| After S1 | P0r; P1 (criteria 10 and 11 need S1) | None | P0r writes P0's note; P1 is `tools/`. |
+| After S1, L2 and L3 | S4 | `cityview.ts` | It feeds `scenery` into L1's and L2's paths. |
+| After P1 | P2a (raised; 09 and 12 hand-fixed) | None | As before. |
+
+#### S1 · Scenery buildings on the job's live poles, in the conversion (grid-simulator, pure). Branch `ticket/081s1-scenery-loads`, now
+**Goal.** `convertCityPuzzle` hangs every scenery building whose drop is on one of the job's poles onto the job as hidden 1 lamp-load lamps. So `src/grid/` (unchanged) lights them while current reaches them and counts their load against the feed and its fuses. It returns `scenery` (building to hidden lamp) and `hidden` (every added id). P0's file takes its raised capacity.
+
+**The rule (the pre-check probe's, worded for the build; Proposed where it says how):**
+1. **Which buildings.** Each `layer.drops` entry whose `pole` is one of the job's poles: an interior (carrier) pole of a line's run, or a node's `{ pole }` place. **Not:** the feed's own pole (Josh: "Dark"); a building that is a `{ building }` lamp's place; a drop on any other pole. Roof structures carry no drops (CK17e). Each building counts once.
+2. **The split.** Every line `L` of the file becomes three, scenery or not, so the grid's "nearer feeder" ties hold (the probe split every line; a partial split was not measured):
+   - `L~a`, from `from` to the hidden junction `L~h1`;
+   - `L`, from `L~h1` to `L~h2`. It keeps the id, so its faults, the check block's `repair:L` moves and `runs[L]` hold;
+   - `L~b`, from `L~h2` to `to`.
+
+   Each keeps the line's other fields. A switch's `outputs` and a battery's `input` name the segment next to the node (`L~a` where the node is `from`, `L~b` where it is `to`). `L~h1` and `L~h2` stand at 1/3 and 2/3 of the straight from `from`'s `pos` to `to`'s, so every path length the Relight's timing reads (`planRelight`) is unchanged.
+3. **Where each building hangs.**
+   - **On a carrier of `L`:** `L~h1`, or `L~h2` when the pole is past `L`'s cut span, counted from `from` along the run.
+   - **On a node's pole:** on the node itself for a `junction` or a `fusebox` (so its load is under the fuse's rating). For a `switch`, on its input line (the one not in `outputs`) at the switch's end. For a `battery`, on its `input` line at its end. For a `breaker`, on the first line in the file's order that touches it, at the breaker's end. "At the node's end" is `L~h1` when the node is `from`, and `L~h2` when it is `to`. The feed's pole is skipped ("Dark").
+   - A node of a type not listed here, on a pole with a scenery drop: stop (below).
+4. **The lamps.** One hidden lamp for each attachment point, `<attach>~s` (for example `l_s~h1~s`, `j_h~s`), on a line `<attach>~s~l` from it. Its `load` is its buildings' count x `SCENERY_BUILDING_LOAD`. Its `pos` is its first building's drop wall point, over `CELL_M` as for a building lamp. `scenery` maps every building to its lamp.
+5. **What stays the file's.** `target`: when the file has none, the output's `target` is the file's lamps, so a hidden lamp is never a target. `priority`, the parts, the faults and every file id are unchanged. `places` and `runs` hold no hidden id, so the overlay, the picks and the HUD never see one. A file id that contains `~` is a CK15 problem (it could collide with a hidden id). `decor` is unchanged.
+
+**Acceptance criteria.**
+1. [ ] **The split.** On a fixture job of a switch and two lines:
+   - the output's lines and junctions are exactly as rule 2 says, and the switch's outputs name `~a` segments;
+   - `L~h1` and `L~h2` are collinear, at 1/3 and 2/3;
+   - `places` and `runs` are keyed by the file's ids only;
+   - `hidden` lists exactly the added ids.
+
+   **test**: 1 case.
+2. [ ] **Carriers and the cut** (the Decided "current up to a sparking break"). On a fixture line with three carriers, each with a scenery drop, cut on its second span: the first carrier's building hangs on `~h1`, the later two on `~h2`. Run on `src/grid/` (allowed in tests): the first building's lamp is lit, and the two past the cut are dark. **test**: 1 case.
+3. [ ] **Node poles.** On a fixture: a junction's building hangs on the junction; a switch's on its input line at its end; a fusebox's on the fusebox. On `src/grid/` the fusebox's counts toward the rating: one scenery building over the rating blows it on power (the Decided "Fuse rating: over it, blows on power"). **test**: 1 case.
+4. [ ] **Who stays dark.** On a fixture, none of these is in `scenery`: the building on the feed's pole, a building that is a job lamp's place, and a building whose drop hangs from a pole no line uses. **test**: 1 case.
+5. [ ] **Load, leaves and the win.** On a fixture with `capacity` equal to the file lamps' load and no `target`:
+   - one live scenery building takes the feed over capacity, a brownout (the Decided "Capacity: over it, brownout");
+   - `validatePuzzle` passes (hidden lamps are leaves);
+   - the output's `target` is the file's lamps;
+   - with the capacity raised by 1, the win completes with the scenery lit.
+
+   **test**: 1 case.
+6. [ ] **P0 plays the same, raised** (K2c's "plays the same" case, rewritten). `puzzles/city/city-two-ways-round.city.json` converts on 6 x 6 seed 1, one-way on, with 22 scenery buildings (the pre-check's 23, less the feed's pole's), and its note's check block replays as the schematic's does. **test**: 1 rewritten.
+7. [ ] **K2c's "none added" case, rewritten.** Every node and line id of the file is in the output with its type, load, rating and capacity unchanged, and the ids that are not the file's are exactly `hidden`. **test**: 1 rewritten.
+8. [ ] **P0's raised capacity.** The file's `capacity` line becomes 3 + the scenery load P0's check block's solution lights. The builder replays it once with the capacity unlimited: 3 + 22 = 25 if all 22 light, as the pre-check found. It reports the start's and the win's loads ("using X of 25"), and, once, outside the suite, the analyzer's fewest clicks, winning configs and dead first moves on the converted puzzle against the schematic's. **no test**: criterion 6 holds it, and P1's criterion 11 checks the number.
+9. [ ] No import of `src/grid/` from `src/city/circuit/`, except in tests. **test** (K2c's existing case, unedited).
+
+**The stop rule.** The builder stops and reports ("stop 081 S1", with the branch) if:
+- P0 does not play the same raised: its start's lit file lamps, readable faults and blown fuses, its check block, or the analyzer's three numbers differ from the schematic's;
+- P0's scenery count on seed 1 is not 22;
+- a node type the rule does not list stands on a pole with a scenery drop in P0;
+- more than 2 cases outside `src/city/circuit/` (E2's, E4's and L1's in `src/render3d/` that count P0's nodes or lines) need rewriting. They are listed, and the architect re-cuts.
+
+It does not change the rule or a number to make P0 pass.
+
+**Count.** 5 added, 2 rewritten, and at most 2 more under the stop rule: at most 9.
+
+**Files.** `src/city/circuit/` (`convert.ts`, a new `scenery.ts`, `convert.test.ts`). Also, under test policy rule 6, as P0 did: the **`capacity` line only** of `puzzles/city/city-two-ways-round.city.json` (the puzzle-designer's; P0r writes the note), and at most 2 rewritten cases in `src/render3d/` under the stop rule, listed. `src/core/` is the architect's (`scenery`, `hidden` and `SCENERY_BUILDING_LOAD` are committed). **Must not:** `src/grid/`, or any other line of `puzzles/`.
+
+#### P0r · P0's note re-opened with its raised numbers (puzzle-designer). Branch `ticket/081p0r-two-ways-round-raised`, after S1
+**Goal.** `puzzles/city/city-two-ways-round.md` says what the scenery changed, so Josh knows why the HUD now reads "using 24 of 25" (S1's numbers) and not "using 2 of 3".
+
+**Acceptance criteria.**
+1. [ ] A **What changed from the schematic, and why** section, one item:
+   - capacity 3 to S1's number, with Josh's words ("Yes, they add load", "Raise (Recommended)", "Whole", "Dark");
+   - the 22 scenery buildings by where they hang (carriers, node poles), and how many stand on another block across a district street;
+   - the start's and the win's loads.
+
+   **no test**.
+2. [ ] The check block stays the schematic's, copied (P0 is raised, not reworked). The analyzer's numbers are S1's report, stated equal to the schematic's. **no test**: S1's criterion 6 replays the block.
+3. [ ] **What it taught us** keeps Josh's words so far; the designer adds none. **no test**.
+
+**Files.** `puzzles/city/city-two-ways-round.md` only. **Count.** 0.
+
+#### S4 · Scenery drawn live: the drops glow, the windows light (renderer). Branch `ticket/081s4-scenery-live`, after S1, L2 and L3 merge (and after FX2, or merging `main` in once FX2 is in: Josh, 24 Nov 2026, "Approve, FX2 first (Recommended)")
+**Goal.** Playing `city-two-ways-round`, as the Relight's current reaches each scenery building on the job's poles, its drop glows and pulses like a job span, and its windows light through L1's path, with its street light from L2. Past a cut, or on the switch's other side, the drop and the building stay dark. They flicker in a brownout.
+
+**Acceptance criteria.**
+1. [ ] **The windows.** cityview's `lampsOf` gains every `converted.scenery` building with its hidden lamp (`{ id, index }` in `puzzle.nodes`), and the buildings backed onto it as L1 reads them. A pure `sceneryLamps(converted, buildings)` in `windows.ts` gives the entries. The scenery buildings then take, with no change to them: L1's clones at build; `buildingGlow`'s level, flare and flicker; the shop glass; L2's lights (after the job lamps' buildings, in L2's order); and L3's exclusion. **test**: 1 case on a fixture conversion: a scenery building maps to its hidden lamp, and `buildingGlow` gives 0 while that lamp is dark and above 0 when it is lit.
+2. [ ] **The live drops** (Josh: "Live drops glow (Recommended)"). Each scenery building's drop (`drop:<building id>`, as K3b draws it, from its pole's insulator to the bracket) joins the live layer as a wire of its own, lit from its hidden lamp:
+   - dark while the lamp is dark;
+   - in the Relight, lit from the pole end at the lamp's arrival;
+   - then E2's glow and pulses, pole to building, and E2's brownout wobble.
+
+   It uses E2's instanced glow and pulse meshes, sized at build. No other scenery drop or span glows (CK14: the rest is dead). **test**: 1 case: the live layer's wires hold one per scenery drop, with its lamp, and none for a drop whose building is not in `scenery`.
+3. [ ] **Hidden nodes stay hidden.** On P0's conversion with scenery, `overlayIcons` gives the icons of the file's nodes only, and no pick proxy stands for a hidden node. **test**: 1 case (in `overlay.test.ts` or `windows.test.ts`, the builder's choice; `overlay.ts` is not edited).
+4. [ ] **The budget.** With L1's `perf=1` on 6 x 6 seed 1 with P0, after the Relight:
+   - no new draw call against L2's P0 run;
+   - no new program between the first frame after the models load and the end of the Relight;
+   - a median frame time within L2's `lights=25` budget.
+
+   Over it, the builder stops and reports. **browser**.
+5. [ ] Josh plays `city-two-ways-round` from the default camera and `cam=street`: the scenery buildings round the ring light with their drops as the Relight passes, those past the spark stay dark until the repair, and the building on the feed's pole stays dark. **browser**.
+
+**Count.** 3 added.
+
+**Files.** `src/render3d/cityview.ts` (the live layer and `lampsOf`), `src/render3d/windows.ts` and `windows.test.ts`; `overlay.test.ts` (one case, if criterion 3 goes there). **Must not:** `overlay.ts`, `circuitdraw.ts` (read only), `plan3d.ts`, `models3d.ts`, `src/city/`, `src/core/`, `src/ui/`, `src/main.ts`, `src/play/`, `tools/`.
+
+#### U3 · Hidden lamps make no Relight sound (ui). Branch `ticket/081u3-quiet-scenery`, now
+**Goal.** The Relight still chimes once per lamp the puzzle names, not 22 more times for the scenery (the default; open question 11).
+
+**Acceptance criteria.**
+1. [ ] **The cues.** `relightCues` moves from `src/main.ts` to `src/ui/logic.ts` (or a new `src/ui/relightcues.ts`, if `logic.ts` should not import `src/render/`'s `planRelight`), unchanged but for a `hidden` argument (`converted.hidden ?? []`): a hidden lamp gets no ignition time, and the duration is unchanged. **test**: 1 case: on a fixture with one hidden lamp, `igniteAt` holds the file lamps' times only.
+2. [ ] `main.ts`'s `lampIds` (the list-to-map highlight) leaves out hidden ids. **no test**: a hidden lamp has no place, so no hit can name it; this keeps the set honest.
+3. [ ] Josh hears the Relight on `city-two-ways-round` after S1: three ignitions, as before. **browser**.
+
+**Count.** 1 added.
+
+**Files.** `src/main.ts`, `src/ui/logic.ts` and `logic.test.ts` (or the new `relightcues.ts` and its test). **Must not:** `src/render/`, `src/render3d/`, `src/play/`, `src/core/`.
+
+### F · A faster city view (renderer). Cut 24 Nov 2026, in up to four PRs: F0, F1a, F1b, then F2 only if F0's numbers call for it
+**Josh, 24 Nov 2026, on a card**, when told the city is already below 60 fps before any street light: **"Speed up first"**. L2 is on hold until F1b merges (section L).
+
+**Measured by the main session** in the browser pane on Josh's PC: L2's branch, 6 x 6 seed 1, `?puzzle=city-two-ways-round&perf=1`, CPU time from the draw call to the end of the render, median over 300 frames.
+
+| View | Draw calls | Triangles | Programs | Median |
+| --- | --- | --- | --- | --- |
+| District, before power | 216 | 3,805,028 | 12 | 20.90 ms |
+| District, after the Relight | 906 | 4,361,444 | | 25.40 ms |
+| 1280 x 800, more of the city, before power | 7,535 | 9,501,571 | | 48.10 ms |
+
+**What the code does (read 24 Nov 2026 on this branch; the architect's reading):**
+- **Building pieces are not instanced.** `plan3d.ts` `buildingBoxes` gives every piece its own `root.clone(true)` (`placedClone`). Each piece is one mesh per sub-mesh, so each is one draw call, culled one piece at a time. That is the 7,535 calls on the wide view. L1's per-building material clones (`windows.ts` `litBuilding`) add no calls of their own, because each piece was already its own call. **The jump from 216 to 906 calls after the Relight is not explained by the clones.** It needs F0's breakdown to say which family grew.
+- **The instanced families are never culled.** Three's `InstancedMesh` culls on one bounding sphere around all its instances, and `tileGroupOf`, `dressGroup`, the furniture, the interior and `circuitGroup` each hold one instancer per key for the whole city. So the district view draws the whole 6 x 6 city's streets, dressing and props: that is about 3.8 M triangles at 216 calls. The view frames the district, but the instancers still draw everything.
+- **Shadows:** off (`LIGHT_MODES.night.shadows` false). Nothing to cut.
+- **Pixel ratio:** `min(devicePixelRatio, 2)` with `antialias: true` (`renderer.ts`). The cost depends on Josh's screen, so F0 measures it.
+- **Per frame in `cityview.ts`:** `drawLive` (wire samples, pulses, sparks, the lit buildings' levels) and the overlay's Canvas 2D repaint. Both are small beside the render. `standCircuit` rebuilds only when a cut's readability changes. The overlay is outside the `perf=1` window, so F0 adds a whole-frame figure.
+- **Lit windows by a per-instance attribute: yes, and it is needed.** Once building pieces are instanced, a material clone per lit building would split its pieces out of the instancers again. So the window level becomes one float per instance, an `InstancedBufferAttribute`. The colourway materials read it, together with L1's window mask, through one `onBeforeCompile` hook, compiled when the city builds. Setting a building's level writes only its instances' slots. L3's dim windows are the same attribute, set once. This adds no program and no draw call whatever the number of lit buildings, and S4's 25 lit buildings cost nothing extra.
+
+**The architect's plan, the smallest that should reach the bar:** instance the building pieces in chunks (F1a), move the windows onto the instances (F1b), and chunk the other instancers (F2) only if F0 shows they carry the time. A draw-distance limit, fewer far props or a lower pixel ratio change how the city looks, so they are Josh's (cards F-Q1 and F-Q2). Nothing in F changes a grammar rule, a stage or a city number, so no pipeline-designer pre-check.
+
+**The bar (the architect's starting point; Josh may move it).** Measured with `perf=1` on 6 x 6 seed 1, P0, the default camera, in the browser pane on Josh's PC, as above:
+- the district view's median CPU frame is at most **16.7 ms**, both before power and after the Relight;
+- F0's whole-frame (rAF) median is at most 16.7 ms on the same view;
+- there is no new program between the first frame after the models load and the end of the Relight.
+
+The 1280 x 800 view's numbers are reported, but they are not a pass bar. They go to Josh with F-Q1.
+
+**Stop rule.** If the district view is still over 16.7 ms after F1b (and after F2, if F2 is built), the builder stops and reports ("stop 081 F", with the branch and the rows). It does not tune pieces, the camera, the reach or the shaders to pass. The main session takes the rows to Josh with F-Q1 and F-Q2.
+
+**Order and measurements.**
+| Step | Who | After | Shares |
+| --- | --- | --- | --- |
+| F0, the breakdown | renderer | now | `cityview.ts` (the `perf=1` log only) |
+| Measure M1: district and 1280 x 800, before power and after the Relight, at the native pixel ratio and at `dpr=1` | main session | F0 merges | |
+| F1a, building pieces instanced in chunks | renderer | F0 | `plan3d.ts`, `models3d.ts` |
+| F1b, windows by instance | renderer | F1a | `windows.ts`, `cityview.ts` |
+| Measure M2: as M1 | main session | F1b merges | |
+| F2, other instancers chunked | renderer | M2, only if the district view is still over the bar and M1 showed the instanced families carry most triangles | `tilecity3d.ts`, `models3d.ts`, `circuitdraw.ts` |
+| F-Q1 and F-Q2 to Josh | main session | M1 for F-Q2; M2 (or F2's measure) for F-Q1 | |
+
+S1 and U3 (outside `src/render3d/`) go on unaffected. L2, L3 and S4 wait for F1b. F0 and F1a can be built at once only if F1a's builder leaves the `perf=1` log alone. One renderer builder at a time is simpler.
+
+#### F0 · `perf=1` says where the frame goes (renderer). Branch `ticket/081f0-perf-breakdown`, now
+**Goal.** The main session can read, from one `perf=1` log line, which family of pieces costs the draw calls and triangles in view, the whole frame's time, and the cost of the pixel ratio.
+
+**Acceptance criteria.**
+1. [ ] **Per family.** The `perf=1` log adds draw calls and triangles in view for each family:
+   - the street tiles, the interior, the building pieces, the grey boxes, the dressing (stage 7), the furniture and traffic, and the circuit;
+   - the live layer, and the lit shop glass.
+
+   It counts as three culls: an object counts when its bounding sphere meets the camera frustum, an instancer counts all its instances, and a mesh counts its index (or position) count / 3. The sum is printed beside `gl.info.render`, so a gap shows. **browser**.
+2. [ ] **The whole frame.** The log also gives the median interval between `draw` calls over the same 300 frames (it includes GPU waits and the overlay), the canvas's pixel size and the pixel ratio in use. **browser**.
+3. [ ] **`dpr=N`** (dev only) sets the pixel ratio the view renders at, in place of `opts.dpr`. **browser**.
+4. [ ] The builder reports both logs (before power, after the Relight) on the district view, in a desktop window. **browser**.
+
+**Count.** 0 tests: a dev log.
+
+**Files.** `src/render3d/cityview.ts` (the `perf=1` block and the `dpr` switch only). **Must not:** everything else in `src/`.
+
+#### F1a · Building pieces instanced, in chunks (renderer). Branch `ticket/081f1a-instanced-buildings`, after F0 merges
+**Goal.** The city's building pieces draw as one instanced mesh per (key, colourway, sub-mesh, chunk), not one clone per piece, so the wide view's thousands of calls drop to a few hundred and the pieces out of view are still culled.
+
+**How (the architect's choice).** `buildingBoxes` keeps its order and its grey fallback. In place of `placedClone` it groups the pieces by key, colourway and chunk (`BUILDING_CHUNK_M`, a square on the ground, default 60 m, about one block with its streets). Each group is one `InstancedMesh` per sub-mesh, with its own bounding sphere. `BuildingsDraw` keeps, for each building, where its instances are (`instances: Map<buildingId, { mesh, index }[]>`), which replaces `groups`. **Buildings in `exclude`** (a new argument) are still drawn as clones in their `building:<id>` groups, as today. Until F1b, cityview passes `lampsOf`'s buildings there, so L1's windows keep working unchanged.
+
+**Acceptance criteria.**
+1. [ ] **One instancer per key, colourway and chunk.** **test**: 1 case, on a fixture of three buildings: two in one chunk share a key and a colourway, and one is in another chunk. The fixture draws one instancer per sub-mesh for the shared pair, holding both buildings' pieces at their placements' matrices, and a separate one for the far building. `instances` finds each building's pieces.
+2. [ ] **Excluded buildings stay clones.** **test**: 1 case: an excluded building's pieces are wrappers in its `building:<id>` group, painted in its colourway, and appear in no instancer.
+3. [ ] **The existing building tests read the instances.** **test**: rewritten, at most 6, and the builder lists them. Candidates in `plan3d.test.ts`: "draws one wrapper per piece ...", "paints a building in its loaded colourway ...", "with empty roots clones no piece ...", "draws every ground wrapper ...", "keeps the base atlas on every stage 7 and 8 piece ..." and "paints the stop sign's meshes on 01_A ...". A small test helper that lists a building's piece matrices from `instances` keeps each rewrite to a few lines.
+4. [ ] **Measure.** On the district view and 1280 x 800, before power, the building pieces' calls (F0's family) and the median are reported. **browser**.
+
+**Count.** 2 added, at most 6 rewritten: at most 8.
+
+**Files.** `src/render3d/plan3d.ts` (`buildingBoxes`, `BuildingsDraw`, `plan3dGroups`'s `exclude` pass-through) and `plan3d.test.ts`; `src/render3d/models3d.ts` (`paintStack` only, if it needs a material-level form); `src/render3d/cityview.ts` (the one `exclude` argument in `build`). **Must not:** `windows.ts`, `tilecity3d.ts`, `circuitdraw.ts`, everything outside `src/render3d/`.
+
+#### F1b · Lit windows by instance, not by clone (renderer). Branch `ticket/081f1b-instance-windows`, after F1a merges
+**Goal.** A lit building's windows glow through its instances, so every building (all of S4's, too) stays in the shared instancers, and lighting more buildings adds no draw call and no program.
+
+**Acceptance criteria.**
+1. [ ] **The level attribute.** Every building instancer carries a `windowLevel` `InstancedBufferAttribute` (one float per instance, 0 at build). The colourway materials take L1's `windowMask()` as their emissive map, through one `onBeforeCompile` hook (emissive = mask x the instance's level x `WINDOW_LIT`), compiled when the city builds. `setBuildingGlow(draw, buildingId, glow)` writes only that building's slots, with `windowIntensity`'s flare, and marks the touched attributes for upload. **test**: 1 case, on F1a's fixture: lighting one building sets its slots to its level and leaves the other building's slots at 0, the material is the same object before and after, and no material was cloned.
+2. [ ] **L1's clones go.** `litBuilding`, `LitBuilding` and F1a's `exclude` argument go. F1a's criterion 2 case is removed with it, and a removal is not counted. `drawLive` calls `setBuildingGlow` for each of `lampsOf`'s buildings. `litGlass` (the shop glass, already one mesh) is unchanged. **test**: 1 rewritten: `windows.test.ts`'s "the swap gives the lit building's pieces clones ..." becomes criterion 1's case, so the net change is 1.
+3. [ ] **No program in play.** With `perf=1`, there is no new program between the first frame after the models load and the end of the Relight, and the after-the-Relight draw calls are no more than before power's + 1 (the lit glass). **browser**.
+4. [ ] **The bar.** The builder reports M2's rows (district and 1280 x 800, before power and after the Relight). If the district view is over 16.7 ms, the stop rule applies. **browser**.
+5. [ ] Josh plays `city-two-ways-round`: the three lamp buildings light in the Relight's order and flicker in a brownout, as after L1. **browser**.
+
+**Count.** 1 rewritten (net; criterion 1's case is the rewrite): 1.
+
+**Files.** `src/render3d/windows.ts` and `windows.test.ts`; `src/render3d/plan3d.ts` (the attribute on the building instancers and the material hook only); `src/render3d/cityview.ts` (the build step and `drawLive`'s lit-building loop). **Must not:** as F1a.
+
+#### F2 · The other instancers culled in chunks (renderer). **Only if M2 calls for it**; branch `ticket/081f2-chunked-instancers`
+**Goal.** The street tiles, dressing, furniture and circuit draw only the chunks in view, so the district view stops drawing the whole city's triangles.
+
+**How.** `tileGroupOf`, `dressGroup` and `circuitGroup` take an optional `chunk_m`. When it is given, each key's instancer is split by the same square grid as F1a, each part with its own bounding sphere. The draw-call caps (`DRESS_DRAW_CALLS_MAX` and the rest) still count keys, not chunks, so no key drops out because of chunking. The tile sheet and `city=tiles` routes pass no `chunk_m` and are unchanged.
+
+**Acceptance criteria.**
+1. [ ] **Split, and the cap counts keys.** **test**: 1 case, on a fixture of one key placed in two chunks at a cap of 1: the result is two instancers with disjoint bounding spheres, holding all the instances between them, and the key is drawn.
+2. [ ] **Unchanged without `chunk_m`.** **test**: 0 added. The existing `tilecity3d.test.ts` and dressing cases pass unchanged.
+3. [ ] **The bar.** M3 as M2; the stop rule applies. **browser**.
+
+**Count.** 1 added. The builder lists any existing case it rewrites, at most 4.
+
+**Files.** `src/render3d/tilecity3d.ts`, `models3d.ts` (`dressGroup`), `circuitdraw.ts` (`circuitGroup`), `plan3d.ts` and `cityview.ts` (passing `chunk_m`), and their tests. **Must not:** everything outside `src/render3d/`.
+
+**Cards for Josh (the main session asks them, with the measured rows; recommended options first):**
+- **F-Q1, after M2 (or M3): the far city.** Asked only if the district view, or the 1280 x 800 view, is still slow.
+  - "Keep the whole city drawn (Recommended while the district view is under the bar)".
+  - "Stop drawing past N m from the camera": the camera's far plane, with a dark-blue fade so the edge does not show. It is cheaper on wide views, but the far blocks go dark.
+  - "Drop small props past N m": benches, bins and signs. Buildings and streets stay.
+- **F-Q2, after M1, only if `dpr=1` saves more than 2 ms: the pixel ratio.**
+  - "Render at your screen's full sharpness (Recommended if the bar is met without it)".
+  - "Render at 1x and let the browser scale it up": cheaper, but softer edges and text-like detail on a high-DPI screen.
+
+**Rules coverage.** No rule changes: F is drawing only. No `tickets/rules-coverage.md` row moves.
+
+**Interfaces.** None in `src/core/`: `BuildingsDraw.instances`, `setBuildingGlow` and `chunk_m` are internal to `src/render3d/`. No new dependency: `InstancedBufferAttribute` and `onBeforeCompile` are Three's.
+
+### FX · Particle effects on the city (renderer; FX1 grid-simulator). Cut 24 Nov 2026, in three PRs: FX1 and FX2 (now, side by side), then FX3. Re-cut the same day on Josh's G1 and cards
+**Josh, 24 Nov 2026, on a card:** "Particle FX cut". From earlier sessions (handoff 24 Nov 2026): he owns a particle pack, wants it rebuilt in Three.js (its effects are Unity prefabs), and wants it for **live-break sparks, the Relight, brownout arcing and repair flashes**, after the lighting.
+
+**Josh's answers, 24 Nov 2026, on cards (relayed by the main session):**
+- **G1:** **"Approve, FX2 first (Recommended)"**. FX2 no longer waits for L3 and S4; they merge `main` in and rebase on FX later. FX1 and FX2 may run now, side by side.
+- **FX-Q1, the order:** **"Sparks first (Recommended)"**: FX2 (sparks and repair flashes), then FX3 (the Relight and arcing).
+- **FX-Q2, the pack's meshes:** **"Meshes too"**. The pack's spark and shard meshes (`FX_MESHES`, `src/core/fx.ts`) are converted for the game pack, in **FX1** (folded in: the same owner, `tools/assets/`, and the same file, `game.ts`; its PR stays at 4 cases). FX2 does not wait for them: it draws sprites, and uses a mesh only when the loaded models hold it.
+- **The budgets:** **"1.5 ms / 2.0 ms (Recommended)"**, as written in FX2 criterion 7 and FX3 criterion 4.
+- **FX-Q3 and FX-Q4** stay open until before FX3.
+
+**Josh, 24 Nov 2026, on cards, after playing FX2 (PR #62):** "even after fixing the wire, the sparks are still there. They should disappear after a wire is repaired. Also the sparks should be extreme." Then **"Merge FX1, fix FX2 (Recommended)"**, and for what "extreme" means he picked all four: **"More of them", "Bigger, brighter", "Fly further", "Crackle arcs"**. FX1 merged as #61. FX2 is amended below (criteria 3, 4, 4b, 4c, 6, 7, 8 and the count; re-cut 24 Nov 2026), on its built branch `ticket/081fx2-sparks`. The budget stays "1.5 ms / 2.0 ms (Recommended)".
+- **Why the sparks stayed:** he played with `fx=all`, which by design sparks every cut whatever its state. Normal play already stops a repaired cut (`sparkingCuts` checks `state.faults`; criterion 4's test holds it). Criterion 4c makes it explicit and checks it in the pane, and criterion 8 is played with no `fx` switch.
+- **`fx=all` (the architect's call, not a Decided rule):** it stays the worst-case measure and keeps sparking every cut, a repaired one too, because the heaviest frame is after the Relight with every lamp lit, and only `fx=all` puts sparks on it. It is never used for a play check, and while on it says so on screen and in one console line (criterion 6).
+
+**What the pack holds (read 24 Nov 2026, `D:\rest-prototype-main\assets\private\in\particle-fx-pack\Source Files\`).** 58 FBX meshes (and the same as OBJ), 27 PNG textures and `MaterialList_PolygonParticleFX.txt`, which lists the Unity prefabs and their material slots. There are no prefab files: every prefab's slots say "Uses custom shader". The prefabs nearest Josh's four: `FX_Sparks_01` (round cut-out sparks and a glow), `FX_Electricity_01`/`_02`, `FX_LightningStrike_01`, `FX_GlowSpot_01` to `_03` and `FX_Sparkles_Small_01`. Their textures are the four this section takes (`FX_TEXTURES`, `src/core/fx.ts`): `Sparkle` (512 x 512, a four-point star), `Soft_Spot` (512 x 512, a soft round glow), `Lightning_02` (172 x 1024, a vertical bolt strip) and `Smoke_01` (200 x 200, a puff).
+
+**How (the architect's choices; none is a Decided rule).**
+- **Sprites first, meshes where loaded, and no prefab import.** Each effect is camera-facing sprites with one of the four textures, moved by a small CPU particle pool in `src/render3d/fx.ts`: spawn, velocity, gravity, drag, age and fade. This is what the Unity prefabs do with their particle systems. ~~The pack's FBX meshes would need the Blender converter and a manifest change for little gain, so they are not used.~~ **Changed by FX-Q2 ("Meshes too"):** the pool also drives two instanced meshes from the pack, a spark streak (`FX_Spark_01`, stretched along each spark's flight) and a small shard (`FX_Shard_Rock_Small_01`, hot chips thrown by a break burst and a repair). They are geometry only, under the renderer's own additive material, since the pack's materials are Unity custom shaders. FX1 converts them; when the loaded models lack one (no particle pack, CI), that particle is drawn as a sprite.
+- **No new dependency.** A particle library (three.quarks, three-nebula) would be one, and is not taken. A pool of a few hundred sprites is small code.
+- **Drawn from grid state and the Relight clock only.** The renderer stays bus-free (`MapRenderer.notify` is unchanged, and `src/main.ts` forwards nothing new):
+  - live-break sparks from `state.sparking` and E2's live-cut rule (the cut span is still there and current reaches it, or the Relight's fraction is past it);
+  - repair flashes from the change between the last frame's state and this one: a fault id that has left `state.faults` while `state.parts` got shorter. An undo or reset that removes a fault gives back parts, and a fuse that blows adds a fault, so neither flashes;
+  - Relight bursts from the Relight clock's lamp arrivals (`relight3d.ts`, as L1's `buildingGlow` reads them);
+  - brownout arcs from `state.brownout`, `state.feeds` (`over`) and `state.feedOf`.
+- **The same sparks mean a break, and only a break** (the brief, Decided: "current up to a sparking break"; "faults hide faults"; "Damaged cables spark when live"). Break sparks are warm (white-hot to orange-red) and fly from the middle of the cut span only. The break's crackle arcs (FX2 criterion 4b, 24 Nov 2026) are warm too, white-hot to amber, and stand only across a live cut. Brownout arcs must not read as a break. They are cold blue-white bolts, at a pole's insulators (never mid-span, never at a cut), and come only while the section is browned out. A repair flash and a Relight burst last under 1 s and never repeat. No effect shows at an unreadable fault.
+- **Job only.** Effects stand only on the job's own places: its cuts, its fault places, its lamps and its live poles. Hidden scenery lamps (S1) get no Relight burst, as U3 keeps them silent. The rest of the city is dead (CK14).
+- **No shader compiles in play** (as L1 and L2). Every effect mesh (at most one per texture and one per pack mesh, so at most 6 draw calls for the section) is made when the city builds, at its full pool size, with additive blending and `depthWrite` off. It is compiled before the first frame of play, with `count` 0 or an invisible particle, never added or removed later.
+- **The other fault signals are not in this section.** The schema's derived signals (a dead junction fizzes, a blown fuse buzzes, a dead lamp flickers red) have no 3D look yet. FX2's pool would carry them later as a small section of their own, if Josh asks.
+
+**How the textures and meshes reach the game, under the licence (Josh, 16 Nov 2026: "as long as the assets aren't available to the end user and I place the site behind a password").**
+- The pack stays in git-ignored `assets/private/in/particle-fx-pack/`. Nothing from it is committed, `import`ed into the bundle, or copied into `public/` or `dist/`. Its `pack.json` and its converted GLB live under `assets/private/` too.
+- **FX1, the textures:** `npm run assets:game` (082 B, `tools/assets/game.ts`) also copies the four PNGs into `assets/private/out/game/fx/`, and lists them in the game manifest's `fx` (`AssetManifest.fx?`, `AssetFxTexture`, typed with this cut).
+- **FX1, the meshes:** the pack is converted once like any other (`npm run assets:convert particle-fx-pack`, so the full manifest gains `particle-fx-pack`). `npm run assets:game` then cuts the `FX_MESHES` keys the full manifest holds into `out/game/particle-fx-pack.glb`, beside the models. A key the full manifest lacks is listed in one line and skipped, never a failed run, so a machine without the particle pack still gets its models.
+- The main session re-runs both from `D:\rest-main-play` after FX1 merges, as after any model key change.
+- **FX2:** the renderer fetches `${dir}game/manifest.json` and loads each listed texture by URL at run time, as `models3d.ts` loads GLBs. It loads the `FX_MESHES` keys in a `loadModels` call of their own, after the city's, so a game pack without them never sends the city's own models to the full packs.
+- **No pack, no problem.** With no game pack, an older one without `fx`, or a failed image, each effect uses a texture drawn in code (a `DataTexture`, as L1's window mask is), with one console line. A missing mesh is drawn as a sprite. So Linux CI, which has no assets, and a fresh clone both run. No test reads a real PNG, GLB or the real manifest; tests use fake fetches and typed fixtures.
+
+**The frame budget.** The bar is 16.7 ms (60 fps) on Josh's PC. The district view is about 8.5 ms CPU before power (L2's in-view rows, `docs/design/081-F-measurements.md`). Sessions on this PC differ by several ms (7.9 to 14.4 ms on the same view), so each section's budget is measured against an `fx=0` run **in the same session**, not against the note's number.
+
+**Pipeline-designer pre-check: not needed.** No grammar rule, stage or city number changes. FX is drawing in `src/render3d/` and a copy step in `tools/`. The particle counts and colours are looks Josh judges by eye.
+
+**Rules coverage.** FX2 criterion 4 adds a city-view case to the "Signatures" and "Faults hide faults" rows of `tickets/rules-coverage.md`: sparks only at a live cut, none at an unreadable one.
+
+**Cards for Josh (recommended options first):**
+- ~~**FX-Q1, the order.**~~ Answered: "Sparks first (Recommended)".
+- ~~**FX-Q2, the pack's meshes.**~~ Answered: "Meshes too" (folded into FX1, above).
+- **FX-Q5, not blocking: the shard.** After FX1's conversion, the main session shows Josh the pack's five shard meshes in the gallery (`FX_Shard_Rock_01` to `_04`, `FX_Shard_Rock_Small_01`) and `FX_CrystalShard_01`. "Keep `FX_Shard_Rock_Small_01` (Recommended)" or the one he picks; a swap is one line in `FX_MESHES` (the architect's), plus a re-run of `npm run assets:game`.
+- **FX-Q3, before FX3: where brownout arcs show.** "A few at a time on the overloaded feed's live poles (Recommended)": at most 3 at once, cold blue-white, at insulators. Or "Only at the feed's own pole". Or "None: the flicker is enough", in which case FX3 is the Relight only.
+- **FX-Q4, before FX3: the Relight.** "A sparkle burst at each puzzle lamp as it lights (Recommended)": the scenery buildings light with no burst. Or "At every building that lights, scenery too": about 25 bursts on P0, inside FX3's budget or not shipped. Or "One burst at the last target".
+
+**Order (re-cut for "Approve, FX2 first (Recommended)").** FX1 and FX2 start now, from `main`, side by side (the two agents Josh allows at a time).
+- FX1 is in `tools/assets/` only and shares no file with any open section.
+- FX2 does not wait for FX1: its code-made textures and sprites stand in, and it codes against the `src/core/fx.ts` types committed with this cut. Josh sees the pack's own textures and meshes once FX1 has merged and the main session has run the conversion and `npm run assets:game`.
+- FX2 shares `cityview.ts`'s live layer and build step with **S4** and L3's build step. FX2 goes first; L3 and S4 branch after it merges, or merge `main` in and resolve `cityview.ts` if already started. S4's criteria are unchanged by FX: it adds wires to the live layer, and FX2 only replaces the box sparks in it.
+- FX3 branches after FX2 merges, once FX-Q3 and FX-Q4 are answered.
+
+#### FX1 · The particle pack converted, and the game pack holds its textures and meshes (grid-simulator). Branch `ticket/081fx1-fx-textures`, now
+**Goal.** Josh runs `npm run assets:game` and the game pack also holds the four particle textures and the two particle meshes the city view uses, listed in its manifest. On a machine without the particle pack, the command still cuts the models and says what is missing.
+
+**Acceptance criteria.**
+1. [ ] **The copy.** `runGame` copies each `FX_TEXTURES` file from `assets/private/in/${FX_SOURCE_PACK}/${FX_SOURCE_DIR}` to `out/game/${FX_GAME_DIR}`. It writes through the same temp-then-move step as the GLBs, so a failed run leaves the earlier game pack whole. The game manifest gains `fx`: one `AssetFxTexture` per copied file, in `FX_TEXTURES` order, `image` relative to the game manifest (`"fx/PolygonParticles_Sparkle.png"`). **test**: 1 case, with fake file-system deps: the four files are copied under `out/game/fx/`, and `fx` lists them in order.
+2. [ ] **Missing textures do not stop the models.** If the pack folder or any file is missing, the run still writes the game pack: `fx` lists only the files found (absent if none), with one line naming the missing files and the folder looked in. Exit 0. **test**: 1 case: two of four files present give an `fx` of two and one line naming the other two.
+3. [ ] **Nothing else changes.** The full manifest, the full GLBs and the model part of the game pack are as before. An existing `game.test.ts` case that compares the whole game manifest may be rewritten for `fx` (at most 1, named in the reply). **test**: 0 added.
+4. [ ] **README.** `tools/blender/README.md`'s *Game pack* section gains one line: the `fx/` folder, where it is copied from, and the licence line (git-ignored, never committed or shipped). **no test**.
+5. [ ] **The particle meshes in the game pack** (FX-Q2, "Meshes too"). `runGame` cuts the `FX_MESHES` keys with the models, through 082 B's include filter, so `particle-fx-pack.glb` holds only those two. They are optional, unlike the page's keys:
+   - a key the full manifest holds joins the plan, and `game.keys`;
+   - a key it lacks (the pack not converted, or a root name that differs) is left out, with one line naming it and saying to run `npm run assets:convert particle-fx-pack`;
+   - exit 0, and the models are cut as before.
+
+   `deps.keys()` (the page's keys, from `gameModelKeys()`) is not edited, so a missing FX mesh never fails the cut. **test**: 1 case, with a fixture manifest holding `spark` but not `shard`: the plan includes the spark's pack and entry, and one line names the shard.
+6. [ ] **The pack's conversion** (the builder, on Josh's machine; nothing committed). Write `assets/private/in/particle-fx-pack/pack.json` (the scale and any `exclude` the meshes need; the OBJ folder is not FBX and is skipped anyway), and run `npm run assets:convert particle-fx-pack`. The reply gives the `pack.json` text, each `FX_MESHES` key's root name and metre bounds from the full manifest, and any `scale-suspect` flag or failure. A spark streak should be tens of centimetres, not metres. If a root name differs from `FX_MESHES`, the builder stops and reports, and the architect re-cuts the table; it does not edit `src/core/`. The pack's custom-shader materials may fail their texture search; that is reported, not fixed, since only the geometry is used. **no test**.
+7. [ ] **The run** (the main session, after merge, from `D:\rest-main-play`, whose `assets/private/in` junction reaches the pack): the conversion of criterion 6 if `out/` there lacks the pack, then `npm run assets:game`. Afterwards `out/game/fx/` holds the four PNGs, `out/game/particle-fx-pack.glb` the two meshes, and the manifest lists both. **no test**.
+
+**Count.** 3 added, at most 1 rewritten: at most 4.
+
+**Files.** `tools/assets/game.ts` and `game.test.ts`, `tools/assets/fixtures/` (if a fixture is needed), `tools/blender/README.md` (criterion 4's line also names the particle pack's conversion). Not in git: `assets/private/in/particle-fx-pack/pack.json`, `assets/private/out/`. **Must not:** `src/` (it imports `src/core/fx.ts` and edits nothing), `tools/assets/convert.ts` and `convert_fbx.py` (the conversion runs as it is; if the pack will not convert without a code change, the builder stops and reports), `package.json`, `.gitignore` (`assets/private/` already covers all of it).
+
+#### FX2 · The particle pool, live-break sparks and repair flashes (renderer). Branch `ticket/081fx2-sparks` (PR #62), now (G1: "Approve, FX2 first (Recommended)"; before L3 and S4). Amended 24 Nov 2026 after Josh played it ("the sparks should be extreme"; "They should disappear after a wire is repaired")
+**Goal.** Playing `city-two-ways-round`, a live break is violent: a dense, steady spray of big white-hot sparks that fly metres out, fall, and bounce on the street, with a hard flash and a pop every second or so, and warm crackling arcs jumping across the cut. A break that current does not reach shows nothing. Repairing it stops the spray at once (the last sparks finish their fall) and gives a short bright flash at its place. The frame still holds 60 fps.
+
+**Acceptance criteria.**
+1. [ ] **The textures.** A new `src/render3d/fx.ts` exports `fxTextures(deps)`. It fetches `${dir}game/manifest.json` (dev only, as the models are) and loads each `FX_TEXTURES` id listed in its `fx` by URL (`${dir}game/<image>`). Any id not listed, or whose image fails to load, takes `fxFallback(id)`: a `DataTexture` drawn in code (a four-point star, a soft dot, a jagged vertical bolt, a soft blob). One line names the fallback ids ("3D effects: drawn textures for sparkle, smoke; run npm run assets:game."). It never throws, and textures are never `import`ed. **test**: 1 case, with a fake fetch and loader: a manifest listing two ids gives two URLs under `game/fx/` and two fallbacks with one line; no manifest gives four fallbacks.
+2. [ ] **The pool (pure).** `createParticlePool(max)` holds position, velocity, age, life, size and colour in preallocated typed arrays. It has `spawn(...)`, and `step(dt, gravity, drag)`, which moves, ages and frees the dead. When full, `spawn` reuses the oldest particle. Neither allocates per call. **test**: 1 case: particles fall under gravity, die at their life, and a spawn on a full pool replaces the oldest.
+3. [ ] **The draw meshes.** One sprite mesh per texture used (`Points` with a size attribute, or an instanced camera-facing quad: the builder's choice, said in the reply), and one `InstancedMesh` per pack mesh loaded (criterion 3b). Each is made at build at its full pool size, additive, `depthWrite` off, and compiled before the first frame of play. Per frame, only the pool's arrays, the instance matrices and `count` are written. At most 6 draw calls are added by FX2 (sparkle, soft spot, smoke, lightning, spark mesh, shard mesh; 4 with no pack meshes). The lightning layer (criterion 4b) takes a colour per instance, so FX3's brownout arcs draw in it too and add no call.
+   - **Pool sizes (amended 24 Nov 2026).** Sized at build from the job's cut count `n` (`createFxLayer(emitters)`), no longer fixed: per cut, spark 512, sparkle 512 (the spark fallback and the pops), shard 128, soft spot 48, smoke 24, lightning 8; plus, once for the whole layer, sparkle 256 and shard 32 and soft spot 16 for repair flashes. On P0 (`n` = 2) that is 1,280 sparkle, 1,024 spark, 288 shard, 112 soft spot, 48 smoke and 16 lightning, against 384 / 256 / 96 / 64 / 48 / 0 before. A full pool reuses the oldest (criterion 2), so a pool too small thins the spray, never fails; the builder gives the peak alive count per layer under `fx=all` in the reply.
+   **no test**: criterion 7 measures it.
+3b. [ ] **The pack meshes, when loaded** (FX-Q2, "Meshes too"). `fxMeshes(deps)` in `fx.ts` loads the `FX_MESHES` keys in a `loadModels` call of their own (`models3d.ts`, used as it is), after the city's models. It gives each id's geometry, or null for an id the set lacks, with one line naming the missing ids. A spark with a loaded `spark` mesh is drawn as that streak, oriented and stretched along its velocity; otherwise as a sparkle sprite. A `shard` chip is drawn with the shard mesh, tumbling; otherwise as a small sprite. The meshes take the effect's own additive material, not the pack's. If the meshes cannot be loaded without editing `models3d.ts`, the builder stops and reports ("stop 081 FX2"); the architect re-cuts. **test**: 1 case, with a fake load giving `spark` but not `shard`: the spark's geometry is returned, the shard is null, and one line names it.
+4. [ ] **Live-break sparks.** E2's box sparks (`sparkMesh`, `SPARKS_PER_CUT`) go. A pure `sparkingCuts(...)` in `fx.ts` gives the cut spans that spark this frame, by E2's rule moved out of the loop unchanged: the cut is still there, `state.sparking` has its line, and while the Relight runs, its line's fraction is past 0. Each sparking cut emits, from the middle sample of its cut span (where E4's break icon sits). **Amended 24 Nov 2026 for "extreme"** ("More of them", "Bigger, brighter", "Fly further"); the numbers are the architect's starting point, judged by Josh's eye in criterion 8, and all random draws are seeded:
+   - **More of them.** A burst every 0.05 to 0.12 s (was 0.1 to 0.3 s) of 18 to 26 sparks (was 6 to 9), the spark mesh, else sparkle sprites (criterion 3b), with 4 to 6 shard chips (was 2 or 3). And a **pop** every 0.6 to 1.2 s: 50 to 70 sparks at once, half again as fast as a burst's, with a big flash (below). About 300 to 350 sparks a second per cut.
+   - **Bigger, brighter.** Sparkle sprites 0.9 m across (was 0.5 m); a spark streak 0.15 m thick and stretched to 0.5 to 1.5 m along its flight by its speed (twice what it was). Colour by age: white-hot (1.0, 0.97, 0.85) for the first 30 % of life, then yellow-orange (1.0, 0.65, 0.2), then deep orange-red (0.9, 0.25, 0.05) as it fades; never blue (blue at most half the red, all life). Each burst has a soft-spot flash 2.5 m across over 0.12 s; each pop one 5 m across over 0.25 s, white to amber; and while the cut sparks, a steady soft-spot glow 1.5 m across sits on the cut, its brightness flickering between 0.6 and 1.0 each frame (seeded), so the break lights the street round it.
+   - **Fly further.** Sparks leave at 3 to 8 m/s sideways (was 1.2 to 4.2) in every direction round the span and 2 to 7 m/s up (was 1.5 to 5), a fifth of them thrown down instead (0 to -3 m/s up); gravity 9.8 m/s², drag 0.6 (was 1.0); each lives 0.7 to 1.4 s (was 0.4 to 0.8). From a pole-top cut they reach 4 to 10 m out.
+   - **Ground bounce.** A spark or chip that reaches the ground under the cut bounces once: its fall reversed at 0.35 of its speed, its sideways speed at 0.6, and one in three splits into two sparks half its size with the rest of its life. At its second touch it dies. The ground is one height per cut, passed with the cut's place: the street height at the cut span's poles' feet, as `cityview.ts` already knows them, or the city's ground plane if it does not. `step` gains that floor (an optional argument, so criterion 2's case stands).
+   - **Smoke:** about two wisps a second (was one), 1.5 m across, rising 1 m/s.
+
+   Brownout does not change them. **test**: 1 case on a fixture: a live cut sparks; an unreadable cut, and a cut whose fault is repaired, do not.
+4b. [ ] **Crackle arcs at the cut** ("Crackle arcs", 24 Nov 2026). A new lightning layer draws the `lightning` texture (`Lightning_02`, or its drawn fallback, criterion 1) on camera-facing quads stretched between two ends. A pure `cutArcs(cut, time, out)` in `fx.ts` gives a sparking cut's arcs this frame from its cut span's two end points and the time alone (a hash of the cut and the time slot, as FX3's `arcSpots`, so it allocates nothing and repeats for the same inputs):
+   - 1 or 2 at once, each flicking for 0.05 to 0.12 s, a new one every 0.08 to 0.25 s;
+   - each between two points on the cut span within 1.5 m either side of its middle sample (never past the span's ends, never at a pole's insulator), its width 0.25 to 0.4 m, flipped or not at random;
+   - tinted warm: a white-hot core (1.0, 0.95, 0.8) to amber (1.0, 0.7, 0.3), blue never above 0.8 of red, so it never reads as FX3's cold blue-white brownout arc (which stands only at insulators, never at a cut);
+   - drawn only while the cut sparks (criterion 4's rule), with a soft-spot flash 1 m across at its middle on each new arc.
+
+   **test**: 1 case on a fixture span: over 2 s of time slots, every arc's ends lie on the span within 1.5 m of the middle sample, there are never more than 2, and every arc's colour has blue at most 0.8 of red.
+4c. [ ] **A repaired cut stops at once** (Josh: "They should disappear after a wire is repaired"). In normal play (no `fx` switch), on the frame a cut's fault leaves `state.faults`, its emitter stops: no burst, pop, smoke, glow or arc is spawned for it from that frame, its steady glow and arcs are gone that frame, and its timers are reset so a fault that comes back (an undo) starts fresh. Sparks already in flight finish their life (at most 1.4 s, with the bounce). The same holds when a cut stops being reached (a switch thrown back). **test**: 1 case on `createFxLayer` with one emitter and no WebGL: after 1 s of `breakAt` and `update`, the cut stops being fed; the next frame has no glow or arc instance, no layer's count rises after it, and after 1.5 s more every count is 0. **browser**, in the pane: repair `l_e2`'s cut in normal play, and within a frame its spray, glow and arcs stop, and in under 1.5 s nothing of it is left.
+5. [ ] **Repair flashes.** A pure `repairedFaults(prev, now)` gives the fault ids that left `faults` while `parts` got shorter. Each flashes once at its place: a line fault at its cut span's middle sample, a node fault at its node's place (the pick place E2 centres on). The flash is a soft-spot bloom over about 0.4 s and a ring of sparkle sprites with a few shard chips, white to warm. **test**: 1 case: a repair gives its id; an undo that restores the fault and parts, a reset, and a fuse that blows (a new fault, parts unchanged) give none.
+6. [ ] **Dev switches** (behind `import.meta.env.DEV`, read from the address in `cityview.ts`): `fx=0` draws no effect, and `fx=all` runs every FX2 effect at once, without stopping, at every cut and fault place of the job, whatever its state. This is for the measure only. **Amended 24 Nov 2026:** `fx=all` stays the worst case, so it still sparks a repaired cut (with the pops, glow and crackle arcs of criteria 4 and 4b), but it is never used to judge play: while it is on, the `perf=1` label and the canvas corner say "fx=all: every cut sparks whatever its state (measure only)", and one console line says so at load. Normal play is the address with no `fx`. **no test**.
+7. [ ] **The budget.** With the browser pane in view on Josh's PC: 6 x 6 seed 1, `?puzzle=city-two-ways-round&perf=1`, the default camera, a fresh load per run, all in one session. Three runs: `fx=0`, as played (the Relight played: throw `sw`, repair `l_e2`), and `fx=all`. The builder reports draw calls, programs, the CPU median before power and after the Relight, and the whole frame, for each run.
+   - **Pass:** against `fx=0`, `fx=all` adds at most 1.5 ms to the CPU median before power and after the Relight, and the median is at most 16.7 ms. The whole frame holds the 60 Hz vsync (about 16.7 ms). At most 6 more draw calls (4 with no pack meshes; was 5 and 3, before the lightning layer). No new program between the first frame after the models load and the end of the Relight. **Re-measured after the 24 Nov 2026 amendment**, with the pack's own textures and meshes (FX1 is in: the main session runs `npm run assets:game` in the builder's worktree first), as a new block in `docs/design/081-F-measurements.md` beside the first; the reply adds the peak alive count per layer under `fx=all`.
+   - **Stop rule:** if any of these fails, the builder stops and reports ("stop 081 FX2", with the branch and the rows). It does not cut particle counts or tune the effect to pass. The main session puts the numbers to Josh, and the architect re-cuts with his answer.
+   
+   The budget is the architect's starting point, not a GDD number. **browser**.
+8. [ ] Josh plays `city-two-ways-round` from `npm run dev`, **with no `fx` switch** (normal play), from the default camera and `cam=street`: the cut sparks once current reaches it, and not before, and reads as extreme (dense, big, bright, far-flying, bouncing, with warm crackle arcs); repairing it stops the spray at once and flashes; the effects read as sparks, arcs and a flash, not as squares. **browser**.
+
+**Count.** 7 added, in new `src/render3d/fx.test.ts` (under 2 s: fixtures only, no city build): the 5 built, plus 4b's and 4c's (24 Nov 2026). None of the 5 is rewritten unless a changed number breaks one (criterion 2's pool case if `step`'s floor changes it; named in the reply). No existing case asserts E2's box sparks (`overlay.test.ts`'s `sparking` flag is the overlay's and stays); if one does, it is rewritten and named in the reply. At most 8 in the PR.
+
+**Files.** New `src/render3d/fx.ts` and `fx.test.ts`; `src/render3d/cityview.ts`: the live layer's sparks, the build step (the effect meshes and the texture load), the frame loop's calls into `fx.ts`, `fx=` and its `perf=1` label, and (24 Nov 2026) each cut's ground height and span ends passed to the layer and `fx=all`'s notice; `docs/design/081-F-measurements.md` (criterion 7's block). **Must not:** `overlay.ts`, `circuitdraw.ts`, `windows.ts`, `plan3d.ts`, `models3d.ts`, `relight3d.ts` (read only); `src/render/`, `src/core/`, `src/city/`, `src/grid/`, `src/play/`, `src/ui/`, `src/main.ts`, `tools/`, `public/`, `vite.config.ts`.
+
+#### FX3 · Relight bursts and brownout arcing (renderer). Branch `ticket/081fx3-relight-and-arcs`, after FX2 merges and FX-Q3 and FX-Q4 are answered
+**Goal.** In the Relight, each puzzle lamp throws a burst of sparkle and a soft flash as it lights, in the Relight's order. In a brownout, short cold blue-white arcs flick at the insulators of the overloaded feed's live poles, a few at a time, until the load is shed. Written to the recommended answers; the architect re-cuts if Josh picks others.
+
+**Acceptance criteria.**
+1. [ ] **Relight bursts.** A pure `relightBursts(plan, lamps, prevT, t)` in `fx.ts` gives the job lamps (never a `converted.hidden` lamp) whose arrival on the Relight clock falls in `(prevT, t]`, in ignition order. Each bursts once, for about `FLARE_SECONDS`, at the lamp's place: a building lamp in front of its street face (L2's `lightPlaces` point), a post lamp at its glow. The burst is a soft-spot flash and a fountain of sparkle sprites in the lit pane's amber (L1). A click during the Relight changes nothing: the bursts come from the clock, as E2's case holds. **test**: 1 case, on P0's file through `relightFrame`'s plan (the module cache): every target lamp bursts exactly once, in the order `relightFrame` lights them, and no hidden lamp bursts.
+2. [ ] **Brownout arcs.** A pure `arcSpots(state, poles, time, max)` in `fx.ts` gives at most `max` (`ARCS_AT_ONCE`, 3) arcs this frame:
+   - only while `state.brownout`;
+   - only on job poles whose line is powered and carried (`feedOf`) by a feed whose `feeds` entry is `over`;
+   - each lasting 0.08 to 0.15 s, chosen by a hash of the pole and the time slot, so a frame's answer depends on its inputs alone.
+
+   An arc is one lightning-textured quad, stretched between two of the pole's insulators, or from an insulator 0.6 m along its wire where the pole has one. It has a small soft-spot flash and is tinted cold blue-white (blue at least red; FX2's cut arcs are warm, blue at most 0.8 of red). It never stands at a cut or mid-span (see *The same sparks mean a break*). It draws in FX2's lightning layer (criterion 3, colour per instance), so no draw call is added (re-cut 24 Nov 2026; was at most 1). **test**: 1 case on a fixture: arcs only while browned out, never more than `max`, never on a dead pole or on a pole of a feed that is not over (two feeds, one over).
+3. [ ] **`fx=all`** gains the bursts (one lamp every 0.5 s, round the job's lamps) and `max` arcs on every job pole. **no test**.
+4. [ ] **The budget,** as FX2 criterion 7, for the whole section: against `fx=0` in the same session, `fx=all` adds at most 2.0 ms to the CPU median and stays at most 16.7 ms, the vsync holds, at most 6 draw calls more than `fx=0` (FX2's 6, the lightning layer among them; FX3 adds none), and no new program in play. It has the same stop rule ("stop 081 FX3"). **browser**.
+5. [ ] Josh plays `city-two-ways-round`: overload it (P0's trap), and the arcs flick until he sheds load; then play to the Relight, and each lamp bursts as it lights. The arcs do not read as a broken cable: cold blue-white at the insulators, against a live cut's warm crackle across the span (FX2 criterion 4b). **browser**.
+
+**Count.** 2 added, in `fx.test.ts`. Criterion 1's P0 case builds the city through the module cache; the builder gives its time.
+
+**Files.** `src/render3d/fx.ts` and `fx.test.ts`; `src/render3d/cityview.ts`: the frame loop's calls and `fx=all`. `src/render3d/circuitdraw.ts` only to export the job poles' insulator points, if no export gives them yet (read it first; name the export in the reply). **Must not:** as FX2.
+
+**Interfaces (the section).** Written into `src/core/` with this cut (typecheck passes): `src/core/fx.ts` (`FX_SOURCE_PACK`, `FX_SOURCE_DIR`, `FX_GAME_DIR`, `FX_TEXTURES`, `FxTextureId`, `FX_MESHES`, `FxMeshId`, `AssetFxTexture`), and `AssetManifest.fx?` in `src/core/assets.ts`. It is optional, so `ASSET_MANIFEST_VERSION` stays 1, and the full manifest and the gallery read as before. `fx.ts`'s exports in `src/render3d/` are internal. **Events:** none new; the renderer stays bus-free. **No new dependency.**
+
+### X1 · Delete the 2D map view (renderer). **Stub, not cut; not to be built yet**
+Josh, 24 Nov 2026: "Hide now, delete later (Recommended)". Cut in full once P2a's 16 pilots are on the city and Josh has said so. Expected:
+- **Goes:** `src/render/map-renderer.ts` and the 2D map's drawing modules and tests (most of `src/render/`).
+- **Moves first, does not go:** what the city view still uses from `src/render/`: `glyphs.ts` (E1's overlay draws with it), the `MapRenderer`, `MapPanView`, `MapPlaces`, `MapCentre` and `MapBlockers` interfaces (`renderer.ts` imports them), and `planRelight` (`main.ts`'s Relight sound cues). They move to `src/render3d/` (or the interfaces to `src/core/`, the architect's call at cut).
+- **To check at cut:** every `tickets/rules-coverage.md` row held only by a `src/render/` test gets a city-view test, or the row is re-pointed, before the test goes. That is where its "about 2 added" comes from.
+- **Not in it:** the schematic puzzle files (P2b to P2d still fit from them), `tests/playtest/` (R1), the conversion's `pos` and `decor` in `src/city/circuit/` (grid-simulator's; a separate small section if they are then unused).
+
+### X2 · Delete the 2D side of `src/ui/` and `main.ts` (ui). **Stub, not cut; after X1**
+- **Goes:** `collectMaps` and `MapEntry` and their five cases, `wants3d`, `NO_CITY_FORM_NOTICE`, `PuzzleKind` and their two cases (A2d), and `main.ts`'s dead 2D branches.
+- **To decide at cut:** whether the schematics' `puzzles/*.json` glob stays in the build at all.
+
+### R1 · Retarget the release playtest harness (owner at cut). **Stub, not cut**
+Josh, 24 Nov 2026: "Retarget later (Recommended)". `tests/playtest/` replays the schematics and is left alone until then. Re-cut it for city puzzles before the next release Josh calls; until then its snapshots may go stale, as the release loop allows.
 
 ## Files
-Per section, above. This branch (the cut): `tickets/081-puzzles-on-the-city.md`, `tickets/070-city-pipeline.md` (pointer lines), `tickets/071-pack-power-lines.md` (a pointer line: C and E's ladder wiring are dropped), `tickets/rules-coverage.md`, `src/core/citycircuit.ts` (new; `CityPuzzleView` added 24 Nov 2026 for the playable path), `src/core/cityplan.ts` (`CityCircuitLayer`), `src/core/index.ts`.
+Per section, above. This branch (the cut): `tickets/081-puzzles-on-the-city.md`, `docs/design/070-K1-circuit.md` (CK9 as changed, 24 Nov 2026; CK14's dark-building line struck for section S, 24 Nov 2026), `tickets/070-city-pipeline.md` (pointer lines), `tickets/071-pack-power-lines.md` (a pointer line: C and E's ladder wiring are dropped), `tickets/rules-coverage.md`, `src/core/citycircuit.ts` (new; `CityPuzzleView` added 24 Nov 2026 for the playable path), `src/core/cityplan.ts` (`CityCircuitLayer`), `src/core/index.ts`. Section FX's cut (24 Nov 2026): new `src/core/fx.ts`, `src/core/assets.ts` (`AssetManifest.fx?`), `src/core/index.ts`, `tickets/rules-coverage.md`.
 
 ## Interfaces
 Written into `src/core/` with this cut (typecheck passes):
@@ -1022,18 +1845,45 @@ Written into `src/core/` with this cut (typecheck passes):
   - `ctx` is `{ layer, width, height, time, pxPerMetre? }`.
   - `project` returns the screen point and a boolean for "behind the camera".
   - **This stands.** E1's criteria name the inputs, not their exact shape. E2 codes against the built shape, and the criteria are not edited.
-- **The playable path's contract (24 Nov 2026, committed with this re-cut):** `CityPuzzleView` (`{ plan, converted }`) in `src/core/citycircuit.ts`. E2 adds `loadCityView(city): CityPuzzleView` (`src/render3d/index.ts`) and `MapRenderer3dOptions.city?: CityPuzzleView` (`renderer.ts`). U2 calls both. U1's `MapEntry` union stays inside `src/ui/`.
+- **The playable path's contract (24 Nov 2026, committed with this re-cut):** `CityPuzzleView` (`{ plan, converted }`) in `src/core/citycircuit.ts`. E2 adds `loadCityView(city): CityPuzzleView` (`src/render3d/index.ts`) and `MapRenderer3dOptions.city?: CityPuzzleView` (`renderer.ts`). U2 calls both. U1's `CityMapEntry` stays inside `src/ui/` (re-cut 24 Nov 2026: no `MapEntry` union, since the picker lists only city puzzles).
+- **The CK9 path (24 Nov 2026, committed with this re-cut; typecheck passes):**
+  - `CityDrop.street?` (K2e writes it for a drop across a street);
+  - `CityPuzzleView.district?` (E3's `loadCityView` writes it);
+  - `CIRCUIT_SCENERY` (`"wallFitting"`, `"dropWire"`), `CircuitSceneryPiece` and `CircuitSceneryPick`, for K3b's `SCENERY_MODELS`. They are kept apart from `CIRCUIT_COMPONENTS`, so the overlay, the gallery's component view and `COMPONENT_MODELS` do not change.
+- **E5 (24 Nov 2026):** `createCityRig`'s `rigOpts.limit`, `playRigOptions` and `CITY_PLAY_ZOOM_OUT` are internal to `src/render3d/`, so no core change. No event, no new dependency.
+- **E4 (24 Nov 2026):** `overlayBreaks`, `OverlayBreak` and `overlayBreakHit` are internal to `src/render3d/`, so no core change. `OverlayLine`, `overlayLines` and `overlayLineHit` go.
+- **L, lit buildings (24 Nov 2026, committed with this cut; typecheck passes):** `CircuitComponentPick.removed?` (`{ words, date }`) in `src/core/citycircuit.ts`: nothing stands for a removed pick, its key is not loaded, and its place still counts. L1 sets it on `lampBuilding`. `windows.ts`'s exports (`WINDOW_UV`, `windowMask`, `buildingGlow`, `litBuilding`, `poolPlaces`, `dimPieces`) are internal to `src/render3d/`, so no other core change.
 - **Events:** none new.
+- **S, every building on a live pole (24 Nov 2026, committed with this cut; typecheck passes):** in `src/core/citycircuit.ts`, `CityPuzzleConverted.scenery?` (building id to hidden lamp id) and `CityPuzzleConverted.hidden?` (every id the conversion added), both optional until S1 writes them, and `SCENERY_BUILDING_LOAD` = 1 (Josh: "Whole"). `sceneryLamps` (S4) and `relightCues` (U3) are internal to their folders. No new dependency.
+- **FX, particle effects (24 Nov 2026, committed with this cut; typecheck passes):** new `src/core/fx.ts` (`FX_SOURCE_PACK`, `FX_SOURCE_DIR`, `FX_GAME_DIR`, `FX_TEXTURES`, `FxTextureId`, `FX_MESHES`, `FxMeshId`, `AssetFxTexture`) and `AssetManifest.fx?` in `src/core/assets.ts`, shared by FX1 (`tools/assets/game.ts`) and FX2 (`src/render3d/fx.ts`). No event, no new dependency (no particle library).
 - **No new dependency.** The overlay is Canvas 2D.
 
 ## Open questions (for Josh)
+**Josh, 24 Nov 2026, on cards (relayed by the main session):**
+- On the picker defaults (reload on switch, the "· city" name): "I don't want 2D puzzles anymore. I want this game to be full 3D. The 2D puzzles were really just a prototype to see if the puzzles would be functional."
+- What happens to the 2D side: "Hide now, delete later (Recommended)". The picker and page show only city puzzles on the 3D city, with E1's overlay on top; the schematic files stay as P2a's source; the 2D map code goes in X1 and X2 once the 16 pilots are on the city.
+- The release playtest harness: "Retarget later (Recommended)". Left alone; R1 re-cuts it for city puzzles before the next release.
+
+This re-cut U1 and U2 and added the X1, X2 and R1 stubs. Questions 1, 4, 6 and 7 below are settled or moot by it. Note for the main session: `CLAUDE.md` and `docs/prototype-brief.md` still describe a 2D puzzle prototype; they are Josh's to reword, not this ticket's.
+
 All questions so far are answered (above), the mid-row one included ("Only when used (Recommended)"). Still open:
-1. **Default this cut takes (you may overturn it):** after A2c, `?view=3d` on a schematic puzzle opens the 2D map with a console note, until that puzzle has a city form.
+1. ~~**Default this cut takes:**~~ **Moot from U2 on** (Josh, 24 Nov 2026: "I want this game to be full 3D"): the page never opens a schematic. Until then: after A2c, `?view=3d` on a schematic puzzle opens the 2D map with a console note, until that puzzle has a city form.
 2. **(K3 reports, then only if you want it changed)** the damaged-line prop hangs below the 4.2 m walk floor from the lowest crossing.
 3. ~~**The 3D break prop and readability (K3).**~~ Answered 24 Nov 2026: "Only when readable (Recommended)" (see K3).
-4. **Default K2d2 takes (you may overturn it):** the 2D map's scenery (`decor`) shows no roof structures.
+4. ~~**Default K2d2 takes:**~~ **Moot from U2 on**: the 2D map no longer shows city puzzles ("Hide now, delete later (Recommended)"). As built: the 2D map's scenery (`decor`) shows no roof structures.
    - B1b proposed showing the unused corner structures on and next to the district as scenery dots. `decor` holds paths only, so dots would need a new shape.
    - A roof line that the job uses is drawn as a line, like any other line.
-5. **(K3 measures, then yours to decide) The pack loads.** 071 D's subset GLBs were never built, so the city view loads the whole Palm City (103 MB), Sci-Fi City (35 MB) and Sci-Fi Frontier (103 MB) packs for a handful of models. This happens in dev only. K3 reports the load time. If it is too slow, a small section runs 071 D's tool for the picks (`tools/assets/`, grid-simulator). It shares no file with this path and can run beside it.
-6. **Default U1 takes (you may overturn it):** a city entry is named "... · city". "(reworked)" waits for P2a's reworks, which will say in the file that they are one.
-7. **Default U2 takes (you may overturn it):** picking a city puzzle reloads the page in the 3D view, and picking a schematic one from there reloads the 2D map. A canvas keeps one kind of context, so the switch cannot happen in place.
+5. **(K3 measures, then yours to decide) The pack loads.** 071 D's subset GLBs were never built, so the city view loads the whole Palm City (103 MB), Sci-Fi City (35 MB) and Sci-Fi Frontier (103 MB) packs for a handful of models. This happens in dev only. K3 reports the load time. If it is too slow, a small section runs 071 D's tool for the picks (`tools/assets/`, grid-simulator). It shares no file with this path and can run beside it. **Taken up by ticket 082** (24 Nov 2026, Josh in chat: "Because the model packs run so slowly, I think we should work on consolidated packs for the game."): K3 measured 6.0 to 7.5 s on swiftshader; 082 cuts a game pack of only the used models, and shares no file with E2.
+6. ~~**Default U1 takes:** a city entry is named "... · city".~~ **Settled** (Josh, 24 Nov 2026: "I don't want 2D puzzles anymore."): the picker lists only city puzzles, under their own names. Whether a rework shows "(reworked)" waits for P2a's reworks to carry a flag in their files.
+7. ~~**Default U2 takes:** picking reloads the page between the views.~~ **Settled** by the same answer: there is only the 3D view, so there is no switch and no reload.
+8. **Default U2 takes (you may overturn it):** the prototype is played in `npm run dev` only. The city view is dev only (the pipeline renderer, and the pack GLBs a web build may not hold: Synty licence, 16 Nov 2026), so a production build shows one line saying so instead of a puzzle. A playable web build would be its own ticket.
+9. ~~**Lit buildings (section L), four cards:** L-Q1 the lit window colour and L-Q2 a lamp on a roof structure (before L1); L-Q3 how many dim windows and how they burn (before L3); L-Q4 how the light pool is made (before L2). The options are worded in section L.~~ **All answered** (section L: L-Q1, L-Q2, L-Q3 "1 in 25, steady amber (Recommended)", L-Q4 "Real lights", L-Q5 "Up to 10, no shadows (Recommended)", then "Raise the cap").
+10. **A proposal for the GDD, not for this ticket (section S).** The GDD's Draft line "Live cables don't glow" (08, "Cables in the dark") differs from your "Live drops glow (Recommended)", and from E2's glowing job spans before it. Your card stands for the prototype, since the line is Draft. Should the GDD's line be reworded for the minigame (for example, "In the circuits minigame, live job lines and the drops they feed glow; in the walking game, live cables don't"), or left as it is? Nothing in `rest-gdd` is changed by this ticket.
+11. **Default U3 takes (you may overturn it):** the scenery buildings light silently in the Relight; only the puzzle's own lamps chime, as before. The other choice is a soft, shared chime as each run's buildings light.
+12. **L2's frame budgets (yours to loosen or tighten):** at most 1.0 ms worse than L1's for P0's 3 lights, 2.5 ms at 10, 4.0 ms at 25 and 5.0 ms at 32 (and 60 fps at 32), on your PC from the default camera. They are the architect's starting points. Over 25 or 32, L2 ships at 10 and the numbers come to you.
+13. **Section F's bar (yours to move):** the district view at 16.7 ms (60 fps) or under, before power and after the Relight, on your PC from the default camera. The wide 1280 x 800 view is reported, but it is not a pass bar.
+14. **F-Q1, the far city** (after F's measurement, only if a view is still slow): keep the whole city drawn, stop drawing past a distance, or drop small props past a distance. Worded in section F.
+15. **F-Q2, the pixel ratio** (after F0's measurement, only if rendering at 1x saves more than 2 ms): full sharpness, or 1x scaled up. Worded in section F.
+16. **Section FX** (Josh, 24 Nov 2026, on cards): G1 "Approve, FX2 first (Recommended)"; FX-Q1 "Sparks first (Recommended)"; FX-Q2 "Meshes too" (folded into FX1). 24 Nov 2026, after playing FX2: "Merge FX1, fix FX2 (Recommended)", with "extreme" as "More of them", "Bigger, brighter", "Fly further", "Crackle arcs" (FX2 amended; no question left from it). **Still open, before FX3:** FX-Q3 where brownout arcs show ("A few at a time on the overloaded feed's live poles (Recommended)"); FX-Q4 the Relight ("A sparkle burst at each puzzle lamp as it lights (Recommended)"). **Not blocking, after FX1's conversion:** FX-Q5 which shard mesh ("Keep `FX_Shard_Rock_Small_01` (Recommended)").
+17. **FX's frame budgets:** answered, "1.5 ms / 2.0 ms (Recommended)" (Josh, 24 Nov 2026, on a card): with every effect running (`fx=all`), at most 1.5 ms CPU over `fx=0` for FX2 and 2.0 ms for the whole section, in the same session, and never over 16.7 ms. Over them, the builder stops and the numbers come to him.
+18. **Section E5, the camera** (Josh, 24 Nov 2026, in chat: "We should restrict the end users visibility to the puzzle"; on a card: "Cut it (Recommended)"). **Answered** 24 Nov 2026, on cards: G1 and E5-Q1 "Approve, 1.5x (Recommended)"; E5-Q2 "Yes, dev only (Recommended)"; E5-Q3 "Hold at the limit (Recommended)". As asked on its G1 card: E5-Q1 how far out ("1.5x (Recommended)", "1.25x", "2x"), E5-Q2 the dev switch ("Yes, `cam=free` in dev only (Recommended)", "No switch"), E5-Q3 a pane too small for the panels and the district ("Hold the camera at the limit; the panels may cover the district's edge (Recommended)", "Also fold the panels on small panes"). Worded in section E5.

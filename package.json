@@ -16,6 +16,7 @@
     "analyze": "tsx tools/analyze.ts",
     "assets:convert": "tsx tools/assets/convert.ts",
     "assets:selftest": "tsx tools/assets/convert.ts --selftest",
+    "assets:game": "tsx tools/assets/game.ts",
     "check": "tsx tools/check.ts",
     "playtest": "tsc --noEmit -p tests/playtest/tsconfig.json && vitest run --config tests/playtest/vitest.config.ts"
   },

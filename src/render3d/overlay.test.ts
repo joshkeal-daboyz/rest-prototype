@@ -1,12 +1,19 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
-import { EventBus, loadPuzzle } from "../core";
+import { PerspectiveCamera } from "three";
+import { EventBus, loadCityPuzzle, loadPuzzle } from "../core";
+import { CityPuzzleError } from "../city/circuit";
+import { DEFAULT, sharedCity } from "../city/testing/namedcities";
+import { circuitDraws } from "./circuitdraw";
+import { cameraProject, cityHit, createOverlayLayer, jobWires, lineFlow, loadCityView, overlayRequested, relightFrame, renderRoute, wireLit, type LineFlow, type WireLit } from "./cityview";
+import { WORLD_PER_METRE } from "./models";
+import { createRelightClock } from "./relight3d";
 import type { CityCircuitLayer } from "../core/cityplan";
 import type { CityPuzzleConverted } from "../core/citycircuit";
 import { drawNodeGlyph, type GlyphContext } from "../render/glyphs";
 import { createGrid } from "../grid";
 import { nodeLook } from "./look";
-import { OVERLAY_HIT_PX, OVERLAY_NUDGE, overlayIcons, overlayLines, type OverlayContext, type Project } from "./overlay";
+import { OVERLAY_HIT_PX, OVERLAY_NUDGE, overlayBreakHit, overlayBreaks, overlayIcons, placePoint, type OverlayBreak, type OverlayContext, type OverlayIcon, type Project } from "./overlay";
 
 const puzzle = loadPuzzle(JSON.parse(readFileSync("puzzles/09-shrine-circuit.json", "utf8")));
 
@@ -116,38 +123,188 @@ describe("overlay icons (ticket 081 E1)", () => {
   });
 });
 
-describe("overlay lines (ticket 081 E1)", () => {
-  it("one straight segment per line, from piece to piece, away from the feed while live", () => {
-    const { converted, layer } = fixture();
-    const s = createGrid(puzzle, new EventBus()).state();
-    const lines = overlayLines(converted, s, projector(), ctxOf(layer));
-    const feed = lines.find((l) => l.id === "l_feed")!;
-    expect(feed.live).toBe(true);
-    expect(feed.look).toBe("live");
-    expect(feed.points).toHaveLength(4); // the carrier plays no part
-    expect(feed.points[0]).toBeLessThan(feed.points[2]!); // starts at the feed
-    expect(feed.phase).toBeGreaterThanOrEqual(0);
-    expect(feed.phase).toBeLessThan(1);
-    expect(feed.flicker).toBe(1);
-    expect(feed.visible.every(Boolean)).toBe(true);
-    const dead = lines.find((l) => !l.live)!;
-    expect(dead.look).not.toBe("live");
-  });
-
-  it("a damaged cable's break icon sits at the midpoint, only when readable, sparking only while live; a brownout flickers every line", () => {
+describe("overlay break icons (ticket 081 E4)", () => {
+  it("a damaged cable's break icon sits at the cut span's middle sample, only when readable, sparking only while live", () => {
     const { converted, layer } = fixture();
     const g = createGrid(puzzle, new EventBus());
-    const idle = overlayLines(converted, g.state(), projector(), ctxOf(layer));
-    expect(idle.find((l) => l.id === "l_b")!.cut).toBeNull();
+    const cutAt = (id: string) => (Object.values(converted.cuts).includes(id) ? { x: 33, y: 7, z: 2 } : null);
+    expect(overlayBreaks(converted, g.state(), cutAt, projector(), ctxOf(layer))).toEqual([]);
     g.throwSwitch("sw_1");
-    const live = overlayLines(converted, g.state(), projector(), ctxOf(layer));
-    const lb = live.find((l) => l.id === "l_b")!;
-    expect(lb.cut).toMatchObject({ sparking: true });
-    expect(lb.cut!.x).toBeCloseTo((lb.points[0]! + lb.points[2]!) / 2, 5);
-    expect(lb.cut!.y).toBeCloseTo((lb.points[1]! + lb.points[3]!) / 2, 5);
-    const brown = { ...g.state(), brownout: true };
-    const out = overlayLines(converted, brown, projector(), ctxOf(layer));
-    expect(out.every((l) => l.flicker >= 0.15 && l.flicker <= 1)).toBe(true);
-    expect(out.some((l) => l.flicker < 1)).toBe(true);
+    const live = overlayBreaks(converted, g.state(), cutAt, projector(), ctxOf(layer));
+    expect(live).toHaveLength(1);
+    expect(live[0]).toMatchObject({ lineId: "l_b", x: 330, y: 320, sparking: true });
+    expect(live[0]!.hit).toBeGreaterThanOrEqual(OVERLAY_HIT_PX);
+    expect(overlayBreaks(converted, g.state(), cutAt, projector(40), ctxOf(layer))).toEqual([]);
+    g.repairAt("l_b");
+    expect(overlayBreaks(converted, g.state(), cutAt, projector(), ctxOf(layer))).toEqual([]);
+  });
+});
+
+describe("a city puzzle played on the city (ticket 081 E2)", () => {
+  const S = WORLD_PER_METRE;
+  const wiresOf = () => {
+    const { converted, layer } = fixture();
+    const draws = circuitDraws(layer, undefined, { converted });
+    return { converted, layer, wires: jobWires(layer, draws, converted) };
+  };
+  const flowOf = (state: ReturnType<ReturnType<typeof createGrid>["state"]>, id: string, to: string, index: number): LineFlow => lineFlow(state, { id, to }, index, [], null, 0, { fraction: 0, reversed: false });
+  const litOf = (w: Parameters<typeof wireLit>[0], reversed: boolean, fraction: number): WireLit => wireLit(w, reversed, fraction, { forward: true, frac: 0 });
+
+  it("loadCityView runs one pipeline per city, shares the plan between puzzles on it, and throws on a puzzle that does not hold", () => {
+    const city = loadCityPuzzle(JSON.parse(readFileSync("puzzles/city/city-two-ways-round.city.json", "utf8")));
+    const run = sharedCity(DEFAULT, "clean");
+    let builds = 0;
+    const build = () => (builds++, run);
+    const a = loadCityView(city, build);
+    const b = loadCityView({ ...city, id: "another" }, build);
+    expect(builds).toBe(1);
+    expect(a.plan).toBe(b.plan);
+    expect(a.converted.puzzle.nodes.map((n) => n.id).filter((id) => !a.converted.hidden!.includes(id))).toEqual(city.nodes.map((n) => n.id));
+    expect(() => loadCityView({ ...city, district: ["block:99:99"] }, build)).toThrow(CityPuzzleError);
+  });
+
+  it("a city view given is the play route, ahead of every address route and in dev only; without one the routes are as before", () => {
+    const none = { city: false, dev: true, assemble: false, plan: false, sheet: false };
+    expect(renderRoute({ ...none, city: true, assemble: true, plan: true })).toBe("play");
+    expect(renderRoute({ ...none, city: true, dev: false })).toBe("none");
+    expect(renderRoute(none)).toBe("none");
+    expect(renderRoute({ ...none, assemble: true })).toBe("assemble");
+    expect(renderRoute({ ...none, plan: true })).toBe("plan");
+    expect(renderRoute({ ...none, sheet: true })).toBe("sheet");
+  });
+
+  it("a live line's spans glow in order, away from the feed; a dead line and scenery do not", () => {
+    const { converted, wires } = wiresOf();
+    const state = createGrid(puzzle, new EventBus()).state();
+    expect(new Set(wires.map((w) => w.line))).toEqual(new Set(puzzle.lines.map((l) => l.id)));
+    const feed = wires.filter((w) => w.line === "l_feed");
+    expect(feed).toHaveLength(2);
+    const li = (id: string) => puzzle.lines.findIndex((l) => l.id === id);
+    const fl = flowOf(state, "l_feed", converted.puzzle.lines[li("l_feed")]!.to, li("l_feed"));
+    expect(fl).toEqual({ fraction: 1, reversed: false });
+    for (const w of feed) expect(litOf(w, fl.reversed, fl.fraction)).toEqual({ forward: true, frac: 1 });
+    // Part of the line lit: the first span is whole, the second not yet; reversed, it is the other way round and travel runs against the wire.
+    expect(litOf(feed[0]!, false, 0.4).frac).toBeGreaterThan(0.5);
+    expect(litOf(feed[1]!, false, 0.4).frac).toBe(0);
+    expect(litOf(feed[1]!, true, 0.4).forward).toBe(false);
+    expect(litOf(feed[1]!, true, 0.4).frac).toBeGreaterThan(0.5);
+    expect(litOf(feed[0]!, true, 0.4).frac).toBe(0);
+    const dead = puzzle.lines.find((l) => !state.powered.has(l.id))!;
+    expect(flowOf(state, dead.id, dead.to, li(dead.id)).fraction).toBe(0);
+    for (const w of wires.filter((x) => x.line === dead.id)) expect(litOf(w, false, 0).frac).toBe(0);
+  });
+
+  it("current stops at a cut that is still there: the span past the break stays dark with current from either end", () => {
+    const { converted, layer } = fixture();
+    const base = createGrid(puzzle, new EventBus()).state();
+    const feedLine = puzzle.lines.find((l) => l.id === "l_feed")!;
+    const li = puzzle.lines.findIndex((l) => l.id === "l_feed");
+    for (const cutIdx of [0, 1]) {
+      const spanId = converted.runs["l_feed"]!.spans[cutIdx]!;
+      const cutConverted = { ...converted, cuts: { fx: spanId } };
+      const feed = jobWires(layer, circuitDraws(layer, undefined, { converted: cutConverted }), cutConverted).filter((w) => w.line === "l_feed");
+      expect(feed.map((w) => w.cutFault)).toEqual(cutIdx === 0 ? ["fx", null] : [null, "fx"]);
+      for (const reversed of [false, true]) {
+        const standing = { ...base, faults: [{ id: "fx", at: "l_feed", kind: "damaged-cable" as const }], flowFrom: new Map([["l_feed", reversed ? feedLine.to : feedLine.from]]) };
+        const fl = lineFlow(standing, feedLine, li, feed, null, 0, { fraction: 0, reversed: false });
+        expect(fl.reversed).toBe(reversed);
+        const order = reversed ? [1, 0] : [0, 1];
+        const k = order.indexOf(cutIdx);
+        order.forEach((wi, pos) => expect(litOf(feed[wi]!, fl.reversed, fl.fraction).frac).toBeCloseTo(pos < k ? 1 : pos === k ? 0.5 : 0, 5));
+        // Repaired: the fault is gone and the whole line carries current.
+        const repaired = lineFlow({ ...standing, faults: [] }, feedLine, li, feed, null, 0, { fraction: 0, reversed: false });
+        expect(repaired.fraction).toBe(1);
+      }
+    }
+  });
+
+  it("projects with the camera's own projection: an icon's point is its piece's projected place, and a break's is cutAt's point projected", () => {
+    const { converted, layer } = fixture();
+    const camera = new PerspectiveCamera(50, 2, 0.1, 1000);
+    camera.position.set(50 * S, 60 * S, 40 * S);
+    camera.lookAt(50 * S, 0, 0);
+    camera.updateMatrixWorld(true);
+    const project = cameraProject(camera, { width: 800, height: 400 });
+    const g = createGrid(puzzle, new EventBus());
+    g.throwSwitch("sw_1");
+    const state = g.state();
+    const icon = overlayIcons(converted, state, project, ctxOf(layer, { width: 800, height: 400 })).find((x) => x.id === "sw_1")!;
+    const a = { x: 0, y: 0, z: 0 };
+    const out = { x: 0, y: 0 };
+    expect(placePoint(converted.places["sw_1"]!, layer, a)).toBe(true);
+    expect(project(a.x, a.y, a.z, out)).toBe(true);
+    expect(icon.x).toBeCloseTo(out.x, 5);
+    expect(icon.y).toBeCloseTo(out.y, 5);
+    const at = { x: 45, y: 7, z: 2 };
+    const [brk] = overlayBreaks(converted, state, () => at, project, ctxOf(layer, { width: 800, height: 400 }));
+    expect(project(at.x, at.y, at.z, out)).toBe(true);
+    expect(brk!.x).toBeCloseTo(out.x, 5);
+    expect(brk!.y).toBeCloseTo(out.y, 5);
+    expect(project(50, 0, 1e6, out)).toBe(false);
+  });
+
+  it("a break is hit within half its hit size, nearest first, giving its line id, and never when it is off screen", () => {
+    const mk = (lineId: string, x: number): OverlayBreak => ({ faultId: "f" + lineId, lineId, x, y: 0, hit: OVERLAY_HIT_PX, sparking: false });
+    const breaks = [mk("a", 0), mk("b", 30)];
+    expect(overlayBreakHit(breaks, 5, 0)).toBe("a");
+    expect(overlayBreakHit(breaks, 20, 0)).toBe("b");
+    expect(overlayBreakHit(breaks, 60, 40)).toBeNull();
+    expect(overlayBreakHit(breaks, 100, 0)).toBeNull();
+    expect(overlayBreaks({ ...fixture().converted }, { ...createGrid(puzzle, new EventBus()).state(), faults: [{ id: "fx", at: "l_b", kind: "damaged-cable" }], readableFaults: new Set(["fx"]) }, () => ({ x: 5000, y: 0, z: 0 }), projector(), ctxOf(fixture().layer))).toEqual([]);
+  });
+
+  it("hits the overlay first (an icon, then a break), then the 3D pick; scenery, panels and off-canvas points give null", () => {
+    const icon = { id: "i", x: 50, y: 0, hit: 44 } as unknown as OverlayIcon;
+    const brk: OverlayBreak = { faultId: "f", lineId: "a", x: 120, y: 0, hit: 44, sparking: false };
+    const base = { width: 200, height: 200, blockers: [], icons: [icon], breaks: [brk], pick: () => "p" as string | null };
+    expect(cityHit(52, 2, base)).toBe("i");
+    expect(cityHit(115, 0, base)).toBe("a");
+    expect(cityHit(85, 0, base)).toBe("p");
+    expect(cityHit(50, 100, { ...base, pick: () => null })).toBeNull();
+    expect(cityHit(52, 2, { ...base, blockers: [{ left: 40, top: -5, right: 60, bottom: 5 }] })).toBeNull();
+    expect(cityHit(-1, 2, base)).toBeNull();
+  });
+
+  it("overlay=0 hides the overlay, and the 3D pick still plays", () => {
+    expect(overlayRequested("?view=3d&overlay=0")).toBe(false);
+    expect(overlayRequested("?view=3d")).toBe(true);
+    expect(overlayRequested("?overlay=1")).toBe(true);
+    expect(cityHit(50, 2, { width: 200, height: 200, blockers: [], icons: [], breaks: [], pick: () => "node" })).toBe("node");
+  });
+
+  it("the Relight runs from its own plan: nothing lit at first, lamps lit by the end, and the plan is fixed when it starts, so a changed state mid-way does not re-plan", () => {
+    const g = createGrid(puzzle, new EventBus());
+    g.throwSwitch("sw_1");
+    g.repairAt("l_b");
+    g.throwBreaker("br_street");
+    const won = g.state();
+    const fresh = createGrid(puzzle, new EventBus()).state();
+    const f = relightFrame(puzzle, [won, won, won, won], [0.05, 1.5, 1.5, 10]);
+    const clock = createRelightClock(puzzle);
+    const started = clock.update(won, 0.05);
+    expect(started).not.toBeNull();
+    expect(clock.update(fresh, 1.5)).toBe(started);
+    expect(f[0]!.lit).toEqual([]);
+    expect(f[0]!.fractions.every((x) => x === 0)).toBe(true);
+    expect(f[2]).toEqual(f[1]);
+    expect(f[1]!.fractions.some((x) => x > 0)).toBe(true);
+    expect([...f[3]!.lit].sort()).toEqual(["flood", "shrine"]);
+    f[1]!.fractions.forEach((x, i) => expect(x).toBeLessThanOrEqual(f[3]!.fractions[i]!));
+  });
+
+  it("the overlay canvas sits over the WebGL one at its CSS size and the pixel ratio capped at 2, resizes with it, and goes on dispose", () => {
+    const el = { width: 0, height: 0, style: { cssText: "", left: "", top: "", width: "", height: "" }, setAttribute() {}, getContext: () => null, remove: vi.fn() };
+    const parent = { insertBefore: vi.fn() };
+    const source = { parentElement: parent, nextSibling: null, clientWidth: 300, clientHeight: 200, offsetLeft: 5, offsetTop: 7 };
+    const layer = createOverlayLayer(source as never, { createElement: () => el } as never, 3)!;
+    expect(parent.insertBefore).toHaveBeenCalledWith(el, null);
+    expect(el.style.cssText).toContain("pointer-events:none");
+    expect([el.width, el.height, el.style.width, el.style.height, el.style.left, el.style.top]).toEqual([600, 400, "300px", "200px", "5px", "7px"]);
+    source.clientWidth = 400;
+    layer.resize();
+    expect([el.width, el.style.width]).toEqual([800, "400px"]);
+    layer.remove();
+    expect(el.remove).toHaveBeenCalled();
+    expect(createOverlayLayer({ parentElement: null } as never, { createElement: () => el } as never, 1)).toBeNull();
   });
 });

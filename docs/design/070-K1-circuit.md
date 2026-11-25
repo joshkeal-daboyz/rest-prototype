@@ -217,7 +217,16 @@ A `pavementFlush` cell (a build-out in front) is allowed: the pole stands on the
 
 ### (c) Service drops
 
-**CK9 · Drops.** Every building (`CityBuilding`) whose `front` open side faces a street (`CityBuiltCell.open[*].faces` "street" on its cells) takes **one drop** if that street's pole pavement is its own block side's pavement.
+**CK9 as changed (lead-architect, 24 Nov 2026, ticket 081 K2e).** Josh, 24 Nov 2026: "The buildings are not attached to the Power lines"; on cards "Every building wired", "Yes, a fitting (Recommended)", and on `docs/design/081-CK9-every-building-wired.md` (option C) "Same height (Recommended)", "Leave (Recommended)", "Allow (Recommended)", "Shortlist (Recommended)". This replaces the "if that street's pole pavement ..." clause and "Never across a street" below, which are kept struck as the record.
+- **Every** building whose front open side faces a street takes one drop, at the 5.5 m wall point, with a wall fitting there (drawn by 081 K3b).
+- **On the pole pavement:** as below (own line, never a crossing pole, `DROP_MAX_M` 7.5 m).
+- **On the non-pole pavement:** from the crossing pole on its own block side when one is within `DROP_MAX_M` of a front column; otherwise across the street, from the closest pole on that street's pole pavement (never a crossing pole), up to `DROP_CROSS_MAX_M` **23.5 m** in plan. Pairing and ties as below. Drops over junction or zebra crossing cells are allowed.
+- **Heights.** 059's 5.5 m road clearance no longer binds drops ("Same height (Recommended)"). CK7's 4.2 m floor does: every drop's lowest point is at least 4.2 m (the lowest measured is 4.82 m).
+- **CK17d** keeps roof spans `ROOF_CLEAR_M` 1.0 m from drops (the architect's reading, 081 K2e criterion 4).
+- **CK14:** a drop belongs to its pole's block (081 K2e, "Readings").
+- **Status:** every building wired, the 5.5 m wall point over the road, the clashes left and the junction drops allowed are **Josh's (24 Nov 2026)**. `DROP_CROSS_MAX_M`, the own-pole-first order, the CK14 and CK17d readings are **Proposed**.
+
+~~**CK9 · Drops.** Every building (`CityBuilding`) whose `front` open side faces a street (`CityBuiltCell.open[*].faces` "street" on its cells) takes **one drop** if that street's pole pavement is its own block side's pavement.~~ (The rest of CK9 below stands where the change above does not replace it.)
 - **Where.** Take every pair of one of the building's front columns (a column of its `cells` with that open side) and one pole of that pole line. The drop runs between the pair that is closest in plan. It meets the wall at the centre of that column's front edge, at `DROP_WALL_Y_M` **5.5 m** (storey 1, between the ground storey's top at 3 m and storey 2 at 6 m).
 - **Ties.** On a tie, the column earlier in `cells` is used, then the pole earlier along the line.
 - **Never across a street.** A building on the non-pole pavement takes no drop. A drop across the street would need its pole end near 6.4 m for 5.5 m over the road, which is storey 2 at the wall. *(Question 11 lifted the 5.5 m road clearance for crossing spans only. Asked again, Josh kept drops on the pole side only: question 12, "Keep pole side only (Recommended)", 21 Nov 2026. The rule now stands on his word, not on the clearance.)*
@@ -302,11 +311,11 @@ A **damaged cable is one span** of its run. The fault names the line, and the co
 - **The edge.** Every other span that leaves the district is **open**: it is drawn, and dead.
 - **While the job is played:**
   - the rest of the city's poles, spans, drops and street lights are scenery: drawn as built, dead (no pulse, no live glow, no cut look) and never picked;
-  - inside the district, every pole, span and drop the job does not name is scenery too. A building the job does not name stays dark: it is not on the job.
+  - inside the district, every pole, span and drop the job does not name is scenery too. ~~A building the job does not name stays dark: it is not on the job.~~ **Changed 24 Nov 2026** (Josh, in chat: "I would like all buildings to receive power if they are connected to the feed. I would also like the feed to show as being connected to each building"; on cards "Drop on a live pole (Recommended)", "Yes, they add load", "Whole", "Dark", "Live drops glow (Recommended)"; `docs/design/081-all-connected-powered.md`): a scenery building whose drop hangs from a pole of one of the job's lines (a carrier or a node's pole) is a load of 1 lamp-load on that line, on its side of a cut, and lights, with its drop glowing, while current reaches it. The building on the feed's own pole stays dark. A building whose drop hangs from a pole no job line uses stays dark. Built by 081 S1 (the conversion) and S4 (the drawing).
 - **The edge is the designer's choice.** The puzzle file lists the blocks, and K2 checks the rest.
 - **The worked map** takes one block, `block:6:6`: 70 m by 80 m, a 318 m ring.
 - **Reads:** `CityPlanBlock.sides[*].across`, the circuit layer.
-- **Status:** The extent (1 to 4 blocks, the first jobs at one) is **Josh's (21 Nov 2026)**: question 7, "Yes, all of it (Recommended)". So are one feed span entering per feed and the rest of the city dead scenery (question 10). That unnamed parts inside the district are scenery too stays **Proposed**.
+- **Status:** The extent (1 to 4 blocks, the first jobs at one) is **Josh's (21 Nov 2026)**: question 7, "Yes, all of it (Recommended)". So are one feed span entering per feed and the rest of the city dead scenery (question 10). That unnamed parts inside the district are scenery too stays **Proposed**. That scenery buildings on the job's poles are powered, add load, and that the feed's pole's building stays dark, are **Josh's (24 Nov 2026)**; where each one hangs in the converted puzzle is S1's (Proposed, as the pre-check measured it).
 - **K2 checks:**
   - the district's blocks touch;
   - each line uses only the district's spans or its feed's span;

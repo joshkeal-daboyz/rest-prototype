@@ -5,9 +5,9 @@
 
 import type { CityCircuitLayer, CityNodePlace, CityPlanBlock, GridNode } from "../../core";
 import type { CircuitInput, CircuitProblem } from "./check";
-import { DROP_MAX_M, DROP_WALL_Y_M, LIGHT_POLE_MIN_M, POST_MIN_SPAN_M, TOL } from "./constants";
+import { DROP_CROSS_MAX_M, DROP_MAX_M, DROP_WALL_Y_M, LIGHT_POLE_MIN_M, POST_MIN_SPAN_M, TOL } from "./constants";
 import { allowedCell, cellAt, indexCells, polePavement, sidePavement, streetsById } from "./geometry";
-import { dropId, frontColumns, edgeCentre } from "./places";
+import { crossingInReach, dropId, frontColumns, edgeCentre } from "./places";
 import { reachOf, roofSpanFault } from "./roofjobs";
 
 type Placed = Pick<CityCircuitLayer, "poles" | "spans" | "drops" | "lights" | "posts">;
@@ -23,7 +23,7 @@ export function placeProblems(layer: Placed, input: CircuitInput): CircuitProble
   const buildings = new Map(input.buildings.buildings.map((b) => [b.id, b] as const));
   const blocks = new Map(input.streets.blocks.map((b) => [b.id, b] as const));
 
-  // CK9: each drop is from a pole of the line on its building's own side, short, and meets the wall at a front column's centre; every building on a pole line has one.
+  // CK9 (081 K2e): every building with a front column on a street has one drop, from its own line, a crossing pole on its own side, or across the street; it is short, and meets the wall at a front column's centre.
   const dropped = new Set<string>();
   for (const d of layer.drops) {
     dropped.add(d.building);
@@ -33,17 +33,29 @@ export function placeProblems(layer: Placed, input: CircuitInput): CircuitProble
       add("CK9", d.id, "a drop to a building or from a pole that does not exist");
       continue;
     }
-    if (p.kind === "crossing" || p.block !== b.block || p.side !== b.front) add("CK9", d.id, `a drop from ${p.id}, which is not a pole of the line on ${b.id}'s own side (a drop never crosses a street)`);
-    if (Math.hypot(p.x_m - d.x_m, p.z_m - d.z_m) > DROP_MAX_M + TOL) add("CK9", d.id, `longer than ${DROP_MAX_M} m`);
+    const cols = frontColumns(input, b);
+    const st = byStreet.get(blocks.get(b.block)?.sides[b.front].street ?? "");
+    const onLine = st !== undefined && polePavement(st, ix) === sidePavement(b.front);
+    const plan = Math.hypot(p.x_m - d.x_m, p.z_m - d.z_m);
+    if (p.kind !== "crossing" && p.block === b.block && p.side === b.front) {
+      if (!onLine || d.street !== undefined) add("CK9", d.id, `a drop from ${p.id}, a pole of ${b.id}'s own line, which is not its pavement's pole line`);
+      if (plan > DROP_MAX_M + TOL) add("CK9", d.id, `longer than ${DROP_MAX_M} m`);
+    } else if (p.kind === "crossing") {
+      if (onLine || p.block !== b.block || p.side !== b.front) add("CK9", d.id, `a drop from ${p.id}, a crossing pole that is not on ${b.id}'s own block side`);
+      if (d.street !== undefined) add("CK9", d.id, "a drop from a crossing pole on its own side, which crosses no street");
+      if (plan > DROP_MAX_M + TOL) add("CK9", d.id, `longer than ${DROP_MAX_M} m`);
+    } else {
+      if (onLine || st === undefined || p.street !== st.id || p.pavement !== polePavement(st, ix) || d.street !== st.id) add("CK9", d.id, `a drop from ${p.id}, which is not a pole of the pole pavement of the street ${b.id} faces`);
+      if (plan > DROP_CROSS_MAX_M + TOL) add("CK9", d.id, `longer than ${DROP_CROSS_MAX_M} m across a street`);
+      if (crossingInReach(layer.poles, b, cols)) add("CK9", d.id, `across the street when a crossing pole on ${b.id}'s own side was within ${DROP_MAX_M} m`);
+    }
     if (Math.abs(d.y_m - DROP_WALL_Y_M) > TOL) add("CK9", d.id, `meets the wall at ${d.y_m} m, not ${DROP_WALL_Y_M} m`);
-    const col = frontColumns(input, b).find((c) => c.i === d.cell.i && c.j === d.cell.j);
+    const col = cols.find((c) => c.i === d.cell.i && c.j === d.cell.j);
     const at = col === undefined ? undefined : edgeCentre(col.i, col.j, b.front);
-    if (at === undefined || Math.abs(at.x_m - d.x_m) > TOL || Math.abs(at.z_m - d.z_m) > TOL) add("CK9", d.id, "does not meet the wall at the centre of a front column that faces a street");
+    if (at === undefined || Math.abs(at.x_m - d.x_m) > TOL || Math.abs(at.z_m - d.z_m) > TOL) add("CK9", d.id, "does not meet the wall at the centre of a front column that faces a street (a building facing a park has none)");
   }
   for (const b of input.buildings.buildings) {
-    const st = byStreet.get(blocks.get(b.block)?.sides[b.front].street ?? "");
-    if (st === undefined || polePavement(st, ix) !== sidePavement(b.front) || frontColumns(input, b).length === 0) continue;
-    if (!dropped.has(b.id)) add("CK9", b.id, "a building on a pole line, facing a street, with no drop");
+    if (frontColumns(input, b).length > 0 && !dropped.has(b.id)) add("CK9", b.id, "a building with a front column on a street and no drop");
   }
 
   // CK10: a light is on the non-pole pavement, on an allowed cell, and 3 m or more from every pole.

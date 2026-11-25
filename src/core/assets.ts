@@ -11,6 +11,8 @@
  * files, and the repo is public).
  */
 
+import type { AssetFxTexture } from "./fx";
+
 /** Bumped when the manifest's shape changes; readers refuse other versions. */
 export const ASSET_MANIFEST_VERSION = 1 as const;
 
@@ -122,8 +124,30 @@ export interface AssetColourway {
   height: number;
 }
 
+/**
+ * The game pack (ticket 082): the folder under `assets/private/out/` holding the consolidated GLBs (one per source pack, only the
+ * models the game loads, same root names, bounds, scale and textures as the full pack) and their own `manifest.json`. Gitignored with
+ * the rest of `assets/private/`; never bundled, never committed (Synty licence, Josh, 16 Nov 2026).
+ */
+export const GAME_PACK_DIR = "game/" as const;
+
+/** What a game manifest was cut for (ticket 082). Present only on `out/game/manifest.json`; absent on the full manifest. */
+export interface AssetGameBuild {
+  /** Every `pack:name` key the cut was asked for (the renderer's `gameModelKeys()`), sorted, no duplicates. */
+  keys: readonly string[];
+  /** The full manifest's `generatedAt` that the subset was cut from. */
+  from: string;
+}
+
 export interface AssetManifest {
   version: typeof ASSET_MANIFEST_VERSION;
+  /** Only on the game manifest (ticket 082). Optional, so ASSET_MANIFEST_VERSION stays 1. */
+  game?: AssetGameBuild;
+  /**
+   * Only on the game manifest, from 081 FX1: the particle textures `npm run assets:game` copied into `out/game/fx/` (`FX_TEXTURES`, `src/core/fx.ts`), in
+   * `FX_TEXTURES` order. Optional, so ASSET_MANIFEST_VERSION stays 1; absent means the renderer uses its code-made textures.
+   */
+  fx?: readonly AssetFxTexture[];
   /** ISO 8601, when the conversion ran. */
   generatedAt: string;
   /** `bpy.app.version_string` of the Blender that ran it. */
