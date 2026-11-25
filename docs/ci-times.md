@@ -11,6 +11,7 @@ One row per measurement: the whole everyday suite (`npm test`, one city) on CI, 
 | 2026-11-24 | #40 | 66beba9 (main, after #40) | 189 | 3,220 (56 skipped) | 588 s | 302 s | 5.4 min | After 081 K2b, D2, D3, K2c (convert), I2; up 89 s on the step since #30 |
 | 2026-11-24 | #50 | 479c0fe (main, after #49 and #50) | 194 | 3,264 (56 skipped) | 627 s | 322 s | 5.8 min | After 081 K2d1, K2d2, P0, K3, U1, E2, U2 and 082 A, B; up 20 s on the step since #40 |
 | 2026-11-24 | #60 | 4dacc93 (main, after #60) | 196 | 3,280 (56 skipped) | 752 s | 339 s | 6.0 min | After 081 K2c to L2 (city puzzle, circuit, play on the city, lights, section F); collect alone is 185 s. The push run on 4dacc93 hit the 5 s timeout in `overlay.test.ts` (`loadCityView`, 6.1 s) and passed on re-run: noise, not logged |
+| 2026-11-25 | #70 | 2fa0d1a (main, after #70) | 200 | 3,313 (56 skipped) | 506 s | 245 s | 4.5 min | After 081 FX1, FX2, E5, H4, P1, U3, P0r, L3, S4; down 94 s on the step since #60 (collect 142 s against 185 s). S4's PR run hit the `overlay.test.ts` 5 s timeout and passed on re-run: noise, not logged |
 
 ## Failure log
 

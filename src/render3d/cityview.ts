@@ -7,8 +7,8 @@
  */
 
 import {
-  AdditiveBlending, BoxGeometry, BufferGeometry, CircleGeometry, Color, DynamicDrawUsage, Float32BufferAttribute, Frustum, Group, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial,
-  PerspectiveCamera, Quaternion, Scene, Sphere, SphereGeometry, Vector3, type Material, type Object3D, type WebGLRenderer,
+  AdditiveBlending, BoxGeometry, BufferGeometry, Color, DynamicDrawUsage, Float32BufferAttribute, Frustum, Group, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial,
+  PerspectiveCamera, Quaternion, Scene, Sphere, Vector3, type Material, type Object3D, type WebGLRenderer,
 } from "three";
 import { type CalibrationKey, type CityCircuitLayer, type CityPlan, type CityPlanRun, type CityPuzzle, type CityStreetsLayer, type CityPuzzleCity, type CityPuzzleConverted, type CityPuzzleView } from "../core";
 import { CityPuzzleError, convertCityPuzzle } from "../city/circuit";
@@ -21,7 +21,6 @@ import type { MapOverlay } from "../render";
 import type { Insets, Rect } from "../render/geometry";
 import { drawNodeGlyph, drawX, ALARM, WARM, TARGET } from "../render/glyphs";
 import { hash01 } from "../render/motion";
-import { FLARE_SECONDS } from "../render/relight";
 import { circuitDraws, circuitGroup, COMPONENT_H_M, type CircuitDraws, type CircuitDrawn, type CircuitJob } from "./circuitdraw";
 import { createDayToggle, pageDayToggleHost, type DayToggle, type DayToggleHost } from "./daytoggle";
 import type { Vec3 } from "./kitunits";
@@ -30,7 +29,7 @@ import { lightModeFor, type LightModeId } from "./lighting";
 import { addSurface, applyLightMode, newLightOwners, setRendererMode } from "./lightrig";
 import { createFxLayer, fxSwitch, repairedFaults, sharedFx, sparkingCuts, type FxCut, type FxEmitter } from "./fx";
 import { lampFlicker } from "./look";
-import { DIM_SHARE, STREET_LIGHTS_MAX, buildingGlow, dimBuildings, dimPieces, setDimWindows, lampBuildings, lightPlaces, litGlass, sceneryLamps, setBuildingGlow, setStreetLights, streetLights, type BuildingGlow, type BuildingLamp, type LitGlass, type StreetLights } from "./windows";
+import { DIM_SHARE, STREET_LIGHTS_MAX, buildingGlow, dimBuildings, dimPieces, glowCardMesh, glowCards, roofOffsets, setDimWindows, lampBuildings, lightPlaces, litGlass, sceneryLamps, setBuildingGlow, setStreetLights, streetLights, type BuildingGlow, type BuildingLamp, type GlowCards, type LitGlass, type StreetLights } from "./windows";
 import { WORLD_PER_METRE } from "./models";
 import { meshParts, sharedTileModels, type ModelSet } from "./models3d";
 import { OVERLAY_HIT_PX, overlayHit, overlayIcons, overlayBreakHit, overlayBreaks, placePoint, type OverlayBreak, type OverlayIcon, type Project } from "./overlay";
@@ -584,20 +583,10 @@ export interface CityPlayOptions {
 const GROUND_MARGIN_M = 60;
 const FRAME_MARGIN_M = 16;
 const GLOW_COLOUR = new Color(0x4fd1ff);
-const POOL_COLOUR = 0xffd37a;
-const LAMP_GLOW_M = 0.7;
-const POOL_RADIUS_M = 3.4;
 const WIRE_THICK_M = 0.16;
 
 const Z_AXIS = new Vector3(0, 0, 1);
 const UP_AXIS = new Vector3(0, 1, 0);
-
-interface LampGlow {
-  id: string;
-  index: number;
-  glow: Mesh;
-  pool: Mesh;
-}
 
 /**
  * The play view of a city puzzle: the plan with K3's circuit and the job, live, through the same `MapRenderer3d` the page already holds. A circuit with no plan layers it needs throws before anything is made.
@@ -677,6 +666,9 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   }
   let litBuildings: { id: string; lamps: readonly BuildingLamp[] }[] = [];
   let litShop: LitGlass | null = null;
+  // 081 W2: the glow cards, one instanced mesh for the job, in front of every storey's glass on the lit buildings' street faces.
+  let litCards: GlowCards | null = null;
+  let roofSkip: ReadonlyMap<string, ReadonlySet<number>> = new Map();
   // The street lights (081 L2): one real light per lit building with a street face, made at build at intensity 0 and never added, removed or hidden in play (the count is fixed, so no program recompiles).
   // `lights=N` (dev only) fills the pool to N lights, the spares on the first building.
   const lightsWanted = import.meta.env.DEV ? Number(/[?&]lights=(\d+)(&|$)/.exec(opts.search ?? "")?.[1] ?? NaN) : NaN;
@@ -690,6 +682,11 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
       pool = null;
     }
     lightGlows.clear();
+    if (litCards) {
+      if (litCards.mesh) city?.group.remove(litCards.mesh);
+      litCards.dispose();
+      litCards = null;
+    }
     if (litShop) {
       if (litShop.mesh) city?.group.remove(litShop.mesh);
       litShop.dispose();
@@ -700,6 +697,9 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     for (const [id, lamps] of lampsOf) litBuildings.push({ id, lamps });
     litShop = litGlass(next.dressDraws, new Set(lampsOf.keys()), roots);
     if (litShop.mesh) next.group.add(litShop.mesh);
+    roofSkip = roofOffsets(dimBuildings(next.buildings.draws, (k) => (roots.get(k) ? meshParts(roots.get(k)!).length : 0)));
+    litCards = glowCardMesh(glowCards(plan, lampsOf.keys()), S);
+    if (litCards.mesh) next.group.add(litCards.mesh);
     // 081 L3: a few dim windows in the dead city, set once at build, never on a job lamp's building.
     setDimWindows(next.buildings, dimPieces(dimBuildings(next.buildings.draws, (k) => (roots.get(k) ? meshParts(roots.get(k)!).length : 0)), DIM_SHARE, plan.options.seed, new Set(lampsOf.keys())));
     const max = Number.isFinite(lightsWanted) ? Math.min(lightsWanted, STREET_LIGHTS_MAX) : STREET_LIGHTS_MAX;
@@ -793,29 +793,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   // The spans a break cuts (the particle effects stand at the middle of each: 081 FX2).
   const cutWires = wires.map((w, wi) => ({ w, wi })).filter((c) => c.w.cutFault !== null);
 
-  // Lamps: a warm glow and a light pool each, from the pieces K3 stood.
-  const lamps: LampGlow[] = [];
-  const glowGeom = new SphereGeometry(1, 12, 8);
-  const poolGeom = new CircleGeometry(1, 28).rotateX(-Math.PI / 2);
-  geoms.push(glowGeom, poolGeom);
-  const lampIndex = new Map(puzzle.nodes.map((n, i) => [n.id, i] as const));
-  for (const p of draws.pieces) {
-    if (p.role !== "component" || p.component !== "lampPost") continue;
-    const gm = new MeshBasicMaterial({ color: POOL_COLOUR, blending: AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false, opacity: 0 });
-    const pm = new MeshBasicMaterial({ color: POOL_COLOUR, blending: AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false, opacity: 0 });
-    mats.push(gm, pm);
-    const glow = new Mesh(glowGeom, gm);
-    const head = 5.0;
-    glow.position.set(p.position.x, p.position.y + head * S, p.position.z);
-    const pool = new Mesh(poolGeom, pm);
-    pool.position.set(p.position.x, 0.25 * S, p.position.z);
-    glow.raycast = () => {};
-    pool.raycast = () => {};
-    glow.visible = false;
-    pool.visible = false;
-    live.add(glow, pool);
-    lamps.push({ id: p.id, index: lampIndex.get(p.id) ?? 0, glow, pool });
-  }
+  // A lamp is a building's windows, glow cards and light (081 W2); no lamp post or disc stands, and a `{ post }` lamp draws its overlay icon only.
 
   // ---- picking: invisible proxies for the job's models and spans ----
   const pickGroup = new Group();
@@ -910,7 +888,6 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   const flow: LineFlow = { fraction: 0, reversed: false };
   const lit: WireLit = { forward: true, frac: 0 };
   const wp: WirePoint = { x: 0, y: 0, z: 0, seg: 0 };
-  const ign: LampIgnition = { on: false, flareAge: -1 };
   const bg: BuildingGlow = { level: 0, flare: 0 };
   const wiresOfLine = new Map<string, JobWire[]>();
   for (const w of liveWires) (wiresOfLine.get(w.line) ?? wiresOfLine.set(w.line, []).get(w.line)!).push(w);
@@ -1032,27 +1009,15 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     // Lit buildings: the windows and the shop glass.
     for (const b of litBuildings) {
       buildingGlow(plan_, state, b.lamps, relT, time, bg);
-      if (city) setBuildingGlow(city.buildings, b.id, bg);
+      if (city) setBuildingGlow(city.buildings, b.id, bg, roofSkip.get(b.id));
       litShop?.set(b.id, bg);
+      litCards?.set(b.id, bg);
       const lg = lightGlows.get(b.id);
       if (lg) (lg.level = bg.level), (lg.flare = bg.flare);
     }
     if (pool) setStreetLights(pool, lightGlows);
     litShop?.commit();
-    // Lamp posts (a building lamp is its windows).
-    for (const lamp of lamps) {
-      lampState(plan_, state, lamp.id, lamp.index, relT, ign);
-      const on = ign.on;
-      const flare = ign.flareAge;
-      const b = on ? 1 - lampFlicker(state, lamp.index, time) : 0;
-      const pop = flare >= 0 && flare < FLARE_SECONDS ? 1 + 1.6 * (1 - flare / FLARE_SECONDS) : 1;
-      lamp.glow.visible = b > 0.01;
-      lamp.pool.visible = b > 0.01;
-      (lamp.glow.material as MeshBasicMaterial).opacity = Math.min(1, b * (flare >= 0 && flare < FLARE_SECONDS ? 1 : 0.8));
-      (lamp.pool.material as MeshBasicMaterial).opacity = 0.34 * b * (flare >= 0 && flare < FLARE_SECONDS ? 1.4 : 1);
-      lamp.glow.scale.setScalar(LAMP_GLOW_M * S * pop);
-      lamp.pool.scale.setScalar(POOL_RADIUS_M * S * (flare >= 0 && flare < FLARE_SECONDS ? 1 + 0.3 * (1 - flare / FLARE_SECONDS) : 1));
-    }
+    litCards?.commit();
   }
 
   // perf=1 (dev only): a log after PERF_FRAMES frames of the loaded city (the grey-box city before the models load is not counted), "before power"; then again PERF_FRAMES frames after the Relight ends.
@@ -1076,6 +1041,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     if (city?.circuit) roots.set(city.circuit.group, "circuit");
     if (circuit) roots.set(circuit.group, "circuit");
     if (litShop?.mesh) roots.set(litShop.mesh, "lit shop glass");
+    if (litCards?.mesh) roots.set(litCards.mesh, "glow cards");
     roots.set(live, "live layer");
     const total = new Map<string, { calls: number; tris: number }>();
     const frustum = new Frustum();
