@@ -170,7 +170,7 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | D4 | The wall fitting shortlist, and the drop wire's gauge | pipeline-designer | now | 0 (a note) |
 | K3b | The drops drawn attached: a real insulator, the City bracket, `POWER_LINE` kept | renderer | now (Josh's D4 picks are in; K2e not needed) | 3 (1 added, 2 rewritten); 4 if the R12 case must change |
 | E4 | The overlay shows icons, not lines: the break icon at the real cut; clicks go icons, then 3D | renderer | E3 (shares `cityview.ts`) | 0 added, 4 rewritten, 1 removed |
-| E5 | The camera stays on the puzzle: zoom-out and pan limits from the district, any window shape; `cam=free` (dev) lifts them | renderer | G1 (Josh's card); beside FX2 | 3 |
+| E5 | The camera stays on the puzzle: zoom-out and pan limits from the district, any window shape; `cam=free` (dev) lifts them | renderer | G1 in ("Approve, 1.5x (Recommended)"); after FX2 merges | 3 |
 | L1 | The lit building's windows; the wall lamp goes | renderer | E4 | **done** (PR #55) |
 | L2 | Real lights on the street, the cap raised to 32 under a measured stop rule (re-cut 24 Nov 2026) | renderer | L1 (in) | 2 |
 | L3 | A few dim windows in the dead city (1 in 25, steady amber) | renderer | L1 (in) | 2 |
@@ -1085,7 +1085,13 @@ A click on an icon or a line is that piece's `hitTest` answer, so `src/play/` pl
 
 **Order.** It shares `cityview.ts` with **E3** (open PR #51: `jobFrame` and `loadCityView`), so it branches from `main` after E3 merges. It shares **no file with K3b**: the break point comes from `jobWires` in `cityview.ts`, not from `circuitdraw.ts`, and K3b changes drops only, never a span's curve. So E4 and K3b may be built at once once E3 is in.
 
-### E5 · The camera stays on the puzzle (renderer). Branch `ticket/081e5-camera-limits`. Cut 25 Nov 2026, not started (waits for G1)
+### E5 · The camera stays on the puzzle (renderer). Branch `ticket/081e5-camera-limits`. Cut 25 Nov 2026; approved (G1) the same day
+**Josh's answers, 25 Nov 2026, on cards (relayed by the main session):**
+- **G1 and E5-Q1:** **"Approve, 1.5x (Recommended)"**. `CITY_PLAY_ZOOM_OUT` is 1.5.
+- **E5-Q2:** **"Yes, dev only (Recommended)"**. `cam=free` lifts the limits in a dev build only (criterion 4).
+- **E5-Q3:** **"Hold at the limit (Recommended)"**. On a pane too small for the panels and the district, the opening is held at `Dmax` and the panels may cover the district's edge. No ui section is cut.
+- **Order:** FX2 (PR #62) is merging, so E5's branch is cut from `main` after it merges. This replaces the "beside FX2" line under **Order** below.
+
 **From.** Josh, 25 Nov 2026, in chat: "The end user shouldn't be zooming out this much. They won't be able to see anything at that height. We should restrict the end users visibility to the puzzle." On a card: **"Cut it (Recommended)"** for "zoom-out and pan limits around the puzzle's district, then G1 on a card".
 
 **What the code does (read 25 Nov 2026 at `origin/main` e32bc63; the architect's reading).**
@@ -1880,4 +1886,4 @@ All questions so far are answered (above), the mid-row one included ("Only when 
 15. **F-Q2, the pixel ratio** (after F0's measurement, only if rendering at 1x saves more than 2 ms): full sharpness, or 1x scaled up. Worded in section F.
 16. **Section FX** (Josh, 24 Nov 2026, on cards): G1 "Approve, FX2 first (Recommended)"; FX-Q1 "Sparks first (Recommended)"; FX-Q2 "Meshes too" (folded into FX1). 25 Nov 2026, after playing FX2: "Merge FX1, fix FX2 (Recommended)", with "extreme" as "More of them", "Bigger, brighter", "Fly further", "Crackle arcs" (FX2 amended; no question left from it). **Still open, before FX3:** FX-Q3 where brownout arcs show ("A few at a time on the overloaded feed's live poles (Recommended)"); FX-Q4 the Relight ("A sparkle burst at each puzzle lamp as it lights (Recommended)"). **Not blocking, after FX1's conversion:** FX-Q5 which shard mesh ("Keep `FX_Shard_Rock_Small_01` (Recommended)").
 17. **FX's frame budgets:** answered, "1.5 ms / 2.0 ms (Recommended)" (Josh, 24 Nov 2026, on a card): with every effect running (`fx=all`), at most 1.5 ms CPU over `fx=0` for FX2 and 2.0 ms for the whole section, in the same session, and never over 16.7 ms. Over them, the builder stops and the numbers come to him.
-18. **Section E5, the camera** (Josh, 25 Nov 2026, in chat: "We should restrict the end users visibility to the puzzle"; on a card: "Cut it (Recommended)"). For its G1 card: E5-Q1 how far out ("1.5x (Recommended)", "1.25x", "2x"), E5-Q2 the dev switch ("Yes, `cam=free` in dev only (Recommended)", "No switch"), E5-Q3 a pane too small for the panels and the district ("Hold the camera at the limit; the panels may cover the district's edge (Recommended)", "Also fold the panels on small panes"). Worded in section E5.
+18. **Section E5, the camera** (Josh, 25 Nov 2026, in chat: "We should restrict the end users visibility to the puzzle"; on a card: "Cut it (Recommended)"). **Answered** 25 Nov 2026, on cards: G1 and E5-Q1 "Approve, 1.5x (Recommended)"; E5-Q2 "Yes, dev only (Recommended)"; E5-Q3 "Hold at the limit (Recommended)". As asked on its G1 card: E5-Q1 how far out ("1.5x (Recommended)", "1.25x", "2x"), E5-Q2 the dev switch ("Yes, `cam=free` in dev only (Recommended)", "No switch"), E5-Q3 a pane too small for the panels and the district ("Hold the camera at the limit; the panels may cover the district's edge (Recommended)", "Also fold the panels on small panes"). Worded in section E5.
