@@ -152,3 +152,14 @@ Browser pane emulated at 1287 x 1178, `?puzzle=city-two-ways-round&perf=1`, befo
 | `fx=all` (a blow every 2 s, bursts, 24 arcs) | 1,844 | 13 | 11.20 ms | 16.70 ms | 1,289 (spark 1,225, sparkle 543) |
 
 Pass: 1.5 ms added against the 2.0 ms budget; the frame holds at 60 fps; the 6 extra draw calls and 1 program are the effects pools and material, as in FX2. The 4 white point lights are made at build (31 of the 32 lights with the street lights), so no program compiles in play.
+
+## SK, criterion 8 (25 Nov 2026, Josh's PC, in view)
+
+Browser pane emulated at 1287 x 1178, `?puzzle=city-two-ways-round&perf=1`, before power. main is `D:\rest-main-play` at bf6940d; SK is branch `ticket/081sk-night-sky` at 653dd8b (PR #92). Canvas 1930 x 1767, pixel ratio 1.5, fx on.
+
+| Run | Draw calls | Programs | CPU median | Whole frame |
+|---|---|---|---|---|
+| main | 1,843 | 13 | 10.00 ms | 16.70 ms |
+| SK | 1,845 | 16 | 9.40 ms | 16.70 ms |
+
+Pass: 2 draw calls and 3 programs added, against a limit of 3 and 3. The dome and the moon are 2 calls, and the stars came out inside "other" (19 against 17). The CPU median is within the noise and under main's +1.0 ms. The frame holds at 60 fps. One load each, not two: Josh was using the pane, so the second pair was left. Criterion 9's contrast screenshots after the Relight were not taken. Josh chose on a card "Fix dispose, then merge (Recommended)" after seeing these numbers and the reviewer's note on the look.
