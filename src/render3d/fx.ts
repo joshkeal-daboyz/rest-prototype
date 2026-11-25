@@ -8,9 +8,10 @@
  */
 
 import {
-  AdditiveBlending, BoxGeometry, BufferGeometry, Color, DataTexture, DynamicDrawUsage, Euler, Group, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, Quaternion, RGBAFormat, TextureLoader, Vector3, type Object3D, type Texture,
+  AdditiveBlending, BoxGeometry, BufferGeometry, Color, DataTexture, DynamicDrawUsage, Euler, Group, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, PointLight, Quaternion, RGBAFormat, TextureLoader, Vector3, type Object3D, type Texture,
 } from "three";
-import { FX_MESHES, FX_TEXTURES, GAME_PACK_DIR, type FxMeshId, type FxTextureId } from "../core";
+import { BLOW_TIMING, FX_MESHES, FX_TEXTURES, GAME_PACK_DIR, type FxMeshId, type FxTextureId } from "../core";
+import type { RelightPlan } from "../render/relight";
 import type { GridState } from "../grid";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { WORLD_PER_METRE } from "./models";
@@ -75,6 +76,10 @@ export interface ParticlePool {
   /** Start and end colour, r g b each. */
   readonly c0: Float32Array;
   readonly c1: Float32Array;
+  /** Building boxes (flat minx maxx maxy minz maxz, world units) the bounce step ricochets off, or null. */
+  walls: Float32Array | null;
+  /** How many floor or wall touches a particle survives (1: it dies at its second, the default). */
+  maxBounces: number;
   /** Adds a particle; when full, it takes the place of the oldest. Returns its index. */
   spawn(p: Readonly<ParticleInit>): number;
   /**
@@ -135,6 +140,8 @@ export function createParticlePool(max: number): ParticlePool {
     ramp,
     c0,
     c1,
+    walls: null,
+    maxBounces: 1,
     spawn(p) {
       let i = pool.count;
       if (i >= n) {
@@ -176,10 +183,39 @@ export function createParticlePool(max: number): ParticlePool {
             vel[i * 3 + j] = vel[i * 3 + j]! * k;
             pos[i * 3 + j] = pos[i * 3 + j]! + vel[i * 3 + j]! * dt;
           }
-          if (bounces && pos[i * 3 + 1]! < floor[i]! && vel[i * 3 + 1]! < 0) {
-            if (touched[i]! >= 1) dead = true;
+          const wl = bounces ? pool.walls : null;
+          if (wl) {
+            const px = pos[i * 3]!;
+            const py = pos[i * 3 + 1]!;
+            const pz = pos[i * 3 + 2]!;
+            for (let w = 0; w + 4 < wl.length; w += 5) {
+              if (px <= wl[w]! || px >= wl[w + 1]! || pz <= wl[w + 3]! || pz >= wl[w + 4]! || py >= wl[w + 2]!) continue;
+              // Inside a wall box: out through the nearest side, that way's speed turned back (half), the rest slowed.
+              const dxa = px - wl[w]!;
+              const dxb = wl[w + 1]! - px;
+              const dza = pz - wl[w + 3]!;
+              const dzb = wl[w + 4]! - pz;
+              const m = Math.min(dxa, dxb, dza, dzb);
+              if (touched[i]! >= pool.maxBounces) {
+                dead = true;
+                break;
+              }
+              touched[i] = touched[i]! + 1;
+              if (m === dxa || m === dxb) {
+                pos[i * 3] = m === dxa ? wl[w]! : wl[w + 1]!;
+                vel[i * 3] = -vel[i * 3]! * 0.5;
+              } else {
+                pos[i * 3 + 2] = m === dza ? wl[w + 3]! : wl[w + 4]!;
+                vel[i * 3 + 2] = -vel[i * 3 + 2]! * 0.5;
+              }
+              vel[i * 3 + 1] = vel[i * 3 + 1]! * 0.8;
+              break;
+            }
+          }
+          if (!dead && bounces && pos[i * 3 + 1]! < floor[i]! && vel[i * 3 + 1]! < 0) {
+            if (touched[i]! >= pool.maxBounces) dead = true;
             else {
-              touched[i] = 1;
+              touched[i] = touched[i]! + 1;
               pos[i * 3 + 1] = floor[i]!;
               vel[i * 3 + 1] = -vel[i * 3 + 1]! * 0.35;
               vel[i * 3] = vel[i * 3]! * 0.6;
@@ -525,7 +561,235 @@ export function cutArcs(cut: { readonly id: number; readonly span: FxSpan }, tim
   return n;
 }
 
+// ---- the blown fuse's bolt, brownout arcs and Relight bursts (pure; 081 FX4, FX3) ----
+
+/** The sparks a blown fuse bursts: twice FX2's biggest single burst (a live break's pop, up to 70). */
+export const BLOW_SPARKS = 240;
+/** The bolt's length along the wire, in metres. */
+export const BOLT_LEN_M = 8;
+
+/** One wire of a route, as `FxSpan`, and whether the route runs it from its far end. */
+export interface FxPiece extends FxSpan {
+  readonly rev: boolean;
+}
+
+/** The wires from a blown fuse out to one lamp, in order, fuse first. `len_m` is their total. */
+export interface FxRoute {
+  readonly pieces: readonly FxPiece[];
+  readonly len_m: number;
+  /** Things within reach of the route, found once at blow time: flat `s x y z` (metres from the fuse, then world units), ascending in `s`. The bolt's forks reach for these. */
+  readonly targets?: Float32Array;
+}
+
+/** How far a fork may reach for a thing, in metres. */
+export const FORK_REACH_M = 4;
+
+/**
+ * The things near a route a fork may reach for, by sampling the route every 2.5 m: the ground under it, the nearest point of another wire (`wires`: each a flat list of x y z points, so a pole's insulators are among
+ * them) and the nearest point on a building's walls (`boxes`: flat minx maxx maxy minz maxz, ground at `groundY`), each within `FORK_REACH_M` (world units: `scale`). Flat `s x y z`, ascending in `s`.
+ */
+export function gatherTargets(route: FxRoute, wires: readonly (readonly number[])[], boxes: Float32Array, groundY: number, scale: number): Float32Array {
+  const reach = FORK_REACH_M * scale;
+  const out: number[] = [];
+  const at = { x: 0, y: 0, z: 0 };
+  const steps = Math.max(1, Math.ceil(route.len_m / 2.5));
+  for (let k = 0; k <= steps; k++) {
+    const s = Math.min(route.len_m, k * 2.5);
+    routePoint(route, s, at);
+    if (at.y - groundY > 0.3 * scale && at.y - groundY <= reach) out.push(s, at.x, groundY, at.z);
+    let best = reach * reach;
+    let bx = 0;
+    let by = 0;
+    let bz = 0;
+    let found = false;
+    for (const w of wires) {
+      for (let i = 0; i + 2 < w.length; i += 3) {
+        const d = (w[i]! - at.x) ** 2 + (w[i + 1]! - at.y) ** 2 + (w[i + 2]! - at.z) ** 2;
+        if (d < best && d > (0.6 * scale) ** 2) {
+          best = d;
+          bx = w[i]!;
+          by = w[i + 1]!;
+          bz = w[i + 2]!;
+          found = true;
+        }
+      }
+    }
+    if (found) out.push(s, bx, by, bz);
+    best = reach * reach;
+    found = false;
+    for (let i = 0; i + 4 < boxes.length; i += 5) {
+      const x = Math.min(Math.max(at.x, boxes[i]!), boxes[i + 1]!);
+      const y = Math.min(Math.max(at.y, groundY), boxes[i + 2]!);
+      const z = Math.min(Math.max(at.z, boxes[i + 3]!), boxes[i + 4]!);
+      const d = (x - at.x) ** 2 + (y - at.y) ** 2 + (z - at.z) ** 2;
+      if (d < best && d > 1e-6) {
+        best = d;
+        bx = x;
+        by = y;
+        bz = z;
+        found = true;
+      }
+    }
+    if (found) out.push(s, bx, by, bz);
+  }
+  return Float32Array.from(out);
+}
+
+/** A target within 3 m (along the route) of `s`, picked by `h` (0..1), into `out`; false when nothing is in reach. */
+export function pickTarget(route: FxRoute, s: number, h: number, out: { x: number; y: number; z: number }): boolean {
+  const t = route.targets;
+  if (!t || t.length === 0) return false;
+  const n = t.length / 4;
+  let lo = 0;
+  let hi = n;
+  while (lo < hi) {
+    const m = (lo + hi) >> 1;
+    if (t[m * 4]! < s - 3) lo = m + 1;
+    else hi = m;
+  }
+  let end = lo;
+  while (end < n && t[end * 4]! <= s + 3) end++;
+  if (end <= lo) return false;
+  const i = lo + Math.min(end - lo - 1, Math.floor(h * (end - lo)));
+  out.x = t[i * 4 + 1]!;
+  out.y = t[i * 4 + 2]!;
+  out.z = t[i * 4 + 3]!;
+  return true;
+}
+
+/** One bolt this frame: metres from the fuse, head nearest it. */
+export interface FxBolt {
+  route: number;
+  head: number;
+  tail: number;
+}
+
+export function newFxBolts(n: number): FxBolt[] {
+  const out: FxBolt[] = [];
+  for (let i = 0; i < n; i++) out.push({ route: 0, head: 0, tail: 0 });
+  return out;
+}
+
+/** When the burst at the fuse comes: the sound's pop (`popAt`), or 0 when the blow has no path (as `BLOW_TIMING` says). */
+export const blowBurstAt = (hasPath: boolean): number => (hasPath ? BLOW_TIMING.popAt : 0);
+
+/** The burst is due in the frame that takes the blow's clock from `prevT` (exclusive) to `t` (inclusive): once. */
+export const blowBurstDue = (hasPath: boolean, prevT: number, t: number): boolean => {
+  const at = blowBurstAt(hasPath);
+  return prevT < at && at <= t;
+};
+
+/**
+ * The bolts `t` seconds after a blow, one per route, written to `out`; returns how many. Each runs from its lamp's end towards the fuse and reaches it at `popAt`, then shrinks to nothing over `pop`. Before the blow,
+ * after `popAt + pop`, or with no routes, nothing.
+ */
+export function blowBolts(routes: readonly FxRoute[], t: number, out: FxBolt[]): number {
+  if (t < 0 || t >= BLOW_TIMING.popAt + BLOW_TIMING.pop) return 0;
+  let n = 0;
+  for (let i = 0; i < routes.length && n < out.length; i++) {
+    const len = routes[i]!.len_m;
+    const b = out[n++]!;
+    b.route = i;
+    if (t <= BLOW_TIMING.popAt) {
+      b.head = len * (1 - t / BLOW_TIMING.popAt);
+      b.tail = Math.min(len, b.head + BOLT_LEN_M);
+    } else {
+      b.head = 0;
+      b.tail = Math.min(len, BOLT_LEN_M * (1 - (t - BLOW_TIMING.popAt) / BLOW_TIMING.pop));
+    }
+  }
+  return n;
+}
+
+/** The point `s` metres from the fuse along a route (clamped), into `out`. */
+export function routePoint(route: FxRoute, s: number, out: { x: number; y: number; z: number }): void {
+  let rest = s < 0 ? 0 : s;
+  const last = route.pieces.length - 1;
+  for (let i = 0; i <= last; i++) {
+    const piece = route.pieces[i]!;
+    if (rest <= piece.len_m || i === last) {
+      const m = Math.min(rest, piece.len_m);
+      spanPoint(piece, piece.rev ? piece.len_m - m : m);
+      out.x = pt[0]!;
+      out.y = pt[1]!;
+      out.z = pt[2]!;
+      return;
+    }
+    rest -= piece.len_m;
+  }
+}
+
+/** A pole end of a job wire as the arcs need it: its line, and the segment from the pole's insulator to 0.6 m along the wire (world units). */
+export interface FxPort {
+  readonly line: string;
+  readonly ax: number;
+  readonly ay: number;
+  readonly az: number;
+  readonly bx: number;
+  readonly by: number;
+  readonly bz: number;
+}
+
+/** The most brownout arcs on at once. */
+export const ARCS_AT_ONCE = 3;
+const ARC_SLOT_S = 0.2;
+
+/**
+ * The brownout arcs this frame, as indexes into `ports` written to `out` (cleared first), at most `max`. Only while `state.brownout`, and only on a port whose line is powered and carried by a feed that is over. A
+ * port's arc starts in a time slot by a hash of the port and the slot and lasts 0.08 to 0.15 s, so the answer depends on its inputs alone. `every` (fx=all, for the measure) skips the state and the hash.
+ */
+export function arcSpots(state: Pick<GridState, "brownout" | "powered" | "feedOf" | "feeds">, ports: readonly FxPort[], time: number, max: number, out: number[], every = false): number[] {
+  out.length = 0;
+  if (!every && !state.brownout) return out;
+  const n = ports.length;
+  if (n === 0) return out;
+  const slot = Math.floor(time / ARC_SLOT_S);
+  const phase = time - slot * ARC_SLOT_S;
+  const from = Math.floor(hash(slot * 1.37) * n);
+  for (let k = 0; k < n && out.length < max; k++) {
+    const i = (from + k) % n;
+    const port = ports[i]!;
+    if (!every) {
+      if (!state.powered.has(port.line)) continue;
+      const feed = state.feedOf.get(port.line);
+      if (feed === undefined || state.feeds.get(feed)?.over !== true) continue;
+      const h = hash(i * 5.7 + slot * 2.3);
+      if (h > 0.3) continue;
+      const start = 0.05 * hash(h * 91.3 + i);
+      const dur = 0.08 + 0.07 * hash(h * 33.1 + i * 1.9);
+      if (phase < start || phase >= start + dur) continue;
+    }
+    out.push(i);
+  }
+  return out;
+}
+
+/** A job lamp the Relight may burst at: its node index and place (world units). */
+export interface FxLamp {
+  readonly index: number;
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+}
+
+/**
+ * The lamps (indexes into `lamps`) whose arrival on the Relight clock falls in (`prevT`, `t`] and that end up lit, written to `out` (cleared first) in the order they ignite. From the plan and the clock alone, so a
+ * click changes nothing.
+ */
+export function relightBursts(plan: Pick<RelightPlan, "nodeArrive">, lit: (index: number) => boolean, lamps: readonly FxLamp[], prevT: number, t: number, out: number[]): number[] {
+  out.length = 0;
+  for (let i = 0; i < lamps.length; i++) {
+    const a = plan.nodeArrive[lamps[i]!.index]!;
+    if (a > prevT && a <= t && lit(lamps[i]!.index)) out.push(i);
+  }
+  if (out.length > 1) out.sort((x, y) => plan.nodeArrive[lamps[x]!.index]! - plan.nodeArrive[lamps[y]!.index]!);
+  return out;
+}
+
 // ---- the draw layer ----
+
+/** The most quads the bolts and brownout arcs may queue in one frame. */
+const DIRECT_MAX = 384;
 
 interface Layer {
   readonly pool: ParticlePool;
@@ -558,6 +822,19 @@ function hotColour(u: number, out: Color): void {
   out.multiplyScalar(HOT);
 }
 
+/** The blown fuse's sparks: orange-gold by age (yellow-gold, then orange, then deep red), as the reference footage's shower. */
+function goldColour(u: number, out: Color): void {
+  if (u < 0.3) out.setRGB(1.0, 0.82, 0.42);
+  else if (u < 0.65) {
+    const t = (u - 0.3) / 0.35;
+    out.setRGB(1.0, 0.82 + (0.52 - 0.82) * t, 0.42 + (0.12 - 0.42) * t);
+  } else {
+    const t = (u - 0.65) / 0.35;
+    out.setRGB(1.0 + (0.85 - 1.0) * t, 0.52 + (0.2 - 0.52) * t, 0.12 + (0.04 - 0.12) * t);
+  }
+  out.multiplyScalar(HOT);
+}
+
 /** One break emitter: where it sits (the cut span's middle sample), the ground height under it, and its span (for the arcs). World units. */
 export interface FxEmitter {
   readonly id: number;
@@ -578,6 +855,19 @@ export interface FxCounts {
   shard: number;
 }
 
+/** The camera as the white-out needs it: its place, near plane, the tangent of half its vertical field and its aspect. */
+export interface FxView {
+  x: number;
+  y: number;
+  z: number;
+  near: number;
+  tanHalf: number;
+  aspect: number;
+}
+
+const WHITE_HOLD_S = 0.08;
+const WHITE_FADE_S = 0.4;
+
 /** What `createFxLayer` hands back. All positions are world units (metres x `WORLD_PER_METRE`). */
 export interface FxLayer {
   readonly group: Group;
@@ -592,8 +882,18 @@ export interface FxLayer {
   breakAt(slot: number, time: number): void;
   /** A repair's flash, once: a soft bloom and a ring of sparkle with a few chips. */
   repairAt(x: number, y: number, z: number): void;
+  /** A blown fuse's burst, once, at the box: `BLOW_SPARKS` sparks, chips and a soft-spot flash. `ground` is the height the sparks bounce off. */
+  blowAt(x: number, y: number, z: number, ground: number, walls?: Float32Array | null): void;
+  /** A small cold flash for a brownout arc, for a few frames (call it each frame the arc is on). */
+  arcFlashAt(x: number, y: number, z: number): void;
+  /** A lit lamp's burst, once: a soft flash and a fountain of sparkle in the lit pane's amber. */
+  bloomAt(x: number, y: number, z: number): void;
+  /** Queues one lightning quad between two points for this frame (world units, `width` too; `r g b` before the layer's gain). Dropped past the frame's room. */
+  arcAt(ax: number, ay: number, az: number, bx: number, by: number, bz: number, width: number, r: number, g: number, b: number): void;
+  /** Queues a jagged bolt along `route` from `tail` to `head` metres from the fuse, for this frame. */
+  bolt(route: FxRoute, head: number, tail: number, time: number): void;
   /** Moves the particles and writes the draw arrays. `camera` is the view's rotation (sprites face it). */
-  update(dt: number, camera: Quaternion): void;
+  update(dt: number, camera: Quaternion, view?: FxView): void;
   clear(): void;
   /** Particles alive, for the measure's label. */
   alive(): number;
@@ -639,13 +939,36 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
   const softMat = spriteMat("softSpot");
   const smokeMat = spriteMat("smoke");
   const lightMat = spriteMat("lightning");
+  // Lightning is drawn through buildings (x-ray) so a bolt along a hidden run still reads; the same material, so no new draw call.
+  lightMat.depthTest = false;
   mats.push(sparkleMat, softMat, smokeMat, lightMat);
-  const sparkle = makeLayer(512 * n + 256, quad, sparkleMat, "sprite", 6, 1.4, fadeLinear);
-  const soft = makeLayer(48 * n + 16, quad, softMat, "sprite", 0, 2.5, fadeSoft, n);
-  const smoke = makeLayer(24 * n + 1, quad, smokeMat, "sprite", -0.6, 1.6, fadeWisp);
-  const spark = makeLayer(512 * n + 1, unit, meshMat, "streak", 9.8, 0.6, fadeHot);
+  const sparkle = makeLayer(640 * n + 800, quad, sparkleMat, "sprite", 6, 1.4, fadeLinear);
+  const soft = makeLayer(48 * n + 64, quad, softMat, "sprite", 0, 2.5, fadeSoft, n + 1);
+  const smoke = makeLayer(24 * n + 16, quad, smokeMat, "sprite", -0.6, 1.6, fadeWisp);
+  const spark = makeLayer(640 * n + 600, unit, meshMat, "streak", 9.8, 0.6, fadeHot);
   const shard = makeLayer(128 * n + 32, unit, meshMat, "chip", 12, 0.6, fadeHot);
-  const lightning = makeLayer(1, quad, lightMat, "sprite", 0, 0, fadeLinear, 8 * n);
+  const lightning = makeLayer(1, quad, lightMat, "sprite", 0, 0, fadeLinear, 8 * n + DIRECT_MAX);
+  const lightCap = 1 + 8 * n + DIRECT_MAX;
+  // Four white point lights, made now at intensity 0 and never added or removed: 0 the fuse burst, 1 and 2 the live breaks' sparks, 3 the bolt's head. The light count in play never changes.
+  const burstLight = new PointLight(0xd6e4ff, 0, 60 * S, 1);
+  const sparkLights = [new PointLight(0xffffff, 0, 30 * S, 1), new PointLight(0xffffff, 0, 30 * S, 1)];
+  const boltLight = new PointLight(0xffffff, 0, 35 * S, 1);
+  const fxLights = [burstLight, ...sparkLights, boltLight];
+  for (const l of fxLights) {
+    l.name = "fx-light";
+    l.castShadow = false;
+    group.add(l);
+  }
+  let burstAge = -1;
+  // The white-out: age since the burst (-1 idle). One more instance of the soft-spot layer, a screen-sized sprite in front of the camera, so it adds no draw call and no program.
+  let whiteAge = -1;
+  let whiteX = 0;
+  let whiteY = 0;
+  let whiteZ = 0;
+  let boltOn = false;
+  // Sparks skitter: four touches of the street or a wall before they die.
+  spark.pool.maxBounces = 4;
+  sparkle.pool.maxBounces = 4;
   const layers = [sparkle, soft, smoke, spark, shard, lightning];
   let haveSpark = false;
   let haveShard = false;
@@ -670,21 +993,29 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
   const arcs = newFxArcs();
   const p = newParticleInit();
   let glows = 0;
+  const queue = new Float32Array(DIRECT_MAX * 10);
+  let queued = 0;
+  const boltPts = new Float64Array(3 * 7);
+  const bp = { x: 0, y: 0, z: 0 };
+  const blowAtE = { x: 0, y: 0, z: 0, ground: 0 };
 
-  const sparkOut = (e: FxEmitter, mul: number): void => {
+  const sparkOut = (e: FxEmitter, mul: number, lifeMul = 1, gold = false): void => {
     const a = rnd() * Math.PI * 2;
-    const h = (3 + rnd() * 5) * mul * S;
+    // Inside a cone about straight down, 60 degrees across (within 30 degrees of down): none go up.
+    const sp = (4 + rnd() * 5) * mul * S;
+    const th = rnd() * (Math.PI / 6);
+    const h = Math.sin(th) * sp;
     p.x = e.x;
     p.y = e.y;
     p.z = e.z;
     p.vx = Math.cos(a) * h;
     p.vz = Math.sin(a) * h;
-    p.vy = (rnd() < 0.2 ? -rnd() * 3 : 2 + rnd() * 5) * mul * S;
-    p.life = 0.7 + rnd() * 0.7;
-    p.size = (haveSpark ? 0.15 : 0.9) * S;
+    p.vy = -Math.cos(th) * sp;
+    p.life = (0.7 + rnd() * 0.7) * lifeMul;
+    p.size = (haveSpark ? (gold ? 0.1 : 0.15) : gold ? 0.6 : 0.9) * S;
     p.grow = haveSpark ? 1 : 0.5;
     p.spin = 0;
-    p.ramp = 1;
+    p.ramp = gold ? 2 : 1;
     p.floor = e.ground;
     (haveSpark ? spark : sparkle).pool.spawn(p);
   };
@@ -767,7 +1098,8 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
       }
       m4.compose(pv, q, sv).toArray(arr, i * 16);
       if (isHot) {
-        hotColour(u, hot);
+        if (pool.ramp[i]! > 1.5) goldColour(u, hot);
+        else hotColour(u, hot);
         col[i * 3] = hot.r * f;
         col[i * 3 + 1] = hot.g * f;
         col[i * 3 + 2] = hot.b * f;
@@ -815,7 +1147,7 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
       if (time >= nextBurst[slot]!) {
         nextBurst[slot] = time + 0.05 + rnd() * 0.07;
         const k = 18 + Math.floor(rnd() * 9);
-        for (let i = 0; i < k; i++) sparkOut(e, 1);
+        for (let i = 0; i < k; i++) sparkOut(e, 1, 1.5);
         const c = 4 + Math.floor(rnd() * 3);
         for (let i = 0; i < c; i++) chipOut(e);
         flash(e.x, e.y, e.z, 2.5, 1.2, 0.12, 1.6, 1.4, 1.1, 1.0, 0.5, 0.15);
@@ -823,7 +1155,7 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
       if (time >= nextPop[slot]!) {
         nextPop[slot] = time + 0.6 + rnd() * 0.6;
         const k = 50 + Math.floor(rnd() * 21);
-        for (let i = 0; i < k; i++) sparkOut(e, 1.5);
+        for (let i = 0; i < k; i++) sparkOut(e, 1.5, 1.5);
         flash(e.x, e.y, e.z, 5, 1.3, 0.25, 2.0, 1.9, 1.5, 1.2, 0.6, 0.15);
       }
       if (time >= nextSmoke[slot]!) {
@@ -899,7 +1231,141 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
         (haveShard ? shard : sparkle).pool.spawn(p);
       }
     },
-    update(dt, camera) {
+    blowAt(x, y, z, ground, walls = null) {
+      spark.pool.walls = walls;
+      sparkle.pool.walls = walls;
+      const e = blowAtE as unknown as FxEmitter;
+      blowAtE.x = x;
+      blowAtE.y = y;
+      blowAtE.z = z;
+      blowAtE.ground = ground;
+      for (let i = 0; i < BLOW_SPARKS; i++) sparkOut(e, 2.2, 2, true);
+      for (let i = 0; i < 12; i++) chipOut(e);
+      burstLight.position.set(x, y + 1 * S, z);
+      burstAge = 0;
+      // A blue-white ball of light at the fuse, a blue-lit haze round it, and the whole view blown out for a moment.
+      flash(x, y, z, 9, 1.5, BLOW_TIMING.pop, 1.6, 2.0, 2.6, 0.5, 0.7, 1.3);
+      flash(x, y, z, 3, 1.2, 0.2, 2.4, 2.6, 3.0, 1.2, 1.5, 2.2);
+      whiteAge = 0;
+      whiteX = x;
+      whiteY = y;
+      whiteZ = z;
+      for (let i = 0; i < 4; i++) {
+        p.x = x + (rnd() - 0.5) * 0.6 * S;
+        p.y = y + (rnd() - 0.2) * 0.6 * S;
+        p.z = z + (rnd() - 0.5) * 0.6 * S;
+        p.vx = (rnd() - 0.5) * 1.2 * S;
+        p.vy = (0.3 + rnd() * 0.6) * S;
+        p.vz = (rnd() - 0.5) * 1.2 * S;
+        p.life = 1.0 + rnd() * 0.4;
+        p.size = 2.5 * S;
+        p.grow = 2.5;
+        p.spin = 0;
+        p.r0 = 0.5;
+        p.g0 = 0.65;
+        p.b0 = 1.0;
+        p.r1 = 0.2;
+        p.g1 = 0.25;
+        p.b1 = 0.45;
+        p.ramp = 0;
+        p.floor = NO_FLOOR;
+        smoke.pool.spawn(p);
+      }
+    },
+    arcFlashAt(x, y, z) {
+      flash(x, y, z, 1, 1, 0.05, 0.8, 1.0, 1.5, 0.4, 0.5, 0.8);
+    },
+    bloomAt(x, y, z) {
+      flash(x, y, z, 3.5, 1.6, 0.5, 1.8, 1.4, 0.8, 1.2, 0.6, 0.15);
+      for (let i = 0; i < 14; i++) {
+        const a = rnd() * Math.PI * 2;
+        const h = (1.5 + rnd() * 2.5) * S;
+        p.x = x;
+        p.y = y;
+        p.z = z;
+        p.vx = Math.cos(a) * h;
+        p.vz = Math.sin(a) * h;
+        p.vy = (1 + rnd() * 3) * S;
+        p.life = 0.5 + rnd() * 0.4;
+        p.size = 0.45 * S;
+        p.grow = 0.5;
+        p.spin = 0;
+        p.r0 = 1.7;
+        p.g0 = 1.3;
+        p.b0 = 0.7;
+        p.r1 = 1.2;
+        p.g1 = 0.6;
+        p.b1 = 0.15;
+        p.ramp = 0;
+        p.floor = NO_FLOOR;
+        sparkle.pool.spawn(p);
+      }
+    },
+    arcAt(ax, ay, az, bx, by, bz, width, r, g, b) {
+      if (queued >= DIRECT_MAX) return;
+      const o = queued++ * 10;
+      queue[o] = ax;
+      queue[o + 1] = ay;
+      queue[o + 2] = az;
+      queue[o + 3] = bx;
+      queue[o + 4] = by;
+      queue[o + 5] = bz;
+      queue[o + 6] = width;
+      queue[o + 7] = r;
+      queue[o + 8] = g;
+      queue[o + 9] = b;
+    },
+    bolt(route, head, tail, time) {
+      const K = 10;
+      const jag = 0.25 * S;
+      for (let k = 0; k <= K; k++) {
+        routePoint(route, head + ((tail - head) * k) / K, bp);
+        const j = k === 0 || k === K ? 0 : jag;
+        boltPts[k * 3] = bp.x + (rnd() - 0.5) * 2 * j;
+        boltPts[k * 3 + 1] = bp.y + (rnd() - 0.5) * 2 * j;
+        boltPts[k * 3 + 2] = bp.z + (rnd() - 0.5) * 2 * j;
+      }
+      // A bright thick head with a trail that thins and dims towards the tail, and a soft flash at the head.
+      for (let k = 0; k < K; k++) {
+        const f = 1 - k / K;
+        this.arcAt(boltPts[k * 3]!, boltPts[k * 3 + 1]!, boltPts[k * 3 + 2]!, boltPts[k * 3 + 3]!, boltPts[k * 3 + 4]!, boltPts[k * 3 + 5]!, (0.5 + 0.8 * f) * S, 0.5 + 1.4 * f, 0.7 + 1.6 * f, 1.2 + 1.6 * f);
+      }
+      boltLight.position.set(boltPts[0]!, boltPts[1]!, boltPts[2]!);
+      boltOn = true;
+      flash(boltPts[0]!, boltPts[1]!, boltPts[2]!, 4, 1, 0.05, 1.4, 1.7, 2.4, 0.7, 0.9, 1.4);
+      // Forked streaks reach out from the head and two points down the trail, a few at a time: each holds its direction for a 1/20 s slot and flickers.
+      const slot = Math.floor(time * 20);
+      for (let f = 0; f < 3; f++) {
+        const kk = f * 3;
+        const h = hash(slot * 7.1 + f * 3.3 + head * 0.37);
+        if (h > 0.75 || rnd() > 0.85) continue;
+        const ox = boltPts[kk]!;
+        const oy = boltPts[kk + 1]!;
+        const oz = boltPts[kk + 2]!;
+        let ex: number;
+        let ey: number;
+        let ez: number;
+        // Reach for a real thing near this point of the bolt; only where nothing is in reach, a random direction.
+        if (pickTarget(route, head + ((tail - head) * f) / K, hash(h * 29.3 + f * 4.1), bp)) {
+          ex = bp.x;
+          ey = bp.y;
+          ez = bp.z;
+        } else {
+          const a = hash(h * 91.7 + f) * Math.PI * 2;
+          const el = (hash(h * 13.9 + f * 2.1) - 0.65) * 1.3;
+          const L = (1.5 + 2.5 * hash(h * 5.3 + f)) * S;
+          ex = ox + Math.cos(a) * Math.cos(el) * L;
+          ey = oy + Math.sin(el) * L;
+          ez = oz + Math.sin(a) * Math.cos(el) * L;
+        }
+        const mx = (ox + ex) / 2 + (rnd() - 0.5) * 0.8 * S;
+        const my = (oy + ey) / 2 + (rnd() - 0.5) * 0.8 * S;
+        const mz = (oz + ez) / 2 + (rnd() - 0.5) * 0.8 * S;
+        this.arcAt(ox, oy, oz, mx, my, mz, 0.3 * S, 1.3, 1.35, 1.5);
+        this.arcAt(mx, my, mz, ex, ey, ez, 0.18 * S, 1.2, 1.25, 1.4);
+      }
+    },
+    update(dt, camera, view) {
       // The cuts fed this frame spawn their arcs' flashes first; an emitter not fed has its timers reset.
       for (let s = 0; s < n; s++) {
         if (fed[s] === 0) {
@@ -922,6 +1388,15 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
       zv.set(0, 0, 1).applyQuaternion(camera);
       glows = 0;
       let drawn = 0;
+      let sparkLit = 0;
+      // The white lights: the burst's is bright and brief, the sparks' flicker with them.
+      if (burstAge >= 0) {
+        burstAge += dt;
+        if (burstAge >= BLOW_TIMING.pop) burstAge = -1;
+      }
+      burstLight.intensity = burstAge < 0 ? 0 : 60 * (1 - burstAge / BLOW_TIMING.pop) ** 2;
+      boltLight.intensity = boltOn ? 10 * (0.6 + 0.4 * rnd()) : 0;
+      boltOn = false;
       for (let s = 0; s < n; s++) {
         if (fed[s] === 0) continue;
         fed[s] = 0;
@@ -929,6 +1404,11 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
         // The steady glow, flickering between 0.6 and 1.0 each frame.
         const gi = soft.pool.count + glows++;
         const flick = (0.6 + 0.4 * rnd()) * 0.9;
+        if (sparkLit < 2) {
+          const l = sparkLights[sparkLit++]!;
+          l.position.set(e.x, e.y + 0.5 * S, e.z);
+          l.intensity = 8 * flick;
+        }
         m4.compose(pv.set(e.x, e.y, e.z), q.copy(camera), sv.setScalar(1.5 * S)).toArray(sarr, gi * 16);
         scol[gi * 3] = flick;
         scol[gi * 3 + 1] = 0.6 * flick;
@@ -956,6 +1436,52 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
           drawn++;
         }
       }
+      for (let k = 0; k < queued && drawn < lightCap; k++) {
+        const o = k * 10;
+        const ax = queue[o]!;
+        const ay = queue[o + 1]!;
+        const az = queue[o + 2]!;
+        const bx = queue[o + 3]!;
+        const by = queue[o + 4]!;
+        const bz = queue[o + 5]!;
+        yv.set(bx - ax, by - ay, bz - az);
+        const len = yv.length();
+        if (len < 1e-6) continue;
+        yv.divideScalar(len);
+        xv.crossVectors(yv, zv);
+        if (xv.lengthSq() < 1e-8) xv.set(1, 0, 0);
+        xv.normalize();
+        dv.crossVectors(xv, yv);
+        m4.makeBasis(xv.multiplyScalar(queue[o + 6]!), yv.multiplyScalar(len), dv).setPosition((ax + bx) / 2, (ay + by) / 2, (az + bz) / 2).toArray(larr, drawn * 16);
+        lcol[drawn * 3] = queue[o + 7]! * 1.6;
+        lcol[drawn * 3 + 1] = queue[o + 8]! * 1.6;
+        lcol[drawn * 3 + 2] = queue[o + 9]! * 1.6;
+        drawn++;
+      }
+      queued = 0;
+      for (let i = sparkLit; i < 2; i++) sparkLights[i]!.intensity = 0;
+      // The white-out: held a moment at the burst, then back over about 0.4 s, white-yellow.
+      if (whiteAge >= 0) {
+        whiteAge += dt;
+        const k = whiteAge < WHITE_HOLD_S ? 1 : Math.max(0, 1 - (whiteAge - WHITE_HOLD_S) / WHITE_FADE_S) ** 2;
+        if (k <= 0) whiteAge = -1;
+        else if (view) {
+          // Centred on the fuse's place on screen: a sprite on the eye-to-fuse ray just in front of the camera, growing fast from the fuse until it covers the view, even from an edge.
+          const d = view.near * 3;
+          zv.set(0, 0, -1).applyQuaternion(camera);
+          dv.set(whiteX - view.x, whiteY - view.y, whiteZ - view.z);
+          const dl = dv.length();
+          if (dl < 1e-6 || dv.dot(zv) <= 0) dv.copy(zv);
+          else dv.divideScalar(dl);
+          const grow = Math.min(1, 0.15 + (whiteAge / WHITE_HOLD_S) * 0.85);
+          const size = 2 * d * view.tanHalf * Math.max(1, view.aspect) * 5.5 * grow;
+          const gi = soft.pool.count + glows++;
+          m4.compose(pv.set(view.x + dv.x * d, view.y + dv.y * d, view.z + dv.z * d), q.copy(camera), sv.setScalar(size)).toArray(sarr, gi * 16);
+          scol[gi * 3] = 2.6 * k;
+          scol[gi * 3 + 1] = 2.4 * k;
+          scol[gi * 3 + 2] = 1.5 * k;
+        }
+      }
       soft.direct = glows;
       lightning.direct = drawn;
       for (const l of layers) {
@@ -973,6 +1499,11 @@ export function createFxLayer(emitters: readonly FxEmitter[], seed = 1): FxLayer
         l.mesh.count = 0;
       }
       glows = 0;
+      queued = 0;
+      burstAge = -1;
+      whiteAge = -1;
+      boltOn = false;
+      for (const l of fxLights) l.intensity = 0;
     },
     alive() {
       let k = 0;

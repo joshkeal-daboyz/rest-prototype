@@ -189,7 +189,7 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | V2 | The load preview, pure (`loadPreview`): visible load, known faults counted, "+3" before any blow, red if over | grid-simulator | now (V0 and Josh's answers in) | 5 |
 | V3 | The numbers by the icons: the preview by controls and breaks; every fuse and feed's load against its limit | renderer | V1 (the core type is in) | 2 |
 | V4 | The page computes the preview with the read faults, and a key hides it | ui | V2, V3 | 1 |
-| FX4 | The fuse blows: a bolt down its wires to the box, a burst twice a live break's; FX3 folded in (G1: "Approve FX4 (Recommended)") | renderer | W4 | 3 |
+| FX4 | The fuse blows: a bolt down its wires to the box, a burst twice a live break's; FX3 folded in (G1: "Approve FX4 (Recommended)"). **Held** for the bolt slowed to 1.5 s (`BLOW_TIMING`, then `src/audio/`, then the renderer, on its branch) | renderer (with lead-architect and sound on its branch) | W4 | 3 added, at most 3 rewritten |
 | W0 | "pre-check 081 W1": building-only lamps, read-outward, feed clearance, crossings, the roof options, spread (cut 25 Nov 2026; G1: "Approve W (Recommended)") | pipeline-designer | G1 | 0 (a note) |
 | W1 | The fit and the city check: lamps on buildings, routes that read outward (ring lines from where they take power), feed clearance 6 m, no crossings, own-block roofs, `--avoid` | grid-simulator | now (W0 and Josh's answers are in) | at most 9 (5 added, at most 4 rewritten) |
 | W2 | A lit building reads as lit: every storey, glow cards, the light raised; no lamp post or disc | renderer | S4 (PR #70), W-Q1 | 3 |
@@ -2194,6 +2194,27 @@ S1 and U3 (outside `src/render3d/`) go on unaffected. L2, L3 and S4 wait for F1b
 - **Must not:** `overlay.ts`, `windows.ts`, `src/grid/`, `src/core/` (`BLOW_TIMING` is read, not changed), `src/audio/`, `src/ui/`, `src/main.ts` (it already calls `notify`).
 
 **Interfaces.** None new: `fuse:blown` and `BLOW_TIMING` exist. No new dependency. No pipeline-designer pre-check: this is drawing.
+
+**Amended 25 Nov 2026: the bolt slowed to about 1.5 s (FX4 held).** Josh played FX4 (PR #81) and said: "Spark looks good. The electrical current back to the breaker isn't obvious enough." The renderer then made the bolt brighter and thicker, with a head and an 8 m trail seen through buildings. Its run still takes 0.7 s, because `BLOW_TIMING` ties it to the sound's pop. On cards: "Slow it down"; "Hold FX4" (FX4 merges only with the slower bolt); bolt time "About 1.5 s (Recommended)".
+- **The clock (lead-architect, `src/core/timing.ts`).** `BLOW_TIMING` becomes `run` 1.1, `glow` 0.4, `popAt` 1.5 (still `run + glow`). `sparkAt` 0.5, `spark` 0.3 and `pop` 0.6 are unchanged.
+  - The bolt's head reaches the fuse at `popAt`, and the burst and the sound's pop land there with it, because both already read `popAt`.
+  - The doc comment records Josh's words. `src/core/audio.test.ts`'s "holds the 016 numbers" case is rewritten to the new values, and the `popAt === run + glow` case stands.
+  - It is a number of the core contract (ticket 019) and Josh picked it on a card, so no pre-check is needed.
+  - The retired 2D map's shock (`src/render/shock.ts`) reads the same clock and slows with it. That is accepted: X1 deletes it, and its timing case reads `BLOW_TIMING`, so it passes unedited.
+  - The architect's edit was blocked on the FX4 worktree on 25 Nov 2026. The main session runs the lead-architect there first, or applies these exact values itself.
+- **The sound (sound agent, `src/audio/`).** The cues already read `BLOW_TIMING`, so the run's crackle (`recipes.ts`, `glideTime` and `duration` = `run`), the glow and the pop's duck (`mixer.ts`) stretch on their own.
+  - The sound agent listens: a 1.1 s crackle under the bolt, rising to the pop. It keeps restraint, and the 432 Hz rule holds for any pitched change.
+  - It may retune the run recipe's gain or filter so 1.1 s doesn't drone.
+  - It rewrites `src/audio/cues.test.ts`'s literal-clock case ("0, 0.4, 0.5, 0.7" becomes "0, 1.1, 0.5, 1.5", with durations 1.1 and 0.4).
+  - **Files:** `src/audio/` only.
+- **The picture (renderer, `fx.ts`, `cityview.ts`).** `blowBolts`, `blowBurstAt` and the flash already read `popAt` and `pop`.
+  - The renderer checks that the head moves at a steady pace over the longer run, that the 8 m trail still reads, and that the served wires stay dark under it.
+  - It changes `fx=all`'s blow cadence from every 2 s to every 3 s, because one blow now lasts 2.1 s.
+  - It re-measures FX4 criterion 6's budget in `fx=all`: a longer bolt overlaps more with the rest.
+  - `fx.test.ts`'s bolt case reads `BLOW_TIMING` and should pass unedited. If it pins a literal, it is rewritten.
+- **One branch, in order:** `ticket/081fx4-fuse-blow` carries all three, one agent after the other: the lead-architect (`src/core/`), then the sound agent (`src/audio/`), then the renderer (`src/render3d/`). Each touches only its own folder.
+- **Count.** FX4's 3 added, plus 2 rewritten (the core values case, the audio literal-clock case), and 1 more only if `fx.test.ts` pins a literal: at most 6 for PR #81.
+- Josh plays 11 and 13 again: the bolt runs visibly down the wires to the fuse in about 1.5 s, and the burst and the pop land together (FX4 criteria 7 and 8). **browser**.
 
 ### X1 · Delete the 2D map view (renderer). **Stub, not cut; not to be built yet**
 Josh, 24 Nov 2026: "Hide now, delete later (Recommended)". Cut in full once P2a's 16 pilots are on the city and Josh has said so. Expected:
