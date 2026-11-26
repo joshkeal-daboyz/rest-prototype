@@ -29,9 +29,9 @@ export function loadPreview(puzzle: Puzzle, state: GridState, known: ReadonlySet
   });
 
   const run = (flt: readonly Fault[], breakers: ReadonlyMap<string, boolean>, switches: ReadonlyMap<string, 0 | 1>) => {
-    const load = createGrid(view(flt, breakers, switches, true)).state().load;
+    const lit = createGrid(view(flt, breakers, switches, true)).state();
     const real = createGrid(view(flt, breakers, switches, false)).state();
-    return { load, real };
+    return { load: lit.load, powered: lit.powered, real };
   };
 
   const base = run(faults, state.breakers, state.switches);
@@ -41,7 +41,10 @@ export function loadPreview(puzzle: Puzzle, state: GridState, known: ReadonlySet
     const after = run(flt, breakers, switches);
     // A repaired fuse that blows again carries the same id, so it counts as new.
     const blows = after.real.faults.filter((f) => f.kind === "blown-fuse" && (f.id === repaired || !baseBlown.has(f.id))).map((f) => f.at);
-    return { kind, delta: after.load - base.load, over: after.real.brownout || blows.length > 0, blows };
+    // The lines the move makes live or dead, from the same fuses-lifted run as `delta`, in `puzzle.lines` order.
+    const on = puzzle.lines.filter((l) => !base.powered.has(l.id) && after.powered.has(l.id)).map((l) => l.id);
+    const off = puzzle.lines.filter((l) => base.powered.has(l.id) && !after.powered.has(l.id)).map((l) => l.id);
+    return { kind, delta: after.load - base.load, over: after.real.brownout || blows.length > 0, blows, lines: { on, off } };
   };
 
   const out = new Map<string, LoadPreviewEntry>();
