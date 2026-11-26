@@ -3,11 +3,14 @@
  *
  * A bounded breadth-first search over play states on the real `createGrid`.
  *   - A move is a click (a breaker, a switch, a battery, or a repair of a fault) or, on a map with a battery, a
- *     `wait` of `waitSeconds`. The same time rules as the check contract (puzzles/SCHEMA.md, "Design checks"): each
+ *     `wait` of `waitSeconds` (battery or timed-breaker maps). The same time rules as the check contract (puzzles/SCHEMA.md, "Design checks"): each
  *     click is followed by `clickSeconds` of game time, a wait is `waitSeconds` (0.5), and Undo adds no time.
  *   - Undo is not a move of the search. A state's "dead end" means it cannot win without Undo, as in the ladder's notes.
  *   - States are deduplicated on (breakers, switches, faults, parts, each battery's charge and released flag). The
- *     elapsed time is not part of the key: nothing but a battery's charge depends on it.
+ *     elapsed time is not part of the key: nothing but a battery's charge depends on it. On a map with a timed breaker
+ *     (ticket 081 TB2) the key adds whether the clock has started and its phase: the seconds since the first move,
+ *     modulo the map's cycle (the least common multiple of every timer's closed + open), in half-seconds. A timed
+ *     breaker is never a click: its clock throws it. Undo does not restore the clock, so the search replays instead of stepping back.
  *   - Cost is ordered (clicks, then waits), so "shortest" means fewest clicks and, among those, fewest waits.
  *
  * Under the state cap the search is exhaustive and every number is exact. Past it, it stops and proves a lower bound:
@@ -30,7 +33,7 @@ export interface AnalyzeOptions {
   cap?: number;
   /** Seconds after each click. Default 1. */
   clickSeconds?: number;
-  /** Seconds in a `wait` move (battery maps only). Default 0.5. */
+  /** Seconds in a `wait` move (battery and timed-breaker maps only). Default 0.5. */
   waitSeconds?: number;
   /** Test hook: replay every state from the start instead of stepping back with Undo. Same answers, slower. */
   replayOnly?: boolean;
@@ -121,7 +124,20 @@ class Sim {
   }
 }
 
-function keyOf(s: GridState): string {
+const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
+
+/** The map's cycle in seconds: the least common multiple of every timed breaker's closed + open; 0 with no timer. */
+export function timerCycle(puzzle: Puzzle): number {
+  let c = 0;
+  for (const n of puzzle.nodes) {
+    if (n.type !== "breaker" || !n.timer) continue;
+    const t = n.timer.closed + n.timer.open;
+    c = c === 0 ? t : (c / gcd(c, t)) * t;
+  }
+  return c;
+}
+
+function keyOf(s: GridState, cycle: number): string {
   let k = "";
   for (const v of s.breakers.values()) k += v ? "1" : "0";
   k += "|";
@@ -130,6 +146,7 @@ function keyOf(s: GridState): string {
   k += "|" + [...s.parts].sort().join(",");
   k += "|";
   for (const b of s.batteries.values()) k += `${Math.round(b.charge * 1000)}${b.released ? "r" : ""};`;
+  if (cycle > 0) k += s.clock === null ? "|clock:-" : `|clock:${Math.round((s.clock % cycle) * 2) % (cycle * 2)}`;
   return k;
 }
 
@@ -148,9 +165,11 @@ export function analyzePuzzle(puzzle: Puzzle, options: AnalyzeOptions = {}): Ana
   const waitSeconds = options.waitSeconds ?? WAIT_SECONDS;
   const sim = new Sim(puzzle, clickSeconds, waitSeconds);
   const hasBattery = puzzle.nodes.some((n) => n.type === "battery");
-  const stepBack = !hasBattery && !options.replayOnly; // Undo restores a state exactly only when no battery holds charge
+  const cycle = timerCycle(puzzle);
+  const hasTimer = cycle > 0;
+  const stepBack = !hasBattery && !hasTimer && !options.replayOnly; // Undo restores a state exactly only when no battery holds charge and no clock runs
   const staticMoves: Move[] = puzzle.nodes
-    .filter((n) => n.type === "breaker" || n.type === "switch" || n.type === "battery")
+    .filter((n) => (n.type === "breaker" && !n.timer) || n.type === "switch" || n.type === "battery")
     .map((n) => ({ name: n.id, kind: "click", id: n.id }));
   const waitMove: Move = { name: `wait:${waitSeconds}`, kind: "wait", id: "" };
 
@@ -176,7 +195,7 @@ export function analyzePuzzle(puzzle: Puzzle, options: AnalyzeOptions = {}): Ana
   };
 
   const rootState = sim.grid.state();
-  index.set(keyOf(rootState), 0);
+  index.set(keyOf(rootState, cycle), 0);
   dist.push(0); parent.push(-1); pmove.push(null); isWin.push(false); expanded.push(false);
   push(0, 0);
 
@@ -209,13 +228,13 @@ export function analyzePuzzle(puzzle: Puzzle, options: AnalyzeOptions = {}): Ana
         seen.add(f.at);
         moves.push({ name: `repair:${f.at}`, kind: "repair", id: f.at });
       }
-      if (hasBattery) moves.push(waitMove);
+      if (hasBattery || hasTimer) moves.push(waitMove);
       let dirty = false;
       for (const m of moves) {
         if (dirty) { replay(path); dirty = false; }
         if (!sim.apply(m)) continue;
         const s = sim.grid.state();
-        const k = keyOf(s);
+        const k = keyOf(s, cycle);
         const won = sim.won;
         const blown = sim.blown.join(",");
         const w = m.kind === "wait" ? W_WAIT : W_CLICK;

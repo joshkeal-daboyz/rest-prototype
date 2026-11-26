@@ -4,6 +4,8 @@ import { join } from "node:path";
 import { PUZZLES_DIR } from "./check";
 import { formatAnalysis, loadCityPuzzle, loadPuzzle, withoutHidden } from "./analyze";
 import { analyzePuzzle, DEFAULT_CAP } from "./analyzerun";
+import { replayMoves } from "./checkrun";
+import type { GridNode, Puzzle } from "../src/core";
 
 const load = (name: string) => loadPuzzle(join(PUZZLES_DIR, `${name}.json`));
 
@@ -151,4 +153,46 @@ describe("081 N0: npm run analyze reads a city puzzle on its conversion", () => 
     const listed = [...r.firstMoves, ...(r.deadFirstMoves ?? []), ...r.blowAnywhere, ...(r.win?.moves ?? [])];
     expect(listed.filter((m) => c.hidden.has(m.slice(m.indexOf(":") + 1)))).toEqual([]);
   }, { timeout: 60000 });
+});
+
+/**
+ * 081 TB2: a lamp behind a timed breaker whose window opens at t = 4 s (closed 2 s of every 6, offset 2), with two damaged cables past it and two wires. `br` is the move that starts the clock.
+ * At 1 s a click the window holds both repairs; at 3 s a click it holds one, so the second waits for the next window.
+ */
+const WINDOWED: Puzzle = {
+  id: "windowed",
+  name: "windowed",
+  version: 4,
+  scope: "map",
+  capacity: null,
+  nodes: [
+    { id: "feed", type: "feed" },
+    { id: "br", type: "breaker", closed: true },
+    { id: "lx", type: "lamp", load: 0 },
+    { id: "tb", type: "breaker", closed: false, timer: { closed: 2, open: 4, offset: 2 } },
+    { id: "l1", type: "lamp" },
+    { id: "l2", type: "lamp" },
+  ].map((n, i) => ({ pos: [i, 0], ...n }) as unknown as GridNode),
+  lines: [
+    { id: "l_br", from: "feed", to: "br" }, { id: "l_x", from: "br", to: "lx" }, { id: "l_t", from: "feed", to: "tb" },
+    { id: "d1", from: "tb", to: "l1" }, { id: "d2", from: "tb", to: "l2" },
+  ],
+  faults: [{ id: "f1", at: "d1", kind: "damaged-cable" }, { id: "f2", at: "d2", kind: "damaged-cable" }],
+  target: ["l1", "l2"],
+  startingParts: ["wire", "wire"],
+};
+
+describe("081 TB2: the analyzer on a timed map", () => {
+  it("offers waits and never clicks the timed breaker; finds the win that needs the window, with its waits; a slower click needs more waits; the check replays it", () => {
+    const fast = analyzePuzzle(WINDOWED, { clickSeconds: 1 });
+    expect(fast.exhaustive).toBe(true);
+    expect(fast.firstMoves).not.toContain("tb");
+    expect(fast.win).toMatchObject({ clicks: 3, waits: 6 });
+    expect(fast.win!.moves).toEqual(["br", ...Array<string>(6).fill("wait:0.5"), "repair:d1", "repair:d2"]);
+    expect(replayMoves(WINDOWED, fast.win!.moves)).toMatchObject({ state: { complete: true } });
+    const slow = analyzePuzzle(WINDOWED, { clickSeconds: 3 });
+    expect(slow.solvable).toBe(true);
+    expect(slow.win!.waits).toBeGreaterThan(fast.win!.waits);
+    expect(analyzePuzzle(WINDOWED, { clickSeconds: 1 })).toEqual(fast); // the same run prints the same report
+  });
 });

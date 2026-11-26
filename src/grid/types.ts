@@ -1,6 +1,6 @@
-import type { Fault, Part, FeedState, RepairForecast } from "../core";
+import type { Fault, Part, FeedState, RepairForecast, TimerState } from "../core";
 
-export interface GridState extends RepairForecast, FeedState {
+export interface GridState extends RepairForecast, FeedState, TimerState {
   /** Node and line ids carrying current (including the node or line where it stops at a fault or open breaker). */
   powered: ReadonlySet<string>;
   /** Powered line id -> node id the current enters it from. */
@@ -35,11 +35,12 @@ export type RepairResult =
 
 export interface Grid {
   state(): GridState;
+  /** False for a timed breaker: its clock throws it. */
   throwBreaker(nodeId: string): boolean;
   throwSwitch(nodeId: string): boolean;
   /** Release a battery (a source for its far side while it has charge), or stop a released one early. False if not a battery or empty. */
   release(nodeId: string): boolean;
-  /** The only time input. Charges and drains batteries; changes nothing on a map without one. */
+  /** The only time input. Charges and drains batteries and, from the first move, runs the timed breakers; changes nothing on a map with neither. */
   advance(dtSeconds: number): void;
   repairAt(at: string): RepairResult;
   undo(): boolean;

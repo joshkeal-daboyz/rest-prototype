@@ -8,9 +8,10 @@
  * - `playSummary` and `playDifferences` are the stop rule's measure: does a raised puzzle play the same as its schematic.
  */
 
-import { EventBus, SCENERY_BUILDING_LOAD, validateCityPuzzle } from "../src/core";
+import { CHECK_CLICK_SECONDS, EventBus, SCENERY_BUILDING_LOAD, parseCheckMove, validateCityPuzzle } from "../src/core";
 import type { CityCircuitLayer, CityNodePlace, CityPlan, CityPlanBlock, CityPuzzle, CityPuzzleCity, CityPuzzleFault, CityPuzzleLine, CityPuzzleNode, CityRoofMast, CityRoofSpan, CityWireSpan, GridNode, Puzzle } from "../src/core";
 import { convertCityPuzzle } from "../src/city/circuit/convert";
+import { createGrid } from "../src/grid";
 import type { GridState } from "../src/grid";
 import type { CircuitProblem } from "../src/city/circuit/check";
 import { cityPuzzleProblems } from "../src/city/circuit/checkpuzzle";
@@ -319,6 +320,30 @@ function unlimited(p: Puzzle): Puzzle {
 }
 
 /**
+ * The state at the start and after every settle of a replay (each move, each flip moment, each wait step), in order. The moves are known to play (`replayMoves` ran them); the timing is the check's:
+ * `clickSeconds` after each click, `wait:N` as given, Undo none.
+ */
+function settlesOf(puzzle: Puzzle, moves: readonly string[]): GridState[] {
+  const bus = new EventBus();
+  const grid = createGrid(puzzle, bus);
+  const out: GridState[] = [grid.state()];
+  bus.on("grid:changed", () => out.push(grid.state()));
+  const type = new Map(puzzle.nodes.map((n) => [n.id, n.type] as const));
+  for (const move of moves) {
+    const m = parseCheckMove(move);
+    if (!m) continue;
+    if (m.kind === "wait") { grid.advance(m.seconds); continue; }
+    if (m.kind === "undo") { grid.undo(); continue; }
+    if (m.kind === "repair") grid.repairAt(m.id);
+    else if (m.kind === "release" || type.get(m.id) === "battery") grid.release(m.id);
+    else if (type.get(m.id) === "breaker") grid.throwBreaker(m.id);
+    else grid.throwSwitch(m.id);
+    grid.advance(CHECK_CLICK_SECONDS);
+  }
+  return out;
+}
+
+/**
  * Section S's raise: convert the puzzle (S1), replay `solution` on `src/grid/` with every capacity and rating unlimited, once with the scenery lamps and once without, and return the file with
  * each feed's `capacity` (or the top-level `capacity`) and each rated fusebox's `rating` raised by the extra load at the end of the solution. `base` is the file whose numbers are raised (default: `puzzle`
  * itself); give the schematic or the unraised draft to raise from its numbers, so a file already raised comes back as it was.
@@ -335,19 +360,28 @@ export function raiseForScenery(puzzle: CityPuzzle, plan: CityPlan, solution: re
   const a = replayMoves(withScenery, solution);
   const b = replayMoves(without, solution);
   if (a.failure !== undefined || b.failure !== undefined) throw new Error(`the solution does not play on ${puzzle.id}: ${a.failure ?? b.failure}`);
+  // On a timed map (081 TB2) the scenery's load is read at every settle along the solution, flips included, so scenery never browns out a window the unraised puzzle did not.
+  const timed = withScenery.nodes.some((n) => n.type === "breaker" && n.timer !== undefined);
+  const sa = timed ? settlesOf(withScenery, solution) : [];
+  const sb = timed ? settlesOf(without, solution) : [];
+  const peak = (read: (s: GridState) => number): number => {
+    let top = 0;
+    for (let i = 0; i < Math.min(sa.length, sb.length); i++) top = Math.max(top, read(sa[i]!) - read(sb[i]!));
+    return top;
+  };
   const baseNode = new Map(base.nodes.map((n) => [n.id, n] as const));
   let extraTop = 0;
   const nodes = puzzle.nodes.map((n): CityPuzzleNode => {
     const was = baseNode.get(n.id);
     if (n.type === "feed") {
-      const extra = (a.state.feeds.get(n.id)?.load ?? 0) - (b.state.feeds.get(n.id)?.load ?? 0);
+      const extra = timed ? peak((st) => st.feeds.get(n.id)?.load ?? 0) : (a.state.feeds.get(n.id)?.load ?? 0) - (b.state.feeds.get(n.id)?.load ?? 0);
       const cap = was?.capacity;
       if (cap !== undefined && cap !== null) return { ...n, capacity: round6(cap + extra) };
       if (cap === undefined) extraTop += extra;
       return n;
     }
     if (n.type === "fusebox" && was?.rating !== undefined) {
-      const extra = (a.state.fuseLoad.get(n.id) ?? 0) - (b.state.fuseLoad.get(n.id) ?? 0);
+      const extra = timed ? peak((st) => st.fuseLoad.get(n.id) ?? 0) : (a.state.fuseLoad.get(n.id) ?? 0) - (b.state.fuseLoad.get(n.id) ?? 0);
       return { ...n, rating: round6(was.rating + extra) };
     }
     return n;
