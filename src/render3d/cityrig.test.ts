@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Vector3 } from "three";
-import { createCityRig, PUZZLE_ROOM_M, puzzleFitPad } from "./tilecity3d";
+import { createCityRig, PUZZLE_ROOM_M, puzzleFitPad, puzzleLabelRoom } from "./tilecity3d";
 import { CITY_PLAY_ZOOM_OUT, playRigOptions } from "./cityview";
 import { WORLD_PER_METRE as S } from "./models";
 
@@ -74,6 +74,7 @@ describe("the limited city rig (081 E5)", () => {
         const held = Math.abs(far.getScale() - rig.getScale()) < 1e-9;
         const free = { l: 0, t: ins.top ?? 0, w, h: h - (ins.top ?? 0) - (ins.bottom ?? 0) };
         const padX = puzzleFitPad(free.w);
+        const label = puzzleLabelRoom(free.w);
         const padY = puzzleFitPad(free.h);
         let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
         for (const q of CORNER) {
@@ -83,16 +84,16 @@ describe("the limited city rig (081 E5)", () => {
           // Held at Dmax the opening is nearer than the fit, as E5's is: the points are then centred but may stand under a panel.
           if (!held) {
             expect(px).toBeGreaterThanOrEqual(free.l + padX - 1e-3);
-            expect(px).toBeLessThanOrEqual(free.l + free.w - padX + 1e-3);
+            expect(px).toBeLessThanOrEqual(free.l + free.w - padX - label + 1e-3);
             expect(py).toBeGreaterThanOrEqual(free.t + padY - 1e-3);
             expect(py).toBeLessThanOrEqual(free.t + free.h - padY + 1e-3);
           }
           x0 = Math.min(x0, px); x1 = Math.max(x1, px); y0 = Math.min(y0, py); y1 = Math.max(y1, py);
         }
-        expect(Math.abs((x0 + x1) / 2 - (free.l + free.w / 2))).toBeLessThan(0.02 * free.w);
+        expect(Math.abs((x0 + x1) / 2 - (free.l + (free.w - label) / 2))).toBeLessThan(0.02 * free.w);
         expect(Math.abs((y0 + y1) / 2 - (free.t + free.h / 2))).toBeLessThan(0.02 * free.h);
         if (held) continue;
-        expect(x1 - x0 >= free.w - 2 * padX - 0.02 * free.w || y1 - y0 >= free.h - 2 * padY - 0.02 * free.h).toBe(true);
+        expect(x1 - x0 >= free.w - 2 * padX - label - 0.02 * free.w || y1 - y0 >= free.h - 2 * padY - 0.02 * free.h).toBe(true);
         expect(rig.getScale()).toBeGreaterThan(bare.getScale());
       }
     }
@@ -113,7 +114,7 @@ describe("the limited city rig (081 E5)", () => {
         p.set(c.x, 0, c.z).project(rig.camera);
         const px = ((p.x + 1) / 2) * 1280;
         const py = ((1 - p.y) / 2) * 720;
-        slack = Math.min(slack, px, 1280 - px, py, 720 - py);
+        slack = Math.min(slack, px, 1280 - px - puzzleLabelRoom(1280), py, 720 - py);
       }
       expect(slack).toBeGreaterThanOrEqual(-1e-3);
       if (pts === CORNER) expect(Math.abs(slack - puzzleFitPad(720))).toBeLessThan(8);

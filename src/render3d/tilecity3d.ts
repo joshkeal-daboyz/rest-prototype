@@ -859,6 +859,12 @@ export function puzzleFitPad(freeLen: number): number {
   return Math.min(Math.max(PUZZLE_FIT_PAD_MIN_PX, freeLen * PUZZLE_FIT_PAD), Math.max(freeLen, 0) / 4);
 }
 
+/** The room kept on the right for the number an icon carries beside it ("6 of 9", drawn from the icon's right edge), in pixels; never more than a sixth of the free width. */
+export const PUZZLE_LABEL_PX = 64;
+export function puzzleLabelRoom(freeW: number): number {
+  return Math.min(PUZZLE_LABEL_PX, Math.max(freeW, 0) / 6);
+}
+
 type Pt = { x: number; y: number; z: number };
 type Box = { left: number; right: number; top: number; bottom: number };
 type XzBox = { minX: number; maxX: number; minZ: number; maxZ: number };
@@ -1018,7 +1024,7 @@ export function createCityRig(
     const freeH = size.height - t - (ins.bottom ?? 0);
     const px = puzzleFitPad(freeW);
     const py = puzzleFitPad(freeH);
-    return { left: l + px, right: l + freeW - px, top: t + py, bottom: t + freeH - py };
+    return { left: l + px, right: l + freeW - px - puzzleLabelRoom(freeW), top: t + py, bottom: t + freeH - py };
   }
   /** At the current distance, moves the target until the points' projected box is centred in `r`, then says whether every point is inside it. */
   function centredFit(pts: readonly Pt[], r: Box, move = true): boolean {
