@@ -34,10 +34,27 @@ export interface FeedNode extends NodeBase {
   name?: string;
 }
 
-/** Conducts while `closed`. The player toggles it. Marked by the tribe. */
+/**
+ * A timed breaker's schedule (ticket 081 TB; Josh, 26 Nov 2026: "Real seconds (Recommended)", "Breaker, on/off (Recommended)", "Clock only (Recommended)"). Whole seconds. Closed for `closed`,
+ * then open for `open`, repeating; `offset` is where in that cycle it stands when the clock starts (default 0: at the start of its closed share). The clock is the battery's (real seconds,
+ * `Grid.advance`) and starts at the player's first move. See puzzles/SCHEMA.md, "Timed breakers".
+ */
+export interface BreakerTimer {
+  readonly closed: number;
+  readonly open: number;
+  readonly offset?: number;
+}
+
+/** The validator's bounds on a timer (ticket 081 TB0): each share 2 to 30 whole seconds, and the map's cycle (the least common multiple of every timer's `closed + open`) at most 60. */
+export const TIMER_LIMITS = { minSeconds: 2, maxSeconds: 30, maxCycleSeconds: 60 } as const;
+
+/** Conducts while `closed`. The player toggles it, unless it has a `timer`. Marked by the tribe. */
 export interface BreakerNode extends NodeBase {
   type: "breaker";
+  /** For a timed breaker, where its timer stands at `offset` (the validator checks they agree). */
   closed: boolean;
+  /** A timed breaker (ticket 081 TB): its clock throws it, never the player (a click is refused). Not a fault holder. Absent = a player's breaker. */
+  timer?: BreakerTimer;
 }
 
 /** Conducts only to `outputs[selected]` (line ids leaving this node). Marked by the tribe. */

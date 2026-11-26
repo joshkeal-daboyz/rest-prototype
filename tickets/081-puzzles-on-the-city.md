@@ -1,7 +1,7 @@
 # 081 · Purge the old city; the 64 puzzles on the pipeline city, on its streets, picked models, and a 2D overlay to play them
 
 owner: per section (renderer, puzzle-designer, pipeline-designer, lead-architect, grid-simulator, landscape, facades, ui; see Sections)
-status: approved (G1, Josh, 23 Nov 2026, in chat: "Approve 081"). **Section N (series v1, 25 new puzzles) cut 25 Nov 2026; N0, N1 and NS approved (G1) the same day, on a card: "Approve (Recommended)"; all three merged 26 Nov 2026 (PRs #97, #99, #98) on Josh's word, and N2 re-cut to puzzles 6 to 10 and approved to build: "Merge and start the next 5". N3 to N5 (11 to 25, in fives) wait on his word. P2b to P2d dropped the same day (Josh: "I don't want to convert the existing puzzles."). T3b done (PR #96).** **Section W cut 25 Nov 2026 from Josh's play of P2a; approved (G1) the same day, on a card: "Approve W (Recommended)".** W0's note is in (`docs/design/081-W0-building-targets.md`, 82f8f37); Josh answered its two cards the same day: W-Q3 "Own block roofs (Recommended)"; ring lines read outward from where each line takes its power: "Yes (Recommended)". W1 and P2a2 re-cut to them. Cut 23 Nov 2026 on Josh's request (below); re-cut the same day on his answers to questions 1 to 10 (below). **K2 is done** (K2a, K2a2, K2b, K2c, K2d1, K2d2 all merged; K2d2 by PR #42, Josh, 24 Nov 2026, on a card: "Merge K2d2 (Recommended)"). **Next: the playable path** (Josh, 24 Nov 2026, on a card: "Playable path first (Recommended)"): P0, K3, U1, then E2, then U2, before H4, P1 and P2a. See *The playable path*.
+status: approved (G1, Josh, 23 Nov 2026, in chat: "Approve 081"). **Section TB (the timed breaker) cut 26 Nov 2026; approved (G1) the same day, on a card: "Approve (Recommended)"** (open question 27, closed). **Section N (series v1, 25 new puzzles) cut 25 Nov 2026; N0, N1 and NS approved (G1) the same day, on a card: "Approve (Recommended)"; all three merged 26 Nov 2026 (PRs #97, #99, #98) on Josh's word, and N2 re-cut to puzzles 6 to 10 and approved to build: "Merge and start the next 5". N3 to N5 (11 to 25, in fives) wait on his word. P2b to P2d dropped the same day (Josh: "I don't want to convert the existing puzzles."). T3b done (PR #96).** **Section W cut 25 Nov 2026 from Josh's play of P2a; approved (G1) the same day, on a card: "Approve W (Recommended)".** W0's note is in (`docs/design/081-W0-building-targets.md`, 82f8f37); Josh answered its two cards the same day: W-Q3 "Own block roofs (Recommended)"; ring lines read outward from where each line takes its power: "Yes (Recommended)". W1 and P2a2 re-cut to them. Cut 23 Nov 2026 on Josh's request (below); re-cut the same day on his answers to questions 1 to 10 (below). **K2 is done** (K2a, K2a2, K2b, K2c, K2d1, K2d2 all merged; K2d2 by PR #42, Josh, 24 Nov 2026, on a card: "Merge K2d2 (Recommended)"). **Next: the playable path** (Josh, 24 Nov 2026, on a card: "Playable path first (Recommended)"): P0, K3, U1, then E2, then U2, before H4, P1 and P2a. See *The playable path*.
 branch: `ticket/081-puzzles-on-the-city` (this file and the `src/core/` types). One branch per pull request: `ticket/081<section>-<slug>`, from this branch until it is on `main`.
 
 ## Josh's words (23 Nov 2026, in chat)
@@ -2811,8 +2811,156 @@ Named, not cut in full; it starts only on Josh's word in chat (after N4 merges),
 - **Criteria as N4's** (the band for 16 to 25), with districts of 3 or 4 blocks. No fuse-blow opener (19 was the last). The shrine count closes at 5 or fewer.
 - **Josh plays** 21 to 25. Count 0. Files: `puzzles/city/` only.
 
+### TB · The timed breaker: a clock feeds sections in turn. Cut 26 Nov 2026 for G1, in six PRs: TB0, then TB1 with TB2, then TB3, TB4 and TB5 side by side, then TB6. **Approved (G1) 26 Nov 2026**: "Approve (Recommended)"
+**Josh's request, 26 Nov 2026, in chat:** "I want to add another puzzle piece. I want to add a timed breaker I think it would add an interesting twist to a puzzle if a timer powered different sections at different times and you had to work between them." (He corrected "10 interesting twist" the same day: "Add an interesting twist".)
+
+**Josh's answers, 26 Nov 2026, on cards (relayed by the main session):**
+- **TB-Q1, what drives its timer:** "Real seconds (Recommended)". Rule 3 stands: real seconds on the battery's clock, from the first move.
+- **TB-Q2, its form:** "Breaker, on/off (Recommended)". A breaker only; no timed switch.
+- **TB-Q3, can the player touch it:** "Clock only (Recommended)". Rule 1 stands: a click is refused.
+- **TB-Q4, where it enters the series:** "In 16-20 (Recommended)". First in N4 (16 to 20) on a plain 2-block map, then a layer in N5. The series stays at 25, and one planned row gives way at N4's re-cut.
+- **G1 for the whole section:** "Approve (Recommended)". The architect's calls (the schedule on screen, the clock starting at the first move, the breaker's model) stand as written.
+
+The reasoning, the table of how it meets the existing pieces and a worked example are in `docs/design/081-TB-timed-breaker.md`. The rule below was written to the recommended answers, and Josh picked each of them, so it stands as cut.
+
+**The rule** (approved with the section, 26 Nov 2026).
+1. **What it is.** A timed breaker is a breaker (`BreakerNode`) with a `timer`. The clock throws it; the player never does. A click on it is refused, as a click on a dead relay is (`throwBreaker` returns false, and `src/play/` voices `play:click` `refused`). Breakers carry no faults, and neither does a timed breaker.
+2. **Its cycle.** `timer: { closed, open, offset? }`, in whole seconds. It is closed for `closed` seconds, then open for `open` seconds, and repeats. `offset` is where in that cycle it stands when the clock starts (default 0, closed). Two timed breakers out of phase (closed 6, open 6, offsets 0 and 6) feed two sections in turn: "a timer powered different sections at different times".
+3. **What drives it** (TB-Q1). Real seconds, on the battery's clock (`Grid.advance`). **The clock starts at the player's first move** (a throw, a repair or a battery release), so reading the map costs nothing. Undo and Reset are not moves. Before the first move every timed breaker holds its `offset` position. Reset returns the clock to "not started".
+4. **Time is not undoable** (as the battery). Undo restores the other breakers, the switches, the faults and the parts. It leaves the clock and each timed breaker where they are, then settles.
+5. **A flip is a settle, not an action.** It does not count toward `actions` and is not an undo step. It emits `breaker:thrown` with `timer: true`, then `grid:changed` with reason `"time"`. The settle runs as it does after a throw:
+   - a fuse over its rating blows (`fuse:blown`'s culprit is the largest lamp the flip newly fed);
+   - a brownout enters or clears;
+   - a spring that no current reaches falls back;
+   - a relay keeps its place;
+   - a battery charges only while its input is live.
+6. **Flips at the same moment are one settle.** Timed breakers that flip at the same instant flip together, then the grid settles once. So an alternating pair is never closed together or open together, even for a moment.
+7. **Faults hide faults** (Decided, held). Nothing past an open timed breaker reads. A fault there is readable, and repairable, only while its window is open. Section V's `known` keeps a fault read in an earlier window counted in the numbers, as today.
+8. **The Relight can't be interrupted** (Decided, held). The win is judged after every settle, flips included. Once the job is complete the clock stops: no flip and no event follow.
+9. **The schedule is on screen** (the architect's call; Josh may overturn it). The icon shows the cycle, where the clock stands and the seconds to the next flip. Hovering shows what the next flip will change. In the last 3 s before a flip, that is shown without hovering, and its load number is red if the flip will brown out or blow a fuse.
+10. **On the city it is a breaker.** It uses the same place rules (pole need 2, the branch-pole rule, W1's rules) and the breaker's picked model, with the overlay's ring telling it apart, as the overlay tells the spring and the junction apart (the architect's call; Josh may ask for a model card). The fit and the check place it with no change.
+
+**No Decided rule changes.** Rules 7 and 8 hold "Faults hide faults" and "The Relight can't be interrupted" as worded. A closed timed breaker conducts and an open one cuts everything downstream, as "Breakers conduct unless faulted" and "A breaker cuts everything downstream" say. The GDD's breaker table is Draft and is not reworded (question 20). The night's 15 minutes (07, Decided) are the street layer's and are untouched. **No `pipeline-designer` pre-check:** no city grammar rule or number changes (rule 10). **No new dependency.**
+
+**Order.**
+| PR | Section | Owner | After | Tests |
+| --- | --- | --- | --- | --- |
+| 1 | TB0, the types, the validator and the schema | lead-architect | G1 | at most 2 |
+| 2 | TB1, the rule (pure), with TB2, the analyzer, the check and the raise | grid-simulator | TB0 merged | at most 6 + 3 = 9 |
+| 3 | TB3, the timer drawn | renderer | TB1 merged | at most 3 |
+| 4, beside 3 | TB4, the prompt and the log | interaction | TB1 merged | at most 2 |
+| 5, beside 3 | TB5, the sound | sound | TB0 merged (it codes against the events and `SoundView`) | at most 2 |
+| 6 | TB6, a trial puzzle for Josh | puzzle-designer (Fable 5.2) | TB1 to TB4 merged (TB5 may follow) | 0 |
+| — | Where it enters the series (TB-Q4) | lead-architect | Josh plays TB6 | at N4's re-cut |
+
+#### TB0 · The timed breaker's types, its validation and its schema entry (lead-architect). Branch `ticket/081tb0-timer-types`, after G1. **Built** 26 Nov 2026 by the lead-architect in the main checkout, uncommitted, for the main session to branch; 2 cases added
+**Goal.** The builders code against one contract: a puzzle file can carry a timed breaker, the loader rejects a bad schedule with a clear message, and `puzzles/SCHEMA.md` says what it does.
+
+**Acceptance criteria.**
+1. [ ] **The types** (as in Interfaces, below) are in `src/core/`: `BreakerTimer` and `BreakerNode.timer?`; `TimerReadout` and `TimerState` in `state.ts`; `breaker:thrown`'s `timer?: true`; `LoadPreviewEntry.timed?: true`; `SoundView.timers?`. Typecheck passes on `main` with no other change. **no test**.
+2. [ ] **The validator.** `validatePuzzle` (and so `validateCityPuzzle`) accepts a timer only on a breaker; `closed` and `open` whole numbers from 2 to 30; `offset` a whole number from 0 to below `closed + open`. The node's `closed` must match where the timer stands at `offset`. **The map's cycle** (the least common multiple of every timer's `closed + open`) is at most 60 s. Each error names the node. **test**: 1 case, a fixture with a good timer and five bad ones (on a switch, a fraction, out of range, `closed` disagreeing, a cycle over 60).
+3. [ ] **The check's moves.** `validateCheck` rejects a click on a timed breaker ("a timed breaker is thrown by its clock"). **test**: 1 case, or folded into criterion 2's.
+4. [ ] **`puzzles/SCHEMA.md`** gains a "Timed breaker" row and derived rules (rules 1 to 8 above), in the manner of the battery's. **no test**.
+5. [ ] **`tickets/rules-coverage.md`** adds TB1 to "Breaker cuts downstream", "Faults hide faults", "Fuse rating" and "The Relight can't be interrupted". **no test**.
+
+**Count.** At most 2. **Files.** `src/core/schema.ts`, `state.ts`, `events.ts`, `preview.ts`, `audio.ts`, `load.ts`, `check.ts`, `load.test.ts`, `check.test.ts`; `puzzles/SCHEMA.md`; `tickets/rules-coverage.md`. **Interfaces.** Below. No new dependency.
+
+#### TB1 · The timed breaker's rule (grid-simulator, pure). Branch `ticket/081tb1-timer-rule`, after TB0; one PR with TB2
+**Goal.** On `src/grid/`, a timed breaker opens and closes on its schedule from the first move, and every existing rule meets it as rules 1 to 8 say, so a puzzle can be built on it and replayed.
+
+**Acceptance criteria.**
+1. [ ] **The schedule.** `advance` flips each timed breaker at its times, from the first move. Before the first move it does nothing to timers. `GridState.clock` is null until the first move, then counts seconds. `GridState.timers` gives each timed breaker's `closed` and `next` (seconds to its next flip). `throwBreaker` on one returns false. A flip emits `breaker:thrown` `{ timer: true }` and `grid:changed` `"time"`, and does not count toward `actions`. Reset returns the clock to null. **test**: 1 case.
+2. [ ] **Not undoable.** Undo after a flip restores the last move's other state, but not the clock or the timed breaker. **test**: 1 case (or folded into criterion 1's).
+3. [ ] **One settle per moment** (rule 6). An alternating pair flipping at the same instant never shows both closed or both open in any state the grid reports, and emits one `grid:changed`. **test**: 1 case.
+4. [ ] **It meets the other rules** (rule 5). On one fixture:
+   - a flip that powers too much load blows a rated fuse, with the culprit the flip fed;
+   - a flip browns the feed out, and the next flip clears it;
+   - a relay past the timer is refused while the window is shut and throwable inside it;
+   - a spring past it falls back when the window closes;
+   - a battery past it charges only during the window.
+
+   **test**: at most 2 cases.
+5. [ ] **Faults hide faults, and the Relight** (rules 7 and 8, Decided). A damaged cable past an open timer is not readable and `repairAt` returns `unreadable`. In the window it reads and mends. After `job:completed`, `advance` flips nothing and emits nothing. **test**: 1 case.
+6. [ ] **The preview** (`loadPreview`). A timed breaker's entry is its next flip's what-if: `kind` `"breaker"`, `timed: true`, with `delta`, `over`, `blows` and `lines` as for a throw. A player breaker's entry is unchanged (V2's and NC1's cases pass unedited). **test**: folded into criterion 4's fixture, or 1 case at most within the count.
+7. [ ] `src/grid/` stays pure (the existing purity case). A map without a timer plays exactly as before (the existing suites, unedited). **test** (existing).
+
+**Count.** At most 6. **Files.** `src/grid/grid.ts`, `types.ts`, `preview.ts`, and a new `src/grid/timer.test.ts`. **Must not:** any other folder. **Interfaces.** TB0's. No new dependency.
+
+#### TB2 · The analyzer, the check and the raise on a timed map (grid-simulator). Branch `ticket/081tb1-timer-rule` (one PR with TB1)
+**Goal.** `npm run analyze`, `npm run check` and `npm run fit -- --raise` give true answers on a map with a timed breaker, so the designer can build one and the reviewer can trust its numbers.
+
+**Acceptance criteria.**
+1. [ ] **The analyzer's state.**
+   - The key adds whether the clock has started and its phase (elapsed seconds modulo the map's cycle, in half-seconds).
+   - The `wait` move is offered on a map with a timer as well as one with a battery.
+   - The report gives the shortest win's waits. On a fixture whose only win needs a wait for a window, it finds the win with that wait, and a map without a timer gives the same report as before.
+   - `--click-seconds` works on a timed map. On a fixture whose window holds 2 clicks at 1 s each but not at 3 s each, the analyzer finds a win at 1 s, and at 3 s it finds none or one with more waits.
+
+   **test**: at most 2 cases.
+2. [ ] **The check replays it.** A check block's `wait:` and clicks replay on a timed map with no tool change. The builder confirms this on its fixture. If it does not hold, `tools/checkrun.ts` changes. **test**: folded into criterion 1, or **no test** if nothing changes.
+3. [ ] **The raise** (section S). On a timed map, each feed's capacity and each rated fuse's rating is raised by the largest scenery load at any settle along the solution, flips included, not only the end. So scenery never browns out a window that the unraised puzzle did not. **test**: 1 case.
+4. [ ] The builder gives each new file's time on Josh's PC, and the analyzer's state count on the fixture against the same map with no timer. **no test**.
+
+**Count.** At most 3 (TB1 with TB2: 9). **Files.** `tools/analyzerun.ts`, `tools/analyze.ts`, `tools/checkrun.ts` (only under criterion 2), `tools/fit.ts` (the raise only), `tools/analyze.test.ts`, `tools/fit.test.ts` (one case added; the sweep unedited). **Must not:** `src/`, `puzzles/`.
+
+#### TB3 · The timer drawn: its cycle, now and next (renderer). Branch `ticket/081tb3-timer-drawn`, after TB1
+**Goal.** From the default camera, the player sees each timed breaker's schedule: how long it stays as it is, which wires it feeds now, and which it will light or darken at its next flip.
+
+**Acceptance criteria.**
+1. [ ] **The ring.** A timed breaker's overlay icon is the breaker's, with a ring:
+   - its closed share warm, its open share dark;
+   - a hand at where the clock stands;
+   - the whole seconds to the next flip, as a small number.
+
+   Before the first move, the hand rests at `offset` and the number is not shown. A pure `timerRing(timer, readout)` gives the arcs, the hand's angle and the label. **test**: 1 case.
+2. [ ] **Now and next.** "Now" is what V1 and W4 already show: the live tint and the pulses on the wires it feeds. "Next" is the timed entry's cue (NC2's `cueWires`, `CUE_ON` and `CUE_OFF`) and its load number, marked as the clock's (the architect's start: a small clock glyph beside the number, which Josh tunes by eye). It shows while the timer is hovered, and without hovering in the last 3 s before a flip. **test**: 1 case: the cue shows for a hovered timer, and for an unhovered one at 3 s or less, but not at more than 3 s.
+3. [ ] **The flip reads.** At a flip, the icon pulses once. The wires it feeds change as any throw changes them. **browser**.
+4. [ ] **Off when the numbers are off.** There is no next cue during the Relight, after the win or under `V`, as NC2 does it. The ring stays. **test**: folded into criterion 2's.
+5. [ ] **The cost, measured** as NC2's criterion 5, on TB6's trial puzzle: at most 1 more draw call, and the median within 0.5 ms. **browser**.
+
+**Count.** At most 3. **Files.** `src/render3d/overlay.ts`, `glyphs.ts`, `controlcue.ts`, `cityview.ts` (the next cue's write) and their tests, or a new `timerring.ts` with its test. **Must not:** `src/grid/`, `src/core/`, `src/play/`, `src/ui/`, `src/main.ts`.
+
+#### TB4 · The timed breaker's prompt and its log lines (interaction). Branch `ticket/081tb4-timer-prompt`, after TB1, beside TB3
+**Goal.** Hovering a timed breaker says what it is and when it next changes. A cold playtest's session log says when each section came and went.
+
+**Acceptance criteria.**
+1. [ ] **The prompt.**
+   - Hovering a timed breaker reads "Timed breaker: closes in 4 s" or "opens in 4 s", from `GridState.timers`.
+   - Before the first move it reads "Timed breaker: starts on your first move".
+   - A click on it gives the refused click and "Thrown by its clock" for the flash.
+
+   **test**: 1 case.
+2. [ ] **The log.** Each flip is a `timer-flip` entry with the node, `closed` and the game time, as `battery-flat` is. It is not an undoable step, and the export carries it. **test**: 1 case.
+
+**Count.** At most 2. **Files.** `src/play/prompt.ts`, `log.ts`, `play.ts` (only to log the flip) and their tests. **Must not:** any other folder.
+
+#### TB5 · The timed breaker's sound (sound). Branch `ticket/081tb5-timer-sound`, after TB0, beside TB3
+**Goal.** The player hears a section about to change and hears it change, without looking.
+
+**Acceptance criteria.**
+1. [ ] **The flip.** `breaker:thrown` with `timer: true` plays a heavier, mechanical clunk, set apart from the player's throw. The player's throw is unchanged. **test**: 1 case.
+2. [ ] **The count-in.** A soft tick at each of the last 3 whole seconds before a flip, read from `SoundView.timers`. None before the first move or after the win. Pitched voices are on the 432 Hz grid (the existing scan). **test**: 1 case.
+3. [ ] **Josh listens** on TB6's trial puzzle. **browser**.
+
+**Count.** At most 2. **Files.** `src/audio/` only.
+
+#### TB6 · A trial puzzle: two sections on two clocks (puzzle-designer, Fable 5.2). Branch `ticket/081tb6-timer-trial`, after TB1 to TB4
+**Goal.** Josh plays the timed breaker on the city before it enters the series, and says whether it is "an interesting twist".
+
+**Acceptance criteria.**
+1. [ ] **One trial puzzle**, `puzzles/city/tb-two-clocks.city.json` and its note, on 6 x 6 seed 1, one-way on. It has two timed breakers out of phase, each feeding its own block (2 blocks), and the target needs work in both windows (the note's worked example is a start, not binding). Its id is not `sNN`, so it is not a stage; it shows in the HUD's Map menu (N-Q1). `npm run check puzzles/city/` passes it, W1's rules and the branch-pole rule included. **test** (P1's sweep, unedited).
+2. [ ] **The analyzer's numbers** in the note: fewest clicks, waits, winning configurations and orders, dead-end share, and the result at `--click-seconds 3` (it must still win in the same fewest clicks). **no test**.
+3. [ ] **Josh plays it** (`npm run dev`, Map menu). His words go under **What it taught us**, and TB-Q4 is re-asked with them if he wants it changed. **browser**.
+
+**Count.** 0. **Files.** `puzzles/city/tb-two-clocks.*` only.
+
+**Where it enters the series** (TB-Q4; the recommendation). It enters in N4 (16 to 20), with the relay, spring and battery, the series' other "only while live" pieces. It comes first on a plain 2-block map, one clock per block, which is "span multiple districts with intent" by its nature. It then becomes a layer in N5 (21 to 25). The series stays at 25: at N4's re-cut the designer proposes which planned combination row gives way, and Josh approves. **Series rules it would add, at that re-cut:**
+- at most 2 timed breakers on a map;
+- every timed puzzle wins at `--click-seconds 3` in the same fewest clicks;
+- the note names each window and what is done in it.
+
 ## Files
-Per section, above. This branch (the cut): `tickets/081-puzzles-on-the-city.md`, `docs/design/070-K1-circuit.md` (CK9 as changed, 24 Nov 2026; CK14's dark-building line struck for section S, 24 Nov 2026), `tickets/070-city-pipeline.md` (pointer lines), `tickets/071-pack-power-lines.md` (a pointer line: C and E's ladder wiring are dropped), `tickets/rules-coverage.md`, `src/core/citycircuit.ts` (new; `CityPuzzleView` added 24 Nov 2026 for the playable path), `src/core/cityplan.ts` (`CityCircuitLayer`), `src/core/index.ts`. Section FX's cut (24 Nov 2026): new `src/core/fx.ts`, `src/core/assets.ts` (`AssetManifest.fx?`), `src/core/index.ts`, `tickets/rules-coverage.md`. Section W's cut (25 Nov 2026): this file and `tickets/rules-coverage.md` only; no `src/core/` change (W1's numbers live in `tools/`, and `{ post }` and `lead` stay typed). Sections SK and T (cut and re-cut 25 Nov 2026): this file only (with open question 20 closed); no `src/core/` change and no rules-coverage row. Section N (cut 25 Nov 2026), with T3b recorded and P2b to P2d dropped: this file only; no `src/core/` change and no rules-coverage row. Section N's NR and NC (cut 26 Nov 2026): this file, then on G1 `src/core/preview.ts` (NC's field, below) and a `tickets/rules-coverage.md` line adding NC1 to "Faults hide faults" (its case pins that the cue hides an unread break, as V2's does for the number).
+Per section, above. This branch (the cut): `tickets/081-puzzles-on-the-city.md`, `docs/design/070-K1-circuit.md` (CK9 as changed, 24 Nov 2026; CK14's dark-building line struck for section S, 24 Nov 2026), `tickets/070-city-pipeline.md` (pointer lines), `tickets/071-pack-power-lines.md` (a pointer line: C and E's ladder wiring are dropped), `tickets/rules-coverage.md`, `src/core/citycircuit.ts` (new; `CityPuzzleView` added 24 Nov 2026 for the playable path), `src/core/cityplan.ts` (`CityCircuitLayer`), `src/core/index.ts`. Section FX's cut (24 Nov 2026): new `src/core/fx.ts`, `src/core/assets.ts` (`AssetManifest.fx?`), `src/core/index.ts`, `tickets/rules-coverage.md`. Section W's cut (25 Nov 2026): this file and `tickets/rules-coverage.md` only; no `src/core/` change (W1's numbers live in `tools/`, and `{ post }` and `lead` stay typed). Sections SK and T (cut and re-cut 25 Nov 2026): this file only (with open question 20 closed); no `src/core/` change and no rules-coverage row. Section N (cut 25 Nov 2026), with T3b recorded and P2b to P2d dropped: this file only; no `src/core/` change and no rules-coverage row. Section N's NR and NC (cut 26 Nov 2026): this file, then on G1 `src/core/preview.ts` (NC's field, below) and a `tickets/rules-coverage.md` line adding NC1 to "Faults hide faults" (its case pins that the cue hides an unread break, as V2's does for the number). Section TB's cut (26 Nov 2026, approved the same day): this file and `docs/design/081-TB-timed-breaker.md` only; `src/core/`, `puzzles/SCHEMA.md` and `tickets/rules-coverage.md` change in TB0, after G1.
 
 ## Interfaces
 Written into `src/core/` with this cut (typecheck passes):
@@ -2856,6 +3004,25 @@ Written into `src/core/` with this cut (typecheck passes):
   readonly lines?: { readonly on: readonly string[]; readonly off: readonly string[] };
   ```
   `cueWires`, `CUE_ON` and `CUE_OFF` are internal to `src/render3d/`. No event, no new dependency.
+- **TB, the timed breaker (26 Nov 2026; G1 "Approve (Recommended)"; written into `src/core/` by TB0, typecheck passes).** Every field is optional, so no `version` bump is needed (as the spring), and `main` typechecks the moment TB0 lands:
+  ```ts
+  // schema.ts
+  /** A timed breaker (081 TB): its clock throws it, never the player. Closed `closed` s, then open `open` s, repeating; `offset` s into that cycle when the clock starts (default 0). Whole seconds. */
+  export interface BreakerTimer { readonly closed: number; readonly open: number; readonly offset?: number }
+  // on BreakerNode:
+  timer?: BreakerTimer;
+  // state.ts
+  export interface TimerReadout { readonly closed: boolean; /** Seconds to its next flip (its full share while the clock has not started). */ readonly next: number }
+  export interface TimerState { /** Seconds since the first move; null before it. */ readonly clock: number | null; /** Per timed breaker, in file order; empty on a map without one. */ readonly timers: ReadonlyMap<string, TimerReadout> }
+  // GridState (src/grid/types.ts, TB1) extends TimerState.
+  // events.ts, on "breaker:thrown":
+  timer?: true; // the clock threw it (not a player action, not an undo step)
+  // preview.ts, on LoadPreviewEntry:
+  readonly timed?: true; // the entry is the timer's next flip, not a click
+  // audio.ts, on SoundView:
+  timers?: ReadonlyMap<string, TimerReadout>;
+  ```
+  `timerRing` is internal to `src/render3d/`, and the `timer-flip` log kind to `src/play/`. No new event name, no new `NodeType`, no new `CIRCUIT_COMPONENTS` entry (the breaker's model; rule 10), no new dependency.
 
 ## Open questions (for Josh)
 **Josh, 24 Nov 2026, on cards (relayed by the main session):**
@@ -2919,3 +3086,8 @@ All questions so far are answered (above), the mid-row one included ("Only when 
     - ~~**N-Q1, the HUD's Map menu in play**~~ (a default you may overturn): "Keep listing every city puzzle, as a dev aid (Recommended)"; "Series only, like the stage select".
     - ~~**N-Q2, before N2 (it does not block N1): what counts as a new concept.**~~ Puzzles 11, 13 and 14 add no new piece; each one's new thing is a move that combines two earlier ideas (the ring with the rating; the ring with faults hiding faults; the rating with the switch). The architect reads your "introduce new concepts to the player with each puzzle" as met by a new reasoning move. Options: "A new move counts (Recommended)"; "Each puzzle needs a new piece or rule" (the designer re-plans 11, 13 and 14 before N2).
     **26 Nov 2026:** N0 merged by PR #97 ("Merge, start 1-5 (Recommended)"); N1 and NS merged by PRs #99 and #98, and N2 started, after you saw screenshots of 1 to 5: "Merge and start the next 5". N2 is re-cut to 6 to 10; N3 (11 to 15), N4 (16 to 20) and N5 (21 to 25) wait on your word. Nothing is open. One architect's call you may overturn: a puzzle in 6 to 10 whose trap needs two lines ending side by side at the target may take a 2-block district (read as within "You can even use the same nodes over again..."), or keep 1 block and change its trap's detail, said in its note (N2's lesson from N1).
+27. ~~**Section TB, the timed breaker (cut 26 Nov 2026; for G1, not approved).**~~ **Answered 26 Nov 2026, on cards:** G1 "Approve (Recommended)"; TB-Q1 "Real seconds (Recommended)"; TB-Q2 "Breaker, on/off (Recommended)"; TB-Q3 "Clock only (Recommended)"; TB-Q4 "In 16-20 (Recommended)". Nothing in section TB is open. *As asked:* Josh's request is recorded at the top of section TB. For G1: approve TB0 to TB6 as cut, with the rule and the architect's calls in section TB (the schedule on screen, the clock starting at the first move, the breaker's model). Four cards, the recommendation first:
+    - **TB-Q1, what drives its timer:** "Real seconds, the battery's clock (Recommended)" (the tools already model it; guarded by the clock starting at the first move, the schedule on screen, and a slow-player check at 3 s a click); "One step per move" (turn-based; Undo rewinds it; needs a Wait control in `src/play/` and `src/ui/`; the battery stays on real seconds); "Real seconds, with a pause key" (an interaction and ui section added).
+    - **TB-Q2, its form:** "A breaker, on and off (Recommended)" (two out of phase feed two sections in turn); "A timed switch too" (one piece that swaps its two lines on the clock; the same `timer` field on `SwitchNode`); "A timed switch instead".
+    - **TB-Q3, can the player touch it:** "No, the clock alone (Recommended)"; "A click holds it" (it stops its clock where it stands until clicked again); "A click throws it" (and the clock carries on from there).
+    - **TB-Q4, where it enters the series:** "First in 16 to 20, stays 25 (Recommended)" (a plain 2-block map, then a layer in 21 to 25; one planned row gives way at N4's re-cut); "First in 11 to 15" (N3 then waits for TB0 to TB4); "Add it, 26 puzzles"; "After the 25".

@@ -1,6 +1,6 @@
 /** The sound's contract (ticket 019). Types only: src/audio implements SoundEngine, src/ui drives AudioControl. */
 import type { EventBus } from "./events";
-import type { FeedReadout } from "./state";
+import type { FeedReadout, TimerReadout } from "./state";
 
 /** One battery as the sound reads it. GridState.batteries values have this shape. */
 export interface BatteryReadout {
@@ -18,6 +18,10 @@ export interface SoundView {
   batteries: ReadonlyMap<string, BatteryReadout>;
   /** Line ids with a readable damaged cable (live sparking). */
   sparking: ReadonlySet<string>;
+  /** Per timed breaker (ticket 081 TB): `GridState.timers`. Optional so older views still type-check; absent reads as none. The count-in ticks only while `clock` runs. */
+  timers?: ReadonlyMap<string, TimerReadout>;
+  /** Seconds since the first move, null before it (`GridState.clock`). Optional, as `timers`. */
+  clock?: number | null;
 }
 
 /** The hook the UI drives. */

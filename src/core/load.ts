@@ -7,7 +7,7 @@
  */
 
 import type { CityPuzzle } from "./citycircuit";
-import { FAULT_RULES, type FaultKind, type GridNode, type NodeType, type Part, type Puzzle, type Vec2 } from "./schema";
+import { FAULT_RULES, TIMER_LIMITS, type FaultKind, type GridNode, type NodeType, type Part, type Puzzle, type Vec2 } from "./schema";
 import { powersourceName } from "./words";
 
 export type ValidationResult = { ok: true; puzzle: Puzzle } | { ok: false; errors: readonly string[] };
@@ -20,6 +20,30 @@ const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object
 const isStr = (v: unknown): v is string => typeof v === "string" && v.length > 0;
 const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 const isVec2 = (v: unknown): v is Vec2 => Array.isArray(v) && v.length === 2 && v.every(isNum);
+const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
+
+/**
+ * A timed breaker's `timer` (ticket 081 TB0): each share a whole number of seconds within `TIMER_LIMITS`, `offset` a whole number below the cycle, and the node's `closed` where the timer
+ * stands at `offset`. Returns the cycle (`closed + open`) when it is well formed, for the map's cycle check; null otherwise.
+ */
+function checkTimer(id: string, raw: Record<string, unknown>, err: (m: string) => void): number | null {
+  const t = raw["timer"];
+  if (!isObj(t)) { err(`breaker ${id}: timer must be { closed, open, offset? }`); return null; }
+  const { minSeconds: lo, maxSeconds: hi } = TIMER_LIMITS;
+  let ok = true;
+  for (const k of Object.keys(t)) if (k !== "closed" && k !== "open" && k !== "offset") { err(`breaker ${id}: timer has an unknown key "${k}"`); ok = false; }
+  for (const k of ["closed", "open"] as const) {
+    const v = t[k];
+    if (!(isNum(v) && Number.isInteger(v) && v >= lo && v <= hi)) { err(`breaker ${id}: timer.${k} must be a whole number of seconds from ${lo} to ${hi}`); ok = false; }
+  }
+  if (!ok) return null;
+  const closed = t["closed"] as number, cycle = closed + (t["open"] as number);
+  const offset = t["offset"] ?? 0;
+  if (!(isNum(offset) && Number.isInteger(offset) && offset >= 0 && offset < cycle)) { err(`breaker ${id}: timer.offset must be a whole number of seconds from 0 to below ${cycle} (closed + open)`); return null; }
+  const at = offset < closed;
+  if (typeof raw["closed"] === "boolean" && raw["closed"] !== at) err(`breaker ${id}: closed must be ${at}, where its timer stands at offset ${offset}`);
+  return cycle;
+}
 
 export function validatePuzzle(json: unknown): ValidationResult {
   const errors = checkPuzzle(json, false);
@@ -110,6 +134,7 @@ function checkPuzzle(json: unknown, city: boolean): string[] {
   const nodes = Array.isArray(p["nodes"]) ? p["nodes"] : (err("nodes must be a list"), []);
   const nodeById = new Map<string, GridNode>();
   const feedNodes: Record<string, unknown>[] = [];
+  const timerCycles: number[] = [];
   for (const [i, raw] of nodes.entries()) {
     if (!isObj(raw) || !isStr(raw["id"])) { err(`nodes[${i}] needs an id`); continue; }
     const id = raw["id"];
@@ -136,7 +161,13 @@ function checkPuzzle(json: unknown, city: boolean): string[] {
           if (!isStr(raw["name"])) err(`feed ${id}: name must be a non-empty string`);
         }
         break;
-      case "breaker": if (typeof raw["closed"] !== "boolean") err(`breaker ${id}: closed must be true or false`); break;
+      case "breaker":
+        if (typeof raw["closed"] !== "boolean") err(`breaker ${id}: closed must be true or false`);
+        if (raw["timer"] !== undefined) {
+          const c = checkTimer(id, raw, err);
+          if (c !== null) timerCycles.push(c);
+        }
+        break;
       case "switch":
         if (!Array.isArray(raw["outputs"]) || raw["outputs"].length !== 2 || !raw["outputs"].every(isStr)) err(`switch ${id}: outputs must be two line ids`);
         if (raw["selected"] !== 0 && raw["selected"] !== 1) err(`switch ${id}: selected must be 0 or 1`);
@@ -152,7 +183,14 @@ function checkPuzzle(json: unknown, city: boolean): string[] {
       case "fusebox": if (raw["rating"] !== undefined && (!isNum(raw["rating"]) || raw["rating"] <= 0)) err(`fusebox ${id}: rating must be > 0`); break;
       case "lamp": if (raw["load"] !== undefined && (!isNum(raw["load"]) || raw["load"] <= 0)) err(`lamp ${id}: load must be > 0`); break;
     }
+    if (raw["timer"] !== undefined && raw["type"] !== "breaker") err(`node ${id}: only a breaker may have a timer`);
     nodeById.set(id, raw as unknown as GridNode);
+  }
+  if (timerCycles.length > 0) {
+    // The map's cycle: when every timer is back where it started (081 TB0; the analyzer's phase is counted over it).
+    const cycle = timerCycles.reduce((a, b) => (a / gcd(a, b)) * b);
+    if (cycle > TIMER_LIMITS.maxCycleSeconds)
+      err(`the timers' cycle is ${cycle} s (the least common multiple of each closed + open); at most ${TIMER_LIMITS.maxCycleSeconds}`);
   }
   if (feedNodes.length === 0) err("at least one feed node is required (found 0)");
   if (feedNodes.length > 1) {

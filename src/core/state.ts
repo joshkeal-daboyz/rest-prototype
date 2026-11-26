@@ -17,6 +17,25 @@ export interface RepairForecast {
   wouldBlow: ReadonlyMap<string, number>;
 }
 
+/** One timed breaker now (ticket 081 TB). */
+export interface TimerReadout {
+  /** Where its timer stands: closed (conducting) or open. Before the clock starts, its `offset` position. */
+  readonly closed: boolean;
+  /** Seconds to its next flip. Before the clock starts, what is left of its present share from `offset`. Never 0 in a settled state (a flip at `next` = 0 has already happened). */
+  readonly next: number;
+}
+
+/**
+ * Ticket 081 TB. STUB until the grid-simulator builds it (TB1): `GridState` extends it and fills it on every settle.
+ * The clock is the battery's (real seconds through `Grid.advance`); timers start at the player's first move (a throw, a repair or a battery release; not Undo or Reset).
+ */
+export interface TimerState {
+  /** Seconds since the first move; null before it, and after Reset until the next move. It stops at the win. */
+  readonly clock: number | null;
+  /** Per timed breaker id, in file order; empty on a map without one. */
+  readonly timers: ReadonlyMap<string, TimerReadout>;
+}
+
 /** One feed's live total against its own limit (ticket 015). */
 export interface FeedReadout {
   /** Total load of the lamps this feed's flow carries (nearest feed; see `FeedState.feedOf`). Faulted lamps count 0. */
