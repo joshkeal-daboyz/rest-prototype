@@ -2976,15 +2976,16 @@ The reasoning, the table of how it meets the existing pieces and a worked exampl
 - The same rectangle sets E5's limits: `D0` and `Dmax` (1.5 x `D0`, Josh's), the pan clamp (`clampT`) and the zoom-in floor (`CITY_ZOOM_IN` x the opening).
 - `resetView` is the fit, and every recentre goes through it: Home, F (`fitWhole`), double-right-click (`src/play/pan.ts`), the Reset button, and the window's `resize` (`src/main.ts` calls `setInsets`, `resize`, then `resetView`). The fit runs only on those, never per frame.
 
-**The rule.** On open, the camera fits **the puzzle's own pieces** to the screen: the feed, every control, fault and target, and every run's spans, drop and lead. Never the scenery, the district's blocks or its streets.
+**The rule.** On open, the camera fits **the puzzle's own pieces** to the screen: the feed (its node's place), every control, fault and target, and every run's spans, drop and lead. Never the scenery, the district's blocks or its streets.
 - **The points.** A new pure, exported `puzzleFrame(view, layer)` in `cityview.ts` gives world points, in world units:
   - each node's place (`placePoint`): at the ground and at its own height (pole top, roof deck, the drop's wall point, the post);
   - both ends of every span in `converted.runs[*].spans`, at the ground and at the pole's top or the roof's deck;
-  - each run's drop (its pole and its wall point) and lead (its post);
-  - `converted.origin_m`, the feed.
+  - each run's drop (its pole and its wall point) and lead (its post).
+
+  **Amended 26 Nov 2026 (J's review, must-fix 1; the builder's reading, commit 110004d):** `converted.origin_m` is **not** a point. It is the conversion's layout corner (the origin `pos` is measured from, CK15 step 2; `convert.ts` sets it to `x0, z0`), not the feed, so it is not a puzzle point. The feed is covered as a node place, above.
 
   Each point is grown by `PUZZLE_MARGIN_M` (3 m) on x and z, so a pole's crossarm or a drop's fitting is not cut at the edge. Nothing else counts. With no place, it gives none, and the rig falls back to today's frame.
-- **The fit.** With the points, the opening is the nearest distance at which every point projects inside the **free area** (the canvas less the HUD's top and the bottom panel's insets) less the screen margin `PUZZLE_FIT_PAD` (J-Q2), with the target moved so the points' projected box is centred in the free area. The free area's own width and height decide which way it is tight, so a tall phone fits by width and a wide window by height. The camera's pitch and perspective are in it because each point is projected at its own height; the recentring takes up the slack the pitch leaves.
+- **The fit.** With the points, the opening is the nearest distance at which every point projects inside the **fit area**, with the target moved so the points' projected box is centred in the fit area. The **fit area** is the **free area** (the canvas less the HUD's top and the bottom panel's insets) less the screen margin `PUZZLE_FIT_PAD` (J-Q2: 8 % each side, at least 32 px), and less a **label strip** on its right, `puzzleLabelRoom(freeW)` = `min(PUZZLE_LABEL_PX (64 px), freeW / 6)` (amended 26 Nov 2026, J's review must-fix 1; commit e0d6ec9). Why: icon labels sit to the right of their icon (the main session saw the feed's load label clipped at the right edge on s07 and s08 at 390 x 844). The fit area's own width and height decide which way it is tight, so a tall phone fits by width and a wide window by height. The camera's pitch and perspective are in it because each point is projected at its own height; the recentring takes up the slack the pitch leaves.
 - **The limits follow the puzzle (J-Q1).** E5's limits keep their form, but on the puzzle's points instead of `jobFrame`:
   - **`D0`** is the distance at which the points fill the **whole canvas** (insets ignored, `PUZZLE_FIT_PAD` kept), at the same centred target;
   - **the room floor:** `Droom` is the distance at which the points' x and z box, grown by **`PUZZLE_ROOM_M` = 20 m** on every side, fills the whole canvas. That is about one street with its pavements beyond the outermost piece, so on s01 (one corner of a block) the furthest view still shows the streets round that corner and the next kerbs;
@@ -3002,11 +3003,11 @@ The reasoning, the table of how it meets the existing pieces and a worked exampl
 **Goal.** Opening any series puzzle on a desktop window or a phone, the camera shows the puzzle's pieces filling the space between the HUD and the bottom panel, with a margin, without a pan or a zoom. Every recentre comes back to that view.
 
 **Acceptance criteria.**
-1. [ ] **The puzzle's points.** `puzzleFrame` as above. **test**: 1 case in `cityframe.test.ts`, on `s01-first-light` on 6 x 6 seed 1, one-way on (the shared city the file's E3 case already uses; no other build): every place, run end, drop, lead and the origin is within `PUZZLE_MARGIN_M` of a point; every point is inside `jobFrame`; and the points' x and z extents are each smaller than `jobFrame`'s (s01 sits on one corner of its block, so a frame that still held the district would fail).
+1. [ ] **The puzzle's points.** `puzzleFrame` as above. **test**: 1 case in `cityframe.test.ts`, on `s01-first-light` on 6 x 6 seed 1, one-way on (the shared city the file's E3 case already uses; no other build): every place (the feed's included), run end, drop and lead is within `PUZZLE_MARGIN_M` of a point; every point is inside `jobFrame`; and the points' x and z extents are each smaller than `jobFrame`'s (s01 sits on one corner of its block, so a frame that still held the district would fail).
 2. [ ] **The fit.** `createCityRig` takes a new option, `rigOpts.open?: readonly { x: number; y: number; z: number }[]`, used only with `limit`. Without it the rig is exactly today's: the three cases in `cityrig.test.ts` and the three in `tilecity3d.test.ts` pass **unedited**. With it, at 1287 x 1178, 1280 x 720, 800 x 570 and 390 x 844, with no insets and with insets of 60 px top and 30 % of the height bottom:
-   - every point projects inside the free area less `PUZZLE_FIT_PAD`;
-   - the points' projected box is centred in the free area within 2 % of its width and height;
-   - on the tighter axis the box fills at least the free area less twice the pad, less 2 %;
+   - every point projects inside the fit area: the free area less `PUZZLE_FIT_PAD` (8 %, at least 32 px) and less the label strip on the right (`puzzleLabelRoom`), since icon labels sit to the right of their icon;
+   - the points' projected box is centred in the fit area within 2 % of its width and height;
+   - on the tighter axis the box fills the fit area's width or height, less 2 %;
    - unless held at `Dmax`, the opening is nearer than the same rig's opening without `open` (fitted to the file's `FRAME`).
 
    **test**: 1 case in `cityrig.test.ts`, fixture points (a small cluster in one corner of the file's `FRAME`, at heights 0 and 2), all sizes and both insets in a loop.
