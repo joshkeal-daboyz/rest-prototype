@@ -100,4 +100,27 @@ describe("load preview (ticket 081 V2)", () => {
     g.throwBreaker("brB");
     expect(loadPreview(p, g.state(), new Set()).get("brB3")).toMatchObject({ delta: 1, over: true });
   });
+
+  it("control lines rule: a throw names the lines it makes live and dead; an unread break is sound, a read one stops the current at its cut", () => {
+    const build = (faults: Fault[]) =>
+      mini(
+        [
+          { id: "feed", type: "feed" }, { id: "br", type: "breaker", closed: false }, { id: "j", type: "junction" },
+          { id: "a1", type: "lamp", load: 1 }, { id: "a2", type: "lamp", load: 1 },
+          { id: "s", type: "switch", outputs: ["sa", "sb"], selected: 0 }, { id: "c", type: "lamp", load: 3 }, { id: "d", type: "lamp", load: 1 },
+        ],
+        [["l0", "feed", "br"], ["lb", "br", "j"], ["x1", "j", "a1"], ["x2", "j", "a2"], ["ls", "feed", "s"], ["sa", "s", "c"], ["sb", "s", "d"]],
+        faults,
+      );
+    const p = build([]);
+    const open = preview(p);
+    expect(open.get("br")?.lines).toEqual({ on: ["lb", "x1", "x2"], off: [] });
+    expect(open.get("s")?.lines).toEqual({ on: ["sb"], off: ["sa"] });
+    const g = createGrid(p);
+    g.throwBreaker("br");
+    expect(loadPreview(p, g.state(), new Set()).get("br")?.lines).toEqual({ on: [], off: ["lb", "x1", "x2"] });
+    const cut = build([{ id: "k", at: "lb", kind: "damaged-cable" }]);
+    expect(preview(cut).get("br")?.lines?.on).toEqual(["lb", "x1", "x2"]);
+    expect(preview(cut, ["k"]).get("br")?.lines).toEqual({ on: ["lb"], off: [] });
+  });
 });
