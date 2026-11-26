@@ -238,7 +238,8 @@ export function signedDelta(n: number): string {
 
 /**
  * The numbers by the icons. Fuse boxes with a rating (`ratings`: node id -> rating) read "<fuseLoad> of <rating>" and feeds with a capacity "<load> of <capacity>", red when over; both are drawn always (during the
- * Relight too), as they state what is lit. The preview's `delta` is drawn by each breaker, switch and readable break, red when `over`; a plain zero is not drawn. No preview, or `relighting`, draws no preview numbers.
+ * Relight too), as they state what is lit. A fuse label's red (`load > rating`) is a guard that cannot show in play: the grid blows a fuse whose load passes its rating in the same settle, and a blown fuse reads
+ * "0 of y", so the red shows only on a state the grid did not make. The feed's red (`over`) is real. The preview's `delta` is drawn by each breaker, switch and readable break, red when `over`; a plain zero is not drawn. No preview, or `relighting`, draws no preview numbers.
  */
 export function overlayLabels(icons: readonly OverlayIcon[], breaks: readonly OverlayBreak[], preview: LoadPreview | null, state: GridState, ratings: ReadonlyMap<string, number>, relighting = false, hover: string | null = null): OverlayLabel[] {
   const out: OverlayLabel[] = [];

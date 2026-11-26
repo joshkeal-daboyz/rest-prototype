@@ -27,7 +27,7 @@ import type { Vec3 } from "./kitunits";
 import { GROUND } from "./kitunits";
 import { lightModeFor, type LightModeId } from "./lighting";
 import { addSurface, applyLightMode, newLightOwners, releaseSky, setRendererMode } from "./lightrig";
-import { ARCS_AT_ONCE, arcSpots, blowBolts, blowBurstDue, createFxLayer, fxSwitch, gatherTargets, newFxBolts, relightBursts, repairedFaults, sharedFx, sparkingCuts, type FxCut, type FxEmitter, type FxLamp, type FxPiece, type FxPort, type FxRoute } from "./fx";
+import { ARCS_AT_ONCE, arcFlashes, arcSpots, blowBolts, blowBurstDue, createFxLayer, fxSwitch, gatherTargets, newFxBolts, relightBursts, repairedFaults, sharedFx, sparkingCuts, type FxCut, type FxEmitter, type FxLamp, type FxPiece, type FxPort, type FxRoute } from "./fx";
 import { lampFlicker } from "./look";
 import { DIM_SHARE, STREET_LIGHTS_MAX, buildingHeights, buildingGlow, dimBuildings, dimPieces, glowCardMesh, glowCards, roofOffsets, setDimWindows, lampBuildings, lightPlaces, litGlass, sceneryLamps, setBuildingGlow, setStreetLights, streetLights, targetBuildings, type BuildingGlow, type BuildingLamp, type GlowCards, type LitGlass, type StreetLights } from "./windows";
 import { WORLD_PER_METRE } from "./models";
@@ -1248,6 +1248,9 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
     arcPorts.push({ line: w.line, ax: w.pts[last]!, ay: w.pts[last + 1]!, az: w.pts[last + 2]!, bx: wp.x, by: wp.y, bz: wp.z });
   }
   const arcIdx: number[] = [];
+  const arcFlashIdx: number[] = [];
+  const arcLast = new Int32Array(arcPorts.length).fill(-1);
+  const arcLastAll = new Int32Array(arcPorts.length).fill(-1);
   // The target lamps' bursts stand where the building's street light does (L2), else at the lamp.
   const burstLamps: FxLamp[] = [];
   for (const id of puzzle.target ?? []) {
@@ -1302,6 +1305,10 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
       for (let k = 0; k < spots.length; k++) {
         const a = arcPorts[spots[k]!]!;
         fx.arcAt(a.ax, a.ay, a.az, a.bx, a.by, a.bz, 0.3 * S, 0.8, 1.0, 1.4);
+      }
+      const flashes = arcFlashes(spots, time, arcLastAll, arcFlashIdx);
+      for (let k = 0; k < flashes.length; k++) {
+        const a = arcPorts[flashes[k]!]!;
         fx.arcFlashAt((a.ax + a.bx) / 2, (a.ay + a.by) / 2, (a.az + a.bz) / 2);
       }
       for (let k = 0; k < faultPlaces.length; k++) {
@@ -1336,6 +1343,10 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
       for (let k = 0; k < spots.length; k++) {
         const a = arcPorts[spots[k]!]!;
         fx.arcAt(a.ax, a.ay, a.az, a.bx, a.by, a.bz, 0.3 * S, 0.8, 1.0, 1.4);
+      }
+      const flashes = arcFlashes(spots, time, arcLast, arcFlashIdx);
+      for (let k = 0; k < flashes.length; k++) {
+        const a = arcPorts[flashes[k]!]!;
         fx.arcFlashAt((a.ax + a.bx) / 2, (a.ay + a.by) / 2, (a.az + a.bz) / 2);
       }
     }

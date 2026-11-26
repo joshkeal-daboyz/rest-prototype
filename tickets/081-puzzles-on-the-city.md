@@ -2803,6 +2803,10 @@ Named, not cut in full; it starts only on Josh's word in chat (after N3 merges),
 - **As planned:** rows 16 to 20 (only moves live, the back door, keep it live, the cell, by cell light), ids `s16-...` to `s20-...`. Batteries stay (Josh, above): 19 and 20 here.
 - **Criteria as N2's**, with the plan's band for 16 to 25: 5 to 10 clicks; 1 to 3 hidden facts; the first wrong click always recoverable by a part or a wait; 3 to 6 layers. Districts of 2 blocks. The only "obvious breaker blows a fuse" opener is 19. The first relay is 16, the first spring 18, the first battery 19: each on a plain map first.
 - **A risk named now:** relay, spring and battery have never been laid on the city. If the fit or W1's check cannot place one, N4 stops under the stop rule and the architect cuts a grid-simulator section; nothing is changed in N4 to get round it.
+- **For the re-cut: how the two windows are forced (Josh, 26 Nov 2026, on cards, relayed by the main session).** Asked on a card about forcing the two windows of a timer puzzle with a fuse, he answered "What about batteries?". The analysis then showed that a battery alone cannot force both windows. He chose **"Fuse + battery twist (Recommended)"**:
+  - **A rated fuse forces the two windows.** It is used at most once or twice in the series.
+  - **A battery is the twist on the second timer puzzle:** "charge in A's window, spend it in B's". (TB-Q4 puts the first timer puzzle in N4; whether the second falls in N4 or N5 is for the re-cut.)
+  - **The fuse-blow cap is relaxed for these.** The cap allows "the obvious breaker blows a fuse" as the opener of at most two puzzles (8 and 19), and "fit it and it blows again" as no puzzle's trap. It is relaxed for the timer puzzles whose rated fuse forces the windows. The re-cut words exactly how far, and Josh approves it with N4.
 - **Josh plays** 16 to 20; N5 waits for his word. Count 0. Files: `puzzles/city/` only.
 
 #### N5 · Series v1, batch 5: puzzles 21 to 25 (puzzle-designer, Fable 5.2). Branch `ticket/081n5-series-batch-5`. **Waiting** on Josh's word
@@ -2813,6 +2817,8 @@ Named, not cut in full; it starts only on Josh's word in chat (after N4 merges),
 - **Josh plays** 21 to 25. Count 0. Files: `puzzles/city/` only.
 
 ### TB · The timed breaker: a clock feeds sections in turn. Cut 26 Nov 2026 for G1, in six PRs: TB0, then TB1 with TB2, then TB3, TB4 and TB5 side by side, then TB6. **Approved (G1) 26 Nov 2026**: "Approve (Recommended)"
+**Merged 26 Nov 2026** (Josh's words from the merge commits): TB1b1 by PR #110 ("Merge, start TB1b2 (Recommended)"); TB1b2 by PR #112 and the cityframe timeout by PR #111 ("Merge both (Recommended)"; the timeout on its own card: "15 s timeout (Recommended)"); TB1b3 by PR #113 ("Merge (Recommended)"); TB6 by PR #114 ("Merge (Recommended)"). The cityframe timeout is not a section of this ticket. It gives E3's opening-frame case in `src/render3d/cityframe.test.ts` a 15 s timeout, after CI timed out at 5 s twice. It is recorded here because it merged alongside TB1b2.
+
 **Josh's request, 26 Nov 2026, in chat:** "I want to add another puzzle piece. I want to add a timed breaker I think it would add an interesting twist to a puzzle if a timer powered different sections at different times and you had to work between them." (He corrected "10 interesting twist" the same day: "Add an interesting twist".)
 
 **Josh's answers, 26 Nov 2026, on cards (relayed by the main session):**
@@ -2948,7 +2954,7 @@ The reasoning, the table of how it meets the existing pieces and a worked exampl
 
 **Count.** At most 2. **Files.** `src/audio/` only.
 
-#### TB6 · A trial puzzle: two sections on two clocks (puzzle-designer, Fable 5.2). Branch `ticket/081tb6-timer-trial`, after TB1 to TB4
+#### TB6 · A trial puzzle: two sections on two clocks (puzzle-designer, Fable 5.2). Branch `ticket/081tb6-timer-trial`, after TB1 to TB4. **Done** (PR #114; Josh, 26 Nov 2026, on a card: "Merge (Recommended)"). Criterion 3 stays open until he plays it (`tb-two-clocks.md`'s **What it taught us** is still empty)
 **Goal.** Josh plays the timed breaker on the city before it enters the series, and says whether it is "an interesting twist".
 
 **Acceptance criteria.**
@@ -2963,7 +2969,7 @@ The reasoning, the table of how it meets the existing pieces and a worked exampl
 - every timed puzzle wins at `--click-seconds 3` in the same fewest clicks;
 - the note names each window and what is done in it.
 
-#### TB1b · Follow-up: the preview on a timed map, jointly and once per change. Cut 26 Nov 2026, three PRs (TB1b1, TB1b2, TB1b3). **Not approved** (awaiting G1)
+#### TB1b · Follow-up: the preview on a timed map, jointly and once per change. Cut 26 Nov 2026, three PRs (TB1b1, TB1b2, TB1b3). **Approved (G1) 26 Nov 2026**: "Approve (Recommended)". **Done**: all three merged (PRs #110, #112, #113)
 **Where it comes from.** TB1's review (`reviews/081-TB1-timer-rule.md`, could-improve 1) and TB3's builder report (PR #109).
 - `src/grid/preview.ts` previews each timed breaker's flip alone. Two timers that flip at the same moment (rule 6; the alternating pair, the likely shape of TB6) are shown as two separate what-ifs. On one limited feed, one entry can then read `over: true` for a flip that, taken jointly, browns nothing out.
 - A later timer's entry also ignores an earlier timer that flips first.
@@ -2972,7 +2978,7 @@ The reasoning, the table of how it meets the existing pieces and a worked exampl
 
 **No rule changes.** Rule 9 ("its load number is red if the flip will brown out or blow a fuse") is met truly, not changed. No Decided rule is touched, no city grammar number changes (no `pipeline-designer` pre-check), and there is no new dependency or type. **One owner per PR**, so the renderer's one-line change is its own sub-section (TB1b2), not a rider on TB1b1.
 
-##### TB1b1 · The joint-flip preview (grid-simulator, pure). Branch `ticket/081tb1b1-joint-preview`, from `main` now
+##### TB1b1 · The joint-flip preview (grid-simulator, pure). Branch `ticket/081tb1b1-joint-preview`, from `main` now. **Done** (PR #110; Josh, 26 Nov 2026, on a card: "Merge, start TB1b2 (Recommended)")
 **Goal.** A timed breaker's load number and cue tell the truth about the moment it flips, including every other timer that flips with it or before it, so an alternating pair never warns red for a brownout it doesn't cause.
 
 **Acceptance criteria.**
@@ -2989,7 +2995,7 @@ The reasoning, the table of how it meets the existing pieces and a worked exampl
 
 **Count.** At most 2 (aim 1). **Files.** `src/grid/preview.ts`; `src/grid/timer.test.ts` or `src/grid/preview.test.ts` (new cases only). **Must not:** any other folder, `src/core/` included (no new type: `LoadPreviewEntry` is unchanged). **Interfaces.** None new.
 
-##### TB1b2 · The next cue for every timer (renderer). Branch `ticket/081tb1b2-cue-every-timer`, after TB1b1 and TB3 (#109) merged
+##### TB1b2 · The next cue for every timer (renderer). Branch `ticket/081tb1b2-cue-every-timer`, after TB1b1 and TB3 (#109) merged. **Done** (PR #112; Josh, 26 Nov 2026, on a card: "Merge both (Recommended)")
 **Goal.** Every timed breaker shows its next cue and number, hovered or in its last 3 s, as TB3's criterion 2 meant, now that the preview is joint.
 
 **Acceptance criteria.**
@@ -2998,7 +3004,7 @@ The reasoning, the table of how it meets the existing pieces and a worked exampl
 
 **Count.** 0 added, 1 rewritten. **Files.** `src/render3d/timerring.ts`, `src/render3d/timerring.test.ts`. **Must not:** `cityview.ts`, `controlcue.ts`, `overlay.ts`, any other folder.
 
-##### TB1b3 · The preview once per change, not per frame (ui). Branch `ticket/081tb1b3-preview-key`, from `main` now, beside TB1b1
+##### TB1b3 · The preview once per change, not per frame (ui). Branch `ticket/081tb1b3-preview-key`, from `main` now, beside TB1b1. **Done** (PR #113; Josh, 26 Nov 2026, on a card: "Merge (Recommended)")
 **The fix chosen** (the cheapest correct one, one owner). The page keys the refresh on what the preview reads, not on the state's identity. `loadPreview` reads the breakers, the switches, the faults, the readable faults and `known`, and after TB1b1 the timers' order of next flips. It does not read the clock's fraction, a battery's charge or the load. A grid-side "config version" on `GridState` was weighed and set aside. It would need `src/core/`, `src/grid/` and `src/main.ts` (three owners), and a version bumped on every settle would still tick each frame on a charging battery. The key below covers that case too.
 
 **Goal.** On a timed (or battery) map with no move, the load numbers are computed once per flip, not once per frame, and stay the same numbers.
@@ -3097,8 +3103,91 @@ If the builder finds one of them must change, each rewritten case counts toward 
 - **J-Q2, the margin round the puzzle on screen:** **"8 % of the free area each side, at least 32 px (Recommended)"** (an icon is up to 40 px across, so an edge piece's icon stays whole), "4 %, today's pad" (tighter; an edge icon may touch the panel), or "12 %" (looser).
 - **J-Q3, a resize:** **"Fit the puzzle again, as today (Recommended)"** (a new window size, a turned phone or a panel opening re-fits; any pan or zoom is lost), or "Keep the player's view once they have moved" (a ui section for `src/main.ts`, cut after this one).
 
+### Y · Leftovers named in reviews: Y1 and Y2 (renderer, one PR), Y3 (playtester, its own PR). Cut 26 Nov 2026. **Approved (G1) 26 Nov 2026**: "Approve Y (Recommended)"
+**Josh, 26 Nov 2026, in chat:** "Let's finish the leftovers from the handoff".
+
+**Josh's answers, 26 Nov 2026, on cards (relayed by the main session):**
+- **G1:** "Approve Y (Recommended)".
+- **Y-Q1, the fuse label's red:** "Comment only (Recommended)". Y2 is cut to that answer: the guard stays, and the doc comment says why.
+- **Y-Q2, who builds Y3:** "The playtester (Recommended)". It edits one case and runs only the typecheck. It replays nothing, so this is not a playtest. These are `docs/handoff-2026-11-25.md`, "What is open" item 5: three could-improve items from reviews, none of them must-fix. The architect checked each one on `main` at 5fba453, and all three are still there.
+
+**No rule changes.** No Decided rule is touched and no city grammar number changes, so there is no `pipeline-designer` pre-check. There is no `src/core/` type, no event and no new dependency, and no `tickets/rules-coverage.md` row moves.
+
+| PR | Sections | Owner | Cases | Order |
+|---|---|---|---|---|
+| 1 | Y1, Y2 | renderer | 1 added (Y1), 0 (Y2) | From `main` now |
+| 2 | Y3 | playtester (Y-Q2: "The playtester (Recommended)") | 1 rewritten | From `main` now, beside PR 1 (no shared file) |
+
+#### Y1 · The brownout arc flashes once per arc, not every frame (renderer). Branch `ticket/081y1-arc-flash-once`, from `main`
+**Where it comes from.** FX4's review, `reviews/081-FX4-fuse-blow.md`, could-improve 5.
+- On `main`, `drawFx` in `src/render3d/cityview.ts` calls `fx.arcFlashAt` beside each `fx.arcAt`. It does this in both arc loops, normal play and `fx=all`, on every frame that `arcSpots` returns the arc.
+- `arcFlashAt` is a 0.05 s soft-spot flash. So at 60 fps each arc keeps about 3 flashes alive.
+- Under `fx=all` (every port, every frame) this inflates the "soft spot" peak that `perf=1` prints.
+- FX2 meant one flash on each new arc. The review suggests firing once per arc window.
+
+**Goal.** Each brownout arc gives one soft flash as it strikes. The arcs look as they did, and `fx=all`'s peak counts measure what play would draw.
+
+**Acceptance criteria.**
+1. [ ] **`arcFlashes(spots, time, last, out)`**, pure, exported from `src/render3d/fx.ts` beside `arcSpots`.
+   - It returns the entries of `spots` whose `last[i]` is not the current arc slot (`Math.floor(time / ARC_SLOT_S)`, the slot `arcSpots` uses), and it writes that slot into `last[i]`.
+   - An arc's window lies inside one slot (`arcSpots`' start plus duration is under 0.2 s), so this gives one flash per window. A port that strikes again in a later slot flashes again.
+
+   **test**: 1 case in `fx.test.ts`, on 3 ports:
+   - the first call in a slot returns the spots;
+   - a second call in the same slot returns none;
+   - a port that is not in `spots` is not stamped;
+   - the next slot returns the port again.
+2. [ ] **`drawFx` flashes only `arcFlashes`' result**, in both loops. Each loop has its own `last`, an `Int32Array(arcPorts.length)` filled with -1 and made where `arcIdx` is made. `fx.arcAt` is unchanged, so an arc is still drawn on every frame of its window. **no test**: this is the wiring, and criterion 1 holds the rule.
+3. [ ] **The look and the count.**
+   - Josh runs `npm run dev`, opens `s03-not-enough-for-all` (its feed starts over, "9 of 6"): each arc still flashes as it strikes. **browser**.
+   - With `perf=1&fx=all`, the builder gives the "soft spot" peak before and after, only while the pane is shown on Josh's PC. **no test**.
+
+**Count.** 1 added, 0 rewritten. No test is removed, and `fx.test.ts`'s existing `arcFlashAt` assertion stays unedited. **Files.** `src/render3d/fx.ts` (`arcFlashes` only), `src/render3d/fx.test.ts` (one case), `src/render3d/cityview.ts` (`drawFx`'s two arc loops and their `last` arrays only). **Must not:** `arcSpots`' rule, `arcFlashAt`'s look, `overlay.ts` (Y2's), any other folder.
+
+#### Y2 · The fuse label's red says what it is (renderer). Same PR as Y1
+**Where it comes from.** V3's review, `reviews/081-V3-preview-numbers.md`, risk 1 and could-improve 3.
+- On `main`, `overlayLabels` in `src/render3d/overlay.ts` draws a rated fuse box's "x of y" with `red: load > rating`.
+- That can never fire in play. `src/grid/grid.ts`'s blow check faults any fuse whose load passes its rating in the same settle. `fuseLoad` then reads 0 for a faulted fuse, so the settled state never holds an unblown fuse over its rating.
+- The feed's red (`f.over`) is real and stays as it is.
+
+**Goal.** Whoever reads `overlayLabels` knows that a fuse label's red is a guard that never shows in play. Nothing changes on screen.
+
+**Acceptance criteria** (Y-Q1, Josh: "Comment only (Recommended)").
+1. [ ] **Comment only.** `red: load > rating` stays as a guard, and `overlayLabels`' doc comment says so:
+   - in play, the grid blows such a fuse in the same settle;
+   - a blown fuse reads "0 of y";
+   - so the red shows only on a state the grid did not make.
+
+   No code line changes and nothing changes on screen. **no test**.
+2. [ ] **The feed label, the preview numbers and the Relight are as today.** V3's case in `overlay.test.ts` passes unedited. **test** (existing).
+
+**Count.** 0 added, 0 rewritten. With Y1 the PR has 1 case. **Files.** `src/render3d/overlay.ts` (`overlayLabels`' doc comment only). **Must not:** `overlay.test.ts`, `src/grid/` (the blow rule is not changed), `fx.ts` or `cityview.ts` (Y1's), any other folder.
+
+#### Y3 · The harness's id floor goes (playtester). Branch `ticket/081y3-harness-floor`, from `main`
+**Where it comes from.** R1's review, `reviews/081-R1-city-harness.md`, could-improve 1. On `main`, the "scripts" case in `tests/playtest/playtest.test.ts` ends with `expect(IDS.length, "P0 and the 16 pilots").toBeGreaterThanOrEqual(17)`. It was right for R1, which had 17 ids. It is now wrong in a new way:
+- `puzzles/city/` holds 28 ids: the 16 pilots, `city-two-ways-round`, `s01` to `s10` and `tb-two-clocks`.
+- The floor would still pass if every series stage were deleted (28 - 11 = 17), and the series is what players play (NS lists only `sNN`).
+- Its message names pilots that are no longer stages. If they were retired, the case would fail with a count, not a name, as R1's review said.
+
+**Goal.** At a release, the harness fails by name when a series stage goes missing or is doubled. It needs no edit as N3 to N5 land, as a pilot is retired or as a trial puzzle is added.
+
+**Acceptance criteria.**
+1. [ ] **The floor is replaced** in the "scripts" case by two assertions:
+   - `IDS` is not empty, with the message "no city puzzles under puzzles/city/". Without it, an empty glob would pass by running nothing.
+   - The series ids (`/^s(\d\d)-/`) run from `s01` to the highest present, with no gap and no number used twice. The failure names the missing or doubled numbers.
+
+   Ids not of the form `sNN-` are not counted: the pilots, `city-two-ways-round` and `tb-two-clocks`. **test**: the existing case, **rewritten** (1). Nothing else in the file changes.
+2. [ ] **Not run on this branch** (Josh, 23 Nov 2026: "Regression testing should only be performed on full releases"). The playtest config is not collected by `npm test` or CI. The builder runs only `tsc --noEmit -p tests/playtest/tsconfig.json` and says so, as R1's criterion 5 did. The case first runs at the next release Josh calls (X-Q2, "Next release (Recommended)"). **no test**.
+
+**Count.** 0 added, 1 rewritten. **Files.** `tests/playtest/playtest.test.ts` (the "scripts" case only). **Must not:** `ladder.ts`, `replay.ts`, `__snapshots__/`, `src/`, `puzzles/`, `tools/`, `playtests/`.
+
+**Questions for Josh (G1 card), answered 26 Nov 2026 (above): "Approve Y (Recommended)", "Comment only (Recommended)", "The playtester (Recommended)".**
+- **G1 for section Y:** "Approve Y (Recommended)"; "Approve Y1 and Y3 only"; "Not now".
+- **Y-Q1, the fuse label's red:** "Comment only, keep it as a guard (Recommended)" (nothing changes on screen); "Drop the red" (the same on screen; the line reads plainer); "Full reads red" (new: a fuse at its rating reads red, as a warning that one more load blows it; it may help N4's rated fuse that forces the two windows, but it also hints at the blow before it happens on `s08-the-small-box`, the series' first fuse-blow opener).
+- **Y-Q2, who builds Y3:** "The playtester, as for R1 (Recommended)" (the brief makes it `tests/playtest/`'s owner; it edits one case, runs only the typecheck and replays nothing, so this is not a playtest); "Leave it for the next release" (the release's playtester makes the edit as part of that release).
+
 ## Files
-Per section, above. This branch (the cut): `tickets/081-puzzles-on-the-city.md`, `docs/design/070-K1-circuit.md` (CK9 as changed, 24 Nov 2026; CK14's dark-building line struck for section S, 24 Nov 2026), `tickets/070-city-pipeline.md` (pointer lines), `tickets/071-pack-power-lines.md` (a pointer line: C and E's ladder wiring are dropped), `tickets/rules-coverage.md`, `src/core/citycircuit.ts` (new; `CityPuzzleView` added 24 Nov 2026 for the playable path), `src/core/cityplan.ts` (`CityCircuitLayer`), `src/core/index.ts`. Section FX's cut (24 Nov 2026): new `src/core/fx.ts`, `src/core/assets.ts` (`AssetManifest.fx?`), `src/core/index.ts`, `tickets/rules-coverage.md`. Section W's cut (25 Nov 2026): this file and `tickets/rules-coverage.md` only; no `src/core/` change (W1's numbers live in `tools/`, and `{ post }` and `lead` stay typed). Sections SK and T (cut and re-cut 25 Nov 2026): this file only (with open question 20 closed); no `src/core/` change and no rules-coverage row. Section N (cut 25 Nov 2026), with T3b recorded and P2b to P2d dropped: this file only; no `src/core/` change and no rules-coverage row. Section N's NR and NC (cut 26 Nov 2026): this file, then on G1 `src/core/preview.ts` (NC's field, below) and a `tickets/rules-coverage.md` line adding NC1 to "Faults hide faults" (its case pins that the cue hides an unread break, as V2's does for the number). Section TB's cut (26 Nov 2026, approved the same day): this file and `docs/design/081-TB-timed-breaker.md` only; `src/core/`, `puzzles/SCHEMA.md` and `tickets/rules-coverage.md` change in TB0, after G1.
+Per section, above. This branch (the cut): `tickets/081-puzzles-on-the-city.md`, `docs/design/070-K1-circuit.md` (CK9 as changed, 24 Nov 2026; CK14's dark-building line struck for section S, 24 Nov 2026), `tickets/070-city-pipeline.md` (pointer lines), `tickets/071-pack-power-lines.md` (a pointer line: C and E's ladder wiring are dropped), `tickets/rules-coverage.md`, `src/core/citycircuit.ts` (new; `CityPuzzleView` added 24 Nov 2026 for the playable path), `src/core/cityplan.ts` (`CityCircuitLayer`), `src/core/index.ts`. Section FX's cut (24 Nov 2026): new `src/core/fx.ts`, `src/core/assets.ts` (`AssetManifest.fx?`), `src/core/index.ts`, `tickets/rules-coverage.md`. Section W's cut (25 Nov 2026): this file and `tickets/rules-coverage.md` only; no `src/core/` change (W1's numbers live in `tools/`, and `{ post }` and `lead` stay typed). Sections SK and T (cut and re-cut 25 Nov 2026): this file only (with open question 20 closed); no `src/core/` change and no rules-coverage row. Section N (cut 25 Nov 2026), with T3b recorded and P2b to P2d dropped: this file only; no `src/core/` change and no rules-coverage row. Section N's NR and NC (cut 26 Nov 2026): this file, then on G1 `src/core/preview.ts` (NC's field, below) and a `tickets/rules-coverage.md` line adding NC1 to "Faults hide faults" (its case pins that the cue hides an unread break, as V2's does for the number). Section TB's cut (26 Nov 2026, approved the same day): this file and `docs/design/081-TB-timed-breaker.md` only; `src/core/`, `puzzles/SCHEMA.md` and `tickets/rules-coverage.md` change in TB0, after G1. Section Y's cut (26 Nov 2026), with N4's re-cut notes and the TB merges recorded: this file only. There is no `src/core/` change and no rules-coverage row.
 
 ## Interfaces
 Written into `src/core/` with this cut (typecheck passes):
@@ -3161,6 +3250,7 @@ Written into `src/core/` with this cut (typecheck passes):
   timers?: ReadonlyMap<string, TimerReadout>;
   ```
   `timerRing` is internal to `src/render3d/`, and the `timer-flip` log kind to `src/play/`. No new event name, no new `NodeType`, no new `CIRCUIT_COMPONENTS` entry (the breaker's model; rule 10), no new dependency.
+- **Y, the review leftovers (26 Nov 2026):** none in `src/core/`. `arcFlashes` is internal to `src/render3d/`. No event and no new dependency.
 
 ## Open questions (for Josh)
 **Josh, 24 Nov 2026, on cards (relayed by the main session):**
@@ -3229,3 +3319,7 @@ All questions so far are answered (above), the mid-row one included ("Only when 
     - **TB-Q2, its form:** "A breaker, on and off (Recommended)" (two out of phase feed two sections in turn); "A timed switch too" (one piece that swaps its two lines on the clock; the same `timer` field on `SwitchNode`); "A timed switch instead".
     - **TB-Q3, can the player touch it:** "No, the clock alone (Recommended)"; "A click holds it" (it stops its clock where it stands until clicked again); "A click throws it" (and the clock carries on from there).
     - **TB-Q4, where it enters the series:** "First in 16 to 20, stays 25 (Recommended)" (a plain 2-block map, then a layer in 21 to 25; one planned row gives way at N4's re-cut); "First in 11 to 15" (N3 then waits for TB0 to TB4); "Add it, 26 puzzles"; "After the 25".
+28. ~~**Section Y, the review leftovers (cut 26 Nov 2026; for G1, not approved).**~~ **Answered 26 Nov 2026, on cards:** G1 "Approve Y (Recommended)"; Y-Q1 "Comment only (Recommended)"; Y-Q2 "The playtester (Recommended)". Nothing in section Y is open. *As asked:* Your words: "Let's finish the leftovers from the handoff". These are Y1 (FX4's arc flash, once per arc), Y2 (V3's fuse red) and Y3 (R1's id floor), in two PRs. Three questions, the recommendation first; they are listed in section Y:
+    - **G1:** "Approve Y (Recommended)"; "Approve Y1 and Y3 only"; "Not now".
+    - **Y-Q1, the fuse label's red:** "Comment only, keep it as a guard (Recommended)"; "Drop the red"; "Full reads red".
+    - **Y-Q2, who builds Y3:** "The playtester, as for R1 (Recommended)"; "Leave it for the next release".
