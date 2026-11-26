@@ -3,7 +3,7 @@
   "name": "07 · The long way",
   "version": 3,
   "scope": "map",
-  "capacity": 16,
+  "capacity": 15,
   "startingParts": [
     "wire"
   ],
@@ -65,10 +65,33 @@
       }
     },
     {
-      "id": "j_t",
+      "id": "j_w",
       "type": "junction",
       "place": {
         "pole": "pole:x:14:lo:315.83"
+      }
+    },
+    {
+      "id": "works",
+      "type": "lamp",
+      "load": 2,
+      "place": {
+        "building": "block:6:11/b|outer|+z|61,101"
+      }
+    },
+    {
+      "id": "br_w",
+      "type": "breaker",
+      "closed": true,
+      "place": {
+        "pole": "pole:x:14:lo:305.00"
+      }
+    },
+    {
+      "id": "j_t",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:14:lo:294.17"
       }
     },
     {
@@ -76,7 +99,7 @@
       "type": "lamp",
       "load": 1,
       "place": {
-        "building": "block:6:11/b|outer|+z|61,101"
+        "building": "block:6:11/b|outer|+z|58,101"
       }
     },
     {
@@ -130,10 +153,39 @@
     {
       "id": "l_b",
       "from": "j_dead",
-      "to": "j_t",
+      "to": "j_w",
       "run": {
         "spans": [
           "span:pole:x:14:lo:315.83~pole:x:14:lo:326.67"
+        ]
+      }
+    },
+    {
+      "id": "l_works",
+      "from": "j_w",
+      "to": "works",
+      "run": {
+        "spans": [],
+        "drop": "block:6:11/b|outer|+z|61,101"
+      }
+    },
+    {
+      "id": "l_c",
+      "from": "j_w",
+      "to": "br_w",
+      "run": {
+        "spans": [
+          "span:pole:x:14:lo:305.00~pole:x:14:lo:315.83"
+        ]
+      }
+    },
+    {
+      "id": "l_d",
+      "from": "br_w",
+      "to": "j_t",
+      "run": {
+        "spans": [
+          "span:pole:x:14:lo:294.17~pole:x:14:lo:305.00"
         ]
       }
     },
@@ -143,7 +195,7 @@
       "to": "smithy",
       "run": {
         "spans": [],
-        "drop": "block:6:11/b|outer|+z|61,101"
+        "drop": "block:6:11/b|outer|+z|58,101"
       }
     },
     {
@@ -177,9 +229,7 @@
           "span:pole:z:6:hi:495.83~pole:z:6:hi:507.50",
           "span:pole:x:14:lo:272.50~pole:z:6:hi:507.50",
           "span:pole:x:14:lo:272.50~pole:x:14:lo:285.83",
-          "span:pole:x:14:lo:285.83~pole:x:14:lo:294.17",
-          "span:pole:x:14:lo:294.17~pole:x:14:lo:305.00",
-          "span:pole:x:14:lo:305.00~pole:x:14:lo:315.83"
+          "span:pole:x:14:lo:285.83~pole:x:14:lo:294.17"
         ]
       }
     }

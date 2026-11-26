@@ -3,7 +3,7 @@
   "name": "09 · Two ways round",
   "version": 3,
   "scope": "map",
-  "capacity": 19,
+  "capacity": 12,
   "startingParts": [
     "wire"
   ],
@@ -56,6 +56,29 @@
       "load": 1,
       "place": {
         "building": "block:0:4/b|outer|+z|9,48"
+      }
+    },
+    {
+      "id": "j_k",
+      "type": "junction",
+      "place": {
+        "pole": "pole:z:3:lo:217.50"
+      }
+    },
+    {
+      "id": "kiln",
+      "type": "lamp",
+      "load": 2,
+      "place": {
+        "building": "block:0:4/b|outer|+x|19,43"
+      }
+    },
+    {
+      "id": "br_k",
+      "type": "breaker",
+      "closed": true,
+      "place": {
+        "pole": "pole:z:3:lo:204.50"
       }
     },
     {
@@ -123,7 +146,7 @@
     {
       "id": "l_x",
       "from": "j_h",
-      "to": "j_2",
+      "to": "j_k",
       "run": {
         "spans": [
           "span:pole:x:7:lo:50.83~pole:x:7:lo:62.50",
@@ -132,8 +155,35 @@
           "span:pole:x:7:lo:84.33~pole:x:7:lo:97.50",
           "span:pole:x:7:lo:97.50~pole:z:3:lo:242.50",
           "span:pole:z:3:lo:230.00~pole:z:3:lo:242.50",
-          "span:pole:z:3:lo:217.50~pole:z:3:lo:230.00",
-          "span:pole:z:3:lo:204.50~pole:z:3:lo:217.50",
+          "span:pole:z:3:lo:217.50~pole:z:3:lo:230.00"
+        ]
+      }
+    },
+    {
+      "id": "l_kiln",
+      "from": "j_k",
+      "to": "kiln",
+      "run": {
+        "spans": [],
+        "drop": "block:0:4/b|outer|+x|19,43"
+      }
+    },
+    {
+      "id": "l_k",
+      "from": "j_k",
+      "to": "br_k",
+      "run": {
+        "spans": [
+          "span:pole:z:3:lo:204.50~pole:z:3:lo:217.50"
+        ]
+      }
+    },
+    {
+      "id": "l_2",
+      "from": "br_k",
+      "to": "j_2",
+      "run": {
+        "spans": [
           "span:pole:z:3:lo:192.50~pole:z:3:lo:204.50"
         ]
       }

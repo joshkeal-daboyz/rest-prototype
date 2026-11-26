@@ -3,7 +3,7 @@
   "name": "08 · The small box",
   "version": 3,
   "scope": "map",
-  "capacity": 6,
+  "capacity": 9,
   "startingParts": [
     "fuse"
   ],
@@ -56,9 +56,16 @@
     {
       "id": "fb",
       "type": "fusebox",
-      "rating": 5,
+      "rating": 6,
       "place": {
-        "pole": "pole:z:7:lo:157.50"
+        "pole": "pole:x:3:hi:337.50"
+      }
+    },
+    {
+      "id": "j_s",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:3:hi:315.83"
       }
     },
     {
@@ -66,7 +73,7 @@
       "type": "lamp",
       "load": 1,
       "place": {
-        "building": "block:6:3/b|outer|+x|67,31"
+        "building": "block:6:3/a|outer|-z|61,31"
       }
     },
     {
@@ -74,14 +81,14 @@
       "type": "breaker",
       "closed": false,
       "place": {
-        "pole": "pole:x:3:hi:337.50"
+        "pole": "pole:x:3:hi:305.50"
       }
     },
     {
       "id": "j_t",
       "type": "junction",
       "place": {
-        "pole": "pole:x:3:hi:315.83"
+        "pole": "pole:x:3:hi:283.33"
       }
     },
     {
@@ -89,7 +96,7 @@
       "type": "lamp",
       "load": 2,
       "place": {
-        "building": "block:6:3/a|outer|-z|61,31"
+        "building": "block:6:3/a|outer|-z|56,31"
       }
     },
     {
@@ -97,7 +104,7 @@
       "type": "breaker",
       "closed": true,
       "place": {
-        "pole": "pole:x:3:hi:305.50"
+        "pole": "pole:z:6:hi:157.50"
       }
     },
     {
@@ -105,7 +112,7 @@
       "type": "lamp",
       "load": 2,
       "place": {
-        "building": "block:6:3/a|outer|-z|56,31"
+        "building": "block:6:3/a|outer|-x|54,32"
       }
     }
   ],
@@ -148,26 +155,38 @@
       "to": "fb",
       "run": {
         "spans": [
-          "span:pole:z:7:lo:157.50~pole:z:7:lo:167.50"
+          "span:pole:z:7:lo:157.50~pole:z:7:lo:167.50",
+          "span:pole:x:3:hi:337.50~pole:z:7:lo:157.50"
+        ]
+      }
+    },
+    {
+      "id": "l_s",
+      "from": "fb",
+      "to": "j_s",
+      "run": {
+        "spans": [
+          "span:pole:x:3:hi:324.17~pole:x:3:hi:337.50",
+          "span:pole:x:3:hi:315.83~pole:x:3:hi:324.17"
         ]
       }
     },
     {
       "id": "l_store",
-      "from": "fb",
+      "from": "j_s",
       "to": "store",
       "run": {
         "spans": [],
-        "drop": "block:6:3/b|outer|+x|67,31"
+        "drop": "block:6:3/a|outer|-z|61,31"
       }
     },
     {
       "id": "l_t",
-      "from": "fb",
+      "from": "j_s",
       "to": "br_t",
       "run": {
         "spans": [
-          "span:pole:x:3:hi:337.50~pole:z:7:lo:157.50"
+          "span:pole:x:3:hi:305.50~pole:x:3:hi:315.83"
         ]
       }
     },
@@ -177,8 +196,8 @@
       "to": "j_t",
       "run": {
         "spans": [
-          "span:pole:x:3:hi:324.17~pole:x:3:hi:337.50",
-          "span:pole:x:3:hi:315.83~pole:x:3:hi:324.17"
+          "span:pole:x:3:hi:294.17~pole:x:3:hi:305.50",
+          "span:pole:x:3:hi:283.33~pole:x:3:hi:294.17"
         ]
       }
     },
@@ -188,7 +207,7 @@
       "to": "cold_store",
       "run": {
         "spans": [],
-        "drop": "block:6:3/a|outer|-z|61,31"
+        "drop": "block:6:3/a|outer|-z|56,31"
       }
     },
     {
@@ -197,7 +216,8 @@
       "to": "br_mill",
       "run": {
         "spans": [
-          "span:pole:x:3:hi:305.50~pole:x:3:hi:315.83"
+          "span:pole:x:3:hi:272.50~pole:x:3:hi:283.33",
+          "span:pole:x:3:hi:272.50~pole:z:6:hi:157.50"
         ]
       }
     },
@@ -207,10 +227,9 @@
       "to": "mill",
       "run": {
         "spans": [
-          "span:pole:x:3:hi:294.17~pole:x:3:hi:305.50",
-          "span:pole:x:3:hi:283.33~pole:x:3:hi:294.17"
+          "span:pole:z:6:hi:157.50~pole:z:6:hi:170.67"
         ],
-        "drop": "block:6:3/a|outer|-z|56,31"
+        "drop": "block:6:3/a|outer|-x|54,32"
       }
     }
   ],
