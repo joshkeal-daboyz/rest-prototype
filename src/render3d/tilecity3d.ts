@@ -849,6 +849,82 @@ const CITY_ZOOM_OUT = 1.6;
  * At a tenth of the distance the resolution is 0.0001 units (about 0.5 mm): the 1 cm separations hold. Nothing stands within a tenth of the distance of the camera (the tallest roof is 6 units).
  */
 export const CITY_NEAR_FRACTION = 0.1;
+/** The puzzle's screen margin (081 J, Josh: "8%"): this fraction of the free area on each side, never under `PUZZLE_FIT_PAD_MIN_PX`. */
+export const PUZZLE_FIT_PAD = 0.08;
+export const PUZZLE_FIT_PAD_MIN_PX = 32;
+/** The street kept in view round the puzzle, in metres: the furthest view and the pan clamp reach this far past the outermost piece. */
+export const PUZZLE_ROOM_M = 20;
+/** One side's margin in pixels for a free length, never more than a quarter of it. */
+export function puzzleFitPad(freeLen: number): number {
+  return Math.min(Math.max(PUZZLE_FIT_PAD_MIN_PX, freeLen * PUZZLE_FIT_PAD), Math.max(freeLen, 0) / 4);
+}
+
+/** The room kept on the right for the number an icon carries beside it ("6 of 9", drawn from the icon's right edge), in pixels; never more than a sixth of the free width. */
+export const PUZZLE_LABEL_PX = 64;
+export function puzzleLabelRoom(freeW: number): number {
+  return Math.min(PUZZLE_LABEL_PX, Math.max(freeW, 0) / 6);
+}
+
+type Pt = { x: number; y: number; z: number };
+type Box = { left: number; right: number; top: number; bottom: number };
+type XzBox = { minX: number; maxX: number; minZ: number; maxZ: number };
+interface PuzzleFit {
+  /** The points' x and z box. */
+  box: XzBox;
+  /** The convex hull of the points at each height: a projected box is set by its vertices alone. */
+  hull: Pt[];
+  /** The four ground corners of the box grown by `PUZZLE_ROOM_M` on every side, and that grown box (the pan clamp). */
+  room: Pt[] & { box: XzBox };
+}
+
+type Xz = { x: number; z: number };
+function hull2(pts: Xz[]): Xz[] {
+  const p = [...pts].sort((a, b) => a.x - b.x || a.z - b.z);
+  if (p.length < 3) return p;
+  const cross = (o: Xz, a: Xz, b: Xz): number => (a.x - o.x) * (b.z - o.z) - (a.z - o.z) * (b.x - o.x);
+  const lower: Xz[] = [];
+  for (const q of p) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2]!, lower[lower.length - 1]!, q) <= 0) lower.pop();
+    lower.push(q);
+  }
+  const upper: Xz[] = [];
+  for (let i = p.length - 1; i >= 0; i--) {
+    const q = p[i]!;
+    while (upper.length >= 2 && cross(upper[upper.length - 2]!, upper[upper.length - 1]!, q) <= 0) upper.pop();
+    upper.push(q);
+  }
+  lower.pop();
+  upper.pop();
+  return lower.concat(upper);
+}
+
+function puzzleFit(points: readonly Pt[]): PuzzleFit {
+  const box: XzBox = { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity };
+  const levels = new Map<number, Xz[]>();
+  for (const q of points) {
+    box.minX = Math.min(box.minX, q.x);
+    box.maxX = Math.max(box.maxX, q.x);
+    box.minZ = Math.min(box.minZ, q.z);
+    box.maxZ = Math.max(box.maxZ, q.z);
+    const k = Math.round(q.y * 1000);
+    const l = levels.get(k);
+    if (l) l.push(q);
+    else levels.set(k, [q]);
+  }
+  const hull: Pt[] = [];
+  for (const [k, l] of levels) for (const h of hull2(l)) hull.push({ x: h.x, y: k / 1000, z: h.z });
+  const r = PUZZLE_ROOM_M * S;
+  const rb: XzBox = { minX: box.minX - r, maxX: box.maxX + r, minZ: box.minZ - r, maxZ: box.maxZ + r };
+  const room = [
+    { x: rb.minX, y: 0, z: rb.minZ },
+    { x: rb.maxX, y: 0, z: rb.minZ },
+    { x: rb.minX, y: 0, z: rb.maxZ },
+    { x: rb.maxX, y: 0, z: rb.maxZ },
+  ] as Pt[] & { box: XzBox };
+  room.box = rb;
+  return { box, hull, room };
+}
+
 export interface CityRig {
   camera: PerspectiveCamera;
   resize(width: number, height: number, insets?: Insets): void;
@@ -865,13 +941,21 @@ export interface CityRig {
  * pans over it and dollies in and out. The gallery's rig looks along a line from 15 degrees up and pans along x only, which cannot judge a street grid from above. The sheet is framed by it too
  * (`rigOpts.fitTop` 0: nothing on the sheet stands tall).
  */
-export function createCityRig(frame: CityRect, width = 1280, height = 720, startInsets?: Insets, rigOpts: { fitTop?: number; limit?: { zoomOut: number } } = {}): CityRig {
+export function createCityRig(
+  frame: CityRect,
+  width = 1280,
+  height = 720,
+  startInsets?: Insets,
+  rigOpts: { fitTop?: number; limit?: { zoomOut: number }; open?: readonly { x: number; y: number; z: number }[] } = {},
+): CityRig {
   const fitTop = rigOpts.fitTop ?? CITY_FIT_TOP;
   const camera = new PerspectiveCamera(FOV_DEG, width / height, 0.1, 2000);
   const size = { width, height };
   let insets: Insets = { ...(startInsets ?? {}) };
-  const baseX = (frame.minX + frame.maxX) / 2;
-  const baseZ = (frame.minY + frame.maxY) / 2;
+  /** With `rigOpts.open` and `limit` (081 J): the opening, the limits and the pan clamp follow these points instead of `frame`. */
+  const open = rigOpts.limit && rigOpts.open && rigOpts.open.length > 0 ? puzzleFit(rigOpts.open) : null;
+  let baseX = open ? (open.box.minX + open.box.maxX) / 2 : (frame.minX + frame.maxX) / 2;
+  let baseZ = open ? (open.box.minZ + open.box.maxZ) / 2 : (frame.minY + frame.maxY) / 2;
   let tx = baseX;
   let tz = baseZ;
   let dist = 20;
@@ -932,7 +1016,93 @@ export function createCityRig(frame: CityRect, width = 1280, height = 720, start
     }
     return hi;
   }
+  /** The free area less the puzzle's screen margin, in pixels (`ins` is the insets the camera sees). */
+  function padded(ins: Insets): Box {
+    const l = ins.left ?? 0;
+    const t = ins.top ?? 0;
+    const freeW = size.width - l - (ins.right ?? 0);
+    const freeH = size.height - t - (ins.bottom ?? 0);
+    const px = puzzleFitPad(freeW);
+    const py = puzzleFitPad(freeH);
+    return { left: l + px, right: l + freeW - px - puzzleLabelRoom(freeW), top: t + py, bottom: t + freeH - py };
+  }
+  /** At the current distance, moves the target until the points' projected box is centred in `r`, then says whether every point is inside it. */
+  function centredFit(pts: readonly Pt[], r: Box, move = true): boolean {
+    const cxw = (r.left + r.right) / 2;
+    const cyw = (r.top + r.bottom) / 2;
+    let x0 = 0;
+    let x1 = 0;
+    let y0 = 0;
+    let y1 = 0;
+    for (let k = 0; k < 8; k++) {
+      apply();
+      x0 = y0 = Infinity;
+      x1 = y1 = -Infinity;
+      for (const q of pts) {
+        probe.set(q.x, q.y, q.z).project(camera);
+        const px = ((probe.x + 1) / 2) * size.width;
+        const py = ((1 - probe.y) / 2) * size.height;
+        if (px < x0) x0 = px;
+        if (px > x1) x1 = px;
+        if (py < y0) y0 = py;
+        if (py > y1) y1 = py;
+      }
+      const ex = (x0 + x1) / 2 - cxw;
+      const ey = (y0 + y1) / 2 - cyw;
+      if (!move || (Math.abs(ex) < 0.01 && Math.abs(ey) < 0.01)) break;
+      const s = scale();
+      tx += ex / s;
+      tz += ey / (s * SIN_E);
+    }
+    apply();
+    return x0 >= r.left - 1e-6 && x1 <= r.right + 1e-6 && y0 >= r.top - 1e-6 && y1 <= r.bottom + 1e-6;
+  }
+  /** The nearest distance at which the points fit `r`, centred in it; the target is left centred at that distance. */
+  function searchPts(pts: readonly Pt[], r: Box, from: { x: number; z: number }, move = true): number {
+    let lo = 3;
+    let hi = 1500;
+    for (let i = 0; i < 34; i++) {
+      tx = from.x;
+      tz = from.z;
+      dist = (lo + hi) / 2;
+      if (centredFit(pts, r, move)) hi = dist;
+      else lo = dist;
+    }
+    tx = from.x;
+    tz = from.z;
+    dist = hi;
+    centredFit(pts, r, move);
+    return hi;
+  }
+  function fitPuzzle(o: PuzzleFit, lim: { zoomOut: number }): void {
+    // D0: the points fill the whole canvas (panels ignored, the margin kept). Droom: the points' box grown by PUZZLE_ROOM_M does. Dmax is the larger of zoomOut x D0 and Droom.
+    const start = { x: (o.box.minX + o.box.maxX) / 2, z: (o.box.minZ + o.box.maxZ) / 2 };
+    viewInsets = {};
+    const whole = padded({});
+    const d0 = searchPts(o.hull, whole, start);
+    // Droom is worked out at D0's centred target, the one a window without panels opens on, so the room box sits where the opening leaves it.
+    const t0 = { x: tx, z: tz };
+    const dRoom = searchPts(o.room, whole, t0, false);
+    maxDist = Math.max(d0 * lim.zoomOut, dRoom);
+    viewInsets = insets;
+    const freeW = size.width - (insets.left ?? 0) - (insets.right ?? 0);
+    const freeH = size.height - (insets.top ?? 0) - (insets.bottom ?? 0);
+    const free = freeW > 0 && freeH > 0;
+    const dFit = free ? searchPts(o.hull, padded(insets), start) : Infinity;
+    dist = fitDist = Math.min(dFit, maxDist);
+    tx = start.x;
+    tz = start.z;
+    if (free) centredFit(o.hull, padded(insets));
+    else apply();
+    // The pan is measured from the opening's target.
+    baseX = tx;
+    baseZ = tz;
+  }
   function fit(): void {
+    if (open && limit) {
+      fitPuzzle(open, limit);
+      return;
+    }
     if (limit) {
       // D0: the district fills the whole canvas, panels ignored. Dmax is never under D0. The opening is the fit in the free area, held at Dmax (no free area: Dmax).
       viewInsets = {};
@@ -955,6 +1125,11 @@ export function createCityRig(frame: CityRect, width = 1280, height = 720, start
     apply();
   }
   const clampT = (): void => {
+    if (open) {
+      tx = Math.min(Math.max(tx, open.room.box.minX), open.room.box.maxX);
+      tz = Math.min(Math.max(tz, open.room.box.minZ), open.room.box.maxZ);
+      return;
+    }
     tx = Math.min(Math.max(tx, frame.minX), frame.maxX);
     tz = Math.min(Math.max(tz, frame.minY), frame.maxY);
   };

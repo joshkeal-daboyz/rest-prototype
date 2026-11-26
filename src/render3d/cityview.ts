@@ -32,7 +32,7 @@ import { lampFlicker } from "./look";
 import { DIM_SHARE, STREET_LIGHTS_MAX, buildingHeights, buildingGlow, dimBuildings, dimPieces, glowCardMesh, glowCards, roofOffsets, setDimWindows, lampBuildings, lightPlaces, litGlass, sceneryLamps, setBuildingGlow, setStreetLights, streetLights, targetBuildings, type BuildingGlow, type BuildingLamp, type GlowCards, type LitGlass, type StreetLights } from "./windows";
 import { WORLD_PER_METRE } from "./models";
 import { meshParts, sharedTileModels, type ModelSet } from "./models3d";
-import { OVERLAY_HIT_PX, overlayLabels, overlayHit, overlayIcons, overlayBreakHit, overlayBreaks, placePoint, type OverlayBreak, type OverlayIcon, type OverlayLabel, type Project } from "./overlay";
+import { OVERLAY_HIT_PX, OVERLAY_POST_Y_M, poleTopM, overlayLabels, overlayHit, overlayIcons, overlayBreakHit, overlayBreaks, placePoint, type OverlayBreak, type OverlayIcon, type OverlayLabel, type Project } from "./overlay";
 import type { LoadPreview } from "../core/preview";
 import { CUE_THICK, createCueLayer } from "./controlcue";
 import { createPicker, type Picker } from "./pick";
@@ -144,6 +144,60 @@ export function jobFrame(view: CityPuzzleView, layer: CityCircuitLayer, streets:
     return { minX: frame.minX * S, minY: frame.minY * S, maxX: frame.maxX * S, maxY: frame.maxY * S };
   }
   return { minX: 0, minY: 0, maxX: streets.w * TILE_M * S, maxY: streets.h * TILE_M * S };
+}
+
+/** The margin round each of the puzzle's points on x and z, in metres, so a pole's crossarm or a drop's fitting is not cut at the screen's edge (081 J). */
+export const PUZZLE_MARGIN_M = 3;
+
+/** A point in world units. */
+export interface PuzzlePoint {
+  x: number;
+  y: number;
+  z: number;
+}
+
+/**
+ * The opening camera's points (081 J): the puzzle's own pieces and nothing else. Each node's place at the ground and at its own height, both ends of every span of its runs at the ground and at
+ * the pole's top or the roof's deck, each run's drop (its pole and its wall point) and lead (its post), each grown by `PUZZLE_MARGIN_M` on x and z. With no place it gives none
+ * (the rig then falls back to `jobFrame`). World units. Pure.
+ */
+export function puzzleFrame(view: CityPuzzleView, layer: CityCircuitLayer): PuzzlePoint[] {
+  const { converted } = view;
+  const out: PuzzlePoint[] = [];
+  const m = PUZZLE_MARGIN_M;
+  const add = (x: number, y: number, z: number): void => {
+    for (const h of y > 0 ? [0, y] : [0]) for (const dx of [-m, m]) for (const dz of [-m, m]) out.push({ x: (x + dx) * S, y: h * S, z: (z + dz) * S });
+  };
+  const top = new Map<string, { x: number; y: number; z: number }>();
+  for (const p of layer.poles) top.set(p.id, { x: p.x_m, y: poleTopM(layer, p.id), z: p.z_m });
+  for (const r of layer.roofs ?? []) top.set(r.id, { x: r.x_m, y: r.deck_y_m, z: r.z_m });
+  const addId = (id: string): void => {
+    const t = top.get(id);
+    if (t) add(t.x, t.y, t.z);
+  };
+  const spans = new Map<string, { a: string; b: string }>();
+  for (const s of [...layer.spans, ...(layer.roofSpans ?? [])]) spans.set(s.id, s);
+  const at = { x: 0, y: 0, z: 0 };
+  let any = false;
+  for (const place of Object.values(converted.places)) {
+    if (placePoint(place, layer, at)) (add(at.x, at.y, at.z), (any = true));
+  }
+  if (!any) return [];
+  for (const run of Object.values(converted.runs)) {
+    for (const id of run.spans) {
+      const s = spans.get(id);
+      if (s) (addId(s.a), addId(s.b));
+    }
+    if (run.drop !== undefined) {
+      const d = layer.drops.find((x) => x.building === run.drop);
+      if (d) (addId(d.pole), add(d.x_m, d.y_m, d.z_m));
+    }
+    if (run.lead !== undefined) {
+      const p = layer.posts.find((x) => x.span === run.lead);
+      if (p) add(p.x_m, OVERLAY_POST_Y_M, p.z_m);
+    }
+  }
+  return out;
 }
 
 export { CityPuzzleError };
@@ -932,7 +986,9 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   const rigOpts = playRigOptions(opts.search ?? "", import.meta.env.DEV);
   const skyCam = skyCamRequested(opts.search ?? "", import.meta.env.DEV);
   if (!rigOpts.limit) console.info("cam=free: the camera limits are off (dev only)");
-  const rig: CityRig = createCityRig(frame, w0, h0, insets, rigOpts);
+  // The opening fits the puzzle's own points (081 J); with no place, or cam=free, it is the district's frame as before.
+  const openPts = puzzleFrame(view, layer);
+  const rig: CityRig = createCityRig(frame, w0, h0, insets, rigOpts.limit && openPts.length > 0 ? { ...rigOpts, open: openPts } : rigOpts);
   const camera = rig.camera;
   scene.add(pickGroup);
   const picker: Picker = createPicker(pickGroup, camera, size);
