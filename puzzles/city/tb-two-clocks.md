@@ -104,14 +104,14 @@ A player who reads all of this in the opening view can throw `r_a` in A's first 
 
 **Fitting the spare at once blows it too.** The prompt says so before the click ("would blow again"). After it there is no fuse left; Undo gives the fuse back, and the state shows why (the ✕, the red +13, the relay still at the kiln).
 
-**The flip that blows a fuse, with no click to blame.** Hand over correctly before the bulb is in (no win yet), then throw `r_a` back to the kiln in A's window. Nothing happens until the clocks turn; then B's current meets the kiln and the box blows on the flip. This is TB rule 5's case. It is off the intended road and the spare fuse recovers it. **Today nothing warns of it:** see the next section.
+**The flip that blows a fuse, with no click to blame.** Hand over correctly before the bulb is in (no win yet), then throw `r_a` back to the kiln in A's window. Nothing happens until the clocks turn; then B's current meets the kiln and the box blows on the flip. This is TB rule 5's case. It is off the intended road and the spare fuse recovers it. **It is flagged beforehand:** from the moment `r_a` is thrown back, both timed breakers read +9 red, "blows fb", for the turn that is coming.
 
 ## The numbers (section V), and the next-flip cue
 
 - `r_b` in B's window: **+9 red** with `r_a` at the kiln, **+6 white** with `r_a` at the store. The number chooses, and it is the lesson: the red is not about `r_b`, it is about a relay in the other block.
 - `r_a` in A's window: −3, white. It shows a loss and no gain, which is why nobody throws it without the read.
 - The bulb: +1, white.
-- **The alternating pair's next-flip cue and number are hidden until the joint-flip preview fix lands** (Josh, 26 Nov 2026: "Build TB6 now"). The preview today counts one timed breaker flipping with the other left as it is, so `tb_b` would read +10 red at the start for a turn that in truth drops A's 10 and brings B's 11. This puzzle does not need the cue for its intended read: every number it leans on is a relay's. The one place it would help is the flip that blows a fuse, above. When the fix lands, check that `tb_b`'s number is red before that flip and white before every other.
+- **The timed breakers' own next-flip numbers** (shown for every timer, the alternating pair included, since TB1b1 and TB1b2): at the start both read **+1, white** (the turn drops A's 10 and brings B's 11). On the intended road, with the bulb in and `r_a` at the store, both read **+3, white** before the turn. Before the flip that blows the fuse they read **+9, red**, and name `fb`. So the clock's number is white before every turn of this puzzle except that one. The intended read still leans on the relays' numbers; the clock's red is the warning for the one harm that comes with no click.
 
 ## The tribe's kiln
 
