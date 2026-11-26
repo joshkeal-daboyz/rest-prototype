@@ -12,6 +12,7 @@ import type { LoadPreview } from "../core/preview";
 import type { GlyphSpec, GlyphType } from "./glyphs";
 import { GROUND_POLE_ATTACH_UP_M, type GroundPoleKey } from "../core/powerpoles";
 import { nodeLook, type NodeLook } from "./look";
+import { timerNextShows, timerRing, type TimerRing } from "./timerring";
 
 /** An icon's nudge, in CSS px, when it sits closer than its own size to an earlier one. */
 export const OVERLAY_NUDGE = 14;
@@ -46,6 +47,8 @@ export interface OverlayContext {
   readonly time: number;
   /** CSS px per metre at the camera's focus; sizes the icons. Default: the minimum size. */
   readonly pxPerMetre?: number;
+  /** 081 TB3: a timed breaker's flip pulse, 0 to 1 (see `createFlipTracker`). Absent reads as 0. */
+  readonly pulseOf?: (id: string, closed: boolean, clock: number | null, time: number) => number;
 }
 
 export interface OverlayIcon {
@@ -61,6 +64,10 @@ export interface OverlayIcon {
   readonly look: NodeLook;
   /** What `drawNodeGlyph` draws. */
   readonly spec: GlyphSpec;
+  /** 081 TB3: a timed breaker's ring; absent on every other icon. */
+  readonly ring?: TimerRing;
+  /** 081 TB3: the timed breaker's flip pulse, 0 to 1; absent on every other icon. */
+  readonly pulse?: number;
 }
 
 /** A break icon over a damaged cable's cut span (E4). */
@@ -151,7 +158,11 @@ export function overlayIcons(converted: CityPuzzleConverted, state: GridState, p
       break;
     }
     const look = nodeLook(state, n.id);
-    out.push({ id: n.id, type: n.type, x, y, size, hit, look, spec: specOf(n, state, look, targets) });
+    const spec = specOf(n, state, look, targets);
+    const readout = n.type === "breaker" && n.timer ? state.timers.get(n.id) : undefined;
+    if (n.type === "breaker" && n.timer && readout) {
+      out.push({ id: n.id, type: n.type, x, y, size, hit, look, spec, ring: timerRing(n.timer, readout, state.clock), pulse: ctx.pulseOf?.(n.id, readout.closed, state.clock, ctx.time) ?? 0 });
+    } else out.push({ id: n.id, type: n.type, x, y, size, hit, look, spec });
   }
   return out;
 }
@@ -211,10 +222,14 @@ export interface OverlayLabel {
   readonly x: number;
   readonly y: number;
   readonly red: boolean;
+  /** 081 TB3: the number is the clock's next flip, drawn with a small clock glyph before it. */
+  readonly clock?: boolean;
 }
 
 /** The gap between an icon's edge and its number, CSS px. */
 export const OVERLAY_LABEL_GAP = 4;
+/** A timed breaker's ring stands this far out from its icon's centre, as a share of the icon's size. */
+export const TIMER_RING_R = 0.66;
 
 /** A signed change: "+3", "−2" (a true minus), "0". */
 export function signedDelta(n: number): string {
@@ -225,7 +240,7 @@ export function signedDelta(n: number): string {
  * The numbers by the icons. Fuse boxes with a rating (`ratings`: node id -> rating) read "<fuseLoad> of <rating>" and feeds with a capacity "<load> of <capacity>", red when over; both are drawn always (during the
  * Relight too), as they state what is lit. The preview's `delta` is drawn by each breaker, switch and readable break, red when `over`; a plain zero is not drawn. No preview, or `relighting`, draws no preview numbers.
  */
-export function overlayLabels(icons: readonly OverlayIcon[], breaks: readonly OverlayBreak[], preview: LoadPreview | null, state: GridState, ratings: ReadonlyMap<string, number>, relighting = false): OverlayLabel[] {
+export function overlayLabels(icons: readonly OverlayIcon[], breaks: readonly OverlayBreak[], preview: LoadPreview | null, state: GridState, ratings: ReadonlyMap<string, number>, relighting = false, hover: string | null = null): OverlayLabel[] {
   const out: OverlayLabel[] = [];
   for (const o of icons) {
     const x = o.x + o.size / 2 + OVERLAY_LABEL_GAP;
@@ -238,6 +253,11 @@ export function overlayLabels(icons: readonly OverlayIcon[], breaks: readonly Ov
     } else if (o.type === "feed") {
       const f = state.feeds.get(o.id);
       if (f && f.capacity !== null) out.push({ text: `${f.load} of ${f.capacity}`, x, y: o.y, red: f.over });
+    } else if (o.ring) {
+      // 081 TB3: a timed breaker's number is its next flip's, shown hovered and in the last 3 s, from an entry that is exact (see `timerNextExact`), marked as the clock's.
+      if (!preview || relighting || !timerNextShows(o.id, hover, state.timers, state.clock)) continue;
+      const e = preview.get(o.id);
+      if (e && (e.delta !== 0 || e.over)) out.push({ text: signedDelta(e.delta), x: x + o.size * 0.18, y: o.y, red: e.over, clock: true });
     } else if (o.type === "breaker" || o.type === "switch") {
       pushPreview(out, preview, relighting, o.id, x, o.y);
     }

@@ -46,8 +46,8 @@ export function cueWires(wiresOfLine: ReadonlyMap<string, readonly JobWire[]>, p
 export interface CueLayer {
   readonly mesh: InstancedMesh;
   readonly material: MeshBasicMaterial;
-  /** Rewrites the instance colours only when `hover` or `preview` is not the pair last written; true when it wrote. */
-  update(hover: string | null, preview: LoadPreview | null): boolean;
+  /** Rewrites the instance colours only when the cued ids or `preview` are not the pair last written; true when it wrote. `ids` is the hovered control and, from TB3, the timers about to flip (`cueIds`). */
+  update(ids: readonly string[], preview: LoadPreview | null): boolean;
 }
 
 export function createCueLayer(
@@ -68,17 +68,20 @@ export function createCueLayer(
   }
   mesh.raycast = () => {};
   mesh.frustumCulled = false;
-  let lastHover: string | null = null;
+  const lastIds: string[] = [];
   let lastPreview: LoadPreview | null = null;
   let lit = false;
   return {
     mesh,
     material,
-    update(hover, preview) {
-      if (hover === lastHover && preview === lastPreview) return false;
-      lastHover = hover;
+    update(ids, preview) {
+      if (ids.length === 0 && !lit) return false;
+      if (preview === lastPreview && ids.length === lastIds.length && ids.every((id, i) => id === lastIds[i])) return false;
+      lastIds.length = 0;
+      for (const id of ids) lastIds.push(id);
       lastPreview = preview;
-      const cued = cueWires(wiresOfLine, preview, hover, reversed);
+      const cued = new Map<string, CueKind>();
+      for (const id of ids) for (const [w, k] of cueWires(wiresOfLine, preview, id, reversed)) if (!cued.has(w) || k === "on") cued.set(w, k);
       if (cued.size === 0 && !lit) return false;
       lit = cued.size > 0;
       wires.forEach((w, wi) => {
