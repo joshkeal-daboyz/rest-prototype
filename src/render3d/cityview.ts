@@ -34,6 +34,7 @@ import { WORLD_PER_METRE } from "./models";
 import { meshParts, sharedTileModels, type ModelSet } from "./models3d";
 import { OVERLAY_HIT_PX, overlayLabels, overlayHit, overlayIcons, overlayBreakHit, overlayBreaks, placePoint, type OverlayBreak, type OverlayIcon, type OverlayLabel, type Project } from "./overlay";
 import type { LoadPreview } from "../core/preview";
+import { CUE_THICK, createCueLayer } from "./controlcue";
 import { createPicker, type Picker } from "./pick";
 import { PlanStopError, plan3dGroups, planInput, planKeys, planFailureText } from "./plan3d";
 import { createRelightClock, lampIgnition, lineFraction, type LampIgnition } from "./relight3d";
@@ -850,6 +851,25 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   tintMesh.frustumCulled = false;
   tintMesh.name = "city-play:wire-tint";
   live.add(tintMesh);
+
+  // 081 NC2: the control cue, one instanced layer over the job's wires, made now; its colours are written only when the hover or the preview changes.
+  const jobWiresOfLine = new Map<string, JobWire[]>();
+  for (const w of wires) (jobWiresOfLine.get(w.line) ?? jobWiresOfLine.set(w.line, []).get(w.line)!).push(w);
+  let cueFlow: ReadonlyMap<string, string> = new Map();
+  const cueLayer = createCueLayer(unitBox, wires, SAMPLES, jobWiresOfLine, (id) => cueFlow.get(id) === lineOf.get(id)?.line.to);
+  mats.push(cueLayer.material);
+  wires.forEach((_w, wi) => {
+    for (let j = 0; j < SAMPLES; j++) {
+      const k = wi * SAMPLES + j;
+      cueLayer.mesh.setMatrixAt(k, m4.compose(segMid[k]!, segQ[k]!, sScratch.set(WIRE_THICK_M * CUE_THICK * S, WIRE_THICK_M * CUE_THICK * S, segLen[k]! * 1.05)));
+    }
+  });
+  cueLayer.mesh.instanceMatrix.needsUpdate = true;
+  cueLayer.mesh.name = "city-play:control-cue";
+  live.add(cueLayer.mesh);
+  const cueX = xrayOf(cueLayer.mesh);
+  mats.push(cueX.material);
+  live.add(cueX.mesh);
 
   const pulsesPer = liveWires.map((w) => Math.max(1, Math.ceil(w.len_m / PULSE_SPACING_M)));
   const pulseTotal = pulsesPer.reduce((a, b) => a + b, 0);
