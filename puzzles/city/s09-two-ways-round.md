@@ -4,7 +4,7 @@ A new puzzle designed on the city (ticket 081 section N2; `puzzles/series-v1.md`
 
 - **New concept:** the ring. The wire goes right round the block and the switch chooses which end is fed. A break does not darken "its line": it darkens everything on the far side of it from the end that is feeding.
 - **The reasoning move:** ask which side of each break each target is on. One mend joins both targets, but only from one end.
-- **Builds on:** 1 (a breaker cuts what is past it), 2 (the switch), 3 (the feed's capacity), 4 (a break shows only when current reaches it), 5 (one wire, two breaks: the wire goes where the target's wire is), 7 (a second road; fed from the other end, a wire lights its buildings in the other order).
+- **Builds on:** 1 (a breaker cuts what is past it), 2 (the switch), 3 (the feed's capacity), 4 (a break shows only when current reaches it), 5 (one wire, two breaks: the wire goes where the target's wire is), 7 (a second road to the same place).
 - It uses no fuse box, relay, spring, battery or second feed, and reading a break from behind is not the move (the hidden break is found by throwing the switch, from the front).
 
 ## Where it stands
@@ -14,9 +14,9 @@ A new puzzle designed on the city (ticket 081 section N2; `puzzles/series-v1.md`
 - Capacity **12**: its own 4, raised once by `npm run fit -- --raise` for the 8 scenery buildings its solution lights.
 - Targets: `shrine` and `meeting_hall`. Priority: `homes`. Parts: **1 wire**.
 - Every lamp is a building fed by its drop. `npm run check puzzles/city/` passes it with W1's rules (it uses no roof).
-- **No breaker, switch or fuse box on a branch pole** (Josh, 26 Nov 2026, on puzzles 1 to 3: "the breaker box rests on a split"; on puzzle 2: "You don't know which lines are turning off or on"). `br_k` is on a bare pole with one wire in and one wire out. `sw` is on the bare corner pole and holds only its own three wires: one of its lines runs east along the south street and the other north up the west street, so each throw sends the pulses down one street or the other.
+- **No breaker, switch or fuse box on a branch pole** (Josh, 26 Nov 2026, on puzzles 1 to 3: "the breaker box rests on a split"; on puzzle 2: "You don't know which lines are turning off or on"). `br_k` is on `pole:z:3:lo:204.50`, which carries two spans and nothing else (along to `z:3:lo:217.50`, `l_k`; along to `z:3:lo:192.50`, `l_2`). `sw` is on the corner pole `pole:x:7:lo:27.50`, which carries its own three wires and nothing else (the crossing from the feed, `l_feed`; along to `x:7:lo:40.67`, `l_s`; the corner to `z:0:hi:242.50`, `l_n`): one of its lines runs east along the south street and the other north up the west street, so each throw sends the pulses down one street or the other.
 
-**Josh's ruling, 26 Nov 2026, on a card ("stop 081 N2": the row's size gave 2 clicks, under the band's 3): "Add a breaker".** The breaker is `br_k`, on the ring between the meeting hall and the kiln. Its role: once the one mend joins the hall to the fed end, the current runs on round the ring into the kiln and six houses, and the feed can't carry them; `br_k` opens the ring just past the hall. The size is now 2 faults / wire / 1 switch, 1 breaker.
+**Josh's ruling, 26 Nov 2026, on a card ("stop 081 N2": the row's size gave 2 clicks, under the band's 3): "Add a breaker".** The breaker is `br_k`, on the ring between the meeting hall and the kiln. Its role: once the one mend joins the hall to the fed end, the current runs on round the ring into the kiln and six houses, and the feed can't carry them; `br_k` opens the ring just past the hall. This is the only puzzle of 6 to 10 where a breaker sheds what a mend would bring; puzzle 7's added breaker has a different job (it is an open breaker on the road, to be closed). The size is now 2 faults / wire / 1 switch, 1 breaker.
 
 | Node | Type | Place | Metres (x, z) |
 | --- | --- | --- | --- |
@@ -86,6 +86,7 @@ It is readable at once (the hall lit, the shrine dark, a new spark, no wire) and
 - No fuse box, so no fuse blow.
 - **Kit: 1 wire.** Puzzle 8's kit is 1 fuse, puzzle 10's is 2 fuses and a bulb: no repeat.
 - **Heavy building: the kiln** (load 2). Puzzle 8's is the mill; puzzle 10 has none besides its target.
+- The win lights nothing on `block:1:7`; the trap lights two houses there, across `x:7`. Puzzle 10 opens on that block.
 - **Shrine count: 2 of 5** (puzzles 1 and 9).
 - District `block:0:4`; puzzle 8 is on `block:6:3`, puzzle 10 on `block:1:7`. The feed's pole and six scenery buildings are across streets on `block:0:7`, `block:0:2`, `block:1:7` and `block:3:4`. Two of them are houses on `block:1:7`'s north side, across `x:7`; puzzle 10 is on that block's south street and shares no pole, wire or job building with this one.
 - Districts used so far: `block:2:10`, `block:6:1`, `block:8:1`, `block:3:0`, `block:8:7`, `block:0:8`, `block:6:11`, `block:6:3`, `block:0:4`.

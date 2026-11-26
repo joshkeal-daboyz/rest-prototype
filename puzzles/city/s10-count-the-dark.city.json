@@ -3,7 +3,7 @@
   "name": "10 · Count the dark",
   "version": 3,
   "scope": "map",
-  "capacity": 6,
+  "capacity": 9,
   "startingParts": [
     "fuse",
     "fuse",
@@ -29,29 +29,29 @@
       "id": "feed",
       "type": "feed",
       "place": {
-        "pole": "pole:z:5:hi:312.50"
+        "pole": "pole:z:1:lo:312.50"
       }
     },
     {
       "id": "j0",
       "type": "junction",
       "place": {
-        "pole": "pole:z:5:lo:312.50"
+        "pole": "pole:z:1:hi:312.50"
       }
     },
     {
       "id": "fb",
       "type": "fusebox",
-      "rating": 4,
+      "rating": 5,
       "place": {
-        "pole": "pole:x:9:lo:162.50"
+        "pole": "pole:x:9:lo:112.50"
       }
     },
     {
       "id": "j_h",
       "type": "junction",
       "place": {
-        "pole": "pole:x:9:lo:142.50"
+        "pole": "pole:x:9:lo:122.50"
       }
     },
     {
@@ -59,7 +59,7 @@
       "type": "lamp",
       "load": 1,
       "place": {
-        "building": "block:1:7/a|outer|+z|27,62"
+        "building": "block:1:7/a|outer|+z|23,62"
       }
     },
     {
@@ -67,14 +67,14 @@
       "type": "breaker",
       "closed": false,
       "place": {
-        "pole": "pole:x:9:lo:132.50"
+        "pole": "pole:x:9:lo:149.50"
       }
     },
     {
       "id": "j_a",
       "type": "junction",
       "place": {
-        "pole": "pole:x:9:lo:122.50"
+        "pole": "pole:z:5:lo:312.50"
       }
     },
     {
@@ -82,7 +82,7 @@
       "type": "lamp",
       "load": 2,
       "place": {
-        "building": "block:1:7/a|outer|+z|23,62"
+        "building": "block:1:7/b|outer|+x|32,61"
       }
     },
     {
@@ -90,7 +90,7 @@
       "type": "breaker",
       "closed": true,
       "place": {
-        "pole": "pole:x:9:lo:112.50"
+        "pole": "pole:z:5:lo:302.50"
       }
     },
     {
@@ -98,7 +98,7 @@
       "type": "lamp",
       "load": 1,
       "place": {
-        "building": "block:1:7/a|outer|+z|19,62"
+        "building": "block:1:7/b|outer|+x|32,58"
       }
     }
   ],
@@ -109,7 +109,7 @@
       "to": "j0",
       "run": {
         "spans": [
-          "span:pole:z:5:hi:312.50~pole:z:5:lo:312.50"
+          "span:pole:z:1:hi:312.50~pole:z:1:lo:312.50"
         ]
       }
     },
@@ -119,7 +119,9 @@
       "to": "fb",
       "run": {
         "spans": [
-          "span:pole:x:9:lo:162.50~pole:z:5:lo:312.50"
+          "span:pole:x:9:lo:92.50~pole:z:1:hi:312.50",
+          "span:pole:x:9:lo:102.50~pole:x:9:lo:92.50",
+          "span:pole:x:9:lo:102.50~pole:x:9:lo:112.50"
         ]
       }
     },
@@ -129,8 +131,7 @@
       "to": "j_h",
       "run": {
         "spans": [
-          "span:pole:x:9:lo:149.50~pole:x:9:lo:162.50",
-          "span:pole:x:9:lo:142.50~pole:x:9:lo:149.50"
+          "span:pole:x:9:lo:112.50~pole:x:9:lo:122.50"
         ]
       }
     },
@@ -140,7 +141,7 @@
       "to": "home",
       "run": {
         "spans": [],
-        "drop": "block:1:7/a|outer|+z|27,62"
+        "drop": "block:1:7/a|outer|+z|23,62"
       }
     },
     {
@@ -149,7 +150,9 @@
       "to": "br_t",
       "run": {
         "spans": [
-          "span:pole:x:9:lo:132.50~pole:x:9:lo:142.50"
+          "span:pole:x:9:lo:122.50~pole:x:9:lo:132.50",
+          "span:pole:x:9:lo:132.50~pole:x:9:lo:142.50",
+          "span:pole:x:9:lo:142.50~pole:x:9:lo:149.50"
         ]
       }
     },
@@ -159,7 +162,8 @@
       "to": "j_a",
       "run": {
         "spans": [
-          "span:pole:x:9:lo:122.50~pole:x:9:lo:132.50"
+          "span:pole:x:9:lo:149.50~pole:x:9:lo:162.50",
+          "span:pole:x:9:lo:162.50~pole:z:5:lo:312.50"
         ]
       }
     },
@@ -169,7 +173,7 @@
       "to": "archive",
       "run": {
         "spans": [],
-        "drop": "block:1:7/a|outer|+z|23,62"
+        "drop": "block:1:7/b|outer|+x|32,61"
       }
     },
     {
@@ -178,7 +182,7 @@
       "to": "br_w",
       "run": {
         "spans": [
-          "span:pole:x:9:lo:112.50~pole:x:9:lo:122.50"
+          "span:pole:z:5:lo:302.50~pole:z:5:lo:312.50"
         ]
       }
     },
@@ -188,9 +192,9 @@
       "to": "tannery",
       "run": {
         "spans": [
-          "span:pole:x:9:lo:102.50~pole:x:9:lo:112.50"
+          "span:pole:z:5:lo:292.50~pole:z:5:lo:302.50"
         ],
-        "drop": "block:1:7/a|outer|+z|19,62"
+        "drop": "block:1:7/b|outer|+x|32,58"
       }
     }
   ],

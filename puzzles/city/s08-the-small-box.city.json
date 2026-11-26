@@ -58,7 +58,7 @@
       "type": "fusebox",
       "rating": 6,
       "place": {
-        "pole": "pole:x:3:hi:337.50"
+        "pole": "pole:x:3:hi:324.17"
       }
     },
     {
@@ -156,7 +156,8 @@
       "run": {
         "spans": [
           "span:pole:z:7:lo:157.50~pole:z:7:lo:167.50",
-          "span:pole:x:3:hi:337.50~pole:z:7:lo:157.50"
+          "span:pole:x:3:hi:337.50~pole:z:7:lo:157.50",
+          "span:pole:x:3:hi:324.17~pole:x:3:hi:337.50"
         ]
       }
     },
@@ -166,7 +167,6 @@
       "to": "j_s",
       "run": {
         "spans": [
-          "span:pole:x:3:hi:324.17~pole:x:3:hi:337.50",
           "span:pole:x:3:hi:315.83~pole:x:3:hi:324.17"
         ]
       }

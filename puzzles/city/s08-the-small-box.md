@@ -13,7 +13,7 @@ A new puzzle designed on the city (ticket 081 section N2; `puzzles/series-v1.md`
 - Capacity **9** and `fb` rating **6**: its own 3 and 3, each raised once by `npm run fit -- --raise` for the scenery its solution lights (6 buildings on the feed, 3 of them behind the box).
 - Target: `cold_store`. Priority: `home`. Parts: **1 fuse** (a spare: no fuse is blown at the start).
 - Every lamp is a building fed by its drop. `npm run check puzzles/city/` passes it with W1's rules (it uses no roof).
-- **No breaker, switch or fuse box on a branch pole** (Josh, 26 Nov 2026, on puzzles 1 to 3: "the breaker box rests on a split. One wire is on and the other is off"; on a card, for fuse boxes: "Same rule (Recommended)"). The fuse box and all three breakers are each on a bare pole with one wire in, one wire out and no building's drop. The splits are plain junctions: `j0`, `j_s` at the store's pole and `j_t` at the cold store's.
+- **No breaker, switch or fuse box on a branch pole** (Josh, 26 Nov 2026, on puzzles 1 to 3: "the breaker box rests on a split. One wire is on and the other is off"; on a card, for fuse boxes: "Same rule (Recommended)"). The rule counts every wire the city hangs on the pole, the job's or not: spans along the street, corner spans, crossing spans over the street that no line owns, and drops. The table *What meets each control's pole* lists them. The splits are plain junctions: `j0`, `j_s` at the store's pole and `j_t` at the cold store's.
 
 | Node | Type | Place | Metres (x, z) |
 | --- | --- | --- | --- |
@@ -21,7 +21,7 @@ A new puzzle designed on the city (ticket 081 section N2; `puzzles/series-v1.md`
 | `j0` | junction | pole `pole:z:7:lo:167.50` (landing, block:6:3, +x side) | 344.25, 167.50 |
 | `br_out` | breaker, closed | pole `pole:z:7:lo:187.50` (slot, no drop) | 344.25, 187.50 |
 | `home` | lamp, load 1 | building `block:6:3/b\|outer\|+x\|67,38`, by its drop from `pole:z:7:lo:197.50` | 340.00, 197.50 |
-| `fb` | fuse box, rating 6 | pole `pole:x:3:hi:337.50` (end, -z side, no drop), the north-east corner | 337.50, 150.75 |
+| `fb` | fuse box, rating 6 | pole `pole:x:3:hi:324.17` (slot, -z side), the first pole west of the north-east corner | 324.17, 150.75 |
 | `j_s` | junction | pole `pole:x:3:hi:315.83` (slot) | 315.83, 150.75 |
 | `store` | lamp, load 1 | building `block:6:3/a\|outer\|-z\|61,31`, by its drop from `j_s`'s pole | 317.50, 155.00 |
 | `br_t` | breaker, **open** | pole `pole:x:3:hi:305.50` (slot, no drop) | 305.50, 150.75 |
@@ -35,8 +35,8 @@ A new puzzle designed on the city (ticket 081 section N2; `puzzles/series-v1.md`
 | `l_feed` | `feed` → `j0` | 1 span: crossing (over `z:7`) | 16.50 |
 | `l_out` | `j0` → `br_out` | 2 spans: along `z:7`, south | 20.00 |
 | `l_home` | `br_out` → `home` | 1 span: along `z:7`, + drop | 10.00 |
-| `l_fb` | `j0` → `fb` | 2 spans: along `z:7`, north, then the corner (into `x:3`) | 19.55 |
-| `l_s` | `fb` → `j_s` | 2 spans: along `x:3` | 21.67 |
+| `l_fb` | `j0` → `fb` | 3 spans: along `z:7`, north, the corner (into `x:3`), along `x:3` | 32.88 |
+| `l_s` | `fb` → `j_s` | 1 span: along `x:3` | 8.33 |
 | `l_store` | `j_s` → `store` | drop | — |
 | `l_t` | `j_s` → `br_t` | 1 span: along `x:3` | 10.33 |
 | `l_t2` | `br_t` → `j_t` | 2 spans: along `x:3` | 22.17 |
@@ -45,6 +45,17 @@ A new puzzle designed on the city (ticket 081 section N2; `puzzles/series-v1.md`
 | `l_mill` | `br_mill` → `mill` | 1 span: along `z:6`, + drop | 13.17 |
 
 No fault at the start.
+
+**What meets each control's pole** (every span and drop in the city's circuit layer at that pole):
+
+| Control | Pole | Spans | Drops |
+| --- | --- | --- | --- |
+| `fb` | `pole:x:3:hi:324.17` | 2: along to `x:3:hi:337.50` (`l_fb`), along to `x:3:hi:315.83` (`l_s`) | none |
+| `br_out` | `pole:z:7:lo:187.50` | 2: along to `z:7:lo:177.50` (`l_out`), along to `z:7:lo:197.50` (`l_home`) | none |
+| `br_t` | `pole:x:3:hi:305.50` | 2: along to `x:3:hi:315.83` (`l_t`), along to `x:3:hi:294.17` (`l_t2`) | none |
+| `br_mill` | `pole:z:6:hi:157.50` | 2: corner to `x:3:hi:272.50` (`l_m`), along to `z:6:hi:170.67` (`l_mill`) | none |
+
+The first lay had `fb` on the corner pole `pole:x:3:hi:337.50`, which also carries a crossing span over `x:3` that no line owns (review 081 N2, must-fix 1). That pole is now a carrier of `l_fb`.
 
 Scenery (section S), 6 buildings, each 1:
 
@@ -64,7 +75,7 @@ Scenery (section S), 6 buildings, each 1:
 
 The camera opens on `block:6:3` and its four streets. **The cold store is on `x:3`, the block's north street, 54 m west of the north-east corner**, carrying the target mark. The feed's pole is across `z:7`, the east street.
 
-1. The feed's wire crosses `z:7` to `j0` and splits. South: a lit house, a breaker, and one span on a lit home. North: past two lit houses to the corner pole, which holds a **fuse box**. Past the box, along `x:3`: a lit store, then an **open breaker**, `br_t`; two dark spans on, the cold store; on round the far corner, another breaker, and one span past it the dark mill. The HUD reads 6 of 9; the box reads 2 of 6. One fuse is in hand, and nothing is broken.
+1. The feed's wire crosses `z:7` to `j0` and splits. South: a lit house, a breaker, and one span on a lit home. North: past two lit houses and round the corner into `x:3`, where the first pole holds a **fuse box**. Past the box, along `x:3`: a lit store, then an **open breaker**, `br_t`; two dark spans on, the cold store; on round the far corner, another breaker, and one span past it the dark mill. The HUD reads 6 of 9; the box reads 2 of 6. One fuse is in hand, and nothing is broken.
 2. `br_t` reads **+6, red**. The cold store draws 2. The rest is what comes with it on that wire: two houses, and past the second breaker the mill.
 3. Two bars have to hold it. The box has 4 to spare and would be asked for 6. The feed has 3 to spare.
 4. Open `br_mill`. Nothing changes on screen (it was dark). `br_t` now reads **+4, still red**: the box would be 6 of 6, and the feed 10 of 9.
@@ -98,7 +109,7 @@ The other half is free: with only `br_mill` opened, `br_t` gives a flicker (10 o
 - Size 0 faults / fuse / 3 breakers, 1 fuse box, as the row. Own buildings: 4. Faults: 0.
 - **The fuse-blow opener of this batch** (the cap's two are 8 and 19). "Fit it and it blows again" is not the trap.
 - **Kit: 1 fuse.** Puzzle 7's kit is 1 wire, puzzle 9's is 1 wire: no repeat with either.
-- **Heavy building: the mill** (load 2). Puzzle 7's is the works, puzzle 9's the kiln.
+- **Heavy building: the mill** (load 2). Puzzle 7 has none; puzzle 9's is the kiln.
 - **Shrine count: 1 of 5** (puzzle 1; the target here is the cold store).
 - District `block:6:3`; puzzle 7 is on `block:6:11`, puzzle 9 on `block:0:4`. The feed's pole and three scenery buildings are across streets on `block:7:1` and `block:6:1`. `block:6:1` is puzzle 2's district, which is not a neighbour of 8; the two houses are on its south side, across `x:3`, and no pole, wire or job building of puzzle 2's is used.
 - Districts used so far: `block:2:10`, `block:6:1`, `block:8:1`, `block:3:0`, `block:8:7`, `block:0:8`, `block:6:11`, `block:6:3`.
@@ -155,7 +166,7 @@ Salvage, trips and walking: n/a (map scope).
 - Whether the box's own bar (2 of 6) is seen beside the HUD's, and whether a red +6 says which of the two limits it is about.
 - Whether the dark mill past the target, round the far corner, reads as "on the cold store's wire" before the first click. If not, the blow comes with no warning but the number.
 - Opening `br_mill` changes nothing on screen but a number. Whether that reads as a move.
-- The wire behind the box is 97 m and turns two corners. Whether it stays traceable from the fixed camera.
+- The wire behind the box is 74 m and turns the far corner to the mill. Whether it stays traceable from the fixed camera.
 - Two limits bind here, one old and one new. If that is one too many for the first rating puzzle, the feed can be given 1 more and the puzzle becomes 2 clicks.
 
 ## What it taught us

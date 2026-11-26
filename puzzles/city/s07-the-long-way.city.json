@@ -3,7 +3,7 @@
   "name": "07 · The long way",
   "version": 3,
   "scope": "map",
-  "capacity": 15,
+  "capacity": 16,
   "startingParts": [
     "wire"
   ],
@@ -65,33 +65,10 @@
       }
     },
     {
-      "id": "j_w",
-      "type": "junction",
-      "place": {
-        "pole": "pole:x:14:lo:315.83"
-      }
-    },
-    {
-      "id": "works",
-      "type": "lamp",
-      "load": 2,
-      "place": {
-        "building": "block:6:11/b|outer|+z|61,101"
-      }
-    },
-    {
-      "id": "br_w",
-      "type": "breaker",
-      "closed": true,
-      "place": {
-        "pole": "pole:x:14:lo:305.00"
-      }
-    },
-    {
       "id": "j_t",
       "type": "junction",
       "place": {
-        "pole": "pole:x:14:lo:294.17"
+        "pole": "pole:x:14:lo:315.83"
       }
     },
     {
@@ -99,7 +76,7 @@
       "type": "lamp",
       "load": 1,
       "place": {
-        "building": "block:6:11/b|outer|+z|58,101"
+        "building": "block:6:11/b|outer|+z|61,101"
       }
     },
     {
@@ -107,6 +84,14 @@
       "type": "junction",
       "place": {
         "pole": "pole:x:13:hi:272.50"
+      }
+    },
+    {
+      "id": "br_l",
+      "type": "breaker",
+      "closed": false,
+      "place": {
+        "pole": "pole:x:14:lo:285.83"
       }
     }
   ],
@@ -153,39 +138,10 @@
     {
       "id": "l_b",
       "from": "j_dead",
-      "to": "j_w",
-      "run": {
-        "spans": [
-          "span:pole:x:14:lo:315.83~pole:x:14:lo:326.67"
-        ]
-      }
-    },
-    {
-      "id": "l_works",
-      "from": "j_w",
-      "to": "works",
-      "run": {
-        "spans": [],
-        "drop": "block:6:11/b|outer|+z|61,101"
-      }
-    },
-    {
-      "id": "l_c",
-      "from": "j_w",
-      "to": "br_w",
-      "run": {
-        "spans": [
-          "span:pole:x:14:lo:305.00~pole:x:14:lo:315.83"
-        ]
-      }
-    },
-    {
-      "id": "l_d",
-      "from": "br_w",
       "to": "j_t",
       "run": {
         "spans": [
-          "span:pole:x:14:lo:294.17~pole:x:14:lo:305.00"
+          "span:pole:x:14:lo:315.83~pole:x:14:lo:326.67"
         ]
       }
     },
@@ -195,7 +151,7 @@
       "to": "smithy",
       "run": {
         "spans": [],
-        "drop": "block:6:11/b|outer|+z|58,101"
+        "drop": "block:6:11/b|outer|+z|61,101"
       }
     },
     {
@@ -220,7 +176,7 @@
     {
       "id": "l_far",
       "from": "j_far",
-      "to": "j_t",
+      "to": "br_l",
       "run": {
         "spans": [
           "span:pole:x:13:hi:272.50~pole:z:6:hi:472.50",
@@ -228,8 +184,19 @@
           "span:pole:z:6:hi:484.17~pole:z:6:hi:495.83",
           "span:pole:z:6:hi:495.83~pole:z:6:hi:507.50",
           "span:pole:x:14:lo:272.50~pole:z:6:hi:507.50",
-          "span:pole:x:14:lo:272.50~pole:x:14:lo:285.83",
-          "span:pole:x:14:lo:285.83~pole:x:14:lo:294.17"
+          "span:pole:x:14:lo:272.50~pole:x:14:lo:285.83"
+        ]
+      }
+    },
+    {
+      "id": "l_last",
+      "from": "br_l",
+      "to": "j_t",
+      "run": {
+        "spans": [
+          "span:pole:x:14:lo:285.83~pole:x:14:lo:294.17",
+          "span:pole:x:14:lo:294.17~pole:x:14:lo:305.00",
+          "span:pole:x:14:lo:305.00~pole:x:14:lo:315.83"
         ]
       }
     }
@@ -242,9 +209,9 @@
     },
     {
       "id": "f_cut",
-      "at": "l_far",
+      "at": "l_last",
       "kind": "damaged-cable",
-      "span": "span:pole:z:6:hi:495.83~pole:z:6:hi:507.50"
+      "span": "span:pole:x:14:lo:294.17~pole:x:14:lo:305.00"
     }
   ]
 }
