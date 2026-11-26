@@ -2,7 +2,7 @@ import { BoxGeometry, Group, Mesh, Quaternion, Texture, Vector3, type Object3D }
 import { describe, expect, it } from "vitest";
 import type { Fault } from "../core";
 import { BLOW_TIMING } from "../core";
-import { ARC_REACH_M, BLOW_SPARKS, arcSpots, blowBolts, gatherTargets, pickTarget, blowBurstDue, createFxLayer, newFxBolts, relightBursts, routePoint, createParticlePool, cutArcs, fxMeshes, fxTextures, newFxArcs, newParticleInit, repairedFaults, sparkingCuts, type FxCut, type FxPort, type FxRoute, type FxSpan } from "./fx";
+import { ARC_REACH_M, BLOW_SPARKS, arcFlashes, arcSpots, blowBolts, gatherTargets, pickTarget, blowBurstDue, createFxLayer, newFxBolts, relightBursts, routePoint, createParticlePool, cutArcs, fxMeshes, fxTextures, newFxArcs, newParticleInit, repairedFaults, sparkingCuts, type FxCut, type FxPort, type FxRoute, type FxSpan } from "./fx";
 import { WORLD_PER_METRE as S } from "./models";
 
 const fault = (id: string, at = "l1"): Fault => ({ id, at, kind: "damaged-cable" });
@@ -242,6 +242,15 @@ describe("081 FX4 and FX3: the blown fuse, brownout arcs and Relight bursts", ()
       expect(out.length).toBeLessThanOrEqual(1);
     }
     expect(seen).toBeGreaterThan(0);
+  });
+
+  it("arc flashes: once per slot for a spot, unstamped ports stay unstamped, and a later slot flashes again", () => {
+    const last = new Int32Array(3).fill(-1);
+    const out: number[] = [];
+    expect(arcFlashes([0, 2], 0.05, last, out)).toEqual([0, 2]);
+    expect(arcFlashes([0, 2], 0.15, last, out)).toEqual([]);
+    expect(last[1]).toBe(-1);
+    expect(arcFlashes([0], 0.25, last, out)).toEqual([0]);
   });
 
   it("Relight bursts: each lit lamp bursts once, in the order the plan lights them, and a dark lamp never", () => {

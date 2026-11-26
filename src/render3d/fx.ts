@@ -764,6 +764,22 @@ export function arcSpots(state: Pick<GridState, "brownout" | "powered" | "feedOf
   return out;
 }
 
+/**
+ * The entries of `spots` (indexes into the ports) that have not flashed in the current arc slot, written to `out` (cleared first). Each one's slot is stamped into `last[i]` (-1 for never), so an arc flashes once
+ * per window and a port that strikes again in a later slot flashes again. An arc's window lies inside one slot, the slot `arcSpots` uses.
+ */
+export function arcFlashes(spots: readonly number[], time: number, last: Int32Array, out: number[]): number[] {
+  out.length = 0;
+  const slot = Math.floor(time / ARC_SLOT_S);
+  for (let k = 0; k < spots.length; k++) {
+    const i = spots[k]!;
+    if (last[i] === slot) continue;
+    last[i] = slot;
+    out.push(i);
+  }
+  return out;
+}
+
 /** A job lamp the Relight may burst at: its node index and place (world units). */
 export interface FxLamp {
   readonly index: number;
