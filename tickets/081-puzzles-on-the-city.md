@@ -213,6 +213,7 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | N3 | Series v1, batch 3: puzzles 11 to 15. **Waiting** on Josh's word | puzzle-designer (Fable 5.2) | N2, Josh's word | 0 |
 | N4 | Series v1, batch 4: puzzles 16 to 20. **Waiting** on Josh's word | puzzle-designer (Fable 5.2) | N3, Josh's word | 0 |
 | N5 | Series v1, batch 5: puzzles 21 to 25. **Waiting** on Josh's word | puzzle-designer (Fable 5.2) | N4, Josh's word | 0 |
+| J | The opening camera fits the puzzle, not the district; the limits follow the puzzle (cut 26 Nov 2026; **approved (G1)**: "Approve; limits follow puzzle") | renderer | G1 | 3 added, 0 rewritten |
 
 `src/play/` (interaction) has no section. E2 keeps the `MapRenderer3d` interface, so play and its `hitTest` calls do not change. If E2's builder finds that `src/play/` must change, it stops, and the architect re-cuts with an interaction section.
 
@@ -2958,6 +2959,83 @@ The reasoning, the table of how it meets the existing pieces and a worked exampl
 - at most 2 timed breakers on a map;
 - every timed puzzle wins at `--click-seconds 3` in the same fewest clicks;
 - the note names each window and what is done in it.
+
+### J · The opening camera fits the puzzle, not the district (renderer). Branch `ticket/081j-puzzle-fit`. Cut 26 Nov 2026, one PR. **Approved (G1) 26 Nov 2026**: "Approve; limits follow puzzle"
+**Josh's request, 26 Nov 2026, in chat:** "Let's create another ticket to fix the camera. Currently it starts out way too zoomed out. It shouldn't zoom out on the district. It should just measure the width of the puzzle and height of the puzzle and fit it to the screen."
+
+**Josh's answers, 26 Nov 2026, on cards (relayed by the main session):**
+- **G1 and J-Q1:** **"Approve; limits follow puzzle"**. The zoom-out limit, the pan clamp and the zoom-in floor come from `puzzleFrame`, not `jobFrame` (re-cut below; the room floor `PUZZLE_ROOM_M` is the architect's, so a one-corner puzzle keeps some street in view).
+- **J-Q2:** **"8% (Recommended)"**. `PUZZLE_FIT_PAD` is 8 % of the free area each side, at least 32 px.
+- **J-Q3:** **"Fit again (Recommended)"**. A resize fits the puzzle again; `src/main.ts` does not change.
+
+**What the main session saw.** Opening a series puzzle (`?puzzle=s01-first-light` and on), the camera frames much more of the city than the puzzle. For screenshots it had to right-drag and zoom about 3 wheel steps in on every puzzle. s07 and s09 span a whole block; s01 sits on one corner of its block.
+
+**What the code does (read 26 Nov 2026 at `main` 8ccb14d; the architect's reading).**
+- The play view gives `createCityRig` (`src/render3d/tilecity3d.ts`) one rectangle, E3's `jobFrame` (`cityview.ts`). That holds the job's places and runs, but also **each district block out to the far side of the street on its four sides**, with `FRAME_MARGIN_M` (16 m) round every point. So a puzzle on one corner of a block opens on the whole block and its four streets.
+- The rig's fit then keeps the target at the rectangle's centre and backs off until the rectangle's corners, on the ground and at a fixed roofline (`CITY_FIT_TOP`), project inside the free area less `CITY_FIT_PAD` (4 %). With the camera's 45 degree pitch the near edge projects larger than the far one, so with the target held at the centre one side of the screen is left slack.
+- The same rectangle sets E5's limits: `D0` and `Dmax` (1.5 x `D0`, Josh's), the pan clamp (`clampT`) and the zoom-in floor (`CITY_ZOOM_IN` x the opening).
+- `resetView` is the fit, and every recentre goes through it: Home, F (`fitWhole`), double-right-click (`src/play/pan.ts`), the Reset button, and the window's `resize` (`src/main.ts` calls `setInsets`, `resize`, then `resetView`). The fit runs only on those, never per frame.
+
+**The rule.** On open, the camera fits **the puzzle's own pieces** to the screen: the feed, every control, fault and target, and every run's spans, drop and lead. Never the scenery, the district's blocks or its streets.
+- **The points.** A new pure, exported `puzzleFrame(view, layer)` in `cityview.ts` gives world points, in world units:
+  - each node's place (`placePoint`): at the ground and at its own height (pole top, roof deck, the drop's wall point, the post);
+  - both ends of every span in `converted.runs[*].spans`, at the ground and at the pole's top or the roof's deck;
+  - each run's drop (its pole and its wall point) and lead (its post);
+  - `converted.origin_m`, the feed.
+
+  Each point is grown by `PUZZLE_MARGIN_M` (3 m) on x and z, so a pole's crossarm or a drop's fitting is not cut at the edge. Nothing else counts. With no place, it gives none, and the rig falls back to today's frame.
+- **The fit.** With the points, the opening is the nearest distance at which every point projects inside the **free area** (the canvas less the HUD's top and the bottom panel's insets) less the screen margin `PUZZLE_FIT_PAD` (J-Q2), with the target moved so the points' projected box is centred in the free area. The free area's own width and height decide which way it is tight, so a tall phone fits by width and a wide window by height. The camera's pitch and perspective are in it because each point is projected at its own height; the recentring takes up the slack the pitch leaves.
+- **The limits follow the puzzle (J-Q1).** E5's limits keep their form, but on the puzzle's points instead of `jobFrame`:
+  - **`D0`** is the distance at which the points fill the **whole canvas** (insets ignored, `PUZZLE_FIT_PAD` kept), at the same centred target;
+  - **the room floor:** `Droom` is the distance at which the points' x and z box, grown by **`PUZZLE_ROOM_M` = 20 m** on every side, fills the whole canvas. That is about one street with its pavements beyond the outermost piece, so on s01 (one corner of a block) the furthest view still shows the streets round that corner and the next kerbs;
+  - **`Dmax`** = `max(CITY_PLAY_ZOOM_OUT x D0, Droom)` (1.5x, Josh's for E5), so a large puzzle like s07 keeps E5's 1.5x and a small one gets at least the room;
+  - **the pan clamp** (`clampT`) holds the target inside the points' x and z box grown by `PUZZLE_ROOM_M`, so a drag can look across the street but never take the puzzle off screen;
+  - **the zoom-in floor** is `CITY_ZOOM_IN` x the puzzle's opening.
+
+  The opening is `min(that fit, Dmax)`, as E5 held it. `jobFrame` stays for `cam=free` and for a puzzle with no place (the fallback); its body and E3's case do not change. The builder prints once, in its reply, the street's width in metres on 6 x 6 seed 1 and the s01 and s07 `D0`, `Droom` and `Dmax`, so Josh can see which one sets the limit.
+- **Resize.** A new window size or new insets re-fit to the puzzle at the new size, as today's `resize` re-fits to the district (J-Q3). On a phone turned on its side, the puzzle is fitted again.
+- **Recentre.** Double-right-click, Home, F and the Reset button go to the same fit: they all call `resetView`. This replaces E5 criterion 2's "the F key frames the district, not the city" with "the puzzle". `src/play/` does not change.
+- **`cam=free` (dev)** stays today's unlimited rig on `jobFrame`: the points are used only with `limit`.
+
+**No Decided rule touches the camera** (as for E5), and no grammar rule or city number changes, so there is no pipeline-designer pre-check and no rules-coverage row.
+
+**Goal.** Opening any series puzzle on a desktop window or a phone, the camera shows the puzzle's pieces filling the space between the HUD and the bottom panel, with a margin, without a pan or a zoom. Every recentre comes back to that view.
+
+**Acceptance criteria.**
+1. [ ] **The puzzle's points.** `puzzleFrame` as above. **test**: 1 case in `cityframe.test.ts`, on `s01-first-light` on 6 x 6 seed 1, one-way on (the shared city the file's E3 case already uses; no other build): every place, run end, drop, lead and the origin is within `PUZZLE_MARGIN_M` of a point; every point is inside `jobFrame`; and the points' x and z extents are each smaller than `jobFrame`'s (s01 sits on one corner of its block, so a frame that still held the district would fail).
+2. [ ] **The fit.** `createCityRig` takes a new option, `rigOpts.open?: readonly { x: number; y: number; z: number }[]`, used only with `limit`. Without it the rig is exactly today's: the three cases in `cityrig.test.ts` and the three in `tilecity3d.test.ts` pass **unedited**. With it, at 1287 x 1178, 1280 x 720, 800 x 570 and 390 x 844, with no insets and with insets of 60 px top and 30 % of the height bottom:
+   - every point projects inside the free area less `PUZZLE_FIT_PAD`;
+   - the points' projected box is centred in the free area within 2 % of its width and height;
+   - on the tighter axis the box fills at least the free area less twice the pad, less 2 %;
+   - unless held at `Dmax`, the opening is nearer than the same rig's opening without `open` (fitted to the file's `FRAME`).
+
+   **test**: 1 case in `cityrig.test.ts`, fixture points (a small cluster in one corner of the file's `FRAME`, at heights 0 and 2), all sizes and both insets in a loop.
+3. [ ] **The limits follow the puzzle, and every recentre and resize goes to the fit.** With `open`, at 1280 x 720 and no insets, on two fixtures (the small corner cluster of criterion 2, where `Droom` sets the limit, and a cluster as wide as the file's `FRAME`, where 1.5x `D0` does): 40 steps out stop at `Dmax` = `max(1.5 x D0, Droom)` (the scale within 1e-6), and at that distance every point of the box grown by `PUZZLE_ROOM_M` projects inside the canvas; 40 steps in stop at `CITY_ZOOM_IN` x the opening; `setPan(1e6, 1e6)` and `centreOn` far outside hold the target on the edge of the points' box grown by `PUZZLE_ROOM_M`, never on `FRAME`'s; after a pan and zoom, `resetView` restores the opening's scale and pan; `resize` to a new size and new insets gives that size's fit (the scale and pan of a fresh rig built at that size). **test**: 1 case in `cityrig.test.ts`, the same fixture. Double-right-click, Home, F and Reset all call `resetView`, which this case holds; `pan.ts`'s own cases hold the calls, unedited. **test** (existing, unedited) for the calls.
+4. [ ] **The play view uses it.** `createCityPlayRenderer3d` passes `open: puzzleFrame(view, layer)` with `playRigOptions`'s `limit`; `cam=free` in dev passes neither, as today. `playRigOptions` and its case are unedited. **no test** (one call; criterion 6 sees it).
+5. [ ] **Frame time, measured, not tuned.** The fit runs on open, resize and recentre only, never per frame, so the expectation is no cost. In the browser pane on Josh's PC (not a headless browser), `&perf=1`, before power, at 1287 x 1178, on `main` and on the branch, for `s01-first-light` and `s07-the-long-way`, the builder reports draw calls, triangles and median frame at the opening. It also times one `resetView` on s07 once (a temporary line, not committed). Expected: the branch's median frame no more than 5 % over `main`'s, draw calls and triangles no higher (a nearer view draws as much or less), and the fit under 2 ms. **Stop rule:** if a branch row is over, the builder stops and reports the rows ("stop 081 J"); it does not tune the margin or the limits to pass. **browser**.
+6. [ ] **The pane check, for Josh.** In the browser pane (not headless; `preserveDrawingBuffer` for the capture), `s01` to `s10` each opened fresh, the camera not touched, at **1287 x 1178** and at **390 x 844** (a phone): 20 screenshots, given to the main session to show Josh, not committed. With them, one line per puzzle: whether every piece is on screen and clear of the HUD and the panel, and which axis is tight. Then on s07 at 1287 x 1178: pan and zoom away, double-right-click, and one more screenshot that matches the opening's. Any piece cut off or under a panel is reported, not tuned away. **browser**.
+7. [ ] Josh opens the series from `npm run dev` on a desktop window and a phone-sized one: each puzzle opens filling the screen with its pieces, with no pan or zoom needed; double-right-click and F come back to it; the wheel stops at a height where the puzzle and the streets round it still read (on s01, the corner's streets and the next kerbs); a drag cannot take the puzzle off screen. **browser**.
+
+**Count.** 3 added (criteria 1, 2 and 3), **0 rewritten**, in the existing `cityframe.test.ts` and `cityrig.test.ts`; no new file; 3 of the cap of 15. Criterion 1 reuses the city the file already builds; criteria 2 and 3 are fixture-only, under 2 s (the builder gives both files' times). No test to remove.
+
+**The existing rig tests that pin limits.** None pins a limit on `jobFrame`, so none is rewritten:
+- `cityrig.test.ts`'s three E5 cases build the rig on a fixture `FRAME` **without `open`**. That rig is unchanged (it is still the `cam=free`-less, point-less path, and the fallback for a puzzle with no place), so they pass **unedited** and keep holding E5's form of the limits;
+- `tilecity3d.test.ts`'s three "the city rig" cases have no `limit`: unedited;
+- `cityframe.test.ts`'s E3 case tests `jobFrame` itself, which is kept: unedited;
+- `playRigOptions`' case: unedited.
+
+If the builder finds one of them must change, each rewritten case counts toward the cap, and it says which and why.
+
+**Files.** `src/render3d/tilecity3d.ts` (`createCityRig` and its options only); `src/render3d/cityview.ts` (`puzzleFrame`, `PUZZLE_MARGIN_M`, `PUZZLE_FIT_PAD` if it lives here, and the one `createCityRig` call; not `jobFrame`, `loadCityView`, `playRigOptions`, the live layer, the FX or `perf=1`); `src/render3d/cityframe.test.ts`; `src/render3d/cityrig.test.ts`. **Must not:** `plan3d.ts`, `tilecity3d.test.ts`, `src/play/` (`pan.ts` included), `src/ui/`, `src/main.ts`, `src/core/`. If J-Q3's second answer is chosen, the resize change is `src/main.ts`'s, a ui section cut after this one, and this section does not touch it.
+
+**Interfaces.** None in `src/core/`: `puzzleFrame`, `rigOpts.open`, `PUZZLE_MARGIN_M` and `PUZZLE_FIT_PAD` are internal to `src/render3d/`. No event. No new dependency.
+
+**Order.** From `main` now. It shares `cityview.ts` with **TB3** (the next cue's write), away from the rig call; whichever merges second merges `main` in. It shares `tilecity3d.ts` with **F2**, built only if F's numbers call for it.
+
+**Questions for Josh (G1 card), answered 26 Nov 2026 (above).**
+- **J-Q1, G1, and what the zoom and pan limits are set by:** **"Approve; limits stay on the district (Recommended)"** (only the opening moves to the puzzle; the wheel still zooms out to E5's 1.5x of the district and a drag still reaches its streets, so the player can look round the puzzle), "Approve; the limits follow the puzzle too" (`Dmax` and the pan clamp from the puzzle's points: on s01 the player could zoom out only to 1.5x a corner of one block), or "Not yet".
+- **J-Q2, the margin round the puzzle on screen:** **"8 % of the free area each side, at least 32 px (Recommended)"** (an icon is up to 40 px across, so an edge piece's icon stays whole), "4 %, today's pad" (tighter; an edge icon may touch the panel), or "12 %" (looser).
+- **J-Q3, a resize:** **"Fit the puzzle again, as today (Recommended)"** (a new window size, a turned phone or a panel opening re-fits; any pan or zoom is lost), or "Keep the player's view once they have moved" (a ui section for `src/main.ts`, cut after this one).
 
 ## Files
 Per section, above. This branch (the cut): `tickets/081-puzzles-on-the-city.md`, `docs/design/070-K1-circuit.md` (CK9 as changed, 24 Nov 2026; CK14's dark-building line struck for section S, 24 Nov 2026), `tickets/070-city-pipeline.md` (pointer lines), `tickets/071-pack-power-lines.md` (a pointer line: C and E's ladder wiring are dropped), `tickets/rules-coverage.md`, `src/core/citycircuit.ts` (new; `CityPuzzleView` added 24 Nov 2026 for the playable path), `src/core/cityplan.ts` (`CityCircuitLayer`), `src/core/index.ts`. Section FX's cut (24 Nov 2026): new `src/core/fx.ts`, `src/core/assets.ts` (`AssetManifest.fx?`), `src/core/index.ts`, `tickets/rules-coverage.md`. Section W's cut (25 Nov 2026): this file and `tickets/rules-coverage.md` only; no `src/core/` change (W1's numbers live in `tools/`, and `{ post }` and `lead` stay typed). Sections SK and T (cut and re-cut 25 Nov 2026): this file only (with open question 20 closed); no `src/core/` change and no rules-coverage row. Section N (cut 25 Nov 2026), with T3b recorded and P2b to P2d dropped: this file only; no `src/core/` change and no rules-coverage row. Section N's NR and NC (cut 26 Nov 2026): this file, then on G1 `src/core/preview.ts` (NC's field, below) and a `tickets/rules-coverage.md` line adding NC1 to "Faults hide faults" (its case pins that the cue hides an unread break, as V2's does for the number). Section TB's cut (26 Nov 2026, approved the same day): this file and `docs/design/081-TB-timed-breaker.md` only; `src/core/`, `puzzles/SCHEMA.md` and `tickets/rules-coverage.md` change in TB0, after G1.
