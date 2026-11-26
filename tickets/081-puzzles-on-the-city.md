@@ -207,6 +207,9 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | N1 | Series v1, batch 1: puzzles 1 to 5 on the city | puzzle-designer (Fable 5.2) | G1, N0 | **done** (PR #99; Josh: "Merge and start the next 5") |
 | NS | The stage select lists only the series, in its order | ui | G1; merges after N1 | **done** (PR #98; Josh: "Merge and start the next 5") |
 | N2 | Series v1, batch 2: puzzles 6 to 10 (re-cut 26 Nov 2026 to Josh's pace of five; **approved to build**: "Merge and start the next 5") | puzzle-designer (Fable 5.2) | N1, NS (in) | 0 |
+| NR | Series 1 to 3 re-laid: each breaker and switch on a single run, not on a split (cut 26 Nov 2026 on Josh's play; **approved (G1)**: "Approve (Recommended)") | puzzle-designer (Fable 5.2) | G1; beside N2 | 0 |
+| NC1 | The control cue's lines, pure: each breaker's and switch's preview entry names the lines its throw would make live or dead (**approved (G1)** 26 Nov 2026) | grid-simulator | G1 (the core field written first) | 1 |
+| NC2 | The control cue drawn: hovering (or tapping) a breaker or switch highlights exactly the wires it controls (**approved (G1)** 26 Nov 2026) | renderer | G1; merges after NC1 | 2 |
 | N3 | Series v1, batch 3: puzzles 11 to 15. **Waiting** on Josh's word | puzzle-designer (Fable 5.2) | N2, Josh's word | 0 |
 | N4 | Series v1, batch 4: puzzles 16 to 20. **Waiting** on Josh's word | puzzle-designer (Fable 5.2) | N3, Josh's word | 0 |
 | N5 | Series v1, batch 5: puzzles 21 to 25. **Waiting** on Josh's word | puzzle-designer (Fable 5.2) | N4, Josh's word | 0 |
@@ -2530,7 +2533,17 @@ Nothing in T is open. T-Q7: "Replay any (Recommended)".
 - **Built:** `index.html` only (the line's style; f0c41db). Review `reviews/081-t3b-goodbye-left.md`: meets, must-fix 0. Count: 0 tests.
 - **Merged** into `main` by PR #96 (a9c20ce). Josh, 25 Nov 2026, on a card: "Merge when green (Recommended)".
 
-### N · Series v1: 25 new puzzles on the city, progressively harder. Cut 25 Nov 2026 for G1, in five PRs: N0, N1 and NS, then N2, then N3. **N0, N1 and NS approved (G1) 25 Nov 2026**; N2 and N3 wait on Josh's play. **Re-cut 26 Nov 2026 to batches of five: N0, N1 and NS merged; N2 (6 to 10) approved to build; N3 (11 to 15), N4 (16 to 20) and N5 (21 to 25) wait on Josh's word.**
+### N · Series v1: 25 new puzzles on the city, progressively harder. Cut 25 Nov 2026 for G1, in five PRs: N0, N1 and NS, then N2, then N3. **N0, N1 and NS approved (G1) 25 Nov 2026**; N2 and N3 wait on Josh's play. **Re-cut 26 Nov 2026 to batches of five: N0, N1 and NS merged; N2 (6 to 10) approved to build; N3 (11 to 15), N4 (16 to 20) and N5 (21 to 25) wait on Josh's word.** **Re-cut again 26 Nov 2026 on Josh's play of 1 to 5: NR (1 to 3 re-laid) and NC (the control cue: NC1, then NC2), approved (G1) the same day: "Approve (Recommended)".**
+
+**Josh's play of 1 to 5, and G1 for NR, NC1 and NC2, 26 Nov 2026 (relayed by the main session):**
+- "Puzzle 1 is confusing because the breaker box rests on a split. One wire is on and the other is off until you turn on the switch."
+- "Puzzle 2 has the same problem. You don't know which lines are turning off or on."
+- "Puzzle 3 has the same problem."
+- "Puzzle 4 is good." "Puzzle 5 is good."
+- His screenshots show a breaker or switch icon on a pole where the line branches, so the branch it controls cannot be told.
+- Asked "How should I fix it?", on a card: "Both (Recommended)": "Re-lay 1-3 so each breaker/switch sits on a single run, AND add a cue in the game: hovering or throwing one highlights exactly the wires it controls. The cue also helps every later puzzle."
+- **G1 for NR, NC1 and NC2**, on a card, 26 Nov 2026: "Approve (Recommended)". **The V key** (the architect's call in section NC), on the same card: "Hide it too (Recommended)": V hides the cue along with the load numbers.
+- **Read:** NR re-lays 1 to 3; NC1 and NC2 are the cue; the series rules gain "no breaker or switch on a branch pole". N1's criterion 10 is met (he has played 1 to 5); his words go under the notes' **What it taught us** in NR.
 
 **Josh's words, 26 Nov 2026 (relayed by the main session):**
 - **N0 merged** into `main` by PR #97 (a9d8206), on a card: "Merge, start 1-5 (Recommended)".
@@ -2574,6 +2587,9 @@ Nothing in T is open. T-Q7: "Replay any (Recommended)".
 | 2, beside N1 | NS, the stage select | ui | G1; **merges after N1** (until then there is no stage 01, and the page opens its first puzzle as T3 does without one) | `src/ui/progress.ts` | at most 2 |
 | — | Josh plays 1 to 5 from the stage select | | N1 and NS merged | | |
 | 3 | N2, batch 2 (6 to 10) | puzzle-designer (Fable 5.2) | Josh's word (given 26 Nov 2026: "Merge and start the next 5") | `puzzles/city/` | 0 |
+| 3, beside N2 | NR, 1 to 3 re-laid on single runs | puzzle-designer (Fable 5.2) | G1 | `puzzles/city/s01-...` to `s03-...` (and the What it taught us of `s04`, `s05`) | 0 |
+| 3, beside N2 | NC1, the cue's lines, pure | grid-simulator | G1; the core field written first | `src/grid/preview.ts` | 1 |
+| 3, beside NC1 | NC2, the cue drawn | renderer | G1; **merges after NC1** (it codes against the core field; without NC1 every entry has no lines and nothing is cued) | `src/render3d/cityview.ts` | 2 |
 | 4 | N3, batch 3 (11 to 15) | puzzle-designer (Fable 5.2) | N2 merged; Josh's word; re-cut first | `puzzles/city/` | 0 |
 | 5 | N4, batch 4 (16 to 20) | puzzle-designer (Fable 5.2) | N3 merged; Josh's word; re-cut first | `puzzles/city/` | 0 |
 | 6 | N5, batch 5 (21 to 25) | puzzle-designer (Fable 5.2) | N4 merged; Josh's word; re-cut first | `puzzles/city/` | 0 |
@@ -2587,6 +2603,7 @@ PRs 1 and 2 (N0, N1, NS) are merged. Josh plays each batch when he chooses; the 
 - **Size caps:** at most 8 of the puzzle's own buildings and 4 faults on any map; each puzzle's faults, parts and controls as its row's **Size**.
 - **A different place** (Josh: "different points on the map are used with each puzzle"): no puzzle's district shares a block with the puzzle before or after it, and no two series puzzles have the same district. Districts are 1 block for 1 to 10, 2 for 11 to 20, 3 or 4 for 21 to 25 (the plan); from N2 on, a puzzle in 6 to 10 may take 2 blocks where its note shows two lines must end side by side at the target (N2's lesson from N1). Places may be used again by any later puzzle whose district differs (Josh: "You can even use the same nodes over again").
 - **The difficulty band** (the plan's band table): fewest clicks, hidden facts, dead ends and layers within the row's band, read from the analyzer.
+- **No breaker or switch on a branch pole** (added 26 Nov 2026, from Josh's play of 1 to 5: "Puzzle 1 is confusing because the breaker box rests on a split. One wire is on and the other is off until you turn on the switch."; see NR). A breaker's or switch's pole carries only its own lines: for a breaker, the one line in and the one line out; for a switch, the one line in and its two outs. No junction, feed, lamp's drop from another line, other control, other puzzle line, or section S scenery span or drop meets at that pole (read from the conversion: `converted.hidden` and the circuit layer say what hangs where). A switch's two outs leave its pole by different spans. Every series puzzle holds it from N2 on (N2's designer was told while building), and 1 to 3 are re-laid to it (NR). The note's place table says, for each control, what its pole carries.
 
 A puzzle whose row cannot be laid as planned may change its trap's details, said in its note; it may not change its new concept or break a series rule. If it would, the designer stops (see N1's stop rule).
 
@@ -2674,7 +2691,7 @@ A puzzle whose row cannot be laid as planned may change its trap's details, said
 2. [ ] **Solvable per the analyzer, within the band for 6 to 15.** `npm run analyze puzzles/city/<id>.city.json` finds a win, and the note gives fewest clicks, winning configurations, winning click orders, the share of dead-end states, and the obvious wrong first move with how it is read and recovered. The band: 3 to 6 clicks; 1 or 2 hidden facts at the start (the note names each, and what makes it readable); dead ends readable, recovered by a part or one Undo; 2 layers (the note names both); 1 winning configuration (the plan's difficulty rule 3, from 5 on). **no test** (the sweep's check-block replay is the test that it wins).
 3. [ ] **One new concept, built on the ones before** (Josh: "introduce new concepts to the player with each puzzle, one building upon the next"). The note names its concept and reasoning move (the table above) and what it builds on. It uses nothing a later puzzle introduces: no fuse rating that binds before 8 (6's and 7's boxes, if any, carry their whole load; 6's fuse is a start-blown fault, and fitting it blows nothing); no ring before 9 (7's second road is its switch's other line, not a loop back); in 6 to 9 no fitted bulb takes a feed or box over its limit (that is 10's idea); no reading a fault from behind as the move (13's); no second feed, nested fuse, relay, spring or battery anywhere in 6 to 10. **no test**.
 4. [ ] **A different place from its neighbours** (Josh: "different points on the map are used with each puzzle"). Its district is 1 block, or 2 under the lesson above (a). It shares no block with the puzzle before or after it (6 none with 5's `block:8:7`); its district is not any earlier series puzzle's district; a 2-block district may take in one block an earlier, non-neighbouring puzzle used. The note names its block(s), the place table (node to place, line to its span chain), and the running list of districts used. **no test**.
-5. [ ] **The series rules** (section N, above): its size as the table; at most 8 of its own buildings and 4 faults; **the only "obvious breaker blows a fuse" opener in 6 to 10 is 8**, and "fit it and it blows again" is no puzzle's trap; no kit repeats on neighbours (5's two wires, then fuse and bulb, wire, fuse, wire, two fuses and a bulb, as planned); the heavy building is not the same two puzzles running (5 had none); the note keeps the shrine count (1 of 5 after puzzle 5). **no test**.
+5. [ ] **The series rules** (section N, above): its size as the table; at most 8 of its own buildings and 4 faults; **the only "obvious breaker blows a fuse" opener in 6 to 10 is 8**, and "fit it and it blows again" is no puzzle's trap; no kit repeats on neighbours (5's two wires, then fuse and bulb, wire, fuse, wire, two fuses and a bulb, as planned); the heavy building is not the same two puzzles running (5 had none); the note keeps the shrine count (1 of 5 after puzzle 5); **no breaker or switch on a branch pole** (the series rule added 26 Nov 2026 from Josh's play of 1 to 5; the designer was told while building), with each control's pole and what it carries in the place table. **no test**.
 6. [ ] **From 6 on, the wrong move is not one red number deep** (the plan's difficulty rule 2). The note says how its obvious wrong move reads from the default camera with section V's load numbers: either it is not red (a part spent in the wrong place), or everything is red and the puzzle is what to do first so the move turns white. **no test**.
 7. [ ] **The note**, as N1's criterion 7: the intended read from the default camera, saying where the target building is; **The trap**, in a line, as the plan's row, or what changed in it and why (and, under the lesson above, which of (a) or (b) it took); the check block with the solution; the tribe's `priority` homes named with what the win costs them; and an empty **What it taught us**. **no test**.
 8. [ ] The designer gives P1's sweep's time on Josh's PC with the ten series puzzles in (`npx vitest run --maxWorkers=2 tools/fit.test.ts`), beside N1's figure. Watched, not tuned here. **no test**.
@@ -2687,6 +2704,69 @@ A puzzle whose row cannot be laid as planned may change its trap's details, said
 **Files.** `puzzles/city/` (new `s06-...` to `s10-...` files and notes only). **Must not:** `s01-...` to `s05-...`, the pilots and P0 in `puzzles/city/`; `puzzles/` outside `puzzles/city/` (`series-v1.md` and `SCHEMA.md` included); `tools/`; `src/`.
 
 **Interfaces.** None. No new dependency.
+
+#### NR · Series 1 to 3 re-laid: each breaker and switch on a single run (puzzle-designer, Fable 5.2). Branch `ticket/081nr-series-relay`, after G1, beside N2. Cut 26 Nov 2026; **approved (G1) 26 Nov 2026**: "Approve (Recommended)"
+**Josh, 26 Nov 2026**, his play of 1 to 5 and his card "Both (Recommended)", as recorded at the top of section N. The fault in 1 to 3: a breaker or switch icon sits on a pole where the line branches (in 1, `br_side`'s pole `pole:z:5:lo:494.50` also carries section S's scenery building across `z:5`, lit from the start while the breaker past it is open), so the player cannot tell which branch it controls.
+
+**Goal.** Josh replays 1 to 3 from the stage select and, for every breaker and switch, can see the one wire it controls: each sits on a single run, and each puzzle still teaches what it taught.
+
+**Acceptance criteria** (each of `s01-first-light`, `s02-this-way-or-that`, `s03-not-enough-for-all`):
+1. [ ] **No breaker or switch on a branch pole** (the series rule above). Every breaker's and switch's pole carries only its own lines; the note's place table says, for each control, its pole and every wire that meets there (from the conversion, scenery included). **no test**.
+2. [ ] **The concept kept.** Its row's new concept, reasoning move, size (1: 2 breakers; 2: 2 switches; 3: 4 breakers; no fault or part in any) and what it builds on are as N1 laid them. The trap may change its detail; the note says what changed and why. **no test**.
+3. [ ] **Still checked and solvable.** N1's criteria 1, 2, 5 and 6 hold as written: `npm run check puzzles/city/` passes it (W1's rules included), capacities raised for its scenery (`npm run fit -- --raise`); `npm run analyze` finds a win inside the band for 1 to 5; its numbers, the check block, the red-number read and the shrine count are brought up to date in the note. **test** (P1's sweep, unedited).
+4. [ ] **Same id, same place if it can.** The id, the name and the file names stay (progress is kept under the id). It keeps its district (1: `block:2:10`, 2: `block:6:1`, 3: `block:8:1`). If the single-run rule cannot be met there, it moves to a 1-block district no series puzzle 1 to 10 uses (N2's branch included, read when NR is built) that shares no block with its neighbours, and the note says why. **no test**.
+5. [ ] **Josh's words recorded.** Under **What it taught us**: in `s01` to `s03`, his line on that puzzle (above) and his card's answer, then a line on what the re-lay changed; in `s04` and `s05`, "Puzzle 4 is good." / "Puzzle 5 is good." with the date. Nothing else in `s04` or `s05` changes. **no test**.
+6. [ ] **Josh replays** 1 to 3 (`npm run dev`, "start"; NC2 need not be in): each control's wire reads on its own. **browser**.
+
+**Stop rule** (N1's). The designer stops ("stop 081 NR", with the branch) if a puzzle cannot hold the single-run rule and its concept on a 1-block district under W1's rules with the fit and the check as they are. It does not change a tool, W1's numbers or `puzzles/series-v1.md` to pass.
+
+**Count.** 0.
+
+**Files.** `puzzles/city/s01-*`, `s02-*`, `s03-*` (city files and notes); the **What it taught us** sections of `puzzles/city/s04-the-spark.md` and `s05-not-that-one.md`. **Must not:** `s04`/`s05` city files or any other part of their notes; `s06-...` on (N2's); the pilots and P0; `puzzles/` outside `puzzles/city/`; `tools/`; `src/`.
+
+**Interfaces.** None. No new dependency.
+
+#### NC · The control cue: NC1, then NC2. Cut 26 Nov 2026; **approved (G1) 26 Nov 2026**: "Approve (Recommended)"
+**Josh, 26 Nov 2026**, card "Both (Recommended)": "add a cue in the game: hovering or throwing one highlights exactly the wires it controls. The cue also helps every later puzzle."
+
+**Why two owners.** "Exactly the wires it controls, from grid state, not guessed" is a what-if: the lines whose power the throw would change. The renderer has no grid run of its own, and the page already asks the grid one what-if per control on each state change: V2's `loadPreview`, run with every unread fault treated as sound, so the Decided "Faults hide faults" holds. NC1 has that same run name the lines it changes; NC2 draws them. No new what-if, no second set of rules, and a hidden break never shows in the cue, as it never shows in the number. **No `src/play/` or `src/ui/` change:** the hovered id already reaches the renderer each frame (`play.view().hover`, passed by `src/main.ts` as the frame's `overlay.hover`), and the preview already reaches it on each state change (`setLoadPreview`, V4).
+
+**How it fits V2, V1 and W4.**
+- **What it reads.** The entry under the hovered id in the preview the renderer holds (V3). The preview is `null` during the Relight, after the win, and while V4's `V` key hides the numbers, so the cue is off then too. **Josh, 26 Nov 2026, on a card: "Hide it too (Recommended)"**: the cue goes with the numbers under `V`.
+- **How it looks.** The listed lines' wires (`jobWires`: spans and drops of file lines only, never scenery or hidden lines, as V1's tint) drawn over V1's tint in two colours: lines the throw would make live in `CUE_ON`, lines it would make dead in `CUE_OFF`. Steady, no pulses (W4's pulses mean current now; the cue is what would be). A line with a readable cut is cued up to the cut only, where `lineFlow` caps its live share. It takes W4's see-through pass (`xrayOf`), so a run behind a building still reads, faded.
+- **Throwing, and touch.** After a throw the page hands the renderer the new state's preview and the hover stays on the control, so the cue now shows what throwing it back would change: for a breaker the same wires, `on` and `off` swapped; for a switch its two lines swapped. On touch there is no hover: `play.ts`'s click handler sets `hover` to the tapped id, so a tap throws the control and leaves its cue up until the next tap elsewhere (a tap on empty ground hits nothing and clears it). NC2's builder confirms that order in the browser pane with touch emulation; if a touch tap leaves `hover` null, it stops ("stop 081 NC2") and the architect cuts an interaction section in `src/play/` (owner: interaction).
+
+#### NC1 · Each control's preview entry names the lines it changes (grid-simulator, pure). Branch `ticket/081nc1-cue-lines`, after G1 and the core field
+**Goal.** For every breaker, switch and readable fault, `loadPreview` says which lines the move would make live and which dead, from the same visible what-if as its number.
+
+**Acceptance criteria.**
+1. [ ] **The lines.** Each entry's `lines.on` is the ids of `puzzle.lines` not in the base run's `powered` and in the after run's; `lines.off` the reverse. Both come from the run with rated fuses lifted (the one `delta` comes from: "the wires it controls", before any blow; a blow is the red number's to say), in `puzzle.lines` order. **test**: 1 case, on a fixture of a feed, an open breaker with a junction past it splitting to two lamps, and a switch on another line: the open breaker's `on` is exactly the three lines past it and `off` empty, and closed the reverse; the switch's `on` is its other out's run and `off` its present one's.
+2. [ ] **Faults hide faults** (Decided). An unread break past the breaker leaves the lines beyond it in `on`, as if sound; with the break's id in `known`, its own line stays in `on` (current stops at the cut) and the lines beyond it do not. **test**: folded into criterion 1's case.
+3. [ ] Repair entries carry `lines` too (not drawn yet). No number, `over` or `blows` changes: V2's cases pass unedited. **test** (existing).
+4. [ ] `src/grid/` stays pure (its existing purity case). **test** (existing).
+
+**Count.** 1 added.
+
+**Files.** `src/grid/preview.ts`, `src/grid/preview.test.ts`. **Must not:** any other folder.
+
+**Interfaces.** The field below in `src/core/preview.ts`. No event, no new dependency.
+
+#### NC2 · Hovering a breaker or switch highlights the wires it controls (renderer). Branch `ticket/081nc2-cue-drawn`, after G1, beside NC1; merges after NC1
+**Goal.** From the default camera, the player points at (or taps) a breaker or switch and sees exactly the wires it would light and the wires it would darken; pointing away clears it.
+
+**Acceptance criteria.**
+1. [ ] **The right wires.** A pure `cueWires(wiresOfLine, preview, hoverId)` in `src/render3d/` gives, for each job wire, none, on or off: the wires of the hovered entry's `lines.on` and `lines.off`, for a breaker or switch id only; none for a null hover, a hovered lamp, fuse box or break, a `null` preview, or an entry with no `lines`. Hidden and scenery lines are never cued. A line with a readable cut is cued up to the cut only. **test**: 1 case on a fixture conversion.
+2. [ ] **The layer.** One instanced cue layer made at build, sharing the live layer's wire geometry, coloured by instance (`CUE_ON`, `CUE_OFF`: the architect's start is the live glow's warm colour at full and a cool white, both brighter than V1's `JOB_WIRE_DIM`; Josh tunes by eye), with W4's see-through pass (`xrayOf`). Its instance colours are written only when the hovered id or the preview object changes, not every frame. **test**: 1 case: the cue layer and its x-ray share geometry and instance colours, the x-ray material is `GreaterDepth`, `depthWrite` false, `XRAY_OPACITY`, and an unchanged hover and preview writes nothing (the colour attribute's `version` holds).
+3. [ ] **Off when the numbers are off.** No cue during the Relight, after the win, or under `V` (the preview is `null`). **test**: folded into criterion 1's case (`null` preview).
+4. [ ] **Touch.** In the browser pane with touch emulation, a tap on a breaker throws it and leaves its cue up; a tap on empty ground clears it. The builder reports the event order it saw. If the tap leaves no cue, it stops ("stop 081 NC2"; see section NC). **browser**.
+5. [ ] **What it costs, measured** against `docs/design/081-F-measurements.md`: `perf=1` on 6 x 6 seed 1 with P0 (`?puzzle=city-two-ways-round&perf=1`), before power, with the pointer held on `sw`, against `main`, median over 300 frames, the pane in view. At most 2 more draw calls (the cue layer and its x-ray), no new program in play (the cue material compiled at build), median within 0.5 ms. Over any: the builder stops ("stop 081 NC2"); it does not drop the x-ray pass to pass. It reports draw calls, programs and the median; the main session adds the row to the measurements note. **browser**.
+6. [ ] **Josh plays** 1 to 3 (re-laid, after NR merges) and 4: hovering each breaker and switch lights exactly its wires, live-to-be and dead-to-be apart; on 2, each switch shows its two lines. **browser**.
+
+**Count.** 2 added (criteria 1 and 2). NC1 and NC2 together: 3.
+
+**Files.** `src/render3d/cityview.ts` (the build step, the live layer, the cue write in the frame loop), a new `src/render3d/controlcue.ts` and `controlcue.test.ts` (or one case in an existing cityview test file). **Must not:** `src/grid/`, `src/core/`, `src/ui/`, `src/main.ts`, `src/play/`, `overlay.ts` (the icons and numbers are unchanged), `windows.ts`, `fx.ts`.
+
+**Interfaces.** NC1's field. No event, no new dependency.
 
 #### N3 · Series v1, batch 3: puzzles 11 to 15 (puzzle-designer, Fable 5.2). Branch `ticket/081n3-series-batch-3`. **Waiting** on Josh's word
 Named, not cut in full. It starts only on Josh's word in chat (after N2 merges), re-cut to what he says first.
@@ -2708,7 +2788,7 @@ Named, not cut in full; it starts only on Josh's word in chat (after N4 merges),
 - **Josh plays** 21 to 25. Count 0. Files: `puzzles/city/` only.
 
 ## Files
-Per section, above. This branch (the cut): `tickets/081-puzzles-on-the-city.md`, `docs/design/070-K1-circuit.md` (CK9 as changed, 24 Nov 2026; CK14's dark-building line struck for section S, 24 Nov 2026), `tickets/070-city-pipeline.md` (pointer lines), `tickets/071-pack-power-lines.md` (a pointer line: C and E's ladder wiring are dropped), `tickets/rules-coverage.md`, `src/core/citycircuit.ts` (new; `CityPuzzleView` added 24 Nov 2026 for the playable path), `src/core/cityplan.ts` (`CityCircuitLayer`), `src/core/index.ts`. Section FX's cut (24 Nov 2026): new `src/core/fx.ts`, `src/core/assets.ts` (`AssetManifest.fx?`), `src/core/index.ts`, `tickets/rules-coverage.md`. Section W's cut (25 Nov 2026): this file and `tickets/rules-coverage.md` only; no `src/core/` change (W1's numbers live in `tools/`, and `{ post }` and `lead` stay typed). Sections SK and T (cut and re-cut 25 Nov 2026): this file only (with open question 20 closed); no `src/core/` change and no rules-coverage row. Section N (cut 25 Nov 2026), with T3b recorded and P2b to P2d dropped: this file only; no `src/core/` change and no rules-coverage row.
+Per section, above. This branch (the cut): `tickets/081-puzzles-on-the-city.md`, `docs/design/070-K1-circuit.md` (CK9 as changed, 24 Nov 2026; CK14's dark-building line struck for section S, 24 Nov 2026), `tickets/070-city-pipeline.md` (pointer lines), `tickets/071-pack-power-lines.md` (a pointer line: C and E's ladder wiring are dropped), `tickets/rules-coverage.md`, `src/core/citycircuit.ts` (new; `CityPuzzleView` added 24 Nov 2026 for the playable path), `src/core/cityplan.ts` (`CityCircuitLayer`), `src/core/index.ts`. Section FX's cut (24 Nov 2026): new `src/core/fx.ts`, `src/core/assets.ts` (`AssetManifest.fx?`), `src/core/index.ts`, `tickets/rules-coverage.md`. Section W's cut (25 Nov 2026): this file and `tickets/rules-coverage.md` only; no `src/core/` change (W1's numbers live in `tools/`, and `{ post }` and `lead` stay typed). Sections SK and T (cut and re-cut 25 Nov 2026): this file only (with open question 20 closed); no `src/core/` change and no rules-coverage row. Section N (cut 25 Nov 2026), with T3b recorded and P2b to P2d dropped: this file only; no `src/core/` change and no rules-coverage row. Section N's NR and NC (cut 26 Nov 2026): this file, then on G1 `src/core/preview.ts` (NC's field, below) and a `tickets/rules-coverage.md` line adding NC1 to "Faults hide faults" (its case pins that the cue hides an unread break, as V2's does for the number).
 
 ## Interfaces
 Written into `src/core/` with this cut (typecheck passes):
@@ -2746,6 +2826,12 @@ Written into `src/core/` with this cut (typecheck passes):
 - **SK, the night sky (25 Nov 2026):** none in `src/core/`. `NIGHT_SKY`, the sky object and `setSkyTurn` are internal to `src/render3d/`. No event, no new dependency (the sky is drawn in code with Three's own geometry and materials; no pack file, no texture loader).
 - **T, the title screen (25 Nov 2026):** none in `src/core/`. `TitleView` is types only in `src/render3d/titleview.ts` (the `maprender.ts` precedent: `src/ui/` and `main.ts` import it as a type). The progress record is the page's, in `src/ui/progress.ts`. No event. No new dependency (the browser's `<select>` and `localStorage`).
 - **N, series v1 (25 Nov 2026):** none in `src/core/`. The series id form (`sNN-<slug>`) is read by `stageNumber` in `src/ui/progress.ts` (NS); N0's city-file path is internal to `tools/`. No event. No new dependency.
+- **NC, the control cue (26 Nov 2026; written into `src/core/preview.ts` on Josh's G1, "Approve (Recommended)", before NC1 and NC2 start; typecheck passes).** On `LoadPreviewEntry`, one optional field, so `main` typechecks the moment it lands and V3's existing fixtures in `src/render3d/overlay.test.ts` need no edit:
+  ```ts
+  /** The lines the move would make live (`on`) and dead (`off`), ids of `puzzle.lines` in its order, from the same visible what-if as `delta` (fuses lifted, unread faults as sound). May hold hidden (S1) line ids; the renderer draws file lines only. Set by `loadPreview` on every entry from NC1 on; absent reads as none. */
+  readonly lines?: { readonly on: readonly string[]; readonly off: readonly string[] };
+  ```
+  `cueWires`, `CUE_ON` and `CUE_OFF` are internal to `src/render3d/`. No event, no new dependency.
 
 ## Open questions (for Josh)
 **Josh, 24 Nov 2026, on cards (relayed by the main session):**
