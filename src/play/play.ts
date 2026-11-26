@@ -3,7 +3,7 @@ import type { EventBus, Puzzle } from "../core";
 import type { Grid } from "../grid";
 import type { MapRenderer } from "../render3d/maprender";
 import { createSessionLog, type LogEntry } from "./log";
-import { intentFor, needsText, promptFor } from "./prompt";
+import { intentFor, needsText, promptFor, TEXT } from "./prompt";
 
 export interface MapPlayView {
   hover: string | null;
@@ -61,7 +61,12 @@ export function createMapPlay(
     log.add({ kind: "battery-flat", target: e.nodeId, ok: true, stopped: false, gameTime });
   });
 
-  const done = (): boolean => grid.state().complete;
+  // A timed breaker's flip is the clock's, not the player's: logged, never an undo step.
+  bus.on("breaker:thrown", (e) => {
+    if (e.timer) log.add({ kind: "timer-flip", target: e.nodeId, ok: true, closed: e.closed, gameTime });
+  });
+
+  const done =(): boolean => grid.state().complete;
 
   function click(id: string | null): void {
     if (done()) return;
@@ -71,7 +76,11 @@ export function createMapPlay(
     if (intent.kind === "breaker") {
       const ok = grid.throwBreaker(intent.id);
       log.add({ kind: "throw-breaker", target: intent.id, ok });
-      if (!ok) refused();
+      if (!ok) {
+        refused();
+        const n = puzzle.nodes.find((x) => x.id === intent.id);
+        if (n?.type === "breaker" && n.timer) flash = { text: TEXT.timerRefused, left: NEEDS_FLASH_SECONDS };
+      }
     } else if (intent.kind === "switch") {
       const ok = grid.throwSwitch(intent.id);
       log.add({ kind: "throw-switch", target: intent.id, ok });
