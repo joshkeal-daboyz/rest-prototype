@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Fault, GridNode, Line, Puzzle } from "../core";
 import { createGrid } from "../grid";
-import { previewFor } from "./preview";
+import { previewFor, previewKey } from "./preview";
 
 type N = { id: string; type: GridNode["type"] } & Record<string, unknown>;
 
@@ -35,5 +35,54 @@ describe("previewFor (ticket 081 V4)", () => {
     expect(previewFor(p, g.state(), first.known, false).known.has("k1")).toBe(true);
     expect(previewFor(p, g.state(), new Set(), false).known.has("k1")).toBe(false);
     expect(previewFor(p, g.state(), first.known, true).preview).toBeNull();
+  });
+});
+
+describe("previewKey (ticket 081 TB1b3)", () => {
+  it("the key changes with a flip, a throw, a repair and a Reset's timer order, and not with 0.3 s that flips nothing", () => {
+    const p: Puzzle = {
+      id: "timed",
+      name: "timed",
+      version: 4,
+      scope: "map",
+      capacity: null,
+      startingParts: ["wire", "wire"],
+      nodes: [
+        { id: "feed", type: "feed", pos: [0, 0] },
+        { id: "br", type: "breaker", pos: [1, 0], closed: false },
+        { id: "j", type: "junction", pos: [2, 0] },
+        { id: "l1", type: "lamp", pos: [3, 0], load: 1 },
+        { id: "tb", type: "breaker", pos: [1, 1], closed: true, timer: { closed: 2, open: 2, offset: 0 } },
+        { id: "tb2", type: "breaker", pos: [1, 2], closed: true, timer: { closed: 3, open: 3, offset: 0 } },
+      ] as GridNode[],
+      lines: [
+        { id: "l_br", from: "feed", to: "br" },
+        { id: "l_j", from: "br", to: "j" },
+        { id: "l_l1", from: "j", to: "l1" },
+        { id: "l_tb", from: "feed", to: "tb" },
+        { id: "l_tb2", from: "feed", to: "tb2" },
+      ],
+      faults: [{ id: "f_j", at: "j", kind: "dead-junction" }],
+    };
+    const g = createGrid(p);
+    const key = () => previewKey(g.state(), false);
+    const k0 = key();
+    g.throwBreaker("br"); // the first move starts the clock and closes br
+    const k1 = key();
+    expect(k1).not.toBe(k0);
+    g.advance(0.3); // no flip yet: tb is due at 2 s
+    expect(key()).toBe(k1);
+    g.advance(1.8); // clock 2.1: tb has flipped open at 2 s
+    expect(g.state().timers.get("tb")?.closed).toBe(false);
+    const k3 = key();
+    expect(k3).not.toBe(k1);
+    expect(g.repairAt("j").ok).toBe(true);
+    expect(key()).not.toBe(k3);
+
+    // A Reset whose breakers match but whose timers flip in another order is a different key; coincident flips are one moment, so the insertion order does not matter.
+    const s = g.state();
+    const withTimers = (order: Array<[string, number]>) => ({ ...s, timers: new Map(order.map(([id, next]) => [id, { closed: s.timers.get(id)!.closed, next }])) });
+    expect(previewKey(withTimers([["tb", 0.5], ["tb2", 4]]), false)).not.toBe(previewKey(s, false));
+    expect(previewKey(withTimers([["tb", 1], ["tb2", 1]]), false)).toBe(previewKey(withTimers([["tb2", 1], ["tb", 1]]), false));
   });
 });
