@@ -7,6 +7,9 @@ import type { Fault, GridNode, LoadPreview, LoadPreviewEntry, Puzzle } from "../
 import { createGrid } from "./grid";
 import type { GridState } from "./types";
 
+/** Two flips within this many seconds are one moment (rule 6; the same tolerance as TB3's cue). */
+const SAME_MOMENT = 1e-6;
+
 /**
  * The load each breaker, switch and readable fault would put on if the player made that move. Every fault the player cannot read now and has not read (`known`) is treated as sound, so
  * hidden faults never show in a number. `delta` is counted before any fuse blows; `over` and `blows` after.
@@ -51,9 +54,25 @@ export function loadPreview(puzzle: Puzzle, state: GridState, known: ReadonlySet
   for (const n of puzzle.nodes) {
     if (n.type === "breaker") {
       const b = new Map(state.breakers);
+      const own = n.timer ? state.timers.get(n.id) : undefined;
+      if (n.timer && own) {
+        // A timed breaker's entry is the circuit at its clock's next flip: every timer is put where its clock has it `m` seconds on, so a joint flip counts as one.
+        const m = own.next;
+        for (const t of puzzle.nodes) {
+          const r = t.type === "breaker" && t.timer ? state.timers.get(t.id) : undefined;
+          if (t.type !== "breaker" || !t.timer || !r) continue;
+          if (r.next > m + SAME_MOMENT) continue; // flips later: stays
+          const cycle = t.timer.closed + t.timer.open;
+          let p = ((r.closed ? t.timer.closed - r.next : cycle - r.next) + m) % cycle;
+          if (cycle - p < SAME_MOMENT) p = 0;
+          if (Math.abs(p - t.timer.closed) < SAME_MOMENT) p = t.timer.closed;
+          b.set(t.id, p < t.timer.closed);
+        }
+        out.set(n.id, { ...entry("breaker", faults, b, state.switches), timed: true });
+        continue;
+      }
       b.set(n.id, !(state.breakers.get(n.id) ?? n.closed));
-      const e = entry("breaker", faults, b, state.switches);
-      out.set(n.id, n.timer ? { ...e, timed: true } : e); // a timed breaker's entry is its clock's next flip
+      out.set(n.id, entry("breaker", faults, b, state.switches));
     } else if (n.type === "switch") {
       const s = new Map(state.switches);
       s.set(n.id, (state.switches.get(n.id) ?? n.selected) === 0 ? 1 : 0);
