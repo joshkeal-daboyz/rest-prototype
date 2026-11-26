@@ -44,7 +44,10 @@ export function needsText(part: string, count: number): string {
 export function promptFor(puzzle: Puzzle, state: GridState, id: string | null): string | null {
   const intent = intentFor(puzzle, state, id);
   if (!intent) return state.complete ? null : infoPrompt(puzzle, state, id);
-  if (intent.kind === "breaker") return "Throw breaker";
+  if (intent.kind === "breaker") {
+    const n = puzzle.nodes.find((x) => x.id === intent.id);
+    return n?.type === "breaker" && n.timer ? timerPrompt(state, n.id) : "Throw breaker";
+  }
   if (intent.kind === "switch") {
     const n = puzzle.nodes.find((x) => x.id === intent.id);
     if (n?.type !== "switch") return TEXT.throwSwitch;
@@ -76,8 +79,18 @@ export function promptFor(puzzle: Puzzle, state: GridState, id: string | null): 
   return `${FAULT_LABEL[fault.kind]} — ${action}${warn}`;
 }
 
+/** A timed breaker's hover (ticket 081 TB4): what its clock does next, in whole seconds rounded up. */
+function timerPrompt(state: GridState, id: string): string {
+  const t = state.timers.get(id);
+  if (state.clock === null || !t) return TEXT.timerWaiting;
+  return TEXT.timerNext(t.closed, Math.max(1, Math.ceil(t.next)));
+}
+
 /** Hover wording for ticket 013, in one place (LvX labels, ticket 014). */
 export const TEXT = {
+  timerWaiting: "Timed breaker: starts on your first move",
+  timerNext: (closed: boolean, seconds: number): string => `Timed breaker: ${closed ? "opens" : "closes"} in ${seconds} s`,
+  timerRefused: "Thrown by its clock",
   throwSwitch: "Throw switch",
   relayStuck: "No power — relay stuck",
   springSwitch: (relay: boolean): string =>
