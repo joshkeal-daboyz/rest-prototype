@@ -179,4 +179,18 @@ describe("faults hide faults, the Relight, and the preview (081 TB)", () => {
     expect(g.state().breakers.get("tb")).toBe(true);
     expect(log).toEqual([]);
   });
+
+  it("rule 6 and TB1b1: an alternating pair that flips together previews as one joint flip, so neither entry warns of a brownout the pair does not cause", () => {
+    const p = mini(
+      [{ id: "feed", type: "feed", capacity: 1 }, tb("a", 2, 2, 0), tb("b", 2, 2, 2), { id: "la", type: "lamp", load: 1 }, { id: "lb", type: "lamp", load: 1 }],
+      [["l_a", "feed", "a"], ["l_b", "feed", "b"], ["l_la", "a", "la"], ["l_lb", "b", "lb"]],
+    );
+    const g = createGrid(p, new EventBus());
+    const out = loadPreview(p, g.state(), new Set());
+    const a = out.get("a")!;
+    expect(a).toMatchObject({ timed: true, delta: 0, over: false, blows: [] });
+    expect(out.get("b")).toEqual(a);
+    expect(a.lines?.on).toEqual(["l_lb"]);
+    expect(a.lines?.off).toEqual(["l_la"]);
+  });
 });
