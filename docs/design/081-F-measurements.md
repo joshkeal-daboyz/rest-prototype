@@ -173,3 +173,23 @@ Browser pane emulated at 1287 x 1178, `?title=title&perf=1` (stage 01's building
 | title | 120 | 403,929 | 13 | 0 | 1.50 ms | 16.70 ms |
 
 Pass: the frame holds at 60 fps and no program compiles after the first frame. The 3 x 3 window (2 x 2 at the city's edge) draws 120 calls against the play view's 1,845.
+
+## 081 NC2, the control cue (26 Nov 2026)
+
+Browser pane emulated at 1287 x 1178, `?puzzle=city-two-ways-round&perf=1`, before power, pointer on `sw`. One load each. `main` is served from the play copy at 4ef965e, whose renderer is the same as on 94ba3ab. NC2 is `ticket/081nc2-control-cue` at 845cc80. Canvas 1930 x 1767, pixel ratio 1.5.
+
+| Run | Draw calls | Triangles | Programs | CPU median | Whole frame |
+|---|---|---|---|---|---|
+| main | 1,845 | 7,627,588 | 16 | 9.40 ms | 16.70 ms |
+| NC2 | 1,847 | 7,633,596 | 16 | 9.70 ms | 16.70 ms |
+
+Pass, against NC2's limits (at most 2 more calls, no new program, median within 0.5 ms): +2 calls (the cue layer and its x-ray, live layer 11 to 13), no new program, +0.3 ms.
+
+Also checked in the pane:
+- hovering `sw` lights the ring amber and the l_s run cool white;
+- moving off clears the cue;
+- a throw keeps the cue, swapped;
+- `V` hides the cue;
+- touch emulation (375 x 812): a tap throws the switch and leaves its cue up, and a tap on empty ground clears it.
+
+Touch event order seen: pointerdown, pointerup, click.
