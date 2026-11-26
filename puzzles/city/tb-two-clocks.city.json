@@ -1,0 +1,322 @@
+{
+  "id": "tb-two-clocks",
+  "name": "Two clocks",
+  "version": 4,
+  "scope": "map",
+  "capacity": 18,
+  "startingParts": [
+    "bulb",
+    "fuse"
+  ],
+  "target": [
+    "shrine",
+    "mill"
+  ],
+  "priority": [
+    "kiln"
+  ],
+  "city": {
+    "blocksX": 6,
+    "blocksZ": 6,
+    "seed": 1,
+    "oneWay": true
+  },
+  "district": [
+    "block:6:6",
+    "block:6:8"
+  ],
+  "nodes": [
+    {
+      "id": "feed",
+      "type": "feed",
+      "place": {
+        "pole": "pole:z:6:lo:312.50"
+      }
+    },
+    {
+      "id": "j_0",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:9:lo:272.50"
+      }
+    },
+    {
+      "id": "tb_a",
+      "type": "breaker",
+      "closed": true,
+      "timer": {
+        "closed": 8,
+        "open": 8,
+        "offset": 0
+      },
+      "place": {
+        "pole": "pole:x:9:lo:283.33"
+      }
+    },
+    {
+      "id": "j_a",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:9:lo:337.50"
+      }
+    },
+    {
+      "id": "shrine",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:6:6/b|outer|+z|65,62"
+      }
+    },
+    {
+      "id": "r_a",
+      "type": "switch",
+      "relay": true,
+      "outputs": [
+        "l_kiln",
+        "l_store"
+      ],
+      "selected": 0,
+      "place": {
+        "pole": "pole:z:7:lo:289.17"
+      }
+    },
+    {
+      "id": "kiln",
+      "type": "lamp",
+      "load": 3,
+      "place": {
+        "building": "block:6:6/a|outer|+x|67,54"
+      }
+    },
+    {
+      "id": "store",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:6:6/a|outer|+x|67,56"
+      }
+    },
+    {
+      "id": "tb_b",
+      "type": "breaker",
+      "closed": false,
+      "timer": {
+        "closed": 8,
+        "open": 8,
+        "offset": 8
+      },
+      "place": {
+        "pole": "pole:x:9:hi:272.50"
+      }
+    },
+    {
+      "id": "fb",
+      "type": "fusebox",
+      "rating": 10,
+      "place": {
+        "pole": "pole:x:10:lo:299.50"
+      }
+    },
+    {
+      "id": "j_m",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:10:lo:315.83"
+      }
+    },
+    {
+      "id": "mill",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:6:8/b|outer|+z|62,73"
+      }
+    },
+    {
+      "id": "r_b",
+      "type": "switch",
+      "relay": true,
+      "outputs": [
+        "l_yard",
+        "l_tie"
+      ],
+      "selected": 0,
+      "place": {
+        "pole": "pole:z:7:lo:355.00"
+      }
+    },
+    {
+      "id": "yard",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:6:8/b|outer|+x|67,70"
+      }
+    }
+  ],
+  "lines": [
+    {
+      "id": "l_feed",
+      "from": "feed",
+      "to": "j_0",
+      "run": {
+        "spans": [
+          "span:pole:z:6:hi:312.50~pole:z:6:lo:312.50",
+          "span:pole:x:9:lo:272.50~pole:z:6:hi:312.50"
+        ]
+      }
+    },
+    {
+      "id": "l_fa",
+      "from": "j_0",
+      "to": "tb_a",
+      "run": {
+        "spans": [
+          "span:pole:x:9:lo:272.50~pole:x:9:lo:283.33"
+        ]
+      }
+    },
+    {
+      "id": "l_a",
+      "from": "tb_a",
+      "to": "j_a",
+      "run": {
+        "spans": [
+          "span:pole:x:9:lo:283.33~pole:x:9:lo:294.17",
+          "span:pole:x:9:lo:294.17~pole:x:9:lo:305.00",
+          "span:pole:x:9:lo:305.00~pole:x:9:lo:315.83",
+          "span:pole:x:9:lo:315.83~pole:x:9:lo:326.67",
+          "span:pole:x:9:lo:326.67~pole:x:9:lo:337.50"
+        ]
+      }
+    },
+    {
+      "id": "l_shrine",
+      "from": "j_a",
+      "to": "shrine",
+      "run": {
+        "spans": [],
+        "drop": "block:6:6/b|outer|+z|65,62"
+      }
+    },
+    {
+      "id": "l_ra",
+      "from": "j_a",
+      "to": "r_a",
+      "run": {
+        "spans": [
+          "span:pole:x:9:lo:337.50~pole:z:7:lo:312.50",
+          "span:pole:z:7:lo:299.33~pole:z:7:lo:312.50",
+          "span:pole:z:7:lo:289.17~pole:z:7:lo:299.33"
+        ]
+      }
+    },
+    {
+      "id": "l_kiln",
+      "from": "r_a",
+      "to": "kiln",
+      "run": {
+        "spans": [
+          "span:pole:z:7:lo:277.50~pole:z:7:lo:289.17"
+        ],
+        "drop": "block:6:6/a|outer|+x|67,54"
+      }
+    },
+    {
+      "id": "l_store",
+      "from": "r_a",
+      "to": "store",
+      "run": {
+        "spans": [],
+        "drop": "block:6:6/a|outer|+x|67,56"
+      }
+    },
+    {
+      "id": "l_fb",
+      "from": "j_0",
+      "to": "tb_b",
+      "run": {
+        "spans": [
+          "span:pole:x:9:hi:272.50~pole:x:9:lo:272.50"
+        ]
+      }
+    },
+    {
+      "id": "l_b",
+      "from": "tb_b",
+      "to": "fb",
+      "run": {
+        "spans": [
+          "span:pole:x:9:hi:272.50~pole:z:6:hi:342.50",
+          "span:pole:z:6:hi:342.50~pole:z:6:hi:355.00",
+          "span:pole:z:6:hi:355.00~pole:z:6:hi:367.50",
+          "span:pole:x:10:lo:272.50~pole:z:6:hi:367.50",
+          "span:pole:x:10:lo:272.50~pole:x:10:lo:285.83",
+          "span:pole:x:10:lo:285.83~pole:x:10:lo:294.17",
+          "span:pole:x:10:lo:294.17~pole:x:10:lo:299.50"
+        ]
+      }
+    },
+    {
+      "id": "l_m",
+      "from": "fb",
+      "to": "j_m",
+      "run": {
+        "spans": [
+          "span:pole:x:10:lo:299.50~pole:x:10:lo:315.83"
+        ]
+      }
+    },
+    {
+      "id": "l_mill",
+      "from": "j_m",
+      "to": "mill",
+      "run": {
+        "spans": [],
+        "drop": "block:6:8/b|outer|+z|62,73"
+      }
+    },
+    {
+      "id": "l_rb",
+      "from": "j_m",
+      "to": "r_b",
+      "run": {
+        "spans": [
+          "span:pole:x:10:lo:315.83~pole:x:10:lo:326.67",
+          "span:pole:x:10:lo:326.67~pole:x:10:lo:337.50",
+          "span:pole:x:10:lo:337.50~pole:z:7:lo:367.50",
+          "span:pole:z:7:lo:355.00~pole:z:7:lo:367.50"
+        ]
+      }
+    },
+    {
+      "id": "l_yard",
+      "from": "r_b",
+      "to": "yard",
+      "run": {
+        "spans": [],
+        "drop": "block:6:8/b|outer|+x|67,70"
+      }
+    },
+    {
+      "id": "l_tie",
+      "from": "r_b",
+      "to": "j_a",
+      "run": {
+        "spans": [
+          "span:pole:z:7:lo:342.50~pole:z:7:lo:355.00",
+          "span:pole:x:9:hi:337.50~pole:z:7:lo:342.50",
+          "span:pole:x:9:hi:337.50~pole:x:9:lo:337.50"
+        ]
+      }
+    }
+  ],
+  "faults": [
+    {
+      "id": "f_bulb",
+      "at": "shrine",
+      "kind": "dead-lamp"
+    }
+  ]
+}
