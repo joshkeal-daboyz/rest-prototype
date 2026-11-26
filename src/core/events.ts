@@ -18,7 +18,8 @@ export interface GridEvents {
   "battery:released": { nodeId: string; charge: number };
   /** A released battery ran out, or the player stopped it. */
   "battery:flat": { nodeId: string; stopped: boolean };
-  "breaker:thrown": { nodeId: string; closed: boolean };
+  /** `timer: true` when a timed breaker's clock threw it (ticket 081 TB): not a player action, not an undo step. Absent for a player's throw. */
+  "breaker:thrown": { nodeId: string; closed: boolean; timer?: true };
   /** `spring: true` when a spring switch returned to its file position on losing power (not a player action). Absent for a throw. */
   "switch:thrown": { nodeId: string; selected: 0 | 1; spring?: true };
   /**

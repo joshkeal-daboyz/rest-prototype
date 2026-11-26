@@ -97,6 +97,38 @@ describe("the validator catches broken puzzles", () => {
     expect(validatePuzzle(p).ok).toBe(true);
   });
 
+  it("a timed breaker's schedule (081 TB0): whole seconds 2 to 30, an offset below the cycle, closed where it stands, only on a breaker, a map cycle of 60 s at most", () => {
+    type N = { id: string; type: string; closed?: boolean; timer?: unknown };
+    const withTimers = (set: (byId: (id: string) => N) => void) => {
+      const p = base();
+      const nodes = p["nodes"] as N[];
+      set((id) => nodes.find((n) => n.id === id)!);
+      return validatePuzzle(p);
+    };
+    const errs = (r: ReturnType<typeof validatePuzzle>): string => (r.ok ? "" : r.errors.join("\n"));
+    // Good: an alternating pair (closed 6, open 6, offsets 0 and 6), each node's closed where its timer stands.
+    const good = withTimers((n) => {
+      n("br_street").timer = { closed: 6, open: 6 };
+      n("br_main").timer = { closed: 6, open: 6, offset: 6 };
+      n("br_main").closed = false;
+    });
+    expect(good.ok, errs(good)).toBe(true);
+    const bad: [(byId: (id: string) => N) => void, RegExp][] = [
+      [(n) => { n("sw_1").timer = { closed: 6, open: 6 }; }, /node sw_1: only a breaker may have a timer/],
+      [(n) => { n("br_street").timer = { closed: 2.5, open: 6 }; }, /breaker br_street: timer.closed must be a whole number of seconds from 2 to 30/],
+      [(n) => { n("br_street").timer = { closed: 6, open: 31 }; }, /breaker br_street: timer.open must be a whole number of seconds from 2 to 30/],
+      [(n) => { n("br_street").timer = { closed: 6, open: 6, offset: 12 }; }, /breaker br_street: timer.offset must be a whole number of seconds from 0 to below 12/],
+      [(n) => { n("br_street").timer = { closed: 6, open: 6, offset: 7 }; }, /breaker br_street: closed must be false, where its timer stands at offset 7/],
+      // 7 + 6 = 13 and 5 + 6 = 11: the cycle is 143 s.
+      [(n) => { n("br_street").timer = { closed: 7, open: 6 }; n("br_main").timer = { closed: 5, open: 6 }; }, /the timers' cycle is 143 s .* at most 60/],
+    ];
+    for (const [set, re] of bad) {
+      const r = withTimers(set);
+      expect(r.ok).toBe(false);
+      expect(errs(r)).toMatch(re);
+    }
+  });
+
   it("a street needs its start, night, satchel and favor", () => {
     const p = base();
     p["scope"] = "street";

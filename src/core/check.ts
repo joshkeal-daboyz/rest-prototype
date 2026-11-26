@@ -133,7 +133,7 @@ const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFin
 
 /**
  * Check a parsed check block against its puzzle (which must already be valid). Never throws; returns every problem.
- * Rules (see puzzles/SCHEMA.md): a click names a breaker, switch or battery; `release:` names a battery; `repair:`
+ * Rules (see puzzles/SCHEMA.md): a click names a breaker (not a timed one, 081 TB), switch or battery; `release:` names a battery; `repair:`
  * names the `at` of a file fault or a fusebox with a rating (a fuse that can blow in play); `wait:` is positive.
  * Sections, if given, partition the nodes; every line between two sections is a link; each link declares a stub
  * for exactly the two sections it joins; the sections' parts add up to `startingParts`.
@@ -174,6 +174,8 @@ export function validateCheck(json: unknown, puzzle: Puzzle): { ok: true; check:
         if (!n) err(`${at}: "${p.id}" is not a node`);
         else if (n.type !== "breaker" && n.type !== "switch" && n.type !== "battery")
           err(`${at}: ${p.id} is a ${n.type}; a move clicks a breaker, switch or battery`);
+        else if (n.type === "breaker" && n.timer !== undefined)
+          err(`${at}: ${p.id} is a timed breaker; it is thrown by its clock, never clicked (wait:<seconds> for its flip)`);
       } else if (p.kind === "release") {
         const n = nodeById.get(p.id);
         if (n?.type !== "battery") err(`${at}: release:${p.id}: ${p.id} is not a battery`);

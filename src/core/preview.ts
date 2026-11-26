@@ -30,6 +30,11 @@ export interface LoadPreviewEntry {
    * Set by `loadPreview` on every entry from NC1 on; absent reads as none.
    */
   readonly lines?: { readonly on: readonly string[]; readonly off: readonly string[] };
+  /**
+   * Set on a timed breaker's entry (ticket 081 TB): the entry is what its clock's next flip will do, not a click (the player cannot throw it). `kind` stays "breaker", and `delta`, `over`,
+   * `blows` and `lines` read as for a throw. Absent on every other entry.
+   */
+  readonly timed?: true;
 }
 
 /**

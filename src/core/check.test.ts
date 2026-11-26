@@ -124,6 +124,12 @@ describe("validateCheck accepts", () => {
 });
 
 describe("validateCheck rejects, with one message each", () => {
+  it("a click on a timed breaker (081 TB0): its clock throws it; a wait is the move", () => {
+    const timed: Puzzle = { ...shrine, nodes: shrine.nodes.map((n) => (n.id === "br_street" && n.type === "breaker" ? { ...n, timer: { closed: 6, open: 6 } } : n)) };
+    rejectsOnce({ solution: ["br_street", "sw_1"] }, /br_street is a timed breaker; it is thrown by its clock/, timed);
+    expect(validateCheck({ solution: ["wait:6", "br_main", "sw_1"] }, timed).ok).toBe(true);
+  });
+
   it("a move naming a node that isn't a breaker, switch or battery", () => {
     const c = good();
     c["solution"] = ["j1"];
