@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { PUZZLES_DIR } from "./check";
-import { formatAnalysis, loadPuzzle } from "./analyze";
+import { formatAnalysis, loadCityPuzzle, loadPuzzle, withoutHidden } from "./analyze";
 import { analyzePuzzle, DEFAULT_CAP } from "./analyzerun";
 
 const load = (name: string) => loadPuzzle(join(PUZZLES_DIR, `${name}.json`));
@@ -138,5 +138,17 @@ describe("D2: past the cap it proves a lower bound", () => {
       if (r.minClicks !== null) expect(r.minClicks).toBe(4);
     }
     expect(analyzePuzzle(p, { cap: 16 }).exhaustive).toBe(true);
+  }, { timeout: 60000 });
+});
+
+describe("081 N0: npm run analyze reads a city puzzle on its conversion", () => {
+  it("P0 on the city: a win with the schematic's fewest clicks, and no hidden scenery id in the report's lists", () => {
+    const c = loadCityPuzzle(join(PUZZLES_DIR, "city", "city-two-ways-round.city.json"));
+    const r = withoutHidden(analyzePuzzle(c.puzzle), c.hidden);
+    expect(c.hidden.size).toBeGreaterThan(0);
+    expect(r.solvable).toBe(true);
+    expect(r.minClicks).toBe(analyzePuzzle(load("city-two-ways-round")).minClicks);
+    const listed = [...r.firstMoves, ...(r.deadFirstMoves ?? []), ...r.blowAnywhere, ...(r.win?.moves ?? [])];
+    expect(listed.filter((m) => c.hidden.has(m.slice(m.indexOf(":") + 1)))).toEqual([]);
   }, { timeout: 60000 });
 });

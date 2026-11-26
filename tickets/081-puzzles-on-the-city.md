@@ -1,7 +1,7 @@
 # 081 · Purge the old city; the 64 puzzles on the pipeline city, on its streets, picked models, and a 2D overlay to play them
 
 owner: per section (renderer, puzzle-designer, pipeline-designer, lead-architect, grid-simulator, landscape, facades, ui; see Sections)
-status: approved (G1, Josh, 23 Nov 2026, in chat: "Approve 081"). **Section W cut 25 Nov 2026 from Josh's play of P2a; approved (G1) the same day, on a card: "Approve W (Recommended)".** W0's note is in (`docs/design/081-W0-building-targets.md`, 82f8f37); Josh answered its two cards the same day: W-Q3 "Own block roofs (Recommended)"; ring lines read outward from where each line takes its power: "Yes (Recommended)". W1 and P2a2 re-cut to them. Cut 23 Nov 2026 on Josh's request (below); re-cut the same day on his answers to questions 1 to 10 (below). **K2 is done** (K2a, K2a2, K2b, K2c, K2d1, K2d2 all merged; K2d2 by PR #42, Josh, 24 Nov 2026, on a card: "Merge K2d2 (Recommended)"). **Next: the playable path** (Josh, 24 Nov 2026, on a card: "Playable path first (Recommended)"): P0, K3, U1, then E2, then U2, before H4, P1 and P2a. See *The playable path*.
+status: approved (G1, Josh, 23 Nov 2026, in chat: "Approve 081"). **Section N (series v1, 25 new puzzles) cut 25 Nov 2026; N0, N1 and NS approved (G1) the same day, on a card: "Approve (Recommended)". P2b to P2d dropped the same day (Josh: "I don't want to convert the existing puzzles."). T3b done (PR #96).** **Section W cut 25 Nov 2026 from Josh's play of P2a; approved (G1) the same day, on a card: "Approve W (Recommended)".** W0's note is in (`docs/design/081-W0-building-targets.md`, 82f8f37); Josh answered its two cards the same day: W-Q3 "Own block roofs (Recommended)"; ring lines read outward from where each line takes its power: "Yes (Recommended)". W1 and P2a2 re-cut to them. Cut 23 Nov 2026 on Josh's request (below); re-cut the same day on his answers to questions 1 to 10 (below). **K2 is done** (K2a, K2a2, K2b, K2c, K2d1, K2d2 all merged; K2d2 by PR #42, Josh, 24 Nov 2026, on a card: "Merge K2d2 (Recommended)"). **Next: the playable path** (Josh, 24 Nov 2026, on a card: "Playable path first (Recommended)"): P0, K3, U1, then E2, then U2, before H4, P1 and P2a. See *The playable path*.
 branch: `ticket/081-puzzles-on-the-city` (this file and the `src/core/` types). One branch per pull request: `ticket/081<section>-<slug>`, from this branch until it is on `main`.
 
 ## Josh's words (23 Nov 2026, in chat)
@@ -154,7 +154,7 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | H4 | Stage 7's roof pieces keep clear of the corner roof structures | facades | K2d1 | 2 added, 4 rewritten |
 | P1 | The fit tool and the city check (with the mid-row clearance check), and the raised numbers (criteria 10 and 11, section S) | grid-simulator | K2c, K2d2, **S1** | 12 |
 | P2a | Puzzles 01 to 16 on the city (the pilot), raised; 09 and 12 hand-fixed (section S) | puzzle-designer | P1, K2d2 (9 of the 16 need roofs), S1 | 0 |
-| P2b to P2d | Puzzles 17 to 64, 16 a batch | puzzle-designer | P2a, and Josh's word after playing it | 0 each |
+| P2b to P2d | ~~Puzzles 17 to 64, 16 a batch~~ **Dropped 25 Nov 2026** (Josh: "I don't want to convert the existing puzzles."); replaced by section N | puzzle-designer | n/a | n/a |
 | D1 | The component shortlist | pipeline-designer | G1 | 0 (a note) |
 | D2 | The gallery's component view | ui | D1 | 5 |
 | D3 | The picks table | renderer | Josh's first picks | 2 |
@@ -202,6 +202,12 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | T1 | The title backdrop: the splash's turning sky, the title's moon over the city and one lit building on the right (cut 25 Nov 2026; **approved (G1) the same day**: "Approve") | renderer | SK | 2 |
 | T2 | Progress and the stage list, pure: best moves and time per stage in `localStorage`, completed stages plus the next | ui | G1 | at most 5 |
 | T3 | The screens: the "Uronacid" splash, the title with start and exit, the stage select dropdown, the win recorded; dev routes skip them | ui | T1, T2 | at most 3 |
+| T3b | The goodbye line moves left, on the title margin (Josh: "Move it left (Recommended)") | ui | T3 | **done** (PR #96; Josh: "Merge when green (Recommended)") |
+| N0 | `npm run analyze` reads a city puzzle file, on its conversion (cut 25 Nov 2026; **approved (G1)**: "Approve (Recommended)") | grid-simulator | G1 | at most 2 |
+| N1 | Series v1, batch 1: puzzles 1 to 5 on the city | puzzle-designer (Fable 5.2) | G1, N0 | 0 |
+| NS | The stage select lists only the series, in its order | ui | G1; merges after N1 | at most 2 (1 rewritten, at most 1 added) |
+| N2 | Series v1, batch 2: puzzles 6 to 15. **Waiting** on Josh's play of batch 1 | puzzle-designer (Fable 5.2) | N1, NS, Josh's word after playing 1 to 5 | 0 |
+| N3 | Series v1, batch 3: puzzles 16 to 25. **Waiting** on Josh's play of batch 2 | puzzle-designer (Fable 5.2) | N2, Josh's word after playing 6 to 15 | 0 |
 
 `src/play/` (interaction) has no section. E2 keeps the `MapRenderer3d` interface, so play and its `hitTest` calls do not change. If E2's builder finds that `src/play/` must change, it stops, and the architect re-cuts with an interaction section.
 
@@ -740,8 +746,10 @@ It writes a draft `puzzles/city/<NN-slug>.city.json` with `from` set. When there
 
 ### P2a · Puzzles 01 to 16 on the city, the pilot (puzzle-designer). Branch `ticket/081p2a-city-puzzles-01-16`
 **Built (PR #69, review: meets); Josh played it 25 Nov 2026: "Some need work". Superseded by section W's P2a2 (Josh, 25 Nov 2026, on a card, W-Q5: "Close, re-lay (Recommended)"); the main session closed PR #69 unmerged.**
-### P2b to P2d · Puzzles 17 to 32, 33 to 48, 49 to 64. Branches `ticket/081p2b-...`, `p2c`, `p2d`
-P2b to P2d start only after Josh has played the pilot and said so in chat (answer 2).
+### P2b to P2d · Puzzles 17 to 32, 33 to 48, 49 to 64. **Dropped 25 Nov 2026; replaced by section N**
+**Josh, 25 Nov 2026, in chat:** "I don't want to convert the existing puzzles. Instead I want to use Fable 5.2 to analyze the existing puzzles and come up with a series of 25 puzzles that are progressively more difficult. The current puzzles are too repetitive." No P2b, P2c or P2d branch is cut. The schematic files 17 to 64 stay in `puzzles/` unedited, as the source the series draws ideas from (never a file to convert). The text below is kept as the record of how the pilot was laid; its rules for laying a puzzle (CK12, CK13 as changed, `pos` never authored, districts may overlap) still bind section N.
+
+~~P2b to P2d start only after Josh has played the pilot and said so in chat (answer 2).~~
 
 **The pilot, from B1p.**
 - 01, 02, 05, 06, 08, 13 and 16 fit on poles, on 1 block.
@@ -2515,8 +2523,142 @@ Nothing in SK is open.
 
 Nothing in T is open. T-Q7: "Replay any (Recommended)".
 
+#### T3b · The goodbye line moves left (ui). Branch `ticket/081t3b-goodbye-left`. **Done** (PR #96)
+**Josh, 25 Nov 2026, on a card:** "Move it left (Recommended)". The exit's goodbye line ("Rest: Circuits is closed. You can close this tab.", T3 criterion 3) moves from the centre to the title's left margin, wrapping within the left half of the screen, clear of the lit building on the right.
+- **Built:** `index.html` only (the line's style; f0c41db). Review `reviews/081-t3b-goodbye-left.md`: meets, must-fix 0. Count: 0 tests.
+- **Merged** into `main` by PR #96 (a9c20ce). Josh, 25 Nov 2026, on a card: "Merge when green (Recommended)".
+
+### N · Series v1: 25 new puzzles on the city, progressively harder. Cut 25 Nov 2026 for G1, in five PRs: N0, N1 and NS, then N2, then N3. **N0, N1 and NS approved (G1) 25 Nov 2026**; N2 and N3 wait on Josh's play
+
+**Josh's answers, 25 Nov 2026, on a card (relayed by the main session):**
+- **G1 for N0, N1 and NS:** "Approve (Recommended)". The architect's calls below stand as written.
+- **N-Q1, the HUD's Map menu:** "Keep all (Recommended)". The Map menu keeps listing every city puzzle, pilots and P0 included, as a dev aid; only the stage select shows the series.
+- **N-Q2, what counts as a new concept:** "New move counts (Recommended)". A new reasoning move that combines earlier ideas is a new concept; puzzles 11, 13 and 14 stay as planned.
+
+**Josh's words, 25 Nov 2026 (relayed by the main session):**
+- **The request, in chat:** "I don't want to convert the existing puzzles. Instead I want to use Fable 5.2 to analyze the existing puzzles and come up with a series of 25 puzzles that are progressively more difficult. The current puzzles are too repetitive."
+- **The plan** (`puzzles/series-v1.md`, written by the puzzle-designer on Fable 5.2), on a card: "Approve, batches (Recommended)". Build 1 to 5, Josh plays; then 6 to 15, he plays; then 16 to 25.
+- **Batteries** (the plan's question 1): "The puzzles should have progressive levels of difficulty and introduce new concepts to the player with each puzzle, one building upon the next." **Read:** batteries stay, as one of the concepts (puzzles 19, 20, 21, 24 and 25 as planned). Every puzzle introduces something new and builds on the ones before it.
+- **Targets** (the plan's question 2, other buildings than the shrine): "I don't care. Just make sure that different points on the map are used with each puzzle. You can even use the same nodes over again if it means increasing the complexity of the puzzle to spread across multiple districts." **Read:** what the priests ask for is the designer's choice (the plan's own cap of the shrine at most 5 times holds); each puzzle is laid on a different part of the city from the one before and after it; a place (a pole, a roof structure, a building) may be used again by a later puzzle, notably where a bigger puzzle spreads over several blocks.
+- **The pilots** (the plan's question 3): "Replace (Recommended)". The stage select lists only the new series. The 17 city puzzles on `main` (the 16 pilots `01-first-light` to `16-behind-the-first`, and P0 `city-two-ways-round`) stay in `puzzles/city/`, unedited, but are not stages.
+
+**What this replaces.** P2b to P2d (puzzles 17 to 64 converted) are dropped, by the request above. The pilots are not re-laid or edited again.
+
+**What exists today (read 25 Nov 2026 at `main` a9c20ce).**
+- **The stages** are T2's `stageList` (`src/ui/progress.ts`): every non-locked city puzzle whose **id** starts with a number (`stageNumber`), in number order, the completed ones then the next. `src/main.ts` also uses `stageNumber` to pick the title's building (stage 01's, T-Q6) and to decide which wins are recorded. So a series file with an id starting `01` would collide with the pilot `01-first-light`; the series needs its own id form (NS).
+- **Next** on the win splash is `nextMap` (`src/ui/logic.ts`): the next entry of the picker's list, which is `collectCityMaps`' path order. The HUD's Map menu lists every city puzzle, in path order.
+- **The tools.** `npm run fit` takes a schematic file (`puzzles/<id>.json`) and writes a city draft; `npm run fit -- --raise` raises a city file from its own numbers when it has a check block and no schematic; `npm run check puzzles/city/` and P1's sweep (`tools/fit.test.ts`, every `puzzles/city/*.city.json`, flat, not recursive) hold every city file to C1's validator, W1's rules and its note's check block. **`npm run analyze` reads schematic files only** (`validatePuzzle`): the pilots' notes got their analyzer numbers from scratch runs of `analyzePuzzle` on the conversion. A new series puzzle has no schematic, so N0 gives the analyzer the city file.
+- **Never played on the city:** relay, spring and battery (the plan's section 2). Every element the series uses is in the schema and the simulator today; no rule or schema change.
+
+**The architect's calls (Proposed; Josh's to overturn at G1).**
+- **Ids and files.** Series puzzle *n* is `puzzles/city/sNN-<slug>.city.json` and `puzzles/city/sNN-<slug>.md` (flat in `puzzles/city/`, so P1's sweep and `npm run check puzzles/city/` hold it with no tool change), id `sNN-<slug>` (`s01-first-light`), name `"NN · <working name>"` (`"01 · First light"`, the plan's working name, which the designer may better). The `s` keeps the series' ids apart from the pilots' and orders them after the pilots and P0 in path order.
+- **No `from`.** A series puzzle is a new puzzle (the plan: "never a file to convert"), so it carries no `from`. The fit's input schematic, if the designer uses the fit, is a scratch file outside the repo; no new file goes in `puzzles/` outside `puzzles/city/`. Its check block, its numbers and its analyzer numbers are its own.
+- **"Kit"** in the plan's "no kit repeats on neighbouring puzzles" is the parts list with its counts. The empty kits of 1 to 3 are the plan's own (nothing to spend before 4), not a repeat.
+- **"Buildings"** in the plan's "at most 8 buildings" counts the puzzle's own lamps, not section S's scenery buildings, as the plan's section 2 says.
+- **The title's building** (T-Q6, "Stage 01's, gold (Recommended)") becomes series puzzle 01's target building, since stage 01 is now `s01-...`. It follows from NS with no renderer change.
+- **The HUD's Map menu** (in play) keeps listing every city puzzle, pilots and P0 included, as the dev aid it is today. Only the stage select changes (Josh, N-Q1: "Keep all (Recommended)").
+
+**No Decided rule is touched.** The series plays every rule of the brief's "Rules carried over" on `src/grid/` unchanged; the plan's section 2 lists no rule or schema change. No `tickets/rules-coverage.md` row moves (the rules are held where they are; the sweep replays every series check block). **No pipeline-designer pre-check:** N0 and NS add no rule or number of the city's grammar, and the series rules (blow cap, kit, sizes, spread) are the designer's aims for its own puzzles, checked by the reviewer against the notes, not rules the city enforces.
+
+**Order.**
+| PR | Section | Owner | After | Shares | Tests |
+| --- | --- | --- | --- | --- | --- |
+| 1 | N0, the analyzer on a city file | grid-simulator | G1 | `tools/` only | at most 2 |
+| 2 | N1, batch 1 (puzzles 1 to 5) | puzzle-designer (Fable 5.2) | G1; its notes' numbers need N0 merged (the designer may lay the files meanwhile) | `puzzles/city/`, `puzzles/SCHEMA.md` | 0 |
+| 2, beside N1 | NS, the stage select | ui | G1; **merges after N1** (until then there is no stage 01, and the page opens its first puzzle as T3 does without one) | `src/ui/progress.ts` | at most 2 |
+| — | Josh plays 1 to 5 from the stage select | | N1 and NS merged | | |
+| 3 | N2, batch 2 (6 to 15) | puzzle-designer (Fable 5.2) | Josh's word after playing 1 to 5; the architect re-cuts N2 to it first | `puzzles/city/` | 0 |
+| — | Josh plays 6 to 15 | | N2 merged | | |
+| 4 | N3, batch 3 (16 to 25) | puzzle-designer (Fable 5.2) | Josh's word after playing 6 to 15; re-cut first | `puzzles/city/` | 0 |
+
+**The series rules each batch holds** (from `puzzles/series-v1.md`, section 3; the table there is the plan, row by row):
+- **One new concept per puzzle** (Josh: "introduce new concepts to the player with each puzzle, one building upon the next"): its row's "New idea" and "reasoning move", which no earlier series puzzle has taught; and it uses no element a later row introduces. The note names its concept and the earlier concepts it builds on.
+- **The fuse-blow cap:** "the obvious breaker blows a fuse" opens at most two puzzles of the 25 (8 and 19); "fit it and it blows again" is the trap of none.
+- **No repeats on neighbours:** no kit repeats on neighbouring puzzles; the heavy building is never the same two puzzles running; the target is the shrine at most 5 times in the 25 (each note keeps the running count).
+- **Size caps:** at most 8 of the puzzle's own buildings and 4 faults on any map; each puzzle's faults, parts and controls as its row's **Size**.
+- **A different place** (Josh: "different points on the map are used with each puzzle"): no puzzle's district shares a block with the puzzle before or after it, and no two series puzzles have the same district. Districts are 1 block for 1 to 10, 2 for 11 to 20, 3 or 4 for 21 to 25 (the plan). Places may be used again by any later puzzle whose district differs (Josh: "You can even use the same nodes over again").
+- **The difficulty band** (the plan's band table): fewest clicks, hidden facts, dead ends and layers within the row's band, read from the analyzer.
+
+A puzzle whose row cannot be laid as planned may change its trap's details, said in its note; it may not change its new concept or break a series rule. If it would, the designer stops (see N1's stop rule).
+
+#### N0 · `npm run analyze` reads a city puzzle file (grid-simulator). Branch `ticket/081n0-analyze-city`, after G1
+**Goal.** The puzzle-designer (and the reviewer) can run `npm run analyze puzzles/city/<id>.city.json` and get the same report a schematic gets, for the puzzle as it plays on the city.
+
+**Acceptance criteria.**
+1. [ ] **A city file is analyzed on its conversion.** Given a `*.city.json`, `npm run analyze` validates it (C1), converts it on its own city (`city` block: 6 x 6 seed 1, one-way on, through the module cache `tools/fit.ts` and `tools/check.ts` already use), and runs `analyzePuzzle` on the converted `Puzzle`, with the same flags (`--cap`, `--click-seconds`, `--json`). A schematic file behaves exactly as today. **test**: 1 case, on P0 (`city-two-ways-round.city.json`): the report finds a win, and its fewest clicks equal the schematic's (`puzzles/city-two-ways-round.json`; P0 is raised, not reworked, so they must agree).
+2. [ ] **Scenery is not reported as the puzzle's.** S1's hidden lamps and junctions (`converted.hidden`) are left out of the report's lists (lamps lit, controls, dead first moves) and counted only in the feeds' and fuses' loads, which is where they draw. **test**: folded into criterion 1's case (no hidden id appears in the report's lists), or 1 more case at most if a fixture is clearer.
+3. [ ] `--sections` on a city file says "not for city files" and exits non-zero, rather than guessing. **no test**.
+4. [ ] The builder gives the new case's time on Josh's PC (it builds one city through the cache; under 2 s, or the reason). **no test**.
+
+**Count.** At most 2 added.
+
+**Files.** `tools/analyze.ts`, `tools/analyzerun.ts` (only if the hidden filter belongs there), `tools/analyze.test.ts`. **Must not:** `src/`, `puzzles/`, `package.json` (the `analyze` script is unchanged).
+
+**Interfaces.** None in `src/core/`. No new dependency.
+
+#### N1 · Series v1, batch 1: puzzles 1 to 5 (puzzle-designer, Fable 5.2). Branch `ticket/081n1-series-batch-1`, after G1
+**Goal.** The first five puzzles of the series are on the city, each teaching one thing on its own part of the map, so Josh can play 1 to 5 from the stage select and say what they teach about reading on the city before 6 to 25 are built.
+
+**The five** (the plan's rows; each name is a working name):
+| # | Id | New concept | Builds on | Size (faults / parts / controls) |
+| --- | --- | --- | --- | --- |
+| 1 | `s01-first-light` | The breaker: trace the target's wire back to the feed | nothing | 0 / 0 / 2 br |
+| 2 | `s02-this-way-or-that` | The switch: only a switch with current changes anything | 1 | 0 / 0 / 2 sw |
+| 3 | `s03-not-enough-for-all` | Capacity and brownout: choose what goes dark | 1, 2 | 0 / 0 / 4 br |
+| 4 | `s04-the-spark` | A damaged cable; faults are read by current | 1 to 3 | 1 / wire / 1 sw |
+| 5 | `s05-not-that-one` | Scarce parts; a dead junction costs two wires | 1 to 4 | 2 / 2 wire / 1 br |
+
+**Acceptance criteria** (each of the five):
+1. [ ] **On the city and checked.** Its city file and note are in `puzzles/city/` under the id and name above (the architect's calls), on 6 x 6 seed 1, one-way on, with no `from`; every lamp a building fed by its drop. `npm run check puzzles/city/` passes it, W1's rules included (reads outward, `FEED_CLEAR_M`, no crossing spans, own-block roofs), and its capacities are raised for its scenery (`npm run fit -- --raise`, from its own numbers). **test** (P1's sweep, unedited).
+2. [ ] **Solvable per the analyzer.** `npm run analyze puzzles/city/<id>.city.json` (N0) finds a win, and the note gives its numbers: fewest clicks, winning configurations, winning click orders, the share of dead-end states, and the obvious wrong first move with how it is read and recovered. Within the band for 1 to 5: 1 to 3 clicks; nothing hidden at the start (every fact needed is on screen); no dead end in 1 to 4; in 5, one, recovered by one Undo; 1 winning configuration in 5. **no test** (the sweep's check-block replay is the test that it wins).
+3. [ ] **One new concept, built on the ones before** (Josh: "introduce new concepts to the player with each puzzle, one building upon the next"). The note names its concept and reasoning move (the table above) and what it builds on. It uses no element a later puzzle introduces: no switch in 1; no binding capacity in 1 and 2 (the feed has room for every lamp the win needs, with S's scenery); no fault or part in 1 to 3; no fuse box, relay, spring, battery or second feed anywhere in 1 to 5. **no test**.
+4. [ ] **A different place from its neighbours** (Josh: "different points on the map are used with each puzzle"). Its district is 1 block; it shares no block with the puzzle before or after it; no two of the five are on the same block. The note names its block and the place table (node to place, line to its span chain). **no test**.
+5. [ ] **The series rules** (above): its size as the table; at most 8 of its own buildings and 4 faults; no fuse blow at all in 1 to 5 (no fuse box), so the blow cap's two openers stay 8 and 19; no kit repeats on neighbours (4's one wire, 5's two); the heavy building is not the same two puzzles running; the note keeps the shrine count (at most 5 over the 25). **no test**.
+6. [ ] **The numbers are the lesson, early.** From the plan: in 1 to 5 a red number is the lesson. The note says which move section V's load numbers mark red (or that none is, and why), from the default camera. **no test**.
+7. [ ] **The note** has, besides the above: the intended read from the default camera, saying where the target building is; **The trap**, in a line, as the plan's row (or what changed in it and why); the check block with the solution; the tribe's `priority` homes named with what the win costs them; and an empty **What it taught us**. **no test**.
+8. [ ] `puzzles/SCHEMA.md`'s city section says a series puzzle's id is `sNN-<slug>`, that it has no `from`, and that only series puzzles are stages (NS). **no test**.
+9. [ ] The designer gives P1's sweep's time on Josh's PC with the five added (`npx vitest run --maxWorkers=2 tools/fit.test.ts`). P1 criterion 7 allows it past 2 s; at 25 more puzzles by N3 it is watched, not tuned here. **no test**.
+10. [ ] **Josh plays** 1 to 5 from the stage select (after N1 and NS merge, `npm run dev`, "start"). His verdict, in his words, goes under each note's **What it taught us**, and N2 waits for it. **browser**.
+
+**Stop rule.** The designer stops ("stop 081 N1", with the branch) if a puzzle cannot be laid on a 1-block district under W1's rules with the fit and the check as they are, needs a rule, schema or tool change, or can keep its row's concept only by breaking a series rule. It does not change W1's numbers, `FIT_BUDGET` or a tool to pass; it reports what is short, and the architect re-cuts.
+
+**Count.** 0.
+
+**Files.** `puzzles/city/` (new `s01-...` to `s05-...` files and notes only; the pilots and P0 are not edited), `puzzles/SCHEMA.md` (the city section). **Must not:** `puzzles/` outside `puzzles/city/` and `SCHEMA.md`, `tools/`, `src/`.
+
+**Interfaces.** None. No new dependency.
+
+#### NS · The stage select lists only the series, in its order (ui). Branch `ticket/081ns-series-stages`, after G1; merges after N1
+**Goal.** The player's stage select (and the title's building, and the wins it keeps) is the series: stage 01 is series puzzle 01, the completed series stages and the next one are listed in series order, and the pilots and P0 are not stages (Josh: "Replace (Recommended)").
+
+**Acceptance criteria.**
+1. [ ] **A stage is a series puzzle.** `stageNumber(id)` gives *n* for a series id `sNN-<slug>` and null for every other id (the pilots `01-...` to `16-...`, `city-two-ways-round`). So `stageList` lists only series puzzles, in number order: the completed ones, then the lowest not completed; a pilot with a recorded win is not listed. **test**: the existing `stageList` case rewritten to a fixture of three series entries, a pilot with a win and P0 (1 rewritten).
+2. [ ] **What follows from it, unchanged code** (`src/main.ts`): the title's building is series 01's target (T-Q6, "Stage 01's, gold (Recommended)", read as the series' stage 01); a win is recorded for series stages only; with no series file on the page the title is skipped and the first puzzle opens, as T3 does today. The builder confirms each in its reply and changes `main.ts` only where one does not hold. **no test**.
+3. [ ] **Next goes along the series.** A series stage's win splash offers the next series puzzle on the page by number, and none after the last one built. If `nextMap`'s path order already gives this (series files sort after the pilots and P0, and in number order), no change; otherwise `nextMap` takes the series order for a series stage. **test**: 1 case, only if `nextMap` changes; otherwise **no test**, and the builder says why it holds.
+4. [ ] **Old progress is left alone.** Wins recorded under the pilots' ids stay in `rest-circuits.progress.v1`, unlisted; no migration, no key change. Clear progress clears them too. **no test**.
+5. [ ] Josh opens `npm run dev` after N1 and NS merge: the title shows series 01's building, the select lists "01 · ..." alone, a win of it lists it with its moves and time and offers 02 next. **browser**.
+
+**Count.** At most 2 (1 rewritten, at most 1 added).
+
+**Files.** `src/ui/progress.ts`, `src/ui/progress.test.ts`; `src/ui/logic.ts` and its test (`nextMap`, only under criterion 3); `src/main.ts` (only under criterion 2). **Must not:** `src/render3d/`, `src/play/`, `src/grid/`, `src/core/`, `puzzles/`, `tools/`, `src/ui/maps.ts` (the picker's list is unchanged).
+
+**Interfaces.** None in `src/core/`. No event. No new dependency.
+
+#### N2 · Series v1, batch 2: puzzles 6 to 15 (puzzle-designer, Fable 5.2). Branch `ticket/081n2-series-batch-2`. **Waiting** on Josh's play of batch 1
+Named, not cut in full. It starts only after Josh has played 1 to 5 and said so in chat; the architect first re-cuts it to what he says (the plan's own reason for batches: "so what 1 to 5 teach about reading on the city can change the rest").
+- **As planned:** rows 6 to 15 of `puzzles/series-v1.md` (behind the fuse, the long way, the small box, two ways round, count the dark, leave it open, meet in the middle, look from behind, which fuse, the fuse above), ids `s06-...` to `s15-...`.
+- **Criteria as N1's**, with the plan's band for 6 to 15: 3 to 6 clicks; 1 or 2 hidden facts; dead ends readable, recovered by a part or one Undo; 2 layers; from 6 on, the wrong move is not one red number deep (the plan's difficulty rule 2). Districts of 1 block for 6 to 10 and 2 blocks for 11 to 15. The only "obvious breaker blows a fuse" opener is 8. The first fuse box, rating, ring, nested fuse and second feed appear here, each in its own row first.
+- **Josh plays** 6 to 15; N3 waits for his word. Count 0. Files: `puzzles/city/` only.
+
+#### N3 · Series v1, batch 3: puzzles 16 to 25 (puzzle-designer, Fable 5.2). Branch `ticket/081n3-series-batch-3`. **Waiting** on Josh's play of batch 2
+Named, not cut in full; it starts after Josh has played 6 to 15 and said so in chat, re-cut to what he says first.
+- **As planned:** rows 16 to 25 (only moves live, the back door, keep it live, the cell, by cell light, far one first, move the meeting, the priests' list, hold the spring, the whole chain), ids `s16-...` to `s25-...`. Batteries stay (Josh, above): 19, 20, 21, 24 and 25.
+- **Criteria as N1's**, with the plan's band for 16 to 25: 5 to 10 clicks; 1 to 3 hidden facts; the first wrong click always recoverable by a part or a wait; 3 to 6 layers. Districts of 2 blocks for 16 to 20 and 3 or 4 for 21 to 25. The only "obvious breaker blows a fuse" opener is 19. The first relay is 16, the first spring 18, the first battery 19: each on a plain map first.
+- **A risk named now:** relay, spring and battery have never been laid on the city. If the fit or W1's check cannot place one, N3 stops under N1's stop rule and the architect cuts a grid-simulator section; nothing is changed in N3 to get round it.
+- **Josh plays** 16 to 25. Count 0. Files: `puzzles/city/` only.
+
 ## Files
-Per section, above. This branch (the cut): `tickets/081-puzzles-on-the-city.md`, `docs/design/070-K1-circuit.md` (CK9 as changed, 24 Nov 2026; CK14's dark-building line struck for section S, 24 Nov 2026), `tickets/070-city-pipeline.md` (pointer lines), `tickets/071-pack-power-lines.md` (a pointer line: C and E's ladder wiring are dropped), `tickets/rules-coverage.md`, `src/core/citycircuit.ts` (new; `CityPuzzleView` added 24 Nov 2026 for the playable path), `src/core/cityplan.ts` (`CityCircuitLayer`), `src/core/index.ts`. Section FX's cut (24 Nov 2026): new `src/core/fx.ts`, `src/core/assets.ts` (`AssetManifest.fx?`), `src/core/index.ts`, `tickets/rules-coverage.md`. Section W's cut (25 Nov 2026): this file and `tickets/rules-coverage.md` only; no `src/core/` change (W1's numbers live in `tools/`, and `{ post }` and `lead` stay typed). Sections SK and T (cut and re-cut 25 Nov 2026): this file only (with open question 20 closed); no `src/core/` change and no rules-coverage row.
+Per section, above. This branch (the cut): `tickets/081-puzzles-on-the-city.md`, `docs/design/070-K1-circuit.md` (CK9 as changed, 24 Nov 2026; CK14's dark-building line struck for section S, 24 Nov 2026), `tickets/070-city-pipeline.md` (pointer lines), `tickets/071-pack-power-lines.md` (a pointer line: C and E's ladder wiring are dropped), `tickets/rules-coverage.md`, `src/core/citycircuit.ts` (new; `CityPuzzleView` added 24 Nov 2026 for the playable path), `src/core/cityplan.ts` (`CityCircuitLayer`), `src/core/index.ts`. Section FX's cut (24 Nov 2026): new `src/core/fx.ts`, `src/core/assets.ts` (`AssetManifest.fx?`), `src/core/index.ts`, `tickets/rules-coverage.md`. Section W's cut (25 Nov 2026): this file and `tickets/rules-coverage.md` only; no `src/core/` change (W1's numbers live in `tools/`, and `{ post }` and `lead` stay typed). Sections SK and T (cut and re-cut 25 Nov 2026): this file only (with open question 20 closed); no `src/core/` change and no rules-coverage row. Section N (cut 25 Nov 2026), with T3b recorded and P2b to P2d dropped: this file only; no `src/core/` change and no rules-coverage row.
 
 ## Interfaces
 Written into `src/core/` with this cut (typecheck passes):
@@ -2553,6 +2695,7 @@ Written into `src/core/` with this cut (typecheck passes):
 - **No new dependency.** The overlay is Canvas 2D.
 - **SK, the night sky (25 Nov 2026):** none in `src/core/`. `NIGHT_SKY`, the sky object and `setSkyTurn` are internal to `src/render3d/`. No event, no new dependency (the sky is drawn in code with Three's own geometry and materials; no pack file, no texture loader).
 - **T, the title screen (25 Nov 2026):** none in `src/core/`. `TitleView` is types only in `src/render3d/titleview.ts` (the `maprender.ts` precedent: `src/ui/` and `main.ts` import it as a type). The progress record is the page's, in `src/ui/progress.ts`. No event. No new dependency (the browser's `<select>` and `localStorage`).
+- **N, series v1 (25 Nov 2026):** none in `src/core/`. The series id form (`sNN-<slug>`) is read by `stageNumber` in `src/ui/progress.ts` (NS); N0's city-file path is internal to `tools/`. No event. No new dependency.
 
 ## Open questions (for Josh)
 **Josh, 24 Nov 2026, on cards (relayed by the main session):**
@@ -2609,4 +2752,9 @@ All questions so far are answered (above), the mid-row one included ("Only when 
     - **X-Q2, running the harness on R1's branch:** "Wait for the next release (Recommended)" (your rule: playtests only on releases; the first city snapshots are taken then); "Run it once on R1" (this counts as your word for one run, not a release).
     - **X-Q3, the docs naming the 2D map** (`CLAUDE.md`, the brief, four agent files): "Main session rewords them after X1c (Recommended)"; "I'll reword them myself"; "Leave them for now".
 24. **Section SK. Answered 25 Nov 2026, on a card:** G1 "Approve"; SK-Q1 "Title screen (Recommended)" (in play the moonlight only; the sky, moon and stars on the splash and the title; the look-up dropped); SK-Q2 "Ahead, low (Recommended)"; SK-Q3 "No shadows (Recommended)". Josh, in chat: "we need a sky box, it should just be a night sky, and put a moon in the sky as a light source". SK-Q4 (the dev Day / Night key), answered in his own words on the SK-Q4 and T-Q7 card: "day is not an option in the final game, day should only be used for development purposes." Nothing in SK is open.
-25. **Section T. Answered 25 Nov 2026, on cards:** G1 "Approve"; T-Q1 "Rest: Circuits (Recommended)"; T-Q2 "Goodbye line (Recommended)"; T-Q3 "Best (Recommended)"; T-Q4 "Browser + Clear button (Recommended)"; T-Q5 "Every load (Recommended)"; T-Q6 "Stage 01's, gold (Recommended)". Josh, in chat: "After we create the sky box I want to create a title screen." (in full under section T). Then T-Q7, replaying a stage (asked first with SK-Q4, then on its own card): "Replay any (Recommended)". Nothing in section T is open.
+25. **Section T. Answered 25 Nov 2026, on cards:** G1 "Approve"; T-Q1 "Rest: Circuits (Recommended)"; T-Q2 "Goodbye line (Recommended)"; T-Q3 "Best (Recommended)"; T-Q4 "Browser + Clear button (Recommended)"; T-Q5 "Every load (Recommended)"; T-Q6 "Stage 01's, gold (Recommended)". Josh, in chat: "After we create the sky box I want to create a title screen." (in full under section T). Then T-Q7, replaying a stage (asked first with SK-Q4, then on its own card): "Replay any (Recommended)". Nothing in section T is open. T3b: "Move it left (Recommended)", merged by PR #96 on "Merge when green (Recommended)".
+26. **Section N, series v1 (cut 25 Nov 2026; for G1).** Your words on the plan are recorded in section N ("Approve, batches (Recommended)"; batteries: "The puzzles should have progressive levels of difficulty and introduce new concepts to the player with each puzzle, one building upon the next."; targets: "I don't care. Just make sure that different points on the map are used with each puzzle. You can even use the same nodes over again if it means increasing the complexity of the puzzle to spread across multiple districts."; pilots: "Replace (Recommended)"). For G1:
+    **Answered 25 Nov 2026, on a card:** G1 for N0, N1 and NS "Approve (Recommended)"; N-Q1 "Keep all (Recommended)"; N-Q2 "New move counts (Recommended)" (11, 13 and 14 stay as planned). Nothing in section N is open; N2 and N3 wait on Josh's play of the batch before. As asked:
+    - ~~**Approve N0, N1 and NS as cut.**~~ N2 and N3 are named and wait on your play of the batch before. N0 is the architect's addition: without it the analyzer reads only schematic files, and the series has none.
+    - ~~**N-Q1, the HUD's Map menu in play**~~ (a default you may overturn): "Keep listing every city puzzle, as a dev aid (Recommended)"; "Series only, like the stage select".
+    - ~~**N-Q2, before N2 (it does not block N1): what counts as a new concept.**~~ Puzzles 11, 13 and 14 add no new piece; each one's new thing is a move that combines two earlier ideas (the ring with the rating; the ring with faults hiding faults; the rating with the switch). The architect reads your "introduce new concepts to the player with each puzzle" as met by a new reasoning move. Options: "A new move counts (Recommended)"; "Each puzzle needs a new piece or rule" (the designer re-plans 11, 13 and 14 before N2).
