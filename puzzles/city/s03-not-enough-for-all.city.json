@@ -1,0 +1,261 @@
+{
+  "id": "s03-not-enough-for-all",
+  "name": "03 · Not enough for all",
+  "version": 3,
+  "scope": "map",
+  "capacity": 9,
+  "startingParts": [],
+  "target": [
+    "infirmary"
+  ],
+  "priority": [
+    "home"
+  ],
+  "city": {
+    "blocksX": 6,
+    "blocksZ": 6,
+    "seed": 1,
+    "oneWay": true
+  },
+  "district": [
+    "block:8:1"
+  ],
+  "nodes": [
+    {
+      "id": "feed",
+      "type": "feed",
+      "place": {
+        "pole": "pole:x:5:hi:482.50"
+      }
+    },
+    {
+      "id": "j0",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:5:lo:482.50"
+      }
+    },
+    {
+      "id": "br_inf",
+      "type": "breaker",
+      "closed": true,
+      "place": {
+        "pole": "pole:x:5:lo:471.50"
+      }
+    },
+    {
+      "id": "j_inf",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:5:lo:449.50"
+      }
+    },
+    {
+      "id": "infirmary",
+      "type": "lamp",
+      "load": 2,
+      "place": {
+        "building": "block:8:1/b|outer|+z|89,33"
+      }
+    },
+    {
+      "id": "br_shed",
+      "type": "breaker",
+      "closed": true,
+      "place": {
+        "pole": "pole:x:5:lo:438.50"
+      }
+    },
+    {
+      "id": "j_shed",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:5:lo:427.50"
+      }
+    },
+    {
+      "id": "shed",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:8:1/b|outer|+z|85,33"
+      }
+    },
+    {
+      "id": "br_stall",
+      "type": "breaker",
+      "closed": true,
+      "place": {
+        "pole": "pole:z:8:hi:167.50"
+      }
+    },
+    {
+      "id": "stall",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:8:1/b|outer|-x|85,31"
+      }
+    },
+    {
+      "id": "br_row",
+      "type": "breaker",
+      "closed": true,
+      "place": {
+        "pole": "pole:z:9:lo:167.50"
+      }
+    },
+    {
+      "id": "j_row",
+      "type": "junction",
+      "place": {
+        "pole": "pole:z:9:lo:155.00"
+      }
+    },
+    {
+      "id": "home",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:8:1/b|outer|+x|96,31"
+      }
+    },
+    {
+      "id": "kiln",
+      "type": "lamp",
+      "load": 2,
+      "place": {
+        "building": "block:8:1/b|outer|+x|96,29"
+      }
+    }
+  ],
+  "lines": [
+    {
+      "id": "l_feed",
+      "from": "feed",
+      "to": "j0",
+      "run": {
+        "spans": [
+          "span:pole:x:5:hi:482.50~pole:x:5:lo:482.50"
+        ]
+      }
+    },
+    {
+      "id": "l_inf0",
+      "from": "j0",
+      "to": "br_inf",
+      "run": {
+        "spans": [
+          "span:pole:x:5:lo:471.50~pole:x:5:lo:482.50"
+        ]
+      }
+    },
+    {
+      "id": "l_inf1",
+      "from": "br_inf",
+      "to": "j_inf",
+      "run": {
+        "spans": [
+          "span:pole:x:5:lo:460.50~pole:x:5:lo:471.50",
+          "span:pole:x:5:lo:449.50~pole:x:5:lo:460.50"
+        ]
+      }
+    },
+    {
+      "id": "l_inf",
+      "from": "j_inf",
+      "to": "infirmary",
+      "run": {
+        "spans": [],
+        "drop": "block:8:1/b|outer|+z|89,33"
+      }
+    },
+    {
+      "id": "l_shed0",
+      "from": "j_inf",
+      "to": "br_shed",
+      "run": {
+        "spans": [
+          "span:pole:x:5:lo:438.50~pole:x:5:lo:449.50"
+        ]
+      }
+    },
+    {
+      "id": "l_shed1",
+      "from": "br_shed",
+      "to": "j_shed",
+      "run": {
+        "spans": [
+          "span:pole:x:5:lo:427.50~pole:x:5:lo:438.50"
+        ]
+      }
+    },
+    {
+      "id": "l_shed",
+      "from": "j_shed",
+      "to": "shed",
+      "run": {
+        "spans": [],
+        "drop": "block:8:1/b|outer|+z|85,33"
+      }
+    },
+    {
+      "id": "l_stall0",
+      "from": "j_shed",
+      "to": "br_stall",
+      "run": {
+        "spans": [
+          "span:pole:x:5:lo:427.50~pole:z:8:hi:167.50"
+        ]
+      }
+    },
+    {
+      "id": "l_stall",
+      "from": "br_stall",
+      "to": "stall",
+      "run": {
+        "spans": [],
+        "drop": "block:8:1/b|outer|-x|85,31"
+      }
+    },
+    {
+      "id": "l_row0",
+      "from": "j0",
+      "to": "br_row",
+      "run": {
+        "spans": [
+          "span:pole:x:5:lo:482.50~pole:z:9:lo:167.50"
+        ]
+      }
+    },
+    {
+      "id": "l_row1",
+      "from": "br_row",
+      "to": "j_row",
+      "run": {
+        "spans": [
+          "span:pole:z:9:lo:155.00~pole:z:9:lo:167.50"
+        ]
+      }
+    },
+    {
+      "id": "l_home",
+      "from": "j_row",
+      "to": "home",
+      "run": {
+        "spans": [],
+        "drop": "block:8:1/b|outer|+x|96,31"
+      }
+    },
+    {
+      "id": "l_kiln",
+      "from": "j_row",
+      "to": "kiln",
+      "run": {
+        "spans": [],
+        "drop": "block:8:1/b|outer|+x|96,29"
+      }
+    }
+  ],
+  "faults": []
+}

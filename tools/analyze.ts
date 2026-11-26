@@ -9,11 +9,13 @@
 import { existsSync, readFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { parseCheckBlock, validateCheck, validatePuzzle } from "../src/core";
+import { parseCheckBlock, validateCheck, validateCityPuzzle, validatePuzzle } from "../src/core";
 import type { Puzzle } from "../src/core";
+import { convertCityPuzzle } from "../src/city/circuit/convert";
 import { DEFAULT_CAP, analyzePuzzle } from "./analyzerun";
 import type { AnalysisResult, AnalyzeOptions } from "./analyzerun";
 import { noteFor } from "./check";
+import { cityPlanFor } from "./fit";
 import { analyzeSections, formatSections } from "./sectionrun";
 
 export function loadPuzzle(path: string): Puzzle {
@@ -22,7 +24,29 @@ export function loadPuzzle(path: string): Puzzle {
   return r.puzzle;
 }
 
-const pct = (x: number): string => `${(x * 100).toFixed(1)}%`;
+/** A city puzzle file (ticket 081 N0): validated (C1), converted on the city it names, with the scenery's hidden ids returned. */
+export function loadCityPuzzle(path: string): { puzzle: Puzzle; hidden: ReadonlySet<string> } {
+  const shape = validateCityPuzzle(JSON.parse(readFileSync(path, "utf8")) as unknown);
+  if (!shape.ok) throw new Error(`${basename(path)} is not a valid city puzzle:\n  ${shape.errors.join("\n  ")}`);
+  const converted = convertCityPuzzle(shape.puzzle, cityPlanFor(shape.puzzle.city));
+  return { puzzle: converted.puzzle, hidden: new Set(converted.hidden) };
+}
+
+/** Scenery is not the puzzle's (081 N0): hidden ids leave the report's lists. They still count in the feeds' and fuses' loads, which are computed before this. */
+export function withoutHidden(r: AnalysisResult, hidden: ReadonlySet<string>): AnalysisResult {
+  const idOf = (m: string): string => m.slice(m.indexOf(":") + 1);
+  const keep = (xs: readonly string[]): string[] => xs.filter((m) => !hidden.has(idOf(m)));
+  return {
+    ...r,
+    firstMoves: keep(r.firstMoves),
+    deadFirstMoves: r.deadFirstMoves === null ? null : keep(r.deadFirstMoves),
+    blowOnShortestWin: keep(r.blowOnShortestWin),
+    blowAnywhere: keep(r.blowAnywhere),
+    win: r.win === null ? null : { ...r.win, moves: keep(r.win.moves) },
+  };
+}
+
+const pct =(x: number): string => `${(x * 100).toFixed(1)}%`;
 const list = (xs: readonly string[]): string => (xs.length ? xs.join(", ") : "none");
 
 /** The printable report: the lines the CLI shows. */
@@ -97,6 +121,7 @@ function main(argv: readonly string[]): number {
   } catch (e) { console.log((e as Error).message); return 1; }
   let bad = 0;
   for (const f of files) {
+    if (argv.includes("--sections") && f.endsWith(".city.json")) { console.log(`${basename(f)}: --sections is not for city files`); bad++; continue; }
     const p = resolve(f);
     if (!existsSync(p)) { console.log(`no such file: ${f}`); bad++; continue; }
     try {
@@ -106,7 +131,9 @@ function main(argv: readonly string[]): number {
         if (!s.ok) bad++;
         continue;
       }
-      const r = analyzePuzzle(loadPuzzle(p), opts);
+      let r: AnalysisResult;
+      if (p.endsWith(".city.json")) { const c = loadCityPuzzle(p); r = withoutHidden(analyzePuzzle(c.puzzle, opts), c.hidden); }
+      else r = analyzePuzzle(loadPuzzle(p), opts);
       if (argv.includes("--json")) console.log(JSON.stringify(r));
       else for (const l of formatAnalysis(r)) console.log(l);
     } catch (e) { console.log((e as Error).message); bad++; }
