@@ -1,0 +1,311 @@
+{
+  "id": "s18-make-before-break",
+  "name": "18 · Make before break",
+  "version": 5,
+  "scope": "map",
+  "capacity": null,
+  "startingParts": [
+    "bulb",
+    "bulb",
+    "wire",
+    "fuse"
+  ],
+  "target": [
+    "bell_tower",
+    "school"
+  ],
+  "priority": [
+    "homes"
+  ],
+  "city": {
+    "blocksX": 6,
+    "blocksZ": 6,
+    "seed": 1,
+    "oneWay": true
+  },
+  "district": [
+    "block:7:5",
+    "block:7:7"
+  ],
+  "nodes": [
+    {
+      "id": "north",
+      "type": "feed",
+      "capacity": 8,
+      "name": "North",
+      "place": {
+        "pole": "pole:z:7:lo:242.50"
+      }
+    },
+    {
+      "id": "south",
+      "type": "feed",
+      "capacity": 12,
+      "name": "South",
+      "place": {
+        "pole": "pole:z:7:lo:312.50"
+      }
+    },
+    {
+      "id": "j_w",
+      "type": "junction",
+      "place": {
+        "pole": "pole:z:7:hi:242.50"
+      }
+    },
+    {
+      "id": "school",
+      "type": "lamp",
+      "load": 3,
+      "place": {
+        "building": "block:7:5|outer|-x|73,47"
+      }
+    },
+    {
+      "id": "br_1",
+      "type": "breaker",
+      "closed": true,
+      "place": {
+        "pole": "pole:x:8:lo:390.83"
+      }
+    },
+    {
+      "id": "j_s",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:8:lo:402.50"
+      }
+    },
+    {
+      "id": "sp",
+      "type": "switch",
+      "spring": true,
+      "outputs": [
+        "l_tan",
+        "l_bell"
+      ],
+      "selected": 0,
+      "place": {
+        "pole": "pole:z:8:lo:231.25"
+      }
+    },
+    {
+      "id": "tannery",
+      "type": "lamp",
+      "load": 5,
+      "place": {
+        "building": "block:7:5|outer|+x|80,45"
+      }
+    },
+    {
+      "id": "bell_tower",
+      "type": "lamp",
+      "load": 3,
+      "place": {
+        "building": "block:8:5|outer|-x|85,43"
+      }
+    },
+    {
+      "id": "j_e",
+      "type": "junction",
+      "place": {
+        "pole": "pole:z:7:hi:312.50"
+      }
+    },
+    {
+      "id": "homes",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:7:7|outer|-x|73,60"
+      }
+    },
+    {
+      "id": "fb_e",
+      "type": "fusebox",
+      "rating": 11,
+      "place": {
+        "pole": "pole:x:9:lo:367.50"
+      }
+    },
+    {
+      "id": "r_e",
+      "type": "switch",
+      "relay": true,
+      "outputs": [
+        "l_yard",
+        "l_tie"
+      ],
+      "selected": 0,
+      "place": {
+        "pole": "pole:x:9:lo:379.17"
+      }
+    },
+    {
+      "id": "yard",
+      "type": "lamp",
+      "load": 2,
+      "place": {
+        "building": "block:7:7|outer|+z|74,62"
+      }
+    }
+  ],
+  "lines": [
+    {
+      "id": "l_n",
+      "from": "north",
+      "to": "j_w",
+      "run": {
+        "spans": [
+          "span:pole:z:7:hi:242.50~pole:z:7:lo:242.50"
+        ]
+      }
+    },
+    {
+      "id": "l_school",
+      "from": "j_w",
+      "to": "school",
+      "run": {
+        "spans": [],
+        "drop": "block:7:5|outer|-x|73,47"
+      }
+    },
+    {
+      "id": "l_1",
+      "from": "j_w",
+      "to": "br_1",
+      "run": {
+        "spans": [
+          "span:pole:x:8:lo:367.50~pole:z:7:hi:242.50",
+          "span:pole:x:8:lo:367.50~pole:x:8:lo:379.17",
+          "span:pole:x:8:lo:379.17~pole:x:8:lo:390.83"
+        ]
+      }
+    },
+    {
+      "id": "l_1s",
+      "from": "br_1",
+      "to": "j_s",
+      "run": {
+        "spans": [
+          "span:pole:x:8:lo:390.83~pole:x:8:lo:402.50"
+        ]
+      }
+    },
+    {
+      "id": "l_sp",
+      "from": "j_s",
+      "to": "sp",
+      "run": {
+        "spans": [
+          "span:pole:x:8:lo:402.50~pole:z:8:lo:242.50",
+          "span:pole:z:8:lo:231.25~pole:z:8:lo:242.50"
+        ]
+      }
+    },
+    {
+      "id": "l_tan",
+      "from": "sp",
+      "to": "tannery",
+      "run": {
+        "spans": [],
+        "drop": "block:7:5|outer|+x|80,45"
+      }
+    },
+    {
+      "id": "l_bell",
+      "from": "sp",
+      "to": "bell_tower",
+      "run": {
+        "spans": [
+          "span:pole:z:8:lo:214.50~pole:z:8:lo:231.25"
+        ],
+        "drop": "block:8:5|outer|-x|85,43"
+      }
+    },
+    {
+      "id": "l_s",
+      "from": "south",
+      "to": "j_e",
+      "run": {
+        "spans": [
+          "span:pole:z:7:hi:312.50~pole:z:7:lo:312.50"
+        ]
+      }
+    },
+    {
+      "id": "l_homes",
+      "from": "j_e",
+      "to": "homes",
+      "run": {
+        "spans": [],
+        "drop": "block:7:7|outer|-x|73,60"
+      }
+    },
+    {
+      "id": "l_e1",
+      "from": "j_e",
+      "to": "fb_e",
+      "run": {
+        "spans": [
+          "span:pole:x:9:lo:367.50~pole:z:7:hi:312.50"
+        ]
+      }
+    },
+    {
+      "id": "l_e2",
+      "from": "fb_e",
+      "to": "r_e",
+      "run": {
+        "spans": [
+          "span:pole:x:9:lo:367.50~pole:x:9:lo:379.17"
+        ]
+      }
+    },
+    {
+      "id": "l_yard",
+      "from": "r_e",
+      "to": "yard",
+      "run": {
+        "spans": [],
+        "drop": "block:7:7|outer|+z|74,62"
+      }
+    },
+    {
+      "id": "l_tie",
+      "from": "r_e",
+      "to": "j_s",
+      "run": {
+        "spans": [
+          "span:pole:x:9:lo:379.17~pole:x:9:lo:390.83",
+          "span:pole:x:9:lo:390.83~pole:x:9:lo:402.50",
+          "span:pole:x:9:lo:402.50~pole:z:8:lo:312.50",
+          "span:pole:z:8:lo:302.50~pole:z:8:lo:312.50",
+          "span:pole:z:8:lo:295.50~pole:z:8:lo:302.50",
+          "span:pole:z:8:lo:282.50~pole:z:8:lo:295.50",
+          "span:pole:z:8:lo:272.50~pole:z:8:lo:282.50",
+          "span:pole:x:8:hi:402.50~pole:z:8:lo:272.50",
+          "span:pole:x:8:hi:402.50~pole:x:8:lo:402.50"
+        ]
+      }
+    }
+  ],
+  "faults": [
+    {
+      "id": "f_bulb",
+      "at": "school",
+      "kind": "dead-lamp"
+    },
+    {
+      "id": "f_bell",
+      "at": "bell_tower",
+      "kind": "dead-lamp"
+    },
+    {
+      "id": "f_t",
+      "at": "l_tie",
+      "kind": "damaged-cable",
+      "span": "span:pole:x:8:hi:402.50~pole:x:8:lo:402.50"
+    }
+  ]
+}
