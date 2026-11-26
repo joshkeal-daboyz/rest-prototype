@@ -21,7 +21,7 @@ describe("scripts", () => {
       const m = /^s(\d\d)-/.exec(id);
       if (m) seen.set(Number(m[1]), (seen.get(Number(m[1])) ?? 0) + 1);
     }
-    const top = Math.max(0, ...seen.keys());
+    const top = Math.max(1, ...seen.keys());
     const missing = Array.from({ length: top }, (_, i) => i + 1).filter((n) => !seen.has(n));
     const doubled = [...seen].filter(([, c]) => c > 1).map(([n]) => n);
     const pad = (n: number) => `s${String(n).padStart(2, "0")}`;
