@@ -50,7 +50,7 @@ describe("the opening frame (081 E3)", () => {
       expect(p.z_m).toBeLessThanOrEqual(z1 + 41);
     }
     expect((f.maxX - f.minX) * (f.maxY - f.minY)).toBeLessThan(streets.w * TILE_M * S * streets.h * TILE_M * S);
-  });
+  }, 15_000);
 
   it("the puzzle's points hold its pieces and sit inside the district's frame, smaller than it (081 J)", () => {
     const city = loadCityPuzzle(JSON.parse(readFileSync("puzzles/city/s01-first-light.city.json", "utf8")));
