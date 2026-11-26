@@ -1,0 +1,303 @@
+{
+  "id": "s16-let-it-blow",
+  "name": "16 · Let it blow",
+  "version": 3,
+  "scope": "map",
+  "capacity": 13,
+  "startingParts": [
+    "bulb",
+    "fuse"
+  ],
+  "target": [
+    "bath_house",
+    "infirmary"
+  ],
+  "priority": [
+    "homes"
+  ],
+  "city": {
+    "blocksX": 6,
+    "blocksZ": 6,
+    "seed": 1,
+    "oneWay": true
+  },
+  "district": [
+    "block:6:11",
+    "block:7:11",
+    "block:8:10"
+  ],
+  "nodes": [
+    {
+      "id": "feed",
+      "type": "feed",
+      "place": {
+        "pole": "pole:z:6:lo:507.50"
+      }
+    },
+    {
+      "id": "fb_m",
+      "type": "fusebox",
+      "rating": 10,
+      "place": {
+        "pole": "pole:x:14:lo:326.67"
+      }
+    },
+    {
+      "id": "j_1",
+      "type": "junction",
+      "place": {
+        "pole": "pole:z:7:lo:507.50"
+      }
+    },
+    {
+      "id": "br_o",
+      "type": "breaker",
+      "closed": true,
+      "place": {
+        "pole": "pole:z:7:hi:472.50"
+      }
+    },
+    {
+      "id": "j_x",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:13:hi:367.50"
+      }
+    },
+    {
+      "id": "bath_house",
+      "type": "lamp",
+      "load": 2,
+      "place": {
+        "building": "block:7:9|outer|+z|73,89"
+      }
+    },
+    {
+      "id": "br_s",
+      "type": "breaker",
+      "closed": false,
+      "place": {
+        "pole": "pole:x:13:hi:390.83"
+      }
+    },
+    {
+      "id": "j_c",
+      "type": "junction",
+      "place": {
+        "pole": "pole:z:8:lo:472.50"
+      }
+    },
+    {
+      "id": "foundry",
+      "type": "lamp",
+      "load": 4,
+      "place": {
+        "building": "block:8:10/a|outer|-x|85,92"
+      }
+    },
+    {
+      "id": "homes",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:8:10/a|outer|-x|85,94"
+      }
+    },
+    {
+      "id": "fb_c",
+      "type": "fusebox",
+      "rating": 5,
+      "place": {
+        "pole": "pole:z:8:lo:495.83"
+      }
+    },
+    {
+      "id": "j_2",
+      "type": "junction",
+      "place": {
+        "pole": "pole:z:8:lo:507.50"
+      }
+    },
+    {
+      "id": "br_t",
+      "type": "breaker",
+      "closed": false,
+      "place": {
+        "pole": "pole:z:8:hi:507.50"
+      }
+    },
+    {
+      "id": "infirmary",
+      "type": "lamp",
+      "load": 5,
+      "place": {
+        "building": "block:8:10/b|outer|+z|85,101"
+      }
+    }
+  ],
+  "lines": [
+    {
+      "id": "l_f",
+      "from": "feed",
+      "to": "fb_m",
+      "run": {
+        "spans": [
+          "span:pole:z:6:hi:507.50~pole:z:6:lo:507.50",
+          "span:pole:x:14:lo:272.50~pole:z:6:hi:507.50",
+          "span:pole:x:14:lo:272.50~pole:x:14:lo:285.83",
+          "span:pole:x:14:lo:285.83~pole:x:14:lo:294.17",
+          "span:pole:x:14:lo:294.17~pole:x:14:lo:305.00",
+          "span:pole:x:14:lo:305.00~pole:x:14:lo:315.83",
+          "span:pole:x:14:lo:315.83~pole:x:14:lo:326.67"
+        ]
+      }
+    },
+    {
+      "id": "l_m",
+      "from": "fb_m",
+      "to": "j_1",
+      "run": {
+        "spans": [
+          "span:pole:x:14:lo:326.67~pole:x:14:lo:337.50",
+          "span:pole:x:14:lo:337.50~pole:z:7:lo:507.50"
+        ]
+      }
+    },
+    {
+      "id": "l_o",
+      "from": "j_1",
+      "to": "br_o",
+      "run": {
+        "spans": [
+          "span:pole:z:7:lo:495.83~pole:z:7:lo:507.50",
+          "span:pole:z:7:lo:484.17~pole:z:7:lo:495.83",
+          "span:pole:z:7:lo:472.50~pole:z:7:lo:484.17",
+          "span:pole:z:7:hi:472.50~pole:z:7:lo:472.50"
+        ]
+      }
+    },
+    {
+      "id": "l_x0",
+      "from": "br_o",
+      "to": "j_x",
+      "run": {
+        "spans": [
+          "span:pole:x:13:hi:367.50~pole:z:7:hi:472.50"
+        ]
+      }
+    },
+    {
+      "id": "l_bath",
+      "from": "j_x",
+      "to": "bath_house",
+      "run": {
+        "spans": [],
+        "drop": "block:7:9|outer|+z|73,89"
+      }
+    },
+    {
+      "id": "l_t0",
+      "from": "j_1",
+      "to": "j_2",
+      "run": {
+        "spans": [
+          "span:pole:z:7:hi:507.50~pole:z:7:lo:507.50",
+          "span:pole:x:14:lo:367.50~pole:z:7:hi:507.50",
+          "span:pole:x:14:lo:367.50~pole:x:14:lo:379.17",
+          "span:pole:x:14:lo:379.17~pole:x:14:lo:390.83",
+          "span:pole:x:14:lo:390.83~pole:x:14:lo:402.50",
+          "span:pole:x:14:lo:402.50~pole:z:8:lo:507.50"
+        ]
+      }
+    },
+    {
+      "id": "l_t1",
+      "from": "j_2",
+      "to": "br_t",
+      "run": {
+        "spans": [
+          "span:pole:z:8:hi:507.50~pole:z:8:lo:507.50"
+        ]
+      }
+    },
+    {
+      "id": "l_inf",
+      "from": "br_t",
+      "to": "infirmary",
+      "run": {
+        "spans": [
+          "span:pole:x:14:lo:427.50~pole:z:8:hi:507.50"
+        ],
+        "drop": "block:8:10/b|outer|+z|85,101"
+      }
+    },
+    {
+      "id": "l_c0",
+      "from": "j_2",
+      "to": "fb_c",
+      "run": {
+        "spans": [
+          "span:pole:z:8:lo:495.83~pole:z:8:lo:507.50"
+        ]
+      }
+    },
+    {
+      "id": "l_c1",
+      "from": "fb_c",
+      "to": "j_c",
+      "run": {
+        "spans": [
+          "span:pole:z:8:lo:484.17~pole:z:8:lo:495.83",
+          "span:pole:z:8:lo:472.50~pole:z:8:lo:484.17"
+        ]
+      }
+    },
+    {
+      "id": "l_foundry",
+      "from": "j_c",
+      "to": "foundry",
+      "run": {
+        "spans": [],
+        "drop": "block:8:10/a|outer|-x|85,92"
+      }
+    },
+    {
+      "id": "l_homes",
+      "from": "j_c",
+      "to": "homes",
+      "run": {
+        "spans": [],
+        "drop": "block:8:10/a|outer|-x|85,94"
+      }
+    },
+    {
+      "id": "l_s",
+      "from": "j_c",
+      "to": "br_s",
+      "run": {
+        "spans": [
+          "span:pole:x:13:hi:402.50~pole:z:8:lo:472.50",
+          "span:pole:x:13:hi:390.83~pole:x:13:hi:402.50"
+        ]
+      }
+    },
+    {
+      "id": "l_x1",
+      "from": "br_s",
+      "to": "j_x",
+      "run": {
+        "spans": [
+          "span:pole:x:13:hi:379.17~pole:x:13:hi:390.83",
+          "span:pole:x:13:hi:367.50~pole:x:13:hi:379.17"
+        ]
+      }
+    }
+  ],
+  "faults": [
+    {
+      "id": "f_bulb",
+      "at": "infirmary",
+      "kind": "dead-lamp"
+    }
+  ]
+}
