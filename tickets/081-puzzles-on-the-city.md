@@ -212,6 +212,7 @@ No file in `src/city/`, `src/core/`, `src/ui/`, `src/play/`, `src/render/`, `too
 | NC2 | The control cue drawn: hovering (or tapping) a breaker or switch highlights exactly the wires it controls (**approved (G1)** 26 Nov 2026) | renderer | G1; merges after NC1 | **done** (PR #102; Josh: "Merge (Recommended)") |
 | N3 | Series v1, batch 3: puzzles 11 to 15. **Done** (PR #119, ef60db7) | puzzle-designer (Fable 5.2) | N2, Josh's word | 0 |
 | N4 | Series v1, batch 4: puzzles 16 to 20, the deliberate blow (NB1), relay, spring, battery, timed breaker (re-cut in full 26 Nov 2026; **approved to build**: "Start N4 (Recommended)") | puzzle-designer (Fable 5.2) | N3 (in), Josh's word | 0 |
+| BC | The battery's release previewed: its number and hover cue (cut 26 Nov 2026 on N4-Q2 "Cut it now"; **for G1**). BC0 type, BC1 entry, BC2 key, BC3 drawn | lead-architect, grid-simulator, ui, renderer | G1; merges before N4 | at most 5 |
 | N5 | Series v1, batch 5: puzzles 21 to 25. **Waiting** on Josh's word | puzzle-designer (Fable 5.2) | N4, Josh's word | 0 |
 | J | The opening camera fits the puzzle, not the district; the limits follow the puzzle (cut 26 Nov 2026; **approved (G1)**: "Approve; limits follow puzzle") | renderer | G1 | 3 added, 0 rewritten |
 
@@ -2604,6 +2605,7 @@ Nothing in T is open. T-Q7: "Replay any (Recommended)".
 | 3, beside NC1 | NC2, the cue drawn | renderer | G1; **merges after NC1** (it codes against the core field; without NC1 every entry has no lines and nothing is cued) | `src/render3d/cityview.ts` | 2 |
 | 4 | N3, batch 3 (11 to 15). **Done** (PR #119, ef60db7; Josh, 26 Nov 2026, on a card: "Merge now") | puzzle-designer (Fable 5.2) | N2 merged (PR #101); Josh's word (given 26 Nov 2026: "Start it"); re-cut first (done) | `puzzles/city/`, rows 11 to 15 of `puzzles/series-v1.md` | 0 |
 | 5 | N4, batch 4 (16 to 20), with NB1 as 16. **Approved to build** (Josh, 26 Nov 2026, on a card: "Start N4 (Recommended)"); re-cut in full the same day | puzzle-designer (Fable 5.2) | N3 merged (PR #119); Josh's word (given); re-cut first (done) | `puzzles/city/`, rows 16 to 20 and NB1's bullet of `puzzles/series-v1.md` | 0 |
+| 5, beside N4 | BC, the battery's number and cue (BC0, BC1 and BC2, then BC3). **For G1** | lead-architect, grid-simulator, ui, renderer | G1; **merges before N4** (BC-Q2) | `src/core/preview.ts`, `src/grid/preview.ts`, `src/ui/preview.ts`, `src/render3d/controlcue.ts`, `overlay.ts` | at most 5 |
 | 6 | N5, batch 5 (21 to 25) | puzzle-designer (Fable 5.2) | N4 merged; Josh's word; re-cut first | `puzzles/city/` | 0 |
 
 PRs 1 and 2 (N0, N1, NS) are merged. Josh plays each batch when he chooses; the next batch starts only on his word in chat, and the architect re-cuts it first to what he says.
@@ -2978,6 +2980,8 @@ To get past a stop, it does not change W1's numbers, `FIT_BUDGET`, a tool, or an
 - **A battery is the twist on the second timer puzzle:** "charge in A's window, spend it in B's". Whether that falls in N4 or N5 was left to this re-cut: it falls in N5 (**The order**, below).
 - ~~The fuse-blow cap is relaxed for these.~~ (Moot: the cap is gone, section NB.)
 
+**Josh's answers on N4's cards, 26 Nov 2026 (relayed by the main session):** N4-Q1 "Relay, spring, battery, timer (Recommended)": the order below stands as cut. N4-Q2 "Cut it now": the battery's number and hover cue are cut as section BC (below NB1), for G1. It merges before N4 does, and 19 is built meanwhile against BC's contract (BC-Q2). Open question 31 is closed.
+
 Josh has not played 6 to 15 or `tb-two-clocks` yet (N2's criterion 9, N3's criterion 13 and TB6's criterion 3 are open). If his verdict on any of them lands while N4 builds, the main session brings it to the architect before N4 merges. His play of `tb-two-clocks` bears most on puzzle 20 (below), which is built last for that reason.
 
 **Goal.** Puzzles 16 to 20 are on the city. Each brings in one new thing, in this order: blowing a fuse on purpose, the relay, the spring switch, the battery and the timed breaker. Each one is built on what 1 to 15 taught, spans two or more blocks for a reason the solve needs, and is harder than the one before it. Josh can play 16 to 20 from the stage select and say whether each new piece reads on the city and adds a real decision.
@@ -2988,10 +2992,10 @@ Josh has not played 6 to 15 or `tb-two-clocks` yet (N2's criterion 9, N3's crite
 - **Battery.** A scratch copy of `s14-split-the-dark` with `br_1` turned into a battery (`capacity` 8, `input` `l_a4`, on the same pole) passes the validator, the city check and the conversion. Its scenery hangs on the battery's input side (`src/city/circuit/scenery.ts`). `npm run analyze` explored it exhaustively (1116 states, `wait` offered), and the check replayed `wait`, a release and a throw. Released, it lit the kiln and a scenery building past it.
 - Neither scratch file was committed, and both were deleted.
 - **What a designer must know** (SCHEMA, "Battery, derived rules"). A battery's current counts toward no feed, and is free of fuse and brownout checks. A lamp lit only by a battery never completes the job. The feed's current never passes through a battery. So the raise (section S) needs no battery case: scenery past a battery adds no load.
-- **One gap, not blocking (question N4-Q2).** `loadPreview` gives breakers, switches and readable faults a number and an NC cue. It gives a battery's release neither, so hovering a battery does not show which wires it would light. Puzzle 19's note must say how the battery's reach is read without a cue.
+- **One gap, now cut as section BC** (N4-Q2: "Cut it now"). `loadPreview` gives breakers, switches and readable faults a number and an NC cue. It gives a battery's release neither, and it ignores a released battery in every what-if. BC adds both.
 - **The stop rule still covers the risk** that a real puzzle hits something the probes did not, such as a battery on a branch pole, a relay's third wire, or the analyzer's state count on a battery-and-timer map. On a tool gap the designer stops, and the architect cuts a grid-simulator section. Nothing in N4 is changed to get round it.
 
-**The order, and why** (the architect's call; Josh approves or changes it on card N4-Q1). Five new concepts, each introduced once, in its own puzzle:
+**The order, and why** (the architect's call; approved on card N4-Q1: "Relay, spring, battery, timer (Recommended)"). Five new concepts, each introduced once, in its own puzzle:
 
 | # | New concept | Why here |
 | --- | --- | --- |
@@ -3010,7 +3014,7 @@ This is also the order Josh's start card listed. **Plan rows that give way.** Ro
   - which earlier moves it combines (the table below gives each one's floor);
   - its reasoning move, within its new concept.
 - **Fixed:**
-  1. **The order of the five new concepts** above. If Josh picks another order on N4-Q1, the main session tells the designer, and the architect re-words this list. 16 and 17 are the same in every option on the card.
+  1. **The order of the five new concepts** above (N4-Q1: "Relay, spring, battery, timer (Recommended)").
   2. **One new concept each, each in its own puzzle, and nothing from later.** 16 uses no relay, spring, battery or timer. 17 uses no spring, battery or timer. 18 uses no battery or timer. 19 uses no timer.
   3. **The battery twist is not in 20.** If 20 has a battery, the battery does not carry charge from one window into the other. That move is the second timer puzzle's new concept (Josh's ruling), and in 20 it would be a second new concept.
   4. **Dropped moves are named.** The designer names, in its report, any planned move it drops that a later row leaned on, for N5's re-cut. Row 20's lantern (above) is already named. Row 21 ("Far one first", battery + order) and row 24 ("Hold the spring", battery + spring) lean on 19 and 18.
@@ -3100,7 +3104,7 @@ This is also the order Josh's start card listed. **Plan rows that give way.** Ro
    - Section J's opening frame holds every block, control, fuse box, battery, timer ring and target icon, and each can be read.
    - The wrong move is not one red number deep. The note says how the obvious wrong move reads with section V's numbers and the NC2 cue. On 16 that means the red "+N" and the box's "x of y" (NB1's criterion 2). On 20 it means the timer's ring and its next-flip number and cue.
    - **A fact the solve needs reads on the city, not only in the HUD.** s12 and s15 lean on things only the HUD shows: which feed carries a building, and a feed's total (s12's note). N4 does not build on that unread. If a solve needs a fact the HUD alone shows, the note says which fact and why nothing on the city gives it, and lists it under **To watch**. The main session takes it to Josh at **Show Josh**. It is not a stop.
-   - **A battery has no number or cue** (question N4-Q2). 19's note says how the player reads what the battery will power: the dark job wires past it, the relay or fault it reaches, its charge glyph.
+   - **The battery's number and cue are section BC's** (N4-Q2: "Cut it now"). 19's note says what BC's cue lights on its release (the far-side lines up to an unread break, counted as sound) and what its number reads (its seconds, BC-Q1). It says how the player gets from there to the move. The main session checks 19's frame and cue in the pane after BC3 merges. If BC is not approved, the note says instead how the battery's reach is read without a cue: the dark job wires past it, the relay or fault it reaches, its charge glyph.
    - The designer opens no browser. The main session checks each opening frame in the pane (or sends Josh screenshots while he is remote). A frame that doesn't fit goes back to the designer.
 
    **browser**.
@@ -3155,14 +3159,7 @@ To get past a stop, the designer does not change W1's numbers, `FIT_BUDGET`, a t
 
 **Interfaces.** None. Every piece is in the schema, the simulator and the tools today (above), so `src/core/` gets no change. No new dependency.
 
-**Questions for Josh** (open question 31). N4 is approved to build. The designer can build 16 and 17 while these are open, since they are the same in every option; 18 to 20 wait on N4-Q1.
-- **N4-Q1, the order of 17 to 20, and the rows that give way:**
-  - "Relay, spring, battery, timer (Recommended)": as cut above, and the order your start card listed. Plan rows 16 and 17 merge into the relay. Row 20 ("By cell light") gives way to the timer. The battery twist is the second timer puzzle, at 21 in N5.
-  - "Timer at 19, battery twist at 20": the battery's first puzzle is also the second timer puzzle. That keeps the twist inside N4, but the battery never gets a puzzle without a clock that it doesn't control.
-  - "Timer at 18, after the relay": the spring moves to 19 and the battery to 20. The timer then can't lean on the spring.
-- **N4-Q2, a cue for the battery** (not blocking): the hover cue and the load numbers cover breakers, switches and breaks, not a battery's release.
-  - "Wait until you play 19 (Recommended)": 19's note says how its reach reads without a cue.
-  - "Cut it now": a grid-simulator section (the release's lines in `loadPreview`), then a renderer one. 19 then waits for both.
+**Questions for Josh** (open question 31), **answered 26 Nov 2026 on cards:** N4-Q1 "Relay, spring, battery, timer (Recommended)"; N4-Q2 "Cut it now" (section BC). Nothing in N4 is open. *As asked:* N4-Q1 the order of 17 to 20 ("Relay, spring, battery, timer (Recommended)" / "Timer at 19, battery twist at 20" / "Timer at 18, after the relay"); N4-Q2 a hover cue for the battery ("Wait until you play 19 (Recommended)" / "Cut it now": a grid-simulator section, then a renderer one).
 
 #### N5 · Series v1, batch 5: puzzles 21 to 25 (puzzle-designer, Fable 5.2). Branch `ticket/081n5-series-batch-5`. **Waiting** on Josh's word
 Named, not cut in full; it starts only on Josh's word in chat (after N4 merges), re-cut to what he says first.
@@ -3225,6 +3222,114 @@ Named, not cut in full; it starts only on Josh's word in chat (after N4 merges),
 **Stop rule** (N3's). The designer stops ("stop 081 NB1") if the puzzle cannot make the blow the only win without a rule, schema or tool change, or without breaking a series rule.
 
 **Questions for Josh (G1 card), answered 26 Nov 2026 on cards:** G1 "Approve NB (Recommended)"; NB-Q1 "At 16, first of N4 (Recommended)"; NB-Q2 "Allow it too"; NB-Q3 "Drop the 2-timer cap"; NB-Q4 "As today (Recommended)". Nothing in NB is open. *As asked:* G1 ("Approve NB (Recommended)" / "Approve the rules, hold the puzzle" / "Not now"); NB-Q1 where the first deliberate blow goes ("At 16, first of N4 (Recommended)" / "In N5 (21 to 25)" / "After 25, a new batch"); NB-Q2 "fit it and it blows again" as a trap ("Keep it out (Recommended)" / "Allow it too"); NB-Q3 the per-map and variety rules ("Keep them (Recommended)" / "Drop the 2-timer cap too" / "Drop them all"); NB-Q4 how the deliberate blow reads ("As today (Recommended)" / "The cue shows what the blow darkens").
+
+#### BC · The battery's release previewed: its number and its hover cue (BC1 grid-simulator, BC2 ui, BC3 renderer). Cut 26 Nov 2026 for G1, in three PRs, on N4-Q2: "Cut it now". **Not approved (G1)**
+**Josh, 26 Nov 2026, on N4's card N4-Q2** (relayed by the main session): "Cut it now". The card asked whether a battery's release should get a load number and a hover cue, as breakers and switches have (V2's number, NC1's lines, NC2's cue).
+
+**What is missing today (read at `main` 17ee737).**
+- **No entry.** `loadPreview` (`src/grid/preview.ts`) makes an entry for each breaker, switch and readable fault, but none for a battery. So hovering a battery shows no number and no cue.
+- **Released batteries are ignored in every what-if.** Each what-if is a fresh `createGrid` on the state's breakers, switches and seen faults. A fresh grid starts every battery at its file charge, not released. So while a battery is running, the preview sees none of the current it gives, and two things go wrong:
+  - a breaker, switch or relay on the battery's far side gets an empty cue;
+  - a relay that only the battery reaches is shown as if it were dead.
+
+  This would mislead the player on 19, where a battery wakes a relay.
+- **The page wouldn't recompute.** TB1b3's `previewKey` (`src/ui/preview.ts`) leaves batteries out on purpose. So a release, a stop, or a battery running flat or starting to charge would leave the numbers stale.
+- **The renderer only cues breakers and switches.** `cueWires` (`src/render3d/controlcue.ts`) cues a breaker or switch entry only, and `overlayLabels` (`src/render3d/overlay.ts`) draws numbers only by breakers, switches and breaks.
+
+**What the battery's number says (the architect's call; BC-Q1).**
+- A released battery's current counts toward no feed and is checked by no fuse (SCHEMA, "Battery, derived rules"). So a release's `delta` is 0 almost always, and V's labels draw no plain zero.
+- The number by a battery is therefore **the seconds it would light**: its charge, in whole seconds ("8 s"), read live from `GridState.batteries` by the renderer, not from the preview. While it runs, the number counts down, the same as the charge bar.
+- The entry's `delta` and `over` are drawn too, beside the seconds, when they are not plain zero. That happens when a spring or relay the release holds moves the feed's own current.
+- A battery with no charge, not released, has no entry and no number: its click is refused, as a dead relay's is.
+
+**Rules held.**
+- **Faults hide faults** (Decided). The release's what-if uses the same seen-faults view as every other entry, so a break past the battery that the player hasn't read is counted as sound. The cue never shows a hidden break, and lights the line past it as if whole, just as NC1's does.
+- **The Relight can't be interrupted** (Decided). The preview is `null` during the Relight and after the win, as today.
+- No rule or number of the city's grammar changes, so there is no pipeline-designer pre-check. No new dependency.
+- `tickets/rules-coverage.md` adds BC1 to "Faults hide faults" on G1, as NC1 was added.
+
+**Order.**
+| PR | Section | Owner | After | Tests |
+| --- | --- | --- | --- | --- |
+| 0 | BC0, the type (`LoadPreviewKind` gains `"battery"`) | lead-architect | G1 | 0 |
+| 1 | BC1, the battery's entry, and released batteries in every what-if | grid-simulator | BC0 | at most 2 |
+| 1, beside BC1 | BC2, the preview key reads the batteries | ui | G1 | at most 1 |
+| 2 | BC3, the number and the cue drawn | renderer | BC1 merged (it codes against the entry) | at most 2 |
+
+At most 5 test cases over the three PRs, each PR well under 15.
+
+**When it must merge, against N4** (the architect's call; BC-Q2).
+- **Only before N4 merges, not before puzzle 19 is built.** 19's files don't depend on BC: the analyzer and the check run on the grid, not the preview. The designer opens no browser, and writes 19's note against the contract below (what the release's cue and number will show).
+- What does wait for BC is the main session's pane check of 19's opening frame and cue (N4's criterion 9), and **Show Josh** for N4. So BC1 to BC3 merge before N4's PR does.
+- If Josh wants it the way the N4-Q2 card worded it ("19 then waits for both"), the designer builds 16 to 18 and 20 first, and 19 after BC3 merges.
+
+##### BC0 · The battery's preview kind (lead-architect). Branch `ticket/081bc0-battery-kind`, after G1
+**Goal.** BC1 and BC3 code against one contract.
+1. [ ] `LoadPreviewKind` in `src/core/preview.ts` is `"breaker" | "switch" | "repair" | "battery"`. The doc comment says what a battery's entry is (criterion 1 of BC1) and that its seconds are the state's, not the entry's. `LoadPreview`'s comment names battery ids as keys. Typecheck passes on `main` with no other change. **no test**.
+2. [ ] `tickets/rules-coverage.md` adds BC1 to "Faults hide faults". **no test**.
+
+**Count.** 0. **Files.** `src/core/preview.ts`, `tickets/rules-coverage.md`.
+
+##### BC1 · The battery's entry, and released batteries in every what-if (grid-simulator, pure). Branch `ticket/081bc1-battery-preview`, after BC0
+**Goal.** Hovering a battery can show exactly what its release (or its stop) would light and darken, and every other entry tells the truth while a battery runs.
+
+**Acceptance criteria.**
+1. [ ] **The battery's entry.** For each battery, `loadPreview` adds an entry under its id, of kind `"battery"`:
+   - **Not released, charge above 0:** the what-if is the battery released with the state's charge.
+   - **Released:** the what-if is the battery stopped (its click stops it early).
+   - **Not released, charge 0:** no entry.
+   - `delta`, `over`, `blows` and `lines` are measured against the base exactly as for a throw (fuses lifted for `delta` and `lines`, real for `over` and `blows`). On a release, `lines.on` is the far-side lines the battery's current would reach, in `puzzle.lines` order.
+
+   **test**: 1 case, on a fixture: a feed charging a battery, whose far side runs through a relay to two lamps, one of them past an unread break.
+   - Charged and not released: the entry's `on` is the far side up to the relay's selected out, `off` is empty, `delta` is 0 and `over` is false.
+   - The break's line beyond the break is in `on`, as if sound. With the break's id in `known` it is not.
+   - Released: the entry's `off` is those lines, and `on` is empty.
+   - With charge 0: no entry.
+2. [ ] **Released batteries count in every what-if.** In the base and in every entry's run, each released battery with charge left stays released with its state charge. The fresh grid takes its `charge` from the state, and is released before it settles. So while a battery runs:
+   - a relay that only it reaches has the entry a live relay has;
+   - a breaker on its far side has the lines that breaker cuts.
+
+   A map with no battery gives the same preview as before. **test**: 1 case: the relay's entry, with the battery released, names the lines its throw moves, where today it names none.
+3. [ ] **Unchanged elsewhere.** V2's, NC1's, TB1's and TB1b1's cases pass unedited. A timed map is read as today: the battery's entry uses the state's timers as they stand. `src/grid/` stays pure (the existing purity case). **test** (existing).
+4. [ ] **Its cost:** one more fresh grid pair (lit and real) per battery, and none more per other entry. **no test**; the builder's diff shows it.
+
+**Count.** At most 2. **Files.** `src/grid/preview.ts`, `src/grid/preview.test.ts` (new cases only). **Must not:** any other folder, `src/core/` included (BC0's type is written first). **Interfaces.** BC0's kind. No new dependency.
+
+##### BC2 · The preview key reads the batteries (ui). Branch `ticket/081bc2-battery-key`, after G1, beside BC1
+**Goal.** On a battery map the load numbers are recomputed when a battery is released, is stopped, runs flat or first takes charge, and still not on every frame while it charges or drains.
+
+**Acceptance criteria.**
+1. [ ] **`previewKey` adds, for each battery in id order, its `released` flag and whether its charge is above 0.** It still reads no charge value, no clock and no load (TB1b3). **test**: 1 case, rewritten from TB1b3's or added:
+   - two states 0.3 s apart while charging (charge above 0 in both) give the same key;
+   - a release, a stop, running flat, and the first charge from 0 each change it.
+2. [ ] `refreshPreview` in `src/main.ts` is unchanged: it already calls `previewKey`. V4's and TB1b3's other cases pass unedited. **test** (existing).
+
+**Count.** At most 1. **Files.** `src/ui/preview.ts`, `src/ui/preview.test.ts`. **Must not:** `src/main.ts`, `src/grid/`, `src/render3d/`, `src/core/`, `src/play/`.
+
+##### BC3 · The battery's number and cue drawn (renderer). Branch `ticket/081bc3-battery-cue`, after BC1 merges
+**Goal.** From the default camera, the player points at (or taps) a battery and sees the wires its release would light (or its stop would darken), with the seconds it would light by its icon.
+
+**Acceptance criteria.**
+1. [ ] **The cue.** `cueWires` cues a `"battery"` entry as it cues a breaker's, `CUE_ON` for `lines.on` and `CUE_OFF` for `lines.off`, up to a readable cut. `cueIds` gives the hovered battery's id as it gives a breaker's. It is off under `V`, in the Relight and after the win, as NC2's is. No new layer, draw call or program: it is NC2's cue layer. **test**: 1 case, rewritten from NC2's `cueWires` case or added: a battery entry cues its lines, and a `null` preview cues none.
+2. [ ] **The number.** `overlayLabels` draws by a battery icon:
+   - its whole seconds of charge from `GridState.batteries` ("8 s"), when it has an entry;
+   - the entry's signed `delta`, red when `over`, when the entry is not a plain zero;
+   - nothing when the battery has no entry, under `V`, or in the Relight.
+
+   Running, the seconds count down with the charge bar. **test**: 1 case: a charged battery's label reads its seconds; one with no charge has none; an entry with `delta` 2 and `over` adds a red "+2".
+3. [ ] **In the pane** (the main session, not the builder): on puzzle 19 (or a local, uncommitted battery copy of a city puzzle if 19 isn't built yet), hovering the battery lights its far side's wires and shows its seconds. A tap releases it and leaves the cue (now its stop's) up. **browser**.
+
+**Count.** At most 2. **Files.** `src/render3d/controlcue.ts`, `src/render3d/overlay.ts`, `src/render3d/timerring.ts` (only if `cueIds` lives there), and their tests. **Must not:** `src/grid/`, `src/core/`, `src/ui/`, `src/main.ts`, `src/play/`, `cityview.ts` (it already passes the hover and the preview).
+
+**Questions for Josh (G1 card), the recommendation first.**
+- **G1:** "Approve BC (Recommended)"; "Not now" (19's note reads the battery without a cue, as N4 was first cut).
+- **BC-Q1, the battery's number:**
+  - "Seconds it would light (Recommended)": "8 s", plus a load change only when the release moves the feed's own current.
+  - "Load only, as breakers": almost always 0, so no number is drawn.
+  - "The load of what it lights": counted though it draws on no feed. That reads high, against V's "Visible load".
+- **BC-Q2, when it must merge:**
+  - "Before N4 merges (Recommended)": 19 is built meanwhile, against this contract.
+  - "Before 19 is built": as the N4-Q2 card worded it. 19 waits for BC3.
 
 ### TB · The timed breaker: a clock feeds sections in turn. Cut 26 Nov 2026 for G1, in six PRs: TB0, then TB1 with TB2, then TB3, TB4 and TB5 side by side, then TB6. **Approved (G1) 26 Nov 2026**: "Approve (Recommended)"
 **Merged 26 Nov 2026** (Josh's words from the merge commits): TB1b1 by PR #110 ("Merge, start TB1b2 (Recommended)"); TB1b2 by PR #112 and the cityframe timeout by PR #111 ("Merge both (Recommended)"; the timeout on its own card: "15 s timeout (Recommended)"); TB1b3 by PR #113 ("Merge (Recommended)"); TB6 by PR #114 ("Merge (Recommended)"). The cityframe timeout is not a section of this ticket. It gives E3's opening-frame case in `src/render3d/cityframe.test.ts` a 15 s timeout, after CI timed out at 5 s twice. It is recorded here because it merged alongside TB1b2.
@@ -3597,7 +3702,7 @@ If the builder finds one of them must change, each rewritten case counts toward 
 - **Y-Q2, who builds Y3:** "The playtester, as for R1 (Recommended)" (the brief makes it `tests/playtest/`'s owner; it edits one case, runs only the typecheck and replays nothing, so this is not a playtest); "Leave it for the next release" (the release's playtester makes the edit as part of that release).
 
 ## Files
-Per section, above. This branch (the cut): `tickets/081-puzzles-on-the-city.md`, `docs/design/070-K1-circuit.md` (CK9 as changed, 24 Nov 2026; CK14's dark-building line struck for section S, 24 Nov 2026), `tickets/070-city-pipeline.md` (pointer lines), `tickets/071-pack-power-lines.md` (a pointer line: C and E's ladder wiring are dropped), `tickets/rules-coverage.md`, `src/core/citycircuit.ts` (new; `CityPuzzleView` added 24 Nov 2026 for the playable path), `src/core/cityplan.ts` (`CityCircuitLayer`), `src/core/index.ts`. Section FX's cut (24 Nov 2026): new `src/core/fx.ts`, `src/core/assets.ts` (`AssetManifest.fx?`), `src/core/index.ts`, `tickets/rules-coverage.md`. Section W's cut (25 Nov 2026): this file and `tickets/rules-coverage.md` only; no `src/core/` change (W1's numbers live in `tools/`, and `{ post }` and `lead` stay typed). Sections SK and T (cut and re-cut 25 Nov 2026): this file only (with open question 20 closed); no `src/core/` change and no rules-coverage row. Section N (cut 25 Nov 2026), with T3b recorded and P2b to P2d dropped: this file only; no `src/core/` change and no rules-coverage row. Section N's NR and NC (cut 26 Nov 2026): this file, then on G1 `src/core/preview.ts` (NC's field, below) and a `tickets/rules-coverage.md` line adding NC1 to "Faults hide faults" (its case pins that the cue hides an unread break, as V2's does for the number). Section TB's cut (26 Nov 2026, approved the same day): this file and `docs/design/081-TB-timed-breaker.md` only; `src/core/`, `puzzles/SCHEMA.md` and `tickets/rules-coverage.md` change in TB0, after G1. Section Y's cut (26 Nov 2026), with N4's re-cut notes and the TB merges recorded: this file only. There is no `src/core/` change and no rules-coverage row. Section NB's cut (26 Nov 2026, approved the same day): this file only (the series rules, N4, N5 and NB); no `src/core/` change and no rules-coverage row. `puzzles/series-v1.md`'s rules bullet is the puzzle-designer's, in NB1. Section N4's re-cut (26 Nov 2026, on `ticket/081n4-series-batch-4`, approved to build: "Start N4 (Recommended)"): this file only (N4 in full, the N5 stub, open question 31); no `src/core/` change and no rules-coverage row. The architect probed a spring and a battery on the city with scratch files outside the repo, deleted after.
+Per section, above. This branch (the cut): `tickets/081-puzzles-on-the-city.md`, `docs/design/070-K1-circuit.md` (CK9 as changed, 24 Nov 2026; CK14's dark-building line struck for section S, 24 Nov 2026), `tickets/070-city-pipeline.md` (pointer lines), `tickets/071-pack-power-lines.md` (a pointer line: C and E's ladder wiring are dropped), `tickets/rules-coverage.md`, `src/core/citycircuit.ts` (new; `CityPuzzleView` added 24 Nov 2026 for the playable path), `src/core/cityplan.ts` (`CityCircuitLayer`), `src/core/index.ts`. Section FX's cut (24 Nov 2026): new `src/core/fx.ts`, `src/core/assets.ts` (`AssetManifest.fx?`), `src/core/index.ts`, `tickets/rules-coverage.md`. Section W's cut (25 Nov 2026): this file and `tickets/rules-coverage.md` only; no `src/core/` change (W1's numbers live in `tools/`, and `{ post }` and `lead` stay typed). Sections SK and T (cut and re-cut 25 Nov 2026): this file only (with open question 20 closed); no `src/core/` change and no rules-coverage row. Section N (cut 25 Nov 2026), with T3b recorded and P2b to P2d dropped: this file only; no `src/core/` change and no rules-coverage row. Section N's NR and NC (cut 26 Nov 2026): this file, then on G1 `src/core/preview.ts` (NC's field, below) and a `tickets/rules-coverage.md` line adding NC1 to "Faults hide faults" (its case pins that the cue hides an unread break, as V2's does for the number). Section TB's cut (26 Nov 2026, approved the same day): this file and `docs/design/081-TB-timed-breaker.md` only; `src/core/`, `puzzles/SCHEMA.md` and `tickets/rules-coverage.md` change in TB0, after G1. Section Y's cut (26 Nov 2026), with N4's re-cut notes and the TB merges recorded: this file only. There is no `src/core/` change and no rules-coverage row. Section NB's cut (26 Nov 2026, approved the same day): this file only (the series rules, N4, N5 and NB); no `src/core/` change and no rules-coverage row. `puzzles/series-v1.md`'s rules bullet is the puzzle-designer's, in NB1. Section N4's re-cut (26 Nov 2026, on `ticket/081n4-series-batch-4`, approved to build: "Start N4 (Recommended)"): this file only (N4 in full, the N5 stub, open question 31); no `src/core/` change and no rules-coverage row. The architect probed a spring and a battery on the city with scratch files outside the repo, deleted after. Section BC's cut (26 Nov 2026, on N4-Q2 "Cut it now", for G1): this file only; on G1, BC0 changes `src/core/preview.ts` and `tickets/rules-coverage.md`.
 
 ## Interfaces
 Written into `src/core/` with this cut (typecheck passes):
@@ -3738,6 +3843,8 @@ All questions so far are answered (above), the mid-row one included ("Only when 
     - **N3-Q1, "span multiple districts":** "A district is a block (Recommended)". Each of 11 to 25 spans 2 to 4 blocks (the loader's limit), and the solve needs each one. On the puzzle city the blocks are the parts of town you can tell apart: the history districts only exist in the tech, hold-out and ruin eras. The other option (blocks that don't touch are not one: CK14 requires a district's blocks to touch across a street):
       - "A history district": each puzzle spans 2 or more of stage 10's districts (1 to 4 blocks each) on the clean city. They are not drawn on it, and two of them can come to more than the 4 blocks the loader allows, so this needs a validator and a fit change before N3 can build.
 30. ~~**Section NB, fuses as a tool (cut 26 Nov 2026).**~~ **Answered 26 Nov 2026, on cards:** G1 "Approve NB (Recommended)"; NB-Q1 "At 16, first of N4 (Recommended)"; NB-Q2 "Allow it too"; NB-Q3 "Drop the 2-timer cap"; NB-Q4 "As today (Recommended)". Nothing in NB is open. Your words in chat: "I would like the game the game to include challenges where you intentionally blow fuses to resuce load on a branch to complete objectives as well." and "There really shouldn't be a limit to the number of puzzles that can leverage a mechanism per series. If the mechanics are to build on top of one another then fuses should be able to be leveraged in any puzzle. Any number of times for any reason after they've been introduced."
-31. **Section N4, series 16 to 20 (re-cut 26 Nov 2026; approved to build: "Start N4 (Recommended)").** Two cards; neither stops the build, as worded in N4's **Questions for Josh**. The recommendation first:
-    - **N4-Q1, the order of 17 to 20:** "Relay, spring, battery, timer (Recommended)" (as cut; plan rows 16 and 17 merge into the relay, row 20 gives way to the timer, and the battery twist is the second timer puzzle, in N5); "Timer at 19, battery twist at 20"; "Timer at 18, after the relay". 16 and 17 build meanwhile.
-    - **N4-Q2, a hover cue for the battery:** "Wait until you play 19 (Recommended)"; "Cut it now" (a grid-simulator section, then a renderer one, before 19).
+31. ~~**Section N4, series 16 to 20 (re-cut 26 Nov 2026; approved to build: "Start N4 (Recommended)").**~~ **Answered 26 Nov 2026, on cards:** N4-Q1 "Relay, spring, battery, timer (Recommended)"; N4-Q2 "Cut it now" (section BC, question 32). Nothing in N4 is open. *As asked:* N4-Q1 the order of 17 to 20 ("Relay, spring, battery, timer (Recommended)" / "Timer at 19, battery twist at 20" / "Timer at 18, after the relay"); N4-Q2 a hover cue for the battery ("Wait until you play 19 (Recommended)" / "Cut it now").
+32. **Section BC, the battery's number and hover cue (cut 26 Nov 2026 on N4-Q2: "Cut it now"; for G1, not approved).** One card, the recommendation first:
+    - **G1:** "Approve BC (Recommended)"; "Not now".
+    - **BC-Q1, the battery's number:** "Seconds it would light (Recommended)"; "Load only, as breakers"; "The load of what it lights".
+    - **BC-Q2, when it must merge:** "Before N4 merges (Recommended)" (19 is built meanwhile); "Before 19 is built" (as the N4-Q2 card worded it).
