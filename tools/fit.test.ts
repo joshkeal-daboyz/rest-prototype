@@ -234,6 +234,19 @@ describe("the raised numbers (081 P1, section S)", () => {
   });
 });
 
+describe("the raise on a timed map (081 TB2)", () => {
+  it("a timed map's feed is raised by the largest scenery load at any settle along the solution, not only at its end", () => {
+    // P0 with its junction j_inf a timed breaker closed for 2 s of every 6: the solution's second click ends with it open and the infirmary's scenery dark, but the settle just before is the untimed end state.
+    const p0 = loaded(P0_FILE);
+    const timed: CityPuzzle = { ...p0, nodes: p0.nodes.map((n) => (n.id === "j_inf" ? ({ id: "j_inf", type: "breaker", closed: true, timer: { closed: 2, open: 4 }, place: n.place } as unknown as CityPuzzle["nodes"][number]) : n)) };
+    const base = { capacity: 3, nodes: [] };
+    const atEnd = raiseForScenery(p0, plan, P0_WIN, base).capacity!;
+    const atPeak = raiseForScenery(timed, plan, P0_WIN, base).capacity!;
+    expect(atEnd).toBeGreaterThan(3);
+    expect(atPeak).toBe(atEnd);
+  });
+});
+
 describe("the sweep (081 P1, criterion 7)", () => {
   it("every puzzles/city/*.city.json validates, passes the city check on 6 x 6 seed 1 and replays its note's check block through the conversion", () => {
     const started = Date.now();
