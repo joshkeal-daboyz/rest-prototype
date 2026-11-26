@@ -31,24 +31,10 @@ export function timerRing(timer: BreakerTimer, readout: TimerReadout, clock: num
   };
 }
 
-const SAME_MOMENT = 1e-6;
-
-/**
- * Whether a timed breaker's load preview entry may be shown as its "next" (cue wires and number). The entry is that one breaker flipped on today's state, so it is the true next
- * state only for the timer that flips first and alone; another timer flipping at the same moment, or earlier, changes the grid before or with it (TB1 review). Until `src/grid/` previews
- * the joint flip, such a timer shows its ring only.
- */
-export function timerNextExact(id: string, timers: ReadonlyMap<string, TimerReadout>): boolean {
-  const me = timers.get(id);
-  if (!me) return false;
-  for (const [other, r] of timers) if (other !== id && r.next < me.next + SAME_MOMENT) return false;
-  return true;
-}
-
-/** Whether the "next" cue and number of timer `id` show: hovered, or (once the clock runs) within `TIMER_WARN_S` of its flip; and only when exact. */
+/** Whether the "next" cue and number of timer `id` show: hovered, or (once the clock runs) within `TIMER_WARN_S` of its flip; every timer shows, as the preview is joint. */
 export function timerNextShows(id: string, hover: string | null, timers: ReadonlyMap<string, TimerReadout>, clock: number | null): boolean {
   const r = timers.get(id);
-  if (!r || !timerNextExact(id, timers)) return false;
+  if (!r) return false;
   return hover === id || (clock !== null && r.next <= TIMER_WARN_S);
 }
 
