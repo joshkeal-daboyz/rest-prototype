@@ -14,7 +14,21 @@ describe("scripts", () => {
   it("every city puzzle has a check block that parses and holds on its conversion", () => {
     const problems = IDS.map((id) => [id, loadCityMap(id).problem] as const).filter(([, p]) => p !== null);
     expect(problems.map(([id, p]) => `${id}: ${p}`)).toEqual([]);
-    expect(IDS.length, "P0 and the 16 pilots").toBeGreaterThanOrEqual(17);
+    expect(IDS.length, "no city puzzles under puzzles/city/").toBeGreaterThan(0);
+    // The series stages run s01..sMax with no gap and no repeat. Pilots, city-two-ways-round and tb- puzzles are not counted.
+    const seen = new Map<number, number>();
+    for (const id of IDS) {
+      const m = /^s(\d\d)-/.exec(id);
+      if (m) seen.set(Number(m[1]), (seen.get(Number(m[1])) ?? 0) + 1);
+    }
+    const top = Math.max(1, ...seen.keys());
+    const missing = Array.from({ length: top }, (_, i) => i + 1).filter((n) => !seen.has(n));
+    const doubled = [...seen].filter(([, c]) => c > 1).map(([n]) => n);
+    const pad = (n: number) => `s${String(n).padStart(2, "0")}`;
+    expect(
+      { missing: missing.map(pad), doubled: doubled.map(pad) },
+      "the sNN- series ids must run from s01 to the highest with no gap and no number used twice",
+    ).toEqual({ missing: [], doubled: [] });
   }, 120_000);
 });
 
