@@ -119,17 +119,20 @@ export interface StageRow {
   next: boolean;
 }
 
-/** The stage number a puzzle id starts with (`01-first-light` is 1), or null for an id with no leading number. */
+/**
+ * The stage number of a series puzzle (ticket 081 NS): `s01-first-light` is 1, `s25-...` is 25. Every other id is
+ * not a stage and gives null, including the pilots (`01-first-light` to `16-...`) and `city-two-ways-round`.
+ */
 export function stageNumber(id: string): number | null {
-  const match = /^\d+/.exec(id);
-  return match ? Number(match[0]) : null;
+  const match = /^s(\d+)-/.exec(id);
+  return match ? Number(match[1]) : null;
 }
 
 /**
- * The stage select's lines: every completed stage in number order, then the next stage (the lowest-numbered one
- * not completed), and no others. Only numbered puzzles are stages; locked copies are left out. A completed line
- * reads `01 · First light · 7 moves · 0:42.3`, the next reads `02 · This way or that · not yet lit`. The number
- * and name come from the puzzle's own name.
+ * The stage select's lines: every completed series stage in number order, then the next stage (the lowest-numbered
+ * one not completed), and no others. Only series puzzles are stages (`stageNumber`); locked copies are left out.
+ * A completed line reads `01 · First light · 7 moves · 0:42.3`, the next reads `02 · This way or that · not yet lit`.
+ * The number and name come from the puzzle's own name. With no series files there are no lines.
  */
 export function stageList(entries: readonly StageEntry[], progress: Progress): StageRow[] {
   const stages: { entry: StageEntry; number: number }[] = [];
