@@ -1367,6 +1367,8 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
       const relT = overlay.relightT ?? 0;
       const plan_ = clock.update(state, overlay.relightT);
       if (readableNow(state)) standCircuit();
+      cueFlow = state.flowFrom;
+      cueLayer.update(overlay.hover ?? null, preview);
       drawLive(state, plan_, relT, timeSeconds);
       drawFx(state, plan_, relT, timeSeconds);
       if (skyCam) {
