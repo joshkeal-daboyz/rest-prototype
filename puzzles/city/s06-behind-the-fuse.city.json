@@ -1,0 +1,150 @@
+{
+  "id": "s06-behind-the-fuse",
+  "name": "06 · Behind the fuse",
+  "version": 3,
+  "scope": "map",
+  "capacity": 8,
+  "startingParts": [
+    "fuse",
+    "bulb"
+  ],
+  "target": [
+    "bath_house"
+  ],
+  "priority": [
+    "home"
+  ],
+  "city": {
+    "blocksX": 6,
+    "blocksZ": 6,
+    "seed": 1,
+    "oneWay": true
+  },
+  "district": [
+    "block:0:8"
+  ],
+  "nodes": [
+    {
+      "id": "feed",
+      "type": "feed",
+      "place": {
+        "pole": "pole:x:11:hi:27.50"
+      }
+    },
+    {
+      "id": "j0",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:11:lo:27.50"
+      }
+    },
+    {
+      "id": "fb",
+      "type": "fusebox",
+      "rating": 3,
+      "place": {
+        "pole": "pole:z:0:hi:390.50"
+      }
+    },
+    {
+      "id": "br_bath",
+      "type": "breaker",
+      "closed": false,
+      "place": {
+        "pole": "pole:z:0:hi:354.50"
+      }
+    },
+    {
+      "id": "bath_house",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:0:8/a|outer|-x|5,68"
+      }
+    },
+    {
+      "id": "home",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:0:8/b|outer|+z|13,80"
+      }
+    }
+  ],
+  "lines": [
+    {
+      "id": "l_feed",
+      "from": "feed",
+      "to": "j0",
+      "run": {
+        "spans": [
+          "span:pole:x:11:hi:27.50~pole:x:11:lo:27.50"
+        ]
+      }
+    },
+    {
+      "id": "l_fb",
+      "from": "j0",
+      "to": "fb",
+      "run": {
+        "spans": [
+          "span:pole:x:11:lo:27.50~pole:z:0:hi:402.50",
+          "span:pole:z:0:hi:390.50~pole:z:0:hi:402.50"
+        ]
+      }
+    },
+    {
+      "id": "l_br",
+      "from": "fb",
+      "to": "br_bath",
+      "run": {
+        "spans": [
+          "span:pole:z:0:hi:378.50~pole:z:0:hi:390.50",
+          "span:pole:z:0:hi:366.50~pole:z:0:hi:378.50",
+          "span:pole:z:0:hi:354.50~pole:z:0:hi:366.50"
+        ]
+      }
+    },
+    {
+      "id": "l_bath",
+      "from": "br_bath",
+      "to": "bath_house",
+      "run": {
+        "spans": [
+          "span:pole:z:0:hi:342.50~pole:z:0:hi:354.50"
+        ],
+        "drop": "block:0:8/a|outer|-x|5,68"
+      }
+    },
+    {
+      "id": "l_home",
+      "from": "j0",
+      "to": "home",
+      "run": {
+        "spans": [
+          "span:pole:x:11:lo:27.50~pole:x:11:lo:40.67",
+          "span:pole:x:11:lo:40.67~pole:x:11:lo:50.83",
+          "span:pole:x:11:lo:50.83~pole:x:11:lo:65.50"
+        ],
+        "drop": "block:0:8/b|outer|+z|13,80"
+      }
+    }
+  ],
+  "faults": [
+    {
+      "id": "f_fuse",
+      "at": "fb",
+      "kind": "blown-fuse"
+    },
+    {
+      "id": "f_bath",
+      "at": "bath_house",
+      "kind": "dead-lamp"
+    },
+    {
+      "id": "f_home",
+      "at": "home",
+      "kind": "dead-lamp"
+    }
+  ]
+}

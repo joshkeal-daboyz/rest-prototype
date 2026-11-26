@@ -1,0 +1,218 @@
+{
+  "id": "s08-the-small-box",
+  "name": "08 · The small box",
+  "version": 3,
+  "scope": "map",
+  "capacity": 6,
+  "startingParts": [
+    "fuse"
+  ],
+  "target": [
+    "cold_store"
+  ],
+  "priority": [
+    "home"
+  ],
+  "city": {
+    "blocksX": 6,
+    "blocksZ": 6,
+    "seed": 1,
+    "oneWay": true
+  },
+  "district": [
+    "block:6:3"
+  ],
+  "nodes": [
+    {
+      "id": "feed",
+      "type": "feed",
+      "place": {
+        "pole": "pole:z:7:hi:167.50"
+      }
+    },
+    {
+      "id": "j0",
+      "type": "junction",
+      "place": {
+        "pole": "pole:z:7:lo:167.50"
+      }
+    },
+    {
+      "id": "br_out",
+      "type": "breaker",
+      "closed": true,
+      "place": {
+        "pole": "pole:z:7:lo:187.50"
+      }
+    },
+    {
+      "id": "home",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:6:3/b|outer|+x|67,38"
+      }
+    },
+    {
+      "id": "fb",
+      "type": "fusebox",
+      "rating": 5,
+      "place": {
+        "pole": "pole:z:7:lo:157.50"
+      }
+    },
+    {
+      "id": "store",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:6:3/b|outer|+x|67,31"
+      }
+    },
+    {
+      "id": "br_t",
+      "type": "breaker",
+      "closed": false,
+      "place": {
+        "pole": "pole:x:3:hi:337.50"
+      }
+    },
+    {
+      "id": "j_t",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:3:hi:315.83"
+      }
+    },
+    {
+      "id": "cold_store",
+      "type": "lamp",
+      "load": 2,
+      "place": {
+        "building": "block:6:3/a|outer|-z|61,31"
+      }
+    },
+    {
+      "id": "br_mill",
+      "type": "breaker",
+      "closed": true,
+      "place": {
+        "pole": "pole:x:3:hi:305.50"
+      }
+    },
+    {
+      "id": "mill",
+      "type": "lamp",
+      "load": 2,
+      "place": {
+        "building": "block:6:3/a|outer|-z|56,31"
+      }
+    }
+  ],
+  "lines": [
+    {
+      "id": "l_feed",
+      "from": "feed",
+      "to": "j0",
+      "run": {
+        "spans": [
+          "span:pole:z:7:hi:167.50~pole:z:7:lo:167.50"
+        ]
+      }
+    },
+    {
+      "id": "l_out",
+      "from": "j0",
+      "to": "br_out",
+      "run": {
+        "spans": [
+          "span:pole:z:7:lo:167.50~pole:z:7:lo:177.50",
+          "span:pole:z:7:lo:177.50~pole:z:7:lo:187.50"
+        ]
+      }
+    },
+    {
+      "id": "l_home",
+      "from": "br_out",
+      "to": "home",
+      "run": {
+        "spans": [
+          "span:pole:z:7:lo:187.50~pole:z:7:lo:197.50"
+        ],
+        "drop": "block:6:3/b|outer|+x|67,38"
+      }
+    },
+    {
+      "id": "l_fb",
+      "from": "j0",
+      "to": "fb",
+      "run": {
+        "spans": [
+          "span:pole:z:7:lo:157.50~pole:z:7:lo:167.50"
+        ]
+      }
+    },
+    {
+      "id": "l_store",
+      "from": "fb",
+      "to": "store",
+      "run": {
+        "spans": [],
+        "drop": "block:6:3/b|outer|+x|67,31"
+      }
+    },
+    {
+      "id": "l_t",
+      "from": "fb",
+      "to": "br_t",
+      "run": {
+        "spans": [
+          "span:pole:x:3:hi:337.50~pole:z:7:lo:157.50"
+        ]
+      }
+    },
+    {
+      "id": "l_t2",
+      "from": "br_t",
+      "to": "j_t",
+      "run": {
+        "spans": [
+          "span:pole:x:3:hi:324.17~pole:x:3:hi:337.50",
+          "span:pole:x:3:hi:315.83~pole:x:3:hi:324.17"
+        ]
+      }
+    },
+    {
+      "id": "l_cold",
+      "from": "j_t",
+      "to": "cold_store",
+      "run": {
+        "spans": [],
+        "drop": "block:6:3/a|outer|-z|61,31"
+      }
+    },
+    {
+      "id": "l_m",
+      "from": "j_t",
+      "to": "br_mill",
+      "run": {
+        "spans": [
+          "span:pole:x:3:hi:305.50~pole:x:3:hi:315.83"
+        ]
+      }
+    },
+    {
+      "id": "l_mill",
+      "from": "br_mill",
+      "to": "mill",
+      "run": {
+        "spans": [
+          "span:pole:x:3:hi:294.17~pole:x:3:hi:305.50",
+          "span:pole:x:3:hi:283.33~pole:x:3:hi:294.17"
+        ],
+        "drop": "block:6:3/a|outer|-z|56,31"
+      }
+    }
+  ],
+  "faults": []
+}
