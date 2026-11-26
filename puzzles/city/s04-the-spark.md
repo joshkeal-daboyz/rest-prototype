@@ -106,3 +106,5 @@ Salvage, trips and walking: n/a (map scope).
 - N1's band says "nothing hidden at the start". The break here is unread until the throw, which is the row's own concept ("faults are read by current"); no decision rests on it.
 
 ## What it taught us
+
+- Josh, 26 Nov 2026, after playing it: "Puzzle 4 is good."
