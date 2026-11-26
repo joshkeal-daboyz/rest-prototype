@@ -158,7 +158,7 @@ export interface PuzzlePoint {
 
 /**
  * The opening camera's points (081 J): the puzzle's own pieces and nothing else. Each node's place at the ground and at its own height, both ends of every span of its runs at the ground and at
- * the pole's top or the roof's deck, each run's drop (its pole and its wall point) and lead (its post), and the feed's origin; each grown by `PUZZLE_MARGIN_M` on x and z. With no place it gives none
+ * the pole's top or the roof's deck, each run's drop (its pole and its wall point) and lead (its post), each grown by `PUZZLE_MARGIN_M` on x and z. With no place it gives none
  * (the rig then falls back to `jobFrame`). World units. Pure.
  */
 export function puzzleFrame(view: CityPuzzleView, layer: CityCircuitLayer): PuzzlePoint[] {
@@ -197,7 +197,6 @@ export function puzzleFrame(view: CityPuzzleView, layer: CityCircuitLayer): Puzz
       if (p) add(p.x_m, OVERLAY_POST_Y_M, p.z_m);
     }
   }
-  add(converted.origin_m.x_m, 0, converted.origin_m.z_m);
   return out;
 }
 

@@ -75,7 +75,6 @@ describe("the opening frame (081 E3)", () => {
       const p = r.lead === undefined ? undefined : layer.posts.find((x) => x.span === r.lead);
       if (p) expect(near(p.x_m, p.z_m)).toBe(true);
     }
-    expect(near(view.converted.origin_m.x_m, view.converted.origin_m.z_m)).toBe(true);
     for (const p of pts) expect(p.x >= f.minX && p.x <= f.maxX && p.z >= f.minY && p.z <= f.maxY).toBe(true);
     const ext = (k: "x" | "z"): number => Math.max(...pts.map((p) => p[k])) - Math.min(...pts.map((p) => p[k]));
     expect(ext("x")).toBeLessThan(f.maxX - f.minX);
