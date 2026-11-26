@@ -1,37 +1,46 @@
 ticket: 081-J-puzzle-fit
-assessment: partly
-must-fix: 1
+assessment: meets
+must-fix: 0
 
 ## What the ticket asked for, as I understood it
-On opening a city puzzle, the limited camera fits the puzzle's own pieces (places, run spans, drops, leads) into the free area between the HUD and the bottom panel, with an 8 % margin (at least 32 px), centred. The zoom-out limit, pan clamp and zoom-in floor follow those points (Dmax = max(1.5 x D0, Droom), Droom being the points' box grown by 20 m). Every recentre and every resize goes back to that fit. `cam=free` and a puzzle with no place keep today's `jobFrame` rig.
+On opening a city puzzle, the limited camera fits the puzzle's own pieces into the fit area and centres them there. The fit area is the free area between the HUD and the bottom panel, less an 8 % margin (at least 32 px) and less a label strip on the right (`puzzleLabelRoom`). The zoom-out limit, the pan clamp and the zoom-in floor follow those points, every recentre and resize returns to that fit, and `cam=free` and a puzzle with no place keep `jobFrame`. This is round 2. Round 1's single must-fix was that the label strip did not match criterion 2. The architect has since amended the rule, criterion 2 and the `origin_m` reading (commit 1953af0, ticket only).
 
 ## Does the branch do it?
-1. **The puzzle's points**: met, with one reading change. `puzzleFrame` in `src/render3d/cityview.ts` gives each place at the ground and at its height, both ends of each run's spans at the ground and at the pole top or roof deck, each drop's pole and wall point, and each lead's post. Each is grown by `PUZZLE_MARGIN_M` (3 m) and it returns `[]` when there is no place. Commit 110004d leaves out `converted.origin_m`. The ticket calls it "the feed", but `src/core/citycircuit.ts` documents it as "the origin `pos` is measured from (CK15 step 2)". `convert.ts` sets it to the layout corner `x0, z0`, and in s01 the feed is a node (`"id": "feed"`) whose place is already counted. So leaving it out keeps the rule's "puzzle's own pieces, never the district". The case in `cityframe.test.ts` ("the puzzle's points hold its pieces ... (081 J)") checks every place, span end, drop and lead against the points, that every point is inside `jobFrame`, and that both extents are smaller. It has no origin check, which matches the drop. It reuses the shared 6 x 6 city and adds no build.
-2. **The fit**: partly. The `rigOpts.open` option is used only with `limit` (`const open = rigOpts.limit && rigOpts.open && ...`). Without it, `fit()` and `clampT` take the old path unchanged, and the three E5 cases in `cityrig.test.ts` and `tilecity3d.test.ts` are unedited (the diff only adds; `tilecity3d.test.ts` is untouched). The new case loops over the four sizes and both inset sets. Commit e0d6ec9 then added `PUZZLE_LABEL_PX` / `puzzleLabelRoom`: a strip of up to 64 px (at most a sixth of the free width) kept clear on the right for icon labels. The fit centres the points in the free area less that strip, and the test was changed to match:
-   - centring is checked against `free.l + (free.w - label) / 2`, not the free area's centre;
-   - the tight-axis fill is checked against `free.w - 2 * padX - label`, not `free.w - 2 * padX`.
+Round 1's must-fix 1 is settled by its first route, the ticket amendment:
+- J's rule now defines the **fit area** as the free area less `PUZZLE_FIT_PAD` and less the right-hand strip `min(PUZZLE_LABEL_PX, freeW / 6)`, and gives the reason (labels clipped on s07 and s08 at 390 x 844).
+- Criterion 2 now measures containment, centring and fill against that fit area.
+- The `origin_m` drop is recorded as "the layout corner, not the feed; the feed is its node's place". Criterion 1's wording now reads "every place (the feed's included)", so round 1's could-improve 3 is covered too.
 
-   As written, criterion 2 says "centred in the free area within 2 % of its width" and "fills at least the free area less twice the pad, less 2 %". At 1287 x 1178 with no insets, the strip moves the centre 32 px left, and 2 % of 1287 is 25.7 px. So the branch no longer meets the criterion as worded, and the criterion's own check would fail. The change has a stated reason (the main session's pane check: labels cut at the right edge) and probably helps criterion 6. But it is a change to the rule that no amendment recorded. See Must fix 1.
-3. **The limits follow the puzzle, recentre and resize**: met. `fitPuzzle` computes D0 on the whole canvas with the pad, Droom from the grown box's four ground corners at D0's centred target, and `maxDist = max(d0 * zoomOut, dRoom)`. The opening is `min(dFit, maxDist)`. `clampT` holds the target inside `open.room.box`. The zoom-in floor is still `fitDist * CITY_ZOOM_IN`, and `fitDist` is now the puzzle's opening. `resetView` is `fit`, and `resize` refits. The second new `cityrig.test.ts` case covers both fixtures. Zoom-out on WIDE is exactly `open / 1.5`. On CORNER, the grown box's corners land inside the canvas with slack within 8 px of the pad, so Droom is the one setting the limit. The case also checks the zoom-in floor at 0.06, the pan clamp and `centreOn` on the grown box's edges, `resetView` restoring scale and pan, and a resize matching a fresh rig at 800 x 570 with insets. It is weaker than the criterion's wording in two places: the CORNER Dmax is checked by screen slack, not scale within 1e-6, and the pan clamp is checked on x only (see Could improve).
-4. **The play view uses it**: met. `createCityPlayRenderer3d` passes `open: puzzleFrame(view, layer)` only when `rigOpts.limit` is set and there are points. `cam=free` and the no-place case get `rigOpts` as before. `playRigOptions` and its case are unedited.
-5. **Frame time**: can't tell yet; pending, not failed. The main session says `perf=1` has not been measured because the pane is hidden while Josh is remote. From the code, the fit runs only in `fit()` (open, resize, recentre), never per frame. Its cost per call is about 3 x 34 bisection steps x up to 8 projection passes over the hull vertices, so being under 2 ms is plausible but not measured.
-6. **Pane check**: the main session reports s01 to s10 fitted at both sizes, and on s07 that pan, zoom then double-right-click returns to the opening. I did not run a browser, as instructed.
+No code changed since round 1. The commit after e0d6ec9 is the merge of `origin/main` plus the ticket and review edit.
+
+1. **The puzzle's points**: met, as in round 1. `puzzleFrame` in `src/render3d/cityview.ts` is now consistent with the amended text on `origin_m`. The criterion is held by the `cityframe.test.ts` case "the puzzle's points hold its pieces and sit inside the district's frame, smaller than it (081 J)".
+2. **The fit**: met as amended.
+   - `padded()` in `src/render3d/tilecity3d.ts` gives `right = l + freeW - px - puzzleLabelRoom(freeW)`, which is the fit area the ticket defines.
+   - The `cityrig.test.ts` case "with the puzzle's points it fits them in the free area, centred ... (081 J)" checks containment against the pad and the strip.
+   - It checks centring against `free.l + (free.w - label) / 2`, which is the fit area's centre.
+   - It checks fill against `free.w - 2 * padX - label`, which is the fit area's width.
+   - It does this over the four sizes and both inset sets.
+   - The tolerance is 2 % of the free width, not of the fit area's width. That is a hair looser than the wording; see Could improve 2.
+   - The E5 cases are still unedited, and `tilecity3d.test.ts` is untouched.
+3. **Limits, pan clamp, recentre, resize**: met, as in round 1. The second `cityrig.test.ts` case holds them.
+4. **The play view uses it**: met, as in round 1.
+5. **Frame time**: pending, not failed. The main session reports `perf=1` is not yet measured because the pane is hidden while Josh is remote. The fit runs only in `fit()` (open, resize, recentre), never per frame.
+6. **Pane check**: the main session reports s01 to s10 open fitted at 1287 x 1178 and 390 x 844, and that the s07 recentre returns to the opening. I did not run a browser.
 7. **Josh's play**: his to do.
 
-Tests: I ran `npx vitest run --maxWorkers=2 src/render3d/cityframe.test.ts src/render3d/cityrig.test.ts` and got 7 passed. The two new `cityrig` cases are fixture-only and the file took 103 ms. The new `cityframe` case is fast; the file's 3.2 s is the existing E3 case's shared city build. That makes 3 added and 0 rewritten, inside the cap. Each case names its rule and would fail on a broken criterion. None is report-only, and none duplicates an existing case.
+Tests: `npx vitest run --maxWorkers=2 src/render3d/cityframe.test.ts src/render3d/cityrig.test.ts` gave 7 passed, 2 files. `cityrig` took 92 ms. `cityframe` took 3.06 s, and 3.04 s of that is the existing E3 case's shared city build, not the new case. The pull request adds 3 cases and rewrites none, inside the cap.
 
 ## Rule conflicts and risks
 - No `src/grid/` or `src/night/` change, no new dependency, and no GDD Decided rule touches the camera.
-- Files touched: `tilecity3d.ts`, `cityview.ts`, `cityframe.test.ts`, `cityrig.test.ts` and the ticket, all on J's list. Nothing from the "must not" list (`plan3d.ts`, `tilecity3d.test.ts`, `src/play/`, `src/ui/`, `src/main.ts`, `src/core/`).
-- The label strip and the `origin_m` drop both change what J's text says without an amendment. The `origin_m` drop is a correct reading of the rule. The label strip is an added rule (see Must fix 1).
-- The fit assumes labels are drawn to the right of icons (`PUZZLE_LABEL_PX` 64). If the overlay's label layout changes, this number goes stale without a test noticing.
+- The files touched are all on J's list. Nothing from its "must not" list is touched.
+- The label strip and the `origin_m` reading are now part of the ticket rather than unrecorded changes.
+- `PUZZLE_LABEL_PX` (64) encodes an assumption about the overlay's label layout. If that layout changes, the number goes stale without a test noticing (carried from round 1).
 
 ## Must fix
-1. **Criterion 2 and the code disagree: the label strip.** `src/render3d/tilecity3d.ts` (`puzzleLabelRoom` in `padded`) and the criterion 2 case in `src/render3d/cityrig.test.ts` centre and fill against the free area less a right-hand label strip. The ticket says centred in the free area within 2 % and filling the free area less twice the pad. At 1287 x 1178 the centre is off by 32 px, more than the 25.7 px allowed. Settle it one of two ways:
-   - The architect amends J's rule and criterion 2 in `tickets/081-puzzles-on-the-city.md`: the label strip is part of the free area's right side, and centring and fill are measured in the free area less that strip. It records the `origin_m` reading in the same edit ("the layout's corner; the feed is its node's place"). This is a ticket amendment, not a code change; or
-   - revert e0d6ec9, so that the code and the test meet the criterion as written.
+none
 
 ## Could improve
-1. In criterion 3's case, check the pan clamp on z as well as x (`camera.position.z` after `setPan` and `centreOn`). For CORNER, also check that the 40-steps-out scale is the Droom distance (for example, larger than `1.5 x` the opening's distance), not just the screen slack within 8 px.
-2. `PUZZLE_LABEL_PX` duplicates a fact about the overlay's label layout. If it stays, a comment pointing at where `overlay.ts` draws the label beside the icon would make it easier to keep in step.
-3. The ticket's criterion 1 wording still lists "the origin" among the points checked. Covered by Must fix 1's amendment if that route is taken.
+1. **Criterion 3 wording on D0.** `D0` and `Droom` are worked out on `padded({})`, which also subtracts the label strip. The criterion 3 test's slack check subtracts it too. Criterion 3 says only "the whole canvas (insets ignored, `PUZZLE_FIT_PAD` kept)". The code is the sensible reading, but one clause in the ticket ("and the label strip") would make the two match.
+2. **Centring tolerance.** In criterion 2's case, the tolerance could be 2 % of the fit area's width and height, which is what the amended criterion says, rather than 2 % of the free area's. The difference is small.
+3. **Round 1's could-improve 1 still stands.** In criterion 3's case, check the pan clamp on z as well as x. For CORNER, check the 40-steps-out scale against the Droom distance, not only the screen slack within 8 px.
+4. **J-Q1's options list.** The list under "Questions for Josh" still bolds "limits stay on the district (Recommended)", while his recorded answer is "Approve; limits follow puzzle". The answer above the list is correct. Un-bolding the option, or marking it as not chosen, would stop a later reader misreading it.
