@@ -1,6 +1,6 @@
 # 03 · Not enough for all — design note (series v1, puzzle 3)
 
-A new puzzle designed on the city (ticket 081 section N1; `puzzles/series-v1.md`, row 3). It has no schematic and no `from`.
+A new puzzle designed on the city (ticket 081 section N1; `puzzles/series-v1.md`, row 3). It has no schematic and no `from`. **Re-laid 26 Nov 2026 (section NR)** so that each breaker stands on a single run; see "The re-lay" below.
 
 - **New concept:** capacity and brownout. The feed carries so much and no more; over it, every window flickers and nothing counts as lit. Something has to go dark.
 - **The reasoning move:** choose which group goes dark. The numbers by the breakers do the sum; the target decides between the ones that fit.
@@ -9,71 +9,93 @@ A new puzzle designed on the city (ticket 081 section N1; `puzzles/series-v1.md`
 
 ## Where it stands
 
-- City: 6 x 6 seed 1, one-way on. **District: `block:8:1`**, at the corner where `x:5` meets `z:9`. The feed stands across `x:5`.
-- Capacity **9**: its own 4 (the infirmary 2, the shed 1, the stall 1), raised once by `npm run fit -- --raise` for the 5 scenery buildings its solution lights.
+- City: 6 x 6 seed 1, one-way on. **District: `block:8:1`** (kept), now at its north-east corner, where `x:1` meets `z:9`. The feed stands across `x:1`.
+- Capacity **6**: its own 4 (the infirmary 2, the shed 1, the stall 1), raised once by `npm run fit -- --raise` for the 2 scenery buildings its solution lights.
 - Target: `infirmary`. Priority: `home`. Parts: none.
 - Every lamp is a building fed by its drop. `npm run check puzzles/city/` passes it with W1's rules (it uses no roof).
 
 | Node | Type | Place | Metres (x, z) |
 | --- | --- | --- | --- |
-| `feed` | feed | pole `pole:x:5:hi:482.50` (crossing, block:8:5, across `x:5`) | 482.50, 190.75 |
-| `j0` | junction | pole `pole:x:5:lo:482.50` (end, block:8:1, +z side) | 482.50, 174.25 |
-| `br_inf` | breaker, closed | pole `pole:x:5:lo:471.50` (slot) | 471.50, 174.25 |
-| `j_inf` | junction | pole `pole:x:5:lo:449.50` (slot) | 449.50, 174.25 |
-| `infirmary` | lamp, load 2, **target** | building `block:8:1/b\|outer\|+z\|89,33`, by its drop from `j_inf`'s pole | 447.50, 170.00 |
-| `br_shed` | breaker, closed | pole `pole:x:5:lo:438.50` (slot) | 438.50, 174.25 |
-| `j_shed` | junction | pole `pole:x:5:lo:427.50` (end) | 427.50, 174.25 |
-| `shed` | lamp, load 1 | building `block:8:1/b\|outer\|+z\|85,33`, by its drop from `j_shed`'s pole | 427.50, 170.00 |
-| `br_stall` | breaker, closed | pole `pole:z:8:hi:167.50` (crossing, block:8:1, -x side) | 420.75, 167.50 |
-| `stall` | lamp, load 1 | building `block:8:1/b\|outer\|-x\|85,31`, by its drop from `br_stall`'s pole | 425.00, 162.50 |
-| `br_row` | breaker, closed | pole `pole:z:9:lo:167.50` (end, block:8:1, +x side) | 489.25, 167.50 |
-| `j_row` | junction | pole `pole:z:9:lo:155.00` (slot) | 489.25, 155.00 |
-| `home` | lamp, load 1 | building `block:8:1/b\|outer\|+x\|96,31`, by its drop from `j_row`'s pole | 485.00, 157.50 |
-| `kiln` | lamp, load 2 | building `block:8:1/b\|outer\|+x\|96,29`, by its drop from `j_row`'s pole | 485.00, 152.50 |
+| `feed` | feed | pole `pole:x:1:lo:482.50` (crossing, block:8:0, across `x:1`) | 482.50, 69.25 |
+| `j0` | junction | pole `pole:x:1:hi:482.50` (end, block:8:1, -z side) | 482.50, 85.75 |
+| `br_inf` | breaker, closed | pole `pole:x:1:hi:460.50` (slot) | 460.50, 85.75 |
+| `j_inf` | junction | pole `pole:x:1:hi:449.50` (slot) | 449.50, 85.75 |
+| `infirmary` | lamp, load 2, **target** | building `block:8:1/a\|outer\|-z\|88,18`, by its drop from `j_inf`'s pole | 447.50, 90.00 |
+| `br_row` | breaker, closed | pole `pole:x:1:hi:438.50` (slot) | 438.50, 85.75 |
+| `j_row` | junction | pole `pole:x:1:hi:427.50` (end) | 427.50, 85.75 |
+| `home` | lamp, load 1 | building `block:8:1/a\|outer\|-z\|85,18`, by its drop from `j_row`'s pole | 427.50, 90.00 |
+| `kiln` | lamp, load 2 | building `block:8:1/a\|outer\|-x\|85,19`, by its drop from `pole:z:8:hi:92.50`, round the corner | 425.00, 97.50 |
+| `br_shed` | breaker, closed | pole `pole:z:9:lo:92.50` (end, block:8:1, +x side) | 489.25, 92.50 |
+| `j_shed` | junction | pole `pole:z:9:lo:105.00` (slot) | 489.25, 105.00 |
+| `shed` | lamp, load 1 | building `block:8:1/a\|outer\|+x\|96,20`, by its drop from `j_shed`'s pole | 485.00, 102.50 |
+| `br_stall` | breaker, closed | pole `pole:z:9:lo:130.00` (slot) | 489.25, 130.00 |
+| `stall` | lamp, load 1 | building `block:8:1/b\|outer\|+x\|96,25`, by its drop from `pole:z:9:lo:142.50` | 485.00, 142.50 |
 
 | Line | From → to | Span chain | Length, m |
 | --- | --- | --- | --- |
-| `l_feed` | `feed` → `j0` | 1 span: crossing (over `x:5`) | 16.50 |
-| `l_inf0` | `j0` → `br_inf` | 1 span: along `x:5` | 11.00 |
-| `l_inf1` | `br_inf` → `j_inf` | 2 spans: along `x:5` | 22.00 |
+| `l_feed` | `feed` → `j0` | 1 span: crossing (over `x:1`) | 16.50 |
+| `l_inf0` | `j0` → `br_inf` | 2 spans: along `x:1` | 22.00 |
+| `l_inf1` | `br_inf` → `j_inf` | 1 span: along `x:1` | 11.00 |
 | `l_inf` | `j_inf` → `infirmary` | drop | — |
-| `l_shed0` | `j_inf` → `br_shed` | 1 span: along `x:5` | 11.00 |
-| `l_shed1` | `br_shed` → `j_shed` | 1 span: along `x:5` | 11.00 |
-| `l_shed` | `j_shed` → `shed` | drop | — |
-| `l_stall0` | `j_shed` → `br_stall` | 1 span: corner (into `z:8`) | 9.55 |
-| `l_stall` | `br_stall` → `stall` | drop | — |
-| `l_row0` | `j0` → `br_row` | 1 span: corner (into `z:9`) | 9.55 |
-| `l_row1` | `br_row` → `j_row` | 1 span: along `z:9` | 12.50 |
+| `l_row0` | `j_inf` → `br_row` | 1 span: along `x:1` | 11.00 |
+| `l_row1` | `br_row` → `j_row` | 1 span: along `x:1` | 11.00 |
 | `l_home` | `j_row` → `home` | drop | — |
-| `l_kiln` | `j_row` → `kiln` | drop | — |
+| `l_kiln` | `j_row` → `kiln` | 1 span: corner (into `z:8`), + drop | 9.55 |
+| `l_shed0` | `j0` → `br_shed` | 1 span: corner (into `z:9`) | 9.55 |
+| `l_shed1` | `br_shed` → `j_shed` | 1 span: along `z:9` | 12.50 |
+| `l_shed` | `j_shed` → `shed` | drop | — |
+| `l_stall0` | `j_shed` → `br_stall` | 2 spans: along `z:9` | 25.00 |
+| `l_stall` | `br_stall` → `stall` | 1 span: along `z:9`, + drop | 12.50 |
 
-Scenery (section S), 5 buildings, each 1:
+**What each breaker's pole carries** (every span and drop the city has at that pole, a line's or not):
+
+| Control | Pole | Every wire that meets there |
+| --- | --- | --- |
+| `br_inf` | `pole:x:1:hi:460.50`, a slot pole in mid street | 2 wires. The span from `pole:x:1:hi:471.50` (`l_inf0`, in) and the span to `pole:x:1:hi:449.50` (`l_inf1`, out). No drop, no crossing or corner span, no other node. |
+| `br_row` | `pole:x:1:hi:438.50`, a slot pole in mid street | 2 wires. The span from `pole:x:1:hi:449.50` (`l_row0`, in) and the span to `pole:x:1:hi:427.50` (`l_row1`, out). No drop, no crossing or corner span, no other node. |
+| `br_shed` | `pole:z:9:lo:92.50`, the first pole of `z:9` | 2 wires. The corner span from `j0`'s pole (`l_shed0`, in) and the span to `pole:z:9:lo:105.00` (`l_shed1`, out). The pole has no third span (this end of `z:9` has no crossing) and no drop; no other node. |
+| `br_stall` | `pole:z:9:lo:130.00`, a slot pole in mid street | 2 wires. The span from `pole:z:9:lo:117.50` (`l_stall0`, in) and the span to `pole:z:9:lo:142.50` (`l_stall`, out). No drop, no crossing or corner span, no other node. |
+
+The splits are plain junctions: `j0`, the bare corner pole where the feed's wire lands (its three spans are the feed's crossing, the first span of `x:1` and the corner span into `z:9`), and the poles the infirmary, the home and the shed hang from, each with its building's drop and the wire going on.
+
+Scenery (section S), 2 buildings, each 1:
 
 | Building | Hangs on | Live when |
 | --- | --- | --- |
-| `block:8:1/b\|outer\|+z\|95,33` | `j0` | always |
-| `block:8:1/b\|outer\|+z\|93,33` and `block:8:5\|outer\|-z\|93,39` (across `x:5`) | `l_inf0`, at `br_inf`'s pole | always (before the breaker) |
-| `block:8:5\|outer\|-z\|90,39` (across `x:5`) | `l_inf1`, its carrier pole | `br_inf` closed |
-| `block:8:5\|outer\|-z\|86,39` (across `x:5`) | `l_shed0`, at `br_shed`'s pole | `br_inf` closed (before `br_shed`) |
+| `block:8:1/a\|outer\|-z\|92,18` | `l_inf0`'s carrier pole `pole:x:1:hi:471.50`, before `br_inf` | always |
+| `block:8:0/b\|outer\|+z\|89,12` (across `x:1`) | `j_inf`, the infirmary's pole | `br_inf` closed |
 
-**What each breaker sheds** (own + scenery): `br_row` 3 (home 1, kiln 2). `br_stall` 1. `br_shed` 2 (the shed and, past it, the stall). `br_inf` 6 (the infirmary 2, two scenery, and everything past). 3 are always on.
+**What each breaker sheds** (own + scenery): `br_stall` 1. `br_shed` 2 (the shed and, past it, the stall). `br_row` 3 (the home 1, the kiln 2). `br_inf` 6 (the infirmary 2, one scenery, and the row past it). 1 is always on.
 
-**The lay is two streets, not four spokes.** On a 1-block district the feed's corner pole splits a wire two ways and no more, so the four breakers stand in two rows. Along `x:5`: the infirmary's breaker, the infirmary, the shed's breaker, the shed, and round the far corner the stall's breaker and the stall. Up `z:9`: the row's breaker, then the home and the kiln on one pole. A breaker cuts what is past it (puzzle 1's rule), so `br_shed` takes the stall with it. The infirmary is never past a small house's breaker.
+## The re-lay (section NR, 26 Nov 2026)
+
+**What moved, and why.** The first lay was at the block's south-east corner, along `x:5` and up `z:9`. Three of its four breakers stood on poles with something else on them: `br_inf` with two scenery drops, `br_shed` with one, `br_stall` on the stall's own pole with a crossing span that no line owned. Only `br_row` was on a bare pole. Josh: "Puzzle 3 has the same problem."
+
+`x:5` has no bare pole at all, so the puzzle turned to the same block's north-east corner, where `x:1` has two bare mid-street poles and `z:9` has three. Every breaker is now on a pole with one span in and one span out and nothing else. The streets swapped roles:
+
+- **West along `x:1`:** a lit house, `br_inf`, the infirmary, `br_row`, the home, and round the far corner the kiln.
+- **South down `z:9`:** `br_shed`, the shed, two bare poles with `br_stall` on the second, the stall.
+
+The sums are the first lay's: three over at the start, and the breakers shed 1, 2, 3 and 6. Scenery fell from 5 buildings to 2, so the HUD reads 9 of 6 where it read 12 of 9.
+
+**What changed in the read.** The row (the home and the kiln) is now past the infirmary on the infirmary's street, where before it was on a street of its own. So `br_inf` still clears the flicker with the target dark, and now takes the row with it too; and the two small houses have a street to themselves, which makes "shed the small ones" the first thing the eye offers.
 
 ## The intended read from the default camera
 
-The camera opens on `block:8:1` and its four streets. **The infirmary is half way along `x:5`**, 35 m from the feed's corner, carrying the target mark. The feed's pole is across `x:5` from the corner with `z:9`.
+The camera opens on `block:8:1` and its four streets. **The infirmary is half way along `x:1`, the block's north street**, 33 m of wire from the feed's corner, carrying the target mark. The feed's pole is across `x:1` from the corner with `z:9`.
 
-1. The view opens **browned out**: every lit window flickers, and the HUD reads 12 of 9. Nothing is broken. Three too many.
-2. Read the two streets from the corner pole. Along `x:5`: `br_inf`, two spans, the infirmary; then `br_shed`, the shed, and round the far corner `br_stall` and the stall. Up `z:9`: `br_row`, one span, and a pole with two drops: a home, and the kiln, burning twice as bright.
+1. The view opens **browned out**: every lit window flickers, and the HUD reads 9 of 6. Nothing is broken. Three too many.
+2. Read the two streets from the corner pole. West along `x:1`: a house, `br_inf`, the infirmary; then `br_row`, a home, and round the far corner the kiln, burning twice as bright. South down `z:9`: `br_shed`, the shed; then `br_stall` and the stall.
 3. The numbers by the breakers: `br_stall` −1 and `br_shed` −2, both red (still over); `br_row` −3, white; `br_inf` −6, white. Two moves fit, and one of them is the infirmary's own breaker.
-4. Open `br_row`. The home and the kiln go dark, the flicker stops, 9 of 9, and the infirmary burns gold. **Win.**
+4. Open `br_row`. The home and the kiln go dark, the flicker stops, 6 of 6, and the infirmary burns gold. **Win.**
 
 ## The trap
 
-**Shedding the two small unmarked houses still leaves it over; the pair on one breaker, a home among them, has to go.** As the plan's row. The shed and the stall are the cheap things to lose, and both together are 2: 10 of 9, still flickering. The second wrong instinct is the biggest number: `br_inf` clears the flicker at 6 of 9, with the infirmary dark. Every state is undone by throwing a breaker back.
+**Shedding the two small unmarked houses still leaves it over; the pair on one breaker, a home among them, has to go.** As the plan's row. The shed and the stall are the cheap things to lose, they have a street to themselves, and both together are 2: 7 of 6, still flickering. The second wrong instinct is the biggest number: `br_inf` clears the flicker at 3 of 6, with the infirmary dark. Every state is undone by throwing a breaker back.
 
-One detail differs from a four-spoke drawing: the two small houses are on one street, so `br_shed` alone darkens both (`br_stall` alone darkens the stall only). The sum is the same either way.
+As in the first lay, the two small houses are on one street, so `br_shed` alone darkens both (`br_stall` alone darkens the stall only). The sum is the same either way.
+
+**What the re-lay changed in the trap:** nothing in the sums. The row is now behind `br_inf` as well as `br_row`, so `br_inf` reads −6 for a different six (the infirmary, a house and the row; before, the infirmary, three houses and the two small ones).
 
 ## The numbers (section V)
 
@@ -81,7 +103,7 @@ One detail differs from a four-spoke drawing: the two small houses are on one st
 
 ## The tribe's homes
 
-`home` (priority) is lit at the start, browned out with everything else, and **dark at the win**, with the kiln beside it. No win keeps it: all 4 winning configurations have `br_row` open, since the home and the kiln share it, and with the row lit the most that can be shed without the infirmary is 2, leaving 10 of 9. The shed and the stall stay lit at the shortest win.
+`home` (priority) is lit at the start, browned out with everything else, and **dark at the win**, with the kiln beside it. No win keeps it: all 4 winning configurations have `br_row` open, since the home and the kiln share it, and with the row lit the most that can be shed without the infirmary is 2, leaving 7 of 6. The shed and the stall stay lit at the shortest win.
 
 ## Series rules
 
@@ -90,7 +112,8 @@ One detail differs from a four-spoke drawing: the two small houses are on one st
 - Kit: none (the plan's own empty kit for 1 to 3).
 - **Heavy building: the kiln** (load 2). Puzzles 2 and 4 have none.
 - **Shrine count: 1 of 5** (puzzle 1; the target here is the infirmary).
-- District `block:8:1`; puzzle 2 is on `block:6:1`, puzzle 4 on `block:3:0`. Three of its scenery buildings and the feed's pole are across `x:5` on `block:8:5`, which no neighbouring puzzle uses.
+- District `block:8:1`; puzzle 2 is on `block:6:1`, puzzle 4 on `block:3:0`. The feed's pole and one scenery building are across `x:1` on `block:8:0`, which no series puzzle 1 to 10 is on.
+- **No breaker or switch on a branch pole:** held; the table above lists every wire at each breaker's pole.
 
 ## Expected numbers
 
@@ -104,15 +127,15 @@ One detail differs from a four-spoke drawing: the two small houses are on one st
 | Winning click orders | 1 |
 | Winning configurations | 4 (`br_row` open, `br_inf` closed; `br_shed` and `br_stall` either way) |
 | Parts used | none |
-| Feed at the shortest win | 9 of 9 |
+| Feed at the shortest win | 6 of 6 |
 | Fuses that blow | none |
 | Dead-end states | 0 of 16 (0.0%) |
 | First moves that lead only to dead ends | none |
 | Hidden at the start | nothing |
 
-Loads, replayed on the conversion: start 12 of 9 (brownout); `br_row` 9 of 9 (win); `br_shed` 10 of 9 (brownout); `br_stall` 11 of 9 (brownout); `br_stall` then `br_shed` 10 of 9 (brownout); `br_inf` 6 of 9 (no brownout, infirmary dark).
+Loads, replayed on the conversion: start 9 of 6 (brownout); `br_row` 6 of 6 (win); `br_shed` 7 of 6 (brownout); `br_stall` 8 of 6 (brownout); `br_stall` then `br_shed` 7 of 6 (brownout); `br_inf` 3 of 6 (no brownout, infirmary dark).
 
-**The obvious wrong first move:** `br_stall`, then `br_shed`. Read: the two small houses go dark, every other window still flickers, 10 of 9, and both numbers were red. Recovered by `br_row` with no Undo: the job wins at 7 of 9, with the two small houses left dark (the Relight ends play, so they are not closed again). The other, `br_inf`: read, the flicker stops and the target is dark; recovered by `br_inf` again, then `br_row`. The check block replays both.
+**The obvious wrong first move:** `br_stall`, then `br_shed`. Read: the two small houses go dark, every other window still flickers, 7 of 6, and both numbers were red. Recovered by `br_row` with no Undo: the job wins at 4 of 6, with the two small houses left dark (the Relight ends play, so they are not closed again). The other, `br_inf`: read, the flicker stops and the target is dark; recovered by `br_inf` again, then `br_row`. The check block replays both.
 
 Salvage, trips and walking: n/a (map scope).
 
@@ -129,7 +152,7 @@ Salvage, trips and walking: n/a (map scope).
       "recover": ["br_row"] },
     { "name": "shed the longest street",
       "moves": ["br_inf"],
-      "expect": { "brownout": false, "lit": ["home", "kiln"], "complete": false },
+      "expect": { "brownout": false, "lit": ["shed", "stall"], "complete": false },
       "recover": ["br_inf", "br_row"] }
   ]
 }
@@ -137,9 +160,14 @@ Salvage, trips and walking: n/a (map scope).
 
 ## To watch when Josh plays it
 
-- Five scenery buildings light with the job, three of them across `x:5`. Whether "12 of 9" can be read off the street, or only off the HUD and the numbers.
-- Whether `br_shed` taking the stall with it reads as puzzle 1's rule, or as a surprise.
-- The line along `x:5` is 64 m with five pieces on it; whether the icons stay apart at the opening frame.
+- Whether each breaker now reads as standing on one wire, and what it cuts reads as "everything past it on this street".
+- `br_inf` now takes the row with it. Whether that reads as puzzle 1's rule, or as a surprise.
+- Two scenery buildings light with the job where five did. Whether "9 of 6" can be read off the street, or only off the HUD and the numbers.
+- The kiln is round the corner from the home, one span on. Whether the two read as one pair on `br_row`.
 - The fewest clicks is 1, as the plan's band allows; the thought is in which one.
 
 ## What it taught us
+
+- Josh, 26 Nov 2026, on the first lay (at the block's south-east corner): "Puzzle 3 has the same problem."
+- Josh, 26 Nov 2026, asked how to fix it, on a card: "Both (Recommended)" (the card's option: "Re-lay 1-3 so each breaker/switch sits on a single run, AND add a cue in the game: hovering or throwing one highlights exactly the wires it controls. The cue also helps every later puzzle.").
+- What the re-lay changed (section NR): all four breakers moved to bare poles with one wire in and one wire out, at the block's north-east corner; the row is now past the infirmary on its street and the two small houses have the other street. The sums are unchanged. Not yet replayed.

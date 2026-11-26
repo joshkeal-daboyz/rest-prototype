@@ -25,7 +25,7 @@
       "id": "feed",
       "type": "feed",
       "place": {
-        "pole": "pole:x:1:lo:337.50"
+        "pole": "pole:x:1:lo:272.50"
       }
     },
     {
@@ -37,7 +37,7 @@
       ],
       "selected": 0,
       "place": {
-        "pole": "pole:x:1:hi:337.50"
+        "pole": "pole:x:1:hi:272.50"
       }
     },
     {
@@ -45,7 +45,7 @@
       "type": "lamp",
       "load": 1,
       "place": {
-        "building": "block:6:1/b|outer|+x|67,18"
+        "building": "block:6:1/a|outer|-z|55,18"
       }
     },
     {
@@ -57,7 +57,7 @@
       ],
       "selected": 0,
       "place": {
-        "pole": "pole:x:1:hi:326.67"
+        "pole": "pole:z:6:hi:104.17"
       }
     },
     {
@@ -65,7 +65,7 @@
       "type": "lamp",
       "load": 1,
       "place": {
-        "building": "block:6:1/b|outer|-z|65,18"
+        "building": "block:6:1/a|outer|-x|54,20"
       }
     },
     {
@@ -73,7 +73,7 @@
       "type": "lamp",
       "load": 1,
       "place": {
-        "building": "block:6:1/b|outer|-z|63,18"
+        "building": "block:6:1/a|outer|+z|54,25"
       }
     }
   ],
@@ -84,7 +84,7 @@
       "to": "sw_corner",
       "run": {
         "spans": [
-          "span:pole:x:1:hi:337.50~pole:x:1:lo:337.50"
+          "span:pole:x:1:hi:272.50~pole:x:1:lo:272.50"
         ]
       }
     },
@@ -94,9 +94,9 @@
       "to": "home",
       "run": {
         "spans": [
-          "span:pole:x:1:hi:337.50~pole:z:7:lo:92.50"
+          "span:pole:x:1:hi:272.50~pole:x:1:hi:283.33"
         ],
-        "drop": "block:6:1/b|outer|+x|67,18"
+        "drop": "block:6:1/a|outer|-z|55,18"
       }
     },
     {
@@ -105,7 +105,8 @@
       "to": "sw_pump",
       "run": {
         "spans": [
-          "span:pole:x:1:hi:326.67~pole:x:1:hi:337.50"
+          "span:pole:x:1:hi:272.50~pole:z:6:hi:92.50",
+          "span:pole:z:6:hi:104.17~pole:z:6:hi:92.50"
         ]
       }
     },
@@ -115,7 +116,7 @@
       "to": "store",
       "run": {
         "spans": [],
-        "drop": "block:6:1/b|outer|-z|65,18"
+        "drop": "block:6:1/a|outer|-x|54,20"
       }
     },
     {
@@ -124,9 +125,11 @@
       "to": "pump_house",
       "run": {
         "spans": [
-          "span:pole:x:1:hi:315.83~pole:x:1:hi:326.67"
+          "span:pole:z:6:hi:104.17~pole:z:6:hi:115.83",
+          "span:pole:z:6:hi:115.83~pole:z:6:hi:127.50",
+          "span:pole:x:3:lo:272.50~pole:z:6:hi:127.50"
         ],
-        "drop": "block:6:1/b|outer|-z|63,18"
+        "drop": "block:6:1/a|outer|+z|54,25"
       }
     }
   ],
