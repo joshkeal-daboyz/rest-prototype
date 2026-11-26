@@ -8,9 +8,11 @@ export interface LayerState {
   full: ReadonlySet<string>;
   /** False until the first frame: batteries already full then do not tick. */
   seen: boolean;
+  /** Per timed breaker, whole seconds left (ceil of `next`) on the previous frame; empty when the clock was not running. */
+  secs: ReadonlyMap<string, number>;
 }
 
-export const initialLayerState = (): LayerState => ({ full: new Set(), seen: false });
+export const initialLayerState = (): LayerState => ({ full: new Set(), seen: false, secs: new Map() });
 
 export interface Layers {
   /** Linear gain of the hum: 0 when nothing is powered. */
@@ -26,6 +28,8 @@ export interface Layers {
   crackleOn: boolean;
   /** True on the one frame a battery's charge first reaches its capacity. */
   fullTick: boolean;
+  /** True on a frame where some timed breaker's whole seconds left first read 3, 2 or 1 (the count-in). */
+  timerTick: boolean;
   next: LayerState;
 }
 
@@ -57,6 +61,16 @@ export function layersFor(view: SoundView, prev: LayerState): Layers {
       if (prev.seen && !prev.full.has(id)) tick = true;
     }
   }
+  const secs = new Map<string, number>();
+  let timerTick = false;
+  if (view.clock != null && !view.complete && view.timers) {
+    for (const [id, t] of view.timers) {
+      const c = Math.ceil(t.next - 1e-9);
+      secs.set(id, c);
+      const was = prev.secs.get(id);
+      if (was !== undefined && c !== was && c >= 1 && c <= 3) timerTick = true;
+    }
+  }
   const hum = f > 0 ? dbToGain(HUM_DB) * Math.sqrt(f) : 0;
   return {
     hum,
@@ -67,7 +81,8 @@ export function layersFor(view: SoundView, prev: LayerState): Layers {
     whine: charging ? dbToGain(WHINE_DB) : 0,
     crackleOn: view.sparking.size > 0,
     fullTick: tick,
-    next: { full, seen: true },
+    timerTick,
+    next: { full, seen: true, secs },
   };
 }
 
