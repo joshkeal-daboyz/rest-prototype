@@ -8,8 +8,17 @@
  * counted as it is.
  */
 
-/** What an entry previews: throwing a breaker, throwing a switch to its other line, or repairing a readable fault (whether or not the parts hold its part). */
-export type LoadPreviewKind = "breaker" | "switch" | "repair";
+/**
+ * What an entry previews: throwing a breaker, throwing a switch to its other line, repairing a readable fault (whether or not the parts hold its part), or clicking a battery
+ * (ticket 081 BC; Josh, 26 Nov 2026: "Approve BC (Recommended)").
+ *
+ * A `"battery"` entry (BC1, criterion 1) is the battery's click. Not released with charge above 0: the what-if is the battery released with the state's charge. Released: the what-if
+ * is the battery stopped. Not released with charge 0: no entry (its click is refused). `delta`, `over`, `blows` and `lines` are measured against the base as for a throw; on a release,
+ * `lines.on` is the far-side lines its current would reach. A released battery's current counts toward no feed, so `delta` is 0 unless the release moves a feed's own current (a spring
+ * or relay it holds). The seconds drawn by a battery (BC-Q1: "Seconds it would light (Recommended)") are the state's (the charge in `GridState.batteries`), read live by the renderer;
+ * they are not a field of the entry.
+ */
+export type LoadPreviewKind = "breaker" | "switch" | "repair" | "battery";
 
 export interface LoadPreviewEntry {
   readonly kind: LoadPreviewKind;
@@ -38,7 +47,7 @@ export interface LoadPreviewEntry {
 }
 
 /**
- * One state's preview: an entry per breaker and switch node id, and per readable fault id (the break icon's). A fault current does not reach has no entry ("Only when readable"), and no
- * hidden id (081 S1) is ever a key.
+ * One state's preview: an entry per breaker and switch node id, per readable fault id (the break icon's), and per battery node id whose click is not refused (081 BC: released, or
+ * charge above 0). A fault current does not reach has no entry ("Only when readable"), and no hidden id (081 S1) is ever a key.
  */
 export type LoadPreview = ReadonlyMap<string, LoadPreviewEntry>;

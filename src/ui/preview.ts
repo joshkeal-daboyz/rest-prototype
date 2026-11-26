@@ -46,10 +46,12 @@ function flipOrder(timers: GridState["timers"]): string[][] {
 
 /**
  * What the load numbers are computed from, as a string: the Relight and the win, every breaker's and switch's position, the faults and the readable ones, and the timers' flip order.
- * It ignores the clock, each `next` value, the batteries and the load, so a state that only ran on since the last flip has the same key (ticket 081 TB1b3).
+ * It ignores the clock, each `next` value, each battery's charge value and the load, so a state that only ran on since the last flip has the same key (ticket 081 TB1b3).
+ * Each battery adds its id, whether it is released, and whether its charge is above 0 (ticket 081 BC2): a release, a stop, running flat and the first charge from 0 change the numbers.
  */
 export function previewKey(state: GridState, relighting: boolean): string {
   const sortedPairs = <V>(m: ReadonlyMap<string, V>): Array<[string, V]> => [...m].sort(([a], [b]) => byText(a, b));
+  const batteries = sortedPairs(state.batteries).map(([id, b]) => [id, b.released, b.charge > 0] as const);
   return JSON.stringify([
     relighting,
     state.complete,
@@ -58,6 +60,7 @@ export function previewKey(state: GridState, relighting: boolean): string {
     state.faults.map((f) => f.id).sort(byText),
     [...state.readableFaults].sort(byText),
     flipOrder(state.timers),
+    batteries,
   ]);
 }
 
