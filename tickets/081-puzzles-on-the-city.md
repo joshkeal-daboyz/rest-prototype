@@ -3161,7 +3161,7 @@ To get past a stop, the designer does not change W1's numbers, `FIT_BUDGET`, a t
 
 **Questions for Josh** (open question 31), **answered 26 Nov 2026 on cards:** N4-Q1 "Relay, spring, battery, timer (Recommended)"; N4-Q2 "Cut it now" (section BC). Nothing in N4 is open. *As asked:* N4-Q1 the order of 17 to 20 ("Relay, spring, battery, timer (Recommended)" / "Timer at 19, battery twist at 20" / "Timer at 18, after the relay"); N4-Q2 a hover cue for the battery ("Wait until you play 19 (Recommended)" / "Cut it now": a grid-simulator section, then a renderer one).
 
-#### N5 · Series v1, batch 5: puzzles 21 to 25 (puzzle-designer, Fable 5.2). Branch `ticket/081n5-series-batch-5`, from `main` f6fa635. **Approved to build** (Josh, 26 Nov 2026, on a card: "Start N5 (Recommended)"; the card read: "After N4: start N5 (puzzles 21 to 25, several layers of solving across districts, including the battery twist)?"). The last batch of series v1
+#### N5 · Series v1, batch 5: puzzles 21 to 25 (puzzle-designer, Fable 5.2). Branch `ticket/081n5-series-batch-5`, from `main` f6fa635. **Approved to build** (Josh, 26 Nov 2026, on a card: "Start N5 (Recommended)"; the card read: "After N4: start N5 (puzzles 21 to 25, several layers of solving across districts, including the battery twist)?"). The last batch of series v1. **N5-Q1 answered** (Josh, 26 Nov 2026, on a card: "Build on what shows (Recommended)"): 22 and 25 build on what the city draws now, and HUD-only facts go under **To watch**
 **Re-cut in full 26 Nov 2026** from the named stub, to Josh's words. They are recorded at the top of section N, in the series rules (**The series' direction**, **Reuse is free**), in NB and in TB (relayed by the main session):
 - "Puzzles 21 through 25. Should not only span multiple districts but should also include multiple layers of puzzle solving that span multiple districts."
 - "The puzzle architect does not have to have the same names for the puzzles as they did before. I'm using Fable because I want it to build better puzzles, more complex puzzles that challenge the user based upon what they know and what they've learned from prior puzzles."
@@ -3350,10 +3350,10 @@ To get past a stop, the designer does not change W1's numbers, `FIT_BUDGET`, a t
 
 **Interfaces.** None. Every piece and every combination above is in the schema, the simulator and the tools today, so `src/core/` gets no change. No new dependency.
 
-**Order inside the batch.** 21 first. 23 and 24 may follow at once. **22 and 25 wait for N5-Q1's answer**, because they lean most on which feed carries what. 25 is built last.
+**Order inside the batch.** 21 first. 23 and 24 may follow at once. 22 and 25 no longer wait: N5-Q1 is answered (Josh, 26 Nov 2026, on a card: "Build on what shows (Recommended)"). 25 is built last.
 
-**Questions for Josh** (open question 33; it holds up 22 and 25 only):
-- **N5-Q1, what the two-feed puzzles may lean on.** On `s12`, `s15` and `s18` some facts only the HUD shows: which feed carries a building, and a feed's own load against its limit. On the city, a feed's limit shows only as a red number on the move that would put it over. Rows 22 ("move the meeting") and 25 are built on which feed carries what.
+**Questions for Josh** (open question 33), **answered 26 Nov 2026 on a card:** N5-Q1 "Build on what shows (Recommended)". 22 and 25 make which feed carries what readable through what the city draws now (the red number naming the feed, a box's bar, which wires light); any fact only the HUD gives goes under **To watch**, and Josh's play of 12, 15 and 18 says whether a feed bar is wanted. Nothing in N5 is open. *As asked:*
+- ~~**N5-Q1, what the two-feed puzzles may lean on.**~~ On `s12`, `s15` and `s18` some facts only the HUD shows: which feed carries a building, and a feed's own load against its limit. On the city, a feed's limit shows only as a red number on the move that would put it over. Rows 22 ("move the meeting") and 25 are built on which feed carries what.
   - "Build on what shows; watch it (Recommended)": 22 and 25 make the carrier readable through what the city draws now (the red number naming the feed, a box's bar, which wires light). Any fact only the HUD gives goes under **To watch**, and your play of 12, 15 and 18 says whether a feed bar is wanted.
   - "Cut a feed bar first": a renderer section draws each feed's load against its limit on its pole, and 22 and 25 wait for it to merge.
   - "Keep it off the solve": no solve in 21 to 25 may need a fact only the HUD shows. 22's row changes to fit.
@@ -4034,5 +4034,5 @@ All questions so far are answered (above), the mid-row one included ("Only when 
     - **G1:** "Approve BC (Recommended)"; "Not now".
     - **BC-Q1, the battery's number:** "Seconds it would light (Recommended)"; "Load only, as breakers"; "The load of what it lights".
     - **BC-Q2, when it must merge:** "Before N4 merges (Recommended)" (19 is built meanwhile); "Before 19 is built" (as the N4-Q2 card worded it).
-33. **Section N5, series 21 to 25 (re-cut 26 Nov 2026; approved to build: "Start N5 (Recommended)").** One question; it holds up puzzles 22 and 25 only.
+33. ~~**Section N5, series 21 to 25 (re-cut 26 Nov 2026; approved to build: "Start N5 (Recommended)").**~~ **Answered 26 Nov 2026, on a card:** N5-Q1 "Build on what shows (Recommended)". 22 and 25 are unblocked; nothing in N5 is open. *As asked:*
     - **N5-Q1, what the two-feed puzzles may lean on:** "Build on what shows; watch it (Recommended)" (22 and 25 make the carrier readable through what the city draws now; HUD-only facts go under To watch, and Josh's play of 12, 15 and 18 says whether a feed bar is wanted); "Cut a feed bar first" (a renderer section, each feed's load against its limit on its pole; 22 and 25 wait for it); "Keep it off the solve" (no solve in 21 to 25 needs a HUD-only fact; 22's row changes).
