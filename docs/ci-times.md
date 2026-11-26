@@ -15,6 +15,7 @@ One row per measurement: the whole everyday suite (`npm test`, one city) on CI, 
 | 2026-11-25 | #80 | d5e9fe8 (main, after #80) | 203 | 3,333 (56 skipped) | 775 s | 352 s | 6.3 min | After 081 W1 to W4, P2a2, V1 to V4 and the overlay timeout fix (#78); up 107 s on the step since #70 (collect 189 s against 142 s). One case in `src/city/pipeline/named.test.ts` (6 x 6 seed 1 one-way) hit the 5 s timeout: load, not logged |
 | 2026-11-25 | #90 | 619ed51 (main, after #90) | 182 | 3,009 (56 skipped) | 536 s | 259 s | 4.6 min | After 081 FX4, the two timeout fixes (#78, #87), X1a to X1c and R1 (21 fewer test files with the 2D map gone); down 93 s on the step since #80 (collect 151 s against 189 s) |
 | 2026-11-26 | #100 | 94ba3ab (main, after #100) | 185 | 3,021 (56 skipped) | 484 s | 240 s | 4.4 min | After 081 N0, N1, NS and NC1 (3 more test files); down 19 s on the step since #90 (collect 144 s against 151 s) |
+| 2026-11-26 | #110 | 89621bf (main, after #110) | 189 | 3,042 (56 skipped) | 544 s | 261 s | 4.6 min | After 081 N2, NR, NC2, J and TB0 to TB3 (4 more test files); up 21 s on the step since #100 (collect 152 s against 144 s) |
 
 ## Failure log
 
