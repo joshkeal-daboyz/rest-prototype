@@ -1,0 +1,106 @@
+{
+  "id": "s04-the-spark",
+  "name": "04 · The spark",
+  "version": 3,
+  "scope": "map",
+  "capacity": 3,
+  "startingParts": [
+    "wire"
+  ],
+  "target": [
+    "granary"
+  ],
+  "priority": [
+    "home"
+  ],
+  "city": {
+    "blocksX": 6,
+    "blocksZ": 6,
+    "seed": 1,
+    "oneWay": true
+  },
+  "district": [
+    "block:3:0"
+  ],
+  "nodes": [
+    {
+      "id": "feed",
+      "type": "feed",
+      "place": {
+        "pole": "pole:z:5:hi:27.50"
+      }
+    },
+    {
+      "id": "sw_1",
+      "type": "switch",
+      "outputs": [
+        "l_home",
+        "l_gran"
+      ],
+      "selected": 0,
+      "place": {
+        "pole": "pole:z:5:lo:27.50"
+      }
+    },
+    {
+      "id": "home",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:3:0/a|outer|+x|32,6"
+      }
+    },
+    {
+      "id": "granary",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:3:0/a|outer|-z|26,5"
+      }
+    }
+  ],
+  "lines": [
+    {
+      "id": "l_feed",
+      "from": "feed",
+      "to": "sw_1",
+      "run": {
+        "spans": [
+          "span:pole:z:5:hi:27.50~pole:z:5:lo:27.50"
+        ]
+      }
+    },
+    {
+      "id": "l_home",
+      "from": "sw_1",
+      "to": "home",
+      "run": {
+        "spans": [
+          "span:pole:z:5:lo:27.50~pole:z:5:lo:38.33"
+        ],
+        "drop": "block:3:0/a|outer|+x|32,6"
+      }
+    },
+    {
+      "id": "l_gran",
+      "from": "sw_1",
+      "to": "granary",
+      "run": {
+        "spans": [
+          "span:pole:x:0:hi:162.50~pole:z:5:lo:27.50",
+          "span:pole:x:0:hi:150.83~pole:x:0:hi:162.50",
+          "span:pole:x:0:hi:139.17~pole:x:0:hi:150.83"
+        ],
+        "drop": "block:3:0/a|outer|-z|26,5"
+      }
+    }
+  ],
+  "faults": [
+    {
+      "id": "f_cut",
+      "at": "l_gran",
+      "kind": "damaged-cable",
+      "span": "span:pole:x:0:hi:150.83~pole:x:0:hi:162.50"
+    }
+  ]
+}

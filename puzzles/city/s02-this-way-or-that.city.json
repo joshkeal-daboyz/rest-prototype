@@ -1,0 +1,134 @@
+{
+  "id": "s02-this-way-or-that",
+  "name": "02 · This way or that",
+  "version": 3,
+  "scope": "map",
+  "capacity": 4,
+  "startingParts": [],
+  "target": [
+    "pump_house"
+  ],
+  "priority": [
+    "home"
+  ],
+  "city": {
+    "blocksX": 6,
+    "blocksZ": 6,
+    "seed": 1,
+    "oneWay": true
+  },
+  "district": [
+    "block:6:1"
+  ],
+  "nodes": [
+    {
+      "id": "feed",
+      "type": "feed",
+      "place": {
+        "pole": "pole:x:1:lo:337.50"
+      }
+    },
+    {
+      "id": "sw_corner",
+      "type": "switch",
+      "outputs": [
+        "l_home",
+        "l_mid"
+      ],
+      "selected": 0,
+      "place": {
+        "pole": "pole:x:1:hi:337.50"
+      }
+    },
+    {
+      "id": "home",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:6:1/b|outer|+x|67,18"
+      }
+    },
+    {
+      "id": "sw_pump",
+      "type": "switch",
+      "outputs": [
+        "l_store",
+        "l_pump"
+      ],
+      "selected": 0,
+      "place": {
+        "pole": "pole:x:1:hi:326.67"
+      }
+    },
+    {
+      "id": "store",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:6:1/b|outer|-z|65,18"
+      }
+    },
+    {
+      "id": "pump_house",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:6:1/b|outer|-z|63,18"
+      }
+    }
+  ],
+  "lines": [
+    {
+      "id": "l_feed",
+      "from": "feed",
+      "to": "sw_corner",
+      "run": {
+        "spans": [
+          "span:pole:x:1:hi:337.50~pole:x:1:lo:337.50"
+        ]
+      }
+    },
+    {
+      "id": "l_home",
+      "from": "sw_corner",
+      "to": "home",
+      "run": {
+        "spans": [
+          "span:pole:x:1:hi:337.50~pole:z:7:lo:92.50"
+        ],
+        "drop": "block:6:1/b|outer|+x|67,18"
+      }
+    },
+    {
+      "id": "l_mid",
+      "from": "sw_corner",
+      "to": "sw_pump",
+      "run": {
+        "spans": [
+          "span:pole:x:1:hi:326.67~pole:x:1:hi:337.50"
+        ]
+      }
+    },
+    {
+      "id": "l_store",
+      "from": "sw_pump",
+      "to": "store",
+      "run": {
+        "spans": [],
+        "drop": "block:6:1/b|outer|-z|65,18"
+      }
+    },
+    {
+      "id": "l_pump",
+      "from": "sw_pump",
+      "to": "pump_house",
+      "run": {
+        "spans": [
+          "span:pole:x:1:hi:315.83~pole:x:1:hi:326.67"
+        ],
+        "drop": "block:6:1/b|outer|-z|63,18"
+      }
+    }
+  ],
+  "faults": []
+}
