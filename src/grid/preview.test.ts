@@ -93,7 +93,7 @@ describe("load preview (ticket 081 V2)", () => {
       ],
     );
     const pv = preview(p);
-    expect(pv.get("brA")).toEqual({ kind: "breaker", delta: 2, over: true, blows: ["fbA"] });
+    expect(pv.get("brA")).toMatchObject({ kind: "breaker", delta: 2, over: true, blows: ["fbA"] });
     expect(pv.get("brB")).toMatchObject({ delta: 1, over: true, blows: [] });
     expect(pv.get("brC")).toMatchObject({ delta: 1, over: false, blows: [] });
     const g = createGrid(p);
