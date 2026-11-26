@@ -15,7 +15,7 @@ import { collectCityMaps, type CityMapEntry } from "./ui/maps";
 import { assetGalleryRequested } from "./ui/assetgallerylogic";
 import { pageView } from "./ui/view3d";
 import { relightCues } from "./ui/relightcues";
-import { isLoadKey, previewFor } from "./ui/preview";
+import { isLoadKey, previewFor, previewKey } from "./ui/preview";
 
 /** This browser's localStorage, or null where the browser refuses it (ticket 081 T3). */
 function browserStorage(): StorageLike | null {
@@ -218,12 +218,17 @@ if (entries.length === 0) {
     let numbersOn = true;
     let current: LoadPreview | null = null;
     let shownFor: { state: GridState; relighting: boolean } | null = null;
+    // The key of the state the numbers were computed for: a state that differs only by time (no flip, no move) keeps them (ticket 081 TB1b3).
+    let shownKey: string | null = null;
     const drawNumbers = (): void => {
       setNumbers?.call(renderer, numbersOn ? current : null);
     };
     const refreshPreview = (state: GridState, relighting: boolean): void => {
       if (shownFor !== null && shownFor.state === state && shownFor.relighting === relighting) return;
       shownFor = { state, relighting };
+      const key = previewKey(state, relighting);
+      if (key === shownKey) return;
+      shownKey = key;
       const step = previewFor(puzzle, state, known, relighting);
       known = step.known;
       current = step.preview;
@@ -241,6 +246,7 @@ if (entries.length === 0) {
       if (e.kind !== "reset") return;
       known = new Set();
       shownFor = null;
+      shownKey = null;
     });
     refreshPreview(grid.state(), false);
 
