@@ -24,6 +24,12 @@ export interface LoadPreviewEntry {
   readonly over: boolean;
   /** The fuse box ids the move would blow, in the grid's order; empty when none. */
   readonly blows: readonly string[];
+  /**
+   * The lines the move would make live (`on`) and dead (`off`) (ticket 081 NC; Josh, 26 Nov 2026: "hovering or throwing one highlights exactly the wires it controls"): ids of
+   * `puzzle.lines` in its order, from the same visible what-if as `delta` (fuses lifted, unread faults as sound). May hold hidden (S1) line ids; the renderer draws file lines only.
+   * Set by `loadPreview` on every entry from NC1 on; absent reads as none.
+   */
+  readonly lines?: { readonly on: readonly string[]; readonly off: readonly string[] };
 }
 
 /**
