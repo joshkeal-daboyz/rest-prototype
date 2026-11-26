@@ -1,6 +1,6 @@
 /** The session log: every action in order, exportable as JSON. Pure. */
 
-export type LogKind = "throw-breaker" | "throw-switch" | "repair" | "repair-refused" | "battery-release" | "battery-stop" | "battery-flat" | "undo" | "reset";
+export type LogKind = "throw-breaker" | "throw-switch" | "repair" | "repair-refused" | "battery-release" | "battery-stop" | "battery-flat" | "timer-flip" | "undo" | "reset";
 
 export interface LogEntry {
   /** 1, 2, 3, ... never reused and never reset (a reset is itself an entry). */
@@ -19,6 +19,8 @@ export interface LogEntry {
   needs?: { part: string; count: number; have: number };
   /** battery-flat: true if the player stopped it early, false if it ran out. */
   stopped?: boolean;
+  /** timer-flip: the state the timed breaker flipped to. */
+  closed?: boolean;
   /** Fault id repaired. */
   fault?: string;
 }
