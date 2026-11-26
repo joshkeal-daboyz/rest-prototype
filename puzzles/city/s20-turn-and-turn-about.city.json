@@ -1,0 +1,350 @@
+{
+  "id": "s20-turn-and-turn-about",
+  "name": "20 · Turn and turn about",
+  "version": 4,
+  "scope": "map",
+  "capacity": 24,
+  "startingParts": [
+    "bulb",
+    "bulb",
+    "fuse"
+  ],
+  "target": [
+    "clock_house",
+    "cistern"
+  ],
+  "priority": [
+    "bakery"
+  ],
+  "city": {
+    "blocksX": 6,
+    "blocksZ": 6,
+    "seed": 1,
+    "oneWay": true
+  },
+  "district": [
+    "block:6:0",
+    "block:6:1"
+  ],
+  "nodes": [
+    {
+      "id": "feed",
+      "type": "feed",
+      "place": {
+        "pole": "pole:z:7:hi:27.50"
+      }
+    },
+    {
+      "id": "j_0",
+      "type": "junction",
+      "place": {
+        "pole": "pole:z:7:lo:27.50"
+      }
+    },
+    {
+      "id": "tb_a",
+      "type": "breaker",
+      "closed": true,
+      "timer": {
+        "closed": 8,
+        "open": 8,
+        "offset": 0
+      },
+      "place": {
+        "pole": "pole:z:7:lo:62.50"
+      }
+    },
+    {
+      "id": "sp_a",
+      "type": "switch",
+      "spring": true,
+      "outputs": [
+        "l_bake",
+        "l_tie"
+      ],
+      "selected": 0,
+      "place": {
+        "pole": "pole:x:1:lo:337.50"
+      }
+    },
+    {
+      "id": "bakery",
+      "type": "lamp",
+      "load": 2,
+      "place": {
+        "building": "block:6:0/b|outer|+z|66,12"
+      }
+    },
+    {
+      "id": "tb_b",
+      "type": "breaker",
+      "closed": false,
+      "timer": {
+        "closed": 8,
+        "open": 8,
+        "offset": 8
+      },
+      "place": {
+        "pole": "pole:x:0:hi:337.50"
+      }
+    },
+    {
+      "id": "j_b",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:0:hi:326.67"
+      }
+    },
+    {
+      "id": "cistern",
+      "type": "lamp",
+      "load": 3,
+      "place": {
+        "building": "block:6:0/b|outer|-z|63,5"
+      }
+    },
+    {
+      "id": "fb",
+      "type": "fusebox",
+      "rating": 19,
+      "place": {
+        "pole": "pole:x:0:hi:315.83"
+      }
+    },
+    {
+      "id": "r_b",
+      "type": "switch",
+      "relay": true,
+      "outputs": [
+        "l_yard",
+        "l_link"
+      ],
+      "selected": 0,
+      "place": {
+        "pole": "pole:x:0:hi:294.17"
+      }
+    },
+    {
+      "id": "yard",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:6:0/a|outer|-z|57,5"
+      }
+    },
+    {
+      "id": "j_d",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:1:hi:272.50"
+      }
+    },
+    {
+      "id": "r_1",
+      "type": "switch",
+      "relay": true,
+      "outputs": [
+        "l_smelt",
+        "l_clock"
+      ],
+      "selected": 0,
+      "place": {
+        "pole": "pole:z:6:hi:104.17"
+      }
+    },
+    {
+      "id": "smelter",
+      "type": "lamp",
+      "load": 5,
+      "place": {
+        "building": "block:6:1/a|outer|-x|54,20"
+      }
+    },
+    {
+      "id": "clock_house",
+      "type": "lamp",
+      "load": 3,
+      "place": {
+        "building": "block:6:1/a|outer|-x|54,22"
+      }
+    }
+  ],
+  "lines": [
+    {
+      "id": "l_feed",
+      "from": "feed",
+      "to": "j_0",
+      "run": {
+        "spans": [
+          "span:pole:z:7:hi:27.50~pole:z:7:lo:27.50"
+        ]
+      }
+    },
+    {
+      "id": "l_a0",
+      "from": "j_0",
+      "to": "tb_a",
+      "run": {
+        "spans": [
+          "span:pole:z:7:lo:27.50~pole:z:7:lo:39.17",
+          "span:pole:z:7:lo:39.17~pole:z:7:lo:50.83",
+          "span:pole:z:7:lo:50.83~pole:z:7:lo:62.50"
+        ]
+      }
+    },
+    {
+      "id": "l_a1",
+      "from": "tb_a",
+      "to": "sp_a",
+      "run": {
+        "spans": [
+          "span:pole:x:1:lo:337.50~pole:z:7:lo:62.50"
+        ]
+      }
+    },
+    {
+      "id": "l_bake",
+      "from": "sp_a",
+      "to": "bakery",
+      "run": {
+        "spans": [],
+        "drop": "block:6:0/b|outer|+z|66,12"
+      }
+    },
+    {
+      "id": "l_tie",
+      "from": "sp_a",
+      "to": "j_d",
+      "run": {
+        "spans": [
+          "span:pole:x:1:hi:337.50~pole:x:1:lo:337.50",
+          "span:pole:x:1:hi:326.67~pole:x:1:hi:337.50",
+          "span:pole:x:1:hi:315.83~pole:x:1:hi:326.67",
+          "span:pole:x:1:hi:305.50~pole:x:1:hi:315.83",
+          "span:pole:x:1:hi:294.17~pole:x:1:hi:305.50",
+          "span:pole:x:1:hi:283.33~pole:x:1:hi:294.17",
+          "span:pole:x:1:hi:272.50~pole:x:1:hi:283.33"
+        ]
+      }
+    },
+    {
+      "id": "l_b0",
+      "from": "j_0",
+      "to": "tb_b",
+      "run": {
+        "spans": [
+          "span:pole:x:0:hi:337.50~pole:z:7:lo:27.50"
+        ]
+      }
+    },
+    {
+      "id": "l_b1",
+      "from": "tb_b",
+      "to": "j_b",
+      "run": {
+        "spans": [
+          "span:pole:x:0:hi:326.67~pole:x:0:hi:337.50"
+        ]
+      }
+    },
+    {
+      "id": "l_cist",
+      "from": "j_b",
+      "to": "cistern",
+      "run": {
+        "spans": [],
+        "drop": "block:6:0/b|outer|-z|63,5"
+      }
+    },
+    {
+      "id": "l_b2",
+      "from": "j_b",
+      "to": "fb",
+      "run": {
+        "spans": [
+          "span:pole:x:0:hi:315.83~pole:x:0:hi:326.67"
+        ]
+      }
+    },
+    {
+      "id": "l_b3",
+      "from": "fb",
+      "to": "r_b",
+      "run": {
+        "spans": [
+          "span:pole:x:0:hi:304.50~pole:x:0:hi:315.83",
+          "span:pole:x:0:hi:294.17~pole:x:0:hi:304.50"
+        ]
+      }
+    },
+    {
+      "id": "l_yard",
+      "from": "r_b",
+      "to": "yard",
+      "run": {
+        "spans": [],
+        "drop": "block:6:0/a|outer|-z|57,5"
+      }
+    },
+    {
+      "id": "l_link",
+      "from": "r_b",
+      "to": "j_d",
+      "run": {
+        "spans": [
+          "span:pole:x:0:hi:283.33~pole:x:0:hi:294.17",
+          "span:pole:x:0:hi:272.50~pole:x:0:hi:283.33",
+          "span:pole:x:0:hi:272.50~pole:z:6:hi:27.50",
+          "span:pole:z:6:hi:27.50~pole:z:6:hi:39.17",
+          "span:pole:z:6:hi:39.17~pole:z:6:hi:50.83",
+          "span:pole:z:6:hi:50.83~pole:z:6:hi:62.50",
+          "span:pole:x:1:lo:272.50~pole:z:6:hi:62.50",
+          "span:pole:x:1:hi:272.50~pole:x:1:lo:272.50"
+        ]
+      }
+    },
+    {
+      "id": "l_r",
+      "from": "j_d",
+      "to": "r_1",
+      "run": {
+        "spans": [
+          "span:pole:x:1:hi:272.50~pole:z:6:hi:92.50",
+          "span:pole:z:6:hi:104.17~pole:z:6:hi:92.50"
+        ]
+      }
+    },
+    {
+      "id": "l_smelt",
+      "from": "r_1",
+      "to": "smelter",
+      "run": {
+        "spans": [],
+        "drop": "block:6:1/a|outer|-x|54,20"
+      }
+    },
+    {
+      "id": "l_clock",
+      "from": "r_1",
+      "to": "clock_house",
+      "run": {
+        "spans": [
+          "span:pole:z:6:hi:104.17~pole:z:6:hi:115.83"
+        ],
+        "drop": "block:6:1/a|outer|-x|54,22"
+      }
+    }
+  ],
+  "faults": [
+    {
+      "id": "f_clock",
+      "at": "clock_house",
+      "kind": "dead-lamp"
+    },
+    {
+      "id": "f_cist",
+      "at": "cistern",
+      "kind": "dead-lamp"
+    }
+  ]
+}
