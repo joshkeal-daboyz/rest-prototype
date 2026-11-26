@@ -413,3 +413,7 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 079 | gate (main session) | - | - | - | - | PR 1 whole suite 218 files, 4,181 passed (package.json changed); PRs 2-4 scoped: 82 s, 77 s, 45 s |
 | cleanup 23 Nov | branch-cleaner (general-purpose on haiku) | haiku | 74K total | - | - | First cleanup pass, 5 tool uses |
 | 080 B2c | renderer / code-reviewer | sonnet / opus | 231K (build and fix rounds) / 139K + 49K (round 2) | - | 2 | facades and frontage-and-interiors condensed into nine files (d0c0ed0, c6809d7, 4a9cc12); round 1 partly, must-fix 1; round 2 partly, must-fix 1 (the D-057o promotions, reverted in 4a9cc12, checked by the main session) |
+| 081 N3 | lead-architect (cut and Q1) | opus (agent default) | 118,629 total (subagent total; the input/output split is not available) | - | 0 | Re-cut N3 in full and N3-Q1 |
+| 081 N3 | puzzle-designer | Fable 5.2 | 550,942 total (subagent total; the input/output split is not available) | - | 1 | Built s11 to s15; PR #119, merged ef60db7 |
+| 081 N3 | code-reviewer | opus | 119,658 total (subagent total; the input/output split is not available) | - | 1 | must-fix 0 |
+| 081 N3 | branch-cleaner | haiku | 21,776 total (subagent total; the input/output split is not available) | - | - | Cleanup after the N3 merge |
