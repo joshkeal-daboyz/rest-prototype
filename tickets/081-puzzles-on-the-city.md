@@ -2853,6 +2853,9 @@ The reasoning, the table of how it meets the existing pieces and a worked exampl
 | 5, beside 3 | TB5, the sound | sound | TB0 merged (it codes against the events and `SoundView`) | at most 2 |
 | 6 | TB6, a trial puzzle for Josh | puzzle-designer (Fable 5.2) | TB1 to TB4 merged (TB5 may follow) | 0 |
 | — | Where it enters the series (TB-Q4) | lead-architect | Josh plays TB6 | at N4's re-cut |
+| 7 | TB1b1, the joint-flip preview (follow-up, **not approved**) | grid-simulator | TB1 merged (now) | at most 2 |
+| 8, beside 7 | TB1b3, the preview once per change, not per frame (follow-up, **not approved**) | ui | TB1 merged (now) | at most 1 |
+| 9 | TB1b2, the next cue for every timer (follow-up, **not approved**) | renderer | TB1b1 and TB3 (#109) merged | 0 added, 1 rewritten |
 
 #### TB0 · The timed breaker's types, its validation and its schema entry (lead-architect). Branch `ticket/081tb0-timer-types`, after G1. **Built** 26 Nov 2026 by the lead-architect in the main checkout, uncommitted, for the main session to branch; 2 cases added
 **Goal.** The builders code against one contract: a puzzle file can carry a timed breaker, the loader rejects a bad schedule with a clear message, and `puzzles/SCHEMA.md` says what it does.
@@ -2959,6 +2962,62 @@ The reasoning, the table of how it meets the existing pieces and a worked exampl
 - at most 2 timed breakers on a map;
 - every timed puzzle wins at `--click-seconds 3` in the same fewest clicks;
 - the note names each window and what is done in it.
+
+#### TB1b · Follow-up: the preview on a timed map, jointly and once per change. Cut 26 Nov 2026, three PRs (TB1b1, TB1b2, TB1b3). **Not approved** (awaiting G1)
+**Where it comes from.** TB1's review (`reviews/081-TB1-timer-rule.md`, could-improve 1) and TB3's builder report (PR #109).
+- `src/grid/preview.ts` previews each timed breaker's flip alone. Two timers that flip at the same moment (rule 6; the alternating pair, the likely shape of TB6) are shown as two separate what-ifs. On one limited feed, one entry can then read `over: true` for a flip that, taken jointly, browns nothing out.
+- A later timer's entry also ignores an earlier timer that flips first.
+- So TB3 withholds the next cue and number for every timer except the one that flips first and alone (`timerNextExact` in `src/render3d/timerring.ts`).
+- Separately, while the clock runs, `GridState.state()` is a new object every `advance`. `refreshPreview` in `src/main.ts` keys on state identity, so `loadPreview` runs every frame. That is two grid settles per breaker, switch and readable fault, per frame, for numbers that change only when the circuit does.
+
+**No rule changes.** Rule 9 ("its load number is red if the flip will brown out or blow a fuse") is met truly, not changed. No Decided rule is touched, no city grammar number changes (no `pipeline-designer` pre-check), and there is no new dependency or type. **One owner per PR**, so the renderer's one-line change is its own sub-section (TB1b2), not a rider on TB1b1.
+
+##### TB1b1 · The joint-flip preview (grid-simulator, pure). Branch `ticket/081tb1b1-joint-preview`, from `main` now
+**Goal.** A timed breaker's load number and cue tell the truth about the moment it flips, including every other timer that flips with it or before it, so an alternating pair never warns red for a brownout it doesn't cause.
+
+**Acceptance criteria.**
+1. [ ] **The entry is the grid at its moment.** For a timed breaker `T` whose `next` is `m`, its `loadPreview` entry is the circuit with every timed breaker at the position its clock gives it `m` seconds from now:
+   - a timer whose `next` is more than `m` stays where it is;
+   - a timer whose `next` is `m` (to within 1e-6 s, TB3's `SAME_MOMENT`), `T` included, has flipped. That is the joint flip of rule 6;
+   - a timer whose `next` is less than `m` has flipped, and flips again at each of its own boundaries up to `m`. It is read from its `timer` in the puzzle and its readout, as `timerAt` reads it;
+   - the player's breakers, the switches and the seen faults are the state's.
+
+   `kind` `"breaker"`, `timed: true`. `delta`, `over`, `blows` and `lines` are measured against today's state, as for a throw. Before the first move the same rule holds on the frozen `next` values. **test**: 1 case: an alternating pair on one feed of capacity 1, flipping together. Each entry reads `delta` 0, `over` false and the same `lines`; flipped alone, the closing one would read `over` true. A third timer flipping earlier is counted in the later entries.
+2. [ ] **The settles between are not run** (the architect's call, stated so the builder doesn't guess). The entry is the configuration at `T`'s moment, settled once from fresh grids as today. A fuse that an earlier flip blows on the way is that earlier timer's own entry's `blows`. After that flip the state changes, and the later entries are recomputed from it. **no test**.
+3. [ ] **Unchanged elsewhere.** A player breaker's, a switch's and a repair's entries are as today. V2's and NC1's cases and TB1's timed-preview assertions pass unedited. A map without a timer gives the same preview (existing suites). `src/grid/` stays pure (the existing purity case). **test** (existing).
+4. [ ] **Its cost.** At most one fresh grid pair (lit and real) per timed breaker, as today. No extra settle per intermediate moment. **test**: folded into criterion 1's (the entry count), or **no test** if the builder's diff plainly keeps one `entry` call per timer.
+
+**Count.** At most 2 (aim 1). **Files.** `src/grid/preview.ts`; `src/grid/timer.test.ts` or `src/grid/preview.test.ts` (new cases only). **Must not:** any other folder, `src/core/` included (no new type: `LoadPreviewEntry` is unchanged). **Interfaces.** None new.
+
+##### TB1b2 · The next cue for every timer (renderer). Branch `ticket/081tb1b2-cue-every-timer`, after TB1b1 and TB3 (#109) merged
+**Goal.** Every timed breaker shows its next cue and number, hovered or in its last 3 s, as TB3's criterion 2 meant, now that the preview is joint.
+
+**Acceptance criteria.**
+1. [ ] **`timerNextShows` drops `timerNextExact`.** The function, and `SAME_MOMENT` if nothing else uses it, are removed. `cueIds` is otherwise unchanged. **test**: TB3's case "the next cue shows for a hovered timer ... never for a timer another flip shares or precedes ..." is **rewritten** (1 case): both timers of a coincident pair show within 3 s and on hover. A timer that flips after another shows too. The "numbers off" clause stays.
+2. [ ] **On TB6's trial puzzle** (or the TB1b1 fixture's pair placed on the city if TB6 is not yet built), both timers of the pair show the same joint numbers in their last 3 s, and neither is red unless the joint flip browns out. **browser**.
+
+**Count.** 0 added, 1 rewritten. **Files.** `src/render3d/timerring.ts`, `src/render3d/timerring.test.ts`. **Must not:** `cityview.ts`, `controlcue.ts`, `overlay.ts`, any other folder.
+
+##### TB1b3 · The preview once per change, not per frame (ui). Branch `ticket/081tb1b3-preview-key`, from `main` now, beside TB1b1
+**The fix chosen** (the cheapest correct one, one owner). The page keys the refresh on what the preview reads, not on the state's identity. `loadPreview` reads the breakers, the switches, the faults, the readable faults and `known`, and after TB1b1 the timers' order of next flips. It does not read the clock's fraction, a battery's charge or the load. A grid-side "config version" on `GridState` was weighed and set aside. It would need `src/core/`, `src/grid/` and `src/main.ts` (three owners), and a version bumped on every settle would still tick each frame on a charging battery. The key below covers that case too.
+
+**Goal.** On a timed (or battery) map with no move, the load numbers are computed once per flip, not once per frame, and stay the same numbers.
+
+**Acceptance criteria.**
+1. [ ] **`previewKey(state, relighting)`**, a pure function in `src/ui/preview.ts`. It returns a string built from:
+   - `relighting` and `complete`;
+   - each breaker's and switch's position;
+   - the fault ids and the readable fault ids;
+   - the timed breakers' ids in order of `next`, with ids within 1e-6 s of each other grouped as one moment.
+
+   It does not read `clock`, `next`'s values, `batteries` or `load`. **test**: 1 case:
+   - two states 0.3 s apart with no flip give the same key;
+   - a flip, a player throw and a repair each change it;
+   - a Reset whose breakers match the last state's, but whose timers' order differs, changes it.
+2. [ ] **`refreshPreview` uses it.** In `src/main.ts`, the guard keeps its identity fast path, then compares `previewKey` with the last shown key. Reset still clears it, as `shownFor = null` does today, so `known` restarts. The V key, the Relight and the win behave as today (V4's cases unedited). **test** (existing).
+3. [ ] **It runs once per change.** On a timed map in `npm run dev` (TB6's when built; otherwise a local, uncommitted copy of a city puzzle with one breaker given a timer), the builder counts `loadPreview` calls over 10 s with no move: 1 on open plus 1 per flip. **no test** (a temporary count in the builder's run, not committed; the figure goes in the report).
+
+**Count.** At most 1. **Files.** `src/ui/preview.ts`, `src/ui/preview.test.ts` (one case added), `src/main.ts` (the `refreshPreview` guard only). **Must not:** `src/grid/`, `src/render3d/`, `src/core/`, `src/play/`. If the key needs a field `GridState` doesn't carry, the builder stops and the architect re-cuts.
 
 ### J · The opening camera fits the puzzle, not the district (renderer). Branch `ticket/081j-puzzle-fit`. Cut 26 Nov 2026, one PR. **Approved (G1) 26 Nov 2026**: "Approve; limits follow puzzle"
 **Josh's request, 26 Nov 2026, in chat:** "Let's create another ticket to fix the camera. Currently it starts out way too zoomed out. It shouldn't zoom out on the district. It should just measure the width of the puzzle and height of the puzzle and fit it to the screen."

@@ -32,9 +32,9 @@ it("the cue layer and its x-ray share geometry and colours, and an unchanged hov
   expect(x.mesh.instanceColor).toBe(layer.mesh.instanceColor);
   expect([x.material.depthFunc, x.material.depthWrite, x.material.opacity]).toEqual([GreaterDepth, false, XRAY_OPACITY]);
   const v0 = layer.mesh.instanceColor!.version;
-  expect(layer.update("sw", preview)).toBe(true);
+  expect(layer.update(["sw"], preview)).toBe(true);
   const v1 = layer.mesh.instanceColor!.version;
   expect(v1).toBeGreaterThan(v0);
-  expect(layer.update("sw", preview)).toBe(false);
+  expect(layer.update(["sw"], preview)).toBe(false);
   expect(layer.mesh.instanceColor!.version).toBe(v1);
 });
