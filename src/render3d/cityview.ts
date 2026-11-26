@@ -32,9 +32,10 @@ import { lampFlicker } from "./look";
 import { DIM_SHARE, STREET_LIGHTS_MAX, buildingHeights, buildingGlow, dimBuildings, dimPieces, glowCardMesh, glowCards, roofOffsets, setDimWindows, lampBuildings, lightPlaces, litGlass, sceneryLamps, setBuildingGlow, setStreetLights, streetLights, targetBuildings, type BuildingGlow, type BuildingLamp, type GlowCards, type LitGlass, type StreetLights } from "./windows";
 import { WORLD_PER_METRE } from "./models";
 import { meshParts, sharedTileModels, type ModelSet } from "./models3d";
-import { OVERLAY_HIT_PX, OVERLAY_POST_Y_M, poleTopM, overlayLabels, overlayHit, overlayIcons, overlayBreakHit, overlayBreaks, placePoint, type OverlayBreak, type OverlayIcon, type OverlayLabel, type Project } from "./overlay";
+import { OVERLAY_HIT_PX, OVERLAY_POST_Y_M, TIMER_RING_R, poleTopM, overlayLabels, overlayHit, overlayIcons, overlayBreakHit, overlayBreaks, placePoint, type OverlayBreak, type OverlayIcon, type OverlayLabel, type Project } from "./overlay";
 import type { LoadPreview } from "../core/preview";
 import { CUE_THICK, createCueLayer } from "./controlcue";
+import { cueIds, createFlipTracker } from "./timerring";
 import { createPicker, type Picker } from "./pick";
 import { PlanStopError, plan3dGroups, planInput, planKeys, planFailureText } from "./plan3d";
 import { createRelightClock, lampIgnition, lineFraction, type LampIgnition } from "./relight3d";
@@ -636,7 +637,8 @@ function paintOverlay(c: CanvasRenderingContext2D, ratio: number, w: number, h: 
     }
   }
   for (const o of icons) {
-    drawNodeGlyph(c, o.spec, o.x, o.y, o.size);
+    drawNodeGlyph(c, o.spec, o.x, o.y, o.size * (1 + 0.18 * (o.pulse ?? 0)));
+    if (o.ring) drawTimerRing(c, o);
     if (o.id === hover || o.id === highlight) {
       c.strokeStyle = o.id === highlight ? WARM : TARGET;
       c.lineWidth = 2.5;
@@ -653,10 +655,79 @@ function paintOverlay(c: CanvasRenderingContext2D, ratio: number, w: number, h: 
   c.lineWidth = 3;
   c.strokeStyle = "rgba(10,12,18,0.85)";
   for (const l of labels) {
-    c.strokeText(l.text, l.x, l.y);
+    const tx = l.clock ? l.x + 15 : l.x;
+    c.strokeText(l.text, tx, l.y);
     c.fillStyle = l.red ? ALARM : "#f2ead7";
-    c.fillText(l.text, l.x, l.y);
+    c.fillText(l.text, tx, l.y);
+    if (l.clock) drawClockGlyph(c, l.x + 6, l.y, l.red ? ALARM : "#f2ead7");
   }
+}
+
+const TIMER_OPEN_ARC = "#2a3345";
+const TWO_PI = Math.PI * 2;
+
+/** 081 TB3: a timed breaker's ring round its icon: the closed share thick and warm, the open share thin and dark (so it reads without colour), the hand where the clock stands, the seconds to the next flip, and one expanding ring at a flip. */
+function drawTimerRing(c: CanvasRenderingContext2D, o: OverlayIcon): void {
+  const ring = o.ring!;
+  const r = o.size * TIMER_RING_R;
+  const top = -Math.PI / 2;
+  c.lineCap = "butt";
+  c.lineWidth = Math.max(2, o.size * 0.06);
+  c.strokeStyle = TIMER_OPEN_ARC;
+  c.beginPath();
+  c.arc(o.x, o.y, r, top + ring.closedEnd, top + TWO_PI);
+  c.stroke();
+  c.lineWidth = Math.max(4, o.size * 0.13);
+  c.strokeStyle = WARM;
+  c.beginPath();
+  c.arc(o.x, o.y, r, top, top + ring.closedEnd);
+  c.stroke();
+  const a = top + ring.hand;
+  c.lineCap = "round";
+  c.lineWidth = 2.5;
+  c.strokeStyle = "#f2ead7";
+  c.beginPath();
+  c.moveTo(o.x + Math.cos(a) * r * 0.7, o.y + Math.sin(a) * r * 0.7);
+  c.lineTo(o.x + Math.cos(a) * r * 1.18, o.y + Math.sin(a) * r * 1.18);
+  c.stroke();
+  if (ring.label !== null) {
+    c.font = FONT;
+    c.textAlign = "center";
+    c.textBaseline = "middle";
+    c.lineJoin = "round";
+    c.lineWidth = 3;
+    c.strokeStyle = "rgba(10,12,18,0.85)";
+    const tx = o.x - r * 0.95;
+    const ty = o.y - r * 0.95;
+    c.strokeText(ring.label, tx, ty);
+    c.fillStyle = "#f2ead7";
+    c.fillText(ring.label, tx, ty);
+    c.textAlign = "left";
+  }
+  const p = o.pulse ?? 0;
+  if (p > 0) {
+    c.globalAlpha = p;
+    c.lineWidth = 3;
+    c.strokeStyle = WARM;
+    c.beginPath();
+    c.arc(o.x, o.y, r * (1.1 + 0.7 * (1 - p)), 0, TWO_PI);
+    c.stroke();
+    c.globalAlpha = 1;
+  }
+}
+
+/** A small clock: a ring with two hands, 10 px across, centred on (x, y). It marks a number as the clock's next flip. */
+function drawClockGlyph(c: CanvasRenderingContext2D, x: number, y: number, colour: string): void {
+  c.strokeStyle = colour;
+  c.lineWidth = 1.5;
+  c.lineCap = "round";
+  c.beginPath();
+  c.arc(x, y, 5, 0, TWO_PI);
+  c.moveTo(x, y);
+  c.lineTo(x, y - 3.5);
+  c.moveTo(x, y);
+  c.lineTo(x + 2.5, y + 1);
+  c.stroke();
 }
 
 /** The camera's projection as E1 takes it: a world point in metres to canvas CSS px, false when it is behind the camera. */
@@ -910,6 +981,8 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   const jobWiresOfLine = new Map<string, JobWire[]>();
   for (const w of wires) (jobWiresOfLine.get(w.line) ?? jobWiresOfLine.set(w.line, []).get(w.line)!).push(w);
   let cueFlow: ReadonlyMap<string, string> = new Map();
+  const cueScratch: string[] = [];
+  const flips = createFlipTracker();
   const cueLayer = createCueLayer(unitBox, wires, SAMPLES, jobWiresOfLine, (id) => cueFlow.get(id) === lineOf.get(id)?.line.to);
   mats.push(cueLayer.material);
   wires.forEach((_w, wi) => {
@@ -1410,7 +1483,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
   const cutPoint = new Map<string, { x: number; y: number; z: number }>();
   for (const w of wires) cutPoint.set(w.id, { x: w.pts[(SAMPLES / 2) * 3]! / S, y: w.pts[(SAMPLES / 2) * 3 + 1]! / S, z: w.pts[(SAMPLES / 2) * 3 + 2]! / S });
   const cutAt = (spanId: string): { x: number; y: number; z: number } | null => cutPoint.get(spanId) ?? null;
-  const iconCtx = { width: 0, height: 0, time: 0, layer, pxPerMetre: 0 };
+  const iconCtx = { width: 0, height: 0, time: 0, layer, pxPerMetre: 0, pulseOf: flips.pulse };
   return {
     setLoadPreview(p: LoadPreview | null) {
       preview = p;
@@ -1424,7 +1497,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
       const plan_ = clock.update(state, overlay.relightT);
       if (readableNow(state)) standCircuit();
       cueFlow = state.flowFrom;
-      cueLayer.update(overlay.hover ?? null, preview);
+      cueLayer.update(cueIds(cueScratch, overlay.hover ?? null, state.timers, state.clock), preview);
       drawLive(state, plan_, relT, timeSeconds);
       drawFx(state, plan_, relT, timeSeconds);
       if (skyCam) {
@@ -1459,7 +1532,7 @@ export function createCityPlayRenderer3d(gl: WebGLRenderer, canvas: HTMLCanvasEl
         iconCtx.pxPerMetre = rig.getScale() * S;
         icons = overlayIcons(converted, state, project, iconCtx);
         breaks = overlayBreaks(converted, state, cutAt, project, iconCtx);
-        paintOverlay(overlayLayer.ctx, Math.min(Math.max(dpr, 1), 2), size.width, size.height, icons, breaks, overlayLabels(icons, breaks, preview, state, ratings, overlay.relightT !== undefined), timeSeconds, overlay.hover ?? null, overlay.highlight ?? null);
+        paintOverlay(overlayLayer.ctx, Math.min(Math.max(dpr, 1), 2), size.width, size.height, icons, breaks, overlayLabels(icons, breaks, preview, state, ratings, overlay.relightT !== undefined, overlay.hover ?? null), timeSeconds, overlay.hover ?? null, overlay.highlight ?? null);
         if (fxMode === "all") {
           // The measure-only notice, in the corner of the overlay canvas (the overlay is scaled by the same ratio as above).
           const c = overlayLayer.ctx;
