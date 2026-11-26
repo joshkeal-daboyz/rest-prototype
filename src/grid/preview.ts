@@ -52,7 +52,8 @@ export function loadPreview(puzzle: Puzzle, state: GridState, known: ReadonlySet
     if (n.type === "breaker") {
       const b = new Map(state.breakers);
       b.set(n.id, !(state.breakers.get(n.id) ?? n.closed));
-      out.set(n.id, entry("breaker", faults, b, state.switches));
+      const e = entry("breaker", faults, b, state.switches);
+      out.set(n.id, n.timer ? { ...e, timed: true } : e); // a timed breaker's entry is its clock's next flip
     } else if (n.type === "switch") {
       const s = new Map(state.switches);
       s.set(n.id, (state.switches.get(n.id) ?? n.selected) === 0 ? 1 : 0);

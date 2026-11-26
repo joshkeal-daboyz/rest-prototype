@@ -15,6 +15,8 @@ const RECIPES: Record<string, () => Voice[]> = {
   batteryCutOff: () => R.batteryCutOff(),
   playClick: () => R.playClick(),
   fullTick: () => R.fullTick(),
+  timerClunk: () => [...R.timerClunk(true), ...R.timerClunk(false)],
+  timerTick: () => R.timerTick(),
   crackleTick: () => R.crackleTick(),
   runSound: () => R.runSound(),
   glowSound: () => R.glowSound(),

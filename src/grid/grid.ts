@@ -3,7 +3,7 @@
  * Rules: puzzles/SCHEMA.md and docs/prototype-brief.md.
  */
 
-import { DEFAULTS, EventBus, FAULT_RULES, type BatteryNode, type Fault, type GridNode, type Line, type Part, type Puzzle, type FeedReadout, puzzleFeeds } from "../core";
+import { DEFAULTS, EventBus, FAULT_RULES, type BatteryNode, type Fault, type GridNode, type Line, type Part, type Puzzle, type FeedReadout, type TimerReadout, puzzleFeeds } from "../core";
 import type { Grid, GridState, RepairResult } from "./types";
 
 interface Mutable {
@@ -66,6 +66,19 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
   const lampIds = puzzle.nodes.filter((n) => n.type === "lamp").map((n) => n.id);
   const targets: readonly string[] = puzzle.target && puzzle.target.length > 0 ? [...puzzle.target] : lampIds;
   const fuseIds = puzzle.nodes.filter((n) => n.type === "fusebox").map((n) => n.id);
+
+  // Timed breakers (ticket 081 TB): the battery's clock (real seconds through `advance`) throws them, never the player.
+  const timed = puzzle.nodes.flatMap((n) => (n.type === "breaker" && n.timer ? [{ id: n.id, closed: n.timer.closed, cycle: n.timer.closed + n.timer.open, offset: n.timer.offset ?? 0 }] : []));
+  /** Seconds since the first move; null before it. Not part of undo. */
+  let clock: number | null = null;
+  /** Where a timer stands `at` seconds after the clock started: closed or open, and the seconds to its next flip (never 0). Snaps within EPS of a boundary onto it. */
+  const timerAt = (t: { closed: number; cycle: number; offset: number }, at: number): TimerReadout => {
+    let p = (t.offset + at) % t.cycle;
+    if (t.cycle - p < EPS) p = 0;
+    if (Math.abs(p - t.closed) < EPS) p = t.closed;
+    return p < t.closed ? { closed: true, next: t.closed - p } : { closed: false, next: t.cycle - p };
+  };
+  const timerReadouts = (): Map<string, TimerReadout> => new Map(timed.map((t) => [t.id, timerAt(t, clock ?? 0)]));
 
   const initial = (): Mutable => {
     const breakers = new Map<string, boolean>();
@@ -451,6 +464,8 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
         brownout,
         complete: targets.every((t) => lit.has(t) && f.powered.has(t)) && !brownout,
         actions: m.actions,
+        clock,
+        timers: timerReadouts(),
       };
     }
   }
@@ -469,6 +484,10 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
   const history: Mutable[] = [];
   let finished = false; // job:completed has fired; the Relight can't be interrupted
   let derived = settle(cur, false);
+  /** The player's first move starts the timers' clock (not Undo, not Reset). */
+  const startClock = (): void => {
+    if (clock === null && timed.length > 0) clock = 0;
+  };
 
   const overList = (s: GridState): string[] => feedIds.filter((id) => s.feeds.get(id)!.over);
 
@@ -506,7 +525,8 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
 
     throwBreaker(nodeId) {
       const n = nodes.get(nodeId);
-      if (finished || !n || n.type !== "breaker") return false;
+      if (finished || !n || n.type !== "breaker" || n.timer) return false; // a timed breaker is thrown by its clock
+      startClock();
       history.push(cloneMutable(cur));
       const closed = !cur.breakers.get(nodeId);
       cur.breakers.set(nodeId, closed);
@@ -521,6 +541,7 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
       if (finished || !n || n.type !== "switch") return false;
       // A relay can only be thrown while current reaches it; so can a spring switch (else it would spring straight back).
       if ((n.relay || n.spring) &&!derived.powered.has(nodeId)) return false;
+      startClock();
       history.push(cloneMutable(cur));
       const selected: 0 | 1 = cur.switches.get(nodeId) === 0 ? 1 : 0;
       cur.switches.set(nodeId, selected);
@@ -539,6 +560,7 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
         bus.emit("battery:flat", { nodeId, stopped: true });
       } else {
         if (b.charge <= 0) return false;
+        startClock();
         b.released = true;
         bus.emit("battery:released", { nodeId, charge: b.charge });
       }
@@ -548,12 +570,15 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
     },
 
     advance(dtSeconds) {
-      if (!(dtSeconds > 0) || batteryIds.length === 0) return;
-      const before = derived;
+      if (!(dtSeconds > 0)) return;
+      if (batteryIds.length === 0 && !(timed.length > 0 && clock !== null && !finished)) return;
+      let before = derived;
       let remaining = dtSeconds;
-      let changed = false;
+      let pending = false; // a change not yet announced with grid:changed
       for (let guard = 0; remaining > EPS && guard < 10_000; guard++) {
-        // Run to the next moment a battery fills or runs flat, or to the end of the step.
+        // The timers run from the first move until the win (the Relight can't be interrupted).
+        const timersRun = timed.length > 0 && clock !== null && !finished;
+        // Run to the next moment a battery fills or runs flat, a timer flips, or to the end of the step.
         let step = remaining;
         for (const id of batteryIds) {
           const b = bat.get(id)!;
@@ -561,6 +586,7 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
           if (b.released && b.charge > 0) step = Math.min(step, b.charge);
           else if (st.charging) step = Math.min(step, st.capacity - b.charge);
         }
+        if (timersRun) for (const r of derived.timers.values()) step = Math.min(step, r.next);
         const flat: string[] = [];
         let moved = false;
         for (const id of batteryIds) {
@@ -581,13 +607,41 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
           }
         }
         remaining -= step;
-        if (!moved) break; // nothing is charging or draining: the rest of the step changes nothing
-        changed = true;
+        // Every timer that reaches its boundary now flips, then the grid settles once.
+        let flipped = false;
+        if (timersRun) {
+          clock = clock! + step;
+          const flips: Array<{ id: string; closed: boolean }> = [];
+          for (const t of timed) {
+            const closed = timerAt(t, clock).closed;
+            if (cur.breakers.get(t.id) !== closed) flips.push({ id: t.id, closed });
+          }
+          for (const f of flips) {
+            cur.breakers.set(f.id, f.closed);
+            bus.emit("breaker:thrown", { nodeId: f.id, closed: f.closed, timer: true });
+          }
+          flipped = flips.length > 0;
+        }
+        if (!moved && !flipped) {
+          if (timersRun) {
+            derived = settle(cur, false); // only the clock moved: refresh the readouts
+            continue;
+          }
+          break; // nothing is charging or draining: the rest of the step changes nothing
+        }
+        pending = true;
         derived = settle(cur, true);
         for (const id of flat) bus.emit("battery:flat", { nodeId: id, stopped: false });
+        if (flipped) {
+          // Each flip moment is one settle and one grid:changed.
+          bus.emit("grid:changed", { reason: "time" });
+          emitBrownoutIfChanged(before);
+          before = derived;
+          pending = false;
+        }
         finishIfComplete();
       }
-      if (changed) {
+      if (pending) {
         bus.emit("grid:changed", { reason: "time" });
         emitBrownoutIfChanged(before);
       }
@@ -603,6 +657,7 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
       if (have < rule.count) {
         return { ok: false, reason: "needs-parts", needs: { part: rule.part, count: rule.count, have } };
       }
+      startClock();
       history.push(cloneMutable(cur));
       for (let i = 0; i < rule.count; i++) cur.parts.splice(cur.parts.indexOf(rule.part), 1);
       cur.faults = cur.faults.filter((f) => f.id !== fault.id);
@@ -617,6 +672,8 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
       const prev = history.pop();
       if (!prev) return false;
       const before = derived;
+      // Time is not undoable: a timed breaker stays where its clock put it.
+      for (const t of timed) prev.breakers.set(t.id, cur.breakers.get(t.id)!);
       cur = prev;
       derived = settle(cur, false);
       bus.emit("grid:changed", { reason: "reset" });
@@ -630,6 +687,7 @@ export function createGrid(puzzle: Puzzle, bus: EventBus = new EventBus()): Grid
       history.length = 0;
       resetBatteries();
       finished = false;
+      clock = null;
       derived = settle(cur, false);
       bus.emit("grid:changed", { reason: "reset" });
       emitBrownoutIfChanged(before);

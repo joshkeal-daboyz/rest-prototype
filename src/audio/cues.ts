@@ -57,6 +57,7 @@ export function cuesFor<K extends EventName>(name: K, payload: Events[K], _now =
   switch (name) {
     case "breaker:thrown": {
       const p = payload as Events["breaker:thrown"];
+      if (p.timer === true) return [{ name: "breaker:timer", at: 0, voices: R.timerClunk(p.closed) }];
       return [{ name: "breaker:thrown", at: 0, voices: R.breakerThrow(p.closed) }];
     }
     case "switch:thrown": {
@@ -104,6 +105,9 @@ export function recoveryCue(): Cue {
 }
 export function fullTickCue(): Cue {
   return { name: "battery:full", at: 0, voices: R.fullTick() };
+}
+export function timerTickCue(): Cue {
+  return { name: "timer:tick", at: 0, voices: R.timerTick() };
 }
 export function crackleCue(): Cue {
   return { name: "crackle", at: 0, voices: R.crackleTick() };

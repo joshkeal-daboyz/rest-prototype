@@ -76,6 +76,20 @@ export function breakerThrow(closed: boolean): Voice[] {
   ];
 }
 
+/** A timed breaker's clock threw it: heavier and more mechanical than the player's lever (2 dB louder thump, a metal clack on top). */
+export function timerClunk(closed: boolean): Voice[] {
+  return [
+    ...breakerThrow(closed).map((v) => ({ ...v, gainDb: v.gainDb + 2 })),
+    osc("square", noteHz("A3"), { attack: 0.001, release: 0.05, duration: 0.06, gainDb: -22 }),
+    noise({ filter: { type: "bandpass", freq: 1200, q: 3 }, attack: 0.001, release: 0.03, duration: 0.04, gainDb: -20 }),
+  ];
+}
+
+/** The count-in: one soft tick per whole second over the last 3 before a flip. */
+export function timerTick(): Voice[] {
+  return [osc("sine", noteHz("A5"), { attack: 0.002, release: 0.03, duration: 0.03, gainDb: -26 })];
+}
+
 export function switchThrow(spring: boolean): Voice[] {
   const q = spring ? 6 : 0;
   return [
