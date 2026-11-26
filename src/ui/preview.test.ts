@@ -86,3 +86,46 @@ describe("previewKey (ticket 081 TB1b3)", () => {
     expect(previewKey(withTimers([["tb", 1], ["tb2", 1]]), false)).toBe(previewKey(withTimers([["tb2", 1], ["tb", 1]]), false));
   });
 });
+
+describe("previewKey (ticket 081 BC2)", () => {
+  it("a battery's release, stop, running flat and first charge from 0 change the key; charging above 0 does not", () => {
+    const battery = (charge: number): Puzzle => ({
+      id: "bat",
+      name: "bat",
+      version: 4,
+      scope: "map",
+      capacity: null,
+      nodes: [
+        { id: "feed", type: "feed", pos: [0, 0] },
+        { id: "b", type: "battery", pos: [1, 0], capacity: 4, charge, input: "l_in" },
+        { id: "e", type: "lamp", pos: [2, 0], load: 1 },
+      ] as GridNode[],
+      lines: [
+        { id: "l_in", from: "feed", to: "b" },
+        { id: "l_out", from: "b", to: "e" },
+      ],
+      faults: [],
+    });
+    const g = createGrid(battery(2));
+    const key = () => previewKey(g.state(), false);
+    const charging = key();
+    g.advance(0.3);
+    expect(g.state().batteries.get("b")!.charge).toBeGreaterThan(2);
+    expect(key()).toBe(charging);
+    g.release("b");
+    const running = key();
+    expect(running).not.toBe(charging);
+    g.release("b"); // a stop: back to charging
+    expect(key()).toBe(charging);
+    g.release("b");
+    expect(key()).toBe(running);
+    g.advance(3); // drains the charge: running flat
+    expect(key()).not.toBe(running);
+
+    const empty = createGrid(battery(0));
+    const k0 = previewKey(empty.state(), false);
+    empty.advance(0.5);
+    expect(empty.state().batteries.get("b")!.charge).toBeGreaterThan(0);
+    expect(previewKey(empty.state(), false)).not.toBe(k0);
+  });
+});
