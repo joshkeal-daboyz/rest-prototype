@@ -13,6 +13,7 @@ const byLine = new Map<string, JobWire[]>([
 const preview: LoadPreview = new Map([
   ["sw", entry("switch", { on: ["L1", "L1~a"], off: ["L2", "scenery"] })],
   ["bare", entry("breaker")],
+  ["bat", entry("battery", { on: ["L1"], off: [] })],
   ["f1", entry("repair", { on: ["L1"], off: [] })],
 ]);
 
@@ -22,6 +23,8 @@ it("cues the hovered control's on and off wires only, up to a readable cut, and 
   expect(cued("sw", preview, () => true)).toEqual({ L1a: "on", L1b: "on", L2b: "off", L2c: "off" });
   for (const none of [null, "lamp1", "f1", "bare"]) expect(cued(none)).toEqual({});
   expect(cued("sw", null)).toEqual({});
+  expect(cued("bat")).toEqual({ L1a: "on", L1b: "on" });
+  expect(cued("bat", null)).toEqual({});
 });
 
 it("the cue layer and its x-ray share geometry and colours, and an unchanged hover and preview writes nothing (081 NC2)", () => {

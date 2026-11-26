@@ -336,4 +336,17 @@ describe("a city puzzle played on the city (ticket 081 E2)", () => {
     expect(texts(overlayLabels(icons, [], preview, { ...state, feeds: new Map([['feed', { load: 5, capacity: 4, over: true }]]) }, new Map(), true))).toEqual([['5 of 4', true]]);
     expect(texts(overlayLabels(icons, [], null, { ...state, feeds: new Map([['feed', { load: 5, capacity: null, over: false }]]) }, new Map()))).toEqual([]);
   });
+
+  it('a battery reads its whole seconds when it has an entry, plus a red signed change when not a plain zero; none without an entry or in the Relight (081 BC3)', () => {
+    const bat = { id: 'bat', type: 'battery', x: 100, y: 50, size: 30 } as unknown as OverlayIcon;
+    const e = (delta: number, over: boolean) => ({ kind: 'battery' as const, delta, over, blows: [] });
+    const base = createGrid(puzzle, new EventBus()).state();
+    const state = { ...base, batteries: new Map([['bat', { charge: 7.2, capacity: 10, released: false, charging: false }]]) };
+    const texts = (p: LoadPreview | null, relighting = false) => overlayLabels([bat], [], p, state, new Map(), relighting).map((x) => [x.text, x.red]);
+    expect(texts(new Map([['bat', e(0, false)]]))).toEqual([['8 s', false]]);
+    expect(texts(new Map([['bat', e(2, true)]]))).toEqual([['8 s', false], ['+2', true]]);
+    expect(texts(new Map())).toEqual([]);
+    expect(texts(null)).toEqual([]);
+    expect(texts(new Map([['bat', e(0, false)]]), true)).toEqual([]);
+  });
 });

@@ -23,7 +23,7 @@ export function cueWires(wiresOfLine: ReadonlyMap<string, readonly JobWire[]>, p
   const out = new Map<string, CueKind>();
   if (!preview || hoverId === null) return out;
   const entry = preview.get(hoverId);
-  if (!entry || (entry.kind !== "breaker" && entry.kind !== "switch") || !entry.lines) return out;
+  if (!entry || (entry.kind !== "breaker" && entry.kind !== "switch" && entry.kind !== "battery") ||!entry.lines) return out;
   const add = (ids: readonly string[], kind: CueKind): void => {
     for (const id of ids) {
       const ws = wiresOfLine.get(id);
