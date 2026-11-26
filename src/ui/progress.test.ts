@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clearProgress, loadProgress, PROGRESS_KEY, recordWin, saveProgress, stageList, type Progress, type StageEntry } from "./progress";
+import { clearProgress, loadProgress, PROGRESS_KEY, recordWin, saveProgress, stageList, stageNumber, type Progress, type StageEntry } from "./progress";
 import type { StorageLike } from "./logic";
 
 function memoryStorage(): StorageLike & { map: Map<string, string> } {
@@ -45,34 +45,39 @@ describe("progress store", () => {
 });
 
 describe("stageList", () => {
+  // The pilots (01 to 04) and P0 are not stages (ticket 081 NS); only the series is.
   const entries: StageEntry[] = [
     { id: "01-first-light", name: "01 · First light" },
-    { id: "02-this-way-or-that", name: "02 · This way or that" },
-    { id: "03-not-enough-for-all", name: "03 · Not enough for all" },
-    { id: "04-the-tired-feed", name: "04 · The tired feed" },
+    { id: "s01-first-light", name: "01 · First light" },
+    { id: "s02-this-way", name: "02 · This way" },
+    { id: "s03-not-enough", name: "03 · Not enough" },
     { id: "city-two-ways-round", name: "City · Two ways round" },
   ];
+  const series = entries.slice(1, 4);
 
-  it("lists the completed stages in number order, then the next one, with their lines", () => {
-    // 03 is completed before 02 (through ?puzzle=), so the next is still the lowest not completed.
-    let progress = recordWin(new Map(), "03-not-enough-for-all", 7, 42.3, "2026-11-25");
-    progress = recordWin(progress, "01-first-light", 1, 60, "2026-11-25");
+  it("lists only the series stages: completed ones in number order, then the next, with a pilot or P0 win left out", () => {
+    // s03 is completed before s01 (through ?puzzle=); the pilot and P0 have wins that are not stages.
+    let progress = recordWin(new Map(), "s03-not-enough", 7, 42.3, "2026-11-25");
+    progress = recordWin(progress, "s01-first-light", 1, 60, "2026-11-25");
+    progress = recordWin(progress, "01-first-light", 9, 70, "2026-11-25");
+    progress = recordWin(progress, "city-two-ways-round", 4, 30, "2026-11-25");
     const rows = stageList(entries, progress);
-    expect(rows.map((r) => r.id)).toEqual(["01-first-light", "03-not-enough-for-all", "02-this-way-or-that"]);
+    expect(rows.map((r) => r.id)).toEqual(["s01-first-light", "s03-not-enough", "s02-this-way"]);
     expect(rows.map((r) => r.text)).toEqual([
       "01 · First light · 1 move · 1:00.0",
-      "03 · Not enough for all · 7 moves · 0:42.3",
-      "02 · This way or that · not yet lit",
+      "03 · Not enough · 7 moves · 0:42.3",
+      "02 · This way · not yet lit",
     ]);
     expect(rows.map((r) => [r.completed, r.next])).toEqual([
       [true, false],
       [true, false],
       [false, true],
     ]);
-    // Nothing completed: stage 01 alone, as the next. Everything completed: no next.
-    expect(stageList(entries, new Map()).map((r) => r.id)).toEqual(["01-first-light"]);
+    // Nothing completed: series 01 alone, as the next. Everything completed: no next. No series files: no lines.
+    expect(stageList(entries, new Map()).map((r) => r.id)).toEqual(["s01-first-light"]);
     let all: Progress = new Map();
-    for (const e of entries.slice(0, 4)) all = recordWin(all, e.id, 3, 30, "2026-11-25");
+    for (const e of series) all = recordWin(all, e.id, 3, 30, "2026-11-25");
     expect(stageList(entries, all).some((r) => r.next)).toBe(false);
+    expect(stageList(entries.filter((e) => stageNumber(e.id) === null), new Map())).toEqual([]);
   });
 });
