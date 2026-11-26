@@ -1,0 +1,340 @@
+{
+  "id": "s15-the-fuse-above",
+  "name": "15 · The fuse above",
+  "version": 5,
+  "scope": "map",
+  "capacity": null,
+  "startingParts": [
+    "fuse",
+    "wire"
+  ],
+  "target": [
+    "long_house",
+    "glassworks"
+  ],
+  "priority": [
+    "homes"
+  ],
+  "city": {
+    "blocksX": 6,
+    "blocksZ": 6,
+    "seed": 1,
+    "oneWay": true
+  },
+  "district": [
+    "block:4:8",
+    "block:5:8"
+  ],
+  "nodes": [
+    {
+      "id": "west",
+      "type": "feed",
+      "capacity": 8,
+      "name": "West",
+      "place": {
+        "pole": "pole:z:4:lo:402.50"
+      }
+    },
+    {
+      "id": "north",
+      "type": "feed",
+      "capacity": 4,
+      "name": "North",
+      "place": {
+        "pole": "pole:x:9:lo:162.50"
+      }
+    },
+    {
+      "id": "j_s",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:11:lo:132.50"
+      }
+    },
+    {
+      "id": "shrine",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:4:8/b|outer|+z|26,80"
+      }
+    },
+    {
+      "id": "fb_m",
+      "type": "fusebox",
+      "rating": 6,
+      "place": {
+        "pole": "pole:x:11:lo:142.50"
+      }
+    },
+    {
+      "id": "j_w",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:11:lo:152.50"
+      }
+    },
+    {
+      "id": "well_house",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:4:8/b|outer|+z|29,80"
+      }
+    },
+    {
+      "id": "j_m",
+      "type": "junction",
+      "place": {
+        "pole": "pole:z:5:lo:402.50"
+      }
+    },
+    {
+      "id": "j_h",
+      "type": "junction",
+      "place": {
+        "pole": "pole:z:5:lo:390.50"
+      }
+    },
+    {
+      "id": "homes",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:4:8/b|outer|+x|32,77"
+      }
+    },
+    {
+      "id": "br_k",
+      "type": "breaker",
+      "closed": true,
+      "place": {
+        "pole": "pole:z:5:lo:374.50"
+      }
+    },
+    {
+      "id": "j_k",
+      "type": "junction",
+      "place": {
+        "pole": "pole:z:5:lo:366.50"
+      }
+    },
+    {
+      "id": "long_house",
+      "type": "lamp",
+      "load": 3,
+      "place": {
+        "building": "block:4:8/b|outer|+x|32,72"
+      }
+    },
+    {
+      "id": "br_n",
+      "type": "breaker",
+      "closed": false,
+      "place": {
+        "pole": "pole:z:5:lo:355.50"
+      }
+    },
+    {
+      "id": "fb_1",
+      "type": "fusebox",
+      "rating": 4,
+      "place": {
+        "pole": "pole:z:5:hi:402.50"
+      }
+    },
+    {
+      "id": "br_g",
+      "type": "breaker",
+      "closed": false,
+      "place": {
+        "pole": "pole:x:11:lo:205.00"
+      }
+    },
+    {
+      "id": "glassworks",
+      "type": "lamp",
+      "load": 2,
+      "place": {
+        "building": "block:5:8/built|outer|+z|43,80"
+      }
+    }
+  ],
+  "lines": [
+    {
+      "id": "l_w0",
+      "from": "west",
+      "to": "j_s",
+      "run": {
+        "spans": [
+          "span:pole:z:4:hi:402.50~pole:z:4:lo:402.50",
+          "span:pole:x:11:lo:132.50~pole:z:4:hi:402.50"
+        ]
+      }
+    },
+    {
+      "id": "l_shrine",
+      "from": "j_s",
+      "to": "shrine",
+      "run": {
+        "spans": [],
+        "drop": "block:4:8/b|outer|+z|26,80"
+      }
+    },
+    {
+      "id": "l_w1",
+      "from": "j_s",
+      "to": "fb_m",
+      "run": {
+        "spans": [
+          "span:pole:x:11:lo:132.50~pole:x:11:lo:142.50"
+        ]
+      }
+    },
+    {
+      "id": "l_m0",
+      "from": "fb_m",
+      "to": "j_w",
+      "run": {
+        "spans": [
+          "span:pole:x:11:lo:142.50~pole:x:11:lo:152.50"
+        ]
+      }
+    },
+    {
+      "id": "l_well",
+      "from": "j_w",
+      "to": "well_house",
+      "run": {
+        "spans": [],
+        "drop": "block:4:8/b|outer|+z|29,80"
+      }
+    },
+    {
+      "id": "l_m1",
+      "from": "j_w",
+      "to": "j_m",
+      "run": {
+        "spans": [
+          "span:pole:x:11:lo:152.50~pole:x:11:lo:162.50",
+          "span:pole:x:11:lo:162.50~pole:z:5:lo:402.50"
+        ]
+      }
+    },
+    {
+      "id": "l_k0",
+      "from": "j_m",
+      "to": "j_h",
+      "run": {
+        "spans": [
+          "span:pole:z:5:lo:390.50~pole:z:5:lo:402.50"
+        ]
+      }
+    },
+    {
+      "id": "l_homes",
+      "from": "j_h",
+      "to": "homes",
+      "run": {
+        "spans": [],
+        "drop": "block:4:8/b|outer|+x|32,77"
+      }
+    },
+    {
+      "id": "l_k1",
+      "from": "j_h",
+      "to": "br_k",
+      "run": {
+        "spans": [
+          "span:pole:z:5:lo:374.50~pole:z:5:lo:390.50"
+        ]
+      }
+    },
+    {
+      "id": "l_k2",
+      "from": "br_k",
+      "to": "j_k",
+      "run": {
+        "spans": [
+          "span:pole:z:5:lo:366.50~pole:z:5:lo:374.50"
+        ]
+      }
+    },
+    {
+      "id": "l_long",
+      "from": "j_k",
+      "to": "long_house",
+      "run": {
+        "spans": [],
+        "drop": "block:4:8/b|outer|+x|32,72"
+      }
+    },
+    {
+      "id": "l_k3",
+      "from": "j_k",
+      "to": "br_n",
+      "run": {
+        "spans": [
+          "span:pole:z:5:lo:355.50~pole:z:5:lo:366.50"
+        ]
+      }
+    },
+    {
+      "id": "l_n0",
+      "from": "north",
+      "to": "br_n",
+      "run": {
+        "spans": [
+          "span:pole:x:9:hi:162.50~pole:x:9:lo:162.50",
+          "span:pole:x:9:hi:162.50~pole:z:5:lo:342.50",
+          "span:pole:z:5:lo:342.50~pole:z:5:lo:355.50"
+        ]
+      }
+    },
+    {
+      "id": "l_c0",
+      "from": "j_m",
+      "to": "fb_1",
+      "run": {
+        "spans": [
+          "span:pole:z:5:hi:402.50~pole:z:5:lo:402.50"
+        ]
+      }
+    },
+    {
+      "id": "l_c1",
+      "from": "fb_1",
+      "to": "br_g",
+      "run": {
+        "spans": [
+          "span:pole:x:11:lo:192.50~pole:z:5:hi:402.50",
+          "span:pole:x:11:lo:192.50~pole:x:11:lo:205.00"
+        ]
+      }
+    },
+    {
+      "id": "l_glass",
+      "from": "br_g",
+      "to": "glassworks",
+      "run": {
+        "spans": [
+          "span:pole:x:11:lo:205.00~pole:x:11:lo:217.50"
+        ],
+        "drop": "block:5:8/built|outer|+z|43,80"
+      }
+    }
+  ],
+  "faults": [
+    {
+      "id": "f_blown",
+      "at": "fb_1",
+      "kind": "blown-fuse"
+    },
+    {
+      "id": "f_g",
+      "at": "l_glass",
+      "kind": "damaged-cable",
+      "span": "span:pole:x:11:lo:205.00~pole:x:11:lo:217.50"
+    }
+  ]
+}
