@@ -228,6 +228,8 @@ export interface OverlayLabel {
 
 /** The gap between an icon's edge and its number, CSS px. */
 export const OVERLAY_LABEL_GAP = 4;
+/** A battery's load change stands this far right of its seconds, CSS px. */
+export const BATTERY_DELTA_DX = 34;
 /** A timed breaker's ring stands this far out from its icon's centre, as a share of the icon's size. */
 export const TIMER_RING_R = 0.66;
 
@@ -261,6 +263,13 @@ export function overlayLabels(icons: readonly OverlayIcon[], breaks: readonly Ov
       if (e && (e.delta !== 0 || e.over)) out.push({ text: signedDelta(e.delta), x: x + o.size * 0.18, y: o.y, red: e.over, clock: true });
     } else if (o.type === "breaker" || o.type === "switch") {
       pushPreview(out, preview, relighting, o.id, x, o.y);
+    } else if (o.type === "battery") {
+      // 081 BC3: the seconds it would light (read live from the state, so it counts down), then the entry's change when it is not a plain zero.
+      const e = preview && !relighting ? preview.get(o.id) : undefined;
+      const b = state.batteries.get(o.id);
+      if (!e || !b) continue;
+      out.push({ text: `${Math.ceil(b.charge)} s`, x, y: o.y, red: false });
+      if (e.delta !== 0 || e.over) out.push({ text: signedDelta(e.delta), x: x + BATTERY_DELTA_DX, y: o.y, red: e.over });
     }
   }
   for (const k of breaks) pushPreview(out, preview, relighting, k.faultId, k.x + 8 + OVERLAY_LABEL_GAP, k.y);
