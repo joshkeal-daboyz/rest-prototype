@@ -1,0 +1,124 @@
+{
+  "id": "s01-first-light",
+  "name": "01 · First light",
+  "version": 3,
+  "scope": "map",
+  "capacity": 3,
+  "startingParts": [],
+  "target": [
+    "shrine"
+  ],
+  "priority": [
+    "home"
+  ],
+  "city": {
+    "blocksX": 6,
+    "blocksZ": 6,
+    "seed": 1,
+    "oneWay": true
+  },
+  "district": [
+    "block:2:10"
+  ],
+  "nodes": [
+    {
+      "id": "feed",
+      "type": "feed",
+      "place": {
+        "pole": "pole:z:5:hi:507.50"
+      }
+    },
+    {
+      "id": "j0",
+      "type": "junction",
+      "place": {
+        "pole": "pole:z:5:lo:507.50"
+      }
+    },
+    {
+      "id": "br_front",
+      "type": "breaker",
+      "closed": false,
+      "place": {
+        "pole": "pole:x:14:lo:162.50"
+      }
+    },
+    {
+      "id": "shrine",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:2:10/b|outer|+z|29,101"
+      }
+    },
+    {
+      "id": "br_side",
+      "type": "breaker",
+      "closed": false,
+      "place": {
+        "pole": "pole:z:5:lo:494.50"
+      }
+    },
+    {
+      "id": "home",
+      "type": "lamp",
+      "load": 1,
+      "place": {
+        "building": "block:2:10/a|outer|+x|32,95"
+      }
+    }
+  ],
+  "lines": [
+    {
+      "id": "l_feed",
+      "from": "feed",
+      "to": "j0",
+      "run": {
+        "spans": [
+          "span:pole:z:5:hi:507.50~pole:z:5:lo:507.50"
+        ]
+      }
+    },
+    {
+      "id": "l_front",
+      "from": "j0",
+      "to": "br_front",
+      "run": {
+        "spans": [
+          "span:pole:x:14:lo:162.50~pole:z:5:lo:507.50"
+        ]
+      }
+    },
+    {
+      "id": "l_shrine",
+      "from": "br_front",
+      "to": "shrine",
+      "run": {
+        "spans": [],
+        "drop": "block:2:10/b|outer|+z|29,101"
+      }
+    },
+    {
+      "id": "l_side",
+      "from": "j0",
+      "to": "br_side",
+      "run": {
+        "spans": [
+          "span:pole:z:5:lo:494.50~pole:z:5:lo:507.50"
+        ]
+      }
+    },
+    {
+      "id": "l_home",
+      "from": "br_side",
+      "to": "home",
+      "run": {
+        "spans": [
+          "span:pole:z:5:lo:482.50~pole:z:5:lo:494.50"
+        ],
+        "drop": "block:2:10/a|outer|+x|32,95"
+      }
+    }
+  ],
+  "faults": []
+}
