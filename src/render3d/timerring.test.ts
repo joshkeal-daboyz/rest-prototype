@@ -21,17 +21,18 @@ it("the ring: the closed share's arc, the hand where the clock stands, the whole
   expect(f.pulse("a", false, 4, 4)).toBe(0);
 });
 
-it("the next cue shows for a hovered timer, and for an unhovered one within 3 s of its flip; never for a timer another flip shares or precedes, nor under the numbers off (081 TB3)", () => {
+it("the next cue shows for a hovered timer, and for an unhovered one within 3 s of its flip; for both timers of a coincident pair and one that flips after another; not under the numbers off (081 TB3)", () => {
   const ids = (hover: string | null, timers: [string, TimerReadout][], clock: number | null = 5) => [...cueIds([], hover, new Map(timers), clock)];
   expect(ids("a", [["a", at(true, 8)]])).toEqual(["a"]);
   expect(ids(null, [["a", at(true, 3)]])).toEqual(["a"]);
   expect(ids(null, [["a", at(true, 3.1)]])).toEqual([]);
   expect(ids(null, [["a", at(true, 1)]], null)).toEqual([]);
   expect(ids("sw", [["a", at(true, 2)]])).toEqual(["sw", "a"]);
-  // Two timers flipping at one moment, or one flipping first: the solo what-if is not the grid's next state, so only the ring shows.
-  expect(ids("a", [["a", at(true, 2)], ["b", at(false, 2)]])).toEqual([]);
-  expect(ids(null, [["a", at(true, 2)], ["b", at(false, 5)]])).toEqual(["a"]);
-  expect(ids("b", [["a", at(true, 2)], ["b", at(false, 5)]])).toEqual(["a"]);
+  // The preview is joint (TB1b1): both timers of a coincident pair show, and so does a timer that flips after another.
+  expect(ids("a", [["a", at(true, 2)], ["b", at(false, 2)]])).toEqual(["a", "b"]);
+  expect(ids(null, [["a", at(true, 2)], ["b", at(false, 2)]])).toEqual(["a", "b"]);
+  expect(ids(null, [["a", at(true, 2)], ["b", at(false, 3)]])).toEqual(["a", "b"]);
+  expect(ids("b", [["a", at(true, 2)], ["b", at(false, 5)]])).toEqual(["b", "a"]);
   // The number: drawn for the shown timer with the clock mark, red when over; not under V or the Relight (a null preview, or relighting).
   const ring = { closedEnd: 1, hand: 0, label: "2" };
   const icon = { id: "a", type: "breaker", x: 10, y: 10, size: 30, ring } as unknown as OverlayIcon;
