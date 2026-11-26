@@ -1,7 +1,7 @@
 # 081 · Purge the old city; the 64 puzzles on the pipeline city, on its streets, picked models, and a 2D overlay to play them
 
 owner: per section (renderer, puzzle-designer, pipeline-designer, lead-architect, grid-simulator, landscape, facades, ui; see Sections)
-status: approved (G1, Josh, 23 Nov 2026, in chat: "Approve 081"). **Section TB (the timed breaker) cut 26 Nov 2026; approved (G1) the same day, on a card: "Approve (Recommended)"** (open question 27, closed). **Section N (series v1, 25 new puzzles) cut 25 Nov 2026; N0, N1 and NS approved (G1) the same day, on a card: "Approve (Recommended)"; all three merged 26 Nov 2026 (PRs #97, #99, #98) on Josh's word, and N2 re-cut to puzzles 6 to 10 and approved to build: "Merge and start the next 5". N3 to N5 (11 to 25, in fives) wait on his word. P2b to P2d dropped the same day (Josh: "I don't want to convert the existing puzzles."). T3b done (PR #96).** **Section W cut 25 Nov 2026 from Josh's play of P2a; approved (G1) the same day, on a card: "Approve W (Recommended)".** W0's note is in (`docs/design/081-W0-building-targets.md`, 82f8f37); Josh answered its two cards the same day: W-Q3 "Own block roofs (Recommended)"; ring lines read outward from where each line takes its power: "Yes (Recommended)". W1 and P2a2 re-cut to them. Cut 23 Nov 2026 on Josh's request (below); re-cut the same day on his answers to questions 1 to 10 (below). **K2 is done** (K2a, K2a2, K2b, K2c, K2d1, K2d2 all merged; K2d2 by PR #42, Josh, 24 Nov 2026, on a card: "Merge K2d2 (Recommended)"). **Next: the playable path** (Josh, 24 Nov 2026, on a card: "Playable path first (Recommended)"): P0, K3, U1, then E2, then U2, before H4, P1 and P2a. See *The playable path*.
+status: approved (G1, Josh, 23 Nov 2026, in chat: "Approve 081"). **Section TB (the timed breaker) cut 26 Nov 2026; approved (G1) the same day, on a card: "Approve (Recommended)"** (open question 27, closed); **TB0 to TB6 and TB1b1 to TB1b3 merged** the same day (PRs #104 to #114). **Section N (series v1, 25 new puzzles) cut 25 Nov 2026; N0, N1 and NS approved (G1) the same day, on a card: "Approve (Recommended)"; all three merged 26 Nov 2026 (PRs #97, #99, #98) on Josh's word, and N2 re-cut to puzzles 6 to 10 and approved to build: "Merge and start the next 5"; N2 and NR merged (PRs #101, #103). **N3 (11 to 15) re-cut 26 Nov 2026 and approved to build, in chat: "Start it"** (asked "Shall I start N3 (puzzles 11 to 15)?"). N4 and N5 (16 to 25, in fives) wait on his word. P2b to P2d dropped the same day (Josh: "I don't want to convert the existing puzzles."). T3b done (PR #96).** **Section W cut 25 Nov 2026 from Josh's play of P2a; approved (G1) the same day, on a card: "Approve W (Recommended)".** W0's note is in (`docs/design/081-W0-building-targets.md`, 82f8f37); Josh answered its two cards the same day: W-Q3 "Own block roofs (Recommended)"; ring lines read outward from where each line takes its power: "Yes (Recommended)". W1 and P2a2 re-cut to them. Cut 23 Nov 2026 on Josh's request (below); re-cut the same day on his answers to questions 1 to 10 (below). **K2 is done** (K2a, K2a2, K2b, K2c, K2d1, K2d2 all merged; K2d2 by PR #42, Josh, 24 Nov 2026, on a card: "Merge K2d2 (Recommended)"). **Next: the playable path** (Josh, 24 Nov 2026, on a card: "Playable path first (Recommended)"): P0, K3, U1, then E2, then U2, before H4, P1 and P2a. See *The playable path*.
 branch: `ticket/081-puzzles-on-the-city` (this file and the `src/core/` types). One branch per pull request: `ticket/081<section>-<slug>`, from this branch until it is on `main`.
 
 ## Josh's words (23 Nov 2026, in chat)
@@ -2534,7 +2534,7 @@ Nothing in T is open. T-Q7: "Replay any (Recommended)".
 - **Built:** `index.html` only (the line's style; f0c41db). Review `reviews/081-t3b-goodbye-left.md`: meets, must-fix 0. Count: 0 tests.
 - **Merged** into `main` by PR #96 (a9c20ce). Josh, 25 Nov 2026, on a card: "Merge when green (Recommended)".
 
-### N · Series v1: 25 new puzzles on the city, progressively harder. Cut 25 Nov 2026 for G1, in five PRs: N0, N1 and NS, then N2, then N3. **N0, N1 and NS approved (G1) 25 Nov 2026**; N2 and N3 wait on Josh's play. **Re-cut 26 Nov 2026 to batches of five: N0, N1 and NS merged; N2 (6 to 10) approved to build; N3 (11 to 15), N4 (16 to 20) and N5 (21 to 25) wait on Josh's word.** **Re-cut again 26 Nov 2026 on Josh's play of 1 to 5: NR (1 to 3 re-laid) and NC (the control cue: NC1, then NC2), approved (G1) the same day: "Approve (Recommended)".**
+### N · Series v1: 25 new puzzles on the city, progressively harder. Cut 25 Nov 2026 for G1, in five PRs: N0, N1 and NS, then N2, then N3. **N0, N1 and NS approved (G1) 25 Nov 2026**; N2 and N3 wait on Josh's play. **Re-cut 26 Nov 2026 to batches of five: N0, N1 and NS merged; N2 (6 to 10) approved to build; N3 (11 to 15), N4 (16 to 20) and N5 (21 to 25) wait on Josh's word.** **N2 and NR merged 26 Nov 2026 (PRs #101, #103); N3 re-cut in full the same day and approved to build: "Start it".** **Re-cut again 26 Nov 2026 on Josh's play of 1 to 5: NR (1 to 3 re-laid) and NC (the control cue: NC1, then NC2), approved (G1) the same day: "Approve (Recommended)".**
 
 **Josh's words on the series' direction, 26 Nov 2026 (relayed by the main session):**
 - "The puzzle architect does not have to have the same names for the puzzles as they did before. I'm using Fable because I want it to build better puzzles, more complex puzzles that challenge the user based upon what they know and what they've learned from prior puzzles."
@@ -2602,19 +2602,19 @@ Nothing in T is open. T-Q7: "Replay any (Recommended)".
 | 3, beside N2 | NR, 1 to 3 re-laid on single runs | puzzle-designer (Fable 5.2) | G1 | `puzzles/city/s01-...` to `s03-...` (and the What it taught us of `s04`, `s05`) | 0 |
 | 3, beside N2 | NC1, the cue's lines, pure | grid-simulator | G1; the core field written first | `src/grid/preview.ts` | 1 |
 | 3, beside NC1 | NC2, the cue drawn | renderer | G1; **merges after NC1** (it codes against the core field; without NC1 every entry has no lines and nothing is cued) | `src/render3d/cityview.ts` | 2 |
-| 4 | N3, batch 3 (11 to 15) | puzzle-designer (Fable 5.2) | N2 merged; Josh's word; re-cut first | `puzzles/city/` | 0 |
+| 4 | N3, batch 3 (11 to 15) | puzzle-designer (Fable 5.2) | N2 merged (PR #101); Josh's word (given 26 Nov 2026: "Start it"); re-cut first (done) | `puzzles/city/`, rows 11 to 15 of `puzzles/series-v1.md` | 0 |
 | 5 | N4, batch 4 (16 to 20) | puzzle-designer (Fable 5.2) | N3 merged; Josh's word; re-cut first | `puzzles/city/` | 0 |
 | 6 | N5, batch 5 (21 to 25) | puzzle-designer (Fable 5.2) | N4 merged; Josh's word; re-cut first | `puzzles/city/` | 0 |
 
 PRs 1 and 2 (N0, N1, NS) are merged. Josh plays each batch when he chooses; the next batch starts only on his word in chat, and the architect re-cuts it first to what he says.
 
 **The series rules each batch holds** (from `puzzles/series-v1.md`, section 3; the table there is the plan, row by row):
-- **The series' direction** (Josh, 26 Nov 2026: "1 through 10 are literally just to teach you the basics"; "I'm using Fable because I want it to build better puzzles, more complex puzzles that challenge the user based upon what they know and what they've learned from prior puzzles."; "I want puzzles 11 through 25 to span multiple districts with intent. Puzzles 21 through 25. Should not only span multiple districts but should also include multiple layers of puzzle solving that span multiple districts."). **Read:** 1 to 10 teach the basics. From 11 on, each puzzle challenges the player with what the earlier puzzles taught, and is harder for it, not only bigger. Every puzzle 11 to 25 spans more than one district, and the spread is part of the puzzle: its note says why the solve needs each district (a reason the player must go there, not room for the lines). In 21 to 25 the puzzle has several layers of solving, and the layers themselves cross districts (a layer begun in one district is finished or undone in another); the note names each layer and the districts it crosses. **Names** ("The puzzle architect does not have to have the same names for the puzzles as they did before."): the plan's working names and slugs for 11 to 25 are not binding; the designer names each puzzle (id `sNN-<its slug>`, name `"NN · <its name>"`). How far the plan's rows 11 to 25 themselves may change is settled when each of N3 to N5 is re-cut.
+- **The series' direction** (Josh, 26 Nov 2026: "1 through 10 are literally just to teach you the basics"; "I'm using Fable because I want it to build better puzzles, more complex puzzles that challenge the user based upon what they know and what they've learned from prior puzzles."; "I want puzzles 11 through 25 to span multiple districts with intent. Puzzles 21 through 25. Should not only span multiple districts but should also include multiple layers of puzzle solving that span multiple districts."). **Read:** 1 to 10 teach the basics. From 11 on, each puzzle challenges the player with what the earlier puzzles taught, and is harder for it, not only bigger. Every puzzle 11 to 25 spans more than one district, and the spread is part of the puzzle: its note says why the solve needs each district (a reason the player must go there, not room for the lines). In 21 to 25 the puzzle has several layers of solving, and the layers themselves cross districts (a layer begun in one district is finished or undone in another); the note names each layer and the districts it crosses. **Names** ("The puzzle architect does not have to have the same names for the puzzles as they did before."): the plan's working names and slugs for 11 to 25 are not binding; the designer names each puzzle (id `sNN-<its slug>`, name `"NN · <its name>"`). How far the plan's rows 11 to 25 themselves may change is settled when each of N3 to N5 is re-cut (N3's, 26 Nov 2026: see N3, **How far the rows may change**). **Limits that block a better puzzle** (the main session's reading of Josh's words above, 26 Nov 2026): from 11 on, where a size cap, the band's click or hidden-fact ceiling, or a row's **Size** would block a better puzzle, the designer may go past it. It says so in the note, with what it passed and why, and names it in its report. That is not a stop: the main session takes it to Josh at **Show Josh**. A floor (the band's least clicks, hidden facts or layers) is never passed. Neither is a validator or tool limit (the loader's 1 to 4 blocks, `FIT_BUDGET`, W1's numbers): those come under the stop rule.
 - **One new concept per puzzle** (Josh: "introduce new concepts to the player with each puzzle, one building upon the next"): its row's "New idea" and "reasoning move", which no earlier series puzzle has taught; and it uses no element a later row introduces. The note names its concept and the earlier concepts it builds on.
 - **The fuse-blow cap:** "the obvious breaker blows a fuse" opens at most two puzzles of the 25 (8 and 19); "fit it and it blows again" is the trap of none.
 - **No repeats on neighbours:** no kit repeats on neighbouring puzzles; the heavy building is never the same two puzzles running; the target is the shrine at most 5 times in the 25 (each note keeps the running count).
 - **Size caps:** at most 8 of the puzzle's own buildings and 4 faults on any map; each puzzle's faults, parts and controls as its row's **Size**.
-- **A different place** (Josh: "different points on the map are used with each puzzle"): no puzzle's district shares a block with the puzzle before or after it, and no two series puzzles have the same district. Districts are 1 block for 1 to 10, 2 for 11 to 20, 3 or 4 for 21 to 25 (the plan); from N2 on, a puzzle in 6 to 10 may take 2 blocks where its note shows two lines must end side by side at the target (N2's lesson from N1). Places may be used again by any later puzzle whose district differs (Josh: "You can even use the same nodes over again").
+- **A different place** (Josh: "different points on the map are used with each puzzle"): no puzzle's district shares a block with the puzzle before or after it, and no two series puzzles have the same district. Districts are 1 block for 1 to 10, 2 for 11 to 20, 3 or 4 for 21 to 25 (the plan); from N3 on, a puzzle in 11 to 20 may take 3 or 4 where its note shows the solve needs them, and every multi-block district's blocks touch across a street (CK14); from N2 on, a puzzle in 6 to 10 may take 2 blocks where its note shows two lines must end side by side at the target (N2's lesson from N1). Places may be used again by any later puzzle whose district differs (Josh: "You can even use the same nodes over again").
 - **The difficulty band** (the plan's band table): fewest clicks, hidden facts, dead ends and layers within the row's band, read from the analyzer.
 - **No breaker, switch or fuse box on a branch pole** (added 26 Nov 2026, from Josh's play of 1 to 5: "Puzzle 1 is confusing because the breaker box rests on a split. One wire is on and the other is off until you turn on the switch."; see NR. Fuse boxes added the same day, on N2's stop: "Same rule (Recommended)"). A **branch pole** is any pole where a third wire meets, scenery spans and drops included. A breaker's or fuse box's pole carries only its own lines: the one line in and the one line out; a switch's pole, the one line in and its two outs. No junction, feed, lamp's drop from another line, other control, other puzzle line, or section S scenery span or drop meets at that pole (read from the conversion: `converted.hidden` and the circuit layer say what hangs where). A switch's two outs leave its pole by different wires, and one of them may go straight into a building's own drop (Josh, 26 Nov 2026, on NR's stop for `s02`: "Allow it (Recommended)"); still no pole has three spans mid-block. **One standing exception:** `s05-not-that-one`'s breaker, on a pole with a crossing span no line owns, stays as laid (Josh, 26 Nov 2026: "Leave it (Recommended)"); it is not a precedent for a new puzzle. Every series puzzle holds the rule from N2 on (N2's designer was told while building), and 1 to 3 are re-laid to it (NR). The note's place table says, for each control and fuse box, what its pole carries.
 
@@ -2683,7 +2683,7 @@ A puzzle whose row cannot be laid as planned may change its trap's details, said
 
 **Interfaces.** None in `src/core/`. No event. No new dependency.
 
-#### N2 · Series v1, batch 2: puzzles 6 to 10 (puzzle-designer, Fable 5.2). Branch `ticket/081n2-series-batch-2`. **Approved to build** (Josh, 26 Nov 2026, in chat: "Merge and start the next 5")
+#### N2 · Series v1, batch 2: puzzles 6 to 10 (puzzle-designer, Fable 5.2). Branch `ticket/081n2-series-batch-2`. **Done** (PR #101, c77066c; Josh, 26 Nov 2026, on a card: "Merge both (Recommended)"). Built on his word "Merge and start the next 5". Criterion 9 stays open until he plays 6 to 10
 **Re-cut 26 Nov 2026** from the named stub (6 to 15, waiting on Josh's play of 1 to 5) to Josh's pace of five. He has seen screenshots of 1 to 5, not played them; N1's criterion 10 stays open, and if his verdict on 1 to 5 lands while N2 is building, the main session brings it to the architect before N2 merges.
 
 **Josh's words while N2 built (PR #101), 26 Nov 2026 (relayed by the main session):**
@@ -2723,7 +2723,7 @@ A puzzle whose row cannot be laid as planned may change its trap's details, said
 
 **Interfaces.** None. No new dependency.
 
-#### NR · Series 1 to 3 re-laid: each breaker and switch on a single run (puzzle-designer, Fable 5.2). Branch `ticket/081nr-series-relay`, after G1, beside N2. Cut 26 Nov 2026; **approved (G1) 26 Nov 2026**: "Approve (Recommended)"
+#### NR · Series 1 to 3 re-laid: each breaker and switch on a single run (puzzle-designer, Fable 5.2). Branch `ticket/081nr-series-relay`, after G1, beside N2. Cut 26 Nov 2026; **approved (G1) 26 Nov 2026**: "Approve (Recommended)". **Done** (PR #103, 60698ff; Josh, 26 Nov 2026, on a card: "Merge both (Recommended)")
 **Josh, 26 Nov 2026**, his play of 1 to 5 and his card "Both (Recommended)", as recorded at the top of section N. The fault in 1 to 3: a breaker or switch icon sits on a pole where the line branches (in 1, `br_side`'s pole `pole:z:5:lo:494.50` also carries section S's scenery building across `z:5`, lit from the start while the breaker past it is open), so the player cannot tell which branch it controls.
 
 **Josh's words while NR built (PR #103), 26 Nov 2026 (relayed by the main session):**
@@ -2790,17 +2790,189 @@ A puzzle whose row cannot be laid as planned may change its trap's details, said
 
 **Interfaces.** NC1's field. No event, no new dependency.
 
-#### N3 · Series v1, batch 3: puzzles 11 to 15 (puzzle-designer, Fable 5.2). Branch `ticket/081n3-series-batch-3`. **Waiting** on Josh's word
-Named, not cut in full. It starts only on Josh's word in chat (after N2 merges), re-cut to what he says first.
-- **Josh's direction, 26 Nov 2026** (the series rules' **The series' direction**): "I want puzzles 11 through 25 to span multiple districts with intent." and "The puzzle architect does not have to have the same names for the puzzles as they did before. I'm using Fable because I want it to build better puzzles, more complex puzzles that challenge the user based upon what they know and what they've learned from prior puzzles." Each of 11 to 15 spans more than one district for a reason the solve needs, and builds its challenge on what 1 to 10 taught ("1 through 10 are literally just to teach you the basics"); names and slugs are the designer's. The re-cut says how far the rows below may change.
-- **As planned:** rows 11 to 15 (leave it open, meet in the middle, look from behind, which fuse, the fuse above), ids `s11-...` to `s15-...`. 11, 13 and 14 combine two earlier ideas (Josh, N-Q2: "New move counts (Recommended)").
-- **Criteria as N2's**, the band for 6 to 15 unchanged, with districts of 2 blocks. The first second feed is 12, the first reading from behind 13, the first nested fuse 15, each in its own row first. No fuse-blow opener in 11 to 15 (the cap's two are 8 and 19). N2's lesson on 1 block and its stop rule carry over.
-- **Josh plays** 11 to 15; N4 waits for his word. Count 0. Files: `puzzles/city/` only.
+#### N3 · Series v1, batch 3: puzzles 11 to 15 (puzzle-designer, Fable 5.2). Branch `ticket/081n3-series-batch-3`, from `main` 24a9ccf. **Approved to build** (Josh, 26 Nov 2026, in chat, asked "Shall I start N3 (puzzles 11 to 15)?": "Start it")
+**Re-cut in full 26 Nov 2026** from the named stub, to Josh's words. They are recorded at the top of section N and in the series rules' **The series' direction** (relayed by the main session):
+- "1 through 10 are literally just to teach you the basics"
+- "I want puzzles 11 through 25 to span multiple districts with intent."
+- "The puzzle architect does not have to have the same names for the puzzles as they did before. I'm using Fable because I want it to build better puzzles, more complex puzzles that challenge the user based upon what they know and what they've learned from prior puzzles."
+
+Josh has not played 6 to 10 yet (N2's criterion 9 is open). If his verdict on them lands while N3 builds, the main session brings it to the architect before N3 merges, as it did for N2.
+
+**Goal.** Puzzles 11 to 15 are on the city, and they are where the challenge starts. Each one spans two or more blocks, and the player has to go to each of them. Each one makes what 1 to 10 taught into a harder read, not just a bigger map. Josh can play 11 to 15 from the stage select and say whether the series has started to challenge him.
+
+**What "district" means here** (the architect's call; Josh's to overturn, open question 29). In Josh's words a district is a part of the town the player can tell apart. On the puzzle city those parts are blocks. Stage 10's history districts (`CityDistrict`, 1 to 4 blocks) run only in the tech, hold-out and ruin eras (`CITY_ERA_LAST.clean` is `"traffic"`), so the player never sees them. So "spans multiple districts" is read as: the puzzle's `district` lists **2 to 4 blocks** (the loader's limit) that touch across a street (CK14, `districtProblems`), and the solve needs each one. 2 blocks is the plan's figure for 11 to 20. 3 or 4 are allowed where the note shows the solve needs them.
+
+**The timed breaker stays out of 11 to 15, in N4** (the architect's call). The reasons:
+- **Josh has already placed it.** On TB-Q4's card he was offered "First in 11 to 15" and chose "In 16-20 (Recommended)". Moving it would overturn his answer, and only he can do that.
+- **His timer ruling is worded for N4.** "Fuse + battery twist (Recommended)" makes a rated fuse force the two windows and relaxes the fuse-blow cap for those puzzles. 11 to 15 has no room for a blow opener: the cap's two openers are 8 and 19.
+- **He has not played the trial.** `tb-two-clocks` is unplayed (TB6's criterion 3 is open), and N4's re-cut takes his words on it.
+
+No timed breaker in 11 to 15.
+
+**How far the rows may change.** Rows 11 to 15 of `puzzles/series-v1.md` (leave it open, meet in the middle, look from behind, which fuse, the fuse above) are a starting point only.
+- **Free.** The designer may change:
+  - names and slugs (id `sNN-<slug>`, name `"NN · <name>"`);
+  - each row's trap, size, kit, targets, heavy building and layout;
+  - which earlier ideas a puzzle combines, and its reasoning move;
+  - the order of the five.
+
+  A planned row may be replaced, or merged with another.
+- **Fixed.**
+  1. **One new concept each.** Each puzzle's new concept is a reasoning move that no series puzzle before it taught (Josh, N-Q2: "New move counts (Recommended)"). It is built on 1 to 10, and on whichever of 11 to 14 come before it.
+  2. **Two new pieces, both in.** Only two new pieces may enter in 11 to 15: the **second feed** and the **nested (mother) fuse**. Both must enter here, because later rows lean on them: 22 and 25 on two feeds, 23 on a main fuse over its children. Each first appears in a puzzle where it is the new thing.
+  3. **Nothing from later.** No relay, spring, battery or timed breaker.
+  4. **Dropped moves are named.** A planned move can be dropped (the ring with a rating, reading from behind, which fuse). The designer then names, in its report, the later row that leaned on it, for N4's and N5's re-cuts. Two do: row 17 ("Relay + which fuse") leans on 14, and row 20 ("Battery + faults hide faults") on 13's look. Dropping a move is not a stop.
+  5. **The plan follows what was built.** The designer rewrites rows 11 to 15 of the plan's section 3 table to what it built (same columns, one row each). It changes nothing else in `puzzles/series-v1.md`.
+
+**What 1 to 10 taught** (the moves to build on; each note's own wording governs):
+
+| # | The move |
+| --- | --- |
+| 1 | Trace the target's wire back to the feed |
+| 2 | Only a switch with current changes anything |
+| 3 | Choose what goes dark |
+| 4 | Faults are read by current |
+| 5 | Spend scarce parts only on the target's road |
+| 6 | Open the dark before spending |
+| 7 | Reroute instead of a repair you can't afford |
+| 8 | A red breaker means "not yet": shed what shares its box |
+| 9 | Which side of each break each target is on |
+| 10 | A dead building draws nothing until its bulb goes in |
+
+**Acceptance criteria.** Each criterion applies to each of the five, unless it says "the batch".
+1. [ ] **On the city and checked.**
+   - It meets N2's criterion 1: its city file and note are in `puzzles/city/` under its own id and name, on 6 x 6 seed 1, one-way on, with no `from`.
+   - Every lamp is a building fed by its drop.
+   - Its `district` lists 2 to 4 blocks that touch across a street (CK14). Each feed stands outside the district with one entering span, as CK14 requires.
+   - `npm run check puzzles/city/` passes it, W1's rules included (reads outward, `FEED_CLEAR_M`, no crossing spans, own-block roofs).
+   - Its capacities and ratings are raised for its scenery (`npm run fit -- --raise`).
+
+   **test** (P1's sweep, unedited).
+2. [ ] **Every block is needed** (Josh: "with intent").
+   - Each block of its district holds at least one of these:
+     - a move from the check block's solution (a throw, a switch set, a repair or a part fitted);
+     - a fact the solve needs that can only be read there (a fault that shows, a number that turns).
+
+     A wire passing through, the feed on its own, or scenery does not count.
+   - At least one move on one block changes what the player can do or read on another. The blocks are one puzzle, not two puzzles side by side.
+   - The note has a **Why each block** table: the block, what the player does or learns there, and why it can't be done on another block.
+
+   **no test**.
+3. [ ] **Harder, not just bigger** (Josh: "challenge the user based upon what they know and what they've learned from prior puzzles").
+   - **What it builds on.** The note names the moves from 1 to 10 it builds on (by number, from the table above), and how it uses them against the player. Either the move those puzzles trained is the trap here, or two of them must be held at once.
+   - **Depth of the read.** This is the plan's difficulty rule 1: how many facts the player must hold before the first move that can't be taken back. The note gives it. It is at least 2, and at least that of the deepest puzzle it builds on (read from that puzzle's note).
+   - **No padding.** A second block that only repeats the first block's move does not count toward criterion 2.
+   - **The batch climbs.** Each of 12 to 15 reads at least as deep as the one before it. Where it doesn't, the note says what else makes it harder, in the plan's order: fewer winning click orders, then a larger share of dead-end states.
+
+   **no test**.
+4. [ ] **Solvable per the analyzer, at or above the band for 6 to 15.**
+   - `npm run analyze puzzles/city/<id>.city.json` finds a win. On a bigger map the designer may raise `--cap`, and says so.
+   - The note gives:
+     - fewest clicks;
+     - winning configurations;
+     - winning click orders;
+     - the share of dead-end states;
+     - the obvious wrong first move, with how it is read and how it is recovered.
+   - **Floors**, which are never passed:
+     - at least 3 clicks;
+     - at least 1 hidden fact at the start (the note names each one, and what makes it readable);
+     - at least 2 layers (the note names them);
+     - dead ends readable, and recovered by a part or one Undo;
+     - 1 winning configuration.
+   - **Ceilings.** 6 clicks and 2 hidden facts may be passed under **Limits that block a better puzzle** (the series rules). The note then says so, and N4's re-cut raises its band to stay above it.
+
+   **no test** (the sweep's check-block replay is the test that it wins).
+5. [ ] **One new concept, and nothing from later**, under **How far the rows may change**, points 1 to 3.
+   - The note names its concept, its reasoning move, and the earlier concepts it builds on.
+   - **The batch:** the second feed and the nested fuse each appear, each first where it is the new thing.
+
+   **no test**.
+6. [ ] **A different place** (Josh: "different points on the map are used with each puzzle").
+   - Its district shares no block with the puzzle before or after it. 11 shares none with 10's `block:1:7`.
+   - Its set of blocks is not any earlier series puzzle's district.
+   - At least one of its blocks has not been used by any series puzzle.
+   - It may take in blocks that an earlier, non-neighbouring puzzle used (Josh, 25 Nov 2026: "You can even use the same nodes over again if it means increasing the complexity of the puzzle to spread across multiple districts").
+   - Districts used by 1 to 10 (`s10-count-the-dark.md`): `block:2:10`, `block:6:1`, `block:8:1`, `block:3:0`, `block:8:7`, `block:0:8`, `block:6:11`, `block:6:3`, `block:0:4`, `block:1:7`.
+   - `tb-two-clocks` (`block:6:6`, `block:6:8`) is not a series puzzle. Its places are like any other places.
+   - The note names its blocks, the place table (node to place, line to its span chain, the street crossings between blocks included) and the running list of districts.
+
+   **no test**.
+7. [ ] **The series rules** (section N).
+   - At most 8 of its own buildings and 4 faults. These may be passed under **Limits that block a better puzzle**.
+   - **No "obvious breaker blows a fuse" opener in 11 to 15.** The cap's two openers are 8 and 19. Josh's relaxation ("Fuse + battery twist (Recommended)") is for N4's timer puzzles only.
+   - "Fit it and it blows again" is no puzzle's trap.
+   - A blow later in the solve is allowed: a readable dead end that a part recovers, named in the note.
+   - No kit repeats on neighbours (10's was two fuses and a bulb).
+   - The heavy building is not the same two puzzles running. 10 had none besides its target, the archive.
+   - The note keeps the shrine count: 2 of 5 after puzzle 10.
+
+   **no test**.
+8. [ ] **No breaker, switch or fuse box on a branch pole** (the series rule, from Josh's play of 1 to 5; fuse boxes: "Same rule (Recommended)").
+   - A branch pole is any pole where a third wire meets, scenery spans and drops included.
+   - A breaker's or fuse box's pole carries only its one line in and one line out. A switch's pole carries its one line in and its two outs.
+   - On a multi-block map, a span across a street that lands on a control's pole counts only if it is that control's own in or out.
+   - **The two exceptions Josh allowed:**
+     - A switch's out may go straight into a building's own drop ("Allow it (Recommended)"). Still, no pole has three spans mid-block.
+     - `s05-not-that-one`'s breaker stays as laid ("Leave it (Recommended)"). It is **not a precedent**: no N3 control relies on it.
+   - The place table gives, for each control and fuse box, its pole and every wire that meets there, read from the conversion, scenery included.
+
+   **no test**.
+9. [ ] **It reads from the default camera.**
+   - Section J fits the opening frame to the puzzle's pieces. Every block of the district and every control, fuse box and target icon is in that frame and can be read.
+   - The wrong move is not one red number deep (N2's criterion 6). The note says how the obvious wrong move reads with section V's load numbers and the NC2 hover cue.
+   - The designer opens no browser. The main session checks each opening frame in the pane (or sends Josh screenshots while he is remote), and a frame that doesn't fit goes back to the designer.
+
+   **browser**.
+10. [ ] **The note** (as N2's criterion 7) has:
+    - the intended read from the default camera, saying where each target building is;
+    - **The trap**, in a line;
+    - **Why each block** (criterion 2);
+    - what it builds on, and its depth of read (criterion 3);
+    - **Changed from the plan's row**: what changed and why;
+    - **Limits passed**: none, or which limit, by how much, and why;
+    - the check block with the solution;
+    - the tribe's `priority` homes, with what the win costs them;
+    - an empty **What it taught us**.
+
+    **no test**.
+11. [ ] **The batch: the designer's report** gives:
+    - the five as built (id, name, concept, blocks);
+    - every row change;
+    - every limit passed;
+    - every dropped move, with the later row that leaned on it.
+
+    The main session takes the limits passed to Josh at **Show Josh**. **no test**.
+12. [ ] The designer gives the time of P1's sweep on Josh's PC with the fifteen series puzzles in (`npx vitest run --maxWorkers=2 tools/fit.test.ts`), beside N1's and N2's figures. It is watched, not tuned here. **no test**.
+13. [ ] **Josh plays** 11 to 15 from the stage select, after N3 merges (`npm run dev`, "start"). His verdict, in his words, goes under each note's **What it taught us**. N4 starts only on his word in chat. **browser**.
+
+**Stop rule** (N2's, widened). The designer stops ("stop 081 N3", with the branch) in any of these cases:
+- a puzzle can't be laid on a district of 2 to 4 blocks with the fit and the check as they are: W1's rules (crossing spans, reads outward, own-block roofs, `FEED_CLEAR_M`), `FIT_BUDGET`, a street crossing between blocks that the fit cannot place, or the analyzer unable to finish at any `--cap` Josh's PC can run (2 vitest workers, 7 of 8 cores);
+- the second feed or the nested fuse can't be laid on the city;
+- a puzzle needs a rule, schema or tool change;
+- a puzzle needs every block only by breaking a series rule.
+
+To get past a stop, it does not change W1's numbers, `FIT_BUDGET`, a tool, or anything in `puzzles/series-v1.md` outside rows 11 to 15. It reports what is short, and the architect re-cuts.
+
+**Not a stop:** passing a size, click or hidden-fact ceiling under **Limits that block a better puzzle**, or dropping a planned move (point 4).
+
+**Count.** 0.
+
+**Files.** `puzzles/city/`: new `s11-...` to `s15-...` city files and notes only. In `puzzles/series-v1.md`: rows 11 to 15 of section 3's table only. **Must not:**
+- `s01-...` to `s10-...`, `tb-two-clocks`, the pilots and P0 in `puzzles/city/`;
+- the rest of `puzzles/series-v1.md` (its **What it taught us** included);
+- `puzzles/SCHEMA.md` and `puzzles/locked/`;
+- `tools/` and `src/`.
+
+**Interfaces.** None. The second feed and nested fuses are in the schema and the simulator today (the plan's section 2), so `src/core/` gets no change. No new dependency.
 
 #### N4 · Series v1, batch 4: puzzles 16 to 20 (puzzle-designer, Fable 5.2). Branch `ticket/081n4-series-batch-4`. **Waiting** on Josh's word
 Named, not cut in full; it starts only on Josh's word in chat (after N3 merges), re-cut to what he says first.
 - **Josh's direction, 26 Nov 2026** (the series rules' **The series' direction**): "I want puzzles 11 through 25 to span multiple districts with intent." and "The puzzle architect does not have to have the same names for the puzzles as they did before. I'm using Fable because I want it to build better puzzles, more complex puzzles that challenge the user based upon what they know and what they've learned from prior puzzles." Each of 16 to 20 spans more than one district for a reason the solve needs, and challenges with what 1 to 15 taught; names and slugs are the designer's. The re-cut says how far the rows below may change.
 - **As planned:** rows 16 to 20 (only moves live, the back door, keep it live, the cell, by cell light), ids `s16-...` to `s20-...`. Batteries stay (Josh, above): 19 and 20 here.
+- **The rows are a starting point** (Josh, 26 Nov 2026, above: "The puzzle architect does not have to have the same names for the puzzles as they did before."). Rows 16 to 20 of `puzzles/series-v1.md` bind no more than N3's rows did. The re-cut says how far they may change, in the manner of N3's **How far the rows may change**: names, traps, sizes and order free; one new reasoning move each; nothing from a later row. It also reads what N3 changed. N3 rewrote rows 11 to 15 as built, and its report names any planned move it dropped that a row here leaned on: 17 ("Relay + which fuse") leans on 14, and 20 ("Battery + faults hide faults") on 13's look.
+- **Harder, on what 1 to 15 taught, and across districts with intent** (N3's criteria 2 and 3 carry over): every block of the district is needed, with a **Why each block** table; the note names the earlier moves it builds on and its depth of read; the batch climbs from 15.
+- **Limits that block a better puzzle** (the series rules) apply. If N3 passed a click or hidden-fact ceiling, the re-cut raises this band's floor to stay above it.
+- **The timed breaker enters here** (TB-Q4: "In 16-20 (Recommended)"). N3 kept it out for that reason. It comes first on a plain 2-block map, and one planned row gives way, which the designer proposes and Josh approves. The series rules TB6 named come in at the re-cut: at most 2 timed breakers on a map; each timed puzzle wins at `--click-seconds 3` in the same fewest clicks; the note names each window and what is done in it.
 - **Criteria as N2's**, with the plan's band for 16 to 25: 5 to 10 clicks; 1 to 3 hidden facts; the first wrong click always recoverable by a part or a wait; 3 to 6 layers. Districts of 2 blocks. The only "obvious breaker blows a fuse" opener is 19. The first relay is 16, the first spring 18, the first battery 19: each on a plain map first.
 - **A risk named now:** relay, spring and battery have never been laid on the city. If the fit or W1's check cannot place one, N4 stops under the stop rule and the architect cuts a grid-simulator section; nothing is changed in N4 to get round it.
 - **For the re-cut: how the two windows are forced (Josh, 26 Nov 2026, on cards, relayed by the main session).** Asked on a card about forcing the two windows of a timer puzzle with a fuse, he answered "What about batteries?". The analysis then showed that a battery alone cannot force both windows. He chose **"Fuse + battery twist (Recommended)"**:
@@ -2813,7 +2985,11 @@ Named, not cut in full; it starts only on Josh's word in chat (after N3 merges),
 Named, not cut in full; it starts only on Josh's word in chat (after N4 merges), re-cut to what he says first.
 - **Josh's direction, 26 Nov 2026** (the series rules' **The series' direction**): "Puzzles 21 through 25. Should not only span multiple districts but should also include multiple layers of puzzle solving that span multiple districts." and "The puzzle architect does not have to have the same names for the puzzles as they did before. I'm using Fable because I want it to build better puzzles, more complex puzzles that challenge the user based upon what they know and what they've learned from prior puzzles." Each of 21 to 25 spans several districts, and its layers of solving cross them (a layer begun in one district is finished or undone in another; the note names each layer and its districts); it challenges with what 1 to 20 taught; names and slugs are the designer's. The re-cut says how far the rows below may change.
 - **As planned:** rows 21 to 25 (far one first, move the meeting, the priests' list, hold the spring, the whole chain), ids `s21-...` to `s25-...`. Batteries in 21, 24 and 25.
-- **Criteria as N4's** (the band for 16 to 25), with districts of 3 or 4 blocks. No fuse-blow opener (19 was the last). The shrine count closes at 5 or fewer.
+- **The rows are a starting point** (Josh, 26 Nov 2026, above), as in N4. The re-cut says how far rows 21 to 25 may change, and reads what N3 and N4 changed and dropped. Row 22 leans on two feeds, row 23 on a main fuse over its children, row 25 on both.
+- **Harder, on what 1 to 20 taught** (N3's criteria 2 and 3 carry over, with the layers): every block of the district is needed, with a **Why each block** table; the note names each layer, the blocks it crosses, the earlier moves it builds on and its depth of read.
+- **Limits that block a better puzzle** (the series rules) apply, as in N3 and N4.
+- **The timed breaker is a layer here** (TB-Q4: "then a layer in N5"). If the second timer puzzle, the battery twist ("charge in A's window, spend it in B's"), falls in 21 to 25, Josh's ruling "Fuse + battery twist (Recommended)" applies to it as N4 words it, the relaxed blow cap included.
+- **Criteria as N4's** (the band for 16 to 25), with districts of 3 or 4 blocks. No fuse-blow opener (19 was the last), except where Josh's timer ruling relaxes the cap (the bullet below). The shrine count closes at 5 or fewer.
 - **Josh plays** 21 to 25. Count 0. Files: `puzzles/city/` only.
 
 ### TB · The timed breaker: a clock feeds sections in turn. Cut 26 Nov 2026 for G1, in six PRs: TB0, then TB1 with TB2, then TB3, TB4 and TB5 side by side, then TB6. **Approved (G1) 26 Nov 2026**: "Approve (Recommended)"
@@ -2852,18 +3028,18 @@ The reasoning, the table of how it meets the existing pieces and a worked exampl
 **Order.**
 | PR | Section | Owner | After | Tests |
 | --- | --- | --- | --- | --- |
-| 1 | TB0, the types, the validator and the schema | lead-architect | G1 | at most 2 |
-| 2 | TB1, the rule (pure), with TB2, the analyzer, the check and the raise | grid-simulator | TB0 merged | at most 6 + 3 = 9 |
-| 3 | TB3, the timer drawn | renderer | TB1 merged | at most 3 |
-| 4, beside 3 | TB4, the prompt and the log | interaction | TB1 merged | at most 2 |
-| 5, beside 3 | TB5, the sound | sound | TB0 merged (it codes against the events and `SoundView`) | at most 2 |
-| 6 | TB6, a trial puzzle for Josh | puzzle-designer (Fable 5.2) | TB1 to TB4 merged (TB5 may follow) | 0 |
-| — | Where it enters the series (TB-Q4) | lead-architect | Josh plays TB6 | at N4's re-cut |
-| 7 | TB1b1, the joint-flip preview (follow-up, **not approved**) | grid-simulator | TB1 merged (now) | at most 2 |
-| 8, beside 7 | TB1b3, the preview once per change, not per frame (follow-up, **not approved**) | ui | TB1 merged (now) | at most 1 |
-| 9 | TB1b2, the next cue for every timer (follow-up, **not approved**) | renderer | TB1b1 and TB3 (#109) merged | 0 added, 1 rewritten |
+| 1 | TB0, the types, the validator and the schema. **Done** (#104) | lead-architect | G1 | at most 2 |
+| 2 | TB1, the rule (pure), with TB2, the analyzer, the check and the raise. **Done** (#105) | grid-simulator | TB0 merged | at most 6 + 3 = 9 |
+| 3 | TB3, the timer drawn. **Done** (#109) | renderer | TB1 merged | at most 3 |
+| 4, beside 3 | TB4, the prompt and the log. **Done** (#108) | interaction | TB1 merged | at most 2 |
+| 5, beside 3 | TB5, the sound. **Done** (#106) | sound | TB0 merged (it codes against the events and `SoundView`) | at most 2 |
+| 6 | TB6, a trial puzzle for Josh. **Done** (#114) | puzzle-designer (Fable 5.2) | TB1 to TB4 merged (TB5 may follow) | 0 |
+| — | Where it enters the series (TB-Q4: "In 16-20 (Recommended)"; N3 keeps it out) | lead-architect | Josh plays TB6 | at N4's re-cut |
+| 7 | TB1b1, the joint-flip preview (follow-up; approved). **Done** (#110) | grid-simulator | TB1 merged (now) | at most 2 |
+| 8, beside 7 | TB1b3, the preview once per change, not per frame (follow-up; approved). **Done** (#113) | ui | TB1 merged (now) | at most 1 |
+| 9 | TB1b2, the next cue for every timer (follow-up; approved). **Done** (#112) | renderer | TB1b1 and TB3 (#109) merged | 0 added, 1 rewritten |
 
-#### TB0 · The timed breaker's types, its validation and its schema entry (lead-architect). Branch `ticket/081tb0-timer-types`, after G1. **Built** 26 Nov 2026 by the lead-architect in the main checkout, uncommitted, for the main session to branch; 2 cases added
+#### TB0 · The timed breaker's types, its validation and its schema entry (lead-architect). Branch `ticket/081tb0-timer-types`, after G1. **Done** (PR #104, 8ccb14d; Josh, 26 Nov 2026, on a card: "Merge, start TB1 (Recommended)"); built by the lead-architect, 2 cases added
 **Goal.** The builders code against one contract: a puzzle file can carry a timed breaker, the loader rejects a bad schedule with a clear message, and `puzzles/SCHEMA.md` says what it does.
 
 **Acceptance criteria.**
@@ -2875,7 +3051,7 @@ The reasoning, the table of how it meets the existing pieces and a worked exampl
 
 **Count.** At most 2. **Files.** `src/core/schema.ts`, `state.ts`, `events.ts`, `preview.ts`, `audio.ts`, `load.ts`, `check.ts`, `load.test.ts`, `check.test.ts`; `puzzles/SCHEMA.md`; `tickets/rules-coverage.md`. **Interfaces.** Below. No new dependency.
 
-#### TB1 · The timed breaker's rule (grid-simulator, pure). Branch `ticket/081tb1-timer-rule`, after TB0; one PR with TB2
+#### TB1 · The timed breaker's rule (grid-simulator, pure). Branch `ticket/081tb1-timer-rule`, after TB0; one PR with TB2. **Done** (PR #105, 08d6765; Josh, 26 Nov 2026, on a card: "Merge, start TB3-5 (Recommended)")
 **Goal.** On `src/grid/`, a timed breaker opens and closes on its schedule from the first move, and every existing rule meets it as rules 1 to 8 say, so a puzzle can be built on it and replayed.
 
 **Acceptance criteria.**
@@ -2896,7 +3072,7 @@ The reasoning, the table of how it meets the existing pieces and a worked exampl
 
 **Count.** At most 6. **Files.** `src/grid/grid.ts`, `types.ts`, `preview.ts`, and a new `src/grid/timer.test.ts`. **Must not:** any other folder. **Interfaces.** TB0's. No new dependency.
 
-#### TB2 · The analyzer, the check and the raise on a timed map (grid-simulator). Branch `ticket/081tb1-timer-rule` (one PR with TB1)
+#### TB2 · The analyzer, the check and the raise on a timed map (grid-simulator). Branch `ticket/081tb1-timer-rule` (one PR with TB1). **Done** (PR #105, with TB1)
 **Goal.** `npm run analyze`, `npm run check` and `npm run fit -- --raise` give true answers on a map with a timed breaker, so the designer can build one and the reviewer can trust its numbers.
 
 **Acceptance criteria.**
@@ -2913,7 +3089,7 @@ The reasoning, the table of how it meets the existing pieces and a worked exampl
 
 **Count.** At most 3 (TB1 with TB2: 9). **Files.** `tools/analyzerun.ts`, `tools/analyze.ts`, `tools/checkrun.ts` (only under criterion 2), `tools/fit.ts` (the raise only), `tools/analyze.test.ts`, `tools/fit.test.ts` (one case added; the sweep unedited). **Must not:** `src/`, `puzzles/`.
 
-#### TB3 · The timer drawn: its cycle, now and next (renderer). Branch `ticket/081tb3-timer-drawn`, after TB1
+#### TB3 · The timer drawn: its cycle, now and next (renderer). Branch `ticket/081tb3-timer-drawn`, after TB1. **Done** (PR #109, 8d621cb; Josh, 26 Nov 2026, on a card: "Merge (Recommended)")
 **Goal.** From the default camera, the player sees each timed breaker's schedule: how long it stays as it is, which wires it feeds now, and which it will light or darken at its next flip.
 
 **Acceptance criteria.**
@@ -2930,7 +3106,7 @@ The reasoning, the table of how it meets the existing pieces and a worked exampl
 
 **Count.** At most 3. **Files.** `src/render3d/overlay.ts`, `glyphs.ts`, `controlcue.ts`, `cityview.ts` (the next cue's write) and their tests, or a new `timerring.ts` with its test. **Must not:** `src/grid/`, `src/core/`, `src/play/`, `src/ui/`, `src/main.ts`.
 
-#### TB4 · The timed breaker's prompt and its log lines (interaction). Branch `ticket/081tb4-timer-prompt`, after TB1, beside TB3
+#### TB4 · The timed breaker's prompt and its log lines (interaction). Branch `ticket/081tb4-timer-prompt`, after TB1, beside TB3. **Done** (PR #108, ae0dda3; Josh, 26 Nov 2026, on a card: "Merge (Recommended)")
 **Goal.** Hovering a timed breaker says what it is and when it next changes. A cold playtest's session log says when each section came and went.
 
 **Acceptance criteria.**
@@ -2944,7 +3120,7 @@ The reasoning, the table of how it meets the existing pieces and a worked exampl
 
 **Count.** At most 2. **Files.** `src/play/prompt.ts`, `log.ts`, `play.ts` (only to log the flip) and their tests. **Must not:** any other folder.
 
-#### TB5 · The timed breaker's sound (sound). Branch `ticket/081tb5-timer-sound`, after TB0, beside TB3
+#### TB5 · The timed breaker's sound (sound). Branch `ticket/081tb5-timer-sound`, after TB0, beside TB3. **Done** (PR #106, 653fb0b; Josh, 26 Nov 2026, on a card: "Merge (Recommended)")
 **Goal.** The player hears a section about to change and hears it change, without looking.
 
 **Acceptance criteria.**
@@ -3323,3 +3499,6 @@ All questions so far are answered (above), the mid-row one included ("Only when 
     - **G1:** "Approve Y (Recommended)"; "Approve Y1 and Y3 only"; "Not now".
     - **Y-Q1, the fuse label's red:** "Comment only, keep it as a guard (Recommended)"; "Drop the red"; "Full reads red".
     - **Y-Q2, who builds Y3:** "The playtester, as for R1 (Recommended)"; "Leave it for the next release".
+29. **Section N3, what a "district" is (cut 26 Nov 2026; it does not hold up the build).** N3 is approved to build ("Start it"), and it builds on the architect's call below unless you overturn it. One card, the recommendation first:
+    - **N3-Q1, "span multiple districts":** "A district is a block (Recommended)". Each of 11 to 25 spans 2 to 4 blocks (the loader's limit), and the solve needs each one. On the puzzle city the blocks are the parts of town you can tell apart: the history districts only exist in the tech, hold-out and ruin eras. The other option (blocks that don't touch are not one: CK14 requires a district's blocks to touch across a street):
+      - "A history district": each puzzle spans 2 or more of stage 10's districts (1 to 4 blocks each) on the clean city. They are not drawn on it, and two of them can come to more than the 4 blocks the loader allows, so this needs a validator and a fit change before N3 can build.
