@@ -3,7 +3,7 @@
  * Pure: it reads a puzzle and a state and runs fresh grids; it changes nothing.
  */
 
-import type { Fault, GridNode, LoadPreview, LoadPreviewEntry, Puzzle } from "../core";
+import type { BatteryNode, Fault, GridNode, LoadPreview, LoadPreviewEntry, Puzzle } from "../core";
 import { createGrid } from "./grid";
 import type { GridState } from "./types";
 
@@ -26,22 +26,32 @@ export function loadPreview(puzzle: Puzzle, state: GridState, known: ReadonlySet
     nodes: puzzle.nodes.map((n): GridNode => {
       if (n.type === "breaker") return { ...n, closed: breakers.get(n.id) ?? n.closed };
       if (n.type === "switch") return { ...n, selected: switches.get(n.id) ?? n.selected };
+      if (n.type === "battery") return { ...n, charge: state.batteries.get(n.id)?.charge ?? n.charge } as BatteryNode;
       if (n.type === "fusebox" && unrated) return { ...n, rating: Infinity };
       return n;
     }),
   });
 
-  const run = (flt: readonly Fault[], breakers: ReadonlyMap<string, boolean>, switches: ReadonlyMap<string, 0 | 1>) => {
-    const lit = createGrid(view(flt, breakers, switches, true)).state();
-    const real = createGrid(view(flt, breakers, switches, false)).state();
+  /** A fresh grid with each battery in `released` released, so a running battery counts in every what-if (081 BC1). */
+  const fresh = (p: Puzzle, released: ReadonlySet<string>): GridState => {
+    const g = createGrid(p);
+    for (const id of released) g.release(id);
+    return g.state();
+  };
+
+  const running: ReadonlySet<string> = new Set([...state.batteries].filter(([, b]) => b.released && b.charge > 0).map(([id]) => id));
+
+  const run = (flt: readonly Fault[], breakers: ReadonlyMap<string, boolean>, switches: ReadonlyMap<string, 0 | 1>, released: ReadonlySet<string> = running) => {
+    const lit = fresh(view(flt, breakers, switches, true), released);
+    const real = fresh(view(flt, breakers, switches, false), released);
     return { load: lit.load, powered: lit.powered, real };
   };
 
   const base = run(faults, state.breakers, state.switches);
   const baseBlown = new Set(base.real.faults.filter((f) => f.kind === "blown-fuse").map((f) => f.id));
 
-  const entry = (kind: LoadPreviewEntry["kind"], flt: readonly Fault[], breakers: ReadonlyMap<string, boolean>, switches: ReadonlyMap<string, 0 | 1>, repaired?: string): LoadPreviewEntry => {
-    const after = run(flt, breakers, switches);
+  const entry = (kind: LoadPreviewEntry["kind"], flt: readonly Fault[], breakers: ReadonlyMap<string, boolean>, switches: ReadonlyMap<string, 0 | 1>, repaired?: string, released: ReadonlySet<string> = running): LoadPreviewEntry => {
+    const after = run(flt, breakers, switches, released);
     // A repaired fuse that blows again carries the same id, so it counts as new.
     const blows = after.real.faults.filter((f) => f.kind === "blown-fuse" && (f.id === repaired || !baseBlown.has(f.id))).map((f) => f.at);
     // The lines the move makes live or dead, from the same fuses-lifted run as `delta`, in `puzzle.lines` order.
@@ -77,6 +87,14 @@ export function loadPreview(puzzle: Puzzle, state: GridState, known: ReadonlySet
       const s = new Map(state.switches);
       s.set(n.id, (state.switches.get(n.id) ?? n.selected) === 0 ? 1 : 0);
       out.set(n.id, entry("switch", faults, state.breakers, s));
+    } else if (n.type === "battery") {
+      // Its click: stop it if released; release it with the state's charge if it has any; otherwise the click is refused and there is no entry.
+      const r = new Set(running);
+      if (!r.delete(n.id)) {
+        if ((state.batteries.get(n.id)?.charge ?? 0) <= 0) continue;
+        r.add(n.id);
+      }
+      out.set(n.id, entry("battery", faults, state.breakers, state.switches, undefined, r));
     }
   }
   for (const f of faults) {

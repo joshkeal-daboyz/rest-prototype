@@ -124,3 +124,31 @@ describe("load preview (ticket 081 V2)", () => {
     expect(preview(cut, ["k"]).get("br")?.lines).toEqual({ on: ["lb"], off: [] });
   });
 });
+
+describe("the battery's release previewed (ticket 081 BC1)", () => {
+  /** feed -lin-> bat -lo-> relay sw (la / lb); la -> j -> la2 -> A, lb -> B; an unread break on la. */
+  const build = (charge: number): Puzzle =>
+    mini(
+      [
+        { id: "feed", type: "feed" }, { id: "bat", type: "battery", capacity: 5, charge, input: "lin" },
+        { id: "sw", type: "switch", outputs: ["la", "lb"], selected: 0, relay: true }, { id: "j", type: "junction" },
+        { id: "A", type: "lamp" }, { id: "B", type: "lamp" },
+      ],
+      [["lin", "feed", "bat"], ["lo", "bat", "sw"], ["la", "sw", "j"], ["la2", "j", "A"], ["lb", "sw", "B"]],
+      [{ id: "k", at: "la", kind: "damaged-cable" }],
+    );
+
+  it("battery entry: release lights the far side up to the relay's out as if the unread break were sound; released, the click darkens what it lit (the unread break is real in the base); empty, no entry; a running battery counts in every what-if", () => {
+    const p = build(3);
+    const charged = preview(p).get("bat");
+    expect(charged).toMatchObject({ kind: "battery", delta: 0, over: false, lines: { on: ["lo", "la", "la2"], off: [] } });
+    expect(preview(p, ["k"]).get("bat")?.lines).toEqual({ on: ["lo", "la"], off: [] });
+    const g = createGrid(p);
+    g.release("bat");
+    const running = loadPreview(p, g.state(), new Set());
+    expect(running.get("bat")?.lines).toEqual({ on: [], off: ["lo", "la"] });
+    // The relay only the battery reaches has the entry a live relay has.
+    expect(running.get("sw")?.lines).toEqual({ on: ["lb"], off: ["la"] });
+    expect(preview(build(0)).has("bat")).toBe(false);
+  });
+});
