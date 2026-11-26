@@ -14,6 +14,29 @@ const view = (o: Partial<{ feeds: [string, FeedReadout][]; batteries: [string, B
 const feed = (load: number, capacity: number | null): FeedReadout => ({ load, capacity, over: capacity !== null && load > capacity });
 const bat = (charge: number, charging = true, capacity = 4): BatteryReadout => ({ charge, capacity, released: false, charging });
 
+describe("the timer count-in", () => {
+  it("ticks once as whole seconds left reach 3, 2 and 1, and not before the first move or after the win", () => {
+    const tv = (next: number, o: { clock?: number | null; complete?: boolean } = {}): SoundView => ({
+      ...view(),
+      complete: o.complete ?? false,
+      clock: o.clock === undefined ? 5 : o.clock,
+      timers: new Map([["t", { closed: true, next }]]),
+    });
+    let st = initialLayerState();
+    const run = (v: SoundView): boolean => {
+      const l = layersFor(v, st);
+      st = l.next;
+      return l.timerTick;
+    };
+    const seq = [5, 4.5, 3.5, 3.2, 2.9, 2.1, 1.5, 1.01, 0.9, 0.4].map((n) => run(tv(n)));
+    expect(seq).toEqual([false, false, false, false, true, false, true, false, true, false]);
+    st = initialLayerState();
+    expect([4, 2.5, 1.5].map((n) => run(tv(n, { clock: null })))).toEqual([false, false, false]);
+    st = initialLayerState();
+    expect([4, 2.5, 1.5].map((n) => run(tv(n, { complete: true })))).toEqual([false, false, false]);
+  });
+});
+
 describe("hum", () => {
   it("is silent when nothing is powered", () => {
     expect(layersFor(view({ feeds: [["a", feed(0, 6)], ["b", feed(0, null)]] }), initialLayerState()).hum).toBe(0);

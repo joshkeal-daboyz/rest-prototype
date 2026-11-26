@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import * as R from "./recipes";
 import { BLOW_TIMING } from "../core";
 import type { Events } from "../core";
 import { CueTracker, blowCues, chimeTimes, cuesFor, relightCues } from "./cues";
@@ -25,6 +26,15 @@ const one = (name: Parameters<typeof cuesFor>[0], p: unknown): Cue => {
 const sig = (c: Cue): string => JSON.stringify(c.voices);
 
 describe("sound per event class", () => {
+  it("a timed breaker's flip is its own heavier clunk, and the player's throw is unchanged", () => {
+    const player = one("breaker:thrown", { nodeId: "b", closed: true });
+    const clock = one("breaker:thrown", { nodeId: "b", closed: true, timer: true });
+    expect(clock.name).not.toBe(player.name);
+    expect(clock.voices.length).toBeGreaterThan(player.voices.length);
+    expect(Math.max(...clock.voices.map((v) => v.gainDb))).toBeGreaterThan(Math.max(...player.voices.map((v) => v.gainDb)));
+    expect(sig(player)).toBe(JSON.stringify(R.breakerThrow(true)));
+  });
+
   it("breaker:thrown closed and open are different sounds, under 180 ms", () => {
     const closed = one("breaker:thrown", { nodeId: "b", closed: true });
     const open = one("breaker:thrown", { nodeId: "b", closed: false });

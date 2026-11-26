@@ -1,7 +1,7 @@
 /** The SoundEngine: gesture unlock, event subscriptions, and the glue between the pure core and the Player. */
 import { DEFAULT_AUDIO_PREFS } from "../core";
 import type { EventBus, EventName, Events, SoundEngine, SoundView } from "../core";
-import { CueTracker, fullTickCue, relightCues } from "./cues";
+import { CueTracker, fullTickCue, relightCues, timerTickCue } from "./cues";
 import { BEAT } from "../core";
 import { BeatScheduler, Crackle, initialLayerState, layersFor } from "./layers";
 import type { LayerState } from "./layers";
@@ -155,6 +155,7 @@ export function createEngine(opts: EngineOptions = {}): SoundEngine {
     const now = ctx.currentTime;
     player.setLayers(l, mixer.duckAt(now));
     if (l.fullTick) run([fullTickCue()]);
+    if (l.timerTick) run([timerTickCue()]);
     else run([]); // lets a pending spark burst out
     const times = crackle.collect(now, CRACKLE_HORIZON, l.crackleOn);
     if (times.length) player.crackle(times);

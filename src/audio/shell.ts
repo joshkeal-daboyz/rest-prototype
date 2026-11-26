@@ -191,7 +191,7 @@ export class Player {
     for (const h of [...this.active]) this.kill(h, now);
     this.held.clear();
     this.setLayers(
-      { hum: 0, flicker: 0, beatOn: false, whineOn: false, whineHz: WHINE_LOW_HZ, whine: 0, crackleOn: false, fullTick: false, next: { full: new Set(), seen: false } },
+      { hum: 0, flicker: 0, beatOn: false, whineOn: false, whineHz: WHINE_LOW_HZ, whine: 0, crackleOn: false, fullTick: false, timerTick: false, next: { full: new Set(), seen: false, secs: new Map() } },
       0,
     );
   }
