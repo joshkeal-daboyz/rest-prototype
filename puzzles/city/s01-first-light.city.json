@@ -3,7 +3,7 @@
   "name": "01 · First light",
   "version": 3,
   "scope": "map",
-  "capacity": 3,
+  "capacity": 5,
   "startingParts": [],
   "target": [
     "shrine"
@@ -18,29 +18,29 @@
     "oneWay": true
   },
   "district": [
-    "block:2:10"
+    "block:4:8"
   ],
   "nodes": [
     {
       "id": "feed",
       "type": "feed",
       "place": {
-        "pole": "pole:z:5:hi:507.50"
+        "pole": "pole:z:5:hi:402.50"
       }
     },
     {
       "id": "j0",
       "type": "junction",
       "place": {
-        "pole": "pole:z:5:lo:507.50"
+        "pole": "pole:z:5:lo:402.50"
       }
     },
     {
-      "id": "br_front",
+      "id": "br_shrine",
       "type": "breaker",
       "closed": false,
       "place": {
-        "pole": "pole:x:14:lo:162.50"
+        "pole": "pole:x:11:lo:142.50"
       }
     },
     {
@@ -48,15 +48,15 @@
       "type": "lamp",
       "load": 1,
       "place": {
-        "building": "block:2:10/b|outer|+z|29,101"
+        "building": "block:4:8/b|outer|+z|26,80"
       }
     },
     {
-      "id": "br_side",
+      "id": "br_home",
       "type": "breaker",
       "closed": false,
       "place": {
-        "pole": "pole:z:5:lo:494.50"
+        "pole": "pole:z:5:lo:374.50"
       }
     },
     {
@@ -64,7 +64,7 @@
       "type": "lamp",
       "load": 1,
       "place": {
-        "building": "block:2:10/a|outer|+x|32,95"
+        "building": "block:4:8/b|outer|+x|32,72"
       }
     }
   ],
@@ -75,48 +75,53 @@
       "to": "j0",
       "run": {
         "spans": [
-          "span:pole:z:5:hi:507.50~pole:z:5:lo:507.50"
+          "span:pole:z:5:hi:402.50~pole:z:5:lo:402.50"
         ]
       }
     },
     {
-      "id": "l_front",
+      "id": "l_south",
       "from": "j0",
-      "to": "br_front",
+      "to": "br_shrine",
       "run": {
         "spans": [
-          "span:pole:x:14:lo:162.50~pole:z:5:lo:507.50"
+          "span:pole:x:11:lo:162.50~pole:z:5:lo:402.50",
+          "span:pole:x:11:lo:152.50~pole:x:11:lo:162.50",
+          "span:pole:x:11:lo:142.50~pole:x:11:lo:152.50"
         ]
       }
     },
     {
       "id": "l_shrine",
-      "from": "br_front",
+      "from": "br_shrine",
       "to": "shrine",
       "run": {
-        "spans": [],
-        "drop": "block:2:10/b|outer|+z|29,101"
+        "spans": [
+          "span:pole:x:11:lo:132.50~pole:x:11:lo:142.50"
+        ],
+        "drop": "block:4:8/b|outer|+z|26,80"
       }
     },
     {
-      "id": "l_side",
+      "id": "l_east",
       "from": "j0",
-      "to": "br_side",
+      "to": "br_home",
       "run": {
         "spans": [
-          "span:pole:z:5:lo:494.50~pole:z:5:lo:507.50"
+          "span:pole:z:5:lo:390.50~pole:z:5:lo:402.50",
+          "span:pole:z:5:lo:374.50~pole:z:5:lo:390.50"
         ]
       }
     },
     {
       "id": "l_home",
-      "from": "br_side",
+      "from": "br_home",
       "to": "home",
       "run": {
         "spans": [
-          "span:pole:z:5:lo:482.50~pole:z:5:lo:494.50"
+          "span:pole:z:5:lo:366.50~pole:z:5:lo:374.50"
         ],
-        "drop": "block:2:10/a|outer|+x|32,95"
+        "drop": "block:4:8/b|outer|+x|32,72"
       }
     }
   ],

@@ -116,3 +116,5 @@ Salvage, trips and walking: n/a (map scope).
 - Whether the spark pulls the first click from 28 m away, or the trap needs the spark nearer the lift.
 
 ## What it taught us
+
+- Josh, 26 Nov 2026, after playing it: "Puzzle 5 is good."
