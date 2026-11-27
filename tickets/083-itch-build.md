@@ -44,11 +44,11 @@ Josh runs `npm run build:itch` on his PC. It checks that the game pack holds eve
 ## Sections, in order
 | # | Section | Owner | After | Tests in its PR |
 | --- | --- | --- | --- | --- |
-| A | The itch build draws the city from the game pack | renderer | G1 | at most 3 (2 added, 1 rewritten) |
+| A | The itch build draws the city from the game pack | renderer | G1 | at most 2 (1 added, 1 rewritten) |
 | B | The itch build's page plays (splash, stage select, puzzles) | ui | A merges | 0 |
 | C | `npm run build:itch`: check the pack, build, zip | grid-simulator | G1; runs alongside A. Its criterion 6 (the real run) waits for A and B | at most 7 |
 
-Three PRs, at most 10 cases in all. A and C share no file. C's real run (criterion 6) and the itch.io check (criterion 7) come last, on `main` after A and B merge.
+Three PRs, at most 9 cases in all. A and C share no file. C's real run (criterion 6) and the itch.io check (criterion 7) come last, on `main` after A and B merge.
 
 **How code knows it is the itch build.** It asks `import.meta.env.MODE === ITCH_BUILD_MODE` (`src/core/itch.ts`; the script runs `vite build --mode itch --base ./`). Pure helpers take that as a boolean argument, as they take `dev` today. There is no new env file and no new `vite-env.d.ts` typing.
 
@@ -66,7 +66,7 @@ Three PRs, at most 10 cases in all. A and C share no file. C's real run (criteri
 
    Without `gameOnly`, behaviour is exactly as today: ticket 082's "never used in part" rule holds in dev. **test**: 1 case, with fake `fetchJson` and `loadGlb`: `gameOnly` and a game manifest lacking one asked-for key. It checks three things: `manifest.json` is never fetched, every GLB URL is under `game/`, and one error line names the key. **Added in** `models3d.test.ts`.
 3. [ ] **The effects load in the itch build.** `sharedFx` fetches the textures and meshes when `dev || itch`, from the game pack as in dev. **no test**: a flag on an existing tested path (`fxTextures` and `fxMeshes` have their own cases). It is checked in criterion 5.
-4. [ ] **The saved fronts load in the itch build.** `loadPageModels` passes `dev: DEV || itch` to `loadSavedCalibration`, so `calibration/fronts.json` is read beside the page. A missing file is still null with no message. **test**: 1 case, if `calibration.test.ts` has no case for a non-default `base`. It checks that `loadSavedCalibration({ dev: true, base: "./", fetchJson })` fetches `./assets/private/calibration/fronts.json`. Otherwise **no test**, and the builder names the existing case.
+4. [ ] **The saved fronts load in the itch build.** `loadPageModels` passes `dev: DEV || itch` to `loadSavedCalibration`, so `calibration/fronts.json` is read beside the page. A missing file is still null with no message. **no test**: `calibration.test.ts` already covers a non-default base ("in dev fetches the file under the base..."), and only the caller's flag changes.
 5. [ ] **Looks the same.** Josh's PC, Edge. Compare `npm run dev` with the itch build served by `npx vite preview --outDir dist-itch/build --base ./` (from C's `--build-only`, or the builder's own `vite build --mode itch --base ./ --outDir dist-itch/build` with the game pack and fronts copied beside it by hand). Use the first series puzzle and the default camera:
    - the same models in the same places;
    - the same effects on a fuse blow;
@@ -74,9 +74,9 @@ Three PRs, at most 10 cases in all. A and C share no file. C's real run (criteri
 
    Screenshots go side by side in the reply. **browser**.
 
-**Count.** 1 or 2 added, 1 rewritten: at most 3.
+**Count.** 1 added, 1 rewritten: at most 2.
 
-**Files.** `src/render3d/cityview.ts` (`renderRoute` and its call's flag only), `renderer.ts` (passing the flag), `models3d.ts` (`gameOnly`, `loadPageModels`), `fx.ts` (`sharedFx`'s gate), `overlay.test.ts` (the one case), `models3d.test.ts`, and `calibration.test.ts` if criterion 4 needs it.
+**Files.** `src/render3d/cityview.ts` (`renderRoute` and its call's flag only), `renderer.ts` (passing the flag), `models3d.ts` (`gameOnly`, `loadPageModels`), `fx.ts` (`sharedFx`'s gate), `overlay.test.ts` (the one case), and `models3d.test.ts`.
 
 **Must not:** `calibration.ts`'s logic (only its caller changes), `assetviewer.ts`, `plan3d.ts`, `src/core/`, `src/ui/`, `src/main.ts`, `tools/`, `vite.config.ts`, `package.json`.
 
