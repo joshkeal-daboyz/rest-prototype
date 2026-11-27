@@ -142,7 +142,7 @@ Three more, each readable, each recoverable:
 | 4 | **Move the meeting** | East's short road: four wires to the pump house against West's seven; a spark on it | throw `r_e`; mend the spark | `6:6` (its east corner) | the tie on `6:3`'s corner, where the flows now meet; `5:4` (the child's bar drops) | The pump house's bulb, white |
 | 5 | **The socket that asks** | The homes' dead socket, shown by the throw | pass it over; fit the pump house's bulb | `6:6` | `6:6` | The win |
 
-Five layers; four cross blocks (1 to 4), and every block is on at least two of them.
+By the ticket's definition a read with no move is a hidden fact, not a layer, so row 1 (which has no move) is not counted. Four layers with a move (2 to 5); three cross blocks (2 to 4), and every block is on at least two of those.
 
 ## What it builds on, and its depth of read
 

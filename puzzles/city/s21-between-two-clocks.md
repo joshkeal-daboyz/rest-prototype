@@ -152,7 +152,7 @@ Three more, each readable, each recoverable:
 | 4 | **The lantern** | The weigh house's socket flickers under the cell's light | the bulb | `8:0` (whose light it is) | `8:1` | A target that will burn when the feed arrives |
 | 5 | **The door and the kiln** | B's door, closed, joins the back road to the trunk: the fuse reads +35 red in B's window, +13 white in A's | wait for A's window; fit the fuse | `7:1` (the door, the kiln) | `7:0` (the box) | The win |
 
-Five layers; all five cross blocks, and every block is on at least two. Layer 3 is undone by `r_n` thrown early (the near relay first); layer 5 is undone on `7:1` by a turn of the clock (the flip that blows).
+By the ticket's definition a read with no move is a hidden fact, not a layer, so row 1 (which has no move) is not counted. Four layers with a move (2 to 5); all four cross blocks, and every block is on at least one of them. Layer 3 is undone by `r_n` thrown early (the near relay first); layer 5 is undone on `7:1` by a turn of the clock (the flip that blows).
 
 ## What it builds on, and its depth of read
 

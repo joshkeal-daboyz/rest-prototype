@@ -1,6 +1,6 @@
 # 25 · The whole chain — design note (series v1, puzzle 25)
 
-A new puzzle designed on the city (ticket 081 section N5; `puzzles/series-v1.md`, row 25). It has no schematic and no `from`. It is the last of the series: three blocks in a strip 215 m long, two feeds, and seven layers, each of which changes who carries what.
+A new puzzle designed on the city (ticket 081 section N5; `puzzles/series-v1.md`, row 25). It has no schematic and no `from`. It is the last of the series: three blocks in a strip 215 m long, two feeds, and six layers, each of which changes who carries what.
 
 Josh, 26 Nov 2026: "I'm using Fable because I want it to build better puzzles, more complex puzzles that challenge the user based upon what they know and what they've learned from prior puzzles."
 
@@ -154,7 +154,7 @@ Four more, each readable, each recoverable:
 | 6 | **Let go of the wire** | West 19 of 19; the bulb red on both boxes; the cell is done | open `br_n` | `5:10` (West's bar) | `7:11` (`br_n`) | Room for the wash house |
 | 7 | **The red that is left** | The bulb red on East's box alone; the tie has no breaker | fit the bulb: East's box blows | `7:11` (East's box) | `6:11` (the wash house), `5:10` (West's bar, 19 of 19) | The win |
 
-Seven layers; all seven cross blocks, and every block is on five or more. Layer 5 is undone on `7:11` by time; layer 6 is undone if made early (the spring falls); layer 7 made before layer 6 undoes layer 5 (West's box blows).
+By the ticket's definition a read with no move is a hidden fact, not a layer, so row 1 (which has no move) is not counted. Six layers with a move (2 to 7); all six cross blocks, and every block is on four or more. Layer 5 is undone on `7:11` by time; layer 6 is undone if made early (the spring falls); layer 7 made before layer 6 undoes layer 5 (West's box blows).
 
 ## What it builds on, and its depth of read
 
@@ -163,7 +163,7 @@ Seven layers; all seven cross blocks, and every block is on five or more. Layer 
 - **19 and 21:** the cell has to be filled first, from the feed that will not use it, and the fill is fourteen seconds nothing can hurry.
 - **17:** the relay keeps its place, so a cell run flat costs a wait and not the mend.
 - **12:** the wash house's socket is East's because East is nearer. Nobody chooses that, and nothing but East's box can change it.
-- **Depth of read: 15.** Before the first move that can't be taken back (the mend) the player must hold: (1) the wash house's socket is East's, by nearness, and East's box cannot hold it; (2) East's tie has no breaker, so East's box is the only thing that takes East off it; (3) West's road to it begins at a spring resting on the smokehouse, which West's box cannot carry; (4) a spring is thrown only live, and falls back in the dark; (5) the cell could throw it, and is empty behind a break; (6) the cell's wire reaches the spring the long way round; (7) its light wins nothing and lasts 14 s, so West must take the spring while the cell holds it; (8) what is past the spring is dark, and must be found and set by the cell's light before the door closes; (9) so the door comes after everything on the road; (10) West, taking the spring, takes the cell's wire and its thirteen houses, and is then full; (11) so the wash house has no room on West until some of that wire is let go; (12) the wire cannot be let go before the hand-over: it is the cell's; (13) East's box blows on the wash house's bulb, and only then is the wash house West's; (14) if it blows before West has room, West's box goes too; (15) so the bulb is the last click, after the breaker. Puzzle 24 asks for 11.
+- **Depth of read: 15.** Before the first move that can't be taken back (the mend) the player must hold: (1) the wash house's socket is East's, by nearness, and East's box cannot hold it; (2) East's tie has no breaker, so East's box is the only thing that takes East off it; (3) West's road to it begins at a spring resting on the smokehouse, which West's box cannot carry; (4) a spring is thrown only live, and falls back in the dark; (5) the cell could throw it, and is empty behind a break; (6) the cell's wire reaches the spring the long way round; (7) its light wins nothing and lasts 14 s, so West must take the spring while the cell holds it; (8) what is past the spring is dark, and must be found and set by the cell's light before the door closes; (9) so the door comes after everything on the road; (10) West, taking the spring, takes the cell's wire and its thirteen houses, and is then full; (11) so the wash house has no room on West until some of that wire is let go; (12) the wire cannot be let go before the hand-over: it is the cell's; (13) East's box blows on the wash house's bulb, and only then is the wash house West's; (14) if it blows before West has room, West's box goes too; (15) so the bulb is the last click, after the breaker. Puzzle 24 asks for 12.
 
 ## The numbers (section V) and the cell's cue
 
@@ -180,7 +180,7 @@ Seven layers; all seven cross blocks, and every block is on five or more. Layer 
 ## Changed from the plan's row
 
 - **Kept:** two feeds, a cell, a relay, a spring, a hidden break, a dead bulb, two fuse boxes; "each fix changes who carries what; re-plan after every layer"; the empty cell behind a spark.
-- **Changed:** the two boxes are not nested: each feed has one. The row's plain switch is not used; two breakers are (`br_n`, on the cell's wire, and `br_c`, which the intended road never touches and two of the recoveries need). The row's trap ("mending the spark between the feed and the empty cell hands a building to the wrong feed") became the hand-over: closing the door hands the cell's wire to West, and the bulb then hands the wash house to a feed with no room. Seven layers, not six. The kit has a second wire.
+- **Changed:** the two boxes are not nested: each feed has one. The row's plain switch is not used; two breakers are (`br_n`, on the cell's wire, and `br_c`, which the intended road never touches and two of the recoveries need). The row's trap ("mending the spark between the feed and the empty cell hands a building to the wrong feed") became the hand-over: closing the door hands the cell's wire to West, and the bulb then hands the wash house to a feed with no room. Six layers with a move, as the row asked, after a first read that has none. The kit has a second wire.
 - **Dropped, for Josh (N5, fixed point 5):** a timed breaker in the capstone (the analyzer's time on a clock-and-battery map with eight controls was not tried); a moved meeting (22); sisters under a mother (23's shape: this district has no pole where a mother's wire splits into two branches that each begin at a bare pole).
 - **Size:** 3 / 2 wires, bulb, fuse / battery, 1 spring, 1 relay, 3 breakers, 2 fuse boxes, 2 feeds; 3 blocks.
 
@@ -229,7 +229,7 @@ Loads, replayed on the conversion: West 0 until the door; the door 19 of 19; `br
 
 **The obvious wrong first move** is the bulb: read by its red and the box it names; East's box blows, and the recovery is a switch (`br_c`, opened for the hand-over). **Undo does not recover a spent cell** (time is not undoable); a wait of fourteen seconds does. The dead-end states are those with both fuses spent and a box still to mend. The check block replays the door first, the bulb before `br_n`, the bulb first, the spare fuse in East's box, the door before the mend, and `br_n` before the hand-over.
 
-**Where it stands against 24:** it reads deeper (15 facts against 11), takes more clicks (8 against 5), has as few winning click orders (1), and has more layers (7 against 5). Its share of dead-end states is lower (28.5% against 48.9%): two of its five traps are recovered by a switch alone, by design; it is long, and a long puzzle that could only be undone would be a chore. It is the only puzzle of the 25 whose last click is a red.
+**Where it stands against 24:** it reads deeper (15 facts against 12), takes more clicks (8 against 6), has fewer winning click orders (1 against 5), and has more layers (6 against 5). Its share of dead-end states is a little lower (28.5% against 30.5%): two of its five traps are recovered by a switch alone, by design; it is long, and a long puzzle that could only be undone would be a chore. It is the only puzzle of the 25 whose last click is a red.
 
 Time on the intended road: about 30 s, 14 of them the fill.
 
@@ -287,7 +287,7 @@ Salvage, trips and walking: n/a (map scope).
 - Whether `br_n` is found. It is the one control not on the south street, and nothing points at it but the wire it is on.
 - Whether the fourteen seconds of fill feel like a wait or like time to read. If a wait, the cell could start half full.
 - Whether East's box, rated 2 with nothing under it, reads as a box or as a trick.
-- Whether the chain reads as one puzzle. Seven layers; does each fix visibly make the next problem, or does it feel like 24 with two more steps bolted on?
+- Whether the chain reads as one puzzle. Six layers after the first read; does each fix visibly make the next problem, or does it feel like 24 with two more steps bolted on?
 - Whether a series that ends on a deliberate blow, with the tribe's homes lit, is the ending wanted.
 
 ## What it taught us

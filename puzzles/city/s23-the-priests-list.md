@@ -140,7 +140,7 @@ Two more, each readable, each recoverable:
 | 4 | **When** | Each target lit takes the room the overload needs: one bulb leaves it, two do not | the blow before the second bulb | `6:9` and `6:8` (the targets) | undone on `7:8` (the store's red names the mother) | — |
 | 5 | **The list** | Four buildings; the bath house's spark shows last | two bulbs, `sw_1`, `br_4`, the wire | `6:9`, `6:8` | `6:9`, `6:8` | The win |
 
-Five layers; four cross blocks (1 to 4), and every block is on at least two of them.
+By the ticket's definition a read with no move is a hidden fact, not a layer, so row 1 (which has no move) is not counted. Four layers with a move (2 to 5); three cross blocks (2 to 4), and every block is on at least one of those.
 
 ## What it builds on, and its depth of read
 

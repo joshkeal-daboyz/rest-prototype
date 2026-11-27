@@ -30,7 +30,7 @@
     {
       "id": "west",
       "type": "feed",
-      "capacity": 16,
+      "capacity": 18,
       "name": "West",
       "place": {
         "pole": "pole:z:3:lo:27.50"
@@ -48,8 +48,8 @@
     {
       "id": "cell",
       "type": "battery",
-      "capacity": 14,
-      "charge": 14,
+      "capacity": 16,
+      "charge": 16,
       "input": "l_in",
       "place": {
         "pole": "pole:x:0:hi:230.00"
@@ -58,7 +58,7 @@
     {
       "id": "fb",
       "type": "fusebox",
-      "rating": 15,
+      "rating": 17,
       "place": {
         "pole": "pole:x:0:hi:127.50"
       }
@@ -94,7 +94,7 @@
     {
       "id": "brickworks",
       "type": "lamp",
-      "load": 12,
+      "load": 14,
       "place": {
         "building": "block:3:0/a|outer|+x|32,6"
       }
@@ -133,6 +133,14 @@
       "load": 3,
       "place": {
         "building": "block:5:0|outer|+z|45,12"
+      }
+    },
+    {
+      "id": "br_h",
+      "type": "breaker",
+      "closed": true,
+      "place": {
+        "pole": "pole:x:2:hi:162.50"
       }
     },
     {
@@ -273,12 +281,21 @@
     {
       "id": "l_south",
       "from": "j_t",
-      "to": "homes",
+      "to": "br_h",
       "run": {
         "spans": [
           "span:pole:z:5:lo:102.50~pole:z:5:lo:92.50",
           "span:pole:x:2:lo:162.50~pole:z:5:lo:102.50",
-          "span:pole:x:2:hi:162.50~pole:x:2:lo:162.50",
+          "span:pole:x:2:hi:162.50~pole:x:2:lo:162.50"
+        ]
+      }
+    },
+    {
+      "id": "l_south2",
+      "from": "br_h",
+      "to": "homes",
+      "run": {
+        "spans": [
           "span:pole:x:2:hi:162.50~pole:z:5:lo:122.50",
           "span:pole:z:5:lo:122.50~pole:z:5:lo:132.50"
         ],
@@ -290,11 +307,6 @@
     {
       "id": "f_east",
       "at": "l_east",
-      "kind": "damaged-cable"
-    },
-    {
-      "id": "f_south",
-      "at": "l_south",
       "kind": "damaged-cable"
     }
   ]
