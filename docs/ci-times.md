@@ -17,6 +17,8 @@ One row per measurement: the whole everyday suite (`npm test`, one city) on CI, 
 | 2026-11-26 | #100 | 94ba3ab (main, after #100) | 185 | 3,021 (56 skipped) | 484 s | 240 s | 4.4 min | After 081 N0, N1, NS and NC1 (3 more test files); down 19 s on the step since #90 (collect 144 s against 151 s) |
 | 2026-11-26 | #110 | 89621bf (main, after #110) | 189 | 3,042 (56 skipped) | 544 s | 261 s | 4.6 min | After 081 N2, NR, NC2, J and TB0 to TB3 (4 more test files); up 21 s on the step since #100 (collect 152 s against 144 s) |
 
+| 2026-11-26 | #120 | b7a72c3 (main, after #120) | 189 | 3,044 (56 skipped) | 732 s | 337 s | 6.0 min | After PRs #111 to #120 (081 TB3, TB4, TB6, Y1 to Y3, N3 and a cleanup); no new test files since #110; up 76 s on the step since #110 (collect 190 s against 152 s) |
+
 ## Failure log
 
 Every real failure of CI's `test` check, or of a test run that stood in for it ([test-policy.md](test-policy.md), rule 8). A timeout that passes on a re-run is load, not a failure, and is not logged. After 10 more PRs (from #28) the main session reports which test files never appear here.
