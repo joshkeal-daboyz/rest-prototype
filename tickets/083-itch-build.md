@@ -1,7 +1,7 @@
 # 083 · The itch.io build: a zip that plays the city, with the game pack inside
 
 owner: per section (renderer for A; ui for B; grid-simulator for C, as owner of `tools/`)
-status: open (awaiting G1)
+status: approved (G1, Josh, 26 Nov 2026, on a card: "Approve 083 (Recommended)"; zip writer: "Own zip writer (Recommended)"; zip folder: "Outside the repo")
 branch: `ticket/083-itch-build` holds this cut (this file and `src/core/itch.ts`). One branch per pull request: `ticket/083a-itch-city`, `ticket/083b-itch-page`, `ticket/083c-itch-zip`.
 
 ## Josh's words (26 Nov 2026, remote)
@@ -11,8 +11,13 @@ branch: `ticket/083-itch-build` holds this cut (this file and `src/core/itch.ts`
 
 On a card, on the licence: **"Password page, include"** (the Synty models and textures go in the zip, for a password-protected itch.io page; he accepted that an invited tester could pull the files out). On cutting: **"Cut the ticket (Recommended)"**.
 
+On the cut's cards (26 Nov 2026):
+- G1: **"Approve 083 (Recommended)"**.
+- How the zip is written: **"Own zip writer (Recommended)"**. This means our own writer on Node's built-in `zlib`, with no new dependency.
+- Where the zip goes: **"Outside the repo"**. There is no `dist-itch/` in the checkout and no `.gitignore` line for it. The script writes to a folder outside the repo, and refuses one inside it.
+
 ## Goal
-Josh runs `npm run build:itch` on his PC. It checks that the game pack holds every model, colourway and effect texture the game loads, and fails naming each one if not. Then it builds the game for a subfolder (relative base) and writes one zip to the git-ignored `dist-itch/`. The zip holds the built page, the game pack (`assets/private/out/game/`) and the saved front calibration, and nothing else. He uploads the zip to a password-protected itch.io HTML5 page. His class opens it, sees the splash, picks a stage and plays the puzzles in the 3D city, looking as it does in `npm run dev`.
+Josh runs `npm run build:itch` on his PC. It checks that the game pack holds every model, colourway and effect texture the game loads, and fails naming each one if not. Then it builds the game for a subfolder (relative base) and writes one zip to a folder outside the repo (by default `rest-itch`, beside the checkout: `D:\rest-itch\`). The zip holds the built page, the game pack (`assets/private/out/game/`) and the saved front calibration, and nothing else. He uploads the zip to a password-protected itch.io HTML5 page. His class opens it, sees the splash, picks a stage and plays the puzzles in the 3D city, looking as it does in `npm run dev`.
 
 ## What exists (read at 3c5c312)
 - **`src/main.ts:46-48`** stops every production build with "This prototype plays in `npm run dev`. The city view is not in this build." (the 16 Nov 2026 licence ruling). Josh's 26 Nov answer supersedes it **for the itch build only**.
@@ -34,7 +39,7 @@ Josh runs `npm run build:itch` on his PC. It checks that the game pack holds eve
 
 ## Rules this ticket holds
 - **The licence, as Josh ruled on 26 Nov 2026.** The game pack goes in the itch zip, for a password-protected page.
-  - The zip is written only to `dist-itch/` (git-ignored, `ITCH_OUT_DIR`). No GLB, texture or zip is ever committed.
+  - The build and the zip are written only outside the repo (`ITCH_OUT_DIR`, or `--out`). The script refuses any folder inside the checkout. No GLB, texture or zip is ever committed.
   - Nothing is copied into `public/` or `dist/`. No workflow builds or deploys it, and there is no GitHub Pages deploy of it.
   - A plain `npm run build` is unchanged. It carries no pack, and its page still stops at the existing notice.
 - **Only the game pack ships.** The zip never holds the full packs, the full `manifest.json`, `assets/private/in/`, or anything else under `assets/private/` except `out/game/**` and `calibration/fronts.json`.
@@ -46,7 +51,7 @@ Josh runs `npm run build:itch` on his PC. It checks that the game pack holds eve
 | --- | --- | --- | --- | --- |
 | A | The itch build draws the city from the game pack | renderer | G1 | at most 2 (1 added, 1 rewritten) |
 | B | The itch build's page plays (splash, stage select, puzzles) | ui | A merges | 0 |
-| C | `npm run build:itch`: check the pack, build, zip | grid-simulator | G1; runs alongside A. Its criterion 6 (the real run) waits for A and B | at most 7 |
+| C | `npm run build:itch`: check the pack, build, zip | grid-simulator | G1; runs alongside A. Its criterion 6 (the real run) waits for A and B | 7 |
 
 Three PRs, at most 9 cases in all. A and C share no file. C's real run (criterion 6) and the itch.io check (criterion 7) come last, on `main` after A and B merge.
 
@@ -67,7 +72,7 @@ Three PRs, at most 9 cases in all. A and C share no file. C's real run (criterio
    Without `gameOnly`, behaviour is exactly as today: ticket 082's "never used in part" rule holds in dev. **test**: 1 case, with fake `fetchJson` and `loadGlb`: `gameOnly` and a game manifest lacking one asked-for key. It checks three things: `manifest.json` is never fetched, every GLB URL is under `game/`, and one error line names the key. **Added in** `models3d.test.ts`.
 3. [ ] **The effects load in the itch build.** `sharedFx` fetches the textures and meshes when `dev || itch`, from the game pack as in dev. **no test**: a flag on an existing tested path (`fxTextures` and `fxMeshes` have their own cases). It is checked in criterion 5.
 4. [ ] **The saved fronts load in the itch build.** `loadPageModels` passes `dev: DEV || itch` to `loadSavedCalibration`, so `calibration/fronts.json` is read beside the page. A missing file is still null with no message. **no test**: `calibration.test.ts` already covers a non-default base ("in dev fetches the file under the base..."), and only the caller's flag changes.
-5. [ ] **Looks the same.** Josh's PC, Edge. Compare `npm run dev` with the itch build served by `npx vite preview --outDir dist-itch/build --base ./` (from C's `--build-only`, or the builder's own `vite build --mode itch --base ./ --outDir dist-itch/build` with the game pack and fronts copied beside it by hand). Use the first series puzzle and the default camera:
+5. [ ] **Looks the same.** Josh's PC, Edge. Compare `npm run dev` with the itch build served by `npx vite preview --outDir D:\rest-itch\build --base ./` (from C's `--build-only`, or the builder's own `vite build --mode itch --base ./ --outDir <a scratch folder outside the repo> --emptyOutDir` with the game pack and fronts copied beside it by hand). Use the first series puzzle and the default camera:
    - the same models in the same places;
    - the same effects on a fuse blow;
    - no request for `assets/private/out/manifest.json` in the network tab.
@@ -109,23 +114,24 @@ Three PRs, at most 9 cases in all. A and C share no file. C's real run (criterio
 ---
 
 ### C · `npm run build:itch`: check the pack, build, zip (grid-simulator). Branch `ticket/083c-itch-zip`
-**Goal.** One command writes `dist-itch/rest-circuits-<version>-<short sha>.zip`, or fails before building, naming every problem.
+**Goal.** One command writes `<out>/rest-circuits-<version>-<short sha>.zip`, or fails before building, naming every problem. `<out>` is `--out <folder>`, or by default `ITCH_OUT_DIR` (`../rest-itch/`), resolved from the repo's top level (`git rev-parse --show-toplevel`). From `D:\rest-prototype` or a worktree such as `D:\rest-083`, that is `D:\rest-itch\`.
 
 **How it works.** A new `tools/itch/` holds a pure core (`package.ts`) and a CLI (`run.ts`, imported by nothing). The CLI runs these steps in order and stops at the first that fails:
+0. **Check the output folder.** Resolve `<out>`. If it is the repo's top level or inside it, refuse: print `build:itch: <out> is inside the repo (<top level>); pass --out a folder outside it.` and exit 1, having built and written nothing. The comparison ignores case on Windows. It is made after resolving `..` and symbolic links (or junctions) on the part of the path that exists.
 1. **Check the game pack.** Read `assets/private/out/game/manifest.json` (and the full `out/manifest.json` if present). Check it against:
    - `gameModelKeys()` and `gameColourways()` (`src/render3d/gamemodels.ts`, which `tools/assets/game.ts` already imports this way);
    - the `FX_MESHES` keys and the `FX_TEXTURES` ids (`src/core/fx.ts`);
    - the files on disk.
 
    Any problem: print every `ItchProblem` (`src/core/itch.ts`) and exit 1, having built and written nothing.
-2. **Typecheck and build.** Run `tsc --noEmit`, then `vite build --mode itch --base ./ --outDir dist-itch/build --emptyOutDir` (spawned, as `tools/assets/convert.ts` spawns Blender).
+2. **Typecheck and build.** Run `tsc --noEmit`, then `vite build --mode itch --base ./ --outDir <out>/build --emptyOutDir` (spawned, as `tools/assets/convert.ts` spawns Blender).
 3. **Plan the zip.** The plan is:
-   - every file of `dist-itch/build/` at the zip root (`index.html` at the top level, as itch.io requires);
+   - every file of `<out>/build/` at the zip root (`index.html` at the top level, as itch.io requires);
    - `assets/private/out/game/**`, under the same relative path;
    - `assets/private/calibration/fronts.json`, if present.
 
    Check the plan against `ITCH_LIMITS`.
-4. **Write the zip.** Write it to a temp name in `dist-itch/`, then rename it. Print the path, the file count, the zip's MB and the extracted MB.
+4. **Write the zip.** Write it to a temp name in `<out>/`, then rename it. Print the path, the file count, the zip's MB and the extracted MB.
 
 **Acceptance criteria.**
 1. [ ] **The pack check (pure).** `checkGamePack(game, full, keys, colourways, exists)` returns every problem, not the first:
@@ -137,22 +143,27 @@ Three PRs, at most 9 cases in all. A and C share no file. C's real run (criterio
    - no readable game manifest (`no-game-pack`).
 
    A complete fixture gives `[]`. **test**: 2 cases on a fixture manifest. One fixture breaks one of each kind and expects all six problems listed. One complete fixture expects none.
-2. [ ] **It fails loudly.** With any problem, the CLI prints `build:itch: the game pack is not ready (N problem(s)):` and one line per problem. It then prints `Run npm run assets:game, then npm run build:itch again.` and exits 1. Nothing is spawned and nothing is written under `dist-itch/`. **test**: 1 case through the CLI's main with fake deps (a fake spawn and a fake file system): a stale pack exits 1, and spawn and write are never called.
+2. [ ] **It fails loudly.** With any problem, the CLI prints `build:itch: the game pack is not ready (N problem(s)):` and one line per problem. It then prints `Run npm run assets:game, then npm run build:itch again.` and exits 1. Nothing is spawned and nothing is written under `<out>`. **test**: 1 case through the CLI's main with fake deps (a fake spawn and a fake file system): a stale pack exits 1, and spawn and write are never called.
 3. [ ] **The zip plan (pure).** `zipPlan(buildFiles, gameFiles, calibration)` returns `ItchFile[]`, sorted. Paths use forward slashes and are relative to the zip root. `index.html` must be at the top level. A path that is absolute, holds `..` or a backslash, or comes from anywhere else is refused (`outside-plan`). `checkLimits(files)` returns a `limit` problem for each `ITCH_LIMITS` bound passed. **test**: 2 cases.
    - A fixture with a build, a game pack and the calibration file gives the expected paths. A full-pack GLB (`assets/private/out/city-pack.glb`) or `assets/private/out/manifest.json` offered in the game list is refused.
    - 1,001 files, or one file over 200 MB, gives a `limit` problem.
-4. [ ] **The zip is a zip itch.io reads.** It is written with the method Josh picks (open question 1), with forward-slash paths and `index.html` at the root. **test**: 1 case, only if the writer is our own code. It writes three small entries to a buffer and reads back the central directory with a small parser in the test. The names match, each CRC equals `zlib.crc32` of its input, and each entry inflates to its input. With a library or the system `tar`, **no test**: criterion 6 opens the real zip.
+4. [ ] **The zip is a zip itch.io reads.** Our own writer (Josh: "Own zip writer (Recommended)"), in `tools/itch/zip.ts`, on Node's built-in `zlib` (`deflateRawSync`, `crc32`), with no new dependency. It writes deflate entries, with forward-slash paths and `index.html` at the root. It needs no ZIP64: under 1,000 files and 500 MB, well inside the classic format's limits, and it refuses anything past 4 GB or 65,535 entries. **test**: 1 case. It writes three small entries to a buffer and reads back the central directory with a small parser in the test. The names match, each CRC equals `zlib.crc32` of its input, and each entry inflates to its input.
 5. [ ] **Nothing reaches git or CI.**
-   - `.gitignore` gains `dist-itch/`.
-   - Before writing, the CLI runs `git check-ignore -q dist-itch/` and refuses to write if the folder is not ignored.
+   - The output folder is outside the repo (Josh: "Outside the repo"). `outsideRepo(out, topLevel, platform)` (pure, in `package.ts`) is false for:
+     - the top level itself;
+     - any folder under it, including through `..` and a different letter case on `win32`.
+
+     It is true for a sibling such as `D:\rest-itch`. **test**: 1 case.
+   - No `.gitignore` change, and no `dist-itch/` anywhere.
    - `package.json` gains `"build:itch": "tsx tools/itch/run.ts"`, and `--build-only` skips the zip (for A's and B's browser checks).
    - No workflow file changes, and the existing `build` script is unchanged.
 
-   **no test**: the reviewer reads the diff and runs `git status` after criterion 6.
+   Apart from `outsideRepo`, this is **no test**: the reviewer reads the diff and runs `git status` after criterion 6.
 6. [ ] **The run** (the builder, on Josh's machine, after A and B merge, on `main` in a worktree with the asset junctions). Run `npm run build:itch`.
    - If the check fails, the reply lists the problems, and Josh runs `npm run assets:game` (Blender) and the builder runs it again. The builder does not re-cut the pack itself without Josh's word, as it rewrites `out/game/`.
    - Then unzip the zip into a scratch folder and serve it with `npx vite preview --outDir <that folder>` (or any static server). Play the first series puzzle there.
-   - `git status` shows nothing new: no GLB, texture, zip or `dist-itch/` file.
+   - `git status` shows nothing new: no GLB, texture, zip or build file. Everything is under `D:\rest-itch\`.
+   - `npm run build:itch -- --out <a folder inside the checkout>` is refused, as step 0 says.
 
    The reply gives the zip's path, its MB, the extracted MB, the file count, and how long the run took. **no test**.
 7. [ ] **itch.io's limits, recorded.** The builder re-reads itch.io's HTML5 documentation (itch.io/docs/creators/html5) and corrects `ITCH_LIMITS` in `src/core/itch.ts` if it differs, saying so in the reply. That file is the architect's, so this one edit is allowed and named in the reply. The builder also adds a short **Uploading to itch.io** section to the bottom of this ticket. It covers:
@@ -174,24 +185,20 @@ Three PRs, at most 9 cases in all. A and C share no file. C's real run (criterio
 
 Today's game pack is 23 files and 36 MB, well inside these.
 
-**Count.** At most 7: 2 (C1) + 1 (C2) + 2 (C3) + 1 (C4, own writer only), plus 1 spare for a C3 edge the builder finds. Each test file must run in under 2 s.
+**Count.** Exactly 7: 2 (C1) + 1 (C2) + 2 (C3) + 1 (C4) + 1 (C5). Each test file must run in under 2 s.
 
-**Files.** New `tools/itch/package.ts`, `run.ts` and `package.test.ts`. `package.json` (the `build:itch` script line only). `.gitignore` (the `dist-itch/` line only). `src/core/itch.ts` (C7's limit numbers only, if they differ).
+**Files.** New `tools/itch/package.ts`, `zip.ts`, `run.ts`, `package.test.ts` and `zip.test.ts`. `package.json` (the `build:itch` script line only). `src/core/itch.ts` (C7's limit numbers only, if they differ).
 
-**Must not:** `src/` apart from that one file, `tools/assets/` (import from it, don't edit it), `vite.config.ts`, `.github/`, `public/`, `assets/private/` (it only reads there), and `puzzles/`.
+**Must not:** `.gitignore`, `src/` apart from that one file, `tools/assets/` (import from it, don't edit it), `vite.config.ts`, `.github/`, `public/`, `assets/private/` (it only reads there), and `puzzles/`.
 
 ## Interfaces
 - **New, in `src/core/itch.ts`** (written with this cut, exported from `src/core/index.ts`): `ITCH_BUILD_MODE`, `ITCH_OUT_DIR`, `ITCH_LIMITS`, `ItchFile`, `ItchProblemKind`, `ItchProblem`.
-- **No new dependency is assumed.** Writing the zip is open question 1. Node has `zlib.deflateRawSync` and `zlib.crc32` (Node 22.2 and later; the project is on Node 24), so a store-and-deflate writer of about 80 lines needs nothing new. A library would be a devDependency, and needs Josh's approval with this ticket.
+- **No new dependency.** The zip writer is our own, on Node's `zlib.deflateRawSync` and `zlib.crc32` (Node 22.2 and later; the project is on Node 24). Josh: "Own zip writer (Recommended)".
 
 ## Open questions
-1. **How the zip is written.** As card options:
-   - **"Our own zip writer (Recommended)"**: about 80 lines in `tools/itch/` on Node's built-in `zlib`. No new dependency, and 1 test reads it back.
-   - **"Windows tar"**: `tar -a -c -f x.zip` (bsdtar, built into Windows 10 and later). No code and no dependency, but Windows only, and the path format is not tested.
-   - **"Add a zip library"**: a devDependency (for example `fflate`, small and no dependencies of its own). Less code of our own, but a new dependency.
-2. **Where the zip goes.** As card options:
-   - **"dist-itch/ in the repo, git-ignored (Recommended)"**;
-   - **"A folder outside the repo"** (for example `D:\rest-itch\`): the CLI takes it as `--out`, and the git-ignore check is skipped.
+None. Both were answered on 26 Nov 2026 (see *Josh's words*):
+- the zip writer: "Own zip writer (Recommended)";
+- the zip folder: "Outside the repo".
 
 ## Measured
 (C6's numbers go here.)

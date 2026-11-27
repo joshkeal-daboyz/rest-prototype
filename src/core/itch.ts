@@ -5,14 +5,18 @@
  * Licence (Josh, 26 Nov 2026, on a card: "Password page, include"): the game pack's GLBs and textures go in this zip, for a
  * password-protected page only; he accepted that an invited tester could pull the files out. This supersedes the dev-only rule of
  * 16 Nov 2026 for this build alone. A plain `npm run build` (GitHub Pages) still carries no pack and still stops at its notice.
- * Nothing here is ever committed or deployed by CI: the zip is written to the git-ignored ITCH_OUT_DIR on Josh's machine.
+ * Nothing here is ever committed or deployed by CI: the build and the zip are written outside the repo (ITCH_OUT_DIR, or --out) on Josh's machine
+ * (Josh, 26 Nov 2026, on a card: "Outside the repo").
  */
 
 /** The Vite mode of the itch build (`vite build --mode itch --base ./`). Code asks `import.meta.env.MODE === ITCH_BUILD_MODE`. */
 export const ITCH_BUILD_MODE = "itch" as const;
 
-/** Where `npm run build:itch` writes, relative to the repo root. Git-ignored; the script refuses to write if it is not. */
-export const ITCH_OUT_DIR = "dist-itch/" as const;
+/**
+ * The default folder `npm run build:itch` writes to, relative to the repo's top level (`git rev-parse --show-toplevel`): a sibling of the checkout,
+ * so `D:\rest-itch\` from `D:\rest-prototype` or any `D:\rest-NNN` worktree. `--out` overrides it. The script refuses any folder inside the checkout.
+ */
+export const ITCH_OUT_DIR = "../rest-itch/" as const;
 
 /**
  * itch.io's HTML5 upload limits, as the ticket read them (itch.io/docs/creators/html5). The builder re-reads that page and corrects
