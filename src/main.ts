@@ -1,6 +1,6 @@
 // Entry point: loads the map files, builds grid -> renderer -> play -> ui for one map, and runs the frame loop.
 // No game rules here: each layer owns its own. Picking another map rebuilds the stack.
-import { EventBus, puzzleFeeds, type CityPuzzleView, type LoadPreview, type Puzzle } from "./core";
+import { EventBus, ITCH_BUILD_MODE, puzzleFeeds, type CityPuzzleView, type LoadPreview, type Puzzle } from "./core";
 import { createGrid, type Grid, type GridState } from "./grid";
 import type { MapBlockers, MapCentre, MapPanView, MapPlaces, MapRenderer } from "./render3d/maprender";
 import { planRelight } from "./render3d/relightplan";
@@ -44,7 +44,8 @@ const screensRoot = document.getElementById("screens");
 if (!(canvas instanceof HTMLCanvasElement) || !uiRoot || !(screensRoot instanceof HTMLElement)) throw new Error("index.html must have #panel, #ui and #screens");
 
 // The city view (ticket 081 E2, U2) is built by `src/render3d`, which only the dev server builds (Synty licence, 16 Nov 2026). A production build says so and stops here.
-if (!import.meta.env.DEV) {
+// The itch build (ticket 083 B) is the one exception: Josh, 26 Nov 2026, on a card: "Password page, include" (its zip carries the game pack).
+if (!import.meta.env.DEV && import.meta.env.MODE !== ITCH_BUILD_MODE) {
   uiRoot.textContent = "This prototype plays in `npm run dev`. The city view is not in this build.";
   return;
 }
