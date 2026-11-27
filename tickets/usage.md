@@ -417,3 +417,18 @@ Real numbers for the GDD's budget (its prototype projection: Grid Simulator 150K
 | 081 N3 | puzzle-designer | Fable 5.2 | 550,942 total (subagent total; the input/output split is not available) | - | 1 | Built s11 to s15; PR #119, merged ef60db7 |
 | 081 N3 | code-reviewer | opus | 119,658 total (subagent total; the input/output split is not available) | - | 1 | must-fix 0 |
 | 081 N3 | branch-cleaner | haiku | 21,776 total (subagent total; the input/output split is not available) | - | - | Cleanup after the N3 merge |
+| 081 NB | lead-architect (cut, G1 answers) | opus (agent default) | 163,532 total (subagent total; the input/output split is not available) | - | 0 | Cut NB (deliberate blow; reuse is free) |
+| 081 BC | lead-architect (answers, BC0) | opus (agent default) | 45,720 total (subagent total; the input/output split is not available) | - | 0 | BC0 types |
+| 081 BC1 | grid-simulator | sonnet (agent default) | 43,427 total (subagent total; the input/output split is not available) | - | 1 | Battery preview entry |
+| 081 BC2 | ui | sonnet (agent default) | 53,494 total (subagent total; the input/output split is not available) | - | 1 | Preview key |
+| 081 BC0-BC2 | code-reviewer | opus | 43,768 total (subagent total; the input/output split is not available) | - | 1 | PR #122 |
+| 081 BC3 | renderer | sonnet (agent default) | 39,629 total (subagent total; the input/output split is not available) | - | 1 | Battery cue drawn; PR #123 |
+| 081 BC3 | code-reviewer | opus | 37,863 total (subagent total; the input/output split is not available) | - | 1 | PR #123 |
+| 081 N3 | lead-architect (mark done, usage) | opus (agent default) | 38,756 total (subagent total; the input/output split is not available) | - | - | Marked N3 done |
+| 081 N4 | lead-architect (re-cut, Q1/Q2) | opus (agent default) | 218,393 total (subagent total; the input/output split is not available) | - | 0 | Re-cut N4 for build |
+| 081 N4 | puzzle-designer | Fable 5.2 | 463,838 total (subagent total; the input/output split is not available) | - | 1 | Built s16 (NB1) to s20; PR #124 |
+| 081 N4 | code-reviewer | opus | 102,522 total (subagent total; the input/output split is not available) | - | 1 | PR #124 |
+| 081 N5 | lead-architect (re-cut, Q1) | opus (agent default) | 162,321 total (subagent total; the input/output split is not available) | - | 0 | Re-cut N5 for build |
+| 081 N5 | puzzle-designer | Fable 5.2 | 585,869 total (subagent total, after the round 1 fix; the input/output split is not available) | - | 2 | Built s21 to s25 after the first run was interrupted; s24 fifth layer in round 1; PR #125, merged 5987ba4 |
+| 081 N5 | code-reviewer | opus | 136,725 + 54,542 (round 2) (subagent totals; the input/output split is not available) | - | 2 | Round 1 must-fix 1 (s24 layer floor); round 2 must-fix 0 |
+| cleanup 26 Nov (after N5) | branch-cleaner | haiku | 22,261 total (subagent total) | - | - | candidates 0 (all within 2 days) |
