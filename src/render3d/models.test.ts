@@ -243,6 +243,25 @@ describe("loadModels falls back to the placeholders", () => {
     expect(only.some((u) => u.endsWith("b.glb"))).toBe(false);
   });
 
+  it("gameOnly (the itch build) never fetches the full manifest, loads only from game/, and names a missing key in one error line", async () => {
+    const game = { ...manifest({ p: [entry("Pole9", [0.5, 9, 1]), entry("Lamp", [0.3, 6, 0.3])], b: [entry("Big", [10, 8, 10]), entry("Wide", [20, 6, 5]), entry("Odd", [3, 3, 3], ["scale-suspect"])] }), game: { from: "x" } };
+    const urls: string[] = [];
+    const errors: string[] = [];
+    const d = deps({
+      gameOnly: true,
+      gamePack: true,
+      error: (m) => errors.push(m),
+      fetchJson: async (u): Promise<unknown> => (urls.push(u), u.endsWith("game/manifest.json") ? game : Promise.reject(new Error("HTTP 404"))),
+      loadGlb: async (u) => (urls.push(u), fakeGlb(["Pole9", "Lamp", "Big", "Wide", "Odd"])),
+    });
+    const set = await loadModels(d);
+    expect(urls.filter((u) => !u.includes("/game/"))).toEqual([]);
+    expect(urls.some((u) => u.endsWith("/out/manifest.json"))).toBe(false);
+    expect(set.pole!.map((m) => m.entry.name)).toEqual(["Pole9"]);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain("p:Pole4");
+  });
+
   it("sets every texture of a loaded model to NearestFilter", async () => {
     const set = await loadModels(deps());
     for (const slot of ["pole", "lamp", "building"] as const) for (const m of set[slot]!) expectNearest(m.root);
