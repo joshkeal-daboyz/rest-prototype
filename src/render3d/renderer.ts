@@ -4,7 +4,7 @@
  */
 
 import type { LoadPreview } from "../core/preview";
-import type { CityPuzzleView, Puzzle } from "../core";
+import { ITCH_BUILD_MODE, type CityPuzzleView, type Puzzle } from "../core";
 import type { MapBlockers, MapCentre, MapPanView, MapPlaces, MapRenderer } from "./maprender";
 import type { Insets } from "./maprender";
 import { createCityPlayRenderer3d, overlayRequested, renderRoute } from "./cityview";
@@ -40,7 +40,7 @@ export function createMapRenderer3d(canvas: HTMLCanvasElement, _puzzle: Puzzle, 
   // `?city=tiles` (without `sheet=1`, ticket 070 L1) is the same view: the pipeline's city.
   const assemble = import.meta.env.DEV && typeof location !== "undefined" ? planAssembleRequested(location.search) ?? tilesPlanRequested(location.search) : null;
   const planView = assemble === null && import.meta.env.DEV && typeof location !== "undefined" ? planViewRequested(location.search) : null;
-  const route = renderRoute({ city: opts?.city !== undefined, dev: import.meta.env.DEV, assemble: assemble !== null, plan: planView !== null, sheet: import.meta.env.DEV && typeof location !== "undefined" && cityTilesRequested(location.search) !== null });
+  const route = renderRoute({ city: opts?.city !== undefined, dev: import.meta.env.DEV, itch: import.meta.env.MODE === ITCH_BUILD_MODE, assemble: assemble !== null, plan: planView !== null, sheet: import.meta.env.DEV && typeof location !== "undefined" && cityTilesRequested(location.search) !== null });
   if (route === "play") {
     const glPlay = glForCanvas(canvas);
     const search = typeof location !== "undefined" ? location.search : "";

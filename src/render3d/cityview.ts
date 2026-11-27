@@ -207,9 +207,9 @@ export { CityPuzzleError };
 
 export type RenderRoute = "play" | "assemble" | "plan" | "sheet" | "none";
 
-/** What `createMapRenderer3d` draws: a city view given (dev only) is the play view, ahead of every address route; without one the routes are as before and no route at all is `none`. Pure. */
-export function renderRoute(r: { city: boolean; dev: boolean; assemble: boolean; plan: boolean; sheet: boolean }): RenderRoute {
-  if (r.dev && r.city) return "play";
+/** What `createMapRenderer3d` draws: a city view given (dev, or the itch build, ticket 083 A) is the play view, ahead of every address route; without one the routes are as before and no route at all is `none`. Pure. */
+export function renderRoute(r: { city: boolean; dev: boolean; itch: boolean; assemble: boolean; plan: boolean; sheet: boolean }): RenderRoute {
+  if ((r.dev || r.itch) && r.city) return "play";
   if (r.assemble) return "assemble";
   if (r.plan) return "plan";
   if (r.sheet) return "sheet";

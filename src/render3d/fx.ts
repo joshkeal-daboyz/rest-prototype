@@ -10,7 +10,7 @@
 import {
   AdditiveBlending, BoxGeometry, BufferGeometry, Color, DataTexture, DynamicDrawUsage, Euler, Group, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, PointLight, Quaternion, RGBAFormat, TextureLoader, Vector3, type Object3D, type Texture,
 } from "three";
-import { BLOW_TIMING, FX_MESHES, FX_TEXTURES, GAME_PACK_DIR, type FxMeshId, type FxTextureId } from "../core";
+import { BLOW_TIMING, FX_MESHES, FX_TEXTURES, GAME_PACK_DIR, ITCH_BUILD_MODE, type FxMeshId, type FxTextureId } from "../core";
 import type { RelightPlan } from "./relightplan";
 import type { GridState } from "../grid";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
@@ -449,7 +449,8 @@ let sharedFxLoad: Promise<{ textures: Record<FxTextureId, Texture>; meshes: Reco
 
 export function sharedFx(): Promise<{ textures: Record<FxTextureId, Texture>; meshes: Record<FxMeshId, BufferGeometry | null> }> {
   sharedFxLoad ??= (async () => {
-    const dev = import.meta.env.DEV;
+    // Dev, or the itch build (ticket 083 A), where the game pack sits beside the page.
+    const dev = import.meta.env.DEV || import.meta.env.MODE === ITCH_BUILD_MODE;
     const fetchJson = async (url: string): Promise<unknown> => {
       const r = await fetch(url);
       if (!r.ok) throw new Error(`HTTP ${r.status}`);

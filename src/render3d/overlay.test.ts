@@ -165,10 +165,11 @@ describe("a city puzzle played on the city (ticket 081 E2)", () => {
     expect(() => loadCityView({ ...city, district: ["block:99:99"] }, build)).toThrow(CityPuzzleError);
   }, 15000);
 
-  it("a city view given is the play route, ahead of every address route and in dev only; without one the routes are as before", () => {
-    const none = { city: false, dev: true, assemble: false, plan: false, sheet: false };
+  it("a city view given is the play route, ahead of every address route and in dev or the itch build only; without one the routes are as before", () => {
+    const none = { city: false, dev: true, itch: false, assemble: false, plan: false, sheet: false };
     expect(renderRoute({ ...none, city: true, assemble: true, plan: true })).toBe("play");
     expect(renderRoute({ ...none, city: true, dev: false })).toBe("none");
+    expect(renderRoute({ ...none, city: true, dev: false, itch: true })).toBe("play");
     expect(renderRoute(none)).toBe("none");
     expect(renderRoute({ ...none, assemble: true })).toBe("assemble");
     expect(renderRoute({ ...none, plan: true })).toBe("plan");
