@@ -7,7 +7,7 @@
 
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { BoxGeometry, Color, DoubleSide, Group, InstancedMesh, Matrix4, MeshStandardMaterial, NearestFilter, Quaternion, Texture, TextureLoader, Vector3, type Material, type Mesh, type Object3D } from "three";
-import { GAME_PACK_DIR, calibrationKey, parseCalibrationKey, type AssetEntry, type AssetManifest, type CalibrationKey } from "../core";
+import { GAME_PACK_DIR, ITCH_BUILD_MODE, calibrationKey, parseCalibrationKey, type AssetEntry, type AssetManifest, type CalibrationKey } from "../core";
 import { effectiveFronts, loadSavedCalibration } from "./calibration";
 import { COLOURWAY_POOL, isBaseAtlasName, isColourwayId } from "./colourway";
 import { CODE_ESCAPE_KEY, type EscapePart } from "./escapes";
@@ -94,6 +94,10 @@ export interface LoadDeps {
   dir?: string;
   /** Prefer the game pack in `${dir}game/` when it is there and holds every key asked for (ticket 082 A). Default true; false (`?packs=full`) never looks for it. */
   gamePack?: boolean;
+  /** The itch build (ticket 083 A): the game pack is all there is. The full manifest is never fetched; a game manifest is used for what it has, and one console.error says what it lacks. Default false. */
+  gameOnly?: boolean;
+  /** Where gameOnly's one error line goes. Default: console.error. */
+  error?: (message: string) => void;
   /** Where the one line saying why a fallback happened goes. Default: console.info. */
   info?: (message: string) => void;
 }
@@ -136,8 +140,9 @@ export async function loadModels(deps: LoadDeps): Promise<ModelSet> {
   const fullDir = deps.dir ?? defaultDir();
   try {
     let dir = fullDir;
-    let manifest: unknown = deps.gamePack === false ? null : await readGamePack(deps, fullDir, info);
+    let manifest: unknown = deps.gameOnly ? await readGameOnly(deps, fullDir) : deps.gamePack === false ? null : await readGamePack(deps, fullDir, info);
     if (manifest) dir = `${fullDir}${GAME_PACK_DIR}`;
+    else if (deps.gameOnly) return NO_MODELS;
     else {
       try {
         manifest = await deps.fetchJson(`${fullDir}manifest.json`);
@@ -269,6 +274,31 @@ export async function loadModels(deps: LoadDeps): Promise<ModelSet> {
 }
 
 /**
+ * The itch build's game manifest (ticket 083 A): used for whatever it holds, with one console.error line if it lacks keys (the per-key drops draw those as placeholders) or if there is none (null, no fallback to the full packs).
+ * Never rejects.
+ */
+async function readGameOnly(deps: LoadDeps, dir: string): Promise<AssetManifest | null> {
+  const error = deps.error ?? ((m: string) => console.error(m));
+  const url = `${dir}${GAME_PACK_DIR}manifest.json`;
+  let found: unknown;
+  try {
+    found = await deps.fetchJson(url);
+  } catch {
+    found = null;
+  }
+  if (!isManifest(found) || !(found as AssetManifest).game) {
+    error(`3D models: no game manifest at ${url}; this build ships only the game pack, so the placeholder shapes are drawn. Re-run npm run assets:game and npm run build:itch.`);
+    return null;
+  }
+  const game = found as AssetManifest;
+  const have = new Set(game.packs.flatMap((p) => p.assets.map((a) => calibrationKey(p.pack, a.name))));
+  const asked: PageLoadLists = { table: deps.table ?? MODEL_TABLE, stackKeys: deps.stackKeys ?? [], dressKeys: deps.dressKeys ?? [], tileKeys: deps.tileKeys ?? [], stepKeys: deps.stepKeys ?? [] };
+  const lacking = listedKeys(asked).filter((k) => !have.has(k));
+  if (lacking.length > 0) error(`3D models: the game pack lacks ${lacking.length} model(s) (${lacking.slice(0, 3).join(", ")}${lacking.length > 3 ? ", ..." : ""}); this build ships only the game pack. Re-run npm run assets:game and npm run build:itch.`);
+  return game;
+}
+
+/**
  * The game pack's manifest (ticket 082 A), or null with one line saying why the full packs are loaded instead. Used only when it is a manifest this build reads, carries `game`, and holds every key `deps` asks for
  * (a stale one is never used in part). Never rejects.
  */
@@ -371,10 +401,11 @@ function loadPageModels(extra: Pick<LoadDeps, "table" | "tileKeys" | "signColour
   };
   // `?packs=full` (dev only) skips the game pack, for the before-and-after measurement.
   const full = import.meta.env.DEV && typeof location !== "undefined" && new URLSearchParams(location.search).get("packs") === "full";
-  return loadSavedCalibration({ dev: import.meta.env.DEV, fetchJson }).then((saved) => {
+  const itch = import.meta.env.MODE === ITCH_BUILD_MODE;
+  return loadSavedCalibration({ dev: import.meta.env.DEV || itch, fetchJson }).then((saved) => {
     const tables = effectiveFronts({ fronts: BUILDING_FRONTS, exclude: BUILDING_EXCLUDE }, saved);
     // The City Pack's stack pieces load too (ticket 050 C); with no City Pack in the manifest nothing extra is fetched and the set has no stack slot.
-    return loadModels({ fetchJson, loadGlb: async (url) => (await new GLTFLoader().loadAsync(url)).scene, loadTexture: (url) => new TextureLoader().loadAsync(url), fronts: tables.fronts, exclude: tables.exclude, gamePack: !full, ...pageLoadLists(extra) }).then((set) => {
+    return loadModels({ fetchJson, loadGlb: async (url) => (await new GLTFLoader().loadAsync(url)).scene, loadTexture: (url) => new TextureLoader().loadAsync(url), fronts: tables.fronts, exclude: tables.exclude, gamePack: !full, gameOnly: itch, ...pageLoadLists(extra) }).then((set) => {
       if (import.meta.env.DEV) loadLine(started);
       return set;
     });
