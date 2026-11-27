@@ -1,0 +1,313 @@
+{
+  "id": "s24-hold-the-spring",
+  "name": "24 · Hold the spring",
+  "version": 5,
+  "scope": "map",
+  "capacity": null,
+  "startingParts": [
+    "wire",
+    "fuse"
+  ],
+  "target": [
+    "signal_house"
+  ],
+  "priority": [
+    "homes"
+  ],
+  "city": {
+    "blocksX": 6,
+    "blocksZ": 6,
+    "seed": 1,
+    "oneWay": true
+  },
+  "district": [
+    "block:3:0",
+    "block:5:0",
+    "block:5:1",
+    "block:3:2"
+  ],
+  "nodes": [
+    {
+      "id": "west",
+      "type": "feed",
+      "capacity": 18,
+      "name": "West",
+      "place": {
+        "pole": "pole:z:3:lo:27.50"
+      }
+    },
+    {
+      "id": "east",
+      "type": "feed",
+      "capacity": 1,
+      "name": "East",
+      "place": {
+        "pole": "pole:z:6:hi:27.50"
+      }
+    },
+    {
+      "id": "cell",
+      "type": "battery",
+      "capacity": 16,
+      "charge": 16,
+      "input": "l_in",
+      "place": {
+        "pole": "pole:x:0:hi:230.00"
+      }
+    },
+    {
+      "id": "fb",
+      "type": "fusebox",
+      "rating": 17,
+      "place": {
+        "pole": "pole:x:0:hi:127.50"
+      }
+    },
+    {
+      "id": "br_f",
+      "type": "breaker",
+      "closed": false,
+      "place": {
+        "pole": "pole:x:0:hi:150.83"
+      }
+    },
+    {
+      "id": "j_m",
+      "type": "junction",
+      "place": {
+        "pole": "pole:z:5:lo:27.50"
+      }
+    },
+    {
+      "id": "sp",
+      "type": "switch",
+      "spring": true,
+      "outputs": [
+        "l_brick",
+        "l_road"
+      ],
+      "selected": 0,
+      "place": {
+        "pole": "pole:z:5:lo:38.33"
+      }
+    },
+    {
+      "id": "brickworks",
+      "type": "lamp",
+      "load": 14,
+      "place": {
+        "building": "block:3:0/a|outer|+x|32,6"
+      }
+    },
+    {
+      "id": "j_t",
+      "type": "junction",
+      "place": {
+        "pole": "pole:z:5:lo:92.50"
+      }
+    },
+    {
+      "id": "r_2",
+      "type": "switch",
+      "relay": true,
+      "outputs": [
+        "l_soap",
+        "l_sig"
+      ],
+      "selected": 0,
+      "place": {
+        "pole": "pole:x:1:hi:205.00"
+      }
+    },
+    {
+      "id": "soap_works",
+      "type": "lamp",
+      "load": 7,
+      "place": {
+        "building": "block:5:1/built|outer|-z|39,18"
+      }
+    },
+    {
+      "id": "signal_house",
+      "type": "lamp",
+      "load": 3,
+      "place": {
+        "building": "block:5:0|outer|+z|45,12"
+      }
+    },
+    {
+      "id": "br_h",
+      "type": "breaker",
+      "closed": true,
+      "place": {
+        "pole": "pole:x:2:hi:162.50"
+      }
+    },
+    {
+      "id": "homes",
+      "type": "lamp",
+      "load": 2,
+      "place": {
+        "building": "block:3:2|outer|+x|32,26"
+      }
+    }
+  ],
+  "lines": [
+    {
+      "id": "l_w0",
+      "from": "west",
+      "to": "fb",
+      "run": {
+        "spans": [
+          "span:pole:z:3:hi:27.50~pole:z:3:lo:27.50",
+          "span:pole:x:0:hi:127.50~pole:z:3:hi:27.50"
+        ]
+      }
+    },
+    {
+      "id": "l_w1",
+      "from": "fb",
+      "to": "br_f",
+      "run": {
+        "spans": [
+          "span:pole:x:0:hi:127.50~pole:x:0:hi:139.17",
+          "span:pole:x:0:hi:139.17~pole:x:0:hi:150.83"
+        ]
+      }
+    },
+    {
+      "id": "l_w2",
+      "from": "br_f",
+      "to": "j_m",
+      "run": {
+        "spans": [
+          "span:pole:x:0:hi:150.83~pole:x:0:hi:162.50",
+          "span:pole:x:0:hi:162.50~pole:z:5:lo:27.50"
+        ]
+      }
+    },
+    {
+      "id": "l_in",
+      "from": "east",
+      "to": "cell",
+      "run": {
+        "spans": [
+          "span:pole:z:6:hi:27.50~pole:z:6:lo:27.50",
+          "span:pole:x:0:hi:242.50~pole:z:6:lo:27.50",
+          "span:pole:x:0:hi:230.00~pole:x:0:hi:242.50"
+        ]
+      }
+    },
+    {
+      "id": "l_c",
+      "from": "cell",
+      "to": "j_m",
+      "run": {
+        "spans": [
+          "span:pole:x:0:hi:220.50~pole:x:0:hi:230.00",
+          "span:pole:x:0:hi:205.00~pole:x:0:hi:220.50",
+          "span:pole:x:0:hi:192.50~pole:x:0:hi:205.00",
+          "span:pole:x:0:hi:192.50~pole:z:5:hi:27.50",
+          "span:pole:z:5:hi:27.50~pole:z:5:lo:27.50"
+        ]
+      }
+    },
+    {
+      "id": "l_sp",
+      "from": "j_m",
+      "to": "sp",
+      "run": {
+        "spans": [
+          "span:pole:z:5:lo:27.50~pole:z:5:lo:38.33"
+        ]
+      }
+    },
+    {
+      "id": "l_brick",
+      "from": "sp",
+      "to": "brickworks",
+      "run": {
+        "spans": [],
+        "drop": "block:3:0/a|outer|+x|32,6"
+      }
+    },
+    {
+      "id": "l_road",
+      "from": "sp",
+      "to": "j_t",
+      "run": {
+        "spans": [
+          "span:pole:z:5:lo:38.33~pole:z:5:lo:49.17",
+          "span:pole:z:5:lo:49.17~pole:z:5:lo:60.50",
+          "span:pole:z:5:lo:60.50~pole:z:5:lo:70.83",
+          "span:pole:z:5:lo:70.83~pole:z:5:lo:81.67",
+          "span:pole:z:5:lo:81.67~pole:z:5:lo:92.50"
+        ]
+      }
+    },
+    {
+      "id": "l_east",
+      "from": "j_t",
+      "to": "r_2",
+      "run": {
+        "spans": [
+          "span:pole:z:5:hi:92.50~pole:z:5:lo:92.50",
+          "span:pole:x:1:hi:192.50~pole:z:5:hi:92.50",
+          "span:pole:x:1:hi:192.50~pole:x:1:hi:205.00"
+        ]
+      }
+    },
+    {
+      "id": "l_soap",
+      "from": "r_2",
+      "to": "soap_works",
+      "run": {
+        "spans": [],
+        "drop": "block:5:1/built|outer|-z|39,18"
+      }
+    },
+    {
+      "id": "l_sig",
+      "from": "r_2",
+      "to": "signal_house",
+      "run": {
+        "spans": [
+          "span:pole:x:1:hi:205.00~pole:x:1:hi:217.50",
+          "span:pole:x:1:hi:217.50~pole:x:1:hi:230.00"
+        ],
+        "drop": "block:5:0|outer|+z|45,12"
+      }
+    },
+    {
+      "id": "l_south",
+      "from": "j_t",
+      "to": "br_h",
+      "run": {
+        "spans": [
+          "span:pole:z:5:lo:102.50~pole:z:5:lo:92.50",
+          "span:pole:x:2:lo:162.50~pole:z:5:lo:102.50",
+          "span:pole:x:2:hi:162.50~pole:x:2:lo:162.50"
+        ]
+      }
+    },
+    {
+      "id": "l_south2",
+      "from": "br_h",
+      "to": "homes",
+      "run": {
+        "spans": [
+          "span:pole:x:2:hi:162.50~pole:z:5:lo:122.50",
+          "span:pole:z:5:lo:122.50~pole:z:5:lo:132.50"
+        ],
+        "drop": "block:3:2|outer|+x|32,26"
+      }
+    }
+  ],
+  "faults": [
+    {
+      "id": "f_east",
+      "at": "l_east",
+      "kind": "damaged-cable"
+    }
+  ]
+}

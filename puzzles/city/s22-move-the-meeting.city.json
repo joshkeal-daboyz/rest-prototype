@@ -1,0 +1,471 @@
+{
+  "id": "s22-move-the-meeting",
+  "name": "22 · Move the meeting",
+  "version": 5,
+  "scope": "map",
+  "capacity": null,
+  "startingParts": [
+    "wire",
+    "bulb",
+    "bulb",
+    "fuse"
+  ],
+  "target": [
+    "pump_house",
+    "wash_house"
+  ],
+  "priority": [
+    "homes"
+  ],
+  "city": {
+    "blocksX": 6,
+    "blocksZ": 6,
+    "seed": 1,
+    "oneWay": true
+  },
+  "district": [
+    "block:5:4",
+    "block:6:3",
+    "block:6:6"
+  ],
+  "nodes": [
+    {
+      "id": "west",
+      "type": "feed",
+      "capacity": 18,
+      "name": "West",
+      "place": {
+        "pole": "pole:z:5:lo:192.50"
+      }
+    },
+    {
+      "id": "east",
+      "type": "feed",
+      "capacity": 23,
+      "name": "East",
+      "place": {
+        "pole": "pole:z:7:hi:242.50"
+      }
+    },
+    {
+      "id": "fb_m",
+      "type": "fusebox",
+      "rating": 18,
+      "place": {
+        "pole": "pole:z:5:hi:192.50"
+      }
+    },
+    {
+      "id": "j_d",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:4:hi:217.50"
+      }
+    },
+    {
+      "id": "dye_works",
+      "type": "lamp",
+      "load": 5,
+      "place": {
+        "building": "block:5:1/built|outer|+z|42,32"
+      }
+    },
+    {
+      "id": "fb_c",
+      "type": "fusebox",
+      "rating": 16,
+      "place": {
+        "pole": "pole:x:4:hi:230.00"
+      }
+    },
+    {
+      "id": "br_w",
+      "type": "breaker",
+      "closed": false,
+      "place": {
+        "pole": "pole:x:4:hi:242.50"
+      }
+    },
+    {
+      "id": "j_2",
+      "type": "junction",
+      "place": {
+        "pole": "pole:z:6:hi:192.50"
+      }
+    },
+    {
+      "id": "wash_house",
+      "type": "lamp",
+      "load": 3,
+      "place": {
+        "building": "block:6:3/a|outer|-x|54,36"
+      }
+    },
+    {
+      "id": "j_c",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:6:hi:272.50"
+      }
+    },
+    {
+      "id": "j_1",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:6:hi:315.83"
+      }
+    },
+    {
+      "id": "pump_house",
+      "type": "lamp",
+      "load": 4,
+      "place": {
+        "building": "block:6:6/a|outer|-z|60,47"
+      }
+    },
+    {
+      "id": "r_e",
+      "type": "switch",
+      "relay": true,
+      "outputs": [
+        "l_long1",
+        "l_s1"
+      ],
+      "selected": 0,
+      "place": {
+        "pole": "pole:z:7:lo:242.50"
+      }
+    },
+    {
+      "id": "j_h",
+      "type": "junction",
+      "place": {
+        "pole": "pole:z:7:lo:237.50"
+      }
+    },
+    {
+      "id": "homes",
+      "type": "lamp",
+      "load": 2,
+      "place": {
+        "building": "block:6:6/a|outer|+x|67,47"
+      }
+    },
+    {
+      "id": "j_g",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:6:hi:326.67"
+      }
+    },
+    {
+      "id": "ice_house",
+      "type": "lamp",
+      "load": 8,
+      "place": {
+        "building": "block:6:6/a|outer|-z|64,47"
+      }
+    },
+    {
+      "id": "c_1",
+      "type": "junction",
+      "place": {
+        "pole": "pole:z:7:lo:312.50"
+      }
+    },
+    {
+      "id": "c_2",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:9:lo:337.50"
+      }
+    },
+    {
+      "id": "c_3",
+      "type": "junction",
+      "place": {
+        "pole": "pole:x:9:lo:272.50"
+      }
+    },
+    {
+      "id": "c_4",
+      "type": "junction",
+      "place": {
+        "pole": "pole:z:6:hi:312.50"
+      }
+    },
+    {
+      "id": "br_l",
+      "type": "breaker",
+      "closed": true,
+      "place": {
+        "pole": "pole:z:6:hi:254.17"
+      }
+    }
+  ],
+  "lines": [
+    {
+      "id": "l_w0",
+      "from": "west",
+      "to": "fb_m",
+      "run": {
+        "spans": [
+          "span:pole:z:5:hi:192.50~pole:z:5:lo:192.50"
+        ]
+      }
+    },
+    {
+      "id": "l_w1",
+      "from": "fb_m",
+      "to": "j_d",
+      "run": {
+        "spans": [
+          "span:pole:x:4:hi:192.50~pole:z:5:hi:192.50",
+          "span:pole:x:4:hi:192.50~pole:x:4:hi:205.00",
+          "span:pole:x:4:hi:205.00~pole:x:4:hi:217.50"
+        ]
+      }
+    },
+    {
+      "id": "l_dye",
+      "from": "j_d",
+      "to": "dye_works",
+      "run": {
+        "spans": [],
+        "drop": "block:5:1/built|outer|+z|42,32"
+      }
+    },
+    {
+      "id": "l_w3",
+      "from": "j_d",
+      "to": "fb_c",
+      "run": {
+        "spans": [
+          "span:pole:x:4:hi:217.50~pole:x:4:hi:230.00"
+        ]
+      }
+    },
+    {
+      "id": "l_w3b",
+      "from": "fb_c",
+      "to": "br_w",
+      "run": {
+        "spans": [
+          "span:pole:x:4:hi:230.00~pole:x:4:hi:242.50"
+        ]
+      }
+    },
+    {
+      "id": "l_w4",
+      "from": "br_w",
+      "to": "j_2",
+      "run": {
+        "spans": [
+          "span:pole:x:4:hi:242.50~pole:z:6:lo:192.50",
+          "span:pole:z:6:hi:192.50~pole:z:6:lo:192.50"
+        ]
+      }
+    },
+    {
+      "id": "l_wash",
+      "from": "j_2",
+      "to": "wash_house",
+      "run": {
+        "spans": [],
+        "drop": "block:6:3/a|outer|-x|54,36"
+      }
+    },
+    {
+      "id": "l_tie",
+      "from": "j_2",
+      "to": "j_c",
+      "run": {
+        "spans": [
+          "span:pole:z:6:hi:192.50~pole:z:6:hi:200.00",
+          "span:pole:z:6:hi:200.00~pole:z:6:hi:207.50",
+          "span:pole:x:6:lo:272.50~pole:z:6:hi:207.50",
+          "span:pole:x:6:hi:272.50~pole:x:6:lo:272.50"
+        ]
+      }
+    },
+    {
+      "id": "l_mid",
+      "from": "j_c",
+      "to": "j_1",
+      "run": {
+        "spans": [
+          "span:pole:x:6:hi:272.50~pole:x:6:hi:283.33",
+          "span:pole:x:6:hi:283.33~pole:x:6:hi:294.17",
+          "span:pole:x:6:hi:294.17~pole:x:6:hi:305.00",
+          "span:pole:x:6:hi:305.00~pole:x:6:hi:315.83"
+        ]
+      }
+    },
+    {
+      "id": "l_pump",
+      "from": "j_1",
+      "to": "pump_house",
+      "run": {
+        "spans": [],
+        "drop": "block:6:6/a|outer|-z|60,47"
+      }
+    },
+    {
+      "id": "l_e0",
+      "from": "east",
+      "to": "r_e",
+      "run": {
+        "spans": [
+          "span:pole:z:7:hi:242.50~pole:z:7:lo:242.50"
+        ]
+      }
+    },
+    {
+      "id": "l_s1",
+      "from": "r_e",
+      "to": "j_h",
+      "run": {
+        "spans": [
+          "span:pole:z:7:lo:237.50~pole:z:7:lo:242.50"
+        ]
+      }
+    },
+    {
+      "id": "l_homes",
+      "from": "j_h",
+      "to": "homes",
+      "run": {
+        "spans": [],
+        "drop": "block:6:6/a|outer|+x|67,47"
+      }
+    },
+    {
+      "id": "l_s2",
+      "from": "j_h",
+      "to": "j_g",
+      "run": {
+        "spans": [
+          "span:pole:x:6:hi:337.50~pole:z:7:lo:237.50",
+          "span:pole:x:6:hi:326.67~pole:x:6:hi:337.50"
+        ]
+      }
+    },
+    {
+      "id": "l_ice",
+      "from": "j_g",
+      "to": "ice_house",
+      "run": {
+        "spans": [],
+        "drop": "block:6:6/a|outer|-z|64,47"
+      }
+    },
+    {
+      "id": "l_s3",
+      "from": "j_g",
+      "to": "j_1",
+      "run": {
+        "spans": [
+          "span:pole:x:6:hi:315.83~pole:x:6:hi:326.67"
+        ]
+      }
+    },
+    {
+      "id": "l_long1",
+      "from": "r_e",
+      "to": "c_1",
+      "run": {
+        "spans": [
+          "span:pole:z:7:lo:242.50~pole:z:7:lo:254.17",
+          "span:pole:z:7:lo:254.17~pole:z:7:lo:264.33",
+          "span:pole:z:7:lo:264.33~pole:z:7:lo:277.50",
+          "span:pole:z:7:lo:277.50~pole:z:7:lo:289.17",
+          "span:pole:z:7:lo:289.17~pole:z:7:lo:299.33",
+          "span:pole:z:7:lo:299.33~pole:z:7:lo:312.50"
+        ]
+      }
+    },
+    {
+      "id": "l_long2",
+      "from": "c_1",
+      "to": "c_2",
+      "run": {
+        "spans": [
+          "span:pole:x:9:lo:337.50~pole:z:7:lo:312.50"
+        ]
+      }
+    },
+    {
+      "id": "l_long3",
+      "from": "c_2",
+      "to": "c_3",
+      "run": {
+        "spans": [
+          "span:pole:x:9:lo:326.67~pole:x:9:lo:337.50",
+          "span:pole:x:9:lo:315.83~pole:x:9:lo:326.67",
+          "span:pole:x:9:lo:305.00~pole:x:9:lo:315.83",
+          "span:pole:x:9:lo:294.17~pole:x:9:lo:305.00",
+          "span:pole:x:9:lo:283.33~pole:x:9:lo:294.17",
+          "span:pole:x:9:lo:272.50~pole:x:9:lo:283.33"
+        ]
+      }
+    },
+    {
+      "id": "l_long4",
+      "from": "c_3",
+      "to": "c_4",
+      "run": {
+        "spans": [
+          "span:pole:x:9:lo:272.50~pole:z:6:hi:312.50"
+        ]
+      }
+    },
+    {
+      "id": "l_long5",
+      "from": "c_4",
+      "to": "br_l",
+      "run": {
+        "spans": [
+          "span:pole:z:6:hi:299.33~pole:z:6:hi:312.50",
+          "span:pole:z:6:hi:289.17~pole:z:6:hi:299.33",
+          "span:pole:z:6:hi:274.50~pole:z:6:hi:289.17",
+          "span:pole:z:6:hi:264.33~pole:z:6:hi:274.50",
+          "span:pole:z:6:hi:254.17~pole:z:6:hi:264.33"
+        ]
+      }
+    },
+    {
+      "id": "l_bl",
+      "from": "br_l",
+      "to": "j_c",
+      "run": {
+        "spans": [
+          "span:pole:z:6:hi:242.50~pole:z:6:hi:254.17",
+          "span:pole:z:6:hi:237.50~pole:z:6:hi:242.50",
+          "span:pole:x:6:hi:272.50~pole:z:6:hi:237.50"
+        ]
+      }
+    }
+  ],
+  "faults": [
+    {
+      "id": "f_wash",
+      "at": "wash_house",
+      "kind": "dead-lamp"
+    },
+    {
+      "id": "f_pump",
+      "at": "pump_house",
+      "kind": "dead-lamp"
+    },
+    {
+      "id": "f_short",
+      "at": "l_s3",
+      "kind": "damaged-cable"
+    },
+    {
+      "id": "f_homes",
+      "at": "homes",
+      "kind": "dead-lamp"
+    }
+  ]
+}
