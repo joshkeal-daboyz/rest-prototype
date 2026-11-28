@@ -8,7 +8,7 @@ import { createMapPlay, NEEDS_FLASH_SECONDS } from "./index";
 import { promptFor, TEXT } from "./prompt";
 
 const shrine = (): Puzzle =>
-  loadPuzzle(JSON.parse(readFileSync(join(__dirname, "../../puzzles/09-shrine-circuit.json"), "utf8")) as unknown);
+  loadPuzzle(JSON.parse(readFileSync(join(__dirname, "../../puzzles/fixtures/09-shrine-circuit.json"), "utf8")) as unknown);
 
 /** A renderer whose hitTest answers with whatever id the test last chose. */
 function fakeRenderer(): MapRenderer & { next: string | null; calls: Array<[number, number]> } {
