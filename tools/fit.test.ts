@@ -17,7 +17,7 @@ import { FEED_CLEAR_M, FIT_BUDGET, READ_BACK_M, buildingTargetProblems, cityChec
 
 const CITY: CityPuzzleCity = { blocksX: 6, blocksZ: 6, seed: 1, oneWay: true };
 const ONE_BLOCK = ["block:0:0"];
-const P0_FILE = join(PUZZLES_DIR, "city", "city-two-ways-round.city.json");
+const P0_FILE = join(PUZZLES_DIR, "fixtures", "city-two-ways-round.city.json");
 const P0_WIN = ["sw", "repair:l_e2"];
 let plan: CityPlan;
 
@@ -226,7 +226,7 @@ describe("the raised numbers (081 P1, section S)", () => {
 
   it("criterion 11: P0's file, raised from its schematic by its note's solution, comes back unchanged", () => {
     const p0 = loaded(P0_FILE);
-    const schematic = validatePuzzle(JSON.parse(readFileSync(join(PUZZLES_DIR, "city-two-ways-round.json"), "utf8")));
+    const schematic = validatePuzzle(JSON.parse(readFileSync(join(PUZZLES_DIR, "fixtures", "city-two-ways-round.json"), "utf8")));
     const note = parseCheckBlock(readFileSync(P0_FILE.replace(/\.city\.json$/, ".md"), "utf8"));
     if (!schematic.ok || note === null || !note.ok) throw new Error("fixture files");
     const solution = (note.json as { solution: string[] }).solution;
