@@ -89,7 +89,10 @@ export function convertCityPuzzle(puzzle: CityPuzzle, plan: CityPlan): CityPuzzl
     decor.push({ path: [toPos(poles.get(d.pole)!), toPos(d)] });
   }
 
-  const { city: _city, district: _district, from: _from, nodes: _n, lines: _l, faults: _f, ...rest } = puzzle;
+  // 084 A1b: `guide` and `tips` are the city file's own, read by the ui from `entry.city`; the plain map never carries either.
+  // `tips` is taken out through an intersection type until `CityPuzzle.tips` reaches main (084 T); after that the cast is harmless.
+  const { city: _city, district: _district, from: _from, nodes: _n, lines: _l, faults: _f, guide: _guide, ...kept } = puzzle;
+  const { tips: _tips, ...rest } = kept as typeof kept & { tips?: unknown };
   const tilde = [...puzzle.nodes.map((n) => n.id), ...puzzle.lines.map((l) => l.id)].filter((id) => id.includes("~"));
   if (tilde.length > 0) throw new CityPuzzleError(tilde.map((id) => ({ rule: "CK15", id, reason: "an id with ~ could collide with an id the conversion adds" })));
   const hung = splitAndHang(puzzle, layer, nodes, lines, cuts, toPos);

@@ -1,0 +1,80 @@
+{
+  "id": "city-two-ways-round",
+  "name": "City · Two ways round",
+  "version": 5,
+  "scope": "map",
+  "capacity": 3,
+  "startingParts": ["wire"],
+  "target": ["shrine", "infirmary"],
+  "priority": ["homes"],
+
+  "nodes": [
+    { "id": "feed",      "type": "feed",     "pos": [0.85, 6.5] },
+    { "id": "sw",        "type": "switch",   "pos": [4.15, 6.5], "outputs": ["l_s", "l_n"], "selected": 0 },
+
+    { "id": "j_h",       "type": "junction", "pos": [4.15, 10.8667] },
+    { "id": "homes",     "type": "lamp",     "pos": [5, 10.5], "load": 1 },
+
+    { "id": "j_nw1",     "type": "junction", "pos": [4.15, 5.5] },
+    { "id": "j_nw2",     "type": "junction", "pos": [5.5, 4.15] },
+    { "id": "j_ne1",     "type": "junction", "pos": [18.5, 4.15] },
+    { "id": "j_ne2",     "type": "junction", "pos": [19.85, 5.5] },
+    { "id": "j_sh",      "type": "junction", "pos": [19.85, 13.5] },
+    { "id": "shrine",    "type": "lamp",     "pos": [19, 13.5], "load": 1 },
+    { "id": "j_se1",     "type": "junction", "pos": [19.85, 20.5] },
+
+    { "id": "j_se2",     "type": "junction", "pos": [18.5, 21.85] },
+    { "id": "j_inf",     "type": "junction", "pos": [9.8333, 21.85] },
+    { "id": "infirmary", "type": "lamp",     "pos": [9.5, 21], "load": 1 },
+    { "id": "j_sw1",     "type": "junction", "pos": [5.5, 21.85] },
+    { "id": "j_sw2",     "type": "junction", "pos": [4.15, 20.5] }
+  ],
+
+  "lines": [
+    { "id": "l_feed",    "from": "feed",  "to": "sw" },
+    { "id": "l_s",       "from": "sw",    "to": "j_h" },
+    { "id": "l_homes",   "from": "j_h",   "to": "homes" },
+    { "id": "l_n",       "from": "sw",    "to": "j_nw1" },
+    { "id": "l_nw",      "from": "j_nw1", "to": "j_nw2" },
+    { "id": "l_north",   "from": "j_nw2", "to": "j_ne1" },
+    { "id": "l_ne",      "from": "j_ne1", "to": "j_ne2" },
+    { "id": "l_e1",      "from": "j_ne2", "to": "j_sh" },
+    { "id": "l_shrine",  "from": "j_sh",  "to": "shrine" },
+    { "id": "l_e2",      "from": "j_sh",  "to": "j_se1" },
+    { "id": "l_se",      "from": "j_se1", "to": "j_se2" },
+    { "id": "l_s1",      "from": "j_se2", "to": "j_inf" },
+    { "id": "l_inf",     "from": "j_inf", "to": "infirmary" },
+    { "id": "l_s2",      "from": "j_inf", "to": "j_sw1" },
+    { "id": "l_sw",      "from": "j_sw1", "to": "j_sw2" },
+    { "id": "l_x",       "from": "j_sw2", "to": "j_h" }
+  ],
+
+  "faults": [
+    { "id": "x", "at": "l_x",  "kind": "damaged-cable" },
+    { "id": "y", "at": "l_e2", "kind": "damaged-cable" }
+  ],
+
+  "decor": [
+    { "path": [[0.85, 6.5], [-0.5, 7.85]] },
+    { "path": [[5.5, 4.15], [5.5, 0.85]] },
+    { "path": [[18.5, 4.15], [18.5, 0.85]] },
+    { "path": [[19.85, 6.5], [23.15, 6.5]] },
+    { "path": [[4.15, 20.5], [0.85, 20.5]] },
+    { "path": [[19.85, 20.5], [23.15, 20.5]] },
+    { "path": [[5.5, 21.85], [5.5, 25.15]] },
+    { "path": [[18.5, 21.85], [18.5, 25.15]] },
+
+    { "path": [[4.15, 6.5], [5, 6.5]] },
+    { "path": [[4.15, 15.8333], [5, 15.5]] },
+    { "path": [[5.5, 4.15], [5.5, 5]] },
+    { "path": [[9.8333, 4.15], [9.5, 5]] },
+    { "path": [[14.1667, 4.15], [14.5, 5]] },
+    { "path": [[16.3333, 4.15], [16.5, 5]] },
+    { "path": [[19.85, 5.5], [19, 5.5]] },
+    { "path": [[19.85, 10.8667], [19, 10.5]] },
+    { "path": [[19.85, 15.8333], [19, 15.5]] },
+    { "path": [[5.5, 21.85], [5.5, 21]] },
+    { "path": [[14.1667, 21.85], [14.5, 21]] },
+    { "path": [[18.5, 21.85], [18.5, 21]] }
+  ]
+}

@@ -8,7 +8,7 @@ import { createMapPlay } from "./index";
 
 function setup(file = "09-shrine-circuit.json") {
   const puzzle = loadPuzzle(
-    JSON.parse(readFileSync(join(__dirname, "../../puzzles", file), "utf8")) as unknown,
+    JSON.parse(readFileSync(join(__dirname, "../../puzzles/fixtures", file), "utf8")) as unknown,
   );
   const bus = new EventBus();
   const grid = createGrid(puzzle, bus);

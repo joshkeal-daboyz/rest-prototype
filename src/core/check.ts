@@ -1,6 +1,6 @@
 /**
- * Design checks (ticket 027 part 0). A design note (`puzzles/<id>.md`) may hold one fenced block tagged `check`
- * with JSON in it: the intended solution, every trap with its recovery, and optionally the sections and links of a
+ * Design checks (ticket 027 part 0). A design note (`puzzles/city/<id>.md`, or a fixture's in
+ * `puzzles/fixtures/`) may hold one fenced block tagged `check` with JSON in it: the intended solution, every trap with its recovery, and optionally the sections and links of a
  * large map. `npm run check` (027 D1) replays it on the real simulator; `npm run analyze -- --sections` (027 D3)
  * builds one sub-puzzle per section from it. See puzzles/SCHEMA.md, "Design checks (ticket 027)".
  *

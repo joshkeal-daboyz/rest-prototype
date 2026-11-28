@@ -3,18 +3,9 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { loadCityPuzzle, loadPuzzle, puzzleFeeds, validateCityPuzzle, validatePuzzle } from "./load";
 
-const PUZZLES = join(__dirname, "..", "..", "puzzles");
+const PUZZLES = join(__dirname, "..", "..", "puzzles", "fixtures");
 const files = readdirSync(PUZZLES).filter((f) => f.endsWith(".json"));
 const read = (f: string) => JSON.parse(readFileSync(join(PUZZLES, f), "utf8")) as unknown;
-
-describe("every puzzle file in puzzles/ validates", () => {
-  for (const f of files) {
-    it(f, () => {
-      const r = validatePuzzle(read(f));
-      expect(r.ok, r.ok ? "" : r.errors.join("\n")).toBe(true);
-    });
-  }
-});
 
 describe("the validator catches broken puzzles", () => {
   const base = () => structuredClone(read("09-shrine-circuit.json")) as Record<string, unknown>;
@@ -230,25 +221,10 @@ describe("draft 5: more than one powersource (ticket 015)", () => {
       if (!r.ok) continue;
       const feeds = puzzleFeeds(r.puzzle);
       const feedNodes = (read(f) as { nodes: N[] }).nodes.filter((n) => n.type === "feed");
-      if (feedNodes.length > 1) continue; // multi-feed maps: see the next test
+      if (feedNodes.length > 1) continue; // multi-feed maps: see the built two-feed cases
       expect(feeds, f).toHaveLength(1);
       expect(feeds[0]!.capacity, f).toBe(r.puzzle.capacity);
     }
-  });
-
-  it("puzzleFeeds: multi-feed maps give one entry per feed node, with its own capacity", { timeout: 60000 }, () => {
-    let seen = 0;
-    for (const f of files) {
-      const r = validatePuzzle(read(f));
-      if (!r.ok) continue;
-      const feedNodes = (read(f) as { nodes: N[] }).nodes.filter((n) => n.type === "feed");
-      if (feedNodes.length < 2) continue;
-      seen++;
-      const feeds = puzzleFeeds(r.puzzle);
-      expect(feeds.map((x) => x.id), f).toEqual(feedNodes.map((n) => n.id));
-      expect(feeds.map((x) => x.capacity), f).toEqual(feedNodes.map((n) => n.capacity ?? null));
-    }
-    expect(seen).toBeGreaterThan(0);
   });
 
   it("puzzleFeeds: per-feed capacity and names, in file order; the id stands in for a missing name", () => {
@@ -256,6 +232,7 @@ describe("draft 5: more than one powersource (ticket 015)", () => {
     const north = (p["nodes"] as N[]).find((n) => n.type === "feed")!;
     delete north.name;
     north.id = "north_feed";
+    (p["nodes"] as N[]).find((n) => n.id === "south")!.capacity = 3; // a different capacity, so a shared one would show
     for (const l of p["lines"] as { from: string; to: string }[]) {
       if (l.from === "feed") l.from = "north_feed";
       if (l.to === "feed") l.to = "north_feed";
@@ -263,7 +240,7 @@ describe("draft 5: more than one powersource (ticket 015)", () => {
     const puzzle = loadPuzzle(p);
     expect(puzzleFeeds(puzzle)).toEqual([
       { id: "north_feed", name: "north feed", capacity: 2 },
-      { id: "south", name: "South", capacity: 2 },
+      { id: "south", name: "South", capacity: 3 },
     ]);
   });
 

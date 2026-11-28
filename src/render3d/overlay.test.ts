@@ -17,7 +17,7 @@ import { nodeLook } from "./look";
 import { GROUND_POLE_ATTACH_UP_M } from "../core/powerpoles";
 import { OVERLAY_HIT_PX, OVERLAY_POLE_Y_M, OVERLAY_NUDGE, overlayBreakHit, overlayBreaks, overlayIcons, overlayLabels, placePoint, type OverlayBreak, type OverlayContext, type OverlayIcon, type Project } from "./overlay";
 
-const puzzle = loadPuzzle(JSON.parse(readFileSync("puzzles/09-shrine-circuit.json", "utf8")));
+const puzzle = loadPuzzle(JSON.parse(readFileSync("puzzles/fixtures/09-shrine-circuit.json", "utf8")));
 
 /** A synthetic city: one pole per node, 10 m apart on x, one span per line; line l_feed runs through an extra carrier pole. */
 function fixture(): { converted: CityPuzzleConverted; layer: CityCircuitLayer } {
@@ -153,7 +153,7 @@ describe("a city puzzle played on the city (ticket 081 E2)", () => {
   const litOf = (w: Parameters<typeof wireLit>[0], reversed: boolean, fraction: number): WireLit => wireLit(w, reversed, fraction, { forward: true, frac: 0 });
 
   it("loadCityView runs one pipeline per city, shares the plan between puzzles on it, and throws on a puzzle that does not hold", () => {
-    const city = loadCityPuzzle(JSON.parse(readFileSync("puzzles/city/city-two-ways-round.city.json", "utf8")));
+    const city = loadCityPuzzle(JSON.parse(readFileSync("puzzles/fixtures/city-two-ways-round.city.json", "utf8")));
     const run = sharedCity(DEFAULT, "clean");
     let builds = 0;
     const build = () => (builds++, run);
