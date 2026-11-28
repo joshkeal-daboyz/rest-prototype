@@ -89,6 +89,22 @@ The camera opens on `block:8:1` and its four streets. **The infirmary is half wa
 3. The numbers by the breakers: `br_stall` −1 and `br_shed` −2, both red (still over); `br_row` −3, white; `br_inf` −6, white. Two moves fit, and one of them is the infirmary's own breaker.
 4. Open `br_row`. The home and the kiln go dark, the flicker stops, 6 of 6, and the infirmary burns gold. **Win.**
 
+## Guide (ticket 084 D1)
+
+The file's `guide` walks a first-time player through this puzzle's one idea: the brownout and shedding. It runs until the stage has been won once (084 D2 shows it; until D2 merges the field is checked on load and nothing draws it). Each step points at one thing, says one thing, and waits. No step throws anything for the player, and the last waits for the job to complete, so the player does the job.
+
+Buildings are named by number, as the goal list names them (084 A1): `infirmary` is Building 1 (the target), `home` is Building 2 (priority), `kiln` is Building 3, `shed` is Building 4, `stall` is Building 5. The rest of this note keeps the lamp ids.
+
+| # | Points at | Text | Waits for | Why it is there |
+| --- | --- | --- | --- | --- |
+| 1 | `feed` | "The feed reads 9 of 6: more load than it can carry. That is a brownout. Every light flickers and none counts as lit." (116) | Next | The view opens flickering, so the guide starts at the feed's label, read as puzzle 1 taught it, and names what the flicker is. |
+| 2 | `infirmary` | "The priests want Building 1 lit. It has power, but it will not count until the load is 6 or less." (97) | Next | The goal, and why it is not already won: the target has power from the start, which is the confusing part of a brownout. |
+| 3 | `br_stall` | "A closed breaker can be opened to shed what is past it. This one reads −1: opening it takes 1 off. Click it." (108) | the player throws `br_stall` | The try, on the smallest breaker: shedding is opening a closed breaker, and the "−n" is what comes off. It is the first half of the trap on purpose (8 of 6, still flickering), so the player sees a shed that is not enough before choosing one that is. Any breaker can be clicked back, and the win is still one click away. |
+| 4 | `feed` | "Building 5 went dark, and 1 was too little. A red number means that breaker alone is not enough. White means it is." (115) | Next | Says what they just saw at the feed's label, and gives the one reading rule for the numbers (red: still over; white: it fits). Its only number is the 1 they just shed, so it does not go stale if they have opened something else as well. |
+| 5 | `infirmary` | "Your turn. Open the breaker that makes the load fit and leaves Building 1 lit. Clicking a breaker again closes it." (114) | the job completes | The player finishes. Two numbers are white, `br_row` and `br_inf`, and the step's "leaves Building 1 lit" is the read that decides between them; it does not point at either. The last sentence is the way back from `br_inf`. |
+
+The texts quote what is on screen at that step (the feed's label and the number by the control). If the layout, a load or the capacity changes, the guide's numbers change with it.
+
 ## The trap
 
 **Shedding the two small unmarked houses still leaves it over; the pair on one breaker, a home among them, has to go.** As the plan's row. The shed and the stall are the cheap things to lose, they have a street to themselves, and both together are 2: 7 of 6, still flickering. The second wrong instinct is the biggest number: `br_inf` clears the flicker at 3 of 6, with the infirmary dark. Every state is undone by throwing a breaker back.

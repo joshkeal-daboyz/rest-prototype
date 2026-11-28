@@ -262,5 +262,12 @@
       }
     }
   ],
-  "faults": []
+  "faults": [],
+  "guide": [
+    { "at": "feed", "text": "The feed reads 9 of 6: more load than it can carry. That is a brownout. Every light flickers and none counts as lit.", "until": { "next": true } },
+    { "at": "infirmary", "text": "The priests want Building 1 lit. It has power, but it will not count until the load is 6 or less.", "until": { "next": true } },
+    { "at": "br_stall", "text": "A closed breaker can be opened to shed what is past it. This one reads −1: opening it takes 1 off. Click it.", "until": { "throw": "br_stall" } },
+    { "at": "feed", "text": "Building 5 went dark, and 1 was too little. A red number means that breaker alone is not enough. White means it is.", "until": { "next": true } },
+    { "at": "infirmary", "text": "Your turn. Open the breaker that makes the load fit and leaves Building 1 lit. Clicking a breaker again closes it.", "until": { "complete": true } }
+  ]
 }

@@ -125,5 +125,13 @@
       }
     }
   ],
-  "faults": []
+  "faults": [],
+  "guide": [
+    { "at": "shrine", "text": "This is Building 1, under the gold marker. The priests want it lit. That is the whole job.", "until": { "next": true } },
+    { "at": "feed", "text": "The box with the lightning bolt is the feed. All the power starts here and runs out along the wires.", "until": { "next": true } },
+    { "at": "feed", "text": "The feed reads 2 of 5: the load it carries now, of the most it can carry. Every lit building adds its load.", "until": { "next": true } },
+    { "at": "br_shrine", "text": "This is a breaker. It is open, so the wire past it is dark. Clicking it closes it and lets the power through.", "until": { "next": true } },
+    { "at": "br_shrine", "text": "The +2 beside it is the load closing it would add. 2 and 2 make 4 of 5, so the feed has room.", "until": { "next": true } },
+    { "at": "shrine", "text": "Your turn. Follow Building 1's wire back to its breaker and click it.", "until": { "complete": true } }
+  ]
 }
