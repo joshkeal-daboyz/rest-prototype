@@ -1,8 +1,8 @@
 /**
- * `npm run analyze puzzles/<id>.json [--cap N] [--click-seconds S] [--json]` (ticket 027 D2).
+ * `npm run analyze puzzles/city/<id>.city.json [--cap N] [--click-seconds S] [--json]` (ticket 027 D2).
  * A bounded breadth-first search over the real simulator: exhaustive up to the state cap (default 500 000), and past
  * it a proved lower bound ("no win in fewer than D clicks"). Deterministic: the same map always prints the same text.
- * `npm run analyze -- --sections puzzles/<id>.json` (D3, tools/sectionrun.ts): one sub-puzzle per section of the note's
+ * `npm run analyze -- --sections puzzles/city/<id>.city.json` (D3, tools/sectionrun.ts): one sub-puzzle per section of the note's
  * check block, with the links stubbed as declared, each searched with the same `analyzePuzzle`, then the composition checks.
  */
 
@@ -113,7 +113,7 @@ function option(argv: readonly string[], name: string): number | undefined {
 function main(argv: readonly string[]): number {
   const valueFlags = new Set(["--cap", "--click-seconds"]);
   const files = argv.filter((a, i) => !a.startsWith("-") && !valueFlags.has(argv[i - 1] ?? ""));
-  if (files.length === 0) { console.log("usage: npm run analyze puzzles/<id>.json [--cap N] [--click-seconds S] [--json]\n       npm run analyze -- --sections puzzles/<id>.json [--cap N]"); return 1; }
+  if (files.length === 0) { console.log("usage: npm run analyze puzzles/city/<id>.city.json [--cap N] [--click-seconds S] [--json]\n       npm run analyze -- --sections puzzles/city/<id>.city.json [--cap N]"); return 1; }
   let opts: AnalyzeOptions;
   try {
     const clickSeconds = option(argv, "--click-seconds");

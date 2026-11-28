@@ -1,5 +1,5 @@
 /**
- * `npm run check [puzzles/<id>.json ...]` (ticket 027 D1): replay the check block in each puzzle's design note
+ * `npm run check [puzzles/city/<id>.city.json ...]` (ticket 027 D1): replay the check block in each puzzle's design note
  * on the real simulator. With no arguments it checks every puzzle in puzzles/ whose note has a block, and (ticket 081 P1) every city puzzle in puzzles/city/.
  * A `.city.json` file is checked on the city it names: the city check (CK12 to CK14, CK17, the mid-row clearance), then its note's block replayed through the conversion.
  * A directory argument stands for the city puzzles in it (`npm run check puzzles/city/`).

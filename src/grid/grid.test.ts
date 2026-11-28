@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { EventBus, loadPuzzle, type Fault, type GridNode, type Line, type Part, type Puzzle } from "../core";
 import { createGrid } from "./index";
 
-const PUZZLES = join(__dirname, "..", "..", "puzzles");
+const PUZZLES = join(__dirname, "..", "..", "puzzles", "fixtures");
 const fixture = (f: string): Puzzle => loadPuzzle(JSON.parse(readFileSync(join(PUZZLES, f), "utf8")) as unknown);
 const shrine = (over: Partial<Puzzle> = {}): Puzzle => ({ ...fixture("09-shrine-circuit.json"), ...over });
 const lampRow = (over: Partial<Puzzle> = {}): Puzzle => ({ ...fixture("lamp-row.grid.json"), ...over });

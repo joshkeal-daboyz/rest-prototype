@@ -5,12 +5,12 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { parseCheckBlock, validateCheck, validatePuzzle } from "../src/core";
 import type { Puzzle, PuzzleCheck } from "../src/core";
-import { checkFile, cityPuzzlesWithBlocks, noteFor, puzzlesWithBlocks, PUZZLES_DIR } from "./check";
+import { checkFile, cityPuzzlesWithBlocks, noteFor, PUZZLES_DIR } from "./check";
 import { DEFAULT, sharedCity } from "../src/city/testing/namedcities";
 import { firstDifference, runCheck } from "./checkrun";
 
 const load = (name: string): Puzzle => {
-  const r = validatePuzzle(JSON.parse(readFileSync(join(PUZZLES_DIR, `${name}.json`), "utf8")) as unknown);
+  const r = validatePuzzle(JSON.parse(readFileSync(join(PUZZLES_DIR, "fixtures", `${name}.json`), "utf8")) as unknown);
   if (!r.ok) throw new Error(r.errors.join("\n"));
   return r.puzzle;
 };
@@ -155,7 +155,7 @@ describe("D1: the click and time rules", () => {
 
 describe("D1: files and the CLI", () => {
   const dir = mkdtempSync(join(tmpdir(), "rest-check-"));
-  const shrine = readFileSync(join(PUZZLES_DIR, "09-shrine-circuit.json"), "utf8");
+  const shrine = readFileSync(join(PUZZLES_DIR, "fixtures", "09-shrine-circuit.json"), "utf8");
   const note = (block: unknown) => "# note\n\n```check\n" + JSON.stringify(block, null, 2) + "\n```\n";
 
   it("noteFor maps x.json and x.grid.json to x.md", () => {
@@ -214,24 +214,9 @@ describe("D1: files and the CLI", () => {
   });
 });
 
-describe("D1 in the gate: every design note in puzzles/ that has a check block replays and passes", () => {
-  const files = puzzlesWithBlocks();
-  it("the finder only returns notes that have a block (none yet is fine)", () => {
-    for (const f of files) {
-      expect(parseCheckBlock(readFileSync(f.replace(/\.grid\.json$|\.json$/, ".md"), "utf8"))).not.toBeNull();
-    }
-  });
-  for (const f of files) {
-    it(f, () => {
-      const r = checkFile(f);
-      expect(r.status, r.status === "invalid" ? r.errors.join("\n") : "").toBe("checked");
-      if (r.status === "checked") expect(r.report.ok, r.lines.join("\n")).toBe(true);
-    });
-  }
-});
-
 describe("081 P1: city puzzles in the check", () => {
-  const p0 = join(PUZZLES_DIR, "city", "city-two-ways-round.city.json");
+  const p0 = join(PUZZLES_DIR, "fixtures", "city-two-ways-round.city.json");
+  const series = join(PUZZLES_DIR, "city", "s01-first-light.city.json");
   const plan = () => {
     const r = sharedCity(DEFAULT, "facades");
     if (!r.ok) throw new Error(r.failure.reason);
@@ -252,7 +237,8 @@ describe("081 P1: city puzzles in the check", () => {
   });
 
   it("criterion 6: npm run check names a city file, and with no argument it lists the city puzzles too", () => {
-    expect(cityPuzzlesWithBlocks()).toContain(p0);
+    expect(cityPuzzlesWithBlocks()).toContain(series);
+    expect(cityPuzzlesWithBlocks()).not.toContain(p0);
     const run = spawnSync(process.execPath, [join(PUZZLES_DIR, "..", "node_modules", "tsx", "dist", "cli.mjs"), join(PUZZLES_DIR, "..", "tools", "check.ts"), p0], { encoding: "utf8" });
     expect(run.status).toBe(0);
     expect(run.stdout).toMatch(/PASS city-two-ways-round/);

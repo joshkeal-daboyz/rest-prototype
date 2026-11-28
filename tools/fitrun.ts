@@ -1,5 +1,5 @@
 /**
- * `npm run fit puzzles/<NN-slug>.json -- --city 6x6:1:oneway [--blocks <ids>] [--avoid <ids>] [--max-blocks N] [--out <dir>] [--unraised]` (ticket 081 P1): search the city for a district of 1 to 4 blocks and an embedding of a schematic puzzle,
+ * `npm run fit <schematic>.json -- --city 6x6:1:oneway [--blocks <ids>] [--avoid <ids>] [--max-blocks N] [--out <dir>] [--unraised]` (ticket 081 P1): search the city for a district of 1 to 4 blocks and an embedding of a schematic puzzle,
  * and write a draft `puzzles/city/<NN-slug>.city.json` (its `from` set, its capacities and ratings raised by the scenery its solution lights, section S). With no fit it says why and writes nothing.
  * `npm run fit -- --raise puzzles/city/<id>.city.json`: rewrite an existing city file's capacities and ratings in place, from its schematic's numbers.
  * `--unraised` fits without the solution: the schematic's own numbers, and any embedding the city check passes (the way to see whether a puzzle fits at all).
@@ -12,7 +12,7 @@ import { pathToFileURL } from "node:url";
 import { loadCityPuzzle, parseCheckBlock, validateCheck, validatePuzzle } from "../src/core";
 import type { CityPuzzle, CityPuzzleCity, Puzzle } from "../src/core";
 import { analyzePuzzle } from "./analyzerun";
-import { noteFor } from "./check";
+import { noteFor, PUZZLES_DIR } from "./check";
 import { cityPlanFor, convertedOf, fitPuzzle, numbersOf, playDifferences, playSummary, raiseForScenery } from "./fit";
 
 /** `6x6:1:oneway` (or `twoway`) as a city. */
@@ -97,7 +97,7 @@ function main(argv: readonly string[]): number {
   const file = argv.find((a, i) => !a.startsWith("-") && !(i > 0 && argv[i - 1]!.startsWith("--")));
   const cityText = flag(argv, "--city");
   if (file === undefined || cityText === undefined) {
-    console.log("usage: npm run fit puzzles/<NN-slug>.json -- --city 6x6:1:oneway [--blocks <ids>] [--avoid <ids>] [--max-blocks N] [--out <dir>]\n       npm run fit -- --raise puzzles/city/<id>.city.json");
+    console.log("usage: npm run fit <schematic>.json -- --city 6x6:1:oneway [--blocks <ids>] [--avoid <ids>] [--max-blocks N] [--out <dir, default puzzles/city/>]\n       npm run fit -- --raise puzzles/city/<id>.city.json");
     return 2;
   }
   const schematicPath = resolve(file);
@@ -114,7 +114,7 @@ function main(argv: readonly string[]): number {
     console.log(`${schematic.id}: ${r.message}`);
     return 1;
   }
-  const dir = resolve(flag(argv, "--out") ?? join(dirname(schematicPath), "city"));
+  const dir = resolve(flag(argv, "--out") ?? join(PUZZLES_DIR, "city"));
   mkdirSync(dir, { recursive: true });
   const target = join(dir, `${basename(schematicPath).replace(/\.json$/, "")}.city.json`);
   writeFileSync(target, json(r.draft));
