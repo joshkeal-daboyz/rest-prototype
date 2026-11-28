@@ -9,7 +9,7 @@ import { buildingHeights } from "./windows";
 import { TITLE_VIEW, moonAt, nearTurn, projectPoint, skyOnly, splashTurn, titlePoses, titleTarget, titleTurn, titleWindow, windowedPlan } from "./title3d";
 
 // Stage 01 on the default city (6 x 6 seed 1, one-way on): the one whole-city fixture of this file.
-const view = loadCityView(loadCityPuzzle(JSON.parse(readFileSync("puzzles/city/01-first-light.city.json", "utf8"))), () => sharedCity(DEFAULT, "clean"));
+const view = loadCityView(loadCityPuzzle(JSON.parse(readFileSync("puzzles/city/s01-first-light.city.json", "utf8"))), () => sharedCity(DEFAULT, "clean"));
 const target = titleTarget(view);
 const win = titleWindow(view.plan, target.building);
 const wplan = windowedPlan(view.plan, win);
