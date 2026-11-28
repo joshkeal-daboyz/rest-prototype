@@ -7,7 +7,7 @@
  */
 
 import type { CityPuzzle } from "./citycircuit";
-import { GUIDE_TEXT_MAX } from "./onboarding";
+import { GUIDE_TEXT_MAX, TIPS_LINE_MAX, TIPS_MAX_LINES, TIPS_TITLE_MAX } from "./onboarding";
 import { FAULT_RULES, TIMER_LIMITS, type FaultKind, type GridNode, type NodeType, type Part, type Puzzle, type Vec2 } from "./schema";
 import { powersourceName } from "./words";
 
@@ -307,6 +307,12 @@ function checkPuzzle(json: unknown, city: boolean): string[] {
     else checkGuide(p["guide"], nodeById, lineIds, faultAt, err);
   }
 
+  // ---- tips (084 T1): a city puzzle's tips box ----
+  if (p["tips"] !== undefined) {
+    if (!city) err("tips is only for a city puzzle");
+    else checkTips(p["tips"], err);
+  }
+
   // ---- salvage, stores, decor ----
   const salvage = Array.isArray(p["salvage"]) ? p["salvage"] : p["salvage"] === undefined ? [] : (err("salvage must be a list"), []);
   const salvageIds = new Set<string>();
@@ -376,6 +382,25 @@ function checkGuide(
         if (n === undefined || n.type !== "lamp") e(`until.lit "${String(v)}" is not a lamp`);
         break;
     }
+  }
+}
+
+const TIPS_KEYS = ["title", "lines"] as const;
+
+/**
+ * A city puzzle's `tips` (084 T1; `PuzzleTips`, `src/core/onboarding.ts`): exactly `{ title, lines }`; `title` a non-empty string of at most `TIPS_TITLE_MAX`
+ * characters; `lines` a list of 1 to `TIPS_MAX_LINES` non-empty strings of at most `TIPS_LINE_MAX` characters each. One message per problem, `tips: ...`.
+ */
+function checkTips(tips: unknown, err: (m: string) => void): void {
+  const e = (m: string) => err(`tips: ${m}`);
+  if (!isObj(tips)) { e("must be { title, lines }"); return; }
+  if (Object.keys(tips).length !== TIPS_KEYS.length || !TIPS_KEYS.every((k) => k in tips)) e("must have exactly the keys title, lines");
+  const title = tips["title"];
+  if (!isStr(title) || title.length > TIPS_TITLE_MAX) e(`title must be a non-empty string of at most ${TIPS_TITLE_MAX} characters`);
+  const lines = tips["lines"];
+  if (!Array.isArray(lines) || lines.length < 1 || lines.length > TIPS_MAX_LINES) { e(`lines must be a list of 1 to ${TIPS_MAX_LINES} strings`); return; }
+  for (const [i, line] of lines.entries()) {
+    if (!isStr(line) || line.length > TIPS_LINE_MAX) e(`line ${i + 1} must be a non-empty string of at most ${TIPS_LINE_MAX} characters`);
   }
 }
 
