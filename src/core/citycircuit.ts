@@ -17,7 +17,7 @@
 
 import type { CityCell, CityPlan, CitySide } from "./cityplan";
 import type { Fault, GridNode, Line, Puzzle } from "./schema";
-import type { GuideStep } from "./onboarding";
+import type { GuideStep, PuzzleTips } from "./onboarding";
 
 // ---- the layer (stage 6) ----
 
@@ -218,6 +218,11 @@ export interface CityPuzzle extends Omit<Puzzle, "nodes" | "lines" | "faults" | 
    * Its shape and ids are checked by `validateCityPuzzle` from 084 A1; the conversion ignores it (the grid never sees it).
    */
   readonly guide?: readonly GuideStep[];
+  /**
+   * 084 T (Josh, 28 Nov 2026: "I would like to add a tips box to each level explaining the new mechanics"): the box that opens when this puzzle starts and explains the
+   * mechanic it brings in. Optional; only the new-mechanic series puzzles carry one (084 T2, E2). Checked by `validateCityPuzzle` from 084 T1; the conversion drops it (084 A1b).
+   */
+  readonly tips?: PuzzleTips;
 }
 
 /** CK15's conversion: the plain `Puzzle` that `src/grid/` runs unchanged, and what only the 3D view and the overlay need (never passed to `src/grid/`). */

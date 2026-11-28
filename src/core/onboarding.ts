@@ -79,3 +79,25 @@ export interface GuideStep {
 
 /** The longest a guide step's text may be, in characters (084 A1 checks it). */
 export const GUIDE_TEXT_MAX = 140;
+
+/**
+ * A series puzzle's tips box (084 T). Josh, 28 Nov 2026: "I would like to add a tips box to each level explaining the new mechanics. Further more I would like to add a goal
+ * description to level 1 in addition to the description of the first puzzle mechanic. The breaker switch." On cards: "Open at start, closable (Recommended)",
+ * "Only new-mechanic levels", "Keep both (Recommended)", "In the tips box (Recommended)".
+ *
+ * Only a puzzle that brings in a new mechanic carries one (the list is in `tickets/084-first-play.md`, section T). It explains the mechanic, never the move that wins or the trap.
+ * - `title`: a short heading, at most `TIPS_TITLE_MAX` characters (e.g. "New: the breaker").
+ * - `lines`: 1 to `TIPS_MAX_LINES` paragraphs, in order, each a non-empty string of at most `TIPS_LINE_MAX` characters. On s01 the first line is the goal, then the breaker.
+ * Buildings are named by their generic names ("Building 1", 084 A1), never by place. Checked by `validateCityPuzzle` from 084 T1; the conversion drops it (084 A1b).
+ */
+export interface PuzzleTips {
+  readonly title: string;
+  readonly lines: readonly string[];
+}
+
+/** The longest a tips box's title may be, in characters (084 T1 checks it). */
+export const TIPS_TITLE_MAX = 40;
+/** The longest one paragraph of a tips box may be, in characters (084 T1 checks it). */
+export const TIPS_LINE_MAX = 160;
+/** The most paragraphs a tips box may hold (084 T1 checks it). */
+export const TIPS_MAX_LINES = 4;

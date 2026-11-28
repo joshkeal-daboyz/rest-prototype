@@ -335,4 +335,14 @@ describe("city puzzles (081 C1)", () => {
       'guide step 5: until.throw "house" is not a breaker without a timer, or a switch',
     ]);
   });
+
+  it("tips (084 T1): a valid box loads; an extra key, an empty title and a fifth line are one message each", () => {
+    const tips = { title: "New: the breaker", lines: ["The priests want Building 1 lit.", "Click a breaker to close it."] };
+    expect(errorsOf({ ...good(), tips })).toEqual([]);
+    expect(errorsOf({ ...good(), tips: { ...tips, title: "", lines: [...tips.lines, "c", "d", "e"], extra: 1 } })).toEqual([
+      "tips: must have exactly the keys title, lines",
+      "tips: title must be a non-empty string of at most 40 characters",
+      "tips: lines must be a list of 1 to 4 strings",
+    ]);
+  });
 });

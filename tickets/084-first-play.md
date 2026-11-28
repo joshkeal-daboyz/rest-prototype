@@ -1,7 +1,7 @@
-# 084 · First play: generic building names, the old puzzles out, a goal marker, an idle pulse, first-time labels, a guided start and teaching traps
+# 084 · First play: generic building names, the old puzzles out, a goal marker, an idle pulse, first-time labels, a guided start, teaching traps and a tips box
 
 owner: per section (lead-architect, ui, puzzle-designer, renderer, grid-simulator, interaction; see Sections)
-status: approved (G1, Josh, 28 Nov 2026, on a card: "Approve (Recommended)"). Re-cut the same day for his answers below (sections M1 to M6 added; A3 and A4 widened).
+status: approved (G1, Josh, 28 Nov 2026, on a card: "Approve (Recommended)"). Re-cut the same day for his answers below (sections M1 to M6 added; A3 and A4 widened). Re-cut again on 28 Nov 2026: section T (the tips box, Josh's request below) and A1b (the conversion drops `guide` and `tips`, a gap D1's builder found) added; E2a and E2b widened for their tips; A5 re-cut for `tools/check.test.ts:255` (A3's review); A3's city note named `city-two-ways-round.city.md`, as built. T, A1b and the E2 and A5 changes approved (G1, Josh, 28 Nov 2026, on a card: "Approve (Recommended)"); T-1 to T-3 answered (section T).
 branch: `ticket/084-first-play` holds this cut (this file, `src/core/onboarding.ts`, the `guide` field on `CityPuzzle`, and two rows of `tickets/rules-coverage.md`). One branch per pull request: `ticket/084<x>-<slug>`, from `main`.
 
 ## Josh's answers (28 Nov 2026, on cards, relayed by the main session)
@@ -52,7 +52,7 @@ A first-time playtester, new to this kind of game, played series v1 (probably th
 
 ## Rules this ticket holds
 - **No Decided rule changes**, and no rule or number of the grid or the city grammar changes, so there is no `pipeline-designer` pre-check. Nothing touches `src/grid/` or `src/play/`.
-- **The Relight can't be interrupted.** No callout, guide step or marker click shows or acts during the Relight or on the win splash (C2, D2). `tickets/rules-coverage.md` names 084 C on that row.
+- **The Relight can't be interrupted.** No callout, guide step, tips box or marker click shows or acts during the Relight or on the win splash (C2, D2, T3 criterion 2). `tickets/rules-coverage.md` names 084 C, D2 and T3 on that row.
 - **Faults hide faults.** A symbol is reported for a callout only when it is drawn, so an unreadable break, blown fuse, dead junction or dead lamp is never called out (B4). `tickets/rules-coverage.md` names 084 B on that row.
 - **Josh decided "no legend panel, no readout rewording".** The "x of y" labels, the "+n" numbers, the HUD rows and the hover prompts keep their words. Section E1's "why" line is a notice, not a readout; whether it replaces the two notices' words or sits under them is Open question 4.
 - **Generic names are words, not ids.** No lamp id, check block or fault changes for the names: the numbers are derived (A1), so a name cannot drift from its file.
@@ -67,26 +67,31 @@ Per puzzle, from the city file alone: the `target` lamps first, in `target` orde
 | PR | Section | Owner | After | Cases |
 | --- | --- | --- | --- | --- |
 | 1 | A1 · Building names and the guide's check, in core | lead-architect | G1 | 2 added |
-| 2 | A2 · The goal list reads "Building 1" | ui | A1 merges | 1 rewritten |
-| 3 | A3 · P0 and the schematic fixtures kept outside `puzzles/city/` (widened for answer 2) | puzzle-designer | G1 | 0 |
-| 4 | A4 · Renderer tests and the title off the old puzzles | renderer | A3 merges | 0 (paths only) |
-| 5 | A5 · Grid-simulator tests off the old puzzles | grid-simulator | A3 merges; beside A4 | 0 (paths only) |
-| 6 | A6 · The old puzzles go | puzzle-designer | A4 and A5 merge | 0 |
-| 7 | B · Goal markers, edge arrows, the idle pulse and the symbol anchors | renderer | A1 and A4 merge (both edit `overlay.test.ts`: A4 its fixture path, B its cases); beside A2, A5, A6 | 4 added |
-| 8 | C · First-time callouts | ui | A2 and B merge | 3 added |
-| 9 | D1 · Guides for s01 to s03 | puzzle-designer | A1 merges | 0 |
-| 10 | D2 · The guided start | ui | C and D1 merge | 2 added |
-| 11 | E1 · The "why" line on a failure | ui | C merges. May share D2's PR (8 cases together) | 5 rewritten, 1 added |
-| 12, 13 | E2a, E2b · s04 to s07, then s08 to s10, re-laid with teaching traps | puzzle-designer, on model Fable 5.2 | A6 and E1 merge; E2b after Josh plays E2a | 0 |
-| 14 | M1 · Core tests off the panels | lead-architect | A3 merges; beside B to E | 0 (sweeps removed) |
-| 15 | M2 · Grid-simulator tests and tools off the panels | grid-simulator | A3 merges; beside B to E (may share A5's PR) | 4 rewritten |
-| 16 | M3 · Play tests off the panels | interaction | A3 merges; beside B to E | 0 (paths only) |
-| 17 | M4 · The picker's test off the panels | ui | A3 merges; beside B to E | 0 (path only) |
-| 18 | M5 · Renderer tests off the panels | renderer | A3 merges; beside B to E | 1 rewritten |
-| 19 | M6 · The schematic panels go | puzzle-designer | A6 and M1 to M5 merge (may share A6's PR) | 0 |
+| 2 | A1b · The conversion drops `guide` and `tips` (added 28 Nov 2026) | grid-simulator | A1 merges; G1 on A1b | 1 added |
+| 3 | A2 · The goal list reads "Building 1" | ui | A1 merges | 1 rewritten |
+| 4 | A3 · P0 and the schematic fixtures kept outside `puzzles/city/` (widened for answer 2) | puzzle-designer | G1 | 0 |
+| 5 | A4 · Renderer tests and the title off the old puzzles | renderer | A3 merges | 0 (paths only) |
+| 6 | A5 · Grid-simulator tests off the old puzzles (re-cut 28 Nov 2026) | grid-simulator | A3 merges; beside A4. Edits `convert.test.ts` as A1b does: whichever merges second merges `main` first | 1 rewritten |
+| 7 | A6 · The old puzzles go | puzzle-designer | A4 and A5 merge | 0 |
+| 8 | B · Goal markers, edge arrows, the idle pulse and the symbol anchors | renderer | A1 and A4 merge (both edit `overlay.test.ts`: A4 its fixture path, B its cases); beside A2, A5, A6 | 4 added |
+| 9 | C · First-time callouts | ui | A2 and B merge | 3 added |
+| 10 | D1 · Guides for s01 to s03 | puzzle-designer | A1 and **A1b** merge (a city file with a `guide` fails conversion until A1b) | 0 |
+| 11 | T1 · The tips field checked in core | lead-architect | G1 on T. Beside everything; edits `load.ts` and `load.test.ts` as M1 does (`load.test.ts`): whichever merges second merges `main` first | 1 added |
+| 12 | T2a · Tips for s01 to s03 | puzzle-designer | D1, A1b and T1 merge | 0 |
+| 13 | T2b · Tips for s12, s15, s17, s18, s19 and s20 | puzzle-designer | A1b and T1 merge; beside T2a | 0 |
+| 14 | D2 · The guided start | ui | C and D1 merge | 2 added |
+| 15 | T3 · The tips box | ui | D2, T1 and T2a merge | 2 added |
+| 16 | E1 · The "why" line on a failure | ui | C merges. May share D2's PR (8 cases together); not T3's (T3 waits on D2) | 5 rewritten, 1 added |
+| 17, 18 | E2a, E2b · s04 to s07, then s08 to s10, re-laid with teaching traps, and the tips of s04, s05, s06 and s08 (widened 28 Nov 2026) | puzzle-designer, on model Fable 5.2 | A6, E1 and T1 merge; E2b after Josh plays E2a | 0 |
+| 19 | M1 · Core tests off the panels | lead-architect | A3 merges; beside B to E | 0 (sweeps removed) |
+| 20 | M2 · Grid-simulator tests and tools off the panels | grid-simulator | A3 merges; beside B to E (may share A5's PR, 5 cases together) | 4 rewritten |
+| 21 | M3 · Play tests off the panels | interaction | A3 merges; beside B to E | 0 (paths only) |
+| 22 | M4 · The picker's test off the panels | ui | A3 merges; beside B to E | 0 (path only) |
+| 23 | M5 · Renderer tests off the panels | renderer | A3 merges; beside B to E | 1 rewritten |
+| 24 | M6 · The schematic panels go | puzzle-designer | A6 and M1 to M5 merge (may share A6's PR) | 0 |
 | — | F · Performance | renderer (expected) | Alice's answer | placeholder: no criteria, no build |
 
-Nineteen pull requests, 23 cases in all (12 added, 11 rewritten), none over 6. M1 to M5 only change which file a test reads, so they run beside B to E and block none of them; only A6 and M6 (deletions) wait on them. A, B and the guide types are what the later sections code against, which is why A1 and B come first. The order changes the request's in one place: the old-puzzle removal is four small PRs (A3 to A6), not one, because the P0 fixture and the title read files in three owners' folders, and a PR has one owner.
+Twenty-four pull requests, 28 cases in all (16 added, 12 rewritten), none over 6. The PR column is the build order, renumbered on 28 Nov 2026 for A1b and T; the section ids do not change. On s01 to s03 a new player meets, in this order: the tips box (T3), then the guide (D2) when the box closes, then C's callouts once the guide ends. M1 to M5 only change which file a test reads, so they run beside B to E and block none of them; only A6 and M6 (deletions) wait on them. A, B and the guide types are what the later sections code against, which is why A1 and B come first. The order changes the request's in one place: the old-puzzle removal is four small PRs (A3 to A6), not one, because the P0 fixture and the title read files in three owners' folders, and a PR has one owner.
 
 ---
 
@@ -98,6 +103,19 @@ Nineteen pull requests, 23 cases in all (12 added, 11 rewritten), none over 6. M
 2. [ ] **`validateCityPuzzle` checks `guide`** (`GuideStep`, `src/core/onboarding.ts`, written with this cut). Absent is fine. Present, it is an array of 1 to 12 steps; each step has exactly the keys `at`, `text`, `until`; `at` is null or a node or line id of the file; `text` is a non-empty string of at most `GUIDE_TEXT_MAX` (140) characters; `until` has exactly one key: `next: true`, `throw: <a breaker without a timer, or a switch>`, `repair: <the at of a file fault, or a rated fuse box>`, `lit: <a file lamp>` or `complete: true`. Each problem is one message, `guide step N: ...`, among the file's others. `validatePuzzle` (schematic) does not take a `guide`. **test**: 1 case in `load.test.ts`: one fixture with a valid two-step guide loads; the same fixture with a step whose `at` is unknown, whose `until` has two keys, and whose `throw` names a lamp gives exactly those three messages.
 
 **Count.** 2 added. **Files.** `src/core/words.ts`, `src/core/load.ts`, `src/core/words.test.ts`, `src/core/load.test.ts`. **Must not:** `placeName` (kept; A2 stops using it), any other folder.
+
+---
+
+### A1b · The conversion drops `guide` and `tips` (grid-simulator). Branch `ticket/084a1b-convert-guide`, after A1 merges. Added 28 Nov 2026
+**Why.** D1's builder found the gap A1 left (`ticket/084d1-guides`, commit c6d0596). `convertCityPuzzle` (`src/city/circuit/convert.ts`, the destructure before `const out: Puzzle`) strips `city`, `district`, `from`, `nodes`, `lines` and `faults` and spreads the rest into the plain map, so a `guide` goes through, and `validatePuzzle` refuses it: "CK15 s01-first-light: guide is only for a city puzzle". A city file with a guide then fails `npm run analyze`, `npm run check`, the fit sweep, and will not open in the game. T's `tips` is city-only too (T1 refuses it on a plain map), so both go in one PR.
+
+**Goal.** A city puzzle with a `guide`, a `tips` box or both converts, plays and analyzes as it would without them; the plain map `src/grid/` runs never carries either.
+
+**Acceptance criteria.**
+1. [ ] **Dropped in the conversion.** The destructure also takes out `guide` and `tips`, so `CityPuzzleConverted.puzzle` has neither key. The ui reads both from the city file (`entry.city`), as A2 reads `target`. **test**: 1 case in `convert.test.ts`: P0's city file (by whatever path the file reads it at the time) with a two-step `guide` and a `tips` box added in memory converts without throwing, and the converted `puzzle` has no `guide` and no `tips` key.
+2. [ ] **D1 unblocked.** On D1's branch, merged with `main` after A1b, `npm run check puzzles/city/s01-first-light.city.json` and the fit sweep pass. The builder of A1b does not touch D1's branch; the main session checks this when it merges `main` into D1. **no test**.
+
+**Count.** 1 added. **Files.** `src/city/circuit/convert.ts` (that destructure, and its comment), `src/city/circuit/convert.test.ts`. **Must not:** `src/core/` (the types are in core with this cut), `src/grid/`, `puzzles/`, any other test.
 
 ---
 
@@ -116,7 +134,7 @@ Nineteen pull requests, 23 cases in all (12 added, 11 rewritten), none over 6. M
 **Goal.** `city-two-ways-round` survives as the test fixture nine test files assert on, in a folder nothing lists as a puzzle, so the old puzzles can go without rewriting those tests.
 
 **Acceptance criteria.**
-1. [ ] **Copied, not moved:** `puzzles/fixtures/city-two-ways-round.city.json` and its note `city-two-ways-round.md` (with its check block), byte for byte. A one-paragraph `puzzles/fixtures/README.md` says: test fixtures only, never a stage or a Map menu entry, not swept by `npm run check`, the fit sweep or the playtest harness, and why P0 is here (084 A). The original in `puzzles/city/` stays until A6. **no test**: no code changes; A4 and A5 read it.
+1. [ ] **Copied, not moved:** `puzzles/fixtures/city-two-ways-round.city.json` and its note as `city-two-ways-round.city.md` (with its check block), byte for byte. (Named so because criterion 3's schematic note holds `city-two-ways-round.md`; the two notes' check blocks are identical, and the tools' `noteFor`, `x.city.json` to `x.md`, reads the schematic's. Re-cut 28 Nov 2026 to match the build and its review.) A one-paragraph `puzzles/fixtures/README.md` says: test fixtures only, never a stage or a Map menu entry, not swept by `npm run check`, the fit sweep or the playtest harness, and why P0 is here (084 A). The original in `puzzles/city/` stays until A6. **no test**: no code changes; A4 and A5 read it.
 3. [ ] **The schematic fixtures, copied byte for byte** into `puzzles/fixtures/`: `06-the-spark`, `09-shrine-circuit`, `10-around-the-dead-post`, `11-the-small-fuse`, `12-which-fuse`, `16-behind-the-first`, `20-battery-run`, `21-wake-the-relay`, `49-two-cells`, `61-charge-it-first`, `city-two-ways-round` (the `.json`, and its `.md`, whose check block `convert.test.ts` replays) and `lamp-row.grid.json` with `lamp-row.md` (the street-scope map `grid.test.ts` uses and the brief names). These are the minimum the M sections' readers need (see *What reads the schematic panels*); the README says which tests read each. The originals stay until M6. **no test**.
 2. [ ] **Nothing lists it.** The reviewer confirms the four sweeps (`main.ts`'s glob of `puzzles/city/**`, `cityPuzzlesWithBlocks`, the fit sweep, `cityIds`) and `puzzlesWithBlocks` (top level and `locked/` only) do not reach `puzzles/fixtures/`. **no test**.
 
@@ -140,10 +158,11 @@ Nineteen pull requests, 23 cases in all (12 added, 11 rewritten), none over 6. M
 **Goal.** No grid-simulator test reads `puzzles/city/city-two-ways-round`.
 
 **Acceptance criteria.**
-1. [ ] **P0 by its fixture path** in `src/city/circuit/convert.test.ts`, `tools/analyze.test.ts`, `tools/check.test.ts` and `tools/fit.test.ts` (`P0_FILE`). Only the path changes. If a case needs the note beside the file (`check.test.ts`), A3's copy is there. **test** (existing, unedited cases).
+1. [ ] **P0 by its fixture path** in `src/city/circuit/convert.test.ts`, `tools/analyze.test.ts`, `tools/check.test.ts` and `tools/fit.test.ts` (`P0_FILE`). Only the path changes, except criterion 3's line. If a case needs the note beside the file (`check.test.ts`, `fit.test.ts`), `noteFor` reads `puzzles/fixtures/city-two-ways-round.md`, the schematic's note, whose check block is identical to the city note's (`city-two-ways-round.city.md`, A3). **test** (existing, unedited cases).
 2. [ ] **The sweeps still pass** with whatever `puzzles/city/` holds: the fit sweep in `fit.test.ts` runs unedited. **test** (existing).
+3. [ ] **The no-argument list names a series file** (re-cut 28 Nov 2026, from A3's review). `tools/check.test.ts`'s case "npm run check names a city file, and with no argument it lists the city puzzles too" asserted `cityPuzzlesWithBlocks()` contains P0; with P0 in `puzzles/fixtures/`, which the sweep rightly does not read, that fails. The assertion becomes `toContain` the path of `puzzles/city/s01-first-light.city.json` (a series file with a check block in its note), and `not.toContain` the fixture's path. The rest of the case (the CLI run on P0 by its named path, `PASS city-two-ways-round`) keeps its words. **test**: 1 rewritten.
 
-**Count.** 0. **Files.** the four test files above. **Must not:** `tools/check.ts`, `tools/fit.ts`, `src/city/circuit/` code, `puzzles/`.
+**Count.** 1 rewritten. **Files.** the four test files above. **Must not:** `tools/check.ts`, `tools/fit.ts`, `src/city/circuit/` code, `puzzles/`.
 
 ---
 
@@ -190,7 +209,7 @@ Nineteen pull requests, 23 cases in all (12 added, 11 rewritten), none over 6. M
 
 ---
 
-### D1 · Guides for s01 to s03 (puzzle-designer). Branch `ticket/084d1-guides`, after A1 merges
+### D1 · Guides for s01 to s03 (puzzle-designer). Branch `ticket/084d1-guides`, after A1 merges; merges after A1b (re-cut 28 Nov 2026: until A1b, a file with a `guide` fails conversion)
 **Goal.** Each of the first three stages carries a short guide that walks a new player through its one idea: point at the control, say what it does, let them try.
 
 **Acceptance criteria.**
@@ -235,8 +254,99 @@ Nineteen pull requests, 23 cases in all (12 added, 11 rewritten), none over 6. M
 2. [ ] **The check block holds it:** a trap named for the tempting move whose `expect` names the failure (`brownout: true`, `blown: [...]`, or `complete: false` with the refused repair), with a `recover` that still wins. `npm run check` and `npm run analyze` pass on each; the notes carry the new numbers. **test** (existing): the fit sweep replays each block.
 3. [ ] **Words.** Every player-facing name in the notes' intended read and in the series table is Building N by A1's rule. The analyzer's minimum stays within 1 of today's for each puzzle unless the note says why. Later stages (s11 to s25) are not edited; the note of each re-laid puzzle says which later stage leans on it and that the lesson is unchanged. **no test**.
 4. [ ] **Josh plays each** (`npm run dev`), as the puzzle loop says; his words go under *What it taught us*. E2b starts after his word on E2a. **browser**.
+5. [ ] **The tips of the re-laid new-mechanic puzzles** (widened 28 Nov 2026 for section T; written here because the designer re-laying the file knows its new Building numbers, and it saves a third pass over the same files). E2a gives `s04-the-spark`, `s05-not-that-one` and `s06-behind-the-fuse` a `tips` box; E2b gives `s08-the-small-box` one; `s07`, `s09` and `s10` get none (*The new-mechanic levels*, section T). Each box follows T2's rules (criteria 1 and 2 of T2a: the mechanic in the table, Building N names, no solution and no trap). **test** (existing): the fit sweep validates each file through T1.
 
-**Count.** 0 each. **Files.** `puzzles/city/s04-*` to `s07-*` (E2a), `s08-*` to `s10-*` (E2b), their notes, `puzzles/series-v1.md` (those rows). **Must not:** s01 to s03 (D1's), s11 to s25, any code.
+**Count.** 0 each. **Files.** `puzzles/city/s04-*` to `s07-*` (E2a), `s08-*` to `s10-*` (E2b), their notes, `puzzles/series-v1.md` (those rows). **Must not:** s01 to s03 (D1's and T2a's), s11 to s25, any code.
+
+---
+
+### T · The tips box (added 28 Nov 2026). Four PRs: T1 (lead-architect), T2a and T2b (puzzle-designer), T3 (ui); s04, s05, s06 and s08's boxes are written in E2a and E2b
+**G1 and answers (Josh, 28 Nov 2026, on cards, relayed by the main session):**
+- **G1** on section T, A1b and the re-cuts (E2a, E2b, A5): "Approve (Recommended)".
+- **T-1, s09 and s10:** "Leave them out (Recommended)". No box on either; the table stands.
+- **T-2, the clock while the box is open:** "Holds, always (Recommended)". T3 criterion 4 stands: at the start and when the Tips button reopens it.
+- **T-3, a stage already won:** "Until won (Recommended)". T3 criterion 1 stands: the box opens at the start until the stage is won once; after that the Tips button opens it.
+
+**Josh, 28 Nov 2026, in chat:** "I would like to add a tips box to each level explaining the new mechanics. Further more I would like to add a goal description to level 1 in addition to the description of the first puzzle mechanic. The breaker switch."
+**His answers on cards, the same day:**
+- When it shows: "Open at start, closable (Recommended)". It opens when the level starts, explains what is new in this level, closes with "Got it", and a Tips button reopens it.
+- Which levels: "Only new-mechanic levels". Only series levels that bring in a new mechanic get a box; the rest get none.
+- Fit with the section C callouts: "Keep both (Recommended)". The tips box explains the level's mechanic; the C callouts still point at each symbol the first time it appears.
+- Level 1's goal: "In the tips box (Recommended)". s01's box says the goal first (the priests want certain buildings lit; get power to them), then explains the breaker.
+
+**Goal.** When a player starts a series level that brings in a new mechanic, a box opens that says in a few plain lines what the new thing is and how it behaves; on s01 it first says what the game asks of them. "Got it" closes it, a Tips button opens it again, and nothing else on screen talks over it.
+
+#### The new-mechanic levels (the architect's reading, from each note's *New concept* and `puzzles/series-v1.md`)
+A level brings in a new mechanic when it puts into play a piece, a part, a fault, a limit or a rule of the brief's *Rules* that no earlier stage has. A reasoning move (a way to use what is already known) is not one, even where the note calls it the *New concept*: the box would be telling the player the solution. s04 to s10 are being re-laid in E2 and keep their lessons (E2 criterion 1), so the reading holds for them.
+
+| Stage | Box | What it explains (the designer words it) |
+| --- | --- | --- |
+| s01 First light | **yes** (T2a) | First the goal: the priests want certain buildings lit, here Building 1; get power from the feed to it. Then the breaker: a whole wire that is dark stops at an open breaker; click it to close it and let the power on. |
+| s02 This way or that | **yes** (T2a) | The switch: it sends power down one of its two lines, so lighting one line darkens the other; a switch with no power reaching it changes nothing you can see. |
+| s03 Not enough for all | **yes** (T2a) | Capacity and brownout: the feed carries so much and no more ("x of y"); over it, every building flickers and none counts as lit, so something must go dark. |
+| s04 The spark | **yes** (E2a) | The damaged cable: a break sparks only while power reaches it; a dark line shows nothing, broken or not; a wire mends it. |
+| s05 Not that one | **yes** (E2a) | Scarce parts and the dead junction: a part spent is gone; a dead junction takes two wires. |
+| s06 Behind the fuse | **yes** (E2a) | The fuse box and the dead building: a blown fuse darkens everything past it and is mended with a fuse; a dark building on a live line wants a bulb; a fault can hide behind another. |
+| s07 The long way | no | A reroute: a reasoning move with s02's switch and s05's junction. |
+| s08 The small box | **yes** (E2b) | The fuse rating: a fuse box carries so much for what is past it; over it the fuse blows, and the blow costs a fuse. |
+| s09 Two ways round | no | The ring is a shape: s02's switch and s04's break on a loop. (T-1, Josh: "Leave them out (Recommended)".) |
+| s10 Count the dark | no | A dead building draws nothing until its bulb goes in: the brief's capacity rule (only lit buildings load the feed) on s06's piece. (T-1, Josh: "Leave them out (Recommended)".) |
+| s11 Leave it open | no | A break as the open point between two boxes: s04 and s08 together. |
+| s12 Draw the line | **yes** (T2b) | Two feeds: each has its own limit; joined, they do not pool, and each building is carried by the nearer feed. |
+| s13 Look from behind | no | Reading a fault from its far side: a reasoning move. |
+| s14 Split the dark | no | A dark stretch goes to one box whole: s08 on s11's ring. |
+| s15 The fuse above | **yes** (T2b) | Nested fuse boxes: a building behind two boxes has two limits over it, and room in the small one says nothing about the one above. |
+| s16 Let it blow | no | The deliberate blow is a technique with s08's rule; a tip would be the solution. |
+| s17 The back door | **yes** (T2b) | The relay: it moves only while power reaches it, and keeps its place when the power goes. |
+| s18 Make before break | **yes** (T2b) | The spring switch: it stays thrown only while power reaches it, and falls back the moment it goes dark. |
+| s19 The cell | **yes** (T2b) | The battery: it fills while a feed reaches it; let out, it lights its far side for as long as it holds; its light trips no fuse and wins nothing; Undo does not refill it. |
+| s20 Turn and turn about | **yes** (T2b) | The timed breaker: a clock throws it, never you; what is dark waits for its turn. |
+| s21 to s25 | no | Combinations of the above; s25's note says "No new piece". |
+
+**Thirteen boxes:** s01, s02, s03, s04, s05, s06, s08, s12, s15, s17, s18, s19, s20.
+
+#### How it sits with the guide (D2) and the callouts (C)
+One voice at a time, in this order:
+1. **The tips box** opens when the stage opens. While it is open, C's callouts are blocked, no guide step shows, the map takes no throw, repair or hover (it is in `measureBlockers`, and it is modal over the canvas), and the clock holds (T-2, Josh: "Holds, always (Recommended)").
+2. **The guide** (s01 to s03 only, D2) starts when the box closes, not when the stage opens.
+3. **C's callouts** follow once the guide ends (D2 already blocks them while it runs). On a stage without a guide they follow the box at once.
+The box says *what* the new thing is and *why it matters*; the guide says *where* it is and lets the player try; the callouts name each symbol once. So on s01 the box gives the goal and the breaker in words, then the guide points at Building 1's marker and the breaker. T2a does not edit D1's guide steps; if a step repeats the box nearly word for word, the note says so and Josh decides.
+
+---
+
+#### T1 · The tips field checked in core (lead-architect). Branch `ticket/084t1-tips-core`, after G1 on T
+**Goal.** A city puzzle's `tips` is checked when it loads, so T2's files and T3's box code against a checked shape.
+1. [ ] **`validateCityPuzzle` checks `tips`** (`PuzzleTips`, `src/core/onboarding.ts`, written with this cut). Absent is fine. Present, it is an object with exactly the keys `title` and `lines`; `title` a non-empty string of at most `TIPS_TITLE_MAX` (40) characters; `lines` an array of 1 to `TIPS_MAX_LINES` (4) non-empty strings of at most `TIPS_LINE_MAX` (160) characters each. Each problem is one message, `tips: ...`. A plain map (`validatePuzzle`) refuses it ("tips is only for a city puzzle"), as it does `guide`. **test**: 1 case in `load.test.ts`: a fixture with a valid two-line box loads; the same fixture with an extra key, an empty title and a fifth line gives exactly those three messages.
+
+**Count.** 1 added. **Files.** `src/core/load.ts`, `src/core/load.test.ts`. **Must not:** `words.ts`, the guide's checks, any other folder. Beside M1 (it edits `load.test.ts` too).
+
+#### T2a · Tips for s01 to s03 (puzzle-designer). Branch `ticket/084t2a-tips-01-03`, after D1, A1b and T1 merge
+**Goal.** The first three stages each open with a box that explains their one new idea, and s01's says the goal first.
+1. [ ] **A `tips` box in each of `s01-first-light`, `s02-this-way-or-that` and `s03-not-enough-for-all`**, explaining the mechanic in the table above. s01's first line is the goal (the priests want certain buildings lit; here, Building 1; get power from the feed to it), and its next line or lines the breaker. Titles in the form "New: the breaker" (s01 may read "Your first job"). **test** (existing): the fit sweep validates each file, tips included, through T1, and converts it through A1b.
+2. [ ] **The words** (these rules hold for every box, T2b's and E2's too): buildings by A1's numbers ("Building 1"), never a place name or a lamp id; plain words, no jargon the game does not show; the box explains the rule, never the winning move or the trap; no line over 160 characters. **no test**: the reviewer reads each box against the note's *The trap*.
+3. [ ] **Nothing else changes** in the three files: layout, guide (D1's), check block and analyzer numbers as they are. **no test**.
+4. [ ] **Notes and schema.** Each note gains a *Tips* section: the box's text and why each line is there. `puzzles/SCHEMA.md`'s city section gains the `tips` field (shape as T1 checks it; "only on a stage that brings in a new mechanic"), beside D1's `guide` lines. **no test**.
+5. [ ] **Josh reads the words** in the notes before T3 ships them; his words go under *What it taught us*. **no test**.
+
+**Count.** 0. **Files.** the three series files and notes, `puzzles/SCHEMA.md` (the `tips` lines). **Must not:** the guides, any other puzzle, any code.
+
+#### T2b · Tips for s12, s15, s17, s18, s19 and s20 (puzzle-designer). Branch `ticket/084t2b-tips-12-20`, after A1b and T1 merge, beside T2a
+**Goal.** Each later stage that brings in a new piece opens with a box explaining it.
+1. [ ] **A `tips` box in each of `s12-draw-the-line`, `s15-the-fuse-above`, `s17-the-back-door`, `s18-make-before-break`, `s19-the-cell` and `s20-turn-and-turn-about`**, explaining the mechanic in the table, under T2a criterion 2's rules. Nothing else in the files changes. **test** (existing): the fit sweep validates and converts each.
+2. [ ] **Notes.** Each note gains a *Tips* section, as T2a's. **no test**.
+3. [ ] **Josh reads the words** before T3 ships; his words go under *What it taught us*. **no test**.
+
+**Count.** 0. **Files.** those six series files and notes. **Must not:** `puzzles/SCHEMA.md` (T2a's), every other puzzle, any code.
+
+#### T3 · The tips box (ui). Branch `ticket/084t3-tips-box`, after D2, T1 and T2a merge
+**Goal.** On a stage whose file has `tips`, the box opens when the stage starts, holds everything else until "Got it", hands over to the guide or the callouts, and opens again from a Tips button.
+1. [ ] **`firstPlayOrder(hasTips, hasGuide, won)`**, pure, in `src/ui/onboarding.ts`: the order the stage's onboarding runs in, from `"tips"`, `"guide"`, `"callouts"`. Not yet won: tips (if any), then guide (if any), then callouts. Won: callouts only (the box starts closed and the Tips button stays; T-3, Josh: "Until won (Recommended)"). **test**: 1 case: s01's shape unwon gives tips, guide, callouts; won gives callouts; tips without a guide gives tips, callouts; neither gives callouts.
+2. [ ] **`tipsBox(state, event)`**, pure, the box's open or closed state over `start`, `got-it`, `reopen`, `relight`, `win-splash`, `reset`. `start` opens it as criterion 1 says; `got-it` closes it; `reopen` opens it except during the Relight and on the win splash; `relight` closes it; `reset` (the puzzle's) leaves it as it is. **test**: 1 case over that sequence, the Relight's refusal included (*The Relight can't be interrupted*).
+3. [ ] **Drawn.** A box in the DOM (the text a screen reader reads): the title, the lines, a "Got it" button focused when it opens (Enter and Escape close it). A Tips button in the HUD, only on a stage with `tips`, focusable, reopens it. While open: in `measureBlockers`, and the map takes no throw, repair or hover; C's `nextCallout` gets `blocked`; D2's guide waits and starts on close; `MapOverlay.focus` is null. **browser** (criterion 5).
+4. [ ] **The clock holds while it is open** (T-2, Josh: "Holds, always (Recommended)"): `main.ts` passes `play.tick` a dt of 0 while the box is open, so a timer, a battery and the stage's time stand still. No change to `src/play/`. **browser** (criterion 5, on s20).
+5. [ ] **A first play.** Clear progress; s01: the box opens with the goal and the breaker, "Got it", then the guide starts; finish it, then the callouts. Replay s01: no box at start, Tips opens it. s04 (once E2a has its box) or s12: box, then callouts. s20: the timed breaker does not flip while the box is open. Nothing opens during the Relight or on the win splash. Also in the itch build on s01. **browser**.
+
+**Count.** 2 added. **Files.** `src/ui/onboarding.ts` and its test, `src/ui/index.ts` (the box, the Tips button), `src/main.ts` (the start, the order with the guide, the dt hold), `index.html` only if the box needs a style rule beside the existing ones. **Must not:** `src/render3d/`, `src/core/`, `src/play/`, `puzzles/`. May not share a PR with D2 or E1 (it waits on D2; E1's cases with it would be 8, under the cap, but they touch the same lines of `main.ts` for different reasons).
 
 ---
 
@@ -250,14 +360,14 @@ Each of M1 to M5 changes only which file its tests read (A3's `puzzles/fixtures/
 
 **Count.** 0 added or rewritten. **Files.** `src/core/load.test.ts`, `check.test.ts`, `words.test.ts`, `check.ts` (comment only). **Must not:** `load.ts`, `words.ts` (A1's), any other folder.
 
-#### M2 · Grid-simulator tests and tools off the panels (grid-simulator). Branch `ticket/084m2-grid-fixtures`, after A3 merges; may share A5's PR (4 cases together)
+#### M2 · Grid-simulator tests and tools off the panels (grid-simulator). Branch `ticket/084m2-grid-fixtures`, after A3 merges; may share A5's PR (5 cases together)
 1. [ ] **Paths:** `src/grid/grid.test.ts` (`PUZZLES` and `lamp-row.grid.json`), `battery.test.ts`, `culprit.test.ts`, `fuseload.test.ts`, `spring.test.ts`; `src/city/circuit/convert.test.ts` (`city-two-ways-round.json` and `.md`); `tools/analyze.test.ts` (`load`), `check.test.ts` (`load`, the shrine copy), `fit.test.ts` (the schematic), `sections.test.ts`, all to `puzzles/fixtures/`. **test** (existing).
 2. [ ] **Rule 8 kept on the fixtures.** `feeds.test.ts`'s "every map ... behaves as before on one feed" sweeps the schematic files in `puzzles/fixtures/` (skipping `.city.json`), and its "finds the maps" floor becomes at least 10. **test**: 1 rewritten.
 3. [ ] **The Undo equivalence on kept shapes.** `analyze.test.ts`'s D2 table (`07`, `11`, `13`, `14`) becomes `11-the-small-fuse` (a fuse), `16-behind-the-first` (a hidden fault) and `city-two-ways-round` (the ring), all fixtures. **test**: 3 rewritten.
 4. [ ] **Removed:** `analyze.test.ts`'s two ladder cases (`01 = 1, 02 = 2, 09 = 3` and the README ladder), and `tools/check.test.ts`'s "D1 in the gate" describe (it sweeps `puzzles/` top level, empty after M6; the city notes are replayed by the fit sweep). **no test**.
 5. [ ] **The tools.** `tools/check.ts` keeps `puzzlesWithBlocks` (an empty list is fine); `tools/fitrun.ts`'s default `--out` becomes `puzzles/city/` (no longer beside the schematic, so a fixture input never writes into `puzzles/fixtures/city/`); the usage lines of `analyze.ts`, `fitrun.ts` and `check.ts` name `puzzles/city/<id>.city.json`. **no test**.
 
-**Count.** 4 rewritten (with A5's 0). **Files.** the test files in criterion 1, `feeds.test.ts`, `tools/check.ts`, `tools/fitrun.ts`, `tools/analyze.ts` (usage lines). **Must not:** `src/grid/` code, `src/city/circuit/` code, `puzzles/`.
+**Count.** 4 rewritten (5 with A5's 1, if they share a PR). **Files.** the test files in criterion 1, `feeds.test.ts`, `tools/check.ts`, `tools/fitrun.ts`, `tools/analyze.ts` (usage lines). **Must not:** `src/grid/` code, `src/city/circuit/` code, `puzzles/`.
 
 #### M3 · Play tests off the panels (interaction). Branch `ticket/084m3-play-fixtures`, after A3 merges
 1. [ ] `src/play/play.test.ts`, `elapsed.test.ts`, `lastentry.test.ts`, `pan.test.ts` and `click-event.test.ts` read `09-shrine-circuit` and `21-wake-the-relay` from `puzzles/fixtures/`. Path lines only. **test** (existing).
@@ -299,13 +409,17 @@ Josh: "Ask Alice first (Recommended)". Nothing is built. The main session asks A
 ---
 
 ## Files
-Per section, above (M1 to M6 included). This cut: `tickets/084-first-play.md`, `src/core/onboarding.ts` (new: `SymbolKind`, `SymbolAnchor`, `GuideUntil`, `GuideStep`, `GUIDE_TEXT_MAX`), `src/core/citycircuit.ts` (`CityPuzzle.guide?`), `src/core/index.ts` (the export), `tickets/rules-coverage.md` (two rows).
+Per section, above (M1 to M6 included). This cut: `tickets/084-first-play.md`, `src/core/onboarding.ts` (new: `SymbolKind`, `SymbolAnchor`, `GuideUntil`, `GuideStep`, `GUIDE_TEXT_MAX`), `src/core/citycircuit.ts` (`CityPuzzle.guide?`), `src/core/index.ts` (the export), `tickets/rules-coverage.md` (two rows). The re-cut of 28 Nov 2026 (T, A1b): this file, `src/core/onboarding.ts` (adds `PuzzleTips`, `TIPS_TITLE_MAX`, `TIPS_LINE_MAX`, `TIPS_MAX_LINES`), `src/core/citycircuit.ts` (`CityPuzzle.tips?`), `tickets/rules-coverage.md` (the Relight row names 084 T3).
 
 ## Interfaces
 - **In core now (this cut):** `src/core/onboarding.ts` as listed, exported from `src/core/index.ts`; `CityPuzzle.guide?: readonly GuideStep[]`. Typechecked (`npx tsc --noEmit`, clean). The validator for `guide` and `buildingNames` are A1's, after G1.
 - **Added by B, in the renderer's own file:** `MapSymbols { symbols(): readonly SymbolAnchor[]; goalArrowAt(x: number, y: number): string | null }` and `MapOverlay.focus?: string | null` in `src/render3d/maprender.ts`. C and D2 code against them after B merges.
 - **Added by A2:** `UIDeps.names?: ReadonlyMap<string, string>`.
 - **No new event, no new dependency.** The guide listens to the existing `breaker:thrown`, `switch:thrown` and `repair:completed`.
+- **In core now (the T re-cut):** `PuzzleTips { title: string; lines: readonly string[] }`, `TIPS_TITLE_MAX` (40), `TIPS_LINE_MAX` (160), `TIPS_MAX_LINES` (4) in `src/core/onboarding.ts` (exported through `src/core/index.ts`'s existing `export *`); `CityPuzzle.tips?: PuzzleTips`. Typechecked (`npx tsc --noEmit`, clean). The validator is T1's; the conversion's drop is A1b's.
+- **Added by T3, in the ui's own file:** `firstPlayOrder` and `tipsBox` in `src/ui/onboarding.ts`. No new event: the clock hold is a dt of 0 in `main.ts`'s frame loop. No new dependency.
 
 ## Open questions (for Josh)
-None open. All four were answered or settled on 28 Nov 2026 (see *Josh's answers* at the top): 1 "It goes too (Recommended)"; 2 "Remove them too"; 3 not asked, his earlier "Idle pulse (Recommended)" stands, breakers and switches only; 4 "Replace (Recommended)".
+The first four were answered or settled on 28 Nov 2026 (see *Josh's answers* at the top): 1 "It goes too (Recommended)"; 2 "Remove them too"; 3 not asked, his earlier "Idle pulse (Recommended)" stands, breakers and switches only; 4 "Replace (Recommended)".
+
+Section T: closed on 28 Nov 2026, on cards (see the top of section T): T-1, s09 and s10, "Leave them out (Recommended)"; T-2, the clock while the box is open, "Holds, always (Recommended)"; T-3, a stage already won, "Until won (Recommended)". The cut was written to these defaults, so no section changes.
