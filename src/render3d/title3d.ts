@@ -432,7 +432,7 @@ export function createTitleView(canvas: HTMLCanvasElement, view: CityPuzzleView,
 
 // ---- the dev route ----
 
-const stageOne = import.meta.glob("../../puzzles/city/01-first-light.city.json", { eager: true, import: "default" }) as Record<string, unknown>;
+const stageOne = import.meta.glob("../../puzzles/city/s01-first-light.city.json", { eager: true, import: "default" }) as Record<string, unknown>;
 
 /** Stage 01 as the page loads it (the title's building is its target), or null when the file is not there. */
 export function stageOneView(): CityPuzzleView | null {
@@ -446,7 +446,7 @@ export function stageOneView(): CityPuzzleView | null {
  */
 export function createTitleRenderer3d(canvas: HTMLCanvasElement, mode: TitleMode, fallback: CityPuzzleView | undefined, opts: TitleViewOptions): MapRenderer3d {
   const view = stageOneView() ?? fallback;
-  if (!view) throw new Error("the title view needs stage 01 (puzzles/city/01-first-light.city.json)");
+  if (!view) throw new Error("the title view needs stage 01 (puzzles/city/s01-first-light.city.json)");
   const title = createTitleView(canvas, view, opts);
   title.setMode(mode);
   const pan: Pan = { x: 0, y: 0 };

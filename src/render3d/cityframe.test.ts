@@ -9,7 +9,7 @@ import { TILE_M } from "./tilecity";
 
 describe("the opening frame (081 E3)", () => {
   it("holds the job's places, run ends and the district's streets, and no more than one street past them", () => {
-    const city = loadCityPuzzle(JSON.parse(readFileSync("puzzles/city/city-two-ways-round.city.json", "utf8")));
+    const city = loadCityPuzzle(JSON.parse(readFileSync("puzzles/fixtures/city-two-ways-round.city.json", "utf8")));
     const run = sharedCity(DEFAULT, "clean");
     const view = loadCityView(city, () => run);
     expect(view.district).toEqual(city.district);
