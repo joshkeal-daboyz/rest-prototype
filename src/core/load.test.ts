@@ -232,6 +232,7 @@ describe("draft 5: more than one powersource (ticket 015)", () => {
     const north = (p["nodes"] as N[]).find((n) => n.type === "feed")!;
     delete north.name;
     north.id = "north_feed";
+    (p["nodes"] as N[]).find((n) => n.id === "south")!.capacity = 3; // a different capacity, so a shared one would show
     for (const l of p["lines"] as { from: string; to: string }[]) {
       if (l.from === "feed") l.from = "north_feed";
       if (l.to === "feed") l.to = "north_feed";
@@ -239,7 +240,7 @@ describe("draft 5: more than one powersource (ticket 015)", () => {
     const puzzle = loadPuzzle(p);
     expect(puzzleFeeds(puzzle)).toEqual([
       { id: "north_feed", name: "north feed", capacity: 2 },
-      { id: "south", name: "South", capacity: 2 },
+      { id: "south", name: "South", capacity: 3 },
     ]);
   });
 
