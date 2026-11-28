@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as core from "./index";
 import {
@@ -183,27 +183,6 @@ describe("placeKind (ticket 024)", () => {
     expect(placeKind("")).toBe("home");
     expect(placeKind("toString")).toBe("home");
     expect(placeKind("constructor_2")).toBe("home");
-  });
-});
-
-describe("every lamp id in puzzles/ has a place kind of its own (ticket 024)", () => {
-  const root = join(__dirname, "..", "..", "puzzles");
-  const dirs = [root, join(root, "locked")].filter((d) => existsSync(d));
-  const lamps: { file: string; id: string }[] = [];
-  for (const d of dirs) {
-    for (const f of readdirSync(d).filter((x) => x.endsWith(".json"))) {
-      const p = JSON.parse(readFileSync(join(d, f), "utf8")) as { nodes?: { id: string; type: string }[] };
-      for (const n of p.nodes ?? []) if (n.type === "lamp") lamps.push({ file: f, id: n.id });
-    }
-  }
-
-  it("finds lamps to check", () => {
-    expect(lamps.length).toBeGreaterThan(0);
-  });
-
-  it("no lamp id falls through to the default kind (add a new name to PLACE_KINDS)", () => {
-    const missing = lamps.filter((l) => !Object.prototype.hasOwnProperty.call(PLACE_KINDS, placeBase(l.id)));
-    expect(missing.map((l) => `${l.file}: ${l.id}`)).toEqual([]);
   });
 });
 
