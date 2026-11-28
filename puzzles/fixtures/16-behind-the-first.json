@@ -1,0 +1,41 @@
+{
+  "id": "16-behind-the-first",
+  "name": "16 · Behind the first",
+  "version": 3,
+  "scope": "map",
+  "capacity": 4,
+  "startingParts": ["fuse", "wire", "wire"],
+  "target": ["shrine"],
+  "priority": ["yard"],
+
+  "nodes": [
+    { "id": "feed",    "type": "feed",     "pos": [0, 0] },
+    { "id": "br_main", "type": "breaker",  "pos": [2, 0], "closed": true },
+    { "id": "j1",      "type": "junction", "pos": [4, 0] },
+    { "id": "yard",    "type": "lamp",     "pos": [5, 4], "load": 1 },
+    { "id": "fb_A",    "type": "fusebox",  "pos": [6, 0], "rating": 3 },
+    { "id": "j2",      "type": "junction", "pos": [8, 0] },
+    { "id": "gate",    "type": "lamp",     "pos": [8, 2], "load": 1 },
+    { "id": "j3",      "type": "junction", "pos": [11, 0] },
+    { "id": "stair",   "type": "lamp",     "pos": [11, -2], "load": 1 },
+    { "id": "shrine",  "type": "lamp",     "pos": [14, 0], "load": 1 }
+  ],
+
+  "lines": [
+    { "id": "l_feed",   "from": "feed",    "to": "br_main" },
+    { "id": "l_main",   "from": "br_main", "to": "j1" },
+    { "id": "l_yard",   "from": "j1",      "to": "yard" },
+    { "id": "l_fb",     "from": "j1",      "to": "fb_A" },
+    { "id": "l_out",    "from": "fb_A",    "to": "j2" },
+    { "id": "l_gate",   "from": "j2",      "to": "gate" },
+    { "id": "l_run",    "from": "j2",      "to": "j3" },
+    { "id": "l_stair",  "from": "j3",      "to": "stair" },
+    { "id": "l_shrine", "from": "j3",      "to": "shrine" }
+  ],
+
+  "faults": [
+    { "id": "f1", "at": "fb_A",   "kind": "blown-fuse" },
+    { "id": "f2", "at": "l_yard", "kind": "damaged-cable" },
+    { "id": "f3", "at": "j3",     "kind": "dead-junction" }
+  ]
+}
