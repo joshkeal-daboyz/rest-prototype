@@ -140,11 +140,19 @@ export interface TargetRow {
   text: string;
 }
 
-/** One row per target lamp. A lamp counts as lit only when it is lit and the section is not browned out. */
-export function targetRows(targets: readonly string[], lit: ReadonlySet<string>, brownout: boolean): TargetRow[] {
+/**
+ * One row per target lamp. A lamp counts as lit only when it is lit and the section is not browned out.
+ * The name is the lamp's generic building name when `names` has it (084 A2, from buildingNames), else its place name.
+ */
+export function targetRows(
+  targets: readonly string[],
+  lit: ReadonlySet<string>,
+  brownout: boolean,
+  names?: ReadonlyMap<string, string>,
+): TargetRow[] {
   return targets.map((id) => {
     const on = lit.has(id) && !brownout;
-    return { id, lit: on, text: `${placeName(id)}: ${on ? "lit" : "dark"}` };
+    return { id, lit: on, text: `${names?.get(id) ?? placeName(id)}: ${on ? "lit" : "dark"}` };
   });
 }
 
