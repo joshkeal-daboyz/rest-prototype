@@ -232,6 +232,17 @@ describe("a city puzzle on the circuit (081 K2c)", () => {
     expect(() => convertCityPuzzle(bad, plan)).toThrow(CityPuzzleError);
   });
 
+  it("084 A1b: a city file with a guide and a tips box converts, and the plain map has neither key", () => {
+    const guided = {
+      ...puzzle,
+      guide: [{ at: null, text: "Look at the feed.", until: { next: true } }, { at: null, text: "Throw it.", until: { complete: true } }],
+      tips: { title: "Your first job", lines: ["Get power to Building 1."] },
+    } as CityPuzzle;
+    const out = convertCityPuzzle(guided, plan).puzzle as unknown as Record<string, unknown>;
+    expect("guide" in out).toBe(false);
+    expect("tips" in out).toBe(false);
+  });
+
   it("src/city/circuit/ never imports src/grid/, except in tests", () => {
     const { readdirSync } = require("node:fs") as typeof import("node:fs");
     const files = readdirSync(__dirname).filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts"));
