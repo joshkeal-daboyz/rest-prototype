@@ -1,0 +1,57 @@
+{
+  "id": "61-charge-it-first",
+  "name": "61 · Charge it first",
+  "version": 4,
+  "scope": "map",
+  "capacity": 4,
+  "startingParts": ["bulb", "fuse"],
+  "target": ["bakery", "shrine"],
+
+  "nodes": [
+    { "id": "feed",   "type": "feed",     "pos": [0, 0] },
+    { "id": "j0",     "type": "junction", "pos": [2, 0] },
+
+    { "id": "sw_b",   "type": "switch",   "pos": [2, 4],   "outputs": ["l_bak", "l_t1"], "selected": 0 },
+    { "id": "bakery", "type": "lamp",     "pos": [0, 7],   "load": 2 },
+    { "id": "jt",     "type": "junction", "pos": [10, 7] },
+
+    { "id": "br_C",   "type": "breaker",  "pos": [5, 2],   "closed": false },
+    { "id": "fb_C",   "type": "fusebox",  "pos": [7, 3.5], "rating": 2 },
+    { "id": "rC",     "type": "switch",   "pos": [10, 3.5], "outputs": ["l_smithy", "l_cin"], "selected": 0, "relay": true },
+    { "id": "smithy", "type": "lamp",     "pos": [13, 6],  "load": 3 },
+    { "id": "cell",   "type": "battery",  "pos": [14, 3.5], "capacity": 4, "charge": 0, "input": "l_cin" },
+
+    { "id": "rA",     "type": "switch",   "pos": [17, 3.5], "outputs": ["l_mill", "l_AB"], "selected": 0, "relay": true },
+    { "id": "mill",   "type": "lamp",     "pos": [17, 6.5], "load": 3 },
+    { "id": "br_R",   "type": "breaker",  "pos": [6, -2],  "closed": false },
+    { "id": "fb_R",   "type": "fusebox",  "pos": [11, -2], "rating": 2 },
+    { "id": "rB",     "type": "switch",   "pos": [17, -2], "outputs": ["l_kiln", "l_shrine"], "selected": 0, "relay": true },
+    { "id": "kiln",   "type": "lamp",     "pos": [17, -5], "load": 3 },
+    { "id": "shrine", "type": "lamp",     "pos": [21, -2], "load": 2 }
+  ],
+
+  "lines": [
+    { "id": "l_feed",   "from": "feed", "to": "j0" },
+    { "id": "l_b0",     "from": "j0",   "to": "sw_b" },
+    { "id": "l_bak",    "from": "sw_b", "to": "bakery" },
+    { "id": "l_t1",     "from": "sw_b", "to": "jt" },
+    { "id": "l_t2",     "from": "jt",   "to": "rC" },
+    { "id": "l_C0",     "from": "j0",   "to": "br_C" },
+    { "id": "l_C1",     "from": "br_C", "to": "fb_C" },
+    { "id": "l_C2",     "from": "fb_C", "to": "rC" },
+    { "id": "l_smithy", "from": "rC",   "to": "smithy" },
+    { "id": "l_cin",    "from": "rC",   "to": "cell" },
+    { "id": "l_cA",     "from": "cell", "to": "rA" },
+    { "id": "l_mill",   "from": "rA",   "to": "mill" },
+    { "id": "l_AB",     "from": "rA",   "to": "rB" },
+    { "id": "l_R0",     "from": "j0",   "to": "br_R" },
+    { "id": "l_R1",     "from": "br_R", "to": "fb_R" },
+    { "id": "l_R2",     "from": "fb_R", "to": "rB" },
+    { "id": "l_kiln",   "from": "rB",   "to": "kiln" },
+    { "id": "l_shrine", "from": "rB",   "to": "shrine" }
+  ],
+
+  "faults": [
+    { "id": "f_shrine", "at": "shrine", "kind": "dead-lamp" }
+  ]
+}
