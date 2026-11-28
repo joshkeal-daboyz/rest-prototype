@@ -17,6 +17,7 @@
 
 import type { CityCell, CityPlan, CitySide } from "./cityplan";
 import type { Fault, GridNode, Line, Puzzle } from "./schema";
+import type { GuideStep } from "./onboarding";
 
 // ---- the layer (stage 6) ----
 
@@ -212,6 +213,11 @@ export interface CityPuzzle extends Omit<Puzzle, "nodes" | "lines" | "faults" | 
   readonly nodes: readonly CityPuzzleNode[];
   readonly lines: readonly CityPuzzleLine[];
   readonly faults: readonly CityPuzzleFault[];
+  /**
+   * 084 D (Josh, 28 Nov 2026: "Both (Recommended)"): the step-by-step guide shown on this puzzle's plays, in order. Optional; written for s01 to s03 only (084 D1).
+   * Its shape and ids are checked by `validateCityPuzzle` from 084 A1; the conversion ignores it (the grid never sees it).
+   */
+  readonly guide?: readonly GuideStep[];
 }
 
 /** CK15's conversion: the plain `Puzzle` that `src/grid/` runs unchanged, and what only the 3D view and the overlay need (never passed to `src/grid/`). */
