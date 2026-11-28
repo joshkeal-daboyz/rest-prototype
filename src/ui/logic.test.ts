@@ -132,9 +132,10 @@ describe("targetRows", () => {
     ]);
   });
 
-  it("reads each target as its place name, the same words the map uses (ticket 024)", () => {
-    const rows = targetRows(["home_1", "shrine"], new Set(["home_1"]), false);
-    expect(rows.map((r) => r.text)).toEqual(["home 1: lit", "shrine: dark"]);
+  it("reads each target as its generic building name when one is given (084 A2)", () => {
+    const names = new Map([["home_1", "Building 1"], ["shrine", "Building 2"]]);
+    const rows = targetRows(["home_1", "shrine"], new Set(["shrine"]), false, names);
+    expect(rows.map((r) => r.text)).toEqual(["Building 1: dark", "Building 2: lit"]);
     expect(rows.map((r) => r.id)).toEqual(["home_1", "shrine"]);
   });
 });
