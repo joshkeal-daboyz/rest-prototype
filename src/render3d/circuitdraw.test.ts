@@ -102,7 +102,7 @@ describe("the circuit drawn (081 K3)", () => {
   it("stands one model per node of the converted puzzle on 6 x 6 seed 1, and the feed's pole is the feed pick, with its spans over 4.2 m", { timeout: 60_000 }, () => {
     const run = sharedCity(DEFAULT, "facades");
     if (!run.ok) throw new Error(run.failure.reason);
-    const puzzle = loadCityPuzzle(JSON.parse(readFileSync(join(__dirname, "..", "..", "puzzles", "city", "city-two-ways-round.city.json"), "utf8")));
+    const puzzle = loadCityPuzzle(JSON.parse(readFileSync(join(__dirname, "..", "..", "puzzles", "fixtures", "city-two-ways-round.city.json"), "utf8")));
     const converted = convertCityPuzzle(puzzle, run.plan);
     const circuit = run.plan.layers.circuit!;
     const d = circuitDraws(circuit, run.plan.layers.streets, { converted });

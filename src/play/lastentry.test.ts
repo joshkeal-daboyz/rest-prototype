@@ -12,7 +12,7 @@ const renderer = { draw() {}, resize() {}, hitTest: () => null } as unknown as M
 
 function shrine() {
   const puzzle: Puzzle = loadPuzzle(
-    JSON.parse(readFileSync(join(__dirname, "../../puzzles/09-shrine-circuit.json"), "utf8")) as unknown,
+    JSON.parse(readFileSync(join(__dirname, "../../puzzles/fixtures/09-shrine-circuit.json"), "utf8")) as unknown,
   );
   const bus = new EventBus();
   const grid = createGrid(puzzle, bus);

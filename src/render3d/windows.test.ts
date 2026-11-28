@@ -39,7 +39,7 @@ describe("the lit building's windows (081 L1)", () => {
   it("a lamp lights its building and the building backed onto it; on P0's file each is dark before its lamp's arrival and lit after it, in the order the Relight lights the lamps", { timeout: 60_000 }, () => {
     const run = sharedCity(DEFAULT, "facades");
     if (!run.ok) throw new Error(run.failure.reason);
-    const city = loadCityPuzzle(JSON.parse(readFileSync("puzzles/city/city-two-ways-round.city.json", "utf8")));
+    const city = loadCityPuzzle(JSON.parse(readFileSync("puzzles/fixtures/city-two-ways-round.city.json", "utf8")));
     const converted = convertCityPuzzle(city, run.plan);
     const puzzle = converted.puzzle;
     const g = createGrid(puzzle, new EventBus());
@@ -200,7 +200,7 @@ describe("scenery drawn live (081 S4)", () => {
   const p0 = () => {
     const run = sharedCity(DEFAULT, "facades");
     if (!run.ok) throw new Error(run.failure.reason);
-    const city = loadCityPuzzle(JSON.parse(readFileSync("puzzles/city/city-two-ways-round.city.json", "utf8")));
+    const city = loadCityPuzzle(JSON.parse(readFileSync("puzzles/fixtures/city-two-ways-round.city.json", "utf8")));
     const converted = convertCityPuzzle(city, run.plan);
     const layer = run.plan.layers.circuit!;
     return { converted, layer, buildings: run.plan.layers.buildings!.buildings, draws: circuitDraws(layer, undefined, { converted }) };
@@ -308,7 +308,7 @@ describe("a lit building reads as lit (081 W2)", () => {
   it("a building whose lamp is dead, its line powered, has its drop lit and its windows, glow cards and light at 0", { timeout: 60_000 }, () => {
     const run = sharedCity(DEFAULT, "facades");
     if (!run.ok) throw new Error(run.failure.reason);
-    const file = JSON.parse(readFileSync("puzzles/city/city-two-ways-round.city.json", "utf8"));
+    const file = JSON.parse(readFileSync("puzzles/fixtures/city-two-ways-round.city.json", "utf8"));
     file.faults = [{ id: "bulb", at: "homes", kind: "dead-lamp" }];
     const converted = convertCityPuzzle(loadCityPuzzle(file), run.plan);
     const g = createGrid(converted.puzzle, new EventBus());
