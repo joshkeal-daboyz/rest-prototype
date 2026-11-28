@@ -66,6 +66,22 @@ The camera opens on `block:6:1` and its four streets. **The pump house is round 
 3. Throw `sw_corner`. The home goes dark; pulses run down `z:6` past a house, which lights, to `sw_pump` and down the store's drop; the store lights. 2 of 4.
 4. Throw `sw_pump`. The store goes dark; pulses run on down `z:6`, a house lights, and round the corner the pump house lights gold. 3 of 4. **Win.**
 
+## Guide (ticket 084 D1)
+
+The file's `guide` walks a first-time player through this puzzle's one idea: the switch. It runs until the stage has been won once (084 D2 shows it; until D2 merges the field is checked on load and nothing draws it). Each step points at one thing, says one thing, and waits. No step throws anything for the player, and the last waits for the job to complete, so the player does the job.
+
+Buildings are named by number, as the goal list names them (084 A1): `pump_house` is Building 1 (the target), `home` is Building 2 (priority), `store` is Building 3. The rest of this note keeps the lamp ids.
+
+| # | Points at | Text | Waits for | Why it is there |
+| --- | --- | --- | --- | --- |
+| 1 | `pump_house` | "The priests want Building 1 lit. It is dark: the power is being sent somewhere else." (84) | Next | The goal, and the puzzle's question: nothing is broken or off, the power is going the other way. |
+| 2 | `sw_corner` | "This is a switch. Power comes in and goes out by one of its two wires, never both. Now it feeds Building 2." (107) | Next | What a switch is, on the one that has power, with the building it lights now named so "one of its two wires" has something to look at. |
+| 3 | `sw_corner` | "Click the switch to send the power down its other wire, and watch Building 2." (77) | the player throws `sw_corner` | The try. It waits for the player's own throw of `sw_corner`. "Watch Building 2" is the lesson's other half: lighting one line darkens the other (the first puzzle where a home is lost). |
+| 4 | `sw_pump` | "Building 2 went dark: a switch lights one side by taking from the other. This second switch has power now." (106) | Next | Says what they just saw, then moves the eye to `sw_pump`, which the power has only now reached. |
+| 5 | `sw_pump` | "A switch only changes things while power reaches it. This one feeds Building 3. Click it to light Building 1." (109) | the job completes | The trap's rule in one line (a switch without power turns and nothing changes), then the player finishes the job. A player who threw `sw_pump` first saw nothing happen; this is the step that says why. |
+
+The texts quote what is on screen at that step (the feed's label and the number by the control). If the layout, a load or the capacity changes, the guide's numbers change with it.
+
 ## The trap
 
 **The switch nearer the target moves and nothing changes, because no current reaches it yet.** As the plan's row. `sw_pump` is the last control on the pump house's wire, 33 m back from it; `sw_corner` is 54 m back at the far corner. Thrown first, `sw_pump` turns and every window on screen stays as it was. It is not wasted (a plain switch can be set dark, and it has to be thrown anyway); the lesson is why nothing happened.

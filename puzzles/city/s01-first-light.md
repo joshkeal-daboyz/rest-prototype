@@ -65,6 +65,23 @@ The camera opens on `block:4:8` and its four streets. **The shrine is on `x:11`,
 2. Trace the shrine's wire back. Its drop hangs from a pole on `x:11`; one span back is `br_shrine`; from there the wire runs past the lit house, round the corner, to `j0` and across to the feed. `br_home` is not on it: it is up the other street.
 3. Close `br_shrine`. Pulses run on one span and down the drop; the shrine's windows light gold, and the house across the street lights with it. 4 of 5. **Win.**
 
+## Guide (ticket 084 D1)
+
+The file's `guide` walks a first-time player through this puzzle's one idea: the goal marker, the feed and its "x of y", a breaker and its "+n". It runs until the stage has been won once (084 D2 shows it; until D2 merges the field is checked on load and nothing draws it). Each step points at one thing, says one thing, and waits. No step throws anything for the player, and the last waits for the job to complete, so the player does the job.
+
+Buildings are named by number, as the goal list names them (084 A1): `shrine` is Building 1 (the target), `home` is Building 2 (priority). The rest of this note keeps the lamp ids.
+
+| # | Points at | Text | Waits for | Why it is there |
+| --- | --- | --- | --- | --- |
+| 1 | `shrine` | "This is Building 1, under the gold marker. The priests want it lit. That is the whole job." (90) | Next | The goal marker first: Alice could not tell which building the job named. It also says there is one thing to do, so the rest reads as how. |
+| 2 | `feed` | "The box with the lightning bolt is the feed. All the power starts here and runs out along the wires." (100) | Next | The feed's icon: "the box with a lightning bolt" in her words, so the step uses them. It gives the wires a direction to be read in. |
+| 3 | `feed` | "The feed reads 2 of 5: the load it carries now, of the most it can carry. Every lit building adds its load." (107) | Next | The "x of y" label, with the numbers on screen at the start (two scenery houses are lit: 2 of 5). Nothing binds here; puzzle 3 is where it does, and its guide starts from this sentence. |
+| 4 | `br_shrine` | "This is a breaker. It is open, so the wire past it is dark. Clicking it closes it and lets the power through." (109) | Next | The puzzle's own concept, on the breaker the lesson needs. It waits for Next, not a throw, so the player reads what a breaker is before anything moves. |
+| 5 | `br_shrine` | "The +2 beside it is the load closing it would add. 2 and 2 make 4 of 5, so the feed has room." (93) | Next | The "+n", as a sum against the feed's label: +2 is Building 1 and the house across the street on its pole. It is the same sum the win shows (4 of 5). |
+| 6 | `shrine` | "Your turn. Follow Building 1's wire back to its breaker and click it." (69) | the job completes | The player does the job. It points at the goal, not at the breaker, and names the reasoning move (trace the wire back), so the trap is still there: `br_home` lights Building 2, harmlessly, and the step waits. |
+
+The texts quote what is on screen at that step (the feed's label and the number by the control). If the layout, a load or the capacity changes, the guide's numbers change with it.
+
 ## The trap
 
 **Two breakers, one on each street out of the corner; the one up `z:5` is on the home's wire, and closing it lights a home, harmlessly.**

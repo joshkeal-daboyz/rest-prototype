@@ -133,5 +133,12 @@
       }
     }
   ],
-  "faults": []
+  "faults": [],
+  "guide": [
+    { "at": "pump_house", "text": "The priests want Building 1 lit. It is dark: the power is being sent somewhere else.", "until": { "next": true } },
+    { "at": "sw_corner", "text": "This is a switch. Power comes in and goes out by one of its two wires, never both. Now it feeds Building 2.", "until": { "next": true } },
+    { "at": "sw_corner", "text": "Click the switch to send the power down its other wire, and watch Building 2.", "until": { "throw": "sw_corner" } },
+    { "at": "sw_pump", "text": "Building 2 went dark: a switch lights one side by taking from the other. This second switch has power now.", "until": { "next": true } },
+    { "at": "sw_pump", "text": "A switch only changes things while power reaches it. This one feeds Building 3. Click it to light Building 1.", "until": { "complete": true } }
+  ]
 }

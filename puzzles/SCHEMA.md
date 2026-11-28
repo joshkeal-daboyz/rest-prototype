@@ -214,6 +214,19 @@ A **city puzzle** is a map laid on the pipeline city (`npm run dev`, `?view=3d&c
 - A `damaged-cable` fault may name `span`, one of its line's run spans: where the cable is cut (absent: the first). No other fault kind has a `span`.
 - A design note's check block works as for any map. A city puzzle laid from a schematic unchanged copies the schematic's block; a reworked one (a new puzzle, 081 answer 4) has its own. **When the schematic's note has no check block** (01 to 16 were written before ticket 027), the city note carries one written from the schematic note's intended read and traps, and it replays the same on the schematic and through the city file's conversion (the same moves complete, the same traps hold and recover).
 - **A series puzzle** (ticket 081 section N, series v1: `puzzles/series-v1.md`) is `puzzles/city/sNN-<slug>.city.json` with its note `sNN-<slug>.md`, id `sNN-<slug>` (`s01-first-light`) and name `"NN · <name>"` (`"01 · First light"`). It is designed on the city, so it has **no `from`**: its check block, its capacities (its own buildings' numbers, raised once by `npm run fit -- --raise` for the scenery its solution lights) and its analyzer numbers (`npm run analyze puzzles/city/<id>.city.json`, N0) are its own. **Only series puzzles are stages** (NS): the stage select lists the ids of the form `sNN-...`, in number order; every other city puzzle (the pilots `01-...` to `16-...`, `city-two-ways-round`) stays in `puzzles/city/` and in the HUD's Map menu, and is not a stage.
+- **`guide`** (optional; ticket 084 D1, **s01 to s03 only for now**): the steps that walk a first-time player through the puzzle, shown one at a time until the stage has been won once (084 D2). A list of 1 to 12 steps, each exactly `{ "at", "text", "until" }` (`GuideStep`, `src/core/onboarding.ts`), checked by `validateCityPuzzle` (084 A1; each problem reads `guide step N: ...`). A schematic map takes no `guide`.
+  - `at`: what the step points at, a node id or a line id of the file, or `null` for a step that points at nothing. A target lamp is pointed at by its goal marker; a line with a damaged cable by its break.
+  - `text`: a non-empty string of at most 140 characters (`GUIDE_TEXT_MAX`), one or two short plain sentences. Buildings are named by number, "Building 1", as `buildingNames` numbers them (084 A1: the `target` lamps in order, then the `priority` lamps, then the other lamps in `nodes` order), never by lamp id or place name.
+  - `until`: what the step waits for, an object with exactly one key: `{ "next": true }` (the player presses Next); `{ "throw": <id> }` (the player throws that breaker or switch; a breaker without a timer, or a switch); `{ "repair": <id> }` (the fault at that node or line is repaired; a fault's `at`, or a rated fuse box); `{ "lit": <lamp id> }` (that lamp is lit and nothing is browned out); `{ "complete": true }` (the job completes).
+  - A guide never acts for the player: every step waits. In D1's guides there are 3 to 6 steps and the last is `{ "complete": true }`, so the player finishes the job. A text may quote numbers on screen ("2 of 5", "+2"), so a change to the layout, a load or the capacity is a change to the guide. The steps, and why each is there, are in the note's *Guide* section.
+
+  ```jsonc
+  "guide": [
+    { "at": "feed", "text": "The box with the lightning bolt is the feed. All the power starts here.", "until": { "next": true } },
+    { "at": "sw_corner", "text": "Click the switch to send the power down its other wire.", "until": { "throw": "sw_corner" } },
+    { "at": "pump_house", "text": "Your turn. Light Building 1.", "until": { "complete": true } }
+  ]
+  ```
 
 **Ids** (stable): a pole `pole:<street id>:<lo|hi>:<along_m, 2 decimals>`; a span `span:<pole id a>~<pole id b>`, the two ids sorted; a drop `drop:<building id>`; a street light `light:<street id>:<lo|hi>:<along_m, 2 decimals>`. Roof structures and roof spans get theirs from 081 B1.
 
