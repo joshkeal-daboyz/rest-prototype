@@ -21,7 +21,7 @@ function mini(
 }
 
 const runMap = (): Puzzle =>
-  loadPuzzle(JSON.parse(readFileSync(join(__dirname, "..", "..", "puzzles", "20-battery-run.json"), "utf8")) as unknown);
+  loadPuzzle(JSON.parse(readFileSync(join(__dirname, "..", "..", "puzzles", "fixtures", "20-battery-run.json"), "utf8")) as unknown);
 
 function blows(bus: EventBus): Array<Record<string, unknown>> {
   const log: Array<Record<string, unknown>> = [];

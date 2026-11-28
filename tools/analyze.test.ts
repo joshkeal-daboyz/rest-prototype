@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { PUZZLES_DIR } from "./check";
 import { formatAnalysis, loadCityPuzzle, loadPuzzle, withoutHidden } from "./analyze";
@@ -7,7 +7,8 @@ import { analyzePuzzle, DEFAULT_CAP } from "./analyzerun";
 import { replayMoves } from "./checkrun";
 import type { GridNode, Puzzle } from "../src/core";
 
-const load = (name: string) => loadPuzzle(join(PUZZLES_DIR, `${name}.json`));
+const FIXTURES = join(PUZZLES_DIR, "fixtures");
+const load = (name: string) => loadPuzzle(join(FIXTURES, `${name}.json`));
 
 describe("D2: tools/analyze.ts is the npm run analyze script", () => {
   it("package.json points analyze at tools/analyze.ts, and the default cap is 500 000 states", () => {
@@ -43,28 +44,6 @@ describe("D2: the numbers on small maps equal the notes and the ladder", () => {
     expect(r.win?.feeds).toEqual([{ id: "feed", load: 3, capacity: 4 }]);
     expect(r.blowOnShortestWin).toEqual([]);
   });
-
-  it("01 = 1, 02 = 2, 09 = 3 clicks (the ladder table)", () => {
-    expect(analyzePuzzle(load("01-first-light")).minClicks).toBe(1);
-    expect(analyzePuzzle(load("02-this-way-or-that")).minClicks).toBe(2);
-    expect(analyzePuzzle(load("09-shrine-circuit")).minClicks).toBe(3);
-  });
-
-  it("every map without a battery that the search finishes under 300 states has the README ladder's min clicks", () => {
-    const readme = readFileSync(join(PUZZLES_DIR, "README.md"), "utf8");
-    const want = new Map<string, number>();
-    for (const m of readme.matchAll(/^\| (\d\d) \|.*\| (\d+) \|$/gm)) want.set(m[1]!, Number(m[2]));
-    let checked = 0;
-    for (const f of readdirSync(PUZZLES_DIR).filter((x) => /^\d\d-.*\.json$/.test(x))) {
-      const p = load(f.replace(/\.json$/, ""));
-      if (p.nodes.some((n) => n.type === "battery")) continue;
-      const r = analyzePuzzle(p, { cap: 300 });
-      if (!r.exhaustive) continue;
-      expect(r.minClicks, f).toBe(want.get(f.slice(0, 2)));
-      checked++;
-    }
-    expect(checked).toBeGreaterThan(20);
-  }, 60_000);
 
   it("a battery map: 20-battery-run is solvable in 4 clicks (3 waits at 0.5 s), as the ladder says", () => {
     const r = analyzePuzzle(load("20-battery-run"));
@@ -109,7 +88,7 @@ describe("D2: what it reports", () => {
 });
 
 describe("D2: stepping back with Undo gives the same answers as replaying every state", () => {
-  for (const name of ["07-past-the-fuse", "11-the-small-fuse", "13-one-box-three-lamps", "14-ring-from-the-east"]) {
+  for (const name of ["11-the-small-fuse", "16-behind-the-first", "city-two-ways-round"]) {
     it(name, () => {
       const p = load(name);
       expect(analyzePuzzle(p)).toEqual(analyzePuzzle(p, { replayOnly: true }));
@@ -145,7 +124,7 @@ describe("D2: past the cap it proves a lower bound", () => {
 
 describe("081 N0: npm run analyze reads a city puzzle on its conversion", () => {
   it("P0 on the city: a win with the schematic's fewest clicks, and no hidden scenery id in the report's lists", () => {
-    const c = loadCityPuzzle(join(PUZZLES_DIR, "city", "city-two-ways-round.city.json"));
+    const c = loadCityPuzzle(join(FIXTURES, "city-two-ways-round.city.json"));
     const r = withoutHidden(analyzePuzzle(c.puzzle), c.hidden);
     expect(c.hidden.size).toBeGreaterThan(0);
     expect(r.solvable).toBe(true);

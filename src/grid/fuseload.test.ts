@@ -21,7 +21,7 @@ function mini(
 }
 
 const fixture = (f: string): Puzzle =>
-  loadPuzzle(JSON.parse(readFileSync(join(__dirname, "..", "..", "puzzles", f), "utf8")) as unknown);
+  loadPuzzle(JSON.parse(readFileSync(join(__dirname, "..", "..", "puzzles", "fixtures", f), "utf8")) as unknown);
 
 /** A switch sends the feed to fbA (lamps 1 and 2) or fbB (lamp 3). */
 const twoFuses = (ratingA = 5, ratingB = 5): Puzzle =>
