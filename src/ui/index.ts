@@ -69,6 +69,11 @@ export interface UIDeps {
    * the map on that lamp. The list does not draw the map; it only asks.
    */
   onShow?(lampId: string): void;
+  /**
+   * The open map's generic building names (084 A2, buildingNames in src/core/words.ts): lamp id to `Building N`.
+   * The "Priests want lit" list reads these; a lamp not in it reads its place name.
+   */
+  names?: ReadonlyMap<string, string>;
 }
 
 /** What the win splash shows. All of it is plain data from the play layer and the picker. */
@@ -738,7 +743,7 @@ export function mountUI(root: HTMLElement, deps: UIDeps): UI {
     setProp(batteryEl, "hidden", countdown === null);
     setText(batteryEl, countdown ?? "");
 
-    const rows = targetRows(state.targets, state.lit, state.brownout);
+    const rows = targetRows(state.targets, state.lit, state.brownout, deps.names);
     const nextTargetsKey = targetRowsKey(rows);
     if (nextTargetsKey !== targetsKey) {
       targetsKey = nextTargetsKey;

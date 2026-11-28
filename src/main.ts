@@ -1,6 +1,6 @@
 // Entry point: loads the map files, builds grid -> renderer -> play -> ui for one map, and runs the frame loop.
 // No game rules here: each layer owns its own. Picking another map rebuilds the stack.
-import { EventBus, ITCH_BUILD_MODE, puzzleFeeds, type CityPuzzleView, type LoadPreview, type Puzzle } from "./core";
+import { buildingNames, EventBus, ITCH_BUILD_MODE, puzzleFeeds, type CityPuzzleView, type LoadPreview, type Puzzle } from "./core";
 import { createGrid, type Grid, type GridState } from "./grid";
 import type { MapBlockers, MapCentre, MapPanView, MapPlaces, MapRenderer } from "./render3d/maprender";
 import { planRelight } from "./render3d/relightplan";
@@ -193,11 +193,18 @@ if (entries.length === 0) {
     (canvas as HTMLCanvasElement).addEventListener("pointermove", onCanvasMove);
     (canvas as HTMLCanvasElement).addEventListener("pointerleave", onCanvasLeave);
 
+    // The generic building names (084 A2), numbered from the open file: its targets first, then priority, then its other lamps.
+    const names = buildingNames(
+      entry.city.target,
+      entry.city.priority,
+      entry.city.nodes.filter((n) => n.type === "lamp").map((n) => n.id),
+    );
     const ui = mountUI(uiRoot as HTMLElement, {
       grid,
       play,
       puzzles,
       current: id,
+      names,
       feeds,
       audio,
       onHighlight: (lampId) => setHighlight(lampId),
