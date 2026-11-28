@@ -17,3 +17,4 @@ export * from "./powerpoles";
 export * from "./cityera";
 export * from "./assetgallery";
 export * from "./itch";
+export * from "./onboarding";

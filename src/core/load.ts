@@ -7,6 +7,7 @@
  */
 
 import type { CityPuzzle } from "./citycircuit";
+import { GUIDE_TEXT_MAX } from "./onboarding";
 import { FAULT_RULES, TIMER_LIMITS, type FaultKind, type GridNode, type NodeType, type Part, type Puzzle, type Vec2 } from "./schema";
 import { powersourceName } from "./words";
 
@@ -300,6 +301,12 @@ function checkPuzzle(json: unknown, city: boolean): string[] {
     }
   }
 
+  // ---- guide (084 A1): a city puzzle's first-play steps ----
+  if (p["guide"] !== undefined) {
+    if (!city) err("guide is only for a city puzzle");
+    else checkGuide(p["guide"], nodeById, lineIds, faultAt, err);
+  }
+
   // ---- salvage, stores, decor ----
   const salvage = Array.isArray(p["salvage"]) ? p["salvage"] : p["salvage"] === undefined ? [] : (err("salvage must be a list"), []);
   const salvageIds = new Set<string>();
@@ -319,6 +326,57 @@ function checkPuzzle(json: unknown, city: boolean): string[] {
   }
 
   return errors;
+}
+
+const GUIDE_STEP_KEYS = ["at", "text", "until"] as const;
+const GUIDE_UNTIL_KEYS = ["next", "throw", "repair", "lit", "complete"] as const;
+const GUIDE_MAX_STEPS = 12;
+
+/**
+ * A city puzzle's `guide` (084 A1; `GuideStep`, `src/core/onboarding.ts`): 1 to 12 steps, each exactly `{ at, text, until }`. `at` is null or a node or line id of the file;
+ * `text` a non-empty string of at most `GUIDE_TEXT_MAX` characters; `until` exactly one of `next: true`, `throw: <a breaker without a timer, or a switch>`,
+ * `repair: <a fault's at, or a rated fuse box>`, `lit: <a lamp>`, `complete: true`. One message per problem, `guide step N: ...` (N from 1).
+ */
+function checkGuide(
+  guide: unknown,
+  nodeById: ReadonlyMap<string, GridNode>,
+  lineIds: ReadonlySet<string>,
+  faultAt: ReadonlySet<string>,
+  err: (m: string) => void,
+): void {
+  if (!Array.isArray(guide) || guide.length < 1 || guide.length > GUIDE_MAX_STEPS) { err(`guide must be a list of 1 to ${GUIDE_MAX_STEPS} steps`); return; }
+  for (const [i, step] of guide.entries()) {
+    const e = (m: string) => err(`guide step ${i + 1}: ${m}`);
+    if (!isObj(step)) { e("must be { at, text, until }"); continue; }
+    if (Object.keys(step).length !== GUIDE_STEP_KEYS.length || !GUIDE_STEP_KEYS.every((k) => k in step)) e("must have exactly the keys at, text, until");
+    const at = step["at"];
+    if (at !== null && !(isStr(at) && (nodeById.has(at) || lineIds.has(at)))) e(`at "${String(at)}" is not null or a node or line id`);
+    const text = step["text"];
+    if (!isStr(text) || text.length > GUIDE_TEXT_MAX) e(`text must be a non-empty string of at most ${GUIDE_TEXT_MAX} characters`);
+    const until = step["until"];
+    const keys = isObj(until) ? Object.keys(until) : [];
+    const kind = keys.length === 1 ? GUIDE_UNTIL_KEYS.find((k) => k === keys[0]) : undefined;
+    if (!isObj(until) || kind === undefined) { e(`until must have exactly one key: ${GUIDE_UNTIL_KEYS.join(", ")}`); continue; }
+    const v = until[kind];
+    const n = isStr(v) ? nodeById.get(v) : undefined;
+    switch (kind) {
+      case "next":
+      case "complete":
+        if (v !== true) e(`until.${kind} must be true`);
+        break;
+      case "throw":
+        if (!(n !== undefined && ((n.type === "breaker" && n.timer === undefined) || n.type === "switch")))
+          e(`until.throw "${String(v)}" is not a breaker without a timer, or a switch`);
+        break;
+      case "repair":
+        if (!(isStr(v) && (faultAt.has(v) || (n !== undefined && n.type === "fusebox" && n.rating !== undefined))))
+          e(`until.repair "${String(v)}" is not a fault's at, or a rated fuse box`);
+        break;
+      case "lit":
+        if (n === undefined || n.type !== "lamp") e(`until.lit "${String(v)}" is not a lamp`);
+        break;
+    }
+  }
 }
 
 /** A feed as every part reads it: its id, its display name, and the limit it is judged against (ticket 015). */

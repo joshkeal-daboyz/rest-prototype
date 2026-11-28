@@ -116,3 +116,33 @@ export function placeKind(lampId: string): PlaceKind {
 export function placeName(lampId: string): string {
   return lampId.replace(/_/g, " ");
 }
+
+// ---- generic building names (ticket 084 A1) ----
+// Josh, 28 Nov 2026: "I think that the names should be generic for now... Building 1, 2 & 3 would be less confusing."
+
+/** A building's generic name: `Building 3`. */
+export function buildingName(n: number): string {
+  return `Building ${n}`;
+}
+
+/**
+ * Every file lamp's generic name, numbered per puzzle from the file alone (084, *How a building is numbered*): the `target` lamps first, in `target` order (an absent or
+ * empty `target` means every lamp, in file order); then the `priority` lamps not yet numbered, in `priority` order; then every other lamp, in file order. `lampIds` is the
+ * file's lamp ids in `nodes` order. An id that is not in `lampIds`, or is listed again, is skipped, so the numbers have no gap. Lamps not passed in (the conversion's hidden
+ * scenery lamps) get no name.
+ */
+export function buildingNames(
+  target: readonly string[] | undefined,
+  priority: readonly string[] | undefined,
+  lampIds: readonly string[],
+): Map<string, string> {
+  const lamps = new Set(lampIds);
+  const names = new Map<string, string>();
+  const add = (ids: readonly string[]) => {
+    for (const id of ids) if (lamps.has(id) && !names.has(id)) names.set(id, buildingName(names.size + 1));
+  };
+  add(target !== undefined && target.length > 0 ? target : lampIds);
+  add(priority ?? []);
+  add(lampIds);
+  return names;
+}
