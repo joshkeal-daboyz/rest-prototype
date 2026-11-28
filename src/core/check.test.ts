@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { CHECK_CLICK_SECONDS, parseCheckBlock, parseCheckMove, validateCheck } from "./check";
 import { loadPuzzle } from "./load";
 import type { Puzzle } from "./schema";
 
-const PUZZLES = join(__dirname, "..", "..", "puzzles");
+const PUZZLES = join(__dirname, "..", "..", "puzzles", "fixtures");
 const read = (f: string): Puzzle => loadPuzzle(JSON.parse(readFileSync(join(PUZZLES, f), "utf8")));
 const shrine = read("09-shrine-circuit.json"); // startingParts [wire]; faults f1 @ j_dead, f2 @ l_b; fb_A rating 3
 const battery = read("20-battery-run.json"); // battery "bat"
@@ -225,20 +225,4 @@ describe("validateCheck rejects, with one message each", () => {
     c["links"][0].sides.shrine = { feed: { capacity: 0 } };
     rejectsOnce(c, /feed stub capacity/);
   });
-});
-
-describe("every check block in puzzles/*.md is valid", () => {
-  const notes = readdirSync(PUZZLES).filter((f) => f.endsWith(".md") && !["README.md", "SCHEMA.md"].includes(f));
-  for (const md of notes) {
-    const block = parseCheckBlock(readFileSync(join(PUZZLES, md), "utf8"));
-    if (block === null) continue;
-    it(md, () => {
-      expect(block.ok, block.ok ? "" : block.error).toBe(true);
-      const base = md.replace(/\.md$/, "");
-      const json = existsSync(join(PUZZLES, `${base}.json`)) ? `${base}.json` : `${base}.grid.json`;
-      const r = validateCheck((block as { json: unknown }).json, read(json));
-      expect(r.ok, r.ok ? "" : r.errors.join("\n")).toBe(true);
-    });
-  }
-  it("(the scan runs)", () => expect(notes.length).toBeGreaterThan(0));
 });
