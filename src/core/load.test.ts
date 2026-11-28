@@ -339,4 +339,23 @@ describe("city puzzles (081 C1)", () => {
   it("loadPuzzle still refuses the city shape", () => {
     expect(() => loadPuzzle(good())).toThrow(/node feed: pos must be \[x, y\]/);
   });
+
+  it("guide (084 A1): a valid guide loads; an unknown at, a two-key until and a throw on a lamp are one message each", () => {
+    const steps = [
+      { at: "br", text: "Throw the breaker.", until: { throw: "br" } },
+      { at: "house", text: "Building 1 is lit.", until: { lit: "house" } },
+    ];
+    expect(errorsOf({ ...good(), guide: steps })).toEqual([]);
+    const bad = [
+      ...steps,
+      { at: "nowhere", text: "Look here.", until: { next: true } },
+      { at: null, text: "Two waits.", until: { next: true, complete: true } },
+      { at: "house", text: "Throw the lamp.", until: { throw: "house" } },
+    ];
+    expect(errorsOf({ ...good(), guide: bad })).toEqual([
+      'guide step 3: at "nowhere" is not null or a node or line id',
+      "guide step 4: until must have exactly one key: next, throw, repair, lit, complete",
+      'guide step 5: until.throw "house" is not a breaker without a timer, or a switch',
+    ]);
+  });
 });

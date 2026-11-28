@@ -8,6 +8,8 @@ import {
   NO_LIMIT,
   PLACE_KINDS,
   THING_NAMES,
+  buildingName,
+  buildingNames,
   carryingText,
   fuseLabel,
   lampLabel,
@@ -215,5 +217,19 @@ describe("placeName (ticket 024)", () => {
   it("place words are re-exported from src/core", () => {
     expect(core.placeKind).toBe(placeKind);
     expect(core.placeName).toBe(placeName);
+  });
+});
+
+describe("buildingNames (084 A1)", () => {
+  it("numbers targets in target order, then priority, then the rest in file order; a stray id gets none; no target means every lamp", () => {
+    const lamps = ["a", "b", "c", "d"];
+    expect([...buildingNames(["c", "ghost", "a"], ["d"], lamps)]).toEqual([
+      ["c", buildingName(1)],
+      ["a", "Building 2"],
+      ["d", "Building 3"],
+      ["b", "Building 4"],
+    ]);
+    expect([...buildingNames([], undefined, lamps).values()]).toEqual(["Building 1", "Building 2", "Building 3", "Building 4"]);
+    expect([...buildingNames([], undefined, lamps).keys()]).toEqual(lamps);
   });
 });
